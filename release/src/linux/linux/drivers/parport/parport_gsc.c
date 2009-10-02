@@ -12,7 +12,7 @@
  * 
  * based on parport_pc.c by 
  * 	    Grant Guenther <grant@torque.net>
- * 	    Phil Blundell <Philip.Blundell@pobox.com>
+ * 	    Phil Blundell <philb@gnu.org>
  *          Tim Waugh <tim@cyberelk.demon.co.uk>
  *	    Jose Renau <renau@acm.org>
  *          David Campbell <campbell@torque.net>

@@ -1,6 +1,6 @@
 /* Driver for SCM Microsystems USB-ATAPI cable
  *
- * $Id: shuttle_usbat.c,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: shuttle_usbat.c,v 1.16 2002/02/25 00:40:13 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 2000, 2001 Robert Baruch (autophile@starband.net)
@@ -104,7 +104,7 @@ static int usbat_send_control(struct us_data *us,
 
 	if (result < 0) {
 		/* if the command was aborted, indicate that */
-		if (result == -ENOENT)
+		if (result == -ECONNRESET)
 			return USB_STOR_TRANSPORT_ABORTED;
 
 		/* a stall is a fatal condition from the device */
@@ -155,8 +155,8 @@ static int usbat_raw_bulk(struct us_data *us,
                         return US_BULK_TRANSFER_FAILED;
                 }
 
-                /* -ENOENT -- we canceled this transfer */
-                if (result == -ENOENT) {
+                /* -ECONNRESET -- we canceled this transfer */
+                if (result == -ECONNRESET) {
                         US_DEBUGP("usbat_raw_bulk():"
 				" transfer aborted\n");
                         return US_BULK_TRANSFER_ABORTED;

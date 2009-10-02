@@ -22,7 +22,8 @@ make --version 2>&1 | awk -F, '{print $1}' | awk \
       '/GNU Make/{print "Gnu make              ",$NF}'
 
 ld -v 2>&1 | awk -F\) '{print $1}' | awk \
-      '/BFD/{print "binutils              ",$NF}'
+      '/BFD/{print "binutils              ",$NF} \
+       /^GNU/{print "binutils              ",$4}'
 
 fdformat --version | awk -F\- '{print "util-linux            ", $NF}'
 
@@ -39,8 +40,14 @@ fsck.jfs -V 2>&1 | grep version | sed 's/,//' |  awk \
 reiserfsck -V 2>&1 | grep reiserfsprogs | awk \
 'NR==1{print "reiserfsprogs         ", $NF}'
 
+xfs_db -V 2>&1 | grep version | awk \
+'NR==1{print "xfsprogs              ", $3}'
+
 cardmgr -V 2>&1| grep version | awk \
 'NR==1{print "pcmcia-cs             ", $3}'
+
+quota -V 2>&1 | grep version | awk \
+'NR==1{print "quota-tools           ", $NF}'
 
 pppd --version 2>&1| grep version | awk \
 'NR==1{print "PPP                   ", $3}'

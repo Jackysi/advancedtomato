@@ -98,7 +98,7 @@
 #define SMCR_ColAdrBits( x )		  /* col. addr bits 8..11 */ \
 	(( (x) - 8 ) << FShft (SMCR_DCAC))
 #define SMCR_RowAdrBits( x )		  /* row addr bits 9..12 */\
-	(( (x) - 9 ) << FShft (SMCR_DRAC)
+	(( (x) - 9 ) << FShft (SMCR_DRAC))
 
 #define SNPR_VFBstart	  Fld(12,0)	/* Video frame buffer addr */
 #define SNPR_VFBsize	  Fld(11,12)	/* Video frame buffer size */
@@ -374,7 +374,7 @@
 #define _DacControl	    _VGA( 0x3000 )
 #define _VgaTest	    _VGA( 0x2c00 )
 
-#if LANGUAGE == C
+#if (LANGUAGE == C)
 #define VideoControl   (*((volatile Word *) SA1101_p2v (_VideoControl)))
 #define VgaTiming0     (*((volatile Word *) SA1101_p2v (_VgaTiming0)))
 #define VgaTiming1     (*((volatile Word *) SA1101_p2v (_VgaTiming1)))
@@ -386,7 +386,7 @@
 #define VgaStatus      (*((volatile Word *) SA1101_p2v (_VgaStatus)))
 #define VgaInterruptMask (*((volatile Word *) SA1101_p2v (_VgaInterruptMask)))
 #define VgaPalette     (*((volatile Word *) SA1101_p2v (_VgaPalette)))
-#define DacControl     (*((volatile Word *) SA1101_p2v (_DacControl))
+#define DacControl     (*((volatile Word *) SA1101_p2v (_DacControl)))
 #define VgaTest        (*((volatile Word *) SA1101_p2v (_VgaTest)))
 
 #define VideoControl_VgaEn    0x00000000
@@ -514,7 +514,7 @@
 #define _USSR		  _USB( 0x11800 )
 
 
-#if LANGUAGE == C
+#if (LANGUAGE == C)
 
 #define Revision	(*((volatile Word *) SA1101_p2v (_Revision)))
 #define Control		(*((volatile Word *) SA1101_p2v (_Control)))
@@ -605,7 +605,7 @@
 #define _INTSET0	_INT( 0x7000 )
 #define _INTSET1	_INT( 0x7400 )
 
-#if LANGUAGE == C 
+#if ( LANGUAGE == C )
 #define INTTEST0	(*((volatile Word *) SA1101_p2v (_INTTEST0)))
 #define INTTEST1	(*((volatile Word *) SA1101_p2v (_INTTEST1)))
 #define INTENABLE0	(*((volatile Word *) SA1101_p2v (_INTENABLE0)))
@@ -667,7 +667,7 @@
 #define _MSETEST3	_MSE( 0x2800 )
 #define _MSETEST4	_MSE( 0x2c00 )
 
-#if LANGUAGE == C 
+#if ( LANGUAGE == C )
 
 #define KBDCR	    (*((volatile Word *) SA1101_p2v (_KBDCR)))
 #define KBDSTAT	    (*((volatile Word *) SA1101_p2v (_KBDSTAT)))
@@ -805,7 +805,7 @@
 #define _PBSSR	       _PIO( 0x1400 )
 
 
-#if LANGUAGE == C 
+#if ( LANGUAGE == C )
 
 
 #define PADWR	    (*((volatile Word *) SA1101_p2v (_PADWR)))
@@ -839,7 +839,7 @@
 #define _PYDWR	   _KEYPAD( 0x0400 )
 #define _PYDRR	   _KEYPAD( 0x0400 )
 
-#if LANGUAGE == C 
+#if ( LANGUAGE == C )
 
 
 #define PXDWR	    (*((volatile Word *) SA1101_p2v (_PXDWR)))
@@ -867,7 +867,7 @@
 #define _PCCR	   _CARD( 0x0400 )
 #define _PCSSR	   _CARD( 0x0800 )
 
-#if LANGUAGE == C 
+#if ( LANGUAGE == C )
 #define PCSR    (*((volatile Word *) SA1101_p2v (_PCSR)))
 #define PCCR	(*((volatile Word *) SA1101_p2v (_PCCR)))
 #define PCSSR	(*((volatile Word *) SA1101_p2v (_PCSSR)))

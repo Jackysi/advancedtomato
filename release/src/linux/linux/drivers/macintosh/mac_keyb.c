@@ -248,6 +248,7 @@ static void init_microspeed(int id);
 static void init_ms_a3(int id);
 
 #ifdef CONFIG_ADBMOUSE
+/* XXX: Hook for mouse driver */
 void (*adb_mouse_interrupt_hook)(unsigned char *, int);
 int adb_emulate_buttons = 0;
 int adb_button2_keycode = 0x7d;	/* right control key */
@@ -342,6 +343,15 @@ input_keycode(int keycode, int repeat)
 		del_timer(&repeat_timer);
 
 #ifdef CONFIG_ADBMOUSE
+	/*
+	 * XXX: Add mouse button 2+3 fake codes here if mouse open.
+	 *	Keep track of 'button' states here as we only send
+	 *	single up/down events!
+	 *	Really messy; might need to check if keyboard is in
+	 *	VC_RAW mode.
+	 *	Might also want to know how many buttons need to be emulated.
+	 *	-> hide this as function in arch/m68k/mac ?
+	 */
 	if (adb_emulate_buttons
 	    && (keycode == adb_button2_keycode
 		|| keycode == adb_button3_keycode)
@@ -581,6 +591,10 @@ buttons_input(unsigned char *data, int nb, struct pt_regs *regs, int autopoll)
 #ifdef CONFIG_PMAC_BACKLIGHT
 	int backlight = get_backlight_level();
 
+	/*
+	 * XXX: Where is the contrast control for the passive?
+	 *  -- Cort
+	 */
 
 	/* Ignore data from register other than 0 */
 	if ((data[0] & 0x3) || (nb < 2))
@@ -755,6 +769,11 @@ mackeyb_probe(void)
 		/* Enable full feature set of the keyboard
 		   ->get it to send separate codes for left and right shift,
 		   control, option keys */
+#if 0		/* handler 5 doesn't send separate codes for R modifiers */
+		if (adb_try_handler_change(id, 5))
+			printk("ADB keyboard at %d, handler set to 5\n", id);
+		else
+#endif
 		if (adb_try_handler_change(id, 3))
 			printk("ADB keyboard at %d, handler set to 3\n", id);
 		else

@@ -37,6 +37,7 @@ struct cpu_fp_info linux_sparc_fpu[] = {
   { 0x17, 0x13, 0, "UltraSparc IIe integrated FPU"},
   { 0x3e, 0x14, 0, "UltraSparc III integrated FPU"},
   { 0x3e, 0x15, 0, "UltraSparc III+ integrated FPU"},
+  { 0x3e, 0x16, 0, "UltraSparc IIIi integrated FPU"},
 };
 
 #define NSPARCFPU  (sizeof(linux_sparc_fpu)/sizeof(struct cpu_fp_info))
@@ -45,31 +46,25 @@ struct cpu_iu_info linux_sparc_chips[] = {
   { 0x17, 0x10, "TI UltraSparc I   (SpitFire)"},
   { 0x22, 0x10, "TI UltraSparc I   (SpitFire)"},
   { 0x17, 0x11, "TI UltraSparc II  (BlackBird)"},
-  { 0x17, 0x12, "TI UltraSparc IIi"},
-  { 0x17, 0x13, "TI UltraSparc IIe"},
+  { 0x17, 0x12, "TI UltraSparc IIi (Sabre)"},
+  { 0x17, 0x13, "TI UltraSparc IIe (Hummingbird)"},
   { 0x3e, 0x14, "TI UltraSparc III (Cheetah)"},
   { 0x3e, 0x15, "TI UltraSparc III+ (Cheetah+)"},
+  { 0x3e, 0x16, "TI UltraSparc IIIi (Jalapeno)"},
 };
 
 #define NSPARCCHIPS  (sizeof(linux_sparc_chips)/sizeof(struct cpu_iu_info))
 
-#ifdef CONFIG_SMP
-char *sparc_cpu_type[64] = { "cpu-oops", "cpu-oops1", "cpu-oops2", "cpu-oops3" };
-char *sparc_fpu_type[64] = { "fpu-oops", "fpu-oops1", "fpu-oops2", "fpu-oops3" };
-#else
-char *sparc_cpu_type[64] = { "cpu-oops", };
-char *sparc_fpu_type[64] = { "fpu-oops", };
-#endif
+char *sparc_cpu_type = "cpu-oops";
+char *sparc_fpu_type = "fpu-oops";
 
 unsigned int fsr_storage;
 
 void __init cpu_probe(void)
 {
 	unsigned long ver, fpu_vers, manuf, impl, fprs;
-	int i, cpuid;
+	int i;
 	
-	cpuid = hard_smp_processor_id();
-
 	fprs = fprs_read();
 	fprs_write(FPRS_FEF);
 	__asm__ __volatile__ ("rdpr %%ver, %0; stx %%fsr, [%1]"
@@ -86,7 +81,7 @@ void __init cpu_probe(void)
 	for (i = 0; i < NSPARCCHIPS; i++) {
 		if (linux_sparc_chips[i].manuf == manuf) {
 			if (linux_sparc_chips[i].impl == impl) {
-				sparc_cpu_type[cpuid]
+				sparc_cpu_type
 					= linux_sparc_chips[i].cpu_name;
 				break;
 			}
@@ -105,14 +100,14 @@ void __init cpu_probe(void)
 			printk("DEBUG: manuf[%lx] impl[%lx]\n",
 			       manuf, impl);
 		}
-		sparc_cpu_type[cpuid] = "Unknown CPU";
+		sparc_cpu_type = "Unknown CPU";
 	}
 
 	for (i = 0; i < NSPARCFPU; i++) {
 		if (linux_sparc_fpu[i].manuf == manuf &&
 		    linux_sparc_fpu[i].impl == impl) {
 			if (linux_sparc_fpu[i].fpu_vers == fpu_vers) {
-				sparc_fpu_type[cpuid]
+				sparc_fpu_type
 					= linux_sparc_fpu[i].fp_name;
 				break;
 			}
@@ -122,6 +117,6 @@ void __init cpu_probe(void)
 	if (i == NSPARCFPU) {
 		printk("DEBUG: manuf[%lx] impl[%lx] fsr.vers[%lx]\n",
 		       manuf, impl, fpu_vers);
-		sparc_fpu_type[cpuid] = "Unknown FPU";
+		sparc_fpu_type = "Unknown FPU";
 	}
 }

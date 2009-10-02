@@ -93,10 +93,17 @@
 /*
  * PCI spaces on the CIM.
  */
+#if 0				/* Solaris driver stuff */
+#define AMCC_REG		1
+#define CIMCMD_REG		2
+#define MICCMD_REG		3
+#define FIFOCACHE_REG		4
+#else
 #define AMCC_REG		virtbaseaddress0 /* bridge */
 #define CIMCMD_REG		virtbaseaddress1
 #define MICCMD_REG		virtbaseaddress2
 #define FIFOCACHE_REG		virtbaseaddress3
+#endif
 
 /*
  * AMCC registers:
@@ -247,6 +254,9 @@
 
 typedef struct _mcs_sep 
 {
+#if 0
+	ddi_acc_handle_t	 s_handle; /* something from Solaris */
+#endif
 	unsigned char		*s_rdptr;
 	unsigned char		*s_wrptr;
 	unsigned int		 s_scl;
@@ -262,18 +272,30 @@ typedef struct _wanmcspriv
 	unsigned char		 r_chipunit;	/* [0, 1] or [0, 7] */
 	
 	/* these items are for accessing the ESCCx registers as bytes */
+#if 0
+	ddi_acc_handle_t	 r_reghandle;	/* handle for access to ESCCx regs */
+#endif
 	unsigned char		*r_rdregbase;	/* base for reading ESCCx registers */
 	unsigned char		*r_wrregbase;	/* base for writing ESCCx registers */
 	
 	/* these items are for accessing the ESCCx FIFOs as bytes and words */
+#if 0
+	ddi_acc_handle_t	 r_fifohandle;
+#endif
 	unsigned short	*r_rdfifow;	/* read FIFO word */
 	unsigned char		*r_wrfifob;	/* write FIFO byte */
 	unsigned short	*r_wrfifow;	/* write FIFO word */
 	
 	/* these items are for accessing the MIC command space */
+#if 0
+	ddi_acc_handle_t	 r_miccmdhandle;
+#endif
 	unsigned char		*r_wrcachetrig;	/* the FIFO cache trigger */
 	
 	/* these itmes are for accessing the FIFO cache space */
+#if 0
+	ddi_acc_handle_t r_fifocachehandle;
+#endif
 	unsigned short *r_fifocachebase;    
 } wanmcspriv_t;
 

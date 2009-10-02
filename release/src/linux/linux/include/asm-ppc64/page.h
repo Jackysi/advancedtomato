@@ -14,7 +14,11 @@
 
 /* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT	12
+#ifndef __ASSEMBLY__
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
+#else
+# define PAGE_SIZE	(1 << PAGE_SHIFT)
+#endif
 #define PAGE_MASK	(~(PAGE_SIZE-1))
 #define PAGE_OFFSET_MASK (PAGE_SIZE-1)
 
@@ -32,6 +36,7 @@
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
 #include <asm/naca.h>
+#include <asm/systemcfg.h>
 
 #define STRICT_MM_TYPECHECKS
 
@@ -57,7 +62,7 @@ static __inline__ void clear_page(void *addr)
 {
 	unsigned long lines, line_size;
 
-	line_size = naca->dCacheL1LineSize; 
+	line_size = systemcfg->dCacheL1LineSize; 
 	lines = naca->dCacheL1LinesPerPage;
 
 	__asm__ __volatile__(
@@ -123,14 +128,6 @@ extern void xmon(struct pt_regs *excp);
 	printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
 	xmon(0); \
 } while (0)
-#elif defined(CONFIG_KDB)
-#include <asm/ptrace.h>
-#include <linux/kdb.h>
-/* extern void kdb(kdb_reason_t reason, int error, kdb_eframe_t ef); */
-#define BUG() do { \
-      printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
-      kdb(KDB_REASON_OOPS, 0, (kdb_eframe_t) 0); \
-} while (0)
 #else
 #define BUG() do { \
 	printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
@@ -189,9 +186,11 @@ static inline int get_order(unsigned long size)
 #define KERNELBASE      PAGE_OFFSET
 #define VMALLOCBASE     0xD000000000000000
 #define IOREGIONBASE    0xE000000000000000
+#define EEHREGIONBASE   0xA000000000000000
 #define BOLTEDBASE      0xB000000000000000
 
 #define IO_REGION_ID       (IOREGIONBASE>>REGION_SHIFT)
+#define EEH_REGION_ID      (EEHREGIONBASE>>REGION_SHIFT)
 #define VMALLOC_REGION_ID  (VMALLOCBASE>>REGION_SHIFT)
 #define KERNEL_REGION_ID   (KERNELBASE>>REGION_SHIFT)
 #define BOLTED_REGION_ID   (BOLTEDBASE>>REGION_SHIFT)

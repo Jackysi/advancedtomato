@@ -117,6 +117,7 @@ void disable_IO_APIC(void)
 
 static void disable_cobalt_irq(unsigned int irq)
 {
+	/* XXX undo the APIC entry here? */
 
 	/*
 	 * definitely, we do not want to have IRQ storms from
@@ -158,7 +159,7 @@ static void startup_cobalt_irq(unsigned int irq)
 	case CO_IRQ_ENET:	co_apic_set(CO_APIC_ENET, CO_IRQ_ENET);
 				return;
 
-	case CO_IRQ_SERIAL:	return; 
+	case CO_IRQ_SERIAL:	return; /* XXX move to piix4-8259 "virtual" */
 
 	case CO_IRQ_8259:	co_apic_set(CO_APIC_8259, CO_IRQ_8259);
 				return;
@@ -200,6 +201,7 @@ static void do_cobalt_IRQ(unsigned int irq, struct pt_regs * regs)
 	spin_lock(&irq_controller_lock);
 	{
 		unsigned int status;
+		/* XXX APIC EOI? */
 		status = desc->status & ~(IRQ_REPLAY | IRQ_WAITING);
 		action = NULL;
 		if (!(status & (IRQ_DISABLED | IRQ_INPROGRESS))) {

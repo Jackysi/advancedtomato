@@ -63,7 +63,7 @@ pgd_t *get_pgd_slow(void)
 {
 	pgd_t *ret, *init;
 
-	ret = (pgd_t *) __get_free_pages(GFP_KERNEL, 1);
+	ret = (pgd_t *) __get_free_pages(GFP_KERNEL, PGD_ORDER);
 	if (ret) {
 		init = pgd_offset(&init_mm, 0);
 		pgd_init((unsigned long)ret);
@@ -110,13 +110,6 @@ int do_check_pgt_cache(int low, int high)
 	return freed;
 }
 
-
-asmlinkage int sys_cacheflush(void *addr, int bytes, int cache)
-{
-	flush_cache_l1();
-	return 0;
-}
-
 /*
  * We have up to 8 empty zeroed pages so we can map one of the right colour
  * when needed.  This is necessary only on R4000 / R4400 SC and MC versions
@@ -131,16 +124,10 @@ unsigned long setup_zero_pages(void)
 	unsigned long order, size;
 	struct page *page;
 
-	switch (mips_cpu.cputype) {
-	case CPU_R4000SC:
-	case CPU_R4000MC:
-	case CPU_R4400SC:
-	case CPU_R4400MC:
+	if (cpu_has_vce)
 		order = 3;
-		break;
-	default:
+	else
 		order = 0;
-	}
 
 	empty_zero_page = __get_free_pages(GFP_KERNEL, order);
 	if (!empty_zero_page)
@@ -313,7 +300,7 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 #endif
 
 extern char __init_begin, __init_end;
-extern void prom_free_prom_memory(void);
+extern void prom_free_prom_memory(void) __init;
 
 void
 free_initmem(void)

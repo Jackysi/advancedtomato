@@ -155,7 +155,8 @@ static ssize_t udf_file_write(struct file * file, const char * buf,
 {
 	ssize_t retval;
 	struct inode *inode = file->f_dentry->d_inode;
-	int err, pos;
+	int err;
+	loff_t pos;
 
 	if (UDF_I_ALLOCTYPE(inode) == ICBTAG_FLAG_AD_IN_ICB)
 	{
@@ -164,8 +165,11 @@ static ssize_t udf_file_write(struct file * file, const char * buf,
 		else
 			pos = *ppos;
 
-		if (inode->i_sb->s_blocksize < (udf_file_entry_alloc_offset(inode) +
-			pos + count))
+		if (pos < 0 || pos + count < pos)
+			return 0;
+
+		if (inode->i_sb->s_blocksize - udf_file_entry_alloc_offset(inode) <
+			pos + count)
 		{
 			udf_expand_file_adinicb(inode, pos + count, &err);
 			if (UDF_I_ALLOCTYPE(inode) == ICBTAG_FLAG_AD_IN_ICB)

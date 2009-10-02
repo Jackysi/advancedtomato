@@ -106,8 +106,8 @@ extern void aarp_proxy_remove(struct net_device *dev, struct at_addr *sa);
 #endif /* APPLETALK_DEBUG */
 
 #ifdef CONFIG_SYSCTL
-extern inline void atalk_register_sysctl(void);
-extern inline void atalk_unregister_sysctl(void);
+extern void atalk_register_sysctl(void);
+extern void atalk_unregister_sysctl(void);
 #endif /* CONFIG_SYSCTL */
 
 struct datalink_proto *ddp_dl, *aarp_dl;
@@ -609,6 +609,10 @@ static int atrtr_create(struct rtentry *r, struct net_device *devhint)
 	struct atalk_iface *iface, *riface;
 	int retval;
 
+	/*
+	 * Fixme: Raise/Lower a routing change semaphore for these
+	 * operations.
+	 */
 
 	/* Validate the request */
 	if (ta->sat_family != AF_APPLETALK)
@@ -983,6 +987,8 @@ static int atrtr_ioctl(unsigned int cmd, void *arg)
 						&rt.rt_dst)->sat_addr);
 
 		case SIOCADDRT:
+			/* FIXME: the name of the device is still in user
+			 * space, isn't it? */
 			if (rt.rt_dev) {
 				dev = __dev_get_by_name(rt.rt_dev);
 				if (!dev)
@@ -1289,10 +1295,14 @@ static int atalk_connect(struct socket *sock, struct sockaddr *uaddr,
 		return -EAFNOSUPPORT;
 
 	if (addr->sat_addr.s_node == ATADDR_BCAST && !sk->broadcast) {
+#if 1	
 		printk(KERN_WARNING "%s is broken and did not set "
 				    "SO_BROADCAST. It will break when 2.2 is "
 				    "released.\n",
 			current->comm);
+#else
+		return -EACCES;
+#endif			
 	}
 
 	if (sk->zapped)
@@ -1367,6 +1377,15 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (skb->len < sizeof(*ddp))
 		goto freeit;
 
+	/*
+	 *	Fix up the length field	[Ok this is horrible but otherwise
+	 *	I end up with unions of bit fields and messy bit field order
+	 *	compiler/endian dependencies..]
+	 *
+	 *	FIXME: This is a write to a shared object. Granted it
+	 *	happens to be safe BUT.. (Its safe as user space will not
+	 *	run until we put it back)
+	 */
 	*((__u16 *)&ddphv) = ntohs(*((__u16 *)ddp));
 
 	/* Trim buffer in case of stray trailing data */
@@ -1406,6 +1425,10 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 		 * sent to "this network" 
 		 */
 		if (skb->pkt_type != PACKET_HOST || !ddp->deh_dnet) {
+			/* FIXME:
+			 * Can it ever happen that a packet is from a PPP
+			 * iface and needs to be broadcast onto the default
+			 * network? */
 			if (dev->type == ARPHRD_PPP)
 				printk(KERN_DEBUG "AppleTalk: didn't forward "
 						  "broadcast packet received "
@@ -1604,6 +1627,9 @@ static int atalk_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 		if (usat->sat_addr.s_node == ATADDR_BCAST && !sk->broadcast) {
 			printk(KERN_INFO "SO_BROADCAST: Fix your netatalk as "
 					 "it will break before 2.2\n");
+#if 0
+			return -EPERM;
+#endif
 		}
 	} else {
 		if (sk->state != TCP_ESTABLISHED)

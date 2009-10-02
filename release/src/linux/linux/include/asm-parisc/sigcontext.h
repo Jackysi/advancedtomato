@@ -10,7 +10,7 @@ struct sigcontext {
 	unsigned long sc_flags;
 
 	unsigned long sc_gr[32]; /* PSW in sc_gr[0] */
-	unsigned long long sc_fr[32]; 
+	unsigned long long sc_fr[32]; /* FIXME, do we need other state info? */
 	unsigned long sc_iasq[2];
 	unsigned long sc_iaoq[2];
 	unsigned long sc_sar; /* cr11 */

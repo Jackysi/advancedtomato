@@ -1,9 +1,8 @@
-/* $Id: testrescue.S,v 1.1.1.4 2003/10/14 08:07:16 sparq Exp $
- *
+/*
  * Simple testcode to download by the rescue block.
  * Just lits some LEDs to show it was downloaded correctly.
- * 
- * Copyright (C) 1999 Axis Communications AB
+ *
+ * Copyright (C) 1999-2003 Axis Communications AB
  */
 
 #define ASSEMBLER_MACROS_ONLY
@@ -16,11 +15,9 @@
 	moveq	-1, $r2
 	move.b	$r2, [R_PORT_PA_DIR]
 	moveq	0, $r2
-	move.b	$r2, [R_PORT_PA_DATA]	
+	move.b	$r2, [R_PORT_PA_DATA]
 
 endless:
 	nop
 	ba	endless
 	nop
-
-	

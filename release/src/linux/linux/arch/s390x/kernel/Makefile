@@ -29,7 +29,7 @@ obj-$(CONFIG_SMP)		+= smp.o
 #
 obj-$(CONFIG_REMOTE_DEBUG)	+= gdb-stub.o #gdb-low.o 
 
-obj-$(CONFIG_S390_SUPPORT)	+= linux32.o signal32.o ioctl32.o wrapper32.o exec32.o
+obj-$(CONFIG_S390_SUPPORT)	+= linux32.o signal32.o ioctl32.o wrapper32.o exec32.o exec_domain32.o
 obj-$(CONFIG_BINFMT_ELF32)	+= binfmt_elf32.o
 
 .PHONY: asm-offsets.h

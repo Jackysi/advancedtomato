@@ -18,6 +18,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <linux/init.h>
+#include <linux/list.h>
+#include <linux/kernel.h>
+#include <linux/timer.h>
 
 #include <asm/mach/irq.h>
 #include <asm/hardware.h>

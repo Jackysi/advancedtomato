@@ -1,6 +1,6 @@
 /* -*- linux-c -*-
  *
- *	$Id: sysrq.c,v 1.1.1.4 2003/10/14 08:08:03 sparq Exp $
+ *	$Id: sysrq.c,v 1.15 1998/08/23 14:56:41 mj Exp $
  *
  *	Linux Magic System Request Key Hacks
  *
@@ -365,16 +365,16 @@ static struct sysrq_key_op *sysrq_key_table[SYSRQ_KEY_TABLE_LENGTH] = {
 /* v */	NULL,
 /* w */	NULL,
 /* x */	NULL,
-/* w */	NULL,
+/* y */	NULL,
 /* z */	NULL
 };
 
 /* key2index calculation, -1 on invalid index */
 static __inline__ int sysrq_key_table_key2index(int key) {
 	int retval;
-	if ((key >= '0') & (key <= '9')) {
+	if ((key >= '0') && (key <= '9')) {
 		retval = key - '0';
-	} else if ((key >= 'a') & (key <= 'z')) {
+	} else if ((key >= 'a') && (key <= 'z')) {
 		retval = key + 10 - 'a';
 	} else {
 		retval = -1;

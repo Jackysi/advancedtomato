@@ -131,8 +131,8 @@ int __init cyber_esp_detect(Scsi_Host_Template *tpnt)
 		esp->eregs = (struct ESP_regs *)(address + CYBER_ESP_ADDR);
 		
 		/* Set the command buffer */
-		esp->esp_command = (volatile unsigned char*) cmd_buffer;
-		esp->esp_command_dvma = virt_to_bus(cmd_buffer);
+		esp->esp_command = cmd_buffer;
+		esp->esp_command_dvma = virt_to_bus((void *)cmd_buffer);
 
 		esp->irq = IRQ_AMIGA_PORTS;
 		request_irq(IRQ_AMIGA_PORTS, esp_intr, SA_SHIRQ,
@@ -214,7 +214,15 @@ static void dma_init_read(struct NCR_ESP *esp, __u32 addr, int length)
 	 * used for full-block transfers (1kB).
 	 *							-jskov
 	 */
+#if 0
+	if((addr & 0x3fc) || length & 0x3ff || ((addr > 0x200000) &&
+						(addr < 0xff0000)))
+		ctrl_data &= ~(CYBER_DMA_Z3);	/* Z2, do 16 bit DMA */
+	else
+		ctrl_data |= CYBER_DMA_Z3; /* CHIP/Z3, do 32 bit DMA */
+#else
 	ctrl_data &= ~(CYBER_DMA_Z3);	/* Z2, do 16 bit DMA */
+#endif
 	dregs->ctrl_reg = ctrl_data;
 }
 
@@ -233,7 +241,15 @@ static void dma_init_write(struct NCR_ESP *esp, __u32 addr, int length)
 	ctrl_data |= CYBER_DMA_WRITE;
 
 	/* See comment above */
+#if 0
+	if((addr & 0x3fc) || length & 0x3ff || ((addr > 0x200000) &&
+						(addr < 0xff0000)))
+		ctrl_data &= ~(CYBER_DMA_Z3);	/* Z2, do 16 bit DMA */
+	else
+		ctrl_data |= CYBER_DMA_Z3; /* CHIP/Z3, do 32 bit DMA */
+#else
 	ctrl_data &= ~(CYBER_DMA_Z3);	/* Z2, do 16 bit DMA */
+#endif
 	dregs->ctrl_reg = ctrl_data;
 }
 

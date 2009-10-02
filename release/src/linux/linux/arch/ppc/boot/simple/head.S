@@ -7,12 +7,10 @@
  *	   trini@mvista.com
  * Derived from arch/ppc/boot/prep/head.S (Cort Dougan, many others).
  *
- * Copyright 2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * 2001-2003 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <linux/config.h>
@@ -37,8 +35,8 @@
 	.globl	start
 start:
 	bl	start_
-#ifdef CONFIG_TREEBOOT
-	/* The IBM "Tree" bootrom knows that the address of the bootrom
+#ifdef CONFIG_IBM_OPENBIOS
+	/* The IBM OpenBIOS bootroms know that the address of the bootrom
 	 * read only structure is 4 bytes after _start.
 	 */
 	.long	0x62726f6d		# structure ID - "brom"
@@ -75,6 +73,17 @@ start_:
 	bl	disable_6xx_l1cache
 #if defined(CONFIG_FORCE) || defined(CONFIG_K2) || defined(CONFIG_EV64260)
 	bl	_setup_L2CR
+
+	/* If 745x, turn off L3CR as well */
+	mfspr	r8,PVR
+	srwi	r8,r8,16
+
+	cmpli	cr0,r8,0x8000			/* 7450 */
+	cmpli	cr1,r8,0x8001			/* 7455 */
+	cmpli	cr2,r8,0x8002			/* 7457 */
+	cror	4*cr0+eq,4*cr0+eq,4*cr1+eq	/* Now test if any are true. */
+	cror	4*cr0+eq,4*cr0+eq,4*cr2+eq
+	beql	_setup_L3CR
 #endif
 #endif
 

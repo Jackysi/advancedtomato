@@ -23,7 +23,7 @@ struct scatterlist {
 };
 
 #define sg_virt_addr(sg) (((sg)->address) ? ((sg)->address) : \
-		((sg)->page->virtual + (sg)->offset))
+		(page_address((sg)->page) + (sg)->offset))
 
 #define sg_dma_address(sg) ((sg)->iova)
 #define sg_dma_len(sg)     ((sg)->iova_length)

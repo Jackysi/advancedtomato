@@ -129,15 +129,16 @@ static void midi_poll(unsigned long dummy)
 		for (dev = 0; dev < num_midis; dev++)
 			if (midi_devs[dev] != NULL && midi_out_buf[dev] != NULL)
 			{
-				int ok = 1;
-
-				while (DATA_AVAIL(midi_out_buf[dev]) && ok)
+				while (DATA_AVAIL(midi_out_buf[dev]))
 				{
+					int ok;
 					int c = midi_out_buf[dev]->queue[midi_out_buf[dev]->head];
 
 					restore_flags(flags);	/* Give some time to others */
 					ok = midi_devs[dev]->outputc(dev, c);
 					cli();
+					if (!ok)
+						break;
 					midi_out_buf[dev]->head = (midi_out_buf[dev]->head + 1) % MAX_QUEUE_SIZE;
 					midi_out_buf[dev]->len--;
 				}

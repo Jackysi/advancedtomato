@@ -76,6 +76,14 @@
 #   define CPU_NAME arm926
 #  endif
 # endif
+# ifdef CONFIG_CPU_ARM1026
+#  ifdef CPU_NAME
+#   undef  MULTI_CPU
+#   define MULTI_CPU
+#  else
+#   define CPU_NAME arm1026
+#  endif
+# endif
 # ifdef CONFIG_CPU_SA110
 #  ifdef CPU_NAME
 #   undef  MULTI_CPU
@@ -103,5 +111,14 @@
 
 #endif /* __KERNEL__ */
 
+#if 0
+ * The following is to fool mkdep into generating the correct
+ * dependencies.  Without this, it cant figure out that this
+ * file does indeed depend on the cpu-*.h files.
+#include <asm/cpu-single.h>
+#include <asm/cpu-multi26.h>
+#include <asm/cpu-multi32.h>
+ *
+#endif
 
 #endif /* __ASM_PROCFNS_H */

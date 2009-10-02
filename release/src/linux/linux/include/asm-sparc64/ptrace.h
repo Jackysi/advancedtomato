@@ -1,4 +1,4 @@
-/* $Id: ptrace.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: ptrace.h,v 1.13 1997/09/17 17:27:51 davem Exp $ */
 #ifndef _SPARC64_PTRACE_H
 #define _SPARC64_PTRACE_H
 
@@ -89,27 +89,27 @@ struct sparc_trapf {
 
 #define TRACEREG_SZ	sizeof(struct pt_regs)
 #define STACKFRAME_SZ	sizeof(struct sparc_stackf)
-#define REGWIN_SZ	sizeof(struct reg_window)
 
 #define TRACEREG32_SZ	sizeof(struct pt_regs32)
 #define STACKFRAME32_SZ	sizeof(struct sparc_stackf32)
-#define REGWIN32_SZ	sizeof(struct reg_window32)
 
 #ifdef __KERNEL__
 #define user_mode(regs) (!((regs)->tstate & TSTATE_PRIV))
 #define instruction_pointer(regs) ((regs)->tpc)
 extern void show_regs(struct pt_regs *);
+#define force_successful_syscall_return() \
+do { \
+	current->thread.flags |= SPARC_FLAG_SYS_SUCCESS; \
+} while (0)
 #endif
 
 #else /* __ASSEMBLY__ */
 /* For assembly code. */
 #define TRACEREG_SZ		0xa0
 #define STACKFRAME_SZ		0xc0
-#define REGWIN_SZ		0x80
 
 #define TRACEREG32_SZ		0x50
 #define STACKFRAME32_SZ		0x60
-#define REGWIN32_SZ		0x40
 
 #include <asm/asm_offsets.h>
 #endif

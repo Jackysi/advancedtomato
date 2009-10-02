@@ -40,20 +40,12 @@
 #include <asm/system.h>
 #include <asm/pgalloc.h>
 
-#ifndef CONFIG_SMP
-struct cpuinfo_mips cpu_data[1];
-#endif
+struct cpuinfo_mips cpu_data[NR_CPUS];
+EXPORT_SYMBOL(cpu_data);
 
 #ifdef CONFIG_VT
 struct screen_info screen_info;
 #endif
-
-/*
- * Not all of the MIPS CPUs have the "wait" instruction available.  This
- * is set to true if it is available.  The wait instruction stops the
- * pipeline and reduces the power consumption of the CPU very much.
- */
-char wait_available;
 
 /*
  * Set if box has EISA slots.
@@ -62,12 +54,13 @@ char wait_available;
 int EISA_bus = 0;
 #endif
 
-#ifdef CONFIG_BLK_DEV_FD
+#if defined(CONFIG_BLK_DEV_FD) || defined(CONFIG_BLK_DEV_FD_MODULE)
+#include <asm/floppy.h>
 extern struct fd_ops no_fd_ops;
 struct fd_ops *fd_ops;
 #endif
 
-#ifdef CONFIG_BLK_DEV_IDE
+#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
 extern struct ide_ops no_ide_ops;
 struct ide_ops *ide_ops;
 #endif
@@ -77,7 +70,6 @@ extern void * __rd_start, * __rd_end;
 extern struct rtc_ops no_rtc_ops;
 struct rtc_ops *rtc_ops;
 
-extern struct kbd_ops no_kbd_ops;
 struct kbd_ops *kbd_ops;
 
 /*
@@ -112,7 +104,6 @@ EXPORT_SYMBOL(mips_io_port_base);
 unsigned long isa_slot_offset;
 EXPORT_SYMBOL(isa_slot_offset);
 
-extern void sgi_sysinit(void);
 extern void SetUpBootInfo(void);
 extern void load_mmu(void);
 extern ATTRIB_NORET asmlinkage void start_kernel(void);
@@ -129,10 +120,6 @@ asmlinkage void __init init_arch(int argc, char **argv, char **envp,
 
 	prom_init(argc, argv, envp, prom_vec);
 
-#ifdef CONFIG_SGI_IP22
-	sgi_sysinit();
-#endif
-
 	cpu_report();
 
 	/*
@@ -141,14 +128,6 @@ asmlinkage void __init init_arch(int argc, char **argv, char **envp,
 	 * zero.
 	 */
 	load_mmu();
-
-	/*
-	 * On IP27, I am seeing the TS bit set when the kernel is loaded.
-	 * Maybe because the kernel is in ckseg0 and not xkphys? Clear it
-	 * anyway ...
-	 */
-	clear_c0_status(ST0_BEV|ST0_TS|ST0_CU1|ST0_CU2|ST0_CU3);
-	set_c0_status(ST0_CU0|ST0_KX|ST0_SX|ST0_FR);
 
 	start_kernel();
 }
@@ -205,6 +184,12 @@ static inline void parse_mem_cmdline(void)
 	print_memory_map();
 
 	for (;;) {
+		/*
+		 * "mem=XXX[kKmM]" defines a memory region from
+		 * 0 to <XXX>, overriding the determined size.
+		 * "mem=XXX[KkmM]@YYY[KkmM]" defines a memory region from
+		 * <YYY> to <YYY>+<XXX>, overriding the determined size.
+		 */
 		if (c == ' ' && !memcmp(from, "mem=", 4)) {
 			if (to != command_line)
 				to--;
@@ -352,6 +337,8 @@ static inline void bootmem_init(void)
 		printk("Initial ramdisk at: 0x%p (%lu bytes)\n",
 		       (void *)initrd_start,
 		       initrd_size);
+/* FIXME: is this right? */
+#ifndef CONFIG_SGI_IP27
 		if (CPHYSADDR(initrd_end) > PFN_PHYS(max_pfn)) {
 			printk("initrd extends beyond end of memory "
 			       "(0x%p > 0x%p)\ndisabling initrd\n",
@@ -359,6 +346,7 @@ static inline void bootmem_init(void)
 			       (void *)PFN_PHYS(max_pfn));
 			initrd_start = 0;
 		}
+#endif /* !CONFIG_SGI_IP27 */
 	}
 #endif
 }
@@ -413,15 +401,28 @@ static inline void resource_init(void)
 
 void __init setup_arch(char **cmdline_p)
 {
+	extern void atlas_setup(void);
 	extern void decstation_setup(void);
 	extern void ip22_setup(void);
 	extern void ip27_setup(void);
-	extern void ip32_setup(void);
-	extern void swarm_setup(void);
 	extern void malta_setup(void);
+	extern void momenco_ocelot_setup(void);
+	extern void momenco_ocelot_g_setup(void);
+	extern void momenco_ocelot_c_setup(void);
+	extern void momenco_jaguar_atx_setup(void);
+	extern void sead_setup(void);
+	extern void swarm_setup(void);
+	extern void frame_info_init(void);
 
+	frame_info_init();
+#ifdef CONFIG_MIPS_ATLAS
+	atlas_setup();
+#endif
 #ifdef CONFIG_DECSTATION
 	decstation_setup();
+#endif
+#ifdef  CONFIG_PMC_YOSEMITE
+	pmc_yosemite_setup();
 #endif
 #ifdef CONFIG_SGI_IP22
 	ip22_setup();
@@ -429,14 +430,26 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_SGI_IP27
 	ip27_setup();
 #endif
-#ifdef CONFIG_SGI_IP32
-	ip32_setup();
-#endif
 #ifdef CONFIG_SIBYTE_BOARD
 	swarm_setup();
 #endif
 #ifdef CONFIG_MIPS_MALTA
 	malta_setup();
+#endif
+#ifdef CONFIG_MIPS_SEAD
+	sead_setup();
+#endif
+#ifdef CONFIG_MOMENCO_OCELOT
+	momenco_ocelot_setup();
+#endif
+#ifdef CONFIG_MOMENCO_OCELOT_G
+	momenco_ocelot_g_setup();
+#endif
+#ifdef CONFIG_MOMENCO_OCELOT_C
+	momenco_ocelot_c_setup();
+#endif
+#ifdef CONFIG_MOMENCO_JAGUAR_ATX
+	momenco_jaguar_atx_setup();
 #endif
 
 	strncpy(command_line, arcs_cmdline, CL_SIZE);
@@ -456,7 +469,9 @@ void __init setup_arch(char **cmdline_p)
 
 int __init fpu_disable(char *s)
 {
-	mips_cpu.options &= ~MIPS_CPU_FPU;
+	cpu_data[0].options &= ~MIPS_CPU_FPU;
+
 	return 1;
 }
+
 __setup("nofpu", fpu_disable);

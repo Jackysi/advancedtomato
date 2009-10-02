@@ -1,8 +1,5 @@
 /*
- * BK Id: SCCS/s.init.c 1.43 03/12/02 12:13:51 paulus
- */
-/*
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
  *  Modifications by Paul Mackerras (PowerMac) (paulus@cs.anu.edu.au)
@@ -49,11 +46,38 @@
 #include "mem_pieces.h"
 #include "mmu_decl.h"
 
+/*
+ * Just any arbitrary offset to the start of the vmalloc VM area: the
+ * current 64MB value just means that there will be a 64MB "hole" after the
+ * physical memory until the kernel virtual memory starts.  That means that
+ * any out-of-bounds memory accesses will hopefully be caught.
+ * The vmalloc() routines leaves a hole of 4kB between each vmalloced
+ * area for the same reason. ;)
+ *
+ * We no longer map larger than phys RAM with the BATs so we don't have
+ * to worry about the VMALLOC_OFFSET causing problems.  We do have to worry
+ * about clashes between our early calls to ioremap() that start growing down
+ * from ioremap_base being run into the VM area allocations (growing upwards
+ * from VMALLOC_START).  For this reason we have ioremap_bot to check when
+ * we actually run into our mappings setup in the early boot with the VM
+ * system.  This really does become a problem for machines with good amounts
+ * of RAM.  -- Cort
+ */
+#ifdef CONFIG_PIN_TLB
+#define VMALLOC_OFFSET (0x2000000) /* 32M */
+#else
+#define VMALLOC_OFFSET (0x1000000) /* 16M */
+#endif
+
+unsigned long vmalloc_start;
+
 mmu_gather_t mmu_gathers[NR_CPUS];
 
-void *end_of_DRAM;
 unsigned long total_memory;
 unsigned long total_lowmem;
+
+unsigned long ppc_memstart;
+unsigned long ppc_memoffset = PAGE_OFFSET;
 
 int mem_init_done;
 int init_bootmem_done;
@@ -80,6 +104,7 @@ pgprot_t kmap_prot;
 void MMU_init(void);
 void set_phys_avail(unsigned long total_ram);
 
+/* XXX should be in current.h  -- paulus */
 extern struct task_struct *current_set[NR_CPUS];
 
 char *klimit = _end;
@@ -180,13 +205,13 @@ void show_mem(void)
 				iscur = 1;
 				printk("current");
 			}
-			
+
 			if ( p == last_task_used_math )
 			{
 				if ( iscur )
 					printk(",");
 				printk("last math");
-			}			
+			}
 #endif /* CONFIG_SMP */
 			printk("\n");
 		}
@@ -311,9 +336,9 @@ void __init MMU_init(void)
 	if (__max_memory && total_memory > __max_memory)
 		total_memory = __max_memory;
 	total_lowmem = total_memory;
-	adjust_total_lowmem();	
-	end_of_DRAM = __va(total_lowmem);
+	adjust_total_lowmem();
 	set_phys_avail(total_lowmem);
+	vmalloc_start = KERNELBASE + total_lowmem;
 
 	/* Initialize the MMU hardware */
 	if (ppc_md.progress)
@@ -346,7 +371,7 @@ void __init MMU_init(void)
 
 #ifdef CONFIG_BOOTX_TEXT
 	/* By default, we are no longer mapped */
-	boot_text_mapped = 0;	
+	boot_text_mapped = 0;
 	/* Must be done last, or ppc_md.progress will die. */
 	map_boot_text();
 #endif
@@ -395,8 +420,11 @@ void __init do_init_bootmem(void)
 	}
 	start = PAGE_ALIGN(start);
 
-	boot_mapsize = init_bootmem(start >> PAGE_SHIFT,
-				    total_lowmem >> PAGE_SHIFT);
+	min_low_pfn = start >> PAGE_SHIFT;
+	max_low_pfn = (PPC_MEMSTART + total_lowmem) >> PAGE_SHIFT;
+	boot_mapsize = init_bootmem_node(&contig_page_data, min_low_pfn,
+					 PPC_MEMSTART >> PAGE_SHIFT,
+					 max_low_pfn);
 
 	/* remove the bootmem bitmap from the available memory */
 	mem_pieces_remove(&phys_avail, start, boot_mapsize, 1);
@@ -417,9 +445,9 @@ void __init paging_init(void)
 	unsigned long zones_size[MAX_NR_ZONES], i;
 
 #ifdef CONFIG_HIGHMEM
-	map_page(PKMAP_BASE, 0, 0);	
+	map_page(PKMAP_BASE, 0, 0);	/* XXX gross */
 	pkmap_page_table = pte_offset(pmd_offset(pgd_offset_k(PKMAP_BASE), PKMAP_BASE), PKMAP_BASE);
-	map_page(KMAP_FIX_BEGIN, 0, 0);	
+	map_page(KMAP_FIX_BEGIN, 0, 0);	/* XXX gross */
 	kmap_pte = pte_offset(pmd_offset(pgd_offset_k(KMAP_FIX_BEGIN), KMAP_FIX_BEGIN), KMAP_FIX_BEGIN);
 	kmap_prot = PAGE_KERNEL;
 #endif /* CONFIG_HIGHMEM */
@@ -449,15 +477,16 @@ void __init mem_init(void)
 
 	highmem_mapnr = total_lowmem >> PAGE_SHIFT;
 	highmem_start_page = mem_map + highmem_mapnr;
-	max_mapnr = total_memory >> PAGE_SHIFT;
-#else
-	max_mapnr = max_low_pfn;
 #endif /* CONFIG_HIGHMEM */
+	max_mapnr = total_memory >> PAGE_SHIFT;
 
-	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
+	high_memory = (void *) __va(PPC_MEMSTART + total_lowmem);
 	num_physpages = max_mapnr;	/* RAM is assumed contiguous */
 
 	totalram_pages += free_all_bootmem();
+
+	/* adjust vmalloc_start */
+	vmalloc_start = (vmalloc_start + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1);
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	/* if we are booted from BootX with an initial ramdisk,
@@ -484,7 +513,7 @@ void __init mem_init(void)
 		     addr += PAGE_SIZE)
 			SetPageReserved(virt_to_page(addr));
 
-	for (addr = PAGE_OFFSET; addr < (unsigned long)end_of_DRAM;
+	for (addr = PAGE_OFFSET; addr < (unsigned long)high_memory;
 	     addr += PAGE_SIZE) {
 		if (!PageReserved(virt_to_page(addr)))
 			continue;
@@ -543,7 +572,7 @@ set_phys_avail(unsigned long total_memory)
 	 * physical memory.
 	 */
 
-	phys_avail.regions[0].address = 0;
+	phys_avail.regions[0].address = PPC_MEMSTART;
 	phys_avail.regions[0].size = total_memory;
 	phys_avail.n_regions = 1;
 
@@ -569,9 +598,18 @@ set_phys_avail(unsigned long total_memory)
 	/* remove the RTAS pages from the available memory */
 	if (rtas_data)
 		mem_pieces_remove(&phys_avail, rtas_data, rtas_size, 1);
+	/* Because of some uninorth weirdness, we need a page of
+	 * memory as high as possible (it must be outside of the
+	 * bus address seen as the AGP aperture). It will be used
+	 * by the r128 DRM driver
+	 *
+	 * FIXME: We need to make sure that page doesn't overlap any of the\
+	 * above. This could be done by improving mem_pieces_find to be able
+	 * to do a backward search from the end of the list.
+	 */
 	if (_machine == _MACH_Pmac && find_devices("uni-north-agp")) {
 		agp_special_page = (total_memory - PAGE_SIZE);
-		mem_pieces_remove(&phys_avail, agp_special_page, PAGE_SIZE, 0);	
+		mem_pieces_remove(&phys_avail, agp_special_page, PAGE_SIZE, 0);
 		agp_special_page = (unsigned long)__va(agp_special_page);
 	}
 #endif /* CONFIG_ALL_PPC */

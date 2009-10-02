@@ -1,4 +1,4 @@
-/* $Id: l3dss1.c,v 1.1.1.4 2003/10/14 08:08:13 sparq Exp $
+/* $Id: l3dss1.c,v 1.1.4.1 2001/11/20 14:19:36 kai Exp $
  *
  * EURO/DSS1 D-channel protocol
  *
@@ -27,7 +27,7 @@
 #include <linux/config.h>
 
 extern char *HiSax_getrev(const char *revision);
-const char *dss1_revision = "$Revision: 1.1.1.4 $";
+const char *dss1_revision = "$Revision: 1.1.4.1 $";
 
 #define EXT_BEARER_CAPS 1
 

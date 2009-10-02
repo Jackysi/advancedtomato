@@ -6,7 +6,8 @@
 
 #include <linux/fs.h>
 
-#include "befs_fs.h"
+#include "befs.h"
+#include "inode.h"
 #include "endian.h"
 
 /*
@@ -18,9 +19,9 @@ int
 befs_check_inode(struct super_block *sb, befs_inode * raw_inode,
 		 befs_blocknr_t inode)
 {
-	__u32 magic1 = fs32_to_cpu(sb, raw_inode->magic1);
+	u32 magic1 = fs32_to_cpu(sb, raw_inode->magic1);
 	befs_inode_addr ino_num = fsrun_to_cpu(sb, raw_inode->inode_num);
-	__u32 flags = fs32_to_cpu(sb, raw_inode->flags);
+	u32 flags = fs32_to_cpu(sb, raw_inode->flags);
 
 	/* check magic header. */
 	if (magic1 != BEFS_INODE_MAGIC1) {

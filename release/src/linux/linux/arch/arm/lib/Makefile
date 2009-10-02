@@ -27,15 +27,16 @@ obj-clps7500	:= io-acorn.o
 obj-l7200     	:= io-acorn.o
 obj-shark	:= io-shark.o
 obj-edb7211	:= io-acorn.o
+obj-riscstation := io-acorn.o floppydma.o
 
 obj-y		+= $(obj-$(MACHINE))
 
-ifeq ($(CONFIG_CPU_32v4),y)
-  v3		:= n
-  v4		:= y
-else
+ifeq ($(CONFIG_CPU_32v3),y)
   v3		:= y
   v4		:= n
+else
+  v3		:= n
+  v4		:= y
 endif
 
 obj-y		+= io-readsb.o io-writesb.o
@@ -51,4 +52,3 @@ include $(TOPDIR)/Rules.make
 
 csumpartialcopy.o: csumpartialcopygeneric.S
 csumpartialcopyuser.o: csumpartialcopygeneric.S
-

@@ -321,7 +321,7 @@ int DRM(addctx)( struct inode *inode, struct file *filp,
 	}
 #ifdef DRIVER_CTX_CTOR
 	if ( ctx.handle != DRM_KERNEL_CONTEXT )
-		DRIVER_CTX_CTOR(ctx.handle); 
+		DRIVER_CTX_CTOR(ctx.handle); /* XXX: also pass dev ? */
 #endif
 
 	if ( copy_to_user( (drm_ctx_t *)arg, &ctx, sizeof(ctx) ) )
@@ -398,7 +398,7 @@ int DRM(rmctx)( struct inode *inode, struct file *filp,
 	}
 	if ( ctx.handle != DRM_KERNEL_CONTEXT ) {
 #ifdef DRIVER_CTX_DTOR
-		DRIVER_CTX_DTOR(ctx.handle); 
+		DRIVER_CTX_DTOR(ctx.handle); /* XXX: also pass dev ? */
 #endif
 		DRM(ctxbitmap_free)( dev, ctx.handle );
 	}
@@ -419,6 +419,9 @@ int DRM(context_switch)(drm_device_t *dev, int old, int new)
 	char	    buf[64];
 	drm_queue_t *q;
 
+#if 0
+	atomic_inc(&dev->total_ctx);
+#endif
 
 	if (test_and_set_bit(0, &dev->context_flag)) {
 		DRM_ERROR("Reentering -- FIXME\n");
@@ -551,7 +554,7 @@ static int DRM(alloc_queue)(drm_device_t *dev)
 				/* Allocate a new queue */
 	down(&dev->struct_sem);
 
-	queue = gamma_alloc(sizeof(*queue), DRM_MEM_QUEUES);
+	queue = DRM(alloc)(sizeof(*queue), DRM_MEM_QUEUES);
 	memset(queue, 0, sizeof(*queue));
 	atomic_set(&queue->use_count, 1);
 

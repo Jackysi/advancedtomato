@@ -26,6 +26,7 @@ SEP=echo "\033[41;1m   $@   \033[0m"
 obj-y += nvram
 obj-y += shared
 obj-y += prebuilt
+obj-y += igmpproxy
 obj-y += iptables
 obj-y += rc
 obj-y += iproute2
@@ -42,6 +43,12 @@ obj-y += ppp
 obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
+
+# !!TB - updated Broadcom Wireless driver
+obj-y += et
+obj-y += libbcmcrypto
+obj-y += wlconf
+
 obj-y += mssl
 obj-y += mdu
 
@@ -104,8 +111,8 @@ kmod: dummy
 	$(MAKE) -C $(LINUXDIR) modules
 
 testfind:
-	cd $(TARGETDIR)/lib/modules/2.4.20 && find -name "*.o" -exec mv -i {} . \; || true
-	cd $(TARGETDIR)/lib/modules/2.4.20 && find -type d -delete || true
+	cd $(TARGETDIR)/lib/modules/* && find -name "*.o" -exec mv -i {} . \; || true
+	cd $(TARGETDIR)/lib/modules/* && find -type d -delete || true
 
 install package: $(obj-install) $(LINUXDIR)/.config
 	@$(SEP)
@@ -119,34 +126,34 @@ install package: $(obj-install) $(LINUXDIR)/.config
 ##!!TB - do not strip ftp nat/conntrack, imq, scsi_mod and loop kernel modules (needed to keep parameters)
 	find $(TARGETDIR)/lib/modules ! \( -name imq.o -prune \) ! \( -name *ftp.o -prune \) ! \( -name scsi_mod.o -prune \) ! \( -name loop.o -prune \) -a -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
 
-	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv diag/* . && rm -rf diag
+	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
 # nice and clean
-	-cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et.4702/* . && rm -rf et.4702 || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv et/* . && rm -rf et
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net && mv wl/* . && rm -rf wl
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv cifs/* . && rm -rf cifs
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jffs2/* . && rm -rf jffs2
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/pcmcia
+	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et.4702/* . && rm -rf et.4702 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et/* . && rm -rf et
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv wl/* . && rm -rf wl
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv cifs/* . && rm -rf cifs
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs2/* . && rm -rf jffs2
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
+	rm -rf $(TARGETDIR)/lib/modules/*/pcmcia
 
 ##!!TB
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext2/* . && rm -rf ext2 || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ext3/* . && rm -rf ext3 || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv jbd/* . && rm -rf jbd || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv fat/* . && rm -rf fat || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv vfat/* . && rm -rf vfat || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv smbfs/* . && rm -rf smbfs || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ext2/* . && rm -rf ext2 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ext3/* . && rm -rf ext3 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jbd/* . && rm -rf jbd || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv fat/* . && rm -rf fat || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv vfat/* . && rm -rf vfat || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv smbfs/* . && rm -rf smbfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
 ifneq ($(TCONFIG_SAMBASRV),y)
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/nls || true
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/fs/nls || true
 endif
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/fs && mv nls/* . && rm -rf nls || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv host/* . && rm -rf host || true
-	cd $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb && mv storage/* . && rm -rf storage || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv nls/* . && rm -rf nls || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv host/* . && rm -rf host || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv storage/* . && rm -rf storage || true
 
 # misc
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \
@@ -154,22 +161,25 @@ endif
 	done
 
 ifneq ($(TCONFIG_JFFS2),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/jffs2.o
-	rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/lib/zlib_*
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.o
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_*
 endif
 
 ifneq ($(TCONFIG_CIFS),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/cifs.o
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/cifs.o
 endif
 
 ifneq ($(TCONFIG_L7),y)
-	rm -f $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/netfilter/ipt_layer7.o
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ipt_layer7.o
 	rm -f $(TARGETDIR)/usr/lib/iptables/libipt_layer7.so
 endif
 
 # uClibc
 	install $(LIBDIR)/ld-uClibc.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libcrypt.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libpthread.so.0 $(TARGETDIR)/lib/
+	install $(LIBDIR)/libgcc_s.so.1 $(TARGETDIR)/lib/
+	$(STRIP) $(TARGETDIR)/lib/libgcc_s.so.1
 	install $(LIBDIR)/libc.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libdl.so.0 $(TARGETDIR)/lib/
 	install $(LIBDIR)/libm.so.0 $(TARGETDIR)/lib/
@@ -181,10 +191,11 @@ endif
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
-	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
+	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
+	@mv $(TARGETDIR)/lib/modules/*/modules.dep $(TARGETDIR)/lib/modules/
 	@echo ---
 
-	@rm -f $(TARGETDIR)/lib/modules/2.4.20/build
+	@rm -f $(TARGETDIR)/lib/modules/*/build
 
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
@@ -193,18 +204,18 @@ endif
 # !!TB - moved to run after libfoo.pl - to make sure shared libs include all symbols needed by extras
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
 #!!TB
 ifneq ($(TCONFIG_NTFS),y)
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
 endif
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/smbfs.o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/fs/reiserfs.o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/usb/scanner.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/smbfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_USB_EXTRAS),y)
-	@mv $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
-	@rm -rf $(TARGETDIR)/lib/modules/2.4.20/kernel/drivers/block || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/block || true
 endif
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
@@ -213,8 +224,8 @@ ifeq ($(TCONFIG_L7PAT),y)
 	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
 endif
 
-	@$(MAKE) -C $(SRCBASE)/linux/linux/scripts/squashfs mksquashfs-lzma
-	@$(SRCBASE)/linux/linux/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image | tee target.info
+	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
+	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image | tee target.info
 
 #	Package kernel and filesystem
 #	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
@@ -233,8 +244,8 @@ endif
 
 
 libc:	$(LIBDIR)/ld-uClibc.so.0
-	$(MAKE) -C ../../../tools-src/uClibc all
-	$(MAKE) -C ../../../tools-src/uClibc install
+#	$(MAKE) -C ../../../tools-src/uClibc all
+#	$(MAKE) -C ../../../tools-src/uClibc install
 
 
 #
@@ -414,15 +425,8 @@ miniupnpd-install:
 	$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
 
 # !!TB
-p910nd: shared
-sendmail: shared
-samba: shared
-
-nvram: shared
-
 shared: busybox
 
-# !!TB
 vsftpd: shared openssl
 	@$(SEP)
 	$(MAKE) -C vsftpd
@@ -430,6 +434,14 @@ vsftpd: shared openssl
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+
+p910nd:
+sendmail:
+samba:
+
+nvram: shared
+
+prebuilt: shared
 
 vlan:
 	@$(SEP)
@@ -463,6 +475,10 @@ pppd-install:
 
 zebra:
 	@$(SEP)
+	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -Os -Wall" $(CONFIGURE) \
+		--host=mipsel-linux --prefix=/usr/local/zebra \
+		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
+		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
 
 zebra-install:
@@ -537,6 +553,22 @@ dropbear-clean:
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
+
+igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
+	cd igmpproxy && CFLAGS="-O2 -Wall" \
+	$(CONFIGURE) --prefix=/usr
+
+igmpproxy: igmpproxy/src/Makefile
+	@$(SEP)
+	@$(MAKE) -C igmpproxy/src
+
+igmpproxy-install:
+	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+
+igmpproxy-clean:
+	$(MAKE) -C igmpproxy/src clean
+	rm -f igmpproxy/src/Makefile
 
 
 ebtables: dummy

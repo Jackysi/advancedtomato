@@ -65,7 +65,7 @@ _sys_sysmips(int cmd, int arg1, int arg2, int arg3)
 			return -EFAULT;
 
 		down_write(&uts_sem);
-		strncpy(system_utsname.nodename, name, len);
+		strncpy(system_utsname.nodename, nodename, len);
 		system_utsname.nodename[len] = '\0';
 		up_write(&uts_sem);
 		return 0;

@@ -56,9 +56,9 @@
 
 /*      Global vars.
  */
-char ft_src[] __initdata = "$Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/ftape-init.c,v $";
-char ft_rev[] __initdata = "$Revision: 1.1.1.2 $";
-char ft_dat[] __initdata = "$Date: 2003/10/14 08:08:06 $";
+char ft_src[] __initdata = "$Source: /homes/cvs/ftape-stacked/ftape/lowlevel/ftape-init.c,v $";
+char ft_rev[] __initdata = "$Revision: 1.8 $";
+char ft_dat[] __initdata = "$Date: 1997/11/06 00:38:08 $";
 
 
 /*  Called by modules package when installing the driver

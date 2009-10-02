@@ -5,6 +5,8 @@ mainmenu_option next_comment
 comment 'File systems'
 
 bool 'Quota support' CONFIG_QUOTA
+dep_tristate '  VFS v0 quota format support' CONFIG_QFMT_V2 $CONFIG_QUOTA
+
 tristate 'Kernel automounter support' CONFIG_AUTOFS_FS
 tristate 'Kernel automounter version 4 support (also supports v3)' CONFIG_AUTOFS4_FS
 
@@ -17,7 +19,9 @@ dep_mbool '  ADFS write support (DANGEROUS)' CONFIG_ADFS_FS_RW $CONFIG_ADFS_FS $
 
 dep_tristate 'Amiga FFS file system support (EXPERIMENTAL)' CONFIG_AFFS_FS $CONFIG_EXPERIMENTAL
 
-dep_tristate 'Apple Macintosh file system support (EXPERIMENTAL)' CONFIG_HFS_FS $CONFIG_EXPERIMENTAL
+dep_tristate 'Apple HFS file system support (EXPERIMENTAL)' CONFIG_HFS_FS $CONFIG_EXPERIMENTAL
+
+dep_tristate 'Apple HFS+ (Extended HFS) file system support (EXPERIMENTAL)' CONFIG_HFSPLUS_FS $CONFIG_EXPERIMENTAL
 
 dep_tristate 'BeOS file systemv(BeFS) support (read only) (EXPERIMENTAL)' CONFIG_BEFS_FS $CONFIG_EXPERIMENTAL
 dep_mbool '  Debug Befs' CONFIG_BEFS_DEBUG $CONFIG_BEFS_FS
@@ -58,12 +62,6 @@ fi
 bool 'Virtual memory file system support (former shm fs)' CONFIG_TMPFS
 define_bool CONFIG_RAMFS y
 
-if [ "$CONFIG_CRAMFS" = "y" -o "$CONFIG_CRAMFS" = "m" -o "$CONFIG_SQUASHFS" = "y" -o "$CONFIG_SQUASHFS" = "m" ] ; then
-   choice 'Compression method' \
-                "ZLIB CONFIG_ZLIB_FS_INFLATE \
-                 LZMA CONFIG_LZMA_FS_INFLATE" LZMA
-fi
-
 tristate 'ISO 9660 CDROM file system support' CONFIG_ISO9660_FS
 dep_mbool '  Microsoft Joliet CDROM extensions' CONFIG_JOLIET $CONFIG_ISO9660_FS
 dep_mbool '  Transparent decompression extension' CONFIG_ZISOFS $CONFIG_ISO9660_FS
@@ -82,9 +80,13 @@ tristate 'OS/2 HPFS file system support' CONFIG_HPFS_FS
 
 bool '/proc file system support' CONFIG_PROC_FS
 
+# For some reason devfs corrupts memory badly on x86-64. Disable it 
+# for now.
+if [ "$CONFIG_X86_64" != "y" ] ; then
 dep_bool '/dev file system support (EXPERIMENTAL)' CONFIG_DEVFS_FS $CONFIG_EXPERIMENTAL
 dep_bool '  Automatically mount at boot' CONFIG_DEVFS_MOUNT $CONFIG_DEVFS_FS
 dep_bool '  Debug devfs' CONFIG_DEVFS_DEBUG $CONFIG_DEVFS_FS
+fi
 
 # It compiles as a module for testing only.  It should not be used
 # as a module in general.  If we make this "tristate", a bunch of people
@@ -107,6 +109,12 @@ dep_mbool '  UDF write support (DANGEROUS)' CONFIG_UDF_RW $CONFIG_UDF_FS $CONFIG
 tristate 'UFS file system support (read only)' CONFIG_UFS_FS
 dep_mbool '  UFS file system write support (DANGEROUS)' CONFIG_UFS_FS_WRITE $CONFIG_UFS_FS $CONFIG_EXPERIMENTAL
 
+tristate 'XFS filesystem support' CONFIG_XFS_FS
+dep_mbool    '  Quota support' CONFIG_XFS_QUOTA $CONFIG_XFS_FS
+dep_mbool    '  Realtime support (EXPERIMENTAL)' CONFIG_XFS_RT $CONFIG_XFS_FS $CONFIG_EXPERIMENTAL
+dep_mbool    '  Tracing support (EXPERIMENTAL)' CONFIG_XFS_TRACE $CONFIG_XFS_FS $CONFIG_EXPERIMENTAL
+dep_mbool    '  Debugging support (EXPERIMENTAL)' CONFIG_XFS_DEBUG $CONFIG_XFS_FS $CONFIG_EXPERIMENTAL
+
 if [ "$CONFIG_NET" = "y" ]; then
 
    mainmenu_option next_comment
@@ -116,11 +124,12 @@ if [ "$CONFIG_NET" = "y" ]; then
    dep_tristate 'InterMezzo file system support (replicating fs) (EXPERIMENTAL)' CONFIG_INTERMEZZO_FS $CONFIG_INET $CONFIG_EXPERIMENTAL
    dep_tristate 'NFS file system support' CONFIG_NFS_FS $CONFIG_INET
    dep_mbool '  Provide NFSv3 client support' CONFIG_NFS_V3 $CONFIG_NFS_FS
+   dep_mbool '  Allow direct I/O on NFS files (EXPERIMENTAL)' CONFIG_NFS_DIRECTIO $CONFIG_NFS_FS $CONFIG_EXPERIMENTAL
    dep_bool '  Root file system on NFS' CONFIG_ROOT_NFS $CONFIG_NFS_FS $CONFIG_IP_PNP
 
    dep_tristate 'NFS server support' CONFIG_NFSD $CONFIG_INET
    dep_mbool '  Provide NFSv3 server support' CONFIG_NFSD_V3 $CONFIG_NFSD
-   dep_mbool '  Provide NFS server over TCP support (EXPERIMENTAL)' CONFIG_NFSD_TCP $CONFIG_NFSD $CONFIG_EXPERIMENTAL
+   dep_mbool '  Provide NFS server over TCP support' CONFIG_NFSD_TCP $CONFIG_NFSD
 
    if [ "$CONFIG_NFS_FS" = "y" -o "$CONFIG_NFSD" = "y" ]; then
       define_tristate CONFIG_SUNRPC y
@@ -148,6 +157,7 @@ if [ "$CONFIG_NET" = "y" ]; then
       if [ "$CONFIG_SMB_NLS_DEFAULT" = "y" ]; then
          string '    Default Remote NLS Option' CONFIG_SMB_NLS_REMOTE "cp437"
       fi
+      bool '  Enable Unix Extensions' CONFIG_SMB_UNIX
    fi
    if [ "$CONFIG_IPX" != "n" -o "$CONFIG_INET" != "n" ]; then
       tristate 'NCP file system support (to mount NetWare volumes)' CONFIG_NCP_FS

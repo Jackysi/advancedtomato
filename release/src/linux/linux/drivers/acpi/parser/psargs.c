@@ -1,43 +1,61 @@
 /******************************************************************************
  *
  * Module Name: psargs - Parse AML opcode arguments
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acparser.h"
-#include "amlcode.h"
-#include "acnamesp.h"
+#include <acpi/acpi.h>
+#include <acpi/acparser.h>
+#include <acpi/amlcode.h>
+#include <acpi/acnamesp.h>
 
 #define _COMPONENT          ACPI_PARSER
-	 MODULE_NAME         ("psargs")
+	 ACPI_MODULE_NAME    ("psargs")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_package_length
+ * FUNCTION:    acpi_ps_get_next_package_length
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *
  * RETURN:      Decoded package length.  On completion, the AML pointer points
  *              past the length byte or bytes.
@@ -48,16 +66,16 @@
 
 u32
 acpi_ps_get_next_package_length (
-	acpi_parse_state        *parser_state)
+	struct acpi_parse_state         *parser_state)
 {
-	u32                     encoded_length;
-	u32                     length = 0;
+	u32                             encoded_length;
+	u32                             length = 0;
 
 
-	FUNCTION_TRACE ("Ps_get_next_package_length");
+	ACPI_FUNCTION_TRACE ("ps_get_next_package_length");
 
 
-	encoded_length = (u32) GET8 (parser_state->aml);
+	encoded_length = (u32) ACPI_GET8 (parser_state->aml);
 	parser_state->aml++;
 
 
@@ -70,7 +88,7 @@ acpi_ps_get_next_package_length (
 
 	case 1: /* 2-byte encoding (next byte + bits 0-3) */
 
-		length = ((GET8 (parser_state->aml) << 04) |
+		length = ((ACPI_GET8 (parser_state->aml) << 04) |
 				 (encoded_length & 0x0F));
 		parser_state->aml++;
 		break;
@@ -78,8 +96,8 @@ acpi_ps_get_next_package_length (
 
 	case 2: /* 3-byte encoding (next 2 bytes + bits 0-3) */
 
-		length = ((GET8 (parser_state->aml + 1) << 12) |
-				  (GET8 (parser_state->aml)    << 04) |
+		length = ((ACPI_GET8 (parser_state->aml + 1) << 12) |
+				  (ACPI_GET8 (parser_state->aml)    << 04) |
 				  (encoded_length & 0x0F));
 		parser_state->aml += 2;
 		break;
@@ -87,11 +105,16 @@ acpi_ps_get_next_package_length (
 
 	case 3: /* 4-byte encoding (next 3 bytes + bits 0-3) */
 
-		length = ((GET8 (parser_state->aml + 2) << 20) |
-				  (GET8 (parser_state->aml + 1) << 12) |
-				  (GET8 (parser_state->aml)    << 04) |
+		length = ((ACPI_GET8 (parser_state->aml + 2) << 20) |
+				  (ACPI_GET8 (parser_state->aml + 1) << 12) |
+				  (ACPI_GET8 (parser_state->aml)    << 04) |
 				  (encoded_length & 0x0F));
 		parser_state->aml += 3;
+		break;
+
+	default:
+
+		/* Can't get here, only 2 bits / 4 cases */
 		break;
 	}
 
@@ -101,9 +124,9 @@ acpi_ps_get_next_package_length (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_package_end
+ * FUNCTION:    acpi_ps_get_next_package_end
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *
  * RETURN:      Pointer to end-of-package +1
  *
@@ -114,16 +137,18 @@ acpi_ps_get_next_package_length (
 
 u8 *
 acpi_ps_get_next_package_end (
-	acpi_parse_state        *parser_state)
+	struct acpi_parse_state         *parser_state)
 {
-	u8                      *start = parser_state->aml;
-	NATIVE_UINT             length;
+	u8                              *start = parser_state->aml;
+	acpi_native_uint                length;
 
 
-	FUNCTION_TRACE ("Ps_get_next_package_end");
+	ACPI_FUNCTION_TRACE ("ps_get_next_package_end");
 
 
-	length = (NATIVE_UINT) acpi_ps_get_next_package_length (parser_state);
+	/* Function below changes parser_state->Aml */
+
+	length = (acpi_native_uint) acpi_ps_get_next_package_length (parser_state);
 
 	return_PTR (start + length); /* end of package */
 }
@@ -131,9 +156,9 @@ acpi_ps_get_next_package_end (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_namestring
+ * FUNCTION:    acpi_ps_get_next_namestring
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *
  * RETURN:      Pointer to the start of the name string (pointer points into
  *              the AML.
@@ -144,32 +169,31 @@ acpi_ps_get_next_package_end (
  *
  ******************************************************************************/
 
-NATIVE_CHAR *
+char *
 acpi_ps_get_next_namestring (
-	acpi_parse_state        *parser_state)
+	struct acpi_parse_state         *parser_state)
 {
-	u8                       *start = parser_state->aml;
-	u8                       *end = parser_state->aml;
-	u32                     length;
+	u8                              *start = parser_state->aml;
+	u8                              *end = parser_state->aml;
 
 
-	FUNCTION_TRACE ("Ps_get_next_namestring");
+	ACPI_FUNCTION_TRACE ("ps_get_next_namestring");
 
 
 	/* Handle multiple prefix characters */
 
-	while (acpi_ps_is_prefix_char (GET8 (end))) {
-		/* include prefix '\\' or '^' */
+	while (acpi_ps_is_prefix_char (ACPI_GET8 (end))) {
+		/* Include prefix '\\' or '^' */
 
 		end++;
 	}
 
 	/* Decode the path */
 
-	switch (GET8 (end)) {
+	switch (ACPI_GET8 (end)) {
 	case 0:
 
-		/* Null_name */
+		/* null_name */
 
 		if (end == start) {
 			start = NULL;
@@ -177,183 +201,77 @@ acpi_ps_get_next_namestring (
 		end++;
 		break;
 
-
 	case AML_DUAL_NAME_PREFIX:
 
-		/* two name segments */
+		/* Two name segments */
 
-		end += 9;
+		end += 1 + (2 * ACPI_NAME_SIZE);
 		break;
-
 
 	case AML_MULTI_NAME_PREFIX_OP:
 
-		/* multiple name segments */
+		/* Multiple name segments, 4 chars each */
 
-		length = (u32) GET8 (end + 1) * 4;
-		end += 2 + length;
+		end += 2 + ((acpi_size) ACPI_GET8 (end + 1) * ACPI_NAME_SIZE);
 		break;
-
 
 	default:
 
-		/* single name segment */
-		/* assert (Acpi_ps_is_lead (GET8 (End))); */
+		/* Single name segment */
 
-		end += 4;
+		end += ACPI_NAME_SIZE;
 		break;
 	}
 
 	parser_state->aml = (u8*) end;
-
-	return_PTR ((NATIVE_CHAR *) start);
+	return_PTR ((char *) start);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_namepath
+ * FUNCTION:    acpi_ps_get_next_namepath
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *              Arg                 - Where the namepath will be stored
- *              Arg_count           - If the namepath points to a control method
+ *              arg_count           - If the namepath points to a control method
  *                                    the method's argument is returned here.
- *              Method_call         - Whether the namepath can be the start
- *                                    of a method call
+ *              method_call         - Whether the namepath can possibly be the
+ *                                    start of a method call
  *
- * RETURN:      None
+ * RETURN:      Status
  *
- * DESCRIPTION: Get next name (if method call, push appropriate # args).  Names
- *              are looked up in either the parsed or internal namespace to
- *              determine if the name represents a control method.  If a method
+ * DESCRIPTION: Get next name (if method call, return # of required args).
+ *              Names are looked up in the internal namespace to determine
+ *              if the name represents a control method.  If a method
  *              is found, the number of arguments to the method is returned.
  *              This information is critical for parsing to continue correctly.
  *
  ******************************************************************************/
 
-
-#ifdef PARSER_ONLY
-
-void
+acpi_status
 acpi_ps_get_next_namepath (
-	acpi_parse_state        *parser_state,
-	acpi_parse_object       *arg,
-	u32                     *arg_count,
-	u8                      method_call)
+	struct acpi_walk_state          *walk_state,
+	struct acpi_parse_state         *parser_state,
+	union acpi_parse_object         *arg,
+	u8                              method_call)
 {
-	NATIVE_CHAR             *path;
-	acpi_parse_object       *name_op;
-	acpi_parse_object       *op;
-	acpi_parse_object       *count;
+	char                            *path;
+	union acpi_parse_object         *name_op;
+	acpi_status                     status = AE_OK;
+	union acpi_operand_object       *method_desc;
+	struct acpi_namespace_node      *node;
+	union acpi_generic_state        scope_info;
 
 
-	FUNCTION_TRACE ("Ps_get_next_namepath");
+	ACPI_FUNCTION_TRACE ("ps_get_next_namepath");
 
 
 	path = acpi_ps_get_next_namestring (parser_state);
-	if (!path || !method_call) {
-		/* Null name case, create a null namepath object */
 
-		acpi_ps_init_op (arg, AML_INT_NAMEPATH_OP);
-		arg->value.name = path;
-		return_VOID;
-	}
+	/* Null path case is allowed */
 
-
-	if (acpi_gbl_parsed_namespace_root) {
-		/*
-		 * Lookup the name in the parsed namespace
-		 */
-		op = NULL;
-		if (method_call) {
-			op = acpi_ps_find (acpi_ps_get_parent_scope (parser_state),
-					   path, AML_METHOD_OP, 0);
-		}
-
-		if (op) {
-			if (op->opcode == AML_METHOD_OP) {
-				/*
-				 * The name refers to a control method, so this namepath is a
-				 * method invocation.  We need to 1) Get the number of arguments
-				 * associated with this method, and 2) Change the NAMEPATH
-				 * object into a METHODCALL object.
-				 */
-				count = acpi_ps_get_arg (op, 0);
-				if (count && count->opcode == AML_BYTE_OP) {
-					name_op = acpi_ps_alloc_op (AML_INT_NAMEPATH_OP);
-					if (name_op) {
-						/* Change arg into a METHOD CALL and attach the name */
-
-						acpi_ps_init_op (arg, AML_INT_METHODCALL_OP);
-
-						name_op->value.name = path;
-
-						/* Point METHODCALL/NAME to the METHOD Node */
-
-						name_op->node = (acpi_namespace_node *) op;
-						acpi_ps_append_arg (arg, name_op);
-
-						*arg_count = (u32) count->value.integer &
-								 METHOD_FLAGS_ARG_COUNT;
-					}
-				}
-
-				return_VOID;
-			}
-
-			/*
-			 * Else this is normal named object reference.
-			 * Just init the NAMEPATH object with the pathname.
-			 * (See code below)
-			 */
-		}
-	}
-
-	/*
-	 * Either we didn't find the object in the namespace, or the object is
-	 * something other than a control method.  Just initialize the Op with the
-	 * pathname
-	 */
-	acpi_ps_init_op (arg, AML_INT_NAMEPATH_OP);
-	arg->value.name = path;
-
-
-	return_VOID;
-}
-
-
-#else
-
-
-void
-acpi_ps_get_next_namepath (
-	acpi_parse_state        *parser_state,
-	acpi_parse_object       *arg,
-	u32                     *arg_count,
-	u8                      method_call)
-{
-	NATIVE_CHAR             *path;
-	acpi_parse_object       *name_op;
-	acpi_status             status;
-	acpi_namespace_node     *method_node = NULL;
-	acpi_namespace_node     *node;
-	acpi_generic_state      scope_info;
-
-
-	FUNCTION_TRACE ("Ps_get_next_namepath");
-
-
-	path = acpi_ps_get_next_namestring (parser_state);
-	if (!path || !method_call) {
-		/* Null name case, create a null namepath object */
-
-		acpi_ps_init_op (arg, AML_INT_NAMEPATH_OP);
-		arg->value.name = path;
-		return_VOID;
-	}
-
-
-	if (method_call) {
+	if (path) {
 		/*
 		 * Lookup the name in the internal namespace
 		 */
@@ -369,36 +287,48 @@ acpi_ps_get_next_namepath (
 		 * parent tree, but don't open a new scope -- we just want to lookup the
 		 * object  (MUST BE mode EXECUTE to perform upsearch)
 		 */
-		status = acpi_ns_lookup (&scope_info, path, ACPI_TYPE_ANY, IMODE_EXECUTE,
-				 NS_SEARCH_PARENT | NS_DONT_OPEN_SCOPE, NULL,
-				 &node);
-		if (ACPI_SUCCESS (status)) {
+		status = acpi_ns_lookup (&scope_info, path, ACPI_TYPE_ANY, ACPI_IMODE_EXECUTE,
+				 ACPI_NS_SEARCH_PARENT | ACPI_NS_DONT_OPEN_SCOPE, NULL, &node);
+		if (ACPI_SUCCESS (status) && method_call) {
 			if (node->type == ACPI_TYPE_METHOD) {
-				method_node = node;
-				ACPI_DEBUG_PRINT ((ACPI_DB_PARSE, "method - %p Path=%p\n",
-					method_node, path));
+				/*
+				 * This name is actually a control method invocation
+				 */
+				method_desc = acpi_ns_get_attached_object (node);
+				ACPI_DEBUG_PRINT ((ACPI_DB_PARSE,
+					"Control Method - %p Desc %p Path=%p\n",
+					node, method_desc, path));
 
 				name_op = acpi_ps_alloc_op (AML_INT_NAMEPATH_OP);
-				if (name_op) {
-					/* Change arg into a METHOD CALL and attach name to it */
-
-					acpi_ps_init_op (arg, AML_INT_METHODCALL_OP);
-
-					name_op->value.name = path;
-
-					/* Point METHODCALL/NAME to the METHOD Node */
-
-					name_op->node = method_node;
-					acpi_ps_append_arg (arg, name_op);
-
-					if (!method_node->object) {
-						return_VOID;
-					}
-
-					*arg_count = (method_node->object)->method.param_count;
+				if (!name_op) {
+					return_ACPI_STATUS (AE_NO_MEMORY);
 				}
 
-				return_VOID;
+				/* Change arg into a METHOD CALL and attach name to it */
+
+				acpi_ps_init_op (arg, AML_INT_METHODCALL_OP);
+				name_op->common.value.name = path;
+
+				/* Point METHODCALL/NAME to the METHOD Node */
+
+				name_op->common.node = node;
+				acpi_ps_append_arg (arg, name_op);
+
+				if (!method_desc) {
+					ACPI_REPORT_ERROR ((
+						"ps_get_next_namepath: Control Method %p has no attached object\n",
+						node));
+					return_ACPI_STATUS (AE_AML_INTERNAL);
+				}
+
+				ACPI_DEBUG_PRINT ((ACPI_DB_PARSE,
+					"Control Method - %p Args %X\n",
+					node, method_desc->method.param_count));
+
+				/* Get the number of arguments to expect */
+
+				walk_state->arg_count = method_desc->method.param_count;
+				return_ACPI_STATUS (AE_OK);
 			}
 
 			/*
@@ -407,28 +337,53 @@ acpi_ps_get_next_namepath (
 			 * (See code below)
 			 */
 		}
+
+		if (ACPI_FAILURE (status)) {
+			/*
+			 * 1) Any error other than NOT_FOUND is always severe
+			 * 2) NOT_FOUND is only important if we are executing a method.
+			 * 3) If executing a cond_ref_of opcode, NOT_FOUND is ok.
+			 */
+			if ((((walk_state->parse_flags & ACPI_PARSE_MODE_MASK) == ACPI_PARSE_EXECUTE) &&
+				(status == AE_NOT_FOUND)                                                &&
+				(walk_state->op->common.aml_opcode != AML_COND_REF_OF_OP)) ||
+
+				(status != AE_NOT_FOUND)) {
+				ACPI_REPORT_NSERROR (path, status);
+
+				acpi_os_printf ("search_node %p start_node %p return_node %p\n",
+					scope_info.scope.node, parser_state->start_node, node);
+
+
+			}
+			else {
+				/*
+				 * We got a NOT_FOUND during table load or we encountered
+				 * a cond_ref_of(x) where the target does not exist.
+				 * -- either case is ok
+				 */
+				status = AE_OK;
+			}
+		}
 	}
 
 	/*
-	 * Either we didn't find the object in the namespace, or the object is
-	 * something other than a control method.  Just initialize the Op with the
-	 * pathname.
+	 * Regardless of success/failure above,
+	 * Just initialize the Op with the pathname.
 	 */
 	acpi_ps_init_op (arg, AML_INT_NAMEPATH_OP);
-	arg->value.name = path;
+	arg->common.value.name = path;
 
-
-	return_VOID;
+	return_ACPI_STATUS (status);
 }
 
-#endif
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_simple_arg
+ * FUNCTION:    acpi_ps_get_next_simple_arg
  *
- * PARAMETERS:  Parser_state        - Current parser state object
- *              Arg_type            - The argument type (AML_*_ARG)
+ * PARAMETERS:  parser_state        - Current parser state object
+ *              arg_type            - The argument type (AML_*_ARG)
  *              Arg                 - Where the argument is returned
  *
  * RETURN:      None
@@ -439,20 +394,19 @@ acpi_ps_get_next_namepath (
 
 void
 acpi_ps_get_next_simple_arg (
-	acpi_parse_state        *parser_state,
-	u32                     arg_type,
-	acpi_parse_object       *arg)
+	struct acpi_parse_state         *parser_state,
+	u32                             arg_type,
+	union acpi_parse_object         *arg)
 {
 
-	FUNCTION_TRACE_U32 ("Ps_get_next_simple_arg", arg_type);
+	ACPI_FUNCTION_TRACE_U32 ("ps_get_next_simple_arg", arg_type);
 
 
 	switch (arg_type) {
-
 	case ARGP_BYTEDATA:
 
 		acpi_ps_init_op (arg, AML_BYTE_OP);
-		arg->value.integer = (u32) GET8 (parser_state->aml);
+		arg->common.value.integer = (u32) ACPI_GET8 (parser_state->aml);
 		parser_state->aml++;
 		break;
 
@@ -463,7 +417,7 @@ acpi_ps_get_next_simple_arg (
 
 		/* Get 2 bytes from the AML stream */
 
-		MOVE_UNALIGNED16_TO_32 (&arg->value.integer, parser_state->aml);
+		ACPI_MOVE_16_TO_32 (&arg->common.value.integer, parser_state->aml);
 		parser_state->aml += 2;
 		break;
 
@@ -474,7 +428,7 @@ acpi_ps_get_next_simple_arg (
 
 		/* Get 4 bytes from the AML stream */
 
-		MOVE_UNALIGNED32_TO_32 (&arg->value.integer, parser_state->aml);
+		ACPI_MOVE_32_TO_32 (&arg->common.value.integer, parser_state->aml);
 		parser_state->aml += 4;
 		break;
 
@@ -485,7 +439,7 @@ acpi_ps_get_next_simple_arg (
 
 		/* Get 8 bytes from the AML stream */
 
-		MOVE_UNALIGNED64_TO_64 (&arg->value.integer, parser_state->aml);
+		ACPI_MOVE_64_TO_64 (&arg->common.value.integer, parser_state->aml);
 		parser_state->aml += 8;
 		break;
 
@@ -493,9 +447,9 @@ acpi_ps_get_next_simple_arg (
 	case ARGP_CHARLIST:
 
 		acpi_ps_init_op (arg, AML_STRING_OP);
-		arg->value.string = (char*) parser_state->aml;
+		arg->common.value.string = (char *) parser_state->aml;
 
-		while (GET8 (parser_state->aml) != '\0') {
+		while (ACPI_GET8 (parser_state->aml) != '\0') {
 			parser_state->aml++;
 		}
 		parser_state->aml++;
@@ -506,7 +460,13 @@ acpi_ps_get_next_simple_arg (
 	case ARGP_NAMESTRING:
 
 		acpi_ps_init_op (arg, AML_INT_NAMEPATH_OP);
-		arg->value.name = acpi_ps_get_next_namestring (parser_state);
+		arg->common.value.name = acpi_ps_get_next_namestring (parser_state);
+		break;
+
+
+	default:
+
+		ACPI_REPORT_ERROR (("Invalid arg_type %X\n", arg_type));
 		break;
 	}
 
@@ -516,46 +476,43 @@ acpi_ps_get_next_simple_arg (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_field
+ * FUNCTION:    acpi_ps_get_next_field
  *
- * PARAMETERS:  Parser_state        - Current parser state object
+ * PARAMETERS:  parser_state        - Current parser state object
  *
  * RETURN:      A newly allocated FIELD op
  *
- * DESCRIPTION: Get next field (Named_field, Reserved_field, or Access_field)
+ * DESCRIPTION: Get next field (named_field, reserved_field, or access_field)
  *
  ******************************************************************************/
 
-acpi_parse_object *
+union acpi_parse_object *
 acpi_ps_get_next_field (
-	acpi_parse_state        *parser_state)
+	struct acpi_parse_state         *parser_state)
 {
-	u32                     aml_offset = parser_state->aml -
-			 parser_state->aml_start;
-	acpi_parse_object       *field;
-	u16                     opcode;
-	u32                     name;
+	u32                             aml_offset = (u32) ACPI_PTR_DIFF (parser_state->aml,
+			 parser_state->aml_start);
+	union acpi_parse_object         *field;
+	u16                             opcode;
+	u32                             name;
 
 
-	FUNCTION_TRACE ("Ps_get_next_field");
+	ACPI_FUNCTION_TRACE ("ps_get_next_field");
 
 
 	/* determine field type */
 
-	switch (GET8 (parser_state->aml)) {
-
+	switch (ACPI_GET8 (parser_state->aml)) {
 	default:
 
 		opcode = AML_INT_NAMEDFIELD_OP;
 		break;
-
 
 	case 0x00:
 
 		opcode = AML_INT_RESERVEDFIELD_OP;
 		parser_state->aml++;
 		break;
-
 
 	case 0x01:
 
@@ -568,43 +525,53 @@ acpi_ps_get_next_field (
 	/* Allocate a new field op */
 
 	field = acpi_ps_alloc_op (opcode);
-	if (field) {
-		field->aml_offset = aml_offset;
+	if (!field) {
+		return_PTR (NULL);
+	}
 
-		/* Decode the field type */
+	field->common.aml_offset = aml_offset;
 
-		switch (opcode) {
-		case AML_INT_NAMEDFIELD_OP:
+	/* Decode the field type */
 
-			/* Get the 4-character name */
+	switch (opcode) {
+	case AML_INT_NAMEDFIELD_OP:
 
-			MOVE_UNALIGNED32_TO_32 (&name, parser_state->aml);
-			acpi_ps_set_name (field, name);
-			parser_state->aml += 4;
+		/* Get the 4-character name */
 
-			/* Get the length which is encoded as a package length */
+		ACPI_MOVE_32_TO_32 (&name, parser_state->aml);
+		acpi_ps_set_name (field, name);
+		parser_state->aml += ACPI_NAME_SIZE;
 
-			field->value.size = acpi_ps_get_next_package_length (parser_state);
-			break;
+		/* Get the length which is encoded as a package length */
 
-
-		case AML_INT_RESERVEDFIELD_OP:
-
-			/* Get the length which is encoded as a package length */
-
-			field->value.size = acpi_ps_get_next_package_length (parser_state);
-			break;
+		field->common.value.size = acpi_ps_get_next_package_length (parser_state);
+		break;
 
 
-		case AML_INT_ACCESSFIELD_OP:
+	case AML_INT_RESERVEDFIELD_OP:
 
-			/* Get Access_type and Access_atrib and merge into the field Op */
+		/* Get the length which is encoded as a package length */
 
-			field->value.integer = ((GET8 (parser_state->aml) << 8) |
-					  GET8 (parser_state->aml));
-			parser_state->aml += 2;
-			break;
-		}
+		field->common.value.size = acpi_ps_get_next_package_length (parser_state);
+		break;
+
+
+	case AML_INT_ACCESSFIELD_OP:
+
+		/*
+		 * Get access_type and access_attrib and merge into the field Op
+		 * access_type is first operand, access_attribute is second
+		 */
+		field->common.value.integer = (ACPI_GET8 (parser_state->aml) << 8);
+		parser_state->aml++;
+		field->common.value.integer |= ACPI_GET8 (parser_state->aml);
+		parser_state->aml++;
+		break;
+
+	default:
+
+		/* Opcode was set in previous switch */
+		break;
 	}
 
 	return_PTR (field);
@@ -613,33 +580,35 @@ acpi_ps_get_next_field (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ps_get_next_arg
+ * FUNCTION:    acpi_ps_get_next_arg
  *
- * PARAMETERS:  Parser_state        - Current parser state object
- *              Arg_type            - The argument type (AML_*_ARG)
- *              Arg_count           - If the argument points to a control method
+ * PARAMETERS:  parser_state        - Current parser state object
+ *              arg_type            - The argument type (AML_*_ARG)
+ *              arg_count           - If the argument points to a control method
  *                                    the method's argument is returned here.
  *
- * RETURN:      An op object containing the next argument.
+ * RETURN:      Status, and an op object containing the next argument.
  *
  * DESCRIPTION: Get next argument (including complex list arguments that require
  *              pushing the parser stack)
  *
  ******************************************************************************/
 
-acpi_parse_object *
+acpi_status
 acpi_ps_get_next_arg (
-	acpi_parse_state        *parser_state,
-	u32                     arg_type,
-	u32                     *arg_count)
+	struct acpi_walk_state          *walk_state,
+	struct acpi_parse_state         *parser_state,
+	u32                             arg_type,
+	union acpi_parse_object         **return_arg)
 {
-	acpi_parse_object       *arg = NULL;
-	acpi_parse_object       *prev = NULL;
-	acpi_parse_object       *field;
-	u32                     subop;
+	union acpi_parse_object         *arg = NULL;
+	union acpi_parse_object         *prev = NULL;
+	union acpi_parse_object         *field;
+	u32                             subop;
+	acpi_status                     status = AE_OK;
 
 
-	FUNCTION_TRACE_PTR ("Ps_get_next_arg", parser_state);
+	ACPI_FUNCTION_TRACE_PTR ("ps_get_next_arg", parser_state);
 
 
 	switch (arg_type) {
@@ -653,15 +622,16 @@ acpi_ps_get_next_arg (
 		/* constants, strings, and namestrings are all the same size */
 
 		arg = acpi_ps_alloc_op (AML_BYTE_OP);
-		if (arg) {
-			acpi_ps_get_next_simple_arg (parser_state, arg_type, arg);
+		if (!arg) {
+			return_ACPI_STATUS (AE_NO_MEMORY);
 		}
+		acpi_ps_get_next_simple_arg (parser_state, arg_type, arg);
 		break;
 
 
 	case ARGP_PKGLENGTH:
 
-		/* package length, nothing returned */
+		/* Package length, nothing returned */
 
 		parser_state->pkg_end = acpi_ps_get_next_package_end (parser_state);
 		break;
@@ -670,18 +640,17 @@ acpi_ps_get_next_arg (
 	case ARGP_FIELDLIST:
 
 		if (parser_state->aml < parser_state->pkg_end) {
-			/* non-empty list */
+			/* Non-empty list */
 
 			while (parser_state->aml < parser_state->pkg_end) {
 				field = acpi_ps_get_next_field (parser_state);
 				if (!field) {
-					break;
+					return_ACPI_STATUS (AE_NO_MEMORY);
 				}
 
 				if (prev) {
-					prev->next = field;
+					prev->common.next = field;
 				}
-
 				else {
 					arg = field;
 				}
@@ -689,7 +658,7 @@ acpi_ps_get_next_arg (
 				prev = field;
 			}
 
-			/* skip to End of byte data */
+			/* Skip to End of byte data */
 
 			parser_state->aml = parser_state->pkg_end;
 		}
@@ -699,17 +668,20 @@ acpi_ps_get_next_arg (
 	case ARGP_BYTELIST:
 
 		if (parser_state->aml < parser_state->pkg_end) {
-			/* non-empty list */
+			/* Non-empty list */
 
 			arg = acpi_ps_alloc_op (AML_INT_BYTELIST_OP);
-			if (arg) {
-				/* fill in bytelist data */
-
-				arg->value.size = (parser_state->pkg_end - parser_state->aml);
-				((acpi_parse2_object *) arg)->data = parser_state->aml;
+			if (!arg) {
+				return_ACPI_STATUS (AE_NO_MEMORY);
 			}
 
-			/* skip to End of byte data */
+			/* Fill in bytelist data */
+
+			arg->common.value.size = (u32) ACPI_PTR_DIFF (parser_state->pkg_end,
+					  parser_state->aml);
+			arg->named.data = parser_state->aml;
+
+			/* Skip to End of byte data */
 
 			parser_state->aml = parser_state->pkg_end;
 		}
@@ -717,24 +689,26 @@ acpi_ps_get_next_arg (
 
 
 	case ARGP_TARGET:
-	case ARGP_SUPERNAME: {
-			subop = acpi_ps_peek_opcode (parser_state);
-			if (subop == 0              ||
-				acpi_ps_is_leading_char (subop) ||
-				acpi_ps_is_prefix_char (subop)) {
-				/* Null_name or Name_string */
+	case ARGP_SUPERNAME:
+	case ARGP_SIMPLENAME:
 
-				arg = acpi_ps_alloc_op (AML_INT_NAMEPATH_OP);
-				if (arg) {
-					acpi_ps_get_next_namepath (parser_state, arg, arg_count, 0);
-				}
+		subop = acpi_ps_peek_opcode (parser_state);
+		if (subop == 0                  ||
+			acpi_ps_is_leading_char (subop) ||
+			acpi_ps_is_prefix_char (subop)) {
+			/* null_name or name_string */
+
+			arg = acpi_ps_alloc_op (AML_INT_NAMEPATH_OP);
+			if (!arg) {
+				return_ACPI_STATUS (AE_NO_MEMORY);
 			}
 
-			else {
-				/* single complex argument, nothing returned */
+			status = acpi_ps_get_next_namepath (walk_state, parser_state, arg, 0);
+		}
+		else {
+			/* single complex argument, nothing returned */
 
-				*arg_count = 1;
-			}
+			walk_state->arg_count = 1;
 		}
 		break;
 
@@ -744,7 +718,7 @@ acpi_ps_get_next_arg (
 
 		/* single complex argument, nothing returned */
 
-		*arg_count = 1;
+		walk_state->arg_count = 1;
 		break;
 
 
@@ -755,10 +729,18 @@ acpi_ps_get_next_arg (
 		if (parser_state->aml < parser_state->pkg_end) {
 			/* non-empty list of variable arguments, nothing returned */
 
-			*arg_count = ACPI_VAR_ARGS;
+			walk_state->arg_count = ACPI_VAR_ARGS;
 		}
+		break;
+
+
+	default:
+
+		ACPI_REPORT_ERROR (("Invalid arg_type: %X\n", arg_type));
+		status = AE_AML_OPERAND_TYPE;
 		break;
 	}
 
-	return_PTR (arg);
+	*return_arg = arg;
+	return_ACPI_STATUS (status);
 }

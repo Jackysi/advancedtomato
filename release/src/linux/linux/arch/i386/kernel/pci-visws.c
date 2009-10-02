@@ -108,11 +108,18 @@ void __init pcibios_fixup_bus(struct pci_bus *b)
 	pci_read_bridge_bases(b);
 }
 
+#if 0
+static struct resource visws_pci_bus_resources[2] = {
+	{ "Host bus 1", 0xf4000000, 0xf7ffffff, 0 },
+	{ "Host bus 2", 0xf0000000, 0xf3ffffff, 0 }
+};
+#endif
 
 void __init pcibios_init(void)
 {
 	unsigned int sec_bus = li_pcib_read16(LI_PCI_BUSNUM) & 0xff;
 
+	pcibios_set_cacheline_size();
 	printk("PCI: Probing PCI hardware on host buses 00 and %02x\n", sec_bus);
 	pci_scan_bus(0, &visws_pci_ops, NULL);
 	pci_scan_bus(sec_bus, &visws_pci_ops, NULL);

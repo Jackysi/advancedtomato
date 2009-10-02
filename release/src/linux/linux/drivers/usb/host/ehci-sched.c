@@ -402,7 +402,7 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 		qh->start = frame;
 
 		/* reset S-frame and (maybe) C-frame masks */
-		qh->hw_info2 &= ~0xffff;
+		qh->hw_info2 &= ~__constant_cpu_to_le32(0xffff);
 		qh->hw_info2 |= cpu_to_le32 (1 << uframe) | c_mask;
 	} else
 		dbg ("reused previous qh %p schedule", qh);
@@ -888,7 +888,7 @@ itd_stream_schedule (
 				stream->rescheduled++;
 				pr_debug ("ehci %s devpath %d "
 					"iso%d%s %d.%d skip %d.%d\n",
-					ehci->pdev->slot_name,
+					ehci->hcd.pdev->slot_name,
 					urb->dev->devpath,
 					stream->bEndpointAddress & 0x0f,
 					(stream->bEndpointAddress & USB_DIR_IN)

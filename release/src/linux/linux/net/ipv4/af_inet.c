@@ -5,7 +5,7 @@
  *
  *		PF_INET protocol family socket handler.
  *
- * Version:	$Id: af_inet.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * Version:	$Id: af_inet.c,v 1.136 2001/11/06 22:21:08 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -470,7 +470,7 @@ int inet_release(struct socket *sock)
 /* It is off by default, see below. */
 int sysctl_ip_nonlocal_bind;
 
-static int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 {
 	struct sockaddr_in *addr=(struct sockaddr_in *)uaddr;
 	struct sock *sk=sock->sk;
@@ -703,7 +703,7 @@ do_err:
  *	This does both peername and sockname.
  */
  
-static int inet_getname(struct socket *sock, struct sockaddr *uaddr,
+int inet_getname(struct socket *sock, struct sockaddr *uaddr,
 		 int *uaddr_len, int peer)
 {
 	struct sock *sk		= sock->sk;
@@ -724,6 +724,7 @@ static int inet_getname(struct socket *sock, struct sockaddr *uaddr,
 		sin->sin_port = sk->sport;
 		sin->sin_addr.s_addr = addr;
 	}
+	memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
 	*uaddr_len = sizeof(*sin);
 	return(0);
 }
@@ -820,7 +821,7 @@ int inet_shutdown(struct socket *sock, int how)
  *	There's a good 20K of config code hanging around the kernel.
  */
 
-static int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	struct sock *sk = sock->sk;
 	int err;
@@ -972,6 +973,27 @@ struct proto_ops inet_dgram_ops = {
 	socketpair:	sock_no_socketpair,
 	accept:		sock_no_accept,
 	getname:	inet_getname, 
+	poll:		udp_poll,
+	ioctl:		inet_ioctl,
+	listen:		sock_no_listen,
+	shutdown:	inet_shutdown,
+	setsockopt:	inet_setsockopt,
+	getsockopt:	inet_getsockopt,
+	sendmsg:	inet_sendmsg,
+	recvmsg:	inet_recvmsg,
+	mmap:		sock_no_mmap,
+	sendpage:	sock_no_sendpage,
+};
+
+struct proto_ops inet_sockraw_ops = {
+	family:		PF_INET,
+
+	release:	inet_release,
+	bind:		inet_bind,
+	connect:	inet_dgram_connect,
+	socketpair:	sock_no_socketpair,
+	accept:		sock_no_accept,
+	getname:	inet_getname, 
 	poll:		datagram_poll,
 	ioctl:		inet_ioctl,
 	listen:		sock_no_listen,
@@ -1023,7 +1045,7 @@ static struct inet_protosw inetsw_array[] =
                type:        SOCK_RAW,
                protocol:    IPPROTO_IP,	/* wild card */
                prot:        &raw_prot,
-               ops:         &inet_dgram_ops,
+               ops:         &inet_sockraw_ops,
                capability:  CAP_NET_RAW,
                no_check:    UDP_CSUM_DEFAULT,
                flags:       INET_PROTOSW_REUSE,
@@ -1038,32 +1060,38 @@ inet_register_protosw(struct inet_protosw *p)
 	struct list_head *lh;
 	struct inet_protosw *answer;
 	int protocol = p->protocol;
+	struct list_head *last_perm;
 
 	br_write_lock_bh(BR_NETPROTO_LOCK);
 
-	if (p->type > SOCK_MAX)
+	if (p->type >= SOCK_MAX)
 		goto out_illegal;
 
 	/* If we are trying to override a permanent protocol, bail. */
 	answer = NULL;
+	last_perm = &inetsw[p->type];
 	list_for_each(lh, &inetsw[p->type]) {
 		answer = list_entry(lh, struct inet_protosw, list);
 
 		/* Check only the non-wild match. */
-		if (protocol == answer->protocol &&
-		    (INET_PROTOSW_PERMANENT & answer->flags))
-			break;
+		if (INET_PROTOSW_PERMANENT & answer->flags) {
+			if (protocol == answer->protocol)
+				break;
+			last_perm = lh;
+		}
 
 		answer = NULL;
 	}
 	if (answer)
 		goto out_permanent;
 
-	/* Add to the BEGINNING so that we override any existing
-	 * entry.  This means that when we remove this entry, the
+	/* Add the new entry after the last permanent entry if any, so that
+	 * the new entry does not override a permanent entry when matched with
+	 * a wild-card protocol. But it is allowed to override any existing
+	 * non-permanent entry.  This means that when we remove this entry, the 
 	 * system automatically returns to the old behavior.
 	 */
-	list_add(&p->list, &inetsw[p->type]);
+	list_add(&p->list, last_perm);
 out:
 	br_write_unlock_bh(BR_NETPROTO_LOCK);
 	return;
@@ -1094,6 +1122,7 @@ inet_unregister_protosw(struct inet_protosw *p)
 	}
 }
 
+extern void ipfrag_init(void);
 
 /*
  *	Called by socket.c on kernel startup.  
@@ -1190,6 +1219,9 @@ static int __init inet_init(void)
 	proc_net_create ("tcp", 0, tcp_get_info);
 	proc_net_create ("udp", 0, udp_get_info);
 #endif		/* CONFIG_PROC_FS */
+
+	ipfrag_init();
+
 	return 0;
 }
 module_init(inet_init);

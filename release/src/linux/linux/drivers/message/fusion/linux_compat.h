@@ -11,6 +11,11 @@
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 
+
+#if (defined(__sparc__) && defined(__sparc_v9__)) || defined(__x86_64__)
+#define MPT_CONFIG_COMPAT
+#endif
+
 #ifndef rwlock_init
 #define rwlock_init(x) do { *(x) = RW_LOCK_UNLOCKED; } while(0)
 #endif
@@ -75,11 +80,11 @@ typedef int (*__init_module_func_t)(void);
 typedef void (*__cleanup_module_func_t)(void);
 #define module_init(x) \
 	int init_module(void) __attribute__((alias(#x))); \
-	extern inline __init_module_func_t __init_module_inline(void) \
+	static inline __init_module_func_t __init_module_inline(void) \
 	{ return x; }
 #define module_exit(x) \
 	void cleanup_module(void) __attribute__((alias(#x))); \
-	extern inline __cleanup_module_func_t __cleanup_module_inline(void) \
+	static inline __cleanup_module_func_t __cleanup_module_inline(void) \
 	{ return x; }
 
 #else
@@ -93,7 +98,7 @@ typedef void (*__cleanup_module_func_t)(void);
  * Used prior to schedule_timeout calls..
  */
 #define __set_current_state(state_value)	do { current->state = state_value; } while (0)
-#ifdef __SMP__
+#ifdef CONFIG_SMP
 #define set_current_state(state_value)		do { __set_current_state(state_value); mb(); } while (0)
 #else
 #define set_current_state(state_value)		__set_current_state(state_value)
@@ -116,6 +121,10 @@ typedef void (*__cleanup_module_func_t)(void);
 	struct wait_queue (name) = { (task), NULL }
 
 #if defined(__sparc__) && defined(__sparc_v9__)
+/* The sparc64 ioremap implementation is wrong in 2.2.x,
+ * but fixing it would break all of the drivers which
+ * workaround it.  Fixed in 2.3.x onward. -DaveM
+ */
 #define ARCH_IOREMAP(base)	((unsigned long) (base))
 #else
 #define ARCH_IOREMAP(base)	ioremap(base)
@@ -242,11 +251,40 @@ static __inline__ int __get_order(unsigned long size)
 #endif
 
 /*
- *  We use our new error handling code if the kernel version is 2.5.1 or newer.
+ *  We use our new error handling code if the kernel version is 2.4.18 or newer.
+ *  Remark: 5/5/03 use old EH code with 2.4 kernels as it runs in a background thread
+ *  2.4 kernels choke on a call to schedule via eh thread.
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1)
         #define MPT_SCSI_USE_NEW_EH
 #endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,41)
+#define mpt_work_struct work_struct
+#define MPT_INIT_WORK(_task, _func, _data) INIT_WORK(_task, _func, _data)
+#else
+#define mpt_work_struct tq_struct
+#define MPT_INIT_WORK(_task, _func, _data) \
+({	(_task)->sync = 0; \
+	(_task)->routine = (_func); \
+	(_task)->data = (void *) (_data); \
+})
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,28)
+#define mpt_sync_irq(_irq) synchronize_irq(_irq)
+#else
+#define mpt_sync_irq(_irq) synchronize_irq()
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,58)
+#define mpt_inc_use_count()
+#define mpt_dec_use_count()
+#else
+#define mpt_inc_use_count() MOD_INC_USE_COUNT
+#define mpt_dec_use_count() MOD_DEC_USE_COUNT
+#endif
+
 
 /*}-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 #endif /* _LINUX_COMPAT_H */

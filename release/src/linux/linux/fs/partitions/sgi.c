@@ -17,6 +17,11 @@
 #include "check.h"
 #include "sgi.h"
 
+#if CONFIG_BLK_DEV_MD
+extern void md_autodetect_dev(kdev_t dev);
+#endif
+
+
 int sgi_partition(struct gendisk *hd, struct block_device *bdev, unsigned long first_sector, int current_minor)
 {
 	int i, csum, magic;
@@ -77,6 +82,10 @@ int sgi_partition(struct gendisk *hd, struct block_device *bdev, unsigned long f
 		if(!blocks)
 			continue;
 		add_gd_partition(hd, current_minor, start, blocks);
+#ifdef CONFIG_BLK_DEV_MD
+		if (be32_to_cpu(p->type) == LINUX_RAID_PARTITION)
+			md_autodetect_dev(MKDEV(hd->major, current_minor));
+#endif
 		current_minor++;
 	}
 	printk("\n");

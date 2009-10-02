@@ -17,6 +17,8 @@
 #include <linux/console.h>
 #include <linux/bootmem.h>
 #include <linux/seq_file.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 #include <linux/init.h>
 
 #include <asm/elf.h>
@@ -33,10 +35,6 @@
 #define MEM_SIZE	(16*1024*1024)
 #endif
 
-#ifndef CONFIG_CMDLINE
-#define CONFIG_CMDLINE ""
-#endif
-
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
 
@@ -51,14 +49,14 @@ __setup("fpe=", fpe_setup);
 
 extern unsigned int mem_fclk_21285;
 extern void paging_init(struct meminfo *, struct machine_desc *desc);
-extern void convert_to_tag_list(struct param_struct *params, int mem_init);
+extern void convert_to_tag_list(struct tag *tags);
+extern void squash_mem_tags(struct tag *tag);
 extern void bootmem_init(struct meminfo *);
 extern void reboot_setup(char *str);
 extern int root_mountflags;
 extern int _stext, _text, _etext, _edata, _end;
 
 unsigned int processor_id;
-unsigned int compat;
 unsigned int __machine_arch_type;
 unsigned int system_rev;
 unsigned int system_serial_low;
@@ -72,9 +70,11 @@ struct processor processor;
 unsigned char aux_device_present;
 char elf_platform[ELF_PLATFORM_SIZE];
 char saved_command_line[COMMAND_LINE_SIZE];
+unsigned long phys_initrd_start __initdata = 0;
+unsigned long phys_initrd_size __initdata = 0;
 
 static struct meminfo meminfo __initdata = { 0, };
-static struct proc_info_item proc_info;
+static const char *cpu_name;
 static const char *machine_name;
 static char command_line[COMMAND_LINE_SIZE];
 
@@ -129,15 +129,13 @@ static void __init setup_processor(void)
 		while (1);
 	}
 
-	proc_info = *list->info;
+	cpu_name = list->info->cpu_name;
 
 #ifdef MULTI_CPU
 	processor = *list->proc;
 #endif
 
-	printk("Processor: %s %s revision %d\n",
-	       proc_info.manufacturer, proc_info.cpu_name,
-	       (int)processor_id & 15);
+	printk("CPU: %s revision %d\n", cpu_name, (int)processor_id & 15);
 
 	sprintf(system_utsname.machine, "%s%c", list->arch_name, ENDIANNESS);
 	sprintf(elf_platform, "%s%c", list->elf_name, ENDIANNESS);
@@ -146,7 +144,7 @@ static void __init setup_processor(void)
 	cpu_proc_init();
 }
 
-static struct machine_desc * __init setup_architecture(unsigned int nr)
+static struct machine_desc * __init setup_machine(unsigned int nr)
 {
 	extern struct machine_desc __arch_info_begin, __arch_info_end;
 	struct machine_desc *list;
@@ -168,12 +166,7 @@ static struct machine_desc * __init setup_architecture(unsigned int nr)
 		while (1);
 	}
 
-	printk("Architecture: %s\n", list->name);
-	if (compat)
-		printk(KERN_WARNING "Using compatibility code "
-			"scheduled for removal in v%d.%d.%d\n",
-			compat >> 24, (compat >> 12) & 0x3ff,
-			compat & 0x3ff);
+	printk("Machine: %s\n", list->name);
 
 	return list;
 }
@@ -215,6 +208,22 @@ parse_cmdline(struct meminfo *mi, char **cmdline_p, char *from)
 			mi->bank[mi->nr_banks].size  = size;
 			mi->bank[mi->nr_banks].node  = PHYS_TO_NID(start);
 			mi->nr_banks += 1;
+		} else if (c == ' ' && !memcmp(from, "initrd=", 7)) {
+			unsigned long start, size;
+
+			/*
+			 * Remove space character
+			 */
+			if (to != command_line)
+				to -= 1;
+
+			start = memparse(from + 7, &from);
+			if (*from == ',') {
+				size = memparse(from + 1, &from);
+
+				phys_initrd_start = start;
+				phys_initrd_size = size;
+			}
 		}
 		c = *from++;
 		if (!c)
@@ -231,7 +240,7 @@ void __init
 setup_ramdisk(int doload, int prompt, int image_start, unsigned int rd_sz)
 {
 #ifdef CONFIG_BLK_DEV_RAM
-	extern int rd_size;
+	extern int rd_size, rd_image_start, rd_prompt, rd_doload;
 
 	rd_image_start = image_start;
 	rd_prompt = prompt;
@@ -250,8 +259,8 @@ void __init setup_initrd(unsigned int start, unsigned int size)
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (start == 0)
 		size = 0;
-	initrd_start = start;
-	initrd_end   = start + size;
+	phys_initrd_start = __virt_to_phys(start);
+	phys_initrd_size = size;
 #endif
 }
 
@@ -351,12 +360,12 @@ __tagtable(ATAG_MEM, parse_tag_mem32);
 
 #if defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_DUMMY_CONSOLE)
 struct screen_info screen_info = {
- orig_video_lines:	30,
- orig_video_cols:	80,
- orig_video_mode:	0,
- orig_video_ega_bx:	0,
- orig_video_isVGA:	1,
- orig_video_points:	8
+ .orig_video_lines	= 30,
+ .orig_video_cols	= 80,
+ .orig_video_mode	= 0,
+ .orig_video_ega_bx	= 0,
+ .orig_video_isVGA	= 1,
+ .orig_video_points	= 8
 };
 
 static int __init parse_tag_videotext(const struct tag *tag)
@@ -388,11 +397,21 @@ __tagtable(ATAG_RAMDISK, parse_tag_ramdisk);
 
 static int __init parse_tag_initrd(const struct tag *tag)
 {
-	setup_initrd(tag->u.initrd.start, tag->u.initrd.size);
+	phys_initrd_start = __virt_to_phys(tag->u.initrd.start);
+	phys_initrd_size = tag->u.initrd.size;
 	return 0;
 }
 
 __tagtable(ATAG_INITRD, parse_tag_initrd);
+
+static int __init parse_tag_initrd2(const struct tag *tag)
+{
+	phys_initrd_start = tag->u.initrd.start;
+	phys_initrd_size = tag->u.initrd.size;
+	return 0;
+}
+
+__tagtable(ATAG_INITRD2, parse_tag_initrd2);
 
 static int __init parse_tag_serialnr(const struct tag *tag)
 {
@@ -452,16 +471,30 @@ static void __init parse_tags(const struct tag *t)
 				t->hdr.tag);
 }
 
+static struct init_tags {
+	struct tag_header hdr1;
+	struct tag_core   core;
+	struct tag_header hdr2;
+	struct tag_mem32  mem;
+	struct tag_header hdr3;
+} init_tags __initdata = {
+	{ tag_size(tag_core), ATAG_CORE },
+	{ 1, PAGE_SIZE, 0xff },
+	{ tag_size(tag_mem32), ATAG_MEM },
+	{ MEM_SIZE, PHYS_OFFSET },
+	{ 0, ATAG_NONE }
+};
+
 void __init setup_arch(char **cmdline_p)
 {
-	struct tag *tags = NULL;
+	struct tag *tags = (struct tag *)&init_tags;
 	struct machine_desc *mdesc;
 	char *from = default_command_line;
 
 	ROOT_DEV = MKDEV(0, 255);
 
 	setup_processor();
-	mdesc = setup_architecture(machine_arch_type);
+	mdesc = setup_machine(machine_arch_type);
 	machine_name = mdesc->name;
 
 	if (mdesc->soft_reboot)
@@ -480,14 +513,16 @@ void __init setup_arch(char **cmdline_p)
 
 	/*
 	 * If we have the old style parameters, convert them to
-	 * a tag list before.
+	 * a tag list.
 	 */
-	if (tags && tags->hdr.tag != ATAG_CORE)
-		convert_to_tag_list((struct param_struct *)tags,
-				    meminfo.nr_banks == 0);
+	if (tags->hdr.tag != ATAG_CORE)
+		convert_to_tag_list(tags);
 
-	if (tags && tags->hdr.tag == ATAG_CORE)
+	if (tags->hdr.tag == ATAG_CORE) {
+		if (meminfo.nr_banks != 0)
+			squash_mem_tags(tags);
 		parse_tags(tags);
+	}
 
 	if (meminfo.nr_banks == 0) {
 		meminfo.nr_banks      = 1;
@@ -537,9 +572,8 @@ static int c_show(struct seq_file *m, void *v)
 {
 	int i;
 
-	seq_printf(m, "Processor\t: %s %s rev %d (%s)\n",
-		   proc_info.manufacturer, proc_info.cpu_name,
-		   (int)processor_id & 15, elf_platform);
+	seq_printf(m, "Processor\t: %s rev %d (%s)\n",
+		   cpu_name, (int)processor_id & 15, elf_platform);
 
 	seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
 		   loops_per_jiffy / (500000/HZ),
@@ -578,8 +612,8 @@ static void c_stop(struct seq_file *m, void *v)
 }
 
 struct seq_operations cpuinfo_op = {
-	start:	c_start,
-	next:	c_next,
-	stop:	c_stop,
-	show:	c_show
+	.start	= c_start,
+	.next	= c_next,
+	.stop	= c_stop,
+	.show	= c_show
 };

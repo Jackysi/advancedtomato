@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2004
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -89,16 +89,16 @@ extern struct tblock *TxBlock;	/* transaction block table */
  *	transaction lock
  */
 struct tlock {
-	lid_t next;		/* index next lockword on tid locklist
+	lid_t next;		/* 2: index next lockword on tid locklist
 				 *          next lockword on freelist
 				 */
-	tid_t tid;		/* transaction id holding lock */
+	tid_t tid;		/* 2: transaction id holding lock */
 
 	u16 flag;		/* 2: lock control */
 	u16 type;		/* 2: log type */
 
-	struct metapage *mp;	/* 4: object page buffer locked */
-	struct inode *ip;	/* 4: object */
+	struct metapage *mp;	/* 4/8: object page buffer locked */
+	struct inode *ip;	/* 4/8: object */
 	/* (16) */
 
 	s16 lock[24];		/* 48: overlay area */
@@ -163,7 +163,7 @@ struct lv {
 #define	TLOCKLONG	28
 
 struct linelock {
-	u16 next;		/* 2: next linelock */
+	lid_t next;		/* 2: next linelock */
 
 	s8 maxcnt;		/* 1: */
 	s8 index;		/* 1: */
@@ -179,7 +179,7 @@ struct linelock {
 #define dt_lock	linelock
 
 struct xtlock {
-	u16 next;		/* 2: */
+	lid_t next;		/* 2: */
 
 	s8 maxcnt;		/* 1: */
 	s8 index;		/* 1: */
@@ -210,7 +210,7 @@ struct xtlock {
  * free maplock (i.e., number of maplock) in the tlock; 
  */
 struct maplock {
-	u16 next;		/* 2: */
+	lid_t next;		/* 2: */
 
 	u8 maxcnt;		/* 2: */
 	u8 index;		/* 2: next free maplock index */
@@ -238,7 +238,7 @@ struct maplock {
 #define	pxd_lock	maplock
 
 struct xdlistlock {
-	u16 next;		/* 2: */
+	lid_t next;		/* 2: */
 
 	u8 maxcnt;		/* 2: */
 	u8 index;		/* 2: */

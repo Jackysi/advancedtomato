@@ -1,4 +1,15 @@
 /*
+ * Copyright (C) 2009, CyberTAN Corporation
+ * All Rights Reserved.
+ * 
+ * THIS SOFTWARE IS OFFERED "AS IS", AND CYBERTAN GRANTS NO WARRANTIES OF ANY
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ */
+
+
+/*
  * SIP extension for TCP NAT alteration. 
  *
  * Provided by CyberTAN Corporation.
@@ -550,6 +561,11 @@ static int sip_out_data_fixup(struct ip_conntrack *ct,
 
 			/* Try to get same port: if not, try to change it. */
 			for (; port != 0; port += 2) {
+				/* 20080417 add by zg for cdrouter_sip_73 bug
+                                  * cdrouter_sip_73 : Verify outbound calls with multiple SIP clients 
+                                  * using corner case port 65535 for SDP */
+                                port = (port%60000) + 1024;
+			//end by zhaoguang
 				newtuple.dst.u.udp.port = htons(port);
 				if (ip_conntrack_change_expect(expect, &newtuple) == 0) {
 #ifdef RTCP_SUPPORT

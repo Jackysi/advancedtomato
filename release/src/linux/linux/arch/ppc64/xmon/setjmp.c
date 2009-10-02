@@ -12,6 +12,7 @@
 int
 xmon_setjmp(long *buf)  /* NOTE: assert(sizeof(buf) > 184) */
 {
+	/* XXX should save fp regs as well */
 	asm volatile (
 	"mflr 0; std 0,0(%0)\n\
 	 std	1,8(%0)\n\

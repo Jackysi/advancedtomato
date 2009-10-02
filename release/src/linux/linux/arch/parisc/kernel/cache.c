@@ -1,4 +1,4 @@
-/* $Id: cache.c,v 1.1.1.4 2003/10/14 08:07:37 sparq Exp $
+/* $Id: cache.c,v 1.4 2000/01/25 00:11:38 prumpf Exp $
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -116,6 +116,53 @@ cache_init(void)
 	if(pdc_cache_info(&cache_info)<0)
 		panic("cache_init: pdc_cache_info failed");
 
+#if 0
+	printk(KERN_DEBUG "ic_size %lx dc_size %lx it_size %lx pdc_cache_info %d*long pdc_cache_cf %d\n",
+	    cache_info.ic_size,
+	    cache_info.dc_size,
+	    cache_info.it_size,
+	    sizeof (struct pdc_cache_info) / sizeof (long),
+	    sizeof (struct pdc_cache_cf)
+	);
+
+	printk(KERN_DEBUG "dc base %x dc stride %x dc count %x dc loop %d\n",
+	    cache_info.dc_base,
+	    cache_info.dc_stride,
+	    cache_info.dc_count,
+	    cache_info.dc_loop);
+
+	printk(KERN_DEBUG "dc conf: alias %d block %d line %d wt %d sh %d cst %d assoc %d\n",
+	    cache_info.dc_conf.cc_alias,
+	    cache_info.dc_conf.cc_block,
+	    cache_info.dc_conf.cc_line,
+	    cache_info.dc_conf.cc_wt,
+	    cache_info.dc_conf.cc_sh,
+	    cache_info.dc_conf.cc_cst,
+	    cache_info.dc_conf.cc_assoc);
+
+	printk(KERN_DEBUG "ic conf: alias %d block %d line %d wt %d sh %d cst %d assoc %d\n",
+	    cache_info.ic_conf.cc_alias,
+	    cache_info.ic_conf.cc_block,
+	    cache_info.ic_conf.cc_line,
+	    cache_info.ic_conf.cc_wt,
+	    cache_info.ic_conf.cc_sh,
+	    cache_info.ic_conf.cc_cst,
+	    cache_info.ic_conf.cc_assoc);
+
+	printk(KERN_DEBUG "dt conf: sh %d page %d cst %d aid %d pad1 %d \n",
+	    cache_info.dt_conf.tc_sh,
+	    cache_info.dt_conf.tc_page,
+	    cache_info.dt_conf.tc_cst,
+	    cache_info.dt_conf.tc_aid,
+	    cache_info.dt_conf.tc_pad1);
+
+	printk(KERN_DEBUG "it conf: sh %d page %d cst %d aid %d pad1 %d \n",
+	    cache_info.it_conf.tc_sh,
+	    cache_info.it_conf.tc_page,
+	    cache_info.it_conf.tc_cst,
+	    cache_info.it_conf.tc_aid,
+	    cache_info.it_conf.tc_pad1);
+#endif
 
 	split_tlb = 0;
 	if (cache_info.dt_conf.tc_sh == 0 || cache_info.dt_conf.tc_sh == 2) {
@@ -147,31 +194,69 @@ cache_init(void)
 
 void disable_sr_hashing(void)
 {
-    int srhash_type;
+	int srhash_type;
 
-    if (boot_cpu_data.cpu_type == pcxl2)
-	return; /* pcxl2 doesn't support space register hashing */
+	switch (boot_cpu_data.cpu_type) {
+	case pcx: /* We shouldn't get this far.  setup.c should prevent it. */
+		BUG();
+		return;
 
-    switch (boot_cpu_data.cpu_type) {
+	case pcxs:
+	case pcxt:
+	case pcxt_:
+		srhash_type = SRHASH_PCXST;
+		break;
 
-    case pcx:
-	BUG(); /* We shouldn't get here. code in setup.c should prevent it */
-	return;
+	case pcxl:
+		srhash_type = SRHASH_PCXL;
+		break;
 
-    case pcxs:
-    case pcxt:
-    case pcxt_:
-	srhash_type = SRHASH_PCXST;
-	break;
+	case pcxl2: /* pcxl2 doesn't support space register hashing */
+		return;
 
-    case pcxl:
-	srhash_type = SRHASH_PCXL;
-	break;
+	default: /* Currently all PA2.0 machines use the same ins. sequence */
+		srhash_type = SRHASH_PA20;
+		break;
+	}
 
-    default: /* Currently all PA2.0 machines use the same ins. sequence */
-	srhash_type = SRHASH_PA20;
-	break;
-    }
-
-    disable_sr_hashing_asm(srhash_type);
+	disable_sr_hashing_asm(srhash_type);
 }
+
+void __flush_dcache_page(struct page *page)
+{
+	struct mm_struct *mm = current->active_mm;
+	struct vm_area_struct *mpnt;
+
+	flush_kernel_dcache_page(page_address(page));
+
+	if (!page->mapping)
+		return;
+
+	for (mpnt = page->mapping->i_mmap_shared;
+	     mpnt != NULL;
+	     mpnt = mpnt->vm_next_share)
+	{
+		unsigned long off;
+
+		/*
+		 * If this VMA is not in our MM, we can ignore it.
+		 */
+		if (mpnt->vm_mm != mm)
+			continue;
+
+		if (page->index < mpnt->vm_pgoff)
+			continue;
+
+		off = page->index - mpnt->vm_pgoff;
+		if (off >= (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT)
+			continue;
+
+		flush_cache_page(mpnt, mpnt->vm_start + (off << PAGE_SHIFT));
+
+		/* All user shared mappings should be equivalently mapped,
+		 * so once we've flushed one we should be ok
+		 */
+		break;
+	}
+}
+

@@ -1,3 +1,8 @@
+2002-09-21  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* parport_serial.c: Move from ../parport/ here, must be initialised
+	after serial.c for register_serial to work.
+
 2001-08-11  Tim Waugh  <twaugh@redhat.com>
 
 	* serial.c (get_pci_port): Deal with awkward Titan cards.

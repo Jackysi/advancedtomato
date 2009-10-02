@@ -1,10 +1,7 @@
 /*
- * BK Id: SCCS/s.syscalls.c 1.13 03/13/02 09:12:22 trini
- */
-/*
  * linux/arch/ppc/kernel/sys_ppc.c
  *
- *  PowerPC version 
+ *  PowerPC version
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
  * Derived from "arch/i386/kernel/sys_i386.c"
@@ -54,31 +51,13 @@ int sys_ioperm(unsigned long from, unsigned long num, int on)
 	return -EIO;
 }
 
-int sys_iopl(int a1, int a2, int a3, int a4)
-{
-	printk(KERN_ERR "sys_iopl(%x, %x, %x, %x)!\n", a1, a2, a3, a4);
-	return (-ENOSYS);
-}
-
-int sys_vm86(int a1, int a2, int a3, int a4)
-{
-	printk(KERN_ERR "sys_vm86(%x, %x, %x, %x)!\n", a1, a2, a3, a4);
-	return (-ENOSYS);
-}
-
-int sys_modify_ldt(int a1, int a2, int a3, int a4)
-{
-	printk(KERN_ERR "sys_modify_ldt(%x, %x, %x, %x)!\n", a1, a2, a3, a4);
-	return (-ENOSYS);
-}
-
 /*
  * sys_ipc() is the de-multiplexer for the SysV IPC calls..
  *
  * This is really horribly ugly.
  */
 int
-sys_ipc (uint call, int first, int second, int third, void *ptr, long fifth)
+sys_ipc(uint call, int first, int second, int third, void *ptr, long fifth)
 {
 	int version, ret;
 
@@ -88,24 +67,28 @@ sys_ipc (uint call, int first, int second, int third, void *ptr, long fifth)
 	ret = -EINVAL;
 	switch (call) {
 	case SEMOP:
-		ret = sys_semop (first, (struct sembuf *)ptr, second);
+		ret = sys_semtimedop(first, (struct sembuf *)ptr, second, NULL);
+		break;
+	case SEMTIMEDOP:
+		ret = sys_semtimedop(first, (struct sembuf *)ptr, second,
+				     (const struct timespec *)fifth);
 		break;
 	case SEMGET:
-		ret = sys_semget (first, second, third);
+		ret = sys_semget(first, second, third);
 		break;
 	case SEMCTL: {
 		union semun fourth;
 
 		if (!ptr)
 			break;
-		if ((ret = verify_area (VERIFY_READ, ptr, sizeof(long)))
+		if ((ret = verify_area(VERIFY_READ, ptr, sizeof(long)))
 		    || (ret = get_user(fourth.__pad, (void **)ptr)))
 			break;
-		ret = sys_semctl (first, second, third, fourth);
+		ret = sys_semctl(first, second, third, fourth);
 		break;
 		}
 	case MSGSND:
-		ret = sys_msgsnd (first, (struct msgbuf *) ptr, second, third);
+		ret = sys_msgsnd(first, (struct msgbuf *) ptr, second, third);
 		break;
 	case MSGRCV:
 		switch (version) {
@@ -114,26 +97,26 @@ sys_ipc (uint call, int first, int second, int third, void *ptr, long fifth)
 
 			if (!ptr)
 				break;
-			if ((ret = verify_area (VERIFY_READ, ptr, sizeof(tmp)))
+			if ((ret = verify_area(VERIFY_READ, ptr, sizeof(tmp)))
 			    || (ret = copy_from_user(&tmp,
 						(struct ipc_kludge *) ptr,
 						sizeof (tmp))))
 				break;
-			ret = sys_msgrcv (first, tmp.msgp, second, tmp.msgtyp,
-					  third);
+			ret = sys_msgrcv(first, tmp.msgp, second, tmp.msgtyp,
+					 third);
 			break;
 			}
 		default:
-			ret = sys_msgrcv (first, (struct msgbuf *) ptr,
-					  second, fifth, third);
+			ret = sys_msgrcv(first, (struct msgbuf *) ptr,
+					 second, fifth, third);
 			break;
 		}
 		break;
 	case MSGGET:
-		ret = sys_msgget ((key_t) first, second);
+		ret = sys_msgget((key_t) first, second);
 		break;
 	case MSGCTL:
-		ret = sys_msgctl (first, second, (struct msqid_ds *) ptr);
+		ret = sys_msgctl(first, second, (struct msqid_ds *) ptr);
 		break;
 	case SHMAT:
 		switch (version) {
@@ -143,29 +126,31 @@ sys_ipc (uint call, int first, int second, int third, void *ptr, long fifth)
 			if ((ret = verify_area(VERIFY_WRITE, (ulong*) third,
 					       sizeof(ulong))))
 				break;
-			ret = sys_shmat (first, (char *) ptr, second, &raddr);
+			ret = sys_shmat(first, (char *) ptr, second, &raddr);
 			if (ret)
 				break;
-			ret = put_user (raddr, (ulong *) third);
+			ret = put_user(raddr, (ulong *) third);
 			break;
 			}
 		case 1:	/* iBCS2 emulator entry point */
 			if (!segment_eq(get_fs(), get_ds()))
 				break;
-			ret = sys_shmat (first, (char *) ptr, second,
-					 (ulong *) third);
+			ret = sys_shmat(first, (char *) ptr, second,
+					(ulong *) third);
 			break;
 		}
 		break;
-	case SHMDT: 
-		ret = sys_shmdt ((char *)ptr);
+	case SHMDT:
+		ret = sys_shmdt((char *)ptr);
 		break;
 	case SHMGET:
-		ret = sys_shmget (first, second, third);
+		ret = sys_shmget(first, second, third);
 		break;
 	case SHMCTL:
-		ret = sys_shmctl (first, second, (struct shmid_ds *) ptr);
+		ret = sys_shmctl(first, second, (struct shmid_ds *) ptr);
 		break;
+	default:
+		ret = -ENOSYS;
 	}
 
 	return ret;
@@ -188,6 +173,16 @@ int sys_pipe(int *fildes)
 	return error;
 }
 
+#ifndef CONFIG_40x
+#define allow_mmap_address(addr)	1
+#else
+/* Blech.  On 40x allowing mmap() (MAP_FIXED) at the first few pages
+ * of (any process's) virtual memory is a security hole due to chip
+ * erratum #67 (and possibly also due to the (documented) bizarre
+ * prefetch behaviour around 'sc' see S3.8.2.1 of the user manual). */
+#define allow_mmap_address(addr)	((((addr) & PAGE_MASK) >= 0x2100) || suser())
+#endif
+
 static inline unsigned long
 do_mmap2(unsigned long addr, size_t len,
 	 unsigned long prot, unsigned long flags,
@@ -201,6 +196,10 @@ do_mmap2(unsigned long addr, size_t len,
 		if (!(file = fget(fd)))
 			goto out;
 	}
+
+	ret = -EINVAL;
+	if ((! allow_mmap_address(addr)) && (flags & MAP_FIXED))
+		goto out;
 	
 	down_write(&current->mm->mmap_sem);
 	ret = do_mmap_pgoff(file, addr, len, prot, flags, pgoff);
@@ -284,7 +283,7 @@ int sys_olduname(struct oldold_utsname * name)
 		return -EFAULT;
 	if (!access_ok(VERIFY_WRITE,name,sizeof(struct oldold_utsname)))
 		return -EFAULT;
-  
+
 	down_read(&uts_sem);
 	error = __copy_to_user(&name->sysname,&system_utsname.sysname,__OLD_UTS_LEN);
 	error -= __put_user(0,name->sysname+__OLD_UTS_LEN);

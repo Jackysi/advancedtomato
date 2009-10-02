@@ -74,9 +74,14 @@ static struct sun_floppy_ops sun_fdops;
 #define fd_cacheflush(addr, size) /* nothing... */
 #define fd_request_irq()          sun_fd_request_irq()
 #define fd_free_irq()             /* nothing... */
+#if 0  /* P3: added by Alain, these cause a MMU corruption. 19960524 XXX */
+#define fd_dma_mem_alloc(size)    ((unsigned long) vmalloc(size))
+#define fd_dma_mem_free(addr,size) (vfree((void *)(addr)))
+#endif
 
 #define FLOPPY_MOTOR_MASK         0x10
 
+/* XXX This isn't really correct. XXX */
 #define get_dma_residue(x)        (0)
 
 #define FLOPPY0_TYPE  4
@@ -110,7 +115,7 @@ static unsigned char sun_82072_fd_inb(int port)
 	case 5: /* FD_DATA */
 		return sun_fdc->data_82072;
 	case 7: /* FD_DIR */
-		return (*AUXREG & AUXIO_FLPY_DCHG)? 0x80: 0;
+		return (get_auxio() & AUXIO_FLPY_DCHG)? 0x80: 0;
 	};
 	panic("sun_82072_fd_inb: How did I get here?");
 }
@@ -163,6 +168,7 @@ static unsigned char sun_82077_fd_inb(int port)
 	case 5: /* FD_DATA */
 		return sun_fdc->data_82077;
 	case 7: /* FD_DIR */
+		/* XXX: Is DCL on 0x80 in sun4m? */
 		return sun_fdc->dir_82077;
 	};
 	panic("sun_82072_fd_inb: How did I get here?");
@@ -326,7 +332,7 @@ static int sun_floppy_init(void)
                 sun_fdops.fd_inb = sun_82072_fd_inb;
                 sun_fdops.fd_outb = sun_82072_fd_outb;
                 fdc_status = &sun_fdc->status_82072;
-                /* printk("AUXIO @0x%p\n", auxio_register); */ /* P3 */
+                /* printk("AUXIO @0x%lx\n", auxio_register); */ /* P3 */
         } else {
                 sun_fdops.fd_inb = sun_82077_fd_inb;
                 sun_fdops.fd_outb = sun_82077_fd_outb;

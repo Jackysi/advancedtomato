@@ -61,7 +61,7 @@ extern int presto_permission(struct inode *inode, int mask);
 
 static int presto_open_upcall(int minor, struct dentry *de)
 {
-        int rc;
+        int rc = 0;
         char *path, *buffer;
         struct presto_file_set *fset;
         int pathlen;
@@ -214,6 +214,7 @@ static int presto_file_open(struct inode *inode, struct file *file)
                         EXIT;
                         return -ENOMEM;
                 }
+                /* LOCK: XXX check that the kernel lock protects this alloc */
                 fdata->fd_do_lml = 0;
                 fdata->fd_bytes_written = 0;
                 fdata->fd_fsuid = current->fsuid;
@@ -284,6 +285,7 @@ static int presto_file_release(struct inode *inode, struct file *file)
 
         /* this file was modified: ignore close errors, write KML */
         if (fdata && fdata->fd_do_lml) {
+                /* XXX: remove when lento gets file granularity cd */
                 if ( presto_get_permit(inode) < 0 ) {
                         EXIT;
                         return -EROFS;
@@ -313,6 +315,12 @@ static void presto_apply_write_policy(struct file *file,
         int error;
         struct rec_info rec;
 
+        /* Here we do a journal close after a fixed or a specified
+         amount of KBytes, currently a global parameter set with
+         sysctl. If files are open for a long time, this gives added
+         protection. (XXX todo: per cache, add ioctl, handle
+         journaling in a thread, add more options etc.)
+        */ 
  
         if ((fset->fset_flags & FSET_JCLOSE_ON_WRITE) &&
             (!ISLENTO(cache->cache_psdev->uc_minor))) {
@@ -341,6 +349,7 @@ static void presto_apply_write_policy(struct file *file,
                         unlock_kernel();
                         if ( error ) {
                                 CERROR("presto_close: cannot journal close\n");
+                                /* XXX these errors are really bad */
                                 /* panic(); */
                                 return;
                         }
@@ -371,6 +380,7 @@ static ssize_t presto_file_write(struct file *file, const char *buf,
         }
 
         blocks = (size >> file->f_dentry->d_inode->i_sb->s_blocksize_bits) + 1;
+        /* XXX 3 is for ext2 indirect blocks ... */ 
         res_size = 2 * PRESTO_REQHIGH + ((blocks+3) 
                 << file->f_dentry->d_inode->i_sb->s_blocksize_bits);
 
@@ -385,6 +395,10 @@ static ssize_t presto_file_write(struct file *file, const char *buf,
                ISLENTO(cache->cache_psdev->uc_minor),
                cache->cache_psdev->uc_minor); 
 
+        /* 
+         *  XXX this lock should become a per inode lock when 
+         *  Vinny's changes are in; we could just use i_sem.
+         */
         read_lock(&fset->fset_lml.fd_lock); 
         fdata = (struct presto_file_data *)file->private_data;
         do_lml_here = size && (fdata->fd_do_lml == 0) &&
@@ -394,6 +408,12 @@ static ssize_t presto_file_write(struct file *file, const char *buf,
                 fdata->fd_do_lml = 1;
         read_unlock(&fset->fset_lml.fd_lock); 
 
+        /* XXX 
+           There might be a bug here.  We need to make 
+           absolutely sure that the ext3_file_write commits 
+           after our transaction that writes the LML record.
+           Nesting the file write helps if new blocks are allocated. 
+        */
         res = 0;
         if (do_lml_here) {
                 struct presto_version file_version;
@@ -451,7 +471,69 @@ struct inode_operations presto_file_iops = {
 #endif
 };
 
+/* FIXME: I bet we want to add a lock here and in presto_file_open. */
 int izo_purge_file(struct presto_file_set *fset, char *file)
 {
+#if 0
+        void *handle = NULL;
+        char *path = NULL;
+        struct nameidata nd;
+        struct dentry *dentry;
+        int rc = 0, len;
+        loff_t oldsize;
+
+        /* FIXME: not mtpt it's gone */
+        len = strlen(fset->fset_cache->cache_mtpt) + strlen(file) + 1;
+        PRESTO_ALLOC(path, len + 1);
+        if (path == NULL)
+                return -1;
+
+        sprintf(path, "%s/%s", fset->fset_cache->cache_mtpt, file);
+        rc = izo_lookup_file(fset, path, &nd);
+        if (rc)
+                goto error;
+        dentry = nd.dentry;
+
+        /* FIXME: take a lock here */
+
+        if (dentry->d_inode->i_atime > CURRENT_TIME - 5) {
+                /* We lost the race; this file was accessed while we were doing
+                 * ioctls and lookups and whatnot. */
+                rc = -EBUSY;
+                goto error_unlock;
+        }
+
+        /* FIXME: Check if this file is open. */
+
+        handle = presto_trans_start(fset, dentry->d_inode, KML_OPCODE_TRUNC);
+        if (IS_ERR(handle)) {
+                rc = -ENOMEM;
+                goto error_unlock;
+        }
+
+        /* FIXME: Write LML record */
+
+        oldsize = dentry->d_inode->i_size;
+        rc = izo_do_truncate(fset, dentry, 0, oldsize);
+        if (rc != 0)
+                goto error_clear;
+        rc = izo_do_truncate(fset, dentry, oldsize, 0);
+        if (rc != 0)
+                goto error_clear;
+
+ error_clear:
+        /* FIXME: clear LML record */
+
+ error_unlock:
+        /* FIXME: release the lock here */
+
+ error:
+        if (handle != NULL && !IS_ERR(handle))
+                presto_trans_commit(fset, handle);
+        if (path != NULL)
+                PRESTO_FREE(path, len + 1);
+        return rc;
+#else
         return 0;
+#endif
 }

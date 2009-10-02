@@ -1,13 +1,13 @@
 /*
- * OS Abstraction Layer
- *
- * Copyright 2006, Broadcom Corporation
- * All Rights Reserved.
+ * OS Independent Layer
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Copyright 2004, Broadcom Corporation      
+ * All Rights Reserved.      
+ *       
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  * $Id$
  */
 
@@ -25,6 +25,8 @@ typedef void (*pktfree_cb_fn_t)(void *ctx, void *pkt, unsigned int status);
 
 #if defined(PCBIOS)
 #include <pcbios_osl.h>
+#elif defined(__IOPOS__)
+#include <iopos_osl.h>
 #elif defined(linux)
 #include <linux_osl.h>
 #elif defined(NDIS)
@@ -37,9 +39,11 @@ typedef void (*pktfree_cb_fn_t)(void *ctx, void *pkt, unsigned int status);
 #include <macosx_osl.h>
 #elif defined(__NetBSD__)
 #include <bsd_osl.h>
+#elif defined(EFI)
+#include <efi_osl.h>
 #else
 #error "Unsupported OSL requested"
-#endif 
+#endif
 
 /* handy */
 #define	SET_REG(osh, r, mask, val)	W_REG((osh), (r), ((R_REG((osh), r) & ~(mask)) | (val)))

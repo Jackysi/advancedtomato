@@ -30,9 +30,6 @@
 #include <asm/proto.h>
 #include <asm/kdebug.h>
 
-spinlock_t pcrash_lock; 
-int crashing_cpu;
-
 extern spinlock_t console_lock, timerlist_lock;
 
 void bust_spinlocks(int yes)
@@ -60,29 +57,120 @@ void bust_spinlocks(int yes)
 	}
 }
 
+static int bad_address(void *p) 
+{ 
+	unsigned long dummy;
+	return __get_user(dummy, (unsigned long *)p);
+} 
+
 void dump_pagetable(unsigned long address)
 {
-	static char *name[] = { "PML4", "PGD", "PDE", "PTE" }; 
-	int i, shift;
-	unsigned long page;
+	pml4_t *pml4;
+	asm("movq %%cr3,%0" : "=r" (pml4));
 
-	shift = 9+9+9+12;
-	address &= ~0xFFFF000000000000UL;
-	asm("movq %%cr3,%0" : "=r" (page)); 
-	for (i = 0; i < 4; i++) { 	
-		unsigned long *padr = (unsigned long *) __va(page); 
-		padr += (address >> shift) & 0x1FFU;
-		if (__get_user(page, padr)) { 
-			printk("%s: bad %p\n", name[i], padr); 
-			break;
-		}
-		printk("%s: %016lx ", name[i], page); 
-		if ((page & (1 | (1<<7))) != 1) /* Not present or 2MB page */
-			break;
-		page &= ~0xFFFUL;
-		shift -= (i == 0) ? 12 : 9;
-	} 
+	pml4 = __va((unsigned long)pml4 & PHYSICAL_PAGE_MASK); 
+	pml4 += pml4_index(address);
+	printk("PML4 %lx ", pml4_val(*pml4));
+	if (bad_address(pml4)) goto bad;
+	if (!pml4_present(*pml4)) goto ret; 
+
+	pgd_t *pgd = __pgd_offset_k((pgd_t *)pml4_page(*pml4), address); 
+	if (bad_address(pgd)) goto bad;
+	printk("PGD %lx ", pgd_val(*pgd)); 
+	if (!pgd_present(*pgd))	goto ret;
+
+	pmd_t *pmd = pmd_offset(pgd, address); 
+	if (bad_address(pmd)) goto bad;
+	printk("PMD %lx ", pmd_val(*pmd));
+	if (!pmd_present(*pmd))	goto ret;	 
+
+	pte_t *pte = pte_offset(pmd, address);
+	if (bad_address(pte)) goto bad;
+	printk("PTE %lx", pte_val(*pte)); 
+ret:
 	printk("\n");
+	return;
+bad:
+	printk("BAD\n");
+}
+
+/* Sometimes the CPU reports invalid exceptions on prefetch.
+   Check that here and ignore.
+   Opcode checker based on code by Richard Brunner */
+static int is_prefetch(struct pt_regs *regs, unsigned long addr)
+{ 
+	unsigned char *instr = (unsigned char *)(regs->rip);
+	int scan_more = 1;
+	int prefetch = 0; 
+	unsigned char *max_instr = instr + 15;
+
+	/* Avoid recursive faults for this common case */
+	if (regs->rip == addr)
+		return 0; 
+
+	if (regs->cs & (1<<2))
+		return 0;
+
+	while (scan_more && instr < max_instr) { 
+		unsigned char opcode;
+		unsigned char instr_hi;
+		unsigned char instr_lo;
+
+		if (__get_user(opcode, instr))
+			break; 
+
+		instr_hi = opcode & 0xf0; 
+		instr_lo = opcode & 0x0f; 
+		instr++;
+
+		switch (instr_hi) { 
+		case 0x20:
+		case 0x30:
+			/* Values 0x26,0x2E,0x36,0x3E are valid x86
+			   prefixes.  In long mode, the CPU will signal
+			   invalid opcode if some of these prefixes are
+			   present so we will never get here anyway */
+			scan_more = ((instr_lo & 7) == 0x6);
+			break;
+			
+		case 0x40:
+			/* In AMD64 long mode, 0x40 to 0x4F are valid REX prefixes
+			   Need to figure out under what instruction mode the
+			   instruction was issued ... */
+			/* Could check the LDT for lm, but for now it's good
+			   enough to assume that long mode only uses well known
+			   segments or kernel. */
+			scan_more = ((regs->cs & 3) == 0) || (regs->cs == __USER_CS);
+			break;
+			
+		case 0x60:
+			/* 0x64 thru 0x67 are valid prefixes in all modes. */
+			scan_more = (instr_lo & 0xC) == 0x4;
+			break;		
+		case 0xF0:
+			/* 0xF0, 0xF2, and 0xF3 are valid prefixes in all modes. */
+			scan_more = !instr_lo || (instr_lo>>1) == 1;
+			break;			
+		case 0x00:
+			/* Prefetch instruction is 0x0F0D or 0x0F18 */
+			scan_more = 0;
+			if (__get_user(opcode, instr)) 
+				break;
+			prefetch = (instr_lo == 0xF) &&
+				(opcode == 0x0D || opcode == 0x18);
+			break;			
+		default:
+			scan_more = 0;
+			break;
+		} 
+	}
+
+#if 0
+	if (prefetch)
+		printk("%s: prefetch caused page fault at %lx/%lx\n", current->comm,
+		       regs->rip, addr);
+#endif
+	return prefetch;
 }
 
 int page_fault_trace; 
@@ -112,15 +200,18 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	/* get the address */
 	__asm__("movq %%cr2,%0":"=r" (address));
 
+	if (regs->eflags & X86_EFLAGS_IF)
+		__sti();
+
 #ifdef CONFIG_CHECKING
 	if (page_fault_trace) 
-		printk("pfault %d rip:%lx rsp:%lx cs:%lu ss:%lu addr %lx error %lx\n",
-		       stack_smp_processor_id(), regs->rip,regs->rsp,regs->cs,
-			   regs->ss,address,error_code); 
+		printk("pagefault rip:%lx rsp:%lx cs:%lu ss:%lu address %lx error %lx\n",
+		       regs->rip,regs->rsp,regs->cs,regs->ss,address,error_code); 
+
 
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
@@ -144,7 +235,15 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	 * context, we must not take the fault..
 	 */
 	if (in_interrupt() || !mm)
-		goto no_context;
+		goto bad_area_nosemaphore;
+
+	/* 
+	 * Work around K8 errata #100. See the K8 specification update for 
+	 * details. Any code segment in LDT is compatibility mode.
+	 */
+	if ((regs->cs == __USER32_CS || (regs->cs & (1<<2))) &&
+		(address >> 32))
+		return;
 
 again:
 	down_read(&mm->mmap_sem);
@@ -214,17 +313,22 @@ bad_area:
 	up_read(&mm->mmap_sem);
 
 bad_area_nosemaphore:
-
 	/* User mode accesses just cause a SIGSEGV */
 	if (error_code & 4) {
-		if (exception_trace) {
-			dump_pagetable(address);
-			printk("%s[%d]: segfault at %016lx rip %016lx rsp %016lx error %lx\n",
-					current->comm, current->pid, address, regs->rip,
+		if (is_prefetch(regs, address))
+			return;
+
+		if (exception_trace && !(tsk->ptrace & PT_PTRACED) && 
+		    (tsk->sig->action[SIGSEGV-1].sa.sa_handler == SIG_IGN ||
+		    (tsk->sig->action[SIGSEGV-1].sa.sa_handler == SIG_DFL)))
+			printk(KERN_INFO 
+		       "%s[%d]: segfault at %016lx rip %016lx rsp %016lx error %lx\n",
+					tsk->comm, tsk->pid, address, regs->rip,
 					regs->rsp, error_code);
-		}
+	
 		tsk->thread.cr2 = address;
-		tsk->thread.error_code = error_code;
+		/* Kernel addresses are always protection faults */
+		tsk->thread.error_code = error_code | (address >= TASK_SIZE);
 		tsk->thread.trap_no = 14;
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
@@ -242,43 +346,31 @@ no_context:
 		if (0 && exception_trace) 
 		printk(KERN_ERR 
 		       "%s: fixed kernel exception at %lx address %lx err:%ld\n", 
-		       current->comm, regs->rip, address, error_code);
+		       tsk->comm, regs->rip, address, error_code);
 		return;
 	}
+
+	if (is_prefetch(regs, address))
+		return;
 
 /*
  * Oops. The kernel tried to access some bad page. We'll have to
  * terminate things with extreme prejudice.
  */
 
-	console_verbose();
-	bust_spinlocks(1); 
-
-	if (!in_interrupt()) { 
-		if (!spin_trylock(&pcrash_lock)) { 
-			if (crashing_cpu != smp_processor_id()) 
-				spin_lock(&pcrash_lock);  		    
-		} 
-		crashing_cpu = smp_processor_id();
-	} 
-
+	unsigned long flags; 
+	prepare_die(&flags);
 	if (address < PAGE_SIZE)
 		printk(KERN_ALERT "Unable to handle kernel NULL pointer dereference");
 	else
 		printk(KERN_ALERT "Unable to handle kernel paging request");
-	printk(" at virtual address %016lx\n",address);
-	printk(" printing rip:\n");
-	printk("%016lx\n", regs->rip);
+	printk(KERN_ALERT " at %016lx RIP: ", address); 
+	printk_address(regs->rip);
 	dump_pagetable(address);
-
-	die("Oops", regs, error_code);
-
-	if (!in_interrupt()) { 
-		crashing_cpu = -1;  /* small harmless window */ 
-		spin_unlock(&pcrash_lock);
-	}
-
-	bust_spinlocks(0); 
+	__die("Oops", regs, error_code);
+	/* Executive summary in case the oops scrolled away */
+	printk(KERN_EMERG "CR2: %016lx\n", address);
+	exit_die(flags);
 	do_exit(SIGKILL);
 
 /*
@@ -300,10 +392,13 @@ out_of_memory:
 do_sigbus:
 	up_read(&mm->mmap_sem);
 
-	/*
-	 * Send a sigbus, regardless of whether we were in kernel
-	 * or user mode.
-	 */
+	/* Kernel mode? Handle exceptions or die */
+	if (!(error_code & 4))
+		goto no_context;
+		
+	if (is_prefetch(regs, address))
+		return;
+
 	tsk->thread.cr2 = address;
 	tsk->thread.error_code = error_code;
 	tsk->thread.trap_no = 14;
@@ -312,10 +407,6 @@ do_sigbus:
 	info.si_code = BUS_ADRERR;
 	info.si_addr = (void *)address;
 	force_sig_info(SIGBUS, &info, tsk);
-
-	/* Kernel mode? Handle exceptions or die */
-	if (!(error_code & 4))
-		goto no_context;
 	return;
 
 
@@ -332,6 +423,10 @@ vmalloc_fault:
 		 * that is really already in the page table. Just check if it
 		 * is really there and when yes flush the local TLB. 
 		 */
+#if 0
+		printk("vmalloc fault %lx index %lu\n",address,pml4_index(address));
+		dump_pagetable(address);
+#endif
 
 		pgd = pgd_offset_k(address);
 		if (pgd != current_pgd_offset_k(address)) 

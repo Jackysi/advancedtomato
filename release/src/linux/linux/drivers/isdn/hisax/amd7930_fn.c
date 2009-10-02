@@ -61,6 +61,40 @@
 #include <linux/interrupt.h>
 #include <linux/init.h>
 
+static WORD initAMD[] __devinitdata = {
+	0x0100,
+
+	0x00A5, 3, 0x01, 0x40, 0x58,				// LPR, LMR1, LMR2
+	0x0086, 1, 0x0B,					// DMR1 (D-Buffer TH-Interrupts on)
+	0x0087, 1, 0xFF,					// DMR2
+	0x0092, 1, 0x03,					// EFCR (extended mode d-channel-fifo on)
+	0x0090, 4, 0xFE, 0xFF, 0x02, 0x0F,			// FRAR4, SRAR4, DMR3, DMR4 (address recognition )
+	0x0084, 2, 0x80, 0x00,					// DRLR
+	0x00C0, 1, 0x47,					// PPCR1
+	0x00C8, 1, 0x01,					// PPCR2
+
+	0x0102,
+	0x0107,
+	0x01A1, 1,
+	0x0121, 1,
+	0x0189, 2,
+
+	0x0045, 4, 0x61, 0x72, 0x00, 0x00,			// MCR1, MCR2, MCR3, MCR4
+	0x0063, 2, 0x08, 0x08,					// GX
+	0x0064, 2, 0x08, 0x08,					// GR
+	0x0065, 2, 0x99, 0x00,					// GER
+	0x0066, 2, 0x7C, 0x8B,					// STG
+	0x0067, 2, 0x00, 0x00,					// FTGR1, FTGR2
+	0x0068, 2, 0x20, 0x20,					// ATGR1, ATGR2
+	0x0069, 1, 0x4F,					// MMR1
+	0x006A, 1, 0x00,					// MMR2
+	0x006C, 1, 0x40,					// MMR3
+	0x0021, 1, 0x02,					// INIT
+	0x00A3, 1, 0x40,					// LMR1
+
+	0xFFFF};
+
+
 static void Amd7930_new_ph(struct IsdnCardState *cs);
 
 
@@ -552,7 +586,7 @@ Amd7930_l1hw(struct PStack *st, int pr, void *arg)
 				dlogframe(cs, skb, 0);
 			if (cs->tx_skb) {
 				skb_queue_tail(&cs->sq, skb);
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 				if (cs->debug & L1_DEB_LAPD)
 					Logl2Frame(cs, skb, "Amd7930: l1hw: PH_DATA Queued", 0);
 #endif
@@ -560,7 +594,7 @@ Amd7930_l1hw(struct PStack *st, int pr, void *arg)
 				cs->tx_skb = skb;
 				cs->tx_cnt = 0;
                                 cs->dc.amd7930.tx_xmtlen=0;
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 				if (cs->debug & L1_DEB_LAPD)
 					Logl2Frame(cs, skb, "Amd7930: l1hw: PH_DATA", 0);
 #endif
@@ -581,14 +615,14 @@ Amd7930_l1hw(struct PStack *st, int pr, void *arg)
 			cs->tx_skb = skb;
 			cs->tx_cnt = 0;
                         cs->dc.amd7930.tx_xmtlen=0;
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				Logl2Frame(cs, skb, "Amd7930: l1hw: PH_DATA_PULLED", 0);
 #endif
 			Amd7930_fill_Dfifo(cs);
 			break;
 		case (PH_PULL | REQUEST):
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				debugl1(cs, "Amd7930: l1hw: -> PH_REQUEST_PULL, skb: %s", (cs->tx_skb)? "yes":"no");
 #endif

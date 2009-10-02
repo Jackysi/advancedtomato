@@ -1,5 +1,5 @@
 /*
- * $Id: a3d.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: a3d.c,v 1.14 2001/04/26 10:24:46 vojtech Exp $
  *
  *  Copyright (c) 1998-2001 Vojtech Pavlik
  *

@@ -35,6 +35,14 @@
 #include "pci_impl.h"
 #include "machvec_impl.h"
 
+#ifdef ALPHA_RESTORE_SRM_SETUP
+/* Save LCA configuration data as the console had it set up.  */
+struct 
+{
+	unsigned int orig_route_tab; /* for SAVE/RESTORE */
+} saved_config __attribute((common));
+#endif
+
 
 static void __init
 sio_init_irq(void)
@@ -76,6 +84,15 @@ alphabook1_init_arch(void)
 static void __init
 sio_pci_route(void)
 {
+#ifdef ALPHA_RESTORE_SRM_SETUP
+	/* First, read and save the original setting. */
+	pcibios_read_config_dword(0, PCI_DEVFN(7, 0), 0x60,
+				  &saved_config.orig_route_tab);
+	printk("%s: PIRQ original 0x%x new 0x%x\n", __FUNCTION__,
+	       saved_config.orig_route_tab, alpha_mv.sys.sio.route_tab);
+#endif
+
+	/* Now override with desired setting. */
 	pcibios_write_config_dword(0, PCI_DEVFN(7, 0), 0x60,
 				   alpha_mv.sys.sio.route_tab);
 }
@@ -232,15 +249,31 @@ alphabook1_init_pci(void)
 	/* Do not set *ANY* level triggers for AlphaBook1. */
 	sio_fixup_irq_levels(0);
 
-	outb(0x0f, 0x3ce); orig = inb(0x3cf);   
-	outb(0x0f, 0x3ce); outb(0x05, 0x3cf);   
-	outb(0x0b, 0x3ce); config = inb(0x3cf); 
+	/* Make sure that register PR1 indicates 1Mb mem */
+	outb(0x0f, 0x3ce); orig = inb(0x3cf);   /* read PR5  */
+	outb(0x0f, 0x3ce); outb(0x05, 0x3cf);   /* unlock PR0-4 */
+	outb(0x0b, 0x3ce); config = inb(0x3cf); /* read PR1 */
 	if ((config & 0xc0) != 0xc0) {
 		printk("AlphaBook1 VGA init: setting 1Mb memory\n");
 		config |= 0xc0;
-		outb(0x0b, 0x3ce); outb(config, 0x3cf); 
+		outb(0x0b, 0x3ce); outb(config, 0x3cf); /* write PR1 */
 	}
-	outb(0x0f, 0x3ce); outb(orig, 0x3cf); 
+	outb(0x0f, 0x3ce); outb(orig, 0x3cf); /* (re)lock PR0-4 */
+}
+
+void
+sio_kill_arch(int mode)
+{
+#ifdef ALPHA_RESTORE_SRM_SETUP
+	/* Since we cannot read the PCI DMA Window CSRs, we
+	 * cannot restore them here.
+	 *
+	 * However, we CAN read the PIRQ route register, so restore it
+	 * now...
+	 */
+	pcibios_write_config_dword(0, PCI_DEVFN(7, 0), 0x60,
+                                  saved_config.orig_route_tab);
+#endif
 }
 
 
@@ -267,7 +300,7 @@ struct alpha_machine_vector alphabook1_mv __initmv = {
 	init_irq:		sio_init_irq,
 	init_rtc:		common_init_rtc,
 	init_pci:		alphabook1_init_pci,
-	kill_arch:		NULL,
+	kill_arch:		sio_kill_arch,
 	pci_map_irq:		noname_map_irq,
 	pci_swizzle:		common_swizzle,
 
@@ -298,6 +331,7 @@ struct alpha_machine_vector avanti_mv __initmv = {
 	init_irq:		sio_init_irq,
 	init_rtc:		common_init_rtc,
 	init_pci:		noname_init_pci,
+	kill_arch:		sio_kill_arch,
 	pci_map_irq:		noname_map_irq,
 	pci_swizzle:		common_swizzle,
 
@@ -327,6 +361,7 @@ struct alpha_machine_vector noname_mv __initmv = {
 	init_irq:		sio_init_irq,
 	init_rtc:		common_init_rtc,
 	init_pci:		noname_init_pci,
+	kill_arch:		sio_kill_arch,
 	pci_map_irq:		noname_map_irq,
 	pci_swizzle:		common_swizzle,
 
@@ -365,6 +400,7 @@ struct alpha_machine_vector p2k_mv __initmv = {
 	init_irq:		sio_init_irq,
 	init_rtc:		common_init_rtc,
 	init_pci:		noname_init_pci,
+	kill_arch:		sio_kill_arch,
 	pci_map_irq:		p2k_map_irq,
 	pci_swizzle:		common_swizzle,
 
@@ -394,6 +430,7 @@ struct alpha_machine_vector xl_mv __initmv = {
 	init_irq:		sio_init_irq,
 	init_rtc:		common_init_rtc,
 	init_pci:		noname_init_pci,
+	kill_arch:		sio_kill_arch,
 	pci_map_irq:		noname_map_irq,
 	pci_swizzle:		common_swizzle,
 

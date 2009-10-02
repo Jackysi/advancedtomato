@@ -5,7 +5,7 @@
  *
  *		IPv4 Forwarding Information Base: FIB frontend.
  *
- * Version:	$Id: fib_frontend.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * Version:	$Id: fib_frontend.c,v 1.26 2001/10/31 21:55:54 davem Exp $
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -54,6 +54,8 @@
 struct fib_table *local_table;
 struct fib_table *main_table;
 
+#define FIB_RES_TABLE(r) (RT_TABLE_MAIN)
+
 #else
 
 #define RT_TABLE_MIN 1
@@ -71,6 +73,7 @@ struct fib_table *__fib_new_table(int id)
 	return tb;
 }
 
+#define FIB_RES_TABLE(r) (fib_result_table(r))
 
 #endif /* CONFIG_IP_MULTIPLE_TABLES */
 
@@ -160,9 +163,9 @@ struct net_device * ip_dev_find(u32 addr)
 	if (res.type != RTN_LOCAL)
 		goto out;
 	dev = FIB_RES_DEV(res);
-	if (dev)
-		atomic_inc(&dev->refcnt);
 
+	if (dev)
+		dev_hold(dev);
 out:
 	fib_res_put(&res);
 	return dev;
@@ -209,6 +212,9 @@ int fib_validate_source(u32 src, u32 dst, u8 tos, int oif,
 	struct in_device *in_dev;
 	struct rt_key key;
 	struct fib_result res;
+	int table;
+	unsigned char prefixlen;
+	unsigned char scope;
 	int no_addr, rpf;
 	int ret;
 
@@ -216,6 +222,7 @@ int fib_validate_source(u32 src, u32 dst, u8 tos, int oif,
 	key.src = dst;
 	key.tos = tos;
 	key.oif = 0;
+	key.gw	= 0;
 	key.iif = oif;
 	key.scope = RT_SCOPE_UNIVERSE;
 
@@ -237,31 +244,35 @@ int fib_validate_source(u32 src, u32 dst, u8 tos, int oif,
 		goto e_inval_res;
 	*spec_dst = FIB_RES_PREFSRC(res);
 	fib_combine_itag(itag, &res);
-#ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (FIB_RES_DEV(res) == dev || res.fi->fib_nhs > 1)
-#else
 	if (FIB_RES_DEV(res) == dev)
-#endif
 	{
 		ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
 		fib_res_put(&res);
 		return ret;
 	}
+	table = FIB_RES_TABLE(&res);
+	prefixlen = res.prefixlen;
+	scope = res.scope;
 	fib_res_put(&res);
 	if (no_addr)
 		goto last_resort;
-	if (rpf)
-		goto e_inval;
 	key.oif = dev->ifindex;
 
 	ret = 0;
 	if (fib_lookup(&key, &res) == 0) {
-		if (res.type == RTN_UNICAST) {
+		if (res.type == RTN_UNICAST &&
+		    ((table == FIB_RES_TABLE(&res) &&
+		      res.prefixlen >= prefixlen && res.scope >= scope) ||
+		     !rpf)) {
 			*spec_dst = FIB_RES_PREFSRC(res);
 			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+			fib_res_put(&res);
+			return ret;
 		}
 		fib_res_put(&res);
 	}
+	if (rpf)
+		goto e_inval;
 	return ret;
 
 last_resort:
@@ -579,9 +590,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event, 
 	switch (event) {
 	case NETDEV_UP:
 		fib_add_ifaddr(ifa);
-#ifdef CONFIG_IP_ROUTE_MULTIPATH
 		fib_sync_up(ifa->ifa_dev->dev);
-#endif
 		rt_cache_flush(-1);
 		break;
 	case NETDEV_DOWN:
@@ -617,9 +626,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
 		for_ifa(in_dev) {
 			fib_add_ifaddr(ifa);
 		} endfor_ifa(in_dev);
-#ifdef CONFIG_IP_ROUTE_MULTIPATH
 		fib_sync_up(dev);
-#endif
 		rt_cache_flush(-1);
 		break;
 	case NETDEV_DOWN:

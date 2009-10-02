@@ -177,8 +177,10 @@ int __init setup_dreamcast(void)
 	int i;
 
 	/* Mask all hardware events */
+	/* XXX */
 
 	/* Acknowledge any previous events */
+	/* XXX */
 
 	/* Assign all virtual IRQs to the System ASIC int. handler */
 	for (i = HW_EVENT_IRQ_BASE; i < HW_EVENT_IRQ_MAX; i++)
@@ -189,5 +191,23 @@ int __init setup_dreamcast(void)
 #endif
 
 	printk(KERN_INFO "SEGA Dreamcast support.\n");
+#if 0
+	printk(KERN_INFO "BCR1: 0x%08x\n", ctrl_inl(0xff800000));
+	printk(KERN_INFO "BCR2: 0x%08x\n", ctrl_inw(0xff800004));
+	printk(KERN_INFO "WCR1: 0x%08x\n", ctrl_inl(0xff800008));
+	printk(KERN_INFO "WCR2: 0x%08x\n", ctrl_inl(0xff80000c));
+	printk(KERN_INFO "WCR3: 0x%08x\n", ctrl_inl(0xff800010));
+	printk(KERN_INFO "MCR: 0x%08x\n", ctrl_inl(0xff800014));
+	printk(KERN_INFO "PCR: 0x%08x\n", ctrl_inw(0xff800018));
+/*
+ *	BCR1: 0xa3020008
+ *	BCR2: 0x0001
+ *	WCR1: 0x01110111
+ *	WCR2: 0x618066d8
+ *	WCR3: 0x07777777
+ *	MCR: 0xc00a0e24
+ *	PCR: 0x0000
+ */
+#endif
 	return 0;
 }

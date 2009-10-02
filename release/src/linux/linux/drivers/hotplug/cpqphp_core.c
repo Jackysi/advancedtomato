@@ -1,9 +1,9 @@
 /*
  * Compaq Hot Plug Controller Driver
  *
- * Copyright (c) 1995,2001 Compaq Computer Corporation
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001 IBM Corp.
+ * Copyright (C) 1995,2001 Compaq Computer Corporation
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001 IBM Corp.
  *
  * All rights reserved.
  *
@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Send feedback to <greg@kroah.com>
+ *
+ * Jan 12, 2003 -	Added 66/100/133MHz PCI-X support, 
+ * 			Torben Mathiasen <torben.mathiasen@hp.com>
  *
  */
 
@@ -53,7 +56,7 @@ static void *cpqhp_rom_start;
 static u8 power_mode;
 static int debug;
 
-#define DRIVER_VERSION	"0.9.6"
+#define DRIVER_VERSION	"0.9.7"
 #define DRIVER_AUTHOR	"Dan Zink <dan.zink@compaq.com>, Greg Kroah-Hartman <greg@kroah.com>"
 #define DRIVER_DESC	"Compaq Hot Plug PCI Controller Driver"
 
@@ -317,7 +320,7 @@ static int ctrl_slot_setup (struct controller * ctrl, void *smbios_start, void *
 	void *slot_entry= NULL;
 	int result;
 
-	dbg(__FUNCTION__"\n");
+	dbg("%s\n", __FUNCTION__);
 
 	tempdword = readl(ctrl->hpc_reg + INT_INPUT_CLEAR);
 
@@ -479,7 +482,7 @@ static int get_slot_mapping (struct pci_ops *ops, u8 bus_num, u8 dev_num, u8 *sl
 
 	u8 tbus, tdevice, tslot, bridgeSlot;
 
-	dbg(__FUNCTION__" %p, %d, %d, %p\n", ops, bus_num, dev_num, slot);
+	dbg("%s %p, %d, %d, %p\n", __FUNCTION__, ops, bus_num, dev_num, slot);
 
 	bridgeSlot = 0xFF;
 
@@ -595,7 +598,7 @@ static int set_attention_status (struct hotplug_slot *hotplug_slot, u8 status)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -630,7 +633,7 @@ static int process_SI (struct hotplug_slot *hotplug_slot)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -670,7 +673,7 @@ static int process_SS (struct hotplug_slot *hotplug_slot)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -698,7 +701,7 @@ static int hardware_test (struct hotplug_slot *hotplug_slot, u32 value)
 	struct slot *slot = get_slot (hotplug_slot, __FUNCTION__);
 	struct controller *ctrl;
 
-	dbg(__FUNCTION__"\n");
+	dbg("%s\n", __FUNCTION__);
 
 	if (slot == NULL)
 		return -ENODEV;
@@ -719,7 +722,7 @@ static int get_power_status (struct hotplug_slot *hotplug_slot, u8 *value)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -737,7 +740,7 @@ static int get_attention_status (struct hotplug_slot *hotplug_slot, u8 *value)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -755,7 +758,7 @@ static int get_latch_status (struct hotplug_slot *hotplug_slot, u8 *value)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -774,7 +777,7 @@ static int get_adapter_status (struct hotplug_slot *hotplug_slot, u8 *value)
 	if (slot == NULL)
 		return -ENODEV;
 	
-	dbg(__FUNCTION__" - physical_slot = %s\n", hotplug_slot->name);
+	dbg("%s - physical_slot = %s\n", __FUNCTION__, hotplug_slot->name);
 
 	ctrl = slot->ctrl;
 	if (ctrl == NULL)
@@ -829,6 +832,7 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	u8 hp_slot = 0;
 	u8 device;
 	u8 rev;
+	u8 bus_cap;
 	u16 temp_word;
 	u16 vendor_id;
 	u16 subsystem_vid;
@@ -861,7 +865,7 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		// TODO: This code can be made to support non-Compaq or Intel subsystem IDs
 		rc = pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &subsystem_vid);
 		if (rc) {
-			err(__FUNCTION__" : pci_read_config_word failed\n");
+			err("%s : pci_read_config_word failed\n", __FUNCTION__);
 			return rc;
 		}
 		dbg("Subsystem Vendor ID: %x\n", subsystem_vid);
@@ -872,14 +876,14 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 		ctrl = (struct controller *) kmalloc(sizeof(struct controller), GFP_KERNEL);
 		if (!ctrl) {
-			err(__FUNCTION__" : out of memory\n");
+			err("%s : out of memory\n", __FUNCTION__);
 			return -ENOMEM;
 		}
 		memset(ctrl, 0, sizeof(struct controller));
 
 		rc = pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &subsystem_deviceid);
 		if (rc) {
-			err(__FUNCTION__" : pci_read_config_word failed\n");
+			err("%s : pci_read_config_word failed\n", __FUNCTION__);
 			goto err_free_ctrl;
 		}
 
@@ -890,6 +894,39 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 		switch (subsystem_vid) {
 			case PCI_VENDOR_ID_COMPAQ:
+				if (rev >= 0x13) { /* CIOBX */
+					ctrl->push_flag = 1;
+					ctrl->slot_switch_type = 1;		// Switch is present
+					ctrl->push_button = 1;			// Pushbutton is present
+					ctrl->pci_config_space = 1;		// Index/data access to working registers 0 = not supported, 1 = supported
+					ctrl->defeature_PHP = 1;		// PHP is supported
+					ctrl->pcix_support = 1;			// PCI-X supported
+					ctrl->pcix_speed_capability = 1;
+					pci_read_config_byte(pdev, 0x41, &bus_cap);
+					if (bus_cap & 0x80) {
+						dbg("bus max supports 133MHz PCI-X\n");
+						ctrl->speed_capability = PCI_SPEED_133MHz_PCIX;
+						break;
+					}
+					if (bus_cap & 0x40) {
+						dbg("bus max supports 100MHz PCI-X\n");
+						ctrl->speed_capability = PCI_SPEED_100MHz_PCIX;
+						break;
+					}
+					if (bus_cap & 20) {
+						dbg("bus max supports 66MHz PCI-X\n");
+						ctrl->speed_capability = PCI_SPEED_66MHz_PCIX;
+						break;
+					}
+					if (bus_cap & 10) {
+						dbg("bus max supports 66MHz PCI\n");
+						ctrl->speed_capability = PCI_SPEED_66MHz;
+						break;
+					}
+
+					break;
+				}
+
 				switch (subsystem_deviceid) {
 					case PCI_SUB_HPC_ID:
 						/* Original 6500/7000 implementation */
@@ -933,8 +970,18 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 						ctrl->pcix_support = 0;			// PCI-X not supported
 						ctrl->pcix_speed_capability = 0;	// N/A since PCI-X not supported
 						break;
+					case PCI_SUB_HPC_ID4:
+						/* First PCI-X implementation, 100MHz */
+						ctrl->push_flag = 1;
+						ctrl->slot_switch_type = 1;		// Switch is present
+						ctrl->speed_capability = PCI_SPEED_100MHz_PCIX;
+						ctrl->push_button = 1;			// Pushbutton is present
+						ctrl->pci_config_space = 1;		// Index/data access to working registers 0 = not supported, 1 = supported
+						ctrl->defeature_PHP = 1;		// PHP is supported
+						ctrl->pcix_support = 1;			// PCI-X supported
+						ctrl->pcix_speed_capability = 0;	
+						break;
 					default:
-						// TODO: Add SSIDs for CPQ systems that support PCI-X
 						err(msg_HPC_not_supported);
 						rc = -ENODEV;
 						goto err_free_ctrl;
@@ -1023,7 +1070,7 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	info("Initializing the PCI hot plug controller residing on PCI bus %d\n", pdev->bus->number);
 
 	dbg ("Hotplug controller capabilities:\n");
-	dbg ("    speed_capability       %s\n", ctrl->speed_capability == PCI_SPEED_33MHz ? "33MHz" : "66Mhz");
+	dbg ("    speed_capability       %d\n", ctrl->speed_capability);
 	dbg ("    slot_switch_type       %s\n", ctrl->slot_switch_type == 0 ? "no switch" : "switch present");
 	dbg ("    defeature_PHP          %s\n", ctrl->defeature_PHP == 0 ? "PHP not supported" : "PHP supported");
 	dbg ("    alternate_base_address %s\n", ctrl->alternate_base_address == 0 ? "not supported" : "supported");
@@ -1066,11 +1113,9 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_free_mem_region;
 	}
 
-	// Check for 66Mhz operation
-	// TODO: Add PCI-X support
+	// Check for 66Mhz and/or PCI-X operation
 	ctrl->speed = get_controller_speed(ctrl);
-
-
+	
 	//**************************************************
 	//
 	//              Save configuration headers for this and
@@ -1094,7 +1139,7 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	// Store PCI Config Space for all devices on this bus
 	rc = cpqhp_save_config(ctrl, ctrl->bus, readb(ctrl->hpc_reg + SLOT_MASK));
 	if (rc) {
-		err(__FUNCTION__": unable to save PCI configuration data, error %d\n", rc);
+		err("%s: unable to save PCI configuration data, error %d\n", __FUNCTION__, rc);
 		goto err_iounmap;
 	}
 
@@ -1124,7 +1169,7 @@ static int cpqhpc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	rc = ctrl_slot_setup(ctrl, smbios_start, smbios_table);
 	if (rc) {
 		err(msg_initialization_err, 6);
-		err(__FUNCTION__": unable to save PCI configuration data, error %d\n", rc);
+		err("%s: unable to save PCI configuration data, error %d\n", __FUNCTION__, rc);
 		goto err_iounmap;
 	}
 	

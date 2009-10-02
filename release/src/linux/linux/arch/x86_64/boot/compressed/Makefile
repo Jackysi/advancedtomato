@@ -28,7 +28,7 @@ head.o: head.S
 	$(IA32_AS) -c head.S
 
 misc.o: misc.c
-	$(IA32_CC) $(IA32_CFLAGS) -c misc.c
+	$(IA32_CC) $(IA32_CFLAGS) -fno-strict-aliasing -c misc.c
 
 piggy.o:	$(SYSTEM)
 	tmppiggy=_tmp_$$$$piggy; \

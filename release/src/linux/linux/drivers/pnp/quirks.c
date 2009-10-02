@@ -18,6 +18,9 @@
 #include <linux/isapnp.h>
 #include <linux/string.h>
 
+#if 0
+#define ISAPNP_DEBUG
+#endif
 
 static void __init quirk_awe32_resources(struct pci_dev *dev)
 {

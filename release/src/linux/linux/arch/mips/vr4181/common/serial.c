@@ -12,6 +12,13 @@
  *
  */
 
+/*
+ * [jsun, 010925]
+ * You need to make sure rs_table has at least one element in
+ * drivers/char/serial.c file.	There is no good way to do it right
+ * now.	 A workaround is to include CONFIG_SERIAL_MANY_PORTS in your
+ * configure file, which would gives you 64 ports and wastes 11K ram.
+ */
 
 #include <linux/types.h>
 #include <linux/kernel.h>

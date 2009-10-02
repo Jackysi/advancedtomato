@@ -205,6 +205,13 @@ static int vfb_set_var(struct fb_var_screeninfo *var, int con,
 	var->bits_per_pixel = 8;
     else if (var->bits_per_pixel <= 16)
 	var->bits_per_pixel = 16;
+#if 0
+    /* fbcon doesn't support this (yet) */
+    else if (var->bits_per_pixel <= 24)
+	var->bits_per_pixel = 24;
+    else if (var->bits_per_pixel <= 32)
+	var->bits_per_pixel = 32;
+#endif
     else
 	return -EINVAL;
 

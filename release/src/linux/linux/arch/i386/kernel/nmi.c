@@ -72,18 +72,21 @@ extern void show_registers(struct pt_regs *regs);
 
 int __init check_nmi_watchdog (void)
 {
-	irq_cpustat_t tmp[NR_CPUS];
+	unsigned int prev_nmi_count[NR_CPUS];
 	int j, cpu;
 
 	printk(KERN_INFO "testing NMI watchdog ... ");
 
-	memcpy(tmp, irq_stat, sizeof(tmp));
+	for (j = 0; j < smp_num_cpus; j++) {
+		cpu = cpu_logical_map(j);
+		prev_nmi_count[cpu] = irq_stat[cpu].__nmi_count;
+	}
 	sti();
 	mdelay((10*1000)/nmi_hz); // wait 10 ticks
 
 	for (j = 0; j < smp_num_cpus; j++) {
 		cpu = cpu_logical_map(j);
-		if (nmi_count(cpu) - tmp[cpu].__nmi_count <= 5) {
+		if (nmi_count(cpu) - prev_nmi_count[cpu] <= 5) {
 			printk("CPU#%d: NMI appears to be stuck!\n", cpu);
 			return -1;
 		}
@@ -119,7 +122,7 @@ static int __init setup_nmi_watchdog(char *str)
 		nmi_watchdog = nmi;
 	if ((nmi == NMI_LOCAL_APIC) &&
 			(boot_cpu_data.x86_vendor == X86_VENDOR_AMD) &&
-			(boot_cpu_data.x86 == 6))
+	       	    ((boot_cpu_data.x86 == 6) || (boot_cpu_data.x86 == 15)))
 		nmi_watchdog = nmi;
 	/*
 	 * We can enable the IO-APIC watchdog
@@ -278,7 +281,7 @@ void __pminit setup_apic_nmi_watchdog (void)
 {
 	switch (boot_cpu_data.x86_vendor) {
 	case X86_VENDOR_AMD:
-		if (boot_cpu_data.x86 != 6)
+		if (boot_cpu_data.x86 != 6 && boot_cpu_data.x86 != 15)
 			return;
 		setup_k7_watchdog();
 		break;

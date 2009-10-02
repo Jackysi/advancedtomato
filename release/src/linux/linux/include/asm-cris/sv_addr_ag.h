@@ -25,33 +25,41 @@
 
 /* IO_MASK returns a mask for a specified bitfield in a register.
    Note that this macro doesn't work when field width is 32 bits. */
-#define IO_MASK(reg,field) \
-    ( ( ( 1 << reg##__##field##__WIDTH ) - 1 ) << reg##__##field##__BITNR )
+#define IO_MASK(reg, field) IO_MASK_ (reg##_, field##_)
+#define IO_MASK_(reg_, field_) \
+    ( ( ( 1 << reg_##_##field_##_WIDTH ) - 1 ) << reg_##_##field_##_BITNR )
 
 /* IO_STATE returns a constant corresponding to a one of the symbolic
    states that the bitfield can have. (Shifted to correct position)  */
-#define IO_STATE(reg,field,state) \
-    ( reg##__##field##__##state << reg##__##field##__BITNR )
+#define IO_STATE(reg, field, state) IO_STATE_ (reg##_, field##_, _##state)
+#define IO_STATE_(reg_, field_, _state) \
+    ( reg_##_##field_##_state << reg_##_##field_##_BITNR )
 
 /* IO_EXTRACT returns the masked and shifted value corresponding to the
    bitfield can have. */
-#define IO_EXTRACT(reg,field,val) ( (( ( ( 1 << reg##__##field##__WIDTH ) \
-     - 1 ) << reg##__##field##__BITNR ) & (val)) >> reg##__##field##__BITNR )
+#define IO_EXTRACT(reg, field, val) IO_EXTRACT_ (reg##_, field##_, val)
+#define IO_EXTRACT_(reg_, field_, val) ( (( ( ( 1 << reg_##_##field_##_WIDTH ) \
+     - 1 ) << reg_##_##field_##_BITNR ) & (val)) >> reg_##_##field_##_BITNR )
 
 /* IO_STATE_VALUE returns a constant corresponding to a one of the symbolic
    states that the bitfield can have. (Not shifted)  */
-#define IO_STATE_VALUE(reg,field,state) ( reg##__##field##__##state )
+#define IO_STATE_VALUE(reg, field, state) \
+    IO_STATE_VALUE_ (reg##_, field##_, _##state)
+#define IO_STATE_VALUE_(reg_, field_, _state) ( reg_##_##field_##_state )
 
 /* IO_FIELD shifts the val parameter to be aligned with the bitfield
    specified. */
-#define IO_FIELD(reg,field,val) ((val) << reg##__##field##__BITNR)
+#define IO_FIELD(reg, field, val) IO_FIELD_ (reg##_, field##_, val)
+#define IO_FIELD_(reg_, field_, val) ((val) << reg_##_##field_##_BITNR)
 
 /* IO_BITNR returns the starting bitnumber of a bitfield. Bit 0 is
    LSB and the returned bitnumber is LSB of the field. */
-#define IO_BITNR(reg,field) (reg##__##field##__BITNR)
+#define IO_BITNR(reg, field) IO_BITNR_ (reg##_, field##_)
+#define IO_BITNR_(reg_, field_) (reg_##_##field_##_BITNR)
 
 /* IO_WIDTH returns the width, in bits, of a bitfield. */
-#define IO_WIDTH(reg,field) (reg##__##field##__WIDTH)
+#define IO_WIDTH(reg, field) IO_WIDTH_ (reg##_, field##_)
+#define IO_WIDTH_(reg_, field_) (reg_##_##field_##_WIDTH)
 
 /*--- Obsolete. Kept for backw compatibility. ---*/
 /* Reads (or writes) a byte/uword/udword from the specified mode
@@ -66,7 +74,9 @@
 !*-----------------------------------------------------------*/
 
 #define MEM_CSE0_START (0x00000000)
+#define MEM_CSE0_SIZE (0x04000000)
 #define MEM_CSE1_START (0x04000000)
+#define MEM_CSE1_SIZE (0x04000000)
 #define MEM_CSR0_START (0x08000000)
 #define MEM_CSR1_START (0x0c000000)
 #define MEM_CSP0_START (0x10000000)

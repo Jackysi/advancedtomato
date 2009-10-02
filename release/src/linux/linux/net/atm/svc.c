@@ -27,7 +27,11 @@
 #include "addr.h"
 
 
+#if 0
+#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define DPRINTK(format,args...)
+#endif
 
 
 static int svc_create(struct socket *sock,int protocol);
@@ -61,8 +65,8 @@ static void svc_disconnect(struct atm_vcc *vcc)
 
 	DPRINTK("svc_disconnect %p\n",vcc);
 	if (test_bit(ATM_VF_REGIS,&vcc->flags)) {
-		sigd_enq(vcc,as_close,NULL,NULL,NULL);
 		add_wait_queue(&vcc->sleep,&wait);
+		sigd_enq(vcc,as_close,NULL,NULL,NULL);
 		while (!test_bit(ATM_VF_RELEASED,&vcc->flags) && sigd) {
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule();
@@ -71,7 +75,7 @@ static void svc_disconnect(struct atm_vcc *vcc)
 	}
 	/* beware - socket is still in use by atmsigd until the last
 	   as_indicate has been answered */
-	while ((skb = skb_dequeue(&vcc->listenq))) {
+	while ((skb = skb_dequeue(&vcc->sk->receive_queue))) {
 		DPRINTK("LISTEN REL\n");
 		sigd_enq2(NULL,as_reject,vcc,NULL,NULL,&vcc->qos,0);
 		dev_kfree_skb(skb);
@@ -85,18 +89,21 @@ static void svc_disconnect(struct atm_vcc *vcc)
 
 static int svc_release(struct socket *sock)
 {
+	struct sock *sk = sock->sk;
 	struct atm_vcc *vcc;
 
-	if (!sock->sk) return 0;
-	vcc = ATM_SD(sock);
-	DPRINTK("svc_release %p\n",vcc);
-	clear_bit(ATM_VF_READY,&vcc->flags);
-	atm_release_vcc_sk(sock->sk,0);
-	svc_disconnect(vcc);
-	    /* VCC pointer is used as a reference, so we must not free it
-	       (thereby subjecting it to re-use) before all pending connections
-	        are closed */
-	free_atm_vcc_sk(sock->sk);
+	if (sk)  {
+		vcc = ATM_SD(sock);
+		DPRINTK("svc_release %p\n", vcc);
+		clear_bit(ATM_VF_READY, &vcc->flags);
+		/* VCC pointer is used as a reference, so we must not free it
+		   (thereby subjecting it to re-use) before all pending connections
+	           are closed */
+		sock_hold(sk);
+		vcc_release(sock);
+		svc_disconnect(vcc);
+		sock_put(sk);
+	}
 	return 0;
 }
 
@@ -105,33 +112,59 @@ static int svc_bind(struct socket *sock,struct sockaddr *sockaddr,
     int sockaddr_len)
 {
 	DECLARE_WAITQUEUE(wait,current);
+	struct sock *sk = sock->sk;
 	struct sockaddr_atmsvc *addr;
 	struct atm_vcc *vcc;
+	int error;
 
-	if (sockaddr_len != sizeof(struct sockaddr_atmsvc)) return -EINVAL;
-	if (sock->state == SS_CONNECTED) return -EISCONN;
-	if (sock->state != SS_UNCONNECTED) return -EINVAL;
+	if (sockaddr_len != sizeof(struct sockaddr_atmsvc))
+		return -EINVAL;
+	lock_sock(sk);
+	if (sock->state == SS_CONNECTED) {
+		error = -EISCONN;
+		goto out;
+	}
+	if (sock->state != SS_UNCONNECTED) {
+		error = -EINVAL;
+		goto out;
+	}
 	vcc = ATM_SD(sock);
-	if (test_bit(ATM_VF_SESSION,&vcc->flags)) return -EINVAL;
+	if (test_bit(ATM_VF_SESSION, &vcc->flags)) {
+		error = -EINVAL;
+		goto out;
+	}
 	addr = (struct sockaddr_atmsvc *) sockaddr;
-	if (addr->sas_family != AF_ATMSVC) return -EAFNOSUPPORT;
+	if (addr->sas_family != AF_ATMSVC) {
+		error = -EAFNOSUPPORT;
+		goto out;
+	}
 	clear_bit(ATM_VF_BOUND,&vcc->flags);
 	    /* failing rebind will kill old binding */
 	/* @@@ check memory (de)allocation on rebind */
-	if (!test_bit(ATM_VF_HASQOS,&vcc->flags)) return -EBADFD;
+	if (!test_bit(ATM_VF_HASQOS,&vcc->flags)) {
+		error = -EBADFD;
+		goto out;
+	}
 	vcc->local = *addr;
 	vcc->reply = WAITING;
-	sigd_enq(vcc,as_bind,NULL,NULL,&vcc->local);
 	add_wait_queue(&vcc->sleep,&wait);
+	sigd_enq(vcc,as_bind,NULL,NULL,&vcc->local);
 	while (vcc->reply == WAITING && sigd) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 	}
 	remove_wait_queue(&vcc->sleep,&wait);
 	clear_bit(ATM_VF_REGIS,&vcc->flags); /* doesn't count */
-	if (!sigd) return -EUNATCH;
-        if (!vcc->reply) set_bit(ATM_VF_BOUND,&vcc->flags);
-	return vcc->reply;
+	if (!sigd) {
+		error = -EUNATCH;
+		goto out;
+	}
+        if (!vcc->reply)
+		set_bit(ATM_VF_BOUND,&vcc->flags);
+	error = vcc->reply;
+out:
+	release_sock(sk);
+	return error;
 }
 
 
@@ -139,39 +172,70 @@ static int svc_connect(struct socket *sock,struct sockaddr *sockaddr,
     int sockaddr_len,int flags)
 {
 	DECLARE_WAITQUEUE(wait,current);
+	struct sock *sk = sock->sk;
 	struct sockaddr_atmsvc *addr;
 	struct atm_vcc *vcc = ATM_SD(sock);
 	int error;
 
 	DPRINTK("svc_connect %p\n",vcc);
-	if (sockaddr_len != sizeof(struct sockaddr_atmsvc)) return -EINVAL;
-	if (sock->state == SS_CONNECTED) return -EISCONN;
-	if (sock->state == SS_CONNECTING) {
-		if (vcc->reply == WAITING) return -EALREADY;
-		sock->state = SS_UNCONNECTED;
-		if (vcc->reply) return vcc->reply;
+	lock_sock(sk);
+	if (sockaddr_len != sizeof(struct sockaddr_atmsvc)) {
+		error = -EINVAL;
+		goto out;
 	}
-	else {
-		int error;
 
-		if (sock->state != SS_UNCONNECTED) return -EINVAL;
-		if (test_bit(ATM_VF_SESSION,&vcc->flags)) return -EINVAL;
+	switch (sock->state) {
+	default:
+		error = -EINVAL;
+		goto out;
+	case SS_CONNECTED:
+		error = -EISCONN;
+		goto out;
+	case SS_CONNECTING:
+		if (vcc->reply == WAITING) {
+			error = -EALREADY;
+			goto out;
+		}
+		sock->state = SS_UNCONNECTED;
+		if (vcc->reply) {
+			error = vcc->reply;
+			goto out;
+		}
+		break;
+	case SS_UNCONNECTED:
+		if (test_bit(ATM_VF_SESSION, &vcc->flags)) {
+			error = -EINVAL;
+			goto out;
+		}
 		addr = (struct sockaddr_atmsvc *) sockaddr;
-		if (addr->sas_family != AF_ATMSVC) return -EAFNOSUPPORT;
-		if (!test_bit(ATM_VF_HASQOS,&vcc->flags)) return -EBADFD;
+		if (addr->sas_family != AF_ATMSVC) {
+			error = -EAFNOSUPPORT;
+			goto out;
+		}
+		if (!test_bit(ATM_VF_HASQOS, &vcc->flags)) {
+			error = -EBADFD;
+			goto out;
+		}
 		if (vcc->qos.txtp.traffic_class == ATM_ANYCLASS ||
-		    vcc->qos.rxtp.traffic_class == ATM_ANYCLASS)
-			return -EINVAL;
+		    vcc->qos.rxtp.traffic_class == ATM_ANYCLASS) {
+			error = -EINVAL;
+			goto out;
+		}
 		if (!vcc->qos.txtp.traffic_class &&
-		    !vcc->qos.rxtp.traffic_class) return -EINVAL;
+		    !vcc->qos.rxtp.traffic_class) {
+			error = -EINVAL;
+			goto out;
+		}
 		vcc->remote = *addr;
 		vcc->reply = WAITING;
+		add_wait_queue(&vcc->sleep,&wait);
 		sigd_enq(vcc,as_connect,NULL,NULL,&vcc->remote);
 		if (flags & O_NONBLOCK) {
+			remove_wait_queue(&vcc->sleep,&wait);
 			sock->state = SS_CONNECTING;
-			return -EINPROGRESS;
+			error = -EINPROGRESS;
+			goto out;
 		}
-		add_wait_queue(&vcc->sleep,&wait);
 		error = 0;
 		while (vcc->reply == WAITING && sigd) {
 			set_current_state(TASK_INTERRUPTIBLE);
@@ -209,9 +273,16 @@ static int svc_connect(struct socket *sock,struct sockaddr *sockaddr,
 			break;
 		}
 		remove_wait_queue(&vcc->sleep,&wait);
-		if (error) return error;
-		if (!sigd) return -EUNATCH;
-		if (vcc->reply) return vcc->reply;
+		if (error)
+			goto out;
+		if (!sigd) {
+			error = -EUNATCH;
+			goto out;
+		}
+		if (vcc->reply) {
+			error = vcc->reply;
+			goto out;
+		}
 	}
 /*
  * Not supported yet
@@ -224,9 +295,11 @@ static int svc_connect(struct socket *sock,struct sockaddr *sockaddr,
 /*
  * #endif
  */
-	if (!(error = atm_connect(sock,vcc->itf,vcc->vpi,vcc->vci)))
+	if (!(error = vcc_connect(sock, vcc->itf, vcc->vpi, vcc->vci)))
 		sock->state = SS_CONNECTED;
 	else (void) svc_disconnect(vcc);
+out:
+	release_sock(sk);
 	return error;
 }
 
@@ -234,37 +307,56 @@ static int svc_connect(struct socket *sock,struct sockaddr *sockaddr,
 static int svc_listen(struct socket *sock,int backlog)
 {
 	DECLARE_WAITQUEUE(wait,current);
+	struct sock *sk = sock->sk;
 	struct atm_vcc *vcc = ATM_SD(sock);
+	int error;
 
 	DPRINTK("svc_listen %p\n",vcc);
+	lock_sock(sk);
 	/* let server handle listen on unbound sockets */
-	if (test_bit(ATM_VF_SESSION,&vcc->flags)) return -EINVAL;
+	if (test_bit(ATM_VF_SESSION,&vcc->flags)) {
+		error = -EINVAL;
+		goto out;
+	}
+	if (test_bit(ATM_VF_LISTEN, &vcc->flags)) {
+		error = -EADDRINUSE;
+		goto out;
+	}
 	vcc->reply = WAITING;
-	sigd_enq(vcc,as_listen,NULL,NULL,&vcc->local);
 	add_wait_queue(&vcc->sleep,&wait);
+	sigd_enq(vcc,as_listen,NULL,NULL,&vcc->local);
 	while (vcc->reply == WAITING && sigd) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule();
 	}
 	remove_wait_queue(&vcc->sleep,&wait);
-	if (!sigd) return -EUNATCH;
+	if (!sigd) {
+		error = -EUNATCH;
+		goto out;
+	}
 	set_bit(ATM_VF_LISTEN,&vcc->flags);
-	vcc->backlog_quota = backlog > 0 ? backlog : ATM_BACKLOG_DEFAULT;
-	return vcc->reply;
+	vcc->sk->max_ack_backlog = backlog > 0 ? backlog : ATM_BACKLOG_DEFAULT;
+	error = vcc->reply;
+out:
+	release_sock(sk);
+	return error;
 }
 
 
 static int svc_accept(struct socket *sock,struct socket *newsock,int flags)
 {
+	struct sock *sk = sock->sk;
 	struct sk_buff *skb;
 	struct atmsvc_msg *msg;
 	struct atm_vcc *old_vcc = ATM_SD(sock);
 	struct atm_vcc *new_vcc;
 	int error;
 
+	lock_sock(sk);
+
 	error = svc_create(newsock,0);
 	if (error)
-		return error;
+		goto out;
 
 	new_vcc = ATM_SD(newsock);
 
@@ -273,7 +365,7 @@ static int svc_accept(struct socket *sock,struct socket *newsock,int flags)
 		DECLARE_WAITQUEUE(wait,current);
 
 		add_wait_queue(&old_vcc->sleep,&wait);
-		while (!(skb = skb_dequeue(&old_vcc->listenq)) && sigd) {
+		while (!(skb = skb_dequeue(&old_vcc->sk->receive_queue)) && sigd) {
 			if (test_bit(ATM_VF_RELEASED,&old_vcc->flags)) break;
 			if (test_bit(ATM_VF_CLOSE,&old_vcc->flags)) {
 				error = old_vcc->reply;
@@ -283,46 +375,62 @@ static int svc_accept(struct socket *sock,struct socket *newsock,int flags)
 				error = -EAGAIN;
 				break;
 			}
-			set_current_state(TASK_INTERRUPTIBLE);
+			release_sock(sk);
 			schedule();
+			lock_sock(sk);
 			if (signal_pending(current)) {
 				error = -ERESTARTSYS;
 				break;
 			}
 		}
 		remove_wait_queue(&old_vcc->sleep,&wait);
-		if (error) return error;
-		if (!skb) return -EUNATCH;
+		if (error)
+			goto out;
+		if (!skb) {
+			error = -EUNATCH;
+			goto out;
+		}
 		msg = (struct atmsvc_msg *) skb->data;
 		new_vcc->qos = msg->qos;
 		set_bit(ATM_VF_HASQOS,&new_vcc->flags);
 		new_vcc->remote = msg->svc;
 		new_vcc->local = msg->local;
 		new_vcc->sap = msg->sap;
-		error = atm_connect(newsock,msg->pvc.sap_addr.itf,
-		    msg->pvc.sap_addr.vpi,msg->pvc.sap_addr.vci);
+		error = vcc_connect(newsock, msg->pvc.sap_addr.itf,
+				    msg->pvc.sap_addr.vpi, msg->pvc.sap_addr.vci);
 		dev_kfree_skb(skb);
-		old_vcc->backlog_quota++;
+		old_vcc->sk->ack_backlog--;
 		if (error) {
 			sigd_enq2(NULL,as_reject,old_vcc,NULL,NULL,
 			    &old_vcc->qos,error);
-			return error == -EAGAIN ? -EBUSY : error;
+			error = error == -EAGAIN ? -EBUSY : error;
+			goto out;
 		}
 		/* wait should be short, so we ignore the non-blocking flag */
 		new_vcc->reply = WAITING;
-		sigd_enq(new_vcc,as_accept,old_vcc,NULL,NULL);
 		add_wait_queue(&new_vcc->sleep,&wait);
+		sigd_enq(new_vcc,as_accept,old_vcc,NULL,NULL);
 		while (new_vcc->reply == WAITING && sigd) {
 			set_current_state(TASK_UNINTERRUPTIBLE);
+			release_sock(sk);
 			schedule();
+			lock_sock(sk);
 		}
 		remove_wait_queue(&new_vcc->sleep,&wait);
-		if (!sigd) return -EUNATCH;
+		if (!sigd) {
+			error = -EUNATCH;
+			goto out;
+		}
 		if (!new_vcc->reply) break;
-		if (new_vcc->reply != -ERESTARTSYS) return new_vcc->reply;
+		if (new_vcc->reply != -ERESTARTSYS) {
+			error = new_vcc->reply;
+			goto out;
+		}
 	}
 	newsock->state = SS_CONNECTED;
-	return 0;
+out:
+	release_sock(sk);
+	return error;
 }
 
 
@@ -344,8 +452,8 @@ int svc_change_qos(struct atm_vcc *vcc,struct atm_qos *qos)
 	DECLARE_WAITQUEUE(wait,current);
 
 	vcc->reply = WAITING;
-	sigd_enq2(vcc,as_modify,NULL,NULL,&vcc->local,qos,0);
 	add_wait_queue(&vcc->sleep,&wait);
+	sigd_enq2(vcc,as_modify,NULL,NULL,&vcc->local,qos,0);
 	while (vcc->reply == WAITING && !test_bit(ATM_VF_RELEASED,&vcc->flags)
 	    && sigd) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
@@ -360,63 +468,84 @@ int svc_change_qos(struct atm_vcc *vcc,struct atm_qos *qos)
 static int svc_setsockopt(struct socket *sock,int level,int optname,
     char *optval,int optlen)
 {
+	struct sock *sk = sock->sk;
 	struct atm_vcc *vcc;
+	int error = 0;
 
 	if (!__SO_LEVEL_MATCH(optname, level) || optname != SO_ATMSAP ||
-	    optlen != sizeof(struct atm_sap))
-		return atm_setsockopt(sock,level,optname,optval,optlen);
+	    optlen != sizeof(struct atm_sap)) {
+		error = vcc_setsockopt(sock, level, optname, optval, optlen);
+		goto out;
+	}
 	vcc = ATM_SD(sock);
-	if (copy_from_user(&vcc->sap,optval,optlen)) return -EFAULT;
-	set_bit(ATM_VF_HASSAP,&vcc->flags);
-	return 0;
+	if (copy_from_user(&vcc->sap, optval, optlen)) {
+		error = -EFAULT;
+		goto out;
+	}
+	set_bit(ATM_VF_HASSAP, &vcc->flags);
+out:
+	release_sock(sk);
+	return error;
 }
 
 
 static int svc_getsockopt(struct socket *sock,int level,int optname,
     char *optval,int *optlen)
 {
-	int len;
+	struct sock *sk = sock->sk;
+	int error = 0, len;
 
-	if (!__SO_LEVEL_MATCH(optname, level) || optname != SO_ATMSAP)
-		return atm_getsockopt(sock,level,optname,optval,optlen);
-	if (get_user(len,optlen)) return -EFAULT;
-	if (len != sizeof(struct atm_sap)) return -EINVAL;
-	return copy_to_user(optval,&ATM_SD(sock)->sap,sizeof(struct atm_sap)) ?
-	    -EFAULT : 0;
+	lock_sock(sk);
+	if (!__SO_LEVEL_MATCH(optname, level) || optname != SO_ATMSAP) {
+		error = vcc_getsockopt(sock, level, optname, optval, optlen);
+		goto out;
+	}
+	if (get_user(len, optlen)) {
+		error = -EFAULT;
+		goto out;
+	}
+	if (len != sizeof(struct atm_sap)) {
+		error = -EINVAL;
+		goto out;
+	}
+	if (copy_to_user(optval, &ATM_SD(sock)->sap, sizeof(struct atm_sap))) {
+		error = -EFAULT;
+		goto out;
+	}
+out:
+	release_sock(sk);
+	return error;
 }
 
 
-static struct proto_ops SOCKOPS_WRAPPED(svc_proto_ops) = {
-	family:		PF_ATMSVC,
+static struct proto_ops svc_proto_ops = {
+	.family =	PF_ATMSVC,
 
-	release:	svc_release,
-	bind:		svc_bind,
-	connect:	svc_connect,
-	socketpair:	sock_no_socketpair,
-	accept:		svc_accept,
-	getname:	svc_getname,
-	poll:		atm_poll,
-	ioctl:		atm_ioctl,
-	listen:		svc_listen,
-	shutdown:	svc_shutdown,
-	setsockopt:	svc_setsockopt,
-	getsockopt:	svc_getsockopt,
-	sendmsg:	atm_sendmsg,
-	recvmsg:	atm_recvmsg,
-	mmap:		sock_no_mmap,
-	sendpage:	sock_no_sendpage,
+	.release =	svc_release,
+	.bind =		svc_bind,
+	.connect =	svc_connect,
+	.socketpair =	sock_no_socketpair,
+	.accept =	svc_accept,
+	.getname =	svc_getname,
+	.poll =		atm_poll,
+	.ioctl =	vcc_ioctl,
+	.listen =	svc_listen,
+	.shutdown =	svc_shutdown,
+	.setsockopt =	svc_setsockopt,
+	.getsockopt =	svc_getsockopt,
+	.sendmsg =	vcc_sendmsg,
+	.recvmsg =	vcc_recvmsg,
+	.mmap =		sock_no_mmap,
+	.sendpage =	sock_no_sendpage,
 };
 
-
-#include <linux/smp_lock.h>
-SOCKOPS_WRAP(svc_proto, PF_ATMSVC);
 
 static int svc_create(struct socket *sock,int protocol)
 {
 	int error;
 
 	sock->ops = &svc_proto_ops;
-	error = atm_create(sock,protocol,AF_ATMSVC);
+	error = vcc_create(sock, protocol, AF_ATMSVC);
 	if (error) return error;
 	ATM_SD(sock)->callback = svc_callback;
 	ATM_SD(sock)->local.sas_family = AF_ATMSVC;
@@ -438,13 +567,12 @@ static struct net_proto_family svc_family_ops = {
  *	Initialize the ATM SVC protocol family
  */
 
-static int __init atmsvc_init(void)
+int atmsvc_init(void)
 {
-	if (sock_register(&svc_family_ops) < 0) {
-		printk(KERN_ERR "ATMSVC: can't register");
-		return -1;
-	}
-	return 0;
+	return sock_register(&svc_family_ops);
 }
 
-module_init(atmsvc_init);
+void atmsvc_exit(void)
+{
+	sock_unregister(PF_ATMSVC);
+}

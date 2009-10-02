@@ -91,14 +91,6 @@ LIBS := `$(CC) -print-libgcc-file-name` $(TOPDIR)/arch/parisc/lib/lib.a $(LIBS)
 SUBDIRS := $(SUBDIRS) arch/parisc/math-emu
 DRIVERS := $(DRIVERS) arch/parisc/math-emu/math.o
 
-ifdef CONFIG_KWDB
-SUBDIRS := $(SUBDIRS) arch/parisc/kdb
-DRIVERS := $(DRIVERS) arch/parisc/kdb/kdb.o
-
-arch/parisc/kdb: dummy
-	$(MAKE) linuxsubdirs SUBDIRS=arch/parisc/kdb
-endif
-
 arch/parisc/kernel: dummy
 	$(MAKE) linuxsubdirs SUBDIRS=arch/parisc/kernel
 
@@ -106,6 +98,21 @@ arch/parisc/mm: dummy
 	$(MAKE) linuxsubdirs SUBDIRS=arch/parisc/mm
 
 palo: vmlinux
+	@if [ $$(palo -f /dev/null >/dev/null 2>&1 ; echo $$?) != 2 ]; then \
+		echo 'ERROR: Please install palo first (apt-get install palo)';\
+		echo 'or build it from source and install it somewhere in your $$PATH';\
+		false; \
+	fi
+	@if [ ! -f ./palo.conf ]; then \
+		cp arch/parisc/defpalo.conf palo.conf; \
+		echo 'A generic palo config file (./palo.conf) has been created for you.'; \
+		echo 'You should check it and re-run "make palo".'; \
+		echo 'WARNING: the "lifimage" file is now placed in this directory by default!'; \
+		false; \
+	fi
+	palo -f ./palo.conf
+
+oldpalo: vmlinux
 	export TOPDIR=`pwd`; \
 	unset STRIP LDFLAGS CPP CPPFLAGS AFLAGS CFLAGS CC LD; cd ../palo && make lifimage
 

@@ -130,7 +130,10 @@ static void set_brk(unsigned long start, unsigned long end)
 	end = PAGE_ALIGN(end);
 	if (end <= start)
 		return;
+
+	down_write(&current->mm->mmap_sem);
 	do_brk(start, end - start);
+	up_write(&current->mm->mmap_sem);
 }
 
 
@@ -379,7 +382,9 @@ static unsigned int load_irix_interp(struct elfhdr * interp_elf_ex,
 
 	/* Map the last of the bss segment */
 	if (last_bss > len) {
+		down_write(&current->mm->mmap_sem);
 		do_brk(len, (last_bss - len));
+		up_write(&current->mm->mmap_sem);
 	}
 	kfree(elf_phdata);
 
@@ -404,6 +409,12 @@ static int verify_binary(struct elfhdr *ehp, struct linux_binprm *bprm)
 		return -ENOEXEC;
 	}
 
+	/* XXX Don't support N32 or 64bit binaries yet because they can
+	 * XXX and do execute 64 bit instructions and expect all registers
+	 * XXX to be 64 bit as well.  We need to make the kernel save
+	 * XXX all registers as 64bits on cpu's capable of this at
+	 * XXX exception time plus frob the XTLB exception vector.
+	 */
 	if((ehp->e_flags & 0x20)) {
 		return -ENOEXEC;
 	}
@@ -561,7 +572,9 @@ void irix_map_prda_page (void)
 	unsigned long v;
 	struct prda *pp;
 
+	down_write(&current->mm->mmap_sem);
 	v =  do_brk (PRDA_ADDRESS, PAGE_SIZE);
+	up_write(&current->mm->mmap_sem);
 
 	if (v < 0)
 		return;
@@ -750,6 +763,17 @@ static int load_irix_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	printk("(brk) %lx\n" , (long) current->mm->brk);
 #endif
 
+#if 0 /* XXX No fucking way dude... */
+	/* Why this, you ask???  Well SVr4 maps page 0 as read-only,
+	 * and some applications "depend" upon this behavior.
+	 * Since we do not have the power to recompile these, we
+	 * emulate the SVr4 behavior.  Sigh.
+	 */
+	down_write(&current->mm->mmap_sem);
+	(void) do_mmap(NULL, 0, 4096, PROT_READ | PROT_EXEC,
+		       MAP_FIXED | MAP_PRIVATE, 0);
+	up_write(&current->mm->mmap_sem);
+#endif
 
 	start_thread(regs, elf_entry, bprm->p);
 	if (current->ptrace & PT_PTRACED)
@@ -841,8 +865,11 @@ static int load_irix_library(struct file *file)
 
 	len = (elf_phdata->p_filesz + elf_phdata->p_vaddr+ 0xfff) & 0xfffff000;
 	bss = elf_phdata->p_memsz + elf_phdata->p_vaddr;
-	if (bss > len)
-	  do_brk(len, bss-len);
+	if (bss > len) {
+		down_write(&current->mm->mmap_sem);
+		do_brk(len, bss-len);
+		up_write(&current->mm->mmap_sem);
+	}
 	kfree(elf_phdata);
 	return 0;
 }
@@ -955,10 +982,12 @@ static inline int maydump(struct vm_area_struct *vma)
 {
 	if (!(vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)))
 		return 0;
+#if 1
 	if (vma->vm_flags & (VM_WRITE|VM_GROWSUP|VM_GROWSDOWN))
 		return 1;
 	if (vma->vm_flags & (VM_READ|VM_EXEC|VM_EXECUTABLE|VM_SHARED))
 		return 0;
+#endif
 	return 1;
 }
 
@@ -1003,9 +1032,10 @@ static int writenote(struct memelfnote *men, struct file *file)
 
 	DUMP_WRITE(&en, sizeof(en));
 	DUMP_WRITE(men->name, en.n_namesz);
-	DUMP_SEEK(roundup((unsigned long)file->f_pos, 4));	
+	/* XXX - cast from long long to long to avoid need for libgcc.a */
+	DUMP_SEEK(roundup((unsigned long)file->f_pos, 4));	/* XXX */
 	DUMP_WRITE(men->data, men->datasz);
-	DUMP_SEEK(roundup((unsigned long)file->f_pos, 4));	
+	DUMP_SEEK(roundup((unsigned long)file->f_pos, 4));	/* XXX */
 
 	return 1;
 

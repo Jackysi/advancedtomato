@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: pnc2000.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: pnc2000.c,v 1.10 2001/10/02 15:05:14 dwmw2 Exp $
  */
 
 #include <linux/module.h>

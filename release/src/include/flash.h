@@ -1,7 +1,7 @@
 /*
  * flash.h: Common definitions for flash access.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -36,8 +36,8 @@ typedef struct _flash_cmds{
 #define	UNLOCK_CMD_WORDS	2	/* 2 words per command */
 
 typedef struct _unlock_cmd {
-	uint		addr[UNLOCK_CMD_WORDS];
-	uint16	cmd[UNLOCK_CMD_WORDS];
+  uint		addr[UNLOCK_CMD_WORDS];
+  uint16	cmd[UNLOCK_CMD_WORDS];
 } unlock_cmd_t;
 
 /* Flash descriptors */
@@ -58,8 +58,8 @@ typedef struct _flash_desc {
 
 
 #ifdef	DECLARE_FLASHES
-flash_cmds_t sflash_cmd_t =
-	{ SFLASH, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+flash_cmds_t sflash_cmd_t = 
+	{ SFLASH,	0,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00 };
 
 flash_cmds_t flash_cmds[] = {
 /*	  type	needu	preera	eraseb	erasech	write	wbuf	clcsr	rdcsr	rdid
@@ -94,7 +94,7 @@ unlock_cmd_t unlock_cmd_sst = {
 /* data: */	{ 0xaa,		0x55}
 };
 
-#define AMD_CMD	0xaaa
+#define AMD_CMD 0xaaa
 #define SST_CMD 0xaaaa
 
 /* intel unlock block cmds */
@@ -105,49 +105,49 @@ unlock_cmd_t unlock_cmd_sst = {
 
 uint blk8x8k[] = {
 	0x00000000,
-	0x00002000,
-	0x00004000,
-	0x00006000,
-	0x00008000,
-	0x0000a000,
-	0x0000c000,
-	0x0000e000,
-	0x00010000
+		   0x00002000,
+		   0x00004000,
+		   0x00006000,
+		   0x00008000,
+		   0x0000a000,
+		   0x0000c000,
+		   0x0000e000,
+		   0x00010000
 };
 
 /* Funky AMD arrangement for 29xx800's */
 uint amd800[] = {
 	0x00000000,		/* 16KB */
-	0x00004000,		/* 32KB */
-	0x0000c000,		/* 8KB */
-	0x0000e000,		/* 8KB */
-	0x00010000,		/* 8KB */
-	0x00012000,		/* 8KB */
-	0x00014000,		/* 32KB */
-	0x0001c000,		/* 16KB */
-	0x00020000
+		  0x00004000,		/* 32KB */
+		  0x0000c000,		/* 8KB */
+		  0x0000e000,		/* 8KB */
+		  0x00010000,		/* 8KB */
+		  0x00012000,		/* 8KB */
+		  0x00014000,		/* 32KB */
+		  0x0001c000,		/* 16KB */
+		  0x00020000
 };
 
 /* AMD arrangement for 29xx160's */
 uint amd4112[] = {
 	0x00000000,		/* 32KB */
-	0x00008000,		/* 8KB */
-	0x0000a000,		/* 8KB */
-	0x0000c000,		/* 16KB */
-	0x00010000
+		   0x00008000,		/* 8KB */
+		   0x0000a000,		/* 8KB */
+		   0x0000c000,		/* 16KB */
+		   0x00010000
 };
 
 uint amd2114[] = {
 	0x00000000,		/* 16KB */
-	0x00004000,		/* 8KB */
-	0x00006000,		/* 8KB */
-	0x00008000,		/* 32KB */
-	0x00010000
+		   0x00004000,		/* 8KB */
+		   0x00006000,		/* 8KB */
+		   0x00008000,		/* 32KB */
+		   0x00010000
 };
 
 
-flash_desc_t sflash_desc =
-	{ 0, 0, 0, 0, SFLASH, 0, 0, 0, 0, 0, NULL, "SFLASH" };
+flash_desc_t sflash_desc =  
+	{ 0, 0, 0, 0,	SFLASH, 0, 0,  0, 0,  0, NULL,    "SFLASH" };
 
 flash_desc_t flashes[] = {
 	{ 0x00b0, 0x00d0, 0x0200000, 2,	SCS, 0x10000, 32,  0, 31,  0, NULL,
@@ -194,24 +194,50 @@ flash_desc_t flashes[] = {
 	  "AMD 29DL800BT 512Kx16 TopB" },
 	{ 0x0001, 0x22cb, 0x0100000, 2,	AMD, 0x10000, 16,  2, 15,  8, amd800,
 	  "AMD 29DL800BB 512Kx16 BotB" },
-	{ 0x0001, 0x22c4, 0x0200000, 2,	AMD, 0x10000, 32,  0, 30,  4, amd2114,
-	  "AMD 29lv160DT 1Mx16 TopB" },
-	{ 0x0001, 0x2249, 0x0200000, 2,	AMD, 0x10000, 32,  1, 31,  4, amd4112,
+	{ 0x0001, 0x22c4, 0x0200000, 2,	AMD, 0x10000, 32,  0, 30,  4, amd4112,
+	  "AMD 29W160ET 1Mx16 TopB" },
+	{ 0x0001, 0x2249, 0x0200000, 2,	AMD, 0x10000, 32,  1, 31,  4, amd2114,
 	  "AMD 29lv160DB 1Mx16 BotB" },
 	{ 0x0001, 0x22f6, 0x0400000, 2,	AMD, 0x10000, 64,  0, 62,  8, blk8x8k,
-	  "AMD 29lv320DT 2Mx16 TopB" },
+	  "AMD 29LV320DT 2Mx16 TopB" },
 	{ 0x0001, 0x22f9, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
 	  "AMD 29lv320DB 2Mx16 BotB" },
 	{ 0x0001, 0x00f9, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
 	  "AMD 29lv320DB 2Mx16 BotB in BYTE mode" },
-	{ 0x0001, 0x2201, 0x0400000, 2,	AMD, 0x10000, 64,  0, 62,  8, blk8x8k,
+	{ 0x0001, 0x0201, 0x0800000, 2,	AMD, 0x10000, 128,  1, 126,  8, blk8x8k,
+	  "AMD 29DL640D 4Mx16" },
+	{ 0x0001, 0x1200, 0x01000000, 2, AMD, 0x10000, 256,  0, 255,  0, NULL,
+	  "AMD 29LV128MH/L 8Mx16" },
+	{ 0x0001, 0x1301, 0x0800000, 2, AMD, 0x10000, 128,  0, 127,  0, NULL,
+	  "AMD 29LV641MT 4Mx16" },
+	{ 0x0001, 0x1a01, 0x0400000, 2,	AMD, 0x10000, 64,  0, 62,  8, blk8x8k,
 	  "AMD 29lv320MT 2Mx16 TopB" },
-	{ 0x0001, 0x2200, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
+	{ 0x0001, 0x1a00, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
 	  "AMD 29lv320MB 2Mx16 BotB" },
+	{ 0x0001, 0x1001, 0x0800000, 2,	AMD, 0x10000, 128,  0, 126,  8, blk8x8k,
+	  "Spansion S29GL064A-R3 4Mx16 TopB" },
+	{ 0x0001, 0x1000, 0x0800000, 2,	AMD, 0x10000, 128,  1, 127,  8, blk8x8k,
+	  "Spansion S29GL064A-R4 4Mx16 BotB" },
+	{ 0x0001, 0x0c01, 0x0800000, 2,	AMD, 0x10000, 128,  0, 127,  0, NULL,
+	  "Spansion S29GL640A 8Mx16" },
 	{ 0x0020, 0x22CA, 0x0400000, 2,	AMD, 0x10000, 64,  0, 62,  4, amd4112,
 	  "ST 29w320DT 2Mx16 TopB" },
 	{ 0x0020, 0x22CB, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  4, amd2114,
 	  "ST 29w320DB 2Mx16 BotB" },
+	{ 0x0020, 0x22c4, 0x0200000, 2,	AMD, 0x10000, 32,  0, 30,  4, amd4112,
+	  "ST 29w160ET 1Mx16 TopB" },
+	{ 0x0020, 0x2249, 0x0200000, 2,	AMD, 0x10000, 32,  1, 31,  4, amd2114,
+	  "ST 29w160ET 1Mx16 BotB" },
+	{ 0x0020, 0x225d, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
+	  "ST M29DW324DB 2Mx16 TopB" },
+	{ 0x007f, 0x22f9, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
+	  "EON 29LV320CB 2Mx16 BotB" },
+	{ 0x00C2, 0x22c4, 0x0200000, 2,	AMD, 0x10000, 32,  0, 30,  4, amd4112,
+	  "MX 29LV160CT 1Mx16 TopB" },
+	{ 0x00C2, 0x2249, 0x0200000, 2,	AMD, 0x10000, 32,  1, 31,  4, amd2114, 
+	  "MX 29LV160CB 1Mx16 BotB" },
+	{ 0x00C2, 0x22a8, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k, 
+	  "MX 29LV320CB 2Mx16 BotB" },
 	{ 0x00C2, 0x00A7, 0x0400000, 2,	AMD, 0x10000, 64,  0, 62,  4, amd4112,
 	  "MX29LV320T 2Mx16 TopB" },
 	{ 0x00C2, 0x00A8, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  4, amd2114,
@@ -230,6 +256,10 @@ flash_desc_t flashes[] = {
 	  "MX29LV320B 2Mx16 BotB" },
 	{ 0x00BF, 0x2783, 0x0400000, 2,	SST, 0x10000, 64,  0, 63,  0, NULL,
 	  "SST39VF320 2Mx16" },
+	{ 0x00ec, 0x22e2, 0x0800000, 2, AMD, 0x10000, 128,  1, 127,  8, blk8x8k,
+	  "Samsung K8D631UB 4Mx16 BotB" },
+	{ 0xddda, 0x0a00, 0x0400000, 2, AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
+	  "Samsung K8D631UB 4Mx16 BotB" },
 	{ 0,      0,      0,         0,	OLD, 0,       0,   0, 0,   0, NULL,
 	  NULL },
 };

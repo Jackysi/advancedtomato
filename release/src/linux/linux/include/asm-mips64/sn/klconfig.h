@@ -67,6 +67,12 @@ typedef s32 klconf_off_t;
 /*
  * Some IMPORTANT OFFSETS. These are the offsets on all NODES.
  */
+#if 0
+#define RAMBASE                 0
+#define ARCSSPB_OFF             0x1000 /* shift it to sys/arcs/spb.h */
+
+#define OFF_HWGRAPH 		0
+#endif
 
 #define	MAX_MODULE_ID		255
 #define SIZE_PAD		4096 /* 4k padding for structures */
@@ -76,6 +82,7 @@ typedef s32 klconf_off_t;
  */
 #define MAX_SLOTS_PER_NODE	(1 + 2 + 6 + 2)
 
+/* XXX if each node is guranteed to have some memory */
 
 #define MAX_PCI_DEVS		8
 
@@ -121,7 +128,7 @@ typedef s32 klconf_off_t;
 
 
 typedef struct console_s {
-#if defined(CONFIG_SGI_IO)	  
+#if defined(CONFIG_SGI_IO)	/* FIXME */
 	__psunsigned_t 	uart_base;
 	__psunsigned_t 	config_base;
 	__psunsigned_t 	memory_base;
@@ -161,6 +168,10 @@ typedef struct kl_config_hdr {
 
 
 #define KL_CONFIG_HDR(_nasid) 	((kl_config_hdr_t *)(KLCONFIG_ADDR(_nasid)))
+#if 0
+#define KL_CONFIG_MALLOC_HDR(_nasid) \
+                                (KL_CONFIG_HDR(_nasid)->ch_malloc_hdr)
+#endif
 #define KL_CONFIG_INFO_OFFSET(_nasid)					\
         (KL_CONFIG_HDR(_nasid)->ch_board_info)
 #define KL_CONFIG_INFO_SET_OFFSET(_nasid, _off)				\
@@ -185,7 +196,7 @@ typedef struct kl_config_hdr {
 			((__psunsigned_t)_k + (_k->ch_malloc_hdr_off)))
 #else
 #define PTR_CH_MALLOC_HDR(_k)   ((klc_malloc_hdr_t *)\
-			(unsigned long)_k + (_k->ch_malloc_hdr_off)))
+			((unsigned long)_k + (_k->ch_malloc_hdr_off)))
 #endif
 
 #define KL_CONFIG_CH_MALLOC_HDR(_n)   PTR_CH_MALLOC_HDR(KL_CONFIG_HDR(_n))
@@ -372,7 +383,7 @@ typedef struct kl_config_hdr {
 #define KLTYPE_ETHERNET	(KLCLASS_IO  | 0x3)
 #define KLTYPE_MENET	KLTYPE_ETHERNET     /* Additional name */
 #define KLTYPE_FDDI  	(KLCLASS_IO  | 0x4)
-#define KLTYPE_UNUSED	(KLCLASS_IO  | 0x5) 
+#define KLTYPE_UNUSED	(KLCLASS_IO  | 0x5) /* XXX UNUSED */
 #define KLTYPE_HAROLD   (KLCLASS_IO  | 0x6) /* PCI SHOE BOX */
 #define KLTYPE_PCI	KLTYPE_HAROLD
 #define KLTYPE_VME      (KLCLASS_IO  | 0x7) /* Any 3rd party VME card */
@@ -555,7 +566,7 @@ typedef struct klinfo_s {                  /* Generic info */
 #define KLSTRUCT_HUB_UART 	17
 #define KLSTRUCT_IOC3ENET 	18
 #define KLSTRUCT_IOC3UART 	19
-#define KLSTRUCT_UNUSED		20 
+#define KLSTRUCT_UNUSED		20 /* XXX UNUSED */
 #define KLSTRUCT_IOC3PCKM       21
 #define KLSTRUCT_RAD        	22
 #define KLSTRUCT_HUB_TTY        23
@@ -614,6 +625,17 @@ typedef struct klport_s {
 	klconf_off_t	port_offset;
 } klport_t;
 
+#if 0
+/*
+ * This is very similar to the klport_s but instead of having a componant
+ * offset it has a board offset.
+ */
+typedef struct klxbow_port_s {
+	nasid_t		port_nasid;
+	unsigned char	port_flag;
+	klconf_off_t	board_offset;
+} klxbow_port_t;
+#endif
 
 typedef struct klcpu_s {                          /* CPU */
 	klinfo_t 	cpu_info;
@@ -733,6 +755,7 @@ typedef struct klvmed_s {                          /* VME DEVICE - VME BOARD */
 
 #define ROUTER_VECTOR_VERS	2
 
+/* XXX - Don't we need the number of ports here?!? */
 typedef struct klrou_s {                          /* ROUTER */
 	klinfo_t 	rou_info ;
 	uint		rou_flags ;           /* PCFG_ROUTER_xxx flags */
@@ -822,7 +845,7 @@ typedef struct klmsdev_s {                          /* mouse device */
         void 		*msdev_cfg ;
 } klmsdev_t ;
 
-#define MAX_FDDI_DEVS 10 
+#define MAX_FDDI_DEVS 10 /* XXX Is this true */
 
 typedef struct klfddi_s {                          /* FDDI */
 	klinfo_t 	fddi_info ;

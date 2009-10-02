@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.ppc8xx_pic.c 1.13 12/01/01 17:19:48 trini
- */
 #include <linux/config.h>
 #include <linux/stddef.h>
 #include <linux/init.h>
@@ -10,6 +7,8 @@
 #include <asm/8xx_immap.h>
 #include <asm/mpc8xx.h>
 #include "ppc8xx_pic.h"
+
+extern int cpm_get_irq(struct pt_regs *regs);
 
 /* The 8xx internal interrupt controller.  It is usually
  * the only interrupt controller.  Some boards, like the MBX and
@@ -53,7 +52,7 @@ static void m8xx_end_irq(unsigned int irq_nr)
 		word = irq_nr >> 5;
 
 		ppc_cached_irq_mask[word] |= (1 << (31-bit));
-		((immap_t *)IMAP_ADDR)->im_siu_conf.sc_simask = 
+		((immap_t *)IMAP_ADDR)->im_siu_conf.sc_simask =
 			ppc_cached_irq_mask[word];
 	}
 }
@@ -83,8 +82,6 @@ struct hw_interrupt_type ppc8xx_pic = {
 	0
 };
 
-
-
 /*
  * We either return a valid interrupt or -1 if there is nothing pending
  */
@@ -99,73 +96,34 @@ m8xx_get_irq(struct pt_regs *regs)
 	irq = ((immap_t *)IMAP_ADDR)->im_siu_conf.sc_sivec >> 26;
 
 	/*
-	 * When we read the sivec without an interrupt to process, we will 
+	 * When we read the sivec without an interrupt to process, we will
 	 * get back SIU_LEVEL7.  In this case, return -1
 	 */
-	if (irq == SIU_LEVEL7)
-		return -1;
+        if (irq == CPM_INTERRUPT)
+        	irq = CPM_IRQ_OFFSET + cpm_get_irq(regs);
+#if defined(CONFIG_PCI)
+	else if (irq == ISA_BRIDGE_INT) {
+		int isa_irq;
+
+		if ((isa_irq = i8259_poll(regs)) >= 0)
+			irq = I8259_IRQ_OFFSET + isa_irq;
+	}
+#endif	/* CONFIG_PCI */
+	else if (irq == SIU_LEVEL7)
+		irq = -1;
 
 	return irq;
 }
 
-/* The MBX is the only 8xx board that uses the 8259.
-*/
-#if defined(CONFIG_MBX) && defined(CONFIG_PCI)
-void mbx_i8259_action(int cpl, void *dev_id, struct pt_regs *regs)
-{
-	int bits, irq;
-
-	/* A bug in the QSpan chip causes it to give us 0xff always
-	 * when doing a character read.  So read 32 bits and shift.
-	 * This doesn't seem to return useful values anyway, but
-	 * read it to make sure things are acked.
-	 * -- Cort
-	 */
-	irq = (inl(0x508) >> 24)&0xff;
-	if ( irq != 0xff ) printk("iack %d\n", irq);
-	
-	outb(0x0C, 0x20);
-	irq = inb(0x20) & 7;
-	if (irq == 2)
-	{
-		outb(0x0C, 0xA0);
-		irq = inb(0xA0);
-		irq = (irq&7) + 8;
-	}
-	bits = 1UL << irq;
-	irq += i8259_pic.irq_offset;
-	ppc_irq_dispatch_handler( regs, irq );
-}
-#endif
-
-/* Only the MBX uses the external 8259.  This allows us to catch standard
- * drivers that may mess up the internal interrupt controllers, and also
- * allow them to run without modification on the MBX.
+#if defined(CONFIG_PCI)
+/* Handler for the MPC8xx SIU cascade interrupt for the 8259 interrupt
+ * controller
  */
-int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *),
-	unsigned long irqflags, const char * devname, void *dev_id)
+void mbx_i8259_action(int irq, void *dev_id, struct pt_regs *regs)
 {
-
-#if defined(CONFIG_MBX) && defined(CONFIG_PCI)
-	irq += i8259_pic.irq_offset;
-	return (request_8xxirq(irq, handler, irqflags, devname, dev_id));
-#else
-	/*
-	 * Handle other "well-known" interrupts, but panic on unknown ones.
+	/* This interrupt handler never actually gets called.  It is
+	 * installed only to unmask the 8259 cascade interrupt in the SIU
+	 * and to make the 8259 cascade interrupt visible in /proc/interrupts.
 	 */
-	switch (irq) {
-#ifdef	IDE0_INTERRUPT
-		case IDE0_INTERRUPT:	/* IDE0 */
-			return (request_8xxirq(irq, handler, irqflags, devname,
-						dev_id));
-#endif
-#ifdef	IDE1_INTERRUPT
-		case IDE1_INTERRUPT:	/* IDE1 */
-			return (request_8xxirq(irq, handler, irqflags, devname,
-						dev_id));
-#endif
-	default:			/* unknown IRQ -> panic */
-		panic("request_irq");
-	}
-#endif
 }
+#endif	/* CONFIG_PCI */

@@ -7,7 +7,7 @@
  *  Pentium III FXSR, SSE support
  *	Gareth Hughes <gareth@valinux.com>, May 2000
  *
- *  $Id: traps.c,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+ *  $Id: traps.c,v 1.71 2004/02/27 22:07:36 ak Exp $
  */
 
 /*
@@ -71,11 +71,17 @@ asmlinkage void machine_check(void);
 asmlinkage void spurious_interrupt_bug(void);
 asmlinkage void call_debug(void);
 
+static inline void conditional_sti(struct pt_regs *regs)
+{
+	if (regs->eflags & X86_EFLAGS_IF)
+		__sti();
+}
+
 extern char iret_address[];
 
 struct notifier_block *die_chain;
 
-int kstack_depth_to_print = 40;
+int kstack_depth_to_print = 12;
 
 #ifdef CONFIG_KALLSYMS
 #include <linux/kallsyms.h> 
@@ -95,7 +101,7 @@ int printk_address(unsigned long address)
 	} 
 	if (!strcmp(modname, "kernel"))
 		modname = delim = ""; 		
-        return printk("[%016lx%s%s%s%s%+ld]",
+        return printk("[<%016lx>]{%s%s%s%s%+ld}",
 		      address,delim,modname,delim,symname,address-symstart); 
 } 
 #else
@@ -143,7 +149,7 @@ static inline int kernel_text_address(unsigned long addr)
 
 #endif
 
-static inline unsigned long *in_exception_stack(int cpu, unsigned long stack) 
+unsigned long *in_exception_stack(int cpu, unsigned long stack) 
 { 
 	int k;
 	for (k = 0; k < N_EXCEPTION_STACKS; k++) {
@@ -159,12 +165,12 @@ void show_trace(unsigned long *stack)
 {
 	unsigned long addr;
 	unsigned long *irqstack, *irqstack_end, *estack_end;
-	const int cpu = smp_processor_id();
+	const int cpu = safe_smp_processor_id();
 	int i;
 
 	printk("\nCall Trace: ");
 
-	i = 1;
+	i = 12;
 	estack_end = in_exception_stack(cpu, (unsigned long)stack); 
 	if (estack_end) { 
 		while (stack < estack_end) { 
@@ -242,7 +248,7 @@ void show_stack(unsigned long * rsp)
 {
 	unsigned long *stack;
 	int i;
-	const int cpu = smp_processor_id();
+	const int cpu = safe_smp_processor_id();
 	unsigned long *irqstack_end = (unsigned long *) (cpu_pda[cpu].irqstackptr);
 	unsigned long *irqstack = (unsigned long *) (cpu_pda[cpu].irqstackptr - IRQSTACKSIZE);    
 
@@ -270,22 +276,12 @@ void show_stack(unsigned long * rsp)
 	show_trace((unsigned long *)rsp);
 }
 
-void dump_stack(void)
-{
-	show_stack(0);
-} 
-
 void show_registers(struct pt_regs *regs)
 {
 	int i;
 	int in_kernel = 1;
 	unsigned long rsp;
-#ifdef CONFIG_SMP
-	/* For SMP should get the APIC id here, just to protect against corrupted GS */ 
-	const int cpu = smp_processor_id(); 
-#else
-	const int cpu = 0;
-#endif	
+	const int cpu = safe_smp_processor_id(); 
 	struct task_struct *cur = cpu_pda[cpu].pcurrent; 
 
 	rsp = (unsigned long) (&regs->rsp);
@@ -294,7 +290,7 @@ void show_registers(struct pt_regs *regs)
 		rsp = regs->rsp;
 	}
 	printk("CPU %d ", cpu);
-	show_regs(regs);
+	__show_regs(regs);
 	printk("Process %s (pid: %d, stackpage=%08lx)\n",
 		cur->comm, cur->pid, 4096+(unsigned long)cur);
 
@@ -346,17 +342,25 @@ void handle_BUG(struct pt_regs *regs)
 spinlock_t die_lock = SPIN_LOCK_UNLOCKED;
 int die_owner = -1;
 
-void die(const char * str, struct pt_regs * regs, long err)
+void __die(const char * str, struct pt_regs * regs, long err)
+{
+	printk(KERN_EMERG "%s: %04lx\n", str, err & 0xffff);
+ 	notify_die(DIE_OOPS, (char *)str, regs, err, 255, SIGSEGV);
+	show_registers(regs);
+	/* Execute summary in case the oops scrolled away */
+	printk(KERN_EMERG "RIP "); 
+	printk_address(regs->rip); 
+	printk(" RSP <%016lx>\n", regs->rsp); 
+}
+
+void prepare_die(unsigned long *flags)
 {
 	int cpu;
-	struct die_args args = { regs, str, err };
 	console_verbose();
-	notifier_call_chain(&die_chain,  DIE_DIE, &args); 
 	bust_spinlocks(1);
-	handle_BUG(regs);		
-	printk(KERN_EMERG "%s: %04lx\n", str, err & 0xffff);
-	cpu = smp_processor_id(); 
+	cpu = safe_smp_processor_id(); 
 	/* racy, but better than risking deadlock. */ 
+	__save_flags(*flags); 
 	__cli();
 	if (!spin_trylock(&die_lock)) { 
 		if (cpu == die_owner) 
@@ -365,10 +369,23 @@ void die(const char * str, struct pt_regs * regs, long err)
 			spin_lock(&die_lock); 
 	}
 	die_owner = cpu; 
-	show_registers(regs);
+} 
+
+void exit_die(unsigned long flags)
+{
+	die_owner = -1;
+	spin_unlock_irqrestore(&die_lock, flags);
+	__sti();	/* back scroll should work */
 	bust_spinlocks(0);
-	spin_unlock_irq(&die_lock);
-	notify_die(DIE_OOPS, (char *)str, regs, err);
+}
+
+void die(const char * str, struct pt_regs * regs, long err)
+{
+	unsigned long flags;
+	prepare_die(&flags);
+	handle_BUG(regs);		
+	__die(str, regs, err);
+	exit_die(flags);
 	do_exit(SIGSEGV);
 }
 
@@ -390,10 +407,12 @@ static inline unsigned long get_cr2(void)
 static void do_trap(int trapnr, int signr, char *str, 
 		    struct pt_regs * regs, long error_code, siginfo_t *info)
 {
+	conditional_sti(regs);
+
 #if defined(CONFIG_CHECKING) && defined(CONFIG_LOCAL_APIC)
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + hard_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
@@ -406,8 +425,11 @@ static void do_trap(int trapnr, int signr, char *str,
 		struct task_struct *tsk = current;
 		tsk->thread.error_code = error_code;
 		tsk->thread.trap_no = trapnr;
-		if (exception_trace)
-			printk("%s[%d] trap %s rip:%lx rsp:%lx error:%lx\n",
+		if (exception_trace && !(tsk->ptrace & PT_PTRACED) && 
+		    (tsk->sig->action[signr-1].sa.sa_handler == SIG_IGN ||
+		    (tsk->sig->action[signr-1].sa.sa_handler == SIG_DFL)))
+			printk(KERN_INFO
+			       "%s[%d] trap %s rip:%lx rsp:%lx error:%lx\n",
 			       tsk->comm, tsk->pid, str,
 			       regs->rip,regs->rsp,error_code); 
 		if (info)
@@ -422,12 +444,6 @@ static void do_trap(int trapnr, int signr, char *str,
 	{	     
 		unsigned long fixup = search_exception_table(regs->rip);
 		if (fixup) {
-			extern int exception_trace; 
-			if (0 && exception_trace)
-	       printk(KERN_ERR
-	             "%s: fixed kernel exception at %lx err:%ld\n",
-	             current->comm, regs->rip, error_code);
-		
 			regs->rip = fixup;
 		} else	
 			die(str, regs, error_code);
@@ -438,6 +454,8 @@ static void do_trap(int trapnr, int signr, char *str,
 #define DO_ERROR(trapnr, signr, str, name) \
 asmlinkage void do_##name(struct pt_regs * regs, long error_code) \
 { \
+	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr) == NOTIFY_BAD) \
+		return; \
 	do_trap(trapnr, signr, str, regs, error_code, NULL); \
 }
 
@@ -449,10 +467,13 @@ asmlinkage void do_##name(struct pt_regs * regs, long error_code) \
 	info.si_errno = 0; \
 	info.si_code = sicode; \
 	info.si_addr = (void *)siaddr; \
+	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr)==NOTIFY_BAD) \
+		return; \
 	do_trap(trapnr, signr, str, regs, error_code, &info); \
 }
 
 DO_ERROR_INFO( 0, SIGFPE,  "divide error", divide_error, FPE_INTDIV, regs->rip)
+DO_ERROR( 3, SIGTRAP, "int3", int3); 
 DO_ERROR( 4, SIGSEGV, "overflow", overflow)
 DO_ERROR( 5, SIGSEGV, "bounds", bounds)
 DO_ERROR_INFO( 6, SIGILL,  "invalid operand", invalid_op, ILL_ILLOPN, regs->rip)
@@ -465,37 +486,42 @@ DO_ERROR(12, SIGBUS,  "stack segment", stack_segment)
 DO_ERROR_INFO(17, SIGBUS, "alignment check", alignment_check, BUS_ADRALN, get_cr2())
 DO_ERROR(18, SIGSEGV, "reserved", reserved)
 
-asmlinkage void do_int3(struct pt_regs * regs, long error_code)
-{
-	if (notify_die(DIE_INT3, "int3", regs, error_code) == NOTIFY_BAD)
-		return;
-	do_trap(3, SIGTRAP, "int3", regs, error_code, NULL);
-}
-
 extern void dump_pagetable(unsigned long);
 
 asmlinkage void do_general_protection(struct pt_regs * regs, long error_code)
 {
+	conditional_sti(regs);
+
 #ifdef CONFIG_CHECKING
 	{ 
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
-			printk("general protection handler: wrong gs %lx expected %p\n", gs, pda);
+			/* Avoid wakeup in printk in case this was triggered
+			   by the segment reloads in __switch_to. Otherwise
+			   the wake_up could deadlock on scheduler locks. */
+			oops_in_progress++;
+			printk(KERN_EMERG 
+			       "general protection handler: wrong gs %lx expected %p\n", gs, pda);
+			oops_in_progress--; 
 		}
 	}
 #endif
 
 	if (regs->cs & 3) { 		
-		current->thread.error_code = error_code;
-		current->thread.trap_no = 13;
-		if (exception_trace)
-			printk("%s[%d] general protection rip:%lx rsp:%lx error:%lx\n",
-			       current->comm, current->pid,
+		struct task_struct *tsk = current;
+		tsk->thread.error_code = error_code;
+		tsk->thread.trap_no = 13;
+		if (exception_trace && !(tsk->ptrace & PT_PTRACED) && 
+		    (tsk->sig->action[SIGSEGV-1].sa.sa_handler == SIG_IGN ||
+		    (tsk->sig->action[SIGSEGV-1].sa.sa_handler == SIG_DFL)))
+			printk(KERN_INFO
+		       "%s[%d] general protection rip:%lx rsp:%lx error:%lx\n",
+			       tsk->comm, tsk->pid,
 			       regs->rip,regs->rsp,error_code); 
-		force_sig(SIGSEGV, current);
+		force_sig(SIGSEGV, tsk);
 		return;
 	} 
 
@@ -504,15 +530,11 @@ asmlinkage void do_general_protection(struct pt_regs * regs, long error_code)
 		unsigned long fixup;
 		fixup = search_exception_table(regs->rip);
 		if (fixup) {
-			extern int exception_trace; 
-			if (exception_trace)
-				printk(KERN_ERR
-			       "%s: fixed kernel exception at %lx err:%ld\n",
-				       current->comm, regs->rip, error_code);
-
 			regs->rip = fixup;
 			return;
 		}
+		notify_die(DIE_GPF, "general protection fault", regs, error_code,
+			   13, SIGSEGV); 
 		die("general protection fault", regs, error_code);
 	}
 }
@@ -551,7 +573,7 @@ asmlinkage void do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = inb(0x61);
 
-	++nmi_count(smp_processor_id());
+	++nmi_count(safe_smp_processor_id());
 	
 	if (!(reason & 0xc0)) {
 #if CONFIG_X86_LOCAL_APIC
@@ -560,16 +582,14 @@ asmlinkage void do_nmi(struct pt_regs * regs)
 		 * so it must be the NMI watchdog.
 		 */
 		if (nmi_watchdog) {
-			nmi_watchdog_tick(regs);
+			nmi_watchdog_tick(regs, reason);
 			return;
 		}
 #endif
-		if (notify_die(DIE_NMI, "nmi", regs, reason) == NOTIFY_BAD)
-			return;
 		unknown_nmi_error(reason, regs);
 		return;
 	}
-	if (notify_die(DIE_NMI, "nmi", regs, reason) == NOTIFY_BAD)
+	if (notify_die(DIE_NMI, "nmi", regs, reason, 2, SIGINT) == NOTIFY_BAD)
 		return; 
 	if (reason & 0x80)
 		mem_parity_error(reason, regs);
@@ -592,27 +612,22 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 	struct task_struct *tsk = current;
 	siginfo_t info;
 
+	asm("movq %%db6,%0" : "=r" (condition));
+
+	conditional_sti(regs);
+
 #ifdef CONFIG_CHECKING
 	{ 
+		/* XXX: interaction with debugger - could destroy gs */
 		unsigned long gs; 
-		struct x8664_pda *pda = cpu_pda + stack_smp_processor_id(); 
+		struct x8664_pda *pda = cpu_pda + safe_smp_processor_id(); 
 		rdmsrl(MSR_GS_BASE, gs); 
 		if (gs != (unsigned long)pda) { 
 			wrmsrl(MSR_GS_BASE, pda); 
-			printk("debug handler: wrong gs %lx expected %p\n", gs, pda);
+			printk(KERN_EMERG "debug handler: wrong gs %lx expected %p\n", gs, pda);
 		}
 	}
 #endif
-
-	asm("movq %%db6,%0" : "=r" (condition));
-
-	if (notify_die(DIE_DEBUG, "debug", regs, error_code) == NOTIFY_BAD)
-		return; 
-
-	/* If the user set TF, it's simplest to clear it right away. */
-	/* AK: dubious check, likely wrong */
-	if ((regs->cs & 3) == 0 && (regs->eflags & TF_MASK))
-		goto clear_TF;
 
 	/* Mask out spurious debug traps due to lazy DR7 setting */
 	if (condition & (DR_TRAP0|DR_TRAP1|DR_TRAP2|DR_TRAP3)) {
@@ -646,14 +661,19 @@ asmlinkage void do_debug(struct pt_regs * regs, long error_code)
 	info.si_signo = SIGTRAP;
 	info.si_errno = 0;
 	info.si_code = TRAP_BRKPT;
-	info.si_addr = ((regs->cs & 3) == 0) ? (void *)tsk->thread.rip : 
-	                                        (void *)regs->rip;
+	if ((regs->cs & 3) == 0) 
+		goto clear_dr7; 
+
+	info.si_addr = (void *)regs->rip;
 	force_sig_info(SIGTRAP, &info, tsk);	
 clear_dr7:
-	asm("movq %0,%%db7"::"r"(0UL));
+	asm volatile("movq %0,%%db7"::"r"(0UL));
+	notify_die(DIE_DEBUG, "debug", regs, error_code, 1, SIGTRAP);
 	return;
 
 clear_TF:
+	/* XXX: could cause spurious errors */
+	if (notify_die(DIE_DEBUG, "debug2", regs, error_code, 1, SIGTRAP) != NOTIFY_BAD)
 	regs->eflags &= ~TF_MASK;
 	return;
 }
@@ -720,6 +740,7 @@ void math_error(void *rip)
 
 asmlinkage void do_coprocessor_error(struct pt_regs * regs, long error_code)
 {
+	conditional_sti(regs);
 	math_error((void *)regs->rip);
 }
 
@@ -779,6 +800,7 @@ static inline void simd_math_error(void *rip)
 asmlinkage void do_simd_coprocessor_error(struct pt_regs * regs,
 					  long error_code)
 {
+	conditional_sti(regs);
 	simd_math_error((void *)regs->rip);
 }
 
@@ -799,7 +821,7 @@ asmlinkage void math_state_restore(void)
 	clts();			/* Allow maths ops (or we recurse) */
 
 	if (!me->used_math)
-		init_fpu();        
+		init_fpu(me);
 	restore_fpu_checking(&me->thread.i387.fxsave);
 	me->flags |= PF_USEDFPU;	/* So we fxsave on switch_to() */
 }
@@ -811,13 +833,13 @@ asmlinkage void math_emulate(void)
 
 void do_call_debug(struct pt_regs *regs) 
 { 
-	notify_die(DIE_CALL, "debug call", regs, 0); 
+	notify_die(DIE_CALL, "debug call", regs, 0, 255, SIGINT); 
 } 
 
 #ifndef CONFIG_MCE
 void do_machine_check(struct pt_regs *regs)
 { 
-	printk("Machine check ignored\n");
+	printk(KERN_INFO "Machine check ignored\n");
 } 
 #endif
 
@@ -835,7 +857,7 @@ void __init trap_init(void)
 	set_intr_gate(9,&coprocessor_segment_overrun);
 	set_intr_gate(10,&invalid_TSS);
 	set_intr_gate(11,&segment_not_present);
-	set_intr_gate_ist(12,&stack_segment,STACKFAULT_STACK);
+	set_intr_gate(12,&stack_segment);
 	set_intr_gate(13,&general_protection);
 	set_intr_gate(14,&page_fault);
 	set_intr_gate(15,&spurious_interrupt_bug);
@@ -845,13 +867,9 @@ void __init trap_init(void)
 	set_intr_gate(19,&simd_coprocessor_error);
 
 #ifdef CONFIG_IA32_EMULATION
-	set_intr_gate(IA32_SYSCALL_VECTOR, ia32_syscall);
+	set_system_gate(IA32_SYSCALL_VECTOR, ia32_syscall);
 #endif
 
-	set_intr_gate(KDB_VECTOR, call_debug);
-       
-	notify_die(DIE_TRAPINIT, "traps initialized", 0, 0); 
-	
 	/*
 	 * Should be a barrier for any external CPU state.
 	 */

@@ -175,6 +175,27 @@ jensen_device_interrupt(unsigned long vector, struct pt_regs * regs)
 	    }
 	}
 
+#if 0
+        /* A useful bit of code to find out if an interrupt is going wild.  */
+        {
+          static unsigned int last_msg = 0, last_cc = 0;
+          static int last_irq = -1, count = 0;
+          unsigned int cc;
+
+          __asm __volatile("rpcc %0" : "=r"(cc));
+          ++count;
+#define JENSEN_CYCLES_PER_SEC	(150000000)
+          if (cc - last_msg > ((JENSEN_CYCLES_PER_SEC) * 3) ||
+	      irq != last_irq) {
+                printk(KERN_CRIT " irq %d count %d cc %u @ %lx\n",
+                       irq, count, cc-last_cc, regs->pc);
+                count = 0;
+                last_msg = cc;
+                last_irq = irq;
+          }
+          last_cc = cc;
+        }
+#endif
 
 	handle_irq(irq, regs);
 }

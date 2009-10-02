@@ -1,4 +1,4 @@
-/* $Id: sys_sunos32.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: sys_sunos32.c,v 1.61 2001/08/13 14:40:07 davem Exp $
  * sys_sunos32.c: SunOS binary compatability layer on sparc64.
  *
  * Copyright (C) 1995, 1996, 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -157,7 +157,7 @@ asmlinkage int sunos_brk(u32 baddr)
 	 * fool it, but this should catch most mistakes.
 	 */
 	freepages = atomic_read(&buffermem_pages) >> PAGE_SHIFT;
-	freepages += atomic_read(&page_cache_size);
+	freepages += page_cache_size;
 	freepages >>= 1;
 	freepages += nr_free_pages();
 	freepages += nr_swap_pages;
@@ -296,7 +296,7 @@ static int sunos_filldir(void * __buf, const char * name, int namlen,
 	put_user(reclen, &dirent->d_reclen);
 	copy_to_user(dirent->d_name, name, namlen);
 	put_user(0, dirent->d_name + namlen);
-	((char *) dirent) += reclen;
+	dirent = (void *) dirent + reclen;
 	buf->curr = dirent;
 	buf->count -= reclen;
 	return 0;
@@ -376,7 +376,7 @@ static int sunos_filldirentry(void * __buf, const char * name, int namlen,
 	put_user(reclen, &dirent->d_reclen);
 	copy_to_user(dirent->d_name, name, namlen);
 	put_user(0, dirent->d_name + namlen);
-	((char *) dirent) += reclen;
+	dirent = (void *) dirent + reclen;
 	buf->curr = dirent;
 	buf->count -= reclen;
 	return 0;
@@ -500,10 +500,10 @@ asmlinkage int sunos_fpathconf(int fd, int name)
 	case _PCONF_PIPE:
 		ret = PIPE_BUF;
 		break;
-	case _PCONF_CHRESTRICT:		
+	case _PCONF_CHRESTRICT:		/* XXX Investigate XXX */
 		ret = 1;
 		break;
-	case _PCONF_NOTRUNC:		
+	case _PCONF_NOTRUNC:		/* XXX Investigate XXX */
 	case _PCONF_VDISABLE:
 		ret = 0;
 		break;
@@ -518,7 +518,7 @@ asmlinkage int sunos_pathconf(u32 u_path, int name)
 {
 	int ret;
 
-	ret = sunos_fpathconf(0, name); 
+	ret = sunos_fpathconf(0, name); /* XXX cheese XXX */
 	return ret;
 }
 
@@ -654,8 +654,8 @@ static int get_default (int value, int def_value)
 /* XXXXXXXXXXXXXXXXXXXX */
 static int sunos_nfs_mount(char *dir_name, int linux_flags, void *data)
 {
-	int  server_fd;
-	char *the_name;
+	int  server_fd, err;
+	char *the_name, *mount_page;
 	struct nfs_mount_data linux_nfs_mount;
 	struct sunos_nfs_mount_args sunos_mount;
 
@@ -708,7 +708,16 @@ static int sunos_nfs_mount(char *dir_name, int linux_flags, void *data)
 	linux_nfs_mount.hostname [255] = 0;
 	putname (the_name);
 	
-	return do_mount ("", dir_name, "nfs", linux_flags, &linux_nfs_mount);
+	mount_page = (char *) get_zeroed_page(GFP_KERNEL);
+	if (!mount_page)
+		return -ENOMEM;
+
+	memcpy(mount_page, &linux_nfs_mount, sizeof(linux_nfs_mount));
+
+	err = do_mount("", dir_name, "nfs", linux_flags, mount_page);
+
+	free_page((unsigned long) mount_page);
+	return err;
 }
 
 /* XXXXXXXXXXXXXXXXXXXX */
@@ -1300,10 +1309,12 @@ asmlinkage int sunos_sigaction (int sig, u32 act, u32 oact)
 
 	if (act) {
 		old_sigset_t32 mask;
+		u32 u_handler;
 
-		if (get_user((long)new_ka.sa.sa_handler, &((struct old_sigaction32 *)A(act))->sa_handler) ||
+		if (get_user(u_handler, &((struct old_sigaction32 *)A(act))->sa_handler) ||
 		    __get_user(new_ka.sa.sa_flags, &((struct old_sigaction32 *)A(act))->sa_flags))
 			return -EFAULT;
+		new_ka.sa.sa_handler = (void *) (long) u_handler;
 		__get_user(mask, &((struct old_sigaction32 *)A(act))->sa_mask);
 		new_ka.sa.sa_restorer = NULL;
 		new_ka.ka_restorer = NULL;

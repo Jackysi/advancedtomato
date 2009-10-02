@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -34,12 +34,21 @@ struct nvram_tuple {
 	struct nvram_tuple *next;
 };
 
+/*
+ * Get default value for an NVRAM variable
+ */
+extern char *nvram_default_get(const char *name);
 
 /*
  * Initialize NVRAM access. May be unnecessary or undefined on certain
  * platforms.
  */
 extern int nvram_init(void *sbh);
+
+/*
+ * Append a chunk of nvram variables to the global list
+ */
+extern int nvram_append(void *sb, char *vars, uint varsz);
 
 /*
  * Check for reset button press for restoring factory defaults.
@@ -71,16 +80,6 @@ extern int BCMINITFN(nvram_resetgpio_init)(void *sbh);
  * @param	name	name of variable to get
  * @return	value of variable or NUL if undefined
  */
-#define nvram_safe_unset(name) ({ \
-	if(nvram_get(name)) \
-		nvram_unset(name); \
-})
- 
-#define nvram_safe_set(name, value) ({ \
-	if(!nvram_get(name) || strcmp(nvram_get(name), value)) \
-		nvram_set(name, value); \
-})
-
 #define nvram_safe_get(name) (nvram_get(name) ? : "")
 
 /*
@@ -151,16 +150,13 @@ extern int nvram_getall(char *nvram_buf, int count);
  */
 uint8 nvram_calc_crc(struct nvram_header * nvh);
 
-/*
- * Cache srom pcmcia cis format variables. Called by
- * nvram_init but may be called separately
- */
-void nvram_srom_init(void *sb);
-
 #endif /* _LANGUAGE_ASSEMBLY */
 
+/* The NVRAM version number stored as an NVRAM variable */
+#define NVRAM_SOFTWARE_VERSION	"1"
+
 #define NVRAM_MAGIC		0x48534C46	/* 'FLSH' */
-#define NVRAM_CLEAR_MAGIC		0x0
+#define NVRAM_CLEAR_MAGIC	0x0
 #define NVRAM_INVALID_MAGIC	0xFFFFFFFF
 #define NVRAM_VERSION		1
 #define NVRAM_HEADER_SIZE	20

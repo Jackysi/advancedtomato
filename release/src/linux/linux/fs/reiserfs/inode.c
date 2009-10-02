@@ -20,6 +20,10 @@
 static int reiserfs_get_block (struct inode * inode, long block,
 			       struct buffer_head * bh_result, int create);
 
+/* This spinlock guards inode pkey in private part of inode
+   against race between find_actor() vs reiserfs_read_inode2 */
+static spinlock_t keycopy_lock = SPIN_LOCK_UNLOCKED;
+
 void reiserfs_delete_inode (struct inode * inode)
 {
     int jbegin_count = JOURNAL_PER_BALANCE_CNT * 2; 
@@ -102,9 +106,9 @@ inline void make_le_item_head (struct item_head * ih, const struct cpu_key * key
 }
 
 static void add_to_flushlist(struct inode *inode, struct buffer_head *bh) {
-    struct inode *jinode = &(SB_JOURNAL(inode->i_sb)->j_dummy_inode) ;
+    struct reiserfs_journal *j = SB_JOURNAL(inode->i_sb) ;
 
-    buffer_insert_inode_queue(bh, jinode) ;
+    buffer_insert_list(bh, &j->j_dirty_buffers) ;
 }
 
 //
@@ -256,6 +260,9 @@ research:
     if (is_indirect_le_ih (ih)) {
 	__u32 * ind_item = (__u32 *)B_I_PITEM (bh, ih);
 	
+	/* FIXME: here we could cache indirect item or part of it in
+	   the inode to avoid search_by_key in case of subsequent
+	   access to file */
 	blocknr = get_block_num(ind_item, path.pos_in_item) ;
 	ret = 0 ;
 	if (blocknr) {
@@ -415,6 +422,7 @@ static int reiserfs_get_block_direct_io (struct inode * inode, long block,
 			struct buffer_head * bh_result, int create) {
     int ret ;
 
+    bh_result->b_page = NULL;
     ret = reiserfs_get_block(inode, block, bh_result, create) ;
 
     /* don't allow direct io onto tail pages */
@@ -424,6 +432,14 @@ static int reiserfs_get_block_direct_io (struct inode * inode, long block,
 	*/
 	reiserfs_unmap_buffer(bh_result);
         ret = -EINVAL ;
+    }
+    /* Possible unpacked tail. Flush the data before pages have
+       disappeared */
+    if (inode->u.reiserfs_i.i_flags & i_pack_on_close_mask) {
+	lock_kernel();
+	reiserfs_commit_for_inode(inode);
+	inode->u.reiserfs_i.i_flags &= ~i_pack_on_close_mask;
+	unlock_kernel();
     }
     return ret ;
 }
@@ -457,7 +473,7 @@ static int convert_tail_for_hole(struct inode *inode,
     tail_end = (tail_start | (bh_result->b_size - 1)) + 1 ;
 
     index = tail_offset >> PAGE_CACHE_SHIFT ;
-    if (index != hole_page->index) {
+    if ( !hole_page || index != hole_page->index) {
 	tail_page = grab_cache_page(inode->i_mapping, index) ;
 	retval = -ENOMEM;
 	if (!tail_page) {
@@ -526,6 +542,11 @@ static int reiserfs_get_block (struct inode * inode, long block,
     int fs_gen;
     int windex ;
     struct reiserfs_transaction_handle th ;
+    /* space reserved in transaction batch: 
+        . 3 balancings in direct->indirect conversion
+        . 1 block involved into reiserfs_update_sd()
+       XXX in practically impossible worst case direct2indirect()
+       can incur (much) more that 3 balancings. */
     int jbegin_count = JOURNAL_PER_BALANCE_CNT * 3 + 1;
     int version;
     int transaction_started = 0 ;
@@ -558,7 +579,12 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	return ret;
     }
 
-    inode->u.reiserfs_i.i_flags |= i_pack_on_close_mask;
+    /* If file is of such a size, that it might have a tail and tails are enabled
+    ** we should mark it as possibly needing tail packing on close
+    */
+    if ( (have_large_tails (inode->i_sb) && inode->i_size < block_size (inode)*4) ||
+	 (have_small_tails (inode->i_sb) && inode->i_size < block_size(inode)) )
+	inode->u.reiserfs_i.i_flags |= i_pack_on_close_mask;
 
     windex = push_journal_writer("reiserfs_get_block") ;
   
@@ -711,6 +737,9 @@ static int reiserfs_get_block (struct inode * inode, long block,
 		unbh = bh_result;
 		done = 1;
 	    } else {
+		/* we have to padd file tail stored in direct item(s)
+		   up to block size and convert it to unformatted
+		   node. FIXME: this should also get into page cache */
 
 		pathrelse(&path) ;
 		journal_end(&th, inode->i_sb, jbegin_count) ;
@@ -719,7 +748,7 @@ static int reiserfs_get_block (struct inode * inode, long block,
 		retval = convert_tail_for_hole(inode, bh_result, tail_offset) ;
 		if (retval) {
 		    if ( retval != -ENOSPC )
-			printk("clm-6004: convert tail failed inode %lu, error %d\n", inode->i_ino, retval) ;
+			reiserfs_warning(inode->i_sb, "clm-6004: convert tail failed inode %lu, error %d\n", inode->i_ino, retval) ;
 		    if (allocated_block_nr) {
 			/* the bitmap, the super, and the stat data == 3 */
 			journal_begin(&th, inode->i_sb, 3) ;
@@ -746,15 +775,21 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	    */
 	    mark_buffer_uptodate (unbh, 1);
 
-	    /* we've converted the tail, so we must 
-	    ** flush unbh before the transaction commits
+	    /* unbh->b_page == NULL in case of DIRECT_IO request, this means
+	       buffer will disappear shortly, so it should not be added to
+	       any of our lists.
 	    */
-	    add_to_flushlist(inode, unbh) ;
+	    if ( unbh->b_page ) {
+		/* we've converted the tail, so we must 
+		** flush unbh before the transaction commits
+		*/
+		add_to_flushlist(inode, unbh) ;
 
-	    /* mark it dirty now to prevent commit_write from adding
-	     ** this buffer to the inode's dirty buffer list
-	     */
-	    __mark_buffer_dirty(unbh) ;
+		/* mark it dirty now to prevent commit_write from adding
+		 ** this buffer to the inode's dirty buffer list
+		 */
+		__mark_buffer_dirty(unbh) ;
+	    }
 
 	    //inode->i_blocks += inode->i_sb->s_blocksize / 512;
 	    //mark_tail_converted (inode);
@@ -763,7 +798,11 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	       pointer to 'block'-th block use block, which is already
 	       allocated */
 	    struct cpu_key tmp_key;
-	    struct unfm_nodeinfo un = {0, 0};
+	    unp_t unf_single=0; // We use this in case we need to allocate only
+				// one block which is a fastpath
+	    unp_t *un;
+	    __u64 max_to_insert=MAX_ITEM_LEN(inode->i_sb->s_blocksize)/UNFM_P_SIZE;
+	    __u64 blocks_needed;
 
 	    RFALSE( pos_in_item != ih_item_len(ih) / UNFM_P_SIZE,
 		    "vs-804: invalid position for append");
@@ -772,30 +811,58 @@ static int reiserfs_get_block (struct inode * inode, long block,
 			  le_key_k_offset (version, &(ih->ih_key)) + op_bytes_number (ih, inode->i_sb->s_blocksize),
 			  //pos_in_item * inode->i_sb->s_blocksize,
 			  TYPE_INDIRECT, 3);// key type is unimportant
-		  
-	    if (cpu_key_k_offset (&tmp_key) == cpu_key_k_offset (&key)) {
+
+	    blocks_needed = 1 + ((cpu_key_k_offset (&key) - cpu_key_k_offset (&tmp_key)) >> inode->i_sb->s_blocksize_bits);
+	    RFALSE( blocks_needed < 0, "green-805: invalid offset");
+
+	    if ( blocks_needed == 1 ) {
+		un = &unf_single;
+	    } else {
+		un=kmalloc( min(blocks_needed,max_to_insert)*UNFM_P_SIZE,
+			    GFP_ATOMIC); // We need to avoid scheduling.
+		if ( !un) {
+		    un = &unf_single;
+		    blocks_needed = 1;
+		    max_to_insert = 0;
+		} else
+		    memset(un, 0, UNFM_P_SIZE * min(blocks_needed,max_to_insert));
+	    }
+	    if ( blocks_needed <= max_to_insert) {
 		/* we are going to add target block to the file. Use allocated
 		   block for that */
-		un.unfm_nodenum = cpu_to_le32 (allocated_block_nr);
+		un[blocks_needed-1] = cpu_to_le32 (allocated_block_nr);
 		set_block_dev_mapped (bh_result, allocated_block_nr, inode);
 		bh_result->b_state |= (1UL << BH_New);
 		done = 1;
 	    } else {
 		/* paste hole to the indirect item */
+		/* If kmalloc failed, max_to_insert becomes zero and it means we
+		   only have space for one block */
+		blocks_needed=max_to_insert?max_to_insert:1;
 	    }
-	    retval = reiserfs_paste_into_item (&th, &path, &tmp_key, (char *)&un, UNFM_P_SIZE);
+	    retval = reiserfs_paste_into_item (&th, &path, &tmp_key, (char *)un, UNFM_P_SIZE * blocks_needed);
+
+	    if (blocks_needed != 1)
+		 kfree(un);
+
 	    if (retval) {
 		reiserfs_free_block (&th, allocated_block_nr);
 		goto failure;
 	    }
-	    if (un.unfm_nodenum)
+	    if (done) {
 		inode->i_blocks += inode->i_sb->s_blocksize / 512;
+	    } else {
+		/* We need to mark new file size in case this function will be
+		   interrupted/aborted later on. And we may do this only for
+		   holes. */
+		inode->i_size += blocks_needed << inode->i_blkbits;
+	    }
 	    //mark_tail_converted (inode);
 	}
-		
+
 	if (done == 1)
 	    break;
-	 
+
 	/* this loop could log more blocks than we had originally asked
 	** for.  So, we have to allow the transaction to end if it is
 	** too big or too full.  Update the inode so things are 
@@ -819,7 +886,7 @@ static int reiserfs_get_block (struct inode * inode, long block,
 	    goto failure;
 	}
 	if (retval == POSITION_FOUND) {
-	    reiserfs_warning ("vs-825: reiserfs_get_block: "
+	    reiserfs_warning (inode->i_sb, "vs-825: reiserfs_get_block: "
 			      "%K should not be found\n", &key);
 	    retval = -EEXIST;
 	    if (allocated_block_nr)
@@ -867,8 +934,9 @@ static void init_inode (struct inode * inode, struct path * path)
     bh = PATH_PLAST_BUFFER (path);
     ih = PATH_PITEM_HEAD (path);
 
-
+    spin_lock(&keycopy_lock);
     copy_key (INODE_PKEY (inode), &(ih->ih_key));
+    spin_unlock(&keycopy_lock);
     inode->i_blksize = PAGE_SIZE;
 
     INIT_LIST_HEAD(&inode->u.reiserfs_i.i_prealloc_list) ;
@@ -1049,8 +1117,8 @@ void reiserfs_update_sd (struct reiserfs_transaction_handle *th,
 	/* look for the object's stat data */
 	retval = search_item (inode->i_sb, &key, &path);
 	if (retval == IO_ERROR) {
-	    reiserfs_warning ("vs-13050: reiserfs_update_sd: "
-			      "i/o failure occurred trying to update %K stat data",
+	    reiserfs_warning (inode->i_sb, "vs-13050: reiserfs_update_sd: "
+			      "i/o failure occurred trying to update %K stat data\n",
 			      &key);
 	    return;
 	}
@@ -1061,7 +1129,7 @@ void reiserfs_update_sd (struct reiserfs_transaction_handle *th,
 		/*printk ("vs-13050: reiserfs_update_sd: i_nlink == 0, stat data not found\n");*/
 		return;
 	    }
-	    reiserfs_warning ("vs-13060: reiserfs_update_sd: "
+	    reiserfs_warning (inode->i_sb, "vs-13060: reiserfs_update_sd: "
 			      "stat data of object %k (nlink == %d) not found (pos %d)\n", 
 			      INODE_PKEY (inode), inode->i_nlink, pos);
 	    reiserfs_check_path(&path) ;
@@ -1129,7 +1197,7 @@ void reiserfs_read_inode2 (struct inode * inode, void *p)
     /* look for the object's stat data */
     retval = search_item (inode->i_sb, &key, &path_to_sd);
     if (retval == IO_ERROR) {
-	reiserfs_warning ("vs-13070: reiserfs_read_inode2: "
+	reiserfs_warning (inode->i_sb, "vs-13070: reiserfs_read_inode2: "
                     "i/o failure occurred trying to find stat data of %K\n",
                     &key);
 	reiserfs_make_bad_inode(inode) ;
@@ -1161,7 +1229,7 @@ void reiserfs_read_inode2 (struct inode * inode, void *p)
        during mount (fs/reiserfs/super.c:finish_unfinished()). */
     if( ( inode -> i_nlink == 0 ) && 
 	! inode -> i_sb -> u.reiserfs_sb.s_is_unlinked_ok ) {
-	    reiserfs_warning( "vs-13075: reiserfs_read_inode2: "
+	    reiserfs_warning( inode->i_sb, "vs-13075: reiserfs_read_inode2: "
 			      "dead inode read from disk %K. "
 			      "This is likely to be race with knfsd. Ignore\n", 
 			      &key );
@@ -1189,10 +1257,27 @@ static int reiserfs_find_actor( struct inode *inode,
 				unsigned long inode_no, void *opaque )
 {
     struct reiserfs_iget4_args *args;
+    int retval;
 
     args = opaque;
+    /* We protect against possible parallel init_inode() on another CPU here. */
+    spin_lock(&keycopy_lock);
     /* args is already in CPU order */
-    return le32_to_cpu(INODE_PKEY(inode)->k_dir_id) == args -> objectid;
+    if (le32_to_cpu(INODE_PKEY(inode)->k_dir_id) == args -> objectid)
+	retval = 1;
+    else
+	/* If The key does not match, lets see if we are racing
+	   with another iget4, that already progressed so far
+	   to reiserfs_read_inode2() and was preempted in
+	   call to search_by_key(). The signs of that are:
+	     Inode is locked
+	     dirid and object id are zero (not yet initialized)*/
+	retval = (inode->i_state & I_LOCK) &&
+		 !INODE_PKEY(inode)->k_dir_id &&
+		 !INODE_PKEY(inode)->k_objectid;
+
+    spin_unlock(&keycopy_lock);
+    return retval;
 }
 
 struct inode * reiserfs_iget (struct super_block * s, const struct cpu_key * key)
@@ -1235,7 +1320,7 @@ struct dentry *reiserfs_fh_to_dentry(struct super_block *sb, __u32 *data,
      */
     if (fhtype > len) {
 	    if (fhtype != 6 || len != 5)
-		    printk(KERN_WARNING "nfsd/reiserfs, fhtype=%d, len=%d - odd\n",
+		    reiserfs_warning(sb, "nfsd/reiserfs, fhtype=%d, len=%d - odd\n",
 			   fhtype, len);
 	    fhtype = 5;
     }
@@ -1334,7 +1419,7 @@ void reiserfs_write_inode (struct inode * inode, int do_sync) {
     int jbegin_count = 1 ;
 
     if (inode->i_sb->s_flags & MS_RDONLY) {
-        reiserfs_warning("clm-6005: writing inode %lu on readonly FS\n", 
+        reiserfs_warning(inode->i_sb, "clm-6005: writing inode %lu on readonly FS\n", 
 	                  inode->i_ino) ;
         return ;
     }
@@ -1352,6 +1437,7 @@ void reiserfs_write_inode (struct inode * inode, int do_sync) {
     }
 }
 
+/* FIXME: no need any more. right? */
 int reiserfs_sync_inode (struct reiserfs_transaction_handle *th, struct inode * inode)
 {
   int err = 0;
@@ -1396,14 +1482,14 @@ static int reiserfs_new_directory (struct reiserfs_transaction_handle *th,
     /* look for place in the tree for new item */
     retval = search_item (sb, &key, path);
     if (retval == IO_ERROR) {
-	reiserfs_warning ("vs-13080: reiserfs_new_directory: "
+	reiserfs_warning (sb, "vs-13080: reiserfs_new_directory: "
 			  "i/o failure occurred creating new directory\n");
 	return -EIO;
     }
     if (retval == ITEM_FOUND) {
 	pathrelse (path);
-	reiserfs_warning ("vs-13070: reiserfs_new_directory: "
-			  "object with this key exists (%k)", &(ih->ih_key));
+	reiserfs_warning (sb, "vs-13070: reiserfs_new_directory: "
+			  "object with this key exists (%k)\n", &(ih->ih_key));
 	return -EEXIST;
     }
 
@@ -1432,14 +1518,14 @@ static int reiserfs_new_symlink (struct reiserfs_transaction_handle *th,
     /* look for place in the tree for new item */
     retval = search_item (sb, &key, path);
     if (retval == IO_ERROR) {
-	reiserfs_warning ("vs-13080: reiserfs_new_symlinik: "
+	reiserfs_warning (sb, "vs-13080: reiserfs_new_symlinik: "
 			  "i/o failure occurred creating new symlink\n");
 	return -EIO;
     }
     if (retval == ITEM_FOUND) {
 	pathrelse (path);
-	reiserfs_warning ("vs-13080: reiserfs_new_symlink: "
-			  "object with this key exists (%k)", &(ih->ih_key));
+	reiserfs_warning (sb, "vs-13080: reiserfs_new_symlink: "
+			  "object with this key exists (%k)\n", &(ih->ih_key));
 	return -EEXIST;
     }
 
@@ -1451,13 +1537,22 @@ static int reiserfs_new_symlink (struct reiserfs_transaction_handle *th,
 /* inserts the stat data into the tree, and then calls
    reiserfs_new_directory (to insert ".", ".." item if new object is
    directory) or reiserfs_new_symlink (to insert symlink body if new
-   object is symlink) or nothing (if new object is regular file) */
-struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
-				   struct inode * dir, int mode, 
-				   const char * symname, 
-				   int i_size, /* 0 for regular, EMTRY_DIR_SIZE for dirs,
-						  strlen (symname) for symlinks)*/
-				   struct dentry *dentry, struct inode *inode, int * err)
+   object is symlink) or nothing (if new object is regular file)
+
+   NOTE! uid and gid must already be set in the inode.  If we return
+   non-zero due to an error, we have to drop the quota previously allocated
+   for the fresh inode.  This can only be done outside a transaction, so
+   if we return non-zero, we also end the transaction.
+
+   */
+int reiserfs_new_inode (struct reiserfs_transaction_handle *th,
+				struct inode * dir, int mode,
+				const char * symname,
+				/* 0 for regular, EMTRY_DIR_SIZE for dirs,
+				   strlen (symname) for symlinks) */
+				int i_size,
+				struct dentry *dentry,
+				struct inode *inode)
 {
     struct super_block * sb;
     INITIALIZE_PATH (path_to_key);
@@ -1465,11 +1560,11 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
     struct item_head ih;
     struct stat_data sd;
     int retval;
+    int err ;
   
     if (!dir || !dir->i_nlink) {
-	*err = -EPERM;
-	iput(inode) ;
-	return NULL;
+	err = -EPERM ;
+	goto out_bad_inode ;
     }
 
     sb = dir->i_sb;
@@ -1477,13 +1572,16 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
 	    dir -> u.reiserfs_i.i_attrs & REISERFS_INHERIT_MASK;
     sd_attrs_to_i_attrs( inode -> u.reiserfs_i.i_attrs, inode );
 
+    /* symlink cannot be immutable or append only, right? */
+    if( S_ISLNK( inode -> i_mode ) )
+	    inode -> i_flags &= ~ ( S_IMMUTABLE | S_APPEND );
+
     /* item head of new item */
     ih.ih_key.k_dir_id = INODE_PKEY (dir)->k_objectid;
     ih.ih_key.k_objectid = cpu_to_le32 (reiserfs_get_unused_objectid (th));
     if (!ih.ih_key.k_objectid) {
-	iput(inode) ;
-	*err = -ENOMEM;
-	return NULL;
+	err = -ENOMEM ;
+	goto out_bad_inode ;
     }
     if (old_format_only (sb))
       /* not a perfect generation count, as object ids can be reused, but this
@@ -1493,50 +1591,16 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
       */
       inode->i_generation = le32_to_cpu (INODE_PKEY (dir)->k_objectid);
     else
-#if defined(USE_INODE_GENERATION_COUNTER)
+#if defined( USE_INODE_GENERATION_COUNTER )
       inode->i_generation = 
 	le32_to_cpu( sb -> u.reiserfs_sb.s_rs -> s_inode_generation );
 #else
       inode->i_generation = ++event;
 #endif
-    if (old_format_only (sb))
-	make_le_item_head (&ih, 0, KEY_FORMAT_3_5, SD_OFFSET, TYPE_STAT_DATA, SD_V1_SIZE, MAX_US_INT);
-    else
-	make_le_item_head (&ih, 0, KEY_FORMAT_3_6, SD_OFFSET, TYPE_STAT_DATA, SD_SIZE, MAX_US_INT);
-
-
-    /* key to search for correct place for new stat data */
-    _make_cpu_key (&key, KEY_FORMAT_3_6, le32_to_cpu (ih.ih_key.k_dir_id),
-		   le32_to_cpu (ih.ih_key.k_objectid), SD_OFFSET, TYPE_STAT_DATA, 3/*key length*/);
-
-    /* find proper place for inserting of stat data */
-    retval = search_item (sb, &key, &path_to_key);
-    if (retval == IO_ERROR) {
-	iput (inode);
-	*err = -EIO;
-	return NULL;
-    }
-    if (retval == ITEM_FOUND) {
-	pathrelse (&path_to_key);
-	iput (inode);
-	*err = -EEXIST;
-	return NULL;
-    }
-
     /* fill stat data */
-    inode->i_mode = mode;
     inode->i_nlink = (S_ISDIR (mode) ? 2 : 1);
-    inode->i_uid = current->fsuid;
-    if (dir->i_mode & S_ISGID) {
-	inode->i_gid = dir->i_gid;
-	if (S_ISDIR(mode))
-	    inode->i_mode |= S_ISGID;
-    } else
-	inode->i_gid = current->fsgid;
 
-    /* symlink cannot be immutable or append only, right? */
-    if( S_ISLNK( inode -> i_mode ) )
-	    inode -> i_flags &= ~ ( S_IMMUTABLE | S_APPEND );
+    /* uid and gid must already be set by the caller for quota init */
 
     inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
     inode->i_size = i_size;
@@ -1546,13 +1610,33 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
 
     INIT_LIST_HEAD(&inode->u.reiserfs_i.i_prealloc_list) ;
 
+    if (old_format_only (sb))
+	make_le_item_head (&ih, 0, KEY_FORMAT_3_5, SD_OFFSET, TYPE_STAT_DATA, SD_V1_SIZE, MAX_US_INT);
+    else
+	make_le_item_head (&ih, 0, KEY_FORMAT_3_6, SD_OFFSET, TYPE_STAT_DATA, SD_SIZE, MAX_US_INT);
+
+    /* key to search for correct place for new stat data */
+    _make_cpu_key (&key, KEY_FORMAT_3_6, le32_to_cpu (ih.ih_key.k_dir_id),
+		   le32_to_cpu (ih.ih_key.k_objectid), SD_OFFSET, TYPE_STAT_DATA, 3/*key length*/);
+
+    /* find proper place for inserting of stat data */
+    retval = search_item (sb, &key, &path_to_key);
+    if (retval == IO_ERROR) {
+	err = -EIO;
+	goto out_bad_inode;
+    }
+    if (retval == ITEM_FOUND) {
+	pathrelse (&path_to_key);
+	err = -EEXIST;
+	goto out_bad_inode;
+    }
+
     if (old_format_only (sb)) {
 	if (inode->i_uid & ~0xffff || inode->i_gid & ~0xffff) {
 	    pathrelse (&path_to_key);
 	    /* i_uid or i_gid is too big to be stored in stat data v3.5 */
-	    iput (inode);
-	    *err = -EINVAL;
-	    return NULL;
+	    err = -EINVAL;
+	    goto out_bad_inode;
 	}
 	inode2sd_v1 (&sd, inode);
     } else
@@ -1583,10 +1667,9 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
 #endif
     retval = reiserfs_insert_item (th, &path_to_key, &key, &ih, (char *)(&sd));
     if (retval) {
-	iput (inode);
-	*err = retval;
 	reiserfs_check_path(&path_to_key) ;
-	return NULL;
+	err = retval;
+	goto out_bad_inode;
     }
 
 #ifdef DISPLACE_NEW_PACKING_LOCALITIES
@@ -1605,19 +1688,30 @@ struct inode * reiserfs_new_inode (struct reiserfs_transaction_handle *th,
 	retval = reiserfs_new_symlink (th, &ih, &path_to_key, symname, i_size);
     }
     if (retval) {
-      inode->i_nlink = 0;
-	iput (inode);
-	*err = retval;
+	err = retval;
 	reiserfs_check_path(&path_to_key) ;
-	return NULL;
+	journal_end(th, th->t_super, th->t_blocks_allocated) ;
+	goto out_inserted_sd;
     }
 
     insert_inode_hash (inode);
-    // we do not mark inode dirty: on disk content matches to the
-    // in-core one
+    reiserfs_update_sd(th, inode) ;
     reiserfs_check_path(&path_to_key) ;
 
-    return inode;
+    return 0;
+out_bad_inode:
+    /* Invalidate the object, nothing was inserted yet */
+    INODE_PKEY(inode)->k_objectid = 0;
+
+    /* dquot_drop must be done outside a transaction */
+    journal_end(th, th->t_super, th->t_blocks_allocated) ;
+    make_bad_inode(inode);
+
+out_inserted_sd:
+    inode->i_nlink = 0;
+    th->t_trans_id = 0 ; /* so the caller can't use this handle later */
+    iput(inode) ;
+    return err;
 }
 
 /*
@@ -1689,8 +1783,8 @@ static int grab_tail_page(struct inode *p_s_inode,
 	** I've screwed up the code to find the buffer, or the code to
 	** call prepare_write
 	*/
-	reiserfs_warning("clm-6000: error reading block %lu on dev %s\n",
-	                  bh->b_blocknr, kdevname(bh->b_dev)) ;
+	reiserfs_warning(p_s_inode->i_sb, "clm-6000: error reading block %lu\n",
+	                  bh->b_blocknr) ;
 	error = -EIO ;
 	goto unlock ;
     }
@@ -1730,7 +1824,7 @@ void reiserfs_truncate_file(struct inode *p_s_inode, int update_timestamps) {
 	    // and get_block_create_0 could not find a block to read in,
 	    // which is ok.
 	    if (error != -ENOENT)
-	        reiserfs_warning("clm-6001: grab_tail_page failed %d\n", error);
+	        reiserfs_warning(p_s_inode->i_sb, "clm-6001: grab_tail_page failed %d\n", error);
 	    page = NULL ;
 	    bh = NULL ;
 	}
@@ -1770,7 +1864,12 @@ void reiserfs_truncate_file(struct inode *p_s_inode, int update_timestamps) {
 	    flush_dcache_page(page) ;
 	    kunmap(page) ;
 	    if (buffer_mapped(bh) && bh->b_blocknr != 0) {
-	        mark_buffer_dirty(bh) ;
+	        if (!atomic_set_buffer_dirty(bh)) {
+			set_buffer_flushtime(bh);
+			refile_buffer(bh);
+			buffer_insert_inode_data_queue(bh, p_s_inode);
+			balance_dirty();
+		}
 	    }
 	}
 	UnlockPage(page) ;
@@ -1822,7 +1921,7 @@ research:
     /* we've found an unformatted node */
     if (indirect_item_found(retval, ih)) {
 	if (bytes_copied > 0) {
-	    reiserfs_warning("clm-6002: bytes_copied %d\n", bytes_copied) ;
+	    reiserfs_warning(inode->i_sb, "clm-6002: bytes_copied %d\n", bytes_copied) ;
 	}
         if (!get_block_num(item, pos_in_item)) {
 	    /* crap, we are writing to a hole */
@@ -1859,7 +1958,7 @@ research:
 	    goto research ;
 	}
     } else {
-        reiserfs_warning("clm-6003: bad item inode %lu, device %s\n", inode->i_ino, kdevname(inode->i_sb->s_dev)) ;
+        reiserfs_warning(inode->i_sb, "clm-6003: bad item inode %lu\n", inode->i_ino) ;
         retval = -EIO ;
 	goto out ;
     }
@@ -1981,6 +2080,7 @@ static int reiserfs_write_full_page(struct page *page) {
     */
     if (nr) {
         submit_bh_for_writepage(arr, nr) ;
+	wakeup_page_waiters(page);
     } else {
         UnlockPage(page) ;
     }
@@ -2042,6 +2142,13 @@ static int reiserfs_commit_write(struct file *f, struct page *page,
     if (pos > inode->i_size) {
 	struct reiserfs_transaction_handle th ;
 	lock_kernel();
+	/* If the file have grown beyond the border where it
+	   can have a tail, unmark it as needing a tail
+	   packing */
+	if ( (have_large_tails (inode->i_sb) && inode->i_size > block_size (inode)*4) ||
+	     (have_small_tails (inode->i_sb) && inode->i_size > block_size(inode)) )
+	    inode->u.reiserfs_i.i_flags &= ~i_pack_on_close_mask;
+
 	journal_begin(&th, inode->i_sb, 1) ;
 	reiserfs_update_inode_transaction(inode) ;
 	inode->i_size = pos ;
@@ -2074,6 +2181,10 @@ void sd_attrs_to_i_attrs( __u16 sd_attrs, struct inode *inode )
 			inode -> i_flags |= S_IMMUTABLE;
 		else
 			inode -> i_flags &= ~S_IMMUTABLE;
+		if( sd_attrs & REISERFS_APPEND_FL )
+			inode -> i_flags |= S_APPEND;
+		else
+			inode -> i_flags &= ~S_APPEND;
 		if( sd_attrs & REISERFS_NOATIME_FL )
 			inode -> i_flags |= S_NOATIME;
 		else
@@ -2111,6 +2222,9 @@ static int reiserfs_direct_io(int rw, struct inode *inode,
                               struct kiobuf *iobuf, unsigned long blocknr,
 			      int blocksize) 
 {
+    lock_kernel();
+    reiserfs_commit_for_tail(inode);
+    unlock_kernel();
     return generic_direct_IO(rw, inode, iobuf, blocknr, blocksize,
                              reiserfs_get_block_direct_io) ;
 }

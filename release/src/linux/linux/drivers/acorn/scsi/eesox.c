@@ -1,7 +1,7 @@
 /*
  *  linux/drivers/acorn/scsi/eesox.c
  *
- *  Copyright (C) 1997-2000 Russell King
+ *  Copyright (C) 1997-2003 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,8 +29,6 @@
 #include <linux/ioport.h>
 #include <linux/sched.h>
 #include <linux/proc_fs.h>
-#include <linux/unistd.h>
-#include <linux/stat.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <linux/init.h>
@@ -44,13 +42,9 @@
 #include "../../scsi/sd.h"
 #include "../../scsi/hosts.h"
 #include "fas216.h"
+#include "scsi.h"
 
 #include <scsi/scsicam.h>
-
-/* Configuration */
-#define EESOX_XTALFREQ		40
-#define EESOX_ASYNC_PERIOD	200
-#define EESOX_SYNC_DEPTH	7
 
 /*
  * List of devices that the driver will recognise
@@ -60,7 +54,7 @@
 #define EESOX_FAS216_OFFSET	0xc00
 #define EESOX_FAS216_SHIFT	3
 
-#define EESOX_STATUS		0xa00
+#define EESOX_DMASTAT		0xa00
 #define EESOX_STAT_INTR		0x01
 #define EESOX_STAT_DMA		0x02
 
@@ -69,16 +63,12 @@
 #define EESOX_TERM_ENABLE	0x02
 #define EESOX_RESET		0x01
 
-#define EESOX_DMA_OFFSET	0xe00
+#define EESOX_DMADATA		0xe00
 
 /*
  * Version
  */
-#define VER_MAJOR	0
-#define VER_MINOR	0
-#define VER_PATCH	3
-
-static struct expansion_card *ecs[MAX_ECARDS];
+#define VERSION "1.10 (22/01/2003 2.4.19-rmk5)"
 
 /*
  * Use term=0,1,0,0,0 to turn terminators on/off
@@ -87,19 +77,14 @@ static int term[MAX_ECARDS] = { 1, 1, 1, 1, 1, 1, 1, 1 };
 
 #define NR_SG	256
 
-struct control {
-	unsigned int	io_port;
-	unsigned int	control;
+struct eesoxscsi_info {
+	FAS216_Info		info;
+	struct expansion_card	*ec;
+
+	unsigned int		ctl_port;
+	unsigned int		control;
+	struct scatterlist	sg[NR_SG];	/* Scatter DMA list	*/
 };
-
-typedef struct {
-	FAS216_Info info;
-
-	struct control control;
-
-	unsigned int	dmaarea;	/* Pseudo DMA area	*/
-	struct scatterlist sg[NR_SG];	/* Scatter DMA list	*/
-} EESOXScsi_Info;
 
 /* Prototype: void eesoxscsi_irqenable(ec, irqnr)
  * Purpose  : Enable interrupts on EESOX SCSI card
@@ -109,11 +94,11 @@ typedef struct {
 static void
 eesoxscsi_irqenable(struct expansion_card *ec, int irqnr)
 {
-	struct control *control = (struct control *)ec->irq_data;
+	struct eesoxscsi_info *info = (struct eesoxscsi_info *)ec->irq_data;
 
-	control->control |= EESOX_INTR_ENABLE;
+	info->control |= EESOX_INTR_ENABLE;
 
-	outb(control->control, control->io_port);
+	outb(info->control, info->ctl_port);
 }
 
 /* Prototype: void eesoxscsi_irqdisable(ec, irqnr)
@@ -124,20 +109,16 @@ eesoxscsi_irqenable(struct expansion_card *ec, int irqnr)
 static void
 eesoxscsi_irqdisable(struct expansion_card *ec, int irqnr)
 {
-	struct control *control = (struct control *)ec->irq_data;
+	struct eesoxscsi_info *info = (struct eesoxscsi_info *)ec->irq_data;
 
-	control->control &= ~EESOX_INTR_ENABLE;
+	info->control &= ~EESOX_INTR_ENABLE;
 
-	outb(control->control, control->io_port);
+	outb(info->control, info->ctl_port);
 }
 
 static const expansioncard_ops_t eesoxscsi_ops = {
-	eesoxscsi_irqenable,
-	eesoxscsi_irqdisable,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+	.irqenable	= eesoxscsi_irqenable,
+	.irqdisable	= eesoxscsi_irqdisable,
 };
 
 /* Prototype: void eesoxscsi_terminator_ctl(*host, on_off)
@@ -148,17 +129,17 @@ static const expansioncard_ops_t eesoxscsi_ops = {
 static void
 eesoxscsi_terminator_ctl(struct Scsi_Host *host, int on_off)
 {
-	EESOXScsi_Info *info = (EESOXScsi_Info *)host->hostdata;
+	struct eesoxscsi_info *info = (struct eesoxscsi_info *)host->hostdata;
 	unsigned long flags;
 
 	save_flags_cli(flags);
 	if (on_off)
-		info->control.control |= EESOX_TERM_ENABLE;
+		info->control |= EESOX_TERM_ENABLE;
 	else
-		info->control.control &= ~EESOX_TERM_ENABLE;
-	restore_flags(flags);
+		info->control &= ~EESOX_TERM_ENABLE;
 
-	outb(info->control.control, info->control.io_port);
+	outb(info->control, info->ctl_port);
+	restore_flags(flags);
 }
 
 /* Prototype: void eesoxscsi_intr(irq, *dev_id, *regs)
@@ -170,9 +151,7 @@ eesoxscsi_terminator_ctl(struct Scsi_Host *host, int on_off)
 static void
 eesoxscsi_intr(int irq, void *dev_id, struct pt_regs *regs)
 {
-	struct Scsi_Host *host = (struct Scsi_Host *)dev_id;
-
-	fas216_intr(host);
+	fas216_intr(dev_id);
 }
 
 /* Prototype: fasdmatype_t eesoxscsi_dma_setup(host, SCpnt, direction, min_type)
@@ -187,32 +166,26 @@ static fasdmatype_t
 eesoxscsi_dma_setup(struct Scsi_Host *host, Scsi_Pointer *SCp,
 		       fasdmadir_t direction, fasdmatype_t min_type)
 {
-	EESOXScsi_Info *info = (EESOXScsi_Info *)host->hostdata;
+	struct eesoxscsi_info *info = (struct eesoxscsi_info *)host->hostdata;
 	int dmach = host->dma_channel;
 
 	if (dmach != NO_DMA &&
 	    (min_type == fasdma_real_all || SCp->this_residual >= 512)) {
-		int bufs = SCp->buffers_residual;
-		int pci_dir, dma_dir;
+		int bufs, map_dir, dma_dir;
 
-		if (bufs)
-			memcpy(info->sg + 1, SCp->buffer + 1,
-				sizeof(struct scatterlist) * bufs);
-		info->sg[0].address = SCp->ptr;
-		info->sg[0].page    = NULL;
-		info->sg[0].length  = SCp->this_residual;
+		bufs = copy_SCp_to_sg(&info->sg[0], SCp, NR_SG);
 
 		if (direction == DMA_OUT)
-			pci_dir = PCI_DMA_TODEVICE,
+			map_dir = PCI_DMA_TODEVICE,
 			dma_dir = DMA_MODE_WRITE;
 		else
-			pci_dir = PCI_DMA_FROMDEVICE,
+			map_dir = PCI_DMA_FROMDEVICE,
 			dma_dir = DMA_MODE_READ;
 
-		pci_map_sg(NULL, info->sg, bufs + 1, pci_dir);
+		pci_map_sg(NULL, info->sg, bufs, map_dir);
 
 		disable_dma(dmach);
-		set_dma_sg(dmach, info->sg, bufs + 1);
+		set_dma_sg(dmach, info->sg, bufs);
 		set_dma_mode(dmach, dma_dir);
 		enable_dma(dmach);
 		return fasdma_real_all;
@@ -225,93 +198,162 @@ eesoxscsi_dma_setup(struct Scsi_Host *host, Scsi_Pointer *SCp,
 	return fasdma_pseudo;
 }
 
+static void eesoxscsi_buffer_in(void *buf, int length, unsigned long base)
+{
+	const unsigned long reg_fas = base + EESOX_FAS216_OFFSET;
+	const unsigned long reg_dmastat = base + EESOX_DMASTAT;
+	const unsigned long reg_dmadata = base + EESOX_DMADATA;
+
+	do {
+		unsigned int status;
+
+		/*
+		 * Interrupt request?
+		 */
+		status = inb(reg_fas + (REG_STAT << EESOX_FAS216_SHIFT));
+		if (status & STAT_INT)
+			break;
+
+		/*
+		 * DMA request active?
+		 */
+		status = inb(reg_dmastat);
+		if (!(status & EESOX_STAT_DMA))
+			continue;
+
+		/*
+		 * Get number of bytes in FIFO
+		 */
+		status = inb(reg_fas + (REG_CFIS << EESOX_FAS216_SHIFT)) & CFIS_CF;
+		if (status > 16)
+			status = 16;
+		if (status > length)
+			status = length;
+
+		/*
+		 * Align buffer.
+		 */
+		if (((u32)buf) & 2 && status >= 2) {
+			*((u16 *)buf)++ = inw(reg_dmadata);
+			status -= 2;
+			length -= 2;
+		}
+
+		if (status >= 8) {
+			unsigned long l1, l2;
+
+			l1 = inw(reg_dmadata);
+			l1 |= inw(reg_dmadata) << 16;
+			l2 = inw(reg_dmadata);
+			l2 |= inw(reg_dmadata) << 16;
+			*((u32 *)buf)++ = l1;
+			*((u32 *)buf)++ = l2;
+			length -= 8;
+			continue;
+		}
+
+		if (status >= 4) {
+			unsigned long l1;
+
+			l1 = inw(reg_dmadata);
+			l1 |= inw(reg_dmadata) << 16;
+			*((u32 *)buf)++ = l1;
+			length -= 4;
+			continue;
+		}
+
+		if (status >= 2) {
+			*((u16 *)buf)++ = inw(reg_dmadata);
+			length -= 2;
+		}
+	} while (length);
+}
+
+static void eesoxscsi_buffer_out(void *buf, int length, unsigned long base)
+{
+	const unsigned long reg_fas = base + EESOX_FAS216_OFFSET;
+	const unsigned long reg_dmastat = base + EESOX_DMASTAT;
+	const unsigned long reg_dmadata = base + EESOX_DMADATA;
+
+	do {
+		unsigned int status;
+
+		/*
+		 * Interrupt request?
+		 */
+		status = inb(reg_fas + (REG_STAT << EESOX_FAS216_SHIFT));
+		if (status & STAT_INT)
+			break;
+
+		/*
+		 * DMA request active?
+		 */
+		status = inb(reg_dmastat);
+		if (!(status & EESOX_STAT_DMA))
+			continue;
+
+		/*
+		 * Get number of bytes in FIFO
+		 */
+		status = inb(reg_fas + (REG_CFIS << EESOX_FAS216_SHIFT)) & CFIS_CF;
+		if (status > 16)
+			status = 16;
+		status = 16 - status;
+		if (status > length)
+			status = length;
+
+		/*
+		 * Align buffer.
+		 */
+		if (((u32)buf) & 2 && status >= 2) {
+			outw(*((u16 *)buf)++, reg_dmadata);
+			status -= 2;
+			length -= 2;
+		}
+
+		if (status >= 8) {
+			unsigned long l1, l2;
+
+			l1 = *((u32 *)buf)++;
+			l2 = *((u32 *)buf)++;
+
+			outw(l1, reg_dmadata);
+			outw(l1 >> 16, reg_dmadata);
+			outw(l2, reg_dmadata);
+			outw(l2 >> 16, reg_dmadata);
+			status -= 8;
+			length -= 8;
+			continue;
+		}
+
+		if (status >= 4) {
+			unsigned long l1;
+
+			l1 = *((u32 *)buf)++;
+			outw(l1, reg_dmadata);
+			outw(l1 >> 16, reg_dmadata);
+			status -= 4;
+			length -= 4;
+			continue;
+		}
+
+		if (status >= 2) {
+			outw(*((u16 *)buf)++, reg_dmadata);
+			length -= 2;
+		}
+	} while (length);
+}
+
 static void
 eesoxscsi_dma_pseudo(struct Scsi_Host *host, Scsi_Pointer *SCp,
 		     fasdmadir_t dir, int transfer_size)
 {
-	EESOXScsi_Info *info = (EESOXScsi_Info *)host->hostdata;
-	unsigned int status;
-	unsigned int length = SCp->this_residual;
-	union {
-		unsigned char *c;
-		unsigned short *s;
-		unsigned long *l;
-	} buffer;
-
-	buffer.c = SCp->ptr;
-
-	status = inb(host->io_port + EESOX_STATUS);
+	unsigned int base = host->io_port;
 	if (dir == DMA_IN) {
-		while (length > 8) {
-			if (status & EESOX_STAT_DMA) {
-				unsigned long l1, l2;
-
-				l1 = inw(info->dmaarea);
-				l1 |= inw(info->dmaarea) << 16;
-				l2 = inw(info->dmaarea);
-				l2 |= inw(info->dmaarea) << 16;
-				*buffer.l++ = l1;
-				*buffer.l++ = l2;
-				length -= 8;
-			} else if (status & EESOX_STAT_INTR)
-				goto end;
-			status = inb(host->io_port + EESOX_STATUS);
-		}
-
-		while (length > 1) {
-			if (status & EESOX_STAT_DMA) {
-				*buffer.s++ = inw(info->dmaarea);
-				length -= 2;
-			} else if (status & EESOX_STAT_INTR)
-				goto end;
-			status = inb(host->io_port + EESOX_STATUS);
-		}
-
-		while (length > 0) {
-			if (status & EESOX_STAT_DMA) {
-				*buffer.c++ = inw(info->dmaarea);
-				length -= 1;
-			} else if (status & EESOX_STAT_INTR)
-				goto end;
-			status = inb(host->io_port + EESOX_STATUS);
-		}
+		eesoxscsi_buffer_in(SCp->ptr, SCp->this_residual, base);
 	} else {
-		while (length > 8) {
-			if (status & EESOX_STAT_DMA) {
-				unsigned long l1, l2;
-
-				l1 = *buffer.l++;
-				l2 = *buffer.l++;
-
-				outw(l1, info->dmaarea);
-				outw(l1 >> 16, info->dmaarea);
-				outw(l2, info->dmaarea);
-				outw(l2 >> 16, info->dmaarea);
-				length -= 8;
-			} else if (status & EESOX_STAT_INTR)
-				goto end;
-			status = inb(host->io_port + EESOX_STATUS);
-		}
-
-		while (length > 1) {
-			if (status & EESOX_STAT_DMA) {
-				outw(*buffer.s++, info->dmaarea);
-				length -= 2;
-			} else if (status & EESOX_STAT_INTR)
-				goto end;
-			status = inb(host->io_port + EESOX_STATUS);
-		}
-
-		while (length > 0) {
-			if (status & EESOX_STAT_DMA) {
-				outw(*buffer.c++, info->dmaarea);
-				length -= 1;
-			} else if (status & EESOX_STAT_INTR)
-				goto end;
-			status = inb(host->io_port + EESOX_STATUS);
-		}
+		eesoxscsi_buffer_out(SCp->ptr, SCp->this_residual, base);
 	}
-end:
 }
 
 /* Prototype: int eesoxscsi_dma_stop(host, SCpnt)
@@ -326,116 +368,6 @@ eesoxscsi_dma_stop(struct Scsi_Host *host, Scsi_Pointer *SCp)
 		disable_dma(host->dma_channel);
 }
 
-/* Prototype: int eesoxscsi_detect(Scsi_Host_Template * tpnt)
- * Purpose  : initialises EESOX SCSI driver
- * Params   : tpnt - template for this SCSI adapter
- * Returns  : >0 if host found, 0 otherwise.
- */
-int
-eesoxscsi_detect(Scsi_Host_Template *tpnt)
-{
-	static const card_ids eesoxscsi_cids[] =
-			{ EESOXSCSI_LIST, { 0xffff, 0xffff} };
-	int count = 0;
-	struct Scsi_Host *host;
-  
-	tpnt->proc_name = "eesox";
-	memset(ecs, 0, sizeof (ecs));
-
-	ecard_startfind();
-
-	while(1) {
-	    	EESOXScsi_Info *info;
-
-		ecs[count] = ecard_find(0, eesoxscsi_cids);
-		if (!ecs[count])
-			break;
-
-		ecard_claim(ecs[count]);
-
-		host = scsi_register(tpnt, sizeof (EESOXScsi_Info));
-		if (!host) {
-			ecard_release(ecs[count]);
-			break;
-		}
-
-		host->io_port = ecard_address(ecs[count], ECARD_IOC, ECARD_FAST);
-		host->irq = ecs[count]->irq;
-		host->dma_channel = ecs[count]->dma;
-		info = (EESOXScsi_Info *)host->hostdata;
-
-		info->control.io_port = host->io_port + EESOX_CONTROL;
-		info->control.control = term[count] ? EESOX_TERM_ENABLE : 0;
-		outb(info->control.control, info->control.io_port);
-
-		ecs[count]->irqaddr = (unsigned char *)
-			    ioaddr(host->io_port + EESOX_STATUS);
-		ecs[count]->irqmask = EESOX_STAT_INTR;
-		ecs[count]->irq_data = &info->control;
-		ecs[count]->ops = (expansioncard_ops_t *)&eesoxscsi_ops;
-
-		info->info.scsi.io_port		= host->io_port + EESOX_FAS216_OFFSET;
-		info->info.scsi.io_shift	= EESOX_FAS216_SHIFT;
-		info->info.scsi.irq		= host->irq;
-		info->info.ifcfg.clockrate	= EESOX_XTALFREQ;
-		info->info.ifcfg.select_timeout	= 255;
-		info->info.ifcfg.asyncperiod	= EESOX_ASYNC_PERIOD;
-		info->info.ifcfg.sync_max_depth	= EESOX_SYNC_DEPTH;
-		info->info.ifcfg.cntl3		= CNTL3_BS8 | CNTL3_FASTSCSI | CNTL3_FASTCLK;
-		info->info.ifcfg.disconnect_ok	= 1;
-		info->info.ifcfg.wide_max_size	= 0;
-		info->info.dma.setup		= eesoxscsi_dma_setup;
-		info->info.dma.pseudo		= eesoxscsi_dma_pseudo;
-		info->info.dma.stop		= eesoxscsi_dma_stop;
-		info->dmaarea			= host->io_port + EESOX_DMA_OFFSET;
-
-		request_region(host->io_port + EESOX_FAS216_OFFSET,
-				16 << EESOX_FAS216_SHIFT, "eesox2-fas");
-
-		if (host->irq != NO_IRQ &&
-		    request_irq(host->irq, eesoxscsi_intr,
-				SA_INTERRUPT, "eesox", host)) {
-			printk("scsi%d: IRQ%d not free, interrupts disabled\n",
-			       host->host_no, host->irq);
-			host->irq = NO_IRQ;
-		}
-
-		if (host->dma_channel != NO_DMA &&
-		    request_dma(host->dma_channel, "eesox")) {
-			printk("scsi%d: DMA%d not free, DMA disabled\n",
-			       host->host_no, host->dma_channel);
-			host->dma_channel = NO_DMA;
-		}
-
-		fas216_init(host);
-		++count;
-	}
-	return count;
-}
-
-/* Prototype: int eesoxscsi_release(struct Scsi_Host * host)
- * Purpose  : releases all resources used by this adapter
- * Params   : host - driver host structure to return info for.
- */
-int eesoxscsi_release(struct Scsi_Host *host)
-{
-	int i;
-
-	fas216_release(host);
-
-	if (host->irq != NO_IRQ)
-		free_irq(host->irq, host);
-	if (host->dma_channel != NO_DMA)
-		free_dma(host->dma_channel);
-	release_region(host->io_port + EESOX_FAS216_OFFSET, 16 << EESOX_FAS216_SHIFT);
-
-	for (i = 0; i < MAX_ECARDS; i++)
-		if (ecs[i] &&
-		    host->io_port == ecard_address(ecs[i], ECARD_IOC, ECARD_FAST))
-			ecard_release(ecs[i]);
-	return 0;
-}
-
 /* Prototype: const char *eesoxscsi_info(struct Scsi_Host * host)
  * Purpose  : returns a descriptive string about this interface,
  * Params   : host - driver host structure to return info for.
@@ -443,15 +375,12 @@ int eesoxscsi_release(struct Scsi_Host *host)
  */
 const char *eesoxscsi_info(struct Scsi_Host *host)
 {
-	EESOXScsi_Info *info = (EESOXScsi_Info *)host->hostdata;
-	static char string[100], *p;
+	struct eesoxscsi_info *info = (struct eesoxscsi_info *)host->hostdata;
+	static char string[150];
 
-	p = string;
-	p += sprintf(p, "%s ", host->hostt->name);
-	p += fas216_info(&info->info, p);
-	p += sprintf(p, "v%d.%d.%d terminators o%s",
-		     VER_MAJOR, VER_MINOR, VER_PATCH,
-		     info->control.control & EESOX_TERM_ENABLE ? "n" : "ff");
+	sprintf(string, "%s (%s) in slot %d v%s terminators o%s",
+		host->hostt->name, info->info.scsi.type, info->ec->slot_no,
+		VERSION, info->control & EESOX_TERM_ENABLE ? "n" : "ff");
 
 	return string;
 }
@@ -504,43 +433,37 @@ int eesoxscsi_proc_info(char *buffer, char **start, off_t offset,
 			    int length, int host_no, int inout)
 {
 	int pos, begin;
-	struct Scsi_Host *host = scsi_hostlist;
-	EESOXScsi_Info *info;
+	struct Scsi_Host *host;
+	struct eesoxscsi_info *info;
 	Scsi_Device *scd;
 
-	while (host) {
-		if (host->host_no == host_no)
-			break;
-		host = host->next;
-	}
+	host = scsi_host_hn_get(host_no);
 	if (!host)
 		return 0;
 
 	if (inout == 1)
 		return eesoxscsi_set_proc_info(host, buffer, length);
 
-	info = (EESOXScsi_Info *)host->hostdata;
+	info = (struct eesoxscsi_info *)host->hostdata;
 
 	begin = 0;
-	pos = sprintf(buffer,
-			"EESOX SCSI driver version %d.%d.%d\n",
-			VER_MAJOR, VER_MINOR, VER_PATCH);
+	pos = sprintf(buffer, "EESOX SCSI driver v%s\n", VERSION);
 	pos += fas216_print_host(&info->info, buffer + pos);
 	pos += sprintf(buffer + pos, "Term    : o%s\n",
-			info->control.control & EESOX_TERM_ENABLE ? "n" : "ff");
+			info->control & EESOX_TERM_ENABLE ? "n" : "ff");
 
 	pos += fas216_print_stats(&info->info, buffer + pos);
 
-	pos += sprintf (buffer+pos, "\nAttached devices:\n");
+	pos += sprintf(buffer+pos, "\nAttached devices:\n");
 
 	for (scd = host->host_queue; scd; scd = scd->next) {
 		int len;
 
-		proc_print_scsidevice (scd, buffer, &len, pos);
+		proc_print_scsidevice(scd, buffer, &len, pos);
 		pos += len;
-		pos += sprintf (buffer+pos, "Extensions: ");
+		pos += sprintf(buffer+pos, "Extensions: ");
 		if (scd->tagged_supported)
-			pos += sprintf (buffer+pos, "TAG %sabled [%d] ",
+			pos += sprintf(buffer+pos, "TAG %sabled [%d] ",
 					scd->tagged_queue ? "en" : "dis",
 					scd->current_tag);
 		pos += sprintf (buffer+pos, "\n");
@@ -558,27 +481,187 @@ int eesoxscsi_proc_info(char *buffer, char **start, off_t offset,
 	return pos;
 }
 
+static int eesoxscsi_probe(struct expansion_card *ec);
+
+/* Prototype: int eesoxscsi_detect(Scsi_Host_Template * tpnt)
+ * Purpose  : initialises EESOX SCSI driver
+ * Params   : tpnt - template for this SCSI adapter
+ * Returns  : >0 if host found, 0 otherwise.
+ */
+static int eesoxscsi_detect(Scsi_Host_Template *tpnt)
+{
+	static const card_ids eesoxscsi_cids[] =
+			{ EESOXSCSI_LIST, { 0xffff, 0xffff} };
+	struct expansion_card *ec;
+	int count = 0, ret;
+  
+	ecard_startfind();
+
+	while(1) {
+		ec = ecard_find(0, eesoxscsi_cids);
+		if (!ec)
+			break;
+
+		ecard_claim(ec);
+
+		ret = eesoxscsi_probe(ec);
+		if (ret) {
+			ecard_release(ec);
+			break;
+		}
+		++count;
+	}
+	return count;
+}
+
+static void eesoxscsi_remove(struct Scsi_Host *host);
+
+/* Prototype: int eesoxscsi_release(struct Scsi_Host * host)
+ * Purpose  : releases all resources used by this adapter
+ * Params   : host - driver host structure to return info for.
+ */
+static int eesoxscsi_release(struct Scsi_Host *host)
+{
+	eesoxscsi_remove(host);
+	return 0;
+}
+
 static Scsi_Host_Template eesox_template = {
-	module:				THIS_MODULE,
-	proc_info:			eesoxscsi_proc_info,
-	name:				"EESOX SCSI",
-	detect:				eesoxscsi_detect,
-	release:			eesoxscsi_release,
-	info:				eesoxscsi_info,
-	bios_param:			scsicam_bios_param,
-	can_queue:			1,
-	this_id:			7,
-	sg_tablesize:			SG_ALL,
-	cmd_per_lun:			1,
-	use_clustering:			DISABLE_CLUSTERING,
-	command:			fas216_command,
-	queuecommand:			fas216_queue_command,
-	eh_host_reset_handler:		fas216_eh_host_reset,
-	eh_bus_reset_handler:		fas216_eh_bus_reset,
-	eh_device_reset_handler:	fas216_eh_device_reset,
-	eh_abort_handler:		fas216_eh_abort,
-	use_new_eh_code:		1
+	.module				= THIS_MODULE,
+	.proc_info			= eesoxscsi_proc_info,
+	.name				= "EESOX SCSI",
+	.detect				= eesoxscsi_detect,
+	.release			= eesoxscsi_release,
+	.info				= eesoxscsi_info,
+	.bios_param			= scsicam_bios_param,
+	.command			= fas216_command,
+	.queuecommand			= fas216_queue_command,
+	.eh_host_reset_handler		= fas216_eh_host_reset,
+	.eh_bus_reset_handler		= fas216_eh_bus_reset,
+	.eh_device_reset_handler	= fas216_eh_device_reset,
+	.eh_abort_handler		= fas216_eh_abort,
+	.use_new_eh_code		= 1,
+
+	.can_queue			= 1,
+	.this_id			= 7,
+	.sg_tablesize			= SG_ALL,
+	.cmd_per_lun			= 1,
+	.use_clustering			= DISABLE_CLUSTERING,
+	.proc_name			= "eesox",
 };
+
+static int
+eesoxscsi_probe(struct expansion_card *ec)
+{
+	struct Scsi_Host *host;
+	struct eesoxscsi_info *info;
+	unsigned long base;
+	int ret;
+
+	base = ecard_address(ec, ECARD_IOC, ECARD_FAST);
+
+	if (!request_region(base + EESOX_FAS216_OFFSET,
+			    16 << EESOX_FAS216_SHIFT, "eesox2-fas")) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	host = scsi_register(&eesox_template,
+			     sizeof(struct eesoxscsi_info));
+	if (!host) {
+		ret = -ENOMEM;
+		goto out_region;
+	}
+
+	host->io_port	  = base;
+	host->irq	  = ec->irq;
+	host->dma_channel = ec->dma;
+
+	info = (struct eesoxscsi_info *)host->hostdata;
+	info->ec	= ec;
+	info->ctl_port	= base + EESOX_CONTROL;
+	info->control	= term[ec->slot_no] ? EESOX_TERM_ENABLE : 0;
+	outb(info->control, info->ctl_port);
+
+	ec->irqaddr	= (unsigned char *)ioaddr(base + EESOX_DMASTAT);
+	ec->irqmask	= EESOX_STAT_INTR;
+	ec->irq_data	= info;
+	ec->ops		= (expansioncard_ops_t *)&eesoxscsi_ops;
+
+	info->info.scsi.io_port		= base + EESOX_FAS216_OFFSET;
+	info->info.scsi.io_shift	= EESOX_FAS216_SHIFT;
+	info->info.scsi.irq		= host->irq;
+	info->info.ifcfg.clockrate	= 40; /* MHz */
+	info->info.ifcfg.select_timeout	= 255;
+	info->info.ifcfg.asyncperiod	= 200; /* ns */
+	info->info.ifcfg.sync_max_depth	= 7;
+	info->info.ifcfg.cntl3		= CNTL3_FASTSCSI | CNTL3_FASTCLK;
+	info->info.ifcfg.disconnect_ok	= 1;
+	info->info.ifcfg.wide_max_size	= 0;
+	info->info.ifcfg.capabilities	= FASCAP_PSEUDODMA;
+	info->info.dma.setup		= eesoxscsi_dma_setup;
+	info->info.dma.pseudo		= eesoxscsi_dma_pseudo;
+	info->info.dma.stop		= eesoxscsi_dma_stop;
+
+	ret = fas216_init(host);
+	if (ret)
+		goto out_free;
+
+	ret = request_irq(host->irq, eesoxscsi_intr, 0, "eesox", &info->info);
+	if (ret) {
+		printk("scsi%d: IRQ%d not free: %d\n",
+		       host->host_no, host->irq, ret);
+		goto out_remove;
+	}
+
+	if (host->dma_channel != NO_DMA) {
+		if (request_dma(host->dma_channel, "eesox")) {
+			printk("scsi%d: DMA%d not free, DMA disabled\n",
+			       host->host_no, host->dma_channel);
+			host->dma_channel = NO_DMA;
+		} else {
+			set_dma_speed(host->dma_channel, 180);
+			info->info.ifcfg.capabilities |= FASCAP_DMA;
+			info->info.ifcfg.cntl3 |= CNTL3_BS8;
+		}
+	}
+
+	ret = fas216_add(host);
+	if (ret == 0)
+		goto out;
+
+	if (host->dma_channel != NO_DMA)
+		free_dma(host->dma_channel);
+	free_irq(host->irq, host);
+
+ out_remove:
+	fas216_remove(host);
+
+ out_free:
+	scsi_unregister(host);
+
+ out_region:
+	release_region(base + EESOX_FAS216_OFFSET, 16 << EESOX_FAS216_SHIFT);
+
+ out:
+	return ret;
+}
+
+static void eesoxscsi_remove(struct Scsi_Host *host)
+{
+	struct eesoxscsi_info *info = (struct eesoxscsi_info *)host->hostdata;
+
+	fas216_remove(host);
+
+	if (host->dma_channel != NO_DMA)
+		free_dma(host->dma_channel);
+	free_irq(host->irq, host);
+
+	release_region(host->io_port + EESOX_FAS216_OFFSET, 16 << EESOX_FAS216_SHIFT);
+
+	fas216_release(host);
+	ecard_release(info->ec);
+}
 
 static int __init eesox_init(void)
 {

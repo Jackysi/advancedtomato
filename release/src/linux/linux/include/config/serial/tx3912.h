@@ -1,1 +1,0 @@
-#undef  CONFIG_SERIAL_TX3912

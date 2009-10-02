@@ -5,7 +5,7 @@
 #
 # Copyright (C) 1994, 1995, 1996 by Ralf Baechle
 # DECStation modifications by Paul M. Antoine, 1996
-# Copyright (C) 2002  Maciej W. Rozycki
+# Copyright (C) 2002, 2003, 2004  Maciej W. Rozycki
 #
 # This file is included by the global makefile so that you can add your own
 # architecture-specific flags and dependencies. Remember to do have actions
@@ -18,14 +18,19 @@
 #
 ifdef CONFIG_CPU_LITTLE_ENDIAN
 tool-prefix	= mipsel-linux-
+ld-emul		= elf32ltsmip
 else
 tool-prefix	= mips-linux-
+ld-emul		= elf32btsmip
 endif
 
 ifdef CONFIG_CROSSCOMPILE
 CROSS_COMPILE	= $(tool-prefix)
 endif
 
+MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot
+
+#
 #
 # GCC uses -G 0 -mabicalls -fpic as default.  We don't want PIC in the kernel
 # code since it only slows down the whole thing.  At some point we might make
@@ -38,75 +43,140 @@ endif
 #
 GCCFLAGS	:= -I $(TOPDIR)/include/asm/gcc
 GCCFLAGS	+= -G 0 -mno-abicalls -fno-pic -pipe
-LINKFLAGS	+= -G 0 -static # -N
+GCCFLAGS	+= $(call if_gcc4,,$(call check_gcc, -finline-limit=10000,))
+LINKFLAGS	+= -G 0 -static -n -nostdlib
 MODFLAGS	+= -mlong-calls -fno-common
 
-GCCFLAGS	+= -I $(SRCBASE)/
-
-ifdef CONFIG_DEBUG
-GCCFLAGS	+= -gstabs+
+ifdef CONFIG_REMOTE_DEBUG
+GCCFLAGS	+= -g
 ifdef CONFIG_SB1XXX_CORELIS
 GCCFLAGS	+= -mno-sched-prolog -fno-omit-frame-pointer
 endif
 endif
 
-check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
+#
+# Use: $(call set_gccflags,<cpu0>,<isa0>,<cpu1>,<isa1>,<isa2>)
+#
+# <cpu0>,<isa0> -- preferred CPU and ISA designations (may require
+#                  recent tools)
+# <cpu1>,<isa1> -- fallback CPU and ISA designations (have to work
+#                  with up to the oldest supported tools)
+# <isa2>        -- an ISA designation used as an ABI selector for
+#                  gcc versions that do not support "-mabi=32"
+#                  (depending on the CPU type, either "mips1" or
+#                  "mips2")
+#
+set_gccflags = $(shell \
+while :; do \
+	cpu=$(1); isa=-$(2); \
+	for gcc_opt in -march= -mtune=; do \
+		$(CC) $$gcc_opt$$cpu $$isa -S -o /dev/null \
+			-xc /dev/null > /dev/null 2>&1 && \
+			break 2; \
+	done; \
+	cpu=$(3); isa=-$(4); \
+	for gcc_opt in -march= -mtune=; do \
+		$(CC) $$gcc_opt$$cpu $$isa -S -o /dev/null \
+			-xc /dev/null > /dev/null 2>&1 && \
+			break 2; \
+	done; \
+	break; \
+done; \
+gcc_abi=-mabi=32; gcc_cpu=$$cpu; \
+if $(CC) $$gcc_abi -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then \
+	gcc_isa=$$isa; \
+else \
+	gcc_abi=; gcc_isa=-$(5); \
+fi; \
+gas_abi=-Wa,-32; gas_cpu=$$cpu; gas_isa=-Wa,$$isa; \
+while :; do \
+	for gas_opt in -Wa,-march= -Wa,-mtune=; do \
+		$(CC) $$gas_abi $$gas_opt$$cpu $$gas_isa -Wa,-Z -c \
+			-o /dev/null -xassembler /dev/null > /dev/null 2>&1 && \
+			break 2; \
+	done; \
+	gas_abi=; gas_opt=; gas_cpu=; gas_isa=; \
+	break; \
+done; \
+if test "$$gcc_opt" = -march= && test -n "$$gcc_abi"; then \
+	$(CC) $$gcc_abi $$gcc_opt$$gcc_cpu -S -o /dev/null \
+		-xc /dev/null > /dev/null 2>&1 && \
+		gcc_isa=; \
+fi; \
+echo $$gcc_abi $$gcc_opt$$gcc_cpu $$gcc_isa $$gas_abi $$gas_opt$$gas_cpu $$gas_isa)
 
 #
 # CPU-dependent compiler/assembler options for optimization.
 #
 ifdef CONFIG_CPU_R3000
-GCCFLAGS	+= -mcpu=r3000 -mips1
+GCCFLAGS	+= $(call set_gccflags,r3000,mips1,r3000,mips1,mips1)
 endif
 ifdef CONFIG_CPU_TX39XX
-GCCFLAGS	+= -mcpu=r3000 -mips1
+GCCFLAGS	+= $(call set_gccflags,r3900,mips1,r3000,mips1,mips1)
 endif
 ifdef CONFIG_CPU_R6000
-GCCFLAGS	+= -mcpu=r6000 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r6000,mips2,r6000,mips2,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_R4300
-GCCFLAGS	+= -mcpu=r4300 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r4300,mips3,r4300,mips3,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_VR41XX
-GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r4100,mips3,r4600,mips3,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_R4X00
-GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r4600,mips3,r4600,mips3,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_TX49XX
-GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r4600,mips3,r4600,mips3,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_MIPS32
-GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,mips32,mips32,r4600,mips3,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_MIPS64
-GCCFLAGS	+= -mcpu=r4600 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,mips64,mips64,r4600,mips3,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_R5000
-GCCFLAGS	+= -mcpu=r5000 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r5000,mips4,r5000,mips4,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_R5432
-GCCFLAGS	+= -mcpu=r5000 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,r5400,mips4,r5000,mips4,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_NEVADA
-# Cannot use -mmad with currently recommended tools
-GCCFLAGS	+= -mcpu=r5000 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,rm5200,mips4,r5000,mips4,mips2) \
+		   -Wa,--trap
+#GCCFLAGS	+= $(call check_gcc,-mmad,)
 endif
 ifdef CONFIG_CPU_RM7000
-GCCFLAGS	+= -mcpu=r5000 -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,rm7000,mips4,r5000,mips4,mips2) \
+		   -Wa,--trap
+endif
+ifdef CONFIG_CPU_RM9000
+GCCFLAGS	+= $(call set_gccflags,rm9000,mips4,r5000,mips4,mips2) \
+		   -Wa,--trap
 endif
 ifdef CONFIG_CPU_SB1
-GCCFLAGS	+= $(call check_gcc, -mcpu=-sb1, -mcpu=r5000) \
-		   -mips2 -Wa,--trap
+GCCFLAGS	+= $(call set_gccflags,sb1,mips64,r5000,mips4,mips2) \
+		   -Wa,--trap
 ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
 MODFLAGS	+= -msb1-pass1-workarounds
 endif
 endif
-GCCFLAGS	+= $(call check_gcc, -m4710a0kern, )
+GCCFLAGS        += $(call check_gcc, -m4710a0kern, )
 
 AFLAGS		+= $(GCCFLAGS)
 ASFLAGS		+= $(GCCFLAGS)
 CFLAGS		+= $(GCCFLAGS)
+
+LD		+= -m $(ld-emul)
 
 
 #
@@ -141,7 +211,7 @@ LOADADDR	:= 0x80080000
 endif
 
 #
-# Au1000 (Alchemy Semi PB1000) eval board
+# Au1x AMD Alchemy eval boards
 #
 ifdef CONFIG_MIPS_PB1000
 LIBS		+= arch/mips/au1000/pb1000/pb1000.o \
@@ -150,9 +220,6 @@ SUBDIRS		+= arch/mips/au1000/pb1000 arch/mips/au1000/common
 LOADADDR	:= 0x80100000
 endif
 
-#
-# Au1100 (Alchemy Semi PB1100) eval board
-#
 ifdef CONFIG_MIPS_PB1100
 LIBS          += arch/mips/au1000/pb1100/pb1100.o \
                  arch/mips/au1000/common/au1000.o
@@ -160,9 +227,6 @@ SUBDIRS       += arch/mips/au1000/pb1100 arch/mips/au1000/common
 LOADADDR      += 0x80100000
 endif
 
-#
-# Au1500 (Alchemy Semi PB1500) eval board
-#
 ifdef CONFIG_MIPS_PB1500
 LIBS		+= arch/mips/au1000/pb1500/pb1500.o \
 		   arch/mips/au1000/common/au1000.o
@@ -170,9 +234,6 @@ SUBDIRS		+= arch/mips/au1000/pb1500 arch/mips/au1000/common
 LOADADDR	:= 0x80100000
 endif
 
-#
-# Au1x00 (AMD/Alchemy) eval boards
-#
 ifdef CONFIG_MIPS_DB1000
 LIBS          += arch/mips/au1000/db1x00/db1x00.o \
                  arch/mips/au1000/common/au1000.o
@@ -187,11 +248,97 @@ SUBDIRS       += arch/mips/au1000/db1x00 arch/mips/au1000/common
 LOADADDR      += 0x80100000
 endif
 
+ifdef CONFIG_MIPS_DB1550
+LIBS          += arch/mips/au1000/db1x00/db1x00.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/db1x00 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
 ifdef CONFIG_MIPS_DB1100
 LIBS          += arch/mips/au1000/db1x00/db1x00.o \
                  arch/mips/au1000/common/au1000.o
 SUBDIRS       += arch/mips/au1000/db1x00 arch/mips/au1000/common
 LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_HYDROGEN3
+LIBS          += arch/mips/au1000/hydrogen3/hydrogen3.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/hydrogen3 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_BOSPORUS
+LIBS          += arch/mips/au1000/db1x00/db1x00.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/db1x00 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_MIRAGE
+LIBS          += arch/mips/au1000/db1x00/db1x00.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/db1x00 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_XXS1500
+LIBS          += arch/mips/au1000/xxs1500/xxs1500.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/xxs1500 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_MTX1
+LIBS          += arch/mips/au1000/mtx-1/mtx-1.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/mtx-1 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_PB1550
+LIBS          += arch/mips/au1000/pb1550/pb1550.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/pb1550 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_PB1200
+LIBS          += arch/mips/au1000/pb1200/pb1200.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/pb1200 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_DB1200
+LIBS          += arch/mips/au1000/pb1200/pb1200.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/pb1200 arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+ifdef CONFIG_MIPS_FICMMP
+LIBS          += arch/mips/au1000/ficmmp/ficmmp.o \
+                 arch/mips/au1000/common/au1000.o
+SUBDIRS       += arch/mips/au1000/ficmmp arch/mips/au1000/common
+LOADADDR      += 0x80100000
+endif
+
+
+#
+# Cogent CSB250
+#
+ifdef CONFIG_COGENT_CSB250
+LIBS		+= arch/mips/au1000/csb250/csb250.o \
+		   arch/mips/au1000/common/au1000.o
+SUBDIRS		+= arch/mips/au1000/csb250 arch/mips/au1000/common
+LOADADDR	:= 0x80100000
+endif
+
+ifdef CONFIG_PCI
+CORE_FILES    += arch/mips/pci/pci-core.o
+SUBDIRS       += arch/mips/pci
 endif
 
 #
@@ -235,8 +382,9 @@ endif
 # Galileo EV64120 Board
 #
 ifdef CONFIG_MIPS_EV64120
-LIBS		+= arch/mips/galileo-boards/ev64120/ev64120.o
-SUBDIRS		+= arch/mips/galileo-boards/ev64120
+LIBS		+= arch/mips/gt64120/common/gt64120.o \
+		   arch/mips/gt64120/ev64120/ev64120.o
+SUBDIRS		+= arch/mips/gt64120/common arch/mips/gt64120/ev64120
 LOADADDR	:= 0x80100000
 endif
 
@@ -244,10 +392,8 @@ endif
 # Galileo EV96100 Board
 #
 ifdef CONFIG_MIPS_EV96100
-LIBS		+= arch/mips/galileo-boards/ev96100/ev96100.o \
-		   arch/mips/galileo-boards/generic/galboards.o
-SUBDIRS		+= arch/mips/galileo-boards/generic \
-		   arch/mips/galileo-boards/ev96100
+LIBS		+= arch/mips/galileo-boards/ev96100/ev96100.o
+SUBDIRS		+= arch/mips/galileo-boards/ev96100
 LOADADDR	:= 0x80100000
 endif
 
@@ -334,6 +480,39 @@ LOADADDR	:= 0x80100000
 endif
 
 #
+# Momentum Ocelot-C and -CS boards
+#
+ifdef CONFIG_MOMENCO_OCELOT_C
+# The Ocelot-C[S] setup.o must be linked early - it does the ioremap() for the
+# mips_io_port_base.
+CORE_FILES	+= arch/mips/momentum/ocelot_c/ocelot_c.o
+SUBDIRS		+= arch/mips/momentum/ocelot_c
+LOADADDR	:= 0x80100000
+endif
+
+ifdef CONFIG_PMC_BIG_SUR
+CORE_FILES	+= arch/mips/pmc-sierra/big_sur/big_sur.o
+SUBDIRS		+= arch/mips/pmc-sierra/big_sur
+LOADADDR	:= 0x80100000
+endif
+
+ifdef CONFIG_PMC_STRETCH
+CORE_FILES	+= arch/mips/pmc-sierra/stretch/stretch.o
+SUBDIRS		+= arch/mips/pmc-sierra/stretch
+LOADADDR	:= 0x80200000
+endif
+
+ifdef CONFIG_MOMENCO_JAGUAR_ATX
+LIBS		+= arch/mips/momentum/jaguar_atx/jaguar_atx.o
+SUBDIRS		+= arch/mips/momentum/jaguar_atx
+ifdef CONFIG_JAGUAR_DMALOW
+LOADADDR	:= 0x88000000
+else
+LOADADDR	:= 0x80100000
+endif
+endif
+
+#
 # NEC DDB Vrc-5074
 #
 ifdef CONFIG_DDB5074
@@ -383,7 +562,7 @@ endif
 ifdef CONFIG_NEC_EAGLE
 SUBDIRS		+= arch/mips/vr41xx/common \
 		   arch/mips/vr41xx/nec-eagle
-LIBS		+= arch/mips/vr41xx/common/vr41xx.o \
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
 		   arch/mips/vr41xx/nec-eagle/eagle.o
 LOADADDR	:= 0x80000000
 endif
@@ -394,7 +573,7 @@ endif
 ifdef CONFIG_ZAO_CAPCELLA
 SUBDIRS		+= arch/mips/vr41xx/common \
 		   arch/mips/vr41xx/zao-capcella
-LIBS		+= arch/mips/vr41xx/common/vr41xx.o \
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
 		   arch/mips/vr41xx/zao-capcella/capcella.o
 LOADADDR	:= 0x80000000
 endif
@@ -405,7 +584,7 @@ endif
 ifdef CONFIG_VICTOR_MPC30X
 SUBDIRS		+= arch/mips/vr41xx/common \
 		   arch/mips/vr41xx/victor-mpc30x
-LIBS		+= arch/mips/vr41xx/common/vr41xx.o \
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
 		   arch/mips/vr41xx/victor-mpc30x/mpc30x.o
 LOADADDR	:= 0x80001000
 endif
@@ -416,7 +595,7 @@ endif
 ifdef CONFIG_IBM_WORKPAD
 SUBDIRS		+= arch/mips/vr41xx/common \
 		   arch/mips/vr41xx/ibm-workpad
-LIBS		+= arch/mips/vr41xx/common/vr41xx.o \
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
 		   arch/mips/vr41xx/ibm-workpad/workpad.o
 LOADADDR	+= 0x80004000
 endif
@@ -427,9 +606,31 @@ endif
 ifdef CONFIG_CASIO_E55
 SUBDIRS		+= arch/mips/vr41xx/common \
 		   arch/mips/vr41xx/casio-e55
-LIBS		+= arch/mips/vr41xx/common/vr41xx.o \
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
 		   arch/mips/vr41xx/casio-e55/e55.o
 LOADADDR	+= 0x80004000
+endif
+
+#
+# TANBAC TB0226 Mbase (VR4131)
+#
+ifdef CONFIG_TANBAC_TB0226
+SUBDIRS		+= arch/mips/vr41xx/common \
+		   arch/mips/vr41xx/tanbac-tb0226
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
+		   arch/mips/vr41xx/tanbac-tb0226/tb0226.o
+LOADADDR	:= 0x80000000
+endif
+
+#
+# TANBAC TB0229 (VR4131DIMM)
+#
+ifdef CONFIG_TANBAC_TB0229
+SUBDIRS		+= arch/mips/vr41xx/common \
+		   arch/mips/vr41xx/tanbac-tb0229
+CORE_FILES	+= arch/mips/vr41xx/common/vr41xx.o \
+		   arch/mips/vr41xx/tanbac-tb0229/tb0229.o
+LOADADDR	:= 0x80000000
 endif
 
 #
@@ -457,9 +658,9 @@ LOADADDR	:= 0x88002000
 endif
 
 #
-# Sibyte SB1250 SOC
+# Sibyte SB1250 SOC and Broadcom (SiByte) BCM112x SOCs
 #
-ifdef CONFIG_SIBYTE_SB1250
+ifneq ($(CONFIG_SIBYTE_SB1250)$(CONFIG_SIBYTE_BCM112X),)
 # This is a LIB so that it links at the end, and initcalls are later
 # the sequence; but it is built as an object so that modules don't get
 # removed (as happens, even if they have __initcall/module_init)
@@ -469,64 +670,18 @@ LOADADDR	:= 0x80100000
 endif
 
 #
-# Sibyte SWARM board
+# Sibyte boards:
 #
-ifdef CONFIG_SIBYTE_SWARM
+# BCM91250A (SWARM),
+# BCM91250E (Sentosa),
+# BCM91120C (CRhine),
+# BCM91120x (Carmel),
+# BCM91125C (CRhone),
+# BCM91125E (Rhone).
+#
+ifdef CONFIG_SIBYTE_BOARD
 LIBS		+= arch/mips/sibyte/swarm/sbswarm.a
 SUBDIRS		+= arch/mips/sibyte/swarm
-endif
-ifdef CONFIG_SIBYTE_SENTOSA
-LIBS		+= arch/mips/sibyte/swarm/sbswarm.a
-SUBDIRS		+= arch/mips/sibyte/swarm
-endif
-
-#
-# Broadcom (SiByte) BCM112x SOCs
-# (In fact, this just uses the exact same support as the BCM1250.)
-#
-ifdef CONFIG_SIBYTE_BCM112X
-# This is a LIB so that it links at the end, and initcalls are later
-# the sequence; but it is built as an object so that modules don't get
-# removed (as happens, even if they have __initcall/module_init)
-LIBS		+= arch/mips/sibyte/sb1250/sb1250.o
-SUBDIRS		+= arch/mips/sibyte/sb1250
-LOADADDR	:= 0x80100000
-endif
-
-#
-# Sibyte BCM91120C (CRhine) board
-# (In fact, this just uses the exact same support as the BCM912500A (SWARM).)
-#
-ifdef CONFIG_SIBYTE_CRHINE
-LIBS          += arch/mips/sibyte/swarm/sbswarm.a
-SUBDIRS       += arch/mips/sibyte/swarm
-endif
-
-#
-# Sibyte BCM91120x (Carmel) board
-# (In fact, this just uses the exact same support as the BCM912500A (SWARM).)
-#
-ifdef CONFIG_SIBYTE_CARMEL
-LIBS          += arch/mips/sibyte/swarm/sbswarm.a
-SUBDIRS       += arch/mips/sibyte/swarm
-endif
-
-#
-# Sibyte BCM91125C (CRhone) board
-# (In fact, this just uses the exact same support as the BCM912500A (SWARM).)
-#
-ifdef CONFIG_SIBYTE_CRHONE
-LIBS          += arch/mips/sibyte/swarm/sbswarm.a
-SUBDIRS       += arch/mips/sibyte/swarm
-endif
-
-#
-# Sibyte BCM91125E (Rhone) board
-# (In fact, this just uses the exact same support as the BCM912500A (SWARM).)
-#
-ifdef CONFIG_SIBYTE_RHONE
-LIBS          += arch/mips/sibyte/swarm/sbswarm.a
-SUBDIRS       += arch/mips/sibyte/swarm
 endif
 
 #
@@ -535,37 +690,6 @@ endif
 ifdef CONFIG_SIBYTE_CFE
 LIBS		+= arch/mips/sibyte/cfe/cfe.a
 SUBDIRS		+= arch/mips/sibyte/cfe
-endif
-
-#
-# Broadcom BCM947XX variants
-#
-ifdef CONFIG_BCM947XX
-LIBS		+= arch/mips/brcm-boards/generic/brcm.o arch/mips/brcm-boards/bcm947xx/bcm947xx.o
-SUBDIRS		+= arch/mips/brcm-boards/generic arch/mips/brcm-boards/bcm947xx
-LOADADDR	:= 0x80001000
-zImage: vmlinux
-	$(MAKE) -C arch/$(ARCH)/brcm-boards/bcm947xx/compressed
-export LOADADDR
-endif
-
-#
-# Broadcom BCM933XX variants
-#
-ifdef CONFIG_BCM933XX
-LIBS          += arch/mips/brcm-boards/bcm933xx/bcm933xx.o
-SUBDIRS       += arch/mips/brcm-boards/bcm933xx
-LOADADDR      := 0x80010000
-
-vmlinux.srec: vmlinux
-	$(OBJCOPY) -O srec $< $@
-linux.srec: vmlinux.srec
-	$(OBJCOPY) --adjust-vma=0x80000000 -O srec $< $@
-vmlinux.out: vmlinux.bin
-	$(TOPDIR)/pstore.sh
-vmlinux.bin: vmlinux
-	$(OBJCOPY) -O binary $< $@
-export LOADADDR
 endif
 
 #
@@ -588,6 +712,32 @@ SUBDIRS		+= arch/mips/jmr3927/rbhma3100 arch/mips/jmr3927/common
 LOADADDR	:= 0x80050000
 endif
 
+#
+# Toshiba RBTX4927 board or
+# Toshiba RBTX4937 board
+#
+ifdef CONFIG_TOSHIBA_RBTX4927
+MIPS           = arch/mips
+CEC            = tx4927
+COMMON         = $(MIPS)/$(CEC)/common
+BOARD          = $(MIPS)/$(CEC)/toshiba_rbtx4927
+LIBS          += $(BOARD)/toshiba_rbtx4927.o $(COMMON)/tx4927.o
+SUBDIRS       += $(BOARD)                    $(COMMON)
+LOADADDR      += 0x80020000
+endif
+
+#
+# Broadcom BCM947XX variants
+#
+ifdef CONFIG_BCM947XX
+LIBS		+= arch/mips/bcm947xx/generic/brcm.o arch/mips/bcm947xx/bcm947xx.o 
+SUBDIRS		+= arch/mips/bcm947xx/generic arch/mips/bcm947xx 
+LOADADDR	:= 0x80001000
+
+zImage: vmlinux
+	$(MAKE) -C arch/$(ARCH)/bcm947xx/compressed
+export LOADADDR
+endif
 
 #
 # Choosing incompatible machines durings configuration will result in
@@ -603,6 +753,7 @@ LINKFLAGS	+= -T arch/$(ARCH)/ld.script
 HEAD := arch/mips/kernel/head.o arch/mips/kernel/init_task.o
 
 SUBDIRS := $(addprefix arch/mips/, tools) $(SUBDIRS) $(addprefix arch/mips/, kernel mm lib)
+$(SUBDIRS): $(TOPDIR)/include/asm-$(ARCH)/offset.h
 CORE_FILES := arch/mips/kernel/kernel.o arch/mips/mm/mm.o $(CORE_FILES)
 LIBS := arch/mips/lib/lib.a $(LIBS)
 
@@ -625,9 +776,15 @@ rom.bin rom.sw: vmlinux
 	$(MAKE) -C arch/$(ARCH)/lasat/image $@
 endif
 
-MAKEBOOT = $(MAKE) -C arch/$(ARCH)/boot
+boot: mips-boot
+
+mips-boot: vmlinux
+	@$(MAKEBOOT) boot
 
 vmlinux.ecoff: vmlinux
+	@$(MAKEBOOT) $@
+
+vmlinux.srec: vmlinux
 	@$(MAKEBOOT) $@
 
 archclean:
@@ -636,15 +793,15 @@ archclean:
 	$(MAKE) -C arch/$(ARCH)/tools clean
 	$(MAKE) -C arch/mips/baget clean
 	$(MAKE) -C arch/mips/lasat clean
-	$(MAKE) -C arch/mips/brcm-boards/bcm947xx/compressed clean
+	$(MAKE) -C arch/mips/bcm947xx/compressed clean
 
 archmrproper:
 	@$(MAKEBOOT) mrproper
+	$(RM) $(TOPDIR)/include/asm-$(ARCH)/offset.h
 	$(MAKE) -C arch/$(ARCH)/tools mrproper
-	$(MAKE) -C arch/mips/brcm-boards/bcm947xx/compressed mrproper
 
 archdep:
-	if [ ! -f $(TOPDIR)/include/asm-$(ARCH)/offset.h ]; then \
-		touch $(TOPDIR)/include/asm-$(ARCH)/offset.h; \
-	fi;
 	@$(MAKEBOOT) dep
+
+$(TOPDIR)/include/asm-$(ARCH)/offset.h:
+	@$(MAKE) -C arch/mips/tools

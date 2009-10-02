@@ -45,16 +45,9 @@
 #include <linux/console.h>
 #endif
 
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_PROM_CONSOLE)
-extern void console_setup(char *, int *);
-char serial_console[20];
-#endif
-
-#ifdef CONFIG_REMOTE_DEBUG
-extern void set_debug_traps(void);
+#ifdef CONFIG_KGDB
 extern void rs_kgdb_hook(int);
-extern void breakpoint(void);
-static int remote_debug = 0;
+int remote_debug = 0;
 #endif
 
 extern struct ide_ops std_ide_ops;
@@ -64,9 +57,6 @@ extern struct kbd_ops std_kbd_ops;
 
 extern void mips_reboot_setup(void);
 
-extern void (*board_time_init)(void);
-extern void (*board_timer_setup)(struct irqaction *irq);
-extern unsigned long (*rtc_get_time)(void);
 extern void mips_time_init(void);
 extern void mips_timer_setup(struct irqaction *irq);
 extern unsigned long mips_rtc_get_time(void);
@@ -85,17 +75,13 @@ const char *get_system_type(void)
 	return "MIPS Malta";
 }
 
-void __init bus_error_init(void)
-{
-}
-
 void __init malta_setup(void)
 {
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	int rs_putDebugChar(char);
 	char rs_getDebugChar(void);
-	extern int (*putDebugChar)(char);
-	extern char (*getDebugChar)(void);
+	extern int (*generic_putDebugChar)(char);
+	extern char (*generic_getDebugChar)(void);
 #endif
 	char *argptr;
 	int i;
@@ -117,7 +103,7 @@ void __init malta_setup(void)
 	}
 #endif
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	argptr = prom_getcmdline();
 	if ((argptr = strstr(argptr, "kgdb=ttyS")) != NULL) {
 		int line;
@@ -130,8 +116,8 @@ void __init malta_setup(void)
 		       line ? 1 : 0);
 
 		rs_kgdb_hook(line);
-		putDebugChar = rs_putDebugChar;
-		getDebugChar = rs_getDebugChar;
+		generic_putDebugChar = rs_putDebugChar;
+		generic_getDebugChar = rs_getDebugChar;
 
 		prom_printf("KGDB: Using serial line /dev/ttyS%d for session, "
 			    "please connect your debugger\n", line ? 1 : 0);
@@ -143,7 +129,7 @@ void __init malta_setup(void)
 
 	argptr = prom_getcmdline();
 	if ((argptr = strstr(argptr, "nofpu")) != NULL)
-		mips_cpu.options &= ~MIPS_CPU_FPU;
+		cpu_data[0].options &= ~MIPS_CPU_FPU;
 
 	rtc_ops = &malta_rtc_ops;
 

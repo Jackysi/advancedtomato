@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.types.h 1.10 10/15/01 22:51:33 paulus
- */
 #ifndef _PPC_TYPES_H
 #define _PPC_TYPES_H
 
@@ -50,6 +47,10 @@ typedef u64 dma64_addr_t;
 
 #endif /* __KERNEL__ */
 
+/*
+ * XXX allowed outside of __KERNEL__ for now, until glibc gets
+ * a proper set of asm headers of its own.  -- paulus
+ */
 typedef unsigned short umode_t;
 
 #endif /* __ASSEMBLY__ */

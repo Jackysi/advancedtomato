@@ -56,6 +56,7 @@ typedef void *(*traverse_func)(struct device_node *me, void *data);
 void *traverse_pci_devices(struct device_node *start, traverse_func pre, traverse_func post, void *data);
 void *traverse_all_pci_devices(traverse_func pre);
 
+struct pci_dev *pci_find_dev_by_addr(unsigned long addr);
 void pci_devs_phb_init(void);
 void pci_fix_bus_sysdata(void);
 struct device_node *fetch_dev_dn(struct pci_dev *dev);
@@ -70,7 +71,7 @@ void pSeries_pcibios_init(void);
 static inline struct device_node *pci_device_to_OF_node(struct pci_dev *dev)
 {
 	struct device_node *dn = (struct device_node *)(dev->sysdata);
-	if (dn->devfn == dev->devfn && dn->busno == dev->bus->number)
+	if (dn->devfn == dev->devfn && dn->busno == (dev->bus->number&0xff))
 		return dn;	/* fast path.  sysdata is good */
 	else
 		return fetch_dev_dn(dev);

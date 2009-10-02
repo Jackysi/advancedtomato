@@ -6,7 +6,7 @@
 #define R14 8
 #define R13 16
 #define R12 24
-#define RBP 36
+#define RBP 32
 #define RBX 40
 /* arguments: interrupts/non tracing syscalls only save upto here*/
 #define R11 48
@@ -36,10 +36,6 @@
 
 /* options set using PTRACE_SETOPTIONS */
 #define PTRACE_O_TRACESYSGOOD     0x00000001
-
-/* Dummy values for ptrace */ 
-#define FS 1000 
-#define GS 1008
 
 #ifndef __ASSEMBLY__ 
 

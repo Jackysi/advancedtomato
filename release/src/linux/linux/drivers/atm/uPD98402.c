@@ -16,7 +16,11 @@
 #include "uPD98402.h"
 
 
+#if 0
+#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define DPRINTK(format,args...)
+#endif
 
 
 struct uPD98402_priv {
@@ -208,7 +212,7 @@ static void uPD98402_int(struct atm_dev *dev)
 static int uPD98402_start(struct atm_dev *dev)
 {
 	DPRINTK("phy_start\n");
-	if (!(PRIV(dev) = kmalloc(sizeof(struct uPD98402_priv),GFP_KERNEL)))
+	if (!(dev->phy_data = kmalloc(sizeof(struct uPD98402_priv),GFP_KERNEL)))
 		return -ENOMEM;
 	memset(&PRIV(dev)->sonet_stats,0,sizeof(struct k_sonet_stats));
 	(void) GET(PCR); /* clear performance events */

@@ -1,8 +1,8 @@
 /*
  * Edgeport USB Serial Converter driver
  *
- * Copyright(c) 2000-2002 Inside Out Networks, All rights reserved.
- * Copyright(c) 2001-2002 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2000-2002 Inside Out Networks, All rights reserved.
+ * Copyright (C) 2001-2002 Greg Kroah-Hartman <greg@kroah.com>
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -126,6 +126,7 @@ static struct usb_device_id edgeport_1port_id_table [] = {
 
 static struct usb_device_id edgeport_2port_id_table [] = {
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_2) },
+	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_2C) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_2I) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_421) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_421_BOOT) },
@@ -144,6 +145,7 @@ static struct usb_device_id edgeport_2port_id_table [] = {
 static __devinitdata struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_1) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_2) },
+	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_2C) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_2I) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_421) },
 	{ USB_DEVICE(USB_VENDOR_ID_ION, ION_DEVICE_ID_TI_EDGEPORT_421_BOOT) },
@@ -460,7 +462,7 @@ static int TIIsTxActive (struct edgeport_port *port)
 {
 	int status;
 	struct out_endpoint_desc_block *oedb;
-	__u8 lsr;
+	__u8 *lsr;
 	int bytes_left = 0;
 
 	oedb = kmalloc (sizeof (* oedb), GFP_KERNEL);
@@ -469,6 +471,13 @@ static int TIIsTxActive (struct edgeport_port *port)
 		return -ENOMEM;
 	}
 
+	lsr = kmalloc (1, GFP_KERNEL);	/* Sigh, that's right, just one byte,
+					   as not all platforms can do DMA
+					   from stack */
+	if (!lsr) {
+		kfree(oedb);
+		return -ENOMEM;
+	}
 	/* Read the DMA Count Registers */
 	status = TIReadRam (port->port->serial->dev,
 			    port->dma_address,
@@ -484,22 +493,25 @@ static int TIIsTxActive (struct edgeport_port *port)
 	status = TIReadRam (port->port->serial->dev, 
 			    port->uart_base + UMPMEM_OFFS_UART_LSR,
 			    1,
-			    &lsr);
+			    lsr);
 
 	if (status)
 		goto exit_is_tx_active;
-	dbg ("%s - LSR = 0x%X", __FUNCTION__, lsr);
+	dbg ("%s - LSR = 0x%X", __FUNCTION__, *lsr);
 	
 	/* If either buffer has data or we are transmitting then return TRUE */
 	if ((oedb->XByteCount & 0x80 ) != 0 )
 		bytes_left += 64;
 
-	if ((lsr & UMP_UART_LSR_TX_MASK ) == 0 )
+	if ((*lsr & UMP_UART_LSR_TX_MASK ) == 0 )
 		bytes_left += 1;
 
 	/* We return Not Active if we get any kind of error */
 exit_is_tx_active:
 	dbg ("%s - return %d", __FUNCTION__, bytes_left );
+
+	kfree(lsr);
+	kfree(oedb);
 	return bytes_left;
 }
 
@@ -1141,8 +1153,12 @@ static int TIDownloadFirmware (struct edgeport_serial *serial)
 				dbg ( "%s - HARDWARE RESET return %d", __FUNCTION__, status);
 
 				/* return an error on purpose. */
+				kfree (firmware_version);
+				kfree (rom_desc);
+				kfree (ti_manuf_desc);
 				return -ENODEV;
 			}
+			kfree (firmware_version);
 		}
 		// Search for type 0xF2 record (firmware blank record)
 		else if ((start_address = TIGetDescriptorAddress (serial, I2C_DESC_TYPE_FIRMWARE_BLANK, rom_desc)) != 0) {
@@ -1549,17 +1565,17 @@ static void handle_new_msr (struct edgeport_port *edge_port, __u8 msr)
 
 	dbg ("%s - %02x", __FUNCTION__, msr);
 
-	if (msr & (MSR_DELTA_CTS | MSR_DELTA_DSR | MSR_DELTA_RI | MSR_DELTA_CD)) {
+	if (msr & (EDGEPORT_MSR_DELTA_CTS | EDGEPORT_MSR_DELTA_DSR | EDGEPORT_MSR_DELTA_RI | EDGEPORT_MSR_DELTA_CD)) {
 		icount = &edge_port->icount;
 
 		/* update input line counters */
-		if (msr & MSR_DELTA_CTS)
+		if (msr & EDGEPORT_MSR_DELTA_CTS)
 			icount->cts++;
-		if (msr & MSR_DELTA_DSR)
+		if (msr & EDGEPORT_MSR_DELTA_DSR)
 			icount->dsr++;
-		if (msr & MSR_DELTA_CD)
+		if (msr & EDGEPORT_MSR_DELTA_CD)
 			icount->dcd++;
-		if (msr & MSR_DELTA_RI)
+		if (msr & EDGEPORT_MSR_DELTA_RI)
 			icount->rng++;
 		wake_up_interruptible (&edge_port->delta_msr_wait);
 	}
@@ -1784,12 +1800,7 @@ static void edge_bulk_out_callback (struct urb *urb)
 	tty = port->tty;
 	if (tty) {
 		/* let the tty driver wakeup if it has a special write_wakeup function */
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup) {
-			(tty->ldisc.write_wakeup)(tty);
-		}
-
-		/* tell the tty driver that something has changed */
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 }
 
@@ -2416,10 +2427,10 @@ static int get_modem_info (struct edgeport_port *edge_port, unsigned int *value)
 
 	result = ((mcr & MCR_DTR)	? TIOCM_DTR: 0)	  /* 0x002 */
 		  | ((mcr & MCR_RTS)	? TIOCM_RTS: 0)   /* 0x004 */
-		  | ((msr & MSR_CTS)	? TIOCM_CTS: 0)   /* 0x020 */
-		  | ((msr & MSR_CD)	? TIOCM_CAR: 0)   /* 0x040 */
-		  | ((msr & MSR_RI)	? TIOCM_RI:  0)   /* 0x080 */
-		  | ((msr & MSR_DSR)	? TIOCM_DSR: 0);  /* 0x100 */
+		  | ((msr & EDGEPORT_MSR_CTS)	? TIOCM_CTS: 0)   /* 0x020 */
+		  | ((msr & EDGEPORT_MSR_CD)	? TIOCM_CAR: 0)   /* 0x040 */
+		  | ((msr & EDGEPORT_MSR_RI)	? TIOCM_RI:  0)   /* 0x080 */
+		  | ((msr & EDGEPORT_MSR_DSR)	? TIOCM_DSR: 0);  /* 0x100 */
 
 
 	dbg("%s -- %x", __FUNCTION__, result);

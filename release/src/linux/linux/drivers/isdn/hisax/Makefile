@@ -10,15 +10,14 @@ EXTRA_CFLAGS      += -DHISAX_MAX_CARDS=$(CONFIG_HISAX_MAX_CARDS)
 
 # Objects that export symbols.
 
-export-objs	  := config.o hisax_isac.o
+export-objs	  := config.o hisax_isac.o isdnhdlc.o
 
 # Multipart objects.
 
 list-multi	  := hisax.o hisax_st5481.o
 hisax-objs	  := config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		     lmgr.o q931.o callc.o fsm.o cert.o
-hisax_st5481-objs := st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \
-		     st5481_hdlc.o
+hisax_st5481-objs := st5481_init.o st5481_usb.o st5481_d.o st5481_b.o
 
 # Optional parts of multipart objects.
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
@@ -63,8 +62,9 @@ obj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
 obj-$(CONFIG_HISAX_ELSA_CS)		+= elsa_cs.o
 obj-$(CONFIG_HISAX_AVM_A1_CS)		+= avma1_cs.o
-obj-$(CONFIG_HISAX_ST5481)		+= hisax_st5481.o
+obj-$(CONFIG_HISAX_ST5481)		+= hisax_st5481.o isdnhdlc.o
 obj-$(CONFIG_HISAX_FRITZ_PCIPNP)        += hisax_isac.o hisax_fcpcipnp.o
+obj-$(CONFIG_USB_AUERISDN)	        += isdnhdlc.o
 
 CERT := $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
 CFLAGS_cert.o := -DCERTIFICATION=$(CERT)

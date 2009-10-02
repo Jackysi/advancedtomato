@@ -7,8 +7,10 @@ O_TARGET := io.o
 subdir-y := block char misc net
 subdir-m := $(subdir-y)
 
-obj-y := s390io.o s390mach.o s390dyn.o idals.o ccwcache.o sysinfo.o
-export-objs += ccwcache.o idals.o s390dyn.o s390io.o
+obj-y := s390io.o s390mach.o s390dyn.o ccwcache.o sysinfo.o
+export-objs += ccwcache.o s390dyn.o s390io.o
+obj-$(CONFIG_QDIO) += qdio.o
+export-objs += qdio.o
 
 obj-y += $(foreach dir,$(subdir-y),$(dir)/s390-$(dir).o)
 

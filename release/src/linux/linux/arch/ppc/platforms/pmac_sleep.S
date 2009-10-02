@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains sleep low-level functions for PowerBook G3.
  *    Copyright (C) 1999 Benjamin Herrenschmidt (benh@kernel.crashing.org)
  *    and Paul Mackerras (paulus@samba.org).
@@ -18,8 +15,7 @@
 #include <asm/page.h>
 #include <asm/ppc_asm.h>
 #include <asm/cputable.h>
-#include <asm/ppc_asm.h>
-#include "../kernel/ppc_defs.h" // DAMMIT !
+#include <asm/cache.h>
 
 #define MAGIC	0x4c617273	/* 'Lars' */
 
@@ -40,16 +36,9 @@
 #define SL_DBAT3	0x50
 #define SL_IBAT3	0x58
 #define SL_TB		0x60
-#define SL_HID0		0x68
-#define SL_HID1		0x6c
-#define SL_MSSCR0	0x70
-#define SL_MSSSR0	0x74
-#define SL_ICTRL	0x78
-#define SL_LDSTCR	0x7c
-#define SL_LDSTDB	0x80
-#define SL_R2		0x84
-#define SL_CR		0x88
-#define SL_R12		0x8c	/* r12 to r31 */
+#define SL_R2		0x68
+#define SL_CR		0x6c
+#define SL_R12		0x70	/* r12 to r31 */
 #define SL_SIZE		(SL_R12 + 80)
 
 	.text
@@ -85,7 +74,7 @@ _GLOBAL(low_sleep_handler)
 	mftbu	r3
 	cmpw	r3,r4
 	bne	1b
-	
+
 	/* Save SPRGs */
 	mfsprg	r4,0
 	stw	r4,SL_SPRG0(r1)
@@ -130,43 +119,9 @@ _GLOBAL(low_sleep_handler)
 	mfibatl	r4,3
 	stw	r4,SL_IBAT3+4(r1)
 
-	/* Save HID0 */
-	mfspr	r4,HID0
-	stw	r4,SL_HID0(r1)
+	/* Backup various CPU config stuffs */
+	bl	__save_cpu_setup
 
-	/* Save 7400/7410/7450 specific registers */
-	mfspr	r3,PVR
-	srwi	r3,r3,16
-	cmpli	cr0,r3,0x8000	/* 7450 */
-	cmpli	cr1,r3,0x000c	/* 7400 */
-	cmpli	cr2,r3,0x800c	/* 7410 */
-	cmpli	cr3,r3,0x8001	/* 7455 */
-	cmpli	cr4,r3,0x7000	/* 750FX */
-	cror	4*cr1+eq,4*cr1+eq,4*cr2+eq
-	cror	4*cr0+eq,4*cr0+eq,4*cr3+eq
-	cror	4*cr0+eq,4*cr0+eq,4*cr1+eq
-	bne	1f
-	mfspr	r4,SPRN_MSSCR0
-	stw	r4,SL_MSSCR0(r1)
-	mfspr	r4,SPRN_MSSSR0
-	stw	r4,SL_MSSSR0(r1)
-	/* Save 7450/7455 specific registers */
-	beq	cr1,1f
-	mfspr	r4,HID1
-	stw	r4,SL_HID1(r1)
-	mfspr	r4,SPRN_ICTRL
-	stw	r4,SL_ICTRL(r1)
-	mfspr	r4,SPRN_LDSTCR
-	stw	r4,SL_LDSTCR(r1)
-	mfspr	r4,SPRN_LDSTDB
-	stw	r4,SL_LDSTDB(r1)
-1:	
-	/* Save 750FX specific registers */
-	bne	cr4,1f
-	mfspr	r4,HID1
-	stw	r4,SL_HID1(r1)
-	
-1:
 	/* The ROM can wake us up via 2 different vectors:
 	 *  - On wallstreet & lombard, we must write a magic
 	 *    value 'Lars' at address 4 and a pointer to a
@@ -201,33 +156,22 @@ _GLOBAL(low_sleep_handler)
 	addi r3,r3,sleep_storage@l
 	stw r5,0(r3)
 
-BEGIN_FTR_SECTION
-	DSSALL
+	/* Disable DPM during cache flush */
+	mfspr	r3, SPRN_HID0
+	rlwinm	r3,r3,0,12,10
 	sync
-END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
+	mtspr	SPRN_HID0,r3
+	sync
 
-/*
- * Flush the L1 data cache by reading the first 128kB of RAM
- * and then flushing the same area with the dcbf instruction.
- * The L2 cache has already been disabled.
- */
-	li	r4,0x1000	/* 128kB / 32B */
-	mtctr	r4
-	lis	r4,KERNELBASE@h
-1:
-	lwz	r0,0(r4)
-	addi	r4,r4,0x0020	/* Go to start of next cache line */
-	bdnz	1b
+	/* Turn off data relocation. */
+	mfmsr	r3		/* Save MSR in r7 */
+	rlwinm	r3,r3,0,28,26	/* Turn off DR bit */
 	sync
-	
-	li	r4,0x1000	/* 128kB / 32B */
-	mtctr	r4
-	lis	r4,KERNELBASE@h
-1:
-	dcbf	r0,r4
-	addi	r4,r4,0x0020	/* Go to start of next cache line */
-	bdnz	1b
-	sync
+	mtmsr	r3
+	isync
+
+	/* Flush & disable L1 cache */
+	bl	__flush_disable_L1
 
 /*
  * Set the HID0 and MSR for sleep.
@@ -236,6 +180,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	rlwinm	r2,r2,0,10,7	/* clear doze, nap */
 	oris	r2,r2,HID0_SLEEP@h
 	sync
+	isync
 	mtspr	HID0,r2
 	sync
 
@@ -252,7 +197,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 	isync
 	b	1b
 
-/* 
+/*
  * Here is the resume code.
  */
 
@@ -272,7 +217,7 @@ _GLOBAL(core99_wake_up)
 	/* Won't that cause problems on CPU that doesn't support it ? */
 	lis	r3, 0
 	mtspr	SPRN_MMCR0, r3
-	
+
 	/* sanitize MSR */
 	mfmsr	r3
 	ori	r3,r3,MSR_EE|MSR_IP
@@ -290,22 +235,17 @@ _GLOBAL(core99_wake_up)
 	lwz	r1,0(r3)
 
 	/* Pass thru to older resume code ... */
-/* 
+/*
  * Here is the resume code for older machines.
  * r1 has the physical address of SL_PC(sp).
  */
-	
+
 grackle_wake_up:
-	/* Enable and then Flash inval the instruction & data cache */
-	mfspr	r3,HID0
-	ori	r3,r3, HID0_ICE|HID0_ICFI|HID0_DCE|HID0_DCI
-	sync
-	isync
-	mtspr	HID0,r3
-	xori	r3,r3, HID0_ICFI|HID0_DCI
-	mtspr	HID0,r3
-	sync
-	
+	/* Invalidate & enable L1 cache, we don't care about
+	 * whatever the ROM may have tried to write to memory
+	 */
+	bl	__inval_enable_L1
+
 	/* Restore the kernel's segment registers before
 	 * we do any r1 memory access as we are not sure they
 	 * are in a sane state above the first 256Mb region
@@ -318,79 +258,14 @@ grackle_wake_up:
 	addi	r3,r3,0x111	/* increment VSID */
 	addis	r4,r4,0x1000	/* address of next segment */
 	bdnz	3b
-	
-	/* Restore the remaining bits of the HID0 register. */
-	subi	r1,r1,SL_PC
-	lwz	r3,SL_HID0(r1)
-	sync
-	isync
-	mtspr	HID0,r3
 	sync
 	isync
 
-	/* Restore 7400/7410/7450 specific registers */
-	mfspr	r3,PVR
-	srwi	r3,r3,16
-	cmpli	cr0,r3,0x8000	/* 7450 */
-	cmpli	cr1,r3,0x000c	/* 7400 */
-	cmpli	cr2,r3,0x800c	/* 7410 */
-	cmpli	cr3,r3,0x8001	/* 7455 */
-	cmpli	cr4,r3,0x7000	/* 750FX */
-	cror	4*cr1+eq,4*cr1+eq,4*cr2+eq
-	cror	4*cr0+eq,4*cr0+eq,4*cr3+eq
-	cror	4*cr0+eq,4*cr0+eq,4*cr1+eq
-	bne	1f
-	lwz	r4,SL_MSSCR0(r1)
-	sync
-	mtspr	SPRN_MSSCR0,r4
-	sync
-	isync
-	lwz	r4,SL_MSSSR0(r1)
-	sync
-	mtspr	SPRN_MSSSR0,r4
-	sync
-	isync
-	bne	cr2,1f
-	li	r4,0
-	mtspr	SPRN_L2CR2,r4
-	/* Restore 7450/7455 specific registers */
-	beq	cr1,1f
-	lwz	r4,SL_HID1(r1)
-	sync
-	mtspr	HID1,r4
-	isync
-	sync
-	lwz	r4,SPRN_ICTRL(r1)
-	sync
-	mtspr	SPRN_ICTRL,r4
-	isync
-	sync
-	lwz	r4,SPRN_LDSTCR(r1)
-	sync
-	mtspr	SPRN_LDSTCR,r4
-	isync
-	sync
-	lwz	r4,SL_LDSTDB(r1)
-	sync
-	mtspr	SPRN_LDSTDB,r4
-	isync
-	sync
-1:	
-	/* Restore 750FX specific registers */
-	bne	cr4,1f
-		/* Read PLL config & switch to PLL 0 */
-	lwz	r4,SL_HID1(r1)
-	rlwinm  r5,r4,0,16,14
-	mtspr	SPRN_HID1,r5
-		/* Wait for PLL to stabilize */
-	mftbl	r5
-2:	mftbl	r6
-	sub	r6,r6,r5
-	cmpli	cr0,r6,10000
-	ble	2b
-		/* Setup final PLL */
-	mtspr	SPRN_HID1,r4
-1:
+	subi	r1,r1,SL_PC
+
+	/* Restore various CPU config stuffs */
+	bl	__restore_cpu_setup
+
 	/* Restore the BATs, and SDR1.  Then we can turn on the MMU. */
 	lwz	r4,SL_SDR1(r1)
 	mtsdr1	r4
@@ -436,6 +311,26 @@ grackle_wake_up:
 	lwz	r4,SL_IBAT3+4(r1)
 	mtibatl	3,r4
 
+BEGIN_FTR_SECTION
+	li	r4,0
+	mtspr	SPRN_DBAT4U,r4
+	mtspr	SPRN_DBAT4L,r4
+	mtspr	SPRN_DBAT5U,r4
+	mtspr	SPRN_DBAT5L,r4
+	mtspr	SPRN_DBAT6U,r4
+	mtspr	SPRN_DBAT6L,r4
+	mtspr	SPRN_DBAT7U,r4
+	mtspr	SPRN_DBAT7L,r4
+	mtspr	SPRN_IBAT4U,r4
+	mtspr	SPRN_IBAT4L,r4
+	mtspr	SPRN_IBAT5U,r4
+	mtspr	SPRN_IBAT5L,r4
+	mtspr	SPRN_IBAT6U,r4
+	mtspr	SPRN_IBAT6L,r4
+	mtspr	SPRN_IBAT7U,r4
+	mtspr	SPRN_IBAT7L,r4
+END_FTR_SECTION_IFSET(CPU_FTR_HAS_HIGH_BATS)
+
 	/* Flush all TLBs */
 	lis	r4,0x1000
 1:	addic.	r4,r4,-0x1000
@@ -445,7 +340,7 @@ grackle_wake_up:
 
 	/* restore the MSR and turn on the MMU */
 	lwz	r3,SL_MSR(r1)
-	bl	turn_on_mmu	
+	bl	turn_on_mmu
 
 	/* get back the stack pointer */
 	tovirt(r1,r1)
@@ -480,6 +375,8 @@ turn_on_mmu:
 #endif /* defined(CONFIG_PMAC_PBOOK) */
 
 	.data
-	.globl sleep_storage
+	.balign	L1_CACHE_LINE_SIZE
 sleep_storage:
 	.long 0
+	.balign	L1_CACHE_LINE_SIZE, 0
+	.text

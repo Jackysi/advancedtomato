@@ -29,6 +29,7 @@
  *  Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  *************************************************************************/
 
+#include <linux/kernel.h>
 #include "ieee754.h"
 
 /*
@@ -42,7 +43,7 @@ static const char *const rtnames[] = {
 
 void ieee754_xcpt(struct ieee754xctx *xcp)
 {
-	printk("floating point exception in \"%s\", type=%s\n",
+	printk(KERN_DEBUG "floating point exception in \"%s\", type=%s\n",
 		xcp->op, rtnames[xcp->rt]);
 }
 

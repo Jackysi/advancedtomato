@@ -264,7 +264,7 @@ static int tdfx_takedown(drm_device_t *dev)
 					DRM_DEBUG("mtrr_del = %d\n", retcode);
 				}
 #endif
-				drm_ioremapfree(map->handle, map->size);
+				drm_ioremapfree(map->handle, map->size, dev);
 				break;
 			case _DRM_SHM:
 				drm_free_pages((unsigned long)map->handle,
@@ -533,8 +533,33 @@ int tdfx_lock(struct inode *inode, struct file *filp, unsigned int cmd,
                   lock.context, current->pid, dev->lock.hw_lock->lock,
                   lock.flags);
 
+#if 0
+				/* dev->queue_count == 0 right now for
+                                   tdfx.  FIXME? */
+        if (lock.context < 0 || lock.context >= dev->queue_count)
+                return -EINVAL;
+#endif
 
         if (!ret) {
+#if 0
+                if (_DRM_LOCKING_CONTEXT(dev->lock.hw_lock->lock)
+                    != lock.context) {
+                        long j = jiffies - dev->lock.lock_time;
+
+                        if (lock.context == tdfx_res_ctx.handle &&
+				j >= 0 && j < DRM_LOCK_SLICE) {
+                                /* Can't take lock if we just had it and
+                                   there is contention. */
+                                DRM_DEBUG("%d (pid %d) delayed j=%d dev=%d jiffies=%d\n",
+					lock.context, current->pid, j,
+					dev->lock.lock_time, jiffies);
+                                current->state = TASK_INTERRUPTIBLE;
+				current->policy |= SCHED_YIELD;
+                                schedule_timeout(DRM_LOCK_SLICE-j);
+				DRM_DEBUG("jiffies=%d\n", jiffies);
+                        }
+                }
+#endif
                 add_wait_queue(&dev->lock.lock_queue, &entry);
                 for (;;) {
                         current->state = TASK_INTERRUPTIBLE;
@@ -563,6 +588,30 @@ int tdfx_lock(struct inode *inode, struct file *filp, unsigned int cmd,
                 remove_wait_queue(&dev->lock.lock_queue, &entry);
         }
 
+#if 0
+	if (!ret && dev->last_context != lock.context &&
+		lock.context != tdfx_res_ctx.handle &&
+		dev->last_context != tdfx_res_ctx.handle) {
+		add_wait_queue(&dev->context_wait, &entry);
+	        current->state = TASK_INTERRUPTIBLE;
+                /* PRE: dev->last_context != lock.context */
+	        tdfx_context_switch(dev, dev->last_context, lock.context);
+		/* POST: we will wait for the context
+                   switch and will dispatch on a later call
+                   when dev->last_context == lock.context
+                   NOTE WE HOLD THE LOCK THROUGHOUT THIS
+                   TIME! */
+		yield();
+	        current->state = TASK_RUNNING;
+	        remove_wait_queue(&dev->context_wait, &entry);
+	        if (signal_pending(current)) {
+	                ret = -EINTR;
+	        } else if (dev->last_context != lock.context) {
+			DRM_ERROR("Context mismatch: %d %d\n",
+                        	dev->last_context, lock.context);
+	        }
+	}
+#endif
 
         if (!ret) {
 		sigemptyset(&dev->sigmask);
@@ -579,6 +628,9 @@ int tdfx_lock(struct inode *inode, struct file *filp, unsigned int cmd,
 		}
                 if (lock.flags & _DRM_LOCK_QUIESCENT) {
 				/* Make hardware quiescent */
+#if 0
+                        tdfx_quiescent(dev);
+#endif
 		}
         }
 
@@ -621,6 +673,7 @@ int tdfx_unlock(struct inode *inode, struct file *filp, unsigned int cmd,
 	if (_DRM_LOCK_IS_CONT(dev->lock.hw_lock->lock))
 		atomic_inc(&dev->total_contends);
 	drm_lock_transfer(dev, &dev->lock.hw_lock->lock, DRM_KERNEL_CONTEXT);
+				/* FIXME: Try to send data to card here */
 	if (!dev->context_flag) {
 		if (drm_lock_free(dev, &dev->lock.hw_lock->lock,
 				  DRM_KERNEL_CONTEXT)) {

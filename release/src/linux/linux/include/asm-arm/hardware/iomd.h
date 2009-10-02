@@ -28,12 +28,18 @@
 
 #endif
 
+#if defined(CONFIG_ARCH_RISCSTATION) || defined(CONFIG_ARCH_CLPS7500)
+#ifndef CONFIG_CPU_7500
+#define CONFIG_CPU_7500
+#endif
+#endif
+
 #define IOMD_CONTROL	(0x000)
 #define IOMD_KARTTX	(0x004)
 #define IOMD_KARTRX	(0x004)
 #define IOMD_KCTRL	(0x008)
 
-#ifdef CONFIG_ARCH_CLPS7500
+#ifdef CONFIG_CPU_7500
 #define IOMD_IOLINES	(0x00C)
 #endif
 
@@ -42,7 +48,7 @@
 #define IOMD_IRQCLRA	(0x014)
 #define IOMD_IRQMASKA	(0x018)
 
-#ifdef CONFIG_ARCH_CLPS7500
+#ifdef CONFIG_CPU_7500
 #define IOMD_SUSMODE	(0x01C)
 #endif
 
@@ -54,7 +60,7 @@
 #define IOMD_FIQREQ	(0x034)
 #define IOMD_FIQMASK	(0x038)
 
-#ifdef CONFIG_ARCH_CLPS7500
+#ifdef CONFIG_CPU_7500
 #define IOMD_CLKCTL	(0x03C)
 #endif
 
@@ -72,7 +78,7 @@
 #define IOMD_T1GO	(0x058)
 #define IOMD_T1LATCH	(0x05c)
 
-#ifdef CONFIG_ARCH_CLPS7500
+#ifdef CONFIG_CPU_7500
 #define IOMD_IRQSTATC	(0x060)
 #define IOMD_IRQREQC	(0x064)
 #define IOMD_IRQMASKC	(0x068)
@@ -101,7 +107,7 @@
 #define IOMD_MOUSEY	(0x0A4)
 #endif
 
-#ifdef CONFIG_ARCH_CLPS7500
+#ifdef CONFIG_CPU_7500
 #define IOMD_MSEDAT	(0x0A8)
 #define IOMD_MSECTL	(0x0Ac)
 #endif
@@ -114,7 +120,7 @@
 #ifdef CONFIG_ARCH_RPC
 #define IOMD_DMAEXT	(0x0CC)
 #endif
-#ifdef CONFIG_ARCH_CLPS7500
+#ifdef CONFIG_CPU_7500
 #define IOMD_ASTCR	(0x0CC)
 #define IOMD_DRAMCR	(0x0D0)
 #define IOMD_SELFREF	(0x0D4)

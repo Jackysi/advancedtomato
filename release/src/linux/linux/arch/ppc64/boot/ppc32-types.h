@@ -27,4 +27,10 @@ typedef unsigned long long u64;
 
 #define BITS_PER_LONG 32
 
+typedef struct {
+	__u32 u[4];
+} __attribute((aligned(16))) __vector128;
+
+typedef __vector128 vector128;
+
 #endif /* _PPC64_TYPES_H */

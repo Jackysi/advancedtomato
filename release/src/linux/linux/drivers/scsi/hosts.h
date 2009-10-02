@@ -22,7 +22,7 @@
 #define _HOSTS_H
 
 /*
-    $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/hosts.h,v 1.1.1.2 2003/10/14 08:08:39 sparq Exp $
+    $Header: /vger/u4/cvs/linux/drivers/scsi/hosts.h,v 1.6 1997/01/19 23:07:13 davem Exp $
 */
 
 #include <linux/config.h>
@@ -291,6 +291,9 @@ typedef struct	SHT
      */
     unsigned emulated:1;
 
+    /*
+     * True for drivers that can do I/O from highmem
+     */
     unsigned highmem_io:1;
 
     /*
@@ -531,6 +534,13 @@ void  scsi_initialize_queue(Scsi_Device * SDpnt, struct Scsi_Host * SHpnt);
 
 int scsi_register_device(struct Scsi_Device_Template * sdpnt);
 void scsi_deregister_device(struct Scsi_Device_Template * tpnt);
+
+/* Support for hot plugging and unplugging devices -- safe for
+ * ieee1394 or USB devices, but probably not for normal SCSI... */
+extern int scsi_add_single_device(struct Scsi_Host *shpnt,
+	int channel, int id, int lun);
+extern int scsi_remove_single_device(struct Scsi_Host *shpnt,
+	int channel, int id, int lun);
 
 /* These are used by loadable modules */
 extern int scsi_register_module(int, void *);

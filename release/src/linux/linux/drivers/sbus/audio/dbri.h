@@ -1,4 +1,4 @@
-/* $Id: dbri.h,v 1.1.1.4 2003/10/14 08:08:34 sparq Exp $
+/* $Id: dbri.h,v 1.13 2000/10/13 00:34:24 uzi Exp $
  * drivers/sbus/audio/cs4231.h
  *
  * Copyright (C) 1997 Rudolf Koenig (rfkoenig@immd4.informatik.uni-erlangen.de)
@@ -102,6 +102,10 @@ struct dbri {
 
 	struct cs4215 mm;		/* mmcodec special info */
 
+#if 0
+	/* Where to sleep if busy */
+	wait_queue_head_t wait, int_wait;
+#endif
 	struct audio_info perchip_info;
 
 	/* Track ISDN LIU and notify changes */

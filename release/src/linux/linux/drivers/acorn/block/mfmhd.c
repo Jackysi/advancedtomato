@@ -263,6 +263,9 @@ static struct cont {
 	void (*done) (int st);	/* done handler */
 } *cont = NULL;
 
+#if 0
+static struct tq_struct mfm_tq = {0, 0, (void (*)(void *)) NULL, 0};
+#endif
 
 int number_mfm_drives = 1;
 
@@ -861,7 +864,13 @@ static void issue_request(int dev, unsigned int block, unsigned int nsect,
 
 	cont = &rw_cont;
 	errors = &(CURRENT->errors);
+#if 0
+	mfm_tq.routine = (void (*)(void *)) mfm_initialise;
+	queue_task(&mfm_tq, &tq_immediate);
+	mark_bh(IMMEDIATE_BH);
+#else
 	mfm_initialise();
+#endif
 }				/* issue_request */
 
 /*

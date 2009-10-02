@@ -37,12 +37,13 @@
 #include <asm/paca.h>
 #include <asm/ppcdebug.h>
 #include <asm/time.h>
+#include <asm/cputable.h>
 
 extern unsigned long klimit;
 /* extern void *stab; */
 extern HTAB htab_data;
 extern unsigned long loops_per_jiffy;
-extern int preferred_console;	/* from kernel/printk.c */
+extern int blk_nohighio;
 
 extern unsigned long embedded_sysmap_start;
 extern unsigned long embedded_sysmap_end;
@@ -61,6 +62,7 @@ extern void iSeries_init_early( void );
 extern void pSeries_init_early( void );
 extern void pSeriesLP_init_early(void);
 extern void mm_init_ppc64( void ); 
+extern void pseries_secondary_smp_init(unsigned long);
 
 unsigned long decr_overclock = 1;
 unsigned long decr_overclock_proc0 = 1;
@@ -69,10 +71,6 @@ unsigned long decr_overclock_proc0_set = 0;
 
 #ifdef CONFIG_XMON
 extern void xmon_map_scc(void);
-#endif
-
-#ifdef CONFIG_KDB
-extern void kdb_map_scc(void);
 #endif
 
 char saved_command_line[256];
@@ -89,26 +87,6 @@ unsigned long SYSRQ_KEY;
 struct machdep_calls ppc_md;
 
 /*
- * Perhaps we can put the pmac screen_info[] here
- * on pmac as well so we don't need the ifdef's.
- * Until we get multiple-console support in here
- * that is.  -- Cort
- * Maybe tie it to serial consoles, since this is really what
- * these processors use on existing boards.  -- Dan
- */ 
-struct screen_info screen_info = {
-	0, 25,			/* orig-x, orig-y */
-	0,			/* unused */
-	0,			/* orig-video-page */
-	0,			/* orig-video-mode */
-	80,			/* orig-video-cols */
-	0,0,0,			/* ega_ax, ega_bx, ega_cx */
-	25,			/* orig-video-lines */
-	1,			/* orig-video-isVGA */
-	16			/* orig-video-points */
-};
-
-/*
  * These are used in binfmt_elf.c to put aux entries on the stack
  * for each elf executable being started.
  */
@@ -116,7 +94,7 @@ int dcache_bsize;
 int icache_bsize;
 int ucache_bsize;
 
-static struct console udbg_console = {
+struct console udbg_console = {
 	name:	"udbg",
 	write:	udbg_console_write,
 	flags:	CON_PRINTBUFFER,
@@ -124,20 +102,22 @@ static struct console udbg_console = {
 };
 
 /*
- * Do some initial setup of the system.  The paramters are those which 
+ * Do some initial setup of the system.  The parameters are those which 
  * were passed in from the bootloader.
  */
 void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 		  unsigned long r6, unsigned long r7)
 {
+	unsigned int ret, i;
+
 	/* This should be fixed properly in kernel/resource.c */
 	iomem_resource.end = MEM_SPACE_LIMIT;
 
 	/* pSeries systems are identified in prom.c via OF. */
 	if ( itLpNaca.xLparInstalled == 1 )
-		naca->platform = PLATFORM_ISERIES_LPAR;
+		systemcfg->platform = PLATFORM_ISERIES_LPAR;
 	
-	switch (naca->platform) {
+	switch (systemcfg->platform) {
 	case PLATFORM_ISERIES_LPAR:
 		iSeries_init_early();
 		break;
@@ -161,38 +141,54 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
 #endif
 	}
 
-	if (naca->platform & PLATFORM_PSERIES) {
+	if (systemcfg->platform & PLATFORM_PSERIES) {
 		register_console(&udbg_console);
-		preferred_console = -1;
+		udbg_printf("---- start early boot console ----\n");
 	}
+
+	if (systemcfg->platform & PLATFORM_PSERIES) {
+		finish_device_tree();
+		chrp_init(r3, r4, r5, r6, r7);
+
+		/* Start secondary threads on SMT systems */
+		for (i = 0; i < NR_CPUS; i++) {
+			if(cpu_available(i)  && !cpu_possible(i)) {
+				printk("%16.16lx : starting thread\n", i);
+				rtas_call(rtas_token("start-cpu"), 3, 1,
+					  (void *)&ret,
+					  i, *((unsigned long *)pseries_secondary_smp_init), i);
+				paca[i].active = 1;
+				systemcfg->processorCount++;
+			}
+		}
+	}
+
+	printk("-----------------------------------------------------\n");
+	printk("naca                          = 0x%p\n", naca);
+	printk("naca->pftSize                 = 0x%lx\n", naca->pftSize);
+	printk("naca->paca                    = 0x%p\n\n", naca->paca);
+	printk("systemcfg                     = 0x%p\n", systemcfg);
+	printk("systemcfg->platform           = 0x%x\n", systemcfg->platform);
+	printk("systemcfg->processor          = 0x%x\n", systemcfg->processor);
+	printk("systemcfg->processorCount     = 0x%lx\n", systemcfg->processorCount);
+	printk("systemcfg->physicalMemorySize = 0x%lx\n", systemcfg->physicalMemorySize);
+	printk("systemcfg->dCacheL1LineSize   = 0x%x\n", systemcfg->dCacheL1LineSize);
+	printk("systemcfg->iCacheL1LineSize   = 0x%x\n", systemcfg->iCacheL1LineSize);
+	printk("htab_data.htab                = 0x%p\n", htab_data.htab);
+	printk("htab_data.num_ptegs           = 0x%lx\n", htab_data.htab_num_ptegs);
+	printk("-----------------------------------------------------\n");
 
 	printk("Starting Linux PPC64 %s\n", UTS_RELEASE);
 
-	printk("-----------------------------------------------------\n");
-	printk("naca                       = 0x%p\n", naca);
-	printk("naca->processorCount       = 0x%x\n", naca->processorCount);
-	printk("naca->physicalMemorySize   = 0x%lx\n", naca->physicalMemorySize);
-	printk("naca->dCacheL1LineSize     = 0x%x\n", naca->dCacheL1LineSize);
-	printk("naca->dCacheL1LogLineSize  = 0x%x\n", naca->dCacheL1LogLineSize);
-	printk("naca->dCacheL1LinesPerPage = 0x%x\n", naca->dCacheL1LinesPerPage);
-	printk("naca->iCacheL1LineSize     = 0x%x\n", naca->iCacheL1LineSize);
-	printk("naca->iCacheL1LogLineSize  = 0x%x\n", naca->iCacheL1LogLineSize);
-	printk("naca->iCacheL1LinesPerPage = 0x%x\n", naca->iCacheL1LinesPerPage);
-	printk("naca->pftSize              = 0x%lx\n", naca->pftSize);
-	printk("naca->debug_switch         = 0x%lx\n", naca->debug_switch);
-	printk("naca->interrupt_controller = 0x%lx\n", naca->interrupt_controller);
-	printk("htab_data.htab             = 0x%p\n", htab_data.htab);
-	printk("htab_data.num_ptegs        = 0x%lx\n", htab_data.htab_num_ptegs);
-	printk("-----------------------------------------------------\n");
-
-	if (naca->platform & PLATFORM_PSERIES) {
-		finish_device_tree();
-		chrp_init(r3, r4, r5, r6, r7);
-	}
-
 	mm_init_ppc64();
 
-	switch (naca->platform) {
+	if (cur_cpu_spec->firmware_features & FW_FEATURE_SPLPAR) {
+		vpa_init(0);
+	}
+
+	idle_setup();
+
+	switch (systemcfg->platform) {
 	    case PLATFORM_ISERIES_LPAR:
 		iSeries_init();
 		break;
@@ -210,10 +206,10 @@ void setup_system(unsigned long r3, unsigned long r4, unsigned long r5,
  */
 void setup_before_console_init(void)
 {
-	if (naca->platform & PLATFORM_PSERIES) {
-		int save = preferred_console;
+	if (systemcfg->platform & PLATFORM_PSERIES) {
 		unregister_console(&udbg_console);
-		preferred_console = save;
+		udbg_console.next = NULL;
+		udbg_printf("---- end early boot console ----\n");
 	}
 }
 
@@ -264,41 +260,19 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	pvr = paca[cpu_id].pvr;
 
-	switch (PVR_VER(pvr)) {
-	case PV_NORTHSTAR:
-		seq_printf(m, "RS64-II (northstar)\n");
-		break;
-	case PV_PULSAR:
-		seq_printf(m, "RS64-III (pulsar)\n");
-		break;
-	case PV_POWER4:
-		seq_printf(m, "POWER4 (gp)\n");
-		break;
-	case PV_ICESTAR:
-		seq_printf(m, "RS64-III (icestar)\n");
-		break;
-	case PV_SSTAR:
-		seq_printf(m, "RS64-IV (sstar)\n");
-		break;
-	case PV_630:
-		seq_printf(m, "POWER3 (630)\n");
-		break;
-	case PV_630p:
-		seq_printf(m, "POWER3 (630+)\n");
-		break;
-	case PV_POWER4p:
-		seq_printf(m, "POWER4+ (gq)\n");
-		break;
-	default:
-		seq_printf(m, "Unknown (%08x)\n", pvr);
-		break;
-	}
+	if (cur_cpu_spec->pvr_mask)
+		seq_printf(m, "%s", cur_cpu_spec->cpu_name);
+	else
+		seq_printf(m, "unknown (%08x)", pvr);
+
+
+	seq_printf(m, "\n");
 
 	/*
 	 * Assume here that all clock rates are the same in a
 	 * smp system.  -- Cort
 	 */
-	if (naca->platform != PLATFORM_ISERIES_LPAR) {
+	if (systemcfg->platform != PLATFORM_ISERIES_LPAR) {
 		struct device_node *cpu_node;
 		int *fp;
 
@@ -333,18 +307,18 @@ static void c_stop(struct seq_file *m, void *v)
 {
 }
 struct seq_operations cpuinfo_op = {
-	start:	c_start,
-	next:	c_next,
-	stop:	c_stop,
-	show:	show_cpuinfo,
+	.start =c_start,
+	.next =	c_next,
+	.stop =	c_stop,
+	.show =	show_cpuinfo,
 };
 
 /*
- * Fetch the cmd_line from open firmware. */
+ * Fetch the cmd_line from open firmware. 
+ */
 void parse_cmd_line(unsigned long r3, unsigned long r4, unsigned long r5,
 		  unsigned long r6, unsigned long r7)
 {
-	struct device_node *chosen;
 	char *p;
 
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -353,8 +327,46 @@ void parse_cmd_line(unsigned long r3, unsigned long r4, unsigned long r5,
 		initrd_end = initrd_start + r4;
 		ROOT_DEV = MKDEV(RAMDISK_MAJOR, 0);
 		initrd_below_start_ok = 1;
+		lmb_reserve(__pa(initrd_start),r4);
 	}
 #endif
+
+	/* Hack -- add console=ttySn,9600 if necessary */
+	if(strstr(cmd_line, "console=") == NULL) {
+		struct device_node *prom_stdout = find_path_device(of_stdout_device);
+		u32 *reg;
+		int i;
+		char *name, *val = NULL;
+		printk("of_stdout_device %s\n", of_stdout_device);
+		if (prom_stdout) {
+			name = (char *)get_property(prom_stdout, "name", NULL);
+			if (name) {
+				if (strcmp(name, "serial") == 0) {
+					reg = (u32 *)get_property(prom_stdout, "reg", &i);
+					if (i > 8) {
+						switch (reg[1]) {
+						    case 0x3f8: val = "ttyS0,9600"; break; 
+						    case 0x2f8: val = "ttyS1,9600"; break; 
+						    case 0x898: val = "ttyS2,9600"; break; 
+						    case 0x890: val = "ttyS3,9600"; break; 
+						}
+					}
+				} else if (strcmp(name, "vty") == 0) {
+					/* pSeries LPAR virtual console */
+					val = "hvc0";
+				}
+				if (val) {
+					char tmp_cmd_line[512];
+					snprintf(tmp_cmd_line, 512, 
+						 "AUTOCONSOLE console=%s %s",
+						 val, cmd_line);
+					memcpy(cmd_line, tmp_cmd_line, 512);
+					printk("console= not found, add console=%s\ncmd_line is now %s\n",
+					       val, cmd_line);
+				}
+			}
+		}
+	}	
 
 	/* Look for mem= option on command line */
 	if (strstr(cmd_line, "mem=")) {
@@ -379,7 +391,7 @@ void parse_cmd_line(unsigned long r3, unsigned long r4, unsigned long r5,
 	}
 }
 
-
+#if 0
 char *bi_tag2str(unsigned long tag)
 {
 	switch (tag) {
@@ -401,6 +413,7 @@ char *bi_tag2str(unsigned long tag)
 		return "BI_UNKNOWN";
 	}
 }
+#endif
 
 int parse_bootinfo(void)
 {
@@ -457,6 +470,7 @@ void __init ppc64_calibrate_delay(void)
 }	
 
 extern void (*calibrate_delay)(void);
+extern void sort_exception_table(void);
 
 /*
  * Called into from start_kernel, after lock_kernel has been called.
@@ -469,6 +483,8 @@ void __init setup_arch(char **cmdline_p)
 	extern char _etext[], _edata[];
 	extern void do_init_bootmem(void);
 
+	blk_nohighio = 1;
+
 	calibrate_delay = ppc64_calibrate_delay;
 
 	ppc64_boot_msg(0x12, "Setup Arch");
@@ -477,12 +493,6 @@ void __init setup_arch(char **cmdline_p)
 	if (strstr(cmd_line, "xmon"))
 		xmon(0);
 #endif /* CONFIG_XMON */
-
-#ifdef CONFIG_KDB
-	kdb_map_scc();	
-	if (strstr(cmd_line, "kdb=early"))
-		kdb(KDB_REASON_CALL,0,0);
-#endif
 
 #if defined(CONFIG_KGDB)
 	kgdb_map_scc();
@@ -494,8 +504,8 @@ void __init setup_arch(char **cmdline_p)
 	 * Systems with OF can look in the properties on the cpu node(s)
 	 * for a possibly more accurate value.
 	 */
-	dcache_bsize = naca->dCacheL1LineSize; 
-	icache_bsize = naca->iCacheL1LineSize; 
+	dcache_bsize = systemcfg->dCacheL1LineSize; 
+	icache_bsize = systemcfg->iCacheL1LineSize; 
 
 	/* reboot on panic */
 	panic_timeout = 180;
@@ -515,106 +525,10 @@ void __init setup_arch(char **cmdline_p)
 	ppc_md.setup_arch();
 
 	paging_init();
+	sort_exception_table();
 	ppc64_boot_msg(0x15, "Setup Done");
 }
 
-#ifdef CONFIG_IDE
-
-/* Convert the shorts/longs in hd_driveid from little to big endian;
- * chars are endian independant, of course, but strings need to be flipped.
- * (Despite what it says in drivers/block/ide.h, they come up as little
- * endian...)
- *
- * Changes to linux/hdreg.h may require changes here. */
-void ppc64_ide_fix_driveid(struct hd_driveid *id)
-{
-        int i;
-	unsigned short *stringcast;
-
-	id->config         = __le16_to_cpu(id->config);
-	id->cyls           = __le16_to_cpu(id->cyls);
-	id->reserved2      = __le16_to_cpu(id->reserved2);
-	id->heads          = __le16_to_cpu(id->heads);
-	id->track_bytes    = __le16_to_cpu(id->track_bytes);
-	id->sector_bytes   = __le16_to_cpu(id->sector_bytes);
-	id->sectors        = __le16_to_cpu(id->sectors);
-	id->vendor0        = __le16_to_cpu(id->vendor0);
-	id->vendor1        = __le16_to_cpu(id->vendor1);
-	id->vendor2        = __le16_to_cpu(id->vendor2);
-	stringcast = (unsigned short *)&id->serial_no[0];
-	for (i = 0; i < (20/2); i++)
-	        stringcast[i] = __le16_to_cpu(stringcast[i]);
-	id->buf_type       = __le16_to_cpu(id->buf_type);
-	id->buf_size       = __le16_to_cpu(id->buf_size);
-	id->ecc_bytes      = __le16_to_cpu(id->ecc_bytes);
-	stringcast = (unsigned short *)&id->fw_rev[0];
-	for (i = 0; i < (8/2); i++)
-	        stringcast[i] = __le16_to_cpu(stringcast[i]);
-	stringcast = (unsigned short *)&id->model[0];
-	for (i = 0; i < (40/2); i++)
-	        stringcast[i] = __le16_to_cpu(stringcast[i]);
-	id->dword_io       = __le16_to_cpu(id->dword_io);
-	id->reserved50     = __le16_to_cpu(id->reserved50);
-	id->field_valid    = __le16_to_cpu(id->field_valid);
-	id->cur_cyls       = __le16_to_cpu(id->cur_cyls);
-	id->cur_heads      = __le16_to_cpu(id->cur_heads);
-	id->cur_sectors    = __le16_to_cpu(id->cur_sectors);
-	id->cur_capacity0  = __le16_to_cpu(id->cur_capacity0);
-	id->cur_capacity1  = __le16_to_cpu(id->cur_capacity1);
-	id->lba_capacity   = __le32_to_cpu(id->lba_capacity);
-	id->dma_1word      = __le16_to_cpu(id->dma_1word);
-	id->dma_mword      = __le16_to_cpu(id->dma_mword);
-	id->eide_pio_modes = __le16_to_cpu(id->eide_pio_modes);
-	id->eide_dma_min   = __le16_to_cpu(id->eide_dma_min);
-	id->eide_dma_time  = __le16_to_cpu(id->eide_dma_time);
-	id->eide_pio       = __le16_to_cpu(id->eide_pio);
-	id->eide_pio_iordy = __le16_to_cpu(id->eide_pio_iordy);
-	for (i = 0; i < 2; i++)
-		id->words69_70[i] = __le16_to_cpu(id->words69_70[i]);
-        for (i = 0; i < 4; i++)
-                id->words71_74[i] = __le16_to_cpu(id->words71_74[i]);
-	id->queue_depth	   = __le16_to_cpu(id->queue_depth);
-	for (i = 0; i < 4; i++)
-		id->words76_79[i] = __le16_to_cpu(id->words76_79[i]);
-	id->major_rev_num  = __le16_to_cpu(id->major_rev_num);
-	id->minor_rev_num  = __le16_to_cpu(id->minor_rev_num);
-	id->command_set_1  = __le16_to_cpu(id->command_set_1);
-	id->command_set_2  = __le16_to_cpu(id->command_set_2);
-	id->cfsse          = __le16_to_cpu(id->cfsse);
-	id->cfs_enable_1   = __le16_to_cpu(id->cfs_enable_1);
-	id->cfs_enable_2   = __le16_to_cpu(id->cfs_enable_2);
-	id->csf_default    = __le16_to_cpu(id->csf_default);
-	id->dma_ultra      = __le16_to_cpu(id->dma_ultra);
-	id->word89         = __le16_to_cpu(id->word89);
-	id->word90         = __le16_to_cpu(id->word90);
-	id->CurAPMvalues   = __le16_to_cpu(id->CurAPMvalues);
-	id->word92         = __le16_to_cpu(id->word92);
-	id->hw_config      = __le16_to_cpu(id->hw_config);
-	id->acoustic       = __le16_to_cpu(id->acoustic);
-	for (i = 0; i < 5; i++)
-		id->words95_99[i]  = __le16_to_cpu(id->words95_99[i]);
-	id->lba_capacity_2 = __le64_to_cpu(id->lba_capacity_2);
-	for (i = 0; i < 21; i++)
-		id->words104_125[i]  = __le16_to_cpu(id->words104_125[i]);
-	id->last_lun       = __le16_to_cpu(id->last_lun);
-	id->word127        = __le16_to_cpu(id->word127);
-	id->dlf            = __le16_to_cpu(id->dlf);
-	id->csfo           = __le16_to_cpu(id->csfo);
-	for (i = 0; i < 26; i++)
-		id->words130_155[i] = __le16_to_cpu(id->words130_155[i]);
-	id->word156        = __le16_to_cpu(id->word156);
-	for (i = 0; i < 3; i++)
-		id->words157_159[i] = __le16_to_cpu(id->words157_159[i]);
-	id->cfa_power=__le16_to_cpu(id->cfa_power);
-	for (i = 0; i < 15; i++)
-		id->words161_175[i] = __le16_to_cpu(id->words161_175[i]);
-	for (i = 0; i < 29; i++)
-		id->words176_205[i] = __le16_to_cpu(id->words176_205[i]);
-	for (i = 0; i < 48; i++)
-		id->words206_254[i] = __le16_to_cpu(id->words206_254[i]);
-	id->integrity_word=__le16_to_cpu(id->integrity_word);
-}
-#endif
 
 /* ToDo: do something useful if ppc_md is not yet setup. */
 #define PPC64_LINUX_FUNCTION 0x0f000000
@@ -639,28 +553,28 @@ static void ppc64_do_msg(unsigned int src, const char *msg)
 void ppc64_boot_msg(unsigned int src, const char *msg)
 {
 	ppc64_do_msg(PPC64_LINUX_FUNCTION|PPC64_IPL_MESSAGE|src, msg);
-	printk("[boot]%04x %s\n", src, msg);
+	udbg_printf("[boot]%04x %s\n", src, msg);
 }
 
 /* Print a termination message (print only -- does not stop the kernel) */
 void ppc64_terminate_msg(unsigned int src, const char *msg)
 {
 	ppc64_do_msg(PPC64_LINUX_FUNCTION|PPC64_TERM_MESSAGE|src, msg);
-	printk("[terminate]%04x %s\n", src, msg);
+	udbg_printf("[terminate]%04x %s\n", src, msg);
 }
 
 /* Print something that needs attention (device error, etc) */
 void ppc64_attention_msg(unsigned int src, const char *msg)
 {
 	ppc64_do_msg(PPC64_LINUX_FUNCTION|PPC64_ATTN_MESSAGE|src, msg);
-	printk("[attention]%04x %s\n", src, msg);
+	udbg_printf("[attention]%04x %s\n", src, msg);
 }
 
 /* Print a dump progress message. */
 void ppc64_dump_msg(unsigned int src, const char *msg)
 {
 	ppc64_do_msg(PPC64_LINUX_FUNCTION|PPC64_DUMP_MESSAGE|src, msg);
-	printk("[dump]%04x %s\n", src, msg);
+	udbg_printf("[dump]%04x %s\n", src, msg);
 }
 
 
@@ -684,20 +598,35 @@ void exception_trace(unsigned long trap)
 	udbg_puts("   "); udbg_puthex(srr1); udbg_puts("\n");
 }
 
-int set_spread_lpevents( char * str )
+void do_spread_lpevents(unsigned long n)
 {
-	/* The parameter is the number of processors to share in processing lp events */
-	unsigned long i;
-	unsigned long val = simple_strtoul( str, NULL, 0 );
-	if ( ( val > 0 ) && ( val <= MAX_PACAS ) ) {
-		for ( i=1; i<val; ++i )
-			paca[i].lpQueuePtr = paca[0].lpQueuePtr;
-		printk("lpevent processing spread over %ld processors\n", val);
-	}
+	unsigned long i,m;
+
+	if (n < MAX_PACAS)
+		m = n;
 	else
+		m = MAX_PACAS;
+
+	for (i=1; i<m; ++i)
+		paca[i].lpQueuePtr = paca[0].lpQueuePtr;
+
+	printk("lpevent processing spread over %ld processors\n", n);
+}
+
+/*
+ * The parameter is the number of processors to share in
+ * processing lp events
+ */
+int set_spread_lpevents(char * str)
+{
+	unsigned long val = simple_strtoul( str, NULL, 0 );
+	if ((val > 0) && (val <= MAX_PACAS)) {
+		do_spread_lpevents(val);
+	} else
 		printk("invalid spreaqd_lpevents %ld\n", val);
+
 	return 1;
-}	
+}
 
 /* This should only be called on processor 0 during calibrate decr */
 void setup_default_decr(void)

@@ -24,6 +24,8 @@
 #include <linux/ptrace.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
@@ -35,7 +37,7 @@
 #include "sa1111.h"
 
 struct resource sa1111_resource = {
-	name:	"SA1111",
+	.name	= "SA1111",
 };
 
 EXPORT_SYMBOL(sa1111_resource);

@@ -9,7 +9,7 @@
  *      as published by the Free Software Foundation; either version
  *      2 of the License, or (at your option) any later version.
  * 
- *  $Id: syncookies.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ *  $Id: syncookies.c,v 1.17 2001/10/26 14:55:41 davem Exp $
  *
  *  Missing: IPv6 support. 
  */
@@ -21,6 +21,11 @@
 
 extern int sysctl_tcp_syncookies;
 
+/* 
+ * This table has to be sorted and terminated with (__u16)-1.
+ * XXX generate a better table.
+ * Unresolved Issues: HIPPI with a 64k MSS is not well supported.
+ */
 static __u16 const msstab[] = {
 	64 - 1,
 	256 - 1,	
@@ -47,6 +52,7 @@ __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
 	
 	sk->tp_pinfo.af_tcp.last_synq_overflow = jiffies;
 
+	/* XXX sort msstab[] by probability?  Binary search? */
 	for (mssind = 0; mss > msstab[mssind + 1]; mssind++)
 		;
 	*mssp = msstab[mssind] + 1;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -26,5 +26,13 @@
 #define	PRIO_8021D_NC		7	/* NC - Network Control */
 #define	MAXPRIO			7	/* 0-7 */
 #define NUMPRIO			(MAXPRIO + 1)
+
+#define ALLPRIO		-1	/* All prioirty */
+
+/* Converts prio to precedence since the numerical value of
+ * PRIO_8021D_BE and PRIO_8021D_NONE are swapped.
+ */
+#define PRIO2PREC(prio) \
+	(((prio) == PRIO_8021D_NONE || (prio) == PRIO_8021D_BE) ? ((prio^2)) : (prio))
 
 #endif /* _802_1_D__ */

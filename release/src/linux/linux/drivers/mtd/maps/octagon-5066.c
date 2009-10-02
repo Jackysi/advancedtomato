@@ -1,4 +1,4 @@
-// $Id: octagon-5066.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+// $Id: octagon-5066.c,v 1.20 2003/01/07 17:21:55 dwmw2 Exp $
 /* ######################################################################
 
    Octagon 5066 MTD Driver. 
@@ -223,33 +223,31 @@ void cleanup_oct5066(void)
 		}
 	}
 	iounmap((void *)iomapadr);
-	release_region(PAGE_IO,1);
+	release_region(PAGE_IO, 1);
 }
 
 int __init init_oct5066(void)
 {
 	int i;
-	
+	int ret = 0;
+
 	// Do an autoprobe sequence
-	if (check_region(PAGE_IO,1) != 0)
-		{
-			printk("5066: Page Register in Use\n");
-			return -EAGAIN;
-		}
+	if (!request_region(PAGE_IO,1,"Octagon SSD")) {
+		printk(KERN_NOTICE "5066: Page Register in Use\n");
+		return -EAGAIN;
+	}
 	iomapadr = (unsigned long)ioremap(WINDOW_START, WINDOW_LENGTH);
 	if (!iomapadr) {
-		printk("Failed to ioremap memory region\n");
-		return -EIO;
+		printk(KERN_NOTICE "Failed to ioremap memory region\n");
+		ret = -EIO;
+		goto out_rel;
 	}
-	if (OctProbe() != 0)
-		{
-			printk("5066: Octagon Probe Failed, is this an Octagon 5066 SBC?\n");
-			iounmap((void *)iomapadr);
-			return -EAGAIN;
-		}
-	
-	request_region(PAGE_IO,1,"Octagon SSD");
-	
+	if (OctProbe() != 0) {
+		printk(KERN_NOTICE "5066: Octagon Probe Failed, is this an Octagon 5066 SBC?\n");
+		ret = -EAGAIN;
+		goto out_unmap;
+	}
+      	
 	// Print out our little header..
 	printk("Octagon 5066 SSD IO:0x%x MEM:0x%x-0x%x\n",PAGE_IO,WINDOW_START,
 	       WINDOW_START+WINDOW_LENGTH);
@@ -272,8 +270,14 @@ int __init init_oct5066(void)
 		cleanup_oct5066();
 		return -ENXIO;
 	}	  
-	
+
 	return 0;
+
+ out_unmap:
+	iounmap((void *)iomapadr);
+ out_rel:
+	release_region(PAGE_IO, 1);
+	return ret;
 }
 
 module_init(init_oct5066);

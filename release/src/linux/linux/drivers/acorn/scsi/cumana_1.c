@@ -34,12 +34,6 @@
 
 /*
  * $Log: cumana_1.c,v $
- * Revision 1.1.1.2  2003/10/14 08:07:53  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:34  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.3  1998/05/03 20:45:32  alan
  * ARM SCSI update. This adds the eesox driver and massively updates the
  * Cumana driver. The folks who bought cumana arent anal retentive all

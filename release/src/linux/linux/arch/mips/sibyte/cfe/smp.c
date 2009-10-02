@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2000, 2001 Broadcom Corporation
+ * Copyright (C) 2000, 2001, 2002, 2003 Broadcom Corporation
+ * Copyright (C) 2004  Maciej W. Rozycki
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,32 +25,32 @@
 #include "cfe_api.h"
 #include "cfe_error.h"
 
-extern void asmlinkage smp_bootstrap(void);
-
 /* Boot all other cpus in the system, initialize them, and
    bring them into the boot fn */
 int prom_boot_secondary(int cpu, unsigned long sp, unsigned long gp)
 {
 	int retval;
 	
-	retval = cfe_cpu_start(cpu, &smp_bootstrap, sp, gp, 0);
+	retval = cfe_cpu_start(cpu, smp_bootstrap, sp, gp, 0);
 	if (retval != 0) {
 		printk("cfe_start_cpu(%i) returned %i\n" , cpu, retval);
-		return 0;
-	} else {
-		return 1;
 	}
+
+	return retval;
 }
 
 void prom_init_secondary(void)
 {
-	/* Set up kseg0 to be cachable coherent */
-	clear_c0_config(CONF_CM_CMASK);
-	set_c0_config(0x5);
+	extern void load_mmu(void);
+	unsigned int imask = STATUSF_IP4 | STATUSF_IP3 | STATUSF_IP2 |
+		STATUSF_IP1 | STATUSF_IP0;
 
-	/* Enable interrupts for lines 0-4 */
-	clear_c0_status(0xe000);
-	set_c0_status(0x1f01);
+	/* cache and TLB setup */
+	load_mmu();
+
+	/* Enable basic interrupts */
+	change_c0_status(ST0_IM, imask);
+	set_c0_status(ST0_IE);
 }
 
 /*

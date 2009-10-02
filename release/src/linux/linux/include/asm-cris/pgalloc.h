@@ -58,7 +58,7 @@ extern __inline__ void free_pgd_fast(pgd_t *pgd)
         pgtable_cache_size++;
 }
 
-static inline pte_t *pte_alloc_one(struct mm_struct *mm, unsigned long address)
+extern inline pte_t *pte_alloc_one(struct mm_struct *mm, unsigned long address)
 {
         pte_t *pte;
 
@@ -68,7 +68,7 @@ static inline pte_t *pte_alloc_one(struct mm_struct *mm, unsigned long address)
         return pte;
 }
 
-static inline pte_t *pte_alloc_one_fast(struct mm_struct *mm, unsigned long address)
+extern inline pte_t *pte_alloc_one_fast(struct mm_struct *mm, unsigned long address)
 {
         unsigned long *ret;
 
@@ -80,14 +80,14 @@ static inline pte_t *pte_alloc_one_fast(struct mm_struct *mm, unsigned long addr
         return (pte_t *)ret;
 }
 
-static __inline__ void pte_free_fast(pte_t *pte)
+extern __inline__ void pte_free_fast(pte_t *pte)
 {
         *(unsigned long *)pte = (unsigned long) pte_quicklist;
         pte_quicklist = (unsigned long *) pte;
         pgtable_cache_size++;
 }
 
-static __inline__ void pte_free_slow(pte_t *pte)
+extern __inline__ void pte_free_slow(pte_t *pte)
 {
         free_page((unsigned long)pte);
 }

@@ -1,7 +1,7 @@
 /*
  * HND SiliconBackplane MIPS/ARM cores software interface.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -17,7 +17,7 @@
 
 #if defined(mips)
 #include <hndmips.h>
-#elif defined(__ARM_ARCH_4T__)
+#elif defined(__arm__) || defined(__thumb__) || defined(__thumb2__)
 #include <hndarm.h>
 #endif
 

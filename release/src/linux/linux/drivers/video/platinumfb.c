@@ -683,7 +683,7 @@ static void __init platinum_of_init(struct device_node *dp)
 		}
 	}
 
-	info->cmap_regs_phys = 0xf301b000;	
+	info->cmap_regs_phys = 0xf301b000;	/* XXX not in prom? */
 	request_mem_region(info->cmap_regs_phys, 0x1000, "platinumfb cmap");
 	info->cmap_regs = ioremap(info->cmap_regs_phys, 0x1000);
 

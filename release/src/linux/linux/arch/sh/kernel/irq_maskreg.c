@@ -22,6 +22,9 @@
 #include <asm/io.h>
 #include <asm/machvec.h>
 
+/* address of external interrupt mask register
+ * address must be set prior to use these (maybe in init_XXX_irq())
+ * XXX : is it better to use .config than specifying it in code? */
 unsigned short *irq_mask_register = 0;
 
 /* forward declaration */

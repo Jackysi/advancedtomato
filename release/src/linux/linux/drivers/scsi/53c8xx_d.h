@@ -310,7 +310,11 @@ dsa_code_check_reselect:
 	MOVE SSID TO SFBR		; SSID contains 3 bit target ID
 
 at 0x0000003e : */	0x720a0000,0x00000000,
-	0x8084f800,0x00ffff48,
+/*
+; FIXME : we need to accommodate bit fielded and binary here for '7xx/'8xx chips
+	JUMP REL (wrong_dsa), IF NOT dsa_temp_target, AND MASK 0xf8
+
+at 0x00000040 : */	0x8084f800,0x00ffff48,
 /*
 ;
 ; Hack - move to scratch first, since SFBR is not writeable
@@ -331,7 +335,11 @@ at 0x00000047 : */	0x78380000,0x00000000,
 	MOVE SCRATCH0 TO SFBR
 
 at 0x00000049 : */	0x72340000,0x00000000,
-	0x8084f800,0x00ffff1c,
+/*
+; FIXME : we need to accommodate bit fielded and binary here for '7xx/'8xx chips
+	JUMP REL (wrong_dsa), IF NOT dsa_temp_lun, AND MASK 0xf8
+
+at 0x0000004b : */	0x8084f800,0x00ffff1c,
 /*
 ;		Patch the MOVE MEMORY INSTRUCTION such that
 ;		the source address is the address of this dsa's
@@ -363,7 +371,143 @@ at 0x00000056 : */	0x88880000,0x00ffff60,
     	RETURN
 
 at 0x00000058 : */	0x90080000,0x00000000,
-	0x88080000,0x00000938,
+/*
+ENTRY dsa_zero
+dsa_zero:
+ENTRY dsa_code_template_end
+dsa_code_template_end:
+
+; Perform sanity check for dsa_fields_start == dsa_code_template_end - 
+; dsa_zero, puke.
+
+ABSOLUTE dsa_fields_start =  0	; Sanity marker
+				; 	pad 48 bytes (fix this RSN)
+ABSOLUTE dsa_next = 48		; len 4 Next DSA
+ 				; del 4 Previous DSA address
+ABSOLUTE dsa_cmnd = 56		; len 4 Scsi_Cmnd * for this thread.
+ABSOLUTE dsa_select = 60	; len 4 Device ID, Period, Offset for 
+			 	;	table indirect select
+ABSOLUTE dsa_msgout = 64	; len 8 table indirect move parameter for 
+				;       select message
+ABSOLUTE dsa_cmdout = 72	; len 8 table indirect move parameter for 
+				;	command
+ABSOLUTE dsa_dataout = 80	; len 4 code pointer for dataout
+ABSOLUTE dsa_datain = 84	; len 4 code pointer for datain
+ABSOLUTE dsa_msgin = 88		; len 8 table indirect move for msgin
+ABSOLUTE dsa_status = 96 	; len 8 table indirect move for status byte
+ABSOLUTE dsa_msgout_other = 104	; len 8 table indirect for normal message out
+				; (Synchronous transfer negotiation, etc).
+ABSOLUTE dsa_end = 112
+
+ABSOLUTE schedule = 0 		; Array of JUMP dsa_begin or JUMP (next),
+				; terminated by a call to JUMP wait_reselect
+
+; Linked lists of DSA structures
+ABSOLUTE reconnect_dsa_head = 0	; Link list of DSAs which can reconnect
+ABSOLUTE addr_reconnect_dsa_head = 0 ; Address of variable containing
+				; address of reconnect_dsa_head
+
+; These select the source and destination of a MOVE MEMORY instruction
+ABSOLUTE dmode_memory_to_memory = 0x0
+ABSOLUTE dmode_memory_to_ncr = 0x0
+ABSOLUTE dmode_ncr_to_memory = 0x0
+
+ABSOLUTE addr_scratch = 0x0
+ABSOLUTE addr_temp = 0x0
+
+
+; Interrupts - 
+; MSB indicates type
+; 0	handle error condition
+; 1 	handle message 
+; 2 	handle normal condition
+; 3	debugging interrupt
+; 4 	testing interrupt 
+; Next byte indicates specific error
+
+; XXX not yet implemented, I'm not sure if I want to - 
+; Next byte indicates the routine the error occurred in
+; The LSB indicates the specific place the error occurred
+ 
+ABSOLUTE int_err_unexpected_phase = 0x00000000	; Unexpected phase encountered
+ABSOLUTE int_err_selected = 0x00010000		; SELECTED (nee RESELECTED)
+ABSOLUTE int_err_unexpected_reselect = 0x00020000 
+ABSOLUTE int_err_check_condition = 0x00030000	
+ABSOLUTE int_err_no_phase = 0x00040000
+ABSOLUTE int_msg_wdtr = 0x01000000		; WDTR message received
+ABSOLUTE int_msg_sdtr = 0x01010000		; SDTR received
+ABSOLUTE int_msg_1 = 0x01020000			; single byte special message
+						; received
+
+ABSOLUTE int_norm_select_complete = 0x02000000	; Select complete, reprogram
+						; registers.
+ABSOLUTE int_norm_reselect_complete = 0x02010000	; Nexus established
+ABSOLUTE int_norm_command_complete = 0x02020000 ; Command complete
+ABSOLUTE int_norm_disconnected = 0x02030000	; Disconnected 
+ABSOLUTE int_norm_aborted =0x02040000		; Aborted *dsa
+ABSOLUTE int_norm_reset = 0x02050000		; Generated BUS reset.
+ABSOLUTE int_debug_break = 0x03000000		; Break point
+
+ABSOLUTE int_debug_panic = 0x030b0000		; Panic driver
+
+
+ABSOLUTE int_test_1 = 0x04000000		; Test 1 complete
+ABSOLUTE int_test_2 = 0x04010000		; Test 2 complete
+ABSOLUTE int_test_3 = 0x04020000		; Test 3 complete
+
+
+; These should start with 0x05000000, with low bits incrementing for 
+; each one.
+
+
+						
+ABSOLUTE NCR53c7xx_msg_abort = 0	; Pointer to abort message
+ABSOLUTE NCR53c7xx_msg_reject = 0       ; Pointer to reject message
+ABSOLUTE NCR53c7xx_zero	= 0		; long with zero in it, use for source
+ABSOLUTE NCR53c7xx_sink = 0		; long to dump worthless data in
+ABSOLUTE NOP_insn = 0			; NOP instruction
+
+; Pointer to message, potentially multi-byte
+ABSOLUTE msg_buf = 0
+
+; Pointer to holding area for reselection information
+ABSOLUTE reselected_identify = 0
+ABSOLUTE reselected_tag = 0
+
+; Request sense command pointer, it's a 6 byte command, should
+; be constant for all commands since we always want 16 bytes of 
+; sense and we don't need to change any fields as we did under 
+; SCSI-I when we actually cared about the LUN field.
+;EXTERNAL NCR53c7xx_sense		; Request sense command
+
+
+; dsa_schedule  
+; PURPOSE : after a DISCONNECT message has been received, and pointers
+;	saved, insert the current DSA structure at the head of the 
+; 	disconnected queue and fall through to the scheduler.
+;
+; CALLS : OK
+;
+; INPUTS : dsa - current DSA structure, reconnect_dsa_head - list
+;	of disconnected commands
+;
+; MODIFIES : SCRATCH, reconnect_dsa_head
+; 
+; EXITS : always passes control to schedule
+
+ENTRY dsa_schedule
+dsa_schedule:
+
+
+
+
+;
+; Calculate the address of the next pointer within the DSA 
+; structure of the command that is currently disconnecting
+;
+    CALL dsa_to_scratch
+
+at 0x0000005a : */	0x88080000,0x00000938,
 /*
     MOVE SCRATCH0 + dsa_next TO SCRATCH0
 
@@ -486,7 +630,23 @@ select:
     CLEAR TARGET
 
 at 0x0000007f : */	0x60000200,0x00000000,
-	0x4300003c,0x000007a4,
+/*
+
+; XXX
+;
+; In effect, SELECTION operations are backgrounded, with execution
+; continuing until code which waits for REQ or a fatal interrupt is 
+; encountered.
+;
+; So, for more performance, we could overlap the code which removes 
+; the command from the NCRs issue queue with the selection, but 
+; at this point I don't want to deal with the error recovery.
+;
+
+
+    SELECT ATN FROM dsa_select, select_failed
+
+at 0x00000081 : */	0x4300003c,0x000007a4,
 /*
     JUMP select_msgout, WHEN MSG_OUT
 
@@ -639,7 +799,22 @@ at 0x0000009f : */	0x830b0000,0x0000060c,
     JUMP data_transfer
 
 at 0x000000a1 : */	0x80080000,0x00000254,
-	0x88080000,0x00000938,
+/*
+ENTRY end_data_transfer
+end_data_transfer:
+
+;
+; FIXME: On NCR53c700 and NCR53c700-66 chips, do_dataout/do_datain 
+; should be fixed up whenever the nexus changes so it can point to the 
+; correct routine for that command.
+;
+
+
+; Nasty jump to dsa->dataout
+do_dataout:
+    CALL dsa_to_scratch
+
+at 0x000000a3 : */	0x88080000,0x00000938,
 /*
     MOVE SCRATCH0 + dsa_dataout TO SCRATCH0	
 
@@ -833,7 +1008,68 @@ at 0x000000f5 : */	0x830b0000,0x0000060c,
     JUMP other_transfer
 
 at 0x000000f7 : */	0x80080000,0x000003ac,
-	0x7e1cf800,0x00000000,
+/*
+
+;
+; msg_in_restart
+; msg_in
+; munge_msg
+;
+; PURPOSE : process messages from a target.  msg_in is called when the 
+;	caller hasn't read the first byte of the message.  munge_message
+;	is called when the caller has read the first byte of the message,
+;	and left it in SFBR.  msg_in_restart is called when the caller 
+;	hasn't read the first byte of the message, and wishes RETURN
+;	to transfer control back to the address of the conditional
+;	CALL instruction rather than to the instruction after it.
+;
+;	Various int_* interrupts are generated when the host system
+;	needs to intervene, as is the case with SDTR, WDTR, and
+;	INITIATE RECOVERY messages.
+;
+;	When the host system handles one of these interrupts,
+;	it can respond by reentering at reject_message, 
+;	which rejects the message and returns control to
+;	the caller of msg_in or munge_msg, accept_message
+;	which clears ACK and returns control, or reply_message
+;	which sends the message pointed to by the DSA 
+;	msgout_other table indirect field.
+;
+;	DISCONNECT messages are handled by moving the command
+;	to the reconnect_dsa_queue.
+;
+; INPUTS : DSA - SCSI COMMAND, SFBR - first byte of message (munge_msg
+;	only)
+;
+; CALLS : NO.  The TEMP register isn't backed up to allow nested calls.
+;
+; MODIFIES : SCRATCH, DSA on DISCONNECT
+;
+; EXITS : On receipt of SAVE DATA POINTER, RESTORE POINTERS,
+;	and normal return from message handlers running under
+;	Linux, control is returned to the caller.  Receipt
+;	of DISCONNECT messages pass control to dsa_schedule.
+;
+ENTRY msg_in_restart
+msg_in_restart:
+; XXX - hackish
+;
+; Since it's easier to debug changes to the statically 
+; compiled code, rather than the dynamically generated 
+; stuff, such as
+;
+; 	MOVE x, y, WHEN data_phase
+; 	CALL other_z, WHEN NOT data_phase
+; 	MOVE x, y, WHEN data_phase
+;
+; I'd like to have certain routines (notably the message handler)
+; restart on the conditional call rather than the next instruction.
+;
+; So, subtract 8 from the return address
+
+    MOVE TEMP0 + 0xf8 TO TEMP0
+
+at 0x000000f9 : */	0x7e1cf800,0x00000000,
 /*
     MOVE TEMP1 + 0xff TO TEMP1 WITH CARRY
 
@@ -863,7 +1099,20 @@ at 0x00000103 : */	0x800c0001,0x00000524,
     JUMP munge_2, IF 0x20, AND MASK 0xdf	; two byte message
 
 at 0x00000105 : */	0x800cdf20,0x0000044c,
-	0x800c0002,0x00000454,
+/*
+;
+; XXX - I've seen a handful of broken SCSI devices which fail to issue
+; 	a SAVE POINTERS message before disconnecting in the middle of 
+; 	a transfer, assuming that the DATA POINTER will be implicitly 
+; 	restored.  
+;
+; Historically, I've often done an implicit save when the DISCONNECT
+; message is processed.  We may want to consider having the option of 
+; doing that here. 
+;
+    JUMP munge_save_data_pointer, IF 0x02	; SAVE DATA POINTER
+
+at 0x00000107 : */	0x800c0002,0x00000454,
 /*
     JUMP munge_restore_pointers, IF 0x03	; RESTORE POINTERS 
 
@@ -1404,7 +1653,24 @@ at 0x000001b7 : */	0x80040000,0x000006ec,
     INT int_err_unexpected_reselect
 
 at 0x000001b9 : */	0x98080000,0x00020000,
-	0x72100000,0x00000000,
+/*
+
+reselected_not_end:
+    ;
+    ; XXX the ALU is only eight bits wide, and the assembler
+    ; wont do the dirt work for us.  As long as dsa_check_reselect
+    ; is negative, we need to sign extend with 1 bits to the full
+    ; 32 bit width of the address.
+    ;
+    ; A potential work around would be to have a known alignment 
+    ; of the DSA structure such that the base address plus 
+    ; dsa_check_reselect doesn't require carrying from bytes 
+    ; higher than the LSB.
+    ;
+
+    MOVE DSA0 TO SFBR
+
+at 0x000001bb : */	0x72100000,0x00000000,
 /*
     MOVE SFBR + dsa_check_reselect TO SCRATCH0
 
@@ -1520,12 +1786,24 @@ at 0x000001df : */	0x741a4000,0x00000000,
     JUMP schedule, IF 0x40
 
 at 0x000001e1 : */	0x800c0040,0x00000000,
-	0x74140800,0x00000000,
+/*
+; Check connected bit.  
+; FIXME: this needs to change if we support target mode
+    MOVE ISTAT & 0x08 TO SFBR
+
+at 0x000001e3 : */	0x74140800,0x00000000,
 /*
     JUMP reselected, IF 0x08
 
 at 0x000001e5 : */	0x800c0008,0x0000065c,
-	0x98080000,0x030b0000,
+/*
+; FIXME : Something bogus happened, and we shouldn't fail silently.
+
+
+
+    INT int_debug_panic
+
+at 0x000001e7 : */	0x98080000,0x030b0000,
 /*
 
 
@@ -1557,12 +1835,25 @@ at 0x000001ef : */	0x741a4000,0x00000000,
     JUMP select, IF 0x40
 
 at 0x000001f1 : */	0x800c0040,0x000001fc,
-	0x74140800,0x00000000,
+/*
+; Check connected bit.  
+; FIXME: this needs to change if we support target mode
+; FIXME: is this really necessary? 
+    MOVE ISTAT & 0x08 TO SFBR
+
+at 0x000001f3 : */	0x74140800,0x00000000,
 /*
     JUMP reselected, IF 0x08
 
 at 0x000001f5 : */	0x800c0008,0x0000065c,
-	0x98080000,0x030b0000,
+/*
+; FIXME : Something bogus happened, and we shouldn't fail silently.
+
+
+
+    INT int_debug_panic
+
+at 0x000001f7 : */	0x98080000,0x030b0000,
 /*
 
 

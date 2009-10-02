@@ -187,15 +187,7 @@ nlm_bind_host(struct nlm_host *host)
 					host->h_nextrebind - jiffies);
 		}
 	} else {
-		uid_t saved_fsuid = current->fsuid;
-		kernel_cap_t saved_cap = current->cap_effective;
-
-		/* Create RPC socket as root user so we get a priv port */
-		current->fsuid = 0;
-		cap_raise (current->cap_effective, CAP_NET_BIND_SERVICE);
 		xprt = xprt_create_proto(host->h_proto, &host->h_addr, NULL);
-		current->fsuid = saved_fsuid;
-		current->cap_effective = saved_cap;
 		if (xprt == NULL)
 			goto forgetit;
 
@@ -209,6 +201,7 @@ nlm_bind_host(struct nlm_host *host)
 		}
 		clnt->cl_autobind = 1;	/* turn on pmap queries */
 		xprt->nocong = 1;	/* No congestion control for NLM */
+		xprt->resvport = 1;	/* NLM requires a reserved port */
 
 		host->h_rpcclnt = clnt;
 	}

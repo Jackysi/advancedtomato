@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/errno.h>
+#include <linux/string.h>
 
 #include "picvue.h"
 
@@ -109,7 +110,8 @@ static void pvc_write(u8 byte, int mode)
 	pvc_wait();
 }
 
-void pvc_write_string(const unsigned char *str, u8 addr, int line) {
+void pvc_write_string(const unsigned char *str, u8 addr, int line)
+{
 	int i = 0;
 
 	if (line > 0 && (PVC_NLINES > 1))
@@ -122,9 +124,33 @@ void pvc_write_string(const unsigned char *str, u8 addr, int line) {
 	}
 }
 
+void pvc_write_string_centered(const unsigned char *str, int line)
+{
+	int len = strlen(str);
+	u8 addr;
+
+	if (len > PVC_VISIBLE_CHARS)
+		addr = 0;
+	else
+		addr = (PVC_VISIBLE_CHARS - strlen(str))/2;
+
+	pvc_write_string(str, addr, line);
+}
+
+void pvc_dump_string(const unsigned char *str)
+{
+	int len = strlen(str);
+
+	pvc_clear();
+	pvc_write_string(str, 0, 0);
+	if (len > PVC_VISIBLE_CHARS)
+		pvc_write_string(&str[PVC_VISIBLE_CHARS], 0, 1);
+}
+
 #define BM_SIZE			8
 #define MAX_PROGRAMMABLE_CHARS	8
-int pvc_program_cg(int charnum, u8 bitmap[BM_SIZE]) {
+int pvc_program_cg(int charnum, u8 bitmap[BM_SIZE])
+{
 	int i;
 	int addr;
 
@@ -146,7 +172,8 @@ int pvc_program_cg(int charnum, u8 bitmap[BM_SIZE]) {
 #define  ONE_LINE	0
 #define  LARGE_FONT	(1 << 2)
 #define  SMALL_FONT	0
-static void pvc_funcset(u8 cmd) {
+static void pvc_funcset(u8 cmd)
+{
 	pvc_write(FUNC_SET_CMD | (cmd & (EIGHT_BYTE|TWO_LINES|LARGE_FONT)), MODE_INST);
 }
 
@@ -154,7 +181,8 @@ static void pvc_funcset(u8 cmd) {
 #define  AUTO_INC		(1 << 1)
 #define  AUTO_DEC		0
 #define  CURSOR_FOLLOWS_DISP	(1 << 0)
-static void pvc_entrymode(u8 cmd) {
+static void pvc_entrymode(u8 cmd)
+{
 	pvc_write(ENTRYMODE_CMD | (cmd & (AUTO_INC|CURSOR_FOLLOWS_DISP)), MODE_INST);
 }
 
@@ -163,7 +191,8 @@ static void pvc_entrymode(u8 cmd) {
 #define  DISP_ON	(1 << 2)
 #define  CUR_ON		(1 << 1)
 #define  CUR_BLINK	(1 << 0)
-void pvc_dispcnt(u8 cmd) {
+void pvc_dispcnt(u8 cmd)
+{
 	pvc_write(DISP_CNT_CMD | (cmd & (DISP_ON|CUR_ON|CUR_BLINK)), MODE_INST);
 }
 
@@ -172,17 +201,20 @@ void pvc_dispcnt(u8 cmd) {
 #define  CURSOR		0
 #define  RIGHT		(1 << 2)
 #define  LEFT		0
-void pvc_move(u8 cmd) {
+void pvc_move(u8 cmd)
+{
 	pvc_write(MOVE_CMD | (cmd & (DISPLAY|RIGHT)), MODE_INST);
 }
 
 #define CLEAR_CMD	0x1
-void pvc_clear(void) {
+void pvc_clear(void)
+{
 	pvc_write(CLEAR_CMD, MODE_INST);
 }
 
 #define HOME_CMD	0x2
-void pvc_home(void) {
+void pvc_home(void)
+{
 	pvc_write(HOME_CMD, MODE_INST);
 }
 
@@ -197,6 +229,10 @@ int pvc_init(void)
 	pvc_funcset(cmd);
 	pvc_dispcnt(DISP_ON);
 	pvc_entrymode(AUTO_INC);
+
+	pvc_clear();
+	pvc_write_string_centered("Display", 0);
+	pvc_write_string_centered("Initialized", 1);
 
 	return 0;
 }

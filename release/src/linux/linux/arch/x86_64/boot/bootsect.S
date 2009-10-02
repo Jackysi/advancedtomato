@@ -234,9 +234,10 @@ read_it:
 die:	jne	die			# %es must be at 64kB boundary
 	xorw	%bx, %bx		# %bx is starting address within segment
 rp_read:
-#ifdef __BIG_KERNEL__			# look in setup.S for bootsect_kludge
+#ifdef __BIG_KERNEL__				
+					# look in setup.S for bootsect_kludge
 	bootsect_kludge = 0x220		# 0x200 + 0x20 which is the size of the
-	lcall	bootsect_kludge		# bootsector + bootsect_kludge offset
+	lcall	*bootsect_kludge		# bootsector + bootsect_kludge offset
 #else
 	movw	%es, %ax
 	subw	$SYSSEG, %ax
@@ -395,9 +396,9 @@ print_digit:
 # NOTE: Doesn't save %ax or %dx; do it yourself if you need to.
 
 kill_motor:
-	movw	$0x3f2, %dx
-	xorb	%al, %al
-	outb	%al, %dx
+	xorw	%ax, %ax		# reset FDC
+	xorb	%dl, %dl
+	int	$0x13
 	ret
 
 sectors:	.word 0

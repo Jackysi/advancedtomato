@@ -135,6 +135,9 @@
 #define PCIINTE   0x010
 #define PCIINTF   0x020
 #define GSCEXTINT 0x040
+/* #define xxx       0x080 - bit 7 is "default" */
+/* #define xxx    0x100 - bit 8 not used */
+/* #define xxx    0x200 - bit 9 not used */
 #define RS232INT  0x400
 
 struct dino_device
@@ -248,7 +251,7 @@ static u##size dino_in##size (struct pci_hba_data *d, u16 addr) \
 	unsigned long flags; \
 	spin_lock_irqsave(&(DINO_DEV(d)->dinosaur_pen), flags); \
 	/* tell HW which IO Port address */ \
-	gsc_writel((u32) addr & ~3, d->base_addr + DINO_PCI_ADDR); \
+	gsc_writel((u32) addr, d->base_addr + DINO_PCI_ADDR); \
 	/* generate I/O PORT read cycle */ \
 	v = gsc_read##type(d->base_addr+DINO_IO_DATA+(addr&mask)); \
 	spin_unlock_irqrestore(&(DINO_DEV(d)->dinosaur_pen), flags); \
@@ -264,7 +267,7 @@ static void dino_out##size (struct pci_hba_data *d, u16 addr, u##size val) \
 { \
 	unsigned long flags; \
 	spin_lock_irqsave(&(DINO_DEV(d)->dinosaur_pen), flags); \
-	/* tell HW which CFG address */ \
+	/* tell HW which IO port address */ \
 	gsc_writel((u32) addr, d->base_addr + DINO_PCI_ADDR); \
 	/* generate cfg write cycle */ \
 	gsc_write##type(cpu_to_le##size(val), d->base_addr+DINO_IO_DATA+(addr&mask)); \
@@ -433,7 +436,7 @@ ilr_again:
 	if (mask) {
 		if (--ilr_loop > 0)
 			goto ilr_again;
-		printk("Dino %lx: stuck interrupt %d\n", dino_dev->hba.base_addr, mask);
+		printk("Dino %lx: IRQ base %d, stuck IRQ lines? 0x%x\n", dino_dev->hba.base_addr, dino_dev->dino_region->data.irqbase, mask);
 	}
 }
 
@@ -464,7 +467,7 @@ dino_bios_init(void)
  * to set up the addresses of the devices on this bus.
  */
 #define _8MB 0x00800000UL
-static void __init
+static int __init
 dino_card_setup(struct pci_bus *bus, unsigned long base_addr)
 {
 	int i;
@@ -479,7 +482,7 @@ dino_card_setup(struct pci_bus *bus, unsigned long base_addr)
 				0xffffffffffffffffUL &~ _8MB, _8MB,
 				NULL, NULL) < 0) {
 		printk(KERN_WARNING "Dino: Failed to allocate memory region\n");
-		return;
+		return -ENODEV;
 	}
 	bus->resource[1] = res;
 	bus->resource[0] = &(dino_dev->hba.io_space);
@@ -492,6 +495,7 @@ dino_card_setup(struct pci_bus *bus, unsigned long base_addr)
 	gsc_writel(1 << i, base_addr + DINO_IO_ADDR_EN);
 
 	pcibios_assign_unassigned_resources(bus);
+	return 0;
 }
 
 static void __init
@@ -606,12 +610,14 @@ dino_card_init(struct dino_device *dino_dev)
 	gsc_writel(0x00000001, dino_dev->hba.base_addr+DINO_IO_FBB_EN);
 	gsc_writel(0x00000000, dino_dev->hba.base_addr+DINO_ICR);
 
+#if 1
 /* REVISIT - should be a runtime check (eg if (CPU_IS_PCX_L) ...) */
 	/*
 	** PCX-L processors don't support XQL like Dino wants it.
 	** PCX-L2 ignore XQL signal and it doesn't matter.
 	*/
 	brdg_feat &= ~0x4;	/* UXQL */
+#endif
 	gsc_writel( brdg_feat, dino_dev->hba.base_addr+DINO_BRDG_FEAT);
 
 	/*

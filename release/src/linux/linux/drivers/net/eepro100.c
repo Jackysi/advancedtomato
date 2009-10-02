@@ -17,7 +17,7 @@
 	1998 Apr - 2000 Feb  Andrey V. Savochkin <saw@saw.sw.com.sg>
 		Serious fixes for multicast filter list setting, TX timeout routine;
 		RX ring refilling logic;  other stuff
-	2000 Feb  Jeff Garzik <jgarzik@mandrakesoft.com>
+	2000 Feb  Jeff Garzik <jgarzik@pobox.com>
 		Convert to new PCI driver interface
 	2000 Mar 24  Dragan Stancevic <visitor@valinux.com>
 		Disabled FC and ER, to avoid lockups when when we get FCP interrupts.
@@ -29,7 +29,7 @@
 
 static const char *version =
 "eepro100.c:v1.09j-t 9/29/99 Donald Becker http://www.scyld.com/network/eepro100.html\n"
-"eepro100.c: $Revision: 1.1.1.2 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others\n";
+"eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others\n";
 
 /* A few user-configurable values that apply to all boards.
    First set is undocumented and spelled per Intel recommendations. */
@@ -41,8 +41,8 @@ static int rxfifo = 8;		/* Rx FIFO threshold, default 32 bytes. */
 static int txdmacount = 128;
 static int rxdmacount /* = 0 */;
 
-#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__) || defined(__mips__) || \
-	defined(__arm__)
+#if defined(__ia64__) || defined(__alpha__) || defined(__sparc__) || \
+	defined(__mips__) || defined(__arm__) || defined(__hppa__)
   /* align rx buffers to 2 bytes so that IP header is aligned */
 # define rx_align(skb)		skb_reserve((skb), 2)
 # define RxFD_ALIGNMENT		__attribute__ ((aligned (2), packed))
@@ -120,6 +120,11 @@ static int options[] = {-1, -1, -1, -1, -1, -1, -1, -1};
 #include <linux/ethtool.h>
 #include <linux/mii.h>
 
+/* enable PIO instead of MMIO, if CONFIG_EEPRO100_PIO is selected */
+#ifdef CONFIG_EEPRO100_PIO
+#define USE_IO 1
+#endif
+
 static int debug = -1;
 #define DEBUG_DEFAULT		(NETIF_MSG_DRV		| \
 				 NETIF_MSG_HW		| \
@@ -148,8 +153,8 @@ MODULE_PARM_DESC(full_duplex, "full duplex setting(s) (1)");
 MODULE_PARM_DESC(congenb, "Enable congestion control (1)");
 MODULE_PARM_DESC(txfifo, "Tx FIFO threshold in 4 byte units, (0-15)");
 MODULE_PARM_DESC(rxfifo, "Rx FIFO threshold in 4 byte units, (0-15)");
-MODULE_PARM_DESC(txdmaccount, "Tx DMA burst length; 128 - disable (0-128)");
-MODULE_PARM_DESC(rxdmaccount, "Rx DMA burst length; 128 - disable (0-128)");
+MODULE_PARM_DESC(txdmacount, "Tx DMA burst length; 128 - disable (0-128)");
+MODULE_PARM_DESC(rxdmacount, "Rx DMA burst length; 128 - disable (0-128)");
 MODULE_PARM_DESC(rx_copybreak, "copy breakpoint for copy-only-tiny-frames");
 MODULE_PARM_DESC(max_interrupt_work, "maximum events handled per interrupt");
 MODULE_PARM_DESC(multicast_filter_limit, "maximum number of filtered multicast addresses");
@@ -748,6 +753,7 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 	/* we must initialize base_addr early, for mdio_{read,write} */
 	dev->base_addr = ioaddr;
 
+#if 1 || defined(kernel_bloat)
 	/* OK, this is pure kernel bloat.  I don't like it when other drivers
 	   waste non-pageable kernel space to emit similar messages, but I need
 	   them for bug reports. */
@@ -814,6 +820,7 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 				   self_test_results[1] & 0x0004 ? "failed" : "passed",
 				   self_test_results[0]);
 	}
+#endif  /* kernel_bloat */
 
 	outl(PortReset, ioaddr + SCBPort);
 	inl(ioaddr + SCBPort);
@@ -835,6 +842,7 @@ static int __devinit speedo_found1(struct pci_dev *pdev,
 	sp->lstats = (struct speedo_stats *)(sp->tx_ring + TX_RING_SIZE);
 	sp->lstats_dma = TX_RING_ELEM_DMA(sp, TX_RING_SIZE);
 	init_timer(&sp->timer); /* used in ioctl() */
+	spin_lock_init(&sp->lock);
 
 	sp->mii_if.full_duplex = option >= 0 && (option & 0x10) ? 1 : 0;
 	if (card_idx >= 0) {
@@ -986,7 +994,6 @@ speedo_open(struct net_device *dev)
 	sp->dirty_tx = 0;
 	sp->last_cmd = 0;
 	sp->tx_full = 0;
-	spin_lock_init(&sp->lock);
 	sp->in_interrupt = 0;
 
 	/* .. we can safely take handler calls during init. */
@@ -1244,6 +1251,18 @@ static void speedo_show_state(struct net_device *dev)
 			    (unsigned)sp->rx_ringp[i]->status : 0);
 	}
 
+#if 0
+	{
+		long ioaddr = dev->base_addr;
+		int phy_num = sp->phy[0] & 0x1f;
+		for (i = 0; i < 16; i++) {
+			/* FIXME: what does it mean?  --SAW */
+			if (i == 6) i = 21;
+			printk(KERN_DEBUG "%s:  PHY index %d register %d is %4.4x.\n",
+				   dev->name, phy_num, i, mdio_read(dev, phy_num, i));
+		}
+	}
+#endif
 
 }
 
@@ -1261,6 +1280,7 @@ speedo_init_rx_ring(struct net_device *dev)
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		struct sk_buff *skb;
 		skb = dev_alloc_skb(PKT_BUF_SZ + sizeof(struct RxFD));
+		/* XXX: do we really want to call this before the NULL check? --hch */
 		rx_align(skb);			/* Align IP on 16 byte boundary */
 		sp->rx_skbuff[i] = skb;
 		if (skb == NULL)
@@ -1367,7 +1387,20 @@ static void speedo_tx_timeout(struct net_device *dev)
 
 	}
 	speedo_show_state(dev);
+#if 0
+	if ((status & 0x00C0) != 0x0080
+		&&  (status & 0x003C) == 0x0010) {
+		/* Only the command unit has stopped. */
+		printk(KERN_WARNING "%s: Trying to restart the transmitter...\n",
+			   dev->name);
+		outl(TX_RING_ELEM_DMA(sp, dirty_tx % TX_RING_SIZE]),
+			 ioaddr + SCBPointer);
+		outw(CUStart, ioaddr + SCBCmd);
+		reset_mii(dev);
+	} else {
+#else
 	{
+#endif
 		del_timer_sync(&sp->timer);
 		/* Reset the Tx and Rx units. */
 		outl(PortReset, ioaddr + SCBPort);
@@ -1439,6 +1472,7 @@ speedo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 					   skb->len, PCI_DMA_TODEVICE));
 	sp->tx_ring[entry].tx_buf_size0 = cpu_to_le32(skb->len);
 
+	/* workaround for hardware bug on 10 mbit half duplex */
 
 	if ((sp->partner == 0) && (sp->chip_id == 1)) {
 		wait_for_cmd_done(dev);
@@ -1634,6 +1668,7 @@ static inline struct RxFD *speedo_rx_alloc(struct net_device *dev, int entry)
 	struct sk_buff *skb;
 	/* Get a fresh skbuff to replace the consumed one. */
 	skb = dev_alloc_skb(PKT_BUF_SZ + sizeof(struct RxFD));
+	/* XXX: do we really want to call this before the NULL check? --hch */
 	rx_align(skb);				/* Align IP on 16 byte boundary */
 	sp->rx_skbuff[entry] = skb;
 	if (skb == NULL) {
@@ -1784,9 +1819,14 @@ speedo_rx(struct net_device *dev)
 				pci_dma_sync_single(sp->pdev, sp->rx_ring_dma[entry],
 					sizeof(struct RxFD) + pkt_len, PCI_DMA_FROMDEVICE);
 
+#if 1 || USE_IP_CSUM
 				/* Packet is in one chunk -- we can copy + cksum. */
 				eth_copy_and_sum(skb, sp->rx_skbuff[entry]->tail, pkt_len, 0);
 				skb_put(skb, pkt_len);
+#else
+				memcpy(skb_put(skb, pkt_len), sp->rx_skbuff[entry]->tail,
+					   pkt_len);
+#endif
 				npkts++;
 			} else {
 				/* Pass up the already-filled skbuff. */
@@ -2028,6 +2068,10 @@ static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 	case SIOCGMIIREG:		/* Read MII PHY register. */
 	case SIOCDEVPRIVATE+1:		/* for binary compat, remove in 2.5 */
+		/* FIXME: these operations need to be serialized with MDIO
+		   access from the timeout handler.
+		   They are currently serialized only with MDIO access from the
+		   timer routine.  2000/05/09 SAW */
 		saved_acpi = pci_set_power_state(sp->pdev, 0);
 		t = del_timer_sync(&sp->timer);
 		data->val_out = mdio_read(dev, data->phy_id & 0x1f, data->reg_num & 0x1f);
@@ -2270,6 +2314,7 @@ static int eepro100_suspend(struct pci_dev *pdev, u32 state)
 	netif_device_detach(dev);
 	outl(PortPartialReset, ioaddr + SCBPort);
 	
+	/* XXX call pci_set_power_state ()? */
 	return 0;
 }
 
@@ -2347,6 +2392,8 @@ static struct pci_device_id eepro100_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_INTEL, 0x103C, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x103D, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x103E, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x1050, PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, 0x1059, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1227, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x1228, PCI_ANY_ID, PCI_ANY_ID, },
 	{ PCI_VENDOR_ID_INTEL, 0x2449, PCI_ANY_ID, PCI_ANY_ID, },

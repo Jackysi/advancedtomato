@@ -1,5 +1,5 @@
 /*
- $	$Id: pci-dc.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+ $	$Id: pci-dc.c,v 1.5 2001/08/24 12:38:19 dwmw2 Exp $
  *	Dreamcast PCI: Supports SEGA Broadband Adaptor only.
  */
 
@@ -127,6 +127,7 @@ void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 void pci_free_consistent(struct pci_dev *hwdev, size_t size,
 			 void *vaddr, dma_addr_t dma_handle)
 {
+	/* XXX */
 	gapspci_dma_used = 0;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: time.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: time.c,v 1.59.2.1 2002/01/23 14:35:45 davem Exp $
  * linux/arch/sparc/kernel/time.c
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -340,6 +340,7 @@ static __inline__ void clock_probe(void)
 		else
 			prom_apply_obio_ranges(clk_reg, 1);
 		/* Map the clock register io area read-only */
+		/* XXX r/o attribute is somewhere in r.flags */
 		r.flags = clk_reg[0].which_io;
 		r.start = clk_reg[0].phys_addr;
 		mstk48t08_regs = (struct mostek48t08 *) sbus_ioremap(&r, 0,
@@ -378,7 +379,7 @@ void __init sbus_time_init(void)
 	else
 		clock_probe();
 
-	init_timers(timer_interrupt);
+	sparc_init_timers(timer_interrupt);
 	
 #ifdef CONFIG_SUN4
 	if(idprom->id_machtype == (SM_SUN4 | SM_4_330)) {

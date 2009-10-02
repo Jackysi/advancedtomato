@@ -54,14 +54,14 @@ static struct resource pci_mem_resource_1;
 
 static struct resource pci_io_resource = {
 	"io pci IO space",
-	0x14000000,
+	0x14018000,
 	0x17FFFFFF,
 	IORESOURCE_IO
 };
 
 static struct resource pci_mem_resource_0 = {
 	"ext pci memory space 0/1",
-	0x0C000000,
+	0x10101000,
 	0x13FFFFFF,
 	IORESOURCE_MEM,
 	&pci_mem_resource_0,
@@ -82,7 +82,7 @@ static struct resource pci_mem_resource_1 = {
 extern struct pci_ops it8172_pci_ops;
 
 struct pci_channel mips_pci_channels[] = {
-	{ &it8172_pci_ops, &pci_io_resource, &pci_mem_resource_0, 0, 0xff },
+	{ &it8172_pci_ops, &pci_io_resource, &pci_mem_resource_0, 0x10, 0xff },
 	{ NULL, NULL, NULL, NULL, NULL}
 };
 

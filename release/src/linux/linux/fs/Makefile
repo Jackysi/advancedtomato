@@ -7,20 +7,17 @@
 
 O_TARGET := fs.o
 
-export-objs :=	filesystems.o open.o dcache.o buffer.o
+export-objs :=	filesystems.o open.o dcache.o buffer.o dquot.o
 mod-subdirs :=	nls
 
 obj-y :=	open.o read_write.o devices.o file_table.o buffer.o \
 		super.o block_dev.o char_dev.o stat.o exec.o pipe.o namei.o \
 		fcntl.o ioctl.o readdir.o select.o fifo.o locks.o \
 		dcache.o inode.o attr.o bad_inode.o file.o iobuf.o dnotify.o \
-		filesystems.o namespace.o seq_file.o xattr.o
+		filesystems.o namespace.o seq_file.o xattr.o quota.o
 
-ifeq ($(CONFIG_QUOTA),y)
-obj-y += dquot.o
-else
-obj-y += noquot.o
-endif
+obj-$(CONFIG_QUOTA)		+= dquot.o quota_v1.o
+obj-$(CONFIG_QFMT_V2)		+= quota_v2.o
 
 subdir-$(CONFIG_PROC_FS)	+= proc
 subdir-y			+= partitions
@@ -42,6 +39,7 @@ subdir-$(CONFIG_BFS_FS)		+= bfs
 subdir-$(CONFIG_ISO9660_FS)	+= isofs
 subdir-$(CONFIG_CIFS)		+= cifs
 subdir-$(CONFIG_DEVFS_FS)	+= devfs
+subdir-$(CONFIG_HFSPLUS_FS)	+= hfsplus # Before hfs to find wrapped HFS+
 subdir-$(CONFIG_HFS_FS)		+= hfs
 subdir-$(CONFIG_VXFS_FS)	+= freevxfs
 subdir-$(CONFIG_NFS_FS)		+= nfs
@@ -70,7 +68,7 @@ subdir-$(CONFIG_SUN_OPENPROMFS)	+= openpromfs
 subdir-$(CONFIG_BEFS_FS)	+= befs
 subdir-$(CONFIG_SQUASHFS)	+= squashfs
 subdir-$(CONFIG_JFS_FS)		+= jfs
-
+subdir-$(CONFIG_XFS_FS)		+= xfs
 
 obj-$(CONFIG_BINFMT_AOUT)	+= binfmt_aout.o
 obj-$(CONFIG_BINFMT_EM86)	+= binfmt_em86.o

@@ -1,4 +1,4 @@
-/* $Id: sigcontext.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: sigcontext.h,v 1.12 1999/09/06 08:22:09 jj Exp $ */
 #ifndef __SPARC64_SIGCONTEXT_H
 #define __SPARC64_SIGCONTEXT_H
 
@@ -82,18 +82,6 @@ struct sigcontext {
 	}			sigc_stack;
 	unsigned long		sigc_mask;
 };
-
-#ifdef __KERNEL__
-
-/* This magic should be in g_upper[0] for all upper parts
-   to be valid.  */
-#define SIGINFO_EXTRA_V8PLUS_MAGIC	0x130e269
-typedef struct {
-	unsigned   int g_upper[8];
-	unsigned   int o_upper[8];
-} siginfo_extra_v8plus_t;
-
-#endif
 
 #endif /* !(__ASSEMBLY__) */
 

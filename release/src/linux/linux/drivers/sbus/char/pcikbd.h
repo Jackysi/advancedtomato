@@ -1,4 +1,4 @@
-/* $Id: pcikbd.h,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: pcikbd.h,v 1.2 1997/12/25 21:13:14 geert Exp $
  * pcikbd.h: PCI/PC 8042 keyboard/mouse driver stuff.  Mostly snarfed
  *           from the existing driver by Martin Mares.
  *
@@ -30,9 +30,6 @@
 
 extern unsigned char pckbd_read_mask;
 extern unsigned char aux_device_present;
-
-extern unsigned long pcikbd_iobase;
-extern unsigned int pcikbd_irq;
 
 /*
  *	Keyboard Controller Registers

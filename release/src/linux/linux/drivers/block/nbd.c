@@ -1,4 +1,38 @@
-
+/*
+ * Network block device - make block devices work over TCP
+ *
+ * Note that you can not swap over this thing, yet. Seems to work but
+ * deadlocks sometimes - you can not swap over TCP in general.
+ * 
+ * Copyright 1997-2000 Pavel Machek <pavel@ucw.cz>
+ * Parts copyright 2001 Steven Whitehouse <steve@chygwyn.com>
+ *
+ * (part of code stolen from loop.c)
+ *
+ * 97-3-25 compiled 0-th version, not yet tested it 
+ *   (it did not work, BTW) (later that day) HEY! it works!
+ *   (bit later) hmm, not that much... 2:00am next day:
+ *   yes, it works, but it gives something like 50kB/sec
+ * 97-4-01 complete rewrite to make it possible for many requests at 
+ *   once to be processed
+ * 97-4-11 Making protocol independent of endianity etc.
+ * 97-9-13 Cosmetic changes
+ * 98-5-13 Attempt to make 64-bit-clean on 64-bit machines
+ * 99-1-11 Attempt to make 64-bit-clean on 32-bit machines <ankry@mif.pg.gda.pl>
+ * 01-2-27 Fix to store proper blockcount for kernel (calculated using
+ *   BLOCK_SIZE_BITS, not device blocksize) <aga@permonline.ru>
+ * 01-3-11 Make nbd work with new Linux block layer code. It now supports
+ *   plugging like all the other block devices. Also added in MSG_MORE to
+ *   reduce number of partial TCP segments sent. <steve@chygwyn.com>
+ * 01-12-6 Fix deadlock condition by making queue locks independant of
+ *   the transmit lock. <steve@chygwyn.com>
+ * 02-10-11 Allow hung xmit to be aborted via SIGKILL & various fixes.
+ *   <Paul.Clements@SteelEye.com> <James.Bottomley@SteelEye.com>
+ *
+ * possible FIXME: make set_sock / set_blksize / set_size / do_it one syscall
+ * why not: would need verify_area and friends, would share yet another 
+ *          structure with userland
+ */
 
 #define PARANOIA
 #include <linux/major.h>
@@ -40,6 +74,29 @@ static int requests_in;
 static int requests_out;
 #endif
 
+static void
+nbd_end_request(struct request *req)
+{
+	struct buffer_head *bh;
+	unsigned nsect;
+	unsigned long flags;
+	int uptodate = (req->errors == 0) ? 1 : 0;
+
+#ifdef PARANOIA
+	requests_out++;
+#endif
+	spin_lock_irqsave(&io_request_lock, flags);
+	while((bh = req->bh) != NULL) {
+		nsect = bh->b_size >> 9;
+		blk_finished_io(nsect);
+		req->bh = bh->b_reqnext;
+		bh->b_reqnext = NULL;
+		bh->b_end_io(bh, uptodate);
+	}
+	blkdev_release_request(req);
+	spin_unlock_irqrestore(&io_request_lock, flags);
+}
+
 static int nbd_open(struct inode *inode, struct file *file)
 {
 	int dev;
@@ -69,9 +126,12 @@ static int nbd_xmit(int send, struct socket *sock, char *buf, int size, int msg_
 	oldfs = get_fs();
 	set_fs(get_ds());
 
+	/* Allow interception of SIGKILL only
+	 * Don't allow other signals to interrupt the transmission */
 	spin_lock_irqsave(&current->sigmask_lock, flags);
 	oldset = current->blocked;
 	sigfillset(&current->blocked);
+	sigdelsetmask(&current->blocked, sigmask(SIGKILL));
 	recalc_sigpending(current);
 	spin_unlock_irqrestore(&current->sigmask_lock, flags);
 
@@ -93,6 +153,17 @@ static int nbd_xmit(int send, struct socket *sock, char *buf, int size, int msg_
 			result = sock_sendmsg(sock, &msg, size);
 		else
 			result = sock_recvmsg(sock, &msg, size, 0);
+
+		if (signal_pending(current)) {
+			siginfo_t info;
+			spin_lock_irqsave(&current->sigmask_lock, flags);
+			printk(KERN_WARNING "NBD (pid %d: %s) got signal %d\n",
+				current->pid, current->comm, 
+				dequeue_signal(&current->blocked, &info));
+			spin_unlock_irqrestore(&current->sigmask_lock, flags);
+			result = -EINTR;
+			break;
+		}
 
 		if (result <= 0) {
 #ifdef PARANOIA
@@ -118,7 +189,7 @@ static int nbd_xmit(int send, struct socket *sock, char *buf, int size, int msg_
 
 void nbd_send_req(struct nbd_device *lo, struct request *req)
 {
-	int result;
+	int result = -1;
 	struct nbd_request request;
 	unsigned long size = req->nr_sectors << 9;
 	struct socket *sock = lo->sock;
@@ -131,6 +202,10 @@ void nbd_send_req(struct nbd_device *lo, struct request *req)
 	memcpy(request.handle, &req, sizeof(req));
 
 	down(&lo->tx_lock);
+
+	if (!sock || !lo->sock) {
+		FAIL("Attempted sendmsg to closed socket\n");
+	}
 
 	result = nbd_xmit(1, sock, (char *) &request, sizeof(request), req->cmd == WRITE ? MSG_MORE : 0);
 	if (result <= 0)
@@ -313,10 +388,28 @@ static void do_nbd_request(request_queue_t * q)
 		spin_unlock_irq(&io_request_lock);
 
 		spin_lock(&lo->queue_lock);
+		if (!lo->file) {
+			spin_unlock(&lo->queue_lock);
+			printk(KERN_ERR "nbd: failed between accept and semaphore, file lost\n");
+			req->errors++;
+			nbd_end_request(req);
+			spin_lock_irq(&io_request_lock);
+			continue;
+		}
+
 		list_add_tail(&req->queue, &lo->queue_head);
 		spin_unlock(&lo->queue_lock);
 
 		nbd_send_req(lo, req);
+		if (req->errors) {
+			printk(KERN_ERR "nbd: nbd_send_req failed\n");
+			spin_lock(&lo->queue_lock);
+			list_del(&req->queue);
+			spin_unlock(&lo->queue_lock);
+			nbd_end_request(req);
+			spin_lock_irq(&io_request_lock);
+			continue;
+		}
 
 		spin_lock_irq(&io_request_lock);
 		continue;
@@ -338,10 +431,7 @@ static int nbd_ioctl(struct inode *inode, struct file *file,
 	int dev, error, temp;
 	struct request sreq ;
 
-	/* Anyone capable of this syscall can do *real bad* things */
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
 	if (!inode)
 		return -EINVAL;
 	dev = MINOR(inode->i_rdev);
@@ -349,6 +439,20 @@ static int nbd_ioctl(struct inode *inode, struct file *file,
 		return -ENODEV;
 
 	lo = &nbd_dev[dev];
+
+	/* these are innocent, but.... */
+	switch (cmd) {
+	case BLKGETSIZE:
+		return put_user(nbd_bytesizes[dev] >> 9, (unsigned long *) arg);
+	case BLKGETSIZE64:
+		return put_user((u64)nbd_bytesizes[dev], (u64 *) arg);
+	}
+
+	/* ... anyone capable of any of the below ioctls can do *real bad* 
+	   things */
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	switch (cmd) {
 	case NBD_DISCONNECT:
 	        printk("NBD_DISCONNECT\n");
@@ -358,21 +462,24 @@ static int nbd_ioctl(struct inode *inode, struct file *file,
                 return 0 ;
  
 	case NBD_CLEAR_SOCK:
+		error = 0;
+		down(&lo->tx_lock);
+		lo->sock = NULL;
+		up(&lo->tx_lock);
+		spin_lock(&lo->queue_lock);
+		file = lo->file;
+		lo->file = NULL;
+		spin_unlock(&lo->queue_lock);
 		nbd_clear_que(lo);
 		spin_lock(&lo->queue_lock);
 		if (!list_empty(&lo->queue_head)) {
-			spin_unlock(&lo->queue_lock);
-			printk(KERN_ERR "nbd: Some requests are in progress -> can not turn off.\n");
-			return -EBUSY;
+			printk(KERN_ERR "nbd: disconnect: some requests are in progress -> please try again.\n");
+			error = -EBUSY;
 		}
 		spin_unlock(&lo->queue_lock);
-		file = lo->file;
-		if (!file)
-			return -EINVAL;
-		lo->file = NULL;
-		lo->sock = NULL;
-		fput(file);
-		return 0;
+		if (file)
+			fput(file);
+		return error;
 	case NBD_SET_SOCK:
 		if (lo->file)
 			return -EBUSY;
@@ -411,8 +518,38 @@ static int nbd_ioctl(struct inode *inode, struct file *file,
 		if (!lo->file)
 			return -EINVAL;
 		nbd_do_it(lo);
+		/* on return tidy up in case we have a signal */
+		/* Forcibly shutdown the socket causing all listeners
+		 * to error
+		 *
+		 * FIXME: This code is duplicated from sys_shutdown, but
+		 * there should be a more generic interface rather than
+		 * calling socket ops directly here */
+		down(&lo->tx_lock);
+		if (lo->sock) {
+			printk(KERN_WARNING "nbd: shutting down socket\n");
+			lo->sock->ops->shutdown(lo->sock,
+				SEND_SHUTDOWN|RCV_SHUTDOWN);
+			lo->sock = NULL;
+		}
+		up(&lo->tx_lock);
+		spin_lock(&lo->queue_lock);
+		file = lo->file;
+		lo->file = NULL;
+		spin_unlock(&lo->queue_lock);
+		nbd_clear_que(lo);
+		printk(KERN_WARNING "nbd: queue cleared\n");
+		if (file)
+			fput(file);
 		return lo->harderror;
 	case NBD_CLEAR_QUE:
+		down(&lo->tx_lock);
+		if (lo->sock) {
+			up(&lo->tx_lock);
+			return 0; /* probably should be error, but that would
+				   * break "nbd-client -d", so just return 0 */
+		}
+		up(&lo->tx_lock);
 		nbd_clear_que(lo);
 		return 0;
 #ifdef PARANOIA
@@ -421,10 +558,6 @@ static int nbd_ioctl(struct inode *inode, struct file *file,
 		       dev, lo->queue_head.next, lo->queue_head.prev, requests_in, requests_out);
 		return 0;
 #endif
-	case BLKGETSIZE:
-		return put_user(nbd_bytesizes[dev] >> 9, (unsigned long *) arg);
-	case BLKGETSIZE64:
-		return put_user((u64)nbd_bytesizes[dev], (u64 *) arg);
 	}
 	return -EINVAL;
 }
@@ -491,7 +624,7 @@ static int __init nbd_init(void)
 		init_MUTEX(&nbd_dev[i].tx_lock);
 		nbd_blksizes[i] = 1024;
 		nbd_blksize_bits[i] = 10;
-		nbd_bytesizes[i] = 0x7ffffc00; /* 2GB */
+		nbd_bytesizes[i] = ((u64)0x7ffffc00) << 10; /* 2TB */
 		nbd_sizes[i] = nbd_bytesizes[i] >> BLOCK_SIZE_BITS;
 		register_disk(NULL, MKDEV(MAJOR_NR,i), 1, &nbd_fops,
 				nbd_bytesizes[i]>>9);

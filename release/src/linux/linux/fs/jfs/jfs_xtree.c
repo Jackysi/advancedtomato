@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) International Business Machines Corp., 2000-2002
+ *   Copyright (C) International Business Machines Corp., 2000-2004
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -60,21 +60,21 @@
 #define XT_PAGE(IP, MP) BT_PAGE(IP, MP, xtpage_t, i_xtroot)
 
 /* get page buffer for specified block address */
+/* ToDo: Replace this ugly macro with a function */
 #define XT_GETPAGE(IP, BN, MP, SIZE, P, RC)\
 {\
-        BT_GETPAGE(IP, BN, MP, xtpage_t, SIZE, P, RC, i_xtroot)\
-        if (!(RC))\
-        {\
-                if ((le16_to_cpu((P)->header.nextindex) < XTENTRYSTART) ||\
-                    (le16_to_cpu((P)->header.nextindex) > le16_to_cpu((P)->header.maxentry)) ||\
-                    (le16_to_cpu((P)->header.maxentry) > (((BN)==0)?XTROOTMAXSLOT:PSIZE>>L2XTSLOTSIZE)))\
-                {\
-                        jERROR(1,("XT_GETPAGE: xtree page corrupt\n"));\
+	BT_GETPAGE(IP, BN, MP, xtpage_t, SIZE, P, RC, i_xtroot)\
+	if (!(RC))\
+	{\
+		if ((le16_to_cpu((P)->header.nextindex) < XTENTRYSTART) ||\
+		    (le16_to_cpu((P)->header.nextindex) > le16_to_cpu((P)->header.maxentry)) ||\
+		    (le16_to_cpu((P)->header.maxentry) > (((BN)==0)?XTROOTMAXSLOT:PSIZE>>L2XTSLOTSIZE)))\
+		{\
+			jfs_error((IP)->i_sb, "XT_GETPAGE: xtree page corrupt");\
 			BT_PUTPAGE(MP);\
-			updateSuper((IP)->i_sb, FM_DIRTY);\
 			MP = NULL;\
-                        RC = EIO;\
-                }\
+			RC = -EIO;\
+		}\
         }\
 }
 
@@ -169,9 +169,8 @@ int xtLookup(struct inode *ip, s64 lstart,
 		size = ((u64) ip->i_size + (JFS_SBI(ip->i_sb)->bsize - 1)) >>
 		    JFS_SBI(ip->i_sb)->l2bsize;
 		if (lstart >= size) {
-			jERROR(1,
-			       ("xtLookup: lstart (0x%lx) >= size (0x%lx)\n",
-				(ulong) lstart, (ulong) size));
+			jfs_err("xtLookup: lstart (0x%lx) >= size (0x%lx)",
+				(ulong) lstart, (ulong) size);
 			return 0;
 		}
 	}
@@ -181,7 +180,7 @@ int xtLookup(struct inode *ip, s64 lstart,
 	 */
 //search:
 	if ((rc = xtSearch(ip, lstart, &cmp, &btstack, 0))) {
-		jERROR(1, ("xtLookup: xtSearch returned %d\n", rc));
+		jfs_err("xtLookup: xtSearch returned %d", rc);
 		return rc;
 	}
 
@@ -198,10 +197,8 @@ int xtLookup(struct inode *ip, s64 lstart,
 	 * lstart is a page start address,
 	 * i.e., lstart cannot start in a hole;
 	 */
-	if (cmp) {
-		jFYI(1, ("xtLookup: cmp = %d\n", cmp));
+	if (cmp)
 		goto out;
-	}
 
 	/*
 	 * lxd covered by xad
@@ -211,10 +208,6 @@ int xtLookup(struct inode *ip, s64 lstart,
 	xlen = lengthXAD(xad);
 	xend = xoff + xlen;
 	xaddr = addressXAD(xad);
-
-	jEVENT(0,
-	       ("index = %d, xoff = 0x%lx, xlen = 0x%x, xaddr = 0x%lx\n",
-		index, (ulong) xoff, xlen, (ulong) xaddr));
 
 	/* initialize new pxd */
 	*pflag = xad->flag;
@@ -802,8 +795,7 @@ int xtInsert(tid_t tid,		/* transaction id */
 	struct tlock *tlck;
 	struct xtlock *xtlck;
 
-	jFYI(1,
-	     ("xtInsert: nxoff:0x%lx nxlen:0x%x\n", (ulong) xoff, xlen));
+	jfs_info("xtInsert: nxoff:0x%lx nxlen:0x%x", (ulong) xoff, xlen);
 
 	/*
 	 *      search for the entry location at which to insert:
@@ -822,7 +814,7 @@ int xtInsert(tid_t tid,		/* transaction id */
 	/* This test must follow XT_GETSEARCH since mp must be valid if
 	 * we branch to out: */
 	if (cmp == 0) {
-		rc = EEXIST;
+		rc = -EEXIST;
 		goto out;
 	}
 
@@ -959,7 +951,7 @@ xtSplitUp(tid_t tid,
 
 	/* is inode xtree root extension/inline EA area free ? */
 	if ((sp->header.flag & BT_ROOT) && (!S_ISDIR(ip->i_mode)) &&
-	    (sp->header.maxentry < cpu_to_le16(XTROOTMAXSLOT)) &&
+	    (le16_to_cpu(sp->header.maxentry) < XTROOTMAXSLOT) &&
 	    (JFS_IP(ip)->mode2 & INLINEEA)) {
 		sp->header.maxentry = cpu_to_le16(XTROOTMAXSLOT);
 		JFS_IP(ip)->mode2 &= ~INLINEEA;
@@ -1040,11 +1032,11 @@ xtSplitUp(tid_t tid,
 	rc = (sp->header.flag & BT_ROOT) ?
 	    xtSplitRoot(tid, ip, split, &rmp) :
 	    xtSplitPage(tid, ip, split, &rmp, &rbn);
-	if (rc)
-		return EIO;
 
 	XT_PUTPAGE(smp);
 
+	if (rc)
+		return -EIO;
 	/*
 	 * propagate up the router entry for the leaf page just split
 	 *
@@ -1079,8 +1071,10 @@ xtSplitUp(tid_t tid,
 		 */
 		/* get/pin the parent page <sp> */
 		XT_GETPAGE(ip, parent->bn, smp, PSIZE, sp, rc);
-		if (rc)
-			goto errout2;
+		if (rc) {
+			XT_PUTPAGE(rcmp);
+			return rc;
+		}
 
 		/*
 		 * The new key entry goes ONE AFTER the index of parent entry,
@@ -1114,8 +1108,10 @@ xtSplitUp(tid_t tid,
 			rc = (sp->header.flag & BT_ROOT) ?
 			    xtSplitRoot(tid, ip, split, &rmp) :
 			    xtSplitPage(tid, ip, split, &rmp, &rbn);
-			if (rc)
-				goto errout1;
+			if (rc) {
+				XT_PUTPAGE(smp);
+				return rc;
+			}
 
 			XT_PUTPAGE(smp);
 			/* keep new child page <rp> pinned */
@@ -1178,19 +1174,6 @@ xtSplitUp(tid_t tid,
 	XT_PUTPAGE(rmp);
 
 	return 0;
-
-	/*
-	 * If something fails in the above loop we were already walking back
-	 * up the tree and the tree is now inconsistent.
-	 * release all pages we're holding.
-	 */
-      errout1:
-	XT_PUTPAGE(smp);
-
-      errout2:
-	XT_PUTPAGE(rcmp);
-
-	return rc;
 }
 
 
@@ -1246,10 +1229,9 @@ xtSplitPage(tid_t tid, struct inode *ip,
 	rbn = addressPXD(pxd);
 	rmp = get_metapage(ip, rbn, PSIZE, 1);
 	if (rmp == NULL)
-		return EIO;
+		return -EIO;
 
-	jEVENT(0,
-	       ("xtSplitPage: ip:0x%p smp:0x%p rmp:0x%p\n", ip, smp, rmp));
+	jfs_info("xtSplitPage: ip:0x%p smp:0x%p rmp:0x%p", ip, smp, rmp);
 
 	BT_MARK_DIRTY(rmp, ip);
 	/*
@@ -1324,7 +1306,7 @@ xtSplitPage(tid_t tid, struct inode *ip,
 
 		ip->i_blocks += LBLK2PBLK(ip->i_sb, lengthPXD(pxd));
 
-		jEVENT(0, ("xtSplitPage: sp:0x%p rp:0x%p\n", sp, rp));
+		jfs_info("xtSplitPage: sp:0x%p rp:0x%p", sp, rp);
 		return 0;
 	}
 
@@ -1440,7 +1422,7 @@ xtSplitPage(tid_t tid, struct inode *ip,
 
 	ip->i_blocks += LBLK2PBLK(ip->i_sb, lengthPXD(pxd));
 
-	jEVENT(0, ("xtSplitPage: sp:0x%p rp:0x%p\n", sp, rp));
+	jfs_info("xtSplitPage: sp:0x%p rp:0x%p", sp, rp);
 	return rc;
 }
 
@@ -1494,9 +1476,9 @@ xtSplitRoot(tid_t tid,
 	rbn = addressPXD(pxd);
 	rmp = get_metapage(ip, rbn, PSIZE, 1);
 	if (rmp == NULL)
-		return EIO;
+		return -EIO;
 
-	jEVENT(0, ("xtSplitRoot: ip:0x%p rmp:0x%p\n", ip, rmp));
+	jfs_info("xtSplitRoot: ip:0x%p rmp:0x%p", ip, rmp);
 
 	/*
 	 * acquire a transaction lock on the new right page;
@@ -1581,7 +1563,7 @@ xtSplitRoot(tid_t tid,
 
 	ip->i_blocks += LBLK2PBLK(ip->i_sb, lengthPXD(pxd));
 
-	jEVENT(0, ("xtSplitRoot: sp:0x%p rp:0x%p\n", sp, rp));
+	jfs_info("xtSplitRoot: sp:0x%p rp:0x%p", sp, rp);
 	return 0;
 }
 
@@ -1613,25 +1595,29 @@ int xtExtend(tid_t tid,		/* transaction id */
 	s64 xaddr;
 	struct tlock *tlck;
 	struct xtlock *xtlck = 0;
-	int rootsplit = 0;
 
-	jFYI(1,
-	     ("xtExtend: nxoff:0x%lx nxlen:0x%x\n", (ulong) xoff, xlen));
+	jfs_info("xtExtend: nxoff:0x%lx nxlen:0x%x", (ulong) xoff, xlen);
 
 	/* there must exist extent to be extended */
 	if ((rc = xtSearch(ip, xoff - 1, &cmp, &btstack, XT_INSERT)))
 		return rc;
-	assert(cmp == 0);
 
 	/* retrieve search result */
 	XT_GETSEARCH(ip, btstack.top, bn, mp, p, index);
 
+	if (cmp != 0) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb, "xtExtend: xtSearch did not find extent");
+		return -EIO;
+	}
+
 	/* extension must be contiguous */
 	xad = &p->xad[index];
-	jFYI(0, ("xtExtend: xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
-		 (ulong) offsetXAD(xad), lengthXAD(xad),
-		 (ulong) addressXAD(xad)));
-	assert((offsetXAD(xad) + lengthXAD(xad)) == xoff);
+	if ((offsetXAD(xad) + lengthXAD(xad)) != xoff) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb, "xtExtend: extension is not contiguous");
+		return -EIO;
+	}
 
 	/*
 	 * acquire a transaction lock on the leaf page;
@@ -1664,8 +1650,6 @@ int xtExtend(tid_t tid,		/* transaction id */
 	 * The xtSplitUp() will insert the entry and unpin the leaf page.
 	 */
 	if (nextindex == le16_to_cpu(p->header.maxentry)) {
-		rootsplit = p->header.flag & BT_ROOT;
-
 		/* xtSpliUp() unpins leaf pages */
 		split.mp = mp;
 		split.index = index + 1;
@@ -1677,31 +1661,33 @@ int xtExtend(tid_t tid,		/* transaction id */
 		if ((rc = xtSplitUp(tid, ip, &split, &btstack)))
 			return rc;
 
+		/* get back old page */
+		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+		if (rc)
+			return rc;
 		/*
 		 * if leaf root has been split, original root has been
 		 * copied to new child page, i.e., original entry now
 		 * resides on the new child page;
 		 */
-		if (rootsplit) {
-			if (p->header.nextindex ==
-			    cpu_to_le16(XTENTRYSTART + 1)) {
-				xad = &p->xad[XTENTRYSTART];
-				bn = addressXAD(xad);
+		if (p->header.flag & BT_INTERNAL) {
+			ASSERT(p->header.nextindex ==
+			       cpu_to_le16(XTENTRYSTART + 1));
+			xad = &p->xad[XTENTRYSTART];
+			bn = addressXAD(xad);
+			XT_PUTPAGE(mp);
 
-				/* get new child page */
-				XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
-
-				BT_MARK_DIRTY(mp, ip);
-				if (!test_cflag(COMMIT_Nolink, ip)) {
-					tlck = txLock(tid, ip, mp,
-						      tlckXTREE |
-						      tlckGROW);
-					xtlck = (struct xtlock *) & tlck->lock;
-				}
-			}
-		} else
-			/* get back old page */
+			/* get new child page */
 			XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+			if (rc)
+				return rc;
+
+			BT_MARK_DIRTY(mp, ip);
+			if (!test_cflag(COMMIT_Nolink, ip)) {
+				tlck = txLock(tid, ip, mp, tlckXTREE|tlckGROW);
+				xtlck = (struct xtlock *) & tlck->lock;
+			}
+		}
 	}
 	/*
 	 *      insert the new entry into the leaf page
@@ -1742,7 +1728,7 @@ int xtExtend(tid_t tid,		/* transaction id */
 	return rc;
 }
 
-
+#ifdef _NOTYET
 /*
  *      xtTailgate()
  *
@@ -1774,7 +1760,6 @@ int xtTailgate(tid_t tid,		/* transaction id */
 	struct xtlock *xtlck = 0;
 	struct tlock *mtlck;
 	struct maplock *pxdlock;
-	int rootsplit = 0;
 
 /*
 printf("xtTailgate: nxoff:0x%lx nxlen:0x%x nxaddr:0x%lx\n",
@@ -1784,14 +1769,24 @@ printf("xtTailgate: nxoff:0x%lx nxlen:0x%x nxaddr:0x%lx\n",
 	/* there must exist extent to be tailgated */
 	if ((rc = xtSearch(ip, xoff, &cmp, &btstack, XT_INSERT)))
 		return rc;
-	assert(cmp == 0);
 
 	/* retrieve search result */
 	XT_GETSEARCH(ip, btstack.top, bn, mp, p, index);
 
+	if (cmp != 0) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb, "xtTailgate: couldn't find extent");
+		return -EIO;
+	}
+
 	/* entry found must be last entry */
 	nextindex = le16_to_cpu(p->header.nextindex);
-	assert(index == nextindex - 1);
+	if (index != nextindex - 1) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb,
+			  "xtTailgate: the entry found is not the last entry");
+		return -EIO;
+	}
 
 	BT_MARK_DIRTY(mp, ip);
 	/*
@@ -1822,8 +1817,6 @@ printf("xtTailgate: xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
 	 * The xtSplitUp() will insert the entry and unpin the leaf page.
 	 */
 	if (nextindex == le16_to_cpu(p->header.maxentry)) {
-		rootsplit = p->header.flag & BT_ROOT;
-
 		/* xtSpliUp() unpins leaf pages */
 		split.mp = mp;
 		split.index = index + 1;
@@ -1835,31 +1828,33 @@ printf("xtTailgate: xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
 		if ((rc = xtSplitUp(tid, ip, &split, &btstack)))
 			return rc;
 
+		/* get back old page */
+		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+		if (rc)
+			return rc;
 		/*
 		 * if leaf root has been split, original root has been
 		 * copied to new child page, i.e., original entry now
 		 * resides on the new child page;
 		 */
-		if (rootsplit) {
-			if (p->header.nextindex ==
-			    cpu_to_le16(XTENTRYSTART + 1)) {
-				xad = &p->xad[XTENTRYSTART];
-				bn = addressXAD(xad);
+		if (p->header.flag & BT_INTERNAL) {
+			ASSERT(p->header.nextindex ==
+			       cpu_to_le16(XTENTRYSTART + 1));
+			xad = &p->xad[XTENTRYSTART];
+			bn = addressXAD(xad);
+			XT_PUTPAGE(mp);
 
-				/* get new child page */
-				XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
-
-				BT_MARK_DIRTY(mp, ip);
-				if (!test_cflag(COMMIT_Nolink, ip)) {
-					tlck = txLock(tid, ip, mp,
-						      tlckXTREE |
-						      tlckGROW);
-					xtlck = (struct xtlock *) & tlck->lock;
-				}
-			}
-		} else
-			/* get back old page */
+			/* get new child page */
 			XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+			if (rc)
+				return rc;
+
+			BT_MARK_DIRTY(mp, ip);
+			if (!test_cflag(COMMIT_Nolink, ip)) {
+				tlck = txLock(tid, ip, mp, tlckXTREE|tlckGROW);
+				xtlck = (struct xtlock *) & tlck->lock;
+			}
+		}
 	}
 	/*
 	 *      insert the new entry into the leaf page
@@ -1893,10 +1888,6 @@ printf("xtTailgate: xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
 			PXDlength(&pxdlock->pxd, rlen);
 			pxdlock->index = 1;
 		}
-		jEVENT(0,
-		       ("xtTailgate: free extent xaddr:0x%lx xlen:0x%x\n",
-			(ulong) addressPXD(&pxdlock->pxd),
-			lengthPXD(&pxdlock->pxd)));
 	} else
 		/* free from WMAP */
 		dbFree(ip, addressXAD(xad) + llen, (s64) rlen);
@@ -1920,7 +1911,7 @@ printf("xtTailgate: xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
 
 	return rc;
 }
-
+#endif /* _NOTYET */
 
 /*
  *      xtUpdate()
@@ -1952,22 +1943,24 @@ int xtUpdate(tid_t tid, struct inode *ip, xad_t * nxad)
 	s64 nxaddr, xaddr;
 	struct tlock *tlck;
 	struct xtlock *xtlck = 0;
-	int rootsplit = 0, newpage = 0;
+	int newpage = 0;
 
 	/* there must exist extent to be tailgated */
 	nxoff = offsetXAD(nxad);
 	nxlen = lengthXAD(nxad);
 	nxaddr = addressXAD(nxad);
-/*
-printf("xtUpdate: nxflag:0x%x nxoff:0x%lx nxlen:0x%x nxaddr:0x%lx\n",
-        nxad->flag, (ulong)nxoff, nxlen, (ulong)nxaddr);
-*/
+
 	if ((rc = xtSearch(ip, nxoff, &cmp, &btstack, XT_INSERT)))
 		return rc;
-	assert(cmp == 0);
 
 	/* retrieve search result */
 	XT_GETSEARCH(ip, btstack.top, bn, mp, p, index0);
+
+	if (cmp != 0) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb, "xtUpdate: Could not find extent");
+		return -EIO;
+	}
 
 	BT_MARK_DIRTY(mp, ip);
 	/*
@@ -1983,14 +1976,15 @@ printf("xtUpdate: nxflag:0x%x nxoff:0x%lx nxlen:0x%x nxaddr:0x%lx\n",
 	xoff = offsetXAD(xad);
 	xlen = lengthXAD(xad);
 	xaddr = addressXAD(xad);
-/*
-printf("xtUpdate: xflag:0x%x xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
-        xflag, (ulong)xoff, xlen, (ulong)xaddr);
-*/
 
 	/* nXAD must be completely contained within XAD */
-	assert(xoff <= nxoff);
-	assert(nxoff + nxlen <= xoff + xlen);
+	if ((xoff > nxoff) ||
+	    (nxoff + nxlen > xoff + xlen)) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb,
+			  "xtUpdate: nXAD in not completely contained within XAD");
+		return -EIO;
+	}
 
 	index = index0;
 	newindex = index + 1;
@@ -2135,7 +2129,11 @@ printf("xtUpdate: xflag:0x%x xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
 	} else if (xoff == nxoff)
 		goto out;
 
-	assert(xoff < nxoff);
+	if (xoff >= nxoff) {
+		XT_PUTPAGE(mp);
+		jfs_error(ip->i_sb, "xtUpdate: xoff >= nxoff");
+		return -EIO;
+	}
 /* #endif _JFS_WIP_COALESCE */
 
 	/*
@@ -2152,10 +2150,6 @@ printf("xtUpdate: xflag:0x%x xoff:0x%lx xlen:0x%x xaddr:0x%lx\n",
 
 	/* insert nXAD:recorded */
 	if (nextindex == le16_to_cpu(p->header.maxentry)) {
-/*
-printf("xtUpdate.updateRight.split p:0x%p\n", p);
-*/
-		rootsplit = p->header.flag & BT_ROOT;
 
 		/* xtSpliUp() unpins leaf pages */
 		split.mp = mp;
@@ -2168,32 +2162,33 @@ printf("xtUpdate.updateRight.split p:0x%p\n", p);
 		if ((rc = xtSplitUp(tid, ip, &split, &btstack)))
 			return rc;
 
+		/* get back old page */
+		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+		if (rc)
+			return rc;
 		/*
 		 * if leaf root has been split, original root has been
 		 * copied to new child page, i.e., original entry now
 		 * resides on the new child page;
 		 */
-		if (rootsplit) {
-			if (p->header.nextindex ==
-			    cpu_to_le16(XTENTRYSTART + 1)) {
-				xad = &p->xad[XTENTRYSTART];
-				bn = addressXAD(xad);
+		if (p->header.flag & BT_INTERNAL) {
+			ASSERT(p->header.nextindex ==
+			       cpu_to_le16(XTENTRYSTART + 1));
+			xad = &p->xad[XTENTRYSTART];
+			bn = addressXAD(xad);
+			XT_PUTPAGE(mp);
 
-				/* get new child page */
-				XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+			/* get new child page */
+			XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+			if (rc)
+				return rc;
 
-				BT_MARK_DIRTY(mp, ip);
-				if (!test_cflag(COMMIT_Nolink, ip)) {
-					tlck = txLock(tid, ip, mp,
-						      tlckXTREE |
-						      tlckGROW);
-					xtlck = (struct xtlock *) & tlck->lock;
-				}
+			BT_MARK_DIRTY(mp, ip);
+			if (!test_cflag(COMMIT_Nolink, ip)) {
+				tlck = txLock(tid, ip, mp, tlckXTREE|tlckGROW);
+				xtlck = (struct xtlock *) & tlck->lock;
 			}
 		} else {
-			/* get back old page */
-			XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
-
 			/* is nXAD on new page ? */
 			if (newindex >
 			    (le16_to_cpu(p->header.maxentry) >> 1)) {
@@ -2246,6 +2241,8 @@ printf("xtUpdate.updateRight.split p:0x%p\n", p);
 
 		/* get new right page */
 		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+		if (rc)
+			return rc;
 
 		BT_MARK_DIRTY(mp, ip);
 		if (!test_cflag(COMMIT_Nolink, ip)) {
@@ -2265,18 +2262,26 @@ printf("xtUpdate.updateRight.split p:0x%p\n", p);
 
 	/* recompute split pages */
 	if (nextindex == le16_to_cpu(p->header.maxentry)) {
-/*
-printf("xtUpdate: updateRight+Left recompute split pages: p:0x%p\n", p);
-*/
 		XT_PUTPAGE(mp);
 
 		if ((rc = xtSearch(ip, nxoff, &cmp, &btstack, XT_INSERT)))
 			return rc;
-		assert(cmp == 0);
 
 		/* retrieve search result */
 		XT_GETSEARCH(ip, btstack.top, bn, mp, p, index0);
-		assert(index0 == index);
+
+		if (cmp != 0) {
+			XT_PUTPAGE(mp);
+			jfs_error(ip->i_sb, "xtUpdate: xtSearch failed");
+			return -EIO;
+		}
+
+		if (index0 != index) {
+			XT_PUTPAGE(mp);
+			jfs_error(ip->i_sb,
+				  "xtUpdate: unexpected value of index");
+			return -EIO;
+		}
 	}
 
 	/*
@@ -2297,8 +2302,6 @@ printf("xtUpdate: updateRight+Left recompute split pages: p:0x%p\n", p);
 	xlen = xlen - nxlen;
 	xaddr = xaddr + nxlen;
 	if (nextindex == le16_to_cpu(p->header.maxentry)) {
-		rootsplit = p->header.flag & BT_ROOT;
-
 /*
 printf("xtUpdate.updateLeft.split p:0x%p\n", p);
 */
@@ -2313,31 +2316,34 @@ printf("xtUpdate.updateLeft.split p:0x%p\n", p);
 		if ((rc = xtSplitUp(tid, ip, &split, &btstack)))
 			return rc;
 
+		/* get back old page */
+		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+		if (rc)
+			return rc;
+
 		/*
 		 * if leaf root has been split, original root has been
 		 * copied to new child page, i.e., original entry now
 		 * resides on the new child page;
 		 */
-		if (rootsplit) {
-			if (p->header.nextindex ==
-			    cpu_to_le16(XTENTRYSTART + 1)) {
-				xad = &p->xad[XTENTRYSTART];
-				bn = addressXAD(xad);
+		if (p->header.flag & BT_INTERNAL) {
+			ASSERT(p->header.nextindex ==
+			       cpu_to_le16(XTENTRYSTART + 1));
+			xad = &p->xad[XTENTRYSTART];
+			bn = addressXAD(xad);
+			XT_PUTPAGE(mp);
 
-				/* get new child page */
-				XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
-
-				BT_MARK_DIRTY(mp, ip);
-				if (!test_cflag(COMMIT_Nolink, ip)) {
-					tlck = txLock(tid, ip, mp,
-						      tlckXTREE |
-						      tlckGROW);
-					xtlck = (struct xtlock *) & tlck->lock;
-				}
-			}
-		} else
-			/* get back old page */
+			/* get new child page */
 			XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
+			if (rc)
+				return rc;
+
+			BT_MARK_DIRTY(mp, ip);
+			if (!test_cflag(COMMIT_Nolink, ip)) {
+				tlck = txLock(tid, ip, mp, tlckXTREE|tlckGROW);
+				xtlck = (struct xtlock *) & tlck->lock;
+			}
+		}
 	} else {
 		/* if insert into middle, shift right remaining entries */
 		if (newindex < nextindex)
@@ -2408,9 +2414,8 @@ int xtAppend(tid_t tid,		/* transaction id */
 
 	xaddr = *xaddrp;
 	xlen = *xlenp;
-	jEVENT(0,
-	       ("xtAppend: xoff:0x%lx maxblocks:%d xlen:%d xaddr:0x%lx\n",
-		(ulong) xoff, maxblocks, xlen, (ulong) xaddr));
+	jfs_info("xtAppend: xoff:0x%lx maxblocks:%d xlen:%d xaddr:0x%lx",
+		 (ulong) xoff, maxblocks, xlen, (ulong) xaddr);
 
 	/*
 	 *      search for the entry location at which to insert:
@@ -2427,7 +2432,7 @@ int xtAppend(tid_t tid,		/* transaction id */
 	XT_GETSEARCH(ip, btstack.top, bn, mp, p, index);
 
 	if (cmp == 0) {
-		rc = EEXIST;
+		rc = -EEXIST;
 		goto out;
 	}
 //insert:
@@ -2575,7 +2580,7 @@ int xtDelete(tid_t tid, struct inode *ip, s64 xoff, s32 xlen, int flag)
 	if (cmp) {
 		/* unpin the leaf page */
 		XT_PUTPAGE(mp);
-		return ENOENT;
+		return -ENOENT;
 	}
 
 	/*
@@ -2655,8 +2660,10 @@ xtDeleteUp(tid_t tid, struct inode *ip,
 	/*
 	 * free non-root leaf page
 	 */
-	if ((rc = xtRelink(tid, ip, fp)))
+	if ((rc = xtRelink(tid, ip, fp))) {
+		XT_PUTPAGE(fmp);
 		return rc;
+	}
 
 	xaddr = addressPXD(&fp->header.self);
 	xlen = lengthPXD(&fp->header.self);
@@ -2698,7 +2705,7 @@ xtDeleteUp(tid_t tid, struct inode *ip,
 				p->header.nextindex =
 				    cpu_to_le16(XTENTRYSTART);
 
-				/* XT_PUTPAGE(fmp); */
+				/* XT_PUTPAGE(mp); */
 
 				break;
 			} else {
@@ -2712,7 +2719,7 @@ xtDeleteUp(tid_t tid, struct inode *ip,
 				       (s64) JFS_SBI(ip->i_sb)->nbperpage);
 
 				/* unpin/free the buffer page */
-				discard_metapage(fmp);
+				discard_metapage(mp);
 
 				/* propagate up */
 				continue;
@@ -2747,9 +2754,8 @@ xtDeleteUp(tid_t tid, struct inode *ip,
 			p->header.nextindex =
 			    cpu_to_le16(le16_to_cpu(p->header.nextindex) -
 					1);
-			jEVENT(0,
-			       ("xtDeleteUp(entry): 0x%lx[%d]\n",
-				(ulong) parent->bn, index));
+			jfs_info("xtDeleteUp(entry): 0x%lx[%d]",
+				 (ulong) parent->bn, index);
 		}
 
 		/* unpin the parent page */
@@ -2774,6 +2780,7 @@ xtDeleteUp(tid_t tid, struct inode *ip,
  *              txCommit() to commit all the allocation before call
  *              this routine.
  */
+int
 xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 	   s64 nxaddr,		/* new xaddr */
 	   int xtype)
@@ -2807,12 +2814,10 @@ xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 	/* validate extent offset */
 	offset = xoff << JFS_SBI(ip->i_sb)->l2bsize;
 	if (offset >= ip->i_size)
-		return ESTALE;	/* stale extent */
+		return -ESTALE;	/* stale extent */
 
-	jEVENT(0,
-	       ("xtRelocate: xtype:%d xoff:0x%lx xlen:0x%x xaddr:0x%lx:0x%lx\n",
-		xtype, (ulong) xoff, xlen, (ulong) oxaddr,
-		(ulong) nxaddr));
+	jfs_info("xtRelocate: xtype:%d xoff:0x%lx xlen:0x%x xaddr:0x%lx:0x%lx",
+		 xtype, (ulong) xoff, xlen, (ulong) oxaddr, (ulong) nxaddr);
 
 	/*
 	 *      1. get and validate the parent xtpage/xad entry
@@ -2823,19 +2828,20 @@ xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 		rc = xtSearch(ip, xoff, &cmp, &btstack, 0);
 		if (rc)
 			return rc;
-		if (cmp) {
-			XT_PUTPAGE(pmp);
-			return ESTALE;
-		}
 
 		/* retrieve search result */
 		XT_GETSEARCH(ip, btstack.top, bn, pmp, pp, index);
+
+		if (cmp) {
+			XT_PUTPAGE(pmp);
+			return -ESTALE;
+		}
 
 		/* validate for exact match with a single entry */
 		xad = &pp->xad[index];
 		if (addressXAD(xad) != oxaddr || lengthXAD(xad) != xlen) {
 			XT_PUTPAGE(pmp);
-			return ESTALE;
+			return -ESTALE;
 		}
 	} else {		/* (xtype == XTPAGE) */
 
@@ -2843,19 +2849,20 @@ xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 		rc = xtSearchNode(ip, oxad, &cmp, &btstack, 0);
 		if (rc)
 			return rc;
-		if (cmp) {
-			XT_PUTPAGE(pmp);
-			return ESTALE;
-		}
 
 		/* retrieve search result */
 		XT_GETSEARCH(ip, btstack.top, bn, pmp, pp, index);
+
+		if (cmp) {
+			XT_PUTPAGE(pmp);
+			return -ESTALE;
+		}
 
 		/* xtSearchNode() validated for exact match with a single entry
 		 */
 		xad = &pp->xad[index];
 	}
-	jEVENT(0, ("xtRelocate: parent xad entry validated.\n"));
+	jfs_info("xtRelocate: parent xad entry validated.");
 
 	/*
 	 *      2. relocate the extent
@@ -2924,9 +2931,11 @@ xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 		}
 
 		/* get back parent page */
-		rc = xtSearch(ip, xoff, &cmp, &btstack, 0);
+		if ((rc = xtSearch(ip, xoff, &cmp, &btstack, 0)))
+			return rc;
+
 		XT_GETSEARCH(ip, btstack.top, bn, pmp, pp, index);
-		jEVENT(0, ("xtRelocate: target data extent relocated.\n"));
+		jfs_info("xtRelocate: target data extent relocated.");
 	} else {		/* (xtype  == XTPAGE) */
 
 		/*
@@ -3026,7 +3035,7 @@ xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 
 		/* unpin the target page to new homeward bound */
 		XT_PUTPAGE(mp);
-		jEVENT(0, ("xtRelocate: target xtpage relocated.\n"));
+		jfs_info("xtRelocate: target xtpage relocated.");
 	}
 
 	/*
@@ -3067,7 +3076,7 @@ xtRelocate(tid_t tid, struct inode * ip, xad_t * oxad,	/* old XAD */
 	 * update which will write LOG_REDOPAGE and update bmap for
 	 * allocation of XAD_NEW destination extent;
 	 */
-	jEVENT(0, ("xtRelocate: update parent xad entry.\n"));
+	jfs_info("xtRelocate: update parent xad entry.");
 	BT_MARK_DIRTY(pmp, ip);
 	tlck = txLock(tid, ip, pmp, tlckXTREE | tlckGROW);
 	xtlck = (struct xtlock *) & tlck->lock;
@@ -3147,8 +3156,10 @@ static int xtSearchNode(struct inode *ip, xad_t * xad,	/* required XAD entry */
 		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
 		if (rc)
 			return rc;
-		if (p->header.flag & BT_LEAF)
-			return ESTALE;
+		if (p->header.flag & BT_LEAF) {
+			XT_PUTPAGE(mp);
+			return -ESTALE;
+		}
 
 		lim = le16_to_cpu(p->header.nextindex) - XTENTRYSTART;
 
@@ -3289,14 +3300,13 @@ static int xtRelink(tid_t tid, struct inode *ip, xtpage_t * p)
 void xtInitRoot(tid_t tid, struct inode *ip)
 {
 	xtpage_t *p;
-	struct tlock *tlck;
 
 	/*
 	 * acquire a transaction lock on the root
 	 *
 	 * action:
 	 */
-	tlck = txLock(tid, ip, (struct metapage *) &JFS_IP(ip)->bxflag,
+	txLock(tid, ip, (struct metapage *) &JFS_IP(ip)->bxflag,
 		      tlckXTREE | tlckNEW);
 	p = &JFS_IP(ip)->i_xtroot;
 
@@ -3461,7 +3471,7 @@ s64 xtTruncate(tid_t tid, struct inode *ip, s64 newsize, int flag)
       getPage:
 	XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
 	if (rc)
-		return -rc;
+		return rc;
 
 	/* process entries backward from last index */
 	index = le16_to_cpu(p->header.nextindex) - 1;
@@ -3477,7 +3487,17 @@ s64 xtTruncate(tid_t tid, struct inode *ip, s64 newsize, int flag)
 	 * a page that was formerly to the right, let's make sure that the
 	 * next pointer is zero.
 	 */
-	p->header.next = 0;
+	if (p->header.next) {
+		if (log)
+			/*
+			 * Make sure this change to the header is logged.
+			 * If we really truncate this leaf, the flag
+			 * will be changed to tlckTRUNCATE
+			 */
+			tlck = txLock(tid, ip, mp, tlckXTREE|tlckGROW);
+		BT_MARK_DIRTY(mp, ip);
+		p->header.next = 0;
+	}
 
 	freed = 0;
 
@@ -3517,6 +3537,13 @@ s64 xtTruncate(tid_t tid, struct inode *ip, s64 newsize, int flag)
 		xlen = lengthXAD(xad);
 		xaddr = addressXAD(xad);
 
+		/*
+		 * The "data" for a directory is indexed by the block
+		 * device's address space.  This metadata must be invalidated
+		 * here
+		 */
+		if (S_ISDIR(ip->i_mode) && (teof == 0))
+			invalidate_xad_metapages(ip, *xad);
 		/*
 		 * entry beyond eof: continue scan of current page
 		 *          xad
@@ -3682,7 +3709,7 @@ s64 xtTruncate(tid_t tid, struct inode *ip, s64 newsize, int flag)
 	bn = parent->bn;
 	XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
 	if (rc)
-		return -rc;
+		return rc;
 
 	index = parent->index;
 
@@ -3939,9 +3966,16 @@ s64 xtTruncate_pmap(tid_t tid, struct inode *ip, s64 committed_size)
 		xoff = (committed_size >> JFS_SBI(ip->i_sb)->l2bsize) - 1;
 		rc = xtSearch(ip, xoff, &cmp, &btstack, 0);
 		if (rc)
-			return -rc;
-		assert(cmp == 0);
+			return rc;
+
 		XT_GETSEARCH(ip, btstack.top, bn, mp, p, index);
+
+		if (cmp != 0) {
+			XT_PUTPAGE(mp);
+			jfs_error(ip->i_sb,
+				  "xtTruncate_pmap: did not find extent");
+			return -EIO;
+		}
 	} else {
 		/*
 		 * start with root
@@ -3956,7 +3990,7 @@ s64 xtTruncate_pmap(tid_t tid, struct inode *ip, s64 committed_size)
       getPage:
 		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
 		if (rc)
-			return -rc;
+			return rc;
 
 		/* process entries backward from last index */
 		index = le16_to_cpu(p->header.nextindex) - 1;
@@ -4001,7 +4035,7 @@ s64 xtTruncate_pmap(tid_t tid, struct inode *ip, s64 committed_size)
 	bn = parent->bn;
 	XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
 	if (rc)
-		return -rc;
+		return rc;
 
 	index = parent->index;
 
@@ -4189,16 +4223,9 @@ int xtDisplayTree(struct inode *ip)
 int xtDisplayPage(struct inode *ip, s64 bn, xtpage_t * p)
 {
 	int rc = 0;
-	struct metapage *mp;
 	xad_t *xad;
 	s64 xaddr, xoff;
 	int xlen, i, j;
-
-	if (p == NULL) {
-		XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
-		if (rc)
-			return rc;
-	}
 
 	/* display page control */
 	printf("bn:0x%lx flag:0x%x nextindex:%d\n",
@@ -4240,8 +4267,7 @@ int xtDisplayPage(struct inode *ip, s64 bn, xtpage_t * p)
  *      at the current entry at the current subtree root page
  *
  */
-int xtGather(t)
-btree_t *t;
+int xtGather(btree_t *t)
 {
 	int rc = 0;
 	xtpage_t *p;
@@ -4327,7 +4353,7 @@ btree_t *t;
 			bn = parent->bn;
 			XT_GETPAGE(ip, bn, mp, PSIZE, p, rc);
 			if (rc)
-				return EIO;
+				return -EIO;
 
 			/* first subroot page which
 			 * covers all new allocated blocks

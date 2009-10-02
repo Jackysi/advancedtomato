@@ -74,7 +74,7 @@ stext:
 	ldo             R%PA(_end)(%r4),%r4
 $bss_loop:
 	cmpb,<<,n       %r3,%r4,$bss_loop
-	stb,ma          %r0,1(%r3)
+	stw,ma          %r0,4(%r3)
 
 	/* Save away the arguments the boot loader passed in (32 bit args) */
 
@@ -95,7 +95,7 @@ $bss_loop:
 	mtctl		%r4,%cr24	/* Initialize kernel root pointer */
 	mtctl		%r4,%cr25	/* Initialize user root pointer */
 
-#if __PAGE_OFFSET != 0x10000000UL
+#if (__PAGE_OFFSET != 0x10000000UL)
 Error! Code below (the next two stw's) needs to be changed
 #endif
 

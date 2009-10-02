@@ -532,6 +532,29 @@ struct known_lcd_panels panels[] =
 		/* mode_backlight */
 		7
 	},
+	{ /* 8 */
+		320, /* xres */
+		240, /* yres */
+		16,  /* bpp */
+
+		"Hydrogen_3_NEC_panel_320x240",
+		/* mode_control */
+		LCD_CONTROL_BPP_16 | LCD_CONTROL_PC | LCD_CONTROL_PT | LCD_CONTROL_PO_00 | LCD_CONTROL_SBPPF_565,
+		/* mode_horztiming */
+		LCD_HORZTIMING_HN2_N(8) | LCD_HORZTIMING_HN1_N(16) | LCD_HORZTIMING_HPW_N(24) | LCD_HORZTIMING_PPL_N(240),
+		/* mode_verttiming */
+		LCD_VERTTIMING_VN2_N(5) | LCD_VERTTIMING_VN1_N(5) | LCD_VERTTIMING_VPW_N(2) | LCD_VERTTIMING_LPP_N(320),
+		/* mode_clkcontrol */
+		LCD_CLKCONTROL_PCD_N(1),
+		/* mode_pwmdiv */
+		0,
+		/* mode_pwmhi */
+		0,
+		/* mode_toyclksrc */
+		((1<<7) | (0<<6) | (1<<5)),
+		/* mode_backlight */
+		0,
+	},
 
 
 };

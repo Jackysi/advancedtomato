@@ -24,7 +24,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: msnd.h,v 1.1.1.4 2003/10/14 08:08:46 sparq Exp $
+ * $Id: msnd.h,v 1.36 1999/03/21 17:05:42 andrewtv Exp $
  *
  ********************************************************************/
 #ifndef __MSND_H
@@ -266,8 +266,8 @@ void				msnd_fifo_init(msnd_fifo *f);
 void				msnd_fifo_free(msnd_fifo *f);
 int				msnd_fifo_alloc(msnd_fifo *f, size_t n);
 void				msnd_fifo_make_empty(msnd_fifo *f);
-int				msnd_fifo_write(msnd_fifo *f, const char *buf, size_t len, int user);
-int				msnd_fifo_read(msnd_fifo *f, char *buf, size_t len, int user);
+int				msnd_fifo_write(msnd_fifo *f, const char *buf, size_t len);
+int				msnd_fifo_read(msnd_fifo *f, char *buf, size_t len);
 
 int				msnd_wait_TXDE(multisound_dev_t *dev);
 int				msnd_wait_HC0(multisound_dev_t *dev);

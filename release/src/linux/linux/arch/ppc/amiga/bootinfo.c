@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.bootinfo.c 1.5 05/17/01 18:14:20 cort
- */
-/*
  *  linux/arch/ppc/amiga/bootinfo.c
  *
  *  Extracted from arch/m68k/kernel/setup.c.
@@ -48,6 +45,7 @@ void __init parse_bootinfo(const struct bi_record *record)
 		    memory[num_memory].size = data[1];
 		    num_memory++;
 
+		    /* FIXME: duplicate for m68k drivers. */
 		    m68k_memory[m68k_realnum_memory].addr = data[0];
 		    m68k_memory[m68k_realnum_memory].size = data[1];
 		    m68k_realnum_memory++;

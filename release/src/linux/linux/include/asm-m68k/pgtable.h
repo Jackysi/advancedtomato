@@ -123,7 +123,7 @@ extern pte_t * __bad_pagetable(void);
  * It makes no sense to consider whether we cross a memory boundary if
  * we support just one physical chunk of memory.
  */
-extern inline int mm_end_of_chunk (unsigned long addr, int len)
+static inline int mm_end_of_chunk(unsigned long addr, int len)
 {
 	return 0;
 }
@@ -138,8 +138,8 @@ extern void kernel_set_cachemode(void *addr, unsigned long size, int cmode);
  * tables contain all the necessary information.  The Sun3 does, but
  * they are updated on demand.
  */
-extern inline void update_mmu_cache(struct vm_area_struct * vma,
-	unsigned long address, pte_t pte)
+static inline void update_mmu_cache(struct vm_area_struct *vma,
+				    unsigned long address, pte_t pte)
 {
 }
 
@@ -154,9 +154,9 @@ extern inline void update_mmu_cache(struct vm_area_struct * vma,
 #else
 
 /* Encode and de-code a swap entry (must be !pte_none(e) && !pte_present(e)) */
-#define SWP_TYPE(x)			(((x).val >> 1) & 0xff)
-#define SWP_OFFSET(x)			((x).val >> 10)
-#define SWP_ENTRY(type, offset)		((swp_entry_t) { ((type) << 1) | ((offset) << 10) })
+#define SWP_TYPE(x)			(((x).val >> 3) & 0x1ff)
+#define SWP_OFFSET(x)			((x).val >> 12)
+#define SWP_ENTRY(type, offset)		((swp_entry_t) { ((type) << 3) | ((offset) << 12) })
 #define pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
 #define swp_entry_to_pte(x)		((pte_t) { (x).val })
 

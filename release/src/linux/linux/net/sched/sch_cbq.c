@@ -37,6 +37,53 @@
 #include <net/pkt_sched.h>
 
 
+/*	Class-Based Queueing (CBQ) algorithm.
+	=======================================
+
+	Sources: [1] Sally Floyd and Van Jacobson, "Link-sharing and Resource
+	         Management Models for Packet Networks",
+		 IEEE/ACM Transactions on Networking, Vol.3, No.4, 1995
+
+	         [2] Sally Floyd, "Notes on CBQ and Guaranted Service", 1995
+
+	         [3] Sally Floyd, "Notes on Class-Based Queueing: Setting
+		 Parameters", 1996
+
+		 [4] Sally Floyd and Michael Speer, "Experimental Results
+		 for Class-Based Queueing", 1998, not published.
+
+	-----------------------------------------------------------------------
+
+	Algorithm skeleton was taken from NS simulator cbq.cc.
+	If someone wants to check this code against the LBL version,
+	he should take into account that ONLY the skeleton was borrowed,
+	the implementation is different. Particularly:
+
+	--- The WRR algorithm is different. Our version looks more
+        reasonable (I hope) and works when quanta are allowed to be
+        less than MTU, which is always the case when real time classes
+        have small rates. Note, that the statement of [3] is
+        incomplete, delay may actually be estimated even if class
+        per-round allotment is less than MTU. Namely, if per-round
+        allotment is W*r_i, and r_1+...+r_k = r < 1
+
+	delay_i <= ([MTU/(W*r_i)]*W*r + W*r + k*MTU)/B
+
+	In the worst case we have IntServ estimate with D = W*r+k*MTU
+	and C = MTU*r. The proof (if correct at all) is trivial.
+
+
+	--- It seems that cbq-2.0 is not very accurate. At least, I cannot
+	interpret some places, which look like wrong translations
+	from NS. Anyone is advised to find these differences
+	and explain to me, why I am wrong 8).
+
+	--- Linux has no EOI event, so that we cannot estimate true class
+	idle time. Workaround is to consider the next dequeue event
+	as sign that previous packet is finished. This is wrong because of
+	internal device queueing, but on a permanently loaded link it is true.
+	Moreover, combined with clock integrator, this scheme looks
+	very close to an ideal solution.  */
 
 struct cbq_sched_data;
 
@@ -682,6 +729,12 @@ cbq_update_toplevel(struct cbq_sched_data *q, struct cbq_class *cl,
 				}
 			} while ((borrowed=borrowed->borrow) != NULL);
 		}
+#if 0	
+	/* It is not necessary now. Uncommenting it
+	   will save CPU cycles, but decrease fairness.
+	 */
+		q->toplevel = TC_CBQ_MAXLEVEL;
+#endif
 	}
 }
 
@@ -1001,13 +1054,11 @@ cbq_dequeue(struct Qdisc *sch)
 
 	if (sch->q.qlen) {
 		sch->stats.overlimits++;
-		if (q->wd_expires && !netif_queue_stopped(sch->dev)) {
+		if (q->wd_expires) {
 			long delay = PSCHED_US2JIFFIE(q->wd_expires);
-			del_timer(&q->wd_timer);
 			if (delay <= 0)
 				delay = 1;
-			q->wd_timer.expires = jiffies + delay;
-			add_timer(&q->wd_timer);
+			mod_timer(&q->wd_timer, jiffies + delay);
 			sch->flags |= TCQ_F_THROTTLED;
 		}
 	}
@@ -1180,11 +1231,12 @@ static void cbq_link_class(struct cbq_class *this)
 	}
 }
 
-static int cbq_drop(struct Qdisc* sch)
+static unsigned int cbq_drop(struct Qdisc* sch)
 {
 	struct cbq_sched_data *q = (struct cbq_sched_data *)sch->data;
 	struct cbq_class *cl, *cl_head;
 	int prio;
+	unsigned int len;
 
 	for (prio = TC_CBQ_MAXPRIO; prio >= 0; prio--) {
 		if ((cl_head = q->active[prio]) == NULL)
@@ -1192,9 +1244,9 @@ static int cbq_drop(struct Qdisc* sch)
 
 		cl = cl_head;
 		do {
-			if (cl->q->ops->drop && cl->q->ops->drop(cl->q)) {
+			if (cl->q->ops->drop && (len = cl->q->ops->drop(cl->q))) {
 				sch->q.qlen--;
-				return 1;
+				return len;
 			}
 		} while ((cl = cl->next_alive) != cl_head);
 	}
@@ -1589,7 +1641,6 @@ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
 	cl->xstats.undertime = 0;
 	if (!PSCHED_IS_PASTPERFECT(cl->undertime))
 		cl->xstats.undertime = PSCHED_TDIFF(cl->undertime, q->now);
-	q->link.xstats.avgidle = q->link.avgidle;
 	if (cbq_copy_xstats(skb, &cl->xstats)) {
 		spin_unlock_bh(&sch->dev->queue_lock);
 		goto rtattr_failure;
@@ -1621,6 +1672,7 @@ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
 		sch_tree_lock(sch);
 		*old = cl->q;
 		cl->q = new;
+		sch->q.qlen -= (*old)->q.qlen;
 		qdisc_reset(*old);
 		sch_tree_unlock(sch);
 
@@ -1655,19 +1707,24 @@ static void cbq_destroy_filters(struct cbq_class *cl)
 
 	while ((tp = cl->filter_list) != NULL) {
 		cl->filter_list = tp->next;
-		tp->ops->destroy(tp);
+		tcf_destroy(tp);
 	}
 }
 
-static void cbq_destroy_class(struct cbq_class *cl)
+static void cbq_destroy_class(struct Qdisc *sch, struct cbq_class *cl)
 {
+	struct cbq_sched_data *q = (struct cbq_sched_data *)sch->data;
+
+	BUG_TRAP(!cl->filters);
+
 	cbq_destroy_filters(cl);
 	qdisc_destroy(cl->q);
 	qdisc_put_rtab(cl->R_tab);
 #ifdef CONFIG_NET_ESTIMATOR
 	qdisc_kill_estimator(&cl->stats);
 #endif
-	kfree(cl);
+	if (cl != &q->link)
+		kfree(cl);
 }
 
 static void
@@ -1680,22 +1737,24 @@ cbq_destroy(struct Qdisc* sch)
 #ifdef CONFIG_NET_CLS_POLICE
 	q->rx_class = NULL;
 #endif
-	for (h = 0; h < 16; h++) {
+	/*
+	 * Filters must be destroyed first because we don't destroy the
+	 * classes from root to leafs which means that filters can still
+	 * be bound to classes which have been destroyed already. --TGR '04
+	 */
+	for (h = 0; h < 16; h++)
 		for (cl = q->classes[h]; cl; cl = cl->next)
 			cbq_destroy_filters(cl);
-	}
 
 	for (h = 0; h < 16; h++) {
 		struct cbq_class *next;
 
 		for (cl = q->classes[h]; cl; cl = next) {
 			next = cl->next;
-			if (cl != &q->link)
-				cbq_destroy_class(cl);
+			cbq_destroy_class(sch, cl);
 		}
 	}
 
-	qdisc_put_rtab(q->link.R_tab);
 	MOD_DEC_USE_COUNT;
 }
 
@@ -1713,7 +1772,7 @@ static void cbq_put(struct Qdisc *sch, unsigned long arg)
 		spin_unlock_bh(&sch->dev->queue_lock);
 #endif
 
-		cbq_destroy_class(cl);
+		cbq_destroy_class(sch, cl);
 	}
 }
 
@@ -1947,7 +2006,7 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
 	sch_tree_unlock(sch);
 
 	if (--cl->refcnt == 0)
-		cbq_destroy_class(cl);
+		cbq_destroy_class(sch, cl);
 
 	return 0;
 }

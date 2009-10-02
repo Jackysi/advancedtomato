@@ -8,6 +8,8 @@ enum km_type {
 	KM_USER0,
 	KM_USER1,
 	KM_BH_IRQ,
+	KM_SOFTIRQ0,
+	KM_SOFTIRQ1,
 	KM_TYPE_NR
 };
 

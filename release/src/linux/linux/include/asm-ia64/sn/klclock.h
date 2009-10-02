@@ -3,13 +3,14 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1996, 2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 1996, 2001-2003 Silicon Graphics, Inc. All rights reserved.
  * Copyright (C) 2001 by Ralf Baechle
  */
 #ifndef _ASM_IA64_SN_KLCLOCK_H
 #define _ASM_IA64_SN_KLCLOCK_H
 
 #include <asm/sn/ioc3.h>
+#include <asm/sn/ioc4.h>
 
 #define RTC_BASE_ADDR		(unsigned char *)(nvram_base)
 

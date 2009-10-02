@@ -303,7 +303,12 @@ hil_keyb_init(void)
 		set_bit(hil_kbd_set1[i], hil_dev.dev.keybit);
 	clear_bit(0, hil_dev.dev.keybit);
 
+#if 1
+	/* XXX: HACK !!!
+	 * remove this call if hp_psaux.c/hp_keyb.c is converted
+	 * to the input layer... */
 	register_ps2_keybfuncs();
+#endif
 	
 	input_register_device(&hil_dev.dev);
 	printk(KERN_INFO "input%d: %s on hil%d (id %d)\n",
@@ -343,9 +348,9 @@ static struct parisc_device_id hil_tbl[] = {
 MODULE_DEVICE_TABLE(parisc, hil_tbl);
 
 static struct parisc_driver hil_driver = {
-	name:		"HIL",
-	id_table:	hil_tbl,
-	probe:		hil_init_chip,
+	.name =		"HIL",
+	.id_table =	hil_tbl,
+	.probe =	hil_init_chip,
 };
 #endif /* CONFIG_PARISC */
 

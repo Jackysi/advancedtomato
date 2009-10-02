@@ -1,18 +1,25 @@
 #
 # Generic portion of the Broadcom wl driver makefile
 #
-# input: O_TARGET, CONFIG_WL_CONF and WL_PREFIX 
+# input: O_TARGET, CONFIG_WL_CONF and wl_suffix
 # output: obj-m, obj-y
 #
-# $Id: wl_generic.mk,v 1.1.1.1 2004/08/26 06:56:55 honor Exp $
+# $Id: wl_generic.mk,v 1.1.1.1 2007/03/20 12:21:04 roly Exp $
 #
 
-# get the source file list from config file
+ifneq ($(wildcard $(SRCBASE)/wl/sys),)
+
+# If source directory (src/wl/sys) exists, use sources to build objects
+vpath %.c $(SRCBASE)/wl/sys $(SRCBASE)/shared $(SRCBASE)/bcmcrypto
+
+# Get the source files and flags from the specified config file
+# (Remove config's string quotes before trying to use the file)
 ifeq ($(CONFIG_WL_CONF),)
+$(error var_vlist($(VLIST)) var_config_wl_use($(shell env|grep CONFIG_WL_USE)))
 $(error CONFIG_WL_CONF is undefined)
 endif
-WLCONFFILE :=$(strip $(subst ",,$(CONFIG_WL_CONF))) # remove quote ", added by parser
 
+WLCONFFILE :=$(strip $(subst ",,$(CONFIG_WL_CONF))) 
 WLCFGDIR   := $(SRCBASE)/wl/config
 
 # define OS flag to pick up wl osl file from wl.mk
@@ -20,34 +27,36 @@ WLLX=1
 include $(WLCFGDIR)/$(WLCONFFILE)
 include $(WLCFGDIR)/wl.mk
 
-ifneq ($(WLFILES),)
-WL_SOURCE	:= $(WLFILES)
-else
+ifeq ($(WLFILES),)
 $(error WLFILES is undefined in $(WLCFGDIR)/$(WLCONFFILE))
 endif
+
+ifeq ("$(CONFIG_WL_EMULATOR)","y") 
+WLFILES += wl_bcm57emu.c
+endif
+
+WL_SOURCE	:= $(WLFILES)
 WL_DFLAGS       := $(WLFLAGS)
 WL_OBJS         := $(patsubst %.c,%.o,$(WL_SOURCE))
 
-VARIANT_WL_OBJS  := $(foreach obj,$(WL_OBJS),$(WL_PREFIX)_$(obj))
+# need -I. to pick up wlconf.h in build directory
 
-# need -I. to pick up wlconf.h
-EXTRA_CFLAGS	+= -DDMA -I. $(WL_DFLAGS)
+
+EXTRA_CFLAGS	+= -DDMA $(WL_DFLAGS) -I. -I$(SRCBASE)/wl/sys -finline-limit=2048 -Werror
 
 # obj-y is for linking to wl.o
 export-objs	:=
-obj-y		:= $(VARIANT_WL_OBJS)
+obj-y		:= $(WL_OBJS)
 obj-m		:= $(O_TARGET)
 
-# Search for sources under src/wl/sys or objects under src/wl/linux
-ifneq ($(wildcard $(SRCBASE)/wl/sys/wlc.h),)
-EXTRA_CFLAGS	+= -I$(SRCBASE)/wl/sys
-vpath %.c $(SRCBASE)/wl/sys $(SRCBASE)/shared $(SRCBASE)/bcmcrypto
 else
-#obj-y		:= $(SRCBASE)/wl/linux/wl.o
-obj-y		:= $(foreach objy,$(obj-y),$(SRCBASE)/wl/linux/$(objy))
+
+# Otherwise, assume prebuilt object module(s) in src/wl/linux directory
+prebuilt	:= wl_$(wl_suffix).o
+obj-y		:= $(SRCBASE)/wl/linux/$(prebuilt)
+obj-m		:= $(O_TARGET)
+
 endif
-
-
 
 include $(TOPDIR)/Rules.make
 

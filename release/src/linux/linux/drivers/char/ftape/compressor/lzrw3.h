@@ -1,9 +1,9 @@
 #ifndef _LZRW3_H
 #define _LZRW3_H
 /*
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/compressor/lzrw3.h,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/compressor/lzrw3.h,v $
+ * $Revision: 1.1 $
+ * $Date: 1997/10/05 19:12:30 $
  *
  *  include files for lzrw3. Only slighty modified from the original
  *  version. Assembles the three include files compress.h, port.h and
@@ -146,7 +146,7 @@
 /*                                                                            */
 /******************************************************************************/
 
-#ifndef DONE_PORT           /* Only do this if not previously done.               */
+#ifndef DONE_PORT       /* Only do this if not previously done.               */
 
    #ifdef THINK_C
       #define UBYTE unsigned char      /* Unsigned byte                       */

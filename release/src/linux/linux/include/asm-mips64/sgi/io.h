@@ -16,5 +16,6 @@
 /* For Indigo2.  */
 #define IO_SPACE_LIMIT 0xffff
 
+/* XXX ISA specific functions go here here.  */
 
 #endif /* _ASM_SGI_IO_H */

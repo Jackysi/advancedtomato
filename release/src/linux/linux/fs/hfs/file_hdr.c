@@ -1,4 +1,29 @@
-
+/*
+ * linux/fs/hfs/file_hdr.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the file_ops and inode_ops for the metadata
+ * files under the AppleDouble and Netatalk representations.
+ *
+ * The source code distributions of Netatalk, versions 1.3.3b2 and
+ * 1.4b2, were used as a specification of the location and format of
+ * files used by Netatalk's afpd.  No code from Netatalk appears in
+ * hfs_fs.  hfs_fs is not a work ``derived'' from Netatalk in the
+ * sense of intellectual property law.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ *
+ * XXX: Note the reason that there is not bmap() for AppleDouble
+ * header files is that dynamic nature of their structure make it
+ * very difficult to safely mmap them.  Maybe in the distant future
+ * I'll get bored enough to implement it.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -216,7 +241,9 @@ static struct hfs_hdr_layout *dup_layout(const struct hfs_hdr_layout *old)
 	if (HFS_NEW(new)) {
 		memcpy(new, old, sizeof(*new));
 		for (lcv = 0; lcv < new->entries; ++lcv) {
-			(char *)(new->order[lcv]) += (char *)new - (char *)old;
+			new->order[lcv] = (struct hfs_hdr_descr *)
+					  ((char *)(new->order[lcv]) +
+					   ((char *)new - (char *)old));
 		}
 	}
 	return new;
@@ -351,6 +378,7 @@ loff_t hdr_llseek(struct file *file, loff_t offset, int origin)
  * user-space at the address 'buf'.  Returns the number of bytes
  * successfully transferred.
  */
+/* XXX: what about the entry count changing on us? */
 static hfs_rwret_t hdr_read(struct file * filp, char * buf, 
 			    hfs_rwarg_t count, loff_t *ppos)
 {
@@ -358,7 +386,7 @@ static hfs_rwret_t hdr_read(struct file * filp, char * buf,
 	struct hfs_cat_entry *entry = HFS_I(inode)->entry;
 	const struct hfs_hdr_layout *layout;
 	off_t start, length, offset;
-	off_t pos = *ppos;
+	loff_t pos = *ppos;
 	int left, lcv, read = 0;
 
 	if (!S_ISREG(inode->i_mode)) {
@@ -373,7 +401,7 @@ static hfs_rwret_t hdr_read(struct file * filp, char * buf,
 	}
 
 	/* Adjust count to fit within the bounds of the file */
-	if ((pos >= inode->i_size) || (count <= 0)) {
+	if (pos != (unsigned)pos || pos >= inode->i_size || count <= 0) {
 		return 0;
 	} else if (count > inode->i_size - pos) {
 		count = inode->i_size - pos;
@@ -461,6 +489,8 @@ static hfs_rwret_t hdr_read(struct file * filp, char * buf,
 		case HFS_HDR_DATES:
 			get_dates(entry, inode, (hfs_u32 *)tmp);
 			if (descr->id == HFS_HDR_DATES) {
+				/* XXX: access date. hfsplus actually
+                                   has this. */
 				memcpy(tmp + 12, tmp + 4, 4);
 			} else if ((entry->type == HFS_CDR_FIL) &&
 				   (entry->u.file.flags & HFS_FIL_LOCK)) {
@@ -478,6 +508,7 @@ static hfs_rwret_t hdr_read(struct file * filp, char * buf,
 			break;
 
 		case HFS_HDR_AFPI:
+			/* XXX: this needs to do more mac->afp mappings */
 			hfs_put_ns(0, tmp);
 			if ((entry->type == HFS_CDR_FIL) &&
 			    (entry->u.file.flags & HFS_FIL_LOCK)) {
@@ -490,7 +521,13 @@ static hfs_rwret_t hdr_read(struct file * filp, char * buf,
 		        break;
 
 		case HFS_HDR_PRODOSI:
+			/* XXX: this needs to do mac->prodos translations */
 			memset(tmp, 0, 8);
+#if 0
+			hfs_put_ns(0, tmp); /* access */
+			hfs_put_ns(0, tmp); /* type */
+			hfs_put_nl(0, tmp); /* aux type */
+#endif
 			p = tmp;
 			limit = 8;
 		        break;
@@ -605,17 +642,18 @@ static hfs_rwret_t hdr_write(struct file *filp, const char *buf,
         int left, lcv, written = 0;
 	struct hdr_hdr meta;
 	int built_meta = 0;
-        off_t pos;
+        loff_t pos;
 
 	if (!S_ISREG(inode->i_mode)) {
 		hfs_warn("hfs_hdr_write: mode = %07o\n", inode->i_mode);
 		return -EINVAL;
 	}
-	if (count <= 0) {
-		return 0;
-	}
 
 	pos = (filp->f_flags & O_APPEND) ? inode->i_size : *ppos;
+
+	if (count <= 0 || pos != (unsigned)pos) {
+		return 0;
+	}
 
 	if (!HFS_I(inode)->layout) {
 		HFS_I(inode)->layout = dup_layout(HFS_I(inode)->default_layout);
@@ -638,6 +676,7 @@ static hfs_rwret_t hdr_write(struct file *filp, const char *buf,
 		layout->version = hfs_get_nl(meta.version);
 		layout->entries = hfs_get_hs(meta.entries);
 		if (layout->entries > HFS_HDR_MAX) {
+			/* XXX: should allocate slots dynamically */
 			hfs_warn("hfs_hdr_write: TRUNCATING TO %d "
 				 "DESCRIPTORS\n", HFS_HDR_MAX);
 			layout->entries = HFS_HDR_MAX;
@@ -735,7 +774,16 @@ static hfs_rwret_t hdr_write(struct file *filp, const char *buf,
 		p = NULL;
 		switch (descr->id) {
 		case HFS_HDR_DATA:
+#if 0
+/* Can't yet write to the data fork via a header file, since there is the
+ * possibility to write via the data file, and the only locking is at the
+ * inode level.
+ */
+			fork = &entry->u.file.data_fork;
+			limit = length;
+#else
 			limit = 0;
+#endif
 			break;
 
 		case HFS_HDR_RSRC:
@@ -776,7 +824,13 @@ static hfs_rwret_t hdr_write(struct file *filp, const char *buf,
 			break;
 
 		case HFS_HDR_PRODOSI:
+			/* XXX: this needs to do mac->prodos translations */
 			memset(tmp, 0, 8); 
+#if 0
+			hfs_put_ns(0, tmp); /* access */
+			hfs_put_ns(0, tmp); /* type */
+			hfs_put_nl(0, tmp); /* aux type */
+#endif
 			p = tmp;
 			limit = 8;
 		        break;
@@ -945,6 +999,14 @@ void hdr_truncate(struct inode *inode, size_t size)
 
 		if (descr->id == HFS_HDR_RSRC) {
 			fork = &entry->u.file.rsrc_fork;
+#if 0
+/* Can't yet truncate the data fork via a header file, since there is the
+ * possibility to truncate via the data file, and the only locking is at
+ * the inode level.
+ */
+		} else if (descr->id == HFS_HDR_DATA) {
+			fork = &entry->u.file.data_fork;
+#endif
 		} else {
 			continue;
 		}

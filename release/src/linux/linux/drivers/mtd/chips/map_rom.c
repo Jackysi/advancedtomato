@@ -1,7 +1,7 @@
 /*
  * Common code to handle map devices which are simple ROM
  * (C) 2000 Red Hat. GPL'd.
- * $Id: map_rom.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: map_rom.c,v 1.17 2001/10/02 15:05:12 dwmw2 Exp $
  */
 
 #include <linux/version.h>

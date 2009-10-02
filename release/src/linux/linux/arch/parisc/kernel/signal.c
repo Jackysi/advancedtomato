@@ -61,6 +61,7 @@ int copy_siginfo_to_user(siginfo_t *to, siginfo_t *from)
 		err |= __put_user((short)from->si_code, &to->si_code);
 		switch (from->si_code >> 16) {
 		      case __SI_FAULT >> 16:
+			/* FIXME: should we put the interruption code here? */
 		      case __SI_POLL >> 16:
 			err |= __put_user(from->si_addr, &to->si_addr);
 			break;
@@ -90,8 +91,10 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize, struct pt_regs *regs)
 {
 	sigset_t saveset, newset;
 #ifdef __LP64__
+	/* XXX FIXME -- assumes 32-bit user app! */
 	sigset_t32 newset32;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t32))
 		return -EINVAL;
 
@@ -101,6 +104,7 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize, struct pt_regs *regs)
 	newset.sig[0] = newset32.sig[0] | ((unsigned long)newset32.sig[1] << 32);
 #else
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 

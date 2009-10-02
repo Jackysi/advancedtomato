@@ -4,51 +4,54 @@
 
 O_TARGET := acpi.o
 
-export-objs := acpi_ksyms.o
-
 export ACPI_CFLAGS
 
-ACPI_CFLAGS := -D_LINUX -I$(CURDIR)/include
-
-#
-# CONFIG_ACPI_KERNEL_CONFIG is currently only IA64
-#
-ifdef CONFIG_ACPI_KERNEL_CONFIG
-  ACPI_CFLAGS += -DCONFIG_ACPI_KERNEL_CONFIG_ONLY
-endif
-
-acpi-subdirs := utilities dispatcher events hardware \
-		executer namespace parser resources tables
+ACPI_CFLAGS	:= -Os 
 
 ifdef CONFIG_ACPI_DEBUG
-  ACPI_CFLAGS += -DACPI_DEBUG -Wno-unused
+  ACPI_CFLAGS	+= -DACPI_DEBUG_OUTPUT
 endif
 
-ifdef CONFIG_ACPI_DEBUGGER
-  ACPI_CFLAGS += -DENABLE_DEBUGGER
-  acpi-subdirs += debugger
+EXTRA_CFLAGS	+= $(ACPI_CFLAGS)
+
+export-objs 	:= acpi_ksyms.o processor.o
+
+obj-$(CONFIG_ACPI)	:= acpi_ksyms.o 
+
+#
+# ACPI Boot-Time Table Parsing
+#
+obj-$(CONFIG_ACPI_BOOT)		+= tables.o
+obj-$(CONFIG_ACPI_INTERPRETER)	+= blacklist.o
+
+#
+# ACPI Core Subsystem (Interpreter)
+#
+ifeq ($(CONFIG_ACPI_INTERPRETER),y)
+  obj-y		+= osl.o utils.o
+  subdir-y	+= dispatcher events executer hardware namespace parser \
+		   resources tables utilities
+  obj-y 	+= $(foreach dir,$(subdir-y),$(dir)/$(dir).o)
 endif
 
-EXTRA_CFLAGS += $(ACPI_CFLAGS)
-
-mod-subdirs  := ospm
-
-subdir-$(CONFIG_ACPI) 		+= $(acpi-subdirs)
-subdir-$(CONFIG_ACPI_BUSMGR)	+= ospm
-
-obj-$(CONFIG_ACPI)	+= driver.o os.o acpi_ksyms.o
-obj-$(CONFIG_ACPI)	+= $(foreach dir,$(acpi-subdirs),$(dir)/$(dir).o) 
-ifdef CONFIG_ACPI_KERNEL_CONFIG
-   obj-$(CONFIG_ACPI) 	+= acpiconf.o osconf.o
+#
+# ACPI Bus and Device Drivers
+#
+ifeq ($(CONFIG_ACPI_BUS),y)
+  obj-y				+= bus.o motherboard.o 
+  obj-$(CONFIG_ACPI_AC) 	+= ac.o
+  obj-$(CONFIG_ACPI_BATTERY)	+= battery.o
+  obj-$(CONFIG_ACPI_BUTTON)	+= button.o
+  obj-$(CONFIG_ACPI_EC)		+= ec.o
+  obj-$(CONFIG_ACPI_FAN)	+= fan.o
+  obj-$(CONFIG_ACPI_PCI)	+= pci_root.o pci_link.o pci_irq.o pci_bind.o
+  obj-$(CONFIG_ACPI_POWER)	+= power.o
+  obj-$(CONFIG_ACPI_PROCESSOR)	+= processor.o
+  obj-$(CONFIG_ACPI_THERMAL)	+= thermal.o
+  obj-$(CONFIG_ACPI_SYSTEM)	+= system.o
+  obj-$(CONFIG_ACPI_NUMA)	+= numa.o
+  obj-$(CONFIG_ACPI_ASUS)	+= asus_acpi.o
+  obj-$(CONFIG_ACPI_TOSHIBA)	+= toshiba_acpi.o
 endif
-
-ifeq ($(CONFIG_ACPI_BUSMGR),y)
-	obj-y			+= ospm/ospm.o
-endif
-
-# commented out until we distribute it -ASG
-#ifeq ($(CONFIG_KDB),y)
-#	obj-m	+= kdb/kdbm_acpi.o
-#endif
 
 include $(TOPDIR)/Rules.make

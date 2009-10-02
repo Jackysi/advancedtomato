@@ -70,6 +70,4 @@
 #define __bus_to_virt__is_a_macro
 #define __bus_to_virt(x)	(x -  PHYS_OFFSET + PAGE_OFFSET)
 
-#define PHYS_TO_NID(addr)	(0)
-
 #endif

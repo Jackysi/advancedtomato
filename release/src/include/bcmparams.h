@@ -1,7 +1,7 @@
 /*
  * Misc system wide parameters.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -20,8 +20,6 @@
 
 #define DEV_NUMIFS	16	/* Max. # of devices/interfaces supported */
 
-//modified by crazy 20060510 - maybe it only support 4 for the MAX...
-//#define WL_MAXBSSCFG	16	/* maximum number of BSS Configs we can configure */
-#define WL_MAXBSSCFG	4	/* maximum number of BSS Configs we can configure */
+#define WL_MAXBSSCFG	16	/* maximum number of BSS Configs we can configure */
 
 #endif

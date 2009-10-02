@@ -37,6 +37,11 @@ static inline void pmax_setup_memory_region(void)
 	memcpy(&old_handler, (void *)(KSEG0 + 0x80), 0x80);
 	memcpy((void *)(KSEG0 + 0x80), &genexcept_early, 0x80);
 
+	/* read unmapped and uncached (KSEG1)
+	 * DECstations have at least 4MB RAM
+	 * Assume less than 480MB of RAM, as this is max for 5000/2xx
+	 * FIXME this should be replaced by the first free page!
+	 */
 	for (memory_page = (unsigned char *) KSEG1 + CHUNK_SIZE;
 	     (mem_err== 0) && (memory_page < ((unsigned char *) KSEG1+0x1E000000));
   	     memory_page += CHUNK_SIZE) {
@@ -64,6 +69,7 @@ static inline void rex_setup_memory_region(void)
 	bitmap_size = rex_getbitmap(bm);
 
 	for (i = 0; i < bitmap_size; i++) {
+		/* FIXME: very simplistically only add full sets of pages */
 		if (bm->bitmap[i] == 0xff)
 			mem_size += (8 * bm->pagesize);
 		else if (!mem_size)
@@ -97,6 +103,12 @@ void __init prom_free_prom_memory (void)
 	 */
 
 #if defined(CONFIG_DECLANCE) || defined(CONFIG_DECLANCE_MODULE)
+	/*
+	 * Leave 128 KB reserved for Lance memory for
+	 * IOASIC DECstations.
+	 *
+	 * XXX: save this address for use in dec_lance.c?
+	 */
 	if (IOASIC)
 		end = __pa(&_ftext) - 0x00020000;
 	else

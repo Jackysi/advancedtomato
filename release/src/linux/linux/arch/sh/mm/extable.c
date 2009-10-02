@@ -1,4 +1,4 @@
-/* $Id: extable.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: extable.c,v 1.2 2001/03/31 10:43:18 gniibe Exp $
  *
  * linux/arch/sh/mm/extable.c
  *  Taken from:

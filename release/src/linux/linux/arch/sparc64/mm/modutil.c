@@ -1,4 +1,4 @@
-/*  $Id: modutil.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/*  $Id: modutil.c,v 1.11 2001/12/05 06:05:35 davem Exp $
  *  arch/sparc64/mm/modutil.c
  *
  *  Copyright (C) 1997,1998 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
@@ -11,9 +11,9 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 
-static struct vm_struct * modvmlist = NULL;
+static struct vm_struct *modvmlist = NULL;
 
-void module_unmap (void * addr)
+void __module_unmap(void *addr, int free_area_pages)
 {
 	struct vm_struct **p, *tmp;
 
@@ -26,7 +26,9 @@ void module_unmap (void * addr)
 	for (p = &modvmlist ; (tmp = *p) ; p = &tmp->next) {
 		if (tmp->addr == addr) {
 			*p = tmp->next;
-			vmfree_area_pages(VMALLOC_VMADDR(tmp->addr), tmp->size);
+			if (free_area_pages)
+				vmfree_area_pages(VMALLOC_VMADDR(tmp->addr),
+						  tmp->size);
 			kfree(tmp);
 			return;
 		}
@@ -34,13 +36,19 @@ void module_unmap (void * addr)
 	printk("Trying to unmap nonexistent module vm area (%p)\n", addr);
 }
 
-void * module_map (unsigned long size)
+void module_unmap(void *addr)
+{
+	__module_unmap(addr, 1);
+}
+
+void *module_map (unsigned long size)
 {
 	void * addr;
 	struct vm_struct **p, *tmp, *area;
 
 	size = PAGE_ALIGN(size);
-	if (!size || size > MODULES_LEN) return NULL;
+	if (!size || size > MODULES_LEN)
+		return NULL;
 		
 	addr = (void *) MODULES_VADDR;
 	for (p = &modvmlist; (tmp = *p) ; p = &tmp->next) {
@@ -48,17 +56,19 @@ void * module_map (unsigned long size)
 			break;
 		addr = (void *) (tmp->size + (unsigned long) tmp->addr);
 	}
-	if ((unsigned long) addr + size >= MODULES_END) return NULL;
+	if ((unsigned long) addr + size >= MODULES_END)
+		return NULL;
 	
 	area = (struct vm_struct *) kmalloc(sizeof(*area), GFP_KERNEL);
-	if (!area) return NULL;
+	if (!area)
+		return NULL;
 	area->size = size + PAGE_SIZE;
 	area->addr = addr;
 	area->next = *p;
 	*p = area;
 
 	if (vmalloc_area_pages(VMALLOC_VMADDR(addr), size, GFP_KERNEL, PAGE_KERNEL)) {
-		module_unmap(addr);
+		__module_unmap(addr, 0);
 		return NULL;
 	}
 	return addr;

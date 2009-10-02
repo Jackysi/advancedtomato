@@ -786,10 +786,7 @@ static void do_softint(void *private_)
 		return;
 
 	if (test_and_clear_bit(ESP_EVENT_WRITE_WAKEUP, &info->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 }
 
@@ -1177,6 +1174,13 @@ static void change_speed(struct esp_struct *info)
 		info->read_status_mask |= UART_LSR_BI;
 	
 	info->ignore_status_mask = 0;
+#if 0
+	/* This should be safe, but for some broken bits of hardware... */
+	if (I_IGNPAR(info->tty)) {
+		info->ignore_status_mask |= UART_LSR_PE | UART_LSR_FE;
+		info->read_status_mask |= UART_LSR_PE | UART_LSR_FE;
+	}
+#endif
 	if (I_IGNBRK(info->tty)) {
 		info->ignore_status_mask |= UART_LSR_BI;
 		info->read_status_mask |= UART_LSR_BI;
@@ -1247,13 +1251,18 @@ static void change_speed(struct esp_struct *info)
 
 static void rs_put_char(struct tty_struct *tty, unsigned char ch)
 {
-	struct esp_struct *info = (struct esp_struct *)tty->driver_data;
+	struct esp_struct *info;
 	unsigned long flags;
 
+	if (!tty)
+		return;
+
+	info = (struct esp_struct *)tty->driver_data;
+	
 	if (serial_paranoia_check(info, tty->device, "rs_put_char"))
 		return;
 
-	if (!tty || !info->xmit_buf)
+	if (!info->xmit_buf)
 		return;
 
 	save_flags(flags); cli();
@@ -1292,13 +1301,19 @@ static int rs_write(struct tty_struct * tty, int from_user,
 		    const unsigned char *buf, int count)
 {
 	int	c, t, ret = 0;
-	struct esp_struct *info = (struct esp_struct *)tty->driver_data;
+	struct esp_struct *info;
 	unsigned long flags;
+
+
+	if (!tty)
+		return 0;
+	
+	info = (struct esp_struct *)tty->driver_data;
 
 	if (serial_paranoia_check(info, tty->device, "rs_write"))
 		return 0;
 
-	if (!tty || !info->xmit_buf || !tmp_buf)
+	if (!info->xmit_buf || !tmp_buf)
 		return 0;
 	    
 	if (from_user)
@@ -1388,10 +1403,7 @@ static void rs_flush_buffer(struct tty_struct *tty)
 	cli();
 	info->xmit_cnt = info->xmit_head = info->xmit_tail = 0;
 	sti();
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -2003,6 +2015,17 @@ static void rs_set_termios(struct tty_struct *tty, struct termios *old_termios)
 		rs_start(tty);
 	}
 
+#if 0
+	/*
+	 * No need to wake up processes in open wait, since they
+	 * sample the CLOCAL flag once, and don't recheck it.
+	 * XXX  It's not clear whether the current behavior is correct
+	 * or not.  Hence, this may change.....
+	 */
+	if (!(old_termios->c_cflag & CLOCAL) &&
+	    (tty->termios->c_cflag & CLOCAL))
+		wake_up_interruptible(&info->open_wait);
+#endif
 }
 
 /*
@@ -2097,8 +2120,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 	shutdown(info);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;

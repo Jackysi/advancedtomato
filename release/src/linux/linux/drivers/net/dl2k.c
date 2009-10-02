@@ -1,7 +1,8 @@
 /*  D-Link DL2000-based Gigabit Ethernet Adapter Linux driver */
 /*
     Copyright (c) 2001, 2002 by D-Link Corporation
-    Written by Edward Peng.<edward_peng@dlink.com.tw>
+    Copyright (c) 2003 by Alpha Networks
+    Written by Edward Peng.<edward_peng@alphanetworks.com>
     Created 03-May-2001, base on Linux' sundance.c.
 
     This program is free software; you can redistribute it and/or modify
@@ -30,17 +31,37 @@
     1.09	2002/03/07	Move rx-poll-now to re-fill loop.	
     				Added rio_timer() to watch rx buffers. 
     1.10	2002/04/16	Fixed miscount of carrier error.
-    1.11	2002/05/23	Added ISR schedule scheme.
+    1.11	2002/05/23	Added ISR schedule scheme
     				Fixed miscount of rx frame error for DGE-550SX.
     				Fixed VLAN bug.
     1.12	2002/06/13	Lock tx_coalesce=1 on 10/100Mbps mode.
- */
+    1.13	2002/08/13	1. Fix disconnection (many tx:carrier/rx:frame
+    				   errs) with some mainboards.
+    				2. Use definition "DRV_NAME" "DRV_VERSION" 
+				   "DRV_RELDATE" for flexibility.	
+    1.14	2002/08/14	Support ethtool.	
+    1.15	2002/08/27	Changed the default media to Auto-Negotiation
+				for the fiber devices.    
+    1.16	2002/09/04      More power down time for fiber devices auto-
+    				negotiation.
+				Fix disconnect bug after ifup and ifdown.
+    1.17	2002/10/03	Fix RMON statistics overflow. 
+			     	Always use I/O mapping to access eeprom, 
+				avoid system freezing with some chipsets.
+    1.18	2002/11/07	New tx scheme, adaptive tx_coalesce.
+    				Remove tx_coalesce option.
+    1.19	2003/12/16	Fix problem parsing the eeprom on big endian
+    				systems. (philt@4bridgeworks.com)
 
+*/
+#define DRV_NAME	"D-Link DL2000-based linux driver"
+#define DRV_VERSION	"v1.19"
+#define DRV_RELDATE	"2003/12/16"
 #include "dl2k.h"
+#include <linux/version.h>
 
 static char version[] __devinitdata =
-    KERN_INFO "D-Link DL2000-based linux driver v1.12 2002/06/13\n";
-
+      KERN_INFO DRV_NAME " " DRV_VERSION " " DRV_RELDATE "\n";	
 #define MAX_UNITS 8
 static int mtu[MAX_UNITS];
 static int vlan[MAX_UNITS];
@@ -49,9 +70,8 @@ static char *media[MAX_UNITS];
 static int tx_flow=-1;
 static int rx_flow=-1;
 static int copy_thresh;
-static int rx_coalesce=10;	/* Rx frame count each interrupt */
+static int rx_coalesce=0;	/* Rx frame count each interrupt */
 static int rx_timeout=200;	/* Rx DMA wait time in 640ns increments */
-static int tx_coalesce=16;	/* HW xmit count each TxDMAComplete */
 
 
 MODULE_AUTHOR ("Edward Peng");
@@ -66,12 +86,11 @@ MODULE_PARM (rx_flow, "i");
 MODULE_PARM (copy_thresh, "i");
 MODULE_PARM (rx_coalesce, "i");	/* Rx frame count each interrupt */
 MODULE_PARM (rx_timeout, "i");	/* Rx DMA wait time in 64ns increments */
-MODULE_PARM (tx_coalesce, "i"); /* HW xmit count each TxDMAComplete */
 
 
 /* Enable the default interrupts */
 #define DEFAULT_INTR (RxDMAComplete | HostError | IntRequested | TxDMAComplete| \
-       UpdateStats | LinkEvent)
+       UpdateStats | LinkEvent|TxComplete)
 #define EnableInt() \
 writew(DEFAULT_INTR, ioaddr + IntEnable)
 
@@ -82,16 +101,25 @@ static int rio_open (struct net_device *dev);
 static void rio_timer (unsigned long data);
 static void rio_tx_timeout (struct net_device *dev);
 static void alloc_list (struct net_device *dev);
+static void tx_poll (unsigned long data);
 static int start_xmit (struct sk_buff *skb, struct net_device *dev);
-static void rio_interrupt (int irq, void *dev_instance, struct pt_regs *regs);
-static void rio_free_tx (struct net_device *dev, int irq);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,69)
+static irqreturn_t 
+rio_interrupt (int irq, void *dev_instance, struct pt_regs *regs);
+#else
+static void 
+rio_interrupt (int irq, void *dev_instance, struct pt_regs *regs);
+#endif
+static void rio_free_tx (struct net_device *dev);
 static void tx_error (struct net_device *dev, int tx_status);
-static int receive_packet (struct net_device *dev);
+static void rx_poll (unsigned long data);
+static void refill_rx (struct net_device *dev);
 static void rio_error (struct net_device *dev, int int_status);
 static int change_mtu (struct net_device *dev, int new_mtu);
 static void set_multicast (struct net_device *dev);
 static struct net_device_stats *get_stats (struct net_device *dev);
 static int clear_stats (struct net_device *dev);
+static int rio_ethtool_ioctl (struct net_device *dev, void *useraddr);
 static int rio_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
 static int rio_close (struct net_device *dev);
 static int find_miiphy (struct net_device *dev);
@@ -156,10 +184,11 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 	np->pdev = pdev;
 	spin_lock_init (&np->tx_lock);
 	spin_lock_init (&np->rx_lock);
+	tasklet_init(&np->tx_tasklet, tx_poll, (unsigned long) dev);
+	tasklet_init(&np->rx_tasklet, rx_poll, (unsigned long) dev);
 
 	/* Parse manual configuration */
 	np->an_enable = 1;
-	np->tx_coalesce = 1;
 	if (card_idx < MAX_UNITS) {
 		if (media[card_idx] != NULL) {
 			np->an_enable = 0;
@@ -213,10 +242,6 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 		np->tx_flow = (tx_flow == 0) ? 0 : 1;
 		np->rx_flow = (rx_flow == 0) ? 0 : 1;
 
-		if (tx_coalesce < 1)
-			tx_coalesce = 1;
-		else if (tx_coalesce > TX_RING_SIZE-1)
-			tx_coalesce = TX_RING_SIZE - 1;
 	}
 	dev->open = &rio_open;
 	dev->hard_start_xmit = &start_xmit;
@@ -227,6 +252,9 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 	dev->tx_timeout = &rio_tx_timeout;
 	dev->watchdog_timeo = TX_TIMEOUT;
 	dev->change_mtu = &change_mtu;
+#if 0
+	dev->features = NETIF_F_IP_CSUM;
+#endif
 	pci_set_drvdata (pdev, dev);
 
 	ring_space = pci_alloc_consistent (pdev, TX_TOTAL_SIZE, &ring_dma);
@@ -254,12 +282,8 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 	np->link_status = 0;
 	/* Set media and reset PHY */
 	if (np->phy_media) {
-		/* default 1000mbps_fd for fiber deivices */
-		if (np->an_enable == 1) {
-			np->an_enable = 0;
-			np->speed = 1000;
-			np->full_duplex = 1;
-		} else if (np->an_enable == 2) {
+		/* default Auto-Negotiation for fiber deivices */
+	 	if (np->an_enable == 2) {
 			np->an_enable = 1;
 		}
 		mii_set_media_pcs (dev);
@@ -272,10 +296,6 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 	pci_read_config_byte(pdev, PCI_REVISION_ID, &np->pci_rev_id);
 
-	/* Reset all logic functions */
-	writew (GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset,
-		ioaddr + ASICCtrl + 2);
-
 	err = register_netdev (dev);
 	if (err)
 		goto err_out_unmap_rx;
@@ -286,9 +306,6 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
 		dev->name, np->name,
 		dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
 		dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5], irq);
-	if (tx_coalesce > 1)
-		printk(KERN_INFO "tx_coalesce:\t%d packets\n", 
-				tx_coalesce);
 	if (np->coalesce)
 		printk(KERN_INFO "rx_coalesce:\t%d packets\n"
 		       KERN_INFO "rx_timeout: \t%d ns\n", 
@@ -354,11 +371,17 @@ parse_eeprom (struct net_device *dev)
 
 	int cid, next;
 
+#ifdef	MEM_MAPPING
+	ioaddr = pci_resource_start (np->pdev, 0);
+#endif
 	/* Read eeprom */
 	for (i = 0; i < 128; i++) {
-		((u16 *) sromdata)[i] = le16_to_cpu (read_eeprom (ioaddr, i));
+		((u16 *) sromdata)[i] = cpu_to_le16 (read_eeprom (ioaddr, i));
 	}
-
+	psrom->crc = le32_to_cpu(psrom->crc);
+#ifdef	MEM_MAPPING
+	ioaddr = dev->base_addr;
+#endif	
 	/* Check CRC */
 	crc = ~ether_crc_le (256 - 4, sromdata);
 	if (psrom->crc != crc) {
@@ -418,10 +441,17 @@ rio_open (struct net_device *dev)
 	struct netdev_private *np = dev->priv;
 	long ioaddr = dev->base_addr;
 	int i;
-
+	u16 macctrl;
+	
 	i = request_irq (dev->irq, &rio_interrupt, SA_SHIRQ, dev->name, dev);
 	if (i)
 		return i;
+	
+	/* Reset all logic functions */
+	writew (GlobalReset | DMAReset | FIFOReset | NetworkReset | HostReset,
+		ioaddr + ASICCtrl + 2);
+	mdelay(10);
+	
 	/* DebugCtrl bit 4, 5, 9 must set */
 	writel (readl (ioaddr + DebugCtrl) | 0x0230, ioaddr + DebugCtrl);
 
@@ -445,9 +475,12 @@ rio_open (struct net_device *dev)
 	writeb (0xff, ioaddr + TxDMAPollPeriod);
 	writeb (0x30, ioaddr + RxDMABurstThresh);
 	writeb (0x30, ioaddr + RxDMAUrgentThresh);
+	writel (0x0007ffff, ioaddr + RmonStatMask);
 
 	/* clear statistics */
 	clear_stats (dev);
+
+	atomic_set(&np->tx_desc_lock, 0);
 
 	/* VLAN supported */
 	if (np->vlan) {
@@ -464,9 +497,6 @@ rio_open (struct net_device *dev)
 			ioaddr + MACCtrl);
 	}
 
-	/* Enable default interrupts */
-	EnableInt ();
-
 	init_timer (&np->timer);
 	np->timer.expires = jiffies + 1*HZ;
 	np->timer.data = (unsigned long) dev;
@@ -476,8 +506,18 @@ rio_open (struct net_device *dev)
 	/* Start Tx/Rx */
 	writel (readl (ioaddr + MACCtrl) | StatsEnable | RxEnable | TxEnable, 
 			ioaddr + MACCtrl);
+	
+	macctrl = 0;
+	macctrl |= (np->vlan) ? AutoVLANuntagging : 0;
+	macctrl |= (np->full_duplex) ? DuplexSelect : 0;
+	macctrl |= (np->tx_flow) ? TxFlowControlEnable : 0;
+	macctrl |= (np->rx_flow) ? RxFlowControlEnable : 0;
+	writew(macctrl,	ioaddr + MACCtrl);
 
 	netif_start_queue (dev);
+	
+	/* Enable default interrupts */
+	EnableInt ();
 	return 0;
 }
 
@@ -526,17 +566,31 @@ rio_timer (unsigned long data)
 	np->timer.expires = jiffies + next_tick;
 	add_timer(&np->timer);
 }
-	
+
 static void
 rio_tx_timeout (struct net_device *dev)
 {
+	struct netdev_private *np = dev->priv;
 	long ioaddr = dev->base_addr;
 
-	printk (KERN_INFO "%s: Tx timed out (%4.4x), is buffer full?\n",
+	printk (KERN_INFO "%s: Tx timed out (%4.4x), "
+			"clean up tx queue to restart..\n",
 		dev->name, readl (ioaddr + TxStatus));
-	rio_free_tx(dev, 0);
+	printk (KERN_INFO "%s: cur_tx=%lx cur_task=%lx old_tx=%lx "
+			"TFDListPtr=%08x tx_full=%d",
+			dev->name, np->cur_tx, np->cur_task, np->old_tx,
+			readl(ioaddr + TFDListPtr0),
+			netif_queue_stopped(dev));
+	writew(0, ioaddr + IntEnable);
+	writew(0, ioaddr + TFDListPtr0);
+	writew(0, ioaddr + TFDListPtr1);
+	tasklet_disable(&np->tx_tasklet);
+	rio_free_tx(dev);
 	dev->if_port = 0;
 	dev->trans_start = jiffies;
+	tasklet_enable(&np->tx_tasklet);
+	writew(DEFAULT_INTR, ioaddr + IntEnable);
+	return;
 }
 
  /* allocate and initialize Tx and Rx descriptors */
@@ -548,6 +602,7 @@ alloc_list (struct net_device *dev)
 
 	np->cur_rx = np->cur_tx = 0;
 	np->old_rx = np->old_tx = 0;
+	np->cur_task = 0;
 	np->rx_buf_sz = (dev->mtu <= 1500 ? PACKET_SIZE : dev->mtu + 32);
 
 	/* Initialize Tx descriptors, TFDListPtr leaves in start_xmit(). */
@@ -597,6 +652,31 @@ alloc_list (struct net_device *dev)
 	return;
 }
 
+static void tx_poll (unsigned long data)
+{
+	struct net_device *dev = (struct net_device*) data;
+	struct netdev_private *np = dev->priv;
+	unsigned head = np->cur_task % TX_RING_SIZE;
+	struct netdev_desc *txdesc = 
+		&np->tx_ring[(np->cur_tx + TX_RING_SIZE - 1) % TX_RING_SIZE];
+
+	/* Indicate the latest descriptor of tx ring */
+	txdesc->status |= cpu_to_le64 (TxDMAIndicate);
+	
+	while ((np->cur_task + TX_RING_SIZE - np->cur_tx) % TX_RING_SIZE > 0) {
+		txdesc = &np->tx_ring[np->cur_task];
+		txdesc->status &= cpu_to_le64 (~TFDDone);
+		np->cur_task = (np->cur_task + 1) % TX_RING_SIZE;
+	}
+
+	if (readl (dev->base_addr + TFDListPtr0) == 0) {
+		writel (np->tx_ring_dma + head * sizeof (struct netdev_desc),
+			dev->base_addr + TFDListPtr0);
+		writel (0, dev->base_addr + TFDListPtr1);
+	}
+
+	return;
+}
 static int
 start_xmit (struct sk_buff *skb, struct net_device *dev)
 {
@@ -615,8 +695,15 @@ start_xmit (struct sk_buff *skb, struct net_device *dev)
 	np->tx_skbuff[entry] = skb;
 	txdesc = &np->tx_ring[entry];
 
-	if (np->vlan) {
+#if 0
+	if (skb->ip_summed == CHECKSUM_HW) {
 		txdesc->status |=
+		    cpu_to_le64 (TCPChecksumEnable | UDPChecksumEnable |
+				 IPChecksumEnable);
+	}
+#endif
+	if (np->vlan) {
+		tfc_vlan_tag =
 		    cpu_to_le64 (VLANTagInsert) |
 		    (cpu_to_le64 (np->vlan) << 32) |
 		    (cpu_to_le64 (skb->priority) << 45);
@@ -628,48 +715,60 @@ start_xmit (struct sk_buff *skb, struct net_device *dev)
 
 	/* DL2K bug: DMA fails to get next descriptor ptr in 10Mbps mode
 	 * Work around: Always use 1 descriptor in 10Mbps mode */
-	if (entry % np->tx_coalesce == 0 || np->speed == 10)
-		txdesc->status = cpu_to_le64 (entry | tfc_vlan_tag |
-					      WordAlignDisable | 
-					      TxDMAIndicate |
-					      (1 << FragCountShift));
-	else
-		txdesc->status = cpu_to_le64 (entry | tfc_vlan_tag |
-					      WordAlignDisable | 
-					      (1 << FragCountShift));
-
-	/* TxDMAPollNow */
-	writel (readl (ioaddr + DMACtrl) | 0x00001000, ioaddr + DMACtrl);
-	/* Schedule ISR */
-	writel(10000, ioaddr + CountDown);
-	np->cur_tx = (np->cur_tx + 1) % TX_RING_SIZE;
-	if ((np->cur_tx - np->old_tx + TX_RING_SIZE) % TX_RING_SIZE
-			< TX_QUEUE_LEN - 1 && np->speed != 10) {
-		/* do nothing */
-	} else if (!netif_queue_stopped(dev)) {
+	if (np->speed == 10) {
+		/* Note the order! Stop queue before hardware processing
+		 * this descriptor */
 		netif_stop_queue (dev);
+		txdesc->status = cpu_to_le64 (entry | tfc_vlan_tag | 
+					      WordAlignDisable | 
+					      TxDMAIndicate | TxComplete |
+					      (1 << FragCountShift));
+		/* TxDMAPollNow */
+		writel(readl(ioaddr + DMACtrl) | 0x00001000, ioaddr + DMACtrl);
+		if (readl (dev->base_addr + TFDListPtr0) == 0) {
+			writel (np->tx_ring_dma + 
+				entry * sizeof (struct netdev_desc),
+				dev->base_addr + TFDListPtr0);
+			writel (0, dev->base_addr + TFDListPtr1);
+		}
+		np->cur_tx = np->cur_task = (np->cur_tx + 1) % TX_RING_SIZE;
+	} else {
+		np->cur_tx = (np->cur_tx + 1) % TX_RING_SIZE;
+		mb();
+		txdesc->status = cpu_to_le64 (entry | tfc_vlan_tag | TFDDone |
+					      WordAlignDisable | 
+					      (1 << FragCountShift));
+		tasklet_schedule (&np->tx_tasklet);
+		/* Schedule ISR */
+		if ((np->cur_tx - np->old_tx + TX_RING_SIZE) % TX_RING_SIZE
+				< TX_QUEUE_LEN - 1) {
+			/* do nothing */
+		} else if (!netif_queue_stopped(dev)) {
+			netif_stop_queue (dev);
+		}
 	}
 
-	/* The first TFDListPtr */
-	if (readl (dev->base_addr + TFDListPtr0) == 0) {
-		writel (np->tx_ring_dma + entry * sizeof (struct netdev_desc),
-			dev->base_addr + TFDListPtr0);
-		writel (0, dev->base_addr + TFDListPtr1);
-	}
-	
+
 	/* NETDEV WATCHDOG timer */
 	dev->trans_start = jiffies;
 	return 0;
 }
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,69))
+static irqreturn_t
+rio_interrupt (int irq, void *dev_instance, struct pt_regs *rgs)
+#else
 static void
 rio_interrupt (int irq, void *dev_instance, struct pt_regs *rgs)
+#endif
 {
 	struct net_device *dev = dev_instance;
 	struct netdev_private *np;
 	unsigned int_status;
 	long ioaddr;
 	int cnt = max_intrloop;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,69))
+	int handled = 0;
+#endif
 
 	ioaddr = dev->base_addr;
 	np = dev->priv;
@@ -679,17 +778,26 @@ rio_interrupt (int irq, void *dev_instance, struct pt_regs *rgs)
 		int_status &= DEFAULT_INTR;
 		if (int_status == 0 || --cnt < 0)
 			break;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,69))
+		handled = 1;
+#endif
 		/* Processing received packets */
-		if (int_status & RxDMAComplete)
-			receive_packet (dev);
+		if (int_status & RxDMAComplete) {
+			writew(DEFAULT_INTR & ~(RxDMAComplete | RxComplete), 
+					ioaddr + IntEnable);
+			if (np->budget < 0) {
+				np->budget = RX_BUDGET;
+			}
+			tasklet_schedule (&np->rx_tasklet);
+		}
 		/* TxDMAComplete interrupt */
-		if ((int_status & (TxDMAComplete|IntRequested))) {
+		if ((int_status & (TxDMAComplete|IntRequested|TxComplete))) {
 			int tx_status;
 			tx_status = readl (ioaddr + TxStatus);
 			if (tx_status & 0x01)
 				tx_error (dev, tx_status);
 			/* Free used tx skbuffs */
-			rio_free_tx (dev, 1);		
+			rio_free_tx (dev);		
 		}
 
 		/* Handle uncommon events */
@@ -697,24 +805,30 @@ rio_interrupt (int irq, void *dev_instance, struct pt_regs *rgs)
 		    (HostError | LinkEvent | UpdateStats))
 			rio_error (dev, int_status);
 	}
-	if (np->cur_tx != np->old_tx)
-		writel (100, ioaddr + CountDown);
+	writel(5000, ioaddr + CountDown);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,69))
+	return 	IRQ_RETVAL(handled);
+#endif
 }
 
 static void 
-rio_free_tx (struct net_device *dev, int irq) 
+rio_free_tx (struct net_device *dev) 
 {
 	struct netdev_private *np = (struct netdev_private *) dev->priv;
 	int entry = np->old_tx % TX_RING_SIZE;
-	int tx_use = 0;
-	long flag = 0;
+	unsigned long flag = 0;
+	int irq = in_interrupt();
+
+	if (atomic_read(&np->tx_desc_lock))
+		return;
+	atomic_inc(&np->tx_desc_lock);
 	
 	if (irq)
-		spin_lock_irqsave(&np->tx_lock, flag);
-	else
 		spin_lock(&np->tx_lock);
+	else
+		spin_lock_irqsave(&np->tx_lock, flag);
 	/* Free used tx skbuffs */
-	while (entry != np->cur_tx) {
+	while (entry != np->cur_task) {
 		struct sk_buff *skb;
 
 		if (!(np->tx_ring[entry].status & TFDDone))
@@ -730,22 +844,29 @@ rio_free_tx (struct net_device *dev, int irq)
 
 		np->tx_skbuff[entry] = 0;
 		entry = (entry + 1) % TX_RING_SIZE;
-		tx_use++;
 	}
+
 	if (irq)
-		spin_unlock_irqrestore(&np->tx_lock, flag);
-	else
 		spin_unlock(&np->tx_lock);
+	else
+		spin_unlock_irqrestore(&np->tx_lock, flag);
 	np->old_tx = entry;
 
 	/* If the ring is no longer full, clear tx_full and 
 	   call netif_wake_queue() */
-
-	if (netif_queue_stopped(dev) &&
+	if (np->speed != 10) {
+		if (netif_queue_stopped(dev) &&
 	    ((np->cur_tx - np->old_tx + TX_RING_SIZE) % TX_RING_SIZE 
-	    < TX_QUEUE_LEN - 1 || np->speed == 10)) {
+	    < TX_QUEUE_LEN - 1)) {
 		netif_wake_queue (dev);
+		}
 	}
+	else {
+		if (netif_queue_stopped(dev) && 
+	    		np->cur_tx == np->old_tx) 
+		netif_wake_queue(dev);
+	}
+	atomic_dec(&np->tx_desc_lock);
 }
 
 static void
@@ -776,7 +897,7 @@ tx_error (struct net_device *dev, int tx_status)
 				break;
 			mdelay (1);
 		}
-		rio_free_tx (dev, 1);
+		rio_free_tx (dev);
 		/* Reset TFDListPtr */
 		writel (np->tx_ring_dma +
 			np->old_tx * sizeof (struct netdev_desc),
@@ -799,34 +920,45 @@ tx_error (struct net_device *dev, int tx_status)
 		/* Let TxStartThresh stay default value */
 	}
 	/* Maximum Collisions */
+#ifdef ETHER_STATS	
+	if (tx_status & 0x08) 
+		np->stats.collisions16++;
+#else
 	if (tx_status & 0x08) 
 		np->stats.collisions++;
+#endif
 	/* Restart the Tx */
 	writel (readw (dev->base_addr + MACCtrl) | TxEnable, ioaddr + MACCtrl);
 }
 
-static int
-receive_packet (struct net_device *dev)
+static void rx_poll (unsigned long data)
 {
+	struct net_device *dev = (struct net_device*) data;
 	struct netdev_private *np = (struct netdev_private *) dev->priv;
 	int entry = np->cur_rx % RX_RING_SIZE;
-	int cnt = 30;
-
+	int cnt = np->budget;
+	long ioaddr = dev->base_addr;
+	int received = 0;
 	/* If RFDDone, FrameStart and FrameEnd set, there is a new packet in. */
 	while (1) {
 		struct netdev_desc *desc = &np->rx_ring[entry];
 		int pkt_len;
 		u64 frame_status;
 
-		if (!(desc->status & RFDDone) ||
-		    !(desc->status & FrameStart) || !(desc->status & FrameEnd))
-			break;
+		if (--cnt < 0) {
+			np->cur_rx = entry;
+			goto not_done;
+		}
 
 		/* Chip omits the CRC. */
 		pkt_len = le64_to_cpu (desc->status & 0xffff);
 		frame_status = le64_to_cpu (desc->status);
-		if (--cnt < 0)
+
+		if (!(desc->status & RFDDone) ||
+		    !(desc->status & FrameStart) || !(desc->status & FrameEnd))
 			break;
+		
+
 		pci_dma_sync_single (np->pdev, desc->fraginfo, np->rx_buf_sz,
 				     PCI_DMA_FROMDEVICE);
 		/* Update rx error statistics, drop packet. */
@@ -860,13 +992,48 @@ receive_packet (struct net_device *dev)
 				skb_put (skb, pkt_len);
 			}
 			skb->protocol = eth_type_trans (skb, dev);
+#if 0			
+			/* Checksum done by hw, but csum value unavailable. */
+			if (np->pci_rev_id >= 0x0c && 
+				!(frame_status & (TCPError | UDPError | IPError))) {
+				skb->ip_summed = CHECKSUM_UNNECESSARY;
+			} 
+#endif
 			netif_rx (skb);
 			dev->last_rx = jiffies;
 		}
 		entry = (entry + 1) % RX_RING_SIZE;
+		received++;
 	}
-	spin_lock(&np->rx_lock);
 	np->cur_rx = entry;
+	refill_rx (dev);
+	np->budget -= received;
+	writew (DEFAULT_INTR, ioaddr + IntEnable);
+	return;
+	
+not_done:
+	refill_rx (dev);
+	if (!received)
+		received = 1;
+	np->budget -= received;
+	if (np->budget <= 0)
+		np->budget = RX_BUDGET;
+	tasklet_schedule (&np->rx_tasklet);
+	return;
+}
+
+static void refill_rx (struct net_device *dev) 
+{
+	struct netdev_private *np = dev->priv;
+	int entry;
+	int irq = in_interrupt();
+	unsigned long flag = 0;
+
+	if (irq)
+		spin_lock(&np->rx_lock);
+	else
+		spin_lock_irqsave(&np->rx_lock, flag);
+
 	/* Re-allocate skbuffs to fill the descriptor ring */
 	entry = np->old_rx;
 	while (entry != np->cur_rx) {
@@ -897,8 +1064,12 @@ receive_packet (struct net_device *dev)
 		entry = (entry + 1) % RX_RING_SIZE;
 	}
 	np->old_rx = entry;
-	spin_unlock(&np->rx_lock);
-	return 0;
+
+	if (irq)
+		spin_unlock(&np->rx_lock);
+	else
+		spin_unlock_irqrestore(&np->rx_lock, flag);
+	return;
 }
 
 static void
@@ -916,10 +1087,6 @@ rio_error (struct net_device *dev, int int_status)
 				mii_get_media_pcs (dev);
 			else
 				mii_get_media (dev);
-			if (np->speed == 1000)
-				np->tx_coalesce = tx_coalesce;
-			else 
-				np->tx_coalesce = 1;
 			macctrl = 0;
 			macctrl |= (np->vlan) ? AutoVLANuntagging : 0;
 			macctrl |= (np->full_duplex) ? DuplexSelect : 0;
@@ -957,8 +1124,10 @@ get_stats (struct net_device *dev)
 {
 	long ioaddr = dev->base_addr;
 	struct netdev_private *np = dev->priv;
-	int i;
 	unsigned int stat_reg;
+#ifdef MEM_MAPPING
+	int i;
+#endif
 
 	/* All statistics registers need to be acknowledged,
 	   else statistic overflow could cause problems */
@@ -999,10 +1168,10 @@ get_stats (struct net_device *dev)
 	readw (ioaddr + BcstFramesXmtdOk);
 	readw (ioaddr + MacControlFramesXmtd);
 	readw (ioaddr + FramesWEXDeferal);
-
-
+#ifdef MEM_MAPPING
 	for (i = 0x100; i <= 0x150; i += 4)
 		readl (ioaddr + i);
+#endif
 	readw (ioaddr + TxJumboFrames);
 	readw (ioaddr + RxJumboFrames);
 	readw (ioaddr + TCPCheckSumErrors);
@@ -1015,7 +1184,9 @@ static int
 clear_stats (struct net_device *dev)
 {
 	long ioaddr = dev->base_addr;
+#ifdef MEM_MAPPING
 	int i;
+#endif
 
 	/* All statistics registers need to be acknowledged,
 	   else statistic overflow could cause problems */
@@ -1051,9 +1222,10 @@ clear_stats (struct net_device *dev)
 	readw (ioaddr + BcstFramesXmtdOk);
 	readw (ioaddr + MacControlFramesXmtd);
 	readw (ioaddr + FramesWEXDeferal);
-
+#ifdef MEM_MAPPING
 	for (i = 0x100; i <= 0x150; i += 4)
 		readl (ioaddr + i);
+#endif
 	readw (ioaddr + TxJumboFrames);
 	readw (ioaddr + RxJumboFrames);
 	readw (ioaddr + TCPCheckSumErrors);
@@ -1084,9 +1256,6 @@ set_multicast (struct net_device *dev)
 	long ioaddr = dev->base_addr;
 	u32 hash_table[2];
 	u16 rx_mode = 0;
-	int i;
-	int bit;
-	struct dev_mc_list *mclist;
 	struct netdev_private *np = dev->priv;
 	
 	hash_table[0] = hash_table[1] = 0;
@@ -1100,22 +1269,22 @@ set_multicast (struct net_device *dev)
 		/* Receive broadcast and multicast frames */
 		rx_mode = ReceiveBroadcast | ReceiveMulticast | ReceiveUnicast;
 	} else if (dev->mc_count > 0) {
+		int i;
+		struct dev_mc_list *mclist;
 		/* Receive broadcast frames and multicast frames filtering 
 		   by Hashtable */
 		rx_mode =
 		    ReceiveBroadcast | ReceiveMulticastHash | ReceiveUnicast;
 		for (i=0, mclist = dev->mc_list; mclist && i < dev->mc_count; 
-			i++, mclist=mclist->next) {
-
-			int index = 0;
+				i++, mclist=mclist->next) 
+		{
+			int bit, index = 0;
 			int crc = ether_crc_le (ETH_ALEN, mclist->dmi_addr);
-
 			/* The inverted high significant 6 bits of CRC are
 			   used as an index to hashtable */
 			for (bit = 0; bit < 6; bit++)
 				if (crc & (1 << (31 - bit)))
 					index |= (1 << bit);
-
 			hash_table[index / 32] |= (1 << (index % 32));
 		}
 	} else {
@@ -1132,6 +1301,132 @@ set_multicast (struct net_device *dev)
 }
 
 static int
+rio_ethtool_ioctl (struct net_device *dev, void *useraddr)
+{
+	struct netdev_private *np = dev->priv;
+       	u32 ethcmd;
+	
+	if (copy_from_user (&ethcmd, useraddr, sizeof (ethcmd)))
+		return -EFAULT;
+	switch (ethcmd) {
+		case ETHTOOL_GDRVINFO: {
+			struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
+			strcpy(info.driver, "DL2K");
+			strcpy(info.version, DRV_VERSION);
+			strcpy(info.bus_info, np->pdev->slot_name);
+			memset(&info.fw_version, 0, sizeof(info.fw_version));
+			if (copy_to_user(useraddr, &info, sizeof(info)))
+				return -EFAULT;
+			return 0;
+		}	
+ 	
+		case ETHTOOL_GSET: {
+			struct ethtool_cmd cmd = { ETHTOOL_GSET };
+			if (np->phy_media) {
+				/* fiber device */
+				cmd.supported = SUPPORTED_Autoneg | 
+							SUPPORTED_FIBRE;
+				cmd.advertising= ADVERTISED_Autoneg |
+							ADVERTISED_FIBRE;
+				cmd.port = PORT_FIBRE;
+				cmd.transceiver = XCVR_INTERNAL;	
+			} else {
+				/* copper device */
+				cmd.supported = SUPPORTED_10baseT_Half | 
+					SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Half
+					| SUPPORTED_100baseT_Full | SUPPORTED_1000baseT_Full |
+					SUPPORTED_Autoneg | SUPPORTED_MII;
+				cmd.advertising = ADVERTISED_10baseT_Half |
+					ADVERTISED_10baseT_Full | ADVERTISED_100baseT_Half |
+					ADVERTISED_100baseT_Full | ADVERTISED_1000baseT_Full|
+					ADVERTISED_Autoneg | ADVERTISED_MII;
+				cmd.port = PORT_MII;
+				cmd.transceiver = XCVR_INTERNAL;
+			}
+			if ( np->link_status ) { 
+				cmd.speed = np->speed;
+				cmd.duplex = np->full_duplex ? 
+						    DUPLEX_FULL : DUPLEX_HALF;
+			} else {
+				cmd.speed = -1;
+				cmd.duplex = -1;
+			}
+			if ( np->an_enable)
+				cmd.autoneg = AUTONEG_ENABLE;
+			else
+				cmd.autoneg = AUTONEG_DISABLE;
+			
+			cmd.phy_address = np->phy_addr;
+
+			if (copy_to_user(useraddr, &cmd,
+					sizeof(cmd)))
+				return -EFAULT;
+			return 0;				   
+		}
+		case ETHTOOL_SSET: {
+			struct ethtool_cmd cmd;
+			if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+				return -EFAULT;
+			netif_carrier_off(dev);
+			if (cmd.autoneg == AUTONEG_ENABLE) {
+				if (np->an_enable)
+					return 0;
+				else {
+					np->an_enable = 1;
+					mii_set_media(dev);
+					return 0;	
+				}	
+			} else {
+				np->an_enable = 0;
+				if (np->speed == 1000){
+					cmd.speed = SPEED_100;			
+					cmd.duplex = DUPLEX_FULL;
+					printk("Warning!! Can't disable Auto negotiation in 1000Mbps, change to Manul 100Mbps, Full duplex.\n");
+					}
+				switch(cmd.speed + cmd.duplex){
+				
+				case SPEED_10 + DUPLEX_HALF:
+					np->speed = 10;
+					np->full_duplex = 0;
+					break;
+				
+				case SPEED_10 + DUPLEX_FULL:
+					np->speed = 10;
+					np->full_duplex = 1;
+					break;
+				case SPEED_100 + DUPLEX_HALF:
+					np->speed = 100;
+					np->full_duplex = 0;
+					break;
+				case SPEED_100 + DUPLEX_FULL:
+					np->speed = 100;
+					np->full_duplex = 1;
+					break;
+				case SPEED_1000 + DUPLEX_HALF:/* not supported */
+				case SPEED_1000 + DUPLEX_FULL:/* not supported */
+				default:
+					return -EINVAL;	
+				}
+				mii_set_media(dev);
+			}
+		return 0;		   
+		}
+#ifdef ETHTOOL_GLINK		
+		case ETHTOOL_GLINK:{
+		struct ethtool_value link = { ETHTOOL_GLINK };
+		link.data = np->link_status;
+		if (copy_to_user(useraddr, &link, sizeof(link)))
+			return -EFAULT;
+		return 0;
+		}			   
+#endif
+		default:
+		return -EOPNOTSUPP;
+	}	
+}
+
+
+static int
 rio_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	int phy_addr;
@@ -1143,6 +1438,8 @@ rio_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 
 	phy_addr = np->phy_addr;
 	switch (cmd) {
+	case SIOCETHTOOL:
+		return rio_ethtool_ioctl (dev, (void *) rq->ifr_data);		
 	case SIOCDEVPRIVATE:
 		break;
 	
@@ -1193,14 +1490,15 @@ rio_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
 #define EEP_READ 0x0200
 #define EEP_BUSY 0x8000
 /* Read the EEPROM word */
+/* We use I/O instruction to read/write eeprom to avoid fail on some machines */
 int
 read_eeprom (long ioaddr, int eep_addr)
 {
 	int i = 1000;
-	writew (EEP_READ | (eep_addr & 0xff), ioaddr + EepromCtrl);
+	outw (EEP_READ | (eep_addr & 0xff), ioaddr + EepromCtrl);
 	while (i-- > 0) {
-		if (!(readw (ioaddr + EepromCtrl) & EEP_BUSY)) {
-			return readw (ioaddr + EepromData);
+		if (!(inw (ioaddr + EepromCtrl) & EEP_BUSY)) {
+			return inw (ioaddr + EepromData);
 		}
 	}
 	return 0;
@@ -1447,7 +1745,7 @@ mii_set_media (struct net_device *dev)
 		/* 3) Power Down */
 		bmcr.image = 0x1940;	/* must be 0x1940 */
 		mii_write (dev, phy_addr, MII_BMCR, bmcr.image);
-		mdelay (10);	/* wait a certain time */
+		mdelay (100);	/* wait a certain time */
 
 		/* 4) Advertise nothing */
 		mii_write (dev, phy_addr, MII_ANAR, 0);
@@ -1471,6 +1769,12 @@ mii_set_media (struct net_device *dev)
 			bmcr.bits.duplex_mode = 0;
 			printk ("Half duplex\n");
 		}
+#if 0
+		/* Set 1000BaseT Master/Slave setting */
+		mscr.image = mii_read (dev, phy_addr, MII_MSCR);
+		mscr.bits.cfg_enable = 1;
+		mscr.bits.cfg_value = 0;
+#endif
 		mii_write (dev, phy_addr, MII_BMCR, bmcr.image);
 		mdelay(10);
 	}
@@ -1607,7 +1911,13 @@ rio_close (struct net_device *dev)
 
 	/* Stop Tx and Rx logics */
 	writel (TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
 	synchronize_irq ();
+#else
+	synchronize_irq(dev->irq);
+#endif
+	tasklet_kill (&np->tx_tasklet);
+	tasklet_kill (&np->rx_tasklet);
 	free_irq (dev->irq, dev);
 	del_timer_sync (&np->timer);
 	
@@ -1660,10 +1970,10 @@ rio_remove1 (struct pci_dev *pdev)
 }
 
 static struct pci_driver rio_driver = {
-	name:		"dl2k",
-	id_table:	rio_pci_tbl,
-	probe:		rio_probe1,
-	remove:		__devexit_p(rio_remove1),
+	.name		= "dl2k",
+	.id_table	= rio_pci_tbl,
+	.probe		= rio_probe1,
+	.remove		= __devexit_p(rio_remove1),
 };
 
 static int __init

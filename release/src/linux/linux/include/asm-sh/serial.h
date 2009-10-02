@@ -12,7 +12,7 @@
 
 #ifdef CONFIG_SH_EC3104
 #include <asm/serial-ec3104.h>
-#elif defined(CONFIG_SH_BIGSUR)
+#elif defined (CONFIG_SH_BIGSUR)
 #include <asm/serial-bigsur.h>
 #else
 /*
@@ -48,6 +48,7 @@
 
 #define SERIAL_PORT_DFNS STD_SERIAL_PORT_DEFNS
 
+/* XXX: This should be moved ino irq.h */
 #define irq_cannonicalize(x) (x)
 
 #endif

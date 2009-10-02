@@ -1,4 +1,4 @@
-/* $Id: sab82532.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: sab82532.c,v 1.65 2001/10/13 08:27:50 davem Exp $
  * sab82532.c: ASYNC Driver for the SIEMENS SAB82532 DUSCC.
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)
@@ -669,10 +669,7 @@ static void do_softint(void *private_)
 		return;
 
 	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 }
 
@@ -1013,9 +1010,21 @@ static void change_speed(struct sab82532 *info)
 	if (info->tty)
 		info->tty->hw_stopped = 0;
 
+	/*
+	 * Set up parity check flag
+	 * XXX: not implemented, yet.
+	 */
 #define RELEVANT_IFLAG(iflag) (iflag & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 
+	/*
+	 * Characters to ignore
+	 * XXX: not implemented, yet.
+	 */
 
+	/*
+	 * !!! ignore all characters if CREAD is not set
+	 * XXX: not implemented, yet.
+	 */
 	if ((cflag & CREAD) == 0)
 		info->ignore_status_mask |= SAB82532_ISR0_RPF |
 					    SAB82532_ISR0_TCD |
@@ -1194,10 +1203,7 @@ static void sab82532_flush_buffer(struct tty_struct *tty)
 	info->xmit.head = info->xmit.tail = 0;
 	restore_flags(flags);
 
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /*
@@ -1655,8 +1661,7 @@ static void sab82532_close(struct tty_struct *tty, struct file * filp)
 	shutdown(info);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	info->event = 0;
 	info->tty = 0;
@@ -2188,7 +2193,7 @@ static void __init sab82532_kgdb_hook(int line)
 
 static inline void __init show_serial_version(void)
 {
-	char *revision = "$Revision: 1.1.1.4 $";
+	char *revision = "$Revision: 1.65 $";
 	char *version, *p;
 
 	version = strchr(revision, ' ');

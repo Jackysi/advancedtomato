@@ -9,7 +9,7 @@
 
 O_TARGET := smbfs.o
 
-obj-y   := proc.o dir.o cache.o sock.o inode.o file.o ioctl.o getopt.o
+obj-y   := proc.o dir.o cache.o sock.o inode.o file.o ioctl.o getopt.o symlink.o
 obj-m   := $(O_TARGET)
 
 # If you want debugging output, you may add these flags to the EXTRA_CFLAGS
@@ -29,7 +29,7 @@ include $(TOPDIR)/Rules.make
 #
 
 # getopt.c not included. It is intentionally separate
-SRC = proc.c dir.c cache.c sock.c inode.c file.c ioctl.c
+SRC = proc.c dir.c cache.c sock.c inode.c file.c ioctl.c symlink.c
 
 proto:
 	-rm -f proto.h

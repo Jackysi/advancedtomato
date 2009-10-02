@@ -143,7 +143,7 @@ static void ohci_complete_add(struct ohci *ohci, struct urb *urb)
 		ohci->complete_head = urb;
 		ohci->complete_tail = urb;
 	} else {
-		ohci->complete_head->hcpriv = urb;
+		ohci->complete_tail->hcpriv = urb;
 		ohci->complete_tail = urb;
 	}
 }
@@ -677,7 +677,7 @@ static int sohci_submit_urb (struct urb * urb)
 		return -ENOMEM;
 	}
 	memset (urb_priv, 0, sizeof (urb_priv_t) + size * sizeof (td_t *));
-	
+
 	/* fill the private part of the URB */
 	urb_priv->length = size;
 	urb_priv->ed = ed;	
@@ -823,7 +823,7 @@ static int sohci_unlink_urb (struct urb * urb)
 			urb_priv->ed->state |= ED_URB_DEL;
 
 			if (!(urb->transfer_flags & USB_ASYNC_UNLINK)) {
-				DECLARE_WAIT_QUEUE_HEAD (unlink_wakeup); 
+				DECLARE_WAIT_QUEUE_HEAD (unlink_wakeup);
 				DECLARE_WAITQUEUE (wait, current);
 				int timeout = OHCI_UNLINK_TIMEOUT;
 
@@ -838,7 +838,14 @@ static int sohci_unlink_urb (struct urb * urb)
 					set_current_state(TASK_UNINTERRUPTIBLE);
 				}
 				set_current_state(TASK_RUNNING);
-				remove_wait_queue (&unlink_wakeup, &wait); 
+
+				/*
+				 * A waitqueue head is self-locked, but we try
+				 * to interlock with the dl_del_urb().
+				 */
+				spin_lock_irqsave(&ohci->ohci_lock, flags);
+				remove_wait_queue(&unlink_wakeup, &wait);
+				spin_unlock_irqrestore(&ohci->ohci_lock, flags);
 				if (urb->status == USB_ST_URB_PENDING) {
 					err ("unlink URB timeout");
 					return -ETIMEDOUT;
@@ -943,18 +950,16 @@ static int sohci_free_dev (struct usb_device * usb_dev)
 				warn ("TD leak, %d", cnt);
 
 			} else if (!in_interrupt ()) {
-				DECLARE_WAIT_QUEUE_HEAD (freedev_wakeup); 
 				DECLARE_WAITQUEUE (wait, current);
 				int timeout = OHCI_UNLINK_TIMEOUT;
 
 				/* SF interrupt handler calls dl_del_list */
-				add_wait_queue (&freedev_wakeup, &wait);
-				dev->wait = &freedev_wakeup;
+				add_wait_queue (&dev->wait, &wait);
 				set_current_state(TASK_UNINTERRUPTIBLE);
 				while (timeout && dev->ed_cnt)
 					timeout = schedule_timeout (timeout);
 				set_current_state(TASK_RUNNING);
-				remove_wait_queue (&freedev_wakeup, &wait);
+				remove_wait_queue (&dev->wait, &wait);
 				if (dev->ed_cnt) {
 					err ("free device %d timeout", usb_dev->devnum);
 					return -ETIMEDOUT;
@@ -1664,13 +1669,8 @@ static void dl_del_list (ohci_t  * ohci, unsigned int frame)
 			ed->state = ED_NEW;
 			hash_free_ed(ohci, ed);
    	 		/* if all eds are removed wake up sohci_free_dev */
-   	 		if (!--dev->ed_cnt) {
-				wait_queue_head_t *wait_head = dev->wait;
-
-				dev->wait = 0;
-				if (wait_head)
-					wake_up (wait_head);
-			}
+   	 		if (!--dev->ed_cnt)
+				wake_up(&dev->wait);
    	 	} else {
    	 		ed->state &= ~ED_URB_DEL;
 			tdHeadP = dma_to_td (ohci, le32_to_cpup (&ed->hwHeadP) & 0xfffffff0);
@@ -2159,7 +2159,7 @@ static int rh_submit_urb (struct urb * urb)
 static int rh_unlink_urb (struct urb * urb)
 {
 	ohci_t * ohci = urb->dev->bus->hcpriv;
-	unsigned int flags;
+	unsigned long flags;
  
 	spin_lock_irqsave(&ohci->ohci_lock, flags);
 	if (ohci->rh.urb == urb) {

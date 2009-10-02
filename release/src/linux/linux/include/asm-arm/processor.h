@@ -1,7 +1,7 @@
 /*
  *  linux/include/asm-arm/processor.h
  *
- *  Copyright (C) 1995 Russell King
+ *  Copyright (C) 1995-2002 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -44,13 +44,21 @@ typedef unsigned long mm_segment_t;		/* domain register	*/
 #include <asm/ptrace.h>
 #include <asm/arch/memory.h>
 #include <asm/proc/processor.h>
+#include <asm/types.h>
+
+union debug_insn {
+	u32	arm;
+	u16	thumb;
+};
+
+struct debug_entry {
+	u32			address;
+	union debug_insn	insn;
+};
 
 struct debug_info {
-	int				nsaved;
-	struct {
-		unsigned long		address;
-		unsigned long		insn;
-	} bp[2];
+	int			nsaved;
+	struct debug_entry	bp[2];
 };
 
 struct thread_struct {
@@ -81,7 +89,7 @@ static inline unsigned long thread_saved_pc(struct thread_struct *t)
 	return t->save ? pc_pointer(t->save->pc) : 0;
 }
 
-static inline unsigned long get_css_fp(struct thread_struct *t)
+static inline unsigned long thread_saved_fp(struct thread_struct *t)
 {
 	return t->save ? t->save->fp : 0;
 }
@@ -112,12 +120,12 @@ extern void __free_task_struct(struct task_struct *);
 #define init_task	(init_task_union.task)
 #define init_stack	(init_task_union.stack)
 
-#define cpu_relax()	do { } while (0)
+#define cpu_relax()	barrier()
 
 /*
  * Create a new kernel thread
  */
-extern int kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
+extern int arch_kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
 
 #endif
 

@@ -10,17 +10,11 @@
 #ifdef CONFIG_ATM_ZATM
 extern int zatm_detect(void);
 #endif
-#ifdef CONFIG_ATM_NICSTAR
-extern int nicstar_detect(void);
-#endif
 #ifdef CONFIG_ATM_AMBASSADOR
 extern int amb_detect(void);
 #endif
 #ifdef CONFIG_ATM_HORIZON
 extern int hrz_detect(void);
-#endif
-#ifdef CONFIG_ATM_IA
-extern int ia_detect(void);
 #endif
 #ifdef CONFIG_ATM_FORE200E
 extern int fore200e_detect(void);
@@ -44,17 +38,11 @@ int __init atmdev_init(void)
 #ifdef CONFIG_ATM_ZATM
 	devs += zatm_detect();
 #endif
-#ifdef CONFIG_ATM_NICSTAR
-	devs += nicstar_detect();
-#endif
 #ifdef CONFIG_ATM_AMBASSADOR
 	devs += amb_detect();
 #endif
 #ifdef CONFIG_ATM_HORIZON
 	devs += hrz_detect();
-#endif
-#ifdef CONFIG_ATM_IA
-	devs += ia_detect();
 #endif
 #ifdef CONFIG_ATM_FORE200E
 	devs += fore200e_detect();

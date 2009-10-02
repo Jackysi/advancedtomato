@@ -1,7 +1,7 @@
 /*
  * Flash mapping for BCM947XX boards
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -18,12 +18,15 @@
 #include <asm/io.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
+#ifdef CONFIG_MTD_PARTITIONS
 #include <linux/mtd/partitions.h>
+#endif
 #include <linux/config.h>
 
 #include <typedefs.h>
 #include <bcmnvram.h>
 #include <bcmutils.h>
+#include <osl.h>
 #include <sbconfig.h>
 #include <sbchipc.h>
 #include <sbutils.h>

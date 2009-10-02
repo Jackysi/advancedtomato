@@ -55,10 +55,10 @@ SECTIONS
   .vxtime_sequence : AT ((LOADADDR(.vsyscall_0) + SIZEOF(.vsyscall_0) + 63) & ~(63)) { *(.vxtime_sequence) }
   vxtime_sequence = LOADADDR(.vxtime_sequence);
   . = ALIGN(16);
-  .hpet : AT ((LOADADDR(.vxtime_sequence) + SIZEOF(.vxtime_sequence) + 15) & ~(15)) { *(.hpet) }
-  hpet = LOADADDR(.hpet);
+  .vxtime : AT ((LOADADDR(.vxtime_sequence) + SIZEOF(.vxtime_sequence) + 15) & ~(15)) { *(.vxtime) }
+  vxtime = LOADADDR(.vxtime);
   . = ALIGN(16);
-  .wall_jiffies : AT ((LOADADDR(.hpet) + SIZEOF(.hpet) + 15) & ~(15)) { *(.wall_jiffies) }
+  .wall_jiffies : AT ((LOADADDR(.vxtime) + SIZEOF(.vxtime) + 15) & ~(15)) { *(.wall_jiffies) }
   wall_jiffies = LOADADDR(.wall_jiffies);
   . = ALIGN(16);
   .sys_tz : AT ((LOADADDR(.wall_jiffies) + SIZEOF(.wall_jiffies) + 15) & ~(15)) { *(.sys_tz) }
@@ -96,8 +96,10 @@ SECTIONS
 
   /* Sections to be discarded */
   /DISCARD/ : {
+	*(.text.exit)
 	*(.data.exit)
 	*(.exitcall.exit)
+	*(.eh_frame)
 	}
 
   /* DWARF 2 */

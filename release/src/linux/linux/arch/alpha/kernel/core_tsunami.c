@@ -350,10 +350,17 @@ tsunami_init_one_pchip(tsunami_pchip *pchip, int index)
 	 * Window 0 is scatter-gather 8MB at 8MB (for isa)
 	 * Window 1 is scatter-gather (up to) 1GB at 1GB
 	 * Window 2 is direct access 2GB at 2GB
+	 *
+	 * NOTE: we need the align_entry settings for Acer devices on ES40,
+	 * specifically floppy and IDE when memory is larger than 2GB.
 	 */
 	hose->sg_isa = iommu_arena_new(hose, 0x00800000, 0x00800000, 0);
+	/* Initially set for 4 PTEs, but will be overridden to 64K for ISA. */
+	hose->sg_isa->align_entry = 4;
+
 	hose->sg_pci = iommu_arena_new(hose, 0x40000000,
 				       size_for_memory(0x40000000), 0);
+	hose->sg_pci->align_entry = 4; /* Tsunami caches 4 PTEs at a time */
 
 	__direct_map_base = 0x80000000;
 	__direct_map_size = 0x80000000;
@@ -398,6 +405,22 @@ tsunami_init_arch(void)
 	       ? "succeeded" : "failed");
 #endif /* NXM_MACHINE_CHECKS_ON_TSUNAMI */
 
+#if 0
+	printk("%s: CChip registers:\n", FN);
+	printk("%s: CSR_CSC 0x%lx\n", FN, TSUNAMI_cchip->csc.csr);
+	printk("%s: CSR_MTR 0x%lx\n", FN, TSUNAMI_cchip.mtr.csr);
+	printk("%s: CSR_MISC 0x%lx\n", FN, TSUNAMI_cchip->misc.csr);
+	printk("%s: CSR_DIM0 0x%lx\n", FN, TSUNAMI_cchip->dim0.csr);
+	printk("%s: CSR_DIM1 0x%lx\n", FN, TSUNAMI_cchip->dim1.csr);
+	printk("%s: CSR_DIR0 0x%lx\n", FN, TSUNAMI_cchip->dir0.csr);
+	printk("%s: CSR_DIR1 0x%lx\n", FN, TSUNAMI_cchip->dir1.csr);
+	printk("%s: CSR_DRIR 0x%lx\n", FN, TSUNAMI_cchip->drir.csr);
+
+	printk("%s: DChip registers:\n");
+	printk("%s: CSR_DSC 0x%lx\n", FN, TSUNAMI_dchip->dsc.csr);
+	printk("%s: CSR_STR 0x%lx\n", FN, TSUNAMI_dchip->str.csr);
+	printk("%s: CSR_DREV 0x%lx\n", FN, TSUNAMI_dchip->drev.csr);
+#endif
 	/* With multiple PCI busses, we play with I/O as physical addrs.  */
 	ioport_resource.end = ~0UL;
 	iomem_resource.end = ~0UL;

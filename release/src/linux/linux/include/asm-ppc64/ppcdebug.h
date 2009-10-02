@@ -29,40 +29,44 @@
  * code.  They must be set statically, any attempt to change them dynamically
  * would be a very bad idea.
  */
-#define PPCDBG_MMINIT        PPCDBG_BITVAL(0)
-#define PPCDBG_MM            PPCDBG_BITVAL(1)
-#define PPCDBG_SYS32         PPCDBG_BITVAL(2)
-#define PPCDBG_SYS32NI       PPCDBG_BITVAL(3)
-#define PPCDBG_SYS32X	     PPCDBG_BITVAL(4)
-#define PPCDBG_SYS32M	     PPCDBG_BITVAL(5)
-#define PPCDBG_SYS64         PPCDBG_BITVAL(6)
-#define PPCDBG_SYS64NI       PPCDBG_BITVAL(7)
-#define PPCDBG_SYS64X	     PPCDBG_BITVAL(8)
-#define PPCDBG_SIGNAL        PPCDBG_BITVAL(9)
-#define PPCDBG_SIGNALXMON    PPCDBG_BITVAL(10)
-#define PPCDBG_BINFMT32      PPCDBG_BITVAL(11)
-#define PPCDBG_BINFMT64      PPCDBG_BITVAL(12)
-#define PPCDBG_BINFMTXMON    PPCDBG_BITVAL(13)
-#define PPCDBG_BINFMT_32ADDR PPCDBG_BITVAL(14)
-#define PPCDBG_ALIGNFIXUP    PPCDBG_BITVAL(15)
-#define PPCDBG_TCEINIT       PPCDBG_BITVAL(16)
-#define PPCDBG_TCE           PPCDBG_BITVAL(17)
-#define PPCDBG_PHBINIT       PPCDBG_BITVAL(18)
-#define PPCDBG_SMP           PPCDBG_BITVAL(19)
-#define PPCDBG_BOOT          PPCDBG_BITVAL(20)
-#define PPCDBG_BUSWALK       PPCDBG_BITVAL(21)
-#define PPCDBG_PROM	     PPCDBG_BITVAL(22)
-#define PPCDBG_RTAS	     PPCDBG_BITVAL(23)
-#define PPCDBG_HTABSTRESS    PPCDBG_BITVAL(62)
-#define PPCDBG_HTABSIZE      PPCDBG_BITVAL(63)
-#define PPCDBG_NONE          (0UL)
-#define PPCDBG_ALL           (0xffffffffUL)
-
-/* The default initial value for the debug switch */
-#define PPC_DEBUG_DEFAULT    0 
-/* #define PPC_DEBUG_DEFAULT    PPCDBG_ALL        */
+#define PPCDBG_MMINIT		PPCDBG_BITVAL(0)
+#define PPCDBG_MM		PPCDBG_BITVAL(1)
+#define PPCDBG_SYS32		PPCDBG_BITVAL(2)
+#define PPCDBG_SYS32NI		PPCDBG_BITVAL(3)
+#define PPCDBG_SYS32X		PPCDBG_BITVAL(4)
+#define PPCDBG_SYS32M		PPCDBG_BITVAL(5)
+#define PPCDBG_SYS64		PPCDBG_BITVAL(6)
+#define PPCDBG_SYS64NI		PPCDBG_BITVAL(7)
+#define PPCDBG_SYS64X		PPCDBG_BITVAL(8)
+#define PPCDBG_SIGNAL		PPCDBG_BITVAL(9)
+#define PPCDBG_SIGNAL64		PPCDBG_BITVAL(10)
+#define PPCDBG_SIGNALXMON	PPCDBG_BITVAL(11)
+#define PPCDBG_BINFMT32		PPCDBG_BITVAL(12)
+#define PPCDBG_BINFMT64		PPCDBG_BITVAL(13)
+#define PPCDBG_BINFMTXMON	PPCDBG_BITVAL(14)
+#define PPCDBG_BINFMT_32ADDR	PPCDBG_BITVAL(15)
+#define PPCDBG_ALIGNFIXUP	PPCDBG_BITVAL(16)
+#define PPCDBG_TCEINIT		PPCDBG_BITVAL(17)
+#define PPCDBG_TCE		PPCDBG_BITVAL(18)
+#define PPCDBG_PHBINIT		PPCDBG_BITVAL(19)
+#define PPCDBG_SMP		PPCDBG_BITVAL(20)
+#define PPCDBG_BOOT		PPCDBG_BITVAL(21)
+#define PPCDBG_BUSWALK		PPCDBG_BITVAL(22)
+#define PPCDBG_PROM		PPCDBG_BITVAL(23)
+#define PPCDBG_RTAS		PPCDBG_BITVAL(24)
+#define PPCDBG_HTABSTRESS	PPCDBG_BITVAL(62)
+#define PPCDBG_HTABSIZE		PPCDBG_BITVAL(63)
+#define PPCDBG_NONE		(0UL)
+#define PPCDBG_ALL		(0xffffffffUL)
 
 #define PPCDBG_NUM_FLAGS     64
+
+/* The default initial value for the debug switch */
+#if 0
+# define PPC_DEBUG_DEFAULT	PPCDBG_ALL
+#else
+# define PPC_DEBUG_DEFAULT	PPCDBG_NONE 
+#endif
 
 #ifdef WANT_PPCDBG_TAB
 /* A table of debug switch names to allow name lookup in xmon 
@@ -73,7 +77,7 @@ char *trace_names[PPCDBG_NUM_FLAGS] = {
 	"mminit", 	"mm",
 	"syscall32", 	"syscall32_ni", "syscall32x",	"syscall32m",
 	"syscall64", 	"syscall64_ni", "syscall64x",
-	"signal",	"signal_xmon",
+	"signal",	"signal64",	"signal_xmon",
 	"binfmt32",	"binfmt64",	"binfmt_xmon",	"binfmt_32addr",
 	"alignfixup",   "tceinit",      "tce",          "phb_init",     
 	"smp",          "boot",         "buswalk",	"prom",
@@ -98,10 +102,6 @@ extern char *trace_names[64];
 #ifdef CONFIG_XMON
 #define PPCDBG_ENTER_DEBUGGER() xmon(0)
 #define PPCDBG_ENTER_DEBUGGER_REGS(X) xmon(X)
-#endif
-#ifdef CONFIG_KDB
-#include <linux/kdb.h>
-#define PPCDBG_ENTER_DEBUGGER() kdb(KDB_REASON_CALL, 0, 0)
 #endif
 
 #else

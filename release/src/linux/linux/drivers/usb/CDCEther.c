@@ -37,6 +37,7 @@
 #define SHORT_DRIVER_DESC "CDC Ethernet Class"
 #define DRIVER_VERSION "0.98.6"
 
+static const char driver_name[] = "CDCEther";
 static const char *version = __FILE__ ": " DRIVER_VERSION " 7 Jan 2002 Brad Hards and another";
 // We only try to claim CDC Ethernet model devices */
 static struct usb_device_id CDCEther_ids[] = {
@@ -185,16 +186,15 @@ static void write_bulk_callback( struct urb *urb )
 
 }
 
-
-static void intr_callback( struct urb *urb )
+#if 0
+static void setpktfilter_done( struct urb *urb )
 {
 	ether_dev_t *ether_dev = urb->context;
 	struct net_device *net;
-	__u8	*d;
 
 	if ( !ether_dev )
 		return;
-	dbg("got intr callback");
+	dbg("got ctrl callback for setting packet filter");
 	switch ( urb->status ) {
 		case USB_ST_NOERROR:
 			break;
@@ -203,20 +203,49 @@ static void intr_callback( struct urb *urb )
 		default:
 			dbg("intr status %d", urb->status);
 	}
+}
+#endif 
 
-	d = urb->transfer_buffer;
-	dbg("d: %x", d[0]);
+static void intr_callback( struct urb *urb )
+{
+	ether_dev_t *ether_dev = urb->context;
+	struct net_device *net;
+	struct usb_ctrlrequest *event;
+#define bNotification	bRequest
+
+	if ( !ether_dev )
+		return;
 	net = ether_dev->net;
-	if ( d[0] & 0xfc ) {
-		ether_dev->stats.tx_errors++;
-		if ( d[0] & TX_UNDERRUN )
-			ether_dev->stats.tx_fifo_errors++;
-		if ( d[0] & (EXCESSIVE_COL | JABBER_TIMEOUT) )
-			ether_dev->stats.tx_aborted_errors++;
-		if ( d[0] & LATE_COL )
-			ether_dev->stats.tx_window_errors++;
-		if ( d[0] & (NO_CARRIER | LOSS_CARRIER) )
-			netif_carrier_off(net);
+	switch ( urb->status ) {
+		case USB_ST_NOERROR:
+			break;
+		case USB_ST_URB_KILLED:
+		default:
+			dbg("%s intr status %d", net->name, urb->status);
+			return;
+	}
+
+	event = urb->transfer_buffer;
+	if (event->bRequestType != 0xA1)
+		dbg ("%s unknown event type %x", net->name,
+			event->bRequestType);
+	else switch (event->bNotification) {
+	case 0x00:		// NETWORK CONNECTION
+		dbg ("%s network %s", net->name,
+			event->wValue ? "connect" : "disconnect");
+		if (event->wValue)
+			netif_carrier_on (net);
+		else
+			netif_carrier_off (net);
+		break;
+	case 0x2A:		// CONNECTION SPEED CHANGE
+		dbg ("%s speed change", net->name);
+		/* ignoring eight bytes of data */
+		break;
+	case 0x01:		// RESPONSE AVAILABLE (none requested)
+	default:		// else undefined for CDC Ether
+		err ("%s illegal notification %02x", net->name,
+			event->bNotification);
 	}
 }
 
@@ -287,21 +316,7 @@ static void CDCEther_tx_timeout( struct net_device *net )
 static int CDCEther_start_xmit( struct sk_buff *skb, struct net_device *net )
 {
 	ether_dev_t	*ether_dev = net->priv;
-	int 	count;
 	int 	res;
-
-	// If we are told to transmit an ethernet frame that fits EXACTLY 
-	// into an integer number of USB packets, we force it to send one 
-	// more byte so the device will get a runt USB packet signalling the 
-	// end of the ethernet frame
-	if ( (skb->len) ^ (ether_dev->data_ep_out_size) ) {
-		// It was not an exact multiple
-		// no need to add anything extra
-		count = skb->len;
-	} else {
-		// Add one to make it NOT an exact multiple
-		count = skb->len + 1;
-	}
 
 	// Tell the kernel, "No more frames 'til we are done
 	// with this one.'
@@ -317,8 +332,11 @@ static int CDCEther_start_xmit( struct sk_buff *skb, struct net_device *net )
 			write_bulk_callback, ether_dev );
 
 	// Tell the URB how much it will be transporting today
-	ether_dev->tx_urb.transfer_buffer_length = count;
-	
+	ether_dev->tx_urb.transfer_buffer_length = skb->len;
+
+	/* Deal with the Zero Length packet problem, I hope */
+	ether_dev->tx_urb.transfer_flags |= USB_ZERO_PACKET;
+
 	// Send the URB on its merry way.
 	if ((res = usb_submit_urb(&ether_dev->tx_urb)))  {
 		// Hmm...  It didn't go. Tell someone...
@@ -382,10 +400,13 @@ static int CDCEther_open(struct net_device *net)
 			ether_dev->usb,
 			usb_rcvintpipe(ether_dev->usb, ether_dev->comm_ep_in),
 			ether_dev->intr_buff,
-			8, /* Transfer buffer length */
+			sizeof ether_dev->intr_buff,
 			intr_callback,
 			ether_dev,
-			ether_dev->intr_interval);
+			(ether_dev->usb->speed == USB_SPEED_HIGH)
+				? ( 1 << ether_dev->intr_interval)
+				: ether_dev->intr_interval
+			);
 		if ( (res = usb_submit_urb(&ether_dev->intr_urb)) ) {
 			warn("%s failed intr_urb %d", __FUNCTION__, res );
 		}
@@ -440,7 +461,7 @@ static int netdev_ethtool_ioctl(struct net_device *netdev, void *useraddr)
 	/* get driver info */
 	case ETHTOOL_GDRVINFO: {
 	struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, SHORT_DRIVER_DESC, ETHTOOL_BUSINFO_LEN);
+		strncpy(info.driver, driver_name, ETHTOOL_BUSINFO_LEN);
 		strncpy(info.version, DRIVER_VERSION, ETHTOOL_BUSINFO_LEN);
 		sprintf(tmp, "usb%d:%d", ether_dev->usb->bus->busnum, ether_dev->usb->devnum);
 		strncpy(info.bus_info, tmp, ETHTOOL_BUSINFO_LEN);
@@ -477,6 +498,28 @@ static int CDCEther_ioctl( struct net_device *net, struct ifreq *rq, int cmd )
 
 static void CDC_SetEthernetPacketFilter (ether_dev_t *ether_dev)
 {
+#if 0
+	struct usb_ctrlrequest *dr = &ether_dev->ctrl_dr;
+	int res;
+
+	dr->bRequestType = USB_TYPE_CLASS | USB_DIR_OUT | USB_RECIP_INTERFACE;
+	dr->bRequest = SET_ETHERNET_PACKET_FILTER;
+	dr->wValue = cpu_to_le16(ether_dev->mode_flags);
+	dr->wIndex = cpu_to_le16((u16)ether_dev->comm_interface);
+	dr->wLength = 0;
+
+	FILL_CONTROL_URB(&ether_dev->ctrl_urb,
+			ether_dev->usb,
+			usb_sndctrlpipe(ether_dev->usb, 0),
+			dr,
+			NULL,
+			NULL,
+			setpktfilter_done,
+			ether_dev);
+	if ( (res = usb_submit_urb(&ether_dev->ctrl_urb)) ) {
+		warn("%s failed submit ctrl_urb %d", __FUNCTION__, res);
+	}
+#endif
 
 }
 
@@ -521,12 +564,23 @@ static void CDCEther_set_multicast( struct net_device *net )
 			MODE_FLAG_DIRECTED |
 			MODE_FLAG_BROADCAST |
 			MODE_FLAG_MULTICAST;
-		buff = kmalloc(6 * net->mc_count, in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		buff = kmalloc(6 * net->mc_count, GFP_ATOMIC);
 		for (i = 0, mclist = net->mc_list;
 			mclist && i < net->mc_count;
 			i++, mclist = mclist->next) {
 				memcpy(&mclist->dmi_addr, &buff[i * 6], 6);
 		}
+#if 0
+		usb_control_msg(ether_dev->usb,
+				usb_sndctrlpipe(ether_dev->usb, 0),
+				SET_ETHERNET_MULTICAST_FILTER, /* request */
+				USB_TYPE_CLASS | USB_DIR_OUT | USB_RECIP_INTERFACE, /* request type */
+				cpu_to_le16(net->mc_count), /* value */
+				cpu_to_le16((u16)ether_dev->comm_interface), /* index */
+				buff,
+				(6* net->mc_count), /* size */
+				HZ); /* timeout */
+#endif
 		kfree(buff);
 	}
 
@@ -1368,7 +1422,7 @@ static void CDCEther_disconnect( struct usb_device *usb, void *ptr )
 //////////////////////////////////////////////////////////////////////////////
 
 static struct usb_driver CDCEther_driver = {
-	name:		"CDCEther",
+	name:		driver_name,
 	probe:		CDCEther_probe,
 	disconnect:	CDCEther_disconnect,
 	id_table:	CDCEther_ids,

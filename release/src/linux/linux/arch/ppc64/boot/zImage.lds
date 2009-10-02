@@ -58,6 +58,8 @@ SECTIONS
     CONSTRUCTORS
   }
 
+  .kernel:uts_string : { *(.kernel:uts_string) }
+
   . = ALIGN(4096);
   _vmlinux_start =  .;
   .kernel:vmlinux : { *(.kernel:vmlinux) }

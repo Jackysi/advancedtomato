@@ -3,7 +3,7 @@
  * This header file housing the define and function prototype use by
  * both the wl driver, tools & Apps.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -26,13 +26,15 @@ typedef uint16 chanspec_t;
 #define CH_EWA_VALID			0x04
 #define CH_20MHZ_APART			4
 #define CH_10MHZ_APART			2
-#define WLC_MAX_2G_CHANNEL		14	/* Max channel in 2G band */
+#define CH_MAX_2G_CHANNEL		14	/* Max channel in 2G band */
+#define WLC_MAX_2G_CHANNEL		CH_MAX_2G_CHANNEL /* legacy define */
 #define	MAXCHANNEL		224	/* max # supported channels. The max channel no is 216,
 					 * this is that + 1 rounded up to a multiple of NBBY (8).
 					 * DO NOT MAKE it > 255: channels are uint8's all over
 					 */
 
 #define WL_CHANSPEC_CHAN_MASK		0x00ff
+#define WL_CHANSPEC_CHAN_SHIFT		0
 
 #define WL_CHANSPEC_CTL_SB_MASK		0x0300
 #define WL_CHANSPEC_CTL_SB_SHIFT	     8
@@ -58,13 +60,13 @@ typedef uint16 chanspec_t;
 				(channel + CH_10MHZ_APART) : 0)
 #define CHSPEC_WLCBANDUNIT(chspec)	(CHSPEC_IS5G(chspec) ? BAND_5G_INDEX : BAND_2G_INDEX)
 #define CH20MHZ_CHSPEC(channel)	(chanspec_t)((chanspec_t)(channel) | WL_CHANSPEC_BW_20 | \
-				WL_CHANSPEC_CTL_SB_NONE | (((channel) <= WLC_MAX_2G_CHANNEL) ? \
+				WL_CHANSPEC_CTL_SB_NONE | (((channel) <= CH_MAX_2G_CHANNEL) ? \
 				WL_CHANSPEC_BAND_2G : WL_CHANSPEC_BAND_5G))
 #define NEXT_20MHZ_CHAN(channel)	((channel < (MAXCHANNEL - CH_20MHZ_APART)) ? \
 					(channel + CH_20MHZ_APART) : 0)
 #define CH40MHZ_CHSPEC(channel, ctlsb)	(chanspec_t) \
 					((channel) | (ctlsb) | WL_CHANSPEC_BW_40 | \
-					((channel) <= WLC_MAX_2G_CHANNEL ? WL_CHANSPEC_BAND_2G : \
+					((channel) <= CH_MAX_2G_CHANNEL ? WL_CHANSPEC_BAND_2G : \
 					WL_CHANSPEC_BAND_5G))
 #define CHSPEC_CHANNEL(chspec)	((uint8)(chspec & WL_CHANSPEC_CHAN_MASK))
 #define CHSPEC_CTL_SB(chspec)	(chspec & WL_CHANSPEC_CTL_SB_MASK)
@@ -113,5 +115,12 @@ extern char * wf_chspec_ntoa(chanspec_t chspec, char *buf);
  * @return	>= 0 if successful or 0 otherwise
  */
 extern chanspec_t wf_chspec_aton(char *a);
+
+#ifdef CONFIG_NET_RADIO
+/* wl functions used by the ndis wl. */
+extern uint freq2channel(uint freq);
+extern uint channel2freq(uint channel);
+#endif
+
 
 #endif	/* _bcmwifi_h_ */

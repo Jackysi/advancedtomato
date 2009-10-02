@@ -1,4 +1,115 @@
-
+/*  $Id: loop.s,v 1.23 2000/03/20 09:49:06 warner Exp $
+ * 
+ *  Firmware for the Keyspan PDA Serial Adapter, a USB serial port based on
+ *  the EzUSB microcontroller.
+ * 
+ *  (C) Copyright 2000 Brian Warner <warner@lothar.com>
+ * 
+ * 	This program is free software; you can redistribute it and/or modify
+ * 	it under the terms of the GNU General Public License as published by
+ * 	the Free Software Foundation; either version 2 of the License, or
+ * 	(at your option) any later version.
+ * 
+ *  "Keyspan PDA Serial Adapter" is probably a copyright of Keyspan, the
+ *  company.
+ * 
+ *  This serial adapter is basically an EzUSB chip and an RS-232 line driver
+ *  in a little widget that has a DB-9 on one end and a USB plug on the other.
+ *  It uses the EzUSB's internal UART0 (using the pins from Port C) and timer2
+ *  as a baud-rate generator. The wiring is:
+ *   PC0/RxD0 <- rxd (DB9 pin 2)         PC4 <- dsr pin 6
+ *   PC1/TxD0 -> txd pin 3               PC5 <- ri  pin 9
+ *   PC2      -> rts pin 7               PC6 <- dcd pin 1
+ *   PC3      <- cts pin 8               PC7 -> dtr pin 4
+ *   PB1 -> line driver standby
+ *
+ *  The EzUSB register constants below come from their excellent documentation
+ *  and sample code (which used to be available at www.anchorchips.com, but
+ *  that has now been absorbed into Cypress' site and the CD-ROM contents
+ *  don't appear to be available online anymore). If we get multiple
+ *  EzUSB-based drivers into the kernel, it might be useful to pull them out
+ *  into a separate .h file.
+ * 
+ * THEORY OF OPERATION:
+ *
+ *   There are two 256-byte ring buffers, one for tx, one for rx.
+ *
+ *   EP2out is pure tx data. When it appears, the data is copied into the tx
+ *   ring and serial transmission is started if it wasn't already running. The
+ *   "tx buffer empty" interrupt may kick off another character if the ring
+ *   still has data. If the host is tx-blocked because the ring filled up,
+ *   it will request a "tx unthrottle" interrupt. If sending a serial character
+ *   empties the ring below the desired threshold, we set a bit that will send
+ *   up the tx unthrottle message as soon as the rx buffer becomes free.
+ *
+ *   EP2in (interrupt) is used to send both rx chars and rx status messages
+ *   (only "tx unthrottle" at this time) back up to the host. The first byte
+ *   of the rx message indicates data (0) or status msg (1). Status messages
+ *   are sent before any data.
+ *
+ *   Incoming serial characters are put into the rx ring by the serial
+ *   interrupt, and the EP2in buffer sent if it wasn't already in transit.
+ *   When the EP2in buffer returns, the interrupt prompts us to send more
+ *   rx chars (or status messages) if they are pending.
+ *
+ *   Device control happens through "vendor specific" control messages on EP0.
+ *   All messages are destined for the "Interface" (with the index always 0,
+ *   so that if their two-port device might someday use similar firmware, we
+ *   can use index=1 to refer to the second port). The messages defined are:
+ *
+ *    bRequest = 0 : set baud/bits/parity
+ *               1 : unused
+ *               2 : reserved for setting HW flow control (CTSRTS)
+ *               3 : get/set "modem info" (pin states: DTR, RTS, DCD, RI, etc)
+ *               4 : set break (on/off)
+ *               5 : reserved for requesting interrupts on pin state change
+ *               6 : query buffer room or chars in tx buffer
+ *               7 : request tx unthrottle interrupt
+ *
+ *  The host-side driver is set to recognize the device ID values stashed in
+ *  serial EEPROM (0x06cd, 0x0103), program this firmware into place, then
+ *  start it running. This firmware will use EzUSB's "renumeration" trick by
+ *  simulating a bus disconnect, then reconnect with a different device ID
+ *  (encoded in the desc_device descriptor below). The host driver then
+ *  recognizes the new device ID and glues it to the real serial driver code.
+ *
+ * USEFUL DOCS:
+ *  EzUSB Technical Reference Manual: <http://www.anchorchips.com>
+ *  8051 manuals: everywhere, but try www.dalsemi.com because the EzUSB is
+ *   basically the Dallas enhanced 8051 code. Remember that the EzUSB IO ports
+ *   use totally different registers!
+ *  USB 1.1 spec: www.usb.org
+ *
+ * HOW TO BUILD:
+ *  gcc -x assembler-with-cpp -P -E -o keyspan_pda.asm keyspan_pda.s
+ *  as31 -l keyspan_pda.asm
+ *  mv keyspan_pda.obj keyspan_pda.hex
+ *  perl ezusb_convert.pl keyspan_pda < keyspan_pda.hex > keyspan_pda_fw.h
+ * Get as31 from <http://www.pjrc.com/tech/8051/index.html>, and hack on it
+ * a bit to make it build.
+ *
+ * THANKS:
+ *  Greg Kroah-Hartman, for coordinating the whole usb-serial thing.
+ *  AnchorChips, for making such an incredibly useful little microcontroller.
+ *  KeySpan, for making a handy, cheap ($40) widget that was so easy to take
+ *           apart and trace with an ohmmeter.
+ *
+ * TODO:
+ *  lots. grep for TODO. Interrupt safety needs stress-testing. Better flow
+ *  control. Interrupting host upon change in DCD, etc, counting transitions.
+ *  Need to find a safe device id to use (the one used by the Keyspan firmware
+ *  under Windows would be ideal.. can anyone figure out what it is?). Parity.
+ *  More baud rates. Oh, and the string-descriptor-length silicon bug
+ *  workaround should be implemented, but I'm lazy, and the consequence is
+ *  that the device name strings that show up in your kernel log will have
+ *  lots of trailing binary garbage in them (appears as ????). Device strings
+ *  should be made more accurate.
+ *
+ * Questions, bugs, patches to Brian.
+ *
+ *  -Brian Warner <warner@lothar.com>
+ *
+ */
 	
 #define HIGH(x) (((x) & 0xff00) / 256)
 #define LOW(x) ((x) & 0xff)
@@ -231,6 +342,22 @@ clear_rx_ring_loop:
 	setb TR2
 	mov SCON, #050h
 	
+#if 0
+	mov r1, #0x40
+	mov a, #0x41
+send:	
+	mov SBUF, a
+	inc a
+	anl a, #0x3F
+	orl a, #0x40
+;	xrl a, #0x02
+wait1:	
+	jnb TI, wait1
+	clr TI
+	djnz r1, send
+;done:	sjmp done
+
+#endif
 	
 	setb EUSB
 	setb EA

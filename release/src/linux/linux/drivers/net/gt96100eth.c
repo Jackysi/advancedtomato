@@ -70,6 +70,10 @@ static int gt96100_add_hash_entry(struct net_device *dev,
 static void read_mib_counters(struct gt96100_private *gp);
 static int read_MII(int phy_addr, u32 reg);
 static int write_MII(int phy_addr, u32 reg, u16 data);
+#if 0
+static void dump_tx_ring(struct net_device *dev);
+static void dump_rx_ring(struct net_device *dev);
+#endif
 static int gt96100_init_module(void);
 static void gt96100_cleanup_module(void);
 static void dump_MII(int dbg_lvl, struct net_device *dev);
@@ -327,6 +331,33 @@ write_MII(int phy_addr, u32 reg, u16 data)
 	return 0;
 }
 
+#if 0
+// These routines work, just disabled to avoid compile warnings
+static void
+dump_tx_ring(struct net_device *dev)
+{
+	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
+	int i;
+
+	dbg(0, "%s: txno/txni/cnt=%d/%d/%d\n", __FUNCTION__,
+	    gp->tx_next_out, gp->tx_next_in, gp->tx_count);
+
+	for (i=0; i<TX_RING_SIZE; i++)
+		dump_tx_desc(0, dev, i);
+}
+
+static void
+dump_rx_ring(struct net_device *dev)
+{
+	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
+	int i;
+
+	dbg(0, "%s: rxno=%d\n", __FUNCTION__, gp->rx_next_out);
+
+	for (i=0; i<RX_RING_SIZE; i++)
+		dump_rx_desc(0, dev, i);
+}
+#endif
 
 static void
 dump_MII(int dbg_lvl, struct net_device *dev)
@@ -409,6 +440,60 @@ gt96100_add_hash_entry(struct net_device *dev, unsigned char* addr)
 	tblEntry0 |= (u32)addr[0] << 11;
 	dbg(3, "%s: tblEntry0=%x\n", __FUNCTION__, tblEntry0);
 
+#if 0
+
+	for (i=0; i<6; i++) {
+		// nibble swap
+		ctmp = nibswap(addr[i]);
+		// invert every nibble
+		hash_ea[i] = ((ctmp&1)<<3) | ((ctmp&8)>>3) |
+			((ctmp&2)<<1) | ((ctmp&4)>>1);
+		hash_ea[i] |= ((ctmp&0x10)<<3) | ((ctmp&0x80)>>3) |
+			((ctmp&0x20)<<1) | ((ctmp&0x40)>>1);
+	}
+
+	dump_hw_addr(3, dev, "%s: nib swap/invt addr=", __FUNCTION__, hash_ea);
+    
+	if (gp->hash_mode == 0) {
+		hashResult = ((u16)hash_ea[0] & 0xfc) << 7;
+		stmp = ((u16)hash_ea[0] & 0x03) |
+			(((u16)hash_ea[1] & 0x7f) << 2);
+		stmp ^= (((u16)hash_ea[1] >> 7) & 0x01) |
+			((u16)hash_ea[2] << 1);
+		stmp ^= (u16)hash_ea[3] | (((u16)hash_ea[4] & 1) << 8);
+		hashResult |= stmp;
+	} else {
+		return -1; // don't support hash mode 1
+	}
+
+	dbg(3, "%s: hashResult=%x\n", __FUNCTION__, hashResult);
+
+	tblEntryAddr =
+		(u32 *)(&gp->hash_table[((u32)hashResult & 0x7ff) << 3]);
+    
+	dbg(3, "%s: tblEntryAddr=%p\n", tblEntryAddr, __FUNCTION__);
+
+	for (i=0; i<HASH_HOP_NUMBER; i++) {
+		if ((*tblEntryAddr & hteValid) &&
+		    !(*tblEntryAddr & hteSkip)) {
+			// This entry is already occupied, go to next entry
+			tblEntryAddr += 2;
+			dbg(3, "%s: skipping to %p\n", __FUNCTION__, 
+			    tblEntryAddr);
+		} else {
+			memset(tblEntryAddr, 0, 8);
+			tblEntryAddr[1] = cpu_to_dma32(tblEntry1);
+			tblEntryAddr[0] = cpu_to_dma32(tblEntry0);
+			break;
+		}
+	}
+
+	if (i >= HASH_HOP_NUMBER) {
+		err("%s: expired!\n", __FUNCTION__);
+		return -1; // Couldn't find an unused entry
+	}
+
+#else
 
 	tblEntryAddr = (u32 *)gp->hash_table;
 	for (i=0; i<RX_HASH_TABLE_SIZE/4; i+=2) {
@@ -416,6 +501,7 @@ gt96100_add_hash_entry(struct net_device *dev, unsigned char* addr)
 		tblEntryAddr[i] = cpu_to_dma32(tblEntry0);
 	}
 
+#endif
     
 	return 0;
 }
@@ -614,7 +700,8 @@ gt96100_probe1(int port_num)
 	struct net_device *dev = NULL;
     
 	if (gtif->irq < 0) {
-		printk(KERN_ERR "%s: irq unknown - probing not supported\n", __FUNCTION_);
+		printk(KERN_ERR "%s: irq unknown - probing not supported\n",
+		       __FUNCTION__);
 		return -ENODEV;
 	}
     
@@ -962,6 +1049,13 @@ gt96100_init(struct net_device *dev)
 	dbg(3, "%s: Port Config=%x\n", __FUNCTION__,
 	    GT96100ETH_READ(gp, GT96100_ETH_PORT_CONFIG));
     
+	/*
+	 * Disable all Type-of-Service queueing. All Rx packets will be
+	 * treated normally and will be sent to the lowest priority
+	 * queue.
+	 *
+	 * Disable flow-control for now. FIXME: support flow control?
+	 */
 
 	// clear all the MIB ctr regs
 	GT96100ETH_WRITE(gp, GT96100_ETH_PORT_CONFIG_EXT,
@@ -1270,7 +1364,8 @@ gt96100_tx_complete(struct net_device *dev, u32 status)
 			gp->tx_full = 0;
 			if (gp->last_psr & psrLink) {
 				netif_wake_queue(dev);
-				dbg(2, "%s: Tx Ring was full, queue waked\n", __FUNCTION_);
+				dbg(2, "%s: Tx Ring was full, queue waked\n",
+				    __FUNCTION__);
 			}
 		}
 	
@@ -1351,7 +1446,7 @@ gt96100_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 				if ((psr & psrLink) && !gp->tx_full &&
 				    netif_queue_stopped(dev)) {
 					dbg(0, ": Link up, waking queue.\n",
-					    __FUNCTION_);
+					    __FUNCTION__);
 					netif_wake_queue(dev);
 				} else if (!(psr & psrLink) &&
 					   !netif_queue_stopped(dev)) {
@@ -1445,6 +1540,24 @@ gt96100_set_rx_mode(struct net_device *dev)
 				 pcrEN | pcrHS | pcrPM);
 	}
 
+#if 0
+	/*
+	  FIXME: currently multicast doesn't work - need to get hash table
+	  working first.
+	*/
+	if (dev->mc_count) {
+		// clear hash table
+		memset(gp->hash_table, 0, RX_HASH_TABLE_SIZE);
+		// Add our ethernet address
+		gt96100_add_hash_entry(dev, dev->dev_addr);
+
+		for (mcptr = dev->mc_list; mcptr; mcptr = mcptr->next) {
+			dump_hw_addr(2, dev, __FUNCTION__ ": addr=",
+				     mcptr->dmi_addr);
+			gt96100_add_hash_entry(dev, mcptr->dmi_addr);
+		}
+	}
+#endif
     
 	// restart Rx DMA
 	GT96100ETH_WRITE(gp, GT96100_ETH_SDMA_COMM, sdcmrERD);
@@ -1520,3 +1633,4 @@ module_exit(gt96100_cleanup_module);
 
 MODULE_AUTHOR("Steve Longerbeam <stevel@mvista.com>");
 MODULE_DESCRIPTION("GT96100 Ethernet driver");
+MODULE_LICENSE("GPL");

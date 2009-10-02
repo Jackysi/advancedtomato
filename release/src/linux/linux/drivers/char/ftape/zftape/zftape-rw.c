@@ -16,9 +16,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/zftape/zftape-rw.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:07 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/zftape/zftape-rw.c,v $
+ * $Revision: 1.2 $
+ * $Date: 1997/10/05 19:19:08 $
  *
  *      This file contains some common code for the r/w code for
  *      zftape.

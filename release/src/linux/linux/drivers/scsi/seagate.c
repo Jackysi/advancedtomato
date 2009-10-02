@@ -324,6 +324,8 @@ static Signature __initdata signatures[] = {
 	{"FUTURE DOMAIN TMC-950", 5, 21, FD},
 	/* Added for 2.2.16 by Matthias_Heidbrink@b.maus.de */
 	{"IBM F1 V1.2009/22/93", 5, 25, FD},
+	/* Added for Dell Latitude XP 4100CX */
+	{"Future Domain Corp. V1.0008/18/9364/32", 5, 38, FD},
 };
 
 #define NUM_SIGNATURES (sizeof(signatures) / sizeof(Signature))
@@ -344,6 +346,45 @@ static int fast = 1;
 #endif
 
 #ifdef SLOW_RATE
+/*
+ * Support for broken devices :
+ * The Seagate board has a handshaking problem.  Namely, a lack
+ * thereof for slow devices.  You can blast 600K/second through
+ * it if you are polling for each byte, more if you do a blind
+ * transfer.  In the first case, with a fast device, REQ will
+ * transition high-low or high-low-high before your loop restarts
+ * and you'll have no problems.  In the second case, the board
+ * will insert wait states for up to 13.2 usecs for REQ to
+ * transition low->high, and everything will work.
+ *
+ * However, there's nothing in the state machine that says
+ * you *HAVE* to see a high-low-high set of transitions before
+ * sending the next byte, and slow things like the Trantor CD ROMS
+ * will break because of this.
+ *
+ * So, we need to slow things down, which isn't as simple as it
+ * seems.  We can't slow things down period, because then people
+ * who don't recompile their kernels will shoot me for ruining
+ * their performance.  We need to do it on a case per case basis.
+ *
+ * The best for performance will be to, only for borken devices
+ * (this is stored on a per-target basis in the scsi_devices array)
+ *
+ * Wait for a low->high transition before continuing with that
+ * transfer.  If we timeout, continue anyways.  We don't need
+ * a long timeout, because REQ should only be asserted until the
+ * corresponding ACK is received and processed.
+ *
+ * Note that we can't use the system timer for this, because of
+ * resolution, and we *really* can't use the timer chip since
+ * gettimeofday() and the beeper routines use that.  So,
+ * the best thing for us to do will be to calibrate a timing
+ * loop in the initialization code using the timer chip before
+ * gettimeofday() can screw with it.
+ *
+ * FIXME: this is broken (not borken :-). Empty loop costs less than
+ * loop with ISA access in it! -- pavel@ucw.cz
+ */
 
 static int borken_calibration = 0;
 
@@ -414,6 +455,15 @@ int __init seagate_st0x_detect (Scsi_Host_Template * tpnt)
 		      base_address,
 		      controller_type == SEAGATE ? "SEAGATE" : "FD");
 #else				/* OVERRIDE */
+/*
+ * 	To detect this card, we simply look for the signature
+ *      from the BIOS version notice in all the possible locations
+ *      of the ROM's.  This has a nice side effect of not trashing
+ *      any register locations that might be used by something else.
+ *
+ * XXX - note that we probably should be probing the address
+ * space for the on-board RAM instead.
+ */
 
 		for (i = 0;
 		     i < (sizeof (seagate_bases) / sizeof (unsigned int)); ++i)
@@ -648,7 +698,7 @@ int seagate_st0x_queue_command (Scsi_Cmnd * SCpnt, void (*done) (Scsi_Cmnd *))
 	done_fn = done;
 	current_target = SCpnt->target;
 	current_lun = SCpnt->lun;
-	(const void *) current_cmnd = SCpnt->cmnd;
+	current_cmnd = SCpnt->cmnd;
 	current_data = (unsigned char *) SCpnt->request_buffer;
 	current_bufflen = SCpnt->request_bufflen;
 	SCint = SCpnt;
@@ -819,7 +869,11 @@ static int internal_command (unsigned char target, unsigned char lun,
  *      we must respond to the reselection by asserting BSY ourselves
  */
 
+#if 1
 		WRITE_CONTROL (BASE_CMD | CMD_DRVR_ENABLE | CMD_BSY);
+#else
+		WRITE_CONTROL (BASE_CMD | CMD_BSY);
+#endif
 
 /*
  *	The target will drop SEL, and raise BSY, at which time we must drop
@@ -913,7 +967,7 @@ static int internal_command (unsigned char target, unsigned char lun,
 			status_read = STATUS;
 			if (status_read & STAT_ARB_CMPL)
 				break;
-			if (st0x_aborted)	
+			if (st0x_aborted)	/* FIXME: What? We are going to do something even after abort? */
 				break;
 			if (TIMEOUT || (status_read & STAT_SEL)) {
 				printk
@@ -1139,6 +1193,13 @@ static int internal_command (unsigned char target, unsigned char lun,
  */
 
 				if (!len) {
+#if 0
+					printk
+					    ("scsi%d: underflow to target %d lun %d \n",
+					     hostno, target, lun);
+					st0x_aborted = DID_ERROR;
+					fast = 0;
+#endif
 					break;
 				}
 
@@ -1586,6 +1647,14 @@ static int internal_command (unsigned char target, unsigned char lun,
 					break;
 				default:
 
+/*
+ *	IDENTIFY distinguishes itself from the other messages by setting the
+ *      high byte. [FIXME: should not this read "the high bit"? - pavel@ucw.cz]
+ *
+ *      Note : we need to handle at least one outstanding command per LUN,
+ *      and need to hash the SCSI command for that I_T_L nexus based on the
+ *      known ID (at this point) and LUN.
+ */
 
 					if (message & 0x80) {
 						DPRINTK (PHASE_MSGIN,
@@ -1632,6 +1701,12 @@ static int internal_command (unsigned char target, unsigned char lun,
 		 "scsi%d : Transfered %d bytes\n", hostno, transfered);
 
 #if (DEBUG & PHASE_EXIT)
+#if 0				/* Doesn't work for scatter/gather */
+	printk ("Buffer : \n");
+	for (i = 0; i < 20; ++i)
+		printk ("%02x  ", ((unsigned char *) data)[i]);	/* WDE mod */
+	printk ("\n");
+#endif
 	printk ("scsi%d : status = ", hostno);
 	print_status (status);
 	printk ("message = %02x\n", message);

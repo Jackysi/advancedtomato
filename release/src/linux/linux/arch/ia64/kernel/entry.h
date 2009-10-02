@@ -4,6 +4,7 @@
  * Preserved registers that are shared between code in ivt.S and entry.S.  Be
  * careful not to step on these!
  */
+#define pLvSys		p1	/* set 1 if leave from syscall; otherwise, set 0*/
 #define pKern		p2	/* will leave_kernel return to kernel-mode? */
 #define pUser		p3	/* will leave_kernel return to user-mode? */
 #define pSys		p4	/* are we processing a (synchronous) system call? */
@@ -13,7 +14,7 @@
 #define SW(f)		(IA64_SWITCH_STACK_##f##_OFFSET)
 
 #define PT_REGS_SAVES(off)			\
-	.unwabi @svr4, 'i';			\
+	.unwabi 3, 'i';				\
 	.fframe IA64_PT_REGS_SIZE+16+(off);	\
 	.spillsp rp, PT(CR_IIP)+16+(off);	\
 	.spillsp ar.pfs, PT(CR_IFS)+16+(off);	\
@@ -48,7 +49,7 @@
 	.spillsp @priunat,SW(AR_UNAT)+16+(off);					\
 	.spillsp ar.rnat,SW(AR_RNAT)+16+(off);					\
 	.spillsp ar.bspstore,SW(AR_BSPSTORE)+16+(off);				\
-	.spillsp pr,SW(PR)+16+(off))
+	.spillsp pr,SW(PR)+16+(off)
 
 #define DO_SAVE_SWITCH_STACK			\
 	movl r28=1f;				\

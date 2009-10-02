@@ -1183,6 +1183,9 @@ static int acsi_open( struct inode * inode, struct file * filp )
 		sleep_on(&busy_wait);
 
 	if (access_count[device] == 0 && aip->removable) {
+#if 0
+		aip->changed = 1;	/* safety first */
+#endif
 		check_disk_change( inode->i_rdev );
 		if (aip->changed)	/* revalidate was not successful (no medium) */
 			return -ENXIO;
@@ -1547,7 +1550,7 @@ static int acsi_devinit(struct acsi_info_struct *aip)
 		}
 	}
 	else 
-		if (reqsense == 0x4) {	
+		if (reqsense == 0x4) {	/* SH204 Bug workaround */
 #ifdef DEBUG_DETECT
 			printk("target %d lun %d status=0 sense=4\n",
 			       aip->target, aip->lun);

@@ -1,4 +1,20 @@
-
+/*
+ * linux/fs/hfs/dir.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains directory-related functions independent of which
+ * scheme is being used to represent forks.
+ *
+ * Based on the minix file system code, (C) 1991, 1992 by Linus Torvalds
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -110,6 +126,14 @@ static inline void update_dirs_minus(struct hfs_cat_entry *dir, int is_dir)
 	}
 }
 
+/*
+ * mark_inodes_deleted()
+ *
+ * Update inodes associated with a deleted entry to reflect its deletion.
+ * Well, we really just drop the dentry.
+ *
+ * XXX: we should be using delete_inode for some of this stuff.
+ */
 static inline void mark_inodes_deleted(struct hfs_cat_entry *entry, 
 				       struct dentry *dentry)
 {
@@ -310,6 +334,17 @@ hfs_rmdir_put:
 	return error;
 }
 
+/*
+ * hfs_rename()
+ *
+ * This is the rename() entry in the inode_operations structure for
+ * regular HFS directories.  The purpose is to rename an existing
+ * file or directory, given the inode for the current directory and
+ * the name (and its length) of the existing file/directory and the
+ * inode for the new directory and the name (and its length) of the
+ * new file/directory.
+ * XXX: how do you handle must_be dir?
+ */
 int hfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	       struct inode *new_dir, struct dentry *new_dentry)
 {

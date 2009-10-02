@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.subr_prf.c 1.8 12/01/01 20:09:07 benh
- */
-/*
  * Written by Cort Dougan to replace the version originally used
  * by Paul Mackerras, which came from NetBSD and thus had copyright
  * conflicts with Linux.

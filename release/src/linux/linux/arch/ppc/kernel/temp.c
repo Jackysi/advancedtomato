@@ -6,7 +6,7 @@
  * TODO:
  * dynamic power management to limit peak CPU temp (using ICTC)
  * calibration???
- * 
+ *
  * Silly, crazy ideas: use cpu load (from scheduler) and ICTC to extend battery
  * life in portables, and add a 'performance/watt' metric somewhere in /proc
  */
@@ -110,8 +110,8 @@ void TAUupdate(int cpu)
 	printk("grew = %d\n", tau[cpu].grew);
 #endif
 
-#ifndef CONFIG_TAU_INT     /* tau_timeout will do this if not using interrupts */
-	set_thresholds(cpu);	
+#ifndef CONFIG_TAU_INT /* tau_timeout will do this if not using interrupts */
+	set_thresholds(cpu);
 #endif
 
 }
@@ -128,7 +128,7 @@ void TAUException(struct pt_regs * regs)
 
 	hardirq_enter(cpu);
 	tau[cpu].interrupts++;
-	
+
 	TAUupdate(cpu);
 
 	hardirq_exit(cpu);
@@ -142,14 +142,14 @@ static void tau_timeout(void * info)
 	unsigned long flags;
 	int size;
 	int shrink;
- 
+
 	/* disabling interrupts *should* be okay */
 	save_flags(flags); cli();
 
 #ifndef CONFIG_TAU_INT
 	TAUupdate(cpu);
 #endif
-	
+
 	size = tau[cpu].high - tau[cpu].low;
 	if (size > min_window && ! tau[cpu].grew) {
 		/* do an exponential shrink of half the amount currently over size */
@@ -159,26 +159,28 @@ static void tau_timeout(void * info)
 			tau[cpu].high -= shrink;
 		} else { /* size must have been min_window + 1 */
 			tau[cpu].low += 1;
+#if 1 /* debug */
 			if ((tau[cpu].high - tau[cpu].low) != min_window){
 				printk(KERN_ERR "temp.c: line %d, logic error\n", __LINE__);
 			}
+#endif
 		}
 	}
 
 	tau[cpu].grew = 0;
-	
+
 	set_thresholds(cpu);
 
 	/*
 	 * Do the enable every time, since otherwise a bunch of (relatively)
 	 * complex sleep code needs to be added. One mtspr every time
 	 * tau_timeout is called is probably not a big deal.
-	 * 
+	 *
 	 * Enable thermal sensor and set up sample interval timer
 	 * need 20 us to do the compare.. until a nice 'cpu_speed' function
 	 * call is implemented, just assume a 500 mhz clock. It doesn't really
-	 * matter if we take too long for a compare since it's all interrupt 
-	 * driven anyway. 
+	 * matter if we take too long for a compare since it's all interrupt
+	 * driven anyway.
 	 *
 	 * use a extra long time.. (60 us @ 500 mhz)
 	 */
@@ -200,7 +202,7 @@ static void tau_timeout_smp(unsigned long unused)
 
 /*
  * setup the TAU
- * 
+ *
  * Set things up to use THRM1 as a temperature lower bound, and THRM2 as an upper bound.
  * Start off at zero
  */
@@ -210,7 +212,7 @@ int tau_initialized = 0;
 void __init TAU_init_smp(void * info)
 {
 	unsigned long cpu = smp_processor_id();
-	
+
 	/* set these to a reasonable value and let the timer shrink the
 	 * window */
 	tau[cpu].low = 5;
@@ -236,19 +238,19 @@ int __init TAU_init(void)
 	tau_timer.function = tau_timeout_smp;
 	tau_timer.expires = jiffies + shrink_timer;
 	add_timer(&tau_timer);
-	
+
 #ifdef CONFIG_SMP
 	smp_call_function(TAU_init_smp, NULL, 1, 0);
 #endif
 	TAU_init_smp(NULL);
-	
+
 	printk("Thermal assist unit ");
 #ifdef CONFIG_TAU_INT
 	printk("using interrupts, ");
 #else
 	printk("using timers, ");
 #endif
-	printk("shrink_timer: %d jiffies\n", shrink_timer); 
+	printk("shrink_timer: %d jiffies\n", shrink_timer);
 	tau_initialized = 1;
 
 	return 0;

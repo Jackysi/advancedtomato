@@ -102,6 +102,7 @@ static ssize_t isapnp_info_entry_read(struct file *file, char *buffer,
 				      size_t count, loff_t * offset)
 {
 	isapnp_info_buffer_t *buf;
+	loff_t pos = *offset;
 	long size = 0, size1;
 	int mode;
 
@@ -111,15 +112,15 @@ static ssize_t isapnp_info_entry_read(struct file *file, char *buffer,
 	buf = (isapnp_info_buffer_t *) file->private_data;
 	if (!buf)
 		return -EIO;
-	if (file->f_pos >= buf->size)
+	if (pos != (unsigned) pos || pos >= buf->size)
 		return 0;
 	size = buf->size < count ? buf->size : count;
-	size1 = buf->size - file->f_pos;
+	size1 = buf->size - pos;
 	if (size1 < size)
 		size = size1;
-	if (copy_to_user(buffer, buf->buffer + file->f_pos, size))
+	if (copy_to_user(buffer, buf->buffer + pos, size))
 		return -EFAULT;
-	file->f_pos += size;
+	*offset = pos + size;
 	return size;
 }
 
@@ -128,6 +129,7 @@ static ssize_t isapnp_info_entry_write(struct file *file, const char *buffer,
 {
 	isapnp_info_buffer_t *buf;
 	long size = 0, size1;
+	loff_t pos = *offset;
 	int mode;
 
 	mode = file->f_flags & O_ACCMODE;
@@ -136,19 +138,19 @@ static ssize_t isapnp_info_entry_write(struct file *file, const char *buffer,
 	buf = (isapnp_info_buffer_t *) file->private_data;
 	if (!buf)
 		return -EIO;
-	if (file->f_pos < 0)
+	if (pos < 0)
 		return -EINVAL;
-	if (file->f_pos >= buf->len)
+	if (pos >= buf->len)
 		return -ENOMEM;
 	size = buf->len < count ? buf->len : count;
-	size1 = buf->len - file->f_pos;
+	size1 = buf->len - pos;
 	if (size1 < size)
 		size = size1;
-	if (copy_from_user(buf->buffer + file->f_pos, buffer, size))
+	if (copy_from_user(buf->buffer + pos, buffer, size))
 		return -EFAULT;
-	if (buf->size < file->f_pos + size)
-		buf->size = file->f_pos + size;
-	file->f_pos += size;
+	if (buf->size < pos + size)
+		buf->size = pos + size;
+	*offset = pos + size;
 	return size;
 }
 
@@ -240,14 +242,15 @@ static ssize_t isapnp_proc_bus_read(struct file *file, char *buf, size_t nbytes,
 	struct inode *ino = file->f_dentry->d_inode;
 	struct proc_dir_entry *dp = ino->u.generic_ip;
 	struct pci_dev *dev = dp->data;
-	int pos = *ppos;
+	loff_t n = *ppos;
+	unsigned pos = n;
 	int cnt, size = 256;
 
-	if (pos >= size)
+	if (pos != n || pos >= size)
 		return 0;
 	if (nbytes >= size)
 		nbytes = size;
-	if (pos + nbytes > size)
+	if (nbytes > size - pos)
 		nbytes = size - pos;
 	cnt = nbytes;
 
@@ -675,6 +678,15 @@ static void isapnp_print_device(isapnp_info_buffer_t *buffer, struct pci_dev *de
 	isapnp_print_devid(buffer, dev->vendor, dev->device);
 	isapnp_printf(buffer, ":%s'", dev->name[0]?dev->name:"Unknown");
 	isapnp_printf(buffer, "\n");
+#if 0
+	isapnp_cfg_begin(dev->bus->number, dev->devfn);
+	for (block = 0; block < 128; block++)
+		if ((block % 16) == 15)
+			isapnp_printf(buffer, "%02x\n", isapnp_read_byte(block));
+		else
+			isapnp_printf(buffer, "%02x:", isapnp_read_byte(block));
+	isapnp_cfg_end();
+#endif
 	if (dev->regs)
 		isapnp_printf(buffer, "%sSupported registers 0x%x\n", space, dev->regs);
 	isapnp_print_compatible(buffer, dev);

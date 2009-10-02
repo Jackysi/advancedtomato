@@ -184,6 +184,7 @@ os_hpmc_2:
 
 os_hpmc_3:
 
+	/* FIXME? Check for errors from PDC_IO (-1 might be OK) */
 
 	/*
 	 * Initialize the IODC console device (HPA,SPA, path etc.

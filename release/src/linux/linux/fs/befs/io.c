@@ -13,7 +13,8 @@
 
 #include <linux/fs.h>
 
-#include "befs_fs.h"
+#include "befs.h"
+#include "io.h"
 
 /*
  * Converts befs notion of disk addr to a disk offset and uses

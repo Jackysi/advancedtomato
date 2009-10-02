@@ -51,6 +51,12 @@
 LIST_HEAD(isapnp_cards);
 LIST_HEAD(isapnp_devices);
 
+#if 0
+#define ISAPNP_REGION_OK
+#endif
+#if 0
+#define ISAPNP_DEBUG
+#endif
 
 int isapnp_disable;			/* Disable ISA PnP */
 int isapnp_rdp;				/* Read Data Port */
@@ -408,6 +414,9 @@ static int __init isapnp_read_tag(unsigned char *type, unsigned short *size)
 		*type = (tag >> 3) & 0x0f;
 		*size = tag & 0x07;
 	}
+#if 0
+	printk(KERN_DEBUG "tag = 0x%x, type = 0x%x, size = %i\n", tag, *type, *size);
+#endif
 	if (type == 0)				/* wrong type */
 		return -1;
 	if (*type == 0xff && *size == 0xffff)	/* probably invalid data */
@@ -501,7 +510,6 @@ static void __init isapnp_add_irq_resource(struct pci_dev *dev,
                                                int dependent, int size)
 {
 	unsigned char tmp[3];
-	int i;
 	struct isapnp_irq *irq, *ptr;
 
 	isapnp_peek(tmp, size);
@@ -529,9 +537,13 @@ static void __init isapnp_add_irq_resource(struct pci_dev *dev,
 	else
 		(*res)->irq = irq;
 #ifdef CONFIG_PCI
-	for (i=0; i<16; i++)
-		if (irq->map & (1<<i))
-			pcibios_penalize_isa_irq(i);
+	{
+		int i;
+
+		for (i=0; i<16; i++)
+			if (irq->map & (1<<i))
+				pcibios_penalize_isa_irq(i);
+	}
 #endif
 }
 
@@ -987,6 +999,12 @@ static int __init isapnp_build_device_list(void)
 		isapnp_wake(csn);
 		isapnp_peek(header, 9);
 		checksum = isapnp_checksum(header);
+#if 0
+		printk(KERN_DEBUG "vendor: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			header[0], header[1], header[2], header[3],
+			header[4], header[5], header[6], header[7], header[8]);
+		printk(KERN_DEBUG "checksum = 0x%x\n", checksum);
+#endif
 		/* Don't be strict on the checksum, here !
                    e.g. 'SCM SwapBox Plug and Play' has header[8]==0 (should be: b7)*/
 		if (header[8] == 0)
@@ -1034,10 +1052,12 @@ int isapnp_cfg_begin(int csn, int logdev)
 	isapnp_wait();
 	isapnp_key();
 	isapnp_wake(csn);
+#if 1	/* to avoid malfunction when the isapnptools package is used */
 	isapnp_set_rdp();
 	udelay(1000);	/* delay 1000us */
 	write_address(0x01);
 	udelay(1000);	/* delay 1000us */
+#endif
 	if (logdev >= 0)
 		isapnp_device(logdev);
 	return 0;

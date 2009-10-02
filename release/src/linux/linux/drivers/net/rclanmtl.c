@@ -2,7 +2,7 @@
 ** *************************************************************************
 **
 **
-**     R C L A N M T L . C             $Revision: 1.1.1.2 $
+**     R C L A N M T L . C             $Revision: 6 $
 **
 **
 **  RedCreek I2O LAN Message Transport Layer program module.

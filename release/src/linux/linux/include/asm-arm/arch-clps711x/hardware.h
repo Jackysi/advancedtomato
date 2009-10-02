@@ -53,13 +53,13 @@
 #define CS7_PHYS_BASE		(0x00000000)
 #endif
 
-#if defined(CONFIG_ARCH_EP7211)
+#if defined (CONFIG_ARCH_EP7211)
 
 #define EP7211_VIRT_BASE	CLPS7111_VIRT_BASE
 #define EP7211_BASE		CLPS7111_VIRT_BASE
 #include <asm/hardware/ep7211.h>
 
-#elif defined(CONFIG_ARCH_EP7212)
+#elif defined (CONFIG_ARCH_EP7212)
 
 #define EP7212_VIRT_BASE	CLPS7111_VIRT_BASE
 #define EP7212_BASE		CLPS7111_VIRT_BASE
@@ -78,7 +78,7 @@
 #endif
 
 
-#if  defined(CONFIG_ARCH_AUTCPU12)
+#if  defined (CONFIG_ARCH_AUTCPU12)
 
 #define  CS89712_VIRT_BASE	CLPS7111_VIRT_BASE
 #define  CS89712_BASE		CLPS7111_VIRT_BASE
@@ -90,7 +90,7 @@
 #endif
 
 
-#if defined(CONFIG_ARCH_CDB89712)
+#if defined (CONFIG_ARCH_CDB89712)
 
 #include <asm/hardware/clps7111.h>
 #include <asm/hardware/ep7212.h>
@@ -119,10 +119,21 @@
 #define ETHER_SIZE       0x1000
 #define ETHER_BASE       0xfe000000
 
+#if defined (CONFIG_ARCH_GUIDEA07)
+/* persistance flash writing */
+#define GD_A07_PERSISTANCE_START       0x00300000
+#define GD_A07_PERSISTANCE_SIZE        0x00200000
+#define GD_A07_PERSISTANCE_BASE        0xe8300000
+/* Xilinx Spartan II FPGA */
+#define GD_A07_FPGA_START              0x10000000
+#define GD_A07_FPGA_SIZE               0x08000000
+#define GD_A07_FPGA_BASE               0xf0000000
+#endif
+
 #endif
 
 
-#if defined(CONFIG_ARCH_EDB7211)
+#if defined (CONFIG_ARCH_EDB7211)
 
 /*
  * The extra 8 lines of the keyboard matrix are wired to chip select 3 (nCS3) 

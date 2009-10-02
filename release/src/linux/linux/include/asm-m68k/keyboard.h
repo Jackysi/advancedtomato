@@ -65,6 +65,11 @@ static __inline__ void kbd_leds(unsigned char leds)
 #define kbd_request_region()
 #define kbd_request_irq(handler)
 
+/* How to access the keyboard macros on this platform.  */
+#define kbd_read_input() in_8(KBD_DATA_REG)
+#define kbd_read_status() in_8(KBD_STATUS_REG)
+#define kbd_write_output(val) out_8(KBD_DATA_REG, val)
+#define kbd_write_command(val) out_8(KBD_CNTL_REG, val)
 extern unsigned int SYSRQ_KEY;
 
 #endif /* __KERNEL__ */

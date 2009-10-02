@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h 
  */
 
-/* @(#) $Id: zconf.h,v 1.1.1.4 2003/10/14 08:09:27 sparq Exp $ */
+/* @(#) $Id$ */
 
 #ifndef _ZCONF_H
 #define _ZCONF_H
@@ -49,7 +49,7 @@
 
                         /* Type declarations */
 
-#ifndef OF     /* function prototypes */
+#ifndef OF /* function prototypes */
 #  ifdef STDC
 #    define OF(args)  args
 #  else

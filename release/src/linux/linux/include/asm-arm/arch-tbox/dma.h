@@ -29,7 +29,7 @@
 #define DMA_AUDIO			6
 #define DMA_ASHRX			7
 
-#define MAX_DMA_CHANNELS		0	
+#define MAX_DMA_CHANNELS		0	/* XXX */
 
 /*
  * This is the maximum DMA address that can be DMAd to.

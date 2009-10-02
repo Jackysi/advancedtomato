@@ -1,8 +1,8 @@
-/* $Id: probe.c,v 1.1.1.4 2003/10/14 08:08:31 sparq Exp $
+/* $Id: parport_probe.c,v 1.1 1999/07/03 08:56:17 davem Exp $
  * Parallel port device probing code
  *
  * Authors:    Carsten Gross, carsten@sol.wohnheim.uni-ulm.de
- *             Philip Blundell <Philip.Blundell@pobox.com>
+ *             Philip Blundell <philb@gnu.org>
  */
 
 #include <linux/parport.h>

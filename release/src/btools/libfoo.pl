@@ -152,6 +152,13 @@ sub fixDyn
 
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
+
+#!!TB - Updated Broadcom WL driver
+	fixDynDep("libbcmcrypto.so", "libc.so.0");
+	fixDynDep("nas", "libbcmcrypto.so");
+	fixDynDep("wl", "libbcmcrypto.so");
+	fixDynDep("nas", "libc.so.0");
+	fixDynDep("wl", "libc.so.0");
 }
 
 sub usersOf
@@ -309,6 +316,12 @@ sub genSO
 		print "$name: not found, skipping...\n";
 		return 0;
 	}
+
+	#!!TB
+	if (!-f $arc) {
+		print "$arc: not found, skipping...\n";
+		return 0;
+	}
 	
 	foreach $sym (sort keys %{$elf_exp{$name}}) {
 		if (scalar(usersOf($name, $sym)) > 0) {
@@ -334,9 +347,10 @@ sub genSO
 	}
 #	print "$cmd -u... ${arc}\n";	
 	if (scalar(@used) == 0) {
-		print "\n\n\n$name: WARNING: Library is not used by anything.\n\n\n";
-		<>;
-#		return 0;
+		print "$name: WARNING: Library is not used by anything, deleting...\n";
+		unlink $so;
+#		<>;
+		return 0;
 	}
 	$cmd .= " -u " . join(" -u ", @used) . " ". $arc;
 
@@ -392,7 +406,7 @@ fillGaps();
 genXref();
 
 
-genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.o");
+genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
 genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a");
 genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a");
 genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a");
@@ -413,6 +427,9 @@ genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
 #	genSO("${root}/usr/lib/libshared.so", "${router}/shared/libshared.a");
 #	genSO("${root}/usr/lib/libnvram.so", "${router}/nvram/libnvram.a");
+
+#!!TB - Updated Broadcom WL driver
+genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
 
 print "\n";
 

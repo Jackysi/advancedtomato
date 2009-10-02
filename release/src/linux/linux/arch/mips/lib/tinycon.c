@@ -1,4 +1,18 @@
-
+/*
+ * arch/mips/lib/console.c
+ *
+ * Copyright (C) 1994 by Waldorf Electronic,
+ * written by Ralf Baechle and Andreas Busse
+ *
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file COPYING in the main directory of this archive for
+ * more details.
+ *
+ * FIXME: This file is hacked to be hardwired for the Deskstation
+ *        Only thought as a debugging console output.  It's as inefficient
+ *        as a piece of code can be but probably a good piece of code to
+ *        implement a preliminary console for a new target.
+ */
 
 #include <linux/tty.h>
 #include <asm/bootinfo.h>

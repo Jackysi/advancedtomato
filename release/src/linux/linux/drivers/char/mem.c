@@ -21,6 +21,7 @@
 #include <linux/raw.h>
 #include <linux/tty.h>
 #include <linux/capability.h>
+#include <linux/ptrace.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -63,7 +64,7 @@ static ssize_t do_write_mem(struct file * file, void *p, unsigned long realp,
 	if (copy_from_user(p, buf, count))
 		return -EFAULT;
 	written += count;
-	*ppos += written;
+	*ppos = realp + written;
 	return written;
 }
 
@@ -104,7 +105,7 @@ static ssize_t read_mem(struct file * file, char * buf,
 	if (copy_to_user(buf, __va(p), count))
 		return -EFAULT;
 	read += count;
-	*ppos += read;
+	*ppos = p + read;
 	return read;
 }
 
@@ -401,7 +402,8 @@ static inline size_t read_zero_pagealigned(char * buf, size_t size)
 			count = size;
 
 		zap_page_range(mm, addr, count);
-        	zeromap_page_range(addr, count, PAGE_COPY);
+        	if (zeromap_page_range(addr, count, PAGE_COPY))
+			break;
 
 		size -= count;
 		buf += count;
@@ -503,16 +505,23 @@ static loff_t null_lseek(struct file * file, loff_t offset, int orig)
  */
 static loff_t memory_lseek(struct file * file, loff_t offset, int orig)
 {
+	loff_t ret;
+
 	switch (orig) {
 		case 0:
 			file->f_pos = offset;
-			return file->f_pos;
+			ret = file->f_pos;
+			force_successful_syscall_return();
+			break;
 		case 1:
 			file->f_pos += offset;
-			return file->f_pos;
+			ret = file->f_pos;
+			force_successful_syscall_return();
+			break;
 		default:
-			return -EINVAL;
+			ret = -EINVAL;
 	}
+	return ret;
 }
 
 static int open_port(struct inode * inode, struct file * filp)
@@ -520,7 +529,91 @@ static int open_port(struct inode * inode, struct file * filp)
 	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
 }
 
-#define mmap_kmem	mmap_mem
+struct page *kmem_vm_nopage(struct vm_area_struct *vma, unsigned long address, int write)
+{
+	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
+	unsigned long kaddr;
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *ptep, pte;
+	struct page *page = NULL;
+
+	/* address is user VA; convert to kernel VA of desired page */
+	kaddr = (address - vma->vm_start) + offset;
+	kaddr = VMALLOC_VMADDR(kaddr);
+
+	spin_lock(&init_mm.page_table_lock);
+
+	/* Lookup page structure for kernel VA */
+	pgd = pgd_offset(&init_mm, kaddr);
+	if (pgd_none(*pgd) || pgd_bad(*pgd))
+		goto out;
+	pmd = pmd_offset(pgd, kaddr);
+	if (pmd_none(*pmd) || pmd_bad(*pmd))
+		goto out;
+	ptep = pte_offset(pmd, kaddr);
+	if (!ptep)
+		goto out;
+	pte = *ptep;
+	if (!pte_present(pte))
+		goto out;
+	if (write && !pte_write(pte))
+		goto out;
+	page = pte_page(pte);
+	if (!VALID_PAGE(page)) {
+		page = NULL;
+		goto out;
+	}
+
+	/* Increment reference count on page */
+	get_page(page);
+
+out:
+	spin_unlock(&init_mm.page_table_lock);
+
+	return page;
+}
+
+struct vm_operations_struct kmem_vm_ops = {
+	nopage:		kmem_vm_nopage,
+};
+
+static int mmap_kmem(struct file * file, struct vm_area_struct * vma)
+{
+	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
+	unsigned long size = vma->vm_end - vma->vm_start;
+
+	/*
+	 * If the user is not attempting to mmap a high memory address then
+	 * the standard mmap_mem mechanism will work.  High memory addresses
+	 * need special handling, as remap_page_range expects a physically-
+	 * contiguous range of kernel addresses (such as obtained in kmalloc).
+	 */
+	if ((offset + size) < (unsigned long) high_memory)
+		return mmap_mem(file, vma);
+
+	/*
+	 * Accessing memory above the top the kernel knows about or
+	 * through a file pointer that was marked O_SYNC will be
+	 * done non-cached.
+	 */
+	if (noncached_address(offset) || (file->f_flags & O_SYNC))
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+	/* Don't do anything here; "nopage" will fill the holes */
+	vma->vm_ops = &kmem_vm_ops;
+
+	/* Don't try to swap out physical pages.. */
+	vma->vm_flags |= VM_RESERVED;
+
+	/*
+	 * Don't dump addresses that are not real memory to a core file.
+	 */
+	vma->vm_flags |= VM_IO;
+
+	return 0;
+}
+
 #define zero_lseek	null_lseek
 #define full_lseek      null_lseek
 #define write_zero	write_null
@@ -621,8 +714,7 @@ void __init memory_devfs_register (void)
 	{1, "mem",     S_IRUSR | S_IWUSR | S_IRGRP, &mem_fops},
 	{2, "kmem",    S_IRUSR | S_IWUSR | S_IRGRP, &kmem_fops},
 	{3, "null",    S_IRUGO | S_IWUGO,           &null_fops},
-#if defined(CONFIG_ISA) || !defined(__mc68000__) || \
-    defined(CONFIG_BCM94702_CPCI)
+#if defined(CONFIG_ISA) || !defined(__mc68000__)
 	{4, "port",    S_IRUSR | S_IWUSR | S_IRGRP, &port_fops},
 #endif
 	{5, "zero",    S_IRUGO | S_IWUGO,           &zero_fops},
@@ -652,13 +744,13 @@ int __init chr_dev_init(void)
 #ifdef CONFIG_I2C
 	i2c_init_all();
 #endif
-#if defined(CONFIG_FB)
+#if defined (CONFIG_FB)
 	fbmem_init();
 #endif
-#if defined(CONFIG_PROM_CONSOLE)
+#if defined (CONFIG_PROM_CONSOLE)
 	prom_con_init();
 #endif
-#if defined(CONFIG_MDA_CONSOLE)
+#if defined (CONFIG_MDA_CONSOLE)
 	mda_console_init();
 #endif
 	tty_init();

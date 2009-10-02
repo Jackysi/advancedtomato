@@ -44,7 +44,7 @@ static void __init
 fixup_simpad(struct machine_desc *desc, struct param_struct *params,
 		   char **cmdline, struct meminfo *mi)
 {
-#ifdef CONFIG_SA1100_SIMPAD_DRAM_64MB     /* DRAM */
+#ifdef CONFIG_SA1100_SIMPAD_DRAM_64MB /* DRAM */
 	SET_BANK( 0, 0xc0000000, 64*1024*1024 );
 #else
 	SET_BANK( 0, 0xc0000000, 32*1024*1024 );
@@ -76,7 +76,7 @@ static void simpad_uart_pm(struct uart_port *port, u_int state, u_int oldstate)
 }
 
 static struct sa1100_port_fns simpad_port_fns __initdata = {
-	pm:	simpad_uart_pm,
+	.pm	= simpad_uart_pm,
 };
 
 static void __init simpad_map_io(void)

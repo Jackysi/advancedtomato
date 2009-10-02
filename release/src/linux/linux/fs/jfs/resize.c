@@ -1,5 +1,5 @@
 /*
- *   Copyright (c) International Business Machines  Corp., 2000-2002
+ *   Copyright (C) International Business Machines  Corp., 2000-2003
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -28,6 +28,8 @@
 #include "jfs_superblock.h"
 #include "jfs_txnmgr.h"
 #include "jfs_debug.h"
+
+extern s64 jfs_get_volume_size(struct super_block *);
 
 #define BITSPERPAGE     (PSIZE << 3)
 #define L2MEGABYTE      20
@@ -97,7 +99,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 		goto out;
 	}
 
-	VolumeSize = sb->s_bdev->bd_inode->i_size >> sb->s_blocksize_bits;
+	VolumeSize = jfs_get_volume_size(sb);
 	if (VolumeSize) {
 		if (newLVSize > VolumeSize) {
 			printk(KERN_WARNING "jfs_extendfs: invalid size\n");
@@ -182,7 +184,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 
 	/* file system cannot be shrinked */
 	if (newFSSize < bmp->db_mapsize) {
-		rc = EINVAL;
+		rc = -EINVAL;
 		goto out;
 	}
 
@@ -315,8 +317,8 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 	t64 = dbMapFileSizeToMapSize(ipbmap);
 	if (mapSize > t64) {
 		printk(KERN_ERR "jfs_extendfs: mapSize (0x%Lx) > t64 (0x%Lx)\n",
-		       (long long)mapSize, (long long)t64);
-		rc = EIO;
+		       (long long) mapSize, (long long) t64);
+		rc = -EIO;
 		goto error_out;
 	}
 	nblocks = min(t64 - mapSize, XSize);
@@ -349,7 +351,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 
 	/* need to grow map file ? */
 	if (nPages == newNpages)
-		goto updateImap;
+		goto finalizeBmap;
 
 	/*
 	 * grow bmap file for the new map pages required:
@@ -413,6 +415,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 	if (XSize)
 		goto extendBmap;
 
+      finalizeBmap:
 	/* finalize bmap */
 	dbFinalizeBmap(ipbmap);
 
@@ -426,7 +429,6 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 	 * (computation of ag number from agstart based on agsize
 	 * will correctly identify the new ag);
 	 */
-      updateImap:
 	/* if new AG size the same as old AG size, done! */
 	if (bmp->db_agsize != old_agsize) {
 		if ((rc = diExtendFS(ipimap, ipbmap)))
@@ -484,8 +486,8 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 
 	/* mark extendfs() completion */
 	j_sb->s_state &= cpu_to_le32(~FM_EXTENDFS);
-	j_sb->s_size = cpu_to_le64(bmp->db_mapsize) <<
-		       le16_to_cpu(j_sb->s_l2bfactor);
+	j_sb->s_size = cpu_to_le64(bmp->db_mapsize <<
+				   le16_to_cpu(j_sb->s_l2bfactor));
 	j_sb->s_agsize = cpu_to_le32(bmp->db_agsize);
 
 	/* update inline log space descriptor */
@@ -512,7 +514,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 		mark_buffer_dirty(bh);
 		ll_rw_block(WRITE, 1, &bh2);
 		wait_on_buffer(bh2);
-		brelse(bh);
+		brelse(bh2);
 	}
 
 	/* write primary superblock */
@@ -524,7 +526,7 @@ int jfs_extendfs(struct super_block *sb, s64 newLVSize, int newLogSize)
 	goto resume;
 
       error_out:
-	updateSuper(sb, FM_DIRTY);
+	jfs_error(sb, "jfs_extendfs");
 
       resume:
 	/*

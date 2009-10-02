@@ -119,6 +119,7 @@ static inline void presto_release_record(struct presto_log_fd *fd,
         write_unlock(&fd->fd_lock);
 }
 
+/* XXX should we ask for do_truncate to be exported? */
 int izo_do_truncate(struct presto_file_set *fset, struct dentry *dentry,
                     loff_t length,  loff_t size_check)
 {
@@ -184,6 +185,8 @@ static void presto_kml_truncate(struct presto_file_set *fset)
 
         /* Userspace is the only permitholder now, and will retain an exclusive
          * hold on the permit until KML truncation completes. */
+        /* FIXME: double check this code path now that the precise semantics of
+         * fset->fset_permit_count have changed. */
 
         if (rc != 0) {
                 write_lock(&fset->fset_kml.fd_lock);
@@ -401,6 +404,17 @@ static inline char *journal_log_suffix(char *buf, char *log,
         struct kml_suffix s;
         struct kml_prefix_hdr *p = (struct kml_prefix_hdr *)log;
 
+#if 0
+        /* XXX needs to be done after reservation, 
+           disable ths until version 1.2 */
+        if ( dentry ) { 
+                s.prevrec = cpu_to_le32(rec->offset - 
+                                        presto_d2d(dentry)->dd_kml_offset);
+                presto_d2d(dentry)->dd_kml_offset = rec->offset;
+        } else { 
+                s.prevrec = -1;
+        }
+#endif
         s.prevrec = 0; 
 
         /* record number needs to be filled in after reservation 
@@ -568,6 +582,13 @@ static int presto_kml_dispatch(struct presto_file_set *fset)
                 write_unlock(&fd->fd_lock);
                 EXIT;
                 return 0; 
+                /* XXX add a further "if" here to delay the KML upcall */ 
+#if 0
+        } else if ( kml_recno < fset->fset_lento_recno + 100) {
+                write_unlock(&fd->fd_lock);
+                EXIT;
+                return 0;
+#endif
         }
         CDEBUG(D_PIOCTL, "fset: %s\n", fset->fset_name);
 
@@ -606,6 +627,8 @@ int izo_lookup_file(struct presto_file_set *fset, char *path,
         return 0;
 }
 
+/* FIXME: this function is a mess of locking and error handling.  There's got to
+ * be a better way. */
 static int do_truncate_rename(struct presto_file_set *fset, char *oldname,
                               char *newname)
 {

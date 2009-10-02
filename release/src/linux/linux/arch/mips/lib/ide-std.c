@@ -13,8 +13,6 @@
 #include <linux/hdreg.h>
 #include <asm/ptrace.h>
 #include <asm/hdreg.h>
-#include <asm/io.h>
-#include <asm/paccess.h>
 
 static int std_ide_default_irq(ide_ioreg_t base)
 {
@@ -33,12 +31,14 @@ static int std_ide_default_irq(ide_ioreg_t base)
 static ide_ioreg_t std_ide_default_io_base(int index)
 {
 	switch (index) {
+#if 0
 		case 0:	return 0x1f0;
 		case 1:	return 0x170;
 		case 2: return 0x1e8;
 		case 3: return 0x168;
 		case 4: return 0x1e0;
 		case 5: return 0x160;
+#endif
 		default:
 			return 0;
 	}
@@ -64,74 +64,8 @@ static void std_ide_init_hwif_ports (hw_regs_t *hw, ide_ioreg_t data_port,
 	hw->io_ports[IDE_IRQ_OFFSET] = 0;
 }
 
-static int std_ide_request_irq(unsigned int irq,
-                                void (*handler)(int,void *, struct pt_regs *),
-                                unsigned long flags, const char *device,
-                                void *dev_id)
-{
-	return request_irq(irq, handler, flags, device, dev_id);
-}
-
-static void std_ide_free_irq(unsigned int irq, void *dev_id)
-{
-	free_irq(irq, dev_id);
-}
-
-static int std_ide_check_region(ide_ioreg_t from, unsigned int extent)
-{
-	int ret;
-
-	if ((ret = check_region(from, extent)))
-		return ret;
-
-	/* Standard IDE ports may not be accessible */
-	switch (extent) {
-	case 1: {
-		u8 val;
-		ret = get_dbe(val, (u8 *)(mips_io_port_base + (unsigned long) from));
-		break;
-	}
-	case 2: {
-		u16 val;
-		ret = get_dbe(val, (u16 *)(mips_io_port_base + (unsigned long) from));
-		break;
-	}
-	case 4: {
-		u32 val;
-		ret = get_dbe(val, (u32 *)(mips_io_port_base + (unsigned long) from));
-		break;
-	}
-	case 8: {
-		u64 val;
-		ret = get_dbe(val, (u64 *)(mips_io_port_base + (unsigned long) from));
-		break;
-	}
-	default:
-		ret = -EFAULT;
-		break;
-	}
-
-	return ret;
-}
-
-static void std_ide_request_region(ide_ioreg_t from, unsigned int extent,
-                                    const char *name)
-{
-	request_region(from, extent, name);
-}
-
-static void std_ide_release_region(ide_ioreg_t from, unsigned int extent)
-{
-	release_region(from, extent);
-}
-
 struct ide_ops std_ide_ops = {
 	&std_ide_default_irq,
 	&std_ide_default_io_base,
-	&std_ide_init_hwif_ports,
-	&std_ide_request_irq,
-	&std_ide_free_irq,
-	&std_ide_check_region,
-	&std_ide_request_region,
-	&std_ide_release_region
+	&std_ide_init_hwif_ports
 };

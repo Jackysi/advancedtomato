@@ -98,11 +98,13 @@ static inline void do_reset(void)
 	extern void tc35815_killall(void);
 	tc35815_killall();
 #endif
+#if 1	/* Resetting PCI bus */
 	jmr3927_ioc_reg_out(0, JMR3927_IOC_RESET_ADDR);
 	jmr3927_ioc_reg_out(JMR3927_IOC_RESET_PCI, JMR3927_IOC_RESET_ADDR);
 	(void)jmr3927_ioc_reg_in(JMR3927_IOC_RESET_ADDR);	/* flush WB */
 	mdelay(1);
 	jmr3927_ioc_reg_out(0, JMR3927_IOC_RESET_ADDR);
+#endif
 	jmr3927_ioc_reg_out(JMR3927_IOC_RESET_CPU, JMR3927_IOC_RESET_ADDR);
 }
 
@@ -182,9 +184,6 @@ unsigned long jmr3927_do_gettimeoffset(void)
 }
 
 
-void __init bus_error_init(void) { /* nothing */ }
-
-
 #if defined(CONFIG_BLK_DEV_INITRD)
 extern unsigned long __rd_start, __rd_end, initrd_start, initrd_end;
 #endif
@@ -229,6 +228,7 @@ void __init jmr3927_setup(void)
 		conf = read_c0_conf();
 	}
 
+#if 1
 	/* cache setup */
 	{
 		unsigned int conf;
@@ -255,6 +255,7 @@ void __init jmr3927_setup(void)
 		write_c0_conf(conf);
 		write_c0_cache(0);
 	}
+#endif
 
 	/* initialize board */
 	jmr3927_board_init();
@@ -433,6 +434,7 @@ static void tx3927_setup(void)
 	       tx3927_pcicptr->rid);
 	if (!(tx3927_ccfgptr->ccfg & TX3927_CCFG_PCIXARB)) {
 		printk("External\n");
+		/* XXX */
 	} else {
 		printk("Internal\n");
 
@@ -482,15 +484,22 @@ static void tx3927_setup(void)
 
 		/* PCIC Int => IRC IRQ10 */
 		tx3927_pcicptr->il = TX3927_IR_PCI;
+#if 1
 		/* Target Control (per errata) */
 		tx3927_pcicptr->tc = TX3927_PCIC_TC_OF8E | TX3927_PCIC_TC_IF8E;
+#endif
 
 		/* Enable Bus Arbiter */
+#if 0
+		tx3927_pcicptr->req_trace = 0x73737373;
+#endif
 		tx3927_pcicptr->pbapmc = TX3927_PCIC_PBAPMC_PBAEN;
 
 		tx3927_pcicptr->pcicmd = PCI_COMMAND_MASTER |
 			PCI_COMMAND_MEMORY |
+#if 1
 			PCI_COMMAND_IO |
+#endif
 			PCI_COMMAND_PARITY | PCI_COMMAND_SERR;
 	}
 #endif /* CONFIG_PCI */

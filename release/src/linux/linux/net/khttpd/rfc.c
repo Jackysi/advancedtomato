@@ -84,6 +84,7 @@ void AddMimeType(const char *Ident,const char *Type)
    	
    	I=(__u32*)Ident;
    	
+   	/* FIXME: Need to lock-down all access to the mime-structure here */
    	/*        For now, just don't add mime-types after initialisation */
    	
    	

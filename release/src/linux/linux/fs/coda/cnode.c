@@ -136,6 +136,7 @@ void coda_replace_fid(struct inode *inode, struct ViceFid *oldfid,
 		BUG();
 
 	/* replace fid and rehash inode */
+	/* XXX we probably need to hold some lock here! */
 	remove_inode_hash(inode);
 	cii->c_fid = *newfid;
 	inode->i_ino = coda_f2i(newfid);

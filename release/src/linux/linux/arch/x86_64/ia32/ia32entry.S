@@ -3,7 +3,7 @@
  * 		
  * Copyright 2000,2001 Andi Kleen, SuSE Labs.
  * 
- * $Id: ia32entry.S,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $ 		
+ * $Id: ia32entry.S,v 1.42 2003/11/27 00:55:43 ak Exp $ 		
  */		 
 
 #include <asm/calling.h>
@@ -52,6 +52,7 @@ ENTRY(ia32_cstar_target)
 ENTRY(ia32_syscall)
 	swapgs	
 	sti
+	movl %eax,%eax	
 	pushq %rax
 	cld
 	SAVE_ARGS
@@ -71,8 +72,8 @@ ia32_tracesys:
 	movq %rsp,%rdi        /* &pt_regs -> arg1 */
 	call syscall_trace
 	LOAD_ARGS ARGOFFSET  /* reload args from stack in case ptrace changed it */
-	addq $ARGOFFSET,%rsp	
-	cmpl $(IA32_NR_syscalls),%eax
+	RESTORE_REST
+	cmpq $(IA32_NR_syscalls),%rax
 	jae  1f
 	IA32_ARG_FIXUP
 	call *ia32_sys_call_table(,%rax,8)
@@ -81,11 +82,12 @@ ia32_tracesys_end:
 1:	SAVE_REST
 	movq %rsp,%rdi		/* &pt_regs -> arg1 */ 
 	call syscall_trace
-	addq $ARGOFFSET,%rsp
+	RESTORE_REST
 	jmp int_ret_from_sys_call
 		
 ia32_badsys:
 	movq $-ENOSYS,RAX-ARGOFFSET(%rsp)
+	movq $0,ORIG_RAX-ARGOFFSET(%rsp)
 	jmp int_ret_from_sys_call
 
 ni_syscall:
@@ -111,8 +113,17 @@ quiet_ni_syscall:
 	PTREGSCALL stub32_fork, sys32_fork
 	PTREGSCALL stub32_clone, sys32_clone
 	PTREGSCALL stub32_vfork, sys32_vfork
-	PTREGSCALL stub32_iopl, sys_iopl
 	PTREGSCALL stub32_rt_sigsuspend, sys_rt_sigsuspend
+
+	.macro PTREGSCALL3 label, func, arg
+	.globl \label
+\label:
+	leaq \func(%rip),%rax
+	leaq -ARGOFFSET+8(%rsp),\arg	/* 8 for return address */
+	jmp  ia32_ptregs_common	
+	.endm
+
+	PTREGSCALL3 stub32_iopl, sys_iopl, %rsi
 
 ENTRY(ia32_ptregs_common)
 	popq %r11
@@ -133,7 +144,7 @@ ia32_sys_call_table:
 	.quad stub32_fork
 	.quad sys_read
 	.quad sys_write
-	.quad sys_open		/* 5 */
+	.quad sys32_open		/* 5 */
 	.quad sys_close
 	.quad sys32_waitpid
 	.quad sys_creat
@@ -155,7 +166,7 @@ ia32_sys_call_table:
 	.quad sys_getuid16
 	.quad sys_stime		/* stime */		/* 25 */
 	.quad sys32_ptrace	/* ptrace */
-	.quad sys_alarm		 
+	.quad sys_alarm		/* XXX sign extension??? */ 
 	.quad ni_syscall	/* (old)fstat */
 	.quad sys_pause
 	.quad sys32_utime	/* 30 */
@@ -176,7 +187,7 @@ ia32_sys_call_table:
 	.quad sys_brk		/* 45 */
 	.quad sys_setgid16
 	.quad sys_getgid16
-	.quad ni_syscall	/* signal */
+	.quad sys_signal
 	.quad sys_geteuid16
 	.quad sys_getegid16	/* 50 */
 	.quad sys_acct
@@ -241,7 +252,7 @@ ia32_sys_call_table:
 	.quad stub32_iopl		/* 110 */
 	.quad sys_vhangup
 	.quad ni_syscall	/* old "idle" system call */
-	.quad ni_syscall	/* vm86old */ 
+	.quad sys32_vm86_warning	/* vm86old */ 
 	.quad sys32_wait4
 	.quad sys_swapoff		/* 115 */
 	.quad sys32_sysinfo
@@ -251,14 +262,14 @@ ia32_sys_call_table:
 	.quad stub32_clone		/* 120 */
 	.quad sys_setdomainname
 	.quad sys_uname
-	.quad sys_modify_ldt
+	.quad sys32_modify_ldt
 	.quad sys32_adjtimex
 	.quad sys32_mprotect		/* 125 */
 	.quad sys32_sigprocmask
-	.quad sys32_module_warning	/* create_module */
-	.quad sys32_module_warning	/* init_module */
-	.quad sys32_module_warning	/* delete module */
-	.quad sys32_module_warning	/* 130  get_kernel_syms */
+	.quad sys32_create_module
+	.quad sys32_init_module
+	.quad sys32_delete_module
+	.quad sys32_get_kernel_syms 	/* 130 */
 	.quad ni_syscall	/* quotactl */ 
 	.quad sys_getpgid
 	.quad sys_fchdir
@@ -294,8 +305,8 @@ ia32_sys_call_table:
 	.quad sys_mremap
 	.quad sys_setresuid16
 	.quad sys_getresuid16	/* 165 */
-	.quad ni_syscall	/* vm86 */ 
-	.quad quiet_ni_syscall	/* query_module */
+	.quad sys32_vm86_warning	/* vm86 */ 
+	.quad sys32_query_module
 	.quad sys_poll
 	.quad sys32_nfsservctl
 	.quad sys_setresgid16	/* 170 */
@@ -321,8 +332,8 @@ ia32_sys_call_table:
 	.quad stub32_vfork            /* 190 */
 	.quad sys32_getrlimit
 	.quad sys32_mmap2
-	.quad sys_truncate
-	.quad sys_ftruncate
+	.quad sys32_truncate64
+	.quad sys32_ftruncate64
 	.quad sys32_stat64		/* 195 */
 	.quad sys32_lstat64
 	.quad sys32_fstat64
@@ -354,34 +365,23 @@ ia32_sys_call_table:
 	.quad sys_ni_syscall    /* security */
 	.quad sys_gettid	
 	.quad sys_readahead	/* 225 */ 
-	.quad sys_setxattr
-	.quad sys_lsetxattr
-	.quad sys_fsetxattr
-	.quad sys_getxattr
-	.quad sys_lgetxattr	/* 230 */
-	.quad sys_fgetxattr
-	.quad sys_listxattr
-	.quad sys_llistxattr
-	.quad sys_flistxattr
-	.quad sys_removexattr	/* 235 */
-	.quad sys_lremovexattr
-	.quad sys_fremovexattr
-	.quad sys_tkill		/* 238 */ 
-	.quad sys_ni_syscall	/* sendfile64 */
-	.quad sys_ni_syscall	/* futex */
-	.quad sys_ni_syscall	/* sched_setaffinity */
-	.quad sys_ni_syscall	/* sched_getaffinity */
-	.quad sys_ni_syscall	/* set_threadarea */
-	.quad sys_ni_syscall	/* get_threadarea */
-	.quad sys_ni_syscall	/* io_setup */
-	.quad sys_ni_syscall	/* io_destroy */
-	.quad sys_ni_syscall	/* io_getevents */
-	.quad sys_ni_syscall	/* io_submit */
-	.quad sys_ni_syscall	/* io_cancel */
-	.quad sys_ni_syscall	/* alloc_hugepages */
-	.quad sys_ni_syscall	/* free_hugepages */
-	.quad sys_ni_syscall	/* exit_group */
-
+	.quad quiet_ni_syscall  /* xattr syscalls 226-237 */
+	.quad quiet_ni_syscall
+	.quad quiet_ni_syscall
+	.quad quiet_ni_syscall
+	.quad quiet_ni_syscall  /* 230 */
+	.quad quiet_ni_syscall  
+	.quad quiet_ni_syscall  
+	.quad quiet_ni_syscall  
+	.quad quiet_ni_syscall  
+	.quad quiet_ni_syscall  /* 235 */
+	.quad quiet_ni_syscall  
+	.quad quiet_ni_syscall  /* fremovexattr - 237 */
+	.quad sys_tkill
+	.quad sys_sendfile64
+	.quad quiet_ni_syscall  /* futex */
+	.quad quiet_ni_syscall  /* sched_setaffinity */
+	.quad quiet_ni_syscall  /* sched_getaffinity */	
 ia32_syscall_end:		
 	.rept IA32_NR_syscalls-(ia32_syscall_end-ia32_sys_call_table)/8
 		.quad ni_syscall

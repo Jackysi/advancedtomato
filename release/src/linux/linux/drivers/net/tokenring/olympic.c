@@ -457,14 +457,7 @@ static int olympic_open(struct net_device *dev)
 	printk("Before the open command \n");
 #endif	
 	do {
-		int i;
-
-		for(i=0;i<SRB_COMMAND_SIZE;i+=4)
-			writel(0,init_srb+i);
-		if(SRB_COMMAND_SIZE & 2)
-			writew(0,init_srb+(SRB_COMMAND_SIZE & ~3));
-		if(SRB_COMMAND_SIZE & 1)
-			writeb(0,init_srb+(SRB_COMMAND_SIZE & ~1));
+		memset_io(init_srb,0,SRB_COMMAND_SIZE);
 
 		writeb(SRB_OPEN_ADAPTER,init_srb) ; 	/* open */
 		writeb(OLYMPIC_CLEAR_RET_CODE,init_srb+2);
@@ -655,8 +648,7 @@ static int olympic_open(struct net_device *dev)
 	printk(" stat_ring[7]: %p\n", &(olympic_priv->olympic_rx_status_ring[7])  );
 
 	printk("RXCDA: %x, rx_ring[0]: %p\n",readl(olympic_mmio+RXCDA),&olympic_priv->olympic_rx_ring[0]);
-	printk("Rx_ring_dma_addr = %08x, rx_status_dma_addr =
-%08x\n",olympic_priv->rx_ring_dma_addr,olympic_priv->rx_status_ring_dma_addr) ; 
+	printk("Rx_ring_dma_addr = %08x, rx_status_dma_addr = %08x\n",olympic_priv->rx_ring_dma_addr,olympic_priv->rx_status_ring_dma_addr) ; 
 #endif
 
 	writew((((readw(olympic_mmio+RXENQ)) & 0x8000) ^ 0x8000) | i,olympic_mmio+RXENQ);

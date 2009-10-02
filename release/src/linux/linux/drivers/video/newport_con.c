@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+#include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/page.h>
@@ -48,13 +49,15 @@ extern unsigned long sgi_gfxaddr;
 
 static unsigned char *font_data[MAX_NR_CONSOLES];
 
-extern struct newport_regs *npregs;
+static struct newport_regs *npregs;
 
 static int logo_active;
 static int topscan;
 static int xcurs_correction = 29;
 static int newport_xsize;
 static int newport_ysize;
+
+static int newport_set_def_font(int unit, struct console_font_op *op);
 
 #define BMASK(c) (c << 24)
 
@@ -75,7 +78,7 @@ static int newport_ysize;
 static inline void newport_render_background(int xstart, int ystart,
 					     int xend, int yend, int ci)
 {
-	newport_wait();
+	newport_wait(npregs);
 	npregs->set.wrmask = 0xffffffff;
 	npregs->set.drawmode0 = (NPORT_DMODE0_DRAW | NPORT_DMODE0_BLOCK |
 				 NPORT_DMODE0_DOSETUP | NPORT_DMODE0_STOPX
@@ -92,7 +95,7 @@ static inline void newport_init_cmap(void)
 	unsigned short i;
 
 	for (i = 0; i < 16; i++) {
-		newport_bfwait();
+		newport_bfwait(npregs);
 		newport_cmap_setaddr(npregs, color_table[i]);
 		newport_cmap_setrgb(npregs,
 				    default_red[i],
@@ -105,7 +108,7 @@ static inline void newport_show_logo(void)
 	unsigned long i;
 
 	for (i = 0; i < LINUX_LOGO_COLORS; i++) {
-		newport_bfwait();
+		newport_bfwait(npregs);
 		newport_cmap_setaddr(npregs, i + 0x20);
 		newport_cmap_setrgb(npregs,
 				    linux_logo_red[i],
@@ -113,13 +116,13 @@ static inline void newport_show_logo(void)
 				    linux_logo_blue[i]);
 	}
 
-	newport_wait();
+	newport_wait(npregs);
 	npregs->set.drawmode0 = (NPORT_DMODE0_DRAW | NPORT_DMODE0_BLOCK |
 				 NPORT_DMODE0_CHOST);
 
 	npregs->set.xystarti = ((newport_xsize - LOGO_W) << 16) | (0);
 	npregs->set.xyendi = ((newport_xsize - 1) << 16);
-	newport_wait();
+	newport_wait(npregs);
 
 	for (i = 0; i < LOGO_W * LOGO_H; i++)
 		npregs->go.hostrw0 = linux_logo[i] << 24;
@@ -131,7 +134,7 @@ static inline void newport_clear_screen(int xstart, int ystart, int xend,
 	if (logo_active)
 		return;
 
-	newport_wait();
+	newport_wait(npregs);
 	npregs->set.wrmask = 0xffffffff;
 	npregs->set.drawmode0 = (NPORT_DMODE0_DRAW | NPORT_DMODE0_BLOCK |
 				 NPORT_DMODE0_DOSETUP | NPORT_DMODE0_STOPX
@@ -153,7 +156,7 @@ void newport_reset(void)
 	unsigned short treg;
 	int i;
 
-	newport_wait();
+	newport_wait(npregs);
 	treg = newport_vc2_get(npregs, VC2_IREG_CONTROL);
 	newport_vc2_set(npregs, VC2_IREG_CONTROL,
 			(treg | VC2_CTRL_EVIDEO));
@@ -163,7 +166,7 @@ void newport_reset(void)
 	npregs->set.dcbmode = (NPORT_DMODE_AVC2 | VC2_REGADDR_RAM |
 			       NPORT_DMODE_W2 | VC2_PROTOCOL);
 	for (i = 0; i < 128; i++) {
-		newport_bfwait();
+		newport_bfwait(npregs);
 		if (i == 92 || i == 94)
 			npregs->set.dcbdata0.byshort.s1 = 0xff00;
 		else
@@ -203,7 +206,7 @@ void newport_get_screensize(void)
 	npregs->set.dcbmode = (NPORT_DMODE_AVC2 | VC2_REGADDR_RAM |
 			       NPORT_DMODE_W2 | VC2_PROTOCOL);
 	for (i = 0; i < 128; i++) {
-		newport_bfwait();
+		newport_bfwait(npregs);
 		linetable[i] = npregs->set.dcbdata0.byshort.s1;
 	}
 
@@ -214,12 +217,12 @@ void newport_get_screensize(void)
 		npregs->set.dcbmode = (NPORT_DMODE_AVC2 | VC2_REGADDR_RAM |
 				       NPORT_DMODE_W2 | VC2_PROTOCOL);
 		do {
-			newport_bfwait();
+			newport_bfwait(npregs);
 			treg = npregs->set.dcbdata0.byshort.s1;
 			if ((treg & 1) == 0)
 				cols += (treg >> 7) & 0xfe;
 			if ((treg & 0x80) == 0) {
-				newport_bfwait();
+				newport_bfwait(npregs);
 				treg = npregs->set.dcbdata0.byshort.s1;
 			}
 		} while ((treg & 0x8000) == 0);
@@ -282,28 +285,23 @@ static void newport_get_revisions(void)
 		xcurs_correction = 21;
 }
 
-#ifdef MODULE
+/* Can't be __init, take_over_console may call it later */
 static const char *newport_startup(void)
-#else
-static const char *__init newport_startup(void)
-#endif
 {
 	int i;
-	struct newport_regs *p;
 
 	if (!sgi_gfxaddr)
 		return NULL;
-	npregs = (struct newport_regs *) (KSEG1 + sgi_gfxaddr);
-	p = npregs;
-	p->cset.config = NPORT_CFG_GD0;
+	npregs = (struct newport_regs *)	/* ioremap cannot fail */
+		 ioremap(sgi_gfxaddr, sizeof(struct newport_regs));
+	npregs->cset.config = NPORT_CFG_GD0;
 
-	if (newport_wait()) {
-		return NULL;
-	}
+	if (newport_wait(npregs))
+		goto out_unmap;
 
-	p->set.xstarti = TESTVAL;
-	if (p->set._xstart.word != XSTI_TO_FXSTART(TESTVAL))
-		return NULL;
+	npregs->set.xstarti = TESTVAL;
+	if (npregs->set._xstart.word != XSTI_TO_FXSTART(TESTVAL))
+		goto out_unmap;
 
 	for (i = 0; i < MAX_NR_CONSOLES; i++)
 		font_data[i] = FONT_DATA;
@@ -312,9 +310,11 @@ static const char *__init newport_startup(void)
 	newport_get_revisions();
 	newport_get_screensize();
 
-	/* gfx_init (display_desc); */
-
 	return "SGI Newport";
+
+out_unmap:
+	iounmap((void *)npregs);
+	return NULL;
 }
 
 static void newport_init(struct vc_data *vc, int init)
@@ -322,6 +322,15 @@ static void newport_init(struct vc_data *vc, int init)
 	vc->vc_cols = newport_xsize / 8;
 	vc->vc_rows = newport_ysize / 16;
 	vc->vc_can_do_color = 1;
+}
+
+static void newport_deinit(struct vc_data *c)
+{
+	int i;
+
+	/* free memory used by user font */
+	for (i = 0; i < MAX_NR_CONSOLES; i++)
+		newport_set_def_font(i, NULL);
 }
 
 static void newport_clear(struct vc_data *vc, int sy, int sx, int height,
@@ -359,7 +368,7 @@ static void newport_putc(struct vc_data *vc, int charattr, int ypos,
 				  (charattr & 0xf0) >> 4);
 
 	/* Set the color and drawing mode. */
-	newport_wait();
+	newport_wait(npregs);
 	npregs->set.colori = charattr & 0xf;
 	npregs->set.drawmode0 = (NPORT_DMODE0_DRAW | NPORT_DMODE0_BLOCK |
 				 NPORT_DMODE0_STOPX | NPORT_DMODE0_ZPENAB |
@@ -368,7 +377,7 @@ static void newport_putc(struct vc_data *vc, int charattr, int ypos,
 	/* Set coordinates for bitmap operation. */
 	npregs->set.xystarti = (xpos << 16) | ((ypos + topscan) & 0x3ff);
 	npregs->set.xyendi = ((xpos + 7) << 16);
-	newport_wait();
+	newport_wait(npregs);
 
 	/* Go, baby, go... */
 	RENDER(npregs, p);
@@ -392,7 +401,7 @@ static void newport_putcs(struct vc_data *vc, const unsigned short *s,
 					  xpos + ((count - 1) << 3), ypos,
 					  (charattr & 0xf0) >> 4);
 
-	newport_wait();
+	newport_wait(npregs);
 
 	/* Set the color and drawing mode. */
 	npregs->set.colori = charattr & 0xf;
@@ -403,7 +412,7 @@ static void newport_putcs(struct vc_data *vc, const unsigned short *s,
 	for (i = 0; i < count; i++, xpos += 8) {
 		p = &font_data[vc->vc_num][(scr_readw(s++) & 0xff) << 4];
 
-		newport_wait();
+		newport_wait(npregs);
 
 		/* Set coordinates for bitmap operation. */
 		npregs->set.xystarti =
@@ -685,7 +694,7 @@ static void newport_bmove(struct vc_data *vc, int sy, int sx, int dy,
 		xe = xs;
 		xs = tmp;
 	}
-	newport_wait();
+	newport_wait(npregs);
 	npregs->set.drawmode0 = (NPORT_DMODE0_S2S | NPORT_DMODE0_BLOCK |
 				 NPORT_DMODE0_DOSETUP | NPORT_DMODE0_STOPX
 				 | NPORT_DMODE0_STOPY);
@@ -702,47 +711,39 @@ static int newport_dummy(struct vc_data *c)
 #define DUMMY (void *) newport_dummy
 
 const struct consw newport_con = {
-    con_startup:	newport_startup,
-    con_init:		newport_init,
-    con_deinit:		DUMMY,
-    con_clear:		newport_clear,
-    con_putc:		newport_putc,
-    con_putcs:		newport_putcs,
-    con_cursor:		newport_cursor,
-    con_scroll:		newport_scroll,
-    con_bmove:		newport_bmove,
-    con_switch:		newport_switch,
-    con_blank:		newport_blank,
-    con_font_op:	newport_font_op,
-    con_set_palette:	newport_set_palette,
-    con_scrolldelta:	newport_scrolldelta,
-    con_set_origin:	DUMMY,
-    con_save_screen:	DUMMY
+	.con_startup	  = newport_startup,
+	.con_init	  = newport_init,
+	.con_deinit	  = newport_deinit,
+	.con_clear	  = newport_clear,
+	.con_putc	  = newport_putc,
+	.con_putcs	  = newport_putcs,
+	.con_cursor	  = newport_cursor,
+	.con_scroll	  = newport_scroll,
+	.con_bmove 	  = newport_bmove,
+	.con_switch	  = newport_switch,
+	.con_blank	  = newport_blank,
+	.con_font_op	  = newport_font_op,
+	.con_set_palette  = newport_set_palette,
+	.con_scrolldelta  = newport_scrolldelta,
+	.con_set_origin	  = DUMMY,
+	.con_save_screen  = DUMMY
 };
 
 #ifdef MODULE
-MODULE_LICENSE("GPL");
-
-int init_module(void)
+static int __init newport_console_init(void)
 {
-	if (!newport_startup())
-		printk("Error loading SGI Newport Console driver\n");
-	else
-		printk("Loading SGI Newport Console Driver\n");
 	take_over_console(&newport_con, 0, MAX_NR_CONSOLES - 1, 1);
-
 	return 0;
 }
 
-int cleanup_module(void)
+static void __exit newport_console_exit(void)
 {
-	int i;
-
-	printk("Unloading SGI Newport Console Driver\n");
-	/* free memory used by user font */
-	for (i = 0; i < MAX_NR_CONSOLES; i++)
-		newport_set_def_font(i, NULL);
-
-	return 0;
+	give_up_console(&newport_con);
+	iounmap((void *)npregs);
 }
+
+module_init(newport_console_init);
+module_exit(newport_console_exit);
 #endif
+
+MODULE_LICENSE("GPL");

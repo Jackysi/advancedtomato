@@ -125,4 +125,31 @@ void debugInit(int baud)
 	tx3927_sioptr(0)->flcr = 0x02;
 	tx3927_sioptr(0)->bgr = ((JMR3927_BASE_BAUD + baud / 2) / baud) |
 		TXx927_SIBGR_BCLK_T0;
+#if 0
+	/*
+	 * Reset the UART.
+	 */
+	tx3927_sioptr(0)->fcr = TXx927_SIFCR_SWRST;
+	while (tx3927_sioptr(0)->fcr & TXx927_SIFCR_SWRST)
+		;
+
+	/*
+	 * and set the speed of the serial port
+	 * (currently hardwired to 9600 8N1
+	 */
+
+	tx3927_sioptr(0)->lcr = TXx927_SILCR_UMODE_8BIT |
+		TXx927_SILCR_USBL_1BIT |
+		TXx927_SILCR_SCS_IMCLK_BG;
+	tx3927_sioptr(0)->bgr =
+		((JMR3927_BASE_BAUD + baud / 2) / baud) |
+		TXx927_SIBGR_BCLK_T0;
+
+	/* HW RTS/CTS control */
+	if (ser->flags & ASYNC_HAVE_CTS_LINE)
+		tx3927_sioptr(0)->flcr = TXx927_SIFLCR_RCS | TXx927_SIFLCR_TES |
+			TXx927_SIFLCR_RTSTL_MAX /* 15 */;
+	/* Enable RX/TX */
+	tx3927_sioptr(0)->flcr &= ~(TXx927_SIFLCR_RSDE | TXx927_SIFLCR_TSDE);
+#endif
 }

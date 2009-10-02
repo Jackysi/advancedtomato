@@ -3,130 +3,147 @@
  *
  * Module Name: exstoren - AML Interpreter object store support,
  *                        Store to Node (namespace object)
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acparser.h"
-#include "acdispat.h"
-#include "acinterp.h"
-#include "amlcode.h"
-#include "acnamesp.h"
-#include "actables.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
+#include <acpi/amlcode.h>
 
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exstoren")
+	 ACPI_MODULE_NAME    ("exstoren")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_resolve_object
+ * FUNCTION:    acpi_ex_resolve_object
  *
- * PARAMETERS:  Source_desc_ptr     - Pointer to the source object
- *              Target_type         - Current type of the target
- *              Walk_state          - Current walk state
+ * PARAMETERS:  source_desc_ptr     - Pointer to the source object
+ *              target_type         - Current type of the target
+ *              walk_state          - Current walk state
  *
- * RETURN:      Status, resolved object in Source_desc_ptr.
+ * RETURN:      Status, resolved object in source_desc_ptr.
  *
  * DESCRIPTION: Resolve an object.  If the object is a reference, dereference
- *              it and return the actual object in the Source_desc_ptr.
+ *              it and return the actual object in the source_desc_ptr.
  *
  ******************************************************************************/
 
 acpi_status
 acpi_ex_resolve_object (
-	acpi_operand_object     **source_desc_ptr,
-	acpi_object_type8       target_type,
-	acpi_walk_state         *walk_state)
+	union acpi_operand_object       **source_desc_ptr,
+	acpi_object_type                target_type,
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     *source_desc = *source_desc_ptr;
-	acpi_status             status = AE_OK;
+	union acpi_operand_object       *source_desc = *source_desc_ptr;
+	acpi_status                     status = AE_OK;
 
 
-	FUNCTION_TRACE ("Ex_resolve_object");
+	ACPI_FUNCTION_TRACE ("ex_resolve_object");
 
 
 	/*
-	 * Ensure we have a Source that can be stored in the target
+	 * Ensure we have a Target that can be stored to
 	 */
 	switch (target_type) {
-
-	/* This case handles the "interchangeable" types Integer, String, and Buffer. */
-
-	/*
-	 * These cases all require only Integers or values that
-	 * can be converted to Integers (Strings or Buffers)
-	 */
 	case ACPI_TYPE_BUFFER_FIELD:
-	case INTERNAL_TYPE_REGION_FIELD:
-	case INTERNAL_TYPE_BANK_FIELD:
-	case INTERNAL_TYPE_INDEX_FIELD:
+	case ACPI_TYPE_LOCAL_REGION_FIELD:
+	case ACPI_TYPE_LOCAL_BANK_FIELD:
+	case ACPI_TYPE_LOCAL_INDEX_FIELD:
+		/*
+		 * These cases all require only Integers or values that
+		 * can be converted to Integers (Strings or Buffers)
+		 */
 
-	/*
-	 * Stores into a Field/Region or into a Buffer/String
-	 * are all essentially the same.
-	 */
 	case ACPI_TYPE_INTEGER:
 	case ACPI_TYPE_STRING:
 	case ACPI_TYPE_BUFFER:
 
+		/*
+		 * Stores into a Field/Region or into a Integer/Buffer/String
+		 * are all essentially the same.  This case handles the
+		 * "interchangeable" types Integer, String, and Buffer.
+		 */
+		if (ACPI_GET_OBJECT_TYPE (source_desc) == ACPI_TYPE_LOCAL_REFERENCE) {
+			/* Resolve a reference object first */
 
-		/* TBD: FIX - check for source==REF, resolve, then check type */
+			status = acpi_ex_resolve_to_value (source_desc_ptr, walk_state);
+			if (ACPI_FAILURE (status)) {
+				break;
+			}
+		}
+
+		/* For copy_object, no further validation necessary */
+
+		if (walk_state->opcode == AML_COPY_OP) {
+			break;
+		}
 
 		/*
-		 * If Source_desc is not a valid type, try to resolve it to one.
+		 * Must have a Integer, Buffer, or String
 		 */
-		if ((source_desc->common.type != ACPI_TYPE_INTEGER)    &&
-			(source_desc->common.type != ACPI_TYPE_BUFFER)     &&
-			(source_desc->common.type != ACPI_TYPE_STRING)) {
+		if ((ACPI_GET_OBJECT_TYPE (source_desc) != ACPI_TYPE_INTEGER)   &&
+			(ACPI_GET_OBJECT_TYPE (source_desc) != ACPI_TYPE_BUFFER)    &&
+			(ACPI_GET_OBJECT_TYPE (source_desc) != ACPI_TYPE_STRING)    &&
+			!((ACPI_GET_OBJECT_TYPE (source_desc) == ACPI_TYPE_LOCAL_REFERENCE) && (source_desc->reference.opcode == AML_LOAD_OP))) {
 			/*
-			 * Initially not a valid type, convert
+			 * Conversion successful but still not a valid type
 			 */
-			status = acpi_ex_resolve_to_value (source_desc_ptr, walk_state);
-			if (ACPI_SUCCESS (status) &&
-				(source_desc->common.type != ACPI_TYPE_INTEGER)    &&
-				(source_desc->common.type != ACPI_TYPE_BUFFER)     &&
-				(source_desc->common.type != ACPI_TYPE_STRING)) {
-				/*
-				 * Conversion successful but still not a valid type
-				 */
-				ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
-					"Cannot assign type %s to %s (must be type Int/Str/Buf)\n",
-					acpi_ut_get_type_name ((*source_desc_ptr)->common.type),
-					acpi_ut_get_type_name (target_type)));
-				status = AE_AML_OPERAND_TYPE;
-			}
+			ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
+				"Cannot assign type %s to %s (must be type Int/Str/Buf)\n",
+				acpi_ut_get_object_type_name (source_desc),
+				acpi_ut_get_type_name (target_type)));
+			status = AE_AML_OPERAND_TYPE;
 		}
 		break;
 
 
-	case INTERNAL_TYPE_ALIAS:
+	case ACPI_TYPE_LOCAL_ALIAS:
+	case ACPI_TYPE_LOCAL_METHOD_ALIAS:
 
 		/*
-		 * Aliases are resolved by Acpi_ex_prep_operands
+		 * Aliases are resolved by acpi_ex_prep_operands
 		 */
-		ACPI_DEBUG_PRINT ((ACPI_DB_WARN, "Store into Alias - should never happen\n"));
+		ACPI_REPORT_ERROR (("Store into Alias - should never happen\n"));
 		status = AE_AML_INTERNAL;
 		break;
 
@@ -147,12 +164,12 @@ acpi_ex_resolve_object (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_store_object
+ * FUNCTION:    acpi_ex_store_object_to_object
  *
- * PARAMETERS:  Source_desc         - Object to store
- *              Target_type         - Current type of the target
- *              Target_desc_ptr     - Pointer to the target
- *              Walk_state          - Current walk state
+ * PARAMETERS:  source_desc         - Object to store
+ *              dest_desc           - Object to receive a copy of the source
+ *              new_desc            - New object if dest_desc is obsoleted
+ *              walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -161,93 +178,123 @@ acpi_ex_resolve_object (
  *              conversion), and a copy of the value of the source to
  *              the target.
  *
+ *              The Assignment of an object to another (not named) object
+ *              is handled here.
+ *              The Source passed in will replace the current value (if any)
+ *              with the input value.
+ *
+ *              When storing into an object the data is converted to the
+ *              target object type then stored in the object.  This means
+ *              that the target object type (for an initialized target) will
+ *              not be changed by a store operation.
+ *
+ *              This module allows destination types of Number, String,
+ *              Buffer, and Package.
+ *
+ *              Assumes parameters are already validated.  NOTE: source_desc
+ *              resolution (from a reference object) must be performed by
+ *              the caller if necessary.
+ *
  ******************************************************************************/
 
 acpi_status
-acpi_ex_store_object (
-	acpi_operand_object     *source_desc,
-	acpi_object_type8       target_type,
-	acpi_operand_object     **target_desc_ptr,
-	acpi_walk_state         *walk_state)
+acpi_ex_store_object_to_object (
+	union acpi_operand_object       *source_desc,
+	union acpi_operand_object       *dest_desc,
+	union acpi_operand_object       **new_desc,
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     *target_desc = *target_desc_ptr;
-	acpi_status             status = AE_OK;
+	union acpi_operand_object       *actual_src_desc;
+	acpi_status                     status = AE_OK;
 
 
-	FUNCTION_TRACE ("Ex_store_object");
+	ACPI_FUNCTION_TRACE_PTR ("ex_store_object_to_object", source_desc);
 
 
-	/*
-	 * Perform the "implicit conversion" of the source to the current type
-	 * of the target - As per the ACPI specification.
-	 *
-	 * If no conversion performed, Source_desc is left alone, otherwise it
-	 * is updated with a new object.
-	 */
-	status = acpi_ex_convert_to_target_type (target_type, &source_desc, walk_state);
-	if (ACPI_FAILURE (status)) {
+	actual_src_desc = source_desc;
+	if (!dest_desc) {
+		/*
+		 * There is no destination object (An uninitialized node or
+		 * package element), so we can simply copy the source object
+		 * creating a new destination object
+		 */
+		status = acpi_ut_copy_iobject_to_iobject (actual_src_desc, new_desc, walk_state);
 		return_ACPI_STATUS (status);
+	}
+
+	if (ACPI_GET_OBJECT_TYPE (source_desc) != ACPI_GET_OBJECT_TYPE (dest_desc)) {
+		/*
+		 * The source type does not match the type of the destination.
+		 * Perform the "implicit conversion" of the source to the current type
+		 * of the target as per the ACPI specification.
+		 *
+		 * If no conversion performed, actual_src_desc = source_desc.
+		 * Otherwise, actual_src_desc is a temporary object to hold the
+		 * converted object.
+		 */
+		status = acpi_ex_convert_to_target_type (ACPI_GET_OBJECT_TYPE (dest_desc), source_desc,
+				  &actual_src_desc, walk_state);
+		if (ACPI_FAILURE (status)) {
+			return_ACPI_STATUS (status);
+		}
+
+		if (source_desc == actual_src_desc) {
+			/*
+			 * No conversion was performed.  Return the source_desc as the
+			 * new object.
+			 */
+			*new_desc = source_desc;
+			return_ACPI_STATUS (AE_OK);
+		}
 	}
 
 	/*
 	 * We now have two objects of identical types, and we can perform a
 	 * copy of the *value* of the source object.
 	 */
-	switch (target_type) {
-	case ACPI_TYPE_ANY:
-	case INTERNAL_TYPE_DEF_ANY:
-
-		/*
-		 * The target namespace node is uninitialized (has no target object),
-		 * and will take on the type of the source object
-		 */
-		*target_desc_ptr = source_desc;
-		break;
-
-
+	switch (ACPI_GET_OBJECT_TYPE (dest_desc)) {
 	case ACPI_TYPE_INTEGER:
 
-		target_desc->integer.value = source_desc->integer.value;
+		dest_desc->integer.value = actual_src_desc->integer.value;
 
 		/* Truncate value if we are executing from a 32-bit ACPI table */
 
-		acpi_ex_truncate_for32bit_table (target_desc, walk_state);
+		acpi_ex_truncate_for32bit_table (dest_desc);
 		break;
 
 	case ACPI_TYPE_STRING:
 
-		status = acpi_ex_copy_string_to_string (source_desc, target_desc);
+		status = acpi_ex_store_string_to_string (actual_src_desc, dest_desc);
 		break;
-
 
 	case ACPI_TYPE_BUFFER:
 
-		status = acpi_ex_copy_buffer_to_buffer (source_desc, target_desc);
+		status = acpi_ex_store_buffer_to_buffer (actual_src_desc, dest_desc);
 		break;
-
 
 	case ACPI_TYPE_PACKAGE:
 
-		/*
-		 * TBD: [Unhandled] Not real sure what to do here
-		 */
-		status = AE_NOT_IMPLEMENTED;
+		status = acpi_ut_copy_iobject_to_iobject (actual_src_desc, &dest_desc, walk_state);
 		break;
 
-
 	default:
-
 		/*
 		 * All other types come here.
 		 */
 		ACPI_DEBUG_PRINT ((ACPI_DB_WARN, "Store into type %s not implemented\n",
-			acpi_ut_get_type_name (target_type)));
+			acpi_ut_get_object_type_name (dest_desc)));
 
 		status = AE_NOT_IMPLEMENTED;
 		break;
 	}
 
+	if (actual_src_desc != source_desc) {
+		/* Delete the intermediate (temporary) source object */
 
+		acpi_ut_remove_reference (actual_src_desc);
+	}
+
+	*new_desc = dest_desc;
 	return_ACPI_STATUS (status);
 }
 

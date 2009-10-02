@@ -1,4 +1,4 @@
-/* $Id: ioport.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: ioport.c,v 1.45 2001/10/30 04:54:21 davem Exp $
  * ioport.c:  Simple io mapping allocator.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -221,10 +221,7 @@ _sparc_ioremap(struct resource *res, u32 bus, u32 pa, int sz)
 		pa += PAGE_SIZE;
 	}
 
-	res->start += offset;
-	res->end = res->start + sz - 1;		/* not strictly necessary.. */
-
-	return (void *) res->start;
+	return (void *) (res->start + offset);
 }
 
 /*
@@ -235,7 +232,7 @@ static void _sparc_free_io(struct resource *res)
 	unsigned long plen;
 
 	plen = res->end - res->start + 1;
-	plen = (plen + PAGE_SIZE-1) & PAGE_MASK;
+	if ((plen & (PAGE_SIZE-1)) != 0) BUG();
 	while (plen != 0) {
 		plen -= PAGE_SIZE;
 		(*_sparc_unmapioaddr)(res->start + plen);
@@ -250,6 +247,13 @@ void sbus_set_sbus64(struct sbus_dev *sdev, int x) {
 	printk("sbus_set_sbus64: unsupported\n");
 }
 
+/*
+ * Allocate a chunk of memory suitable for DMA.
+ * Typically devices use them for control blocks.
+ * CPU may access them without any explicit flushing.
+ *
+ * XXX Some clever people know that sdev is not used and supply NULL. Watch.
+ */
 void *sbus_alloc_consistent(struct sbus_dev *sdev, long len, u32 *dma_addrp)
 {
 	unsigned long len_total = (len + PAGE_SIZE-1) & PAGE_MASK;
@@ -257,9 +261,11 @@ void *sbus_alloc_consistent(struct sbus_dev *sdev, long len, u32 *dma_addrp)
 	struct resource *res;
 	int order;
 
+	/* XXX why are some lenghts signed, others unsigned? */
 	if (len <= 0) {
 		return NULL;
 	}
+	/* XXX So what is maxphys for us and how do drivers know it? */
 	if (len > 256*1024) {			/* __get_free_pages() limit */
 		return NULL;
 	}
@@ -267,6 +273,9 @@ void *sbus_alloc_consistent(struct sbus_dev *sdev, long len, u32 *dma_addrp)
 	order = get_order(len_total);
 	va = __get_free_pages(GFP_KERNEL, order);
 	if (va == 0) {
+		/*
+		 * printk here may be flooding... Consider removal XXX.
+		 */
 		printk("sbus_alloc_consistent: no %ld pages\n", len_total>>PAGE_SHIFT);
 		return NULL;
 	}
@@ -332,24 +341,88 @@ void sbus_free_consistent(struct sbus_dev *sdev, long n, void *p, u32 ba)
  */
 dma_addr_t sbus_map_single(struct sbus_dev *sdev, void *va, size_t len, int direction)
 {
+#if 0 /* This is the version that abuses consistent space */
+	unsigned long len_total = (len + PAGE_SIZE-1) & PAGE_MASK;
+	struct resource *res;
+
+	/* XXX why are some lenghts signed, others unsigned? */
 	if (len <= 0) {
 		return 0;
 	}
+	/* XXX So what is maxphys for us and how do drivers know it? */
+	if (len > 256*1024) {			/* __get_free_pages() limit */
+		return 0;
+	}
+
+	if ((res = kmalloc(sizeof(struct resource), GFP_KERNEL)) == NULL) {
+		printk("sbus_map_single: no core\n");
+		return 0;
+	}
+	memset((char*)res, 0, sizeof(struct resource));
+	res->name = va; /* XXX */
+
+	if (allocate_resource(&_sparc_dvma, res, len_total,
+	    _sparc_dvma.start, _sparc_dvma.end, PAGE_SIZE) != 0) {
+		printk("sbus_map_single: cannot occupy 0x%lx", len);
+		kfree(res);
+		return 0;
+	}
+
+	mmu_map_dma_area(va, res->start, len_total);
+	mmu_flush_dma_area((unsigned long)va, len_total); /* in all contexts? */
+
+	return res->start;
+#endif
+#if 1 /* "trampoline" version */
+	/* XXX why are some lenghts signed, others unsigned? */
+	if (len <= 0) {
+		return 0;
+	}
+	/* XXX So what is maxphys for us and how do drivers know it? */
 	if (len > 256*1024) {			/* __get_free_pages() limit */
 		return 0;
 	}
 	return mmu_get_scsi_one(va, len, sdev->bus);
+#endif
 }
 
 void sbus_unmap_single(struct sbus_dev *sdev, dma_addr_t ba, size_t n, int direction)
 {
+#if 0 /* This is the version that abuses consistent space */
+	struct resource *res;
+	unsigned long va;
+
+	if ((res = _sparc_find_resource(&_sparc_dvma, ba)) == NULL) {
+		printk("sbus_unmap_single: cannot find %08x\n", (unsigned)ba);
+		return;
+	}
+
+	n = (n + PAGE_SIZE-1) & PAGE_MASK;
+	if ((res->end-res->start)+1 != n) {
+		printk("sbus_unmap_single: region 0x%lx asked 0x%lx\n",
+		    (long)((res->end-res->start)+1), n);
+		return;
+	}
+
+	va = (unsigned long) res->name;	/* XXX Ouch */
+	mmu_inval_dma_area(va, n);	/* in all contexts, mm's?... */
+	mmu_unmap_dma_area(ba, n);	/* iounit cache flush is here */
+	release_resource(res);
+	kfree(res);
+#endif
+#if 1 /* "trampoline" version */
 	mmu_release_scsi_one(ba, n, sdev->bus);
+#endif
 }
 
 int sbus_map_sg(struct sbus_dev *sdev, struct scatterlist *sg, int n, int direction)
 {
 	mmu_get_scsi_sgl(sg, n, sdev->bus);
 
+	/*
+	 * XXX sparc64 can return a partial length here. sun4c should do this
+	 * but it currently panics if it can't fulfill the request - Anton
+	 */
 	return n;
 }
 
@@ -362,6 +435,22 @@ void sbus_unmap_sg(struct sbus_dev *sdev, struct scatterlist *sg, int n, int dir
  */
 void sbus_dma_sync_single(struct sbus_dev *sdev, dma_addr_t ba, size_t size, int direction)
 {
+#if 0
+	unsigned long va;
+	struct resource *res;
+
+	/* We do not need the resource, just print a message if invalid. */
+	res = _sparc_find_resource(&_sparc_dvma, ba);
+	if (res == NULL)
+		panic("sbus_dma_sync_single: 0x%x\n", ba);
+
+	va = (unsigned long) phys_to_virt(mmu_translate_dvma(ba));
+	/*
+	 * XXX This bogosity will be fixed with the iommu rewrite coming soon
+	 * to a kernel near you. - Anton
+	 */
+	/* mmu_inval_dma_area(va, (size + PAGE_SIZE-1) & PAGE_MASK); */
+#endif
 }
 
 void sbus_dma_sync_sg(struct sbus_dev *sdev, struct scatterlist *sg, int n, int direction)
@@ -413,8 +502,10 @@ void *pci_alloc_consistent(struct pci_dev *pdev, size_t len, dma_addr_t *pba)
 
 	mmu_inval_dma_area(va, len_total);
 
-/* P3 */ printk("pci_alloc_consistent: kva %lx uncva %lx phys %lx size %x\n",
+#if 1
+/* P3 */ printk("pci_alloc_consistent: kva %lx uncva %lx phys %lx size %lx\n",
   (long)va, (long)res->start, (long)virt_to_phys(va), len_total);
+#endif
 	{
 		unsigned long xva, xpa;
 		xva = res->start;
@@ -624,6 +715,13 @@ _sparc_io_get_info(char *buf, char **start, off_t fpos, int length, int *eof,
 
 #endif /* CONFIG_PROC_FS */
 
+/*
+ * This is a version of find_resource and it belongs to kernel/resource.c.
+ * Until we have agreement with Linus and Martin, it lingers here.
+ *
+ * XXX Too slow. Can have 8192 DVMA pages on sun4m in the worst case.
+ * This probably warrants some sort of hashing.
+ */
 struct resource *
 _sparc_find_resource(struct resource *root, unsigned long hit)
 {
@@ -662,7 +760,7 @@ void ioport_init(void)
 	default:
 		printk("ioport_init: cpu type %d is unknown.\n",
 		    sparc_cpu_model);
-		halt();
+		prom_halt();
 	};
 
 }

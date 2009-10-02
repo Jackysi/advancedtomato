@@ -2,37 +2,55 @@
 /******************************************************************************
  *
  * Module Name: exoparg3 - AML execution - opcodes with 3 arguments
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acinterp.h"
-#include "acparser.h"
-#include "amlcode.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
+#include <acpi/acparser.h>
+#include <acpi/amlcode.h>
 
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exoparg3")
+	 ACPI_MODULE_NAME    ("exoparg3")
 
 
 /*!
@@ -60,9 +78,9 @@
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_3A_0T_0R
+ * FUNCTION:    acpi_ex_opcode_3A_0T_0R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -72,27 +90,26 @@
 
 acpi_status
 acpi_ex_opcode_3A_0T_0R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand = &walk_state->operands[0];
-	ACPI_SIGNAL_FATAL_INFO  *fatal;
-	acpi_status             status = AE_OK;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	struct acpi_signal_fatal_info   *fatal;
+	acpi_status                     status = AE_OK;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_3A_0T_0R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_3A_0T_0R", acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	switch (walk_state->opcode) {
-
-	case AML_FATAL_OP:          /* Fatal (Fatal_type Fatal_code Fatal_arg)   */
+	case AML_FATAL_OP:          /* Fatal (fatal_type fatal_code fatal_arg)   */
 
 		ACPI_DEBUG_PRINT ((ACPI_DB_INFO,
-			"Fatal_op: Type %x Code %x Arg %x <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n",
-			(u32) operand[0]->integer.value, (u32) operand[1]->integer.value,
+			"fatal_op: Type %X Code %X Arg %X <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n",
+			(u32) operand[0]->integer.value,
+			(u32) operand[1]->integer.value,
 			(u32) operand[2]->integer.value));
 
-
-		fatal = ACPI_MEM_ALLOCATE (sizeof (ACPI_SIGNAL_FATAL_INFO));
+		fatal = ACPI_MEM_ALLOCATE (sizeof (struct acpi_signal_fatal_info));
 		if (fatal) {
 			fatal->type     = (u32) operand[0]->integer.value;
 			fatal->code     = (u32) operand[1]->integer.value;
@@ -102,7 +119,7 @@ acpi_ex_opcode_3A_0T_0R (
 		/*
 		 * Always signal the OS!
 		 */
-		acpi_os_signal (ACPI_SIGNAL_FATAL, fatal);
+		status = acpi_os_signal (ACPI_SIGNAL_FATAL, fatal);
 
 		/* Might return while OS is shutting down, just continue */
 
@@ -112,11 +129,10 @@ acpi_ex_opcode_3A_0T_0R (
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_3A_0T_0R: Unknown opcode %X\n",
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_3A_0T_0R: Unknown opcode %X\n",
 				walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 		goto cleanup;
-		break;
 	}
 
 
@@ -128,9 +144,9 @@ cleanup:
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_opcode_3A_1T_1R
+ * FUNCTION:    acpi_ex_opcode_3A_1T_1R
  *
- * PARAMETERS:  Walk_state          - Current walk state
+ * PARAMETERS:  walk_state          - Current walk state
  *
  * RETURN:      Status
  *
@@ -140,17 +156,17 @@ cleanup:
 
 acpi_status
 acpi_ex_opcode_3A_1T_1R (
-	acpi_walk_state         *walk_state)
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_operand_object     **operand = &walk_state->operands[0];
-	acpi_operand_object     *return_desc = NULL;
-	char                    *buffer;
-	acpi_status             status = AE_OK;
-	u32                     index;
-	u32                     length;
+	union acpi_operand_object       **operand = &walk_state->operands[0];
+	union acpi_operand_object       *return_desc = NULL;
+	char                            *buffer;
+	acpi_status                     status = AE_OK;
+	acpi_native_uint                index;
+	acpi_size                       length;
 
 
-	FUNCTION_TRACE_STR ("Ex_opcode_3A_1T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
+	ACPI_FUNCTION_TRACE_STR ("ex_opcode_3A_1T_1R", acpi_ps_get_opcode_name (walk_state->opcode));
 
 
 	switch (walk_state->opcode) {
@@ -160,7 +176,7 @@ acpi_ex_opcode_3A_1T_1R (
 		 * Create the return object.  The Source operand is guaranteed to be
 		 * either a String or a Buffer, so just use its type.
 		 */
-		return_desc = acpi_ut_create_internal_object (operand[0]->common.type);
+		return_desc = acpi_ut_create_internal_object (ACPI_GET_OBJECT_TYPE (operand[0]));
 		if (!return_desc) {
 			status = AE_NO_MEMORY;
 			goto cleanup;
@@ -168,8 +184,8 @@ acpi_ex_opcode_3A_1T_1R (
 
 		/* Get the Integer values from the objects */
 
-		index = (u32) operand[1]->integer.value;
-		length = (u32) operand[2]->integer.value;
+		index = (acpi_native_uint) operand[1]->integer.value;
+		length = (acpi_size) operand[2]->integer.value;
 
 		/*
 		 * If the index is beyond the length of the String/Buffer, or if the
@@ -181,37 +197,36 @@ acpi_ex_opcode_3A_1T_1R (
 
 			if ((index + length) >
 				operand[0]->string.length) {
-				length = operand[0]->string.length - index;
+				length = (acpi_size) operand[0]->string.length - index;
 			}
 
 			/* Allocate a new buffer for the String/Buffer */
 
-			buffer = ACPI_MEM_CALLOCATE (length + 1);
+			buffer = ACPI_MEM_CALLOCATE ((acpi_size) length + 1);
 			if (!buffer) {
-				return (AE_NO_MEMORY);
+				status = AE_NO_MEMORY;
+				goto cleanup;
 			}
 
 			/* Copy the portion requested */
 
-			MEMCPY (buffer, operand[0]->string.pointer + index,
-					length);
+			ACPI_MEMCPY (buffer, operand[0]->string.pointer + index,
+					  length);
 
 			/* Set the length of the new String/Buffer */
 
 			return_desc->string.pointer = buffer;
-			return_desc->string.length = length;
+			return_desc->string.length = (u32) length;
 		}
-
 		break;
 
 
 	default:
 
-		REPORT_ERROR (("Acpi_ex_opcode_3A_0T_0R: Unknown opcode %X\n",
+		ACPI_REPORT_ERROR (("acpi_ex_opcode_3A_0T_0R: Unknown opcode %X\n",
 				walk_state->opcode));
 		status = AE_AML_BAD_OPCODE;
 		goto cleanup;
-		break;
 	}
 
 	/* Store the result in the target */
@@ -228,7 +243,9 @@ cleanup:
 
 	/* Set the return object and exit */
 
-	walk_state->result_obj = return_desc;
+	if (!walk_state->result_obj) {
+		walk_state->result_obj = return_desc;
+	}
 	return_ACPI_STATUS (status);
 }
 

@@ -27,7 +27,11 @@ match(const struct sk_buff *skb,
 
 #define FWINV(bool,invflg) ((bool) ^ !!(sinfo->invflags & invflg))
 
-	statebit = ct ? IPT_CONNTRACK_STATE_INVALID : IPT_CONNTRACK_STATE_BIT(ctinfo);
+	if (ct)
+		statebit = IPT_CONNTRACK_STATE_BIT(ctinfo);
+	else
+		statebit = IPT_CONNTRACK_STATE_INVALID;
+
 	if(sinfo->flags & IPT_CONNTRACK_STATE) {
 		if (ct) {
 			if(ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip !=
@@ -105,17 +109,12 @@ static struct ipt_match conntrack_match
 
 static int __init init(void)
 {
-	/* NULL if ip_conntrack not a module */
-	if (ip_conntrack_module)
-		__MOD_INC_USE_COUNT(ip_conntrack_module);
 	return ipt_register_match(&conntrack_match);
 }
 
 static void __exit fini(void)
 {
 	ipt_unregister_match(&conntrack_match);
-	if (ip_conntrack_module)
-		__MOD_DEC_USE_COUNT(ip_conntrack_module);
 }
 
 module_init(init);

@@ -32,13 +32,6 @@ ovstack:
 	.align 32
 	.globl mcount
 mcount:
-	sethi	%hi(mcount_hook), %o2
-	or	%o2, %lo(mcount_hook), %o0
-	ldx	[%o0], %o2
-	brz	%o2, 1f
-	 mov	%i7, %o0
-	jmpl	%o2, %g0
-	 mov	%o7, %o1
 #ifdef CONFIG_STACK_DEBUG
 	/*
 	 * Check whether %sp is dangerously low.

@@ -5,7 +5,7 @@
  *
  * RTC routines for PC style attached Dallas chip.
  *
- * Copyright (C) 1998, 2001 by Ralf Baechle
+ * Copyright (C) 1998, 2001, 05 by Ralf Baechle
  */
 #include <linux/mc146818rtc.h>
 #include <asm/io.h>

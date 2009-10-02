@@ -13,6 +13,8 @@
 #include <linux/sched.h>
 #include <asm/system.h>
 #include <asm/paca.h>
+#include <linux/random.h>
+#include <asm/time.h>
 #include <asm/iSeries/ItLpQueue.h>
 #include <asm/iSeries/HvLpEvent.h>
 #include <asm/iSeries/HvCallEvent.h>
@@ -165,6 +167,13 @@ unsigned ItLpQueue_process( struct ItLpQueue * lpQueue, struct pt_regs *regs )
 	clear_inUse( lpQueue );
 
 	get_paca()->lpEvent_count += numIntsProcessed;
+
+	/* Use LPEvents as a source of randomness.  Since there
+	 * Isn't an LPEvent Randomness call, pretend these are
+	 * mouse events (which is fair since we don't have mice
+	 * on the iSeries)
+	 */
+	add_mouse_randomness(get_tb());
 
 	return numIntsProcessed;
 }

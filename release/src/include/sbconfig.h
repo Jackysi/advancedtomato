@@ -2,14 +2,14 @@
  * Broadcom SiliconBackplane hardware register definitions.
  *
  * Copyright 2006, Broadcom Corporation
- * All Rights Reserved.
- * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * All Rights Reserved.      
+ *       
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
- * $Id$
+ * $Id: sbconfig.h,v 1.1.1.11 2006/02/27 03:43:16 honor Exp $
  */
 
 #ifndef	_SBCONFIG_H
@@ -36,10 +36,14 @@
 
 #define	SB_FLASH2		0x1c000000	/* Flash Region 2 (region 1 shadowed here) */
 #define	SB_FLASH2_SZ		0x02000000	/* Size of Flash Region 2 */
-
-#define	SB_EXTIF_BASE		0x1f000000	/* External Interface region base address */
+#define	SB_ARMCM3_ROM		0x1e000000	/* ARM Cortex-M3 ROM */
 #define	SB_FLASH1		0x1fc00000	/* MIPS Flash Region 1 */
 #define	SB_FLASH1_SZ		0x00400000	/* MIPS Size of Flash Region 1 */
+#define	SB_ARM7S_ROM		0x20000000	/* ARM7TDMI-S ROM */
+#define	SB_ARMCM3_SRAM2		0x60000000	/* ARM Cortex-M3 SRAM Region 2 */
+#define	SB_ARM7S_SRAM2		0x80000000	/* ARM7TDMI-S SRAM Region 2 */
+#define	SB_ARM_FLASH1		0xffff0000	/* ARM Flash Region 1 */
+#define	SB_ARM_FLASH1_SZ	0x00010000	/* ARM Size of Flash Region 1 */
 
 #define SB_PCI_DMA		0x40000000	/* Client Mode sb2pcitranslation2 (1 GB) */
 #define SB_PCI_DMA_SZ		0x40000000	/* Client Mode sb2pcitranslation2 size in bytes */
@@ -49,14 +53,10 @@
 #define SB_PCIE_DMA_H32		0x80000000	/* PCIE Client Mode sb2pcitranslation2
 						 * (2 ZettaBytes), high 32 bits
 						 */
-#define	SB_EUART		(SB_EXTIF_BASE + 0x00800000)
-#define	SB_LED			(SB_EXTIF_BASE + 0x00900000)
-
 
 /* enumeration space related defs */
 #define SB_CORE_SIZE    	0x1000		/* each core gets 4Kbytes for registers */
 #define	SB_MAXCORES		((SB_ENUM_LIM - SB_ENUM_BASE)/SB_CORE_SIZE)
-
 #define	SBCONFIGOFF		0xf00		/* core sbconfig regs are top 256bytes of regs */
 #define	SBCONFIGSIZE		256		/* sizeof (sbconfig_t) */
 
@@ -197,7 +197,6 @@ typedef volatile struct _sbconfig {
 #define	SBTMH_BISTF		0x40000000	/* bist failed */
 #define	SBTMH_BISTD		0x80000000	/* bist done */
 
-
 /* sbbwa0 */
 #define	SBBWA_TAB0_MASK		0xffff		/* lookup table 0 */
 #define	SBBWA_TAB1_MASK		0xffff		/* lookup table 1 */
@@ -318,7 +317,6 @@ typedef volatile struct _sbconfig {
 #define	SB_ILINE100		0x80a		/* iline100 core */
 #define	SB_IPSEC		0x80b		/* ipsec core */
 #define	SB_PCMCIA		0x80d		/* pcmcia core */
-#define SB_SDIOD		SB_PCMCIA	/* pcmcia core has sdio device */
 #define	SB_SOCRAM		0x80e		/* internal memory core */
 #define	SB_MEMC			0x80f		/* memc sdram core */
 #define	SB_EXTIF		0x811		/* external interface core */
@@ -337,6 +335,13 @@ typedef volatile struct _sbconfig {
 #define	SB_MIMO			0x821		/* MIMO phy core */
 #define	SB_SRAMC		0x822		/* SRAM controller core */
 #define	SB_MINIMAC		0x823		/* MINI MAC/phy core */
+#define	SB_ARM11		0x824		/* ARM 1176 core */
+#define	SB_ARM7S		0x825		/* ARM7tdmi-s core */
+#define SB_SDIOD		0x829		/* SDIO device core */
+#define SB_ARMCM3		0x82a		/* ARM Cortex M3 core */
+#define SB_OCP			0x830		/* OCP2OCP bridge core */
+#define SB_SC			0x831		/* shared common core */
+#define SB_AHB			0x832		/* OCP2AHB bridge core */
 
 #define	SB_CC_IDX		0		/* chipc, when present, is always core 0 */
 

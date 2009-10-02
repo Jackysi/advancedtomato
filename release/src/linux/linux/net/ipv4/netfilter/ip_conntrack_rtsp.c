@@ -273,7 +273,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
     struct ip_conntrack_expect exp;
     //wuzh add 2006.6.26 to store RTCP expect info when the type of client_port is pb_range
     struct ip_conntrack_expect exp_rtcp;
-    
+
     while (dataoff < datalen)
     {
         uint    cmdoff = dataoff;
@@ -340,7 +340,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
      
         }  
         /*********************************************************************************/
-        
+
         if (strncmp(pdata+cmdoff, "SETUP ", 6) != 0)
         {
             continue;   /* not a SETUP message */
@@ -391,7 +391,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
         exp.mask.dst.ip  = 0xffffffff;
 
         /**********************wuzh modify 2006.6.26 ***************************/
-#if 0 
+#if 0
         exp.tuple.dst.u.udp.port = exp.help.exp_rtsp_info.loport;
         exp.mask.dst.u.udp.port  = (exp.help.exp_rtsp_info.pbtype == pb_range) ? 0xfffe : 0xffff;
 #else
@@ -472,7 +472,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
 static int
 help_in(const struct iphdr* iph, size_t pktlen,
                 struct ip_conntrack* ct, enum ip_conntrack_info ctinfo)
-{    
+{
     return NF_ACCEPT;
 }
 

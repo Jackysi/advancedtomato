@@ -9,7 +9,7 @@
  *  X86-64 port
  *	Andi Kleen.
  * 
- *  $Id: process.c,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+ *  $Id: process.c,v 1.77 2004/03/22 00:37:29 ak Exp $
  */
 
 /*
@@ -54,6 +54,7 @@
 #include <asm/prctl.h>
 #include <asm/kdebug.h>
 #include <asm/proto.h>
+#include <asm/apic.h>
 
 #include <linux/irq.h>
 
@@ -146,11 +147,56 @@ void cpu_idle (void)
 	}
 }
 
+/*
+ * This is a kind of hybrid between poll and halt idle routines. This uses new
+ * Monitor/Mwait instructions on P4 processors with PNI. We Monitor 
+ * need_resched and go to optimized wait state through Mwait. 
+ * Whenever someone changes need_resched, we would be woken up from Mwait 
+ * (without an IPI).
+ */
+static void mwait_idle (void)
+{
+	int oldval;
+
+	__sti();
+	/* Setting need_resched to -1 skips sending IPI during idle resched */
+	oldval = xchg(&current->need_resched, -1);
+	if (!oldval) {
+		do {
+			__monitor((void *)&current->need_resched, 0, 0);
+			if (current->need_resched != -1)
+				break;
+			__mwait(0, 0);
+		} while (current->need_resched == -1);
+	}
+}
+
+int __init select_idle_routine(struct cpuinfo_x86 *c)
+{
+	if (cpu_has(c, X86_FEATURE_MWAIT)) {
+		printk("Monitor/Mwait feature present.\n");
+		/*
+		 * Take care of system with asymmetric CPUs.
+		 * Use, mwait_idle only if all cpus support it.
+		 * If not, we fallback to default_idle()
+		 */
+		if (!pm_idle) {
+			pm_idle = mwait_idle;
+		}
+		return 1;
+	}
+	return 1;
+}
+
+
 static int __init idle_setup (char *str)
 {
 	if (!strncmp(str, "poll", 4)) {
 		printk("using polling idle threads.\n");
 		pm_idle = poll_idle;
+	} else if (!strncmp(str, "halt", 4)) {
+		printk("using halt in idle threads.\n");
+                pm_idle = default_idle;
 	}
 
 	return 1;
@@ -158,35 +204,38 @@ static int __init idle_setup (char *str)
 
 __setup("idle=", idle_setup);
 
-static long no_idt[3];
-static int reboot_mode;
+static struct { long x; } no_idt[3];
+static enum { 
+	BOOT_BIOS = 'b',
+	BOOT_TRIPLE = 't', 
+	BOOT_KBD = 'k',
+} reboot_type = BOOT_KBD;
+static int reboot_mode = 0; 
 
-#ifdef CONFIG_SMP
-int reboot_smp = 0;
-static int reboot_cpu = -1;
-#endif
+/* reboot=b[ios] | t[riple] | k[bd] [, [w]arm | [c]old]
+   bios	  Use the CPU reboot vector for warm reset
+   warm   Don't set the cold reboot flag
+   cold   Set the cold reboto flag
+   triple Force a triple fault (init)
+   kbd    Use the keyboard controller. cold reset (default)
+ */ 
 static int __init reboot_setup(char *str)
 {
-	while(1) {
+	for (;;) {
 		switch (*str) {
-		case 'w': /* "warm" reboot (no memory testing etc) */
+		case 'w': 
 			reboot_mode = 0x1234;
 			break;
-		case 'c': /* "cold" reboot (with memory testing etc) */
-			reboot_mode = 0x0;
+
+		case 'c':
+			reboot_mode = 0;
 			break;
-#ifdef CONFIG_SMP
-		case 's': /* "smp" reboot by executing reset on BSP or other CPU*/
-			reboot_smp = 1;
-			if (isdigit(str[1]))
-				sscanf(str+1, "%d", &reboot_cpu);		
-			else if (!strncmp(str,"smp",3))
-				sscanf(str+3, "%d", &reboot_cpu); 
-			/* we will leave sorting out the final value 
-			   when we are ready to reboot, since we might not
- 			   have set up boot_cpu_id or smp_num_cpu */
+
+		case 't':
+		case 'b':
+		case 'k':
+			reboot_type = *str;
 			break;
-#endif
 		}
 		if((str = strchr(str,',')) != NULL)
 			str++;
@@ -195,10 +244,35 @@ static int __init reboot_setup(char *str)
 	}
 	return 1;
 }
-
 __setup("reboot=", reboot_setup);
 
-static inline void kb_wait(void)
+/* overwrites random kernel memory. Should not be kernel .text */
+#define WARMBOOT_TRAMP 0x1000UL
+
+static void reboot_warm(void)
+{
+	extern unsigned char warm_reboot[], warm_reboot_end[];
+	printk("warm reboot\n");
+
+	__cli(); 
+		
+	/* restore identity mapping */
+	init_level4_pgt[0] = __pml4(__pa(level3_ident_pgt) | 7); 
+	__flush_tlb_all(); 
+
+	memcpy(__va(WARMBOOT_TRAMP), warm_reboot, warm_reboot_end - warm_reboot); 
+
+	asm volatile( "   pushq $0\n" 		/* ss */
+		     "   pushq $0x2000\n" 	/* rsp */
+	             "   pushfq\n"		/* eflags */
+		     "   pushq %[cs]\n"
+		     "   pushq %[target]\n"
+		     "   iretq" :: 
+		      [cs] "i" (__KERNEL_COMPAT32_CS), 
+		      [target] "b" (WARMBOOT_TRAMP));
+}
+
+static void kb_wait(void)
 {
 	int i;
 
@@ -207,61 +281,77 @@ static inline void kb_wait(void)
 			break;
 }
 
+
+#ifdef CONFIG_SMP
+static void smp_halt(void)
+{
+	int cpuid = safe_smp_processor_id(); 
+	static int first_entry = 1;
+	
+	if (first_entry) { 
+		first_entry = 0;
+		smp_call_function((void *)machine_restart, NULL, 1, 0);		
+	}
+
+	smp_stop_cpu(); 
+
+	/* AP calling this. Just halt */
+	if (cpuid != boot_cpu_id) { 
+		printk("CPU %d SMP halt\n", cpuid); 
+		for (;;)
+			asm("hlt");
+	}
+
+	/* Wait for all other CPUs to have run smp_stop_cpu */
+	while (cpu_online_map) 
+		rep_nop(); 
+}
+#endif
+
 void machine_restart(char * __unused)
 {
+	int i;
+
 #if CONFIG_SMP
-	int cpuid;
-	
-	cpuid = GET_APIC_ID(apic_read(APIC_ID));
-
-	if (reboot_smp) {
-
-		/* check to see if reboot_cpu is valid 
-		   if its not, default to the BSP */
-		if ((reboot_cpu == -1) ||  
-		      (reboot_cpu > (NR_CPUS -1))  || 
-		      !(phys_cpu_present_map & (1<<cpuid))) 
-			reboot_cpu = boot_cpu_id;
-
-		reboot_smp = 0;  /* use this as a flag to only go through this once*/
-		/* re-run this function on the other CPUs
-		   it will fall though this section since we have 
-		   cleared reboot_smp, and do the reboot if it is the
-		   correct CPU, otherwise it halts. */
-		if (reboot_cpu != cpuid)
-			smp_call_function((void *)machine_restart , NULL, 1, 0);
-	}
-
-	/* if reboot_cpu is still -1, then we want a tradional reboot, 
-	   and if we are not running on the reboot_cpu,, halt */
-	if ((reboot_cpu != -1) && (cpuid != reboot_cpu)) {
-		for (;;)
-		__asm__ __volatile__ ("hlt");
-	}
-	/*
-	 * Stop all CPUs and turn off local APICs and the IO-APIC, so
-	 * other OSs see a clean IRQ state.
-	 */
-	if (notify_die(DIE_STOP,"cpustop",0,0) != NOTIFY_BAD)
-		smp_send_stop();
-	disable_IO_APIC();
+	smp_halt();
 #endif
-	/* Could do reset through the northbridge of the Hammer here. */
+	__cli();
 
-	/* rebooting needs to touch the page at absolute addr 0 */
+#ifndef CONFIG_SMP
+	disable_local_APIC();
+#endif
+	disable_IO_APIC();
+
+	__sti();
+
+	/* Tell the BIOS if we want cold or warm reboot */
 	*((unsigned short *)__va(0x472)) = reboot_mode;
+
 	for (;;) {
-		int i;
-		/* First fondle with the keyboard controller. */ 
+		/* Could also try the reset bit in the Hammer NB */
+		switch (reboot_type) { 
+		case BOOT_BIOS:
+			reboot_warm();
+
+		case BOOT_KBD:
+			/* force cold reboot to reinit all hardware*/
 		for (i=0; i<100; i++) {
 			kb_wait();
 			udelay(50);
 			outb(0xfe,0x64);         /* pulse reset low */
 			udelay(50);
 		}
-		/* That didn't work - force a triple fault.. */
-		__asm__ __volatile__("lidt %0": :"m" (no_idt));
+			
+		case BOOT_TRIPLE: 
+			/* force cold reboot to reinit all hardware*/
+			*((unsigned short *)__va(0x472)) = 0;
+
+			__asm__ __volatile__("lidt (%0)": :"r" (no_idt));
 		__asm__ __volatile__("int3");
+
+			reboot_type = BOOT_KBD;
+			break;
+		}      
 	}
 }
 
@@ -275,8 +365,10 @@ void machine_power_off(void)
 		pm_power_off();
 }
 
+extern int printk_address(unsigned long); 
+
 /* Prints also some state that isn't saved in the pt_regs */ 
-void show_regs(struct pt_regs * regs)
+void __show_regs(struct pt_regs * regs)
 {
 	unsigned long cr0 = 0L, cr2 = 0L, cr3 = 0L, cr4 = 0L, fs, gs, shadowgs;
 	unsigned int fsindex,gsindex;
@@ -284,8 +376,9 @@ void show_regs(struct pt_regs * regs)
 
 	printk("\n");
 	printk("Pid: %d, comm: %.20s %s\n", current->pid, current->comm, print_tainted());
-	printk("RIP: %04lx:[<%016lx>]\n", regs->cs & 0xffff, regs->rip);
-	printk("RSP: %04lx:%016lx  EFLAGS: %08lx\n", regs->ss, regs->rsp, regs->eflags);
+	printk("RIP: %04lx:", regs->cs & 0xffff);
+	printk_address(regs->rip); 
+	printk("\nRSP: %04lx:%016lx  EFLAGS: %08lx\n", regs->ss, regs->rsp, regs->eflags);
 	printk("RAX: %016lx RBX: %016lx RCX: %016lx\n",
 	       regs->rax, regs->rbx, regs->rcx);
 	printk("RDX: %016lx RSI: %016lx RDI: %016lx\n",
@@ -318,6 +411,12 @@ void show_regs(struct pt_regs * regs)
 	printk("CR2: %016lx CR3: %016lx CR4: %016lx\n", cr2, cr3, cr4);
 }
 
+void show_regs(struct pt_regs * regs)
+{
+	__show_regs(regs);
+	show_trace(&regs->rsp);
+}
+
 /*
  * No need to lock the MM as we are the last user
  */
@@ -336,37 +435,6 @@ void release_segments(struct mm_struct *mm)
 }
 
 /* 
- * Reloading %gs is a bit complicated because the kernel relies on it 
- * This includes the exception handlers, so we cannot take any exceptions
- * while doing this. Check the new gs value manually for validity and only
- * then load it. This needs locking again parallel CPUs that share the same
- * LDT. This has to be done in the context switch iff %gs changes.
- */
-void load_gs_index(unsigned gs)
-{
-	struct mm_struct *mm = current->mm;
-	int access; 
-	/* paranoia: */
-	if ((gs & 3) != 2) gs = 0;
-	if (mm) 
-		read_lock(&mm->context.ldtlock); 
-	asm volatile("pushf\n\t" 
-		     "cli\n\t"
-		     "swapgs\n\t"
-		     /* cannot take any exception until the next swapgs */
-		     "lar %1,%0\n\t"
-		     "jnz 1f\n\t"
-		     "movl %1,%%eax\n\t"
-		     "movl %%eax,%%gs\n\t"
-		     "jmp 2f\n\t"
-		     "1: movl %2,%%gs\n\t"
-		     "2: swapgs\n\t"
-		     "popf" : "=g" (access) : "g" (gs), "r" (0) : "rax"); 
-	if (mm)
-		read_unlock(&mm->context.ldtlock);
-}
-	
-/*
  * Free current thread data structures etc..
  */
 void exit_thread(void)
@@ -458,10 +526,10 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long rsp,
 	p->thread.fs = me->thread.fs;
 	p->thread.gs = me->thread.gs;
 
-	asm("movl %%gs,%0" : "=m" (p->thread.gsindex));
-	asm("movl %%fs,%0" : "=m" (p->thread.fsindex));
-	asm("movl %%es,%0" : "=m" (p->thread.es));
-	asm("movl %%ds,%0" : "=m" (p->thread.ds));
+	asm("mov %%gs,%0" : "=m" (p->thread.gsindex));
+	asm("mov %%fs,%0" : "=m" (p->thread.fsindex));
+	asm("mov %%es,%0" : "=m" (p->thread.es));
+	asm("mov %%ds,%0" : "=m" (p->thread.ds));
 
 	unlazy_fpu(current);	
 	p->thread.i387 = current->thread.i387;
@@ -486,10 +554,6 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long rsp,
 /*
  *	switch_to(x,y) should switch tasks from x to y.
  *
- * We fsave/fwait so that an exception goes off at the right time
- * (as a call from the fsave or fwait in effect) rather than to
- * the wrong process. 
- * 
  * This could still be optimized: 
  * - fold all the options into a flag word and test it with a single test.
  * - could test fs/gs bitsliced
@@ -500,8 +564,6 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 				 *next = &next_p->thread;
 	struct tss_struct *tss = init_tss + smp_processor_id();
 
-	unlazy_fpu(prev_p);
-
 	/*
 	 * Reload rsp0, LDT and the page table pointer:
 	 */
@@ -510,35 +572,52 @@ struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *
 	/* 
 	 * Switch DS and ES.	 
 	 */
-	asm volatile("movl %%es,%0" : "=m" (prev->es)); 
+	asm volatile("mov %%es,%0" : "=m" (prev->es)); 
 	if (unlikely(next->es | prev->es))
 		loadsegment(es, next->es); 
 	
-	asm volatile ("movl %%ds,%0" : "=m" (prev->ds)); 
+	asm volatile ("mov %%ds,%0" : "=m" (prev->ds)); 
 	if (unlikely(next->ds | prev->ds))
 		loadsegment(ds, next->ds);
 
-	{ 
-		unsigned int fsindex;
+	/* 
+  	 * Must be after DS reload for AMD workaround.
+	 */
+	unlazy_fpu(prev_p);
 
-		asm volatile("movl %%fs,%0" : "=g" (fsindex)); 
-		if (unlikely(fsindex != next->fsindex)) /* or likely? */
+	/* 
+	 * Switch FS and GS.
+	 */
+	{ 
+		unsigned fsindex;
+		asm volatile("movl %%fs,%0" : "=r" (fsindex)); 
+		/* segment register != 0 always requires a reload. 
+		   also reload when it has changed. 
+		   when prev process used 64bit base always reload
+		   to avoid an information leak. */
+		if (unlikely((fsindex | next->fsindex) || prev->fs)) {
 			loadsegment(fs, next->fsindex);
-		if (unlikely(fsindex != prev->fsindex))
+			/* check if the user use a selector != 0
+			 * if yes clear 64bit base, since overloaded base
+			 * is allways mapped to the Null selector
+			 */
+			if (fsindex)
 			prev->fs = 0; 
-		if ((fsindex != prev->fsindex) || (prev->fs != next->fs))
+		}
+		/* when next process has a 64bit base use it */
+		if (next->fs) 
 			wrmsrl(MSR_FS_BASE, next->fs); 
 		prev->fsindex = fsindex;
 	}
 	{
-		unsigned int gsindex;
-
-		asm volatile("movl %%gs,%0" : "=g" (gsindex)); 
-		if (unlikely(gsindex != next->gsindex))
-			load_gs_index(next->gs); 
-		if (unlikely(gsindex != prev->gsindex)) 
+		unsigned gsindex;
+		asm volatile("movl %%gs,%0" : "=r" (gsindex)); 
+		if (unlikely((gsindex | next->gsindex) || prev->gs)) {
+			load_gs_index(next->gsindex);
+			if (gsindex)
 			prev->gs = 0;				
-		if (gsindex != prev->gsindex || prev->gs != next->gs)
+		}
+		if (next->gs)
 			wrmsrl(MSR_KERNEL_GS_BASE, next->gs); 
 		prev->gsindex = gsindex;
 	}
@@ -691,16 +770,18 @@ asmlinkage long sys_arch_prctl(int code, unsigned long addr)
 	case ARCH_SET_GS:
 		if (addr >= TASK_SIZE) 
 			return -EPERM; 
-		asm volatile("movw %%gs,%0" : "=g" (current->thread.gsindex)); 
+		asm volatile("movl %0,%%gs" :: "r" (0)); 
+		current->thread.gsindex = 0;
 		current->thread.gs = addr;
 		ret = checking_wrmsrl(MSR_KERNEL_GS_BASE, addr); 
 		break;
 	case ARCH_SET_FS:
 		/* Not strictly needed for fs, but do it for symmetry
-		   with gs */
+		   with gs. */
 		if (addr >= TASK_SIZE)
 			return -EPERM; 
-		asm volatile("movw %%fs,%0" : "=g" (current->thread.fsindex)); 
+		asm volatile("movl %0,%%fs" :: "r" (0)); 
+		current->thread.fsindex = 0;
 		current->thread.fs = addr;
 		ret = checking_wrmsrl(MSR_FS_BASE, addr); 
 		break;
@@ -722,4 +803,3 @@ asmlinkage long sys_arch_prctl(int code, unsigned long addr)
 	} 
 	return ret;	
 } 
-

@@ -4,7 +4,7 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -73,24 +73,24 @@ typedef struct wl_bss_info_107 {
  * next bss_info structure in a vector (in wl_scan_results_t)
  */
 typedef struct wl_bss_info {
-	uint32		version;		/* version field */
+	uint32		version;	/* version field */
 	uint32		length;			/* byte length of data in this record,
 						 * starting at version and including IEs
 						 */
 	struct ether_addr BSSID;
-	uint16		beacon_period;		/* units are Kusec */
-	uint16		capability;		/* Capability information */
+	uint16		beacon_period;	/* units are Kusec */
+	uint16		capability;	/* Capability information */
 	uint8		SSID_len;
 	uint8		SSID[32];
 	struct {
-		uint	count;			/* # rates in this set */
-		uint8	rates[16];		/* rates in 500kbps units w/hi bit set if basic */
-	} rateset;				/* supported rates */
+		uint	count;		/* # rates in this set */
+		uint8	rates[16];	/* rates in 500kbps units w/hi bit set if basic */
+	} rateset;			/* supported rates */
 	chanspec_t	chanspec;		/* chanspec for bss */
-	uint16		atim_window;		/* units are Kusec */
-	uint8		dtim_period;		/* DTIM period */
-	int16		RSSI;			/* receive signal strength (in dBm) */
-	int8		phy_noise;		/* noise (in dBm) */
+	uint16		atim_window;	/* units are Kusec */
+	uint8		dtim_period;	/* DTIM period */
+	int16		RSSI;		/* receive signal strength (in dBm) */
+	int8		phy_noise;	/* noise (in dBm) */
 
 	bool		n_cap;			/* BSS is 802.11N Capable */
 	uint32		nbss_cap;		/* 802.11N BSS Capabilities (based on EWC_CAP_*) */
@@ -99,7 +99,7 @@ typedef struct wl_bss_info {
 	uint8		basic_mcs[MCSSET_LEN];	/* 802.11N BSS required MCS set */
 
 	uint16		ie_offset;		/* offset at which IEs start, from beginning */
-	uint32		ie_length;		/* byte length of Information Elements */
+	uint32		ie_length;	/* byte length of Information Elements */
 	/* Add new fields here */
 	/* variable length Information Elements */
 } wl_bss_info_t;
@@ -109,14 +109,41 @@ typedef struct wlc_ssid {
 	uchar		SSID[32];
 } wlc_ssid_t;
 
+typedef struct chan_scandata {
+	uint8		txpower;
+	uint8		pad;
+	chanspec_t	channel;	/* Channel num, bw, ctrl_sb and band */
+	uint32		channel_mintime;
+	uint32		channel_maxtime;
+} chan_scandata_t;
+
+typedef enum wl_scan_type {
+	EXTDSCAN_BACKGROUND_SCAN,
+	EXTDSCAN_FOREGROUND_SCAN,
+	EXTDSCAN_FORCEDBACKGROUND_SCAN
+}wl_scan_type_t;
+
+#define WLC_EXTDSCAN_MAX_SSID		5
+#define WL_EXTDSCAN_PARAMS_FIXED_SIZE 	200
+
+typedef struct wl_extdscan_params {
+	int8 		nprobes;		/* 0, passive, otherwise active */
+	wl_scan_type_t	scan_type;		/* enum */
+	int8    	split_scan;		/* split scan */
+	int8		band;			/* band */
+	wlc_ssid_t 	ssid[WLC_EXTDSCAN_MAX_SSID]; /* ssid list */
+	int32 		channel_num;
+	chan_scandata_t channel_list[1];	/* list of chandata structs */
+} wl_extdscan_params_t;
+
 typedef struct wl_scan_params {
 	wlc_ssid_t ssid;		/* default: {0, ""} */
 	struct ether_addr bssid;	/* default: bcast */
 	int8 bss_type;			/* default: any,
 					 * DOT11_BSSTYPE_ANY/INFRASTRUCTURE/INDEPENDENT
 					 */
-	int8 scan_type;			/* -1 use default, DOT11_SCANTYPE_ACTIVE/PASSIVE */
-	int32 nprobes;			/* -1 use default, number of probes per channel */
+	int8 scan_type;		/* -1 use default, DOT11_SCANTYPE_ACTIVE/PASSIVE */
+	int32 nprobes;		/* -1 use default, number of probes per channel */
 	int32 active_time;		/* -1 use default, dwell time per channel for
 					 * active scanning
 					 */
@@ -129,10 +156,25 @@ typedef struct wl_scan_params {
 	int32 channel_num;		/* 0 use default (all available channels), count of
 					 * channels in channel_list
 					 */
-	uint16 channel_list[1];		/* list of chanspecs */
+	uint16 channel_list[1];	/* list of chanspecs */
 } wl_scan_params_t;
 /* size of wl_scan_params not including variable length array */
 #define WL_SCAN_PARAMS_FIXED_SIZE 64
+
+#define WL_SCAN_ACTION_START      1
+#define WL_SCAN_ACTION_CONTINUE   2
+
+#define ISCAN_REQ_VERSION 1
+
+/* incremental scan struct */
+typedef struct wl_iscan_params {
+	uint32 version;
+	uint16 action;
+	uint16 scan_duration;
+	wl_scan_params_t params;
+} wl_iscan_params_t;
+/* 3 fields + size of wl_scan_params, not including variable length array */
+#define WL_ISCAN_PARAMS_FIXED_SIZE (OFFSETOF(wl_iscan_params_t, params) + sizeof(wlc_ssid_t))
 
 typedef struct wl_scan_results {
 	uint32 buflen;
@@ -143,6 +185,20 @@ typedef struct wl_scan_results {
 /* size of wl_scan_results not including variable length array */
 #define WL_SCAN_RESULTS_FIXED_SIZE 12
 
+/* wl_iscan_results status values */
+#define WL_SCAN_RESULTS_SUCCESS	0
+#define WL_SCAN_RESULTS_PARTIAL	1
+#define WL_SCAN_RESULTS_PENDING	2
+#define WL_SCAN_RESULTS_ABORTED	3
+
+/* incremental scan results struct */
+typedef struct wl_iscan_results {
+	uint32 status;
+	wl_scan_results_t results;
+} wl_iscan_results_t;
+/* size of wl_iscan_results not including variable length array */
+#define WL_ISCAN_RESULTS_FIXED_SIZE \
+	(WL_SCAN_RESULTS_FIXED_SIZE + OFFSETOF(wl_iscan_results_t, results))
 
 #define WL_NUMRATES		255	/* max # of rates in a rateset */
 typedef struct wl_rateset {
@@ -208,6 +264,7 @@ typedef struct wl_country_list {
 	char country_abbrev[1];
 } wl_country_list_t;
 
+#define WL_NUM_RPI_BINS		8
 #define WL_RM_TYPE_BASIC	1
 #define WL_RM_TYPE_CCA		2
 #define WL_RM_TYPE_RPI		3
@@ -231,9 +288,11 @@ typedef struct wl_rm_req_elt {
 typedef struct wl_rm_req {
 	uint32	token;		/* overall measurement set token */
 	uint32	count;		/* number of measurement requests */
+	void * cb;		/* completion callback function: may be NULL */
+	void *	cb_arg;	/* arg to completion callback function */
 	wl_rm_req_elt_t	req[1];	/* variable length block of requests */
 } wl_rm_req_t;
-#define WL_RM_REQ_FIXED_LEN	8
+#define WL_RM_REQ_FIXED_LEN	OFFSETOF(wl_rm_req_t, req)
 
 typedef struct wl_rm_rep_elt {
 	int8	type;
@@ -292,6 +351,7 @@ typedef enum sup_auth_status {
 #define WL_PRIMARY_KEY	(1 << 1)	/* Indicates this key is the primary (ie tx) key */
 #define WL_KF_RES_4	(1 << 4)	/* Reserved for backward compat */
 #define WL_KF_RES_5	(1 << 5)	/* Reserved for backward compat */
+#define WL_IBSS_PEER_GROUP_KEY	(1 << 6)	/* Indicates a group key for a IBSS PEER */
 
 typedef struct wl_wsec_key {
 	uint32		index;		/* key index */
@@ -312,6 +372,7 @@ typedef struct wl_wsec_key {
 	uint32		pad_5[2];
 	struct ether_addr ea;		/* per station */
 } wl_wsec_key_t;
+
 
 #define WSEC_MIN_PSK_LEN	8
 #define WSEC_MAX_PSK_LEN	64
@@ -343,6 +404,7 @@ typedef struct {
 #ifdef BCMWPA2
 #define WPA2_AUTH_UNSPECIFIED	0x0040	/* over 802.1x */
 #define WPA2_AUTH_PSK		0x0080	/* Pre-shared key */
+#define BRCM_AUTH_PSK          0x0100  /* BRCM specific PSK */
 #endif	/* BCMWPA2 */
 
 #ifdef BCMWPA2
@@ -417,6 +479,17 @@ typedef struct {
 	uint16	txctl1;		/* Radio TX_CTL1 value */
 } atten_t;
 
+/* Per-AC retry parameters */
+struct wme_tx_params_s {
+	uint8  short_retry;
+	uint8  short_fallback;
+	uint8  long_retry;
+	uint8  long_fallback;
+	uint16 max_rate;  /* In units of 512 Kbps */
+};
+typedef struct wme_tx_params_s wme_tx_params_t;
+#define WL_WME_TX_PARAMS_IO_BYTES (sizeof(wme_tx_params_t) * AC_COUNT)
+
 /* defines used by poweridx iovar - it controls power in a-band */
 /* current gain setting is maintained */
 #define WL_PWRIDX_PCL_OFF	-2	/* turn off PCL.  */
@@ -442,18 +515,26 @@ typedef struct {
  * Pay attention to version if structure changes.
  */
 typedef struct {
-	uint16			ver;		/* version of this struct */
-	uint16			len;		/* length in bytes of this structure */
+	uint16		ver;		/* version of this struct */
+	uint16		len;		/* length in bytes of this structure */
 	uint16			cap;		/* sta's advertised capabilities */
-	uint32			flags;		/* flags defined below */
-	uint32			idle;		/* time since data pkt rx'd from sta */
-	struct ether_addr	ea;		/* Station address */
-	wl_rateset_t		rateset;	/* rateset in use */
-	uint32			in;		/* seconds elapsed since associated */
+	uint32		flags;		/* flags defined below */
+	uint32		idle;		/* time since data pkt rx'd from sta */
+	struct ether_addr	ea;	/* Station address */
+	wl_rateset_t	rateset;	/* rateset in use */
+	uint32		in;		/* seconds elapsed since associated */
 	uint32			listen_interval_inms; /* Min Listen interval in ms for this STA */
+	uint32			tx_pkts;	/* # of packets transmitted */
+	uint32			tx_failures;	/* # of packets failed */
+	uint32			rx_ucast_pkts;	/* # of unicast packets received */
+	uint32			rx_mcast_pkts;	/* # of multicast packets received */
+	uint32			tx_rate;	/* Rate of last successful tx frame */
+	uint32			rx_rate;	/* Rate of last successful rx frame */
 } sta_info_t;
 
-#define WL_STA_VER		2
+#define WL_OLD_STAINFO_SIZE	OFFSETOF(sta_info_t, tx_pkts)
+
+#define WL_STA_VER	2
 
 /* Flags for sta_info_t indicating properties of STA */
 #define WL_STA_BRCM		0x1		/* Running a Broadcom driver */
@@ -470,6 +551,7 @@ typedef struct {
 #define WL_STA_APSD_VI		0x800		/* APSD delv/trigger for AC_VI is default enabled */
 #define WL_STA_APSD_VO		0x1000		/* APSD delv/trigger for AC_VO is default enabled */
 #define WL_STA_N_CAP		0x2000		/* STA 802.11n capable */
+#define WL_STA_SCBSTATS		0x4000		/* Per STA debug stats */
 
 #define WL_WDS_LINKUP		WL_STA_WDS_LINKUP	/* deprecated */
 
@@ -492,6 +574,7 @@ typedef struct get_pktcnt {
 	uint rx_bad_pkt;
 	uint tx_good_pkt;
 	uint tx_bad_pkt;
+	uint rx_ocast_good_pkt; /* unicast packets destined for others */
 } get_pktcnt_t;
 
 /* Linux network driver ioctl encoding */
@@ -529,6 +612,21 @@ typedef struct wl_instance_info {
 	char brand[WL_BRAND_MAX];
 } wl_instance_info_t;
 
+/* structure to change size of tx fifo */
+typedef struct wl_txfifo_sz {
+	uint8	fifo;
+	uint8	size;
+} wl_txfifo_sz_t;
+
+/* Transfer info about an IOVar from the driver */
+/* Max supported IOV name size in bytes, + 1 for null termination */
+#define WLC_IOV_NAME_LEN 30
+typedef struct wlc_iov_trx_s {
+	uint8 module;
+	uint8 type;
+	char name[WLC_IOV_NAME_LEN];
+} wlc_iov_trx_t;
+
 /* check this magic number */
 #define WLC_IOCTL_MAGIC		0x14e46c77
 
@@ -543,14 +641,11 @@ typedef struct wl_instance_info {
 #define WLC_GET_VERSION				1
 #define WLC_UP					2
 #define WLC_DOWN				3
-#define WLC_GET_LOOP				4
-#define WLC_SET_LOOP				5
 #define WLC_DUMP				6
 #define WLC_GET_MSGLEVEL			7
 #define WLC_SET_MSGLEVEL			8
 #define WLC_GET_PROMISC				9
 #define WLC_SET_PROMISC				10
-/* #define WLC_DUMP_RSSI			11 */ /* no longer supported */
 #define WLC_GET_RATE				12
 /* #define WLC_SET_RATE				13 */ /* no longer supported */
 #define WLC_GET_INSTANCE			14
@@ -567,7 +662,6 @@ typedef struct wl_instance_info {
 #define WLC_GET_SSID				25
 #define WLC_SET_SSID				26
 #define WLC_RESTART				27
-/* #define WLC_DUMP_SCB				28 */ /* no longer supported */
 #define WLC_GET_CHANNEL				29
 #define WLC_SET_CHANNEL				30
 #define WLC_GET_SRL				31
@@ -579,27 +673,18 @@ typedef struct wl_instance_info {
 #define WLC_GET_RADIO				37
 #define WLC_SET_RADIO				38
 #define WLC_GET_PHYTYPE				39
-#define WLC_DUMP_RATE				40
-#define WLC_SET_RATE_PARAMS			41
 /* #define WLC_GET_WEP				42 */ /* no longer supported */
 /* #define WLC_SET_WEP				43 */ /* no longer supported */
 #define WLC_GET_KEY				44
 #define WLC_SET_KEY				45
 #define WLC_GET_REGULATORY			46
 #define WLC_SET_REGULATORY			47
-#define WLC_GET_PASSIVE_SCAN			48
-#define WLC_SET_PASSIVE_SCAN			49
 #define WLC_SCAN				50
 #define WLC_SCAN_RESULTS			51
 #define WLC_DISASSOC				52
 #define WLC_REASSOC				53
 #define WLC_GET_ROAM_TRIGGER			54
 #define WLC_SET_ROAM_TRIGGER			55
-#define WLC_GET_ROAM_DELTA			56
-#define WLC_SET_ROAM_DELTA			57
-#define WLC_GET_ROAM_SCAN_PERIOD		58
-#define WLC_SET_ROAM_SCAN_PERIOD		59
-#define WLC_EVM					60	/* diag */
 #define WLC_GET_TXANT				61
 #define WLC_SET_TXANT				62
 #define WLC_GET_ANTDIV				63
@@ -624,35 +709,11 @@ typedef struct wl_instance_info {
 #define WLC_SET_WEP_RESTRICT			82
 #define WLC_GET_COUNTRY				83
 #define WLC_SET_COUNTRY				84
-#define WLC_GET_PM				85
-#define WLC_SET_PM				86
-#define WLC_GET_WAKE				87
-#define WLC_SET_WAKE				88
-/* #define WLC_GET_D11CNTS			89 */ /* -> "counters" iovar */
-#define WLC_GET_FORCELINK			90	/* ndis only */
-#define WLC_SET_FORCELINK			91	/* ndis only */
-#define WLC_FREQ_ACCURACY			92	/* diag */
-#define WLC_CARRIER_SUPPRESS			93	/* diag */
-#define WLC_GET_PHYREG				94
-#define WLC_SET_PHYREG				95
-#define WLC_GET_RADIOREG			96
-#define WLC_SET_RADIOREG			97
 #define WLC_GET_REVINFO				98
-#define WLC_GET_UCANTDIV			99
-#define WLC_SET_UCANTDIV			100
-#define WLC_R_REG				101
-#define WLC_W_REG				102
-/* #define WLC_DIAG_LOOPBACK			103	old tray diag */
-/* #define WLC_RESET_D11CNTS			104 */ /* -> "reset_d11cnts" iovar */
 #define WLC_GET_MACMODE				105
 #define WLC_SET_MACMODE				106
-#define WLC_GET_MONITOR				107
-#define WLC_SET_MONITOR				108
 #define WLC_GET_GMODE				109
 #define WLC_SET_GMODE				110
-#define WLC_GET_LEGACY_ERP			111
-#define WLC_SET_LEGACY_ERP			112
-#define WLC_GET_RX_ANT				113
 #define WLC_GET_CURR_RATESET			114	/* current rateset */
 #define WLC_GET_SCANSUPPRESS			115
 #define WLC_SET_SCANSUPPRESS			116
@@ -660,29 +721,17 @@ typedef struct wl_instance_info {
 #define WLC_SET_AP				118
 #define WLC_GET_EAP_RESTRICT			119
 #define WLC_SET_EAP_RESTRICT			120
-#define WLC_SCB_AUTHORIZE			121
-#define WLC_SCB_DEAUTHORIZE			122
 #define WLC_GET_WDSLIST				123
 #define WLC_SET_WDSLIST				124
-#define WLC_GET_ATIM				125
-#define WLC_SET_ATIM				126
 #define WLC_GET_RSSI				127
-#define WLC_GET_PHYANTDIV			128
-#define WLC_SET_PHYANTDIV			129
-#define WLC_AP_RX_ONLY				130
-#define WLC_GET_TX_PATH_PWR			131
-#define WLC_SET_TX_PATH_PWR			132
 #define WLC_GET_WSEC				133
 #define WLC_SET_WSEC				134
-#define WLC_GET_PHY_NOISE			135
 #define WLC_GET_BSS_INFO			136
-#define WLC_GET_PKTCNTS				137
 #define WLC_GET_LAZYWDS				138
 #define WLC_SET_LAZYWDS				139
 #define WLC_GET_BANDLIST			140
 #define WLC_GET_BAND				141
 #define WLC_SET_BAND				142
-#define WLC_SCB_DEAUTHENTICATE			143
 #define WLC_GET_SHORTSLOT			144
 #define WLC_GET_SHORTSLOT_OVERRIDE		145
 #define WLC_SET_SHORTSLOT_OVERRIDE		146
@@ -694,10 +743,6 @@ typedef struct wl_instance_info {
 #define WLC_UPGRADE				152
 /* #define WLC_GET_MRATE			153 */ /* no longer supported */
 /* #define WLC_SET_MRATE			154 */ /* no longer supported */
-#define WLC_GET_IGNORE_BCNS			155
-#define WLC_SET_IGNORE_BCNS			156
-#define WLC_GET_SCB_TIMEOUT			157
-#define WLC_SET_SCB_TIMEOUT			158
 #define WLC_GET_ASSOCLIST			159
 #define WLC_GET_CLK				160
 #define WLC_SET_CLK				161
@@ -705,117 +750,55 @@ typedef struct wl_instance_info {
 #define WLC_OUT					163
 #define WLC_GET_WPA_AUTH			164
 #define WLC_SET_WPA_AUTH			165
-#define WLC_GET_UCFLAGS				166
-#define WLC_SET_UCFLAGS				167
-#define WLC_GET_PWRIDX				168
-#define WLC_SET_PWRIDX				169
-#define WLC_GET_TSSI				170
-#define WLC_GET_SUP_RATESET_OVERRIDE		171
-#define WLC_SET_SUP_RATESET_OVERRIDE		172
-/* #define WLC_SET_FAST_TIMER			173 */ /* no longer supported */
-/* #define WLC_GET_FAST_TIMER			174 */ /* no longer supported */
-/* #define WLC_SET_SLOW_TIMER			175 */ /* no longer supported */
-/* #define WLC_GET_SLOW_TIMER			176 */ /* no longer supported */
-/* #define WLC_DUMP_PHYREGS			177 */ /* no longer supported */
 #define WLC_GET_PROTECTION_CONTROL		178
 #define WLC_SET_PROTECTION_CONTROL		179
 #define WLC_GET_PHYLIST				180
-#define WLC_ENCRYPT_STRENGTH			181	/* ndis only */
-#define WLC_DECRYPT_STATUS			182	/* ndis only */
 #define WLC_GET_KEY_SEQ				183
-#define WLC_GET_SCAN_CHANNEL_TIME		184
-#define WLC_SET_SCAN_CHANNEL_TIME		185
-#define WLC_GET_SCAN_UNASSOC_TIME		186
-#define WLC_SET_SCAN_UNASSOC_TIME		187
-#define WLC_GET_SCAN_HOME_TIME			188
-#define WLC_SET_SCAN_HOME_TIME			189
-#define WLC_GET_SCAN_NPROBES			190
-#define WLC_SET_SCAN_NPROBES			191
-#define WLC_GET_PRB_RESP_TIMEOUT		192
-#define WLC_SET_PRB_RESP_TIMEOUT		193
-#define WLC_GET_ATTEN				194
-#define WLC_SET_ATTEN				195
-#define WLC_GET_SHMEM				196	/* diag */
-#define WLC_SET_SHMEM				197	/* diag */
 /* #define WLC_GET_GMODE_PROTECTION_CTS		198 */ /* no longer supported */
 /* #define WLC_SET_GMODE_PROTECTION_CTS		199 */ /* no longer supported */
-#define WLC_SET_WSEC_TEST			200
-#define WLC_SCB_DEAUTHENTICATE_FOR_REASON	201
-#define WLC_TKIP_COUNTERMEASURES		202
 #define WLC_GET_PIOMODE				203
 #define WLC_SET_PIOMODE				204
-#define WLC_SET_ASSOC_PREFER			205
-#define WLC_GET_ASSOC_PREFER			206
-#define WLC_SET_ROAM_PREFER			207
-#define WLC_GET_ROAM_PREFER			208
 #define WLC_SET_LED				209
 #define WLC_GET_LED				210
-#define WLC_GET_INTERFERENCE_MODE		211
-#define WLC_SET_INTERFERENCE_MODE		212
-#define WLC_GET_CHANNEL_QA			213
-#define WLC_START_CHANNEL_QA			214
 #define WLC_GET_CHANNEL_SEL			215
 #define WLC_START_CHANNEL_SEL			216
 #define WLC_GET_VALID_CHANNELS			217
 #define WLC_GET_FAKEFRAG			218
 #define WLC_SET_FAKEFRAG			219
-#define WLC_GET_PWROUT_PERCENTAGE		220
-#define WLC_SET_PWROUT_PERCENTAGE		221
-#define WLC_SET_BAD_FRAME_PREEMPT		222
-#define WLC_GET_BAD_FRAME_PREEMPT		223
-#define WLC_SET_LEAP_LIST			224
-#define WLC_GET_LEAP_LIST			225
-#define WLC_GET_CWMIN				226
-#define WLC_SET_CWMIN				227
-#define WLC_GET_CWMAX				228
-#define WLC_SET_CWMAX				229
 #define WLC_GET_WET				230
 #define WLC_SET_WET				231
-#define WLC_GET_PUB				232
-/* #define WLC_SET_GLACIAL_TIMER		233 */ /* no longer supported */
-/* #define WLC_GET_GLACIAL_TIMER		234 */ /* no longer supported */
 #define WLC_GET_KEY_PRIMARY			235
 #define WLC_SET_KEY_PRIMARY			236
-/* #define WLC_DUMP_RADIOREGS			237 */ /* no longer supported */
-#define WLC_GET_ACI_ARGS			238
-#define WLC_SET_ACI_ARGS			239
-#define WLC_UNSET_CALLBACK			240
-#define WLC_SET_CALLBACK			241
 #define WLC_GET_RADAR				242
 #define WLC_SET_RADAR				243
 #define WLC_SET_SPECT_MANAGMENT			244
 #define WLC_GET_SPECT_MANAGMENT			245
 #define WLC_WDS_GET_REMOTE_HWADDR		246	/* handled in wl_linux.c/wl_vx.c */
-#define WLC_WDS_GET_WPA_SUP			247
 #define WLC_SET_CS_SCAN_TIMER			248
 #define WLC_GET_CS_SCAN_TIMER			249
-#define WLC_MEASURE_REQUEST			250
-#define WLC_INIT				251
-#define WLC_SEND_QUIET				252
-/* #define WLC_CHANNEL_SWITCH			253 */ /* no longer supported */
 #define WLC_SEND_PWR_CONSTRAINT			254
-#define WLC_UPGRADE_STATUS			255
 #define WLC_CURRENT_PWR				256
-#define WLC_GET_SCAN_PASSIVE_TIME		257
-#define WLC_SET_SCAN_PASSIVE_TIME		258
-#define WLC_LEGACY_LINK_BEHAVIOR		259
 #define WLC_GET_CHANNELS_IN_COUNTRY		260
 #define WLC_GET_COUNTRY_LIST			261
 #define WLC_GET_VAR				262	/* get value of named variable */
 #define WLC_SET_VAR				263	/* set named variable to value */
 #define WLC_NVRAM_GET				264	/* deprecated */
 #define WLC_NVRAM_SET				265
-#define WLC_NVRAM_DUMP				266
-#define WLC_REBOOT				267
 #define WLC_SET_WSEC_PMK			268
 #define WLC_GET_AUTH_MODE			269
 #define WLC_SET_AUTH_MODE			270
-#define WLC_GET_WAKEENTRY			271
-#define WLC_SET_WAKEENTRY			272
 #define WLC_NDCONFIG_ITEM			273	/* currently handled in wl_oid.c */
 #define WLC_NVOTPW				274
 #define WLC_OTPW				275
-#define WLC_LAST				278	/* do not change - use get_var/set_var */
+#define WLC_IOV_BLOCK_GET			276
+#define WLC_IOV_MODULES_GET			277
+#define WLC_SOFT_RESET				278
+#define WLC_GET_ALLOW_MODE			279
+#define WLC_SET_ALLOW_MODE			280
+#define WLC_GET_DESIRED_BSSID			281
+#define WLC_SET_DESIRED_BSSID			282
+#define	WLC_DISASSOC_MYAP			283
+#define WLC_LAST				284	/* do not change - use get_var/set_var */
 
 /*
  * Minor kludge alert:
@@ -845,11 +828,6 @@ typedef struct wl_instance_info {
 
 /* NDIS overrides */
 #define OID_WL_GETINSTANCE	(WL_OID_BASE + WLC_GET_INSTANCE)
-#define OID_WL_GET_FORCELINK	(WL_OID_BASE + WLC_GET_FORCELINK)
-#define OID_WL_SET_FORCELINK	(WL_OID_BASE + WLC_SET_FORCELINK)
-#define	OID_WL_ENCRYPT_STRENGTH	(WL_OID_BASE + WLC_ENCRYPT_STRENGTH)
-#define OID_WL_DECRYPT_STATUS	(WL_OID_BASE + WLC_DECRYPT_STATUS)
-#define OID_LEGACY_LINK_BEHAVIOR (WL_OID_BASE + WLC_LEGACY_LINK_BEHAVIOR)
 #define OID_WL_NDCONFIG_ITEM (WL_OID_BASE + WLC_NDCONFIG_ITEM)
 
 #define WL_DECRYPT_STATUS_SUCCESS	1
@@ -879,7 +857,6 @@ typedef struct {
 
 /* "diag" iovar argument and error code */
 #define WL_DIAG_INTERRUPT			1	/* d11 loopback interrupt test */
-#define WL_DIAG_LOOPBACK			2	/* d11 loopback data test */
 #define WL_DIAG_MEMORY				3	/* d11 memory test */
 #define WL_DIAG_LED				4	/* LED test */
 #define WL_DIAG_REG				5	/* d11/phy register test */
@@ -921,30 +898,7 @@ typedef struct {
 #define WLC_MACMODE_ALLOW	2	/* Allow specified (i.e. deny unspecified) */
 
 /*
- * 54g modes (basic bits may still be overridden)
  *
- * GMODE_LEGACY_B			Rateset: 1b, 2b, 5.5, 11
- *					Preamble: Long
- *					Shortslot: Off
- * GMODE_AUTO				Rateset: 1b, 2b, 5.5b, 11b, 18, 24, 36, 54
- *					Extended Rateset: 6, 9, 12, 48
- *					Preamble: Long
- *					Shortslot: Auto
- * GMODE_ONLY				Rateset: 1b, 2b, 5.5b, 11b, 18, 24b, 36, 54
- *					Extended Rateset: 6b, 9, 12b, 48
- *					Preamble: Short required
- *					Shortslot: Auto
- * GMODE_B_DEFERRED			Rateset: 1b, 2b, 5.5b, 11b, 18, 24, 36, 54
- *					Extended Rateset: 6, 9, 12, 48
- *					Preamble: Long
- *					Shortslot: On
- * GMODE_PERFORMANCE			Rateset: 1b, 2b, 5.5b, 6b, 9, 11b, 12b, 18, 24b, 36, 48, 54
- *					Preamble: Short required
- *					Shortslot: On and required
- * GMODE_LRS				Rateset: 1b, 2b, 5.5b, 11b
- *					Extended Rateset: 6, 9, 12, 18, 24, 36, 48, 54
- *					Preamble: Long
- *					Shortslot: Auto
  */
 #define GMODE_LEGACY_B		0
 #define GMODE_AUTO		1
@@ -963,6 +917,8 @@ typedef struct {
 #define WLC_PROTECTION_AUTO		-1
 #define WLC_PROTECTION_OFF		0
 #define WLC_PROTECTION_ON		1
+#define WLC_PROTECTION_MMHDR_ONLY	2
+#define WLC_PROTECTION_CTS_ONLY		3
 
 /* values for g_protection_control and n_protection_control */
 #define WLC_PROTECTION_CTL_OFF		0
@@ -985,12 +941,18 @@ typedef struct {
 
 /* values for n_protection */
 #define WLC_N_PROTECTION_OFF		0
-#define WLC_N_PROTECTION_MIXEDMODE	1
-#define WLC_N_PROTECTION_CTS		2
+#define WLC_N_PROTECTION_OPTIONAL	1
+#define WLC_N_PROTECTION_20IN40		2
+#define WLC_N_PROTECTION_MIXEDMODE	3
 
 /* values for n_preamble_type */
 #define WLC_N_PREAMBLE_MIXEDMODE	0
 #define WLC_N_PREAMBLE_GF		1
+
+/* values for band specific 40MHz capabilities */
+#define WLC_N_BW_20ALL			0
+#define WLC_N_BW_40ALL			1
+#define WLC_N_BW_20IN2G_40IN5G		2
 
 /* values to force tx/rx chain */
 #define WLC_N_TXRX_CHAIN0		0
@@ -1001,20 +963,11 @@ typedef struct {
 #define PM_MAX	1
 #define PM_FAST 2
 
-/* interference mitigation options */
-#define	INTERFERE_NONE	0	/* off */
-#define	NON_WLAN	1	/* foreign/non 802.11 interference, no auto detect */
-#define	WLAN_MANUAL	2	/* ACI: no auto detection */
-#define	WLAN_AUTO	3	/* ACI: auto - detact */
-#define AUTO_ACTIVE	(1 << 7) /* Auto is currently active */
 
-typedef struct wl_aci_args {
-	int enter_aci_thresh; /* Trigger level to start detecting ACI */
-	int exit_aci_thresh; /* Trigger level to exit ACI mode */
-	int usec_spin; /* microsecs to delay between rssi samples */
-	int glitch_delay; /* interval between ACI scans when glitch count is consistently high */
-} wl_aci_args_t;
 
+#define WL_ACI_ARGS_LEGACY_LENGTH	16	/* bytes of pre NPHY aci args */
+
+/* Begin: wl_radar_args_t */
 typedef struct {
 	int npulses; 	/* required number of pulses at n * t_int */
 	int ncontig; 	/* required number of pulses at t_int */
@@ -1022,14 +975,35 @@ typedef struct {
 	int max_pw; 	/* maximum pulse width (20 MHz clocks) */
 	uint16 thresh0;	/* Radar detection, thresh 0 */
 	uint16 thresh1;	/* Radar detection, thresh 1 */
+	uint16 blank;	/* Radar detection, blank control */
+	uint16 fmdemodcfg;	/* Radar detection, fmdemod config */
 	int npulses_lp;  /* Radar detection, minimum long pulses */
 	int min_pw_lp; /* Minimum pulsewidth for long pulses */
 	int max_pw_lp; /* Maximum pulsewidth for long pulses */
 	int min_fm_lp; /* Minimum fm for long pulses */
 	int max_deltat_lp;  /* Maximum deltat for long pulses */
 	int min_deltat; /* Minimum spacing between pulses */
-	uint16 fmdemodcfg;	/* FM demod config for radar */
+	int max_deltat; /* Maximum spacing between pulses */
+	uint16 autocorr;        /* Radar detection, autocorr on or off */
+	uint16 st_level_time;   /* Radar detection, start_timing level */
+	uint32 version; /* version */
 } wl_radar_args_t;
+/* End: wl_radar_args_t */
+#define WL_RADAR_ARGS_VERSION 1
+
+typedef struct {
+	uint32 version; /* version */
+	uint16 thresh0_20_lo;	/* Radar detection, thresh 0 (range 5250-5350MHz) for BW 20MHz */
+	uint16 thresh1_20_lo;	/* Radar detection, thresh 1 (range 5250-5350MHz) for BW 20MHz */
+	uint16 thresh0_40_lo;	/* Radar detection, thresh 0 (range 5250-5350MHz) for BW 40MHz */
+	uint16 thresh1_40_lo;	/* Radar detection, thresh 1 (range 5250-5350MHz) for BW 40MHz */
+	uint16 thresh0_20_hi;	/* Radar detection, thresh 0 (range 5470-5725MHz) for BW 20MHz */
+	uint16 thresh1_20_hi;	/* Radar detection, thresh 1 (range 5470-5725MHz) for BW 20MHz */
+	uint16 thresh0_40_hi;	/* Radar detection, thresh 0 (range 5470-5725MHz) for BW 40MHz */
+	uint16 thresh1_40_hi;	/* Radar detection, thresh 1 (range 5470-5725MHz) for BW 40MHz */
+} wl_radar_thr_t;
+#define WL_RADAR_THR_VERSION 1
+#define WL_THRESHOLD_LO_BAND	70	/* range from 5250MHz - 5350MHz */
 
 /* radar iovar SET defines */
 #define WL_RADAR_DETECTOR_OFF		0	/* radar detector off */
@@ -1037,6 +1011,17 @@ typedef struct {
 #define WL_RADAR_SIMULATED		2	/* force radar detector to declare
 						 * detection once
 						 */
+
+#define WL_RSSI_ANT_VERSION	1	/* current version of wl_rssi_ant_t */
+#define WL_RSSI_ANT_MAX		4	/* max possible rx antennas */
+
+/* RSSI per antenna */
+typedef struct {
+	uint32	version;		/* version field */
+	uint32	count;			/* number of valid antenna rssi */
+	int8 rssi_ant[WL_RSSI_ANT_MAX];	/* rssi per antenna */
+} wl_rssi_ant_t;
+
 
 /* dfs_status iovar-related defines */
 
@@ -1067,33 +1052,13 @@ typedef struct {
 	uint16 pad;
 } wl_dfs_status_t;
 
-#define NUM_PWRCTRL_RATES 12
-typedef struct tx_power {
-	uint8 txpwr_band_max[NUM_PWRCTRL_RATES];	/* User set target */
-	uint8 txpwr_limit[NUM_PWRCTRL_RATES];		/* reg and local power limit */
-	uint8 txpwr_local_max;				/* local max according to the AP */
-	uint8 txpwr_local_constraint;			/* local constraint according to the AP */
-	uint8 txpwr_chan_reg_max;			/* Regulatory max for this channel */
-	uint8 txpwr_target[2][NUM_PWRCTRL_RATES];	/* Latest target for 2.4 and 5 Ghz */
-	uint8 txpwr_est_Pout[2];			/* Latest estimate for 2.4 and 5 Ghz */
-	uint8 txpwr_opo[NUM_PWRCTRL_RATES];		/* On G phy, OFDM power offset */
-	uint8 txpwr_bphy_cck_max[NUM_PWRCTRL_RATES];	/* Max CCK power for this band (SROM) */
-	uint8 txpwr_bphy_ofdm_max;			/* Max OFDM power for this band (SROM) */
-	uint8 txpwr_aphy_max[NUM_PWRCTRL_RATES];	/* Max power for A band (SROM) */
-	int8  txpwr_antgain[2];				/* Ant gain for each band - from SROM */
-	uint8 txpwr_est_Pout_gofdm;			/* Pwr estimate for 2.4 OFDM */
-} tx_power_t;
+
 
 typedef struct tx_inst_power {
 	uint8 txpwr_est_Pout[2];			/* Latest estimate for 2.4 and 5 Ghz */
 	uint8 txpwr_est_Pout_gofdm;			/* Pwr estimate for 2.4 OFDM */
 } tx_inst_power_t;
 
-/* 802.11h measurement types */
-#define WLC_MEASURE_TPC			1
-#define WLC_MEASURE_CHANNEL_BASIC	2
-#define WLC_MEASURE_CHANNEL_CCA		3
-#define WLC_MEASURE_CHANNEL_RPI		4
 
 /* regulatory enforcement levels */
 #define SPECT_MNGMT_OFF			0		/* both 11h and 11d disabled */
@@ -1114,38 +1079,16 @@ typedef struct tx_inst_power {
 #define WL_CHAN_RESTRICTED	(1 << 6)	/* restricted use channel */
 
 /* BTC mode used by "btc_mode" iovar */
-#define	WL_BTC_DISABLE		0	/* disable BT coexistance */
-#define WL_BTC_ENABLE		1	/* enable BT coexistance */
-#define WL_BTC_PREMPT		2	/* enable BT coexistance and BT pre-emption */
+#define	WL_BTC_DISABLE		0	/* disable BT coexistence */
+#define WL_BTC_ENABLE		1	/* enable BT coexistence */
+#define WL_BTC_PREMPT		2	/* enable BT coexistence and BT preemption */
 
-/* Message levels */
-#define WL_ERROR_VAL		0x00000001
-#define WL_TRACE_VAL		0x00000002
-#define WL_PRHDRS_VAL		0x00000004
-#define WL_PRPKT_VAL		0x00000008
-#define WL_INFORM_VAL		0x00000010
-#define WL_TMP_VAL		0x00000020
-#define WL_OID_VAL		0x00000040
-#define WL_RATE_VAL		0x00000080
-#define WL_ASSOC_VAL		0x00000100
-#define WL_PRUSR_VAL		0x00000200
-#define WL_PS_VAL		0x00000400
-#define WL_TXPWR_VAL		0x00000800
-#define WL_GMODE_VAL		0x00001000
-#define WL_DUAL_VAL		0x00002000
-#define WL_WSEC_VAL		0x00004000
-#define WL_WSEC_DUMP_VAL	0x00008000
-#define WL_LOG_VAL		0x00010000
-#define WL_NRSSI_VAL		0x00020000
-#define WL_LOFT_VAL		0x00040000
-#define WL_REGULATORY_VAL	0x00080000
-#define WL_ACI_VAL		0x00100000
-#define WL_RADAR_VAL		0x00200000
+#define WL_PHYCAL_VAL		0x00100000
 #define WL_MPC_VAL		0x00400000
 #define WL_APSTA_VAL		0x00800000
 #define WL_DFS_VAL		0x01000000
 #define WL_BA_VAL		0x02000000
-#define WL_NITRO_VAL		0x04000000
+#define WL_MBSS_VAL		0x04000000
 #define WL_CAC_VAL		0x08000000
 #define WL_AMSDU_VAL		0x10000000
 #define WL_AMPDU_VAL		0x20000000
@@ -1167,14 +1110,13 @@ typedef struct tx_inst_power {
 #define	WL_LED_WI3		9		
 #define	WL_LED_ASSOC		10		/* associated state indicator */
 #define	WL_LED_INACTIVE		11		/* null behavior (clears default behavior) */
-#define	WL_LED_NUMBEHAVIOR	12
+#define	WL_LED_ASSOCACT		12		/* on when associated; blink fast for activity */
+#define	WL_LED_NUMBEHAVIOR	13
 
 /* led behavior numeric value format */
 #define	WL_LED_BEH_MASK		0x7f		/* behavior mask */
 #define	WL_LED_AL_MASK		0x80		/* activelow (polarity) bit */
 
-/* max # of channels returnd by the get valid channels iovar */
-#define WL_NUMCHANNELS		64
 #define WL_NUMCHANSPECS		100
 
 /* WDS link local endpoint WPA role */
@@ -1217,43 +1159,47 @@ typedef struct {
 
 /* join preference iovar value */
 /*
- * Join pref iovar value is an array of TLVs. Each TLV has a one-byte type and a one-byte length
- * fields followed by a type dependant value.
+ * Join preference iovar value is an array of tuples. Each tuple has a one-byte type,
+ * a one-byte length, and a variable length value.  RSSI type tuple must be present
+ * in the array.
  *
  * Types are defined in "join preference types" section.
  *
- * Length is # octets of the value. It is ignored by the driver if the TLV is WL_JOIN_PREF_WPA.
+ * Length is the value size in octets. It is reserved for WL_JOIN_PREF_WPA type tuple
+ * and must be set to zero.
  *
- * Type dependant values are defined below.
+ * Values are defined below.
  *
  * 1. RSSI - 2 octets
  * offset 0: reserved
  * offset 1: reserved
  *
- * 2. WPA - 2 + 12 * N octets (N is # tuples)
+ * 2. WPA - 2 + 12 * n octets (n is # tuples defined below)
  * offset 0: reserved
  * offset 1: # of tuples
- * offset 2: tuple 0
- * offset 14: tuple 1
+ * offset 2: tuple 1
+ * offset 14: tuple 2
  * ...
- * struct tuple {
+ * offset 2 + 12 * (n - 1) octets: tuple n
+ *
+ * struct wpa_cfg_tuple {
  *   uint8 akm[DOT11_OUI_LEN+1];     akm suite
  *   uint8 ucipher[DOT11_OUI_LEN+1]; unicast cipher suite
  *   uint8 mcipher[DOT11_OUI_LEN+1]; multicast cipher suite
  * };
  *
- * 3. BAND - 1 octet
+ * multicast cipher suite can be specified as a specific cipher suite or WL_WPA_ACP_MCS_ANY.
+ *
+ * 3. BAND - 2 octets
  * offset 0: reserved
- * offset 1: see "band preference"
+ * offset 1: see "band preference" and "band types"
  */
 /* join preference types */
-#define WL_JOIN_PREF_RSSI	1	/* by RSSI, mandatory */
-#define WL_JOIN_PREF_WPA	2	/* by akm and ciphers, optional, RSN and WPA as values */
-#define WL_JOIN_PREF_BAND	3	/* by 802.11 band, optional, WLC_BAND_XXXX as values */
+#define WL_JOIN_PREF_RSSI	1	/* by RSSI */
+#define WL_JOIN_PREF_WPA	2	/* by akm and ciphers */
+#define WL_JOIN_PREF_BAND	3	/* by 802.11 band */
 
 /* band preference */
-#define WLJP_BAND_ASSOC_PREF	255	/* use assoc preference settings */
-					/* others use WLC_BAND_XXXX as values */
 
 /* any multicast cipher suite */
 #define WL_WPA_ACP_MCS_ANY	"\x00\x00\x00\x00"
@@ -1268,7 +1214,7 @@ struct tsinfo_arg {
 
 #define	NFIFO			6	/* # tx/rx fifopairs */
 
-#define	WL_CNT_T_VERSION	2	/* current version of wl_cnt_t struct */
+#define	WL_CNT_T_VERSION	3	/* current version of wl_cnt_t struct */
 
 typedef struct {
 	uint16	version;	/* see definition of WL_CNT_T_VERSION */
@@ -1438,6 +1384,15 @@ typedef struct {
 	uint32	txchanrej;	/* Tx frames suppressed due to channel rejection */
 	uint32	psmwds;		/* Count PSM watchdogs */
 	uint32	phywatchdog;	/* Count Phy watchdogs (triggered by ucode) */
+
+	/* MBSS counters, AP only */
+	uint32	prq_entries_handled;	/* PRQ entries read in */
+	uint32	prq_undirected_entries;	/*    which were bcast bss & ssid */
+	uint32	prq_bad_entries;	/*    which could not be translated to info */
+	uint32	atim_suppress_count;	/* TX suppressions on ATIM fifo */
+	uint32	bcn_template_not_ready;	/* Template marked in use on send bcn ... */
+	uint32	bcn_template_not_ready_done; /* ...but "DMA done" interrupt rcvd */
+	uint32	late_tbtt_dpc;	/* TBTT DPC did not happen in time */
 } wl_cnt_t;
 
 #define WL_WME_CNT_VERSION	1	/* current version of wl_wme_cnt_t */
@@ -1448,7 +1403,7 @@ typedef struct {
 } wl_traffic_stats_t;
 
 typedef struct {
-	uint16	version;	/* see definition of WL_CNT_T_VERSION */
+	uint16	version;	/* see definition of WL_WME_CNT_VERSION */
 	uint16	length;		/* length of entire structure */
 
 	wl_traffic_stats_t tx[AC_COUNT];	/* Packets transmitted */
@@ -1515,6 +1470,32 @@ struct ampdu_ea_tid {
 	uint8 tid;			/* tid */
 };
 
+/* Different discovery modes for dpt */
+#define	DPT_DISCOVERY_MANUAL	0x01	/* manual discovery mode */
+#define	DPT_DISCOVERY_AUTO	0x02	/* auto discovery mode */
+#define	DPT_DISCOVERY_SCAN	0x04	/* scan-based discovery mode */
+
+/* different path selection values */
+#define DPT_PATHSEL_AUTO	0	/* auto mode for path selection */
+#define DPT_PATHSEL_DIRECT	1	/* always use direct DPT path */
+#define DPT_PATHSEL_APPATH	2	/* always use AP path */
+
+/* different ops for deny list */
+#define DPT_DENY_LIST_ADD 	1	/* add to dpt deny list */
+#define DPT_DENY_LIST_REMOVE 	2	/* remove from dpt deny list */
+
+/* different ops for manual end point */
+#define DPT_MANUAL_EP_CREATE	1	/* create manual dpt endpoint */
+#define DPT_MANUAL_EP_MODIFY	2	/* modify manual dpt endpoint */
+#define DPT_MANUAL_EP_DELETE	3	/* delete manual dpt endpoint */
+
+/* structure for dpt iovars */
+typedef struct dpt_iovar {
+	struct ether_addr ea;		/* Station address */
+	uint8 mode;			/* mode: depends on iovar */
+	uint32 pad;			/* future */
+} dpt_iovar_t;
+
 /* structure for addts arguments */
 /* For ioctls that take a list of TSPEC */
 struct tslist {
@@ -1561,7 +1542,7 @@ typedef struct tspec_arg {
 /* Software feature flag defines used by wlfeatureflag */
 #define WL_SWFL_ABBFL		0x0001 /* Allow Afterburner on systems w/o hardware BFL */
 #define WL_SWFL_ABENCORE	0x0002 /* Allow AB on non-4318E chips */
-#define WL_SWFL_NOHWRADIO	0x0003 /* Disable HW Radio monitor (e.g., Apple) */
+#define WL_SWFL_NOHWRADIO	0x0004 /* Disable HW Radio monitor (e.g., Apple) */
 
 #define WL_LIFETIME_MAX 0xFFFF /* Max value in ms */
 
@@ -1571,11 +1552,13 @@ typedef struct wl_lifetime {
 	uint32 lifetime;    /* Packet lifetime value in ms */
 } wl_lifetime_t;
 
+
 /* Channel Switch Announcement param */
 typedef struct wl_chan_switch {
 	uint8 mode;		/* value 0 or 1 */
 	uint8 count;		/* count # of beacons before switching */
 	chanspec_t chspec;	/* chanspec */
+	uint8 reg;		/* regulatory class */
 } wl_chan_switch_t;
 
 /* Roaming trigger definitions for WLC_SET_ROAM_TRIGGER.
@@ -1591,5 +1574,175 @@ typedef struct wl_chan_switch {
 #define WLC_ROAM_TRIGGER_BANDWIDTH	1 /* optimize for bandwidth roaming trigger */
 #define WLC_ROAM_TRIGGER_DISTANCE	2 /* optimize for distance roaming trigger */
 #define WLC_ROAM_TRIGGER_MAX_VALUE	2 /* max. valid value */
+
+/* Preferred Network Offload (PNO, formerly PFN) defines */
+enum {
+	PFN_LIST_ORDER,
+	PFN_RSSI
+};
+
+enum {
+	DISABLE,
+	ENABLE
+};
+
+#define SORT_CRITERIA_BIT		0
+#define AUTO_NET_SWITCH_BIT		1
+#define ENABLE_BKGRD_SCAN_BIT		2
+
+#define SORT_CRITERIA_MASK		0x01
+#define AUTO_NET_SWITCH_MASK		0x02
+#define ENABLE_BKGRD_SCAN_MASK		0x04
+
+#define PFN_VERSION			1
+
+/* PFN data structure */
+typedef struct wl_pfn_param {
+	int32 version;					/* version field */
+	int32 scan_freq;				/* Scan frequency */
+	int32 lost_network_timeout;			/* Timeout in sec. to declare
+							 * discovered network as lost
+							 */
+	int16 flags;					/* Bit field to control feature
+							 * of PFN such as sort criteria auto
+							 * enable switch and back ground scan
+							 */
+#if defined(WLPFN_AUTO_CONNECT) || !defined(BCMDRIVER)
+	int16 rssi_margin;				/* Margin to avoid jitter for choosing a
+							 * PFN based on RSSI sort criteria
+							 */
+#else
+	int16 pad;
+#endif
+} wl_pfn_param_t;
+
+typedef struct wl_pfn {
+	wlc_ssid_t		ssid;			/* ssid name and its length */
+	int32			bss_type;		/* IBSS or infrastructure */
+#if defined(WLPFN_AUTO_CONNECT) || !defined(BCMDRIVER)
+	int32			infra;			/* BSS Vs IBSS */
+	int32			auth;			/* Open Vs Closed */
+	int32			wpa_auth;		/* WPA type */
+	int32			wsec;			/* wsec value */
+	union {
+		wl_wsec_key_t	sec_key;		/* Security Settings for WEP */
+		wsec_pmk_t	wpa_sec_key;		/* Security setting for WPA */
+	} pfn_security;
+#endif
+} wl_pfn_t;
+
+/* TCP Checksum Offload defines */
+#define TOE_TX_CSUM_OL		0x00000001
+#define TOE_RX_CSUM_OL		0x00000002
+
+/* TCP Checksum Offload error injection for testing (BCMINTERNAL) */
+#define TOE_ERRTEST_TX_CSUM	0x00000001
+#define TOE_ERRTEST_RX_CSUM	0x00000002
+#define TOE_ERRTEST_RX_CSUM2	0x00000004
+
+struct toe_ol_stats_t {
+	/* Num of tx packets that don't need to be checksummed */
+	uint32 tx_summed;
+
+	/* Num of tx packets where checksum is filled by offload engine */
+	uint32 tx_iph_fill;
+	uint32 tx_tcp_fill;
+	uint32 tx_udp_fill;
+	uint32 tx_icmp_fill;
+
+	/*  Num of rx packets where toe finds out if checksum is good or bad */
+	uint32 rx_iph_good;
+	uint32 rx_iph_bad;
+	uint32 rx_tcp_good;
+	uint32 rx_tcp_bad;
+	uint32 rx_udp_good;
+	uint32 rx_udp_bad;
+	uint32 rx_icmp_good;
+	uint32 rx_icmp_bad;
+
+	/* Num of tx packets in which csum error is injected */
+	uint32 tx_tcp_errinj;
+	uint32 tx_udp_errinj;
+	uint32 tx_icmp_errinj;
+
+	/* Num of rx packets in which csum error is injected */
+	uint32 rx_tcp_errinj;
+	uint32 rx_udp_errinj;
+	uint32 rx_icmp_errinj;
+};
+
+/* ARP Offload feature flags for arp_ol iovar */
+#define ARP_OL_AGENT		0x00000001
+#define ARP_OL_SNOOP		0x00000002
+#define ARP_OL_HOST_AUTO_REPLY	0x00000004
+#define ARP_OL_PEER_AUTO_REPLY	0x00000008
+
+/* ARP Offload error injection (BCMINTERNAL) */
+#define ARP_ERRTEST_REPLY_PEER	0x1
+#define ARP_ERRTEST_REPLY_HOST	0x2
+
+#define ARP_MULTIHOMING_MAX	8	/* Maximum local host IP addresses */
+
+/* Arp offload statistic counts */
+struct arp_ol_stats_t {
+	uint32  host_ip_entries;	/* Host IP table addresses (more than one if multihomed) */
+	uint32  host_ip_overflow;	/* Host IP table additions skipped due to overflow */
+
+	uint32  arp_table_entries;	/* ARP table entries */
+	uint32  arp_table_overflow;	/* ARP table additions skipped due to overflow */
+
+	uint32  host_request;		/* ARP requests from host */
+	uint32  host_reply;		/* ARP replies from host */
+	uint32  host_service;		/* ARP requests from host serviced by ARP Agent */
+
+	uint32  peer_request;		/* ARP requests received from network */
+	uint32  peer_request_drop;	/* ARP requests from network that were dropped */
+	uint32  peer_reply;		/* ARP replies received from network */
+	uint32  peer_reply_drop;	/* ARP replies from network that were dropped */
+	uint32  peer_service;		/* ARP request from host serviced by ARP Agent */
+};
+
+/* Packet engine interface */
+#define WL_PKTENG_PER_TX_START	0x01
+#define WL_PKTENG_PER_TX_STOP	0x02
+#define WL_PKTENG_PER_RX_START	0x04
+#define WL_PKTENG_PER_RX_STOP	0x08
+#define WL_PKTENG_CONT_TX_START	0x10
+#define WL_PKTENG_CONT_TX_STOP	0x20
+
+typedef struct wl_pkteng {
+	uint32 flags;
+	uint32 delay;		/* Inter packet delay */
+	uint32 nframes;		/* number of frames */
+	uint32 length;		/* packet length */
+	bool seqno;			/* enable/disable sequence no. */
+	struct ether_addr dest;	/* destination address */
+} wl_pkteng_t;
+
+#define WL_WOWL_MAGIC	(1 << 0)	/* Wakeup on Magic packet */
+#define WL_WOWL_NET	(1 << 1)	/* Wakeup on Netpattern */
+#define WL_WOWL_DIS	(1 << 2)	/* Wakeup on loss-of-link due to Disassoc/Deauth */
+#define WL_WOWL_RETR	(1 << 3)	/* Wakeup on retrograde TSF */
+#define WL_WOWL_BCN	(1 << 4)	/* Wakeup on loss of beacon */
+
+typedef struct {
+	uint masksize;		/* Size of the mask in #of bytes */
+	uint offset;		/* Offset to start looking for the packet in # of bytes */
+	uint patternoffset;	/* Offset of start of pattern in the structure */
+	uint patternsize;	/* Size of the pattern itself in #of bytes */
+	/* Mask follows the structure above */
+	/* Pattern follows the mask is at 'patternoffset' from the start */
+} wl_wowl_pattern_t;
+
+typedef struct {
+	uint			count;
+	wl_wowl_pattern_t	pattern[1];
+} wl_wowl_pattern_list_t;
+
+#if defined(DSLCPE_DELAY)
+#define WL_DELAYMODE_DEFER	0	/* defer by scheduler's choice, make this driver default */
+#define WL_DELAYMODE_FORCE	1	/* force, this is driver default */
+#define WL_DELAYMODE_AUTO	2	/* defer if no sta associated, force if sta associated */
+#endif
 
 #endif /* _wlioctl_h_ */

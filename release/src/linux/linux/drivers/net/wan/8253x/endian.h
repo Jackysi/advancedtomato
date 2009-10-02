@@ -117,6 +117,7 @@
 /* for now lets always use the macroes instead of the inline procedures
    so that we are sure they work */
 
+#if 1 || defined(AMD29K)
 
 #define fnm_convert_us_endian(x)						\
 	((unsigned short)((((unsigned short)(x)) << 8) + (((unsigned short)(x)) >> 8)))
@@ -135,6 +136,50 @@
 #define fnm_make_us_from_2_uc(uc_high_part, uc_low_part)			\
 	((unsigned short)((((unsigned short)(uc_high_part)) << 8) + ((t_uc)(uc_low_part))))
 
+#else
+
+INLINE unsigned short fni_convert_us_endian(const unsigned short x)
+{
+	return((x << 8) + (x >> 8));
+}
+
+INLINE unsigned int fni_convert_ui_endian(const unsigned int x)
+{
+	return((x >> 24) + ((x & 0x00ff0000) >> 8)
+	   + ((x & 0x0000ff00) << 8) + (x << 24));
+}
+
+INLINE unsigned int fni_make_ui_from_2_us(const unsigned short us_high_part,
+				  const unsigned short us_low_part)
+{
+	return((((unsigned int)us_high_part) << 16) + us_low_part);
+}
+
+INLINE unsigned int fni_make_ui_from_4_uc(const unsigned char p1, const unsigned char p2,
+				  const unsigned char p3, const unsigned char p4)
+{
+	return(((((((unsigned int)p1 << 8) + p2) << 8) + p3) << 8) + p4);
+}
+
+INLINE unsigned short fni_make_us_from_2_uc(const unsigned char uc_high_part,
+				  const unsigned char uc_low_part)
+{
+	return((((unsigned short)uc_high_part) << 8) + uc_low_part);
+}
+
+#define fnm_convert_us_endian(x)	fni_convert_us_endian(x)
+#define fnm_convert_ui_endian(x)	fni_convert_ui_endian(x)
+
+#define fnm_make_ui_from_2_us(us_high_part, us_low_part)			\
+	fni_make_ui_from_2_us(us_high_part, us_low_part)
+
+#define fnm_make_ui_from_4_uc(p1, p2, p3, p4)					\
+	fni_make_ui_from_4_uc(p1, p2, p3, p4)
+
+#define fnm_make_us_from_2_uc(uc_high_part, uc_low_part)			\
+	fni_make_us_from_2_uc(uc_high_part, uc_low_part)
+
+#endif
 
 #define fnm_convert_s_endian(x)		((short)(fnm_convert_us_endian(x)))
 #define fnm_convert_i_endian(x)		((int)(fnm_convert_ui_endian(x)))

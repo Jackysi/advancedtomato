@@ -100,13 +100,13 @@ END(except_vec1_generic)
 		 * and R4400 SC and MC versions.
 		 */
 NESTED(except_vec3_generic, 0, sp)
+#ifdef CONFIG_BCM4710
+		nop
+		nop
+#endif
 #if R5432_CP0_INTERRUPT_WAR
 		mfc0	k0, CP0_INDEX
 #endif
-#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4704)
-		nop
-		nop
-#endif          
 		mfc0	k1, CP0_CAUSE
 		la	k0, exception_handlers
 		andi	k1, k1, 0x7c

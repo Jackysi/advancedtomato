@@ -761,7 +761,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, dn_address dst, dn_addr
 
 	/* Look in On-Ethernet cache first */
 	if (!(flags & MSG_TRYHARD)) {
-		if ((neigh = dn_neigh_lookup(&dn_neigh_table, &dst)) != NULL)
+		if ((neigh = neigh_lookup_nodev(&dn_neigh_table, &dst)) != NULL)
 			goto got_route;
 	}
 

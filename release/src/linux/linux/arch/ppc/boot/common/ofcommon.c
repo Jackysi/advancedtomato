@@ -1,6 +1,4 @@
 /*
- * BK Id: SCCS/s.ofcommon.c 1.2 01/11/02 10:46:07 trini
- *
  * Copyright (C) Paul Mackerras 1997.
  *
  * This program is free software; you can redistribute it and/or
@@ -10,6 +8,7 @@
  */
 
 #include "zlib.h"
+#include "of1275.h"
 #include "nonstdio.h"
 #include <asm/bootinfo.h>
 #include <asm/page.h>
@@ -20,8 +19,6 @@ extern char __sysmap_begin, __sysmap_end;
 extern int strcmp(const char *s1, const char *s2);
 extern char *avail_ram, *avail_high;
 extern char *end_avail;
-extern void claim(unsigned int virt, unsigned int size, unsigned int align);
-extern void pause(void);
 
 unsigned int heap_use, heap_max;
 

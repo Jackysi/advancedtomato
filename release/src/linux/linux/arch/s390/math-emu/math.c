@@ -727,6 +727,7 @@ static int emu_fixbr (struct pt_regs *regs, int rx, int ry, int mask) {
 
 /* Load floating point integer double */
 static int emu_fidbr (struct pt_regs *regs, int rx, int ry, int mask) {
+	/* FIXME: rounding mode !! */
         s390_fp_regs *fp_regs = &current->thread.fp_regs;
         FP_DECL_D(DA);
         FP_DECL_EX;

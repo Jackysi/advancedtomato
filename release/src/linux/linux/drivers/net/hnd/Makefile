@@ -38,10 +38,6 @@ HND_OBJS	+= bcmrobo.o
 endif
 endif
 
-# add by tanghui @ 2006-11-22
-# for build wltest
-# HND_OBJS	+= bcmotp.o
-
 ifdef CONFIG_USB_RNDIS
 EXTRA_CFLAGS += -DCONFIG_USBRNDIS_RETAIL
 endif                                  
@@ -64,7 +60,7 @@ bcmutils.o: $(SRCBASE)/shared/linux/bcmutils.o
 endif
 
 ifeq ($(wildcard $(SRCBASE)/shared/bcmrobo.c),)
-bcmrobo.o: $(SRCBASE)/shared/linux/bcmrobo.o
+bcmutils.o: $(SRCBASE)/shared/linux/bcmrobo.o
 	cp $< $@
 endif
 

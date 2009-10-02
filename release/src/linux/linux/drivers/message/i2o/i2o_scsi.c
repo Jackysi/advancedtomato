@@ -85,6 +85,10 @@ static atomic_t queue_depth;
 
 #define SG_MAX_FRAGS		64
 
+/*
+ *	FIXME: we should allocate one of these per bus we find as we
+ *	locate them not in a lump at boot.
+ */
  
 typedef struct _chain_buf
 {
@@ -225,6 +229,9 @@ static void i2o_scsi_reply(struct i2o_handler *h, struct i2o_controller *c, stru
 		return;
 	}
 
+	/*
+ 	 *	FIXME: 64bit breakage
+	 */
 	current_command = (Scsi_Cmnd *)m[3];
 	
 	/*
@@ -419,6 +426,10 @@ static int i2o_scsi_detect(Scsi_Host_Template * tpnt)
 		if(c==NULL)
 			continue;
 			
+		/*
+		 *	Fixme - we need some altered device locking. This
+		 *	is racing with device addition in theory. Easy to fix.
+		 */
 		
 		for(d=c->devices;d!=NULL;d=d->next)
 		{
@@ -586,6 +597,7 @@ static int i2o_scsi_queuecommand(Scsi_Cmnd * SCpnt, void (*done) (Scsi_Cmnd *))
 	
 	i2o_raw_writel(I2O_CMD_SCSI_EXEC<<24|HOST_TID<<12|tid, &msg[1]);
 	i2o_raw_writel(scsi_context, &msg[2]);	/* So the I2O layer passes to us */
+	/* Sorry 64bit folks. FIXME */
 	i2o_raw_writel((u32)SCpnt, &msg[3]);	/* We want the SCSI control block back */
 
 	/* LSI_920_PCI_QUIRK
@@ -643,6 +655,15 @@ static int i2o_scsi_queuecommand(Scsi_Cmnd * SCpnt, void (*done) (Scsi_Cmnd *))
 	
 	reqlen = 12;		// SINGLE SGE
 	
+	/*
+	 *	Now fill in the SGList and command 
+	 *
+	 *	FIXME: we need to set the sglist limits according to the 
+	 *	message size of the I2O controller. We might only have room
+	 *	for 6 or so worst case
+	 *
+	 *	FIXME: pci dma mapping
+	 */
 	
 	if(SCpnt->use_sg)
 	{
@@ -793,7 +814,7 @@ static int i2o_scsi_abort(Scsi_Cmnd * SCpnt)
 	i2o_raw_writel(I2O_CMD_SCSI_ABORT<<24|HOST_TID<<12|tid, msg+4);
 	i2o_raw_writel(scsi_context, msg+8);
 	i2o_raw_writel(0, msg+12);	/* Not needed for an abort */
-	i2o_raw_writel((u32)SCpnt, msg+16);	
+	i2o_raw_writel((u32)SCpnt, msg+16);	/* FIXME 32bitism */
 	wmb();
 	i2o_post_message(c,m);
 	wmb();

@@ -159,43 +159,12 @@ ENTRY(cpu_sa1100_reset)
 	mov	pc, r0
 
 /*
- * cpu_sa110_do_idle(type)
+ * cpu_sa110_do_idle()
  *
  * Cause the processor to idle
- *
- * type: call type:
- *   0 = slow idle
- *   1 = fast idle
- *   2 = switch to slow processor clock
- *   3 = switch to fast processor clock
  */
 	.align	5
-idle:	mcr	p15, 0, r0, c15, c8, 2		@ Wait for interrupt, cache aligned
-	mov	r0, r0				@ safety
-	mov	pc, lr
-
 ENTRY(cpu_sa110_do_idle)
-	mov	ip, #0
-	cmp	r0, #4
-	addcc	pc, pc, r0, lsl #2
-	mov	pc, lr
-
-	b	idle
-	b	idle
-	b	slow_clock
-	b	fast_clock
-
-fast_clock:
-	mcr	p15, 0, ip, c15, c1, 2		@ enable clock switching
-	mov	pc, lr
-
-slow_clock:
-	mcr	p15, 0, ip, c15, c2, 2		@ disable clock switching
-	ldr	r1, =UNCACHEABLE_ADDR		@ load from uncacheable loc
-	ldr	r1, [r1, #0]			@ force switch to MCLK
-	mov	pc, lr
-
-	.align	5
 ENTRY(cpu_sa1100_do_idle)
 	mov	r0, r0				@ 4 nop padding
 	mov	r0, r0
@@ -468,6 +437,9 @@ ENTRY(cpu_sa110_tlb_invalidate_range)
 ENTRY(cpu_sa1100_tlb_invalidate_range)
 	bic	r0, r0, #0x0ff
 	bic	r0, r0, #0xf00
+	sub	r3, r1, r0
+	cmp	r3, #256 * PAGESIZE		@ arbitary, should be tuned
+	bhi	cpu_sa110_tlb_invalidate_all
 	mov	r3, #0
 	mcr	p15, 0, r3, c7, c10, 4		@ drain WB
 1:	mcr	p15, 0, r0, c8, c6, 1		@ invalidate D TLB entry
@@ -595,8 +567,6 @@ ENTRY(cpu_sa1100_set_pte)
 	mov	pc, lr
 
 
-cpu_manu_name:
-	.asciz	"Intel"
 cpu_sa110_name:
 	.asciz	"StrongARM-110"
 cpu_sa1100_name:
@@ -676,7 +646,7 @@ ENTRY(sa110_processor_functions)
 
 	.type	cpu_sa110_info, #object
 cpu_sa110_info:
-	.long	cpu_manu_name
+	.long	0
 	.long	cpu_sa110_name
 	.size	cpu_sa110_info, . - cpu_sa110_info
 
@@ -720,12 +690,12 @@ ENTRY(sa1100_processor_functions)
 	.size	sa1100_processor_functions, . - sa1100_processor_functions
 
 cpu_sa1100_info:
-	.long	cpu_manu_name
+	.long	0
 	.long	cpu_sa1100_name
 	.size	cpu_sa1100_info, . - cpu_sa1100_info
 
 cpu_sa1110_info:
-	.long	cpu_manu_name
+	.long	0
 	.long	cpu_sa1110_name
 	.size	cpu_sa1110_info, . - cpu_sa1110_info
 

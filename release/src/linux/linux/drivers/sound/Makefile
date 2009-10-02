@@ -33,6 +33,7 @@ obj-$(CONFIG_SOUND_OPL3SA2)	+= opl3sa2.o ad1848.o mpu401.o
 obj-$(CONFIG_SOUND_MSS)		+= ad1848.o
 obj-$(CONFIG_SOUND_PAS)		+= pas2.o sb.o sb_lib.o uart401.o
 obj-$(CONFIG_SOUND_SB)		+= sb.o sb_lib.o uart401.o
+obj-$(CONFIG_SOUND_KAHLUA)	+= kahlua.o
 obj-$(CONFIG_SOUND_WAVEFRONT)	+= wavefront.o
 obj-$(CONFIG_SOUND_MAUI)	+= maui.o mpu401.o
 obj-$(CONFIG_SOUND_MPU401)	+= mpu401.o
@@ -45,6 +46,7 @@ obj-$(CONFIG_SOUND_VIDC)	+= vidc_mod.o
 obj-$(CONFIG_SOUND_WAVEARTIST)	+= waveartist.o
 obj-$(CONFIG_SOUND_SGALAXY)	+= sgalaxy.o ad1848.o
 obj-$(CONFIG_SOUND_AD1816)	+= ad1816.o
+obj-$(CONFIG_SOUND_AD1889)      += ad1889.o ac97_codec.o
 obj-$(CONFIG_SOUND_ACI_MIXER)	+= aci.o
 obj-$(CONFIG_SOUND_AWE32_SYNTH)	+= awe_wave.o
 
@@ -67,6 +69,8 @@ obj-$(CONFIG_SOUND_ES1370)	+= es1370.o
 obj-$(CONFIG_SOUND_ES1371)	+= es1371.o ac97_codec.o
 obj-$(CONFIG_SOUND_VRC5477)	+= nec_vrc5477.o ac97_codec.o
 obj-$(CONFIG_SOUND_AU1X00)      += au1000.o ac97_codec.o  
+obj-$(CONFIG_SOUND_AU1550_PSC)  += au1550_psc.o ac97_codec.o  
+obj-$(CONFIG_SOUND_AU1550_I2S)  += au1550_i2s.o
 obj-$(CONFIG_SOUND_ESSSOLO1)	+= esssolo1.o
 obj-$(CONFIG_SOUND_FUSION)	+= cs46xx.o ac97_codec.o
 obj-$(CONFIG_SOUND_MAESTRO)	+= maestro.o
@@ -79,6 +83,8 @@ obj-$(CONFIG_SOUND_BCM_CS4297A)	+= swarm_cs4297a.o
 obj-$(CONFIG_SOUND_RME96XX)     += rme96xx.o
 obj-$(CONFIG_SOUND_BT878)	+= btaudio.o
 obj-$(CONFIG_SOUND_IT8172)	+= ite8172.o ac97_codec.o
+obj-$(CONFIG_SOUND_AD1980)	+= ac97_plugin_ad1980.o
+obj-$(CONFIG_SOUND_WM97XX)	+= ac97_plugin_wm97xx.o
 
 ifeq ($(CONFIG_MIDI_EMU10K1),y)
   obj-$(CONFIG_SOUND_EMU10K1)	+= sound.o

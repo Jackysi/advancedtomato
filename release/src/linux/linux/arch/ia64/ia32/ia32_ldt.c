@@ -65,6 +65,7 @@ read_default_ldt (void * ptr, unsigned long bytecount)
 	unsigned long size;
 	int err;
 
+	/* XXX fix me: should return equivalent of default_ldt[0] */
 	err = 0;
 	size = 8;
 	if (size > bytecount)

@@ -62,7 +62,7 @@
 #include <net/irda/w83977af.h>
 #include <net/irda/w83977af_ir.h>
 
-#ifdef  CONFIG_ARCH_NETWINDER                /* Adjust to NetWinder differences */
+#ifdef  CONFIG_ARCH_NETWINDER            /* Adjust to NetWinder differences */
 #undef  CONFIG_NETWINDER_TX_DMA_PROBLEMS /* Not needed */
 #define CONFIG_NETWINDER_RX_DMA_PROBLEMS /* Must have this one! */
 #endif
@@ -76,7 +76,7 @@ static int  qos_mtt_bits = 0x07;   /* 1 ms or more */
 #define CHIP_IO_EXTENT 8
 
 static unsigned int io[] = { 0x180, ~0, ~0, ~0 };
-#ifdef CONFIG_ARCH_NETWINDER                 /* Adjust to NetWinder differences */
+#ifdef CONFIG_ARCH_NETWINDER             /* Adjust to NetWinder differences */
 static unsigned int irq[] = { 6, 0, 0, 0 };
 #else
 static unsigned int irq[] = { 11, 0, 0, 0 };
@@ -203,6 +203,7 @@ int w83977af_open(int i, unsigned int iobase, unsigned int irq,
 	
 	/* The only value we must override it the baudrate */
 
+	/* FIXME: The HP HDLS-1100 does not support 1152000! */
 	self->qos.baud_rate.bits = IR_9600|IR_19200|IR_38400|IR_57600|
 		IR_115200|IR_576000|IR_1152000|(IR_4000000 << 8);
 

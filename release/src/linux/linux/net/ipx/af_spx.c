@@ -357,6 +357,15 @@ static int spx_connect(struct socket *sock, struct sockaddr *uaddr,
         return (0);
 }
 
+/*
+ * Calculate the timeout for a packet. Thankfully SPX has a large
+ * fudge factor (3/4 secs) and does not pay much attention to RTT.
+ * As we simply have a default retry time of 1*HZ and a max retry
+ * time of 5*HZ. Between those values we increase the timeout based
+ * on the number of retransmit tries.
+ *
+ * FixMe: This is quite fake, but will work for now. (JS)
+ */
 static inline unsigned long spx_calc_rtt(int tries)
 {
         if(tries < 1)

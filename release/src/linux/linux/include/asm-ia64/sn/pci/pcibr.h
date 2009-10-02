@@ -1,16 +1,17 @@
-/* $Id: pcibr.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992 - 1997, 2000-2001 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 1992-1997,2000-2003 Silicon Graphics, Inc. All rights reserved.
  */
 #ifndef _ASM_SN_PCI_PCIBR_H
 #define _ASM_SN_PCI_PCIBR_H
 
 #if defined(__KERNEL__)
 
+#include <linux/config.h>
 #include <asm/sn/dmamap.h>
 #include <asm/sn/driver.h>
 #include <asm/sn/pio.h>
@@ -58,9 +59,7 @@ typedef struct pcibr_intr_s *pcibr_intr_t;
  *	code and part number registered by pcibr_init().
  */
 
-extern void		pcibr_init(void);
-
-extern int		pcibr_attach(devfs_handle_t);
+extern int		pcibr_attach(vertex_hdl_t);
 
 /* =====================================================================
  *    bus provider function table
@@ -75,6 +74,7 @@ extern int		pcibr_attach(devfs_handle_t);
  */
 
 extern pciio_provider_t pcibr_provider;
+extern pciio_provider_t pci_pic_provider;
 
 /* =====================================================================
  *    secondary entry points: pcibr PCI bus provider
@@ -92,7 +92,7 @@ extern pciio_provider_t pcibr_provider;
  *	smarts on the part of the compilation system).
  */
 
-extern pcibr_piomap_t	pcibr_piomap_alloc(devfs_handle_t dev,
+extern pcibr_piomap_t	pcibr_piomap_alloc(vertex_hdl_t dev,
 					   device_desc_t dev_desc,
 					   pciio_space_t space,
 					   iopaddr_t pci_addr,
@@ -108,24 +108,24 @@ extern caddr_t		pcibr_piomap_addr(pcibr_piomap_t piomap,
 
 extern void		pcibr_piomap_done(pcibr_piomap_t piomap);
 
-extern caddr_t		pcibr_piotrans_addr(devfs_handle_t dev,
+extern caddr_t		pcibr_piotrans_addr(vertex_hdl_t dev,
 					    device_desc_t dev_desc,
 					    pciio_space_t space,
 					    iopaddr_t pci_addr,
 					    size_t byte_count,
 					    unsigned flags);
 
-extern iopaddr_t	pcibr_piospace_alloc(devfs_handle_t dev,
+extern iopaddr_t	pcibr_piospace_alloc(vertex_hdl_t dev,
 					     device_desc_t dev_desc,
 					     pciio_space_t space,
 					     size_t byte_count,
 					     size_t alignment);
-extern void		pcibr_piospace_free(devfs_handle_t dev,
+extern void		pcibr_piospace_free(vertex_hdl_t dev,
 					    pciio_space_t space,
 					    iopaddr_t pciaddr,
 					    size_t byte_count);
 
-extern pcibr_dmamap_t	pcibr_dmamap_alloc(devfs_handle_t dev,
+extern pcibr_dmamap_t	pcibr_dmamap_alloc(vertex_hdl_t dev,
 					   device_desc_t dev_desc,
 					   size_t byte_count_max,
 					   unsigned flags);
@@ -148,101 +148,92 @@ extern void		pcibr_dmamap_done(pcibr_dmamap_t dmamap);
  * (This node id can be different for each PCI bus.) 
  */
 
-extern cnodeid_t	pcibr_get_dmatrans_node(devfs_handle_t pconn_vhdl);
+extern cnodeid_t	pcibr_get_dmatrans_node(vertex_hdl_t pconn_vhdl);
 
-extern iopaddr_t	pcibr_dmatrans_addr(devfs_handle_t dev,
+extern iopaddr_t	pcibr_dmatrans_addr(vertex_hdl_t dev,
 					    device_desc_t dev_desc,
 					    paddr_t paddr,
 					    size_t byte_count,
 					    unsigned flags);
 
-extern alenlist_t	pcibr_dmatrans_list(devfs_handle_t dev,
+extern alenlist_t	pcibr_dmatrans_list(vertex_hdl_t dev,
 					    device_desc_t dev_desc,
 					    alenlist_t palenlist,
 					    unsigned flags);
 
 extern void		pcibr_dmamap_drain(pcibr_dmamap_t map);
 
-extern void		pcibr_dmaaddr_drain(devfs_handle_t vhdl,
+extern void		pcibr_dmaaddr_drain(vertex_hdl_t vhdl,
 					    paddr_t addr,
 					    size_t bytes);
 
-extern void		pcibr_dmalist_drain(devfs_handle_t vhdl,
+extern void		pcibr_dmalist_drain(vertex_hdl_t vhdl,
 					    alenlist_t list);
 
 typedef unsigned	pcibr_intr_ibit_f(pciio_info_t info,
 					  pciio_intr_line_t lines);
 
-extern void		pcibr_intr_ibit_set(devfs_handle_t, pcibr_intr_ibit_f *);
+extern void		pcibr_intr_ibit_set(vertex_hdl_t, pcibr_intr_ibit_f *);
 
-extern pcibr_intr_t	pcibr_intr_alloc(devfs_handle_t dev,
+extern pcibr_intr_t	pcibr_intr_alloc(vertex_hdl_t dev,
 					 device_desc_t dev_desc,
 					 pciio_intr_line_t lines,
-					 devfs_handle_t owner_dev);
+					 vertex_hdl_t owner_dev);
 
 extern void		pcibr_intr_free(pcibr_intr_t intr);
 
-extern int		pcibr_intr_connect(pcibr_intr_t intr);
+extern int		pcibr_intr_connect(pcibr_intr_t intr, intr_func_t, intr_arg_t);
 
 extern void		pcibr_intr_disconnect(pcibr_intr_t intr);
 
-extern devfs_handle_t	pcibr_intr_cpu_get(pcibr_intr_t intr);
+extern vertex_hdl_t	pcibr_intr_cpu_get(pcibr_intr_t intr);
 
-extern void		pcibr_provider_startup(devfs_handle_t pcibr);
+extern void		pcibr_provider_startup(vertex_hdl_t pcibr);
 
-extern void		pcibr_provider_shutdown(devfs_handle_t pcibr);
+extern void		pcibr_provider_shutdown(vertex_hdl_t pcibr);
 
-extern int		pcibr_reset(devfs_handle_t dev);
+extern int		pcibr_reset(vertex_hdl_t dev);
 
-extern int              pcibr_write_gather_flush(devfs_handle_t dev);
-
-extern pciio_endian_t	pcibr_endian_set(devfs_handle_t dev,
+extern pciio_endian_t	pcibr_endian_set(vertex_hdl_t dev,
 					 pciio_endian_t device_end,
 					 pciio_endian_t desired_end);
 
-extern pciio_priority_t pcibr_priority_set(devfs_handle_t dev,
-					   pciio_priority_t device_prio);
-
-extern uint64_t		pcibr_config_get(devfs_handle_t conn,
+extern uint64_t		pcibr_config_get(vertex_hdl_t conn,
 					 unsigned reg,
 					 unsigned size);
 
-extern void		pcibr_config_set(devfs_handle_t conn,
+extern void		pcibr_config_set(vertex_hdl_t conn,
 					 unsigned reg,
 					 unsigned size,
 					 uint64_t value);
 
-extern int		pcibr_error_devenable(devfs_handle_t pconn_vhdl,
+extern int		pcibr_error_devenable(vertex_hdl_t pconn_vhdl,
 					      int error_code);
 
-extern pciio_slot_t	pcibr_error_extract(devfs_handle_t pcibr_vhdl,
-					    pciio_space_t *spacep,
-					    iopaddr_t *addrp);
-
-extern int		pcibr_wrb_flush(devfs_handle_t pconn_vhdl);
-extern int		pcibr_rrb_check(devfs_handle_t pconn_vhdl,
+extern int		pcibr_wrb_flush(vertex_hdl_t pconn_vhdl);
+extern int		pcibr_rrb_check(vertex_hdl_t pconn_vhdl,
 					int *count_vchan0,
 					int *count_vchan1,
 					int *count_reserved,
 					int *count_pool);
 
-extern int		pcibr_alloc_all_rrbs(devfs_handle_t vhdl, int even_odd,
+extern int		pcibr_alloc_all_rrbs(vertex_hdl_t vhdl, int even_odd,
 					     int dev_1_rrbs, int virt1,
 					     int dev_2_rrbs, int virt2,
 					     int dev_3_rrbs, int virt3,
 					     int dev_4_rrbs, int virt4);
 
 typedef void
-rrb_alloc_funct_f	(devfs_handle_t xconn_vhdl,
+rrb_alloc_funct_f	(vertex_hdl_t xconn_vhdl,
 			 int *vendor_list);
 
 typedef rrb_alloc_funct_f      *rrb_alloc_funct_t;
 
-void			pcibr_set_rrb_callback(devfs_handle_t xconn_vhdl,
+void			pcibr_set_rrb_callback(vertex_hdl_t xconn_vhdl,
 					       rrb_alloc_funct_f *func);
 
-extern int		pcibr_device_unregister(devfs_handle_t);
-extern int		pcibr_dma_enabled(devfs_handle_t);
+extern int		pcibr_device_unregister(vertex_hdl_t);
+extern int		pcibr_dma_enabled(vertex_hdl_t);
 /*
  * Bridge-specific flags that can be set via pcibr_device_flags_set
  * and cleared via pcibr_device_flags_clear.  Other flags are
@@ -310,7 +301,7 @@ typedef int		pcibr_device_flags_t;
  * "flags" are defined above. NOTE: this includes turning
  * things *OFF* as well as turning them *ON* ...
  */
-extern int		pcibr_device_flags_set(devfs_handle_t dev,
+extern int		pcibr_device_flags_set(vertex_hdl_t dev,
 					     pcibr_device_flags_t flags);
 
 /*
@@ -321,7 +312,7 @@ extern int		pcibr_device_flags_set(devfs_handle_t dev,
  * <0 on failure, which occurs when we're unable to allocate any
  * buffers to a channel that desires at least one buffer.
  */
-extern int		pcibr_rrb_alloc(devfs_handle_t pconn_vhdl,
+extern int		pcibr_rrb_alloc(vertex_hdl_t pconn_vhdl,
 					int *count_vchan0,
 					int *count_vchan1);
 
@@ -335,15 +326,15 @@ extern iopaddr_t	pcibr_dmamap_pciaddr_get(pcibr_dmamap_t);
 
 extern xwidget_intr_preset_f pcibr_xintr_preset;
 
-extern void		pcibr_hints_fix_rrbs(devfs_handle_t);
-extern void		pcibr_hints_dualslot(devfs_handle_t, pciio_slot_t, pciio_slot_t);
-extern void		pcibr_hints_subdevs(devfs_handle_t, pciio_slot_t, ulong);
-extern void		pcibr_hints_handsoff(devfs_handle_t);
+extern void		pcibr_hints_fix_rrbs(vertex_hdl_t);
+extern void		pcibr_hints_dualslot(vertex_hdl_t, pciio_slot_t, pciio_slot_t);
+extern void		pcibr_hints_subdevs(vertex_hdl_t, pciio_slot_t, ulong);
+extern void		pcibr_hints_handsoff(vertex_hdl_t);
 
-typedef unsigned	pcibr_intr_bits_f(pciio_info_t, pciio_intr_line_t);
-extern void		pcibr_hints_intr_bits(devfs_handle_t, pcibr_intr_bits_f *);
+typedef unsigned	pcibr_intr_bits_f(pciio_info_t, pciio_intr_line_t, int);
+extern void		pcibr_hints_intr_bits(vertex_hdl_t, pcibr_intr_bits_f *);
 
-extern int		pcibr_asic_rev(devfs_handle_t);
+extern int		pcibr_asic_rev(vertex_hdl_t);
 
 #endif 	/* __ASSEMBLY__ */
 #endif	/* #if defined(__KERNEL__) */
@@ -414,16 +405,12 @@ struct pcibr_slot_down_resp_s {
     char                    resp_l1_msg[L1_QSIZE + 1];
 };
 
-struct pcibr_slot_info_req_s {
-   int                      req_slot;
-   pcibr_slot_info_resp_t   req_respp;
-   int                      req_size;
-};
-
 struct pcibr_slot_info_resp_s {
+    short		    resp_bs_bridge_type;
+    short		    resp_bs_bridge_mode;
     int                     resp_has_host;
     char                    resp_host_slot;
-    devfs_handle_t            resp_slot_conn;
+    vertex_hdl_t            resp_slot_conn;
     char                    resp_slot_conn_name[MAXDEVNAME];
     int                     resp_slot_status;
     int                     resp_l1_bus_num;
@@ -438,17 +425,20 @@ struct pcibr_slot_info_resp_s {
     unsigned                resp_bss_d64_flags;
     iopaddr_t               resp_bss_d32_base;
     unsigned                resp_bss_d32_flags;
-    int                     resp_bss_ext_ates_active;
+    atomic_t                resp_bss_ext_ates_active;
     volatile unsigned      *resp_bss_cmd_pointer;
     unsigned                resp_bss_cmd_shadow;
     int                     resp_bs_rrb_valid;
-    int                     resp_bs_rrb_valid_v;
+    int                     resp_bs_rrb_valid_v1;
+    int                     resp_bs_rrb_valid_v2;
+    int                     resp_bs_rrb_valid_v3;
     int                     resp_bs_rrb_res;
     bridgereg_t             resp_b_resp;
     bridgereg_t             resp_b_int_device;
     bridgereg_t             resp_b_int_enable;
     bridgereg_t             resp_b_int_host;
-
+    picreg_t		    resp_p_int_enable;
+    picreg_t		    resp_p_int_host;
     struct pcibr_slot_func_info_resp_s {
         int                     resp_f_status;
         char                    resp_f_slot_name[MAXDEVNAME];
@@ -507,6 +497,9 @@ struct pcibr_slot_info_resp_s {
 #define PCI_SLOT_RRB_ALLOC_ERR   24     /* slot initial rrb alloc error */
 #define PCI_SLOT_DRV_ATTACH_ERR  25     /* driver attach error */
 #define PCI_SLOT_DRV_DETACH_ERR  26     /* driver detach error */
+/* EFBIG                         27    */
+#define PCI_MULTI_FUNC_ERR       28     /* multi-function card error */
+#define PCI_SLOT_RBAR_ALLOC_ERR  29     /* slot PCI-X RBAR alloc error */
 /* ERANGE                        34    */
 /* EUNATCH                       42    */
 

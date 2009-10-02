@@ -16,18 +16,20 @@
  * Almost all MIPS CPUs define 8 interrupt sources.  They are typically
  * level triggered (i.e., cannot be cleared from CPU; must be cleared from
  * device).  The first two are software interrupts which we don't really
- * use or support.  The last one is usually cpu timer interrupt if a counter
- * register is present.
+ * use or support.  The last one is usually the CPU timer interrupt if
+ * counter register is present or, for CPUs with an external FPU, by
+ * convention it's the FPU exception interrupt.
  *
  * Don't even think about using this on SMP.  You have been warned.
  *
  * This file exports one global function:
- *	mips_cpu_irq_init(u32 irq_base);
+ *	void mips_cpu_irq_init(int irq_base);
  */
+#include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/types.h>
 #include <linux/kernel.h>
 
+#include <asm/irq_cpu.h>
 #include <asm/mipsregs.h>
 #include <asm/system.h>
 
@@ -78,7 +80,7 @@ static unsigned int mips_cpu_irq_startup(unsigned int irq)
 static void mips_cpu_irq_ack(unsigned int irq)
 {
 	/* Only necessary for soft interrupts */
-	clear_c0_cause(1 << (irq - mips_cpu_irq_base + 8));
+	clear_c0_cause(0x100 << (irq - mips_cpu_irq_base));
 
 	mask_mips_irq(irq);
 }
@@ -90,7 +92,7 @@ static void mips_cpu_irq_end(unsigned int irq)
 }
 
 static hw_irq_controller mips_cpu_irq_controller = {
-	"CPU_irq",
+	"MIPS",
 	mips_cpu_irq_startup,
 	mips_cpu_irq_shutdown,
 	mips_cpu_irq_enable,
@@ -101,9 +103,9 @@ static hw_irq_controller mips_cpu_irq_controller = {
 };
 
 
-void mips_cpu_irq_init(u32 irq_base)
+void __init mips_cpu_irq_init(int irq_base)
 {
-	u32 i;
+	int i;
 
 	for (i = irq_base; i < irq_base + 8; i++) {
 		irq_desc[i].status = IRQ_DISABLED;

@@ -71,6 +71,7 @@ static int del_alloc_set(int context, int type, unsigned int val)
 }
 
 /* fb management via fb device */ 
+#if 1
 int sis_fb_alloc(struct inode *inode, struct file *filp, unsigned int cmd,
 		  unsigned long arg)
 {
@@ -119,7 +120,7 @@ int sis_fb_free(struct inode *inode, struct file *filp, unsigned int cmd,
     return -1;
   }
 
-  sis_free(fb.free);
+  sis_free((u32)fb.free);
   if(!del_alloc_set(fb.context, VIDEO_TYPE, fb.free))
     retval = -1;
 
@@ -128,8 +129,24 @@ int sis_fb_free(struct inode *inode, struct file *filp, unsigned int cmd,
   return retval;
 }
 
+#else
+
+int sis_fb_alloc(struct inode *inode, struct file *filp, unsigned int cmd,
+		  unsigned long arg)
+{
+  return -1;
+}
+
+int sis_fb_free(struct inode *inode, struct file *filp, unsigned int cmd,
+		  unsigned long arg)
+{
+  return 0;
+}
+
+#endif
 
 /* agp memory management */ 
+#if 1
 
 static memHeap_t *AgpHeap = NULL;
 
@@ -210,6 +227,7 @@ int sisp_agp_free(struct inode *inode, struct file *filp, unsigned int cmd,
   return retval;
 }
 
+#endif
 
 int sis_init_context(int context)
 {

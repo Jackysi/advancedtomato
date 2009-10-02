@@ -3,6 +3,11 @@
 
 #include <linux/config.h>
 #include <asm/psw.h>
+#include <asm/system_irqsave.h>
+
+#ifdef CONFIG_SMP
+#include <asm/spinlock_t.h>
+#endif
 
 /* The program status word as bitfields.  */
 struct pa_psw {
@@ -51,22 +56,6 @@ extern struct task_struct *_switch_to(struct task_struct *, struct task_struct *
 } while(0)
 
 
-
-/* interrupt control */
-#define __save_flags(x)	__asm__ __volatile__("ssm 0, %0" : "=r" (x) : : "memory")
-#define __restore_flags(x) __asm__ __volatile__("mtsm %0" : : "r" (x) : "memory")
-#define __cli()	__asm__ __volatile__("rsm %0,%%r0\n" : : "i" (PSW_I) : "memory" )
-#define __sti()	__asm__ __volatile__("ssm %0,%%r0\n" : : "i" (PSW_I) : "memory" )
-
-#define local_irq_save(x) \
-	__asm__ __volatile__("rsm %1,%0" : "=r" (x) :"i" (PSW_I) : "memory" )
-#define local_irq_set(x) \
-	__asm__ __volatile__("ssm %1,%0" : "=r" (x) :"i" (PSW_I) : "memory" )
-#define local_irq_restore(x) \
-	__asm__ __volatile__("mtsm %0" : : "r" (x) : "memory" )
-#define local_irq_disable() __cli()
-#define local_irq_enable()  __sti()
-
 #ifdef CONFIG_SMP
 extern void __global_cli(void);
 extern void __global_sti(void);
@@ -77,13 +66,17 @@ extern void __global_restore_flags(unsigned long);
 #define sti() __global_sti()
 #define save_flags(x) ((x)=__global_save_flags())
 #define restore_flags(x) __global_restore_flags(x)
- 
+#define save_and_cli(x) do { save_flags(x); cli(); } while(0);
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0);
+
 #else
 
 #define cli() __cli()
 #define sti() __sti()
 #define save_flags(x) __save_flags(x)
 #define restore_flags(x) __restore_flags(x)
+#define save_and_cli(x) __save_and_cli(x)
+#define save_and_sti(x) __save_and_sti(x)
 
 #endif
 
@@ -152,24 +145,5 @@ static inline void set_eiem(unsigned long val)
 #define smp_wmb()	mb()
 
 #define set_mb(var, value) do { var = value; mb(); } while (0)
-
-
-/* LDCW, the only atomic read-write operation PA-RISC has. *sigh*.  */
-#define __ldcw(a) ({ \
-	unsigned __ret; \
-	__asm__ __volatile__("ldcw 0(%1),%0" : "=r" (__ret) : "r" (a)); \
-	__ret; \
-})
-
-
-#ifdef CONFIG_SMP
-/*
- * Your basic SMP spinlocks, allowing only a single CPU anywhere
- */
-
-typedef struct {
-	volatile unsigned int __attribute__((aligned(16))) lock;
-} spinlock_t;
-#endif
 
 #endif

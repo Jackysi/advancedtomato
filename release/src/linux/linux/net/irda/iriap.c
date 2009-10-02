@@ -42,6 +42,7 @@
 #include <net/irda/iriap.h>
 
 #ifdef CONFIG_IRDA_DEBUG
+/* FIXME: This one should go in irlmp.c */
 static const char *ias_charset_types[] = {
 	"CS_ASCII",
 	"CS_ISO_8859_1",

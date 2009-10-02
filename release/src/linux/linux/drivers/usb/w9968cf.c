@@ -446,8 +446,8 @@ static inline unsigned long w9968cf_get_max_bufsize(struct w9968cf_device*);
 /* High-level CMOS sensor control functions */
 static int w9968cf_sensor_set_control(struct w9968cf_device*,int cid,int val);
 static int w9968cf_sensor_get_control(struct w9968cf_device*,int cid,int *val);
-static inline int w9968cf_sensor_cmd(struct w9968cf_device*, 
-                                     unsigned int cmd, void *arg);
+static int w9968cf_sensor_cmd(struct w9968cf_device*, 
+                              unsigned int cmd, void *arg);
 static int w9968cf_sensor_init(struct w9968cf_device*);
 static int w9968cf_sensor_update_settings(struct w9968cf_device*);
 static int w9968cf_sensor_get_picture(struct w9968cf_device*);
@@ -463,7 +463,7 @@ static int w9968cf_init_chip(struct w9968cf_device*);
 static int w9968cf_set_picture(struct w9968cf_device*, struct video_picture);
 static int w9968cf_set_window(struct w9968cf_device*, struct video_window);
 static inline u16 w9968cf_valid_palette(u16 palette);
-static inline u16 w9968cf_valid_depth(u16 palette);
+static u16 w9968cf_valid_depth(u16 palette);
 static inline u8 w9968cf_need_decompression(u16 palette);
 static int w9968cf_postprocess_frame(struct w9968cf_device*, 
                                      struct w9968cf_frame_t*);
@@ -2214,7 +2214,7 @@ static inline u16 w9968cf_valid_palette(u16 palette)
   Return the depth corresponding to the given palette.
   Palette _must_ be supported !
   --------------------------------------------------------------------------*/
-static inline u16 w9968cf_valid_depth(u16 palette)
+static u16 w9968cf_valid_depth(u16 palette)
 {
 	u8 i=0;
 	while (w9968cf_formatlist[i].palette != palette)
@@ -2433,7 +2433,7 @@ w9968cf_sensor_get_control(struct w9968cf_device* cam, int cid, int* val)
 }
 
 
-static inline int
+static int
 w9968cf_sensor_cmd(struct w9968cf_device* cam, unsigned int cmd, void* arg)
 {
 	struct i2c_client* c = cam->sensor_client;

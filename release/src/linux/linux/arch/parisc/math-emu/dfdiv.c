@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/dfdiv.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/dfdiv.c		$Revision: $
  *
  *  Purpose:
  *	Double Precision Floating-point Divide

@@ -1,4 +1,33 @@
-
+/*
+ * INET		An implementation of the TCP/IP protocol suite for the LINUX
+ *		operating system.  INET is implemented using the  BSD Socket
+ *		interface as the means of communication with the user level.
+ *
+ *		Holds initial configuration information for devices.
+ *
+ * Version:	@(#)Space.c	1.0.7	08/12/93
+ *
+ * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
+ *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
+ *		Donald J. Becker, <becker@scyld.com>
+ *
+ * Changelog:
+ *		Arnaldo Carvalho de Melo <acme@conectiva.com.br> - 09/1999
+ *		- fix sbni: s/device/net_device/
+ *		Paul Gortmaker (06/98): 
+ *		 - sort probes in a sane way, make sure all (safe) probes
+ *		   get run once & failed autoprobes don't autoprobe again.
+ *
+ *	FIXME:
+ *		Phase out placeholder dev entries put in the linked list
+ *		here in favour of drivers using init_etherdev(NULL, ...)
+ *		combined with a single find_all_devs() function (for 2.3)
+ *
+ *		This program is free software; you can redistribute it and/or
+ *		modify it under the terms of the GNU General Public License
+ *		as published by the Free Software Foundation; either version
+ *		2 of the License, or (at your option) any later version.
+ */
 #include <linux/config.h>
 #include <linux/netdevice.h>
 #include <linux/errno.h>
@@ -54,7 +83,6 @@ extern int sonic_probe(struct net_device *);
 extern int SK_init(struct net_device *);
 extern int seeq8005_probe(struct net_device *);
 extern int smc_init( struct net_device * );
-extern int sgiseeq_probe(struct net_device *);
 extern int atarilance_probe(struct net_device *);
 extern int sun3lance_probe(struct net_device *);
 extern int sun3_82586_probe(struct net_device *);
@@ -139,7 +167,7 @@ static int __init probe_list(struct net_device *dev, struct devprobe *plist)
  * EISA only driver probes, and also the legacy PCI probes
  */
 static struct devprobe eisa_probes[] __initdata = {
-#ifdef CONFIG_DE4X5                 /* DEC DE425, DE434, DE435 adapters */
+#ifdef CONFIG_DE4X5             /* DEC DE425, DE434, DE435 adapters */
 	{de4x5_probe, 0},
 #endif
 #ifdef CONFIG_ULTRA32 
@@ -168,13 +196,13 @@ static struct devprobe mca_probes[] __initdata = {
 #ifdef CONFIG_NE2_MCA
 	{ne2_probe, 0},
 #endif
-#ifdef CONFIG_ELMC		    /* 3c523 */
+#ifdef CONFIG_ELMC		/* 3c523 */
 	{elmc_probe, 0},
 #endif
-#ifdef CONFIG_ELMC_II		    /* 3c527 */
+#ifdef CONFIG_ELMC_II		/* 3c527 */
 	{mc32_probe, 0},
 #endif
-#ifdef CONFIG_SKMC                  /* SKnet Microchannel */
+#ifdef CONFIG_SKMC              /* SKnet Microchannel */
         {skmca_probe, 0},
 #endif
 	{NULL, 0},
@@ -185,10 +213,10 @@ static struct devprobe mca_probes[] __initdata = {
  * look for EISA/PCI/MCA cards in addition to ISA cards).
  */
 static struct devprobe isa_probes[] __initdata = {
-#ifdef CONFIG_EL3		    /* ISA, EISA, MCA 3c5x9 */
+#ifdef CONFIG_EL3		/* ISA, EISA, MCA 3c5x9 */
 	{el3_probe, 0},
 #endif
-#ifdef CONFIG_HP100 		    /* ISA, EISA & PCI */
+#ifdef CONFIG_HP100 		/* ISA, EISA & PCI */
 	{hp100_probe, 0},
 #endif	
 #ifdef CONFIG_3C515
@@ -200,7 +228,7 @@ static struct devprobe isa_probes[] __initdata = {
 #ifdef CONFIG_WD80x3 
 	{wd_probe, 0},
 #endif
-#ifdef CONFIG_EL2 		    /* 3c503 */
+#ifdef CONFIG_EL2 		/* 3c503 */
 	{el2_probe, 0},
 #endif
 #ifdef CONFIG_HPLAN
@@ -209,13 +237,13 @@ static struct devprobe isa_probes[] __initdata = {
 #ifdef CONFIG_HPLAN_PLUS
 	{hp_plus_probe, 0},
 #endif
-#ifdef CONFIG_E2100		    /* Cabletron E21xx series. */
+#ifdef CONFIG_E2100		/* Cabletron E21xx series. */
 	{e2100_probe, 0},
 #endif
-#ifdef CONFIG_NE2000		    /* ISA (use ne2k-pci for PCI cards) */
+#ifdef CONFIG_NE2000		/* ISA (use ne2k-pci for PCI cards) */
 	{ne_probe, 0},
 #endif
-#ifdef CONFIG_LANCE		    /* ISA/VLB (use pcnet32 for PCI cards) */
+#ifdef CONFIG_LANCE		/* ISA/VLB (use pcnet32 for PCI cards) */
 	{lance_probe, 0},
 #endif
 #ifdef CONFIG_SMC9194
@@ -233,43 +261,43 @@ static struct devprobe isa_probes[] __initdata = {
 #ifdef CONFIG_AT1700
 	{at1700_probe, 0},
 #endif
-#ifdef CONFIG_FMV18X		    /* Fujitsu FMV-181/182 */
+#ifdef CONFIG_FMV18X		/* Fujitsu FMV-181/182 */
 	{fmv18x_probe, 0},
 #endif
 #ifdef CONFIG_ETH16I
 	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
 #endif
-#ifdef CONFIG_ZNET		    /* Zenith Z-Note and some IBM Thinkpads. */
+#ifdef CONFIG_ZNET		/* Zenith Z-Note and some IBM Thinkpads. */
 	{znet_probe, 0},
 #endif
-#ifdef CONFIG_EEXPRESS		    /* Intel EtherExpress */
+#ifdef CONFIG_EEXPRESS		/* Intel EtherExpress */
 	{express_probe, 0},
 #endif
-#ifdef CONFIG_EEXPRESS_PRO	    /* Intel EtherExpress Pro/10 */
+#ifdef CONFIG_EEXPRESS_PRO	/* Intel EtherExpress Pro/10 */
 	{eepro_probe, 0},
 #endif
-#ifdef CONFIG_DEPCA		    /* DEC DEPCA */
+#ifdef CONFIG_DEPCA		/* DEC DEPCA */
 	{depca_probe, 0},
 #endif
-#ifdef CONFIG_EWRK3                 /* DEC EtherWORKS 3 */
+#ifdef CONFIG_EWRK3             /* DEC EtherWORKS 3 */
     	{ewrk3_probe, 0},
 #endif
-#if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	    /* Intel I82596 */
+#if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
 	{i82596_probe, 0},
 #endif
-#ifdef CONFIG_EL1		    /* 3c501 */
+#ifdef CONFIG_EL1		/* 3c501 */
 	{el1_probe, 0},
 #endif
-#ifdef CONFIG_WAVELAN		    /* WaveLAN */
+#ifdef CONFIG_WAVELAN		/* WaveLAN */
 	{wavelan_probe, 0},
 #endif
-#ifdef CONFIG_ARLAN		    /* Aironet */
+#ifdef CONFIG_ARLAN		/* Aironet */
 	{arlan_probe, 0},
 #endif
-#ifdef CONFIG_EL16		    /* 3c507 */
+#ifdef CONFIG_EL16		/* 3c507 */
 	{el16_probe, 0},
 #endif
-#ifdef CONFIG_ELPLUS		    /* 3c505 */
+#ifdef CONFIG_ELPLUS		/* 3c505 */
 	{elplus_probe, 0},
 #endif
 #ifdef CONFIG_SK_G16
@@ -288,47 +316,47 @@ static struct devprobe isa_probes[] __initdata = {
 };
 
 static struct devprobe parport_probes[] __initdata = {
-#ifdef CONFIG_DE600		    /* D-Link DE-600 adapter */
+#ifdef CONFIG_DE600		/* D-Link DE-600 adapter */
 	{de600_probe, 0},
 #endif
-#ifdef CONFIG_DE620		    /* D-Link DE-620 adapter */
+#ifdef CONFIG_DE620		/* D-Link DE-620 adapter */
 	{de620_probe, 0},
 #endif
 	{NULL, 0},
 };
 
 static struct devprobe m68k_probes[] __initdata = {
-#ifdef CONFIG_ATARILANCE	    /* Lance-based Atari ethernet boards */
+#ifdef CONFIG_ATARILANCE	/* Lance-based Atari ethernet boards */
 	{atarilance_probe, 0},
 #endif
-#ifdef CONFIG_SUN3LANCE             /* sun3 onboard Lance chip */
+#ifdef CONFIG_SUN3LANCE         /* sun3 onboard Lance chip */
 	{sun3lance_probe, 0},
 #endif
-#ifdef CONFIG_SUN3_82586            /* sun3 onboard Intel 82586 chip */
+#ifdef CONFIG_SUN3_82586        /* sun3 onboard Intel 82586 chip */
 	{sun3_82586_probe, 0},
 #endif
-#ifdef CONFIG_APNE		    /* A1200 PCMCIA NE2000 */
+#ifdef CONFIG_APNE		/* A1200 PCMCIA NE2000 */
 	{apne_probe, 0},
 #endif
-#ifdef CONFIG_ATARI_BIONET	    /* Atari Bionet Ethernet board */
+#ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
 	{bionet_probe, 0},
 #endif
-#ifdef CONFIG_ATARI_PAMSNET	    /* Atari PAMsNet Ethernet board */
+#ifdef CONFIG_ATARI_PAMSNET	/* Atari PAMsNet Ethernet board */
 	{pamsnet_probe, 0},
 #endif
-#ifdef CONFIG_HPLANCE		    /* HP300 internal Ethernet */
+#ifdef CONFIG_HPLANCE		/* HP300 internal Ethernet */
 	{hplance_probe, 0},
 #endif
-#ifdef CONFIG_MVME147_NET	    /* MVME147 internal Ethernet */
+#ifdef CONFIG_MVME147_NET	/* MVME147 internal Ethernet */
 	{mvme147lance_probe, 0},
 #endif
-#ifdef CONFIG_MACMACE		    /* Mac 68k Quadra AV builtin Ethernet */
+#ifdef CONFIG_MACMACE		/* Mac 68k Quadra AV builtin Ethernet */
 	{mace_probe, 0},
 #endif
 #ifdef CONFIG_MACSONIC		/* Mac SONIC-based Ethernet of all sorts */ 
 	{macsonic_probe, 0},
 #endif
-#ifdef CONFIG_MAC8390               /* NuBus NS8390-based cards */
+#ifdef CONFIG_MAC8390           /* NuBus NS8390-based cards */
 	{mac8390_probe, 0},
 #endif
 #ifdef CONFIG_MAC89x0
@@ -337,19 +365,11 @@ static struct devprobe m68k_probes[] __initdata = {
 	{NULL, 0},
 };
 
-
-static struct devprobe sgi_probes[] __initdata = {
-#ifdef CONFIG_SGISEEQ
-	{sgiseeq_probe, 0},
-#endif
-	{NULL, 0},
-};
-
 static struct devprobe mips_probes[] __initdata = {
 #ifdef CONFIG_MIPS_JAZZ_SONIC
 	{sonic_probe, 0},
 #endif
-#ifdef CONFIG_BAGETLANCE            /* Lance-based Baget ethernet boards */
+#ifdef CONFIG_BAGETLANCE        /* Lance-based Baget ethernet boards */
         {bagetlance_probe, 0},
 #endif
 	{NULL, 0},
@@ -378,8 +398,6 @@ static int __init ethif_probe(struct net_device *dev)
 	if (probe_list(dev, m68k_probes) == 0)
 		return 0;
 	if (probe_list(dev, mips_probes) == 0)
-		return 0;
-	if (probe_list(dev, sgi_probes) == 0)
 		return 0;
 	if (probe_list(dev, eisa_probes) == 0)
 		return 0;

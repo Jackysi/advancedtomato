@@ -79,6 +79,7 @@ struct inode_operations coda_dir_inode_operations =
 };
 
 struct file_operations coda_dir_operations = {
+	llseek:		generic_file_llseek,
 	read:		generic_read_dir,
 	readdir:	coda_readdir,
 	open:		coda_open,
@@ -507,7 +508,11 @@ int coda_readdir(struct file *coda_file, void *dirent, filldir_t filldir)
 		ret = coda_venus_readdir(host_file, filldir, dirent, coda_dentry);
 	} else {
 		/* potemkin case: we were handed a directory inode */
-		ret = vfs_readdir(host_file, filldir, dirent);
+		/* We can't call vfs_readdir because we are already holding
+		 * the inode semaphore. */
+		ret = -ENOENT;
+		if (!IS_DEADDIR(host_file->f_dentry->d_inode))
+			ret = host_file->f_op->readdir(host_file, filldir, dirent);
 	}
 
 	coda_file->f_pos = host_file->f_pos;

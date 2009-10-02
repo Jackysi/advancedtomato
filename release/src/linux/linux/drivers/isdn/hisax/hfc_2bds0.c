@@ -1,4 +1,4 @@
-/* $Id: hfc_2bds0.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: hfc_2bds0.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * specific routines for CCD's HFC 2BDS0
  *
@@ -1017,14 +1017,14 @@ HFCD_l1hw(struct PStack *st, int pr, void *arg)
 				dlogframe(cs, skb, 0);
 			if (cs->tx_skb) {
 				skb_queue_tail(&cs->sq, skb);
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 				if (cs->debug & L1_DEB_LAPD)
 					Logl2Frame(cs, skb, "PH_DATA Queued", 0);
 #endif
 			} else {
 				cs->tx_skb = skb;
 				cs->tx_cnt = 0;
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 				if (cs->debug & L1_DEB_LAPD)
 					Logl2Frame(cs, skb, "PH_DATA", 0);
 #endif
@@ -1049,7 +1049,7 @@ HFCD_l1hw(struct PStack *st, int pr, void *arg)
 				dlogframe(cs, skb, 0);
 			cs->tx_skb = skb;
 			cs->tx_cnt = 0;
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				Logl2Frame(cs, skb, "PH_DATA_PULLED", 0);
 #endif
@@ -1060,7 +1060,7 @@ HFCD_l1hw(struct PStack *st, int pr, void *arg)
 				debugl1(cs, "hfc_fill_dfifo blocked");
 			break;
 		case (PH_PULL | REQUEST):
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				debugl1(cs, "-> PH_REQUEST_PULL");
 #endif

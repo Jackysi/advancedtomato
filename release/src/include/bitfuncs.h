@@ -1,7 +1,7 @@
 /*
  * bit manipulation utility functions
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -36,10 +36,10 @@ static INLINE uint32 find_msbit(uint32 x);
 static INLINE uint32 find_msbit(uint32 x)
 {
 	uint msbit;
-	__asm__("bsrl %1,%0"
-	        :"=r" (msbit)
-	        :"r" (x));
-	return msbit;
+        __asm__("bsrl %1,%0"
+                :"=r" (msbit)
+                :"r" (x));
+        return msbit;
 }
 
 #else	/* !USE_PENTIUM_BSR || !__GNUC__ */

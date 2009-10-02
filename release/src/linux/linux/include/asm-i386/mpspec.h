@@ -15,12 +15,13 @@
 
 /*
  * a maximum of 16 APICs with the current APIC ID architecture.
+ * xAPICs can have up to 256.  SAPICs have 16 ID bits.
  */
-#ifdef CONFIG_MULTIQUAD
+#ifdef CONFIG_X86_CLUSTERED_APIC
 #define MAX_APICS 256
-#else /* !CONFIG_MULTIQUAD */
+#else
 #define MAX_APICS 16
-#endif /* CONFIG_MULTIQUAD */
+#endif
 
 #define MAX_MPC_ENTRY 1024
 
@@ -83,7 +84,7 @@ struct mpc_config_bus
 {
 	unsigned char mpc_type;
 	unsigned char mpc_busid;
-	unsigned char mpc_bustype[6] __attribute((packed));
+	unsigned char mpc_bustype[6];
 };
 
 /* List of Bus Type string values, Intel MP Spec. */
@@ -197,11 +198,11 @@ enum mp_bustype {
 	MP_BUS_PCI,
 	MP_BUS_MCA
 };
-extern int mp_bus_id_to_type [MAX_MP_BUSSES];
-extern int mp_bus_id_to_node [MAX_MP_BUSSES];
-extern int mp_bus_id_to_local [MAX_MP_BUSSES];
+extern int *mp_bus_id_to_type;
+extern int *mp_bus_id_to_node;
+extern int *mp_bus_id_to_local;
+extern int *mp_bus_id_to_pci_bus;
 extern int quad_local_to_mp_bus_id [NR_CPUS/4][4];
-extern int mp_bus_id_to_pci_bus [MAX_MP_BUSSES];
 
 extern unsigned int boot_cpu_physical_apicid;
 extern unsigned long phys_cpu_present_map;
@@ -210,15 +211,27 @@ extern void find_smp_config (void);
 extern void get_smp_config (void);
 extern int nr_ioapics;
 extern int apic_version [MAX_APICS];
-extern int mp_bus_id_to_type [MAX_MP_BUSSES];
 extern int mp_irq_entries;
-extern struct mpc_config_intsrc mp_irqs [MAX_IRQ_SOURCES];
+extern struct mpc_config_intsrc *mp_irqs;
 extern int mpc_default_type;
-extern int mp_bus_id_to_pci_bus [MAX_MP_BUSSES];
 extern int mp_current_pci_id;
 extern unsigned long mp_lapic_addr;
 extern int pic_mode;
 extern int using_apic_timer;
+
+#ifdef CONFIG_ACPI_BOOT
+extern void mp_register_lapic (u8 id, u8 enabled);
+extern void mp_register_lapic_address (u64 address);
+
+#ifdef CONFIG_X86_IO_APIC
+extern void mp_register_ioapic (u8 id, u32 address, u32 irq_base);
+extern void mp_override_legacy_irq (u8 bus_irq, u8 polarity, u8 trigger, u32 global_irq);
+extern void mp_config_acpi_legacy_irqs (void);
+extern void mp_parse_prt (void);
+extern int mp_irqs_alloc(void);
+#endif /*!CONFIG_X86_IO_APIC*/
+
+#endif /*CONFIG_ACPI_BOOT*/
 
 #endif
 

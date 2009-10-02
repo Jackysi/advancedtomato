@@ -56,7 +56,7 @@
 	CSZ presents a more precise but less flexible and less efficient
 	approach. As I understand it, the main idea is to create
 	WFQ flows for each guaranteed service and to allocate
-	the rest of bandwith to dummy flow-0. Flow-0 comprises
+	the rest of bandwidth to dummy flow-0. Flow-0 comprises
 	the predictive services and the best effort traffic;
 	it is handled by a priority scheduler with the highest
 	priority band allocated	for predictive services, and the rest ---
@@ -299,6 +299,24 @@ struct csz_sched_data
    flow with greater finish number.
  */
 
+#if 0
+/* Scan forward */
+extern __inline__ void csz_insert_finish(struct csz_head *b,
+					 struct csz_flow *this)
+{
+	struct csz_head *f = b->fnext;
+	unsigned long finish = this->finish;
+
+	while (f != b) {
+		if (((struct csz_flow*)f)->finish - finish > 0)
+			break;
+		f = f->fnext;
+	}
+	this->fnext = f;
+	this->fprev = f->fprev;
+	this->fnext->fprev = this->fprev->fnext = (struct csz_head*)this;
+}
+#else
 /* Scan backward */
 extern __inline__ void csz_insert_finish(struct csz_head *b,
 					 struct csz_flow *this)
@@ -315,6 +333,7 @@ extern __inline__ void csz_insert_finish(struct csz_head *b,
 	this->fprev = f;
 	this->fnext->fprev = this->fprev->fnext = (struct csz_head*)this;
 }
+#endif
 
 /* Insert flow "this" to the list "b" before
    flow with greater start number.
@@ -689,11 +708,9 @@ csz_dequeue(struct Qdisc* sch)
 	 */
 	if (q->wd_expires) {
 		unsigned long delay = PSCHED_US2JIFFIE(q->wd_expires);
-		del_timer(&q->wd_timer);
 		if (delay == 0)
 			delay = 1;
-		q->wd_timer.expires = jiffies + delay;
-		add_timer(&q->wd_timer);
+		mod_timer(&q->wd_timer, jiffies + delay);
 		sch->stats.overlimits++;
 	}
 #endif
@@ -730,6 +747,14 @@ csz_reset(struct Qdisc* sch)
 static void
 csz_destroy(struct Qdisc* sch)
 {
+	struct csz_sched_data *q = (struct csz_sched_data *)sch->data;
+	struct tcf_proto *tp;
+
+	while ((tp = q->filter_list) != NULL) {
+		q->filter_list = tp->next;
+		tcf_destroy(tp);
+	}
+
 	MOD_DEC_USE_COUNT;
 }
 
@@ -864,6 +889,9 @@ static int csz_change(struct Qdisc *sch, u32 handle, u32 parent, struct rtattr *
 		a = &q->flow[cl];
 
 		spin_lock_bh(&sch->dev->queue_lock);
+#if 0
+		a->rate_log = copt->rate_log;
+#endif
 #ifdef CSZ_PLUS_TBF
 		a->limit = copt->limit;
 		a->rate = copt->rate;

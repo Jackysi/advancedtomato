@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: aic7xxx_osm_pci.c,v 1.1.1.4 2003/10/14 08:08:44 sparq Exp $
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_osm_pci.c#46 $
  */
 
 #include "aic7xxx_osm.h"
@@ -93,7 +93,7 @@ ahc_linux_pci_dev_remove(struct pci_dev *pdev)
 	 * list for extra sanity.
 	 */
 	ahc_list_lock(&l);
-	ahc = ahc_find_softc((struct ahc_softc *)pdev->driver_data);
+	ahc = ahc_find_softc((struct ahc_softc *)pci_get_drvdata(pdev));
 	if (ahc != NULL) {
 		u_long s;
 
@@ -110,6 +110,7 @@ static int
 ahc_linux_pci_dev_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	char		 buf[80];
+	bus_addr_t	 mask_39bit;
 	struct		 ahc_softc *ahc;
 	ahc_dev_softc_t	 pci;
 	struct		 ahc_pci_identity *entry;
@@ -160,19 +161,15 @@ ahc_linux_pci_dev_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 	pci_set_master(pdev);
 
+	mask_39bit = (bus_addr_t)0x7FFFFFFFFFULL;
 	if (sizeof(bus_addr_t) > 4
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,3)
 	 && ahc_linux_get_memsize() > 0x80000000
-	 && pci_set_dma_mask(pdev, 0x7FFFFFFFFFULL) == 0) {
-#else
-	 && ahc_linux_get_memsize() > 0x80000000) {
-
-		ahc->dev_softc->dma_mask = 
-		    (bus_addr_t)(0x7FFFFFFFFFULL & (bus_addr_t)~0);
-#endif
+	 && ahc_pci_set_dma_mask(pdev, mask_39bit) == 0) {
 		ahc->flags |= AHC_39BIT_ADDRESSING;
-		ahc->platform_data->hw_dma_mask =
-		    (bus_addr_t)(0x7FFFFFFFFFULL & (bus_addr_t)~0);
+		ahc->platform_data->hw_dma_mask = mask_39bit;
+	} else {
+		ahc_pci_set_dma_mask(pdev, 0xFFFFFFFF);
+		ahc->platform_data->hw_dma_mask = 0xFFFFFFFF;
 	}
 #endif
 	ahc->dev_softc = pci;
@@ -183,14 +180,21 @@ ahc_linux_pci_dev_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 	pci_set_drvdata(pdev, ahc);
-	if (aic7xxx_detect_complete)
-		ahc_linux_register_host(ahc, aic7xxx_driver_template);
+	if (aic7xxx_detect_complete) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,0)
+		ahc_linux_register_host(ahc, &aic7xxx_driver_template);
+#else
+		printf("aic7xxx: ignoring PCI device found after "
+		       "initialization\n");
+		return (-ENODEV);
+#endif
+	}
 #endif
 	return (0);
 }
 
 int
-ahc_linux_pci_probe(Scsi_Host_Template *template)
+ahc_linux_pci_init(void)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 	return (pci_module_init(&aic7xxx_pci_driver));
@@ -219,9 +223,18 @@ ahc_linux_pci_probe(Scsi_Host_Template *template)
 #endif
 }
 
+void
+ahc_linux_pci_exit(void)
+{
+	pci_unregister_driver(&aic7xxx_pci_driver);
+}
+
 static int
 ahc_linux_pci_reserve_io_region(struct ahc_softc *ahc, u_long *base)
 {
+	if (aic7xxx_allow_memio == 0)
+		return (ENOMEM);
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,0)
 	*base = pci_resource_start(ahc->dev_softc, 0);
 #else
@@ -233,8 +246,7 @@ ahc_linux_pci_reserve_io_region(struct ahc_softc *ahc, u_long *base)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0)
 	if (check_region(*base, 256) != 0)
 		return (ENOMEM);
-	else
-		request_region(*base, 256, "aic7xxx");
+	request_region(*base, 256, "aic7xxx");
 #else
 	if (request_region(*base, 256, "aic7xxx") == 0)
 		return (ENOMEM);
@@ -314,10 +326,10 @@ ahc_pci_map_registers(struct ahc_softc *ahc)
 		 * Do a quick test to see if memory mapped
 		 * I/O is functioning correctly.
 		 */
-		if (ahc_inb(ahc, HCNTRL) == 0xFF) {
+		if (ahc_pci_test_register_access(ahc) != 0) {
 
 			printf("aic7xxx: PCI Device %d:%d:%d "
-			       "failed memory mapped test\n",
+			       "failed memory mapped test.  Using PIO.\n",
 			       ahc_get_pci_bus(ahc->dev_softc),
 			       ahc_get_pci_slot(ahc->dev_softc),
 			       ahc_get_pci_function(ahc->dev_softc));

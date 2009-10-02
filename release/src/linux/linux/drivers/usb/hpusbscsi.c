@@ -71,7 +71,7 @@ static char *states[]={"FREE", "BEGINNING", "WORKING", "ERROR", "WAIT", "PREMATU
 
 #ifdef HPUSBSCSI_DEBUG
 #  define PDEBUG(level, fmt, args...) \
-          if (debug >= (level)) info("[" __PRETTY_FUNCTION__ ":%d] " fmt, __LINE__ , \
+          if (debug >= (level)) info("[%s:%d] " fmt, __PRETTY_FUNCTION__, __LINE__ , \
                  ## args)
 #else
 #  define PDEBUG(level, fmt, args...) do {} while(0)
@@ -125,7 +125,11 @@ hpusbscsi_usb_probe (struct usb_device *dev, unsigned int interface,
 	new->dev = dev;
 	init_waitqueue_head (&new->pending);
 	init_waitqueue_head (&new->deathrow);
+	init_MUTEX(&new->lock);
 	INIT_LIST_HEAD (&new->lh);
+	
+	if (id->idVendor == 0x0686 && id->idProduct == 0x4004)
+		new->need_short_workaround = 1;
 
 
 
@@ -178,7 +182,7 @@ hpusbscsi_usb_probe (struct usb_device *dev, unsigned int interface,
 
 	memcpy (&(new->ctempl), &hpusbscsi_scsi_host_template,
 		sizeof (hpusbscsi_scsi_host_template));
-	(struct hpusbscsi *) new->ctempl.proc_dir = new;
+	new->ctempl.proc_dir = (void *) new;
 	new->ctempl.module = THIS_MODULE;
 
 	if (scsi_register_module (MODULE_SCSI_HA, &(new->ctempl)))
@@ -202,12 +206,12 @@ hpusbscsi_usb_disconnect (struct usb_device *dev, void *ptr)
 {
 	struct hpusbscsi *hp = (struct hpusbscsi *)ptr;
 
+	down(&hp->lock);
 	usb_unlink_urb(&hp->controlurb);
 	usb_unlink_urb(&hp->dataurb);
 
-	spin_lock_irq(&io_request_lock);
 	hp->dev = NULL;
-	spin_unlock_irq(&io_request_lock);
+	up(&hp->lock);
 }
 
 static struct usb_device_id hpusbscsi_usb_ids[] = {
@@ -293,6 +297,7 @@ hpusbscsi_scsi_detect (struct SHT *sht)
 	/* set up the name of our subdirectory under /proc/scsi/ */
 	sprintf (local_name, "hpusbscsi-%d", desc->number);
 	sht->proc_name = kmalloc (strlen (local_name) + 1, GFP_KERNEL);
+	/* FIXME: where is this freed ? */
 
 	if (!sht->proc_name) {
 		spin_lock_irq(&io_request_lock);
@@ -338,7 +343,7 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 {
 	struct hpusbscsi* hpusbscsi = (struct hpusbscsi*)(srb->host->hostdata[0]);
 	usb_urb_callback usb_callback;
-	int res;
+	int res, passed_length;
 
 	spin_unlock_irq(&io_request_lock);
 
@@ -346,8 +351,30 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 	if ( srb->device->lun || srb->device->id || srb->device->channel ) {
 		srb->result = DID_BAD_TARGET;
 		callback(srb);
+		goto out_nolock;
+	}
+
+	/* to prevent a race with removal */
+	down(&hpusbscsi->lock);
+
+	if (hpusbscsi->dev == NULL) {
+		srb->result = DID_ERROR;
+		callback(srb);
 		goto out;
 	}
+	
+	/* otto fix - the Scan Elite II has a 5 second
+	* delay anytime the srb->cmd_len=6
+	* This causes it to run very slowly unless we
+	* pad the command length to 10 */
+        
+	if (hpusbscsi -> need_short_workaround && srb->cmd_len < 10) {
+		memset(srb->cmnd + srb->cmd_len, 0, 10 - srb->cmd_len);
+		passed_length = 10;
+	} else {
+		passed_length = srb->cmd_len;
+	}
+        
 
 	/* Now we need to decide which callback to give to the urb we send the command with */
 
@@ -393,18 +420,13 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 		hpusbscsi->dev,
 		usb_sndbulkpipe(hpusbscsi->dev,hpusbscsi->ep_out),
 		srb->cmnd,
-		srb->cmd_len,
+		passed_length,
 		usb_callback,
 		hpusbscsi
 	);
 	hpusbscsi->scallback = callback;
 	hpusbscsi->srb = srb;
-	
-	if (hpusbscsi->dev == NULL) {
-		srb->result = DID_ERROR;
-		callback(srb);
-		goto out;
-	}
+
 
 	res = usb_submit_urb(&hpusbscsi->dataurb);
 	if (res) {
@@ -416,6 +438,8 @@ static int hpusbscsi_scsi_queuecommand (Scsi_Cmnd *srb, scsi_callback callback)
 	}
 
 out:
+	up(&hpusbscsi->lock);
+out_nolock:
 	spin_lock_irq(&io_request_lock);
 	return 0;
 }

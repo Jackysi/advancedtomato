@@ -2,7 +2,7 @@
 ** hp100.c 
 ** HP CASCADE Architecture Driver for 100VG-AnyLan Network Adapters
 **
-** $Id: hp100.c,v 1.1.1.4 2003/10/14 08:08:21 sparq Exp $
+** $Id: hp100.c,v 1.58 2001/09/24 18:03:01 perex Exp perex $
 **
 ** Based on the HP100 driver written by Jaroslav Kysela <perex@jcu.cz>
 ** Extended for new busmaster capable chipsets by 
@@ -595,6 +595,11 @@ static int __init hp100_probe1(struct net_device *dev, int ioaddr,
 	 *   0x2260 -> EISA HP, BusMaster (Shasta Chip)
 	 */
 
+#if 0
+	local_mode = 0x2270;
+	hp100_outw(0xfefe, OPTION_LSW);
+	hp100_outw(local_mode | HP100_SET_LB | HP100_SET_HB, OPTION_LSW);
+#endif
 
 	/* hp100_mode value maybe used in future by another card */
 	local_mode = hp100_mode;
@@ -1537,6 +1542,13 @@ static int hp100_start_xmit_bm(struct sk_buff *skb, struct net_device *dev)
 
 	if (skb->len <= 0)
 		return 0;
+		
+	if (skb->len < ETH_ZLEN && lp->chip == HP100_CHIPID_SHASTA)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+	}
 
 	/* Get Tx ring tail pointer */
 	if (lp->txrtail->next == lp->txrhead) {
@@ -2094,6 +2106,7 @@ static void hp100_misc_interrupt(struct net_device *dev)
 	struct hp100_private *lp = (struct hp100_private *) dev->priv;
 
 #ifdef HP100_DEBUG_B
+	int ioaddr = dev->base_addr;
 	hp100_outw(0x4216, TRACE);
 	printk("hp100: %s: misc_interrupt\n", dev->name);
 #endif
@@ -2153,7 +2166,7 @@ static void hp100_set_multicast_list(struct net_device *dev)
 	} else if (dev->mc_count || (dev->flags & IFF_ALLMULTI)) {
 		lp->mac2_mode = HP100_MAC2MODE5;	/* multicast mode = get packets for */
 		lp->mac1_mode = HP100_MAC1MODE5;	/* me, broadcasts and all multicasts */
-#ifdef HP100_MULTICAST_FILTER	    /* doesn't work!!! */
+#ifdef HP100_MULTICAST_FILTER	/* doesn't work!!! */
 		if (dev->flags & IFF_ALLMULTI) {
 			/* set hash filter to receive all multicast packets */
 			memset(&lp->hash_bytes, 0xff, 8);
@@ -2533,6 +2546,11 @@ static int hp100_sense_lan(struct net_device *dev)
 		return HP100_LAN_10;
 
 	if (val_10 & HP100_AUI_ST) {	/* have we BNC or AUI onboard? */
+		/*
+		 * This can be overriden by dos utility, so if this has no effect,
+		 * perhaps you need to download that utility from HP and set card
+		 * back to "auto detect".
+		 */
 		val_10 |= HP100_AUI_SEL | HP100_LOW_TH;
 		hp100_page(MAC_CTRL);
 		hp100_outb(val_10, 10_LAN_CFG_1);
@@ -2598,6 +2616,7 @@ static int hp100_down_vg_link(struct net_device *dev)
 
 	/* To prevent condition where Rev 1 VG MAC and old hubs do not complete */
 	/* logout under traffic (even though all the status bits are cleared),  */
+	/* do this workaround to get the Rev 1 MAC in its idle state */
 	if (lp->chip == HP100_CHIPID_LASSEN) {
 		/* Reset VG MAC to insure it leaves the logoff state even if */
 		/* the Hub is still emitting tones */
@@ -2967,7 +2986,7 @@ static int __init hp100_module_init(void)
 		if (!hp100_devlist[i])
 			goto fail;
 		memset(hp100_devlist[i], 0x00, sizeof(struct net_device));
-#if LINUX_VERSION_CODE >= 0x020362	    /* 2.3.99-pre7 */
+#if LINUX_VERSION_CODE >= 0x020362	/* 2.3.99-pre7 */
 		memcpy(hp100_devlist[i]->name, hp100_name[i], IFNAMSIZ);	/* Copy name */
 #else
 		hp100_devlist[i]->name = hp100_name[i];

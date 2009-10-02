@@ -30,7 +30,7 @@
 #ifndef _VXFS_FSHEAD_H_
 #define _VXFS_FSHEAD_H_
 
-#ident "$Id: vxfs_fshead.h,v 1.1.1.4 2003/10/14 08:08:58 sparq Exp $"
+#ident "$Id: vxfs_fshead.h,v 1.7 2001/05/23 17:27:39 hch Exp hch $"
 
 /*
  * Veritas filesystem driver - fileset header structures.

@@ -294,6 +294,10 @@ void scsi_resize_dma_pool(void)
 	 * race conditions that I would rather not even think
 	 * about right now.
 	 */
+#if 0				/* Why do this? No gain and risks out_of_space */
+	if (new_dma_sectors < dma_sectors)
+		new_dma_sectors = dma_sectors;
+#endif
 	if (new_dma_sectors <= dma_sectors) {
 		spin_unlock_irqrestore(&allocator_request_lock, flags);
 		return;		/* best to quit while we are in front */

@@ -113,9 +113,6 @@ static int init_pcmcia(void);
 #define MANUAL_HWADDR5 0x9a
 */
 
-#define WORDSWAP(a) ( (((a)>>8)&0xff) | ((a)<<8) )
-
-
 static const char version[] =
     "apne.c:v1.1 7/10/98 Alain Malek (Alain.Malek@cryogen.ch)\n";
 
@@ -288,6 +285,7 @@ static int __init apne_probe1(struct net_device *dev, int ioaddr)
     /* Allocate dev->priv and fill in 8390 specific dev fields. */
     if (ethdev_init(dev)) {
 	printk (" unable to get memory for dev->priv.\n");
+	free_irq(IRQ_AMIGA_PORTS, dev);
 	return -ENOMEM;
     }
 
@@ -403,10 +401,9 @@ apne_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr, int ring_pa
     }
 
     outb(ENISR_RDC, nic_base + NE_EN0_ISR);	/* Ack intr. */
-
-    hdr->count = WORDSWAP(hdr->count);
-
     ei_status.dmaing &= ~0x01;
+
+    le16_to_cpus(&hdr->count);
 }
 
 /* Block input and output, similar to the Crynwr packet driver.  If you

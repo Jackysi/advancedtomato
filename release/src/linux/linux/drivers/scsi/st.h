@@ -86,7 +86,6 @@ typedef struct {
 	unsigned char use_pf;			/* Set Page Format bit in all mode selects? */
 	unsigned char c_algo;	     /* compression algorithm */
 	int tape_type;
-	int write_threshold;
 	int timeout;		/* timeout for normal commands */
 	int long_timeout;	/* timeout for commands known to take long time */
 

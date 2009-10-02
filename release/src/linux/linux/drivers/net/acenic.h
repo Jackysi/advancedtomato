@@ -456,6 +456,23 @@ struct cmd {
 struct tx_desc{
         aceaddr	addr;
 	u32	flagsize; 
+#if 0
+/*
+ * This is in PCI shared mem and must be accessed with readl/writel
+ * real layout is:
+ */
+#if __LITTLE_ENDIAN
+	u16	flags;
+	u16	size;
+	u16	vlan;
+	u16	reserved;
+#else
+	u16	size;
+	u16	flags;
+	u16	reserved;
+	u16	vlan;
+#endif
+#endif
 	u32	vlanres;
 };
 

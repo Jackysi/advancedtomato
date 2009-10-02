@@ -1,7 +1,7 @@
 /*  
- * ioctl defines for synchrnous serial port driver
+ * ioctl defines for synchronous serial port driver
  *
- * Copyright (c) 2001 Axis Communications AB
+ * Copyright (c) 2001-2003 Axis Communications AB
  * 
  * Author: Mikael Starvik 
  *
@@ -18,6 +18,7 @@
 #define SSP_IPOLARITY  _IOR('S', 3, unsigned int)
 #define SSP_OPOLARITY  _IOR('S', 4, unsigned int)
 #define SSP_SPI        _IOR('S', 5, unsigned int)
+#define SSP_INBUFCHUNK _IOR('S', 6, unsigned int)
 
 /* Values for SSP_SPEED */
 #define SSP150        0
@@ -47,7 +48,7 @@
 #define FREQ_32kHz  7
 
 /* Used by application to set CODEC divider, word rate and frame rate */
-#define CODEC_VAL(freq, word, frame) (CODEC | (freq << 8) | (word << 16) | (frame << 28))
+#define CODEC_VAL(freq, clk_per_sync, sync_per_frame) (CODEC | (freq << 8) | (clk_per_sync << 16) | (sync_per_frame << 28))
 
 /* Used by driver to extract speed */
 #define GET_SPEED(x) (x & 0xff)
@@ -66,15 +67,17 @@
 /* Values for SSP_FRAME_SYNC */
 #define NORMAL_SYNC                1
 #define EARLY_SYNC                 2
+
 #define BIT_SYNC                   4
 #define WORD_SYNC                  8
 #define EXTENDED_SYNC           0x10
+
 #define SYNC_OFF                0x20
 #define SYNC_ON                 0x40
 #define WORD_SIZE_8             0x80
 #define WORD_SIZE_12           0x100
 #define WORD_SIZE_16           0x200
-#define WORD_SIZE_24           0x300
+#define WORD_SIZE_24           0x400
 #define WORD_SIZE_32           0x800
 #define BIT_ORDER_LSB         0x1000
 #define BIT_ORDER_MSB         0x2000
@@ -86,6 +89,8 @@
 /* Values for SSP_IPOLARITY and SSP_OPOLARITY */
 #define CLOCK_NORMAL         1
 #define CLOCK_INVERT         2
+#define CLOCK_INEGEDGE       CLOCK_NORMAL
+#define CLOCK_IPOSEDGE       CLOCK_INVERT
 #define FRAME_NORMAL         4
 #define FRAME_INVERT         8
 #define STATUS_NORMAL      0x10
@@ -93,5 +98,9 @@
 
 /* Values for SSP_SPI */
 #define SPI_MASTER           0
-#define SPI_SLAVE            1  
+#define SPI_SLAVE            1
+
+/* Values for SSP_INBUFCHUNK */
+/* plain integer with the size of DMA chunks */
+
 #endif

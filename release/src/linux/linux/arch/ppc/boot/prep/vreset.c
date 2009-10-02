@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.vreset.c 1.13 01/11/02 10:46:08 trini
- */
-/*
  * vreset.c
  *
  * Initialize the VGA control registers to 80x25 text mode.
@@ -392,7 +389,7 @@ extern void puthex(unsigned long);
 extern void puts(const char *);
 static void unlockS3(void);
 
-static void inline
+static inline void
 outw(int port, unsigned short val)
 {
 	outb(port, val >> 8);
@@ -597,6 +594,9 @@ unlockS3(void)
 		outb(0x3C3, 0x08);
 		outb(0x4AE8, 0x00);
 
+#if 0
+		outb(0x42E8, 0x80);  /* Reset graphics engine? */
+#endif
 
 		outb(0x3D4, 0x38);  /* Unlock all registers */
 		outb(0x3D5, 0x48);
@@ -691,14 +691,14 @@ struct PCI_ConfigInfo {
   unsigned long regs[NPCIREGS];
 } PCI_slots [NSLOTS] = {
 
-    { (unsigned long *)0x80808000, 0xDEADBEEF },   /* onboard */
-    { (unsigned long *)0x80800800, 0xDEADBEEF },   /* onboard */
-    { (unsigned long *)0x80801000, 0xDEADBEEF },   /* onboard */
-    { (unsigned long *)0x80802000, 0xDEADBEEF },   /* onboard */
-    { (unsigned long *)0x80804000, 0xDEADBEEF },   /* onboard */
-    { (unsigned long *)0x80810000, 0xDEADBEEF },   /* slot A/1 */
-    { (unsigned long *)0x80820000, 0xDEADBEEF },   /* slot B/2 */
-    { (unsigned long *)0x80840000, 0xDEADBEEF }    /* slot C/3 */
+    { (unsigned long *)0x80808000, {0xDEADBEEF,} },   /* onboard */
+    { (unsigned long *)0x80800800, {0xDEADBEEF,} },   /* onboard */
+    { (unsigned long *)0x80801000, {0xDEADBEEF,} },   /* onboard */
+    { (unsigned long *)0x80802000, {0xDEADBEEF,} },   /* onboard */
+    { (unsigned long *)0x80804000, {0xDEADBEEF,} },   /* onboard */
+    { (unsigned long *)0x80810000, {0xDEADBEEF,} },   /* slot A/1 */
+    { (unsigned long *)0x80820000, {0xDEADBEEF,} },   /* slot B/2 */
+    { (unsigned long *)0x80840000, {0xDEADBEEF,} }    /* slot C/3 */
 };
 
 
@@ -787,10 +787,19 @@ static
 void printslots(void)
 {
 	int i;
+#if 0
+	struct PCI_ConfigInfo *pslot;
+#endif
 	for(i=0; i < NSLOTS; i++) {
+#if 0
+		pslot = &PCI_slots[i];
+		printf("Slot: %d, Addr: %x, Vendor: %08x, Class: %08x\n",
+		       i, pslot->config_addr, pslot->regs[0], pslot->regs[2]);
+#else
 		puts("PCI Slot number: "); puthex(i);
 		puts(" Vendor ID: ");
 		puthex(PCIVendor(i)); puts("\n");
+#endif
 	}
 }
 #endif /* DEBUG */

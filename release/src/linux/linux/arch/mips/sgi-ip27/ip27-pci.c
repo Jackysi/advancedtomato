@@ -210,19 +210,6 @@ void __init pcibios_update_irq(struct pci_dev *dev, int irq)
 	pci_write_config_byte(dev, PCI_INTERRUPT_LINE, irq);
 }
 
-void pcibios_update_resource(struct pci_dev *dev, struct resource *root,
-	struct resource *res, int resource)
-{
-	unsigned long where, size;
-	u32 reg;
-
-	where = PCI_BASE_ADDRESS_0 + (resource * 4);
-	size = res->end - res->start;
-	pci_read_config_dword(dev, where, &reg);
-	reg = (reg & size) | (((u32)(res->start - root->start)) & ~size);
-	pci_write_config_dword(dev, where, reg);
-}
-
 void __devinit pcibios_fixup_bus(struct pci_bus *b)
 {
 	pci_fixup_irqs(pci_swizzle, pci_map_irq);
@@ -237,29 +224,17 @@ void __init pcibios_fixup_pbus_ranges(struct pci_bus * bus,
 	ranges->mem_end   -= bus->resource[1]->start;
 }
 
-int pcibios_enable_device(struct pci_dev *dev, int mask)
-{
-	/* Not needed, since we enable all devices at startup.  */
-	return 0;
-}
-
-void pcibios_align_resource(void *data, struct resource *res,
-	unsigned long size, unsigned long align)
-{
-}
-
 unsigned int pcibios_assign_all_busses(void)
 {
 	return 0;
 }
 
-char * __devinit pcibios_setup(char *str)
-{
-	/* Nothing to do for now.  */
-
-	return str;
-}
-
+/*
+ * Device might live on a subordinate PCI bus.  XXX Walk up the chain of buses
+ * to find the slot number in sense of the bridge device register.
+ * XXX This also means multiple devices might rely on conflicting bridge
+ * settings.
+ */
 
 static void __init pci_disable_swapping(struct pci_dev *dev)
 {

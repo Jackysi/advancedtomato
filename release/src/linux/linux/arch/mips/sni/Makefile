@@ -12,7 +12,10 @@ all:	sni.o int-handler.o
 
 O_TARGET := sni.o
 
-obj-y	 := int-handler.o io.o irq.o pci.o pcimt_scache.o reset.o setup.o
+obj-y	 		+= int-handler.o io.o irq.o pcimt_scache.o reset.o \
+			   setup.o
+
+obj-$(CONFIG_PCI)	+= pci.o
 
 int-handler.o: int-handler.S
 

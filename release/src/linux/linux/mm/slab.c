@@ -710,6 +710,7 @@ kmem_cache_create (const char *name, size_t size, size_t offset,
 	if (flags & SLAB_HWCACHE_ALIGN) {
 		/* Need to adjust size so that objs are cache aligned. */
 		/* Small obj size, can get at least two per cache line. */
+		/* FIXME: only power of 2 supported, was better */
 		while (size < align/2)
 			align /= 2;
 		size = (size+align-1)&(~(align-1));
@@ -988,6 +989,8 @@ int kmem_cache_shrink(kmem_cache_t *cachep)
  * cache being allocated each time a module is loaded and unloaded, if the
  * module doesn't have persistent in-kernel storage across loads and unloads.
  *
+ * The cache must be empty before calling this function.
+ *
  * The caller must guarantee that noone will allocate memory from the cache
  * during the kmem_cache_destroy().
  */
@@ -1037,6 +1040,10 @@ static inline slab_t * kmem_cache_slabmgmt (kmem_cache_t *cachep,
 		if (!slabp)
 			return NULL;
 	} else {
+		/* FIXME: change to
+			slabp = objp
+		 * if you enable OPTIMIZE
+		 */
 		slabp = objp+colour_off;
 		colour_off += L1_CACHE_ALIGN(cachep->num *
 				sizeof(kmem_bufctl_t) + sizeof(slab_t));
@@ -1688,6 +1695,7 @@ static void enable_cpucache (kmem_cache_t *cachep)
 	int err;
 	int limit;
 
+	/* FIXME: optimize */
 	if (cachep->objsize > PAGE_SIZE)
 		return;
 	if (cachep->objsize > 1024)
@@ -1727,7 +1735,7 @@ static void enable_all_cpucaches (void)
  *
  * Called from do_try_to_free_pages() and __alloc_pages()
  */
-int kmem_cache_reap (int gfp_mask)
+int fastcall kmem_cache_reap (int gfp_mask)
 {
 	slab_t *slabp;
 	kmem_cache_t *searchp;
@@ -1776,8 +1784,9 @@ int kmem_cache_reap (int gfp_mask)
 		full_free = 0;
 		p = searchp->slabs_free.next;
 		while (p != &searchp->slabs_free) {
-			slabp = list_entry(p, slab_t, list);
 #if DEBUG
+			slabp = list_entry(p, slab_t, list);
+
 			if (slabp->inuse)
 				BUG();
 #endif
@@ -1941,8 +1950,12 @@ static int s_show(struct seq_file *m, void *p)
 	name = cachep->name; 
 	{
 	char tmp; 
+	mm_segment_t	old_fs;
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
 	if (__get_user(tmp, name)) 
 		name = "broken"; 
+	set_fs(old_fs);
 	}       
 
 	seq_printf(m, "%-17s %6lu %6lu %6u %4lu %4lu %4u",

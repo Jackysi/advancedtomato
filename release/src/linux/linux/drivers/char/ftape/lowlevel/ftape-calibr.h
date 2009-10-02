@@ -19,9 +19,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/ftape-calibr.h,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/ftape-calibr.h,v $
+ * $Revision: 1.1 $
+ * $Date: 1997/09/19 09:05:26 $
  *
  *      This file contains a gp calibration routine for
  *      hardware dependent timeout functions.

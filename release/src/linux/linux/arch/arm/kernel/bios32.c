@@ -584,7 +584,7 @@ void pcibios_align_resource(void *data, struct resource *res,
  * pcibios_enable_device - Enable I/O and memory.
  * @dev: PCI device to be enabled
  */
-int pcibios_enable_device(struct pci_dev *dev)
+int pcibios_enable_device(struct pci_dev *dev, int mask)
 {
 	u16 cmd, old_cmd;
 	int idx;
@@ -593,6 +593,10 @@ int pcibios_enable_device(struct pci_dev *dev)
 	pci_read_config_word(dev, PCI_COMMAND, &cmd);
 	old_cmd = cmd;
 	for (idx = 0; idx < 6; idx++) {
+		/* Only set up the requested stuff */
+		if (!(mask & (1 << idx)))
+			continue;
+
 		r = dev->resource + idx;
 		if (!r->start && r->end) {
 			printk(KERN_ERR "PCI: Device %s not available because"
@@ -604,6 +608,13 @@ int pcibios_enable_device(struct pci_dev *dev)
 		if (r->flags & IORESOURCE_MEM)
 			cmd |= PCI_COMMAND_MEMORY;
 	}
+
+	/*
+	 * Bridges (eg, cardbus bridges) need to be fully enabled
+	 */
+	if ((dev->class >> 16) == PCI_BASE_CLASS_BRIDGE)
+		cmd |= PCI_COMMAND_IO | PCI_COMMAND_MEMORY;
+
 	if (cmd != old_cmd) {
 		printk("PCI: enabling device %s (%04x -> %04x)\n",
 		       dev->slot_name, old_cmd, cmd);

@@ -17,7 +17,8 @@ typedef union sigval {
 } sigval_t;
 
 #define SI_MAX_SIZE	128
-#define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 3)
+#define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 4)
+#define SI_PAD_SIZE32	((SI_MAX_SIZE/sizeof(int)) - 3)
 
 typedef struct siginfo {
 	int si_signo;

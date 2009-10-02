@@ -1058,7 +1058,7 @@ static void do_fprem(FPU_REG *st0_ptr, u_char st0_tag, int round)
 	return;
       goto fprem_valid;
     }
-  else if ( (st0_tag == TAG_Empty) | (st1_tag == TAG_Empty) )
+  else if ( (st0_tag == TAG_Empty) || (st1_tag == TAG_Empty) )
     {
       FPU_stack_underflow();
       return;
@@ -1556,7 +1556,7 @@ static void fyl2xp1(FPU_REG *st0_ptr, u_char st0_tag)
 	      if ( exponent(st0_ptr) >= 0 )
 		{
 		  /* st(0) holds <= -1.0 */
-#ifdef PECULIAR_486       /* Stupid 80486 doesn't worry about log(negative). */
+#ifdef PECULIAR_486   /* Stupid 80486 doesn't worry about log(negative). */
 		  changesign(st1_ptr);
 #else
 		  if ( arith_invalid(1) < 0 )
@@ -1580,7 +1580,7 @@ static void fyl2xp1(FPU_REG *st0_ptr, u_char st0_tag)
 		    (st0_ptr->sigl == 0)) )
 		{
 		  /* st(0) holds < -1.0 */
-#ifdef PECULIAR_486       /* Stupid 80486 doesn't worry about log(negative). */
+#ifdef PECULIAR_486   /* Stupid 80486 doesn't worry about log(negative). */
 		  changesign(st1_ptr);
 #else
 		  if ( arith_invalid(1) < 0 ) return;

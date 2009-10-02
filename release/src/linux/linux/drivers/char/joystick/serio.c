@@ -1,5 +1,5 @@
 /*
- * $Id: serio.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: serio.c,v 1.5 2000/06/04 17:44:59 vojtech Exp $
  *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *

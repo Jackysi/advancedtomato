@@ -1,4 +1,143 @@
 /* natsemi.c: A Linux PCI Ethernet driver for the NatSemi DP8381x series. */
+/*
+	Written/copyright 1999-2001 by Donald Becker.
+	Portions copyright (c) 2001,2002 Sun Microsystems (thockin@sun.com)
+	Portions copyright 2001,2002 Manfred Spraul (manfred@colorfullife.com)
+
+	This software may be used and distributed according to the terms of
+	the GNU General Public License (GPL), incorporated herein by reference.
+	Drivers based on or derived from this code fall under the GPL and must
+	retain the authorship, copyright and license notice.  This file is not
+	a complete program and may only be used when the entire operating
+	system is licensed under the GPL.  License for under other terms may be
+	available.  Contact the original author for details.
+
+	The original author may be reached as becker@scyld.com, or at
+	Scyld Computing Corporation
+	410 Severn Ave., Suite 210
+	Annapolis MD 21403
+
+	Support information and updates available at
+	http://www.scyld.com/network/netsemi.html
+
+
+	Linux kernel modifications:
+
+	Version 1.0.1:
+		- Spinlock fixes
+		- Bug fixes and better intr performance (Tjeerd)
+	Version 1.0.2:
+		- Now reads correct MAC address from eeprom
+	Version 1.0.3:
+		- Eliminate redundant priv->tx_full flag
+		- Call netif_start_queue from dev->tx_timeout
+		- wmb() in start_tx() to flush data
+		- Update Tx locking
+		- Clean up PCI enable (davej)
+	Version 1.0.4:
+		- Merge Donald Becker's natsemi.c version 1.07
+	Version 1.0.5:
+		- { fill me in }
+	Version 1.0.6:
+		* ethtool support (jgarzik)
+		* Proper initialization of the card (which sometimes
+		fails to occur and leaves the card in a non-functional
+		state). (uzi)
+
+		* Some documented register settings to optimize some
+		of the 100Mbit autodetection circuitry in rev C cards. (uzi)
+
+		* Polling of the PHY intr for stuff like link state
+		change and auto- negotiation to finally work properly. (uzi)
+
+		* One-liner removal of a duplicate declaration of
+		netdev_error(). (uzi)
+
+	Version 1.0.7: (Manfred Spraul)
+		* pci dma
+		* SMP locking update
+		* full reset added into tx_timeout
+		* correct multicast hash generation (both big and little endian)
+			[copied from a natsemi driver version
+			 from Myrio Corporation, Greg Smith]
+		* suspend/resume
+
+	version 1.0.8 (Tim Hockin <thockin@sun.com>)
+		* ETHTOOL_* support
+		* Wake on lan support (Erik Gilling)
+		* MXDMA fixes for serverworks
+		* EEPROM reload
+
+	version 1.0.9 (Manfred Spraul)
+		* Main change: fix lack of synchronize
+		netif_close/netif_suspend against a last interrupt
+		or packet.
+		* do not enable superflous interrupts (e.g. the
+		drivers relies on TxDone - TxIntr not needed)
+		* wait that the hardware has really stopped in close
+		and suspend.
+		* workaround for the (at least) gcc-2.95.1 compiler
+		problem. Also simplifies the code a bit.
+		* disable_irq() in tx_timeout - needed to protect
+		against rx interrupts.
+		* stop the nic before switching into silent rx mode
+		for wol (required according to docu).
+
+	version 1.0.10:
+		* use long for ee_addr (various)
+		* print pointers properly (DaveM)
+		* include asm/irq.h (?)
+
+	version 1.0.11:
+		* check and reset if PHY errors appear (Adrian Sun)
+		* WoL cleanup (Tim Hockin)
+		* Magic number cleanup (Tim Hockin)
+		* Don't reload EEPROM on every reset (Tim Hockin)
+		* Save and restore EEPROM state across reset (Tim Hockin)
+		* MDIO Cleanup (Tim Hockin)
+		* Reformat register offsets/bits (jgarzik)
+
+	version 1.0.12:
+		* ETHTOOL_* further support (Tim Hockin)
+
+	version 1.0.13:
+		* ETHTOOL_[G]EEPROM support (Tim Hockin)
+
+	version 1.0.13:
+		* crc cleanup (Matt Domsch <Matt_Domsch@dell.com>)
+
+	version 1.0.14:
+		* Cleanup some messages and autoneg in ethtool (Tim Hockin)
+
+	version 1.0.15:
+		* Get rid of cable_magic flag
+		* use new (National provided) solution for cable magic issue
+
+	version 1.0.16:
+		* call netdev_rx() for RxErrors (Manfred Spraul)
+		* formatting and cleanups
+		* change options and full_duplex arrays to be zero
+		  initialized
+		* enable only the WoL and PHY interrupts in wol mode
+
+	version 1.0.17:
+		* only do cable_magic on 83815 and early 83816 (Tim Hockin)
+		* create a function for rx refill (Manfred Spraul)
+		* combine drain_ring and init_ring (Manfred Spraul)
+		* oom handling (Manfred Spraul)
+		* hands_off instead of playing with netif_device_{de,a}ttach
+		  (Manfred Spraul)
+		* be sure to write the MAC back to the chip (Manfred Spraul)
+		* lengthen EEPROM timeout, and always warn about timeouts
+		  (Manfred Spraul)
+		* comments update (Manfred)
+		* do the right thing on a phy-reset (Manfred and Tim)
+
+	TODO:
+	* big endian support with CFG:BEM instead of cpu_to_le32
+	* support for an external PHY
+	* NAPI
+*/
 
 #if !defined(__OPTIMIZE__)
 #warning  You must compile this file with the correct options!
@@ -25,6 +164,7 @@
 #include <linux/delay.h>
 #include <linux/rtnetlink.h>
 #include <linux/mii.h>
+#include <linux/crc32.h>
 #include <asm/processor.h>	/* Processor type for cache alignment. */
 #include <asm/bitops.h>
 #include <asm/io.h>
@@ -34,6 +174,8 @@
 #define DRV_NAME	"natsemi"
 #define DRV_VERSION	"1.07+LK1.0.17"
 #define DRV_RELDATE	"Sep 27, 2002"
+
+#define RX_OFFSET	2
 
 /* Updated to recommendations in pci-skeleton v2.03. */
 
@@ -226,7 +368,7 @@ static struct {
 	{ "NatSemi DP8381[56]", PCI_IOTYPE },
 };
 
-static struct pci_device_id natsemi_pci_tbl[] __devinitdata = {
+static struct pci_device_id natsemi_pci_tbl[] = {
 	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_ANY_ID, PCI_ANY_ID, },
 	{ 0, },
 };
@@ -245,7 +387,7 @@ enum register_offsets {
 	IntrStatus		= 0x10,
 	IntrMask		= 0x14,
 	IntrEnable		= 0x18,
-	IntrHoldoff		= 0x16, /* DP83816 only */
+	IntrHoldoff		= 0x1C, /* DP83816 only */
 	TxRingPtr		= 0x20,
 	TxConfig		= 0x24,
 	RxRingPtr		= 0x30,
@@ -556,7 +698,7 @@ static void free_ring(struct net_device *dev);
 static void reinit_ring(struct net_device *dev);
 static void init_registers(struct net_device *dev);
 static int start_tx(struct sk_buff *skb, struct net_device *dev);
-static void intr_handler(int irq, void *dev_instance, struct pt_regs *regs);
+static irqreturn_t intr_handler(int irq, void *dev_instance, struct pt_regs *regs);
 static void netdev_error(struct net_device *dev, int intr_status);
 static void netdev_rx(struct net_device *dev);
 static void netdev_tx_done(struct net_device *dev);
@@ -624,19 +766,13 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	SET_MODULE_OWNER(dev);
 
 	i = pci_request_regions(pdev, dev->name);
-	if (i) {
-		kfree(dev);
-		return i;
-	}
+	if (i)
+		goto err_pci_request_regions;
 
-	{
-		void *mmio = ioremap (ioaddr, iosize);
-		if (!mmio) {
-			pci_release_regions(pdev);
-			kfree(dev);
-			return -ENOMEM;
-		}
-		ioaddr = (unsigned long) mmio;
+	ioaddr = (unsigned long) ioremap (ioaddr, iosize);
+	if (!ioaddr) {
+		i = -ENOMEM;
+		goto err_ioremap;
 	}
 
 	/* Work around the dropped serial bit. */
@@ -694,13 +830,9 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 		dev->mtu = mtu;
 
 	i = register_netdev(dev);
-	if (i) {
-		pci_release_regions(pdev);
-		unregister_netdev(dev);
-		kfree(dev);
-		pci_set_drvdata(pdev, NULL);
-		return i;
-	}
+	if (i)
+		goto err_register_netdev;
+
 	netif_carrier_off(dev);
 
 	if (netif_msg_drv(np)) {
@@ -737,6 +869,17 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 
 
 	return 0;
+
+ err_register_netdev:
+	iounmap ((void *) dev->base_addr);
+
+ err_ioremap:
+	pci_release_regions(pdev);
+	pci_set_drvdata(pdev, NULL);
+
+ err_pci_request_regions:
+	free_netdev(dev);
+	return i;
 }
 
 
@@ -1325,13 +1468,14 @@ static void refill_rx(struct net_device *dev)
 		struct sk_buff *skb;
 		int entry = np->dirty_rx % RX_RING_SIZE;
 		if (np->rx_skbuff[entry] == NULL) {
-			skb = dev_alloc_skb(np->rx_buf_sz);
+			unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
+			skb = dev_alloc_skb(buflen);
 			np->rx_skbuff[entry] = skb;
 			if (skb == NULL)
 				break; /* Better luck next round. */
 			skb->dev = dev; /* Mark as being used by this device. */
 			np->rx_dma[entry] = pci_map_single(np->pci_dev,
-				skb->data, skb->len, PCI_DMA_FROMDEVICE);
+				skb->tail, buflen, PCI_DMA_FROMDEVICE);
 			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
 		}
 		np->rx_ring[entry].cmd_status = cpu_to_le32(np->rx_buf_sz);
@@ -1389,7 +1533,7 @@ static void drain_tx(struct net_device *dev)
 	for (i = 0; i < TX_RING_SIZE; i++) {
 		if (np->tx_skbuff[i]) {
 			pci_unmap_single(np->pci_dev,
-				np->rx_dma[i], np->rx_skbuff[i]->len,
+				np->tx_dma[i], np->tx_skbuff[i]->len,
 				PCI_DMA_TODEVICE);
 			dev_kfree_skb(np->tx_skbuff[i]);
 			np->stats.tx_dropped++;
@@ -1401,6 +1545,7 @@ static void drain_tx(struct net_device *dev)
 static void drain_ring(struct net_device *dev)
 {
 	struct netdev_private *np = dev->priv;
+	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
 	int i;
 
 	/* Free all the skbuffs in the Rx queue. */
@@ -1409,7 +1554,7 @@ static void drain_ring(struct net_device *dev)
 		np->rx_ring[i].addr = 0xBADF00D0; /* An invalid address. */
 		if (np->rx_skbuff[i]) {
 			pci_unmap_single(np->pci_dev,
-				np->rx_dma[i], np->rx_skbuff[i]->len,
+				np->rx_dma[i], buflen,
 				PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(np->rx_skbuff[i]);
 		}
@@ -1540,15 +1685,16 @@ static void netdev_tx_done(struct net_device *dev)
 
 /* The interrupt handler does all of the Rx thread work and cleans up
    after the Tx thread. */
-static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
+static irqreturn_t intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 {
 	struct net_device *dev = dev_instance;
 	struct netdev_private *np = dev->priv;
 	long ioaddr = dev->base_addr;
 	int boguscnt = max_interrupt_work;
+	unsigned int handled = 0;
 
 	if (np->hands_off)
-		return;
+		return IRQ_NONE;
 	do {
 		/* Reading automatically acknowledges all int sources. */
 		u32 intr_status = readl(ioaddr + IntrStatus);
@@ -1561,6 +1707,7 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 
 		if (intr_status == 0)
 			break;
+		handled = 1;
 
 		if (intr_status &
 		   (IntrRxDone | IntrRxIntr | RxStatusFIFOOver |
@@ -1591,6 +1738,8 @@ static void intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
 
 	if (netif_msg_intr(np))
 		printk(KERN_DEBUG "%s: exiting interrupt.\n", dev->name);
+
+	return IRQ_RETVAL(handled);
 }
 
 /* This routine is logically part of the interrupt handler, but separated
@@ -1601,6 +1750,7 @@ static void netdev_rx(struct net_device *dev)
 	int entry = np->cur_rx % RX_RING_SIZE;
 	int boguscnt = np->dirty_rx + RX_RING_SIZE - np->cur_rx;
 	s32 desc_status = le32_to_cpu(np->rx_head_desc->cmd_status);
+	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
 
 	/* If the driver owns the next entry it's a new packet. Send it up. */
 	while (desc_status < 0) { /* e.g. & DescOwn */
@@ -1639,13 +1789,13 @@ static void netdev_rx(struct net_device *dev)
 			/* Check if the packet is long enough to accept
 			 * without copying to a minimally-sized skbuff. */
 			if (pkt_len < rx_copybreak
-			    && (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
+			    && (skb = dev_alloc_skb(pkt_len + RX_OFFSET)) != NULL) {
 				skb->dev = dev;
 				/* 16 byte align the IP header */
-				skb_reserve(skb, 2);
+				skb_reserve(skb, RX_OFFSET);
 				pci_dma_sync_single(np->pci_dev,
 					np->rx_dma[entry],
-					np->rx_skbuff[entry]->len,
+					buflen,
 					PCI_DMA_FROMDEVICE);
 #if HAS_IP_COPYSUM
 				eth_copy_and_sum(skb,
@@ -1657,8 +1807,7 @@ static void netdev_rx(struct net_device *dev)
 #endif
 			} else {
 				pci_unmap_single(np->pci_dev, np->rx_dma[entry],
-					np->rx_skbuff[entry]->len,
-					PCI_DMA_FROMDEVICE);
+					buflen, PCI_DMA_FROMDEVICE);
 				skb_put(skb = np->rx_skbuff[entry], pkt_len);
 				np->rx_skbuff[entry] = NULL;
 			}
@@ -1759,44 +1908,6 @@ static struct net_device_stats *get_stats(struct net_device *dev)
 	return &np->stats;
 }
 
-/**
- * dp83815_crc - computer CRC for hash table entries
- *
- * Note - this is, for some reason, *not* the same function
- * as ether_crc_le() or ether_crc(), though it uses the
- * same big-endian polynomial.
- */
-#define DP_POLYNOMIAL			0x04C11DB7
-static unsigned dp83815_crc(int length, unsigned char *data)
-{
-	u32 crc;
-	u8 cur_byte;
-	u8 msb;
-	u8 byte, bit;
-
-	crc = ~0;
-	for (byte=0; byte<length; byte++) {
-		cur_byte = *data++;
-		for (bit=0; bit<8; bit++) {
-			msb = crc >> 31;
-			crc <<= 1;
-			if (msb ^ (cur_byte & 1)) {
-				crc ^= DP_POLYNOMIAL;
-				crc |= 1;
-			}
-			cur_byte >>= 1;
-		}
-	}
-	crc >>= 23;
-
-	return (crc);
-}
-
-
-void set_bit_le(int offset, unsigned char * data)
-{
-	data[offset >> 3] |= (1 << (offset & 0x07));
-}
 #define HASH_TABLE	0x200
 static void __set_rx_mode(struct net_device *dev)
 {
@@ -1821,9 +1932,8 @@ static void __set_rx_mode(struct net_device *dev)
 		memset(mc_filter, 0, sizeof(mc_filter));
 		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
 			 i++, mclist = mclist->next) {
-			set_bit_le(
-				dp83815_crc(ETH_ALEN, mclist->dmi_addr) & 0x1ff,
-				mc_filter);
+			int i = (ether_crc(ETH_ALEN, mclist->dmi_addr) >> 23) & 0x1ff;
+			mc_filter[i/8] |= (1 << (i & 0x07));
 		}
 		rx_mode = RxFilterEnable | AcceptBroadcast
 			| AcceptMulticast | AcceptMyPhys;
@@ -1861,7 +1971,7 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		strncpy(info.driver, DRV_NAME, ETHTOOL_BUSINFO_LEN);
 		strncpy(info.version, DRV_VERSION, ETHTOOL_BUSINFO_LEN);
 		info.fw_version[0] = '\0';
-		strncpy(info.bus_info, np->pci_dev->slot_name,
+		strncpy(info.bus_info, pci_name(np->pci_dev),
 			ETHTOOL_BUSINFO_LEN);
 		info.eedump_len = NATSEMI_EEPROM_SIZE;
 		info.regdump_len = NATSEMI_REGS_SIZE;
@@ -2378,6 +2488,12 @@ static int netdev_close(struct net_device *dev)
 			dev->name, np->cur_tx, np->dirty_tx,
 			np->cur_rx, np->dirty_rx);
 
+	/*
+	 * FIXME: what if someone tries to close a device
+	 * that is suspended?
+	 * Should we reenable the nic to switch to
+	 * the final WOL settings?
+	 */
 
 	del_timer_sync(&np->timer);
 	disable_irq(dev->irq);
@@ -2440,7 +2556,7 @@ static void __devexit natsemi_remove1 (struct pci_dev *pdev)
 	unregister_netdev (dev);
 	pci_release_regions (pdev);
 	iounmap ((char *) dev->base_addr);
-	kfree (dev);
+	free_netdev (dev);
 	pci_set_drvdata(pdev, NULL);
 }
 
@@ -2499,6 +2615,10 @@ static int natsemi_suspend (struct pci_dev *pdev, u32 state)
 			u32 wol = readl(ioaddr + WOLCmd) & WakeOptsSummary;
 			/* Restore PME enable bit */
 			if (wol) {
+				/* restart the NIC in WOL mode.
+				 * The nic must be stopped for this.
+				 * FIXME: use the WOL interrupt
+				 */
 				enable_wol_mode(dev, 0);
 			} else {
 				/* Restore PME enable bit unmolested */

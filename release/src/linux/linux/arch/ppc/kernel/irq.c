@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/kernel/irq.c
  *
  *  Derived from arch/i386/kernel/irq.c
@@ -13,7 +10,7 @@
  *  Adapted for Power Macintosh by Paul Mackerras
  *    Copyright (C) 1996 Paul Mackerras (paulus@cs.anu.edu.au)
  *  Amiga/APUS changes by Jesper Skov (jskov@cygnus.co.uk).
- *  
+ *
  * This file contains the code used by various IRQ handling routines:
  * asking for different IRQ's should be done through these routines
  * instead of just grabbing them. Thus setups with different IRQ numbers
@@ -71,7 +68,7 @@ static void register_irq_proc (unsigned int irq);
 
 irq_desc_t irq_desc[NR_IRQS] __cacheline_aligned =
 	{ [0 ... NR_IRQS-1] = { 0, NULL, NULL, 0, SPIN_LOCK_UNLOCKED}};
-	
+
 int ppc_spurious_interrupts = 0;
 struct irqaction *ppc_irq_action[NR_IRQS];
 unsigned long ppc_cached_irq_mask[NR_MASK_WORDS];
@@ -177,15 +174,6 @@ setup_irq(unsigned int irq, struct irqaction * new)
 	return 0;
 }
 
-#if (defined(CONFIG_8xx) || defined(CONFIG_8260))
-/* Name change so we can catch standard drivers that potentially mess up
- * the internal interrupt controller on 8xx and 8260.  Just bear with me,
- * I don't like this either and I am searching a better solution.  For
- * now, this is what I need. -- Dan
- */
-#define request_irq	request_8xxirq
-#endif
-
 void free_irq(unsigned int irq, void* dev_id)
 {
 	irq_desc_t *desc;
@@ -246,28 +234,28 @@ int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *)
 		free_irq(irq, dev_id);
 		return 0;
 	}
-	
+
 	action = (struct irqaction *)
 		irq_kmalloc(sizeof(struct irqaction), GFP_KERNEL);
 	if (!action) {
 		printk(KERN_ERR "irq_kmalloc() failed for irq %d !\n", irq);
 		return -ENOMEM;
 	}
-	
+
 	action->handler = handler;
-	action->flags = irqflags;					
+	action->flags = irqflags;
 	action->mask = 0;
 	action->name = devname;
 	action->dev_id = dev_id;
 	action->next = NULL;
-	
+
 	retval = setup_irq(irq, action);
 	if (retval)
 	{
 		kfree(action);
 		return retval;
 	}
-		
+
 	return 0;
 }
 
@@ -275,9 +263,9 @@ int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *)
  * Generic enable/disable code: this just calls
  * down into the PIC-specific version for the actual
  * hardware disable after having gotten the irq
- * controller lock. 
+ * controller lock.
  */
- 
+
 /**
  *	disable_irq_nosync - disable an irq without waiting
  *	@irq: Interrupt to disable
@@ -288,7 +276,7 @@ int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *)
  *
  *	This function may be called from IRQ context.
  */
- 
+
  void disable_irq_nosync(unsigned int irq)
 {
 	irq_desc_t *desc = irq_desc + irq;
@@ -315,7 +303,7 @@ int request_irq(unsigned int irq, void (*handler)(int, void *, struct pt_regs *)
  *
  *	This function may be called - with care - from IRQ context.
  */
- 
+
 void disable_irq(unsigned int irq)
 {
 	disable_irq_nosync(irq);
@@ -336,7 +324,7 @@ void disable_irq(unsigned int irq)
  *
  *	This function may be called from IRQ context.
  */
- 
+
 void enable_irq(unsigned int irq)
 {
 	irq_desc_t *desc = irq_desc + irq;
@@ -377,15 +365,15 @@ int get_irq_list(char *buf)
 		action = irq_desc[i].action;
 		if ( !action || !action->handler )
 			continue;
-		len += sprintf(buf+len, "%3d: ", i);		
+		len += sprintf(buf+len, "%3d: ", i);
 #ifdef CONFIG_SMP
 		for (j = 0; j < smp_num_cpus; j++)
 			len += sprintf(buf+len, "%10u ",
 				kstat.irqs[cpu_logical_map(j)][i]);
-#else		
+#else
 		len += sprintf(buf+len, "%10u ", kstat_irqs(i));
 #endif /* CONFIG_SMP */
-		if ( irq_desc[i].handler )		
+		if ( irq_desc[i].handler )
 			len += sprintf(buf+len, " %s ", irq_desc[i].handler->typename );
 		else
 			len += sprintf(buf+len, "  None      ");
@@ -409,7 +397,7 @@ int get_irq_list(char *buf)
 	/* should this be per processor send/receive? */
 	len += sprintf(buf+len, "IPI (recv/sent): %10u/%u\n",
 		       atomic_read(&ipi_recv), atomic_read(&ipi_sent));
-#endif		
+#endif
 	len += sprintf(buf+len, "BAD: %10u\n", ppc_spurious_interrupts);
 	return len;
 }
@@ -441,11 +429,11 @@ void ppc_irq_dispatch_handler(struct pt_regs *regs, int irq)
 	int status;
 	struct irqaction *action;
 	int cpu = smp_processor_id();
-	irq_desc_t *desc = irq_desc + irq;
+	irq_desc_t *desc = &irq_desc[irq];
 
 	kstat.irqs[cpu][irq]++;
 	spin_lock(&desc->lock);
-	ack_irq(irq);	
+	ack_irq(irq);
 	/*
 	   REPLAY is when Linux resends an IRQ that was dropped earlier
 	   WAITING is used by probe to mark irqs that are being tested
@@ -502,7 +490,7 @@ void ppc_irq_dispatch_handler(struct pt_regs *regs, int irq)
 		spin_unlock(&desc->lock);
 		handle_irq_event(irq, regs, action);
 		spin_lock(&desc->lock);
-		
+
 		if (!(desc->status & IRQ_PENDING))
 			break;
 		desc->status &= ~IRQ_PENDING;
@@ -513,12 +501,25 @@ out:
 	 * The ->end() handler has to deal with interrupts which got
 	 * disabled while the handler was running.
 	 */
-	if (irq_desc[irq].handler) {
-		if (irq_desc[irq].handler->end)
-			irq_desc[irq].handler->end(irq);
-		else if (irq_desc[irq].handler->enable)
-			irq_desc[irq].handler->enable(irq);
+	if (desc->handler) {
+		if (desc->handler->end)
+			desc->handler->end(irq);
+		else if (desc->handler->enable)
+			desc->handler->enable(irq);
 	}
+
+#ifdef CONFIG_DBOX2
+	/*
+	 * Interrupts marked as oneshot are level
+	 * triggered. We disable them here for onboard
+	 * hardware which can not be configured to
+	 * generate edge triggered interrupts due to
+	 * lack of documentation.
+	 */
+	if ((action) && (action->flags & SA_ONESHOT))
+		disable_irq_nosync(irq);
+#endif
+
 	spin_unlock(&desc->lock);
 }
 
@@ -528,27 +529,21 @@ int do_IRQ(struct pt_regs *regs)
 	int irq, first = 1;
         hardirq_enter( cpu );
 
-	for (;;) {
-		/*
-		 * Every arch is required to implement ppc_md.get_irq.
-		 * This function will either return an irq number or -1 to
-		 * indicate there are no more pending.  But the first time
-		 * through the loop this means there wasn't and IRQ pending.
-		 * The value -2 is for buggy hardware and means that this IRQ
-		 * has already been handled. -- Tom
-		 */
-		irq = ppc_md.get_irq( regs );
-
-		if (irq >= 0)
-			ppc_irq_dispatch_handler( regs, irq );
-		else {
-			if (irq != -2 && first)
-				/* That's not SMP safe ... but who cares ? */
-				ppc_spurious_interrupts++;
-			break;
-		}
+	/*
+	 * Every platform is required to implement ppc_md.get_irq.
+	 * This function will either return an irq number or -1 to
+	 * indicate there are no more pending.  But the first time
+	 * through the loop this means there wasn't an IRQ pending.
+	 * The value -2 is for buggy hardware and means that this IRQ
+	 * has already been handled. -- Tom
+	 */
+	while ((irq = ppc_md.get_irq(regs)) >= 0) {
+		ppc_irq_dispatch_handler(regs, irq);
 		first = 0;
 	}
+	if (irq != -2 && first)
+		/* That's not SMP safe ... but who cares ? */
+		ppc_spurious_interrupts++;
         hardirq_exit( cpu );
 
 	if (softirq_pending(cpu))
@@ -579,7 +574,7 @@ void __init init_IRQ(void)
 		return;
 	else
 		once++;
-	
+
 	ppc_md.init_IRQ();
 }
 
@@ -718,11 +713,11 @@ static inline void get_irqlock(int cpu)
 #endif
 				}
 			} while (test_bit(0,&global_irq_lock));
-		} while (test_and_set_bit(0,&global_irq_lock));		
+		} while (test_and_set_bit(0,&global_irq_lock));
 	}
-	/* 
+	/*
 	 * We also need to make sure that nobody else is running
-	 * in an interrupt context. 
+	 * in an interrupt context.
 	 */
 	wait_on_irq(cpu);
 
@@ -747,7 +742,7 @@ static inline void get_irqlock(int cpu)
 void __global_cli(void)
 {
 	unsigned long flags;
-	
+
 	__save_flags(flags);
 	if (flags & (1 << 15)) {
 		int cpu = smp_processor_id();

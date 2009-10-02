@@ -23,7 +23,7 @@
 */
 
 /* 
- * $Id: hci_core.h,v 1.1.1.4 2003/10/14 08:09:29 sparq Exp $ 
+ * $Id: hci_core.h,v 1.5 2002/06/27 04:56:30 maxk Exp $ 
  */
 
 #ifndef __HCI_CORE_H
@@ -72,7 +72,9 @@ struct hci_dev {
 	__u16		pkt_type;
 	__u16		link_policy;
 	__u16		link_mode;
-	
+
+	unsigned long	quirks;
+
 	atomic_t 	cmd_cnt;
 	unsigned int 	acl_cnt;
 	unsigned int 	sco_cnt;
@@ -165,6 +167,12 @@ static inline void inquiry_cache_init(struct hci_dev *hdev)
 	struct inquiry_cache *c = &hdev->inq_cache;
 	spin_lock_init(&c->lock);
 	c->list = NULL;
+}
+
+static inline int inquiry_cache_empty(struct hci_dev *hdev)
+{
+	struct inquiry_cache *c = &hdev->inq_cache;
+	return (c->list == NULL);
 }
 
 static inline long inquiry_cache_age(struct hci_dev *hdev)
@@ -281,8 +289,14 @@ static inline void hci_conn_hold(struct hci_conn *conn)
 
 static inline void hci_conn_put(struct hci_conn *conn)
 {
-	if (atomic_dec_and_test(&conn->refcnt) && conn->out)
-		hci_conn_set_timer(conn, HCI_DISCONN_TIMEOUT);
+	if (atomic_dec_and_test(&conn->refcnt)) {
+		if (conn->type == ACL_LINK) {
+			unsigned long timeo = (conn->out) ?
+				HCI_DISCONN_TIMEOUT : HCI_DISCONN_TIMEOUT * 2;
+			hci_conn_set_timer(conn, timeo);
+		} else
+			hci_conn_set_timer(conn, HZ / 100);
+	}
 }
 
 /* ----- HCI Devices ----- */
@@ -302,6 +316,8 @@ struct hci_dev *hci_dev_get(int index);
 struct hci_dev *hci_get_route(bdaddr_t *src, bdaddr_t *dst);
 int hci_register_dev(struct hci_dev *hdev);
 int hci_unregister_dev(struct hci_dev *hdev);
+int hci_suspend_dev(struct hci_dev *hdev);
+int hci_resume_dev(struct hci_dev *hdev);
 int hci_dev_open(__u16 dev);
 int hci_dev_close(__u16 dev);
 int hci_dev_reset(__u16 dev);
@@ -429,7 +445,6 @@ int hci_unregister_notifier(struct notifier_block *nb);
 int hci_send_cmd(struct hci_dev *hdev, __u16 ogf, __u16 ocf, __u32 plen, void *param);
 int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 flags);
 int hci_send_sco(struct hci_conn *conn, struct sk_buff *skb);
-int hci_send_raw(struct sk_buff *skb);
 
 void *hci_sent_cmd_data(struct hci_dev *hdev, __u16 ogf, __u16 ocf);
 
@@ -447,14 +462,13 @@ struct hci_pinfo {
 };
 
 /* HCI security filter */
-#define HCI_SFLT_MAX_OGF 4
+#define HCI_SFLT_MAX_OGF  5
 
 struct hci_sec_filter {
 	__u32 type_mask;
 	__u32 event_mask[2];
 	__u32 ocf_mask[HCI_SFLT_MAX_OGF + 1][4];
 };
-
 
 /* ----- HCI requests ----- */
 #define HCI_REQ_DONE	  0

@@ -1,4 +1,4 @@
-/* $Id: signal.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: signal.h,v 1.9 1999/09/06 08:22:11 jj Exp $ */
 #ifndef _ASMSPARC64_SIGNAL_H
 #define _ASMSPARC64_SIGNAL_H
 
@@ -127,6 +127,7 @@ typedef struct {
 
 /* A SunOS sigstack */
 struct sigstack {
+	/* XXX 32-bit pointers pinhead XXX */
 	char *the_stack;
 	int   cur_status;
 };

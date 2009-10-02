@@ -1,7 +1,7 @@
 
     D-Link DL2000-based Gigabit Ethernet Adapter Installation
     for Linux
-    May 23, 2002
+    Oct 3, 2002
 
 Contents
 ========
@@ -19,7 +19,9 @@ Compatibility List
 Adapter Support:
 
 D-Link DGE-550T Gigabit Ethernet Adapter.
+D-Link DGE-510T Gigabit Ethernet Adapter.
 D-Link DGE-550SX Gigabit Ethernet Adapter.
+D-Link DGE-570T 2 Port Giga Ethernet Server Adapter.
 D-Link DL2000-based Gigabit Ethernet Adapter.
 
 
@@ -30,7 +32,8 @@ on the environments below.
  . Red Hat v7.0 (update kernel to 2.4.7)
  . Red Hat v7.1 (kernel 2.4.7)
  . Red Hat v7.2 (kernel 2.4.7-10)
-
+ . Red Hat v7.3 (kernel 2.4.18-3)
+ . Red Hat v8.0 (kernel 2.4.18-14)
 
 Quick Install
 =============
@@ -77,8 +80,8 @@ CD-ROM drive
 [root@XXX /] cd root
 [root@XXX /root] mkdir dl2k
 [root@XXX /root] cd dl2k
-[root@XXX dl2k] cp /cdrom/linux/dl2k.tgz /root/dl2k
-[root@XXX dl2k] tar xfvz dl2k.tgz
+[root@XXX dl2k] cp /cdrom/linux/dl2k-xx.tgz /root/dl2k
+[root@XXX dl2k] tar xfvz dl2k-xx.tgz (xx refer to release version)
 [root@XXX dl2k] make all
 
 Floppy disc drive
@@ -87,8 +90,8 @@ Floppy disc drive
 [root@XXX /] cd root
 [root@XXX /root] mkdir dl2k
 [root@XXX /root] cd dl2k
-[root@XXX dl2k] mcopy a:/linux/dl2k.tgz /root/dl2k
-[root@XXX dl2k] tar xfvz dl2k.tgz
+[root@XXX dl2k] mcopy a:/linux/dl2k-xx.tgz /root/dl2k
+[root@XXX dl2k] tar xfvz dl2k-xx.tgz (xx refer to release version)
 [root@XXX dl2k] make all
 
 Installing the Driver
@@ -134,7 +137,7 @@ Installing the Driver
 
   ifdown eth0
   ifconfig eth0 down
-  rmmod dl2k.o
+  rmmod dl2k
 
   The following are the commands to list the currently loaded modules and
   to see the current network configuration.
@@ -188,8 +191,8 @@ media=media_type		- Specifies the media type the NIC operates at.
 				  10mbps_fd	10Mbps full duplex.
 				  100mbps_hd	100Mbps half duplex.
 				  100mbps_fd	100Mbps full duplex.
-				  1000mbps_fd	1000Mbps full duplex.
 				  1000mbps_hd	1000Mbps half duplex.
+				  1000mbps_fd	1000Mbps full duplex.
 				  0		Autosensing active media.
 				  1		10Mbps half duplex.
 				  2		10Mbps full duplex.
@@ -198,9 +201,9 @@ media=media_type		- Specifies the media type the NIC operates at.
 				  5          	1000Mbps half duplex.
 				  6          	1000Mbps full duplex.
 
-				  By default, the NIC operates at autosense.
-				  1000mbps_fd and 1000mbps_hd types are only
-				  available for fiber adapter.
+				  By default, the NIC operates at Autosense.
+				  Fiber adapter only support Autosense and 
+				  1000Mbps full duplex types.
 
 vlan=n				- Specifies the VLAN ID. If vlan=0, the
 				  Virtual Local Area Network (VLAN) function is
@@ -213,25 +216,6 @@ jumbo=[0|1]			- Specifies the jumbo frame support. If jumbo=1,
 				  int gigabit.
 				  This feature need jumbo frame compatible 
 				  remote.
-				  
-rx_coalesce=m			- Number of rx frame handled each interrupt.
-rx_timeout=n			- Rx DMA wait time for an interrupt. 
-				  If set rx_coalesce > 0, hardware only assert 
-				  an interrupt for m frames. Hardware won't 
-				  assert rx interrupt until m frames received or
-				  reach timeout of n * 640 nano seconds. 
-				  Set proper rx_coalesce and rx_timeout can 
-				  reduce congestion collapse and overload which
-				  has been a bottlenect for high speed network.
-				  
-				  For example, rx_coalesce=10 rx_timeout=800.
-				  that is, hardware assert only 1 interrupt 
-				  for 10 frames received or timeout of 512 us. 
-
-tx_coalesce=n			- Number of tx frame handled each interrupt.
-				  Set n > 1 can reduce the interrupts 
-				  congestion usually lower performance of
-				  high speed network card. Default is 16.
 				  
 tx_flow=[1|0]			- Specifies the Tx flow control. If tx_flow=0, 
 				  the Tx flow control disable else driver

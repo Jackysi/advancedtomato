@@ -211,11 +211,13 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 
 
 	if (driver_byte(result) != 0 &&		/* An error occurred */
-	    SCpnt->sense_buffer[0] == 0xF0) {	/* Sense data is valid */
+	    (SCpnt->sense_buffer[0] & 0x7f) == 0x70) {	/* Sense data is valid */
 		switch (SCpnt->sense_buffer[2]) {
 		case MEDIUM_ERROR:
 		case VOLUME_OVERFLOW:
 		case ILLEGAL_REQUEST:
+			if (!(SCpnt->sense_buffer[0] & 0x80))
+				break;
 			error_sector = (SCpnt->sense_buffer[3] << 24) |
 			(SCpnt->sense_buffer[4] << 16) |
 			(SCpnt->sense_buffer[5] << 8) |
@@ -641,6 +643,10 @@ void get_sectorsize(int i)
 		sector_size = 2048;	/* A guess, just in case */
 		scsi_CDs[i].needs_sector_size = 1;
 	} else {
+#if 0
+		if (cdrom_get_last_written(MKDEV(MAJOR_NR, i),
+					   &scsi_CDs[i].capacity))
+#endif
 			scsi_CDs[i].capacity = 1 + ((buffer[0] << 24) |
 						    (buffer[1] << 16) |
 						    (buffer[2] << 8) |
@@ -873,6 +879,11 @@ void sr_finish()
 		scsi_CDs[i].device->sector_size = 2048;		/* A guess, just in case */
 		scsi_CDs[i].needs_sector_size = 1;
 		scsi_CDs[i].device->changed = 1;	/* force recheck CD type */
+#if 0
+		/* seems better to leave this for later */
+		get_sectorsize(i);
+		printk("Scd sectorsize = %d bytes.\n", scsi_CDs[i].sector_size);
+#endif
 		scsi_CDs[i].use = 1;
 
 		scsi_CDs[i].device->ten = 1;
@@ -886,6 +897,10 @@ void sr_finish()
 		scsi_CDs[i].cdi.dev = MKDEV(MAJOR_NR, i);
 		scsi_CDs[i].cdi.mask = 0;
 		scsi_CDs[i].cdi.capacity = 1;
+		/*
+		 *	FIXME: someone needs to handle a get_capabilities
+		 *	failure properly ??
+		 */
 		get_capabilities(i);
 		sr_vendor_init(i);
 

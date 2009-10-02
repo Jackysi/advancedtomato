@@ -6,27 +6,10 @@
  * Authors: Johnnie Peters <jpeters@mvista.com>
  *          Matt Porter <mporter@mvista.com>
  *
- * Copyright 2001-2002 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
- *
- * THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR   IMPLIED
- * WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- * NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT,  INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- * USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You should have received a copy of the  GNU General Public License along
- * with this program; if not, write  to the Free Software Foundation, Inc.,
- * 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 2001-2002 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <linux/config.h>
@@ -72,6 +55,9 @@ extern void pckbd_leds(unsigned char);
 extern void pckbd_init_hw(void);
 extern unsigned char pckbd_sysrq_xlate[128];
 extern char cmd_line[];
+
+extern void gen550_progress(char *, unsigned short);
+extern void gen550_init(int, struct serial_struct *);
 
 /*
  * CPC700 PIC interrupt programming table
@@ -128,14 +114,56 @@ spruce_show_cpuinfo(struct seq_file *m)
 	return 0;
 }
 
+#ifdef CONFIG_SERIAL
+static void __init
+spruce_early_serial_map(void)
+{
+	u32 baud_base;
+	struct serial_struct serial_req;
+
+	if (SPRUCE_UARTCLK_IS_33M(readb(SPRUCE_FPGA_REG_A)))
+		baud_base = SPRUCE_BAUD_33M;
+	else
+		baud_base = SPRUCE_BAUD_30M;
+
+	/* Setup serial port access */
+	memset(&serial_req, 0, sizeof(serial_req));
+	serial_req.baud_base = baud_base;
+	serial_req.line = 0;
+	serial_req.port = 0;
+	serial_req.irq = 3;
+	serial_req.flags = ASYNC_BOOT_AUTOCONF;
+	serial_req.io_type = SERIAL_IO_MEM;
+	serial_req.iomem_base = (u_char *)UART0_IO_BASE;
+	serial_req.iomem_reg_shift = 0;
+
+#if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
+	gen550_init(0, &serial_req);
+#endif
+
+	if (early_serial_setup(&serial_req) != 0)
+		printk("Early serial init of port 0 failed\n");
+
+	/* Assume early_serial_setup() doesn't modify serial_req */
+	serial_req.line = 1;
+	serial_req.port = 1;
+	serial_req.irq = 4;
+	serial_req.iomem_base = (u_char *)UART1_IO_BASE;
+
+#if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
+	gen550_init(1, &serial_req);
+#endif
+
+	if (early_serial_setup(&serial_req) != 0)
+		printk("Early serial init of port 1 failed\n");
+}
+#endif
+
 TODC_ALLOC();
 
 static void __init
 spruce_setup_arch(void)
 {
-	u32 baud_base;
-	struct serial_struct serial_req;
-
 	/* Setup TODC access */
 	TODC_INIT(TODC_TYPE_DS1643, 0, 0, SPRUCE_RTC_BASE_ADDR, 8);
 
@@ -160,35 +188,9 @@ spruce_setup_arch(void)
 	conswitchp = &dummy_con;
 #endif
 
-	if (SPRUCE_UARTCLK_IS_33M(readb(SPRUCE_FPGA_REG_A)))	
-		baud_base = SPRUCE_BAUD_33M;
-	else
-		baud_base = SPRUCE_BAUD_30M;
-
-	/* Setup serial port access */
-	memset(&serial_req, 0, sizeof(serial_req));
-	serial_req.baud_base = baud_base;
-	serial_req.line = 0;
-	serial_req.port = 0;
-	serial_req.irq = 3;
-	serial_req.flags = ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST;
-	serial_req.io_type = SERIAL_IO_MEM;
-	serial_req.iomem_base = UART0_IO_BASE;
-	serial_req.iomem_reg_shift = 0;
-
-	if (early_serial_setup(&serial_req) != 0) {
-		printk("Early serial init of port 0 failed\n");
-	}
-
-	/* Assume early_serial_setup() doesn't modify serial_req */
-	serial_req.line = 1;
-	serial_req.port = 1;
-	serial_req.irq = 4; 
-	serial_req.iomem_base = UART1_IO_BASE;
-
-	if (early_serial_setup(&serial_req) != 0) {
-		printk("Early serial init of port 1 failed\n");
-	}
+#ifdef CONFIG_SERIAL
+	spruce_early_serial_map();
+#endif
 
 	/* Identify the system */
 	printk("System Identification: IBM Spruce\n");
@@ -202,15 +204,12 @@ spruce_restart(char *cmd)
 
 	/* SRR0 has system reset vector, SRR1 has default MSR value */
 	/* rfi restores MSR from SRR1 and sets the PC to the SRR0 value */
-	__asm__ __volatile__
-	("\n\
-	lis	3,0xfff0
-	ori	3,3,0x0100
-	mtspr	26,3
-	li	3,0
-	mtspr	27,3
-	rfi
-	");
+	asm volatile("	lis	3,0xfff0	\n\
+			ori	3,3,0x0100	\n\
+			mtspr	26,3		\n\
+			li	3,0		\n\
+			mtspr	27,3		\n\
+			rfi");
 	for(;;);
 }
 
@@ -249,10 +248,10 @@ unsigned char spruce_read_keyb_status(void)
 	__raw_writel(0x03000000, 0xff50000c);
 	eieio();
 
-	asm volatile("	lis	7,0xff88	\n
-			ori	7,7,0x8		\n
-			lswi	6,7,0x8		\n
-			mr	%0,6		\n"
+	asm volatile("	lis	7,0xff88	\n\
+			ori	7,7,0x8		\n\
+			lswi	6,7,0x8		\n\
+			mr	%0,6"
 			: "=r" (kbd_status) :: "6", "7");
 
 	__raw_writel(0x00000000, 0xff50000c);
@@ -271,9 +270,9 @@ unsigned char spruce_read_keyb_data(void)
 	__raw_writel(0x03000000, 0xff50000c);
 	eieio();
 
-	asm volatile("	lis	7,0xff88	\n
-			lswi	6,7,0x8		\n
-			mr	%0,6		\n"
+	asm volatile("	lis	7,0xff88	\n\
+			lswi	6,7,0x8		\n\
+			mr	%0,6"
 			: "=r" (kbd_data) :: "6", "7");
 
 	__raw_writel(0x00000000, 0xff50000c);
@@ -281,6 +280,26 @@ unsigned char spruce_read_keyb_data(void)
 
 	return (unsigned char)(kbd_data >> 24);
 }
+
+#if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
+/*
+ * Set BAT 3 to map 0xf8000000 to end of physical memory space 1-to-1.
+ */
+static __inline__ void
+spruce_set_bat(void)
+{
+	unsigned long	bat3u, bat3l;
+
+	asm volatile("  lis	%0,0xf800	\n\
+			ori	%1,%0,0x002a	\n\
+			ori	%0,%0,0x0ffe	\n\
+			mtspr	0x21e,%0	\n\
+			mtspr	0x21f,%1	\n\
+			isync			\n\
+			sync "
+			: "=r" (bat3u), "=r" (bat3l));
+}
+#endif
 
 void __init
 platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
@@ -311,6 +330,17 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.nvram_read_val = todc_direct_read_val;
 	ppc_md.nvram_write_val = todc_direct_write_val;
 
+#if defined(CONFIG_SERIAL) && (defined(CONFIG_SERIAL_TEXT_DEBUG) \
+		|| defined(CONFIG_KGDB))
+	spruce_set_bat();
+	spruce_early_serial_map();
+
+#ifdef CONFIG_SERIAL_TEXT_DEBUG
+	ppc_md.progress = gen550_progress;
+#endif /* CONFIG_SERIAL_TEXT_DEBUG */
+	ppc_md.early_serial_map = spruce_early_serial_map;
+#endif
+
 #ifdef CONFIG_VT
 	/* Spruce has a PS2 style keyboard */
 	ppc_md.kbd_setkeycode = pckbd_setkeycode;
@@ -320,7 +350,7 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 	ppc_md.kbd_leds = pckbd_leds;
 	ppc_md.kbd_init_hw = pckbd_init_hw;
 #ifdef CONFIG_MAGIC_SYSRQ
-	ppc_md.kbd_sysrq_xlate = pckbd_sysrq_xlate;
+	ppc_md.ppc_kbd_sysrq_xlate = pckbd_sysrq_xlate;
 	SYSRQ_KEY = 0x54;
 #endif
 #endif

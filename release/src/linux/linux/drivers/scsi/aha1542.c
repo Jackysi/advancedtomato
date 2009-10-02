@@ -1,4 +1,4 @@
-/* $Id: aha1542.c,v 1.1.1.4 2003/10/14 08:08:37 sparq Exp $
+/* $Id: aha1542.c,v 1.1 1992/07/24 06:27:38 root Exp root $
  *  linux/kernel/aha1542.c
  *
  *  Copyright (C) 1992  Tommy Thorn
@@ -88,7 +88,7 @@ static void BAD_SG_DMA(Scsi_Cmnd * SCpnt,
 #endif
 
 /*
-   static const char RCSid[] = "$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/aha1542.c,v 1.1.1.4 2003/10/14 08:08:37 sparq Exp $";
+   static const char RCSid[] = "$Header: /usr/src/linux/kernel/blk_drv/scsi/RCS/aha1542.c,v 1.1 1992/07/24 06:27:38 root Exp root $";
  */
 
 /* The adaptec can be configured for quite a number of addresses, but
@@ -110,8 +110,6 @@ static int setup_called[MAXBOARDS];
 static int setup_buson[MAXBOARDS];
 static int setup_busoff[MAXBOARDS];
 static int setup_dmaspeed[MAXBOARDS] __initdata = { -1, -1, -1, -1 };
-
-static char *setup_str[MAXBOARDS] __initdata;
 
 /*
  * LILO/Module params:  aha1542=<PORTBASE>[,<BUSON>,<BUSOFF>[,<DMASPEED>]]
@@ -621,6 +619,13 @@ static int aha1542_queuecommand(Scsi_Cmnd * SCpnt, void (*done) (Scsi_Cmnd *))
 
 	if (*cmd == REQUEST_SENSE) {
 		/* Don't do the command - we have the sense data already */
+#if 0
+		/* scsi_request_sense() provides a buffer of size 256,
+		   so there is no reason to expect equality */
+		if (bufflen != sizeof(SCpnt->sense_buffer))
+			printk(KERN_CRIT "aha1542: Wrong buffer length supplied "
+			       "for request sense (%d)\n", bufflen);
+#endif
 		SCpnt->result = 0;
 		done(SCpnt);
 		return 0;
@@ -953,6 +958,7 @@ fail:
 
 #ifndef MODULE
 static int setup_idx = 0;
+static char *setup_str[MAXBOARDS] __initdata;
 
 void __init aha1542_setup(char *str, int *ints)
 {
@@ -1266,6 +1272,39 @@ fail:
 			HOSTDATA(shpnt)->aha1542_last_mbo_used = (AHA1542_MAILBOXES - 1);
 			memset(HOSTDATA(shpnt)->SCint, 0, sizeof(HOSTDATA(shpnt)->SCint));
 			restore_flags(flags);
+#if 0
+			DEB(printk(" *** READ CAPACITY ***\n"));
+
+			{
+				unchar buf[8];
+				static unchar cmd[] = { READ_CAPACITY, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+				int i;
+
+				for (i = 0; i < sizeof(buf); ++i)
+					buf[i] = 0x87;
+				for (i = 0; i < 2; ++i)
+					if (!aha1542_command(i, cmd, buf, sizeof(buf))) {
+						printk(KERN_DEBUG "aha_detect: LU %d sector_size %d device_size %d\n",
+						       i, xscsi2int(buf + 4), xscsi2int(buf));
+					}
+			}
+
+			DEB(printk(" *** NOW RUNNING MY OWN TEST *** \n"));
+
+			for (i = 0; i < 4; ++i) {
+				unsigned char cmd[10];
+				static buffer[512];
+
+				cmd[0] = READ_10;
+				cmd[1] = 0;
+				xany2scsi(cmd + 2, i);
+				cmd[6] = 0;
+				cmd[7] = 0;
+				cmd[8] = 1;
+				cmd[9] = 0;
+				aha1542_command(0, cmd, buffer, 512);
+			}
+#endif
 			request_region(bases[indx], 4, "aha1542");	/* Register the IO ports that we use */
 			count++;
 			continue;
@@ -1282,13 +1321,24 @@ static int aha1542_restart(struct Scsi_Host *shost)
 {
 	int i;
 	int count = 0;
+#if 0
+	unchar ahacmd = CMD_START_SCSI;
+#endif
 
 	for (i = 0; i < AHA1542_MAILBOXES; i++)
 		if (HOSTDATA(shost)->SCint[i] &&
 		    !(HOSTDATA(shost)->SCint[i]->device->soft_reset)) {
+#if 0
+			HOSTDATA(shost)->mb[i].status = 1;	/* Indicate ready to restart... */
+#endif
 			count++;
 		}
 	printk(KERN_DEBUG "Potential to restart %d stalled commands...\n", count);
+#if 0
+	/* start scsi command */
+	if (count)
+		aha1542_out(shost->io_port, &ahacmd, 1);
+#endif
 	return 0;
 }
 
@@ -1543,8 +1593,68 @@ fail:
  */
 static int aha1542_old_abort(Scsi_Cmnd * SCpnt)
 {
+#if 0
+	unchar ahacmd = CMD_START_SCSI;
+	unsigned long flags;
+	struct mailbox *mb;
+	int mbi, mbo, i;
+
+	printk(KERN_DEBUG "In aha1542_abort: %x %x\n",
+	       inb(STATUS(SCpnt->host->io_port)),
+	       inb(INTRFLAGS(SCpnt->host->io_port)));
+
+	save_flags(flags);
+	cli();
+	mb = HOSTDATA(SCpnt->host)->mb;
+	mbi = HOSTDATA(SCpnt->host)->aha1542_last_mbi_used + 1;
+	if (mbi >= 2 * AHA1542_MAILBOXES)
+		mbi = AHA1542_MAILBOXES;
+
+	do {
+		if (mb[mbi].status != 0)
+			break;
+		mbi++;
+		if (mbi >= 2 * AHA1542_MAILBOXES)
+			mbi = AHA1542_MAILBOXES;
+	} while (mbi != HOSTDATA(SCpnt->host)->aha1542_last_mbi_used);
+	restore_flags(flags);
+
+	if (mb[mbi].status) {
+		printk(KERN_ERR "Lost interrupt discovered on irq %d - attempting to recover\n",
+		       SCpnt->host->irq);
+		aha1542_intr_handle(SCpnt->host->irq, NULL);
+		return 0;
+	}
+	/* OK, no lost interrupt.  Try looking to see how many pending commands
+	   we think we have. */
+
+	for (i = 0; i < AHA1542_MAILBOXES; i++)
+		if (HOSTDATA(SCpnt->host)->SCint[i]) {
+			if (HOSTDATA(SCpnt->host)->SCint[i] == SCpnt) {
+				printk(KERN_ERR "Timed out command pending for %s\n",
+				       kdevname(SCpnt->request.rq_dev));
+				if (HOSTDATA(SCpnt->host)->mb[i].status) {
+					printk(KERN_ERR "OGMB still full - restarting\n");
+					aha1542_out(SCpnt->host->io_port, &ahacmd, 1);
+				};
+			} else
+				printk(KERN_ERR "Other pending command %s\n",
+				       kdevname(SCpnt->request.rq_dev));
+		}
+#endif
 
 	DEB(printk("aha1542_abort\n"));
+#if 0
+	save_flags(flags);
+	cli();
+	for (mbo = 0; mbo < AHA1542_MAILBOXES; mbo++)
+		if (SCpnt == HOSTDATA(SCpnt->host)->SCint[mbo]) {
+			mb[mbo].status = 2;	/* Abort command */
+			aha1542_out(SCpnt->host->io_port, &ahacmd, 1);	/* start scsi command */
+			restore_flags(flags);
+			break;
+		};
+#endif
 	return SCSI_ABORT_SNOOZE;
 }
 

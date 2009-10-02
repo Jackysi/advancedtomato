@@ -400,7 +400,7 @@
 #define MULTICAST_AVOID		/* Avoid extra multicast (I'm sceptical). */
 #undef SET_MAC_ADDRESS		/* Experimental */
 
-#ifdef WIRELESS_EXT	    /* If wireless extensions exist in the kernel */
+#ifdef WIRELESS_EXT	/* If wireless extensions exist in the kernel */
 /* Warning:  this stuff will slow down the driver. */
 #define WIRELESS_SPY		/* Enable spying addresses. */
 #undef HISTOGRAM		/* Enable histogram of signal level. */
@@ -689,6 +689,15 @@ static u_char	irqvals[]	=
  */
 static unsigned short	iobase[]	=
 {
+#if	0
+  /* Leave out 0x3C0 for now -- seems to clash with some video
+   * controllers.
+   * Leave out the others too -- we will always use 0x390 and leave
+   * 0x300 for the Ethernet device.
+   * Jean II:  0x3E0 is fine as well.
+   */
+  0x300, 0x390, 0x3E0, 0x3C0
+#endif	/* 0 */
   0x390, 0x3E0
 };
 

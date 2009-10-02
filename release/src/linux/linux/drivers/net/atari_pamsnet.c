@@ -170,7 +170,7 @@ static void pamsnet_tick(unsigned long);
 
 static void pamsnet_intr(int irq, void *data, struct pt_regs *fp);
 
-static struct timer_list pamsnet_timer = { function: amsnet_tick };
+static struct timer_list pamsnet_timer = { function: pamsnet_tick };
 
 #define STRAM_ADDR(a)	(((a) & 0xff000000) == 0)
 
@@ -649,6 +649,9 @@ pamsnet_probe (dev)
 	 */
 
 	for (i = 0; i < ETH_ALEN; i++) {
+#if 0
+		dev->broadcast[i] = 0xff;
+#endif
 		dev->dev_addr[i]  = station_addr[i];
 	}
 	ether_setup(dev);

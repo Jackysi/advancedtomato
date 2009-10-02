@@ -1,4 +1,4 @@
-/*  $Id: irq.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/*  $Id: irq.c,v 1.113 2001/07/17 16:17:33 anton Exp $
  *  arch/sparc/kernel/irq.c:  Interrupt request handling routines. On the
  *                            Sparc the IRQ's are basically 'cast in stone'
  *                            and you are supposed to probe the prom's device
@@ -72,7 +72,7 @@ static void irq_panic(void)
     prom_halt();
 }
 
-void (*init_timers)(void (*)(int, void *,struct pt_regs *)) =
+void (*sparc_init_timers)(void (*)(int, void *,struct pt_regs *)) =
     (void (*)(void (*)(int, void *,struct pt_regs *))) irq_panic;
 
 /*
@@ -92,7 +92,7 @@ void (*init_timers)(void (*)(int, void *,struct pt_regs *)) =
 struct irqaction static_irqaction[MAX_STATIC_ALLOC];
 int static_irq_count;
 
-struct irqaction *irq_action[NR_IRQS+1] = {
+struct irqaction *irq_action[NR_IRQS] = {
 	  NULL, NULL, NULL, NULL, NULL, NULL , NULL, NULL,
 	  NULL, NULL, NULL, NULL, NULL, NULL , NULL, NULL
 };
@@ -110,7 +110,7 @@ int get_irq_list(char *buf)
 		
 		return sun4d_get_irq_list(buf);
 	}
-	for (i = 0 ; i < (NR_IRQS+1) ; i++) {
+	for (i = 0 ; i < NR_IRQS ; i++) {
 	        action = *(i + irq_action);
 		if (!action) 
 		        continue;
@@ -147,7 +147,7 @@ void free_irq(unsigned int irq, void *dev_id)
 		
 		return sun4d_free_irq(irq, dev_id);
 	}
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	action = *(cpu_irq + irq_action);
         if (cpu_irq > 14) {  /* 14 irq levels on the sparc */
                 printk("Trying to free bogus IRQ %d\n", irq);
@@ -382,7 +382,7 @@ void unexpected_irq(int irq, void *dev_id, struct pt_regs * regs)
 	struct irqaction * action;
 	unsigned int cpu_irq;
 	
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	action = *(cpu_irq + irq_action);
 
         printk("IO device interrupt, irq = %d\n", irq);
@@ -392,7 +392,7 @@ void unexpected_irq(int irq, void *dev_id, struct pt_regs * regs)
 		printk("Expecting: ");
         	for (i = 0; i < 16; i++)
                 	if (action->handler)
-                        	prom_printf("[%s:%d:0x%x] ", action->name,
+				printk("[%s:%d:0x%x] ", action->name,
 				    (int) i, (unsigned int) action->handler);
 	}
         printk("AIEEE\n");
@@ -461,7 +461,7 @@ int request_fast_irq(unsigned int irq,
 	extern struct tt_entry trapbase_cpu1, trapbase_cpu2, trapbase_cpu3;
 #endif
 	
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	if(cpu_irq > 14)
 		return -EINVAL;
 	if(!handler)
@@ -516,6 +516,11 @@ int request_fast_irq(unsigned int irq,
 	trap_table = &trapbase_cpu3; INSTANTIATE(trap_table)
 #endif
 #undef INSTANTIATE
+	/*
+	 * XXX Correct thing whould be to flush only I- and D-cache lines
+	 * which contain the handler in question. But as of time of the
+	 * writing we have no CPU-neutral interface to fine-grained flushes.
+	 */
 	flush_cache_all();
 
 	action->handler = handler;
@@ -546,7 +551,7 @@ int request_irq(unsigned int irq,
 					     unsigned long, const char *, void *);
 		return sun4d_request_irq(irq, handler, irqflags, devname, dev_id);
 	}
-	cpu_irq = irq & NR_IRQS;
+	cpu_irq = irq & (NR_IRQS - 1);
 	if(cpu_irq > 14)
 		return -EINVAL;
 
@@ -631,7 +636,7 @@ void __init init_IRQ(void)
 	extern void sun4c_init_IRQ( void );
 	extern void sun4m_init_IRQ( void );
 	extern void sun4d_init_IRQ( void );
-    
+
 	switch(sparc_cpu_model) {
 	case sun4c:
 	case sun4:

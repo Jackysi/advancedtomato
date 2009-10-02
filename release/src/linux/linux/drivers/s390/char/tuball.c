@@ -29,6 +29,9 @@ int tubxcorrect = 1;            /* Do correct ebc<->asc tables */
 MODULE_PARM(tubdebug, "i");
 MODULE_PARM(tubscrolltime, "i");
 MODULE_PARM(tubxcorrect, "i");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,12))
+MODULE_LICENSE ("GPL");
+#endif
 #endif
 /*
  * Values for tubdebug and their effects:

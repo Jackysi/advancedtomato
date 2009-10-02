@@ -3,9 +3,13 @@
 #include <asm/io.h>
 #include <asm/au1000.h>
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 
-#define	DEBUG_BASE  UART2_ADDR
+/*
+ * FIXME the user should be able to select the
+ * uart to be used for debugging.
+ */
+#define DEBUG_BASE  UART_DEBUG_BASE
 /**/
 
 /* we need uint32 uint8 */

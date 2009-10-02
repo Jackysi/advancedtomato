@@ -24,8 +24,7 @@ typedef void ia64_mv_setup_t (char **);
 typedef void ia64_mv_cpu_init_t(void);
 typedef void ia64_mv_irq_init_t (void);
 typedef void ia64_mv_pci_fixup_t (int);
-typedef void ia64_mv_pci_enable_device_t (struct pci_dev *);
-typedef unsigned long ia64_mv_map_nr_t (unsigned long);
+typedef unsigned long ia64_mv_map_nr_t (void *);
 typedef void ia64_mv_mca_init_t (void);
 typedef void ia64_mv_mca_handler_t (void);
 typedef void ia64_mv_cmci_handler_t (int, void *, struct pt_regs *);
@@ -46,7 +45,6 @@ typedef int ia64_mv_pci_map_sg (struct pci_dev *, struct scatterlist *, int, int
 typedef void ia64_mv_pci_unmap_sg (struct pci_dev *, struct scatterlist *, int, int);
 typedef void ia64_mv_pci_dma_sync_single (struct pci_dev *, dma_addr_t, size_t, int);
 typedef void ia64_mv_pci_dma_sync_sg (struct pci_dev *, struct scatterlist *, int, int);
-typedef unsigned long ia64_mv_pci_dma_address (struct scatterlist *);
 typedef int ia64_mv_pci_dma_supported (struct pci_dev *, u64);
 
 /*
@@ -92,7 +90,6 @@ extern void machvec_noop (void);
 #  define platform_cmci_handler	ia64_mv.cmci_handler
 #  define platform_log_print	ia64_mv.log_print
 #  define platform_pci_fixup	ia64_mv.pci_fixup
-#  define platform_pci_enable_device	ia64_mv.pci_enable_device
 #  define platform_send_ipi		ia64_mv.send_ipi
 #  define platform_global_tlb_purge	ia64_mv.global_tlb_purge
 #  define platform_pci_dma_init		ia64_mv.dma_init
@@ -104,7 +101,6 @@ extern void machvec_noop (void);
 #  define platform_pci_unmap_sg		ia64_mv.unmap_sg
 #  define platform_pci_dma_sync_single	ia64_mv.sync_single
 #  define platform_pci_dma_sync_sg	ia64_mv.sync_sg
-#  define platform_pci_dma_address	ia64_mv.dma_address
 #  define platform_pci_dma_supported	ia64_mv.dma_supported
 #  define platform_irq_desc		ia64_mv.irq_desc
 #  define platform_irq_to_vector	ia64_mv.irq_to_vector
@@ -123,7 +119,6 @@ struct ia64_machine_vector {
 	ia64_mv_cpu_init_t *cpu_init;
 	ia64_mv_irq_init_t *irq_init;
 	ia64_mv_pci_fixup_t *pci_fixup;
-	ia64_mv_pci_enable_device_t *pci_enable_device;
 	ia64_mv_map_nr_t *map_nr;
 	ia64_mv_mca_init_t *mca_init;
 	ia64_mv_mca_handler_t *mca_handler;
@@ -140,7 +135,6 @@ struct ia64_machine_vector {
 	ia64_mv_pci_unmap_sg *unmap_sg;
 	ia64_mv_pci_dma_sync_single *sync_single;
 	ia64_mv_pci_dma_sync_sg *sync_sg;
-	ia64_mv_pci_dma_address *dma_address;
 	ia64_mv_pci_dma_supported *dma_supported;
 	ia64_mv_irq_desc *irq_desc;
 	ia64_mv_irq_to_vector *irq_to_vector;
@@ -160,7 +154,6 @@ struct ia64_machine_vector {
 	platform_cpu_init,			\
 	platform_irq_init,			\
 	platform_pci_fixup,			\
-	platform_pci_enable_device,		\
 	platform_map_nr,			\
 	platform_mca_init,			\
 	platform_mca_handler,			\
@@ -177,7 +170,6 @@ struct ia64_machine_vector {
 	platform_pci_unmap_sg,			\
 	platform_pci_dma_sync_single,		\
 	platform_pci_dma_sync_sg,		\
-	platform_pci_dma_address,		\
 	platform_pci_dma_supported,		\
 	platform_irq_desc,			\
 	platform_irq_to_vector,			\
@@ -209,7 +201,6 @@ extern ia64_mv_pci_map_sg swiotlb_map_sg;
 extern ia64_mv_pci_unmap_sg swiotlb_unmap_sg;
 extern ia64_mv_pci_dma_sync_single swiotlb_sync_single;
 extern ia64_mv_pci_dma_sync_sg swiotlb_sync_sg;
-extern ia64_mv_pci_dma_address swiotlb_dma_address;
 extern ia64_mv_pci_dma_supported swiotlb_pci_dma_supported;
 
 /*
@@ -239,9 +230,6 @@ extern ia64_mv_pci_dma_supported swiotlb_pci_dma_supported;
 #endif
 #ifndef platform_pci_fixup
 # define platform_pci_fixup	((ia64_mv_pci_fixup_t *) machvec_noop)
-#endif
-#ifndef platform_pci_enable_device
-# define platform_pci_enable_device	((ia64_mv_pci_enable_device_t *) machvec_noop)
 #endif
 #ifndef platform_send_ipi
 # define platform_send_ipi	ia64_send_ipi	/* default to architected version */
@@ -275,9 +263,6 @@ extern ia64_mv_pci_dma_supported swiotlb_pci_dma_supported;
 #endif
 #ifndef platform_pci_dma_sync_sg
 # define platform_pci_dma_sync_sg	swiotlb_sync_sg
-#endif
-#ifndef platform_pci_dma_address
-# define  platform_pci_dma_address	swiotlb_dma_address
 #endif
 #ifndef platform_pci_dma_supported
 # define  platform_pci_dma_supported	swiotlb_pci_dma_supported

@@ -49,15 +49,17 @@ extern void proc_pciFr_init(struct proc_dir_entry *proc_ppc64_root);
 
 static int proc_pmc_control_mode = 0;
 
-static struct proc_dir_entry *proc_ppc64_root = NULL;
+struct proc_dir_entry *proc_ppc64_root = NULL;
 static struct proc_dir_entry *proc_ppc64_pmc_root = NULL;
 static struct proc_dir_entry *proc_ppc64_pmc_system_root = NULL;
 static struct proc_dir_entry *proc_ppc64_pmc_cpu_root[NR_CPUS] = {NULL, };
 
-static spinlock_t proc_ppc64_lock;
+spinlock_t proc_ppc64_lock;
 static int proc_ppc64_page_read(char *page, char **start, off_t off,
 				int count, int *eof, void *data);
 static void proc_ppc64_create_paca(int num, struct proc_dir_entry *paca_dir);
+void proc_ppc64_create_smt(void);
+
 int proc_ppc64_pmc_find_file(void *data);
 int proc_ppc64_pmc_read(char *page, char **start, off_t off,
 			int count, int *eof, char *buffer);
@@ -110,6 +112,9 @@ static ssize_t write_profile(struct file * file, const char * buf,
 static ssize_t read_trace(struct file *file, char *buf, size_t count, loff_t *ppos);
 static ssize_t write_trace(struct file * file, const char * buf,
 			     size_t count, loff_t *ppos);
+static ssize_t read_timeslice(struct file *file, char *buf, size_t count, loff_t *ppos);
+static ssize_t write_timeslice(struct file * file, const char * buf,
+			     size_t count, loff_t *ppos);
 
 static struct file_operations proc_profile_operations = {
 	read:		read_profile,
@@ -119,6 +124,11 @@ static struct file_operations proc_profile_operations = {
 static struct file_operations proc_trace_operations = {
 	read:		read_trace,
 	write:		write_trace,
+};
+
+static struct file_operations proc_timeslice_operations = {
+	read:		read_timeslice,
+	write:		write_timeslice,
 };
 
 extern struct perfmon_base_struct perfmon_base;
@@ -137,14 +147,27 @@ void proc_ppc64_init(void)
 	 *   /proc/ppc64/pmc/cpu0 
 	 */
 	spin_lock(&proc_ppc64_lock);
-	proc_ppc64_root = proc_mkdir("ppc64", 0);
-	if (!proc_ppc64_root) return;
+	if (proc_ppc64_root == NULL) {
+		proc_ppc64_root = proc_mkdir("ppc64", 0);
+		if (!proc_ppc64_root) {
+			spin_unlock(&proc_ppc64_lock);
+			return;
+		}
+	}
 	spin_unlock(&proc_ppc64_lock);
 
 	ent = create_proc_entry("naca", S_IFREG|S_IRUGO, proc_ppc64_root);
 	if ( ent ) {
 		ent->nlink = 1;
-		ent->data = 0;
+		ent->data = naca;
+		ent->size = 4096;
+		ent->proc_fops = &nacamap_fops;
+	}
+	
+	ent = create_proc_entry("systemcfg", S_IFREG|S_IRUGO, proc_ppc64_root);
+	if ( ent ) {
+		ent->nlink = 1;
+		ent->data = systemcfg;
 		ent->size = 4096;
 		ent->proc_fops = &nacamap_fops;
 	}
@@ -152,12 +175,16 @@ void proc_ppc64_init(void)
 	/* /proc/ppc64/paca/XX -- raw paca contents.  Only readable to root */
 	ent = proc_mkdir("paca", proc_ppc64_root);
 	if (ent) {
-		for (i = 0; i < naca->processorCount; i++)
+		for (i = 0; i < systemcfg->processorCount; i++)
 			proc_ppc64_create_paca(i, ent);
 	}
 
 	/* Placeholder for rtas interfaces. */
-	rtas_proc_dir = proc_mkdir("rtas", proc_ppc64_root);
+	if (rtas_proc_dir == NULL) {
+		rtas_proc_dir = proc_mkdir("rtas", proc_ppc64_root);
+	}
+
+	proc_ppc64_create_smt();
 
 	/* Create the /proc/ppc64/pcifr for the Pci Flight Recorder.	 */
 	proc_pciFr_init(proc_ppc64_root);
@@ -165,21 +192,21 @@ void proc_ppc64_init(void)
 	proc_ppc64_pmc_root = proc_mkdir("pmc", proc_ppc64_root);
 
 	proc_ppc64_pmc_system_root = proc_mkdir("system", proc_ppc64_pmc_root);
-	for (i = 0; i < naca->processorCount; i++) {
+	for (i = 0; i < systemcfg->processorCount; i++) {
 		sprintf(buf, "cpu%ld", i); 
 		proc_ppc64_pmc_cpu_root[i] = proc_mkdir(buf, proc_ppc64_pmc_root);
 	}
 
 
 	/* Create directories for the software counters. */
-	for (i = 0; i < naca->processorCount; i++) {
+	for (i = 0; i < systemcfg->processorCount; i++) {
 		ent = create_proc_entry("stab", S_IRUGO | S_IWUSR, 
 					proc_ppc64_pmc_cpu_root[i]);
 		if (ent) {
 			ent->nlink = 1;
 			ent->data = (void *)proc_ppc64_pmc_cpu_root[i];
 			ent->read_proc = (void *)proc_ppc64_pmc_stab_read;
-			ent->write_proc = (void *)proc_ppc64_pmc_stab_read;
+			ent->write_proc = NULL;
 		}
 
 		ent = create_proc_entry("htab", S_IRUGO | S_IWUSR, 
@@ -188,7 +215,7 @@ void proc_ppc64_init(void)
 			ent->nlink = 1;
 			ent->data = (void *)proc_ppc64_pmc_cpu_root[i];
 			ent->read_proc = (void *)proc_ppc64_pmc_htab_read;
-			ent->write_proc = (void *)proc_ppc64_pmc_htab_read;
+			ent->write_proc = NULL;
 		}
 	}
 
@@ -198,7 +225,7 @@ void proc_ppc64_init(void)
 		ent->nlink = 1;
 		ent->data = (void *)proc_ppc64_pmc_system_root;
 		ent->read_proc = (void *)proc_ppc64_pmc_stab_read;
-		ent->write_proc = (void *)proc_ppc64_pmc_stab_read;
+		ent->write_proc = NULL;
 	}
 
 	ent = create_proc_entry("htab", S_IRUGO | S_IWUSR, 
@@ -207,7 +234,7 @@ void proc_ppc64_init(void)
 		ent->nlink = 1;
 		ent->data = (void *)proc_ppc64_pmc_system_root;
 		ent->read_proc = (void *)proc_ppc64_pmc_htab_read;
-		ent->write_proc = (void *)proc_ppc64_pmc_htab_read;
+		ent->write_proc = NULL;
 	}
 
 	ent = create_proc_entry("profile", S_IWUSR | S_IRUGO, proc_ppc64_pmc_system_root);
@@ -224,15 +251,21 @@ void proc_ppc64_init(void)
 		/* ent->size = (1+prof_len) * sizeof(unsigned int); */
 	}
 
+	ent = create_proc_entry("timeslice", S_IWUSR | S_IRUGO, proc_ppc64_pmc_system_root);
+	if (ent) {
+		ent->nlink = 1;
+		ent->proc_fops = &proc_timeslice_operations;
+	}
+
 	/* Create directories for the hardware counters. */
-	for (i = 0; i < naca->processorCount; i++) {
+	for (i = 0; i < systemcfg->processorCount; i++) {
 		ent = create_proc_entry("hardware", S_IRUGO | S_IWUSR, 
 					proc_ppc64_pmc_cpu_root[i]);
 		if (ent) {
 			ent->nlink = 1;
 			ent->data = (void *)proc_ppc64_pmc_cpu_root[i];
 			ent->read_proc = (void *)proc_ppc64_pmc_hw_read;
-			ent->write_proc = (void *)proc_ppc64_pmc_hw_read;
+			ent->write_proc = NULL;
 		}
 	}
 
@@ -242,7 +275,7 @@ void proc_ppc64_init(void)
 		ent->nlink = 1;
 		ent->data = (void *)proc_ppc64_pmc_system_root;
 		ent->read_proc = (void *)proc_ppc64_pmc_hw_read;
-		ent->write_proc = (void *)proc_ppc64_pmc_hw_read;
+		ent->write_proc = NULL;
 	}
 }
 
@@ -299,7 +332,7 @@ int proc_ppc64_pmc_find_file(void *data)
 	   (unsigned long) proc_ppc64_pmc_system_root) {
 		return(-1); 
 	} else {
-		for (i = 0; i < naca->processorCount; i++) {
+		for (i = 0; i < systemcfg->processorCount; i++) {
 			if ((unsigned long)data ==
 			   (unsigned long)proc_ppc64_pmc_cpu_root[i]) {
 				return(i); 
@@ -412,39 +445,62 @@ static ssize_t read_profile(struct file *file, char *buf,
 	}
 	pnt = (char *)(perfmon_base.profile_buffer) + p - sizeof(unsigned int);
 	copy_to_user(buf,(void *)pnt,count);
+	p += count;
 	read += count;
-	*ppos += read;
+	*ppos = p;
 	return read;
+}
+
+static ssize_t write_profile(struct file * file, const char * buf,
+			     size_t count, loff_t *ppos)
+{
+	return(0);
 }
 
 static ssize_t read_trace(struct file *file, char *buf,
 			    size_t count, loff_t *ppos)
 {
 	unsigned long p = *ppos;
-	ssize_t read;
 	char * pnt;
-	unsigned int sample_step = 4;
 
 	if (p >= (perfmon_base.trace_length)) return 0;
 	if (count > (perfmon_base.trace_length) - p)
 		count = (perfmon_base.trace_length) - p;
-	read = 0;
 
-	pnt = (char *)(perfmon_base.trace_buffer) + p; //  - sizeof(unsigned int);
+	pnt = (char *)(perfmon_base.trace_buffer) + p;
 	copy_to_user(buf,(void *)pnt,count);
-	read += count;
-	*ppos += read;
-	return read;
+	p += count;
+	*ppos = p;
+	return count;
 }
 
 static ssize_t write_trace(struct file * file, const char * buf,
 			     size_t count, loff_t *ppos)
 {
+	return(0);
 }
 
-static ssize_t write_profile(struct file * file, const char * buf,
-			     size_t count, loff_t *ppos)
+static ssize_t read_timeslice(struct file *file, char *buf,
+			      size_t count, loff_t *ppos)
 {
+	unsigned long p = *ppos;
+	ssize_t read;
+	char * pnt;
+
+	if (p >= (perfmon_base.timeslice_length)) return 0;
+	if (count > (perfmon_base.timeslice_length) - p)
+		count = (perfmon_base.timeslice_length) - p;
+
+	pnt = (char *)(perfmon_base.timeslice_buffer) + p;
+	copy_to_user(buf,(void *)pnt,count);
+	*ppos = p + count;
+	return count;
+}
+
+static ssize_t write_timeslice(struct file * file, const char * buf,
+			       size_t count, loff_t *ppos)
+{
+	return(0);
 }
 
 int 
@@ -545,7 +601,7 @@ int proc_get_lpevents
 			(unsigned long)xItLpQueue.xLpIntCountByType[i] );
 	}
 	len += sprintf( page+len, "\n  events processed by processor:\n" );
-	for (i=0; i<naca->processorCount; ++i) {
+	for (i=0; i<systemcfg->processorCount; ++i) {
 		len += sprintf( page+len, "    CPU%02d  %10u\n",
 			i, paca[i].lpEvent_count );
 	}
@@ -829,15 +885,24 @@ static inline void proc_pmc_tlb(void)
 
 int proc_pmc_set_control( struct file *file, const char *buffer, unsigned long count, void *data )
 {
-	if      ( ! strncmp( buffer, "stop", 4 ) )
+	char stkbuf[10];
+
+	if (count > 9)
+		count = 9;
+	if (copy_from_user (stkbuf, buffer, count))
+		return -EFAULT;
+
+	stkbuf[count] = 0;
+
+	if      ( ! strncmp( stkbuf, "stop", 4 ) )
 		proc_pmc_stop();
-	else if ( ! strncmp( buffer, "start", 5 ) )
+	else if ( ! strncmp( stkbuf, "start", 5 ) )
 		proc_pmc_start();
-	else if ( ! strncmp( buffer, "reset", 5 ) )
+	else if ( ! strncmp( stkbuf, "reset", 5 ) )
 		proc_pmc_reset();
-	else if ( ! strncmp( buffer, "cpi", 3 ) )
+	else if ( ! strncmp( stkbuf, "cpi", 3 ) )
 		proc_pmc_cpi();
-	else if ( ! strncmp( buffer, "tlb", 3 ) )
+	else if ( ! strncmp( stkbuf, "tlb", 3 ) )
 		proc_pmc_tlb();
 	
 	/* IMPLEMENT ME */
@@ -978,45 +1043,115 @@ static loff_t nacamap_seek( struct file *file, loff_t off, int whence)
 static ssize_t nacamap_read( struct file *file, char *buf, size_t nbytes, loff_t *ppos)
 {
 	unsigned pos = *ppos;
-	unsigned size;
-	char * fromaddr;
 	struct proc_dir_entry *dp;
 
 	dp = file->f_dentry->d_inode->u.generic_ip;
 
-	size = dp->size;
-	if ( pos >= size )
+	if ( pos >= dp->size )
 		return 0;
-	if ( nbytes >= size )
-		nbytes = size;
-	if ( pos + nbytes > size )
-		nbytes = size - pos;
-	fromaddr = (char *)(KERNELBASE + 0x4000 + pos);
+	if ( nbytes >= dp->size )
+		nbytes = dp->size;
+	if ( pos + nbytes > dp->size )
+		nbytes = dp->size - pos;
 
-	copy_to_user( buf, fromaddr, nbytes );
+	copy_to_user( buf, (char *)dp->data + pos, nbytes );
 	*ppos = pos + nbytes;
 	return nbytes;
 }
 
 static int nacamap_mmap( struct file *file, struct vm_area_struct *vma )
 {
-	unsigned long pa;
-	long size;
-	long fsize;
 	struct proc_dir_entry *dp;
 
 	dp = file->f_dentry->d_inode->u.generic_ip;
 
-	pa = 0x4000;
-	fsize = 4096;
-
 	vma->vm_flags |= VM_SHM | VM_LOCKED;
 
-	size = vma->vm_end - vma->vm_start;
-	if ( size != 4096 )
+	if ((vma->vm_end - vma->vm_start) > dp->size)
 		return -EINVAL;
 
-	remap_page_range( vma->vm_start, pa, 4096, vma->vm_page_prot );
+	remap_page_range( vma->vm_start, __pa(dp->data), dp->size, vma->vm_page_prot );
 	return 0;
 }
 
+static int proc_ppc64_smt_snooze_read(char *page, char **start, off_t off,
+				      int count, int *eof, void *data)
+{
+	if (naca->smt_snooze_delay)
+		return sprintf(page, "%lu\n", naca->smt_snooze_delay);
+	else
+		return sprintf(page, "disabled\n");
+}
+
+static int proc_ppc64_smt_snooze_write(struct file* file, const char *buffer,
+				       unsigned long count, void *data)
+{
+	unsigned long val;
+	char val_string[22];
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (count > sizeof(val_string) - 1)
+		return -EINVAL;
+
+	if (copy_from_user(val_string, buffer, count))
+		return -EFAULT;
+
+	val_string[count] = '\0';
+
+	if (val_string[0] == '0' && (val_string[1] == '\n' || val_string[1] == '\0')) {
+		naca->smt_snooze_delay = 0;
+		return count;
+	}
+
+	val = simple_strtoul(val_string, NULL, 10);
+	if (val != 0)
+		naca->smt_snooze_delay = val;
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static int proc_ppc64_smt_state_read(char *page, char **start, off_t off,
+				      int count, int *eof, void *data)
+{
+	switch(naca->smt_state) {
+	case SMT_OFF:
+		return sprintf(page, "off\n");
+		break;
+	case SMT_ON:
+		return sprintf(page, "on\n");
+		break;
+	case SMT_DYNAMIC:
+		return sprintf(page, "dynamic\n");
+		break;
+	default:
+		return sprintf(page, "unknown\n");
+		break;
+	}
+}
+
+void proc_ppc64_create_smt(void)
+{
+	struct proc_dir_entry *ent_snooze =
+		create_proc_entry("smt-snooze-delay", S_IRUGO | S_IWUSR,
+				  proc_ppc64_root);
+	struct proc_dir_entry *ent_enabled =
+		create_proc_entry("smt-enabled", S_IRUGO | S_IWUSR,
+				  proc_ppc64_root);
+	if (ent_snooze) {
+		ent_snooze->nlink = 1;
+		ent_snooze->data = NULL;
+		ent_snooze->read_proc = (void *)proc_ppc64_smt_snooze_read;
+		ent_snooze->write_proc = (void *)proc_ppc64_smt_snooze_write;
+	}
+
+	if (ent_enabled) {
+		ent_enabled->nlink = 1;
+		ent_enabled->data = NULL;
+		ent_enabled->read_proc = (void *)proc_ppc64_smt_state_read;
+		ent_enabled->write_proc = NULL;
+	}
+}

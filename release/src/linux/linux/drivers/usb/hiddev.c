@@ -50,9 +50,10 @@ struct hiddev {
 };
 
 struct hiddev_list {
-	struct hiddev_event buffer[HIDDEV_BUFFER_SIZE];
+	struct hiddev_usage_ref buffer[HIDDEV_BUFFER_SIZE];
 	int head;
 	int tail;
+	unsigned flags;
 	struct fasync_struct *fasync;
 	struct hiddev *hiddev;
 	struct hiddev_list *next;
@@ -70,7 +71,8 @@ static devfs_handle_t hiddev_devfs_handle;
 static struct hid_report *
 hiddev_lookup_report(struct hid_device *hid, struct hiddev_report_info *rinfo)
 {
-	struct hid_report_enum *report_enum;
+	unsigned flags = rinfo->report_id & ~HID_REPORT_ID_MASK;
+	struct hid_report_enum *report_enum = NULL;
 	struct list_head *list;
 
 	if (rinfo->report_type < HID_REPORT_TYPE_MIN ||
@@ -78,27 +80,29 @@ hiddev_lookup_report(struct hid_device *hid, struct hiddev_report_info *rinfo)
 
 	report_enum = hid->report_enum +
 		(rinfo->report_type - HID_REPORT_TYPE_MIN);
-	if ((rinfo->report_id & ~HID_REPORT_ID_MASK) != 0) {
-		switch (rinfo->report_id & ~HID_REPORT_ID_MASK) {
-		case HID_REPORT_ID_FIRST:
-			list = report_enum->report_list.next;
-			if (list == &report_enum->report_list) return NULL;
-			rinfo->report_id = ((struct hid_report *) list)->id;
-			break;
+	      
+	switch (flags) {
+	case 0: /* Nothing to do -- report_id is already set correctly */
+		break;
 
-		case HID_REPORT_ID_NEXT:
-			list = (struct list_head *)
-				report_enum->report_id_hash[rinfo->report_id &
-							   HID_REPORT_ID_MASK];
-			if (list == NULL) return NULL;
-			list = list->next;
-			if (list == &report_enum->report_list) return NULL;
-			rinfo->report_id = ((struct hid_report *) list)->id;
-			break;
-
-		default:
-			return NULL;
-		}
+	case HID_REPORT_ID_FIRST:
+		list = report_enum->report_list.next;
+		if (list == &report_enum->report_list) return NULL;
+		rinfo->report_id = ((struct hid_report *) list)->id;
+		break;
+		
+	case HID_REPORT_ID_NEXT:
+		list = (struct list_head *)
+			report_enum->report_id_hash[rinfo->report_id &
+						    HID_REPORT_ID_MASK];
+		if (list == NULL) return NULL;
+		list = list->next;
+		if (list == &report_enum->report_list) return NULL;
+		rinfo->report_id = ((struct hid_report *) list)->id;
+		break;
+		
+	default:
+		return NULL;
 	}
 
 	return report_enum->report_id_hash[rinfo->report_id];
@@ -142,26 +146,65 @@ hiddev_lookup_usage(struct hid_device *hid, struct hiddev_usage_ref *uref)
 	return NULL;
 }
 
-/*
- * This is where hid.c calls into hiddev to pass an event that occurred over
- * the interrupt pipe
- */
-void hiddev_hid_event(struct hid_device *hid, unsigned int usage, int value)
+static void hiddev_send_event(struct hid_device *hid,
+			      struct hiddev_usage_ref *uref)
 {
 	struct hiddev *hiddev = hid->hiddev;
 	struct hiddev_list *list = hiddev->list;
 
 	while (list) {
-		list->buffer[list->head].hid = usage;
-		list->buffer[list->head].value = value;
-		list->head = (list->head + 1) & (HIDDEV_BUFFER_SIZE - 1);
-
-		kill_fasync(&list->fasync, SIGIO, POLL_IN);
+		if (uref->field_index != HID_FIELD_INDEX_NONE ||
+		    (list->flags & HIDDEV_FLAG_REPORT) != 0) {
+			list->buffer[list->head] = *uref;
+			list->head = (list->head + 1) & 
+				(HIDDEV_BUFFER_SIZE - 1);
+			kill_fasync(&list->fasync, SIGIO, POLL_IN);
+		}
 
 		list = list->next;
 	}
 
 	wake_up_interruptible(&hiddev->wait);
+}
+
+/*
+ * This is where hid.c calls into hiddev to pass an event that occurred over
+ * the interrupt pipe
+ */
+void hiddev_hid_event(struct hid_device *hid, struct hid_field *field,
+		      struct hid_usage *usage, __s32 value)
+{
+	unsigned type = field->report_type;
+	struct hiddev_usage_ref uref;
+
+	uref.report_type = 
+	  (type == HID_INPUT_REPORT) ? HID_REPORT_TYPE_INPUT :
+	  ((type == HID_OUTPUT_REPORT) ? HID_REPORT_TYPE_OUTPUT : 
+	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE:0));
+	uref.report_id = field->report->id;
+	uref.field_index = field->index;
+	uref.usage_index = (usage - field->usage);
+	uref.usage_code = usage->hid;
+	uref.value = value;
+
+	hiddev_send_event(hid, &uref);
+}
+
+
+void hiddev_report_event(struct hid_device *hid, struct hid_report *report)
+{
+	unsigned type = report->type;
+	struct hiddev_usage_ref uref;
+
+	memset(&uref, 0, sizeof(uref));
+	uref.report_type = 
+	  (type == HID_INPUT_REPORT) ? HID_REPORT_TYPE_INPUT :
+	  ((type == HID_OUTPUT_REPORT) ? HID_REPORT_TYPE_OUTPUT : 
+	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE:0));
+	uref.report_id = report->id;
+	uref.field_index = HID_FIELD_INDEX_NONE;
+
+	hiddev_send_event(hid, &uref);
 }
 
 /*
@@ -193,7 +236,6 @@ static int hiddev_release(struct inode * inode, struct file * file)
 	struct hiddev_list *list = file->private_data;
 	struct hiddev_list **listptr;
 
-	lock_kernel();
 	listptr = &list->hiddev->list;
 	hiddev_fasync(-1, file, 0);
 
@@ -209,7 +251,6 @@ static int hiddev_release(struct inode * inode, struct file * file)
 	}
 
 	kfree(list);
-	unlock_kernel();
 
 	return 0;
 }
@@ -259,43 +300,67 @@ static ssize_t hiddev_read(struct file * file, char * buffer, size_t count,
 {
 	DECLARE_WAITQUEUE(wait, current);
 	struct hiddev_list *list = file->private_data;
+	int event_size;
 	int retval = 0;
 
-	if (list->head == list->tail) {
+	event_size = ((list->flags & HIDDEV_FLAG_UREF) != 0) ?
+		sizeof(struct hiddev_usage_ref) : sizeof(struct hiddev_event);
 
-		add_wait_queue(&list->hiddev->wait, &wait);
-		set_current_state(TASK_INTERRUPTIBLE);
+	if (count < event_size) return 0;
 
-		while (list->head == list->tail) {
-
-			if (file->f_flags & O_NONBLOCK) {
-				retval = -EAGAIN;
-				break;
+	while (retval == 0) {
+		if (list->head == list->tail) {
+			add_wait_queue(&list->hiddev->wait, &wait);
+			set_current_state(TASK_INTERRUPTIBLE);
+			
+			while (list->head == list->tail) {
+				if (file->f_flags & O_NONBLOCK) {
+					retval = -EAGAIN;
+					break;
+				}
+				if (signal_pending(current)) {
+					retval = -ERESTARTSYS;
+					break;
+				}
+				if (!list->hiddev->exist) {
+					retval = -EIO;
+					break;
+				}
+				
+				schedule();
+				set_current_state(TASK_INTERRUPTIBLE);
 			}
-			if (signal_pending(current)) {
-				retval = -ERESTARTSYS;
-				break;
-			}
-			if (!list->hiddev->exist) {
-				retval = -EIO;
-				break;
-			}
 
-			schedule();
+			set_current_state(TASK_RUNNING);
+			remove_wait_queue(&list->hiddev->wait, &wait);
 		}
 
-		set_current_state(TASK_RUNNING);
-		remove_wait_queue(&list->hiddev->wait, &wait);
-	}
+		if (retval)
+			return retval;
 
-	if (retval)
-		return retval;
+		while (list->head != list->tail && 
+		       retval + event_size <= count) {
+			if ((list->flags & HIDDEV_FLAG_UREF) == 0) {
+				if (list->buffer[list->tail].field_index !=
+				    HID_FIELD_INDEX_NONE) {
+					struct hiddev_event event;
+					event.hid = list->buffer[list->tail].usage_code;
+					event.value = list->buffer[list->tail].value;
+					if (copy_to_user(buffer + retval, &event, sizeof(struct hiddev_event)))
+						return -EFAULT;
+					retval += sizeof(struct hiddev_event);
+				}
+			} else {
+				if (list->buffer[list->tail].field_index != HID_FIELD_INDEX_NONE ||
+				    (list->flags & HIDDEV_FLAG_REPORT) != 0) {
+					if (copy_to_user(buffer + retval, list->buffer + list->tail, sizeof(struct hiddev_usage_ref)))
+						return -EFAULT;
+					retval += sizeof(struct hiddev_usage_ref);
+				}
+			}
+			list->tail = (list->tail + 1) & (HIDDEV_BUFFER_SIZE - 1);
+		}
 
-	while (list->head != list->tail && retval + sizeof(struct hiddev_event) <= count) {
-		if (copy_to_user(buffer + retval, list->buffer + list->tail,
-				 sizeof(struct hiddev_event))) return -EFAULT;
-		list->tail = (list->tail + 1) & (HIDDEV_BUFFER_SIZE - 1);
-		retval += sizeof(struct hiddev_event);
 	}
 
 	return retval;
@@ -329,10 +394,15 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 	struct hiddev *hiddev = list->hiddev;
 	struct hid_device *hid = hiddev->hid;
 	struct usb_device *dev = hid->dev;
+	struct hiddev_collection_info cinfo;
 	struct hiddev_report_info rinfo;
-	struct hiddev_usage_ref uref;
+	struct hiddev_field_info finfo;
+	struct hiddev_usage_ref_multi uref_multi;
+	struct hiddev_usage_ref *uref = &uref_multi.uref;
+	struct hiddev_devinfo dinfo;
 	struct hid_report *report;
 	struct hid_field *field;
+	int i;
 
 	if (!hiddev->exist) return -EIO;
 
@@ -344,11 +414,18 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 	case HIDIOCAPPLICATION:
 		if (arg < 0 || arg >= hid->maxapplication)
 			return -EINVAL;
-		return hid->application[arg];
+
+		for (i = 0; i < hid->maxcollection; i++)
+			if (hid->collection[i].type == 
+			    HID_COLLECTION_APPLICATION && arg-- == 0)
+				break;
+		
+		if (i == hid->maxcollection)
+			return -EINVAL;
+
+		return hid->collection[i].usage;
 
 	case HIDIOCGDEVINFO:
-	{
-		struct hiddev_devinfo dinfo;
 		dinfo.bustype = BUS_USB;
 		dinfo.busnum = dev->bus->busnum;
 		dinfo.devnum = dev->devnum;
@@ -357,8 +434,28 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 		dinfo.product = dev->descriptor.idProduct;
 		dinfo.version = dev->descriptor.bcdDevice;
 		dinfo.num_applications = hid->maxapplication;
-		return copy_to_user((void *) arg, &dinfo, sizeof(dinfo));
-	}
+		if (copy_to_user((void *) arg, &dinfo, sizeof(dinfo)))
+			return -EFAULT;
+		return 0;
+
+	case HIDIOCGFLAG:
+		return put_user(list->flags, (int *) arg);
+
+	case HIDIOCSFLAG:
+		{
+			int newflags;
+			if (get_user(newflags, (int *) arg))
+				return -EFAULT;
+
+			if ((newflags & ~HIDDEV_FLAGS) != 0 ||
+			    ((newflags & HIDDEV_FLAG_REPORT) != 0 &&
+			     (newflags & HIDDEV_FLAG_UREF) == 0))
+				return -EINVAL;
+
+			list->flags = newflags;
+
+			return 0;
+		}
 
 	case HIDIOCGSTRING:
 		{
@@ -387,7 +484,6 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 		}
 
 	case HIDIOCINITREPORT:
-
 		hid_init_reports(hid);
 
 		return 0;
@@ -429,11 +525,11 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 
 		rinfo.num_fields = report->maxfield;
 
-		return copy_to_user((void *) arg, &rinfo, sizeof(rinfo));
+		if (copy_to_user((void *) arg, &rinfo, sizeof(rinfo)))
+			return -EFAULT;
+		return 0;
 
 	case HIDIOCGFIELDINFO:
-	{
-		struct hiddev_field_info finfo;
 		if (copy_from_user(&finfo, (void *) arg, sizeof(finfo)))
 			return -EFAULT;
 		rinfo.report_type = finfo.report_type;
@@ -461,82 +557,116 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 		finfo.unit_exponent = field->unit_exponent;
 		finfo.unit = field->unit;
 
-		return copy_to_user((void *) arg, &finfo, sizeof(finfo));
-	}
+		if (copy_to_user((void *) arg, &finfo, sizeof(finfo)))
+			return -EFAULT;
+		return 0;
 
 	case HIDIOCGUCODE:
-		if (copy_from_user(&uref, (void *) arg, sizeof(uref)))
+		if (copy_from_user(uref, (void *) arg, sizeof(*uref)))
 			return -EFAULT;
 
-		rinfo.report_type = uref.report_type;
-		rinfo.report_id = uref.report_id;
+		rinfo.report_type = uref->report_type;
+		rinfo.report_id = uref->report_id;
 		if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
 			return -EINVAL;
 
-		if (uref.field_index >= report->maxfield)
+		if (uref->field_index >= report->maxfield)
 			return -EINVAL;
 
-		field = report->field[uref.field_index];
-		if (uref.usage_index >= field->maxusage)
+		field = report->field[uref->field_index];
+		if (uref->usage_index >= field->maxusage)
 			return -EINVAL;
 
-		uref.usage_code = field->usage[uref.usage_index].hid;
+		uref->usage_code = field->usage[uref->usage_index].hid;
 
-		return copy_to_user((void *) arg, &uref, sizeof(uref));
+		if (copy_to_user((void *) arg, uref, sizeof(*uref)))
+			return -EFAULT;
+		return 0;
 
 	case HIDIOCGUSAGE:
-		if (copy_from_user(&uref, (void *) arg, sizeof(uref)))
-			return -EFAULT;
-
-		if (uref.report_id == HID_REPORT_ID_UNKNOWN) {
-			field = hiddev_lookup_usage(hid, &uref);
-			if (field == NULL)
-				return -EINVAL;
+	case HIDIOCSUSAGE:
+	case HIDIOCGUSAGES:
+	case HIDIOCSUSAGES:
+	case HIDIOCGCOLLECTIONINDEX:
+		if (cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) {
+			if (copy_from_user(&uref_multi, (void *) arg, 
+					   sizeof(uref_multi)))
+				return -EFAULT;
 		} else {
-			rinfo.report_type = uref.report_type;
-			rinfo.report_id = uref.report_id;
-			if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
-				return -EINVAL;
-
-			if (uref.field_index >= report->maxfield)
-				return -EINVAL;
-
-			field = report->field[uref.field_index];
-			if (uref.usage_index >= field->maxusage)
-				return -EINVAL;
+			if (copy_from_user(uref, (void *) arg, sizeof(*uref)))
+				return -EFAULT;
 		}
 
-		uref.value = field->value[uref.usage_index];
-
-		return copy_to_user((void *) arg, &uref, sizeof(uref));
-
-	case HIDIOCSUSAGE:
-		if (copy_from_user(&uref, (void *) arg, sizeof(uref)))
-			return -EFAULT;
-
-		if (uref.report_type == HID_REPORT_TYPE_INPUT)
+		if (cmd != HIDIOCGUSAGE && 
+		    cmd != HIDIOCGUSAGES &&
+		    uref->report_type == HID_REPORT_TYPE_INPUT)
 			return -EINVAL;
 
-		if (uref.report_id == HID_REPORT_ID_UNKNOWN) {
-			field = hiddev_lookup_usage(hid, &uref);
+		if (uref->report_id == HID_REPORT_ID_UNKNOWN) {
+			field = hiddev_lookup_usage(hid, uref);
 			if (field == NULL)
 				return -EINVAL;
 		} else {
-			rinfo.report_type = uref.report_type;
-			rinfo.report_id = uref.report_id;
+			rinfo.report_type = uref->report_type;
+			rinfo.report_id = uref->report_id;
 			if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
 				return -EINVAL;
 
-			if (uref.field_index >= report->maxfield)
+			if (uref->field_index >= report->maxfield)
 				return -EINVAL;
 
-			field = report->field[uref.field_index];
-			if (uref.usage_index >= field->maxusage)
+			field = report->field[uref->field_index];
+			if (uref->usage_index >= field->maxusage)
 				return -EINVAL;
+
+			if (cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) {
+				if (uref_multi.num_values >= HID_MAX_USAGES || 
+				    uref->usage_index >= field->maxusage || 
+				   (uref->usage_index + uref_multi.num_values) >= field->maxusage)
+					return -EINVAL;
+			}
 		}
 
-		field->value[uref.usage_index] = uref.value;
+		switch (cmd) {
+		case HIDIOCGUSAGE:
+			uref->value = field->value[uref->usage_index];
+			return copy_to_user((void *) arg, uref, sizeof(*uref));
 
+		case HIDIOCSUSAGE:
+			field->value[uref->usage_index] = uref->value;
+			return 0;
+
+		case HIDIOCGCOLLECTIONINDEX:
+			return field->usage[uref->usage_index].collection_index;
+		case HIDIOCGUSAGES:
+			for (i = 0; i < uref_multi.num_values; i++)
+				uref_multi.values[i] = 
+				    field->value[uref->usage_index + i];
+			if (copy_to_user((void *) arg, &uref_multi, 
+					 sizeof(uref_multi)))
+				return -EFAULT;
+			return 0;
+		case HIDIOCSUSAGES:
+			for (i = 0; i < uref_multi.num_values; i++)
+				field->value[uref->usage_index + i] = 
+				    uref_multi.values[i];
+			return 0;
+		}
+		break;
+
+	case HIDIOCGCOLLECTIONINFO:
+		if (copy_from_user(&cinfo, (void *) arg, sizeof(cinfo)))
+			return -EFAULT;
+
+		if (cinfo.index >= hid->maxcollection)
+			return -EINVAL;
+
+		cinfo.type = hid->collection[cinfo.index].type;
+		cinfo.usage = hid->collection[cinfo.index].usage;
+		cinfo.level = hid->collection[cinfo.index].level;
+
+		if (copy_to_user((void *) arg, &cinfo, sizeof(cinfo)))
+			return -EFAULT;
 		return 0;
 
 	default:
@@ -576,12 +706,18 @@ int hiddev_connect(struct hid_device *hid)
 	int minor, i;
 	char devfs_name[16];
 
-	for (i = 0; i < hid->maxapplication; i++)
-		if (!IS_INPUT_APPLICATION(hid->application[i]))
-			break;
 
-	if (i == hid->maxapplication)
-		return -1;
+
+	if ((hid->quirks & HID_QUIRK_HIDDEV) == 0) {
+		for (i = 0; i < hid->maxcollection; i++)
+			if (hid->collection[i].type == 
+			    HID_COLLECTION_APPLICATION &&
+			    !IS_INPUT_APPLICATION(hid->collection[i].usage))
+				break;
+
+		if (i == hid->maxcollection)
+			return -1;
+	}
 
 	for (minor = 0; minor < HIDDEV_MINORS && hiddev_table[minor]; minor++);
 	if (minor == HIDDEV_MINORS) {

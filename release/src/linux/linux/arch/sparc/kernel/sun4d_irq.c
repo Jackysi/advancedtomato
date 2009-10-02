@@ -1,4 +1,4 @@
-/*  $Id: sun4d_irq.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/*  $Id: sun4d_irq.c,v 1.28 2001/07/17 16:17:33 anton Exp $
  *  arch/sparc/kernel/sun4d_irq.c:
  *			SS1000/SC2000 interrupt handling.
  *
@@ -190,6 +190,7 @@ void sun4d_handler_irq(int irq, struct pt_regs * regs)
 	/* SBUS IRQ level (1 - 7) */
 	int sbusl = pil_to_sbus[irq];
 	
+	/* FIXME: Is this necessary?? */
 	cc_get_ipen();
 	
 	cc_set_iclr(1 << irq);
@@ -248,6 +249,15 @@ unsigned int sun4d_build_irq(struct sbus_dev *sdev, int irq)
 		return ((sdev->bus->board + 1) << 5) + (sbusl << 2) + sdev->slot;
 	else
 		return irq;
+}
+
+unsigned int sun4d_sbint_to_irq(struct sbus_dev *sdev, unsigned int sbint)
+{
+	if (sbint >= sizeof(sbus_to_pil)) {
+		printk(KERN_ERR "%s: bogus SBINT %d\n", sdev->prom_name, sbint);
+		BUG();
+	}
+	return sun4d_build_irq(sdev, sbus_to_pil[sbint]);
 }
 
 int sun4d_request_irq(unsigned int irq,
@@ -539,13 +549,14 @@ void __init sun4d_init_IRQ(void)
 {
 	__cli();
 
+	BTFIXUPSET_CALL(sbint_to_irq, sun4d_sbint_to_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(enable_irq, sun4d_enable_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(disable_irq, sun4d_disable_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(clear_clock_irq, sun4d_clear_clock_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(clear_profile_irq, sun4d_clear_profile_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(load_profile_irq, sun4d_load_profile_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(__irq_itoa, sun4d_irq_itoa, BTFIXUPCALL_NORM);
-	init_timers = sun4d_init_timers;
+	sparc_init_timers = sun4d_init_timers;
 #ifdef CONFIG_SMP
 	BTFIXUPSET_CALL(set_cpu_int, sun4d_set_cpu_int, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(clear_cpu_int, sun4d_clear_ipi, BTFIXUPCALL_NOP);

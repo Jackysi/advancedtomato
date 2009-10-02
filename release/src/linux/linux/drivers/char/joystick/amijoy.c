@@ -1,5 +1,5 @@
 /*
- * $Id: amijoy.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: amijoy.c,v 1.5 2000/07/21 22:52:24 vojtech Exp $
  *
  *  Copyright (c) 1998-2000 Vojtech Pavlik
  *
@@ -64,9 +64,9 @@ static void amijoy_interrupt(int irq, void *dummy, struct pt_regs *fp)
 
 			input_report_key(amijoy_dev + i, BTN_TRIGGER, button);
 
-			input_report_abs(amijoy_dev + i, ABS_X, ((data >> 1) & 1) - ((data >> 9) & 1);
+			input_report_abs(amijoy_dev + i, ABS_X, ((data >> 1) & 1) - ((data >> 9) & 1));
 			data = ~(data ^ (data << 1));
-			input_report_abs(amijoy_dev + i, ABS_Y, ((data >> 1) & 1) - ((data >> 9) & 1);
+			input_report_abs(amijoy_dev + i, ABS_Y, ((data >> 1) & 1) - ((data >> 9) & 1));
 		}
 }
 

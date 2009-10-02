@@ -1,4 +1,4 @@
-/*    $Id: processor.c,v 1.1.1.4 2003/10/14 08:07:38 sparq Exp $
+/*    $Id: processor.c,v 1.14 2002/09/13 06:46:28 grundler Exp $
  *
  *    Initial setup-routines for HP 9000 based hardware.
  *
@@ -151,6 +151,10 @@ static int __init processor_probe(struct parisc_device *dev)
 #ifdef CONFIG_SMP
 	p->lock = SPIN_LOCK_UNLOCKED;
 
+	/*
+	** FIXME: review if any other initialization is clobbered
+	**	for boot_cpu by the above memset().
+	*/
 
 	/* stolen from init_percpu_prof() */
 	cpu_data[cpuid].prof_counter = 1;
@@ -163,12 +167,24 @@ static int __init processor_probe(struct parisc_device *dev)
 	**	p->state = STATE_RENDEZVOUS;
 	*/
 
-	/*
-	** itimer and ipi IRQ handlers are statically initialized in
-	** arch/parisc/kernel/irq.c. ie Don't need to register them.
-	*/
-	p->region = irq_region[IRQ_FROM_REGION(CPU_IRQ_REGION)];
+#if 0
+	/* CPU 0 IRQ table is statically allocated/initialized */
+	if (cpuid) {
+		struct irqaction actions[];
 
+		/*
+		** itimer and ipi IRQ handlers are statically initialized in
+		** arch/parisc/kernel/irq.c. ie Don't need to register them.
+		*/
+		actions = kmalloc(sizeof(struct irqaction)*MAX_CPU_IRQ, GFP_ATOMIC);
+		if (!actions) {
+			/* not getting it's own table, share with monarch */
+			actions = cpu_irq_actions[0];
+		}
+
+		cpu_irq_actions[cpuid] = actions;
+	}
+#endif
 	return 0;
 }
 
@@ -221,6 +237,12 @@ void __init collect_boot_cpu_data(void)
 }
 
 
+/**
+ * init_cpu_profiler - enable/setup per cpu profiling hooks.
+ * @cpunum: The processor instance.
+ *
+ * FIXME: doesn't do much yet...
+ */
 static inline void __init
 init_percpu_prof(int cpunum)
 {

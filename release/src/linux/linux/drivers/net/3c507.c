@@ -303,9 +303,10 @@ static int	el16_close(struct net_device *dev);
 static struct net_device_stats *el16_get_stats(struct net_device *dev);
 static void el16_tx_timeout (struct net_device *dev);
 
-static void hardware_send_packet(struct net_device *dev, void *buf, short length);
+static void hardware_send_packet(struct net_device *dev, void *buf, short length, short pad);
 static void init_82586_mem(struct net_device *dev);
-static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
+static void init_rx_bufs(struct net_device *);
 
 
 /* Check for a network adaptor of this type, and return '0' iff one exists.
@@ -437,7 +438,7 @@ static int __init el16_probe1(struct net_device *dev, int ioaddr)
 	dev->get_stats	= el16_get_stats;
 	dev->tx_timeout = el16_tx_timeout;
 	dev->watchdog_timeo = TX_TIMEOUT;
-	dev->do_ioctl = netdev_ioctl;
+	dev->ethtool_ops = &netdev_ethtool_ops;
 
 	ether_setup(dev);	/* Generic ethernet behaviour */
 
@@ -505,7 +506,7 @@ static int el16_send_packet (struct sk_buff *skb, struct net_device *dev)
 	/* Disable the 82586's input to the interrupt line. */
 	outb (0x80, ioaddr + MISC_CTRL);
 
-	hardware_send_packet (dev, buf, length);
+	hardware_send_packet (dev, buf, skb->len, length - skb->len);
 
 	dev->trans_start = jiffies;
 	/* Enable the 82586 interrupt input. */
@@ -602,7 +603,6 @@ static void el16_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	}
 
 	if ((status & 0x0070) != 0x0040 && netif_running(dev)) {
-		static void init_rx_bufs(struct net_device *);
 		/* The Rx unit is not ready, it must be hung.  Restart the receiver by
 		   initializing the rx buffers, and issuing an Rx start command. */
 		if (net_debug)
@@ -758,12 +758,13 @@ static void init_82586_mem(struct net_device *dev)
 	return;
 }
 
-static void hardware_send_packet(struct net_device *dev, void *buf, short length)
+static void hardware_send_packet(struct net_device *dev, void *buf, short length, short pad)
 {
 	struct net_local *lp = (struct net_local *)dev->priv;
 	short ioaddr = dev->base_addr;
 	ushort tx_block = lp->tx_head;
 	unsigned long write_ptr = dev->mem_start + tx_block;
+	static char padding[ETH_ZLEN];
 
 	/* Set the write pointer to the Tx block, and put out the header. */
 	isa_writew(0x0000,write_ptr);			/* Tx status */
@@ -772,7 +773,7 @@ static void hardware_send_packet(struct net_device *dev, void *buf, short length
 	isa_writew(tx_block+8,write_ptr+=2);			/* Data Buffer offset. */
 
 	/* Output the data buffer descriptor. */
-	isa_writew(length | 0x8000,write_ptr+=2);		/* Byte count parameter. */
+	isa_writew((pad + length) | 0x8000,write_ptr+=2);		/* Byte count parameter. */
 	isa_writew(-1,write_ptr+=2);			/* No next data buffer. */
 	isa_writew(tx_block+22+SCB_BASE,write_ptr+=2);	/* Buffer follows the NoOp command. */
 	isa_writew(0x0000,write_ptr+=2);			/* Buffer address high bits (always zero). */
@@ -784,6 +785,8 @@ static void hardware_send_packet(struct net_device *dev, void *buf, short length
 
 	/* Output the packet at the write pointer. */
 	isa_memcpy_toio(write_ptr+2, buf, length);
+	if(pad)
+		isa_memcpy_toio(write_ptr+length+2, padding, pad);
 
 	/* Set the old command link pointing to this send packet. */
 	isa_writew(tx_block,dev->mem_start + lp->tx_cmd_link);
@@ -876,86 +879,29 @@ static void el16_rx(struct net_device *dev)
 	lp->rx_tail = rx_tail;
 }
 
-/**
- * netdev_ethtool_ioctl: Handle network interface SIOCETHTOOL ioctls
- * @dev: network interface on which out-of-band action is to be performed
- * @useraddr: userspace address to which data is to be read and returned
- *
- * Process the various commands of the SIOCETHTOOL interface.
- */
-
-static int netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-
-	/* dev_ioctl() in ../../net/core/dev.c has already checked
-	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
-
-	if (get_user(ethcmd, (u32 *)useraddr))
-		return -EFAULT;
-
-	switch (ethcmd) {
-
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-		strcpy (info.driver, DRV_NAME);
-		strcpy (info.version, DRV_VERSION);
-		sprintf(info.bus_info, "ISA 0x%lx", dev->base_addr);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-	}
-
-	/* get message-level */
-	case ETHTOOL_GMSGLVL: {
-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
-		edata.data = debug;
-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
-			return -EFAULT;
-		return 0;
-	}
-	/* set message-level */
-	case ETHTOOL_SMSGLVL: {
-		struct ethtool_value edata;
-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
-			return -EFAULT;
-		debug = edata.data;
-		return 0;
-	}
-
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+	sprintf(info->bus_info, "ISA 0x%lx", dev->base_addr);
 }
 
-/**
- * netdev_ioctl: Handle network interface ioctls
- * @dev: network interface on which out-of-band action is to be performed
- * @rq: user request data
- * @cmd: command issued by user
- *
- * Process the various out-of-band ioctls passed to this driver.
- */
-
-static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
+static u32 netdev_get_msglevel(struct net_device *dev)
 {
-	int rc = 0;
-
-	switch (cmd) {
-	case SIOCETHTOOL:
-		rc = netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-		break;
-
-	default:
-		rc = -EOPNOTSUPP;
-		break;
-	}
-
-	return rc;
+	return debug;
 }
- 
+
+static void netdev_set_msglevel(struct net_device *dev, u32 level)
+{
+	debug = level;
+}
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+	.get_msglevel		= netdev_get_msglevel,
+	.set_msglevel		= netdev_set_msglevel,
+};
 
 #ifdef MODULE
 static struct net_device dev_3c507;

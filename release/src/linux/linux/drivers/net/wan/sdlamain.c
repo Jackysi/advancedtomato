@@ -183,7 +183,7 @@ static void dbg_kfree(void * v, int line) {
 #define	DRV_RELEASE	0		/* release (minor version) number */
 #define	MAX_CARDS	16		/* max number of adapters */
 
-#ifndef	CONFIG_WANPIPE_CARDS		    /* configurable option */
+#ifndef	CONFIG_WANPIPE_CARDS		/* configurable option */
 #define	CONFIG_WANPIPE_CARDS 1
 #endif
 
@@ -511,7 +511,7 @@ static int setup (wan_device_t* wandev, wandev_conf_t* conf)
 	if (!card->configured){
 
 		/* Initialize the Spin lock */
-#if defined(__SMP__) || defined(LINUX_2_4) 
+#if defined(CONFIG_SMP) || defined(LINUX_2_4) 
 		printk(KERN_INFO "%s: Initializing for SMP\n",wandev->name);
 #endif
 
@@ -1027,7 +1027,7 @@ static int ioctl_dump (sdla_t* card, sdla_dump_t* u_dump)
                       #endif
                         dump.length     -= len;
                         dump.offset     += len;
-                        (char*)dump.ptr += len;
+                        dump.ptr         = (char*)dump.ptr + len;
                 }
 		
                 sdla_mapmem(&card->hw, oldvec);/* restore DPM window position */

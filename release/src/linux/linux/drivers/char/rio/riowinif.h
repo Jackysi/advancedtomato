@@ -40,7 +40,7 @@
 
 */
 
-#ifndef	_riowinif_h				    /* If RIOWINDIF.H not already defined */
+#ifndef	_riowinif_h				/* If RIOWINDIF.H not already defined */
 #define	_riowinif_h    1
 
 /*****************************************************************************
@@ -635,6 +635,9 @@ typedef	struct	_PKT
    CLOSE is sent from the driver to close a previously opened port.
    No parameters.
  */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 /*****************************************************************************
 *********************************            *********************************
 *********************************   WFLUSH   *********************************
@@ -649,6 +652,9 @@ typedef	struct	_PKT
    WFLUSH is also sent in-band from the driver to a port as a marker to end
    write flushing previously started by a pre-emptive WFLUSH packet. (in-band)
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
 
 /*****************************************************************************
@@ -662,6 +668,10 @@ typedef	struct	_PKT
    RFLUSH is sent pre-emptively from the driver to flush the read buffers and
    packets of a port.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 /*****************************************************************************
 *********************************            *********************************
@@ -674,6 +684,10 @@ typedef	struct	_PKT
    RESUME is sent pre-emptively from the driver to cause a port to resume 
    transmission of data if blocked by XOFF.  (as if XON had been received)
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 /*****************************************************************************
 *********************************            *********************************
@@ -692,6 +706,9 @@ typedef	struct	_PKT
    Otherwise, there is no acknowledgement and the break signal will last for the
    specified number of mS.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_BreakDelay		(PKT_Data+1)		/* Break delay in mS */
 
 /*****************************************************************************
@@ -718,6 +735,10 @@ typedef	struct	_PKT
    SUSPEND is sent pre-emptively from the driver to cause a port to suspend
    transmission of data.  (as if XOFF had been received)
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 /*****************************************************************************
 *********************************            *********************************
@@ -731,6 +752,10 @@ typedef	struct	_PKT
    A force close flushes receive and transmit queues, and also lowers all output
    modem signals if the COR5_HUPCL (Hang Up On Close) flag is set.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 /*****************************************************************************
 *********************************            *********************************
@@ -748,6 +773,10 @@ typedef	struct	_PKT
    -	Transparent Print Data
    -	Transparent Print Stop Sequence.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 /*****************************************************************************
 **********************************          **********************************
@@ -759,6 +788,10 @@ typedef	struct	_PKT
 
    MBIS is sent pre-emptively from the driver to set a port's modem signals.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 #define	PKT_ModemSet		(PKT_Data+4)		/* Modem set signals mask */
 
 /* ModemSet definitions... */
@@ -775,6 +808,10 @@ typedef	struct	_PKT
 
    MBIC is sent pre-emptively from the driver to clear a port's modem signals.
    */
+#if 0   
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 #define	PKT_ModemClear		(PKT_Data+4)		/* Modem clear signals mask */
 
@@ -791,6 +828,10 @@ typedef	struct	_PKT
 /* (Driver->RIO,pre-emptive)
 
    MSET is sent pre-emptively from the driver to set/clear a port's modem signals. */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#endif
 
 #define	PKT_ModemSet		(PKT_Data+4)		/* Modem set signals mask */
 
@@ -838,6 +879,9 @@ typedef	struct	_PKT
    MEMDUMP is sent pre-emptively from the driver to request a dump of 32 bytes
    of the specified port's RTA address space.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
 #define	PKT_SubCmd		(PKT_Data+5)		/* Sub Command */
 #define	PKT_Address		(PKT_Data+6)		/* Requested address */
@@ -853,6 +897,9 @@ typedef	struct	_PKT
    READ_REGISTER is sent pre-emptively from the driver to request the contents
    of the CD1400 register specified in address.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
 #define	PKT_SubCmd		(PKT_Data+5)		/* Sub Command */
 #define	PKT_Address		(PKT_Data+6)		/* Requested address */
@@ -868,6 +915,9 @@ typedef	struct	_PKT
    COMMAND_RUP - COMPLETE is sent in response to all port I/O control command
    packets, except MEMDUMP and READ_REGISTER.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
 #define	PKT_Cmd2		(PKT_Data+2)		/* Command code copy */
 #define	PKT_ModemStatus		(PKT_Data+3)		/* Modem signal status */
@@ -905,8 +955,16 @@ typedef	struct	_PKT
    COMMAND_RUP - COMPLETE is sent in response to all port I/O control command
    packets, except MEMDUMP and READ_REGISTER.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#define	PKT_Cmd2		(PKT_Data+2)		/* Command code copy */
+#endif
 #define	PKT_ModemStatus		(PKT_Data+3)		/* Modem signal status */
 #define	PKT_PortStatus		(PKT_Data+4)		/* Port signal status */
+#if 0
+#define	PKT_SubCmd		(PKT_Data+5)		/* Sub Command */
+#endif
 
 /* ModemStatus definitions... */
 #define	MODEM_DSR		0x80			/* Data Set Ready modem state */
@@ -939,6 +997,15 @@ typedef	struct	_PKT
    COMMAND_RUP - COMPLETE - MEMDUMP is sent as an acknowledgement for a MEMDUMP
    port I/O control command packet.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#define	PKT_Cmd2		(PKT_Data+2)		/* Command code copy */
+#define	PKT_ModemStatus		(PKT_Data+3)		/* Modem signal status */
+#define	PKT_PortStatus		(PKT_Data+4)		/* Port signal status */
+#define	PKT_SubCmd		(PKT_Data+5)		/* Sub Command */
+#define	PKT_Address		(PKT_Data+6)		/* Requested address */
+#endif
 #define	PKT_Dump		(PKT_Data+8)		/* 32bytes of requested dump data */
 
 /*****************************************************************************
@@ -952,7 +1019,16 @@ typedef	struct	_PKT
    COMMAND_RUP - COMPLETE - READ_REGISTER is sent as an acknowledgement for a
    READ_REGISTER port I/O control command packet.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/*Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/*Port number wrt RTA */
+#define	PKT_Cmd2		(PKT_Data+2)		/* Command code copy */
+#endif
 #define	PKT_RegisterValue	(PKT_Data+3)		/* Modem signal status */
+#if 0
+#define	PKT_PortStatus		(PKT_Data+4)		/* Port signal status */
+#define	PKT_SubCmd		(PKT_Data+5)		/* Sub Command */
+#endif
 
 /*****************************************************************************
 *********************                                  ***********************
@@ -964,6 +1040,11 @@ typedef	struct	_PKT
 
    COMMAND_RUP - BREAK_RECEIVED packets are sent when the port detects a receive BREAK signal.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#define	PKT_Cmd2		(PKT_Data+2)		/* Command code copy */
+#endif
 
 /*****************************************************************************
 *********************                                *************************
@@ -977,6 +1058,12 @@ typedef	struct	_PKT
    change in the input modem signal states.
 
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_PhbNum		(PKT_Data+1)		/* Port number wrt RTA */
+#define	PKT_Cmd2		(PKT_Data+2)		/* Command code copy */
+#define	PKT_ModemStatus		(PKT_Data+3)		/* Modem signal status */
+#endif
 
 /*****************************************************************************
 ************************                             *************************
@@ -989,6 +1076,9 @@ typedef	struct	_PKT
    BOOT_RUP - BOOT_REQUEST packets are sent to the Driver from RIO to request
    firmware code to load onto attached RTAs.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 
 /*****************************************************************************
 ************************                              ************************
@@ -1001,6 +1091,9 @@ typedef	struct	_PKT
    BOOT_RUP - BOOT_SEQUENCE packets are sent from the Driver to RIO in response
    to a BOOT_RUP - BOOT_REQUEST packet.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_NumPackets		(PKT_Data+2)		/* Packets required to load firmware */
 #define	PKT_LoadBase		(PKT_Data+4)		/* RTA firmware load address */
 #define	PKT_CodeSize		(PKT_Data+6)		/* Size of firmware in bytes */
@@ -1017,6 +1110,9 @@ typedef	struct	_PKT
    BOOT_RUP - BOOT_COMPLETE is sent to the Driver from RIO when downloading of
    RTA firmware has completed.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_LinkNumber		(PKT_Data+1)		/* Link number RTA booted on */
 #define	PKT_SerialNumber	(PKT_Data+2)		/* 4 byte serial number */
 
@@ -1044,6 +1140,9 @@ typedef	struct	_PKT
    In response to a BOOT_RUP boot packet request, the driver fills out the response
    packet with the 70 bytes of the requested sequence.
    */
+#if 0
+#define	PKT_SequenceNumber	(PKT_Data+0)		/* Packet sequence number */
+#endif
 #define	PKT_FirmwarePacket	(PKT_Data+2)		/* Firmware packet */
 
 /*****************************************************************************
@@ -1057,6 +1156,9 @@ typedef	struct	_PKT
    BOOT_RUP - IFOAD packets are sent from the Driver to an RTA to cause the
    RTA to shut down and reboot.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_IfoadId1		(PKT_Data+2)		/* IFOAD Id 1 */
 #define	PKT_IfoadId2		(PKT_Data+3)		/* IFOAD Id 2 */
 
@@ -1074,6 +1176,9 @@ typedef	struct	_PKT
    BOOT_RUP - IDENTIFY packets are sent from the Driver to an RTA to cause the
    RTA to flash its LEDs for a period of time.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_IdentifyId		(PKT_Data+2)		/* defines pattern to flash */
 
 /*****************************************************************************
@@ -1087,6 +1192,9 @@ typedef	struct	_PKT
    BOOT_RUP - ZOMBIE packets are sent from the Driver to an RTA to cause the
    RTA to shut down and flash it's LEDs.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_ZombieId1		(PKT_Data+2)		/* ZOMBIE Id 1 */
 #define	PKT_ZombieId2		(PKT_Data+3)		/* ZOMBIE Id 2 */
 
@@ -1104,6 +1212,10 @@ typedef	struct	_PKT
    BOOT_RUP - UFOAD packets are sent from the Driver to an RTA to cause the RTA
    to ask it's neighbouring RTA to shut down and reboot.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_LinkNumber		(PKT_Data+1)		/* Link number of RTA to UFOAD */
+#endif
 #define	PKT_UfoadId1		(PKT_Data+2)		/* UFOAD Id 1 */
 #define	PKT_UfoadId2		(PKT_Data+3)		/* UFOAD Id 2 */
 
@@ -1121,6 +1233,10 @@ typedef	struct	_PKT
    BOOT_RUP - IWAIT packets are sent from the Driver to an RTA to cause the RTA
    to pause booting on the specified link for 30 seconds.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#define	PKT_LinkNumber		(PKT_Data+1)		/* Link number of RTA to UFOAD */
+#endif
 #define	PKT_IwaitId1		(PKT_Data+2)		/* IWAIT Id 1 */
 #define	PKT_IwaitId2		(PKT_Data+3)		/* IWAIT Id 2 */
 
@@ -1138,6 +1254,9 @@ typedef	struct	_PKT
    ROUTE_RUP - ROUTE_REQUEST packets are sent from a newly booted or connected
    RTA to a Driver to request an ID (RUP or unit number).
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_SerialNumber	(PKT_Data+2)		/* 4 byte serial number */
 #define	PKT_ModuleTypes		(PKT_Data+6)		/* RTA Module types */
 
@@ -1162,6 +1281,9 @@ typedef	struct	_PKT
    ROUTE_RUP - ROUTE_FOAD packet is sent as a response to a ROUTE_RUP - ROUTE_REQUEST
    packet to cause the RTA to "Fall Over And Die"., i.e. shutdown and reboot.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_RouteCmdString	(PKT_Data+2)		/* Command string */
 
 /*****************************************************************************
@@ -1175,7 +1297,13 @@ typedef	struct	_PKT
    ROUTE_RUP - ROUTE_ALLOCATE packet is sent as a response to a ROUTE_RUP - ROUTE_REQUEST
    packet to allocate the RTA's Id number (RUP number 1..16)
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_IdNum		(PKT_Data+1)		/* RUP number for ports 1..8 */
+#if 0
+#define	PKT_RouteCmdString	(PKT_Data+2)		/* Command string */
+#endif
 #define	PKT_IdNum2		(PKT_Data+0x17)		/* RUP number for ports 9..16 */
 
 /*****************************************************************************
@@ -1189,6 +1317,9 @@ typedef	struct	_PKT
    ROUTE_RUP - ROUTE_TOPOLOGY packet is sent to inform the driver of an RTA's
    current link status.
    */
+#if 0
+#define	PKT_Cmd			(PKT_Data+0)		/* Command code */
+#endif
 #define	PKT_Link1Rup		(PKT_Data+2)		/* Link 1 RUP number */
 #define	PKT_Link1Link		(PKT_Data+3)		/* Link 1 link number */
 #define	PKT_Link2Rup		(PKT_Data+4)		/* Link 2 RUP number */

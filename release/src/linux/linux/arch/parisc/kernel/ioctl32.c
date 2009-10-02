@@ -1,4 +1,4 @@
-/* $Id: ioctl32.c,v 1.1.1.4 2003/10/14 08:07:38 sparq Exp $
+/* $Id: ioctl32.c,v 1.12 2002/07/08 20:52:15 grundler Exp $
  * ioctl32.c: Conversion between 32bit and 64bit native ioctls.
  *
  * Copyright (C) 1997-2000  Jakub Jelinek  (jakub@redhat.com)
@@ -35,6 +35,7 @@
 #include <linux/cdrom.h>
 #include <linux/loop.h>
 #include <linux/auto_fs.h>
+#include <linux/auto_fs4.h>
 #include <linux/devfs_fs.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>
@@ -454,6 +455,110 @@ static inline int hdio_getgeo(unsigned int fd, unsigned int cmd, unsigned long a
 }
 
 
+#if 0
+/* looks like SPARC only - eg sbus video */
+struct  fbcmap32 {
+	int             index;          /* first element (0 origin) */
+	int             count;
+	u32		red;
+	u32		green;
+	u32		blue;
+};
+
+
+static inline int fbiogetputcmap(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct fbcmap f;
+	int ret;
+	char red[256], green[256], blue[256];
+	u32 r, g, b;
+	mm_segment_t old_fs = get_fs();
+	
+	ret = get_user(f.index, &(((struct fbcmap32 *)arg)->index));
+	ret |= __get_user(f.count, &(((struct fbcmap32 *)arg)->count));
+	ret |= __get_user(r, &(((struct fbcmap32 *)arg)->red));
+	ret |= __get_user(g, &(((struct fbcmap32 *)arg)->green));
+	ret |= __get_user(b, &(((struct fbcmap32 *)arg)->blue));
+	if (ret)
+		return -EFAULT;
+	if ((f.index < 0) || (f.index > 255)) return -EINVAL;
+	if (f.index + f.count > 256)
+		f.count = 256 - f.index;
+	if (cmd == FBIOPUTCMAP32) {
+		ret = copy_from_user (red, (char *)A(r), f.count);
+		ret |= copy_from_user (green, (char *)A(g), f.count);
+		ret |= copy_from_user (blue, (char *)A(b), f.count);
+		if (ret)
+			return -EFAULT;
+	}
+	f.red = red; f.green = green; f.blue = blue;
+	set_fs (KERNEL_DS);
+	ret = sys_ioctl (fd, (cmd == FBIOPUTCMAP32) ? FBIOPUTCMAP_SPARC : FBIOGETCMAP_SPARC, (long)&f);
+	set_fs (old_fs);
+	if (!ret && cmd == FBIOGETCMAP32) {
+		ret = copy_to_user ((char *)A(r), red, f.count);
+		ret |= copy_to_user ((char *)A(g), green, f.count);
+		ret |= copy_to_user ((char *)A(b), blue, f.count);
+	}
+	return ret ? -EFAULT : 0;
+}
+
+struct fbcursor32 {
+	short set;		/* what to set, choose from the list above */
+	short enable;		/* cursor on/off */
+	struct fbcurpos pos;	/* cursor position */
+	struct fbcurpos hot;	/* cursor hot spot */
+	struct fbcmap32 cmap;	/* color map info */
+	struct fbcurpos size;	/* cursor bit map size */
+	u32	image;		/* cursor image bits */
+	u32	mask;		/* cursor mask bits */
+};
+	
+static inline int fbiogscursor(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	struct fbcursor f;
+	int ret;
+	char red[2], green[2], blue[2];
+	char image[128], mask[128];
+	u32 r, g, b;
+	u32 m, i;
+	mm_segment_t old_fs = get_fs();
+	
+	ret = copy_from_user (&f, (struct fbcursor32 *)arg, 2 * sizeof (short) + 2 * sizeof(struct fbcurpos));
+	ret |= __get_user(f.size.fbx, &(((struct fbcursor32 *)arg)->size.fbx));
+	ret |= __get_user(f.size.fby, &(((struct fbcursor32 *)arg)->size.fby));
+	ret |= __get_user(f.cmap.index, &(((struct fbcursor32 *)arg)->cmap.index));
+	ret |= __get_user(f.cmap.count, &(((struct fbcursor32 *)arg)->cmap.count));
+	ret |= __get_user(r, &(((struct fbcursor32 *)arg)->cmap.red));
+	ret |= __get_user(g, &(((struct fbcursor32 *)arg)->cmap.green));
+	ret |= __get_user(b, &(((struct fbcursor32 *)arg)->cmap.blue));
+	ret |= __get_user(m, &(((struct fbcursor32 *)arg)->mask));
+	ret |= __get_user(i, &(((struct fbcursor32 *)arg)->image));
+	if (ret)
+		return -EFAULT;
+	if (f.set & FB_CUR_SETCMAP) {
+		if ((uint) f.size.fby > 32)
+			return -EINVAL;
+		ret = copy_from_user (mask, (char *)A(m), f.size.fby * 4);
+		ret |= copy_from_user (image, (char *)A(i), f.size.fby * 4);
+		if (ret)
+			return -EFAULT;
+		f.image = image; f.mask = mask;
+	}
+	if (f.set & FB_CUR_SETCMAP) {
+		ret = copy_from_user (red, (char *)A(r), 2);
+		ret |= copy_from_user (green, (char *)A(g), 2);
+		ret |= copy_from_user (blue, (char *)A(b), 2);
+		if (ret)
+			return -EFAULT;
+		f.cmap.red = red; f.cmap.green = green; f.cmap.blue = blue;
+	}
+	set_fs (KERNEL_DS);
+	ret = sys_ioctl (fd, FBIOSCURSOR, (long)&f);
+	set_fs (old_fs);
+	return ret;
+}
+#endif /* 0 */
 
 struct fb_fix_screeninfo32 {
 	char			id[16];
@@ -1443,6 +1548,25 @@ static int do_unimap_ioctl(unsigned int fd, unsigned int cmd, struct unimapdesc3
 }
 #endif
 
+#if 0
+static int do_smb_getmountuid(unsigned int fd, unsigned int cmd, unsigned long arg)
+{
+	mm_segment_t old_fs = get_fs();
+	__kernel_uid_t kuid;
+	int err;
+
+	cmd = SMB_IOC_GETMOUNTUID;
+
+	set_fs(KERNEL_DS);
+	err = sys_ioctl(fd, cmd, (unsigned long)&kuid);
+	set_fs(old_fs);
+
+	if (err >= 0)
+		err = put_user(kuid, (__kernel_uid_t32 *)arg);
+
+	return err;
+}
+#endif
 
 struct atmif_sioc32 {
         int                number;
@@ -2792,6 +2916,17 @@ COMPATIBLE_IOCTL(TIOCSPTLCK)
 COMPATIBLE_IOCTL(TIOCSSERIAL)
 COMPATIBLE_IOCTL(TIOCSERGETLSR)
 /* Big F */
+#if 0
+COMPATIBLE_IOCTL(FBIOGTYPE)
+COMPATIBLE_IOCTL(FBIOSATTR)
+COMPATIBLE_IOCTL(FBIOGATTR)
+COMPATIBLE_IOCTL(FBIOSVIDEO)
+COMPATIBLE_IOCTL(FBIOGVIDEO)
+COMPATIBLE_IOCTL(FBIOGCURSOR32)  /* This is not implemented yet. Later it should be converted... */
+COMPATIBLE_IOCTL(FBIOSCURPOS)
+COMPATIBLE_IOCTL(FBIOGCURPOS)
+COMPATIBLE_IOCTL(FBIOGCURMAX)
+#endif
 COMPATIBLE_IOCTL(FBIOGET_VSCREENINFO)
 COMPATIBLE_IOCTL(FBIOPUT_VSCREENINFO)
 
@@ -2852,6 +2987,9 @@ COMPATIBLE_IOCTL(BLKRASET)
 COMPATIBLE_IOCTL(BLKFRASET)
 COMPATIBLE_IOCTL(BLKSECTSET)
 COMPATIBLE_IOCTL(BLKSSZGET)
+COMPATIBLE_IOCTL(BLKBSZGET)
+COMPATIBLE_IOCTL(BLKBSZSET)
+COMPATIBLE_IOCTL(BLKGETSIZE64)
 
 /* RAID */
 COMPATIBLE_IOCTL(RAID_VERSION)
@@ -2906,6 +3044,18 @@ COMPATIBLE_IOCTL(PIO_UNISCRNMAP)
 COMPATIBLE_IOCTL(PIO_FONTRESET)
 COMPATIBLE_IOCTL(PIO_UNIMAPCLR)
 /* Little k */
+#if 0
+COMPATIBLE_IOCTL(KIOCTYPE)
+COMPATIBLE_IOCTL(KIOCLAYOUT)
+COMPATIBLE_IOCTL(KIOCGTRANS)
+COMPATIBLE_IOCTL(KIOCTRANS)
+COMPATIBLE_IOCTL(KIOCCMD)
+COMPATIBLE_IOCTL(KIOCSDIRECT)
+COMPATIBLE_IOCTL(KIOCSLED)
+COMPATIBLE_IOCTL(KIOCGLED)
+COMPATIBLE_IOCTL(KIOCSRATE)
+COMPATIBLE_IOCTL(KIOCGRATE)
+#endif
 /* Big S */
 COMPATIBLE_IOCTL(SCSI_IOCTL_GET_IDLUN)
 COMPATIBLE_IOCTL(SCSI_IOCTL_DOORLOCK)
@@ -2974,6 +3124,11 @@ COMPATIBLE_IOCTL(SIOCGRARP)
 COMPATIBLE_IOCTL(SIOCDRARP)
 COMPATIBLE_IOCTL(SIOCADDDLCI)
 COMPATIBLE_IOCTL(SIOCDELDLCI)
+COMPATIBLE_IOCTL(SIOCGMIIPHY)
+COMPATIBLE_IOCTL(SIOCGMIIREG)
+COMPATIBLE_IOCTL(SIOCSMIIREG)
+COMPATIBLE_IOCTL(SIOCGIFVLAN)
+COMPATIBLE_IOCTL(SIOCSIFVLAN)
 /* SG stuff */
 COMPATIBLE_IOCTL(SG_SET_TIMEOUT)
 COMPATIBLE_IOCTL(SG_GET_TIMEOUT)
@@ -3118,6 +3273,8 @@ COMPATIBLE_IOCTL(SNDCTL_DSP_GETTRIGGER)
 COMPATIBLE_IOCTL(SNDCTL_DSP_SETTRIGGER)
 COMPATIBLE_IOCTL(SNDCTL_DSP_GETIPTR)
 COMPATIBLE_IOCTL(SNDCTL_DSP_GETOPTR)
+/* SNDCTL_DSP_MAPINBUF,  XXX needs translation */
+/* SNDCTL_DSP_MAPOUTBUF,  XXX needs translation */
 COMPATIBLE_IOCTL(SNDCTL_DSP_SETSYNCRO)
 COMPATIBLE_IOCTL(SNDCTL_DSP_SETDUPLEX)
 COMPATIBLE_IOCTL(SNDCTL_DSP_GETODELAY)
@@ -3219,6 +3376,12 @@ COMPATIBLE_IOCTL(AUTOFS_IOC_FAIL)
 COMPATIBLE_IOCTL(AUTOFS_IOC_CATATONIC)
 COMPATIBLE_IOCTL(AUTOFS_IOC_PROTOVER)
 COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE)
+COMPATIBLE_IOCTL(AUTOFS_IOC_EXPIRE_MULTI)
+COMPATIBLE_IOCTL(AUTOFS_IOC_PROTOSUBVER)
+COMPATIBLE_IOCTL(AUTOFS_IOC_ASKREGHOST)
+COMPATIBLE_IOCTL(AUTOFS_IOC_TOGGLEREGHOST)
+COMPATIBLE_IOCTL(AUTOFS_IOC_ASKUMOUNT)
+
 /* DEVFS */
 COMPATIBLE_IOCTL(DEVFSDIOC_GET_PROTO_REV)
 COMPATIBLE_IOCTL(DEVFSDIOC_SET_EVENT_MASK)
@@ -3386,6 +3549,11 @@ HANDLE_IOCTL(EXT2_IOC32_GETFLAGS, do_ext2_ioctl)
 HANDLE_IOCTL(EXT2_IOC32_SETFLAGS, do_ext2_ioctl)
 HANDLE_IOCTL(EXT2_IOC32_GETVERSION, do_ext2_ioctl)
 HANDLE_IOCTL(EXT2_IOC32_SETVERSION, do_ext2_ioctl)
+#if 0
+/* One SMB ioctl needs translations. */
+#define SMB_IOC_GETMOUNTUID_32 _IOR('u', 1, __kernel_uid_t32)
+HANDLE_IOCTL(SMB_IOC_GETMOUNTUID_32, do_smb_getmountuid)
+#endif
 HANDLE_IOCTL(ATM_GETLINKRATE32, do_atm_ioctl)
 HANDLE_IOCTL(ATM_GETNAMES32, do_atm_ioctl)
 HANDLE_IOCTL(ATM_GETTYPE32, do_atm_ioctl)

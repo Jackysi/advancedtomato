@@ -38,7 +38,7 @@ static LIST_HEAD(hub_event_list);	/* List of hubs needing servicing */
 static LIST_HEAD(hub_list);		/* List containing all of the hubs (for cleanup) */
 
 static DECLARE_WAIT_QUEUE_HEAD(khubd_wait);
-static int khubd_pid = 0;			/* PID of khubd */
+static pid_t khubd_pid = 0;			/* PID of khubd */
 static DECLARE_COMPLETION(khubd_exited);
 
 #ifdef	DEBUG
@@ -716,8 +716,6 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 			break;
 		}
 
-		hub->children[port] = dev;
-
 		/* Reset the device */
 		if (usb_hub_port_reset(hub, port, dev, delay)) {
 			usb_free_dev(dev);
@@ -761,8 +759,10 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 			dev->bus->bus_name, dev->devpath, dev->devnum);
 
 		/* Run it through the hoops (find a driver, etc) */
-		if (!usb_new_device(dev))
+		if (!usb_new_device(dev)) {
+			hub->children[port] = dev;
 			goto done;
+		}
 
 		/* Free the configuration if there was an error */
 		usb_free_dev(dev);
@@ -771,7 +771,6 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 		delay = HUB_LONG_RESET_TIME;
 	}
 
-	hub->children[port] = NULL;
 	usb_hub_port_disable(hub, port);
 done:
 	up(&usb_address0_sem);
@@ -949,7 +948,7 @@ static struct usb_driver hub_driver = {
  */
 int usb_hub_init(void)
 {
-	int pid;
+	pid_t pid;
 
 	if (usb_register(&hub_driver) < 0) {
 		err("Unable to register USB hub driver");
@@ -1057,8 +1056,10 @@ int usb_reset_device(struct usb_device *dev)
 	}
 	ret = usb_get_descriptor(dev, USB_DT_DEVICE, 0, descriptor,
 			sizeof(*descriptor));
-	if (ret < 0)
+	if (ret < 0) {
+		kfree(descriptor);
 		return ret;
+	}
 
 	le16_to_cpus(&descriptor->bcdUSB);
 	le16_to_cpus(&descriptor->idVendor);

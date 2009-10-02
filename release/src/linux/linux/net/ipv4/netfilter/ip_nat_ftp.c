@@ -10,7 +10,11 @@
 #include <linux/netfilter_ipv4/ip_conntrack_ftp.h>
 #include <linux/netfilter_ipv4/ip_conntrack_helper.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 #define MAX_PORTS 8
 static int ports[MAX_PORTS];
@@ -20,8 +24,7 @@ static int ports_c = 0;
 MODULE_PARM(ports, "1-" __MODULE_STRING(MAX_PORTS) "i");
 #endif
 
-DECLARE_LOCK_EXTERN(ip_ftp_lock);
-
+/* FIXME: Time out? --RR */
 
 static unsigned int
 ftp_nat_expected(struct sk_buff **pskb,
@@ -43,8 +46,6 @@ ftp_nat_expected(struct sk_buff **pskb,
 	DEBUGP("nat_expected: We have a connection!\n");
 	exp_ftp_info = &ct->master->help.exp_ftp_info;
 
-	LOCK_BH(&ip_ftp_lock);
-
 	if (exp_ftp_info->ftptype == IP_CT_FTP_PORT
 	    || exp_ftp_info->ftptype == IP_CT_FTP_EPRT) {
 		/* PORT command: make connection go to the client. */
@@ -59,7 +60,6 @@ ftp_nat_expected(struct sk_buff **pskb,
 		DEBUGP("nat_expected: PASV cmd. %u.%u.%u.%u->%u.%u.%u.%u\n",
 		       NIPQUAD(newsrcip), NIPQUAD(newdstip));
 	}
-	UNLOCK_BH(&ip_ftp_lock);
 
 	if (HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC)
 		newip = newsrcip;
@@ -79,7 +79,7 @@ ftp_nat_expected(struct sk_buff **pskb,
 		mr.range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
 		mr.range[0].min = mr.range[0].max
 			= ((union ip_conntrack_manip_proto)
-				{ htons(exp_ftp_info->port) });
+				{ .tcp = { htons(exp_ftp_info->port) } });
 	}
 	return ip_nat_setup_info(ct, &mr, hooknum);
 }
@@ -94,8 +94,6 @@ mangle_rfc959_packet(struct sk_buff **pskb,
 		     enum ip_conntrack_info ctinfo)
 {
 	char buffer[sizeof("nnn,nnn,nnn,nnn,nnn,nnn")];
-
-	MUST_BE_LOCKED(&ip_ftp_lock);
 
 	sprintf(buffer, "%u,%u,%u,%u,%u,%u",
 		NIPQUAD(newip), port>>8, port&0xFF);
@@ -118,8 +116,6 @@ mangle_eprt_packet(struct sk_buff **pskb,
 {
 	char buffer[sizeof("|1|255.255.255.255|65535|")];
 
-	MUST_BE_LOCKED(&ip_ftp_lock);
-
 	sprintf(buffer, "|1|%u.%u.%u.%u|%u|", NIPQUAD(newip), port);
 
 	DEBUGP("calling ip_nat_mangle_tcp_packet\n");
@@ -140,8 +136,6 @@ mangle_epsv_packet(struct sk_buff **pskb,
 {
 	char buffer[sizeof("|||65535|")];
 
-	MUST_BE_LOCKED(&ip_ftp_lock);
-
 	sprintf(buffer, "|||%u|", port);
 
 	DEBUGP("calling ip_nat_mangle_tcp_packet\n");
@@ -161,7 +155,7 @@ static int (*mangle[])(struct sk_buff **, u_int32_t, u_int16_t,
     [IP_CT_FTP_EPSV] mangle_epsv_packet
 };
 
-static int ftp_data_fixup(const struct ip_ct_ftp_expect *ct_ftp_info,
+static int ftp_data_fixup(const struct ip_ct_ftp_expect *exp_ftp_info,
 			  struct ip_conntrack *ct,
 			  struct sk_buff **pskb,
 			  enum ip_conntrack_info ctinfo,
@@ -173,18 +167,14 @@ static int ftp_data_fixup(const struct ip_ct_ftp_expect *ct_ftp_info,
 	u_int16_t port;
 	struct ip_conntrack_tuple newtuple;
 
-	MUST_BE_LOCKED(&ip_ftp_lock);
 	DEBUGP("FTP_NAT: seq %u + %u in %u\n",
-	       expect->seq, ct_ftp_info->len,
+	       expect->seq, exp_ftp_info->len,
 	       ntohl(tcph->seq));
-
-        /********add by zg 2006.11.21 for cdrouter v3.3 item 123/124(cdrouter_app_11/12) bug ********/
-        memset(&newtuple, 0, sizeof(newtuple));
 
 	/* Change address inside packet to match way we're mapping
 	   this connection. */
-	if (ct_ftp_info->ftptype == IP_CT_FTP_PASV
-	    || ct_ftp_info->ftptype == IP_CT_FTP_EPSV) {
+	if (exp_ftp_info->ftptype == IP_CT_FTP_PASV
+	    || exp_ftp_info->ftptype == IP_CT_FTP_EPSV) {
 		/* PASV/EPSV response: must be where client thinks server
 		   is */
 		newip = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip;
@@ -206,7 +196,7 @@ static int ftp_data_fixup(const struct ip_ct_ftp_expect *ct_ftp_info,
 	newtuple.src.u.tcp.port = expect->tuple.src.u.tcp.port;
 
 	/* Try to get same port: if not, try to change it. */
-	for (port = ct_ftp_info->port; port != 0; port++) {
+	for (port = exp_ftp_info->port; port != 0; port++) {
 		newtuple.dst.u.tcp.port = htons(port);
 
 		if (ip_conntrack_change_expect(expect, &newtuple) == 0)
@@ -215,9 +205,9 @@ static int ftp_data_fixup(const struct ip_ct_ftp_expect *ct_ftp_info,
 	if (port == 0)
 		return 0;
 
-	if (!mangle[ct_ftp_info->ftptype](pskb, newip, port,
+	if (!mangle[exp_ftp_info->ftptype](pskb, newip, port,
 					  expect->seq - ntohl(tcph->seq),
-					  ct_ftp_info->len, ct, ctinfo))
+					  exp_ftp_info->len, ct, ctinfo))
 		return 0;
 
 	return 1;
@@ -234,12 +224,12 @@ static unsigned int help(struct ip_conntrack *ct,
 	struct tcphdr *tcph = (void *)iph + iph->ihl*4;
 	unsigned int datalen;
 	int dir;
-	struct ip_ct_ftp_expect *ct_ftp_info;
+	struct ip_ct_ftp_expect *exp_ftp_info;
 
 	if (!exp)
 		DEBUGP("ip_nat_ftp: no exp!!");
 
-	ct_ftp_info = &exp->help.exp_ftp_info;
+	exp_ftp_info = &exp->help.exp_ftp_info;
 
 	/* Only mangle things once: original direction in POST_ROUTING
 	   and reply direction on PRE_ROUTING. */
@@ -255,29 +245,23 @@ static unsigned int help(struct ip_conntrack *ct,
 	}
 
 	datalen = (*pskb)->len - iph->ihl * 4 - tcph->doff * 4;
-	LOCK_BH(&ip_ftp_lock);
 	/* If it's in the right range... */
-	if (between(exp->seq + ct_ftp_info->len,
+	if (between(exp->seq + exp_ftp_info->len,
 		    ntohl(tcph->seq),
 		    ntohl(tcph->seq) + datalen)) {
-		if (!ftp_data_fixup(ct_ftp_info, ct, pskb, ctinfo, exp)) {
-			UNLOCK_BH(&ip_ftp_lock);
+		if (!ftp_data_fixup(exp_ftp_info, ct, pskb, ctinfo, exp))
 			return NF_DROP;
-		}
 	} else {
 		/* Half a match?  This means a partial retransmisison.
 		   It's a cracker being funky. */
 		if (net_ratelimit()) {
 			printk("FTP_NAT: partial packet %u/%u in %u/%u\n",
-			       exp->seq, ct_ftp_info->len,
+			       exp->seq, exp_ftp_info->len,
 			       ntohl(tcph->seq),
 			       ntohl(tcph->seq) + datalen);
 		}
-		UNLOCK_BH(&ip_ftp_lock);
 		return NF_DROP;
 	}
-	UNLOCK_BH(&ip_ftp_lock);
-
 	return NF_ACCEPT;
 }
 
@@ -304,9 +288,6 @@ static int __init init(void)
 		ports[0] = FTP_PORT;
 
 	for (i = 0; (i < MAX_PORTS) && ports[i]; i++) {
-
-		memset(&ftp[i], 0, sizeof(struct ip_nat_helper));
-
 		ftp[i].tuple.dst.protonum = IPPROTO_TCP;
 		ftp[i].tuple.src.u.tcp.port = htons(ports[i]);
 		ftp[i].mask.dst.protonum = 0xFFFF;

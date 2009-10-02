@@ -68,14 +68,14 @@ char kernel_version [] = UTS_RELEASE;
 #  define XPRAM_VERSION 22
 #endif 
 
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 #  include <linux/config.h>
 #  include <linux/init.h>
 #endif /* V24 */
 #include <linux/sched.h>
 #include <linux/kernel.h> /* printk() */
 #include <linux/slab.h> /* kmalloc() */
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 #  include <linux/devfs_fs_kernel.h>
 #endif /* V24 */
 #include <linux/fs.h>     /* everything... */
@@ -89,7 +89,7 @@ char kernel_version [] = UTS_RELEASE;
 #include <asm/system.h>   /* cli(), *_flags */
 #include <asm/uaccess.h>  /* put_user */
 
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 #define MAJOR_NR xpram_major /* force definitions on in blk.h */
 int xpram_major;   /* must be declared before including blk.h */
 devfs_handle_t xpram_devfs_handle;
@@ -135,7 +135,7 @@ __setup("xpram_parts=", xpram_setup);
 #define PRINT_FATAL(x...) printk ( KERN_DEBUG PRINTK_HEADER "panic:" x )
 #endif	
 
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 #define MAJOR_NR xpram_major /* force definitions on in blk.h */
 int xpram_major;   /* must be declared before including blk.h */
 
@@ -171,7 +171,7 @@ static int hardsect = XPRAM_HARDSECT;
 int xpram_devs, xpram_rahead;
 int xpram_blksize, xpram_hardsect;
 int xpram_mem_avail = 0;
-unsigned long xpram_sizes[XPRAM_MAX_DEVS];
+unsigned int xpram_sizes[XPRAM_MAX_DEVS];
 
 
 MODULE_PARM(devs,"i");
@@ -184,7 +184,7 @@ MODULE_PARM_DESC(sizes, "list of device (partition) sizes " \
 		 "All devices with size 0 equally partition the "
 		 "remaining space on the expanded strorage not "
 		 "claimed by explicit sizes\n");
-
+MODULE_LICENSE("GPL");
 
 
 /* The following items are obtained through kmalloc() in init_module() */
@@ -205,6 +205,10 @@ int *xpram_offsets = NULL;   /* partition offsets */
 #define NEXT4(x) ((x & 0x3) ? (x+4-(x &0x3)) : (x))   /* increment if needed */
 #define LAST4(x) ((x & 0x3) ? (x-4+(x & 0x3)) : (x))  /* decrement if needed */
 
+#if 0               /* this is probably not faster than the previous code */
+#define NEXT4(x)   ((((x-1)>>2)>>2)+4)             /* increment if needed */
+#define LAST4(x)   (((x+3)>>2)<<2)                 /* decrement if needed */
+#endif
 
 /* integer formats */
 #define XPRAM_INVALF -1    /* invalid     */
@@ -267,7 +271,7 @@ xpram_int_format(char **strptr)
 		return XPRAM_INVALF;
 	if ( (**strptr == '0') 
 	     && ( (*((*strptr)+1) == 'x') || (*((*strptr) +1) == 'X') ) 
-	     && isdigit(*((*strptr)+3)) ) {
+	     && isxdigit(*((*strptr)+2)) ) {
 		*strptr=(*strptr)+2;
 		return XPRAM_HEXF;
 	} else return XPRAM_DECF;
@@ -405,6 +409,12 @@ xpram_read_size_list_tail (char ** strptr, int maxl, int * ilist)
 		i++;
 	}
 	return res;
+#if 0  /* be lenient about trailing stuff */
+	if ( *str != 0 && *str != ' ' ) {
+		ilist[MAX(i-1,0)] = -EINVAL;
+		return -EINVAL;
+	} else return 0;
+#endif
 }
 
 
@@ -669,7 +679,7 @@ int xpram_ioctl (struct inode *inode, struct file *filp,
 		return -EINVAL;
 
 
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 		RO_IOCTLS(inode->i_rdev, arg); /* the default RO operations 
                                                 * BLKROSET
 						* BLKROGET
@@ -706,7 +716,7 @@ int xpram_ioctl (struct inode *inode, struct file *filp,
  * The file operations
  */
 
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 struct file_operations xpram_fops = {
 	NULL,          /* lseek: default */
 	block_read,
@@ -725,7 +735,7 @@ struct file_operations xpram_fops = {
 };
 #endif /* V22 */
 
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 struct block_device_operations xpram_devops =
 {
 	owner:   THIS_MODULE,
@@ -760,7 +770,7 @@ void xpram_request(request_queue_t * queue)
 		INIT_REQUEST;
 
 		fault=0;
-#if XPRAM_VERSION == 24 
+#if ( XPRAM_VERSION == 24 )
 		current_req = blkdev_entry_next_request (&queue->queue_head);
 #endif /* V24 */
 		dev_no = DEVICE_NR(current_req->rq_dev); 
@@ -784,6 +794,9 @@ void xpram_request(request_queue_t * queue)
 		}
 
                 /* Does request start at page boundery? -- paranoia */
+#if 0
+		PRINT_DEBUG(" req %lx, sect %lx, to copy %lx, buf addr %lx\n", (unsigned long) current_req, current_req->sector, sects_to_copy, (unsigned long) current_req->buffer);
+#endif
                 buffer = current_req->buffer;
 #if XPRAM_SEC_IN_PG != 1
                 /* Does request start at an expanded storage page boundery? */
@@ -811,6 +824,9 @@ void xpram_request(request_queue_t * queue)
 		page_no = (xpram_offsets[dev_no] >> XPRAM_KB_IN_PG_ORDER)
 			+ (current_req->sector >> XPRAM_SEC_IN_PG_ORDER); 
 
+#if 0 
+		PRINT_DEBUG("request: %d ( dev %d, copy %d sectors, at page %d ) \n", current_req->cmd,dev_no,sects_to_copy,page_no);
+#endif
 
 		switch(current_req->cmd) {
 		case READ:
@@ -873,7 +889,7 @@ void xpram_request(request_queue_t * queue)
  *           partition size (if provided). A parsing error of a value
  *           results in this value being set to -EINVAL.
  */
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 void xpram_setup (char *str, int *ints)
 #else 
 int xpram_setup (char *str)
@@ -883,14 +899,14 @@ int xpram_setup (char *str)
 	if ( devs != -EINVAL ) 
 	  if ( xpram_read_size_list_tail(&str,devs,sizes) < 0 ) {
 			PRINT_ERR("error while reading xpram parameters.\n");
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 			return -EINVAL;
 #endif /* V24 */
 			  }
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 	  else return 0;
 	else return -EINVAL;
-#elif XPRAM_VERSION == 22
+#elif (XPRAM_VERSION == 22)
 	return; 
 #endif /* V24/V22 */
 }
@@ -912,7 +928,7 @@ int xpram_init(void)
 
 	int mem_auto_no=0;    /* number of (implicit) zero parameters in sizes */
 	int mem_auto;         /* automatically determined device size          */
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 	int minor_length;     /* store the length of a minor (w/o '\0') */
         int minor_thresh;     /* threshhold for minor lenght            */
 
@@ -960,14 +976,26 @@ int xpram_init(void)
 	PRINT_DEBUG("  memory needed (for sized partitions): %d kB\n", mem_needed);
 	PRINT_DEBUG("  partitions to be sized automatically: %d\n", mem_auto_no);
 
+#if 0
+				/* Hardsect can't be changed :( */
+                                /* I try it any way. Yet I must distinguish
+                                 * between hardsects (to be changed to 4096)
+                                 * and soft sectors, hard-coded for buffer 
+                                 * sizes within the requests
+                                 */
+	if (hardsect != 512) {
+		PRINT_ERR("Can't change hardsect size\n");
+		hardsect = xpram_hardsect = 512;
+	}
+#endif
         PRINT_INFO("  hardsector size: %dB \n",xpram_hardsect);
 
 	/*
 	 * Register your major, and accept a dynamic number
 	 */
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 	result = register_blkdev(xpram_major, "xpram", &xpram_fops);
-#elif XPRAM_VERSION == 24
+#elif (XPRAM_VERSION == 24)
 	result = devfs_register_blkdev(xpram_major, "xpram", &xpram_devops);
 #endif /* V22/V24 */
 	if (result < 0) {
@@ -975,7 +1003,7 @@ int xpram_init(void)
                 PRINT_ERR("Giving up xpram\n");
 		return result;
 	}
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
 	xpram_devfs_handle = devfs_mk_dir (NULL, "slram", NULL);
 	devfs_register_series (xpram_devfs_handle, "%u", XPRAM_MAX_DEVS,
 			       DEVFS_FL_DEFAULT, XPRAM_MAJOR, 0,
@@ -1008,9 +1036,9 @@ int xpram_init(void)
 	 * arrays if it uses the default values.
 	 */
 
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 	blk_dev[major].request_fn = xpram_request;
-#elif XPRAM_VERSION == 24
+#elif (XPRAM_VERSION == 24)
 	q = BLK_DEFAULT_QUEUE (major);
 	blk_init_queue (q, xpram_request);
 	blk_queue_headactive (BLK_DEFAULT_QUEUE (major), 0);
@@ -1050,6 +1078,10 @@ int xpram_init(void)
 	for (i=1; i < xpram_devs; i++) 
 		xpram_offsets[i] = xpram_offsets[i-1] + xpram_sizes[i-1] + XPRAM_UNUSED;
 
+#if 0
+	for (i=0; i < xpram_devs; i++)
+		PRINT_DEBUG(" device(%d) offset = %d kB, size = %d kB\n",i, xpram_offsets[i], xpram_sizes[i]);
+#endif
 
 	xpram_blksizes = kmalloc(xpram_devs * sizeof(int), GFP_KERNEL);
 	if (!xpram_blksizes) {
@@ -1083,7 +1115,7 @@ int xpram_init(void)
 		goto fail_malloc_devices;
 	}
 	memset(xpram_devices, 0, xpram_devs * sizeof (Xpram_Dev));
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
         minor_length = 1;
         minor_thresh = 10;
 #endif /* V24 */
@@ -1091,7 +1123,7 @@ int xpram_init(void)
 		/* data and usage remain zeroed */
 		xpram_devices[i].size = xpram_sizes[i];  /* size in kB not in bytes */
 		atomic_set(&(xpram_devices[i].usage),0);
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
                 if (i == minor_thresh) {
 		  minor_length++;
 		  minor_thresh *= 10;
@@ -1109,6 +1141,23 @@ int xpram_init(void)
         PRINT_DEBUG("  size %dkB, name %s, usage: %d\n", 
                      xpram_devices[i].size,xpram_devices[i].device_name, atomic_read(&(xpram_devices[i].usage)));
 
+#if 0  /* WHY? */
+                xpram_devices[i].devfs_entry =
+		  devfs_register(NULL /* devfs root dir */,
+                                 xpram_devices[i].device_name, 0,
+                                 0 /* flags */,
+				 XPRAM_MAJOR,i,
+                                 0755 /* access mode */,
+				 0 /* uid */, 0 /* gid */,
+                                 &xpram_devops,
+				 (void *) &(xpram_devices[i])
+				 );
+		if ( xpram_devices[i].devfs_entry == NULL ) {
+		  PRINT_ERR("devfs system registry failed\n");
+		  PRINT_ERR("Giving up xpram\n");
+		  goto fail_devfs_register;
+		}
+#endif  /* WHY? */
 #endif /* V24 */
 				 
 	}
@@ -1116,7 +1165,7 @@ int xpram_init(void)
 	return 0; /* succeed */
 
 	/* clean up memory in case of failures */
-#if XPRAM_VERSION == 24
+#if (XPRAM_VERSION == 24)
  fail_devfs_register:
         for (i=0; i < xpram_devs; i++) {
 	  if ( xpram_devices[i].device_name )
@@ -1134,7 +1183,7 @@ int xpram_init(void)
 	hardsect_size[major] = NULL;
  fail_malloc:
 	read_ahead[major] = 0;
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 	blk_dev[major].request_fn = NULL;
 #endif /* V22 */
 	/* ???	unregister_chrdev(major, "xpram"); */
@@ -1170,7 +1219,7 @@ void cleanup_module(void)
 	for (i=0; i<xpram_devs; i++)
 		fsync_dev(MKDEV(xpram_major, i)); /* flush the devices */
 
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 	blk_dev[major].request_fn = NULL;
 #endif /* V22 */
 	read_ahead[major] = 0;
@@ -1182,9 +1231,9 @@ void cleanup_module(void)
 	kfree(xpram_offsets);
 
 				/* finally, the usual cleanup */
-#if XPRAM_VERSION == 22
+#if (XPRAM_VERSION == 22)
 	unregister_blkdev(major, "xpram");
-#elif XPRAM_VERSION == 24
+#elif (XPRAM_VERSION == 24)
 	devfs_unregister(xpram_devfs_handle);
 	if (devfs_unregister_blkdev(MAJOR_NR, "xpram"))
 		printk(KERN_WARNING "xpram: cannot unregister blkdev\n");

@@ -55,7 +55,7 @@ static char *_rio_list_h_sccs = "@(#)list.h	1.9" ;
 */
 
 #ifndef linux
-#if defined(MIPS) && !defined(MIPSEISA)
+#if defined( MIPS ) && !defined( MIPSEISA )
 /* May the shoes of the Devil dance on your grave for creating this */
 #define   can_add_transmit(PacketP,PortP) \
           (!((uint)(PacketP = (struct PKT *)RIO_PTR(CaD,RINDW(PortP->TxAdd))) \

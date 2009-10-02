@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.pgalloc.h 1.9 05/17/01 18:14:25 cort
- */
 #ifdef __KERNEL__
 #ifndef _PPC_PGALLOC_H
 #define _PPC_PGALLOC_H
@@ -8,6 +5,13 @@
 #include <linux/config.h>
 #include <linux/threads.h>
 #include <asm/processor.h>
+
+#ifdef CONFIG_PTE_64BIT
+/* 44x uses an 8kB pgdir because it has 8-byte Linux PTEs. */
+#define PGDIR_ORDER	1
+#else
+#define PGDIR_ORDER	0
+#endif
 
 /*
  * This is handled very differently on the PPC since out page tables
@@ -59,7 +63,7 @@ extern __inline__ pgd_t *get_pgd_slow(void)
 {
 	pgd_t *ret;
 
-	if ((ret = (pgd_t *)__get_free_page(GFP_KERNEL)) != NULL)
+	if ((ret = (pgd_t *)__get_free_pages(GFP_KERNEL, PGDIR_ORDER)) != NULL)
 		clear_page(ret);
 	return ret;
 }

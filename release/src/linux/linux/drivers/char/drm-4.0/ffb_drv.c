@@ -1,4 +1,4 @@
-/* $Id: ffb_drv.c,v 1.1.1.4 2003/10/14 08:08:05 sparq Exp $
+/* $Id: ffb_drv.c,v 1.14 2001/05/24 12:01:47 davem Exp $
  * ffb_drv.c: Creator/Creator3D direct rendering driver.
  *
  * Copyright (C) 2000 David S. Miller (davem@redhat.com)
@@ -74,7 +74,7 @@ static drm_ioctl_desc_t ffb_ioctls[] = {
 	[DRM_IOCTL_NR(DRM_IOCTL_VERSION)]    = { ffb_version,	  0, 0 },
 	[DRM_IOCTL_NR(DRM_IOCTL_GET_UNIQUE)] = { drm_getunique,	  0, 0 },
 	[DRM_IOCTL_NR(DRM_IOCTL_GET_MAGIC)]  = { drm_getmagic,	  0, 0 },
-	[DRM_IOCTL_NR(DRM_IOCTL_IRQ_BUSID)]  = { drm_irq_busid,	  0, 1 }, 
+	[DRM_IOCTL_NR(DRM_IOCTL_IRQ_BUSID)]  = { drm_irq_busid,	  0, 1 }, /* XXX */
 
 	[DRM_IOCTL_NR(DRM_IOCTL_SET_UNIQUE)] = { drm_setunique,	  1, 1 },
 	[DRM_IOCTL_NR(DRM_IOCTL_BLOCK)]	     = { drm_block,	  1, 1 },
@@ -158,7 +158,7 @@ static int ffb_takedown(drm_device_t *dev)
 			switch (map->type) {
 			case _DRM_REGISTERS:
 			case _DRM_FRAME_BUFFER:
-				drm_ioremapfree(map->handle, map->size);
+				drm_ioremapfree(map->handle, map->size, dev);
 				break;
 
 			case _DRM_SHM:

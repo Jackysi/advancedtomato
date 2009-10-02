@@ -27,7 +27,7 @@
 #define HIGHMEM_DEBUG 1
 
 /* in mm/highmem.c */
-extern void *kmap_high(struct page *page);
+extern void *kmap_high(struct page *page, int nonblocking);
 extern void kunmap_high(struct page *page);
 
 /* declarations for highmem.c */
@@ -60,13 +60,16 @@ extern void kmap_init(void) __init;
 void *kmap_atomic(struct page *page, enum km_type type);
 void kunmap_atomic(void *kvaddr, enum km_type type);
 
-static inline void *kmap(struct page *page)
+#define kmap(page) __kmap(page, 0)
+#define kmap_nonblock(page) __kmap(page, 1)
+
+static inline void *__kmap(struct page *page, int nonblocking)
 {
 	if (in_interrupt())
 		BUG();
 	if (page < highmem_start_page)
 		return page_address(page);
-	return kmap_high(page);
+	return kmap_high(page, nonblocking);
 }
 
 static inline void kunmap(struct page *page)

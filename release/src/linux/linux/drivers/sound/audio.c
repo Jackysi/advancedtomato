@@ -863,6 +863,10 @@ int dma_ioctl(int dev, unsigned int cmd, caddr_t arg)
 				DMAbuf_launch_output(dev, dmap_out);
 			}
 			audio_devs[dev]->enable_bits = bits;
+#if 0
+			if (changed && audio_devs[dev]->d->trigger)
+				audio_devs[dev]->d->trigger(dev, bits * audio_devs[dev]->go);
+#endif				
 			restore_flags(flags);
 			/* Falls through... */
 

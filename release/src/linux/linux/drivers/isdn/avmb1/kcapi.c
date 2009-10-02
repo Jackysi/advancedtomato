@@ -1,4 +1,4 @@
-/* $Id: kcapi.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: kcapi.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  * 
  * Kernel CAPI 2.0 Module
  * 
@@ -33,7 +33,7 @@
 #include <linux/b1lli.h>
 #endif
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.1 $";
 
 /* ------------------------------------------------------------- */
 
@@ -64,6 +64,7 @@ struct capi_ncci {
 	__u32 ncci;
 	__u32 winsize;
 	int   nmsg;
+        spinlock_t lock;
 	struct msgidqueue *msgidqueue;
 	struct msgidqueue *msgidlast;
 	struct msgidqueue *msgidfree;
@@ -545,7 +546,13 @@ static int notify_push(unsigned int cmd, __u32 controller,
 static void notify_up(__u32 contr)
 {
 	struct capi_interface_user *p;
+	__u16 appl;
 
+	for (appl = 1; appl <= CAPI_MAXAPPL; appl++) {
+		if (!VALID_APPLID(appl)) continue;
+		if (APPL(appl)->releasing) continue;
+		CARD(contr)->driver->register_appl(CARD(contr), appl, &APPL(appl)->rparam);
+	}
         printk(KERN_NOTICE "kcapi: notify up contr %d\n", contr);
 	spin_lock(&capi_users_lock);
 	for (p = capi_users; p; p = p->next) {
@@ -640,6 +647,7 @@ static void notify_handler(void *dummy)
 static inline void mq_init(struct capi_ncci * np)
 {
 	int i;
+        np->lock = SPIN_LOCK_UNLOCKED;
 	np->msgidqueue = 0;
 	np->msgidlast = 0;
 	np->nmsg = 0;
@@ -654,8 +662,11 @@ static inline void mq_init(struct capi_ncci * np)
 static inline int mq_enqueue(struct capi_ncci * np, __u16 msgid)
 {
 	struct msgidqueue *mq;
-	if ((mq = np->msgidfree) == 0)
+	spin_lock_bh(&np->lock);
+	if ((mq = np->msgidfree) == 0) {
+	        spin_unlock_bh(&np->lock);
 		return 0;
+	}
 	np->msgidfree = mq->next;
 	mq->msgid = msgid;
 	mq->next = 0;
@@ -665,12 +676,14 @@ static inline int mq_enqueue(struct capi_ncci * np, __u16 msgid)
 	if (!np->msgidqueue)
 		np->msgidqueue = mq;
 	np->nmsg++;
+	spin_unlock_bh(&np->lock);
 	return 1;
 }
 
 static inline int mq_dequeue(struct capi_ncci * np, __u16 msgid)
 {
 	struct msgidqueue **pp;
+	spin_lock_bh(&np->lock);
 	for (pp = &np->msgidqueue; *pp; pp = &(*pp)->next) {
 		if ((*pp)->msgid == msgid) {
 			struct msgidqueue *mq = *pp;
@@ -680,9 +693,11 @@ static inline int mq_dequeue(struct capi_ncci * np, __u16 msgid)
 			mq->next = np->msgidfree;
 			np->msgidfree = mq;
 			np->nmsg--;
+	                spin_unlock_bh(&np->lock);
 			return 1;
 		}
 	}
+	spin_unlock_bh(&np->lock);
 	return 0;
 }
 
@@ -705,12 +720,16 @@ static void controllercb_appl_released(struct capi_ctr * card, __u16 appl)
 			nextpp = &(*pp)->next;
 		}
 	}
-	APPL(appl)->releasing--;
-	if (APPL(appl)->releasing <= 0) {
-		APPL(appl)->signal = 0;
-		APPL_MARK_FREE(appl);
-		printk(KERN_INFO "kcapi: appl %d down\n", appl);
-	}
+	if (APPL(appl)->releasing) { /* only release if the application was marked for release */
+		printk(KERN_DEBUG "kcapi: appl %d releasing(%d)\n", appl, APPL(appl)->releasing);
+		APPL(appl)->releasing--;
+		if (APPL(appl)->releasing <= 0) {
+			APPL(appl)->signal = 0;
+			APPL_MARK_FREE(appl);
+			printk(KERN_INFO "kcapi: appl %d down\n", appl);
+		}
+	} else
+		printk(KERN_WARNING "kcapi: appl %d card%d released without request\n", appl, card->cnr);
 }
 /*
  * ncci management
@@ -863,16 +882,7 @@ error:
 
 static void controllercb_ready(struct capi_ctr * card)
 {
-	__u16 appl;
-
 	card->cardstate = CARD_RUNNING;
-
-	for (appl = 1; appl <= CAPI_MAXAPPL; appl++) {
-		if (!VALID_APPLID(appl)) continue;
-		if (APPL(appl)->releasing) continue;
-		card->driver->register_appl(card, appl, &APPL(appl)->rparam);
-	}
-
         printk(KERN_NOTICE "kcapi: card %d \"%s\" ready.\n",
 		CARDNR(card), card->name);
 

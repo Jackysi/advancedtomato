@@ -40,18 +40,21 @@ static volatile int *lasat_int_mask = NULL;
 static volatile int lasat_int_mask_shift;
 
 extern asmlinkage void mipsIRQ(void);
-extern void do_IRQ(int irq, struct pt_regs *regs);
 
+#if 0
+#define DEBUG_INT(x...) printk(x)
+#else
 #define DEBUG_INT(x...)
+#endif
 
 void disable_lasat_irq(unsigned int irq_nr)
 {
 	unsigned long flags;
 	DEBUG_INT("disable_lasat_irq: %d", irq_nr);
 
-	save_and_cli(flags);
+	local_irq_save(flags);
 	*lasat_int_mask &= ~(1 << irq_nr) << lasat_int_mask_shift;
-	restore_flags(flags);
+	local_irq_restore(flags);
 }
 
 void enable_lasat_irq(unsigned int irq_nr)
@@ -59,9 +62,9 @@ void enable_lasat_irq(unsigned int irq_nr)
 	unsigned long flags;
 	DEBUG_INT("enable_lasat_irq: %d", irq_nr);
 
-	save_and_cli(flags);
+	local_irq_save(flags);
 	*lasat_int_mask |= (1 << irq_nr) << lasat_int_mask_shift;
-	restore_flags(flags);
+	local_irq_restore(flags);
 }
 
 static unsigned int startup_lasat_irq(unsigned int irq)
@@ -160,15 +163,15 @@ void __init init_IRQ(void)
 
 	switch (mips_machtype) {
 	case MACH_LASAT_100:
-		lasat_int_status = LASAT_INT_STATUS_REG_100;
-		lasat_int_mask = LASAT_INT_MASK_REG_100;
+		lasat_int_status = (void *)LASAT_INT_STATUS_REG_100;
+		lasat_int_mask = (void *)LASAT_INT_MASK_REG_100;
 		lasat_int_mask_shift = LASATINT_MASK_SHIFT_100;
 		get_int_status = get_int_status_100;
 		*lasat_int_mask = 0;
 		break;
 	case MACH_LASAT_200:
-		lasat_int_status = LASAT_INT_STATUS_REG_200;
-		lasat_int_mask = LASAT_INT_MASK_REG_200;
+		lasat_int_status = (void *)LASAT_INT_STATUS_REG_200;
+		lasat_int_mask = (void *)LASAT_INT_MASK_REG_200;
 		lasat_int_mask_shift = LASATINT_MASK_SHIFT_200;
 		get_int_status = get_int_status_200;
 		*lasat_int_mask &= 0xffff;

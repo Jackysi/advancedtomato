@@ -279,6 +279,7 @@ int scsi_ioctl_send_command(Scsi_Device * dev, Scsi_Ioctl_Command * sic)
 		cmd[1] = (cmd[1] & 0x1f) | (dev->lun << 5);
 
 	switch (opcode) {
+	case SEND_DIAGNOSTIC:
 	case FORMAT_UNIT:
 		timeout = FORMAT_UNIT_TIMEOUT;
 		retries = 1;

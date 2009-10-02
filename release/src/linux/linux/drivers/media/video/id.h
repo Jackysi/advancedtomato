@@ -1,4 +1,4 @@
-
+/* FIXME: this temporarely, until these are included in linux/i2c-id.h */
 
 /* drivers */
 #ifndef  I2C_DRIVERID_TVMIXER
@@ -26,6 +26,9 @@
 #endif
 #ifndef  I2C_DRIVERID_TDA9874
 # define I2C_DRIVERID_TDA9874 I2C_DRIVERID_EXP0+7
+#endif
+#ifndef  I2C_DRIVERID_SAA6752HS
+# define I2C_DRIVERID_SAA6752HS I2C_DRIVERID_EXP0+8
 #endif
 
 /* algorithms */
