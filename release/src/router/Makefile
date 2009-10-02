@@ -96,15 +96,20 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 all: clean-build libc $(obj-y) kernel
 
 
-kernel: $(LINUXDIR)/.config
+kernel-image: $(LINUXDIR)/.config
 	@$(SEP)
-
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) zImage ; \
 	fi
+
+kernel-modules: $(LINUXDIR)/.config
+	@$(SEP)
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) modules ; \
 	fi
+
+kernel: kernel-image kernel-modules fuse-module
+	@$(SEP)
 
 
 kmod: dummy
@@ -122,6 +127,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
+	cd $(LINUXDIR)/fs/fuse && $(MAKE) install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR) || true
 ##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
 ##!!TB - do not strip ftp nat/conntrack, imq, scsi_mod and loop kernel modules (needed to keep parameters)
 	find $(TARGETDIR)/lib/modules ! \( -name imq.o -prune \) ! \( -name *ftp.o -prune \) ! \( -name scsi_mod.o -prune \) ! \( -name loop.o -prune \) -a -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
@@ -144,6 +150,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jbd/* . && rm -rf jbd || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv fat/* . && rm -rf fat || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv vfat/* . && rm -rf vfat || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv fuse/* . && rm -rf fuse || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv smbfs/* . && rm -rf smbfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
@@ -214,6 +221,7 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_USB_EXTRAS),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/block || true
 endif
@@ -434,6 +442,13 @@ vsftpd: shared openssl
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+
+$(LINUXDIR)/fs/fuse/Makefile:
+	cd $(LINUXDIR)/fs/fuse && \
+	$(CONFIGURE) --enable-kernel-module --with-kernel=$(LINUXDIR) --host=mipsel-linux CC=$(CC)
+
+fuse-module: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
+	cd $(LINUXDIR)/fs/fuse && $(MAKE)
 
 p910nd:
 sendmail:
