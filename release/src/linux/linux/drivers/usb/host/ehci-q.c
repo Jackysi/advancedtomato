@@ -1177,7 +1177,8 @@ static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	prev->qh_next = qh->qh_next;
 	wmb ();
 
-	if (unlikely (ehci->hcd.state == USB_STATE_HALT)) {
+	/* If the controller isn't running, we don't have to wait for it */
+	if (unlikely (!HCD_IS_RUNNING (ehci->hcd.state))) {
 		/* if (unlikely (qh->reclaim != 0))
 		 * 	this will recurse, probably not much
 		 */
