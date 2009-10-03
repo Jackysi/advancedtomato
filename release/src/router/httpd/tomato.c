@@ -582,10 +582,10 @@ static const nvset_t nvset_list[] = {
 	{ "rstats_bak",			V_01				},
 
 // admin-buttons
-	{ "sesx_b0",			V_RANGE(0, 4)		},	// 0-4: toggle wireless, reboot, shutdown, script
-	{ "sesx_b1",			V_RANGE(0, 4)		},	// "
-	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
-	{ "sesx_b3",			V_RANGE(0, 4)		},	// "
+	{ "sesx_b0",			V_RANGE(0, 5)		},	// 0-5: toggle wireless, reboot, shutdown, script, usb unmount
+	{ "sesx_b1",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b2",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b3",			V_RANGE(0, 5)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
 
 // admin-debug

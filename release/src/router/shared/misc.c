@@ -761,6 +761,42 @@ struct mntent *findmntents(char *file, int swp, int (*func)(struct mntent *mnt, 
 }
 
 
+//#define SAME_AS_KERNEL
+/* Simulate a hotplug event, as if a USB storage device
+ * got plugged or unplugged.
+ * Either use a hardcoded program name, or the same
+ * hotplug program that the kernel uses for a real event.
+ */
+void add_remove_usbhost(char *host, int add)
+{
+	setenv("ACTION", add ? "add" : "remove", 1);
+	setenv("SCSI_HOST", host, 1);
+	setenv("PRODUCT", host, 1);
+	setenv("INTERFACE", "TOMATO/0", 1);
+#ifdef SAME_AS_KERNEL
+	char pgm[256] = "/sbin/hotplug usb";
+	int fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
+	if (fd) {
+		if (read(fd, pgm, sizeof(pgm) - 5) >= 0) {
+			if ((p = strchr(pgm, '\n')) != NULL)
+				*p = 0;
+			strcat(pgm, " usb");
+		}
+		close(fd);
+	}
+	system(pgm);
+#else
+	// don't use value from /proc/sys/kernel/hotplug 
+	// since it may be overriden by a user.
+	system("/sbin/hotplug usb");
+#endif
+	unsetenv("INTERFACE");
+	unsetenv("PRODUCT");
+	unsetenv("SCSI_HOST");
+	unsetenv("ACTION");
+}
+
+
 /****************************************************/
 /* Use busybox routines to get labels for fat & ext */
 /* Probe for label the same way that mount does.    */

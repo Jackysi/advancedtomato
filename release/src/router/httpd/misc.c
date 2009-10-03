@@ -742,50 +742,20 @@ void asp_usbdevices(int argc, char **argv)
 	web_puts("];\n");
 }
 
-//#define SAME_AS_KERNEL
-
-/* Simulate a hotplug event, as if a USB storage device
- * got plugged or unplugged.
- * Either use a hardcoded program name, or the same
- * hotplug program that the kernel uses for a real event.
- */
 void wo_usbcommand(char *url)
 {
 	char *p;
-
-#ifdef SAME_AS_KERNEL
-	char pgm[256] = "/sbin/hotplug usb";
-	int fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
-	if (fd) {
-		if (read(fd, pgm, sizeof(pgm) - 5) >= 0) {
-			if ((p = strchr(pgm, '\n')) != NULL)
-				*p = 0;
-			strcat(pgm, " usb");
-		}
-		close(fd);
-	}
-#else
-	// don't use value from /proc/sys/kernel/hotplug 
-	// since it may be overriden by a user.
-	const char pgm[] = "/sbin/hotplug usb";
-#endif
+	int add = 0;
 
 	web_puts("\nusb = [\n");
 	if ((p = webcgi_get("remove")) != NULL) {
-		setenv("ACTION", "remove", 1);
+		add = 0;
 	}
 	else if ((p = webcgi_get("mount")) != NULL) {
-		setenv("ACTION", "add", 1);
+		add = 1;
 	}
 	if (p) {
-		setenv("SCSI_HOST", p, 1);
-		setenv("PRODUCT", p, 1);
-		setenv("INTERFACE", "TOMATO/0", 1);
-		system(pgm);
-		unsetenv("INTERFACE");
-		unsetenv("PRODUCT");
-		unsetenv("SCSI_HOST");
-		unsetenv("ACTION");
+		add_remove_usbhost(p, add);
 		web_printf("%d", is_host_mounted(atoi(p), 0));
 	}
 	web_puts("];\n");

@@ -251,6 +251,9 @@ int buttons_main(int argc, char *argv[])
 						sprintf(s, "%d", count);
 						run_nvscript("sesx_script", s, 2);
 						break;
+					case '5':	// !!TB: unmount all USB drives
+						add_remove_usbhost("-1", 0);
+						break;
 					}
 				}
 #endif

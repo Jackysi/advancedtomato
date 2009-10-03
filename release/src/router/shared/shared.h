@@ -72,6 +72,7 @@ extern struct mntent *findmntents(char *file, int swp,
 extern int find_label(char *mnt_dev, char *the_label);
 extern int file_lock(char *tag);
 extern void file_unlock(int lockfd);
+extern void add_remove_usbhost(char *host, int add);
 
 #define DEV_DISCS_ROOT	"/dev/discs"
 
