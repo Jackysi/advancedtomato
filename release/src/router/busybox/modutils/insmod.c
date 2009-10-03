@@ -58,23 +58,24 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 		bb_show_usage();
 
 	m_filename = NULL;
+
+	int pos = strlen(filename) - 2;
+	if (get_linux_version_code() < KERNEL_VERSION(2,6,0)) {
+		if (pos < 0) pos = 0;
+		if (strncmp(&filename[pos], ".o", 2) !=0)
+			filename = xasprintf("%s.o", filename);
+	} else {
+		if (--pos < 0) pos = 0;
+		if (strncmp(&filename[pos], ".ko", 3) !=0)
+			filename = xasprintf("%s.ko", filename);
+	}
+
 	/* Get a filedesc for the module.  Check if we have a complete path */
 	if (stat(filename, &st) < 0 || !S_ISREG(st.st_mode) ||
 		(fp = fopen_for_read(filename)) == NULL) {
 		/* Hmm.  Could not open it. Search /lib/modules/ */
-		int r, pos;
+		int r;
 		char *module_dir;
-
-		pos = strlen(filename) - 2;
-		if (get_linux_version_code() < KERNEL_VERSION(2,6,0)) {
-			if (pos < 0) pos = 0;
-			if (strncmp(&filename[pos], ".o", 2) !=0)
-				filename = xasprintf("%s.o", filename);
-		} else {
-			if (--pos < 0) pos = 0;
-			if (strncmp(&filename[pos], ".ko", 3) !=0)
-				filename = xasprintf("%s.ko", filename);
-		}
 
 		module_dir = xmalloc_readlink(CONFIG_DEFAULT_MODULES_DIR);
 		if (!module_dir)
