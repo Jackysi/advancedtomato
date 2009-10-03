@@ -45,6 +45,7 @@
    up with a different answer to the one above)
 */
 #include <linux/slab.h>
+#include "cifsencrypt.h"
 #define uchar unsigned char
 
 static uchar perm1[56] = { 57, 49, 41, 33, 25, 17, 9,
@@ -195,7 +196,7 @@ dohash(char *out, char *in, char *key, int forw)
 	char c[28];
 	char d[28];
 	char *cd;
-	char ki[16][48];
+	char (*ki)[48];
 	char *pd1;
 	char l[32], r[32];
 	char *rl;
@@ -204,6 +205,12 @@ dohash(char *out, char *in, char *key, int forw)
 	pk1 = kmalloc(56+56+64+64,GFP_KERNEL);
 	if(pk1 == NULL)
 		return;
+
+	ki = kmalloc(16*48, GFP_KERNEL);
+	if(ki == NULL) {
+		kfree(pk1);
+		return;
+	}
 
 	cd = pk1 + 56;
 	pd1= cd  + 56;
@@ -242,6 +249,7 @@ dohash(char *out, char *in, char *key, int forw)
 		er = kmalloc(48+48+32+32+32, GFP_KERNEL);
 		if(er == NULL) {
 			kfree(pk1);
+			kfree(ki);
 			return;
 		}
 		erk = er+48;
@@ -289,6 +297,7 @@ dohash(char *out, char *in, char *key, int forw)
 
 	permute(out, rl, perm6, 64);
 	kfree(pk1);
+	kfree(ki);
 }
 
 static void
@@ -376,7 +385,9 @@ E_old_pw_hash(unsigned char *p14, unsigned char *in, unsigned char *out)
 	smbhash(out, in, p14, 1);
 	smbhash(out + 8, in + 8, p14 + 7, 1);
 }
-
+#if 0
+/* these routines are currently unneeded, but may be
+	needed later */
 void
 cred_hash1(unsigned char *out, unsigned char *in, unsigned char *key)
 {
@@ -406,3 +417,4 @@ cred_hash3(unsigned char *out, unsigned char *in, unsigned char *key, int forw)
 	key2[0] = key[7];
 	smbhash(out + 8, in + 8, key2, forw);
 }
+#endif /* unneeded routines */

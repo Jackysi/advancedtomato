@@ -1,7 +1,7 @@
 /*
  *   fs/cifs/ntlmssp.h
  *
- *   Copyright (c) International Business Machines  Corp., 2002
+ *   Copyright (c) International Business Machines  Corp., 2002,2006
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
  *   This library is free software; you can redistribute it and/or modify
@@ -19,14 +19,12 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA 
  */
 
-#pragma pack(1)
-
 #define NTLMSSP_SIGNATURE "NTLMSSP"
 /* Message Types */
-#define NtLmNegotiate     1
-#define NtLmChallenge     2
-#define NtLmAuthenticate  3
-#define UnknownMessage    8
+#define NtLmNegotiate     cpu_to_le32(1)
+#define NtLmChallenge     cpu_to_le32(2)
+#define NtLmAuthenticate  cpu_to_le32(3)
+#define UnknownMessage    cpu_to_le32(8)
 
 /* Negotiate Flags */
 #define NTLMSSP_NEGOTIATE_UNICODE       0x01	// Text strings are in unicode
@@ -35,7 +33,7 @@
 #define NTLMSSP_NEGOTIATE_SIGN        0x0010	// Request signature capability
 #define NTLMSSP_NEGOTIATE_SEAL        0x0020	// Request confidentiality
 #define NTLMSSP_NEGOTIATE_DGRAM       0x0040
-#define NTLMSSP_NEGOTIATE_LM_KEY      0x0080	// Use LM session key for sign/seal
+#define NTLMSSP_NEGOTIATE_LM_KEY      0x0080 // Use LM session key for sign/seal
 #define NTLMSSP_NEGOTIATE_NTLM        0x0200	// NTLM authentication
 #define NTLMSSP_NEGOTIATE_DOMAIN_SUPPLIED 0x1000
 #define NTLMSSP_NEGOTIATE_WORKSTATION_SUPPLIED 0x2000
@@ -60,42 +58,40 @@
 /* appearance */
 
 typedef struct _SECURITY_BUFFER {
-	__u16 Length;
-	__u16 MaximumLength;
-	__u32 Buffer;		/* offset to buffer */
-} SECURITY_BUFFER;
+	__le16 Length;
+	__le16 MaximumLength;
+	__le32 Buffer;		/* offset to buffer */
+} __attribute__((packed)) SECURITY_BUFFER;
 
 typedef struct _NEGOTIATE_MESSAGE {
 	__u8 Signature[sizeof (NTLMSSP_SIGNATURE)];
-	__u32 MessageType;     /* 1 */
-	__u32 NegotiateFlags;
+	__le32 MessageType;     /* 1 */
+	__le32 NegotiateFlags;
 	SECURITY_BUFFER DomainName;	/* RFC 1001 style and ASCII */
 	SECURITY_BUFFER WorkstationName;	/* RFC 1001 and ASCII */
 	char DomainString[0];
 	/* followed by WorkstationString */
-} NEGOTIATE_MESSAGE, *PNEGOTIATE_MESSAGE;
+} __attribute__((packed)) NEGOTIATE_MESSAGE, *PNEGOTIATE_MESSAGE;
 
 typedef struct _CHALLENGE_MESSAGE {
 	__u8 Signature[sizeof (NTLMSSP_SIGNATURE)];
-	__u32 MessageType;   /* 2 */
+	__le32 MessageType;   /* 2 */
 	SECURITY_BUFFER TargetName;
-	__u32 NegotiateFlags;
+	__le32 NegotiateFlags;
 	__u8 Challenge[CIFS_CRYPTO_KEY_SIZE];
 	__u8 Reserved[8];
 	SECURITY_BUFFER TargetInfoArray;
-} CHALLENGE_MESSAGE, *PCHALLENGE_MESSAGE;
+} __attribute__((packed)) CHALLENGE_MESSAGE, *PCHALLENGE_MESSAGE;
 
 typedef struct _AUTHENTICATE_MESSAGE {
 	__u8 Signature[sizeof (NTLMSSP_SIGNATURE)];
-	__u32 MessageType;  /* 3 */
+	__le32 MessageType;  /* 3 */
 	SECURITY_BUFFER LmChallengeResponse;
 	SECURITY_BUFFER NtChallengeResponse;
 	SECURITY_BUFFER DomainName;
 	SECURITY_BUFFER UserName;
 	SECURITY_BUFFER WorkstationName;
 	SECURITY_BUFFER SessionKey;
-	__u32 NegotiateFlags;
+	__le32 NegotiateFlags;
 	char UserString[0];
-} AUTHENTICATE_MESSAGE, *PAUTHENTICATE_MESSAGE;
-
-#pragma pack()			/* resume default structure packing */
+} __attribute__((packed)) AUTHENTICATE_MESSAGE, *PAUTHENTICATE_MESSAGE;
