@@ -144,12 +144,6 @@ sub fixDyn
 	fixDynDep("l2tpd", "cmd.so");
 	fixDynDep("l2tpd", "sync-pppd.so");
 	
-#!!TB - Samba
-	fixDynDep("libsmb.so", "libc.so.0");
-	fixDynDep("smbd", "libsmb.so");
-	fixDynDep("nmbd", "libsmb.so");
-	fixDynDep("smbpasswd", "libsmb.so");
-
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 
