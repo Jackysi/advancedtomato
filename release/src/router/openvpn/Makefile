@@ -191,9 +191,9 @@ OBJEXT = o
 PACKAGE = openvpn
 PACKAGE_BUGREPORT = openvpn-users@lists.sourceforge.net
 PACKAGE_NAME = OpenVPN
-PACKAGE_STRING = OpenVPN 2.1_rc19
+PACKAGE_STRING = OpenVPN 2.1_rc20
 PACKAGE_TARNAME = openvpn
-PACKAGE_VERSION = 2.1_rc19
+PACKAGE_VERSION = 2.1_rc20
 PATH_SEPARATOR = :
 PTHREAD_CC = 
 PTHREAD_CFLAGS = 
@@ -205,7 +205,7 @@ STRIP = mipsel-uclibc-strip
 TAP_ID = tap0901
 TAP_WIN32_MIN_MAJOR = 9
 TAP_WIN32_MIN_MINOR = 1
-VERSION = 2.1_rc19
+VERSION = 2.1_rc20
 abs_builddir = /home/keith/firmware/release/src/router/openvpn
 abs_srcdir = /home/keith/firmware/release/src/router/openvpn
 abs_top_builddir = /home/keith/firmware/release/src/router/openvpn
@@ -353,6 +353,7 @@ openvpn_SOURCES = \
 	ieproxy.h ieproxy.c \
         ps.c ps.h \
 	push.c push.h \
+	pushlist.h \
 	reliable.c reliable.h \
 	route.c route.h \
 	schedule.c schedule.h \
