@@ -875,7 +875,8 @@ static int proc_submiturb(struct dev_state *ps, void *arg)
 			}
 			totlen += isopkt[u].length;
 		}
-		if (totlen > 32768) {
+		/* 3072 * 64 microframes */
+		if (totlen > 196608) {
 			kfree(isopkt);
 			return -EINVAL;
 		}
