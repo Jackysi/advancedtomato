@@ -28,7 +28,7 @@
 #include <sys/kdaemon.h>
 #define SET_PARM(n) (n * 2 | 1)
 
-void tune_bdflush()
+void tune_bdflush(void)
 {
 	bdflush(SET_PARM(5), 100);
 	bdflush(SET_PARM(6), 100);
@@ -56,54 +56,54 @@ void start_usb(void)
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
 
-	if (nvram_match("usb_enable", "1")) {
+	if (nvram_get_int("usb_enable")) {
 //		led(LED_AOSS, LED_ON);
 		modprobe("usbcore");
 
 		/* if enabled, force USB2 before USB1.1 */
-		if (nvram_match("usb_usb2", "1")) {
+		if (nvram_get_int("usb_usb2")) {
 			modprobe("ehci-hcd");
 		}
 
-		if (nvram_match("usb_uhci", "1")) {
+		if (nvram_get_int("usb_uhci")) {
 			modprobe("usb-uhci");
 		}
 
-		if (nvram_match("usb_ohci", "1")) {
+		if (nvram_get_int("usb_ohci")) {
 			modprobe("usb-ohci");
 		}
 
 		/* mount usb device filesystem */
         	mount("usbdevfs", "/proc/bus/usb", "usbdevfs", MS_MGC_VAL, NULL);
 
-		if (nvram_match("usb_storage", "1")) {
+		if (nvram_get_int("usb_storage")) {
 			modprobe("scsi_mod");
 			modprobe("sd_mod");
 			modprobe("usb-storage");
 
-			if (nvram_match("usb_fs_ext3", "1")) {
+			if (nvram_get_int("usb_fs_ext3")) {
 				modprobe("ext2");
 				modprobe("jbd");
 				modprobe("ext3");
 			}
 
-			if (nvram_match("usb_fs_fat", "1")) {
+			if (nvram_get_int("usb_fs_fat")) {
 				modprobe("fat");
 				modprobe("vfat");
 			}
 
 #ifdef TCONFIG_NTFS
-			if (nvram_match("usb_fs_ntfs", "1")) {
+			if (nvram_get_int("usb_fs_ntfs")) {
 				modprobe("ntfs");
 			}
 #endif
 		}
 
-		if (nvram_match("usb_printer", "1")) {
+		if (nvram_get_int("usb_printer")) {
 			modprobe("printer");
 			// start printer server
 			xstart("p910nd",
-				nvram_match("usb_printer_bidirect", "1") ? "-b" : "", //bidirectional
+				nvram_get_int("usb_printer_bidirect") ? "-b" : "", //bidirectional
 				"-f", "/dev/usb/lp0", // device
 				"0" // listen port
 			);
@@ -133,7 +133,7 @@ void stop_usb(void)
 	modprobe_r("printer");
 
 	// only stop storage services if disabled
-	if (!nvram_match("usb_enable", "1") || !nvram_match("usb_storage", "1")) {
+	if (!nvram_get_int("usb_enable") || !nvram_get_int("usb_storage")) {
 		// Unmount all partitions
 		remove_storage_main();
 
@@ -158,7 +158,7 @@ void stop_usb(void)
 	}
 
 	// only unload core modules if usb is disabled
-	if (!nvram_match("usb_enable", "1")) {
+	if (!nvram_get_int("usb_enable")) {
 		umount("/proc/bus/usb"); // unmount usb device filesystem
 		modprobe_r("usb-ohci");
 		modprobe_r("usb-uhci");
@@ -440,12 +440,12 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
  */
 void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 {
-	if (!nvram_match("usb_enable", "1"))
+	if (!nvram_get_int("usb_enable"))
 		return;
 	_dprintf("%s: host %d action: %d\n", __FUNCTION__, host_no, action_add);
 
 	if (action_add) {
-		if (nvram_match("usb_storage", "1") && (nvram_match("usb_automount", "1") || action_add < 0)) {
+		if (nvram_get_int("usb_storage") && (nvram_get_int("usb_automount") || action_add < 0)) {
 			/* Do not probe the device here. It's either initiated by user,
 			 * or hotplug_usb() already did.
 			 */
@@ -456,7 +456,7 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 		}
 	}
 	else {
-		if (nvram_match("usb_storage", "1") || ((flags & EFH_USER) == 0)) {
+		if (nvram_get_int("usb_storage") || ((flags & EFH_USER) == 0)) {
 			/* When unplugged, unmount the device even if
 			 * usb storage is disabled in the GUI.
 			 */
@@ -480,8 +480,8 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 /* This gets called at reboot or upgrade.  The system is stopping. */
 void remove_storage_main(void)
 {
-	if (nvram_match("usb_enable", "1") && nvram_match("usb_storage", "1")) {
-		if (nvram_match("usb_automount", "1")) {
+	if (nvram_get_int("usb_enable") && nvram_get_int("usb_storage")) {
+		if (nvram_get_int("usb_automount")) {
 			// run pre-unmount script if any
 			run_nvscript("script_usbumount", NULL, 3);
 		}
@@ -655,7 +655,7 @@ void hotplug_usb(void)
 	//_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s HOST=%s DEVICE=%s\n",
 	//	interface, action, product, scsi_host, device);
 
-	if (!nvram_match("usb_enable", "1")) return;
+	if (!nvram_get_int("usb_enable")) return;
 	if (!interface || !action || !product)	/* Hubs bail out here. */
 		return;
 
