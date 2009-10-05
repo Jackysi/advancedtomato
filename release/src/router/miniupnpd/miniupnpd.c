@@ -399,7 +399,7 @@ struct runtime_vars {
 
 /* parselanaddr()
  * parse address with mask
- * ex: 192.168.1.1/24
+ * ex: 192.168.1.1/24 or 192.168.1.1/255.255.255.0
  * return value : 
  *    0 : ok
  *   -1 : error */
@@ -415,7 +415,15 @@ parselanaddr(struct lan_addr_s * lan_addr, const char * str)
 	n = p - str;
 	if(*p == '/')
 	{
-		nbits = atoi(++p);
+		unsigned short i, mask[4];
+		unsigned char *am = (unsigned char *) &(lan_addr->mask.s_addr);
+		if (sscanf(++p, "%3hu.%3hu.%3hu.%3hu", &mask[0], &mask[1], &mask[2], &mask[3]) == 4) {
+			nbits = -1;
+			for (i = 0; i < 4; i++)
+				am[i] = (unsigned char) mask[i];
+		}
+		else
+			nbits = atoi(p);
 		while(*p && !isspace(*p))
 			p++;
 	}
@@ -431,7 +439,8 @@ parselanaddr(struct lan_addr_s * lan_addr, const char * str)
 		fprintf(stderr, "Error parsing address/mask : %s\n", str);
 		return -1;
 	}
-	lan_addr->mask.s_addr = htonl(nbits ? (0xffffffff << (32 - nbits)) : 0);
+	if (nbits >= 0)
+		lan_addr->mask.s_addr = htonl(nbits ? (0xffffffff << (32 - nbits)) : 0);
 #ifdef MULTIPLE_EXTERNAL_IP
 	while(*p && isspace(*p))
 		p++;
