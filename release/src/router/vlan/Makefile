@@ -52,7 +52,7 @@ $(ALL_OBJS): %.o: %.c %.h
 	$(CC) $(CCFLAGS) -c $<
 
 clean:
-	rm -f *.o
+	rm -f *.o $(VCONFIG)
 
 purge: clean
 	rm -f *.flc ${VCONFIG} vconfig.h
