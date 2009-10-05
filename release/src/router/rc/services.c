@@ -736,38 +736,22 @@ char vsftpd_users[] = "/etc/vsftpd.users";
 char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 #endif
 
-/* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
-void do_start_stop_ftpd(int stop, int start, int restart)
-{
 #ifdef TCONFIG_FTP
-	static int stopped = 0;
-	if (stop) {
-		if (pidof("vsftpd") > 0) {
-			stopped = 1;
-			killall("vsftpd", SIGTERM);
-		}
-		if (!start) return;
-	}
-	if (start) {
-		if (restart && !stopped && (pidof("vsftpd") <= 0)) return;
-	}
+/* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
+static void do_start_stop_ftpd(int stop, int start)
+{
+	if (stop) killall("vsftpd", SIGTERM);
 
 	char tmp[256];
 	FILE *fp, *f;
 
-	killall("vsftpd", SIGTERM);
-	if (!nvram_get_int("ftp_enable")) return;
+	if (!start || !nvram_get_int("ftp_enable")) return;
 
 	mkdir_if_none(vsftpd_users);
 	mkdir_if_none("/var/run/vsftpd");
 
-	/* prevent race condition between hotplug and init processes writing to config file */
-	int fd = file_lock("ftp");
-
-	if ((fp = fopen(vsftpd_conf, "w")) == NULL) {
-		file_unlock(fd);
+	if ((fp = fopen(vsftpd_conf, "w")) == NULL)
 		return;
-	}
 
 	if (nvram_get_int("ftp_super"))
 	{
@@ -859,10 +843,8 @@ void do_start_stop_ftpd(int stop, int start, int restart)
 	fclose(fp);
 
 	/* prepare passwd file and default users */
-	if ((fp = fopen(vsftpd_passwd, "w")) == NULL) {
-		file_unlock(fd);
+	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
 		return;
-	}
 
 	fprintf(fp, /* anonymous, admin, nobody */
 		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
@@ -923,26 +905,32 @@ void do_start_stop_ftpd(int stop, int start, int restart)
 	}
 
 	fclose(fp);
+	killall("vsftpd", SIGHUP);
 
-	eval("vsftpd");
-	file_unlock(fd);
-#endif
+	/* start vsftpd if it's not already running */
+	if (pidof("vsftpd") <= 0)
+		eval("vsftpd");
 }
+#endif
 
 void start_ftpd(void)
 {
 #ifdef TCONFIG_FTP
-	do_start_stop_ftpd(0, 1, 0);
+	int fd = file_lock("usb");
+	do_start_stop_ftpd(0, 1);
+	file_unlock(fd);
 #endif
 }
 
 void stop_ftpd(void)
 {
 #ifdef TCONFIG_FTP
-	do_start_stop_ftpd(1, 0, 0);
+	int fd = file_lock("usb");
+	do_start_stop_ftpd(1, 0);
 	unlink(vsftpd_passwd);
 	unlink(vsftpd_conf);
 	eval("rm", "-rf", vsftpd_users);
+	file_unlock(fd);
 #endif
 }
 
@@ -958,21 +946,10 @@ void kill_samba(int sig)
 }
 #endif
 
-void do_start_stop_samba(int stop, int start, int restart)
-{
 #ifdef TCONFIG_SAMBASRV
-	static int stopped = 0;
-	if (stop) {
-		if (pidof("smbd") > 0 || pidof("nmbd") > 0) {
-			stopped = 1;
-			kill_samba(SIGTERM);
-		}
-		if (!start) return;
-	}
-	if (start) {
-		if (restart && !stopped && (pidof("smbd") <= 0))
-			return;
-	}
+static void do_start_stop_samba(int stop, int start)
+{
+	if (stop) kill_samba(SIGTERM);
 
 	FILE *fp;
 	DIR *dir = NULL;
@@ -981,16 +958,11 @@ void do_start_stop_samba(int stop, int start, int restart)
 	int mode;
 	
 	mode = nvram_get_int("smbd_enable");
-	if (!mode || !nvram_invmatch("lan_hostname", ""))
+	if (!start || !mode || !nvram_invmatch("lan_hostname", ""))
 		return;
 
-	/* prevent race condition between hotplug and init processes writing to config file */
-	int fd = file_lock("smb");
-
-	if ((fp = fopen("/etc/smb.conf", "w")) == NULL) {
-		file_unlock(fd);
+	if ((fp = fopen("/etc/smb.conf", "w")) == NULL)
 		return;
-	}
 
 	fprintf(fp, "[global]\n"
 		" interfaces = %s\n"
@@ -1132,21 +1104,23 @@ void do_start_stop_samba(int stop, int start, int restart)
 		ret2 = eval("smbd", "-D");
 
 	if (ret1 || ret2) kill_samba(SIGTERM);
-	file_unlock(fd);
-#endif
 }
+#endif
 
 void start_samba(void)
 {
 #ifdef TCONFIG_SAMBASRV
-	do_start_stop_samba(0, 1, 0);
+	int fd = file_lock("usb");
+	do_start_stop_samba(0, 1);
+	file_unlock(fd);
 #endif
 }
 
 void stop_samba(void)
 {
 #ifdef TCONFIG_SAMBASRV
-	do_start_stop_samba(1, 0, 0);
+	int fd = file_lock("usb");
+	do_start_stop_samba(1, 0);
 	sleep(2); /* wait for smbd to finish */
 
 	if (nvram_invmatch("smbd_nlsmod", "")) {
@@ -1158,24 +1132,29 @@ void stop_samba(void)
 	unlink("/var/log/smb");
 	unlink("/var/log/nmb");
 	eval("rm", "-rf", "/var/run/samba");
+	file_unlock(fd);
 #endif
 }
 
 void restart_nas_services(int start)
 {	
 	/* restart all NAS applications */
-#ifdef TCONFIG_SAMBASRV
+#if TCONFIG_SAMBASRV || TCONFIG_FTP
+	int fd = file_lock("usb");
+	#ifdef TCONFIG_SAMBASRV
 	if (start && nvram_get_int("smbd_enable"))
-		do_start_stop_samba(0, 1, 1);
+		do_start_stop_samba(0, 1);
 	else
-		do_start_stop_samba(1, 0, 1);
-#endif
-#ifdef TCONFIG_FTP
+		do_start_stop_samba(1, 0);
+	#endif
+	#ifdef TCONFIG_FTP
 	if (start && nvram_get_int("ftp_enable"))
-		do_start_stop_ftpd(0, 1, 1);
+		do_start_stop_ftpd(0, 1);
 	else
-		do_start_stop_ftpd(1, 0, 1);
-#endif
+		do_start_stop_ftpd(1, 0);
+	#endif
+	file_unlock(fd);
+#endif	// TCONFIG_SAMBASRV || TCONFIG_FTP
 }
 
 // -----------------------------------------------------------------------------

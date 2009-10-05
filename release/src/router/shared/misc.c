@@ -467,20 +467,32 @@ int file_lock(char *tag)
 	char fn[64];
 	struct flock lock;
 	int lockfd = -1;
+	pid_t lockpid;
 
 	sprintf(fn, "/var/lock/%s.lock", tag);
 	if ((lockfd = open(fn, O_CREAT | O_RDWR, 0666)) < 0)
 		goto lock_error;
 
+	pid_t pid = getpid();
+	if (read(lockfd, &lockpid, sizeof(pid_t))) {
+		// check if we already hold a lock
+		if (pid == lockpid) {
+			// don't close the file here as that will release all locks
+			return -1;
+		}
+	}
+
 	memset(&lock, 0, sizeof(lock));
 	lock.l_type = F_WRLCK;
-	lock.l_pid = getpid();
+	lock.l_pid = pid;
 
 	if (fcntl(lockfd, F_SETLKW, &lock) < 0) {
 		close(lockfd);
 		goto lock_error;
 	}
 
+	lseek(lockfd, 0, SEEK_SET);
+	write(lockfd, &pid, sizeof(pid_t));
 	return lockfd;
 lock_error:
 	// No proper error processing
@@ -491,6 +503,7 @@ lock_error:
 void file_unlock(int lockfd)
 {
 	if (lockfd >= 0) {
+		ftruncate(lockfd, 0);
 		close(lockfd);
 	}
 }
@@ -499,18 +512,18 @@ char *detect_fs_type(char *device)
 {
 	int fd;
 	unsigned char buf[4096];
-	
+
 	if ((fd = open(device, O_RDONLY)) < 0)
 		return NULL;
-		
+
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf))
 	{
 		close(fd);
 		return NULL;
 	}
-	
+
 	close(fd);
-	
+
 	/* first check for mbr */
 	if (*device && device[strlen(device) - 1] > '9' &&
 		buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
