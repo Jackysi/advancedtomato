@@ -348,10 +348,11 @@ void start_upnp(void)
 				if ((upnp_port < 0) || (upnp_port >= 0xFFFF)) upnp_port = 0;
 
 				char *lanip = nvram_safe_get("lan_ipaddr");
+				char *lanmask = nvram_safe_get("lan_netmask");
 				
 				fprintf(f,
 					"ext_ifname=%s\n"
-					"listening_ip=%s\n"
+					"listening_ip=%s/%s\n"
 					"port=%d\n"
 					"enable_upnp=%s\n"
 					"enable_natpmp=%s\n"
@@ -363,7 +364,7 @@ void start_upnp(void)
 					"\n"
 					,
 					nvram_safe_get("wan_iface"),
-					lanip,
+					lanip, lanmask,
 					upnp_port,
 					(enable & 1) ? "yes" : "no",						// upnp enable
 					(enable & 2) ? "yes" : "no",						// natpmp enable
@@ -399,22 +400,21 @@ void start_upnp(void)
 				f_read_string("/proc/sys/kernel/random/uuid", uuid, sizeof(uuid));
 				fprintf(f, "uuid=%s\n", uuid);
 
-				if ((nvram_get_int("upnp_min_port_int") > 0) &&
-					(nvram_get_int("upnp_max_port_int") > 0) &&
-					(nvram_get_int("upnp_min_port_ext") > 0) &&
-					(nvram_get_int("upnp_max_port_ext") > 0)) {
+				int ports[4];
+				if ((ports[0] = nvram_get_int("upnp_min_port_int")) > 0 &&
+				    (ports[1] = nvram_get_int("upnp_max_port_int")) > 0 &&
+				    (ports[2] = nvram_get_int("upnp_min_port_ext")) > 0 &&
+				    (ports[3] = nvram_get_int("upnp_max_port_ext")) > 0) {
 					fprintf(f,
-						"allow %s-%s %s/24 %s-%s\n",
-						nvram_safe_get("upnp_min_port_int"),
-						nvram_safe_get("upnp_max_port_int"),
-						lanip,
-						nvram_safe_get("upnp_min_port_ext"),
-						nvram_safe_get("upnp_max_port_ext")
+						"allow %d-%d %s/%s %d-%d\n",
+						ports[0], ports[1],
+						lanip, lanmask,
+						ports[2], ports[3]
 					);
 				}
 				else {
 					// by default allow only redirection of ports above 1024
-					fprintf(f, "allow 1024-65535 %s/24 1024-65535\n", lanip);
+					fprintf(f, "allow 1024-65535 %s/%s 1024-65535\n", lanip, lanmask);
 				}
 
 				fappend(f, "/etc/upnp/config.custom");
