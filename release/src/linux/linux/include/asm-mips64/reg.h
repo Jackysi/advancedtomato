@@ -46,6 +46,9 @@
 /*
  * k0/k1 unsaved
  */
+#define EF_REG26		26
+#define EF_REG27		27
+
 #define EF_REG28		28
 #define EF_REG29		29
 #define EF_REG30		30

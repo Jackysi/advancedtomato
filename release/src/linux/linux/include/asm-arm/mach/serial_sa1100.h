@@ -22,8 +22,8 @@ struct sa1100_port_fns {
 	void	(*enable_ms)(struct uart_port *);
 	void	(*pm)(struct uart_port *, u_int, u_int);
 	int	(*set_wake)(struct uart_port *, u_int);
-	int	(*open)(struct uart_port *, struct uart_info *);
-	void	(*close)(struct uart_port *, struct uart_info *);
+	int	(*open)(struct uart_port *);
+	void	(*close)(struct uart_port *);
 };
 
 #if defined(CONFIG_SERIAL_SA1100) && !defined(CONFIG_SERIAL_SA1100_OLD)

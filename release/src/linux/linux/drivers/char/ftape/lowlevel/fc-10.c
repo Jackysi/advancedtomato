@@ -43,9 +43,9 @@
    or kernel and let the user specify the options as command line arguments.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/fc-10.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/fc-10.c,v $
+ * $Revision: 1.2 $
+ * $Date: 1997/10/05 19:18:04 $
  *
  *      This file contains code for the CMS FC-10/FC-20 card.
  */

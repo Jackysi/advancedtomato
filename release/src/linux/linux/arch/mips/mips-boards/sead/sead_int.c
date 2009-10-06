@@ -25,17 +25,16 @@
  */
 #include <linux/config.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
 
-#include <asm/irq.h>
 #include <asm/mips-boards/sead.h>
 #include <asm/mips-boards/seadint.h>
 
 extern asmlinkage void mipsIRQ(void);
-extern void do_IRQ(int irq, struct pt_regs *regs);
 
 void disable_sead_irq(unsigned int irq_nr)
 {
@@ -106,7 +105,7 @@ void __init init_IRQ(void)
 
 	init_generic_irq();
 
-	for (i = 0; i <= SEADINT_END; i++) {
+	for (i = 0; i < SEADINT_END; i++) {
 		irq_desc[i].status	= IRQ_DISABLED;
 		irq_desc[i].action	= NULL;
 		irq_desc[i].depth	= 1;

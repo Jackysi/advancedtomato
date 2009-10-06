@@ -236,12 +236,23 @@ static void kbd_int_handler(int irq, void *dev_id, struct pt_regs *regs)
 		if ( (cir_data[data_index] == 0xff)) { /* last byte */
 			//printk("data_index %d\n", data_index);
 			set_rx_active(cir);
+#if 0
+			for (j=0; j<=data_index; j++) {
+				printk("rx_data %d:  %x\n", j, cir_data[j]);
+			}
+#endif
 			data_index = 0;
 			handle_data(cir_data);
 			return;
 		}
 		else if (data_index>16) {
 			set_rx_active(cir);
+#if 0
+			printk("warning: data_index %d\n", data_index);
+			for (j=0; j<=data_index; j++) {
+				printk("rx_data %d:  %x\n", j, cir_data[j]);
+			}
+#endif
 			data_index = 0;
 			clear_fifo(cir);
 			return;
@@ -327,6 +338,12 @@ static int handle_data(unsigned char *p_data)
 	}
 	else {
 		if (kbdbytes[2] == 0) down = 1;
+#if 0
+		if (down)
+			printk("down %d\n", kbdbytes[3]);
+		else
+			printk("up %d\n", kbdbytes[3]);
+#endif
 		handle_keyboard_event(kbdbytes[3], down);
 	}
 	return 0;
@@ -570,7 +587,12 @@ static struct miscdevice psaux_mouse = {
 
 static int __init psaux_init(void)
 {
-	misc_register(&psaux_mouse);
+	int retval;
+
+	retval = misc_register(&psaux_mouse);
+	if(retval < 0)
+		return retval;
+
 	queue = (struct aux_queue *) kmalloc(sizeof(*queue), GFP_KERNEL);
 	memset(queue, 0, sizeof(*queue));
 	queue->head = queue->tail = 0;

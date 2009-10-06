@@ -209,7 +209,7 @@ static int fop_open(struct inode * inode, struct file * file)
 
 static int fop_close(struct inode * inode, struct file * file)
 {
-	if(wdt_expect_close)
+	if ((wdt_expect_close) || (! nowayout))
 		wdt_turnoff();
 	else {
 		printk(OUR_NAME ": device file closed unexpectedly. Will not stop the WDT!\n");

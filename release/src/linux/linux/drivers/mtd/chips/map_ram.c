@@ -1,7 +1,7 @@
 /*
  * Common code to handle map devices which are simple RAM
  * (C) 2000 Red Hat. GPL'd.
- * $Id: map_ram.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: map_ram.c,v 1.14 2001/10/02 15:05:12 dwmw2 Exp $
  */
 
 #include <linux/module.h>
@@ -33,6 +33,24 @@ static struct mtd_info *map_ram_probe(struct map_info *map)
 	struct mtd_info *mtd;
 
 	/* Check the first byte is RAM */
+#if 0
+	map->write8(map, 0x55, 0);
+	if (map->read8(map, 0) != 0x55)
+		return NULL;
+
+	map->write8(map, 0xAA, 0);
+	if (map->read8(map, 0) != 0xAA)
+		return NULL;
+
+	/* Check the last byte is RAM */
+	map->write8(map, 0x55, map->size-1);
+	if (map->read8(map, map->size-1) != 0x55)
+		return NULL;
+
+	map->write8(map, 0xAA, map->size-1);
+	if (map->read8(map, map->size-1) != 0xAA)
+		return NULL;
+#endif
 	/* OK. It seems to be RAM. */
 
 	mtd = kmalloc(sizeof(*mtd), GFP_KERNEL);

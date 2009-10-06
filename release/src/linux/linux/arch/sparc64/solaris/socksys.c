@@ -1,4 +1,4 @@
-/* $Id: socksys.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: socksys.c,v 1.18 2001/02/13 01:16:44 davem Exp $
  * socksys.c: /dev/inet/ stuff for Solaris emulation.
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
@@ -117,6 +117,7 @@ static int socksys_release(struct inode * inode, struct file * filp)
         struct sol_socket_struct * sock;
         struct T_primsg *it;
 
+	/* XXX: check this */
 	lock_kernel();
 	sock = (struct sol_socket_struct *)filp->private_data;
 	SOLDD(("sock release %016lx(%016lx)\n", sock, filp));

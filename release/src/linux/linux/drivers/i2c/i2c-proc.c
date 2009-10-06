@@ -23,33 +23,25 @@
     This driver puts entries in /proc/sys/dev/sensors for each I2C device
 */
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/ctype.h>
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
+#include <linux/init.h>
 #include <linux/ioport.h>
-#include <asm/uaccess.h>
-
 #include <linux/i2c.h>
 #include <linux/i2c-proc.h>
-
-#include <linux/init.h>
-
-#define LM_DATE "20010825"
-#define LM_VERSION "2.6.1"
+#include <asm/uaccess.h>
 
 #ifndef THIS_MODULE
 #define THIS_MODULE NULL
 #endif
 
-static int i2c_create_name(char **name, const char *prefix,
-			       struct i2c_adapter *adapter, int addr);
-static int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
+static int i2c_parse_reals(int *nrels, char *buffer, int bufsize,
 			       long *results, int magnitude);
-static int i2c_write_reals(int nrels, void *buffer, int *bufsize,
+static int i2c_write_reals(int nrels, char *buffer, size_t *bufsize,
 			       long *results, int magnitude);
 static int i2c_proc_chips(ctl_table * ctl, int write,
 			      struct file *filp, void *buffer,
@@ -66,10 +58,6 @@ static struct ctl_table_header *i2c_entries[SENSORS_ENTRY_MAX];
 
 static struct i2c_client *i2c_clients[SENSORS_ENTRY_MAX];
 static unsigned short i2c_inodes[SENSORS_ENTRY_MAX];
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1)
-static void i2c_fill_inode(struct inode *inode, int fill);
-static void i2c_dir_fill_inode(struct inode *inode, int fill);
-#endif			/* LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1) */
 
 static ctl_table sysctl_table[] = {
 	{CTL_DEV, "dev", NULL, 0, 0555},
@@ -134,11 +122,9 @@ int i2c_create_name(char **name, const char *prefix,
    If any driver wants subdirectories within the newly created directory,
    this function must be updated! 
    controlling_mod is the controlling module. It should usually be
-   THIS_MODULE when calling. Note that this symbol is not defined in
-   kernels before 2.3.13; define it to NULL in that case. We will not use it
-   for anything older than 2.3.27 anyway. */
+   THIS_MODULE when calling. */
 int i2c_register_entry(struct i2c_client *client, const char *prefix,
-			   ctl_table * ctl_template,
+			   ctl_table *ctl_template,
 			   struct module *controlling_mod)
 {
 	int i, res, len, id;
@@ -160,7 +146,7 @@ int i2c_register_entry(struct i2c_client *client, const char *prefix,
 	id += 256;
 
 	len = 0;
-	while (ctl_template[len].procname)
+	while (ctl_template[len].ctl_name)
 		len++;
 	len += 7;
 	if (!(new_table = kmalloc(sizeof(ctl_table) * len, GFP_KERNEL))) {
@@ -199,12 +185,7 @@ int i2c_register_entry(struct i2c_client *client, const char *prefix,
 #endif				/* DEBUG */
 	i2c_inodes[id - 256] =
 	    new_header->ctl_table->child->child->de->low_ino;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27))
 	new_header->ctl_table->child->child->de->owner = controlling_mod;
-#else
-	new_header->ctl_table->child->child->de->fill_inode =
-	    &i2c_dir_fill_inode;
-#endif	/* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,27)) */
 
 	return id;
 }
@@ -218,7 +199,7 @@ void i2c_deregister_entry(int id)
 		table = i2c_entries[id]->ctl_table;
 		unregister_sysctl_table(i2c_entries[id]);
 		/* 2-step kfree needed to keep gcc happy about const points */
-		(const char *) temp = table[4].procname;
+		temp = (char *) table[4].procname;
 		kfree(temp);
 		kfree(table);
 		i2c_entries[id] = NULL;
@@ -300,7 +281,7 @@ int i2c_proc_chips(ctl_table * ctl, int write, struct file *filp,
 			if(copy_to_user(buffer, BUF, buflen))
 				return -EFAULT;
 			curbufsize += buflen;
-			(char *) buffer += buflen;
+			buffer = (char *) buffer + buflen;
 		}
 	*lenp = curbufsize;
 	filp->f_pos += curbufsize;
@@ -331,7 +312,7 @@ int i2c_sysctl_chips(ctl_table * table, int *name, int nlen,
 					     sizeof(struct
 						    i2c_chips_data)))
 					return -EFAULT;
-				(char *) oldval +=
+				oldval = (char *) oldval +
 				    sizeof(struct i2c_chips_data);
 				nrels++;
 			}
@@ -469,7 +450,7 @@ int i2c_sysctl_real(ctl_table * table, int *name, int nlen,
    WARNING! This is tricky code. I have tested it, but there may still be
             hidden bugs in it, even leading to crashes and things!
 */
-int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
+static int i2c_parse_reals(int *nrels, char *buffer, int bufsize,
 			 long *results, int magnitude)
 {
 	int maxels, min, mag;
@@ -483,10 +464,10 @@ int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
 
 		/* Skip spaces at the start */
 		while (bufsize && 
-		       !((ret=get_user(nextchar, (char *) buffer))) &&
+		       !((ret=get_user(nextchar, buffer))) &&
 		       isspace((int) nextchar)) {
 			bufsize--;
-			((char *) buffer)++;
+			buffer++;
 		}
 
 		if (ret)
@@ -501,22 +482,22 @@ int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
 		mag = magnitude;
 
 		/* Check for a minus */
-		if (!((ret=get_user(nextchar, (char *) buffer)))
+		if (!((ret=get_user(nextchar, buffer)))
 		    && (nextchar == '-')) {
 			min = 1;
 			bufsize--;
-			((char *) buffer)++;
+			buffer++;
 		}
 		if (ret)
 			return -EFAULT;
 
 		/* Digits before a decimal dot */
 		while (bufsize && 
-		       !((ret=get_user(nextchar, (char *) buffer))) &&
+		       !((ret=get_user(nextchar, buffer))) &&
 		       isdigit((int) nextchar)) {
 			res = res * 10 + nextchar - '0';
 			bufsize--;
-			((char *) buffer)++;
+			buffer++;
 		}
 		if (ret)
 			return -EFAULT;
@@ -530,16 +511,16 @@ int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
 		if (bufsize && (nextchar == '.')) {
 			/* Skip the dot */
 			bufsize--;
-			((char *) buffer)++;
+			buffer++;
 
 			/* Read digits while they are significant */
 			while (bufsize && (mag > 0) &&
-			       !((ret=get_user(nextchar, (char *) buffer))) &&
+			       !((ret=get_user(nextchar, buffer))) &&
 			       isdigit((int) nextchar)) {
 				res = res * 10 + nextchar - '0';
 				mag--;
 				bufsize--;
-				((char *) buffer)++;
+				buffer++;
 			}
 			if (ret)
 				return -EFAULT;
@@ -552,10 +533,10 @@ int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
 
 		/* Skip everything until we hit whitespace */
 		while (bufsize && 
-		       !((ret=get_user(nextchar, (char *) buffer))) &&
-		       isspace((int) nextchar)) {
+		       !((ret=get_user(nextchar, buffer))) &&
+		       !isspace((int) nextchar)) {
 			bufsize--;
-			((char *) buffer)++;
+			buffer++;
 		}
 		if (ret)
 			return -EFAULT;
@@ -570,7 +551,7 @@ int i2c_parse_reals(int *nrels, void *buffer, int bufsize,
 	return 0;
 }
 
-int i2c_write_reals(int nrels, void *buffer, int *bufsize,
+static int i2c_write_reals(int nrels, char *buffer, size_t *bufsize,
 			 long *results, int magnitude)
 {
 #define BUFLEN 20
@@ -584,10 +565,10 @@ int i2c_write_reals(int nrels, void *buffer, int *bufsize,
 		mag = magnitude;
 
 		if (nr != 0) {
-			if(put_user(' ', (char *) buffer))
+			if(put_user(' ', buffer))
 				return -EFAULT;
 			curbufsize++;
-			((char *) buffer)++;
+			buffer++;
 		}
 
 		/* Fill BUF with the representation of the next string */
@@ -628,12 +609,12 @@ int i2c_write_reals(int nrels, void *buffer, int *bufsize,
 		if(copy_to_user(buffer, BUF, buflen))
 			return -EFAULT;
 		curbufsize += buflen;
-		(char *) buffer += buflen;
+		buffer += buflen;
 
 		nr++;
 	}
 	if (curbufsize < *bufsize) {
-		if(put_user('\n', (char *) buffer))
+		if(put_user('\n', buffer))
 			return -EFAULT;
 		curbufsize++;
 	}
@@ -683,7 +664,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				    && (addr == this_force->force[j + 1])) {
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found force parameter for adapter %d, addr %04x\n",
+					    (KERN_DEBUG "i2c-proc.o: found force parameter for adapter %d, addr %04x\n",
 					     adapter_id, addr);
 #endif
 					if (
@@ -713,7 +694,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 			    && (addr == address_data->ignore[i + 1])) {
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found ignore parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found ignore parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 				found = 1;
@@ -728,12 +709,12 @@ int i2c_detect(struct i2c_adapter *adapter,
 			     ||
 			     ((address_data->
 			       ignore_range[i] ==
-			       SENSORS_ANY_I2C_BUS) & !is_isa))
+			       SENSORS_ANY_I2C_BUS) && !is_isa))
 			    && (addr >= address_data->ignore_range[i + 1])
 			    && (addr <= address_data->ignore_range[i + 2])) {
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found ignore_range parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found ignore_range parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 				found = 1;
@@ -752,7 +733,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				if (addr == address_data->normal_isa[i]) {
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal isa entry for adapter %d, "
+					    (KERN_DEBUG "i2c-proc.o: found normal isa entry for adapter %d, "
 					     "addr %04x\n", adapter_id,
 					     addr);
 #endif
@@ -774,8 +755,8 @@ int i2c_detect(struct i2c_adapter *adapter,
 				     0)) {
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal isa_range entry for adapter %d, "
-					     "addr %04x", adapter_id, addr);
+					    (KERN_DEBUG "i2c-proc.o: found normal isa_range entry for adapter %d, "
+					     "addr %04x\n", adapter_id, addr);
 #endif
 					found = 1;
 				}
@@ -788,8 +769,8 @@ int i2c_detect(struct i2c_adapter *adapter,
 					found = 1;
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal i2c entry for adapter %d, "
-					     "addr %02x", adapter_id, addr);
+					    (KERN_DEBUG "i2c-proc.o: found normal i2c entry for adapter %d, "
+					     "addr %02x\n", adapter_id, addr);
 #endif
 				}
 			}
@@ -804,7 +785,7 @@ int i2c_detect(struct i2c_adapter *adapter,
 				{
 #ifdef DEBUG
 					printk
-					    ("i2c-proc.o: found normal i2c_range entry for adapter %d, "
+					    (KERN_DEBUG "i2c-proc.o: found normal i2c_range entry for adapter %d, "
 					     "addr %04x\n", adapter_id, addr);
 #endif
 					found = 1;
@@ -817,11 +798,11 @@ int i2c_detect(struct i2c_adapter *adapter,
 		     i += 2) {
 			if (((adapter_id == address_data->probe[i]) ||
 			     ((address_data->
-			       probe[i] == SENSORS_ANY_I2C_BUS) & !is_isa))
+			       probe[i] == SENSORS_ANY_I2C_BUS) && !is_isa))
 			    && (addr == address_data->probe[i + 1])) {
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found probe parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found probe parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 				found = 1;
@@ -834,13 +815,13 @@ int i2c_detect(struct i2c_adapter *adapter,
 			    ((adapter_id == address_data->probe_range[i])
 			     ||
 			     ((address_data->probe_range[i] ==
-			       SENSORS_ANY_I2C_BUS) & !is_isa))
+			       SENSORS_ANY_I2C_BUS) && !is_isa))
 			    && (addr >= address_data->probe_range[i + 1])
 			    && (addr <= address_data->probe_range[i + 2])) {
 				found = 1;
 #ifdef DEBUG
 				printk
-				    ("i2c-proc.o: found probe_range parameter for adapter %d, "
+				    (KERN_DEBUG "i2c-proc.o: found probe_range parameter for adapter %d, "
 				     "addr %04x\n", adapter_id, addr);
 #endif
 			}
@@ -861,17 +842,12 @@ int i2c_detect(struct i2c_adapter *adapter,
 
 int __init sensors_init(void)
 {
-	printk("i2c-proc.o version %s (%s)\n", LM_VERSION, LM_DATE);
+	printk(KERN_INFO "i2c-proc.o version %s (%s)\n", I2C_VERSION, I2C_DATE);
 	i2c_initialized = 0;
 	if (!
 	    (i2c_proc_header =
 	     register_sysctl_table(i2c_proc, 0))) return -ENOMEM;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,1))
 	i2c_proc_header->ctl_table->child->de->owner = THIS_MODULE;
-#else
-	i2c_proc_header->ctl_table->child->de->fill_inode =
-	    &i2c_fill_inode;
-#endif			/* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,1)) */
 	i2c_initialized++;
 	return 0;
 }

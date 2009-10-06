@@ -1,6 +1,7 @@
 /*
  * This is a module which is used for rejecting packets.
  * Added support for customized reject packets (Jozsef Kadlecsik).
+ * Added support for ICMP type-3-code-13 (Maciej Soltysiak). [RFC 1812]
  */
 #include <linux/config.h>
 #include <linux/module.h>
@@ -11,27 +12,59 @@
 #include <net/icmp.h>
 #include <net/ip.h>
 #include <net/tcp.h>
-struct in_device;
 #include <net/route.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_REJECT.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
-/* If the original packet is part of a connection, but the connection
-   is not confirmed, our manufactured reply will not be associated
-   with it, so we need to do this manually. */
-static void connection_attach(struct sk_buff *new_skb, struct nf_ct_info *nfct)
+static inline struct rtable *route_reverse(struct sk_buff *skb, int hook)
 {
-	void (*attach)(struct sk_buff *, struct nf_ct_info *);
+	struct iphdr *iph = skb->nh.iph;
+	struct dst_entry *odst;
+	struct rt_key key = {};
+	struct rtable *rt;
 
-	/* Avoid module unload race with ip_ct_attach being NULLed out */
-	if (nfct && (attach = ip_ct_attach) != NULL)
-		attach(new_skb, nfct);
+	if (hook != NF_IP_FORWARD) {
+		key.dst = iph->saddr;
+		if (hook == NF_IP_LOCAL_IN)
+			key.src = iph->daddr;
+		key.tos = RT_TOS(iph->tos);
+
+		if (ip_route_output_key(&rt, &key) != 0)
+			return NULL;
+	} else {
+		/* non-local src, find valid iif to satisfy
+		 * rp-filter when calling ip_route_input. */
+		key.dst = iph->daddr;
+		if (ip_route_output_key(&rt, &key) != 0)
+			return NULL;
+
+		odst = skb->dst;
+		if (ip_route_input(skb, iph->saddr, iph->daddr,
+		                   RT_TOS(iph->tos), rt->u.dst.dev) != 0) {
+			dst_release(&rt->u.dst);
+			return NULL;
+		}
+		dst_release(&rt->u.dst);
+		rt = (struct rtable *)skb->dst;
+		skb->dst = odst;
+	}
+
+	if (rt->u.dst.error) {
+		dst_release(&rt->u.dst);
+		rt = NULL;
+	}
+
+	return rt;
 }
 
 /* Send RST reply */
-static void send_reset(struct sk_buff *oldskb, int local)
+static void send_reset(struct sk_buff *oldskb, int hook)
 {
 	struct sk_buff *nskb;
 	struct tcphdr *otcph, *tcph;
@@ -40,6 +73,7 @@ static void send_reset(struct sk_buff *oldskb, int local)
 	u_int16_t tmp_port;
 	u_int32_t tmp_addr;
 	int needs_ack;
+	int hh_len;
 
 	/* IP header checks: fragment, too short. */
 	if (oldskb->nh.iph->frag_off & htons(IP_OFFSET)
@@ -59,20 +93,29 @@ static void send_reset(struct sk_buff *oldskb, int local)
 			 csum_partial((char *)otcph, otcplen, 0)) != 0)
 		return;
 
-	/* Copy skb (even if skb is about to be dropped, we can't just
-           clone it because there may be other things, such as tcpdump,
-           interested in it) */
-	nskb = skb_copy(oldskb, GFP_ATOMIC);
-	if (!nskb)
+	if ((rt = route_reverse(oldskb, hook)) == NULL)
 		return;
 
+	hh_len = (rt->u.dst.dev->hard_header_len + 15)&~15;
+
+
+	/* Copy skb (even if skb is about to be dropped, we can't just
+           clone it because there may be other things, such as tcpdump,
+           interested in it). We also need to expand headroom in case
+	   hh_len of incoming interface < hh_len of outgoing interface */
+	nskb = skb_copy_expand(oldskb, hh_len, skb_tailroom(oldskb),
+			       GFP_ATOMIC);
+	if (!nskb) {
+		dst_release(&rt->u.dst);
+		return;
+	}
+
+	dst_release(nskb->dst);
+	nskb->dst = &rt->u.dst;
+
 	/* This packet will not be the same as the other: clear nf fields */
-	nf_conntrack_put(nskb->nfct);
-	nskb->nfct = NULL;
+	nf_reset(nskb);
 	nskb->nfcache = 0;
-#ifdef CONFIG_NETFILTER_DEBUG
-	nskb->nf_debug = 0;
-#endif
 	nskb->nfmark = 0;
 
 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
@@ -128,21 +171,11 @@ static void send_reset(struct sk_buff *oldskb, int local)
 	nskb->nh.iph->check = ip_fast_csum((unsigned char *)nskb->nh.iph, 
 					   nskb->nh.iph->ihl);
 
-	/* Routing: if not headed for us, route won't like source */
-	if (ip_route_output(&rt, nskb->nh.iph->daddr,
-			    local ? nskb->nh.iph->saddr : 0,
-			    RT_TOS(nskb->nh.iph->tos) | RTO_CONN,
-			    0) != 0)
-		goto free_nskb;
-
-	dst_release(nskb->dst);
-	nskb->dst = &rt->u.dst;
-
 	/* "Never happens" */
 	if (nskb->len > nskb->dst->pmtu)
 		goto free_nskb;
 
-	connection_attach(nskb, oldskb->nfct);
+	nf_ct_attach(nskb, oldskb);
 
 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
 		ip_finish_output);
@@ -167,6 +200,7 @@ static void send_unreach(struct sk_buff *skb_in, int code)
 	if (!rt)
 		return;
 
+	/* FIXME: Use sysctl number. --RR */
 	if (!xrlim_allow(&rt->u.dst, 1*HZ))
 		return;
 
@@ -271,12 +305,13 @@ static void send_unreach(struct sk_buff *skb_in, int code)
 	/* Copy as much of original packet as will fit */
 	data = skb_put(nskb,
 		       length - sizeof(struct iphdr) - sizeof(struct icmphdr));
+	/* FIXME: won't work with nonlinear skbs --RR */
 	memcpy(data, skb_in->nh.iph,
 	       length - sizeof(struct iphdr) - sizeof(struct icmphdr));
 	icmph->checksum = ip_compute_csum((unsigned char *)icmph,
 					  length - sizeof(struct iphdr));
 
-	connection_attach(nskb, skb_in->nfct);
+	nf_ct_attach(nskb, skb_in);
 
 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
 		ip_finish_output);
@@ -318,8 +353,11 @@ static unsigned int reject(struct sk_buff **pskb,
 	case IPT_ICMP_HOST_PROHIBITED:
     		send_unreach(*pskb, ICMP_HOST_ANO);
     		break;
+    	case IPT_ICMP_ADMIN_PROHIBITED:
+		send_unreach(*pskb, ICMP_PKT_FILTERED);
+		break;
 	case IPT_TCP_RESET:
-		send_reset(*pskb, hooknum == NF_IP_LOCAL_IN);
+		send_reset(*pskb, hooknum);
 	case IPT_ICMP_ECHOREPLY:
 		/* Doesn't happen. */
 		break;

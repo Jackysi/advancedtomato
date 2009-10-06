@@ -324,6 +324,10 @@ void UMSDOS_write_inode (struct inode *inode, int wait)
 	 * to update the EMD entry associated with this inode.
 	 * But it has the side effect to re"dirt" the inode.
 	 */
+/*      
+ * UMSDOS_notify_change (inode, &newattrs);
+
+ * inode->i_state &= ~I_DIRTY; / * FIXME: this doesn't work.  We need to remove ourselves from list on dirty inodes. /mn/ */
 }
 
 

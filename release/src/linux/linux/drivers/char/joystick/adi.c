@@ -1,5 +1,5 @@
 /*
- * $Id: adi.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: adi.c,v 1.15 2001/01/09 13:32:39 vojtech Exp $
  *
  *  Copyright (c) 1998-2000 Vojtech Pavlik
  *

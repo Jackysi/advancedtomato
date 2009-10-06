@@ -526,7 +526,7 @@ extern struct resource sa1111_resource;
 #define _MSECLKDIV  _SA1111( 0x0C0C )
 #define _MSEPRECNT  _SA1111( 0x0C10 )
 
-#if LANGUAGE == C 
+#if ( LANGUAGE == C )
 
 #define KBDCR		__CCREG(0x0a00)
 #define KBDSTAT		__CCREG(0x0a04)
@@ -674,5 +674,7 @@ extern struct resource sa1111_resource;
 
 #define PCSSR_S0_SLEEP	(1<<0)
 #define PCSSR_S1_SLEEP	(1<<1)
+
+int sa1111_check_dma_bug(dma_addr_t addr);
 
 #endif  /* _ASM_ARCH_SA1111 */

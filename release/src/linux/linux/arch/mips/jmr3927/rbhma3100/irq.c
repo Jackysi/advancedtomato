@@ -33,6 +33,7 @@
 #include <linux/init.h>
 
 #include <linux/errno.h>
+#include <linux/irq.h>
 #include <linux/kernel_stat.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
@@ -47,7 +48,6 @@
 
 #include <asm/bitops.h>
 #include <asm/io.h>
-#include <asm/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/system.h>
 
@@ -287,7 +287,6 @@ void jmr3927_spurious(struct pt_regs *regs)
 	       regs->cp0_cause, regs->cp0_epc, regs->regs[31]);
 }
 
-extern asmlinkage void do_IRQ(int irq, struct pt_regs *regs);
 void jmr3927_irc_irqdispatch(struct pt_regs *regs)
 {
 	int irq;
@@ -296,6 +295,9 @@ void jmr3927_irc_irqdispatch(struct pt_regs *regs)
 	tx_branch_likely_bug_fixup(regs);
 #endif
 	if ((regs->cp0_cause & CAUSEF_IP7) == 0) {
+#if 0
+		jmr3927_spurious(regs);
+#endif
 		return;
 	}
 	irq = (regs->cp0_cause >> CAUSEB_IP2) & 0x0f;
@@ -376,6 +378,10 @@ void jmr3927_irq_setup(void)
 		/* ETHER1 Int. Is High-Active. */
 		if (tx3927_ircptr->ssr & (1 << 0))
 			jmr3927_ether1_irq = JMR3927_IRQ_IRC_INT0;
+#if 0	/* INT3 may be asserted by ether0 (even after reboot...) */
+		else if (tx3927_ircptr->ssr & (1 << 3))
+			jmr3927_ether1_irq = JMR3927_IRQ_IRC_INT3;
+#endif
 		/* disable interrupt control */
 		tx3927_ircptr->cer = 0;
 
@@ -437,7 +443,7 @@ void (*irq_setup)(void);
 void __init init_IRQ(void)
 {
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
         extern void breakpoint(void);
         extern void set_debug_traps(void);
 

@@ -1,4 +1,4 @@
-OUTPUT_FORMAT("elf32-bigmips")
+OUTPUT_FORMAT("elf32-tradbigmips")
 OUTPUT_ARCH(mips)
 ENTRY(balo_entry)
 SECTIONS

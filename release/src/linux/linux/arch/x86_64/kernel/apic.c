@@ -31,6 +31,10 @@
 #include <asm/pgalloc.h>
 #include <asm/timex.h>
 
+int apic_disabled;
+
+extern spinlock_t i8253_lock;
+
 /* Using APIC to generate smp_local_timer_interrupt? */
 int using_apic_timer = 0;
 
@@ -347,8 +351,13 @@ void __init setup_local_APIC (void)
 	 * like LRU than MRU (the short-term load is more even across CPUs).
 	 * See also the comment in end_level_ioapic_irq().  --macro
 	 */
+#if 1
 	/* Enable focus processor (bit==0) */
 	value &= ~APIC_SPIV_FOCUS_DISABLED;
+#else
+	/* Disable focus processor (bit==1) */
+	value |= APIC_SPIV_FOCUS_DISABLED;
+#endif
 	/*
 	 * Set spurious IRQ vector
 	 */
@@ -368,10 +377,10 @@ void __init setup_local_APIC (void)
 	value = apic_read(APIC_LVT0) & APIC_LVT_MASKED;
 	if (!smp_processor_id() && (pic_mode || !value)) {
 		value = APIC_DM_EXTINT;
-		printk("enabled ExtINT on CPU#%d\n", smp_processor_id());
+		Dprintk("enabled ExtINT on CPU#%d\n", smp_processor_id());
 	} else {
 		value = APIC_DM_EXTINT | APIC_LVT_MASKED;
-		printk("masked ExtINT on CPU#%d\n", smp_processor_id());
+		Dprintk("masked ExtINT on CPU#%d\n", smp_processor_id());
 	}
 	apic_write_around(APIC_LVT0, value);
 
@@ -391,7 +400,7 @@ void __init setup_local_APIC (void)
 		if (maxlvt > 3)			/* Due to the Pentium erratum 3AP. */
 			apic_write(APIC_ESR, 0);
 		value = apic_read(APIC_ESR);
-		printk("ESR value before enabling vector: %08x\n", value);
+		Dprintk("ESR value before enabling vector: %08x\n", value);
 
 		value = ERROR_APIC_VECTOR;	/* enables sending errors */
 		apic_write_around(APIC_LVTERR, value);
@@ -401,7 +410,7 @@ void __init setup_local_APIC (void)
 		if (maxlvt > 3)
 			apic_write(APIC_ESR, 0);
 		value = apic_read(APIC_ESR);
-		printk("ESR value after enabling vector: %08x\n", value);
+		Dprintk("ESR value after enabling vector: %08x\n", value);
 	} else {
 		if (esr_disable)
 			/*
@@ -410,9 +419,9 @@ void __init setup_local_APIC (void)
 			 * ESR disabled - we can't do anything useful with the
 			 * errors anyway - mbligh
 			 */
-			printk("Leaving ESR disabled.\n");
+			Dprintk("Leaving ESR disabled.\n");
 		else
-			printk("No ESR for 82489DX.\n");
+			Dprintk("No ESR for 82489DX.\n");
 	}
 
 	if (nmi_watchdog == NMI_LOCAL_APIC)
@@ -582,51 +591,14 @@ int dont_enable_local_apic __initdata = 0;
 
 static int __init detect_init_APIC (void)
 {
-	u32 h, l, features;
-	extern void get_cpu_vendor(struct cpuinfo_x86*);
-
 	/* Disabled by DMI scan or kernel option? */
 	if (dont_enable_local_apic)
 		return -1;
 
-	get_cpu_vendor(&boot_cpu_data);
-
-	switch (boot_cpu_data.x86_vendor) {
-	case X86_VENDOR_AMD:
-		if (boot_cpu_data.x86 == 6 && boot_cpu_data.x86_model > 1)
-			break;
-		goto no_apic;
-	case X86_VENDOR_INTEL:
-		if (boot_cpu_data.x86 == 6 ||
-		    (boot_cpu_data.x86 == 15 && cpu_has_apic) ||
-		    (boot_cpu_data.x86 == 5 && cpu_has_apic))
-			break;
-		goto no_apic;
-	default:
-		goto no_apic;
-	}
-
+	/* Don't force the APIC if the BIOS didn't enable it. Usually
+	   it is broken in some way. */
 	if (!cpu_has_apic) {
-		/*
-		 * Some BIOSes disable the local APIC in the
-		 * APIC_BASE MSR. This can only be done in
-		 * software for Intel P6 and AMD K7 (Model > 1).
-		 */
-		rdmsr(MSR_IA32_APICBASE, l, h);
-		if (!(l & MSR_IA32_APICBASE_ENABLE)) {
-			printk("Local APIC disabled by BIOS -- reenabling.\n");
-			l &= ~MSR_IA32_APICBASE_BASE;
-			l |= MSR_IA32_APICBASE_ENABLE | APIC_DEFAULT_PHYS_BASE;
-			wrmsr(MSR_IA32_APICBASE, l, h);
-		}
-	}
-	/*
-	 * The APIC feature bit should now be enabled
-	 * in `cpuid'
-	 */
-	features = cpuid_edx(1);
-	if (!(features & (1 << X86_FEATURE_APIC))) {
-		printk("Could not enable APIC!\n");
+		printk(KERN_INFO "APIC disabled by BIOS.\n");
 		return -1;
 	}
 	set_bit(X86_FEATURE_APIC, &boot_cpu_data.x86_capability);
@@ -635,15 +607,11 @@ static int __init detect_init_APIC (void)
 	if (nmi_watchdog != NMI_NONE)
 		nmi_watchdog = NMI_LOCAL_APIC;
 
-	printk("Found and enabled local APIC!\n");
+	printk(KERN_INFO "Found and enabled local APIC!\n");
 
 	apic_pm_init1();
 
 	return 0;
-
-no_apic:
-	printk("No local APIC present or hardware disabled\n");
-	return -1;
 }
 
 void __init init_apic_mappings(void)
@@ -760,12 +728,13 @@ void setup_APIC_timer(void * data)
 	 * Wait for timer IRQ slice:
 	 */
 
-	if (hpet.address) {
+	if (hpet_address) {
 		int trigger = hpet_readl(HPET_T0_CMP);
 		while (hpet_readl(HPET_COUNTER) >= trigger);
 		while (hpet_readl(HPET_COUNTER) <  trigger);
 	} else {
 		int c1, c2;
+		spin_lock(&i8253_lock);
 		outb_p(0x00, 0x43);
 		c2 = inb_p(0x40);
 		c2 |= inb_p(0x40) << 8;
@@ -775,6 +744,7 @@ void setup_APIC_timer(void * data)
 			c2 = inb_p(0x40);
 			c2 |= inb_p(0x40) << 8;
 		} while (c2 - c1 < 300);
+		spin_unlock(&i8253_lock);
 	}
 
 	__setup_APIC_LVTT(clocks);
@@ -1012,6 +982,7 @@ asmlinkage void smp_spurious_interrupt(void)
 		printk(KERN_INFO "spurious APIC interrupt on CPU#%d, %ld skipped.\n",
 		       smp_processor_id(), skipped);
 		last_warning = jiffies;
+		skipped = 0;
 	} else {
 		skipped++;
 	}
@@ -1052,8 +1023,14 @@ asmlinkage void smp_error_interrupt(void)
  */
 int __init APIC_init_uniprocessor (void)
 {
-	if (!smp_found_config && !cpu_has_apic)
+	if (apic_disabled) 
+		clear_bit(X86_FEATURE_APIC, &boot_cpu_data.x86_capability); 
+
+	if (!cpu_has_apic) { 
+		printk("No APIC available.\n"); 
+		apic_disabled = 1;
 		return -1;
+	} 
 
 	/*
 	 * Complain if the BIOS pretends there is one.
@@ -1061,6 +1038,7 @@ int __init APIC_init_uniprocessor (void)
 	if (!cpu_has_apic && APIC_INTEGRATED(apic_version[boot_cpu_id])) {
 		printk(KERN_ERR "BIOS bug, local APIC #%d not detected!...\n",
 			boot_cpu_id);
+		apic_disabled = 1;
 		return -1;
 	}
 
@@ -1078,11 +1056,20 @@ int __init APIC_init_uniprocessor (void)
 	if (nmi_watchdog == NMI_LOCAL_APIC)
 		check_nmi_watchdog();
 #ifdef CONFIG_X86_IO_APIC
-	if (smp_found_config)
-		if (!skip_ioapic_setup && nr_ioapics)
+	if (smp_found_config && !skip_ioapic_setup && nr_ioapics)
 			setup_IO_APIC();
+	else
+		nr_ioapics = 0;
 #endif
 	setup_APIC_clocks();
 
 	return 0;
 }
+
+static int disable_local_apic(char *s) 
+{
+	apic_disabled = 1;
+	return 0;
+}
+__setup("nolocalapic", disable_local_apic); 
+

@@ -1,4 +1,4 @@
-/* $Id: delay.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $
+/* $Id: delay.h,v 1.11 2001/01/01 01:46:15 davem Exp $
  * delay.h: Linux delay routines on the Sparc.
  *
  * Copyright (C) 1994 David S. Miller (davem@caip.rutgers.edu).
@@ -21,5 +21,6 @@ extern __inline__ void __delay(unsigned long loops)
 
 /* This is too messy with inline asm on the Sparc. */
 extern void udelay(unsigned long usecs);
+extern void ndelay(unsigned long usecs);
 
 #endif /* defined(__SPARC_DELAY_H) */

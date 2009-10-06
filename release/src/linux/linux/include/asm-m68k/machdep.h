@@ -5,6 +5,7 @@ struct pt_regs;
 struct kbd_repeat;
 struct mktime;
 struct rtc_time;
+struct rtc_pll_info;
 struct gendisk;
 struct buffer_head;
 
@@ -29,6 +30,9 @@ extern unsigned long (*mach_gettimeoffset)(void);
 extern void (*mach_gettod)(int *year, int *mon, int *day, int *hour,
 			   int *min, int *sec);
 extern int (*mach_hwclk)(int, struct rtc_time*);
+extern unsigned int (*mach_get_ss)(void);
+extern int (*mach_get_rtc_pll)(struct rtc_pll_info *);
+extern int (*mach_set_rtc_pll)(struct rtc_pll_info *);
 extern int (*mach_set_clock_mmss)(unsigned long);
 extern void (*mach_reset)( void );
 extern void (*mach_halt)( void );

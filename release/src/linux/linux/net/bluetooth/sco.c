@@ -25,7 +25,7 @@
 /*
  * BlueZ SCO sockets.
  *
- * $Id: sco.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: sco.c,v 1.4 2002/07/22 20:32:54 maxk Exp $
  */
 #define VERSION "0.3"
 
@@ -67,9 +67,8 @@ static struct bluez_sock_list sco_sk_list = {
 	lock: RW_LOCK_UNLOCKED
 };
 
-static inline int sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *parent);
+static void __sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *parent);
 static void sco_chan_del(struct sock *sk, int err);
-static inline struct sock * sco_chan_get(struct sco_conn *conn);
 
 static int  sco_conn_del(struct hci_conn *conn, int err);
 
@@ -150,6 +149,15 @@ static struct sco_conn *sco_conn_add(struct hci_conn *hcon, __u8 status)
 	return conn;
 }
 
+static inline struct sock * sco_chan_get(struct sco_conn *conn)
+{
+	struct sock *sk = NULL;
+	sco_conn_lock(conn);
+	sk = conn->sk;
+	sco_conn_unlock(conn);
+	return sk;
+}
+
 static int sco_conn_del(struct hci_conn *hcon, int err)
 {
 	struct sco_conn *conn;
@@ -174,6 +182,20 @@ static int sco_conn_del(struct hci_conn *hcon, int err)
 
 	MOD_DEC_USE_COUNT;
 	return 0;
+}
+
+static inline int sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *parent)
+{
+	int err = 0;
+
+	sco_conn_lock(conn);
+	if (conn->sk) {
+		err = -EBUSY;
+	} else {
+		__sco_chan_add(conn, sk, parent);
+	}
+	sco_conn_unlock(conn);
+	return err;
 }
 
 int sco_connect(struct sock *sk)
@@ -332,8 +354,10 @@ static void sco_sock_cleanup_listen(struct sock *parent)
 	BT_DBG("parent %p", parent);
 
 	/* Close not yet accepted channels */
-	while ((sk = bluez_accept_dequeue(parent, NULL)))
+	while ((sk = bluez_accept_dequeue(parent, NULL))) {
 		sco_sock_close(sk);
+		sco_sock_kill(sk);
+	}
 
 	parent->state  = BT_CLOSED;
 	parent->zapped = 1;
@@ -388,8 +412,6 @@ static void sco_sock_close(struct sock *sk)
 	};
 
 	release_sock(sk);
-
-	sco_sock_kill(sk);
 }
 
 static void sco_sock_init(struct sock *sk, struct sock *parent)
@@ -508,7 +530,8 @@ static int sco_sock_connect(struct socket *sock, struct sockaddr *addr, int alen
 	if ((err = sco_connect(sk)))
 		goto done;
 
-	err = bluez_sock_w4_connect(sk, flags);
+	err = bluez_sock_wait_state(sk, BT_CONNECTED,
+			sock_sndtimeo(sk, flags & O_NONBLOCK));
 
 done:
 	release_sock(sk);
@@ -678,7 +701,7 @@ int sco_sock_getsockopt(struct socket *sock, int level, int optname, char *optva
 		
 		opts.mtu = sco_pi(sk)->conn->mtu;
 
-		BT_INFO("mtu %d", opts.mtu);
+		BT_DBG("mtu %d", opts.mtu);
 
 		len = MIN(len, sizeof(opts));
 		if (copy_to_user(optval, (char *)&opts, len))
@@ -712,16 +735,23 @@ int sco_sock_getsockopt(struct socket *sock, int level, int optname, char *optva
 static int sco_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
+	int err = 0;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
 
 	if (!sk)
 		return 0;
 
-	sock_orphan(sk);
 	sco_sock_close(sk);
+	if (sk->linger) {
+		lock_sock(sk);
+		err = bluez_sock_wait_state(sk, BT_CLOSED, sk->lingertime);
+		release_sock(sk);
+	}
 
-	return 0;
+	sock_orphan(sk);
+	sco_sock_kill(sk);
+	return err;
 }
 
 static void __sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *parent)
@@ -733,29 +763,6 @@ static void __sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *
 
 	if (parent)
 		bluez_accept_enqueue(parent, sk);
-}
-
-static inline int sco_chan_add(struct sco_conn *conn, struct sock *sk, struct sock *parent)
-{
-	int err = 0;
-
-	sco_conn_lock(conn);
-	if (conn->sk) {
-		err = -EBUSY;
-	} else {
-		__sco_chan_add(conn, sk, parent);
-	}
-	sco_conn_unlock(conn);
-	return err;
-}
-
-static inline struct sock * sco_chan_get(struct sco_conn *conn)
-{
-	struct sock *sk = NULL;
-	sco_conn_lock(conn);
-	sk = conn->sk;
-	sco_conn_unlock(conn);
-	return sk;
 }
 
 /* Delete channel. 

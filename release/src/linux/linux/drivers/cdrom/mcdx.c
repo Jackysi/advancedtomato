@@ -53,7 +53,7 @@
 
 #if RCS
 static const char *mcdx_c_version
-    = "$Id: mcdx.c,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $";
+    = "$Id: mcdx.c,v 1.21 1997/01/26 07:12:59 davem Exp $";
 #endif
 
 #include <linux/version.h>
@@ -541,6 +541,12 @@ static int mcdx_audio_ioctl(struct cdrom_device_info *cdi,
 			    (struct cdrom_volctrl *) arg;
 			xtrace(IOCTL, "ioctl() VOLCTRL\n");
 
+#if 0				/* not tested! */
+			/* adjust for the weirdness of workman (md) */
+			/* can't test it (hs) */
+			volctrl.channel2 = volctrl.channel1;
+			volctrl.channel1 = volctrl.channel3 = 0x00;
+#endif
 			return mcdx_setattentuator(stuffp, volctrl, 2);
 		}
 
@@ -1248,7 +1254,7 @@ int __init mcdx_init(void)
 	xwarn("Version 2.14(hs) \n");
 #endif
 
-	xwarn("$Id: mcdx.c,v 1.1.1.4 2003/10/14 08:07:59 sparq Exp $\n");
+	xwarn("$Id: mcdx.c,v 1.21 1997/01/26 07:12:59 davem Exp $\n");
 
 	/* zero the pointer array */
 	for (drive = 0; drive < MCDX_NDRIVES; drive++)

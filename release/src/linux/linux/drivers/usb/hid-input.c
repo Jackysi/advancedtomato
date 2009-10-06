@@ -1,5 +1,5 @@
 /*
- * $Id: hid-input.c,v 1.1.1.4 2003/10/14 08:08:50 sparq Exp $
+ * $Id: hid-input.c,v 1.5 2001/05/23 09:25:02 vojtech Exp $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  *
@@ -63,9 +63,39 @@ static struct {
 	__s32 y;
 }  hid_hat_to_axis[] = {{0, 0}, { 0,-1}, { 1,-1}, { 1, 0}, { 1, 1}, { 0, 1}, {-1, 1}, {-1, 0}, {-1,-1}};
 
-static void hidinput_configure_usage(struct hid_device *device, struct hid_field *field, struct hid_usage *usage)
+static struct input_dev *find_input(struct hid_device *hid, struct hid_field *field)
 {
-	struct input_dev *input = &device->input;
+	struct list_head *lh;
+	struct hid_input *hidinput;
+
+	list_for_each (lh, &hid->inputs) {
+		int i;
+
+		hidinput = list_entry(lh, struct hid_input, list);
+
+		if (! hidinput->report)
+			continue;
+
+		for (i = 0; i < hidinput->report->maxfield; i++)
+			if (hidinput->report->field[i] == field)
+				return &hidinput->input;
+	}
+
+	/* Assume we only have one input and use it */
+	if (!list_empty(&hid->inputs)) {
+		hidinput = list_entry(hid->inputs.next, struct hid_input, list);
+		return &hidinput->input;
+	}
+
+	/* This is really a bug */
+	return NULL;
+}
+
+static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_field *field,
+				     struct hid_usage *usage)
+{
+	struct input_dev *input = &hidinput->input;
+	struct hid_device *device = hidinput->input.private;
 	int max;
 	unsigned long *bit;
 
@@ -280,10 +310,20 @@ static void hidinput_configure_usage(struct hid_device *device, struct hid_field
 		int a = field->logical_minimum;
 		int b = field->logical_maximum;
 
+		if ((device->quirks & HID_QUIRK_BADPAD) && (usage->code == ABS_X || usage->code == ABS_Y)) {
+			a = field->logical_minimum = 0;
+			b = field->logical_maximum = 255;
+		}
+
 		input->absmin[usage->code] = a;
 		input->absmax[usage->code] = b;
-		input->absfuzz[usage->code] = (b - a) >> 8;
-		input->absflat[usage->code] = (b - a) >> 4;
+		input->absfuzz[usage->code] = 0;
+		input->absflat[usage->code] = 0;
+
+		if (field->application == HID_GD_GAMEPAD || field->application == HID_GD_JOYSTICK) {
+			input->absfuzz[usage->code] = (b - a) >> 8;
+			input->absflat[usage->code] = (b - a) >> 4;
+		}
 	}
 
 	if (usage->hat_min != usage->hat_max) {
@@ -300,8 +340,11 @@ static void hidinput_configure_usage(struct hid_device *device, struct hid_field
 
 void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct hid_usage *usage, __s32 value)
 {
-	struct input_dev *input = &hid->input;
+	struct input_dev *input = find_input(hid, field);
 	int *quirks = &hid->quirks;
+
+	if (!input)
+		return;
 
 	if (usage->hat_min != usage->hat_max) {
 		value = (value - usage->hat_min) * 8 / (usage->hat_max - usage->hat_min + 1) + 1;
@@ -382,44 +425,86 @@ int hidinput_connect(struct hid_device *hid)
 	struct hid_report_enum *report_enum;
 	struct hid_report *report;
 	struct list_head *list;
+	struct hid_input *hidinput = NULL;
 	int i, j, k;
 
-	for (i = 0; i < hid->maxapplication; i++)
-		if (IS_INPUT_APPLICATION(hid->application[i]))
+	INIT_LIST_HEAD(&hid->inputs);
+
+	for (i = 0; i < hid->maxcollection; i++)
+		if (hid->collection[i].type == HID_COLLECTION_APPLICATION &&
+		    IS_INPUT_APPLICATION(hid->collection[i].usage))
 			break;
 
-	if (i == hid->maxapplication)
+	if (i == hid->maxcollection)
 		return -1;
-
-	hid->input.private = hid;
-	hid->input.event = hidinput_input_event;
-	hid->input.open = hidinput_open;
-	hid->input.close = hidinput_close;
-
-	hid->input.name = hid->name;
-	hid->input.idbus = BUS_USB;
-	hid->input.idvendor = dev->descriptor.idVendor;
-	hid->input.idproduct = dev->descriptor.idProduct;
-	hid->input.idversion = dev->descriptor.bcdDevice;
 
 	for (k = HID_INPUT_REPORT; k <= HID_OUTPUT_REPORT; k++) {
 		report_enum = hid->report_enum + k;
 		list = report_enum->report_list.next;
 		while (list != &report_enum->report_list) {
 			report = (struct hid_report *) list;
+
+			if (!report->maxfield) {
+				list = list->next;
+				continue;
+			}
+
+			if (!hidinput) {
+				hidinput = kmalloc(sizeof(*hidinput), GFP_KERNEL);
+				if (!hidinput) {
+					err("Out of memory during hid input probe");
+					return -1;
+				}
+				memset(hidinput, 0, sizeof(*hidinput));
+				list_add_tail(&hidinput->list, &hid->inputs);
+
+				hidinput->input.private = hid;
+				hidinput->input.event = hidinput_input_event;
+				hidinput->input.open = hidinput_open;
+				hidinput->input.close = hidinput_close;
+
+				hidinput->input.name = hid->name;
+				hidinput->input.idbus = BUS_USB;
+				hidinput->input.idvendor = dev->descriptor.idVendor;
+				hidinput->input.idproduct = dev->descriptor.idProduct;
+				hidinput->input.idversion = dev->descriptor.bcdDevice;
+			}
+
 			for (i = 0; i < report->maxfield; i++)
 				for (j = 0; j < report->field[i]->maxusage; j++)
-					hidinput_configure_usage(hid, report->field[i], report->field[i]->usage + j);
+					hidinput_configure_usage(hidinput, report->field[i],
+								 report->field[i]->usage + j);
+
+			if (hid->quirks & HID_QUIRK_MULTI_INPUT) {
+				/* This will leave hidinput NULL, so that it
+				 * allocates another one if we have more inputs on
+				 * the same interface. Some devices (e.g. Happ's
+				 * UGCI) cram a lot of unrelated inputs into the
+				 * same interface. */
+				hidinput->report = report;
+				input_register_device(&hidinput->input);
+				hidinput = NULL;
+			}
+
 			list = list->next;
 		}
 	}
 
-	input_register_device(&hid->input);
+	if (hidinput)
+		input_register_device(&hidinput->input);
 
 	return 0;
 }
 
 void hidinput_disconnect(struct hid_device *hid)
 {
-	input_unregister_device(&hid->input);
+	struct list_head *lh, *next;
+	struct hid_input *hidinput;
+
+	list_for_each_safe (lh, next, &hid->inputs) {
+		hidinput = list_entry(lh, struct hid_input, list);
+		input_unregister_device(&hidinput->input);
+		list_del(&hidinput->list);
+		kfree(hidinput);
+	}
 }

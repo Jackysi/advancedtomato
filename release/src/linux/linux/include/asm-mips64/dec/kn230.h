@@ -3,7 +3,7 @@
  *
  *	DECsystem 5100 (MIPSmate or KN230) definitions.
  *
- *	Copyright (C) 2002  Maciej W. Rozycki
+ *	Copyright (C) 2002, 2003  Maciej W. Rozycki
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
  * CPU interrupt bits.
  */
 #define KN230_CPU_INR_HALT	6	/* HALT button */
-#define KN230_CPU_INR_MEMORY	5	/* memory, I/O bus write errors */
+#define KN230_CPU_INR_BUS	5	/* memory, I/O bus read/write errors */
 #define KN230_CPU_INR_RTC	4	/* DS1287 RTC */
 #define KN230_CPU_INR_SII	3	/* SII (DC7061) SCSI */
 #define KN230_CPU_INR_LANCE	3	/* LANCE (Am7990) Ethernet */

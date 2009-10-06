@@ -477,11 +477,11 @@ int sa1100_dma_resume(dmach_t channel)
 		return sa1111_dma_resume(channel);
 
 	if (dma->stopped) {
-		int flags;
-		save_flags_cli(flags);
+		unsigned long flags;
+		local_irq_save(flags);
 		dma->stopped = 0;
 		process_dma(dma);
-		restore_flags(flags);
+		local_irq_restore(flags);
 	}
 	return 0;
 }

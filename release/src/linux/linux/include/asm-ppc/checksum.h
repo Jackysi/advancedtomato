@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.checksum.h 1.8 05/17/01 18:14:24 cort
- */
 #ifdef __KERNEL__
 #ifndef _PPC_CHECKSUM_H
 #define _PPC_CHECKSUM_H
@@ -38,8 +35,9 @@ extern unsigned int csum_partial_copy_generic(const char *src, char *dst,
 #define csum_partial_copy_from_user(src, dst, len, sum, errp)	\
 	csum_partial_copy_generic((src), (dst), (len), (sum), (errp), 0)
 
+/* FIXME: this needs to be written to really do no check -- Cort */
 #define csum_partial_copy_nocheck(src, dst, len, sum)	\
-	csum_partial_copy_generic((src), (dst), (len), (sum), 0, 0)     
+	csum_partial_copy_generic((src), (dst), (len), (sum), 0, 0)
 /*
  * Old versions which ignore errors.
  */
@@ -75,11 +73,15 @@ static inline unsigned short ip_compute_csum(unsigned char * buff, int len)
 	return csum_fold(csum_partial(buff, len, 0));
 }
 
+/*
+ * FIXME: I swiped this one from the sparc and made minor modifications.
+ * It may not be correct.  -- Cort
+ */
 static inline unsigned long csum_tcpudp_nofold(unsigned long saddr,
 						   unsigned long daddr,
 						   unsigned short len,
 						   unsigned short proto,
-						   unsigned int sum) 
+						   unsigned int sum)
 {
     __asm__("\n\
 	addc %0,%0,%1 \n\

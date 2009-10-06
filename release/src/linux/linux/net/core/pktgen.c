@@ -1,5 +1,5 @@
 /* -*-linux-c-*-
- * $Id: pktgen.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: pktgen.c,v 1.8 2002/07/15 19:30:17 robert Exp $
  * pktgen.c: Packet Generator for performance evaluation.
  *
  * Copyright 2001, 2002 by Robert Olsson <robert.olsson@its.uu.se>
@@ -46,6 +46,9 @@
  * Also moved to /proc/net/pktgen/ 
  * --ro 
  *
+ * Fix refcount off by one if first packet fails, potential null deref, 
+ * memleak 030710- KJP
+ *
  * See Documentation/networking/pktgen.txt for how to use this.
  */
 
@@ -84,9 +87,9 @@
 #define cycles()	((u32)get_cycles())
 
 
-#define VERSION "pktgen version 1.2"
+#define VERSION "pktgen version 1.3"
 static char version[] __initdata = 
-  "pktgen.c: v1.2: Packet Generator for packet performance testing.\n";
+  "pktgen.c: v1.3: Packet Generator for packet performance testing.\n";
 
 /* Used to help with determining the pkts on receive */
 
@@ -507,6 +510,8 @@ static struct sk_buff *fill_packet(struct net_device *odev, struct pktgen_info* 
 	skb->mac.raw = ((u8 *)iph) - 14;
 	skb->dev = odev;
 	skb->pkt_type = PACKET_HOST;
+	skb->nh.iph = iph;
+	skb->h.uh = udph;
 
 	if (info->nfrags <= 0) {
                 pgh = (struct pktgen_hdr *)skb_put(skb, datalen);
@@ -613,12 +618,11 @@ static void inject(struct pktgen_info* info)
                                 kfree_skb(skb);
                                 skb = fill_packet(odev, info);
                                 if (skb == NULL) {
-                                        break;
+					goto out_reldev;
                                 }
                                 fp++;
                                 fp_tmp = 0; /* reset counter */
                         }
-                        atomic_inc(&skb->users);
                 }
 
                 nr_frags = skb_shinfo(skb)->nr_frags;
@@ -626,7 +630,11 @@ static void inject(struct pktgen_info* info)
 		spin_lock_bh(&odev->xmit_lock);
 		if (!netif_queue_stopped(odev)) {
 
+			atomic_inc(&skb->users);
+
 			if (odev->hard_start_xmit(skb, odev)) {
+
+				atomic_dec(&skb->users);
 				if (net_ratelimit()) {
                                    printk(KERN_INFO "Hard xmit error\n");
                                 }
@@ -731,15 +739,15 @@ static void inject(struct pktgen_info* info)
 			     (unsigned long long) info->errors
 			     );
 	}
-        
+
+	kfree_skb(skb);
+
 out_reldev:
         if (odev) {
                 dev_put(odev);
                 odev = NULL;
         }
 
-        /* TODO:  Is this worth printing out (other than for debug?) */
-        printk("fp = %llu\n", (unsigned long long) fp);
 	return;
 
 }
@@ -955,7 +963,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 	if (len < 0)
 		return len;
 	memset(name, 0, sizeof(name));
-	copy_from_user(name, &user_buffer[i], len);
+	if (copy_from_user(name, &user_buffer[i], len))
+		return -EFAULT;
 	i += len;
   
 	max = count -i;
@@ -1085,18 +1094,20 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(info->outdev, 0, sizeof(info->outdev));
-		copy_from_user(info->outdev, &user_buffer[i], len);
+		if (copy_from_user(info->outdev, &user_buffer[i], len))
+			return -EFAULT;
 		i += len;
 		sprintf(result, "OK: odev=%s", info->outdev);
 		return count;
 	}
 	if (!strcmp(name, "flag")) {
                 char f[32];
-                memset(f, 0, 32);
 		len = strn_len(&user_buffer[i], sizeof(f) - 1);
 		if (len < 0)
 			return len;
-		copy_from_user(f, &user_buffer[i], len);
+                memset(f, 0, 32);
+		if (copy_from_user(f, &user_buffer[i], len))
+			return -EFAULT;
 		i += len;
                 if (strcmp(f, "IPSRC_RND") == 0) {
                         info->flags |= F_IPSRC_RND;
@@ -1148,7 +1159,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(info->dst_min, 0, sizeof(info->dst_min));
-		copy_from_user(info->dst_min, &user_buffer[i], len);
+		if (copy_from_user(info->dst_min, &user_buffer[i], len))
+			return -EFAULT;
 		if(debug)
 			printk("pg: dst_min set to: %s\n", info->dst_min);
 		i += len;
@@ -1160,7 +1172,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(info->dst_max, 0, sizeof(info->dst_max));
-		copy_from_user(info->dst_max, &user_buffer[i], len);
+		if (copy_from_user(info->dst_max, &user_buffer[i], len))
+			return -EFAULT;
 		if(debug)
 			printk("pg: dst_max set to: %s\n", info->dst_max);
 		i += len;
@@ -1172,7 +1185,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(info->src_min, 0, sizeof(info->src_min));
-		copy_from_user(info->src_min, &user_buffer[i], len);
+		if (copy_from_user(info->src_min, &user_buffer[i], len))
+			return -EFAULT;
 		if(debug)
 			printk("pg: src_min set to: %s\n", info->src_min);
 		i += len;
@@ -1184,7 +1198,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(info->src_max, 0, sizeof(info->src_max));
-		copy_from_user(info->src_max, &user_buffer[i], len);
+		if (copy_from_user(info->src_max, &user_buffer[i], len))
+			return -EFAULT;
 		if(debug)
 			printk("pg: src_max set to: %s\n", info->src_max);
 		i += len;
@@ -1199,7 +1214,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(valstr, 0, sizeof(valstr));
-		copy_from_user(valstr, &user_buffer[i], len);
+		if (copy_from_user(valstr, &user_buffer[i], len))
+			return -EFAULT;
 		i += len;
 
 		for(*m = 0;*v && m < info->dst_mac + 6; v++) {
@@ -1231,7 +1247,8 @@ static int proc_write(struct file *file, const char *user_buffer,
 		if (len < 0)
 			return len;
 		memset(valstr, 0, sizeof(valstr));
-		copy_from_user(valstr, &user_buffer[i], len);
+		if (copy_from_user(valstr, &user_buffer[i], len))
+			return -EFAULT;
 		i += len;
 
 		for(*m = 0;*v && m < info->src_mac + 6; v++) {

@@ -37,7 +37,7 @@ typedef unsigned char spinlock_t;
 #define spin_is_locked(lock)	(*((volatile unsigned char *)(lock)) != 0)
 
 #define spin_unlock_wait(lock)	\
-do {	membar("#LoadLoad");	\
+do {	rmb();			\
 } while(*((volatile unsigned char *)lock))
 
 extern __inline__ void spin_lock(spinlock_t *lock)
@@ -92,7 +92,7 @@ do {	(__lock)->lock = 0; \
 #define spin_is_locked(__lock)	(*((volatile unsigned char *)(&((__lock)->lock))) != 0)
 #define spin_unlock_wait(__lock)	\
 do { \
-	membar("#LoadLoad"); \
+	rmb(); \
 } while(*((volatile unsigned char *)(&((__lock)->lock))))
 
 extern void _do_spin_lock (spinlock_t *lock, char *str);

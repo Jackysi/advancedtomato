@@ -417,7 +417,7 @@ struct ohci_device {
 	ed_t 	ed[NUM_EDS];
 	dma_addr_t dma;
 	int ed_cnt;
-	wait_queue_head_t * wait;
+	wait_queue_head_t wait;
 };
 
 // #define ohci_to_usb(ohci)	((ohci)->usb)
@@ -626,6 +626,7 @@ dev_alloc (struct ohci *hc, int mem_flags)
 	dev = pci_pool_alloc (hc->dev_cache, mem_flags, &dma);
 	if (dev) {
 		memset (dev, 0, sizeof (*dev));
+		init_waitqueue_head (&dev->wait);
 		dev->dma = dma;
 		offset = ((char *)&dev->ed) - ((char *)dev);
 		for (i = 0; i < NUM_EDS; i++, offset += sizeof dev->ed [0])

@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_ioctl.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_ioctl.c,v 1.4 2000/11/08 05:16:40 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/if_bridge.h>
 #include <linux/inetdevice.h>
+#include <linux/rtnetlink.h>
 #include <asm/uaccess.h>
 #include "br_private.h"
 
@@ -230,12 +231,10 @@ static int br_ioctl_deviceless(unsigned int cmd,
 	return -EOPNOTSUPP;
 }
 
-DECLARE_MUTEX(ioctl_mutex);
-
 int br_ioctl_deviceless_stub(unsigned long arg)
 {
-	int err;
 	unsigned long i[3];
+	int err;
 
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
@@ -243,32 +242,17 @@ int br_ioctl_deviceless_stub(unsigned long arg)
 	if (copy_from_user(i, (void *)arg, 3*sizeof(unsigned long)))
 		return -EFAULT;
 
-	down(&ioctl_mutex);
-	err = br_ioctl_deviceless(i[0], i[1], i[2]);
-	up(&ioctl_mutex);
-
+	rtnl_lock();
+	err =  br_ioctl_deviceless(i[0], i[1], i[2]);
+	rtnl_unlock();
 	return err;
 }
 
 int br_ioctl(struct net_bridge *br, unsigned int cmd, unsigned long arg0, unsigned long arg1, unsigned long arg2)
 {
-	int err;
-
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
 
-	down(&ioctl_mutex);
-	err = br_ioctl_deviceless(cmd, arg0, arg1);
-	if (err == -EOPNOTSUPP)
-		err = br_ioctl_device(br, cmd, arg0, arg1, arg2);
-	up(&ioctl_mutex);
-
-	return err;
-}
-
-void br_call_ioctl_atomic(void (*fn)(void))
-{
-	down(&ioctl_mutex);
-	fn();
-	up(&ioctl_mutex);
+	ASSERT_RTNL();
+	return br_ioctl_device(br, cmd, arg0, arg1, arg2);
 }

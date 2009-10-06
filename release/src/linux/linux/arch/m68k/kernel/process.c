@@ -124,7 +124,7 @@ void show_regs(struct pt_regs * regs)
 /*
  * Create a kernel thread
  */
-int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
 	int pid;
 	mm_segment_t fs;
@@ -372,6 +372,7 @@ unsigned long get_wchan(struct task_struct *p)
 		    fp >= 8184+stack_page)
 			return 0;
 		pc = ((unsigned long *)fp)[1];
+		/* FIXME: This depends on the order of these functions. */
 		if (pc < first_sched || pc >= last_sched)
 			return pc;
 		fp = *(unsigned long *) fp;

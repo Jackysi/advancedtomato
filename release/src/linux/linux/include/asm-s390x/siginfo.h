@@ -11,6 +11,7 @@
 
 #include <linux/types.h>
 
+/* XXX: This structure was copied from the Alpha; is there an iBCS version?  */
 
 typedef union sigval {
 	int sival_int;
@@ -18,7 +19,7 @@ typedef union sigval {
 } sigval_t;
 
 #define SI_MAX_SIZE	128
-#define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 3)
+#define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 4)
 
 typedef struct siginfo {
 	int si_signo;

@@ -403,6 +403,9 @@ ABSOLUTE reselected_tag = 0
 
 ENTRY dsa_schedule
 dsa_schedule:
+#if 0
+    INT int_debug_dsa_schedule
+#endif
 
 ;
 ; Calculate the address of the next pointer within the DSA 
@@ -436,6 +439,9 @@ dsa_schedule_insert:
 #ifdef EVENTS
     INT int_EVENT_DISCONNECT;
 #endif
+#if 0
+    INT int_debug_disconnected
+#endif
     JUMP schedule
 #endif 
 
@@ -465,7 +471,17 @@ dsa_schedule_insert:
 ENTRY select
 select:
 
+#if 0
+#ifdef EVENTS
+    INT int_EVENT_BEFORE_SELECT
+#endif
+#endif
 
+#if 0
+#ifdef DEBUG
+    INT int_debug_scheduled
+#endif
+#endif
     CLEAR TARGET
 
 ; XXX
@@ -529,7 +545,7 @@ select_msg_in:
 
 cmdout:
     INT int_err_unexpected_phase, WHEN NOT CMD
-#if CHIP == 700
+#if (CHIP == 700)
     INT int_norm_selected
 #endif
 ENTRY cmdout_cmdout
@@ -623,6 +639,9 @@ do_datain:
 ENTRY datain_to_jump
 datain_to_jump:
     MOVE MEMORY 4, 0, datain_jump + 4
+#if 0
+    INT int_debug_datain
+#endif
 datain_jump:
     JUMP 0
 #endif /* (CHIP != 700) && (CHIP != 70066) */
@@ -634,6 +653,9 @@ datain_jump:
 
 ENTRY other_out
 other_out:
+#if 0
+    INT 0x03ffdead
+#endif
     INT int_err_unexpected_phase, WHEN CMD
     JUMP msg_in_restart, WHEN MSG_IN 
     INT int_err_unexpected_phase, WHEN MSG_OUT
@@ -644,6 +666,9 @@ other_out:
 
 ENTRY other_in
 other_in:
+#if 0
+    INT 0x03ffdead
+#endif
     INT int_err_unexpected_phase, WHEN CMD
     JUMP msg_in_restart, WHEN MSG_IN 
     INT int_err_unexpected_phase, WHEN MSG_OUT
@@ -799,6 +824,9 @@ jump_dsa_restore:
 
 
 munge_disconnect:
+#if 0
+    INT int_debug_disconnect_msg
+#endif
 
 /* 
  * Before, we overlapped processing with waiting for disconnect, but
@@ -920,6 +948,10 @@ command_complete_msgin:
 ; added to the HEAD of the queue with the request sense command, or we
 ; must automatically issue the request sense command.
 
+#if 0
+    MOVE SCRATCH0 TO SFBR			
+    JUMP command_failed, IF 0x02
+#endif
     INTFLY
 #endif /* (CHIP != 700) && (CHIP != 70066) */
 #ifdef EVENTS
@@ -969,6 +1001,9 @@ wait_reselect:
 #ifdef EVENTS
     int int_EVENT_IDLE
 #endif
+#if 0
+    int int_debug_idle
+#endif
     WAIT RESELECT wait_reselect_failed
 
 reselected:
@@ -981,6 +1016,9 @@ reselected:
     MOVE 1, reselected_identify, WHEN MSG_IN
     ; We used to CLEAR ACK here.
 #if (CHIP != 700) && (CHIP != 70066)
+#if 0
+    int int_debug_reselected
+#endif
 
     ; Point DSA at the current head of the disconnected queue.
     MOVE dmode_memory_to_ncr  TO DMODE
@@ -996,6 +1034,9 @@ reselected:
 
 ENTRY reselected_check_next
 reselected_check_next:
+#if 0
+    INT int_debug_reselect_check
+#endif
     ; Check for a NULL pointer.
     MOVE DSA0 TO SFBR
     JUMP reselected_not_end, IF NOT 0
@@ -1048,6 +1089,9 @@ reselected_ok:
 						;	starting with 
 						;       dsa_reconnect_head
     ; We used to CLEAR ACK here.
+#if 0
+    INT int_debug_reselected_ok
+#endif
 #ifdef DEBUG
     INT int_debug_check_dsa
 #endif
@@ -1084,7 +1128,11 @@ wait_reselect_failed:
     MOVE ISTAT & 0x08 TO SFBR
     JUMP reselected, IF 0x08
 ; FIXME : Something bogus happened, and we shouldn't fail silently.
+#if 0
+    JUMP schedule
+#else
     INT int_debug_panic
+#endif
 
 
 select_failed:
@@ -1106,7 +1154,11 @@ select_failed:
     MOVE ISTAT & 0x08 TO SFBR
     JUMP reselected, IF 0x08
 ; FIXME : Something bogus happened, and we shouldn't fail silently.
+#if 0
+    JUMP schedule
+#else
     INT int_debug_panic
+#endif
 
 ;
 ; test_1

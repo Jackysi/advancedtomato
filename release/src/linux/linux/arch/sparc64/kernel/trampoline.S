@@ -1,4 +1,4 @@
-/* $Id: trampoline.S,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: trampoline.S,v 1.24 2001/11/16 21:59:20 davem Exp $
  * trampoline.S: Jump start slave processors on sparc64.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -85,9 +85,14 @@ spitfire_startup:
 
 startup_continue:
 	wrpr		%g0, 15, %pil
-	wr		%g0, 0, %tick_cmpr
 
-	/* Call OBP by hand to lock KERNBASE into i/d tlbs. */
+	sethi		%hi(0x80000000), %g2
+	sllx		%g2, 32, %g2
+	wr		%g2, 0, %tick_cmpr
+
+	/* Call OBP by hand to lock KERNBASE into i/d tlbs.
+	 * We lock 2 consequetive entries if we are 'bigkernel'.
+	 */
 	mov		%o0, %l0
 
 	sethi		%hi(prom_entry_lock), %g2
@@ -133,6 +138,46 @@ startup_continue:
 	call		%o1
 	 add		%sp, (2047 + 128), %o0
 
+	sethi		%hi(bigkernel), %g2
+	lduw		[%g2 + %lo(bigkernel)], %g2
+	cmp		%g2, 0
+	be,pt		%icc, do_dtlb
+	 nop
+
+	sethi		%hi(call_method), %g2
+	or		%g2, %lo(call_method), %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x00]
+	mov		5, %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x08]
+	mov		1, %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x10]
+	sethi		%hi(itlb_load), %g2
+	or		%g2, %lo(itlb_load), %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x18]
+	sethi		%hi(mmu_ihandle_cache), %g2
+	lduw		[%g2 + %lo(mmu_ihandle_cache)], %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x20]
+	sethi		%hi(KERNBASE + 0x400000), %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x28]
+	sethi		%hi(kern_locked_tte_data), %g2
+	ldx		[%g2 + %lo(kern_locked_tte_data)], %g2
+	sethi		%hi(0x400000), %g1
+	add		%g2, %g1, %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x30]
+
+	mov		14, %g2
+	BRANCH_IF_ANY_CHEETAH(g1,g5,1f)
+
+	mov		62, %g2
+1:
+	stx		%g2, [%sp + 2047 + 128 + 0x38]
+	sethi		%hi(p1275buf), %g2
+	or		%g2, %lo(p1275buf), %g2
+	ldx		[%g2 + 0x08], %o1
+	call		%o1
+	 add		%sp, (2047 + 128), %o0
+
+do_dtlb:
 	sethi		%hi(call_method), %g2
 	or		%g2, %lo(call_method), %g2
 	stx		%g2, [%sp + 2047 + 128 + 0x00]
@@ -165,6 +210,47 @@ startup_continue:
 	call		%o1
 	 add		%sp, (2047 + 128), %o0
 
+	sethi		%hi(bigkernel), %g2
+	lduw		[%g2 + %lo(bigkernel)], %g2
+	cmp		%g2, 0
+	be,pt		%icc, do_unlock
+	 nop
+
+	sethi		%hi(call_method), %g2
+	or		%g2, %lo(call_method), %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x00]
+	mov		5, %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x08]
+	mov		1, %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x10]
+	sethi		%hi(dtlb_load), %g2
+	or		%g2, %lo(dtlb_load), %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x18]
+	sethi		%hi(mmu_ihandle_cache), %g2
+	lduw		[%g2 + %lo(mmu_ihandle_cache)], %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x20]
+	sethi		%hi(KERNBASE + 0x400000), %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x28]
+	sethi		%hi(kern_locked_tte_data), %g2
+	ldx		[%g2 + %lo(kern_locked_tte_data)], %g2
+	sethi		%hi(0x400000), %g1
+	add		%g2, %g1, %g2
+	stx		%g2, [%sp + 2047 + 128 + 0x30]
+
+	mov		14, %g2
+	BRANCH_IF_ANY_CHEETAH(g1,g5,1f)
+
+	mov		62, %g2
+1:
+
+	stx		%g2, [%sp + 2047 + 128 + 0x38]
+	sethi		%hi(p1275buf), %g2
+	or		%g2, %lo(p1275buf), %g2
+	ldx		[%g2 + 0x08], %o1
+	call		%o1
+	 add		%sp, (2047 + 128), %o0
+
+do_unlock:
 	sethi		%hi(prom_entry_lock), %g2
 	stb		%g0, [%g2 + %lo(prom_entry_lock)]
 	membar		#StoreStore | #StoreLoad
@@ -180,6 +266,7 @@ startup_continue:
 	sethi		%uhi(PAGE_OFFSET), %g4
 	sllx		%g4, 32, %g4
 
+	/* XXX Buggy PROM... */
 	srl		%o0, 0, %o0
 	ldx		[%o0], %g6
 
@@ -194,7 +281,7 @@ startup_continue:
 
 	mov		1, %g5
 	sllx		%g5, THREAD_SHIFT, %g5
-	sub		%g5, (REGWIN_SZ + STACK_BIAS), %g5
+	sub		%g5, (STACKFRAME_SZ + STACK_BIAS), %g5
 	add		%g6, %g5, %sp
 	mov		0, %fp
 

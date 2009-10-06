@@ -28,6 +28,7 @@
 #include <asm/desc.h>
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
+#include <asm/edd.h>
 
 extern void dump_thread(struct pt_regs *, struct user *);
 extern spinlock_t rtc_lock;
@@ -86,6 +87,7 @@ EXPORT_SYMBOL_NOVERS(__up_wakeup);
 /* Networking helper routines. */
 EXPORT_SYMBOL(csum_partial_copy_generic);
 /* Delay loops */
+EXPORT_SYMBOL(__ndelay);
 EXPORT_SYMBOL(__udelay);
 EXPORT_SYMBOL(__delay);
 EXPORT_SYMBOL(__const_udelay);
@@ -144,6 +146,10 @@ EXPORT_SYMBOL(smp_call_function);
 
 /* TLB flushing */
 EXPORT_SYMBOL(flush_tlb_page);
+
+/* HT support */
+EXPORT_SYMBOL(smp_num_siblings);
+EXPORT_SYMBOL(cpu_sibling_map);
 #endif
 
 #ifdef CONFIG_X86_IO_APIC
@@ -164,20 +170,13 @@ EXPORT_SYMBOL(rtc_lock);
 
 #undef memcpy
 #undef memset
+#undef memcmp
 extern void * memset(void *,int,__kernel_size_t);
 extern void * memcpy(void *,const void *,__kernel_size_t);
+extern int    memcmp(const void * cs,const void * ct,size_t count);
+EXPORT_SYMBOL_NOVERS(memcmp);
 EXPORT_SYMBOL_NOVERS(memcpy);
 EXPORT_SYMBOL_NOVERS(memset);
-
-#if defined(CONFIG_KERNPROF)
-EXPORT_SYMBOL(prof_multiplier);
-EXPORT_SYMBOL(setup_profiling_timer);
-#endif /* CONFIG_KERNPROF */
-
-#if defined(CONFIG_MCOUNT)
-extern void mcount(void);
-EXPORT_SYMBOL_NOVERS(mcount);
-#endif /*  CONFIG_MCOUNT */
 
 #ifdef CONFIG_HAVE_DEC_LOCK
 EXPORT_SYMBOL(atomic_dec_and_lock);
@@ -188,4 +187,10 @@ EXPORT_SYMBOL(is_sony_vaio_laptop);
 
 #ifdef CONFIG_MULTIQUAD
 EXPORT_SYMBOL(xquad_portio);
+#endif
+
+#ifdef CONFIG_EDD_MODULE
+EXPORT_SYMBOL(edd);
+EXPORT_SYMBOL(eddnr);
+EXPORT_SYMBOL(edd_disk80_sig);
 #endif

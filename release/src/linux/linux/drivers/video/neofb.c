@@ -131,6 +131,7 @@ static biosMode bios24[] = {
 };
 
 #ifdef NO_32BIT_SUPPORT_YET
+/* FIXME: guessed values, wrong */
 static biosMode bios32[] = {
     { 640, 480, 0x33 },
     { 800, 600, 0x36 },
@@ -204,6 +205,25 @@ static inline void neo2200_wait_fifo (struct neofb_info *fb,
   //  ndev->neo.waitfifo_calls++;
   //  ndev->neo.waitfifo_sum += requested_fifo_space;
 
+  /* FIXME: does not work
+  if (neo_fifo_space < requested_fifo_space)
+    {
+      neo_fifo_waitcycles++;
+
+      while (1)
+    {
+      neo_fifo_space = (neo2200->bltStat >> 8);
+      if (neo_fifo_space >= requested_fifo_space)
+        break;
+    }
+    }
+  else
+    {
+      neo_fifo_cache_hits++;
+    }
+
+  neo_fifo_space -= requested_fifo_space;
+  */
 
   neo2200_wait_idle (fb);
 }
@@ -1184,7 +1204,7 @@ static int neofb_decode_var (struct fb_var_screeninfo        *var,
       par->ExtColorModeSelect = 0x14;
       break;
 #ifdef NO_32BIT_SUPPORT_YET
-    case 32: 
+    case 32: /* FIXME: guessed values */
       par->CRTC[0x13]   = var->xres_virtual >> 1;
       par->ExtCRTOffset = var->xres_virtual >> 9;
       par->ExtColorModeSelect = 0x15;
@@ -1916,6 +1936,13 @@ static int __devinit neo_init_hw (struct neofb_info *info)
 
   neoUnlock();
 
+#if 0
+  printk (KERN_DEBUG "--- Neo extended register dump ---\n");
+  for (w=0; w<0x85; w++)
+    printk (KERN_DEBUG "CR %p: %p\n", (void*)w, (void*)VGArCR (w));
+  for (w=0; w<0xC7; w++)
+    printk (KERN_DEBUG "GR %p: %p\n", (void*)w, (void*)VGArGR (w));
+#endif
 
   /* Determine the panel type */
   VGAwGR(0x09,0x26);
@@ -2226,7 +2253,7 @@ static int __devinit neofb_probe (struct pci_dev* dev, const struct pci_device_i
   /*
    * Our driver data
    */
-  dev->driver_data = info;
+  pci_set_drvdata(dev, info);
 
   return 0;
 
@@ -2240,7 +2267,7 @@ failed:
 
 static void __devexit neofb_remove (struct pci_dev *dev)
 {
-  struct neofb_info *info = (struct neofb_info *)dev->driver_data;
+  struct neofb_info *info = pci_get_drvdata(dev);
 
   DBG("neofb_remove");
 
@@ -2262,7 +2289,7 @@ static void __devexit neofb_remove (struct pci_dev *dev)
        * Ensure that the driver data is no longer
        * valid.
        */
-      dev->driver_data = NULL;
+      pci_set_drvdata(dev, NULL);
     }
 }
 

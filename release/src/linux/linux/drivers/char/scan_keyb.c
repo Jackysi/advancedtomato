@@ -1,5 +1,5 @@
 /*
- *	$Id: scan_keyb.c,v 1.1.1.4 2003/10/14 08:08:02 sparq Exp $ 
+ *	$Id: scan_keyb.c,v 1.2 2000/07/04 06:24:42 yaegashi Exp $ 
  *	Copyright (C) 2000 YAEGASHI Takeshi
  *	Generic scan keyboard driver
  */
@@ -49,6 +49,9 @@ static void check_kbd(const unsigned char *table,
 				if(xor&bit) {
 					handle_scancode(*table, !(*new&bit));
 					need_tasklet_schedule=1;
+#if 0
+					printk("0x%x %s\n", *table, (*new&bit)?"released":"pressed");
+#endif
 				}
 				table++;
 			}

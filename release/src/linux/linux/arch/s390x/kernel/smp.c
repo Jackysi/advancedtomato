@@ -92,7 +92,7 @@ extern char vmpoff_cmd[];
 
 extern void reipl(unsigned long devno);
 
-static sigp_ccode smp_ext_bitcall(int, ec_bit_sig);
+static void smp_ext_bitcall(int, ec_bit_sig);
 static void smp_ext_bitcall_others(ec_bit_sig);
 
 /*
@@ -131,7 +131,7 @@ static void do_call_function(void)
  * in the system.
  */
 
-int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
+int smp_call_function(void (*func) (void *info), void *info, int nonatomic,
 			int wait)
 /*
  * [SUMMARY] Run a function on all other CPUs.
@@ -176,46 +176,92 @@ int smp_call_function (void (*func) (void *info), void *info, int nonatomic,
 	return 0;
 }
 
+/*
+ * Call a function only on one CPU
+ * cpu : the CPU the function should be executed on
+ *
+ * You must not call this function with disabled interrupts or from a
+ * hardware interrupt handler, you may call it from a bottom half handler.
+ */
+int smp_call_function_on(void (*func) (void *info), void *info,
+			 int nonatomic, int wait, int cpu)
+{
+	struct call_data_struct data;
+
+	if (!atomic_read(&smp_commenced))
+		return 0;
+
+	if (smp_processor_id() == cpu) {
+		/* direct call to function */
+		func(info);
+		return 0;
+	}
+
+	data.func = func;
+	data.info = info;
+
+	atomic_set(&data.started, 0);
+	data.wait = wait;
+	if (wait)
+		atomic_set(&data.finished, 0);
+
+	spin_lock_bh(&call_lock);
+	call_data = &data;
+	smp_ext_bitcall(cpu, ec_call_function);
+
+	/* Wait for response */
+	while (atomic_read(&data.started) != 1)
+		barrier();
+
+	if (wait)
+		while (atomic_read(&data.finished) != 1)
+			barrier();
+
+	spin_unlock_bh(&call_lock);
+	return 0;
+}
+
+
 static inline void do_send_stop(void)
 {
-        u32 dummy;
-        int i;
+	unsigned long dummy;
+	int i;
 
-        /* stop all processors */
-        for (i =  0; i < smp_num_cpus; i++) {
-                if (smp_processor_id() != i) {
-                        int ccode;
-                        do {
-                                ccode = signal_processor_ps(
-                                   &dummy,
-                                   0,
-                                   i,
-                                   sigp_stop);
-                        } while(ccode == sigp_busy);
-                }
-        }
+	/* stop all processors */
+	for (i =  0; i < smp_num_cpus; i++) {
+		if (smp_processor_id() != i) {
+			int ccode;
+			do {
+				ccode = signal_processor_ps(
+				   &dummy,
+				   0,
+				   i,
+				   sigp_stop);
+			} while(ccode == sigp_busy);
+		}
+	}
 }
 
 static inline void do_store_status(void)
 {
-        unsigned long low_core_addr;
-        u32 dummy;
-        int i;
+	unsigned long low_core_addr;
+	unsigned long dummy;
+	int i;
 
-        /* store status of all processors in their lowcores (real 0) */
-        for (i =  0; i < smp_num_cpus; i++) {
-                if (smp_processor_id() != i) {
-                        int ccode;
-                        low_core_addr = (unsigned long)get_cpu_lowcore(i);
-                        do {
-                                ccode = signal_processor_ps(
-                                   &dummy,
-                                   low_core_addr,
-                                   i,
-                                   sigp_store_status_at_address);
-                        } while(ccode == sigp_busy);
-                }
-        }
+	/* store status of all processors in their lowcores (real 0) */
+	for (i =  0; i < smp_num_cpus; i++) {
+		if (smp_processor_id() != i) {
+			int ccode;
+			low_core_addr = (unsigned long)get_cpu_lowcore(i);
+			do {
+				ccode = signal_processor_ps(
+				   &dummy,
+				   low_core_addr,
+				   i,
+				   sigp_store_status_at_address);
+			} while(ccode == sigp_busy);
+		}
+	}
 }
 
 /*
@@ -224,12 +270,8 @@ static inline void do_store_status(void)
  */
 void smp_send_stop(void)
 {
-        int i;
-        u32 dummy;
-        unsigned long low_core_addr;
-
-        /* write magic number to zero page (absolute 0) */
-        get_cpu_lowcore(smp_processor_id())->panic_magic = __PANIC_MAGIC;
+	/* write magic number to zero page (absolute 0) */
+	get_cpu_lowcore(smp_processor_id())->panic_magic = __PANIC_MAGIC;
 
 	/* stop other processors. */
 	do_send_stop();
@@ -267,7 +309,7 @@ static void do_machine_restart(void * __unused)
 void machine_restart_smp(char * __unused) 
 {
 	cpu_restart_map = cpu_online_map;
-        smp_call_function(do_machine_restart, NULL, 0, 0);
+	smp_call_function(do_machine_restart, NULL, 0, 0);
 	do_machine_restart(NULL);
 }
 
@@ -286,7 +328,7 @@ static void do_machine_halt(void * __unused)
 
 void machine_halt_smp(void)
 {
-        smp_call_function(do_machine_halt, NULL, 0, 0);
+	smp_call_function(do_machine_halt, NULL, 0, 0);
 	do_machine_halt(NULL);
 }
 
@@ -305,7 +347,7 @@ static void do_machine_power_off(void * __unused)
 
 void machine_power_off_smp(void)
 {
-        smp_call_function(do_machine_power_off, NULL, 0, 0);
+	smp_call_function(do_machine_power_off, NULL, 0, 0);
 	do_machine_power_off(NULL);
 }
 
@@ -316,55 +358,52 @@ void machine_power_off_smp(void)
 
 void do_ext_call_interrupt(struct pt_regs *regs, __u16 code)
 {
-        unsigned long bits;
+	unsigned long bits;
 
-        /*
-         * handle bit signal external calls
-         *
-         * For the ec_schedule signal we have to do nothing. All the work
-         * is done automatically when we return from the interrupt.
-         */
+	/*
+	 * handle bit signal external calls
+	 *
+	 * For the ec_schedule signal we have to do nothing. All the work
+	 * is done automatically when we return from the interrupt.
+	 */
 	bits = xchg(&S390_lowcore.ext_call_fast, 0);
 
-        if (test_bit(ec_call_function, &bits))
+	if (test_bit(ec_call_function, &bits))
 		do_call_function();
 }
 
 /*
- * Send an external call sigp to another cpu and return without waiting
+ * Send an external call sigp to another cpu and wait
  * for its completion.
  */
-static sigp_ccode smp_ext_bitcall(int cpu, ec_bit_sig sig)
+static void smp_ext_bitcall(int cpu, ec_bit_sig sig)
 {
-        sigp_ccode ccode;
-
-        /*
-         * Set signaling bit in lowcore of target cpu and kick it
-         */
+	/*
+	 * Set signaling bit in lowcore of target cpu and kick it
+	 */
 	set_bit(sig, &(get_cpu_lowcore(cpu)->ext_call_fast));
-        ccode = signal_processor(cpu, sigp_external_call);
-        return ccode;
+	while (signal_processor(cpu, sigp_external_call) == sigp_busy)
+		udelay(10);
 }
 
 /*
  * Send an external call sigp to every other cpu in the system and
- * return without waiting for its completion.
+ * wait for its completion.
  */
 static void smp_ext_bitcall_others(ec_bit_sig sig)
 {
-        sigp_ccode ccode;
-        int i;
+	int i;
 
-        for (i = 0; i < smp_num_cpus; i++) {
-                if (smp_processor_id() == i)
-                        continue;
-                /*
-                 * Set signaling bit in lowcore of target cpu and kick it
-                 */
+	for (i = 0; i < smp_num_cpus; i++) {
+		if (smp_processor_id() == i)
+			continue;
+		/*
+		 * Set signaling bit in lowcore of target cpu and kick it
+		 */
 		set_bit(sig, &(get_cpu_lowcore(i)->ext_call_fast));
-                while (signal_processor(i, sigp_external_call) == sigp_busy)
+		while (signal_processor(i, sigp_external_call) == sigp_busy)
 			udelay(10);
-        }
+	}
 }
 
 /*
@@ -654,3 +693,4 @@ EXPORT_SYMBOL(smp_ctl_set_bit);
 EXPORT_SYMBOL(smp_ctl_clear_bit);
 EXPORT_SYMBOL(smp_num_cpus);
 EXPORT_SYMBOL(smp_call_function);
+

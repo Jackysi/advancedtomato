@@ -15,8 +15,12 @@
 static int __init
 sa1100_leds_init(void)
 {
+	if (machine_is_adsagc())
+		leds_event = adsagc_leds_event;
 	if (machine_is_adsbitsy())
 		leds_event = adsbitsy_leds_event;
+	if (machine_is_adsbitsyplus())
+		leds_event = adsbitsyplus_leds_event;
 	if (machine_is_assabet())
 		leds_event = assabet_leds_event;
  	if (machine_is_consus())
@@ -33,6 +37,8 @@ sa1100_leds_init(void)
 		leds_event = graphicsclient_leds_event;
 	if (machine_is_graphicsmaster())
 		leds_event = graphicsmaster_leds_event;
+	if (machine_is_hackkit())
+		leds_event = hackkit_leds_event;
 	if (machine_is_lart())
 		leds_event = lart_leds_event;
 	if (machine_is_pfs168())

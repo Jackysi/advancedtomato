@@ -1,4 +1,4 @@
-/* $Id: sun3-head.h,v 1.1.1.4 2003/10/14 08:09:14 sparq Exp $ */
+/* $Id: head.h,v 1.32 1996/12/04 00:12:48 ecd Exp $ */
 #ifndef __SUN3_HEAD_H
 #define __SUN3_HEAD_H
 
@@ -9,4 +9,4 @@
 #define FC_SUPERD    5
 #define FC_CPU      7
 
-#endif __SUN3_HEAD_H
+#endif /* __SUN3_HEAD_H */

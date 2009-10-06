@@ -40,7 +40,9 @@
 #include <asm/au1000_dma.h>
 #include <asm/system.h>
 
+#include <linux/module.h>
 
+#if defined(CONFIG_SOC_AU1000) || defined(CONFIG_SOC_AU1500) || defined(CONFIG_SOC_AU1100)
 
 /*
  * A note on resource allocation:
@@ -73,7 +75,7 @@ struct dma_chan au1000_dma_table[NUM_AU1000_DMA_CHANNELS] = {
 };
 
 // Device FIFO addresses and default DMA modes
-static const struct {
+static const struct dma_dev {
 	unsigned int fifo_addr;
 	unsigned int dma_mode;
 } dma_dev_table[DMA_NUM_DEV] = {
@@ -94,7 +96,6 @@ static const struct {
 	{I2S_DATA, DMA_DW32 | DMA_NC},
 	{I2S_DATA, DMA_DR | DMA_DW32 | DMA_NC}
 };
-
 
 int au1000_dma_read_proc(char *buf, char **start, off_t fpos,
 			 int length, int *eof, void *data)
@@ -121,12 +122,19 @@ int au1000_dma_read_proc(char *buf, char **start, off_t fpos,
 	return len;
 }
 
+// Device FIFO addresses and default DMA modes - 2nd bank
+static const struct dma_dev dma_dev_table_bank2[DMA_NUM_DEV_BANK2] = {
+	{SD0_XMIT_FIFO, DMA_DS | DMA_DW8},		// coherent
+	{SD0_RECV_FIFO, DMA_DS | DMA_DR | DMA_DW8},	// coherent
+	{SD1_XMIT_FIFO, DMA_DS | DMA_DW8},		// coherent
+	{SD1_RECV_FIFO, DMA_DS | DMA_DR | DMA_DW8}	// coherent
+};
 
 void dump_au1000_dma_channel(unsigned int dmanr)
 {
 	struct dma_chan *chan;
 
-	if (dmanr > NUM_AU1000_DMA_CHANNELS)
+	if (dmanr >= NUM_AU1000_DMA_CHANNELS)
 		return;
 	chan = &au1000_dma_table[dmanr];
 
@@ -157,10 +165,16 @@ int request_au1000_dma(int dev_id, const char *dev_str,
 		       void *irq_dev_id)
 {
 	struct dma_chan *chan;
+	const struct dma_dev *dev;
 	int i, ret;
 
-	if (dev_id < 0 || dev_id >= DMA_NUM_DEV)
+#if defined(CONFIG_SOC_AU1100)
+	if (dev_id < 0 || dev_id >= (DMA_NUM_DEV + DMA_NUM_DEV_BANK2))
 		return -EINVAL;
+#else
+ 	if (dev_id < 0 || dev_id >= DMA_NUM_DEV)
+ 		return -EINVAL;
+#endif
 
 	for (i = 0; i < NUM_AU1000_DMA_CHANNELS; i++) {
 		if (au1000_dma_table[i].dev_id < 0)
@@ -170,6 +184,13 @@ int request_au1000_dma(int dev_id, const char *dev_str,
 		return -ENODEV;
 
 	chan = &au1000_dma_table[i];
+
+	if (dev_id >= DMA_NUM_DEV) {
+		dev_id -= DMA_NUM_DEV;
+		dev = &dma_dev_table_bank2[dev_id];
+	} else {
+		dev = &dma_dev_table[dev_id];
+	}
 
 	if (irqhandler) {
 		chan->irq = AU1000_DMA_INT_BASE + i;
@@ -189,15 +210,14 @@ int request_au1000_dma(int dev_id, const char *dev_str,
 	chan->io = DMA_CHANNEL_BASE + i * DMA_CHANNEL_LEN;
 	chan->dev_id = dev_id;
 	chan->dev_str = dev_str;
-	chan->fifo_addr = dma_dev_table[dev_id].fifo_addr;
-	chan->mode = dma_dev_table[dev_id].dma_mode;
+	chan->fifo_addr = dev->fifo_addr;
+	chan->mode = dev->dma_mode;
 
 	/* initialize the channel before returning */
 	init_dma(i);
 
 	return i;
 }
-
 
 void free_au1000_dma(unsigned int dmanr)
 {
@@ -215,3 +235,9 @@ void free_au1000_dma(unsigned int dmanr)
 	chan->irq_dev = NULL;
 	chan->dev_id = -1;
 }
+
+EXPORT_SYMBOL(free_au1000_dma);
+EXPORT_SYMBOL(au1000_dma_table);
+EXPORT_SYMBOL(request_au1000_dma);
+
+#endif // AU1000 AU1500 AU1100

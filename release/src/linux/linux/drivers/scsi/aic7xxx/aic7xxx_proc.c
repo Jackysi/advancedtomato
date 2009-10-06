@@ -37,7 +37,7 @@
  * String handling code courtesy of Gerard Roudier's <groudier@club-internet.fr>
  * sym driver.
  *
- * $Id: aic7xxx_proc.c,v 1.1.1.4 2003/10/14 08:08:44 sparq Exp $
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic7xxx_proc.c#29 $
  */
 #include "aic7xxx_osm.h"
 #include "aic7xxx_inline.h"
@@ -45,7 +45,6 @@
 
 static void	copy_mem_info(struct info_str *info, char *data, int len);
 static int	copy_info(struct info_str *info, char *fmt, ...);
-static u_int	scsi_calc_syncsrate(u_int period_factor);
 static void	ahc_dump_target_state(struct ahc_softc *ahc,
 				      struct info_str *info,
 				      u_int our_id, char channel,
@@ -54,44 +53,6 @@ static void	ahc_dump_device_state(struct info_str *info,
 				      struct ahc_linux_device *dev);
 static int	ahc_proc_write_seeprom(struct ahc_softc *ahc,
 				       char *buffer, int length);
-				       
-
-int
-ahc_acquire_seeprom(struct ahc_softc *ahc, struct seeprom_descriptor *sd)
-{
-	int wait;
-
-	if ((ahc->features & AHC_SPIOCAP) != 0
-	 && (ahc_inb(ahc, SPIOCAP) & SEEPROM) == 0)
-		return (0);
-
-	/*
-	 * Request access of the memory port.  When access is
-	 * granted, SEERDY will go high.  We use a 1 second
-	 * timeout which should be near 1 second more than
-	 * is needed.  Reason: after the chip reset, there
-	 * should be no contention.
-	 */
-	SEEPROM_OUTB(sd, sd->sd_MS);
-	wait = 1000;  /* 1 second timeout in msec */
-	while (--wait && ((SEEPROM_STATUS_INB(sd) & sd->sd_RDY) == 0)) {
-		ahc_delay(1000);  /* delay 1 msec */
-	}
-	if ((SEEPROM_STATUS_INB(sd) & sd->sd_RDY) == 0) {
-		SEEPROM_OUTB(sd, 0); 
-		return (0);
-	}
-	return(1);
-}
-
-
-void
-ahc_release_seeprom(struct seeprom_descriptor *sd)
-{
-	/* Release access to the memory port and the serial EEPROM. */
-	SEEPROM_OUTB(sd, 0);
-}
-
 
 static void
 copy_mem_info(struct info_str *info, char *data, int len)
@@ -135,47 +96,6 @@ copy_info(struct info_str *info, char *fmt, ...)
 	return (len);
 }
 
-/*
- * Table of syncrates that don't follow the "divisible by 4"
- * rule. This table will be expanded in future SCSI specs.
- */
-static struct {
-	u_int period_factor;
-	u_int period;	/* in 10ths of ns */
-} scsi_syncrates[] = {
-	{ 0x09, 125 },	/* FAST-80 */
-	{ 0x0a, 250 },	/* FAST-40 40MHz */
-	{ 0x0b, 303 },	/* FAST-40 33MHz */
-	{ 0x0c, 500 }	/* FAST-20 */
-};
- 
-/*
- * Return the frequency in kHz corresponding to the given
- * sync period factor.
- */
-static u_int
-scsi_calc_syncsrate(u_int period_factor)
-{
-	int i; 
-	int num_syncrates;
- 
-	num_syncrates = sizeof(scsi_syncrates) / sizeof(scsi_syncrates[0]);
-	/* See if the period is in the "exception" table */
-	for (i = 0; i < num_syncrates; i++) {
-
-		if (period_factor == scsi_syncrates[i].period_factor) {
-       			/* Period in kHz */
-			return (10000000 / scsi_syncrates[i].period);
-		}
-	}
-
-	/*
-	 * Wasn't in the table, so use the standard
-	 * 4 times conversion.
-	 */
-	return (10000000 / (period_factor * 4 * 10));
-}
-
 void
 ahc_format_transinfo(struct info_str *info, struct ahc_transinfo *tinfo)
 {
@@ -186,7 +106,7 @@ ahc_format_transinfo(struct info_str *info, struct ahc_transinfo *tinfo)
         speed = 3300;
         freq = 0;
 	if (tinfo->offset != 0) {
-		freq = scsi_calc_syncsrate(tinfo->period);
+		freq = aic_calc_syncsrate(tinfo->period);
 		speed = freq;
 	}
 	speed *= (0x01 << tinfo->width);
@@ -228,8 +148,9 @@ ahc_dump_target_state(struct ahc_softc *ahc, struct info_str *info,
 
 	tinfo = ahc_fetch_transinfo(ahc, channel, our_id,
 				    target_id, &tstate);
-	copy_info(info, "Channel %c Target %d Negotiation Settings\n",
-		  channel, target_id);
+	if ((ahc->features & AHC_TWIN) != 0)
+		copy_info(info, "Channel %c ", channel);
+	copy_info(info, "Target %d Negotiation Settings\n", target_id);
 	copy_info(info, "\tUser: ");
 	ahc_format_transinfo(info, &tinfo->user);
 	targ = ahc->platform_data->targets[target_offset];
@@ -294,19 +215,8 @@ ahc_proc_write_seeprom(struct ahc_softc *ahc, char *buffer, int length)
 	}
 
 	sd.sd_ahc = ahc;
-	if ((ahc->chip & AHC_VL) != 0) {
-		sd.sd_control_offset = SEECTL_2840;
-		sd.sd_status_offset = STATUS_2840;
-		sd.sd_dataout_offset = STATUS_2840;		
-		sd.sd_chip = C46;
-		sd.sd_MS = 0;
-		sd.sd_RDY = EEPROM_TF;
-		sd.sd_CS = CS_2840;
-		sd.sd_CK = CK_2840;
-		sd.sd_DO = DO_2840;
-		sd.sd_DI = DI_2840;
-		have_seeprom = TRUE;
-	} else {
+#if AHC_PCI_CONFIG > 0
+	if ((ahc->chip & AHC_PCI) != 0) {
 		sd.sd_control_offset = SEECTL;
 		sd.sd_status_offset = SEECTL;
 		sd.sd_dataout_offset = SEECTL;
@@ -321,6 +231,23 @@ ahc_proc_write_seeprom(struct ahc_softc *ahc, char *buffer, int length)
 		sd.sd_DO = SEEDO;
 		sd.sd_DI = SEEDI;
 		have_seeprom = ahc_acquire_seeprom(ahc, &sd);
+	} else
+#endif
+	if ((ahc->chip & AHC_VL) != 0) {
+		sd.sd_control_offset = SEECTL_2840;
+		sd.sd_status_offset = STATUS_2840;
+		sd.sd_dataout_offset = STATUS_2840;		
+		sd.sd_chip = C46;
+		sd.sd_MS = 0;
+		sd.sd_RDY = EEPROM_TF;
+		sd.sd_CS = CS_2840;
+		sd.sd_CK = CK_2840;
+		sd.sd_DO = DO_2840;
+		sd.sd_DI = DI_2840;
+		have_seeprom = TRUE;
+	} else {
+		printf("ahc_proc_write_seeprom: unsupported adapter type\n");
+		goto done;
 	}
 
 	if (!have_seeprom) {
@@ -344,8 +271,10 @@ ahc_proc_write_seeprom(struct ahc_softc *ahc, char *buffer, int length)
 				  sizeof(struct seeprom_config)/2);
 		ahc_read_seeprom(&sd, (uint16_t *)ahc->seep_config,
 				 start_addr, sizeof(struct seeprom_config)/2);
+#if AHC_PCI_CONFIG > 0
 		if ((ahc->chip & AHC_VL) == 0)
 			ahc_release_seeprom(&sd);
+#endif
 		written = length;
 	}
 
@@ -360,8 +289,13 @@ done:
  * Return information to handle /proc support for the driver.
  */
 int
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
 ahc_linux_proc_info(char *buffer, char **start, off_t offset,
-		  int length, int hostno, int inout)
+		    int length, int hostno, int inout)
+#else
+ahc_linux_proc_info(struct Scsi_Host *shost, char *buffer, char **start,
+		    off_t offset, int length, int inout)
+#endif
 {
 	struct	ahc_softc *ahc;
 	struct	info_str info;
@@ -373,10 +307,14 @@ ahc_linux_proc_info(char *buffer, char **start, off_t offset,
 
 	retval = -EINVAL;
 	ahc_list_lock(&s);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
 	TAILQ_FOREACH(ahc, &ahc_tailq, links) {
 		if (ahc->platform_data->host->host_no == hostno)
 			break;
 	}
+#else
+	ahc = ahc_find_softc(*(struct ahc_softc **)shost->hostdata);
+#endif
 
 	if (ahc == NULL)
 		goto done;
@@ -397,8 +335,12 @@ ahc_linux_proc_info(char *buffer, char **start, off_t offset,
 
 	copy_info(&info, "Adaptec AIC7xxx driver version: %s\n",
 		  AIC7XXX_DRIVER_VERSION);
+	copy_info(&info, "%s\n", ahc->description);
 	ahc_controller_info(ahc, ahc_info);
-	copy_info(&info, "%s\n\n", ahc_info);
+	copy_info(&info, "%s\n", ahc_info);
+	copy_info(&info, "Allocated SCBs: %d, SG List Length: %d\n\n",
+		  ahc->scb_data->numscbs, AHC_NSEG);
+
 
 	if (ahc->seep_config == NULL)
 		copy_info(&info, "No Serial EEPROM\n");

@@ -37,14 +37,15 @@ static loff_t nvram_llseek(struct file *file, loff_t offset, int origin)
 static ssize_t read_nvram(struct file *file, char *buf,
 			  size_t count, loff_t *ppos)
 {
-	unsigned int i;
+	loff_t n = *ppos;
+	unsigned int i = n;
 	char *p = buf;
 
 	if (verify_area(VERIFY_WRITE, buf, count))
 		return -EFAULT;
-	if (*ppos >= NVRAM_SIZE)
+	if (i != n || i >= NVRAM_SIZE)
 		return 0;
-	for (i = *ppos; count > 0 && i < NVRAM_SIZE; ++i, ++p, --count)
+	for (; count > 0 && i < NVRAM_SIZE; ++i, ++p, --count)
 		if (__put_user(nvram_read_byte(i), p))
 			return -EFAULT;
 	*ppos = i;
@@ -54,15 +55,16 @@ static ssize_t read_nvram(struct file *file, char *buf,
 static ssize_t write_nvram(struct file *file, const char *buf,
 			   size_t count, loff_t *ppos)
 {
-	unsigned int i;
+	loff_t n = *ppos;
+	unsigned int i = n;
 	const char *p = buf;
 	char c;
 
 	if (verify_area(VERIFY_READ, buf, count))
 		return -EFAULT;
-	if (*ppos >= NVRAM_SIZE)
+	if (i != n || i >= NVRAM_SIZE)
 		return 0;
-	for (i = *ppos; count > 0 && i < NVRAM_SIZE; ++i, ++p, --count) {
+	for (; count > 0 && i < NVRAM_SIZE; ++i, ++p, --count) {
 		if (__get_user(c, p))
 			return -EFAULT;
 		nvram_write_byte(c, i);
@@ -113,8 +115,7 @@ int __init nvram_init(void)
 {
 	printk(KERN_INFO "Macintosh non-volatile memory driver v%s\n",
 		NVRAM_VERSION);
-	misc_register(&nvram_dev);
-	return 0;
+	return misc_register(&nvram_dev);
 }
 
 void __exit nvram_cleanup(void)

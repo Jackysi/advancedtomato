@@ -41,9 +41,6 @@
 #include <net/pkt_sched.h>
 #include <net/inet_ecn.h>
 
-#define RED_ECN_ECT  0x02
-#define RED_ECN_CE   0x01
-
 
 /*	Random Early Detection (RED) algorithm.
 	=======================================
@@ -165,28 +162,16 @@ static int red_ecn_mark(struct sk_buff *skb)
 
 	switch (skb->protocol) {
 	case __constant_htons(ETH_P_IP):
-	{
-		u8 tos = skb->nh.iph->tos;
-
-		if (!(tos & RED_ECN_ECT))
+		if (!INET_ECN_is_capable(skb->nh.iph->tos))
 			return 0;
-
-		if (!(tos & RED_ECN_CE))
+		if (INET_ECN_is_not_ce(skb->nh.iph->tos))
 			IP_ECN_set_ce(skb->nh.iph);
-
 		return 1;
-	}
-
 	case __constant_htons(ETH_P_IPV6):
-	{
-		u32 label = *(u32*)skb->nh.raw;
-
-		if (!(label & __constant_htonl(RED_ECN_ECT<<20)))
+		if (!INET_ECN_is_capable(ip6_get_dsfield(skb->nh.ipv6h)))
 			return 0;
-		label |= __constant_htonl(RED_ECN_CE<<20);
+		IP6_ECN_set_ce(skb->nh.ipv6h);
 		return 1;
-	}
-
 	default:
 		return 0;
 	}
@@ -257,7 +242,7 @@ red_enqueue(struct sk_buff *skb, struct Qdisc* sch)
 	if (q->qave < q->qth_min) {
 		q->qcount = -1;
 enqueue:
-		if (sch->stats.backlog <= q->limit) {
+		if (sch->stats.backlog + skb->len <= q->limit) {
 			__skb_queue_tail(&sch->q, skb);
 			sch->stats.backlog += skb->len;
 			sch->stats.bytes += skb->len;
@@ -342,19 +327,19 @@ red_dequeue(struct Qdisc* sch)
 	return NULL;
 }
 
-static int
-red_drop(struct Qdisc* sch)
+static unsigned int red_drop(struct Qdisc* sch)
 {
 	struct sk_buff *skb;
 	struct red_sched_data *q = (struct red_sched_data *)sch->data;
 
 	skb = __skb_dequeue_tail(&sch->q);
 	if (skb) {
-		sch->stats.backlog -= skb->len;
+		unsigned int len = skb->len;
+		sch->stats.backlog -= len;
 		sch->stats.drops++;
 		q->st.other++;
 		kfree_skb(skb);
-		return 1;
+		return len;
 	}
 	PSCHED_GET_TIME(q->qidlestart);
 	return 0;

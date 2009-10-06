@@ -1,5 +1,5 @@
 /*
- * Baboon Custom IC Managment
+ * Baboon Custom IC Management
  *
  * The Baboon custom IC controls the IDE, PCMCIA and media bay on the
  * PowerBook 190. It multiplexes multiple interrupt sources onto the
@@ -19,8 +19,8 @@
 #include <asm/macints.h> 
 #include <asm/mac_baboon.h>
 
-/* #define DEBUG_BABOON /**/
-/* #define DEBUG_IRQS /**/
+/* #define DEBUG_BABOON */
+/* #define DEBUG_IRQS */
 
 int baboon_present,baboon_active;
 volatile struct baboon *baboon;
@@ -83,6 +83,11 @@ void baboon_irq(int irq, void *dev_id, struct pt_regs *regs)
 			baboon->mb_ifr &= ~irq_bit;
 		}
 	}
+#if 0
+	if (baboon->mb_ifr & 0x02) macide_ack_intr(NULL);
+	/* for now we need to smash all interrupts */
+	baboon->mb_ifr &= ~events;
+#endif
 }
 
 void baboon_irq_enable(int irq) {

@@ -40,7 +40,7 @@ struct inode *ialloc(struct inode *parent, umode_t mode)
 
 	inode = new_inode(sb);
 	if (!inode) {
-		jERROR(1, ("ialloc: new_inode returned NULL!\n"));
+		jfs_warn("ialloc: new_inode returned NULL!");
 		return inode;
 	}
 
@@ -54,7 +54,7 @@ struct inode *ialloc(struct inode *parent, umode_t mode)
 
 	rc = diAlloc(parent, S_ISDIR(mode), inode);
 	if (rc) {
-		jERROR(1, ("ialloc: diAlloc returned %d!\n", rc));
+		jfs_warn("ialloc: diAlloc returned %d!", rc);
 		free_jfs_inode(inode);
 		make_bad_inode(inode);
 		iput(inode);
@@ -96,7 +96,7 @@ struct inode *ialloc(struct inode *parent, umode_t mode)
 	jfs_inode->atltail = 0;
 	jfs_inode->xtlid = 0;
 
-	jFYI(1, ("ialloc returns inode = 0x%p\n", inode));
+	jfs_info("ialloc returns inode = 0x%p\n", inode);
 
 	return inode;
 }

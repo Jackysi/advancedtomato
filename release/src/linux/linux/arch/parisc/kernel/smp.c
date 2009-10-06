@@ -33,6 +33,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/mm.h>
 #include <linux/delay.h>
+#include <linux/reboot.h>
 
 #include <asm/system.h>
 #include <asm/atomic.h>
@@ -91,6 +92,10 @@ enum ipi_message_type {
 
 #undef PER_CPU_IRQ_REGION
 #ifdef PER_CPU_IRQ_REGION
+/* XXX REVISIT Ignore for now.
+**    *May* need this "hook" to register IPI handler
+**    once we have perCPU ExtIntr switch tables.
+*/
 static void
 ipi_init(int cpuid)
 {
@@ -430,25 +435,21 @@ smp_cpu_init(int cpunum)
 	extern void init_IRQ(void);    /* arch/parisc/kernel/irq.c */
 
 	/* Set modes and Enable floating point coprocessor */
-	(void) init_per_cpu(cpunum);
+	init_per_cpu(cpunum);
 
 	disable_sr_hashing();
-
 	mb();
 
 	/* Well, support 2.4 linux scheme as well. */
-	if (test_and_set_bit(cpunum, (unsigned long *) (&cpu_online_map)))
-	{
-		extern void machine_halt(void); /* arch/parisc.../process.c */
-
+	if (test_and_set_bit(cpunum, (unsigned long *) (&cpu_online_map))) {
 		printk(KERN_CRIT "CPU#%d already initialized!\n", cpunum);
 		machine_halt();
-	}  
+	}
 
 	/* Initialise the idle task for this CPU */
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
-	if(current->mm)
+	if (current->mm)
 		BUG();
 	enter_lazy_tlb(&init_mm, current, cpunum);
 
@@ -464,9 +465,20 @@ void __init smp_callin(void)
 {
 	extern void cpu_idle(void);	/* arch/parisc/kernel/process.c */
 	int slave_id = cpu_now_booting;
+#if 0
+	void *istack;
+#endif
 
 	smp_cpu_init(slave_id);
 
+#if 0	/* NOT WORKING YET - see entry.S */
+	istack = (void *)__get_free_pages(GFP_KERNEL,ISTACK_ORDER);
+	if (istack == NULL) {
+	    printk(KERN_CRIT "Failed to allocate interrupt stack for cpu %d\n",slave_id);
+	    BUG();
+	}
+	mtctl(istack,31);
+#endif
 
 	flush_cache_all_local(); /* start with known state */
 	flush_tlb_all_local();

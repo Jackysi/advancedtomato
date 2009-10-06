@@ -1,9 +1,10 @@
-/* $Id: time.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: time.c,v 1.1.1.1.2.6 2003/07/16 18:43:55 yoshii Exp $
  *
  *  linux/arch/sh/kernel/time.c
  *
  *  Copyright (C) 1999  Tetsuya Okada & Niibe Yutaka
  *  Copyright (C) 2000  Philipp Rumpf <prumpf@tux.org>
+ *  Copyright (C) 2003 Takashi Kusuda <kusuda-takashi@hitachi-ul.co.jp>
  *
  *  Some code taken from i386 version.
  *    Copyright (C) 1991, 1992, 1995  Linus Torvalds
@@ -29,17 +30,36 @@
 #include <asm/delay.h>
 #include <asm/machvec.h>
 #include <asm/rtc.h>
+#ifdef CONFIG_SH_KGDB
+#include <asm/kgdb.h>
+#endif
 
 #include <linux/timex.h>
 #include <linux/irq.h>
 
-#define TMU_TOCR_INIT	0x00
-#define TMU0_TCR_INIT	0x0020
-#define TMU_TSTR_INIT	1
+#define TMU_TOCR_INIT	0x00	/* Don't output RTC clock */
 
-#define TMU0_TCR_CALIB	0x0000
+#define TMU0_TCR_INIT	0x0020	/* Clock/4, rising edge; interrupt on */
+#define TMU0_TCR_CALIB	0x0000	/* Clock/4, rising edge; no interrupt */
+#define TMU0_TSTR_INIT	0x01	/* Bit to turn on TMU0 */
+
+#define TMU1_TCR_INIT	0x0000	/* Clock/4, rising edge; no interrupt */
+#define TMU1_TSTR_INIT  0x02	/* Bit to turn on TMU1 */
 
 #if defined(__sh3__)
+#if defined(CONFIG_CPU_SUBTYPE_SH7300)
+#define TMU_TSTR        0xA412FE92      /* Byte access */
+
+#define TMU0_TCOR       0xA412FE94      /* Long access */
+#define TMU0_TCNT       0xA412FE98      /* Long access */
+#define TMU0_TCR        0xA412FE9C      /* Word access */
+
+#define TMU1_TCOR	0xA412FEA0	/* Long access */
+#define TMU1_TCNT	0xA412FEA4	/* Long access */
+#define TMU1_TCR	0xA412FEA8	/* Word access */
+
+#define FRQCR           0xA415FF80
+#else
 #define TMU_TOCR	0xfffffe90	/* Byte access */
 #define TMU_TSTR	0xfffffe92	/* Byte access */
 
@@ -47,7 +67,12 @@
 #define TMU0_TCNT	0xfffffe98	/* Long access */
 #define TMU0_TCR	0xfffffe9c	/* Word access */
 
+#define TMU1_TCOR	0xfffffea0	/* Long access */
+#define TMU1_TCNT	0xfffffea4	/* Long access */
+#define TMU1_TCR	0xfffffea8	/* Word access */
+
 #define FRQCR		0xffffff80
+#endif
 #elif defined(__SH4__)
 #define TMU_TOCR	0xffd80000	/* Byte access */
 #define TMU_TSTR	0xffd80004	/* Byte access */
@@ -55,6 +80,10 @@
 #define TMU0_TCOR	0xffd80008	/* Long access */
 #define TMU0_TCNT	0xffd8000c	/* Long access */
 #define TMU0_TCR	0xffd80010	/* Word access */
+
+#define TMU1_TCOR	0xffd80014	/* Long access */
+#define TMU1_TCNT	0xffd80018	/* Long access */
+#define TMU1_TCR	0xffd8001c	/* Word access */
 
 #define FRQCR		0xffc00000
 
@@ -64,10 +93,10 @@
 #define CCN_PVR_CHIP_MASK  0xff
 #define CCN_PVR_CHIP_ST40STB1 0x4
 
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 #define CLOCKGEN_MEMCLKCR 0xbb040038
 #define MEMCLKCR_RATIO_MASK 0x7
-#endif /* CONFIG_CPU_SUBTYPE_ST40STB1 */
+#endif /* CONFIG_CPU_SUBTYPE_ST40 */
 #endif /* __sh3__ or __SH4__ */
 
 extern rwlock_t xtime_lock;
@@ -176,6 +205,27 @@ void do_settimeofday(struct timeval *tv)
 /* last time the RTC clock got updated */
 static long last_rtc_update;
 
+static __inline__ void sh_do_profile (unsigned long pc)
+{
+	extern int _stext;
+
+	if (!prof_buffer)
+		return;
+
+	if(pc >= 0xa0000000UL && pc < 0xc0000000UL)
+		pc -= 0x20000000;
+	pc -= (unsigned long) &_stext;
+	pc >>= prof_shift;
+	/*
+	 * Don't ignore out-of-bounds PC values silently,
+	 * put them into the last histogram slot, so if
+	 * present, they will show up as a sharp peak.
+	 */
+	if (pc > prof_len-1)
+		pc = prof_len-1;
+	prof_buffer[pc]++;
+}
+
 /*
  * timer_interrupt() needs to keep up the real-time clock,
  * as well as call the "do_timer()" routine every clocktick
@@ -245,7 +295,9 @@ static unsigned int __init get_timer_frequency(void)
 	 * have it count down at its natural rate.
 	 */
 	ctrl_outb(0, TMU_TSTR);
+#if !defined(CONFIG_CPU_SUBTYPE_SH7300)
 	ctrl_outb(TMU_TOCR_INIT, TMU_TOCR);
+#endif
 	ctrl_outw(TMU0_TCR_CALIB, TMU0_TCR);
 	ctrl_outl(0xffffffff, TMU0_TCOR);
 	ctrl_outl(0xffffffff, TMU0_TCNT);
@@ -257,7 +309,7 @@ static unsigned int __init get_timer_frequency(void)
 	} while (tv1.tv_usec == tv2.tv_usec && tv1.tv_sec == tv2.tv_sec);
 
 	/* actually start the timer */
-	ctrl_outb(TMU_TSTR_INIT, TMU_TSTR);
+	ctrl_outb(TMU0_TSTR_INIT, TMU_TSTR);
 
 	do {
 		rtc_gettimeofday(&tv2);
@@ -283,27 +335,41 @@ static unsigned int __init get_timer_frequency(void)
 	return freq * factor;
 }
 
+static unsigned int sh_pclk_freq __initdata = CONFIG_SH_PCLK_FREQ;
+static int __init sh_pclk_setup(char *str)
+{
+	unsigned int freq;
+	if (get_option(&str, &freq))
+		sh_pclk_freq = freq;
+	return 1;
+}
+__setup("sh_pclk=", sh_pclk_setup);
+
 static struct irqaction irq0  = { timer_interrupt, SA_INTERRUPT, 0, "timer", NULL, NULL};
 
 void __init time_init(void)
 {
 	unsigned int cpu_clock, master_clock, bus_clock, module_clock;
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 	unsigned int memory_clock;
 #endif
 	unsigned int timer_freq;
 	unsigned short frqcr, ifc, pfc, bfc;
 	unsigned long interval;
 #if defined(__sh3__)
+#if defined(CONFIG_CPU_SUBTYPE_SH7300)
+	static int pfc_table[] = { 1, 2, 3, 4, 6 };
+#else
 	static int ifc_table[] = { 1, 2, 4, 1, 3, 1, 1, 1 };
 	static int pfc_table[] = { 1, 2, 4, 1, 3, 6, 1, 1 };
 	static int stc_table[] = { 1, 2, 4, 8, 3, 6, 1, 1 };
+#endif
 #elif defined(__SH4__)
 	static int ifc_table[] = { 1, 2, 3, 4, 6, 8, 1, 1 };
 #define bfc_table ifc_table	/* Same */
 	static int pfc_table[] = { 2, 3, 4, 6, 8, 2, 2, 2 };
 
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 	struct frqcr_data {
 		unsigned short frqcr;
 		struct {
@@ -359,19 +425,33 @@ void __init time_init(void)
 #endif
 #endif
 
-	rtc_gettimeofday(&xtime);
+	if(rtc_gettimeofday)
+		rtc_gettimeofday(&xtime);
+	else{
+        	xtime.tv_sec = mktime(2000, 1, 1, 0, 0, 0);
+        	xtime.tv_usec = 0;
+	}
 
 	setup_irq(TIMER_IRQ, &irq0);
 
-	timer_freq = get_timer_frequency();
-
-	module_clock = timer_freq * 4;
+	if( sh_pclk_freq ){
+		module_clock = sh_pclk_freq;
+	}else{
+		timer_freq = get_timer_frequency();
+		module_clock = timer_freq * 4;
+	}
 
 #if defined(__sh3__)
 	{
 		unsigned short tmp;
 
 		frqcr = ctrl_inw(FRQCR);
+#if defined(CONFIG_CPU_SUBTYPE_SH7300)
+                bfc = ((frqcr & 0x0700) >> 8)+1;
+                ifc = ((frqcr & 0x0070) >> 4)+1;
+                tmp = frqcr & 0x0007;
+                pfc = pfc_table[tmp];
+#else
 		tmp  = (frqcr & 0x8000) >> 13;
 		tmp |= (frqcr & 0x0030) >>  4;
 		bfc = stc_table[tmp];
@@ -381,10 +461,11 @@ void __init time_init(void)
 		tmp  = (frqcr & 0x2000) >> 11;
 		tmp |= frqcr & 0x0003;
 		pfc = pfc_table[tmp];
+#endif
 	}
 #elif defined(__SH4__)
 	{
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 		unsigned long pvr;
 
 		/* This should probably be moved into the SH3 probing code, and then use the processor
@@ -438,14 +519,14 @@ void __init time_init(void)
 	master_clock = module_clock * pfc;
 	bus_clock = master_clock / bfc;
 	cpu_clock = master_clock / ifc;
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
  skip_calc:
 #endif
 	printk("CPU clock: %d.%02dMHz\n",
 	       (cpu_clock / 1000000), (cpu_clock % 1000000)/10000);
 	printk("Bus clock: %d.%02dMHz\n",
 	       (bus_clock/1000000), (bus_clock % 1000000)/10000);
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 	printk("Memory clock: %d.%02dMHz\n",
 	       (memory_clock/1000000), (memory_clock % 1000000)/10000);
 #endif
@@ -458,16 +539,37 @@ void __init time_init(void)
 	current_cpu_data.cpu_clock    = cpu_clock;
 	current_cpu_data.master_clock = master_clock;
 	current_cpu_data.bus_clock    = bus_clock;
-#ifdef CONFIG_CPU_SUBTYPE_ST40STB1
+#ifdef CONFIG_CPU_SUBTYPE_ST40
 	current_cpu_data.memory_clock = memory_clock;
 #endif
 	current_cpu_data.module_clock = module_clock;
 
-	/* Start TMU0 */
+	/* Stop all timers */
 	ctrl_outb(0, TMU_TSTR);
+#if !defined(CONFIG_CPU_SUBTYPE_SH7300)
 	ctrl_outb(TMU_TOCR_INIT, TMU_TOCR);
+#endif
+
+	/* Start TMU0 (jiffy interrupts) */
 	ctrl_outw(TMU0_TCR_INIT, TMU0_TCR);
 	ctrl_outl(interval, TMU0_TCOR);
 	ctrl_outl(interval, TMU0_TCNT);
-	ctrl_outb(TMU_TSTR_INIT, TMU_TSTR);
+	ctrl_outb(TMU0_TSTR_INIT, TMU_TSTR);
+
+#if defined(CONFIG_START_TMU1)
+	/* Start TMU1 (free-running) */
+	ctrl_outw(TMU1_TCR_INIT, TMU1_TCR);
+	ctrl_outl(0xffffffff, TMU1_TCOR);
+	ctrl_outl(0xffffffff, TMU1_TCNT);
+	ctrl_outb((ctrl_inb(TMU_TSTR) | TMU1_TSTR_INIT), TMU_TSTR);
+#endif
+
+#if defined(CONFIG_SH_KGDB)
+	/*
+	 * Set up kgdb as requested. We do it here because the serial
+	 * init uses the timer vars we just set up for figuring baud.
+	 */
+        kgdb_init();
+#endif
+
 }

@@ -159,6 +159,8 @@ pci_setup_bridge(struct pci_bus *bus)
 	}
 	pci_write_config_dword(bridge, PCI_PREF_MEMORY_BASE, l);
 
+	/* Check if we have VGA behind the bridge.
+	   Enable ISA in either case (FIXME!). */
 	l = (bus->resource[0]->flags & IORESOURCE_BUS_HAS_VGA) ? 0x0c : 0x04;
 	pci_write_config_word(bridge, PCI_BRIDGE_CONTROL, l);
 }
@@ -188,6 +190,9 @@ pci_bridge_check_ranges(struct pci_bus *bus)
  	}
  	if (io)
 		b_res[0].flags |= IORESOURCE_IO;
+	/*  DECchip 21050 pass 2 errata: the bridge may miss an address
+	    disconnect boundary by one PCI data phase.
+	    Workaround: do not use prefetching on this device. */
 	if (bridge->vendor == PCI_VENDOR_ID_DEC && bridge->device == 0x0001)
 		return;
 	pci_read_config_dword(bridge, PCI_PREF_MEMORY_BASE, &pmem);
@@ -294,7 +299,7 @@ pbus_size_mem(struct pci_bus *bus, unsigned long mask, unsigned long type)
 				order = 0;
 			/* Exclude ranges with size > align from
 			   calculation of the alignment. */
-			if (size == align)
+			if (r_size == align)
 				aligns[order] += align;
 			if (order > max_order)
 				max_order = order;

@@ -1,7 +1,7 @@
 /*
  * linux/drivers/char/synclink_cs.c
  *
- * $Id: synclink_cs.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: synclink_cs.c,v 3.10 2003/09/05 14:04:26 paulkf Exp $
  *
  * Device driver for Microgate SyncLink PC Card
  * multiprotocol serial adapter.
@@ -483,6 +483,7 @@ static int cuamajor=0;
 
 static int debug_level = 0;
 static int maxframe[MAX_DEVICE_COUNT] = {0,};
+static int dosyncppp[MAX_DEVICE_COUNT] = {1,1,1,1};
 
 /* The old way: bit map of interrupts to choose from */
 /* This means pick from 15, 14, 12, 11, 10, 9, 7, 5, 4, and 3 */
@@ -499,9 +500,14 @@ MODULE_PARM(ttymajor,"i");
 MODULE_PARM(cuamajor,"i");
 MODULE_PARM(debug_level,"i");
 MODULE_PARM(maxframe,"1-" __MODULE_STRING(MAX_DEVICE_COUNT) "i");
+MODULE_PARM(dosyncppp,"1-" __MODULE_STRING(MAX_DEVICE_COUNT) "i");
+
+#ifdef MODULE_LICENSE
+MODULE_LICENSE("GPL");
+#endif
 
 static char *driver_name = "SyncLink PC Card driver";
-static char *driver_version = "$Revision: 1.1.1.4 $";
+static char *driver_version = "$Revision: 3.10 $";
 
 static struct tty_driver serial_driver, callout_driver;
 static int serial_refcount;
@@ -546,6 +552,29 @@ static void cs_error(client_handle_t handle, int func, int ret)
  */
 static void* mgslpc_get_text_ptr(void);
 static void* mgslpc_get_text_ptr() {return mgslpc_get_text_ptr;}
+
+/**
+ * line discipline callback wrappers
+ *
+ * The wrappers maintain line discipline references
+ * while calling into the line discipline.
+ *
+ * ldisc_receive_buf  - pass receive data to line discipline
+ */
+
+static void ldisc_receive_buf(struct tty_struct *tty,
+			      const __u8 *data, char *flags, int count)
+{
+	struct tty_ldisc *ld;
+	if (!tty)
+		return;
+	ld = tty_ldisc_ref(tty);
+	if (ld) {
+		if (ld->receive_buf)
+			ld->receive_buf(tty, data, flags, count);
+		tty_ldisc_deref(ld);
+	}
+}
 
 static dev_link_t *mgslpc_attach(void)
 {
@@ -871,6 +900,9 @@ static inline int mgslpc_paranoia_check(MGSLPC_INFO *info,
 		printk(badmagic, kdevname(device), routine);
 		return 1;
 	}
+#else
+	if (!info)
+		return 1;
 #endif
 	return 0;
 }
@@ -1018,13 +1050,7 @@ void bh_transmit(MGSLPC_INFO *info)
 		printk("bh_transmit() entry on %s\n", info->device_name);
 
 	if (tty) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup) {
-			if ( debug_level >= DEBUG_LEVEL_BH )
-				printk( "%s(%d):calling ldisc.write_wakeup on %s\n",
-					__FILE__,__LINE__,info->device_name);
-			(tty->ldisc.write_wakeup)(tty);
-		}
+		tty_wakeup(tty);
 		wake_up_interruptible(&tty->write_wait);
 	}
 }
@@ -1908,11 +1934,9 @@ static void mgslpc_flush_buffer(struct tty_struct *tty)
 	info->tx_count = info->tx_put = info->tx_get = 0;
 	del_timer(&info->tx_timer);	
 	spin_unlock_irqrestore(&info->lock,flags);
-	
+
 	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 /* Send a high-priority XON/XOFF character
@@ -2616,14 +2640,17 @@ static void mgslpc_close(struct tty_struct *tty, struct file * filp)
 {
 	MGSLPC_INFO * info = (MGSLPC_INFO *)tty->driver_data;
 
-	if (!info || mgslpc_paranoia_check(info, tty->device, "mgslpc_close"))
+	if (mgslpc_paranoia_check(info, tty->device, "mgslpc_close"))
 		return;
 	
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("%s(%d):mgslpc_close(%s) entry, count=%d\n",
 			 __FILE__,__LINE__, info->device_name, info->count);
 			 
-	if (!info->count || tty_hung_up_p(filp))
+	if (!info->count)
+		return;
+
+	if (tty_hung_up_p(filp))
 		goto cleanup;
 			
 	if ((tty->count == 1) && (info->count != 1)) {
@@ -2673,9 +2700,8 @@ static void mgslpc_close(struct tty_struct *tty, struct file * filp)
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-		
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	
+	tty_ldisc_flush(tty);
 		
 	shutdown(info);
 	
@@ -2747,7 +2773,7 @@ static void mgslpc_wait_until_sent(struct tty_struct *tty, int timeout)
 			schedule_timeout(char_time);
 			if (signal_pending(current))
 				break;
-			if (timeout && ((orig_jiffies + timeout) < jiffies))
+			if (timeout && time_after(jiffies, orig_jiffies + timeout))
 				break;
 		}
 	} else {
@@ -2757,7 +2783,7 @@ static void mgslpc_wait_until_sent(struct tty_struct *tty, int timeout)
 			schedule_timeout(char_time);
 			if (signal_pending(current))
 				break;
-			if (timeout && ((orig_jiffies + timeout) < jiffies))
+			if (timeout && time_after(jiffies, orig_jiffies + timeout))
 				break;
 		}
 	}
@@ -2937,16 +2963,11 @@ static int mgslpc_open(struct tty_struct *tty, struct file * filp)
 	info = mgslpc_device_list;
 	while(info && info->line != line)
 		info = info->next_device;
-	if ( !info ){
-		printk("%s(%d):Can't find specified device on open (line=%d)\n",
-			__FILE__,__LINE__,line);
+	if (mgslpc_paranoia_check(info, tty->device, "mgslpc_open"))
 		return -ENODEV;
-	}
 	
 	tty->driver_data = info;
 	info->tty = tty;
-	if (mgslpc_paranoia_check(info, tty->device, "mgslpc_open"))
-		return -ENODEV;
 		
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("%s(%d):mgslpc_open(%s), old ref count = %d\n",
@@ -3008,6 +3029,8 @@ static int mgslpc_open(struct tty_struct *tty, struct file * filp)
 	
 cleanup:			
 	if (retval) {
+		if (tty->count == 1)
+			info->tty = 0; /* tty layer will release tty struct */
 		if(MOD_IN_USE)
 			MOD_DEC_USE_COUNT;
 		if(info->count)
@@ -3181,8 +3204,7 @@ void mgslpc_add_device(MGSLPC_INFO *info)
 	if (info->line < MAX_DEVICE_COUNT) {
 		if (maxframe[info->line])
 			info->max_frame_size = maxframe[info->line];
-//		info->dosyncppp = dosyncppp[info->line];
-		info->dosyncppp = 1;
+		info->dosyncppp = dosyncppp[info->line];
 	}
 
 	mgslpc_device_count++;
@@ -4191,11 +4213,7 @@ int rx_get_frame(MGSLPC_INFO *info)
 			} 
 			else
 #endif
-			{
-				/* Call the line discipline receive callback directly. */
-				if (tty && tty->ldisc.receive_buf)
-					tty->ldisc.receive_buf(tty, buf->data, info->flag_buf, framesize);
-			}
+				ldisc_receive_buf(tty, buf->data, info->flag_buf, framesize);
 		}
 	}
 

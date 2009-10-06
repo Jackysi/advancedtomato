@@ -161,23 +161,29 @@ int sym53c8xx_release(struct Scsi_Host *);
 /*
  *  NCR PQS/PDS special device support.
  */
+#if 1
 #define SYM_CONF_PQS_PDS_SUPPORT
+#endif
 
 /*
  *  NVRAM support.
  */
+#if 1
 #define SYM_CONF_NVRAM_SUPPORT		(1)
 #define SYM_SETUP_SYMBIOS_NVRAM		(1)
 #define SYM_SETUP_TEKRAM_NVRAM		(1)
+#endif
 
 /*
  *  These options are not tunable from 'make config'
  */
+#if 1
 #define	SYM_LINUX_PROC_INFO_SUPPORT
 #define SYM_LINUX_BOOT_COMMAND_LINE_SUPPORT
 #define SYM_LINUX_USER_COMMAND_SUPPORT
 #define SYM_LINUX_USER_INFO_SUPPORT
 #define SYM_LINUX_DEBUG_CONTROL_SUPPORT
+#endif
 
 /*
  *  Also handle old NCR chips if not (0).
@@ -229,7 +235,11 @@ int sym53c8xx_release(struct Scsi_Host *);
 /*
  *  Max number of LUNs per target.
  */
+#if 1 /* defined CONFIG_SCSI_MULTI_LUN */
 #define	CONFIG_SCSI_SYM53C8XX_MAX_LUN	(16)
+#else
+#define	CONFIG_SCSI_SYM53C8XX_MAX_LUN	(1)
+#endif
 
 /*
  *  Driver setup structure.

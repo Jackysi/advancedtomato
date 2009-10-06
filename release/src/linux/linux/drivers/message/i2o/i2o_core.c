@@ -1672,7 +1672,7 @@ static int i2o_reset_controller(struct i2o_controller *c)
 	msg[4]=0;
 	msg[5]=0;
 	msg[6]=virt_to_bus(status);
-	msg[7]=0;	
+	msg[7]=0;	/* 64bit host FIXME */
 
 	i2o_post_message(c,m);
 
@@ -1788,7 +1788,7 @@ int i2o_status_get(struct i2o_controller *c)
 	msg[4]=0;
 	msg[5]=0;
 	msg[6]=virt_to_bus(c->status_block);
-	msg[7]=0;   
+	msg[7]=0;   /* 64bit host FIXME */
 	msg[8]=sizeof(i2o_status_block); /* always 88 bytes */
 
 	i2o_post_message(c,m);
@@ -1982,6 +1982,13 @@ static int i2o_systab_send(struct i2o_controller *iop)
 	msg[4] = (0<<16) | ((iop->unit+2) );      /* Host 0 IOP ID (unit + 2) */
 	msg[5] = 0;                               /* Segment 0 */
 
+	/* 
+ 	 * Provide three SGL-elements:
+ 	 * System table (SysTab), Private memory space declaration and 
+ 	 * Private i/o space declaration  
+ 	 *
+ 	 * FIXME: provide these for controllers needing them
+ 	 */
 	msg[6] = 0x54000000 | sys_tbl_len;
 	msg[7] = virt_to_bus(sys_tbl);
 	msg[8] = 0x54000000 | privbuf[1];
@@ -2224,6 +2231,7 @@ int i2o_init_outbound_q(struct i2o_controller *c)
 		return -ETIMEDOUT;
 	}
 
+	kfree(status);
 	return 0;
 }
 

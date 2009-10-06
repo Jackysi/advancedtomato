@@ -11,7 +11,6 @@
 USE_STANDARD_AS_RULE	:= true
 
 coffcrt0.o:
-	$(CC) -I$(TOPDIR)/arch/$(ARCH)/kernel $(AFLAGS) -DXCOFF \
-		-traditional -c -o coffcrt0.o crt0.S
+	$(CC) $(AFLAGS) -DXCOFF -traditional -c -o coffcrt0.o crt0.S
 
 include $(TOPDIR)/Rules.make

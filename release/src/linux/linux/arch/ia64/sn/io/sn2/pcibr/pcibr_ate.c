@@ -4,7 +4,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001-2002 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2001-2003 Silicon Graphics, Inc. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -27,40 +27,8 @@
 #include <asm/sn/prio.h>
 #include <asm/sn/xtalk/xbow.h>
 #include <asm/sn/ioc3.h>
-#include <asm/sn/eeprom.h>
 #include <asm/sn/io.h>
 #include <asm/sn/sn_private.h>
-
-#ifdef __ia64
-uint64_t atealloc(struct map *mp, size_t size);
-void atefree(struct map *mp, size_t size, uint64_t a);
-void atemapfree(struct map *mp);
-struct map *atemapalloc(uint64_t mapsiz);
-
-#define rmallocmap atemapalloc
-#define rmfreemap atemapfree
-#define rmfree atefree
-#define rmalloc atealloc
-#endif
-
-
-#ifdef LATER
-#if (PCIBR_FREEZE_TIME) || PCIBR_ATE_DEBUG
-LOCAL struct reg_desc   ate_bits[] =
-{
-    {0xFFFF000000000000ull, -48, "RMF", "%x"},
-    {~(IOPGSIZE - 1) &			/* may trim off some low bits */
-     0x0000FFFFFFFFF000ull, 0, "XIO", "%x"},
-    {0x0000000000000F00ull, -8, "port", "%x"},
-    {0x0000000000000010ull, 0, "Barrier"},
-    {0x0000000000000008ull, 0, "Prefetch"},
-    {0x0000000000000004ull, 0, "Precise"},
-    {0x0000000000000002ull, 0, "Coherent"},
-    {0x0000000000000001ull, 0, "Valid"},
-    {0}
-};
-#endif
-#endif	/* LATER */
 
 #ifndef LOCAL
 #define LOCAL           static
@@ -79,7 +47,7 @@ unsigned 	  ate_freeze(pcibr_dmamap_t pcibr_dmamap,
 	   			unsigned *freeze_time_ptr,
 #endif
 	   			unsigned *cmd_regs);
-void 	  ate_write(bridge_ate_p ate_ptr, int ate_count, bridge_ate_t ate);
+void 	  ate_write(pcibr_soft_t pcibr_soft, bridge_ate_p ate_ptr, int ate_count, bridge_ate_t ate);
 void ate_thaw(pcibr_dmamap_t pcibr_dmamap,
 	 			int ate_index,
 #if PCIBR_FREEZE_TIME
@@ -118,7 +86,6 @@ pcibr_init_ext_ate_ram(bridge_t *bridge)
     int                     num_entries, entry;
     int                     i, j;
     bridgereg_t             old_enable, new_enable;
-    int                     s;
 
     /* Probe SSRAM to determine its size. */
     old_enable = bridge->b_int_enable;
@@ -135,7 +102,7 @@ pcibr_init_ext_ate_ram(bridge_t *bridge)
 
 	/* See if value was written */
 	if (bridge->b_ext_ate_ram[ATE_NUM_ENTRIES(i) - 1] == ATE_PROBE_VALUE)
-	    largest_working_size = i;
+				largest_working_size = i;
     }
     bridge->b_int_enable = old_enable;
     bridge->b_wid_tflush;		/* wait until Bridge PIO complete */
@@ -145,21 +112,24 @@ pcibr_init_ext_ate_ram(bridge_t *bridge)
      * The read following the write is required for the Bridge war
      */
 
-    s = splhi();
     bridge->b_wid_control = (bridge->b_wid_control
-	& ~BRIDGE_CTRL_SSRAM_SIZE_MASK)
-	| BRIDGE_CTRL_SSRAM_SIZE(largest_working_size);
+			& ~BRIDGE_CTRL_SSRAM_SIZE_MASK)
+			| BRIDGE_CTRL_SSRAM_SIZE(largest_working_size);
     bridge->b_wid_control;		/* inval addr bug war */
-    splx(s);
 
     num_entries = ATE_NUM_ENTRIES(largest_working_size);
 
-#if PCIBR_ATE_DEBUG
-    if (num_entries)
-	printk("bridge at 0x%x: clearing %d external ATEs\n", bridge, num_entries);
-    else
-	printk("bridge at 0x%x: no external ATE RAM found\n", bridge);
-#endif
+    if (pcibr_debug_mask & PCIBR_DEBUG_ATE) {
+	if (num_entries) {
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_ATE, NULL,
+			"bridge at 0x%x: clearing %d external ATEs\n",
+			bridge, num_entries));
+	} else {
+	    PCIBR_DEBUG_ALWAYS((PCIBR_DEBUG_ATE, NULL,
+			"bridge at 0x%x: no external ATE RAM found\n",
+			bridge));
+	}
+    }
 
     /* Initialize external mapping entries */
     for (entry = 0; entry < num_entries; entry++)
@@ -179,32 +149,55 @@ pcibr_init_ext_ate_ram(bridge_t *bridge)
 int
 pcibr_ate_alloc(pcibr_soft_t pcibr_soft, int count)
 {
-    int                     index = 0;
+    int			    status = 0;
+    struct resource	    *new_res;
+    struct resource         **allocated_res;
 
-    index = (int) rmalloc(pcibr_soft->bs_int_ate_map, (size_t) count);
+    new_res = (struct resource *) kmalloc( sizeof(struct resource), GFP_ATOMIC);
+    memset(new_res, 0, sizeof(*new_res));
+    status = allocate_resource( &pcibr_soft->bs_int_ate_resource, new_res,
+				count, pcibr_soft->bs_int_ate_resource.start, 
+				pcibr_soft->bs_int_ate_resource.end, 1,
+				NULL, NULL);
 
-    if (!index && pcibr_soft->bs_ext_ate_map)
-	index = (int) rmalloc(pcibr_soft->bs_ext_ate_map, (size_t) count);
+    if ( status && (pcibr_soft->bs_ext_ate_resource.end != 0) ) {
+	status = allocate_resource( &pcibr_soft->bs_ext_ate_resource, new_res,
+				count, pcibr_soft->bs_ext_ate_resource.start,
+				pcibr_soft->bs_ext_ate_resource.end, 1,
+				NULL, NULL);
+	if (status) {
+		new_res->start = -1;
+	}
+    }
 
-    /* rmalloc manages resources in the 1..n
-     * range, with 0 being failure.
-     * pcibr_ate_alloc manages resources
-     * in the 0..n-1 range, with -1 being failure.
-     */
-    return index - 1;
+    if (status) {
+	/* Failed to allocate */
+	kfree(new_res);
+	return -1;
+    }
+
+    /* Save the resource for freeing */
+    allocated_res = (struct resource **)(((unsigned long)pcibr_soft->bs_allocated_ate_res) + new_res->start * sizeof( unsigned long));
+    *allocated_res = new_res;
+
+    return new_res->start;
 }
 
 void
 pcibr_ate_free(pcibr_soft_t pcibr_soft, int index, int count)
 /* Who says there's no such thing as a free meal? :-) */
 {
-    /* note the "+1" since rmalloc handles 1..n but
-     * we start counting ATEs at zero.
-     */
-    rmfree((index < pcibr_soft->bs_int_ate_size)
-	   ? pcibr_soft->bs_int_ate_map
-	   : pcibr_soft->bs_ext_ate_map,
-	   count, index + 1);
+
+    struct resource **allocated_res;
+    int status = 0;
+
+    allocated_res = (struct resource **)(((unsigned long)pcibr_soft->bs_allocated_ate_res) + index * sizeof(unsigned long));
+
+    status = release_resource(*allocated_res);
+    if (status)
+	BUG(); /* Ouch .. */
+    kfree(*allocated_res);
+
 }
 
 /*
@@ -312,7 +305,7 @@ ate_freeze(pcibr_dmamap_t pcibr_dmamap,
 
     /* Bridge Hardware Bug WAR #484930:
      * Bridge can't handle updating External ATEs
-     * while DMA is occuring that uses External ATEs,
+     * while DMA is occurring that uses External ATEs,
      * even if the particular ATEs involved are disjoint.
      */
 
@@ -339,7 +332,8 @@ ate_freeze(pcibr_dmamap_t pcibr_dmamap,
 #endif
 
     cmd_lwa = 0;
-    for (slot = 0; slot < 8; ++slot)
+    for (slot = pcibr_soft->bs_min_slot; 
+		slot < PCIBR_NUM_SLOTS(pcibr_soft); ++slot)
 	if (atomic_read(&pcibr_soft->bs_slot[slot].bss_ext_ates_active)) {
 	    cmd_reg = pcibr_soft->
 		bs_slot[slot].
@@ -366,28 +360,29 @@ ate_freeze(pcibr_dmamap_t pcibr_dmamap,
 	    cmd_lwa[0];
 
 	    /* Flush all the write buffers in the bridge */
-	    for (slot = 0; slot < 8; ++slot)
+	    for (slot = pcibr_soft->bs_min_slot; 
+				slot < PCIBR_NUM_SLOTS(pcibr_soft); ++slot) {
 		    if (atomic_read(&pcibr_soft->bs_slot[slot].bss_ext_ates_active)) {
 			    /* Flush the write buffer associated with this
 			     * PCI device which might be using dma map RAM.
 			     */
-			    bridge->b_wr_req_buf[slot].reg;
+			bridge->b_wr_req_buf[slot].reg;
 		    }
+	    }
     }
     return s;
 }
 
-#define	ATE_WRITE()    ate_write(ate_ptr, ate_count, ate)
-
 void
-ate_write(bridge_ate_p ate_ptr,
+ate_write(pcibr_soft_t pcibr_soft,
+	  bridge_ate_p ate_ptr,
 	  int ate_count,
 	  bridge_ate_t ate)
 {
-    while (ate_count-- > 0) {
-	*ate_ptr++ = ate;
-	ate += IOPGSIZE;
-    }
+    	while (ate_count-- > 0) {
+		*ate_ptr++ = ate;
+		ate += IOPGSIZE;
+	}
 }
 
 #if PCIBR_FREEZE_TIME
@@ -425,10 +420,12 @@ ate_thaw(pcibr_dmamap_t pcibr_dmamap,
 	return;
 
     /* restore cmd regs */
-    for (slot = 0; slot < 8; ++slot)
-	if ((cmd_reg = cmd_regs[slot]) & PCI_CMD_BUS_MASTER)
-	    bridge->b_type0_cfg_dev[slot].l[PCI_CFG_COMMAND / 4] = cmd_reg;
-
+    for (slot = pcibr_soft->bs_min_slot; 
+		slot < PCIBR_NUM_SLOTS(pcibr_soft); ++slot) {
+	if ((cmd_reg = cmd_regs[slot]) & PCI_CMD_BUS_MASTER) {
+		pcibr_slot_config_set(bridge, slot, PCI_CFG_COMMAND/4, cmd_reg);
+	}
+    }
     pcibr_dmamap->bd_flags |= PCIBR_DMAMAP_BUSY;
     atomic_inc(&(pcibr_soft->bs_slot[dma_slot]. bss_ext_ates_active));
 
@@ -442,7 +439,7 @@ ate_thaw(pcibr_dmamap_t pcibr_dmamap,
 	if (max_ate_total < ate_total)
 	    max_ate_total = ate_total;
 	pcibr_unlock(pcibr_soft, s);
-	printk("%s: pci freeze time %d usec for %d ATEs\n"
+	printk( "%s: pci freeze time %d usec for %d ATEs\n"
 		"\tfirst ate: %R\n",
 		pcibr_soft->bs_name,
 		freeze_time * 1000 / 1250,

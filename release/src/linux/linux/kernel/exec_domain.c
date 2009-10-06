@@ -45,6 +45,16 @@ default_handler(int segment, struct pt_regs *regp)
 {
 	u_long			pers = 0;
 
+	/*
+	 * This may have been a static linked SVr4 binary, so we would
+	 * have the personality set incorrectly. Or it might have been
+	 * a Solaris/x86 binary. We can tell which because the former
+	 * uses lcall7, while the latter used lcall 0x27.
+	 * Try to find or load the appropriate personality, and fall back
+	 * to just forcing a SEGV.
+	 *
+	 * XXX: this is IA32-specific and should be moved to the MD-tree.
+	 */
 	switch (segment) {
 #ifdef __i386__
 	case 0x07:
@@ -186,8 +196,6 @@ __set_personality(u_long personality)
 
 	put_exec_domain(oep);
 
-	printk(KERN_DEBUG "[%s:%d]: set personality to %lx\n",
-			current->comm, current->pid, personality);
 	return 0;
 }
 

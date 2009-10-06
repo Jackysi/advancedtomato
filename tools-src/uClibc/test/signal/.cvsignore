@@ -1,8 +1,0 @@
-signal
-signal.o
-signal_glibc
-signal_glibc.o
-sigchld
-sigchld.o
-sigchld_glibc
-sigchld_glibc.o

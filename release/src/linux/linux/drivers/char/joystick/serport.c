@@ -1,5 +1,5 @@
 /*
- * $Id: serport.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: serport.c,v 1.7 2001/05/25 19:00:27 jdeneux Exp $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *

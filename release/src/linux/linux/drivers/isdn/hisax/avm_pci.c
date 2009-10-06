@@ -1,4 +1,4 @@
-/* $Id: avm_pci.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: avm_pci.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * low level stuff for AVM Fritz!PCI and ISA PnP isdn cards
  *
@@ -23,7 +23,7 @@
 #include <linux/interrupt.h>
 
 extern const char *CardType[];
-static const char *avm_pci_rev = "$Revision: 1.1.1.4 $";
+static const char *avm_pci_rev = "$Revision: 1.1.4.1 $";
 
 #define  AVM_FRITZ_PCI		1
 #define  AVM_FRITZ_PNP		2
@@ -291,7 +291,8 @@ hdlc_empty_fifo(struct BCState *bcs, int count)
 			debugl1(cs, "hdlc_empty_fifo: incoming packet too large");
 		return;
 	}
-	ptr = (u_int *) p = bcs->hw.hdlc.rcvbuf + bcs->hw.hdlc.rcvidx;
+	p = bcs->hw.hdlc.rcvbuf + bcs->hw.hdlc.rcvidx;
+	ptr = (u_int *)p;
 	bcs->hw.hdlc.rcvidx += count;
 	if (cs->subtyp == AVM_FRITZ_PCI) {
 		outl(idx, cs->hw.avm.cfg_reg + 4);
@@ -352,7 +353,8 @@ hdlc_fill_fifo(struct BCState *bcs)
 	}
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
-	ptr = (u_int *) p = bcs->tx_skb->data;
+	p = bcs->tx_skb->data;
+	ptr = (u_int *)p;
 	skb_pull(bcs->tx_skb, count);
 	bcs->tx_cnt -= count;
 	bcs->hw.hdlc.count += count;

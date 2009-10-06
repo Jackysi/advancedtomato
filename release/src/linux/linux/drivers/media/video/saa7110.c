@@ -392,7 +392,7 @@ int saa7110_command(struct i2c_device *device, unsigned int cmd, void *arg)
 		break;
 
 	 default:
-		DEBUG(printk(KERN_INFO "unknown saa7110_command??(%d)\n",cmd));
+		DEBUG(printk(KERN_INFO "unknown saa7110_command?(%d)\n",cmd));
 		return -EINVAL;
 	}
 	return 0;
@@ -404,7 +404,7 @@ static struct i2c_driver i2c_driver_saa7110 =
 {
 	"saa7110",			/* name */
 
-	I2C_DRIVERID_VIDEODECODER,	/* in i2c.h */
+	I2C_DRIVERID_VIDEODECODER,	/* in i2c-old.h */
 	I2C_SAA7110, I2C_SAA7110+1,	/* Addr range */
 
 	saa7110_attach,

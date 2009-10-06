@@ -1,7 +1,7 @@
 /* Linux driver for NAND Flash Translation Layer      */
 /* (c) 1999 Machine Vision Holdings, Inc.             */
 /* Author: David Woodhouse <dwmw2@infradead.org>      */
-/* $Id: nftlcore.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $ */
+/* $Id: nftlcore.c,v 1.87 2002/09/13 14:35:33 dwmw2 Exp $ */
 
 /*
   The contents of this file are distributed under the GNU General
@@ -29,6 +29,7 @@
 #include <linux/kmod.h>
 #endif
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/nftl.h>
 #include <linux/mtd/compatmac.h>
 
@@ -118,9 +119,6 @@ static void NFTL_setup(struct mtd_info *mtd)
 
 	init_MUTEX(&nftl->mutex);
 
-        /* get physical parameters */
-	nftl->EraseSize = mtd->erasesize;
-        nftl->nb_blocks = mtd->size / mtd->erasesize;
 	nftl->mtd = mtd;
 
         if (NFTL_mount(nftl) < 0) {
@@ -155,7 +153,7 @@ static void NFTL_setup(struct mtd_info *mtd)
 
 	if (nftl->nr_sects != nftl->heads * nftl->cylinders * nftl->sectors) {
 		printk(KERN_WARNING "Cannot calculate an NFTL geometry to "
-		       "match size of 0x%lx.\n", nftl->nr_sects);
+		       "match size of 0x%x.\n", nftl->nr_sects);
 		printk(KERN_WARNING "Using C:%d H:%d S:%d (== 0x%lx sects)\n", 
 		       nftl->cylinders, nftl->heads , nftl->sectors, 
 		       (long)nftl->cylinders * (long)nftl->heads * (long)nftl->sectors );
@@ -446,17 +444,17 @@ static u16 NFTL_foldchain (struct NFTLrecord *nftl, unsigned thisVUC, unsigned p
                 if (BlockMap[block] == BLOCK_NIL)
                         continue;
                 
-                ret = MTD_READECC(nftl->mtd, (nftl->EraseSize * BlockMap[block])
-                                  + (block * 512), 512, &retlen, movebuf, (char *)&oob); 
+                ret = MTD_READECC(nftl->mtd, (nftl->EraseSize * BlockMap[block]) + (block * 512),
+				  512, &retlen, movebuf, (char *)&oob, NAND_ECC_DISKONCHIP); 
                 if (ret < 0) {
                     ret = MTD_READECC(nftl->mtd, (nftl->EraseSize * BlockMap[block])
                                       + (block * 512), 512, &retlen,
-                                      movebuf, (char *)&oob); 
+                                      movebuf, (char *)&oob, NAND_ECC_DISKONCHIP); 
                     if (ret != -EIO) 
                         printk("Error went away on retry.\n");
                 }
                 MTD_WRITEECC(nftl->mtd, (nftl->EraseSize * targetEUN) + (block * 512),
-                             512, &retlen, movebuf, (char *)&oob);
+                             512, &retlen, movebuf, (char *)&oob, NAND_ECC_DISKONCHIP);
 	}
         
         /* add the header so that it is now a valid chain */
@@ -485,6 +483,9 @@ static u16 NFTL_foldchain (struct NFTLrecord *nftl, unsigned thisVUC, unsigned p
                 EUNtmp = nftl->ReplUnitTable[thisEUN];
 
                 if (NFTL_formatblock(nftl, thisEUN) < 0) {
+			/* could not erase : mark block as reserved
+			 * FixMe: Update Bad Unit Table on disk
+			 */
 			nftl->ReplUnitTable[thisEUN] = BLOCK_RESERVED;
                 } else {
 			/* correctly erased : mark it as free */
@@ -720,7 +721,7 @@ static int NFTL_writeblock(struct NFTLrecord *nftl, unsigned block, char *buffer
 	}
 
 	MTD_WRITEECC(nftl->mtd, (writeEUN * nftl->EraseSize) + blockofs,
-		     512, &retlen, (char *)buffer, (char *)eccbuf);
+		     512, &retlen, (char *)buffer, (char *)eccbuf, NAND_ECC_DISKONCHIP);
         /* no need to write SECTOR_USED flags since they are written in mtd_writeecc */
 
 	return 0;
@@ -782,7 +783,7 @@ static int NFTL_readblock(struct NFTLrecord *nftl, unsigned block, char *buffer)
 		loff_t ptr = (lastgoodEUN * nftl->EraseSize) + blockofs;
 		size_t retlen;
 		u_char eccbuf[6];
-		if (MTD_READECC(nftl->mtd, ptr, 512, &retlen, buffer, eccbuf))
+		if (MTD_READECC(nftl->mtd, ptr, 512, &retlen, buffer, eccbuf, NAND_ECC_DISKONCHIP))
 			return -EIO;
 	}
 	return 0;
@@ -1059,7 +1060,7 @@ int __init init_nftl(void)
 	int i;
 
 #ifdef PRERELEASE 
-	printk(KERN_INFO "NFTL driver: nftlcore.c $Revision: 1.1.1.4 $, nftlmount.c %s\n", nftlmountrev);
+	printk(KERN_INFO "NFTL driver: nftlcore.c $Revision: 1.87 $, nftlmount.c %s\n", nftlmountrev);
 #endif
 
 	if (register_blkdev(MAJOR_NR, "nftl", &nftl_fops)){

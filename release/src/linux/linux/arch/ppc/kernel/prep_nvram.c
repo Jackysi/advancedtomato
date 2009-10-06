@@ -1,7 +1,4 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  *  arch/ppc/platforms/prep_nvram.c
  *
  *  Copyright (C) 1998  Corey Minyard
@@ -28,7 +25,7 @@ unsigned char __prep prep_nvram_read_val(int addr)
 	outb(addr>>8, PREP_NVRAM_AS1);
 	return inb(PREP_NVRAM_DATA);
 }
-  
+
 void __prep prep_nvram_write_val(int           addr,
 			  unsigned char val)
 {
@@ -36,7 +33,7 @@ void __prep prep_nvram_write_val(int           addr,
 	outb(addr>>8, PREP_NVRAM_AS1);
    	outb(val, PREP_NVRAM_DATA);
 }
-  
+
 void __init init_prep_nvram(void)
 {
 	unsigned char *nvp;
@@ -54,7 +51,7 @@ void __init init_prep_nvram(void)
 		*nvp = ppc_md.nvram_read_val(i);
 		nvp++;
 	}
-	
+
 	/*
 	 * The PReP NvRAM may be any size so read in the header to
 	 * determine how much we must read in order to get the complete

@@ -1977,6 +1977,18 @@ void event_intr (sdla_t *card)
                                  * to WAN_CONNNECTED */
 
 
+				/* BUG FIX: When the protocol restarts, during heavy 
+                                 * traffic, board tx buffers and driver tx buffers
+                                 * can go out of sync.  This checks the condition
+                                 * and if the tx buffers are out of sync, the 
+                                 * protocols are restarted. 
+                                 * I don't know why the board tx buffer is out
+                                 * of sync. It could be that a packets is tx
+                                 * while the link is down, but that is not 
+                                 * possible. The other possiblility is that the
+                                 * firmware doesn't reinitialize properly.
+                                 * FIXME: A better fix should be found.
+                                 */ 
 				if (detect_and_fix_tx_bug(card)){
 
 					ppp_comm_disable(card);
@@ -2865,6 +2877,10 @@ static void process_udp_mgmt_pkt(sdla_t *card, netdevice_t *dev,
 	      		} 	
 			goto udp_dflt_cmd;
 			
+		/* WARNING: FIXME: This should be fixed.
+		 * The FT1 Status Ctrl doesn't have a break
+                 * statment.  Thus, no code must be inserted
+                 * HERE: between default and above case statement */
 
 		default:
 udp_dflt_cmd:
@@ -3062,6 +3078,9 @@ static int read_info( sdla_t *card )
 	set_fs(fs);           /* restore old block */
 	
 #else
+	/* FIXME: Dynamic Routing in 2.0.X kernels is not
+         * supported. Sorry ! I'll come back to it when I get
+         * a chance. */
 	
 	printk(KERN_INFO "%s: ERROR, Dynamic routing is not supported in 2.0.X kernels\n",
 				card->devname);
@@ -3312,7 +3331,7 @@ static int chk_bcast_mcast_addr(sdla_t *card, netdevice_t* dev,
 
 void s508_lock (sdla_t *card, unsigned long *smp_flags)
 {
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
 	spin_lock_irqsave(&card->wandev.lock, *smp_flags);
 #else
 	disable_irq(card->hw.irq);
@@ -3321,7 +3340,7 @@ void s508_lock (sdla_t *card, unsigned long *smp_flags)
 
 void s508_unlock (sdla_t *card, unsigned long *smp_flags)
 {
-#if defined(__SMP__) || defined(LINUX_2_4)
+#if defined(CONFIG_SMP) || defined(LINUX_2_4)
         spin_unlock_irqrestore(&card->wandev.lock, *smp_flags);
 #else
 	enable_irq(card->hw.irq);

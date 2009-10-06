@@ -2,107 +2,136 @@
 /******************************************************************************
  *
  * Module Name: exmutex - ASL Mutex Acquire/Release functions
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acinterp.h"
-#include "acnamesp.h"
-#include "achware.h"
-#include "acevents.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exmutex")
+	 ACPI_MODULE_NAME    ("exmutex")
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_unlink_mutex
+ * FUNCTION:    acpi_ex_unlink_mutex
  *
- * PARAMETERS:  *Obj_desc           - The mutex to be unlinked
+ * PARAMETERS:  *obj_desc           - The mutex to be unlinked
  *
  * RETURN:      Status
  *
- * DESCRIPTION: Remove a mutex from the "Acquired_mutex" list
+ * DESCRIPTION: Remove a mutex from the "acquired_mutex" list
  *
  ******************************************************************************/
 
 void
 acpi_ex_unlink_mutex (
-	acpi_operand_object     *obj_desc)
+	union acpi_operand_object       *obj_desc)
 {
+	struct acpi_thread_state        *thread = obj_desc->mutex.owner_thread;
+
+
+	if (!thread) {
+		return;
+	}
 
 	if (obj_desc->mutex.next) {
 		(obj_desc->mutex.next)->mutex.prev = obj_desc->mutex.prev;
 	}
+
 	if (obj_desc->mutex.prev) {
 		(obj_desc->mutex.prev)->mutex.next = obj_desc->mutex.next;
+	}
+	else {
+		thread->acquired_mutex_list = obj_desc->mutex.next;
 	}
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_link_mutex
+ * FUNCTION:    acpi_ex_link_mutex
  *
- * PARAMETERS:  *Obj_desc           - The mutex to be linked
- *              *List_head          - head of the "Acquired_mutex" list
+ * PARAMETERS:  *obj_desc           - The mutex to be linked
+ *              *list_head          - head of the "acquired_mutex" list
  *
  * RETURN:      Status
  *
- * DESCRIPTION: Add a mutex to the "Acquired_mutex" list for this walk
+ * DESCRIPTION: Add a mutex to the "acquired_mutex" list for this walk
  *
  ******************************************************************************/
 
 void
 acpi_ex_link_mutex (
-	acpi_operand_object     *obj_desc,
-	acpi_operand_object     *list_head)
+	union acpi_operand_object       *obj_desc,
+	struct acpi_thread_state        *thread)
 {
+	union acpi_operand_object       *list_head;
+
+
+	list_head = thread->acquired_mutex_list;
 
 	/* This object will be the first object in the list */
 
-	obj_desc->mutex.prev = list_head;
-	obj_desc->mutex.next = list_head->mutex.next;
+	obj_desc->mutex.prev = NULL;
+	obj_desc->mutex.next = list_head;
 
 	/* Update old first object to point back to this object */
 
-	if (list_head->mutex.next) {
-		(list_head->mutex.next)->mutex.prev = obj_desc;
+	if (list_head) {
+		list_head->mutex.prev = obj_desc;
 	}
 
 	/* Update list head */
 
-	list_head->mutex.next = obj_desc;
+	thread->acquired_mutex_list = obj_desc;
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_acquire_mutex
+ * FUNCTION:    acpi_ex_acquire_mutex
  *
- * PARAMETERS:  *Time_desc          - The 'time to delay' object descriptor
- *              *Obj_desc           - The object descriptor for this op
+ * PARAMETERS:  *time_desc          - The 'time to delay' object descriptor
+ *              *obj_desc           - The object descriptor for this op
  *
  * RETURN:      Status
  *
@@ -112,55 +141,74 @@ acpi_ex_link_mutex (
 
 acpi_status
 acpi_ex_acquire_mutex (
-	acpi_operand_object     *time_desc,
-	acpi_operand_object     *obj_desc,
-	acpi_walk_state         *walk_state)
+	union acpi_operand_object       *time_desc,
+	union acpi_operand_object       *obj_desc,
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_status             status;
+	acpi_status                     status;
 
 
-	FUNCTION_TRACE_PTR ("Ex_acquire_mutex", obj_desc);
+	ACPI_FUNCTION_TRACE_PTR ("ex_acquire_mutex", obj_desc);
+
 
 	if (!obj_desc) {
 		return_ACPI_STATUS (AE_BAD_PARAMETER);
+	}
+
+	/* Sanity check -- we must have a valid thread ID */
+
+	if (!walk_state->thread) {
+		ACPI_REPORT_ERROR (("Cannot acquire Mutex [%4.4s], null thread info\n",
+				acpi_ut_get_node_name (obj_desc->mutex.node)));
+		return_ACPI_STATUS (AE_AML_INTERNAL);
 	}
 
 	/*
 	 * Current Sync must be less than or equal to the sync level of the
 	 * mutex.  This mechanism provides some deadlock prevention
 	 */
-	if (walk_state->current_sync_level > obj_desc->mutex.sync_level) {
+	if (walk_state->thread->current_sync_level > obj_desc->mutex.sync_level) {
+		ACPI_REPORT_ERROR (("Cannot acquire Mutex [%4.4s], incorrect sync_level\n",
+				acpi_ut_get_node_name (obj_desc->mutex.node)));
 		return_ACPI_STATUS (AE_AML_MUTEX_ORDER);
 	}
 
 	/*
-	 * If the mutex is already owned by this thread,
-	 * just increment the acquisition depth
+	 * Support for multiple acquires by the owning thread
 	 */
-	if (obj_desc->mutex.owner == walk_state) {
-		obj_desc->mutex.acquisition_depth++;
-		return_ACPI_STATUS (AE_OK);
+	if (obj_desc->mutex.owner_thread) {
+		/* Special case for Global Lock, allow all threads */
+
+		if ((obj_desc->mutex.owner_thread->thread_id == walk_state->thread->thread_id) ||
+			(obj_desc->mutex.semaphore == acpi_gbl_global_lock_semaphore)) {
+			/*
+			 * The mutex is already owned by this thread,
+			 * just increment the acquisition depth
+			 */
+			obj_desc->mutex.acquisition_depth++;
+			return_ACPI_STATUS (AE_OK);
+		}
 	}
 
 	/* Acquire the mutex, wait if necessary */
 
 	status = acpi_ex_system_acquire_mutex (time_desc, obj_desc);
 	if (ACPI_FAILURE (status)) {
-		/* Includes failure from a timeout on Time_desc */
+		/* Includes failure from a timeout on time_desc */
 
 		return_ACPI_STATUS (status);
 	}
 
 	/* Have the mutex, update mutex and walk info */
 
-	obj_desc->mutex.owner = walk_state;
+	obj_desc->mutex.owner_thread    = walk_state->thread;
 	obj_desc->mutex.acquisition_depth = 1;
-	walk_state->current_sync_level = obj_desc->mutex.sync_level;
 
-	/* Link the mutex to the walk state for force-unlock at method exit */
+	walk_state->thread->current_sync_level = obj_desc->mutex.sync_level;
 
-	acpi_ex_link_mutex (obj_desc, (acpi_operand_object *)
-			 &(walk_state->walk_list->acquired_mutex_list));
+	/* Link the mutex to the current thread for force-unlock at method exit */
+
+	acpi_ex_link_mutex (obj_desc, walk_state->thread);
 
 	return_ACPI_STATUS (AE_OK);
 }
@@ -168,9 +216,9 @@ acpi_ex_acquire_mutex (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_release_mutex
+ * FUNCTION:    acpi_ex_release_mutex
  *
- * PARAMETERS:  *Obj_desc           - The object descriptor for this op
+ * PARAMETERS:  *obj_desc           - The object descriptor for this op
  *
  * RETURN:      Status
  *
@@ -180,13 +228,13 @@ acpi_ex_acquire_mutex (
 
 acpi_status
 acpi_ex_release_mutex (
-	acpi_operand_object     *obj_desc,
-	acpi_walk_state         *walk_state)
+	union acpi_operand_object       *obj_desc,
+	struct acpi_walk_state          *walk_state)
 {
-	acpi_status             status;
+	acpi_status                     status;
 
 
-	FUNCTION_TRACE ("Ex_release_mutex");
+	ACPI_FUNCTION_TRACE ("ex_release_mutex");
 
 
 	if (!obj_desc) {
@@ -195,13 +243,31 @@ acpi_ex_release_mutex (
 
 	/* The mutex must have been previously acquired in order to release it */
 
-	if (!obj_desc->mutex.owner) {
+	if (!obj_desc->mutex.owner_thread) {
+		ACPI_REPORT_ERROR (("Cannot release Mutex [%4.4s], not acquired\n",
+				acpi_ut_get_node_name (obj_desc->mutex.node)));
 		return_ACPI_STATUS (AE_AML_MUTEX_NOT_ACQUIRED);
 	}
 
-	/* The Mutex is owned, but this thread must be the owner */
+	/* Sanity check -- we must have a valid thread ID */
 
-	if (obj_desc->mutex.owner != walk_state) {
+	if (!walk_state->thread) {
+		ACPI_REPORT_ERROR (("Cannot release Mutex [%4.4s], null thread info\n",
+				acpi_ut_get_node_name (obj_desc->mutex.node)));
+		return_ACPI_STATUS (AE_AML_INTERNAL);
+	}
+
+	/*
+	 * The Mutex is owned, but this thread must be the owner.
+	 * Special case for Global Lock, any thread can release
+	 */
+	if ((obj_desc->mutex.owner_thread->thread_id != walk_state->thread->thread_id) &&
+		(obj_desc->mutex.semaphore != acpi_gbl_global_lock_semaphore)) {
+		ACPI_REPORT_ERROR ((
+			"Thread %X cannot release Mutex [%4.4s] acquired by thread %X\n",
+			walk_state->thread->thread_id,
+			acpi_ut_get_node_name (obj_desc->mutex.node),
+			obj_desc->mutex.owner_thread->thread_id));
 		return_ACPI_STATUS (AE_AML_NOT_OWNER);
 	}
 
@@ -209,7 +275,9 @@ acpi_ex_release_mutex (
 	 * The sync level of the mutex must be less than or
 	 * equal to the current sync level
 	 */
-	if (obj_desc->mutex.sync_level > walk_state->current_sync_level) {
+	if (obj_desc->mutex.sync_level > walk_state->thread->current_sync_level) {
+		ACPI_REPORT_ERROR (("Cannot release Mutex [%4.4s], incorrect sync_level\n",
+				acpi_ut_get_node_name (obj_desc->mutex.node)));
 		return_ACPI_STATUS (AE_AML_MUTEX_ORDER);
 	}
 
@@ -223,6 +291,9 @@ acpi_ex_release_mutex (
 		return_ACPI_STATUS (AE_OK);
 	}
 
+	/* Unlink the mutex from the owner's list */
+
+	acpi_ex_unlink_mutex (obj_desc);
 
 	/* Release the mutex */
 
@@ -230,12 +301,8 @@ acpi_ex_release_mutex (
 
 	/* Update the mutex and walk state */
 
-	obj_desc->mutex.owner = NULL;
-	walk_state->current_sync_level = obj_desc->mutex.sync_level;
-
-	/* Unlink the mutex from the owner's list */
-
-	acpi_ex_unlink_mutex (obj_desc);
+	obj_desc->mutex.owner_thread = NULL;
+	walk_state->thread->current_sync_level = obj_desc->mutex.sync_level;
 
 	return_ACPI_STATUS (status);
 }
@@ -243,9 +310,9 @@ acpi_ex_release_mutex (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_release_all_mutexes
+ * FUNCTION:    acpi_ex_release_all_mutexes
  *
- * PARAMETERS:  *Mutex_list           - Head of the mutex list
+ * PARAMETERS:  *mutex_list           - Head of the mutex list
  *
  * RETURN:      Status
  *
@@ -253,15 +320,16 @@ acpi_ex_release_mutex (
  *
  ******************************************************************************/
 
-acpi_status
+void
 acpi_ex_release_all_mutexes (
-	acpi_operand_object     *list_head)
+	struct acpi_thread_state        *thread)
 {
-	acpi_operand_object     *next = list_head->mutex.next;
-	acpi_operand_object     *this;
+	union acpi_operand_object       *next = thread->acquired_mutex_list;
+	union acpi_operand_object       *this;
+	acpi_status                     status;
 
 
-	FUNCTION_ENTRY ();
+	ACPI_FUNCTION_ENTRY ();
 
 
 	/*
@@ -271,19 +339,21 @@ acpi_ex_release_all_mutexes (
 		this = next;
 		next = this->mutex.next;
 
-		/* Mark mutex un-owned */
-
-		this->mutex.owner = NULL;
-		this->mutex.prev = NULL;
-		this->mutex.next = NULL;
-		this->mutex.acquisition_depth = 0;
+		this->mutex.acquisition_depth = 1;
+		this->mutex.prev             = NULL;
+		this->mutex.next             = NULL;
 
 		 /* Release the mutex */
 
-		acpi_ex_system_release_mutex (this);
-	}
+		status = acpi_ex_system_release_mutex (this);
+		if (ACPI_FAILURE (status)) {
+			continue;
+		}
 
-	return (AE_OK);
+		/* Mark mutex unowned */
+
+		this->mutex.owner_thread     = NULL;
+	}
 }
 
 

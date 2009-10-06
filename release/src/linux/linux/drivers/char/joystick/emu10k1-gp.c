@@ -1,5 +1,5 @@
 /*
- * $Id: emu10k1-gp.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: emu10k1-gp.c,v 1.2 2001/04/24 07:48:56 vojtech Exp $
  *
  *  Copyright (c) 2001 Vojtech Pavlik
  *

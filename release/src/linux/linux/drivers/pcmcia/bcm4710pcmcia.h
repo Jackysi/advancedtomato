@@ -2,7 +2,7 @@
  *
  * bcm47xx pcmcia driver
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -14,7 +14,7 @@
  *	from www.handhelds.org,
  * and au1000_generic.c from oss.sgi.com.
  *
- * $Id: bcm4710pcmcia.h,v 1.1.1.8 2005/03/07 07:30:49 kanki Exp $
+ * $Id$
  */
 
 #if !defined(_BCM4710PCMCIA_H)

@@ -424,6 +424,9 @@ static void    eth16i_multicast(struct net_device *dev);
 static void    eth16i_select_regbank(unsigned char regbank, int ioaddr);
 static void    eth16i_initialize(struct net_device *dev);
 
+#if 0
+static int     eth16i_set_irq(struct net_device *dev);
+#endif
 
 #ifdef MODULE
 static ushort  eth16i_parse_mediatype(const char* s);
@@ -802,6 +805,32 @@ static int eth16i_receive_probe_packet(int ioaddr)
 	return(0); /* Return success */
 }
 
+#if 0
+static int eth16i_set_irq(struct net_device* dev)
+{
+	const int ioaddr = dev->base_addr;
+	const int irq = dev->irq;
+	int i = 0;
+
+	if(ioaddr < 0x1000) {		
+		while(eth16i_irqmap[i] && eth16i_irqmap[i] != irq)
+			i++;
+	
+		if(i < NUM_OF_ISA_IRQS) {
+			u8 cbyte = inb(ioaddr + JUMPERLESS_CONFIG);
+			cbyte = (cbyte & 0x3F) | (i << 6);
+			outb(cbyte, ioaddr + JUMPERLESS_CONFIG);
+			return 0;
+		}
+	}
+	else {
+		printk(KERN_NOTICE "%s: EISA Interrupt cannot be set. Use EISA Configuration utility.\n", dev->name);
+	}
+	
+	return -1;
+
+}
+#endif
 
 static int __init eth16i_get_irq(int ioaddr)
 {
@@ -839,6 +868,17 @@ static int __init eth16i_check_signature(int ioaddr)
 	creg[0] &= 0x0F;      /* Mask collision cnr */
 	creg[2] &= 0x7F;      /* Mask DCLEN bit */
 
+#if 0
+	/* 
+	   This was removed because the card was sometimes left to state
+	   from which it couldn't be find anymore. If there is need
+	   to more strict check still this have to be fixed.
+	   */
+	if( ! ((creg[0] == 0x06) && (creg[1] == 0x41)) ) {
+		if(creg[1] != 0x42)
+			return -1;
+	}
+#endif
 
 	if( !((creg[2] == 0x36) && (creg[3] == 0xE0)) ) {
 		creg[2] &= 0x40;
@@ -1016,10 +1056,18 @@ static int eth16i_tx(struct sk_buff *skb, struct net_device *dev)
 	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
 	int ioaddr = dev->base_addr;
 	int status = 0;
-	ushort length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
-	unsigned char *buf = skb->data;
+	ushort length = skb->len;
+	unsigned char *buf;
 	unsigned long flags;
 
+	if(length < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
+	buf = skb->data;
 
 	netif_stop_queue(dev);
 		
@@ -1216,6 +1264,12 @@ static void eth16i_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		if(status & CR_LOST) lp->stats.tx_carrier_errors++;
 		if(status & TX_JABBER_ERR) lp->stats.tx_window_errors++;
 
+#if 0	       
+		if(status & COLLISION) {
+			lp->stats.collisions += 
+				((inb(ioaddr+TRANSMIT_MODE_REG) & 0xF0) >> 4);
+		}
+#endif
 		if(status & COLLISIONS_16) {
 			if(lp->col_16 < MAX_COL_16) { 
 				lp->col_16++;
@@ -1350,6 +1404,9 @@ static ushort eth16i_parse_mediatype(const char* s)
 
 static struct net_device dev_eth16i[MAX_ETH16I_CARDS];
 static int io[MAX_ETH16I_CARDS];
+#if 0
+static int irq[MAX_ETH16I_CARDS];
+#endif
 static char* mediatype[MAX_ETH16I_CARDS];
 static int debug = -1;
 
@@ -1362,6 +1419,10 @@ MODULE_LICENSE("GPL");
 MODULE_PARM(io, "1-" __MODULE_STRING(MAX_ETH16I_CARDS) "i");
 MODULE_PARM_DESC(io, "eth16i I/O base address(es)");
 
+#if 0
+MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_ETH16I_CARDS) "i");
+MODULE_PARM_DESC(irq, "eth16i interrupt request number");
+#endif
 
 MODULE_PARM(mediatype, "1-" __MODULE_STRING(MAX_ETH16I_CARDS) "s");
 MODULE_PARM_DESC(mediatype, "eth16i media type of interface(s) (bnc,tp,dix,auto,eprom)");

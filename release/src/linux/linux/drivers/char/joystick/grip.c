@@ -1,5 +1,5 @@
 /*
- * $Id: grip.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: grip.c,v 1.14 2000/06/06 21:13:36 vojtech Exp $
  *
  *  Copyright (c) 1998-2000 Vojtech Pavlik
  *

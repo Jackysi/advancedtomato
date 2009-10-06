@@ -32,9 +32,9 @@ static int __init cats_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 }
 
 struct hw_pci cats_pci __initdata = {
-	setup_resources:	dc21285_setup_resources,
-	init:			dc21285_init,
-	mem_offset:		DC21285_PCI_MEM,
-	swizzle:		no_swizzle,
-	map_irq:		cats_map_irq,
+	.setup_resources	= dc21285_setup_resources,
+	.init			= dc21285_init,
+	.mem_offset		= DC21285_PCI_MEM,
+	.swizzle		= no_swizzle,
+	.map_irq		= cats_map_irq,
 };

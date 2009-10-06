@@ -23,16 +23,10 @@
 
 
 /*
- * $Date: 2003/10/14 08:08:41 $
- * $Revision: 1.1.1.2 $
+ * $Date: 1995/09/22 02:32:56 $
+ * $Revision: 0.5 $
  *
- * $Log: qlogicfc.h,v $
- * Revision 1.1.1.2  2003/10/14 08:08:41  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:53  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: isp1020.h,v $
  * Revision 0.5  1995/09/22  02:32:56  root
  * do auto request sense
  *

@@ -88,6 +88,13 @@ int mvme147_detect(Scsi_Host_Template *tpnt)
 	    goto err_unregister;
     if (request_irq(MVME147_IRQ_SCSI_DMA, mvme147_intr, 0, "MVME147 SCSI DMA", mvme147_intr))
 	    goto err_free_irq;
+#if 0	/* Disabled; causes problems booting */
+    m147_pcc->scsi_interrupt = 0x10;	/* Assert SCSI bus reset */
+    udelay(100);
+    m147_pcc->scsi_interrupt = 0x00;	/* Negate SCSI bus reset */
+    udelay(2000);
+    m147_pcc->scsi_interrupt = 0x40;	/* Clear bus reset interrupt */
+#endif
     m147_pcc->scsi_interrupt = 0x09;	/* Enable interrupt */
 
     m147_pcc->dma_cntrl = 0x00;		/* ensure DMA is stopped */
@@ -115,6 +122,7 @@ static Scsi_Host_Template driver_template = MVME147_SCSI;
 int mvme147_release(struct Scsi_Host *instance)
 {
 #ifdef MODULE
+    /* XXX Make sure DMA is stopped! */
     wd33c93_release();
     free_irq(MVME147_IRQ_SCSI_PORT, mvme147_intr);
     free_irq(MVME147_IRQ_SCSI_DMA, mvme147_intr);

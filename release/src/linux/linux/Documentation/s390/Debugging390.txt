@@ -238,7 +238,7 @@ they go to 64 Bit.
 
 On 390 our limitations & strengths make us slightly different.
 For backward compatibility ( because of the psw address hi bit which
-indicates whether we are in 31 or 64 bit mode ) we are only allowed 
+indicates whether we are in 31 or 24 bit mode ) we are only allowed 
 use 31 bits (2GB) of our 32 bit addresses. However, 
 we use entirely separate address  spaces for the user & kernel.
 
@@ -1475,6 +1475,12 @@ Now display what gpr2 is pointing to
 D 00014CB4.20
 V00014CB4  2F646576 2F636F6E 736F6C65 00001BF5
 V00014CC4  FC00014C B4001001 E0001000 B8070707
+
+Alternatively you can do the more elegant
+D 0.20;BASE2
+BASE2 telling VM to use GPR2 as the base register.
+
+
 Now copy the text till the first 00 hex ( which is the end of the string
 to an xterm & do hex2ascii on it.
 hex2ascii 2F646576 2F636F6E 736F6C65 00 

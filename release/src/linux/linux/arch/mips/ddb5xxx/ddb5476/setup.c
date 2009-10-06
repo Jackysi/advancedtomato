@@ -41,7 +41,7 @@
 #define TIMER_IRQ			(VRC5476_IRQ_BASE + VRC5476_IRQ_GPT)
 #endif
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 extern void breakpoint(void);
 #endif
 
@@ -84,7 +84,7 @@ extern void rtc_ds1386_init(unsigned long base);
 static void __init ddb_time_init(void)
 {
 #if defined(USE_CPU_COUNTER_TIMER)
-	mips_counter_frequency = CPU_COUNTER_FREQUENCY;
+	mips_hpt_frequency = CPU_COUNTER_FREQUENCY;
 #endif
 
 	/* we have ds1396 RTC chip */
@@ -138,9 +138,6 @@ static struct {
 } ddb5476_iomem = {
 	{ "Nile 4", DDB_BASE, DDB_BASE + DDB_SIZE - 1, IORESOURCE_BUSY}
 };
-
-
-void __init bus_error_init(void) { /* nothing */ }
 
 
 static void ddb5476_board_init(void);
@@ -296,6 +293,11 @@ ddb5476_board_init(void)
 	// *(unsigned char*)0xa8040058 = 0x74;              // use SIRQ, primary tri-state
 	*(unsigned char *) 0xa8040058 = 0x75;	// primary tri-state
 
+#if 0
+	/* this is not necessary if M5229 does not use SIRQ */
+	*(unsigned char *) 0xa8040044 = 0x0d;	// primary to IRQ 14
+	*(unsigned char *) 0xa8040075 = 0x0d;	// secondary to IRQ 14
+#endif
 
 	/* enable IDE in the M5229 config register 0x50 (bit 0 - 1) */
 	/* M5229 IDSEL is addr:24; see above setting */

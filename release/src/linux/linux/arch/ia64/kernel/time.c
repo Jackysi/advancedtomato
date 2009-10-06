@@ -16,9 +16,6 @@
 #include <linux/time.h>
 #include <linux/interrupt.h>
 #include <linux/efi.h>
-#ifdef CONFIG_KERNPROF
-#include <linux/kernprof.h>
-#endif
 
 #include <asm/delay.h>
 #include <asm/hw_irq.h>
@@ -36,6 +33,30 @@ unsigned long last_cli_ip;
 
 #endif
 
+static void
+do_profile (unsigned long ip)
+{
+	extern unsigned long prof_cpu_mask;
+	extern char _stext;
+
+	if (!prof_buffer)
+		return;
+
+	if (!((1UL << smp_processor_id()) & prof_cpu_mask))
+		return;
+
+	ip -= (unsigned long) &_stext;
+	ip >>= prof_shift;
+	/*
+	 * Don't ignore out-of-bounds IP values silently, put them into the last
+	 * histogram slot, so if present, they will show up as a sharp peak.
+	 */
+	if (ip > prof_len - 1)
+		ip = prof_len - 1;
+
+	atomic_inc((atomic_t *) &prof_buffer[ip]);
+}
+
 /*
  * Return the number of micro-seconds that elapsed since the last update to jiffy.  The
  * xtime_lock must be at least read-locked when calling this routine.
@@ -52,7 +73,7 @@ gettimeoffset (void)
 
 	now = ia64_get_itc();
 	if ((long) (now - last_tick) < 0) {
-		printk("CPU %d: now < last_tick (now=0x%lx,last_tick=0x%lx)!\n",
+		printk(KERN_ERR "CPU %d: now < last_tick (now=0x%lx,last_tick=0x%lx)!\n",
 		       smp_processor_id(), now, last_tick);
 		return last_time_offset;
 	}
@@ -72,7 +93,6 @@ do_settimeofday (struct timeval *tv)
 		 * it!
 		 */
 		tv->tv_usec -= gettimeoffset();
-		tv->tv_usec -= (jiffies - wall_jiffies) * (1000000 / HZ);
 
 		while (tv->tv_usec < 0) {
 			tv->tv_usec += 1000000;
@@ -131,14 +151,18 @@ timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	new_itm = local_cpu_data->itm_next;
 
 	if (!time_after(ia64_get_itc(), new_itm))
-		printk("Oops: timer tick before it's due (itc=%lx,itm=%lx)\n",
+		printk(KERN_ERR "Oops: timer tick before it's due (itc=%lx,itm=%lx)\n",
 		       ia64_get_itc(), new_itm);
 
 	while (1) {
-#if defined(CONFIG_KERNPROF)
-		if (prof_timer_hook)
-			prof_timer_hook(regs);
-#endif
+		/*
+		 * Do kernel PC profiling here.  We multiply the instruction number by
+		 * four so that we can use a prof_shift of 2 to get instruction-level
+		 * instead of just bundle-level accuracy.
+		 */
+		if (!user_mode(regs))
+			do_profile(regs->cr_iip + 4*ia64_psr(regs)->ri);
+
 #ifdef CONFIG_SMP
 		smp_do_timer(regs);
 #endif
@@ -216,21 +240,22 @@ ia64_init_itm (void)
 	 */
 	status = ia64_sal_freq_base(SAL_FREQ_BASE_PLATFORM, &platform_base_freq, &drift);
 	if (status != 0) {
-		printk("SAL_FREQ_BASE_PLATFORM failed: %s\n", ia64_sal_strerror(status));
+		printk(KERN_ERR "SAL_FREQ_BASE_PLATFORM failed: %s\n", ia64_sal_strerror(status));
 	} else {
 		status = ia64_pal_freq_ratios(&proc_ratio, 0, &itc_ratio);
 		if (status != 0)
-			printk("PAL_FREQ_RATIOS failed with status=%ld\n", status);
+			printk(KERN_ERR "PAL_FREQ_RATIOS failed with status=%ld\n", status);
 	}
 	if (status != 0) {
 		/* invent "random" values */
-		printk("SAL/PAL failed to obtain frequency info---inventing reasonably values\n");
+		printk(KERN_ERR
+		       "SAL/PAL failed to obtain frequency info---inventing reasonably values\n");
 		platform_base_freq = 100000000;
 		itc_ratio.num = 3;
 		itc_ratio.den = 1;
 	}
 	if (platform_base_freq < 40000000) {
-		printk("Platform base frequency %lu bogus---resetting to 75MHz!\n",
+		printk(KERN_ERR "Platform base frequency %lu bogus---resetting to 75MHz!\n",
 		       platform_base_freq);
 		platform_base_freq = 75000000;
 	}
@@ -241,8 +266,8 @@ ia64_init_itm (void)
 
 	itc_freq = (platform_base_freq*itc_ratio.num)/itc_ratio.den;
 	local_cpu_data->itm_delta = (itc_freq + HZ/2) / HZ;
-	printk("CPU %d: base freq=%lu.%03luMHz, ITC ratio=%lu/%lu, ITC freq=%lu.%03luMHz\n",
-	       smp_processor_id(),
+	printk(KERN_INFO "CPU %d: base freq=%lu.%03luMHz, ITC ratio=%lu/%lu, "
+	       "ITC freq=%lu.%03luMHz\n", smp_processor_id(),
 	       platform_base_freq / 1000000, (platform_base_freq / 1000) % 1000,
 	       itc_ratio.num, itc_ratio.den, itc_freq / 1000000, (itc_freq / 1000) % 1000);
 
@@ -257,9 +282,9 @@ ia64_init_itm (void)
 }
 
 static struct irqaction timer_irqaction = {
-	handler:	timer_interrupt,
-	flags:		SA_INTERRUPT,
-	name:		"timer"
+	.handler =	timer_interrupt,
+	.flags =	SA_INTERRUPT,
+	.name =		"timer"
 };
 
 void __init

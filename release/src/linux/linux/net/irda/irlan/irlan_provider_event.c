@@ -72,7 +72,7 @@ void irlan_do_provider_event(struct irlan_cb *self, IRLAN_EVENT event,
 static int irlan_provider_state_idle(struct irlan_cb *self, IRLAN_EVENT event,
 				     struct sk_buff *skb)
 {
-	IRDA_DEBUG(4, __FUNCTION__ "()\n");
+	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
 	
 	ASSERT(self != NULL, return -1;);
 	
@@ -82,7 +82,7 @@ static int irlan_provider_state_idle(struct irlan_cb *self, IRLAN_EVENT event,
 	     irlan_next_provider_state( self, IRLAN_INFO);
 	     break;
 	default:
-		IRDA_DEBUG(4, __FUNCTION__ "(), Unknown event %d\n", event);
+		IRDA_DEBUG(4, "%s(), Unknown event %d\n", __FUNCTION__, event);
 		break;
 	}
 	if (skb)
@@ -101,7 +101,7 @@ static int irlan_provider_state_info(struct irlan_cb *self, IRLAN_EVENT event,
 {
 	int ret;
 
-	IRDA_DEBUG(4, __FUNCTION__ "()\n");
+	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
 	
 	ASSERT(self != NULL, return -1;);
 
@@ -130,6 +130,7 @@ static int irlan_provider_state_info(struct irlan_cb *self, IRLAN_EVENT event,
 	case IRLAN_OPEN_DATA_CMD:
 		ret = irlan_parse_open_data_cmd(self, skb);
 		if (self->provider.access_type == ACCESS_PEER) {
+			/* FIXME: make use of random functions! */
 			self->provider.send_arb_val = (jiffies & 0xffff);
 		}
 		irlan_provider_send_reply(self, CMD_OPEN_DATA_CHANNEL, ret);
@@ -146,7 +147,7 @@ static int irlan_provider_state_info(struct irlan_cb *self, IRLAN_EVENT event,
 		irlan_next_provider_state(self, IRLAN_IDLE);
 		break;
 	default:
-		IRDA_DEBUG( 0, __FUNCTION__ "(), Unknown event %d\n", event);
+		IRDA_DEBUG( 0, "%s(), Unknown event %d\n", __FUNCTION__, event);
 		break;
 	}
 	if (skb)
@@ -165,7 +166,7 @@ static int irlan_provider_state_info(struct irlan_cb *self, IRLAN_EVENT event,
 static int irlan_provider_state_open(struct irlan_cb *self, IRLAN_EVENT event, 
 				     struct sk_buff *skb)
 {
-	IRDA_DEBUG(4, __FUNCTION__ "()\n");
+	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
 
 	ASSERT(self != NULL, return -1;);
 
@@ -185,7 +186,7 @@ static int irlan_provider_state_open(struct irlan_cb *self, IRLAN_EVENT event,
 		irlan_next_provider_state(self, IRLAN_IDLE);
 		break;
 	default:
-		IRDA_DEBUG(2, __FUNCTION__ "(), Unknown event %d\n", event);
+		IRDA_DEBUG(2, "%s(), Unknown event %d\n", __FUNCTION__, event);
 		break;
 	}
 	if (skb)
@@ -204,7 +205,7 @@ static int irlan_provider_state_open(struct irlan_cb *self, IRLAN_EVENT event,
 static int irlan_provider_state_data(struct irlan_cb *self, IRLAN_EVENT event, 
 				     struct sk_buff *skb) 
 {
-	IRDA_DEBUG(4, __FUNCTION__ "()\n");
+	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
 
 	ASSERT(self != NULL, return -1;);
 	ASSERT(self->magic == IRLAN_MAGIC, return -1;);
@@ -220,7 +221,7 @@ static int irlan_provider_state_data(struct irlan_cb *self, IRLAN_EVENT event,
 		irlan_next_provider_state(self, IRLAN_IDLE);
 		break;
 	default:
-		IRDA_DEBUG( 0, __FUNCTION__ "(), Unknown event %d\n", event);
+		IRDA_DEBUG( 0, "%s(), Unknown event %d\n", __FUNCTION__, event);
 		break;
 	}
 	if (skb)

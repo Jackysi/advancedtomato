@@ -2,7 +2,7 @@ BOOKS	:= wanbook.sgml z8530book.sgml mcabook.sgml videobook.sgml \
 	   kernel-api.sgml parportbook.sgml kernel-hacking.sgml \
 	   kernel-locking.sgml via-audio.sgml mousedrivers.sgml sis900.sgml \
 	   deviceiobook.sgml procfs-guide.sgml tulip-user.sgml \
-	   journal-api.sgml
+	   journal-api.sgml libata.sgml
 
 PS	:=	$(patsubst %.sgml, %.ps, $(BOOKS))
 PDF	:=	$(patsubst %.sgml, %.pdf, $(BOOKS))
@@ -78,6 +78,16 @@ deviceiobook.sgml: deviceiobook.tmpl
 mcabook.sgml: mcabook.tmpl $(TOPDIR)/arch/i386/kernel/mca.c
 	$(TOPDIR)/scripts/docgen $(TOPDIR)/arch/i386/kernel/mca.c \
 		<mcabook.tmpl >mcabook.sgml
+
+libata.sgml: libata.tmpl $(TOPDIR)/drivers/scsi/libata-core.c \
+		$(TOPDIR)/drivers/scsi/libata-scsi.c	\
+		$(TOPDIR)/drivers/scsi/sata_sil.c	\
+		$(TOPDIR)/drivers/scsi/sata_via.c
+	$(TOPDIR)/scripts/docgen $(TOPDIR)/drivers/scsi/libata-core.c \
+		$(TOPDIR)/drivers/scsi/libata-scsi.c	\
+		$(TOPDIR)/drivers/scsi/sata_sil.c	\
+		$(TOPDIR)/drivers/scsi/sata_via.c	\
+		< libata.tmpl > libata.sgml
 
 videobook.sgml: videobook.tmpl $(TOPDIR)/drivers/media/video/videodev.c
 	$(TOPDIR)/scripts/docgen $(TOPDIR)/drivers/media/video/videodev.c \

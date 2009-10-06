@@ -1,7 +1,7 @@
 /* tulip_core.c: A DEC 21x4x-family ethernet driver for Linux. */
 
 /*
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2000-2002  The Linux Kernel Team
 	Written/copyright 1994-2001 by Donald Becker.
 
@@ -20,8 +20,8 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
-#include "tulip.h"
 #include <linux/pci.h>
+#include "tulip.h"
 #include <linux/init.h>
 #include <linux/etherdevice.h>
 #include <linux/delay.h>
@@ -63,7 +63,7 @@ const char * const medianame[32] = {
 /* Set the copy breakpoint for the copy-only-tiny-buffer Rx structure. */
 #if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
 	|| defined(__sparc_) || defined(__ia64__) \
-	|| defined(__sh__) || defined(__mips__)
+	|| defined(__sh__) || defined(__mips__) || defined(__SH5__)
 static int rx_copybreak = 1518;
 #else
 static int rx_copybreak = 100;
@@ -176,7 +176,7 @@ struct tulip_chip_table tulip_tbl[] = {
 
   /* COMET */
   { "ADMtek Comet", 256, 0x0001abef,
-	MC_HASH_ONLY | COMET_MAC_ADDR, comet_timer },
+	HAS_MII | MC_HASH_ONLY | COMET_MAC_ADDR, comet_timer },
 
   /* COMPEX9881 */
   { "Compex 9881 PMAC", 128, 0x0001ebef,
@@ -226,10 +226,15 @@ static struct pci_device_id tulip_pci_tbl[] __devinitdata = {
 	{ 0x1113, 0x1216, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x1113, 0x1217, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MX98715 },
 	{ 0x1113, 0x9511, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+	{ 0x1186, 0x1541, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x1186, 0x1561, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x1626, 0x8410, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x1737, 0xAB09, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+	{ 0x1737, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+	{ 0x17B3, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
 	{ 0x14f1, 0x1803, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CONEXANT },
+	{ 0x10b9, 0x5261, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },	/* ALi 1563 integrated ethernet */
+	{ 0x10b7, 0x9300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },	/* 3Com 3CSOHO100B-TX */
 	{ } /* terminate list */
 };
 MODULE_DEVICE_TABLE(pci, tulip_pci_tbl);
@@ -316,8 +321,8 @@ static void tulip_up(struct net_device *dev)
 	tp->dirty_rx = tp->dirty_tx = 0;
 
 	if (tp->flags & MC_HASH_ONLY) {
-		u32 addr_low = cpu_to_le32(get_unaligned((u32 *)dev->dev_addr));
-		u32 addr_high = cpu_to_le32(get_unaligned((u16 *)(dev->dev_addr+4)));
+		u32 addr_low = le32_to_cpu(get_unaligned((u32 *)dev->dev_addr));
+		u32 addr_high = le16_to_cpu(get_unaligned((u16 *)(dev->dev_addr+4)));
 		if (tp->chip_id == AX88140) {
 			outl(0, ioaddr + CSR13);
 			outl(addr_low,  ioaddr + CSR14);
@@ -575,7 +580,7 @@ static void tulip_tx_timeout(struct net_device *dev)
 					dev->if_port = 2 - dev->if_port;
 				} else
 					dev->if_port = 0;
-			else
+			else if (dev->if_port != 0 || (csr12 & 0x0004) != 0)
 				dev->if_port = 1;
 			tulip_select_media(dev, 0);
 		}
@@ -1069,12 +1074,12 @@ static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
 
 		set_bit_le(index, hash_table);
 
-		for (i = 0; i < 32; i++) {
-			*setup_frm++ = hash_table[i];
-			*setup_frm++ = hash_table[i];
-		}
-		setup_frm = &tp->setup_frame[13*6];
 	}
+	for (i = 0; i < 32; i++) {
+		*setup_frm++ = hash_table[i];
+		*setup_frm++ = hash_table[i];
+	}
+	setup_frm = &tp->setup_frame[13*6];
 
 	/* Fill the final entry with our physical address. */
 	eaddrs = (u16 *)dev->dev_addr;
@@ -1174,11 +1179,13 @@ static void set_rx_mode(struct net_device *dev)
 		}
 	} else {
 		unsigned long flags;
+		u32 tx_flags = 0x08000000 | 192;
 
 		/* Note that only the low-address shortword of setup_frame is valid!
 		   The values are doubled for big-endian architectures. */
 		if (dev->mc_count > 14) { /* Must use a multicast hash table. */
 			build_setup_frame_hash(tp->setup_frame, dev);
+			tx_flags = 0x08400000 | 192;
 		} else {
 			build_setup_frame_perfect(tp->setup_frame, dev);
 		}
@@ -1188,7 +1195,6 @@ static void set_rx_mode(struct net_device *dev)
 		if (tp->cur_tx - tp->dirty_tx > TX_RING_SIZE - 2) {
 			/* Same setup recently queued, we need not add it. */
 		} else {
-			u32 tx_flags = 0x08000000 | 192;
 			unsigned int entry;
 			int dummy = -1;
 
@@ -1385,6 +1391,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 		csr0 = MRL | MRM | (8 << BurstLenShift) | (1 << CALShift);
 		force_csr0 = 1;
 	}
+	/* The dreaded SiS496 486 chipset. Same workaround as above. */
 	if (pci_find_device(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_496, NULL)) {
 		csr0 = MRL | MRM | (8 << BurstLenShift) | (1 << CALShift);
 		force_csr0 = 1;
@@ -1401,12 +1408,14 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 		csr0 &= ~0xfff10000; /* zero reserved bits 31:20, 16 */
 
 	/* DM9102A has troubles with MRM & clear reserved bits 24:22, 20, 16, 7:1 */
-	if (pdev->vendor == 0x1282 && pdev->device == 0x9102)
+	if ((pdev->vendor == 0x1282 && pdev->device == 0x9102)
+		|| (pdev->vendor == 0x10b9 && pdev->device == 0x5261))
 		csr0 &= ~0x01f100ff;
 
 #if defined(__sparc__)
         /* DM9102A needs 32-dword alignment/burst length on sparc - chip bug? */
-        if (pdev->vendor == 0x1282 && pdev->device == 0x9102)
+	if ((pdev->vendor == 0x1282 && pdev->device == 0x9102)
+		|| (pdev->vendor == 0x10b9 && pdev->device == 0x5261))
                 csr0 = (csr0 & ~0xff00) | 0xe000;
 #endif
 
@@ -1536,8 +1545,8 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 		}
 	} else if (chip_idx == COMET) {
 		/* No need to read the EEPROM. */
-		put_unaligned(inl(ioaddr + 0xA4), (u32 *)dev->dev_addr);
-		put_unaligned(inl(ioaddr + 0xA8), (u16 *)(dev->dev_addr + 4));
+		put_unaligned(cpu_to_le32(inl(ioaddr + 0xA4)), (u32 *)dev->dev_addr);
+		put_unaligned(cpu_to_le16(inl(ioaddr + 0xA8)), (u16 *)(dev->dev_addr + 4));
 		for (i = 0; i < 6; i ++)
 			sum += dev->dev_addr[i];
 	} else {
@@ -1645,7 +1654,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 			    dev->dev_addr, 6);
 		}
 #endif
-#if defined(__i386__)		    /* Patch up x86 BIOS bug. */
+#if defined(__i386__)		/* Patch up x86 BIOS bug. */
 		if (last_irq)
 			irq = last_irq;
 #endif
@@ -1854,7 +1863,9 @@ static int tulip_resume(struct pci_dev *pdev)
 	struct net_device *dev = pci_get_drvdata(pdev);
 
 	if (dev && netif_running (dev) && !netif_device_present (dev)) {
+#if 1
 		pci_enable_device (pdev);
+#endif
 		/* pci_power_on(pdev); */
 		tulip_up (dev);
 		netif_device_attach (dev);
@@ -1874,11 +1885,11 @@ static void __devexit tulip_remove_one (struct pci_dev *pdev)
 		return;
 
 	tp = dev->priv;
+	unregister_netdev (dev);
 	pci_free_consistent (pdev,
 			     sizeof (struct tulip_rx_desc) * RX_RING_SIZE +
 			     sizeof (struct tulip_tx_desc) * TX_RING_SIZE,
 			     tp->rx_ring, tp->rx_ring_dma);
-	unregister_netdev (dev);
 	if (tp->mtable)
 		kfree (tp->mtable);
 #ifndef USE_IO_OPS

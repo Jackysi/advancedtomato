@@ -37,7 +37,7 @@
 
 int DRM(open_helper)(struct inode *inode, struct file *filp, drm_device_t *dev)
 {
-	kdev_t	     minor = MINOR(inode->i_rdev);
+	int	     minor = minor(inode->i_rdev);
 	drm_file_t   *priv;
 
 	if (filp->f_flags & O_EXCL)   return -EBUSY; /* No exclusive opens */
@@ -94,21 +94,8 @@ int DRM(flush)(struct file *filp)
 	drm_file_t    *priv   = filp->private_data;
 	drm_device_t  *dev    = priv->dev;
 
-	DRM_DEBUG("pid = %d, device = 0x%x, open_count = %d\n",
-		  current->pid, dev->device, dev->open_count);
-	if ( dev->lock.hw_lock &&
-	     _DRM_LOCK_IS_HELD(dev->lock.hw_lock->lock) &&
-	     dev->lock.pid == current->pid ) {
-		DRM_DEBUG( "Process %d closed fd, freeing lock for context %d\n",
-			   current->pid,
-			   _DRM_LOCKING_CONTEXT(dev->lock.hw_lock->lock) );
-#if __HAVE_RELEASE
-		DRIVER_RELEASE();
-#endif
-		DRM(lock_free)( dev, &dev->lock.hw_lock->lock,
-				_DRM_LOCKING_CONTEXT(dev->lock.hw_lock->lock) );
-
-	}
+	DRM_DEBUG("pid = %d, device = 0x%lx, open_count = %d\n",
+		  current->pid, (long)dev->device, dev->open_count);
 	return 0;
 }
 
@@ -118,7 +105,7 @@ int DRM(fasync)(int fd, struct file *filp, int on)
 	drm_device_t  *dev    = priv->dev;
 	int	      retcode;
 
-	DRM_DEBUG("fd = %d, device = 0x%x\n", fd, dev->device);
+	DRM_DEBUG("fd = %d, device = 0x%lx\n", fd, (long)dev->device);
 	retcode = fasync_helper(fd, filp, on, &dev->buf_async);
 	if (retcode < 0) return retcode;
 	return 0;

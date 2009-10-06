@@ -105,6 +105,7 @@ void * dst_alloc(struct dst_ops * ops)
 	if (!dst)
 		return NULL;
 	memset(dst, 0, ops->entry_size);
+	atomic_set(&dst->__refcnt, 0);
 	dst->ops = ops;
 	dst->lastuse = jiffies;
 	dst->input = dst_discard;
@@ -131,11 +132,9 @@ void __dst_free(struct dst_entry * dst)
 	dst->next = dst_garbage_list;
 	dst_garbage_list = dst;
 	if (dst_gc_timer_inc > DST_GC_INC) {
-		del_timer(&dst_gc_timer);
 		dst_gc_timer_inc = DST_GC_INC;
 		dst_gc_timer_expires = DST_GC_MIN;
-		dst_gc_timer.expires = jiffies + dst_gc_timer_expires;
-		add_timer(&dst_gc_timer);
+		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
 	}
 
 	spin_unlock_bh(&dst_lock);
@@ -143,8 +142,13 @@ void __dst_free(struct dst_entry * dst)
 
 void dst_destroy(struct dst_entry * dst)
 {
-	struct neighbour *neigh = dst->neighbour;
-	struct hh_cache *hh = dst->hh;
+	struct neighbour *neigh;
+	struct hh_cache *hh;
+
+	smp_rmb();
+
+	neigh = dst->neighbour;
+	hh = dst->hh;
 
 	dst->hh = NULL;
 	if (hh && atomic_dec_and_test(&hh->hh_refcnt))

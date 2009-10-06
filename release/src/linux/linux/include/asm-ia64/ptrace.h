@@ -2,6 +2,7 @@
 #define _ASM_IA64_PTRACE_H
 
 /*
+ * Copyright (C) 1998-2001 Suresh Siddha <suresh.b.siddha@intel.com>  
  * Copyright (C) 1998-2001 Hewlett-Packard Co
  * Copyright (C) 1998-2001 David Mosberger-Tang <davidm@hpl.hp.com>
  * Copyright (C) 1998, 1999 Stephane Eranian <eranian@hpl.hp.com>
@@ -90,7 +91,20 @@
  *
  */
 struct pt_regs {
-	/* The following registers are saved by SAVE_MIN: */
+	/* In break_fault, only registers from cr_ipsr to r15 are saved. 
+	 * In any other interruptions, the registers cr_ipsr~r15, r8~r11, and r14~r3 are saved by 
+	 * SAVE_MIN and all other registers are saved by SAVE_REST.
+	 */
+	unsigned long b6;		/* scratch */
+	unsigned long b7;		/* scratch */
+
+	unsigned long ar_csd;           /* used by cmp8xchg16 (scratch) */
+	unsigned long ar_ssd;           /* reserved for future use (scratch) */
+
+	unsigned long r8;		/* scratch (return value register 0) */
+	unsigned long r9;		/* scratch (return value register 1) */
+	unsigned long r10;		/* scratch (return value register 2) */
+	unsigned long r11;		/* scratch (return value register 3) */
 
 	unsigned long cr_ipsr;		/* interrupted task's psr */
 	unsigned long cr_iip;		/* interrupted task's instruction pointer */
@@ -104,23 +118,19 @@ struct pt_regs {
 	unsigned long ar_bspstore;	/* RSE bspstore */
 
 	unsigned long pr;		/* 64 predicate registers (1 bit each) */
-	unsigned long b6;		/* scratch */
+	unsigned long b0;		/* return pointer (bp) */
 	unsigned long loadrs;		/* size of dirty partition << 16 */
 
 	unsigned long r1;		/* the gp pointer */
-	unsigned long r2;		/* scratch */
-	unsigned long r3;		/* scratch */
 	unsigned long r12;		/* interrupted task's memory stack pointer */
 	unsigned long r13;		/* thread pointer */
-	unsigned long r14;		/* scratch */
+
+	unsigned long ar_fpsr;		/* floating point status (preserved) */
 	unsigned long r15;		/* scratch */
 
-	unsigned long r8;		/* scratch (return value register 0) */
-	unsigned long r9;		/* scratch (return value register 1) */
-	unsigned long r10;		/* scratch (return value register 2) */
-	unsigned long r11;		/* scratch (return value register 3) */
-
-	/* The following registers are saved by SAVE_REST: */
+	unsigned long r14;		/* scratch */
+	unsigned long r2;		/* scratch */
+	unsigned long r3;		/* scratch */
 
 	unsigned long r16;		/* scratch */
 	unsigned long r17;		/* scratch */
@@ -140,10 +150,7 @@ struct pt_regs {
 	unsigned long r31;		/* scratch */
 
 	unsigned long ar_ccv;		/* compare/exchange value (scratch) */
-	unsigned long ar_fpsr;		/* floating point status (preserved) */
 
-	unsigned long b0;		/* return pointer (bp) */
-	unsigned long b7;		/* scratch */
 	/*
 	 * Floating point registers that the kernel considers
 	 * scratch:
@@ -152,6 +159,8 @@ struct pt_regs {
 	struct ia64_fpreg f7;		/* scratch */
 	struct ia64_fpreg f8;		/* scratch */
 	struct ia64_fpreg f9;		/* scratch */
+	struct ia64_fpreg f10;		/* scratch */
+	struct ia64_fpreg f11;		/* scratch */
 };
 
 /*
@@ -168,8 +177,6 @@ struct switch_stack {
 	struct ia64_fpreg f4;		/* preserved */
 	struct ia64_fpreg f5;		/* preserved */
 
-	struct ia64_fpreg f10;		/* scratch, but untouched by kernel */
-	struct ia64_fpreg f11;		/* scratch, but untouched by kernel */
 	struct ia64_fpreg f12;		/* scratch, but untouched by kernel */
 	struct ia64_fpreg f13;		/* scratch, but untouched by kernel */
 	struct ia64_fpreg f14;		/* scratch, but untouched by kernel */
@@ -218,8 +225,10 @@ struct switch_stack {
 # define user_mode(regs)		(((struct ia64_psr *) &(regs)->cr_ipsr)->cpl != 0)
 
   struct task_struct;			/* forward decl */
+  struct unw_frame_info;		/* forward decl */
 
   extern void show_regs (struct pt_regs *);
+  extern void ia64_do_show_stack (struct unw_frame_info *, void *);
   extern unsigned long ia64_get_user_rbs_end (struct task_struct *, struct pt_regs *,
 					      unsigned long *);
   extern long ia64_peek (struct task_struct *, struct switch_stack *, unsigned long,
@@ -239,11 +248,10 @@ struct switch_stack {
   extern void ia64_increment_ip (struct pt_regs *pt);
   extern void ia64_decrement_ip (struct pt_regs *pt);
 
-static inline void
-force_successful_syscall_return (void)
-{
-	ia64_task_regs(current)->r8 = 0;
-}
+#define force_successful_syscall_return()		\
+	do {						\
+		ia64_task_regs(current)->r8 = 0;	\
+	} while (0)
 
 #endif /* !__KERNEL__ */
 

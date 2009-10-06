@@ -3,7 +3,7 @@
 	 * disturbance of register allocation in some inline assembly constructs.
 	 * Copyright 2001,2002 by Andi Kleen, SuSE Labs.
 	 * Subject to the GNU public license, v.2. No warranty of any kind.
-	 * $Id: thunk.S,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+	 * $Id: thunk.S,v 1.2 2002/03/13 20:06:58 ak Exp $
 	 */
 
 	#include <linux/config.h>

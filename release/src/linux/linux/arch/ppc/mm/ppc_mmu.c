@@ -1,16 +1,10 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains the routines for handling the MMU on those
  * PowerPC implementations where the MMU substantially follows the
  * architecture specification.  This includes the 6xx, 7xx, 7xxx,
  * 8260, and POWER3 implementations but excludes the 8xx and 4xx.
- * Although the iSeries hardware does comply with the architecture
- * specification, the need to work through the hypervisor makes
- * things sufficiently different that it is handled elsewhere.
  *  -- paulus
- * 
+ *
  *  Derived from arch/ppc/mm/init.c:
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *
@@ -89,13 +83,13 @@ unsigned long p_mapped_by_bats(unsigned long pa)
 void __init bat_mapin_ram(unsigned long bat2, unsigned long bat3)
 {
 	unsigned long tot, done;
-	
+
 	tot = total_lowmem;
-	setbat(2, KERNELBASE, ram_phys_base, bat2, _PAGE_KERNEL);
+	setbat(2, KERNELBASE, PPC_MEMSTART, bat2, _PAGE_KERNEL);
 	done = (unsigned long)bat_addrs[2].limit - KERNELBASE + 1;
 	if ((done < tot) && !bat_addrs[3].limit && bat3) {
 		tot -= done;
-		setbat(3, KERNELBASE+done, ram_phys_base+done, bat3, 
+		setbat(3, KERNELBASE+done, PPC_MEMSTART+done, bat3,
 		       _PAGE_KERNEL);
 	}
 }
@@ -112,10 +106,10 @@ void __init setbat(int index, unsigned long virt, unsigned long phys,
 	int wimgxpp;
 	union ubat *bat = BATS[index];
 
-#ifdef CONFIG_SMP
-	if ((flags & _PAGE_NO_CACHE) == 0)
+	if (((flags & _PAGE_NO_CACHE) == 0) &&
+	    (cur_cpu_spec[0]->cpu_features & CPU_FTR_NEED_COHERENT))
 		flags |= _PAGE_COHERENT;
-#endif
+
 	bl = (size >> 17) - 1;
 	if (PVR_VER(mfspr(PVR)) != 1) {
 		/* 603, 604, etc. */
@@ -125,7 +119,7 @@ void __init setbat(int index, unsigned long virt, unsigned long phys,
 		wimgxpp |= (flags & _PAGE_RW)? BPP_RW: BPP_RX;
 		bat[1].word[0] = virt | (bl << 2) | 2; /* Vs=1, Vp=0 */
 		bat[1].word[1] = phys | wimgxpp;
-#ifndef CONFIG_KGDB     /* want user access for breakpoints */
+#ifndef CONFIG_KGDB /* want user access for breakpoints */
 		if (flags & _PAGE_USER)
 #endif
 			bat[1].bat.batu.vp = 1;
@@ -184,6 +178,17 @@ void __init MMU_init_hw(void)
 #define MIN_N_HPTEG	1024		/* min 64kB hash table */
 #endif
 
+#ifdef CONFIG_POWER4
+	/* The hash table has already been allocated and initialized
+	   in prom.c */
+	n_hpteg = Hash_size >> LG_HPTEG_SIZE;
+	lg_n_hpteg = __ilog2(n_hpteg);
+
+	/* Remove the hash table from the available memory */
+	if (Hash)
+		reserve_phys_mem(__pa(Hash), Hash_size);
+
+#else /* CONFIG_POWER4 */
 	/*
 	 * Allow 1 HPTE (1/8 HPTEG) for each page of memory.
 	 * This is less than the recommended amount, but then
@@ -207,6 +212,7 @@ void __init MMU_init_hw(void)
 	cacheable_memzero(Hash, Hash_size);
 	_SDR1 = __pa(Hash) | SDR1_LOW_BITS;
 	Hash_end = (PTE *) ((unsigned long)Hash + Hash_size);
+#endif /* CONFIG_POWER4 */
 
 	printk("Total memory = %ldMB; using %ldkB for hash table (at %p)\n",
 	       total_memory >> 20, Hash_size >> 10, Hash);

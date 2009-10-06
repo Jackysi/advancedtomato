@@ -40,7 +40,7 @@
 
 #define SET_OPTION(optname) \
    do { \
-        reiserfs_warning("reiserfs: option \"%s\" is set\n", #optname); \
+        reiserfs_warning(s, "reiserfs: option \"%s\" is set\n", #optname); \
         set_bit(_ALLOC_ ## optname , &SB_ALLOC_OPTS(s)); \
     } while(0)
 #define TEST_OPTION(optname, s) \
@@ -66,7 +66,7 @@ int is_reusable (struct super_block * s, unsigned long block, int bit_value)
     int i, j;
 
     if (block == 0 || block >= SB_BLOCK_COUNT (s)) {
-	reiserfs_warning ("vs-4010: is_reusable: block number is out of range %lu (%u)\n",
+	reiserfs_warning (s, "vs-4010: is_reusable: block number is out of range %lu (%u)\n",
 			  block, SB_BLOCK_COUNT (s));
 	return 0;
     }
@@ -74,7 +74,7 @@ int is_reusable (struct super_block * s, unsigned long block, int bit_value)
     /* it can't be one of the bitmap blocks */
     for (i = 0; i < SB_BMAP_NR (s); i ++)
 	if (block == SB_AP_BITMAP (s)[i].bh->b_blocknr) {
-	    reiserfs_warning ("vs: 4020: is_reusable: "
+	    reiserfs_warning (s, "vs: 4020: is_reusable: "
 			      "bitmap block %lu(%u) can't be freed or reused\n",
 			      block, SB_BMAP_NR (s));
 	    return 0;
@@ -83,7 +83,7 @@ int is_reusable (struct super_block * s, unsigned long block, int bit_value)
     get_bit_address (s, block, &i, &j);
 
     if (i >= SB_BMAP_NR (s)) {
-	reiserfs_warning ("vs-4030: is_reusable: there is no so many bitmap blocks: "
+	reiserfs_warning (s, "vs-4030: is_reusable: there is no so many bitmap blocks: "
 			  "block=%lu, bitmap_nr=%d\n", block, i);
 	return 0;
     }
@@ -92,7 +92,7 @@ int is_reusable (struct super_block * s, unsigned long block, int bit_value)
          reiserfs_test_le_bit(j, SB_AP_BITMAP(s)[i].bh->b_data)) ||
 	(bit_value == 1 && 
 	 reiserfs_test_le_bit(j, SB_AP_BITMAP (s)[i].bh->b_data) == 0)) {
-	reiserfs_warning ("vs-4040: is_reusable: corresponding bit of block %lu does not "
+	reiserfs_warning (s, "vs-4040: is_reusable: corresponding bit of block %lu does not "
 			  "match required value (i==%d, j==%d) test_bit==%d\n",
 		block, i, j, reiserfs_test_le_bit (j, SB_AP_BITMAP (s)[i].bh->b_data));
 		
@@ -100,7 +100,7 @@ int is_reusable (struct super_block * s, unsigned long block, int bit_value)
     }
 
     if (bit_value == 0 && block == SB_ROOT_BLOCK (s)) {
-	reiserfs_warning ("vs-4050: is_reusable: this is root block (%u), "
+	reiserfs_warning (s, "vs-4050: is_reusable: this is root block (%u), "
 			  "it must be busy\n", SB_ROOT_BLOCK (s));
 	return 0;
     }
@@ -304,7 +304,7 @@ static void _reiserfs_free_block (struct reiserfs_transaction_handle *th,
     get_bit_address (s, block, &nr, &offset);
   
     if (nr >= sb_bmap_nr (rs)) {
-	reiserfs_warning ("vs-4075: reiserfs_free_block: "
+	reiserfs_warning (s, "vs-4075: reiserfs_free_block: "
 			  "block %lu is out of range on %s\n",
 			  block, bdevname(s->s_dev));
 	return;
@@ -314,7 +314,7 @@ static void _reiserfs_free_block (struct reiserfs_transaction_handle *th,
   
     /* clear bit for the given block in bit map */
     if (!reiserfs_test_and_clear_le_bit (offset, apbi[nr].bh->b_data)) {
-	reiserfs_warning ("vs-4080: reiserfs_free_block: "
+	reiserfs_warning (s, "vs-4080: reiserfs_free_block: "
 			  "free_block (%04x:%lu)[dev:blocknr]: bit already cleared\n", 
 			  s->s_dev, block);
     }
@@ -356,7 +356,7 @@ static void __discard_prealloc (struct reiserfs_transaction_handle * th,
     unsigned long save = inode->u.reiserfs_i.i_prealloc_block ;
 #ifdef CONFIG_REISERFS_CHECK
     if (inode->u.reiserfs_i.i_prealloc_count < 0)
-	reiserfs_warning("zam-4001:%s: inode has negative prealloc blocks count.\n", __FUNCTION__ );
+	reiserfs_warning(th->t_super, "zam-4001:%s: inode has negative prealloc blocks count.\n", __FUNCTION__ );
 #endif  
     while (inode->u.reiserfs_i.i_prealloc_count > 0) {
 	reiserfs_free_prealloc_block(th,inode->u.reiserfs_i.i_prealloc_block);
@@ -367,6 +367,7 @@ static void __discard_prealloc (struct reiserfs_transaction_handle * th,
     list_del (&(inode->u.reiserfs_i.i_prealloc_list));
 }
 
+/* FIXME: It should be inline function */
 void reiserfs_discard_prealloc (struct reiserfs_transaction_handle *th,
 				struct inode * inode)
 {
@@ -384,7 +385,7 @@ void reiserfs_discard_all_prealloc (struct reiserfs_transaction_handle *th)
     inode = list_entry(plist->next, struct inode, u.reiserfs_i.i_prealloc_list);
 #ifdef CONFIG_REISERFS_CHECK
     if (!inode->u.reiserfs_i.i_prealloc_count) {
-      reiserfs_warning("zam-4001:%s: inode is in prealloc list but has no preallocated blocks.\n", __FUNCTION__ );
+      reiserfs_warning(th->t_super, "zam-4001:%s: inode is in prealloc list but has no preallocated blocks.\n", __FUNCTION__ );
     }
 #endif
     __discard_prealloc(th, inode);
@@ -471,7 +472,7 @@ int reiserfs_parse_alloc_options(struct super_block * s, char * options)
 	    continue;
 	}
 
-	reiserfs_warning("zam-4001: %s : unknown option - %s\n", __FUNCTION__ , this_char);
+	reiserfs_warning(s, "zam-4001: %s : unknown option - %s\n", __FUNCTION__ , this_char);
 	return 1;
     }
 
@@ -727,6 +728,8 @@ static int determine_prealloc_size(reiserfs_blocknr_hint_t * hint)
     return CARRY_ON;
 }
 
+/* XXX I know it could be merged with upper-level function;
+   but may be result function would be too complex. */
 static inline int allocate_without_wrapping_disk (reiserfs_blocknr_hint_t * hint,
 					 b_blocknr_t * new_blocknrs,
 					 b_blocknr_t start, b_blocknr_t finish,

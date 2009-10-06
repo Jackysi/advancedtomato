@@ -369,8 +369,8 @@ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
 {
 	struct net_local *lp = dev->priv;
 	int ioaddr = dev->base_addr;
-	short length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
-	unsigned char *buf = skb->data;
+	short length = skb->len;
+	unsigned char *buf;
 	unsigned long flags;
 
 	/* Block a transmit from overlapping.  */
@@ -381,6 +381,16 @@ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
 				dev->name, length);
 		return 1;
 	}
+	
+	if (length < ETH_ZLEN)
+	{
+		skb = skb_padto(skb, ETH_ZLEN);
+		if(skb == NULL)
+			return 0;
+		length = ETH_ZLEN;
+	}
+	buf = skb->data;
+	
 	if (net_debug > 4)
 		printk("%s: Transmitting a packet of length %lu.\n", dev->name,
 			   (unsigned long)skb->len);

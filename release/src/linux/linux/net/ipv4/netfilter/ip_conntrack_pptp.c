@@ -69,7 +69,7 @@ DECLARE_LOCK(ip_pptp_lock);
 #define DAYS * 24 HOURS
 
 #define PPTP_GRE_TIMEOUT 		(10 MINS)
-#define PPTP_GRE_STREAM_TIMEOUT 	(5 DAYS)
+#define PPTP_GRE_STREAM_TIMEOUT 	(6 HOURS)
 
 static int pptp_expectfn(struct ip_conntrack *ct)
 {
@@ -134,7 +134,7 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 }
 
 /* timeout GRE data connections */
-static int pptp_timeout_related(struct ip_conntrack *ct)
+static int pptp_timeout_related(struct ip_conntrack *ct, enum ip_conntrack_info ctinfo, const struct iphdr *iph)
 {
 	struct list_head *cur_item, *next;
 	struct ip_conntrack_expect *exp;
@@ -156,7 +156,7 @@ static int pptp_timeout_related(struct ip_conntrack *ct)
 			exp->sibling);
 		exp->sibling->proto.gre.timeout = 0;
 		exp->sibling->proto.gre.stream_timeout = 0;
-		ip_ct_refresh(exp->sibling, 0);
+		ip_ct_refresh_acct(exp->sibling, ctinfo, iph, 0);
 	}
 
 	return 0;
@@ -178,16 +178,12 @@ exp_gre(struct ip_conntrack *master,
 	exp.tuple.src.u.gre.key = htonl(ntohs(peer_callid));
 	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip;
 	exp.tuple.dst.u.gre.key = htonl(ntohs(callid));
-	exp.tuple.dst.u.gre.protocol = __constant_htons(GRE_PROTOCOL_PPTP);
-	exp.tuple.dst.u.gre.version = GRE_VERSION_PPTP;
 	exp.tuple.dst.protonum = IPPROTO_GRE;
 
 	exp.mask.src.ip = 0xffffffff;
 	exp.mask.src.u.all = 0;
 	exp.mask.dst.u.all = 0;
 	exp.mask.dst.u.gre.key = 0xffffffff;
-	exp.mask.dst.u.gre.version = 0xff;
-	exp.mask.dst.u.gre.protocol = 0xffff;
 	exp.mask.dst.ip = 0xffffffff;
 	exp.mask.dst.protonum = 0xffff;
 			
@@ -247,7 +243,8 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		 struct pptp_pkt_hdr *pptph, 
 		 size_t datalen,
 		 struct ip_conntrack *ct,
-		 enum ip_conntrack_info ctinfo)
+		 enum ip_conntrack_info ctinfo,
+		 const struct iphdr *iph)
 {
 	struct PptpControlHeader *ctlh;
         union pptp_ctrl_union pptpReq;
@@ -379,7 +376,7 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		info->cstate = PPTP_CALL_NONE;
 
 		/* untrack this call id, unexpect GRE packets */
-		pptp_timeout_related(ct);
+		pptp_timeout_related(ct, ctinfo, iph);
 		break;
 
 	case PPTP_WAN_ERROR_NOTIFY:
@@ -541,7 +538,7 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 		info->cstate = PPTP_CALL_NONE;
 
 		/* untrack this call id, unexpect GRE packets */
-		pptp_timeout_related(ct);
+		pptp_timeout_related(ct, ctinfo, iph);
 	}
 
 
@@ -573,7 +570,7 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 		ret = pptp_outbound_pkt(tcph, pptph, datalen, ct, ctinfo);
 	else
 		/* server -> client (PAC -> PNS) */
-		ret = pptp_inbound_pkt(tcph, pptph, datalen, ct, ctinfo);
+		ret = pptp_inbound_pkt(tcph, pptph, datalen, ct, ctinfo, iph);
 	DEBUGP("sstate: %d->%d, cstate: %d->%d\n",
 		oldsstate, info->sstate, oldcstate, info->cstate);
 	UNLOCK_BH(&ip_pptp_lock);

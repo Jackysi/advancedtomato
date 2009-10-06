@@ -417,7 +417,7 @@ asmlinkage long sys_poll(struct pollfd * ufds, unsigned int nfds, long timeout)
 	int nchunks, nleft;
 
 	/* Do a sanity check on nfds ... */
-	if (nfds > NR_OPEN)
+	if (nfds > current->files->max_fdset && nfds > OPEN_MAX)
 		return -EINVAL;
 
 	if (timeout) {

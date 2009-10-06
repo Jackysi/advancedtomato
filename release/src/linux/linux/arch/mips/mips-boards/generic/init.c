@@ -25,14 +25,15 @@
 #include <asm/io.h>
 #include <asm/mips-boards/prom.h>
 #include <asm/mips-boards/generic.h>
-#include <asm/gt64120.h>
-#include <asm/mips-boards/malta.h>
+#include <asm/gt64120/gt64120.h>
 #include <asm/mips-boards/msc01_pci.h>
 #include <asm/mips-boards/bonito64.h>
+#ifdef CONFIG_MIPS_MALTA
+#include <asm/mips-boards/malta.h>
+#endif
 
 /* Environment variable */
-typedef struct
-{
+typedef struct {
 	char *name;
 	char *val;
 } t_env_var;
@@ -50,6 +51,11 @@ int init_debug = 0;
 
 unsigned int mips_revision_corid;
 
+/*
+ * Algorithmics Bonito64 system controller register base.
+ */
+char * const _bonito = (char *)KSEG1ADDR(BONITO_REG_BASE);
+
 char *prom_getenv(char *envname)
 {
 	/*
@@ -62,21 +68,21 @@ char *prom_getenv(char *envname)
 
 	i = strlen(envname);
 
-	while(prom_envp(index)) {
+	while (prom_envp(index)) {
 		if(strncmp(envname, prom_envp(index), i) == 0) {
 			return(prom_envp(index+1));
 		}
 		index += 2;
 	}
 
-	return(NULL);
+	return NULL;
 }
 
 static inline unsigned char str2hexnum(unsigned char c)
 {
-	if(c >= '0' && c <= '9')
+	if (c >= '0' && c <= '9')
 		return c - '0';
-	if(c >= 'a' && c <= 'f')
+	if (c >= 'a' && c <= 'f')
 		return c - 'a' + 10;
 	return 0; /* foo */
 }
@@ -85,7 +91,7 @@ static inline void str2eaddr(unsigned char *ea, unsigned char *str)
 {
 	int i;
 
-	for(i = 0; i < 6; i++) {
+	for (i = 0; i < 6; i++) {
 		unsigned char num;
 
 		if((*str == '.') || (*str == ':'))
@@ -138,14 +144,14 @@ int __init prom_init(int argc, char **argv, char **envp)
 		 * Setup the North bridge to do Master byte-lane swapping
 		 * when running in bigendian.
 		 */
-#if defined(__MIPSEL__)
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
 		GT_WRITE(GT_PCI0_CMD_OFS, GT_PCI0_CMD_MBYTESWAP_BIT |
 			 GT_PCI0_CMD_SBYTESWAP_BIT);
 #else
 		GT_WRITE(GT_PCI0_CMD_OFS, 0);
 #endif
 
-#if defined(CONFIG_MIPS_MALTA)
+#ifdef CONFIG_MIPS_MALTA
 		set_io_port_base(MALTA_GT_PORT_BASE);
 #else
 		set_io_port_base(KSEG1);
@@ -165,7 +171,7 @@ int __init prom_init(int argc, char **argv, char **envp)
 		 * Setup the North bridge to do Master byte-lane swapping
 		 * when running in bigendian.
 		 */
-#if defined(__MIPSEL__)
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
 		BONITO_BONGENCFG = BONITO_BONGENCFG &
 			~(BONITO_BONGENCFG_MSTRBYTESWAP |
 			  BONITO_BONGENCFG_BYTESWAP);
@@ -175,16 +181,18 @@ int __init prom_init(int argc, char **argv, char **envp)
 			BONITO_BONGENCFG_BYTESWAP;
 #endif
 
-#if defined(CONFIG_MIPS_MALTA)
-                set_io_port_base(MALTA_BONITO_PORT_BASE);
+#ifdef CONFIG_MIPS_MALTA
+		set_io_port_base(MALTA_BONITO_PORT_BASE);
 #else
-                set_io_port_base(KSEG1);
+		set_io_port_base(KSEG1);
 #endif
 		break;
 
 	case MIPS_REVISION_CORID_CORE_MSC:
-	        set_io_port_base(MALTA_MSC_PORT_BASE);
-#if defined(__MIPSEL__)
+#ifdef CONFIG_MIPS_MALTA
+		set_io_port_base(MALTA_MSC_PORT_BASE);
+#endif
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
 		MSC_WRITE(MSC01_PCI_SWAP, MSC01_PCI_SWAP_NOSWAP);
 #else
 		MSC_WRITE(MSC01_PCI_SWAP,

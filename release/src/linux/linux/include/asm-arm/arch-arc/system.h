@@ -8,9 +8,8 @@
  * published by the Free Software Foundation.
  */
 
-static void arch_idle(void)
+static inline void arch_idle(void)
 {
-	while (!current->need_resched && !hlt_counter);
 }
 
 static inline void arch_reset(char mode)

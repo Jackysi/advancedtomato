@@ -40,7 +40,7 @@ char arcs_cmdline[CL_SIZE];
 extern unsigned long gt64240_base;
 extern unsigned long bus_clock;
 
-#ifdef CONFIG_GALILLEO_GT64240_ETH
+#ifdef CONFIG_GALILEO_GT64240_ETH
 extern unsigned char prom_mac_addr_base[6];
 #endif
 
@@ -71,7 +71,7 @@ void __init prom_init(int argc, char **arg, char** env, struct callvectors *cv)
 	mips_machgroup = MACH_GROUP_MOMENCO;
 	mips_machtype = MACH_MOMENCO_OCELOT_G;
 
-#ifdef CONFIG_GALILLEO_GT64240_ETH
+#ifdef CONFIG_GALILEO_GT64240_ETH
 	/* get the base MAC address for on-board ethernet ports */
 	memcpy(prom_mac_addr_base, (void*)0xfc807cf2, 6);
 #endif

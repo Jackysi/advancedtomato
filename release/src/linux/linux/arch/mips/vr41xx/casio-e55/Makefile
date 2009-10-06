@@ -14,6 +14,4 @@ all: e55.o
 
 obj-y	:= init.o setup.o
 
-obj-$(CONFIG_IDE)	+= ide-e55.o
-
 include $(TOPDIR)/Rules.make

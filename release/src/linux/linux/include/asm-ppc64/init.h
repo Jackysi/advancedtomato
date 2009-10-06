@@ -3,7 +3,7 @@
 
 #include <linux/init.h>
 
-#if __GNUC__ > 2 || __GNUC_MINOR__ >= 90     /* egcs */
+#if __GNUC__ > 2 || __GNUC_MINOR__ >= 90 /* egcs */
 /* DRENG add back in when we get section attribute support */
 #define __chrp __attribute__ ((__section__ (".text.chrp")))
 #define __chrpdata __attribute__ ((__section__ (".data.chrp")))

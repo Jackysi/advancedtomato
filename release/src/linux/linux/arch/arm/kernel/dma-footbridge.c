@@ -20,9 +20,34 @@
 #include <asm/mach/dma.h>
 #include <asm/hardware/dec21285.h>
 
+#if 0
+static int fb_dma_request(dmach_t channel, dma_t *dma)
+{
+	return -EINVAL;
+}
+
+static void fb_dma_enable(dmach_t channel, dma_t *dma)
+{
+}
+
+static void fb_dma_disable(dmach_t channel, dma_t *dma)
+{
+}
+
+static struct dma_ops fb_dma_ops = {
+	.type		= "fb",
+	.request	= fb_dma_request,
+	.enable		= fb_dma_enable,
+	.disable	= fb_dma_disable,
+};
+#endif
 
 void __init arch_dma_init(dma_t *dma)
 {
+#if 0
+	dma[_DC21285_DMA(0)].d_ops = &fb_dma_ops;
+	dma[_DC21285_DMA(1)].d_ops = &fb_dma_ops;
+#endif
 #ifdef CONFIG_ISA_DMA
 	if (footbridge_cfn_mode())
 		isa_init_dma(dma + _ISA_DMA(0));

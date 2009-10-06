@@ -422,6 +422,23 @@ static int dsp56k_ioctl(struct inode *inode, struct file *file,
  * but how do I then check device minor number?
  * Do I need this function at all???
  */
+#if 0
+static unsigned int dsp56k_poll(struct file *file, poll_table *wait)
+{
+	int dev = MINOR(file->f_dentry->d_inode->i_rdev) & 0x0f;
+
+	switch(dev)
+	{
+	case DSP56K_DEV_56001:
+		/* poll_wait(file, ???, wait); */
+		return POLLIN | POLLRDNORM | POLLOUT;
+
+	default:
+		printk("DSP56k driver: Unknown minor device: %d\n", dev);
+		return 0;
+	}
+}
+#endif
 
 static int dsp56k_open(struct inode *inode, struct file *file)
 {

@@ -1,4 +1,4 @@
-/* $Id: starfire.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: starfire.c,v 1.10 2001/04/14 21:13:45 davem Exp $
  * starfire.c: Starfire/E10000 support.
  *
  * Copyright (C) 1998 David S. Miller (davem@redhat.com)
@@ -37,6 +37,23 @@ void starfire_cpu_setup(void)
  * of the logical cpuid in __cpu_number_map etc, then we can get rid of
  * the translations everywhere. - Anton
  */
+#if 0
+		int i;
+
+		/*
+		 * Now must fixup cpu MIDs.  OBP gave us a logical
+		 * linear cpuid number, not the real upaid.
+		 */
+		for(i = 0; i < linux_num_cpus; i++) {
+			unsigned int mid = linux_cpus[i].mid;
+
+			mid = (((mid & 0x3c) << 1) |
+			       ((mid & 0x40) >> 4) |
+			       (mid & 0x3));
+
+			linux_cpus[i].mid = mid;
+		}
+#endif
 	}
 }
 

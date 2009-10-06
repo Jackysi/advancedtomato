@@ -7,6 +7,7 @@
  * Tx39XX R4k style caches added. HK
  * Copyright (C) 1998, 1999, 2000 Harald Koerfgen
  * Copyright (C) 1998 Gleb Raiko & Vladimir Roganov
+ * Copyright (C) 2001, 2004  Maciej W. Rozycki
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -96,7 +97,6 @@ static void __init r3k_probe_cache(void)
 	dcache_size = r3k_cache_size(ST0_ISC);
 	if (dcache_size)
 		dcache_lsize = r3k_cache_lsize(ST0_ISC);
-
 
 	icache_size = r3k_cache_size(ST0_ISC|ST0_SWC);
 	if (icache_size)
@@ -241,6 +241,7 @@ static inline void r3k_flush_cache_all(void)
 
 static inline void r3k___flush_cache_all(void)
 {
+	r3k_flush_dcache_range(KSEG0, KSEG0 + dcache_size);
 	r3k_flush_icache_range(KSEG0, KSEG0 + icache_size);
 }
 
@@ -258,11 +259,8 @@ static void r3k_flush_cache_page(struct vm_area_struct *vma,
 {
 }
 
-static void r3k_flush_page_to_ram(struct page * page)
+static void r3k_flush_data_cache_page(unsigned long addr)
 {
-	/*
-	 * Nothing to be done
-	 */
 }
 
 static void r3k_flush_icache_page(struct vm_area_struct *vma, struct page *page)
@@ -270,14 +268,14 @@ static void r3k_flush_icache_page(struct vm_area_struct *vma, struct page *page)
 	struct mm_struct *mm = vma->vm_mm;
 	unsigned long physpage;
 
-	if (mm->context == 0)
+	if (cpu_context(smp_processor_id(), mm) == 0)
 		return;
 
 	if (!(vma->vm_flags & VM_EXEC))
 		return;
 
 #ifdef DEBUG_CACHE
-	printk("cpage[%d,%08lx]", (int)mm->context, page);
+	printk("cpage[%d,%08lx]", cpu_context(smp_processor_id(), mm), page);
 #endif
 
 	physpage = (unsigned long) page_address(page);
@@ -313,16 +311,17 @@ static void r3k_flush_cache_sigtramp(unsigned long addr)
 
 static void r3k_dma_cache_wback_inv(unsigned long start, unsigned long size)
 {
+	/* Catch bad driver code */
+	BUG_ON(size == 0);
+
 	iob();
 	r3k_flush_dcache_range(start, start + size);
 }
 
 void __init ld_mmu_r23000(void)
 {
-	unsigned long config;
-
-	_clear_page = r3k_clear_page;
-	_copy_page = r3k_copy_page;
+	extern void build_clear_page(void);
+	extern void build_copy_page(void);
 
 	r3k_probe_cache();
 
@@ -331,16 +330,21 @@ void __init ld_mmu_r23000(void)
 	_flush_cache_mm = r3k_flush_cache_mm;
 	_flush_cache_range = r3k_flush_cache_range;
 	_flush_cache_page = r3k_flush_cache_page;
-	_flush_cache_sigtramp = r3k_flush_cache_sigtramp;
-	_flush_page_to_ram = r3k_flush_page_to_ram;
 	_flush_icache_page = r3k_flush_icache_page;
 	_flush_icache_range = r3k_flush_icache_range;
 
+	_flush_cache_sigtramp = r3k_flush_cache_sigtramp;
+	_flush_data_cache_page = r3k_flush_data_cache_page;
+
 	_dma_cache_wback_inv = r3k_dma_cache_wback_inv;
+	_dma_cache_wback = r3k_dma_cache_wback_inv;
+	_dma_cache_inv = r3k_dma_cache_wback_inv;
 
-	printk("Primary instruction cache %dkb, linesize %d bytes\n",
-		(int) (icache_size >> 10), (int) icache_lsize);
-	printk("Primary data cache %dkb, linesize %d bytes\n",
-		(int) (dcache_size >> 10), (int) dcache_lsize);
+	printk("Primary instruction cache %ldkB, linesize %ld bytes.\n",
+		icache_size >> 10, icache_lsize);
+	printk("Primary data cache %ldkB, linesize %ld bytes.\n",
+		dcache_size >> 10, dcache_lsize);
 
+	build_clear_page();
+	build_copy_page();
 }

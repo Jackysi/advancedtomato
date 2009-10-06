@@ -22,7 +22,7 @@
  * BEGIN_DESC
  *
  *  File:
- *	@(#)	pa/spmath/dfcmp.c		$Revision: 1.1.1.2 $
+ *	@(#)	pa/spmath/dfcmp.c		$Revision: $
  *
  *  Purpose:
  *	dbl_cmp: compare two values

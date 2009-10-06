@@ -1,4 +1,4 @@
-/* $Id: mman.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: mman.h,v 1.2 2000/03/15 02:44:26 davem Exp $ */
 #ifndef __SPARC64_MMAN_H__
 #define __SPARC64_MMAN_H__
 
@@ -20,7 +20,7 @@
 #define MAP_LOCKED      0x100           /* lock the mapping */
 #define _MAP_NEW        0x80000000      /* Binary compatibility is fun... */
 
-#define MAP_GROWSDOWN	0x0100		/* stack-like segment */
+#define MAP_GROWSDOWN	0x0200		/* stack-like segment */
 #define MAP_DENYWRITE	0x0800		/* ETXTBSY */
 #define MAP_EXECUTABLE	0x1000		/* mark it as an executable */
 
@@ -31,6 +31,9 @@
 #define MCL_CURRENT     0x2000          /* lock all currently mapped pages */
 #define MCL_FUTURE      0x4000          /* lock all additions to address space */
 
+/* XXX Need to add flags to SunOS's mctl, mlockall, and madvise system
+ * XXX calls.
+ */
 
 /* SunOS sys_mctl() stuff... */
 #define MC_SYNC         1  /* Sync pages in memory with storage (usu. a file) */

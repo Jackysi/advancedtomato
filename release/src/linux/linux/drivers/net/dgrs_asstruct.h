@@ -1,7 +1,7 @@
 /*
  *	For declaring structures shared with assembly routines
  *
- *	$Id: dgrs_asstruct.h,v 1.1.1.4 2003/10/14 08:08:20 sparq Exp $
+ *	$Id: asstruct.h,v 1.1.1.1 1994/10/23 05:08:32 rick Exp $
  */
 
 #if ASSEMBLER

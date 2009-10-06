@@ -45,7 +45,7 @@
  * #defines with no board _<type>_<rev>_ are common to all (thus far)
  */
 #define CO_APIC_0_5_IDE0	5
-#define	CO_APIC_0_5_SERIAL	13	 
+#define	CO_APIC_0_5_SERIAL	13	 /* XXX not really...h/w bug! */
 #define CO_APIC_0_5_PARLL	4
 #define CO_APIC_0_5_FLOPPY	6
 
@@ -57,9 +57,11 @@
 #define CO_APIC_0_5_IDE1	2
 #define CO_APIC_0_6_IDE1	2
 
+/* XXX */
 #define	CO_APIC_IDE0	CO_APIC_0_5_IDE0
 #define	CO_APIC_IDE1	CO_APIC_0_5_IDE1
 #define	CO_APIC_SERIAL	CO_APIC_0_5_SERIAL
+/* XXX */
 
 #define CO_APIC_ENET	3	/* Lithium PCI Bridge A, Device 3 */
 #define	CO_APIC_8259	12	/* serial, floppy, par-l-l, audio */

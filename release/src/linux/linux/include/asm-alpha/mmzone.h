@@ -34,15 +34,19 @@ struct bootmem_data_t; /* stupid forward decl. */
 
 extern plat_pg_data_t *plat_node_data[];
 
-#ifdef CONFIG_ALPHA_WILDFIRE
-# define ALPHA_PA_TO_NID(pa)	((pa) >> 36)	/* 16 nodes max due 43bit kseg */
-#define NODE_MAX_MEM_SIZE	(64L * 1024L * 1024L * 1024L) /* 64 GB */
-#define MAX_NUMNODES		WILDFIRE_MAX_QBB
-#else
-# define ALPHA_PA_TO_NID(pa)	(0)
-#define NODE_MAX_MEM_SIZE	(~0UL)
-#define MAX_NUMNODES		1
-#endif
+#define ALPHA_PA_TO_NID(pa)		\
+        (alpha_mv.pa_to_nid 		\
+	 ? alpha_mv.pa_to_nid(pa)	\
+	 : (0))
+#define NODE_MEM_START(nid)		\
+        (alpha_mv.node_mem_start 	\
+	 ? alpha_mv.node_mem_start(nid) \
+	 : (0UL))
+#define NODE_MEM_SIZE(nid)		\
+        (alpha_mv.node_mem_size 	\
+	 ? alpha_mv.node_mem_size(nid) 	\
+	 : ((nid) ? (0UL) : (~0UL)))
+#define MAX_NUMNODES		128		/* marvel */
 
 #define PHYSADDR_TO_NID(pa)		ALPHA_PA_TO_NID(pa)
 #define PLAT_NODE_DATA(n)		(plat_node_data[(n)])
@@ -50,8 +54,18 @@ extern plat_pg_data_t *plat_node_data[];
 	(PLAT_NODE_DATA(n)->gendata.node_start_mapnr)
 #define PLAT_NODE_DATA_SIZE(n)		(PLAT_NODE_DATA(n)->gendata.node_size)
 
+#if 1
 #define PLAT_NODE_DATA_LOCALNR(p, n)	\
 	(((p) - PLAT_NODE_DATA(n)->gendata.node_start_paddr) >> PAGE_SHIFT)
+#else
+static inline unsigned long
+PLAT_NODE_DATA_LOCALNR(unsigned long p, int n)
+{
+	unsigned long temp;
+	temp = p - PLAT_NODE_DATA(n)->gendata.node_start_paddr;
+	return (temp >> PAGE_SHIFT);
+}
+#endif
 
 #ifdef CONFIG_DISCONTIGMEM
 
@@ -76,7 +90,7 @@ extern plat_pg_data_t *plat_node_data[];
 
 /*
  * Given a kaddr, ADDR_TO_MAPBASE finds the owning node of the memory
- * and returns the the mem_map of that node.
+ * and returns the mem_map of that node.
  */
 #define ADDR_TO_MAPBASE(kaddr) \
 			NODE_MEM_MAP(KVADDR_TO_NID((unsigned long)(kaddr)))
@@ -102,12 +116,8 @@ extern plat_pg_data_t *plat_node_data[];
 #define NODE_SCHEDULE_DATA(nid)	(&((PLAT_NODE_DATA(nid))->schedule_data))
 #endif
 
-#ifdef CONFIG_ALPHA_WILDFIRE
-/* With wildfire assume 4 CPUs per node */
-#define cputonode(cpu)	((cpu) >> 2)
-#else
-#define cputonode(cpu)	0
-#endif /* CONFIG_ALPHA_WILDFIRE */
+#define cputonode(cpu) 	\
+        (alpha_mv.cpuid_to_nid ? alpha_mv.cpuid_to_nid(cpu) : 0)
 
 #define numa_node_id()	cputonode(smp_processor_id())
 #endif /* CONFIG_NUMA */

@@ -8,27 +8,10 @@
  *
  * Derived from arch/ppc/boot/prep/misc.c
  *
- * Copyright 2000-2001 MontaVista Software Inc.
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
- *
- * THIS  SOFTWARE  IS PROVIDED   ``AS  IS'' AND   ANY  EXPRESS OR   IMPLIED
- * WARRANTIES,   INCLUDING, BUT NOT  LIMITED  TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN
- * NO  EVENT  SHALL   THE AUTHOR  BE    LIABLE FOR ANY   DIRECT,  INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED   TO, PROCUREMENT OF  SUBSTITUTE GOODS  OR SERVICES; LOSS OF
- * USE, DATA,  OR PROFITS; OR  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * You should have received a copy of the  GNU General Public License along
- * with this program; if not, write  to the Free Software Foundation, Inc.,
- * 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 2000-2001 (c) MontaVista, Software, Inc.  This file is licensed under
+ * the terms of the GNU General Public License version 2.  This program
+ * is licensed "as is" without any warranty of any kind, whether express
+ * or implied.
  */
 
 #include <linux/types.h>
@@ -42,6 +25,16 @@
 #include <asm/bootinfo.h>
 
 #include "zlib.h"
+
+#ifdef CONFIG_CMDLINE
+#define CMDLINE CONFIG_CMDLINE
+#else
+#define CMDLINE ""
+#endif
+
+#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_VGA_CONSOLE)
+#define INTERACTIVE_CONSOLE	1
+#endif
 
 /* Define some important locations of the Spruce. */
 #define SPRUCE_PCI_CONFIG_ADDR	0xfec00000
@@ -58,11 +51,6 @@ extern char __image_begin, __image_end;
 extern char __ramdisk_begin, __ramdisk_end;
 extern char _end[];
 
-#ifdef CONFIG_CMDLINE
-#define CMDLINE CONFIG_CMDLINE
-#else
-#define CMDLINE ""
-#endif
 char cmd_preset[] = CMDLINE;
 char cmd_buf[256];
 char *cmd_line = cmd_buf;
@@ -164,11 +152,13 @@ unsigned long isa_io_base = SPRUCE_ISA_IO_BASE;
 #define MEM_B2EA	0x60
 
 unsigned long
-decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
+load_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 {
+#ifdef INTERACTIVE_CONSOLE
 	int timer = 0;
-	char *cp, ch;
-
+	char ch;
+#endif
+	char *cp;
 	int loop;
 	int csr0;
 	int csr_id;
@@ -189,10 +179,8 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 	unsigned char header_type;
 	unsigned int bar0;
 
-#ifdef CONFIG_SERIAL_CONSOLE
 	/* Initialize the serial console port */
 	com_port = serial_init(0, NULL);
-#endif
 
 	/*
 	 * Gah, these firmware guys need to learn that hardware
@@ -367,7 +355,13 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 	puts("\nLinux/PPC load: ");
 	cp = cmd_line;
 	memcpy (cmd_line, cmd_preset, sizeof(cmd_preset));
-	while ( *cp ) putc(*cp++);
+	while ( *cp )
+		putc(*cp++);
+#ifdef INTERACTIVE_CONSOLE
+	/*
+	 * If they have a console, allow them to edit the command line.
+	 * Otherwise, don't bother wasting the five seconds.
+	 */
 	while (timer++ < 5*1000) {
 		if (tstc()) {
 			while ((ch = getc()) != '\n' && ch != '\r') {
@@ -385,6 +379,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 		}
 		udelay(1000);  /* 1 msec */
 	}
+#endif
 	*cp = 0;
 	puts("\n");
 
@@ -396,9 +391,30 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 
 	{
 		struct bi_record *rec;
+		unsigned long initrd_loc;
+		unsigned long rec_loc = _ALIGN((unsigned long)(zimage_size) +
+				(1 << 20) - 1, (1 << 20));
+		rec = (struct bi_record *)rec_loc;
 
-		rec = (struct bi_record *)_ALIGN((ulong)zimage_size +
-							(1<<20)-1,(1<<20));
+		/* We need to make sure that the initrd and bi_recs do not
+		 * overlap. */
+		if ( initrd_size ) {
+			initrd_loc = (unsigned long)(&__ramdisk_begin);
+			/* If the bi_recs are in the middle of the current
+			 * initrd, move the initrd to the next MB
+			 * boundary. */
+			if ((rec_loc > initrd_loc) &&
+					((initrd_loc + initrd_size)
+					 > rec_loc)) {
+				initrd_loc = _ALIGN((unsigned long)(zimage_size)
+						+ (2 << 20) - 1, (2 << 20));
+			 	memmove((void *)initrd_loc, &__ramdisk_begin,
+					 initrd_size);
+		         	puts("initrd moved:  "); puthex(initrd_loc);
+			 	puts(" "); puthex(initrd_loc + initrd_size);
+			 	puts("\n");
+			}
+		}
 
 		rec->tag = BI_FIRST;
         	rec->size = sizeof(struct bi_record);
@@ -421,7 +437,7 @@ decompress_kernel(unsigned long load_addr, int num_words, unsigned long cksum)
 
 		if ( initrd_size ) {
 			rec->tag = BI_INITRD;
-			rec->data[0] = (unsigned long)(&__ramdisk_begin);
+			rec->data[0] = initrd_loc;
 			rec->data[1] = initrd_size;
 			rec->size = sizeof(struct bi_record) + 2 *
 				sizeof(unsigned long);

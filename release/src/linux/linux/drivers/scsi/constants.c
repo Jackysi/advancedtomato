@@ -461,6 +461,9 @@ static struct error_info additional[] =
   {0x3F,0x10,D|T|W|R|O|M|B,"Medium loadable"},
   {0x3F,0x11,D|T|W|R|O|M|B,"Medium auxiliary memory accessible"},
   {0x40,0x00,D,"Ram failure (should use 40 nn)"},
+  /*
+   * FIXME(eric) - need a way to represent wildcards here.
+   */
   {0x40,0x00,D|T|L|P|W|R|S|O|M|C|A|E|B|K,"Diagnostic failure on component nn (80h-ffh)"},
   {0x41,0x00,D,"Data path failure (should use 40 nn)"},
   {0x42,0x00,D,"Power-on or self-test failure (should use 40 nn)"},
@@ -478,6 +481,9 @@ static struct error_info additional[] =
   {0x4A,0x00,D|T|L|P|W|R|S|O|M|C|A|E|B|K,"Command phase error"},
   {0x4B,0x00,D|T|L|P|W|R|S|O|M|C|A|E|B|K,"Data phase error"},
   {0x4C,0x00,D|T|L|P|W|R|S|O|M|C|A|E|B|K,"Logical unit failed self-configuration"},
+  /*
+   * FIXME(eric) - need a way to represent wildcards here.
+   */
   {0x4D,0x00,D|T|L|P|W|R|S|O|M|C|A|E|B|K,"Tagged overlapped commands (nn = queue tag)"},
   {0x4E,0x00,D|T|L|P|W|R|S|O|M|C|A|E|B|K,"Overlapped commands attempted"},
   {0x50,0x00,T,"Write append error"},
@@ -641,6 +647,9 @@ static struct error_info additional[] =
   {0x6F,0x03,R,"Read of scrambled sector without authentication"},
   {0x6F,0x04,R,"Media region code is mismatched to logical unit region"},
   {0x6F,0x05,R,"Drive region must be permanent/region reset count error"},
+  /*
+   * FIXME(eric) - need a way to represent wildcards here.
+   */
   {0x70,0x00,T,"Decompression exception short algorithm id of nn"},
   {0x71,0x00,T,"Decompression exception long algorithm id"},
   {0x72,0x00,R,"Session fixation error"},

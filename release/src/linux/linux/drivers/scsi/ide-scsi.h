@@ -16,22 +16,22 @@ extern int idescsi_abort (Scsi_Cmnd *cmd);
 extern int idescsi_reset (Scsi_Cmnd *cmd, unsigned int resetflags);
 extern int idescsi_bios (Disk *disk, kdev_t dev, int *parm);
 
-#define IDESCSI  {								\
-	name:            "idescsi",		/* name		*/		\
-	detect:          idescsi_detect,	/* detect	*/		\
-	release:         idescsi_release,	/* release	*/		\
-	info:            idescsi_info,		/* info		*/		\
-	ioctl:           idescsi_ioctl,		/* ioctl        */		\
-	queuecommand:    idescsi_queue,		/* queuecommand */		\
-	abort:           idescsi_abort,		/* abort	*/		\
-	reset:           idescsi_reset,		/* reset	*/		\
-	bios_param:      idescsi_bios,		/* bios_param	*/		\
-	can_queue:       10,			/* can_queue	*/		\
-	this_id:         -1,			/* this_id	*/		\
-	sg_tablesize:    256,			/* sg_tablesize	*/		\
-	cmd_per_lun:     5,			/* cmd_per_lun	*/		\
-	use_clustering:  DISABLE_CLUSTERING,	/* clustering	*/		\
-	emulated:        1			/* emulated     */		\
+#define IDESCSI  {							\
+	name:            "idescsi",		/* name		*/	\
+	detect:          idescsi_detect,	/* detect	*/	\
+	release:         idescsi_release,	/* release	*/	\
+	info:            idescsi_info,		/* info		*/	\
+	ioctl:           idescsi_ioctl,		/* ioctl        */	\
+	queuecommand:    idescsi_queue,		/* queuecommand */	\
+	abort:           idescsi_abort,		/* abort	*/	\
+	reset:           idescsi_reset,		/* reset	*/	\
+	bios_param:      idescsi_bios,		/* bios_param	*/	\
+	can_queue:       10,			/* can_queue	*/	\
+	this_id:         -1,			/* this_id	*/	\
+	sg_tablesize:    256,			/* sg_tablesize	*/	\
+	cmd_per_lun:     5,			/* cmd_per_lun	*/	\
+	use_clustering:  DISABLE_CLUSTERING,	/* clustering	*/	\
+	emulated:        1			/* emulated     */	\
 }
 
 #endif /* IDESCSI_H */

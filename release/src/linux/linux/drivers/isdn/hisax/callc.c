@@ -1,4 +1,4 @@
-/* $Id: callc.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: callc.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * Author       Karsten Keil
  * Copyright    by Karsten Keil      <keil@isdn4linux.de>
@@ -26,7 +26,7 @@
 #define MOD_USE_COUNT ( GET_USE_COUNT (&__this_module))
 #endif	/* MODULE */
 
-const char *lli_revision = "$Revision: 1.1.1.4 $";
+const char *lli_revision = "$Revision: 1.1.4.1 $";
 
 extern struct IsdnCard cards[];
 extern int nrcards;
@@ -925,7 +925,7 @@ static void stat_redir_result(struct IsdnCardState *cs, int chan, ulong result)
 	ic.driver = cs->myid;
 	ic.command = ISDN_STAT_REDIR;
 	ic.arg = chan; 
-	(ulong)(ic.parm.num[0]) = result;
+	ic.parm.num[0] = result;
 	cs->iif.statcallb(&ic);
 } /* stat_redir_result */
 

@@ -110,7 +110,7 @@ struct i2o_packet_info {
 };
 
 struct i2o_bucket_descriptor {
-	u32 context; 			
+	u32 context; 			/* FIXME: 64bit support */
 	struct i2o_packet_info packet_info[1];
 };
 

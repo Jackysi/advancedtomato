@@ -24,6 +24,7 @@ obj-$(CONFIG_INPUT_KEYBDEV)	+= keybdev.o
 obj-$(CONFIG_INPUT_MOUSEDEV)	+= mousedev.o
 obj-$(CONFIG_INPUT_JOYDEV)	+= joydev.o
 obj-$(CONFIG_INPUT_EVDEV)	+= evdev.o
+obj-$(CONFIG_INPUT_UINPUT)	+= uinput.o
 
 # The global Rules.make.
 

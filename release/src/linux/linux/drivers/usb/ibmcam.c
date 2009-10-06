@@ -78,7 +78,7 @@ enum {
 };
 
 /*
- * This structure lives in uvd_t->user field.
+ * This structure lives in uvd->user field.
  */
 typedef struct {
 	int initialized;	/* Had we already sent init sequence? */
@@ -87,7 +87,7 @@ typedef struct {
 } ibmcam_t;
 #define	IBMCAM_T(uvd)	((ibmcam_t *)((uvd)->user_data))
 
-usbvideo_t *cams = NULL;
+struct usbvideo *cams = NULL;
 
 static int debug = 0;
 
@@ -249,9 +249,9 @@ static videosize_t ibmcam_size_to_videosize(int size)
  * History:
  * 1/21/00  Created.
  */
-static ParseState_t ibmcam_find_header(uvd_t *uvd) 
+static enum ParseState ibmcam_find_header(struct uvd *uvd) /* FIXME: Add frame here */
 {
-	usbvideo_frame_t *frame;
+	struct usbvideo_frame *frame;
 	ibmcam_t *icam;
 
 	if ((uvd->curframe) < 0 || (uvd->curframe >= USBVIDEO_NUMFRAMES)) {
@@ -271,11 +271,17 @@ static ParseState_t ibmcam_find_header(uvd_t *uvd)
 			    (RING_QUEUE_PEEK(&uvd->dp, 1) == 0xFF) &&
 			    (RING_QUEUE_PEEK(&uvd->dp, 2) == 0x00))
 			{
+#if 0				/* This code helps to detect new frame markers */
+				info("Header sig: 00 FF 00 %02X", RING_QUEUE_PEEK(&uvd->dp, 3));
+#endif
 				frame->header = RING_QUEUE_PEEK(&uvd->dp, 3);
 				if ((frame->header == HDRSIG_MODEL1_128x96) ||
 				    (frame->header == HDRSIG_MODEL1_176x144) ||
 				    (frame->header == HDRSIG_MODEL1_352x288))
 				{
+#if 0
+					info("Header found.");
+#endif
 					RING_QUEUE_DEQUEUE_BYTES(&uvd->dp, marker_len);
 					icam->has_hdr = 1;
 					break;
@@ -302,6 +308,9 @@ case IBMCAM_MODEL_4:
 			if ((RING_QUEUE_PEEK(&uvd->dp, 0) == 0x00) &&
 			    (RING_QUEUE_PEEK(&uvd->dp, 1) == 0xFF))
 			{
+#if 0
+				info("Header found.");
+#endif
 				RING_QUEUE_DEQUEUE_BYTES(&uvd->dp, marker_len);
 				icam->has_hdr = 1;
 				frame->header = HDRSIG_MODEL1_176x144;
@@ -342,6 +351,9 @@ case IBMCAM_MODEL_4:
 				byte3 = RING_QUEUE_PEEK(&uvd->dp, 2);
 				byte4 = RING_QUEUE_PEEK(&uvd->dp, 3);
 				frame->header = (byte3 << 8) | byte4;
+#if 0
+				info("Header found.");
+#endif
 				RING_QUEUE_DEQUEUE_BYTES(&uvd->dp, marker_len);
 				icam->has_hdr = 1;
 				break;
@@ -385,9 +397,9 @@ case IBMCAM_MODEL_4:
  * 21-Jan-2000 Created.
  * 12-Oct-2000 Reworked to reflect interlaced nature of the data.
  */
-static ParseState_t ibmcam_parse_lines(
-	uvd_t *uvd,
-	usbvideo_frame_t *frame,
+static enum ParseState ibmcam_parse_lines(
+	struct uvd *uvd,
+	struct usbvideo_frame *frame,
 	long *pcopylen)
 {
 	unsigned char *f;
@@ -650,9 +662,9 @@ static ParseState_t ibmcam_parse_lines(
  * them both as R component in attempt to at least partially recover the
  * lost resolution.
  */
-static ParseState_t ibmcam_model2_320x240_parse_lines(
-	uvd_t *uvd,
-	usbvideo_frame_t *frame,
+static enum ParseState ibmcam_model2_320x240_parse_lines(
+	struct uvd *uvd,
+	struct usbvideo_frame *frame,
 	long *pcopylen)
 {
 	unsigned char *f, *la, *lb;
@@ -804,9 +816,9 @@ static ParseState_t ibmcam_model2_320x240_parse_lines(
 		return scan_Continue;
 }
 
-static ParseState_t ibmcam_model3_parse_lines(
-	uvd_t *uvd,
-	usbvideo_frame_t *frame,
+static enum ParseState ibmcam_model3_parse_lines(
+	struct uvd *uvd,
+	struct usbvideo_frame *frame,
 	long *pcopylen)
 {
 	unsigned char *data;
@@ -949,9 +961,9 @@ static ParseState_t ibmcam_model3_parse_lines(
  * History:
  * 10-Feb-2001 Created.
  */
-static ParseState_t ibmcam_model4_128x96_parse_lines(
-	uvd_t *uvd,
-	usbvideo_frame_t *frame,
+static enum ParseState ibmcam_model4_128x96_parse_lines(
+	struct uvd *uvd,
+	struct usbvideo_frame *frame,
 	long *pcopylen)
 {
 	const unsigned char *data_rv, *data_gv, *data_bv;
@@ -1037,9 +1049,9 @@ static ParseState_t ibmcam_model4_128x96_parse_lines(
  * History:
  * 1/21/00  Created.
  */
-void ibmcam_ProcessIsocData(uvd_t *uvd, usbvideo_frame_t *frame)
+void ibmcam_ProcessIsocData(struct uvd *uvd, struct usbvideo_frame *frame)
 {
-	ParseState_t newstate;
+	enum ParseState newstate;
 	long copylen = 0;
 	int mod = IBMCAM_T(uvd)->camera_model;
 
@@ -1100,6 +1112,13 @@ void ibmcam_ProcessIsocData(uvd_t *uvd, usbvideo_frame_t *frame)
 	/* Update the frame's uncompressed length. */
 	frame->seqRead_Length += copylen;
 
+#if 0
+	{
+		static unsigned char j=0;
+		memset(frame->data, j++, uvd->max_frame_size);
+		frame->frameState = FrameState_Ready;
+	}
+#endif
 }
 
 /*
@@ -1109,7 +1128,7 @@ void ibmcam_ProcessIsocData(uvd_t *uvd, usbvideo_frame_t *frame)
  * 1/27/00  Added check for dev == NULL; this happens if camera is unplugged.
  */
 static int ibmcam_veio(
-	uvd_t *uvd,
+	struct uvd *uvd,
 	unsigned char req,
 	unsigned short value,
 	unsigned short index)
@@ -1132,6 +1151,12 @@ static int ibmcam_veio(
 			cp,
 			sizeof(cp),
 			HZ);
+#if 0
+		info("USB => %02x%02x%02x%02x%02x%02x%02x%02x "
+		       "(req=$%02x val=$%04x ind=$%04x)",
+		       cp[0],cp[1],cp[2],cp[3],cp[4],cp[5],cp[6],cp[7],
+		       req, value, index);
+#endif
 	} else {
 		i = usb_control_msg(
 			uvd->dev,
@@ -1170,7 +1195,7 @@ static int ibmcam_veio(
  * History:
  * 1/18/00  Created.
  */
-static int ibmcam_calculate_fps(uvd_t *uvd)
+static int ibmcam_calculate_fps(struct uvd *uvd)
 {
 	return 3 + framerate*4 + framerate/2;
 }
@@ -1184,33 +1209,33 @@ static int ibmcam_calculate_fps(uvd_t *uvd)
  * History:
  * 1/2/00   Created.
  */
-static void ibmcam_send_FF_04_02(uvd_t *uvd)
+static void ibmcam_send_FF_04_02(struct uvd *uvd)
 {
 	ibmcam_veio(uvd, 0, 0x00FF, 0x0127);
 	ibmcam_veio(uvd, 0, 0x0004, 0x0124);
 	ibmcam_veio(uvd, 0, 0x0002, 0x0124);
 }
 
-static void ibmcam_send_00_04_06(uvd_t *uvd)
+static void ibmcam_send_00_04_06(struct uvd *uvd)
 {
 	ibmcam_veio(uvd, 0, 0x0000, 0x0127);
 	ibmcam_veio(uvd, 0, 0x0004, 0x0124);
 	ibmcam_veio(uvd, 0, 0x0006, 0x0124);
 }
 
-static void ibmcam_send_x_00(uvd_t *uvd, unsigned short x)
+static void ibmcam_send_x_00(struct uvd *uvd, unsigned short x)
 {
 	ibmcam_veio(uvd, 0, x,      0x0127);
 	ibmcam_veio(uvd, 0, 0x0000, 0x0124);
 }
 
-static void ibmcam_send_x_00_05(uvd_t *uvd, unsigned short x)
+static void ibmcam_send_x_00_05(struct uvd *uvd, unsigned short x)
 {
 	ibmcam_send_x_00(uvd, x);
 	ibmcam_veio(uvd, 0, 0x0005, 0x0124);
 }
 
-static void ibmcam_send_x_00_05_02(uvd_t *uvd, unsigned short x)
+static void ibmcam_send_x_00_05_02(struct uvd *uvd, unsigned short x)
 {
 	ibmcam_veio(uvd, 0, x,      0x0127);
 	ibmcam_veio(uvd, 0, 0x0000, 0x0124);
@@ -1218,7 +1243,7 @@ static void ibmcam_send_x_00_05_02(uvd_t *uvd, unsigned short x)
 	ibmcam_veio(uvd, 0, 0x0002, 0x0124);
 }
 
-static void ibmcam_send_x_01_00_05(uvd_t *uvd, unsigned short x)
+static void ibmcam_send_x_01_00_05(struct uvd *uvd, unsigned short x)
 {
 	ibmcam_veio(uvd, 0, x,      0x0127);
 	ibmcam_veio(uvd, 0, 0x0001, 0x0124);
@@ -1226,7 +1251,7 @@ static void ibmcam_send_x_01_00_05(uvd_t *uvd, unsigned short x)
 	ibmcam_veio(uvd, 0, 0x0005, 0x0124);
 }
 
-static void ibmcam_send_x_00_05_02_01(uvd_t *uvd, unsigned short x)
+static void ibmcam_send_x_00_05_02_01(struct uvd *uvd, unsigned short x)
 {
 	ibmcam_veio(uvd, 0, x,      0x0127);
 	ibmcam_veio(uvd, 0, 0x0000, 0x0124);
@@ -1235,7 +1260,7 @@ static void ibmcam_send_x_00_05_02_01(uvd_t *uvd, unsigned short x)
 	ibmcam_veio(uvd, 0, 0x0001, 0x0124);
 }
 
-static void ibmcam_send_x_00_05_02_08_01(uvd_t *uvd, unsigned short x)
+static void ibmcam_send_x_00_05_02_08_01(struct uvd *uvd, unsigned short x)
 {
 	ibmcam_veio(uvd, 0, x,      0x0127);
 	ibmcam_veio(uvd, 0, 0x0000, 0x0124);
@@ -1245,7 +1270,7 @@ static void ibmcam_send_x_00_05_02_08_01(uvd_t *uvd, unsigned short x)
 	ibmcam_veio(uvd, 0, 0x0001, 0x0124);
 }
 
-static void ibmcam_Packet_Format1(uvd_t *uvd, unsigned char fkey, unsigned char val)
+static void ibmcam_Packet_Format1(struct uvd *uvd, unsigned char fkey, unsigned char val)
 {
 	ibmcam_send_x_01_00_05(uvd, unknown_88);
 	ibmcam_send_x_00_05(uvd, fkey);
@@ -1259,20 +1284,20 @@ static void ibmcam_Packet_Format1(uvd_t *uvd, unsigned char fkey, unsigned char 
 	ibmcam_send_FF_04_02(uvd);
 }
 
-static void ibmcam_PacketFormat2(uvd_t *uvd, unsigned char fkey, unsigned char val)
+static void ibmcam_PacketFormat2(struct uvd *uvd, unsigned char fkey, unsigned char val)
 {
 	ibmcam_send_x_01_00_05	(uvd, unknown_88);
 	ibmcam_send_x_00_05	(uvd, fkey);
 	ibmcam_send_x_00_05_02	(uvd, val);
 }
 
-static void ibmcam_model2_Packet2(uvd_t *uvd)
+static void ibmcam_model2_Packet2(struct uvd *uvd)
 {
 	ibmcam_veio(uvd, 0, 0x00ff, 0x012d);
 	ibmcam_veio(uvd, 0, 0xfea3, 0x0124);
 }
 
-static void ibmcam_model2_Packet1(uvd_t *uvd, unsigned short v1, unsigned short v2)
+static void ibmcam_model2_Packet1(struct uvd *uvd, unsigned short v1, unsigned short v2)
 {
 	ibmcam_veio(uvd, 0, 0x00aa, 0x012d);
 	ibmcam_veio(uvd, 0, 0x00ff, 0x012e);
@@ -1293,7 +1318,7 @@ static void ibmcam_model2_Packet1(uvd_t *uvd, unsigned short v1, unsigned short 
  * 00_0096_0127
  * 00_fea8_0124	
 */
-static void ibmcam_model3_Packet1(uvd_t *uvd, unsigned short v1, unsigned short v2)
+static void ibmcam_model3_Packet1(struct uvd *uvd, unsigned short v1, unsigned short v2)
 {
 	ibmcam_veio(uvd, 0, 0x0078, 0x012d);
 	ibmcam_veio(uvd, 0, v1,     0x012f);
@@ -1302,7 +1327,7 @@ static void ibmcam_model3_Packet1(uvd_t *uvd, unsigned short v1, unsigned short 
 	ibmcam_veio(uvd, 0, 0xfea8, 0x0124);
 }
 
-static void ibmcam_model4_BrightnessPacket(uvd_t *uvd, int i)
+static void ibmcam_model4_BrightnessPacket(struct uvd *uvd, int i)
 {
 	ibmcam_veio(uvd, 0, 0x00aa, 0x012d);
 	ibmcam_veio(uvd, 0, 0x0026, 0x012f);
@@ -1328,7 +1353,7 @@ static void ibmcam_model4_BrightnessPacket(uvd_t *uvd, int i)
  * History:
  * 1/2/00   Created.
  */
-static void ibmcam_adjust_contrast(uvd_t *uvd)
+static void ibmcam_adjust_contrast(struct uvd *uvd)
 {
 	unsigned char a_contrast = uvd->vpic.contrast >> 12;
 	unsigned char new_contrast;
@@ -1403,7 +1428,7 @@ static void ibmcam_adjust_contrast(uvd_t *uvd)
  * 1/5/00   Created.
  * 2/20/00  Added support for Model 2 cameras.
  */
-static void ibmcam_change_lighting_conditions(uvd_t *uvd)
+static void ibmcam_change_lighting_conditions(struct uvd *uvd)
 {
 	static const char proc[] = "ibmcam_change_lighting_conditions";
 
@@ -1420,6 +1445,20 @@ static void ibmcam_change_lighting_conditions(uvd_t *uvd)
 		break;
 	}
 	case IBMCAM_MODEL_2:
+#if 0
+		/*
+		 * This command apparently requires camera to be stopped. My
+		 * experiments showed that it -is- possible to alter the lighting
+		 * conditions setting "on the fly", but why bother? This setting does
+		 * not work reliably in all cases, so I decided simply to leave the
+		 * setting where Xirlink put it - in the camera setup phase. This code
+		 * is commented out because it does not work at -any- moment, so its
+		 * presence makes no sense. You may use it for experiments.
+		 */
+		ibmcam_veio(uvd, 0, 0x0000, 0x010c);	/* Stop camera */
+		ibmcam_model2_Packet1(uvd, mod2_sensitivity, lighting);
+		ibmcam_veio(uvd, 0, 0x00c0, 0x010c);	/* Start camera */
+#endif
 		break;
 	case IBMCAM_MODEL_3:
 	case IBMCAM_MODEL_4:
@@ -1435,7 +1474,7 @@ static void ibmcam_change_lighting_conditions(uvd_t *uvd)
  * range [0..6], where 0 is most smooth and 6 is most sharp (raw image, I guess).
  * Recommended value is 4. Cameras model 2 do not have this feature at all.
  */
-static void ibmcam_set_sharpness(uvd_t *uvd)
+static void ibmcam_set_sharpness(struct uvd *uvd)
 {
 	static const char proc[] = "ibmcam_set_sharpness";
 
@@ -1504,7 +1543,7 @@ static void ibmcam_set_sharpness(uvd_t *uvd)
  *
  * This procedure changes brightness of the picture.
  */
-static void ibmcam_set_brightness(uvd_t *uvd)
+static void ibmcam_set_brightness(struct uvd *uvd)
 {
 	static const char proc[] = "ibmcam_set_brightness";
 	static const unsigned short n = 1;
@@ -1569,7 +1608,7 @@ static void ibmcam_set_brightness(uvd_t *uvd)
 	}
 }
 
-static void ibmcam_set_hue(uvd_t *uvd)
+static void ibmcam_set_hue(struct uvd *uvd)
 {
 	switch (IBMCAM_T(uvd)->camera_model) {
 	case IBMCAM_MODEL_2:
@@ -1584,6 +1623,19 @@ static void ibmcam_set_hue(uvd_t *uvd)
 	}
 	case IBMCAM_MODEL_3:
 	{
+#if 0 /* This seems not to work. No problem, will fix programmatically */
+		unsigned short hue = 0x05 + (uvd->vpic.hue / (0xFFFF / (0x37 - 0x05 + 1)));
+		RESTRICT_TO_RANGE(hue, 0x05, 0x37);
+		if (uvd->vpic_old.hue == hue)
+			return;
+		uvd->vpic_old.hue = hue;
+		ibmcam_veio(uvd, 0, 0x0000, 0x010c);	/* Stop */
+		ibmcam_model3_Packet1(uvd, 0x007e, hue);
+		ibmcam_veio(uvd, 0, 0x0001, 0x0114);
+		ibmcam_veio(uvd, 0, 0x00c0, 0x010c);	/* Go! */
+		usb_clear_halt(uvd->dev, usb_rcvisocpipe(uvd->dev, uvd->video_endp));
+		ibmcam_veio(uvd, 0, 0x0001, 0x0113);
+#endif
 		break;
 	}
 	case IBMCAM_MODEL_4:
@@ -1652,14 +1704,14 @@ static void ibmcam_set_hue(uvd_t *uvd)
  * This procedure gets called from V4L interface to update picture settings.
  * Here we change brightness and contrast.
  */
-static void ibmcam_adjust_picture(uvd_t *uvd)
+static void ibmcam_adjust_picture(struct uvd *uvd)
 {
 	ibmcam_adjust_contrast(uvd);
 	ibmcam_set_brightness(uvd);
 	ibmcam_set_hue(uvd);
 }
 
-static int ibmcam_model1_setup(uvd_t *uvd)
+static int ibmcam_model1_setup(struct uvd *uvd)
 {
 	const int ntries = 5;
 	int i;
@@ -1803,7 +1855,7 @@ static int ibmcam_model1_setup(uvd_t *uvd)
 
 	/* Default sharpness */
 	for (i=0; i < 2; i++)
-		ibmcam_PacketFormat2(uvd, sharp_13, 0x1a);	
+		ibmcam_PacketFormat2(uvd, sharp_13, 0x1a);	/* Level 4 FIXME */
 
 	/* Default lighting conditions */
 	ibmcam_Packet_Format1(uvd, light_27, lighting); /* 0=Bright 2=Low */
@@ -1820,8 +1872,13 @@ static int ibmcam_model1_setup(uvd_t *uvd)
 		ibmcam_veio(uvd, 0, 0x04, 0x011a);	/* Same everywhere */
 		ibmcam_veio(uvd, 0, 0x2b, 0x011c);
 		ibmcam_veio(uvd, 0, 0x23, 0x012a);	/* Same everywhere */
+#if 0
+		ibmcam_veio(uvd, 0, 0x00, 0x0106);
+		ibmcam_veio(uvd, 0, 0x38, 0x0107);
+#else
 		ibmcam_veio(uvd, 0, 0x02, 0x0106);
 		ibmcam_veio(uvd, 0, 0x2a, 0x0107);
+#endif
 		break;
 	case VIDEOSIZE_176x144:
 		ibmcam_Packet_Format1(uvd, 0x2b, 0x1e);
@@ -1851,7 +1908,7 @@ static int ibmcam_model1_setup(uvd_t *uvd)
 	return (CAMERA_IS_OPERATIONAL(uvd) ? 0 : -EFAULT);
 }
 
-static int ibmcam_model2_setup(uvd_t *uvd)
+static int ibmcam_model2_setup(struct uvd *uvd)
 {
 	ibmcam_veio(uvd, 0, 0x0000, 0x0100);	/* LED on */
 	ibmcam_veio(uvd, 1, 0x0000, 0x0116);
@@ -1909,7 +1966,7 @@ static int ibmcam_model2_setup(uvd_t *uvd)
  * This code adds finishing touches to the video data interface.
  * Here we configure the frame rate and turn on the LED.
  */
-static void ibmcam_model1_setup_after_video_if(uvd_t *uvd)
+static void ibmcam_model1_setup_after_video_if(struct uvd *uvd)
 {
 	unsigned short internal_frame_rate;
 
@@ -1921,7 +1978,7 @@ static void ibmcam_model1_setup_after_video_if(uvd_t *uvd)
 	ibmcam_veio(uvd, 0, 0xc0, 0x010c);
 }
 
-static void ibmcam_model2_setup_after_video_if(uvd_t *uvd)
+static void ibmcam_model2_setup_after_video_if(struct uvd *uvd)
 {
 	unsigned short setup_model2_rg2, setup_model2_sat, setup_model2_yb;
 
@@ -2097,7 +2154,7 @@ static void ibmcam_model2_setup_after_video_if(uvd_t *uvd)
 	usb_clear_halt(uvd->dev, usb_rcvisocpipe(uvd->dev, uvd->video_endp));
 }
 
-static void ibmcam_model4_setup_after_video_if(uvd_t *uvd)
+static void ibmcam_model4_setup_after_video_if(struct uvd *uvd)
 {
 	switch (uvd->videosize) {
 	case VIDEOSIZE_128x96:
@@ -2647,7 +2704,7 @@ static void ibmcam_model4_setup_after_video_if(uvd_t *uvd)
 	usb_clear_halt(uvd->dev, usb_rcvisocpipe(uvd->dev, uvd->video_endp));
 }
 
-static void ibmcam_model3_setup_after_video_if(uvd_t *uvd)
+static void ibmcam_model3_setup_after_video_if(struct uvd *uvd)
 {
 	int i;
 	/*
@@ -3428,7 +3485,7 @@ static void ibmcam_model3_setup_after_video_if(uvd_t *uvd)
  * This code tells camera to stop streaming. The interface remains
  * configured and bandwidth - claimed.
  */
-static void ibmcam_video_stop(uvd_t *uvd)
+static void ibmcam_video_stop(struct uvd *uvd)
 {
 	switch (IBMCAM_T(uvd)->camera_model) {
 	case IBMCAM_MODEL_1:
@@ -3457,6 +3514,7 @@ case IBMCAM_MODEL_4:
 		ibmcam_veio(uvd, 0, 0x0000, 0x0112);
 		break;
 	case IBMCAM_MODEL_3:
+#if 1
 		ibmcam_veio(uvd, 0, 0x0000, 0x010c);
 
 		/* Here we are supposed to select video interface alt. setting 0 */
@@ -3473,6 +3531,7 @@ case IBMCAM_MODEL_4:
 		ibmcam_veio(uvd, 0, 0x0000, 0x0112);
 		ibmcam_veio(uvd, 0, 0x0080, 0x0100);
 		IBMCAM_T(uvd)->initialized = 0;
+#endif
 		break;
 	} /* switch */
 }
@@ -3487,7 +3546,7 @@ case IBMCAM_MODEL_4:
  * History:
  * 1/2/00   Created.
  */
-static void ibmcam_reinit_iso(uvd_t *uvd, int do_stop)
+static void ibmcam_reinit_iso(struct uvd *uvd, int do_stop)
 {
 	switch (IBMCAM_T(uvd)->camera_model) {
 	case IBMCAM_MODEL_1:
@@ -3511,7 +3570,7 @@ static void ibmcam_reinit_iso(uvd_t *uvd, int do_stop)
 	}
 }
 
-static void ibmcam_video_start(uvd_t *uvd)
+static void ibmcam_video_start(struct uvd *uvd)
 {
 	ibmcam_change_lighting_conditions(uvd);
 	ibmcam_set_sharpness(uvd);
@@ -3521,11 +3580,11 @@ static void ibmcam_video_start(uvd_t *uvd)
 /*
  * Return negative code on failure, 0 on success.
  */
-static int ibmcam_setup_on_open(uvd_t *uvd)
+static int ibmcam_setup_on_open(struct uvd *uvd)
 {
 	int setup_ok = 0; /* Success by default */
 	/* Send init sequence only once, it's large! */
-	if (!IBMCAM_T(uvd)->initialized) { 
+	if (!IBMCAM_T(uvd)->initialized) { /* FIXME rename */
 		switch (IBMCAM_T(uvd)->camera_model) {
 		case IBMCAM_MODEL_1:
 			setup_ok = ibmcam_model1_setup(uvd);
@@ -3543,7 +3602,7 @@ static int ibmcam_setup_on_open(uvd_t *uvd)
 	return setup_ok;
 }
 
-static void ibmcam_configure_video(uvd_t *uvd)
+static void ibmcam_configure_video(struct uvd *uvd)
 {
 	if (uvd == NULL)
 		return;
@@ -3599,7 +3658,7 @@ static void ibmcam_configure_video(uvd_t *uvd)
  */
 static void *ibmcam_probe(struct usb_device *dev, unsigned int ifnum, const struct usb_device_id *devid)
 {
-	uvd_t *uvd = NULL;
+	struct uvd *uvd = NULL;
 	int i, nas, model=0, canvasX=0, canvasY=0;
 	int actInterface=-1, inactInterface=-1, maxPS=0;
 	unsigned char video_ep = 0;
@@ -3744,7 +3803,7 @@ static void *ibmcam_probe(struct usb_device *dev, unsigned int ifnum, const stru
 		canvasY = 240;
 		break;
 	case IBMCAM_MODEL_3:
-		RESTRICT_TO_RANGE(lighting, 0, 15); 
+		RESTRICT_TO_RANGE(lighting, 0, 15); /* FIXME */
 		switch (size) {
 		case SIZE_160x120:
 			canvasX = 160;
@@ -3809,7 +3868,7 @@ static void *ibmcam_probe(struct usb_device *dev, unsigned int ifnum, const stru
 	MOD_INC_USE_COUNT;
 	uvd = usbvideo_AllocateDevice(cams);
 	if (uvd != NULL) {
-		/* Here uvd is a fully allocated uvd_t object */
+		/* Here uvd is a fully allocated uvd object */
 		uvd->flags = flags;
 		uvd->debug = debug;
 		uvd->dev = dev;
@@ -3840,6 +3899,17 @@ static void *ibmcam_probe(struct usb_device *dev, unsigned int ifnum, const stru
 	return uvd;
 }
 
+
+static struct usb_device_id id_table[] = {
+	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, IBMCAM_PRODUCT_ID, 0x0002, 0x0002) },	/* Model 1 */
+	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, IBMCAM_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 2 */
+	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, IBMCAM_PRODUCT_ID, 0x0301, 0x0301) },	/* Model 3 */
+	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, NETCAM_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 4 */
+	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, VEO_800C_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 2 */
+	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, VEO_800D_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 4 */
+	{ }  /* Terminating entry */
+};
+
 /*
  * ibmcam_init()
  *
@@ -3851,7 +3921,7 @@ static void *ibmcam_probe(struct usb_device *dev, unsigned int ifnum, const stru
  */
 static int __init ibmcam_init(void)
 {
-	usbvideo_cb_t cbTbl;
+	struct usbvideo_cb cbTbl;
 	memset(&cbTbl, 0, sizeof(cbTbl));
 	cbTbl.probe = ibmcam_probe;
 	cbTbl.setupOnOpen = ibmcam_setup_on_open;
@@ -3867,7 +3937,8 @@ static int __init ibmcam_init(void)
 		sizeof(ibmcam_t),
 		"ibmcam",
 		&cbTbl,
-		THIS_MODULE);
+		THIS_MODULE,
+		id_table);
 }
 
 static void __exit ibmcam_cleanup(void)
@@ -3875,15 +3946,6 @@ static void __exit ibmcam_cleanup(void)
 	usbvideo_Deregister(&cams);
 }
 
-static __devinitdata struct usb_device_id id_table[] = {
-	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, IBMCAM_PRODUCT_ID, 0x0002, 0x0002) },	/* Model 1 */
-	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, IBMCAM_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 2 */
-	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, IBMCAM_PRODUCT_ID, 0x0301, 0x0301) },	/* Model 3 */
-	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, NETCAM_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 4 */
-	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, VEO_800C_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 2 */
-	{ USB_DEVICE_VER(IBMCAM_VENDOR_ID, VEO_800D_PRODUCT_ID, 0x030a, 0x030a) },	/* Model 4 */
-	{ }  /* Terminating entry */
-};
 MODULE_DEVICE_TABLE(usb, id_table);
 
 module_init(ibmcam_init);

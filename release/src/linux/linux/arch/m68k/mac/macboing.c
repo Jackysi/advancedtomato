@@ -150,6 +150,15 @@ static void mac_init_asc( void )
 	mac_asc_inited = 1;
 }	
 
+/*
+ * Called to make noise; current single entry to the boing driver. 
+ * Does the job for simple ASC, calls other routines else.
+ * XXX Fixme:
+ * Should be split into asc_mksound, easc_mksound, av_mksound and 
+ * function pointer set in mac_init_asc which would be called at 
+ * init time. 
+ * _This_ is rather ugly ...
+ */
 void mac_mksound( unsigned int freq, unsigned int length )
 {
 	__u32 cfreq = ( freq << 5 ) / 468;

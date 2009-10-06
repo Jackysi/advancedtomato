@@ -68,6 +68,11 @@ struct display {
     struct display_switch *dispsw;  /* low level operations */
     void *dispsw_data;              /* optional dispsw helper data */
 
+#if 0
+    struct fb_fix_cursorinfo fcrsr;
+    struct fb_var_cursorinfo *vcrsr;
+    struct fb_cursorstate crsrstate;
+#endif
 
     /* Filled in by the low-level console driver */
 
@@ -202,7 +207,8 @@ extern int set_all_vcs(int fbidx, struct fb_ops *fb,
 #define fb_memset sbus_memset_io
 
 #elif defined(__i386__) || defined(__alpha__) || \
-      defined(__x86_64__) || defined(__hppa__)
+      defined(__x86_64__) || defined(__hppa__) || \
+      defined(__powerpc64__)
 
 #define fb_readb __raw_readb
 #define fb_readw __raw_readw

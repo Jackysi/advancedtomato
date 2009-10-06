@@ -1,4 +1,4 @@
-/*  $Id: signal.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/*  $Id: signal.c,v 1.56 2001/03/21 11:46:20 davem Exp $
  *  arch/sparc64/kernel/signal.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
@@ -116,8 +116,8 @@ asmlinkage void sparc64_set_context(struct pt_regs *regs)
 	regs->tnpc = npc;
 	err |= __get_user(regs->y, &((*grp)[MC_Y]));
 	err |= __get_user(tstate, &((*grp)[MC_TSTATE]));
-	regs->tstate &= ~(TSTATE_ICC | TSTATE_XCC);
-	regs->tstate |= (tstate & (TSTATE_ICC | TSTATE_XCC));
+	regs->tstate &= ~(TSTATE_ASI | TSTATE_ICC | TSTATE_XCC);
+	regs->tstate |= (tstate & (TSTATE_ASI | TSTATE_ICC | TSTATE_XCC));
 	err |= __get_user(regs->u_regs[UREG_G1], (&(*grp)[MC_G1]));
 	err |= __get_user(regs->u_regs[UREG_G2], (&(*grp)[MC_G2]));
 	err |= __get_user(regs->u_regs[UREG_G3], (&(*grp)[MC_G3]));
@@ -184,7 +184,11 @@ asmlinkage void sparc64_get_context(struct pt_regs *regs)
 	if(tp->w_saved || clear_user(ucp, sizeof(*ucp)))
 		goto do_sigsegv;
 
+#if 1
 	fenab = 0; /* IMO get_context is like any other system call, thus modifies FPU state -jj */
+#else
+	fenab = (current->thread.fpsaved[0] & FPRS_FEF);
+#endif
 		
 	mcp = &ucp->uc_mcontext;
 	grp = &mcp->mc_gregs;
@@ -215,7 +219,7 @@ asmlinkage void sparc64_get_context(struct pt_regs *regs)
 	err |= __put_user(regs->u_regs[UREG_G4], &((*grp)[MC_G4]));
 	err |= __put_user(regs->u_regs[UREG_G5], &((*grp)[MC_G5]));
 	err |= __put_user(regs->u_regs[UREG_G6], &((*grp)[MC_G6]));
-	err |= __put_user(regs->u_regs[UREG_G6], &((*grp)[MC_G7]));
+	err |= __put_user(regs->u_regs[UREG_G7], &((*grp)[MC_G7]));
 	err |= __put_user(regs->u_regs[UREG_I0], &((*grp)[MC_O0]));
 	err |= __put_user(regs->u_regs[UREG_I1], &((*grp)[MC_O1]));
 	err |= __put_user(regs->u_regs[UREG_I2], &((*grp)[MC_O2]));
@@ -334,6 +338,7 @@ asmlinkage void do_rt_sigsuspend(sigset_t *uset, size_t sigsetsize, struct pt_re
 {
 	sigset_t oldset, set;
         
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t)) {
 		regs->tstate |= (TSTATE_ICARRY|TSTATE_XCARRY);
 		regs->u_regs[UREG_I0] = EINVAL;
@@ -432,9 +437,9 @@ void do_rt_sigreturn(struct pt_regs *regs)
 	err |= __get_user(tstate, &sf->regs.tstate);
 	err |= copy_from_user(regs->u_regs, sf->regs.u_regs, sizeof(regs->u_regs));
 
-	/* User can only change condition codes in %tstate. */
-	regs->tstate &= ~(TSTATE_ICC);
-	regs->tstate |= (tstate & TSTATE_ICC);
+	/* User can only change condition codes and %asi in %tstate. */
+	regs->tstate &= ~(TSTATE_ASI | TSTATE_ICC | TSTATE_XCC);
+	regs->tstate |= (tstate & (TSTATE_ASI | TSTATE_ICC | TSTATE_XCC));
 
 	err |= __get_user(fpu_save, &sf->fpu_save);
 	if (fpu_save)
@@ -674,6 +679,8 @@ static inline void read_maps (void)
 			line = d_path(map->vm_file->f_dentry,
 				      map->vm_file->f_vfsmnt,
 				      buffer, PAGE_SIZE);
+			if (IS_ERR(line))
+				break;
 		}
 		printk(MAPS_LINE_FORMAT, map->vm_start, map->vm_end, str, map->vm_pgoff << PAGE_SHIFT,
 			      kdevname(dev), ino);
@@ -778,7 +785,7 @@ asmlinkage int do_signal(sigset_t *oldset, struct pt_regs * regs,
 			if (current->pid == 1)
 				continue;
 			switch (signr) {
-			case SIGCONT: case SIGCHLD: case SIGWINCH:
+			case SIGCONT: case SIGCHLD: case SIGWINCH: case SIGURG:
 				continue;
 
 			case SIGTSTP: case SIGTTIN: case SIGTTOU:

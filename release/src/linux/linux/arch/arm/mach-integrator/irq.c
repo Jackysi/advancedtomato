@@ -18,6 +18,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <linux/init.h>
+#include <linux/stddef.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
@@ -52,7 +55,7 @@ void __init integrator_init_irq(void)
 	unsigned int i;
 
 	for (i = 0; i < NR_IRQS; i++) {
-	        if (((1 << i) && INTEGRATOR_SC_VALID_INT) != 0) {
+	        if (((1 << i) & INTEGRATOR_SC_VALID_INT) != 0) {
 		        irq_desc[i].valid	= 1;
 			irq_desc[i].probe_ok	= 1;
 			irq_desc[i].mask_ack	= sc_mask_irq;

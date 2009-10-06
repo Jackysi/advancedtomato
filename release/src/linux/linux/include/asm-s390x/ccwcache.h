@@ -1,8 +1,11 @@
 /* 
-   * File...........: linux/include/asm-s390/ccwcache.h
-   * Author(s)......: Holger Smolinski <Holger.Smolinski@de.ibm.com>
-   * Bugreports.to..: <Linux390@de.ibm.com>
-   * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 2000
+ * File...........: linux/include/asm-s390/ccwcache.h
+ * Author(s)......: Holger Smolinski <Holger.Smolinski@de.ibm.com>
+ * Bugreports.to..: <Linux390@de.ibm.com>
+ * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 2000
+ *
+ * $Revision: 1.11 $
+ *
  */
 #ifndef CCWCACHE_H
 #define CCWCACHE_H
@@ -38,7 +41,7 @@ typedef struct ccw_req_t {
 	struct ccw_req_t *refers;	/* Does this request refer to another one? */
 	void *function; /* refers to the originating ERP action */ ;
 
-	unsigned long long expires;	/* expiratioj period */
+	unsigned long long expires;	/* expiration period */
 	/* these are for profiling purposes */
 	unsigned long long buildclk;	/* TOD-clock of request generation */
 	unsigned long long startclk;	/* TOD-clock of request start */
@@ -48,6 +51,8 @@ typedef struct ccw_req_t {
 	/* these are for internal use */
 	int cplength;		/* length of the channel program in CCWs */
 	int datasize;		/* amount of additional data in bytes */
+	void *lowmem_idal;      /* lowmem page for idals (if in use) */
+	void *lowmem_idal_ptr;  /* ptr to the actual idal word in the idals page */
 	kmem_cache_t *cache;	/* the cache this data comes from */
 
 } __attribute__ ((aligned(4))) ccw_req_t;
@@ -55,16 +60,18 @@ typedef struct ccw_req_t {
 /* 
  * ccw_req_t -> status can be:
  */
-#define CQR_STATUS_EMPTY    0x00	/* request is empty */
-#define CQR_STATUS_FILLED   0x01	/* request is ready to be preocessed */
-#define CQR_STATUS_QUEUED   0x02	/* request is queued to be processed */
-#define CQR_STATUS_IN_IO    0x03	/* request is currently in IO */
-#define CQR_STATUS_DONE     0x04	/* request is completed successfully */
-#define CQR_STATUS_ERROR    0x05	/* request is completed with error */
-#define CQR_STATUS_FAILED   0x06	/* request is finally failed */
-#define CQR_STATUS_PENDING  0x07        /* request is waiting for interrupt - ERP only */ 
+#define CQR_STATUS_EMPTY    0x00	/* cqr is empty */
+#define CQR_STATUS_FILLED   0x01	/* cqr is ready to be preocessed */
+#define CQR_STATUS_QUEUED   0x02	/* cqr is queued to be processed */
+#define CQR_STATUS_IN_IO    0x03	/* cqr is currently in IO */
+#define CQR_STATUS_DONE     0x04	/* cqr is completed successfully */
+#define CQR_STATUS_ERROR    0x05	/* cqr is completed with error */
+#define CQR_STATUS_FAILED   0x06	/* cqr is finally failed */
 
-#define CQR_FLAGS_CHAINED  0x01	/* request is chained by another (last CCW is TIC) */
+#define CQR_FLAGS_CHAINED   0x01	/* cqr is chained by another (last CCW is TIC) */
+#define CQR_FLAGS_FINALIZED 0x02	
+#define CQR_FLAGS_LM_CQR    0x04	/* cqr uses page from lowmem_pool */
+#define CQR_FLAGS_LM_IDAL   0x08	/* IDALs uses page from lowmem_pool */
 
 #ifdef __KERNEL__
 #define SMALLEST_SLAB (sizeof(struct ccw_req_t) <= 128 ? 128 :\

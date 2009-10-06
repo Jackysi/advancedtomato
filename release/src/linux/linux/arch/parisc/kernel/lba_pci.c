@@ -1,4 +1,33 @@
-
+/*
+**  PCI Lower Bus Adapter (LBA) manager
+**
+**	(c) Copyright 1999,2000 Grant Grundler
+**	(c) Copyright 1999,2000 Hewlett-Packard Company
+**
+**	This program is free software; you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**      the Free Software Foundation; either version 2 of the License, or
+**      (at your option) any later version.
+**
+**
+** This module primarily provides access to PCI bus (config/IOport
+** spaces) on platforms with an SBA/LBA chipset. A/B/C/J/L/N-class
+** with 4 digit model numbers - eg C3000 (and A400...sigh).
+**
+** LBA driver isn't as simple as the Dino driver because:
+**   (a) this chip has substantial bug fixes between revisions
+**       (Only one Dino bug has a software workaround :^(  )
+**   (b) has more options which we don't (yet) support (DMA hints, OLARD)
+**   (c) IRQ support lives in the I/O SAPIC driver (not with PCI driver)
+**   (d) play nicely with both PAT and "Legacy" PA-RISC firmware (PDC).
+**       (dino only deals with "Legacy" PDC)
+**
+** LBA driver passes the I/O SAPIC HPA to the I/O SAPIC driver.
+** (I/O SAPIC is integratd in the LBA chip).
+**
+** FIXME: Add support to SBA and LBA drivers for DMA hint sets
+** FIXME: Add support for PCI card hot-plug (OLARD).
+*/
 
 #include <linux/delay.h>
 #include <linux/types.h>
@@ -125,6 +154,7 @@
 #define LBA_IBASE	0x0300	/* SBA DMA support */
 #define LBA_IMASK	0x0308
 
+/* FIXME: ignore DMA Hint stuff until we can measure performance */
 #define LBA_HINT_CFG	0x0310
 #define LBA_HINT_BASE	0x0380	/* 14 registers at every 8 bytes. */
 
@@ -240,12 +270,30 @@ lba_dump_res(struct resource *r, int d)
 }
 
 
+/*
+** LBA rev 2.0, 2.1, 2.2, and 3.0 bus walks require a complex
+** workaround for cfg cycles:
+**	-- preserve  LBA state
+**	-- LBA_FLAG_NO_DMA_DURING_CFG workaround
+**	-- turn on smart mode
+**	-- probe with config writes before doing config reads
+**	-- check ERROR_STATUS
+**	-- clear ERROR_STATUS
+**	-- restore LBA state
+**
+** The workaround is only used for device discovery.
+*/
 
 static int
 lba_device_present( u8 bus, u8 dfn, struct lba_device *d)
 {
 	u8 first_bus = d->hba.hba_bus->secondary;
 	u8 last_sub_bus = d->hba.hba_bus->subordinate;
+#if 0
+/* FIXME - see below in this function */
+        u8 dev = PCI_SLOT(dfn);
+        u8 func = PCI_FUNC(dfn);
+#endif
 
 	ASSERT(bus >= first_bus);
 	ASSERT(bus <= last_sub_bus);
@@ -259,7 +307,19 @@ lba_device_present( u8 bus, u8 dfn, struct lba_device *d)
 	    return(FALSE);
 	}
 
+#if 0
+/*
+** FIXME: Need to implement code to fill the devices bitmap based
+** on contents of the local pci_bus tree "data base".
+** pci_register_ops() walks the bus for us and builds the tree.
+** For now, always do the config cycle.
+*/
+	bus -= first_bus;
+
+	return (((d->devices[bus][dev]) >> func) & 0x1);
+#else
 	return TRUE;
+#endif
 }
 
 
@@ -452,7 +512,7 @@ static int lba_cfg_read##size (struct pci_dev *dev, int pos, u##size *data) \
 	u32 local_bus = (dev->bus->parent == NULL) ? 0 : dev->bus->secondary; \
 	u32 tok = LBA_CFG_TOK(local_bus,dev->devfn); \
  \
- \
+/* FIXME: B2K/C3600 workaround is always use old method... */ \
 	/* if (!LBA_TR4PLUS(d) && !LBA_SKIP_PROBE(d)) */ { \
 		/* original - Generate config cycle on broken elroy \
 		  with risk we will miss PCI bus errors. */ \
@@ -539,7 +599,7 @@ static int lba_cfg_write##size (struct pci_dev *dev, int pos, u##size data) \
 	ASSERT(pos < 0x100); \
  \
 	if (!LBA_TR4PLUS(d) && !LBA_SKIP_PROBE(d)) { \
-		 \
+		/* Original Workaround */ \
 		lba_wr_cfg(d, tok, pos, (u32) data, sizeof(u##size)); \
 		DBG_CFG("%s(%s+%2x) = 0x%x (a)\n", __FUNCTION__, dev->slot_name, pos, data); \
 		return 0; \
@@ -547,7 +607,7 @@ static int lba_cfg_write##size (struct pci_dev *dev, int pos, u##size data) \
  \
 	if (LBA_SKIP_PROBE(d) && (!lba_device_present(dev->bus->secondary, dev->devfn, d))) { \
 		DBG_CFG("%s(%s+%2x) = 0x%x (b)\n", __FUNCTION__, dev->slot_name, pos, data); \
-		return 1;  \
+		return 1; /* New Workaround */ \
 	} \
  \
 	DBG_CFG("%s(%s+%2x) = 0x%x (c)\n", __FUNCTION__, dev->slot_name, pos, data); \
@@ -675,43 +735,11 @@ lba_fixup_bus(struct pci_bus *bus)
 		bus->resource[0] = &(ldev->hba.io_space);
 		bus->resource[1] = &(ldev->hba.lmmio_space);
 	} else {
-		/* KLUGE ALERT!
-		** PCI-PCI Bridge resource munging.
-		** This hack should go away in the near future.
-		** It's based on the Alpha port.
-		*/
-		int i;
-		u16 cmd;
+		pci_read_bridge_bases(bus);
 
-		for (i = 0; i < 4; i++) {
-			bus->resource[i] =
-				&bus->self->resource[PCI_BRIDGE_RESOURCES+i];
-			bus->resource[i]->name = bus->name;
-		}
-		bus->resource[0]->flags |= IORESOURCE_IO;
-		bus->resource[1]->flags |= IORESOURCE_MEM;
-		bus->resource[2]->flags = 0;	/* Don't support prefetchable */
-		bus->resource[3]->flags = 0;	/* not used */
-
-		/* 
-		** If the PPB is enabled (ie already configured) then
-		** just read those values.
-		*/
-		(void) lba_cfg_read16(bus->self, PCI_COMMAND, &cmd);
-		if (cmd & (PCI_COMMAND_MEMORY | PCI_COMMAND_IO)) {
-			pci_read_bridge_bases(bus);
-		} else {
-			/* Not configured.
-			** For now, propogate HBA limits to the bus;
-			**	PCI will adjust them later.
-			*/
-			bus->resource[0]->end = ldev->hba.io_space.end;
-			bus->resource[1]->end = ldev->hba.lmmio_space.end;
-		}
-
-		/* Turn off downstream PF memory address range by default */
-		bus->resource[2]->start = 1024*1024;
-		bus->resource[2]->end = bus->resource[2]->start - 1;
+		/* Turn off downstream PreFetchable Memory range by default */
+		bus->resource[2]->start = 0;
+		bus->resource[2]->end = 0;
 	}
 
 
@@ -775,6 +803,10 @@ lba_fixup_bus(struct pci_bus *bus)
 	}
 
 #ifdef FBB_SUPPORT
+/* FIXME/REVISIT - finish figuring out to set FBB on both
+** pci_setup_bridge() clobbers PCI_BRIDGE_CONTROL.
+** Can't fixup here anyway....garr...
+*/
 	if (fbb_enable) {
 		if (bus->self) {
 			u8 control;
@@ -835,6 +867,32 @@ LBA_PORT_IN(32, 0)
 
 
 
+/*
+** BUG X4107:  Ordering broken - DMA RD return can bypass PIO WR
+**
+** Fixed in Elroy 2.2. The READ_U32(..., LBA_FUNC_ID) below is
+** guarantee non-postable completion semantics - not avoid X4107.
+** The READ_U32 only guarantees the write data gets to elroy but
+** out to the PCI bus. We can't read stuff from I/O port space
+** since we don't know what has side-effects. Attempting to read
+** from configuration space would be suicidal given the number of
+** bugs in that elroy functionality.
+**
+**      Description:
+**          DMA read results can improperly pass PIO writes (X4107).  The
+**          result of this bug is that if a processor modifies a location in
+**          memory after having issued PIO writes, the PIO writes are not
+**          guaranteed to be completed before a PCI device is allowed to see
+**          the modified data in a DMA read.
+**
+**          Note that IKE bug X3719 in TR1 IKEs will result in the same
+**          symptom.
+**
+**      Workaround:
+**          The workaround for this bug is to always follow a PIO write with
+**          a PIO read to the same bus before starting DMA on that PCI bus.
+**
+*/
 #define LBA_PORT_OUT(size, mask) \
 static void lba_astro_out##size (struct pci_hba_data *d, u16 addr, u##size val) \
 { \
@@ -1043,6 +1101,13 @@ lba_legacy_resources(struct parisc_device *pa_dev, struct lba_device *lba_dev)
 	lba_dev->hba.lmmio_space_offset = 0UL;
 #endif
 
+	/*
+	** With "legacy" firmware, the lowest byte of FW_SCRATCH
+	** represents bus->secondary and the second byte represents
+	** bus->subsidiary (i.e. highest PPB programmed by firmware).
+	** PCI bus walk *should* end up with the same result.
+	** FIXME: But we don't have sanity checks in PCI or LBA.
+	*/
 	lba_num = READ_REG32(pa_dev->hpa + LBA_FW_SCRATCH);
 	r = &(lba_dev->hba.bus_num);
 	r->name = "LBA PCI Busses";
@@ -1068,6 +1133,22 @@ lba_legacy_resources(struct parisc_device *pa_dev, struct lba_device *lba_dev)
 	r->start += rsize * LBA_NUM(pa_dev->hpa);
 	r->end = r->start + rsize - 1 ;
 
+	/*
+	** XXX FIXME - ignore LBA_ELMMIO_BASE for now
+	** "Directed" ranges are used when the "distributed range" isn't
+	** sufficient for all devices below a given LBA.  Typically devices
+	** like graphics cards or X25 may need a directed range when the
+	** bus has multiple slots (ie multiple devices) or the device
+	** needs more than the typical 4 or 8MB a distributed range offers.
+	**
+	** The main reason for ignoring it now frigging complications.
+	** Directed ranges may overlap (and have precedence) over
+	** distributed ranges. Ie a distributed range assigned to a unused
+	** rope may be used by a directed range on a different rope.
+	** Support for graphics devices may require fixing this
+	** since they may be assigned a directed range which overlaps
+	** an existing (but unused portion of) distributed range.
+	*/
 	r = &(lba_dev->hba.elmmio_space);
 	r->name  = "extra LBA PCI LMMIO";
 	r->flags = IORESOURCE_MEM;
@@ -1102,6 +1183,17 @@ lba_legacy_resources(struct parisc_device *pa_dev, struct lba_device *lba_dev)
 }
 
 
+/**************************************************************************
+**
+**   LBA initialization code (HW and SW)
+**
+**   o identify LBA chip itself
+**   o initialize LBA chip modes (HardFail)
+**   o FIXME: initialize DMA hints for reasonable defaults
+**   o enable configuration functions
+**   o call pci_register_ops() to discover devs (fixup/fixup_bus get invoked)
+**
+**************************************************************************/
 
 static int __init
 lba_hw_init(struct lba_device *d)
@@ -1109,6 +1201,27 @@ lba_hw_init(struct lba_device *d)
 	u32 stat;
 	u32 bus_reset;	/* PDC_PAT_BUG */
 
+#if 0
+	printk(KERN_DEBUG "LBA %lx  STAT_CTL %Lx  ERROR_CFG %Lx  STATUS %Lx DMA_CTL %Lx\n",
+		d->hba.base_addr,
+		READ_REG64(d->hba.base_addr + LBA_STAT_CTL),
+		READ_REG64(d->hba.base_addr + LBA_ERROR_CONFIG),
+		READ_REG64(d->hba.base_addr + LBA_ERROR_STATUS),
+		READ_REG64(d->hba.base_addr + LBA_DMA_CTL) );
+	printk(KERN_DEBUG "	ARB mask %Lx  pri %Lx  mode %Lx  mtlt %Lx\n",
+		READ_REG64(d->hba.base_addr + LBA_ARB_MASK),
+		READ_REG64(d->hba.base_addr + LBA_ARB_PRI),
+		READ_REG64(d->hba.base_addr + LBA_ARB_MODE),
+		READ_REG64(d->hba.base_addr + LBA_ARB_MTLT) );
+	printk(KERN_DEBUG "	HINT cfg 0x%Lx\n",
+		READ_REG64(d->hba.base_addr + LBA_HINT_CFG));
+	printk(KERN_DEBUG "	HINT reg ");
+	{ int i;
+	for (i=LBA_HINT_BASE; i< (14*8 + LBA_HINT_BASE); i+=8)
+		printk(" %Lx", READ_REG64(d->hba.base_addr + i));
+	}
+	printk("\n");
+#endif	/* DEBUG_LBA_PAT */
 
 #ifdef __LP64__
 #warning FIXME add support for PDC_PAT_IO "Get slot status" - OLAR support
@@ -1153,6 +1266,11 @@ lba_hw_init(struct lba_device *d)
 		WRITE_REG32(0x3, d->hba.base_addr + LBA_ARB_MASK);
 	}
 
+	/*
+	** FIXME: Hint registers are programmed with default hint
+	** values by firmware. Hints should be sane even if we
+	** can't reprogram them the way drivers want.
+	*/
 	return 0;
 }
 

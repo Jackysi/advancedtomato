@@ -26,8 +26,10 @@ NESTED(it8172_IRQ, PT_SIZE, sp)
 
         andi    a0, t0, CAUSEF_IP7
         beq     a0, zero, 1f
-        move    a0, sp
-        jal     local_timer_interrupt
+
+        li	a0, 127			# MIPS_CPU_TIMER_IRQ = (NR_IRQS-1)
+        move    a1, sp
+        jal     ll_timer_interrupt
 	j	ret_from_irq
         nop
 

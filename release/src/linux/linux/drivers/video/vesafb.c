@@ -93,7 +93,12 @@ static union {
 } fbcon_cmap;
 
 static int             inverse   = 0;
+#ifdef __x86_64__
+static int             mtrr      = 1;
+#else
 static int             mtrr      = 0;
+#endif
+static int	 vram __initdata = 0;	/* needed for vram boot option */
 static int             currcon   = 0;
 
 static int             pmi_setpal = 0;	/* pmi for palette changes ??? */
@@ -479,6 +484,10 @@ int __init vesafb_setup(char *options)
 			pmi_setpal=1;
 		else if (! strcmp(this_opt, "mtrr"))
 			mtrr=1;
+		/* checks for vram boot option */
+		else if (! strncmp(this_opt, "vram:", 5))
+			vram = simple_strtoul(this_opt+5, NULL, 0);
+
 		else if (!strncmp(this_opt, "font:", 5))
 			strcpy(fb_info.fontname, this_opt+5);
 	}
@@ -520,7 +529,20 @@ int __init vesafb_init(void)
 	video_width         = screen_info.lfb_width;
 	video_height        = screen_info.lfb_height;
 	video_linelength    = screen_info.lfb_linelength;
-	video_size          = screen_info.lfb_size * 65536;
+
+	/* remap memory according to videomode, multiply by 2 to get space for doublebuffering */
+	video_size          = screen_info.lfb_width *	screen_info.lfb_height * video_bpp / 8 * 2;
+
+	/* check that we don't remap more memory than old cards have */
+	if (video_size > screen_info.lfb_size * 65536)
+		video_size = screen_info.lfb_size * 65536;
+	
+	/* FIXME: Should we clip against declared size for banked devices ? */
+	
+	/* sets video_size according to vram boot option */
+	if (vram && vram * 1024 * 1024 != video_size)
+		video_size = vram * 1024 * 1024;
+		
 	video_visual = (video_bpp == 8) ?
 		FB_VISUAL_PSEUDOCOLOR : FB_VISUAL_TRUECOLOR;
 
@@ -639,6 +661,8 @@ int __init vesafb_init(void)
 		video_cmap_len = 256;
 	}
 
+	/* request failure does not faze us, as vgacon probably has this
+	 * region already (FIXME) */
 	request_region(0x3c0, 32, "vesafb");
 
 	if (mtrr) {

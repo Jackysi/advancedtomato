@@ -52,17 +52,22 @@
 		.endm
 
 /*
- *  Kernel startup entry point.
+ * Kernel startup entry point.
+ * ---------------------------
  *
- * The rules are:
- *  r0      - should be 0
- *  r1      - unique architecture number
- *  MMU     - off
- *  I-cache - on or off
- *  D-cache - off
+ * This is normally called from the decompressor code.  The requirements
+ * are: MMU = off, D-cache = off, I-cache = dont care, r0 = 0,
+ * r1 = machine nr.
  *
- * See linux/arch/arm/tools/mach-types for the complete list of numbers
- * for r1.
+ * This code is mostly position independent, so if you link the kernel at
+ * 0xc0008000, you call this at __pa(0xc0008000).
+ *
+ * See linux/arch/arm/tools/mach-types for the complete list of machine
+ * numbers for r1.
+ *
+ * We're trying to keep crap to a minimum; DO NOT add any machine specific
+ * crap here - that's what the boot loader (or in extreme, well justified
+ * circumstances, zImage) is for.
  */
 		.section ".text.init",#alloc,#execinstr
 		.type	stext, #function
@@ -120,6 +125,9 @@ ENTRY(stext)
 __entry:
 #endif
 #if defined(CONFIG_ARCH_L7200)
+/*
+ * FIXME - No bootloader, so manually set 'r1' with our architecture number.
+ */
 		mov	r1, #MACH_TYPE_L7200
 #endif
 
@@ -140,7 +148,6 @@ __entry:
 
 		.type	__switch_data, %object
 __switch_data:	.long	__mmap_switched
-		.long	SYMBOL_NAME(compat)
 		.long	SYMBOL_NAME(__bss_start)
 		.long	SYMBOL_NAME(_end)
 		.long	SYMBOL_NAME(processor_id)
@@ -148,28 +155,33 @@ __switch_data:	.long	__mmap_switched
 		.long	SYMBOL_NAME(cr_alignment)
 		.long	SYMBOL_NAME(init_task_union)+8192
 
+/*
+ * Enable the MMU.  This completely changes the structure of the visible
+ * memory space.  You will not be able to trace execution through this.
+ * If you have an enquiry about this, *please* check the linux-arm-kernel
+ * mailing list archives BEFORE sending another post to the list.
+ */
 		.type	__ret, %function
 __ret:		ldr	lr, __switch_data
 		mcr	p15, 0, r0, c1, c0
-		mov	r0, r0
+		mrc	p15, 0, r0, c1, c0, 0		@ read it back.
 		mov	r0, r0
 		mov	r0, r0
 		mov	pc, lr
 
-		/*
-		 * This code follows on after the page
-		 * table switch and jump above.
-		 *
-		 * r0  = processor control register
-		 * r1  = machine ID
-		 * r9  = processor ID
-		 */
+/*
+ * The following fragment of code is executed with the MMU on, and uses
+ * absolute addresses; this is not position independent.
+ *
+ *  r0  = processor control register
+ *  r1  = machine ID
+ *  r9  = processor ID
+ */
 		.align	5
 __mmap_switched:
 		adr	r3, __switch_data + 4
-		ldmia	r3, {r2, r4, r5, r6, r7, r8, sp}@ r2 = compat
+		ldmia	r3, {r4, r5, r6, r7, r8, sp}@ r2 = compat
 							@ sp = stack pointer
-		str	r12, [r2]
 
 		mov	fp, #0				@ Clear BSS (and zero fp)
 1:		cmp	r4, r5

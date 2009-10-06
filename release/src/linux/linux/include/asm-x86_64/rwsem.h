@@ -5,7 +5,6 @@
  *
  * Derived from asm-i386/semaphore.h and asm-i386/rwsem.h
  *
- * Trylock by Brian Watson (Brian.J.Watson@compaq.com).
  *
  * The MSW of the count is the negated number of active writers and waiting
  * lockers, and the LSW is the total number of active locks
@@ -114,30 +113,6 @@ LOCK_PREFIX	"  incl      (%%rdi)\n\t" /* adds 0x00000001, returns the old value 
 		: "memory", "cc");
 }
 
-
-/*
- * trylock for reading -- returns 1 if successful, 0 if contention
- */
-static inline int __down_read_trylock(struct rw_semaphore *sem)
-{
-	__s32 result, tmp;
-	__asm__ __volatile__(
-		"# beginning __down_read_trylock\n\t"
-		"  movl      %0,%1\n\t"
-		"1:\n\t"
-		"  movl	     %1,%2\n\t"
-		"  addl      %3,%2\n\t"
-		"  jle	     2f\n\t"
-LOCK_PREFIX	"  cmpxchgl  %2,%0\n\t"
-		"  jnz	     1b\n\t"
-		"2:\n\t"
-		"# ending __down_read_trylock\n\t"
-		: "+m"(sem->count), "=&a"(result), "=&r"(tmp)
-		: "i"(RWSEM_ACTIVE_READ_BIAS)
-		: "memory", "cc");
-	return result>=0 ? 1 : 0;
-}
-
 /*
  * lock for writing
  */
@@ -161,19 +136,6 @@ LOCK_PREFIX	"  xaddl      %0,(%%rdi)\n\t" /* subtract 0x0000ffff, returns the ol
 		: "=&r" (tmp) 
 		: "0"(tmp), "D"(sem)
 		: "memory", "cc");
-}
-
-/*
- * trylock for writing -- returns 1 if successful, 0 if contention
- */
-static inline int __down_write_trylock(struct rw_semaphore *sem)
-{
-	signed long ret = cmpxchg(&sem->count,
-				  RWSEM_UNLOCKED_VALUE, 
-				  RWSEM_ACTIVE_WRITE_BIAS);
-	if (ret == RWSEM_UNLOCKED_VALUE)
-		return 1;
-	return 0;
 }
 
 /*

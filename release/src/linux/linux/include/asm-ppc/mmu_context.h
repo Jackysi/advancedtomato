@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.mmu_context.h 1.18 09/26/01 16:02:49 paulus
- */
 #ifdef __KERNEL__
 #ifndef __PPC_MMU_CONTEXT_H
 #define __PPC_MMU_CONTEXT_H

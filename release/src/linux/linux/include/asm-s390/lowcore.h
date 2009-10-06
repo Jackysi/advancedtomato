@@ -47,6 +47,7 @@
 #define __LC_IPLDEV                     0xC7C
 
 #define __LC_JIFFY_TIMER		0xC80
+#define __LC_INT_CLOCK			0xC88
 
 #define __LC_PANIC_MAGIC                0xE00
 
@@ -165,8 +166,9 @@ struct _lowcore
 
         /* SMP info area: defined by DJB */
         __u64        jiffy_timer;              /* 0xc80 */
-	atomic_t     ext_call_fast;            /* 0xc88 */
-        __u8         pad11[0xe00-0xc8c];       /* 0xc8c */
+        __u64        int_clock;                /* 0xc88 */
+	atomic_t     ext_call_fast;            /* 0xc90 */
+        __u8         pad11[0xe00-0xc94];       /* 0xc94 */
 
         /* 0xe00 is used as indicator for dump tools */
         /* whether the kernel died with panic() or not */

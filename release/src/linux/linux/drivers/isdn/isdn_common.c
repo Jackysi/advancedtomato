@@ -1,4 +1,4 @@
-/* $Id: isdn_common.c,v 1.1.1.4 2003/10/14 08:08:10 sparq Exp $
+/* $Id: isdn_common.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  *
  * Linux ISDN subsystem, common used functions (linklevel).
  *
@@ -44,7 +44,7 @@ MODULE_LICENSE("GPL");
 
 isdn_dev *dev;
 
-static char *isdn_revision = "$Revision: 1.1.1.4 $";
+static char *isdn_revision = "$Revision: 1.1.4.1 $";
 
 extern char *isdn_net_revision;
 extern char *isdn_tty_revision;
@@ -976,9 +976,13 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 	int chidx;
 	int retval;
 	char *p;
+	loff_t pos = *off;
 
 	if (off != &file->f_pos)
 		return -ESPIPE;
+
+	if (pos != (unsigned) pos)
+		return -EINVAL;
 
 	lock_kernel();
 	if (minor == ISDN_MINOR_STATUS) {
@@ -996,7 +1000,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 				retval = -EFAULT;
 				goto out;
 			}
-			*off += len;
+			*off = pos + len;
 			retval = len;
 			goto out;
 		}
@@ -1027,7 +1031,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 		cli();
 		len = isdn_readbchan(drvidx, chidx, p, 0, count,
 				     &dev->drv[drvidx]->rcv_waitq[chidx]);
-		*off += len;
+		*off = pos + len;
 		restore_flags(flags);
 		if (copy_to_user(buf,p,len)) 
 			len = -EFAULT;
@@ -1054,6 +1058,10 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 			len = dev->drv[drvidx]->interface->
 				readstat(buf, count, 1, drvidx,
 					 isdn_minor2chan(minor));
+			if (len < 0) {
+				retval = len;
+				goto out;
+			}
 		} else {
 			len = 0;
 		}
@@ -1064,7 +1072,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 		else
 			dev->drv[drvidx]->stavail = 0;
 		restore_flags(flags);
-		*off += len;
+		*off = pos + len;
 		retval = len;
 		goto out;
 	}
@@ -1434,6 +1442,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					if (copy_from_user((char *) &iocts, (char *) arg,
 					     sizeof(isdn_ioctl_struct)))
 						return -EFAULT;
+					iocts.drvid[sizeof(iocts.drvid)-1] = 0;
 					if (strlen(iocts.drvid)) {
 						if ((p = strchr(iocts.drvid, ',')))
 							*p = 0;
@@ -1519,6 +1528,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 							    (char *) arg,
 					     sizeof(isdn_ioctl_struct)))
 						return -EFAULT;
+					iocts.drvid[sizeof(iocts.drvid)-1] = 0;
 					if (strlen(iocts.drvid)) {
 						drvidx = -1;
 						for (i = 0; i < ISDN_MAX_DRIVERS; i++)
@@ -1563,7 +1573,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					} else {
 						p = (char *) iocts.arg;
 						for (i = 0; i < 10; i++) {
-							sprintf(bname, "%s%s",
+							snprintf(bname, sizeof(bname), "%s%s",
 								strlen(dev->drv[drvidx]->msn2eaz[i]) ?
 								dev->drv[drvidx]->msn2eaz[i] : "_",
 								(i < 9) ? "," : "\0");
@@ -1593,6 +1603,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					char *p;
 					if (copy_from_user((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct)))
 						return -EFAULT;
+					iocts.drvid[sizeof(iocts.drvid)-1] = 0;
 					if (strlen(iocts.drvid)) {
 						if ((p = strchr(iocts.drvid, ',')))
 							*p = 0;

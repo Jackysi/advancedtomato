@@ -133,7 +133,7 @@ struct stifb_info {
 #endif			
 };
 
-static int stifb_force_bpp[MAX_STI_ROMS] = {0, };
+static int stifb_force_bpp[MAX_STI_ROMS];
 
 /* ------------------- chipset specific functions -------------------------- */
 
@@ -285,6 +285,13 @@ CRX24_SETUP_RAMDAC(struct stifb_info *fb)
 	WRITE_WORD(0x03000000, fb, 0x1008);
 }
 
+#if 0
+static void 
+HCRX_SETUP_RAMDAC(struct stifb_info *fb)
+{
+	WRITE_WORD(0xffffffff, fb, REG_32);
+}
+#endif
 
 static void 
 CRX24_SET_OVLY_MASK(struct stifb_info *fb)
@@ -502,6 +509,7 @@ rattlerSetupPlanes(struct stifb_info *fb)
 	SETUP_HW(fb);
 	WRITE_BYTE(1, fb, REG_16b1);
 
+	/* XXX: replace by fb_setmem(), smem_start or screen_base ? */
 	memset_io(fb->fix.smem_start, 0xff,
 		fb->var.yres*fb->fix.line_length);
     
@@ -530,6 +538,45 @@ typedef union	/* Note assumption that fields are packed left-to-right */
 } NgleLutBltCtl;
 
 
+#if 0
+static NgleLutBltCtl
+setNgleLutBltCtl(struct stifb_info *fb, int offsetWithinLut, int length)
+{
+	NgleLutBltCtl lutBltCtl;
+
+	/* set enable, zero reserved fields */
+	lutBltCtl.all           = 0x80000000;
+	lutBltCtl.fields.length = length;
+
+	switch (fb->id) 
+	{
+	case S9000_ID_A1439A:		/* CRX24 */
+		if (fb->var.bits_per_pixel == 8) {
+			lutBltCtl.fields.lutType = NGLE_CMAP_OVERLAY_TYPE;
+			lutBltCtl.fields.lutOffset = 0;
+		} else {
+			lutBltCtl.fields.lutType = NGLE_CMAP_INDEXED0_TYPE;
+			lutBltCtl.fields.lutOffset = 0 * 256;
+		}
+		break;
+		
+	case S9000_ID_ARTIST:
+		lutBltCtl.fields.lutType = NGLE_CMAP_INDEXED0_TYPE;
+		lutBltCtl.fields.lutOffset = 0 * 256;
+		break;
+		
+	default:
+		lutBltCtl.fields.lutType = NGLE_CMAP_INDEXED0_TYPE;
+		lutBltCtl.fields.lutOffset = 0;
+		break;
+	}
+
+	/* Offset points to start of LUT.  Adjust for within LUT */
+	lutBltCtl.fields.lutOffset += offsetWithinLut;
+
+	return lutBltCtl;
+}
+#endif
 
 static NgleLutBltCtl
 setHyperLutBltCtl(struct stifb_info *fb, int offsetWithinLut, int length) 
@@ -592,11 +639,13 @@ static void hyperUndoITE(struct stifb_info *fb)
 static void 
 ngleDepth8_ClearImagePlanes(struct stifb_info *fb)
 {
+	/* FIXME! */
 }
 
 static void 
 ngleDepth24_ClearImagePlanes(struct stifb_info *fb)
 {
+	/* FIXME! */
 }
 
 static void
@@ -746,6 +795,62 @@ hyperResetPlanes(struct stifb_info *fb, int enable)
 static void 
 ngleGetDeviceRomData(struct stifb_info *fb)
 {
+#if 0
+XXX: FIXME: !!!
+	int	*pBytePerLongDevDepData;/* data byte == LSB */
+	int 	*pRomTable;
+	NgleDevRomData	*pPackedDevRomData;
+	int	sizePackedDevRomData = sizeof(*pPackedDevRomData);
+	char	*pCard8;
+	int	i;
+	char	*mapOrigin = NULL;
+    
+	int romTableIdx;
+
+	pPackedDevRomData = fb->ngle_rom;
+
+	SETUP_HW(fb);
+	if (fb->id == S9000_ID_ARTIST) {
+		pPackedDevRomData->cursor_pipeline_delay = 4;
+		pPackedDevRomData->video_interleaves     = 4;
+	} else {
+		/* Get pointer to unpacked byte/long data in ROM */
+		pBytePerLongDevDepData = fb->sti->regions[NGLEDEVDEPROM_CRT_REGION];
+
+		/* Tomcat supports several resolutions: 1280x1024, 1024x768, 640x480 */
+		if (fb->id == S9000_ID_TOMCAT)
+	{
+	    /*  jump to the correct ROM table  */
+	    GET_ROMTABLE_INDEX(romTableIdx);
+	    while  (romTableIdx > 0)
+	    {
+		pCard8 = (Card8 *) pPackedDevRomData;
+		pRomTable = pBytePerLongDevDepData;
+		/* Pack every fourth byte from ROM into structure */
+		for (i = 0; i < sizePackedDevRomData; i++)
+		{
+		    *pCard8++ = (Card8) (*pRomTable++);
+		}
+
+		pBytePerLongDevDepData = (Card32 *)
+			((Card8 *) pBytePerLongDevDepData +
+			       pPackedDevRomData->sizeof_ngle_data);
+
+		romTableIdx--;
+	    }
+	}
+
+	pCard8 = (Card8 *) pPackedDevRomData;
+
+	/* Pack every fourth byte from ROM into structure */
+	for (i = 0; i < sizePackedDevRomData; i++)
+	{
+	    *pCard8++ = (Card8) (*pBytePerLongDevDepData++);
+	}
+    }
+
+    SETUP_FB(fb);
+#endif
 }
 
 
@@ -1176,12 +1281,19 @@ stifb_init_fb(struct sti_struct *sti, int force_bpp)
 			var->grayscale = 1;
 		break;
 	case S9000_ID_TOMCAT:	/* Dual CRX, behaves else like a CRX */
+		/* FIXME: TomCat supports two heads:
+		 * fb.iobase = REGION_BASE(fb_info,3);
+		 * fb.screen_base = (void*) REGION_BASE(fb_info,2);
+		 * for now we only support the left one ! */
 		xres = fb->ngle_rom.x_size_visible;
 		yres = fb->ngle_rom.y_size_visible;
 		fb->id = S9000_ID_A1659A;
 		break;
 	case S9000_ID_A1439A:	/* CRX24/A1439A */
-		bpp = 32;
+		if (force_bpp == 8 || force_bpp == 32)
+		  bpp = force_bpp;
+		else
+		  bpp = 32;
 		break;
 	case S9000_ID_HCRX:	/* Hyperdrive/HCRX */
 		memset(&fb->ngle_rom, 0, sizeof(fb->ngle_rom));

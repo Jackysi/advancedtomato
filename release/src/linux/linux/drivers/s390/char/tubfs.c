@@ -241,19 +241,13 @@ fs3270_bh(void *data)
 {
 	long flags;
 	tub_t *tubp;
-	addr_t *ip;
 
 	tubp = data;
 	TUBLOCK(tubp->irq, flags);
 	tubp->flags &= ~TUB_BHPENDING;
 
 	if (tubp->wbuf) {       /* if we were writing */
-		for (ip = tubp->wbuf; ip < tubp->wbuf+33; ip++) {
-			if (*ip == 0)
-				break;
-			kfree(phys_to_virt(*ip));
-		}
-		kfree(tubp->wbuf);
+		idal_buffer_free(tubp->wbuf);
 		tubp->wbuf = NULL;
 	}
 
@@ -296,6 +290,7 @@ fs3270_int(tub_t *tubp, devstat_t *dsp)
 	(DEV_STAT_CHN_END | DEV_STAT_DEV_END | DEV_STAT_UNIT_EXCEP)
 
 #ifdef RBHNOTYET
+	/* XXX needs more work; must save 2d arg to fs370_io() */
 	/* Handle CE-DE-UE and subsequent UDE */
 	if (dsp->dstat == DEV_UE_BUSY) {
 		tubp->flags |= TUB_UE_BUSY;
@@ -372,14 +367,10 @@ static ssize_t
 fs3270_read(struct file *fp, char *dp, size_t len, loff_t *off)
 {
 	tub_t *tubp;
-	char *kp;
 	ccw1_t *cp;
 	int rc;
 	long flags;
-	addr_t *idalp, *ip;
-	char *tp;
-	int count, piece;
-	int size;
+	struct idal_buffer *idal_buffer;
 
 	if (len == 0 || len > 65535) {
 		return -EINVAL;
@@ -388,19 +379,9 @@ fs3270_read(struct file *fp, char *dp, size_t len, loff_t *off)
 	if ((tubp = INODE2TUB((struct inode *)fp->private_data)) == NULL)
 		return -ENODEV;
 
-	if ((ip = idalp = idal_alloc(33)) == NULL)
-		return -EFAULT;
-	memset(idalp, 0, 33 * sizeof *idalp);
-	count = len;
-	while (count) {
-		piece = MIN(count, 0x800);
-		size = count == len? piece: 0x800;
-		if ((kp = kmalloc(size, GFP_KERNEL|GFP_DMA)) == NULL) {
-			len = -ENOMEM;
-			goto do_cleanup;
-		}
-		*ip++ = virt_to_phys(kp);
-		count -= piece;
+	if((idal_buffer = idal_buffer_alloc(len, 0)) == NULL) {
+		len = -ENOMEM;
+		goto do_cleanup;
 	}
 
 	if ((rc = fs3270_wait(tubp, &flags)) != 0) {
@@ -411,9 +392,8 @@ fs3270_read(struct file *fp, char *dp, size_t len, loff_t *off)
 	cp = &tubp->rccw;
 	if (tubp->icmd == 0 && tubp->ocmd != 0)  tubp->icmd = 6;
 	cp->cmd_code = tubp->icmd?:2;
-	cp->flags = CCW_FLAG_SLI | CCW_FLAG_IDA;
-	cp->count = len;
-	cp->cda = virt_to_phys(idalp);
+	idal_buffer_set_cda(idal_buffer, cp);
+	cp->flags |= CCW_FLAG_SLI;
 	tubp->flags |= TUB_RDPENDING;
 	TUBUNLOCK(tubp->irq, flags);
 
@@ -426,27 +406,14 @@ fs3270_read(struct file *fp, char *dp, size_t len, loff_t *off)
 	TUBUNLOCK(tubp->irq, flags);
 
 	len -= tubp->cswl;
-	count = len;
-	tp = dp;
-	ip = idalp;
-	while (count) {
-		piece = MIN(count, 0x800);
-		if (copy_to_user(tp, phys_to_virt(*ip), piece) != 0) {
-			len = -EFAULT;
-			goto do_cleanup;
-		}
-		count -= piece;
-		tp += piece;
-		ip++;
+	if (idal_buffer_to_user(idal_buffer, dp, len) != 0) {
+		len = -EFAULT;
+		goto do_cleanup;
 	}
 
 do_cleanup:
-	for (ip = idalp; ip < idalp+33; ip++) {
-		if (*ip == 0)
-			break;
-		kfree(phys_to_virt(*ip));
-	}
-	idal_free(idalp);
+	idal_buffer_free(idal_buffer);
+
 	return len;
 }
 
@@ -460,11 +427,7 @@ fs3270_write(struct file *fp, const char *dp, size_t len, loff_t *off)
 	ccw1_t *cp;
 	int rc;
 	long flags;
-	void *kb;
-	addr_t *idalp, *ip;
-	int count, piece;
-	int index;
-	int size;
+	struct idal_buffer *idal_buffer;
 
 	if (len > 65535 || len == 0)
 		return -EINVAL;
@@ -473,26 +436,12 @@ fs3270_write(struct file *fp, const char *dp, size_t len, loff_t *off)
 	if ((tubp = INODE2TUB((struct inode *)fp->private_data)) == NULL)
 		return -ENODEV;
 
-	if ((ip = idalp = idal_alloc(33)) == NULL)
-		return -EFAULT;
-	memset(idalp, 0, 33 * sizeof *idalp);
+	if ((idal_buffer = idal_buffer_alloc(len, 0)) == NULL)
+		return -ENOMEM;
 
-	count = len;
-	index = 0;
-	while (count) {
-		piece = MIN(count, 0x800);
-		size = count == len? piece: 0x800;
-		if ((kb = kmalloc(size, GFP_KERNEL|GFP_DMA)) == NULL) {
-			len = -ENOMEM;
-			goto do_cleanup;
-		}
-		*ip++ = virt_to_phys(kb);
-		if (copy_from_user(kb, &dp[index], piece) != 0) {
-			len = -EFAULT;
-			goto do_cleanup;
-		}
-		count -= piece;
-		index += piece;
+	if (idal_buffer_from_user(idal_buffer, dp, len) != 0) {
+		len = -EFAULT;
+		goto do_cleanup;
 	}
 
 	/* Wait till tube's not working or signal is pending */
@@ -503,22 +452,18 @@ fs3270_write(struct file *fp, const char *dp, size_t len, loff_t *off)
 	}
 
 	/* Make CCW and start I/O.  Back end will free buffers & idal. */
-	tubp->wbuf = idalp;
 	cp = &tubp->wccw;
 	cp->cmd_code = tubp->ocmd? tubp->ocmd == 5? 13: tubp->ocmd: 1;
-	cp->flags = CCW_FLAG_SLI | CCW_FLAG_IDA;
-	cp->count = len;
-	cp->cda = virt_to_phys(tubp->wbuf);
+	tubp->wbuf = idal_buffer;
+	idal_buffer_set_cda(idal_buffer, cp);
+	cp->flags |= CCW_FLAG_SLI;
 	fs3270_io(tubp, cp);
 	TUBUNLOCK(tubp->irq, flags);
+
 	return len;
 
 do_cleanup:
-	for (ip = idalp; ip < idalp+33; ip++) {
-		if (*ip == 0)
-			break;
-		kfree(phys_to_virt(*ip));
-	}
-	idal_free(idalp);
+	idal_buffer_free(idal_buffer);
+
 	return len;
 }

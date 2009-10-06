@@ -64,12 +64,12 @@ INSTALLING the kernel:
  - You can also upgrade between 2.4.xx releases by patching.  Patches are
    distributed in the traditional gzip and the new bzip2 format.  To
    install by patching, get all the newer patch files, enter the
-   directory in which you unpacked the kernel source and execute:
+   top level directory of the kernel source (linux-2.4.xx) and execute:
 
-		gzip -cd patchXX.gz | patch -p0
+               gzip -cd ../patch-2.4.xx.gz | patch -p1
 
    or
-		bzip2 -dc patchXX.bz2 | patch -p0
+               bzip2 -dc ../patch-2.4.xx.bz2 | patch -p1
 
    (repeat xx for all versions bigger than the version of your current
    source tree, _in_order_) and you should be ok.  You may want to remove
@@ -152,6 +152,7 @@ COMPILING the kernel:
 
  - Make sure you have gcc 2.95.3 available.  gcc 2.91.66 (egcs-1.1.2) may
    also work but is not as safe, and *gcc 2.7.2.3 is no longer supported*.
+   gcc 4 is *not* supported.
    Also remember to upgrade your binutils package (for as/ld/nm and company)
    if necessary. For more information, refer to ./Documentation/Changes.
 

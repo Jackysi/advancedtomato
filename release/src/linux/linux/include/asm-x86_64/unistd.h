@@ -462,7 +462,7 @@ __SYSCALL(__NR_fremovexattr, sys_ni_syscall)
 #define __NR_tkill	200	/* 2.5 only */
 __SYSCALL(__NR_tkill, sys_ni_syscall) 
 #define __NR_time		201
-__SYSCALL(__NR_time, sys_time)
+__SYSCALL(__NR_time, sys_time64)
 #define __NR_futex		202 /* 2.5 only */
 __SYSCALL(__NR_futex, sys_ni_syscall)
 #define __NR_sched_setaffinity    203
@@ -483,8 +483,24 @@ __SYSCALL(__NR_io_submit, sys_ni_syscall)
 __SYSCALL(__NR_io_cancel, sys_ni_syscall)
 #define __NR_get_thread_area	211
 __SYSCALL(__NR_get_thread_area, sys_ni_syscall)
+#define __NR_lookup_dcookie     212
+__SYSCALL(__NR_lookup_dcookie, sys_ni_syscall)
+#define __NR_epoll_create       213
+__SYSCALL(__NR_epoll_create, sys_ni_syscall)
+#define __NR_epoll_ctl  214
+__SYSCALL(__NR_epoll_ctl, sys_ni_syscall)
+#define __NR_epoll_wait 215
+__SYSCALL(__NR_epoll_wait, sys_ni_syscall)
+#define __NR_remap_file_pages   216
+__SYSCALL(__NR_remap_file_pages, sys_ni_syscall)
+#define __NR_getdents64 217
+__SYSCALL(__NR_getdents64, sys_getdents64)
+#define __NR_restart_syscall	219
+__SYSCALL(__NR_restart_syscall, sys_ni_syscall)
+#define __NR_semtimedop		220
+__SYSCALL(__NR_semtimedop, sys_semtimedop)
 
-#define __NR_syscall_max __NR_get_thread_area
+#define __NR_syscall_max __NR_semtimedop
 
 #ifndef __NO_STUBS
 
@@ -549,10 +565,10 @@ __syscall_return(type,__res); \
 type name (type1 arg1, type2 arg2, type3 arg3, type4 arg4) \
 { \
 long __res; \
-__asm__ volatile ("movq %5,%%r10 ;" __syscall \
+__asm__ volatile ("movq %[a3],%%r10 ;" __syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)), \
-	  "d" ((long)(arg3)),"g" ((long)(arg4)) : __syscall_clobber,"r10" ); \
+	  "d" ((long)(arg3)), [a3] "g" ((long)(arg4)) : __syscall_clobber,"r10" ); \
 __syscall_return(type,__res); \
 } 
 
@@ -561,10 +577,10 @@ __syscall_return(type,__res); \
 type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5) \
 { \
 long __res; \
-__asm__ volatile ("movq %5,%%r10 ; movq %6,%%r8 ; " __syscall \
+__asm__ volatile ("movq %[a3],%%r10 ; movq %[a4],%%r8 ; " __syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)), \
-	  "d" ((long)(arg3)),"g" ((long)(arg4)),"g" ((long)(arg5)) : \
+	  "d" ((long)(arg3)), [a3] "g" ((long)(arg4)), [a4] "g" ((long)(arg5)) : \
 	__syscall_clobber,"r8","r10" ); \
 __syscall_return(type,__res); \
 }
@@ -574,11 +590,11 @@ __syscall_return(type,__res); \
 type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5,type6 arg6) \
 { \
 long __res; \
-__asm__ volatile ("movq %5,%%r10 ; movq %6,%%r8 ; movq %7,%%r9" __syscall \
+__asm__ volatile ("movq %[a3],%%r10 ; movq %[a4],%%r8 ; movq %[a5],%%r9 ; " __syscall \
 	: "=a" (__res) \
 	: "0" (__NR_##name),"D" ((long)(arg1)),"S" ((long)(arg2)), \
-	  "d" ((long)(arg3)),"g" ((long)(arg4)),"g" ((long)(arg5), \
-	  "g" ((long)(arg6),) : \
+	  "d" ((long)(arg3)), [a3] "g" ((long)(arg4)), [a4] "g" ((long)(arg5)), \
+	  [a5] "g" ((long)(arg6)) : \
 	__syscall_clobber,"r8","r10","r9" ); \
 __syscall_return(type,__res); \
 }
@@ -657,7 +673,7 @@ static inline long close(unsigned int fd)
 }
 
 extern long sys_exit(int) __attribute__((noreturn));
-extern inline long exit(int error_code)
+extern inline void exit(int error_code)
 {
 	sys_exit(error_code);
 }

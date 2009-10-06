@@ -1,5 +1,5 @@
 /*
- *	$Id: io_dc.h,v 1.1.1.4 2003/10/14 08:09:21 sparq Exp $
+ *	$Id: io_dc.h,v 1.1 2001/04/01 15:02:56 yaegashi Exp $
  *	IO functions for SEGA Dreamcast
  */
 

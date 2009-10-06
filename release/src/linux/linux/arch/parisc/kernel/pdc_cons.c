@@ -51,33 +51,33 @@ static int pdc_console_setup(struct console *co, char *options)
 	return 0;
 }
 
-#ifdef CONFIG_PDC_CONSOLE
+#if defined(CONFIG_PDC_CONSOLE) || defined(CONFIG_SERIAL_MUX)
+#define PDC_CONSOLE_DEVICE pdc_console_device
 static kdev_t pdc_console_device (struct console *c)
 {
-        return MKDEV(PDCCONS_MAJOR, 0);
+        return MKDEV(MUX_MAJOR, 0);
 }
-#endif
-
-#ifdef CONFIG_PDC_CONSOLE
-#define PDC_CONSOLE_DEVICE pdc_console_device
-#else
+#else 
 #define PDC_CONSOLE_DEVICE NULL
 #endif
 
 static struct console pdc_cons = {
 	name:		"ttyB",
 	write:		pdc_console_write,
- 	device:		PDC_CONSOLE_DEVICE,
+#warning UPSTREAM 2.4.19 removed the next 4 lines but we did not
+	read:		NULL,
+	device:		PDC_CONSOLE_DEVICE,
+	unblank:	NULL,
 	setup:		pdc_console_setup,
 	flags:		CON_BOOT|CON_PRINTBUFFER|CON_ENABLED,
 	index:		-1,
 };
 
 static int pdc_console_initialized;
-
 extern unsigned long con_start;	/* kernel/printk.c */
 extern unsigned long log_end;	/* kernel/printk.c */
-  
+
+
 static void pdc_console_init_force(void)
 {
 	if (pdc_console_initialized)
@@ -94,7 +94,7 @@ static void pdc_console_init_force(void)
 
 void pdc_console_init(void)
 {
-#if defined(EARLY_BOOTUP_DEBUG) || defined(CONFIG_PDC_CONSOLE)
+#if defined(EARLY_BOOTUP_DEBUG) || defined(CONFIG_PDC_CONSOLE) || defined(CONFIG_SERIAL_MUX)
 	pdc_console_init_force();
 #endif
 #ifdef EARLY_BOOTUP_DEBUG

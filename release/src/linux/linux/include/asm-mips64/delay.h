@@ -13,9 +13,11 @@
 #include <linux/config.h>
 #include <linux/param.h>
 
+#include <asm/compiler.h>
+
 extern unsigned long loops_per_jiffy;
 
-extern __inline__ void
+static __inline__ void
 __delay(unsigned long loops)
 {
 	__asm__ __volatile__ (
@@ -37,7 +39,7 @@ __delay(unsigned long loops)
  * first constant multiplications gets optimized away if the delay is
  * a constant)
  */
-extern __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
+static inline void __udelay(unsigned long usecs, unsigned long lpj)
 {
 	unsigned long lo;
 
@@ -45,17 +47,40 @@ extern __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
 	 * The common rates of 1000 and 128 are rounded wrongly by the
 	 * catchall case.  Excessive precission?  Probably ...
 	 */
-#if HZ == 128
+#if (HZ == 128)
 	usecs *= 0x0008637bd05af6c7UL;		/* 2**64 / (1000000 / HZ) */
-#elif HZ == 1000
+#elif (HZ == 1000)
 	usecs *= 0x004189374BC6A7f0UL;		/* 2**64 / (1000000 / HZ) */
 #else
 	usecs *= (0x8000000000000000UL / (500000 / HZ));
 #endif
 	__asm__("dmultu\t%2,%3"
-		:"=h" (usecs), "=l" (lo)
-		:"r" (usecs),"r" (lpj));
+		: "=h" (usecs), "=l" (lo)
+		: "r" (usecs), "r" (lpj)
+		: GCC_REG_ACCUM);
 	__delay(usecs);
+}
+
+static inline void __ndelay(unsigned long nsecs, unsigned long lpj)
+{
+	unsigned long lo;
+
+	/*
+	 * The common rates of 1000 and 128 are rounded wrongly by the
+	 * catchall case.  Excessive precission?  Probably ...
+	 */
+#if (HZ == 128)
+	nsecs *= 0x000001ad7f29abcbUL;		/* 2**64 / (1000000000 / HZ) */
+#elif (HZ == 1000)
+	nsecs *= 0x0010c6f7a0b5eeUL;		/* 2**64 / (1000000000 / HZ) */
+#else
+	nsecs *= (0x8000000000000000UL / (500000000 / HZ));
+#endif
+	__asm__("dmultu\t%2,%3"
+		: "=h" (nsecs), "=l" (lo)
+		: "r" (nsecs), "r" (lpj)
+		: GCC_REG_ACCUM);
+	__delay(nsecs);
 }
 
 #ifdef CONFIG_SMP
@@ -65,5 +90,6 @@ extern __inline__ void __udelay(unsigned long usecs, unsigned long lpj)
 #endif
 
 #define udelay(usecs) __udelay((usecs),__udelay_val)
+#define ndelay(nsecs) __ndelay((nsecs),__udelay_val)
 
 #endif /* _ASM_DELAY_H */

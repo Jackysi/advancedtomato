@@ -79,8 +79,16 @@ smb_iget(struct super_block *sb, struct smb_fattr *fattr)
 		result->i_fop = &smb_file_operations;
 		result->i_data.a_ops = &smb_file_aops;
 	} else if (S_ISDIR(result->i_mode)) {
-		result->i_op = &smb_dir_inode_operations;
+		struct smb_sb_info *server = &(sb->u.smbfs_sb);
+		if (server->opt.capabilities & SMB_CAP_UNIX)
+			result->i_op = &smb_dir_inode_operations_unix;
+		else
+			result->i_op = &smb_dir_inode_operations;
 		result->i_fop = &smb_dir_operations;
+	} else if(S_ISLNK(result->i_mode)) {
+		result->i_op = &smb_link_inode_operations;
+	} else {
+		init_special_inode(result, result->i_mode, fattr->f_rdev);
 	}
 	insert_inode_hash(result);
 	return result;
@@ -187,7 +195,14 @@ smb_refresh_inode(struct dentry *dentry)
 		/*
 		 * Check whether the type part of the mode changed,
 		 * and don't update the attributes if it did.
+		 *
+		 * And don't dick with the root inode
 		 */
+		if (inode->i_ino == 2)
+			return error;
+		if (S_ISLNK(inode->i_mode))
+			return error;	/* VFS will deal with it */
+
 		if ((inode->i_mode & S_IFMT) == (fattr.f_mode & S_IFMT)) {
 			smb_set_inode_attr(inode, &fattr);
 		} else {
@@ -296,7 +311,6 @@ parse_options(struct smb_mount_data_kernel *mnt, char *options)
 				&optopt, &optarg, &flags, &value)) > 0) {
 
 		VERBOSE("'%s' -> '%s'\n", optopt, optarg ? optarg : "<none>");
-
 		switch (c) {
 		case 1:
 			/* got a "flag" option */
@@ -311,15 +325,19 @@ parse_options(struct smb_mount_data_kernel *mnt, char *options)
 			break;
 		case 'u':
 			mnt->uid = value;
+			flags |= SMB_MOUNT_UID;
 			break;
 		case 'g':
 			mnt->gid = value;
+			flags |= SMB_MOUNT_GID;
 			break;
 		case 'f':
 			mnt->file_mode = (value & S_IRWXUGO) | S_IFREG;
+			flags |= SMB_MOUNT_FMODE;
 			break;
 		case 'd':
 			mnt->dir_mode = (value & S_IRWXUGO) | S_IFDIR;
+			flags |= SMB_MOUNT_DMODE;
 			break;
 		case 'i':
 			strncpy(mnt->codepage.local_name, optarg, 
@@ -360,9 +378,9 @@ smb_show_options(struct seq_file *s, struct vfsmount *m)
 		if (mnt->flags & opts[i].flag)
 			seq_printf(s, ",%s", opts[i].name);
 
-	if (mnt->uid != 0)
+	if (mnt->flags & SMB_MOUNT_UID)
 		seq_printf(s, ",uid=%d", mnt->uid);
-	if (mnt->gid != 0)
+	if (mnt->flags & SMB_MOUNT_GID)
 		seq_printf(s, ",gid=%d", mnt->gid);
 	if (mnt->mounted_uid != 0)
 		seq_printf(s, ",mounted_uid=%d", mnt->mounted_uid);
@@ -371,8 +389,10 @@ smb_show_options(struct seq_file *s, struct vfsmount *m)
 	 * Defaults for file_mode and dir_mode are unknown to us; they
 	 * depend on the current umask of the user doing the mount.
 	 */
-	seq_printf(s, ",file_mode=%04o", mnt->file_mode & S_IRWXUGO);
-	seq_printf(s, ",dir_mode=%04o", mnt->dir_mode & S_IRWXUGO);
+	if (mnt->flags & SMB_MOUNT_FMODE)
+		seq_printf(s, ",file_mode=%04o", mnt->file_mode & S_IRWXUGO);
+	if (mnt->flags & SMB_MOUNT_DMODE)
+		seq_printf(s, ",dir_mode=%04o", mnt->dir_mode & S_IRWXUGO);
 
 	if (strcmp(mnt->codepage.local_name, CONFIG_NLS_DEFAULT))
 		seq_printf(s, ",iocharset=%s", mnt->codepage.local_name);
@@ -424,6 +444,7 @@ smb_read_super(struct super_block *sb, void *raw_data, int silent)
 	struct inode *root_inode;
 	struct smb_fattr root;
 	int ver;
+	void *mem;
 
 	if (!raw_data)
 		goto out_no_data;
@@ -435,6 +456,7 @@ smb_read_super(struct super_block *sb, void *raw_data, int silent)
 
 	sb->s_blocksize = 1024;	/* Eh...  Is this correct? */
 	sb->s_blocksize_bits = 10;
+	sb->s_maxbytes = MAX_NON_LFS;
 	sb->s_magic = SMB_SUPER_MAGIC;
 	sb->s_op = &smb_sops;
 
@@ -461,10 +483,14 @@ smb_read_super(struct super_block *sb, void *raw_data, int silent)
 	server->name_buf = server->temp_buf + SMB_MAXPATHLEN + 20;
 
 	/* Allocate the mount data structure */
-	mnt = smb_kmalloc(sizeof(struct smb_mount_data_kernel), GFP_KERNEL);
-	if (!mnt)
+	/* FIXME: merge this with the other malloc and get a whole page? */
+	mem = smb_kmalloc(sizeof(struct smb_ops) +
+			  sizeof(struct smb_mount_data_kernel), GFP_KERNEL);
+	if (!mem)
 		goto out_no_mount;
-	server->mnt = mnt;
+	server->mnt = mnt = mem;
+	server->ops = mem + sizeof(struct smb_mount_data_kernel);
+	smb_install_null_ops(server->ops);
 
 	memset(mnt, 0, sizeof(struct smb_mount_data_kernel));
 	strncpy(mnt->codepage.local_name, CONFIG_NLS_DEFAULT,
@@ -477,21 +503,25 @@ smb_read_super(struct super_block *sb, void *raw_data, int silent)
 	if (ver == SMB_MOUNT_OLDVERSION) {
 		mnt->version = oldmnt->version;
 
-		mnt->mounted_uid = oldmnt->mounted_uid;
+		/* FIXME: is this enough to convert uid/gid's ? */
 		mnt->uid = oldmnt->uid;
 		mnt->gid = oldmnt->gid;
 
 		mnt->file_mode = (oldmnt->file_mode & S_IRWXUGO) | S_IFREG;
 		mnt->dir_mode = (oldmnt->dir_mode & S_IRWXUGO) | S_IFDIR;
 
-		mnt->flags = (oldmnt->file_mode >> 9);
+		mnt->flags = (oldmnt->file_mode >> 9) | SMB_MOUNT_UID |
+			SMB_MOUNT_GID | SMB_MOUNT_FMODE | SMB_MOUNT_DMODE;
 	} else {
+		mnt->file_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+				S_IROTH | S_IXOTH | S_IFREG;
+	        mnt->dir_mode = S_IRWXU | S_IRGRP | S_IXGRP |
+				S_IROTH | S_IXOTH | S_IFDIR;
 		if (parse_options(mnt, raw_data))
 			goto out_bad_option;
-
-		mnt->mounted_uid = current->uid;
 	}
 	smb_setcodepage(server, &mnt->codepage);
+	mnt->mounted_uid = current->uid;
 
 	/*
 	 * Display the enabled options
@@ -513,6 +543,7 @@ smb_read_super(struct super_block *sb, void *raw_data, int silent)
 	sb->s_root = d_alloc_root(root_inode);
 	if (!sb->s_root)
 		goto out_no_root;
+
 	smb_new_dentry(sb->s_root);
 
 	return sb;
@@ -585,14 +616,23 @@ smb_notify_change(struct dentry *dentry, struct iattr *attr)
 		error = smb_open(dentry, O_WRONLY);
 		if (error)
 			goto out;
-		error = smb_proc_trunc(server, inode->u.smbfs_i.fileid,
-					 attr->ia_size);
+		error = server->ops->truncate(inode, attr->ia_size);
 		if (error)
 			goto out;
 		error = vmtruncate(inode, attr->ia_size);
 		if (error)
 			goto out;
 		refresh = 1;
+	}
+
+	if (server->opt.capabilities & SMB_CAP_UNIX) {
+		/* For now we don't want to set the size with setattr_unix */
+		attr->ia_valid &= ~ATTR_SIZE;
+		/* FIXME: only call if we actually want to set something? */
+		error = smb_proc_setattr_unix(dentry, attr, 0, 0);
+		if (!error)
+			refresh = 1;
+		goto out;
 	}
 
 	/*

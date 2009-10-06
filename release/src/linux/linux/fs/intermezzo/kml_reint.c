@@ -516,6 +516,15 @@ int kml_reint_rec(struct file *dir, struct izo_ioctl_data *data)
                        lr_rec.lr_remote_recno + 1,
                        rec.suffix->recno);
 
+#if 0
+                if (!version_check(&rec, dd->dd_fset, &info)) {
+                        /* FIXME: do an upcall to resolve conflicts */
+                        CERROR("intermezzo: would be a conflict!\n");
+                        error = -EINVAL;
+                        EXIT;
+                        goto out;
+                }
+#endif
         }
 
         op = rec.prefix.hdr->opcode;

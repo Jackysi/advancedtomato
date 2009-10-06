@@ -2,7 +2,7 @@
  * identify.c: machine identification code.
  *
  * Copyright (C) 1998 Harald Koerfgen and Paul M. Antoine
- * Copyright (C) 2002  Maciej W. Rozycki
+ * Copyright (C) 2002, 2003, 2004  Maciej W. Rozycki
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -59,7 +59,7 @@ const char *get_system_type(void)
 /*
  * Setup essential system-specific memory addresses.  We need them
  * early.  Semantically the functions belong to prom/init.c, but they
- * are compact enough we want them inlined. -- macro
+ * are compact enough we want them inlined. --macro
  */
 static inline void prom_init_kn01(void)
 {
@@ -79,17 +79,10 @@ static inline void prom_init_kn02(void)
 	dec_kn_slot_size = KN02_SLOT_SIZE;
 }
 
-static inline void prom_init_kn02ba(void)
+static inline void prom_init_kn02xa(void)
 {
-	ioasic_base = (void *)KN02BA_IOASIC_BASE;
-	dec_rtc_base = (void *)KN02BA_RTC_BASE;
-	dec_kn_slot_size = IOASIC_SLOT_SIZE;
-}
-
-static inline void prom_init_kn02ca(void)
-{
-	ioasic_base = (void *)KN02CA_IOASIC_BASE;
-	dec_rtc_base = (void *)KN02CA_RTC_BASE;
+	ioasic_base = (void *)KN02XA_IOASIC_BASE;
+	dec_rtc_base = (void *)KN02XA_RTC_BASE;
 	dec_kn_slot_size = IOASIC_SLOT_SIZE;
 }
 
@@ -107,11 +100,13 @@ void __init prom_identify_arch(u32 magic)
 	u32 dec_sysid;
 
 	if (!prom_is_rex(magic)) {
-		dec_sysid = simple_strtoul(prom_getenv("systype"), (char **)0, 0);
+		dec_sysid = simple_strtoul(prom_getenv("systype"),
+					   (char **)0, 0);
 	} else {
 		dec_sysid = rex_getsysid();
 		if (dec_sysid == 0) {
-			prom_printf("Zero sysid returned from PROMs! Assuming PMAX-like machine.\n");
+			printk("Zero sysid returned from PROM! "
+			       "Assuming a PMAX-like machine.\n");
 			dec_sysid = 1;
 		}
 	}
@@ -124,6 +119,10 @@ void __init prom_identify_arch(u32 magic)
 	/* We're obviously one of the DEC machines */
 	mips_machgroup = MACH_GROUP_DEC;
 
+	/*
+	 * FIXME: This may not be an exhaustive list of DECStations/Servers!
+	 * Put all model-specific initialisation calls here.
+	 */
 	switch (dec_systype) {
 	case DS2100_3100:
 		mips_machtype = MACH_DS23100;
@@ -139,17 +138,17 @@ void __init prom_identify_arch(u32 magic)
 		break;
 	case DS5000_1XX:	/* DS5000/100 3min */
 		mips_machtype = MACH_DS5000_1XX;
-		prom_init_kn02ba();
+		prom_init_kn02xa();
 		break;
 	case DS5000_2X0:	/* DS5000/240 3max+ or DS5900 bigmax */
 		mips_machtype = MACH_DS5000_2X0;
 		prom_init_kn03();
-		if (!(ioasic_read(SIR) & KN03_IO_INR_3MAXP))
+		if (!(ioasic_read(IO_REG_SIR) & KN03_IO_INR_3MAXP))
 			mips_machtype = MACH_DS5900;
 		break;
-	case DS5000_XX:	/* Personal DS5000/2x */
+	case DS5000_XX:		/* Personal DS5000/xx maxine */
 		mips_machtype = MACH_DS5000_XX;
-		prom_init_kn02ca();
+		prom_init_kn02xa();
 		break;
 	case DS5800:		/* DS5800 Isis */
 		mips_machtype = MACH_DS5800;
@@ -166,10 +165,8 @@ void __init prom_identify_arch(u32 magic)
 	}
 
 	if (mips_machtype == MACH_DSUNKNOWN)
-		prom_printf("This is an %s, id is %x\n",
-			    dec_system_strings[mips_machtype],
-			    dec_systype);
+		printk("This is an %s, id is %x\n",
+		       dec_system_strings[mips_machtype], dec_systype);
 	else
-		prom_printf("This is a %s\n",
-			    dec_system_strings[mips_machtype]);
+		printk("This is a %s\n", dec_system_strings[mips_machtype]);
 }

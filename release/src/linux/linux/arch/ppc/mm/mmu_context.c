@@ -1,16 +1,10 @@
 /*
- * BK Id: %F% %I% %G% %U% %#%
- */
-/*
  * This file contains the routines for handling the MMU on those
  * PowerPC implementations where the MMU substantially follows the
  * architecture specification.  This includes the 6xx, 7xx, 7xxx,
  * 8260, and POWER3 implementations but excludes the 8xx and 4xx.
- * Although the iSeries hardware does comply with the architecture
- * specification, the need to work through the hypervisor makes
- * things sufficiently different that it is handled elsewhere.
  *  -- paulus
- * 
+ *
  *  Derived from arch/ppc/mm/init.c:
  *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
  *

@@ -8,7 +8,7 @@
    Changed (and renamed) for OnStream SCSI drives garloff@suse.de
    2000-06-21
 
-   $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/osst_options.h,v 1.1.1.2 2003/10/14 08:08:40 sparq Exp $
+   $Header: /cvsroot/osst/Driver/osst_options.h,v 1.5 2001/01/07 22:19:15 riede Exp $
 */
 
 #ifndef _OSST_OPTIONS_H

@@ -95,7 +95,7 @@ extern unsigned long m68k_machtype;
 #define MACH_IS_SUN3 (0)
 #endif
 
-#if !defined(CONFIG_APOLLO)
+#if !defined (CONFIG_APOLLO)
 #  define MACH_IS_APOLLO (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_MVME16x) || defined(CONFIG_BVME6000)              \
@@ -108,7 +108,7 @@ extern unsigned long m68k_machtype;
 #  define MACH_TYPE (MACH_APOLLO)
 #endif
 
-#if !defined(CONFIG_MVME147)
+#if !defined (CONFIG_MVME147)
 #  define MACH_IS_MVME147 (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_APOLLO) || defined(CONFIG_BVME6000)               \
@@ -121,7 +121,7 @@ extern unsigned long m68k_machtype;
 #  define MACH_TYPE (MACH_MVME147)
 #endif
 
-#if !defined(CONFIG_MVME16x)
+#if !defined (CONFIG_MVME16x)
 #  define MACH_IS_MVME16x (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_APOLLO) || defined(CONFIG_BVME6000)               \
@@ -134,7 +134,7 @@ extern unsigned long m68k_machtype;
 #  define MACH_TYPE (MACH_MVME16x)
 #endif
 
-#if !defined(CONFIG_BVME6000)
+#if !defined (CONFIG_BVME6000)
 #  define MACH_IS_BVME6000 (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_APOLLO) || defined(CONFIG_MVME16x)                \
@@ -147,7 +147,7 @@ extern unsigned long m68k_machtype;
 #  define MACH_TYPE (MACH_BVME6000)
 #endif
 
-#if !defined(CONFIG_HP300)
+#if !defined (CONFIG_HP300)
 #  define MACH_IS_HP300 (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_APOLLO) || defined(CONFIG_MVME16x) \
@@ -160,7 +160,7 @@ extern unsigned long m68k_machtype;
 #  define MACH_TYPE (MACH_HP300)
 #endif
 
-#if !defined(CONFIG_Q40)
+#if !defined (CONFIG_Q40)
 #  define MACH_IS_Q40 (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_APOLLO) || defined(CONFIG_MVME16x)                \
@@ -173,7 +173,7 @@ extern unsigned long m68k_machtype;
 #  define MACH_TYPE (MACH_Q40)
 #endif
 
-#if !defined(CONFIG_SUN3X)
+#if !defined (CONFIG_SUN3X)
 #  define MACH_IS_SUN3X (0)
 #elif defined(CONFIG_AMIGA) || defined(CONFIG_MAC) || defined(CONFIG_ATARI) \
 	|| defined(CONFIG_APOLLO) || defined(CONFIG_MVME16x)                \
@@ -361,12 +361,13 @@ extern int m68k_is040or060;
 #ifndef __ASSEMBLY__
 extern int m68k_num_memory;		/* # of memory blocks found (and used) */
 extern int m68k_realnum_memory;		/* real # of memory blocks found */
-extern struct mem_info m68k_memory[NUM_MEMINFO];/* memory description */
 
 struct mem_info {
 	unsigned long addr;		/* physical address of memory chunk */
 	unsigned long size;		/* length of memory chunk (in bytes) */
 };
+
+extern struct mem_info m68k_memory[NUM_MEMINFO];/* memory description */
 #endif
 
 #endif /* __KERNEL__ */

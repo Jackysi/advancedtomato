@@ -1,4 +1,4 @@
-/* $Id: elf.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: elf.h,v 1.30.2.1 2002/02/04 22:37:47 davem Exp $ */
 #ifndef __ASM_SPARC64_ELF_H
 #define __ASM_SPARC64_ELF_H
 
@@ -109,8 +109,9 @@ do {	unsigned char flags = current->thread.flags;	\
 	if (flags != current->thread.flags) {		\
 		/* flush_thread will update pgd cache */\
 		current->thread.flags |= SPARC_FLAG_ABI_PENDING; \
+	} else {					\
+		current->thread.flags &= ~SPARC_FLAG_ABI_PENDING; \
 	}						\
-							\
 	if (ibcs2)					\
 		set_personality(PER_SVR4);		\
 	else if (current->personality != PER_LINUX32)	\

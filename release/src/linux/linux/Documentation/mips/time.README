@@ -30,6 +30,7 @@ So we allow boards using
 However, it is expected every board will move to the new time.c in the near
 future.
 
+In Linux 2.5 and Linux 2.4.26 CONFIG_OLD_TIME_C was removed.
 
 WHAT THE NEW CODE PROVIDES?
 --------------------------- 

@@ -1,4 +1,4 @@
-OUTPUT_ARCH(mips)
+OUTPUT_ARCH(TARGET_ARCH)
 ENTRY(startup)
 SECTIONS {
 	. = TEXT_START;
@@ -9,10 +9,12 @@ SECTIONS {
 		*(.text)
 		*(.text.*)
 		*(.fini)
+		*(.glue_7t)
+		*(.glue_7)
+		*(.rdata)
+		*(.rdata.*)
 		*(.rodata)
 		*(.rodata.*)
-		_rstart = .;
-		*(.textini.*)
 		_etext = .;
 		text_end = .;
 	}
@@ -20,9 +22,6 @@ SECTIONS {
 	.data : {
 		data_start = .;
 		_fdata = .;
-		*(.dataini.*)
-		_rend = .;
-		*(.rdata)
 		*(.data)
 		*(.data.*)
 		*(.sdata)
@@ -36,8 +35,22 @@ SECTIONS {
 		*(.sbss)
 		*(.scommon)
 		*(.bss)
+		*(.bss.*)
 		*(COMMON)
 		bss_end = .;
+	}
+
+	.textrc : {
+		_rstart = .;
+		*(.textini.*)
+		. = ALIGN(16);
+		_retext = .;
+	}
+
+	.datarc : {
+		*(.dataini.*)
+		. = ALIGN(4);
+		_rend = .;
 	}
 	_end = .;
 }

@@ -593,6 +593,8 @@ static pid_t pid_igmp = -1;
 
 void start_igmp_proxy(void)
 {
+	static char *igmpproxy_conf = "/etc/igmpproxy.conf";
+	FILE *fp;
 	char *p;
 
 	pid_igmp = -1;
@@ -607,10 +609,22 @@ void start_igmp_proxy(void)
 			p = "wan_ifname";
 			break;
 		}
-		xstart("igmprt", "-f", "-i", nvram_safe_get(p));
 
-		if (!nvram_contains_word("debug_norestart", "igmprt")) {
-			pid_igmp = -2;
+		if ((fp = fopen(igmpproxy_conf, "w")) != NULL) {
+			fprintf(fp,
+				"quickleave\n"
+				"phyint %s upstream\n"
+				"\taltnet %s\n"
+				"phyint %s downstream ratelimit 0\n",
+				nvram_safe_get(p),
+				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
+				nvram_safe_get("lan_ifname") ? : "br0");
+			fclose(fp);
+			xstart("igmpproxy", igmpproxy_conf);
+
+			if (!nvram_contains_word("debug_norestart", "igmprt")) {
+				pid_igmp = -2;
+			}
 		}
 	}
 }
@@ -618,7 +632,7 @@ void start_igmp_proxy(void)
 void stop_igmp_proxy(void)
 {
 	pid_igmp = -1;
-	killall("igmprt", SIGTERM);
+	killall("igmpproxy", SIGTERM);
 }
 
 
@@ -683,7 +697,7 @@ void check_services(void)
 {
 	_check(&pid_dnsmasq, "dnsmasq", start_dnsmasq);
 	_check(&pid_crond, "crond", start_cron);
-	_check(&pid_igmp, "igmprt", start_igmp_proxy);
+	_check(&pid_igmp, "igmpproxy", start_igmp_proxy);
 }
 
 // -----------------------------------------------------------------------------

@@ -403,6 +403,12 @@ inline void cv64_write_port(unsigned short bits,
 			    volatile unsigned char *board);
 inline void cvscreen(int toggle, volatile unsigned char *board);
 inline void gfx_on_off(int toggle, volatile unsigned char *board);
+#if 0
+unsigned short cv64_compute_clock(unsigned long freq);
+int cv_has_4mb(volatile unsigned char * fb);
+void cv64_board_init(void);
+void cv64_load_video_mode(struct fb_var_screeninfo *video_mode);
+#endif
 
 void cvision_bitblt(u_short sx, u_short sy, u_short dx, u_short dy, u_short w,
 		    u_short h);

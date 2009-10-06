@@ -19,10 +19,11 @@
 
 #include <linux/config.h>
 #include <linux/kernel.h>
+#include <linux/threads.h>	/* for NR_CPUS */
 
-#ifdef CONFIG_SMP
 
 #ifndef __ASSEMBLY__
+#ifdef CONFIG_SMP
 
 #include <asm/paca.h>
 
@@ -40,6 +41,15 @@ extern void smp_send_xmon_break(int cpu);
 struct pt_regs;
 extern void smp_message_recv(int, struct pt_regs *);
 
+/*
+ * Retrieve the state of a CPU:
+ * online:    CPU is in a normal run state
+ * possible:  CPU is a candidate to be made online
+ * available: CPU is candidate for the 'possible' pool
+ */
+#define cpu_possible(cpu)       paca[cpu].active
+#define cpu_available(cpu)      paca[cpu].available
+
 #define NO_PROC_ID		0xFF            /* No processor magic marker */
 #define PROC_CHANGE_PENALTY	20
 
@@ -50,7 +60,6 @@ extern volatile unsigned long cpu_callin_map[NR_CPUS];
 
 #define smp_processor_id() (get_paca()->xPacaIndex)
 #define hard_smp_processor_id() (get_paca()->xHwProcNum)
-#define get_hard_smp_processor_id(CPU) (paca[(CPU)].xHwProcNum)
 
 
 
@@ -66,7 +75,11 @@ extern volatile unsigned long cpu_callin_map[NR_CPUS];
 void smp_init_iSeries(void);
 void smp_init_pSeries(void);
 
-#endif /* __ASSEMBLY__ */
+#else /* CONFIG_SMP */
+#define cpu_possible(cpu)	((cpu) == 0)
+#define cpu_available(cpu)	((cpu) == 0)
+
 #endif /* !(CONFIG_SMP) */
+#endif /* __ASSEMBLY__ */
 #endif /* !(_PPC64_SMP_H) */
 #endif /* __KERNEL__ */

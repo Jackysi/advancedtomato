@@ -17,6 +17,7 @@
 #include <linux/ioport.h>
 
 #include <asm/bootinfo.h>
+#include <asm/i8259.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/mipsregs.h>

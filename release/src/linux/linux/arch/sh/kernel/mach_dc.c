@@ -1,5 +1,5 @@
 /*
- *	$Id: mach_dc.c,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+ *	$Id: mach_dc.c,v 1.5 2001/09/01 14:34:31 mrbrown Exp $
  *	SEGA Dreamcast machine vector
  */
 

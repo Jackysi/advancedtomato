@@ -1,5 +1,147 @@
 /*****************************************************************************/
 
+/*
+ *      es1370.c  --  Ensoniq ES1370/Asahi Kasei AK4531 audio driver.
+ *
+ *      Copyright (C) 1998-2001, 2003  Thomas Sailer (t.sailer@alumni.ethz.ch)
+ *
+ *      This program is free software; you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published by
+ *      the Free Software Foundation; either version 2 of the License, or
+ *      (at your option) any later version.
+ *
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ *
+ *      You should have received a copy of the GNU General Public License
+ *      along with this program; if not, write to the Free Software
+ *      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * Special thanks to David C. Niemi
+ *
+ *
+ * Module command line parameters:
+ *   joystick if 1 enables the joystick interface on the card; but it still
+ *            needs a driver for joysticks connected to a standard IBM-PC
+ *	      joyport. It is tested with the joy-analog driver. This 
+ *	      module must be loaded before the joystick driver. Kmod will
+ *	      not ensure that.
+ *   lineout  if 1 the LINE jack is used as an output instead of an input.
+ *            LINE then contains the unmixed dsp output. This can be used
+ *            to make the card a four channel one: use dsp to output two
+ *            channels to LINE and dac to output the other two channels to
+ *            SPKR. Set the mixer to only output synth to SPKR.
+ *   micbias  sets the +5V bias to the mic if using an electretmic.
+ *            
+ *
+ *  Note: sync mode is not yet supported (i.e. running dsp and dac from the same
+ *  clock source)
+ *
+ *  Supported devices:
+ *  /dev/dsp    standard /dev/dsp device, (mostly) OSS compatible
+ *  /dev/mixer  standard /dev/mixer device, (mostly) OSS compatible
+ *  /dev/dsp1   additional DAC, like /dev/dsp, but output only,
+ *              only 5512, 11025, 22050 and 44100 samples/s,
+ *              outputs to mixer "SYNTH" setting
+ *  /dev/midi   simple MIDI UART interface, no ioctl
+ *
+ *  NOTE: the card does not have any FM/Wavetable synthesizer, it is supposed
+ *  to be done in software. That is what /dev/dac is for. By now (Q2 1998)
+ *  there are several MIDI to PCM (WAV) packages, one of them is timidity.
+ *
+ *  Revision history
+ *    26.03.1998   0.1   Initial release
+ *    31.03.1998   0.2   Fix bug in GETOSPACE
+ *    04.04.1998   0.3   Make it work (again) under 2.0.33
+ *                       Fix mixer write operation not returning the actual
+ *                       settings
+ *    05.04.1998   0.4   First attempt at using the new PCI stuff
+ *    29.04.1998   0.5   Fix hang when ^C is pressed on amp
+ *    07.05.1998   0.6   Don't double lock around stop_*() in *_release()
+ *    10.05.1998   0.7   First stab at a simple midi interface (no bells&whistles)
+ *    14.05.1998   0.8   Don't allow excessive interrupt rates
+ *    08.06.1998   0.9   First release using Alan Cox' soundcore instead of
+ *                       miscdevice
+ *    05.07.1998   0.10  Fixed the driver to correctly maintin OSS style volume
+ *                       settings (not sure if this should be standard)
+ *                       Fixed many references: f_flags should be f_mode
+ *                       -- Gerald Britton <gbritton@mit.edu>
+ *    03.08.1998   0.11  Now mixer behaviour can basically be selected between
+ *                       "OSS documented" and "OSS actual" behaviour
+ *                       Fixed mixer table thanks to Hakan.Lennestal@lu.erisoft.se
+ *                       On module startup, set DAC2 to 11kSPS instead of 5.5kSPS,
+ *                       as it produces an annoying ssssh in the lower sampling rate
+ *                       Do not include modversions.h
+ *    22.08.1998   0.12  Mixer registers actually have 5 instead of 4 bits
+ *                       pointed out by Itai Nahshon
+ *    31.08.1998   0.13  Fix realplayer problems - dac.count issues
+ *    08.10.1998   0.14  Joystick support fixed
+ *		         -- Oliver Neukum <c188@org.chemie.uni-muenchen.de>
+ *    10.12.1998   0.15  Fix drain_dac trying to wait on not yet initialized DMA
+ *    16.12.1998   0.16  Don't wake up app until there are fragsize bytes to read/write
+ *    06.01.1999   0.17  remove the silly SA_INTERRUPT flag.
+ *                       hopefully killed the egcs section type conflict
+ *    12.03.1999   0.18  cinfo.blocks should be reset after GETxPTR ioctl.
+ *                       reported by Johan Maes <joma@telindus.be>
+ *    22.03.1999   0.19  return EAGAIN instead of EBUSY when O_NONBLOCK
+ *                       read/write cannot be executed
+ *    07.04.1999   0.20  implemented the following ioctl's: SOUND_PCM_READ_RATE, 
+ *                       SOUND_PCM_READ_CHANNELS, SOUND_PCM_READ_BITS; 
+ *                       Alpha fixes reported by Peter Jones <pjones@redhat.com>
+ *                       Note: joystick address handling might still be wrong on archs
+ *                       other than i386
+ *    10.05.1999   0.21  Added support for an electret mic for SB PCI64
+ *                       to the Linux kernel sound driver. This mod also straighten
+ *                       out the question marks around the mic impedance setting
+ *                       (micz). From Kim.Berts@fisub.mail.abb.com
+ *    11.05.1999   0.22  Implemented the IMIX call to mute recording monitor.
+ *                       Guenter Geiger <geiger@epy.co.at>
+ *    15.06.1999   0.23  Fix bad allocation bug.
+ *                       Thanks to Deti Fliegl <fliegl@in.tum.de>
+ *    28.06.1999   0.24  Add pci_set_master
+ *    02.08.1999   0.25  Added workaround for the "phantom write" bug first
+ *                       documented by Dave Sharpless from Anchor Games
+ *    03.08.1999   0.26  adapt to Linus' new __setup/__initcall
+ *                       added kernel command line option "es1370=joystick[,lineout[,micbias]]"
+ *                       removed CONFIG_SOUND_ES1370_JOYPORT_BOOT kludge
+ *    12.08.1999   0.27  module_init/__setup fixes
+ *    19.08.1999   0.28  SOUND_MIXER_IMIX fixes, reported by Gianluca <gialluca@mail.tiscalinet.it>
+ *    31.08.1999   0.29  add spin_lock_init
+ *                       replaced current->state = x with set_current_state(x)
+ *    03.09.1999   0.30  change read semantics for MIDI to match
+ *                       OSS more closely; remove possible wakeup race
+ *    28.10.1999   0.31  More waitqueue races fixed
+ *    08.01.2000   0.32  Prevent some ioctl's from returning bad count values on underrun/overrun;
+ *                       Tim Janik's BSE (Bedevilled Sound Engine) found this
+ *    07.02.2000   0.33  Use pci_alloc_consistent and pci_register_driver
+ *    21.11.2000   0.34  Initialize dma buffers in poll, otherwise poll may return a bogus mask
+ *    12.12.2000   0.35  More dma buffer initializations, patch from
+ *                       Tjeerd Mulder <tjeerd.mulder@fujitsu-siemens.com>
+ *    07.01.2001   0.36  Timeout change in wrcodec as requested by Frank Klemm <pfk@fuchs.offl.uni-jena.de>
+ *    31.01.2001   0.37  Register/Unregister gameport
+ *                       Fix SETTRIGGER non OSS API conformity
+ *    03.01.2003   0.38  open_mode fixes from Georg Acher <acher@in.tum.de>
+ *
+ * some important things missing in Ensoniq documentation:
+ *
+ * Experimental PCLKDIV results:  play the same waveforms on both DAC1 and DAC2
+ * and vary PCLKDIV to obtain zero beat.
+ *  5512sps:  254
+ * 44100sps:   30
+ * seems to be fs = 1411200/(PCLKDIV+2)
+ *
+ * should find out when curr_sample_ct is cleared and
+ * where exactly the CCB fetches data
+ *
+ * The card uses a 22.5792 MHz crystal.
+ * The LINEIN jack may be converted to an AOUT jack by
+ * setting pin 47 (XCTL0) of the ES1370 to high.
+ * Pin 48 (XCTL1) of the ES1370 sets the +5V bias for an electretmic
+ * 
+ *
+ */
 
 /*****************************************************************************/
       
@@ -1668,7 +1810,7 @@ static int es1370_release(struct inode *inode, struct file *file)
 		stop_adc(s);
 		dealloc_dmabuf(s, &s->dma_adc);
 	}
-	s->open_mode &= (~file->f_mode) & (FMODE_READ|FMODE_WRITE);
+	s->open_mode &= ~(file->f_mode & (FMODE_READ|FMODE_WRITE));
 	wake_up(&s->open_wait);
 	up(&s->open_sem);
 	unlock_kernel();
@@ -2039,6 +2181,10 @@ static int es1370_open_dac(struct inode *inode, struct file *file)
 	}
        	VALIDATE_STATE(s);
        	/* we allow opening with O_RDWR, most programs do it although they will only write */
+#if 0
+	if (file->f_mode & FMODE_READ)
+		return -EPERM;
+#endif
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EINVAL;
        	file->private_data = s;
@@ -2349,7 +2495,7 @@ static int es1370_midi_release(struct inode *inode, struct file *file)
 		set_current_state(TASK_RUNNING);
 	}
 	down(&s->open_sem);
-	s->open_mode &= (~(file->f_mode << FMODE_MIDI_SHIFT)) & (FMODE_MIDI_READ|FMODE_MIDI_WRITE);
+	s->open_mode &= ~((file->f_mode << FMODE_MIDI_SHIFT) & (FMODE_MIDI_READ|FMODE_MIDI_WRITE));
 	spin_lock_irqsave(&s->lock, flags);
 	if (!(s->open_mode & (FMODE_MIDI_READ | FMODE_MIDI_WRITE))) {
 		s->ctrl &= ~CTRL_UART_EN;
@@ -2600,7 +2746,7 @@ static int __init init_es1370(void)
 {
 	if (!pci_present())   /* No PCI bus in this machine! */
 		return -ENODEV;
-	printk(KERN_INFO "es1370: version v0.37 time " __TIME__ " " __DATE__ "\n");
+	printk(KERN_INFO "es1370: version v0.38 time " __TIME__ " " __DATE__ "\n");
 	return pci_module_init(&es1370_driver);
 }
 

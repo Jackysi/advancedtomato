@@ -1,7 +1,7 @@
 /*
  * linux/include/video/vga.h -- standard VGA chipset interaction
  *
- * Copyright 1999 Jeff Garzik <jgarzik@mandrakesoft.com>
+ * Copyright 1999 Jeff Garzik <jgarzik@pobox.com>
  * 
  * Copyright history from vga16fb.c:
  *	Copyright 1999 Ben Pfaff and Petr Vandrovec
@@ -23,6 +23,11 @@
 #ifndef CONFIG_AMIGA
 #include <asm/vga.h>
 #else
+/*
+ * FIXME
+ * Ugh, we don't have PCI space, so map readb() and friends to use Zorro space
+ * for MMIO accesses. This should make clgenfb work again on Amiga
+ */
 #define inb(port)	0
 #define inw(port)	0
 #define outb(port, val)	do { } while (0)

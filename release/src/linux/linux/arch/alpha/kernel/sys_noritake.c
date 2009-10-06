@@ -217,7 +217,7 @@ noritake_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 		{ 16+2,  16+2,  16+3,  32+2,  32+3},  /* IdSel 22,  slot 0 */
 		{ 16+4,  16+4,  16+5,  32+4,  32+5},  /* IdSel 23,  slot 1 */
 		{ 16+6,  16+6,  16+7,  32+6,  32+7},  /* IdSel 24,  slot 2 */
-		{ 16+8,  16+8,  16+9,  32+8,  32+9},	/* IdSel 25,  slot 3 */
+		{ 16+8,  16+8,  16+9,  32+8,  32+9},  /* IdSel 25,  slot 3 */
 		/* The following 5 are actually on PCI bus 1, which is 
 		   across the built-in bridge of the NORITAKE only.  */
 		{ 16+1,  16+1,  16+1,  16+1,  16+1},  /* IdSel 16,  QLOGIC */
@@ -341,6 +341,7 @@ struct alpha_machine_vector noritake_primo_mv __initmv = {
 	init_irq:		noritake_init_irq,
 	init_rtc:		common_init_rtc,
 	init_pci:		cia_init_pci,
+	kill_arch:		cia_kill_arch,
 	pci_map_irq:		noritake_map_irq,
 	pci_swizzle:		noritake_swizzle,
 };

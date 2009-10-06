@@ -5,7 +5,7 @@
  *
  * Copyright (C) 1995  Linus Torvalds
  * Copyright (C) 1995  Waldorf Electronics
- * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001  Ralf Baechle
+ * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 01, 05  Ralf Baechle
  * Copyright (C) 1996  Stoned Elipot
  * Copyright (C) 2000, 2001, 2002  Maciej W. Rozycki
  */
@@ -39,9 +39,8 @@
 #include <asm/ptrace.h>
 #include <asm/system.h>
 
-#ifndef CONFIG_SMP
-struct cpuinfo_mips cpu_data[1];
-#endif
+struct cpuinfo_mips cpu_data[NR_CPUS];
+EXPORT_SYMBOL(cpu_data);
 
 /*
  * There are several bus types available for MIPS machines.  "RISC PC"
@@ -56,8 +55,11 @@ int EISA_bus = 0;
 
 struct screen_info screen_info;
 
+#if defined(CONFIG_BLK_DEV_FD) || defined(CONFIG_BLK_DEV_FD_MODULE)
+#include <asm/floppy.h>
 extern struct fd_ops no_fd_ops;
 struct fd_ops *fd_ops;
+#endif
 
 #if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE)
 extern struct ide_ops no_ide_ops;
@@ -69,8 +71,9 @@ extern void * __rd_start, * __rd_end;
 extern struct rtc_ops no_rtc_ops;
 struct rtc_ops *rtc_ops;
 
+EXPORT_SYMBOL(rtc_ops);
+
 #ifdef CONFIG_PC_KEYB
-extern struct kbd_ops no_kbd_ops;
 struct kbd_ops *kbd_ops;
 #endif
 
@@ -106,9 +109,8 @@ EXPORT_SYMBOL(mips_io_port_base);
 unsigned long isa_slot_offset;
 EXPORT_SYMBOL(isa_slot_offset);
 
-extern void sgi_sysinit(void);
 extern void SetUpBootInfo(void);
-extern void loadmmu(void);
+extern void load_mmu(void);
 extern asmlinkage void start_kernel(void);
 extern void prom_init(int, char **, char **, int *);
 
@@ -123,10 +125,6 @@ init_arch(int argc, char **argv, char **envp, int *prom_vec)
 
 	prom_init(argc, argv, envp, prom_vec);
 
-#ifdef CONFIG_SGI_IP22
-	sgi_sysinit();
-#endif
-
 	cpu_report();
 
 	/*
@@ -134,11 +132,7 @@ init_arch(int argc, char **argv, char **envp, int *prom_vec)
 	 * then flush the tlb and caches.  On the r4xx0
 	 * variants this also sets CP0_WIRED to zero.
 	 */
-	loadmmu();
-
-	/* Disable coprocessors and set FPU for 16/32 FPR register model */
-	clear_c0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_KX|ST0_SX|ST0_FR);
-	set_c0_status(ST0_CU0);
+	load_mmu();
 
 	start_kernel();
 }
@@ -196,6 +190,12 @@ static inline void parse_mem_cmdline(void)
 	print_memory_map();
 
 	for (;;) {
+		/*
+		 * "mem=XXX[kKmM]" defines a memory region from
+		 * 0 to <XXX>, overriding the determined size.
+		 * "mem=XXX[KkmM]@YYY[KkmM]" defines a memory region from
+		 * <YYY> to <YYY>+<XXX>, overriding the determined size.
+		 */
 		if (c == ' ' && !memcmp(from, "mem=", 4)) {
 			if (to != command_line)
 				to--;
@@ -393,7 +393,7 @@ static inline void bootmem_init(void)
 		if (PHYSADDR(initrd_end) > PFN_PHYS(max_low_pfn)) {
 			printk("initrd extends beyond end of memory "
 			       "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
-			       PHYSADDR(initrd_end),
+			       (unsigned long) PHYSADDR(initrd_end),
 			       PFN_PHYS(max_low_pfn));
 			initrd_start = initrd_end = 0;
 		}
@@ -477,6 +477,8 @@ void __init setup_arch(char **cmdline_p)
 	void ikos_setup(void);
 	void momenco_ocelot_setup(void);
 	void momenco_ocelot_g_setup(void);
+	void momenco_ocelot_c_setup(void);
+	void momenco_jaguar_atx_setup(void);
 	void nino_setup(void);
 	void nec_osprey_setup(void);
 	void nec_eagle_setup(void);
@@ -484,23 +486,23 @@ void __init setup_arch(char **cmdline_p)
 	void victor_mpc30x_setup(void);
 	void ibm_workpad_setup(void);
 	void casio_e55_setup(void);
+	void tanbac_tb0226_setup(void);
 	void jmr3927_setup(void);
+	void tx4927_setup(void);
  	void it8172_setup(void);
 	void swarm_setup(void);
 	void hp_setup(void);
 	void au1x00_setup(void);
 	void brcm_setup(void);
+	void frame_info_init(void);
 
-#ifdef CONFIG_BLK_DEV_FD
+	frame_info_init();
+#if defined(CONFIG_BLK_DEV_FD) || defined(CONFIG_BLK_DEV_FD_MODULE)
 	fd_ops = &no_fd_ops;
 #endif
 
 #ifdef CONFIG_BLK_DEV_IDE
 	ide_ops = &no_ide_ops;
-#endif
-
-#ifdef CONFIG_PC_KEYB
-	kbd_ops = &no_kbd_ops;
 #endif
 
 	rtc_ops = &no_rtc_ops;
@@ -545,6 +547,16 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_MOMENCO_OCELOT_G
 	case MACH_GROUP_MOMENCO:
 		momenco_ocelot_g_setup();
+		break;
+#endif
+#ifdef CONFIG_MOMENCO_OCELOT_C
+	case MACH_GROUP_MOMENCO:
+		momenco_ocelot_c_setup();
+		break;
+#endif
+#ifdef CONFIG_MOMENCO_JAGUAR_ATX
+	case MACH_GROUP_MOMENCO:
+		momenco_jaguar_atx_setup();
 		break;
 #endif
 #ifdef CONFIG_MIPS_SEAD
@@ -611,6 +623,16 @@ void __init setup_arch(char **cmdline_p)
 			casio_e55_setup();
 			break;
 #endif
+#ifdef CONFIG_TANBAC_TB0226
+		case MACH_TANBAC_TB0226:
+			tanbac_tb0226_setup();
+			break;
+#endif
+#ifdef CONFIG_TANBAC_TB0229
+		case MACH_TANBAC_TB0229:
+			tanbac_tb0229_setup();
+			break;
+#endif
 		}
 		break;
 #endif
@@ -640,7 +662,7 @@ void __init setup_arch(char **cmdline_p)
                 lasat_setup();
                 break;
 #endif
-#ifdef CONFIG_CPU_AU1X00
+#ifdef CONFIG_SOC_AU1X00
 	case MACH_GROUP_ALCHEMY:
 		au1x00_setup();
 		break;
@@ -649,6 +671,11 @@ void __init setup_arch(char **cmdline_p)
 	case MACH_GROUP_TOSHIBA:
 		jmr3927_setup();
 		break;
+#endif
+#ifdef CONFIG_TOSHIBA_RBTX4927
+       case MACH_GROUP_TOSHIBA:
+               tx4927_setup();
+               break;
 #endif
 #ifdef CONFIG_SIBYTE_BOARD
 	case MACH_GROUP_SIBYTE:
@@ -660,9 +687,16 @@ void __init setup_arch(char **cmdline_p)
                 hp_setup();
                 break;
 #endif
+#ifdef  CONFIG_PMC_YOSEMITE
+        case MACH_GROUP_TITAN:
+                pmc_yosemite_setup();
+                break;
+#endif
+#if defined(CONFIG_BCM4710) || defined(CONFIG_BCM4310)
 	case MACH_GROUP_BRCM:
-		brcm_setup();
-		break;
+			brcm_setup();
+			break;
+#endif	
 	default:
 		panic("Unsupported architecture");
 	}
@@ -683,7 +717,8 @@ void __init setup_arch(char **cmdline_p)
 
 static int __init fpu_disable(char *s)
 {
-	mips_cpu.options &= ~MIPS_CPU_FPU;
+	cpu_data[0].options &= ~MIPS_CPU_FPU;
+
 	return 1;
 }
 __setup("nofpu", fpu_disable);

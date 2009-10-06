@@ -1,11 +1,12 @@
 /*
- 	Hardware driver for the AMD 768 Random Number Generator (RNG)
+ 	Hardware driver for the AMD 768/8111 Random Number Generator (RNG)
 	(c) Copyright 2001 Red Hat Inc <alan@redhat.com>
- 
+	(c) Copyright 2002,2003 Andi Kleen, SuSE Labs
+
  	derived from
  
 	Hardware driver for Intel i810 Random Number Generator (RNG)
-	Copyright 2000,2001 Jeff Garzik <jgarzik@mandrakesoft.com>
+	Copyright 2000,2001 Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2000,2001 Philipp Rumpf <prumpf@mandrakesoft.com>
 
 	Please read Documentation/i810_rng.txt for details on use.
@@ -157,7 +158,7 @@ static ssize_t rng_dev_read (struct file *filp, char *buf, size_t size,
 			schedule_timeout(1);
 		}
 		else
-			udelay(200);	
+			udelay(200);	/* FIXME: We could poll for 250uS ?? */
 
 		if (signal_pending (current))
 			return ret ? : -ERESTARTSYS;
@@ -238,13 +239,14 @@ err_out:
  */
 static struct pci_device_id rng_pci_tbl[] __initdata = {
 	{ 0x1022, 0x7443, PCI_ANY_ID, PCI_ANY_ID, },
+	{ 0x1022, 0x746b, PCI_ANY_ID, PCI_ANY_ID, },
 	{ 0, },
 };
 MODULE_DEVICE_TABLE (pci, rng_pci_tbl);
 
 
-MODULE_AUTHOR("Alan Cox, Jeff Garzik, Philipp Rumpf, Matt Sottek");
-MODULE_DESCRIPTION("AMD 768 Random Number Generator (RNG) driver");
+MODULE_AUTHOR("Alan Cox, Jeff Garzik, Philipp Rumpf, Matt Sottek, Andi Kleen");
+MODULE_DESCRIPTION("AMD 768/8111 Random Number Generator (RNG) driver");
 MODULE_LICENSE("GPL");
 
 

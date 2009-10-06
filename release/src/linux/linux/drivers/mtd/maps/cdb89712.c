@@ -1,7 +1,7 @@
 /*
  * Flash on Cirrus CDB89712
  *
- * $Id: cdb89712.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: cdb89712.c,v 1.3 2001/10/02 15:14:43 rmk Exp $
  */
 
 #include <linux/module.h>

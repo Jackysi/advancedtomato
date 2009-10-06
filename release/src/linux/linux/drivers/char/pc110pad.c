@@ -387,6 +387,18 @@ static void pad_irq(int irq, void *ptr, struct pt_regs *regs)
 	}
 }
 
+/**
+ *	read_raw_pad:
+ *	@down: set if the pen is down
+ *	@debounced: set if the debounced pen position is down
+ *	@x: X position
+ *	@y: Y position
+ *
+ *	Retrieve the data saved by the interrupt handler and indicate we
+ *	have no more pending XY to do. 
+ *
+ *	FIXME: We should switch to a spinlock for this.
+ */
 
 static void read_raw_pad(int *down, int *debounced, int *x, int *y)
 {

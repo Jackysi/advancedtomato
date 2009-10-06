@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001 Broadcom Corporation
+ * Copyright (C) 2001,2002 Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,17 +24,10 @@
  * configuration space, and set up the translation for I/O
  * space accesses.
  *
- * To access configuration space, we call some assembly-level
- * stubs that flip the KX bit on and off in the status
- * register, and do XKSEG addressed memory accesses there.
- * It's slow (7 SSNOPs to guarantee that KX is set!) but
- * fortunately, config space accesses are rare.
- *
- * We could use the ioremap functionality for the confguration
- * space as well as I/O space, but I'm not sure of the
- * implications of setting aside 16MB of KSEG2 for something
- * that is used so rarely (how much space in the page tables?)
- *
+ * To access configuration space, we use ioremap.  In the 32-bit
+ * kernel, this consumes either 4 or 8 page table pages, and 16MB of
+ * kernel mapped memory.  Hopefully neither of these should be a huge
+ * problem.
  */
 #include <linux/types.h>
 #include <linux/pci.h>
@@ -48,56 +41,74 @@
 #include <asm/sibyte/sb1250_scd.h>
 #include <asm/io.h>
 
-#include "lib_hssubr.h"
-
 /*
- * This macro calculates the offset into config space where
- * a given bus, device/function, and offset live on the sb1250
+ * Macros for calculating offsets into config space given a device
+ * structure or dev/fun/reg
  */
-
 #define CFGOFFSET(bus,devfn,where) (((bus)<<16)+((devfn)<<8)+(where))
+#define CFGADDR(dev,where)         CFGOFFSET((dev)->bus->number,(dev)->devfn,where)
 
+static void *cfg_space;
+
+#define PCI_BUS_ENABLED	1
+#define LDT_BUS_ENABLED	2
+#define PCI_DEVICE_MODE	4
+
+static int sb1250_bus_status = 0;
+
+#define PCI_BRIDGE_DEVICE  0
+#define LDT_BRIDGE_DEVICE  1
+
+#ifdef CONFIG_SIBYTE_HAS_LDT
 /*
- * Using the above offset, this macro calcuates the physical address in the
- * config space.
+ * HT's level-sensitive interrupts require EOI, which is generated
+ * through a 4MB memory-mapped region
  */
-#define CFGADDR(dev,where) (A_PHYS_LDTPCI_CFG_MATCH_BITS + \
-			    CFGOFFSET(dev->bus->number,dev->devfn,where))
+unsigned long ldt_eoi_space;
+#endif
 
 /*
  * Read/write 32-bit values in config space.
  */
 static inline u32 READCFG32(u32 addr)
 {
-	return hs_read32(addr & ~3);
+	return *(u32 *)(cfg_space + (addr&~3));
 }
 
 static inline void WRITECFG32(u32 addr, u32 data)
 {
-	hs_write32(addr & ~3,(data));
+	*(u32 *)(cfg_space + (addr & ~3)) = data;
 }
 
 /*
- * This variable is the KSEG2 (kernel virtual) mapping of the ISA/PCI I/O
- * space area.  We map 64K here and the offsets from this address get treated
- * with "match bytes" policy to make everything look little-endian.  So, you
- * need to also set CONFIG_SWAP_IO_SPACE, but this is the combination that
- * works correctly with most of Linux's drivers.
+ * Some checks before doing config cycles:
+ * In PCI Device Mode, hide everything on bus 0 except the LDT host
+ * bridge.  Otherwise, access is controlled by bridge MasterEn bits.
  */
+static int
+sb1250_pci_can_access(struct pci_dev *dev)
+{
+	u32 devno;
 
-#define PCI_BUS_ENABLED	1
-#define LDT_BUS_ENABLED	2
+	if (!(sb1250_bus_status & (PCI_BUS_ENABLED | PCI_DEVICE_MODE)))
+		return 0;
 
-static int sb1250_bus_status = 0;
-
-#define MATCH_BITS	0x20000000	/* really belongs in an include file */
-
-#define LDT_BRIDGE_START ((A_PCI_TYPE01_HEADER|MATCH_BITS)+0x00)
-#define LDT_BRIDGE_END   ((A_PCI_TYPE01_HEADER|MATCH_BITS)+0x20)
+	if (dev->bus->number == 0) {
+		devno = PCI_SLOT(dev->devfn);
+		if (devno == LDT_BRIDGE_DEVICE)
+		        return (sb1250_bus_status & LDT_BUS_ENABLED) != 0;
+ 		else if (sb1250_bus_status & PCI_DEVICE_MODE)
+			return 0;
+		else
+			return 1;
+	} else
+		return 1;
+}
 
 /*
  * Read/write access functions for various sizes of values
- * in config space.
+ * in config space.  Return all 1's for disallowed accesses
+ * for a kludgy but adequate simulation of master aborts.
  */
 
 static int
@@ -106,22 +117,15 @@ sb1250_pci_read_config_byte(struct pci_dev *dev, int where, u8 * val)
 	u32 data = 0;
 	u32 cfgaddr = CFGADDR(dev, where);
 
-	data = READCFG32(cfgaddr);
-
-	/*
-	 * If the LDT was not configured, make it look like the bridge
-	 * header is not there.
-	 */
-	if (!(sb1250_bus_status & LDT_BUS_ENABLED) &&
-	    (cfgaddr >= LDT_BRIDGE_START) && (cfgaddr < LDT_BRIDGE_END)) {
+	if (sb1250_pci_can_access(dev))
+		data = READCFG32(cfgaddr);
+	else
 		data = 0xFFFFFFFF;
-	}
 
 	*val = (data >> ((where & 3) << 3)) & 0xff;
 
 	return PCIBIOS_SUCCESSFUL;
 }
-
 
 static int
 sb1250_pci_read_config_word(struct pci_dev *dev, int where, u16 * val)
@@ -132,16 +136,10 @@ sb1250_pci_read_config_word(struct pci_dev *dev, int where, u16 * val)
 	if (where & 1)
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
-	data = READCFG32(cfgaddr);
-
-	/*
-	 * If the LDT was not configured, make it look like the bridge
-	 * header is not there.
-	 */
-	if (!(sb1250_bus_status & LDT_BUS_ENABLED) &&
-	    (cfgaddr >= LDT_BRIDGE_START) && (cfgaddr < LDT_BRIDGE_END)) {
+	if (sb1250_pci_can_access(dev))
+		data = READCFG32(cfgaddr);
+	else
 		data = 0xFFFFFFFF;
-	}
 
 	*val = (data >> ((where & 3) << 3)) & 0xffff;
 
@@ -157,16 +155,10 @@ sb1250_pci_read_config_dword(struct pci_dev *dev, int where, u32 * val)
 	if (where & 3)
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
-	data = READCFG32(cfgaddr);
-
-	/*
-	 * If the LDT was not configured, make it look like the bridge
-	 * header is not there.
-	 */
-	if (!(sb1250_bus_status & LDT_BUS_ENABLED) &&
-	    (cfgaddr >= LDT_BRIDGE_START) && (cfgaddr < LDT_BRIDGE_END)) {
+	if (sb1250_pci_can_access(dev))
+		data = READCFG32(cfgaddr);
+	else
 		data = 0xFFFFFFFF;
-	}
 
 	*val = data;
 
@@ -180,12 +172,14 @@ sb1250_pci_write_config_byte(struct pci_dev *dev, int where, u8 val)
 	u32 data = 0;
 	u32 cfgaddr = CFGADDR(dev, where);
 
-	data = READCFG32(cfgaddr);
+	if (sb1250_pci_can_access(dev)) {
+		data = READCFG32(cfgaddr);
 
-	data = (data & ~(0xff << ((where & 3) << 3))) |
-	    (val << ((where & 3) << 3));
+		data = (data & ~(0xff << ((where & 3) << 3))) |
+		    (val << ((where & 3) << 3));
 
-	WRITECFG32(cfgaddr, data);
+		WRITECFG32(cfgaddr, data);
+	}
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -199,12 +193,14 @@ sb1250_pci_write_config_word(struct pci_dev *dev, int where, u16 val)
 	if (where & 1)
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
-	data = READCFG32(cfgaddr);
+	if (sb1250_pci_can_access(dev)) {
+		data = READCFG32(cfgaddr);
 
-	data = (data & ~(0xffff << ((where & 3) << 3))) |
-	    (val << ((where & 3) << 3));
+		data = (data & ~(0xffff << ((where & 3) << 3))) |
+		    (val << ((where & 3) << 3));
 
-	WRITECFG32(cfgaddr, data);
+		WRITECFG32(cfgaddr, data);
+	}
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -217,7 +213,8 @@ sb1250_pci_write_config_dword(struct pci_dev *dev, int where, u32 val)
 	if (where & 3)
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
-	WRITECFG32(cfgaddr, val);
+	if (sb1250_pci_can_access(dev))
+		WRITECFG32(cfgaddr, val);
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -237,31 +234,33 @@ void __init pcibios_init(void)
 	uint32_t cmdreg;
 	uint64_t reg;
 
+	cfg_space = ioremap(A_PHYS_LDTPCI_CFG_MATCH_BITS, 16*1024*1024);
+
 	/*
 	 * See if the PCI bus has been configured by the firmware.
 	 */
-
-	cmdreg = READCFG32((A_PCI_TYPE00_HEADER | MATCH_BITS) +
-			   PCI_COMMAND);
-
-	if (!(cmdreg & PCI_COMMAND_MASTER)) {
-		printk
-		    ("PCI: Skipping PCI probe.  Bus is not initialized.\n");
-		return;
-	}
-
 	reg = *((volatile uint64_t *) KSEG1ADDR(A_SCD_SYSTEM_CFG));
 	if (!(reg & M_SYS_PCI_HOST)) {
-		printk("PCI: Skipping PCI probe.  Processor is in PCI device mode.\n");
-		return;
+		sb1250_bus_status |= PCI_DEVICE_MODE;
+	} else {
+		cmdreg = READCFG32(CFGOFFSET(0, PCI_DEVFN(PCI_BRIDGE_DEVICE, 0),
+					     PCI_COMMAND));
+		if (!(cmdreg & PCI_COMMAND_MASTER)) {
+			printk
+			    ("PCI: Skipping PCI probe.  Bus is not initialized.\n");
+			iounmap(cfg_space);
+			return;
+		}
+		sb1250_bus_status |= PCI_BUS_ENABLED;
 	}
 
-	sb1250_bus_status |= PCI_BUS_ENABLED;
-
 	/*
-	 * Establish a mapping from KSEG2 (kernel virtual) to PCI I/O space
-	 * Use "match bytes", even though this exposes endianness.
-	 * big-endian Linuxes will have CONFIG_SWAP_IO_SPACE set.
+	 * Establish mappings in KSEG2 (kernel virtual) to PCI I/O
+	 * space.  Use "match bytes" policy to make everything look
+	 * little-endian.  So, you need to also set
+	 * CONFIG_SWAP_IO_SPACE, but this is the combination that
+	 * works correctly with most of Linux's drivers.
+	 * XXX ehs: Should this happen in PCI Device mode?
 	 */
 
 	set_io_port_base((unsigned long)
@@ -269,17 +268,26 @@ void __init pcibios_init(void)
 	isa_slot_offset = (unsigned long)
 		ioremap(A_PHYS_LDTPCI_IO_MATCH_BYTES_32, 1024*1024);
 
+#ifdef CONFIG_SIBYTE_HAS_LDT
 	/*
 	 * Also check the LDT bridge's enable, just in case we didn't
 	 * initialize that one.
 	 */
 
-	cmdreg = READCFG32((A_PCI_TYPE01_HEADER | MATCH_BITS) +
-			   PCI_COMMAND);
-
+	cmdreg = READCFG32(CFGOFFSET(0, PCI_DEVFN(LDT_BRIDGE_DEVICE, 0),
+				     PCI_COMMAND));
 	if (cmdreg & PCI_COMMAND_MASTER) {
 		sb1250_bus_status |= LDT_BUS_ENABLED;
+
+		/*
+		 * Need bits 23:16 to convey vector number.  Note that
+		 * this consumes 4MB of kernel-mapped memory
+		 * (Kseg2/Kseg3) for 32-bit kernel.
+		 */
+		ldt_eoi_space = (unsigned long)
+			ioremap(A_PHYS_LDT_SPECIAL_MATCH_BYTES, 4*1024*1024);
 	}
+#endif
 
 	/* Probe for PCI hardware */
 
@@ -291,40 +299,9 @@ void __init pcibios_init(void)
 #endif
 }
 
-int pcibios_enable_device(struct pci_dev *dev, int mask)
-{
-	/* Not needed, since we enable all devices at startup.  */
-	return 0;
-}
-
-void pcibios_align_resource(void *data, struct resource *res,
-		       unsigned long size, unsigned long align)
-{
-}
-
-char *__init pcibios_setup(char *str)
-{
-	/* Nothing to do for now.  */
-
-	return str;
-}
-
 struct pci_fixup pcibios_fixups[] = {
 	{0}
 };
-
-void pcibios_update_resource(struct pci_dev *dev, struct resource *root,
-	struct resource *res, int resource)
-{
-	unsigned long where, size;
-	u32 reg;
-
-	where = PCI_BASE_ADDRESS_0 + (resource * 4);
-	size = res->end - res->start;
-	pci_read_config_dword(dev, where, &reg);
-	reg = (reg & size) | (((u32) (res->start - root->start)) & ~size);
-	pci_write_config_dword(dev, where, reg);
-}
 
 /*
  *  Called after each bus is probed, but before its children

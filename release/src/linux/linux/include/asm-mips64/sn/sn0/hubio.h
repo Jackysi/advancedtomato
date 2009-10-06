@@ -154,6 +154,10 @@
 #define IIO_NUM_ITTES	7		/* ITTEs numbered 0..6 */
 					/* Hw manuals number them 1..7! */
 
+/*
+ * As a permanent workaround for a bug in the PI side of the hub, we've
+ * redefined big window 7 as small window 0.
+ */
 #define HUB_NUM_BIG_WINDOW	IIO_NUM_ITTES - 1
 
 /*
@@ -396,12 +400,16 @@ typedef union io_perf_cnt {
 #define IIO_NUM_PC_CRBS 	4	/* Number of partial cache CRBs */
 #define IIO_ICRB_OFFSET		8
 #define IIO_ICRB_0		0x400400
+/* XXX - This is now tuneable:
+	#define IIO_FIRST_PC_ENTRY 12
+ */
 
 #define IIO_ICRB_A(_x)	(IIO_ICRB_0 + (4 * IIO_ICRB_OFFSET * (_x)))
 #define IIO_ICRB_B(_x)  (IIO_ICRB_A(_x) + 1*IIO_ICRB_OFFSET)
 #define IIO_ICRB_C(_x)	(IIO_ICRB_A(_x) + 2*IIO_ICRB_OFFSET)
 #define IIO_ICRB_D(_x)  (IIO_ICRB_A(_x) + 3*IIO_ICRB_OFFSET)
 
+/* XXX - IBUE register coming for Hub 2 */
 
 /*
  *
@@ -474,6 +482,7 @@ typedef union h1_icrba_u {
 	} h1_icrba_fields_s;
 } h1_icrba_t;
 
+/* XXX - Is this still right?  Check the spec. */
 #define ICRBN_A_CERR_SHFT	54
 #define ICRBN_A_ERR_MASK	0x3ff
 
@@ -650,6 +659,7 @@ typedef union h1_icrbb_u {
 /*
  * Values for field reqtype.
  */
+/* XXX - Need to fix this for Hub 2 */
 #define	IIO_ICRB_REQ_DWRD	0	/* Request type double word	*/
 #define	IIO_ICRB_REQ_QCLRD	1	/* Request is Qrtr Caceh line Rd */
 #define	IIO_ICRB_REQ_BLKRD	2	/* Request is block read	*/

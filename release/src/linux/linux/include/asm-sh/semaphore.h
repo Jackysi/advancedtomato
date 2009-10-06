@@ -74,6 +74,12 @@ static inline void init_MUTEX_LOCKED (struct semaphore *sem)
 	sema_init(sem, 0);
 }
 
+#if 0
+asmlinkage void __down_failed(void /* special register calling convention */);
+asmlinkage int  __down_failed_interruptible(void  /* params in registers */);
+asmlinkage int  __down_failed_trylock(void  /* params in registers */);
+asmlinkage void __up_wakeup(void /* special register calling convention */);
+#endif
 
 asmlinkage void __down(struct semaphore * sem);
 asmlinkage int  __down_interruptible(struct semaphore * sem);

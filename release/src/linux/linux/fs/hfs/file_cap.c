@@ -1,4 +1,24 @@
-
+/*
+ * linux/fs/hfs/file_cap.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains the file_ops and inode_ops for the metadata
+ * files under the CAP representation.
+ *
+ * The source code distribution of the Columbia AppleTalk Package for
+ * UNIX, version 6.0, (CAP) was used as a specification of the
+ * location and format of files used by CAP's Aufs.  No code from CAP
+ * appears in hfs_fs.  hfs_fs is not a work ``derived'' from CAP in
+ * the sense of intellectual property law.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #include "hfs.h"
 #include <linux/hfs_fs_sb.h>
@@ -171,7 +191,7 @@ static hfs_rwret_t cap_info_write(struct file *filp, const char *buf,
 				  hfs_rwarg_t count, loff_t *ppos)
 {
         struct inode *inode = filp->f_dentry->d_inode;
-	hfs_u32 pos;
+	hfs_u32 pos, last;
 
 	if (!S_ISREG(inode->i_mode)) {
 		hfs_warn("hfs_file_write: mode = %07o\n", inode->i_mode);
@@ -187,14 +207,14 @@ static hfs_rwret_t cap_info_write(struct file *filp, const char *buf,
 		return 0;
 	}
 
-	*ppos += count;
-	if (*ppos > HFS_FORK_MAX) {
-		*ppos = HFS_FORK_MAX;
+	last = pos + count;
+	if (last > HFS_FORK_MAX) {
+		last = HFS_FORK_MAX;
 		count = HFS_FORK_MAX - pos;
 	}
 
-	if (*ppos > inode->i_size)
-	        inode->i_size = *ppos;
+	if (last > inode->i_size)
+	        inode->i_size = last;
 
 	/* Only deal with the part we store in memory */
 	if (pos < sizeof(struct hfs_cap_info)) {
@@ -252,6 +272,7 @@ static hfs_rwret_t cap_info_write(struct file *filp, const char *buf,
 		}
 	}
 
+	*ppos = last;
 	inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	mark_inode_dirty(inode);
 	return count;

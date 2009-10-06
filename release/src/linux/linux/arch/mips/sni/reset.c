@@ -23,6 +23,7 @@ kb_wait(void)
 			break;
 }
 
+/* XXX This ends up at the ARC firmware prompt ...  */
 void sni_machine_restart(char *command)
 {
 	int i, j;

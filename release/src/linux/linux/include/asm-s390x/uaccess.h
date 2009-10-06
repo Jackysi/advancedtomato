@@ -413,6 +413,27 @@ strncpy_from_user(char *dst, const char *src, long count)
 static inline unsigned long
 strnlen_user(const char * src, unsigned long n)
 {
+#if 0
+        __asm__ __volatile__ ("   algr  %0,%1\n"
+                              "   slgr  0,0\n"
+                              "   lgr   4,%1\n"
+                              "   sacf  512\n"
+                              "0: srst  %0,4\n"
+                              "   jo    0b\n"
+                              "   slgr  %0,%1\n"
+                              "   aghi  %0,1\n"
+                              "1: sacf  0\n"
+                              ".section .fixup,\"ax\"\n"
+                              "2: slgr  %0,%0\n"
+                              "   jg    1b\n"
+                              ".previous\n"
+                              ".section __ex_table,\"a\"\n"
+                              "   .align 8\n"
+                              "   .quad  0b,2b\n"
+                              ".previous"
+                              : "+&a" (n) : "d" (src)
+                              : "cc", "0", "4" );
+#else
 	__asm__ __volatile__ ("   lgr   4,%1\n"
 			      "   sacf  512\n"
 			      "0: cli   0(4),0x00\n"
@@ -432,6 +453,7 @@ strnlen_user(const char * src, unsigned long n)
 			      ".previous"
 			      : "+&a" (n) : "d" (src)
 			      : "cc", "4" );
+#endif
         return n;
 }
 #define strlen_user(str) strnlen_user(str, ~0UL)

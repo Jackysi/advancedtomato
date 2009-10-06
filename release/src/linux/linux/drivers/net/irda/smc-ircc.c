@@ -10,6 +10,8 @@
  * Modified by:   Dag Brattli <dag@brattli.net>
  * Modified at:   Tue Jun 26 2001
  * Modified by:   Stefani Seibold <stefani@seibold.net>
+ * Modified at:   Thur Apr 18 2002
+ * Modified by:   Jeff Snyder <je4d@pobox.com>
  * 
  *     Copyright (c) 2001      Stefani Seibold
  *     Copyright (c) 1999-2001 Dag Brattli
@@ -356,6 +358,13 @@ static int __init smc_superio_fdc(unsigned short cfg_base)
 
 static int __init smc_superio_lpc(unsigned short cfg_base)
 {
+#if 0
+	if (check_region(cfg_base, 2) < 0) {
+		IRDA_DEBUG(0, "%s: can't get cfg_base of 0x%03x\n",
+			__FUNCTION__, cfg_base);
+		return -1;
+	}
+#endif
 
 	if (!smc_superio_flat(lpc_chips_flat,cfg_base,"LPC")||!smc_superio_paged(lpc_chips_paged,cfg_base,"LPC"))
 		return 0;
@@ -530,7 +539,7 @@ static int __init ircc_open(unsigned int fir_base, unsigned int sir_base)
 	if (ircc_irq < 255) {
 		if (ircc_irq!=irq)
 			MESSAGE("%s, Overriding IRQ - chip says %d, using %d\n",
-				driver_name, self->io->irq, ircc_irq);
+				driver_name, irq, ircc_irq);
 		self->io->irq = ircc_irq;
 	}
 	else
@@ -538,13 +547,13 @@ static int __init ircc_open(unsigned int fir_base, unsigned int sir_base)
 	if (ircc_dma < 255) {
 		if (ircc_dma!=dma)
 			MESSAGE("%s, Overriding DMA - chip says %d, using %d\n",
-				driver_name, self->io->dma, ircc_dma);
+				driver_name, dma, ircc_dma);
 		self->io->dma = ircc_dma;
 	}
 	else
 		self->io->dma = dma;
 
-	request_region(fir_base, CHIP_IO_EXTENT, driver_name);
+	request_region(self->io->fir_base, CHIP_IO_EXTENT, driver_name);
 
 	/* Initialize QoS for this device */
 	irda_init_max_qos_capabilies(&irport->qos);
@@ -675,7 +684,7 @@ static void ircc_change_speed(void *priv, u32 speed)
 	outb(((inb(iobase+IRCC_SCE_CFGA) & 0x87) | ir_mode), 
 	     iobase+IRCC_SCE_CFGA);
 
-#ifdef SMC_669     /* Uses pin 88/89 for Rx/Tx */
+#ifdef SMC_669 /* Uses pin 88/89 for Rx/Tx */
 	outb(((inb(iobase+IRCC_SCE_CFGB) & 0x3f) | IRCC_CFGB_MUX_COM), 
 	     iobase+IRCC_SCE_CFGB);
 #else	
@@ -770,6 +779,11 @@ static void ircc_dma_xmit(struct ircc_cb *self, int iobase, int bofs)
 	u8 ctrl;
 
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+#if 0	
+	/* Disable Rx */
+	register_bank(iobase, 0);
+	outb(0x00, iobase+IRCC_LCR_B);
+#endif
 	register_bank(iobase, 1);
 	outb(inb(iobase+IRCC_SCE_CFGB) & ~IRCC_CFGB_DMA_ENABLE, 
 	     iobase+IRCC_SCE_CFGB);
@@ -815,6 +829,11 @@ static void ircc_dma_xmit(struct ircc_cb *self, int iobase, int bofs)
 static void ircc_dma_xmit_complete(struct ircc_cb *self, int iobase)
 {
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+#if 0
+	/* Disable Tx */
+	register_bank(iobase, 0);
+	outb(0x00, iobase+IRCC_LCR_B);
+#endif
 	register_bank(self->io->fir_base, 1);
 	outb(inb(self->io->fir_base+IRCC_SCE_CFGB) & ~IRCC_CFGB_DMA_ENABLE,
 	     self->io->fir_base+IRCC_SCE_CFGB);
@@ -852,6 +871,12 @@ static void ircc_dma_xmit_complete(struct ircc_cb *self, int iobase)
  */
 static int ircc_dma_receive(struct ircc_cb *self, int iobase) 
 {	
+#if 0
+	/* Turn off chip DMA */
+	register_bank(iobase, 1);
+	outb(inb(iobase+IRCC_SCE_CFGB) & ~IRCC_CFGB_DMA_ENABLE, 
+	     iobase+IRCC_SCE_CFGB);
+#endif
 	setup_dma(self->io->dma, self->rx_buff.data, self->rx_buff.truesize, 
 		  DMA_RX_MODE);
 
@@ -890,6 +915,11 @@ static void ircc_dma_receive_complete(struct ircc_cb *self, int iobase)
 	int len, msgcnt;
 
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+#if 0
+	/* Disable Rx */
+	register_bank(iobase, 0);
+	outb(0x00, iobase+IRCC_LCR_B);
+#endif
 	register_bank(iobase, 0);
 	msgcnt = inb(iobase+IRCC_LCR_B) & 0x08;
 
@@ -984,6 +1014,30 @@ static void ircc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	spin_unlock(&self->lock);
 }
 
+#if 0 /* unused */
+/*
+ * Function ircc_is_receiving (self)
+ *
+ *    Return TRUE is we are currently receiving a frame
+ *
+ */
+static int ircc_is_receiving(struct ircc_cb *self)
+{
+	int status = FALSE;
+	/* int iobase; */
+
+	IRDA_DEBUG(0, "%s()\n", __FUNCTION__);
+
+	ASSERT(self != NULL, return FALSE;);
+
+	IRDA_DEBUG(0, "%s: dma count = %d\n",
+		__FUNCTION__, get_dma_residue(self->io->dma));
+
+	status = (self->rx_buff.state != OUTSIDE_FRAME);
+	
+	return status;
+}
+#endif /* unused */
 
 /*
  * Function ircc_net_open (dev)
@@ -1128,11 +1182,16 @@ static int __exit ircc_close(struct ircc_cb *self)
 	outb(0, iobase+IRCC_IER);
 	outb(IRCC_MASTER_RESET, iobase+IRCC_MASTER);
 	outb(0x00, iobase+IRCC_MASTER);
+#if 0
+	/* Reset to SIR mode */
+	register_bank(iobase, 1);
+        outb(IRCC_CFGA_IRDA_SIR_A|IRCC_CFGA_TX_POLARITY, iobase+IRCC_SCE_CFGA);
+        outb(IRCC_CFGB_IR, iobase+IRCC_SCE_CFGB);
+#endif
 	/* Release the PORT that this driver is using */
-	IRDA_DEBUG(0, "%s(), releasing 0x%03x\n", 
-		__FUNCTION__, self->io->fir_base);
+	IRDA_DEBUG(0, "%s(), releasing 0x%03x\n", __FUNCTION__, iobase);
 
-	release_region(self->io->fir_base, self->io->fir_ext);
+	release_region(iobase, CHIP_IO_EXTENT);
 
 	if (self->tx_buff.head)
 		kfree(self->tx_buff.head);
@@ -1151,7 +1210,7 @@ static int __init smc_init(void)
 	return ircc_init();
 }
 
-void __exit smc_cleanup(void)
+static void __exit smc_cleanup(void)
 {
 	int i;
 

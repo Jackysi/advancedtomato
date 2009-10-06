@@ -19,7 +19,9 @@
 
 #include <asm/bootinfo.h>
 #include <asm/dma.h>
+#if defined(CONFIG_BLK_DEV_FD) || defined(CONFIG_BLK_DEV_FD_MODULE)
 #include <asm/floppy.h>
+#endif
 #include <asm/io.h>
 #include <asm/page.h>
 #include <asm/pgalloc.h>
@@ -51,16 +53,21 @@ EXPORT_SYMBOL_NOVERS(memcmp);
 EXPORT_SYMBOL_NOVERS(memset);
 EXPORT_SYMBOL_NOVERS(memcpy);
 EXPORT_SYMBOL_NOVERS(memmove);
+EXPORT_SYMBOL_NOVERS(memscan);
+EXPORT_SYMBOL_NOVERS(strcpy);
+EXPORT_SYMBOL_NOVERS(strncpy);
 EXPORT_SYMBOL_NOVERS(strcat);
 EXPORT_SYMBOL_NOVERS(strchr);
+EXPORT_SYMBOL_NOVERS(strncmp);
 EXPORT_SYMBOL_NOVERS(strlen);
 EXPORT_SYMBOL_NOVERS(strncat);
+EXPORT_SYMBOL_NOVERS(strcmp);
 EXPORT_SYMBOL_NOVERS(strnlen);
 EXPORT_SYMBOL_NOVERS(strrchr);
 EXPORT_SYMBOL_NOVERS(strtok);
 EXPORT_SYMBOL_NOVERS(strpbrk);
 
-EXPORT_SYMBOL(_clear_page);
+EXPORT_SYMBOL(clear_page);
 EXPORT_SYMBOL(kernel_thread);
 
 /*
@@ -79,17 +86,6 @@ EXPORT_SYMBOL_NOVERS(__strnlen_user_asm);
 /* Networking helper routines. */
 EXPORT_SYMBOL(csum_partial_copy);
 
-/*
- * Functions to control caches.
- */
-EXPORT_SYMBOL(_flush_page_to_ram);
-EXPORT_SYMBOL(_flush_cache_l1);
-
-#ifdef CONFIG_NONCOHERENT_IO
-EXPORT_SYMBOL(_dma_cache_wback_inv);
-EXPORT_SYMBOL(_dma_cache_inv);
-#endif
-
 EXPORT_SYMBOL(invalid_pte_table);
 
 /*
@@ -103,8 +99,3 @@ EXPORT_SYMBOL(screen_info);
 #endif
 
 EXPORT_SYMBOL(get_wchan);
-
-#if defined(CONFIG_MCOUNT)
-extern void _mcount(void);
-EXPORT_SYMBOL_NOVERS(_mcount);
-#endif

@@ -73,6 +73,7 @@
 #include <asm/system.h>
 
 #ifdef __sparc__
+#include <linux/pci.h>
 #include <asm/ebus.h>
 #ifdef __sparc_v9__
 #include <asm/isa.h>
@@ -252,10 +253,10 @@ static ssize_t rtc_read(struct file *file, char *buf,
 		return -EINVAL;
 
 	add_wait_queue(&rtc_wait, &wait);
-
-	current->state = TASK_INTERRUPTIBLE;
 		
 	do {
+		__set_current_state(TASK_INTERRUPTIBLE);
+
 		/* First make it right. Then make it fast. Putting this whole
 		 * block within the parentheses of a while would be too
 		 * confusing. And no, xchg() is not the answer. */
@@ -375,7 +376,7 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		 * means "don't care" or "match all". Only the tm_hour,
 		 * tm_min, and tm_sec values are filled in.
 		 */
-
+		memset(&wtime, 0, sizeof(struct rtc_time));
 		get_rtc_alm_time(&wtime);
 		break; 
 	}
@@ -397,22 +398,18 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		min = alm_tm.tm_min;
 		sec = alm_tm.tm_sec;
 
-		if (hrs >= 24)
-			hrs = 0xff;
-
-		if (min >= 60)
-			min = 0xff;
-
-		if (sec >= 60)
-			sec = 0xff;
-
 		spin_lock_irq(&rtc_lock);
 		if (!(CMOS_READ(RTC_CONTROL) & RTC_DM_BINARY) ||
 		    RTC_ALWAYS_BCD)
 		{
-			BIN_TO_BCD(sec);
-			BIN_TO_BCD(min);
-			BIN_TO_BCD(hrs);
+			if (sec < 60) BIN_TO_BCD(sec);
+			else sec = 0xff;
+
+			if (min < 60) BIN_TO_BCD(min);
+			else min = 0xff;
+
+			if (hrs < 24) BIN_TO_BCD(hrs);
+			else hrs = 0xff;
 		}
 		CMOS_WRITE(hrs, RTC_HOURS_ALARM);
 		CMOS_WRITE(min, RTC_MINUTES_ALARM);
@@ -423,6 +420,7 @@ static int rtc_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	}
 	case RTC_RD_TIME:	/* Read the time/date from RTC	*/
 	{
+		memset(&wtime, 0, sizeof(struct rtc_time));
 		get_rtc_time(&wtime);
 		break;
 	}
@@ -757,6 +755,11 @@ found:
 		goto no_irq;
 	}
 
+	/*
+	 * XXX Interrupt pin #7 in Espresso is shared between RTC and
+	 * PCI Slot 2 INTA# (and some INTx# in Slot 1). SA_INTERRUPT here
+	 * is asking for trouble with add-on boards. Change to SA_SHIRQ.
+	 */
 	if (request_irq(rtc_irq, rtc_interrupt, SA_INTERRUPT, "rtc", (void *)&rtc_port)) {
 		/*
 		 * Standard way for sparc to print irq's is to use
@@ -1020,6 +1023,7 @@ static int rtc_read_proc(char *page, char **start, off_t off,
 /*
  * Returns true if a clock update is in progress
  */
+/* FIXME shouldn't this be above rtc_init to make it fully inlined? */
 static inline unsigned char rtc_is_updating(void)
 {
 	unsigned char uip;

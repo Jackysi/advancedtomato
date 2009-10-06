@@ -16,6 +16,7 @@
 #define PSR_I		14
 #define	PSR_DT		17
 #define PSR_RT		27
+#define PSR_MC		35
 #define PSR_IT		36
 #define PSR_BN		44
 
@@ -106,6 +107,8 @@
 	dep	temp1 = 0, temp1, PSR_I, 1;						\
 	;;										\
 	dep	temp1 = 0, temp1, PSR_IC, 1;						\
+	;;										\
+	dep	temp1 = -1, temp1, PSR_MC, 1;						\
 	;;										\
 	movl	temp2 = start_addr;							\
 	mov	cr.ipsr = temp1;							\
@@ -209,7 +212,8 @@
  * saved onto the new stack frame.
  *
  *	+-----------------------+
- *	|NDIRTY [BSP - BSPSTORE]|
+ *	|NDIRTY_WORDS           |
+ *	|       [BSP - BSPSTORE]|
  *	+-----------------------+
  *	|	RNAT		|
  *	+-----------------------+
@@ -227,7 +231,7 @@
 #define  rse_ifs_offset		(rse_pfs_offset+0x08)
 #define  rse_bspstore_offset	(rse_ifs_offset+0x08)
 #define  rse_rnat_offset	(rse_bspstore_offset+0x08)
-#define  rse_ndirty_offset	(rse_rnat_offset+0x08)
+#define  rse_ndirty_words_offset	(rse_rnat_offset+0x08)
 
 /*
  * rse_switch_context
@@ -240,7 +244,8 @@
  *	6. Save the old RNAT on the new stack frame
  *	7. Write BSPSTORE with the new backing store pointer
  *	8. Read and save the new BSP to calculate the #dirty registers
- * NOTE: Look at pages 11-10, 11-11 in PRM Vol 2
+ * NOTE: Look at section 6.11 in Intel IA-64 Architecture Software Developer's
+ *       Manual, Volume 2, System Architecture.
  */
 #define rse_switch_context(temp,p_stackframe,p_bspstore)			\
 	;;									\
@@ -277,12 +282,12 @@
 #define rse_return_context(psr_mask_reg,temp,p_stackframe)			\
 	;;									\
 	alloc   temp=ar.pfs,0,0,0,0;						\
-	add     p_stackframe=rse_ndirty_offset,p_stackframe;;			\
+	add     p_stackframe=rse_ndirty_words_offset,p_stackframe;;		\
 	ld8     temp=[p_stackframe];;						\
 	shl     temp=temp,16;;							\
 	mov     ar.rsc=temp;;							\
 	loadrs;;								\
-	add     p_stackframe=-rse_ndirty_offset+rse_bspstore_offset,p_stackframe;;\
+	add     p_stackframe=-rse_ndirty_words_offset+rse_bspstore_offset,p_stackframe;;\
 	ld8     temp=[p_stackframe];;						\
 	mov     ar.bspstore=temp;;						\
 	add     p_stackframe=-rse_bspstore_offset+rse_rnat_offset,p_stackframe;;\

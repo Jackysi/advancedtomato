@@ -31,7 +31,7 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: file.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * $Id: file.c,v 1.58.2.7 2003/11/02 13:51:17 dwmw2 Exp $
  *
  */
 
@@ -42,7 +42,7 @@
 #include <linux/pagemap.h>
 #include <linux/jffs2.h>
 #include "nodelist.h"
-#include "crc32.h"
+#include <linux/crc32.h>
 
 extern int generic_file_open(struct inode *, struct file *) __attribute__((weak));
 extern loff_t generic_file_llseek(struct file *file, loff_t offset, int origin) __attribute__((weak));
@@ -240,6 +240,8 @@ int jffs2_do_readpage_nolock (struct inode *inode, struct page *pg)
 
 	pg_buf = kmap(pg);
 
+	/* XXX FIXME: Where a single physical node actually shows up in two
+	   frags, we read it twice. Don't do that. */
 	/* Now we're pointing at the first frag which overlaps our page */
 	while(offset < end) {
 		D2(printk(KERN_DEBUG "jffs2_readpage: offset %d, end %d\n", offset, end));

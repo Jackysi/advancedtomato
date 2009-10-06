@@ -24,6 +24,7 @@ struct prda_sys {
         u32   t_unused[8];
         u32   t_cpu;		/* current/last cpu */
 
+	/* FIXME: The signal information, not supported by Linux now */
 	u32   t_flags;		/* if true, then the sigprocmask is in userspace */
 	u32   t_sigprocmask [1]; /* the sigprocmask */
 };

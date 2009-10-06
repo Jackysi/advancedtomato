@@ -9,11 +9,13 @@
 Original driver (sg.h):
 *       Copyright (C) 1992 Lawrence Foard
 Version 2 and 3 extensions to driver:
-*       Copyright (C) 1998 - 2002 Douglas Gilbert
+*       Copyright (C) 1998 - 2003 Douglas Gilbert
 
-    Version: 3.1.24 (20020505)
+    Version: 3.1.25 (20030529)
     This version is for 2.4 series kernels.
 
+    Changes since 3.1.24 (20020505)
+	- fix side effect introduced by last "off by one" fix
     Changes since 3.1.23 (20020318)
 	- off by one fix for last scatter gather element
 	- zero buffer obtained for non-root users

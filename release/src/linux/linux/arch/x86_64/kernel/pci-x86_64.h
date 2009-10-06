@@ -27,9 +27,11 @@ extern unsigned int pci_probe;
 /* pci-i386.c */
 
 extern unsigned int pcibios_max_latency;
+extern u8 pci_cache_line_size;
 
 void pcibios_resource_survey(void);
-int pcibios_enable_resources(struct pci_dev *, int);
+void pcibios_set_cacheline_size(void);
+int pcibios_enable_resources(struct pci_dev *, int mask);
 
 /* pci-pc.c */
 

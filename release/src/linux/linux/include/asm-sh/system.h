@@ -100,7 +100,7 @@ extern void __xchg_called_with_bad_pointer(void);
 #define smp_wmb()	barrier()
 #endif
 
-#define set_mb(var, value) do { xchg(&var, value); } while (0)
+#define set_mb(var, value)  do { var = value; mb(); } while (0)
 #define set_wmb(var, value) do { var = value; wmb(); } while (0)
 
 /* Interrupt Control */
@@ -130,7 +130,9 @@ static __inline__ void __cli(void)
 }
 
 #define __save_flags(x) \
-	__asm__("stc sr, %0; and #0xf0, %0" : "=&z" (x) :/**/: "memory" )
+	__asm__ __volatile__("stc sr, %0\n\t" \
+			     "and #0xf0, %0"  \
+			     : "=&z" (x) :/**/: "memory" )
 
 static __inline__ unsigned long __save_and_cli(void)
 {
@@ -215,8 +217,11 @@ do {							\
 		: "=&r" (__dummy));			\
 } while (0)
 
+#define __save_and_sti(x)       do { __save_flags(x); __sti(); } while(0);
+
 /* For spinlocks etc */
 #define local_irq_save(x)	x = __save_and_cli()
+#define local_irq_set(x)	__save_and_sti(x)
 #define local_irq_restore(x)	__restore_flags(x)
 #define local_irq_disable()	__cli()
 #define local_irq_enable()	__sti()
@@ -231,13 +236,14 @@ extern void __global_restore_flags(unsigned long);
 #define sti() __global_sti()
 #define save_flags(x) ((x)=__global_save_flags())
 #define restore_flags(x) __global_restore_flags(x)
-
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0);
 #else
 
 #define cli() __cli()
 #define sti() __sti()
 #define save_flags(x) __save_flags(x)
 #define save_and_cli(x) x = __save_and_cli()
+#define save_and_sti(x) __save_and_sti(x)
 #define restore_flags(x) __restore_flags(x)
 
 #endif
@@ -278,6 +284,9 @@ static __inline__ unsigned long __xchg(unsigned long x, volatile void * ptr, int
 	return x;
 }
 
+/* XXX
+ * disable hlt during certain critical i/o operations
+ */
 #define HAVE_DISABLE_HLT
 void disable_hlt(void);
 void enable_hlt(void);

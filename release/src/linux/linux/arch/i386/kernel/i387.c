@@ -11,6 +11,7 @@
 #include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/init.h>
+#include <linux/kernel_stat.h>
 #include <asm/processor.h>
 #include <asm/i387.h>
 #include <asm/math_emu.h>
@@ -70,8 +71,12 @@ void init_fpu(void)
 static inline void __save_init_fpu( struct task_struct *tsk )
 {
 	if ( cpu_has_fxsr ) {
-		asm volatile( "fxsave %0 ; fnclex"
+		asm volatile( "fxsave %0"
 			      : "=m" (tsk->thread.i387.fxsave) );
+		if (tsk->thread.i387.fxsave.swd & (1<<7))
+			asm volatile("fnclex");
+		/* AMD CPUs leak F?P. Clear it here */
+		asm volatile("ffree %%st(7) ; fildl %0" :: "m" (kstat.context_swtch));
 	} else {
 		asm volatile( "fnsave %0 ; fwait"
 			      : "=m" (tsk->thread.i387.fsave) );
@@ -128,16 +133,17 @@ static inline unsigned short twd_i387_to_fxsr( unsigned short twd )
 static inline unsigned long twd_fxsr_to_i387( struct i387_fxsave_struct *fxsave )
 {
 	struct _fpxreg *st = NULL;
+	unsigned long tos = (fxsave->swd >> 11) & 7;
 	unsigned long twd = (unsigned long) fxsave->twd;
 	unsigned long tag;
 	unsigned long ret = 0xffff0000;
 	int i;
 
-#define FPREG_ADDR(f, n)	((char *)&(f)->st_space + (n) * 16);
+#define FPREG_ADDR(f, n)	((void *)&(f)->st_space + (n) * 16);
 
 	for ( i = 0 ; i < 8 ; i++ ) {
 		if ( twd & 0x1 ) {
-			st = (struct _fpxreg *) FPREG_ADDR( fxsave, i );
+			st = FPREG_ADDR( fxsave, (i - tos) & 7 );
 
 			switch ( st->exponent & 0x7fff ) {
 			case 0x7fff:
@@ -373,14 +379,14 @@ static inline int restore_i387_fsave( struct _fpstate *buf )
 
 static inline int restore_i387_fxsave( struct _fpstate *buf )
 {
+	int err;
 	struct task_struct *tsk = current;
 	clear_fpu( tsk );
-	if ( __copy_from_user( &tsk->thread.i387.fxsave, &buf->_fxsr_env[0],
-			       sizeof(struct i387_fxsave_struct) ) )
-		return 1;
+	err = __copy_from_user( &tsk->thread.i387.fxsave, &buf->_fxsr_env[0],
+				sizeof(struct i387_fxsave_struct) );
 	/* mxcsr bit 6 and 31-16 must be zero for security reasons */
 	tsk->thread.i387.fxsave.mxcsr &= 0xffbf;
-	return convert_fxsr_from_user( &tsk->thread.i387.fxsave, buf );
+	return err ? 1 : convert_fxsr_from_user( &tsk->thread.i387.fxsave, buf );
 }
 
 int restore_i387( struct _fpstate *buf )

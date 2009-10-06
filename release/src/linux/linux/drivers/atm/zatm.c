@@ -46,7 +46,11 @@
  *  - OAM
  */
 
+#if 0
+#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define DPRINTK(format,args...)
+#endif
 
 #ifndef __i386__
 #ifdef CONFIG_ATM_ZATM_EXACT_TS
@@ -490,6 +494,28 @@ static void __init zatm_clock_init(struct zatm_dev *zatm_dev)
 /*----------------------------------- RX ------------------------------------*/
 
 
+#if 0
+static void exception(struct atm_vcc *vcc)
+{
+   static int count = 0;
+   struct zatm_dev *zatm_dev = ZATM_DEV(vcc->dev);
+   struct zatm_vcc *zatm_vcc = ZATM_VCC(vcc);
+   unsigned long *qrp;
+   int i;
+
+   if (count++ > 2) return;
+   for (i = 0; i < 8; i++)
+	printk("TX%d: 0x%08lx\n",i,
+	  zpeekl(zatm_dev,zatm_vcc->tx_chan*VC_SIZE/4+i));
+   for (i = 0; i < 5; i++)
+	printk("SH%d: 0x%08lx\n",i,
+	  zpeekl(zatm_dev,uPD98401_IM(zatm_vcc->shaper)+16*i));
+   qrp = (unsigned long *) zpeekl(zatm_dev,zatm_vcc->tx_chan*VC_SIZE/4+
+     uPD98401_TXVC_QRP);
+   printk("qrp=0x%08lx\n",(unsigned long) qrp);
+   for (i = 0; i < 4; i++) printk("QRP[%d]: 0x%08lx",i,qrp[i]);
+}
+#endif
 
 
 static const char *err_txt[] = {
@@ -533,6 +559,18 @@ static void poll_rx(struct atm_dev *dev,int mbx)
 		if (((pos += 16) & 0xffff) == zatm_dev->mbx_end[mbx])
 			pos = zatm_dev->mbx_start[mbx];
 		cells = here[0] & uPD98401_AAL5_SIZE;
+#if 0
+printk("RX IND: 0x%x, 0x%x, 0x%x, 0x%x\n",here[0],here[1],here[2],here[3]);
+{
+unsigned long *x;
+		printk("POOL: 0x%08x, 0x%08x\n",zpeekl(zatm_dev,
+		      zatm_dev->pool_base),
+		      zpeekl(zatm_dev,zatm_dev->pool_base+1));
+		x = (unsigned long *) here[2];
+		printk("[0..3] = 0x%08lx, 0x%08lx, 0x%08lx, 0x%08lx\n",
+		    x[0],x[1],x[2],x[3]);
+}
+#endif
 		error = 0;
 		if (here[3] & uPD98401_AAL5_ERR) {
 			error = (here[3] & uPD98401_AAL5_ES) >>
@@ -548,8 +586,16 @@ EVENT("error code 0x%x/0x%x\n",(here[3] & uPD98401_AAL5_ES) >>
 #else
 		skb->stamp = xtime;
 #endif
+#if 0
+printk("[-3..0] 0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",((unsigned *) skb->data)[-3],
+  ((unsigned *) skb->data)[-2],((unsigned *) skb->data)[-1],
+  ((unsigned *) skb->data)[0]);
+#endif
 		EVENT("skb 0x%lx, here 0x%lx\n",(unsigned long) skb,
 		    (unsigned long) here);
+#if 0
+printk("dummy: 0x%08lx, 0x%08lx\n",dummy[0],dummy[1]);
+#endif
 		size = error ? 0 : ntohs(((u16 *) skb->data)[cells*
 		    ATM_CELL_PAYLOAD/sizeof(u16)-3]);
 		EVENT("got skb 0x%lx, size %d\n",(unsigned long) skb,size);
@@ -610,6 +656,10 @@ EVENT("error code 0x%x/0x%x\n",(here[3] & uPD98401_AAL5_ES) >>
 		atomic_inc(&vcc->stats->rx);
 	}
 	zout(pos & 0xffff,MTA(mbx));
+#if 0 /* probably a stupid idea */
+	refill_pool(dev,zatm_vcc->pool);
+		/* maybe this saves us a few interrupts */
+#endif
 }
 
 
@@ -777,10 +827,10 @@ static int do_tx(struct sk_buff *skb)
 	vcc = ATM_SKB(skb)->vcc;
 	zatm_dev = ZATM_DEV(vcc->dev);
 	zatm_vcc = ZATM_VCC(vcc);
-	EVENT("iovcnt=%d\n",ATM_SKB(skb)->iovcnt,0);
+	EVENT("iovcnt=%d\n",skb_shinfo(skb)->nr_frags,0);
 	save_flags(flags);
 	cli();
-	if (!ATM_SKB(skb)->iovcnt) {
+	if (!skb_shinfo(skb)->nr_frags) {
 		if (zatm_vcc->txing == RING_ENTRIES-1) {
 			restore_flags(flags);
 			return RING_BUSY;
@@ -802,6 +852,33 @@ static int do_tx(struct sk_buff *skb)
 	else {
 printk("NONONONOO!!!!\n");
 		dsc = NULL;
+#if 0
+		u32 *put;
+		int i;
+
+		dsc = (u32 *) kmalloc(uPD98401_TXPD_SIZE*2+
+		    uPD98401_TXBD_SIZE*ATM_SKB(skb)->iovcnt,GFP_ATOMIC);
+		if (!dsc) {
+			if (vcc->pop) vcc->pop(vcc,skb);
+			else dev_kfree_skb_irq(skb);
+			return -EAGAIN;
+		}
+		/* @@@ should check alignment */
+		put = dsc+8;
+		dsc[0] = uPD98401_TXPD_V | uPD98401_TXPD_DP |
+		    (vcc->aal == ATM_AAL5 ? uPD98401_TXPD_AAL5 : 0 |
+		    (ATM_SKB(skb)->atm_options & ATM_ATMOPT_CLP ?
+		    uPD98401_CLPM_1 : uPD98401_CLPM_0));
+		dsc[1] = 0;
+		dsc[2] = ATM_SKB(skb)->iovcnt*uPD98401_TXBD_SIZE;
+		dsc[3] = virt_to_bus(put);
+		for (i = 0; i < ATM_SKB(skb)->iovcnt; i++) {
+			*put++ = ((struct iovec *) skb->data)[i].iov_len;
+			*put++ = virt_to_bus(((struct iovec *)
+			    skb->data)[i].iov_base);
+		}
+		put[-2] |= uPD98401_TXBD_LAST;
+#endif
 	}
 	ZATM_PRV_DSC(skb) = dsc;
 	skb_queue_tail(&zatm_vcc->tx_queue,skb);
@@ -829,6 +906,11 @@ static inline void dequeue_tx(struct atm_vcc *vcc)
 		    "txing\n",vcc->dev->number);
 		return;
 	}
+#if 0 /* @@@ would fail on CLP */
+if (*ZATM_PRV_DSC(skb) != (uPD98401_TXPD_V | uPD98401_TXPD_DP |
+  uPD98401_TXPD_SM | uPD98401_TXPD_AAL5)) printk("@#*$!!!!  (%08x)\n",
+  *ZATM_PRV_DSC(skb));
+#endif
 	*ZATM_PRV_DSC(skb) = 0; /* mark as invalid */
 	zatm_vcc->txing--;
 	if (vcc->pop) vcc->pop(vcc,skb);
@@ -855,6 +937,7 @@ static void poll_tx(struct atm_dev *dev,int mbx)
 	while (x = zin(MWA(mbx)), (pos & 0xffff) != x) {
 		int chan;
 
+#if 1
 		u32 data,*addr;
 
 		EVENT("MBX: host 0x%lx, nic 0x%x\n",pos,x);
@@ -864,6 +947,11 @@ static void poll_tx(struct atm_dev *dev,int mbx)
 		EVENT("addr = 0x%lx, data = 0x%08x,",(unsigned long) addr,
 		    data);
 		EVENT("chan = %d\n",chan,0);
+#else
+NO !
+		chan = (zatm_dev->mbx_start[mbx][pos >> 2] & uPD98401_TXI_CONN)
+		>> uPD98401_TXI_CONN_SHIFT;
+#endif
 		if (chan < zatm_dev->chans && zatm_dev->tx_map[chan])
 			dequeue_tx(zatm_dev->tx_map[chan]);
 		else {
@@ -999,6 +1087,10 @@ once = 0;
 		DPRINTK("waiting for TX queue to drain ... %p\n",skb);
 		sleep_on(&zatm_vcc->tx_wait);
 	}
+#if 0
+	zwait;
+	zout(uPD98401_DEACT_CHAN | (chan << uPD98401_CHAN_ADDR_SHIFT),CMR);
+#endif
 	zwait;
 	zout(uPD98401_CLOSE_CHAN | (chan << uPD98401_CHAN_ADDR_SHIFT),CMR);
 	zwait;
@@ -1473,7 +1565,7 @@ static void zatm_close(struct atm_vcc *vcc)
         DPRINTK("zatm_close: done waiting\n");
         /* deallocate memory */
         kfree(ZATM_VCC(vcc));
-        ZATM_VCC(vcc) = NULL;
+	vcc->dev_data = NULL;
 	clear_bit(ATM_VF_ADDR,&vcc->flags);
 }
 
@@ -1486,7 +1578,7 @@ static int zatm_open(struct atm_vcc *vcc,short vpi,int vci)
 
 	DPRINTK(">zatm_open\n");
 	zatm_dev = ZATM_DEV(vcc->dev);
-	if (!test_bit(ATM_VF_PARTIAL,&vcc->flags)) ZATM_VCC(vcc) = NULL;
+	if (!test_bit(ATM_VF_PARTIAL,&vcc->flags)) vcc->dev_data = NULL;
 	error = atm_find_ci(vcc,&vpi,&vci);
 	if (error) return error;
 	vcc->vpi = vpi;
@@ -1502,7 +1594,7 @@ static int zatm_open(struct atm_vcc *vcc,short vpi,int vci)
 			clear_bit(ATM_VF_ADDR,&vcc->flags);
 			return -ENOMEM;
 		}
-		ZATM_VCC(vcc) = zatm_vcc;
+		vcc->dev_data = zatm_vcc;
 		ZATM_VCC(vcc)->tx_chan = 0; /* for zatm_close after open_rx */
 		if ((error = open_rx_first(vcc))) {
 	                zatm_close(vcc);
@@ -1641,6 +1733,14 @@ static int zatm_setsockopt(struct atm_vcc *vcc,int level,int optname,
 }
 
 
+#if 0
+static int zatm_sg_send(struct atm_vcc *vcc,unsigned long start,
+    unsigned long size)
+{
+	return vcc->aal == ATM_AAL5;
+	   /* @@@ should check size and maybe alignment*/
+}
+#endif
 
 
 static int zatm_send(struct atm_vcc *vcc,struct sk_buff *skb)
@@ -1728,7 +1828,7 @@ int __init zatm_detect(void)
 			dev = atm_dev_register(DEV_LABEL,&ops,-1,NULL);
 			if (!dev) break;
 			zatm_dev->pci_dev = pci_dev;
-			ZATM_DEV(dev) = zatm_dev;
+			dev->dev_data = zatm_dev;
 			zatm_dev->copper = type;
 			if (zatm_init(dev) || zatm_start(dev)) {
 				atm_dev_deregister(dev);

@@ -51,7 +51,7 @@
 static int smp_b_stepping;
 
 /* Setup configured maximum number of CPUs to activate */
-static int max_cpus = -1;
+unsigned int max_cpus = NR_CPUS;
 
 /* Total count of live CPUs */
 int smp_num_cpus = 1;
@@ -77,10 +77,6 @@ int smp_threads_ready;
  *
  * Command-line option of "nosmp" or "maxcpus=0" will disable SMP
  * activation entirely (the MPS table probe still happens, though).
- *
- * Command-line option of "maxcpus=<NUM>", where <NUM> is an integer
- * greater than 0, limits the maximum number of CPUs activated in
- * SMP mode to <NUM>.
  */
 
 static int __init nosmp(char *str)
@@ -90,14 +86,6 @@ static int __init nosmp(char *str)
 }
 
 __setup("nosmp", nosmp);
-
-static int __init maxcpus(char *str)
-{
-	get_option(&str, &max_cpus);
-	return 1;
-}
-
-__setup("maxcpus=", maxcpus);
 
 /*
  * Trampoline 80x86 program as an array.
@@ -410,7 +398,7 @@ void __init smp_callin(void)
 	Dprintk("CALLIN, before setup_local_APIC().\n");
 	/*
 	 * Because we use NMIs rather than the INIT-STARTUP sequence to
-	 * bootstrap the CPUs, the APIC may be in a wierd state. Kick it.
+	 * bootstrap the CPUs, the APIC may be in a weird state. Kick it.
 	 */
 	if (clustered_apic_mode)
 		clear_local_APIC();
@@ -525,12 +513,12 @@ static inline void init_cpu_to_apicid(void)
 	int apicid, cpu;
 
 	for (apicid = 0; apicid < MAX_APICID; apicid++) {
-		physical_apicid_2_cpu[apicid] = -1;
-		logical_apicid_2_cpu[apicid] = -1;
+		physical_apicid_2_cpu[apicid] = BAD_APICID;
+		logical_apicid_2_cpu[apicid] = BAD_APICID;
 	}
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-		cpu_2_physical_apicid[cpu] = -1;
-		cpu_2_logical_apicid[cpu] = -1;
+		cpu_2_physical_apicid[cpu] = BAD_APICID;
+		cpu_2_logical_apicid[cpu] = BAD_APICID;
 	}
 }
 
@@ -540,7 +528,7 @@ static inline void map_cpu_to_boot_apicid(int cpu, int apicid)
  * else physical apic ids
  */
 {
-	if (clustered_apic_mode) {
+	if (clustered_apic_mode == CLUSTERED_APIC_NUMAQ) {
 		logical_apicid_2_cpu[apicid] = cpu;	
 		cpu_2_logical_apicid[cpu] = apicid;
 	} else {
@@ -555,12 +543,12 @@ static inline void unmap_cpu_to_boot_apicid(int cpu, int apicid)
  * else physical apic ids
  */
 {
-	if (clustered_apic_mode) {
-		logical_apicid_2_cpu[apicid] = -1;	
-		cpu_2_logical_apicid[cpu] = -1;
+	if (clustered_apic_mode == CLUSTERED_APIC_NUMAQ) {
+		logical_apicid_2_cpu[apicid] = BAD_APICID;
+		cpu_2_logical_apicid[cpu] = BAD_APICID;
 	} else {
-		physical_apicid_2_cpu[apicid] = -1;	
-		cpu_2_physical_apicid[cpu] = -1;
+		physical_apicid_2_cpu[apicid] = BAD_APICID;
+		cpu_2_physical_apicid[cpu] = BAD_APICID;
 	}
 }
 
@@ -785,7 +773,7 @@ static void __init do_boot_cpu (int apicid)
 	unsigned long boot_error = 0;
 	int timeout, cpu;
 	unsigned long start_eip;
-	unsigned short nmi_high, nmi_low;
+	unsigned short nmi_high = 0, nmi_low = 0;
 
 	cpu = ++cpucount;
 	/*
@@ -967,6 +955,10 @@ static void smp_tune_scheduling (void)
  * Cycle through the processors sending APIC IPIs to boot each.
  */
 
+extern int prof_multiplier[NR_CPUS];
+extern int prof_old_multiplier[NR_CPUS];
+extern int prof_counter[NR_CPUS];
+
 static int boot_cpu_logical_apicid;
 /* Where the IO area was mapped on multiquad, always 0 otherwise */
 void *xquad_portio;
@@ -993,7 +985,14 @@ void __init smp_boot_cpus(void)
 #endif
 	/*
 	 * Initialize the logical to physical CPU number mapping
+	 * and the per-CPU profiling counter/multiplier
 	 */
+
+	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+		prof_counter[cpu] = 1;
+		prof_old_multiplier[cpu] = 1;
+		prof_multiplier[cpu] = 1;
+	}
 
 	init_cpu_to_apicid();
 
@@ -1008,7 +1007,10 @@ void __init smp_boot_cpus(void)
 	 * We have the boot CPU online for sure.
 	 */
 	set_bit(0, &cpu_online_map);
-	boot_cpu_logical_apicid = logical_smp_processor_id();
+	if (clustered_apic_mode == CLUSTERED_APIC_XAPIC)
+		boot_cpu_logical_apicid = physical_to_logical_apicid(boot_cpu_physical_apicid);
+	else
+		boot_cpu_logical_apicid = logical_smp_processor_id();
 	map_cpu_to_boot_apicid(0, boot_cpu_apicid);
 
 	global_irq_holder = 0;
@@ -1020,7 +1022,7 @@ void __init smp_boot_cpus(void)
 	 * If we couldnt find an SMP configuration at boot time,
 	 * get out of here now!
 	 */
-	if (!smp_found_config) {
+	if (!smp_found_config && !acpi_lapic) {
 		printk(KERN_NOTICE "SMP motherboard not detected.\n");
 #ifndef CONFIG_VISWS
 		io_apic_irqs = 0;
@@ -1092,17 +1094,19 @@ void __init smp_boot_cpus(void)
 	 */
 	Dprintk("CPU present map: %lx\n", phys_cpu_present_map);
 
-	for (bit = 0; bit < NR_CPUS; bit++) {
+	for (bit = 0; bit < BITS_PER_LONG; bit++) {
 		apicid = cpu_present_to_apicid(bit);
+		
+		/* don't try to boot BAD_APICID */
+		if (apicid == BAD_APICID)
+			continue; 
 		/*
 		 * Don't even attempt to start the boot CPU!
 		 */
 		if (apicid == boot_cpu_apicid)
 			continue;
 
-		if (!(phys_cpu_present_map & (1 << bit)))
-			continue;
-		if ((max_cpus >= 0) && (max_cpus <= cpucount+1))
+		if (!(phys_cpu_present_map & apicid_to_phys_cpu_present(apicid)))
 			continue;
 
 		do_boot_cpu(apicid);
@@ -1111,9 +1115,10 @@ void __init smp_boot_cpus(void)
 		 * Make sure we unmap all failed CPUs
 		 */
 		if ((boot_apicid_to_cpu(apicid) == -1) &&
-				(phys_cpu_present_map & (1 << bit)))
-			printk("CPU #%d not responding - cannot use it.\n",
-								apicid);
+			(phys_cpu_present_map & 
+				apicid_to_phys_cpu_present(apicid)))
+			printk("CPU #%d/0x%02x not responding - cannot use it.\n",
+								bit, apicid);
 	}
 
 	/*
@@ -1141,9 +1146,7 @@ void __init smp_boot_cpus(void)
 	 */
 
 	Dprintk("Before bogomips.\n");
-	if (!cpucount) {
-		printk(KERN_ERR "Error: only one processor found.\n");
-	} else {
+	{
 		unsigned long bogosum = 0;
 		for (cpu = 0; cpu < NR_CPUS; cpu++)
 			if (cpu_online_map & (1<<cpu))
@@ -1201,15 +1204,6 @@ void __init smp_boot_cpus(void)
 	 * Set up all local APIC timers in the system:
 	 */
 	setup_APIC_clocks();
-
-#if defined(CONFIG_KERNPROF)
-	/*
-	 * Set up all local APIC performance counter overflow vectors,
-	 * if available:
-	 */
-	if (cpu_has_msr && boot_cpu_data.x86 == 6)
-		setup_APIC_perfctr();
-#endif
 
 	/*
 	 * Synchronize the TSC with the AP

@@ -6,8 +6,10 @@
  * be a little careful about namespace pollution etc.  Also, we cannot
  * assume GCC is being used.
  *
- * Copyright (C) 1998-2000 Hewlett-Packard Co
- * Copyright (C) 1998-2000 David Mosberger-Tang <davidm@hpl.hp.com>
+ * Based on <asm-alpha/posix_types.h>.
+ *
+ * Modified 1998-2000
+ *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
  */
 
 typedef unsigned int	__kernel_dev_t;

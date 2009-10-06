@@ -12,11 +12,16 @@
  *    init_etrax_debug()
  *
  * $Log: debugport.c,v $
- * Revision 1.1.1.2  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
+ * Revision 1.9  2003/02/17 07:10:34  starvik
+ * Last merge was incomplete
  *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
+ * Revision 1.8  2003/02/17 06:59:00  starvik
+ * Merged printk corruption fix
+ *
+ * Revision 1.7.4.1  2003/01/27 10:21:57  starvik
+ * Solved the problem with corrupted debug output
+ *  * Wait until DMA, FIFO and pipe is empty before and after transmissions
+ *  * Buffer data until a FIFO flush can be triggered.
  *
  * Revision 1.7  2002/04/23 15:35:50  bjornw
  * Cleaned up sercons struct and removed the waitkey ptr (2.4.19-pre)
@@ -37,6 +42,7 @@
 #include <linux/console.h>
 #include <linux/init.h>
 #include <linux/major.h>
+#include <linux/delay.h>
 
 #include <asm/system.h>
 #include <asm/svinto.h>
@@ -100,6 +106,8 @@
 #define DEBUG_DMA_IRQ_CLR IO_STATE(R_IRQ_MASK2_CLR, dma4_descr, clr)
 #endif
 
+#define MIN_SIZE 32 /* Size that triggers the FIFO to flush characters to interface */
+
 /* Write a string of count length to the console (debug port) using DMA, polled
  * for completion. Interrupts are disabled during the whole process. Some
  * caution needs to be taken to not interfere with ttyS business on this port.
@@ -109,8 +117,11 @@ static void
 console_write(struct console *co, const char *buf, unsigned int len)
 {
 	static struct etrax_dma_descr descr;
+	static struct etrax_dma_descr descr2;
+	static char tmp_buf[MIN_SIZE];
+	static int tmp_size = 0;
+
 	unsigned long flags; 
-	int in_progress;
 	
 #ifdef CONFIG_ETRAX_DEBUG_PORT_NULL
         /* no debug printout at all */
@@ -132,6 +143,37 @@ console_write(struct console *co, const char *buf, unsigned int len)
 	restore_flags(flags);
 	return;
 #endif
+	/* To make this work together with the real serial port driver
+	 * we have to make sure that everything is flushed when we leave
+	 * here. The following steps are made to assure this:
+	 * 1. Wait until DMA stops, FIFO is empty and serial port pipeline empty.
+	 * 2. Write at least half the FIFO to trigger flush to serial port.
+	 * 3. Wait until DMA stops, FIFO is empty and serial port pipeline empty.
+         */
+
+	/* Do we have enough characters to make the DMA/FIFO happy? */
+	if (tmp_size + len < MIN_SIZE)
+	{
+		int size = min((int)(MIN_SIZE - tmp_size),(int)len);
+		memcpy(&tmp_buf[tmp_size], buf, size);
+		tmp_size += size;
+		len -= size;
+        
+		/* Pad with space if complete line */
+		if (tmp_buf[tmp_size-1] == '\n')
+		{
+			memset(&tmp_buf[tmp_size-1], ' ', MIN_SIZE - tmp_size);
+			tmp_buf[MIN_SIZE - 1] = '\n';
+			tmp_size = MIN_SIZE;
+			len = 0;
+		}
+		else
+		{
+                  /* Wait for more characters */
+			restore_flags(flags);
+			return;
+		}
+	}
 
 	/* make sure the transmitter is enabled. 
 	 * NOTE: this overrides any setting done in ttySx, to 8N1, no auto-CTS.
@@ -140,37 +182,36 @@ console_write(struct console *co, const char *buf, unsigned int len)
 	 */
 
 	*DEBUG_TR_CTRL = 0x40;
+	while(*DEBUG_OCMD & 7); /* Until DMA is not running */
+	while(*DEBUG_STATUS & 0x7f); /* wait until output FIFO is empty as well */
+	udelay(200); /* Wait for last two characters to leave the serial transmitter */
 
-	/* if the tty has some ongoing business, remember it */
-
-	in_progress = *DEBUG_OCMD & 7;
-
-	if(in_progress) {
-		/* wait until the output dma channel is ready */
-		
-		while(*DEBUG_OCMD & 7) /* nothing */ ;
+	if (tmp_size)
+	{
+		descr.ctrl = len ?  0 : d_eop | d_wait | d_eol;
+		descr.sw_len = tmp_size;
+		descr.buf = virt_to_phys(tmp_buf);
+		descr.next = virt_to_phys(&descr2);
+		descr2.ctrl = d_eop | d_wait | d_eol;
+		descr2.sw_len = len;
+		descr2.buf = virt_to_phys((char*)buf);
+	}
+	else
+	{
+		descr.ctrl = d_eop | d_wait | d_eol;
+		descr.sw_len = len;
+		descr.buf = virt_to_phys((char*)buf);
 	}
 
-	descr.ctrl = d_eol;
-	descr.sw_len = len;
-	descr.buf = __pa(buf);
-
-	*DEBUG_FIRST = __pa(&descr); /* write to R_DMAx_FIRST */
+	*DEBUG_FIRST = virt_to_phys(&descr); /* write to R_DMAx_FIRST */
 	*DEBUG_OCMD = 1;       /* dma command start -> R_DMAx_CMD */
 
 	/* wait until the output dma channel is ready again */
+	while(*DEBUG_OCMD & 7);
+	while(*DEBUG_STATUS & 0x7f);
+	udelay(200);
 
-	while(*DEBUG_OCMD & 7) /* nothing */;
-
-	/* clear pending interrupts so we don't get a surprise below */
-
-	if(in_progress)
-		*DEBUG_OCLRINT = 2;  /* only clear EOP, leave DESCR for the tty */
-	else
-		*DEBUG_OCLRINT = 3;  /* clear both EOP and DESCR */
-
-	while(*DEBUG_STATUS & 0x7f); /* wait until output FIFO is empty as well */
-
+	tmp_size = 0;
 	restore_flags(flags);
 }
 

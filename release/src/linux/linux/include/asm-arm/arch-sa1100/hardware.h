@@ -62,6 +62,9 @@
 #ifndef __ASSEMBLY__
 #include <asm/types.h>
 
+#if 0
+# define __REG(x)	(*((volatile u32 *)io_p2v(x)))
+#else
 /*
  * This __REG() version gives the same results as the one above,  except
  * that we are fooling gcc somehow so it generates far better and smaller
@@ -71,6 +74,7 @@
 typedef struct { volatile u32 offset[4096]; } __regbase;
 # define __REGP(x)	((__regbase *)((x)&~4095))->offset[((x)&4095)>>2]
 # define __REG(x)	__REGP(io_p2v(x))
+#endif
 
 # define __PREG(x)	(io_v2p((u32)&(x)))
 
@@ -179,12 +183,24 @@ extern void set_GPIO_IRQ_edge( int gpio_mask, int edge_mask );
 #include "simpad.h"
 #endif
 
+#ifdef CONFIG_SA1100_SIMPUTER
+#include "simputer.h"
+#endif
+
 #if defined(CONFIG_SA1100_GRAPHICSMASTER)
 #include "graphicsmaster.h"
 #endif
 
+#if defined(CONFIG_SA1100_ADSAGC)
+#include "adsagc.h"
+#endif
+
 #if defined(CONFIG_SA1100_ADSBITSY)
 #include "adsbitsy.h"
+#endif
+
+#if defined(CONFIG_SA1100_ADSBITSYPLUS)
+#include "adsbitsyplus.h"
 #endif
 
 #ifdef CONFIG_SA1101

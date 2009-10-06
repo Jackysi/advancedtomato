@@ -166,10 +166,6 @@ void __init pcibios_fixup_irqs(void)
 	}
 }
 
-#if defined(CONFIG_DEBUG)
-extern void jsun_scan_pci_bus(void);
-extern void jsun_assign_pci_resource(void);
-#endif
 void ddb_pci_reset_bus(void)
 {
 	u32 temp;

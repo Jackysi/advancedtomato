@@ -96,6 +96,7 @@
 /* ESI stuff ******************************************************************/
 
 #define NICSTAR_EPROM_MAC_ADDR_OFFSET 0x6C
+#define NICSTAR_EPROM_MAC_ADDR_OFFSET_ALT 0xF6
 
 
 /* #defines *******************************************************************/
@@ -609,47 +610,47 @@ enum ns_regs
 #define NS_FRSCD_SIZE 12	/* 12 dwords */
 #define NS_FRSCD_NUM ((NS_TST_FRSCD_END + 1 - NS_FRSCD) / NS_FRSCD_SIZE)
 
-#if NS_SMBUFSIZE == 48
+#if (NS_SMBUFSIZE == 48)
 #define NS_CFG_SMBUFSIZE NS_CFG_SMBUFSIZE_48
-#elif NS_SMBUFSIZE == 96
+#elif (NS_SMBUFSIZE == 96)
 #define NS_CFG_SMBUFSIZE NS_CFG_SMBUFSIZE_96
-#elif NS_SMBUFSIZE == 240
+#elif (NS_SMBUFSIZE == 240)
 #define NS_CFG_SMBUFSIZE NS_CFG_SMBUFSIZE_240
-#elif NS_SMBUFSIZE == 2048
+#elif (NS_SMBUFSIZE == 2048)
 #define NS_CFG_SMBUFSIZE NS_CFG_SMBUFSIZE_2048
 #else
 #error NS_SMBUFSIZE is incorrect in nicstar.h
 #endif /* NS_SMBUFSIZE */
 
-#if NS_LGBUFSIZE == 2048
+#if (NS_LGBUFSIZE == 2048)
 #define NS_CFG_LGBUFSIZE NS_CFG_LGBUFSIZE_2048
-#elif NS_LGBUFSIZE == 4096
+#elif (NS_LGBUFSIZE == 4096)
 #define NS_CFG_LGBUFSIZE NS_CFG_LGBUFSIZE_4096
-#elif NS_LGBUFSIZE == 8192
+#elif (NS_LGBUFSIZE == 8192)
 #define NS_CFG_LGBUFSIZE NS_CFG_LGBUFSIZE_8192
-#elif NS_LGBUFSIZE == 16384
+#elif (NS_LGBUFSIZE == 16384)
 #define NS_CFG_LGBUFSIZE NS_CFG_LGBUFSIZE_16384
 #else
 #error NS_LGBUFSIZE is incorrect in nicstar.h
 #endif /* NS_LGBUFSIZE */
 
-#if NS_RSQSIZE == 2048
+#if (NS_RSQSIZE == 2048)
 #define NS_CFG_RSQSIZE NS_CFG_RSQSIZE_2048
-#elif NS_RSQSIZE == 4096
+#elif (NS_RSQSIZE == 4096)
 #define NS_CFG_RSQSIZE NS_CFG_RSQSIZE_4096
-#elif NS_RSQSIZE == 8192
+#elif (NS_RSQSIZE == 8192)
 #define NS_CFG_RSQSIZE NS_CFG_RSQSIZE_8192
 #else
 #error NS_RSQSIZE is incorrect in nicstar.h
 #endif /* NS_RSQSIZE */
 
-#if NS_VPIBITS == 0
+#if (NS_VPIBITS == 0)
 #define NS_CFG_VPIBITS NS_CFG_VPIBITS_0
-#elif NS_VPIBITS == 1
+#elif (NS_VPIBITS == 1)
 #define NS_CFG_VPIBITS NS_CFG_VPIBITS_1
-#elif NS_VPIBITS == 2
+#elif (NS_VPIBITS == 2)
 #define NS_CFG_VPIBITS NS_CFG_VPIBITS_2
-#elif NS_VPIBITS == 8
+#elif (NS_VPIBITS == 8)
 #define NS_CFG_VPIBITS NS_CFG_VPIBITS_8
 #else
 #error NS_VPIBITS is incorrect in nicstar.h
@@ -747,6 +748,15 @@ typedef struct vc_map
                				   SCD. 0x00000000 for UBR/VBR/ABR */
    int tbd_count;
 } vc_map;
+
+
+struct ns_skb_data
+{
+	struct atm_vcc *vcc;
+	int iovcnt;
+};
+
+#define NS_SKB(skb) (((struct ns_skb_data *) (skb)->cb))
 
 
 typedef struct ns_dev

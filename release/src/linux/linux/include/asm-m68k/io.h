@@ -120,60 +120,66 @@ extern int isa_sex;
  * be compiled in so the case statement will be optimised away
  */
 
-static inline unsigned long isa_itb(long addr)
+static inline unsigned char *isa_itb(long addr)
 {
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return Q40_ISA_IO_B(addr);
+    case Q40_ISA: return (unsigned char *)Q40_ISA_IO_B(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return GG2_ISA_IO_B(addr);
+    case GG2_ISA: return (unsigned char *)GG2_ISA_IO_B(addr);
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return AG_ISA_IO_B(addr);
+    case AG_ISA: return (unsigned char *)AG_ISA_IO_B(addr);
 #endif
     default: return 0; /* avoid warnings, just in case */
     }
 }
-static inline unsigned long isa_itw(long addr)
+static inline unsigned short *isa_itw(long addr)
 {
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return Q40_ISA_IO_W(addr);
+    case Q40_ISA: return (unsigned short *)Q40_ISA_IO_W(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return GG2_ISA_IO_W(addr);
+    case GG2_ISA: return (unsigned short *)GG2_ISA_IO_W(addr);
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return AG_ISA_IO_W(addr);
+    case AG_ISA: return (unsigned short *)AG_ISA_IO_W(addr);
 #endif
     default: return 0; /* avoid warnings, just in case */
     }
 }
-static inline unsigned long isa_mtb(long addr)
+static inline unsigned char *isa_mtb(long addr)
 {
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return Q40_ISA_MEM_B(addr);
+    case Q40_ISA: return (unsigned char *)Q40_ISA_MEM_B(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return GG2_ISA_MEM_B(addr);
+    case GG2_ISA: return (unsigned char *)GG2_ISA_MEM_B(addr);
+#endif
+#ifdef CONFIG_AMIGA_PCMCIA
+    case AG_ISA: return (unsigned char *)addr;
 #endif
     default: return 0; /* avoid warnings, just in case */
     }
 }
-static inline unsigned long isa_mtw(long addr)
+static inline unsigned short *isa_mtw(long addr)
 {
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return Q40_ISA_MEM_W(addr);
+    case Q40_ISA: return (unsigned short *)Q40_ISA_MEM_W(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return GG2_ISA_MEM_W(addr);
+    case GG2_ISA: return (unsigned short *)GG2_ISA_MEM_W(addr);
+#endif
+#ifdef CONFIG_AMIGA_PCMCIA
+    case AG_ISA: return (unsigned short *)addr;
 #endif
     default: return 0; /* avoid warnings, just in case */
     }
@@ -186,9 +192,9 @@ static inline unsigned long isa_mtw(long addr)
 #define isa_outw(val,port) (ISA_SEX ? out_be16(isa_itw(port),(val)) : out_le16(isa_itw(port),(val)))
 
 #define isa_readb(p)       in_8(isa_mtb(p))
-#define isa_readw(p)       in_le16(isa_mtw(p))
+#define isa_readw(p)       (ISA_SEX ? in_be16(isa_mtw(p)) : in_le16(isa_mtw(p)))
 #define isa_writeb(val,p)  out_8(isa_mtb(p),(val))
-#define isa_writew(val,p)  out_le16(isa_mtw(p),(val))
+#define isa_writew(val,p)  (ISA_SEX ? out_be16(isa_mtw(p),(val)) : out_le16(isa_mtw(p),(val)))
 
 static inline void isa_delay(void)
 {
@@ -249,7 +255,7 @@ static inline void isa_delay(void)
 #define readl(addr)      in_le32(addr)
 #define writel(val,addr) out_le32((addr),(val))
 
-/* those can be defined for both ISA and PCI - it wont work though */
+/* those can be defined for both ISA and PCI - it won't work though */
 #define readb(addr)       in_8(addr)
 #define readw(addr)       in_le16(addr)
 #define writeb(val,addr)  out_8((addr),(val))
@@ -279,37 +285,20 @@ static inline void isa_delay(void)
 #endif /* CONFIG_PCI */
 
 
-/* Values for nocacheflag and cmode */
-#define IOMAP_FULL_CACHING		0
-#define IOMAP_NOCACHE_SER		1
-#define IOMAP_NOCACHE_NONSER		2
-#define IOMAP_WRITETHROUGH		3
-
-/*
- * Change "struct page" to physical address.
- */
-#define page_to_phys(page)	((page - mem_map) << PAGE_SHIFT)
-
-extern void iounmap(void *addr);
-
-extern void *__ioremap(unsigned long physaddr, unsigned long size,
-		       int cacheflag);
-extern void __iounmap(void *addr, unsigned long size);
-
-extern inline void *ioremap(unsigned long physaddr, unsigned long size)
+static inline void *ioremap(unsigned long physaddr, unsigned long size)
 {
 	return __ioremap(physaddr, size, IOMAP_NOCACHE_SER);
 }
-extern inline void *ioremap_nocache(unsigned long physaddr, unsigned long size)
+static inline void *ioremap_nocache(unsigned long physaddr, unsigned long size)
 {
 	return __ioremap(physaddr, size, IOMAP_NOCACHE_SER);
 }
-extern inline void *ioremap_writethrough(unsigned long physaddr,
+static inline void *ioremap_writethrough(unsigned long physaddr,
 					 unsigned long size)
 {
 	return __ioremap(physaddr, size, IOMAP_WRITETHROUGH);
 }
-extern inline void *ioremap_fullcache(unsigned long physaddr,
+static inline void *ioremap_fullcache(unsigned long physaddr,
 				      unsigned long size)
 {
 	return __ioremap(physaddr, size, IOMAP_FULL_CACHING);

@@ -1,8 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
-
-
 /* Minimal serial functions needed to send messages out the serial
  * port on the MBX console.
  *
@@ -292,9 +287,4 @@ serial_tstc(void *ignored)
 	rbdf = (cbd_t *)&cpmp->cp_dpmem[up->smc_rbase];
 
 	return(!(rbdf->cbd_sc & BD_SC_EMPTY));
-}
-
-void
-serial_close(unsigned long com_port)
-{
 }

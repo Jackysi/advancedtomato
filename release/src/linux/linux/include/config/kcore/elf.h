@@ -1,1 +1,0 @@
-#define CONFIG_KCORE_ELF 1

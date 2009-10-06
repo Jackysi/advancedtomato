@@ -260,7 +260,7 @@ dentry->d_parent->d_name.name, dentry->d_name.name, ret));
 		goto out;
 	}
 	else if (cmd == UMSDOS_RENAME_DOS) {
-		struct dentry *old_dentry, *new_dentry;		
+		struct dentry *old_dentry, *new_dentry;		/* FIXME */
 
 		/* #Specification: ioctl / UMSDOS_RENAME_DOS
 		 * A file or directory is renamed in a DOS directory

@@ -1,7 +1,7 @@
 /* 
  * Direct MTD block device access
  *
- * $Id: mtdblock_ro.c,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+ * $Id$
  *
  * 02-nov-2000	Nicolas Pitre		Added read-modify-write with cache
  */
@@ -83,6 +83,7 @@ static int mtdblock_open(struct inode *inode, struct file *file)
 	if (mtdblks[dev]) {
 		mtdblks[dev]->count++;
 		spin_unlock(&mtdblks_lock);
+		put_mtd_device(mtd);
 		return 0;
 	}
 	
@@ -178,7 +179,7 @@ static void handle_mtdblock_request(void)
 		res = 0;
 
 		if (MINOR(req->rq_dev) >= MAX_MTD_DEVICES)
-			panic(__FUNCTION__": minor out of bound");
+			panic("%s: minor out of bound",__FUNCTION__);
 
 		if ((req->sector + req->current_nr_sectors) > (mtdblk->mtd->size >> 9))
 			goto end_req;
@@ -223,10 +224,7 @@ int mtdblock_thread(void *dummy)
 	sigfillset(&tsk->blocked);
 	recalc_sigpending(tsk);
 	spin_unlock_irq(&tsk->sigmask_lock);
-	exit_mm(tsk);
-	exit_files(tsk);
-	exit_sighand(tsk);
-	exit_fs(tsk);
+	daemonize();
 
 	while (!leaving) {
 		add_wait_queue(&thr_wq, &wait);
@@ -401,4 +399,4 @@ module_exit(cleanup_mtdblock);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Nicolas Pitre <nico@cam.org> et al.");
-MODULE_DESCRIPTION("Caching read/erase/writeback block device emulation access to MTD devices");
+MODULE_DESCRIPTION("Caching read-only block device emulation access to MTD devices");

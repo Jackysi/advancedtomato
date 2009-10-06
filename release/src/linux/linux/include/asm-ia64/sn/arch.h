@@ -1,4 +1,4 @@
-/* $Id: arch.h,v 1.1.1.4 2003/10/14 08:09:11 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -6,7 +6,7 @@
  *
  * SGI specific setup.
  *
- * Copyright (C) 1995-1997,1999,2001-2002 Silicon Graphics, Inc.  All rights reserved.
+ * Copyright (C) 1995-1997,1999,2001-2003 Silicon Graphics, Inc.  All rights reserved.
  * Copyright (C) 1999 Ralf Baechle (ralf@gnu.org)
  */
 #ifndef _ASM_IA64_SN_ARCH_H
@@ -17,19 +17,9 @@
 #include <linux/mmzone.h>
 #include <asm/sn/types.h>
 
-#if defined(CONFIG_IA64_SGI_SN1) 
-#include <asm/sn/sn1/arch.h>
-#elif defined(CONFIG_IA64_SGI_SN2)
 #include <asm/sn/sn2/arch.h>
-#endif
 
-
-#if defined(CONFIG_IA64_SGI_SN1) 
-typedef u64	bdrkreg_t;
-#elif defined(CONFIG_IA64_SGI_SN2)
 typedef u64	shubreg_t;
-#endif
-
 typedef u64	hubreg_t;
 typedef u64	mmr_t;
 typedef u64	nic_t;
@@ -43,6 +33,7 @@ typedef u64	nic_t;
 #define INVALID_NASID		((nasid_t)-1)
 #define INVALID_CNODEID		((cnodeid_t)-1)
 #define INVALID_PNODEID		((pnodeid_t)-1)
+#define INVALID_SLAB            (slabid_t)-1
 #define INVALID_MODULE		((moduleid_t)-1)
 #define	INVALID_PARTID		((partid_t)-1)
 

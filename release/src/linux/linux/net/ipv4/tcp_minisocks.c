@@ -5,7 +5,7 @@
  *
  *		Implementation of the Transmission Control Protocol(TCP).
  *
- * Version:	$Id: tcp_minisocks.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: tcp_minisocks.c,v 1.14.2.1 2002/03/05 04:30:08 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -447,6 +447,8 @@ static void SMP_TIMER_NAME(tcp_twkill)(unsigned long dummy)
 
 	while((tw = tcp_tw_death_row[tcp_tw_death_row_slot]) != NULL) {
 		tcp_tw_death_row[tcp_tw_death_row_slot] = tw->next_death;
+		if (tw->next_death)
+			tw->next_death->pprev_death = tw->pprev_death;
 		tw->pprev_death = NULL;
 		spin_unlock(&tw_death_lock);
 
@@ -715,7 +717,10 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct open_request *req,
 		newtp->snd_cwnd = 2;
 		newtp->snd_cwnd_cnt = 0;
 
-		newtp->ca_state = TCP_CA_Open;
+		newtp->frto_counter = 0;
+		newtp->frto_highmark = 0;
+
+		tcp_set_ca_state(newtp, TCP_CA_Open);
 		tcp_init_xmit_timers(newsk);
 		skb_queue_head_init(&newtp->out_of_order_queue);
 		newtp->send_head = NULL;
@@ -783,6 +788,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct open_request *req,
 		newtp->mss_clamp = req->mss;
 		TCP_ECN_openreq_child(newtp, req);
 
+		tcp_ca_init(newtp);
 		TCP_INC_STATS_BH(TcpPassiveOpens);
 	}
 	return newsk;
@@ -934,6 +940,12 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	 */
 	if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN))
 		goto embryonic_reset;
+
+	/* ACK sequence verified above, just make sure ACK is
+	 * set.  If ACK not set, just silently drop the packet.
+	 */
+	if (!(flg & TCP_FLAG_ACK))
+		return NULL;
 
 	/* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
 	if (tp->defer_accept && TCP_SKB_CB(skb)->end_seq == req->rcv_isn+1) {

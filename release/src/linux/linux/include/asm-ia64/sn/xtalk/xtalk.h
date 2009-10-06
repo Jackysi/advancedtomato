@@ -1,13 +1,19 @@
-/* $Id: xtalk.h,v 1.1.1.4 2003/10/14 08:09:14 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992-1997, 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
  */
 #ifndef _ASM_SN_XTALK_XTALK_H
 #define _ASM_SN_XTALK_XTALK_H
+#include <linux/config.h>
+
+#ifdef __KERNEL__
+#include "asm/sn/sgi.h"
+#endif
+
 
 /*
  * xtalk.h -- platform-independent crosstalk interface
@@ -84,7 +90,7 @@ struct xwidget_hwid_s;
 
 /* PIO MANAGEMENT */
 typedef xtalk_piomap_t
-xtalk_piomap_alloc_f    (devfs_handle_t dev,	/* set up mapping for this device */
+xtalk_piomap_alloc_f    (vertex_hdl_t dev,	/* set up mapping for this device */
 			 device_desc_t dev_desc,	/* device descriptor */
 			 iopaddr_t xtalk_addr,	/* map for this xtalk_addr range */
 			 size_t byte_count,
@@ -102,14 +108,14 @@ typedef void
 xtalk_piomap_done_f     (xtalk_piomap_t xtalk_piomap);
 
 typedef caddr_t
-xtalk_piotrans_addr_f   (devfs_handle_t dev,	/* translate for this device */
+xtalk_piotrans_addr_f   (vertex_hdl_t dev,	/* translate for this device */
 			 device_desc_t dev_desc,	/* device descriptor */
 			 iopaddr_t xtalk_addr,	/* Crosstalk address */
 			 size_t byte_count,	/* map this many bytes */
 			 unsigned flags);	/* (currently unused) */
 
 extern caddr_t
-xtalk_pio_addr		(devfs_handle_t dev,	/* translate for this device */
+xtalk_pio_addr		(vertex_hdl_t dev,	/* translate for this device */
 			 device_desc_t dev_desc,	/* device descriptor */
 			 iopaddr_t xtalk_addr,	/* Crosstalk address */
 			 size_t byte_count,	/* map this many bytes */
@@ -121,7 +127,7 @@ xtalk_pio_addr		(devfs_handle_t dev,	/* translate for this device */
 typedef struct xtalk_dmamap_s *xtalk_dmamap_t;
 
 typedef xtalk_dmamap_t
-xtalk_dmamap_alloc_f    (devfs_handle_t dev,	/* set up mappings for this device */
+xtalk_dmamap_alloc_f    (vertex_hdl_t dev,	/* set up mappings for this device */
 			 device_desc_t dev_desc,	/* device descriptor */
 			 size_t byte_count_max,		/* max size of a mapping */
 			 unsigned flags);	/* defined in dma.h */
@@ -143,14 +149,14 @@ typedef void
 xtalk_dmamap_done_f     (xtalk_dmamap_t dmamap);
 
 typedef iopaddr_t
-xtalk_dmatrans_addr_f   (devfs_handle_t dev,	/* translate for this device */
+xtalk_dmatrans_addr_f   (vertex_hdl_t dev,	/* translate for this device */
 			 device_desc_t dev_desc,	/* device descriptor */
 			 paddr_t paddr,		/* system physical address */
 			 size_t byte_count,	/* length */
 			 unsigned flags);
 
 typedef alenlist_t
-xtalk_dmatrans_list_f   (devfs_handle_t dev,	/* translate for this device */
+xtalk_dmatrans_list_f   (vertex_hdl_t dev,	/* translate for this device */
 			 device_desc_t dev_desc,	/* device descriptor */
 			 alenlist_t palenlist,	/* system address/length list */
 			 unsigned flags);
@@ -159,12 +165,12 @@ typedef void
 xtalk_dmamap_drain_f	(xtalk_dmamap_t map);	/* drain this map's channel */
 
 typedef void
-xtalk_dmaaddr_drain_f	(devfs_handle_t vhdl,	/* drain channel from this device */
+xtalk_dmaaddr_drain_f	(vertex_hdl_t vhdl,	/* drain channel from this device */
 			 paddr_t addr,		/* to this physical address */
 			 size_t bytes);		/* for this many bytes */
 
 typedef void
-xtalk_dmalist_drain_f	(devfs_handle_t vhdl,	/* drain channel from this device */
+xtalk_dmalist_drain_f	(vertex_hdl_t vhdl,	/* drain channel from this device */
 			 alenlist_t list);	/* for this set of physical blocks */
 
 
@@ -195,45 +201,47 @@ typedef int
 xtalk_intr_setfunc_f    (xtalk_intr_t intr_hdl);	/* interrupt handle */
 
 typedef xtalk_intr_t
-xtalk_intr_alloc_f      (devfs_handle_t dev,	/* which crosstalk device */
+xtalk_intr_alloc_f      (vertex_hdl_t dev,	/* which crosstalk device */
 			 device_desc_t dev_desc,	/* device descriptor */
-			 devfs_handle_t owner_dev);	/* owner of this intr */
+			 vertex_hdl_t owner_dev);	/* owner of this intr */
 
 typedef void
 xtalk_intr_free_f       (xtalk_intr_t intr_hdl);
 
 typedef int
 xtalk_intr_connect_f    (xtalk_intr_t intr_hdl,		/* xtalk intr resource handle */
-			 xtalk_intr_setfunc_f *setfunc,		/* func to set intr hw */
-			 void *setfunc_arg);	/* arg to setfunc */
+			intr_func_t intr_func,         /* xtalk intr handler */
+			void *intr_arg,	/* arg to intr handler */
+			xtalk_intr_setfunc_f *setfunc,		/* func to set intr hw */
+			void *setfunc_arg);	/* arg to setfunc */
 
 typedef void
 xtalk_intr_disconnect_f (xtalk_intr_t intr_hdl);
 
-typedef devfs_handle_t
+typedef vertex_hdl_t
 xtalk_intr_cpu_get_f    (xtalk_intr_t intr_hdl);	/* xtalk intr resource handle */
 
 /* CONFIGURATION MANAGEMENT */
 
 typedef void
-xtalk_provider_startup_f (devfs_handle_t xtalk_provider);
+xtalk_provider_startup_f (vertex_hdl_t xtalk_provider);
 
 typedef void
-xtalk_provider_shutdown_f (devfs_handle_t xtalk_provider);
+xtalk_provider_shutdown_f (vertex_hdl_t xtalk_provider);
 
 typedef void
-xtalk_widgetdev_enable_f (devfs_handle_t, int);
+xtalk_widgetdev_enable_f (vertex_hdl_t, int);
 
 typedef void
-xtalk_widgetdev_shutdown_f (devfs_handle_t, int);
+xtalk_widgetdev_shutdown_f (vertex_hdl_t, int);
 
 typedef int
-xtalk_dma_enabled_f (devfs_handle_t);
+xtalk_dma_enabled_f (vertex_hdl_t);
 
 /* Error Management */
 
 typedef int
-xtalk_error_devenable_f (devfs_handle_t xconn_vhdl,
+xtalk_error_devenable_f (vertex_hdl_t xconn_vhdl,
 			 int devnum,
 			 int error_code);
 
@@ -275,7 +283,6 @@ typedef struct xtalk_provider_s {
     xtalk_intr_free_f      *intr_free;
     xtalk_intr_connect_f   *intr_connect;
     xtalk_intr_disconnect_f *intr_disconnect;
-    xtalk_intr_cpu_get_f   *intr_cpu_get;
 
     /* CONFIGURATION MANAGEMENT */
     xtalk_provider_startup_f *provider_startup;
@@ -317,7 +324,7 @@ extern xtalk_early_piotrans_addr_f xtalk_early_piotrans_addr;
 
 /* error management */
 
-extern int              xtalk_error_handler(devfs_handle_t,
+extern int              xtalk_error_handler(vertex_hdl_t,
 					    int,
 					    ioerror_mode_t,
 					    ioerror_t *);
@@ -331,33 +338,33 @@ typedef unchar xtalk_intr_vector_t;	/* crosstalk interrupt vector (0..255) */
 #define XTALK_INTR_VECTOR_NONE	(xtalk_intr_vector_t)0
 
 /* Generic crosstalk interrupt interfaces */
-extern devfs_handle_t     xtalk_intr_dev_get(xtalk_intr_t xtalk_intr);
+extern vertex_hdl_t     xtalk_intr_dev_get(xtalk_intr_t xtalk_intr);
 extern xwidgetnum_t     xtalk_intr_target_get(xtalk_intr_t xtalk_intr);
 extern xtalk_intr_vector_t xtalk_intr_vector_get(xtalk_intr_t xtalk_intr);
 extern iopaddr_t        xtalk_intr_addr_get(xtalk_intr_t xtalk_intr);
-extern devfs_handle_t     xtalk_intr_cpu_get(xtalk_intr_t xtalk_intr);
+extern vertex_hdl_t     xtalk_intr_cpu_get(xtalk_intr_t xtalk_intr);
 extern void            *xtalk_intr_sfarg_get(xtalk_intr_t xtalk_intr);
 
 /* Generic crosstalk pio interfaces */
-extern devfs_handle_t     xtalk_pio_dev_get(xtalk_piomap_t xtalk_piomap);
+extern vertex_hdl_t     xtalk_pio_dev_get(xtalk_piomap_t xtalk_piomap);
 extern xwidgetnum_t     xtalk_pio_target_get(xtalk_piomap_t xtalk_piomap);
 extern iopaddr_t        xtalk_pio_xtalk_addr_get(xtalk_piomap_t xtalk_piomap);
 extern size_t           xtalk_pio_mapsz_get(xtalk_piomap_t xtalk_piomap);
 extern caddr_t          xtalk_pio_kvaddr_get(xtalk_piomap_t xtalk_piomap);
 
 /* Generic crosstalk dma interfaces */
-extern devfs_handle_t     xtalk_dma_dev_get(xtalk_dmamap_t xtalk_dmamap);
+extern vertex_hdl_t     xtalk_dma_dev_get(xtalk_dmamap_t xtalk_dmamap);
 extern xwidgetnum_t     xtalk_dma_target_get(xtalk_dmamap_t xtalk_dmamap);
 
 /* Register/unregister Crosstalk providers and get implementation handle */
 extern void             xtalk_set_early_piotrans_addr(xtalk_early_piotrans_addr_f *);
-extern void             xtalk_provider_register(devfs_handle_t provider, xtalk_provider_t *xtalk_fns);
-extern void             xtalk_provider_unregister(devfs_handle_t provider);
-extern xtalk_provider_t *xtalk_provider_fns_get(devfs_handle_t provider);
+extern void             xtalk_provider_register(vertex_hdl_t provider, xtalk_provider_t *xtalk_fns);
+extern void             xtalk_provider_unregister(vertex_hdl_t provider);
+extern xtalk_provider_t *xtalk_provider_fns_get(vertex_hdl_t provider);
 
 /* Crosstalk Switch generic layer, for use by initialization code */
-extern void             xswitch_census(devfs_handle_t xswitchv);
-extern void             xswitch_init_widgets(devfs_handle_t xswitchv);
+extern void             xswitch_census(vertex_hdl_t xswitchv);
+extern void             xswitch_init_widgets(vertex_hdl_t xswitchv);
 
 /* early init interrupt management */
 
@@ -387,12 +394,9 @@ xtalk_intr_preconn_f    (void *which_xtalk,
 
 typedef xtalk_intr_setfunc_f *xtalk_intr_setfunc_t;
 
-typedef void		xtalk_iter_f(devfs_handle_t vhdl);
+typedef void		xtalk_iter_f(vertex_hdl_t vhdl);
 
 extern void		xtalk_iterate(char *prefix, xtalk_iter_f *func);
-
-extern int		xtalk_device_powerup(devfs_handle_t, xwidgetnum_t);
-extern int		xtalk_device_shutdown(devfs_handle_t, xwidgetnum_t);
 
 #endif				/* __KERNEL__ */
 #endif				/* _ASM_SN_XTALK_XTALK_H */

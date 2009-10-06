@@ -14,6 +14,11 @@ typedef struct plat_pglist_data {
 
 struct bootmem_data_t;
 
+/*
+ * Following are macros that are specific to this numa platform.
+ * 
+ * XXX check what the compiler generates for all this
+ */
 
 extern plat_pg_data_t *plat_node_data[];
 
@@ -26,7 +31,11 @@ extern int memnode_shift;
 extern u8  memnodemap[NODEMAPSIZE]; 
 extern int maxnode;
 
+#if 0
+#define VIRTUAL_BUG_ON(x) do { if (x) out_of_line_bug(); } while(0)
+#else
 #define VIRTUAL_BUG_ON(x) do {} while (0) 
+#endif
 
 /* VALID_PAGE below hardcodes the same algorithm*/
 static inline int phys_to_nid(unsigned long addr) 

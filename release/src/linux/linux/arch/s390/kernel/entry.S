@@ -556,7 +556,7 @@ sys_call_table:
         .long  sys_madvise
 	.long  sys_getdents64		 /* 220 */
         .long  sys_fcntl64 
-	.long  sys_ni_syscall
+	.long  sys_readahead
 	.long  sys_ni_syscall
 	.long  sys_ni_syscall		 /* 224 - reserved for setxattr  */
 	.long  sys_ni_syscall            /* 225 - reserved for lsetxattr */
@@ -582,17 +582,31 @@ sys_call_table:
 
         .globl  pgm_check_handler
 pgm_check_handler:
+/*
+ * First we need to check for a special case:
+ * Single stepping an instruction that disables the PER event mask will
+ * cause a PER event AFTER the mask has been set. Example: SVC or LPSW.
+ * For a single stepped SVC the program check handler gets control after
+ * the SVC new PSW has been loaded. But we want to execute the SVC first and
+ * then handle the PER event. Therefore we update the SVC old PSW to point
+ * to the pgm_check_handler and branch to the SVC handler after we checked
+ * if we have to load the kernel stack register.
+ * For every other possible cause for PER event without the PER mask set
+ * we just ignore the PER event (FIXME: is there anything we have to do
+ * for LPSW?).
+ */
 	SAVE_ALL_BASE
         tm      __LC_PGM_INT_CODE+1,0x80 # check whether we got a per exception
         bnz     BASED(pgm_per)           # got per exception -> special case
 	SAVE_ALL __LC_PGM_OLD_PSW,1
+        l       %r3,__LC_PGM_ILC         # load program interruption code
+	la	%r8,0x7f
         l       %r7,BASED(.Ljump_table)
-        lh      %r8,__LC_PGM_INT_CODE
+	nr	%r8,%r3
         sll     %r8,2
 	GET_CURRENT
         l       %r7,0(%r8,%r7)		 # load address of handler routine
         la      %r2,SP_PTREGS(%r15)	 # address of register-save area
-        l       %r3,__LC_PGM_ILC         # load program interruption code
 	la      %r14,BASED(sysc_return)
 	br      %r7			 # branch to interrupt-handler
 
@@ -676,7 +690,12 @@ pgm_tracesys:
 io_int_handler:
 	SAVE_ALL_BASE
         SAVE_ALL __LC_IO_OLD_PSW,0
+	mc 0,0
         GET_CURRENT               # load pointer to task_struct to R9
+	stck	__LC_INT_CLOCK
+	clc	__LC_INT_CLOCK(8),__LC_JIFFY_TIMER
+	bhe	BASED(io_handle_tick)
+io_call_handler:
         l       %r1,BASED(.Ldo_IRQ)        # load address of do_IRQ
         la      %r2,SP_PTREGS(%r15) # address of register-save area
         sr      %r3,%r3
@@ -709,6 +728,15 @@ io_return_bh:
 io_leave:
         stnsm   24(%r15),0xfc            # disable I/O and ext. interrupts
         RESTORE_ALL 0
+
+#
+# account tick
+#
+io_handle_tick:
+	l	%r1,BASED(.Laccount_ticks)
+	la	%r2,SP_PTREGS(%r15)    # address of register-save area
+	la	%r14,BASED(io_call_handler)
+	br	%r1
 
 #
 # call do_softirq
@@ -744,8 +772,13 @@ io_signal_return:
 ext_int_handler:
 	SAVE_ALL_BASE
         SAVE_ALL __LC_EXT_OLD_PSW,0
-        GET_CURRENT                    # load pointer to task_struct to R9
+	mc 0, 0
+	GET_CURRENT                    # load pointer to task_struct to R9
 	lh	%r6,__LC_EXT_INT_CODE  # get interruption code
+	stck	__LC_INT_CLOCK
+	clc	__LC_INT_CLOCK(8),__LC_JIFFY_TIMER
+	bhe	BASED(ext_handle_tick)
+ext_call_handler:
 	lr	%r1,%r6		       # calculate index = code & 0xff
 	n	%r1,BASED(.Lc0xff)
 	sll	%r1,2
@@ -756,7 +789,8 @@ ext_int_handler:
 ext_int_loop:
 	ch	%r6,8(%r7)	       # compare external interrupt code
 	bne	BASED(ext_int_next)
-	l	%r1,4(%r7)	       # get handler address
+	icm	%r1,15,4(%r7)	       # get handler address
+	bz	BASED(ext_int_next)
 	la	%r2,SP_PTREGS(%r15)    # address of register-save area
 	lr	%r3,%r6		       # interruption code
 	basr	%r14,%r1	       # call handler
@@ -764,6 +798,15 @@ ext_int_next:
 	icm	%r7,15,0(%r7)	       # next list entry
 	bnz	BASED(ext_int_loop)
 	b	BASED(io_return)
+
+#
+# account tick
+#
+ext_handle_tick:
+	l	%r1,BASED(.Laccount_ticks)
+	la	%r2,SP_PTREGS(%r15)    # address of register-save area
+	la	%r14,BASED(ext_call_handler)
+	br	%r1
 
 /*
  * Machine check handler routines
@@ -773,6 +816,7 @@ ext_int_next:
 mcck_int_handler:
 	SAVE_ALL_BASE
         SAVE_ALL __LC_MCK_OLD_PSW,0
+	mc 0, 0
 	l       %r1,BASED(.Ls390_mcck)
 	basr    %r14,%r1	  # call machine check handler
 mcck_return:
@@ -855,4 +899,4 @@ restart_go:
 .Lvfork:       .long  sys_vfork
 
 .Lschedtail:   .long  schedule_tail
-
+.Laccount_ticks:.long account_ticks

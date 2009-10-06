@@ -3,6 +3,7 @@
 
 /* n = n / base; return rem; */
 
+#if 1
 #define do_div(n, base) ({					\
 	union {							\
 		unsigned long n32[2];				\
@@ -22,5 +23,13 @@
 	(n) = __n.n64;						\
 	__rem;							\
 })
+#else
+#define do_div(n,base) ({					\
+	int __res;						\
+	__res = ((unsigned long) n) % (unsigned) base;		\
+	n = ((unsigned long) n) / (unsigned) base;		\
+	__res;							\
+})
+#endif
 
 #endif /* _M68K_DIV64_H */

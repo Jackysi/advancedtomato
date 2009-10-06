@@ -9,16 +9,17 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
 
+#include <asm/i8259.h>
 #include <asm/io.h>
 #include <asm/sni.h>
 
 spinlock_t pciasic_lock = SPIN_LOCK_UNLOCKED;
 
 extern asmlinkage void sni_rm200_pci_handle_int(void);
-extern void do_IRQ(int irq, struct pt_regs *regs);
 
 static void enable_pciasic_irq(unsigned int irq);
 

@@ -220,6 +220,22 @@ static struct super_operations bfs_sops = {
 
 void dump_imap(const char *prefix, struct super_block * s)
 {
+#if 0
+	int i;
+	char *tmpbuf = (char *)get_free_page(GFP_KERNEL);
+
+	if (!tmpbuf)
+		return;
+	for (i=s->su_lasti; i>=0; i--) {
+		if (i>PAGE_SIZE-100) break;
+		if (test_bit(i, s->su_imap))
+			strcat(tmpbuf, "1");
+		else
+			strcat(tmpbuf, "0");
+	}
+	printk(KERN_ERR "BFS-fs: %s: lasti=%08lx <%s>\n", prefix, s->su_lasti, tmpbuf);
+	free_page((unsigned long)tmpbuf);
+#endif
 }
 
 static struct super_block * bfs_read_super(struct super_block * s, 

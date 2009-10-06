@@ -76,7 +76,7 @@
 --*/
 
 /*-- General stuff. --*/
-
+/* FILE-CSTYLED */
 #define BZ_VERSION  "1.0.2, 30-Dec-2001"
 
 typedef char            Char;

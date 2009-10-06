@@ -15,7 +15,7 @@ as a feature or bug of zftape).
 
 ftape has a home page at
 
-http://www-math.math.rwth-aachen.de/~LBFM/claus/ftape
+http://www.instmath.rwth-aachen.de/~heine/ftape/
 
 which contains further information about ftape. Please cross check
 this WWW address against the address given (if any) in the MAINTAINERS
@@ -58,7 +58,7 @@ changed. Up to date documentation as well as recent development
 versions of ftape and useful links to related topics can be found at
 the ftape home page at
 
-http://www-math.math.rwth-aachen.de/~LBFM/claus/ftape
+http://www.instmath.rwth-aachen.de/~heine/ftape/
 
 *******************************************************************************
 
@@ -132,7 +132,7 @@ A. Changes
 
    or from the ftape home page at
 
-   http://www-math.math.rwth-aachen.de/~LBFM/claus/ftape
+   http://www.instmath.rwth-aachen.de/~heine/ftape/
 
    `ftformat' is contained in the `./contrib/' subdirectory of that
    separate ftape package.

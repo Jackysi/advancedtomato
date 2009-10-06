@@ -100,10 +100,6 @@ void __init pcibios_fixup_irqs(void)
 	}
 }
 
-#if defined(CONFIG_DEBUG)
-extern void jsun_scan_pci_bus(void);
-#endif
-
 void __init ddb_pci_reset_bus(void)
 {
 	u32 temp;

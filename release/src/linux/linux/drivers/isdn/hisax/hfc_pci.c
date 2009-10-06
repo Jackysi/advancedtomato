@@ -1,4 +1,4 @@
-/* $Id: hfc_pci.c,v 1.1.1.4 2003/10/14 08:08:12 sparq Exp $
+/* $Id: hfc_pci.c,v 1.1.4.1 2001/11/20 14:19:35 kai Exp $
  *
  * low level driver for CCD´s hfc-pci based cards
  *
@@ -26,7 +26,7 @@
 
 extern const char *CardType[];
 
-static const char *hfcpci_revision = "$Revision: 1.1.1.4 $";
+static const char *hfcpci_revision = "$Revision: 1.1.4.1 $";
 
 /* table entry in the PCI devices list */
 typedef struct {
@@ -687,6 +687,10 @@ hfcpci_fill_fifo(struct BCState *bcs)
 				debugl1(cs, "hfcpci_fill_fifo_trans %d frame length %d discarded",
 					bcs->channel, bcs->tx_skb->len);
 
+			if (bcs->st->lli.l1writewakeup &&
+                           (PACKET_NOACK != bcs->tx_skb->pkt_type))
+				bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
+
 			dev_kfree_skb_any(bcs->tx_skb);
 			cli();
 			bcs->tx_skb = skb_dequeue(&bcs->squeue);	/* fetch next data */
@@ -1162,14 +1166,14 @@ HFCPCI_l1hw(struct PStack *st, int pr, void *arg)
 				dlogframe(cs, skb, 0);
 			if (cs->tx_skb) {
 				skb_queue_tail(&cs->sq, skb);
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 				if (cs->debug & L1_DEB_LAPD)
 					Logl2Frame(cs, skb, "PH_DATA Queued", 0);
 #endif
 			} else {
 				cs->tx_skb = skb;
 				cs->tx_cnt = 0;
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 				if (cs->debug & L1_DEB_LAPD)
 					Logl2Frame(cs, skb, "PH_DATA", 0);
 #endif
@@ -1194,7 +1198,7 @@ HFCPCI_l1hw(struct PStack *st, int pr, void *arg)
 				dlogframe(cs, skb, 0);
 			cs->tx_skb = skb;
 			cs->tx_cnt = 0;
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				Logl2Frame(cs, skb, "PH_DATA_PULLED", 0);
 #endif
@@ -1205,7 +1209,7 @@ HFCPCI_l1hw(struct PStack *st, int pr, void *arg)
 				debugl1(cs, "hfcpci_fill_dfifo blocked");
 			break;
 		case (PH_PULL | REQUEST):
-#ifdef L2FRAME_DEBUG		    /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				debugl1(cs, "-> PH_REQUEST_PULL");
 #endif
@@ -1738,11 +1742,11 @@ setup_hfcpci(struct IsdnCard *card)
 		/* Allocate memory for FIFOS */
 		/* Because the HFC-PCI needs a 32K physical alignment, we */
 		/* need to allocate the double mem and align the address */
-		if (!((void *) cs->hw.hfcpci.share_start = kmalloc(65536, GFP_KERNEL))) {
+		if (!(cs->hw.hfcpci.share_start = kmalloc(65536, GFP_KERNEL))) {
 			printk(KERN_WARNING "HFC-PCI: Error allocating memory for FIFO!\n");
 			return 0;
 		}
-		(ulong) cs->hw.hfcpci.fifos =
+		cs->hw.hfcpci.fifos = (void *)
 		    (((ulong) cs->hw.hfcpci.share_start) & ~0x7FFF) + 0x8000;
 		pcibios_write_config_dword(cs->hw.hfcpci.pci_bus,
 				       cs->hw.hfcpci.pci_device_fn, 0x80,

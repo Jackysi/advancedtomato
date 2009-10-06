@@ -16,9 +16,9 @@
  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
  *
- * $Source: /home/cvsroot/wrt54g/src/linux/linux/drivers/char/ftape/lowlevel/ftape-format.c,v $
- * $Revision: 1.1.1.2 $
- * $Date: 2003/10/14 08:08:06 $
+ * $Source: /homes/cvs/ftape-stacked/ftape/lowlevel/ftape-format.c,v $
+ * $Revision: 1.2.4.1 $
+ * $Date: 1997/11/14 16:05:39 $
  *
  *      This file contains the code to support formatting of floppy
  *      tape cartridges with the QIC-40/80/3010/3020 floppy-tape

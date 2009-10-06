@@ -3,7 +3,7 @@
  * Copyright (C) 1995  Linus Torvalds
  * Copyright 2001, 2002 SuSE Labs / Andi Kleen.
  * See setup.c for older changelog.
- * $Id: setup64.c,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+ * $Id: setup64.c,v 1.27 2004/02/27 18:30:19 ak Exp $
  */ 
 #include <linux/config.h>
 #include <linux/init.h>
@@ -18,6 +18,7 @@
 #include <asm/atomic.h>
 #include <asm/mmu_context.h>
 #include <asm/proto.h>
+#include <asm/mman.h>
 
 char x86_boot_params[2048] __initdata = {0,};
 
@@ -31,25 +32,82 @@ extern void ia32_cstar_target(void);
 struct desc_ptr gdt_descr = { 0 /* filled in */, (unsigned long) gdt_table }; 
 struct desc_ptr idt_descr = { 256 * 16, (unsigned long) idt_table }; 
 
-unsigned long __supported_pte_mask = ~_PAGE_NX; 
-static int do_not_nx = 1; 
+/* When you change the default make sure the no EFER path below sets the 
+   correct flags everywhere. */
+unsigned long __supported_pte_mask = ~0UL; 
+static int do_not_nx __initdata = 0;  
+unsigned long vm_stack_flags = __VM_STACK_FLAGS; 
+unsigned long vm_stack_flags32 = __VM_STACK_FLAGS; 
+unsigned long vm_data_default_flags = __VM_DATA_DEFAULT_FLAGS; 
+unsigned long vm_data_default_flags32 = __VM_DATA_DEFAULT_FLAGS; 
+unsigned long vm_force_exec32 = PROT_EXEC; 
 
 char boot_cpu_stack[IRQSTACKSIZE] __cacheline_aligned;
 
+/* noexec=on|off
 
-static int __init nonx_setup(char *str)
+on	Enable
+off	Disable
+noforce (default) Don't enable by default for heap/stack/data, 
+	but allow PROT_EXEC to be effective
+
+*/ 
+
+int __init nonx_setup(char *str)
 {
-	if (strstr(str,"off")) { 
-		__supported_pte_mask &= ~_PAGE_NX; 
-		do_not_nx = 1; 
-	} else if (strstr(str, "on")) { 
-		do_not_nx = 0; 
+	if (!strncmp(str, "on",3)) { 
 		__supported_pte_mask |= _PAGE_NX; 
+		do_not_nx = 0; 
+		vm_data_default_flags &= ~VM_EXEC; 
+		vm_stack_flags &= ~VM_EXEC;  
+	} else if (!strncmp(str, "noforce",7) || !strncmp(str,"off",3)) { 
+		do_not_nx = (str[0] == 'o');
+		if (do_not_nx) 
+			__supported_pte_mask &= ~_PAGE_NX; 
+		vm_data_default_flags |= VM_EXEC; 
+		vm_stack_flags |= VM_EXEC;
+	}
+	return 1;
+} 
+
+/* noexec32=opt{,opt} 
+
+Control the no exec default for 32bit processes. Can be also overwritten
+per executable using ELF header flags (e.g. needed for the X server)
+Requires noexec=on or noexec=noforce to be effective.
+
+Valid options: 
+   all,on    Heap,stack,data is non executable. 	
+   off       (default) Heap,stack,data is executable
+   stack     Stack is non executable, heap/data is.
+   force     Don't imply PROT_EXEC for PROT_READ 
+   compat    (default) Imply PROT_EXEC for PROT_READ
+
+*/
+static int __init nonx32_setup(char *str)
+{
+	char *s;
+	while ((s = strsep(&str, ",")) != NULL) { 
+		if (!strcmp(s, "all") || !strcmp(s,"on")) {
+			vm_data_default_flags32 &= ~VM_EXEC; 
+			vm_stack_flags32 &= ~VM_EXEC;  
+		} else if (!strcmp(s, "off")) { 
+			vm_data_default_flags32 |= VM_EXEC; 
+			vm_stack_flags32 |= VM_EXEC;  
+		} else if (!strcmp(s, "stack")) { 
+			vm_data_default_flags32 |= VM_EXEC; 
+			vm_stack_flags32 &= ~VM_EXEC;  		
+		} else if (!strcmp(s, "force")) { 
+			vm_force_exec32 = 0; 
+		} else if (!strcmp(s, "compat")) { 
+			vm_force_exec32 = PROT_EXEC;
+		} 
 	} 
 	return 1;
 } 
 
 __setup("noexec=", nonx_setup); 
+__setup("noexec32=", nonx32_setup);
 
 void pda_init(int cpu)
 { 
@@ -85,8 +143,33 @@ void pda_init(int cpu)
 	wrmsrl(MSR_GS_BASE, cpu_pda + cpu);
 } 
 
-#define EXCEPTION_STK_ORDER 0 /* >= N_EXCEPTION_STACKS*EXCEPTION_STKSZ */
+void syscall_init(void)
+{
+	/* 
+	 * LSTAR and STAR live in a bit strange symbiosis.
+	 * They both write to the same internal register. STAR allows to set CS/DS
+	 * but only a 32bit target. LSTAR sets the 64bit rip. 	 
+	 */ 
+	wrmsrl(MSR_STAR,  ((u64)__USER32_CS)<<48  | ((u64)__KERNEL_CS)<<32); 
+	wrmsrl(MSR_LSTAR, system_call); 
+
+#ifdef CONFIG_IA32_EMULATION   		
+	wrmsrl(MSR_CSTAR, ia32_cstar_target); 
+#endif
+}
+
 char boot_exception_stacks[N_EXCEPTION_STACKS*EXCEPTION_STKSZ];
+
+void check_efer(void)
+{
+	unsigned long efer;
+	rdmsrl(MSR_EFER, efer); 
+	if (!(efer & EFER_NX) || do_not_nx) { 
+		__supported_pte_mask &= ~_PAGE_NX; 
+	} else { 
+		__supported_pte_mask |= _PAGE_NX; 
+	} 
+}
 
 /*
  * cpu_init() initializes state that is per-CPU. Some data is already
@@ -103,17 +186,12 @@ void __init cpu_init (void)
 	int nr = smp_processor_id();
 #endif
 	struct tss_struct * t = &init_tss[nr];
-	unsigned long v, efer; 	
-	char *estacks; 
+	unsigned long v; 	
+	unsigned long estack;
 
 	/* CPU 0 is initialised in head64.c */
-	if (nr != 0) {
-		estacks = (char *)__get_free_pages(GFP_ATOMIC, 0); 
-		if (!estacks)
-			panic("Can't allocate exception stacks for CPU %d\n",nr);
-		pda_init(nr);  
-	} else 
-		estacks = boot_exception_stacks; 
+	if (nr != 0)
+		pda_init(nr);
 
 	if (test_and_set_bit(nr, &cpu_initialized))
 		panic("CPU#%d already initialized!\n", nr);
@@ -133,24 +211,9 @@ void __init cpu_init (void)
 
 	asm volatile("pushfq ; popq %%rax ; btr $14,%%rax ; pushq %%rax ; popfq" ::: "eax");
 
-	/* 
-	 * LSTAR and STAR live in a bit strange symbiosis.
-	 * They both write to the same internal register. STAR allows to set CS/DS
-	 * but only a 32bit target. LSTAR sets the 64bit rip. 	 
-	 */ 
-	wrmsrl(MSR_STAR,  ((u64)__USER32_CS)<<48  | ((u64)__KERNEL_CS)<<32); 
-	wrmsrl(MSR_LSTAR, system_call); 
+	syscall_init();
 
-#ifdef CONFIG_IA32_EMULATION   		
-	wrmsrl(MSR_CSTAR, ia32_cstar_target); 
-#endif
-
-	if (!do_not_nx) { 
-		rdmsrl(MSR_EFER, efer); 
-		if (!(efer & EFER_NX)) { 
-			__supported_pte_mask &= ~_PAGE_NX; 
-		} 
-	}
+	check_efer();
 
 	t->io_map_base = INVALID_IO_BITMAP_OFFSET;	
 	memset(t->io_bitmap, 0xff, sizeof(t->io_bitmap));
@@ -165,10 +228,17 @@ void __init cpu_init (void)
 	/*
 	 * set up and load the per-CPU TSS
 	 */
-	estacks += EXCEPTION_STKSZ;
+	estack = (unsigned long)boot_exception_stacks + EXCEPTION_STKSZ;
 	for (v = 0; v < N_EXCEPTION_STACKS; v++) {
-		t->ist[v] = (unsigned long)estacks;
-		estacks += EXCEPTION_STKSZ;
+		if (nr == 0) {
+			t->ist[v] = estack;
+			estack += EXCEPTION_STKSZ;
+		} else {
+			estack = __get_free_pages(GFP_ATOMIC, EXCEPTION_STK_ORDER);
+			if(!estack) 
+				panic("Can't allocate exception stack %lu for CPU %d\n", v, nr);
+			t->ist[v] = estack + EXCEPTION_STKSZ;		
+		}
 	}
 
 	atomic_inc(&init_mm.mm_count);

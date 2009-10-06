@@ -26,15 +26,24 @@
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/init.h>
-#include <linux/crc32.h>
+#include <linux/ethtool.h>
 #include <asm/processor.h>	/* Processor type for cache alignment. */
 #include <asm/bitops.h>
 #include <asm/io.h>
+#include <asm/uaccess.h>
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/time.h>
+#ifdef DL2K_COMPAT_WITH_OLD_KERNEL
+#include "crc32.h"
+#else
+#include <linux/crc32.h>
+#endif
+
+
+
 #define TX_RING_SIZE	256
-#define TX_QUEUE_LEN	(TX_RING_SIZE - 1) /* Limit ring entries actually used.*/
+#define TX_QUEUE_LEN	(TX_RING_SIZE - 10) /* Limit ring entries actually used.*/
 #define RX_RING_SIZE 	256
 #define TX_TOTAL_SIZE	TX_RING_SIZE*sizeof(struct netdev_desc)
 #define RX_TOTAL_SIZE	RX_RING_SIZE*sizeof(struct netdev_desc)
@@ -241,7 +250,6 @@ enum TFC_bits {
 	VLANTagInsert = 0x0000000010000000,
 	TFDDone = 0x80000000,
 	VIDShift = 32,
-	CFI = 0x0000100000000000,
 	UsePriorityShift = 48,
 };
 
@@ -511,7 +519,7 @@ typedef union t_MII_ESR {
 	u16 image;
 	struct {
 		u16 _bit_11_0:12;	// bit 11:0
-		u16 media_1000BT_HD:2;	// bit 12
+		u16 media_1000BT_HD:1;	// bit 12
 		u16 media_1000BT_FD:1;	// bit 13
 		u16 media_1000BX_HD:1;	// bit 14
 		u16 media_1000BX_FD:1;	// bit 15
@@ -654,6 +662,8 @@ struct netdev_private {
 	struct net_device_stats stats;
 	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
 	unsigned int speed;		/* Operating speed */
+	struct tasklet_struct tx_tasklet;
+	struct tasklet_struct rx_tasklet;
 	unsigned int vlan;		/* VLAN Id */
 	unsigned int chip_id;		/* PCI table chip id */
 	unsigned int rx_coalesce; 	/* Maximum frames each RxDMAComplete intr */
@@ -671,6 +681,9 @@ struct netdev_private {
 	struct netdev_desc *last_tx;	/* Last Tx descriptor used. */
 	unsigned long cur_rx, old_rx;	/* Producer/consumer ring indices */
 	unsigned long cur_tx, old_tx;
+	unsigned long cur_task;
+	atomic_t tx_desc_lock;
+	int budget;
 	struct timer_list timer;
 	int wake_polarity;
 	char name[256];		/* net device description */
@@ -707,4 +720,5 @@ MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
 #define DEFAULT_RXT		750
 #define DEFAULT_TXC		1
 #define MAX_TXC			8
+#define RX_BUDGET		RX_RING_SIZE/2
 #endif				/* __DL2K_H__ */

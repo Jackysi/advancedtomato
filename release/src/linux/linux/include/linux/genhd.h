@@ -284,6 +284,9 @@ extern void devfs_register_partitions (struct gendisk *dev, int minor,
 
 
 
+/*
+ * FIXME: this should use genhd->minor_shift, but that is slow to look up.
+ */
 static inline unsigned int disk_index (kdev_t dev)
 {
 	int major = MAJOR(dev);

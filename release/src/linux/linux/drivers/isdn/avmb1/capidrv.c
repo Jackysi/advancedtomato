@@ -1,4 +1,4 @@
-/* $Id: capidrv.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: capidrv.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  *
  * ISDN4Linux Driver, using capi20 interface (kernelcapi)
  *
@@ -35,7 +35,7 @@
 #include "capicmd.h"
 #include "capidrv.h"
 
-static char *revision = "$Revision: 1.1.1.4 $";
+static char *revision = "$Revision: 1.1.4.1 $";
 static int debugmode = 0;
 
 MODULE_DESCRIPTION("CAPI4Linux: Interface to ISDN4Linux");
@@ -105,6 +105,7 @@ struct capidrv_contr {
 				int oldstate;
 				/* */
 				__u16 datahandle;
+                                spinlock_t lock;
 				struct ncci_datahandle_queue {
 				    struct ncci_datahandle_queue *next;
 				    __u16                         datahandle;
@@ -422,6 +423,7 @@ static inline capidrv_ncci *new_ncci(capidrv_contr * card,
 	nccip->plcip = plcip;
 	nccip->chan = plcip->chan;
 	nccip->datahandle = 0;
+        nccip->lock = SPIN_LOCK_UNLOCKED;
 
 	nccip->next = plcip->ncci_list;
 	plcip->ncci_list = nccip;
@@ -478,6 +480,7 @@ static int capidrv_add_ack(struct capidrv_ncci *nccip,
 		           __u16 datahandle, int len)
 {
 	struct ncci_datahandle_queue *n, **pp;
+	unsigned long flags;
 
 	n = (struct ncci_datahandle_queue *)
 		kmalloc(sizeof(struct ncci_datahandle_queue), GFP_ATOMIC);
@@ -488,25 +491,31 @@ static int capidrv_add_ack(struct capidrv_ncci *nccip,
 	n->next = 0;
 	n->datahandle = datahandle;
 	n->len = len;
+	spin_lock_irqsave(&nccip->lock, flags);
 	for (pp = &nccip->ackqueue; *pp; pp = &(*pp)->next) ;
 	*pp = n;
+	spin_unlock_irqrestore(&nccip->lock, flags);
 	return 0;
 }
 
 static int capidrv_del_ack(struct capidrv_ncci *nccip, __u16 datahandle)
 {
 	struct ncci_datahandle_queue **pp, *p;
+	unsigned long flags;
 	int len;
 
+	spin_lock_irqsave(&nccip->lock, flags);
 	for (pp = &nccip->ackqueue; *pp; pp = &(*pp)->next) {
  		if ((*pp)->datahandle == datahandle) {
 			p = *pp;
 			len = p->len;
 			*pp = (*pp)->next;
+	                spin_unlock_irqrestore(&nccip->lock, flags);
 		        kfree(p);
 			return len;
 		}
 	}
+        spin_unlock_irqrestore(&nccip->lock, flags);
 	return -1;
 }
 
@@ -514,13 +523,25 @@ static int capidrv_del_ack(struct capidrv_ncci *nccip, __u16 datahandle)
 
 static void send_message(capidrv_contr * card, _cmsg * cmsg)
 {
-	struct sk_buff *skb;
-	size_t len;
+	struct sk_buff	*skb;
+	size_t		len;
+	u16		err;
+
 	capi_cmsg2message(cmsg, cmsg->buf);
 	len = CAPIMSG_LEN(cmsg->buf);
 	skb = alloc_skb(len, GFP_ATOMIC);
+	if(!skb) {
+		printk(KERN_ERR "no skb len(%d) memory\n", len);
+		return;
+	}
 	memcpy(skb_put(skb, len), cmsg->buf, len);
-	(*capifuncs->capi_put_message) (global.appid, skb);
+	err = (*capifuncs->capi_put_message) (global.appid, skb);
+	if (err) {
+		printk(KERN_WARNING "%s: capi_put_message error: %04x\n",
+			__FUNCTION__, err);
+		kfree_skb(skb);
+		return;
+	}
 	global.nsentctlpkt++;
 }
 
@@ -2179,10 +2200,10 @@ static int capidrv_delcontr(__u16 contr)
 			free_ncci(card, card->bchans[card->nbchan-1].nccip);
 		if (card->bchans[card->nbchan-1].plcip)
 			free_plci(card, card->bchans[card->nbchan-1].plcip);
-		if (card->plci_list)
-			printk(KERN_ERR "capidrv: bug in free_plci()\n");
 		card->nbchan--;
 	}
+	if (card->plci_list)
+		printk(KERN_ERR "capidrv: bug in free_plci()\n");
 	kfree(card->bchans);
 	card->bchans = 0;
 

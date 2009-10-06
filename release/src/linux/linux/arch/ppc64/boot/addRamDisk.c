@@ -154,9 +154,8 @@ int main(int argc, char **argv)
   
 	/* Process the Sysmap file to determine where _end is */
 	sysmapPages = sysmapLen / 4096;
-	for (i=0; i<sysmapPages; ++i) {
-		get4k(sysmap, inbuf);
-	}
+	/* read the whole file line by line, expect that it doesnt fail */
+	while ( fgets(inbuf, 4096, sysmap) )  ;
 	/* search for _end in the last page of the system map */
 	ptr_end = strstr(inbuf, " _end");
 	if (!ptr_end) {
@@ -260,7 +259,7 @@ int main(int argc, char **argv)
 		death("Could not read hvReleaseData\n", outputVmlinux, argv[4]);
 	}
 	/* Check hvReleaseData sanity */
-	if (memcmp(inbuf, &eyeCatcher, 4) != 0) {
+	if (ntohl(*(u_int32_t *)inbuf) != eyeCatcher) {
 		death("hvReleaseData is invalid\n", outputVmlinux, argv[4]);
 	}
 	/* Get the naca pointer */

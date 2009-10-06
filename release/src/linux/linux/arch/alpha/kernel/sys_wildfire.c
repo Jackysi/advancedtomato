@@ -64,6 +64,32 @@ wildfire_update_irq_hw(unsigned int irq)
 static void __init
 wildfire_init_irq_hw(void)
 {
+#if 0
+	register wildfire_pca * pca = WILDFIRE_pca(0, 0);
+	volatile unsigned long * enable0, * enable1, * enable2, *enable3;
+	volatile unsigned long * target0, * target1, * target2, *target3;
+
+	enable0 = (unsigned long *) &pca->pca_int[0].enable;
+	enable1 = (unsigned long *) &pca->pca_int[1].enable;
+	enable2 = (unsigned long *) &pca->pca_int[2].enable;
+	enable3 = (unsigned long *) &pca->pca_int[3].enable;
+
+	target0 = (unsigned long *) &pca->pca_int[0].target;
+	target1 = (unsigned long *) &pca->pca_int[1].target;
+	target2 = (unsigned long *) &pca->pca_int[2].target;
+	target3 = (unsigned long *) &pca->pca_int[3].target;
+
+	*enable0 = *enable1 = *enable2 = *enable3 = 0;
+
+	*target0 = (1UL<<8) | WILDFIRE_QBB(0);
+	*target1 = *target2 = *target3 = 0;
+
+	mb();
+
+	*enable0; *enable1; *enable2; *enable3;
+	*target0; *target1; *target2; *target3;
+
+#else
 	int i;
 
 	doing_init_irq_hw = 1;
@@ -73,6 +99,7 @@ wildfire_init_irq_hw(void)
 		wildfire_update_irq_hw(i);
 
 	doing_init_irq_hw = 0;
+#endif
 }
 
 static void
@@ -121,6 +148,10 @@ wildfire_startup_irq(unsigned int irq)
 static void
 wildfire_end_irq(unsigned int irq)
 { 
+#if 0
+	if (!irq_desc[irq].action)
+		printk("got irq %d\n", irq);
+#endif
 	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
 		wildfire_enable_irq(irq);
 }
@@ -151,7 +182,17 @@ wildfire_init_irq_per_pca(int qbbno, int pcano)
 	/* Only need the following for first PCI bus per PCA. */
 	io_bias = WILDFIRE_IO(qbbno, pcano<<1) - WILDFIRE_IO_BIAS;
 
+#if 0
+	outb(0, DMA1_RESET_REG + io_bias);
+	outb(0, DMA2_RESET_REG + io_bias);
+	outb(DMA_MODE_CASCADE, DMA2_MODE_REG + io_bias);
+	outb(0, DMA2_MASK_REG + io_bias);
+#endif
 
+#if 0
+	/* ??? Not sure how to do this, yet... */
+	init_i8259a_irqs(); /* ??? */
+#endif
 
 	for (i = 0; i < 16; ++i) {
 		if (i == 2)
@@ -175,8 +216,10 @@ wildfire_init_irq(void)
 {
 	int qbbno, pcano;
 
+#if 1
 	wildfire_init_irq_hw();
 	init_i8259a_irqs();
+#endif
 
 	for (qbbno = 0; qbbno < WILDFIRE_MAX_QBB; qbbno++) {
 	  if (WILDFIRE_QBB_EXISTS(qbbno)) {
@@ -309,5 +352,10 @@ struct alpha_machine_vector wildfire_mv __initmv = {
 	kill_arch:		wildfire_kill_arch,
 	pci_map_irq:		wildfire_map_irq,
 	pci_swizzle:		common_swizzle,
+
+	pa_to_nid:		wildfire_pa_to_nid,
+	cpuid_to_nid:		wildfire_cpuid_to_nid,
+	node_mem_start:		wildfire_node_mem_start,
+	node_mem_size:		wildfire_node_mem_size,
 };
 ALIAS_MV(wildfire)

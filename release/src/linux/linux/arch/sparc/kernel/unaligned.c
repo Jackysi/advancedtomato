@@ -1,4 +1,4 @@
-/* $Id: unaligned.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: unaligned.c,v 1.22.2.1 2001/12/21 00:52:47 davem Exp $
  * unaligned.c: Unaligned load/store trap handling with special
  *              cases for the kernel to do them more quickly.
  *
@@ -136,8 +136,8 @@ static inline unsigned long *fetch_reg_addr(unsigned int reg, struct pt_regs *re
 	return &win->locals[reg - 16];
 }
 
-static inline unsigned long compute_effective_address(struct pt_regs *regs,
-						      unsigned int insn)
+static unsigned long compute_effective_address(struct pt_regs *regs,
+					       unsigned int insn)
 {
 	unsigned int rs1 = (insn >> 14) & 0x1f;
 	unsigned int rs2 = insn & 0x1f;
@@ -152,8 +152,8 @@ static inline unsigned long compute_effective_address(struct pt_regs *regs,
 	}
 }
 
-static inline unsigned long safe_compute_effective_address(struct pt_regs *regs,
-							   unsigned int insn)
+unsigned long safe_compute_effective_address(struct pt_regs *regs,
+					     unsigned int insn)
 {
 	unsigned int rs1 = (insn >> 14) & 0x1f;
 	unsigned int rs2 = insn & 0x1f;
@@ -310,6 +310,7 @@ __asm__ __volatile__ (								\
 	store_common(dst_addr, size, src_val, errh);				\
 })
 
+/* XXX Need to capture/release other cpu's for SMP around this. */
 #define do_atomic(srcdest_reg, mem, errh) ({					\
 	unsigned long flags, tmp;						\
 										\
@@ -403,6 +404,13 @@ asmlinkage void kernel_unaligned_trap(struct pt_regs *regs, unsigned int insn)
 					 (unsigned long *) addr, regs,
 					 kernel_unaligned_trap_fault);
 			break;
+#if 0 /* unsupported */
+		case both:
+			do_atomic(fetch_reg_addr(((insn>>25)&0x1f), regs),
+				  (unsigned long *) addr,
+				  kernel_unaligned_trap_fault);
+			break;
+#endif
 		default:
 			panic("Impossible kernel unaligned trap.");
 			/* Not reached... */

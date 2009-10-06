@@ -170,6 +170,17 @@ static void iga_blank_border(struct fb_info_iga *info)
 {
         int i;
 
+#if 0
+	/*
+	 * PROM does this for us, so keep this code as a reminder
+	 * about required read from 0x3DA and writing of 0x20 in the end.
+	 */
+	(void) pci_inb(info, 0x3DA);		/* required for every access */
+	pci_outb(info, IGA_IDX_VGA_OVERSCAN, IGA_ATTR_CTL);
+	(void) pci_inb(info, IGA_ATTR_CTL+1);
+	pci_outb(info, 0x38, IGA_ATTR_CTL);
+	pci_outb(info, 0x20, IGA_ATTR_CTL);	/* re-enable visual */
+#endif
 	/*
 	 * This does not work as it was designed because the overscan
 	 * color is looked up in the palette. Therefore, under X11
@@ -593,6 +604,10 @@ int __init igafb_init(void)
         pdev = pci_find_device(PCI_VENDOR_ID_INTERG, 
                                PCI_DEVICE_ID_INTERG_1682, 0);
 	if (pdev == NULL) {
+		/*
+		 * XXX We tried to use cyber2000fb.c for IGS 2000.
+		 * But it does not initialize the chip in JavaStation-E, alas.
+		 */
         	pdev = pci_find_device(PCI_VENDOR_ID_INTERG, 0x2000, 0);
         	if(pdev == NULL) {
         	        return -ENXIO;
@@ -644,7 +659,7 @@ int __init igafb_init(void)
 	if (iga2000) {
 		info->io_base_phys = info->frame_buffer_phys | 0x00800000;
 	} else {
-		info->io_base_phys = 0x30000000;	
+		info->io_base_phys = 0x30000000;	/* XXX */
 	}
 	if ((info->io_base = (int) ioremap(info->io_base_phys, 0x1000)) == 0) {
                 printk("igafb_init: can't remap %lx[4K]\n", info->io_base_phys);

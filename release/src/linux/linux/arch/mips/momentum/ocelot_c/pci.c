@@ -58,7 +58,6 @@ static int marvell_pcibios_write_config_word(struct pci_dev *dev,
 					     int offset, u16 val);
 static int marvell_pcibios_write_config_dword(struct pci_dev *dev,
 					      int offset, u32 val);
-static void marvell_pcibios_set_master(struct pci_dev *dev);
 
 /*
  *  General-purpose PCI functions.
@@ -326,126 +325,6 @@ static int marvell_pcibios_write_config_byte(struct pci_dev *device,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static void marvell_pcibios_set_master(struct pci_dev *dev)
-{
-	u16 cmd;
-
-	marvell_pcibios_read_config_word(dev, PCI_COMMAND, &cmd);
-	cmd |= PCI_COMMAND_MASTER;
-	marvell_pcibios_write_config_word(dev, PCI_COMMAND, cmd);
-}
-
-/*  Externally-expected functions.  Do not change function names  */
-
-int pcibios_enable_resources(struct pci_dev *dev)
-{
-	u16 cmd, old_cmd;
-	u8 tmp1;
-	int idx;
-	struct resource *r;
-
-	marvell_pcibios_read_config_word(dev, PCI_COMMAND, &cmd);
-	old_cmd = cmd;
-	for (idx = 0; idx < 6; idx++) {
-		r = &dev->resource[idx];
-		if (!r->start && r->end) {
-			printk(KERN_ERR
-			       "PCI: Device %s not available because of "
-			       "resource collisions\n", dev->slot_name);
-			return -EINVAL;
-		}
-		if (r->flags & IORESOURCE_IO)
-			cmd |= PCI_COMMAND_IO;
-		if (r->flags & IORESOURCE_MEM)
-			cmd |= PCI_COMMAND_MEMORY;
-	}
-	if (cmd != old_cmd) {
-		marvell_pcibios_write_config_word(dev, PCI_COMMAND, cmd);
-	}
-
-	/*
-	 * Let's fix up the latency timer and cache line size here.  Cache
-	 * line size = 32 bytes / sizeof dword (4) = 8.
-	 * Latency timer must be > 8.  32 is random but appears to work.
-	 */
-	marvell_pcibios_read_config_byte(dev, PCI_CACHE_LINE_SIZE, &tmp1);
-	if (tmp1 != 8) {
-		printk(KERN_WARNING "PCI setting cache line size to 8 from "
-		       "%d\n", tmp1);
-		marvell_pcibios_write_config_byte(dev, PCI_CACHE_LINE_SIZE,
-						  8);
-	}
-	marvell_pcibios_read_config_byte(dev, PCI_LATENCY_TIMER, &tmp1);
-	if (tmp1 < 32) {
-		printk(KERN_WARNING "PCI setting latency timer to 32 from %d\n",
-		       tmp1);
-		marvell_pcibios_write_config_byte(dev, PCI_LATENCY_TIMER,
-						  32);
-	}
-
-	return 0;
-}
-
-int pcibios_enable_device(struct pci_dev *dev, int mask)
-{
-	return pcibios_enable_resources(dev);
-}
-
-void pcibios_update_resource(struct pci_dev *dev, struct resource *root,
-			     struct resource *res, int resource)
-{
-	u32 new, check;
-	int reg;
-
-	return;
-
-	new = res->start | (res->flags & PCI_REGION_FLAG_MASK);
-	if (resource < 6) {
-		reg = PCI_BASE_ADDRESS_0 + 4 * resource;
-	} else if (resource == PCI_ROM_RESOURCE) {
-		res->flags |= PCI_ROM_ADDRESS_ENABLE;
-		reg = dev->rom_base_reg;
-	} else {
-		/*
-		 * Somebody might have asked allocation of a non-standard
-		 * resource
-		 */
-		return;
-	}
-
-	pci_write_config_dword(dev, reg, new);
-	pci_read_config_dword(dev, reg, &check);
-	if ((new ^ check) &
-	    ((new & PCI_BASE_ADDRESS_SPACE_IO) ? PCI_BASE_ADDRESS_IO_MASK :
-	     PCI_BASE_ADDRESS_MEM_MASK)) {
-		printk(KERN_ERR "PCI: Error while updating region "
-		       "%s/%d (%08x != %08x)\n", dev->slot_name, resource,
-		       new, check);
-	}
-}
-
-void pcibios_align_resource(void *data, struct resource *res,
-			    unsigned long size, unsigned long align)
-{
-	struct pci_dev *dev = data;
-
-	if (res->flags & IORESOURCE_IO) {
-		unsigned long start = res->start;
-
-		/* We need to avoid collisions with `mirrored' VGA ports
-		   and other strange ISA hardware, so we always want the
-		   addresses kilobyte aligned.  */
-		if (size > 0x100) {
-			printk(KERN_ERR "PCI: I/O Region %s/%d too large"
-			       " (%ld bytes)\n", dev->slot_name,
-			        dev->resource - res, size);
-		}
-
-		start = (start + 1024 - 1) & ~(1024 - 1);
-		res->start = start;
-	}
-}
-
 struct pci_ops marvell_pci_ops = {
 	marvell_pcibios_read_config_byte,
 	marvell_pcibios_read_config_word,
@@ -474,17 +353,6 @@ void __init pcibios_init(void)
 
 	pci_scan_bus(0, &marvell_pci_ops, NULL);
 	pci_scan_bus(1, &marvell_pci_ops, NULL);
-}
-
-/*
- * for parsing "pci=" kernel boot arguments.
- */
-char *pcibios_setup(char *str)
-{
-        printk(KERN_INFO "rr: pcibios_setup\n");
-        /* Nothing to do for now.  */
-
-        return str;
 }
 
 unsigned __init int pcibios_assign_all_busses(void)

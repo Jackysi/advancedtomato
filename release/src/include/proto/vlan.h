@@ -1,7 +1,7 @@
 /*
  * 802.1Q VLAN protocol definitions
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: vlan.h,v 1.1.1.2 2005/03/07 07:31:12 kanki Exp $
+ * $Id$
  */
 
 #ifndef _vlan_h_
@@ -30,7 +30,9 @@
 #define VLAN_PRI_MASK		7	/* 3 bits of priority */
 
 #define	VLAN_TAG_LEN		4
-#define	VLAN_TAG_OFFSET		(2 * ETHER_ADDR_LEN)
+#define	VLAN_TAG_OFFSET		(2 * ETHER_ADDR_LEN)	/* offset in Ethernet II packet only */
+
+#define VLAN_TPID		0x8100	/* VLAN ethertype/Tag Protocol ID */
 
 struct ethervlan_header {
 	uint8	ether_dhost[ETHER_ADDR_LEN];

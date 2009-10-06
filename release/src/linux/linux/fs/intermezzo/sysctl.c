@@ -167,6 +167,12 @@ int dosetopt(int minor, struct psdev_opt *opt)
 
 #ifdef PRESTO_DEBUG
 	case PSDEV_ERRORVAL: {
+		/* If we have a positive arg, set a breakpoint for that
+		 * value.  If we have a negative arg, make that device
+		 * read-only.  FIXME  It would be much better to only
+		 * allow setting the underlying device read-only for the
+		 * current presto cache.
+		 */
 		int errorval = izo_channels[minor].uc_errorval;
 		if (errorval < 0) {
 			if (newval == 0)
@@ -284,6 +290,8 @@ int /* __init */ init_intermezzo_sysctl(void)
 	 * happens once per reboot.
 	 */
 	for(i = 0; i < total_dev; i++) {
+		void *p;
+
 		/* entry for this /proc/sys/intermezzo/intermezzo"i" */
 		ctl_table *psdev = &presto_table[i + PRESTO_PRIMARY_CTLCNT];
 		/* entries for the individual "files" in this "directory" */
@@ -296,7 +304,8 @@ int /* __init */ init_intermezzo_sysctl(void)
 		/* the psdev has to point to psdev_entries, and fix the number */
 		psdev->ctl_name = psdev->ctl_name + i + 1; /* sorry */
 
-		PRESTO_ALLOC((void*)psdev->procname, PROCNAME_SIZE);
+		PRESTO_ALLOC(p, PROCNAME_SIZE);
+		psdev->procname = p;
 		if (!psdev->procname) {
 			PRESTO_FREE(dev_ctl_table,
 				    sizeof(ctl_table) * total_entries);

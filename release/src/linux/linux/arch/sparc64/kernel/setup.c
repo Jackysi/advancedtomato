@@ -1,4 +1,4 @@
-/*  $Id: setup.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/*  $Id: setup.c,v 1.71.2.1 2002/02/27 21:31:38 davem Exp $
  *  linux/arch/sparc64/kernel/setup.c
  *
  *  Copyright (C) 1995,1996  David S. Miller (davem@caip.rutgers.edu)
@@ -40,6 +40,7 @@
 #include <asm/head.h>
 #include <asm/starfire.h>
 #include <asm/hardirq.h>
+#include <asm/sections.h>
 
 #ifdef CONFIG_IP_PNP
 #include <net/ipconfig.h>
@@ -169,6 +170,7 @@ int prom_callback(long *args)
 		}
 
 		if ((va >= KERNBASE) && (va < (KERNBASE + (4 * 1024 * 1024)))) {
+			/* Spitfire Errata #32 workaround */
 			__asm__ __volatile__("stxa	%0, [%1] %2\n\t"
 					     "flush	%%g6"
 					     : /* No outputs */
@@ -318,6 +320,7 @@ static struct console prom_debug_console = {
 	index:		-1,
 };
 
+/* XXX Implement this at some point... */
 void kernel_enter_debugger(void)
 {
 }
@@ -418,6 +421,10 @@ static void __init boot_flags_init(char *commands)
 			} else
 #endif
 			if (!strncmp(commands, "mem=", 4)) {
+				/*
+				 * "mem=XXX[kKmM]" overrides the PROM-reported
+				 * memory size.
+				 */
 				cmdline_memory_size = simple_strtoul(commands + 4,
 								     &commands, 0);
 				if (*commands == 'K' || *commands == 'k') {
@@ -450,7 +457,7 @@ extern int root_mountflags;
 char saved_command_line[256];
 char reboot_command[256];
 
-extern unsigned long phys_base;
+extern unsigned long phys_base, kern_base, kern_size;
 
 static struct pt_regs fake_swapper_regs = { { 0, }, 0, 0, 0, 0 };
 
@@ -520,6 +527,22 @@ void __init setup_arch(char **cmdline_p)
 		if (highest_paddr < top)
 			highest_paddr = top;
 	}
+
+	switch (tlb_type) {
+	default:
+	case spitfire:
+		kern_base = spitfire_get_itlb_data(sparc64_highest_locked_tlbent());
+		kern_base &= _PAGE_PADDR_SF;
+		break;
+
+	case cheetah:
+	case cheetah_plus:
+		kern_base = cheetah_get_litlb_data(sparc64_highest_locked_tlbent());
+		kern_base &= _PAGE_PADDR;
+		break;
+	};
+
+	kern_size = (unsigned long)&_end - (unsigned long)KERNBASE;
 
 	if (!root_flags)
 		root_mountflags &= ~MS_RDONLY;
@@ -598,8 +621,8 @@ asmlinkage int sys_ioperm(unsigned long from, unsigned long num, int on)
 
 /* BUFFER is PAGE_SIZE bytes long. */
 
-extern char *sparc_cpu_type[];
-extern char *sparc_fpu_type[];
+extern char *sparc_cpu_type;
+extern char *sparc_fpu_type;
 
 extern void smp_info(struct seq_file *);
 extern void smp_bogo(struct seq_file *);
@@ -611,8 +634,6 @@ unsigned long up_clock_tick;
 
 static int show_cpuinfo(struct seq_file *m, void *__unused)
 {
-	int cpuid = smp_processor_id();
-
 	seq_printf(m, 
 		   "cpu\t\t: %s\n"
 		   "fpu\t\t: %s\n"
@@ -626,8 +647,8 @@ static int show_cpuinfo(struct seq_file *m, void *__unused)
 		   "Cpu0ClkTck\t: %016lx\n"
 #endif
 		   ,
-		   sparc_cpu_type[cpuid],
-		   sparc_fpu_type[cpuid],
+		   sparc_cpu_type,
+		   sparc_fpu_type,
 		   prom_rev,
 		   prom_prev >> 16,
 		   (prom_prev >> 8) & 0xff,

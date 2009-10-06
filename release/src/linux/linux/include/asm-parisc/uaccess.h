@@ -37,8 +37,8 @@
 #if BITS_PER_LONG == 32
 #define LDD_KERNEL(ptr)		BUG()
 #define LDD_USER(ptr)		BUG()
-#define STD_KERNEL(x, ptr)	BUG()
-#define STD_USER(x, ptr)	BUG()
+#define STD_KERNEL(x, ptr) __put_kernel_asm64(x,ptr)
+#define STD_USER(x, ptr) __put_user_asm64(x,ptr)
 #else
 #define LDD_KERNEL(ptr) __get_kernel_asm("ldd",ptr)
 #define LDD_USER(ptr) __get_user_asm("ldd",ptr)
@@ -210,6 +210,43 @@ extern const struct exception_table_entry
 		 "\t.previous"                              \
 		: "=r"(__pu_err)                            \
 		: "r"(ptr), "r"(x), "0"(__pu_err))
+
+static inline void __put_kernel_asm64(u64 x, void *ptr)
+{
+	u32 hi = x>>32;
+	u32 lo = x&0xffffffff;
+	__asm__ __volatile__ (
+		"\n1:\tstw %1,0(%0)\n"
+		"\n2:\tstw %2,4(%0)\n"
+		"3:\n"
+		"\t.section __ex_table,\"a\"\n"
+		 "\t.word\t1b\n"
+		 "\t.word\t(3b-1b)+1\n"
+		 "\t.word\t2b\n"
+		 "\t.word\t(3b-2b)+1\n"
+		 "\t.previous"
+		: : "r"(ptr), "r"(hi), "r"(lo));
+
+}
+
+static inline void __put_user_asm64(u64 x, void *ptr)
+{
+	u32 hi = x>>32;
+	u32 lo = x&0xffffffff;
+	__asm__ __volatile__ (
+		"\n1:\tstw %1,0(%%sr3,%0)\n"
+		"\n2:\tstw %2,4(%%sr3,%0)\n"
+		"3:\n"
+		"\t.section __ex_table,\"a\"\n"
+		 "\t.word\t1b\n"
+		 "\t.word\t(3b-1b)+1\n"
+		 "\t.word\t2b\n"
+		 "\t.word\t(3b-2b)+1\n"
+		 "\t.previous"
+		: : "r"(ptr), "r"(hi), "r"(lo));
+
+}
+
 #endif
 
 

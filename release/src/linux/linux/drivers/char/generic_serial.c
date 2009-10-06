@@ -434,14 +434,12 @@ void gs_flush_buffer(struct tty_struct *tty)
 
 	if (!port) return;
 
+	/* XXX Would the write semaphore do? */
 	save_flags(flags); cli();
 	port->xmit_cnt = port->xmit_head = port->xmit_tail = 0;
 	restore_flags(flags);
 
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 	func_exit ();
 }
 
@@ -581,10 +579,7 @@ void gs_do_softint(void *private_)
 	if (!tty) return;
 
 	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &port->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 	func_exit ();
 }
@@ -728,8 +723,8 @@ void gs_close(struct tty_struct * tty, struct file * filp)
 {
 	unsigned long flags;
 	struct gs_port *port;
-
-	func_enter ();
+	
+	func_enter();
 
 	if (!tty) return;
 
@@ -802,8 +797,7 @@ void gs_close(struct tty_struct * tty, struct file * filp)
 
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 
 	port->event = 0;
@@ -854,6 +848,11 @@ void gs_set_termios (struct tty_struct * tty,
 		gs_dprintk (GS_DEBUG_TERMIOS, "termios structure (%p):\n", tiosp);
 	}
 
+#if 0
+	/* This is an optimization that is only allowed for dumb cards */
+	/* Smart cards require knowledge of iflags and oflags too: that 
+	   might change hardware cooking mode.... */
+#endif
 	if (old_termios) {
 		if(   (tiosp->c_iflag == old_termios->c_iflag)
 		   && (tiosp->c_oflag == old_termios->c_oflag)

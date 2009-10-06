@@ -16,9 +16,10 @@
  *  License. See the file COPYING in the main directory of this archive for
  *  more details.
  *
- *  $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/video/pm3fb.c,v 1.1.1.2 2003/10/14 08:08:54 sparq Exp $
+ *  $Header: /cvsroot/linux/drivers/video/pm3fb.c,v 1.1 2002/02/25 19:11:06 marcelo Exp $
  *
  *  CHANGELOG:
+ *  Wed Nov 13 11:19:34 MET 2002, v 1.4.11C: option flatpanel: wasn't available in module, fixed.
  *  Mon Feb 11 10:35:48 MET 2002, v 1.4.11B: Cosmetic update.
  *  Wed Jan 23 14:16:59 MET 2002, v 1.4.11: Preliminary 2.5.x support, patch for 2.5.2.
  *  Wed Nov 28 11:08:29 MET 2001, v 1.4.10: potential bug fix for SDRAM-based board, patch for 2.4.16.
@@ -3274,7 +3275,7 @@ static int pm3fb_blank(int blank_mode, struct fb_info_gen *info)
 	if (blank_mode > 0) {
 		switch (blank_mode - 1) {
 
-		case VESA_NO_BLANKING:	
+		case VESA_NO_BLANKING:	/* FIXME */
 			video = video & ~(PM3VideoControl_ENABLE);
 			break;
 
@@ -3495,7 +3496,7 @@ static void pm3fb_detect(void)
 				    pci_resource_start(l_fb_info->dev, 1);
 				l_fb_info->v_fb = (unsigned char *) -1;
 
-#if (defined KERNEL_2_4) || (defined KERNEL_2_5) 	    /* full resource management, new in linux-2.4.x */
+#if (defined KERNEL_2_4) || (defined KERNEL_2_5) 	/* full resource management, new in linux-2.4.x */
 				if (!request_mem_region
 				    ((unsigned long)l_fb_info->p_fb, 64 * 1024 * 1024, /* request full aperture size */
 				     "pm3fb")) {
@@ -3641,7 +3642,7 @@ __initfunc(void pm3fb_init(void))
 {
 	DTRACE;
 
-	DPRINTK(2, "This is pm3fb.c, CVS version: $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/video/pm3fb.c,v 1.1.1.2 2003/10/14 08:08:54 sparq Exp $");
+	DPRINTK(2, "This is pm3fb.c, CVS version: $Header: /cvsroot/linux/drivers/video/pm3fb.c,v 1.1 2002/02/25 19:11:06 marcelo Exp $");
 
 	pm3fb_real_setup(g_options);
 
@@ -3655,7 +3656,7 @@ __initfunc(void pm3fb_init(void))
 #endif
 }
 
-#ifdef SUPPORT_FB_OF		    /* linux-2.2.x only */
+#ifdef SUPPORT_FB_OF		/* linux-2.2.x only */
 __initfunc(void pm3fb_of_init(struct device_node *dp))
 {
 	struct pm3fb_info *l_fb_info = NULL;
@@ -3756,6 +3757,8 @@ MODULE_PARM(printtimings, "h");
 MODULE_PARM_DESC(printtimings, "print the memory timings of the card(s)");
 MODULE_PARM(forcesize, PM3_MAX_BOARD_MODULE_ARRAY_SHORT);
 MODULE_PARM_DESC(forcesize, "force specified memory size");
+MODULE_PARM(flatpanel, PM3_MAX_BOARD_MODULE_ARRAY_SHORT);
+MODULE_PARM_DESC(flatpanel, "flatpanel (LCD) support (preliminary)");
 /*
 MODULE_SUPPORTED_DEVICE("Permedia3 PCI boards")
 MODULE_GENERIC_TABLE(gtype,name)
@@ -3800,6 +3803,11 @@ void pm3fb_build_options(void)
 			sprintf(ts, ",depth:%d:%d", i, depth[i]);
 			strncat(g_options, ts, PM3_OPTIONS_SIZE - strlen(g_options));
 		}
+                if (flatpanel[i])
+		{
+			sprintf(ts, ",flatpanel:%d:", i);
+			strncat(g_options, ts, PM3_OPTIONS_SIZE - strlen(g_options));
+		}
 	}
 	g_options[PM3_OPTIONS_SIZE - 1] = '\0';
 	DPRINTK(1, "pm3fb use options: %s\n", g_options);
@@ -3830,11 +3838,9 @@ void cleanup_module(void)
 				    (unsigned char *) -1) {
 					pm3fb_unmapIO(l_fb_info);
 #if (defined KERNEL_2_4) || (defined KERNEL_2_5)
-					release_mem_region(l_fb_info->p_fb,
-							   l_fb_info->
-							   fb_size);
-					release_mem_region(l_fb_info->
-							   pIOBase,
+					release_mem_region((u_long)l_fb_info->p_fb,
+							   l_fb_info->fb_size);
+					release_mem_region((u_long)l_fb_info->pIOBase,
 							   PM3_REGS_SIZE);
 #endif /* KERNEL_2_4 or KERNEL_2_5 */
 				}

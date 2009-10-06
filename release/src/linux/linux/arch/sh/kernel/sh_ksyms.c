@@ -19,6 +19,7 @@
 #include <asm/hardirq.h>
 #include <asm/delay.h>
 #include <asm/pgalloc.h>
+#include <asm/div64.h>
 #include <linux/irq.h>
 
 extern void dump_thread(struct pt_regs *, struct user *);
@@ -38,6 +39,7 @@ EXPORT_SYMBOL(no_irq_type);
 
 /* Networking helper routines. */
 EXPORT_SYMBOL(csum_partial_copy);
+EXPORT_SYMBOL(csum_partial_copy_generic);
 
 EXPORT_SYMBOL(strtok);
 EXPORT_SYMBOL(strpbrk);
@@ -45,6 +47,7 @@ EXPORT_SYMBOL(strstr);
 EXPORT_SYMBOL(strlen);
 EXPORT_SYMBOL(strnlen);
 EXPORT_SYMBOL(strchr);
+EXPORT_SYMBOL(strrchr);
 EXPORT_SYMBOL(strcat);
 EXPORT_SYMBOL(strncat);
 
@@ -56,6 +59,7 @@ EXPORT_SYMBOL(pcibios_penalize_isa_irq);
 #endif
 
 /* mem exports */
+EXPORT_SYMBOL(memscan);
 EXPORT_SYMBOL(memchr);
 EXPORT_SYMBOL(memcpy);
 EXPORT_SYMBOL(memcpy_fromio);
@@ -64,6 +68,7 @@ EXPORT_SYMBOL(memset);
 EXPORT_SYMBOL(memset_io);
 EXPORT_SYMBOL(memmove);
 EXPORT_SYMBOL(memcmp);
+EXPORT_SYMBOL(__copy_user);
 
 #ifdef CONFIG_VT
 EXPORT_SYMBOL(screen_info);
@@ -77,7 +82,10 @@ EXPORT_SYMBOL(get_vm_area);
 EXPORT_SYMBOL(__up);
 EXPORT_SYMBOL(__down);
 EXPORT_SYMBOL(__down_interruptible);
+EXPORT_SYMBOL(__down_trylock);
 
+/* Delay loops */
+EXPORT_SYMBOL(__ndelay);
 EXPORT_SYMBOL(__udelay);
 EXPORT_SYMBOL(__const_udelay);
 
@@ -102,3 +110,4 @@ EXPORT_SYMBOL(flush_cache_range);
 EXPORT_SYMBOL(flush_dcache_page);
 #endif
 EXPORT_SYMBOL(flush_tlb_page);
+EXPORT_SYMBOL(__xdiv64_32);

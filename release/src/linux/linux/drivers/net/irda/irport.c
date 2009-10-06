@@ -800,6 +800,7 @@ int irport_net_open(struct net_device *dev)
 	 */
 	self->irlap = irlap_open(dev, &self->qos, hwname);
 
+	/* FIXME: change speed of dongle */
 	/* Ready to play! */
 
 	netif_start_queue(dev);
@@ -852,6 +853,21 @@ int irport_net_close(struct net_device *dev)
  *    Delay exectution until finished transmitting
  *
  */
+#if 0
+void irport_wait_until_sent(struct irport_cb *self)
+{
+	int iobase;
+
+	iobase = self->io.sir_base;
+
+	/* Wait until Tx FIFO is empty */
+	while (!(inb(iobase+UART_LSR) & UART_LSR_THRE)) {
+		IRDA_DEBUG(2, "%s(), waiting!\n",  __FUNCTION__);
+		current->state = TASK_INTERRUPTIBLE;
+		schedule_timeout(MSECS_TO_JIFFIES(60));
+	}
+}
+#endif
 
 /*
  * Function irport_is_receiving (self)

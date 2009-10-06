@@ -400,6 +400,11 @@ int aac_rx_init(struct aac_dev *dev, unsigned long num)
 	 *	Start any kernel threads needed
 	 */
 	dev->thread_pid = kernel_thread((int (*)(void *))aac_command_thread, dev, 0);
+	if(dev->thread_pid < 0)
+	{
+		printk(KERN_ERR "aacraid: Unable to create rx thread.\n");
+		return -1;
+	}	
 	/*
 	 *	Tell the adapter that all is configured, and it can start
 	 *	accepting requests

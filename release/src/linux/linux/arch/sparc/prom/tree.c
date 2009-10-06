@@ -1,4 +1,4 @@
-/* $Id: tree.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: tree.c,v 1.26 2000/08/26 02:38:03 anton Exp $
  * tree.c: Basic device tree traversal/scanning for the Linux
  *         prom library.
  *
@@ -345,6 +345,9 @@ int prom_inst2pkg(int inst)
 	return node;
 }
 
+/* Return 'node' assigned to a particular prom 'path'
+ * FIXME: Should work for v0 as well
+ */
 int prom_pathtoinode(char *path)
 {
 	int node, inst;

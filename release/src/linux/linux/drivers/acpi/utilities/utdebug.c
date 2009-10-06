@@ -1,46 +1,63 @@
 /******************************************************************************
  *
  * Module Name: utdebug - Debug print routines
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
+#include <acpi/acpi.h>
 
 #define _COMPONENT          ACPI_UTILITIES
-	 MODULE_NAME         ("utdebug")
+	 ACPI_MODULE_NAME    ("utdebug")
 
 
-u32             acpi_gbl_prev_thread_id = 0xFFFFFFFF;
-char            *acpi_gbl_fn_entry_str = "----Entry";
-char            *acpi_gbl_fn_exit_str = "----Exit-";
+#ifdef ACPI_DEBUG_OUTPUT
 
-
-#ifdef ACPI_DEBUG
+static u32   acpi_gbl_prev_thread_id = 0xFFFFFFFF;
+static char     *acpi_gbl_fn_entry_str = "----Entry";
+static char     *acpi_gbl_fn_exit_str = "----Exit-";
 
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_init_stack_ptr_trace
+ * FUNCTION:    acpi_ut_init_stack_ptr_trace
  *
  * PARAMETERS:  None
  *
@@ -54,16 +71,16 @@ void
 acpi_ut_init_stack_ptr_trace (
 	void)
 {
-	u32                 current_sp;
+	u32                         current_sp;
 
 
-	acpi_gbl_entry_stack_pointer = (unsigned long) &current_sp;
+	acpi_gbl_entry_stack_pointer = ACPI_PTR_DIFF (&current_sp, NULL);
 }
 
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_track_stack_ptr
+ * FUNCTION:    acpi_ut_track_stack_ptr
  *
  * PARAMETERS:  None
  *
@@ -77,9 +94,10 @@ void
 acpi_ut_track_stack_ptr (
 	void)
 {
-	u32                 current_sp;
+	acpi_size                   current_sp;
 
-	current_sp = (u32) &current_sp;
+
+	current_sp = ACPI_PTR_DIFF (&current_sp, NULL);
 
 	if (current_sp < acpi_gbl_lowest_stack_pointer) {
 		acpi_gbl_lowest_stack_pointer = current_sp;
@@ -93,13 +111,13 @@ acpi_ut_track_stack_ptr (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_debug_print
+ * FUNCTION:    acpi_ut_debug_print
  *
- * PARAMETERS:  Debug_level         - Requested debug print level
- *              Proc_name           - Caller's procedure name
- *              Module_name         - Caller's module name (for error output)
- *              Line_number         - Caller's line number (for error output)
- *              Component_id        - Caller's component ID (for error output)
+ * PARAMETERS:  debug_level         - Requested debug print level
+ *              proc_name           - Caller's procedure name
+ *              module_name         - Caller's module name (for error output)
+ *              line_number         - Caller's line number (for error output)
+ *              component_id        - Caller's component ID (for error output)
  *
  *              Format              - Printf format field
  *              ...                 - Optional printf arguments
@@ -111,15 +129,15 @@ acpi_ut_track_stack_ptr (
  *
  ****************************************************************************/
 
-void
+void  ACPI_INTERNAL_VAR_XFACE
 acpi_ut_debug_print (
-	u32                     requested_debug_level,
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	char                    *format,
+	u32                             requested_debug_level,
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	char                            *format,
 	...)
 {
-	u32                     thread_id;
+	u32                             thread_id;
 	va_list                 args;
 
 
@@ -130,7 +148,6 @@ acpi_ut_debug_print (
 		!(dbg_info->component_id & acpi_dbg_layer)) {
 		return;
 	}
-
 
 	/*
 	 * Thread tracking and context switch notification
@@ -150,14 +167,13 @@ acpi_ut_debug_print (
 	 * Display the module name, current line number, thread ID (if requested),
 	 * current procedure nesting level, and the current procedure name
 	 */
-	acpi_os_printf ("%8s-%04d ", dbg_info->module_name, line_number);
+	acpi_os_printf ("%8s-%04ld ", dbg_info->module_name, line_number);
 
 	if (ACPI_LV_THREADS & acpi_dbg_level) {
-		acpi_os_printf ("[%04X] ", thread_id, acpi_gbl_nesting_level, dbg_info->proc_name);
+		acpi_os_printf ("[%04lX] ", thread_id);
 	}
 
-	acpi_os_printf ("[%02d] %-22.22s: ", acpi_gbl_nesting_level, dbg_info->proc_name);
-
+	acpi_os_printf ("[%02ld] %-22.22s: ", acpi_gbl_nesting_level, dbg_info->proc_name);
 
 	va_start (args, format);
 	acpi_os_vprintf (format, args);
@@ -166,30 +182,30 @@ acpi_ut_debug_print (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_debug_print_raw
+ * FUNCTION:    acpi_ut_debug_print_raw
  *
- * PARAMETERS:  Requested_debug_level - Requested debug print level
- *              Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  requested_debug_level - Requested debug print level
+ *              line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              Format              - Printf format field
  *              ...                 - Optional printf arguments
  *
  * RETURN:      None
  *
  * DESCRIPTION: Print message with no headers.  Has same interface as
- *              Debug_print so that the same macros can be used.
+ *              debug_print so that the same macros can be used.
  *
  ****************************************************************************/
 
-void
+void  ACPI_INTERNAL_VAR_XFACE
 acpi_ut_debug_print_raw (
-	u32                     requested_debug_level,
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	char                    *format,
+	u32                             requested_debug_level,
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	char                            *format,
 	...)
 {
 	va_list                 args;
@@ -201,32 +217,31 @@ acpi_ut_debug_print_raw (
 	}
 
 	va_start (args, format);
-
 	acpi_os_vprintf (format, args);
 }
 
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_trace
+ * FUNCTION:    acpi_ut_trace
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function entry trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level
+ *              set in debug_level
  *
  ****************************************************************************/
 
 void
 acpi_ut_trace (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info)
 {
 
 	acpi_gbl_nesting_level++;
@@ -239,27 +254,27 @@ acpi_ut_trace (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_trace_ptr
+ * FUNCTION:    acpi_ut_trace_ptr
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              Pointer             - Pointer to display
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function entry trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level
+ *              set in debug_level
  *
  ****************************************************************************/
 
 void
 acpi_ut_trace_ptr (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	void                    *pointer)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	void                            *pointer)
 {
 	acpi_gbl_nesting_level++;
 	acpi_ut_track_stack_ptr ();
@@ -271,27 +286,27 @@ acpi_ut_trace_ptr (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_trace_str
+ * FUNCTION:    acpi_ut_trace_str
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              String              - Additional string to display
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function entry trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level
+ *              set in debug_level
  *
  ****************************************************************************/
 
 void
 acpi_ut_trace_str (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	NATIVE_CHAR             *string)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	char                            *string)
 {
 
 	acpi_gbl_nesting_level++;
@@ -304,27 +319,27 @@ acpi_ut_trace_str (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_trace_u32
+ * FUNCTION:    acpi_ut_trace_u32
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              Integer             - Integer to display
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function entry trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level
+ *              set in debug_level
  *
  ****************************************************************************/
 
 void
 acpi_ut_trace_u32 (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	u32                     integer)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	u32                             integer)
 {
 
 	acpi_gbl_nesting_level++;
@@ -337,25 +352,25 @@ acpi_ut_trace_u32 (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_exit
+ * FUNCTION:    acpi_ut_exit
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function exit trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level
+ *              set in debug_level
  *
  ****************************************************************************/
 
 void
 acpi_ut_exit (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info)
 {
 
 	acpi_ut_debug_print (ACPI_LV_FUNCTIONS, line_number, dbg_info,
@@ -367,27 +382,27 @@ acpi_ut_exit (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_status_exit
+ * FUNCTION:    acpi_ut_status_exit
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              Status              - Exit status code
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function exit trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level. Prints exit status also.
+ *              set in debug_level. Prints exit status also.
  *
  ****************************************************************************/
 
 void
 acpi_ut_status_exit (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	acpi_status             status)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	acpi_status                     status)
 {
 
 	if (ACPI_SUCCESS (status)) {
@@ -407,31 +422,32 @@ acpi_ut_status_exit (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_value_exit
+ * FUNCTION:    acpi_ut_value_exit
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              Value               - Value to be printed with exit msg
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function exit trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level. Prints exit value also.
+ *              set in debug_level. Prints exit value also.
  *
  ****************************************************************************/
 
 void
 acpi_ut_value_exit (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	acpi_integer            value)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	acpi_integer                    value)
 {
 
 	acpi_ut_debug_print (ACPI_LV_FUNCTIONS, line_number, dbg_info,
-			"%s %8.8X%8.8X\n", acpi_gbl_fn_exit_str, HIDWORD(value), LODWORD(value));
+			"%s %8.8X%8.8X\n", acpi_gbl_fn_exit_str,
+			ACPI_FORMAT_UINT64 (value));
 
 	acpi_gbl_nesting_level--;
 }
@@ -439,27 +455,27 @@ acpi_ut_value_exit (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_ptr_exit
+ * FUNCTION:    acpi_ut_ptr_exit
  *
- * PARAMETERS:  Line_number         - Caller's line number
- *              Dbg_info            - Contains:
- *                  Proc_name           - Caller's procedure name
- *                  Module_name         - Caller's module name
- *                  Component_id        - Caller's component ID
+ * PARAMETERS:  line_number         - Caller's line number
+ *              dbg_info            - Contains:
+ *                  proc_name           - Caller's procedure name
+ *                  module_name         - Caller's module name
+ *                  component_id        - Caller's component ID
  *              Value               - Value to be printed with exit msg
  *
  * RETURN:      None
  *
  * DESCRIPTION: Function exit trace.  Prints only if TRACE_FUNCTIONS bit is
- *              set in Debug_level. Prints exit value also.
+ *              set in debug_level. Prints exit value also.
  *
  ****************************************************************************/
 
 void
 acpi_ut_ptr_exit (
-	u32                     line_number,
-	acpi_debug_print_info   *dbg_info,
-	u8                      *ptr)
+	u32                             line_number,
+	struct acpi_debug_print_info    *dbg_info,
+	u8                              *ptr)
 {
 
 	acpi_ut_debug_print (ACPI_LV_FUNCTIONS, line_number, dbg_info,
@@ -473,12 +489,12 @@ acpi_ut_ptr_exit (
 
 /*****************************************************************************
  *
- * FUNCTION:    Acpi_ut_dump_buffer
+ * FUNCTION:    acpi_ut_dump_buffer
  *
  * PARAMETERS:  Buffer              - Buffer to dump
  *              Count               - Amount to dump, in bytes
  *              Display             - BYTE, WORD, DWORD, or QWORD display
- *              Component_iD        - Caller's component ID
+ *              component_iD        - Caller's component ID
  *
  * RETURN:      None
  *
@@ -488,15 +504,15 @@ acpi_ut_ptr_exit (
 
 void
 acpi_ut_dump_buffer (
-	u8                      *buffer,
-	u32                     count,
-	u32                     display,
-	u32                     component_id)
+	u8                              *buffer,
+	u32                             count,
+	u32                             display,
+	u32                             component_id)
 {
-	u32                     i = 0;
-	u32                     j;
-	u32                     temp32;
-	u8                      buf_char;
+	acpi_native_uint                i = 0;
+	acpi_native_uint                j;
+	u32                             temp32;
+	u8                              buf_char;
 
 
 	/* Only dump the buffer if tracing is enabled */
@@ -506,6 +522,11 @@ acpi_ut_dump_buffer (
 		return;
 	}
 
+	if ((count < 4) || (count & 0x01)) {
+		display = DB_BYTE_DISPLAY;
+	}
+
+	acpi_os_printf ("\nOffset Value\n");
 
 	/*
 	 * Nasty little dump buffer routine!
@@ -513,8 +534,7 @@ acpi_ut_dump_buffer (
 	while (i < count) {
 		/* Print current offset */
 
-		acpi_os_printf ("%05X  ", i);
-
+		acpi_os_printf ("%05X  ", (u32) i);
 
 		/* Print 16 hex chars */
 
@@ -539,8 +559,7 @@ acpi_ut_dump_buffer (
 
 			case DB_WORD_DISPLAY:
 
-				MOVE_UNALIGNED16_TO_32 (&temp32,
-						 &buffer[i + j]);
+				ACPI_MOVE_16_TO_32 (&temp32, &buffer[i + j]);
 				acpi_os_printf ("%04X ", temp32);
 				j += 2;
 				break;
@@ -548,8 +567,7 @@ acpi_ut_dump_buffer (
 
 			case DB_DWORD_DISPLAY:
 
-				MOVE_UNALIGNED32_TO_32 (&temp32,
-						 &buffer[i + j]);
+				ACPI_MOVE_32_TO_32 (&temp32, &buffer[i + j]);
 				acpi_os_printf ("%08X ", temp32);
 				j += 4;
 				break;
@@ -557,24 +575,20 @@ acpi_ut_dump_buffer (
 
 			case DB_QWORD_DISPLAY:
 
-				MOVE_UNALIGNED32_TO_32 (&temp32,
-						 &buffer[i + j]);
+				ACPI_MOVE_32_TO_32 (&temp32, &buffer[i + j]);
 				acpi_os_printf ("%08X", temp32);
 
-				MOVE_UNALIGNED32_TO_32 (&temp32,
-						 &buffer[i + j + 4]);
+				ACPI_MOVE_32_TO_32 (&temp32, &buffer[i + j + 4]);
 				acpi_os_printf ("%08X ", temp32);
 				j += 8;
 				break;
 			}
 		}
 
-
 		/*
 		 * Print the ASCII equivalent characters
 		 * But watch out for the bad unprintable ones...
 		 */
-
 		for (j = 0; j < 16; j++) {
 			if (i + j >= count) {
 				acpi_os_printf ("\n");

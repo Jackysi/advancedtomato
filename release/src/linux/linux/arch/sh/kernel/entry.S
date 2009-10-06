@@ -1,8 +1,10 @@
-/* $Id: entry.S,v 1.1.1.4 2003/10/14 08:07:47 sparq Exp $
+/* $Id: entry.S,v 1.1.1.1.2.19 2003/11/26 21:28:28 kkojima Exp $
  *
  *  linux/arch/sh/entry.S
  *
  *  Copyright (C) 1999, 2000  Niibe Yutaka
+ *
+ *  Modified to support SH7300. Takashi Kusuda (Jun 2003).
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -14,12 +16,6 @@
 #include <linux/linkage.h>
 #include <linux/config.h>
 
-
-/*
- * Define this to turn on compatibility with the previous
- * system call ABI.  This feature is not properly maintained.
- */
-#undef COMPAT_OLD_SYSCALL_ABI
 
 ! NOTE:
 ! GNU as (as of 2.9.1) changes bf/s into bt/s and bra, when the address
@@ -38,6 +34,12 @@
  *
  *    jmp	@k0	    ! control-transfer instruction
  *     ldc	k1, ssr     ! delay slot
+ */
+
+/*
+ * ABI at ret_from_syscall:
+ *	r8: from_syscall (0 or 1) indicating it's from syscall or not
+ *	r9: original r0 (to restart system call)
  *
  * Stack layout in 'ret_from_syscall':
  * 	ptrace needs to have all regs on the stack.
@@ -53,8 +55,7 @@
  *	gbr
  *	mach
  *	macl
- *	syscall #
- *
+ *	dummy
  */
 
 /*
@@ -66,7 +67,6 @@ need_resched	= 20
 tsk_ptrace	= 24
 
 PT_TRACESYS  = 0x00000002
-PF_USEDFPU   = 0x00100000
 
 ENOSYS = 38
 EINVAL = 22
@@ -74,7 +74,8 @@ EINVAL = 22
 #if defined(__sh3__)
 TRA     = 0xffffffd0
 EXPEVT  = 0xffffffd4
-#if defined(CONFIG_CPU_SUBTYPE_SH7707) || defined(CONFIG_CPU_SUBTYPE_SH7709)
+#if defined(CONFIG_CPU_SUBTYPE_SH7300) || defined(CONFIG_CPU_SUBTYPE_SH7707) || \ 
+    defined(CONFIG_CPU_SUBTYPE_SH7709)
 INTEVT  = 0xa4000000		! INTEVTE2(0xa4000000)
 #else
 INTEVT  = 0xffffffd8
@@ -87,6 +88,10 @@ INTEVT  = 0xff000028
 MMU_TEA = 0xff00000c		! TLB Exception Address Register
 #endif
 
+#if defined(CONFIG_KGDB_NMI)
+NMI_VEC = 0x1c0			! Must catch early for debounce
+#endif
+
 /* Offsets to the stack */
 OFF_R0         =  0		/* Return value. New ABI also arg4 */
 OFF_R1         =  4     	/* New ABI: arg5 */
@@ -97,9 +102,8 @@ OFF_R5         =  20     	/* New ABI: arg1 */
 OFF_R6         =  24     	/* New ABI: arg2 */
 OFF_R7         =  28     	/* New ABI: arg3 */
 OFF_SP	   =  (15*4)
+OFF_PC	   =  (16*4)
 OFF_SR	   =  (16*4+8)
-SYSCALL_NR =  (16*4+6*4)
-
 
 #define k0	r0
 #define k1	r1
@@ -220,10 +224,36 @@ call_dae:
 1:	.long	MMU_TEA
 2:	.long   SYMBOL_NAME(do_address_error)
 
-#if defined(CONFIG_SH_STANDARD_BIOS)
+
+#if defined(CONFIG_SH_STANDARD_BIOS) || defined(CONFIG_SH_KGDB)
+! Handle kernel debug if either kgdb (SW) or gdb-stub (FW) is present.
+! If both are configured, handle the debug traps (breakpoints) in SW,
+! but still allow BIOS traps to FW.
+
 	.align	2
-	/* Unwind the stack and jmp to the debug entry */
 debug_kernel:
+#if defined(CONFIG_SH_STANDARD_BIOS) && defined(CONFIG_SH_KGDB)
+	/* Force BIOS call to FW (debug_trap put TRA in r8) */
+	mov	r8,r0
+	shlr2	r0
+	cmp/eq	#0x3f,r0
+	bt	debug_kernel_fw
+#endif /* CONFIG_SH_STANDARD_BIOS && CONFIG_SH_KGDB */
+
+debug_enter:		
+#if defined(CONFIG_SH_KGDB)
+	/* Jump to kgdb, pass stacked regs as arg */
+debug_kernel_sw:
+	mov.l	3f, r0
+	jmp	@r0
+	 mov	r15, r4
+	.align	2
+3:	.long	SYMBOL_NAME(kgdb_handle_exception)
+#endif /* CONFIG_SH_KGDB */
+
+#if defined(CONFIG_SH_STANDARD_BIOS)
+	/* Unwind the stack and jmp to the debug entry */
+debug_kernel_fw:
 	mov.l	@r15+, r0
 	mov.l	@r15+, r1
 	mov.l	@r15+, r2
@@ -259,11 +289,14 @@ debug_kernel:
 	.align	2
 1:	.long	0x300000f0
 2:	.long	SYMBOL_NAME(gdb_vbr_vector)
-#endif
+#endif /* CONFIG_SH_STANDARD_BIOS */
+
+#endif /* CONFIG_SH_STANDARD_BIOS || CONFIG_SH_KGDB */
+
 
 	.align	2
 debug_trap:	
-#if defined(CONFIG_SH_STANDARD_BIOS)
+#if defined(CONFIG_SH_STANDARD_BIOS) || defined(CONFIG_SH_KGDB)
 	mov	#OFF_SR, r0
 	mov.l	@(r0,r15), r0		! get status register
 	shll	r0
@@ -304,7 +337,8 @@ ENTRY(ret_from_fork)
 	mov.l	@(tsk_ptrace,r0), r0	! Is current PTRACE_SYSCALL'd?
 	mov	#PT_TRACESYS, r1
 	tst	r1, r0
-	bt	ret_from_syscall
+	bt/s	syscall_ret
+	 mov	#0, r0
 	bra	syscall_ret_trace
 	 nop	 
 
@@ -346,29 +380,11 @@ system_call:
 	mov.l	@r9, r8
 	!
 	! Is the trap argument >= 0x20? (TRA will be >= 0x80)
-	mov	#0x20, r9
-	extu.b	r9, r9
-	shll2	r9
-	cmp/hs	r9, r8
+	mov	#0x7f, r9
+	cmp/hi	r9, r8
 	bt	debug_trap
 	!
-	mov	#SYSCALL_NR, r14
-	add	r15, r14
-	!
-#ifdef COMPAT_OLD_SYSCALL_ABI
-	mov	#0x40, r9
-	cmp/hs	r9, r8
-	bf/s	old_abi_system_call
-	 nop
-#endif
 	! New Syscall ABI
-	add	#-0x40, r8
-	shlr2	r8
-	shll8	r8
-	shll8	r8 		    	! r8 = num_args<<16
-	mov	r3, r10
-	or	r8, r10	! Encode syscall # and # of arguments
-	mov.l	r10, @r14		! set syscall_nr
 	STI()
 	!
 	stc	k_current, r11
@@ -416,6 +432,10 @@ system_call:
 	mov.l	__sct, r11
 	add	r11, r9
 	mov.l	@r9, r11
+	!		    Prepare args for do_signal on syscall return
+	mov	#1, r8			! indicate it's syscall return
+	mov.l	@(OFF_R0,r15), r9	! save original r0 (syscall arg4)
+	!
 	jmp	@r11	    	! jump to specific syscall handler
 	 nop
 
@@ -426,74 +446,6 @@ syscall_ret_trace:
 	mova	SYMBOL_NAME(ret_from_syscall), r0
 	jmp	@r1    	! Call syscall_trace() which notifies superior
 	 lds	r0, pr    	! Then return to ret_from_syscall()
-
-
-
-#ifdef COMPAT_OLD_SYSCALL_ABI
-! Handle old ABI system call.
-! Note that ptrace(SYSCALL) is not supported for the old ABI.
-! At this point:
-!   r0, r4-7 as per ABI
-!   r8  = value of TRA register (= num_args<<2)
-!   r14 = points to SYSCALL_NR in stack frame
-old_abi_system_call:
-	mov 	r0, r9    	    	! Save system call number in r9
-	!   	    	    	    	! arrange for return which pops stack
-	mov.l	__old_abi_syscall_ret, r10
-	lds	r10, pr
-	!				  Build the stack frame if TRA > 0
-	mov	r8, r10
-	cmp/pl	r10
-	bf	0f
-	mov.l	@(OFF_SP,r15), r0	! get original user stack
-7:	add	#-4, r10
-4:	mov.l	@(r0,r10), r1	! May cause address error exception..
-	mov.l	r1, @-r15
-	cmp/pl	r10
-	bt	7b
-0:
-	mov.l	r9, @r14	    	! set syscall_nr
-	STI()
-	!   	    	    Call the system call handler through the table.
-	!   	    	    First check for bad syscall number
-	mov.l	__n_sys, r10
-	cmp/hs	r10, r9
-	bf	2f
-	!   	    	    Bad syscall number
-	rts			! return to old_abi_syscall_ret
-    	 mov	#-ENOSYS, r0
-	!   	    	    Good syscall number
-2:	shll2	r9		! x4
-	mov.l	__sct, r11
-	add	r11, r9
-	mov.l	@r9, r11
-	jmp	@r11	    	! call specific syscall handler,
-	 nop
-
-    	.align 2
-__old_abi_syscall_ret:
-	.long	old_abi_syscall_ret
-
-    	! This code gets called on address error exception when copying
-	! syscall arguments from user stack to kernel stack.  It is
-	! supposed to return -EINVAL through old_abi_syscall_ret, but it
-	! appears to have been broken for a long time in that the r0
-	! return value will be saved into the kernel stack relative to r15
-	! but the value of r15 is not correct partway through the loop.
-	! So the user prog is returned its old r0 value, not -EINVAL.
-	! Greg Banks 28 Aug 2000.
-	.section	.fixup,"ax"
-fixup_syscall_argerr:
-    	! First get r15 back to 
-	rts
-    	 mov	#-EINVAL, r0
-    	.previous
-
-	.section	__ex_table, "a"
-	.align	2
-	.long	4b,fixup_syscall_argerr
-    	.previous
-#endif
 
 	.align	2
 __TRA:	.long	TRA
@@ -511,12 +463,28 @@ __INV_IMASK:
 
 	.align	2
 reschedule:
+	! gUSA handling
+	mov.l	@(OFF_SP,r15), r0	! get user space stack pointer
+	mov	r0, r1
+	shll	r0
+	bf/s	1f
+	 shll	r0
+	bf/s	1f
+	 mov	#OFF_PC, r0
+	! 				  SP >= 0xc0000000 : gUSA mark
+	mov.l	@(r0,r15), r2		! get user space PC (program counter)
+	mov.l	@(OFF_R0,r15), r3	! end point
+	cmp/hs	r3, r2			! r2 >= r3? 
+	bt	1f
+	add	r3, r1			! rewind point #2
+	mov.l	r1, @(r0,r15)		! reset PC to rewind point #2
+	!
+1:	mov.l	2f, r1
 	mova	SYMBOL_NAME(ret_from_syscall), r0
-	mov.l	1f, r1
 	jmp	@r1
 	 lds	r0, pr
 	.align	2
-1:	.long	SYMBOL_NAME(schedule)
+2:	.long	SYMBOL_NAME(schedule)
 
 ret_from_irq:
 ret_from_exception:
@@ -527,14 +495,9 @@ ret_from_exception:
 	bt	restore_all	! Yes, it's from kernel, go back soon
 	!
 	bra	ret_from_syscall
-	 nop
+	 mov	#0, r8		! indicate it's *not* syscall return
 
 	.align 2
-#ifdef COMPAT_OLD_SYSCALL_ABI
-old_abi_syscall_ret:
-	add	r8, r15	! pop off the arguments
-	/* fall through */
-#endif
 syscall_ret:
 	mov.l	r0, @(OFF_R0,r15)	! save the return value
 	/* fall through */
@@ -553,9 +516,11 @@ ENTRY(ret_from_syscall)
 	tst	r0, r0
 	bt	restore_all
 signal_return:
+	mov.l	__do_signal, r1
 	mov	r15, r4
 	mov	#0, r5
-	mov.l	__do_signal, r1
+	mov	r8, r6
+	mov	r9, r7
 	mova	restore_all, r0
 	jmp	@r1
 	 lds	r0, pr
@@ -567,12 +532,6 @@ __irq_stat:
 
 	.align 2
 restore_all:
-#if defined(__SH4__)
-	mov.l	__fpu_prepare_fd, r0
-	jsr	@r0
-	 stc	sr, r4
-#endif
-	!
 	mov.l	@r15+, r0
 	mov.l	@r15+, r1
 	mov.l	@r15+, r2
@@ -585,7 +544,7 @@ restore_all:
 	stc	sr, r8
 	mov.l	__blrb_flags, r9	! BL =1, RB=1
 	or	r9, r8
-	ldc	r8, sr		! here, change the register bank
+	ldc	r8, sr			! here, change the register bank
 	!
 	mov.l	@r15+, r8
 	mov.l	@r15+, r9
@@ -594,25 +553,60 @@ restore_all:
 	mov.l	@r15+, r12
 	mov.l	@r15+, r13
 	mov.l	@r15+, r14
-	mov.l	@r15+, k4	! original stack pointer
+	mov.l	@r15+, k4		! original stack pointer
 	ldc.l	@r15+, spc
 	lds.l	@r15+, pr
-	mov.l	@r15+, k3	! original SR
+	mov.l	@r15+, k3		! original SR
 	ldc.l	@r15+, gbr
 	lds.l	@r15+, mach
 	lds.l	@r15+, macl
-	add	#4, r15	! Skip syscall number
+ 
+#ifdef CONFIG_SH_DSP
+	mov.l	@r15+, k0		! DSP mode marker
+	mov.l	5f, k1
+	cmp/eq	k0, k1			! Do we have a DSP stack frame?
+	bf	skip_restore
+
+	stc	sr, k0			! Enable CPU DSP mode
+	or	k1, k0			! (within kernel it may be disabled)
+	ldc	k0, sr
+	mov	r2, k0			! Backup r2
+
+	! Restore DSP registers from stack
+	mov	r15, r2
+	movs.l	@r2+, a1
+	movs.l	@r2+, a0g
+	movs.l	@r2+, a1g
+	movs.l	@r2+, m0
+	movs.l	@r2+, m1
+	mov	r2, r15
+
+	lds.l	@r15+, a0
+	lds.l	@r15+, x0
+	lds.l	@r15+, x1
+	lds.l	@r15+, y0
+	lds.l	@r15+, y1
+	lds.l	@r15+, dsr
+	ldc.l	@r15+, rs
+	ldc.l	@r15+, re
+	ldc.l	@r15+, mod
+
+	mov	k0, r2			! Restore r2
+skip_restore:
+#endif
+
+	!
 	!
 	! Calculate new SR value
-	mov	k3, k2	! original SR value
+	mov	k3, k2			! original SR value
 	mov.l	1f, k1
 	stc	sr, k0
-	and	k1, k0	! Get current FD-bit
+	and	k1, k0			! Get current FD-bit
 	mov.l	2f, k1
-	and	k1, k2	! Mask orignal SR value
-	or	k0, k2	! Inherit current FD-bit
+	and	k1, k2			! Mask orignal SR value
+	or	k0, k2			! Inherit current FD-bit
 	!
-	mov	k3, k0	! Calculate IMASK-bits
+	mov	k3, k0			! Calculate IMASK-bits
 	shlr2	k0
 	and	#0x3c, k0
 	cmp/eq	#0x3c, k0
@@ -620,72 +614,30 @@ restore_all:
 	 shll2	k0
 	mov	g_imask, k0
 	!
-7:	or	k0, k2	! Set the IMASK-bits
+7:	or	k0, k2			! Set the IMASK-bits
 	ldc	k2, ssr
 	!
-#if defined(__SH4__)
-	shll	k2
-	shll	k2
-	bf	9f		! user mode
-	/* Kernel to kernel transition */
-	mov.l	1f, k1
-	tst	k1, k3
-	bf	9f		! it hadn't FPU
-	! Kernel to kernel and FPU was used
-	! There's the case we don't get FPU now
-	stc	sr, k2
-	tst	k1, k2
-	bt	8f
-	! We need to grab FPU here
-	xor	k1, k2
-	ldc	k2, sr		! Grab FPU
-	mov.l	__init_task_flags, k1
-	mov.l	@k1, k2
-	mov.l	__PF_USEDFPU, k0
-	or	k0, k2
-	mov.l	k2, @k1		! Set init_task.flags |= PF_USEDFPU
-	!
-	! Restoring FPU...
-	!
-8:	mov.l	3f, k1
-	lds	k1, fpscr
-	fmov.s	@r15+, fr0
-	fmov.s	@r15+, fr1
-	fmov.s	@r15+, fr2
-	fmov.s	@r15+, fr3
-	fmov.s	@r15+, fr4
-	fmov.s	@r15+, fr5
-	fmov.s	@r15+, fr6
-	fmov.s	@r15+, fr7
-	fmov.s	@r15+, fr8
-	fmov.s	@r15+, fr9
-	fmov.s	@r15+, fr10
-	fmov.s	@r15+, fr11
-	fmov.s	@r15+, fr12
-	fmov.s	@r15+, fr13
-	fmov.s	@r15+, fr14
-	fmov.s	@r15+, fr15
-	lds.l	@r15+, fpscr
-	lds.l	@r15+, fpul
-9:
+#if defined(CONFIG_KGDB_NMI)
+	! Clear in_nmi
+	mov.l	4f, k0
+	mov	#0, k1
+	mov.b	k1, @k0
 #endif
+	mov.l	@r15+, k2		! restore EXPEVT
 	mov	k4, r15
 	rte
 	 nop
 
 	.align	2
 __blrb_flags:	.long	0x30000000
-#if defined(__SH4__)
-__fpu_prepare_fd:
-	.long	SYMBOL_NAME(fpu_prepare_fd)
-__init_task_flags:
-	.long	SYMBOL_NAME(init_task_union)+4
-__PF_USEDFPU:
-	.long	PF_USEDFPU
-#endif
 1:	.long	0x00008000	! FD
 2:	.long	0xffff7f0f	! ~(IMASK+FD)
 3:	.long	0x00080000	! SZ=0, PR=1
+#if defined(CONFIG_KGDB_NMI)
+4:	.long	SYMBOL_NAME(in_nmi)
+#endif
+5:	.long	0x00001000	! DSP
+
 
 ! Exception Vector Base
 !
@@ -717,6 +669,22 @@ tlb_miss:
 interrupt:
 	mov.l	2f, k2
 	mov.l	3f, k3
+#if defined(CONFIG_KGDB_NMI)
+	! Debounce (filter nested NMI)
+	mov.l	@k2, k0
+	mov.l	5f, k1
+	cmp/eq	k1, k0
+	bf	0f
+	mov.l	6f, k1
+	tas.b	@k1
+	bt	0f
+	rte
+	 nop
+	.align	2
+5:	.long	NMI_VEC
+6:	.long	SYMBOL_NAME(in_nmi)
+0:
+#endif /* defined(CONFIG_KGDB_NMI) */
 	bra	handle_exception
 	 mov.l	@k2, k2
 
@@ -732,61 +700,56 @@ handle_exception:
 	! Using k0, k1 for scratch registers (r0_bank1, r1_bank),
 	! save all registers onto stack.
 	!
-	stc	ssr, k0	! from kernel space?
-	shll	k0		! Check MD bit (bit30) by shifting it into the T bit
-	shll	k0
-#if defined(__SH4__)
-	bf/s	8f		! it's from user to kernel transition
-	 mov	r15, k0	! save original stack to k0
-	/* It's a kernel to kernel transition. */
-	/* Is the FPU disabled? */
-	mov.l	2f, k1
-	stc	ssr, k0
-	tst	k1, k0
-	mov.l	4f, k1
-	bf/s	9f		! FPU is not enabled, no need to save it
-	 mov	r15, k0	! save original stack to k0
-	! FPU is enabled, save it
-	! 
-	! /* Currently it's not the case for GCC (only udivsi3_i4, divsi3_i4) */
-	sts.l	fpul,  @-r15
-	sts.l	fpscr, @-r15
-	mov.l	6f, k1
-	lds	k1, fpscr
-	mov.l	3f, k1
-	fmov.s	fr15, @-r15
-	fmov.s	fr14, @-r15
-	fmov.s	fr13, @-r15
-	fmov.s	fr12, @-r15
-	fmov.s	fr11, @-r15
-	fmov.s	fr10, @-r15
-	fmov.s	fr9, @-r15
-	fmov.s	fr8, @-r15
-	fmov.s	fr7, @-r15
-	fmov.s	fr6, @-r15
-	fmov.s	fr5, @-r15
-	fmov.s	fr4, @-r15
-	fmov.s	fr3, @-r15
-	fmov.s	fr2, @-r15
-	fmov.s	fr1, @-r15
-	bra 9f
-	 fmov.s	fr0, @-r15
-#else
-	mov.l	3f, k1
-	bt/s	9f		! it's a kernel to kernel transition, and skip the FPU save.
-	 mov	r15, k0	! save original stack to k0 anyway
-#endif
-8:	/* User space to kernel */
+	stc	ssr, k0		! Is it from kernel space?
+	shll	k0		! Check MD bit (bit30) by shifting it into...
+	shll	k0		!       ...the T bit
+	bt/s	9f		! It's a kernel to kernel transition.
+	 mov	r15, k0		! save original stack to k0
+	/* User space to kernel */
 	mov	#0x20, k1
-	shll8	k1			! k1 <= 8192 == THREAD_SIZE
+	shll8	k1		! k1 <= 8192 == THREAD_SIZE
 	add	current, k1
 	mov	k1, r15		! change to kernel stack
 	!
-	mov.l	4f, k1			! let kernel release FPU
-9:	! Save the user registers on the stack.
-	! At this point, k1 should have been set to the new SR value
-  	mov	#-1, k4
-	mov.l	k4, @-r15		! syscall_nr (default: -1)
+9:	mov.l	3f, k1
+	!
+#ifdef CONFIG_SH_DSP
+	mov.l	r2, @-r15		! Save r2, we need another reg
+	stc	sr, k4
+	mov.l	4f, r2
+	tst	r2, k4			! Check if in DSP mode
+	mov.l	@r15+, r2		! Restore r2 now
+	bt/s	skip_save
+	 mov	#0, k4			! Set marker for no stack frame
+
+	mov	r2, k4			! Backup r2 (in k4) for later
+
+	! Save DSP registers on stack
+	stc.l	mod, @-r15
+	stc.l	re, @-r15
+	stc.l	rs, @-r15
+	sts.l	dsr, @-r15
+	sts.l	y1, @-r15
+	sts.l	y0, @-r15
+	sts.l	x1, @-r15
+	sts.l	x0, @-r15
+	sts.l	a0, @-r15
+	mov     r15, r2
+	movs.l	a1, @-r2
+	movs.l	a0g, @-r2
+	movs.l	a1g, @-r2
+	movs.l	m0, @-r2
+	movs.l	m1, @-r2
+	mov	r2, r15
+
+	mov	k4, r2			! Restore r2
+	mov.l	4f, k4			! Force DSP stack frame
+skip_save:
+	mov.l	k4, @-r15		! Push DSP mode marker onto stack
+#endif
+
+	! Save the user registers on the stack.
+	mov.l	k2, @-r15	! EXPEVT
 	!
 	sts.l	macl, @-r15
 	sts.l	mach, @-r15
@@ -806,11 +769,11 @@ handle_exception:
 	mov.l	r9, @-r15
 	mov.l	r8, @-r15
 	!
-	stc	sr, r8	! Back to normal register bank, and
-	or	k1, r8	! Block all interrupts, may release FPU
+	stc	sr, r8		! Back to normal register bank, and
+	or	k1, r8		! Block all interrupts
 	mov.l	5f, k1
-	and	k1, r8	! ...
-	ldc	r8, sr	! ...changed here.
+	and	k1, r8		! ...
+	ldc	r8, sr		! ...changed here.
 	!
 	mov.l	r7, @-r15
 	mov.l	r6, @-r15
@@ -831,9 +794,8 @@ handle_exception:
 	 nop
 	.align	2
 1:	.long	SYMBOL_NAME(exception_handling_table)
-2:	.long	0x00008000	! FD=1
 3:	.long	0x000000f0	! FD=0, IMASK=15
-4:	.long	0x000080f0	! FD=1, IMASK=15
+4:	.long	0x00001000	! DSP bit set
 5:	.long	0xcfffffff	! RB=0, BL=0
 6:	.long	0x00080000	! SZ=0, PR=1
 
@@ -862,7 +824,11 @@ ENTRY(exception_handling_table)
 	.long	error	! reserved_instruction      (filled by trap_init)
 	.long	error	! illegal_slot_instruction  (filled by trap_init)
 ENTRY(nmi_slot)
+#if defined (CONFIG_KGDB_NMI)
+	.long	debug_enter			! Allow trap to debugger
+#else
 	.long	none				! Not implemented yet
+#endif
 ENTRY(user_break_point_trap)
 	.long	break_point_trap
 ENTRY(interrupt_table)
@@ -900,7 +866,8 @@ ENTRY(interrupt_table)
 	.long	SYMBOL_NAME(do_IRQ)	!      rovi
 	.long	SYMBOL_NAME(do_IRQ)
 	.long	SYMBOL_NAME(do_IRQ)
-#if  defined(CONFIG_CPU_SUBTYPE_SH7707) || defined(CONFIG_CPU_SUBTYPE_SH7709)
+#if defined(CONFIG_CPU_SUBTYPE_SH7300) || defined(CONFIG_CPU_SUBTYPE_SH7707) || \
+    defined(CONFIG_CPU_SUBTYPE_SH7709)
 	.long	SYMBOL_NAME(do_IRQ)	! 32 IRQ  irq0
 	.long	SYMBOL_NAME(do_IRQ)	! 33      irq1
 	.long	SYMBOL_NAME(do_IRQ)	! 34      irq2
@@ -930,10 +897,57 @@ ENTRY(interrupt_table)
 	.long	SYMBOL_NAME(do_IRQ)	! 58      bri2
 	.long	SYMBOL_NAME(do_IRQ)	! 59      txi2
 	.long	SYMBOL_NAME(do_IRQ)	! 60 ADC  adi
-#if defined(CONFIG_CPU_SUBTYPE_SH7707)
+#if defined(CONFIG_CPU_SUBTYPE_SH7300) || defined(CONFIG_CPU_SUBTYPE_SH7707)
 	.long   SYMBOL_NAME(do_IRQ)	! 61 LCDC lcdi
 	.long   SYMBOL_NAME(do_IRQ)	! 62 PCC  pcc0i
 	.long   SYMBOL_NAME(do_IRQ)	! 63      pcc1i
+#if defined(CONFIG_CPU_SUBTYPE_SH7300)
+	.long   SYMBOL_NAME(do_IRQ)	! 64
+	.long   SYMBOL_NAME(do_IRQ)	! 65
+	.long   SYMBOL_NAME(do_IRQ)	! 66
+	.long   SYMBOL_NAME(do_IRQ)	! 67
+	.long   SYMBOL_NAME(do_IRQ)	! 68
+	.long   SYMBOL_NAME(do_IRQ)	! 69
+	.long   SYMBOL_NAME(do_IRQ)	! 70
+	.long   SYMBOL_NAME(do_IRQ)	! 71
+	.long   SYMBOL_NAME(do_IRQ)	! 72
+	.long   SYMBOL_NAME(do_IRQ)	! 73
+	.long   SYMBOL_NAME(do_IRQ)	! 74
+	.long   SYMBOL_NAME(do_IRQ)	! 75
+	.long   SYMBOL_NAME(do_IRQ)	! 76
+	.long   SYMBOL_NAME(do_IRQ)	! 77
+	.long   SYMBOL_NAME(do_IRQ)	! 78
+	.long   SYMBOL_NAME(do_IRQ)	! 79
+	.long   SYMBOL_NAME(do_IRQ)	! 80 SCIF0(SH7300)
+	.long   SYMBOL_NAME(do_IRQ)	! 81
+	.long   SYMBOL_NAME(do_IRQ)	! 82
+	.long   SYMBOL_NAME(do_IRQ)	! 83
+	.long   SYMBOL_NAME(do_IRQ)	! 84
+	.long   SYMBOL_NAME(do_IRQ)	! 85
+	.long   SYMBOL_NAME(do_IRQ)	! 86
+	.long   SYMBOL_NAME(do_IRQ)	! 87
+	.long   SYMBOL_NAME(do_IRQ)	! 88
+	.long   SYMBOL_NAME(do_IRQ)	! 89
+	.long   SYMBOL_NAME(do_IRQ)	! 90
+	.long   SYMBOL_NAME(do_IRQ)	! 91
+	.long   SYMBOL_NAME(do_IRQ)	! 92
+	.long   SYMBOL_NAME(do_IRQ)	! 93
+	.long   SYMBOL_NAME(do_IRQ)	! 94
+	.long   SYMBOL_NAME(do_IRQ)	! 95
+	.long   SYMBOL_NAME(do_IRQ)	! 96
+	.long   SYMBOL_NAME(do_IRQ)	! 97
+	.long   SYMBOL_NAME(do_IRQ)	! 98
+	.long   SYMBOL_NAME(do_IRQ)	! 99
+	.long   SYMBOL_NAME(do_IRQ)	! 100
+	.long   SYMBOL_NAME(do_IRQ)	! 101
+	.long   SYMBOL_NAME(do_IRQ)	! 102
+	.long   SYMBOL_NAME(do_IRQ)	! 103
+	.long   SYMBOL_NAME(do_IRQ)	! 104
+	.long   SYMBOL_NAME(do_IRQ)	! 105
+	.long   SYMBOL_NAME(do_IRQ)	! 106
+	.long   SYMBOL_NAME(do_IRQ)	! 107
+	.long   SYMBOL_NAME(do_IRQ)	! 108
+#endif
 #endif
 #elif defined(__SH4__)
 	.long	SYMBOL_NAME(do_IRQ)	! 32 Hitachi UDI
@@ -978,7 +992,7 @@ ENTRY(interrupt_table)
 	.long	SYMBOL_NAME(do_IRQ)	!     pwon
 	.long	SYMBOL_NAME(do_IRQ)	!     pwdwn
 	.long	SYMBOL_NAME(do_IRQ)	!     err
-#elif defined(CONFIG_CPU_SUBTYPE_ST40STB1)
+#elif defined(CONFIG_CPU_SUBTYPE_ST40)
 	.long	error			!  50 0x840
 	.long	error			!  51 0x860
 	.long	error			!  52 0x880
@@ -1010,14 +1024,14 @@ ENTRY(interrupt_table)
 	.long	SYMBOL_NAME(do_IRQ)	!  78 0xbc0 DMA ERR
 	.long	error			!  79 0xbe0
 	.long	SYMBOL_NAME(do_IRQ)	!  80 0xc00 PIO0
-	.long	SYMBOL_NAME(do_IRQ)	!  81 0xc20 PIO1
-	.long	SYMBOL_NAME(do_IRQ)	!  82 0xc40 PIO2
+	.long	error			!  81 0xc20
+	.long	error			!  82 0xc40
 	.long	error			!  83 0xc60
-	.long	error			!  84 0xc80
+	.long	SYMBOL_NAME(do_IRQ)	!  84 0xc80 PIO1
 	.long	error			!  85 0xca0
 	.long	error			!  86 0xcc0
 	.long	error			!  87 0xce0
-	.long	error			!  88 0xd00
+	.long	SYMBOL_NAME(do_IRQ)	!  88 0xd00 PIO2
 	.long	error			!  89 0xd20
 	.long	error			!  90 0xd40
 	.long	error			!  91 0xd60
@@ -1041,6 +1055,7 @@ ENTRY(interrupt_table)
 	.long	error			! 109 0xfa0
 	.long	error			! 110 0xfc0
 	.long	error			! 111 0xfe0
+# if defined(CONFIG_CPU_SUBTYPE_ST40STB1)
 	.long	SYMBOL_NAME(do_IRQ)	! 112 0x1000 Mailbox
 	.long	error			! 113 0x1020
 	.long	error			! 114 0x1040
@@ -1073,6 +1088,74 @@ ENTRY(interrupt_table)
 	.long	error			! 141 0x13a0
 	.long	error			! 142 0x13c0
 	.long	error			! 143 0x13e0
+# elif defined(CONFIG_CPU_SUBTYPE_ST40GX1)
+	.long	SYMBOL_NAME(do_IRQ)	! 112 0x1000 Mailbox
+	.long	error			! 113 0x1020
+	.long	error			! 114 0x1040
+	.long	error			! 115 0x1060
+	.long	SYMBOL_NAME(do_IRQ)	! 116 0x1080 SSC0
+	.long	error			! 117 0x10a0
+	.long	error			! 118 0x10c0
+	.long	error			! 119 0x10e0
+	.long	SYMBOL_NAME(do_IRQ)	! 120 0x1100 IRBlaster IRB
+	.long	error			! 121 0x1120
+	.long	error			! 122 0x1140
+	.long	error			! 123 0x1160
+	.long	SYMBOL_NAME(do_IRQ)	! 124 0x1180 USB host
+	.long	error			! 125 0x11a0
+	.long	error			! 126 0x11c0
+	.long	error			! 127 0x11e0
+	.long	SYMBOL_NAME(do_IRQ)	! 128 0x1200 Video Processor BLITER
+	.long	error			! 129 0x1220
+	.long	error			! 130 0x1240
+	.long	error			! 131 0x1260
+	.long	SYMBOL_NAME(do_IRQ)	! 132 0x1280 UART0 UART0
+	.long	error			! 133 0x12a0
+	.long	SYMBOL_NAME(do_IRQ)	! 134 0x12c0       UART2
+	.long	error			! 135 0x12e0
+	.long	SYMBOL_NAME(do_IRQ)	! 136 0x1300 Additional PIO IO_PIO0
+	.long	error			! 137 0x1320
+	.long	error			! 138 0x1340
+	.long	error			! 139 0x1360
+	.long	SYMBOL_NAME(do_IRQ)	! 140 0x1380 EMPI INV_ADDR
+	.long	error			! 141 0x13a0
+	.long	error			! 142 0x13c0
+	.long	error			! 143 0x13e0
+	.long	SYMBOL_NAME(do_IRQ)	! 144 0x1400 MAFE
+	.long	error			! 145 0x1420
+	.long	error			! 146 0x1440
+	.long	error			! 147 0x1460
+	.long	SYMBOL_NAME(do_IRQ)	! 148 0x1480 PWM
+	.long	error			! 149 0x14a0
+	.long	error			! 150 0x14c0
+	.long	error			! 151 0x14e0
+	.long	SYMBOL_NAME(do_IRQ)	! 152 0x1500 SSC1
+	.long	error			! 153 0x1520
+	.long	error			! 154 0x1540
+	.long	error			! 155 0x1560
+	.long	SYMBOL_NAME(do_IRQ)	! 156 0x1580 Additional PIO IO_PIO1
+	.long	error			! 157 0x15a0
+	.long	error			! 158 0x15c0
+	.long	error			! 159 0x15e0
+	.long	SYMBOL_NAME(do_IRQ)	! 160 0x1600 USB target
+	.long	error			! 161 0x1620
+	.long	error			! 162 0x1640
+	.long	error			! 163 0x1660
+	.long	SYMBOL_NAME(do_IRQ)	! 164 0x1680 UART1 UART1
+	.long	error			! 165 0x16a0
+	.long	error			! 166 0x16c0
+	.long	error			! 167 0x16e0
+	.long	SYMBOL_NAME(do_IRQ)	! 168 0x1700 Teletext TTXT
+	.long	error			! 169 0x1720
+	.long	error			! 170 0x1740
+	.long	error			! 171 0x1760
+	.long	SYMBOL_NAME(do_IRQ)	! 172 0x1780 Video Sync VTG
+	.long	SYMBOL_NAME(do_IRQ)	! 173 0x17a0            DVP0
+	.long	SYMBOL_NAME(do_IRQ)	! 174 0x17c0            DVP1
+	.long	error			! 175 0x17e0
+# else
+#  error Unknown ST40 type
+# endif
 #endif
 
 ENTRY(sys_call_table)
@@ -1185,7 +1268,7 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_newstat)
 	.long SYMBOL_NAME(sys_newlstat)
 	.long SYMBOL_NAME(sys_newfstat)
-	.long SYMBOL_NAME(sys_uname)
+	.long SYMBOL_NAME(sys_ni_syscall)	/* old uname */
 	.long SYMBOL_NAME(sys_ni_syscall)	/* 110 */ /* iopl */
 	.long SYMBOL_NAME(sys_vhangup)
 	.long SYMBOL_NAME(sys_ni_syscall)	/* idle */
@@ -1199,7 +1282,7 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_clone)		/* 120 */
 	.long SYMBOL_NAME(sys_setdomainname)
 	.long SYMBOL_NAME(sys_newuname)
-	.long SYMBOL_NAME(sys_ni_syscall)	/* sys_modify_ldt */
+	.long SYMBOL_NAME(sys_cacheflush)	/* sys_modify_ldt for i386 */
 	.long SYMBOL_NAME(sys_adjtimex)
 	.long SYMBOL_NAME(sys_mprotect)		/* 125 */
 	.long SYMBOL_NAME(sys_sigprocmask)
@@ -1256,8 +1339,8 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_rt_sigtimedwait)
 	.long SYMBOL_NAME(sys_rt_sigqueueinfo)
 	.long SYMBOL_NAME(sys_rt_sigsuspend)
-	.long SYMBOL_NAME(sys_pread)		/* 180 */
-	.long SYMBOL_NAME(sys_pwrite)
+	.long SYMBOL_NAME(sys_pread_wrapper)	/* 180 */
+	.long SYMBOL_NAME(sys_pwrite_wrapper)
 	.long SYMBOL_NAME(sys_chown16)
 	.long SYMBOL_NAME(sys_getcwd)
 	.long SYMBOL_NAME(sys_capget)
@@ -1299,15 +1382,16 @@ ENTRY(sys_call_table)
 	.long SYMBOL_NAME(sys_getdents64)	/* 220 */
 	.long SYMBOL_NAME(sys_fcntl64)
 	.long SYMBOL_NAME(sys_gettid)
-	.long SYMBOL_NAME(sys_tkill)
-
+ 	.long SYMBOL_NAME(sys_tkill)
+	.long SYMBOL_NAME(sys_ni_syscall)
+	.long SYMBOL_NAME(sys_readahead)	/* 225 */
 	/*
 	 * NOTE!! This doesn't have to be exact - we just have
 	 * to make sure we have _enough_ of the "sys_ni_syscall"
 	 * entries. Don't panic if you notice that this hasn't
 	 * been shrunk every time we add a new system call.
 	 */
-	.rept NR_syscalls-221
+	.rept NR_syscalls-(.-sys_call_table)/4
 		.long SYMBOL_NAME(sys_ni_syscall)
 	.endr
 

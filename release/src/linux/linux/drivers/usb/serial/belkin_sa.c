@@ -292,6 +292,28 @@ static void belkin_sa_read_int_callback (struct urb *urb)
 
 	/* Now to report any errors */
 	priv->last_lsr = data[BELKIN_SA_LSR_INDEX];
+#if 0
+	/*
+	 * fill in the flip buffer here, but I do not know the relation
+	 * to the current/next receive buffer or characters.  I need
+	 * to look in to this before committing any code.
+	 */
+	if (priv->last_lsr & BELKIN_SA_LSR_ERR) {
+		tty = port->tty;
+		/* Overrun Error */
+		if (priv->last_lsr & BELKIN_SA_LSR_OE) {
+		}
+		/* Parity Error */
+		if (priv->last_lsr & BELKIN_SA_LSR_PE) {
+		}
+		/* Framing Error */
+		if (priv->last_lsr & BELKIN_SA_LSR_FE) {
+		}
+		/* Break Indicator */
+		if (priv->last_lsr & BELKIN_SA_LSR_BI) {
+		}
+	}
+#endif
 
 	/* INT urbs are automatically re-submitted */
 }

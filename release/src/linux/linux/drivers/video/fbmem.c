@@ -124,22 +124,29 @@ extern int sisfb_init(void);
 extern int sisfb_setup(char*);
 extern int stifb_init(void);
 extern int stifb_setup(char*);
+extern int pmagaafb_init(void);
 extern int pmagbafb_init(void);
 extern int pmagbbfb_init(void);
-extern void maxinefb_init(void);
+extern int maxinefb_init(void);
 extern int tx3912fb_init(void);
 extern int radeonfb_init(void);
 extern int radeonfb_setup(char*);
+extern int intelfb_init(void);
+extern int intelfb_setup(char*);
 extern int e1355fb_init(void);
 extern int e1355fb_setup(char*);
 extern int e1356fb_init(void);
 extern int e1356fb_setup(char*);
 extern int au1100fb_init(void);
 extern int au1100fb_setup(char*);
+extern int au1200fb_init(void);
+extern int au1200fb_setup(char*);
 extern int pvr2fb_init(void);
 extern int pvr2fb_setup(char*);
 extern int sstfb_init(void);
 extern int sstfb_setup(char*);
+extern int it8181fb_init(void);
+extern int it8181fb_setup(char*);
 
 static struct {
 	const char *name;
@@ -200,6 +207,9 @@ static struct {
 #endif
 #ifdef CONFIG_FB_RADEON
 	{ "radeon", radeonfb_init, radeonfb_setup },
+#endif
+#ifdef CONFIG_FB_INTEL
+	{ "intelfb", intelfb_init, intelfb_setup },
 #endif
 #ifdef CONFIG_FB_CONTROL
 	{ "controlfb", control_init, control_setup },
@@ -308,6 +318,9 @@ static struct {
 #ifdef CONFIG_FB_PVR2
 	{ "pvr2", pvr2fb_init, pvr2fb_setup },
 #endif
+#ifdef CONFIG_FB_PMAG_AA
+	{ "pmagaafb", pmagaafb_init, NULL },
+#endif
 #ifdef CONFIG_FB_PMAG_BA
 	{ "pmagbafb", pmagbafb_init, NULL },
 #endif
@@ -320,6 +333,12 @@ static struct {
 #ifdef CONFIG_FB_AU1100
 	{ "au1100fb", au1100fb_init, au1100fb_setup },
 #endif 
+#ifdef CONFIG_FB_AU1200
+	{ "au1200fb", au1200fb_init, au1200fb_setup },
+#endif 
+#ifdef CONFIG_FB_IT8181
+	{ "it8181fb", it8181fb_init, it8181fb_setup },
+#endif
 
 
 	/*
@@ -374,7 +393,7 @@ static int fbmem_read_proc(char *buf, char **start, off_t offset,
 	int clen;
 
 	clen = 0;
-	for (fi = registered_fb; fi < &registered_fb[FB_MAX] && len < 4000; fi++)
+	for (fi = registered_fb; fi < &registered_fb[FB_MAX] && clen < 4000; fi++)
 		if (*fi)
 			clen += sprintf(buf + clen, "%d %s\n",
 				        GET_FB_IDX((*fi)->node),
@@ -390,23 +409,27 @@ static int fbmem_read_proc(char *buf, char **start, off_t offset,
 static ssize_t
 fb_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
-	unsigned long p = *ppos;
+	loff_t p = *ppos;
 	struct inode *inode = file->f_dentry->d_inode;
 	int fbidx = GET_FB_IDX(inode->i_rdev);
 	struct fb_info *info = registered_fb[fbidx];
 	struct fb_ops *fb = info->fbops;
 	struct fb_fix_screeninfo fix;
+	unsigned int size;
 
 	if (! fb || ! info->disp)
 		return -ENODEV;
 
+	if (p < 0)
+		return -EINVAL;
+
 	fb->fb_get_fix(&fix,PROC_CONSOLE(info), info);
-	if (p >= fix.smem_len)
+	size = info->mapped_vram ? info->mapped_vram : fix.smem_len;
+	
+	if (p >= size)
 	    return 0;
-	if (count >= fix.smem_len)
-	    count = fix.smem_len;
-	if (count + p > fix.smem_len)
-		count = fix.smem_len - p;
+	if (count > size - p)
+		count = size - p;
 	if (count) {
 	    char *base_addr;
 
@@ -414,7 +437,7 @@ fb_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 	    count -= copy_to_user(buf, base_addr+p, count);
 	    if (!count)
 		return -EFAULT;
-	    *ppos += count;
+	    *ppos = p + count;
 	}
 	return count;
 }
@@ -422,25 +445,29 @@ fb_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 static ssize_t
 fb_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 {
-	unsigned long p = *ppos;
+	loff_t p = *ppos;
 	struct inode *inode = file->f_dentry->d_inode;
 	int fbidx = GET_FB_IDX(inode->i_rdev);
 	struct fb_info *info = registered_fb[fbidx];
 	struct fb_ops *fb = info->fbops;
 	struct fb_fix_screeninfo fix;
 	int err;
+	unsigned int size;
 
 	if (! fb || ! info->disp)
 		return -ENODEV;
 
+	if (p < 0)
+		return -EINVAL;
+
 	fb->fb_get_fix(&fix, PROC_CONSOLE(info), info);
-	if (p > fix.smem_len)
+	size = info->mapped_vram ? info->mapped_vram : fix.smem_len;
+	
+	if (p > size)
 	    return -ENOSPC;
-	if (count >= fix.smem_len)
-	    count = fix.smem_len;
 	err = 0;
-	if (count + p > fix.smem_len) {
-	    count = fix.smem_len - p;
+	if (count > size - p) {
+	    count = size - p;
 	    err = -ENOSPC;
 	}
 	if (count) {
@@ -448,7 +475,7 @@ fb_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 
 	    base_addr = info->disp->screen_base;
 	    count -= copy_from_user(base_addr+p, buf, count);
-	    *ppos += count;
+	    *ppos = p + count;
 	    err = -EFAULT;
 	}
 	if (count)
@@ -603,7 +630,7 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 
 	/* frame buffer memory */
 	start = fix.smem_start;
-	len = PAGE_ALIGN((start & ~PAGE_MASK)+fix.smem_len);
+	len = PAGE_ALIGN((start & ~PAGE_MASK) + fix.smem_len);
 	if (off >= len) {
 		/* memory mapped io */
 		off -= len;
@@ -652,6 +679,8 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 #elif defined(__sh__)
 	pgprot_val(vma->vm_page_prot) &= ~_PAGE_CACHABLE;
+#elif defined(__hppa__)
+	pgprot_val(vma->vm_page_prot) |= _PAGE_NO_CACHE; 
 #elif defined(__ia64__)
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 #elif defined(__hppa__)
@@ -667,6 +696,7 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 #endif /* !sparc32 */
 }
 
+#if 1 /* to go away in 2.5.0 */
 int GET_FB_IDX(kdev_t rdev)
 {
     int fbidx = MINOR(rdev);
@@ -682,6 +712,7 @@ int GET_FB_IDX(kdev_t rdev)
     }
     return fbidx;
 }
+#endif
 
 static int
 fb_open(struct inode *inode, struct file *file)
@@ -971,6 +1002,8 @@ EXPORT_SYMBOL(register_framebuffer);
 EXPORT_SYMBOL(unregister_framebuffer);
 EXPORT_SYMBOL(registered_fb);
 EXPORT_SYMBOL(num_registered_fb);
+#if 1 /* to go away in 2.5.0 */
 EXPORT_SYMBOL(GET_FB_IDX);
+#endif
 
 MODULE_LICENSE("GPL");

@@ -137,7 +137,7 @@
 #define	SPRN_DBAT2U	0x21C	/* Data BAT 2 Upper Register */
 #define	SPRN_DBAT3L	0x21F	/* Data BAT 3 Lower Register */
 #define	SPRN_DBAT3U	0x21E	/* Data BAT 3 Upper Register */
-#define	SPRN_DBCR	0x3F2	/* Debug Control Regsiter */
+#define	SPRN_DBCR	0x3F2	/* Debug Control Register */
 #define	  DBCR_EDM	0x80000000
 #define	  DBCR_IDM	0x40000000
 #define	  DBCR_RST(x)	(((x) & 0x3) << 28)
@@ -191,13 +191,13 @@
 #define	  ESR_IMCB	0x20000000	/* Instr. Machine Check - Bus error */
 #define	  ESR_IMCT	0x10000000	/* Instr. Machine Check - Timeout */
 #define	  ESR_PIL	0x08000000	/* Program Exception - Illegal */
-#define	  ESR_PPR	0x04000000	/* Program Exception - Priveleged */
+#define	  ESR_PPR	0x04000000	/* Program Exception - Privileged */
 #define	  ESR_PTR	0x02000000	/* Program Exception - Trap */
 #define	  ESR_DST	0x00800000	/* Storage Exception - Data miss */
 #define	  ESR_DIZ	0x00400000	/* Storage Exception - Zone fault */
 #define	SPRN_EVPR	0x3D6	/* Exception Vector Prefix Register */
 #define	SPRN_HASH1	0x3D2	/* Primary Hash Address Register */
-#define	SPRN_HASH2	0x3D3	/* Secondary Hash Address Resgister */
+#define	SPRN_HASH2	0x3D3	/* Secondary Hash Address Register */
 #define	SPRN_HID0	0x3F0	/* Hardware Implementation Register 0 */
 #define	  HID0_EMCP	(1<<31)		/* Enable Machine Check pin */
 #define	  HID0_EBA	(1<<29)		/* Enable Bus Address Parity */
@@ -246,7 +246,7 @@
 #define	SPRN_ICTC	0x3FB	/* Instruction Cache Throttling Control Reg */
 #define	SPRN_IMISS	0x3D4	/* Instruction TLB Miss Register */
 #define	SPRN_IMMR	0x27E  	/* Internal Memory Map Register */
-#define	SPRN_L2CR	0x3F9	/* Level 2 Cache Control Regsiter */
+#define	SPRN_L2CR	0x3F9	/* Level 2 Cache Control Register */
 #define	SPRN_LR		0x008	/* Link Register */
 #define	SPRN_PBL1	0x3FC	/* Protection Bound Lower 1 */
 #define	SPRN_PBL2	0x3FE	/* Protection Bound Lower 2 */
@@ -317,6 +317,7 @@
 #define	    WRS_SYSTEM		3		/* WDT forced system reset */
 #define	  TSR_PIS		0x08000000	/* PIT Interrupt Status */
 #define	  TSR_FIS		0x04000000	/* FIT Interrupt Status */
+#define SPRN_VRSAVE	0x100	/* Vector Register Save Register */
 #define	SPRN_XER	0x001	/* Fixed Point Exception Register */
 #define	SPRN_ZPR	0x3B0	/* Zone Protection Register */
 
@@ -473,8 +474,6 @@
 #define	  IOCR_SPC	0x00000001
 
 
-/* Processor Version Register */
-
 /* Processor Version Register (PVR) field extraction */
 
 #define	PVR_VER(pvr)  (((pvr) >>  16) & 0xFFFF)	/* Version field */
@@ -487,6 +486,7 @@
 #define	PV_ICESTAR	0x0036
 #define	PV_SSTAR	0x0037
 #define	PV_POWER4p	0x0038
+#define PV_POWER4ul	0x0039
 #define	PV_630        	0x0040
 #define	PV_630p	        0x0041
 
@@ -494,6 +494,7 @@
 #define PLATFORM_PSERIES      0x0100
 #define PLATFORM_PSERIES_LPAR 0x0101
 #define PLATFORM_ISERIES_LPAR 0x0201
+#define PLATFORM_LPAR         0x0001
 	
 /*
  * List of interrupt controllers.
@@ -506,7 +507,7 @@
 #define GLUE(a,b) XGLUE(a,b)
 
 /*
- * Begining of traceback info work for asm functions.
+ * Beginning of traceback info work for asm functions.
  */
 #define TB_ASM		0x000C000000000000
 #define TB_GLOBALLINK	0x0000800000000000
@@ -588,11 +589,6 @@ GLUE(GLUE(.LT,NAME),_procname_end):
 #define RUNLATCH	0x0001
 #define RUN_FLAG	0x0002
 
-/* Macros for adjusting thread priority (hardware multi-threading) */
-#define HMT_low()	asm volatile("or 1,1,1")
-#define HMT_medium()	asm volatile("or 2,2,2")
-#define HMT_high()	asm volatile("or 3,3,3")
-
 /* Size of an exception stack frame contained in the paca. */
 #define EXC_FRAME_SIZE 64
 
@@ -609,7 +605,7 @@ void release_thread(struct task_struct *);
 /*
  * Create a new kernel thread.
  */
-extern long kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
+extern long arch_kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
 
 /*
  * Bus types
@@ -619,13 +615,17 @@ extern long kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
 #define MCA_bus 0
 #define MCA_bus__is_a_macro /* for versions in ksyms.c */
 
+#ifndef CONFIG_SMP
 /* Lazy FPU handling on uni-processor */
 extern struct task_struct *last_task_used_math;
+extern struct task_struct *last_task_used_altivec;
+#endif /* CONFIG_SMP */
 
 
 #ifdef __KERNEL__
 /* 64-bit user address space is 41-bits (2TBs user VM) */
-#define TASK_SIZE_USER64 (0x0000020000000000UL)
+/* Subtract PGDIR_SIZE to work around a bug in free_pgtables */ 
+#define TASK_SIZE_USER64 (0x0000020000000000UL - PGDIR_SIZE)
 
 /* 
  * 32-bit user address space is 4GB - 1 page 
@@ -641,8 +641,8 @@ extern struct task_struct *last_task_used_math;
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
-#define TASK_UNMAPPED_BASE_USER32 (STACK_TOP_USER32 / 4)
-#define TASK_UNMAPPED_BASE_USER64 (STACK_TOP_USER64 / 4)
+#define TASK_UNMAPPED_BASE_USER32 PAGE_ALIGN(STACK_TOP_USER32 / 4)
+#define TASK_UNMAPPED_BASE_USER64 PAGE_ALIGN(STACK_TOP_USER64 / 4)
 
 #define TASK_UNMAPPED_BASE (((current->thread.flags & PPC_FLAG_32BIT)||(ppcdebugset(PPCDBG_BINFMT_32ADDR))) ? \
 		TASK_UNMAPPED_BASE_USER32 : TASK_UNMAPPED_BASE_USER64 )
@@ -659,12 +659,23 @@ struct thread_struct {
 	signed long     last_syscall;
 	unsigned long	flags;
 	double		fpr[32];	/* Complete floating point set */
-	unsigned long	fpscr_pad;	/* fpr ... fpscr must be contiguous */
-	unsigned long	fpscr;		/* Floating point status */
+	unsigned long	fpscr;		/* Floating point status (plus pad) */
+	unsigned long	fpexc_mode;	/* Floating-point exception mode */
+	unsigned long	saved_msr;	/* Save MSR across signal handlers */
+	unsigned long	saved_softe;	/* Ditto for Soft Enable/Disable */
+#ifdef CONFIG_ALTIVEC
+	vector128	vr[32];		/* Complete AltiVec set */
+	vector128	vscr;		/* AltiVec status */
+	u32             vrsave[2];      /* 32 bit vrsave is in vrsave[1] */
+#endif /* CONFIG_ALTIVEC */
 };
 
 #define PPC_FLAG_32BIT		0x01
 #define PPC_FLAG_RUN_LIGHT	RUN_FLAG
+
+#ifdef CONFIG_SHARED_MEMORY_ADDRESSING
+#define PPC_FLAG_SHARED   	0x4UL
+#endif
 
 #define INIT_SP		(sizeof(init_stack) + (unsigned long) &init_stack)
 
@@ -675,7 +686,9 @@ struct thread_struct {
 	swapper_pg_dir, /* pgdir */ \
 	0, /* last_syscall */ \
 	PPC_FLAG_RUN_LIGHT, /* flags */ \
-	{0}, 0, 0 \
+	{0}, /* fprs */ \
+	0, /* fpscr */ \
+	MSR_FE0|MSR_FE1, /* fpexc_mode */ \
 }
 
 /*
@@ -704,6 +717,24 @@ unsigned long get_wchan(struct task_struct *p);
 
 #define KSTK_EIP(tsk)  ((tsk)->thread.regs? (tsk)->thread.regs->nip: 0)
 #define KSTK_ESP(tsk)  ((tsk)->thread.regs? (tsk)->thread.regs->gpr[1]: 0)
+
+/* Get/set floating-point exception mode */
+#define GET_FPEXC_CTL(tsk, adr)	get_fpexc_mode((tsk), (adr))
+#define SET_FPEXC_CTL(tsk, val)	set_fpexc_mode((tsk), (val))
+
+extern int get_fpexc_mode(struct task_struct *tsk, unsigned long adr);
+extern int set_fpexc_mode(struct task_struct *tsk, unsigned int val);
+
+static inline unsigned int __unpack_fe01(unsigned long msr_bits)
+{
+	return ((msr_bits & MSR_FE0) >> 10) | ((msr_bits & MSR_FE1) >> 8);
+}
+
+static inline unsigned long __pack_fe01(unsigned int fpmode)
+{
+	return ((fpmode << 10) & MSR_FE0) | ((fpmode << 8) & MSR_FE1);
+}
+
 
 /*
  * NOTE! The task struct and the stack go together
@@ -737,18 +768,6 @@ static inline void prefetchw(const void *x)
 }
 
 #define spin_lock_prefetch(x)	prefetchw(x)
-
-#define cpu_has_largepage()	(__is_processor(PV_POWER4) || \
-				 __is_processor(PV_POWER4p))
-
-#define cpu_has_slb()		(__is_processor(PV_POWER4) || \
-				 __is_processor(PV_POWER4p))
-
-#define cpu_has_tlbiel()	(__is_processor(PV_POWER4) || \
-				 __is_processor(PV_POWER4p))
-
-#define cpu_has_noexecute()	(__is_processor(PV_POWER4) || \
-				 __is_processor(PV_POWER4p))
 
 #endif /* ASSEMBLY */
 

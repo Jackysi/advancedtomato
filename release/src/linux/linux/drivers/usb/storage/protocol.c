@@ -1,6 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  *
- * $Id: protocol.c,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: protocol.c,v 1.13 2002/02/25 00:34:56 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
@@ -53,6 +53,22 @@
 /***********************************************************************
  * Helper routines
  ***********************************************************************/
+ 
+static void * find_data_location(Scsi_Cmnd *srb)
+{
+	if (srb->use_sg) {
+		/*
+		 * This piece of code only works if the first page is
+		 * big enough to hold more than 3 bytes -- which is
+		 * _very_ likely.
+		 */
+		struct scatterlist *sg;
+
+		sg = (struct scatterlist *) srb->request_buffer;
+		return (void *) sg[0].address;
+	} else
+		return (void *) srb->request_buffer;
+}
 
 /* Fix-up the return data from an INQUIRY command to show 
  * ANSI SCSI rev 2 so we don't confuse the SCSI layers above us
@@ -65,19 +81,46 @@ void fix_inquiry_data(Scsi_Cmnd *srb)
 	if (srb->cmnd[0] != INQUIRY)
 		return;
 
-	US_DEBUGP("Fixing INQUIRY data to show SCSI rev 2\n");
+	/* oddly short buffer -- bail out */
+	if (srb->request_bufflen < 3)
+		return;
 
-	/* find the location of the data */
-	if (srb->use_sg) {
-		struct scatterlist *sg;
+	data_ptr = find_data_location(srb);
 
-		sg = (struct scatterlist *) srb->request_buffer;
-		data_ptr = (unsigned char *) sg[0].address;
-	} else
-		data_ptr = (unsigned char *)srb->request_buffer;
+	/* if it's already 2, bail */
+	if ((data_ptr[2] & 7) == 2)
+		return;
+
+	US_DEBUGP("Fixing INQUIRY data to show SCSI rev 2 - was %d\n",
+		data_ptr[2] & 7);
 
 	/* Change the SCSI revision number */
 	data_ptr[2] = (data_ptr[2] & ~7) | 2;
+}
+
+/*
+ * Fix-up the return data from a READ CAPACITY command. A Feiya reader
+ * returns a value that is 1 too large.
+ */
+static void fix_read_capacity(Scsi_Cmnd *srb)
+{
+	unsigned char *dp;
+	unsigned long capacity;
+
+	/* verify that it's a READ CAPACITY command */
+	if (srb->cmnd[0] != READ_CAPACITY)
+		return;
+
+	dp = find_data_location(srb);
+
+	capacity = (dp[0]<<24) + (dp[1]<<16) + (dp[2]<<8) + (dp[3]);
+	US_DEBUGP("US: Fixing capacity: from %ld to %ld\n",
+		capacity+1, capacity);
+	capacity--;
+	dp[0] = (capacity >> 24);
+	dp[1] = (capacity >> 16);
+	dp[2] = (capacity >> 8);
+	dp[3] = (capacity);
 }
 
 /***********************************************************************
@@ -193,6 +236,10 @@ void usb_stor_ufi_command(Scsi_Cmnd *srb, struct us_data *us)
 	 * NOTE: This only works because a Scsi_Cmnd struct field contains
 	 * a unsigned char cmnd[12], so we know we have storage available
 	 */
+
+	/* Pad the ATAPI command with zeros */
+	for (; srb->cmd_len<12; srb->cmd_len++)
+		srb->cmnd[srb->cmd_len] = 0;
 
 	/* set command length to 12 bytes (this affects the transport layer) */
 	srb->cmd_len = 12;
@@ -345,6 +392,10 @@ void usb_stor_transparent_scsi_command(Scsi_Cmnd *srb, struct us_data *us)
 
 		/* fix the INQUIRY data if necessary */
 		fix_inquiry_data(srb);
+
+		/* Fix the READ CAPACITY result if necessary */
+		if (us->flags & US_FL_FIX_CAPACITY)
+			fix_read_capacity(srb);
 	}
 }
 

@@ -346,6 +346,7 @@ static void sym53c416_intr_handle(int irq, void *dev_id, struct pt_regs *regs)
 	unsigned int tot_trans = 0;
 
 	/* We search the base address of the host adapter which caused the interrupt */
+	/* FIXME: should pass dev_id sensibly as hosts[i] */
 	for(i = 0; i < host_index && !base; i++)
 		if(irq == hosts[i].irq)
 			base = hosts[i].base;
@@ -716,6 +717,7 @@ int sym53c416_detect(Scsi_Host_Template *tpnt)
 					continue;
 				save_flags(flags);
 				cli();
+				/* FIXME: Request_irq with CLI is not safe */
 				/* Request for specified IRQ */
 				if(request_irq(hosts[i].irq, sym53c416_intr_handle, 0, ID, NULL))
 				{

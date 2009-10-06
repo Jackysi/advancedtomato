@@ -52,7 +52,6 @@ do {								\
 #endif
 #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
 
-static DECLARE_MUTEX(arpt_mutex);
 
 #define ASSERT_READ_LOCK(x) ARP_NF_ASSERT(down_trylock(&arpt_mutex) != 0)
 #define ASSERT_WRITE_LOCK(x) ARP_NF_ASSERT(down_trylock(&arpt_mutex) != 0)
@@ -102,7 +101,7 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 {
 	char *arpptr = (char *)(arphdr + 1);
 	char *src_devaddr, *tgt_devaddr;
-	u32 *src_ipaddr, *tgt_ipaddr;
+	u32 src_ipaddr, tgt_ipaddr;
 	int i, ret;
 
 #define FWINV(bool,invflg) ((bool) ^ !!(arpinfo->invflags & invflg))
@@ -136,15 +135,16 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 		dprintf("ARP hardware address length mismatch.\n");
 		dprintf("ar_hln: %02x info->arhln: %02x info->arhln_mask: %02x\n",
 			arphdr->ar_hln, arpinfo->arhln, arpinfo->arhln_mask);
+		return 0;
 	}
 
 	src_devaddr = arpptr;
 	arpptr += dev->addr_len;
-	src_ipaddr = (u32 *) arpptr;
+	memcpy(&src_ipaddr, arpptr, sizeof(u32));
 	arpptr += sizeof(u32);
 	tgt_devaddr = arpptr;
 	arpptr += dev->addr_len;
-	tgt_ipaddr = (u32 *) arpptr;
+	memcpy(&tgt_ipaddr, arpptr, sizeof(u32));
 
 	if (FWINV(arp_devaddr_compare(&arpinfo->src_devaddr, src_devaddr, dev->addr_len),
 		  ARPT_INV_SRCDEVADDR) ||
@@ -155,30 +155,29 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 		return 0;
 	}
 
-	if (FWINV(((*src_ipaddr) & arpinfo->smsk.s_addr) != arpinfo->src.s_addr,
+	if (FWINV(((src_ipaddr) & arpinfo->smsk.s_addr) != arpinfo->src.s_addr,
 		  ARPT_INV_SRCIP) ||
-	    FWINV((((*tgt_ipaddr) & arpinfo->tmsk.s_addr) != arpinfo->tgt.s_addr),
+	    FWINV((((tgt_ipaddr) & arpinfo->tmsk.s_addr) != arpinfo->tgt.s_addr),
 		  ARPT_INV_TGTIP)) {
 		dprintf("Source or target IP address mismatch.\n");
 
 		dprintf("SRC: %u.%u.%u.%u. Mask: %u.%u.%u.%u. Target: %u.%u.%u.%u.%s\n",
-			NIPQUAD(*src_ipaddr),
+			NIPQUAD(src_ipaddr),
 			NIPQUAD(arpinfo->smsk.s_addr),
 			NIPQUAD(arpinfo->src.s_addr),
 			arpinfo->invflags & ARPT_INV_SRCIP ? " (INV)" : "");
 		dprintf("TGT: %u.%u.%u.%u Mask: %u.%u.%u.%u Target: %u.%u.%u.%u.%s\n",
-			NIPQUAD(*tgt_ipaddr),
+			NIPQUAD(tgt_ipaddr),
 			NIPQUAD(arpinfo->tmsk.s_addr),
 			NIPQUAD(arpinfo->tgt.s_addr),
 			arpinfo->invflags & ARPT_INV_TGTIP ? " (INV)" : "");
 		return 0;
 	}
 
-	/* Look for ifname matches; this should unroll nicely. */
-	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
-		ret |= (((const unsigned long *)indev)[i]
-			^ ((const unsigned long *)arpinfo->iniface)[i])
-			& ((const unsigned long *)arpinfo->iniface_mask)[i];
+	/* Look for ifname matches.  */
+	for (i = 0, ret = 0; i < IFNAMSIZ; i++) {
+		ret |= (indev[i] ^ arpinfo->iniface[i])
+			& arpinfo->iniface_mask[i];
 	}
 
 	if (FWINV(ret != 0, ARPT_INV_VIA_IN)) {
@@ -189,7 +188,10 @@ static inline int arp_packet_match(const struct arphdr *arphdr,
 	}
 
 	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
-		ret |= (((const unsigned long *)outdev)[i]
+		unsigned long odev;
+		memcpy(&odev, outdev + i*sizeof(unsigned long),
+		       sizeof(unsigned long));
+		ret |= (odev
 			^ ((const unsigned long *)arpinfo->outiface)[i])
 			& ((const unsigned long *)arpinfo->outiface_mask)[i];
 	}
@@ -379,12 +381,12 @@ find_inlist_lock(struct list_head *head,
 }
 #endif
 
-static inline struct arpt_table *find_table_lock(const char *name, int *error, struct semaphore *mutex)
+static inline struct arpt_table *arpt_find_table_lock(const char *name, int *error, struct semaphore *mutex)
 {
 	return find_inlist_lock(&arpt_tables, name, "arptable_", error, mutex);
 }
 
-static inline struct arpt_target *find_target_lock(const char *name, int *error, struct semaphore *mutex)
+struct arpt_target *arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex)
 {
 	return find_inlist_lock(&arpt_target, name, "arpt_", error, mutex);
 }
@@ -534,7 +536,7 @@ static inline int check_entry(struct arpt_entry *e, const char *name, unsigned i
 	}
 
 	t = arpt_get_target(e);
-	target = find_target_lock(t->u.user.name, &ret, &arpt_mutex);
+	target = arpt_find_target_lock(t->u.user.name, &ret, &arpt_mutex);
 	if (!target) {
 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
 		goto out;
@@ -600,6 +602,8 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
 			newinfo->underflow[h] = underflows[h];
 	}
 
+	/* FIXME: underflows must be unconditional, standard verdicts
+           < 0 (not ARPT_RETURN). --RR */
 
 	/* Clear counters and comefrom */
 	e->counters = ((struct arpt_counters) { 0, 0 });
@@ -795,6 +799,7 @@ static int copy_entries_to_user(unsigned int total_size,
 		goto free_counters;
 	}
 
+	/* FIXME: use iterator macros --RR */
 	/* ... then go back and fix counters and names */
 	for (off = 0, num = 0; off < total_size; off += e->next_offset, num++){
 		struct arpt_entry_target *t;
@@ -830,7 +835,7 @@ static int get_entries(const struct arpt_get_entries *entries,
 	int ret;
 	struct arpt_table *t;
 
-	t = find_table_lock(entries->name, &ret, &arpt_mutex);
+	t = arpt_find_table_lock(entries->name, &ret, &arpt_mutex);
 	if (t) {
 		duprintf("t->private->number = %u\n",
 			 t->private->number);
@@ -866,6 +871,13 @@ static int do_replace(void *user, unsigned int len)
 	if (len != sizeof(tmp) + tmp.size)
 		return -ENOPROTOOPT;
 
+	/* overflow check */
+	if (tmp.size >= (INT_MAX - sizeof(struct arpt_table_info)) / NR_CPUS -
+			SMP_CACHE_BYTES)
+		return -ENOMEM;
+	if (tmp.num_counters >= INT_MAX / sizeof(struct arpt_counters))
+		return -ENOMEM;
+
 	/* Pedantry: prevent them from hitting BUG() in vmalloc.c --RR */
 	if ((SMP_ALIGN(tmp.size) >> PAGE_SHIFT) + 2 > num_physpages)
 		return -ENOMEM;
@@ -896,7 +908,7 @@ static int do_replace(void *user, unsigned int len)
 
 	duprintf("arp_tables: Translated table\n");
 
-	t = find_table_lock(tmp.name, &ret, &arpt_mutex);
+	t = arpt_find_table_lock(tmp.name, &ret, &arpt_mutex);
 	if (!t)
 		goto free_newinfo_counters_untrans;
 
@@ -981,17 +993,12 @@ static int do_add_counters(void *user, unsigned int len)
 		goto free;
 	}
 
-	t = find_table_lock(tmp.name, &ret, &arpt_mutex);
+	t = arpt_find_table_lock(tmp.name, &ret, &arpt_mutex);
 	if (!t)
 		goto free;
 
 	write_lock_bh(&t->lock);
-
-#if 0	// removed 1.11 forward bug test
-	//	43011 (09?): checkme: modify by tanghui @ 2006-10-11 for a RACE CONDITION in the "do_add_counters()" function
-	//	if (t->private->number != tmp.num_counters) {
-#endif
-	if (t->private->number != paddc->num_counters) {
+	if (t->private->number != tmp.num_counters) {
 		ret = -EINVAL;
 		goto unlock_up_free;
 	}
@@ -1059,7 +1066,7 @@ static int do_arpt_get_ctl(struct sock *sk, int cmd, void *user, int *len)
 			break;
 		}
 		name[ARPT_TABLE_MAXNAMELEN-1] = '\0';
-		t = find_table_lock(name, &ret, &arpt_mutex);
+		t = arpt_find_table_lock(name, &ret, &arpt_mutex);
 		if (t) {
 			struct arpt_getinfo info;
 
@@ -1307,6 +1314,7 @@ static void __exit fini(void)
 EXPORT_SYMBOL(arpt_register_table);
 EXPORT_SYMBOL(arpt_unregister_table);
 EXPORT_SYMBOL(arpt_do_table);
+EXPORT_SYMBOL(arpt_find_target_lock);
 EXPORT_SYMBOL(arpt_register_target);
 EXPORT_SYMBOL(arpt_unregister_target);
 

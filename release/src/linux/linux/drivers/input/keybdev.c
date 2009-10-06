@@ -1,5 +1,5 @@
 /*
- * $Id: keybdev.c,v 1.1.1.4 2003/10/14 08:08:10 sparq Exp $
+ * $Id: keybdev.c,v 1.3 2000/05/28 17:31:36 vojtech Exp $
  *
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *
@@ -154,16 +154,18 @@ static int emulate_raw(unsigned int keycode, int down)
 
 static struct input_handler keybdev_handler;
 
+static unsigned int ledstate = 0xff;
+
 void keybdev_ledfunc(unsigned int led)
 {
 	struct input_handle *handle;	
 
-	for (handle = keybdev_handler.handle; handle; handle = handle->hnext) {
+	ledstate = led;
 
+	for (handle = keybdev_handler.handle; handle; handle = handle->hnext) {
 		input_event(handle->dev, EV_LED, LED_SCROLLL, !!(led & 0x01));
 		input_event(handle->dev, EV_LED, LED_NUML,    !!(led & 0x02));
 		input_event(handle->dev, EV_LED, LED_CAPSL,   !!(led & 0x04));
-
 	}
 }
 
@@ -172,7 +174,8 @@ void keybdev_event(struct input_handle *handle, unsigned int type, unsigned int 
 	if (type != EV_KEY) return;
 
 	if (emulate_raw(code, down))
-		printk(KERN_WARNING "keyboard.c: can't emulate rawmode for keycode %d\n", code);
+		if(code < BTN_MISC)
+			printk(KERN_WARNING "keybdev.c: can't emulate rawmode for keycode %d\n", code);
 
 	tasklet_schedule(&keyboard_tasklet);
 }
@@ -202,6 +205,12 @@ static struct input_handle *keybdev_connect(struct input_handler *handler, struc
 
 //	printk(KERN_INFO "keybdev.c: Adding keyboard: input%d\n", dev->number);
 
+	if (ledstate != 0xff) {
+		input_event(dev, EV_LED, LED_SCROLLL, !!(ledstate & 0x01));
+		input_event(dev, EV_LED, LED_NUML,    !!(ledstate & 0x02));
+		input_event(dev, EV_LED, LED_CAPSL,   !!(ledstate & 0x04));
+	}
+
 	return handle;
 }
 
@@ -222,6 +231,7 @@ static int __init keybdev_init(void)
 {
 	input_register_handler(&keybdev_handler);
 	kbd_ledfunc = keybdev_ledfunc;
+	kbd_refresh_leds();
 
 	if (jp_kbd_109) {
 		x86_keycodes[0xb5] = 0x73;	/* backslash, underscore */

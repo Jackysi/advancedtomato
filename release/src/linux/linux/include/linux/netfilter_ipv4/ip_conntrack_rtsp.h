@@ -11,7 +11,7 @@
 #ifndef _IP_CONNTRACK_RTSP_H
 #define _IP_CONNTRACK_RTSP_H
 
-//#define IP_NF_RTSP_DEBUG 
+/* #define IP_NF_RTSP_DEBUG */
 #define IP_NF_RTSP_VERSION "0.01"
 
 /* port block types */

@@ -203,6 +203,7 @@ int ntfs_make_attr_resident(ntfs_inode *ino, ntfs_attribute *attr)
 {
 	__s64 size = attr->size;
 	if (size > 0) {
+		/* FIXME: read data, free clusters */
 		return -EOPNOTSUPP;
 	}
 	attr->resident = 1;
@@ -274,6 +275,10 @@ int ntfs_extend_attr(ntfs_inode *ino, ntfs_attribute *attr, const __s64 len)
 	if ((attr->flags & (ATTR_IS_COMPRESSED | ATTR_IS_ENCRYPTED)) ||
 			ino->record_count > 1)
 		return -EOPNOTSUPP;
+	/*
+	 * FIXME: Don't make non-resident if the attribute type is not right.
+	 * For example cannot make index attribute non-resident! (AIA)
+	 */
 	if (attr->resident) {
 		err = ntfs_make_attr_nonresident(ino, attr);
 		if (err)
@@ -334,7 +339,7 @@ int ntfs_make_attr_nonresident(ntfs_inode *ino, ntfs_attribute *attr)
 	attr->allocated = attr->initialized = 0;
 	error = ntfs_extend_attr(ino, attr, len);
 	if (error)
-		return error; 
+		return error; /* FIXME: On error, restore old values. */
 	io.fn_put = ntfs_put;
 	io.fn_get = ntfs_get;
 	io.param = data;
@@ -407,6 +412,12 @@ int ntfs_resize_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 newsize)
 	rl = attr->d.r.runlist;
 	if (newsize < oldsize) {
 		int rl_size;
+		/*
+		 * FIXME: We might be going awfully wrong for newsize = 0,
+		 * possibly even leaking memory really badly. But considering
+		 * in that case there is more breakage due to -EOPNOTSUPP stuff
+		 * further down the code path, who cares for the moment... (AIA)
+		 */
 		for (i = 0, count = 0; i < attr->d.r.len; i++) {
 			if ((__s64)(count + rl[i].len) << clustersizebits >
 					newsize) {
@@ -426,7 +437,7 @@ int ntfs_resize_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 newsize)
 					rl[i].lcn + rounded,
 					rl[i].len - rounded);
 			if (error)
-				return error; 
+				return error; /* FIXME: Incomplete operation. */
 			rl[i].len = rounded;
 			newcount = count + rounded;
 		}
@@ -435,7 +446,11 @@ int ntfs_resize_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 newsize)
 		error = ntfs_deallocate_clusters(ino->vol, rl + i,
 				attr->d.r.len - i);
 		if (error)
-			return error; 
+			return error; /* FIXME: Incomplete operation. */
+		/*
+		 * Free space for extra runs in memory if enough memory left
+		 * to do so. FIXME: Only do it if it would free memory. (AIA)
+		 */
 		rl_size = ((i + 1) * sizeof(ntfs_runlist) + PAGE_SIZE - 1) &
 				PAGE_MASK;
 		if (rl_size < ((attr->d.r.len * sizeof(ntfs_runlist) +
@@ -453,7 +468,7 @@ int ntfs_resize_attr(ntfs_inode *ino, ntfs_attribute *attr, __s64 newsize)
 	} else {
 		error = ntfs_extend_attr(ino, attr, newsize);
 		if (error)
-			return error; 
+			return error; /* FIXME: Incomplete operation. */
 		newcount = (newsize + ino->vol->cluster_size - 1) >>
 				clustersizebits;
 	}
@@ -477,6 +492,7 @@ int ntfs_create_attr(ntfs_inode *ino, int anum, char *aname, void *data,
 	ntfs_attribute *attr;
 	
 	if (dsize > ino->vol->mft_record_size)
+		/* FIXME: Non-resident attributes. */
 		return -EOPNOTSUPP;
 	if (aname) {
 		namelen = strlen(aname);
@@ -495,6 +511,9 @@ int ntfs_create_attr(ntfs_inode *ino, int anum, char *aname, void *data,
 		return error ? error : -EEXIST;
 	}
 	*rattr = attr = ino->attrs + i;
+	/* Allocate a new number.
+	 * FIXME: Should this happen on inode writeback?
+	 * FIXME: Extension records not supported. */
 	error = ntfs_allocate_attr_number(ino, &i);
 	if (error)
 		return error;
@@ -508,6 +527,9 @@ int ntfs_create_attr(ntfs_inode *ino, int anum, char *aname, void *data,
 	attr->cengine = 0;
 	attr->size = attr->allocated = attr->initialized = dsize;
 
+	/* FIXME: INDEXED information should come from $AttrDef
+	 * Currently, only file names are indexed. As of NTFS v3.0 (Win2k),
+	 * this is no longer true. Different attributes can be indexed now. */
 	if (anum == ino->vol->at_file_name)
 		attr->indexed = 1;
 	else
@@ -645,6 +667,7 @@ int ntfs_insert_attribute(ntfs_inode *ino, unsigned char *attrdata)
 		if (!ino->attrs[i].resident) {
 			ntfs_debug(DEBUG_FILE3, "ntfs_insert_attribute:"
 						" processing runs 1.\n");
+			/* FIXME: Check error code! (AIA) */
 			ntfs_process_runs(ino, ino->attrs + i, attrdata);
 		}
 		return 0;
@@ -677,6 +700,7 @@ int ntfs_insert_attribute(ntfs_inode *ino, unsigned char *attrdata)
 		ino->attrs[i].d.r.len = 0;
 		ntfs_debug(DEBUG_FILE3, "ntfs_insert_attribute: processing "
 				"runs 2.\n");
+		/* FIXME: Check error code! (AIA) */
 		ntfs_process_runs(ino, attr, attrdata);
 	}
 	return 0;
@@ -729,6 +753,7 @@ int ntfs_read_compressed(ntfs_inode *ino, ntfs_attribute *attr, __s64 offset,
 		vcn += rl->len;
 	if (rnum == attr->d.r.len) {
 		/* Beyond end of file. */
+		/* FIXME: Check allocated / initialized. */
 		dest->size = 0;
 		return 0;
 	}

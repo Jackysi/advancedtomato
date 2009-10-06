@@ -44,14 +44,11 @@
 #include <linux/reboot.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
-#include <linux/proc_fs.h>
-#include <linux/ctype.h>
 
 #include <asm/gsc.h>
 #include <asm/pdc.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-#include <asm/led.h>
 #include <asm/led.h>
 #include <asm/uaccess.h>
 
@@ -144,11 +141,7 @@ static void process_shutdown(void)
 DECLARE_TASKLET_DISABLED(power_tasklet, NULL, 0);
 
 /* soft power switch enabled/disabled */
-#ifdef CONFIG_PROC_FS
-static int pwrsw_enabled = 1;
-#else
-#define pwrsw_enabled (1)
-#endif
+int pwrsw_enabled = 1;
 
 /*
  * On gecko style machines (e.g. 712/xx and 715/xx) 
@@ -198,91 +191,14 @@ static void polling_tasklet_func(unsigned long soft_power_reg)
 /*
  * powerfail interruption handler (irq IRQ_FROM_REGION(CPU_IRQ_REGION)+2) 
  */
-
-
-
-
-/* 
- * /proc filesystem support 
- */
-
-#ifdef CONFIG_SYSCTL
-static int power_proc_read(char *page, char **start, off_t off, int count, 
-	int *eof, void *data)
+#if 0
+static void powerfail_interrupt(int code, void *x, struct pt_regs *regs)
 {
-	char *out = page;
-	int len;
-
-	out += sprintf(out, "Software power switch support: ");
-	out += sprintf(out, pwrsw_enabled ? "enabled (1)" : "disabled (0)" );
-	out += sprintf(out, "\n");
-
-	len = out - page - off;
-	if (len < count) {
-		*eof = 1;
-		if (len <= 0) return 0;
-	} else {
-		len = count;
-	}
-	*start = page + off;
-	return len;
+	printk(KERN_CRIT "POWERFAIL INTERRUPTION !\n");
+	poweroff();
 }
+#endif
 
-static int power_proc_write(struct file *file, const char *buf, 
-	unsigned long count, void *data)
-{
-	char *cur, lbuf[count];
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EACCES;
-
-	memset(lbuf, 0, count);
-
-	copy_from_user(lbuf, buf, count);
-	cur = lbuf;
-
-	/* skip initial spaces */
-	while (*cur && isspace(*cur))
-		cur++;
-
-	switch (*cur) {
-	case '0':	pwrsw_enabled = 0;
-			break;
-	case '1':	pwrsw_enabled = 1;
-			break;
-	default:	printk(KERN_CRIT "/proc/" SYSCTL_FILENAME 
-					": Parse error: only '0' or '1' allowed!\n");
-			return -EINVAL;
-	} /* switch() */
-
-	return count;
-}
-
-static struct proc_dir_entry *ent;
-
-static void __init power_create_procfs(void)
-{
-	if (!power_tasklet.func)
-		return;
-	
-	ent = create_proc_entry(SYSCTL_FILENAME, S_IFREG|S_IRUGO|S_IWUSR, 0);
-	if (!ent) return;
-	
-	ent->nlink = 1;
-	ent->read_proc = power_proc_read;
-	ent->write_proc = power_proc_write;
-	ent->owner = THIS_MODULE;
-}
-
-static void __exit power_remove_procfs(void)
-{
-	remove_proc_entry(SYSCTL_FILENAME, NULL);
-}
-
-#else
-#define power_create_procfs()	do { } while (0)
-#define power_remove_procfs()	do { } while (0)
-#endif	/* CONFIG_SYSCTL */
 
 
 
@@ -310,6 +226,10 @@ static int __init power_init(void)
 	unsigned long ret;
 	unsigned long soft_power_reg = 0;
 
+#if 0
+	request_irq( IRQ_FROM_REGION(CPU_IRQ_REGION)+2, &powerfail_interrupt,
+		0, "powerfail", NULL);
+#endif
 
 	/* enable the soft power switch if possible */
 	ret = pdc_soft_power_info(&soft_power_reg);
@@ -335,7 +255,6 @@ static int __init power_init(void)
 	/* Register a call for panic conditions. */
 	notifier_chain_register(&panic_notifier_list, &parisc_panic_block);
 
-	power_create_procfs();
 	tasklet_enable(&power_tasklet);
 
 	return 0;
@@ -348,7 +267,6 @@ static void __exit power_exit(void)
 
 	tasklet_disable(&power_tasklet);
 	notifier_chain_unregister(&panic_notifier_list, &parisc_panic_block);
-	power_remove_procfs();
 	power_tasklet.func = NULL;
 	pdc_soft_power_button(0);
 }

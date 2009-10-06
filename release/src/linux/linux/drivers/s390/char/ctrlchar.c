@@ -8,32 +8,31 @@
  */
 
 #include <linux/config.h>
-#include <linux/types.h>
-#include <linux/tty.h>
+#include <linux/stddef.h>
+#include <linux/errno.h>
+#include <linux/sysrq.h>
+#include <linux/ctype.h>
 #include <linux/interrupt.h>
 
-#include <linux/sysrq.h>
-
-#include <asm/io.h>
-#include <asm/uaccess.h>
-#include <asm/delay.h>
-#include <asm/cpcmd.h>
-#include <asm/irq.h>
+#include "ctrlchar.h"
 
 #ifdef CONFIG_MAGIC_SYSRQ
 static int ctrlchar_sysrq_key;
 static struct tq_struct ctrlchar_tq;
 
 static void
-ctrlchar_handle_sysrq(struct tty_struct *tty) {
-	handle_sysrq(ctrlchar_sysrq_key, NULL, NULL, tty);
+ctrlchar_handle_sysrq(void *tty)
+{
+	handle_sysrq(ctrlchar_sysrq_key, NULL, NULL, (struct tty_struct*) tty);
 }
 #endif
 
-void ctrlchar_init(void) {
+void
+ctrlchar_init(void)
+{
 #ifdef CONFIG_MAGIC_SYSRQ
 	static int init_done = 0;
-
+ 
 	if (init_done++)
 		return;
 	INIT_LIST_HEAD(&ctrlchar_tq.list);
@@ -48,49 +47,43 @@ void ctrlchar_init(void) {
  * @param buf Console input buffer.
  * @param len Length of valid data in buffer.
  * @param tty The tty struct for this console.
- * @return NULL, if nothing matched, (char *)-1, if buffer contents
- *         should be ignored, otherwise pointer to char to be inserted.
+ * @return CTRLCHAR_NONE, if nothing matched,
+ *         CTRLCHAR_SYSRQ, if sysrq was encountered
+ *         otherwise char to be inserted logically or'ed
+ *         with CTRLCHAR_CTRL
  */
-char *ctrlchar_handle(const char *buf, int len, struct tty_struct *tty) {
-
-	static char ret;
-
+unsigned int
+ctrlchar_handle(const unsigned char *buf, int len, struct tty_struct *tty)
+{
 	if ((len < 2) || (len > 3))
-		return NULL;
+		return CTRLCHAR_NONE;
+
 	/* hat is 0xb1 in codepage 037 (US etc.) and thus */
 	/* converted to 0x5e in ascii ('^') */
 	if ((buf[0] != '^') && (buf[0] != '\252'))
-		return NULL;
-	switch (buf[1]) {
+		return CTRLCHAR_NONE;
+
 #ifdef CONFIG_MAGIC_SYSRQ
-		case '-':
-			if (len == 3) {
-				ctrlchar_sysrq_key = buf[2];
-				ctrlchar_tq.data = tty;
-				queue_task(&ctrlchar_tq, &tq_immediate);
-				mark_bh(IMMEDIATE_BH);
-				return (char *)-1;
-			}
-			break;
-#endif
-		case 'c':
-			if (len == 2) {
-				ret = INTR_CHAR(tty);
-				return &ret;
-			}
-			break;
-		case 'd':
-			if (len == 2) {
-				ret = EOF_CHAR(tty);
-				return &ret;
-			}
-			break;
-		case 'z':
-			if (len == 2) {
-				ret = SUSP_CHAR(tty);
-				return &ret;
-			}
-			break;
+	/* racy */
+	if (len == 3 && buf[1] == '-') {
+		ctrlchar_sysrq_key = buf[2];
+		ctrlchar_tq.data = tty;
+		queue_task(&ctrlchar_tq, &tq_immediate);
+		mark_bh(IMMEDIATE_BH);
+		return CTRLCHAR_SYSRQ;
 	}
-	return NULL;
+#endif
+
+	if (len != 2)
+		return CTRLCHAR_NONE;
+
+	switch (tolower(buf[1])) {
+	case 'c':
+		return INTR_CHAR(tty) | CTRLCHAR_CTRL;
+	case 'd':
+		return EOF_CHAR(tty)  | CTRLCHAR_CTRL;
+	case 'z':
+		return SUSP_CHAR(tty) | CTRLCHAR_CTRL;
+	}
+	return CTRLCHAR_NONE;
 }

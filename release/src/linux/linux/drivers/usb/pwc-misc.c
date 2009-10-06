@@ -1,6 +1,6 @@
 /* Linux driver for Philips webcam 
    Various miscellaneous functions and tables.
-   (C) 1999-2002 Nemosoft Unv. (webcam@smcc.demon.nl)
+   (C) 1999-2003 Nemosoft Unv. (webcam@smcc.demon.nl)
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -51,7 +51,6 @@ int pwc_decode_size(struct pwc_device *pdev, int width, int height)
 	}
 	return find;
 }
-
 /* initialize variables depending on type */
 void pwc_construct(struct pwc_device *pdev)
 {
@@ -81,6 +80,7 @@ void pwc_construct(struct pwc_device *pdev)
 		pdev->frame_header_size = 0;
 		pdev->frame_trailer_size = 0;
 		break;
+	case 720:
 	case 730:
 	case 740:
 	case 750:

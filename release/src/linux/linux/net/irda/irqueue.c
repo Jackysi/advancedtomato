@@ -154,7 +154,7 @@ void hashbin_insert(hashbin_t* hashbin, irda_queue_t* entry, __u32 hashv, char* 
 	unsigned long flags = 0;
 	int bin;
 
-	IRDA_DEBUG( 4, __FUNCTION__"()\n");
+	IRDA_DEBUG( 4,"%s()\n", __FUNCTION__);
 
 	ASSERT( hashbin != NULL, return;);
 	ASSERT( hashbin->magic == HB_MAGIC, return;);
@@ -308,7 +308,7 @@ void* hashbin_remove( hashbin_t* hashbin, __u32 hashv, char* name)
 	unsigned long flags = 0;
 	irda_queue_t* entry;
 
-	IRDA_DEBUG( 4, __FUNCTION__ "()\n");
+	IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
 
 	ASSERT( hashbin != NULL, return NULL;);
 	ASSERT( hashbin->magic == HB_MAGIC, return NULL;);
@@ -407,7 +407,7 @@ void* hashbin_remove_this( hashbin_t* hashbin, irda_queue_t* entry)
 	int	bin;
 	__u32	hashv;
 
-	IRDA_DEBUG( 4, __FUNCTION__ "()\n");
+	IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
 
 	ASSERT( hashbin != NULL, return NULL;);
 	ASSERT( hashbin->magic == HB_MAGIC, return NULL;);
@@ -553,7 +553,7 @@ irda_queue_t *hashbin_get_next( hashbin_t *hashbin)
  */
 static void __enqueue_last( irda_queue_t **queue, irda_queue_t* element)
 {
-	IRDA_DEBUG( 4, __FUNCTION__ "()\n");
+	IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
 
 	/*
 	 * Check if queue is empty.
@@ -596,7 +596,7 @@ inline void enqueue_last( irda_queue_t **queue, irda_queue_t* element)
 void enqueue_first(irda_queue_t **queue, irda_queue_t* element)
 {
 	
-	IRDA_DEBUG( 4, __FUNCTION__ "()\n");
+	IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
 
 	/*
 	 * Check if queue is empty.
@@ -651,6 +651,31 @@ void enqueue_queue( irda_queue_t** queue, irda_queue_t** list )
  *    Insert item behind head of queue.
  *
  */
+#if 0
+static void enqueue_second(irda_queue_t **queue, irda_queue_t* element)
+{
+	IRDA_DEBUG( 0, "enqueue_second()\n");
+
+	/*
+	 * Check if queue is empty.
+	 */
+	if ( *queue == NULL ) {
+		/*
+		 * Queue is empty.  Insert one element into the queue.
+		 */
+		element->q_next = element->q_prev = *queue = element;
+		
+	} else {
+		/*
+		 * Queue is not empty.  Insert element into ..
+		 */
+		element->q_prev = (*queue);
+		(*queue)->q_next->q_prev = element;
+		element->q_next = (*queue)->q_next;
+		(*queue)->q_next = element;
+	}
+}
+#endif
 
 /*
  * Function dequeue (queue)

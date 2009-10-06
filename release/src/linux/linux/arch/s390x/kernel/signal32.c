@@ -130,6 +130,7 @@ sys32_rt_sigsuspend(struct pt_regs * regs,sigset_t32 *unewset, size_t sigsetsize
 	sigset_t saveset, newset;
 	sigset_t32 set32;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -201,6 +202,7 @@ sys32_rt_sigaction(int sig, const struct sigaction32 *act,
 	int ret;
 	sigset_t32 set32;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t32))
 		return -EINVAL;
 
@@ -300,7 +302,7 @@ static int save_sigregs32(struct pt_regs *regs,_sigregs32 *sregs)
 		save_fp_regs(&fpregs);
 		__put_user(fpregs.fpc, &sregs->fpregs.fpc);
 		for(i=0; i<NUM_FPRS; i++)
-			err |= __put_user(fpregs.fprs[i].d, &sregs->fpregs.fprs[i].d);  
+			err |= __put_user(fpregs.fprs[i].ui, &sregs->fpregs.fprs[i].d);  
 	}
 	return(err);
 	
@@ -329,7 +331,7 @@ static int restore_sigregs32(struct pt_regs *regs,_sigregs32 *sregs)
 		(regs->psw.addr&PSW_ADDR_DEBUGCHANGE);
 		__get_user(fpregs.fpc, &sregs->fpregs.fpc);
                 for(i=0; i<NUM_FPRS; i++)
-                        err |= __get_user(fpregs.fprs[i].d, &sregs->fpregs.fprs[i].d);              
+                        err |= __get_user(fpregs.fprs[i].ui, &sregs->fpregs.fprs[i].d);              
 		if(!err)
 			restore_fp_regs(&fpregs);
 	}
@@ -472,6 +474,10 @@ static void setup_frame32(int sig, struct k_sigaction *ka,
 			goto give_sigsegv;
         }
 
+	/* Set up backchain. */
+	if (__put_user((unsigned int) regs->gprs[15], (unsigned int *) frame))
+		goto give_sigsegv;
+
 	/* Set up registers for signal handler */
 	regs->gprs[15] = (addr_t)frame;
 	regs->psw.addr = FIX_PSW(ka->sa.sa_handler);
@@ -524,6 +530,10 @@ static void setup_rt_frame32(int sig, struct k_sigaction *ka, siginfo_t *info,
 		err |= __put_user(S390_SYSCALL_OPCODE | __NR_rt_sigreturn,
 		                  (u16 *)(frame->retcode));
 	}
+
+	/* Set up backchain. */
+	if (__put_user((unsigned int) regs->gprs[15], (unsigned int *) frame))
+		goto give_sigsegv;
 
 	/* Set up registers for signal handler */
 	regs->gprs[15] = (addr_t)frame;
@@ -673,7 +683,7 @@ int do_signal32(struct pt_regs *regs, sigset_t *oldset)
 				continue;
 
 			switch (signr) {
-			case SIGCONT: case SIGCHLD: case SIGWINCH:
+			case SIGCONT: case SIGCHLD: case SIGWINCH: case SIGURG:
 				continue;
 
 			case SIGTSTP: case SIGTTIN: case SIGTTOU:
