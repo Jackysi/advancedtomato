@@ -942,6 +942,7 @@ int init_main(int argc, char *argv[])
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
 
 			led(LED_DIAG, 0);
+			notice_set("sysup", "");
 
 			state = IDLE;
 
