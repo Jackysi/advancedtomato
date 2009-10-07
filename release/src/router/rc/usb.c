@@ -143,6 +143,7 @@ void stop_usb(void)
 		modprobe_r("jbd");
 		modprobe_r("vfat");
 		modprobe_r("fat");
+		modprobe_r("fuse");
 #ifdef TCONFIG_NTFS
 		modprobe_r("ntfs");
 #endif
@@ -180,7 +181,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 	char options[40];
 	char flagfn[128];
 	int dir_made;
-	
+
 	if ((mnt = findmntents(mnt_dev, 0, 0, 0))) {
 		syslog(LOG_INFO, "USB partition at %s already mounted on %s",
 			mnt_dev, mnt->mnt_dir);
@@ -188,16 +189,15 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 	}
 
 	options[0] = 0;
-	
-	if (type)
-	{
+
+	if (type) {
 		unsigned long flags = MS_NOATIME | MS_NODEV;
 
 		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0) {
 			/* not a mountable partition */
 			flags = 0;
 		}
-		if (strcmp(type, "ext2") == 0 || strcmp(type, "ext3") == 0) {
+		else if (strcmp(type, "ext2") == 0 || strcmp(type, "ext3") == 0) {
 		}
 #ifdef TCONFIG_SAMBASRV
 		else if (strcmp(type, "vfat") == 0) {
@@ -218,17 +218,13 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 				nvram_set("smbd_nlsmod", flagfn);
 			}
 		}
-#endif
-		else if (strcmp(type, "ntfs") == 0)
-		{
-			//flags = MS_RDONLY;
-#ifdef TCONFIG_SAMBASRV
+		else if (strncmp(type, "ntfs", 4) == 0) {
 			if (nvram_invmatch("smbd_cset", ""))
-				sprintf(options, "iocharset=%s%s", 
+				sprintf(options, "iocharset=%s%s",
 					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
 						nvram_get("smbd_cset"));
-#endif
 		}
+#endif
 
 		if (flags) {
 			if ((dir_made = mkdir_if_none(mnt_dir))) {
@@ -238,9 +234,15 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 			}
 
 			ret = mount(mnt_dev, mnt_dir, type, flags, options[0] ? options : "");
+
 			/* try ntfs-3g in case it's installed */
-			if (ret != 0 && strcmp(type, "ntfs") == 0)
-				ret = eval("ntfs-3g", "-o", "noatime,nodev", mnt_dev, mnt_dir);
+			if (ret != 0 && strncmp(type, "ntfs", 4) == 0) {
+				sprintf(options + strlen(options), ",noatime,nodev" + (options[0] ? 0 : 1));
+#ifdef TCONFIG_NTFS
+				if (nvram_get_int("usb_fs_ntfs"))
+#endif
+					ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);
+			}
 			if (ret != 0) /* give it another try - guess fs */
 				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
 
