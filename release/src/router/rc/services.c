@@ -600,6 +600,8 @@ void start_igmp_proxy(void)
 	pid_igmp = -1;
 	if (nvram_match("multicast_pass", "1")) {
 		switch (get_wan_proto()) {
+		case WP_DISABLED:
+			return;
 		case WP_PPPOE:
 		case WP_PPTP:
 		case WP_L2TP:
