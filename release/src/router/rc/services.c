@@ -593,7 +593,6 @@ static pid_t pid_igmp = -1;
 
 void start_igmp_proxy(void)
 {
-	static char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	FILE *fp;
 	char *p;
 
@@ -612,7 +611,10 @@ void start_igmp_proxy(void)
 			break;
 		}
 
-		if ((fp = fopen(igmpproxy_conf, "w")) != NULL) {
+		if (f_exists("/etc/igmp.alt")) {
+			xstart("igmpproxy", "/etc/igmp.alt");
+		}
+		else if ((fp = fopen("/etc/igmp.conf", "w")) != NULL) {
 			fprintf(fp,
 				"quickleave\n"
 				"phyint %s upstream\n"
@@ -620,13 +622,15 @@ void start_igmp_proxy(void)
 				"phyint %s downstream ratelimit 0\n",
 				nvram_safe_get(p),
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
-				nvram_safe_get("lan_ifname") ? : "br0");
+				nvram_safe_get("lan_ifname"));
 			fclose(fp);
-			xstart("igmpproxy", igmpproxy_conf);
-
-			if (!nvram_contains_word("debug_norestart", "igmprt")) {
-				pid_igmp = -2;
-			}
+			xstart("igmpproxy", "/etc/igmp.conf");
+		}
+		else {
+			return;
+		}
+		if (!nvram_contains_word("debug_norestart", "igmprt")) {
+			pid_igmp = -2;
 		}
 	}
 }
