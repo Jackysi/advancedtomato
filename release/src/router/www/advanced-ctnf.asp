@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("ct_tcp_timeout,ct_udp_timeout,ct_max,nf_l7in,nf_ttl,nf_rtsp,nf_pptp,nf_h323,nf_ftp"); %>
+//	<% nvram("ct_tcp_timeout,ct_udp_timeout,ct_timeout,ct_max,nf_l7in,nf_ttl,nf_rtsp,nf_pptp,nf_h323,nf_ftp"); %>
 
 var checker = null;
 var timer = new TomatoTimer(check);
@@ -98,34 +98,45 @@ function verifyFields(focused, quiet)
 {
 	var i, v;
 
-	for (i = 0; i < 10; ++i) {
+	for (i = 1; i < 9; ++i) {
 		if (!v_range('_f_tcp_' + i, quiet, 1, 432000)) return 0;
 	}
 	for (i = 0; i < 2; ++i) {
 		if (!v_range('_f_udp_' + i, quiet, 1, 432000)) return 0;
+	}
+	for (i = 0; i < 2; ++i) {
+		if (!v_range('_f_ct_' + i, quiet, 1, 432000)) return 0;
 	}
 	return v_range('_ct_max', quiet, 128, 10240);
 }
 
 function save()
 {
-	var i, tcp, udp, fom;
+	var i, tcp, udp, ct, fom;
 
 	if (!verifyFields(null, false)) return;
 
 	tcp = [];
-	for (i = 0; i < 10; ++i) {
+	tcp.push('0');
+	for (i = 1; i < 9; ++i) {
 		tcp.push(E('_f_tcp_' + i).value);
 	}
+	tcp.push('0');
 
 	udp = [];
 	for (i = 0; i < 2; ++i) {
 		udp.push(E('_f_udp_' + i).value);
 	}
 
+	ct = [];
+	for (i = 0; i < 2; ++i) {
+		ct.push(E('_f_ct_' + i).value);
+	}
+
 	fom = E('_fom');
 	fom.ct_tcp_timeout.value = tcp.join(' ');
 	fom.ct_udp_timeout.value = udp.join(' ');
+	fom.ct_timeout.value = ct.join(' ');
 	fom.nf_l7in.value = E('_f_l7in').checked ? 1 : 0;
 	fom.nf_rtsp.value = E('_f_rtsp').checked ? 1 : 0;
 	fom.nf_pptp.value = E('_f_pptp').checked ? 1 : 0;
@@ -154,6 +165,7 @@ function save()
 
 <input type='hidden' name='ct_tcp_timeout' value=''>
 <input type='hidden' name='ct_udp_timeout' value=''>
+<input type='hidden' name='ct_timeout' value=''>
 <input type='hidden' name='nf_l7in' value=''>
 <input type='hidden' name='nf_rtsp'>
 <input type='hidden' name='nf_pptp'>
@@ -179,13 +191,14 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 if ((v = nvram.ct_tcp_timeout.match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/)) == null) {
-	v = [0,1800,14400,120,60,120,120,10,60,30,120];
+	v = [0,0,1200,120,60,120,120,10,60,30,0];
 }
 titles = ['-', 'None', 'Established', 'SYN Sent', 'SYN Received', 'FIN Wait', 'Time Wait', 'Close', 'Close Wait', 'Last ACK', 'Listen'];
 f = [{ title: ' ', text: '<small>(seconds)</small>' }];
 for (i = 1; i < 11; ++i) {
 	f.push({ title: titles[i], name: ('f_tcp_' + (i - 1)),
 		type: 'text', maxlen: 6, size: 8, value: v[i],
+		hidden: (i == 1 || i == 10) ? 1 : 0,
 		suffix: '<span id="count' + i + '"></span>' });
 }
 createFieldTable('', f);
@@ -202,6 +215,20 @@ createFieldTable('', [
 	{ title: ' ', text: '<small>(seconds)</small>' },
 	{ title: 'Unreplied', name: 'f_udp_0', type: 'text', maxlen: 6, size: 8, value: v[1], suffix: '<span id="count11"></span>' },
 	{ title: 'Assured', name: 'f_udp_1', type: 'text', maxlen: 6, size: 8, value: v[2], suffix: '<span id="count12"></span>' }
+]);
+</script>
+</div>
+
+<div class='section-title'>Other Timeouts</div>
+<div class='section'>
+<script type='text/javascript'>
+if ((v = nvram.ct_timeout.match(/^(\d+)\s+(\d+)$/)) == null) {
+	v = [0,600,30];
+}
+createFieldTable('', [
+	{ title: ' ', text: '<small>(seconds)</small>' },
+	{ title: 'Generic', name: 'f_ct_0', type: 'text', maxlen: 6, size: 8, value: v[1] },
+	{ title: 'ICMP', name: 'f_ct_1', type: 'text', maxlen: 6, size: 8, value: v[2] }
 ]);
 </script>
 </div>

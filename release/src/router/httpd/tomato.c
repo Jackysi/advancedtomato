@@ -450,6 +450,7 @@ static const nvset_t nvset_list[] = {
 	{ "ct_max",				V_RANGE(128, 10240)	},
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
+	{ "ct_timeout",			V_LENGTH(5, 15)		},
 	{ "nf_ttl",				V_RANGE(-10, 10)	},
 	{ "nf_l7in",			V_01				},
 	{ "nf_rtsp",			V_01				},
