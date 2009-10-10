@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.30 2009/09/21 09:42:34 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.31 2009/10/10 18:57:39 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard
@@ -222,10 +222,11 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 			}
 		}
 	}
+	if(h)
 #ifdef IPTABLES_143
-	iptc_free(h);
+		iptc_free(h);
 #else
-	iptc_free(&h);
+		iptc_free(&h);
 #endif
 	return r;
 }
@@ -304,10 +305,11 @@ get_redirect_rule_by_index(int index,
 			i++;
 		}
 	}
+	if(h)
 #ifdef IPTABLES_143
-	iptc_free(h);
+		iptc_free(h);
 #else
-	iptc_free(&h);
+		iptc_free(&h);
 #endif
 	return r;
 }
@@ -340,7 +342,7 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 	    	   logcaller, iptc_strerror(errno));
 		r = -1;
 	}
-	if (h)
+	if(h)
 #ifdef IPTABLES_143
 		iptc_free(h);
 #else
@@ -408,10 +410,11 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 			}
 		}
 	}
+	if(h)
 #ifdef IPTABLES_143
-	iptc_free(h);
+		iptc_free(h);
 #else
-	iptc_free(&h);
+		iptc_free(&h);
 #endif
 	if(r == 0)
 	{
@@ -422,7 +425,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
 		}
-		if(r == 0 && (h = iptc_init("filter")))
+		if((r == 0) && (h = iptc_init("filter")))
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_forward_chain, "delete_filter_rule");
 		}
@@ -514,10 +517,11 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_is_chain() error : %s\n",
 		       logcaller, iptc_strerror(errno));
+		if(h)
 #ifdef IPTABLES_143
-		iptc_free(h);
+			iptc_free(h);
 #else
-		iptc_free(&h);
+			iptc_free(&h);
 #endif
 		return -1;
 	}
@@ -529,11 +533,11 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_append_entry() error : %s\n",
 		       logcaller, iptc_strerror(errno));
-		if (h)
+		if(h)
 #ifdef IPTABLES_143
-		iptc_free(h);
+			iptc_free(h);
 #else
-		iptc_free(&h);
+			iptc_free(&h);
 #endif
 		return -1;
 	}
@@ -545,19 +549,19 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 	{
 		syslog(LOG_ERR, "%s : iptc_commit() error : %s\n",
 		       logcaller, iptc_strerror(errno));
-		if (h)
+		if(h)
+#ifdef IPTABLES_143
+			iptc_free(h);
+#else
+			iptc_free(&h);
+#endif
+		return -1;
+	}
+	if(h)
 #ifdef IPTABLES_143
 		iptc_free(h);
 #else
 		iptc_free(&h);
-#endif
-		return -1;
-	}
-	if (h)
-#ifdef IPTABLES_143
-	iptc_free(h);
-#else
-	iptc_free(&h);
 #endif
 	return 0;
 }
@@ -788,10 +792,11 @@ list_redirect_rule(const char * ifname)
 		          ntohs(mr->range[0].max.all));
 		printf("flags = %x\n", mr->range[0].flags);
 	}
+	if(h)
 #ifdef IPTABLES_143
-	iptc_free(h);
+		iptc_free(h);
 #else
-	iptc_free(&h);
+		iptc_free(&h);
 #endif
 	return 0;
 }

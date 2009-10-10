@@ -1,4 +1,10 @@
-$Id: Changelog.txt,v 1.177 2009/09/21 09:42:34 nanard Exp $
+$Id: Changelog.txt,v 1.180 2009/10/10 19:08:32 nanard Exp $
+
+2009/10/10:
+  Integrate IPfilter patch from Roy Marples.
+  Fix Netfilter code for old netfilter :
+    see http://miniupnp.tuxfamily.org/forum/viewtopic.php?t=584
+  trim the description string in reload_from_lease_file()
 
 2009/09/21:
   Fixing unclosed raw sockets bug with netfilter code.

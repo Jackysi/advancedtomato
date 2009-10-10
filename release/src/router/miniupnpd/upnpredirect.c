@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.45 2009/08/20 09:12:26 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.46 2009/10/10 19:08:33 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard 
@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 
 #include <stdio.h>
+#include <ctype.h>
 #include <unistd.h>
 
 #include "config.h"
@@ -182,6 +183,14 @@ int reload_from_lease_file()
 		}
 		*(desc++) = '\0';
 		iport = (unsigned short)atoi(p);
+		/* trim description */
+		while(isspace(*desc))
+			desc++;
+		p = desc;
+		while(*(p+1))
+			p++;
+		while(isspace(*p) && (p > desc))
+			*(p--) = '\0';
 
 		r = upnp_redirect(eport, iaddr, iport, proto, desc);
 		if(r == -1) {
