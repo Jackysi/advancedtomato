@@ -220,6 +220,8 @@ m:
 	@cp router/config_base router/config_$@	
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
+	@sed -i "/TCONFIG_NTFS/d" router/config_$@
+	@echo "TCONFIG_NTFS=y" >>router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
 	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
 	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
