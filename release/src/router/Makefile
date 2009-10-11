@@ -307,8 +307,9 @@ openssl-install:
 	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 
-	install -D -m 500 openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
+	install -D openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
 	$(STRIP) $(INSTALLDIR)/openssl/usr/sbin/openssl
+	chmod 0500 $(INSTALLDIR)/openssl/usr/sbin/openssl
 
 	install -D -m 0500 httpd/gencert.sh $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 
