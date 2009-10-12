@@ -96,20 +96,15 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 all: clean-build libc $(obj-y) kernel
 
 
-kernel-image: $(LINUXDIR)/.config
+kernel: $(LINUXDIR)/.config
 	@$(SEP)
+
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) zImage ; \
 	fi
-
-kernel-modules: $(LINUXDIR)/.config
-	@$(SEP)
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) modules ; \
 	fi
-
-kernel: kernel-image kernel-modules fuse-module
-	@$(SEP)
 
 
 kmod: dummy
@@ -127,7 +122,6 @@ install package: $(obj-install) $(LINUXDIR)/.config
 
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
-	cd $(LINUXDIR)/fs/fuse && $(MAKE) install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR) || true
 ##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
 ##!!TB - do not strip ftp nat/conntrack, imq, scsi_mod and loop kernel modules (needed to keep parameters)
 	find $(TARGETDIR)/lib/modules ! \( -name imq.o -prune \) ! \( -name *ftp.o -prune \) ! \( -name scsi_mod.o -prune \) ! \( -name loop.o -prune \) -a -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
@@ -460,13 +454,6 @@ vsftpd: shared openssl
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
-
-$(LINUXDIR)/fs/fuse/Makefile:
-	cd $(LINUXDIR)/fs/fuse && \
-	$(CONFIGURE) --enable-kernel-module --with-kernel=$(LINUXDIR) --host=mipsel-linux CC=$(CC)
-
-fuse-module: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
-	cd $(LINUXDIR)/fs/fuse && $(MAKE)
 
 p910nd:
 sendmail:
