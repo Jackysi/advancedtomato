@@ -295,6 +295,70 @@ static struct mtd_partition bcm947xx_parts[] = {
 struct mtd_partition * __init
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
 {
+	struct trx_header *trx;
+	unsigned char buf[512];
+	size_t off;
+	size_t len;
+	size_t trxsize;
+
+	/* Find and size nvram */
+	bcm947xx_parts[PART_NVRAM].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
+	bcm947xx_parts[PART_NVRAM].size = size - bcm947xx_parts[PART_NVRAM].offset;
+
+	trxsize = 0;
+	trx = (struct trx_header *) buf;
+	for (off = 0; off < size; off += mtd->erasesize) {
+		/*
+		 * Read block 0 to test for rootfs
+		 */
+		if ((MTD_READ(mtd, off, sizeof(buf), &len, buf)) || (len != sizeof(buf))) continue;
+
+		/* Try looking at TRX header for rootfs offset */
+		if (le32_to_cpu(trx->magic) == TRX_MAGIC) {
+			/* Size pmon */
+			bcm947xx_parts[PART_BOOT].size = off;
+
+			/* Size linux (kernel and rootfs) */
+			bcm947xx_parts[PART_LINUX].offset = off;
+			bcm947xx_parts[PART_LINUX].size = bcm947xx_parts[PART_NVRAM].offset - off;			
+			
+			trxsize = ROUNDUP(le32_to_cpu(trx->len), mtd->erasesize);	// kernel + rootfs
+
+			/* Find and size rootfs */
+			bcm947xx_parts[PART_ROOTFS].offset = trx->offsets[1] + off;
+			bcm947xx_parts[PART_ROOTFS].size = trxsize - trx->offsets[1];
+			
+			/* Find and size jffs2 */
+			bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
+			bcm947xx_parts[PART_JFFS2].size = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_JFFS2].offset;
+
+			break;
+		}
+	}
+
+	if (trxsize == 0) {
+		// uh, now what...
+		printk(KERN_NOTICE "%s: Unable to find a valid linux partition\n", mtd->name);
+	}
+
+#if 0
+	int i;
+	for (i = 0; bcm947xx_parts[i].name; ++i) {
+		printk(KERN_NOTICE "%8x %8x (%8x) %s\n",
+			bcm947xx_parts[i].offset,
+			(bcm947xx_parts[i].offset + bcm947xx_parts[i].size) - 1,
+			bcm947xx_parts[i].size,
+			bcm947xx_parts[i].name);
+	}
+#endif
+
+	return bcm947xx_parts;
+}
+
+#if 0
+struct mtd_partition * __init
+init_mtd_partitions(struct mtd_info *mtd, size_t size)
+{
 	struct minix_super_block *minixsb;
 	struct ext2_super_block *ext2sb;
 	struct romfs_super_block *romfsb;
@@ -427,6 +491,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	
 	return bcm947xx_parts;
 }
+#endif	// 0
 
 EXPORT_SYMBOL(init_mtd_partitions);
 
