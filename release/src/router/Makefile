@@ -336,7 +336,7 @@ bridge-install:
 
 dnsmasq:
 	@$(SEP)
-	@$(MAKE) -C dnsmasq COPTS=-DNO_IPV6
+	@$(MAKE) -C dnsmasq COPTS="-DNO_IPV6 -DNO_SCRIPT"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
