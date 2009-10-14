@@ -50,10 +50,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,script_usbmount,script_usbumount,script_usbhotplug"); %>
-/* NTFS-BEGIN */
-//	<% nvram("usb_fs_ntfs"); %>
-/* NTFS-END */
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,script_usbmount,script_usbumount,script_usbhotplug"); %>
 //	<% usbdevices(); %>
 
 list = [];
