@@ -61,5 +61,5 @@ config TCONFIG_USB_EXTRAS
 	default n
 
 config TCONFIG_NTFS
-	bool "NTFS Support"
+	bool "NTFS-3g Support"
 	default n

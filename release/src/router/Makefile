@@ -59,6 +59,7 @@ obj-y += scsi-idle
 obj-$(TCONFIG_FTP) += vsftpd
 obj-$(TCONFIG_SAMBASRV) += samba
 obj-$(TCONFIG_USB_EXTRAS) += mkdosfs
+obj-$(TCONFIG_NTFS) += ntfs-3g
 
 obj-y += miniupnpd
 #	obj-y += upnp
@@ -213,9 +214,7 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
 
 #!!TB
-ifneq ($(TCONFIG_NTFS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
-endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/smbfs.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/hfsplus.o $(PLATFORMDIR)/extras/ || true
@@ -454,6 +453,23 @@ vsftpd: shared openssl
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+
+ntfs-3g/Makefile:
+	cd ntfs-3g && \
+	CC=$(CC) CFLAGS="-g -Os" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
+		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal
+
+ntfs-3g: ntfs-3g/Makefile
+	@$(MAKE) -C ntfs-3g CFLAGS="-g -Os -Wall"
+
+ntfs-3g-clean:
+	@$(MAKE) -C ntfs-3g clean || true
+
+ntfs-3g-install: ntfs-3g
+	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
+	$(STRIP) -s $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
+	install -d $(INSTALLDIR)/ntfs-3g/sbin && cd $(INSTALLDIR)/ntfs-3g/sbin && \
+		ln -sf ../bin/ntfs-3g mount.ntfs-3g
 
 p910nd:
 sendmail:

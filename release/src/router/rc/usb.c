@@ -91,12 +91,6 @@ void start_usb(void)
 				modprobe("fat");
 				modprobe("vfat");
 			}
-
-#ifdef TCONFIG_NTFS
-			if (nvram_get_int("usb_fs_ntfs")) {
-				modprobe("ntfs");
-			}
-#endif
 		}
 
 		if (nvram_get_int("usb_printer")) {
@@ -144,9 +138,6 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
-#ifdef TCONFIG_NTFS
-		modprobe_r("ntfs");
-#endif
 #ifdef TCONFIG_SAMBASRV
 		modprobe_r("nls_cp437");
 		modprobe_r("nls_cp850");

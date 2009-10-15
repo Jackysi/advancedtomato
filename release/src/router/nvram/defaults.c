@@ -478,7 +478,7 @@ const defaults_t defaults[] = {
 	{ "usb_fs_ext3",		"0"				},
 	{ "usb_fs_fat",			"0"				},
 #ifdef TCONFIG_NTFS
-	{ "usb_fs_ntfs",		"0"				},
+	{ "usb_fs_ntfs",		"1"				},
 #endif
 	{ "usb_automount",		"0"				},
 #if 0

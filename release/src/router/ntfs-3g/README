@@ -1,0 +1,63 @@
+
+INTRODUCTION
+============
+
+The NTFS-3G driver is an open source, freely available read/write NTFS driver 
+for Linux, FreeBSD, Mac OS X, NetBSD, Solaris and Haiku. It provides safe and 
+fast handling of the Windows XP, Windows Server 2003, Windows 2000, Windows 
+Vista, and Windows Server 2008 file systems. 
+
+The purpose of the project is to develop, continuously quality test and
+support a trustable, featureful and high performance solution for hardware
+platforms and operating systems whose users need to reliably interoperate
+with NTFS. Besides this practical goal, the project also aims to explore
+the limits of the hybrid, kernel/user space filesystem driver approach,
+performance, reliability and feature richness per invested effort wise.
+
+The driver is in STABLE status. The test methods, the test suites used
+can be found at
+
+	http://ntfs-3g.org/quality.html
+
+News, support answers, problem submission instructions, support and discussion 
+forums, performance numbers and other information are available on the project 
+web site at
+
+	http://ntfs-3g.org
+
+
+QUICK INSTALLATION
+==================
+
+Linux: Make sure you have the basic development tools and the kernel includes 
+the FUSE kernel module. Then type:  
+
+	./configure
+	make
+	make install      # or 'sudo make install' if you aren't root.
+
+Please note that NTFS-3G doesn't require the FUSE user space package anymore.
+
+Non-Linux: Please see the NTFS-3G web page for OS specific installation and 
+source packages.
+
+
+USAGE
+=====
+
+If there was no error during installation then the NTFS volume can be
+read-write mounted for everybody the following way as the root user 
+(unmount the volume if it was already mounted, and replace /dev/sda1 
+and /mnt/windows, if needed):
+
+	mount -t ntfs-3g /dev/sda1 /mnt/windows
+or
+	ntfs-3g /dev/sda1 /mnt/windows
+
+Please see the ntfs-3g manual page for more options and examples.
+
+You can also make NTFS to be mounted during boot by putting the below 
+line at the __END__ of the /etc/fstab file:
+
+	/dev/sda1 /mnt/windows ntfs-3g defaults 0 0
+

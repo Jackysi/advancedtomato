@@ -1,0 +1,261 @@
+.\" Copyright (c) 2005-2006 Yura Pakhuchiy.
+.\" Copyright (c) 2005 Richard Russon.
+.\" Copyright (c) 2006-2009 Szabolcs Szakacsits.
+.\" This file may be copied under the terms of the GNU Public License.
+.\"
+.TH NTFS-3G 8 "March 2009" "ntfs-3g @VERSION@"
+.SH NAME
+ntfs-3g \- Third Generation Read/Write NTFS Driver
+.SH SYNOPSIS
+.B ntfs-3g
+\fB[-o \fIoption\fP\fB[,...]]\fR
+.I volume mount_point
+.br
+.B mount \-t ntfs-3g
+\fB[-o \fIoption\fP\fB[,...]]\fR
+.I volume mount_point
+.SH DESCRIPTION
+\fBntfs-3g\fR is an NTFS driver, which can
+create, remove, rename, move files, directories, hard links, and
+streams; it can read and write files, including 
+streams and sparse files; it can handle special files like 
+symbolic links, devices, and FIFOs; moreover it can also read
+transparently compressed files.
+.PP
+The \fIvolume\fR to be mounted can be either a block device or 
+an image file.
+.SS Access Handling and Security
+By default, files and directories are owned by the effective 
+user and group of the mounting process and everybody has
+full read, write, execution and directory browsing permissions.
+If you want to use permissions handling then use the
+.B uid
+and/or the
+.B gid 
+options together with the 
+.B umask,
+or
+.B fmask
+and
+.B dmask
+options.
+.PP
+Windows users have full access to the files created by 
+.B ntfs-3g.
+.PP
+Full ownership and permission support, including Windows user mapping
+and POSIX file system compliance, is provided by the Advanced NTFS-3G 
+driver.
+.PP
+If 
+.B ntfs-3g 
+is set setuid-root then non-root users will 
+be also able to mount volumes.
+.SS Windows Filename Compatibility
+NTFS supports several filename namespaces: DOS, Win32 and POSIX. While the
+\fBntfs-3g\fR driver handles all of them, it always creates new files in the 
+POSIX namespace for maximum portability and interoperability reasons. 
+This means that filenames are case sensitive and all characters are
+allowed except '/' and '\\0'. This is perfectly legal on Windows, though
+some application may get confused. If you find so then please report it
+to the developer of the relevant Windows software.
+.SS Alternate Data Streams (ADS)
+NTFS stores all data in streams. Every file has exactly one unnamed
+data stream and can have many named data streams.  The size of a file is the
+size of its unnamed data stream.  By default, \fBntfs-3g\fR will only read
+the unnamed data stream.
+.PP
+By using the options "streams_interface=windows", you will be able to read
+any named data streams, simply by specifying the stream's name after a colon.
+For example:
+.RS
+.sp
+cat some.mp3:artist
+.sp
+.RE
+Named data streams act like normals files, so you can read from them, write to
+them and even delete them (using rm).  You can list all the named data streams
+a file has by getting the "ntfs.streams.list" extended attribute.
+.SH OPTIONS
+Most of the generic mount options described in 
+. BR mount (8)
+are
+supported (ro, rw, suid, nosuid, dev, nodev, exec, noexec). 
+Below is a summary of the options that \fBntfs-3g\fR additionally 
+accepts.
+.TP
+\fBuid=\fP\fIvalue\fP and \fBgid=\fP\fIvalue\fP
+Set the owner and the group of files and directories. The values are numerical.
+The defaults are the uid and gid of the current process.
+.TP
+.BI umask= value
+Set the  bitmask of the file and directory permissions that are not
+present. The value is given in octal. The default value is 0 which
+means full access to everybody.
+.TP
+.BI fmask= value
+Set the  bitmask of the file permissions that are not present. 
+The value is given in octal. The default value is 0 which
+means full access to everybody.
+.TP
+.BI dmask= value
+Set the  bitmask of the directory permissions that are not
+present. The value is given in octal. The default value is 0 which
+means full access to everybody.
+.TP
+.B ro
+Mount filesystem read\-only. Useful if Windows is hibernated.
+.TP
+.B remove_hiberfile
+Unlike in case of read-only mount, the read-write mount is denied if 
+the NTFS volume is hibernated. One needs either to resume Windows and
+shutdown it properly, or use this option which will remove the Windows
+hibernation file. Please note, this means that the saved Windows 
+session will be completely lost. Use this option for your own 
+responsibility.
+.TP
+.B recover, norecover
+Recover and repair a corrupted or inconsistent 
+NTFS volume if it's possible. The default behaviour is 
+.B recover.
+.TP
+.B atime, noatime, relatime
+The 
+.B atime 
+option updates inode access time for each access.
+
+The 
+.B noatime 
+option disables inode access time updates which can speed up
+file operations and prevent sleeping (notebook) disks spinning 
+up too often thus saving energy and disk lifetime.
+
+The
+.B relatime 
+option is very similar to 
+.B noatime. 
+It  updates inode access times relative to modify or change time. 
+The access time is only updated if the previous access time was earlier 
+than the current modify or change time. Unlike
+.B noatime
+this option doesn't break applications that need to know 
+if a file has been read since the last time it was modified.
+This is the default behaviour.
+.TP
+.B show_sys_files
+Show the system files in directory listings. 
+Otherwise the default behaviour is to hide the system files.
+Please note that even when this option is specified, "$MFT"
+may not be visible due to a glibc bug.
+Furthermore, irrespectively of show_sys_files, all
+files are accessible by name, for example you can always do
+"ls \-l '$UpCase'".
+.TP
+.BI max_read= value
+With this option the maximum size of read operations can be set.
+The default is infinite.  Note that the size of read requests is
+limited anyway to 32 pages (which is 128kbyte on i386).
+.TP
+.B silent
+Do not return error for chown and chmod unless access right 
+handling is turned on by either of the
+.B uid,
+.B gid,
+.B umask,
+.B fmask,
+or
+.B dmask
+option. 
+This option is on by default.
+.TP
+.BI locale= value
+Prints informative and diagnostic messages in the set locale.
+.TP
+.B no_def_opts
+By default ntfs-3g acts as "silent" was passed to it,
+this option cancel this behaviour.
+.TP
+.BI streams_interface= value
+This option controls how the user can access Alternate Data Streams (ADS)
+or in other words, named data streams. It can be set
+to, one of \fBnone\fR, \fBwindows\fR or \fBxattr\fR. If the option is set to
+\fBnone\fR, the user will have no access to the named data streams.  If it's set
+to \fBwindows\fR, then the user can access them just like in Windows (eg. cat
+file:stream). If it's set to \fBxattr\fR, then the named data streams are
+mapped to xattrs and user can manipulate them using \fB{get,set}fattr\fR
+utilities. The default is \fBxattr\fR on Linux, \fBnone\fR on other OSes.
+.TP
+.B force
+This mount option is not used anymore. It was superseded by the
+.B recover
+and
+.B norecover
+options.
+.TP
+.B debug
+Makes ntfs-3g to not detach from terminal and print a lot of driver debug output.
+.TP
+.B no_detach
+Same as above but with less debug output.
+.SH EXAMPLES
+Mount /dev/sda1 to /mnt/windows (make sure /mnt/windows exists):
+.RS
+.sp
+.B ntfs-3g /dev/sda1 /mnt/windows
+.sp
+.RE
+or
+.RS
+.sp
+.B mount -t ntfs-3g /dev/sda1 /mnt/windows
+.sp
+.RE
+Read\-only mount /dev/sda5 to /home/user/mnt and make user with uid 1000 
+to be the owner of all files:
+.RS
+.sp
+.B ntfs-3g \-o ro,uid=1000 /dev/sda5 /home/user/mnt
+.sp
+.RE
+/etc/fstab entry for the above:
+.RS
+.sp
+.B /dev/sda5 /home/user/mnt ntfs\-3g ro,uid=1000 0 0
+.sp
+.RE
+Unmount /mnt/windows:
+.RS
+.sp
+.B umount /mnt/windows
+.sp
+.RE
+.SH EXIT CODES
+To facilitate the use of the
+.B ntfs-3g
+driver in scripts, an exit code is returned to give an indication of the 
+mountability status of a volume. Value 0 means success, and all other
+ones mean an error. The unique error codes are documented in the
+.BR ntfs-3g.probe (8)
+manual page.
+.SH KNOWN ISSUES
+Please see 
+.RS
+.sp
+http://ntfs-3g.org/support.html
+.sp
+.RE
+for common questions, known issues and support. 
+.SH ACKNOWLEDGEMENT
+Several people made heroic efforts, often over five or more
+years which resulted the ntfs-3g driver. Most importantly they are 
+Anton Altaparmakov, Richard Russon, Szabolcs Szakacsits, Yura Pakhuchiy,
+Yuval Fledel, Jean-Pierre Andre, Alon Bar-Lev, Dominique L Bouix,
+Csaba Henk, Bernhard Kaindl, Erik Larsson, Alejandro Pulver, and 
+the author of the groundbreaking FUSE filesystem development 
+framework, Miklos Szeredi.
+.SH SEE ALSO
+.BR ntfs-3g.probe (8),
+.BR ntfsprogs (8),
+.BR attr (5),
+.BR getfattr (1),
+.BR setfattr (1)
