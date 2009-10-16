@@ -31,6 +31,7 @@
 #include "rc.h"
 
 #include <sys/sysinfo.h>
+#include <sys/ioctl.h>
 #include <bcmutils.h>
 #include <wlutils.h>
 
@@ -38,6 +39,8 @@
 //	ref: http://wiki.openwrt.org/OpenWrtDocs/nas
 
 //	#define DEBUG_TIMING
+
+void notify_nas(const char *ifname);
 
 void start_nas(void)
 {
@@ -59,6 +62,27 @@ void start_nas(void)
 	m = umask(0077);
 	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", nvram_match("wl_mode", "sta") ? "wan" : "lan");
 	umask(m);
+
+	if (!nvram_match("wl_mode", "sta")) {
+		// notify NAS of all wds up ifaces upon startup
+		FILE *fd;
+		char *ifname, buf[256];
+
+		if ((fd = fopen("/proc/net/dev", "r")) != NULL) {
+			fgets(buf, sizeof(buf) - 1, fd);	// header lines
+			fgets(buf, sizeof(buf) - 1, fd);
+			while (fgets(buf, sizeof(buf) - 1, fd)) {
+				if ((ifname = strchr(buf, ':')) == NULL) continue;
+				*ifname = 0;
+				if ((ifname = strrchr(buf, ' ')) == NULL) ifname = buf;
+				else ++ifname;
+				if (strstr(ifname, "wds")) {
+					notify_nas(ifname);
+				}
+			}
+			fclose(fd);
+		}
+	}
 }
 
 void stop_nas(void)
