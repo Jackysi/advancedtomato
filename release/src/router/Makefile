@@ -55,6 +55,9 @@ obj-y += mdu
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
 obj-$(TCONFIG_USB) += scsi-idle
+obj-$(TCONFIG_USB) += libusb10
+obj-$(TCONFIG_USB) += libusb
+obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
 obj-$(TCONFIG_SAMBASRV) += samba
@@ -255,6 +258,11 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/block || true
 endif
+	@mkdir -p $(PLATFORMDIR)/extras/lib
+	@mv $(TARGETDIR)/usr/lib/libusb* $(PLATFORMDIR)/extras/lib/ || true
+	@mkdir -p $(PLATFORMDIR)/extras/apps
+	@mv $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
+	@cp usbmodeswitch/usb_modeswitch.conf $(PLATFORMDIR)/extras/apps/usb_modeswitch.conf || true
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
 ifeq ($(TCONFIG_L7PAT),y)
