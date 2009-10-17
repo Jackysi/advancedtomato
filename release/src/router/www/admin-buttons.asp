@@ -75,7 +75,11 @@ function earlyInit()
 <div class='section-title'>SES/AOSS Button</div>
 <div class='section'>
 <script type='text/javascript'>
-a = [[0,'Do Nothing'],[1,'Toggle Wireless'],[2,'Reboot'],[3,'Shutdown'],[5,'Unmount all USB Drives'],[4,'Run Custom Script']];
+a = [[0,'Do Nothing'],[1,'Toggle Wireless'],[2,'Reboot'],[3,'Shutdown'],
+/* USB-BEGIN */
+[5,'Unmount all USB Drives'],
+/* USB-END */
+[4,'Run Custom Script']];
 createFieldTable('', [
 	{ title: "When Pushed For..." },
 	{ title: '0-2 Seconds', indent: 2, name: 'sesx_b0', type: 'select', options: a, value: nvram.sesx_b0 || 0 },

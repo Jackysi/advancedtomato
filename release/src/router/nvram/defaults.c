@@ -467,6 +467,7 @@ const defaults_t defaults[] = {
 	{ "jffs2_on",			"0"				},
 	{ "jffs2_exec",			""				},
 
+#ifdef TCONFIG_USB
 // nas-usb - !!TB
 	{ "usb_enable",			"0"				},
 	{ "usb_uhci",			"0"				},
@@ -487,6 +488,7 @@ const defaults_t defaults[] = {
 	{ "script_usbhotplug", 		""				},
 	{ "script_usbmount", 		""				},
 	{ "script_usbumount", 		""				},
+#endif
 
 #ifdef TCONFIG_FTP
 // nas-ftp - !!TB

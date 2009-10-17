@@ -22,7 +22,7 @@
 #	be the update to the version.
 #
 # Example:
-# make V1=8516 V2="jffs.1" a b c d m
+# make V1=8516 V2="jffs.1" a b c d m s
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -45,6 +45,7 @@ V1 ?= "--def"
 # makefile(s), the build will silently be wrong.  This way it works properly every time.
 current_BUILD_NAME = $(strip $(shell grep "^TOMATO_BUILD_NAME" tomato_profile.mak  | cut -d"=" -f2))
 current_BUILD_DESC = $(strip $(shell grep "^TOMATO_BUILD_DESC" tomato_profile.mak  | cut -d"=" -f2))
+current_BUILD_USB  = $(strip $(shell grep "^TOMATO_BUILD_USB"  tomato_profile.mak  | cut -d"=" -f2))
 
 uppercase_N = $(shell echo $(N) | tr a-z  A-Z)
 lowercase_N = $(shell echo $(N) | tr A-Z a-z)
@@ -63,8 +64,8 @@ else
 all:
 	@echo ""
 	@echo ""
-	@echo "Building USB-$(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
-	@btools/uversion.pl --gen $(V1) $(V2) "ND USB" $(current_BUILD_DESC)
+	@echo "Building $(current_BUILD_USB) $(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
+	@btools/uversion.pl --gen $(V1) $(V2) "ND" $(current_BUILD_USB) $(current_BUILD_DESC)
 	@echo ""
 	@echo ""
 
@@ -73,7 +74,7 @@ all:
 	@$(MAKE) -C router install
 	@$(MAKE) -C btools
 
-	@rm -f image/tomato-ND-USB-$(V1)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-ND$(current_BUILD_USB)-$(V1)$(V2)-$(current_BUILD_DESC).trx
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
@@ -90,7 +91,7 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		| tee -a fpkg.log
 else
 	@btools/fpkg -i linux/linux/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
-		-t image/tomato-ND-USB-$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
+		-t image/tomato-ND$(current_BUILD_USB)-$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
 endif
 
 	@cp fpkg.log image/fpkg-$(V1)$(V2).log
@@ -167,7 +168,7 @@ what:
 a:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
-	@$(MAKE) setprofile N=G B=A DESC="Std"
+	@$(MAKE) setprofile N=G B=A DESC="Std" USB="USB"
 	@$(MAKE) all
 
 
@@ -177,7 +178,7 @@ b:
 	@sed -i "/TCONFIG_SSH/d" router/config_$@
 	@echo "# TCONFIG_SSH is not set" >>router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
-	@$(MAKE) setprofile N=G B=B DESC="No SSH"
+	@$(MAKE) setprofile N=G B=B DESC="No SSH" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal but without cifs" build
@@ -186,7 +187,7 @@ c:
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
-	@$(MAKE) setprofile N=G B=C DESC="No CIFS"
+	@$(MAKE) setprofile N=G B=C DESC="No CIFS" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal but without SAMBA" build
@@ -201,7 +202,7 @@ d:
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_ARPING/d" router/busybox/config_$@
 	@echo "# CONFIG_ARPING is not set" >>router/busybox/config_$@
-	@$(MAKE) setprofile N=G B=D DESC="Lite"
+	@$(MAKE) setprofile N=G B=D DESC="Lite" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal + VPN" build
@@ -212,7 +213,7 @@ e:
 	@echo "TCONFIG_LZO=y" >>router/config_$@
 	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
-	@$(MAKE) setprofile N=G B=E DESC="VPN"
+	@$(MAKE) setprofile N=G B=E DESC="VPN" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal with Extras" build
@@ -245,7 +246,44 @@ m:
 	@echo "CONFIG_FEATURE_FDISK_WRITABLE=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_MKSWAP/d" router/busybox/config_$@
 	@echo "CONFIG_MKSWAP=y" >>router/busybox/config_$@
-	@$(MAKE) setprofile N=G B=M DESC="Ext"
+	@$(MAKE) setprofile N=G B=M DESC="Ext" USB="USB"
+	@$(MAKE) all
+
+## Make the "No USB" build
+s:
+	@cp router/config_base router/config_$@
+	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
+	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
+	@sed -i "/TCONFIG_FTP/d" router/config_$@
+	@echo "# TCONFIG_FTP is not set" >>router/config_$@
+	@sed -i "/TCONFIG_USB/d" router/config_$@
+	@echo "# TCONFIG_USB is not set" >>router/config_$@
+	@cp router/busybox/config_base router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
+	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_AWK/d" router/busybox/config_$@
+	@echo "CONFIG_AWK=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_AWK_LIBM/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_AWK_LIBM=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_LS_COLOR=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" router/busybox/config_$@
+	@echo "CONFIG_FEATURE_SORT_BIG=y" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_MOUNT_LABEL/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_MOUNT_LABEL is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_FEATURE_MOUNT_FSTAB/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_MOUNT_FSTAB is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_VOLUMEID/d" router/busybox/config_$@
+	@echo "# CONFIG_VOLUMEID is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_SWAPONOFF/d" router/busybox/config_$@
+	@echo "# CONFIG_SWAPONOFF is not set" >>router/busybox/config_$@
+	@$(MAKE) setprofile N=G B=S DESC="" USB=""
 	@$(MAKE) all
 
 setprofile:
@@ -269,6 +307,7 @@ setprofile:
 	@echo "TOMATO_BUILD_DESC = \"$(DESC)\""     >> tomato_profile.mak
 	@echo "TOMATO_PROFILE_L = $(lowercase_N)"   >> tomato_profile.mak
 	@echo "TOMATO_PROFILE_U = $(uppercase_N)"   >> tomato_profile.mak
+	@echo "TOMATO_BUILD_USB = \"$(USB)\""       >> tomato_profile.mak
 
 
 # Note that changes to variables in tomato_profile.mak don't

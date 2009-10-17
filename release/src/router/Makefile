@@ -53,8 +53,8 @@ obj-y += mssl
 obj-y += mdu
 
 # !!TB
-obj-y += p910nd
-obj-y += scsi-idle
+obj-$(TCONFIG_USB) += p910nd
+obj-$(TCONFIG_USB) += scsi-idle
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
 obj-$(TCONFIG_SAMBASRV) += samba
@@ -151,9 +151,6 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv hfsplus/* . && rm -rf hfsplus || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv xfs/* . && rm -rf xfs || true
-ifneq ($(TCONFIG_SAMBASRV),y)
-	rm -rf $(TARGETDIR)/lib/modules/*/kernel/fs/nls || true
-endif
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv nls/* . && rm -rf nls || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv host/* . && rm -rf host || true
@@ -239,8 +236,22 @@ endif
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/*.o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
+ifneq ($(TCONFIG_SAMBASRV),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(TCONFIG_USB),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/usb || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fat.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.o $(PLATFORMDIR)/extras/ || true
+endif
 ifneq ($(TCONFIG_USB_EXTRAS),y)
-#	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/block || true
 endif

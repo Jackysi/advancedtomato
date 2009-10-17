@@ -65,6 +65,15 @@ endif
 	sed -i "/NTFS-BEGIN/d" $(INSTALLDIR)/www/nas-usb.asp
 	sed -i "/NTFS-END/d" $(INSTALLDIR)/www/nas-usb.asp
 
+# Only include the USB and NAS pages if USB Support is configured in.
+ifneq ($(TCONFIG_USB),y)
+	rm -f $(INSTALLDIR)/www/nas-*.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/USB-BEGIN/,/USB-END/d"
+	sed -i $(INSTALLDIR)/www/admin-buttons.asp -e "/USB-BEGIN/,/USB-END/d"
+endif
+	sed -i "/USB-BEGIN/d" $(INSTALLDIR)/www/admin-buttons.asp
+	sed -i "/USB-END/d" $(INSTALLDIR)/www/admin-buttons.asp
+
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*

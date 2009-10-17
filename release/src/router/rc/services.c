@@ -691,6 +691,7 @@ static void start_rstats(int new)
 
 // !!TB - FTP Server
 
+#ifdef TCONFIG_USB
 /* 
  * Return non-zero if we created the directory,
  * and zero if it already existed.
@@ -728,6 +729,7 @@ char *nvram_storage_path(char *var)
 	char *val = nvram_safe_get(var);
 	return get_full_storage_path(val);
 }
+#endif // TCONFIG_USB
 
 #ifdef TCONFIG_FTP
 
@@ -1133,6 +1135,7 @@ void stop_samba(void)
 #endif
 }
 
+#ifdef TCONFIG_USB
 void restart_nas_services(int start)
 {	
 	/* restart all NAS applications */
@@ -1153,6 +1156,7 @@ void restart_nas_services(int start)
 	file_unlock(fd);
 #endif	// TCONFIG_SAMBASRV || TCONFIG_FTP
 }
+#endif // TCONFIG_USB
 
 // -----------------------------------------------------------------------------
 
@@ -1534,6 +1538,7 @@ TOP:
 		goto CLEAR;
 	}
 
+#ifdef TCONFIG_USB
 	// !!TB - USB Support
 	if (strcmp(service, "usb") == 0) {
 		if (action & A_STOP) stop_usb();
@@ -1544,6 +1549,7 @@ TOP:
 		}
 		goto CLEAR;
 	}
+#endif
 	
 #ifdef TCONFIG_FTP
 	// !!TB - FTP Server

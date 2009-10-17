@@ -2,12 +2,15 @@
 #define __SHARED_H__
 
 #include <tomato_profile.h>
+#include <tomato_config.h>
 
 #include <netinet/in.h>
 #include <stdint.h>
 #include <errno.h>
 
+#ifdef TCONFIG_USB
 #include <mntent.h>	// !!TB
+#endif
 
 #define Y2K			946684800UL		// seconds since 1970
 
@@ -66,12 +69,19 @@ extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
 //!!TB
+#ifdef TCONFIG_USB
+extern int file_lock(char *tag);
+extern void file_unlock(int lockfd);
+#else
+#define file_lock(args...) (-1)
+#define file_unlock(args...) do { } while(0)
+#endif
+
+#ifdef TCONFIG_USB
 extern char *detect_fs_type(char *device);
 extern struct mntent *findmntents(char *file, int swp,
 	int (*func)(struct mntent *mnt, uint flags), uint flags);
 extern int find_label(char *mnt_dev, char *the_label);
-extern int file_lock(char *tag);
-extern void file_unlock(int lockfd);
 extern void add_remove_usbhost(char *host, int add);
 
 #define DEV_DISCS_ROOT	"/dev/discs"
@@ -85,6 +95,7 @@ extern void add_remove_usbhost(char *host, int add);
 
 typedef int (*host_exec)(char *dev_name, int host_num, int disc_num, int part_num, uint flags);
 extern int exec_for_host(int host, int when_to_update, uint flags, host_exec func);
+#endif //TCONFIG_USB
 
 // id.c
 enum {

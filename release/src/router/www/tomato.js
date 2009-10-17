@@ -1973,16 +1973,18 @@ function navi()
 			['View Details',	'detailed.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
+/* USB-BEGIN */
 // ---- !!TB - USB, FTP, Samba
 		['USB and NAS',			'nas', 0, [
 			['USB Support',		'usb.asp']
-/* FTP-BEGIN */			
+/* FTP-BEGIN */
 			,['FTP Server',		'ftp.asp']
 /* FTP-END */
 /* SAMBA-BEGIN */
 			,['File Sharing',	'samba.asp']
 /* SAMBA-END */
 			] ],
+/* USB-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],

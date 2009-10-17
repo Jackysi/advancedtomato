@@ -24,8 +24,10 @@
 #include <net/route.h>
 
 // !!TB
+#ifdef TCONFIG_USB
 //#include <sys/mount.h>
 #include <mntent.h>
+#endif
 
 #include <wlioctl.h>
 #include <wlutils.h>
@@ -526,6 +528,8 @@ void wo_resolve(char *url)
 }
 
 
+#ifdef TCONFIG_USB
+
 //!!TB - USB support
 
 #define PROC_SCSI_ROOT	"/proc/scsi"
@@ -760,3 +764,5 @@ void wo_usbcommand(char *url)
 	}
 	web_puts("];\n");
 }
+
+#endif // TCONFIG_USB

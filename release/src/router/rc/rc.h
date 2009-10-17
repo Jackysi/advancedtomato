@@ -181,15 +181,27 @@ extern void restart_service(const char *name);
 extern void start_services(void);
 extern void stop_services(void);
 // !!TB - USB and NAS
+#ifdef TCONFIG_USB
 extern int mkdir_if_none(char *dir);
 extern void restart_nas_services(int start);
+#else
+#define mkdir_if_none(args...) (0)
+#define restart_nas_services(args...) do { } while(0)
+#endif
 
 // !!TB - USB Support
 // usb.c
+#ifdef TCONFIG_USB
 extern void start_usb(void);
 extern void stop_usb(void);
 extern void hotplug_usb(void);
 extern void remove_storage_main(void);
+#else
+#define start_usb(args...) do { } while(0)
+#define stop_usb(args...) do { } while(0)
+#define hotplug_usb(args...) do { } while(0)
+#define remove_storage_main(args...) do { } while(0)
+#endif
 
 // wnas.c
 extern void start_nas(void);

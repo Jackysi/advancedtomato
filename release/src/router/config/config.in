@@ -43,23 +43,31 @@ config TCONFIG_L7PAT
 	default y
 
 # !!TB
+config TCONFIG_USB
+	bool "USB Support"
+	default y
+
 config TCONFIG_FTP
 	bool "FTP Server"
+	depends on TCONFIG_USB
 	default y
 
 config TCONFIG_FTP_SSL
 	bool "FTP SSL Support"
-	depends on TCONFIG_FTP
+	depends on TCONFIG_USB && TCONFIG_FTP
 	default n
 
 config TCONFIG_SAMBASRV
 	bool "Samba File Sharing"
+	depends on TCONFIG_USB
 	default y
 
 config TCONFIG_USB_EXTRAS
 	bool "Additional modules and utilities"
+	depends on TCONFIG_USB
 	default n
 
 config TCONFIG_NTFS
 	bool "NTFS-3g Support"
+	depends on TCONFIG_USB
 	default n
