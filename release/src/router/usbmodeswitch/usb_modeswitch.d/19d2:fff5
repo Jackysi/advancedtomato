@@ -1,0 +1,14 @@
+########################################################
+# ZTE AC8710
+
+DefaultVendor=  0x19d2
+DefaultProduct= 0xfff5
+
+TargetVendor=   0x19d2
+TargetProduct=  0xffff
+
+CheckSuccess=20
+
+MessageContent="5553424312345678c00000008000069f030000000000000000000000000000"
+
+

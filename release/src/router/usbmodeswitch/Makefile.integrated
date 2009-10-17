@@ -1,0 +1,45 @@
+PROG        = usb_modeswitch
+VERS        = 1.0.3
+STRIP       = strip
+CC          = gcc
+CCFLAGS     = -l usb -DUSE_SYSLOG
+RM          = /bin/rm -f
+OBJS        = usb_modeswitch.c
+PREFIX      = $(DESTDIR)/usr
+ETCDIR      = $(DESTDIR)/etc
+RULESDIR    = $(DESTDIR)/etc/udev/rules.d
+SBINDIR     = $(PREFIX)/sbin
+
+.PHONY:     clean
+all:        clean $(PROG)
+
+$(PROG): $(OBJS)
+	$(CC) $(CCFLAGS) -o $(PROG) $(OBJS)
+	$(STRIP) $(PROG)
+
+clean:
+	$(RM) ./usb_modeswitch
+
+install: all
+	mkdir -p $(SBINDIR)
+	install --mode=754 ./usb_modeswitch $(SBINDIR)
+	install --mode=754 ./usb_modeswitch.tcl $(SBINDIR)
+	install --mode=754 ./usb_modeswitch.sh $(SBINDIR)
+	install -d $(ETCDIR)/usb_modeswitch.d
+	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./usb_modeswitch.d/*
+	mkdir -p $(RULESDIR)
+	install --mode=644 80-usb_modeswitch.rules $(RULESDIR)
+	if [ `which udevadm 2>/dev/null` ]; then \
+		`which udevadm` control --reload-rules; \
+	elif [ `which udevcontrol 2>/dev/null` ]; then \
+		`which udevcontrol` reload_rules; \
+	fi
+
+uninstall: clean
+	$(RM) $(PREFIX)/sbin/usb_modeswitch
+	$(RM) $(PREFIX)/sbin/usb_modeswitch.tcl
+	$(RM) $(PREFIX)/sbin/usb_modeswitch.sh
+	$(RM) $(RULESDIR)/80-usb_modeswitch.rules
+	$(RM) -R $(ETCDIR)/usb_modeswitch.d
+
+.PHONY:     clean install uninstall

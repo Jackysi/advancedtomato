@@ -1,0 +1,13 @@
+#######################################################
+# Option GlobeTrotter HSUPA (HSO)
+
+DefaultVendor=  0x0af0
+DefaultProduct= 0x7011
+
+TargetClass=    0xff
+
+CheckSuccess=10
+
+MessageContent="55534243785634120100000080000601000000000000000000000000000000"
+
+

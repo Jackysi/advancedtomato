@@ -1,0 +1,10 @@
+########################################################
+# Sony Ericsson MD400
+
+DefaultVendor=  0x0fce 
+DefaultProduct= 0xd0e1
+
+TargetClass=    0x02
+
+SonyMode=1
+

@@ -1,0 +1,13 @@
+#######################################################
+# Older Option devices
+
+DefaultVendor=  0x05c6
+DefaultProduct= 0x1000
+
+TargetVendor=   0x0af0
+
+TargetProductList="6901,6701,6600"
+
+CheckSuccess=10
+
+MessageContent="55534243123456780000000000000601000000000000000000000000000000"

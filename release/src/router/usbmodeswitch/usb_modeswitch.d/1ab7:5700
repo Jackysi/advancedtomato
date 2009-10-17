@@ -1,0 +1,14 @@
+########################################################
+# Hummer DTM5731
+
+DefaultVendor=  0x1ab7
+DefaultProduct= 0x5700
+
+TargetVendor=   0x1ab7
+TargetProduct=  0x5731
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000" 
+
+

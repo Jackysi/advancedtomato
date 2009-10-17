@@ -1,0 +1,9 @@
+########################################################
+# Huawei E180
+
+DefaultVendor=  0x12d1
+DefaultProduct= 0x1414
+
+CheckSuccess=20
+
+HuaweiMode=1

@@ -520,6 +520,15 @@ libusb-install: libusb
 		ln -sf libusb-0.1.so.4 libusb-0.1.so.4.4.4 && \
 		ln -sf libusb-0.1.so.4 libusb.so
 
+usbmodeswitch: libusb
+	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os \
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
+	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
+
+usbmodeswitch-install:
+	install -D usbmodeswitch/usb_modeswitch $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
+	$(STRIP) -s $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
+
 p910nd:
 sendmail:
 samba:

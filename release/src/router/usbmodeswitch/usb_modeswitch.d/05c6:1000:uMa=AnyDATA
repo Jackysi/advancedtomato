@@ -1,0 +1,14 @@
+########################################################
+# AnyDATA ADU-500A, ADU-510A, ADU-510L, ADU-520A
+
+DefaultVendor=  0x05c6
+DefaultProduct= 0x1000
+
+TargetVendor=   0x16d5
+TargetProduct=  0x6502
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
