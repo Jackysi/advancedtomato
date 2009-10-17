@@ -231,6 +231,14 @@ endif
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/media || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/sound/*.o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/sound || true
+
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe_mppc.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.o  $(PLATFORMDIR)/extras/ || true
+	@mkdir -p $(PLATFORMDIR)/extras/crypto
+	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/*.o $(PLATFORMDIR)/extras/crypto/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
 ifneq ($(TCONFIG_USB_EXTRAS),y)
 #	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
