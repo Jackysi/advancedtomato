@@ -814,32 +814,29 @@ static void do_start_stop_ftpd(int stop, int start)
 		"chmod_enable=no\n"
 		"chroot_local_user=yes\n"
 		"check_shell=no\n"
+		"log_ftp_protocol=%s\n"
 		"user_config_dir=%s\n"
-		"passwd_file=%s\n",
-		vsftpd_users, vsftpd_passwd);
+		"passwd_file=%s\n"
+		"listen=yes\n"
+		"listen_port=%s\n"
+		"background=yes\n"
+		"max_clients=%d\n"
+		"max_per_ip=%d\n"
+		"idle_session_timeout=%s\n"
+		"use_sendfile=no\n"
+		"anon_max_rate=%d\n"
+		"local_max_rate=%d\n"
+		"%s\n",
+		nvram_get_int("log_ftp") ? "yes" : "no",
+		vsftpd_users, vsftpd_passwd,
+		nvram_get("ftp_port") ? : "21",
+		nvram_get_int("ftp_max"),
+		nvram_get_int("ftp_ipmax"),
+		nvram_get("ftp_staytimeout") ? : "300",
+		nvram_get_int("ftp_anonrate") * 1024,
+		nvram_get_int("ftp_rate") * 1024,
+		nvram_safe_get("ftp_custom"));
 
-	if (nvram_get_int("log_ftp")) {
-		fprintf(fp, "log_ftp_protocol=yes\n");
-	}
-	else {
-		fprintf(fp, "log_ftp_protocol=no\n");
-	}
-
-	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n",
-		nvram_get("ftp_port") ? : "21");
-	fprintf(fp, "max_clients=%s\n", nvram_get("ftp_max") ? : "0");
-	fprintf(fp, "max_per_ip=%s\n", nvram_get("ftp_ipmax") ? : "0");
-	fprintf(fp, "idle_session_timeout=%s\n", nvram_get("ftp_staytimeout") ? : "300");
-	fprintf(fp, "use_sendfile=no\n");
-	//fprintf(fp, "ftpd_banner=Welcome to the %s FTP service.\n", nvram_get("t_model_name") ? : "router");
-
-	/* bandwidth */
-	fprintf(fp, "anon_max_rate=%d\nlocal_max_rate=%d\n",
-		atoi(nvram_safe_get("ftp_anonrate")) * 1024,
-		atoi(nvram_safe_get("ftp_rate")) * 1024);
-
-	fprintf(fp, "%s\n\n", nvram_safe_get("ftp_custom"));
-	
 	fclose(fp);
 
 	/* prepare passwd file and default users */
@@ -980,7 +977,7 @@ static void do_start_stop_samba(int stop, int start)
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
-		nvram_get("lan_ifname") ? : "br0",
+		nvram_safe_get("lan_ifname"),
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_get("router_name") ? : "Tomato",
 		mode == 2 ? "user" : "share",
@@ -996,7 +993,7 @@ static void do_start_stop_samba(int stop, int start)
 	}
 
 	if (nvram_invmatch("smbd_cpage", "")) {
-		char *cp = nvram_get("smbd_cpage");
+		char *cp = nvram_safe_get("smbd_cpage");
 
 		fprintf(fp, " client code page = %s\n", cp);
 		sprintf(nlsmod, "nls_cp%s", cp);
@@ -1012,7 +1009,7 @@ static void do_start_stop_samba(int stop, int start)
 	if (nvram_match("smbd_cset", "utf8"))
 		fprintf(fp, " coding system = utf8\n");
 	else if (nvram_invmatch("smbd_cset", ""))
-		fprintf(fp, " character set = %s\n", nvram_get("smbd_cset"));
+		fprintf(fp, " character set = %s\n", nvram_safe_get("smbd_cset"));
 
 	fprintf(fp, "%s\n\n", nvram_safe_get("smbd_custom"));
 	
@@ -1562,7 +1559,7 @@ TOP:
 
 #ifdef TCONFIG_SAMBASRV
 	// !!TB - Samba
-	if (strcmp(service, "samba") == 0) {
+	if (strcmp(service, "samba") == 0 || strcmp(service, "smbd") == 0) {
 		if (action & A_STOP) stop_samba();
 		if (action & A_START) {
 			create_passwd();

@@ -20,8 +20,8 @@ clean:
 
 install:	all
 	@install -d $(INSTALLDIR)/usr/sbin
-	@install -m 0500 -D scsi-start $(INSTALLDIR)/usr/sbin/scsi-start
-##	@install -m 0500 -D scsi-idle $(INSTALLDIR)/usr/sbin/scsi-idle
+	@install -D scsi-start $(INSTALLDIR)/usr/sbin/scsi-start
+##	@install -D scsi-idle $(INSTALLDIR)/usr/sbin/scsi-idle
 	@$(STRIP) -s $(INSTALLDIR)/usr/sbin/scsi-start
 ##	@$(STRIP) -s $(INSTALLDIR)/usr/sbin/scsi-idle
 	# scsi-stop is a symbolic link to scsi-start

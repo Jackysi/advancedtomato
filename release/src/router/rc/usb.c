@@ -107,7 +107,7 @@ void start_usb(void)
 				"-f", "/dev/usb/lp0", // device
 				"0" // listen port
 			);
-			symlink("/dev/usb/lp0", "/dev/printers/0");
+			symlink("/dev/usb", "/dev/printers");
 		}
 	}
 	else {

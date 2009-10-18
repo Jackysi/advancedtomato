@@ -56,10 +56,14 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
 endif
+	sed -i "/THEMES-BEGIN/d" $(INSTALLDIR)/www/admin-access.asp
+	sed -i "/THEMES-END/d" $(INSTALLDIR)/www/admin-access.asp
 # Only include NTFS settings if NTFS support is configured in.
 ifneq ($(TCONFIG_NTFS),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/NTFS-BEGIN/,/NTFS-END/d"
 endif
+	sed -i "/NTFS-BEGIN/d" $(INSTALLDIR)/www/nas-usb.asp
+	sed -i "/NTFS-END/d" $(INSTALLDIR)/www/nas-usb.asp
 
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js

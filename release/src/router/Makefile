@@ -211,12 +211,13 @@ endif
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
 
-# separated extra stuff
 # !!TB - moved to run after libfoo.pl - to make sure shared libs include all symbols needed by extras
+# separated extra stuff
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+
 #!!TB
 ifneq ($(TCONFIG_NTFS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
