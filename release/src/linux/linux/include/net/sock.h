@@ -73,7 +73,9 @@
 #endif
 #endif
 
-#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
+ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
+ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
 #include <linux/if_pppox.h>
 #include <linux/ppp_channel.h>   /* struct ppp_channel */
 #endif
@@ -235,19 +237,57 @@ struct pppoe_opt
 	struct sockaddr_pppox	relay;	  /* what socket data will be
 					     relayed to (PPPoE relaying) */
 };
+#define pppoe_dev	proto.pppoe.dev
+#define pppoe_pa	proto.pppoe.pa
+#define pppoe_relay	proto.pppoe.relay
+#endif
 
+#if defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+struct pptp_opt {
+	struct pptp_addr	src_addr;
+	struct pptp_addr	dst_addr;
+	__u32 ack_sent, ack_recv;
+	__u32 seq_sent, seq_recv;
+	__u32 first_seq;
+	int ppp_flags;
+};
+#endif
+#define PPTP_FLAG_PAUSE 0
+#define PPTP_FLAG_PROC 1
+ 
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
+ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
+ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
 struct pppox_opt
 {
 	struct ppp_channel	chan;
 	struct sock		*sk;
 	struct pppox_opt	*next;	  /* for hash table */
 	union {
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
 		struct pppoe_opt pppoe;
+#endif
+#if defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE) 
+		struct pptp_opt  pptp;
+#endif
 	} proto;
 };
-#define pppoe_dev	proto.pppoe.dev
-#define pppoe_pa	proto.pppoe.pa
-#define pppoe_relay	proto.pppoe.relay
+
+struct pppox_sock {
+	/* struct sock must be the first member of pppox_sock */
+	struct ppp_channel	chan;
+	struct sock		*sk;
+	struct pppox_sock	*next;	  /* for hash table */
+	union {
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
+		struct pppoe_opt pppoe;
+#endif
+#if defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE) 
+		struct pptp_opt  pptp;
+#endif
+	} proto;
+	unsigned short		num;
+};
 #endif
 
 /* This defines a selective acknowledgement block. */
@@ -729,7 +769,9 @@ struct sock {
 #if defined(CONFIG_ROSE) || defined(CONFIG_ROSE_MODULE)
 		rose_cb			*rose;
 #endif
-#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
+ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
+ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
 		struct pppox_opt	*pppox;
 #endif
 		struct netlink_opt	*af_netlink;
@@ -768,6 +810,20 @@ struct sock {
 						struct sk_buff *skb);  
 	void                    (*destruct)(struct sock *sk);
 };
+
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
+ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
+ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+static inline struct pppox_sock *pppox_sk(struct sock *sk)
+{
+	return (struct pppox_sock *)sk->protinfo.pppox;
+}
+
+static inline struct sock *sk_pppox(struct pppox_sock *po)
+{
+	return po->sk;
+}
+#endif
 
 /* The per-socket spinlock must be held here. */
 #define sk_add_backlog(__sk, __skb)			\

@@ -20,6 +20,7 @@
 #include <asm/types.h>
 #include <asm/byteorder.h>
 #include <linux/version.h>
+#include <linux/config.h>
 
 #ifdef  __KERNEL__
 #include <linux/in.h>
@@ -44,18 +45,28 @@
  * PPPoE addressing definition 
  */ 
 typedef __u16 sid_t; 
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
 struct pppoe_addr{ 
        sid_t           sid;                    /* Session identifier */ 
        unsigned char   remote[ETH_ALEN];       /* Remote address */ 
        char            dev[IFNAMSIZ];          /* Local device to use */ 
 }; 
+#endif
+
+#if defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+struct pptp_addr {
+       __u16		call_id;
+       struct in_addr 	sin_addr;
+};
+#endif
  
 /************************************************************************ 
  * Protocols supported by AF_PPPOX 
  */ 
 #define PX_PROTO_OE    0 /* Currently just PPPoE */
 #define PX_PROTO_OL2TP 1 /* Now L2TP also */
-#define PX_MAX_PROTO   2
+#define PX_PROTO_PPTP  2
+#define PX_MAX_PROTO   3
 
 /* The use of a union isn't viable because the size of this struct
  * must stay fixed over time -- applications use sizeof(struct
@@ -66,23 +77,40 @@ struct sockaddr_pppox {
        sa_family_t     sa_family;            /* address family, AF_PPPOX */
        unsigned int    sa_protocol;          /* protocol identifier */
        union{
-               struct pppoe_addr       pppoe;
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
+		struct pppoe_addr       pppoe;
+#endif
+#if defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE)
 		struct pppol2tp_addr    pppol2tp;
+#endif
+#if defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+		struct pptp_addr	pptp;
+#endif
        }sa_addr;
 }__attribute__ ((packed)); /* deprecated */
 
+#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
 /* Must be binary-compatible with sockaddr_pppox for backwards compatabilty */
 struct sockaddr_pppoe {
 	sa_family_t     sa_family;	/* address family, AF_PPPOX */
 	unsigned int    sa_protocol;    /* protocol identifier */
 	struct pppoe_addr pppoe;
 }__attribute__ ((packed));
+#endif
 
+#if defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE)
 struct sockaddr_pppol2tp {
 	sa_family_t     sa_family;      /* address family, AF_PPPOX */
 	unsigned int    sa_protocol;    /* protocol identifier */
 	struct pppol2tp_addr pppol2tp;
 }__attribute__ ((packed));
+#endif
+
+/* Socket options */
+#define PPTP_SO_TIMEOUT 1
+#define PPTP_SO_WINDOW  2
+#define PPTP_FLAG_PAUSE 0
+#define PPTP_FLAG_PROC  1
 
 /*********************************************************************
  *
@@ -92,7 +120,8 @@ struct sockaddr_pppol2tp {
 
 #define PPPOEIOCSFWD	_IOW(0xB1 ,0, sizeof(struct sockaddr_pppox))
 #define PPPOEIOCDFWD	_IO(0xB1 ,1)
-/*#define PPPOEIOCGFWD	_IOWR(0xB1,2, sizeof(struct sockaddr_pppox))*/
+/*#define PPPOEIOCGFWD	_IOWR(0xB1 ,2, sizeof(struct sockaddr_pppox))*/
+#define PPPTPIOWFP	_IOWR(0xB1 ,2, sizeof(struct sockaddr_pppox))*/
 
 /* Codes to identify message types */
 #define PADI_CODE	0x09
@@ -146,6 +175,8 @@ extern int register_pppox_proto(int proto_num, struct pppox_proto *pp);
 extern void unregister_pppox_proto(int proto_num);
 extern void pppox_unbind_sock(struct sock *sk);/* delete ppp-channel binding */
 extern int pppox_channel_ioctl(struct ppp_channel *pc, unsigned int cmd,
+			       unsigned long arg);
+extern int pppox_ioctl(struct socket *sock, unsigned int cmd,
 			       unsigned long arg);
 
 /* PPPoX socket states */
