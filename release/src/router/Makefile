@@ -490,6 +490,36 @@ ntfs-3g-install: ntfs-3g
 	install -d $(INSTALLDIR)/ntfs-3g/sbin && cd $(INSTALLDIR)/ntfs-3g/sbin && \
 		ln -sf ../bin/ntfs-3g mount.ntfs-3g
 
+libusb10/Makefile: libusb10/Makefile.in
+	cd libusb10 && CFLAGS="-O2 -Wall" \
+	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
+
+libusb10: libusb10/Makefile
+	$(MAKE) -C $@
+
+libusb10-install: libusb10
+	install -D libusb10/libusb/.libs/libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so.0
+	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so.*
+	cd $(INSTALLDIR)/libusb10/usr/lib && \
+		ln -sf libusb-1.0.so.0 libusb-1.0.so.0.0.0 && \
+		ln -sf libusb-1.0.so.0 libusb-1.0.so
+
+libusb/Makefile: libusb/Makefile.in
+	cd libusb && CFLAGS="-Wall -Os" \
+	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
+		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
+		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
+
+libusb: libusb10 libusb/Makefile
+	$(MAKE) -C $@
+
+libusb-install: libusb
+	install -D libusb/libusb/.libs/libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4
+	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so.*
+	cd $(INSTALLDIR)/libusb/usr/lib && \
+		ln -sf libusb-0.1.so.4 libusb-0.1.so.4.4.4 && \
+		ln -sf libusb-0.1.so.4 libusb.so
+
 p910nd:
 sendmail:
 samba:
