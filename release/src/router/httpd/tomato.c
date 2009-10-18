@@ -491,11 +491,13 @@ static const nvset_t nvset_list[] = {
 	{ "routes_static",		V_LENGTH(0, 2048)	},
 	{ "lan_stp",			V_RANGE(0, 1)		},
 	{ "wk_mode",			V_LENGTH(1, 32)		},	// gateway, router
+#ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
+#endif
 
 // advanced-wireless
 	{ "wl_afterburner",		V_LENGTH(2, 4)		},	// off, on, auto

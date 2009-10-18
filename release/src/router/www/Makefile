@@ -47,6 +47,12 @@ ifneq ($(TCONFIG_CIFS),y)
 	rm -f $(INSTALLDIR)/www/admin-cifs.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
+# Only include the Zebra options if Zebra is configured in.
+ifneq ($(TCONFIG_ZEBRA),y)
+	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ZEBRA-BEGIN/,/ZEBRA-END/d"
+endif
+	sed -i "/ZEBRA-BEGIN/d" $(INSTALLDIR)/www/advanced-routing.asp
+	sed -i "/ZEBRA-END/d" $(INSTALLDIR)/www/advanced-routing.asp
 
 # Only include extra themes if USB Extras are configured in.
 ifneq ($(TCONFIG_USB_EXTRAS),y)

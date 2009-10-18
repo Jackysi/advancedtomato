@@ -305,11 +305,13 @@ const defaults_t defaults[] = {
 // advanced-routing
 	{ "routes_static",		""				},
 	{ "wk_mode",			"gateway"		},	// Network mode [gateway|router]
+#ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]
 	{ "dr_lan_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan_rx",			"0"				},	// Dynamic-Routing LAN in
 	{ "dr_wan_tx",			"0"				},	// Dynamic-Routing WAN out
 	{ "dr_wan_rx",			"0"				},	// Dynamic-Routing WAN in
+#endif
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
