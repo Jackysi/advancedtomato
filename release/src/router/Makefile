@@ -234,6 +234,7 @@ endif
 
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe_mppc.o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.o  $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.o $(PLATFORMDIR)/extras/
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
 	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/*.o $(PLATFORMDIR)/extras/crypto/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
