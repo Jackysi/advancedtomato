@@ -516,7 +516,8 @@ libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-Wall -Os" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
 		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
-		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
+		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
+		-Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share"
 
 libusb: libusb10 libusb/Makefile
 	$(MAKE) -C $@
@@ -530,6 +531,7 @@ libusb-install: libusb
 
 usbmodeswitch: libusb
 	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os \
+	    -Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
 
