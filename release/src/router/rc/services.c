@@ -474,8 +474,8 @@ void start_zebra(void)
 		fclose(fp);
 	}
 
-	xstart("zebra", "-d", "-f", "/etc/zebra.conf");
-	xstart("ripd",  "-d", "-f", "/etc/ripd.conf");
+	xstart("zebra", "-d");
+	xstart("ripd",  "-d");
 #endif
 }
 

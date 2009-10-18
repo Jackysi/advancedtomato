@@ -420,11 +420,11 @@ pppd-install:
 
 zebra:
 	@$(SEP)
-	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -Os -Wall" $(CONFIGURE) \
-		--host=mipsel-linux --prefix=/usr/local/zebra \
+	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall" $(CONFIGURE) \
+		--host=mipsel-linux --sysconfdir=/etc \
 		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
 		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
-	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
+	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
 
 zebra-install:
 	install -D zebra/zebra/zebra $(INSTALLDIR)/zebra/usr/sbin/zebra
