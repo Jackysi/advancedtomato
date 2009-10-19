@@ -127,8 +127,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
 ##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
-##!!TB - do not strip ftp nat/conntrack, imq, scsi_mod and loop kernel modules (needed to keep parameters)
-	find $(TARGETDIR)/lib/modules ! \( -name imq.o -prune \) ! \( -name *ftp.o -prune \) ! \( -name scsi_mod.o -prune \) ! \( -name loop.o -prune \) -a -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name *.o -exec $(STRIP) --strip-debug {} \;
 
 	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
