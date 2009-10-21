@@ -937,6 +937,15 @@ int init_main(int argc, char *argv[])
 			start_lan();
 			start_wan(BOOT);
 			start_services();
+#ifdef TCONFIG_USB
+			/*
+			 * On RESTART some partitions can stay mounted if they are busy at the moment.
+			 * In that case USB drivers won't unload, and hotplug won't kick off again to
+			 * remount those drives that actually got unmounted. Make sure to remount ALL
+			 * partitions here by simulating hotplug event.
+			 */
+			if (state == RESTART) add_remove_usbhost("-1", 1);
+#endif
 
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
