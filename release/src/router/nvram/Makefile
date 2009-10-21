@@ -28,10 +28,11 @@ endif
 	$(CPTMP)
 	
 install: all
-	install -D -m 0500 libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
-	install -D -m 0500 nvram $(INSTALLDIR)/bin/nvram
+	install -D libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
+	install -D nvram $(INSTALLDIR)/bin/nvram
 	$(STRIP) $(INSTALLDIR)/usr/lib/libnvram.so
 	$(STRIP) $(INSTALLDIR)/bin/nvram
+	chmod 0500 $(INSTALLDIR)/bin/nvram
 
 clean:
 	rm -f nvram *.o *.a *.so

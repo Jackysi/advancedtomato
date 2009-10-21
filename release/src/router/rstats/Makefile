@@ -21,8 +21,9 @@ clean:
 
 install: all
 	@echo " [rstats] Installing..."
-	install -D -m 0500 rstats $(INSTALLDIR)/bin/rstats
+	install -D rstats $(INSTALLDIR)/bin/rstats
 	$(STRIP) $(INSTALLDIR)/bin/rstats
+	chmod 0500 $(INSTALLDIR)/bin/rstats
 
 %.o: %.c .%.depend
 	@echo " [rstats] CC $@"

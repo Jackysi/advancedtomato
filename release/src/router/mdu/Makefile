@@ -22,8 +22,9 @@ clean:
 
 install: all
 	@echo " [mdu] Installing..."
-	install -D -m 0500 mdu $(INSTALLDIR)/bin/mdu
+	install -D mdu $(INSTALLDIR)/bin/mdu
 	$(STRIP) $(INSTALLDIR)/bin/mdu
+	chmod 0500 $(INSTALLDIR)/bin/mdu
 
 %.o: %.c .%.depend
 	@echo " [mdu] CC $@"

@@ -178,6 +178,7 @@ endif
 
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
+	@chmod 0555 $(TARGETDIR)/usr/lib/*.so*
 
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols

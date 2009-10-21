@@ -15,8 +15,9 @@ ntpc: $(OBJS)
 	$(CPTMP)
 
 install: all
-	install -D -m 0500 ntpc $(INSTALLDIR)/bin/ntpc
+	install -D ntpc $(INSTALLDIR)/bin/ntpc
 	$(STRIP) $(INSTALLDIR)/bin/ntpc
+	chmod 0500 $(INSTALLDIR)/bin/ntpc
 
 	cd $(INSTALLDIR)/bin && ln -sf ntpc ntpsync
 
