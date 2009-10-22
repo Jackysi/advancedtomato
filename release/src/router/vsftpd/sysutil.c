@@ -73,7 +73,7 @@ static struct vsf_sysutil_sig_details
 {
   vsf_sighandle_t sync_sig_handler;
   void* p_private;
-  int pending;
+  volatile sig_atomic_t pending;
   int running;
   int use_alarm;
 } s_sig_details[NSIG];
@@ -117,10 +117,8 @@ vsf_sysutil_common_sighandler(int signum)
 {
   if (signum < 0 || signum >= NSIG)
   {
-    /* bug() is not async safe but this check really is a "cannot happen"
-     * debug aid.
-     */
-    bug("signal out of range in vsf_sysutil_common_sighandler");
+    /* "cannot happen" */
+    return;
   }
   if (s_sig_details[signum].sync_sig_handler)
   {
@@ -1358,13 +1356,12 @@ vsf_sysutil_statbuf_get_perms(const struct vsf_sysutil_statbuf* p_statbuf)
 
 const char*
 vsf_sysutil_statbuf_get_date(const struct vsf_sysutil_statbuf* p_statbuf,
-                             int use_localtime)
+                             int use_localtime, long curr_time)
 {
   static char datebuf[64];
   int retval;
   struct tm* p_tm;
   const struct stat* p_stat = (const struct stat*) p_statbuf;
-  long local_time = vsf_sysutil_get_cached_time_sec();
   const char* p_date_format = "%b %d %H:%M";
   if (!use_localtime)
   {
@@ -1375,8 +1372,8 @@ vsf_sysutil_statbuf_get_date(const struct vsf_sysutil_statbuf* p_statbuf,
     p_tm = localtime(&p_stat->st_mtime);
   }
   /* Is this a future or 6 months old date? If so, we drop to year format */
-  if (p_stat->st_mtime > local_time ||
-      (local_time - p_stat->st_mtime) > 60*60*24*182)
+  if (p_stat->st_mtime > curr_time ||
+      (curr_time - p_stat->st_mtime) > 60*60*24*182)
   {
     p_date_format = "%b %d  %Y";
   }
@@ -2593,8 +2590,7 @@ vsf_sysutil_get_current_date(void)
   time_t curr_time;
   const struct tm* p_tm;
   int i = 0;
-  vsf_sysutil_update_cached_time();
-  curr_time = vsf_sysutil_get_cached_time_sec();
+  curr_time = vsf_sysutil_get_time_sec();
   p_tm = localtime(&curr_time);
   if (strftime(datebuf, sizeof(datebuf), "%a %b!%d %H:%M:%S %Y", p_tm) == 0)
   {
@@ -2617,23 +2613,18 @@ vsf_sysutil_get_current_date(void)
   return datebuf;
 }
 
-void
-vsf_sysutil_update_cached_time(void)
+long
+vsf_sysutil_get_time_sec(void)
 {
   if (gettimeofday(&s_current_time, NULL) != 0)
   {
     die("gettimeofday");
   }
-}
-
-long
-vsf_sysutil_get_cached_time_sec(void)
-{
   return s_current_time.tv_sec;
 }
 
 long
-vsf_sysutil_get_cached_time_usec(void)
+vsf_sysutil_get_time_usec(void)
 {
   return s_current_time.tv_usec;
 }

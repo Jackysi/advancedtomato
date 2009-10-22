@@ -7,6 +7,7 @@ find_func() { egrep $1 $2 >/dev/null; }
 if find_func hosts_access tcpwrap.o; then
   echo "-lwrap";
   locate_library /lib/libnsl.so && echo "-lnsl";
+  locate_library /lib64/libnsl.so && echo "-lnsl";
 fi
 
 # Look for PAM (done weirdly due to distribution bugs (e.g. Debian) or the

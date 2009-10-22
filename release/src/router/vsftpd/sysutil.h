@@ -123,7 +123,7 @@ filesize_t vsf_sysutil_statbuf_get_size(
 const char* vsf_sysutil_statbuf_get_perms(
   const struct vsf_sysutil_statbuf* p_stat);
 const char* vsf_sysutil_statbuf_get_date(
-  const struct vsf_sysutil_statbuf* p_stat, int use_localtime);
+  const struct vsf_sysutil_statbuf* p_stat, int use_localtime, long curr_time);
 const char* vsf_sysutil_statbuf_get_numeric_date(
   const struct vsf_sysutil_statbuf* p_stat, int use_localtime);
 unsigned int vsf_sysutil_statbuf_get_links(
@@ -334,9 +334,11 @@ void vsf_sysutil_initgroups(const struct vsf_sysutil_user* p_user);
 void vsf_sysutil_chroot(const char* p_root_path);
 
 /* Time handling */
-void vsf_sysutil_update_cached_time(void);
-long vsf_sysutil_get_cached_time_sec(void);
-long vsf_sysutil_get_cached_time_usec(void);
+/* Do not call get_time_usec() without calling get_time_sec()
+ * first otherwise you will get stale data.
+ */
+long vsf_sysutil_get_time_sec(void);
+long vsf_sysutil_get_time_usec(void);
 long vsf_sysutil_parse_time(const char* p_text);
 void vsf_sysutil_sleep(double seconds);
 int vsf_sysutil_setmodtime(const char* p_file, long the_time, int is_localtime);

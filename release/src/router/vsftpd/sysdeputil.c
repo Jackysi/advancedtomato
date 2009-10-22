@@ -272,10 +272,8 @@ vsf_sysdep_check_auth(struct mystr* p_user_str,
     const struct spwd* p_spwd = getspnam(str_getbuf(p_user_str));
     if (p_spwd != NULL)
     {
-      long curr_time;
+      long curr_time = vsf_sysutil_get_time_sec();
       int days;
-      vsf_sysutil_update_cached_time();
-      curr_time = vsf_sysutil_get_cached_time_sec();
       days = curr_time / (60 * 60 * 24);
       if (p_spwd->sp_expire > 0 && p_spwd->sp_expire < days)
       {
@@ -1211,8 +1209,7 @@ vsf_insert_uwtmp(const struct mystr* p_user_str,
                      sizeof(s_utent.ut_user));
   vsf_sysutil_strcpy(s_utent.ut_host, str_getbuf(p_host_str),
                      sizeof(s_utent.ut_host));
-  vsf_sysutil_update_cached_time();
-  s_utent.ut_tv.tv_sec = vsf_sysutil_get_cached_time_sec();
+  s_utent.ut_tv.tv_sec = vsf_sysutil_get_time_sec();
   setutxent();
   (void) pututxline(&s_utent);
   endutxent();
@@ -1234,8 +1231,7 @@ vsf_remove_uwtmp(void)
   setutxent();
   (void) pututxline(&s_utent);
   endutxent();
-  vsf_sysutil_update_cached_time();
-  s_utent.ut_tv.tv_sec = vsf_sysutil_get_cached_time_sec();
+  s_utent.ut_tv.tv_sec = vsf_sysutil_get_time_sec();
   updwtmpx(WTMPX_FILE, &s_utent);
 }
 

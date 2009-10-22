@@ -252,7 +252,6 @@ handle_pass_command(struct vsf_session* p_sess)
   {
     vsf_two_process_login(p_sess, &p_sess->ftp_arg_str);
   }
-  check_login_delay();
   vsf_cmdio_write(p_sess, FTP_LOGINERR, "Login incorrect.");
   check_login_fails(p_sess);
   str_empty(&p_sess->user_str);

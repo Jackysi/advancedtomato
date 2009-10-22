@@ -82,9 +82,8 @@ vsf_log_start_entry(struct vsf_session* p_sess, enum EVSFLogEntryType what)
   str_empty(&p_sess->log_str);
   if (vsf_log_type_is_transfer(what))
   {
-    vsf_sysutil_update_cached_time();
-    p_sess->log_start_sec = vsf_sysutil_get_cached_time_sec();
-    p_sess->log_start_usec = vsf_sysutil_get_cached_time_usec();
+    p_sess->log_start_sec = vsf_sysutil_get_time_sec();
+    p_sess->log_start_usec = vsf_sysutil_get_time_usec();
   }
 }
 
@@ -181,7 +180,7 @@ vsf_log_do_log_wuftpd_format(struct vsf_session* p_sess, struct mystr* p_str,
   str_alloc_text(p_str, vsf_sysutil_get_current_date());
   str_append_char(p_str, ' ');
   /* Transfer time (in seconds) */
-  delta_sec = vsf_sysutil_get_cached_time_sec() - p_sess->log_start_sec;
+  delta_sec = vsf_sysutil_get_time_sec() - p_sess->log_start_sec;
   if (delta_sec <= 0)
   {
     delta_sec = 1;
@@ -354,10 +353,8 @@ vsf_log_do_log_vsftpd_format(struct vsf_session* p_sess, struct mystr* p_str,
     }
     if (vsf_log_type_is_transfer(what))
     {
-      long delta_sec = vsf_sysutil_get_cached_time_sec() -
-                       p_sess->log_start_sec;
-      long delta_usec = vsf_sysutil_get_cached_time_usec() -
-                        p_sess->log_start_usec;
+      long delta_sec = vsf_sysutil_get_time_sec() - p_sess->log_start_sec;
+      long delta_usec = vsf_sysutil_get_time_usec() - p_sess->log_start_usec;
       double time_delta = (double) delta_sec + ((double) delta_usec /
                                                 (double) 1000000);
       double kbyte_rate;

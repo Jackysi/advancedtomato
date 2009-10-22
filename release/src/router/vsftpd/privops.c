@@ -236,6 +236,10 @@ vsf_privop_do_login(struct vsf_session* p_sess,
   if (result == kVSFLoginFail)
   {
     vsf_log_do_log(p_sess, 0);
+    if (tunable_delay_failed_login)
+    {
+      vsf_sysutil_sleep((double) tunable_delay_failed_login);
+    }
   }
   else
   {
