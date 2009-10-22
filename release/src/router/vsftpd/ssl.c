@@ -29,6 +29,7 @@
 #include <openssl/rand.h>
 #include <openssl/bio.h>
 #include <errno.h>
+#include <limits.h>
 
 static char* get_ssl_error();
 static SSL* get_ssl(struct vsf_session* p_sess, int fd);
@@ -132,16 +133,28 @@ ssl_init(struct vsf_session* p_sess)
       SSL_CTX_set_verify(p_ctx, verify_option, ssl_verify_callback);
       if (tunable_ca_certs_file)
       {
+        STACK_OF(X509_NAME)* p_names;
         if (!SSL_CTX_load_verify_locations(p_ctx, tunable_ca_certs_file, NULL))
         {
           die("SSL: could not load verify file");
         }
+        p_names = SSL_load_client_CA_file(tunable_ca_certs_file);
+        if (!p_names)
+        {
+          die("SSL: could not load client certs file");
+        }
+        SSL_CTX_set_client_CA_list(p_ctx, p_names);
       }
     }
     {
-      char* p_ctx_id = "vsftpd";
+      static const char* p_ctx_id = "vsftpd";
       SSL_CTX_set_session_id_context(p_ctx, (void*) p_ctx_id,
                                      vsf_sysutil_strlen(p_ctx_id));
+    }
+    if (tunable_require_ssl_reuse)
+    {
+      /* Ensure cached session doesn't expire */
+      SSL_CTX_set_timeout(p_ctx, INT_MAX);
     }
     p_sess->p_ssl_ctx = p_ctx;
     ssl_inited = 1;

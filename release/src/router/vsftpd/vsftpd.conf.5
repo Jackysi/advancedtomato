@@ -777,7 +777,9 @@ Default: (none)
 .TP
 .B ca_certs_file
 This option is the name of a file to load Certificate Authority certs from, for
-the purpose of validating client certs. Regrettably, the default SSL CA cert
+the purpose of validating client certs. The loaded certs are also advertised
+to the client, to cater for TLSv1.0 clients such as the z/OS FTP client.
+Regrettably, the default SSL CA cert
 paths are not used, because of vsftpd's use of restricted filesystem spaces
 (chroot). (Added in v2.0.6).
 

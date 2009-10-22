@@ -257,9 +257,8 @@ handle_io(int retval, int fd, void* p_private)
     return;
   }
   /* Calculate bandwidth rate */
-  vsf_sysutil_update_cached_time();
-  curr_sec = vsf_sysutil_get_cached_time_sec();
-  curr_usec = vsf_sysutil_get_cached_time_usec();
+  curr_sec = vsf_sysutil_get_time_sec();
+  curr_usec = vsf_sysutil_get_time_usec();
   elapsed = (double) (curr_sec - p_sess->bw_send_start_sec);
   elapsed += (double) (curr_usec - p_sess->bw_send_start_usec) /
              (double) 1000000;
@@ -278,9 +277,8 @@ handle_io(int retval, int fd, void* p_private)
   rate_ratio = (double) bw_rate / (double) p_sess->bw_rate_max;
   pause_time = (rate_ratio - (double) 1) * elapsed;
   vsf_sysutil_sleep(pause_time);
-  vsf_sysutil_update_cached_time();
-  p_sess->bw_send_start_sec = vsf_sysutil_get_cached_time_sec();
-  p_sess->bw_send_start_usec = vsf_sysutil_get_cached_time_usec();
+  p_sess->bw_send_start_sec = vsf_sysutil_get_time_sec();
+  p_sess->bw_send_start_usec = vsf_sysutil_get_time_usec();
 }
 
 int

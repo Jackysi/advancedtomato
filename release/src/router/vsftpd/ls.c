@@ -17,7 +17,8 @@
 
 static void build_dir_line(struct mystr* p_str,
                            const struct mystr* p_filename_str,
-                           const struct vsf_sysutil_statbuf* p_stat);
+                           const struct vsf_sysutil_statbuf* p_stat,
+                           long curr_time);
 
 void
 vsf_ls_populate_dir_list(struct mystr_list* p_list,
@@ -36,6 +37,7 @@ vsf_ls_populate_dir_list(struct mystr_list* p_list,
   int t_option;
   int F_option;
   int do_stat = 0;
+  long curr_time = 0;
   loc_result = str_locate_char(p_option_str, 'a');
   a_option = loc_result.found;
   loc_result = str_locate_char(p_option_str, 'r');
@@ -81,7 +83,7 @@ vsf_ls_populate_dir_list(struct mystr_list* p_list,
   /* If we're going to need to do time comparisions, cache the local time */
   if (is_verbose)
   {
-    vsf_sysutil_update_cached_time();
+    curr_time = vsf_sysutil_get_time_sec();
   }
   while (1)
   {
@@ -157,7 +159,7 @@ vsf_ls_populate_dir_list(struct mystr_list* p_list,
       {
         str_append_char(&s_final_file_str, '/');
       }
-      build_dir_line(&dirline_str, &s_final_file_str, s_p_statbuf);
+      build_dir_line(&dirline_str, &s_final_file_str, s_p_statbuf, curr_time);
     }
     else
     {
@@ -358,7 +360,7 @@ out:
 
 static void
 build_dir_line(struct mystr* p_str, const struct mystr* p_filename_str,
-               const struct vsf_sysutil_statbuf* p_stat)
+               const struct vsf_sysutil_statbuf* p_stat, long curr_time)
 {
   static struct mystr s_tmp_str;
   filesize_t size = vsf_sysutil_statbuf_get_size(p_stat);
@@ -427,7 +429,8 @@ build_dir_line(struct mystr* p_str, const struct mystr* p_filename_str,
   str_append_char(p_str, ' ');
   /* Date stamp */
   str_append_text(p_str, vsf_sysutil_statbuf_get_date(p_stat,
-                                                      tunable_use_localtime));
+                                                      tunable_use_localtime,
+                                                      curr_time));
   str_append_char(p_str, ' ');
   /* Filename */
   str_append_str(p_str, p_filename_str);

@@ -1182,3 +1182,23 @@ root if using linux-vserver. Also thanks to Stefan Pfetzing
 
 At this point: v2.2.0 released!
 ===============================
+
+- Apply patch to set SSL context timeout to maximum, from Tim Kosse
+<tim.kosse@filezilla-project.org>. Should prevent data connection failures
+after a long transfer or idle period.
+- Apply async-safety signal tweaks from Solar.
+- Fix crash regression with the pasv_address option enabled.
+- Typo fix and look for libnsl in /lib64, from Robby Workman
+<rworkman@slackware.com>.
+- When asking the client to send us a cert, make sure we broadcast some suitable
+certificates. Fixes compatibility with the z/OS FTP client when
+tunable_ssl_request_cert=YES.
+- Rip out the silly "cached time" concept. Simplifies things and fixes
+incorrect transfer time bug reported by Rajeev V. Pillai. Explicitly pass around
+the cached current time in seconds in the one place that needs to avoid
+repeated gettimeofday() calls (directory listing).
+- Do the login fail delay in the parent process for cases where we checked
+a username / password.
+
+At this point: v2.2.1 released!
+===============================

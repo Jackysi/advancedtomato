@@ -583,6 +583,7 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
   }
   if (tunable_pasv_address != 0)
   {
+    vsf_sysutil_sockaddr_alloc_ipv4(&s_p_sockaddr);
     /* Report passive address as specified in configuration */
     if (vsf_sysutil_inet_aton(tunable_pasv_address, s_p_sockaddr) == 0)
     {
