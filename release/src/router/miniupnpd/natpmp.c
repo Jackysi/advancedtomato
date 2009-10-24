@@ -179,20 +179,13 @@ void ProcessIncomingNATPMPPacket(int s)
 					/* To improve the interworking between nat-pmp and
 					 * UPnP, we should check that we remove only NAT-PMP 
 					 * mappings */
-					//!!TB - begin
-					// only attempt to delete rule if it exists
-					r = get_redirect_rule(ext_if_name, eport, proto,
-						iaddr_old, sizeof(iaddr_old),
-						&iport_old, 0, 0, 0, 0);
-					if (r >= 0) {
-					//!!TB - end
-						r = _upnp_delete_redir(eport, proto);
-						/*syslog(LOG_DEBUG, "%hu %d r=%d", eport, proto, r);*/
-						if(r<0) {
-							syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s", eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
-							resp[3] = 2;	/* Not Authorized/Refused */
-						}
-					}	//!!TB
+					r = _upnp_delete_redir(eport, proto);
+					/*syslog(LOG_DEBUG, "%hu %d r=%d", eport, proto, r);*/
+					if(r<0) {
+					//	noisy; removed logging -- zzz
+					//	syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s", eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
+						resp[3] = 2;	/* Not Authorized/Refused */
+					}
 				}
 				eport = 0; /* to indicate correct removing of port mapping */
 			} else if(iport==0
