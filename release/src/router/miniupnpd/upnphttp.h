@@ -1,4 +1,4 @@
-/* $Id: upnphttp.h,v 1.19 2009/06/04 09:02:26 nanard Exp $ */ 
+/* $Id: upnphttp.h,v 1.20 2009/09/04 16:35:13 nanard Exp $ */ 
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard 
@@ -14,7 +14,7 @@
 #include "config.h"
 
 /* server: HTTP header returned in all HTTP responses : */
-#define MINIUPNPD_SERVER_STRING	OS_VERSION " UPnP/1.0 MiniUPnPd/1.3"
+#define MINIUPNPD_SERVER_STRING	OS_VERSION " UPnP/1.0 MiniUPnPd/1.4"
 
 /*
  states :

@@ -340,7 +340,6 @@ void start_upnp(void)
 {
 	if (get_wan_proto() == WP_DISABLED) return;
 
-#ifdef USE_MINIUPNPD
 	int enable;
 	FILE *f;
 	int upnp_port;
@@ -381,25 +380,11 @@ void start_upnp(void)
 			}
 		}
 	}
-#else
-	if (nvram_get_int("upnp_enable")) {
-		xstart("upnp",
-			"-D",
-			"-L", nvram_safe_get("lan_ifname"),
-			"-W", nvram_safe_get("wan_iface"),
-			"-I", nvram_safe_get("upnp_ssdp_interval"),
-			"-A", nvram_safe_get("upnp_max_age"));
-	}
-#endif
 }
 
 void stop_upnp(void)
 {
-#ifdef USE_MINIUPNPD
 	killall_tk("miniupnpd");
-#else
-	killall_tk("upnp");
-#endif
 }
 
 // -----------------------------------------------------------------------------

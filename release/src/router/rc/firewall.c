@@ -539,21 +539,12 @@ static void filter_forward(void)
 		"-A FORWARD -i %s -j %s\n",										// from lan
 		wanface, wanface, lanface, chain_out_accept);
 
-#ifdef USE_MINIUPNPD
 	if (nvram_get_int("upnp_enable") & 3) {
 		ipt_write(
 			":upnp - [0:0]\n"
 			"-A FORWARD -i %s -j upnp\n",
 			wanface);
 	}
-#else
-	if (nvram_get_int("upnp_enable")) {
-		ipt_write(
-			":upnp - [0:0]\n"
-			"-A FORWARD -i %s -j upnp\n",
-				wanface);
-	}
-#endif
 
 	if (wanup) {
 		if (nvram_match("multicast_pass", "1")) {
@@ -734,14 +725,12 @@ int start_firewall(void)
 	}
 #endif
 
-#ifdef USE_MINIUPNPD
 	if (nvram_get_int("upnp_enable") & 3) {
 		f_write("/etc/upnp/save", NULL, 0, 0, 0);
 		if (killall("miniupnpd", SIGUSR2) == 0) {
 			f_wait_notexists("/etc/upnp/save", 5);
 		}
 	}
-#endif
 
 	if (eval("iptables-restore", (char *)ipt_fname) == 0) {
 		led(LED_DIAG, 0);
@@ -767,16 +756,10 @@ int start_firewall(void)
 		*/
 	}
 
-#ifdef USE_MINIUPNPD
 	if (nvram_get_int("upnp_enable") & 3) {
 		f_write("/etc/upnp/load", NULL, 0, 0, 0);
 		killall("miniupnpd", SIGUSR2);
 	}
-#else
-	if (nvram_get_int("upnp_enable")) {
-		killall("upnp", SIGHUP);
-	}
-#endif
 
 	simple_unlock("restrictions");
 	sched_restrictions();

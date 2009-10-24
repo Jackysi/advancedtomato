@@ -22,7 +22,8 @@ char *post_buf = NULL;
 int rboot = 0;
 extern int post;
 
-void asp_resmsg(int argc, char **argv);
+static void asp_css(int argc, char **argv);
+static void asp_resmsg(int argc, char **argv);
 
 //
 static void wo_tomato(char *url);
@@ -258,11 +259,20 @@ const aspapi_t aspapi[] = {
 	{ "wlnoise",			asp_wlnoise			},
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
-#if TOMATO_SL
-	{ "sharelist",			asp_sharelist		},
-#endif
+	{ "css",				asp_css				},
 	{ NULL,					NULL				}
 };
+
+// -----------------------------------------------------------------------------
+
+static void asp_css(int argc, char **argv)
+{
+	const char *css = nvram_safe_get("web_css");
+	
+	if (strcmp(css, "tomato") != 0) {
+		web_printf("<link rel='stylesheet' type='text/css' href='%s.css'>", css);
+	}
+}
 
 // -----------------------------------------------------------------------------
 
@@ -290,7 +300,7 @@ int resmsg_fread(const char *fname)
 	return 0;
 }
 
-void asp_resmsg(int argc, char **argv)
+static void asp_resmsg(int argc, char **argv)
 {
 	char *p;
 

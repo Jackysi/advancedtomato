@@ -21,12 +21,13 @@ install:
 		sed '/^\/\*\s*$$/,/\*\//! { s/\s\+/ /g; s/^\s\+//; s/\s\+$$//; /^$$/d }' < $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
-# remove "debug.js" references, convert color.css -> nv().css, remove comments
+# remove "debug.js" references, convert color.css, remove comments
 # in between REMOVE-BEGIN and REMOVE-END, and compress whitespace
 
 	for F in $(wildcard *.asp *.svg); do \
 		sed	-e "/REMOVE-BEGIN/,/REMOVE-END/d" \
 			-e "s,<script[^>]\+debug\.js[^>]\+></script>,," \
+			-e "s,<link[^>]\+href='color\.css'>,<% css(); %>," \
 			-e "s,color\.css,<% nv('web_css'); %>\.css," \
 			-e "s,<!-- / / / -->,," \
 			-e "/^$$/d" \

@@ -640,6 +640,12 @@ void start_wan(int mode)
 	default:	// static
 		nvram_set("wan_iface", wan_ifname);
 		ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+		
+		int r = 10;
+		while ((!check_wanup()) && (r-- > 0)) {
+			sleep(1);
+		}
+		
 		start_wan_done(wan_ifname);
 		break;
 	}
