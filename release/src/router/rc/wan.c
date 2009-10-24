@@ -783,12 +783,14 @@ void start_wan_done(char *wan_ifname)
 		
 		run_nvscript("script_wanup", NULL, 0);
 	}
-	
+
+#if 0	//!!TB
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
 		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
 	}
+#endif
 
 	unlink(wan_connecting);
 

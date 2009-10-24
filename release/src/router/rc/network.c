@@ -300,6 +300,7 @@ void stop_lan(void)
 			}
 			free(lan_ifnames);
 		}
+		eval("brctl", "delbr", lan_ifname);
 	}
 	else if (*lan_ifname) {
 		eval("wlconf", lan_ifname, "down");
