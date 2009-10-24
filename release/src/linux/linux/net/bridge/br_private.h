@@ -95,6 +95,7 @@ struct net_bridge
 	int				hello_time;
 	int				forward_delay;
 	bridge_id			bridge_id;
+	bridge_id			preferred_id;
 	int				bridge_max_age;
 	int				bridge_hello_time;
 	int				bridge_forward_delay;
