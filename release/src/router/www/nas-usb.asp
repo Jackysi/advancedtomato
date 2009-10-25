@@ -358,8 +358,10 @@ function submit_complete()
 createFieldTable('', [
 	{ title: 'Core USB Support', name: 'f_usb', type: 'checkbox', value: nvram.usb_enable == 1 },
 	{ title: 'USB 2.0 Support', indent: 2, name: 'f_usb2', type: 'checkbox', value: nvram.usb_usb2 == 1 },
-	{ title: 'USB 1.1 Support (OHCI)', indent: 2, name: 'f_ohci', type: 'checkbox', value: nvram.usb_ohci == 1 },
-	{ title: 'USB 1.1 Support (UHCI)', indent: 2, name: 'f_uhci', type: 'checkbox', value: nvram.usb_uhci == 1 },
+	{ title: 'USB 1.1 Support', indent: 2, multi: [
+		{ suffix: '&nbsp; OHCI &nbsp;&nbsp;&nbsp;', name: 'f_ohci', type: 'checkbox', value: nvram.usb_ohci == 1 },
+		{ suffix: '&nbsp; UHCI &nbsp;',	name: 'f_uhci', type: 'checkbox', value: nvram.usb_uhci == 1 }
+	] },
 	null,
 	{ title: 'USB Printer Support', name: 'f_print', type: 'checkbox', value: nvram.usb_printer == 1 },
 		{ title: 'Bidirectional copying', indent: 2, name: 'f_bprint', type: 'checkbox', value: nvram.usb_printer_bidirect == 1 },
