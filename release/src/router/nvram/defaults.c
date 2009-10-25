@@ -474,22 +474,22 @@ const defaults_t defaults[] = {
 	{ "usb_enable",			"0"				},
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
-	{ "usb_usb2",			"0"				},
-	{ "usb_storage",		"0"				},
-	{ "usb_printer",		"0"				},
+	{ "usb_usb2",			"1"				},
+	{ "usb_storage",		"1"				},
+	{ "usb_printer",		"1"				},
 	{ "usb_printer_bidirect",	"1"				},
-	{ "usb_fs_ext3",		"0"				},
-	{ "usb_fs_fat",			"0"				},
+	{ "usb_fs_ext3",		"1"				},
+	{ "usb_fs_fat",			"1"				},
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		"1"				},
 #endif
-	{ "usb_automount",		"0"				},
+	{ "usb_automount",		"1"				},
 #if 0
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
 #endif
-	{ "script_usbhotplug", 		""				},
-	{ "script_usbmount", 		""				},
-	{ "script_usbumount", 		""				},
+	{ "script_usbhotplug",		""				},
+	{ "script_usbmount",		""				},
+	{ "script_usbumount",		""				},
 #endif
 
 #ifdef TCONFIG_FTP
