@@ -102,8 +102,15 @@ do { \
 
 #define NFS_FILEID(inode)		((inode)->u.nfs_i.fileid)
 
-/* Inode Flags */
-#define NFS_USE_READDIRPLUS(inode)	((NFS_FLAGS(inode) & NFS_INO_ADVISE_RDPLUS) ? 1 : 0)
+static inline int nfs_server_capable(struct inode *inode, int cap)
+{
+	return NFS_SERVER(inode)->caps & cap;
+}
+
+static inline int NFS_USE_READDIRPLUS(struct inode *inode)
+{
+	return NFS_FLAGS(inode) & NFS_INO_ADVISE_RDPLUS;
+}
 
 /*
  * These are the default flags for swap requests

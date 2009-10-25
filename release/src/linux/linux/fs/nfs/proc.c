@@ -351,15 +351,60 @@ nfs_proc_readdir(struct inode *dir, struct rpc_cred *cred,
 
 static int
 nfs_proc_statfs(struct nfs_server *server, struct nfs_fh *fhandle,
+			struct nfs_fsstat *stat)
+{
+	int	status;
+	struct	nfs2_statfs fsinfo;
+
+	stat->fattr->valid = 0;
+	dprintk("NFS call statfs\n");
+	status = rpc_call(server->client, NFSPROC_STATFS, fhandle, &fsinfo, 0);
+	dprintk("NFS reply statfs: %d\n", status);
+	if (status)
+		goto out;
+	stat->tbytes = (u64)fsinfo.blocks * fsinfo.bsize;
+	stat->fbytes = (u64)fsinfo.bfree  * fsinfo.bsize;
+	stat->abytes = (u64)fsinfo.bavail * fsinfo.bsize;
+	stat->tfiles = 0;
+	stat->ffiles = 0;
+	stat->afiles = 0;
+	stat->invarsec = 0;
+ out:
+	return status;
+}
+
+static int
+nfs_proc_fsinfo(struct nfs_server *server, struct nfs_fh *fhandle,
 			struct nfs_fsinfo *info)
 {
 	int	status;
+	struct	nfs2_statfs fsinfo;
 
-	dprintk("NFS call  statfs\n");
-	memset((char *)info, 0, sizeof(*info));
-	status = rpc_call(server->client, NFSPROC_STATFS, fhandle, info, 0);
-	dprintk("NFS reply statfs: %d\n", status);
+	info->fattr->valid = 0;
+	dprintk("NFS call fsinfo\n");
+	status = rpc_call(server->client, NFSPROC_STATFS, fhandle, &fsinfo, 0);
+	dprintk("NFS reply fsinfo: %d\n", status);
+	if (status)
+		goto out;
+	info->rtmax  = NFS_MAXDATA;
+	info->rtpref = fsinfo.tsize;
+	info->rtmult = fsinfo.bsize;
+	info->wtmax  = NFS_MAXDATA;
+	info->wtpref = fsinfo.tsize;
+	info->wtmult = fsinfo.bsize;
+	info->dtpref = fsinfo.tsize;
+	info->maxfilesize = 0x7FFFFFFF;
+	info->time_delta = 0;
+	info->properties = 0x1b;
+ out:
 	return status;
+}
+
+static int
+nfs_proc_pathconf(struct nfs_server *server, struct nfs_fh *fhandle,
+			struct nfs_pathconf *info)
+{
+	return -ENOTSUPP;
 }
 
 extern u32 * nfs_decode_dirent(u32 *, struct nfs_entry *, int);
@@ -387,5 +432,7 @@ struct nfs_rpc_ops     nfs_v2_clientops = {
        nfs_proc_readdir,
        nfs_proc_mknod,
        nfs_proc_statfs,
+       nfs_proc_fsinfo,
+       nfs_proc_pathconf,
        nfs_decode_dirent,
 };

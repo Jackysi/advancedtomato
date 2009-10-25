@@ -27,6 +27,7 @@ struct nfs_fattr {
 	__u64			atime;
 	__u64			mtime;
 	__u64			ctime;
+	unsigned long		timestamp;
 };
 
 #define NFS_ATTR_WCC		0x0001		/* pre-op WCC data    */
@@ -37,6 +38,7 @@ struct nfs_fattr {
  * Info on the file system
  */
 struct nfs_fsinfo {
+	struct nfs_fattr	*fattr;
 	__u32			rtmax;	/* max.  read transfer size */
 	__u32			rtpref;	/* pref. read transfer size */
 	__u32			rtmult;	/* reads should be multiple of this */
@@ -45,15 +47,37 @@ struct nfs_fsinfo {
 	__u32			wtmult;	/* writes should be multiple of this */
 	__u32			dtpref;	/* pref. readdir transfer size */
 	__u64			maxfilesize;
-	__u64			bsize;	/* block size */
+	__u64			time_delta;
+	__u32			properties;
+};
+
+struct nfs_fsstat {
+	struct nfs_fattr	*fattr;
 	__u64			tbytes;	/* total size in bytes */
 	__u64			fbytes;	/* # of free bytes */
 	__u64			abytes;	/* # of bytes available to user */
 	__u64			tfiles;	/* # of files */
 	__u64			ffiles;	/* # of free files */
 	__u64			afiles;	/* # of files available to user */
+	__u32			invarsec;
+};
+
+struct nfs_pathconf {
+	struct nfs_fattr	*fattr; /* Post-op attributes */
 	__u32			linkmax;/* max # of hard links */
-	__u32			namelen;/* max name length */
+	__u32			name_max;/* max name length */
+	int			no_trunc : 1,
+				chown_restricted : 1,
+				case_insensitive : 1,
+				case_preserving : 1;
+};
+
+struct nfs2_statfs {
+	__u32			tsize;	/* Server transfer size */
+	__u32			bsize;	/* Filesystem block size */
+	__u32			blocks;	/* No. of "bsize" blocks on filesystem */
+	__u32			bfree;	/* No. of free "bsize" blocks */
+	__u32			bavail;	/* No. of available "bsize" blocks */
 };
 
 /* Arguments to the read call.
@@ -109,6 +133,8 @@ struct nfs_entry {
 	const char *		name;
 	unsigned int		len;
 	int			eof;
+	struct nfs_fh		*fh;
+	struct nfs_fattr	*fattr;
 };
 
 /*
@@ -298,7 +324,7 @@ struct nfs_rpc_ops {
 			    struct iattr *);
 	int	(*lookup)  (struct inode *, struct qstr *,
 			    struct nfs_fh *, struct nfs_fattr *);
-	int	(*access)  (struct inode *, int , int);
+	int	(*access)  (struct inode *, struct rpc_cred *, int);
 	int	(*readlink)(struct inode *, struct page *);
 	int	(*read)    (struct inode *, struct rpc_cred *,
 			    struct nfs_fattr *,
@@ -330,7 +356,11 @@ struct nfs_rpc_ops {
 	int	(*mknod)   (struct inode *, struct qstr *, struct iattr *,
 			    dev_t, struct nfs_fh *, struct nfs_fattr *);
 	int	(*statfs)  (struct nfs_server *, struct nfs_fh *,
+			    struct nfs_fsstat *);
+	int	(*fsinfo)  (struct nfs_server *, struct nfs_fh *,
 			    struct nfs_fsinfo *);
+	int	(*pathconf) (struct nfs_server *, struct nfs_fh *,
+			    struct nfs_pathconf *);
 	u32 *	(*decode_dirent)(u32 *, struct nfs_entry *, int plus);
 };
 

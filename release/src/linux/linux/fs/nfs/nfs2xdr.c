@@ -118,6 +118,7 @@ xdr_decode_fattr(u32 *p, struct nfs_fattr *fattr)
 		fattr->mode = (fattr->mode & ~S_IFMT) | S_IFIFO;
 		fattr->rdev = 0;
 	}
+	fattr->timestamp = jiffies;
 	return p;
 }
 
@@ -369,7 +370,7 @@ nfs_xdr_readdirargs(struct rpc_rqst *req, u32 *p, struct nfs_readdirargs *args)
 		count = count >> 2;
 
 	p = xdr_encode_fhandle(p, args->fh);
-	*p++ = htonl(args->cookie);
+	*p++ = htonl(args->cookie & 0xFFFFFFFF);
 	*p++ = htonl(count); /* see above */
 	req->rq_slen = xdr_adjust_iovec(req->rq_svec, p);
 
@@ -466,7 +467,7 @@ nfs_decode_dirent(u32 *p, struct nfs_entry *entry, int plus)
 	entry->name	  = (const char *) p;
 	p		 += XDR_QUADLEN(entry->len);
 	entry->prev_cookie	  = entry->cookie;
-	entry->cookie	  = ntohl(*p++);
+	entry->cookie	  = (s64)((off_t)ntohl(*p++));
 	entry->eof	  = !p[0] && p[1];
 
 	return p;
@@ -598,36 +599,18 @@ nfs_xdr_writeres(struct rpc_rqst *req, u32 *p, struct nfs_writeres *res)
  * Decode STATFS reply
  */
 static int
-nfs_xdr_statfsres(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
+nfs_xdr_statfsres(struct rpc_rqst *req, u32 *p, struct nfs2_statfs *res)
 {
 	int	status;
-	u32	xfer_size;
 
 	if ((status = ntohl(*p++)))
 		return -nfs_stat_to_errno(status);
 
-	/* For NFSv2, we more or less have to guess the preferred
-	 * read/write/readdir sizes from the single 'transfer size'
-	 * value.
-	 */
-	xfer_size = ntohl(*p++);	/* tsize */
-	res->rtmax  = 8 * 1024;
-	res->rtpref = xfer_size;
-	res->rtmult = xfer_size;
-	res->wtmax  = 8 * 1024;
-	res->wtpref = xfer_size;
-	res->wtmult = xfer_size;
-	res->dtpref = PAGE_CACHE_SIZE;
-	res->maxfilesize = 0x7FFFFFFF;	/* just a guess */
+	res->tsize  = ntohl(*p++);
 	res->bsize  = ntohl(*p++);
-
-	res->tbytes = ntohl(*p++) * res->bsize;
-	res->fbytes = ntohl(*p++) * res->bsize;
-	res->abytes = ntohl(*p++) * res->bsize;
-	res->tfiles = 0;
-	res->ffiles = 0;
-	res->afiles = 0;
-	res->namelen = 0;
+	res->blocks = ntohl(*p++);
+	res->bfree  = ntohl(*p++);
+	res->bavail = ntohl(*p++);
 
 	return 0;
 }
