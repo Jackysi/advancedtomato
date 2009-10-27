@@ -506,7 +506,8 @@ ntfs-3g-install: ntfs-3g
 	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
 	$(STRIP) -s $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
 	install -d $(INSTALLDIR)/ntfs-3g/sbin && cd $(INSTALLDIR)/ntfs-3g/sbin && \
-		ln -sf ../bin/ntfs-3g mount.ntfs-3g
+		ln -sf ../bin/ntfs-3g mount.ntfs-3g && \
+		ln -sf ../bin/ntfs-3g mount.ntfs
 
 libusb10/Makefile: libusb10/Makefile.in
 	cd libusb10 && CFLAGS="-Os -Wall $(EXTRA_CFLAGS)" \
