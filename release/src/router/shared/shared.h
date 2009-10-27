@@ -81,7 +81,7 @@ extern void file_unlock(int lockfd);
 extern char *detect_fs_type(char *device);
 extern struct mntent *findmntents(char *file, int swp,
 	int (*func)(struct mntent *mnt, uint flags), uint flags);
-extern int find_label(char *mnt_dev, char *the_label);
+extern int find_label_or_uuid(char *dev_name, char *label, char *uuid);
 extern void add_remove_usbhost(char *host, int add);
 
 #define DEV_DISCS_ROOT	"/dev/discs"

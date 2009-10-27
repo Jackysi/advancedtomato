@@ -312,13 +312,13 @@ static inline int is_same_device(char *fsname, dev_t file_rdev, dev_t file_dev, 
 
 struct mntent *findmntents(char *file, int swp, int (*func)(struct mntent *mnt, uint flags), uint flags)
 {
-	struct mntent 	*mnt;
+	struct mntent	*mnt;
 	struct stat	st_buf;
 	dev_t		file_dev=0, file_rdev=0;
 	ino_t		file_ino=0;
-	FILE 		*f;
-	
-	if ((f = setmntent(swp? "/proc/swaps": "/proc/mounts", "r")) == NULL)
+	FILE		*f;
+
+	if ((f = setmntent(swp ? "/proc/swaps": "/proc/mounts", "r")) == NULL)
 		return NULL;
 
 	if (stat(file, &st_buf) == 0) {
@@ -358,6 +358,7 @@ void add_remove_usbhost(char *host, int add)
 	setenv("INTERFACE", "TOMATO/0", 1);
 #ifdef SAME_AS_KERNEL
 	char pgm[256] = "/sbin/hotplug usb";
+	char *p;
 	int fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
 	if (fd) {
 		if (read(fd, pgm, sizeof(pgm) - 5) >= 0) {
@@ -401,22 +402,24 @@ struct volume_id {
 	char		uuid[VOLUME_ID_UUID_SIZE+1];
 };
 
-extern void *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len);
-extern void volume_id_free_buffer(struct volume_id *id);
-extern int volume_id_probe_ext(struct volume_id *id);
-extern int volume_id_probe_vfat(struct volume_id *id);
-extern int volume_id_probe_ntfs(struct volume_id *id);
-extern int volume_id_probe_linux_swap(struct volume_id *id);
+extern void volume_id_set_uuid();
+extern void *volume_id_get_buffer();
+extern void volume_id_free_buffer();
+extern int volume_id_probe_ext();
+extern int volume_id_probe_vfat();
+extern int volume_id_probe_ntfs();
+extern int volume_id_probe_linux_swap();
 
-/* Put the label in *label.
- * Return 0 if no label found, NZ if there is a label.
+/* Put the label in *label and uuid in *uuid.
+ * Return 0 if no label/uuid found, NZ if there is a label or uuid.
  */
-int find_label(char *dev_name, char *label)
+int find_label_or_uuid(char *dev_name, char *label, char *uuid)
 {
 	struct volume_id id;
 
 	memset(&id, 0x00, sizeof(id));
-	label[0] = '\0';
+	if (label) *label = 0;
+	if (uuid) *uuid = 0;
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
 		return 0;
 
@@ -433,10 +436,12 @@ int find_label(char *dev_name, char *label)
 		goto ret;
 ret:
 	volume_id_free_buffer(&id);
-	if (id.label[0] != '\0')
+	if (label && (*id.label != 0))
 		strcpy(label, id.label);
+	if (uuid && (*id.uuid != 0))
+		strcpy(uuid, id.uuid);
 	close(id.fd);
-	return(label[0] != '\0');
+	return (label && *label != 0) || (uuid && *uuid != 0);
 }
 
 void *xmalloc(size_t siz)
@@ -448,8 +453,6 @@ void *xrealloc(void *old, size_t size)
 {
 	return realloc(old, size);
 }
-
-void volume_id_set_uuid() {}
 
 ssize_t full_read(int fd, void *buf, size_t len)
 {

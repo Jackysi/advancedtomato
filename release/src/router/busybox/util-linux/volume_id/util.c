@@ -134,9 +134,6 @@ void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enu
 	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
 }
 
-#endif
-#ifndef UTIL2
-
 void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_format format)
 {
 	unsigned i;
@@ -199,9 +196,6 @@ set:
 	}
 }
 
-#endif
-
-#ifdef UTIL2
 /* Do not use xlseek here. With it, single corrupted filesystem
  * may result in attempt to seek past device -> exit.
  * It's better to ignore such fs and continue.  */

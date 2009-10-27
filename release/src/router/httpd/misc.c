@@ -547,7 +547,7 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	struct statfs s;
 	unsigned long psize = 0;
 
-	if (!find_label(dev_name, the_label)) {
+	if (!find_label_or_uuid(dev_name, the_label, NULL)) {
 		sprintf(the_label, "disc%d_%d", disc_num, part_num);
 	}
 

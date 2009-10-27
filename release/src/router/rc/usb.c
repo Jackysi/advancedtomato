@@ -175,7 +175,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 	char flagfn[128];
 	int dir_made;
 
-	if ((mnt = findmntents(mnt_dev, 0, 0, 0))) {
+	if ((mnt = findmntents(mnt_dev, 0, NULL, 0))) {
 		syslog(LOG_INFO, "USB partition at %s already mounted on %s",
 			mnt_dev, mnt->mnt_dir);
 		return MOUNT_VAL_EXIST;
@@ -252,6 +252,47 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 		}
 	}
 	return MOUNT_VAL_FAIL;
+}
+
+
+struct mntent *mount_fstab(char *dev_name, char *type, char *label, char *uuid)
+{
+	struct mntent *mnt = NULL;
+#if 0
+	if (eval("mount", "-a") == 0)
+		mnt = findmntents(dev_name, 0, NULL, 0);
+#else
+	char spec[PATH_MAX+1];
+
+	if (label && *label) {
+		sprintf(spec, "LABEL=%s", label);
+		if (eval("mount", spec) == 0)
+			mnt = findmntents(dev_name, 0, NULL, 0);
+	}
+
+	if (!mnt && uuid && *uuid) {
+		sprintf(spec, "UUID=%s", uuid);
+		if (eval("mount", spec) == 0)
+			mnt = findmntents(dev_name, 0, NULL, 0);
+	}
+
+	if (!mnt) {
+		if (eval("mount", dev_name) == 0)
+			mnt = findmntents(dev_name, 0, NULL, 0);
+	}
+
+	if (!mnt) {
+		/* Still did not find what we are looking for, try absolute path */
+		if (realpath(dev_name, spec)) {
+			if (eval("mount", spec) == 0)
+				mnt = findmntents(dev_name, 0, NULL, 0);
+		}
+	}
+#endif
+
+	if (mnt)
+		syslog(LOG_INFO, "USB %s fs at %s mounted on %s", type, dev_name, mnt->mnt_dir);
+	return (mnt);
 }
 
 
@@ -372,7 +413,7 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
  *
  * Before we mount any partitions:
  *	If the type is swap and /etc/fstab exists, do "swapon -a"
- *	If /etc/fstab exists, do "mount -a".
+ *	If /etc/fstab exists, try mounting using fstab.
  *  We delay invoking mount because mount will probe all the partitions
  *	to read the labels, and we don't want it to do that early on.
  *  We don't invoke swapon until we actually find a swap partition.
@@ -383,15 +424,15 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
  */
 int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
-	char the_label[128], mountpoint[128];
+	char the_label[128], mountpoint[128], uuid[40];
 	int ret;
 	char *type;
 	static char *swp_argv[] = { "swapon", "-a", NULL };
-	static char *mnt_argv[] = { "mount", "-a", NULL };
 	struct mntent *mnt;
 
 	if ((type = detect_fs_type(dev_name)) == NULL)
 		return(0);
+	find_label_or_uuid(dev_name, the_label, uuid);
 
 	if (f_exists("/etc/fstab")) {
 		if (strcmp(type, "swap") == 0) {
@@ -402,14 +443,13 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
 		if (mount_r(dev_name, NULL, NULL) == MOUNT_VAL_EXIST)
 			return(0);
 
-		_eval(mnt_argv, NULL, 0, NULL);
-		if ((mnt = findmntents(dev_name, 0, 0, 0))) {
+		if ((mnt = mount_fstab(dev_name, type, the_label, uuid))) {
 			run_userfile(mnt->mnt_dir, ".autorun", mnt->mnt_dir, 3);
 			return(1);
 		}
 	}
 
-	if (find_label(dev_name, the_label)) {
+	if (*the_label != 0) {
 		sprintf(mountpoint, "%s/%s", MOUNT_ROOT, the_label);
 		if ((ret = mount_r(dev_name, mountpoint, type))) {
 			if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
@@ -423,7 +463,7 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
 	ret = mount_r(dev_name, mountpoint, type);
 	if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
 		run_userfile(mountpoint, ".autorun", mountpoint, 3);
-	return(ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW);
+	return (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW);
 }
 
 
