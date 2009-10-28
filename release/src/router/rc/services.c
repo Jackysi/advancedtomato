@@ -1027,11 +1027,13 @@ TOP:
 			stop_wan();
 			stop_lan();
 			stop_vlan();
+			stop_nas();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);
+			start_nas();
 		}
 		goto CLEAR;
 	}
