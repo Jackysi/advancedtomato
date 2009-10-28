@@ -283,6 +283,8 @@ s:
 	@echo "# CONFIG_FEATURE_MOUNT_FSTAB is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_VOLUMEID/d" router/busybox/config_$@
 	@echo "# CONFIG_VOLUMEID is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_BLKID/d" router/busybox/config_$@
+	@echo "# CONFIG_BLKID is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_SWAPONOFF/d" router/busybox/config_$@
 	@echo "# CONFIG_SWAPONOFF is not set" >>router/busybox/config_$@
 	@$(MAKE) setprofile N=G B=S DESC="" USB=""
