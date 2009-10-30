@@ -1,4 +1,6 @@
-$Id: Changelog.txt,v 1.180 2009/10/10 19:08:32 nanard Exp $
+$Id: Changelog.txt,v 1.181 2009/10/30 09:10:16 nanard Exp $
+
+VERSION 1.4 : released the 2009/10/30
 
 2009/10/10:
   Integrate IPfilter patch from Roy Marples.

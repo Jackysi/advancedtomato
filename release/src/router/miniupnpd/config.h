@@ -5,7 +5,7 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#define UPNP_VERSION	"20091010"
+#define UPNP_VERSION	"1.4"
 #define USE_NETFILTER 1
 #define OS_NAME		"Tomato"
 #define OS_VERSION	"Tomato"
