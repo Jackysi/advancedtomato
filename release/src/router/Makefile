@@ -364,7 +364,7 @@ oldconfig oldconf: roldconf koldconf
 #
 
 busybox: dummy
-	@$(MAKE) -C busybox
+	@$(MAKE) -C busybox CFLAGS_busybox="$(EXTRA_CFLAGS)"
 
 # V=1
 
@@ -494,11 +494,11 @@ vsftpd-install:
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \
-	CC=$(CC) CFLAGS="-g -Os" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
+	CC=$(CC) CFLAGS="-g -Os $(EXTRA_CFLAGS)" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
 		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal
 
 ntfs-3g: ntfs-3g/Makefile
-	@$(MAKE) -C ntfs-3g CFLAGS="-g -Os -Wall"
+	@$(MAKE) -C ntfs-3g CFLAGS="-g -Os -Wall $(EXTRA_CFLAGS)"
 
 ntfs-3g-clean:
 	@$(MAKE) -C ntfs-3g clean || true
@@ -510,7 +510,7 @@ ntfs-3g-install: ntfs-3g
 		ln -sf ../bin/ntfs-3g mount.ntfs-3g
 
 libusb10/Makefile: libusb10/Makefile.in
-	cd libusb10 && CFLAGS="-O2 -Wall" \
+	cd libusb10 && CFLAGS="-Os -Wall $(EXTRA_CFLAGS)" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
 libusb10: libusb10/Makefile
@@ -524,7 +524,7 @@ libusb10-install: libusb10
 		ln -sf libusb-1.0.so.0 libusb-1.0.so
 
 libusb/Makefile: libusb/Makefile.in
-	cd libusb && CFLAGS="-Wall -Os" \
+	cd libusb && CFLAGS="-Wall -Os $(EXTRA_CFLAGS)" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
 		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
 		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
@@ -541,7 +541,7 @@ libusb-install: libusb
 		ln -sf libusb-0.1.so.4 libusb.so
 
 usbmodeswitch: libusb
-	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os \
+	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRA_CFLAGS) \
 	    -Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"

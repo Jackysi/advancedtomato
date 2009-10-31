@@ -28,7 +28,8 @@ $(srcdir)/Makefile:
 		samba_cv_USE_SETEUID=yes samba_cv_USE_SETUIDX=no \
 		samba_cv_have_longlong=yes samba_cv_have_setresgid=no \
 		samba_cv_have_setresuid=no samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
-		CPPFLAGS="-D_GNU_SOURCE -DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" CFLAGS="-Os" \
+		CPPFLAGS="-D_GNU_SOURCE -DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
+		CFLAGS="-Os $(EXTRA_CFLAGS)" \
 		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) ./configure --host=mipsel-linux \
 		--prefix=/usr --localstatedir=/var/log --libdir=/etc --sysconfdir=/etc/samba \
 		--with-privatedir=/etc/samba --with-lockdir=/var/run/samba --with-syslog

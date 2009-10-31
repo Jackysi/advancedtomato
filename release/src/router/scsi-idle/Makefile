@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS += -Wall -O2 -I$(SRCBASE) -I$(SRCBASE)/include -I.
+CFLAGS += -Wall -Os $(EXTRA_CFLAGS) -I$(SRCBASE) -I$(SRCBASE)/include -I.
 
 TARGETS = scsi-start scsi-idle # scsi-stop
 

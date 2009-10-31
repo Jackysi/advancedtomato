@@ -6,7 +6,7 @@ include ../common.mak
 #INSTALL	=	install
 IFLAGS  = -idirafter dummyinc
 #CFLAGS = -g
-CFLAGS	=	-O2 -Wall -W -Wshadow #-pedantic -Werror -Wconversion
+CFLAGS	=	-O2 -Wall $(EXTRA_CFLAGS) -W -Wshadow #-pedantic -Werror -Wconversion
 
 #LIBS	=	`./vsf_findlibs.sh`
 #LINK	=	-Wl,-s
