@@ -22,7 +22,7 @@ ADDLIB+=ipx_ntop.o ipx_pton.o
 CC = $(CROSS_COMPILE)gcc
 HOSTCC = gcc
 CCOPTS = -D_GNU_SOURCE -Os -Wstrict-prototypes -Wall #-mips32
-CFLAGS = $(CCOPTS) -I../include $(DEFINES)
+CFLAGS = $(CCOPTS) -I../include $(DEFINES) $(EXTRA_CFLAGS)
 YACCFLAGS = -d -t -v
 
 LDLIBS += -L../lib -lnetlink -lutil

@@ -1,6 +1,6 @@
 # $Id: Makefile,v 1.1.1.4 2003/10/14 08:09:37 sparq Exp $
 
-CFLAGS = -Wall -g -O2
+CFLAGS = -Wall -g -O2 $(EXTRA_CFLAGS)
 ifeq ($(strip $(DOSTATIC)),true)
     CFLAGS += --static
 endif

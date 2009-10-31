@@ -8,10 +8,10 @@ clean:
 	rm -f *.o *~ $(UTILS)
 
 wl: wl_exe.o
-	$(CC) $(CCFLAGS) -o $@ $<
+	$(CC) $(CCFLAGS) $(EXTRA_CFLAGS) -o $@ $<
 
 nas: nas_exe.o
-	$(CC) $(CCFLAGS) -o $@ $< -L../shared  -L../nvram -lnvram -lshared
+	$(CC) $(CCFLAGS) $(EXTRA_CFLAGS) -o $@ $< -L../shared  -L../nvram -lnvram -lshared
 
 install: all
 	install -d $(INSTALLDIR)/usr/sbin

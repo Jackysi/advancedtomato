@@ -16,7 +16,7 @@ include ../common.mak
 
 CFLAGS	+= -Wsign-compare -I. -I../httpd -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2
+CFLAGS	+= -s -O2 $(EXTRA_CFLAGS)
 LDFLAGS += -L.
 
 vpath %.c $(SRCBASE)/bcmcrypto

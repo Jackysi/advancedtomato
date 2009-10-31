@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -Os -Wall #-mips32
+CFLAGS	= -Os -Wall $(EXTRA_CFLAGS) #-mips32
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 
 OBJS = ntpc.o

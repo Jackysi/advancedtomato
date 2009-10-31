@@ -10,9 +10,9 @@ PPPD = /usr/sbin/pppd
 #CROSS =mipsel-linux-
 #CC = $(CROSS)gcc -s
 RM	= rm -f
-DEBUG	= -g
+#DEBUG	= -g
 INCLUDE =
-CFLAGS  = -Wall -O1 $(DEBUG) $(INCLUDE)	-I$(SRCBASE)/include
+CFLAGS  = -Wall -O1 $(DEBUG) $(INCLUDE)	-I$(SRCBASE)/include $(EXTRA_CFLAGS)
 LIBS	=
 #LDFLAGS	= -lutil
 

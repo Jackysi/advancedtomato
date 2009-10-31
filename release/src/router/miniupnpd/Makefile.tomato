@@ -7,7 +7,7 @@
 include ../common.mak
 
 #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
-CFLAGS = -Wall -Os -D_GNU_SOURCE
+CFLAGS = -Wall -Os -D_GNU_SOURCE $(EXTRA_CFLAGS)
 
 CFLAGS += -I../iptables/include
 LDFLAGS = -L../iptables -liptc

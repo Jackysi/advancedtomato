@@ -43,7 +43,7 @@ ifndef DO_SELINUX
 DO_SELINUX=0
 endif
 
-COPT_FLAGS:=-Os #-mips32
+#COPT_FLAGS:=-Os #-mips32
 CFLAGS:=$(COPT_FLAGS) -Wall -Wunused -I$(KERNEL_DIR)/include -Iinclude/ -DIPTABLES_VERSION=\"$(IPTABLES_VERSION)\" #-g -DDEBUG #-pg # -DIPTC_DEBUG
 
 ifdef NO_SHARED_LIBS
