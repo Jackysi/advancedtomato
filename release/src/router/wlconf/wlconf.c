@@ -256,30 +256,28 @@ wlconf_set_preauth(char *name, int bsscfg_idx, int preauth)
 #endif /* BCMWPA2 */
 
 static void
-wlconf_set_radarargs(char *name, char *cmd_name, char *prefix, char *nv_name)
+wlconf_set_radarthrs(char *name, char *prefix)
 {
-	int i, ret;
-	wl_radar_args_t  *radar_args;
+	wl_radar_thr_t  radar_thr;
+	int  i, ret, len;
 	char nv_buf[NVRAM_MAX_VALUE_LEN], *rargs, *v, *endptr;
-	char buf[WLC_IOCTL_MAXLEN];
-	char *npulses = NULL, *ncontig = NULL, *min_pw = NULL, *max_pw = NULL, *thresh0 = NULL;
-	char *thresh1 = NULL, *blank = NULL, *fmdemodcfg = NULL, *npulses_lp = NULL;
-	char *min_pw_lp = NULL, *max_pw_lp = NULL, *min_fm_lp = NULL, *max_deltat_lp = NULL;
-	char *min_deltat = NULL, *max_deltat = NULL;
-	char **locals[] = { &npulses, &ncontig, &min_pw, &max_pw, &thresh0, &thresh1, &blank,
-	                    &fmdemodcfg, &npulses_lp, &min_pw_lp, &max_pw_lp, &min_fm_lp,
-	                    &max_deltat_lp, &min_deltat, &max_deltat };
+	char buf[WLC_IOCTL_SMLEN];
+	char *version = NULL, *thr0_20_lo = NULL, *thr1_20_lo = NULL, *thr0_40_lo = NULL;
+	char *thr1_40_lo = NULL, *thr0_20_hi = NULL, *thr1_20_hi = NULL, *thr0_40_hi = NULL;
+	char *thr1_40_hi = NULL;
+	char **locals[] = { &version, &thr0_20_lo, &thr1_20_lo, &thr0_40_lo, &thr1_40_lo,
+	                    &thr0_20_hi, &thr1_20_hi, &thr0_40_hi, &thr1_40_hi };
 
-	rargs = nvram_safe_get(strcat_r(prefix, nv_name, nv_buf));
+	rargs = nvram_safe_get(strcat_r(prefix, "radarthrs", nv_buf));
 	if (!rargs)
 		goto err;
 
-	i = strlen(rargs);
-	if (i > NVRAM_MAX_VALUE_LEN)
+	len = strlen(rargs);
+	if ((len > NVRAM_MAX_VALUE_LEN) || (len == 0))
 		goto err;
 
 	memset(nv_buf, 0, sizeof(nv_buf));
-	strncpy(nv_buf, rargs, i);
+	strncpy(nv_buf, rargs, len);
 	v = nv_buf;
 	for (i = 0; i < (sizeof(locals) / sizeof(locals[0])); i++) {
 		*locals[i] = v;
@@ -290,89 +288,94 @@ wlconf_set_radarargs(char *name, char *cmd_name, char *prefix, char *nv_name)
 			*v = 0;
 			v++;
 		}
+		if (v >= (nv_buf + len)) /* Check for complete list, if not caught later */
+			break;
 	}
 
 	/* Start building request */
 	memset(buf, 0, sizeof(buf));
-	strcpy(buf, cmd_name);
-	radar_args = (wl_radar_args_t *)(buf + strlen(buf) + 1);
-	/* Retrieve radar parameters */
-	if (!npulses)
+	strcpy(buf, "radarthrs");
+	/* Retrieve radar thrs parameters */
+	if (!version)
 		goto err;
-	radar_args->npulses = atoi(npulses);
+	radar_thr.version = atoi(version);
+	if (radar_thr.version > WL_RADAR_THR_VERSION)
+		goto err;
 
-	if (!ncontig)
+	/* Retrieve ver 0 params */
+	if (!thr0_20_lo)
 		goto err;
-	radar_args->ncontig = atoi(ncontig);
-
-	if (!min_pw)
-		goto err;
-	radar_args->min_pw = atoi(min_pw);
-
-	if (!max_pw)
-		goto err;
-	radar_args->max_pw = atoi(max_pw);
-
-	if (!thresh0)
-		goto err;
-	radar_args->thresh0 = (uint16)strtol(thresh0, &endptr, 0);
+	radar_thr.thresh0_20_lo = (uint16)strtol(thr0_20_lo, &endptr, 0);
 	if (*endptr != '\0')
 		goto err;
 
-	if (!thresh1)
+	if (!thr1_20_lo)
 		goto err;
-	radar_args->thresh1 = (uint16)strtol(thresh1, &endptr, 0);
+	radar_thr.thresh1_20_lo = (uint16)strtol(thr1_20_lo, &endptr, 0);
 	if (*endptr != '\0')
 		goto err;
 
-	if (!blank)
+	if (!thr0_40_lo)
 		goto err;
-	radar_args->blank = (uint16)strtol(blank, &endptr, 0);
+	radar_thr.thresh0_40_lo = (uint16)strtol(thr0_40_lo, &endptr, 0);
 	if (*endptr != '\0')
 		goto err;
 
-	if (!fmdemodcfg)
+	if (!thr1_40_lo)
 		goto err;
-	radar_args->fmdemodcfg = (uint16)strtol(fmdemodcfg, &endptr, 0);
+	radar_thr.thresh1_40_lo = (uint16)strtol(thr1_40_lo, &endptr, 0);
 	if (*endptr != '\0')
 		goto err;
 
-	if (!npulses_lp)
-		goto err;
-	radar_args->npulses_lp = atoi(npulses_lp);
+	if (radar_thr.version == 0) {
+		/* 
+		 * Attempt a best effort update of ver 0 to ver 1 by updating
+		 * the appropriate values with the specified defaults.  The defaults
+		 * are from the reference design.
+		 */
+		radar_thr.version = WL_RADAR_THR_VERSION; /* avoid driver rejecting it */
+		radar_thr.thresh0_20_hi = 0x6ac;
+		radar_thr.thresh1_20_hi = 0x6cc;
+		radar_thr.thresh0_40_hi = 0x6bc;
+		radar_thr.thresh1_40_hi = 0x6e0;
+	} else {
+		/* Retrieve ver 1 params */
+		if (!thr0_20_hi)
+			goto err;
+		radar_thr.thresh0_20_hi = (uint16)strtol(thr0_20_hi, &endptr, 0);
+		if (*endptr != '\0')
+			goto err;
 
-	if (!min_pw_lp)
-		goto err;
-	radar_args->min_pw_lp = atoi(min_pw_lp);
+		if (!thr1_20_hi)
+			goto err;
+		radar_thr.thresh1_20_hi = (uint16)strtol(thr1_20_hi, &endptr, 0);
+		if (*endptr != '\0')
+			goto err;
 
-	if (!max_pw_lp)
-		goto err;
-	radar_args->max_pw_lp = atoi(max_pw_lp);
+		if (!thr0_40_hi)
+			goto err;
+		radar_thr.thresh0_40_hi = (uint16)strtol(thr0_40_hi, &endptr, 0);
+		if (*endptr != '\0')
+			goto err;
 
-	if (!min_fm_lp)
-		goto err;
-	radar_args->min_fm_lp = atoi(min_fm_lp);
+		if (!thr1_40_hi)
+			goto err;
+		radar_thr.thresh1_40_hi = (uint16)strtol(thr1_40_hi, &endptr, 0);
+		if (*endptr != '\0')
+			goto err;
+	}
 
-	if (!max_deltat_lp)
-		goto err;
-	radar_args->max_deltat_lp = atoi(max_deltat_lp);
-
-	if (!min_deltat)
-		goto err;
-	radar_args->min_deltat = atoi(min_deltat);
-
-	if (!max_deltat)
-		goto err;
-	radar_args->max_deltat = atoi(max_deltat);
-
-	/* Plug radar parameters now */
+	/* Copy radar parameters into buffer and plug them to the driver */
+	memcpy((char*)(buf + strlen(buf) + 1), (char*)&radar_thr, sizeof(wl_radar_thr_t));
 	WL_IOCTL(name, WLC_SET_VAR, buf, sizeof(buf));
 
 	return;
+
 err:
-	WLCONF_DBG("Error parsing radar args, use defaults\n");
+	WLCONF_DBG("Did not parse radar thrs params, using driver defaults\n");
 	return;
 }
+
 
 /* Set up WME */
 static void
@@ -571,7 +574,6 @@ wlconf_auto_chanspec(char *name)
 	int bandtype;
 	int ret;
 	int i;
-	int chanspec_asus = 0;
 
 	/* query the band type */
 	WL_GETINT(name, WLC_GET_BAND, &bandtype);
@@ -587,18 +589,6 @@ wlconf_auto_chanspec(char *name)
 			sleep_ms(100);
 		}
 	}
-
-	printf("interface %s: chanspec selected %04x %d\n", name, chosen,chanspec_asus);
-        //2006_05_29_Roly
-        //handle channel is auto and bw is 40MHz
-        if((chanspec_asus=atoi(nvram_safe_get("wl0_nbw")))==40)
-        chosen=0x2d08;//channel 8 40MHz(lower)
-        if((chanspec_asus=atoi(nvram_safe_get("wl0_nbw")))==20)
-        chosen = (chosen&0xfbff);//20MHz
-                                                                                                                                               
-        printf("interface %s: chanspec selected %04x %d\n", name, chosen,chanspec_asus);
-
-
 	WLCONF_DBG("interface %s: chanspec selected %04x\n", name, chosen);
 	return chosen;
 }
@@ -892,6 +882,7 @@ wlconf(char *name)
 	int wme_global;
 	int max_assoc = -1;
 	bool ure_enab = FALSE;
+	bool radar_enab = FALSE;
 
 	/* wlconf doesn't work for virtual i/f, so if we are given a
 	 * virtual i/f return 0 if that interface is in it's parent's "vifs"
@@ -1263,11 +1254,8 @@ wlconf(char *name)
 		val = 0;
 		WL_IOCTL(name, WLC_SET_REGULATORY, &val, sizeof(val));
 		val = 1;
-		/* Set radar parameters before turning on radar detection */
-		wlconf_set_radarargs(name, "radarargs", prefix,
-		   (phytype == PHY_TYPE_N) ? "radarargs_11n" : "radarargs_11a");
-		wlconf_set_radarargs(name, "radarargs40", prefix, "radarargs40_11n");
 		WL_IOCTL(name, WLC_SET_RADAR, &val, sizeof(val));
+		radar_enab = TRUE;
 		WL_IOCTL(name, WLC_SET_SPECT_MANAGMENT, &val, sizeof(val));
 
 		/* Set the CAC parameters */
@@ -1288,29 +1276,18 @@ wlconf(char *name)
 
 	/* set bandwidth capability for nphy and calculate nbw */
 	if (phytype == PHY_TYPE_N) {
-		val = atoi(nvram_safe_get(strcat_r(prefix, "nbw_cap", tmp)));
+		/* Get the user nmode setting now */
+		nmode = AUTO;	/* enable by default for NPHY */
+		/* Set n mode */
+		strcat_r(prefix, "nmode", tmp);
+		if (nvram_match(tmp, "0"))
+			nmode = OFF;
+
+		val = (nmode != OFF) ? atoi(nvram_safe_get(strcat_r(prefix, "nbw_cap", tmp))) :
+		    WLC_N_BW_20ALL;
+
+		WL_IOVAR_SETINT(name, "nmode", (uint32)nmode);
 		WL_IOVAR_SETINT(name, "mimo_bw_cap", val);
-
-
-		val = atoi(nvram_safe_get(strcat_r(prefix, "nbw", tmp)));
-                                                                                                                                               
-                switch (val) {
-                case 40:
-                        val = WL_CHANSPEC_BW_40;
-                        break;
-                case 20:
-                        val = WL_CHANSPEC_BW_20;
-                        break;
-                case 10:
-                        val = WL_CHANSPEC_BW_10;
-                        break;
-                default:
-                        val = WL_CHANSPEC_BW_20;
-                        nvram_set(strcat_r(prefix, "nbw", tmp), "20");
-                }
-                nbw = val;
-
-/*
 
 		if (((bandtype == WLC_BAND_2G) && (val == WLC_N_BW_40ALL)) ||
 		    ((bandtype == WLC_BAND_5G) &&
@@ -1318,7 +1295,7 @@ wlconf(char *name)
 			nbw = WL_CHANSPEC_BW_40;
 		else
 			nbw = WL_CHANSPEC_BW_20;
-*/	}
+	}
 
 	/* Set channel before setting gmode or rateset */
 	/* Manual Channel Selection - when channel # is not 0 */
@@ -1378,7 +1355,9 @@ wlconf(char *name)
 			nvram_set(strcat_r(prefix, "txstreams", tmp), var);
 			streams = count;
 		}
-		/* Apply user configured txstreams */
+		/* Apply user configured txstreams, use 1 if user disabled nmode */
+		if (nmode == OFF)
+			streams = 1;
 		WL_IOVAR_SETINT(name, "txstreams", streams);
 
 		wl_iovar_getint(name, "rxchain_cnt", &count);
@@ -1396,7 +1375,9 @@ wlconf(char *name)
 			streams = count;
 		}
 
-		/* Apply user configured rxstreams */
+		/* Apply user configured rxstreams, use 1 if user disabled nmode */
+		if (nmode == OFF)
+			streams = 1;
 		WL_IOVAR_SETINT(name, "rxstreams", streams);
 	}
 
@@ -1427,14 +1408,6 @@ wlconf(char *name)
 	if (phytype == PHY_TYPE_N) {
 		int override = WLC_PROTECTION_OFF;
 		int control = WLC_PROTECTION_CTL_OFF;
-
-		nmode = AUTO;	/* enable by default for NPHY */
-
-		/* Set n mode */
-		strcat_r(prefix, "nmode", tmp);
-		if (nvram_match(tmp, "0"))
-			nmode = OFF;
-		WL_IOVAR_SETINT(name, "nmode", (uint32)nmode);
 
 		/* Set n protection override and control algorithm */
 		strcat_r(prefix, "nmode_protection", tmp);
@@ -1667,6 +1640,11 @@ wlconf(char *name)
 	/* Set antenna */
 	val = atoi(nvram_safe_get(strcat_r(prefix, "antdiv", tmp)));
 	WL_IOCTL(name, WLC_SET_ANTDIV, &val, sizeof(val));
+
+	/* Set radar parameters if it is enabled */
+	if (radar_enab) {
+		wlconf_set_radarthrs(name, prefix);
+	}
 
 	/* Auto Channel Selection - when channel # is 0 in AP mode
 	 *
