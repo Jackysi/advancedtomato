@@ -290,7 +290,7 @@ static void become_domain_master_browser_bcast(char *workgroup_name)
 
       if (find_name_on_subnet(subrec, &nmbname, FIND_SELF_NAME) == NULL)
       {
-        if( DEBUGLVL( 0 ) )
+        if( DEBUGLVL( 1 ) )
           {
           dbgtext( "become_domain_master_browser_bcast:\n" );
           dbgtext( "Attempting to become domain master browser on " );
@@ -303,7 +303,7 @@ static void become_domain_master_browser_bcast(char *workgroup_name)
            we can become a domain controller. 
          */
 
-        DEBUG(0,("become_domain_master_browser_bcast: querying subnet %s \
+        DEBUG(1,("become_domain_master_browser_bcast: querying subnet %s \
 for domain master browser on workgroup %s\n", subrec->subnet_name, workgroup_name));
 
         query_name(subrec, nmbname.name, nmbname.name_type,
@@ -338,7 +338,7 @@ static void become_domain_master_browser_wins(char *workgroup_name)
 
     if (find_name_on_subnet(unicast_subnet, &nmbname, FIND_SELF_NAME) == NULL)
     {
-      if( DEBUGLVL( 0 ) )
+      if( DEBUGLVL( 1 ) )
         {
         dbgtext( "become_domain_master_browser_wins:\n" );
         dbgtext( "Attempting to become domain master browser " );
@@ -351,7 +351,7 @@ static void become_domain_master_browser_wins(char *workgroup_name)
          we can become a domain master browser. 
        */
 
-      DEBUG(0,("become_domain_master_browser_wins: querying WINS server at IP %s \
+      DEBUG(1,("become_domain_master_browser_wins: querying WINS server at IP %s \
 for domain master browser name %s on workgroup %s\n",
          inet_ntoa(unicast_subnet->myip), nmb_namestr(&nmbname), workgroup_name));
 
