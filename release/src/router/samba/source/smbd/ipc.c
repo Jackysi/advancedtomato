@@ -1566,7 +1566,7 @@ static BOOL api_RNetShareEnum(connection_struct *conn,uint16 vuid, char *param,c
   int f_len = 0, s_len = 0;
  
   if (!prefix_ok(str1,"WrLeh")) return False;
-  if (!check_share_info(uLevel,str2)) return False;
+  //!! if (!check_share_info(uLevel,str2)) return False;
   
   data_len = fixed_len = string_len = 0;
   for (i=0;i<count;i++)
