@@ -13,8 +13,9 @@ int cksum_main(int argc UNUSED_PARAM, char **argv)
 {
 	uint32_t *crc32_table = crc32_filltable(NULL, 1);
 	uint32_t crc;
-	long length, filesize;
+	off_t length, filesize;
 	int bytes_read;
+	int exit_code = EXIT_SUCCESS;
 	uint8_t *cp;
 
 #if ENABLE_DESKTOP
@@ -27,8 +28,10 @@ int cksum_main(int argc UNUSED_PARAM, char **argv)
 	do {
 		int fd = open_or_warn_stdin(*argv ? *argv : bb_msg_standard_input);
 
-		if (fd < 0)
+		if (fd < 0) {
+			exit_code = EXIT_FAILURE;
 			continue;
+		}
 		crc = 0;
 		length = 0;
 
@@ -44,13 +47,21 @@ int cksum_main(int argc UNUSED_PARAM, char **argv)
 
 		filesize = length;
 
-		for (; length; length >>= 8)
-			crc = (crc << 8) ^ crc32_table[((crc >> 24) ^ length) & 0xff];
-		crc ^= 0xffffffffL;
+		while (length) {
+			crc = (crc << 8) ^ crc32_table[(uint8_t)(crc >> 24) ^ (uint8_t)length];
+			/* must ensure that shift is unsigned! */
+			if (sizeof(length) <= sizeof(unsigned))
+				length = (unsigned)length >> 8;
+			else if (sizeof(length) <= sizeof(unsigned long))
+				length = (unsigned long)length >> 8;
+			else
+				length = (unsigned long long)length >> 8;
+		}
+		crc = ~crc;
 
-		printf((*argv ? "%" PRIu32 " %li %s\n" : "%" PRIu32 " %li\n"),
+		printf((*argv ? "%"PRIu32" %"OFF_FMT"i %s\n" : "%"PRIu32" %"OFF_FMT"i\n"),
 				crc, filesize, *argv);
 	} while (*argv && *++argv);
 
-	fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit(exit_code);
 }

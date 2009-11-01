@@ -28,14 +28,7 @@
  */
 
 #include "libbb.h"
-#include <linux/inotify.h>
-
-static volatile smallint signalled;
-
-static void signal_handler(int signo)
-{
-	signalled = signo;
-}
+#include <sys/inotify.h>
 
 static const char mask_names[] ALIGN1 =
 	"a"	// 0x00000001	File was accessed
@@ -50,73 +43,96 @@ static const char mask_names[] ALIGN1 =
 	"d"	// 0x00000200	Subfile was deleted
 	"D"	// 0x00000400	Self was deleted
 	"M"	// 0x00000800	Self was moved
+	"\0"	// 0x00001000   (unused)
+	// Kernel events, always reported:
+	"u"	// 0x00002000   Backing fs was unmounted
+	"o"	// 0x00004000   Event queued overflowed
+	"x"	// 0x00008000   File is no longer watched (usually deleted)
 ;
-
-extern int inotify_init(void);
-extern int inotify_add_watch(int fd, const char *path, uint32_t mask);
+enum {
+	MASK_BITS = sizeof(mask_names) - 1
+};
 
 int inotifyd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int inotifyd_main(int argc UNUSED_PARAM, char **argv)
+int inotifyd_main(int argc, char **argv)
 {
-	unsigned mask = IN_ALL_EVENTS; // assume we want all events
+	int n;
+	unsigned mask;
 	struct pollfd pfd;
-	char **watched = ++argv; // watched name list
-	const char *args[] = { *argv, NULL, NULL, NULL, NULL };
+	char **watches; // names of files being watched
+	const char *args[5];
 
 	// sanity check: agent and at least one watch must be given
-	if (!argv[1])
+	if (!argv[1] || !argv[2])
 		bb_show_usage();
+
+	argv++;
+	// inotify_add_watch will number watched files
+	// starting from 1, thus watches[0] is unimportant,
+	// and 1st file name is watches[1].
+	watches = argv;
+	args[0] = *argv;
+	args[4] = NULL;
+	argc -= 2; // number of files we watch
 
 	// open inotify
 	pfd.fd = inotify_init();
 	if (pfd.fd < 0)
 		bb_perror_msg_and_die("no kernel support");
 
-	// setup watched
+	// setup watches
 	while (*++argv) {
 		char *path = *argv;
 		char *masks = strchr(path, ':');
-		int wd; // watch descriptor
+
+		mask = 0x0fff; // assuming we want all non-kernel events
 		// if mask is specified ->
 		if (masks) {
 			*masks = '\0'; // split path and mask
 			// convert mask names to mask bitset
 			mask = 0;
 			while (*++masks) {
-				int i = strchr(mask_names, *masks) - mask_names;
-				if (i >= 0) {
-					mask |= (1 << i);
-				}
+				const char *found;
+				found = memchr(mask_names, *masks, MASK_BITS);
+				if (found)
+					mask |= (1 << (found - mask_names));
 			}
 		}
 		// add watch
-		wd = inotify_add_watch(pfd.fd, path, mask);
-		if (wd < 0) {
+		n = inotify_add_watch(pfd.fd, path, mask);
+		if (n < 0)
 			bb_perror_msg_and_die("add watch (%s) failed", path);
-//		} else {
-//			bb_error_msg("added %d [%s]:%4X", wd, path, mask);
-		}
+		//bb_error_msg("added %d [%s]:%4X", n, path, mask);
 	}
 
 	// setup signals
-	bb_signals(0
-		+ (1 << SIGHUP)
-		+ (1 << SIGINT)
-		+ (1 << SIGTERM)
-		+ (1 << SIGPIPE)
-		, signal_handler);
+	bb_signals(BB_FATAL_SIGS, record_signo);
 
 	// do watch
-
-//	pfd.fd = fd;
 	pfd.events = POLLIN;
-
-	while (!signalled && poll(&pfd, 1, -1) > 0) {
-		ssize_t len;
+	while (1) {
+		int len;
 		void *buf;
 		struct inotify_event *ie;
+ again:
+		if (bb_got_signal)
+			break;
+		n = poll(&pfd, 1, -1);
+		// Signal interrupted us?
+		if (n < 0 && errno == EINTR)
+			goto again;
+		// Under Linux, above if() is not necessary.
+		// Non-fatal signals, e.g. SIGCHLD, when set to SIG_DFL,
+		// are not interrupting poll().
+		// Thus we can just break if n <= 0 (see below),
+		// because EINTR will happen only on SIGTERM et al.
+		// But this might be not true under other Unixes,
+		// and is generally way too subtle to depend on.
+		if (n <= 0) // strange error?
+			break;
 
 		// read out all pending events
+		// (NB: len must be int, not ssize_t or long!)
 		xioctl(pfd.fd, FIONREAD, &len);
 #define eventbuf bb_common_bufsiz1
 		ie = buf = (len <= sizeof(eventbuf)) ? eventbuf : xmalloc(len);
@@ -124,21 +140,29 @@ int inotifyd_main(int argc UNUSED_PARAM, char **argv)
 		// process events. N.B. events may vary in length
 		while (len > 0) {
 			int i;
-			char events[12];
-			char *s = events;
-			unsigned m = ie->mask;
-
-			for (i = 0; i < 12; ++i, m >>= 1) {
-				if (m & 1) {
-					*s++ = mask_names[i];
+			// cache relevant events mask
+			unsigned m = ie->mask & ((1 << MASK_BITS) - 1);
+			if (m) {
+				char events[MASK_BITS + 1];
+				char *s = events;
+				for (i = 0; i < MASK_BITS; ++i, m >>= 1) {
+					if ((m & 1) && (mask_names[i] != '\0'))
+						*s++ = mask_names[i];
+				}
+				*s = '\0';
+//				bb_error_msg("exec %s %08X\t%s\t%s\t%s", args[0],
+//					ie->mask, events, watches[ie->wd], ie->len ? ie->name : "");
+				args[1] = events;
+				args[2] = watches[ie->wd];
+				args[3] = ie->len ? ie->name : NULL;
+				wait4pid(xspawn((char **)args));
+				// we are done if all files got final x event
+				if (ie->mask & 0x8000) {
+					if (--argc <= 0)
+						goto done;
+					inotify_rm_watch(pfd.fd, ie->wd);
 				}
 			}
-			*s = '\0';
-//			bb_error_msg("exec %s %08X\t%s\t%s\t%s", agent, ie->mask, events, watched[ie->wd], ie->len ? ie->name : "");
-			args[1] = events;
-			args[2] = watched[ie->wd];
-			args[3] = ie->len ? ie->name : NULL;
-			xspawn((char **)args);
 			// next event
 			i = sizeof(struct inotify_event) + ie->len;
 			len -= i;
@@ -146,7 +170,7 @@ int inotifyd_main(int argc UNUSED_PARAM, char **argv)
 		}
 		if (eventbuf != buf)
 			free(buf);
-	}
-
-	return EXIT_SUCCESS;
+	} // while (1)
+ done:
+	return bb_got_signal;
 }

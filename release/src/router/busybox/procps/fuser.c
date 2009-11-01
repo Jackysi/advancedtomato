@@ -4,8 +4,7 @@
  *
  * Copyright 2004 Tony J. White
  *
- * May be distributed under the conditions of the
- * GNU Library General Public License
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
 #include "libbb.h"
@@ -326,7 +325,7 @@ Find processes which use FILEs or PORTs
 			free(proto);
 		} else { /* FILE */
 			if (!file_to_dev_inode(*pp, &dev, &inode))
-				bb_perror_msg_and_die("can't open %s", *pp);
+				bb_perror_msg_and_die("can't open '%s'", *pp);
 			ilist = add_inode(ilist, dev, inode);
 		}
 		pp++;

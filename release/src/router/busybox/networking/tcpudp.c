@@ -85,8 +85,7 @@ static void undo_xsetenv(void)
 	char **pp = env_cur = &env_var[0];
 	while (*pp) {
 		char *var = *pp;
-		*strchrnul(var, '=') = '\0';
-		unsetenv(var);
+		bb_unsetenv(var);
 		free(var);
 		*pp++ = NULL;
 	}
@@ -147,7 +146,7 @@ static void connection_status(void)
 static void sig_child_handler(int sig UNUSED_PARAM)
 {
 	int wstat;
-	int pid;
+	pid_t pid;
 
 	while ((pid = wait_any_nohang(&wstat)) > 0) {
 		if (max_per_host)
@@ -497,9 +496,9 @@ int tcpudpsvd_main(int argc UNUSED_PARAM, char **argv)
 
 	xdup2(0, 1);
 
-	signal(SIGTERM, SIG_DFL);
-	signal(SIGPIPE, SIG_DFL);
-	signal(SIGCHLD, SIG_DFL);
+	signal(SIGPIPE, SIG_DFL); /* this one was SIG_IGNed */
+	/* Non-ignored signals revert to SIG_DFL on exec anyway */
+	/*signal(SIGCHLD, SIG_DFL);*/
 	sig_unblock(SIGCHLD);
 
 #ifdef SSLSVD

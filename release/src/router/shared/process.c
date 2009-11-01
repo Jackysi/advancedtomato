@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2008 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 
 */
 #include <string.h>
@@ -22,7 +22,7 @@ char *psname(int pid, char *buffer, int maxlen)
 	char buf[512];
 	char path[64];
 	char *p;
-	
+
 	if (maxlen <= 0) return NULL;
 	*buffer = 0;
 	sprintf(path, "/proc/%d/stat", pid);
@@ -68,7 +68,7 @@ int pidof(const char *name)
 {
 	pid_t *pids;
 	pid_t p;
-	
+
 	if (_pidof(name, &pids) > 0) {
 		p = *pids;
 		free(pids);
@@ -82,7 +82,7 @@ int killall(const char *name, int sig)
 	pid_t *pids;
 	int i;
 	int r;
-	
+
 	if ((i = _pidof(name, &pids)) > 0) {
 		r = 0;
 		do {
