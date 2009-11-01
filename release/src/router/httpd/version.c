@@ -18,7 +18,7 @@ void asp_version(int argc, char **argv)
 		web_puts(tomato_version);
 	}
 	else {
-		web_write(tomato_version, strrchr(tomato_version, '.') - tomato_version);
+		web_write(tomato_version, strstr(tomato_version, "vpn") - tomato_version);
 	}
 }
 

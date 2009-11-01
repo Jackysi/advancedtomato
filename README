@@ -1,0 +1,13 @@
+README for SgtPepperKSU VPN build of Tomato Firmware
+
+The sources are available in the git repository at http://repo.or.cz/w/tomato.git
+If you plan to redistribute, be sure to read the COPYING file.
+
+To have the router periodically check if the VPN is running and restart it if it has stopped, also add the following to your init script (replacing vpnserver1 or */30 as appropriate):
+# Schedule vpnup.sh to run every 30 minutes
+cru a CheckVPNServer "*/30 * * * * service vpnserver1 start"
+
+If you have any questions/comments/concerns, contact me at tomatovpn@keithmoyer.com
+
+Enjoy!
+

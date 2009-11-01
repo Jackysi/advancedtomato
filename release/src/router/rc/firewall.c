@@ -112,8 +112,15 @@ static int dmz_dst(char *s)
 
 static void ipt_source(const char *s, char *src)
 {
-	if ((*s) && (strlen(s) < 32)) sprintf(src, "-%s %s", strchr(s, '-') ? "m iprange --src-range" : "s", s);
-		else *src = 0;
+	if ((*s) && (strlen(s) < 32))
+	{
+		if (sscanf(s,"%*d.%*d.%*d.%*d-%*d.%*d.%*d.%*d") == 8)
+			sprintf(src, "-m iprange --src-range %s", s);
+		else
+			sprintf(src, "-s %s", s);
+	}
+	else
+		*src = 0;
 }
 
 /*
@@ -121,8 +128,11 @@ static void get_src(const char *nv, char *src)
 {
 	char *p;
 
-	if (((p = nvram_get(nv)) != NULL) && (*p) && (strlen(p) < 32)) {
-		sprintf(src, "-%s %s", strchr(p, '-') ? "m iprange --src-range" : "s", p);
+	if (((p=nvram_get(nv)) != NULL) && (*p) && (strlen(p) < 32)) {
+		if (sscanf(p,"%*d.%*d.%*d.%*d-%*d.%*d.%*d.%*d") == 8)
+			sprintf(src, "-m iprange --src-range %s", p);
+		else
+			sprintf(src, "-s %s", p);
 	}
 	else {
 		*src = 0;
@@ -797,6 +807,7 @@ int start_firewall(void)
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_TTL");
 
+	run_vpn_firewall_scripts();
 	run_nvscript("script_fire", NULL, 1);
 
 	simple_unlock("firewall");

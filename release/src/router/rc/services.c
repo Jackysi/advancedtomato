@@ -186,7 +186,7 @@ void start_dnsmasq()
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 84) {
+		if (n > sizeof(buf)-1) {
 			p = e + 1;
 			continue;
 		}
@@ -226,6 +226,8 @@ void start_dnsmasq()
 	if (hf) fclose(hf);
 
 	//
+
+	write_vpn_dnsmasq_config(f);
 
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
@@ -289,17 +291,20 @@ void dns_to_resolv(void)
 
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
-		dns = get_dns();	// static buffer
-		if (dns->count == 0) {
-			// Put a pseudo DNS IP to trigger Connect On Demand
-			if ((nvram_match("ppp_demand", "1")) &&
-				(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
-				fprintf(f, "nameserver 1.1.1.1\n");
+		// Check for VPN DNS entries
+		if (!write_vpn_resolv(f)) {
+			dns = get_dns();	// static buffer
+			if (dns->count == 0) {
+				// Put a pseudo DNS IP to trigger Connect On Demand
+				if ((nvram_match("ppp_demand", "1")) &&
+					(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
+					fprintf(f, "nameserver 1.1.1.1\n");
+				}
 			}
-		}
-		else {
-			for (i = 0; i < dns->count; i++) {
-				fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i]));
+			else {
+				for (i = 0; i < dns->count; i++) {
+					fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i]));
+				}
 			}
 		}
 		fclose(f);
@@ -719,6 +724,7 @@ void start_services(void)
 #ifdef TCONFIG_SAMBA
 	start_smbd();
 #endif
+	start_vpn_eas();
 }
 
 void stop_services(void)
@@ -1056,6 +1062,19 @@ TOP:
 		if (action & A_START) start_sched();
 		goto CLEAR;
 	}
+
+	if (strncmp(service, "vpnclient", 9) == 0) {
+		if (action & A_STOP) stop_vpnclient(atoi(&service[9]));
+		if (action & A_START) start_vpnclient(atoi(&service[9]));
+		goto CLEAR;
+	}
+
+	if (strncmp(service, "vpnserver", 9) == 0) {
+		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
+		if (action & A_START) start_vpnserver(atoi(&service[9]));
+		goto CLEAR;
+	}
+
 
 CLEAR:
 	if (next) goto TOP;

@@ -114,8 +114,10 @@ function verifyFields(focused, quiet)
 	}
 
 	a = E('_f_rmgt_sip');
-	if ((a.value.length) && (!v_iptip(a, quiet, 15))) return 0;
-	ferror.clear(a);
+	if ((a.value.length) && (!v_iptip(a,true,15)) && (!v_domain(a,true))) {
+		ferror.set(a, 'Invalid restriction.', quiet);
+		ok = 0;
+	}
 
 	if (!v_range('_f_limit_hit', quiet, 1, 100)) return 0;
 	if (!v_range('_f_limit_sec', quiet, 3, 3600)) return 0;
@@ -300,8 +302,8 @@ W('<input type="button" value="' + (tdup ? 'Stop' : 'Start') + ' Now" onclick="t
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Allowed Remote<br>IP Address', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
-		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
+	{ title: 'Access restricted to:', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
+		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2", or "me.example.com")</small>' },
 	{ title: 'Limit Connection Attempts', multi: [
 		{ suffix: '&nbsp; SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
 		{ suffix: '&nbsp; Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }

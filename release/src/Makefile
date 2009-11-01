@@ -58,13 +58,8 @@ endif
 
 	@echo ""
 	@echo "-----------------"
-	@echo `cat router/shared/tomato_version` " ready"
+	@echo `cat build_version` " ready"
 	@echo "-----------------"
-
-ifneq ($(NOVERSION),1)	
-	@cp router/shared/tomato_version router/shared/tomato_version_last
-	@btools/uversion.pl --bump
-endif
 
 
 clean: cleanimage
