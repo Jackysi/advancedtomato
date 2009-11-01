@@ -74,8 +74,6 @@ function verifyFields(focused, quiet)
 	E('i8').style.display = a;
 	E('i9').style.display = a;
 	E('i10').style.display = a;
-	E('i11').style.display = a;
-	E('i12').style.display = a;
 	ferror.clear('_f_mmc_cs');
 	ferror.clear('_f_mmc_clk');
 	ferror.clear('_f_mmc_din');
@@ -172,22 +170,7 @@ function submit_complete()
 <div class='section'>
 <script type='text/javascript'>
 // <% statfs("/mmc", "mmc"); %>
-
-mmcid = {
-	type: 'SDHC',
-	spec: '2.0',
-	csize: '1000 MB',
-	bsize: '512 bytes',
-	blocks: '4665476',
-	volt: '2.7-3.6',
-	manuf: '02',
-	appl: 'TM',
-	prod: 'SD04G',
-	rev: '3.1',
-	serial: 'b313e7a0',
-	mdate: 'Jun 2008',
-};
-
+// <% mmcid(); %>
 mmcon = (nvram.mmc_on == 1);
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_mmc_on', type: 'checkbox', value: mmcon },
@@ -205,20 +188,17 @@ createFieldTable('', [
 	{ title: 'Execute before umount', indent: 2, name: 'f_mmc_exec_umount', type: 'text', maxlen: 64, size: 34, value: nvram.mmc_exec_umount },
 	{ title: 'Total / Free Size', indent: 2, text: (scaleSize(mmc.size) + ' / ' + scaleSize(mmc.free) + ' <small>(' + (mmc.free/mmc.size*100).toFixed(2) + '%)</small>'), hidden: !mmc.size },
 	null,
-	{ title: 'Card Identification', name: 'f_show_info', type: 'checkbox', value: 0, hidden: !mmcid.type_ },
+	{ title: 'Card Identification', name: 'f_show_info', type: 'checkbox', value: 0, hidden: !mmcid.type },
 	{ title: 'Card type', indent: 2, rid: 'i1', text: mmcid.type },
 	{ title: 'Specification version', indent: 2, rid: 'i2', text: mmcid.spec },
-	{ title: 'Card size', indent: 2, rid: 'i3', text: mmcid.csize },
-	{ title: 'Block size', indent: 2, rid: 'i4', text: mmcid.bsize },
-	{ title: 'Number of blocks', indent: 2, rid: 'i5', text: mmcid.blocks },
-	{ title: 'Voltage range', indent: 2, rid: 'i6', text: mmcid.volt },
-	{ title: 'Manufacture ID', indent: 2, rid: 'i7', text: mmcid.manuf },
-	{ title: 'Application ID', indent: 2, rid: 'i8', text: mmcid.appl },
-	{ title: 'Product name', indent: 2, rid: 'i9', text: mmcid.prod },
-	{ title: 'Revision', indent: 2, rid: 'i10', text: mmcid.rev },
-	{ title: 'Serial number', indent: 2, rid: 'i11', text: mmcid.serial },
-	{ title: 'Manufacture date', indent: 2, rid: 'i12', text: mmcid.mdate },
-	{ title: 'Card Identification', text: '<a href="/mmc/card_id.txt?_http_id=<% nv(http_id); %>">download</a>', hidden: !mmc.size  }
+	{ title: 'Card size', indent: 2, rid: 'i3', text: (scaleSize(mmcid.size)) },
+	{ title: 'Voltage range', indent: 2, rid: 'i4', text: mmcid.volt },
+	{ title: 'Manufacture ID', indent: 2, rid: 'i5', text: mmcid.manuf },
+	{ title: 'Application ID', indent: 2, rid: 'i6', text: mmcid.appl },
+	{ title: 'Product name', indent: 2, rid: 'i7', text: mmcid.prod },
+	{ title: 'Revision', indent: 2, rid: 'i8', text: mmcid.rev },
+	{ title: 'Serial number', indent: 2, rid: 'i9', text: mmcid.serial },
+	{ title: 'Manufacture date', indent: 2, rid: 'i10', text: mmcid.date }
 ]);
 </script>
 </div>

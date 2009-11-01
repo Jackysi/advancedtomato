@@ -96,6 +96,9 @@ Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2009 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
+<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>SDHC integration and GUI</a>
+Copyright (C) 2009 Tomasz Słodkowicz<br>
+<br>
 Built on <% build_time(); %><br>
 <br><br>
 
