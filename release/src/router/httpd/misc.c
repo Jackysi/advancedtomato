@@ -459,6 +459,37 @@ void asp_notice(int argc, char **argv)
 	web_putj(buf);
 }
 
+#ifdef TCONFIG_SDHC
+void asp_mmcid(int argc, char **argv) {
+        FILE *f;
+        char s[32], *a, b[16];
+        unsigned n, size;
+
+	web_puts("\nmmcid = {");
+	n = 0;
+        if ((f = fopen("/proc/mmc/status", "r")) != NULL) {
+		while (fgets(s, sizeof(s), f)) {
+			size=1;
+			if (sscanf(s, "Card Type      : %16s", b) == 1) a="type";
+			else if (sscanf(s, "Spec Version   : %16s", b) == 1) a="spec";
+			else if (sscanf(s, "Num. of Blocks : %d", &size) == 1) { a="size"; snprintf(b,sizeof(b),"%lld",((unsigned long long)size)*512); }
+			else if (sscanf(s, "Voltage Range  : %16s", b) == 1) a="volt";
+			else if (sscanf(s, "Manufacture ID : %16s", b) == 1) a="manuf";
+			else if (sscanf(s, "Application ID : %16s", b) == 1) a="appl";
+			else if (sscanf(s, "Product Name   : %16s", b) == 1) a="prod";
+			else if (sscanf(s, "Revision       : %16s", b) == 1) a="rev";
+			else if (sscanf(s, "Serial Number  : %16s", b) == 1) a="serial";
+			else if (sscanf(s, "Manu. Date     : %8c", b) == 1) { a="date"; b[9]=0; }
+			else continue;
+			web_printf(size==1 ? "%s\t%s: '%s'" : "%s\t%s: %s", n ? ",\n" : "", a, b);
+			n++;
+		}
+                fclose(f);
+        }
+        web_puts("\n};\n");
+}
+#endif
+
 void wo_wakeup(char *url)
 {
 	char *mac;

@@ -121,13 +121,6 @@ static void wo_cfe(char *url)
 	do_file("/dev/mtd/0ro");
 }
 
-#ifdef TCONFIG_SDHC
-static void wo_mmc(char *url)
-{
-	do_file("/proc/mmc/status");
-}
-#endif
-
 static void wo_nvram(char *url)
 {
 	web_pipecmd("nvram show", WOF_NONE);
@@ -170,9 +163,6 @@ const struct mime_handler mime_handlers[] = {
 	{ "debug.js",		mime_javascript,			5,	wi_generic_noid,	wo_blank,		1 },	// while debugging
 	{ "cfe/*.bin",		mime_binary,				0,	wi_generic,			wo_cfe,			1 },
 	{ "nvram/*.txt",	mime_binary,				0,	wi_generic,			wo_nvram,		1 },
-#ifdef TCONFIG_SDHC
-	{ "mmc/*.txt",		mime_binary,				0,	wi_generic,			wo_mmc,		1 },
-#endif
 	{ "ipt/*.txt",		mime_binary,				0,	wi_generic,			wo_iptables,	1 },
 
 	{ "cfg/*.cfg",			NULL,					0,	wi_generic,			wo_backup,		1 },
@@ -270,6 +260,9 @@ const aspapi_t aspapi[] = {
 	{ "wlscan",				asp_wlscan			},
 #if TOMATO_SL
 	{ "sharelist",			asp_sharelist		},
+#endif
+#ifdef TCONFIG_SDHC
+	{ "mmcid",			asp_mmcid		},
 #endif
 	{ NULL,					NULL				}
 };
