@@ -37,20 +37,6 @@ var ntpList = [
 	['us', 'US']
 ];
 
-/* REMOVE-BEGIN
-var ntpList = [
-	['custom', 'Custom'],
-	['', 'pool.ntp.org'],
-	['africa', 'africa.pool.ntp.org'],
-	['asia', 'asia.pool.ntp.org'],
-	['europe', 'europe.pool.ntp.org'],
-	['oceania', 'oceania.pool.ntp.org'],
-	['north-america', 'north-america.pool.ntp.org'],
-	['south-america', 'south-america.pool.ntp.org'],
-	['us', 'us.pool.ntp.org']
-];
-REMOVE-END */
-
 function ntpString(name)
 {
 	if (name == '') name = 'pool.ntp.org';
@@ -209,6 +195,10 @@ http://www.timeanddate.com/worldclock/city.html?n=101
 New Zeland
 http://www.dia.govt.nz/diawebsite.nsf/wpg_URL/Services-Daylight-Saving-Index
 
+Australia
+http://en.wikipedia.org/wiki/Time_in_Australia
+http://www.timeanddate.com/library/abbreviations/timezones/au/
+
 REMOVE-END */
 
 createFieldTable('', [
@@ -255,8 +245,10 @@ createFieldTable('', [
 		['UTC-8','UTC+08:00 China, Hong Kong, Western Australia, Singapore, Taiwan, Russia'],
 		['UTC-9','UTC+09:00 Japan, Korea'],
 		['ACST-9:30ACDT,M10.1.0/2,M4.1.0/3', 'UTC+09:30 South Australia'],
+		['ACST-9:30', 'UTC+09:30 Darwin'],
 		['UTC-10','UTC+10:00 Guam, Russia'],
-		['STD-10DST,M10.5.0/2,M3.5.0/2','UTC+10:00 Australia'],
+		['AEST-10AEDT,M10.1.0,M4.1.0/3', 'UTC+10:00 Australia'],
+		['AEST-10', 'UTC+10:00 Brisbane'],
 		['UTC-11','UTC+11:00 Solomon Islands'],
 		['UTC-12','UTC+12:00 Fiji'],
 		['NZST-12NZDT,M9.5.0/2,M4.1.0/3','UTC+12:00 New Zealand']

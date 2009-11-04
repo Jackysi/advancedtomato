@@ -104,6 +104,8 @@ void start_dnsmasq()
 	}
 
 	// dns
+	const dns_list_t *dns = get_dns();	// this always points to a static buffer
+
 	if (((nv = nvram_get("dns_minport")) != NULL) && (*nv)) n = atoi(nv);
 		else n = 4096;
 	fprintf(f,
@@ -114,7 +116,13 @@ void start_dnsmasq()
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
+	for (n = 0 ; n < dns->count; ++n) {
+		if (dns->dns[n].port != 53) {
+			fprintf(f, "server=%s#%u\n", inet_ntoa(dns->dns[n].addr), dns->dns[n].port);
+		}
+	}
 
+	
 	// dhcp
 	do_dhcpd = nvram_match("lan_proto", "dhcp");
 	if (do_dhcpd) {
@@ -128,8 +136,7 @@ void start_dnsmasq()
 		if (!do_dns) {
 			// if not using dnsmasq for dns
 
-			const dns_list_t *dns = get_dns();	// this always points to a static buffer
-			if ((dns->count == 0) && (nvram_match("dhcpd_llndns", "1"))) {
+			if ((dns->count == 0) && (nvram_get_int("dhcpd_llndns"))) {
 				// no DNS might be temporary. use a low lease time to force clients to update.
 				dhcp_lease = 2;
 				strcpy(sdhcp_lease, "2m");
@@ -139,7 +146,9 @@ void start_dnsmasq()
 				// pass the dns directly
 				buf[0] = 0;
 				for (n = 0 ; n < dns->count; ++n) {
-					sprintf(buf + strlen(buf), ",%s", inet_ntoa(dns->dns[n]));
+					if (dns->dns[n].port == 53) {	// check: option 6 doesn't seem to support other ports
+						sprintf(buf + strlen(buf), ",%s", inet_ntoa(dns->dns[n].addr));
+					}
 				}
 				fprintf(f, "dhcp-option=6%s\n", buf);
 			}
@@ -281,8 +290,6 @@ void stop_dnsmasq(void)
 
 void clear_resolv(void)
 {
-	_dprintf("%s\n", __FUNCTION__);
-
 	f_write(dmresolv, NULL, 0, 0, 0);	// blank
 }
 
@@ -292,8 +299,6 @@ void dns_to_resolv(void)
 	const dns_list_t *dns;
 	int i;
 	mode_t m;
-
-	_dprintf("%s\n", __FUNCTION__);
 
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
@@ -307,7 +312,9 @@ void dns_to_resolv(void)
 		}
 		else {
 			for (i = 0; i < dns->count; i++) {
-				fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i]));
+				if (dns->dns[i].port == 53) {	// resolv.conf doesn't allow for an alternate port
+					fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i].addr));
+				}
 			}
 		}
 		fclose(f);
@@ -694,42 +701,30 @@ void start_services(void)
 	}
 
 	start_syslog();
-#if TOMATO_SL
-	start_usbevent();
-#endif
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
 	start_cifs();
 	start_httpd();
 	start_cron();
-	start_upnp();
+//	start_upnp();
 	start_rstats(0);
 	start_sched();
-#ifdef TCONFIG_SAMBA
-	start_smbd();
-#endif
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
-#ifdef TCONFIG_SAMBA
-	stop_smbd();
-#endif
 	stop_sched();
 	stop_rstats();
-	stop_upnp();
+//	stop_upnp();
 	stop_cron();
 	stop_httpd();
 	stop_cifs();
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
-#if TOMATO_SL
-	stop_usbevent();
-#endif
 	stop_syslog();
 }
 

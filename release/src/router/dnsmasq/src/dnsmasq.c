@@ -49,10 +49,15 @@ static char *compile_opts =
 "no-"
 #endif
 "DHCP "
+#if defined(HAVE_DHCP) && !defined(HAVE_SCRIPT)
+"no-scripts "
+#endif
 #ifndef HAVE_TFTP
 "no-"
 #endif
 "TFTP";
+
+
 
 static volatile pid_t pid = 0;
 static volatile int pipewrite;
@@ -75,7 +80,7 @@ int main (int argc, char **argv)
   struct iname *if_tmp;
   int piperead, pipefd[2], err_pipe[2];
   struct passwd *ent_pw = NULL;
-#ifdef HAVE_DHCP
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT)
   uid_t script_uid = 0;
   gid_t script_gid = 0;
 #endif
@@ -209,7 +214,7 @@ int main (int argc, char **argv)
   if (daemon->port != 0)
     pre_allocate_sfds();
 
-#ifdef HAVE_DHCP
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT)
   /* Note getpwnam returns static storage */
   if (daemon->dhcp && daemon->lease_change_command && daemon->scriptuser)
     {
@@ -359,7 +364,7 @@ int main (int argc, char **argv)
    
    /* if we are to run scripts, we need to fork a helper before dropping root. */
   daemon->helperfd = -1;
-#if defined(HAVE_DHCP) && !defined(NO_FORK) 
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT) 
   if (daemon->dhcp && daemon->lease_change_command)
     daemon->helperfd = create_helper(pipewrite, err_pipe[1], script_uid, script_gid, max_fd);
 #endif
@@ -610,7 +615,7 @@ int main (int argc, char **argv)
       bump_maxfd(piperead, &maxfd);
 
 #ifdef HAVE_DHCP
-#  ifndef NO_FORK
+#  ifdef HAVE_SCRIPT
       while (helper_buf_empty() && do_script_run(now));
 
       if (!helper_buf_empty())
@@ -681,7 +686,7 @@ int main (int argc, char **argv)
       if (daemon->dhcp && FD_ISSET(daemon->dhcpfd, &rset))
 	dhcp_packet(now);
 
-#  ifndef NO_FORK
+#  ifdef HAVE_SCRIPT
       if (daemon->helperfd != -1 && FD_ISSET(daemon->helperfd, &wset))
 	helper_write();
 #  endif
@@ -866,7 +871,7 @@ static void async_event(int pipe, time_t now)
 	  if (daemon->tcp_pids[i] != 0)
 	    kill(daemon->tcp_pids[i], SIGALRM);
 	
-#if defined(HAVE_DHCP) && !defined(NO_FORK)
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT)
 	/* handle pending lease transitions */
 	if (daemon->helperfd != -1)
 	  {

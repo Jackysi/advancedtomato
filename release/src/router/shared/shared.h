@@ -39,7 +39,10 @@ enum {
 
 typedef struct {
 	int count;
-	struct in_addr dns[3];
+	struct {
+		struct in_addr addr;
+		unsigned short port;
+	} dns[3];
 } dns_list_t;
 
 extern int get_wan_proto(void);

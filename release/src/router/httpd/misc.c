@@ -469,7 +469,7 @@ void asp_dns(int argc, char **argv)
 	dns = get_dns();	// static buffer
 	strcpy(s, "\ndns = [");
 	for (i = 0 ; i < dns->count; ++i) {
-		sprintf(s + strlen(s), "%s'%s'", i ? "," : "", inet_ntoa(dns->dns[i]));
+		sprintf(s + strlen(s), "%s'%s:%u'", i ? "," : "", inet_ntoa(dns->dns[i].addr), dns->dns[i].port);
 	}
 	strcat(s, "];\n");
 	web_puts(s);

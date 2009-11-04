@@ -471,6 +471,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd_slt",			V_RANGE(-1, 43200)	},	// -1=infinite, 0=follow normal lease time, >=1 custom
 	{ "dhcpd_dmdns",		V_01				},
 	{ "dhcpd_lmax",			V_NUM				},
+	{ "dhcpd_gwmode",		V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
 	{ "dhcpc_minpkt",		V_01				},

@@ -489,9 +489,46 @@ function v_ip(e, quiet, x)
 function v_ipz(e, quiet)
 {
 	if ((e = E(e)) == null) return 0;
-	e = E(e);
 	if (e.value == '') e.value = '0.0.0.0';
 	return v_ip(e, quiet);
+}
+
+function v_dns(e, quiet)
+{
+	if ((e = E(e)) == null) return 0;	
+	if (e.value == '') {
+		e.value = '0.0.0.0';
+	}
+	else {
+		var s = e.value.split(':');
+		if (s.length == 1) {
+			s.push(53);
+		}
+		else if (s.length != 2) {
+			ferror.set(e, 'Invalid IP address or port', quiet);
+			return false;
+		}
+		
+		if ((s[0] = fixIP(s[0])) == null) {
+			ferror.set(e, 'Invalid IP address', quiet);
+			return false;
+		}
+
+		if ((s[1] = fixPort(s[1], -1)) == -1) {
+			ferror.set(e, 'Invalid port', quiet);
+			return false;
+		}
+	
+		if (s[1] == 53) {
+			e.value = s[0];
+		}
+		else {
+			e.value = s.join(':');
+		}
+	}
+
+	ferror.clear(e);
+	return true;
 }
 
 function aton(ip)
