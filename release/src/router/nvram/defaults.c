@@ -154,7 +154,7 @@ const defaults_t defaults[] = {
 	{ "wl_dtim",			"1"				},	// DTIM period (3.11.5)*/	// It is best value for WiFi test
 	{ "wl_bcn",				"100"			},	// Beacon interval
 	{ "wl_plcphdr",			"long"			},	// 802.11b PLCP preamble type
-	{ "wl_net_mode",		"mixed"			},	// Wireless mode (mixed|g-only|b-only|disable)
+//	{ "wl_net_mode",		"mixed"			},	// Wireless mode (mixed|g-only|b-only|disable)
 	{ "wl_gmode",			"1"				},	// 54g mode
 	{ "wl_gmode_protection","off"			},	// 802.11g RTS/CTS protection (off|auto)
 	{ "wl_afterburner",		"off"			},	// AfterBurner

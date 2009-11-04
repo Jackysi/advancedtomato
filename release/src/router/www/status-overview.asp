@@ -33,7 +33,7 @@ ghz = ['2.412','2.417','2.422','2.427','2.432','2.437','2.442','2.447','2.452','
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
-bgmo = {'disabled':'-','mixed':'Mixed B+G','b-only':'B Only','g-only':'G Only'};
+bgmo = {'-1':'-','0':'B Only','1':'Mixed','2':'G Only','3':'B Deferred','4':'G Only','5':'LRS','6':'Max'};
 </script>
 
 <script type='text/javascript' src='status-data.jsx?_http_id=<% nv(http_id); %>'></script>
@@ -229,7 +229,7 @@ if ((nvram.wl_mode == 'ap') && (nvram.wds_enable * 1)) wmode += ' + WDS';
 createFieldTable('', [
 	{ title: 'MAC Address', text: nvram.wl0_hwaddr },
 	{ title: 'Wireless Mode', text: wmode },
-	{ title: 'B/G Mode', text: bgmo[nvram.wl_net_mode] },
+	{ title: 'B/G Mode', text: bgmo[nvram.wl_gmode] },
 	{ title: 'Radio', rid: 'radio', text: (wlradio == 0) ? '<b>Disabled</b>' : 'Enabled' },
 	{ title: 'SSID', text: nvram.wl_ssid },
 	{ title: 'Security', text: sec },
