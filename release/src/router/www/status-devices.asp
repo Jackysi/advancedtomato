@@ -183,7 +183,8 @@ dg.sortCompare = function(a, b) {
 
 dg.populate = function()
 {
-	var i, a, b, c, e;
+	var i, j;
+	var a, b, c, e;
 
 	list = [];
 
@@ -227,7 +228,15 @@ dg.populate = function()
 	for (i = dhcpd_static.length - 1; i >= 0; --i) {
 		a = dhcpd_static[i].split('<');
 		if (a.length < 3) continue;
-		if ((e = find(a[0], (a[1].indexOf('.') == -1) ? (ipp + a[1]) : a[1])) == null) continue;
+
+		if (a[1].indexOf('.') == -1) a[1] = (ipp + a[1]);
+
+		c = a[0].split(',');
+		for (j = c.length - 1; j >= 0; --j) {
+			if ((e = find(c[j], a[1])) != null) break;
+		}
+		if (j < 0) continue;
+
 		if (e.name == '') {
 			e.name = a[2];
 		}
