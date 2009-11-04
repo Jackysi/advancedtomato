@@ -186,7 +186,7 @@ void start_dnsmasq()
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > sizeof(buf)-1) {
+		if (n > 84) {
 			p = e + 1;
 			continue;
 		}
