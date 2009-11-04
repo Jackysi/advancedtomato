@@ -1,0 +1,33 @@
+gethostbyname* can't process 30 hostnames in DNS answer,
+which can fit in standard 512 bytes UDP packet.
+Return code was ERANGE ("buffer too small for all addresses").
+
+--- uClibc-0.9.30.1/libc/inet/resolv.c	2008-11-02 03:25:33.000000000 +0300
++++ uClibc/libc/inet/resolv.c	2009-11-04 14:58:26.000000000 +0300
+@@ -1208,7 +1208,7 @@ struct hostent *gethostbyname(const char
+ 	static struct hostent h;
+ 	static char buf[sizeof(struct in_addr) +
+ 			sizeof(struct in_addr *)*2 +
+-			sizeof(char *)*ALIAS_DIM + 384/*namebuffer*/ + 32/* margin */];
++			sizeof(char *)*ALIAS_DIM + 456/*namebuffer*/ + 32/* margin */];
+ 	struct hostent *hp;
+ 
+ 	gethostbyname_r(name, &h, buf, sizeof(buf), &hp, &h_errno);
+@@ -1228,7 +1228,7 @@ struct hostent *gethostbyname2(const cha
+ 	static struct hostent h;
+ 	static char buf[sizeof(struct in6_addr) +
+ 			sizeof(struct in6_addr *)*2 +
+-			sizeof(char *)*ALIAS_DIM + 384/*namebuffer*/ + 32/* margin */];
++			sizeof(char *)*ALIAS_DIM + 456/*namebuffer*/ + 32/* margin */];
+ 	struct hostent *hp;
+ 
+ 	gethostbyname2_r(name, family, &h, buf, sizeof(buf), &hp, &h_errno);
+@@ -1575,7 +1575,7 @@ struct hostent *gethostbyaddr (const voi
+ #else
+ 			sizeof(struct in6_addr) + sizeof(struct in6_addr *)*2 +
+ #endif /* __UCLIBC_HAS_IPV6__ */
+-			sizeof(char *)*ALIAS_DIM + 384 /*namebuffer*/ + 32 /* margin */];
++			sizeof(char *)*ALIAS_DIM + 456/*namebuffer*/ + 32 /* margin */];
+ 	struct hostent *hp;
+ 
+ 	gethostbyaddr_r(addr, len, type, &h, buf, sizeof(buf), &hp, &h_errno);
