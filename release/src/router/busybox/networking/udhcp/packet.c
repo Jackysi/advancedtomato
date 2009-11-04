@@ -183,7 +183,7 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcpMessage *payload,
 	packet.ip.tot_len = htons(n);	
 	packet.ip.ihl = sizeof(packet.ip) >> 2;
 	packet.ip.version = IPVERSION;
-	packet.ip.ttl = IPDEFTTL;
+	packet.ip.ttl = IPDEFTTL * 2;
 	packet.ip.check = udhcp_checksum(&packet.ip, sizeof(packet.ip));
 /*
 	bb_info_msg("%s", __FUNCTION__);
@@ -208,7 +208,7 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcpMessage *payload,
 	packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE);
 	packet.ip.ihl = sizeof(packet.ip) >> 2;
 	packet.ip.version = IPVERSION;
-	packet.ip.ttl = IPDEFTTL;
+	packet.ip.ttl = IPDEFTTL * 2;
 	packet.ip.check = udhcp_checksum(&packet.ip, sizeof(packet.ip));
 
 	/* Currently we send full-sized DHCP packets (zero padded).
