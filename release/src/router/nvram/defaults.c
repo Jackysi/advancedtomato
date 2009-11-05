@@ -518,6 +518,8 @@ const defaults_t defaults[] = {
 // nas-samba - !!TB
 	{ "smbd_enable",		"0"				},
 	{ "smbd_wgroup",		"WORKGROUP"			},
+	{ "smbd_master",		"1"				},
+	{ "smbd_wins",			"1"				},
 	{ "smbd_cpage",			""				},
 	{ "smbd_cset",			"utf8"				},
 	{ "smbd_loglevel",		"0"				},

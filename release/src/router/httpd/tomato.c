@@ -687,6 +687,8 @@ static const nvset_t nvset_list[] = {
 // nas-samba - !!TB
 	{ "smbd_enable",		V_RANGE(0, 2)			},
 	{ "smbd_wgroup",		V_LENGTH(0, 20)			},
+	{ "smbd_master",		V_01				},
+	{ "smbd_wins",			V_01				},
 	{ "smbd_cpage",			V_LENGTH(0, 4)			},
 	{ "smbd_cset",			V_LENGTH(0, 20)			},
 	{ "smbd_loglevel",		V_RANGE(0, 100)			},

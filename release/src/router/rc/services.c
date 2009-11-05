@@ -170,6 +170,14 @@ void start_dnsmasq()
 		if (((nv = nvram_get("wan_wins")) != NULL) && (*nv) && (strcmp(nv, "0.0.0.0") != 0)) {
 			fprintf(f, "dhcp-option=44,%s\n", nv);
 		}
+#ifdef TCONFIG_SAMBASRV
+		else if (nvram_get_int("smbd_enable") && nvram_invmatch("lan_hostname", "") && nvram_get_int("smbd_wins")) {
+			if ((nv == NULL) || (*nv == 0) || (strcmp(nv, "0.0.0.0") == 0)) {
+				// Samba will serve as a WINS server
+				fprintf(f, "dhcp-option=44,0.0.0.0\n");
+			}
+		}
+#endif
 	}
 	else {
 		fprintf(f, "no-dhcp-interface=%s\n", lan_ifname);
@@ -954,7 +962,8 @@ static void do_start_stop_samba(int stop, int start)
 	DIR *dir = NULL;
 	struct dirent *dp;
 	char nlsmod[15];
-	int mode;
+	int mode, master;
+	char *nv;
 	
 	mode = nvram_get_int("smbd_enable");
 	if (!start || !mode || !nvram_invmatch("lan_hostname", ""))
@@ -986,23 +995,29 @@ static void do_start_stop_samba(int stop, int start)
 		nvram_get_int("smbd_loglevel")
 	);
 
-	if (nvram_invmatch("smbd_master", "")) {
-		char *master = nvram_get_int("smbd_master") ? "yes" : "no";
-		fprintf(fp,
-			" local master = %s\n"
-			" preferred master = %s\n",
-			master, master);
+	if (nvram_get_int("smbd_wins")) {
+		nv = nvram_safe_get("wan_wins");
+		if ((*nv == 0) || (strcmp(nv, "0.0.0.0") == 0)) {
+			fprintf(fp, " wins support = yes\n");
+		}
 	}
 
-	if (nvram_invmatch("smbd_cpage", "")) {
-		char *cp = nvram_safe_get("smbd_cpage");
+	if (nvram_get_int("smbd_master")) {
+		fprintf(fp,
+			" domain master = yes\n"
+			" local master = yes\n"
+			" preferred master = yes\n"
+			" os level = 65\n");
+	}
 
-		fprintf(fp, " client code page = %s\n", cp);
-		sprintf(nlsmod, "nls_cp%s", cp);
+	nv = nvram_safe_get("smbd_cpage");
+	if (*nv) {
+		fprintf(fp, " client code page = %s\n", nv);
+		sprintf(nlsmod, "nls_cp%s", nv);
 
-		cp = nvram_get("smbd_nlsmod");
-		if ((cp) && (*cp != 0) && (strcmp(cp, nlsmod) != 0))
-			modprobe_r(cp);
+		nv = nvram_safe_get("smbd_nlsmod");
+		if ((*nv) && (strcmp(nv, nlsmod) != 0))
+			modprobe_r(nv);
 
 		modprobe(nlsmod);
 		nvram_set("smbd_nlsmod", nlsmod);
@@ -1569,6 +1584,8 @@ TOP:
 		if (action & A_STOP) stop_samba();
 		if (action & A_START) {
 			create_passwd();
+			stop_dnsmasq();
+			start_dnsmasq();
 			start_samba();
 		}
 		goto CLEAR;
