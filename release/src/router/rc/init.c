@@ -932,11 +932,6 @@ int init_main(int argc, char *argv[])
 			if (nvram_get_int("usb_nolock"))
 				start_usb();
 			file_unlock(fd);	// allow to process usb hotplug events
-
-			start_vlan();
-			start_lan();
-			start_wan(BOOT);
-			start_services();
 #ifdef TCONFIG_USB
 			/*
 			 * On RESTART some partitions can stay mounted if they are busy at the moment.
@@ -946,6 +941,11 @@ int init_main(int argc, char *argv[])
 			 */
 			if (state == RESTART) add_remove_usbhost("-1", 1);
 #endif
+
+			start_vlan();
+			start_lan();
+			start_wan(BOOT);
+			start_services();
 
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
