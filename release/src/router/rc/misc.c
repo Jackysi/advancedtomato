@@ -155,11 +155,12 @@ void setup_conntrack(void)
 
 	// !!TB - FTP Server
 #ifdef TCONFIG_FTP
-	if (nvram_match("ftp_enable", "1") && atoi(nvram_get("ftp_port")) != 21)
+	i = nvram_get_int("ftp_port");
+	if (nvram_match("ftp_enable", "1") && (i > 0) && (i != 21))
 	{
 		char ports[32];
 
-		sprintf(ports, "ports=21,%d", atoi(nvram_get("ftp_port")));
+		sprintf(ports, "ports=21,%d", i);
 		eval("modprobe", "-s", "ip_conntrack_ftp", ports);
 		eval("modprobe", "-s", "ip_nat_ftp", ports);
 	}
