@@ -225,6 +225,8 @@ struct usb_busmap {
 #define USB_MAXALTSETTING	128  /* Hard limit */
 #define USB_MAXINTERFACES	32
 #define USB_MAXENDPOINTS	32
+#define USB_CTRL_GET_TIMEOUT    5000
+#define USB_CTRL_SET_TIMEOUT    5000
 
 /* All standard descriptors have these 2 fields in common */
 struct usb_descriptor_header {
@@ -361,6 +363,15 @@ struct usb_device;
 #define USB_INTERFACE_INFO(cl,sc,pr) \
 	match_flags: USB_DEVICE_ID_MATCH_INT_INFO, bInterfaceClass: (cl), bInterfaceSubClass: (sc), bInterfaceProtocol: (pr)
 
+#define USB_DEVICE_AND_INTERFACE_INFO(vend, prod, cl, sc, pr) \
+        match_flags: USB_DEVICE_ID_MATCH_INT_INFO \
+                | USB_DEVICE_ID_MATCH_DEVICE, \
+        idVendor: (vend), \
+        idProduct: (prod), \
+        bInterfaceClass: (cl), \
+        bInterfaceSubClass: (sc), \
+        bInterfaceProtocol: (pr)
+
 struct usb_device_id {
 	/* This bitmask is used to determine which of the following fields
 	 * are to be used for matching.
@@ -483,6 +494,8 @@ struct usb_driver {
 #define URB_NO_INTERRUPT	0x0080	/* HINT: no non-error interrupt needed */
 					/* ... less overhead for QUEUE_BULK */
 #define USB_TIMEOUT_KILLED	0x1000	// only set by HCD!
+#define URB_NO_TRANSFER_DMA_MAP	0x0400	/* urb->transfer_dma valid on submit */
+#define URB_NO_SETUP_DMA_MAP	0x0800	/* urb->setup_dma valid on submit */
 
 struct iso_packet_descriptor
 {
@@ -804,6 +817,7 @@ struct usb_bus {
 struct usb_tt {
 	struct usb_device	*hub;	/* upstream highspeed hub */
 	int			multi;	/* true means one TT per port */
+	unsigned		think_time;	/* think time in ns */
 };
 
 
@@ -866,6 +880,8 @@ struct usb_device {
 	struct list_head inodes;
 	struct list_head filelist;
 
+	int storage_host_number;	/* 1+SCSI storage host number. 0 means not set/unknown. */
+
 	/*
 	 * Child devices - these can be either new devices
 	 * (if this is a hub device), or different instances
@@ -904,6 +920,9 @@ extern struct usb_device *usb_alloc_dev(struct usb_device *parent, struct usb_bu
 extern void usb_free_dev(struct usb_device *);
 extern void usb_inc_dev_use(struct usb_device *);
 #define usb_dec_dev_use usb_free_dev
+
+extern void usb_register_devpath(struct usb_device *, char, char *);
+extern void usb_deregister_devpath(struct usb_device *);
 
 extern int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u8 requesttype, __u16 value, __u16 index, void *data, __u16 size, int timeout);
 
@@ -1112,6 +1131,7 @@ void usb_show_string(struct usb_device *dev, char *id, int index);
 extern struct list_head usb_driver_list;
 extern struct list_head usb_bus_list;
 extern struct semaphore usb_bus_list_lock;
+extern struct semaphore usb_devpath_list_lock;
 
 /*
  * USB device fs stuff

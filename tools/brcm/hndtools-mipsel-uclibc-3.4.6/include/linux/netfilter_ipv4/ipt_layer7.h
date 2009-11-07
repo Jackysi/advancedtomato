@@ -19,9 +19,9 @@ typedef char *(*proc_ipt_search) (char *, char, char *);
 
 struct ipt_layer7_info {
     char protocol[MAX_PROTOCOL_LEN];
-    char invert:1;
     char pattern[MAX_PATTERN_LEN];
-    char pkt;
+    u_int8_t invert;
+    u_int8_t pkt;
 };
 
 #endif /* _IPT_LAYER7_H */
