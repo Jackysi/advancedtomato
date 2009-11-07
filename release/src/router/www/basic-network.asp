@@ -476,6 +476,13 @@ function verifyFields(focused, quiet)
 		}
 	}
 
+	// wl channel
+	if (((wmode == 'wds') || (wmode == 'apwds')) && (vis._wl_channel == 1) && (E('_wl_channel').value == '0')) {
+		ferror.set('_wl_channel', 'Fixed wireless channel required in WDS mode.', quiet);
+		ok = 0;
+	}
+	else ferror.clear('_wl_channel');
+
 	// IP address
 	a = ['_l2tp_server_ip','_pptp_server_ip', '_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_wl_radius_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
 	for (i = a.length - 1; i >= 0; --i)
