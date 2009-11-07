@@ -46,9 +46,10 @@ fi
 bool 'Apollo support' CONFIG_APOLLO
 bool 'VME (Motorola and BVM) support' CONFIG_VME
 if [ "$CONFIG_VME" = "y" ]; then
-   bool '  MVME147 support' CONFIG_MVME147
-   bool '  MVME162, 166 and 167 support' CONFIG_MVME16x
-   bool '  BVME4000 and BVME6000 support' CONFIG_BVME6000
+   bool '  Enable broken VME drivers (may randomly crash)' CONFIG_VME_BROKEN
+   dep_bool '  MVME147 support (broken)' CONFIG_MVME147 $CONFIG_VME_BROKEN
+   dep_bool '  MVME162, 166 and 167 support (broken)' CONFIG_MVME16x $CONFIG_VME_BROKEN
+   dep_bool '  BVME4000 and BVME6000 support (broken)' CONFIG_BVME6000 $CONFIG_VME_BROKEN
 fi
 bool 'HP9000/300 support' CONFIG_HP300
 if [ "$CONFIG_HP300" = "y" ]; then
