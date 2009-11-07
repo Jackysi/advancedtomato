@@ -1,7 +1,7 @@
-/* $Id: upnpevents.c,v 1.11 2009/04/10 08:58:30 nanard Exp $ */
+/* $Id: upnpevents.c,v 1.12 2009/11/06 20:48:33 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2008 Thomas Bernard
+ * (c) 2008-2009 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -313,6 +313,10 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 static void upnp_event_send(struct upnp_event_notify * obj)
 {
 	int i;
+	syslog(LOG_DEBUG, "%s: sending event notify message to %s:%s",
+	       "upnp_event_send", obj->addrstr, obj->portstr);
+	syslog(LOG_DEBUG, "%s: msg: %s",
+	       "upnp_event_send", obj->buffer + obj->sent);
 	i = send(obj->s, obj->buffer + obj->sent, obj->tosend - obj->sent, 0);
 	if(i<0) {
 		syslog(LOG_NOTICE, "%s: send(): %m", "upnp_event_send");

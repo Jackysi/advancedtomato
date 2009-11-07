@@ -1,7 +1,7 @@
-/* $Id: miniupnpd.c,v 1.113 2009/09/04 16:14:04 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.115 2009/11/06 20:49:18 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2008 Thomas Bernard
+ * (c) 2006-2009 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -20,6 +20,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+#include <errno.h>
 #include <sys/param.h>
 #if defined(sun)
 #include <kstat.h>
@@ -67,6 +68,7 @@ struct ctlelem {
 /*#define MAX_LAN_ADDR (4)*/
 
 static volatile int quitting = 0;
+static volatile int should_send_public_address_change_notif = 0;
 
 
 #if 1
@@ -321,6 +323,15 @@ sigterm(int sig)
 
 	quitting = 1;
 	/*errno = save_errno;*/
+}
+
+/* Handler for the SIGUSR1 signal indicating public IP address change. */
+static void
+sigusr1(int sig)
+{
+	syslog(LOG_INFO, "received signal %d, public ip address change", sig);
+
+	should_send_public_address_change_notif = 1;
 }
 
 /* record the startup time, for returning uptime */
@@ -893,6 +904,12 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		syslog(LOG_ERR, "Failed to ignore SIGPIPE signals");
 	}
 
+	sa.sa_handler = sigusr1;
+	if (sigaction(SIGUSR1, &sa, NULL))
+	{
+		syslog(LOG_NOTICE, "Failed to set %s handler", "SIGUSR1");
+	}
+
 	if(init_redirect() < 0)
 	{
 		syslog(LOG_ERR, "Failed to init redirection engine. EXITING");
@@ -941,6 +958,7 @@ main(int argc, char * * argv)
 	struct rule_state * rule_list = 0;
 	struct timeval checktime = {0, 0};
 
+	memset(snotify, 0, sizeof(snotify));
 	if(init(argc, argv, &v) != 0)
 		return 1;
 
@@ -1169,6 +1187,7 @@ main(int argc, char * * argv)
 				tomato_helper();
 				continue;
 			}
+			if(errno == EINTR) continue; /* interrupted by a signal, start again */
 			syslog(LOG_ERR, "select(all): %m");
 			syslog(LOG_ERR, "Failed to select open sockets. EXITING");
 			return 1;	/* very serious cause of error */
@@ -1298,7 +1317,23 @@ main(int argc, char * * argv)
 			}
 			e = next;
 		}
-	}
+
+		/* send public address change notifications */
+		if(should_send_public_address_change_notif)
+		{
+#ifdef ENABLE_NATPMP
+			if(GETFLAG(ENABLENATPMPMASK))
+				SendNATPMPPublicAddressChangeNotification(snotify, n_lan_addr);
+#endif
+#ifdef ENABLE_EVENTS
+			if(GETFLAG(ENABLEUPNPMASK))
+			{
+				upnp_event_var_change_notify(EWanIPC);
+			}
+#endif
+			should_send_public_address_change_notif = 0;
+		}
+	}	/* end of main loop */
 
 shutdown:
 	tomato_save("/etc/upnp/data");	// zzz
