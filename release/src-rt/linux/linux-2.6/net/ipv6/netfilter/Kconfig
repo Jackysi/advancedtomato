@@ -209,5 +209,18 @@ config IP6_NF_RAW
 	  If you want to compile it as a module, say M here and read
 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
 
+config IP6_NF_TARGET_ROUTE
+	tristate 'ROUTE target support'
+	depends on IP6_NF_MANGLE
+	help
+	  This option adds a `ROUTE' target, which enables you to setup unusual
+	  routes. The ROUTE target is also able to change the incoming interface
+	  of a packet.
+	
+	  The target can be or not a final target. It has to be used inside the 
+	  mangle table.
+	  
+	  Not working as a module.
+
 endmenu
 

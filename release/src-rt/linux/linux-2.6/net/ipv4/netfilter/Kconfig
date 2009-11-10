@@ -145,6 +145,14 @@ config IP_NF_MATCH_ADDRTYPE
 	  If you want to compile it as a module, say M here and read
 	  <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+config IP_NF_MATCH_MPORT
+	tristate  'Multiple port with ranges match support'
+	depends on IP_NF_IPTABLES
+	help
+	  Multiple port with ranges match support.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 # `filter', generic and specific targets
 config IP_NF_FILTER
 	tristate "Packet filtering"
@@ -253,6 +261,12 @@ config IP_NF_TARGET_SAME
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config IP_NF_TARGET_TRIGGER
+	tristate "TRIGGER target support (port-trigger)"
+	depends on NF_NAT
+	help
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config NF_NAT_SNMP_BASIC
 	tristate "Basic SNMP-ALG support (EXPERIMENTAL)"
 	depends on EXPERIMENTAL && NF_NAT
@@ -288,6 +302,11 @@ config NF_NAT_IRC
 	tristate
 	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
 	default NF_NAT && NF_CONNTRACK_IRC
+
+config NF_NAT_RTSP
+	tristate
+ 	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
+ 	default NF_NAT && NF_CONNTRACK_RTSP
 
 config NF_NAT_TFTP
 	tristate
@@ -432,6 +451,86 @@ config IP_NF_ARP_MANGLE
 	help
 	  Allows altering the ARP packet payload: source and destination
 	  hardware and network addresses.
+
+config IP_NF_MATCH_U32
+	tristate  'U32 match support'
+	depends on IP_NF_IPTABLES
+	help
+	  U32 allows you to extract quantities of up to 4 bytes from a packet,
+	  AND them with specified masks, shift them by specified amounts and
+	  test whether the results are in any of a set of specified ranges.
+	  The specification of what to extract is general enough to skip over
+	  headers with lengths stored in the packet, as in IP or TCP header
+	  lengths.
+	
+	  Details and examples are in the kernel module source.
+
+config IP_NF_TARGET_ROUTE
+	tristate  'ROUTE target support'
+	depends on IP_NF_MANGLE
+	help
+	  This option adds a `ROUTE' target, which enables you to setup unusual
+	  routes. For example, the ROUTE lets you route a received packet through 
+	  an interface or towards a host, even if the regular destination of the 
+	  packet is the router itself. The ROUTE target is also able to change the 
+	  incoming interface of a packet.
+	
+	  The target can be or not a final target. It has to be used inside the 
+	  mangle table.
+	  
+	  If you want to compile it as a module, say M here and read
+	  Documentation/modules.txt.  The module will be called ipt_ROUTE.o.
+	  If unsure, say `N'.
+
+config IP_NF_TARGET_TARPIT
+	tristate 'TARPIT target support'
+	depends on IP_NF_FILTER
+	help
+	  Adds a TARPIT target to iptables, which captures and holds
+	  incoming TCP connections using no local per-connection resources.
+	  Connections are accepted, but immediately switched to the persist
+	  state (0 byte window), in which the remote side stops sending data
+	  and asks to continue every 60-240 seconds.  Attempts to close the
+	  connection are ignored, forcing the remote side to time out the
+	  connection in 12-24 minutes.
+	
+	  This offers similar functionality to LaBrea
+	  <http://www.hackbusters.net/LaBrea/> but doesn't require dedicated
+	  hardware or IPs.  Any TCP port that you would normally DROP or REJECT
+	  can instead become a tarpit.
+
+config IP_NF_MATCH_CONNLIMIT
+	tristate  'Connections/IP limit match support'
+	depends on IP_NF_IPTABLES
+	help
+	  This match allows you to restrict the number of parallel TCP
+	  connections to a server per client IP address (or address block).
+	
+	  If you want to compile it as a module, say M here and read
+	  Documentation/modules.txt.  If unsure, say `N'.
+
+config IP_NF_MATCH_IPP2P
+	tristate  'IPP2P match support'
+	depends on IP_NF_IPTABLES
+	help
+	  This option makes possible to match some P2P packets
+	  therefore helps controlling such traffic.
+	
+	  If you want to compile it as a module, say M here and read
+	  <file:Documentation/modules.txt>.  If unsure, say `N'.
+
+config IP_NF_MATCH_IPV4OPTIONS
+	tristate  'IPV4OPTIONS match support'
+	depends on IP_NF_IPTABLES
+	help
+	  This option adds a IPV4OPTIONS match.
+	  It allows you to filter options like source routing,
+	  record route, timestamp and router-altert.
+	
+	  If you say Y here, try iptables -m ipv4options --help for more information.
+	 
+	  If you want to compile it as a module, say M here and read
+	  Documentation/modules.txt.  If unsure, say `N'.
 
 endmenu
 
