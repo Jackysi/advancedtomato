@@ -63,6 +63,10 @@ struct packet *pend_qtail;
 
 static int active_packet __P((unsigned char *, int));
 
+#ifndef PPP_FCS
+#define PPP_FCS(fcs, c)	(((fcs) >> 8) ^ fcstab[((fcs) ^ (c)) & 0xff])
+#endif
+
 /*
  * demand_conf - configure the interface for doing dial-on-demand.
  */

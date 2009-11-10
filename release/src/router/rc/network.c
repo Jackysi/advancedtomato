@@ -49,6 +49,7 @@ typedef u_int16_t u16;
 typedef u_int8_t u8;
 #endif
 
+#include <linux/types.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
 #include <sys/ioctl.h>

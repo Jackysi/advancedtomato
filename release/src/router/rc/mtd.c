@@ -45,7 +45,12 @@
 #include <error.h>
 #include <sys/ioctl.h>
 #include <sys/sysinfo.h>
+#ifdef LINUX26
+#include <linux/compiler.h>
+#include <mtd/mtd-user.h>
+#else
 #include <linux/mtd/mtd.h>
+#endif
 #include <stdint.h>
 
 #include <trxhdr.h>
