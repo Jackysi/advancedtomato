@@ -962,7 +962,7 @@ static void do_start_stop_samba(int stop, int start)
 	DIR *dir = NULL;
 	struct dirent *dp;
 	char nlsmod[15];
-	int mode, master;
+	int mode;
 	char *nv;
 	
 	mode = nvram_get_int("smbd_enable");
