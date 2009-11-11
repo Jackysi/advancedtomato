@@ -135,9 +135,11 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	done
 
 ifneq ($(TCONFIG_JFFS2),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.o || true
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.o || true
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
+ifneq ($(CONFIG_LINUX26),y)
 	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
+endif
 endif
 
 ifneq ($(TCONFIG_CIFS),y)
