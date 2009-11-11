@@ -13,6 +13,11 @@
 
 //	#define TEST_INTEGRITY
 
+#ifdef LINUX26
+#define JFFS_NAME	"jffs2"
+#else
+#define JFFS_NAME	"jffs"
+#endif
 
 static void error(const char *message)
 {
@@ -71,13 +76,13 @@ void start_jffs2(void)
 	}
 
 	notice_set("jffs", "doing modprobe- jffs");
-	modprobe("jffs");
+	modprobe(JFFS_NAME);
 
 	sprintf(s, "/dev/mtdblock/%d", part);
 	notice_set("jffs", "doing mount- jffs");
-	if (mount(s, "/jffs", "jffs", MS_NOATIME|MS_NODIRATIME, "") != 0) {
+	if (mount(s, "/jffs", JFFS_NAME, MS_NOATIME|MS_NODIRATIME, "") != 0) {
 	   notice_set("jffs", "mount failed");
-		modprobe_r("jffs");
+		modprobe_r(JFFS_NAME);
 		error("mounting");
 		return;
 	}
@@ -116,5 +121,5 @@ void stop_jffs2(void)
 
 	notice_set("jffs", "stopped");
 	umount("/jffs");
-	modprobe_r("jffs");
+	modprobe_r(JFFS_NAME);
 }
