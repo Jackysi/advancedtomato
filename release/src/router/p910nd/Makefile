@@ -10,7 +10,7 @@ endif
 # If you don't have it in /var/lock/subsys, uncomment and define
 CFLAGS += -DLOCKFILE_DIR=\"/var/lock\"
 
-CFLAGS += -O2  -Wall $(EXTRA_CFLAGS)
+CFLAGS += -O2  -Wall $(EXTRACFLAGS)
 
 ifeq ($(STATIC),1)
 CFLAGS += -static

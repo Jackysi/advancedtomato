@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS += -Wall -Os $(EXTRA_CFLAGS) -I$(SRCBASE) -I$(SRCBASE)/include -I$(LINUXDIR)/include -I.
+CFLAGS += -Wall -Os $(EXTRACFLAGS) -I$(SRCBASE) -I$(SRCBASE)/include -I$(LINUXDIR)/include -I.
 
 TARGETS = scsi-start
 
