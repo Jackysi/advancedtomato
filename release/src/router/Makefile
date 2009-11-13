@@ -170,11 +170,6 @@ endif
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
-	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
-	@mv $(TARGETDIR)/lib/modules/*/modules.dep $(TARGETDIR)/lib/modules/
-	@echo ---
-
-	@rm -f $(TARGETDIR)/lib/modules/*/build
 
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
@@ -186,6 +181,12 @@ ifeq ($(TCONFIG_L7PAT),y)
 	@cd layer7 && ./squish.sh
 	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
 endif
+
+	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
+	@mv $(TARGETDIR)/lib/modules/*/modules.dep $(TARGETDIR)/lib/modules/
+	@echo ---
+
+	@rm -f $(TARGETDIR)/lib/modules/*/build
 
 	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
 	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image
