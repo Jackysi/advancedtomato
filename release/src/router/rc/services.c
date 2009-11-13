@@ -1151,22 +1151,16 @@ void stop_samba(void)
 }
 
 #ifdef TCONFIG_USB
-void restart_nas_services(int start)
+void restart_nas_services(int stop, int start)
 {	
 	/* restart all NAS applications */
 #if TCONFIG_SAMBASRV || TCONFIG_FTP
 	int fd = file_lock("usb");
 	#ifdef TCONFIG_SAMBASRV
-	if (start && nvram_get_int("smbd_enable"))
-		do_start_stop_samba(0, 1);
-	else
-		do_start_stop_samba(1, 0);
+	do_start_stop_samba(stop, start && nvram_get_int("smbd_enable"));
 	#endif
 	#ifdef TCONFIG_FTP
-	if (start && nvram_get_int("ftp_enable"))
-		do_start_stop_ftpd(0, 1);
-	else
-		do_start_stop_ftpd(1, 0);
+	do_start_stop_ftpd(stop, start && nvram_get_int("ftp_enable"));
 	#endif
 	file_unlock(fd);
 #endif	// TCONFIG_SAMBASRV || TCONFIG_FTP
@@ -1221,8 +1215,7 @@ void start_services(void)
 #ifdef TCONFIG_SAMBA
 	start_smbd();
 #endif
-	start_samba();		// !!TB - Samba
-	start_ftpd();		// !!TB - FTP Server
+	restart_nas_services(1, 1);	// !!TB - Samba and FTP Server
 }
 
 void stop_services(void)
@@ -1560,7 +1553,7 @@ TOP:
 		if (action & A_START) {
 			start_usb();
 			// restart Samba and ftp since they may be killed by stop_usb()
-			restart_nas_services(1);
+			restart_nas_services(0, 1);
 		}
 		goto CLEAR;
 	}

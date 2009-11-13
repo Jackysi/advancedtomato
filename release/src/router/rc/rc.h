@@ -183,7 +183,7 @@ extern void stop_services(void);
 // !!TB - USB and NAS
 #ifdef TCONFIG_USB
 extern int mkdir_if_none(char *dir);
-extern void restart_nas_services(int start);
+extern void restart_nas_services(int stop, int start);
 #else
 #define mkdir_if_none(args...) (0)
 #define restart_nas_services(args...) do { } while(0)

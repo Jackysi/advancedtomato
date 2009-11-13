@@ -485,7 +485,7 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 			 * or hotplug_usb() already did.
 			 */
 			if (exec_for_host(host_no, 0x00, flags, mount_partition)) {
-				restart_nas_services(1); // restart all NAS applications
+				restart_nas_services(0, 1); // restart all NAS applications
 				run_nvscript("script_usbmount", NULL, 3);
 			}
 		}
@@ -503,10 +503,10 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 			/* Kill all NAS applications here
 			 * so they are not keeping the device busy.
 			 */
-			restart_nas_services(0);
+			restart_nas_services(1, 0);
 			exec_for_host(host_no, (flags & EFH_USER) ? 0x00 : 0x02, flags, umount_partition);
 			/* Restart NAS applications */
-			restart_nas_services(1);
+			restart_nas_services(0, 1);
 		}
 	}
 }
@@ -521,7 +521,7 @@ void remove_storage_main(void)
 			run_nvscript("script_usbumount", NULL, 3);
 		}
 	}
-	restart_nas_services(0);
+	restart_nas_services(1, 0);
 	/* Unmount all partitions */
 	exec_for_host(-1, 0x02, 0, umount_partition);
 }
