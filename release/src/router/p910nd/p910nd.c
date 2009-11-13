@@ -167,8 +167,7 @@ int open_printer(int lpnumber)
 		device = lpname;
 	if ((lp = open(device, bidir ? O_RDWR : O_WRONLY)) == -1) {
 		if (errno != EBUSY)
-			syslog(LOGOPTS, "%s: %m\n", device);
-		syslog(LOGOPTS, "%s: %m, will try opening later\n", device);
+			syslog(LOGOPTS, "%s: %m, will try opening later\n", device);
 	}
 	return (lp);
 }
@@ -402,7 +401,7 @@ int copy_stream(int fd, int lp)
 
 void one_job(int lpnumber)
 {
-	int lp;
+	int lp, open_sleep = 10;
 	struct sockaddr_in client;
 	socklen_t clientlen = sizeof(client);
 
@@ -411,8 +410,11 @@ void one_job(int lpnumber)
 	if (get_lock(lpnumber) == 0)
 		return;
 	/* Make sure lp device is open... */
-	while ((lp = open_printer(lpnumber)) == -1)
-		sleep(10);
+	while ((lp = open_printer(lpnumber)) == -1) {
+		sleep(open_sleep);
+		if (open_sleep < 320) /* ~5 min interval to avoid spam in syslog */
+			open_sleep *= 2;
+	}
 	if (copy_stream(0, lp) < 0)
 		syslog(LOGOPTS, "copy_stream: %m\n");
 	close(lp);
@@ -426,6 +428,7 @@ void server(int lpnumber)
 	struct protoent *proto;
 #endif
 	int netfd, fd, lp, one = 1;
+	int open_sleep = 10;
 	socklen_t clientlen;
 	struct sockaddr_in netaddr, client;
 	char pidfilename[sizeof(PIDFILE)];
@@ -525,8 +528,12 @@ void server(int lpnumber)
 		/*write(fd, "Printing", 8); */
 
 		/* Make sure lp device is open... */
-		while ((lp = open_printer(lpnumber)) == -1)
-			sleep(10);
+		while ((lp = open_printer(lpnumber)) == -1) {
+			sleep(open_sleep);
+			if (open_sleep < 320) /* ~5 min interval to avoid spam in syslog */
+				open_sleep *= 2;
+		}
+		open_sleep = 10;
 
 		if (copy_stream(fd, lp) < 0)
 			syslog(LOGOPTS, "copy_stream: %m\n");
