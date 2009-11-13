@@ -1,4 +1,4 @@
-CC := $(CC) -Wall -c -g $(EXTRA_CFLAGS)
+CC := $(CC) -Wall -c -g $(EXTRACFLAGS)
 
 all:			libbridge.a
 

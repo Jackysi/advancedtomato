@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS = -Wall -Os $(EXTRA_CFLAGS) #-mips32
+CFLAGS = -Wall -Os $(EXTRACFLAGS) #-mips32
 CFLAGS += -I. -I../shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include
 
 LDFLAGS = -L../nvram -lnvram -L../shared -lshared -lcrypt

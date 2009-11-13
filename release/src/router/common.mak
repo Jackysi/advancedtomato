@@ -36,7 +36,9 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
 export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
 
-export EXTRA_CFLAGS := -DBCMWPA2 -mips32 -mtune=mips32
+ifeq ($(EXTRACFLAGS),)
+export EXTRACFLAGS := -DBCMWPA2 -fno-delete-null-pointer-checks -mips32 -mtune=mips32
+endif
 
 CPTMP = @[ -d $(TOP)/dbgshare ] && cp $@ $(TOP)/dbgshare/ || true
 

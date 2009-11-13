@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS = -O2 -Wall $(EXTRA_CFLAGS)
+CFLAGS = -O2 -Wall $(EXTRACFLAGS)
 CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 
 OBJS = httpd.o cgi.o tomato.o version.o 

@@ -12,7 +12,7 @@ PPPD = /usr/sbin/pppd
 RM	= rm -f
 #DEBUG	= -g
 INCLUDE =
-CFLAGS  = -Wall -O1 $(DEBUG) $(INCLUDE)	-I$(SRCBASE)/include $(EXTRA_CFLAGS)
+CFLAGS  = -Wall -O1 $(DEBUG) $(INCLUDE)	-I$(SRCBASE)/include $(EXTRACFLAGS)
 LIBS	=
 #LDFLAGS	= -lutil
 

@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS = -O2 -Wall $(EXTRA_CFLAGS) #-mips32
+CFLAGS = -O2 -Wall $(EXTRACFLAGS) #-mips32
 CFLAGS += -I../shared -I../../include -I.
 ifeq ($(STATIC),1)
 CFLAGS += -static

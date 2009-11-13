@@ -18,7 +18,7 @@ SED=/bin/sed
 
 ##
 #
-CFLAGS=-g -O2 -Wall $(EXTRA_CFLAGS)
+CFLAGS=-g -O2 -Wall $(EXTRACFLAGS)
 LIBS=-lnsl 
 LDFLAGS=
 
