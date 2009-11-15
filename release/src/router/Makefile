@@ -23,6 +23,7 @@ SEP=echo "\033[41;1m   $@   \033[0m"
 #
 # standard packages
 #
+obj-y += lzma-loader
 obj-y += nvram
 obj-y += shared
 obj-y += prebuilt
