@@ -297,7 +297,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 {
 	struct trx_header *trx;
 	unsigned char buf[512];
-	size_t off;
+	size_t off, trxoff;
 	size_t len;
 	size_t trxsize;
 
@@ -321,13 +321,14 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 			/* Size linux (kernel and rootfs) */
 			bcm947xx_parts[PART_LINUX].offset = off;
 			bcm947xx_parts[PART_LINUX].size = bcm947xx_parts[PART_NVRAM].offset - off;			
-			
+
 			trxsize = ROUNDUP(le32_to_cpu(trx->len), mtd->erasesize);	// kernel + rootfs
 
 			/* Find and size rootfs */
-			bcm947xx_parts[PART_ROOTFS].offset = trx->offsets[1] + off;
-			bcm947xx_parts[PART_ROOTFS].size = trxsize - trx->offsets[1];
-			
+			trxoff = (le32_to_cpu(trx->offsets[2]) > off) ? trx->offsets[2] : trx->offsets[1];
+			bcm947xx_parts[PART_ROOTFS].offset = trxoff + off;
+			bcm947xx_parts[PART_ROOTFS].size = trxsize - trxoff;
+
 			/* Find and size jffs2 */
 			bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
 			bcm947xx_parts[PART_JFFS2].size = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_JFFS2].offset;
