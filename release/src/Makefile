@@ -198,6 +198,8 @@ d:
 	@cp router/busybox/config_base router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_AWK/d" router/busybox/config_$@
+	@echo "# CONFIG_AWK is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_ARPING/d" router/busybox/config_$@
@@ -226,10 +228,6 @@ m:
 	@cp router/busybox/config_base router/busybox/config_$@
 	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
 	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_AWK/d" router/busybox/config_$@
-	@echo "CONFIG_AWK=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_AWK_LIBM/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_AWK_LIBM=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" router/busybox/config_$@
 	@echo "CONFIG_FEATURE_LS_COLOR=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" router/busybox/config_$@
@@ -267,10 +265,6 @@ s:
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
 	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_AWK/d" router/busybox/config_$@
-	@echo "CONFIG_AWK=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_AWK_LIBM/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_AWK_LIBM=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" router/busybox/config_$@
 	@echo "CONFIG_FEATURE_LS_COLOR=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" router/busybox/config_$@
