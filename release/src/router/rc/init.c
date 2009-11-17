@@ -770,7 +770,7 @@ static void sysinit(void)
 	char t[256];
 	int model;
 
-	mount("", "/proc", "proc", 0, NULL);
+	mount("proc", "/proc", "proc", 0, NULL);
 	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
 	if (console_init()) noconsole = 1;
