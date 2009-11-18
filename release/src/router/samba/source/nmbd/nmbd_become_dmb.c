@@ -116,10 +116,8 @@ in workgroup %s on subnet %s\n",
 
   if( DEBUGLVL( 0 ) )
     {
-    dbgtext( "*****\n\nSamba server %s ", global_myname );
-    dbgtext( "is now a domain master browser for " );
-    dbgtext( "workgroup %s ", work->work_group );
-    dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+    dbgtext( "Samba server %s is now a domain master browser for workgroup %s "
+             "on subnet %s\n", global_myname, work->work_group, subrec->subnet_name );
     }
 
   if( subrec == unicast_subnet )
@@ -234,10 +232,9 @@ static void become_domain_master_query_success(struct subnet_record *subrec,
   {
     if( DEBUGLVL( 0 ) )
       {
-      dbgtext( "become_domain_master_query_success:\n" );
-      dbgtext( "There is already a domain master browser at " );
-      dbgtext( "IP %s for workgroup %s ", inet_ntoa(ip), nmbname->name );
-      dbgtext( "registered on subnet %s.\n", subrec->subnet_name );
+      dbgtext( "There is already a domain master browser at IP %s for workgroup %s "
+               "registered on subnet %s.\n",
+               inet_ntoa(ip), nmbname->name, subrec->subnet_name );
       }
   }
 }

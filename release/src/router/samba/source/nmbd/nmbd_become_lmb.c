@@ -154,11 +154,8 @@ static void unbecome_local_master_success(struct subnet_record *subrec,
 
   if( DEBUGLVL( 0 ) )
   {
-    dbgtext( "*****\n\n" );
-    dbgtext( "Samba name server %s ", global_myname );
-    dbgtext( "has stopped being a local master browser " );
-    dbgtext( "for workgroup %s ", released_name->name );
-    dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+    dbgtext( "Samba name server %s has stopped being a local master browser for workgroup %s "
+             "on subnet %s\n", global_myname, released_name->name, subrec->subnet_name );
   }
 
 }
@@ -189,11 +186,8 @@ Removing from namelist anyway.\n", nmb_namestr(fail_name)));
 
   if( DEBUGLVL( 0 ) )
   {
-    dbgtext( "*****\n\n" );
-    dbgtext( "Samba name server %s ", global_myname );
-    dbgtext( "has stopped being a local master browser " );
-    dbgtext( "for workgroup %s ", fail_name->name );
-    dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+    dbgtext( "Samba name server %s has stopped being a local master browser for workgroup %s "
+             "on subnet %s\n", global_myname, fail_name->name, subrec->subnet_name );
   }
 }
 
@@ -404,11 +398,8 @@ on subnet %s\n", work->work_group, subrec->subnet_name));
 
   if( DEBUGLVL( 0 ) )
   {
-    dbgtext( "*****\n\n" );
-    dbgtext( "Samba name server %s ", global_myname );
-    dbgtext( "is now a local master browser " );
-    dbgtext( "for workgroup %s ", work->work_group );
-    dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+    dbgtext( "Samba name server %s is now a local master browser for workgroup %s "
+             "on subnet %s\n", global_myname, work->work_group, subrec->subnet_name );
   }
 
 }
