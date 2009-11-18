@@ -494,11 +494,12 @@ vsftpd-install:
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \
-	CC=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
-		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
+		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal \
+		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
 
 ntfs-3g: ntfs-3g/Makefile
-	@$(MAKE) -C ntfs-3g CFLAGS="-g -Os -Wall $(EXTRACFLAGS)"
+	@$(MAKE) -C ntfs-3g CFLAGS="-Os -Wall $(EXTRACFLAGS)"
 
 ntfs-3g-clean:
 	@$(MAKE) -C ntfs-3g clean || true

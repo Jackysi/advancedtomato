@@ -259,7 +259,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #ifdef HAVE_SETXATTR
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #else
 #warning "The extended attribute package is not available"
 #endif /* HAVE_SETXATTR */
