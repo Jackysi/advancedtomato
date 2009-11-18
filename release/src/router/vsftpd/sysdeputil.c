@@ -1269,7 +1269,10 @@ vsf_sysutil_fork_isolate_failok()
     int ret = syscall(__NR_clone, CLONE_NEWPID | CLONE_NEWIPC | SIGCHLD, NULL);
     if (ret != -1 || (errno != EINVAL && errno != EPERM))
     {
-      vsf_sysutil_clear_pid_cache();
+      if (ret == 0)
+      {
+        vsf_sysutil_post_fork();
+      }
       return ret;
     }
     cloneflags_work = 0;
@@ -1288,7 +1291,10 @@ vsf_sysutil_fork_newnet()
     int ret = syscall(__NR_clone, CLONE_NEWNET | SIGCHLD, NULL);
     if (ret != -1 || (errno != EINVAL && errno != EPERM))
     {
-      vsf_sysutil_clear_pid_cache();
+      if (ret == 0)
+      {
+        vsf_sysutil_post_fork();
+      }
       return ret;
     }
     cloneflags_work = 0;

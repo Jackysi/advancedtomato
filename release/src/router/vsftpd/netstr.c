@@ -15,7 +15,7 @@
 #include "utility.h"
 #include "sysutil.h"
 
-void
+int
 str_netfd_alloc(struct vsf_session* p_sess,
                 struct mystr* p_str,
                 char term,
@@ -39,7 +39,7 @@ str_netfd_alloc(struct vsf_session* p_sess,
     if (left == 0)
     {
       str_empty(p_str);
-      return;
+      return -1;
     }
     retval = (*p_peekfunc)(p_sess, p_readpos, left);
     if (vsf_sysutil_retval_is_error(retval))
@@ -68,7 +68,7 @@ str_netfd_alloc(struct vsf_session* p_sess,
           die("missing terminator in str_netfd_alloc");
         }
         str_alloc_alt_term(p_str, p_readbuf, term);
-        return;
+        return (int) i;
       }
     }
     /* Not found in this read chunk, so consume the data and re-loop */

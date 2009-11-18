@@ -210,11 +210,16 @@ vsf_cmdio_get_cmd_and_arg(struct vsf_session* p_sess, struct mystr* p_cmd_str,
 static void
 control_getline(struct mystr* p_str, struct vsf_session* p_sess)
 {
+  int ret;
   if (p_sess->p_control_line_buf == 0)
   {
     vsf_secbuf_alloc(&p_sess->p_control_line_buf, VSFTP_MAX_COMMAND_LINE);
   }
-  ftp_getline(p_sess, p_str, p_sess->p_control_line_buf);
+  ret = ftp_getline(p_sess, p_str, p_sess->p_control_line_buf);
+  if (ret < 0)
+  {
+    vsf_cmdio_write_exit(p_sess, FTP_BADCMD, "Input line too long.");
+  }
   /* As mandated by the FTP specifications.. */
   str_replace_char(p_str, '\0', '\n');
   /* If the last character is a \r, strip it */

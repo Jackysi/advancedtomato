@@ -123,13 +123,19 @@ ftp_write_data(const struct vsf_session* p_sess, const char* p_buf,
   }
 }
 
-void
+int
 ftp_getline(struct vsf_session* p_sess, struct mystr* p_str, char* p_buf)
 {
   if (p_sess->control_use_ssl && p_sess->ssl_slave_active)
   {
+    int ret;
     priv_sock_send_cmd(p_sess->ssl_consumer_fd, PRIV_SOCK_GET_USER_CMD);
-    priv_sock_get_str(p_sess->ssl_consumer_fd, p_str);
+    ret = priv_sock_get_int(p_sess->ssl_consumer_fd);
+    if (ret >= 0)
+    {
+      priv_sock_get_str(p_sess->ssl_consumer_fd, p_str);
+    }
+    return ret;
   }
   else
   {
@@ -140,13 +146,13 @@ ftp_getline(struct vsf_session* p_sess, struct mystr* p_str, char* p_buf)
       p_peek = ssl_peek_adapter;
       p_read = ssl_read_adapter;
     }
-    str_netfd_alloc(p_sess,
-                    p_str,
-                    '\n',
-                    p_buf,
-                    VSFTP_MAX_COMMAND_LINE,
-                    p_peek,
-                    p_read);
+    return str_netfd_alloc(p_sess,
+                           p_str,
+                           '\n',
+                           p_buf,
+                           VSFTP_MAX_COMMAND_LINE,
+                           p_peek,
+                           p_read);
   }
 }
 

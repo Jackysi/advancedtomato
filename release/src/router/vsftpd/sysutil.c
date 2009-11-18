@@ -552,18 +552,11 @@ vsf_sysutil_fork(void)
 int
 vsf_sysutil_fork_failok(void)
 {
-  /* Child does NOT inherit exit function */
-  exitfunc_t curr_func = s_exit_func;
   int retval;
-  s_exit_func = 0;
   retval = fork();
-  if (retval != 0)
-  {
-    s_exit_func = curr_func;
-  }
   if (retval == 0)
   {
-    vsf_sysutil_clear_pid_cache();
+    vsf_sysutil_post_fork();
   }
   return retval;
 }
@@ -2809,7 +2802,21 @@ vsf_sysutil_set_no_procs()
 }
 
 void
-vsf_sysutil_clear_pid_cache()
+vsf_sysutil_post_fork()
 {
+  int i;
+  /* Don't inherit any exit function. */
+  s_exit_func = NULL;
+  /* Uncached the current PID. */ 
   s_current_pid = -1;
+  /* Don't inherit anything relating to the synchronous signal system */
+  s_io_handler = NULL;
+  for (i=0; i < NSIG; ++i)
+  {
+    s_sig_details[i].sync_sig_handler = NULL;
+  }
+  for (i=0; i < NSIG; ++i)
+  {
+    s_sig_details[i].pending = 0;
+  }
 }

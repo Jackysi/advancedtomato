@@ -26,14 +26,17 @@ typedef int (*str_netfd_read_t)(struct vsf_session*
  *                an empty string will be returned.
  * p_peekfunc   - a function called to peek data from the network
  * p_readfunc   - a function called to read data from the network
+ * RETURNS
+ * -1 upon reaching max buffer length without seeing terminator, or the number
+ * of bytes read, _excluding_ the terminator.
  */
-void str_netfd_alloc(struct vsf_session* p_sess,
-                     struct mystr* p_str,
-                     char term,
-                     char* p_readbuf,
-                     unsigned int maxlen,
-                     str_netfd_read_t p_peekfunc,
-                     str_netfd_read_t p_readfunc);
+int str_netfd_alloc(struct vsf_session* p_sess,
+                    struct mystr* p_str,
+                    char term,
+                    char* p_readbuf,
+                    unsigned int maxlen,
+                    str_netfd_read_t p_peekfunc,
+                    str_netfd_read_t p_readfunc);
 
 /* str_netfd_read()
  * PURPOSE
