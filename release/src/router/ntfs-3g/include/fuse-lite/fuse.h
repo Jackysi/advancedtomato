@@ -441,6 +441,11 @@ struct fuse_context {
 
 	/** Private filesystem data */
 	void *private_data;
+
+#ifdef POSIXACLS
+	/** Umask of the calling process (introduced in version 2.8) */
+	mode_t umask;
+#endif
 };
 
 /* ----------------------------------------------------------- *

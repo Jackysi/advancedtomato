@@ -1,8 +1,6 @@
 /*
- * compress.h - Exports for compressed attribute handling. 
- * 		Originated from the Linux-NTFS project.
  *
- * Copyright (c) 2004 Anton Altaparmakov
+ * Copyright (c) 2009 Martin Bene
  *
  * This program/include file is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as published
@@ -20,20 +18,14 @@
  * Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _NTFS_COMPRESS_H
-#define _NTFS_COMPRESS_H
+#ifndef EFS_H
+#define EFS_H
 
-#include "types.h"
-#include "attrib.h"
+int ntfs_get_efs_info(const char *path,
+			char *value, size_t size, ntfs_inode *ni);
+int ntfs_set_efs_info(const char *path,
+			const char *value, size_t size,	int flags,
+			ntfs_inode *ni);
+int ntfs_efs_fixup_attribute(ntfs_attr_search_ctx *ctx, ntfs_attr *na);
 
-extern s64 ntfs_compressed_attr_pread(ntfs_attr *na, s64 pos, s64 count,
-		void *b);
-
-extern s64 ntfs_compressed_pwrite(ntfs_attr *na, runlist_element *brl, s64 wpos,
-				s64 offs, s64 to_write, s64 rounded,
-				const void *b, int compressed_part);
-
-extern int ntfs_compressed_close(ntfs_attr *na, runlist_element *brl, s64 offs);
-
-#endif /* defined _NTFS_COMPRESS_H */
-
+#endif /* EFS_H */

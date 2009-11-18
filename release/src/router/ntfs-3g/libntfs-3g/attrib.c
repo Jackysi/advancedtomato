@@ -5,7 +5,7 @@
  * Copyright (c) 2002-2005 Richard Russon
  * Copyright (c) 2002-2008 Szabolcs Szakacsits
  * Copyright (c) 2004-2007 Yura Pakhuchiy
- * Copyright (c) 2007-2008 Jean-Pierre Andre
+ * Copyright (c) 2007-2009 Jean-Pierre Andre
  *
  * This program/include file is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as published
@@ -58,8 +58,16 @@
 #include "bitmap.h"
 #include "logging.h"
 #include "misc.h"
+#include "efs.h"
+
+#define STANDARD_COMPRESSION_UNIT 4
 
 ntfschar AT_UNNAMED[] = { const_cpu_to_le16('\0') };
+ntfschar STREAM_SDS[] = { const_cpu_to_le16('$'),
+			const_cpu_to_le16('S'),
+			const_cpu_to_le16('D'),
+			const_cpu_to_le16('S'),
+			const_cpu_to_le16('\0') };
 
 static int NAttrFlag(ntfs_attr *na, FILE_ATTR_FLAGS flag)
 {
@@ -325,15 +333,17 @@ static void __ntfs_attr_init(ntfs_attr *na, ntfs_inode *ni,
  * Final initialization for an ntfs attribute.
  */
 void ntfs_attr_init(ntfs_attr *na, const BOOL non_resident,
-		const BOOL compressed, const BOOL encrypted, const BOOL sparse,
+		const ATTR_FLAGS data_flags,
+		const BOOL encrypted, const BOOL sparse,
 		const s64 allocated_size, const s64 data_size,
 		const s64 initialized_size, const s64 compressed_size,
 		const u8 compression_unit)
 {
 	if (!NAttrInitialized(na)) {
+		na->data_flags = data_flags;
 		if (non_resident)
 			NAttrSetNonResident(na);
-		if (compressed)
+		if (data_flags & ATTR_COMPRESSION_MASK)
 			NAttrSetCompressed(na);
 		if (encrypted)
 			NAttrSetEncrypted(na);
@@ -342,7 +352,7 @@ void ntfs_attr_init(ntfs_attr *na, const BOOL non_resident,
 		na->allocated_size = allocated_size;
 		na->data_size = data_size;
 		na->initialized_size = initialized_size;
-		if (compressed || sparse) {
+		if ((data_flags & ATTR_COMPRESSION_MASK) || sparse) {
 			ntfs_volume *vol = na->ni->vol;
 
 			na->compressed_size = compressed_size;
@@ -429,12 +439,25 @@ ntfs_attr *ntfs_attr_open(ntfs_inode *ni, const ATTR_TYPES type,
 	 */
 	if (type == AT_ATTRIBUTE_LIST)
 		a->flags = 0;
+
+	if ((type == AT_DATA) && !a->initialized_size) {
+		/*
+		 * Define/redefine the compression state if stream is
+		 * empty, based on the compression mark on parent
+		 * directory (for unnamed data streams) or on current
+		 * inode (for named data streams). The compression mark
+		 * may change any time, the compression state can only
+		 * change when stream is wiped out.
+		 */
+		a->flags &= ~ATTR_COMPRESSION_MASK;
+		if (na->ni->flags & FILE_ATTR_COMPRESSED)
+			a->flags |= ATTR_IS_COMPRESSED;
+	}
 	
 	cs = a->flags & (ATTR_IS_COMPRESSED | ATTR_IS_SPARSE);
 	
 	if (na->type == AT_DATA && na->name == AT_UNNAMED &&
-	    ((!(a->flags & ATTR_IS_COMPRESSED) != !NAttrCompressed(na)) ||
-	     (!(a->flags & ATTR_IS_SPARSE)     != !NAttrSparse(na)) ||
+	    ((!(a->flags & ATTR_IS_SPARSE)     != !NAttrSparse(na)) ||
 	     (!(a->flags & ATTR_IS_ENCRYPTED)  != !NAttrEncrypted(na)))) {
 		errno = EIO;
 		ntfs_log_perror("Inode %lld has corrupt attribute flags "
@@ -444,14 +467,15 @@ ntfs_attr *ntfs_attr_open(ntfs_inode *ni, const ATTR_TYPES type,
 	}
 
 	if (a->non_resident) {
-		if ((a->flags & ATTR_IS_COMPRESSED) && !a->compression_unit) {
+		if ((a->flags & ATTR_COMPRESSION_MASK)
+				 && !a->compression_unit) {
 			errno = EIO;
 			ntfs_log_perror("Compressed inode %lld attr 0x%x has "
 					"no compression unit",
 					(unsigned long long)ni->mft_no, type);
 			goto put_err_out;
 		}
-		ntfs_attr_init(na, TRUE, a->flags & ATTR_IS_COMPRESSED,
+		ntfs_attr_init(na, TRUE, a->flags,
 				a->flags & ATTR_IS_ENCRYPTED,
 				a->flags & ATTR_IS_SPARSE,
 				sle64_to_cpu(a->allocated_size),
@@ -461,7 +485,7 @@ ntfs_attr *ntfs_attr_open(ntfs_inode *ni, const ATTR_TYPES type,
 				cs ? a->compression_unit : 0);
 	} else {
 		s64 l = le32_to_cpu(a->value_length);
-		ntfs_attr_init(na, FALSE, a->flags & ATTR_IS_COMPRESSED,
+		ntfs_attr_init(na, FALSE, a->flags,
 				a->flags & ATTR_IS_ENCRYPTED,
 				a->flags & ATTR_IS_SPARSE, (l + 7) & ~7, l, l,
 				cs ? (l + 7) & ~7 : 0, 0);
@@ -494,7 +518,8 @@ void ntfs_attr_close(ntfs_attr *na)
 	if (NAttrNonResident(na) && na->rl)
 		free(na->rl);
 	/* Don't release if using an internal constant. */
-	if (na->name != AT_UNNAMED && na->name != NTFS_INDEX_I30)
+	if (na->name != AT_UNNAMED && na->name != NTFS_INDEX_I30
+				&& na->name != STREAM_SDS)
 		free(na->name);
 	free(na);
 }
@@ -782,31 +807,57 @@ map_rl:
  */ 
 static s64 ntfs_attr_pread_i(ntfs_attr *na, const s64 pos, s64 count, void *b)
 {
-	s64 br, to_read, ofs, total, total2;
+	s64 br, to_read, ofs, total, total2, max_read, max_init;
 	ntfs_volume *vol;
 	runlist_element *rl;
+	u16 efs_padding_length;
 
 	/* Sanity checking arguments is done in ntfs_attr_pread(). */
 	
-	if (NAttrCompressed(na) && NAttrNonResident(na))
-		return ntfs_compressed_attr_pread(na, pos, count, b);
+	if ((na->data_flags & ATTR_COMPRESSION_MASK) && NAttrNonResident(na)) {
+		if ((na->data_flags & ATTR_COMPRESSION_MASK)
+		    == ATTR_IS_COMPRESSED)
+			return ntfs_compressed_attr_pread(na, pos, count, b);
+		else {
+				/* compression mode not supported */
+			errno = EOPNOTSUPP;
+			return -1;
+		}
+	}
 	/*
 	 * Encrypted non-resident attributes are not supported.  We return
 	 * access denied, which is what Windows NT4 does, too.
+	 * However, allow if mounted with efs_raw option
 	 */
-	if (NAttrEncrypted(na) && NAttrNonResident(na)) {
+	vol = na->ni->vol;
+	if (!vol->efs_raw && NAttrEncrypted(na) && NAttrNonResident(na)) {
 		errno = EACCES;
 		return -1;
 	}
-	vol = na->ni->vol;
 	
 	if (!count)
 		return 0;
-	/* Truncate reads beyond end of attribute. */
-	if (pos + count > na->data_size) {
-		if (pos >= na->data_size)
+		/*
+		 * Truncate reads beyond end of attribute,
+		 * but round to next 512 byte boundary for encrypted
+		 * attributes with efs_raw mount option
+		 */
+	max_read = na->data_size;
+	max_init = na->initialized_size;
+	if (na->ni->vol->efs_raw
+	    && (na->data_flags & ATTR_IS_ENCRYPTED)
+	    && NAttrNonResident(na)) {
+		if (na->data_size != na->initialized_size) {
+			ntfs_log_error("uninitialized encrypted file not supported\n");
+			errno = EINVAL;
+			return -1;
+		}	
+		max_init = max_read = ((na->data_size + 511) & ~511) + 2;
+	}
+	if (pos + count > max_read) {
+		if (pos >= max_read)
 			return 0;
-		count = na->data_size - pos;
+		count = max_read - pos;
 	}
 	/* If it is a resident attribute, get the value from the mft record. */
 	if (!NAttrNonResident(na)) {
@@ -836,15 +887,42 @@ res_err_out:
 	}
 	total = total2 = 0;
 	/* Zero out reads beyond initialized size. */
-	if (pos + count > na->initialized_size) {
-		if (pos >= na->initialized_size) {
+	if (pos + count > max_init) {
+		if (pos >= max_init) {
 			memset(b, 0, count);
 			return count;
 		}
-		total2 = pos + count - na->initialized_size;
+		total2 = pos + count - max_init;
 		count -= total2;
 		memset((u8*)b + count, 0, total2);
 	}
+		/*
+		 * for encrypted non-resident attributes with efs_raw set 
+		 * the last two bytes aren't read from disk but contain
+		 * the number of padding bytes so original size can be 
+		 * restored
+		 */
+	if (na->ni->vol->efs_raw && 
+			(na->data_flags & ATTR_IS_ENCRYPTED) && 
+			((pos + count) > max_init-2)) {
+		efs_padding_length = 511 - ((na->data_size - 1) & 511);
+		if (pos+count == max_init) {
+			if (count == 1) {
+				*((u8*)b+count-1) = (u8)(efs_padding_length >> 8);
+				count--;
+				total2++;
+			} else {
+				*(u16*)((u8*)b+count-2) = cpu_to_le16(efs_padding_length);
+				count -= 2;
+				total2 +=2;
+			}
+		} else {
+			*((u8*)b+count-1) = (u8)(efs_padding_length & 0xff);
+			count--;
+			total2++;
+		}
+	}
+	
 	/* Find the runlist element containing the vcn. */
 	rl = ntfs_attr_find_vcn(na, pos >> vol->cluster_size_bits);
 	if (!rl) {
@@ -982,6 +1060,9 @@ static int ntfs_attr_fill_zero(ntfs_attr *na, s64 pos, s64 count)
 {
 	char *buf;
 	s64 written, size, end = pos + count;
+	s64 ofsi;
+	const runlist_element *rli;
+	ntfs_volume *vol;
 	int ret = -1;
 
 	ntfs_log_trace("pos %lld, count %lld\n", (long long)pos, 
@@ -996,9 +1077,17 @@ static int ntfs_attr_fill_zero(ntfs_attr *na, s64 pos, s64 count)
 	if (!buf)
 		goto err_out;
 	
+	rli = na->rl;
+	ofsi = 0;
+	vol = na->ni->vol;
 	while (pos < end) {
+		while (rli->length && (ofsi + (rli->length <<
+	                        vol->cluster_size_bits) <= pos)) {
+	                ofsi += (rli->length << vol->cluster_size_bits);
+			rli++;
+		}
 		size = min(end - pos, NTFS_BUF_SIZE);
-		written = ntfs_rl_pwrite(na->ni->vol, na->rl, pos, size, buf);
+		written = ntfs_rl_pwrite(vol, rli, ofsi, pos, size, buf);
 		if (written <= 0) {
 			ntfs_log_perror("Failed to zero space");
 			goto err_free;
@@ -1017,6 +1106,7 @@ static int ntfs_attr_fill_hole(ntfs_attr *na, s64 count, s64 *ofs,
 			       runlist_element **rl, VCN *update_from)
 {
 	s64 to_write;
+	s64 need;
 	ntfs_volume *vol = na->ni->vol;
 	int eo, ret = -1;
 	runlist *rlc;
@@ -1050,7 +1140,16 @@ static int ntfs_attr_fill_hole(ntfs_attr *na, s64 count, s64 *ofs,
 	while (rlc->vcn) {
 		rlc--;
 		if (rlc->lcn >= 0) {
-			lcn_seek_from = rlc->lcn + (from_vcn - rlc->vcn);
+				/*
+				 * avoid fragmenting a compressed file
+				 * Windows does not do that, and that may
+				 * not be desirable for files which can
+				 * be updated
+				 */
+			if (na->data_flags & ATTR_COMPRESSION_MASK)
+				lcn_seek_from = rlc->lcn + rlc->length;
+			else
+				lcn_seek_from = rlc->lcn + (from_vcn - rlc->vcn);
 			break;
 		}
 	}
@@ -1068,14 +1167,29 @@ static int ntfs_attr_fill_hole(ntfs_attr *na, s64 count, s64 *ofs,
 		}
 	}
 	
-	rlc = ntfs_cluster_alloc(vol, from_vcn,
-				((*ofs + to_write - 1) >> vol->cluster_size_bits)
-				 + 1 + (*rl)->vcn - from_vcn, 
+	need = ((*ofs + to_write - 1) >> vol->cluster_size_bits)
+			 + 1 + (*rl)->vcn - from_vcn;
+	if ((na->data_flags & ATTR_COMPRESSION_MASK)
+	    && (need < na->compression_block_clusters)) {
+		/*
+		 * for a compressed file, be sure to allocate the full hole.
+		 * We may need space to decompress existing compressed data.
+		 */
+		rlc = ntfs_cluster_alloc(vol, (*rl)->vcn, (*rl)->length,
+				 lcn_seek_from, DATA_ZONE);
+	} else
+		rlc = ntfs_cluster_alloc(vol, from_vcn, need,
 				 lcn_seek_from, DATA_ZONE);
 	if (!rlc)
 		goto err_out;
 	
 	*rl = ntfs_runlists_merge(na->rl, rlc);
+		/*
+		 * For a compressed attribute, we must be sure there is an
+		 * available entry, so reserve it before it gets too late.
+		 */
+	if (*rl && (na->data_flags & ATTR_COMPRESSION_MASK))
+		*rl = ntfs_rl_extend(*rl,1);
 	if (!*rl) {
 		eo = errno;
 		ntfs_log_perror("Failed to merge runlists");
@@ -1135,6 +1249,8 @@ err_out:
 	return ret;
 }
 
+static int stuff_hole(ntfs_attr *na, const s64 pos);
+
 /**
  * ntfs_attr_pwrite - positioned write to an ntfs attribute
  * @na:		ntfs attribute to write to
@@ -1160,14 +1276,19 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 	s64 total = 0;
 	VCN update_from = -1;
 	ntfs_volume *vol;
+	s64 fullcount;
 	ntfs_attr_search_ctx *ctx = NULL;
 	runlist_element *rl;
 	s64 hole_end;
 	int eo;
+	int compressed_part;
 	struct {
 		unsigned int undo_initialized_size	: 1;
 		unsigned int undo_data_size		: 1;
 	} need_to = { 0, 0 };
+	BOOL makingnonresident = FALSE;
+	BOOL wasnonresident = FALSE;
+	BOOL compressed;
 
 	ntfs_log_enter("Entering for inode %lld, attr 0x%x, pos 0x%llx, count "
 		       "0x%llx.\n", (long long)na->ni->mft_no, na->type,
@@ -1179,25 +1300,54 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 		goto errno_set;
 	}
 	vol = na->ni->vol;
+	compressed = (na->data_flags & ATTR_COMPRESSION_MASK)
+			 != const_cpu_to_le16(0);
 	/*
-	 * Encrypted non-resident attributes are not supported.  We return
+	 * Encrypted attributes are only supported in raw mode.  We return
 	 * access denied, which is what Windows NT4 does, too.
+	 * Moreover a file cannot be both encrypted and compressed.
 	 */
-	if (NAttrEncrypted(na) && NAttrNonResident(na)) {
+	if ((na->data_flags & ATTR_IS_ENCRYPTED)
+	   && (compressed || !vol->efs_raw)) {
 		errno = EACCES;
 		goto errno_set;
 	}
+		/*
+		 * Fill the gap, when writing beyond the end of a compressed
+		 * file. This will make recursive calls
+		 */
+	if (compressed
+	    && (na->type == AT_DATA)
+	    && (pos > na->initialized_size)
+	    && stuff_hole(na,pos))
+		goto errno_set;
 	/* If this is a compressed attribute it needs special treatment. */
-	if (NAttrCompressed(na)) {
+	wasnonresident = NAttrNonResident(na) != 0;
+	makingnonresident = wasnonresident /* yes : already changed */
+			     && !pos && (count == na->initialized_size);
+		/*
+		 * Writing to compressed files is currently restricted
+		 * to appending data. However we have to accept
+		 * recursive write calls to make the attribute non resident.
+		 * These are writing at position 0 up to initialized_size.
+		 * Compression is also restricted to data streams.
+		 * Only ATTR_IS_COMPRESSED compression mode is supported.
+                 */
+	if (compressed
+	    && ((na->type != AT_DATA)
+		|| ((na->data_flags & ATTR_COMPRESSION_MASK)
+			 != ATTR_IS_COMPRESSED)
+		|| ((pos != na->initialized_size)
+		    && (pos || (count != na->initialized_size))))) {
 		// TODO: Implement writing compressed attributes! (AIA)
-		// return ntfs_attr_pwrite_compressed(ntfs_attr *na,
-		//		const s64 pos, s64 count, void *b);
 		errno = EOPNOTSUPP;
 		goto errno_set;
 	}
 	
 	if (!count)
 		goto out;
+	/* for a compressed file, get prepared to reserve a full block */
+	fullcount = count;
 	/* If the write reaches beyond the end, extend the attribute. */
 	old_data_size = na->data_size;
 	if (pos + count > na->data_size) {
@@ -1205,7 +1355,23 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 			ntfs_log_perror("Failed to enlarge attribute");
 			goto errno_set;
 		}
+			/* resizing may change the compression mode */
+		compressed = (na->data_flags & ATTR_COMPRESSION_MASK)
+				!= const_cpu_to_le16(0);
 		need_to.undo_data_size = 1;
+	}
+		/*
+		 * For compressed data, a single full block was allocated
+		 * to deal with compression, possibly in a previous call.
+		 * We are not able to process several blocks because
+		 * some clusters are freed after compression and
+		 * new allocations have to be done before proceeding,
+		 * so truncate the requested count if needed (big buffers).
+		 */
+	if (compressed) {
+		fullcount = na->data_size - pos;
+		if (count > fullcount)
+			count = fullcount;
 	}
 	old_initialized_size = na->initialized_size;
 	/* If it is a resident attribute, write the data to the mft record. */
@@ -1250,6 +1416,17 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 	if (pos + count > na->initialized_size) {
 		if (ntfs_attr_map_whole_runlist(na))
 			goto err_out;
+		/*
+		 * For a compressed attribute, we must be sure there is an
+		 * available entry, and, when reopening a compressed file,
+		 * we may need to split a hole. So reserve the entries
+		 * before it gets too late.
+		 */
+		if (compressed) {
+			na->rl = ntfs_rl_extend(na->rl,2);
+			if (!na->rl)
+				goto err_out;
+		}
 		/* Set initialized_size to @pos + @count. */
 		ctx = ntfs_attr_get_search_ctx(na->ni, NULL);
 		if (!ctx)
@@ -1265,6 +1442,9 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 				goto err_out;
 			
 		ctx->attr->initialized_size = cpu_to_sle64(pos + count);
+		/* fix data_size for compressed files */
+		if (compressed)
+			ctx->attr->data_size = ctx->attr->initialized_size;
 		if (ntfs_mft_record_write(vol, ctx->ntfs_ino->mft_no,
 				ctx->mrec)) {
 			/*
@@ -1298,16 +1478,73 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 		 */
 		if (errno == ENOENT) {
 			errno = EIO;
-			ntfs_log_perror("%s: Failed to find VCN #1", __FUNCTION__);
+			ntfs_log_perror("%s: Failed to find VCN #3", __FUNCTION__);
 		}
 		goto err_out;
+	}
+	ofs = pos - (rl->vcn << vol->cluster_size_bits);
+		/*
+		 * Determine if there is compressed data in the current
+		 * compression block (when appending to an existing file).
+		 * If so, decompression will be needed, and the full block
+		 * must be allocated to be identified as uncompressed.
+		 * This comes in two variants, depending on whether
+		 * compression has saved at least one cluster.
+		 * The compressed size can never be over full size by
+		 * more than 485 (maximum for 15 compression blocks
+		 * compressed to 4098 and the last 3640 bytes compressed
+		 * to 3640 + 3640/8 = 4095, with 15*2 + 4095 - 3640 = 485)
+		 * This is less than the smallest cluster, so the hole is
+		 * is never beyond the cluster next to the position of
+		 * the first uncompressed byte to write.
+		 */
+	compressed_part = 0;
+	if (compressed) {
+		if ((rl->lcn == (LCN)LCN_HOLE)
+		    && wasnonresident) {
+			if (rl->length < na->compression_block_clusters)
+				compressed_part
+					= na->compression_block_clusters
+					   - rl->length;
+			else {
+				compressed_part
+					= na->compression_block_clusters;
+				if (rl->length > na->compression_block_clusters) {
+					rl[2].lcn = rl[1].lcn;
+					rl[2].vcn = rl[1].vcn;
+					rl[2].length = rl[1].length;
+					rl[1].vcn -= compressed_part;
+					rl[1].lcn = LCN_HOLE;
+					rl[1].length = compressed_part;
+					rl[0].length -= compressed_part;
+					ofs -= rl->length << vol->cluster_size_bits;
+					rl++;
+				}
+			}
+				/* normal hole filling will do later */
+		} else
+			if ((rl->lcn >= 0) && (rl[1].lcn == (LCN)LCN_HOLE)) {
+				s64 xofs;
+
+				if (wasnonresident)
+					compressed_part = na->compression_block_clusters
+						   - rl[1].length;
+				rl++;
+				xofs = 0;
+				if (ntfs_attr_fill_hole(na,
+					    rl->length << vol->cluster_size_bits,
+					    &xofs, &rl, &update_from))
+                      			goto err_out;
+				 /* the fist allocated cluster was not merged */
+				if (!xofs)
+					rl--;
+			}
 	}
 	/*
 	 * Scatter the data from the linear data buffer to the volume. Note, a
 	 * partial final vcn is taken care of by the @count capping of write
 	 * length.
 	 */
-	ofs = pos - (rl->vcn << vol->cluster_size_bits);
 	for (hole_end = 0; count; rl++, ofs = 0, hole_end = 0) {
 		if (rl->lcn == LCN_RL_NOT_MAPPED) {
 			rl = ntfs_attr_find_vcn(na, rl->vcn);
@@ -1315,7 +1552,7 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 				if (errno == ENOENT) {
 					errno = EIO;
 					ntfs_log_perror("%s: Failed to find VCN"
-							" #2", __FUNCTION__);
+							" #4", __FUNCTION__);
 				}
 				goto rl_err_out;
 			}
@@ -1328,7 +1565,6 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 			goto rl_err_out;
 		}
 		if (rl->lcn < (LCN)0) {
-			
 			hole_end = rl->vcn + rl->length;
 
 			if (rl->lcn != (LCN)LCN_HOLE) {
@@ -1338,10 +1574,18 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 						(long long)rl->lcn);
 				goto rl_err_out;
 			}
-			
-			if (ntfs_attr_fill_hole(na, count, &ofs, &rl, &update_from))
+			if (ntfs_attr_fill_hole(na, fullcount, &ofs, &rl,
+					 &update_from))
 				goto err_out;
 		}
+		if (compressed) {
+			while (rl->length
+			    && (ofs >= (rl->length << vol->cluster_size_bits))) {
+				ofs -= rl->length << vol->cluster_size_bits;
+				rl++;
+			}
+		}
+
 		/* It is a real lcn, write it to the volume. */
 		to_write = min(count, (rl->length << vol->cluster_size_bits) - ofs);
 retry:
@@ -1361,6 +1605,9 @@ retry:
 			 * This will cause the kernel not to seek and read disk 
 			 * blocks during write(2) to fill the end of the buffer 
 			 * which increases write speed by 2-10 fold typically.
+			 *
+			 * This is done even for compressed files, because
+			 * data is generally first written uncompressed.
 			 */
 			if (rounding && ((wend == na->initialized_size) ||
 				(wend < (hole_end << vol->cluster_size_bits)))){
@@ -1376,35 +1623,53 @@ retry:
 				memcpy(cb, b, to_write);
 				memset(cb + to_write, 0, rounding - to_write);
 				
-				written = ntfs_pwrite(vol->dev, wpos, rounding, cb); 
-				if (written == rounding)
-					written = to_write;
+				if (compressed) {
+					written = ntfs_compressed_pwrite(na,
+						rl, wpos, ofs, to_write,
+						rounding, b, compressed_part);
+				} else {
+					written = ntfs_pwrite(vol->dev, wpos,
+						rounding, cb); 
+					if (written == rounding)
+						written = to_write;
+				}
 				
 				free(cb);
-			} else
-				written = ntfs_pwrite(vol->dev, wpos, to_write, b);
+			} else {
+				if (compressed) {
+					written = ntfs_compressed_pwrite(na,
+						rl, wpos, ofs, to_write, 
+						to_write, b, compressed_part);
+				} else
+					written = ntfs_pwrite(vol->dev, wpos,
+						to_write, b);
+				}
 		} else
 			written = to_write;
 		/* If everything ok, update progress counters and continue. */
 		if (written > 0) {
 			total += written;
 			count -= written;
+			fullcount -= written;
 			b = (const u8*)b + written;
 		}
-		if (written == to_write)
-			continue;
-		/* If the syscall was interrupted, try again. */
-		if (written == (s64)-1 && errno == EINTR)
-			goto retry;
-		if (!written)
-			errno = EIO;
-		goto rl_err_out;
+		if (written != to_write) {
+			/* Partial write cannot be dealt with, stop there */
+			/* If the syscall was interrupted, try again. */
+			if (written == (s64)-1 && errno == EINTR)
+				goto retry;
+			if (!written)
+				errno = EIO;
+			goto rl_err_out;
+		}
+		compressed_part = 0;
 	}
 done:
 	if (ctx)
 		ntfs_attr_put_search_ctx(ctx);
 	/* Update mapping pairs if needed. */
-	if (update_from != -1)
+	if ((update_from != -1)
+	     || (compressed && !makingnonresident))
 		if (ntfs_attr_update_mapping_pairs(na, 0 /*update_from*/)) {
 			/*
 			 * FIXME: trying to recover by goto rl_err_out; 
@@ -1477,6 +1742,177 @@ err_out:
 	errno = eo;
 errno_set:
 	total = -1;
+	goto out;
+}
+
+int ntfs_attr_pclose(ntfs_attr *na)
+{
+	s64 written, ofs;
+	BOOL ok = TRUE;
+	VCN update_from = -1;
+	ntfs_volume *vol;
+	ntfs_attr_search_ctx *ctx = NULL;
+	runlist_element *rl;
+	int eo;
+	s64 hole;
+	int compressed_part;
+	BOOL compressed;
+
+	ntfs_log_enter("Entering for inode 0x%llx, attr 0x%x.\n",
+			na->ni->mft_no, na->type);
+	
+	if (!na || !na->ni || !na->ni->vol) {
+		errno = EINVAL;
+		ntfs_log_perror("%s", __FUNCTION__);
+		goto errno_set;
+	}
+	vol = na->ni->vol;
+	compressed = (na->data_flags & ATTR_COMPRESSION_MASK)
+			 != const_cpu_to_le16(0);
+	/*
+	 * Encrypted non-resident attributes are not supported.  We return
+	 * access denied, which is what Windows NT4 does, too.
+	 */
+	if (NAttrEncrypted(na) && NAttrNonResident(na)) {
+		errno = EACCES;
+		goto errno_set;
+	}
+	/* If this is not a compressed attribute get out */
+	/* same if it is resident */
+	if (!compressed || !NAttrNonResident(na))
+		goto out;
+
+		/*
+		 * For a compressed attribute, we must be sure there is an
+		 * available entry, so reserve it before it gets too late.
+		 */
+	if (ntfs_attr_map_whole_runlist(na))
+		goto err_out;
+	na->rl = ntfs_rl_extend(na->rl,1);
+	if (!na->rl)
+		goto err_out;
+	/* Find the runlist element containing the terminal vcn. */
+	rl = ntfs_attr_find_vcn(na, (na->initialized_size - 1) >> vol->cluster_size_bits);
+	if (!rl) {
+		/*
+		 * If the vcn is not present it is an out of bounds write.
+		 * However, we have already written the last byte uncompressed,
+		 * so getting this here must be an error of some kind.
+		 */
+		if (errno == ENOENT) {
+			errno = EIO;
+			ntfs_log_perror("%s: Failed to find VCN #5", __FUNCTION__);
+		}
+		goto err_out;
+	}
+	/*
+	 * Scatter the data from the linear data buffer to the volume. Note, a
+	 * partial final vcn is taken care of by the @count capping of write
+	 * length.
+	 */
+	compressed_part = 0;
+ 	if ((rl->lcn >= 0) && (rl[1].lcn == (LCN)LCN_HOLE))
+		compressed_part
+			 = na->compression_block_clusters - rl[1].length;
+	else
+		if (rl->lcn == (LCN)LCN_HOLE) {
+			if (rl->length < na->compression_block_clusters)
+				compressed_part
+        	                        = na->compression_block_clusters
+                	                           - rl->length;
+			else
+				compressed_part
+					= na->compression_block_clusters;
+		}
+		/* done, if the last block set was compressed */
+	if (compressed_part)
+		goto out;
+
+	ofs = na->initialized_size - (rl->vcn << vol->cluster_size_bits);
+
+	if (rl->lcn == LCN_RL_NOT_MAPPED) {
+		rl = ntfs_attr_find_vcn(na, rl->vcn);
+		if (!rl) {
+			if (errno == ENOENT) {
+				errno = EIO;
+				ntfs_log_perror("%s: Failed to find VCN"
+						" #6", __FUNCTION__);
+			}
+			goto rl_err_out;
+		}
+			/* Needed for case when runs merged. */
+		ofs = na->initialized_size - (rl->vcn << vol->cluster_size_bits);
+	}
+	if (!rl->length) {
+		errno = EIO;
+		ntfs_log_perror("%s: Zero run length", __FUNCTION__);
+		goto rl_err_out;
+	}
+	if (rl->lcn < (LCN)0) {
+		hole = rl->vcn + rl->length;
+		if (rl->lcn != (LCN)LCN_HOLE) {
+			errno = EIO;
+			ntfs_log_perror("%s: Unexpected LCN (%lld)", 
+					__FUNCTION__,
+					(long long)rl->lcn);
+			goto rl_err_out;
+		}
+			
+		if (ntfs_attr_fill_hole(na, (s64)0, &ofs, &rl, &update_from))
+			goto err_out;
+	}
+	while (rl->length
+	    && (ofs >= (rl->length << vol->cluster_size_bits))) {
+		ofs -= rl->length << vol->cluster_size_bits;
+		rl++;
+	}
+
+retry:
+	if (!NVolReadOnly(vol)) {
+			
+		written = ntfs_compressed_close(na, rl, ofs);
+		/* If everything ok, update progress counters and continue. */
+		if (!written)
+			goto done;
+	}
+		/* If the syscall was interrupted, try again. */
+	if (written == (s64)-1 && errno == EINTR)
+		goto retry;
+	if (!written)
+		errno = EIO;
+	goto rl_err_out;
+
+done:
+	if (ctx)
+		ntfs_attr_put_search_ctx(ctx);
+	/* Update mapping pairs if needed. */
+	if (ntfs_attr_update_mapping_pairs(na, 0 /*update_from*/)) {
+			/*
+			 * FIXME: trying to recover by goto rl_err_out; 
+			 * could cause driver hang by infinite looping.
+			 */
+			ok = FALSE;
+			goto out;
+	}
+out:	
+	ntfs_log_leave("\n");
+	return (!ok);
+rl_err_out:
+		/*
+		 * need not restore old sizes, only compressed_size
+		 * can have changed. It has been set according to
+		 * the current runlist while updating the mapping pairs,
+		 * and must be kept consistent with the runlists.
+		 */
+err_out:
+	eo = errno;
+	if (ctx)
+		ntfs_attr_put_search_ctx(ctx);
+	/* Update mapping pairs if needed. */
+	ntfs_attr_update_mapping_pairs(na, 0 /*update_from*/);
+	errno = eo;
+errno_set:
+	ok = FALSE;
 	goto out;
 }
 
@@ -2710,7 +3146,7 @@ int ntfs_make_room_for_attr(MFT_RECORD *m, u8 *pos, u32 size)
  */
 int ntfs_resident_attr_record_add(ntfs_inode *ni, ATTR_TYPES type,
 			ntfschar *name, u8 name_len, u8 *val, u32 size,
-			ATTR_FLAGS flags)
+			ATTR_FLAGS data_flags)
 {
 	ntfs_attr_search_ctx *ctx;
 	u32 length;
@@ -2720,7 +3156,7 @@ int ntfs_resident_attr_record_add(ntfs_inode *ni, ATTR_TYPES type,
 	ntfs_inode *base_ni;
 
 	ntfs_log_trace("Entering for inode 0x%llx, attr 0x%x, flags 0x%x.\n",
-		(long long) ni->mft_no, (unsigned) type, (unsigned) flags);
+		(long long) ni->mft_no, (unsigned) type, (unsigned) data_flags);
 
 	if (!ni || (!name && name_len)) {
 		errno = EINVAL;
@@ -2773,8 +3209,10 @@ int ntfs_resident_attr_record_add(ntfs_inode *ni, ATTR_TYPES type,
 	a->length = cpu_to_le32(length);
 	a->non_resident = 0;
 	a->name_length = name_len;
-	a->name_offset = cpu_to_le16(offsetof(ATTR_RECORD, resident_end));
-	a->flags = flags;
+	a->name_offset = (name_len
+		? cpu_to_le16(offsetof(ATTR_RECORD, resident_end))
+		: const_cpu_to_le16(0));
+	a->flags = data_flags;
 	a->instance = m->next_attr_instance;
 	a->value_length = cpu_to_le32(size);
 	a->value_offset = cpu_to_le16(length - ((size + 7) & ~7));
@@ -2911,7 +3349,8 @@ int ntfs_non_resident_attr_record_add(ntfs_inode *ni, ATTR_TYPES type,
 	a->instance = m->next_attr_instance;
 	a->lowest_vcn = cpu_to_sle64(lowest_vcn);
 	a->mapping_pairs_offset = cpu_to_le16(length - dataruns_size);
-	a->compression_unit = (flags & ATTR_IS_COMPRESSED) ? 4 : 0;
+	a->compression_unit = (flags & ATTR_IS_COMPRESSED)
+			? STANDARD_COMPRESSION_UNIT : 0;
 	/* If @lowest_vcn == 0, than setup empty attribute. */
 	if (!lowest_vcn) {
 		a->highest_vcn = cpu_to_sle64(-1);
@@ -3127,6 +3566,7 @@ int ntfs_attr_add(ntfs_inode *ni, ATTR_TYPES type,
 	BOOL can_be_non_resident = FALSE;
 	ntfs_inode *attr_ni;
 	ntfs_attr *na;
+	ATTR_FLAGS data_flags;
 
 	if (!ni || size < 0 || type == AT_ATTRIBUTE_LIST) {
 		errno = EINVAL;
@@ -3236,10 +3676,16 @@ int ntfs_attr_add(ntfs_inode *ni, ATTR_TYPES type,
 	}
 
 add_attr_record:
+	if ((ni->flags & FILE_ATTR_COMPRESSED)
+	    && ((type == AT_DATA)
+	       || ((type == AT_INDEX_ROOT) && (name == NTFS_INDEX_I30))))
+		data_flags = ATTR_IS_COMPRESSED;
+	else
+		data_flags = const_cpu_to_le16(0);
 	if (is_resident) {
 		/* Add resident attribute. */
 		offset = ntfs_resident_attr_record_add(attr_ni, type, name,
-				name_len, val, size, 0);
+				name_len, val, size, data_flags);
 		if (offset < 0) {
 			if (errno == ENOSPC && can_be_non_resident)
 				goto add_non_resident;
@@ -3253,7 +3699,7 @@ add_attr_record:
 add_non_resident:
 	/* Add non resident attribute. */
 	offset = ntfs_non_resident_attr_record_add(attr_ni, type, name,
-				name_len, 0, 8, 0);
+				name_len, 0, 8, data_flags);
 	if (offset < 0) {
 		err = errno;
 		ntfs_log_perror("Failed to add non resident attribute");
@@ -3299,6 +3745,34 @@ err_out:
 	errno = err;
 	return -1;
 }
+
+/*
+ *		Change an attribute flag
+ */
+
+int ntfs_attr_set_flags(ntfs_inode *ni, ATTR_TYPES type,
+		ntfschar *name, u8 name_len, ATTR_FLAGS flags, ATTR_FLAGS mask)
+{
+	ntfs_attr_search_ctx *ctx;
+	int res;
+
+	res = -1;
+	/* Search for designated attribute */
+	ctx = ntfs_attr_get_search_ctx(ni, NULL);
+	if (ctx) {
+		if (!ntfs_attr_lookup(type, name, name_len,
+					CASE_SENSITIVE, 0, NULL, 0, ctx)) {
+			/* do the requested change (all small endian le16) */
+			ctx->attr->flags = (ctx->attr->flags & ~mask)
+						| (flags & mask);
+			NInoSetDirty(ni);
+			res = 0;
+		}
+		ntfs_attr_put_search_ctx(ctx);
+	}
+	return (res);
+}
+
 
 /**
  * ntfs_attr_rm - remove attribute from ntfs inode
@@ -3659,7 +4133,7 @@ int ntfs_attr_record_move_away(ntfs_attr_search_ctx *ctx, int extra)
  *	    We expect the caller to do this as this is a fairly low level
  *	    function and it is likely there will be further changes made.
  */
-static int ntfs_attr_make_non_resident(ntfs_attr *na,
+int ntfs_attr_make_non_resident(ntfs_attr *na,
 		ntfs_attr_search_ctx *ctx)
 {
 	s64 new_allocated_size, bw;
@@ -3706,9 +4180,14 @@ static int ntfs_attr_make_non_resident(ntfs_attr *na,
 	 * FIXME: For now just clear all of these as we don't support them when
 	 * writing.
 	 */
-	NAttrClearCompressed(na);
 	NAttrClearSparse(na);
 	NAttrClearEncrypted(na);
+	if ((a->flags & ATTR_COMPRESSION_MASK) == ATTR_IS_COMPRESSED) {
+			/* set compression writing parameters */
+		na->compression_block_size
+			= 1 << (STANDARD_COMPRESSION_UNIT + vol->cluster_size_bits);
+		na->compression_block_clusters = 1 << STANDARD_COMPRESSION_UNIT;
+	}
 
 	if (rl) {
 		/* Now copy the attribute value to the allocated cluster(s). */
@@ -3725,7 +4204,7 @@ static int ntfs_attr_make_non_resident(ntfs_attr *na,
 		}
 	}
 	/* Determine the size of the mapping pairs array. */
-	mp_size = ntfs_get_size_for_mapping_pairs(vol, rl, 0);
+	mp_size = ntfs_get_size_for_mapping_pairs(vol, rl, 0, INT_MAX);
 	if (mp_size < 0) {
 		err = errno;
 		ntfs_log_debug("Eeek!  Failed to get size for mapping pairs array.  "
@@ -3733,7 +4212,10 @@ static int ntfs_attr_make_non_resident(ntfs_attr *na,
 		goto cluster_free_err_out;
 	}
 	/* Calculate new offsets for the name and the mapping pairs array. */
-	name_ofs = (sizeof(ATTR_REC) - sizeof(a->compressed_size) + 7) & ~7;
+	if (na->ni->flags & FILE_ATTR_COMPRESSED)
+		name_ofs = (sizeof(ATTR_REC) + 7) & ~7;
+	else
+		name_ofs = (sizeof(ATTR_REC) - sizeof(a->compressed_size) + 7) & ~7;
 	mp_ofs = (name_ofs + a->name_length * sizeof(ntfschar) + 7) & ~7;
 	/*
 	 * Determine the size of the resident part of the non-resident
@@ -3760,10 +4242,6 @@ static int ntfs_attr_make_non_resident(ntfs_attr *na,
 				a->name_length * sizeof(ntfschar));
 	a->name_offset = cpu_to_le16(name_ofs);
 
-	/* Update the flags to match the in-memory ones. */
-	a->flags &= ~(ATTR_IS_SPARSE | ATTR_IS_ENCRYPTED |
-			ATTR_COMPRESSION_MASK);
-
 	/* Setup the fields specific to non-resident attributes. */
 	a->lowest_vcn = cpu_to_sle64(0);
 	a->highest_vcn = cpu_to_sle64((new_allocated_size - 1) >>
@@ -3771,7 +4249,23 @@ static int ntfs_attr_make_non_resident(ntfs_attr *na,
 
 	a->mapping_pairs_offset = cpu_to_le16(mp_ofs);
 
-	a->compression_unit = 0;
+	/*
+	 * Update the flags to match the in-memory ones.
+	 * However cannot change the compression state if we had
+	 * a fuse_file_info open with a mark for release.
+	 * The decisions about compression can only be made when
+	 * creating/recreating the stream, not when making non resident.
+	 */
+	a->flags &= ~(ATTR_IS_SPARSE | ATTR_IS_ENCRYPTED);
+	if ((a->flags & ATTR_COMPRESSION_MASK) == ATTR_IS_COMPRESSED) {
+			/* support only ATTR_IS_COMPRESSED compression mode */
+		a->compression_unit = STANDARD_COMPRESSION_UNIT;
+		a->compressed_size = const_cpu_to_le64(0);
+	} else {
+		a->compression_unit = 0;
+		a->flags &= ~ATTR_COMPRESSION_MASK;
+		na->data_flags = a->flags;
+	}
 
 	memset(&a->reserved1, 0, sizeof(a->reserved1));
 
@@ -3868,7 +4362,8 @@ static int ntfs_resident_attr_resize_i(ntfs_attr *na, const s64 newsize)
 			/* Update attribute size everywhere. */
 			na->data_size = na->initialized_size = newsize;
 			na->allocated_size = (newsize + 7) & ~7;
-			if (NAttrCompressed(na) || NAttrSparse(na))
+			if ((na->data_flags & ATTR_COMPRESSION_MASK)
+			    || NAttrSparse(na))
 				na->compressed_size = na->allocated_size;
 			if (na->type == AT_DATA && na->name == AT_UNNAMED) {
 				na->ni->data_size = na->data_size;
@@ -4091,8 +4586,8 @@ static int ntfs_attr_make_resident(ntfs_attr *na, ntfs_attr_search_ctx *ctx)
 	if (ntfs_attr_can_be_resident(vol, na->type))
 		return -1;
 
-	if (NAttrCompressed(na) || NAttrEncrypted(na)) {
-		ntfs_log_trace("Making compressed or encrypted files resident is not "
+	if (na->data_flags & ATTR_IS_ENCRYPTED) {
+		ntfs_log_trace("Making encrypted streams resident is not "
 				"implemented yet.\n");
 		errno = EOPNOTSUPP;
 		return -1;
@@ -4140,6 +4635,16 @@ static int ntfs_attr_make_resident(ntfs_attr *na, ntfs_attr_search_ctx *ctx)
 	a->flags = 0;
 	a->value_length = cpu_to_le32(na->data_size);
 	a->value_offset = cpu_to_le16(val_ofs);
+	/*
+	 *  If a data stream was wiped out, adjust the compression mode
+	 *  to current state of compression flag
+	 */
+	if (!na->data_size
+	    && (na->type == AT_DATA)
+	    && (na->ni->flags & FILE_ATTR_COMPRESSED)) {
+		a->flags |= ATTR_IS_COMPRESSED;
+		na->data_flags = a->flags;
+	}
 	/*
 	 * File names cannot be non-resident so we would never see this here
 	 * but at least it serves as a reminder that there may be attributes
@@ -4193,7 +4698,6 @@ static int ntfs_attr_make_resident(ntfs_attr *na, ntfs_attr_search_ctx *ctx)
 
 	/* Update in-memory struct ntfs_attr. */
 	NAttrClearNonResident(na);
-	NAttrClearCompressed(na);
 	NAttrClearSparse(na);
 	NAttrClearEncrypted(na);
 	na->initialized_size = na->data_size;
@@ -4261,8 +4765,8 @@ static int ntfs_attr_update_meta(ATTR_RECORD *a, ntfs_attr *na, MFT_RECORD *m,
 		
 		NAttrSetSparse(na);
 		a->flags |= ATTR_IS_SPARSE;
-		a->compression_unit = 4; /* Windows set it so, even if attribute
-					    is not actually compressed. */
+		a->compression_unit = STANDARD_COMPRESSION_UNIT;  /* Windows
+		 set it so, even if attribute is not actually compressed. */
 		
 		memmove((u8*)a + le16_to_cpu(a->name_offset) + 8,
 			(u8*)a + le16_to_cpu(a->name_offset),
@@ -4294,7 +4798,7 @@ static int ntfs_attr_update_meta(ATTR_RECORD *a, ntfs_attr *na, MFT_RECORD *m,
 	}
 
 	/* Update compressed size if required. */
-	if (sparse) {
+	if (sparse || (na->data_flags & ATTR_COMPRESSION_MASK)) {
 		s64 new_compr_size;
 
 		new_compr_size = ntfs_rl_get_compressed_size(na->ni->vol, na->rl);
@@ -4333,8 +4837,10 @@ static int ntfs_attr_update_mapping_pairs_i(ntfs_attr *na, VCN from_vcn)
 	MFT_RECORD *m;
 	ATTR_RECORD *a;
 	VCN stop_vcn;
+	const runlist_element *stop_rl;
 	int err, mp_size, cur_max_mp_size, exp_max_mp_size, ret = -1;
 	BOOL finished_build;
+
 retry:
 	if (!na || !na->rl || from_vcn) {
 		errno = EINVAL;
@@ -4362,6 +4868,7 @@ retry:
 
 	/* Fill attribute records with new mapping pairs. */
 	stop_vcn = 0;
+	stop_rl = na->rl;
 	finished_build = FALSE;
 	while (!ntfs_attr_lookup(na->type, na->name, na->name_len,
 				CASE_SENSITIVE, from_vcn, NULL, 0, ctx)) {
@@ -4415,13 +4922,6 @@ retry:
 			case -3: goto put_err_out;
 		}
 
-		/* Get the size for the rest of mapping pairs array. */
-		mp_size = ntfs_get_size_for_mapping_pairs(na->ni->vol, na->rl,
-								stop_vcn);
-		if (mp_size <= 0) {
-			ntfs_log_perror("%s: get MP size failed", __FUNCTION__);
-			goto put_err_out;
-		}
 		/*
 		 * Determine maximum possible length of mapping pairs,
 		 * if we shall *not* expand space for mapping pairs.
@@ -4435,6 +4935,13 @@ retry:
 		 */
 		exp_max_mp_size = le32_to_cpu(m->bytes_allocated) -
 				le32_to_cpu(m->bytes_in_use) + cur_max_mp_size;
+		/* Get the size for the rest of mapping pairs array. */
+		mp_size = ntfs_get_size_for_mapping_pairs(na->ni->vol, stop_rl,
+						stop_vcn, exp_max_mp_size);
+		if (mp_size <= 0) {
+			ntfs_log_perror("%s: get MP size failed", __FUNCTION__);
+			goto put_err_out;
+		}
 		/* Test mapping pairs for fitting in the current mft record. */
 		if (mp_size > exp_max_mp_size) {
 			/*
@@ -4499,8 +5006,12 @@ retry:
 		 */
 		if (!ntfs_mapping_pairs_build(na->ni->vol, (u8*)a + le16_to_cpu(
 				a->mapping_pairs_offset), mp_size, na->rl,
-				stop_vcn, &stop_vcn))
+				stop_vcn, &stop_rl))
 			finished_build = TRUE;
+		if (stop_rl)
+			stop_vcn = stop_rl->vcn;
+		else
+			stop_vcn = 0;
 		if (!finished_build && errno != ENOSPC) {
 			ntfs_log_perror("Failed to build mapping pairs");
 			goto put_err_out;
@@ -4544,7 +5055,7 @@ retry:
 	while (1) {
 		/* Calculate size of rest mapping pairs. */
 		mp_size = ntfs_get_size_for_mapping_pairs(na->ni->vol,
-						na->rl, stop_vcn);
+						na->rl, stop_vcn, INT_MAX);
 		if (mp_size <= 0) {
 			ntfs_log_perror("%s: get mp size failed", __FUNCTION__);
 			goto put_err_out;
@@ -4563,14 +5074,16 @@ retry:
 		cur_max_mp_size = le32_to_cpu(m->bytes_allocated) -
 				le32_to_cpu(m->bytes_in_use) -
 				(offsetof(ATTR_RECORD, compressed_size) +
-				((NAttrCompressed(na) || NAttrSparse(na)) ?
+				(((na->data_flags & ATTR_COMPRESSION_MASK)
+				    || NAttrSparse(na)) ?
 				sizeof(a->compressed_size) : 0)) -
 				((sizeof(ntfschar) * na->name_len + 7) & ~7);
 		if (mp_size > cur_max_mp_size)
 			mp_size = cur_max_mp_size;
 		/* Add attribute extent to new record. */
 		err = ntfs_non_resident_attr_record_add(ni, na->type,
-			 na->name, na->name_len, stop_vcn, mp_size, 0);
+			na->name, na->name_len, stop_vcn, mp_size,
+			na->data_flags);
 		if (err == -1) {
 			err = errno;
 			ntfs_log_perror("Could not add attribute extent");
@@ -4583,7 +5096,11 @@ retry:
 
 		err = ntfs_mapping_pairs_build(na->ni->vol, (u8*)a +
 			le16_to_cpu(a->mapping_pairs_offset), mp_size, na->rl,
-			stop_vcn, &stop_vcn);
+			stop_vcn, &stop_rl);
+		if (stop_rl)
+			stop_vcn = stop_rl->vcn;
+		else
+			stop_vcn = 0;
 		if (err < 0 && errno != ENOSPC) {
 			err = errno;
 			ntfs_log_perror("Failed to build MP");
@@ -5018,6 +5535,8 @@ static int ntfs_non_resident_attr_expand(ntfs_attr *na, const s64 newsize)
 int ntfs_attr_truncate(ntfs_attr *na, const s64 newsize)
 {
 	int ret = STATUS_ERROR;
+	s64 fullsize;
+	BOOL compressed;
 
 	if (!na || newsize < 0 ||
 			(na->ni->mft_no == FILE_MFT && na->type == AT_DATA)) {
@@ -5039,24 +5558,49 @@ int ntfs_attr_truncate(ntfs_attr *na, const s64 newsize)
 	 * Encrypted attributes are not supported. We return access denied,
 	 * which is what Windows NT4 does, too.
 	 */
-	if (NAttrEncrypted(na)) {
+	if (na->data_flags & ATTR_IS_ENCRYPTED) {
 		errno = EACCES;
-		ntfs_log_perror("Failed to truncate encrypted attribute");
+		ntfs_log_info("Failed to truncate encrypted attribute");
 		goto out;
 	}
 	/*
 	 * TODO: Implement making handling of compressed attributes.
+	 * Currently we can only expand the attribute or delete it,
+	 * and only for ATTR_IS_COMPRESSED. This is however possible
+	 * for resident attributes when there is no open fuse context
+	 * (important case : $INDEX_ROOT:$I30)
 	 */
-	if (NAttrCompressed(na)) {
+	compressed = (na->data_flags & ATTR_COMPRESSION_MASK)
+			 != const_cpu_to_le16(0);
+	if (compressed
+	   && NAttrNonResident(na)
+	   && (((na->data_flags & ATTR_COMPRESSION_MASK) != ATTR_IS_COMPRESSED)
+		|| (newsize && (newsize < na->data_size)))) {
 		errno = EOPNOTSUPP;
 		ntfs_log_perror("Failed to truncate compressed attribute");
 		goto out;
 	}
 	if (NAttrNonResident(na)) {
-		if (newsize > na->data_size)
-			ret = ntfs_non_resident_attr_expand(na, newsize);
+		/*
+		 * For compressed data, the last block must be fully
+		 * allocated, and we do not known the size of compression
+		 * block until the attribute has been made non-resident.
+		 * Moreover we can only process a single compression
+		 * block at a time (from where we are about to write),
+		 * so we silently do not allocate more.
+		 *
+		 * Note : do not request truncate on compressed files
+		 * unless being able to face the consequences !
+		 */
+		if (compressed && newsize)
+			fullsize = (na->initialized_size
+				 | (na->compression_block_size - 1)) + 1;
 		else
-			ret = ntfs_non_resident_attr_shrink(na, newsize);
+			fullsize = newsize;
+		if (fullsize > na->data_size)
+			ret = ntfs_non_resident_attr_expand(na, fullsize);
+		else
+			ret = ntfs_non_resident_attr_shrink(na, fullsize);
 	} else
 		ret = ntfs_resident_attr_resize(na, newsize);
 out:	
@@ -5064,6 +5608,93 @@ out:
 	return ret;
 }
 	
+/*
+ *		Stuff a hole in a compressed file
+ *
+ *	An unallocated hole must be aligned on compression block size.
+ *	If needed current block and target block are stuffed with zeroes.
+ *
+ *	Returns 0 if succeeded,
+ *		-1 if it failed (as explained in errno)
+ */
+
+static int stuff_hole(ntfs_attr *na, const s64 pos)
+{
+	s64 size;
+	s64 begin_size;
+	s64 end_size;
+	char *buf;
+	int ret;
+
+	ret = 0;
+		/*
+		 * If the attribute is resident, the compression block size
+		 * is not defined yet and we can make no decision.
+		 * So we first try resizing to the target and if the
+		 * attribute is still resident, we're done
+		 */
+	if (!NAttrNonResident(na)) {
+		ret = ntfs_resident_attr_resize(na, pos);
+		if (!ret && !NAttrNonResident(na))
+			na->initialized_size = na->data_size = pos;
+	}
+	if (!ret && NAttrNonResident(na)) {
+			/* does the hole span over several compression block ? */
+		if ((pos ^ na->initialized_size)
+				& ~(na->compression_block_size - 1)) {
+			begin_size = ((na->initialized_size - 1)
+					| (na->compression_block_size - 1))
+					+ 1 - na->initialized_size;
+			end_size = pos & (na->compression_block_size - 1);
+			size = (begin_size > end_size ? begin_size : end_size);
+		} else {
+			/* short stuffing in a single compression block */
+			begin_size = size = pos - na->initialized_size;
+			end_size = 0;
+		}
+		if (size)
+			buf = (char*)ntfs_malloc(size);
+		else
+			buf = (char*)NULL;
+		if (buf || !size) {
+			memset(buf,0,size);
+				/* stuff into current block */
+			if (begin_size
+			    && (ntfs_attr_pwrite(na,
+				na->initialized_size, begin_size, buf)
+				   != begin_size))
+				ret = -1;
+				/* create an unstuffed hole */
+			if (!ret
+			    && ((na->initialized_size + end_size) < pos)
+			    && ntfs_non_resident_attr_expand(na,
+					pos - end_size))
+				ret = -1;
+			else 
+				na->initialized_size
+				    = na->data_size = pos - end_size;
+				/* stuff into the target block */
+			if (!ret && end_size
+			    && (ntfs_attr_pwrite(na, 
+				na->initialized_size, end_size, buf)
+				    != end_size))
+				ret = -1;
+			if (buf)
+				free(buf);
+		} else
+			ret = -1;
+	}
+		/* make absolutely sure we have reached the target */
+	if (!ret && (na->initialized_size != pos)) {
+		ntfs_log_error("Failed to stuff a compressed file"
+			"target %lld reached %lld\n",
+			(long long)pos, (long long)na->initialized_size);
+		errno = EIO;
+		ret = -1;
+	}
+	return (ret);
+}
+
 /**
  * ntfs_attr_readall - read the entire data from an ntfs attribute
  * @ni:		open ntfs inode in which the ntfs attribute resides
@@ -5155,8 +5786,11 @@ int ntfs_attr_remove(ntfs_inode *ni, const ATTR_TYPES type, ntfschar *name,
 	
 	na = ntfs_attr_open(ni, type, name, name_len);
 	if (!na) {
-		ntfs_log_perror("Failed to open attribute 0x%02x of inode "
+			/* do not log removal of non-existent stream */
+		if (type != AT_DATA) {
+			ntfs_log_perror("Failed to open attribute 0x%02x of inode "
 				"0x%llx", type, (unsigned long long)ni->mft_no);
+		}
 		return -1;
 	}
 	
@@ -5228,4 +5862,3 @@ out:
 		return -1;
 	return nr_free;
 }
-

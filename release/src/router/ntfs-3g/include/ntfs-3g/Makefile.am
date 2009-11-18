@@ -2,6 +2,7 @@
 MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 
 headers = \
+	acls.h	\
 	attrib.h	\
 	attrlist.h	\
 	bitmap.h	\
@@ -13,6 +14,7 @@ headers = \
 	device.h	\
 	device_io.h	\
 	dir.h		\
+	efs.h		\
 	endians.h	\
 	index.h		\
 	inode.h		\
@@ -24,6 +26,7 @@ headers = \
 	misc.h		\
 	mst.h		\
 	ntfstime.h	\
+	reparse.h	\
 	runlist.h	\
 	security.h	\
 	support.h	\

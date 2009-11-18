@@ -3,7 +3,7 @@
 #		 compilation.
 #
 # Copyright (c) 2000-2006 Anton Altaparmakov
-# Copyright (c) 2005-2008 Szabolcs Szakacsits
+# Copyright (c) 2005-2009 Szabolcs Szakacsits
 # Copyright (C) 2007-2008 Alon Bar-Lev
 #
 # This program/include file is free software; you can redistribute it and/or
@@ -23,8 +23,8 @@
 
 # Autoconf
 AC_PREREQ(2.59)
-AC_INIT([ntfs-3g],[2009.4.4],[ntfs-3g-devel@lists.sf.net])
-LIBNTFS_3G_VERSION="54"
+AC_INIT([ntfs-3g],[2009.11.14],[ntfs-3g-devel@lists.sf.net])
+LIBNTFS_3G_VERSION="71"
 AC_CONFIG_SRCDIR([src/ntfs-3g.c])
 
 # Environment
@@ -107,10 +107,29 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
+	[posix-acls],
+	[AS_HELP_STRING([--enable-posix-acls],[enable POSIX ACL support])],
+	,
+	[enable_posix_acls="no"]
+)
+
+AC_ARG_ENABLE(
 	[device-default-io-ops],
 	[AS_HELP_STRING([--disable-device-default-io-ops],[install default IO ops])],
 	,
 	[enable_device_default_io_ops="yes"]
+)
+
+AC_ARG_ENABLE(
+	[nfconv],
+	[AS_HELP_STRING([--disable-nfconv],[disable the 'nfconv' patch, which adds support for Unicode normalization form conversion when built on Mac OS X @<:@default=enabled for Mac OS X@:>@])],
+	[enable_nfconv="no"],
+	[
+		case "${target_os}" in
+			darwin*) enable_nfconv="yes" ;;
+			*) enable_nfconv="no" ;;
+		esac
+	]
 )
 
 # pthread_rwlock_t requires _GNU_SOURCE
@@ -263,6 +282,26 @@ AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_CHECK_MEMBERS([struct stat.st_atim])
 AC_CHECK_MEMBERS([struct stat.st_atimespec])
 
+# For the 'nfconv' patch (Mac OS X only):
+case "${target_os}" in
+darwin*)
+	if test "${enable_nfconv}" = "yes"; then
+		AC_CHECK_HEADER(
+			[CoreFoundation/CoreFoundation.h],
+			[
+				LDFLAGS="${LDFLAGS} -framework CoreFoundation"
+				AC_DEFINE(
+					[ENABLE_NFCONV],
+					[1],
+					[Define to 1 if the nfconv patch should be enabled]
+				)
+			],
+			AC_MSG_ERROR([[Cannot find CoreFoundation required for 'nfconv' functionality Mac OS X. You may use the --disable-nfconv 'configure' option to avoid this error.]])
+		)
+	fi
+	;;
+esac
+
 # Checks for library functions.
 AC_FUNC_GETMNTENT
 AC_FUNC_MBRTOWC
@@ -309,6 +348,7 @@ test "${enable_device_default_io_ops}" = "no" && AC_DEFINE(
 )
 
 test "${enable_mtab}" = "no" && AC_DEFINE([IGNORE_MTAB], [1], [Don't update /etc/mtab])
+test "${enable_posix_acls}" != "no" && AC_DEFINE([POSIXACLS], [1], [POSIX ACL support])
 
 test "${enable_really_static}" = "yes" && enable_library="no"
 test "${enable_library}" = "no" && enable_ldconfig="no"
@@ -375,6 +415,8 @@ AC_CONFIG_FILES([
 	src/Makefile
 	src/ntfs-3g.8
 	src/ntfs-3g.probe.8
+	src/ntfs-3g.usermap.8
+	src/ntfs-3g.secaudit.8
 ])
 AC_OUTPUT
 

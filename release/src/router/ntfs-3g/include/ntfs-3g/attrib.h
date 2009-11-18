@@ -37,6 +37,7 @@ typedef struct _ntfs_attr_search_ctx ntfs_attr_search_ctx;
 #include "logging.h"
 
 extern ntfschar AT_UNNAMED[];
+extern ntfschar STREAM_SDS[];
 
 /**
  * enum ntfs_lcn_special_values - special return values for ntfs_*_vcn_to_lcn()
@@ -174,6 +175,7 @@ struct _ntfs_attr {
 	runlist_element *rl;
 	ntfs_inode *ni;
 	ATTR_TYPES type;
+	ATTR_FLAGS data_flags;
 	ntfschar *name;
 	u32 name_len;
 	unsigned long state;
@@ -245,11 +247,14 @@ typedef union {
 } attr_val;
 
 extern void ntfs_attr_init(ntfs_attr *na, const BOOL non_resident,
-		const BOOL compressed, const BOOL encrypted, const BOOL sparse,
+		const ATTR_FLAGS data_flags, const BOOL encrypted,
+		const BOOL sparse,
 		const s64 allocated_size, const s64 data_size,
 		const s64 initialized_size, const s64 compressed_size,
 		const u8 compression_unit);
 
+	/* warning : in the following "name" has to be freeable */
+	/* or one of constants AT_UNNAMED, NTFS_INDEX_I30 or STREAM_SDS */
 extern ntfs_attr *ntfs_attr_open(ntfs_inode *ni, const ATTR_TYPES type,
 		ntfschar *name, u32 name_len);
 extern void ntfs_attr_close(ntfs_attr *na);
@@ -258,6 +263,7 @@ extern s64 ntfs_attr_pread(ntfs_attr *na, const s64 pos, s64 count,
 		void *b);
 extern s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count,
 		const void *b);
+extern int ntfs_attr_pclose(ntfs_attr *na);
 
 extern void *ntfs_attr_readall(ntfs_inode *ni, const ATTR_TYPES type,
 			       ntfschar *name, u32 name_len, s64 *data_size);
@@ -279,7 +285,8 @@ extern int ntfs_attr_can_be_non_resident(const ntfs_volume *vol,
 		const ATTR_TYPES type);
 extern int ntfs_attr_can_be_resident(const ntfs_volume *vol,
 		const ATTR_TYPES type);
-
+int ntfs_attr_make_non_resident(ntfs_attr *na,
+		ntfs_attr_search_ctx *ctx);
 extern int ntfs_make_room_for_attr(MFT_RECORD *m, u8 *pos, u32 size);
 
 extern int ntfs_resident_attr_record_add(ntfs_inode *ni, ATTR_TYPES type,
@@ -292,6 +299,8 @@ extern int ntfs_attr_record_rm(ntfs_attr_search_ctx *ctx);
 
 extern int ntfs_attr_add(ntfs_inode *ni, ATTR_TYPES type,
 		ntfschar *name, u8 name_len, u8 *val, s64 size);
+extern int ntfs_attr_set_flags(ntfs_inode *ni, ATTR_TYPES type,
+		ntfschar *name, u8 name_len, ATTR_FLAGS flags, ATTR_FLAGS mask);
 extern int ntfs_attr_rm(ntfs_attr *na);
 
 extern int ntfs_attr_record_resize(MFT_RECORD *m, ATTR_RECORD *a, u32 new_size);

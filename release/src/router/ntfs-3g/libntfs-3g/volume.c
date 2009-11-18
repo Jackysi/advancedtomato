@@ -197,6 +197,7 @@ static int __ntfs_volume_release(ntfs_volume *v)
 			ntfs_error_set(&err);
 	}
 
+	ntfs_free_lru_caches(v);
 	free(v->vol_name);
 	free(v->upcase);
 	free(v->attrdef);
@@ -525,6 +526,7 @@ ntfs_volume *ntfs_volume_startup(struct ntfs_device *dev, unsigned long flags)
 				"%s\n", strerror(errno));
 	
 	/* We now initialize the cluster allocator. */
+	vol->full_zones = 0;
 	mft_zone_size = vol->nr_clusters >> 3;      /* 12.5% */
 
 	/* Setup the mft zone. */
@@ -1166,7 +1168,8 @@ ntfs_volume *ntfs_mount(const char *name __attribute__((unused)),
 		int eo = errno;
 		ntfs_device_free(dev);
 		errno = eo;
-	}
+	} else
+		ntfs_create_lru_caches(vol);
 	return vol;
 #else
 	/*
@@ -1562,3 +1565,30 @@ int ntfs_set_locale(void)
 	return 0;
 }
 
+/*
+ *		Feed the counts of free clusters and free mft records
+ */
+
+int ntfs_volume_get_free_space(ntfs_volume *vol)
+{
+	ntfs_attr *na;
+	int ret;
+
+	ret = -1; /* default return */
+	vol->free_clusters = ntfs_attr_get_free_bits(vol->lcnbmp_na);
+	if (vol->free_clusters < 0) {
+		ntfs_log_perror("Failed to read NTFS $Bitmap");
+	} else {
+		na = vol->mftbmp_na;
+		vol->free_mft_records = ntfs_attr_get_free_bits(na);
+
+		if (vol->free_mft_records >= 0)
+			vol->free_mft_records += (na->allocated_size - na->data_size) << 3;
+
+		if (vol->free_mft_records < 0)
+			ntfs_log_perror("Failed to calculate free MFT records");
+		else
+			ret = 0;
+	}
+	return (ret);
+}

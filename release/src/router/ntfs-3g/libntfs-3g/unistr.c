@@ -45,6 +45,12 @@
 #include <locale.h>
 #endif
 
+#if defined(__APPLE__) || defined(__DARWIN__)
+#ifdef ENABLE_NFCONV
+#include <CoreFoundation/CoreFoundation.h>
+#endif /* ENABLE_NFCONV */
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
+
 #include "compat.h"
 #include "attrib.h"
 #include "types.h"
@@ -64,6 +70,18 @@
  */
 
 static int use_utf8 = 1; /* use UTF-8 encoding for file names */
+
+#if defined(__APPLE__) || defined(__DARWIN__)
+#ifdef ENABLE_NFCONV
+/**
+ * This variable controls whether or not automatic normalization form conversion
+ * should be performed when translating NTFS unicode file names to UTF-8.
+ * Defaults to on, but can be controlled from the outside using the function
+ *   int ntfs_macosx_normalize_filenames(int normalize);
+ */
+static int nfconvert_utf8 = 1;
+#endif /* ENABLE_NFCONV */
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
 
 /*
  * This is used by the name collation functions to quickly determine what
@@ -133,7 +151,10 @@ BOOL ntfs_names_are_equal(const ntfschar *s1, size_t s1_len,
  * @err_val if an invalid character is found in @name1 during the comparison.
  *
  * The following characters are considered invalid: '"', '*', '<', '>' and '?'.
+ *
+ * A few optimizations made by JPA
  */
+
 int ntfs_names_collate(const ntfschar *name1, const u32 name1_len,
 		const ntfschar *name2, const u32 name2_len,
 		const int err_val __attribute__((unused)),
@@ -149,21 +170,29 @@ int ntfs_names_collate(const ntfschar *name1, const u32 name1_len,
 		exit(1);
 	}
 #endif
-	for (cnt = 0; cnt < min(name1_len, name2_len); ++cnt) {
-		c1 = le16_to_cpu(*name1);
-		name1++;
-		c2 = le16_to_cpu(*name2);
-		name2++;
-		if (ic) {
-			if (c1 < upcase_len)
-				c1 = le16_to_cpu(upcase[c1]);
-			if (c2 < upcase_len)
-				c2 = le16_to_cpu(upcase[c2]);
-		}
-#if 0
-		if (c1 < 64 && legal_ansi_char_array[c1] & 8)
-			return err_val;
-#endif
+	cnt = min(name1_len, name2_len);
+		/* JPA average loop count is 8 */
+	if (cnt > 0) {
+		if (ic)
+				/* JPA this loop in 76% cases */
+			do {
+				c1 = le16_to_cpu(*name1);
+				name1++;
+				c2 = le16_to_cpu(*name2);
+				name2++;
+				if (c1 < upcase_len)
+					c1 = le16_to_cpu(upcase[c1]);
+				if (c2 < upcase_len)
+					c2 = le16_to_cpu(upcase[c2]);
+			} while ((c1 == c2) && --cnt);
+		else
+			do {
+				/* JPA this loop in 24% cases */
+				c1 = le16_to_cpu(*name1);
+				name1++;
+				c2 = le16_to_cpu(*name2);
+				name2++;
+			} while ((c1 == c2) && --cnt);
 		if (c1 < c2)
 			return -1;
 		if (c1 > c2)
@@ -173,12 +202,6 @@ int ntfs_names_collate(const ntfschar *name1, const u32 name1_len,
 		return -1;
 	if (name1_len == name2_len)
 		return 0;
-	/* name1_len > name2_len */
-#if 0
-	c1 = le16_to_cpu(*name1);
-	if (c1 < 64 && legal_ansi_char_array[c1] & 8)
-		return err_val;
-#endif
 	return 1;
 }
 
@@ -473,6 +496,13 @@ fail:
 static int ntfs_utf16_to_utf8(const ntfschar *ins, const int ins_len,
 			      char **outs, int outs_len)
 {
+#if defined(__APPLE__) || defined(__DARWIN__)
+#ifdef ENABLE_NFCONV
+	char *original_outs_value = *outs;
+	int original_outs_len = outs_len;
+#endif /* ENABLE_NFCONV */
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
+
 	char *t;
 	int i, size, ret = -1;
 	ntfschar halfpair;
@@ -528,6 +558,36 @@ static int ntfs_utf16_to_utf8(const ntfschar *ins, const int ins_len,
 	        }
 	}
 	*t = '\0';
+	
+#if defined(__APPLE__) || defined(__DARWIN__)
+#ifdef ENABLE_NFCONV
+	if(nfconvert_utf8 && (t - *outs) > 0) {
+		char *new_outs = NULL;
+		int new_outs_len = ntfs_macosx_normalize_utf8(*outs, &new_outs, 0); // Normalize to decomposed form
+		if(new_outs_len >= 0 && new_outs != NULL) {
+			if(original_outs_value != *outs) {
+				// We have allocated outs ourselves.
+				free(*outs);
+				*outs = new_outs;
+				t = *outs + new_outs_len;
+			}
+			else {
+				// We need to copy new_outs into the fixed outs buffer.
+				memset(*outs, 0, original_outs_len);
+				strncpy(*outs, new_outs, original_outs_len-1);
+				t = *outs + original_outs_len;
+				free(new_outs);
+			}
+		}
+		else {
+			ntfs_log_error("Failed to normalize NTFS string to UTF-8 NFD: %s\n", *outs);
+			ntfs_log_error("  new_outs=0x%p\n", new_outs);
+			ntfs_log_error("  new_outs_len=%d\n", new_outs_len);
+		}
+	}
+#endif /* ENABLE_NFCONV */
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
+	
 	ret = t - *outs;
 out:
 	return ret;
@@ -662,6 +722,19 @@ fail:
  */
 static int ntfs_utf8_to_utf16(const char *ins, ntfschar **outs)
 {
+#if defined(__APPLE__) || defined(__DARWIN__)
+#ifdef ENABLE_NFCONV
+	char *new_ins = NULL;
+	if(nfconvert_utf8) {
+		int new_ins_len;
+		new_ins_len = ntfs_macosx_normalize_utf8(ins, &new_ins, 1); // Normalize to composed form
+		if(new_ins_len >= 0)
+			ins = new_ins;
+		else
+			ntfs_log_error("Failed to normalize NTFS string to UTF-8 NFC: %s\n", ins);
+	}
+#endif /* ENABLE_NFCONV */
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
 	const char *t = ins;
 	u32 wc;
 	ntfschar *outpos;
@@ -697,6 +770,12 @@ static int ntfs_utf8_to_utf16(const char *ins, ntfschar **outs)
 	
 	ret = --outpos - *outs;
 fail:
+#if defined(__APPLE__) || defined(__DARWIN__)
+#ifdef ENABLE_NFCONV
+	if(new_ins != NULL)
+		free(new_ins);
+#endif /* ENABLE_NFCONV */
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
 	return ret;
 }
 
@@ -998,21 +1077,26 @@ void ntfs_upcase_table_build(ntfschar *uc, u32 uc_len)
 	{0}
 	};
 	int i, r;
+	int k, off;
 
 	memset((char*)uc, 0, uc_len);
 	uc_len >>= 1;
 	if (uc_len > 65536)
 		uc_len = 65536;
 	for (i = 0; (u32)i < uc_len; i++)
-		uc[i] = i;
-	for (r = 0; uc_run_table[r][0]; r++)
+		uc[i] = cpu_to_le16(i);
+	for (r = 0; uc_run_table[r][0]; r++) {
+		off = uc_run_table[r][2];
 		for (i = uc_run_table[r][0]; i < uc_run_table[r][1]; i++)
-			uc[i] += uc_run_table[r][2];
+			uc[i] = cpu_to_le16(i + off);
+	}
 	for (r = 0; uc_dup_table[r][0]; r++)
 		for (i = uc_dup_table[r][0]; i < uc_dup_table[r][1]; i += 2)
-			uc[i + 1]--;
-	for (r = 0; uc_byte_table[r][0]; r++)
-		uc[uc_byte_table[r][0]] = uc_byte_table[r][1];
+			uc[i + 1] = cpu_to_le16(i);
+	for (r = 0; uc_byte_table[r][0]; r++) {
+		k = uc_byte_table[r][1];
+		uc[uc_byte_table[r][0]] = cpu_to_le16(k);
+	}
 }
 
 /**
@@ -1067,6 +1151,69 @@ void ntfs_ucsfree(ntfschar *ucs)
 }
 
 /*
+ *		Check whether a name contains no chars forbidden
+ *	for DOS or Win32 use
+ *
+ *	If there is a bad char, errno is set to EINVAL
+ */
+
+BOOL ntfs_forbidden_chars(const ntfschar *name, int len)
+{
+	BOOL forbidden;
+	int ch;
+	int i;
+	u32 mainset =     (1L << ('\"' - 0x20))
+			| (1L << ('*' - 0x20))
+			| (1L << ('/' - 0x20))
+			| (1L << (':' - 0x20))
+			| (1L << ('<' - 0x20))
+			| (1L << ('>' - 0x20))
+			| (1L << ('?' - 0x20));
+
+	forbidden = (len == 0) || (le16_to_cpu(name[len-1]) == ' ');
+	for (i=0; i<len; i++) {
+		ch = le16_to_cpu(name[i]);
+		if ((ch < 0x20)
+		    || ((ch < 0x40)
+			&& ((1L << (ch - 0x20)) & mainset))
+		    || (ch == '\\')
+		    || (ch == '|'))
+			forbidden = TRUE;
+	}
+	if (forbidden)
+		errno = EINVAL;
+	return (forbidden);
+}
+
+/*
+ *		Check whether the same name can be used as a DOS and
+ *	a Win32 name
+ *
+ *	The names must be the same, or the short name the uppercase
+ *	variant of the long name
+ */
+
+BOOL ntfs_collapsible_chars(ntfs_volume *vol,
+			const ntfschar *shortname, int shortlen,
+			const ntfschar *longname, int longlen)
+{
+	BOOL collapsible;
+	unsigned int ch;
+	int i;
+
+	collapsible = shortlen == longlen;
+	if (collapsible)
+		for (i=0; i<shortlen; i++) {
+			ch = le16_to_cpu(longname[i]);
+			if ((ch >= vol->upcase_len)
+		   	 || ((shortname[i] != longname[i])
+				&& (shortname[i] != vol->upcase[ch])))
+					collapsible = FALSE;
+	}
+	return (collapsible);
+}
+
+/*
  * Define the character encoding to be used.
  * Use UTF-8 unless specified otherwise.
  */
@@ -1087,3 +1234,81 @@ int ntfs_set_char_encoding(const char *locale)
 	return 0; /* always successful */
 }
 
+#if defined(__APPLE__) || defined(__DARWIN__)
+
+int ntfs_macosx_normalize_filenames(int normalize) {
+#ifdef ENABLE_NFCONV
+	if(normalize == 0 || normalize == 1) {
+		nfconvert_utf8 = normalize;
+		return 0;
+	}
+	else
+		return -1;
+#else
+	return -1;
+#endif /* ENABLE_NFCONV */
+} 
+
+int ntfs_macosx_normalize_utf8(const char *utf8_string, char **target,
+ int composed) {
+#ifdef ENABLE_NFCONV
+	/* For this code to compile, the CoreFoundation framework must be fed to the linker. */
+	CFStringRef cfSourceString;
+	CFMutableStringRef cfMutableString;
+	CFRange rangeToProcess;
+	CFIndex requiredBufferLength;
+	char *result = NULL;
+	int resultLength = -1;
+	
+	/* Convert the UTF-8 string to a CFString. */
+	cfSourceString = CFStringCreateWithCString(kCFAllocatorDefault, utf8_string, kCFStringEncodingUTF8);
+	if(cfSourceString == NULL) {
+		ntfs_log_error("CFStringCreateWithCString failed!\n");
+		return -2;
+	}
+	
+	/* Create a mutable string from cfSourceString that we are free to modify. */
+	cfMutableString = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, cfSourceString);
+	CFRelease(cfSourceString); /* End-of-life. */
+	if(cfMutableString == NULL) {
+		ntfs_log_error("CFStringCreateMutableCopy failed!\n");
+		return -3;
+	}
+  
+	/* Normalize the mutable string to the desired normalization form. */
+	CFStringNormalize(cfMutableString, (composed != 0 ? kCFStringNormalizationFormC : kCFStringNormalizationFormD));
+	
+	/* Store the resulting string in a '\0'-terminated UTF-8 encoded char* buffer. */
+	rangeToProcess = CFRangeMake(0, CFStringGetLength(cfMutableString));
+	if(CFStringGetBytes(cfMutableString, rangeToProcess, kCFStringEncodingUTF8, 0, false, NULL, 0, &requiredBufferLength) > 0) {
+		resultLength = sizeof(char)*(requiredBufferLength + 1);
+		result = ntfs_calloc(resultLength);
+		
+		if(result != NULL) {
+			if(CFStringGetBytes(cfMutableString, rangeToProcess, kCFStringEncodingUTF8,
+					    0, false, (UInt8*)result, resultLength-1, &requiredBufferLength) <= 0) {
+				ntfs_log_error("Could not perform UTF-8 conversion of normalized CFMutableString.\n");
+				free(result);
+				result = NULL;
+			}
+		}
+		else
+			ntfs_log_error("Could not perform a ntfs_calloc of %d bytes for char *result.\n", resultLength);
+	}
+	else
+		ntfs_log_error("Could not perform check for required length of UTF-8 conversion of normalized CFMutableString.\n");
+
+	
+	CFRelease(cfMutableString);
+	
+	if(result != NULL) {
+	 	*target = result;
+		return resultLength - 1;
+	}
+	else
+		return -1;
+#else
+	return -1;
+#endif /* ENABLE_NFCONV */
+}
+#endif /* defined(__APPLE__) || defined(__DARWIN__) */
