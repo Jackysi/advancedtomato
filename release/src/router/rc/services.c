@@ -984,6 +984,7 @@ static void do_start_stop_samba(int stop, int start)
 		" guest only = no\n"
 		" log level = %d\n"
 		" syslog only = yes\n"
+		" timestamp logs = no\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
