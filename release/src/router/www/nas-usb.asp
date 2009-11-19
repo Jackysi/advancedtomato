@@ -279,8 +279,7 @@ function verifyFields(focused, quiet)
 	E('_f_bprint').disabled = b || !E('_f_print').checked;
 
 	elem.display(PR('_f_automount'), !b && !a);
-	elem.display(PR('_script_usbmount'), !b && !a && E('_f_automount').checked);
-	elem.display(PR('_script_usbumount'), !b && !a && E('_f_automount').checked);
+	elem.display(PR('_script_usbmount'), PR('_script_usbumount'), !b && !a && E('_f_automount').checked);
 	elem.display(PR('_script_usbhotplug'), !b && (!a || E('_f_print').checked));
 
 	if (!v_length('_script_usbmount', quiet, 0, 2048)) return 0;

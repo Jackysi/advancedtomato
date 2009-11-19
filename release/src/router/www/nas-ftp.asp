@@ -147,8 +147,7 @@ function verifyFields(focused, quiet)
 
 	E('_f_limit').disabled = (a != 1);
 	b = E('_f_limit').checked;
-	elem.display(PR('_f_limit_hit'), (a == 1 && b));
-	elem.display(PR('_f_limit_sec'), (a == 1 && b));
+	elem.display(PR('_f_limit_hit'), PR('_f_limit_sec'), (a == 1 && b));
 	E('_ftp_anonymous').disabled = (a == 0);
 	E('_f_ftp_super').disabled = (a == 0);
 	E('_f_log_ftp').disabled = (a == 0);

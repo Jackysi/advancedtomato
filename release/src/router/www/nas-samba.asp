@@ -164,8 +164,7 @@ function verifyFields(focused, quiet)
 
 	a = E('_smbd_enable').value;
 
-	elem.display(PR('_smbd_user'), (a == 2));
-	elem.display(PR('_smbd_passwd'), (a == 2));
+	elem.display(PR('_smbd_user'), PR('_smbd_passwd'), (a == 2));
 
 	E('_smbd_wgroup').disabled = (a == 0);
 	E('_smbd_cpage').disabled = (a == 0);
