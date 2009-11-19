@@ -1,7 +1,7 @@
 /*
  * Wireless Network Adapter Configuration Utility
  *
- * Copyright 2007, Broadcom Corporation
+ * Copyright 2008, Broadcom Corporation
  * All Rights Reserved.                
  *                                     
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;   
@@ -528,6 +528,15 @@ sleep_ms(const unsigned int ms)
 {
 	usleep(1000*ms);
 }
+#elif defined(__ECOS)
+static void
+sleep_ms(const unsigned int ms)
+{
+	cyg_tick_count_t ostick;
+
+	ostick = ms / 10;
+	cyg_thread_delay(ostick);
+}
 #else
 #error "sleep_ms() not defined for this OS!!!"
 #endif /* defined(linux) */
@@ -570,25 +579,24 @@ static chanspec_t
 wlconf_auto_chanspec(char *name)
 {
 	chanspec_t chosen = 0;
+	int temp = 0;
 	wl_uint32_list_t request;
-	int bandtype;
 	int ret;
 	int i;
-
-	/* query the band type */
-	WL_GETINT(name, WLC_GET_BAND, &bandtype);
 
 	request.count = 0;	/* let the ioctl decide */
 	WL_IOCTL(name, WLC_START_CHANNEL_SEL, &request, sizeof(request));
 	if (!ret) {
 		sleep_ms(1000);
 		for (i = 0; i < 100; i++) {
-			WL_IOVAR_GETINT(name, "apcschspec", (void *)&chosen);
+			WL_IOVAR_GETINT(name, "apcschspec", &temp);
 			if (!ret)
 				break;
 			sleep_ms(100);
 		}
 	}
+
+	chosen = (chanspec_t) temp;
 	WLCONF_DBG("interface %s: chanspec selected %04x\n", name, chosen);
 	return chosen;
 }
@@ -790,9 +798,6 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 
 	if (nmode != OFF) { /* N-mode is ON/AUTO */
 
-		if (aburn_valid_option) { /* Turn off afterburner in N-mode */
-			WL_IOVAR_SETINT(name, "afterburner_override", OFF);
-		}
 
 		if (ampdu_valid_option) {
 			if (ampdu_option_val != OFF) {
@@ -812,6 +817,15 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 			} else
 				WL_IOVAR_SETINT(name, "amsdu", OFF);
 		}
+		/* allow ab in N mode. Do this last: may defeat ampdu et al */
+		if (aburn_valid_option) {
+			WL_IOVAR_SETINT(name, "afterburner_override", aburn_option_val);
+
+			/* Also turn off N reqd setting if ab is not OFF */
+			if (aburn_option_val != 0)
+				WL_IOVAR_SETINT(name, "nreqd", 0);
+		}
+
 	} else {
 		/* When N-mode is off or for non N-phy device, turn off AMPDU, AMSDU;
 		 * if WME is off, set the afterburner based on the configured nvram setting.
@@ -827,7 +841,7 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 		}
 	}
 
-	if (wme_option_val) {
+	if (wme_option_val && aburn_option_val == 0) {
 		WL_IOVAR_SETINT(name, "wme", wme_option_val);
 		wlconf_set_wme(name, prefix);
 	}
@@ -984,7 +998,7 @@ wlconf(char *name)
 	/* create a wlX.Y_ifname nvram setting */
 	for (i = 1; i < bclist->count; i++) {
 		bsscfg = &bclist->bsscfgs[i];
-#if defined(linux)
+#if defined(linux) || defined(__ECOS)
 		strcpy(var, bsscfg->ifname);
 #endif
 		nvram_set(strcat_r(bsscfg->prefix, "ifname", tmp), var);
@@ -1044,7 +1058,7 @@ wlconf(char *name)
 			if (!strcmp(nvram_safe_get(tmp), "1")) {
 				snprintf(tmp, sizeof(tmp), "wl%d.%d_hwaddr",
 				         unit, i);
-				ether_atoe(nvram_safe_get(tmp), eaddr);
+				ether_atoe(nvram_safe_get(tmp), (unsigned char *)eaddr);
 				WL_BSSIOVAR_SET(name, "cur_etheraddr", i,
 				                eaddr, ETHER_ADDR_LEN);
 			}
@@ -1068,11 +1082,12 @@ wlconf(char *name)
 	wet = !strcmp(str, "wet");
 	mac_spoof = !strcmp(str, "mac_spoof");
 
+	/* set apsta var first, because APSTA mode takes precedence */
+	WL_IOVAR_SETINT(name, "apsta", apsta);
+
 	/* Set AP mode */
 	val = (ap || apsta || wds) ? 1 : 0;
 	WL_IOCTL(name, WLC_SET_AP, &val, sizeof(val));
-
-	WL_IOVAR_SETINT(name, "apsta", apsta);
 
 	/* Set mode: WET */
 	if (wet)
@@ -1116,7 +1131,7 @@ wlconf(char *name)
 		bsscfg = &bclist->bsscfgs[i];
 
 #ifdef BCMWPA2
-		/* XXXMBSS: The note about setting preauth now does not seem right.
+		/* XXXMSSID: The note about setting preauth now does not seem right.
 		 * NAS brings the BSS up if it runs, so setting the preauth value
 		 * will make it in the bcn/prb. If that is right, we can move this
 		 * chunk out of wlconf.
@@ -1274,6 +1289,10 @@ wlconf(char *name)
 		WL_IOCTL(name, WLC_SET_REGULATORY, &val, sizeof(val));
 	}
 
+	/* Reset to hardware rateset (band may have changed) */
+	WL_IOCTL(name, WLC_GET_RATESET, &rs, sizeof(wl_rateset_t));
+	WL_IOCTL(name, WLC_SET_RATESET, &rs, sizeof(wl_rateset_t));
+
 	/* set bandwidth capability for nphy and calculate nbw */
 	if (phytype == PHY_TYPE_N) {
 		/* Get the user nmode setting now */
@@ -1381,14 +1400,10 @@ wlconf(char *name)
 		WL_IOVAR_SETINT(name, "rxstreams", streams);
 	}
 
-	/* Reset to hardware rateset (band may have changed) */
-	WL_IOCTL(name, WLC_GET_RATESET, &rs, sizeof(wl_rateset_t));
-	WL_IOCTL(name, WLC_SET_RATESET, &rs, sizeof(wl_rateset_t));
-
 	/* Set gmode */
 	if (bandtype == WLC_BAND_2G) {
-		int override = WLC_G_PROTECTION_OFF;
-		int control = WLC_G_PROTECTION_CTL_OFF;
+		int override = WLC_PROTECTION_OFF;
+		int control = WLC_PROTECTION_CTL_OFF;
 
 		/* Set gmode */
 		gmode = atoi(nvram_safe_get(strcat_r(prefix, "gmode", tmp)));
@@ -1397,11 +1412,11 @@ wlconf(char *name)
 		/* Set gmode protection override and control algorithm */
 		strcat_r(prefix, "gmode_protection", tmp);
 		if (nvram_match(tmp, "auto")) {
-			override = WLC_G_PROTECTION_AUTO;
-			control = WLC_G_PROTECTION_CTL_OVERLAP;
+			override = WLC_PROTECTION_AUTO;
+			control = WLC_PROTECTION_CTL_OVERLAP;
 		}
 		WL_IOCTL(name, WLC_SET_GMODE_PROTECTION_OVERRIDE, &override, sizeof(override));
-		WL_IOCTL(name, WLC_SET_GMODE_PROTECTION_CONTROL, &control, sizeof(control));
+		WL_IOCTL(name, WLC_SET_PROTECTION_CONTROL, &control, sizeof(control));
 	}
 
 	/* Set nmode_protection */
@@ -1468,25 +1483,6 @@ wlconf(char *name)
 		WL_BSSIOVAR_SETINT(name, "wme_bss_disable", bsscfg->idx, val);
 	}
 
-
-	/* Get current rateset (gmode may have changed) */
-	WL_IOCTL(name, WLC_GET_CURR_RATESET, &rs, sizeof(wl_rateset_t));
-
-	strcat_r(prefix, "rateset", tmp);
-	if (nvram_match(tmp, "all"))  {
-		/* Make all rates basic */
-		for (i = 0; i < rs.count; i++)
-			rs.rates[i] |= 0x80;
-	} else if (nvram_match(tmp, "12")) {
-		/* Make 1 and 2 basic */
-		for (i = 0; i < rs.count; i++) {
-			if ((rs.rates[i] & 0x7f) == 2 || (rs.rates[i] & 0x7f) == 4)
-				rs.rates[i] |= 0x80;
-			else
-				rs.rates[i] &= ~0x80;
-		}
-	}
-
 	/* Set BTC mode */
 	if (!wl_iovar_setint(name, "btc_mode", btc_mode)) {
 		if (btc_mode == WL_BTC_PREMPT) {
@@ -1499,9 +1495,6 @@ wlconf(char *name)
 			}
 		}
 	}
-
-	/* Set rateset */
-	WL_IOCTL(name, WLC_SET_RATESET, &rs, sizeof(wl_rateset_t));
 
 	/* Allow short preamble override for b cards */
 	if (phytype == PHY_TYPE_B ||
@@ -1641,26 +1634,47 @@ wlconf(char *name)
 	val = atoi(nvram_safe_get(strcat_r(prefix, "antdiv", tmp)));
 	WL_IOCTL(name, WLC_SET_ANTDIV, &val, sizeof(val));
 
+
+	/* Get current rateset (gmode may have changed) */
+	WL_IOCTL(name, WLC_GET_RATESET, &rs, sizeof(wl_rateset_t));
+
+	strcat_r(prefix, "rateset", tmp);
+	if (nvram_match(tmp, "all"))  {
+		/* Make all rates basic */
+		for (i = 0; i < rs.count; i++)
+			rs.rates[i] |= 0x80;
+	} else if (nvram_match(tmp, "12") && bandtype == WLC_BAND_2G) {
+		/* Make 1 and 2 basic */
+		for (i = 0; i < rs.count; i++) {
+			if ((rs.rates[i] & 0x7f) == 2 || (rs.rates[i] & 0x7f) == 4)
+				rs.rates[i] |= 0x80;
+			else
+				rs.rates[i] &= ~0x80;
+		}
+	}
+
+	/* Set rateset. */
+	WL_IOCTL(name, WLC_SET_RATESET, &rs, sizeof(wl_rateset_t));
+
 	/* Set radar parameters if it is enabled */
 	if (radar_enab) {
 		wlconf_set_radarthrs(name, prefix);
 	}
 
-	/* Auto Channel Selection - when channel # is 0 in AP mode
-	 *
-	 * The following condition(s) must be met in order for
-	 * Auto Channel Selection to work.
+	/* The following condition(s) must be met in order for Auto Channel Selection to work.
 	 *  - the I/F must be up for the channel scan
 	 *  - the AP must not be supporting a BSS (all BSS Configs must be disabled)
 	 */
 	if (ap || apsta) {
-		if (!(val = atoi(nvram_safe_get(strcat_r(prefix, "channel", tmp))))) {
+		int channel = atoi(nvram_safe_get(strcat_r(prefix, "channel", tmp)));
+
+		if (channel == 0) {
 			if (phytype == PHY_TYPE_N) {
-				chanspec_t chanspec = wlconf_auto_chanspec(name);
+				chanspec_t chanspec;
+				chanspec = wlconf_auto_chanspec(name);
 				if (chanspec != 0)
 					WL_IOVAR_SETINT(name, "chanspec", chanspec);
-			}
-			else {
+			} else {
 				/* select a channel */
 				val = wlconf_auto_channel(name);
 				/* switch to the selected channel */
@@ -1668,14 +1682,18 @@ wlconf(char *name)
 					WL_IOCTL(name, WLC_SET_CHANNEL, &val, sizeof(val));
 			}
 			/* set the auto channel scan timer in the driver when in auto mode */
-			val = 15;	/* 15 minutes for now */
-			WL_IOCTL(name, WLC_SET_CS_SCAN_TIMER, &val, sizeof(val));
+			if (channel == 0) {
+				val = 15;	/* 15 minutes for now */
+			} else {
+				val = 0;
+			}
 		}
 		else {
 			/* reset the channel scan timer in the driver when not in auto mode */
 			val = 0;
-			WL_IOCTL(name, WLC_SET_CS_SCAN_TIMER, &val, sizeof(val));
 		}
+
+		WL_IOCTL(name, WLC_SET_CS_SCAN_TIMER, &val, sizeof(val));
 	}
 
 	/* Security settings for each BSS Configuration */
@@ -1706,10 +1724,6 @@ wlconf(char *name)
 		/* Set WDS link detection timeout */
 		val = atoi(nvram_safe_get(strcat_r(prefix, "wds_timeout", tmp)));
 		wl_iovar_setint(name, "wdstimeout", val);
-
-		if (wds) {
-			wl_iovar_setint(name, "radio_init", 1);
-		}
 	}
 
 	/*
