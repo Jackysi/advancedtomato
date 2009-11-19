@@ -100,6 +100,11 @@ struct fuse_ctx {
 
 	/** Thread ID of the calling process */
 	pid_t pid;
+
+#ifdef POSIXACLS
+	/** Umask of the calling process (introduced in version 2.8) */
+	mode_t umask;
+#endif
 };
 
 /* 'to_set' flags in setattr */
@@ -919,6 +924,21 @@ int fuse_reply_write(fuse_req_t req, size_t count);
  * @return zero for success, -errno for failure to send reply
  */
 int fuse_reply_buf(fuse_req_t req, const char *buf, size_t size);
+
+#ifdef POSIXACLS
+/**
+ * Reply with data vector
+ *
+ * Possible requests:
+ *   read, readdir, getxattr, listxattr
+ *
+ * @param req request handle
+ * @param iov the vector containing the data
+ * @param count the size of vector
+ * @return zero for success, -errno for failure to send reply
+ */
+int fuse_reply_iov(fuse_req_t req, const struct iovec *iov, int count);
+#endif
 
 /**
  * Reply with filesystem statistics

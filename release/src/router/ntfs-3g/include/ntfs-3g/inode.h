@@ -48,6 +48,8 @@ typedef enum {
 				      mft record and then to disk. */
 	NI_FileNameDirty,	/* 1: FILE_NAME attributes need to be updated
 				      in the index. */
+	NI_v3_Extensions,	/* 1: JPA v3.x extensions present. */
+	NI_TimesDirty,		/* 1: Times need to be updated */
 } ntfs_inode_state_bits;
 
 #define  test_nino_flag(ni, flag)	   test_bit(NI_##flag, (ni)->state)
@@ -151,6 +153,12 @@ struct _ntfs_inode {
 	time_t last_data_change_time;
 	time_t last_mft_change_time;
 	time_t last_access_time;
+				/* NTFS 3.x extensions added by JPA */
+				/* only if NI_v3_Extensions is set in state */
+ 	le32 owner_id;
+	le32 security_id;
+	le64 quota_charged;
+	le64 usn;
 };
 
 typedef enum {
@@ -186,5 +194,10 @@ extern int ntfs_inode_add_attrlist(ntfs_inode *ni);
 extern int ntfs_inode_free_space(ntfs_inode *ni, int size);
 
 extern int ntfs_inode_badclus_bad(u64 mft_no, ATTR_RECORD *a);
+
+extern int ntfs_inode_get_times(const char *path, char *value,
+			size_t size, ntfs_inode *ni);
+extern int ntfs_inode_set_times(const char *path, const char *value,
+			size_t size, int flags, ntfs_inode *ni);
 
 #endif /* defined _NTFS_INODE_H */

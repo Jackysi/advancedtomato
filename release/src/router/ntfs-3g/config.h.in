@@ -3,6 +3,9 @@
 /* Define to 1 if debug should be enabled */
 #undef ENABLE_DEBUG
 
+/* Define to 1 if the nfconv patch should be enabled */
+#undef ENABLE_NFCONV
+
 /* Define to 1 if using internal fuse */
 #undef FUSE_INTERNAL
 
@@ -287,6 +290,9 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* POSIX ACL support */
+#undef POSIXACLS
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

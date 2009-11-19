@@ -35,22 +35,18 @@
 
 BOOL ntfs_is_collation_rule_supported(COLLATION_RULES cr)
 {
-	int i;
-
 	/*
 	 * FIXME:  At the moment we only support COLLATION_BINARY,
 	 * COLLATION_NTOFS_ULONG and COLLATION_FILE_NAME so we return false
 	 * for everything else.
+	 * JPA added COLLATION_NTOFS_SECURITY_HASH
 	 */
-	if (cr != COLLATION_BINARY && cr != COLLATION_NTOFS_ULONG &&
-			cr != COLLATION_FILE_NAME)
+	if (cr != COLLATION_BINARY && cr != COLLATION_NTOFS_ULONG
+			&& cr != COLLATION_FILE_NAME
+			&& cr != COLLATION_NTOFS_SECURITY_HASH
+			&& cr != COLLATION_NTOFS_ULONGS)
 		return FALSE;
-	i = le32_to_cpu(cr);
-	if (((i >= 0) && (i <= 0x02)) ||
-			((i >= 0x10) && (i <= 0x13)))
-		return TRUE;
-	
-	return FALSE;
+	return TRUE;
 }
 
 /**
@@ -122,6 +118,101 @@ static int ntfs_collate_ntofs_ulong(ntfs_volume *vol __attribute__((unused)),
 }
 
 /**
+ * ntfs_collate_ntofs_ulongs - Which of two le32 arrays should be listed first
+ *
+ * Returns: -1, 0 or 1 depending of how the arrays compare
+ */
+
+static int ntfs_collate_ntofs_ulongs(ntfs_volume *vol __attribute__((unused)),
+		const void *data1, const int data1_len,
+		const void *data2, const int data2_len)
+{
+	int rc;
+	int len;
+	const le32 *p1, *p2;
+	u32 d1, d2;
+
+	ntfs_log_trace("Entering.\n");
+	if ((data1_len != data2_len) || (data1_len <= 0) || (data1_len & 3)) {
+		ntfs_log_error("data1_len or data2_len not valid\n");
+		return NTFS_COLLATION_ERROR;
+	}
+	p1 = (const le32*)data1;
+	p2 = (const le32*)data2;
+	len = data1_len;
+	do {
+		d1 = le32_to_cpup(p1);
+		p1++;
+		d2 = le32_to_cpup(p2);
+		p2++;
+	} while ((d1 == d2) && ((len -= 4) > 0));
+	if (d1 < d2)
+		rc = -1;
+	else {
+		if (d1 == d2)
+			rc = 0;
+		else
+			rc = 1;
+	}
+	ntfs_log_trace("Done, returning %i.\n", rc);
+	return rc;
+}
+
+/**
+ * ntfs_collate_ntofs_security_hash - Which of two security descriptors
+ *                    should be listed first
+ * @vol: unused
+ * @data1:
+ * @data1_len:
+ * @data2:
+ * @data2_len:
+ *
+ * JPA compare two security hash keys made of two unsigned le32
+ *
+ * Returns: -1, 0 or 1 depending of how the keys compare
+ */
+static int ntfs_collate_ntofs_security_hash(ntfs_volume *vol __attribute__((unused)),
+		const void *data1, const int data1_len,
+		const void *data2, const int data2_len)
+{
+	int rc;
+	u32 d1, d2;
+	const u32 *p1, *p2;
+
+	ntfs_log_trace("Entering.\n");
+	if (data1_len != data2_len || data1_len != 8) {
+		ntfs_log_error("data1_len or/and data2_len not equal to 8.\n");
+		return NTFS_COLLATION_ERROR;
+	}
+	p1 = (const u32*)data1;
+	p2 = (const u32*)data2;
+	d1 = le32_to_cpup(p1);
+	d2 = le32_to_cpup(p2);
+	if (d1 < d2)
+		rc = -1;
+	else {
+		if (d1 > d2)
+			rc = 1;
+		else {
+			p1++;
+			p2++;
+			d1 = le32_to_cpup(p1);
+			d2 = le32_to_cpup(p2);
+			if (d1 < d2)
+				rc = -1;
+			else {
+				if (d1 > d2)
+					rc = 1;
+				else
+					rc = 0;
+			}
+		}
+	}
+	ntfs_log_trace("Done, returning %i.\n", rc);
+	return rc;
+}
+
+/**
  * ntfs_collate_file_name - Which of two filenames should be listed first
  * @vol:
  * @data1:
@@ -162,8 +253,8 @@ static ntfs_collate_func_t ntfs_do_collate0x0[3] = {
 static ntfs_collate_func_t ntfs_do_collate0x1[4] = {
 	ntfs_collate_ntofs_ulong,
 	NULL/*ntfs_collate_ntofs_sid*/,
-	NULL/*ntfs_collate_ntofs_security_hash*/,
-	NULL/*ntfs_collate_ntofs_ulongs*/,
+	ntfs_collate_ntofs_security_hash,
+	ntfs_collate_ntofs_ulongs
 };
 
 /**
@@ -199,9 +290,13 @@ int ntfs_collate(ntfs_volume *vol, COLLATION_RULES cr,
 	 * FIXME:  At the moment we only support COLLATION_BINARY,
 	 * COLLATION_NTOFS_ULONG and COLLATION_FILE_NAME so we return error
 	 * for everything else.
+	 * JPA added COLLATION_NTOFS_SECURITY_HASH
+	 * JPA added COLLATION_NTOFS_ULONGS
 	 */
-	if (cr != COLLATION_BINARY && cr != COLLATION_NTOFS_ULONG &&
-			cr != COLLATION_FILE_NAME)
+	if (cr != COLLATION_BINARY && cr != COLLATION_NTOFS_ULONG
+			&& cr != COLLATION_FILE_NAME
+			&& cr != COLLATION_NTOFS_SECURITY_HASH
+			&& cr != COLLATION_NTOFS_ULONGS)
 		goto err;
 	i = le32_to_cpu(cr);
 	if (i < 0)

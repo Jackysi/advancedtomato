@@ -30,6 +30,9 @@
     LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
+ *
+ * 7.12
+ *  - add umask flag to input argument of open, mknod and mkdir
 */
 
 #ifndef linux
@@ -46,7 +49,12 @@
 #define FUSE_KERNEL_VERSION 7
 
 /** Minor version number of this interface */
+#ifdef POSIXACLS
+#define FUSE_KERNEL_MINOR_VERSION 12
+#define FUSE_KERNEL_MINOR_FALLBACK 8
+#else
 #define FUSE_KERNEL_MINOR_VERSION 8
+#endif
 
 /** The node ID of the root inode */
 #define FUSE_ROOT_ID 1
@@ -75,6 +83,9 @@ struct fuse_attr {
 	__u32	uid;
 	__u32	gid;
 	__u32	rdev;
+#ifdef POSIXACLS
+	__u64 filling; /* JPA needed for minor >= 12, but meaning unknown */
+#endif
 };
 
 struct fuse_kstatfs {
@@ -119,9 +130,11 @@ struct fuse_file_lock {
 
 /**
  * INIT request/reply flags
+ * FUSE_DONT_MASK: don't apply umask to file mode on create operations
  */
 #define FUSE_ASYNC_READ		(1 << 0)
 #define FUSE_POSIX_LOCKS	(1 << 1)
+#define FUSE_DONT_MASK		(1 << 6)
 
 /**
  * Release flags
@@ -169,6 +182,7 @@ enum fuse_opcode {
 
 /* The read buffer is required to be at least 8k, but may be much larger */
 #define FUSE_MIN_READ_BUFFER 8192
+#define FUSE_COMPAT_ENTRY_OUT_SIZE 120 /* JPA */
 
 struct fuse_entry_out {
 	__u64	nodeid;		/* Inode ID */
@@ -185,6 +199,8 @@ struct fuse_forget_in {
 	__u64	nlookup;
 };
 
+#define FUSE_COMPAT_FUSE_ATTR_OUT_SIZE 96  /* JPA */
+
 struct fuse_attr_out {
 	__u64	attr_valid;	/* Cache timeout for the attributes */
 	__u32	attr_valid_nsec;
@@ -192,14 +208,20 @@ struct fuse_attr_out {
 	struct fuse_attr attr;
 };
 
+#define FUSE_COMPAT_MKNOD_IN_SIZE 8
+
 struct fuse_mknod_in {
 	__u32	mode;
 	__u32	rdev;
+#ifdef POSIXACLS
+	__u32	umask;
+	__u32	padding;
+#endif
 };
 
 struct fuse_mkdir_in {
 	__u32	mode;
-	__u32	padding;
+	__u32	umask;
 };
 
 struct fuse_rename_in {
@@ -231,7 +253,20 @@ struct fuse_setattr_in {
 
 struct fuse_open_in {
 	__u32	flags;
+#ifdef POSIXACLS
+	__u32	unused;
+#else
 	__u32	mode;
+#endif
+};
+
+struct fuse_create_in {
+	__u32	flags;
+	__u32	mode;
+#ifdef POSIXACLS
+	__u32	umask;
+	__u32	padding;
+#endif
 };
 
 struct fuse_open_out {
@@ -261,11 +296,18 @@ struct fuse_read_in {
 	__u32	padding;
 };
 
+#define FUSE_COMPAT_WRITE_IN_SIZE 24 /* JPA */
+
 struct fuse_write_in {
 	__u64	fh;
 	__u64	offset;
 	__u32	size;
 	__u32	write_flags;
+#ifdef POSIXACLS
+	__u64	lock_owner; /* JPA */
+	__u32	flags; /* JPA */
+	__u32	padding; /* JPA */
+#endif
 };
 
 struct fuse_write_out {

@@ -1,7 +1,7 @@
 .\" Copyright (c) 2008 Szabolcs Szakacsits.
 .\" This file may be copied under the terms of the GNU Public License.
 .\"
-.TH NTFS-3G.PROBE 8 "February 2008" "ntfs-3g.probe @VERSION@"
+.TH NTFS-3G.PROBE 8 "January 2008" "ntfs-3g.probe @VERSION@"
 .SH NAME
 ntfs-3g.probe \- Probe an NTFS volume mountability
 .SH SYNOPSIS
@@ -43,19 +43,14 @@ The volume doesn't have a valid NTFS.
 Inconsistent NTFS, hardware or device driver fault, or unsetup 
 SoftRAID/FakeRAID hardware. 
 .IP 14
-The NTFS partition is hibernated. Use the 'remove_hiberfile'
-.B ntfs-3g
-mount option to be able to read-write mount such volumes.
+The NTFS partition is hibernated.
 .IP 15
-The volume was not cleanly unmounted. The 'force'
-.B ntfs-3g
-mount option can overcome this scenario by resetting the NTFS
-journal file.
+The volume was not cleanly unmounted. 
 .IP 16
 The volume is already exclusively opened and in use by a kernel
 driver or software.
 .IP 17
-SoftRAID/FakeRAID hardware without setup, or missing, or powered down device.
+Unsetup SoftRAID/FakeRAID hardware.
 .IP 18
 Unknown reason.
 .IP 19
@@ -64,8 +59,6 @@ Not enough privilege to mount.
 Out of memory.
 .IP 21
 Unclassified FUSE error.
-.IP 22
-Security hazard. Execution is denied because it would be exploitable.
 .SH KNOWN ISSUES
 Please see 
 .RS

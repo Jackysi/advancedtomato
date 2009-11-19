@@ -18,6 +18,7 @@ libntfs_3g_la_LIBADD  = $(top_builddir)/libfuse-lite/libfuse-lite.la
 endif
 
 libntfs_3g_la_SOURCES =	\
+	acls.c 	\
 	attrib.c 	\
 	attrlist.c 	\
 	bitmap.c 	\
@@ -28,6 +29,7 @@ libntfs_3g_la_SOURCES =	\
 	debug.c 	\
 	device.c 	\
 	dir.c 		\
+	efs.c 		\
 	index.c 	\
 	inode.c 	\
 	lcnalloc.c 	\
@@ -36,6 +38,7 @@ libntfs_3g_la_SOURCES =	\
 	mft.c 		\
 	misc.c 		\
 	mst.c 		\
+	reparse.c 	\
 	runlist.c 	\
 	security.c 	\
 	unistr.c 	\
