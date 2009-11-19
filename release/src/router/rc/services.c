@@ -1431,7 +1431,7 @@ TOP:
 			killall("rstats", SIGTERM);
 			killall("buttons", SIGTERM);
 			stop_syslog();
-			remove_storage_main();	// !!TB - USB Support
+			remove_storage_main(1);	// !!TB - USB Support
 			stop_usb();		// !!TB - USB Support
 		}
 		goto CLEAR;

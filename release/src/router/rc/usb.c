@@ -131,7 +131,7 @@ void stop_usb(void)
 	// only stop storage services if disabled
 	if (!nvram_get_int("usb_enable") || !nvram_get_int("usb_storage")) {
 		// Unmount all partitions
-		remove_storage_main();
+		remove_storage_main(0);
 
 		// Stop storage services
 		modprobe_r("ext2");
@@ -383,6 +383,14 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 		if (!ret)
 			syslog(LOG_INFO, "USB partition unmounted from %s", mnt->mnt_dir);
 
+		if (ret && ((flags & EFH_SHUTDN) != 0)) {
+			/* If system is stopping (not restarting), and we couldn't unmount the
+			 * partition, try to remount it as read-only. Ignore the return code -
+			 * we can still try to do a lazy unmount.
+			 */
+			eval("mount", "-o", "remount,ro", mnt->mnt_dir);
+		}
+
 		if (ret && ((flags & EFH_USER) == 0)) {
 			/* Make one more try to do a lazy unmount unless it's an unmount
 			 * request from the Web GUI.
@@ -513,7 +521,7 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 
 
 /* This gets called at reboot or upgrade.  The system is stopping. */
-void remove_storage_main(void)
+void remove_storage_main(int shutdn)
 {
 	if (nvram_get_int("usb_enable") && nvram_get_int("usb_storage")) {
 		if (nvram_get_int("usb_automount")) {
@@ -523,7 +531,7 @@ void remove_storage_main(void)
 	}
 	restart_nas_services(1, 0);
 	/* Unmount all partitions */
-	exec_for_host(-1, 0x02, 0, umount_partition);
+	exec_for_host(-1, 0x02, shutdn ? EFH_SHUTDN : 0, umount_partition);
 }
 
 

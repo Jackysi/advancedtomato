@@ -92,6 +92,7 @@ extern void add_remove_usbhost(char *host, int add);
 #define EFH_1ST_DISC	0x00000002	/* func is called for the 1st time for this disc */
 #define EFH_HUNKNOWN	0x00000004	/* host is unknown */
 #define EFH_USER	0x00000008	/* process is user-initiated - either via Web GUI or a script */
+#define EFH_SHUTDN	0x00000010	/* exec_for_host is called at shutdown - system is stopping */
 
 typedef int (*host_exec)(char *dev_name, int host_num, int disc_num, int part_num, uint flags);
 extern int exec_for_host(int host, int when_to_update, uint flags, host_exec func);

@@ -904,7 +904,7 @@ int init_main(int argc, char *argv[])
 			stop_vlan();
 
 			// !!TB - USB Support
-			remove_storage_main();
+			remove_storage_main((state == REBOOT) || (state == HALT));
 			stop_usb();
 
 			if ((state == REBOOT) || (state == HALT)) {

@@ -195,7 +195,7 @@ extern void restart_nas_services(int stop, int start);
 extern void start_usb(void);
 extern void stop_usb(void);
 extern void hotplug_usb(void);
-extern void remove_storage_main(void);
+extern void remove_storage_main(int shutdn);
 #else
 #define start_usb(args...) do { } while(0)
 #define stop_usb(args...) do { } while(0)
