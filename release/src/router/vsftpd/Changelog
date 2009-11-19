@@ -1202,3 +1202,14 @@ a username / password.
 
 At this point: v2.2.1 released!
 ===============================
+
+- Change "File receive OK." to "Transfer complete." to placate some broken
+clients. Thanks Holger Kiehl <Holger.Kiehl@dwd.de>.
+- Fix erroneous "child died" upon FTP client connect, when under load. Awesome
+thanks to Holger Kiehl <Holger.Kiehl@dwd.de> for running diagnostic tests on
+his live server.
+- Boot the session if an overly long line is encountered.
+(vsftpd-2.2.2pre1)
+
+At this point: v2.2.2 released!
+===============================

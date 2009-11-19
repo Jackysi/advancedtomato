@@ -32,21 +32,25 @@ ssl_slave(struct vsf_session* p_sess)
   while (1)
   {
     char cmd = priv_sock_get_cmd(p_sess->ssl_slave_fd);
-    int retval;
+    int ret;
     if (cmd == PRIV_SOCK_GET_USER_CMD)
     {
-      ftp_getline(p_sess, &p_sess->ftp_cmd_str, p_sess->p_control_line_buf);
-      priv_sock_send_str(p_sess->ssl_slave_fd, &p_sess->ftp_cmd_str);
+      ret = ftp_getline(p_sess, &p_sess->ftp_cmd_str,
+                        p_sess->p_control_line_buf);
+      priv_sock_send_int(p_sess->ssl_slave_fd, ret);
+      if (ret >= 0)
+      {
+        priv_sock_send_str(p_sess->ssl_slave_fd, &p_sess->ftp_cmd_str);
+      }
     }
     else if (cmd == PRIV_SOCK_WRITE_USER_RESP)
     {
       priv_sock_get_str(p_sess->ssl_slave_fd, &p_sess->ftp_cmd_str);
-      retval = ftp_write_str(p_sess, &p_sess->ftp_cmd_str, kVSFRWControl);
-      priv_sock_send_int(p_sess->ssl_slave_fd, retval);
+      ret = ftp_write_str(p_sess, &p_sess->ftp_cmd_str, kVSFRWControl);
+      priv_sock_send_int(p_sess->ssl_slave_fd, ret);
     }
     else if (cmd == PRIV_SOCK_DO_SSL_HANDSHAKE)
     {
-      int ret;
       char result = PRIV_SOCK_RESULT_BAD;
       if (p_sess->data_fd != -1 || p_sess->p_data_ssl != 0)
       {
@@ -67,7 +71,6 @@ ssl_slave(struct vsf_session* p_sess)
     }
     else if (cmd == PRIV_SOCK_DO_SSL_READ)
     {
-      int ret;
       str_trunc(&data_str, VSFTP_DATA_BUFSIZE);
       ret = ssl_read_into_str(p_sess, p_sess->p_data_ssl, &data_str);
       priv_sock_send_int(p_sess->ssl_slave_fd, ret);
@@ -75,7 +78,6 @@ ssl_slave(struct vsf_session* p_sess)
     }
     else if (cmd == PRIV_SOCK_DO_SSL_WRITE)
     {
-      int ret;
       priv_sock_get_str(p_sess->ssl_slave_fd, &data_str);
       ret = ssl_write(p_sess->p_data_ssl,
                       str_getbuf(&data_str),
@@ -84,7 +86,6 @@ ssl_slave(struct vsf_session* p_sess)
     }
     else if (cmd == PRIV_SOCK_DO_SSL_CLOSE)
     {
-      int ret;
       char result = PRIV_SOCK_RESULT_BAD;
       if (p_sess->data_fd == -1 && p_sess->p_data_ssl == 0)
       {

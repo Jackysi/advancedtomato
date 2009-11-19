@@ -738,7 +738,7 @@ handle_retr(struct vsf_session* p_sess)
   }
   else
   {
-    vsf_cmdio_write(p_sess, FTP_TRANSFEROK, "File send OK.");
+    vsf_cmdio_write(p_sess, FTP_TRANSFEROK, "Transfer complete.");
   }
   check_abor(p_sess);
 port_pasv_cleanup_out:
@@ -1109,7 +1109,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   }
   else
   {
-    vsf_cmdio_write(p_sess, FTP_TRANSFEROK, "File receive OK.");
+    vsf_cmdio_write(p_sess, FTP_TRANSFEROK, "Transfer complete.");
   }
   check_abor(p_sess);
 port_pasv_cleanup_out:
