@@ -20,7 +20,7 @@
 textarea {
 	font: 12px monospace;
 	width: 99%;
-	height: 10em;
+	height: 12em;
 }
 </style>
 
@@ -76,11 +76,15 @@ function execute()
 		updateResult();
 	}
 
-	cmd.post('shell.cgi', 'action=execute&command=' + escapeCGI(E('_f_cmd').value.replace(/\r/g, '')));
+	var s = E('_f_cmd').value;
+	cmd.post('shell.cgi', 'action=execute&command=' + escapeCGI(s.replace(/\r/g, '')));
+	cookie.set('shellcmd', escape(s));
 }
 
 function init()
 {
+	var s;
+	if ((s = cookie.get('shellcmd')) != null) E('_f_cmd').value = unescape(s);
 }
 </script>
 
@@ -103,7 +107,7 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Command', name: 'f_cmd', type: 'textarea', value: '' }
+	{ title: 'Command', name: 'f_cmd', type: 'textarea', wrap: 'off', value: '' }
 ]);
 </script>
 <div style='float:right'><input type='button' value='Execute' onclick='execute()' id='execb'></div>
