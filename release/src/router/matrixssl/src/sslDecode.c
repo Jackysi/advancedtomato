@@ -512,6 +512,20 @@ parseHandshake:
 		return SSL_ERROR;
 	}
 	hsType = *c; c++;
+
+#ifndef ALLOW_SERVER_REHANDSHAKES
+/*
+	Disables server renegotiation.  This is in response to the HTTPS
+	flaws discovered by Marsh Ray in which a man-in-the-middle may take
+	advantage of the "authentication gap" in the SSL renegotiation protocol	
+*/
+	if (hsType == SSL_HS_CLIENT_HELLO && ssl->hsState == SSL_HS_DONE) {
+		ssl->err = SSL_ALERT_UNEXPECTED_MESSAGE;
+		matrixStrDebugMsg("Server rehandshaking is disabled\n", NULL);
+		return SSL_ERROR;
+	}
+#endif /* ALLOW_SERVER_REHANDSHAKES */
+
 /*
 	hsType is the received handshake type and ssl->hsState is the expected
 	handshake type.  If it doesn't match, there are some possible cases

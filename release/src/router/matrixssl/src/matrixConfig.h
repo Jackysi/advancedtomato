@@ -97,6 +97,19 @@ extern "C" {
 */
 #define USE_FILE_SYSTEM
 
+
+/******************************************************************************/
+/*
+    Allow servers to proceed with rehandshakes.
+
+    SECURITY: A protocol flaw has been demonstrated in which an "authentication
+    gap" is possible during rehandshakes that enable a man-in-the-middle to
+    inject plain-text HTTP traffic into an authenticated client-server session
+
+    It is advised to leave this disabled if you are using HTTPS
+*/
+/* #define ALLOW_SERVER_REHANDSHAKES */
+
 #ifdef __cplusplus
 }
 #endif
