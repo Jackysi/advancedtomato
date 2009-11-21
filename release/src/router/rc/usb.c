@@ -70,9 +70,10 @@ void start_usb(void)
 			modprobe("usb-storage");
 
 			if (nvram_get_int("usb_fs_ext3")) {
-				modprobe("ext2");
+				/* insert ext3 first so that lazy mount tries ext3 before ext2 */
 				modprobe("jbd");
 				modprobe("ext3");
+				modprobe("ext2");
 			}
 
 			if (nvram_get_int("usb_fs_fat")) {
