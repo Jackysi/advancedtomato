@@ -17,8 +17,6 @@
 #   Cleaned up, modified for lzma support, removed from kernel
 #
 
-include ../common.mak
-
 TEXT_START	:= 0x80001000
 BZ_TEXT_START	:= 0x80300000
 
