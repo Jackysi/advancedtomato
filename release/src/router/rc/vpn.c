@@ -952,7 +952,7 @@ int write_vpn_resolv(FILE* f)
 {
 	DIR *dir;
 	struct dirent *file;
-	char *fn, ch, buf[24];
+	char *fn, ch, num, buf[24];
 	FILE *dnsf;
 	int exclusive = 0;
 
@@ -969,7 +969,7 @@ int write_vpn_resolv(FILE* f)
 		if ( fn[0] == '.' )
 			continue;
 
-		if ( sscanf(fn, "client%c.resol%c", &ch, &ch) == 2 )
+		if ( sscanf(fn, "client%c.resol%c", &num, &ch) == 2 )
 		{
 			if ( (dnsf = fopen(fn, "r")) == NULL )
 				continue;
@@ -984,7 +984,7 @@ int write_vpn_resolv(FILE* f)
 
 			fclose(dnsf);
 
-			snprintf(&buf[0], sizeof(buf), "vpn_client%c_adns", ch);
+			snprintf(&buf[0], sizeof(buf), "vpn_client%c_adns", num);
 			if ( nvram_get_int(&buf[0]) == 3 )
 				exclusive = 1;
 		}
