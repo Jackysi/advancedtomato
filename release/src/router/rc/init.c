@@ -590,6 +590,17 @@ static int init_nvram(void)
 			nvram_set("wl0gpio0", "136");
 		}		
 		break;
+	case MODEL_WL500W:
+		mfr = "Asus";
+		name = "WL-500W";
+		features = SUP_SES;
+		/* fix WL500W mac adresses for WAN port */
+		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
+			nvram_set("et1macaddr", nvram_get("et0macaddr"));
+		/* fix AIR LED */
+		if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
+			nvram_set("wl0gpio0", "0x88");
+		break;
 	case MODEL_WL500GE:
 		mfr = "Asus";
 		name = "WL-500gE";

@@ -50,6 +50,7 @@ WR850G v3			BCM4712               0x0101       44        0x10      0x0188      C
 *WL-500G Deluxe		                      bcm95365r    45        0x10                  hardware_version=WL500gd-01-04-01-50 regulation_domain=0x30DE sdram_init=0x2008
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gp-01-02-00-00 regulation_domain=0X10US sdram_init=0x0009
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gH-01-00-00-00 regulation_domain=0X30DE sdram_init=0x000b
+WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      hardware_version=WL500gW-01-00-00-00 regulation_domain=0X10US sdram_init=0x0009
 
 WL-500G Premium v2  HW_BCM5354G           0x48E        45        0x10      0x0750
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
@@ -204,6 +205,8 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM4704_BCM5325F:
 			return MODEL_WL500GP;
+		case HW_BCM4704_BCM5325F_EWC:
+			return MODEL_WL500W;
 		case HW_BCM5352E:
 			return MODEL_WL500GE;
 		case HW_BCM5354G:
