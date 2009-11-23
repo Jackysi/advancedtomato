@@ -1841,16 +1841,45 @@ int usb_get_descriptor(struct usb_device *dev, unsigned char type, unsigned char
 {
 	int i = 5;
 	int result;
-	
-	memset(buf,0,size);	// Make sure we parse really received data
+	volatile unsigned char *b = (unsigned char *)buf;
+
+	memset(buf, 0xaa, size);	// Make sure we parse really received data
 
 	while (i--) {
-		if ((result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
-			(type << 8) + index, 0, buf, size, HZ * GET_TIMEOUT)) > 0 ||
-		     result == -EPIPE)
+			(type << 8) + index, 0, buf, size, HZ * GET_TIMEOUT);
+
+		if (result == -EPIPE)
+			break;
+
+		/* WAR60307: Retry if last two bytes of descriptor did not
+		 * make it to memory.
+		 */
+		if ((type == USB_DT_DEVICE) && (result == 18)) {
+			if (b[17] == 0xaa) {
+#ifdef	DEBUG
+				err("Looks like a Device Descriptor where numConfigurations was not read, retrying (%d)", i);
+#endif
+				continue;
+			}
+			if (b[17] == 0) {
+#ifdef	DEBUG
+				err("Looks like a Device descriptor with 0 configurations, retrying (%d)", i);
+#endif
+				continue;
+			}
+		}
+
+		if (result > 0)
 			break;	/* retry if the returned length was 0; flaky device */
+#ifdef	DEBUG
+		err("Zero result from usb_control_msg, retrying (%d)", i);
+#endif
 	}
+
+	if (result == 0)
+		memset(buf, 0, size);
 	return result;
 }
 
