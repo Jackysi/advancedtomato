@@ -1629,6 +1629,8 @@ int usb_stor_CB_transport(Scsi_Cmnd *srb, struct us_data *us)
  * Bulk only transport
  */
 
+int usb_stor_Bulk_reset(struct us_data *us);
+
 /* Determine what the maximum LUN supported is */
 int usb_stor_Bulk_max_lun(struct us_data *us)
 {
@@ -1668,14 +1670,20 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 
 		/* Use usb_clear_halt() because the state machine
 		 *  is not yet alive */
+#if 0
 		usb_clear_halt(us->pusb_dev, pipe);
+#else
+		/* WAR for some USB mass storage devices with
+		 * stalled pipe -- issue Bulk-Only mass storage reset */ 
+		result = usb_clear_halt(us->pusb_dev, pipe);
+		if (result != 0)
+			usb_stor_Bulk_reset(us);
+#endif
 	}
 
 	/* return the default -- no LUNs */
 	return 0;
 }
-
-int usb_stor_Bulk_reset(struct us_data *us);
 
 int usb_stor_Bulk_transport(Scsi_Cmnd *srb, struct us_data *us)
 {
