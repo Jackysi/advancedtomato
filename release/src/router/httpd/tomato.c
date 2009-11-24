@@ -404,7 +404,7 @@ static const nvset_t nvset_list[] = {
 	// wireless
 	{ "wl_radio",			V_01				},
 	{ "wl_mode",			V_LENGTH(2, 3)		},	// ap, sta, wet, wds
-//	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
+	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 14)		},	//!!TB - 0=Auto

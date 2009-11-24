@@ -730,12 +730,12 @@ static int init_nvram(void)
 	nvram_set("brau_state", "");
 	if ((features & SUP_BRAU) == 0) nvram_set("script_brau", "");
 	if ((features & SUP_SES) == 0) nvram_set("sesx_script", "");
-/*
+
 	if (nvram_match("wl_net_mode", "disabled")) {
 		nvram_set("wl_radio", "0");
 		nvram_set("wl_net_mode", "mixed");
 	}
-*/
+
 	return 0;
 }
 

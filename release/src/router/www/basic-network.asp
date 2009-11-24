@@ -29,7 +29,7 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_gmode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan"); %>
 //	<% wlchannels(); %>
 
 xob = null;
@@ -236,7 +236,7 @@ function verifyFields(focused, quiet)
 
 		_f_wl_radio: 1,
 		_f_wmode: 1,
-		_wl_gmode: 1,
+		_wl_net_mode: 1,
 		_wl_ssid: 1,
 		_f_bcast: 1,
 		_wl_channel: 1,
@@ -371,7 +371,7 @@ function verifyFields(focused, quiet)
 		vis._wl_channel = 2;
 		vis._f_bcast = 2;
 		vis._wl_crypto = 2;
-		vis._wl_gmode = 2;
+		vis._wl_net_mode = 2;
 		vis._wl_wpa_psk = 2;
 		vis._wl_radius_key = 2;
 		vis._wl_wpa_gtk_rekey = 2;
@@ -654,6 +654,9 @@ function save()
 
 	if (sm2.indexOf('wpa') != -1) fom.wl_auth.value = 0;
 
+	fom.wl_gmode.value = (fom.wl_net_mode.value == 'b-only') ? 0 : (fom.wl_net_mode.value == 'g-only') ? 4 : 1;
+	fom.wl_gmode.disabled = fom.wl_net_mode.disabled;
+
 	fom.wl_closed.value = fom.f_bcast.checked ? 0 : 1;
 	fom.wl_closed.disabled = fom.f_bcast.disabled;
 
@@ -703,6 +706,7 @@ function save()
 <input type='hidden' name='wl_radio'>
 <input type='hidden' name='wl_closed'>
 <input type='hidden' name='wl_key'>
+<input type='hidden' name='wl_gmode'>
 <input type='hidden' name='security_mode'>
 <input type='hidden' name='wl_akm'>
 <input type='hidden' name='wl_auth'>
@@ -771,12 +775,12 @@ createFieldTable('', [
 <script type='text/javascript'>
 f = [
 	{ title: 'Enable Wireless', name: 'f_wl_radio', type: 'checkbox',
-		value: (nvram.wl_radio == '1') },
+		value: (nvram.wl_radio == '1') && (nvram.wl_net_mode != 'disabled') },
 	{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + nvram.wl0_hwaddr + '</a>' },
 	{ title: 'Wireless Mode', name: 'f_wmode', type: 'select',
 		options: [['ap', 'Access Point'],['apwds', 'Access Point + WDS'],['sta', 'Wireless Client'],['wet', 'Wireless Ethernet Bridge'],['wds', 'WDS']],
 		value: ((nvram.wl_mode == 'ap') && (nvram.wds_enable == '1')) ? 'apwds' : nvram.wl_mode },
-	{ title: 'B/G Mode', name: 'wl_gmode', type: 'select', value: (nvram.wl_gmode == '2') ? '4' : nvram.wl_gmode, options:[['1','Mixed'],['0','B Only'],['4','G Only'],['5','LRS']] },
+	{ title: 'Wireless Network Mode', name: 'wl_net_mode', type: 'select', value: (nvram.wl_net_mode == 'disabled') ? 'mixed' : nvram.wl_net_mode, options:[['mixed','Mixed'],['b-only','B Only'],['g-only','G Only']] },
 	{ title: 'SSID', name: 'wl_ssid', type: 'text', maxlen: 32, size: 34, value: nvram.wl_ssid },
 	{ title: 'Broadcast', indent: 2, name: 'f_bcast', type: 'checkbox', value: (nvram.wl_closed == '0') },
 	{ title: 'Channel', name: 'wl_channel', type: 'select', options: ghz, suffix: ' <input type="button" id="_f_scan" value="Scan" onclick="scanButton()"> <img src="spin.gif" id="spin">',
