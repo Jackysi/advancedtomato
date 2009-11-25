@@ -16,5 +16,5 @@ SECTIONS {
 		*(.bss)
 	}
 
-	workspace = .;
+	workspace = NEXT(0x10);
 }

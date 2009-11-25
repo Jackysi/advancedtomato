@@ -33,6 +33,7 @@
  */
 
 #include "LzmaDecode.h"
+#include "trxhdr.h"
 
 #define BCM4710_FLASH		0x1fc00000	/* Flash */
 
@@ -76,16 +77,6 @@ static __inline__ void blast_dcache(unsigned long size, unsigned long lsize)
 		start += lsize;
 	}
 }
-
-#define TRX_MAGIC       0x30524448      /* "HDR0" */
-
-struct trx_header {
-	unsigned int magic;		/* "HDR0" */
-	unsigned int len;		/* Length of file including header */
-	unsigned int crc32;		/* 32-bit CRC from flag_version to end of file */
-	unsigned int flag_version;	/* 0:15 flags, 16:31 version */
-	unsigned int offsets[3];	/* Offsets of partitions from start of header */
-};
 
 /* beyound the image end, size not known in advance */
 extern unsigned char workspace[];
