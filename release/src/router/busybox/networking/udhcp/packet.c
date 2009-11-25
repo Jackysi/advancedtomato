@@ -16,6 +16,8 @@
 #include <linux/if_ether.h>
 #endif
 
+#define SECS	3	/* lame attempt to add secs field */
+
 #include "common.h"
 #include "dhcpd.h"
 #include "options.h"
@@ -27,6 +29,10 @@ void FAST_FUNC udhcp_init_header(struct dhcpMessage *packet, char type)
 	memset(packet, 0, sizeof(struct dhcpMessage));
 	packet->op = BOOTREQUEST; /* if client to a server */
 	switch (type) {
+	case DHCPDISCOVER:
+	case DHCPREQUEST:
+		packet->secs = htons(SECS);
+		break;
 	case DHCPOFFER:
 	case DHCPACK:
 	case DHCPNAK:
