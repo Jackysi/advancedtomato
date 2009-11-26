@@ -163,8 +163,8 @@ void setup_conntrack(void)
 		char ports[32];
 
 		sprintf(ports, "ports=21,%d", i);
-		eval("modprobe", "-s", "ip_conntrack_ftp", ports);
-		eval("modprobe", "-s", "ip_nat_ftp", ports);
+		modprobe("ip_conntrack_ftp", ports);
+		modprobe("ip_nat_ftp", ports);
 	}
 	else 
 #endif
