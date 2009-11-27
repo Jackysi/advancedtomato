@@ -29,6 +29,7 @@
 
 t = hostname (top)
 u = username/password
+p = password
 h = hostname
 j = hostname (optional)
 c = custom url
@@ -57,6 +58,7 @@ var services = [
 	['dyns', 'DyNS', 'http://www.dyns.cx/', 'uh'],
 	['easydns', 'easyDNS', 'http://www.easydns.com/', 'uhwm'],
 	['seasydns', 'easyDNS (https)', 'http://www.easydns.com/', 'uhwm'],
+	['editdns', 'EditDNS', 'http://www.editdns.net/', 'tpz'],
 	['everydns', 'EveryDNS', 'http://www.everydns.net/', 'uj', null, null, 'Domain <small>(optional)</small>'],
 	['enom', 'eNom', 'http://www.enom.com/', 'ut', 'Domain'],
 	['afraid', 'FreeDNS (afraid.org)', 'http://freedns.afraid.org/', 'az'],
@@ -113,7 +115,7 @@ function verifyFields(focused, quiet)
 	b = E('_f_ddnsx_ip').value == 'custom';
 	elem.display(PR('_f_custom_ip'), b);
 	if ((b) && (!v_ip('_f_custom_ip', quiet))) return 0;
-	
+
 	if (!v_range('_ddnsx_refresh', quiet, 0, 90)) return 0;
 
 	r = 1;
@@ -127,7 +129,8 @@ function verifyFields(focused, quiet)
 		elem.display('row_z' + i, op.z);
 
 		elem.display(PR('_f_hosttop' + i), op.t);
-		elem.display(PR('_f_user' + i), PR('_f_pass' + i), op.u);
+		elem.display(PR('_f_user' + i), op.u);
+		elem.display(PR('_f_pass' + i), op.u || op.p);
 		elem.display(PR('_f_host' + i), op.h || op.j);
 		elem.display(PR('_f_cust' + i), 'custmsg' + i, op.c);
 
@@ -179,7 +182,7 @@ function verifyFields(focused, quiet)
 				}
 			}
 			else {
-				if ((!v_length('_f_user' + i, quiet, 1)) ||
+				if (((op.u) && (!v_length('_f_user' + i, quiet, 1))) ||
 					(!v_length('_f_pass' + i, quiet, 1)) ||
 					((op.h) && (!op.o) && (!v_length('_f_host' + i, quiet, 1))) ||
 					((op.t) && (!v_length('_f_hosttop' + i, quiet, 1)))) {
@@ -192,7 +195,7 @@ function verifyFields(focused, quiet)
 	// shouldn't do this twice, but...
 	if (E('_f_opendns0') == focused) E('_f_opendns1').checked = E('_f_opendns0').checked;
 	if (E('_f_opendns1') == focused) E('_f_opendns0').checked = E('_f_opendns1').checked;
-	
+
 	if (E('_f_ddnsx_save0') == focused) E('_f_ddnsx_save1').checked = E('_f_ddnsx_save0').checked;
 	if (E('_f_ddnsx_save1') == focused) E('_f_ddnsx_save0').checked = E('_f_ddnsx_save1').checked;
 
@@ -248,7 +251,7 @@ s = save state checkbox
 REMOVE-END */
 			op = mop(data[3]);
 
-			if (op.u) s.push(E('_f_user' + i).value + ':' + E('_f_pass' + i).value);
+			if ((op.u) || (op.p)) s.push(E('_f_user' + i).value + ':' + E('_f_pass' + i).value);
 				else s.push('');
 
 			if (op.t) {
@@ -277,7 +280,7 @@ REMOVE-END */
 			else {
 				s.push('');
 			}
-			
+
 			if (op.s) {
 				fom.ddnsx_save.value = E('_f_ddnsx_save' + i).checked ? 1 : 0;
 			}
@@ -316,7 +319,7 @@ REMOVE-END */
 			}
 		}
 	}
-	
+
 	form.submit(fom);
 }
 
@@ -424,7 +427,7 @@ for (i = 0; i < 2; ++i) {
 		{ title: '&nbsp;', text: '<small>* This service determines the IP address using its own method.</small>', hidden: 1, rid: 'row_z' + i },
 		{ title: 'Hostname', name: 'f_hosttop' + i, type: 'text', maxlen: 96, size: 35, value: v[2], hidden: 1 },
 		{ title: 'Username', name: 'f_user' + i, type: 'text', maxlen: 64, size: 35, value: u[0], hidden: 1 },
-		{ title: 'Password', name: 'f_pass' + i, type: 'password', maxlen: 64, size: 35, value: u[1], hidden: 1 },
+		{ title: 'Password', name: 'f_pass' + i, type: 'password', maxlen: 64, size: 35, peekaboo: 1, value: u[1], hidden: 1 },
 		{ title: 'Hostname', name: 'f_host' + i, type: 'text', maxlen: 255, size: 80, value: v[2], hidden: 1 },
 		{ title: 'URL', name: 'f_cust' + i, type: 'text', maxlen: 255, size: 80, value: v[6], hidden: 1 },
 		{ title: ' ', text: '(Use @IP for the current IP address)', rid: ('custmsg' + i), hidden: 1 },

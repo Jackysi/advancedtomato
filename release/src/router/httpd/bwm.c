@@ -137,3 +137,25 @@ void asp_netdev(int argc, char **argv)
 	}
 	web_puts("};\n");
 }
+
+void asp_bandwidth(int argc, char **argv)
+{
+	char *name;
+	int sig;
+
+	if ((nvram_get_int("rstats_enable") == 1) && (argc == 1)) {
+		if (strcmp(argv[0], "speed") == 0) {
+			sig = SIGUSR1;
+			name = "/var/spool/rstats-speed.js";
+		}
+		else {
+			sig = SIGUSR2;
+			name = "/var/spool/rstats-history.js";
+		}
+		unlink(name);
+		killall("rstats", sig);
+		f_wait_exists(name, 5);
+		do_file(name);
+		unlink(name);
+	}
+}

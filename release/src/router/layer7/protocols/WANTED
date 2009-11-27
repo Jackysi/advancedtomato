@@ -1,7 +1,7 @@
-Below is a list of protocols that we might want to have.  The existence
-of a protocol on this list does not mean that we have researched it
-extensively (or at all), so some may be obsolete, unpopular, misnamed,
-redundant, etc.
+Below is a list of protocols that we might want to have.  The existence 
+of a protocol on this list does not mean that we have researched it 
+extensively (or at all), so some (probably many) may be obsolete, 
+unpopular, misnamed, redundant, etc.
 
 Please read HOWTO for information on writing patterns.
 
@@ -63,6 +63,5 @@ LDAP - Lightweight Directory Access Protocol
 MS-SQL - Microsoft SQL Mon and Server traffic
 NFS - Network File System
 RTCP - Real-time control protocol
-RTP - Real-time protocol
 SunRPC - Sun's Remote Procedure Calls
 XDMCP - X-Windows Display Manager Control Protocol
