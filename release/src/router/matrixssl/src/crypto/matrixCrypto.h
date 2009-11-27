@@ -1,11 +1,11 @@
 /*
  *	matrixCrypto.h
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *
  *	Public API set for matrixCrypto
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -66,6 +66,8 @@ MATRIXPUBLIC int32 matrix3desDecrypt(sslCipherContext_t *ctx, unsigned char *ct,
 MATRIXPUBLIC void generate3DESKey(unsigned char *pass, int32 passlen, 
 							unsigned char *salt, unsigned char *key);
 #endif /* USE_3DES */
+
+
 
 /*
 	HMAC and message digests

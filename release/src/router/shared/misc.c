@@ -157,24 +157,35 @@ const dns_list_t *get_dns(void)
 	int n;
 	int i, j;
 	struct in_addr ia;
-	char d[4][16];
+	char d[4][22];
+	unsigned short port;
+	char *c;
 
 	dns.count = 0;
 
 	strlcpy(s, nvram_safe_get("wan_dns"), sizeof(s));
-	if ((nvram_match("dns_addget", "1")) || (s[0] == 0)) {
+	if ((nvram_get_int("dns_addget")) || (s[0] == 0)) {
 		n = strlen(s);
 		snprintf(s + n, sizeof(s) - n, " %s", nvram_safe_get("wan_get_dns"));
 	}
 
-	n = sscanf(s, "%15s %15s %15s %15s", d[0], d[1], d[2], d[3]);
+	n = sscanf(s, "%21s %21s %21s %21s", d[0], d[1], d[2], d[3]);
 	for (i = 0; i < n; ++i) {
+		port = 53;
+
+		if ((c = strchr(d[i], ':')) != NULL) {
+			*c++ = 0;
+			if (((j = atoi(c)) < 1) || (j > 0xFFFF)) continue;
+			port = j;
+		}
+		
 		if (inet_pton(AF_INET, d[i], &ia) > 0) {
 			for (j = dns.count - 1; j >= 0; --j) {
-				if (dns.dns[j].s_addr == ia.s_addr) break;
+				if ((dns.dns[j].addr.s_addr == ia.s_addr) && (dns.dns[j].port == port)) break;
 			}
 			if (j < 0) {
-				dns.dns[dns.count++].s_addr = ia.s_addr;
+				dns.dns[dns.count].port = port;
+				dns.dns[dns.count++].addr.s_addr = ia.s_addr;
 				if (dns.count == 3) break;
 			}
 		}

@@ -154,6 +154,7 @@ prepk:
 what:
 	@echo ""
 	@echo "$(current_BUILD_DESC)-$(current_BUILD_NAME)-$(TOMATO_PROFILE_NAME) Profile"
+	@echo ""
 
 
 # The methodology for making the different builds is to
@@ -285,27 +286,27 @@ s:
 	@$(MAKE) all
 
 setprofile:
-	@echo "#ifndef TOMATO_PROFILE"                 > router/shared/tomato_profile.h
-	@echo "#define TOMATO_$(N) 1"                 >> router/shared/tomato_profile.h
-	@echo "#define PROFILE_G 1"                   >> router/shared/tomato_profile.h
-	@echo "#define PROFILE_N 2"                   >> router/shared/tomato_profile.h
-	@echo "#define TOMATO_PROFILE PROFILE_$(N)"   >> router/shared/tomato_profile.h
-	@echo "#define TOMATO_PROFILE_NAME \"$(N)\""  >> router/shared/tomato_profile.h
-	@echo "#define TOMATO_BUILD_NAME \"$(B)\""    >> router/shared/tomato_profile.h
-	@echo "#define TOMATO_BUILD_DESC \"$(DESC)\"" >> router/shared/tomato_profile.h
-	@echo "#endif"                               >> router/shared/tomato_profile.h
+	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
+	echo '#define TOMATO_$(N) 1' >> router/shared/tomato_profile.h
+	echo '#define PROFILE_G 1' >> router/shared/tomato_profile.h
+	echo '#define PROFILE_N 2' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_PROFILE PROFILE_$(N)' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
+	echo '#endif' >> router/shared/tomato_profile.h
 
-	@echo "TOMATO_$(N) = 1"                      > tomato_profile.mak
-	@echo "PROFILE_G = 1"                       >> tomato_profile.mak
-	@echo "PROFILE_N = 2"                       >> tomato_profile.mak
-	@echo "TOMATO_PROFILE = \$$(PROFILE_$(N))"  >> tomato_profile.mak
-	@echo "TOMATO_PROFILE_NAME = \"$(N)\""      >> tomato_profile.mak
-	@echo "TOMATO_BUILD = \"$(B)\""             >> tomato_profile.mak
-	@echo "TOMATO_BUILD_NAME = \"$(B)\""        >> tomato_profile.mak
-	@echo "TOMATO_BUILD_DESC = \"$(DESC)\""     >> tomato_profile.mak
-	@echo "TOMATO_PROFILE_L = $(lowercase_N)"   >> tomato_profile.mak
-	@echo "TOMATO_PROFILE_U = $(uppercase_N)"   >> tomato_profile.mak
-	@echo "TOMATO_BUILD_USB = \"$(USB)\""       >> tomato_profile.mak
+	echo 'TOMATO_$(N) = 1' > tomato_profile.mak
+	echo 'PROFILE_G = 1' >> tomato_profile.mak
+	echo 'PROFILE_N = 2' >> tomato_profile.mak
+	echo 'TOMATO_PROFILE = $$(PROFILE_$(N))' >> tomato_profile.mak
+	echo 'TOMATO_PROFILE_NAME = "$(N)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD = "$(B)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_NAME = "$(B)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_DESC = "$(DESC)"' >> tomato_profile.mak
+	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
+	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
 
 
 # Note that changes to variables in tomato_profile.mak don't
@@ -332,9 +333,6 @@ cleanlibc:
 libc: cleanlibc
 #	@$(MAKE) -C ../../tools-src/uClibc
 #	@$(MAKE) -C ../../tools-src/uClibc install
-
-echotest:
-	@( echo -e foo | grep "\-e foo" ) && echo bar || echo foo
 
 help:
 	@echo "a            A build (standard)"

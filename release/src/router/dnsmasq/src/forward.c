@@ -262,10 +262,14 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 	  
 	  if (type != 0  || (daemon->options & OPT_ORDER))
 	    start = daemon->servers;
-	  else if (!(start = daemon->last_server))
+	  else if (!(start = daemon->last_server) ||
+		   daemon->forwardcount++ > FORWARD_TEST ||
+		   difftime(now, daemon->forwardtime) > FORWARD_TIME)
 	    {
 	      start = daemon->servers;
 	      forward->forwardall = 1;
+	      daemon->forwardcount = 0;
+	      daemon->forwardtime = now;
 	    }
 	}
     }
@@ -667,19 +671,8 @@ void receive_query(struct listener *listen, time_t now)
       
       /* enforce available interface configuration */
       
-      if (if_index == 0)
-	return;
-      
-#ifdef SIOCGIFNAME
-      ifr.ifr_ifindex = if_index;
-      if (ioctl(listen->fd, SIOCGIFNAME, &ifr) == -1)
-	return;
-#else
-      if (!if_indextoname(if_index, ifr.ifr_name))
-	return;
-#endif
-      
-      if (!iface_check(listen->family, &dst_addr, &ifr, &if_index))
+      if (!indextoname(listen->fd, if_index, ifr.ifr_name) ||
+	  !iface_check(listen->family, &dst_addr, ifr.ifr_name, &if_index))
 	return;
       
       if (listen->family == AF_INET &&

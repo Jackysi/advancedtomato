@@ -133,6 +133,9 @@ int buttons_main(int argc, char *argv[])
 //	case MODEL_MN700:
 //?		reset_mask = reset_pushed = 1 << 7;
 //		break;
+	case MODEL_WLA2G54L:
+		reset_mask = reset_pushed = 1 << 7;
+		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {

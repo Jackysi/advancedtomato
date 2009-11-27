@@ -385,28 +385,6 @@ void asp_link_uptime(int argc, char **argv)
 	web_puts(buf);
 }
 
-void asp_bandwidth(int argc, char **argv)
-{
-	char *name;
-	int sig;
-
-	if ((nvram_match("rstats_enable", "1")) && (argc == 1)) {
-		if (strcmp(argv[0], "speed") == 0) {
-			sig = SIGUSR1;
-			name = "/var/spool/rstats-speed.js";
-		}
-		else {
-			sig = SIGUSR2;
-			name = "/var/spool/rstats-history.js";
-		}
-		unlink(name);
-		killall("rstats", sig);
-		f_wait_exists(name, 5);
-		do_file(name);
-		unlink(name);
-	}
-}
-
 void asp_rrule(int argc, char **argv)
 {
 	char s[32];
@@ -497,7 +475,7 @@ void asp_dns(int argc, char **argv)
 	dns = get_dns();	// static buffer
 	strcpy(s, "\ndns = [");
 	for (i = 0 ; i < dns->count; ++i) {
-		sprintf(s + strlen(s), "%s'%s'", i ? "," : "", inet_ntoa(dns->dns[i]));
+		sprintf(s + strlen(s), "%s'%s:%u'", i ? "," : "", inet_ntoa(dns->dns[i].addr), dns->dns[i].port);
 	}
 	strcat(s, "];\n");
 	web_puts(s);

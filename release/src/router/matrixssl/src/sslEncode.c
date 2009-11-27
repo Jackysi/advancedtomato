@@ -1,11 +1,11 @@
 /*
  *	sslEncode.c
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *
  *	Secure Sockets Layer message encoding
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -42,9 +42,9 @@ static int32 writeRecordHeader(ssl_t *ssl, int32 type, int32 hsType, int32 *mess
 						char *padLen, unsigned char **encryptStart,
 						unsigned char **end, unsigned char **c);
 
-static int32 encryptRecord(ssl_t *ssl, int32 type, int32 messageSize,
-			int32 padLen, unsigned char *encryptStart, sslBuf_t *out,
-			unsigned char **c);
+static int32 encryptRecord(ssl_t *ssl, int32 type, int32 messageSize, int32 padLen, 
+						unsigned char *encryptStart, sslBuf_t *out,
+						unsigned char **c);
 
 #ifdef USE_CLIENT_SIDE_SSL
 static int32 writeClientKeyExchange(ssl_t *ssl, sslBuf_t *out);
@@ -175,8 +175,6 @@ int32 sslEncodeResponse(ssl_t *ssl, sslBuf_t *out)
 
 			messageSize += secureWriteAdditions(ssl, 3);
 
-		
-		
 		if ((out->buf + out->size) - out->end < messageSize) {
 			return SSL_FULL;
 		}
@@ -185,11 +183,9 @@ int32 sslEncodeResponse(ssl_t *ssl, sslBuf_t *out)
 */
 		rc = writeServerHello(ssl, out);
 
-
-				if (rc == SSL_SUCCESS) {
-					rc = writeCertificate(ssl, out, 1);
-				}
-
+		if (rc == SSL_SUCCESS) {
+			rc = writeCertificate(ssl, out, 1);
+		}
 
 		if (rc == SSL_SUCCESS) {
 			rc = writeServerHelloDone(ssl, out);
@@ -207,8 +203,14 @@ int32 sslEncodeResponse(ssl_t *ssl, sslBuf_t *out)
 			ssl->hshakeHeadLen +
 			1 + /* change cipher spec */
 			SSL_MD5_HASH_SIZE + SSL_SHA1_HASH_SIZE; /* finished */
-		messageSize += secureWriteAdditions(ssl, 2);
-
+/*
+		Account for possible overhead in CCS message with secureWriteAdditions
+		then always account for the encrypted FINISHED message
+*/
+		messageSize += secureWriteAdditions(ssl, 1);
+		messageSize += ssl->enMacSize + /* handshake msg hash */
+			(ssl->cipher->blockSize - 1); /* max padding */
+			
 		if ((out->buf + out->size) - out->end < messageSize) {
 			return SSL_FULL;
 		}
@@ -231,7 +233,13 @@ int32 sslEncodeResponse(ssl_t *ssl, sslBuf_t *out)
 				38 + SSL_MAX_SESSION_ID_SIZE + /* server hello */
 				1 + /* change cipher spec */
 				SSL_MD5_HASH_SIZE + SSL_SHA1_HASH_SIZE; /* finished */
-			messageSize += secureWriteAdditions(ssl, 3);
+/*
+			Account for possible overhead with secureWriteAdditions
+			then always account for the encrypted FINISHED message
+*/				
+			messageSize += secureWriteAdditions(ssl, 2);
+			messageSize += ssl->enMacSize + /* handshake msg hash */
+				(ssl->cipher->blockSize - 1); /* max padding */
 			if ((out->buf + out->size) - out->end < messageSize) {
 				return SSL_FULL;
 			}
@@ -847,6 +855,7 @@ static int32 writeFinished(ssl_t *ssl, sslBuf_t *out)
 	}
 	out->end = c;
 
+
 #ifdef USE_CLIENT_SIDE_SSL
 /*
 	Free handshake pool, of which the cert is the primary member.
@@ -1070,6 +1079,10 @@ static int32 writeClientKeyExchange(ssl_t *ssl, sslBuf_t *out)
 	messageSize = keyLen = 0;
 
 
+
+/*
+	Determine messageSize for the record header
+*/
 			/* Standard RSA auth suites */
 			keyLen = ssl->sec.cert->publicKey.size;
 
@@ -1100,6 +1113,14 @@ static int32 writeClientKeyExchange(ssl_t *ssl, sslBuf_t *out)
 		}
 	}
 
+
+/*
+			Standard RSA suite
+*/
+			ssl->sec.premasterSize = SSL_HS_RSA_PREMASTER_SIZE;
+			ssl->sec.premaster = psMalloc(ssl->hsPool,
+										  SSL_HS_RSA_PREMASTER_SIZE);
+										  
 			ssl->sec.premaster[0] = ssl->reqMajVer;
 			ssl->sec.premaster[1] = ssl->reqMinVer;
 			if (sslGetEntropy(ssl->sec.premaster + 2,
@@ -1116,6 +1137,7 @@ static int32 writeClientKeyExchange(ssl_t *ssl, sslBuf_t *out)
 				matrixStrDebugMsg("Error encrypting premaster\n", NULL);
 				return SSL_FULL;
 			}
+
 			c += keyLen;
 
 	if ((rc = encryptRecord(ssl, SSL_RECORD_TYPE_HANDSHAKE, messageSize,
