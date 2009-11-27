@@ -300,6 +300,19 @@ typedef struct	SHT
      * Name of proc directory
      */
     char *proc_name;
+    
+    /*
+     * Once the device has responded to an INQUIRY and we know the
+     * device is online, we call into the low level driver with the
+     * struct scsi_device *.  If the low level device driver implements
+     * this function, it *must* perform the task of setting the queue
+     * depth on the device.  All other tasks are optional and depend
+     * on what the driver supports and various implementation details.
+     *
+     * Status: OPTIONAL
+     */
+    int (* slave_configure)(Scsi_Device *dev);
+
 
 } Scsi_Host_Template;
 

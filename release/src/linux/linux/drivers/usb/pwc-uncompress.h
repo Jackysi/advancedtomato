@@ -24,9 +24,26 @@
 #define PWC_UNCOMPRESS_H
 
 #include <linux/config.h>
+#include <linux/linkage.h>
 #include <linux/list.h>
 
-#include "pwc.h"
+#include "pwc-ioctl.h"
+
+/* from pwc-dec.h */
+#define PWCX_FLAG_PLANAR        0x0001
+/* */
+
+
+/* Small hack for GCC 2.*; that compiler doesn't like asmlinkage in 
+   function pointer declarations, so we ignore them for that version.
+   This doesn't present a problem since the default regparm() mode 
+   for GCC 2 is that same as with asmlinkage defined.
+ */   
+#if __GNUC__ == 2
+#define PWC_LINKAGE
+#else
+#define PWC_LINKAGE asmlinkage
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,10 +59,10 @@ struct pwc_decompressor
 	int  type;		/* type of camera (645, 680, etc) */
 	int  table_size;	/* memory needed */
 
-	void (* init)(int release, void *buffer, void *table);	/* Initialization routine; should be called after each set_video_mode */
-	void (* exit)(void);	/* Cleanup routine */
-	void (* decompress)(struct pwc_coord *image, struct pwc_coord *view, struct pwc_coord *offset,
-                            void *src, void *dst, int planar,
+	PWC_LINKAGE void (* init)(int type, int release, void *buffer, void *table);	/* Initialization routine; should be called after each set_video_mode */
+	PWC_LINKAGE void (* exit)(void);	/* Cleanup routine */
+	PWC_LINKAGE void (* decompress)(struct pwc_coord *image, struct pwc_coord *view, struct pwc_coord *offset,
+                            void *src, void *dst, int flags,
 	                    void *table, int bandlength);
 	void (* lock)(void);	/* make sure module cannot be unloaded */
 	void (* unlock)(void);	/* release lock on module */
@@ -53,6 +70,7 @@ struct pwc_decompressor
 	struct list_head pwcd_list;
 };
 
+#undef PWC_LINKAGE
 
 /* Our structure version number. Is set to the version number major */
 extern const int pwc_decompressor_version;

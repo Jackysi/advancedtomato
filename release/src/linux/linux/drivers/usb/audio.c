@@ -207,15 +207,19 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v1.0.0"
+#define DRIVER_VERSION "v1.0.1"
 #define DRIVER_AUTHOR "Alan Cox <alan@lxorguk.ukuu.org.uk>, Thomas Sailer (sailer@ife.ee.ethz.ch)"
 #define DRIVER_DESC "USB Audio Class driver"
 
-#define AUDIO_DEBUG 1
-
 #define SND_DEV_DSP16   5 
 
-#define dprintk(x)
+#define AUDIO_DEBUG 0
+
+#if AUDIO_DEBUG
+ #define dprintk(x)	printk x
+#else
+ #define dprintk(x)
+#endif
 
 /* --------------------------------------------------------------------- */
 
@@ -249,6 +253,7 @@ static DECLARE_WAIT_QUEUE_HEAD(open_wait);
  */
 #define DESCFRAMES  5
 #define SYNCFRAMES  DESCFRAMES
+#define MAX_URBS    2
 
 #define MIXFLG_STEREOIN   1
 #define MIXFLG_STEREOOUT  2
@@ -317,6 +322,25 @@ struct my_sync_urb {
 	struct iso_packet_descriptor isoframe[SYNCFRAMES];
 };
 
+struct snd_usb_substream {
+		int interface;           /* Interface number, -1 means not used */
+		unsigned int format;     /* USB data format */
+		unsigned int datapipe;   /* the data input pipe */
+		unsigned int syncpipe;   /* the synchronisation pipe - 0 for anything but asynchronous OUT mode */
+		unsigned int syncinterval;  /* P for asynchronous OUT mode, 0 otherwise */
+		unsigned int freqn;      /* nominal sampling rate in USB format, i.e. fs/1000 in Q10.14 */
+		unsigned int freqm;      /* momentary sampling rate in USB format, i.e. fs/1000 in Q10.14 */
+		unsigned int freqmax;    /* maximum sampling rate, used for buffer management */
+		unsigned int phase;      /* phase accumulator */
+		unsigned int maxpacksize;/* max packet size in bytes */
+		unsigned int flags;      /* see FLG_ defines */
+
+		struct my_data_urb durb[MAX_URBS];  /* ISO descriptors for the data endpoint */
+		struct my_sync_urb surb[MAX_URBS];  /* ISO sync pipe descriptor if needed */
+		char syncbuf[MAX_URBS * SYNCFRAMES * 4]; /* sync buffer; it's so small - let's get static */
+
+		struct dmabuf dma;
+};
 
 struct usb_audiodev {
 	struct list_head list;
@@ -329,41 +353,8 @@ struct usb_audiodev {
 	mode_t open_mode;
 	spinlock_t lock;         /* DMA buffer access spinlock */
 
-	struct usbin {
-		int interface;           /* Interface number, -1 means not used */
-		unsigned int format;     /* USB data format */
-		unsigned int datapipe;   /* the data input pipe */
-		unsigned int syncpipe;   /* the synchronisation pipe - 0 for anything but adaptive IN mode */
-		unsigned int syncinterval;  /* P for adaptive IN mode, 0 otherwise */
-		unsigned int freqn;      /* nominal sampling rate in USB format, i.e. fs/1000 in Q10.14 */
-		unsigned int freqmax;    /* maximum sampling rate, used for buffer management */
-		unsigned int phase;      /* phase accumulator */
-		unsigned int flags;      /* see FLG_ defines */
-		
-		struct my_data_urb durb[2];  /* ISO descriptors for the data endpoint */
-		struct my_sync_urb surb[2];  /* ISO sync pipe descriptor if needed */
-		
-		struct dmabuf dma;
-	} usbin;
-
-	struct usbout {
-		int interface;           /* Interface number, -1 means not used */
-		unsigned int format;     /* USB data format */
-		unsigned int datapipe;   /* the data input pipe */
-		unsigned int syncpipe;   /* the synchronisation pipe - 0 for anything but asynchronous OUT mode */
-		unsigned int syncinterval;  /* P for asynchronous OUT mode, 0 otherwise */
-		unsigned int freqn;      /* nominal sampling rate in USB format, i.e. fs/1000 in Q10.14 */
-		unsigned int freqm;      /* momentary sampling rate in USB format, i.e. fs/1000 in Q10.14 */
-		unsigned int freqmax;    /* maximum sampling rate, used for buffer management */
-		unsigned int phase;      /* phase accumulator */
-		unsigned int flags;      /* see FLG_ defines */
-
-		struct my_data_urb durb[2];  /* ISO descriptors for the data endpoint */
-		struct my_sync_urb surb[2];  /* ISO sync pipe descriptor if needed */
-		
-		struct dmabuf dma;
-	} usbout;
-
+	struct snd_usb_substream usbin;
+	struct snd_usb_substream usbout;
 
 	unsigned int numfmtin, numfmtout;
 	struct audioformat fmtin[MAXFORMATS];
@@ -396,6 +387,15 @@ struct usb_audio_state {
 	struct list_head mixerlist;
 
 	unsigned count;  /* usage counter; NOTE: the usb stack is also considered a user */
+};
+
+struct snd_urb_ops {
+        int  (*prepare)       (struct snd_usb_substream *u, struct urb *urb);
+        int  (*retire)        (struct snd_usb_substream *u, struct urb *urb);
+	void (*complete)      (struct urb *urb);
+        int  (*prepare_sync)  (struct snd_usb_substream *u, struct urb *urb);
+        int  (*retire_sync)   (struct snd_usb_substream *u, struct urb *urb);
+	void (*complete_sync) (struct urb *urb);
 };
 
 /* in the event we don't have the extended soundcard.h, we still need
@@ -695,12 +695,14 @@ static int dmabuf_copyout_user(struct dmabuf *db, unsigned int ptr, void *_buffe
  * USB I/O code. We do sample format conversion if necessary
  */
 
-static void usbin_stop(struct usb_audiodev *as)
+static void release_substream_urbs(struct usb_audiodev *as, struct snd_usb_substream *u)
 {
-	struct usbin *u = &as->usbin;
 	unsigned long flags;
 	unsigned int i, notkilled = 1;
 
+#if AUDIO_DEBUG
+	printk(KERN_DEBUG "%s: flags 0x%x\n", __FUNCTION__, u->flags);
+#endif
 	spin_lock_irqsave(&as->lock, flags);
 	u->flags &= ~FLG_RUNNING;
 	i = u->flags;
@@ -724,16 +726,16 @@ static void usbin_stop(struct usb_audiodev *as)
 		}
 	}
 	set_current_state(TASK_RUNNING);
-	if (u->durb[0].urb.transfer_buffer)
-		kfree(u->durb[0].urb.transfer_buffer);
-	if (u->durb[1].urb.transfer_buffer)
-		kfree(u->durb[1].urb.transfer_buffer);
-	if (u->surb[0].urb.transfer_buffer)
-		kfree(u->surb[0].urb.transfer_buffer);
-	if (u->surb[1].urb.transfer_buffer)
-		kfree(u->surb[1].urb.transfer_buffer);
-	u->durb[0].urb.transfer_buffer = u->durb[1].urb.transfer_buffer = 
-		u->surb[0].urb.transfer_buffer = u->surb[1].urb.transfer_buffer = NULL;
+	for (i=0; i < MAX_URBS; i++) {
+	    if (u->durb[i].urb.transfer_buffer)
+		kfree(u->durb[i].urb.transfer_buffer);
+	    u->durb[i].urb.transfer_buffer = NULL;
+	}
+}
+
+static inline void usbin_stop(struct usb_audiodev *as)
+{
+	release_substream_urbs(as, &as->usbin);
 }
 
 static inline void usbin_release(struct usb_audiodev *as)
@@ -743,7 +745,7 @@ static inline void usbin_release(struct usb_audiodev *as)
 
 static void usbin_disc(struct usb_audiodev *as)
 {
-	struct usbin *u = &as->usbin;
+	struct snd_usb_substream *u = &as->usbin;
 
 	unsigned long flags;
 
@@ -899,7 +901,7 @@ static void conversion(const void *ibuf, unsigned int ifmt,
 	}
 }
 
-static void usbin_convert(struct usbin *u, unsigned char *buffer, unsigned int samples)
+static void usbin_convert(struct snd_usb_substream *u, unsigned char *buffer, unsigned int samples)
 {
         unsigned int scnt;
 	unsigned int ufmtb = AFMT_SAMPLEBYTES(u->format);
@@ -919,14 +921,12 @@ static void usbin_convert(struct usbin *u, unsigned char *buffer, unsigned int s
 	}
 }		
 
-static int usbin_prepare_desc(struct usbin *u, struct urb *urb)
+static int usbin_prepare_desc(struct snd_usb_substream *u, struct urb *urb)
 {
-	unsigned int i, maxsize, offs;
+	unsigned int i, offs;
 
-	maxsize = ((u->freqmax + 0x3fff) * AFMT_SAMPLEBYTES(u->format)) >> 14;
-	//printk(KERN_DEBUG "usbin_prepare_desc: maxsize %d freq 0x%x format 0x%x\n", maxsize, u->freqn, u->format);
-	for (i = offs = 0; i < DESCFRAMES; i++, offs += maxsize) {
-		urb->iso_frame_desc[i].length = maxsize;
+	for (i = offs = 0; i < DESCFRAMES; i++, offs += u->maxpacksize) {
+		urb->iso_frame_desc[i].length = u->maxpacksize;
 		urb->iso_frame_desc[i].offset = offs;
 	}
 	return 0;
@@ -936,7 +936,7 @@ static int usbin_prepare_desc(struct usbin *u, struct urb *urb)
  * return value: 0 if descriptor should be restarted, -1 otherwise
  * convert sample format on the fly if necessary
  */
-static int usbin_retire_desc(struct usbin *u, struct urb *urb)
+static int usbin_retire_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned int i, ufmtb, dfmtb, err = 0, cnt, scnt, dmafree;
 	unsigned char *cp;
@@ -979,49 +979,25 @@ static int usbin_retire_desc(struct usbin *u, struct urb *urb)
 	return err ? -1 : 0;
 }
 
+static void my_urb_completed(struct urb *urb, struct snd_usb_substream *u, int is_out);
+static void my_urb_sync_completed(struct urb *urb, struct snd_usb_substream *u, int is_out);
+
 static void usbin_completed(struct urb *urb)
 {
 	struct usb_audiodev *as = (struct usb_audiodev *)urb->context;
-	struct usbin *u = &as->usbin;
-	unsigned long flags;
-	unsigned int mask;
-	int suret = USB_ST_NOERROR;
 
-#if 0
-	printk(KERN_DEBUG "usbin_completed: status %d errcnt %d flags 0x%x\n", urb->status, urb->error_count, u->flags);
-#endif
-	if (urb == &u->durb[0].urb)
-		mask = FLG_URB0RUNNING;
-	else if (urb == &u->durb[1].urb)
-		mask = FLG_URB1RUNNING;
-	else {
-		mask = 0;
-		printk(KERN_ERR "usbin_completed: panic: unknown URB\n");
-	}
-	urb->dev = as->state->usbdev;
-	spin_lock_irqsave(&as->lock, flags);
-	if (!usbin_retire_desc(u, urb) &&
-	    u->flags & FLG_RUNNING &&
-	    !usbin_prepare_desc(u, urb) && 
-	    (suret = usb_submit_urb(urb)) == USB_ST_NOERROR) {
-		u->flags |= mask;
-	} else {
-		u->flags &= ~(mask | FLG_RUNNING);
-		wake_up(&u->dma.wait);
-		printk(KERN_DEBUG "usbin_completed: descriptor not restarted (usb_submit_urb: %d)\n", suret);
-	}
-	spin_unlock_irqrestore(&as->lock, flags);
+	my_urb_completed(urb, &as->usbin, 0);
 }
 
 /*
  * we output sync data
  */
-static int usbin_sync_prepare_desc(struct usbin *u, struct urb *urb)
+static int usbin_sync_prepare_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned char *cp = urb->transfer_buffer;
 	unsigned int i, offs;
 	
-	for (i = offs = 0; i < SYNCFRAMES; i++, offs += 3, cp += 3) {
+	for (i = offs = 0; i < SYNCFRAMES; i++, offs += 4, cp += 4) {
 		urb->iso_frame_desc[i].length = 3;
 		urb->iso_frame_desc[i].offset = offs;
 		cp[0] = u->freqn;
@@ -1034,7 +1010,7 @@ static int usbin_sync_prepare_desc(struct usbin *u, struct urb *urb)
 /*
  * return value: 0 if descriptor should be restarted, -1 otherwise
  */
-static int usbin_sync_retire_desc(struct usbin *u, struct urb *urb)
+static int usbin_sync_retire_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned int i;
 	
@@ -1047,191 +1023,21 @@ static int usbin_sync_retire_desc(struct usbin *u, struct urb *urb)
 static void usbin_sync_completed(struct urb *urb)
 {
 	struct usb_audiodev *as = (struct usb_audiodev *)urb->context;
-	struct usbin *u = &as->usbin;
-	unsigned long flags;
-	unsigned int mask;
-	int suret = USB_ST_NOERROR;
 
-#if 0
-	printk(KERN_DEBUG "usbin_sync_completed: status %d errcnt %d flags 0x%x\n", urb->status, urb->error_count, u->flags);
-#endif
-	if (urb == &u->surb[0].urb)
-		mask = FLG_SYNC0RUNNING;
-	else if (urb == &u->surb[1].urb)
-		mask = FLG_SYNC1RUNNING;
-	else {
-		mask = 0;
-		printk(KERN_ERR "usbin_sync_completed: panic: unknown URB\n");
-	}
-	urb->dev = as->state->usbdev;
-	spin_lock_irqsave(&as->lock, flags);
-	if (!usbin_sync_retire_desc(u, urb) &&
-	    u->flags & FLG_RUNNING &&
-	    !usbin_sync_prepare_desc(u, urb) && 
-	    (suret = usb_submit_urb(urb)) == USB_ST_NOERROR) {
-		u->flags |= mask;
-	} else {
-		u->flags &= ~(mask | FLG_RUNNING);
-		wake_up(&u->dma.wait);
-		dprintk((KERN_DEBUG "usbin_sync_completed: descriptor not restarted (usb_submit_urb: %d)\n", suret));
-	}
-	spin_unlock_irqrestore(&as->lock, flags);
+	my_urb_sync_completed(urb, &as->usbin, 0);
 }
 
-static int usbin_start(struct usb_audiodev *as)
-{
-	struct usb_device *dev = as->state->usbdev;
-	struct usbin *u = &as->usbin;
-	struct urb *urb;
-	unsigned long flags;
-	unsigned int maxsze, bufsz;
+static int init_substream_urbs(struct usb_audiodev *as, struct snd_usb_substream *u,
+	int is_out);
 
-#if 0
-	printk(KERN_DEBUG "usbin_start: device %d ufmt 0x%08x dfmt 0x%08x srate %d\n",
-	       dev->devnum, u->format, u->dma.format, u->dma.srate);
-#endif
-	/* allocate USB storage if not already done */
-	spin_lock_irqsave(&as->lock, flags);
-	if (!(u->flags & FLG_CONNECTED)) {
-		spin_unlock_irqrestore(&as->lock, flags);
-		return -EIO;
-	}
-	if (!(u->flags & FLG_RUNNING)) {
-		spin_unlock_irqrestore(&as->lock, flags);
-		u->freqn = ((u->dma.srate << 11) + 62) / 125; /* this will overflow at approx 2MSPS */
-		u->freqmax = u->freqn + (u->freqn >> 2);
-		u->phase = 0;
-		maxsze = ((u->freqmax + 0x3fff) * AFMT_SAMPLEBYTES(u->format)) >> 14;
-		bufsz = DESCFRAMES * maxsze;
-		if (u->durb[0].urb.transfer_buffer)
-			kfree(u->durb[0].urb.transfer_buffer);
-		u->durb[0].urb.transfer_buffer = kmalloc(bufsz, GFP_KERNEL);
-		u->durb[0].urb.transfer_buffer_length = bufsz;
-		if (u->durb[1].urb.transfer_buffer)
-			kfree(u->durb[1].urb.transfer_buffer);
-		u->durb[1].urb.transfer_buffer = kmalloc(bufsz, GFP_KERNEL);
-		u->durb[1].urb.transfer_buffer_length = bufsz;
-		if (u->syncpipe) {
-			if (u->surb[0].urb.transfer_buffer)
-				kfree(u->surb[0].urb.transfer_buffer);
-			u->surb[0].urb.transfer_buffer = kmalloc(3*SYNCFRAMES, GFP_KERNEL);
-			u->surb[0].urb.transfer_buffer_length = 3*SYNCFRAMES;
-			if (u->surb[1].urb.transfer_buffer)
-				kfree(u->surb[1].urb.transfer_buffer);
-			u->surb[1].urb.transfer_buffer = kmalloc(3*SYNCFRAMES, GFP_KERNEL);
-			u->surb[1].urb.transfer_buffer_length = 3*SYNCFRAMES;
-		}
-		if (!u->durb[0].urb.transfer_buffer || !u->durb[1].urb.transfer_buffer || 
-		    (u->syncpipe && (!u->surb[0].urb.transfer_buffer || !u->surb[1].urb.transfer_buffer))) {
-			printk(KERN_ERR "usbaudio: cannot start playback device %d\n", dev->devnum);
-			return 0;
-		}
-		spin_lock_irqsave(&as->lock, flags);
-	}
-	if (u->dma.count >= u->dma.dmasize && !u->dma.mapped) {
-		spin_unlock_irqrestore(&as->lock, flags);
-		return 0;
-	}
-	u->flags |= FLG_RUNNING;
-	if (!(u->flags & FLG_URB0RUNNING)) {
-		urb = &u->durb[0].urb;
-		urb->dev = dev;
-		urb->pipe = u->datapipe;
-		urb->transfer_flags = USB_ISO_ASAP;
-		urb->number_of_packets = DESCFRAMES;
-		urb->context = as;
-		urb->complete = usbin_completed;
-		if (!usbin_prepare_desc(u, urb) && !usb_submit_urb(urb))
-			u->flags |= FLG_URB0RUNNING;
-		else
-			u->flags &= ~FLG_RUNNING;
-	}
-	if (u->flags & FLG_RUNNING && !(u->flags & FLG_URB1RUNNING)) {
-		urb = &u->durb[1].urb;
-		urb->dev = dev;
-		urb->pipe = u->datapipe;
-		urb->transfer_flags = USB_ISO_ASAP;
-		urb->number_of_packets = DESCFRAMES;
-		urb->context = as;
-		urb->complete = usbin_completed;
-		if (!usbin_prepare_desc(u, urb) && !usb_submit_urb(urb))
-			u->flags |= FLG_URB1RUNNING;
-		else
-			u->flags &= ~FLG_RUNNING;
-	}
-	if (u->syncpipe) {
-		if (u->flags & FLG_RUNNING && !(u->flags & FLG_SYNC0RUNNING)) {
-			urb = &u->surb[0].urb;
-			urb->dev = dev;
-			urb->pipe = u->syncpipe;
-			urb->transfer_flags = USB_ISO_ASAP;
-			urb->number_of_packets = SYNCFRAMES;
-			urb->context = as;
-			urb->complete = usbin_sync_completed;
-			/* stride: u->syncinterval */
-			if (!usbin_sync_prepare_desc(u, urb) && !usb_submit_urb(urb))
-				u->flags |= FLG_SYNC0RUNNING;
-			else
-				u->flags &= ~FLG_RUNNING;
-		}
-		if (u->flags & FLG_RUNNING && !(u->flags & FLG_SYNC1RUNNING)) {
-			urb = &u->surb[1].urb;
-			urb->dev = dev;
-			urb->pipe = u->syncpipe;
-			urb->transfer_flags = USB_ISO_ASAP;
-			urb->number_of_packets = SYNCFRAMES;
-			urb->context = as;
-			urb->complete = usbin_sync_completed;
-			/* stride: u->syncinterval */
-			if (!usbin_sync_prepare_desc(u, urb) && !usb_submit_urb(urb))
-				u->flags |= FLG_SYNC1RUNNING;
-			else
-				u->flags &= ~FLG_RUNNING;
-		}
-	}
-	spin_unlock_irqrestore(&as->lock, flags);
-	return 0;
+static inline int usbin_start(struct usb_audiodev *as)
+{
+    return init_substream_urbs(as, &as->usbin, 0);
 }
 
-static void usbout_stop(struct usb_audiodev *as)
+static inline void usbout_stop(struct usb_audiodev *as)
 {
-	struct usbout *u = &as->usbout;
-	unsigned long flags;
-	unsigned int i, notkilled = 1;
-
-	spin_lock_irqsave(&as->lock, flags);
-	u->flags &= ~FLG_RUNNING;
-	i = u->flags;
-	spin_unlock_irqrestore(&as->lock, flags);
-	while (i & (FLG_URB0RUNNING|FLG_URB1RUNNING|FLG_SYNC0RUNNING|FLG_SYNC1RUNNING)) {
-		set_current_state(notkilled ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
-		spin_lock_irqsave(&as->lock, flags);
-		i = u->flags;
-		spin_unlock_irqrestore(&as->lock, flags);
-		if (notkilled && signal_pending(current)) {
-			if (i & FLG_URB0RUNNING)
-				usb_unlink_urb(&u->durb[0].urb);
-			if (i & FLG_URB1RUNNING)
-				usb_unlink_urb(&u->durb[1].urb);
-			if (i & FLG_SYNC0RUNNING)
-				usb_unlink_urb(&u->surb[0].urb);
-			if (i & FLG_SYNC1RUNNING)
-				usb_unlink_urb(&u->surb[1].urb);
-			notkilled = 0;
-		}
-	}
-	set_current_state(TASK_RUNNING);
-	if (u->durb[0].urb.transfer_buffer)
-		kfree(u->durb[0].urb.transfer_buffer);
-	if (u->durb[1].urb.transfer_buffer)
-		kfree(u->durb[1].urb.transfer_buffer);
-	if (u->surb[0].urb.transfer_buffer)
-		kfree(u->surb[0].urb.transfer_buffer);
-	if (u->surb[1].urb.transfer_buffer)
-		kfree(u->surb[1].urb.transfer_buffer);
-	u->durb[0].urb.transfer_buffer = u->durb[1].urb.transfer_buffer = 
-		u->surb[0].urb.transfer_buffer = u->surb[1].urb.transfer_buffer = NULL;
+	release_substream_urbs(as, &as->usbout);
 }
 
 static inline void usbout_release(struct usb_audiodev *as)
@@ -1241,7 +1047,7 @@ static inline void usbout_release(struct usb_audiodev *as)
 
 static void usbout_disc(struct usb_audiodev *as)
 {
-	struct usbout *u = &as->usbout;
+	struct snd_usb_substream *u = &as->usbout;
 	unsigned long flags;
 
 	spin_lock_irqsave(&as->lock, flags);
@@ -1250,7 +1056,7 @@ static void usbout_disc(struct usb_audiodev *as)
 	usbout_stop(as);
 }
 
-static void usbout_convert(struct usbout *u, unsigned char *buffer, unsigned int samples)
+static void usbout_convert(struct snd_usb_substream *u, unsigned char *buffer, unsigned int samples)
 {
         unsigned char tmp[TMPCOPYWIDTH];
         unsigned int scnt;
@@ -1270,7 +1076,7 @@ static void usbout_convert(struct usbout *u, unsigned char *buffer, unsigned int
 	}
 }		
 
-static int usbout_prepare_desc(struct usbout *u, struct urb *urb)
+static int usbout_prepare_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned int i, ufmtb, dfmtb, err = 0, cnt, scnt, offs;
 	unsigned char *cp = urb->transfer_buffer;
@@ -1322,7 +1128,7 @@ static int usbout_prepare_desc(struct usbout *u, struct urb *urb)
 /*
  * return value: 0 if descriptor should be restarted, -1 otherwise
  */
-static int usbout_retire_desc(struct usbout *u, struct urb *urb)
+static int usbout_retire_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned int i;
 
@@ -1338,42 +1144,15 @@ static int usbout_retire_desc(struct usbout *u, struct urb *urb)
 static void usbout_completed(struct urb *urb)
 {
 	struct usb_audiodev *as = (struct usb_audiodev *)urb->context;
-	struct usbout *u = &as->usbout;
-	unsigned long flags;
-	unsigned int mask;
-	int suret = USB_ST_NOERROR;
 
-#if 0
-	printk(KERN_DEBUG "usbout_completed: status %d errcnt %d flags 0x%x\n", urb->status, urb->error_count, u->flags);
-#endif
-	if (urb == &u->durb[0].urb)
-		mask = FLG_URB0RUNNING;
-	else if (urb == &u->durb[1].urb)
-		mask = FLG_URB1RUNNING;
-	else {
-		mask = 0;
-		printk(KERN_ERR "usbout_completed: panic: unknown URB\n");
-	}
-	urb->dev = as->state->usbdev;
-	spin_lock_irqsave(&as->lock, flags);
-	if (!usbout_retire_desc(u, urb) &&
-	    u->flags & FLG_RUNNING &&
-	    !usbout_prepare_desc(u, urb) && 
-	    (suret = usb_submit_urb(urb)) == USB_ST_NOERROR) {
-		u->flags |= mask;
-	} else {
-		u->flags &= ~(mask | FLG_RUNNING);
-		wake_up(&u->dma.wait);
-		dprintk((KERN_DEBUG "usbout_completed: descriptor not restarted (usb_submit_urb: %d)\n", suret));
-	}
-	spin_unlock_irqrestore(&as->lock, flags);
+	my_urb_completed(urb, &as->usbout, 1);
 }
 
-static int usbout_sync_prepare_desc(struct usbout *u, struct urb *urb)
+static int usbout_sync_prepare_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned int i, offs;
 
-	for (i = offs = 0; i < SYNCFRAMES; i++, offs += 3) {
+	for (i = offs = 0; i < SYNCFRAMES; i++, offs += 4) {
 		urb->iso_frame_desc[i].length = 3;
 		urb->iso_frame_desc[i].offset = offs;
 	}
@@ -1383,12 +1162,12 @@ static int usbout_sync_prepare_desc(struct usbout *u, struct urb *urb)
 /*
  * return value: 0 if descriptor should be restarted, -1 otherwise
  */
-static int usbout_sync_retire_desc(struct usbout *u, struct urb *urb)
+static int usbout_sync_retire_desc(struct snd_usb_substream *u, struct urb *urb)
 {
 	unsigned char *cp = urb->transfer_buffer;
 	unsigned int f, i;
 
-	for (i = 0; i < SYNCFRAMES; i++, cp += 3) {
+	for (i = 0; i < SYNCFRAMES; i++, cp += 4) {
 		if (urb->iso_frame_desc[i].status) {
 			dprintk((KERN_DEBUG "usbout_sync_retire_desc: frame %u status %d\n", i, urb->iso_frame_desc[i].status));
 			continue;
@@ -1410,48 +1189,46 @@ static int usbout_sync_retire_desc(struct usbout *u, struct urb *urb)
 static void usbout_sync_completed(struct urb *urb)
 {
 	struct usb_audiodev *as = (struct usb_audiodev *)urb->context;
-	struct usbout *u = &as->usbout;
-	unsigned long flags;
-	unsigned int mask;
-	int suret = USB_ST_NOERROR;
 
-#if 0
-	printk(KERN_DEBUG "usbout_sync_completed: status %d errcnt %d flags 0x%x\n", urb->status, urb->error_count, u->flags);
-#endif
-	if (urb == &u->surb[0].urb)
-		mask = FLG_SYNC0RUNNING;
-	else if (urb == &u->surb[1].urb)
-		mask = FLG_SYNC1RUNNING;
-	else {
-		mask = 0;
-		printk(KERN_ERR "usbout_sync_completed: panic: unknown URB\n");
-	}
-	urb->dev = as->state->usbdev;
-	spin_lock_irqsave(&as->lock, flags);
-	if (!usbout_sync_retire_desc(u, urb) &&
-	    u->flags & FLG_RUNNING &&
-	    !usbout_sync_prepare_desc(u, urb) && 
-	    (suret = usb_submit_urb(urb)) == USB_ST_NOERROR) {
-		u->flags |= mask;
-	} else {
-		u->flags &= ~(mask | FLG_RUNNING);
-		wake_up(&u->dma.wait);
-		dprintk((KERN_DEBUG "usbout_sync_completed: descriptor not restarted (usb_submit_urb: %d)\n", suret));
-	}
-	spin_unlock_irqrestore(&as->lock, flags);
+	my_urb_sync_completed(urb, &as->usbout, 1);
 }
 
-static int usbout_start(struct usb_audiodev *as)
+static inline int usbout_start(struct usb_audiodev *as)
+{
+    return init_substream_urbs(as, &as->usbout, 1);
+}
+
+static struct snd_urb_ops audio_urb_ops[2] = {
+    { // in
+	.prepare       = usbin_prepare_desc,
+	.retire        = usbin_retire_desc,
+	.complete      = usbin_completed,
+	.prepare_sync  = usbin_sync_prepare_desc,
+	.retire_sync   = usbin_sync_retire_desc,
+	.complete_sync = usbin_sync_completed,
+    },
+    { // out
+	.prepare       = usbout_prepare_desc,
+	.retire        = usbout_retire_desc,
+	.complete      = usbout_completed,
+	.prepare_sync  = usbout_sync_prepare_desc,
+	.retire_sync   = usbout_sync_retire_desc,
+	.complete_sync = usbout_sync_completed,
+    },
+};
+
+static int init_substream_urbs(struct usb_audiodev *as, struct snd_usb_substream *u,
+	int is_out)
 {
 	struct usb_device *dev = as->state->usbdev;
-	struct usbout *u = &as->usbout;
 	struct urb *urb;
 	unsigned long flags;
 	unsigned int maxsze, bufsz;
+	int i, err = 0;
 
-#if 0
-	printk(KERN_DEBUG "usbout_start: device %d ufmt 0x%08x dfmt 0x%08x srate %d\n",
-	       dev->devnum, u->format, u->dma.format, u->dma.srate);
+#if AUDIO_DEBUG
+	printk(KERN_DEBUG "%s: device %d ufmt 0x%08x dfmt 0x%08x srate %d is_playback %d\n",
+	       __FUNCTION__, dev->devnum, u->format, u->dma.format, u->dma.srate, is_out);
 #endif
 	/* allocate USB storage if not already done */
 	spin_lock_irqsave(&as->lock, flags);
@@ -1464,98 +1241,146 @@ static int usbout_start(struct usb_audiodev *as)
 		u->freqn = u->freqm = ((u->dma.srate << 11) + 62) / 125; /* this will overflow at approx 2MSPS */
 		u->freqmax = u->freqn + (u->freqn >> 2);
 		u->phase = 0;
-		maxsze = ((u->freqmax + 0x3fff) * AFMT_SAMPLEBYTES(u->format)) >>14;
+
+		/* calculate the max. size of packet */
+		maxsze = ((u->freqmax + 0x3fff) * AFMT_SAMPLEBYTES(u->format)) >> 14;
+		if (u->maxpacksize && maxsze > u->maxpacksize)
+			maxsze = u->maxpacksize;
 
 		bufsz = DESCFRAMES * maxsze;
-		if (u->durb[0].urb.transfer_buffer)
-			kfree(u->durb[0].urb.transfer_buffer);
-		u->durb[0].urb.transfer_buffer = kmalloc(bufsz, GFP_KERNEL);
-		u->durb[0].urb.transfer_buffer_length = bufsz;
-		if (u->durb[1].urb.transfer_buffer)
-			kfree(u->durb[1].urb.transfer_buffer);
-		u->durb[1].urb.transfer_buffer = kmalloc(bufsz, GFP_KERNEL);
-		u->durb[1].urb.transfer_buffer_length = bufsz;
-		if (u->syncpipe) {
-			if (u->surb[0].urb.transfer_buffer)
-				kfree(u->surb[0].urb.transfer_buffer);
-			u->surb[0].urb.transfer_buffer = kmalloc(3*SYNCFRAMES, GFP_KERNEL);
-			u->surb[0].urb.transfer_buffer_length = 3*SYNCFRAMES;
-			if (u->surb[1].urb.transfer_buffer)
-				kfree(u->surb[1].urb.transfer_buffer);
-			u->surb[1].urb.transfer_buffer = kmalloc(3*SYNCFRAMES, GFP_KERNEL);
-			u->surb[1].urb.transfer_buffer_length = 3*SYNCFRAMES;
-		}
-		if (!u->durb[0].urb.transfer_buffer || !u->durb[1].urb.transfer_buffer || 
-		    (u->syncpipe && (!u->surb[0].urb.transfer_buffer || !u->surb[1].urb.transfer_buffer))) {
+		for (i=0; i < MAX_URBS; i++) {
+		    if (u->durb[i].urb.transfer_buffer)
+				kfree(u->durb[i].urb.transfer_buffer);
+		    u->durb[i].urb.transfer_buffer = kmalloc(bufsz, GFP_KERNEL);
+		    u->durb[i].urb.transfer_buffer_length = bufsz;
+		    if (u->syncpipe) {
+			    u->surb[i].urb.transfer_buffer = u->syncbuf + i * SYNCFRAMES * 4;
+			    u->surb[i].urb.transfer_buffer_length = 4*SYNCFRAMES;
+		    }
+		    if (!u->durb[i].urb.transfer_buffer) {
 			printk(KERN_ERR "usbaudio: cannot start playback device %d\n", dev->devnum);
-			return 0;
+			return -ENOMEM;
+		    }
 		}
 		spin_lock_irqsave(&as->lock, flags);
 	}
-	if (u->dma.count <= 0 && !u->dma.mapped) {
-		spin_unlock_irqrestore(&as->lock, flags);
-		return 0;
+	if (!u->dma.mapped) {
+	    if ((u->dma.count <= 0 && is_out) ||
+	       (u->dma.count >= u->dma.dmasize && !is_out)) {
+		    spin_unlock_irqrestore(&as->lock, flags);
+		    return 0;
+	    }
 	}
        	u->flags |= FLG_RUNNING;
-	if (!(u->flags & FLG_URB0RUNNING)) {
-		urb = &u->durb[0].urb;
+	for (i=0; i < MAX_URBS; i++) {
+	    if (!(u->flags & (FLG_URB0RUNNING << i))) {
+		urb = &u->durb[i].urb;
 		urb->dev = dev;
 		urb->pipe = u->datapipe;
 		urb->transfer_flags = USB_ISO_ASAP;
 		urb->number_of_packets = DESCFRAMES;
+		urb->interval = 1;
 		urb->context = as;
-		urb->complete = usbout_completed;
-		if (!usbout_prepare_desc(u, urb) && !usb_submit_urb(urb))
-			u->flags |= FLG_URB0RUNNING;
-		else
+		urb->complete = audio_urb_ops[is_out].complete;
+		if (!(*audio_urb_ops[is_out].prepare)(u, urb) &&
+		    !(err=usb_submit_urb(urb)))
+			u->flags |= (FLG_URB0RUNNING << i);
+		else {
+			printk(KERN_ERR "submit_urb[%d] failed %d\n", i, err);
 			u->flags &= ~FLG_RUNNING;
-	}
-	if (u->flags & FLG_RUNNING && !(u->flags & FLG_URB1RUNNING)) {
-		urb = &u->durb[1].urb;
-		urb->dev = dev;
-		urb->pipe = u->datapipe;
-		urb->transfer_flags = USB_ISO_ASAP;
-		urb->number_of_packets = DESCFRAMES;
-		urb->context = as;
-		urb->complete = usbout_completed;
-		if (!usbout_prepare_desc(u, urb) && !usb_submit_urb(urb))
-			u->flags |= FLG_URB1RUNNING;
-		else
-			u->flags &= ~FLG_RUNNING;
-	}
-	if (u->syncpipe) {
-		if (u->flags & FLG_RUNNING && !(u->flags & FLG_SYNC0RUNNING)) {
-			urb = &u->surb[0].urb;
+		}
+	    }
+	    if (u->syncpipe) {
+		if (!(u->flags & (FLG_SYNC0RUNNING << i))) {
+			urb = &u->surb[i].urb;
 			urb->dev = dev;
 			urb->pipe = u->syncpipe;
 			urb->transfer_flags = USB_ISO_ASAP;
 			urb->number_of_packets = SYNCFRAMES;
+			urb->interval = 1;
 			urb->context = as;
-			urb->complete = usbout_sync_completed;
+			urb->complete = audio_urb_ops[is_out].complete_sync;
 			/* stride: u->syncinterval */
-			if (!usbout_sync_prepare_desc(u, urb) && !usb_submit_urb(urb))
+			if (!(*audio_urb_ops[is_out].prepare_sync)(u, urb) &&
+			    !(err=usb_submit_urb(urb)))
 				u->flags |= FLG_SYNC0RUNNING;
-			else
+			else {
+				printk(KERN_ERR "submit_urb[%d] sync failed %d\n", i, err);
 				u->flags &= ~FLG_RUNNING;
+			}
 		}
-		if (u->flags & FLG_RUNNING && !(u->flags & FLG_SYNC1RUNNING)) {
-			urb = &u->surb[1].urb;
-			urb->dev = dev;
-			urb->pipe = u->syncpipe;
-			urb->transfer_flags = USB_ISO_ASAP;
-			urb->number_of_packets = SYNCFRAMES;
-			urb->context = as;
-			urb->complete = usbout_sync_completed;
-			/* stride: u->syncinterval */
-			if (!usbout_sync_prepare_desc(u, urb) && !usb_submit_urb(urb))
-				u->flags |= FLG_SYNC1RUNNING;
-			else
-				u->flags &= ~FLG_RUNNING;
-		}
+	    }
 	}
 	spin_unlock_irqrestore(&as->lock, flags);
 	return 0;
 }
+
+static void my_urb_completed(struct urb *urb, struct snd_usb_substream *u, int is_out)
+{
+	struct usb_audiodev *as = (struct usb_audiodev *)urb->context;
+	unsigned long flags;
+	unsigned int mask;
+	int i, suret = USB_ST_NOERROR;
+
+#if AUDIO_DEBUG
+	printk(KERN_DEBUG "%s: status %d errcnt %d flags 0x%x\n", __FUNCTION__, urb->status, urb->error_count, u->flags);
+#endif
+	for (i=0; i < MAX_URBS; i++) {
+		if (urb == &u->durb[i].urb)
+			break;
+	}
+	if (i >= MAX_URBS)
+		printk(KERN_ERR "%s: panic: unknown URB\n", __FUNCTION__);
+	mask = FLG_URB0RUNNING << i;
+
+	urb->dev = as->state->usbdev;
+	spin_lock_irqsave(&as->lock, flags);
+	if (!(*audio_urb_ops[is_out].retire)(u, urb) &&
+	    u->flags & FLG_RUNNING &&
+	    !(*audio_urb_ops[is_out].prepare)(u, urb) && 
+	    (suret = usb_submit_urb(urb)) == USB_ST_NOERROR) {
+		u->flags |= mask;
+	} else {
+		u->flags &= ~(mask | FLG_RUNNING);
+		wake_up(&u->dma.wait);
+		dprintk((KERN_DEBUG "%s: descriptor not restarted (usb_submit_urb: %d)\n", __FUNCTION__, suret));
+	}
+	spin_unlock_irqrestore(&as->lock, flags);
+}
+
+static void my_urb_sync_completed(struct urb *urb, struct snd_usb_substream *u, int is_out)
+{
+	struct usb_audiodev *as = (struct usb_audiodev *)urb->context;
+	unsigned long flags;
+	unsigned int mask;
+	int i, suret = USB_ST_NOERROR;
+
+#if AUDIO_DEBUG
+	printk(KERN_DEBUG "%s: status %d errcnt %d flags 0x%x\n", __FUNCTION__, urb->status, urb->error_count, u->flags);
+#endif
+	for (i=0; i < MAX_URBS; i++) {
+		if (urb == &u->surb[i].urb)
+			break;
+	}
+	if (i >= MAX_URBS)
+		printk(KERN_ERR "%s: panic: unknown URB\n", __FUNCTION__);
+	mask = FLG_SYNC0RUNNING << i;
+
+	urb->dev = as->state->usbdev;
+	spin_lock_irqsave(&as->lock, flags);
+	if (!(*audio_urb_ops[is_out].retire_sync)(u, urb) &&
+	    u->flags & FLG_RUNNING &&
+	    !(*audio_urb_ops[is_out].prepare_sync)(u, urb) && 
+	    (suret = usb_submit_urb(urb)) == USB_ST_NOERROR) {
+		u->flags |= mask;
+	} else {
+		u->flags &= ~(mask | FLG_RUNNING);
+		wake_up(&u->dma.wait);
+		dprintk((KERN_DEBUG "%s: descriptor not restarted (usb_submit_urb: %d)\n", __FUNCTION__, suret));
+	}
+	spin_unlock_irqrestore(&as->lock, flags);
+}
+
 
 /* --------------------------------------------------------------------- */
 /* allowed conversions (sign, endian, width, channels), and relative
@@ -1658,7 +1483,7 @@ static int set_format_in(struct usb_audiodev *as)
 	struct usb_config_descriptor *config = dev->actconfig;
 	struct usb_interface_descriptor *alts;
 	struct usb_interface *iface;
-	struct usbin *u = &as->usbin;
+	struct snd_usb_substream *u = &as->usbin;
 	struct dmabuf *d = &u->dma;
 	struct audioformat *fmt;
 	unsigned int ep;
@@ -1679,6 +1504,7 @@ static int set_format_in(struct usb_audiodev *as)
 	alts = &iface->altsetting[fmt->altsetting];
 	u->format = fmt->format;
 	u->datapipe = usb_rcvisocpipe(dev, alts->endpoint[0].bEndpointAddress & 0xf);
+        u->maxpacksize = alts->endpoint[0].wMaxPacketSize;
 	u->syncpipe = u->syncinterval = 0;
 	if ((alts->endpoint[0].bmAttributes & 0x0c) == 0x08) {
 		if (alts->bNumEndpoints < 2 ||
@@ -1746,7 +1572,7 @@ static int set_format_out(struct usb_audiodev *as)
 	struct usb_config_descriptor *config = dev->actconfig;
 	struct usb_interface_descriptor *alts;
 	struct usb_interface *iface;	
-	struct usbout *u = &as->usbout;
+	struct snd_usb_substream *u = &as->usbout;
 	struct dmabuf *d = &u->dma;
 	struct audioformat *fmt;
 	unsigned int ep;
@@ -1767,9 +1593,10 @@ static int set_format_out(struct usb_audiodev *as)
 	u->format = fmt->format;
 	alts = &iface->altsetting[fmt->altsetting];
 	u->datapipe = usb_sndisocpipe(dev, alts->endpoint[0].bEndpointAddress & 0xf);
+        u->maxpacksize = alts->endpoint[0].wMaxPacketSize;
 	u->syncpipe = u->syncinterval = 0;
 	if ((alts->endpoint[0].bmAttributes & 0x0c) == 0x04) {
-#if 0
+#if AUDIO_DEBUG
 		printk(KERN_DEBUG "bNumEndpoints 0x%02x endpoint[1].bmAttributes 0x%02x\n"
 		       KERN_DEBUG "endpoint[1].bSynchAddress 0x%02x endpoint[1].bEndpointAddress 0x%02x\n"
 		       KERN_DEBUG "endpoint[0].bSynchAddress 0x%02x\n", alts->bNumEndpoints,
@@ -2373,7 +2200,7 @@ static ssize_t usb_audio_write(struct file *file, const char *buffer, size_t cou
 	start_thr = (as->usbout.dma.srate * AFMT_SAMPLEBYTES(as->usbout.dma.format)) / (1000 / (3 * DESCFRAMES));
 	add_wait_queue(&as->usbout.dma.wait, &wait);
 	while (count > 0) {
-#if 0
+#if AUDIO_DEBUG
 		printk(KERN_DEBUG "usb_audio_write: count %u dma: count %u rdptr %u wrptr %u dmasize %u fragsize %u flags 0x%02x taskst 0x%lx\n",
 		       count, as->usbout.dma.count, as->usbout.dma.rdptr, as->usbout.dma.wrptr, as->usbout.dma.dmasize, as->usbout.dma.fragsize,
 		       as->usbout.flags, current->state);
@@ -2513,10 +2340,10 @@ static int usb_audio_ioctl(struct inode *inode, struct file *file, unsigned int 
 		return -EIO;
 	mapped = ((file->f_mode & FMODE_WRITE) && as->usbout.dma.mapped) ||
 		((file->f_mode & FMODE_READ) && as->usbin.dma.mapped);
-#if 0
+#if AUDIO_DEBUG
 	if (arg)
 		get_user(val, (int *)arg);
-	printk(KERN_DEBUG "usbaudio: usb_audio_ioctl cmd=%x arg=%lx *arg=%d\n", cmd, arg, val)
+	printk(KERN_DEBUG "usbaudio: usb_audio_ioctl cmd=%x arg=%lx *arg=%d\n", cmd, arg, val);
 #endif
 	switch (cmd) {
 	case OSS_GETVERSION:
@@ -3580,10 +3407,8 @@ static void usb_audio_featureunit(struct consmixstate *state, unsigned char *ftr
 {
 	struct mixerchannel *ch;
 	unsigned short chftr, mchftr;
-#if 0
 	struct usb_device *dev = state->s->usbdev;
 	unsigned char data[1];
-#endif
 	unsigned char nr_logical_channels, i;
 
 	usb_audio_recurseunit(state, ftr[4]);
@@ -3611,7 +3436,7 @@ static void usb_audio_featureunit(struct consmixstate *state, unsigned char *ftr
 			printk(KERN_INFO "usbaudio: assuming that a stereo channel connected directly to a mixer is missing in search (got Labtec headset?). Should be fine.\n");
 			state->nrchannels=nr_logical_channels;
 		} else {
-			printk(KERN_WARNING "usbaudio: no idea what's going on with channels.\n");
+			printk(KERN_WARNING "usbaudio: no idea what's going on..., contact linux-usb-devel@lists.sourceforge.net\n");
 		}
 	}
 
@@ -3686,17 +3511,17 @@ static void usb_audio_featureunit(struct consmixstate *state, unsigned char *ftr
 			prepmixch(state);
 		}
 	}
-#if 0
+
 	/* if there are mute controls, unmute them */
-	/* does not seem to be necessary, and the Dallas chip does not seem to support the "all" channel (255) */
-	if ((chftr & 1) || (mchftr & 1)) {
+	/* this is necessary for the Audigy 2 NX, which is muted by default */
+	if (((chftr & 1) || (mchftr & 1)) && dev->descriptor.idVendor==0x041e &&
+		(dev->descriptor.idProduct==0x3020 || dev->descriptor.idProduct==0x3048)) {
 		printk(KERN_DEBUG "usbaudio: unmuting feature unit %u interface %u\n", ftr[3], state->ctrlif);
 		data[0] = 0;
 		if (usb_control_msg(dev, usb_sndctrlpipe(dev, 0), SET_CUR, USB_RECIP_INTERFACE | USB_TYPE_CLASS | USB_DIR_OUT,
-				    (MUTE_CONTROL << 8) | 0xff, state->ctrlif | (ftr[3] << 8), data, 1, HZ) < 0)
+				    (MUTE_CONTROL << 8) | 0, state->ctrlif | (ftr[3] << 8), data, 1, HZ) < 0)
 			printk(KERN_WARNING "usbaudio: failure to unmute feature unit %u interface %u\n", ftr[3], state->ctrlif);
  	}
-#endif
 }
 
 static void usb_audio_recurseunit(struct consmixstate *state, unsigned char unitid)
@@ -3950,7 +3775,7 @@ static void *usb_audio_probe(struct usb_device *dev, unsigned int ifnum,
 	unsigned int i, buflen;
 	int ret;
 
-#if 0
+#if AUDIO_DEBUG
 	printk(KERN_DEBUG "usbaudio: Probing if %i: IC %x, ISC %x\n", ifnum,
 	       config->interface[ifnum].altsetting[0].bInterfaceClass,
 	       config->interface[ifnum].altsetting[0].bInterfaceSubClass);

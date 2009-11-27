@@ -1893,8 +1893,9 @@ static int proc_scsi_gen_write(struct file * file, const char * buf,
 				break;
 			}
 		}
+
 		if ((err=scsi_add_single_device(HBA_ptr, channel, id, lun))==0)
-		    err = length;
+			err = length;
 		goto out;
 	}
 

@@ -331,8 +331,9 @@ static void generic_shutdown		(struct usb_serial *serial);
 #ifdef CONFIG_USB_SERIAL_GENERIC
 static __u16	vendor	= 0x05f9;
 static __u16	product	= 0xffff;
+static int	maxSize = 0;
 
-static struct usb_device_id generic_device_ids[2]; /* Initially all zeroes. */
+static struct usb_device_id generic_device_ids[3]; /* Initially all zeroes. */
 
 /* All of the device info needed for the Generic Serial Converter */
 static struct usb_serial_device_type generic_device = {
@@ -1429,6 +1430,9 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 	int max_endpoints;
 	const struct usb_device_id *id_pattern = NULL;
 	unsigned long flags;
+#ifdef CONFIG_USB_DEVPATH
+	char devfsname[16];
+#endif
 
 	/* loop through our list of known serial converters, and see if this
 	   device matches. */
@@ -1557,7 +1561,11 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 			err("No free urbs available");
 			goto probe_error;
 		}
+#ifdef CONFIG_USB_SERIAL_GENERIC
+		buffer_size = (endpoint->wMaxPacketSize > maxSize) ? endpoint->wMaxPacketSize : maxSize;
+#else
 		buffer_size = endpoint->wMaxPacketSize;
+#endif
 		port->bulk_in_endpointAddress = endpoint->bEndpointAddress;
 		port->bulk_in_buffer = kmalloc (buffer_size, GFP_KERNEL);
 		if (!port->bulk_in_buffer) {
@@ -1657,6 +1665,10 @@ static void * usb_serial_probe(struct usb_device *dev, unsigned int ifnum,
 		tty_register_devfs (&serial_tty_driver, 0, serial->port[i].number);
 		info("%s converter now attached to ttyUSB%d (or usb/tts/%d for devfs)", 
 		     type->name, serial->port[i].number, serial->port[i].number);
+#ifdef CONFIG_USB_DEVPATH
+		sprintf(devfsname, serial_tty_driver.name, serial->port[i].number);
+		usb_register_devpath(dev, ifnum+i*10, devfsname);
+#endif
 	}
 
 	return serial; /* success */
@@ -1750,6 +1762,9 @@ static void usb_serial_disconnect(struct usb_device *dev, void *ptr)
 
 		for (i = 0; i < serial->num_ports; ++i) {
 			tty_unregister_devfs (&serial_tty_driver, serial->port[i].number);
+#ifdef CONFIG_USB_DEVPATH
+			usb_deregister_devpath(dev);
+#endif
 			info("%s converter now disconnected from ttyUSB%d", serial->type->name, serial->port[i].number);
 		}
 
@@ -1831,6 +1846,10 @@ static int __init usb_serial_init(void)
 	generic_device_ids[0].idVendor = vendor;
 	generic_device_ids[0].idProduct = product;
 	generic_device_ids[0].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
+	/* Audiovox Aircard */
+	generic_device_ids[1].idVendor = 0x0f3d;
+	generic_device_ids[1].idProduct = 0x0112;
+	generic_device_ids[1].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
 	/* register our generic driver with ourselves */
 	usb_serial_register (&generic_device);
 #endif
@@ -1921,4 +1940,7 @@ MODULE_PARM_DESC(vendor, "User specified USB idVendor");
 
 MODULE_PARM(product, "h");
 MODULE_PARM_DESC(product, "User specified USB idProduct");
+
+MODULE_PARM(maxSize,"i");
+MODULE_PARM_DESC(maxSize,"User specified USB endpoint size");
 #endif

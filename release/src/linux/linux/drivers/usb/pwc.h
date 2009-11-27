@@ -18,6 +18,8 @@
 #ifndef PWC_H
 #define PWC_H
 
+#include <linux/version.h>
+
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/usb.h>
@@ -25,9 +27,11 @@
 #include <linux/videodev.h>
 #include <linux/wait.h>
 #include <linux/smp_lock.h>
-
 #include <asm/semaphore.h>
 #include <asm/errno.h>
+
+#include "pwc-uncompress.h"
+#include "pwc-ioctl.h"
 
 /* Defines and structures for the Philips webcam */
 /* Used for checking memory corruption/pointer validation */
@@ -58,10 +62,12 @@
 #define TOUCAM_HEADER_SIZE		8
 #define TOUCAM_TRAILER_SIZE		4
 
+#define FEATURE_MOTOR_PANTILT		0x0001
+
 /* Version block */
-#define PWC_MAJOR	8
-#define PWC_MINOR	11
-#define PWC_VERSION 	"8.11"
+#define PWC_MAJOR	9
+#define PWC_MINOR	0
+#define PWC_VERSION 	"9.0.2"
 #define PWC_NAME 	"pwc"
 
 /* Turn certain features on/off */
@@ -83,12 +89,6 @@
 
 /* Absolute maximum number of buffers available for mmap() */
 #define MAX_IMAGES 		10
-
-struct pwc_coord
-{
-	int x, y;		/* guess what */
-	int size;		/* size, or offset */
-};
 
 /* The following structures were based on cpia.h. Why reinvent the wheel? :-) */
 struct pwc_iso_buf
@@ -112,15 +112,17 @@ struct pwc_frame_buf
 
 struct pwc_device
 {
-   struct video_device vdev;
+   struct video_device *vdev;
 #ifdef PWC_MAGIC
    int magic;
 #endif
    /* Pointer to our usb_device */
    struct usb_device *udev;
    
-   int type;                    /* type of cam (645, 646, 675, 680, 690) */
+   int type;                    /* type of cam (645, 646, 675, 680, 690, 720, 730, 740, 750) */
    int release;			/* release number */
+   int features;		/* feature bits */
+   char serial[30];		/* serial number (string) */
    int error_status;		/* set when something goes wrong with the cam (unplugged, USB errors) */
    int usb_init;		/* set when the cam has been initialized over USB */
 
@@ -130,6 +132,7 @@ struct pwc_device
    int vcinterface;		/* video control interface */
    int valternate;		/* alternate interface needed */
    int vframes, vsize;		/* frames-per-second & size (see PSZ_*) */
+   int vpalette;		/* palette: 420P, RAW or RGBBAYER */
    int vframe_count;		/* received frames */
    int vframes_dumped; 		/* counter for dumped frames */
    int vframes_error;		/* frames received in error */
@@ -141,7 +144,9 @@ struct pwc_device
    char vsnapshot;		/* snapshot mode */
    char vsync;			/* used by isoc handler */
    char vmirror;		/* for ToUCaM series */
-	char unplugged;
+   
+   int cmd_len;
+   unsigned char cmd_buf[13];
 
    /* The image acquisition requires 3 to 4 steps:
       1. data is gathered in short packets from the USB controller
@@ -163,8 +168,9 @@ struct pwc_device
    struct pwc_frame_buf *full_frames, *full_frames_tail;	/* all filled frames */
    struct pwc_frame_buf *fill_frame;	/* frame currently being filled */
    struct pwc_frame_buf *read_frame;	/* frame currently read by user process */
-   int frame_size;
    int frame_header_size, frame_trailer_size;
+   int frame_size;
+   int frame_total_size; /* including header & trailer */
    int drop_frames;
 #if PWC_DEBUG
    int sequence;			/* Debugging aid */
@@ -181,7 +187,8 @@ struct pwc_device
       a gray or black border. view_min <= image <= view <= view_max;
     */
    int image_mask;			/* bitmask of supported sizes */
-   struct pwc_coord view_min, view_max;	/* minimum and maximum sizes */
+   struct pwc_coord view_min, view_max;	/* minimum and maximum viewable sizes */
+   struct pwc_coord abs_max;            /* maximum supported size with compression */
    struct pwc_coord image, view;	/* image and viewport size */
    struct pwc_coord offset;		/* offset within the viewport */
 
@@ -195,22 +202,17 @@ struct pwc_device
    struct semaphore modlock;		/* to prevent races in video_open(), etc */
    spinlock_t ptrlock;			/* for manipulating the buffer pointers */
 
+   /*** motorized pan/tilt feature */
+   struct pwc_mpt_range angle_range;
+   int pan_angle;			/* in degrees * 100 */
+   int tilt_angle;			/* absolute angle; 0,0 is home position */
+
    /*** Misc. data ***/
    wait_queue_head_t frameq;		/* When waiting for a frame to finish... */
 #if PWC_INT_PIPE
    void *usb_int_handler;		/* for the interrupt endpoint */
 #endif
 };
-
-/* Enumeration of image sizes */
-#define PSZ_SQCIF	0x00
-#define PSZ_QSIF	0x01
-#define PSZ_QCIF	0x02
-#define PSZ_SIF		0x03
-#define PSZ_CIF		0x04
-#define PSZ_VGA		0x05
-#define PSZ_MAX		6
-
 
 
 #ifdef __cplusplus
@@ -248,7 +250,7 @@ extern int pwc_get_saturation(struct pwc_device *pdev);
 extern int pwc_set_saturation(struct pwc_device *pdev, int value);
 extern int pwc_set_leds(struct pwc_device *pdev, int on_value, int off_value);
 extern int pwc_get_leds(struct pwc_device *pdev, int *on_value, int *off_value);
-extern int pwc_get_cmos_sensor(struct pwc_device *pdev);
+extern int pwc_get_cmos_sensor(struct pwc_device *pdev, int *sensor);
 
 /* Power down or up the camera; not supported by all models */
 extern int pwc_camera_power(struct pwc_device *pdev, int power);

@@ -38,7 +38,7 @@
 #define BLIST_ISROM     	0x200	/* Treat as (removable) CD-ROM */
 #define BLIST_LARGELUN		0x400	/* LUNs larger than 7 despite reporting as SCSI 2 */
 #define BLIST_NOSTARTONADD	0x1000	/* do not do automatic start on add */
-
+#define BLIST_RETRY_HWERROR	0x400000/* retry HARDWARE ERROR */
 
 static void print_inquiry(unsigned char *data);
 static int scan_scsis_single(unsigned int channel, unsigned int dev,
@@ -814,6 +814,14 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 	 */
 	if (bflags & BLIST_SINGLELUN)
 		SDpnt->single_lun = 1;
+
+	/* configure device if needed */
+	if (SDpnt->host->hostt->slave_configure) {
+		if (!SDpnt->host->hostt->slave_configure(SDpnt)) {
+			printk("scsi: scan_scsis_single: Cannot configure device\n");
+			return 0;
+		}
+	}
 
 	/*
 	 * These devices need this "key" to unlock the devices so we can use it

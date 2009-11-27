@@ -95,6 +95,11 @@ static int detect(struct SHT *sht)
 	if (us->host) {
 		us->host->hostdata[0] = (unsigned long)us;
 		us->host_no = us->host->host_no;
+
+		/* allow 16-byte CDBs as we need it for devices > 2TB
+		   and ATA command pass-through */
+		us->host->max_cmd_len = 16;
+
 		return 1;
 	}
 
@@ -335,6 +340,28 @@ static int host_reset( Scsi_Cmnd *srb )
 	return FAILED;
 }
 
+static int slave_configure( Scsi_Device *dev )
+{
+	US_DEBUGP("slave_configure() called\n" );
+
+	if (dev->type == TYPE_DISK) {
+
+		/* USB-IDE bridges tend to report SK = 0x04 (Non-recoverable
+		 * Hardware Error) when any low-level error occurs,
+	         * recoverable or not.  Setting this flag tells the SCSI
+		 * midlayer to retry such commands, which frequently will
+		 * succeed and fix the error.  The worst this can lead to
+		 * is an occasional series of retries that will all fail. */
+		dev->retry_hwerror = 1;
+
+		/* USB disks should allow restart. Some drives spin down
+		 * automatically, requiring a START-STOP UNIT command. */
+		dev->allow_restart = 1;
+	}
+
+	return 1;
+}
+
 /***********************************************************************
  * /proc/scsi/ functions
  ***********************************************************************/
@@ -389,6 +416,14 @@ static int proc_info (char *buffer, char **start, off_t offset, int length,
 	SPRINTF("         GUID: " GUID_FORMAT "\n", GUID_ARGS(us->guid));
 	SPRINTF("     Attached: %s\n", us->pusb_dev ? "Yes" : "No");
 
+	if (us->pusb_dev && us->pusb_dev->devpath)
+	{
+		SPRINTF("         Port: %s\n", us->pusb_dev->devpath );
+
+		if (us->pusb_dev->bus && us->pusb_dev->bus->bus_name)
+		SPRINTF("          Bus: %s-%s\n", us->pusb_dev->bus->bus_name, us->pusb_dev->devpath);
+	}
+
 	/*
 	 * Calculate start of next buffer, and return value.
 	 */
@@ -420,6 +455,8 @@ Scsi_Host_Template usb_stor_host_template = {
 	eh_device_reset_handler:device_reset,
 	eh_bus_reset_handler:	bus_reset,
 	eh_host_reset_handler:	host_reset,
+
+	slave_configure:	slave_configure,
 
 	can_queue:		1,
 	this_id:		-1,

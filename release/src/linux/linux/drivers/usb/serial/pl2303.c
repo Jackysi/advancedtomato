@@ -449,7 +449,7 @@ static void pl2303_send(struct usb_serial_port *port)
 	port->write_urb->dev = port->serial->dev;
 	result = usb_submit_urb (port->write_urb);
 	if (result) {
-		err("%s - failed submitting write urb, error %d", __FUNCTION__, result);
+		err("%s - failed submitting write urb, error %d\n", __FUNCTION__, result);
 		priv->write_urb_in_use = 0;
 		// TODO: reschedule pl2303_send
 	}
@@ -550,7 +550,7 @@ static void pl2303_set_termios(struct usb_serial_port *port,
 
 	buf = kmalloc (7, GFP_KERNEL);
 	if (!buf) {
-		err("%s - out of memory.", __FUNCTION__);
+		err("%s - out of memory.\n", __FUNCTION__);
 		return;
 	}
 	memset (buf, 0x00, 0x07);
@@ -676,8 +676,6 @@ static void pl2303_close(struct usb_serial_port *port, struct file *filp)
 	long timeout;
 	wait_queue_t wait;
 
-	if (port_paranoia_check (port, __FUNCTION__))
-		return;
 	serial = get_usb_serial (port, __FUNCTION__);
 	if (!serial)
 		return;
@@ -819,7 +817,7 @@ static int pl2303_open(struct usb_serial_port *port, struct file *filp)
 	port->read_urb->dev = serial->dev;
 	result = usb_submit_urb (port->read_urb);
 	if (result) {
-		err("%s - failed submitting read urb, error %d", __FUNCTION__, result);
+		err("%s - failed submitting read urb, error %d\n", __FUNCTION__, result);
 		pl2303_close(port, NULL);
 		return -EPROTO;
 	}
@@ -828,7 +826,7 @@ static int pl2303_open(struct usb_serial_port *port, struct file *filp)
 	port->interrupt_in_urb->dev = serial->dev;
 	result = usb_submit_urb (port->interrupt_in_urb);
 	if (result) {
-		err("%s - failed submitting interrupt urb, error %d", __FUNCTION__, result);
+		err("%s - failed submitting interrupt urb, error %d\n", __FUNCTION__, result);
 		pl2303_close(port, NULL);
 		return -EPROTO;
 	}
@@ -1102,7 +1100,7 @@ static void pl2303_read_bulk_callback(struct urb *urb)
 			urb->dev = port->serial->dev;
 			result = usb_submit_urb(urb);
 			if (result)
-				err("%s - failed resubmitting read urb, error %d", __FUNCTION__, result);
+				err("%s - failed resubmitting read urb, error %d\n", __FUNCTION__, result);
 			return;
 		}
 		dbg("%s - unable to handle the error, exiting.", __FUNCTION__);
@@ -1149,7 +1147,7 @@ static void pl2303_read_bulk_callback(struct urb *urb)
 		urb->dev = port->serial->dev;
 		result = usb_submit_urb(urb);
 		if (result)
-			err("%s - failed resubmitting read urb, error %d", __FUNCTION__, result);
+			err("%s - failed resubmitting read urb, error %d\n", __FUNCTION__, result);
 	}
 
 	return;
@@ -1161,9 +1159,6 @@ static void pl2303_write_bulk_callback(struct urb *urb)
 	struct pl2303_private *priv = usb_get_serial_port_data(port);
 	int result;
 	int status = urb->status;
-
-	if (port_paranoia_check (port, __FUNCTION__))
-		return;
 
 	dbg("%s - port %d", __FUNCTION__, port->number);
 
@@ -1181,8 +1176,6 @@ static void pl2303_write_bulk_callback(struct urb *urb)
 		return;
 	default:
 		/* error in the urb, so we have to resubmit it */
-		if (serial_paranoia_check (port->serial, __FUNCTION__))
-			return;
 		dbg("%s - Overflow in write", __FUNCTION__);
 		dbg("%s - nonzero write bulk status received: %d", __FUNCTION__,
 		    status);
@@ -1190,7 +1183,7 @@ static void pl2303_write_bulk_callback(struct urb *urb)
 		port->write_urb->dev = port->serial->dev;
 		result = usb_submit_urb (port->write_urb);
 		if (result)
-			err("%s - failed resubmitting write urb, error %d", __FUNCTION__, result);
+			err("%s - failed resubmitting write urb, error %d\n", __FUNCTION__, result);
 		else
 			return;
 	}

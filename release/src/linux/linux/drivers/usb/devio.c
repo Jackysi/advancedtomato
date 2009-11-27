@@ -274,8 +274,6 @@ static void destroy_async (struct dev_state *ps, struct list_head *list)
 		spin_lock_irqsave(&ps->lock, flags);
 	}
 	spin_unlock_irqrestore(&ps->lock, flags);
-	while ((as = async_getcompleted(ps)))
-		free_async(as);
 }
 
 static void destroy_async_on_interface (struct dev_state *ps, unsigned int intf)
@@ -529,6 +527,7 @@ static int usbdev_release(struct inode *inode, struct file *file)
 {
 	struct dev_state *ps = (struct dev_state *)file->private_data;
 	unsigned int i;
+	struct async *as;
 
 	lock_kernel();
 	list_del_init(&ps->list);
@@ -539,6 +538,8 @@ static int usbdev_release(struct inode *inode, struct file *file)
 	}
 	unlock_kernel();
 	destroy_all_async(ps);
+	while ((as = async_getcompleted(ps)))
+		free_async(as);
 	kfree(ps);
         return 0;
 }
@@ -874,7 +875,8 @@ static int proc_submiturb(struct dev_state *ps, void *arg)
 			}
 			totlen += isopkt[u].length;
 		}
-		if (totlen > 32768) {
+		/* 3072 * 64 microframes */
+		if (totlen > 196608) {
 			kfree(isopkt);
 			return -EINVAL;
 		}

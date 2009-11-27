@@ -265,9 +265,9 @@ long usb_calc_bus_time (int speed, int is_input, int isoc, int bytecount)
 	case USB_SPEED_HIGH:	/* ISOC or INTR */
 		// FIXME adjust for input vs output
 		if (isoc)
-			tmp = HS_USECS (bytecount);
+			tmp = HS_NSECS (bytecount);
 		else
-			tmp = HS_USECS_ISO (bytecount);
+			tmp = HS_NSECS_ISO (bytecount);
 		return tmp;
 	default:
 		dbg ("bogus device speed!");
@@ -881,6 +881,13 @@ static void call_policy_interface (char *verb, struct usb_device *dev, int inter
 		dev->descriptor.idVendor,
 		dev->descriptor.idProduct,
 		dev->descriptor.bcdDevice) + 1;
+
+	/* The Scsi storage host #, if there is one. */
+	if (dev->storage_host_number > 0) {
+		envp [i++] = scratch;
+		scratch += sprintf (scratch, "SCSI_HOST=%d",
+			dev->storage_host_number - 1) + 1;
+	}
 
 	/* class-based driver binding models */
 	envp [i++] = scratch;
@@ -1834,16 +1841,45 @@ int usb_get_descriptor(struct usb_device *dev, unsigned char type, unsigned char
 {
 	int i = 5;
 	int result;
-	
-	memset(buf,0,size);	// Make sure we parse really received data
+	volatile unsigned char *b = (unsigned char *)buf;
+
+	memset(buf, 0xaa, size);	// Make sure we parse really received data
 
 	while (i--) {
-		if ((result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+		result = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
-			(type << 8) + index, 0, buf, size, HZ * GET_TIMEOUT)) > 0 ||
-		     result == -EPIPE)
+			(type << 8) + index, 0, buf, size, HZ * GET_TIMEOUT);
+
+		if (result == -EPIPE)
+			break;
+
+		/* WAR60307: Retry if last two bytes of descriptor did not
+		 * make it to memory.
+		 */
+		if ((type == USB_DT_DEVICE) && (result == 18)) {
+			if (b[17] == 0xaa) {
+#ifdef	DEBUG
+				err("Looks like a Device Descriptor where numConfigurations was not read, retrying (%d)", i);
+#endif
+				continue;
+			}
+			if (b[17] == 0) {
+#ifdef	DEBUG
+				err("Looks like a Device descriptor with 0 configurations, retrying (%d)", i);
+#endif
+				continue;
+			}
+		}
+
+		if (result > 0)
 			break;	/* retry if the returned length was 0; flaky device */
+#ifdef	DEBUG
+		err("Zero result from usb_control_msg, retrying (%d)", i);
+#endif
 	}
+
+	if (result == 0)
+		memset(buf, 0, size);
 	return result;
 }
 
@@ -2264,6 +2300,48 @@ int usb_new_device(struct usb_device *dev)
 	dev->epmaxpacketin [0] = dev->descriptor.bMaxPacketSize0;
 	dev->epmaxpacketout[0] = dev->descriptor.bMaxPacketSize0;
 
+	if (dev->ttport) {
+		// !!TB - lly: This piece of code stolen from 2.6 tree
+		// Workaround for USB 1.1 device connected via high-speed USB 2.0 hub
+		// hub.c: hub_port_init()
+		dbg("Device via USB hub");
+
+		struct usb_device_descriptor *buf;
+		int j, r = 0;
+
+#define GET_DESCRIPTOR_BUFSIZE  64
+		buf = kmalloc(GET_DESCRIPTOR_BUFSIZE, GFP_NOIO);
+		if (!buf) {
+			return 1;
+		}
+
+		for (j = 0; j < 3; ++j) {
+			buf->bMaxPacketSize0 = 0;
+			r = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+				USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
+				USB_DT_DEVICE << 8, 0,
+				buf, GET_DESCRIPTOR_BUFSIZE,
+				HZ * GET_TIMEOUT);
+			switch (buf->bMaxPacketSize0) {
+				case 8: case 16: case 32: case 64: case 255:
+					if (buf->bDescriptorType == USB_DT_DEVICE) {
+						r = 0;
+						break;
+					}
+				/* FALL THROUGH */
+				default:
+					if (r == 0)
+					r = -EPROTO;
+					break;
+			}
+			if (r == 0) break;
+		}
+		dev->descriptor.bMaxPacketSize0 = buf->bMaxPacketSize0;
+		kfree(buf);
+#undef GET_DESCRIPTOR_BUFSIZE
+		// lly: End 2.6 code
+	}
+
 	err = usb_get_device_descriptor(dev);
 	if (err < (signed)sizeof(dev->descriptor)) {
 		if (err < 0)
@@ -2275,6 +2353,12 @@ int usb_new_device(struct usb_device *dev)
 		clear_bit(dev->devnum, &dev->bus->devmap.devicemap);
 		dev->devnum = -1;
 		return 1;
+	}
+
+	// !!TB - added delay (wait for data)
+	int wcnt;
+	for (wcnt = 0; wcnt < 20 && dev->descriptor.bNumConfigurations == 0; wcnt++) {
+		wait_ms(50);
 	}
 
 	err = usb_get_configuration(dev);
@@ -2443,6 +2527,9 @@ void usb_excl_unlock(struct usb_device *dev, unsigned int type)
 static int __init usb_init(void)
 {
 	init_MUTEX(&usb_bus_list_lock);
+#ifdef CONFIG_USB_DEVPATH
+	init_MUTEX(&usb_devpath_list_lock);
+#endif
 	usb_major_init();
 	usbdevfs_init();
 	usb_hub_init();

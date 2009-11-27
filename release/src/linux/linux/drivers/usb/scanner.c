@@ -878,6 +878,9 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	char valid_device = 0;
 	char have_bulk_in, have_bulk_out, have_intr;
 	char name[10];
+#ifdef CONFIG_USB_DEVPATH
+	char devfsname[16];
+#endif
 
 	dbg("probe_scanner: USB dev address:%p", dev);
 	dbg("probe_scanner: ifnum:%u", ifnum);
@@ -1110,6 +1113,11 @@ probe_scanner(struct usb_device *dev, unsigned int ifnum,
 	if (scn->devfs == NULL)
 		dbg("scanner%d: device node registration failed", scn_minor);
 
+#ifdef CONFIG_USB_DEVPATH
+	sprintf(devfsname, "usb/%s", name);
+	usb_register_devpath(dev, ifnum, devfsname);
+#endif
+
 	info ("USB scanner device (0x%04x/0x%04x) now attached to %s",
 	      dev->descriptor.idVendor, dev->descriptor.idProduct, name);
 	p_scn_table[scn_minor] = scn;
@@ -1145,6 +1153,9 @@ disconnect_scanner(struct usb_device *dev, void *ptr)
 	dbg("disconnect_scanner: De-allocating minor:%d", scn->scn_minor);
 	devfs_unregister(scn->devfs);
 	p_scn_table[scn->scn_minor] = NULL;
+#ifdef CONFIG_USB_DEVPATH
+	usb_deregister_devpath(scn->scn_dev);
+#endif
 
 	if (scn->isopen) {
 		/* The device is still open - cleanup must be delayed */

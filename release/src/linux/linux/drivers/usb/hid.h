@@ -343,6 +343,8 @@ struct hid_device {							/* device report descriptor */
 
 	int open;							/* is the device open by anyone? */
 	char name[128];							/* Device name */
+
+	wait_queue_head_t wait;						/* For sleeping */
 };
 
 #define HID_GLOBAL_STACK_SIZE 4
@@ -400,5 +402,6 @@ void hid_close(struct hid_device *);
 int hid_find_field(struct hid_device *, unsigned int, unsigned int, struct hid_field **);
 int hid_set_field(struct hid_field *, unsigned, __s32);
 void hid_write_report(struct hid_device *, struct hid_report *);
+int usbhid_wait_io(struct hid_device *hid);
 void hid_read_report(struct hid_device *, struct hid_report *);
 void hid_init_reports(struct hid_device *hid);

@@ -15,6 +15,11 @@ if [ "$CONFIG_USB" = "y" -o  "$CONFIG_USB" = "m" ]; then
    else
       define_bool CONFIG_USB_BANDWIDTH n
    fi
+   if [ "$CONFIG_USB_DEVICEFS" = "y" ]; then
+      bool '  Add support for /proc/bus/usb/devpath' CONFIG_USB_DEVPATH
+   else
+      define_bool CONFIG_USB_DEVPATH n
+   fi
 
    source drivers/usb/host/Config.in
 
@@ -76,6 +81,7 @@ if [ "$CONFIG_USB" = "y" -o  "$CONFIG_USB" = "m" ]; then
       dep_tristate '  USB Konica Webcam support' CONFIG_USB_KONICAWC $CONFIG_USB $CONFIG_VIDEO_DEV
       dep_tristate '  USB OV511 Camera support' CONFIG_USB_OV511 $CONFIG_USB $CONFIG_VIDEO_DEV
       dep_tristate '  USB Philips Cameras' CONFIG_USB_PWC $CONFIG_USB $CONFIG_VIDEO_DEV
+      dep_tristate '    USB Philips Camera decompressor' CONFIG_USB_PWCX $CONFIG_USB $CONFIG_USB_PWC $CONFIG_VIDEO_DEV
       dep_tristate '  USB SE401 Camera support' CONFIG_USB_SE401 $CONFIG_USB $CONFIG_VIDEO_DEV
       dep_tristate '  USB STV680 (Pencam) Camera support' CONFIG_USB_STV680 $CONFIG_USB $CONFIG_VIDEO_DEV
       dep_tristate '  USB W996[87]CF Camera support' CONFIG_USB_W9968CF $CONFIG_USB $CONFIG_VIDEO_DEV $CONFIG_I2C

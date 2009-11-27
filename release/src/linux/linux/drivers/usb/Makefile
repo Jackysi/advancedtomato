@@ -10,7 +10,10 @@ O_TARGET	:= usbdrv.o
 
 # Objects that export symbols.
 
-export-objs		:= hcd.o usb.o ov511.o pwc-uncompress.o
+export-objs		:= hcd.o usb.o ov51x.o pwc-uncompress.o
+ifeq ($(CONFIG_USB_DEVPATH),y)
+	export-objs	+= devpath.o
+endif
 
 # Multipart objects.
 
@@ -19,11 +22,15 @@ usbcore-objs		:= usb.o usb-debug.o hub.o
 hid-objs		:= hid-core.o
 pwc-objs		:= pwc-if.o pwc-misc.o pwc-ctrl.o pwc-uncompress.o
 auerswald-objs		:= auerbuf.o auerchain.o auerchar.o auermain.o
+pwcx-objs		:= pwcx-glue.o
 
 # Optional parts of multipart objects.
 
 ifeq ($(CONFIG_USB_DEVICEFS),y)
 	usbcore-objs	+= devio.o inode.o drivers.o devices.o
+ifeq ($(CONFIG_USB_DEVPATH),y)
+	usbcore-objs	+= devpath.o
+endif
 endif
 
 ifeq ($(CONFIG_USB_HIDDEV),y)
@@ -97,12 +104,13 @@ obj-$(CONFIG_USB_MIDI)		+= usb-midi.o
 obj-$(CONFIG_USB_IBMCAM)	+= ibmcam.o usbvideo.o ultracam.o
 obj-$(CONFIG_USB_KONICAWC)	+= konicawc.o usbvideo.o
 obj-$(CONFIG_USB_PWC)		+= pwc.o
+obj-$(CONFIG_USB_PWCX)		+= pwcx.o
 obj-$(CONFIG_USB_DC2XX)		+= dc2xx.o
 obj-$(CONFIG_USB_MDC800)	+= mdc800.o
 obj-$(CONFIG_USB_USS720)	+= uss720.o
 obj-$(CONFIG_USB_DABUSB)	+= dabusb.o
 obj-$(CONFIG_USB_VICAM)		+= vicam.o usbvideo.o
-obj-$(CONFIG_USB_OV511)		+= ov511.o
+obj-$(CONFIG_USB_OV511)		+= ov51x.o ov511_decomp.o ov518_decomp.o
 obj-$(CONFIG_USB_W9968CF)	+= w9968cf.o
 obj-$(CONFIG_USB_SE401)		+= se401.o
 obj-$(CONFIG_USB_STV680)	+= stv680.o
@@ -150,5 +158,9 @@ hid.o: $(hid-objs)
 pwc.o: $(pwc-objs)
 	$(LD) -r -o $@ $(pwc-objs)
 
+pwcx.o: $(pwcx-objs)
+	$(LD) -r -o $@ $(pwcx-objs) libpwcx.lib
+
 auerswald.o: $(auerswald-objs)
 	$(LD) -r -o $@ $(auerswald-objs)
+

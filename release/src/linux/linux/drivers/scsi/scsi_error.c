@@ -57,6 +57,7 @@
 #define SENSE_TIMEOUT (10*HZ)
 #define RESET_TIMEOUT (2*HZ)
 #define ABORT_TIMEOUT (15*HZ)
+#define START_STOP_TIMEOUT (60*HZ)
 #endif
 
 #define STATIC
@@ -75,6 +76,7 @@ STATIC int scsi_check_sense(Scsi_Cmnd * SCpnt);
 STATIC int scsi_request_sense(Scsi_Cmnd *);
 STATIC void scsi_send_eh_cmnd(Scsi_Cmnd * SCpnt, int timeout);
 STATIC int scsi_try_to_abort_command(Scsi_Cmnd *, int);
+STATIC int scsi_try_start_unit(Scsi_Cmnd * SCpnt);
 STATIC int scsi_test_unit_ready(Scsi_Cmnd *);
 STATIC int scsi_try_bus_device_reset(Scsi_Cmnd *, int timeout);
 STATIC int scsi_try_bus_reset(Scsi_Cmnd *);
@@ -535,6 +537,63 @@ STATIC int scsi_test_unit_ready(Scsi_Cmnd * SCpnt)
 }
 
 /*
+ * Function:  scsi_send_stu()
+ *
+ * Purpose:     Send start unit command.
+ *
+ */
+STATIC int scsi_send_stu(Scsi_Cmnd * SCpnt)
+{
+	static unsigned char stu_command[6] =
+	{START_STOP, 0, 0, 0, 1, 0};
+	int saved_resid;
+
+	memcpy((void *) SCpnt->cmnd, (void *) stu_command,
+	       sizeof(stu_command));
+
+	if (SCpnt->device->scsi_level <= SCSI_2)
+		SCpnt->cmnd[1] = SCpnt->lun << 5;
+
+	/*
+	 * Zero the sense buffer.  The SCSI spec mandates that any
+	 * untransferred sense data should be interpreted as being zero.
+	 */
+	memset((void *) SCpnt->sense_buffer, 0, sizeof(SCpnt->sense_buffer));
+
+	saved_resid = SCpnt->resid;
+	SCpnt->request_buffer = NULL;
+	SCpnt->request_bufflen = 0;
+	SCpnt->use_sg = 0;
+	SCpnt->cmd_len = COMMAND_SIZE(SCpnt->cmnd[0]);
+	SCpnt->underflow = 0;
+	SCpnt->sc_data_direction = SCSI_DATA_NONE;
+
+	scsi_send_eh_cmnd(SCpnt, START_STOP_TIMEOUT);
+
+	/*
+	 * When we eventually call scsi_finish, we really wish to complete
+	 * the original request, so let's restore the original data. (DB)
+	 */
+	memcpy((void *) SCpnt->cmnd, (void *) SCpnt->data_cmnd,
+	       sizeof(SCpnt->data_cmnd));
+	SCpnt->resid = saved_resid;
+	SCpnt->request_buffer = SCpnt->buffer;
+	SCpnt->request_bufflen = SCpnt->bufflen;
+	SCpnt->use_sg = SCpnt->old_use_sg;
+	SCpnt->cmd_len = SCpnt->old_cmd_len;
+	SCpnt->sc_data_direction = SCpnt->sc_old_data_direction;
+	SCpnt->underflow = SCpnt->old_underflow;
+
+	/*
+	 * Hey, we are done.  Let's look to see what happened.
+	 */
+	SCSI_LOG_ERROR_RECOVERY(3,
+		printk("scsi_send_stu: SCpnt %p eh_state %x\n",
+		SCpnt, SCpnt->eh_state));
+	return SCpnt->eh_state;
+}
+
+/*
  * This would normally need to get the IO request lock,
  * but as it doesn't actually touch anything that needs
  * to be locked we can avoid the lock here..
@@ -777,6 +836,32 @@ STATIC int scsi_try_to_abort_command(Scsi_Cmnd * SCpnt, int timeout)
 	rtn = SCpnt->host->hostt->eh_abort_handler(SCpnt);
 	spin_unlock_irqrestore(&io_request_lock, flags);
 	return rtn;
+}
+
+/*
+ * Function:  scsi_try_start_unit
+ *
+ * Purpose:     Try to start device.
+ *
+ * Returns:     FAILED          Operation failed or not supported.
+ *              SUCCESS         Succeeded.
+ */
+
+
+STATIC int scsi_try_start_unit(Scsi_Cmnd * SCpnt)
+{
+	unsigned long flags;
+	int rtn;
+
+	if (SCpnt->device->allow_restart == 0)
+		return FAILED;
+
+	rtn = scsi_send_stu(SCpnt);
+
+	if (rtn == SUCCESS)
+		SCpnt->eh_state = SUCCESS;
+
+	return SCpnt->eh_state;
 }
 
 /*
@@ -1195,6 +1280,15 @@ STATIC int scsi_check_sense(Scsi_Cmnd * SCpnt)
 			(SCpnt->sense_buffer[13] == 0x01)) {
 			return NEEDS_RETRY;
 		}
+		/*
+		 * if the device is not started, we need to wake
+		 * the error handler to start the motor
+		 */
+		if (SCpnt->device->allow_restart &&
+			(SCpnt->sense_buffer[12] == 0x04) &&
+			(SCpnt->sense_buffer[13] == 0x02)) {
+			return FAILED;
+		}
 		return SUCCESS;
 
 		/* these three are not supported */
@@ -1204,12 +1298,20 @@ STATIC int scsi_check_sense(Scsi_Cmnd * SCpnt)
 		return SUCCESS;
 
 	case MEDIUM_ERROR:
+		if (SCpnt->sense_buffer[12] == 0x11 || /* UNRECOVERED READ END */
+		    SCpnt->sense_buffer[12] == 0x13 || /* AMNF DATA FILED */
+		    SCpnt->sense_buffer[12] == 0x14) { /* RECORD NOT FOUND */
+			return SUCCESS;
+		}
 		return NEEDS_RETRY;
+		
+	case HARDWARE_ERROR:
+		if (SCpnt->device->retry_hwerror)
+			return ADD_TO_MLQUEUE;
 
 	case ILLEGAL_REQUEST:
 	case BLANK_CHECK:
 	case DATA_PROTECT:
-	case HARDWARE_ERROR:
 	default:
 		return SUCCESS;
 	}
@@ -1494,6 +1596,45 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 		ourrtn = TRUE;
 		goto leave;
 	}
+
+	/*
+	 *  If commands are failing due to not ready, initializing command required,
+	 *  try revalidating the device, which will end up sending a start unit.
+	 */
+	SCSI_LOG_ERROR_RECOVERY(3, printk("scsi_unjam_host: Checking to see if we want to try start unit\n"));
+
+	for (SDpnt = host->host_queue; SDpnt; SDpnt = SDpnt->next) {
+		for (SCloop = SDpnt->device_queue; SCloop; SCloop = SCloop->next) {
+			if (SCloop->state == SCSI_STATE_FAILED) {
+				break;
+			}
+		}
+
+		if (SCloop == NULL) {
+			continue;
+		}
+
+		rtn = scsi_try_start_unit(SCloop);
+
+		if (rtn == SUCCESS) {
+			rtn = scsi_test_unit_ready(SCloop);
+
+			if (rtn == SUCCESS && scsi_unit_is_ready(SCloop)) {
+				rtn = scsi_eh_retry_command(SCloop);
+
+				if (rtn == SUCCESS) {
+					SCloop->host->host_failed--;
+					scsi_eh_finish_command(&SCdone, SCloop);
+				}
+			}
+		}
+	}
+
+	if (host->host_failed == 0) {
+		ourrtn = TRUE;
+		goto leave;
+	}
+
 	/*
 	 * Either the abort wasn't appropriate, or it didn't succeed.
 	 * Now try a bus device reset.  Still, look to see whether we have
@@ -1714,7 +1855,12 @@ STATIC int scsi_unjam_host(struct Scsi_Host *host)
 						    && SCloop->state != SCSI_STATE_TIMEOUT) {
 							continue;
 						}
-						rtn = scsi_test_unit_ready(SCloop);
+
+						if (scsi_try_start_unit(SCloop) == SUCCESS &&
+						    scsi_test_unit_ready(SCloop) == SUCCESS)
+							rtn = SUCCESS;
+						else
+							rtn = scsi_test_unit_ready(SCloop);
 
 						if (rtn == SUCCESS && scsi_unit_is_ready(SCloop)) {
 							rtn = scsi_eh_retry_command(SCloop);

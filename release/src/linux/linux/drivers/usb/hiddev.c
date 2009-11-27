@@ -499,6 +499,7 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 			return -EINVAL;
 
 		hid_read_report(hid, report);
+		usbhid_wait_io(hid);
 
 		return 0;
 
@@ -513,6 +514,7 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 			return -EINVAL;
 
 		hid_write_report(hid, report);
+		usbhid_wait_io(hid);
 
 		return 0;
 
@@ -620,9 +622,8 @@ static int hiddev_ioctl(struct inode *inode, struct file *file,
 				return -EINVAL;
 
 			if (cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) {
-				if (uref_multi.num_values >= HID_MAX_USAGES || 
-				    uref->usage_index >= field->maxusage || 
-				   (uref->usage_index + uref_multi.num_values) >= field->maxusage)
+				if (uref_multi.num_values > HID_MAX_USAGES || 
+				   (uref->usage_index + uref_multi.num_values) > field->maxusage)
 					return -EINVAL;
 			}
 		}

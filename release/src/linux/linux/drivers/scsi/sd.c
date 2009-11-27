@@ -108,6 +108,8 @@ static int sd_attach(Scsi_Device *);
 static int sd_detect(Scsi_Device *);
 static void sd_detach(Scsi_Device *);
 static int sd_init_command(Scsi_Cmnd *);
+static void sd_start (Scsi_Cmnd * SCpnt);
+static void sd_devname(unsigned int disknum, char *buffer);
 
 static struct Scsi_Device_Template sd_template = {
 	name:"disk",
@@ -154,6 +156,7 @@ static int sd_ioctl(struct inode * inode, struct file * file, unsigned int cmd, 
 	struct Scsi_Host * host;
 	Scsi_Device * SDev;
 	int diskinfo[4];
+	char nbuf[6];
     
 	SDev = rscsi_disks[DEVICE_NR(dev)].device;
 	if (!SDev)
@@ -238,6 +241,8 @@ static int sd_ioctl(struct inode * inode, struct file * file, unsigned int cmd, 
 				return -EFAULT;
 			return 0;
 		}
+		case SD_IOCTL_IDLE:
+			return (jiffies - rscsi_disks[DEVICE_NR(dev)].idle) / HZ + 1;
 		case BLKGETSIZE:
 		case BLKGETSIZE64:
 		case BLKROSET:
@@ -259,6 +264,16 @@ static int sd_ioctl(struct inode * inode, struct file * file, unsigned int cmd, 
 			return revalidate_scsidisk(dev, 1);
 
 		default:
+			if (cmd == SCSI_IOCTL_STOP_UNIT) {
+				rscsi_disks[DEVICE_NR(dev)].spindown = 1;
+        			sd_devname(DEVICE_NR(dev), nbuf);
+				/* printk(KERN_INFO "%s: Spinning down disk.\n",nbuf); */
+			}
+			if (cmd == SCSI_IOCTL_START_UNIT) {
+				rscsi_disks[DEVICE_NR(dev)].spindown = 0;
+        			sd_devname(DEVICE_NR(dev), nbuf);
+				printk(KERN_INFO "%s: Spinning up disk.\n",nbuf);
+			}
 			return scsi_ioctl(rscsi_disks[DEVICE_NR(dev)].device , cmd, (void *) arg);
 	}
 }
@@ -311,6 +326,14 @@ static int sd_init_command(Scsi_Cmnd * SCpnt)
 	    SCpnt->request.rq_dev, block));
 
 	dpnt = &rscsi_disks[dev];
+
+	/* Update idle-since time */
+	rscsi_disks[dev].idle = jiffies;
+
+	/* Spin up */
+	if (dpnt->spindown) {
+	   sd_start(SCpnt);
+	}
 	if (dev >= sd_template.dev_max ||
 	    !dpnt->device ||
 	    !dpnt->device->online ||
@@ -670,6 +693,14 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 			 * hard error.
 			 */
 			print_sense("sd", SCpnt);
+			/* FALLS THROUGH */
+
+		case NO_SENSE:
+			/*
+			 * The low-level driver got the sense data but
+			 * everything was all right.  Don't treat this
+			 * an an error.
+			 */
 			SCpnt->result = 0;
 			SCpnt->sense_buffer[0] = 0x0;
 			good_sectors = this_count;
@@ -700,6 +731,20 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
  * them to SCSI commands.
  */
 
+/*
+ * handle spinup of idle disks
+ */
+
+static void sd_start (Scsi_Cmnd * SCpnt)
+{
+	unsigned char cmd[12];
+	int old_use_sg = SCpnt->use_sg, oldbufflen = SCpnt->bufflen;
+	Scsi_Device * dev = rscsi_disks[DEVICE_NR(SCpnt->request.rq_dev)].device;
+	sd_init_onedisk(DEVICE_NR(SCpnt->request.rq_dev));
+	rscsi_disks[DEVICE_NR(SCpnt->request.rq_dev)].spindown = 0;
+	SCpnt->use_sg  = old_use_sg;
+	SCpnt->bufflen = oldbufflen;
+}
 
 static int check_scsidisk_media_change(kdev_t full_dev)
 {

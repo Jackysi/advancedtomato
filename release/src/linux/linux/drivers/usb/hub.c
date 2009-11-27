@@ -38,7 +38,7 @@ static LIST_HEAD(hub_event_list);	/* List of hubs needing servicing */
 static LIST_HEAD(hub_list);		/* List containing all of the hubs (for cleanup) */
 
 static DECLARE_WAIT_QUEUE_HEAD(khubd_wait);
-static pid_t khubd_pid = 0;			/* PID of khubd */
+static int khubd_terminated = 0;
 static DECLARE_COMPLETION(khubd_exited);
 
 #ifdef	DEBUG
@@ -132,7 +132,7 @@ static void hub_irq(struct urb *urb)
 
 	/* Something happened, let khubd figure it out */
 	spin_lock_irqsave(&hub_event_lock, flags);
-	if (list_empty(&hub->event_list)) {
+	if (!hub->disconnected && list_empty(&hub->event_list)) {
 		list_add(&hub->event_list, &hub_event_list);
 		wake_up(&khubd_wait);
 	}
@@ -142,14 +142,15 @@ static void hub_irq(struct urb *urb)
 static void usb_hub_power_on(struct usb_hub *hub)
 {
 	int i;
+	unsigned pgood_delay = hub->descriptor->bPwrOn2PwrGood * 2;
 
 	/* Enable power to the ports */
 	dbg("enabling power on all ports");
 	for (i = 0; i < hub->descriptor->bNbrPorts; i++)
 		usb_set_port_feature(hub->dev, i + 1, USB_PORT_FEAT_POWER);
 
-	/* Wait for power to be enabled */
-	wait_ms(hub->descriptor->bPwrOn2PwrGood * 2);
+	/* Wait at least 100 msec for power to become stable */
+	wait_ms(max(pgood_delay, (unsigned) 100));
 }
 
 static int usb_hub_configure(struct usb_hub *hub, struct usb_endpoint_descriptor *endpoint)
@@ -230,19 +231,33 @@ static int usb_hub_configure(struct usb_hub *hub, struct usb_endpoint_descriptor
 			break;
 	}
 
+	/* Note 8 FS bit times == (8 bits / 12000000 bps) ~= 666ns */
 	switch (hub->descriptor->wHubCharacteristics & HUB_CHAR_TTTT) {
-		case 0x00:
-			if (dev->descriptor.bDeviceProtocol != 0)
-				dbg("TT requires at most 8 FS bit times");
+		case HUB_TTTT_8_BITS:
+			if (dev->descriptor.bDeviceProtocol != 0) {
+				hub->tt.think_time = 666;
+				dbg("TT requires at most %d "
+						"FS bit times (%d ns)\n",
+					8, hub->tt.think_time);
+			}
 			break;
-		case 0x20:
-			dbg("TT requires at most 16 FS bit times");
+		case HUB_TTTT_16_BITS:
+			hub->tt.think_time = 666 * 2;
+			dbg("TT requires at most %d "
+					"FS bit times (%d ns)\n",
+				16, hub->tt.think_time);
 			break;
-		case 0x40:
-			dbg("TT requires at most 24 FS bit times");
+		case HUB_TTTT_24_BITS:
+			hub->tt.think_time = 666 * 3;
+			dbg("TT requires at most %d "
+					"FS bit times (%d ns)\n",
+				24, hub->tt.think_time);
 			break;
-		case 0x60:
-			dbg("TT requires at most 32 FS bit times");
+		case HUB_TTTT_32_BITS:
+			hub->tt.think_time = 666 * 4;
+			dbg("TT requires at most %d "
+					"FS bit times (%d ns)\n",
+				32, hub->tt.think_time);
 			break;
 	}
 
@@ -390,6 +405,7 @@ static void *hub_probe(struct usb_device *dev, unsigned int i,
 	/* Delete it and then reset it */
 	list_del(&hub->event_list);
 	INIT_LIST_HEAD(&hub->event_list);
+	hub->disconnected = 1;
 	list_del(&hub->hub_list);
 	INIT_LIST_HEAD(&hub->hub_list);
 
@@ -601,6 +617,13 @@ static int usb_hub_port_reset(struct usb_device *hub, int port,
 
 		/* return on disconnect or reset */
 		status = usb_hub_port_wait_reset(hub, port, dev, delay);
+
+		// !!TB - dd-wrt fix for USB 2.0
+		if (status == 0) {
+			/* TRSTRCY = 10 ms; plus some extra */
+			wait_ms(10 + 40);
+		}
+
 		if (status != -1) {
 			usb_clear_port_feature(hub, port + 1, USB_PORT_FEAT_C_RESET);
 			return status;
@@ -697,7 +720,7 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 		return;
 	}
 
-	if (usb_hub_port_debounce(hub, port)) {
+	if (usb_hub_port_debounce(hub, port) < 0) {
 		err("connect-debounce failed, port %d disabled", port+1);
 		usb_hub_port_disable(hub, port);
 		return;
@@ -758,6 +781,13 @@ static void usb_hub_port_connect_change(struct usb_hub *hubstate, int port,
 		info("new USB device %s-%s, assigned address %d",
 			dev->bus->bus_name, dev->devpath, dev->devnum);
 
+		/* !!TB - fix by lly: check for devices running slower than they could */
+		if (dev->speed == USB_SPEED_FULL || dev->speed == USB_SPEED_LOW)
+		{
+			dbg("USB 1.1 device - waiting 20ms");
+			wait_ms(20);
+		}
+
 		/* Run it through the hoops (find a driver, etc) */
 		if (!usb_new_device(dev)) {
 			hub->children[port] = dev;
@@ -812,6 +842,9 @@ static void usb_hub_events(void)
 
 		down(&hub->khubd_sem); /* never blocks, we were on list */
 		spin_unlock_irqrestore(&hub_event_lock, flags);
+
+		if (unlikely(hub->disconnected))
+			goto loop;
 
 		if (hub->error) {
 			dbg("resetting hub %d for error %d", dev->devnum, hub->error);
@@ -894,13 +927,14 @@ static void usb_hub_events(void)
 			}
 			kfree(hubsts);
 		}
+loop:
 		up(&hub->khubd_sem);
         } /* end while (1) */
 
 	spin_unlock_irqrestore(&hub_event_lock, flags);
 }
 
-static int usb_hub_thread(void *__hub)
+static int usb_hub_thread(void *startup)
 {
 	lock_kernel();
 
@@ -912,14 +946,23 @@ static int usb_hub_thread(void *__hub)
 	daemonize();
 	reparent_to_init();
 
+ 	/* Block all signals */
+ 	spin_lock_irq(&current->sigmask_lock);
+ 	sigfillset(&current->blocked);
+ 	recalc_sigpending(current);
+ 	spin_unlock_irq(&current->sigmask_lock);
+
 	/* Setup a nice name */
 	strcpy(current->comm, "khubd");
 
-	/* Send me a signal to get me die (for debugging) */
+ 	khubd_terminated = 0;
+ 	complete((struct completion *)startup);
+ 
+ 	/* Set khubd_terminated=1 to get me die */
 	do {
 		usb_hub_events();
-		wait_event_interruptible(khubd_wait, !list_empty(&hub_event_list)); 
-	} while (!signal_pending(current));
+ 		wait_event_interruptible(khubd_wait, !list_empty(&hub_event_list) || khubd_terminated);
+ 	} while (!khubd_terminated || !list_empty(&hub_event_list));
 
 	dbg("usb_hub_thread exiting");
 
@@ -948,17 +991,16 @@ static struct usb_driver hub_driver = {
  */
 int usb_hub_init(void)
 {
-	pid_t pid;
+	DECLARE_COMPLETION(startup);
 
 	if (usb_register(&hub_driver) < 0) {
 		err("Unable to register USB hub driver");
 		return -1;
 	}
 
-	pid = kernel_thread(usb_hub_thread, NULL,
-		CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
-	if (pid >= 0) {
-		khubd_pid = pid;
+	if (kernel_thread(usb_hub_thread, &startup,
+		CLONE_FS | CLONE_FILES | CLONE_SIGHAND) >= 0) {
+		wait_for_completion(&startup);
 
 		return 0;
 	}
@@ -972,10 +1014,9 @@ int usb_hub_init(void)
 
 void usb_hub_cleanup(void)
 {
-	int ret;
-
 	/* Kill the thread */
-	ret = kill_proc(khubd_pid, SIGTERM, 1);
+ 	khubd_terminated = 1;
+ 	wake_up(&khubd_wait);
 
 	wait_for_completion(&khubd_exited);
 

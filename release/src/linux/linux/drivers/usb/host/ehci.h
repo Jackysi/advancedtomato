@@ -52,7 +52,7 @@ struct ehci_hcd {			/* one per controller */
 	/* async schedule support */
 	struct ehci_qh		*async;
 	struct ehci_qh		*reclaim;
-	int			reclaim_ready : 1;
+	unsigned		scanning : 1;
 
 	/* periodic schedule support */
 #define	DEFAULT_I_TDPS		1024		/* some HCs can do less */
@@ -65,8 +65,22 @@ struct ehci_hcd {			/* one per controller */
 	int			next_uframe;	/* scan periodic, start here */
 	unsigned		periodic_sched;	/* periodic activity count */
 
+	/* list of itds completed while clock_frame was still active */
+	struct list_head	cached_itd_list;
+	unsigned		clock_frame;
+
 	/* per root hub port */
 	unsigned long		reset_done [EHCI_MAX_ROOT_PORTS];
+
+	/* bit vectors (one bit per port) */
+	unsigned long		bus_suspended;		/* which ports were
+			already suspended at the start of a bus suspend */
+	unsigned long		companion_ports;	/* which ports are
+			dedicated to the companion controller */
+	unsigned long		owned_ports;		/* which ports are
+			owned by the companion during a bus suspend */
+	unsigned long		port_c_suspend;		/* which ports have
+			the change-suspend feature turned on */
 
 	/* glue to PCI and HCD framework */
 	struct usb_hcd		hcd;
@@ -80,10 +94,14 @@ struct ehci_hcd {			/* one per controller */
 	struct pci_pool		*itd_pool;	/* itd per iso urb */
 	struct pci_pool		*sitd_pool;	/* sitd per split iso urb */
 
+	struct timer_list	iaa_watchdog;
 	struct timer_list	watchdog;
-	struct notifier_block	reboot_notifier;
 	unsigned long		actions;
 	unsigned		stamp;
+	unsigned long		next_statechange;
+	u32			command;
+
+	struct notifier_block	reboot_notifier;
 
 	/* irq statistics */
 #ifdef EHCI_STATS
@@ -100,9 +118,21 @@ struct ehci_hcd {			/* one per controller */
 /* NOTE:  urb->transfer_flags expected to not use this bit !!! */
 #define EHCI_STATE_UNLINK	0x8000		/* urb being unlinked */
 
+static inline void
+iaa_watchdog_start(struct ehci_hcd *ehci)
+{
+	WARN_ON(timer_pending(&ehci->iaa_watchdog));
+	mod_timer(&ehci->iaa_watchdog,
+			jiffies + msecs_to_jiffies(EHCI_IAA_MSECS));
+}
+
+static inline void iaa_watchdog_done(struct ehci_hcd *ehci)
+{
+	del_timer(&ehci->iaa_watchdog);
+}
+
 enum ehci_timer_action {
 	TIMER_IO_WATCHDOG,
-	TIMER_IAA_WATCHDOG,
 	TIMER_ASYNC_SHRINK,
 	TIMER_ASYNC_OFF,
 };
@@ -116,13 +146,19 @@ timer_action_done (struct ehci_hcd *ehci, enum ehci_timer_action action)
 static inline void
 timer_action (struct ehci_hcd *ehci, enum ehci_timer_action action)
 {
+	/* Don't override timeouts which shrink or (later) disable
+	 * the async ring; just the I/O watchdog.  Note that if a
+	 * SHRINK were pending, OFF would never be requested.
+	 */
+	if (timer_pending(&ehci->watchdog)
+			&& (((1<<TIMER_ASYNC_SHRINK) | (1<<TIMER_ASYNC_OFF))
+				& ehci->actions))
+		return;
+
 	if (!test_and_set_bit (action, &ehci->actions)) {
 		unsigned long t;
 
 		switch (action) {
-		case TIMER_IAA_WATCHDOG:
-			t = EHCI_IAA_JIFFIES;
-			break;
 		case TIMER_IO_WATCHDOG:
 			t = EHCI_IO_JIFFIES;
 			break;
@@ -131,21 +167,17 @@ timer_action (struct ehci_hcd *ehci, enum ehci_timer_action action)
 			break;
 		// case TIMER_ASYNC_SHRINK:
 		default:
-			t = EHCI_SHRINK_JIFFIES;
+			/* add a jiffie since we synch against the
+			 * 8 KHz uframe counter.
+			 */
+			t = DIV_ROUND_UP(EHCI_SHRINK_FRAMES * HZ, 1000) + 1;
 			break;
 		}
-		t += jiffies;
-		// all timings except IAA watchdog can be overridden.
-		// async queue SHRINK often precedes IAA.  while it's ready
-		// to go OFF neither can matter, and afterwards the IO
-		// watchdog stops unless there's still periodic traffic.
-		if (action != TIMER_IAA_WATCHDOG
-				&& t > ehci->watchdog.expires
-				&& timer_pending (&ehci->watchdog))
-			return;
-		mod_timer (&ehci->watchdog, t);
+		mod_timer (&ehci->watchdog, t + jiffies);
 	}
 }
+
+static void free_cached_itd_list(struct ehci_hcd *ehci);
 
 /*-------------------------------------------------------------------------*/
 
@@ -250,8 +282,40 @@ struct ehci_regs {
 #define PORT_PE		(1<<2)		/* port enable */
 #define PORT_CSC	(1<<1)		/* connect status change */
 #define PORT_CONNECT	(1<<0)		/* device connected */
+#define PORT_RWC_BITS	(PORT_CSC | PORT_PEC | PORT_OCC)
 } __attribute__ ((packed));
 
+
+#define USBMODE		0x68		/* USB Device mode */
+#define USBMODE_SDIS	(1<<3)		/* Stream disable */
+#define USBMODE_BE	(1<<2)		/* BE/LE endianness select */
+#define USBMODE_CM_HC	(3<<0)		/* host controller mode */
+#define USBMODE_CM_IDLE	(0<<0)		/* idle state */
+
+/* Appendix C, Debug port ... intended for use with special "debug devices"
+ * that can help if there's no serial console.  (nonstandard enumeration.)
+ */
+struct ehci_dbg_port {
+	u32	control;
+#define DBGP_OWNER	(1<<30)
+#define DBGP_ENABLED	(1<<28)
+#define DBGP_DONE	(1<<16)
+#define DBGP_INUSE	(1<<10)
+#define DBGP_ERRCODE(x)	(((x)>>7)&0x07)
+#	define DBGP_ERR_BAD	1
+#	define DBGP_ERR_SIGNAL	2
+#define DBGP_ERROR	(1<<6)
+#define DBGP_GO		(1<<5)
+#define DBGP_OUT	(1<<4)
+#define DBGP_LEN(x)	(((x)>>0)&0x0f)
+	u32	pids;
+#define DBGP_PID_GET(x)		(((x)>>16)&0xff)
+#define DBGP_PID_SET(data,tok)	(((data)<<8)|(tok))
+	u32	data03;
+	u32	data47;
+	u32	address;
+#define DBGP_EPADDR(dev,ep)	(((dev)<<8)|(ep))
+} __attribute__ ((packed));
 
 /*-------------------------------------------------------------------------*/
 
@@ -283,6 +347,11 @@ struct ehci_qtd {
 #define	QTD_STS_MMF	(1 << 2)	/* incomplete split transaction */
 #define	QTD_STS_STS	(1 << 1)	/* split transaction state */
 #define	QTD_STS_PING	(1 << 0)	/* issue PING? */
+
+#define QTD_ACTIVE_BIT	__constant_cpu_to_le32(QTD_STS_ACTIVE)
+#define QTD_HALT_BIT	__constant_cpu_to_le32(QTD_STS_HALT)
+#define QTD_STATUS_BIT	__constant_cpu_to_le32(QTD_STS_STS)
+
 	u32			hw_buf [5];        /* see EHCI 3.5.4 */
 	u32			hw_buf_hi [5];        /* Appendix B */
 
@@ -348,6 +417,11 @@ struct ehci_qh {
 	u32			hw_info1;        /* see EHCI 3.6.2 */
 #define	QH_HEAD		0x00008000
 	u32			hw_info2;        /* see EHCI 3.6.2 */
+#define QH_SMASK        0x000000ff
+#define QH_CMASK        0x0000ff00
+#define QH_HUBADDR      0x007f0000
+#define QH_HUBPORT      0x3f800000
+#define QH_MULT         0xc0000000
 	u32			hw_current;	 /* qtd list - see EHCI 3.6.4 */
 	
 	/* qtd overlay (hardware parts of a struct ehci_qtd) */
@@ -374,10 +448,14 @@ struct ehci_qh {
 #define	QH_STATE_UNLINK_WAIT	4		/* LINKED and on reclaim q */
 #define	QH_STATE_COMPLETING	5		/* don't touch token.HALT */
 
+	u8			xacterrs;	/* XactErr retry counter */
+#define	QH_XACTERR_MAX		16		/* XactErr retry limit */
+
 	/* periodic schedule info */
 	u8			usecs;		/* intr bandwidth */
 	u8			gap_uf;		/* uframes split/csplit gap */
 	u8			c_usecs;	/* ... split completion bw */
+	u16                     tt_usecs;       /* tt downstream bandwidth */
 	unsigned short		period;		/* polling interval */
 	unsigned short		start;		/* where polling starts */
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
@@ -387,21 +465,23 @@ struct ehci_qh {
 /*-------------------------------------------------------------------------*/
 
 /* description of one iso highspeed transaction (up to 3 KB data) */
-struct ehci_iso_uframe {
+struct ehci_iso_packet {
 	/* These will be copied to iTD when scheduling */
 	u64			bufp;		/* itd->hw_bufp{,_hi}[pg] |= */
 	u32			transaction;	/* itd->hw_transaction[i] |= */
 	u8			cross;		/* buf crosses pages */
+	/* for full speed OUT splits */
+	u32			buf1;
 };
 
 /* temporary schedule data for highspeed packets from iso urbs
  * each packet is one uframe's usb transactions, in some itd,
  * beginning at stream->next_uframe
  */
-struct ehci_itd_sched {
-	struct list_head	itd_list;
+struct ehci_iso_sched {
+	struct list_head	td_list;
 	unsigned		span;
-	struct ehci_iso_uframe	packet [0];
+	struct ehci_iso_packet	packet [0];
 };
 
 /*
@@ -415,22 +495,28 @@ struct ehci_iso_stream {
 
 	u32			refcount;
 	u8			bEndpointAddress;
-	struct list_head	itd_list;	/* queued itds */
-	struct list_head	free_itd_list;	/* list of unused itds */
-	struct hcd_dev		*dev;
+	u8			highspeed;
+	u16			depth;		/* depth in uframes */
+	struct list_head	td_list;	/* queued itds */
+	struct list_head	free_list;	/* list of unused itds */
+	struct usb_device       *udev;
+	struct usb_endpoint_descriptor *ep;
 
 	/* output of (re)scheduling */
 	unsigned long		start;		/* jiffies */
 	unsigned long		rescheduled;
 	int			next_uframe;
+	u32			splits;
 
 	/* the rest is derived from the endpoint descriptor,
 	 * trusting urb->interval == (1 << (epdesc->bInterval - 1)),
 	 * including the extra info for hw_bufp[0..2]
 	 */
+	u8			usecs, c_usecs;
 	u8			interval;
-	u8			usecs;		
+	u16			tt_usecs;
 	u16			maxp;
+	u16			raw_mask;
 	unsigned		bandwidth;
 
 	/* This is used to initialize iTD's hw_bufp fields */
@@ -438,7 +524,8 @@ struct ehci_iso_stream {
 	u32			buf1;		
 	u32			buf2;
 
-	/* ... sITD won't use buf[012], and needs TT access ... */
+	/* this is used to initialize sITD's tt info */
+	u32			address;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -460,7 +547,7 @@ struct ehci_itd {
 #define	EHCI_ITD_LENGTH(tok)	(((tok)>>16) & 0x0fff)
 #define	EHCI_ITD_IOC		(1 << 15)	/* interrupt on complete */
 
-#define ISO_ACTIVE	__constant_cpu_to_le32(EHCI_ISOC_ACTIVE)
+#define ITD_ACTIVE		__constant_cpu_to_le32(EHCI_ISOC_ACTIVE)
 
 	u32			hw_bufp [7];	/* see EHCI 3.3.3 */ 
 	u32			hw_bufp_hi [7];	/* Appendix B */
@@ -477,7 +564,6 @@ struct ehci_itd {
 	unsigned		frame;		/* where scheduled */
 	unsigned		pg;
 	unsigned		index[8];	/* in urb->iso_frame_desc */
-	u8			usecs[8];
 } __attribute__ ((aligned (32)));
 
 /*-------------------------------------------------------------------------*/
@@ -494,20 +580,33 @@ struct ehci_sitd {
 /* uses bit field macros above - see EHCI 0.95 Table 3-8 */
 	u32			hw_fullspeed_ep;  /* see EHCI table 3-9 */
 	u32                     hw_uframe;        /* see EHCI table 3-10 */
-        u32                     hw_tx_results1;   /* see EHCI table 3-11 */
-	u32                     hw_tx_results2;   /* see EHCI table 3-12 */
-	u32                     hw_tx_results3;   /* see EHCI table 3-12 */
+        u32                     hw_results;       /* see EHCI table 3-11 */
+#define SITD_IOC        (1 << 31)       /* interrupt on completion */
+#define SITD_PAGE       (1 << 30)       /* buffer 0/1 */
+#define SITD_LENGTH(x)  (0x3ff & ((x)>>16))
+#define SITD_STS_ACTIVE (1 << 7)        /* HC may execute this */
+#define SITD_STS_ERR    (1 << 6)        /* error from TT */
+#define SITD_STS_DBE    (1 << 5)        /* data buffer error (in HC) */
+#define SITD_STS_BABBLE (1 << 4)        /* device was babbling */
+#define SITD_STS_XACT   (1 << 3)        /* illegal IN response */
+#define SITD_STS_MMF    (1 << 2)        /* incomplete split transaction */
+#define SITD_STS_STS    (1 << 1)        /* split transaction state */
+
+#define SITD_ACTIVE		__constant_cpu_to_le32(SITD_STS_ACTIVE)
+
+	u32                     hw_buf[2];        /* see EHCI table 3-12 */
         u32                     hw_backpointer;   /* see EHCI table 3-13 */
 	u32			hw_buf_hi [2];	  /* Appendix B */
 
 	/* the rest is HCD-private */
 	dma_addr_t		sitd_dma;
 	union ehci_shadow	sitd_next;	/* ptr to periodic q entry */
-	struct urb		*urb;
-	dma_addr_t		buf_dma;	/* buffer address */
 
-	unsigned short		usecs;		/* start bandwidth */
-	unsigned short		c_usecs;	/* completion bandwidth */
+	struct urb		*urb;
+	struct ehci_iso_stream  *stream;        /* endpoint's queue */
+	struct list_head	sitd_list;	/* list of stream's sitds */
+	unsigned		frame;
+	unsigned		index;
 } __attribute__ ((aligned (32)));
 
 /*-------------------------------------------------------------------------*/
@@ -531,6 +630,43 @@ struct ehci_fstn {
 } __attribute__ ((aligned (32)));
 
 /*-------------------------------------------------------------------------*/
+
+#ifdef CONFIG_USB_EHCI_ROOT_HUB_TT
+
+/*
+ * Some EHCI controllers have a Transaction Translator built into the
+ * root hub. This is a non-standard feature.  Each controller will need
+ * to add code to the following inline functions, and call them as
+ * needed (mostly in root hub code).
+ */
+
+#define	ehci_is_TDI(e)			((e)->hcd.has_tt)
+
+/* Returns the speed of a device attached to a port on the root hub. */
+static inline unsigned int
+ehci_port_speed(struct ehci_hcd *ehci, unsigned int portsc)
+{
+	if (ehci_is_TDI(ehci)) {
+		switch ((portsc>>26)&3) {
+		case 0:
+			return 0;
+		case 1:
+			return (1<<USB_PORT_FEAT_LOWSPEED);
+		case 2:
+		default:
+			return (1<<USB_PORT_FEAT_HIGHSPEED);
+		}
+	}
+	return (1<<USB_PORT_FEAT_HIGHSPEED);
+}
+
+#else
+
+#define ehci_is_TDI(e)			(0)
+
+#define ehci_port_speed(ehci, portsc)	(1<<USB_PORT_FEAT_HIGHSPEED)
+#endif
+
 
 #include <linux/version.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,32)

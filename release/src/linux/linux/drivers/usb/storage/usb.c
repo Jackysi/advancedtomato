@@ -1048,10 +1048,12 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 		up(&us_list_semaphore);
 	}
 
+	dev->storage_host_number = ss->host_number + 1;
+
 	printk(KERN_DEBUG 
 	       "WARNING: USB Mass Storage data integrity not assured\n");
 	printk(KERN_DEBUG 
-	       "USB Mass Storage device found at %d\n", dev->devnum);
+	       "USB Mass Storage device found at %d. Host: %d\n", dev->devnum, ss->host_number);
 
 	/* return a pointer for the disconnect function */
 	return ss;
