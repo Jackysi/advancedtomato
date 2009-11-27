@@ -1,11 +1,11 @@
 /*
  *	sslDecode.c
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *
  *	Secure Sockets Layer message decoding
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -36,6 +36,8 @@
 #define SSL_MAX_IGNORED_MESSAGE_COUNT	1024
 
 static int32 parseSSLHandshake(ssl_t *ssl, char *inbuf, int32 len);
+static int32 parseSingleCert(ssl_t *ssl, unsigned char *c, unsigned char *end, 
+						   int32 certLen);
 
 /******************************************************************************/
 /*
@@ -496,8 +498,9 @@ static int32 parseSSLHandshake(ssl_t *ssl, char *inbuf, int32 len)
 
 #ifdef USE_CLIENT_SIDE_SSL
 	int32			sessionIdLen, certMatch, certTypeLen;
+	sslCert_t		*subjectCert;
 	int32			valid, certLen, certChainLen, anonCheck;
-	sslRsaCert_t	*cert, *currentCert, *subjectCert;
+	sslCert_t		*cert, *currentCert;
 #endif /* USE_CLIENT_SIDE_SSL */
 
 	rc = SSL_SUCCESS;
@@ -561,6 +564,8 @@ parseHandshake:
 			goto hsStateDetermined;
 		}
 
+
+
 		ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
 		matrixIntDebugMsg("Invalid type of handshake message: %d\n", hsType);
 		return SSL_ERROR;
@@ -610,8 +615,8 @@ hsStateDetermined:
 			matrixStrDebugMsg("Invalid handshake length\n", NULL);
 			return SSL_ERROR;
 		}
-		sslUpdateHSHash(ssl, c - ssl->hshakeHeadLen,
-			hsLen + ssl->hshakeHeadLen);
+			sslUpdateHSHash(ssl, c - ssl->hshakeHeadLen,
+				hsLen + ssl->hshakeHeadLen);
 
 	} else if (ssl->rec.majVer == SSL2_MAJ_VER) {
 /*
@@ -777,32 +782,6 @@ hsStateDetermined:
 				return SSL_ERROR;
 			}
 			c += extLen;
-/*
-			This might be TLS.  If so, there could be extension data
-			to parse here:  Two byte length and extension info.
-			http://www.faqs.org/rfcs/rfc3546.html
-*/
-			if (c != end) {
-				if (end - c < 2) {
-					ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
-					matrixStrDebugMsg("Invalid extension header len\n", NULL);
-					return SSL_ERROR;
-				}
-				extLen = *c << 8; c++;
-				extLen += *c; c++;
-				if (end - c < extLen) {
-					ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
-					matrixStrDebugMsg("Invalid extension header len\n", NULL);
-					return SSL_ERROR;
-				}
-/*
-				At this point, c points to the first byte of the extension field
-				and extLen is the number of extension bytes.  Parsing of 
-				individual extension values would happen here, but for now we
-				just skip over all extensions, ignoring them.
-*/
-				c += extLen;
-			}
 		} else {
 /*
 			Parse a SSLv2 ClientHello message.  The same information is 
@@ -933,49 +912,51 @@ hsStateDetermined:
 
 		pubKeyLen = hsLen;
 
+
 /*
-		Now have a handshake pool to allocate the premaster storage
+				Now have a handshake pool to allocate the premaster storage
 */
-		ssl->sec.premasterSize = SSL_HS_RSA_PREMASTER_SIZE;
-		ssl->sec.premaster = psMalloc(ssl->hsPool, SSL_HS_RSA_PREMASTER_SIZE);
+				ssl->sec.premasterSize = SSL_HS_RSA_PREMASTER_SIZE;
+				ssl->sec.premaster = psMalloc(ssl->hsPool,
+					SSL_HS_RSA_PREMASTER_SIZE);
 
-		if (ssl->decryptPriv(ssl->hsPool, ssl->keys->cert.privKey, c,
-				pubKeyLen, ssl->sec.premaster, ssl->sec.premasterSize)
-				!= ssl->sec.premasterSize) {
-			ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
-			matrixStrDebugMsg("Failed to decrypt premaster\n", NULL);
-			return SSL_ERROR;
-		}
+				if (ssl->decryptPriv(ssl->hsPool, ssl->keys->cert.privKey, c,
+						pubKeyLen, ssl->sec.premaster, ssl->sec.premasterSize)
+						!= ssl->sec.premasterSize) {
+					ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
+					matrixStrDebugMsg("Failed to decrypt premaster\n", NULL);
+					return SSL_ERROR;
+				}
 
 /*
-		The first two bytes of the decrypted message should be the
-		client's requested version number (which may not be the same
-		as the final negotiated version). The other 46 bytes -
-		pure random!
+				The first two bytes of the decrypted message should be the
+				client's requested version number (which may not be the same
+				as the final negotiated version). The other 46 bytes -
+				pure random!
 			
-		SECURITY - 
-		Some SSL clients (Including Microsoft IE 6.0) incorrectly set
-		the first two bytes to the negotiated version rather than the
-		requested version.  This is known in OpenSSL as the
-		SSL_OP_TLS_ROLLBACK_BUG. We allow this to slide only if we
-		don't support TLS, TLS was requested and the negotiated
-		versions match.
+				SECURITY - 
+				Some SSL clients (Including Microsoft IE 6.0) incorrectly set
+				the first two bytes to the negotiated version rather than the
+				requested version.  This is known in OpenSSL as the
+				SSL_OP_TLS_ROLLBACK_BUG. We allow this to slide only if we
+				don't support TLS, TLS was requested and the negotiated
+				versions match.
 */
-		if (*ssl->sec.premaster != ssl->reqMajVer) {
-			ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
-			matrixStrDebugMsg("Incorrect version in ClientKeyExchange\n",
-				NULL);
-			return SSL_ERROR;
-		}
-		if (*(ssl->sec.premaster + 1) != ssl->reqMinVer) {
-			if (ssl->reqMinVer < TLS_MIN_VER ||
-					*(ssl->sec.premaster + 1) != ssl->minVer) {
-				ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
-				matrixStrDebugMsg("Incorrect version in ClientKeyExchange\n",
-					NULL);
-				return SSL_ERROR;
-			}
-		}
+				if (*ssl->sec.premaster != ssl->reqMajVer) {
+					ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
+					matrixStrDebugMsg("Incorrect version in ClientKeyExchange\n",
+						NULL);
+					return SSL_ERROR;
+				}
+				if (*(ssl->sec.premaster + 1) != ssl->reqMinVer) {
+					if (ssl->reqMinVer < TLS_MIN_VER ||
+							*(ssl->sec.premaster + 1) != ssl->minVer) {
+						ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
+						matrixStrDebugMsg("Incorrect version in ClientKeyExchange\n",
+							NULL);
+						return SSL_ERROR;
+					}
+				}
 
 /*
 		Now that we've got the premaster secret, derive the various
@@ -1098,7 +1079,7 @@ hsStateDetermined:
 			matrixIntDebugMsg("Unsupported ssl version: %d\n", ssl->reqMajVer);
 			return SSL_ERROR;
 		}
-		
+
 /*
 		Next is a 32 bytes of random data for key generation
 		and a single byte with the session ID length
@@ -1192,6 +1173,7 @@ hsStateDetermined:
 		the Finished message.
 */
 		c++;
+		
 		if (ssl->flags & SSL_FLAGS_RESUMED) {
 			sslDeriveKeys(ssl);
 			ssl->hsState = SSL_HS_FINISHED;
@@ -1222,17 +1204,6 @@ hsStateDetermined:
 			ssl->err = SSL_ALERT_ILLEGAL_PARAMETER;
 			matrixStrDebugMsg("Invalid Certificate message\n", NULL);
 			return SSL_ERROR;
-		}
-
-		if (!(ssl->flags & SSL_FLAGS_SERVER)) {
-/*
-			As a client, we are aware we are in an RSA authentication state
-			at this point.  And now that we have a handshake pool, storage
-			for the known premaster secret can be allocated.
-*/
-			ssl->sec.premasterSize = SSL_HS_RSA_PREMASTER_SIZE;
-			ssl->sec.premaster = psMalloc(ssl->hsPool,
-				SSL_HS_RSA_PREMASTER_SIZE);
 		}
 
 		i = 0;
@@ -1407,6 +1378,7 @@ hsStateDetermined:
 		return SSL_ERROR;
 	}
 	
+	
 /*
 	if we've got more data in the record, the sender has packed
 	multiple handshake messages in one record.  Parse the next one.
@@ -1418,4 +1390,3 @@ hsStateDetermined:
 }
 
 /******************************************************************************/
-

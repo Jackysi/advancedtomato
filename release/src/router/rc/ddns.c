@@ -142,7 +142,7 @@ static void update(int num, int *dirty, int force)
 		msg_fn,
 		cache_fn);
 
-	if (nvram_match("debug_ddns", "1")) {
+	if (nvram_get_int("debug_ddns")) {
 		fprintf(f, "dump /tmp/mdu-%s.txt\n", serv);
 	}
 
@@ -240,12 +240,6 @@ SCHED:
 
 CLEANUP:
 	DLOG("%s: CLEANUP", __FUNCTION__);
-/*
-	if (!nvram_match("debug_keepfiles", "1")) {
-		unlink(cache_fn);
-		unlink(conf_fn);
-	}
-*/
 	simple_unlock("ddns");
 }
 

@@ -184,6 +184,10 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = 6;
 		break;
+	case MODEL_WLA2G54L:
+		if (which != LED_DIAG) return 0;
+		b = 1;
+		break;
 	default:
 		sprintf(s, "led_%s", led_names[which]);
 		if (nvget_gpio(s, &b, &n)) {

@@ -260,9 +260,7 @@ const aspapi_t aspapi[] = {
 	{ "wlnoise",			asp_wlnoise			},
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
-#if TOMATO_SL
-	{ "sharelist",			asp_sharelist		},
-#endif
+	{ "css",				asp_css				},
 	{ NULL,					NULL				}
 };
 
@@ -370,7 +368,7 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 85*101)	},	// 85 (max chars per entry) x 100 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*101)},	// 106 (max chars per entry) x 100 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -474,6 +472,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd_slt",			V_RANGE(-1, 43200)	},	// -1=infinite, 0=follow normal lease time, >=1 custom
 	{ "dhcpd_dmdns",		V_01				},
 	{ "dhcpd_lmax",			V_NUM				},
+	{ "dhcpd_gwmode",		V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
 	{ "dhcpc_minpkt",		V_01				},
@@ -594,6 +593,7 @@ static const nvset_t nvset_list[] = {
 	{ "rstats_bak",			V_01				},
 
 // admin-buttons
+	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
 	{ "sesx_b0",			V_RANGE(0, 4)		},	// 0-4: toggle wireless, reboot, shutdown, script
 	{ "sesx_b1",			V_RANGE(0, 4)		},	// "
 	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
@@ -915,23 +915,6 @@ static void wo_service(char *url)
 
 	common_redirect();
 }
-
-/*
-static void wo_logout(char *url)
-{
-	char s[256];
-
-	// doesn't work with all browsers...
-
-	if (((user_agent) && (strstr(user_agent, "Opera") != NULL))) {
-		sprintf(s, "%llx", (unsigned long long)time(NULL) * rand());
-		send_authenticate(s);
-	}
-	else {
-		send_authenticate(NULL);
-	}
-}
-*/
 
 static void wo_shutdown(char *url)
 {

@@ -666,3 +666,5 @@ void flush_lease_file(time_t now)
 	file_dirty = 1;
 	lease_update_file(now);
 }
+
+#endif

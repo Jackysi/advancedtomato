@@ -39,7 +39,10 @@ enum {
 
 typedef struct {
 	int count;
-	struct in_addr dns[3];
+	struct {
+		struct in_addr addr;
+		unsigned short port;
+	} dns[3];
 } dns_list_t;
 
 extern int get_wan_proto(void);
@@ -96,7 +99,9 @@ enum {
 	MODEL_WHRG125,
 	MODEL_WZRG108,
 	MODEL_WTR54GS,
-	MODEL_WR100
+	MODEL_WR100,
+	MODEL_WLA2G54L,
+	MODEL_TM2300
 	
 #if TOMATO_N
 	,

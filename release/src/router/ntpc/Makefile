@@ -20,6 +20,7 @@ install: all
 	chmod 0500 $(INSTALLDIR)/bin/ntpc
 
 	cd $(INSTALLDIR)/bin && ln -sf ntpc ntpsync
+	cd $(INSTALLDIR)/bin && ln -sf ntpc ntpstep
 
 clean:
 	rm -f ntpc .*.depend *.o
