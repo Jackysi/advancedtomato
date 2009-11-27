@@ -13,7 +13,7 @@
 
 include common.mak
 
-TOMATO_EXPERIMENTAL=1
+TOMATO_EXPERIMENTAL=0
 
 #
 #
