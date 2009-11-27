@@ -10,7 +10,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Id: jffs_proc.h,v 1.2 2000/11/15 22:04:12 sjhill Exp $
+ * $Id: jffs_proc.h,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
  */
 
 /* jffs_proc.h defines a structure for inclusion in the proc-file system.  */

@@ -123,9 +123,10 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv et/* . && rm -rf et
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv wl/* . && rm -rf wl
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv cifs/* . && rm -rf cifs
-	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs2/* . && rm -rf jffs2
-	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate
-	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs2/* . && rm -rf jffs2 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs/* . && rm -rf jffs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate || true
 	rm -rf $(TARGETDIR)/lib/modules/*/pcmcia
 
 # misc
@@ -134,8 +135,11 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	done
 
 ifneq ($(TCONFIG_JFFS2),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.o
-	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_*
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
+ifneq ($(CONFIG_LINUX26),y)
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
+endif
 endif
 
 ifneq ($(TCONFIG_CIFS),y)
