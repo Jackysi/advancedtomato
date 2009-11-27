@@ -69,9 +69,8 @@ world: prepare FORCE
 ifeq ($(CONFIG_LINUX_2_4),y)
 	-rm $(TOOLCHAIN_DIR)/include/sys/inotify.h
 endif
-ifneq ($(CONFIG_LINUX_2_4),y)
 	-patch -p1 -Z -N -s --no-backup-if-mismatch -d $(TOOLCHAIN_DIR) <toolchain/kernel-headers/extras/missing-headers.patch
-endif
+
 # Create addtional symlinks
 	ln -sf $(ARCH)-linux-gcc		$(TOOLCHAIN_DIR)/bin/$(ARCH)-linux-cc
 	ln -sf "$(ARCH)-linux-uclibc-g++"	"$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-g++"
