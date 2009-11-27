@@ -258,7 +258,7 @@ dg.populate = function()
 			b += '<br><small>' +
 				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
 				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>';
-				
+
 			if (e.rssi != '') {
 				b += ' <a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
 			}

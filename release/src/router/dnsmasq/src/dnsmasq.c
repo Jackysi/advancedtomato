@@ -37,9 +37,6 @@ static char *compile_opts =
 #ifdef NO_FORK
 "no-MMU "
 #endif
-#ifdef HAVE_BSD_BRIDGE
-"BSD-bridge "
-#endif
 #ifndef HAVE_DBUS
 "no-"
 #endif
@@ -48,10 +45,19 @@ static char *compile_opts =
 "no-"
 #endif
 "I18N "
+#ifndef HAVE_DHCP
+"no-"
+#endif
+"DHCP "
+#if defined(HAVE_DHCP) && !defined(HAVE_SCRIPT)
+"no-scripts "
+#endif
 #ifndef HAVE_TFTP
 "no-"
 #endif
 "TFTP";
+
+
 
 static volatile pid_t pid = 0;
 static volatile int pipewrite;
@@ -74,9 +80,11 @@ int main (int argc, char **argv)
   struct iname *if_tmp;
   int piperead, pipefd[2], err_pipe[2];
   struct passwd *ent_pw = NULL;
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT)
   uid_t script_uid = 0;
   gid_t script_gid = 0;
-  struct group *gp= NULL;
+#endif
+  struct group *gp = NULL;
   long i, max_fd = sysconf(_SC_OPEN_MAX);
   char *baduser = NULL;
   int log_err;
@@ -115,11 +123,13 @@ int main (int argc, char **argv)
     daemon->edns_pktsz : DNSMASQ_PACKETSZ;
   daemon->packet = safe_malloc(daemon->packet_buff_sz);
 
+#ifdef HAVE_DHCP
   if (!daemon->lease_file)
     {
       if (daemon->dhcp)
 	daemon->lease_file = LEASEFILE;
     }
+#endif
   
   /* Close any file descriptors we inherited apart from std{in|out|err} */
   for (i = 0; i < max_fd; i++)
@@ -152,23 +162,16 @@ int main (int argc, char **argv)
   
   now = dnsmasq_time();
   
+#ifdef HAVE_DHCP
   if (daemon->dhcp)
     {
-#if !defined(HAVE_LINUX_NETWORK) && !defined(IP_RECVIF)
-      int c;
-      struct iname *tmp;
-      for (c = 0, tmp = daemon->if_names; tmp; tmp = tmp->next)
-	if (!tmp->isloop)
-	  c++;
-      if (c != 1)
-	die(_("must set exactly one interface on broken systems without IP_RECVIF"), NULL, EC_BADCONF);
-#endif
       /* Note that order matters here, we must call lease_init before
 	 creating any file descriptors which shouldn't be leaked
 	 to the lease-script init process. */
       lease_init(now);
       dhcp_init();
     }
+#endif
 
   if (!enumerate_interfaces())
     die(_("failed to find list of interfaces: %s"), NULL, EC_MISC);
@@ -211,6 +214,7 @@ int main (int argc, char **argv)
   if (daemon->port != 0)
     pre_allocate_sfds();
 
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT)
   /* Note getpwnam returns static storage */
   if (daemon->dhcp && daemon->lease_change_command && daemon->scriptuser)
     {
@@ -222,6 +226,7 @@ int main (int argc, char **argv)
       else
 	baduser = daemon->scriptuser;
     }
+#endif
   
   if (daemon->username && !(ent_pw = getpwnam(daemon->username)))
     baduser = daemon->username;
@@ -297,8 +302,9 @@ int main (int argc, char **argv)
 	     When startup is complete we close this and the process terminates. */
 	  safe_pipe(err_pipe, 0);
 	  
-	  if ((pid = fork()) == -1 )
-	    die(_("cannot fork into background: %s"), NULL, EC_MISC);
+	  if ((pid = fork()) == -1)
+	    /* fd == -1 since we've not forked, never returns. */
+	    send_event(-1, EVENT_FORK_ERR, errno);
 	   
 	  if (pid != 0)
 	    {
@@ -319,9 +325,11 @@ int main (int argc, char **argv)
 	  /* NO calls to die() from here on. */
 	  
 	  setsid();
-	  pid = fork();
-
-	  if (pid != 0 && pid != -1)
+	 
+	  if ((pid = fork()) == -1)
+	    send_event(err_pipe[1], EVENT_FORK_ERR, errno);
+	 
+	  if (pid != 0)
 	    _exit(0);
 	}
 #endif
@@ -356,7 +364,7 @@ int main (int argc, char **argv)
    
    /* if we are to run scripts, we need to fork a helper before dropping root. */
   daemon->helperfd = -1;
-#ifndef NO_FORK
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT) 
   if (daemon->dhcp && daemon->lease_change_command)
     daemon->helperfd = create_helper(pipewrite, err_pipe[1], script_uid, script_gid, max_fd);
 #endif
@@ -387,7 +395,7 @@ int main (int argc, char **argv)
 	  if (capset(hdr, data) == -1 || prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) == -1)
 	    bad_capabilities = errno;
 			  
-#elif defined(HAVE_SOLARIS_PRIVS)
+#elif defined(HAVE_SOLARIS_NETWORK)
 	  /* http://developers.sun.com/solaris/articles/program_privileges.html */
 	  priv_set_t *priv_set;
 	  
@@ -407,9 +415,6 @@ int main (int argc, char **argv)
 	  if (priv_set)
 	    priv_freeset(priv_set);
 
-#elif defined(HAVE_SOLARIS_NETWORK)
-
-	  bad_capabilities = ENOTSUP;
 #endif    
 
 	  if (bad_capabilities != 0)
@@ -489,6 +494,7 @@ int main (int argc, char **argv)
   if (daemon->max_logs != 0)
     my_syslog(LOG_INFO, _("asynchronous logging enabled, queue limit is %d messages"), daemon->max_logs);
 
+#ifdef HAVE_DHCP
   if (daemon->dhcp)
     {
       struct dhcp_context *dhcp_tmp;
@@ -497,13 +503,16 @@ int main (int argc, char **argv)
 	{
 	  prettyprint_time(daemon->dhcp_buff2, dhcp_tmp->lease_time);
 	  strcpy(daemon->dhcp_buff, inet_ntoa(dhcp_tmp->start));
-	  my_syslog(LOG_INFO, 
+	  my_syslog(MS_DHCP | LOG_INFO, 
 		    (dhcp_tmp->flags & CONTEXT_STATIC) ? 
 		    _("DHCP, static leases only on %.0s%s, lease time %s") :
+		    (dhcp_tmp->flags & CONTEXT_PROXY) ?
+		    _("DHCP, proxy on subnet %.0s%s%.0s") :
 		    _("DHCP, IP range %s -- %s, lease time %s"),
 		    daemon->dhcp_buff, inet_ntoa(dhcp_tmp->end), daemon->dhcp_buff2);
 	}
     }
+#endif
 
 #ifdef HAVE_TFTP
   if (daemon->options & OPT_TFTP)
@@ -513,7 +522,7 @@ int main (int argc, char **argv)
 	max_fd = FD_SETSIZE;
 #endif
 
-      my_syslog(LOG_INFO, "TFTP %s%s %s", 
+      my_syslog(MS_TFTP | LOG_INFO, "TFTP %s%s %s", 
 		daemon->tftp_prefix ? _("root is ") : _("enabled"),
 		daemon->tftp_prefix ? daemon->tftp_prefix: "",
 		daemon->options & OPT_TFTP_SECURE ? _("secure mode") : "");
@@ -541,7 +550,7 @@ int main (int argc, char **argv)
       if (daemon->tftp_max > max_fd)
 	{
 	  daemon->tftp_max = max_fd;
-	  my_syslog(LOG_WARNING, 
+	  my_syslog(MS_TFTP | LOG_WARNING, 
 		    _("restricting maximum simultaneous TFTP transfers to %d"), 
 		    daemon->tftp_max);
 	}
@@ -589,11 +598,13 @@ int main (int argc, char **argv)
       set_dbus_listeners(&maxfd, &rset, &wset, &eset);
 #endif	
   
+#ifdef HAVE_DHCP
       if (daemon->dhcp)
 	{
 	  FD_SET(daemon->dhcpfd, &rset);
 	  bump_maxfd(daemon->dhcpfd, &maxfd);
 	}
+#endif
 
 #ifdef HAVE_LINUX_NETWORK
       FD_SET(daemon->netlinkfd, &rset);
@@ -603,7 +614,8 @@ int main (int argc, char **argv)
       FD_SET(piperead, &rset);
       bump_maxfd(piperead, &maxfd);
 
-#ifndef NO_FORK
+#ifdef HAVE_DHCP
+#  ifdef HAVE_SCRIPT
       while (helper_buf_empty() && do_script_run(now));
 
       if (!helper_buf_empty())
@@ -611,11 +623,12 @@ int main (int argc, char **argv)
 	  FD_SET(daemon->helperfd, &wset);
 	  bump_maxfd(daemon->helperfd, &maxfd);
 	}
-#else
+#  else
       /* need this for other side-effects */
       while (do_script_run(now));
+#  endif
 #endif
-      
+   
       /* must do this just before select(), when we know no
 	 more calls to my_syslog() can occur */
       set_log_writer(&wset, &maxfd);
@@ -669,12 +682,14 @@ int main (int argc, char **argv)
       check_tftp_listeners(&rset, now);
 #endif      
 
+#ifdef HAVE_DHCP
       if (daemon->dhcp && FD_ISSET(daemon->dhcpfd, &rset))
 	dhcp_packet(now);
 
-#ifndef NO_FORK
+#  ifdef HAVE_SCRIPT
       if (daemon->helperfd != -1 && FD_ISSET(daemon->helperfd, &wset))
 	helper_write();
+#  endif
 #endif
 
     }
@@ -744,6 +759,9 @@ static void fatal_event(struct event_desc *ev)
     {
     case EVENT_DIE:
       exit(0);
+
+    case EVENT_FORK_ERR:
+      die(_("cannot fork into background: %s"), NULL, EC_MISC);
   
     case EVENT_PIPE_ERR:
       die(_("failed to create helper: %s"), NULL, EC_MISC);
@@ -784,7 +802,9 @@ static void async_event(int pipe, time_t now)
 	    reload_servers(daemon->resolv_files->name);
 	    check_servers();
 	  }
+#ifdef HAVE_DHCP
 	rerun_scripts();
+#endif
 	break;
 	
       case EVENT_DUMP:
@@ -793,11 +813,13 @@ static void async_event(int pipe, time_t now)
 	break;
 	
       case EVENT_ALARM:
+#ifdef HAVE_DHCP
 	if (daemon->dhcp)
 	  {
 	    lease_prune(NULL, now);
 	    lease_update_file(now);
 	  }
+#endif
 	break;
 		
       case EVENT_CHILD:
@@ -849,7 +871,7 @@ static void async_event(int pipe, time_t now)
 	  if (daemon->tcp_pids[i] != 0)
 	    kill(daemon->tcp_pids[i], SIGALRM);
 	
-#ifndef NO_FORK
+#if defined(HAVE_DHCP) && defined(HAVE_SCRIPT)
 	/* handle pending lease transitions */
 	if (daemon->helperfd != -1)
 	  {
@@ -916,7 +938,7 @@ static void poll_resolv()
 	  warned = 0;
 	  check_servers();
 	  if (daemon->options & OPT_RELOAD)
-	    cache_reload(daemon->addn_hosts);
+	    cache_reload();
 	}
       else 
 	{
@@ -933,8 +955,9 @@ static void poll_resolv()
 void clear_cache_and_reload(time_t now)
 {
   if (daemon->port != 0)
-    cache_reload(daemon->addn_hosts);
+    cache_reload();
   
+#ifdef HAVE_DHCP
   if (daemon->dhcp)
     {
       if (daemon->options & OPT_ETHERS)
@@ -946,6 +969,7 @@ void clear_cache_and_reload(time_t now)
       lease_update_file(now); 
       lease_update_dns();
     }
+#endif
 }
 
 static int set_dns_listeners(time_t now, fd_set *set, int *maxfdp)
@@ -1147,7 +1171,7 @@ static void check_dns_listeners(fd_set *set, time_t now)
     }
 }
 
-
+#ifdef HAVE_DHCP
 int make_icmp_sock(void)
 {
   int fd;
@@ -1270,5 +1294,6 @@ int icmp_ping(struct in_addr addr)
 
   return gotreply;
 }
+#endif
 
  

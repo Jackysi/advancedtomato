@@ -16,8 +16,37 @@
 
 #include "dnsmasq.h"
 
-int iface_check(int family, struct all_addr *addr, 
-		struct ifreq *ifr, int *indexp)
+#ifdef HAVE_LINUX_NETWORK
+
+int indextoname(int fd, int index, char *name)
+{
+  struct ifreq ifr;
+  
+  if (index == 0)
+    return 0;
+
+  ifr.ifr_ifindex = index;
+  if (ioctl(fd, SIOCGIFNAME, &ifr) == -1)
+    return 0;
+
+  strncpy(name, ifr.ifr_name, IF_NAMESIZE);
+
+  return 1;
+}
+
+#else
+
+int indextoname(int fd, int index, char *name)
+{ 
+  if (index == 0 || !if_indextoname(index, name))
+    return 0;
+
+  return 1;
+}
+
+#endif
+
+int iface_check(int family, struct all_addr *addr, char *name, int *indexp)
 {
   struct iname *tmp;
   int ret = 1;
@@ -27,7 +56,6 @@ int iface_check(int family, struct all_addr *addr,
 
   if (indexp)
     {
-#ifdef HAVE_BSD_BRIDGE
       /* One form of bridging on BSD has the property that packets
 	 can be recieved on bridge interfaces which do not have an IP address.
 	 We allow these to be treated as aliases of another interface which does have
@@ -36,26 +64,25 @@ int iface_check(int family, struct all_addr *addr,
       for (bridge = daemon->bridges; bridge; bridge = bridge->next)
 	{
 	  for (alias = bridge->alias; alias; alias = alias->next)
-	    if (strncmp(ifr->ifr_name, alias->iface, IF_NAMESIZE) == 0)
+	    if (strncmp(name, alias->iface, IF_NAMESIZE) == 0)
 	      {
 		int newindex;
 		
 		if (!(newindex = if_nametoindex(bridge->iface)))
 		  {
-		    my_syslog(LOG_WARNING, _("unknown interface %s in bridge-interface"), ifr->ifr_name);
+		    my_syslog(LOG_WARNING, _("unknown interface %s in bridge-interface"), name);
 		    return 0;
 		  }
 		else 
 		  {
 		    *indexp = newindex;
-		    strncpy(ifr->ifr_name,  bridge->iface, IF_NAMESIZE);
+		    strncpy(name,  bridge->iface, IF_NAMESIZE);
 		    break;
 		  }
 	      }
 	  if (alias)
 	    break;
 	}
-#endif
     }
   
   if (daemon->if_names || (addr && daemon->if_addrs))
@@ -63,7 +90,7 @@ int iface_check(int family, struct all_addr *addr,
       ret = 0;
 
       for (tmp = daemon->if_names; tmp; tmp = tmp->next)
-	if (tmp->name && (strcmp(tmp->name, ifr->ifr_name) == 0))
+	if (tmp->name && (strcmp(tmp->name, name) == 0))
 	  ret = tmp->used = 1;
 	        
       for (tmp = daemon->if_addrs; tmp; tmp = tmp->next)
@@ -82,7 +109,7 @@ int iface_check(int family, struct all_addr *addr,
     }
   
   for (tmp = daemon->if_except; tmp; tmp = tmp->next)
-    if (tmp->name && (strcmp(tmp->name, ifr->ifr_name) == 0))
+    if (tmp->name && (strcmp(tmp->name, name) == 0))
       ret = 0;
   
   return ret; 
@@ -92,7 +119,7 @@ static int iface_allowed(struct irec **irecp, int if_index,
 			 union mysockaddr *addr, struct in_addr netmask) 
 {
   struct irec *iface;
-  int fd;
+  int fd, mtu = 0, loopback;
   struct ifreq ifr;
   int dhcp_ok = 1;
   struct iname *tmp;
@@ -103,16 +130,8 @@ static int iface_allowed(struct irec **irecp, int if_index,
     if (sockaddr_isequal(&iface->addr, addr))
       return 1;
   
-#ifdef HAVE_LINUX_NETWORK
-  ifr.ifr_ifindex = if_index;
-#endif
-  
   if ((fd = socket(PF_INET, SOCK_DGRAM, 0)) == -1 ||
-#ifdef HAVE_LINUX_NETWORK
-      ioctl(fd, SIOCGIFNAME, &ifr) == -1 ||
-#else
-      !if_indextoname(if_index, ifr.ifr_name) ||
-#endif
+      !indextoname(fd, if_index, ifr.ifr_name) ||
       ioctl(fd, SIOCGIFFLAGS, &ifr) == -1)
     {
       if (fd != -1)
@@ -123,12 +142,17 @@ static int iface_allowed(struct irec **irecp, int if_index,
 	}
       return 0;
     }
+   
+  loopback = ifr.ifr_flags & IFF_LOOPBACK;
+
+  if (ioctl(fd, SIOCGIFMTU, &ifr) != -1)
+    mtu = ifr.ifr_mtu;
   
   close(fd);
   
   /* If we are restricting the set of interfaces to use, make
      sure that loopback interfaces are in that set. */
-  if (daemon->if_names && (ifr.ifr_flags & IFF_LOOPBACK))
+  if (daemon->if_names && loopback)
     {
       struct iname *lo;
       for (lo = daemon->if_names; lo; lo = lo->next)
@@ -150,7 +174,7 @@ static int iface_allowed(struct irec **irecp, int if_index,
     }
   
   if (addr->sa.sa_family == AF_INET &&
-      !iface_check(AF_INET, (struct all_addr *)&addr->in.sin_addr, &ifr, NULL))
+      !iface_check(AF_INET, (struct all_addr *)&addr->in.sin_addr, ifr.ifr_name, NULL))
     return 1;
   
   for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
@@ -159,7 +183,7 @@ static int iface_allowed(struct irec **irecp, int if_index,
   
 #ifdef HAVE_IPV6
   if (addr->sa.sa_family == AF_INET6 &&
-      !iface_check(AF_INET6, (struct all_addr *)&addr->in6.sin6_addr, &ifr, NULL))
+      !iface_check(AF_INET6, (struct all_addr *)&addr->in6.sin6_addr, ifr.ifr_name, NULL))
     return 1;
 #endif
 
@@ -169,6 +193,7 @@ static int iface_allowed(struct irec **irecp, int if_index,
       iface->addr = *addr;
       iface->netmask = netmask;
       iface->dhcp_ok = dhcp_ok;
+      iface->mtu = mtu;
       iface->next = *irecp;
       *irecp = iface;
       return 1;
@@ -217,7 +242,6 @@ static int iface_allowed_v4(struct in_addr local, int if_index,
   return iface_allowed((struct irec **)vparam, if_index, &addr, netmask);
 }
    
-
 int enumerate_interfaces(void)
 {
 #ifdef HAVE_IPV6
