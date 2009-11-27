@@ -965,6 +965,12 @@ enum {
 	/* How long the longest ESC sequence we know? */
 	KEYCODE_BUFFER_SIZE = 4
 };
+/* Note: fd may be in blocking or non-blocking mode, both make sense.
+ * For one, less uses non-blocking mode.
+ * Only the first read syscall inside read_key may block indefinitely
+ * (unless fd is in non-blocking mode),
+ * subsequent reads will time out after a few milliseconds.
+ */
 int read_key(int fd, smalluint *nbuffered, char *buffer) FAST_FUNC;
 
 
@@ -1019,7 +1025,7 @@ extern void run_applet_no_and_exit(int a, char **argv) NORETURN FAST_FUNC;
 
 #ifdef HAVE_MNTENT_H
 extern int match_fstype(const struct mntent *mt, const char *fstypes) FAST_FUNC;
-extern struct mntent *find_mount_point(const char *name, const char *table) FAST_FUNC;
+extern struct mntent *find_mount_point(const char *name) FAST_FUNC;
 #endif
 extern void erase_mtab(const char * name) FAST_FUNC;
 extern unsigned int tty_baud_to_value(speed_t speed) FAST_FUNC;
@@ -1093,6 +1099,8 @@ const char *get_signame(int number) FAST_FUNC;
 void print_signames(void) FAST_FUNC;
 
 char *bb_simplify_path(const char *path) FAST_FUNC;
+/* Returns ptr to NUL */
+char *bb_simplify_abs_path_inplace(char *path) FAST_FUNC;
 
 #define FAIL_DELAY 3
 extern void bb_do_delay(int seconds) FAST_FUNC;
