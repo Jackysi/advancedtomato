@@ -1,5 +1,5 @@
 # eDonkey2000 - P2P filesharing - http://edonkey2000.com and others
-# Pattern attributes: good veryfast fast overmatch
+# Pattern attributes: good fast fast overmatch
 # Protocol groups: p2p
 # Wiki: http://www.protocolinfo.org/wiki/EDonkey
 # Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE

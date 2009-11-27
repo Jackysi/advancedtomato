@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.43 2009/01/29 19:57:21 nanard Exp $
+# $Id: Makefile.linux,v 1.47 2009/09/14 14:59:58 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author : Thomas Bernard
@@ -43,7 +43,21 @@ LIBS = -liptc
 ifdef IPTABLESPATH
 CFLAGS := $(CFLAGS) -I$(IPTABLESPATH)/include/
 LDFLAGS := $(LDFLAFGS) -L$(IPTABLESPATH)/libiptc/
+# get iptables version and set IPTABLES_143 macro if needed
+IPTABLESVERSION := $(shell grep "\#define VERSION" $(IPTABLESPATH)/config.h | tr -d \" |cut -d" " -f3 )
+IPTABLESVERSION1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
+IPTABLESVERSION2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
+IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
+# test if iptables >= 1.4.3
+TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
+ifeq ($(TEST), 1)
+CFLAGS := $(CFLAGS) -DIPTABLES_143
+# the following sucks, but works
+#LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
+LIBS = $(IPTABLESPATH)/libiptc/.libs/libiptc.a
+else
 LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
+endif
 endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
@@ -59,7 +73,7 @@ clean:
 	$(RM) $(ALLOBJS)
 	$(RM) $(EXECUTABLES)
 	$(RM) testupnpdescgen.o testgetifstats.o
-	$(RM) testupnppermissions.o
+	$(RM) testupnppermissions.o testgetifaddr.o
 	$(RM) miniupnpdctl.o
 
 install:	miniupnpd genuuid

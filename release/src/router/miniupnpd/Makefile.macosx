@@ -1,0 +1,118 @@
+# MiniUPnP project
+# http://miniupnp.free.fr/
+# Author: Thomas Bernard
+# This Makefile should work for MacOSX
+#
+# To install use :
+# $ PREFIX=/dummyinstalldir make -f Makefile.macosx install
+# or :
+# $ make -f Makefile.macosx install
+#
+CFLAGS = -Wall -O -g3 -DDEBUG
+#CFLAGS = -Wall -Os
+CC = gcc
+RM = rm -f
+MV = mv
+INSTALL = install
+STRIP = strip
+
+# OSNAME and FWNAME are used for building OS or FW dependent code.
+OSNAME = $(shell uname)
+ARCH = $(shell uname -p)
+FWNAME = ipfw
+
+STDOBJS = miniupnpd.o upnphttp.o upnpdescgen.o upnpsoap.o \
+          upnpredirect.o getifaddr.o daemonize.o upnpglobalvars.o \
+          options.o upnppermissions.o minissdp.o natpmp.o \
+          upnpevents.o
+MACOBJS = mac/getifstats.o
+IPFWOBJS = ipfw/ipfwrdr.o
+MISCOBJS = upnpreplyparse.o minixml.o
+
+ALLOBJS = $(STDOBJS) $(MISCOBJS) $(MACOBJS) $(IPFWOBJS)
+
+TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
+TESTGETIFSTATSOBJS = testgetifstats.o mac/getifstats.o
+TESTUPNPPERMISSIONSOBJS = testupnppermissions.o upnppermissions.o
+TESTGETIFADDROBJS = testgetifaddr.o getifaddr.o
+MINIUPNPDCTLOBJS = miniupnpdctl.o
+
+EXECUTABLES = miniupnpd testupnpdescgen testgetifstats \
+              testupnppermissions miniupnpdctl \
+              testgetifaddr
+
+LIBS = 
+
+# set PREFIX variable to install in the wanted place
+
+INSTALLBINDIR = $(PREFIX)/sbin
+INSTALLETCDIR = $(PREFIX)/etc/miniupnpd
+# INSTALLMANDIR = $(PREFIX)/man
+INSTALLMANDIR = /usr/share/man/man1
+
+all:	$(EXECUTABLES)
+
+clean:
+	$(RM) $(STDOBJS) $(MACOBJS) $(EXECUTABLES) \
+	testupnpdescgen.o \
+	$(MISCOBJS) config.h testgetifstats.o testupnppermissions.o \
+	miniupnpdctl.o testgetifaddr.o \
+	$(IPFWOBJS)
+
+install:	miniupnpd genuuid
+	$(STRIP) miniupnpd
+	$(INSTALL) -d $(INSTALLBINDIR)
+	$(INSTALL) miniupnpd $(INSTALLBINDIR)
+	$(INSTALL) -d $(INSTALLETCDIR)
+	$(INSTALL) ipfw/ipfw_init.sh $(INSTALLETCDIR)
+	$(INSTALL) ipfw/ipfw_removeall.sh $(INSTALLETCDIR)
+	$(INSTALL) --mode=0644 -b miniupnpd.conf $(INSTALLETCDIR)
+	$(INSTALL) -d $(INSTALLMANDIR)
+	$(INSTALL) miniupnpd.1 $(INSTALLMANDIR)
+	$(INSTALL) -d $(PREFIX)/Library/LaunchDaemons
+	$(INSTALL) mac/org.tuxfamily.miniupnpd.plist $(PREFIX)/Library/LaunchDaemons
+
+# genuuid is using the uuid cli tool available under MacOSX
+UUID != if which uuidgen 2>&1 > /dev/null; then \
+        	echo `uuidgen` ; \
+        elif which uuid 2>&1 > /dev/null; then \
+        	echo `uuid` ; \
+        	else echo "00000000-0000-0000-0000-000000000000"; \
+        fi
+
+genuuid:
+	$(MV) miniupnpd.conf miniupnpd.conf.before
+	sed -e "s/^uuid=[-0-9a-f]*/uuid=$(UUID)/" miniupnpd.conf.before > miniupnpd.conf
+	$(RM) miniupnpd.conf.before
+
+depend:	config.h
+	mkdep $(ALLOBJS:.o=.c) testupnpdescgen.c testgetifstats.c \
+    testupnppermissions.c miniupnpdctl.c testgetifaddr.c
+
+miniupnpd: config.h $(ALLOBJS)
+	$(CC) $(CFLAGS) -o $@ $(ALLOBJS) $(LIBS)
+
+miniupnpdctl:	config.h $(MINIUPNPDCTLOBJS)
+	$(CC) $(CFLAGS) -o $@ $(MINIUPNPDCTLOBJS)
+
+testupnpdescgen:	config.h $(TESTUPNPDESCGENOBJS)
+	$(CC) $(CFLAGS) -o $@ $(TESTUPNPDESCGENOBJS)
+
+testgetifstats:	config.h $(TESTGETIFSTATSOBJS)
+	$(CC) $(CFLAGS) -o $@ $(TESTGETIFSTATSOBJS) $(LIBS)
+
+testgetifaddr:	config.h $(TESTGETIFADDROBJS)
+	$(CC) $(CFLAGS) -o $@ $(TESTGETIFADDROBJS)
+
+testupnppermissions:	config.h $(TESTUPNPPERMISSIONSOBJS)
+	$(CC) $(CFLAGS) -o $@ $(TESTUPNPPERMISSIONSOBJS)
+
+
+config.h:	genconfig.sh
+	./genconfig.sh
+
+.SUFFIXES:	.o .c
+.c.o:
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+#	$(CC) $(CFLAGS) -c -o $(.TARGET) $(.IMPSRC)

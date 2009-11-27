@@ -11,10 +11,14 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <net/if_var.h>
 #endif
+#if defined(__DragonFly__)
+#include <net/pf/pfvar.h>
+#else
 #include <net/pfvar.h>
+#endif
 #include <kvm.h>
 #include <fcntl.h>
 #include <nlist.h>
@@ -34,7 +38,7 @@ struct nlist list[] = {
 int 
 getifstats(const char * ifname, struct ifdata * data)
 {
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 	struct ifnethead ifh;
 #elif defined(__OpenBSD__) || defined(__NetBSD__)
 	struct ifnet_head ifh;

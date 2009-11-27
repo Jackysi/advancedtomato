@@ -17,7 +17,7 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
-<style tyle='text/css'>
+<style type='text/css'>
 #bs-grid {
 	width: 600px;
 }
@@ -54,19 +54,32 @@ sg.exist = function(f, v)
 
 sg.existMAC = function(mac)
 {
-	if (mac == "00:00:00:00:00:00") return false;
-	return this.exist(0, mac);
+	if (isMAC0(mac)) return false;
+	return this.exist(0, mac) || this.exist(1, mac);
 }
 
 sg.existName = function(name)
 {
-	return this.exist(2, name);
+	return this.exist(3, name);
 }
 
 sg.inStatic = function(n)
 {
-	return this.exist(1, n);
+	return this.exist(2, n);
 }
+
+sg.dataToView = function(data) {
+	var v = [];
+	
+	var s = data[0];
+	if (!isMAC0(data[1])) s += '<br>' + data[1];
+	v.push(s);
+	
+	for (var i = 2; i < data.length; ++i)
+		v.push(escapeHTML('' + data[i]));
+
+	return v;
+},
 
 sg.sortCompare = function(a, b) {
 	var da = a.getRowData();
@@ -77,57 +90,72 @@ sg.sortCompare = function(a, b) {
 		r = cmpText(da[0], db[0]);
 		break;
 	case 1:
-		r = cmpIP(da[1], db[1]);
+		r = cmpIP(da[2], db[2]);
 		break;
 	}
-	if (r == 0) r = cmpText(da[2], db[2]);
+	if (r == 0) r = cmpText(da[3], db[3]);
 	return this.sortAscending ? r : -r;
 }
 
 sg.verifyFields = function(row, quiet)
 {
-	var f, s;
+	var f, s, i;
 
 	f = fields.getAll(row);
 
 	if (!v_macz(f[0], quiet)) return 0;
-	if (this.existMAC(f[0].value)) {
-		ferror.set(f[0], 'Duplicate MAC address', quiet);
-		return 0;
+	if (!v_macz(f[1], quiet)) return 0;
+	if (isMAC0(f[0].value)) {
+		f[0].value = f[1].value;
+		f[1].value = '00:00:00:00:00:00';
 	}
-
-	if (f[1].value.indexOf('.') == -1) {
-		s = parseInt(f[1].value, 10)
-		if (isNaN(s) || (s <= 0) || (s >= 255)) {
-			ferror.set(f[1], 'Invalid IP address', quiet);
+	else if (f[0].value == f[1].value) {
+		f[1].value = '00:00:00:00:00:00';
+	}
+	else if ((!isMAC0(f[1].value)) && (f[0].value > f[1].value)) {
+		s = f[1].value;
+		f[1].value = f[0].value;
+		f[0].value = s;
+	}
+	for (i = 0; i < 2; ++i) {
+		if (this.existMAC(f[i].value)) {
+			ferror.set(f[i], 'Duplicate MAC address', quiet);
 			return 0;
 		}
-		f[1].value = ipp + s;
+	}	
+
+	if (f[2].value.indexOf('.') == -1) {
+		s = parseInt(f[2].value, 10)
+		if (isNaN(s) || (s <= 0) || (s >= 255)) {
+			ferror.set(f[2], 'Invalid IP address', quiet);
+			return 0;
+		}
+		f[2].value = ipp + s;
 	}
 
-	if ((f[0].value != "00:00:00:00:00:00") && (this.inStatic(f[1].value))) {
-		ferror.set(f[1], 'Duplicate IP address', quiet);
+	if ((!isMAC0(f[0].value)) && (this.inStatic(f[2].value))) {
+		ferror.set(f[2], 'Duplicate IP address', quiet);
 		return 0;
 	}
 
-	s = f[2].value.trim().replace(/\s+/g, ' ');
+	s = f[3].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1) {
-			ferror.set(f[2], 'Invalid name. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
+			ferror.set(f[3], 'Invalid name. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
 			return 0;
 		}
 		if (this.existName(s)) {
-			ferror.set(f[2], 'Duplicate name.', quiet);
+			ferror.set(f[3], 'Duplicate name.', quiet);
 			return 0;
 		}
-		f[2].value = s;
+		f[3].value = s;
 	}
 
-	if (f[0].value == '00:00:00:00:00:00') {
+	if (isMAC0(f[0].value)) {
 		if (s == '') {
 			s = 'Both MAC address and name fields must not be empty.';
 			ferror.set(f[0], s, 1);
-			ferror.set(f[2], s, quiet);
+			ferror.set(f[3], s, quiet);
 			return 0;
 		}
 	}
@@ -146,38 +174,44 @@ sg.resetNewEditor = function() {
 		c = c.split(',');
 		if (c.length == 3) {
 			f[0].value = c[0];
-			f[1].value = c[1];
-			f[2].value = c[2];
+			f[1].value = '00:00:00:00:00:00';
+			f[2].value = c[1];
+			f[3].value = c[2];
 			return;
 		}
 	}
 
 	f[0].value = '00:00:00:00:00:00';
-	f[2].value = '';
+	f[1].value = '00:00:00:00:00:00';
+	f[3].value = '';
 
 	n = 10;
 	do {
 		if (--n < 0) {
-			f[1].value = '';
+			f[2].value = '';
 			return;
 		}
 		autonum++;
 	} while (((c = fixIP(ntoa(autonum), 1)) == null) || (c == nvram.lan_ipaddr) || (this.inStatic(c)));
 
-	f[1].value = c;
+	f[2].value = c;
 }
 
 sg.setup = function()
 {
-	this.init('bs-grid', 'sort', 100,
-		[{ type: 'text', maxlen: 17 }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 50 }]);
+	this.init('bs-grid', 'sort', 100, [
+		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
+		{ type: 'text', maxlen: 15 },
+		{ type: 'text', maxlen: 50 } ] );
+
 	this.headerSet(['MAC Address', 'IP Address', 'Hostname']);
 	var s = nvram.dhcpd_static.split('>');
 	for (var i = 0; i < s.length; ++i) {
 		var t = s[i].split('<');
 		if (t.length == 3) {
-			if (t[1].indexOf('.') == -1) t[1] = ipp + t[1];
-			this.insertData(-1, t);
+			var d = t[0].split(',');
+			this.insertData(-1, [d[0], (d.length >= 2) ? d[1] : '00:00:00:00:00:00',
+				(t[1].indexOf('.') == -1) ? (ipp + t[1]) : t[1], t[2]]);
 		}
 	}
 	this.sort(2);
@@ -194,7 +228,10 @@ function save()
 	var i;
 
 	for (i = 0; i < data.length; ++i) {
-		sdhcp += data[i].join('<') + '>';
+		var d = data[i];
+		sdhcp += d[0];
+		if (!isMAC0(d[1])) sdhcp += ',' + d[1];
+		sdhcp += '<' + d[2] + '<' + d[3] + '>';
 	}
 
 	var fom = E('_fom');

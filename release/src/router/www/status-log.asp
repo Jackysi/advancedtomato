@@ -35,7 +35,7 @@ function init()
 	var e = E('find-text');
 	if (e) e.onkeypress = function(ev) {
 		if (checkEvent(ev).keyCode == 13) find();
-	}	
+	}
 }
 </script>
 
