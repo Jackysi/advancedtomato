@@ -373,6 +373,8 @@ inline struct sock *tcp_v6_lookup(struct in6_addr *saddr, u16 sport,
 
 static u32 tcp_v6_synq_hash(struct in6_addr *raddr, u16 rport, u32 rnd)
 {
+/* SpeedMod */
+/*
 	u32 a, b, c;
 
 	a = raddr->s6_addr32[0];
@@ -387,7 +389,19 @@ static u32 tcp_v6_synq_hash(struct in6_addr *raddr, u16 rport, u32 rnd)
 	a += raddr->s6_addr32[3];
 	b += (u32) rport;
 	__jhash_mix(a, b, c);
+*/
 
+	u32 c;
+	u32 key[5] = {
+		raddr->s6_addr32[0],
+		raddr->s6_addr32[1],
+		raddr->s6_addr32[2],
+		raddr->s6_addr32[3],
+		(u32) rport
+	};
+
+	c = jhash2(key, 5, rnd);
+	
 	return c & (TCP_SYNQ_HSIZE - 1);
 }
 

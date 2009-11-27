@@ -117,12 +117,13 @@ nfs3_proc_lookup(struct inode *dir, struct qstr *name,
 }
 
 static int
-nfs3_proc_access(struct inode *inode, int mode, int ruid)
+nfs3_proc_access(struct inode *inode, struct rpc_cred *cred, int mode)
 {
 	struct nfs_fattr	fattr;
 	struct nfs3_accessargs	arg = { NFS_FH(inode), 0 };
 	struct nfs3_accessres	res = { &fattr, 0 };
-	int	status, flags;
+	struct rpc_message msg = { NFS3PROC_ACCESS, &arg, &res, cred };
+	int	status;
 
 	dprintk("NFS call  access\n");
 	fattr.valid = 0;
@@ -140,8 +141,7 @@ nfs3_proc_access(struct inode *inode, int mode, int ruid)
 		if (mode & MAY_EXEC)
 			arg.access |= NFS3_ACCESS_EXECUTE;
 	}
-	flags = (ruid) ? RPC_CALL_REALUID : 0;
-	status = rpc_call(NFS_CLIENT(inode), NFS3PROC_ACCESS, &arg, &res, flags);
+	status = rpc_call_sync(NFS_CLIENT(inode), &msg, 0);
 	nfs_refresh_inode(inode, &fattr);
 	dprintk("NFS reply access\n");
 
@@ -433,6 +433,8 @@ nfs3_proc_rmdir(struct inode *dir, struct qstr *name)
  * The decode function itself doesn't perform any decoding, it just makes
  * sure the reply is syntactically correct.
  *
+ * Also note that this implementation handles both plain readdir and
+ * readdirplus.
  */
 static int
 nfs3_proc_readdir(struct inode *dir, struct rpc_cred *cred,
@@ -446,7 +448,11 @@ nfs3_proc_readdir(struct inode *dir, struct rpc_cred *cred,
 	struct rpc_message	msg = { NFS3PROC_READDIR, &arg, &res, cred };
 	int			status;
 
-	dprintk("NFS call  readdir %d\n", (unsigned int) cookie);
+	if (plus)
+		msg.rpc_proc = NFS3PROC_READDIRPLUS;
+
+	dprintk("NFS call  readdir%s %d\n",
+			plus? "plus" : "", (unsigned int) cookie);
 
 	dir_attr.valid = 0;
 	status = rpc_call_sync(NFS_CLIENT(dir), &msg, 0);
@@ -482,24 +488,42 @@ nfs3_proc_mknod(struct inode *dir, struct qstr *name, struct iattr *sattr,
 	return status;
 }
 
-/*
- * This is a combo call of fsstat and fsinfo
- */
 static int
 nfs3_proc_statfs(struct nfs_server *server, struct nfs_fh *fhandle,
-		 struct nfs_fsinfo *info)
+		 struct nfs_fsstat *stat)
 {
 	int	status;
 
-	dprintk("NFS call  fsstat\n");
-	memset((char *)info, 0, sizeof(*info));
-	status = rpc_call(server->client, NFS3PROC_FSSTAT, fhandle, info, 0);
-	if (status < 0)
-		goto error;
-	status = rpc_call(server->client, NFS3PROC_FSINFO, fhandle, info, 0);
-
-error:
+	stat->fattr->valid = 0;
+	dprintk("NFS call statfs\n");
+	status = rpc_call(server->client, NFS3PROC_FSSTAT, fhandle, stat, 0);
 	dprintk("NFS reply statfs: %d\n", status);
+	return status;
+}
+
+static int
+nfs3_proc_fsinfo(struct nfs_server *server, struct nfs_fh *fhandle,
+		 struct nfs_fsinfo *info)
+{
+	int status;
+
+	info->fattr->valid = 0;
+	dprintk("NFS call fsinfo\n");
+	status = rpc_call(server->client, NFS3PROC_FSINFO, fhandle, info, 0);
+	dprintk("NFS reply fsinfo: %d\n", status);
+	return status;
+}
+
+static int
+nfs3_proc_pathconf(struct nfs_server *server, struct nfs_fh *fhandle,
+		   struct nfs_pathconf *info)
+{
+	int status;
+
+	info->fattr->valid = 0;
+	dprintk("NFS call pathconf\n");
+	status = rpc_call(server->client, NFS3PROC_PATHCONF, fhandle, info, 0);
+	dprintk("NFS reply pathconf: %d\n", status);
 	return status;
 }
 
@@ -528,5 +552,7 @@ struct nfs_rpc_ops	nfs_v3_clientops = {
 	nfs3_proc_readdir,
 	nfs3_proc_mknod,
 	nfs3_proc_statfs,
+	nfs3_proc_fsinfo,
+	nfs3_proc_pathconf,
 	nfs3_decode_dirent,
 };

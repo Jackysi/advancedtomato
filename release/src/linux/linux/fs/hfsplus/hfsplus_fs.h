@@ -178,10 +178,8 @@ struct hfsplus_inode_info {
 	unsigned long flags;
 
 	struct list_head open_dir_list;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
-	unsigned long mmu_private;
-#else
 	loff_t mmu_private;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,0)
 	struct inode vfs_inode;
 #endif
 };

@@ -362,15 +362,14 @@ static int fat_readdirx(struct inode *inode, struct file *filp, void *dirent,
 	unsigned char long_slots;
 	wchar_t *unicode = NULL;
 	char c, work[8], bufname[56], *ptname = bufname;
-	unsigned long lpos, dummy, *furrfu = &lpos;
+	loff_t lpos, dummy, *furrfu = &lpos;
 	int uni_xlate = MSDOS_SB(sb)->options.unicode_xlate;
 	int isvfat = MSDOS_SB(sb)->options.isvfat;
 	int utf8 = MSDOS_SB(sb)->options.utf8;
 	int nocase = MSDOS_SB(sb)->options.nocase;
 	unsigned short opt_shortname = MSDOS_SB(sb)->options.shortname;
-	unsigned long inum;
 	int chi, chl, i, i2, j, last, last_u, dotoffset = 0;
-	loff_t i_pos, cpos;
+	loff_t i_pos, inum, cpos;
 
 	cpos = filp->f_pos;
 /* Fake . and .. for the root directory. */
@@ -740,8 +739,8 @@ int fat_add_entries(struct inode *dir,int slots, struct buffer_head **bh,
 	if ((dir->i_ino == MSDOS_ROOT_INO) && (MSDOS_SB(sb)->fat_bits != 32)) 
 		return -ENOSPC;
 	new_bh = fat_extend_dir(dir);
-	if (!new_bh)
-		return -ENOSPC;
+	if (IS_ERR(new_bh))
+		return PTR_ERR(new_bh);
 	fat_brelse(sb, new_bh);
 	do fat_get_entry(dir,&curr,bh,de,i_pos); while (++row<slots);
 	return offset;
@@ -754,7 +753,10 @@ int fat_new_dir(struct inode *dir, struct inode *parent, int is_vfat)
 	struct msdos_dir_entry *de;
 	__u16 date, time;
 
-	if ((bh = fat_extend_dir(dir)) == NULL) return -ENOSPC;
+	bh = fat_extend_dir(dir);
+	if (IS_ERR(bh))
+		return PTR_ERR(bh);
+
 	/* zeroed out, so... */
 	fat_date_unix2dos(dir->i_mtime,&time,&date);
 	de = (struct msdos_dir_entry*)&bh->b_data[0];

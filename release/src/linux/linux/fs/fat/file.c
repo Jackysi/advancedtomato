@@ -64,12 +64,15 @@ int fat_get_block(struct inode *inode, long iblock, struct buffer_head *bh_resul
 		return 0;
 
 	if (iblock != MSDOS_I(inode)->mmu_private >> sb->s_blocksize_bits){
-		BUG();
+		printk("Invalid FAT block detected\n");
 		return -EIO;
 	}
 	if (!(iblock % MSDOS_SB(inode->i_sb)->cluster_size)) {
-		if (fat_add_cluster(inode) < 0)
-			return -ENOSPC;
+		int error;
+
+		error = fat_add_cluster(inode);
+		if (error < 0)
+			return error;
 	}
 	MSDOS_I(inode)->mmu_private += sb->s_blocksize;
 	phys = fat_bmap(inode, iblock);

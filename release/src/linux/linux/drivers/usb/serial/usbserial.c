@@ -809,7 +809,7 @@ static int serial_post_job(struct usb_serial_port *port, int from_user,
 	if (port == NULL)
 		return -EPIPE;
 
-	if (count >= 512) {
+	if (count > 2048) {
 		static int rate = 0;
 		/*
 		 * Data loss due to extreme circumstances.
@@ -821,7 +821,7 @@ static int serial_post_job(struct usb_serial_port *port, int from_user,
 			err("too much data (%d) from %s", count,
 			    from_user? "user": "kernel");
 		}
-		count = 512;
+		count = 2048;
 	}
 
 	while (done < count) {

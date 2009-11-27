@@ -114,7 +114,9 @@ int ip_rt_redirect_load		= HZ / 50;
 int ip_rt_redirect_silence	= ((HZ / 50) << (9 + 1));
 int ip_rt_error_cost		= HZ;
 int ip_rt_error_burst		= 5 * HZ;
-int ip_rt_gc_elasticity		= 8;
+/* SpeedMod: Tune ip_rt_gc_elasticity */
+//int ip_rt_gc_elasticity		= 8;
+int ip_rt_gc_elasticity		= 1;
 int ip_rt_mtu_expires		= 10 * 60 * HZ;
 int ip_rt_min_pmtu		= 512 + 20 + 20;
 int ip_rt_min_advmss		= 256;
@@ -2624,6 +2626,9 @@ void __init ip_rt_init(void)
 	for (order = 0; (1UL << order) < goal; order++)
 		/* NOTHING */;
 
+	/* SpeedMod: order=5 gives 16384 buckets */
+	order=5;
+
 	do {
 		rt_hash_mask = (1UL << order) * PAGE_SIZE /
 			sizeof(struct rt_hash_bucket);
@@ -2649,8 +2654,13 @@ void __init ip_rt_init(void)
 		rt_hash_table[i].chain = NULL;
 	}
 
+	/* SpeedMod: Tuning */
+/*
 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+*/
+	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+	ip_rt_max_size = (rt_hash_mask + 1) * 2;
 
 	devinet_init();
 	ip_fib_init();

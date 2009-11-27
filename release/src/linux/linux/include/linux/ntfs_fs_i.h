@@ -1,91 +1,110 @@
 #ifndef _LINUX_NTFS_FS_I_H
 #define _LINUX_NTFS_FS_I_H
 
-#include <linux/types.h>
+typedef enum {
+	NTFS_AT_END = 0xffffffff
+} NTFS_ATTR_TYPES;
 
-/* Forward declarations, to keep number of mutual includes low */
-struct ntfs_attribute;
-struct ntfs_sb_info;
+typedef struct {
+	void *rl;
+	struct rw_semaphore lock;
+} ntfs_run_list;
 
-/* Duplicate definitions from ntfs/ntfstypes.h */
-#ifndef NTFS_INTEGRAL_TYPES
-#define NTFS_INTEGRAL_TYPES
-typedef u8  ntfs_u8;
-typedef u16 ntfs_u16;
-typedef u32 ntfs_u32;
-typedef u64 ntfs_u64;
-typedef s8  ntfs_s8;
-typedef s16 ntfs_s16;
-typedef s32 ntfs_s32;
-typedef s64 ntfs_s64;
-#endif
+struct inode;
 
-#ifndef NTMODE_T
-#define NTMODE_T
-typedef __kernel_mode_t ntmode_t;
-#endif
-#ifndef NTFS_UID_T
-#define NTFS_UID_T
-typedef uid_t ntfs_uid_t;
-#endif
-#ifndef NTFS_GID_T
-#define NTFS_GID_T
-typedef gid_t ntfs_gid_t;
-#endif
-#ifndef NTFS_SIZE_T
-#define NTFS_SIZE_T
-typedef __kernel_size_t ntfs_size_t;
-#endif
-#ifndef NTFS_TIME_T
-#define NTFS_TIME_T
-typedef __kernel_time_t ntfs_time_t;
-#endif
-
-/* unicode character type */
-#ifndef NTFS_WCHAR_T
-#define NTFS_WCHAR_T
-typedef u16 ntfs_wchar_t;
-#endif
-/* file offset */
-#ifndef NTFS_OFFSET_T
-#define NTFS_OFFSET_T
-typedef s64 ntfs_offset_t;
-#endif
-/* UTC */
-#ifndef NTFS_TIME64_T
-#define NTFS_TIME64_T
-typedef u64 ntfs_time64_t;
-#endif
-/*
- * This is really signed long long. So we support only volumes up to 2Tb. This
- * is ok as Win2k also only uses 32-bits to store clusters.
- * Whatever you do keep this a SIGNED value or a lot of NTFS users with
- * corrupted filesystems will lynch you! It causes massive fs corruption when
- * unsigned due to the nature of many checks relying on being performed on
- * signed quantities. (AIA)
- */
-#ifndef NTFS_CLUSTER_T
-#define NTFS_CLUSTER_T
-typedef s32 ntfs_cluster_t;
-#endif
-
-/* Definition of the NTFS in-memory inode structure. */
 struct ntfs_inode_info {
-	struct ntfs_sb_info *vol;
-	unsigned long i_number;		/* Should be really 48 bits. */
-	__u16 sequence_number;		/* The current sequence number. */
-	unsigned char *attr;		/* Array of the attributes. */
-	int attr_count;			/* Size of attrs[]. */
-	struct ntfs_attribute *attrs;
-	int record_count;		/* Size of records[]. */
-	int *records; /* Array of the record numbers of the $Mft whose 
-		       * attributes have been inserted in the inode. */
+	s64 initialized_size;	/* Copy from $DATA/$INDEX_ALLOCATION. */
+	s64 allocated_size;	/* Copy from $DATA/$INDEX_ALLOCATION. */
+	unsigned long state;	/* NTFS specific flags describing this inode.
+				   See ntfs_inode_state_bits below. */
+	unsigned long mft_no;	/* Number of the mft record / inode. */
+	u16 seq_no;		/* Sequence number of the mft record. */
+	atomic_t count;		/* Inode reference count for book keeping. */
+	void *vol;		/* Pointer to the ntfs volume of this inode. */
+	/*
+	 * If NInoAttr() is true, the below fields describe the attribute which
+	 * this fake inode belongs to. The actual inode of this attribute is
+	 * pointed to by base_ntfs_ino and nr_extents is always set to -1 (see
+	 * below). For real inodes, we also set the type (AT_DATA for files and
+	 * AT_INDEX_ALLOCATION for directories), with the name = NULL and
+	 * name_len = 0 for files and name = I30 (global constant) and
+	 * name_len = 4 for directories.
+	 */
+	NTFS_ATTR_TYPES type;	/* Attribute type of this fake inode. */
+	void *name;		/* Attribute name of this fake inode. */
+	u32 name_len;		/* Attribute name length of this fake inode. */
+	ntfs_run_list run_list;	/* If state has the NI_NonResident bit set,
+				   the run list of the unnamed data attribute
+				   (if a file) or of the index allocation
+				   attribute (directory) or of the attribute
+				   described by the fake inode (if NInoAttr()).
+				   If run_list.rl is NULL, the run list has not
+				   been read in yet or has been unmapped. If
+				   NI_NonResident is clear, the attribute is
+				   resident (file and fake inode) or there is
+				   no $I30 index allocation attribute
+				   (small directory). In the latter case
+				   run_list.rl is always NULL.*/
+	/*
+	 * The following fields are only valid for real inodes and extent
+	 * inodes.
+	 */
+	struct semaphore mrec_lock; /* Lock for serializing access to the
+				   mft record belonging to this inode. */
+	struct page *page;	/* The page containing the mft record of the
+				   inode. This should only be touched by the
+				   (un)map_mft_record*() functions. */
+	int page_ofs;		/* Offset into the page at which the mft record
+				   begins. This should only be touched by the
+				   (un)map_mft_record*() functions. */
+	/*
+	 * Attribute list support (only for use by the attribute lookup
+	 * functions). Setup during read_inode for all inodes with attribute
+	 * lists. Only valid if NI_AttrList is set in state, and attr_list_rl is
+	 * further only valid if NI_AttrListNonResident is set.
+	 */
+	u32 attr_list_size;	/* Length of attribute list value in bytes. */
+	u8 *attr_list;		/* Attribute list value itself. */
+	ntfs_run_list attr_list_rl; /* Run list for the attribute list value. */
 	union {
-		struct {
-			int recordsize;
-			int clusters_per_record;
-		} index;
-	} u;	
+		struct { /* It is a directory or $MFT. */
+			struct inode *bmp_ino;	/* Attribute inode for the
+						   directory index $BITMAP. */
+			u32 index_block_size;	/* Size of an index block. */
+			u32 index_vcn_size;	/* Size of a vcn in this
+						   directory index. */
+			u8 index_block_size_bits; /* Log2 of the above. */
+			u8 index_vcn_size_bits;	/* Log2 of the above. */
+		} m;
+		struct { /* It is a compressed file or fake inode. */
+			s64 compressed_size;		/* Copy from $DATA. */
+			u32 compression_block_size;     /* Size of a compression
+						           block (cb). */
+			u8 compression_block_size_bits; /* Log2 of the size of
+							   a cb. */
+			u8 compression_block_clusters;  /* Number of clusters
+							   per compression
+							   block. */
+		} f;
+	} c;
+	struct semaphore extent_lock;	/* Lock for accessing/modifying the
+					   below . */
+	s32 nr_extents;	/* For a base mft record, the number of attached extent
+			   inodes (0 if none), for extent records and for fake
+			   inodes describing an attribute this is -1. */
+	union {		/* This union is only used if nr_extents != 0. */
+		void **extent_ntfs_inos;	/* For nr_extents > 0, array of
+						   the ntfs inodes of the extent
+						   mft records belonging to
+						   this base inode which have
+						   been loaded. */
+		void *base_ntfs_ino;		/* For nr_extents == -1, the
+						   ntfs inode of the base mft
+						   record. For fake inodes, the
+						   real (base) inode to which
+						   the attribute belongs. */
+	} e;
 };
 
 #endif
+

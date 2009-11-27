@@ -63,7 +63,7 @@ unsigned int ip_conntrack_htable_size = 0;
 int ip_conntrack_max = 0;
 int ip_conntrack_clear = 0;
 static int kill_all(struct ip_conntrack *i, void *data);
-static atomic_t ip_conntrack_count = ATOMIC_INIT(0);
+atomic_t ip_conntrack_count = ATOMIC_INIT(0);
 struct list_head *ip_conntrack_hash;
 static kmem_cache_t *ip_conntrack_cachep;
 static LIST_HEAD(unconfirmed);
@@ -121,7 +121,10 @@ hash_conntrack(const struct ip_conntrack_tuple *tuple)
 	return (jhash_3words(tuple->src.ip,
 	                     (tuple->dst.ip ^ tuple->dst.protonum),
 	                     (tuple->src.u.all | (tuple->dst.u.all << 16)),
-	                     ip_conntrack_hash_rnd) % ip_conntrack_htable_size);
+	                     /* SpeedMod: Change modulo to AND */
+	                     //ip_conntrack_hash_rnd) % ip_conntrack_htable_size);
+	                     ip_conntrack_hash_rnd) & (ip_conntrack_htable_size - 1));
+
 }
 
 inline int
@@ -1447,6 +1450,8 @@ int __init ip_conntrack_init(void)
 	unsigned int i;
 	int ret;
 
+	/* SpeedMod: Hashtable size */
+#if 0
 	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
 	 * machine has 256 buckets.  >= 1GB machines have 8192 buckets. */
  	if (hashsize) {
@@ -1461,6 +1466,10 @@ int __init ip_conntrack_init(void)
 			ip_conntrack_htable_size = 16;
 	}
 	ip_conntrack_max = 8 * ip_conntrack_htable_size;
+#else
+	ip_conntrack_htable_size = 16384;
+	ip_conntrack_max = 8192;
+#endif
 
 	printk("ip_conntrack version %s (%u buckets, %d max)"
 	       " - %Zd bytes per conntrack\n", IP_CONNTRACK_VERSION,

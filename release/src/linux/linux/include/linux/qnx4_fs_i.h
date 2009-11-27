@@ -33,7 +33,7 @@ struct qnx4_inode_info {
 	__u8		i_zero[4];	/*  4 */
 	qnx4_ftype_t	i_type;		/*  1 */
 	__u8		i_status;	/*  1 */
-	unsigned long	mmu_private;
+	loff_t		mmu_private;
 };
 
 #endif
