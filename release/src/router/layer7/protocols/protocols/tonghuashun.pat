@@ -1,5 +1,5 @@
 # Tonghuashun - stock analysis and trading; Chinese - http://www.10jqka.com.cn
-# Pattern attributes: ok veryfast fast
+# Pattern attributes: ok fast fast
 # Protocol groups: 
 # Wiki: http://www.protocolinfo.org/wiki/Tonghuashun
 # Copyright (C) 2009 Matthew Strait; See ../LICENSE

@@ -1,11 +1,11 @@
 /*
  *	matrixSsl.c
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *
  *	Secure Sockets Layer session management
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -101,7 +101,7 @@ int32 matrixSslReadKeys(sslKeys_t **keys, const char *certFile,
 						const char *privFile, const char *privPass,
 						const char *trustedCAFile)
 {
-	return matrixRsaReadKeys(keys, certFile, privFile, privPass, trustedCAFile);
+	return matrixX509ReadKeys(keys, certFile, privFile, privPass, trustedCAFile);
 }
 #endif /* USE_FILE_SYSTEM */
 
@@ -109,7 +109,7 @@ int32 matrixSslReadKeysMem(sslKeys_t **keys, unsigned char *certBuf,
 						int32 certLen, unsigned char *privBuf, int32 privLen,
 						unsigned char *trustedCABuf, int32 trustedCALen)
 {
-	return matrixRsaReadKeysMem(keys, certBuf, certLen, privBuf, privLen,
+	return matrixX509ReadKeysMem(keys, certBuf, certLen, privBuf, privLen,
 		trustedCABuf, trustedCALen);
 }
 
@@ -464,6 +464,8 @@ int32 sslActivateWriteCipher(ssl_t *ssl)
 
 int32 sslActivatePublicCipher(ssl_t *ssl)
 {
+	ssl->encryptPriv = ssl->cipher->encryptPriv;
+	ssl->decryptPub = ssl->cipher->decryptPub;
 	ssl->decryptPriv = ssl->cipher->decryptPriv;
 	ssl->encryptPub = ssl->cipher->encryptPub;
 	if (ssl->cipher->id != SSL_NULL_WITH_NULL_NULL) {

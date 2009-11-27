@@ -18,7 +18,6 @@
 
 #ifdef HAVE_DBUS
 
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus.h>
 
 const char* introspection_xml =
@@ -345,11 +344,7 @@ void set_dbus_listeners(int *maxfdp,
     if (dbus_watch_get_enabled(w->watch))
       {
 	unsigned int flags = dbus_watch_get_flags(w->watch);
-#if (DBUS_MINOR > 0)
 	int fd = dbus_watch_get_unix_fd(w->watch);
-#else
-	int fd = dbus_watch_get_fd(w->watch);
-#endif
 	
 	bump_maxfd(fd, maxfdp);
 	
@@ -372,11 +367,7 @@ void check_dbus_listeners(fd_set *rset, fd_set *wset, fd_set *eset)
     if (dbus_watch_get_enabled(w->watch))
       {
 	unsigned int flags = 0;
-#if (DBUS_MINOR > 0)
 	int fd = dbus_watch_get_unix_fd(w->watch);
-#else
-	int fd = dbus_watch_get_fd(w->watch);
-#endif
 	
 	if (FD_ISSET(fd, rset))
 	  flags |= DBUS_WATCH_READABLE;
@@ -399,16 +390,25 @@ void check_dbus_listeners(fd_set *rset, fd_set *wset, fd_set *eset)
     }
 }
 
-void emit_dbus_signal(int action, char *mac, char *hostname, char *addr)
+void emit_dbus_signal(int action, struct dhcp_lease *lease, char *hostname)
 {
   DBusConnection *connection = (DBusConnection *)daemon->dbus;
   DBusMessage* message = NULL;
   DBusMessageIter args;
-  const char *action_str;
+  char *action_str, *addr, *mac = daemon->namebuff;
+  unsigned char *p;
+  int i;
 
   if (!connection)
     return;
-
+  
+  if (!hostname)
+    hostname = "";
+  
+  p = extended_hwaddr(lease->hwaddr_type, lease->hwaddr_len,
+		      lease->hwaddr, lease->clid_len, lease->clid, &i);
+  print_mac(mac, p, i);
+  
   if (action == ACTION_DEL)
     action_str = "DhcpLeaseDeleted";
   else if (action == ACTION_ADD)
@@ -417,6 +417,8 @@ void emit_dbus_signal(int action, char *mac, char *hostname, char *addr)
     action_str = "DhcpLeaseUpdated";
   else
     return;
+
+  addr = inet_ntoa(lease->addr);
 
   if (!(message = dbus_message_new_signal(DNSMASQ_PATH, DNSMASQ_SERVICE, action_str)))
     return;

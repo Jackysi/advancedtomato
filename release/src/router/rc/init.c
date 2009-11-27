@@ -612,6 +612,27 @@ static int init_nvram(void)
 		mfr = "Viewsonic";
 		name = "WR100";
 		break;
+	case MODEL_WLA2G54L:
+		mfr = "Buffalo";
+		name = "WLA2-G54L";
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("lan_ifnames", "vlan0 eth1 eth2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wan_ifname", "none");
+		}
+		break;
+	case MODEL_TM2300:
+		mfr = "Dell";
+		name = "TrueMobile 2300";
+		break;
+	
+	/*
+	
+	  ...
+	
+	*/
+
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
 #endif
@@ -851,6 +872,11 @@ static void sysinit(void)
 
 	set_tz();
 
+	i = nvram_get_int("sesx_led");
+	led(LED_AMBER, (i & 1) != 0);
+	led(LED_WHITE, (i & 2) != 0);
+	led(LED_AOSS, (i & 4) != 0);
+	led(LED_BRIDGE, (i & 8) != 0);
 	led(LED_DIAG, 1);
 }
 
