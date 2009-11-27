@@ -18,7 +18,7 @@ install: all
 	install -D -m 0500 ntpc $(INSTALLDIR)/bin/ntpc
 	$(STRIP) $(INSTALLDIR)/bin/ntpc
 
-	cd $(INSTALLDIR)/bin && ln -sf ntpc ntpsync && ln -sf ntpc ntpstep
+	cd $(INSTALLDIR)/bin && ln -sf ntpc ntpsync
 
 clean:
 	rm -f ntpc .*.depend *.o
