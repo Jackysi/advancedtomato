@@ -21,6 +21,7 @@ void usage_exit(const char *cmd, const char *help)
 	exit(1);
 }
 
+#if 0 // replaced by #define in rc.h
 int modprobe(const char *mod)
 {
 #if 1
@@ -31,6 +32,7 @@ int modprobe(const char *mod)
 	return r;
 #endif
 }
+#endif // 0
 
 int modprobe_r(const char *mod)
 {
