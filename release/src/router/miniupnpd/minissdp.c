@@ -1,4 +1,4 @@
-/* $Id: minissdp.c,v 1.17 2009/08/20 09:10:38 nanard Exp $ */
+/* $Id: minissdp.c,v 1.18 2009/11/06 20:18:17 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard
@@ -454,7 +454,8 @@ SendSSDPGoodbye(int * sockets, int n_sockets)
 	                   (struct sockaddr *)&sockname, sizeof(struct sockaddr_in) );
 			if(n < 0)
 			{
-				syslog(LOG_ERR, "sendto(udp_shutdown=%d): %m", sockets[j]);
+				syslog(LOG_ERR, "SendSSDPGoodbye: sendto(udp_shutdown=%d): %m",
+				       sockets[j]);
 				return -1;
 			}
     	}
@@ -518,3 +519,4 @@ SubmitServicesToMiniSSDPD(const char * host, unsigned short port) {
  	close(s);
 	return 0;
 }
+

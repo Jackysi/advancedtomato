@@ -1,4 +1,8 @@
-$Id: Changelog.txt,v 1.181 2009/10/30 09:10:16 nanard Exp $
+$Id: Changelog.txt,v 1.182 2009/11/06 20:18:16 nanard Exp $
+
+2009/11/06:
+  implementing sending of ip address change notification when receiving
+    the signal SIGUSR1
 
 VERSION 1.4 : released the 2009/10/30
 

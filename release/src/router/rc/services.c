@@ -359,28 +359,80 @@ void start_upnp(void)
 		else {
 			if ((f = fopen("/etc/upnp/config", "w")) != NULL) {
 				upnp_port = nvram_get_int("upnp_port");
-				if ((upnp_port <= 0) || (upnp_port >= 0xFFFF)) upnp_port = 5000;
+				if ((upnp_port < 0) || (upnp_port >= 0xFFFF)) upnp_port = 0;
+
+				char *lanip = nvram_safe_get("lan_ipaddr");
+				char *lanmask = nvram_safe_get("lan_netmask");
 				
 				fprintf(f,
 					"ext_ifname=%s\n"
-					"listening_ip=%s\n"
+					"listening_ip=%s/%s\n"
 					"port=%d\n"
 					"enable_upnp=%s\n"
 					"enable_natpmp=%s\n"
 					"secure_mode=%s\n"
 					"upnp_forward_chain=upnp\n"
 					"upnp_nat_chain=upnp\n"
+					"notify_interval=%d\n"
 					"system_uptime=yes\n"
 					"\n"
 					,
 					nvram_safe_get("wan_iface"),
-					nvram_safe_get("lan_ipaddr"),
+					lanip, lanmask,
 					upnp_port,
 					(enable & 1) ? "yes" : "no",						// upnp enable
 					(enable & 2) ? "yes" : "no",						// natpmp enable
-					nvram_get_int("upnp_secure") ? "yes" : "no"			// secure_mode (only forward to self)
+					nvram_get_int("upnp_secure") ? "yes" : "no",			// secure_mode (only forward to self)
+					nvram_get_int("upnp_ssdp_interval")
 				);
+
+				if (nvram_get_int("upnp_clean")) {
+					int interval = nvram_get_int("upnp_clean_interval");
+					if (interval < 60) interval = 60;
+					fprintf(f,
+						"clean_ruleset_interval=%d\n"
+						"clean_ruleset_threshold=%d\n",
+						interval,
+						nvram_get_int("upnp_clean_threshold")
+					);
+				}
+				else
+					fprintf(f,"clean_ruleset_interval=0\n");
+
+				if (nvram_match("upnp_mnp", "1")) {
+					int https = nvram_get_int("https_enable");
+					fprintf(f, "presentation_url=http%s://%s:%s/forward-upnp.asp\n",
+						https ? "s" : "", lanip,
+						nvram_safe_get(https ? "https_lanport" : "http_lanport"));
+				}
+				else {
+					// Empty parameters are not included into XML service description
+					fprintf(f, "presentation_url=\n");
+				}
+
+				char uuid[45];
+				f_read_string("/proc/sys/kernel/random/uuid", uuid, sizeof(uuid));
+				fprintf(f, "uuid=%s\n", uuid);
+
+				int ports[4];
+				if ((ports[0] = nvram_get_int("upnp_min_port_int")) > 0 &&
+				    (ports[1] = nvram_get_int("upnp_max_port_int")) > 0 &&
+				    (ports[2] = nvram_get_int("upnp_min_port_ext")) > 0 &&
+				    (ports[3] = nvram_get_int("upnp_max_port_ext")) > 0) {
+					fprintf(f,
+						"allow %d-%d %s/%s %d-%d\n",
+						ports[0], ports[1],
+						lanip, lanmask,
+						ports[2], ports[3]
+					);
+				}
+				else {
+					// by default allow only redirection of ports above 1024
+					fprintf(f, "allow 1024-65535 %s/%s 1024-65535\n", lanip, lanmask);
+				}
+
 				fappend(f, "/etc/upnp/config.custom");
+				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
 				fclose(f);
 				
 				xstart("miniupnpd", "-f", "/etc/upnp/config");
