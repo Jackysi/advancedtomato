@@ -97,6 +97,104 @@ void wi_generic(char *url, int len, char *boundary)
 	check_id(url);
 }
 
+// !!TB - CGI Support
+void wi_cgi_bin(char *url, int len, char *boundary)
+{
+	if (post_buf) free(post_buf);
+	post_buf = NULL;
+
+	if (post) {
+		if (len >= (32 * 1024)) {
+			syslog(LOG_WARNING, "POST length exceeded maximum allowed");
+			exit(1);
+		}
+
+		if (len > 0) {
+			if ((post_buf = malloc(len + 1)) == NULL) {
+				exit(1);
+			}
+			if (web_read_x(post_buf, len) != len) {
+				exit(1);
+			}
+			post_buf[len] = 0;
+		}
+	}
+}
+
+static void _execute_command(char *url, char *command, char *query, char *output)
+{
+	char webExecFile[]  = "/tmp/.wxXXXXXX";
+	char webQueryFile[] = "/tmp/.wqXXXXXX";
+	FILE *f;
+
+	mktemp(webExecFile);
+	if (query) mktemp(webQueryFile);
+
+	if ((f = fopen(webExecFile, "wb")) != NULL) {
+		fprintf(f,
+			"#!/bin/sh\n"
+			"export REQUEST_METHOD=\"%s\"\n"
+			"export PATH=%s\n"
+			". /etc/profile\n"
+			"%s%s %s%s\n",
+			post ? "POST" : "GET", getenv("PATH"),
+			command ? "" : "./", command ? command : url,
+			query ? "<" : "", query ? webQueryFile : "");
+		fclose(f);
+	}
+	else {
+		unlink(output);
+		exit(1);
+	}
+	chmod(webExecFile, 0700);
+
+	if (query) {
+		if ((f = fopen(webQueryFile, "wb")) != NULL) {
+			fprintf(f, "%s\n", query);
+			fclose(f);
+		}
+		else {
+			unlink(output);
+			unlink(webExecFile);
+			exit(1);
+		}
+	}
+
+	char cmd[128];
+	sprintf(cmd, "%s >%s 2>&1", webExecFile, output);
+	system(cmd);
+	unlink(webQueryFile);
+	unlink(webExecFile);
+}
+
+static void wo_cgi_bin(char *url)
+{
+	char webOutpFile[] = "/tmp/.woXXXXXX";
+
+	mktemp(webOutpFile);
+	_execute_command(url, NULL, post_buf, webOutpFile);
+
+	if (post_buf) {
+		free(post_buf);
+		post_buf = NULL;
+	}
+	wo_asp(webOutpFile);
+	unlink(webOutpFile);
+}
+
+static void wo_shell(char *url)
+{
+	char webOutpFile[] = "/tmp/.woXXXXXX";
+
+	mktemp(webOutpFile);
+	_execute_command(NULL, webcgi_get("command"), NULL, webOutpFile);
+
+	web_puts("\ncmdresult = '");
+	web_putfile(webOutpFile, WOF_JAVASCRIPT);
+	web_puts("';");
+	unlink(webOutpFile);
+}
+
 static void wo_blank(char *url)
 {
 	web_puts("\n\n\n\n");
@@ -194,7 +292,10 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
 	{ "favicon.ico",	NULL,						5,	wi_generic_noid,	wo_favicon,		1 },
-
+// !!TB - CGI Support, enable downloading archives
+	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
+	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
+	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
 
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },

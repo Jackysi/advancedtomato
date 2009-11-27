@@ -1992,6 +1992,7 @@ function navi()
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
+			['System',			'shell.asp'],
 			['Wireless Survey',	'survey.asp'],
 			['WOL',				'wol.asp'] ] ],
 		null,
@@ -2205,7 +2206,7 @@ function createFieldTable(flags, desc)
 				buf2.push('</select>');
 				break;
 			case 'textarea':
-				buf2.push('<textarea' + name + common + '>' + escapeHTML(UT(f.value)) + '</textarea>');
+				buf2.push('<textarea' + name + common + (f.wrap ? (' wrap=' + f.wrap) : '') + '>' + escapeHTML(UT(f.value)) + '</textarea>');
 				break;
 			default:
 				if (f.custom) buf2.push(f.custom);
