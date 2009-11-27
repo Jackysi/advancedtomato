@@ -149,7 +149,7 @@ void handle_cmdline(string & filename, int * nexecs, int * verbose,
 int main(int argc, char ** argv)
 {
 	regex_t patterncomp;
-	int verbose = 0, cflags, eflags, nexecs = 10000;
+	int verbose = 0, cflags, eflags, nexecs = 100000;
 	string filename, patternstring;
 
 	handle_cmdline(filename, &nexecs, &verbose, argc, argv);

@@ -489,9 +489,46 @@ function v_ip(e, quiet, x)
 function v_ipz(e, quiet)
 {
 	if ((e = E(e)) == null) return 0;
-	e = E(e);
 	if (e.value == '') e.value = '0.0.0.0';
 	return v_ip(e, quiet);
+}
+
+function v_dns(e, quiet)
+{
+	if ((e = E(e)) == null) return 0;	
+	if (e.value == '') {
+		e.value = '0.0.0.0';
+	}
+	else {
+		var s = e.value.split(':');
+		if (s.length == 1) {
+			s.push(53);
+		}
+		else if (s.length != 2) {
+			ferror.set(e, 'Invalid IP address or port', quiet);
+			return false;
+		}
+		
+		if ((s[0] = fixIP(s[0])) == null) {
+			ferror.set(e, 'Invalid IP address', quiet);
+			return false;
+		}
+
+		if ((s[1] = fixPort(s[1], -1)) == -1) {
+			ferror.set(e, 'Invalid port', quiet);
+			return false;
+		}
+	
+		if (s[1] == 53) {
+			e.value = s[0];
+		}
+		else {
+			e.value = s.join(':');
+		}
+	}
+
+	ferror.clear(e);
+	return true;
 }
 
 function aton(ip)
@@ -528,19 +565,19 @@ function _v_iptip(e, ip, quiet)
 			return null;
 		}
 		ferror.clear(e);
-		
+
 		if (aton(a) > aton(b)) return b + '-' + a;
 		return a + '-' + b;
 	}
 
 	ma = '';
 
-	// x.x.x.x/nn 
+	// x.x.x.x/nn
 	// x.x.x.x/y.y.y.y
 	if (ip.match(/^(.*)\/(.*)$/)) {
 		ip = RegExp.$1;
 		b = RegExp.$2;
-		
+
 		ma = b * 1;
 		if (isNaN(ma)) {
 			ma = fixIP(b);
@@ -556,7 +593,7 @@ function _v_iptip(e, ip, quiet)
 			}
 		}
 	}
-		
+
 	ip = fixIP(ip);
 	if (!ip) {
 		ferror.set(e, 'Invalid IP address - ' + oip, quiet);
@@ -646,21 +683,29 @@ function v_portrange(e, quiet)
 
 function v_iptport(e, quiet)
 {
-	var a, i, v;
+	var a, i, v, q;
 
 	if ((e = E(e)) == null) return 0;
 
 	a = e.value.split(/,/);
-	for (i = 0; i < MIN(a.length, 10); ++i) {
-		v = _v_portrange(e, quiet, a[i]);
-		if (v == null) return 0;
-		a[i] = v;
-	}
+
 	if (a.length == 0) {
 		ferror.set(e, 'Expecting a list of ports or port range.', quiet);
 		return 0;
 	}
-	e.value = a.join(',');
+	if (a.length > 10) {
+		ferror.set(e, 'Only 10 ports/range sets are allowed.', quiet);
+		return 0;
+	}
+
+	q = [];
+	for (i = 0; i < a.length; ++i) {
+		v = _v_portrange(e, quiet, a[i]);
+		if (v == null) return 0;
+		q.push(v);
+	}
+
+	e.value = q.join(',');
 	ferror.clear(e);
 	return 1;
 }
@@ -1902,6 +1947,11 @@ function features(s)
 	return 0;
 }
 
+function get_config(name, def)
+{
+	return ((typeof(nvram) != 'undefined') && (typeof(nvram[name]) != 'undefined')) ? nvram[name] : def;
+}
+
 function nothing()
 {
 }
@@ -1929,17 +1979,17 @@ function myName()
 function navi()
 {
 	var menu = [
-		['Status', 				'status', 1, [
+		['Status', 				'status', 0, [
 			['Overview',		'overview.asp'],
 			['Device List',		'devices.asp'],
 			['Logs',			'log.asp'] ] ],
-		['Bandwidth', 			'bwm', 1, [
+		['Bandwidth', 			'bwm', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
 			['Monthly',			'monthly.asp'] ] ],
-		['Tools', 				'tools', 1, [
+		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
 			['Wireless Survey',	'survey.asp'],
@@ -1972,19 +2022,19 @@ function navi()
 			['View Details',	'detailed.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
-/*
+/* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',			'startup.asp'],
 			['Shutdown',		'shutdown.asp'],
 			['Firewall',		'firewall.asp'],
 			['WAN Up',			'wanup.asp']
 			] ],
-*/
+REMOVE-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons',			'buttons.asp'],
+			['Buttons / LED',	'buttons.asp'],
 			['CIFS Client',		'cifs.asp'],
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
@@ -2005,6 +2055,7 @@ function navi()
 	var sm;
 	var a, b, c;
 	var on1;
+	var cexp = get_config('web_mx', '').toLowerCase();
 
 	name = myName();
 	if (name == 'restrict-edit.asp') name = 'restrict.asp';
@@ -2020,18 +2071,6 @@ function navi()
 			buf.push("<br>");
 			continue;
 		}
-/*
-		if (m[1] == 'javascript:logout()') {
-			// can't logout in IE...
-			try {
-				if (navigator.userAgent.match(/MSIE\s+(\d+)/)) {
-					continue;
-				}
-			}
-			catch (ex) {
-			}
-		}
-*/
 		if (m.length == 2) {
 			buf.push('<a href="' + m[1] + '" class="indent1' + (((base == '') && (name == m[1])) ? ' active' : '') + '">' + m[0] + '</a>');
 		}
@@ -2053,7 +2092,7 @@ function navi()
 			if (a == 'status-overview.asp') a = '/';
 			on1 = (base == m[1]);
 			buf.push('<a href="' + a + '" class="indent1' + (on1 ? ' active' : '') + '">' + m[0] + '</a>');
-			if ((!on1) && (m[2] == 0)) continue;
+			if ((!on1) && (m[2] == 0) && (cexp.indexOf(m[1]) == -1)) continue;
 
 			for (j = 0; j < m[3].length; ++j) {
 				sm = m[3][j];
@@ -2124,9 +2163,9 @@ function createFieldTable(flags, desc)
 
 			if ((f.type == 'radio') && (!f.id)) id = '_' + f.name + '_' + i;
 				else id = (f.id ? f.id : ('_' + f.name));
-				
+
 			if (id1 == '') id1 = id;
-				
+
 			common = ' onchange="verifyFields(this, 1)" id="' + id + '"';
 			if (f.attrib) common += ' ' + f.attrib;
 			name = f.name ? (' name="' + f.name + '"') : '';
@@ -2139,7 +2178,20 @@ function createFieldTable(flags, desc)
 				buf2.push('<input type="radio"' + name + (f.value ? ' checked' : '') + ' onclick="verifyFields(this, 1)"' + common + '>');
 				break;
 			case 'password':
-				common += ' autocomplete="off"';
+				if (f.peekaboo) {
+					switch (get_config('web_pb', '1')) {
+					case '0':
+						f.type = 'text';
+					case '2':
+						f.peekaboo = 0;
+						break;
+					}
+				}
+				if (f.type == 'password') {
+					common += ' autocomplete="off"';
+					if (f.peekaboo) common += ' onfocus=\'peekaboo("' + id + '",1)\'';
+				}
+				// drop
 			case 'text':
 				buf2.push('<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>');
 				break;
@@ -2174,6 +2226,43 @@ function createFieldTable(flags, desc)
 	document.write(buf.join(''));
 }
 
+function peekaboo(id, show)
+{
+	try {
+		var o = document.createElement('INPUT');
+		var e = E(id);
+		var name = e.name;
+		o.type = show ? 'text' : 'password';
+		o.value = e.value;
+		o.size = e.size;
+		o.maxLength = e.maxLength;
+		o.autocomplete = e.autocomplete;
+		o.title = e.title;
+		o.disabled = e.disabled;
+		o.onchange = e.onchange;
+		e.parentNode.replaceChild(o, e);
+		e = null;
+		o.id = id;
+		o.name = name;
+
+		if (show) {
+			o.onblur = function(ev) { setTimeout('peekaboo("' + this.id + '", 0)', 0) };
+			setTimeout('try { E("' + id + '").focus() } catch (ex) { }', 0)
+		}
+		else {
+			o.onfocus = function(ev) { peekaboo(this.id, 1); };
+		}
+	}
+	catch (ex) {
+//		alert(ex);
+	}
+
+/* REMOVE-BEGIN
+notes:
+ - e.type= doesn't work in IE, ok in FF
+ - may mess keyboard tabing (bad: IE; ok: FF, Opera)... setTimeout() delay seems to help a little.
+REMOVE-END */
+}
 
 // -----------------------------------------------------------------------------
 

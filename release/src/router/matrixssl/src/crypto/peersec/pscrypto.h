@@ -1,11 +1,11 @@
 /*
  *	pscrypto.h
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *
  *	Internal definitions for PeerSec Networks MatrixSSL cryptography provider
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -77,6 +77,7 @@ typedef struct {
 } sslRsaKey_t;
 
 #endif /* USE_RSA */
+
 
 
 /*
@@ -240,6 +241,8 @@ extern void des_ecb_decrypt(const unsigned char *ct, unsigned char *pt,
 		 des3_CBC *key);
 
 #endif /* USE_3DES */
+
+
 
 typedef union {
 #ifdef USE_ARC4

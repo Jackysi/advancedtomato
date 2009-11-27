@@ -1,5 +1,5 @@
 # RTP - Real-time Transport Protocol - RFC 3550
-# Pattern attributes: ok overmatch undermatch veryfast fast
+# Pattern attributes: ok overmatch undermatch fast fast
 # Protocol groups: streaming_video ietf_internet_standard
 # Wiki: http://www.protocolinfo.org/wiki/RTP
 # Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
