@@ -5786,7 +5786,7 @@ argstr(char *p, int flag, struct strlist *var_str_list)
 	};
 	const char *reject = spclchars;
 	int c;
-	int quotes = flag & (EXP_FULL | EXP_CASE);      /* do CTLESC */
+	int quotes = flag & (EXP_FULL | EXP_CASE | EXP_REDIR); /* do CTLESC */
 	int breakall = flag & EXP_WORD;
 	int inquotes;
 	size_t length;
@@ -11909,7 +11909,8 @@ find_dot_file(char *name)
 			 */
 			return fullname;
 		}
-		stunalloc(fullname);
+		if (fullname != name)
+			stunalloc(fullname);
 	}
 
 	/* not found in the PATH */

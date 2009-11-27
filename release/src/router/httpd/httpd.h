@@ -60,7 +60,6 @@ extern const char mime_octetstream[];
 extern const char mime_binary[];
 extern int header_sent;
 
-extern void send_authenticate(const char *realm);
 extern void send_header(int status, const char *header, const char *mime, int cache);
 extern void send_error(int status, const char *header, const char *text);
 extern void redirect(const char *path);
