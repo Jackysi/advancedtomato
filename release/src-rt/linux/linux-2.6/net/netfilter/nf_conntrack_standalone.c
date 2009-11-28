@@ -184,6 +184,11 @@ static int ct_seq_show(struct seq_file *s, void *v)
 		return -ENOSPC;
 #endif
 
+#if defined(CONFIG_NETFILTER_XT_MATCH_LAYER7) || defined(CONFIG_NETFILTER_XT_MATCH_LAYER7_MODULE)
+	if(conntrack->layer7.app_proto)
+		if(seq_printf(s, "l7proto=%s ", conntrack->layer7.app_proto))
+			return -ENOSPC;
+#endif
 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
 		return -ENOSPC;
 	
