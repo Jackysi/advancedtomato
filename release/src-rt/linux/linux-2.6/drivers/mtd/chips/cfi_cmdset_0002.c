@@ -47,6 +47,7 @@
 #define MANUFACTURER_AMD	0x0001
 #define MANUFACTURER_ATMEL	0x001F
 #define MANUFACTURER_SST	0x00BF
+#define MANUFACTURER_SAMSUNG	0x00EC
 #define SST49LF004B	        0x0060
 #define SST49LF040B	        0x0050
 #define SST49LF008A		0x005a
@@ -293,13 +294,28 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
 		}
 
 		if (extp->MajorVersion != '1' ||
-		    (extp->MinorVersion < '0' || extp->MinorVersion > '4')) {
-			printk(KERN_ERR "  Unknown Amd/Fujitsu Extended Query "
-			       "version %c.%c.\n",  extp->MajorVersion,
-			       extp->MinorVersion);
-			kfree(extp);
-			kfree(mtd);
-			return NULL;
+		   (extp->MinorVersion < '0' || extp->MinorVersion > '4')) {
+			if (cfi->mfr == MANUFACTURER_SAMSUNG &&
+			   ((extp->MajorVersion == '3' && extp->MinorVersion == '3') ||
+			   (extp->MajorVersion == '0'))) {
+				printk(KERN_NOTICE "  Newer Samsung Flash detected, "
+				       "should be compatibile with Amd/Fujitsu.\n");
+				if (extp->MajorVersion == '0') {
+					switch (cfi->id) {
+						case 0x257e:
+						case 0x22e2:
+							extp->MajorVersion = '1';
+							break;
+					}
+				}
+			} else {
+				printk(KERN_ERR "  Unknown Amd/Fujitsu Extended Query "
+				       "version %c.%c.\n",  extp->MajorVersion,
+				       extp->MinorVersion);
+				kfree(extp);
+				kfree(mtd);
+				return NULL;
+			}
 		}
 
 		/* Install our own private info structure */
