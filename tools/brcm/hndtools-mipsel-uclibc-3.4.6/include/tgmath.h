@@ -34,7 +34,7 @@
    do not try this for now and instead concentrate only on GNU CC.  Once
    we have more information support for other compilers might follow.  */
 
-#if __GNUC_PREREQ(2, 7)
+#if __GNUC_PREREQ (2, 7)
 
 # ifdef __NO_LONG_DOUBLE_MATH
 #  define __tgml(fct) fct

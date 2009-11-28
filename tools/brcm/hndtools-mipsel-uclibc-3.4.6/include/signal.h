@@ -73,7 +73,7 @@ typedef __uid_t uid_t;
 
 /* Type of a signal handler.  */
 typedef void (*__sighandler_t) (int);
-
+#if defined __UCLIBC_HAS_OBSOLETE_SYSV_SIGNAL__
 /* The X/Open definition of `signal' specifies the SVID semantic.  Use
    the additional function `sysv_signal' when X/Open compatibility is
    requested.  */
@@ -83,12 +83,13 @@ extern __sighandler_t __sysv_signal (int __sig, __sighandler_t __handler)
 extern __sighandler_t sysv_signal (int __sig, __sighandler_t __handler)
      __THROW;
 #endif
+#endif /* __UCLIBC_HAS_OBSOLETE_SYSV_SIGNAL__ */
 
 /* Set the handler for the signal SIG to HANDLER, returning the old
    handler, or SIG_ERR on error.
    By default `signal' has the BSD semantic.  */
 __BEGIN_NAMESPACE_STD
-#ifdef __USE_BSD
+#if defined __USE_BSD || !defined __UCLIBC_HAS_OBSOLETE_SYSV_SIGNAL__
 extern __sighandler_t signal (int __sig, __sighandler_t __handler)
      __THROW;
 #else
@@ -268,7 +269,7 @@ extern int sigpending (sigset_t *__set) __THROW __nonnull ((1));
 extern int sigwait (__const sigset_t *__restrict __set, int *__restrict __sig)
      __nonnull ((1, 2));
 
-# ifdef __USE_POSIX199309
+# if defined __USE_POSIX199309 && defined __UCLIBC_HAS_REALTIME__
 /* Select any of pending signals from SET and place information in INFO.
 
    This function is a cancellation point and therefore not marked with
@@ -363,7 +364,7 @@ extern int sigaltstack (__const struct sigaltstack *__restrict __ss,
 
 #endif /* use BSD or X/Open Unix.  */
 
-#ifdef __USE_XOPEN_EXTENDED
+#if defined __USE_XOPEN_EXTENDED && defined __UCLIBC_HAS_OBSOLETE_BSD_SIGNAL__
 /* Simplified interface for signal management.  */
 
 /* Add SIG to the calling process' signal mask.  */

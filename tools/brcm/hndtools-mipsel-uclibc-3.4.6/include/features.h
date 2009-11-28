@@ -143,7 +143,7 @@
 
 /* Convenience macros to test the versions of glibc and gcc.
    Use them like this:
-   #if __GNUC_PREREQ(2,8)
+   #if __GNUC_PREREQ (2,8)
    ... code requiring gcc 2.8 or later ...
    #endif
    Note - they won't work for gcc1 or glibc1, since the _MINOR macros
@@ -297,7 +297,7 @@
 /* uClibc does not support _FORTIFY_SOURCE */
 #undef _FORTIFY_SOURCE
 #if defined _FORTIFY_SOURCE && _FORTIFY_SOURCE > 0 \
-    && __GNUC_PREREQ(4, 1) && defined __OPTIMIZE__ && __OPTIMIZE__ > 0
+    && __GNUC_PREREQ (4, 1) && defined __OPTIMIZE__ && __OPTIMIZE__ > 0
 # if _FORTIFY_SOURCE > 1
 #  define __USE_FORTIFY_LEVEL 2
 # else
@@ -366,8 +366,9 @@
 #endif	/* !ASSEMBLER */
 
 /* Decide whether we can define 'extern inline' functions in headers.  */
-#if __GNUC_PREREQ(2, 7) && defined __OPTIMIZE__ \
-    && !defined __OPTIMIZE_SIZE__ && !defined __NO_INLINE__
+#if __GNUC_PREREQ (2, 7) && defined __OPTIMIZE__ \
+    && !defined __OPTIMIZE_SIZE__ && !defined __NO_INLINE__ \
+    && (defined __extern_inline || defined __GNUC_GNU_INLINE__)
 # define __USE_EXTERN_INLINES	1
 #endif
 
@@ -413,12 +414,12 @@ uClibc was built without large file support enabled.
 # include <libc-internal.h>
 #endif
 
+/* Some people like to build up uClibc with *-elf toolchains, so
+ * a little grease here until we drop '#ifdef __linux__' checks
+ * from our source code.
+ */
 #ifndef __linux__
 # define __linux__ 1
 #endif
-
-/* Disable __user, which shows up in 2.6.x include asm headers
- * that get pulled in by signal.h */
-#define __user
 
 #endif	/* features.h  */

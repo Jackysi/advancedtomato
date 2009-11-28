@@ -39,7 +39,7 @@
 
 #else  /* __UCLIBC_HAS_LOCALE__ */
 
-#define __LOCALE_C_ONLY 
+#define __LOCALE_C_ONLY
 
 #define __XL_NPP(N) N
 #define __LOCALE_PARAM
