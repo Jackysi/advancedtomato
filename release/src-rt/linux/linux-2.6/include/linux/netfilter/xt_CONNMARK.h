@@ -13,7 +13,8 @@
 enum {
 	XT_CONNMARK_SET = 0,
 	XT_CONNMARK_SAVE,
-	XT_CONNMARK_RESTORE
+	XT_CONNMARK_RESTORE,
+	XT_CONNMARK_SET_RETURN
 };
 
 struct xt_connmark_target_info {

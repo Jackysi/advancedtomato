@@ -37,7 +37,8 @@ match(const struct sk_buff *skb,
     const struct xt_mac_info *info = matchinfo;
 
     /* Is mac pointer valid? */
-    return (skb_mac_header(skb) >= skb->head &&
+    return (in != NULL &&	// added for OUTPUT experiment -- zzz
+	    skb_mac_header(skb) >= skb->head &&
 	    (skb_mac_header(skb) + ETH_HLEN) <= skb->data
 	    /* If so, compare... */
 	    && ((!compare_ether_addr(eth_hdr(skb)->h_source, info->srcaddr))

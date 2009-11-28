@@ -13,6 +13,7 @@
 #define IPT_CONNMARK_SET	XT_CONNMARK_SET
 #define IPT_CONNMARK_SAVE	XT_CONNMARK_SAVE
 #define	IPT_CONNMARK_RESTORE	XT_CONNMARK_RESTORE
+#define IPT_CONNMARK_SET_RETURN	XT_CONNMARK_SET_RETURN
 
 #define ipt_connmark_target_info xt_connmark_target_info
 

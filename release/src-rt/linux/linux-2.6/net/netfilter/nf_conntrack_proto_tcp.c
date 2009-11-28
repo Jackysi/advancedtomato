@@ -75,7 +75,7 @@ static const char *tcp_conntrack_names[] = {
 
 static unsigned int nf_ct_tcp_timeout_syn_sent __read_mostly =      2 MINS;
 static unsigned int nf_ct_tcp_timeout_syn_recv __read_mostly =     60 SECS;
-static unsigned int nf_ct_tcp_timeout_established __read_mostly =   5 DAYS;
+static unsigned int nf_ct_tcp_timeout_established __read_mostly =  4 HOURS;	// was 5 days	zzz
 static unsigned int nf_ct_tcp_timeout_fin_wait __read_mostly =      2 MINS;
 static unsigned int nf_ct_tcp_timeout_close_wait __read_mostly =   60 SECS;
 static unsigned int nf_ct_tcp_timeout_last_ack __read_mostly =     30 SECS;

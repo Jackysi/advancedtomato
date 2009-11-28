@@ -57,6 +57,10 @@ obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
 obj-$(CONFIG_IP_NF_MATCH_MPORT) += ipt_mport.o
 obj-$(CONFIG_IP_NF_MATCH_TTL) += ipt_ttl.o
 obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
+obj-$(CONFIG_IP_NF_MATCH_WEB) += ipt_web.o
+obj-$(CONFIG_IP_NF_MATCH_MACSAVE) += ipt_macsave.o
+obj-$(CONFIG_IP_NF_MATCH_EXP) += ipt_exp.o
+obj-$(CONFIG_IP_NF_MATCH_BCOUNT) += ipt_bcount.o
 
 # targets
 obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
@@ -74,6 +78,8 @@ obj-$(CONFIG_IP_NF_TARGET_LOG) += ipt_LOG.o
 obj-$(CONFIG_IP_NF_TARGET_ULOG) += ipt_ULOG.o
 obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
 obj-$(CONFIG_IP_NF_TARGET_TTL) += ipt_TTL.o
+obj-$(CONFIG_IP_NF_TARGET_MACSAVE) += ipt_MACSAVE.o
+obj-$(CONFIG_IP_NF_TARGET_BCOUNT) += ipt_BCOUNT.o
 
 # generic ARP tables
 obj-$(CONFIG_IP_NF_ARPTABLES) += arp_tables.o
@@ -83,4 +89,6 @@ obj-$(CONFIG_IP_NF_ARP_MANGLE) += arpt_mangle.o
 obj-$(CONFIG_IP_NF_ARPFILTER) += arptable_filter.o
 
 obj-$(CONFIG_IP_NF_QUEUE) += ip_queue.o
+
+obj-$(CONFIG_IP_NF_TOMATOCT) += tomato_ct.o
 

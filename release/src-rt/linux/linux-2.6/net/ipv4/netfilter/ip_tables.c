@@ -319,6 +319,11 @@ ipt_do_table(struct sk_buff **pskb,
 
 				if (verdict == IPT_CONTINUE)
 					e = (void *)e + e->next_offset;
+				else if (verdict == IPT_RETURN) {		// added -- zzz
+					e = back;
+					back = get_entry(table_base, back->comefrom);
+					continue;
+				}
 				else
 					/* Verdict */
 					break;

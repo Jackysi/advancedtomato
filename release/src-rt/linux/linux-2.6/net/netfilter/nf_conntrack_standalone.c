@@ -189,6 +189,24 @@ static int ct_seq_show(struct seq_file *s, void *v)
 		if(seq_printf(s, "l7proto=%s ", conntrack->layer7.app_proto))
 			return -ENOSPC;
 #endif
+
+#if defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
+	if ((*((u32 *)conntrack->macsave) != 0) || (*((u16*)(conntrack->macsave + 4)) != 0)) {
+		if (seq_printf(s, "macsave=%02X:%02X:%02X:%02X:%02X:%02X ",
+			conntrack->macsave[0], conntrack->macsave[1], conntrack->macsave[2],
+			conntrack->macsave[3], conntrack->macsave[4], conntrack->macsave[5]))
+			return -ENOSPC;
+	}
+#endif
+#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
+#if 0
+	if (conntrack->bcount != 0) {
+		if (seq_printf(s, "bcount=%ldK ", conntrack->bcount / 1024))
+			return -ENOSPC;
+	}
+#endif
+#endif
+
 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
 		return -ENOSPC;
 	

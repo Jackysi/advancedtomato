@@ -57,6 +57,15 @@ target(struct sk_buff **pskb,
 				nf_conntrack_event_cache(IPCT_MARK, *pskb);
 			}
 			break;
+		case XT_CONNMARK_SET_RETURN:
+			// Set connmark and mark, apply mask to mark, do XT_RETURN	- zzz
+			newmark = ct->mark = markinfo->mark;
+			newmark &= markinfo->mask;
+			mark = (*pskb)->mark;
+			if (newmark != mark) {
+				(*pskb)->mark = newmark;
+			}				
+			return XT_RETURN;
 		case XT_CONNMARK_SAVE:
 			newmark = (ct->mark & ~markinfo->mask) |
 				  ((*pskb)->mark & markinfo->mask);

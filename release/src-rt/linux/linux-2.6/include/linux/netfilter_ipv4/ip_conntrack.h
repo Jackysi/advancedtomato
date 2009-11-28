@@ -128,6 +128,13 @@ struct ip_conntrack
 	/* Traversed often, so hopefully in different cacheline to top */
 	/* These are my tuples; original and reply */
 	struct ip_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
+
+#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
+	u_int32_t bcount;
+#endif
+#if defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
+	unsigned char macsave[6];
+#endif
 };
 
 struct ip_conntrack_expect

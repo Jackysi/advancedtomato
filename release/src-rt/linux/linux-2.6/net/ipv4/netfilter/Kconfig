@@ -532,5 +532,33 @@ config IP_NF_MATCH_IPV4OPTIONS
 	  If you want to compile it as a module, say M here and read
 	  Documentation/modules.txt.  If unsure, say `N'.
 
+config IP_NF_MATCH_WEB
+	tristate  'web match'
+	depends on IP_NF_IPTABLES
+
+config IP_NF_TARGET_BCOUNT
+	tristate  'BCOUNT target'
+	depends on IP_NF_IPTABLES
+
+config IP_NF_MATCH_BCOUNT
+	tristate  'bcount match'
+	depends on IP_NF_TARGET_BCOUNT
+
+config IP_NF_TARGET_MACSAVE
+	tristate  'MACSAVE target'
+	depends on IP_NF_IPTABLES
+
+config IP_NF_MATCH_MACSAVE
+	tristate  'macsave match'
+	depends on IP_NF_TARGET_MACSAVE
+
+config IP_NF_MATCH_EXP
+	tristate  'exp match (experimental rig - do not use)'
+	depends on IP_NF_IPTABLES && EXPERIMENTAL
+
+config IP_NF_TOMATOCT
+	tristate  'tomato_ct'
+	depends on NF_CONNTRACK_MARK && EXPERIMENTAL
+
 endmenu
 
