@@ -310,19 +310,6 @@ make_new_session(
 	}
 #endif
 
-#if ENABLE_FEATURE_TELNETD_STANDALONE
-	if (!(option_mask32 & OPT_INETD)) {
-		struct tsession *tp = sessions;
-		while (tp) {
-			close(tp->ptyfd);
-			close(tp->sockfd_read);
-			/* sockfd_write == sockfd_read for standalone telnetd */
-			/*close(tp->sockfd_write);*/
-			tp = tp->next;
-		}
-	}
-#endif
-
 	/* Make new session and process group */
 	setsid();
 

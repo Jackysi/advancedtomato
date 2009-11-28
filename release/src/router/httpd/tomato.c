@@ -253,7 +253,6 @@ const aspapi_t aspapi[] = {
 	{ "version",			asp_version			},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
-	{ "css",				asp_css				},
 	{ "wlchannel",			asp_wlchannel		},
 	{ "wlclient",			asp_wlclient		},
 	{ "wlcrssi",			asp_wlcrssi			},

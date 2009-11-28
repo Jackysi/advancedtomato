@@ -618,8 +618,6 @@ int do_script_run(time_t now)
 
   return 0; /* nothing to do */
 }
-
-#endif
 	  
 
       
