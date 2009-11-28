@@ -21,7 +21,10 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
+/* REMOVE-BEGIN
+	!!TB - added qos_pfifo
+REMOVE-END */
+//	<% nvram("qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
 classNames = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
@@ -153,7 +156,11 @@ createFieldTable('', [
 	] },
 	{ title: 'Prioritize ICMP', name: 'f_qos_icmp', type: 'checkbox', value: nvram.qos_icmp == '1' },
 	{ title: 'Reset class when changing settings', name: 'f_qos_reset', type: 'checkbox', value: nvram.qos_reset == '1' },
-	{ title: 'Default class', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default }
+	{ title: 'Default class', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default },
+/* REMOVE-BEGIN
+	!!TB - added qos_pfifo
+REMOVE-END */
+	{ title: 'Qdisc Scheduler', name: 'qos_pfifo', type: 'select', options: [['0','sfq'],['1','pfifo']], value: nvram.qos_pfifo }
 ]);
 </script>
 </div>

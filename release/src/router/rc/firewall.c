@@ -392,10 +392,11 @@ static void nat_table(void)
 		case 2:		// 2 = disable
 			break;
 		default:	// 0 = all (same as block_loopback=0)
-			ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j MASQUERADE\n",
+			ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j SNAT --to-source %s\n",
 				lanface,
 				lanaddr, lanmask,
-				lanaddr, lanmask);
+				lanaddr, lanmask,
+				lanaddr);
 			break;
 		}
 	}
@@ -659,6 +660,28 @@ int start_firewall(void)
 	}
 
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
+
+	/* NAT performance tweaks
+	 * These values can be overriden later if needed via firewall script
+	 */
+	f_write_string("/proc/sys/net/core/netdev_max_backlog", "3072", 0, 0);
+	f_write_string("/proc/sys/net/core/somaxconn", "3072", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_max_syn_backlog", "8192", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_fin_timeout", "30", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_keepalive_intvl", "24", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_keepalive_probes", "3", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_keepalive_time", "1800", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_retries2", "5", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_syn_retries", "3", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_synack_retries", "3", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_tw_recycle", "1", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_tw_reuse", "1", 0, 0);
+
+	/* DoS-related tweaks */
+	f_write_string("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", "1", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_abort_on_overflow", "1", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/tcp_rfc1337", "1", 0, 0);
+	f_write_string("/proc/sys/net/ipv4/ip_local_port_range", "1024 65535", 0, 0);
 
 	n = nvram_get_int("log_in");
 	chain_in_drop = (n & 1) ? "logdrop" : "DROP";

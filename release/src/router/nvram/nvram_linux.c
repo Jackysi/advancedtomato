@@ -183,76 +183,123 @@ int nvram_commit(void)
 	return r;
 }
 
+/*
+ * Write a file to an NVRAM variable.
+ * @param	name	name of variable to get
+ * @param	filenname	name of file to write
+ * @return	return code
+ *
+ * Preserve mode (permissions) of the file.
+ * Create the output directory.
+ */
+#define MAX_FS 4096
+#define MAGICNUM 0x12161770	/* Ludwig van Beethoven's birthdate. */
+int nvram_file2nvram(const char *varname, const char *filename)
+{
+	FILE *fp;
+	int c,count;
+	int i=0,j=0;
+	struct stat stbuf;
+	unsigned char mem[MAX_FS], buf[3 * MAX_FS];
+
+	if ( !(fp=fopen(filename,"rb") )) {
+		perror("");
+		return 1;
+	}
+
+	stat(filename, &stbuf);
+	*((mode_t *)mem) = stbuf.st_mode;
+	*((mode_t *)mem+1) = MAGICNUM;
+   
+	count=fread(mem + 2*sizeof(mode_t), 1, sizeof(mem) - 2*sizeof(mode_t), fp);
+	if (!feof(fp)) {
+		fclose(fp);
+		fprintf(stderr, "File too big.\n");
+		return(1);
+	}
+	fclose(fp);
+	count += 2*sizeof(mode_t);
+	for (j = 0; j < count; j++) {
+		if  (i > sizeof(buf)-3 )
+			break;
+		c=mem[j];
+		if (c >= 32 && c <= 126 && c != '\\' && c != '~')  {
+			buf[i++]=(unsigned char) c;
+		} else if (c==0) {
+			buf[i++]='~';
+		} else {
+			buf[i++]='\\';
+			sprintf(buf+i,"%02X",c);
+			i+=2;
+		}
+	}
+	buf[i]=0;
+	nvram_set(varname,buf);
+	return 0;
+}
 
 /*
-int file2nvram(char *filename, char *varname)
+ * Get the value of an NVRAM variable and write it to a file.
+ * It must have been written with nvram_file2nvram.
+ * Directory path(s) are created, and permissions are preserved.
+ * @param	name	name of variable to get
+ * @param	filenname	name of file to write
+ * @return	return code
+ */
+int nvram_nvram2file(const char *varname, const char *filename)
 {
-   FILE *fp;
-   int c,count;
-   int i=0,j=0;
-   char mem[10000],buf[30000];
+	int fnum;
+	int c,tmp;
+	int i=0,j=0;
+	unsigned char *cp;
+	unsigned char mem[MAX_FS], buf[3 * MAX_FS];
 
-   if ( !(fp=fopen(filename,"rb") ))
-        return 0;
+	cp = nvram_get(varname);
+	if (cp == NULL) {
+		printf("Key does not exist: %s\n", varname);
+		return(1);
+	}
+	strcpy(buf, cp);
+	while (buf[i] && j < sizeof(mem)-3 ) {
+		if (buf[i] == '\\')  {
+			i++;
+			tmp=buf[i+2];
+			buf[i+2]=0;
+			sscanf(buf+i,"%02X",&c);
+			buf[i+2]=tmp;
+			i+=2;
+			mem[j]=c;j++;
+		} else if (buf[i] == '~') {
+			mem[j++]=0;
+			i++;
+		} else {
+			mem[j++]=buf[i++];
+		}
+	}
+   
+	if (j<=0)
+		return j;
+	if (*((mode_t *)mem+1) != MAGICNUM) {
+		printf("Error: '%s' not created by nvram setfile.\n", varname);
+		return(-1);
+	}
 
-   count=fread(mem,1,sizeof(mem),fp);
-   fclose(fp);
-   for (j=0;j<count;j++) {
-        if  (i > sizeof(buf)-3 )
-                break;
-        c=mem[j];
-        if (c >= 32 && c <= 126 && c != '\\' && c != '~')  {
-                buf[i++]=(unsigned char) c;
-        } else if (c==0) {
-		buf[i++]='~';
-        } else {
-                buf[i++]='\\';
-                sprintf(buf+i,"%02X",c);
-                i+=2;
-        }
-   }
-   if (i==0) return 0;
-   buf[i]=0;
-   //fprintf(stderr,"================ > file2nvram %s = [%s] \n",varname,buf);
-   nvram_set(varname,buf);
-   //nvram_commit(); //Barry adds for test
-
-   return 0;
+	/* Create the directories to the path, as necessary. */
+	sprintf(buf, "mkdir -p %s", filename);
+	cp = strrchr(buf + 8, '/');
+	if (cp && cp > &buf[9]) {
+		*cp = 0;
+		system(buf);
+	}
+   
+	if ( (fnum=open(filename, O_WRONLY | O_CREAT | O_TRUNC, *((mode_t *)mem))) < 0) {
+		printf("failed. errno: %d\n", errno);
+		perror(filename);
+		return (-1);
+	}
+	i = write(fnum, mem + 2*sizeof(mode_t), j- 2* sizeof(mode_t));
+	if (i != j- 2* sizeof(mode_t))
+		perror(filename);
+	close(fnum);
+	return (i != (j- 2* sizeof(mode_t)));
 }
-
-int nvram2file(char *varname, char *filename) {
-   FILE *fp;
-   int c,tmp;
-   int i=0,j=0;
-   char *buf;
-   char mem[10000];
-
-   if ( !(fp=fopen(filename,"wb") ))
-        return 0;
-
-   buf=strdup(nvram_safe_get(varname));
-   //fprintf(stderr,"=================> nvram2file %s = [%s] \n",varname,buf);
-   while (  buf[i] && j < sizeof(mem)-3 ) {
-        if (buf[i] == '\\')  {
-                i++;
-                tmp=buf[i+2];
-                buf[i+2]=0;
-                sscanf(buf+i,"%02X",&c);
-                buf[i+2]=tmp;
-                i+=2;
-                mem[j]=c;j++;
-        } else if (buf[i] == '~') {
-		mem[j]=0;j++;
-		i++;
-        } else {
-                mem[j]=buf[i];j++;
-                i++;
-        }
-   }
-   if (j<=0) return j;
-   j=fwrite(mem,1,j,fp);
-   fclose(fp);
-   free(buf);
-   return j;
-}
-*/

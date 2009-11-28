@@ -13,6 +13,8 @@
 
 #include <bcmdevs.h>
 #include <wlutils.h>
+#include <dirent.h>
+#include <sys/wait.h>
 
 
 void usage_exit(const char *cmd, const char *help)
@@ -61,13 +63,107 @@ int _xstart(const char *cmd, ...)
 	return _eval(argv, NULL, 0, &pid);
 }
 
+int endswith (char *str, char *cmp)
+{
+	int cmp_len, str_len, i;
+
+	cmp_len = strlen (cmp);
+	str_len = strlen (str);
+	if (cmp_len > str_len)
+		return (0);
+	for (i = 0; i < cmp_len; i++) {
+		if (str[(str_len - 1) - i] != cmp[(cmp_len - 1) - i])
+			return (0);
+	}
+	return (1);
+}
+
+
+static void execute_with_maxwait(char *const argv[], int wtime)
+{
+	pid_t pid;
+
+	if (_eval(argv, NULL, 0, &pid) != 0)
+		pid = -1;
+	else {
+		while (wtime-- > 0) {
+			waitpid(pid, NULL, WNOHANG);	/* Reap the zombie if it has terminated. */
+			if (kill(pid, 0) != 0) break;
+			sleep(1);
+		}
+		//printf("killdon:      errno: %d    pid %d\n", errno, pid);
+	}
+}
+
+void run_userfile (char *folder, char *extension, const char *arg1, int wtime)
+{
+	struct dirent *entry;
+	DIR *directory;
+	unsigned char buf[128];
+	char *argv[3];
+
+	//printf("run_userfile: check %s for *%s\n", folder, extension);
+	directory = opendir (folder);
+	if (directory == NULL)
+		return;
+
+	while ((entry = readdir (directory)) != NULL) {
+		if (endswith (entry->d_name, extension)) {
+			sprintf (buf, "%s/%s", folder, entry->d_name);
+			argv[0] = buf;
+			argv[1] = (char *)arg1;
+			argv[2] = NULL;
+			execute_with_maxwait(argv, wtime);
+		}
+	}
+	closedir (directory);
+}
+
+
+/* Run user-supplied script(s), with 1 argument.
+ * Return when the script(s) have finished,
+ * or after wtime seconds, even if they aren't finished.
+ *
+ * Extract NAME from nvram variable named as "script_NAME".
+ *
+ * The sole exception to the nvram item naming rule is sesx.
+ * That one is "sesx_script" rather than "script_sesx", due
+ * to historical accident.
+ *
+ * The other exception is time-scheduled commands.
+ * These have names that start with "sch_".
+ * No directories are searched for corresponding user scripts.
+ *
+ * Execute in this order:
+ *	nvram item: nv (run as a /bin/sh script)
+ *	All files with a suffix of ".NAME" in these directories:
+ *	/etc/config/
+ *	/jffs/etc/config/
+ *	/opt/etc/config/
+ *	/mmc/etc/config/
+ *	/tmp/config/
+ */
+/*
+At this time, the names/events are:
+   sesx		SES/AOSS Button custom script.
+   brau		"bridge/auto" button pushed.
+   fire		When firewall service has been started or re-started.
+   shut		At system shutdown, just before wan/lan/usb/etc. are stopped.
+   init		At system startup, just before wan/lan/usb/etc. are started.
+                The root filesystem and /jffs are mounted, but not any USB devices.
+   usbmount	After an auto-mounted USB drive is mounted.
+   usbumount	Before an auto-mounted USB drive is unmounted.
+   usbhotplug	When any USB device is attached or removed.
+   wanup	After WAN has come up.
+      
+*/
 void run_nvscript(const char *nv, const char *arg1, int wtime)
 {
 	FILE *f;
 	char *script;
 	char s[256];
 	char *argv[3];
-	int pid;
+	int check_dirs = 1;
 
 	script = nvram_get(nv);
 	if ((script) && (*script != 0)) {
@@ -84,18 +180,36 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 			argv[0] = s;
 			argv[1] = (char *)arg1;
 			argv[2] = NULL;
-			if (_eval(argv, NULL, 0, &pid) != 0) {
-				pid = -1;
-			}
-			else {
-				while (wtime-- > 0) {
-					if (kill(pid, 0) != 0) break;
-					sleep(1);
-				}
-			}
 
+			//printf("Running: '%s %s'\n", argv[0], argv[1]? argv[1]: "");
+			execute_with_maxwait(argv, wtime);
 			chdir("/");
 		}
+	}
+
+	sprintf(s, ".%s", nv);
+	if (strncmp("sch_c", nv, 5) == 0) {
+		check_dirs = 0;
+	}
+	else if (strncmp("sesx_", nv, 5) == 0) {
+		s[5] = 0;
+	}
+	else if (strncmp("script_", nv, 7) == 0) {
+		strcpy(&s[1], &nv[7]);
+	}
+
+	if (nvram_match("userfiles_disable", "1")) {
+		// backdoor to disable user scripts execution
+		check_dirs = 0;
+	}
+
+	if ((check_dirs) && strcmp(s, ".")) {
+		//printf("checking for user scripts: '%s'\n", s);
+		run_userfile("/etc/config", s, arg1, wtime);
+		run_userfile("/jffs/etc/config", s, arg1, wtime);
+		run_userfile("/opt/etc/config", s, arg1, wtime);
+		run_userfile("/mmc/etc/config", s, arg1, wtime);
+		run_userfile("/tmp/config", s, arg1, wtime);
 	}
 }
 

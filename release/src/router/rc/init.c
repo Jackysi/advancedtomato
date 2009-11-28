@@ -730,8 +730,9 @@ static int init_nvram(void)
 
 
 	nvram_set("wl_hwaddr", "");				// when disabling wireless, we must get null wireless mac 	??
-	nvram_set("wl_country", "JP");
-	nvram_set("wl_country_code", "JP");
+	//!!TB - do not force country code here to allow nvram override
+	//nvram_set("wl_country", "JP");
+	//nvram_set("wl_country_code", "JP");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_get_domain", "");
 	nvram_set("pppoe_pid0", "");
@@ -759,6 +760,26 @@ static int init_nvram(void)
 	return 0;
 }
 
+/* Get the special files from nvram and copy them to disc.
+ * These were files saved with "nvram setfile2nvram <filename>".
+ * Better hope that they were saved with full pathname.
+*/
+static void load_files_from_nvram(void)
+{
+	char *name, *cp, buf[NVRAM_SPACE];
+
+	nvram_getall(buf, sizeof(buf));
+	for (name = buf; *name; name += strlen(name) + 1) {
+		if (strncmp(name, "FILE:", 5) == 0) { /* This special name marks a file to get. */
+			if ((cp = strchr(name, '=')) == NULL)
+				continue;
+			*cp = 0;
+			syslog(LOG_INFO, "Loading file %s from nvram", name);
+			nvram_nvram2file(name, name+5);
+		}
+	}
+}
+
 static void sysinit(void)
 {
 	static const time_t tm = 0;
@@ -770,8 +791,8 @@ static void sysinit(void)
 	char t[256];
 	int model;
 
-	mount("", "/proc", "proc", 0, NULL);
-	mount("", "/tmp", "ramfs", 0, NULL);
+	mount("proc", "/proc", "proc", 0, NULL);
+	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
 
 	if (console_init()) noconsole = 1;
 
@@ -931,6 +952,7 @@ int init_main(int argc, char *argv[])
 		case START:
 			SET_LED(RELEASE_WAN_CONTROL);
 
+			load_files_from_nvram();
 			run_nvscript("script_init", NULL, 2);
 
 			start_vlan();

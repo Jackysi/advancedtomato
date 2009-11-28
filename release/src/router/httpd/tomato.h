@@ -99,6 +99,7 @@ extern void asp_wlcrssi(int argc, char **argv);
 extern void wo_wlmnoise(char *url);
 extern void asp_wlclient(int argc, char **argv);
 extern void asp_wlchannel(int argc, char **argv);
+extern void asp_wlchannels(int argc, char **argv);	//!!TB
 
 // dhcp.c
 extern void asp_dhcpc_time(int argc, char **argv);
