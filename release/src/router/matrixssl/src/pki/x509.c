@@ -1577,13 +1577,16 @@ static int32 matrixX509ValidateCertInternal(psPool_t *pool,
 		if (sigType == RSA_SIG) {
 			sslAssert(sigLen <= sizeof(sigOut));
 
+			/* note: on error & no CA, flag as invalid, but don't exit as error here (<1.8.7? behavior) -- zzz */
 			if (matrixRsaDecryptPub(pool, &(ic->publicKey),
 					subjectCert->signature,	subjectCert->signatureLen, sigOut,
 					sigLen) < 0) {
 				matrixStrDebugMsg("Unable to RSA decrypt signature\n", NULL);
-				return -1;					
+				if (issuerCert) return -1;
+				rc = -1;
+			} else {
+				rc = psAsnConfirmSignature(subjectCert->sigHash, sigOut, sigLen);
 			}
-			rc = psAsnConfirmSignature(subjectCert->sigHash, sigOut, sigLen);
 		}
 /*
 		If this is a chain test, fail on any gaps in the chain

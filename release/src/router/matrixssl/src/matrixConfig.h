@@ -90,7 +90,7 @@ extern "C" {
 	cache and memory pools with a mutex.
 	By default this is off, so that on POSIX platforms, pthreads isn't req'd
 */
-/* #define USE_MULTITHREADING */
+#define USE_MULTITHREADING
 
 /******************************************************************************/
 /*
