@@ -11,7 +11,7 @@ all: mdu
 mdu: $(OBJS)
 	@echo " [mdu] CC -o $@"
 	$(CC) $(LDFLAGS) -o $@ $^ -L../nvram -lnvram -L../shared -lshared -L../mssl -lmssl
-#	
+#	$(CC) $(LDFLAGS) -o $@ $^ -L../nvram -lnvram -L../shared -lshared ../mssl/libmssl.a ../matrixssl/src/libmatrixsslstatic.a
 
 	$(SIZECHECK)
 	$(CPTMP)
