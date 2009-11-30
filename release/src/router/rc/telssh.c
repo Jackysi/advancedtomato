@@ -15,6 +15,9 @@ void create_passwd(void)
 	char salt[32];
 	FILE *f;
 	mode_t m;
+#ifdef TCONFIG_SAMBASRV	//!!TB
+	char *smbd_user;
+#endif
 
 	strcpy(salt, "$1$");
 	f_read("/dev/urandom", s, 6);
@@ -27,6 +30,11 @@ void create_passwd(void)
 	}
 	if (((p = nvram_get("http_passwd")) == NULL) || (*p == 0)) p = "admin";
 
+#ifdef TCONFIG_SAMBASRV	//!!TB
+	if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0) || !strcmp(smbd_user, "root"))
+		smbd_user = "nas";
+#endif
+
 	m = umask(0777);
 	if ((f = fopen("/etc/shadow", "w")) != NULL) {
 		p = crypt(p, salt);
@@ -36,11 +44,23 @@ void create_passwd(void)
 		// todo		zzz
 		fprintf(f, "admin:*:0:0:99999:7:0:0:\n");
 #endif
+#ifdef TCONFIG_SAMBASRV	//!!TB
+		fprintf(f, "%s:*:0:0:99999:7:0:0:\n", smbd_user);
+#endif
+
 		fclose(f);
 	}
 	umask(m);
 	chmod("/etc/shadow", 0600);
 
+#ifdef TCONFIG_SAMBASRV	//!!TB
+	sprintf(s, 
+		"root:x:0:0:root:/root:/bin/sh\n"
+		"%s:x:100:100:nas:/dev/null:/dev/null\n"
+		"nobody:x:65534:65534:nobody:/dev/null:/dev/null\n",
+		smbd_user);
+	f_write_string("/etc/passwd", s, 0, 0644);
+#else	//!!TB
 	f_write_string("/etc/passwd",
 		"root:x:0:0:root:/root:/bin/sh\n"
 #if TOMATO_SL
@@ -49,17 +69,20 @@ void create_passwd(void)
 #endif
 		"nobody:x:65534:65534:nobody:/dev/null:/dev/null\n",
 		0, 0644);
+#endif	//!!TB
 
 	f_write_string("/etc/gshadow",
 		"root:*:0:\n"
-#if TOMATO_SL
+//#if TOMATO_SL
+#ifdef TCONFIG_SAMBASRV	//!!TB
 		"nas:*:100:\n"
 #endif
 		"nobody:*:65534:\n",
 		0, 0600);
 	f_write_string("/etc/group",
 		"root:x:0:\n"
-#if TOMATO_SL
+//#if TOMATO_SL
+#ifdef TCONFIG_SAMBASRV	//!!TB
 		"nas:x:100:\n"
 #endif
 		"nobody:x:65534:\n",

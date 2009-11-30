@@ -23,6 +23,7 @@ SEP=echo "\033[41;1m   $@   \033[0m"
 #
 # standard packages
 #
+obj-y += lzma-loader
 obj-y += nvram
 obj-y += shared
 obj-y += prebuilt
@@ -52,6 +53,17 @@ obj-y += wlconf
 obj-y += mssl
 obj-y += mdu
 
+# !!TB
+obj-$(TCONFIG_USB) += p910nd
+obj-$(TCONFIG_USB) += scsi-idle
+obj-$(TCONFIG_USB) += libusb10
+obj-$(TCONFIG_USB) += libusb
+obj-$(TCONFIG_USB) += usbmodeswitch
+#obj-y += sendmail
+obj-$(TCONFIG_FTP) += vsftpd
+obj-$(TCONFIG_SAMBASRV) += samba
+obj-$(TCONFIG_NTFS) += ntfs-3g
+
 obj-y += miniupnpd
 #	obj-y += upnp
 
@@ -76,7 +88,7 @@ endif
 obj-$(NEED_PPPD) += pppd
 
 
-obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
+obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
 
@@ -85,7 +97,7 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 # Basic rules
 #
 
-all: clean-build $(obj-y) kernel
+all: clean-build libc $(obj-y) kernel
 
 
 kernel: $(LINUXDIR)/.config
@@ -97,6 +109,17 @@ kernel: $(LINUXDIR)/.config
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -C $(LINUXDIR) modules ; \
 	fi
+
+
+lzma-loader:
+ifeq ($(CONFIG_LINUX26),y)
+	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD) LZMAPATH=$(LINUXDIR)/scripts/squashfs/lzma/C/Compress/Lzma all
+else
+	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD)
+endif
+
+lzma-loader-install: lzma-loader
+	@$(SEP)
 
 
 kmod: dummy
@@ -114,7 +137,8 @@ install package: $(obj-install) $(LINUXDIR)/.config
 
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
-	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
+##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name *.o -exec $(STRIP) --strip-debug {} \;
 
 	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
@@ -128,6 +152,29 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate || true
 	rm -rf $(TARGETDIR)/lib/modules/*/pcmcia
+
+##!!TB
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ext2/* . && rm -rf ext2 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ext3/* . && rm -rf ext3 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jbd/* . && rm -rf jbd || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv fat/* . && rm -rf fat || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv vfat/* . && rm -rf vfat || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv fuse/* . && rm -rf fuse || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv smbfs/* . && rm -rf smbfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv hfsplus/* . && rm -rf hfsplus || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv lockd/* . && rm -rf lockd || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv nfsd/* . && rm -rf nfsd || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv nfs/* . && rm -rf nfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv xfs/* . && rm -rf xfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv nls/* . && rm -rf nls || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/net && mv sunrpc/* . && rm -rf sunrpc || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv host/* . && rm -rf host || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv storage/* . && rm -rf storage || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv serial/* . && rm -rf serial || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media && mv video/* . && rm -rf video || true
 
 # misc
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \
@@ -150,12 +197,6 @@ ifneq ($(TCONFIG_L7),y)
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ipt_layer7.o
 	rm -f $(TARGETDIR)/usr/lib/iptables/libipt_layer7.so
 endif
-
-# separated extra stuff
-	@rm -rf $(PLATFORMDIR)/extras
-	@mkdir $(PLATFORMDIR)/extras
-	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
 
 # uClibc
 	install $(LIBDIR)/ld-uClibc.so.0 $(TARGETDIR)/lib/
@@ -183,6 +224,71 @@ endif
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
 
+# !!TB - moved to run after libfoo.pl - to make sure shared libs include all symbols needed by extras
+# separated extra stuff
+	@rm -rf $(PLATFORMDIR)/extras
+	@mkdir $(PLATFORMDIR)/extras
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+
+#!!TB
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/smbfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/hfsplus.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nfsd.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/lockd.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sunrpc.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbserial.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/option.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/sierra.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/acm.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ipw.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/audio.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ov51*.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pwc*.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/media/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/media || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/sound/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/sound || true
+
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe_mppc.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.o  $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.o $(PLATFORMDIR)/extras/
+	@mkdir -p $(PLATFORMDIR)/extras/crypto
+	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/*.o $(PLATFORMDIR)/extras/crypto/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
+ifneq ($(TCONFIG_SAMBASRV),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(TCONFIG_USB),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/usb || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/*.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fat.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(TCONFIG_USB_EXTRAS),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/block || true
+endif
+	@mkdir -p $(PLATFORMDIR)/extras/lib
+	@mv $(TARGETDIR)/usr/lib/libusb* $(PLATFORMDIR)/extras/lib/ || true
+	@mkdir -p $(PLATFORMDIR)/extras/apps
+	@mv $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
+	@cp usbmodeswitch/usb_modeswitch.conf $(PLATFORMDIR)/extras/apps/usb_modeswitch.conf || true
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
 ifeq ($(TCONFIG_L7PAT),y)
@@ -191,7 +297,7 @@ ifeq ($(TCONFIG_L7PAT),y)
 endif
 
 	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
-	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image
+	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image | tee target.info
 
 #	Package kernel and filesystem
 #	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
@@ -209,6 +315,10 @@ endif
 #	cat $(PLATFORMDIR)/target.image >> $(PLATFORMDIR)/linux.bin
 
 
+libc:	$(LIBDIR)/ld-uClibc.so.0
+#	$(MAKE) -C ../../../tools-src/uClibc all
+#	$(MAKE) -C ../../../tools-src/uClibc install
+
 
 #
 # cleaners
@@ -216,6 +326,7 @@ endif
 
 clean: clean-build $(obj-clean)
 	rm -rf layer7/squished
+	make -C config clean
 
 clean-build: dummy
 	rm -rf $(TARGETDIR)
@@ -227,6 +338,7 @@ distclean: clean
 ifneq ($(INSIDE_MAK),1)
 	$(MAKE) -C .. $@ INSIDE_MAK=1
 endif
+	-rm -f $(LIBDIR)/*.so.0  $(LIBDIR)/*.so
 
 #
 # configuration
@@ -266,21 +378,17 @@ oldconfig oldconf: roldconf koldconf
 # overrides and extra dependencies
 #
 
-busybox:
-	@cd busybox && [ -s .config ] || ( cp config.save .config; $(MAKE) oldconfig )
-	@$(MAKE) -C busybox CFLAGS="-Os"
-	@cp busybox/.config busybox/config.save
+busybox: dummy
+	@$(MAKE) -C busybox CFLAGS_busybox="$(EXTRACFLAGS)"
 
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox CFLAGS="-Os"
+	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox
 
 busybox-clean:
-	cd busybox && [ -s .config ] && cp .config config.save
 	$(MAKE) -C busybox distclean
-	cd busybox && mv config.save .config
 
 busybox-config:
 	$(MAKE) -C busybox menuconfig
@@ -316,8 +424,11 @@ openssl-install:
 #	perl -e 'while (<>) { s/.SECS/time()-(24*60*60)/e; print; }' < httpd/gencert.sh > $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 #	chmod 0500 $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 
-#	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-#	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+ifeq ($(TCONFIG_FTP_SSL),y)
+# !!TB
+	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+endif
 
 mssl:	matrixssl
 
@@ -382,16 +493,92 @@ miniupnpd-install:
 	install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
 	$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
 
+# !!TB
+shared: busybox
+
+vsftpd: shared openssl
+	@$(SEP)
+	$(MAKE) -C vsftpd
+
+vsftpd-install:
+	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+	$(STRIP) -s $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+
+ntfs-3g/Makefile:
+	cd ntfs-3g && \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
+		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal \
+		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
+
+ntfs-3g: ntfs-3g/Makefile
+	@$(MAKE) -C ntfs-3g CFLAGS="-Os -Wall $(EXTRACFLAGS)"
+
+ntfs-3g-clean:
+	@$(MAKE) -C ntfs-3g clean || true
+
+ntfs-3g-install: ntfs-3g
+	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
+	$(STRIP) -s $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
+	install -d $(INSTALLDIR)/ntfs-3g/sbin && cd $(INSTALLDIR)/ntfs-3g/sbin && \
+		ln -sf ../bin/ntfs-3g mount.ntfs-3g && \
+		ln -sf ../bin/ntfs-3g mount.ntfs
+
+libusb10/Makefile: libusb10/Makefile.in
+	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
+
+libusb10: libusb10/Makefile
+	$(MAKE) -C $@
+
+libusb10-install: libusb10
+	install -D libusb10/libusb/.libs/libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so.0
+	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so.*
+	cd $(INSTALLDIR)/libusb10/usr/lib && \
+		ln -sf libusb-1.0.so.0 libusb-1.0.so.0.0.0 && \
+		ln -sf libusb-1.0.so.0 libusb-1.0.so
+
+libusb/Makefile: libusb/Makefile.in
+	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
+		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
+		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
+		-Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share"
+
+libusb: libusb10 libusb/Makefile
+	$(MAKE) -C $@
+
+libusb-install: libusb
+	install -D libusb/libusb/.libs/libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4
+	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so.*
+	cd $(INSTALLDIR)/libusb/usr/lib && \
+		ln -sf libusb-0.1.so.4 libusb-0.1.so.4.4.4 && \
+		ln -sf libusb-0.1.so.4 libusb.so
+
+usbmodeswitch: libusb
+	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
+	    -Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share \
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
+	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
+
+usbmodeswitch-install:
+	install -D usbmodeswitch/usb_modeswitch $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
+	$(STRIP) -s $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
+
+p910nd:
+sendmail:
+samba:
+
 nvram: shared
 
 prebuilt: shared
 
 vlan:
 	@$(SEP)
-	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
+	@$(MAKE) -C vlan CROSS=$(CROSS_COMPILE)	# STRIPTOOL=$(STRIP)
 
 vlan-install:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
+	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) INSTALLDIR=$(INSTALLDIR) install	# STRIPTOOL=$(STRIP)
+	$(STRIP) $(INSTALLDIR)/vlan/usr/sbin/vconfig
 
 
 pptp-client-install:
@@ -525,9 +712,6 @@ ebtables-install: dummy
 
 ebtables-clean:
 	make -C ebtables clean
-
-
-
 
 #
 # Generic rules

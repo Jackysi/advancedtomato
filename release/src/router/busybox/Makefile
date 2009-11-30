@@ -450,7 +450,11 @@ libs-y		:= \
 		coreutils/ \
 		coreutils/libcoreutils/ \
 		debianutils/ \
-		e2fsprogs/ \
+		e2fsprogs/old_e2fsprogs/ \
+		e2fsprogs/old_e2fsprogs/blkid/ \
+		e2fsprogs/old_e2fsprogs/e2p/ \
+		e2fsprogs/old_e2fsprogs/ext2fs/ \
+		e2fsprogs/old_e2fsprogs/uuid/ \
 		editors/ \
 		findutils/ \
 		init/ \

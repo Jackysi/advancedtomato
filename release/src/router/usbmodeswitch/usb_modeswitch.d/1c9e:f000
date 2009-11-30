@@ -1,0 +1,13 @@
+######################################################## 
+# MobiData MBD-200HU, ST Mobile Connect
+
+DefaultVendor=  0x1c9e
+DefaultProduct= 0xf000
+
+TargetVendor=   0x1c9e
+
+TargetProductList="9000,9063"
+
+CheckSuccess=20
+
+MessageContent="55534243123456788000000080000606f50402527000000000000000000000"

@@ -1,0 +1,11 @@
+########################################################
+# Novatel Wireless MC990D
+
+DefaultVendor=  0x1410
+DefaultProduct= 0x5020
+
+Interface=      5
+
+Checksuccess= 20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"

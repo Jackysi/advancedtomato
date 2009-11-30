@@ -76,7 +76,7 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
 		cfi_send_gen_cmd(0x55, 0x2aa, base, map, cfi, cfi->device_type, NULL);
 		cfi_send_gen_cmd(0x90, 0x555, base, map, cfi, cfi->device_type, NULL);
 		cfi->mfr = cfi_read_query(map, base);
-		cfi->id = cfi_read_query(map, base + ofs_factor);    
+		cfi->id = cfi_read_query(map, base + ofs_factor);
 
 		printk(KERN_NOTICE " Flash Id: Vendor: 0x%04x Device: 0x%04x\n", cfi->mfr, cfi->id);
 

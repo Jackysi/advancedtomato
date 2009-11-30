@@ -1,0 +1,14 @@
+########################################################
+# Solomon S3Gm-660
+
+DefaultVendor=  0x1dd6
+DefaultProduct= 0x1000
+
+TargetVendor=   0x1dd6
+TargetProduct=  0x1002
+
+CheckSuccess=20
+
+MessageContent="55534243123456781200000080000603000000020000000000000000000000"
+
+ResponseNeeded=1

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h> // !!TB
 #include <string.h>
 #include <signal.h>
 #include <syslog.h>
@@ -49,7 +50,10 @@
 #define TRACE_PT(args...) do { } while(0)
 #endif
 
-
+#define MOUNT_ROOT	"/tmp/mnt"
+#define PROC_SCSI_ROOT	"/proc/scsi"
+#define USB_STORAGE	"usb-storage"
+ 
 #define BOOT		0
 #define REDIAL		1
 #define CONNECTING	2
@@ -57,12 +61,12 @@
 #define PPPOE0		0
 #define PPPOE1		1
 
-#define GOT_IP				0x01
-#define RELEASE_IP			0x02
+#define GOT_IP			0x01
+#define RELEASE_IP		0x02
 #define	GET_IP_ERROR		0x03
 #define RELEASE_WAN_CONTROL	0x04
 #define USB_DATA_ACCESS		0x05	//For WRTSL54GS
-#define USB_CONNECT			0x06	//For WRTSL54GS
+#define USB_CONNECT		0x06	//For WRTSL54GS
 #define USB_DISCONNECT		0x07	//For WRTSL54GS
 
 /*
@@ -176,6 +180,28 @@ extern void stop_service(const char *name);
 extern void restart_service(const char *name);
 extern void start_services(void);
 extern void stop_services(void);
+// !!TB - USB and NAS
+#ifdef TCONFIG_USB
+extern int mkdir_if_none(char *dir);
+extern void restart_nas_services(int stop, int start);
+#else
+#define mkdir_if_none(args...) (0)
+#define restart_nas_services(args...) do { } while(0)
+#endif
+
+// !!TB - USB Support
+// usb.c
+#ifdef TCONFIG_USB
+extern void start_usb(void);
+extern void stop_usb(void);
+extern void hotplug_usb(void);
+extern void remove_storage_main(int shutdn);
+#else
+#define start_usb(args...) do { } while(0)
+#define stop_usb(args...) do { } while(0)
+#define hotplug_usb(args...) do { } while(0)
+#define remove_storage_main(args...) do { } while(0)
+#endif
 
 // wnas.c
 extern void start_nas(void);
@@ -251,11 +277,12 @@ static inline void stop_ddns(void) { };
 
 // misc.c
 extern void usage_exit(const char *cmd, const char *help) __attribute__ ((noreturn));
-extern int modprobe(const char *mod);
+#define modprobe(mod, args...) ({ char *argv[] = { "modprobe", "-s", mod, ## args, NULL }; _eval(argv, NULL, 0, NULL); })
 extern int modprobe_r(const char *mod);
 #define xstart(args...)	_xstart(args, NULL)
 extern int _xstart(const char *cmd, ...);
 extern void run_nvscript(const char *nv, const char *arg1, int wtime);
+extern void run_userfile (char *folder, char *extension, const char *arg1, int wtime);
 extern void setup_conntrack(void);
 extern void set_mac(const char *ifname, const char *nvname, int plus);
 extern const char *default_wanif(void);

@@ -1,0 +1,15 @@
+########################################################
+# Option iCON 210, PROLiNK PHS100, Hyundai MB-810, A-Link 3GU
+
+DefaultVendor=  0x1e0e
+DefaultProduct= 0xf000
+
+TargetVendor=   0x1e0e
+
+TargetProductList="9000,9200"
+
+CheckSuccess=20
+
+MessageContent="555342431234567800000000000006bd000000020000000000000000000000"
+
+ResponseNeeded=1

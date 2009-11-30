@@ -69,6 +69,7 @@ subdir-$(CONFIG_BEFS_FS)	+= befs
 subdir-$(CONFIG_SQUASHFS)	+= squashfs
 subdir-$(CONFIG_JFS_FS)		+= jfs
 subdir-$(CONFIG_XFS_FS)		+= xfs
+subdir-$(CONFIG_FUSE_FS)	+= fuse
 
 obj-$(CONFIG_BINFMT_AOUT)	+= binfmt_aout.o
 obj-$(CONFIG_BINFMT_EM86)	+= binfmt_em86.o

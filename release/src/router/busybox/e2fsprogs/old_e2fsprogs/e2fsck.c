@@ -45,7 +45,7 @@
 static void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf);
 
 /* pass1.c */
-static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool);
+static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool);
 
 /* pass2.c */
 static int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
@@ -2153,9 +2153,8 @@ static int e2fsck_run_ext3_journal(e2fsck_t ctx)
 			     &ctx->fs);
 
 	if (retval) {
-		bb_error_msg(_("while trying to re-open %s"),
+		bb_error_msg_and_die(_("while trying to re-open %s"),
 			ctx->device_name);
-		bb_error_msg_and_die(0);
 	}
 	ctx->fs->priv_data = ctx;
 
@@ -2548,7 +2547,7 @@ static void expand_inode_expression(char ch,
 		if (do_gmt == -1) {
 			time_str = getenv("TZ");
 			if (!time_str)
-				time_str = "";
+				time_str = (char *)"";
 			do_gmt = !strcmp(time_str, "GMT");
 		}
 		t = inode->i_mtime;
@@ -4422,7 +4421,7 @@ static int process_bad_block(ext2_filsys fs FSCK_ATTR((unused)),
  * out, so we can try to allocate new block(s) to replace the bad
  * blocks.
  */
-static void handle_fs_bad_blocks(e2fsck_t ctx)
+static void handle_fs_bad_blocks(e2fsck_t ctx EXT2FS_ATTR((unused)))
 {
 	printf("Bad blocks detected on your filesystem\n"
 		"You should get your data off as the device will soon die\n");
@@ -4560,11 +4559,11 @@ static errcode_t pass1_check_directory(ext2_filsys fs, ext2_ino_t ino)
 	return 0;
 }
 
-void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool)
+void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool)
 {
 	ext2_filsys fs = ctx->fs;
 
-	if (bool) {
+	if (fl_bool) {
 		fs->get_blocks = pass1_get_blocks;
 		fs->check_directory = pass1_check_directory;
 		fs->read_inode = pass1_read_inode;
@@ -12213,7 +12212,7 @@ static void swap_filesys(e2fsck_t ctx)
  */
 
 
-void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned int size,
+void *e2fsck_allocate_memory(e2fsck_t ctx EXT2FS_ATTR((unused)), unsigned int size,
 			     const char *description)
 {
 	void *ret;
@@ -12351,18 +12350,16 @@ void e2fsck_read_bitmaps(e2fsck_t ctx)
 	errcode_t       retval;
 
 	if (ctx->invalid_bitmaps) {
-		bb_error_msg(_("e2fsck_read_bitmaps: illegal bitmap block(s) for %s"),
+		bb_error_msg_and_die(_("e2fsck_read_bitmaps: illegal bitmap block(s) for %s"),
 			ctx->device_name);
-		bb_error_msg_and_die(0);
 	}
 
 	ehandler_operation(_("reading inode and block bitmaps"));
 	retval = ext2fs_read_bitmaps(fs);
 	ehandler_operation(0);
 	if (retval) {
-		bb_error_msg(_("while retrying to read bitmaps for %s"),
+		bb_error_msg_and_die(_("while retrying to read bitmaps for %s"),
 			ctx->device_name);
-		bb_error_msg_and_die(0);
 	}
 }
 
@@ -12376,9 +12373,8 @@ static void e2fsck_write_bitmaps(e2fsck_t ctx)
 		retval = ext2fs_write_block_bitmap(fs);
 		ehandler_operation(0);
 		if (retval) {
-			bb_error_msg(_("while retrying to write block bitmaps for %s"),
+			bb_error_msg_and_die(_("while retrying to write block bitmaps for %s"),
 				ctx->device_name);
-			bb_error_msg_and_die(0);
 		}
 	}
 
@@ -12387,9 +12383,8 @@ static void e2fsck_write_bitmaps(e2fsck_t ctx)
 		retval = ext2fs_write_inode_bitmap(fs);
 		ehandler_operation(0);
 		if (retval) {
-			bb_error_msg(_("while retrying to write inode bitmaps for %s"),
+			bb_error_msg_and_die(_("while retrying to write inode bitmaps for %s"),
 				ctx->device_name);
-			bb_error_msg_and_die(0);
 		}
 	}
 }
@@ -12418,8 +12413,7 @@ void e2fsck_read_inode(e2fsck_t ctx, unsigned long ino,
 
 	retval = ext2fs_read_inode(ctx->fs, ino, inode);
 	if (retval) {
-		bb_error_msg(_("while reading inode %ld in %s"), ino, proc);
-		bb_error_msg_and_die(0);
+		bb_error_msg_and_die(_("while reading inode %ld in %s"), ino, proc);
 	}
 }
 
@@ -12431,8 +12425,7 @@ extern void e2fsck_write_inode_full(e2fsck_t ctx, unsigned long ino,
 
 	retval = ext2fs_write_inode_full(ctx->fs, ino, inode, bufsize);
 	if (retval) {
-		bb_error_msg(_("while writing inode %ld in %s"), ino, proc);
-		bb_error_msg_and_die(0);
+		bb_error_msg_and_die(_("while writing inode %ld in %s"), ino, proc);
 	}
 }
 
@@ -12443,8 +12436,7 @@ extern void e2fsck_write_inode(e2fsck_t ctx, unsigned long ino,
 
 	retval = ext2fs_write_inode(ctx->fs, ino, inode);
 	if (retval) {
-		bb_error_msg(_("while writing inode %ld in %s"), ino, proc);
-		bb_error_msg_and_die(0);
+		bb_error_msg_and_die(_("while writing inode %ld in %s"), ino, proc);
 	}
 }
 
@@ -12732,7 +12724,8 @@ static void check_if_skip(e2fsck_t ctx)
 		if (batt && (fs->super->s_mnt_count <
 			     (unsigned) fs->super->s_max_mnt_count*2))
 			reason = 0;
-	} else if (fs->super->s_checkinterval &&
+	} else if (!(ctx->options & E2F_OPT_PREEN) &&
+		   fs->super->s_checkinterval &&
 		   ((now - fs->super->s_lastcheck) >=
 		    fs->super->s_checkinterval)) {
 		reason = _(" has gone %u days without being checked");
@@ -13150,8 +13143,7 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 		*ctx->io_options++ = 0;
 	ctx->filesystem_name = blkid_get_devname(ctx->blkid, argv[optind], 0);
 	if (!ctx->filesystem_name) {
-		bb_error_msg(_("Unable to resolve '%s'"), argv[optind]);
-		bb_error_msg_and_die(0);
+		bb_error_msg_and_die(_("Unable to resolve '%s'"), argv[optind]);
 	}
 	if (extended_opts)
 		parse_extended_opts(ctx, extended_opts);
@@ -13159,14 +13151,12 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 	if (flush) {
 		fd = open(ctx->filesystem_name, O_RDONLY, 0);
 		if (fd < 0) {
-			bb_error_msg(_("while opening %s for flushing"),
+			bb_error_msg_and_die(_("while opening %s for flushing"),
 				ctx->filesystem_name);
-			bb_error_msg_and_die(0);
 		}
 		if ((retval = ext2fs_sync_device(fd, 1))) {
-			bb_error_msg(_("while trying to flush %s"),
+			bb_error_msg_and_die(_("while trying to flush %s"),
 				ctx->filesystem_name);
-			bb_error_msg_and_die(0);
 		}
 		close(fd);
 	}
@@ -13202,7 +13192,7 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 static const char my_ver_string[] = E2FSPROGS_VERSION;
 static const char my_ver_date[] = E2FSPROGS_DATE;
 
-int e2fsck_main (int argc, char **argv);
+int e2fsck_main (int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int e2fsck_main (int argc, char **argv)
 {
 	errcode_t       retval;
@@ -13350,9 +13340,8 @@ restart:
 	 */
 	retval = e2fsck_check_ext3_journal(ctx);
 	if (retval) {
-		bb_error_msg(_("while checking ext3 journal for %s"),
+		bb_error_msg_and_die(_("while checking ext3 journal for %s"),
 			ctx->device_name);
-		bb_error_msg_and_die(0);
 	}
 
 	/*
@@ -13373,14 +13362,12 @@ restart:
 				 * happen, unless the hardware or
 				 * device driver is being bogus.
 				 */
-				bb_error_msg(_("cannot set superblock flags on %s"), ctx->device_name);
-				bb_error_msg_and_die(0);
+				bb_error_msg_and_die(_("cannot set superblock flags on %s"), ctx->device_name);
 			}
 			retval = e2fsck_run_ext3_journal(ctx);
 			if (retval) {
-				bb_error_msg(_("while recovering ext3 journal of %s"),
+				bb_error_msg_and_die(_("while recovering ext3 journal of %s"),
 					ctx->device_name);
-				bb_error_msg_and_die(0);
 			}
 			ext2fs_close(ctx->fs);
 			ctx->fs = 0;
@@ -13487,8 +13474,7 @@ restart:
 		printf(_("Restarting e2fsck from the beginning...\n"));
 		retval = e2fsck_reset_context(ctx);
 		if (retval) {
-			bb_error_msg(_("while resetting context"));
-			bb_error_msg_and_die(0);
+			bb_error_msg_and_die(_("while resetting context"));
 		}
 		ext2fs_close(fs);
 		goto restart;

@@ -14,6 +14,9 @@ OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
 #	heartbeat.o
 
+ifeq ($(TCONFIG_USB),y)
+OBJS += usb.o
+endif
 ifeq ($(TCONFIG_DDNS),y)
 OBJS += ddns.o
 endif
@@ -25,7 +28,7 @@ OBJS += jffs2.o
 endif
 
 ifeq ($(TOMATO_SL),1)
-OBJS += usb.o
+#OBJS += usb.o
 OBJS += samba.o
 endif
 

@@ -1,0 +1,11 @@
+########################################################
+# Vodafone K3760 (made by Option, HSO driver)
+
+DefaultVendor=  0x0af0
+DefaultProduct= 0x7501
+
+TargetClass=    0xff
+
+CheckSuccess=10
+
+MessageContent="55534243785634120100000080000601000000000000000000000000000000"

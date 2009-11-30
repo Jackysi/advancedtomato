@@ -114,7 +114,10 @@ function verifyFields(focused, quiet)
 	}
 
 	a = E('_f_rmgt_sip');
-	if ((a.value.length) && (!v_iptip(a, quiet, 15))) return 0;
+	if ((a.value.length) && (!v_domain(a, 1)) && (!v_iptip(a, 1, 15))) {
+		if (!quiet) ferror.show(a);
+		return 0;
+	}
 	ferror.clear(a);
 
 	if (!v_range('_f_limit_hit', quiet, 1, 100)) return 0;
@@ -267,7 +270,11 @@ createFieldTable('', [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css }
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],
+/* THEMES-BEGIN */
+		['usbred','USB Red'],['usbblue','USB Blue'],
+/* THEMES-END */
+		['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css }
 ]);
 </script>
 </div>
@@ -304,7 +311,7 @@ W('<input type="button" value="' + (tdup ? 'Stop' : 'Start') + ' Now" onclick="t
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Allowed Remote<br>IP Address', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
-		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
+		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
 	{ title: 'Limit Connection Attempts', multi: [
 		{ suffix: '&nbsp; SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
 		{ suffix: '&nbsp; Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }

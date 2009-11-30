@@ -104,8 +104,10 @@ function save()
 	for (var i = 0; i < data.length; ++i) r.push(data[i].join('<'));
 	fom.routes_static.value = r.join('>');
 
+/* ZEBRA-BEGIN */
 	var wan = '0';
 	var lan = '0';
+
 	switch (E('_dr_setting').value) {
 	case '1':
 		lan = '1 2';
@@ -120,6 +122,7 @@ function save()
 	}
 	fom.dr_lan_tx.value = fom.dr_lan_rx.value = lan;
 	fom.dr_wan_tx.value = fom.dr_wan_rx.value = wan;
+/* ZEBRA-END */
 
 	fom.lan_stp.value = E('_f_stp').checked ? 1 : 0;
 
@@ -177,7 +180,9 @@ function init()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Mode', name: 'wk_mode', type: 'select', options: [['gateway','Gateway'],['router','Router']], value: nvram.wk_mode },
+/* ZEBRA-BEGIN */
 	{ title: 'RIPv1 &amp; v2', name: 'dr_setting', type: 'select',	options: [[0,'Disabled'],[1,'LAN'],[2,'WAN'],[3,'Both']], value:	nvram.dr_setting },
+/* ZEBRA-END */
 	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' },
 ]);
 </script>

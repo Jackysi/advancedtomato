@@ -973,6 +973,10 @@
      "\n	-l file		Add to badblocks list" \
      "\n	-L file		Set badblocks list" \
 
+
+#define e2label_trivial_usage NOUSAGE_STR
+#define e2label_full_usage ""
+
 #define echo_trivial_usage \
 	USE_FEATURE_FANCY_ECHO("[-neE] ") "[ARG...]"
 #define echo_full_usage "\n\n" \
@@ -1270,6 +1274,12 @@
      "\n	-V	Verbose" \
      "\n	-C n	Write status information to specified filedescriptor" \
      "\n	-t type	List of filesystem types to check" \
+
+#define fsck_ext2_trivial_usage NOUSAGE_STR
+#define fsck_ext2_full_usage ""
+
+#define fsck_ext3_trivial_usage NOUSAGE_STR
+#define fsck_ext3_full_usage ""
 
 #define fsck_minix_trivial_usage \
        "[-larvsmf] /dev/name"
@@ -2662,6 +2672,12 @@
 	USE_SELINUX( \
      "\n	-Z	Set security context" \
 	)
+
+#define mkfs_ext2_trivial_usage NOUSAGE_STR
+#define mkfs_ext2_full_usage ""
+
+#define mkfs_ext3_trivial_usage NOUSAGE_STR
+#define mkfs_ext3_full_usage ""
 
 #define mkfs_minix_trivial_usage \
        "[-c | -l filename] [-nXX] [-iXX] /dev/name [blocks]"

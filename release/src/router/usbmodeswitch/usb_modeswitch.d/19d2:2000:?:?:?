@@ -1,0 +1,14 @@
+########################################################
+# ONDA MT505UP (ID INFO NEEDED!)
+
+DefaultVendor=  0x19d2
+DefaultProduct= 0x2000
+
+TargetVendor=   0x19d2
+TargetProduct=  0x0002
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000010080000a28000000001c00002000000000000000"
+
+

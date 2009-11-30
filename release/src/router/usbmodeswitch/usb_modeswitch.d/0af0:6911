@@ -1,0 +1,13 @@
+#######################################################
+# Option GlobeSurfer Icon 7.2 (HSO driver)
+
+DefaultVendor=  0x0af0
+DefaultProduct= 0x6911
+
+TargetClass=    0xff
+
+CheckSuccess=10
+
+MessageContent="55534243123456780000000000000601000000000000000000000000000000"
+
+

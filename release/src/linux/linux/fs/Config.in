@@ -117,6 +117,8 @@ dep_mbool    '  Realtime support (EXPERIMENTAL)' CONFIG_XFS_RT $CONFIG_XFS_FS $C
 dep_mbool    '  Tracing support (EXPERIMENTAL)' CONFIG_XFS_TRACE $CONFIG_XFS_FS $CONFIG_EXPERIMENTAL
 dep_mbool    '  Debugging support (EXPERIMENTAL)' CONFIG_XFS_DEBUG $CONFIG_XFS_FS $CONFIG_EXPERIMENTAL
 
+tristate 'Filesystem in Userspace (FUSE) support' CONFIG_FUSE_FS $CONFIG_EXPERIMENTAL
+
 if [ "$CONFIG_NET" = "y" ]; then
 
    mainmenu_option next_comment

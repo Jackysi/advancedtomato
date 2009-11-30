@@ -1,0 +1,12 @@
+########################################################
+# ZTE MF628 (NEED ID INFO!)
+
+DefaultVendor=  0x19d2
+DefaultProduct= 0x2000
+
+TargetVendor=   0x19d2
+TargetProduct=  0x0015
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000030000000000000000000000"

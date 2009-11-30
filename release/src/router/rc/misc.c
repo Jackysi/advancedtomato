@@ -23,6 +23,7 @@ void usage_exit(const char *cmd, const char *help)
 	exit(1);
 }
 
+#if 0 // replaced by #define in rc.h
 int modprobe(const char *mod)
 {
 #if 1
@@ -33,6 +34,7 @@ int modprobe(const char *mod)
 	return r;
 #endif
 }
+#endif // 0
 
 int modprobe_r(const char *mod)
 {
@@ -349,7 +351,24 @@ void setup_conntrack(void)
 		modprobe_r("ip_conntrack_rtsp");
 	}
 
-	if (!nvram_match("nf_ftp", "0")) {
+	// !!TB - FTP Server
+#ifdef TCONFIG_FTP
+	i = nvram_get_int("ftp_port");
+	if (nvram_match("ftp_enable", "1") && (i > 0) && (i != 21))
+	{
+		char ports[32];
+
+		sprintf(ports, "ports=21,%d", i);
+		modprobe("ip_conntrack_ftp", ports);
+		modprobe("ip_nat_ftp", ports);
+	}
+	else 
+#endif
+	if (!nvram_match("nf_ftp", "0")
+#ifdef TCONFIG_FTP
+		|| nvram_match("ftp_enable", "1")	// !!TB - FTP Server
+#endif
+		) {
 		modprobe("ip_conntrack_ftp");
 		modprobe("ip_nat_ftp");
 	}

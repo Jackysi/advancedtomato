@@ -312,7 +312,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 //	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
-
+#ifdef TCONFIG_USB
+	{ "usbcmd.cgi",			mime_javascript,			0,	wi_generic,		wo_usbcommand,		1 },	//!!TB - USB
+#endif
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
 #endif
@@ -361,6 +363,9 @@ const aspapi_t aspapi[] = {
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
 	{ "wlchannels",			asp_wlchannels	},	//!!TB
+#ifdef TCONFIG_USB
+	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
+#endif
 	{ "css",				asp_css				},
 	{ NULL,					NULL				}
 };
@@ -600,11 +605,13 @@ static const nvset_t nvset_list[] = {
 	{ "routes_static",		V_LENGTH(0, 2048)	},
 	{ "lan_stp",			V_RANGE(0, 1)		},
 	{ "wk_mode",			V_LENGTH(1, 32)		},	// gateway, router
+#ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
+#endif
 
 // advanced-wireless
 	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
@@ -710,10 +717,10 @@ static const nvset_t nvset_list[] = {
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
-	{ "sesx_b0",			V_RANGE(0, 4)		},	// 0-4: toggle wireless, reboot, shutdown, script
-	{ "sesx_b1",			V_RANGE(0, 4)		},	// "
-	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
-	{ "sesx_b3",			V_RANGE(0, 4)		},	// "
+	{ "sesx_b0",			V_RANGE(0, 5)		},	// 0-5: toggle wireless, reboot, shutdown, script, usb unmount
+	{ "sesx_b1",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b2",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b3",			V_RANGE(0, 5)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
 
 // admin-debug
@@ -762,6 +769,64 @@ static const nvset_t nvset_list[] = {
 	{ "jffs2_on",			V_01				},
 	{ "jffs2_exec",			V_LENGTH(0, 64)		},
 	{ "jffs2_format",		V_01				},
+
+// nas-usb - !!TB
+#ifdef TCONFIG_USB
+	{ "usb_enable",			V_01				},
+	{ "usb_uhci",			V_01				},
+	{ "usb_ohci",			V_01				},
+	{ "usb_usb2",			V_01				},
+	{ "usb_storage",		V_01				},
+	{ "usb_printer",		V_01				},
+	{ "usb_printer_bidirect",	V_01				},
+	{ "usb_fs_ext3",		V_01				},
+	{ "usb_fs_fat",			V_01				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		V_01				},
+#endif
+	{ "usb_automount",		V_01				},
+	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
+	{ "script_usbmount", 		V_TEXT(0, 2048)			},
+	{ "script_usbumount", 		V_TEXT(0, 2048)			},
+#endif
+
+// nas-ftp - !!TB
+#ifdef TCONFIG_FTP
+	{ "ftp_enable",			V_RANGE(0, 2)			},
+	{ "ftp_super",			V_01				},
+	{ "ftp_anonymous",		V_RANGE(0, 3)			},
+	{ "ftp_dirlist",		V_RANGE(0, 2)			},
+	{ "ftp_port",			V_PORT				},
+	{ "ftp_max",			V_RANGE(0, 12)			},
+	{ "ftp_ipmax",			V_RANGE(0, 12)			},
+	{ "ftp_staytimeout",		V_RANGE(0, 65535)		},
+	{ "ftp_rate",			V_RANGE(0, 99999)		},
+	{ "ftp_anonrate",		V_RANGE(0, 99999)		},
+	{ "ftp_anonroot",		V_LENGTH(0, 256)		},
+	{ "ftp_pubroot",		V_LENGTH(0, 256)		},
+	{ "ftp_pvtroot",		V_LENGTH(0, 256)		},
+	{ "ftp_users",			V_LENGTH(0, 4096)		},
+	{ "ftp_custom",			V_TEXT(0, 2048)			},
+	{ "ftp_sip",			V_LENGTH(0, 512)		},
+	{ "ftp_limit",			V_TEXT(1, 50)			},
+	{ "log_ftp",			V_01				},
+#endif
+
+#ifdef TCONFIG_SAMBASRV
+// nas-samba - !!TB
+	{ "smbd_enable",		V_RANGE(0, 2)			},
+	{ "smbd_wgroup",		V_LENGTH(0, 20)			},
+	{ "smbd_master",		V_01				},
+	{ "smbd_wins",			V_01				},
+	{ "smbd_cpage",			V_LENGTH(0, 4)			},
+	{ "smbd_cset",			V_LENGTH(0, 20)			},
+	{ "smbd_loglevel",		V_RANGE(0, 100)			},
+	{ "smbd_custom",		V_TEXT(0, 2048)			},
+	{ "smbd_autoshare",		V_RANGE(0, 3)			},
+	{ "smbd_shares",		V_LENGTH(0, 4096)		},
+	{ "smbd_user",			V_LENGTH(0, 50)			},
+	{ "smbd_passwd",		V_LENGTH(0, 50)			},
+#endif
 
 //	qos
 	{ "qos_enable",			V_01				},
