@@ -20,6 +20,8 @@
 #define _MQUEUE_H	1
 
 #include <features.h>
+#if defined __UCLIBC_HAS_REALTIME__ || \
+	defined __UCLIBC_HAS_ADVANCED_REALTIME__
 #include <sys/types.h>
 #include <fcntl.h>
 #define __need_sigevent_t
@@ -28,9 +30,10 @@
 #include <time.h>
 /* Get the definition of mqd_t and struct mq_attr.  */
 #include <bits/mqueue.h>
+#endif
 
 __BEGIN_DECLS
-
+#if defined __UCLIBC_HAS_REALTIME__
 /* Establish connection between a process and a message queue NAME and
    return message queue descriptor or (mqd_t) -1 on error.  OFLAG determines
    the type of access used.  If O_CREAT is on OFLAG, the third argument is
@@ -69,8 +72,9 @@ extern ssize_t mq_receive (mqd_t __mqdes, char *__msg_ptr, size_t __msg_len,
 /* Add message pointed by MSG_PTR to message queue MQDES.  */
 extern int mq_send (mqd_t __mqdes, const char *__msg_ptr, size_t __msg_len,
 		    unsigned int __msg_prio);
+#endif
 
-#ifdef __USE_XOPEN2K
+#if defined __USE_XOPEN2K && defined __UCLIBC_HAS_ADVANCED_REALTIME__
 /* Receive the oldest from highest priority messages in message queue
    MQDES, stop waiting if ABS_TIMEOUT expires.  */
 extern ssize_t mq_timedreceive (mqd_t __mqdes, char *__restrict __msg_ptr,

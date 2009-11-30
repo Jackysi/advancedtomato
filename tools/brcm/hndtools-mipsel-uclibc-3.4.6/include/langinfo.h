@@ -354,7 +354,6 @@ enum
   _NL_CTYPE_EXTRA_MAP_12,
   _NL_CTYPE_EXTRA_MAP_13,
   _NL_CTYPE_EXTRA_MAP_14,
-  _NL_NUM_LC_CTYPE,
 #else  /* 0 */
   _NL_CTYPE_OUTDIGIT0_MB = _NL_ITEM (__LC_CTYPE, 0),
   _NL_CTYPE_OUTDIGIT1_MB,
@@ -370,6 +369,7 @@ enum
   CODESET = _NL_CTYPE_CODESET_NAME,
 #define CODESET			CODESET
 #endif /* 0 */
+  _NL_NUM_LC_CTYPE,
 
   /* LC_MONETARY category: formatting of monetary quantities.
      These items each correspond to a member of `struct lconv',

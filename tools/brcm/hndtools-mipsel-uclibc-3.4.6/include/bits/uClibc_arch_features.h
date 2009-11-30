@@ -17,9 +17,6 @@
 /* does your target have a broken create_module() ? */
 #undef __UCLIBC_BROKEN_CREATE_MODULE__
 
-/* does your target prefix all symbols with an _ ? */
-#define __UCLIBC_NO_UNDERSCORES__
-
 /* does your target have an asm .set ? */
 #undef __UCLIBC_HAVE_ASM_SET_DIRECTIVE__
 

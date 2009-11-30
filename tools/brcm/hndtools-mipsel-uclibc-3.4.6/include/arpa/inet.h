@@ -52,6 +52,8 @@ extern in_addr_t inet_network (__const char *__cp) __THROW;
 /* Convert Internet number in IN to ASCII representation.  The return value
    is a pointer to an internal array containing the string.  */
 extern char *inet_ntoa (struct in_addr __in) __THROW;
+/* Recursion-safe flavor */
+extern char *inet_ntoa_r (struct in_addr __in, char *__buf) __THROW;
 
 /* Convert from presentation format of an Internet number in buffer
    starting at CP to the binary network format and store result for

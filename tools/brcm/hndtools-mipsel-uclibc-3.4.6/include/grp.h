@@ -169,18 +169,15 @@ extern int fgetgrent_r (FILE *__restrict __stream,
 #endif	/* POSIX or reentrant */
 
 
-#ifdef	__USE_BSD
+#if defined __USE_BSD || defined __USE_GNU
 
 # define __need_size_t
 # include <stddef.h>
 
-/* Set the group set for the current user to GROUPS (N of them).  */
-extern int setgroups (size_t __n, __const __gid_t *__groups) __THROW;
-
-#if 0
 /* Store at most *NGROUPS members of the group set for USER into
    *GROUPS.  Also include GROUP.  The actual number of groups found is
    returned in *NGROUPS.  Return -1 if the if *NGROUPS is too small.
+   In all cases the actual number of groups is stored in *NGROUPS.
 
    This function is not part of POSIX and therefore no official
    cancellation point.  But due to similarity with an POSIX interface
@@ -188,7 +185,13 @@ extern int setgroups (size_t __n, __const __gid_t *__groups) __THROW;
    therefore not marked with __THROW.  */
 extern int getgrouplist (__const char *__user, __gid_t __group,
 			 __gid_t *__groups, int *__ngroups);
+
 #endif
+
+#if defined __USE_BSD
+
+/* Set the group set for the current user to GROUPS (N of them).  */
+extern int setgroups (size_t __n, __const __gid_t *__groups) __THROW;
 
 /* Initialize the group set for the current user
    by reading the group database and using all groups

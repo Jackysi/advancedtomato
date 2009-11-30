@@ -84,10 +84,6 @@ Disk Management
 Editors
 * nano: (nano). 			Small and friendly text editor.
 
-Network Applications
-* Wget: (wget). 			The non-interactive network
-					downloader.
-
 Printing Tools
 * a2ps: (a2ps). 			PostScript Generating Utility
 * PreScript: (a2ps) PreScript.		Input language for a2ps
@@ -186,6 +182,10 @@ Software development
 GNU Libraries
 * libidn: (libidn).			Internationalized string processing
 					library.
+
+Network Applications
+* Wget: (wget). 			The non-interactive network
+					downloader.
 
 Programming
 * Cpplib: (cppinternals).		Cpplib internals.

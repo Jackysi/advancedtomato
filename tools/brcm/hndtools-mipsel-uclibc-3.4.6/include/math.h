@@ -46,6 +46,10 @@ __BEGIN_DECLS
 /* Get general and ISO C99 specific information.  */
 #include <bits/mathdef.h>
 
+#if !(defined _LIBC && (defined NOT_IN_libc && defined IS_IN_libm))
+# define libm_hidden_proto(name, attrs...)
+#endif
+
 /* The file <bits/mathcalls.h> contains the prototypes for all the
    actual math functions.  These macros are used for those prototypes,
    so we can easily declare each function as both `name' and `__name',
@@ -54,17 +58,31 @@ __BEGIN_DECLS
 #define __MATHCALL(function,suffix, args)	\
   __MATHDECL (_Mdouble_,function,suffix, args)
 #define __MATHDECL(type, function,suffix, args) \
-  __MATHDECL_1(type, function,suffix, args); \
-  __MATHDECL_1(type, __CONCAT(__,function),suffix, args)
+  __MATHDECL_1(type, function,suffix, args);
 #define __MATHCALLX(function,suffix, args, attrib)	\
   __MATHDECLX (_Mdouble_,function,suffix, args, attrib)
 #define __MATHDECLX(type, function,suffix, args, attrib) \
   __MATHDECL_1(type, function,suffix, args) __attribute__ (attrib); \
-  __MATHDECL_1(type, __CONCAT(__,function),suffix, args) __attribute__ (attrib)
+  __MATHDECLI_MAINVARIANT(function)
 #define __MATHDECL_1(type, function,suffix, args) \
   extern type __MATH_PRECNAME(function,suffix) args __THROW
+/* Decls which are also used internally in libm.
+   Only the main variant is used internally, no need to try to avoid relocs
+   for the {l,f} variants.  */
+#define __MATHCALLI(function,suffix, args)	\
+  __MATHDECLI (_Mdouble_,function,suffix, args)
+#define __MATHDECLI(type, function,suffix, args) \
+  __MATHDECL_1(type, function,suffix, args); \
+  __MATHDECLI_MAINVARIANT(function)
+/* Private helpers for purely macro impls below.
+   Only make __foo{,f,l} visible but not (the macro-only) foo.  */
+#define __MATHDECL_PRIV(type, function,suffix, args, attrib) \
+  __MATHDECL_1(type, __CONCAT(__,function),suffix, args) \
+						__attribute__ (attrib); \
+  libm_hidden_proto(__MATH_PRECNAME(__##function,suffix))
 
-#define _Mdouble_ 		double
+#define __MATHDECLI_MAINVARIANT libm_hidden_proto
+#define _Mdouble_		double
 #define __MATH_PRECNAME(name,r)	__CONCAT(name,r)
 # define _Mdouble_BEGIN_NAMESPACE __BEGIN_NAMESPACE_STD
 # define _Mdouble_END_NAMESPACE   __END_NAMESPACE_STD
@@ -72,7 +90,9 @@ __BEGIN_DECLS
 #undef	_Mdouble_
 #undef _Mdouble_BEGIN_NAMESPACE
 #undef _Mdouble_END_NAMESPACE
-#undef	__MATH_PRECNAME
+#undef __MATH_PRECNAME
+#undef __MATHDECLI_MAINVARIANT
+#define __MATHDECLI_MAINVARIANT(x)
 
 #if defined __USE_MISC || defined __USE_ISOC99
 
@@ -83,7 +103,7 @@ __BEGIN_DECLS
 # ifndef _Mfloat_
 #  define _Mfloat_		float
 # endif
-# define _Mdouble_ 		_Mfloat_
+# define _Mdouble_		_Mfloat_
 # ifdef __STDC__
 #  define __MATH_PRECNAME(name,r) name##f##r
 # else
@@ -101,7 +121,7 @@ __BEGIN_DECLS
      && (!defined __NO_LONG_DOUBLE_MATH || defined __LDBL_COMPAT)
 #  ifdef __LDBL_COMPAT
 
-#   ifdef __USE_ISOC99 
+#   ifdef __USE_ISOC99
 extern float __nldbl_nexttowardf (float __x, long double __y)
 				  __THROW __attribute__ ((__const__));
 #    ifdef __REDIRECT_NTH
@@ -130,7 +150,7 @@ extern long double __REDIRECT_NTH (nexttowardl,
 #  ifndef _Mlong_double_
 #   define _Mlong_double_	long double
 #  endif
-#  define _Mdouble_ 		_Mlong_double_
+#  define _Mdouble_		_Mlong_double_
 #  ifdef __STDC__
 #   define __MATH_PRECNAME(name,r) name##l##r
 #  else
@@ -159,7 +179,7 @@ extern int signgam;
 
 
 /* ISO C99 defines some generic macros which work on any data type.  */
-#ifdef __USE_ISOC99
+#if defined(__USE_ISOC99) || defined(__USE_BSD)
 
 /* Get the architecture specific values describing the floating-point
    evaluation.  The following symbols will get defined:
@@ -278,6 +298,11 @@ enum
 # define MATH_ERREXCEPT	2	/* Exceptions raised by math functions.  */
 
 #endif /* Use ISO C99.  */
+
+/* BSD compat */
+#define finite(x) __finite(x)
+#define finitef(x) __finitef(x)
+#define finitel(x) __finitel(x)
 
 #ifdef	__USE_MISC
 /* Support for various different standard error handling behaviors.  */

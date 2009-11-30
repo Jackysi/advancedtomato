@@ -238,7 +238,7 @@ typedef unsigned long long int	uintmax_t;
 #  define UINTPTR_MAX		(4294967295U)
 # endif
 
-#if !defined(__H8300H__) && !defined(__H8300S__) 
+#if !defined(__H8300H__) && !defined(__H8300S__)
 /* Minimum for largest signed integral type.  */
 # define INTMAX_MIN		(-__INT64_C(9223372036854775807)-1)
 /* Maximum for largest signed integral type.  */

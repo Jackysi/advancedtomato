@@ -132,7 +132,7 @@ extern struct lconv *localeconv (void) __THROW;
 __END_NAMESPACE_STD
 
 
-#if defined(__USE_GNU) && defined(__UCLIBC_HAS_XLOCALE__)
+#if defined(__USE_GNU) && defined(__UCLIBC_HAS_LOCALE__)
 /* The concept of one static locale per category is not very well
    thought out.  Many applications will need to process its data using
    information from several different locales.  Another application is
@@ -144,8 +144,10 @@ __END_NAMESPACE_STD
    Attention: all these functions are *not* standardized in any form.
    This is a proof-of-concept implementation.  */
 
+#if defined(__UCLIBC_HAS_XLOCALE__)
 /* Get locale datatype definition.  */
 # include <xlocale.h>
+#endif
 
 typedef __locale_t locale_t;
 

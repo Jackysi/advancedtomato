@@ -1699,7 +1699,8 @@ wlconf(char *name)
 	/* Security settings for each BSS Configuration */
 	for (i = 0; i < bclist->count; i++) {
 		bsscfg = &bclist->bsscfgs[i];
-		wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, wet | sta);
+		//wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, wet | sta);
+		wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, mac_spoof);
 	}
 
 	/* AP only config */

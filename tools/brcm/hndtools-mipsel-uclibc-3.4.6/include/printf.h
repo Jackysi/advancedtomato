@@ -38,9 +38,10 @@ __BEGIN_DECLS
  * with gcc, which is currently the only "supported" compiler.
  * The library code uses bitmasks for space-efficiency (you can't
  * set/test multiple bitfields in one operation).  Unfortunatly, we
- * need to support bitfields since that's what glibc uses.  So, we take
+ * need to support bitfields since that's what glibc made visible to users.
+ * So, we take
  * advantage of how gcc lays out bitfields to create an appropriate
- * mapping.  By defining __PRINTF_INFO_NO_BITFIELD we access the
+ * mapping.  Inside uclibc (UCLIBC_INTERNAL is defined) we access the
  * bitfields using bitmasks in a single flag variable.
  *
  * WARNING -- This may very well fail if built with -fpack-struct!!!
@@ -49,96 +50,53 @@ __BEGIN_DECLS
  * TODO -- Add an option to build in a shim translation function if
  *         the bitfield<->bitmask mapping fails.
  */
-/*  #define __PRINTF_INFO_NO_BITFIELD */
 #include <endian.h>
 
-struct printf_info
-{
-  int prec;			/* Precision.  */
-  int width;			/* Width.  */
+struct printf_info {
+  int prec;                     /* Precision.  */
+  int width;                    /* Width.  */
 #ifdef __UCLIBC_HAS_WCHAR__
-  wchar_t spec;			/* Format letter.  */
+  wchar_t spec;                 /* Format letter.  */
 #else
   int spec;
 #endif
-#ifndef __PRINTF_INFO_NO_BITFIELD
+
+
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-  unsigned int space:1;		/* Space flag.  */
-  unsigned int showsign:1;	/* + flag.  */
-  unsigned int extra:1;		/* For special use.  */
-  unsigned int left:1;		/* - flag.  */
-  unsigned int alt:1;		/* # flag.  */
-  unsigned int group:1;		/* ' flag.  */
-  unsigned int i18n:1;		/* I flag.  */
-  unsigned int wide:1;		/* Nonzero for wide character streams.  */
-  unsigned int is_char:1;	/* hh flag.  */
-  unsigned int is_short:1;	/* h flag.  */
-  unsigned int is_long:1;	/* l flag.  */
+  unsigned int space:1;         /* Space flag.  */
+  unsigned int showsign:1;      /* + flag.  */
+  unsigned int extra:1;         /* For special use.  */
+  unsigned int left:1;          /* - flag.  */
+  unsigned int alt:1;           /* # flag.  */
+  unsigned int group:1;         /* ' flag.  */
+  unsigned int i18n:1;          /* I flag.  */
+  unsigned int wide:1;          /* Nonzero for wide character streams.  */
+  unsigned int is_char:1;       /* hh flag.  */
+  unsigned int is_short:1;      /* h flag.  */
+  unsigned int is_long:1;       /* l flag.  */
   unsigned int is_long_double:1;/* L flag.  */
-  unsigned int __padding:20;/* non-gnu -- total of 32 bits on 32bit arch */
-
+  unsigned int __padding:20;    /* non-gnu: match _flags width of 32 bits */
 #elif __BYTE_ORDER == __BIG_ENDIAN
-
-  unsigned int __padding:20;/* non-gnu -- total of 32 bits on 32bit arch */
+  unsigned int __padding:20;    /* non-gnu: match _flags width of 32 bits */
   unsigned int is_long_double:1;/* L flag.  */
-  unsigned int is_long:1;	/* l flag.  */
-  unsigned int is_short:1;	/* h flag.  */
-  unsigned int is_char:1;	/* hh flag.  */
-  unsigned int wide:1;		/* Nonzero for wide character streams.  */
-  unsigned int i18n:1;		/* I flag.  */
-  unsigned int group:1;		/* ' flag.  */
-  unsigned int alt:1;		/* # flag.  */
-  unsigned int left:1;		/* - flag.  */
-  unsigned int extra:1;		/* For special use.  */
-  unsigned int showsign:1;	/* + flag.  */
-  unsigned int space:1;		/* Space flag.  */
-
+  unsigned int is_long:1;       /* l flag.  */
+  unsigned int is_short:1;      /* h flag.  */
+  unsigned int is_char:1;       /* hh flag.  */
+  unsigned int wide:1;          /* Nonzero for wide character streams.  */
+  unsigned int i18n:1;          /* I flag.  */
+  unsigned int group:1;         /* ' flag.  */
+  unsigned int alt:1;           /* # flag.  */
+  unsigned int left:1;          /* - flag.  */
+  unsigned int extra:1;         /* For special use.  */
+  unsigned int showsign:1;      /* + flag.  */
+  unsigned int space:1;         /* Space flag.  */
 #else
 #error unsupported byte order!
 #endif
 
-#define PRINT_INFO_FLAG_VAL(INFO_PTR,BITFIELD) (INFO_PTR)->BITFIELD
-#define PRINT_INFO_SET_FLAG(INFO_PTR,BITFIELD) (INFO_PTR)->BITFIELD = 1
-#define PRINT_INFO_CLR_FLAG(INFO_PTR,BITFIELD) (INFO_PTR)->BITFIELD = 0
-#define PRINT_INFO_SET_extra(INFO_PTR,VAL) (INFO_PTR)->extra = (VAL)
 
-#else  /* __PRINTF_INFO_NO_BITFIELD */
-
-  unsigned int _flags;		/* non-gnu */
-#define __PRINT_INFO_FLAG_space					(1<<0)
-#define __PRINT_INFO_FLAG_showsign				(1<<1)
-#define __PRINT_INFO_FLAG_extra					(1<<2)
-#define __PRINT_INFO_FLAG_left					(1<<3)
-#define __PRINT_INFO_FLAG_alt					(1<<4)
-#define __PRINT_INFO_FLAG_group					(1<<5)
-#define __PRINT_INFO_FLAG_i18n					(1<<6)
-#define __PRINT_INFO_FLAG_wide					(1<<7)
-
-#define __PRINT_INFO_FLAG_is_char				(1<<8)
-#define __PRINT_INFO_FLAG_is_short				(1<<9)
-#define __PRINT_INFO_FLAG_is_long				(1<<10)
-#define __PRINT_INFO_FLAG_is_long_double		(1<<11)
-
-#if defined(__STDC__) && __STDC__
-#define PRINT_INFO_FLAG_VAL(INFO_PTR,BITFIELD) \
-	((INFO_PTR)->_flags & __PRINT_INFO_FLAG_##BITFIELD)
-#define PRINT_INFO_SET_FLAG(INFO_PTR,BITFIELD) \
-	((INFO_PTR)->_flags |= __PRINT_INFO_FLAG_##BITFIELD)
-#define PRINT_INFO_CLR_FLAG(INFO_PTR,BITFIELD) \
-	((INFO_PTR)->_flags &= ~__PRINT_INFO_FLAG_##BITFIELD)
-#else
-#define PRINT_INFO_FLAG_VAL(INFO_PTR,BITFIELD) \
-	((INFO_PTR)->_flags & __PRINT_INFO_FLAG_/**/BITFIELD)
-#define PRINT_INFO_SET_FLAG(INFO_PTR,BITFIELD) \
-	((INFO_PTR)->_flags |= __PRINT_INFO_FLAG_/**/BITFIELD)
-#define PRINT_INFO_CLR_FLAG(INFO_PTR,BITFIELD) \
-	((INFO_PTR)->_flags &= ~__PRINT_INFO_FLAG_/**/BITFIELD)
-#endif
-#define PRINT_INFO_SET_extra(INFO_PTR,VAL) \
-	((INFO_PTR)->_flags |= (((INFO_PTR)->_flags & ~1) | ((VAL) & 1)))
-#endif /* __PRINTF_INFO_NO_BITFIELD */
 #ifdef __UCLIBC_HAS_WCHAR__
-  wchar_t pad;			/* Padding character.  */
+  wchar_t pad;                  /* Padding character.  */
 #else
   int pad;
 #endif
@@ -203,17 +161,16 @@ extern size_t parse_printf_format (__const char *__restrict __fmt, size_t __n,
  * aren't qualified as pointers, I _think_ glibc just ignores them
  * and carries on.  I think it should be treated as an error. */
 
-enum
-{				/* C type: */
-  PA_INT,			/* int */
-  PA_CHAR,			/* int, cast to char */
-  PA_WCHAR,			/* wide char */
-  PA_STRING,			/* const char *, a '\0'-terminated string */
-  PA_WSTRING,			/* const wchar_t *, wide character string */
-  PA_POINTER,			/* void * */
-  PA_FLOAT,			/* float */
-  PA_DOUBLE,			/* double */
-  __PA_NOARG,			/* non-glibc -- signals non-arg width or prec */
+enum {                          /* C type: */
+  PA_INT,                       /* int */
+  PA_CHAR,                      /* int, cast to char */
+  PA_WCHAR,                     /* wide char */
+  PA_STRING,                    /* const char *, a '\0'-terminated string */
+  PA_WSTRING,                   /* const wchar_t *, wide character string */
+  PA_POINTER,                   /* void * */
+  PA_FLOAT,                     /* float */
+  PA_DOUBLE,                    /* double */
+  __PA_NOARG,                   /* non-glibc -- signals non-arg width or prec */
   PA_LAST
 };
 

@@ -177,7 +177,7 @@ extern int lockf64 (int __fd, int __cmd, __off64_t __len);
 # endif
 #endif
 
-#ifdef __USE_XOPEN2K
+#if defined __USE_XOPEN2K && defined __UCLIBC_HAS_ADVANCED_REALTIME__
 /* Advice the system about the expected behaviour of the application with
    respect to the file associated with FD.  */
 # ifndef __USE_FILE_OFFSET64
@@ -199,7 +199,7 @@ extern int posix_fadvise64 (int __fd, __off64_t __offset, __off64_t __len,
 
 #endif
 
-#if 0
+#if 0 /* && defined __UCLIBC_HAS_ADVANCED_REALTIME__ */
 
 /* FIXME -- uClibc should probably implement these... */
 

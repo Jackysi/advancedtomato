@@ -1,14 +1,16 @@
-#if !defined __FEATURES_H && !defined __need_uClibc_config_h
+#if !defined _FEATURES_H && !defined __need_uClibc_config_h
 # error Never include <bits/uClibc_config.h> directly; use <features.h> instead
 #endif
 
 #define __UCLIBC_MAJOR__ 0
 #define __UCLIBC_MINOR__ 9
-#define __UCLIBC_SUBLEVEL__ 29
+#define __UCLIBC_SUBLEVEL__ 30
 /* Automatically generated make config: don't edit */
-/* Sun Sep 20 21:08:18 2009 */
+/* Version: 0.9.30.1 */
+/* Fri Nov 27 23:14:22 2009 */
 #undef __TARGET_alpha__
 #undef __TARGET_arm__
+#undef __TARGET_avr32__
 #undef __TARGET_bfin__
 #undef __TARGET_cris__
 #undef __TARGET_e1__
@@ -30,6 +32,7 @@
 #undef __TARGET_v850__
 #undef __TARGET_vax__
 #undef __TARGET_x86_64__
+#undef __TARGET_xtensa__
 
 /* Target Architecture Features and Options */
 #define __TARGET_ARCH__ "mips"
@@ -43,6 +46,7 @@
 #undef __CONFIG_MIPS_ISA_3__
 #undef __CONFIG_MIPS_ISA_4__
 #define __CONFIG_MIPS_ISA_MIPS32__ 1
+#undef __CONFIG_MIPS_ISA_MIPS32R2__
 #undef __CONFIG_MIPS_ISA_MIPS64__
 #define __TARGET_SUBARCH__ ""
 
@@ -56,13 +60,14 @@
 #define __UCLIBC_HAS_FLOATS__ 1
 #define __UCLIBC_HAS_FPU__ 1
 #define __DO_C99_MATH__ 1
+#undef __UCLIBC_HAS_FENV__
 #define __KERNEL_HEADERS__ "/home/fedork/tomato/toolchain/build_dir/toolchain-mipsel_gcc3.4.6/linux/include"
 #define __HAVE_DOT_CONFIG__ 1
 
 /* General Library Settings */
 #undef __HAVE_NO_PIC__
 #define __DOPIC__ 1
-#undef __HAVE_NO_SHARED__
+#undef __ARCH_HAS_NO_SHARED__
 #undef __ARCH_HAS_NO_LDSO__
 #define __HAVE_SHARED__ 1
 #undef __FORCE_SHAREABLE_TEXT_SEGMENTS__
@@ -73,10 +78,12 @@
 #undef __UCLIBC_STATIC_LDCONFIG__
 #define __LDSO_RUNPATH__ 1
 #define __UCLIBC_CTOR_DTOR__ 1
+#undef __LDSO_GNU_HASH_SUPPORT__
 #undef __HAS_NO_THREADS__
 #define __UCLIBC_HAS_THREADS__ 1
 #undef __PTHREADS_DEBUG_SUPPORT__
 #define __LINUXTHREADS_OLD__ 1
+#define __UCLIBC_HAS_SYSLOG__ 1
 #define __UCLIBC_HAS_LFS__ 1
 #undef __MALLOC__
 #undef __MALLOC_SIMPLE__
@@ -86,11 +93,14 @@
 #define __COMPAT_ATEXIT__ 1
 #define __UCLIBC_SUSV3_LEGACY__ 1
 #undef __UCLIBC_SUSV3_LEGACY_MACROS__
+#undef __UCLIBC_HAS_STUBS__
 #define __UCLIBC_HAS_SHADOW__ 1
 #define __UCLIBC_HAS_PROGRAM_INVOCATION_NAME__ 1
 #define __UCLIBC_HAS___PROGNAME__ 1
-#define __UNIX98PTY_ONLY__ 1
+#define __UCLIBC_HAS_PTY__ 1
 #define __ASSUME_DEVPTS__ 1
+#define __UNIX98PTY_ONLY__ 1
+#define __UCLIBC_HAS_GETPT__ 1
 #define __UCLIBC_HAS_TM_EXTENSIONS__ 1
 #define __UCLIBC_HAS_TZ_CACHING__ 1
 #define __UCLIBC_HAS_TZ_FILE__ 1
@@ -101,12 +111,32 @@
 #define __UCLIBC_PWD_BUFFER_SIZE__ 256
 #define __UCLIBC_GRP_BUFFER_SIZE__ 256
 
-/* Networking Support */
+/* Support various families of functions */
+#define __UCLIBC_LINUX_MODULE_24__ 1
+#define __UCLIBC_LINUX_SPECIFIC__ 1
+#define __UCLIBC_HAS_GNU_ERROR__ 1
+#define __UCLIBC_BSD_SPECIFIC__ 1
+#define __UCLIBC_HAS_BSD_ERR__ 1
+#undef __UCLIBC_HAS_OBSOLETE_BSD_SIGNAL__
+#undef __UCLIBC_HAS_OBSOLETE_SYSV_SIGNAL__
+#undef __UCLIBC_NTP_LEGACY__
+#undef __UCLIBC_SV4_DEPRECATED__
+#define __UCLIBC_HAS_REALTIME__ 1
+#undef __UCLIBC_HAS_ADVANCED_REALTIME__
+#define __UCLIBC_HAS_EPOLL__ 1
+#define __UCLIBC_HAS_XATTR__ 1
+#undef __UCLIBC_HAS_PROFILING__
+#define __UCLIBC_HAS_CRYPT_IMPL__ 1
+#define __UCLIBC_HAS_CRYPT__ 1
+#define __UCLIBC_HAS_NETWORK_SUPPORT__ 1
+#define __UCLIBC_HAS_SOCKET__ 1
+#define __UCLIBC_HAS_IPV4__ 1
 #define __UCLIBC_HAS_IPV6__ 1
 #define __UCLIBC_HAS_RPC__ 1
 #define __UCLIBC_HAS_FULL_RPC__ 1
 #undef __UCLIBC_HAS_REENTRANT_RPC__
-#undef __UCLIBC_USE_NETLINK__
+#define __UCLIBC_USE_NETLINK__ 1
+#define __UCLIBC_SUPPORT_AI_ADDRCONFIG__ 1
 #define __UCLIBC_HAS_BSD_RES_CLOSE__ 1
 
 /* String and Stdio Support */

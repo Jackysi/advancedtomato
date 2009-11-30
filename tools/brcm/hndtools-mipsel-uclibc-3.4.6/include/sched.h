@@ -63,7 +63,7 @@ extern int sched_get_priority_min (int __algorithm) __THROW;
 extern int sched_rr_get_interval (__pid_t __pid, struct timespec *__t) __THROW;
 
 
-#ifdef __USE_GNU
+#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
 /* Access macros for `cpu_set'.  */
 #define CPU_SETSIZE __CPU_SETSIZE
 #define CPU_SET(cpu, cpusetp)	__CPU_SET (cpu, cpusetp)

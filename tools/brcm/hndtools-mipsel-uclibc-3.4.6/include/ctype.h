@@ -239,13 +239,13 @@ __exctype (_tolower);
 # endif
 
 # ifdef __USE_EXTERN_INLINES
-extern __inline int
+__extern_inline int
 __NTH (tolower (int __c))
 {
   return __UCLIBC_CTYPE_IN_TO_DOMAIN(__c) ? (__UCLIBC_CTYPE_TOLOWER)[__c] : __c;
 }
 
-extern __inline int
+__extern_inline int
 __NTH (toupper (int __c))
 {
   return __UCLIBC_CTYPE_IN_TO_DOMAIN(__c) ? (__UCLIBC_CTYPE_TOUPPER)[__c] : __c;
