@@ -351,7 +351,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind < argc) {
-		fprintf(stderr, "Unknown arguments found on commandline");
+		fprintf(stderr, "Unknown arguments found on commandline\n");
 		exit(1);
 	}
 

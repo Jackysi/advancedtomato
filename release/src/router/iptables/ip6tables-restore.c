@@ -7,7 +7,7 @@
  * 	Rusty Russell <rusty@linuxcare.com.au>
  * This code is distributed under the terms of GNU GPL v2
  *
- * $Id: ip6tables-restore.c 6460 2006-02-09 14:35:38Z /C=DE/ST=Berlin/L=Berlin/O=Netfilter Project/OU=Development/CN=laforge/emailAddress=laforge@netfilter.org $
+ * $Id: ip6tables-restore.c 6828 2007-05-10 15:00:39Z /C=EU/ST=EU/CN=Patrick McHardy/emailAddress=kaber@trash.net $
  */
 
 #include <getopt.h>
@@ -62,19 +62,19 @@ ip6tc_handle_t create_handle(const char *tablename, const char* modprobe)
 
 	if (!handle) {
 		/* try to insmod the module if iptc_init failed */
-		ip6tables_insmod("ip6_tables", modprobe);
+		ip6tables_insmod("ip6_tables", modprobe, 0);
 		handle = ip6tc_init(tablename);
 	}
 
 	if (!handle) {
-		exit_error(PARAMETER_PROBLEM, "%s: unable to initialize"
+		exit_error(PARAMETER_PROBLEM, "%s: unable to initialize "
 			"table '%s'\n", program_name, tablename);
 		exit(1);
 	}
 	return handle;
 }
 
-int parse_counters(char *string, struct ip6t_counters *ctr)
+static int parse_counters(char *string, struct ip6t_counters *ctr)
 {
 	return (sscanf(string, "[%llu:%llu]", (unsigned long long *)&ctr->pcnt, (unsigned long long *)&ctr->bcnt) == 2);
 }
@@ -154,13 +154,13 @@ int main(int argc, char *argv[])
 	if (optind == argc - 1) {
 		in = fopen(argv[optind], "r");
 		if (!in) {
-			fprintf(stderr, "Can't open %s: %s", argv[optind],
+			fprintf(stderr, "Can't open %s: %s\n", argv[optind],
 				strerror(errno));
 			exit(1);
 		}
 	}
 	else if (optind < argc) {
-		fprintf(stderr, "Unknown arguments found on commandline");
+		fprintf(stderr, "Unknown arguments found on commandline\n");
 		exit(1);
 	}
 	else in = stdin;

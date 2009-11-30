@@ -16,8 +16,8 @@ A rate just like the limit match
 .BI "--hashlimit-burst " "num"
 Burst value, just like limit match
 .TP
-.BI "--hashlimit-mode " "destip | destip-destport"
-Limit per IP or per port
+.BI "--hashlimit-mode " "dstip,srcip,dstport,srcport"
+A comma-separated list of objects to take into consideration
 .TP
 .BI "--hashlimit-name " "foo"
 The name for the /proc/net/ipt_hashlimit/foo entry

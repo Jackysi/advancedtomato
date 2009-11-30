@@ -9,7 +9,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
 include $(SRCBASE)/tomato_profile.mak
 include $(TOP)/.config
 
-export BUILD := i386-pc-linux-gnu
+export BUILD := $(shell (gcc -dumpmachine))
 export HOSTCC := gcc
 
 export PLATFORM := mipsel-uclibc
@@ -36,6 +36,9 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
 export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
 
+ifeq ($(EXTRACFLAGS),)
+export EXTRACFLAGS := -DBCMWPA2 -fno-delete-null-pointer-checks -mips32 -mtune=mips32
+endif
 
 CPTMP = @[ -d $(TOP)/dbgshare ] && cp $@ $(TOP)/dbgshare/ || true
 

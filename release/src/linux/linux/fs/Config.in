@@ -153,7 +153,12 @@ if [ "$CONFIG_NET" = "y" ]; then
 
    dep_tristate 'CIFS support (advanced network filesystem for Samba, Window and other CIFS compliant servers)' CONFIG_CIFS $CONFIG_INET
    dep_mbool '  CIFS statistics' CONFIG_CIFS_STATS $CONFIG_CIFS
+   dep_mbool '  CIFS extended statistics' CONFIG_CIFS_STATS2 $CONFIG_CIFS
+   dep_mbool '  Support legacy servers which use weaker LANMAN security' CONFIG_CIFS_WEAK_PW_HASH $CONFIG_CIFS
+   dep_mbool '  CIFS extended attributes' CONFIG_CIFS_XATTR $CONFIG_CIFS
    dep_mbool '  CIFS POSIX Protocol Extensions' CONFIG_CIFS_POSIX $CONFIG_CIFS
+   dep_mbool '  Enable additional CIFS debugging routines' CONFIG_CIFS_DEBUG2 $CONFIG_CIFS
+   dep_mbool '  CIFS Experimental Features (EXPERIMENTAL)' CONFIG_CIFS_EXPERIMENTAL $CONFIG_CIFS $CONFIG_EXPERIMENTAL
 
    dep_tristate 'SMB file system support (to mount Windows shares etc.)' CONFIG_SMB_FS $CONFIG_INET
    if [ "$CONFIG_SMB_FS" != "n" ]; then

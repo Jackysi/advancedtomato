@@ -215,14 +215,10 @@ endif
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
-	busybox/examples/depmod.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
-	@mv $(TARGETDIR)/lib/modules/*/modules.dep $(TARGETDIR)/lib/modules/
-	@echo ---
-
-	@rm -f $(TARGETDIR)/lib/modules/*/build
 
 	@../btools/libfoo.pl
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
+	@chmod 0555 $(TARGETDIR)/usr/lib/*.so*
 
 # !!TB - moved to run after libfoo.pl - to make sure shared libs include all symbols needed by extras
 # separated extra stuff
@@ -295,6 +291,12 @@ ifeq ($(TCONFIG_L7PAT),y)
 	@cd layer7 && ./squish.sh
 	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
 endif
+
+	busybox/examples/depmod.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
+	@mv $(TARGETDIR)/lib/modules/*/modules.dep $(TARGETDIR)/lib/modules/
+	@echo ---
+
+	@rm -f $(TARGETDIR)/lib/modules/*/build
 
 	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
 	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image | tee target.info
@@ -416,8 +418,9 @@ openssl-install:
 	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 
-	install -D -m 500 openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
+	install -D openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
 	$(STRIP) $(INSTALLDIR)/openssl/usr/sbin/openssl
+	chmod 0500 $(INSTALLDIR)/openssl/usr/sbin/openssl
 
 	install -D -m 0500 httpd/gencert.sh $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 
@@ -445,6 +448,9 @@ bridge-install:
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
+dnsmasq:
+	@$(SEP)
+	@$(MAKE) -C dnsmasq COPTS="-DNO_IPV6 -DNO_SCRIPT $(EXTRACFLAGS)"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -452,7 +458,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR)
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
@@ -604,11 +610,11 @@ pppd-install:
 
 zebra:
 	@$(SEP)
-	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -Os -Wall" $(CONFIGURE) \
-		--host=mipsel-linux --prefix=/usr/local/zebra \
+	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) \
+		--host=mipsel-linux --sysconfdir=/etc \
 		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
 		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
-	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
+	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
 
 zebra-install:
 	install -D zebra/zebra/zebra $(INSTALLDIR)/zebra/usr/sbin/zebra
@@ -680,11 +686,11 @@ dropbear-clean:
 	@make -C dropbear clean
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-O2 -Wall" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
-	cd igmpproxy && CFLAGS="-O2 -Wall" \
+	cd igmpproxy && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr
 
 igmpproxy: igmpproxy/src/Makefile

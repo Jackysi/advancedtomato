@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS = -O2 -Wall
+CFLAGS = -O2 -Wall $(EXTRACFLAGS)
 CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 
 OBJS = httpd.o cgi.o tomato.o version.o 
@@ -23,8 +23,9 @@ httpd: $(OBJS)
 
 install:
 	@echo " [httpd] Installing to $(INSTALLDIR)"
-	@install -m 0500 -D httpd $(INSTALLDIR)/usr/sbin/httpd
+	@install -D httpd $(INSTALLDIR)/usr/sbin/httpd
 	@$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
+	@chmod 0500 $(INSTALLDIR)/usr/sbin/httpd
 
 clean:
 	rm -f httpd *.o .*.depend

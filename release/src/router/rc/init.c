@@ -348,7 +348,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x15eb");
 		dirty |= check_nv("pa0b1", "0xfa82");
 		dirty |= check_nv("pa0b2", "0xfe66");
-		dirty |= check_nv("pa0maxpwr", "0x4e");
+		//dirty |= check_nv("pa0maxpwr", "0x4e");
 		break;
 	case HW_BCM5352E:	// G v4, GS v3, v4
 		dirty |= check_nv("sdram_init", "0x010b");
@@ -360,7 +360,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x168b");
 		dirty |= check_nv("pa0b1", "0xfabf");
 		dirty |= check_nv("pa0b2", "0xfeaf");
-		dirty |= check_nv("pa0maxpwr", "0x4e");
+		//dirty |= check_nv("pa0maxpwr", "0x4e");
 		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
 		break;
 	case HW_BCM5354G:
@@ -368,7 +368,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x1326");
 		dirty |= check_nv("pa0b1", "0xFB51");
 		dirty |= check_nv("pa0b2", "0xFE87");
-		dirty |= check_nv("pa0maxpwr", "0x4e");
+		//dirty |= check_nv("pa0maxpwr", "0x4e");
 		break;
 	case HW_BCM4704_BCM5325F:
 		// nothing to do
@@ -378,7 +378,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("pa0b0", "0x170c");
 		dirty |= check_nv("pa0b1", "0xfa24");
 		dirty |= check_nv("pa0b2", "0xfe70");
-		dirty |= check_nv("pa0maxpwr", "0x48");
+		//dirty |= check_nv("pa0maxpwr", "0x48");
 		break;
 	}
 
@@ -457,7 +457,7 @@ static int init_nvram(void)
 		nvram_set("pa0b0", "0x1542");
 		nvram_set("pa0b1", "0xfacb");
 		nvram_set("pa0b2", "0xfec7");
-		nvram_set("pa0maxpwr", "0x4c");
+		//nvram_set("pa0maxpwr", "0x4c");
 		features = SUP_SES;
 		break;
 	case MODEL_WRTSL54GS:
@@ -590,6 +590,17 @@ static int init_nvram(void)
 			nvram_set("wl0gpio0", "136");
 		}		
 		break;
+	case MODEL_WL500W:
+		mfr = "Asus";
+		name = "WL-500W";
+		features = SUP_SES;
+		/* fix WL500W mac adresses for WAN port */
+		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
+			nvram_set("et1macaddr", nvram_get("et0macaddr"));
+		/* fix AIR LED */
+		if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
+			nvram_set("wl0gpio0", "0x88");
+		break;
 	case MODEL_WL500GE:
 		mfr = "Asus";
 		name = "WL-500gE";
@@ -680,6 +691,30 @@ static int init_nvram(void)
 			nvram_set("wl0gpio3", "0");
 		}
 		break;
+	case MODEL_DIR320:
+		mfr = "D-Link";
+		name = "DIR-320";
+		//	features = ?;
+		if (nvram_match("wl0gpio0", "255"))
+		{
+			nvram_set("wl0gpio0", "8");
+			nvram_set("wl0gpio1", "0");
+			nvram_set("wl0gpio2", "0");
+			nvram_set("wl0gpio3", "0");
+		}
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_unset( "vlan2ports" );
+			nvram_unset( "vlan2hwname" );
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan1ports", "0 5");
+			nvram_set("wandevs", "vlan1");
+			nvram_set("wan_ifname", "vlan1");
+			nvram_set("wan_ifnames", "vlan1");
+			nvram_set("wan0_ifname", "vlan1");
+			nvram_set("wan0_ifnames", "vlan1");
+		}
+		break;
 #endif
 #if TOMATO_N
 	case MODEL_WZRG300N:
@@ -704,6 +739,8 @@ static int init_nvram(void)
 		s[64] = 0;
 	}
 	nvram_set("t_model_name", s);
+
+	nvram_set("pa0maxpwr", "251");				// allow Tx power up tp 251 mW, needed for ND only
 
 	sprintf(s, "0x%lX", features);
 	nvram_set("t_features", s);

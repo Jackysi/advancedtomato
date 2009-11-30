@@ -1,8 +1,12 @@
 /*
- *   fs/cifserr.c
+ *   fs/cifs/export.c
  *
- *   Copyright (c) International Business Machines  Corp., 2002
+ *   Copyright (C) International Business Machines  Corp., 2007
  *   Author(s): Steve French (sfrench@us.ibm.com)
+ *
+ *   Common Internet FileSystem (CIFS) client
+ * 
+ *   Operations related to support for exporting files via NFSD
  *
  *   This library is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU Lesser General Public License as published
@@ -18,53 +22,31 @@
  *   along with this library; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+ 
+ /* 
+  * See Documentation/filesystems/Exporting
+  * and examples in fs/exportfs
+  */
 
-#include <linux/errno.h>
 #include <linux/fs.h>
-#include <linux/smbno.h>
-#include "cifsfs.h"
-
-int map_cifs_error(int error_class, int error_code,
-		   int status_codes_negotiated)
+ 
+#ifdef CONFIG_CIFS_EXPERIMENTAL
+ 
+static struct dentry *cifs_get_parent(struct dentry *dentry)
 {
-
-
-	if (status_codes_negotiated) {
-		switch (error_code) {
-		default:
-			return EIO;
-		}
-	} else
-		switch (error_class) {
-		case SUCCESS:
-			return 0;
-
-		case ERRDOS:
-			switch (error_code) {
-			case ERRbadfunc:
-				return EINVAL;
-			default:
-				return EIO;
-			}
-
-		case ERRSRV:
-			switch (error_code) {
-			default:
-				return EIO;
-			}
-
-		case ERRHRD:
-			switch (error_code) {
-			default:
-				return EIO;
-			}
-		default:
-			return EIO;
-		}
-	return 0;
+ 	/* BB need to add code here eventually to enable export via NFSD */
+ 	return ERR_PTR(-EACCES);
 }
-
-int map_smb_error(int error_class, int error_code)
-{
-	return map_cifs_error(error_class, error_code, FALSE);
-}
+ 
+struct export_operations cifs_export_ops = {
+ 	.get_parent = cifs_get_parent,
+/*	Following five export operations are unneeded so far and can default */ 	
+/* 	.get_dentry =
+ 	.get_name =
+ 	.find_exported_dentry =
+ 	.decode_fh = 
+ 	.encode_fs =  */
+ };
+ 
+#endif /* EXPERIMENTAL */
+ 

@@ -12,6 +12,7 @@
 #include <linux/config.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/string.h>
 #include <linux/sched.h>
 #include <linux/serial_reg.h>
 #include <linux/interrupt.h>
@@ -67,8 +68,8 @@ bcm947xx_time_init(void)
 	        sb_chiprev(sbh), sb_chippkg(sbh), (hz + 500000) / 1000000);
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */
-	// !!TB - fix for WL-520GU clock rate
-	if (sb_chip(sbh) == BCM5354_CHIP_ID && nvram_match("t_fix1", "WL-520GU"))
+	if (sb_chip(sbh) == BCM5354_CHIP_ID &&
+		strncmp(nvram_safe_get("hardware_version"), "WL520G", 6) == 0)
 		mips_hpt_frequency = 100000000; // Fix WL520GUGC clock
 	else
 		mips_hpt_frequency = hz / 2;

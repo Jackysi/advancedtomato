@@ -126,7 +126,7 @@ int web_read_x(void *buffer, int len)
 	while (len > 0) {
 		n = web_read(buffer, len);
 		if (n <= 0) return len;
-		(unsigned char *)buffer += n;
+		buffer += n;
 		len -= n;
 		t += n;
 	}

@@ -174,6 +174,7 @@ static char * pre_process(char * s)
 			case 0x3f:
 			case 0x5b:
 			case 0x5c:
+			case 0x5d:
 			case 0x5e:
 			case 0x7c:
 				fprintf(stderr, 

@@ -986,7 +986,7 @@ static int request_certificate(SSL *s)
 
 	i=ssl_verify_cert_chain(s,sk);
 
-	if (i)	/* we like the packet, now check the chksum */
+	if (i > 0)	/* we like the packet, now check the chksum */
 		{
 		EVP_MD_CTX ctx;
 		EVP_PKEY *pkey=NULL;
@@ -1014,7 +1014,7 @@ static int request_certificate(SSL *s)
 		EVP_PKEY_free(pkey);
 		memset(&ctx,0,sizeof(ctx));
 
-		if (i) 
+		if (i > 0)
 			{
 			if (s->session->peer != NULL)
 				X509_free(s->session->peer);

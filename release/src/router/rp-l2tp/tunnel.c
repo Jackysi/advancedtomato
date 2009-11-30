@@ -11,6 +11,9 @@
 *
 * LIC: GPL
 *
+* 2008-5-30 Cybertan modify to fix error after several times of login
+*
+*
 ***********************************************************************/
 
 static char const RCSID[] =
@@ -686,7 +689,8 @@ l2tp_tunnel_handle_received_control_datagram(l2tp_dgram *dgram,
 	tunnel->state != TUNNEL_SENT_STOP_CCN &&
 	tunnel->hello_handler != NULL) {
 	struct timeval t;
-	t.tv_sec = 60;
+	//t.tv_sec = 60;
+	t.tv_sec = 30;
 	t.tv_usec = 0;
 	Event_ChangeTimeout(tunnel->hello_handler, t);
     }
@@ -1521,7 +1525,8 @@ tunnel_setup_hello(l2tp_tunnel *tunnel)
 {
     struct timeval t;
 
-    t.tv_sec = 60;
+    //t.tv_sec = 60;
+    t.tv_sec = 30;
     t.tv_usec = 0;
 
     if (tunnel->hello_handler) {

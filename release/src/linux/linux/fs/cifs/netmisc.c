@@ -30,6 +30,9 @@
 #include <linux/fs.h>
 #include <asm/div64.h>
 #include <asm/byteorder.h>
+#ifdef CONFIG_CIFS_EXPERIMENTAL
+#include <linux/inet.h>
+#endif
 #include "cifsfs.h"
 #include "cifspdu.h"
 #include "cifsglob.h"
@@ -43,7 +46,7 @@ struct smb_to_posix_error {
 	int posix_code;
 };
 
-const struct smb_to_posix_error mapping_table_ERRDOS[] = {
+static const struct smb_to_posix_error mapping_table_ERRDOS[] = {
 	{ERRbadfunc, -EINVAL},
 	{ERRbadfile, -ENOENT},
 	{ERRbadpath, -ENOTDIR},
@@ -69,23 +72,27 @@ const struct smb_to_posix_error mapping_table_ERRDOS[] = {
 	{ERRinvparm, -EINVAL},
 	{ERRdiskfull, -ENOSPC},
 	{ERRinvname, -ENOENT},
+	{ERRinvlevel,-EOPNOTSUPP},
 	{ERRdirnotempty, -ENOTEMPTY},
 	{ERRnotlocked, -ENOLCK},
+	{ERRcancelviolation, -ENOLCK},
 	{ERRalreadyexists, -EEXIST},
 	{ERRmoredata, -EOVERFLOW},
+	{ERReasnotsupported,-EOPNOTSUPP},
 	{ErrQuota, -EDQUOT},
 	{ErrNotALink, -ENOLINK},
 	{ERRnetlogonNotStarted,-ENOPROTOOPT},
+	{ErrTooManyLinks,-EMLINK},
 	{0, 0}
 };
 
-const struct smb_to_posix_error mapping_table_ERRSRV[] = {
+static const struct smb_to_posix_error mapping_table_ERRSRV[] = {
 	{ERRerror, -EIO},
-	{ERRbadpw, -EPERM},
+	{ERRbadpw, -EACCES},  /* was EPERM */
 	{ERRbadtype, -EREMOTE},
 	{ERRaccess, -EACCES},
 	{ERRinvtid, -ENXIO},
-	{ERRinvnetname, -ENODEV},
+	{ERRinvnetname, -ENXIO},
 	{ERRinvdevice, -ENXIO},
 	{ERRqfull, -ENOSPC},
 	{ERRqtoobig, -ENOSPC},
@@ -118,19 +125,34 @@ const struct smb_to_posix_error mapping_table_ERRSRV[] = {
 	{0, 0}
 };
 
-const struct smb_to_posix_error mapping_table_ERRHRD[] = {
+static const struct smb_to_posix_error mapping_table_ERRHRD[] = {
 	{0, 0}
 };
 
 /* Convert string containing dotted ip address to binary form */
 /* returns 0 if invalid address */
 
-/* BB add address family, change rc to status flag and return union or for ipv6 */
-/*  will need parent to call something like inet_pton to convert ipv6 address  BB */
 int
 cifs_inet_pton(int address_family, char *cp,void *dst)
 {
-	struct in_addr address;
+#ifdef CONFIG_CIFS_EXPERIMENTAL
+	int ret = 0;
+
+	/* calculate length by finding first slash or NULL */
+	/* BB Should we convert '/' slash to '\' here since it seems already done
+	   before this */
+	if( address_family == AF_INET ){
+		ret = in4_pton(cp, -1 /* len */, dst , '\\', NULL);	
+	} else if( address_family == AF_INET6 ){
+		ret = in6_pton(cp, -1 /* len */, dst , '\\', NULL);
+	}
+#ifdef CONFIG_CIFS_DEBUG2
+	cFYI(1,("address conversion returned %d for %s", ret, cp));
+#endif
+	if (ret > 0)
+		ret = 1;
+	return ret;
+#else
 	int value;
 	int digit;
 	int i;
@@ -187,9 +209,9 @@ cifs_inet_pton(int address_family, char *cp,void *dst)
 	if (value > addr_class_max[end - bytes])
 		return 0;
 
-	address.s_addr = *((int *) bytes) | htonl(value);
-	*((int *)dst) = address.s_addr;
+	*((__be32 *)dst) = *((__be32 *) bytes) | htonl(value);
 	return 1; /* success */
+#endif /* EXPERIMENTAL */	
 }
 
 /*****************************************************************************
@@ -204,7 +226,7 @@ static const struct {
 	{
 	ERRDOS, ERRgeneral, NT_STATUS_UNSUCCESSFUL}, {
 	ERRDOS, ERRbadfunc, NT_STATUS_NOT_IMPLEMENTED}, {
-	ERRDOS, 87, NT_STATUS_INVALID_INFO_CLASS}, {
+	ERRDOS, ERRinvlevel, NT_STATUS_INVALID_INFO_CLASS}, {
 	ERRDOS, 24, NT_STATUS_INFO_LENGTH_MISMATCH}, {
 	ERRHRD, ERRgeneral, NT_STATUS_ACCESS_VIOLATION}, {
 	ERRHRD, ERRgeneral, NT_STATUS_IN_PAGE_ERROR}, {
@@ -287,7 +309,7 @@ static const struct {
 	ERRDOS, 87, NT_STATUS_BAD_WORKING_SET_LIMIT}, {
 	ERRDOS, 87, NT_STATUS_INCOMPATIBLE_FILE_MAP}, {
 	ERRDOS, 87, NT_STATUS_SECTION_PROTECTION}, {
-	ERRDOS, 282, NT_STATUS_EAS_NOT_SUPPORTED}, {
+	ERRDOS, ERReasnotsupported, NT_STATUS_EAS_NOT_SUPPORTED}, {
 	ERRDOS, 255, NT_STATUS_EA_TOO_LARGE}, {
 	ERRHRD, ERRgeneral, NT_STATUS_NONEXISTENT_EA_ENTRY}, {
 	ERRHRD, ERRgeneral, NT_STATUS_NO_EAS_ON_FILE}, {
@@ -329,7 +351,7 @@ static const struct {
 	ERRHRD, ERRgeneral, NT_STATUS_ACCOUNT_RESTRICTION}, {
 	ERRSRV, 2241, NT_STATUS_INVALID_LOGON_HOURS}, {
 	ERRSRV, 2240, NT_STATUS_INVALID_WORKSTATION}, {
-	ERRSRV, 2242, NT_STATUS_PASSWORD_EXPIRED}, {
+	ERRSRV, ERRpasswordExpired, NT_STATUS_PASSWORD_EXPIRED}, {
 	ERRSRV, 2239, NT_STATUS_ACCOUNT_DISABLED}, {
 	ERRHRD, ERRgeneral, NT_STATUS_NONE_MAPPED}, {
 	ERRHRD, ERRgeneral, NT_STATUS_TOO_MANY_LUIDS_REQUESTED}, {
@@ -675,7 +697,7 @@ static const struct {
 	ERRDOS, 193, NT_STATUS_IMAGE_CHECKSUM_MISMATCH}, {
 	ERRHRD, ERRgeneral, NT_STATUS_LOST_WRITEBEHIND_DATA}, {
 	ERRHRD, ERRgeneral, NT_STATUS_CLIENT_SERVER_PARAMETERS_INVALID}, {
-	ERRSRV, 2242, NT_STATUS_PASSWORD_MUST_CHANGE}, {
+	ERRSRV, ERRpasswordExpired, NT_STATUS_PASSWORD_MUST_CHANGE}, {
 	ERRHRD, ERRgeneral, NT_STATUS_NOT_FOUND}, {
 	ERRHRD, ERRgeneral, NT_STATUS_NOT_TINY_STREAM}, {
 	ERRHRD, ERRgeneral, NT_STATUS_RECOVERY_FAILURE}, {
@@ -740,7 +762,7 @@ static const struct {
 	ERRDOS, 182, NT_STATUS_DRIVER_ORDINAL_NOT_FOUND}, {
 	ERRDOS, 127, NT_STATUS_DRIVER_ENTRYPOINT_NOT_FOUND}, {
 	ERRDOS, 288, NT_STATUS_RESOURCE_NOT_OWNED}, {
-	ERRHRD, ERRgeneral, NT_STATUS_TOO_MANY_LINKS}, {
+	ERRDOS, ErrTooManyLinks, NT_STATUS_TOO_MANY_LINKS}, {
 	ERRHRD, ERRgeneral, NT_STATUS_QUOTA_LIST_INCONSISTENT}, {
 	ERRHRD, ERRgeneral, NT_STATUS_FILE_IS_OFFLINE}, {
 	ERRDOS, 21, 0xc000026e}, {
@@ -752,7 +774,8 @@ static const struct {
 	ERRDOS, ERRnoaccess, 0xc000028e}, {
 	ERRDOS, ERRnoaccess, 0xc000028f}, {
 	ERRDOS, ERRnoaccess, 0xc0000290}, {
-ERRDOS, ERRbadfunc, 0xc000029c},};
+	ERRDOS, ERRbadfunc, 0xc000029c}, {
+	ERRDOS, ERRinvlevel, 0x007c0001}, };
 
 /*****************************************************************************
  Print an error message from the status code
@@ -810,16 +833,13 @@ map_smb_to_linux_error(struct smb_hdr *smb)
 
 	if (smb->Flags2 & SMBFLG2_ERR_STATUS) {
 		/* translate the newer STATUS codes to old style errors and then to POSIX errors */
-		smb->Status.CifsError = le32_to_cpu(smb->Status.CifsError);
-		if(cifsFYI)
-			cifs_print_status(smb->Status.CifsError);
-		ntstatus_to_dos(smb->Status.CifsError, &smberrclass,
-				&smberrcode);
+		__u32 err = le32_to_cpu(smb->Status.CifsError);
+		if(cifsFYI & CIFS_RC)
+			cifs_print_status(err);
+		ntstatus_to_dos(err, &smberrclass, &smberrcode);
 	} else {
 		smberrclass = smb->Status.DosError.ErrorClass;
-		smb->Status.DosError.Error =
-		    le16_to_cpu(smb->Status.DosError.Error);
-		smberrcode = smb->Status.DosError.Error;
+		smberrcode = le16_to_cpu(smb->Status.DosError.Error);
 	}
 
 	/* old style errors */
@@ -869,7 +889,14 @@ unsigned int
 smbCalcSize(struct smb_hdr *ptr)
 {
 	return (sizeof (struct smb_hdr) + (2 * ptr->WordCount) +
-		BCC(ptr));
+		2 /* size of the bcc field */ + BCC(ptr));
+}
+
+unsigned int
+smbCalcSize_LE(struct smb_hdr *ptr)
+{
+	return (sizeof (struct smb_hdr) + (2 * ptr->WordCount) +
+		2 /* size of the bcc field */ + le16_to_cpu(BCC_LE(ptr)));
 }
 
 /* The following are taken from fs/ntfs/util.c */
@@ -880,12 +907,99 @@ smbCalcSize(struct smb_hdr *ptr)
      * Convert the NT UTC (based 1601-01-01, in hundred nanosecond units)
      * into Unix UTC (based 1970-01-01, in seconds).
      */
+
+
+static int total_days_of_prev_months[] =
+{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+
+
+__le64 cnvrtDosCifsTm(__u16 date, __u16 time)
+{
+	return cpu_to_le64(cifs_UnixTimeToNT(cnvrtDosUnixTm(date, time)));
+}
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)
+struct timespec
+cifs_NTtimeToUnix(u64 ntutc)
+{
+	struct timespec ts; 
+	/* BB what about the timezone? BB */
+
+	/* Subtract the NTFS time offset, then convert to 1s intervals. */
+	u64 t;
+
+	t = ntutc - NTFS_TIME_OFFSET;
+	ts.tv_nsec = do_div(t, 10000000) * 100;
+	ts.tv_sec = t; 
+	return ts;
+}
+
+/* Convert the Unix UTC into NT UTC. */
+u64
+cifs_UnixTimeToNT(struct timespec t)
+{
+	/* Convert to 100ns intervals and then add the NTFS time offset. */
+	return (u64) t.tv_sec * 10000000 + t.tv_nsec/100 + NTFS_TIME_OFFSET;
+}
+
+struct timespec cnvrtDosUnixTm(__u16 date, __u16 time)
+{
+	struct timespec ts;
+	int sec, min, days, month, year;
+	SMB_TIME * st = (SMB_TIME *)&time;
+	SMB_DATE * sd = (SMB_DATE *)&date;
+
+	cFYI(1,("date %d time %d",date, time));
+
+	sec = 2 * st->TwoSeconds;
+	min = st->Minutes;
+	if((sec > 59) || (min > 59))
+		cERROR(1,("illegal time min %d sec %d", min, sec));
+	sec += (min * 60);
+	sec += 60 * 60 * st->Hours;
+	if(st->Hours > 24)
+		cERROR(1,("illegal hours %d",st->Hours));
+	days = sd->Day;
+	month = sd->Month;
+	if((days > 31) || (month > 12))
+		cERROR(1,("illegal date, month %d day: %d", month, days));
+	month -= 1;
+	days += total_days_of_prev_months[month];
+	days += 3652; /* account for difference in days between 1980 and 1970 */
+	year = sd->Year;
+	days += year * 365;
+	days += (year/4); /* leap year */
+	/* generalized leap year calculation is more complex, ie no leap year
+	for years/100 except for years/400, but since the maximum number for DOS
+	 year is 2**7, the last year is 1980+127, which means we need only
+	 consider 2 special case years, ie the years 2000 and 2100, and only
+	 adjust for the lack of leap year for the year 2100, as 2000 was a 
+	 leap year (divisable by 400) */
+	if(year >= 120)  /* the year 2100 */
+		days = days - 1;  /* do not count leap year for the year 2100 */
+
+	/* adjust for leap year where we are still before leap day */
+	if(year != 120)
+		days -= ((year & 0x03) == 0) && (month < 2 ? 1 : 0);
+	sec += 24 * 60 * 60 * days; 
+
+	ts.tv_sec = sec;
+
+	/* cFYI(1,("sec after cnvrt dos to unix time %d",sec)); */
+
+	ts.tv_nsec = 0;
+	return ts;	
+}
+#else
+/* Did not merge changeset 268f3be177ce93791da38facc34126b5038cd851
+ * and related time fixes into this function for 2.4 case
+ */
 time_t
 cifs_NTtimeToUnix(__u64 ntutc)
 {
 	/* BB what about the timezone? BB */
 
-	/* Subtract the NTFS time offset, then convert to 1s intervals. */
+	/* Subtract the NTFS time offset, then convert to 1s intervals.  */
 	u64 t;
 
 	t = ntutc - NTFS_TIME_OFFSET;
@@ -903,3 +1017,53 @@ cifs_UnixTimeToNT(time_t t)
 	dce_time += NTFS_TIME_OFFSET;
 	return dce_time;
 }
+time_t cnvrtDosUnixTm(__u16 date, __u16 time)
+{
+	__u8  dt[2];
+	__u8  tm[2];
+	time_t ts;
+	int sec,min, days, month, year;
+/*    SMB_TIME * st = (SMB_TIME *)&time;*/
+
+	cFYI(1,("date %d time %d",date, time));
+
+	dt[0] = date & 0xFF;
+	dt[1] = (date & 0xFF00) >> 8;
+	tm[0] = time & 0xFF;
+	tm[1] = (time & 0xFF00) >> 8;
+
+	sec = tm[0] & 0x1F;
+	sec = 2 * sec;
+	min = ((tm[0] >>5)&0xFF) + ((tm[1] & 0x7)<<3);
+
+	sec += (min * 60);
+	sec += 60 * 60 * ((tm[1] >> 3) &0xFF) /* hours */;
+	days = (dt[0] & 0x1F) - 1;
+	month = ((dt[0] >> 5) & 0xFF) + ((dt[1] & 0x1) <<3);
+	if(month > 12)
+		cERROR(1,("illegal month %d in date", month));
+	month -= 1;
+	days += total_days_of_prev_months[month];
+	days += 3653; /* account for difference in days between 1980 and 1970 */
+	year = (dt[1]>>1) & 0xFF;
+	days += year * 365;
+	days += (year/4); /* leap year */
+	/* generalized leap year calculation is more complex, ie no leap year
+	for years/100 except for years/400, but since the maximum number for DOS
+	 year is 2**7, the last year is 1980+127, which means we need only
+	 consider 2 special case years, ie the years 2000 and 2100, and only
+	 adjust for the lack of leap year for the year 2100, as 2000 was a 
+	 leap year (divisable by 400) */
+	if(year >= 120)  /* the year 2100 */
+		days = days - 1;  /* do not count leap year for the year 2100 */
+
+	/* adjust for leap year where we are still before leap day */
+	days -= ((year & 0x03) == 0) && (month < 2 ? 1 : 0);
+	sec += 24 * 60 * 60 * days;
+
+	ts = (time_t)sec;
+
+	return ts;
+}
+#endif
+

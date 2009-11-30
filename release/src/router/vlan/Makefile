@@ -13,6 +13,7 @@ CCFLAGS = -g -D_GNU_SOURCE -Wall -I../../linuxppc/linux-2.4.19-rc3/include
 else
 CCFLAGS = -g -D_GNU_SOURCE -Wall -I../../linux/linux/include #-mips32
 endif
+CCFLAGS += $(EXTRACFLAGS)
 
 ifeq ($(strip $(DOSTATIC)),true)
     LDFLAGS += --static
@@ -52,7 +53,7 @@ $(ALL_OBJS): %.o: %.c %.h
 	$(CC) $(CCFLAGS) -c $<
 
 clean:
-	rm -f *.o
+	rm -f *.o $(VCONFIG)
 
 purge: clean
 	rm -f *.flc ${VCONFIG} vconfig.h

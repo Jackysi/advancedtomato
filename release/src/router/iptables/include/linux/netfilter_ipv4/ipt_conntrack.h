@@ -5,7 +5,7 @@
 #ifndef _IPT_CONNTRACK_H
 #define _IPT_CONNTRACK_H
 
-#include <linux/netfilter_ipv4/ip_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
 
 /* backwards compatibility crap. only exists in userspace - HW */
 #include <linux/version.h>

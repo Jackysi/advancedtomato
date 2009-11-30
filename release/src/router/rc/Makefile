@@ -1,7 +1,7 @@
 include ../common.mak
 
-CFLAGS = -Wall -Os #-mips32
-CFLAGS += -I. -I../shared -I$(SRCBASE)/include
+CFLAGS = -Wall -Os $(EXTRACFLAGS) #-mips32
+CFLAGS += -I. -I../shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include
 
 LDFLAGS = -L../nvram -lnvram -L../shared -lshared -lcrypt
 ifeq ($(STATIC),1)
@@ -44,8 +44,9 @@ rc: $(OBJS)
 
 install: all
 	@echo "[rc] Installing..."
-	@install -m 0500 -D rc $(INSTALLDIR)/sbin/rc
+	@install -D rc $(INSTALLDIR)/sbin/rc
 	@$(STRIP) $(INSTALLDIR)/sbin/rc
+	@chmod 0500 $(INSTALLDIR)/sbin/rc
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc init
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug

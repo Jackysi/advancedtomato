@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall
+CFLAGS	= -O2 -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 LDFLAGS	=
 
@@ -20,7 +20,7 @@ clean:
 
 install: all
 	@echo " [mssl] Installing..."
-	install -D -m 0500 libmssl.so $(INSTALLDIR)/usr/lib/libmssl.so
+	install -D libmssl.so $(INSTALLDIR)/usr/lib/libmssl.so
 	$(STRIP) $(INSTALLDIR)/usr/lib/libmssl.so
 
 %.o: %.c .%.depend

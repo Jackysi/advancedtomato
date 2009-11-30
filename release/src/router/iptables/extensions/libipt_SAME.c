@@ -6,7 +6,7 @@
 #include <getopt.h>
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_nat_rule.h>
+#include <linux/netfilter/nf_nat.h>
 /* For 64bit kernel / 32bit userspace */
 #include "../include/linux/netfilter_ipv4/ipt_SAME.h"
 
@@ -22,13 +22,17 @@ help(void)
 "				  once for multiple ranges.\n"
 " --nodst\n"
 "				Don't use destination-ip in\n"
-"				           source selection\n",
+"				           source selection\n"
+" --random\n"
+"				Randomize source port\n"
+,
 IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
 	{ "to", 1, 0, '1' },
 	{ "nodst", 0, 0, '2'},
+	{ "random", 0, 0, '3' },
 	{ 0 }
 };
 
@@ -79,6 +83,7 @@ parse_to(char *arg, struct ip_nat_range *range)
 
 #define IPT_SAME_OPT_TO			0x01
 #define IPT_SAME_OPT_NODST		0x02
+#define IPT_SAME_OPT_RANDOM		0x04
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -89,6 +94,7 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 {
 	struct ipt_same_info *mr
 		= (struct ipt_same_info *)(*target)->data;
+	int count;
 
 	switch (c) {
 	case '1':
@@ -102,6 +108,10 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 				   "Unexpected `!' after --to");
 
 		parse_to(optarg, &mr->range[mr->rangesize]);
+		/* WTF do we need this for? */
+		if (*flags & IPT_SAME_OPT_RANDOM)
+			mr->range[mr->rangesize].flags 
+				|= IP_NAT_RANGE_PROTO_RANDOM;
 		mr->rangesize++;
 		*flags |= IPT_SAME_OPT_TO;
 		break;
@@ -114,7 +124,13 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		mr->info |= IPT_SAME_NODST;
 		*flags |= IPT_SAME_OPT_NODST;
 		break;
-		
+
+	case '3':	
+		*flags |= IPT_SAME_OPT_RANDOM;
+		for (count=0; count < mr->rangesize; count++)
+			mr->range[count].flags |= IP_NAT_RANGE_PROTO_RANDOM;
+		break;
+
 	default:
 		return 0;
 	}
@@ -139,6 +155,7 @@ print(const struct ipt_ip *ip,
 	int count;
 	struct ipt_same_info *mr
 		= (struct ipt_same_info *)target->data;
+	int random = 0;
 	
 	printf("same:");
 	
@@ -155,10 +172,15 @@ print(const struct ipt_ip *ip,
 			printf(" ");
 		else
 			printf("-%s ", addr_to_dotted(&a));
+		if (r->flags & IP_NAT_RANGE_PROTO_RANDOM) 
+			random = 1;
 	}
 	
 	if (mr->info & IPT_SAME_NODST)
 		printf("nodst ");
+
+	if (random)
+		printf("random ");
 }
 
 /* Saves the union ipt_targinfo in parsable form to stdout. */
@@ -168,6 +190,7 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 	int count;
 	struct ipt_same_info *mr
 		= (struct ipt_same_info *)target->data;
+	int random = 0;
 
 	for (count = 0; count < mr->rangesize; count++) {
 		struct ip_nat_range *r = &mr->range[count];
@@ -181,10 +204,15 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 			printf(" ");
 		else
 			printf("-%s ", addr_to_dotted(&a));
+		if (r->flags & IP_NAT_RANGE_PROTO_RANDOM) 
+			random = 1;
 	}
 	
 	if (mr->info & IPT_SAME_NODST)
 		printf("--nodst ");
+
+	if (random)
+		printf("--random ");
 }
 
 static struct iptables_target same = {

@@ -523,6 +523,7 @@ struct inode {
 		struct squashfs_inode_info	squashfs_i;
 		void				*generic_ip;
 	} u;
+	spinlock_t		i_lock;
 };
 
 static inline void inode_add_bytes(struct inode *inode, loff_t bytes)

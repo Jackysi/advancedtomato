@@ -34,7 +34,7 @@
 	width: 45%;
 }
 textarea {
-	width: 100%;
+	width: 99%;
 	height: 8em;
 }
 #refreshb, #save-button {

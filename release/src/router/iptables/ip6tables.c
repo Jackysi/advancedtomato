@@ -219,14 +219,21 @@ struct pprot {
 #define IPPROTO_AH 51
 #endif
 #endif
+#ifndef IPPROTO_MH
+#define IPPROTO_MH 135
+#endif
 
 static const struct pprot chain_protos[] = {
 	{ "tcp", IPPROTO_TCP },
 	{ "udp", IPPROTO_UDP },
+	{ "udplite", IPPROTO_UDPLITE },
 	{ "icmpv6", IPPROTO_ICMPV6 },
 	{ "ipv6-icmp", IPPROTO_ICMPV6 },
 	{ "esp", IPPROTO_ESP },
 	{ "ah", IPPROTO_AH },
+	{ "ipv6-mh", IPPROTO_MH },
+	{ "mh", IPPROTO_MH },
+	{ "all", 0 },
 };
 
 static char *
@@ -876,13 +883,11 @@ parse_protocol(const char *s)
 	return (u_int16_t)proto;
 }
 
-/* proto means IPv6 extension header ? */
+/* These are invalid numbers as upper layer protocol */
 static int is_exthdr(u_int16_t proto)
 {
-	return (proto == IPPROTO_HOPOPTS ||
-		proto == IPPROTO_ROUTING ||
+	return (proto == IPPROTO_ROUTING ||
 		proto == IPPROTO_FRAGMENT ||
-		proto == IPPROTO_ESP ||
 		proto == IPPROTO_AH ||
 		proto == IPPROTO_DSTOPTS);
 }
@@ -1120,7 +1125,7 @@ static int compatible_revision(const char *name, u_int8_t revision, int opt)
 	strcpy(rev.name, name);
 	rev.revision = revision;
 
-	load_ip6tables_ko(modprobe);
+	load_ip6tables_ko(modprobe, 1);
 
 	max_rev = getsockopt(sockfd, IPPROTO_IPV6, opt, &rev, &s);
 	if (max_rev < 0) {
@@ -1745,10 +1750,10 @@ static char *get_modprobe(void)
 	return NULL;
 }
 
-int ip6tables_insmod(const char *modname, const char *modprobe)
+int ip6tables_insmod(const char *modname, const char *modprobe, int quiet)
 {
 	char *buf = NULL;
-	char *argv[3];
+	char *argv[4];
 	int status;
 
 	/* If they don't explicitly set it, read out of kernel */
@@ -1763,7 +1768,13 @@ int ip6tables_insmod(const char *modname, const char *modprobe)
 	case 0:
 		argv[0] = (char *)modprobe;
 		argv[1] = (char *)modname;
-		argv[2] = NULL;
+		if (quiet) {
+			argv[2] = "-q";
+			argv[3] = NULL;
+		} else {
+			argv[2] = NULL;
+			argv[3] = NULL;
+		}
 		execv(argv[0], argv);
 
 		/* not usually reached */
@@ -1781,14 +1792,14 @@ int ip6tables_insmod(const char *modname, const char *modprobe)
 	return -1;
 }
 
-int load_ip6tables_ko(const char *modprobe)
+int load_ip6tables_ko(const char *modprobe, int quiet)
 {
 	static int loaded = 0;
 	static int ret = -1;
 
 	if (!loaded) {
-		ret = ip6tables_insmod("ip6_tables", modprobe);
-		loaded = 1;
+		ret = ip6tables_insmod("ip6_tables", modprobe, quiet);
+		loaded = (ret == 0);
 	}
 
 	return ret;
@@ -2000,7 +2011,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				newname = argv[optind++];
 			else
 				exit_error(PARAMETER_PROBLEM,
-				           "-%c requires old-chain-name and "
+					   "-%c requires old-chain-name and "
 					   "new-chain-name",
 					    cmd2char(CMD_RENAME_CHAIN));
 			break;
@@ -2049,10 +2060,11 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				exit_error(PARAMETER_PROBLEM,
 					   "rule would never match protocol");
 			
-			if (fw.ipv6.proto != IPPROTO_ESP &&
-			    is_exthdr(fw.ipv6.proto))
+			if (is_exthdr(fw.ipv6.proto)
+			    && (fw.ipv6.invflags & IP6T_INV_PROTO) == 0)
 				printf("Warning: never matched protocol: %s. "
-				       "use exension match instead.", protocol);
+				       "use extension match instead.\n",
+				       protocol);
 			break;
 
 		case 's':
@@ -2349,7 +2361,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		*handle = ip6tc_init(*table);
 
 	/* try to insmod the module if iptc_init failed */
-	if (!*handle && load_ip6tables_ko(modprobe) != -1)
+	if (!*handle && load_ip6tables_ko(modprobe, 0) != -1)
 		*handle = ip6tc_init(*table);
 
 	if (!*handle)

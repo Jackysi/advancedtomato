@@ -539,8 +539,8 @@ void start_zebra(void)
 		fclose(fp);
 	}
 
-	xstart("zebra", "-d", "-f", "/etc/zebra.conf");
-	xstart("ripd",  "-d", "-f", "/etc/ripd.conf");
+	xstart("zebra", "-d");
+	xstart("ripd",  "-d");
 #endif
 }
 
@@ -1566,11 +1566,13 @@ TOP:
 			stop_wan();
 			stop_lan();
 			stop_vlan();
+			stop_nas();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);
+			start_nas();
 		}
 		goto CLEAR;
 	}

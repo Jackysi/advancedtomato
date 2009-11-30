@@ -82,6 +82,8 @@ int uniq_main(int argc UNUSED_PARAM, char **argv)
 
 			if (!s0 || strncmp(e0, e1, max_chars)) {
 				break;
+			} else {
+				free(s1);
 			}
 
 			++dups;	 /* note: testing for overflow seems excessive. */

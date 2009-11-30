@@ -124,6 +124,7 @@ void main_noinetd() {
 	int childsock;
 	int childpipe[2];
 
+	memset(listensocks, 0, sizeof(listensocks));
 	/* Note: commonsetup() must happen before we daemon()ise. Otherwise
 	   daemon() will chdir("/"), and we won't be able to find local-dir
 	   hostkeys. */

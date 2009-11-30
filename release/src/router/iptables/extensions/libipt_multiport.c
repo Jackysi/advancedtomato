@@ -59,6 +59,8 @@ proto_to_name(u_int8_t proto)
 		return "tcp";
 	case IPPROTO_UDP:
 		return "udp";
+	case IPPROTO_UDPLITE:
+		return "udplite";
 	case IPPROTO_SCTP:
 		return "sctp";
 	case IPPROTO_DCCP:
@@ -141,16 +143,17 @@ check_proto(const struct ipt_entry *entry)
 
 	if (entry->ip.invflags & IPT_INV_PROTO)
 		exit_error(PARAMETER_PROBLEM,
-			   "multiport only works with TCP or UDP");
+			   "multiport only works with TCP, UDP, UDPLITE, SCTP and DCCP");
 
 	if ((proto = proto_to_name(entry->ip.proto)) != NULL)
 		return proto;
 	else if (!entry->ip.proto)
 		exit_error(PARAMETER_PROBLEM,
-			   "multiport needs `-p tcp', `-p udp', `-p sctp' or `-p dccp'");
+			   "multiport needs `-p tcp', `-p udp', `-p udplite', "
+			   "`-p sctp' or `-p dccp'");
 	else
 		exit_error(PARAMETER_PROBLEM,
-			   "multiport only works with TCP, UDP, SCTP and DCCP");
+			   "multiport only works with TCP, UDP, UDPLITE, SCTP and DCCP");
 }
 
 /* Function which parses command options; returns true if it

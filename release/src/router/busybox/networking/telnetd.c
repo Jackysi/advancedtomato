@@ -295,6 +295,7 @@ make_new_session(
 
 	/* Restore default signal handling ASAP */
 	bb_signals((1 << SIGCHLD) + (1 << SIGPIPE), SIG_DFL);
+	signal(SIGINT, SIG_DFL);
 
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 	if (!(option_mask32 & OPT_INETD)) {

@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall
+CFLAGS	= -O2 -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared -I$(TOP)/mssl
 LDFLAGS	=
 
@@ -22,8 +22,9 @@ clean:
 
 install: all
 	@echo " [mdu] Installing..."
-	install -D -m 0500 mdu $(INSTALLDIR)/bin/mdu
+	install -D mdu $(INSTALLDIR)/bin/mdu
 	$(STRIP) $(INSTALLDIR)/bin/mdu
+	chmod 0500 $(INSTALLDIR)/bin/mdu
 
 %.o: %.c .%.depend
 	@echo " [mdu] CC $@"

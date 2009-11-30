@@ -11,6 +11,12 @@
 #include <mntent.h>
 #include <sys/swap.h>
 
+#if ENABLE_FEATURE_MOUNT_LABEL
+# include "volume_id.h"
+#else
+# define resolve_mount_spec(fsname) ((void)0)
+#endif
+
 #if ENABLE_FEATURE_SWAPON_PRI
 struct globals {
 	int flags;
@@ -26,7 +32,11 @@ static int swap_enable_disable(char *device)
 	int status;
 	struct stat st;
 
-	xstat(device, &st);
+	resolve_mount_spec(&device);
+	if (stat(device, &st)) {
+		bb_perror_msg("warning: can't stat '%s'", device);
+		return 1;
+	}
 
 #if ENABLE_DESKTOP
 	/* test for holes */

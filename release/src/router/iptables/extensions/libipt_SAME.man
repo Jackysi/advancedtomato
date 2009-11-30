@@ -9,3 +9,7 @@ multiple ranges.
 .B "--nodst"
 Don't use the destination-ip in the calculations when selecting the
 new source-ip
+.TP
+.B "--random"
+Port mapping will be forcely randomized to avoid attacks based on 
+port prediction (kernel >= 2.6.21).

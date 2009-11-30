@@ -49,6 +49,7 @@ typedef u_int16_t u16;
 typedef u_int8_t u8;
 #endif
 
+#include <linux/types.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
 #include <sys/ioctl.h>
@@ -345,6 +346,7 @@ void stop_lan(void)
 			}
 			free(lan_ifnames);
 		}
+		eval("brctl", "delbr", lan_ifname);
 	}
 	else if (*lan_ifname) {
 		eval("wlconf", lan_ifname, "down");
@@ -390,7 +392,8 @@ void hotplug_net(void)
 
 	_dprintf("hotplug net INTERFACE=%s ACTION=%s\n", interface, action);
 
-	if ((nvram_match("wds_enable", "1")) && (strncmp(interface, "wds", 3) == 0) && (strcmp(action, "register") == 0)) {
+	if ((nvram_match("wds_enable", "1")) && (strncmp(interface, "wds", 3) == 0) && 
+	    (strcmp(action, "register") == 0 || strcmp(action, "add") == 0)) {
 		ifconfig(interface, IFUP, NULL, NULL);
 		lan_ifname = nvram_safe_get("lan_ifname");
 		if (strncmp(lan_ifname, "br", 2) == 0) {

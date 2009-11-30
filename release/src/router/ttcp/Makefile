@@ -1,5 +1,5 @@
 
-CFLAGS = -s -O2 #-mips32
+CFLAGS = -s -O2 $(EXTRACFLAGS) #-mips32
 
 all: ttcp
 

@@ -18,7 +18,6 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-
 /*
  *   Default color definitions
  *
@@ -118,11 +117,11 @@
 #define TAG_SELECTED_BG              COLOR_BLUE
 #define TAG_SELECTED_HL              TRUE
 
-#define TAG_KEY_FG                   COLOR_YELLOW
+#define TAG_KEY_FG                   COLOR_RED
 #define TAG_KEY_BG                   COLOR_WHITE
 #define TAG_KEY_HL                   TRUE
 
-#define TAG_KEY_SELECTED_FG          COLOR_YELLOW
+#define TAG_KEY_SELECTED_FG          COLOR_GREEN
 #define TAG_KEY_SELECTED_BG          COLOR_BLUE
 #define TAG_KEY_SELECTED_HL          TRUE
 
@@ -152,10 +151,4 @@
  * Global variables
  */
 
-typedef struct {
-    char name[COLOR_NAME_LEN];
-    int value;
-} color_names_st;
-
-extern color_names_st color_names[];
 extern int color_table[][3];

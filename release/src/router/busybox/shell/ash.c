@@ -112,7 +112,7 @@ enum { NOPTS = ARRAY_SIZE(optletters_optnames) };
 
 static const char homestr[] ALIGN1 = "HOME";
 static const char snlfmt[] ALIGN1 = "%s\n";
-static const char illnum[] ALIGN1 = "Illegal number: %s";
+static const char msg_illnum[] ALIGN1 = "Illegal number: %s";
 
 /*
  * We enclose jmp_buf in a structure so that we can declare pointers to
@@ -142,17 +142,10 @@ struct globals_misc {
 
 	struct jmploc *exception_handler;
 
-// disabled by vda: cannot understand how it was supposed to work -
-// cannot fix bugs. That's why you have to explain your non-trivial designs!
-//	/* do we generate EXSIG events */
-//	int exsig; /* counter */
-	volatile int suppressint; /* counter */
-// TODO: rename
-// pendingsig -> pending_sig
-// intpending -> pending_int
-	volatile /*sig_atomic_t*/ smallint intpending; /* 1 = got SIGINT */
+	volatile int suppress_int; /* counter */
+	volatile /*sig_atomic_t*/ smallint pending_int; /* 1 = got SIGINT */
 	/* last pending signal */
-	volatile /*sig_atomic_t*/ smallint pendingsig;
+	volatile /*sig_atomic_t*/ smallint pending_sig;
 	smallint exception_type; /* kind of exception (0..5) */
 	/* exceptions */
 #define EXINT 0         /* SIGINT received */
@@ -220,10 +213,9 @@ extern struct globals_misc *const ash_ptr_to_globals_misc;
 #define arg0        (G_misc.arg0       )
 #define exception_handler (G_misc.exception_handler)
 #define exception_type    (G_misc.exception_type   )
-#define suppressint       (G_misc.suppressint      )
-#define intpending        (G_misc.intpending       )
-//#define exsig             (G_misc.exsig            )
-#define pendingsig        (G_misc.pendingsig       )
+#define suppress_int      (G_misc.suppress_int     )
+#define pending_int       (G_misc.pending_int      )
+#define pending_sig       (G_misc.pending_sig      )
 #define isloginsh   (G_misc.isloginsh  )
 #define nullstr     (G_misc.nullstr    )
 #define optlist     (G_misc.optlist    )
@@ -283,7 +275,7 @@ static int isdigit_str9(const char *str)
  * more fun than worrying about efficiency and portability. :-))
  */
 #define INT_OFF do { \
-	suppressint++; \
+	suppress_int++; \
 	xbarrier(); \
 } while (0)
 
@@ -324,11 +316,11 @@ raise_interrupt(void)
 {
 	int ex_type;
 
-	intpending = 0;
+	pending_int = 0;
 	/* Signal is not automatically unmasked after it is raised,
 	 * do it ourself - unmask all signals */
 	sigprocmask_allsigs(SIG_UNBLOCK);
-	/* pendingsig = 0; - now done in onsig() */
+	/* pending_sig = 0; - now done in onsig() */
 
 	ex_type = EXSIG;
 	if (gotsig[SIGINT - 1] && !trap[SIGINT]) {
@@ -353,7 +345,7 @@ static USE_ASH_OPTIMIZE_FOR_SIZE(inline) void
 int_on(void)
 {
 	xbarrier();
-	if (--suppressint == 0 && intpending) {
+	if (--suppress_int == 0 && pending_int) {
 		raise_interrupt();
 	}
 }
@@ -362,18 +354,18 @@ static USE_ASH_OPTIMIZE_FOR_SIZE(inline) void
 force_int_on(void)
 {
 	xbarrier();
-	suppressint = 0;
-	if (intpending)
+	suppress_int = 0;
+	if (pending_int)
 		raise_interrupt();
 }
 #define FORCE_INT_ON force_int_on()
 
-#define SAVE_INT(v) ((v) = suppressint)
+#define SAVE_INT(v) ((v) = suppress_int)
 
 #define RESTORE_INT(v) do { \
 	xbarrier(); \
-	suppressint = (v); \
-	if (suppressint == 0 && intpending) \
+	suppress_int = (v); \
+	if (suppress_int == 0 && pending_int) \
 		raise_interrupt(); \
 } while (0)
 
@@ -461,15 +453,15 @@ out2str(const char *p)
 /* ============ Parser structures */
 
 /* control characters in argument strings */
-#define CTLESC '\201'           /* escape next character */
-#define CTLVAR '\202'           /* variable defn */
-#define CTLENDVAR '\203'
-#define CTLBACKQ '\204'
+#define CTLESC       ((unsigned char)'\201')    /* escape next character */
+#define CTLVAR       ((unsigned char)'\202')    /* variable defn */
+#define CTLENDVAR    ((unsigned char)'\203')
+#define CTLBACKQ     ((unsigned char)'\204')
 #define CTLQUOTE 01             /* ored with CTLBACKQ code if in quotes */
 /*      CTLBACKQ | CTLQUOTE == '\205' */
-#define CTLARI  '\206'          /* arithmetic expression */
-#define CTLENDARI '\207'
-#define CTLQUOTEMARK '\210'
+#define CTLARI       ((unsigned char)'\206')    /* arithmetic expression */
+#define CTLENDARI    ((unsigned char)'\207')
+#define CTLQUOTEMARK ((unsigned char)'\210')
 
 /* variable substitution byte (follows CTLVAR) */
 #define VSTYPE  0x0f            /* type of variable substitution */
@@ -679,7 +671,7 @@ trace_printf(const char *fmt, ...)
 	if (DEBUG_PID)
 		fprintf(tracefile, "[%u] ", (int) getpid());
 	if (DEBUG_SIG)
-		fprintf(tracefile, "pending s:%d i:%d(supp:%d) ", pendingsig, intpending, suppressint);
+		fprintf(tracefile, "pending s:%d i:%d(supp:%d) ", pending_sig, pending_int, suppress_int);
 	va_start(va, fmt);
 	vfprintf(tracefile, fmt, va);
 	va_end(va);
@@ -695,7 +687,7 @@ trace_vprintf(const char *fmt, va_list va)
 	if (DEBUG_PID)
 		fprintf(tracefile, "[%u] ", (int) getpid());
 	if (DEBUG_SIG)
-		fprintf(tracefile, "pending s:%d i:%d(supp:%d) ", pendingsig, intpending, suppressint);
+		fprintf(tracefile, "pending s:%d i:%d(supp:%d) ", pending_sig, pending_int, suppress_int);
 	vfprintf(tracefile, fmt, va);
 }
 
@@ -1544,7 +1536,7 @@ static int
 number(const char *s)
 {
 	if (!is_number(s))
-		ash_msg_and_raise_error(illnum, s);
+		ash_msg_and_raise_error(msg_illnum, s);
 	return atoi(s);
 }
 
@@ -2339,8 +2331,6 @@ setprompt(int whichprompt)
 #define CD_PHYSICAL 1
 #define CD_PRINT 2
 
-static int docd(const char *, int);
-
 static int
 cdopt(void)
 {
@@ -2348,7 +2338,7 @@ cdopt(void)
 	int i, j;
 
 	j = 'L';
-	while ((i = nextopt("LP"))) {
+	while ((i = nextopt("LP")) != '\0') {
 		if (i != j) {
 			flags ^= CD_PHYSICAL;
 			j = i;
@@ -3304,14 +3294,14 @@ onsig(int signo)
 {
 	gotsig[signo - 1] = 1;
 
-	if (/* exsig || */ (signo == SIGINT && !trap[SIGINT])) {
-		if (!suppressint) {
-			pendingsig = 0;
+	if (signo == SIGINT && !trap[SIGINT]) {
+		if (!suppress_int) {
+			pending_sig = 0;
 			raise_interrupt(); /* does not return */
 		}
-		intpending = 1;
+		pending_int = 1;
 	} else {
-		pendingsig = signo;
+		pending_sig = signo;
 	}
 }
 
@@ -3534,7 +3524,6 @@ getjob(const char *name, int getctl)
 	}
 
 	if (is_number(p)) {
-// TODO: number() instead? It does error checking...
 		num = atoi(p);
 		if (num < njobs) {
 			jp = jobtab + num - 1;
@@ -3905,7 +3894,7 @@ static int
 blocking_wait_with_raise_on_sig(struct job *job)
 {
 	pid_t pid = dowait(DOWAIT_BLOCK, job);
-	if (pid <= 0 && pendingsig)
+	if (pid <= 0 && pending_sig)
 		raise_exception(EXSIG);
 	return pid;
 }
@@ -4006,7 +3995,7 @@ jobscmd(int argc UNUSED_PARAM, char **argv)
 	int mode, m;
 
 	mode = 0;
-	while ((m = nextopt("lp"))) {
+	while ((m = nextopt("lp")) != '\0') {
 		if (m == 'l')
 			mode = SHOW_PID;
 		else
@@ -4060,9 +4049,7 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
 	int retval;
 	struct job *jp;
 
-//	exsig++;
-//	xbarrier();
-	if (pendingsig)
+	if (pending_sig)
 		raise_exception(EXSIG);
 
 	nextopt(nullstr);
@@ -4298,7 +4285,7 @@ cmdputs(const char *s)
 		if (!str)
 			continue;
  dostr:
-		while ((c = *str++)) {
+		while ((c = *str++) != '\0') {
 			USTPUTC(c, nextc);
 		}
 	}
@@ -5349,7 +5336,7 @@ esclen(const char *start, const char *p)
  * Remove any CTLESC characters from a string.
  */
 static char *
-_rmescapes(char *str, int flag)
+rmescapes(char *str, int flag)
 {
 	static const char qchars[] ALIGN1 = { CTLESC, CTLQUOTEMARK, '\0' };
 
@@ -5412,8 +5399,6 @@ _rmescapes(char *str, int flag)
 	}
 	return r;
 }
-#define rmescapes(p) _rmescapes((p), 0)
-
 #define pmatch(a, b) !fnmatch((a), (b), 0)
 
 /*
@@ -5428,7 +5413,7 @@ preglob(const char *pattern, int quoted, int flag)
 	if (quoted) {
 		flag |= RMESCAPE_QUOTED;
 	}
-	return _rmescapes((char *)pattern, flag);
+	return rmescapes((char *)pattern, flag);
 }
 
 /*
@@ -5439,14 +5424,17 @@ memtodest(const char *p, size_t len, int syntax, int quotes)
 {
 	char *q = expdest;
 
-	q = makestrspace(len * 2, q);
+	q = makestrspace(quotes ? len * 2 : len, q);
 
 	while (len--) {
 		int c = signed_char2int(*p++);
 		if (!c)
 			continue;
-		if (quotes && (SIT(c, syntax) == CCTL || SIT(c, syntax) == CBACK))
-			USTPUTC(CTLESC, q);
+		if (quotes) {
+			int n = SIT(c, syntax);
+			if (n == CCTL || n == CBACK)
+				USTPUTC(CTLESC, q);
+		}
 		USTPUTC(c, q);
 	}
 
@@ -5746,7 +5734,7 @@ expari(int quotes)
 	expdest = p;
 
 	if (quotes)
-		rmescapes(p + 2);
+		rmescapes(p + 2, 0);
 
 	len = cvtnum(ash_arith(p + 2));
 
@@ -6095,15 +6083,15 @@ subevalvar(char *p, char *str, int strloc, int subtype,
 #if ENABLE_ASH_BASH_COMPAT
 	case VSSUBSTR:
 		loc = str = stackblock() + strloc;
-// TODO: number() instead? It does error checking...
-		pos = atoi(loc);
+		/* Read POS in ${var:POS:LEN} */
+		pos = atoi(loc); /* number(loc) errors out on "1:4" */
 		len = str - startp - 1;
 
 		/* *loc != '\0', guaranteed by parser */
 		if (quotes) {
 			char *ptr;
 
-			/* We must adjust the length by the number of escapes we find. */
+			/* Adjust the length by the number of escapes */
 			for (ptr = startp; ptr < (str - 1); ptr++) {
 				if (*ptr == CTLESC) {
 					len--;
@@ -6114,15 +6102,22 @@ subevalvar(char *p, char *str, int strloc, int subtype,
 		orig_len = len;
 
 		if (*loc++ == ':') {
-// TODO: number() instead? It does error checking...
-			len = atoi(loc);
+			/* ${var::LEN} */
+			len = number(loc);
 		} else {
+			/* Skip POS in ${var:POS:LEN} */
 			len = orig_len;
-			while (*loc && *loc != ':')
+			while (*loc && *loc != ':') {
+				/* TODO?
+				 * bash complains on: var=qwe; echo ${var:1a:123}
+				if (!isdigit(*loc))
+					ash_msg_and_raise_error(msg_illnum, str);
+				 */
 				loc++;
-			if (*loc++ == ':')
-// TODO: number() instead? It does error checking...
-				len = atoi(loc);
+			}
+			if (*loc++ == ':') {
+				len = number(loc);
+			}
 		}
 		if (pos >= orig_len) {
 			pos = 0;
@@ -6166,7 +6161,7 @@ subevalvar(char *p, char *str, int strloc, int subtype,
 	rmesc = startp;
 	rmescend = (char *)stackblock() + strloc;
 	if (quotes) {
-		rmesc = _rmescapes(startp, RMESCAPE_ALLOC | RMESCAPE_GROW);
+		rmesc = rmescapes(startp, RMESCAPE_ALLOC | RMESCAPE_GROW);
 		if (rmesc != startp) {
 			rmescend = expdest;
 			startp = (char *)stackblock() + startloc;
@@ -6341,7 +6336,7 @@ varvalue(char *name, int varflags, int flags, struct strlist *var_str_list)
 		ap = shellparam.p;
 		if (!ap)
 			return -1;
-		while ((p = *ap++)) {
+		while ((p = *ap++) != NULL) {
 			size_t partlen;
 
 			partlen = strlen(p);
@@ -6375,8 +6370,7 @@ varvalue(char *name, int varflags, int flags, struct strlist *var_str_list)
 	case '7':
 	case '8':
 	case '9':
-// TODO: number() instead? It does error checking...
-		num = atoi(name);
+		num = atoi(name); /* number(name) fails on ${N#str} etc */
 		if (num < 0 || num > shellparam.nparam)
 			return -1;
 		p = num ? shellparam.p[num - 1] : arg0;
@@ -6788,7 +6782,7 @@ expmeta(char *enddir, char *name)
 		p++;
 	if (*p == '.')
 		matchdot++;
-	while (!intpending && (dp = readdir(dirp)) != NULL) {
+	while (!pending_int && (dp = readdir(dirp)) != NULL) {
 		if (dp->d_name[0] == '.' && !matchdot)
 			continue;
 		if (pmatch(start, dp->d_name)) {
@@ -6909,7 +6903,7 @@ expandmeta(struct strlist *str /*, int flag*/)
 			 */
  nometa:
 			*exparg.lastp = str;
-			rmescapes(str->text);
+			rmescapes(str->text, 0);
 			exparg.lastp = &str->next;
 		} else {
 			*exparg.lastp = NULL;
@@ -6957,7 +6951,7 @@ expandarg(union node *arg, struct arglist *arglist, int flag)
 		expandmeta(exparg.list /*, flag*/);
 	} else {
 		if (flag & EXP_REDIR) /*XXX - for now, just remove escapes */
-			rmescapes(p);
+			rmescapes(p, 0);
 		sp = stzalloc(sizeof(*sp));
 		sp->text = p;
 		*exparg.lastp = sp;
@@ -7182,8 +7176,8 @@ shellexec(char **argv, const char *path, int idx)
 		break;
 	}
 	exitstatus = exerrno;
-	TRACE(("shellexec failed for %s, errno %d, suppressint %d\n",
-		argv[0], e, suppressint));
+	TRACE(("shellexec failed for %s, errno %d, suppress_int %d\n",
+		argv[0], e, suppress_int));
 	ash_msg_and_raise(EXEXEC, "%s: %s", argv[0], errmsg(e, "not found"));
 	/* NOTREACHED */
 }
@@ -7985,7 +7979,7 @@ dotrap(void)
 	uint8_t savestatus;
 
 	savestatus = exitstatus;
-	pendingsig = 0;
+	pending_sig = 0;
 	xbarrier();
 
 	TRACE(("dotrap entered\n"));
@@ -8165,7 +8159,7 @@ evaltree(union node *n, int flags)
  out1:
 	if (checkexit & exitstatus)
 		evalskip |= SKIPEVAL;
-	else if (pendingsig && dotrap())
+	else if (pending_sig && dotrap())
 		goto exexit;
 
 	if (flags & EV_EXIT) {
@@ -9090,7 +9084,7 @@ evalcommand(union node *cmd, int flags)
 			if (i == EXINT)
 				exit_status = 128 + SIGINT;
 			if (i == EXSIG)
-				exit_status = 128 + pendingsig;
+				exit_status = 128 + pending_sig;
 			exitstatus = exit_status;
 			if (i == EXINT || spclbltin > 0) {
  raise:
@@ -9144,7 +9138,6 @@ evalbltin(const struct builtincmd *cmd, int argc, char **argv)
 	exitstatus |= ferror(stdout);
 	clearerr(stdout);
 	commandname = savecmdname;
-//	exsig = 0;
 	exception_handler = savehandler;
 
 	return i;
@@ -9195,7 +9188,7 @@ breakcmd(int argc UNUSED_PARAM, char **argv)
 	int n = argv[1] ? number(argv[1]) : 1;
 
 	if (n <= 0)
-		ash_msg_and_raise_error(illnum, argv[1]);
+		ash_msg_and_raise_error(msg_illnum, argv[1]);
 	if (n > loopnest)
 		n = loopnest;
 	if (n > 0) {
@@ -10393,7 +10386,7 @@ parsefname(void)
 		TRACE(("Here document %d\n", n->type));
 		if (!noexpand(wordtext) || (i = strlen(wordtext)) == 0 || i > EOFMARKLEN)
 			raise_error_syntax("illegal eof marker for << redirection");
-		rmescapes(wordtext);
+		rmescapes(wordtext, 0);
 		here->eofmark = wordtext;
 		here->next = NULL;
 		if (heredoclist == NULL)
@@ -12689,7 +12682,7 @@ umaskcmd(int argc UNUSED_PARAM, char **argv)
 			mask = 0;
 			do {
 				if (*ap >= '8' || *ap < '0')
-					ash_msg_and_raise_error(illnum, argv[1]);
+					ash_msg_and_raise_error(msg_illnum, argv[1]);
 				mask = (mask << 3) + (*ap - '0');
 			} while (*++ap != '\0');
 			umask(mask);

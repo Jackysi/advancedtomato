@@ -8,6 +8,15 @@
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ipt_ipv4options.h>
 
+#ifndef XTABLES_VERSION
+#define XTABLES_VERSION IPTABLES_VERSION
+#endif
+
+#ifdef IPT_LIB_DIR
+#define xtables_target iptables_target
+#define xtables_register_target register_target
+#endif
+
 /* Function which prints out usage message. */
 static void
 help(void)
@@ -21,7 +30,7 @@ help(void)
 "  [!] --ts      (match timestamp flag)\n\n"
 "  [!] --ra      (match router-alert option)\n\n"
 "  [!] --any-opt (match any option or no option at all if used with '!')\n",
-IPTABLES_VERSION);
+XTABLES_VERSION);
 }
 
 static struct option opts[] = {
@@ -39,9 +48,11 @@ static struct option opts[] = {
    ate an option */
 static int
 parse(int c, char **argv, int invert, unsigned int *flags,
-      const struct ipt_entry *entry,
-      unsigned int *nfcache,
-      struct ipt_entry_match **match)
+#ifdef _XTABLES_H
+      const void *entry, struct xt_entry_match **match)
+#else
+      const struct ipt_entry *entry, unsigned int *nfcache, struct ipt_entry_match **match)
+#endif
 {
 	struct ipt_ipv4options_info *info = (struct ipt_ipv4options_info *)(*match)->data;
 
@@ -226,8 +237,13 @@ final_check(unsigned int flags)
 
 /* Prints out the matchinfo. */
 static void
+#ifdef _XTABLES_H
+print(const void *ip,
+      const struct xt_entry_match *match,
+#else
 print(const struct ipt_ip *ip,
       const struct ipt_entry_match *match,
+#endif
       int numeric)
 {
 	struct ipt_ipv4options_info *info = ((struct ipt_ipv4options_info *)match->data);
@@ -261,7 +277,13 @@ print(const struct ipt_ip *ip,
 
 /* Saves the data in parsable form to stdout. */
 static void
-save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
+#ifdef _XTABLES_H
+save(const void *ip,
+     const struct xt_entry_match *match)
+#else
+save(const struct ipt_ip *ip,
+     const struct ipt_entry_match *match)
+#endif
 {
 	struct ipt_ipv4options_info *info = ((struct ipt_ipv4options_info *)match->data);
 
@@ -291,10 +313,10 @@ save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	printf(" ");
 }
 
-static struct iptables_match ipv4options_struct = { 
+static struct xtables_match ipv4options_struct = { 
 	.next		= NULL,
 	.name		= "ipv4options",
-	.version	= IPTABLES_VERSION,
+	.version	= XTABLES_VERSION,
 	.size		= IPT_ALIGN(sizeof(struct ipt_ipv4options_info)),
 	.userspacesize	= IPT_ALIGN(sizeof(struct ipt_ipv4options_info)),
 	.help		= &help,
@@ -307,5 +329,5 @@ static struct iptables_match ipv4options_struct = {
 
 void _init(void)
 {
-	register_match(&ipv4options_struct);
+	xtables_register_match(&ipv4options_struct);
 }
