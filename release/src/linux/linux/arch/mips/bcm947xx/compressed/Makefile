@@ -79,7 +79,7 @@ piggy.lds:
 # Always create a gzipped version named vmlinuz for compatibility
 vmlinuz: piggy
 	$(MAKE) -C $(TOPDIR)/scripts/squashfs lzma
-	cat piggy | $(TOPDIR)/scripts/squashfs/lzma/C/7zip/Compress/LZMA_Alone/lzma e -si -so > vmlinuz
+	cat piggy | $(TOPDIR)/scripts/squashfs/lzma/C/7zip/Compress/LZMA_Alone/lzma e -si -so -lc1 -lp2 -pb2 > vmlinuz
 ##	gzip -c9 $< > $@
 
 piggz: piggy

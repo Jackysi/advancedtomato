@@ -293,7 +293,7 @@ ifeq ($(TCONFIG_L7PAT),y)
 endif
 
 	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma
-	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image | tee target.info
+	@$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.image -all-root -noappend -nopad | tee target.info
 
 #	Package kernel and filesystem
 #	if grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
