@@ -357,6 +357,9 @@ ignore_sys_error (const int err)
 #endif
 #endif
 
+  if (err == EINTR)
+    return true;
+
   return false;
 }
 
