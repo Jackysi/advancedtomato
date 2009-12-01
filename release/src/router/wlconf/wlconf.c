@@ -698,7 +698,7 @@ wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp)
 
 	val = wlconf_akm_options(prefix);
 	/* enable in-driver wpa supplicant? */
-	if (id_supp && (CHECK_PSK(val))) {
+	if (id_supp && !nvram_get_int(strcat_r(prefix, "disable_wpa_supp", tmp)) && (CHECK_PSK(val))) {
 		wsec_pmk_t psk;
 		char *key;
 
@@ -1699,8 +1699,7 @@ wlconf(char *name)
 	/* Security settings for each BSS Configuration */
 	for (i = 0; i < bclist->count; i++) {
 		bsscfg = &bclist->bsscfgs[i];
-		//wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, wet | sta);
-		wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, mac_spoof);
+		wlconf_security_options(name, bsscfg->prefix, bsscfg->idx, wet | sta);
 	}
 
 	/* AP only config */
