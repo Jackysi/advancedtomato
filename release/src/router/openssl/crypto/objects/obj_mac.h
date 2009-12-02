@@ -1844,3 +1844,93 @@
 #define NID_zlib_compression		125
 #define OBJ_zlib_compression		1L,1L,1L,1L,666L,2L
 
+#define OBJ_csor		2L,16L,840L,1L,101L,3L
+
+#define OBJ_nistAlgorithms		OBJ_csor,4L
+
+#define OBJ_aes		OBJ_nistAlgorithms,1L
+
+#define SN_aes_128_ecb		"AES-128-ECB"
+#define LN_aes_128_ecb		"aes-128-ecb"
+#define NID_aes_128_ecb		404
+#define OBJ_aes_128_ecb		OBJ_aes,1L
+
+#define SN_aes_128_cbc		"AES-128-CBC"
+#define LN_aes_128_cbc		"aes-128-cbc"
+#define NID_aes_128_cbc		405
+#define OBJ_aes_128_cbc		OBJ_aes,2L
+
+#define SN_aes_128_ofb128		"AES-128-OFB"
+#define LN_aes_128_ofb128		"aes-128-ofb"
+#define NID_aes_128_ofb128		406
+#define OBJ_aes_128_ofb128		OBJ_aes,3L
+
+#define SN_aes_128_cfb128		"AES-128-CFB"
+#define LN_aes_128_cfb128		"aes-128-cfb"
+#define NID_aes_128_cfb128		407
+#define OBJ_aes_128_cfb128		OBJ_aes,4L
+
+#define SN_aes_192_ecb		"AES-192-ECB"
+#define LN_aes_192_ecb		"aes-192-ecb"
+#define NID_aes_192_ecb		408
+#define OBJ_aes_192_ecb		OBJ_aes,21L
+
+#define SN_aes_192_cbc		"AES-192-CBC"
+#define LN_aes_192_cbc		"aes-192-cbc"
+#define NID_aes_192_cbc		409
+#define OBJ_aes_192_cbc		OBJ_aes,22L
+
+#define SN_aes_192_ofb128		"AES-192-OFB"
+#define LN_aes_192_ofb128		"aes-192-ofb"
+#define NID_aes_192_ofb128		410
+#define OBJ_aes_192_ofb128		OBJ_aes,23L
+
+#define SN_aes_192_cfb128		"AES-192-CFB"
+#define LN_aes_192_cfb128		"aes-192-cfb"
+#define NID_aes_192_cfb128		411
+#define OBJ_aes_192_cfb128		OBJ_aes,24L
+
+#define SN_aes_256_ecb		"AES-256-ECB"
+#define LN_aes_256_ecb		"aes-256-ecb"
+#define NID_aes_256_ecb		412
+#define OBJ_aes_256_ecb		OBJ_aes,41L
+
+#define SN_aes_256_cbc		"AES-256-CBC"
+#define LN_aes_256_cbc		"aes-256-cbc"
+#define NID_aes_256_cbc		413
+#define OBJ_aes_256_cbc		OBJ_aes,42L
+
+#define SN_aes_256_ofb128		"AES-256-OFB"
+#define LN_aes_256_ofb128		"aes-256-ofb"
+#define NID_aes_256_ofb128		414
+#define OBJ_aes_256_ofb128		OBJ_aes,43L
+
+#define SN_aes_256_cfb128		"AES-256-CFB"
+#define LN_aes_256_cfb128		"aes-256-cfb"
+#define NID_aes_256_cfb128		415
+#define OBJ_aes_256_cfb128		OBJ_aes,44L
+
+#define SN_aes_128_cfb1		"AES-128-CFB1"
+#define LN_aes_128_cfb1		"aes-128-cfb1"
+#define NID_aes_128_cfb1		416
+
+#define SN_aes_192_cfb1		"AES-192-CFB1"
+#define LN_aes_192_cfb1		"aes-192-cfb1"
+#define NID_aes_192_cfb1		417
+
+#define SN_aes_256_cfb1		"AES-256-CFB1"
+#define LN_aes_256_cfb1		"aes-256-cfb1"
+#define NID_aes_256_cfb1		418
+
+#define SN_aes_128_cfb8		"AES-128-CFB8"
+#define LN_aes_128_cfb8		"aes-128-cfb8"
+#define NID_aes_128_cfb8		419
+
+#define SN_aes_192_cfb8		"AES-192-CFB8"
+#define LN_aes_192_cfb8		"aes-192-cfb8"
+#define NID_aes_192_cfb8		420
+
+#define SN_aes_256_cfb8		"AES-256-CFB8"
+#define LN_aes_256_cfb8		"aes-256-cfb8"
+#define NID_aes_256_cfb8		421
+

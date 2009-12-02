@@ -19,10 +19,12 @@ color: #004584;
 background: #007B00;
 color: #fff;
 }
+ul.tabs a.active,
 #tabs a.active {
 background: #003D73;
 color: #fff;
 }
+ul.tabs a:hover,
 #tabs a:hover {
 background: #007B00;
 color: #fff;

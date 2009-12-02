@@ -72,6 +72,9 @@ extern void asp_compmac(int argc, char **argv);
 extern void asp_ident(int argc, char **argv);
 extern void asp_lanip(int argc, char **argv);
 extern void asp_psup(int argc, char **argv);
+#ifdef TCONFIG_OPENVPN
+extern void wo_vpn_status(char *url);
+#endif
 extern void asp_sysinfo(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);

@@ -109,6 +109,7 @@
 #ifndef NO_MDC2
 #include <openssl/mdc2.h>
 #endif
+#include <openssl/aes.h>
 
 #define EVP_RC2_KEY_SIZE		16
 #define EVP_RC4_KEY_SIZE		16
@@ -116,8 +117,8 @@
 #define EVP_CAST5_KEY_SIZE		16
 #define EVP_RC5_32_12_16_KEY_SIZE	16
 #define EVP_MAX_MD_SIZE			(16+20) /* The SSLv3 md5+sha1 type */
-#define EVP_MAX_KEY_LENGTH		24
-#define EVP_MAX_IV_LENGTH		8
+#define EVP_MAX_KEY_LENGTH		32
+#define EVP_MAX_IV_LENGTH		16
 
 #define PKCS5_SALT_LEN			8
 /* Default PKCS#5 iteration count */
@@ -442,6 +443,7 @@ struct evp_cipher_ctx_st
 #ifndef NO_CAST
 		CAST_KEY cast_ks;/* key schedule */
 #endif
+                AES_KEY aes_ks;
 		} c;
 	};
 
@@ -691,6 +693,24 @@ EVP_CIPHER *EVP_rc5_32_12_16_ecb(void);
 EVP_CIPHER *EVP_rc5_32_12_16_cfb(void);
 EVP_CIPHER *EVP_rc5_32_12_16_ofb(void);
 #endif
+
+#ifndef NO_AES
+const EVP_CIPHER *EVP_aes_128_ecb(void);
+const EVP_CIPHER *EVP_aes_128_cbc(void);
+const EVP_CIPHER *EVP_aes_128_ofb(void);
+const EVP_CIPHER *EVP_aes_128_cfb(void);
+
+const EVP_CIPHER *EVP_aes_192_ecb(void);
+const EVP_CIPHER *EVP_aes_192_cbc(void);
+const EVP_CIPHER *EVP_aes_192_ofb(void);
+const EVP_CIPHER *EVP_aes_192_cfb(void);
+
+const EVP_CIPHER *EVP_aes_256_ecb(void);
+const EVP_CIPHER *EVP_aes_256_cbc(void);
+const EVP_CIPHER *EVP_aes_256_ofb(void);
+const EVP_CIPHER *EVP_aes_256_cfb(void);
+#endif
+
 void OpenSSL_add_all_algorithms(void);
 void OpenSSL_add_all_ciphers(void);
 void OpenSSL_add_all_digests(void);
@@ -780,6 +800,7 @@ void ERR_load_EVP_strings(void);
 /* Error codes for the EVP functions. */
 
 /* Function codes. */
+#define EVP_F_AES_INIT_KEY				 133
 #define EVP_F_D2I_PKEY					 100
 #define EVP_F_EVP_CIPHERINIT				 123
 #define EVP_F_EVP_CIPHER_CTX_CTRL			 124
@@ -807,6 +828,7 @@ void ERR_load_EVP_strings(void);
 #define EVP_F_RC5_CTRL					 125
 
 /* Reason codes. */
+#define EVP_R_AES_KEY_SETUP_FAILED			 143
 #define EVP_R_BAD_DECRYPT				 100
 #define EVP_R_BN_DECODE_ERROR				 112
 #define EVP_R_BN_PUBKEY_ERROR				 113

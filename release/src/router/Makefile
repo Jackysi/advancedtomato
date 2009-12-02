@@ -78,6 +78,8 @@ obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
 obj-$(TCONFIG_ZEBRA) += zebra
 #	obj-$(TCONFIG_IPP2P) += ipp2p
+obj-$(TCONFIG_LZO) += lzo
+obj-$(TCONFIG_OPENVPN) += openvpn
 
 ifeq ($(TCONFIG_L2TP),y)
 NEED_PPPD = y
@@ -225,7 +227,9 @@ endif
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
+ifneq ($(TCONFIG_OPENVPN),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+endif
 
 #!!TB
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.o $(PLATFORMDIR)/extras/ || true
@@ -429,6 +433,11 @@ openssl-install:
 
 ifeq ($(TCONFIG_FTP_SSL),y)
 # !!TB
+	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+endif
+
+ifeq ($(TCONFIG_OPENVPN),y)
 	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
 	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
 endif
@@ -718,6 +727,18 @@ ebtables-install: dummy
 
 ebtables-clean:
 	make -C ebtables clean
+
+
+lzo-install:
+	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
+	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
+	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
+
+
+openvpn-install:
+	install -D -m 500 openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+	$(STRIP) $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+
 
 #
 # Generic rules
