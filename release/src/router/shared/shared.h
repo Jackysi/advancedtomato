@@ -19,6 +19,7 @@
 //version.c
 extern const char *tomato_version;
 extern const char *tomato_buildtime;
+extern const char *tomato_shortver;
 
 
 // misc.c

@@ -14,11 +14,15 @@ void asp_build_time(int argc, char **argv)
 
 void asp_version(int argc, char **argv)
 {
+#if 0
 	if (argc != 0) {
 		web_puts(tomato_version);
 	}
 	else {
 		web_write(tomato_version, strrchr(tomato_version, '.') - tomato_version);
 	}
+#else
+	web_puts(argc != 0 ? tomato_version : tomato_shortver);
+#endif
 }
 
