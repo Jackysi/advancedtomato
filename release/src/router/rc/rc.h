@@ -366,7 +366,7 @@ static inline void start_vpn_eas() {}
 static inline void run_vpn_firewall_scripts() {}
 static inline void write_vpn_dnsmasq_config(FILE*) {}
 */
-static inline int write_vpn_resolv(FILE*) { return 0; }
+#define write_vpn_resolv(f) (0)
 #endif
 
 #endif

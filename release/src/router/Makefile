@@ -736,8 +736,9 @@ lzo-install:
 
 
 openvpn-install:
-	install -D -m 500 openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	$(STRIP) $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
 
 #
