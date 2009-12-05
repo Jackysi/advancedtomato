@@ -319,7 +319,7 @@ static void upnp_event_send(struct upnp_event_notify * obj)
 	       "upnp_event_send", obj->buffer + obj->sent);
 	i = send(obj->s, obj->buffer + obj->sent, obj->tosend - obj->sent, 0);
 	if(i<0) {
-		syslog(LOG_NOTICE, "%s: send(): %m", "upnp_event_send");
+		syslog(LOG_DEBUG, "%s: send(): %m", "upnp_event_send");
 		obj->state = EError;
 		return;
 	}
@@ -336,7 +336,7 @@ static void upnp_event_recv(struct upnp_event_notify * obj)
 	int n;
 	n = recv(obj->s, obj->buffer, obj->buffersize, 0);
 	if(n<0) {
-		syslog(LOG_ERR, "%s: recv(): %m", "upnp_event_recv");
+		syslog(LOG_DEBUG, "%s: recv(): %m", "upnp_event_recv");
 		obj->state = EError;
 		return;
 	}
