@@ -133,7 +133,7 @@ void start_vpnclient(int clientNum)
 			}
 		}
 
-		snprintf(&buffer[0], BUF_SIZE, "ifconfig %s promisc up", nvram_safe_get("lan_ifname"));
+		snprintf(&buffer[0], BUF_SIZE, "ifconfig %s promisc up", &iface[0]);
 		for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
 		if ( _eval(argv, NULL, 0, NULL) )
 		{
