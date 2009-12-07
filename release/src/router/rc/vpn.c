@@ -194,12 +194,12 @@ void start_vpnclient(int clientNum)
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_client%d_rgw", clientNum);
-	if ( nvram_get_int(&buffer[0]) )
+	if ( (nvi = nvram_get_int(&buffer[0])) )
 	{
 		sprintf(&buffer[0], "vpn_client%d_gw", clientNum);
 		if ( ifType == TAP && nvram_safe_get(&buffer[0])[0] != '\0' )
 			fprintf(fp, "route-gateway %s\n", nvram_safe_get(&buffer[0]));
-		fprintf(fp, "redirect-gateway def1\n");
+		fprintf(fp, "redirect-gateway%s\n", nvi>1? "": " def1");
 	}
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
@@ -671,11 +671,11 @@ void start_vpnserver(int serverNum)
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_rgw", serverNum);
-		if ( nvram_get_int(&buffer[0]) )
+		if ( (nvi = nvram_get_int(&buffer[0])) )
 		{
 			if ( ifType == TAP )
 				fprintf(fp, "push \"route-gateway %s\"\n", nvram_safe_get("lan_ipaddr"));
-			fprintf(fp, "push \"redirect-gateway def1\"\n");
+			fprintf(fp, "push \"redirect-gateway%s\"\n", nvi>1? "": "def1");
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_hmac", serverNum);
