@@ -212,12 +212,32 @@ static int get_memory(meminfo_t *m)
 	char s[128];
 	int ok = 0;
 
+	memset(m, 0, sizeof(*m));
 	if ((f = fopen("/proc/meminfo", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
+#ifdef LINUX26
+			if (strncmp(s, "MemTotal:", 9) == 0) {
+				m->total = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "MemFree:", 8) == 0) {
+				m->free = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "Buffers:", 8) == 0) {
+				m->buffers = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "Cached:", 7) == 0) {
+				m->cached = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+#else
 			if (strncmp(s, "Mem:", 4) == 0) {
 				if (sscanf(s + 6, "%ld %*d %ld %ld %ld %ld", &m->total, &m->free, &m->shared, &m->buffers, &m->cached) == 5)
 					++ok;
 			}
+#endif
 			else if (strncmp(s, "SwapTotal:", 10) == 0) {
 				m->swaptotal = strtoul(s + 12, NULL, 10) * 1024;
 				++ok;
@@ -225,13 +245,14 @@ static int get_memory(meminfo_t *m)
 			else if (strncmp(s, "SwapFree:", 9) == 0) {
 				m->swapfree = strtoul(s + 11, NULL, 10) * 1024;
 				++ok;
+#ifndef LINUX26
 				break;
+#endif
 			}
 		}
 		fclose(f);
 	}
-	if (ok != 3) {
-		memset(m, 0, sizeof(*m));
+	if (ok == 0) {
 		return 0;
 	}
 	m->maxfreeram = m->free;
