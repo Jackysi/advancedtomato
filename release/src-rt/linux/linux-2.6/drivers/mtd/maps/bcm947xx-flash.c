@@ -83,6 +83,7 @@ init_bcm947xx_map(void)
 	int ret = 0;
 #ifdef CONFIG_MTD_PARTITIONS
 	struct mtd_partition *parts;
+	int i;
 #endif
 
 	spin_lock_irqsave(&sih_lock, flags);
@@ -136,7 +137,8 @@ init_bcm947xx_map(void)
 
 #ifdef CONFIG_MTD_PARTITIONS
 	parts = init_mtd_partitions(bcm947xx_mtd, size);
-	ret = add_mtd_partitions(bcm947xx_mtd, parts, 4);
+	for (i = 0; parts[i].name; i++);
+	ret = add_mtd_partitions(bcm947xx_mtd, parts, i);
 	if (ret) {
 		printk(KERN_ERR "pflash: add_mtd_partitions failed\n");
 		goto fail;
