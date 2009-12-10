@@ -174,7 +174,7 @@ int led(int which, int mode)
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
 		b = 0;	// Invert power light as diag indicator
-		mode = !mode;
+		if (mode != LED_PROBE) mode = !mode;
 		break;
 /*
 	case MODEL_RT390W:
