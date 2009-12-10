@@ -593,7 +593,7 @@ static int init_nvram(void)
 	case MODEL_WL500W:
 		mfr = "Asus";
 		name = "WL-500W";
-		features = SUP_SES;
+		features = SUP_SES | SUP_80211N;
 		/* fix WL500W mac adresses for WAN port */
 		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
 			nvram_set("et1macaddr", nvram_get("et0macaddr"));
