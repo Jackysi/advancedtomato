@@ -37,13 +37,6 @@
 //	#define DEBUG_STIME
 
 
-#ifdef DEBUG_NOISY
-#define _dprintf(args...)	cprintf(args)
-#else
-#define _dprintf(args...)	do { } while (0)
-#endif
-
-
 
 #define K 1024
 #define M (1024 * 1024)

@@ -42,10 +42,8 @@
 //	#define DEBUG_NOISY
 
 #ifdef DEBUG_NOISY
-#define _dprintf(args...) cprintf(args)
 #define TRACE_PT(args...) do { cprintf("[%d:%s +%ld] ", getpid(), __FUNCTION__, get_uptime()); cprintf(args); } while(0)
 #else
-#define _dprintf(args...) do { } while(0)
 #define TRACE_PT(args...) do { } while(0)
 #endif
 

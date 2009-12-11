@@ -16,18 +16,14 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <stdarg.h>
-#include <errno.h>
 
+#include <shared.h>
 #include <shutils.h>
 
 #include "../matrixssl/matrixSsl.h"
 /*
 #include "mssl.h"
 */
-
-
-#define _dprintf(args...)	do { } while(0)
-//	#define _dprintf	cprintf
 
 
 typedef struct {

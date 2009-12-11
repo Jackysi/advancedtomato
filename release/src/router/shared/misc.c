@@ -25,12 +25,6 @@
 #include "shutils.h"
 #include "shared.h"
 
-#if 0
-#define _dprintf	cprintf
-#else
-#define _dprintf(args...)	do { } while(0)
-#endif
-
 
 int get_wan_proto(void)
 {

@@ -223,7 +223,11 @@ void cprintf(const char *format, ...)
 	FILE *f;
 	va_list args;
 
+#ifdef DEBUG_NOISY
+	{
+#else
 	if (nvram_match("debug_cprintf", "1")) {
+#endif
 		if ((f = fopen("/dev/console", "w")) != NULL) {
 			va_start(args, format);
 			vfprintf(f, format, args);

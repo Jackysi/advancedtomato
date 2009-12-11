@@ -11,6 +11,12 @@
 
 #define ASIZE(array)	(sizeof(array) / sizeof(array[0]))
 
+#ifdef DEBUG_NOISY
+#define _dprintf		cprintf
+#else
+#define _dprintf(args...)	do { } while(0)
+#endif
+
 //version.c
 extern const char *tomato_version;
 extern const char *tomato_buildtime;
