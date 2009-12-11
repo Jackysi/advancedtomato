@@ -78,6 +78,10 @@ WR850G v1			BCM4702               bcm94710r4   100
 *WRH54G				BCM5354G              0x048E       ?         0x10      ?
 
 Viewsonic WR100		BCM4712               0x0101       44        0x10      0x0188      CFEver=SparkLanv100
+WLA2-G54L			BCM4712               0x0101       00        0x10      0x0188      buffalo_id=29129
+
+TrueMobile 2300		                      bcm94710ap   44                              "ModelId=WX-5565", Rev A00
+
 
 * not supported/not tested
 
@@ -169,16 +173,19 @@ int get_model(void)
 	switch (strtoul(nvram_safe_get("buffalo_id"), NULL, 16)) {
 	case 0x29BB0332:
 		return MODEL_WBR2G54;
+	case 0x29129:
+		return MODEL_WLA2G54L;
 	case 0:
 		break;
 	default:
 		return MODEL_UNKNOWN;
 	}
 
-	if (nvram_match("boardnum", "mn700")) {
-		return MODEL_MN700;
+	if (nvram_match("boardtype", "bcm94710ap")) {
+		if (nvram_match("boardnum", "mn700")) return MODEL_MN700;
+		if (nvram_match("ModelId", "WX-5565")) return MODEL_TM2300;
 	}
-
+	
 	if (hw == HW_UNKNOWN) return MODEL_UNKNOWN;
 
 /*

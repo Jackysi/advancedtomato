@@ -1,13 +1,13 @@
 /*
  *	osLayer.h
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *	
  *	Layered header for OS specific functions
  *	Contributors adding new OS support must implement all functions 
  *	externed below.
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -76,13 +76,6 @@ typedef CRITICAL_SECTION sslMutex_t;
 #include <pthread.h>
 #include <string.h>
 
-/*
-	On some *NIX versions such as MAC OS X 10.4, CLK_TCK has been deprecated
-*/
-#ifndef CLK_TCK
-#define CLK_TCK		CLOCKS_PER_SEC
-#endif /* CLK_TCK */
-
 typedef pthread_mutex_t sslMutex_t;
 extern int32	sslCreateMutex(sslMutex_t *mutex);
 extern int32	sslLockMutex(sslMutex_t *mutex);
@@ -111,6 +104,15 @@ typedef int32	sslMutex_t;
 	Make sslTime_t an opaque time value.
 	FUTURE - use high res time instead of time_t
 */
+#ifdef LINUX
+/*
+	On some *NIX versions such as MAC OS X 10.4, CLK_TCK has been deprecated
+*/
+#ifndef CLK_TCK
+#define CLK_TCK		CLOCKS_PER_SEC
+#endif /* CLK_TCK */
+#endif /* LINUX */
+
 #if defined(WIN32)
 #include <windows.h>
 typedef LARGE_INTEGER sslTime_t;
