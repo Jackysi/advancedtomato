@@ -225,7 +225,7 @@ const defaults_t defaults[] = {
 	{ "btn_reset",			""				},
 	{ "env_path",			""				},
 	{ "manual_boot_nv",		"0"				},
-	{ "wlx_hpamp",			""				},
+//	{ "wlx_hpamp",			""				},
 //	{ "wlx_hperx",			""				},	//	see init.c
 	{ "t_fix1",				""				},
 
