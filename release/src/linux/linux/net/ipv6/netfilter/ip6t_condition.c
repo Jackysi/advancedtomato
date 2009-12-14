@@ -232,7 +232,7 @@ init(void)
 	proc_net_condition = proc_mkdir("ip6t_condition", proc_net);
 
 	if (proc_net_condition) {
-	        errorcode = ipt_register_match(&condition_match);
+	        errorcode = ip6t_register_match(&condition_match);
 
 		if (errorcode)
 			remove_proc_entry("ip6t_condition", proc_net);
@@ -246,7 +246,7 @@ init(void)
 static void __exit
 fini(void)
 {
-	ipt_unregister_match(&condition_match);
+	ip6t_unregister_match(&condition_match);
 	remove_proc_entry("ip6t_condition", proc_net);
 }
 

@@ -470,7 +470,7 @@ nfs3_xdr_linkargs(struct rpc_rqst *req, u32 *p, struct nfs3_linkargs *args)
 static inline
 u64 nfs_transform_cookie64(u64 cookie)
 {
-	return (cookie & 0x80000000) ? (cookie ^ 0xFFFFFFFF00000000) : cookie;
+	return (cookie & 0x80000000) ? (cookie ^ 0xFFFFFFFF00000000LL) : cookie;
 }
 
 /*
