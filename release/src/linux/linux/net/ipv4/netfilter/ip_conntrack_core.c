@@ -254,11 +254,11 @@ static void __unexpect_related(struct ip_conntrack_expect *expect)
 static void unexpect_related(struct ip_conntrack_expect *expect)
 {
 	IP_NF_ASSERT(expect->expectant);
-	IP_NF_ASSERT(expect->expectant->helper);
 	/* if we are supposed to have a timer, but we can't delete
 	 * it: race condition.  __unexpect_related will
 	 * be calledd by timeout function */
-	if (expect->expectant->helper->timeout
+	if (expect->expectant->helper
+	    && expect->expectant->helper->timeout
 	    && !del_timer(&expect->timeout))
 		return;
 
@@ -748,6 +748,7 @@ init_conntrack(const struct ip_conntrack_tuple *tuple,
 
 	/* If the expectation is dying, then this is a looser. */
 	if (expected
+	    && expected->expectant->helper
 	    && expected->expectant->helper->timeout
 	    && ! del_timer(&expected->timeout))
 		expected = NULL;
@@ -1000,7 +1001,7 @@ int ip_conntrack_expect_related(struct ip_conntrack *related_to,
 		   the data filled out by the helper over the old one */
 		DEBUGP("expect_related: resent packet\n");
 		if (old->expectant == related_to &&
-		    related_to->helper->timeout) {
+		    related_to->helper && related_to->helper->timeout) {
 			if (!del_timer(&old->timeout)) {
 				/* expectation is dying. Fall through */
 				old = NULL;
@@ -1015,7 +1016,7 @@ int ip_conntrack_expect_related(struct ip_conntrack *related_to,
 			WRITE_UNLOCK(&ip_conntrack_lock);
 			return -EEXIST;
 		}
-	} else if (related_to->helper->max_expected && 
+	} else if (related_to->helper && related_to->helper->max_expected && 
 		   related_to->expecting >= related_to->helper->max_expected) {
 		/* old == NULL */
 		if (!(related_to->helper->flags & 
@@ -1084,7 +1085,8 @@ int ip_conntrack_expect_related(struct ip_conntrack *related_to,
 	/* add to global list of expectations */
 	list_prepend(&ip_conntrack_expect_list, &new->list);
 	/* add and start timer if required */
-	if (related_to->helper->timeout) {
+	if (related_to->helper &&
+	    related_to->helper->timeout) {
 		init_timer(&new->timeout);
 		new->timeout.data = (unsigned long)new;
 		new->timeout.function = expectation_timed_out;

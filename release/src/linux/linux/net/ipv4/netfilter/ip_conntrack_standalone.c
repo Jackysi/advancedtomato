@@ -65,7 +65,7 @@ print_expect(char *buffer, const struct ip_conntrack_expect *expect)
 {
 	unsigned int len;
 
-	if (expect->expectant->helper->timeout)
+	if (expect->expectant->helper && expect->expectant->helper->timeout)
 		len = sprintf(buffer, "EXPECTING: %lu ",
 			      timer_pending(&expect->timeout)
 			      ? (expect->timeout.expires - jiffies)/HZ : 0);
