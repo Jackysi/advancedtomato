@@ -97,9 +97,10 @@ extern void add_remove_usbhost(char *host, int add);
 #define EFH_HUNKNOWN	0x00000004	/* host is unknown */
 #define EFH_USER	0x00000008	/* process is user-initiated - either via Web GUI or a script */
 #define EFH_SHUTDN	0x00000010	/* exec_for_host is called at shutdown - system is stopping */
+#define EFH_PRINT	0x00000080	/* output partition list to the web response */
 
 typedef int (*host_exec)(char *dev_name, int host_num, int disc_num, int part_num, uint flags);
-extern int exec_for_host(int host, int when_to_update, uint flags, host_exec func);
+extern int exec_for_host(int host, int obsolete, uint flags, host_exec func);
 #endif //TCONFIG_USB
 
 // id.c
