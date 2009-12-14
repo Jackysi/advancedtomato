@@ -304,8 +304,13 @@ struct mntent *findmntents(char *file, int swp, int (*func)(struct mntent *mnt, 
 		}
 	}
 	while ((mnt = getmntent(f)) != NULL) {
+		/* Always ignore rootfs mount */
+		if (strcmp(mnt->mnt_fsname, "rootfs") == 0)
+			continue;
+
 		if (strcmp(file, mnt->mnt_fsname) == 0 ||
-			is_same_device(mnt->mnt_fsname, file_rdev , file_dev, file_ino)) {
+		    strcmp(file, mnt->mnt_dir) == 0 ||
+		    is_same_device(mnt->mnt_fsname, file_rdev , file_dev, file_ino)) {
 			if (func == NULL)
 				break;
 			(*func)(mnt, flags);
