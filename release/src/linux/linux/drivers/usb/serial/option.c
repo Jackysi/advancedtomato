@@ -1163,7 +1163,6 @@ static int option_chars_in_buffer(struct usb_serial_port *port)
 static int option_open(struct usb_serial_port *port, struct file *filp)
 {
 	struct option_port_private *portdata = usb_get_serial_port_data(port);
-	struct usb_serial *serial = port->serial;
 	int i, err;
 	struct urb *urb;
 
