@@ -118,6 +118,8 @@ static __inline__ void fq_unlink(struct nf_ct_frag6_queue *fq)
 static unsigned int ip6qhashfn(__be32 id, struct in6_addr *saddr,
 			       struct in6_addr *daddr)
 {
+/* SpeedMod */
+#if 0
 	u32 a, b, c;
 
 	a = (__force u32)saddr->s6_addr32[0];
@@ -138,7 +140,22 @@ static unsigned int ip6qhashfn(__be32 id, struct in6_addr *saddr,
 	b += (__force u32)daddr->s6_addr32[3];
 	c += (__force u32)id;
 	__jhash_mix(a, b, c);
+#else
+	u32 c;
+	u32 key[9] = {
+		(__force u32)saddr->s6_addr32[0],
+		(__force u32)saddr->s6_addr32[1],
+		(__force u32)saddr->s6_addr32[2],
+		(__force u32)saddr->s6_addr32[3],
+		(__force u32)daddr->s6_addr32[0],
+		(__force u32)daddr->s6_addr32[1],
+		(__force u32)daddr->s6_addr32[2],
+		(__force u32)daddr->s6_addr32[3],
+		(__force u32)id
+	};
 
+	c = jhash2(key, 9, nf_ct_frag6_hash_rnd);
+#endif
 	return c & (FRAG6Q_HASHSZ - 1);
 }
 
