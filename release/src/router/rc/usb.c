@@ -195,12 +195,10 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 		}
 #ifdef TCONFIG_SAMBASRV
 		else if (strcmp(type, "vfat") == 0) {
-			if (nvram_invmatch("smbd_cset", ""))
-				sprintf(options, "iocharset=%s%s", 
-					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
-						nvram_get("smbd_cset"));
+			if (nvram_invmatch("smbd_cset", "") && isdigit(nvram_safe_get("smbd_cset")[0]))
+				sprintf(options, "iocharset=cp%s", nvram_safe_get("smbd_cset"));
 			if (nvram_invmatch("smbd_cpage", "")) {
-				char *cp = nvram_get("smbd_cpage");
+				char *cp = nvram_safe_get("smbd_cpage");
 				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), cp);
 				sprintf(flagfn, "nls_cp%s", cp);
 
