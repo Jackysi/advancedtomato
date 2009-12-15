@@ -1709,6 +1709,8 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
 	 */
 	if (!test_opt(sb, NOLOAD) &&
 	    EXT3_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL)) {
+		if (needs_recovery)
+			printk (KERN_INFO "EXT3-fs: starting recovery.\n");
 		if (ext3_load_journal(sb, es, journal_devnum))
 			goto failed_mount3;
 	} else if (journal_inum) {
