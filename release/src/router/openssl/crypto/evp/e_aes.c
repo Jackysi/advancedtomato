@@ -49,7 +49,7 @@
  */
 
 #include <openssl/opensslconf.h>
-#ifndef OPENSSL_NO_AES
+#ifndef NO_AES
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <string.h>
@@ -167,4 +167,4 @@ static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 	return 1;
 	}
 
-#endif
+#endif // NO_AES

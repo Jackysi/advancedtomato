@@ -109,7 +109,9 @@
 #ifndef NO_MDC2
 #include <openssl/mdc2.h>
 #endif
+#ifndef NO_AES
 #include <openssl/aes.h>
+#endif
 
 #define EVP_RC2_KEY_SIZE		16
 #define EVP_RC4_KEY_SIZE		16
@@ -443,7 +445,9 @@ struct evp_cipher_ctx_st
 #ifndef NO_CAST
 		CAST_KEY cast_ks;/* key schedule */
 #endif
+#ifndef NO_AES
                 AES_KEY aes_ks;
+#endif
 		} c;
 	};
 

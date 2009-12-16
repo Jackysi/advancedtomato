@@ -23,39 +23,41 @@
  * 1) Keeping all variables in registers
  * 2) Not building a stack frame
  * 3) Setting up the key schedule to be byte swapped for the first and
- * last round on little-endian machines.  This saves many instructions
- * on input, and a couple of instructions on output.
+ *    last round on little-endian machines.  This saves many instructions
+ *    on input, and a couple of instructions on output.
  */
 
-#include <sys/regdef.h>
-
-#define INPUT  a0
-#define OUTPUT a1
-#define KEY    a2
-#define ROUNDS v0
-#define TABLE  v1
-#define TABLE_REG 3   /* Actual register number of TABLE */
+/* Values passed as input */
+#define INPUT  $4     /* a0 */
+#define OUTPUT $5     /* a1 */
+#define KEY    $6     /* a2 */
+#define RA     $31    /* return address */
 
 /* Hold values at the start of even rounds */
-#define X0     t0
-#define X1     t1
-#define X2     t2
-#define X3     t3
+#define X0     $8     /* t0 */
+#define X1     $9     /* t1 */
+#define X2     $10    /* t2 */
+#define X3     $11    /* t3 */
 
 /* Holds values at the start of odd rounds */
-#define Y0     t4
-#define Y1     t5
-#define Y2     t6
-#define Y3     t3   /* Okay that it's the same as X3 */
+#define Y0     $12    /* t4 */
+#define Y1     $13    /* t5 */
+#define Y2     $14    /* t6 */
+#define Y3     X3     /* Okay that it's the same as X3 */
 
 /* Scratch registers */
-#define T0     t7
-#define T1     t8
-#define T2     t9
+#define T0     $15    /* t7 */
+#define T1     $24    /* t8 */
+#define T2     $25    /* t9 */
 
+/* Other needed variables */
+#define ROUNDS $2     /* v0 */
+#define TABLE  $3     /* v1 */
+#define TABLE_REG 3   /* Actual register number of TABLE.  See LW() below */
+	
 /**
- * The following three registers are currently unused.
- *    ('a3', 'AT', 'gp')
+ * The following three temporary registers are currently unused.
+ *    $1 (AT), $6 (a3), $28 (gp)
  * They are available if anyone wants to extend this code to, for example,
  * encode multiple blocks at a time, or implement CBC
  *
@@ -106,30 +108,35 @@
  * 9: is the label of a data word containing the data
  *
  * This is surprisingly hard to do in an OS- and ABI-independent manner.
- *
  * The code can't use "la TABLE, tableName" because that pseudo-instruction
- * uses gp, which this code is (purposely) not initializing.  However MIPS
- * calls a library routine using the code sequence:
- *      la   $25, <functionName>
- *      jalr $25
- * so that $25 initially contains the address of the current function.
+ * uses gp, which this code is (purposely) not initializing.  
  *
- * The second alternative, though one instruction longer, is simpler and less
- * implementation dependent. Alas,%lo and %hi don't work correctly for
- * PIC code. 
+ * We provide four alternative implementations.
+ *   ALT1:  Use the fact that on function entry $25 contains the procedure address	
+ *	    The fastest, but also the most hacky
+ *	
+ *   ALT2:  Use the traditional lui/addi pair to load a constant value
+ *          Simpler and less implementation dependent.  But it also doesn't work
+ *          on PIC code for unknown reasons	
  *
- * The third alternative is the slowest, but ought to work across all
- * ABIs.  It makes no assumptions about the calling sequence
+ *   ALT3:  Use a bal to get the current address
+ *	    Slowest, but should work across all ABIs.
+ *	
+ *   ALT4:  Initialize gp, and then load the value through the gp. Uses gas macros.
+ *	
+ * If the code SEGVs, its most likely this macro.  Try changing LOAD_ENCRYPTION_TABLE
+ * to one of the other alternatives.	
  *
- * The fourth alternative is how it would be done by traditional code.
- *
- * For unknown reasons, gas treats
+ * Implementatin note: for unknown reasons, gas treats
  *      lw TABLE, calculated-absolute-offset($25)
  * as a  macro and generates three instructions using AT and gp.
- * So this macro assembles the lw directly.
+ * So this macro assembles the lw directly and doesn't let gas mess up.
  */
+	
 #define LW(dst,src,offset)\
     .word 0x8c000000 + (src << 21) + (dst << 16) + ((offset) & 0xFFFF)
+
+#define LOAD_ENCRYPTION_TABLE LOAD_ENCRYPTION_TABLE_ALT1
 
 #define LOAD_ENCRYPTION_TABLE_ALT1(tableName) \
     LW(TABLE_REG, 25, 9f - 0b);
@@ -139,10 +146,10 @@
     addi  TABLE, %lo(tableName);
 
 #define LOAD_ENCRYPTION_TABLE_ALT3(tableName) \
-      move  t0, ra; \
+      move  T0, RA; \
   10: bal   11f; \
   11: LW(TABLE_REG, 31, 9f - (10b + 8)); \
-      move ra, t0
+      move RA, T0
 
 #define LOAD_ENCRYPTION_TABLE_ALT4(tableName) \
       .set noreorder; \
@@ -150,13 +157,11 @@
       .set reorder; \
       la TABLE, tableName
 
-#define LOAD_ENCRYPTION_TABLE LOAD_ENCRYPTION_TABLE_ALT1
-
 /**
  * Load the four bytes starting at INPUT + offset as an int into the specified
  * target register
  *
- * If MIPSEL_ENABLE_KEY_MODIFICATION, treat the four bytes as little-endian;
+ * If MIPSEL_ENABLE_KEY_MODIFICATION, treat the four bytes as little endian;
  * otherwise, treat them as big endian.
  *
  * Uses T0, T1, T2 as temporaries
@@ -175,7 +180,7 @@
       or T0, T1; or T0, T2; or target, T0
 #else
 #  define LOAD_INPUT_WORD(target, offset) \
-      /* Load the four bytes in native endian format */ \
+      /* Load the four bytes in native-endian format */ \
       ulw target, offset(INPUT)
 #endif
 
@@ -229,7 +234,7 @@
  *
  * The variable "type" will either be ENCRYPT or DECRYPT.
  *
- * Uses T0, T0, T1, xtemp0, xtemp1, xtemp2 as temporaries
+ * Uses T0, T1, T2, xtemp0, xtemp1, xtemp2 as temporaries
  */
 
 #define LAST_ROUND(in0, in1, in2, in3, keyIndex, outputOff, type, \
@@ -256,7 +261,7 @@
  * Sets target = TE4[(src >> byte) & 0xFF]
  *
  * Note that TE4 doesn't really exist, but the code instead uses a middle byte
- * of TE0. This works on both little and big-endian machines, since the middle
+ * of TE0. This works on both little- and big-endian machines, since the middle
  * two bytes of TE0 (either of which could be "Byte 1") are the same.
  */
 
@@ -274,7 +279,7 @@
 
 /**
  * Converts the specified byte of src into an offset for a word-sized array.
- * The input is little-endian, but the shift is specified big-endian, so we
+ * The input is little endian, but the shift is specified big endian, so we
  * adjust accordingly.
  */
 
@@ -382,8 +387,8 @@
 	.set	noat
 AES_swap_bytes:
 
-         li  v0, ENABLE_KEY_MODIFICATION
-         jr  ra
+         li  $2, ENABLE_KEY_MODIFICATION
+         jr  RA
 	.set	at
 	.end	AES_swap_bytes
 
@@ -438,7 +443,7 @@ AES_encrypt:
 	LAST_ROUND(Y1, Y2, Y3, Y0,  9,  4, ENCRYPT, X0, X1, X2)
 	LAST_ROUND(Y2, Y3, Y0, Y1, 10,  8, ENCRYPT, X0, X1, X2)
 	LAST_ROUND(Y3, Y0, Y1, Y2, 11, 12, ENCRYPT, X0, X1, X2)
-	jr    ra
+	jr    RA
 9: 	.word AES_Encrypt_Table
 	.set	at
 	.end	AES_encrypt
@@ -494,7 +499,7 @@ AES_decrypt:
 	LAST_ROUND(Y1, Y0, Y3, Y2,  9,  4, DECRYPT, X0, X1, X2)
 	LAST_ROUND(Y2, Y1, Y0, Y3, 10,  8, DECRYPT, X0, X1, X2)
 	LAST_ROUND(Y3, Y2, Y1, Y0, 11, 12, DECRYPT, X0, X1, X2)
-	jr    ra
+	jr    RA
 9: 	.word AES_Decrypt_Table
 	.set	at
 	.end	AES_decrypt
