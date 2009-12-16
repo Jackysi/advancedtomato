@@ -32,11 +32,20 @@ function fix(name)
 	return name;
 }
 
+function backupNameChanged()
+{
+	var name = fix(E('backup-name').value);
+	if (name.length > 1) {
+		E('backup-link').href = 'cfg/' + name + '.cfg?_http_id=' + nvram.http_id;
+	}
+	else {
+		E('backup-link').href = '?';
+	}
+}
+
 function backupButton()
 {
-	var name;
-
-	name = fix(E('backup-name').value);
+	var name = fix(E('backup-name').value);
 	if (name.length <= 1) {
 		alert('Invalid filename');
 		return;
@@ -77,7 +86,7 @@ function resetButton()
 }
 </script>
 </head>
-<body>
+<body onload='backupNameChanged()'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
@@ -93,10 +102,11 @@ function resetButton()
 <div class='section'>
 	<form>
 		<script type='text/javascript'>
-		W("<input type='text' size='40' maxlength='64' id='backup-name' value='tomato_v" + ('<% version(); %>'.replace(/\./g, '')) + "_m" + nvram.et0macaddr.replace(/:/g, '').substring(6, 12) + "'>");
+		W("<input type='text' size='40' maxlength='64' id='backup-name' onchange='backupNameChanged()' value='tomato_v" + ('<% version(); %>'.replace(/\./g, '')) + "_m" + nvram.et0macaddr.replace(/:/g, '').substring(6, 12) + "'>");
 		</script>
 		.cfg &nbsp;
-		<input type='button' name='f_backup_button' onclick='backupButton()' value='Backup'>
+		<input type='button' name='f_backup_button' onclick='backupButton()' value='Backup'><br>
+		<a href='' id='backup-link'>Link</a>
 	</form>
 </div>
 

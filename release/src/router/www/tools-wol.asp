@@ -59,15 +59,26 @@ wg.populate = function()
 
 	this.removeAllData();
 
+	s = [];
+	var q = nvram.dhcpd_static.split('>');
+	for (i = 0; i < q.length; ++i) {
+		var e = q[i].split('<');
+		if (e.length == 3) {
+			var m = e[0].split(',');
+			for (j = 0; j < m.length; ++j) {
+				s.push([m[j], e[1], e[2]]);
+			}
+		}
+	}
+
 	// show entries in static dhcp list
-	s = nvram.dhcpd_static.split('>');
 	for (i = 0; i < s.length; ++i) {
-		var t = s[i].split('<');
+		var t = s[i];
 		var active = '-';
 		for (j = 0; j < arplist.length; ++j) {
-			if ((arplist[j][2] == nvram.lan_ifname) && (arplist[j][1] == t[0])) {
+			if ((arplist[j][2] == nvram.lan_ifname) && (t[0] == arplist[j][1])) {
 				active = 'Active (In ARP)';
-				arplist[j][1] = '';
+				arplist[j][1] = '!';
 				break;
 			}
 		}

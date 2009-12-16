@@ -207,11 +207,12 @@ static void eat_garbage(void)
 // -----------------------------------------------------------------------------
 
 
-void send_authenticate(const char *realm)
+static void send_authenticate(void)
 {
 	char header[128];
+	const char *realm;
 
-	if (realm == NULL) realm = nvram_get("router_name");
+	realm = nvram_get("router_name");
 	if ((realm == NULL) || (*realm == 0) || (strlen(realm) > 64)) realm = "unknown";
 
 	sprintf(header, "WWW-Authenticate: Basic realm=\"%s\"", realm);
@@ -251,7 +252,7 @@ static void auth_fail(int clen)
 {
 	if (post) web_eat(clen);
 	eat_garbage();
-	send_authenticate(NULL);
+	send_authenticate();
 }
 
 int check_wlaccess(void)
@@ -498,13 +499,13 @@ static void handle_request(void)
 
 		if (strstr(user_agent, "Chrome/") != NULL) {
 			if (auth != AUTH_BAD) {
-				send_authenticate(NULL);
+				send_authenticate();
 				return;
 			}
 		}
 		else {
 			if (auth == AUTH_OK) {
-				send_authenticate(NULL);
+				send_authenticate();
 				return;
 			}
 		}

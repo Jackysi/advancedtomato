@@ -1,5 +1,5 @@
 # Bittorrent - P2P filesharing / publishing tool - http://www.bittorrent.com
-# Pattern attributes: good slow594 notsofast undermatch
+# Pattern attributes: good slow notsofast undermatch
 # Protocol groups: p2p open_source
 # Wiki: http://www.protocolinfo.org/wiki/Bittorrent
 # Copyright (C) 2008 Matthew Strait, Ethan Sommer; See ../LICENSE
