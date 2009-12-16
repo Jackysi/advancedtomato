@@ -170,6 +170,18 @@ AC_ARG_ENABLE(iproute2,
    test $enableval = "yes" && AC_DEFINE(CONFIG_FEATURE_IPROUTE, 1, [enable iproute2 support])   
 )
 
+AC_ARG_ENABLE(def-auth,
+   [  --disable-def-auth      Disable deferred authentication],
+   [DEF_AUTH="$enableval"],
+   [DEF_AUTH="yes"]
+)
+
+AC_ARG_ENABLE(pf,
+   [  --disable-pf            Disable internal packet filter],
+   [PF="$enableval"],
+   [PF="yes"]
+)
+
 AC_ARG_ENABLE(strict,
    [  --enable-strict         Enable strict compiler warnings (debugging option)],
    [STRICT="$enableval"],
@@ -192,6 +204,12 @@ AC_ARG_ENABLE(strict-options,
    [  --enable-strict-options Enable strict options check between peers (debugging option)],
    [STRICT_OPTIONS="$enableval"],
    [STRICT_OPTIONS="no"]
+)
+
+AC_ARG_ENABLE(selinux,
+   [  --disable-selinux       Disable SELinux support],
+   [SELINUX="$enableval"],
+   [SELINUX="yes"]
 )
 
 AC_ARG_WITH(ssl-headers,
@@ -816,6 +834,16 @@ if test "$PORT_SHARE" = "yes"; then
    AC_DEFINE(ENABLE_PORT_SHARE, 1, [Enable TCP Server port sharing])
 fi
 
+dnl enable deferred auth
+if test "$DEF_AUTH" = "yes"; then
+   AC_DEFINE(CONFIGURE_DEF_AUTH, 1, [Enable deferred authentication])
+fi
+
+dnl enable internal packet filter
+if test "$PF" = "yes"; then
+   AC_DEFINE(CONFIGURE_PF, 1, [Enable internal packet filter])
+fi
+
 dnl enable strict compiler warnings
 if test "$STRICT" = "yes"; then
    CFLAGS="$CFLAGS -Wall -Wno-unused-parameter -Wno-unused-function"
@@ -839,6 +867,23 @@ fi
 dnl enable password save
 if test "$PASSWORD_SAVE" = "yes"; then
    AC_DEFINE(ENABLE_PASSWORD_SAVE, 1, [Allow --askpass and --auth-user-pass passwords to be read from a file])
+fi
+
+dnl
+dnl check for SELinux library and headers
+dnl
+if test "$SELINUX" = "yes"; then
+   AC_CHECKING([for libselinux Library and Header files])
+   AC_CHECK_HEADER(selinux/selinux.h,
+      [AC_CHECK_LIB(selinux, setcon,
+         [
+            OPENVPN_ADD_LIBS(-lselinux)
+            AC_DEFINE(HAVE_SETCON, 1, [SELinux support])
+         ],
+            [AC_MSG_RESULT([SELinux library not found.])]
+         )],
+      [AC_MSG_RESULT([SELinux headers not found.])]
+   )
 fi
 
 TAP_ID="PRODUCT_TAP_ID"
