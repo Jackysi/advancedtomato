@@ -200,6 +200,7 @@ const defaults_t defaults[] = {
 	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off"	},	// WME AP AC_VO paramters
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
+	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
 
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add

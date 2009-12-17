@@ -25,7 +25,7 @@
 /* REMOVE-BEGIN
 	!!TB - Added wl_reg_mode, wl_country, wl_country_code, wl_btc_mode
 REMOVE-END */
-//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode"); %>
+//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode"); %>
 
 hp = features('hpamp');
 
@@ -40,6 +40,7 @@ function verifyFields(focused, quiet)
 	if (!v_range(E('_wl_txpwr'), quiet, 1, 251)) return 0;
 
 	E('_wl_wme_no_ack').disabled = E('_wl_wme').selectedIndex != 1;
+	E('_wl_wme_apsd').disabled = E('_wl_wme').selectedIndex != 1;
 	return 1;
 }
 
@@ -162,7 +163,9 @@ REMOVE-END */
 		value: nvram.wl_rate },
 	{ title: 'WMM', name: 'wl_wme', type: 'select', options: [['off','Disable *'],['on','Enable']], value: nvram.wl_wme },
 	{ title: 'No ACK', name: 'wl_wme_no_ack', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
-		value: nvram.wl_wme_no_ack }
+		value: nvram.wl_wme_no_ack },
+	{ title: 'APSD Mode', name: 'wl_wme_apsd', indent: 2, type: 'select', options: [['off','Disable'],['on','Enable *']],
+		value: nvram.wl_wme_apsd }
 ]);
 </script>
 </div>
