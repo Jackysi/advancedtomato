@@ -87,6 +87,8 @@ NEED_PPPD = y
 endif
 obj-$(NEED_PPPD) += pppd
 
+obj-$(CONFIG_LINUX26) += hotplug2
+obj-$(CONFIG_LINUX26) += udev
 
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -729,6 +731,25 @@ igmpproxy-install:
 igmpproxy-clean:
 	$(MAKE) -C igmpproxy/src clean
 	rm -f igmpproxy/src/Makefile
+
+udev:
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)" \
+	    PROGRAMS=udevtrigger
+
+udev-install:
+	install -d $(INSTALLDIR)
+	install -d $(TARGETDIR)
+	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
+	@mkdir -p $(INSTALLDIR)/udev/rom/etc/udev
+	# remove comments, compress whitespace
+	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < udev/etc/udev/udev.conf > $(INSTALLDIR)/udev/rom/etc/udev/udev.conf
+
+hotplug2:
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)"
+
+hotplug2-install:
+	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
+	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/rom KERNELVER=$(LINUX_KERNEL)
 
 
 ebtables: dummy
