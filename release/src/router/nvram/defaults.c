@@ -273,6 +273,9 @@ const defaults_t defaults[] = {
 	{ "ct_max",				""				},
 	{ "nf_ttl",				"0"				},
 	{ "nf_l7in",			"1"				},
+#ifdef LINUX26
+	{ "nf_sip",			"1"				},
+#endif
 	{ "nf_rtsp",			"1"				},
 	{ "nf_pptp",			"1"				},
 	{ "nf_h323",			"1"				},

@@ -282,6 +282,15 @@ void setup_conntrack(void)
 		ct_modprobe_r("h323");
 	}
 
+#ifdef LINUX26
+	if (!nvram_match("nf_sip", "0")) {
+		ct_modprobe("sip");
+	}
+	else {
+		ct_modprobe_r("sip");
+	}
+#endif
+
 	if (!nvram_match("nf_rtsp", "0")) {
 		ct_modprobe("rtsp");
 	}

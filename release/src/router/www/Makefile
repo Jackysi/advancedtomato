@@ -36,10 +36,16 @@ install:
 
 # Only include Linux 2.6 options if building for Linux 2.6.
 ifneq ($(CONFIG_LINUX26),y)
-	sed -i $(INSTALLDIR)/www/nas-samba.asp -e "/LINUX26-BEGIN/,/LINUX26-END/d"
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
+	done
 endif
-	sed -i "/LINUX26-BEGIN/d" $(INSTALLDIR)/www/nas-samba.asp
-	sed -i "/LINUX26-END/d" $(INSTALLDIR)/www/nas-samba.asp
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed	-i "/LINUX26-BEGIN/d" $$F; \
+		sed	-i "/LINUX26-END/d" $$F; \
+	done
 
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
