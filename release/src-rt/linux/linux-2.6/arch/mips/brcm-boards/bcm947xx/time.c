@@ -64,7 +64,11 @@ bcm947xx_time_init(void)
 	       (hz + 500000) / 1000000);
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */
-	mips_hpt_frequency = hz / 2;
+	if (((si_t *)sih)->chip == BCM5354_CHIP_ID &&
+		strncmp(nvram_safe_get("hardware_version"), "WL520G", 6) == 0)
+		mips_hpt_frequency = 100000000; // Fix WL520GUGC clock
+	else
+		mips_hpt_frequency = hz / 2;
 
 	/* Set watchdog interval in ms */
 	watchdog = simple_strtoul(nvram_safe_get("watchdog"), NULL, 0);
