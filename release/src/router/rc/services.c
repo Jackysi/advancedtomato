@@ -750,7 +750,7 @@ char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 /* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
 static void do_start_stop_ftpd(int stop, int start)
 {
-	if (stop) killall("vsftpd", SIGTERM);
+	if (stop) killall_tk("vsftpd");
 
 	char tmp[256];
 	FILE *fp, *f;
@@ -948,8 +948,14 @@ void stop_ftpd(void)
 #ifdef TCONFIG_SAMBASRV
 void kill_samba(int sig)
 {
-	killall("smbd", sig);
-	killall("nmbd", sig);
+	if (sig == SIGTERM) {
+		killall_tk("smbd");
+		killall_tk("nmbd");
+	}
+	else {
+		killall("smbd", sig);
+		killall("nmbd", sig);
+	}
 }
 #endif
 
@@ -1136,7 +1142,6 @@ void stop_samba(void)
 #ifdef TCONFIG_SAMBASRV
 	int fd = file_lock("usb");
 	do_start_stop_samba(1, 0);
-	sleep(2); /* wait for smbd to finish */
 
 	if (nvram_invmatch("smbd_nlsmod", "")) {
 		modprobe_r(nvram_get("smbd_nlsmod"));
