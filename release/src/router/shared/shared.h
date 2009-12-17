@@ -19,9 +19,11 @@
 #ifdef LINUX26
 #define	MTD_DEV(arg)	"/dev/mtd"#arg
 #define	MTD_BLKDEV(arg)	"/dev/mtdblock"#arg
+#define	DEV_GPIO(arg)	"/dev/gpio"#arg
 #else
 #define	MTD_DEV(arg)	"/dev/mtd/"#arg
 #define	MTD_BLKDEV(arg)	"/dev/mtdblock/"#arg
+#define	DEV_GPIO(arg)	"/dev/gpio/"#arg
 #endif
 
 //version.c
@@ -221,8 +223,10 @@ extern int f_wait_notexists(const char *name, int max);
 
 extern const char *led_names[];
 
+extern int gpio_open();
 extern void gpio_write(uint32_t bit, int en);
 extern uint32_t gpio_read(void);
+extern uint32_t _gpio_read(int f);
 extern int nvget_gpio(const char *name, int *gpio, int *inv);
 extern int led(int which, int mode);
 
