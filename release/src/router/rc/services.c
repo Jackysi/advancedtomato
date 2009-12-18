@@ -830,6 +830,7 @@ static void do_start_stop_ftpd(int stop, int start)
 		"listen=yes\n"
 		"listen_port=%s\n"
 		"background=yes\n"
+		"isolate=no\n"
 		"max_clients=%d\n"
 		"max_per_ip=%d\n"
 		"idle_session_timeout=%s\n"
