@@ -2903,6 +2903,16 @@ P:	Michal Ostrowski
 M:	mostrows@speakeasy.net
 S:	Maintained
 
+PPP OVER L2TP
+P:	Martijn van Oosterhout
+M:	kleptog@svana.org
+S:	Maintained
+
+PPTP
+P:      Dmitry Kozlov
+M:      xeb@mail.ru
+S:      Maintained
+
 PREEMPTIBLE KERNEL
 P:	Robert Love
 M:	rml@tech9.net
