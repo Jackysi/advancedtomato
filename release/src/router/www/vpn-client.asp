@@ -156,7 +156,7 @@ function verifyFields(focused, quiet)
 		bridge = E('_f_vpn_'+t+'_bridge');
 		nat = E('_f_vpn_'+t+'_nat');
 		hmac = E('_vpn_'+t+'_hmac');
-		rgw = E('_f_vpn_'+t+'_rgw');
+		rgw = E('_vpn_'+t+'_rgw');
 
 		elem.display(PR('_vpn_'+t+'_ca'), PR('_vpn_'+t+'_crt'), PR('_vpn_'+t+'_key'), PR('_vpn_'+t+'_hmac'),
 		             PR('_vpn_'+t+'_adns'), PR('_vpn_'+t+'_reneg'), auth.value == "tls");
@@ -168,7 +168,7 @@ function verifyFields(focused, quiet)
 		elem.display(E(t+'_nat_warn_text'), fw.value != "custom" && (!nat.checked || (auth.value == "secret" && iface.value == "tun")));
 		elem.display(PR('_vpn_'+t+'_local'), auth.value == "secret" && iface.value == "tun");
 		elem.display(PR('_f_vpn_'+t+'_local'), auth.value == "secret" && (iface.value == "tap" && !bridge.checked));
-		elem.display(E(t+'_gateway'), iface.value == "tap" && E('_f_vpn_'+t+'_rgw').checked);
+		elem.display(E(t+'_gateway'), iface.value == "tap" && E('_vpn_'+t+'_rgw').checked);
 
 		keyHelp = E(t+'-keyhelp');
 		switch (auth.value)
@@ -205,7 +205,6 @@ function save()
 
 		E('vpn_'+t+'_bridge').value = E('_f_vpn_'+t+'_bridge').checked ? 1 : 0;
 		E('vpn_'+t+'_nat').value = E('_f_vpn_'+t+'_nat').checked ? 1 : 0;
-		E('vpn_'+t+'_rgw').value = E('_f_vpn_'+t+'_rgw').checked ? 1 : 0;
 	}
 
 	form.submit(fom, 1);
@@ -283,7 +282,6 @@ for (i = 0; i < tabs.length; ++i)
 	W('<div id=\''+t+'-tab\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_bridge\' name=\'vpn_'+t+'_bridge\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_nat\' name=\'vpn_'+t+'_nat\'>');
-	W('<input type=\'hidden\' id=\'vpn_'+t+'_rgw\' name=\'vpn_'+t+'_rgw\'>');
 
 	W('<ul class="tabs">');
 	for (j = 0; j < sections.length; j++)
@@ -319,7 +317,8 @@ for (i = 0; i < tabs.length; ++i)
 	W('<div id=\''+t+'-advanced\'>');
 	createFieldTable('', [
 		{ title: 'Redirect Internet traffic', multi: [
-			{ name: 'f_vpn_'+t+'_rgw', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_rgw' ) != 0 },
+			{ name: 'vpn_'+t+'_rgw', type: 'select', options: [ ['0', 'No'], ['1', 'Yes, leave default gateway intact'], ['2', 'Yes, remove existing default gateway'] ],
+				value: eval( 'nvram.vpn_'+t+'_rgw' ) },
 			{ name: 'vpn_'+t+'_gw', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_gw' ), prefix: '<span id=\''+t+'_gateway\'>Gateway:&nbsp', suffix: '</span>'} ] },
 		{ title: 'Accept DNS configuration', name: 'vpn_'+t+'_adns', type: 'select', options: [[0, 'Disabled'],[1, 'Relaxed'],[2, 'Strict'],[3, 'Exclusive']], value: eval( 'nvram.vpn_'+t+'_adns' ) },
 		{ title: 'Encryption cipher', name: 'vpn_'+t+'_cipher', type: 'select', options: ciphers, value: eval( 'nvram.vpn_'+t+'_cipher' ) },
