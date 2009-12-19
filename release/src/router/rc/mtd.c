@@ -147,7 +147,7 @@ static int mtd_open(const char *mtdname)
 	int size;
 
 	if (mtd_getinfo(mtdname, &part, &size)) {
-		sprintf(path, "/dev/mtd/%d", part);
+		sprintf(path, MTD_DEV(%d), part);
 		return open(path, O_RDWR|O_SYNC);
 	}
 	return -1;

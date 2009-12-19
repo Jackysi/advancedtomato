@@ -119,7 +119,7 @@ static void wo_favicon(char *url)
 
 static void wo_cfe(char *url)
 {
-	do_file("/dev/mtd/0ro");
+	do_file(MTD_DEV(0ro));
 }
 
 static void wo_nvram(char *url)

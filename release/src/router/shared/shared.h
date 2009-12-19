@@ -16,6 +16,14 @@
 
 #define ASIZE(array)	(sizeof(array) / sizeof(array[0]))
 
+#ifdef LINUX26
+#define	MTD_DEV(arg)	"/dev/mtd"#arg
+#define	MTD_BLKDEV(arg)	"/dev/mtdblock"#arg
+#else
+#define	MTD_DEV(arg)	"/dev/mtd/"#arg
+#define	MTD_BLKDEV(arg)	"/dev/mtdblock/"#arg
+#endif
+
 //version.c
 extern const char *tomato_version;
 extern const char *tomato_buildtime;
