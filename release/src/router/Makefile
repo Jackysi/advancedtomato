@@ -226,9 +226,9 @@ endif
 # separated extra stuff
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
-	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_OPENVPN),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.o $(PLATFORMDIR)/extras/
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
 endif
 
 #!!TB
