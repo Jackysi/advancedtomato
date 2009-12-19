@@ -12,6 +12,10 @@
 static void urb_destroy(struct kref *kref)
 {
 	struct urb *urb = to_urb(kref);
+
+	if (urb->transfer_flags & URB_FREE_BUFFER)
+		kfree(urb->transfer_buffer);
+
 	kfree(urb);
 }
 
@@ -77,8 +81,8 @@ struct urb *usb_alloc_urb(int iso_packets, gfp_t mem_flags)
  * Must be called when a user of a urb is finished with it.  When the last user
  * of the urb calls this function, the memory of the urb is freed.
  *
- * Note: The transfer buffer associated with the urb is not freed, that must be
- * done elsewhere.
+ * Note: The transfer buffer associated with the urb is not freed unless the
+ * URB_FREE_BUFFER transfer flag is set.
  */
 void usb_free_urb(struct urb *urb)
 {
@@ -354,7 +358,7 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 
 	/* enforce simple/standard policy */
 	allowed = (URB_NO_TRANSFER_DMA_MAP | URB_NO_SETUP_DMA_MAP |
-			URB_NO_INTERRUPT);
+			URB_NO_INTERRUPT | URB_FREE_BUFFER);
 	switch (temp) {
 	case PIPE_BULK:
 		if (is_out)
