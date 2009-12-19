@@ -1,6 +1,14 @@
 #ifndef _LINUX_TYPES_H
 #define _LINUX_TYPES_H
 
+/* Debian: Use userland types instead.  */
+#ifndef __KERNEL__
+# include <sys/types.h>
+/* For other kernel headers.  */
+# include <linux/posix_types.h>
+# include <asm/types.h>
+#else
+
 #ifdef	__KERNEL__
 
 #define BITS_TO_LONGS(bits) \
@@ -161,6 +169,8 @@ typedef unsigned long blkcnt_t;
 #endif
 
 #endif /* __KERNEL_STRICT_NAMES */
+
+#endif /* __KERNEL__ DEBIAN */
 
 /*
  * Below are truly Linux-specific types that should never collide with

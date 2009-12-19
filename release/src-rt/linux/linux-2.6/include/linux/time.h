@@ -1,6 +1,10 @@
 #ifndef _LINUX_TIME_H
 #define _LINUX_TIME_H
 
+#ifndef __KERNEL__
+#include <time.h>
+#else
+
 #include <linux/types.h>
 
 #ifdef __KERNEL__
@@ -224,5 +228,7 @@ struct itimerval {
  * The various flags for setting POSIX.1b interval timers:
  */
 #define TIMER_ABSTIME			0x01
+
+#endif /* __KERNEL__ DEBIAN */
 
 #endif

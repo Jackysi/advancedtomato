@@ -535,6 +535,9 @@ CFLAGS          += $(call cc-option, -fno-stack-protector)
 NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
 CHECKFLAGS     += $(NOSTDINC_FLAGS)
 
+# improve gcc optimization
+CFLAGS += $(call cc-option,-funit-at-a-time,)
+
 # warn about C99 declaration after statement
 CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
 

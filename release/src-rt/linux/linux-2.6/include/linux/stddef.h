@@ -16,6 +16,7 @@ enum {
 	false	= 0,
 	true	= 1
 };
+#endif /* __KERNEL__ */
 
 #undef offsetof
 #ifdef __compiler_offsetof
@@ -23,6 +24,5 @@ enum {
 #else
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
-#endif /* __KERNEL__ */
 
 #endif

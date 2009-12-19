@@ -30,8 +30,21 @@ u64 uevent_seqnum;
 char uevent_helper[UEVENT_HELPER_PATH_LEN] = "/sbin/hotplug";
 static DEFINE_SPINLOCK(sequence_lock);
 #if defined(CONFIG_NET)
-static struct sock *uevent_sock;
+struct sock *uevent_sock = NULL;
+EXPORT_SYMBOL_GPL(uevent_sock);
 #endif
+
+u64 uevent_next_seqnum(void)
+{
+	u64 seq;
+
+	spin_lock(&sequence_lock);
+	seq = ++uevent_seqnum;
+	spin_unlock(&sequence_lock);
+
+	return seq;
+}
+EXPORT_SYMBOL_GPL(uevent_next_seqnum);
 
 static char *action_to_string(enum kobject_action action)
 {
@@ -169,9 +182,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 	}
 
 	/* we will send an event, request a new sequence number */
-	spin_lock(&sequence_lock);
-	seq = ++uevent_seqnum;
-	spin_unlock(&sequence_lock);
+	seq = uevent_next_seqnum();
 	sprintf(seq_buff, "SEQNUM=%llu", (unsigned long long)seq);
 
 #if defined(CONFIG_NET)

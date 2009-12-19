@@ -887,7 +887,6 @@ static __init void build_tlb_write_entry(u32 **p, struct label **l,
 	case CPU_R10000:
 	case CPU_R12000:
 	case CPU_R14000:
-	case CPU_4KC:
 	case CPU_SB1:
 	case CPU_SB1A:
 	case CPU_4KSC:
@@ -917,6 +916,7 @@ static __init void build_tlb_write_entry(u32 **p, struct label **l,
 		tlbw(p);
 		break;
 
+	case CPU_4KC:
 	case CPU_4KEC:
 	case CPU_24K:
 	case CPU_34K:
