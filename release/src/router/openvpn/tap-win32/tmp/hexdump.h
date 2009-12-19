@@ -5,7 +5,11 @@
  *  This code was inspired by the CIPE-Win32 driver by Damion K. Wilson.
  *
  *  This source code is Copyright (C) 2002-2009 OpenVPN Technologies, Inc.,
- *  and is released under the GPL version 2 (see below).
+ *  and is released under the GPL version 2 (see below), however due
+ *  to the extra costs of supporting Windows Vista, OpenVPN Solutions
+ *  LLC reserves the right to change the terms of the TAP-Win32/TAP-Win64
+ *  license for versions 9.1 and higher prior to the official release of
+ *  OpenVPN 2.1.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -22,17 +26,42 @@
  *  59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef MacInfoDefined
-#define MacInfoDefined
+#ifndef HEXDUMP_DEFINED
+#define HEXDUMP_DEFINED
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//=====================================================================================
+//                                   Debug Routines
+//=====================================================================================
+
+#ifndef NDIS_MINIPORT_DRIVER
+#   include <stdio.h>
+#   include <ctype.h>
+#   include <windows.h>
+#   include <winnt.h>
+#   include <memory.h>
+
+#   ifndef DEBUGP
+#      define DEBUGP(fmt) { DbgMessage fmt; }
+#   endif
+
+    extern VOID (*DbgMessage)(char *p_Format, ...);
+
+    VOID DisplayDebugString (char *p_Format, ...);
+#endif
 
 //===================================================================================
-//                                      Macros
+//                              Reporting / Debugging
 //===================================================================================
-#define IsMacDelimiter(a) (a == ':' || a == '-' || a == '.')
-#define IsHexDigit(c) ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))
+#define IfPrint(c) (c >= 32 && c < 127 ? c : '.')
 
-#define COPY_MAC(dest, src) NdisMoveMemory ((dest), (src), sizeof (MACADDR))
-#define CLEAR_MAC(dest)     NdisZeroMemory ((dest), sizeof (MACADDR))
-#define MAC_EQUAL(a,b)      (memcmp ((a), (b), sizeof (MACADDR)) == 0)
+VOID HexDump (unsigned char *p_Buffer, unsigned long p_Size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
