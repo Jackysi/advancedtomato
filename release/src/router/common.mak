@@ -1,10 +1,13 @@
+ifeq ($(SRCBASE),)
+	# ..../src/router/
+	# (directory of the last (this) makefile)
+	export TOP := $(shell cd $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))) && pwd -P)
 
-# ..../src/router/
-# (directory of the last (this) makefile)
-export TOP := $(shell cd $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))) && pwd -P)
-
-# ..../src/
-export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
+	# ..../src/
+	export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
+else
+	export TOP := $(SRCBASE)/router
+endif
 
 include $(SRCBASE)/tomato_profile.mak
 include $(TOP)/.config
@@ -28,7 +31,16 @@ export RANLIB := $(CROSS_COMPILE)ranlib
 export STRIP := $(CROSS_COMPILE)strip -R .note -R .comment
 export SIZE := $(CROSS_COMPILE)size
 
-export LINUXDIR := $(SRCBASE)/linux/linux
+# Determine kernel version
+kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
+
+LINUX_KERNEL=$(call kver,version.h)
+ifeq ($(LINUX_KERNEL),)
+LINUX_KERNEL=$(call kver,utsrelease.h)
+endif
+
+include $(SRCBASE)/target.mak
+
 export LIBDIR := $(TOOLCHAIN)/lib
 export USRLIBDIR := $(TOOLCHAIN)/usr/lib
 
