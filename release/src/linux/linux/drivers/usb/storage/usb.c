@@ -115,6 +115,7 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 			    const struct usb_device_id *id);
 
 static void storage_disconnect(struct usb_device *dev, void *ptr);
+static int storage_magic_ops(void *ptr, int opcode, int lun);
 
 /* The entries in this table, except for final ones here
  * (USB_MASS_STORAGE_CLASS and the empty entry), correspond,
@@ -240,6 +241,7 @@ struct usb_driver usb_storage_driver = {
 	probe:		storage_probe,
 	disconnect:	storage_disconnect,
 	id_table:	storage_usb_ids,
+	magic_ops:	storage_magic_ops,
 };
 
 /*
@@ -448,7 +450,17 @@ static int usb_stor_control_thread(void * __us)
 				} else {
 					/* we've got a command, let's do it! */
 					US_DEBUG(usb_stor_show_command(us->srb));
+					/* Bug workaround, for Broadcom MIPS chips. Don't allow
+					 * overlapped I/O to multiple USB devices.
+					 * Typical for USB drives:
+					 *  Protocol: Transparent SCSI
+					 * Transport: Bulk
+					 * proto_handler = usb_stor_transparent_scsi_command;
+					 * transport = usb_stor_Bulk_transport;
+					 */
+					down(&us_list_semaphore);
 					us->proto_handler(us->srb, us);
+					up(&us_list_semaphore);	/* unlock */
 				}
 			}
 
@@ -543,6 +555,18 @@ static int usb_stor_allocate_irq(struct us_data *ss)
 	return 0;
 }
 
+static int storage_magic_ops(void *ptr, int opcode, int lun)
+{
+	struct us_data *ss = ptr;
+	int rtn;
+
+	if (!ptr)
+		return -EINVAL;
+	rtn = scsi_magic_ops(ss->host, -1, -1, lun, opcode);
+	return (rtn);
+}
+
+
 /* Probe to see if a new device is actually a SCSI device */
 static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 			    const struct usb_device_id *id)
@@ -556,6 +580,9 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 	unsigned int flags;
 	struct us_unusual_dev *unusual_dev;
 	struct us_data *ss = NULL;
+	int lun;
+	int st;
+
 #ifdef CONFIG_USB_STORAGE_SDDR09
 	int result;
 #endif
@@ -749,10 +776,17 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 		up(&(ss->dev_semaphore));
 
 		/* Try to re-connect ourselves to the SCSI subsystem */
-		if (scsi_add_single_device(ss->host, 0, 0, 0))
-		    printk(KERN_WARNING "Unable to connect USB device to the SCSI subsystem\n");
-		else
-		    printk(KERN_WARNING "USB device connected to the SCSI subsystem\n");
+		for (lun = 0; lun <= 7; ++lun) {
+			scsi_add_single_device(ss->host, 0, 0, lun);
+			if ((st = storage_magic_ops(ss, 0xacc, lun)) >= 0) {
+				if (st != -ENODEV) {
+					if (st != 0)
+						printk(KERN_WARNING "Unable to reconnect USB device to the SCSI subsystem. lun %d (%d)\n", lun, st);
+					else
+						printk(KERN_WARNING "USB device reconnected to the SCSI subsystem. lun %d\n", lun);
+				}
+			}
+		}
 	} else { 
 		/* New device -- allocate memory and initialize */
 		US_DEBUGP("New GUID " GUID_FORMAT "\n", GUID_ARGS(guid));
@@ -1051,8 +1085,8 @@ static void * storage_probe(struct usb_device *dev, unsigned int ifnum,
 
 	dev->storage_host_number = ss->host_number + 1;
 
-	printk(KERN_DEBUG 
-	       "WARNING: USB Mass Storage data integrity not assured\n");
+	printk(KERN_DEBUG
+	       "WARNING: USB Mass Storage data integrity not assured, unmount it before unplugging\n");
 	printk(KERN_DEBUG 
 	       "USB Mass Storage device found at %d. Host: %d\n", dev->devnum, ss->host_number);
 
@@ -1065,6 +1099,7 @@ static void storage_disconnect(struct usb_device *dev, void *ptr)
 {
 	struct us_data *ss = ptr;
 	int result;
+	int lun;
 
 	US_DEBUGP("storage_disconnect() called\n");
 
@@ -1078,10 +1113,18 @@ static void storage_disconnect(struct usb_device *dev, void *ptr)
 	down(&(ss->dev_semaphore));
 
 	/* Try to un-hook ourselves from the SCSI subsystem */
-	if (scsi_remove_single_device(ss->host, 0, 0, 0))
-	    printk(KERN_WARNING "Unable to disconnect USB device from the SCSI subsystem\n");
-	else
-	    printk(KERN_WARNING "USB device disconnected from the SCSI subsystem\n");
+	for (lun = 0; lun <= 7; ++lun) {
+		result = scsi_remove_single_device(ss->host, 0, 0, lun);
+		if (result != -ENODEV) {
+			if (result != 0)
+				printk(KERN_WARNING "Unable to disconnect USB device from the SCSI subsystem. lun %d. (%d)\n", lun, result);
+			else
+				printk(KERN_WARNING "USB device disconnected from the SCSI subsystem. lun %d\n", lun);
+		}
+	}
+
+	if (result) {	/* It will fail if anything is still mounted. */
+	}
 
 	/* release the IRQ, if we have one */
 	if (ss->irq_urb) {

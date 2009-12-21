@@ -109,4 +109,5 @@ EXPORT_SYMBOL(scsi_delete_timer);
  * ieee1394 or USB devices, but probably not for normal SCSI... */
 EXPORT_SYMBOL(scsi_add_single_device);
 EXPORT_SYMBOL(scsi_remove_single_device);
+EXPORT_SYMBOL(scsi_magic_ops);
 

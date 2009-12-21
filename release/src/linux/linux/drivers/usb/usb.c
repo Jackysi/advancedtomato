@@ -1741,10 +1741,40 @@ int __usb_get_extra_descriptor(char *buffer, unsigned size, unsigned char type, 
 /*
  * Something got disconnected. Get rid of it, and all of its children.
  */
+#define storage_host_access_count(ptr, lun) ((int)driver->magic_ops(ptr, 0xacc, lun))
+#define storage_host_put_offline(ptr) ((int)driver->magic_ops(ptr, 0x0ff, -1))
+/* Notes:
+   The scsi host's access_count gets bumped by 1 for each mount on it.
+   When the scsi_remove will decline to tear down the structures.
+   It will, though, flag the disc as offline and no_spinup, so it won't
+   actually try to read from the disk anymore.
+   
+   So: the info still appears in /proc/partitions & /dev/discs/discN.
+   Until something happens to trigger a re-read (revalidation).  Such as
+   reading from it.  This will fail and so the partitions will disappear
+   from /proc/partitions.
+   But the /dev/scsi/hostN/../disc and /dev/discs/discN will still be there.
+
+   If we do the unmounts ("remove") before calling scsi_remove, the
+   access_count will be 0, so the structures will be torn down.  The
+   device(s) will disappear from /proc/partitions & /dev/discs/discN.
+   We give the remove policy (hotplug) up to 10 seconds to do all the
+   unmounts.  If that doesn't happen, then we chug onward--knowing that
+   nothing will ever cleanup the scsi structures.
+
+   Evidently, the original design concept was that the hotplug
+   agent primarily would unload module(s).   But in practice it just
+   does mount processing.  So we call it before the disconnect (scsi_remove)
+   to do the unmounts, then once again after the disconnect to do unloads.
+*/
+
+#define DISCT_TIMEOUT (20 * (1000/MSEC_PER_TRY))	/* Wait up to 20 seconds, at 50 msec between retries. */
+#define MSEC_PER_TRY 50
 void usb_disconnect(struct usb_device **pdev)
 {
 	struct usb_device * dev = *pdev;
 	int i;
+	int acnt, cnt;
 
 	if (!dev)
 		return;
@@ -1759,6 +1789,29 @@ void usb_disconnect(struct usb_device **pdev)
 			struct usb_interface *interface = &dev->actconfig->interface[i];
 			struct usb_driver *driver = interface->driver;
 			if (driver) {
+				/* If it is a disk, mark it offline and call the remove policy to unmount it. */
+				if (dev->storage_host_number > 0) {
+					call_policy ("remove", dev);
+					if (driver->magic_ops) {
+						storage_host_put_offline(interface->private_data);
+						/* Wait a while (up to 20 seconds), for unmount to work.
+						 * It needs to be larger than the sd_init_onedisk spinup timeout (.../scsi/sd.c).
+						 */
+						for (cnt = DISCT_TIMEOUT; (acnt = storage_host_access_count(interface->private_data, -1)) > 0 && --cnt >= 0;) {
+							if (cnt == DISCT_TIMEOUT - (1 * (1000/MSEC_PER_TRY)))
+								info("USB disconnect waiting for all unmounts to finish.\n");
+							msleep(MSEC_PER_TRY);
+						}
+					}
+				}
+				/* umount make dirty buffer(s).  I have no idea why.  Force them to flush out.
+				 * This will fail, of course, since the device is unplugged, but if we don't then
+				 * kupdatd will eventually try to flush the dirties, and it will sometimes crash.
+				 * From looking at the kernel oops, it seems that it tries to jump to Pluto.
+				 * Probably de-referencing garbage that didn't get cleaned up when we disconnected.
+				 * Since it only happens sometimes, it's probably a race condition.
+				 */
+				sync_buffers(0, 1);
 				down(&driver->serialize);
 				driver->disconnect(dev, interface->private_data);
 				up(&driver->serialize);
