@@ -714,7 +714,7 @@ void start_services(void)
 		if (nvram_get_int("sshd_eas")) start_sshd();
 	}
 
-	start_syslog();
+//	start_syslog();
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
@@ -739,7 +739,7 @@ void stop_services(void)
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
-	stop_syslog();
+//	stop_syslog();
 }
 
 // -----------------------------------------------------------------------------
