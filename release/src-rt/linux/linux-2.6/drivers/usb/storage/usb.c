@@ -979,6 +979,13 @@ static int storage_probe(struct usb_interface *intf,
 	if (result)
 		goto BadDevice;
 
+	if (us->pusb_dev->actconfig->desc.bNumInterfaces > 1)   // patch for U2EC
+	{
+		printk("We only support single-interface storage device!\n");
+		result = -ENOMEM;
+		goto BadDevice;
+	}
+
 	/*
 	 * Get the unusual_devs entries and the descriptors
 	 *

@@ -313,6 +313,7 @@ struct sk_buff {
 				*data;
 	unsigned int		truesize;
 	atomic_t		users;
+	unsigned char		wl_idx;		/* Jiahao: index of wireless interface */
 };
 
 #ifdef __KERNEL__

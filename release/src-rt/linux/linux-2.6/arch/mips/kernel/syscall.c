@@ -434,3 +434,56 @@ int kernel_execve(const char *filename, char *const argv[], char *const envp[])
 
 	return -__v0;
 }
+
+/*
+ * Build the string table for the builtin "poor man's strace".
+ */
+#ifdef CONFIG_PRINT_SYSCALLS
+#define SYS(fun, narg) #fun,
+static char *sfnames[] = {
+#include "syscalls.h"
+};
+
+#ifdef	CONFIG_HWSIM
+int do_strace = 1;
+#else
+int do_strace = 0;
+#endif
+
+asmlinkage void strace(struct pt_regs *regs)
+{
+	int i;
+	unsigned long scn, narg, *pa0;
+	char *name, space[16];
+	extern char sys_call_table[];
+
+	if (do_strace == 0)
+		return;
+
+	scn = regs->regs[2];
+	pa0 = &regs->regs[4];
+
+	if ((scn >= __NR_Linux)  && (scn < (__NR_Linux + __NR_Linux_syscalls))) {
+		name = sfnames[scn - __NR_Linux];
+		narg = *(unsigned long *)(((char *)(&sys_call_table[scn])) + 4);
+	} else {
+		sprintf(space, "sc%lu", scn);
+		name = space;
+		narg = 0;
+	}
+
+	printk("%lu[%s:%d]@0x%08lx: %s(", jiffies, current->comm, current->pid, regs->cp0_epc, name);
+
+	if (narg > 6) narg = 6;
+
+	for (i = 0; i < narg; i++) {
+		if (i) printk(", ");
+		if (i < 4)
+			printk("0x%08lx", pa0[i]);
+		else
+			printk("0x%08lx", regs->pad0[i]);
+	}
+
+	printk(")\n");
+}
+#endif

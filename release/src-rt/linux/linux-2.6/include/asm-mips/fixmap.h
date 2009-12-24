@@ -79,6 +79,8 @@ extern void __set_fixmap (enum fixed_addresses idx,
  */
 #if defined(CONFIG_CPU_TX39XX) || defined(CONFIG_CPU_TX49XX)
 #define FIXADDR_TOP	((unsigned long)(long)(int)(0xff000000 - 0x20000))
+#elif defined(CONFIG_BCM47XX)
+#define FIXADDR_TOP	((unsigned long)(long)(int)0xf0000000)
 #else
 #define FIXADDR_TOP	((unsigned long)(long)(int)0xfffe0000)
 #endif

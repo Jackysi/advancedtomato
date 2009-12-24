@@ -32,6 +32,7 @@
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_transport.h>
+#include <scsi/sd.h>
 
 #include "scsi_priv.h"
 #include "scsi_logging.h"
@@ -148,7 +149,16 @@ static int proc_print_scsidevice(struct device *dev, void *data)
 {
 	struct scsi_device *sdev = to_scsi_device(dev);
 	struct seq_file *s = data;
+        struct Scsi_Host *shost=sdev->host;
+        struct scsi_disk *sdkp;
+//      struct gendisk *gd;
 	int i;
+
+	sdkp= (struct scsi_disk*) dev->driver_data;
+//	gd=sdkp->disk;
+  seq_printf(s, "BusType: %s Diskname: %s ",
+                shost->hostt->name,
+		sdkp->disk->disk_name);
 
 	seq_printf(s,
 		"Host: scsi%d Channel: %02d Id: %02d Lun: %02d\n  Vendor: ",

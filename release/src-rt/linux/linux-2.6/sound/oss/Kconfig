@@ -80,6 +80,13 @@ config SOUND_AU1550_AC97
 	select SND_AC97_CODEC
 	depends on SOUND_PRIME && (SOC_AU1550 || SOC_AU1200)
 
+config SOUND_AU1550_I2S
+	tristate "Au1550 I2S Sound"
+	depends on SOUND_PRIME && SOC_AU1550
+	# Weird I2S driver needs I2C driver to talk to the codec...
+	select I2C
+	select I2C_AU1550
+
 config SOUND_TRIDENT
 	tristate "Trident 4DWave DX/NX, SiS 7018 or ALi 5451 PCI Audio Core"
 	depends on SOUND_PRIME && PCI

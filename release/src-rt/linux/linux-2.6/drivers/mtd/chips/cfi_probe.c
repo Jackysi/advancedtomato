@@ -120,6 +120,7 @@ static int __xipram cfi_probe_chip(struct map_info *map, __u32 base,
 	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
 	cfi_send_gen_cmd(0xFF, 0, base, map, cfi, cfi->device_type, NULL);
 	cfi_send_gen_cmd(0x98, 0x55, base, map, cfi, cfi->device_type, NULL);
+	udelay(1);
 
 	if (!qry_present(map,base,cfi)) {
 		xip_enable(base, map, cfi);

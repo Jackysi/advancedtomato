@@ -612,6 +612,14 @@ config NETFILTER_XT_MATCH_STATISTIC
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config NETFILTER_XT_MATCH_TIME
+        tristate '"time" match support'
+        depends on NETFILTER_XTABLES
+        help
+          time match support.
+
+          To compile it as a module, choose M here.  If unsure, say N.
+
 config NETFILTER_XT_MATCH_STRING
 	tristate  '"string" match support'
 	depends on NETFILTER_XTABLES
@@ -624,6 +632,16 @@ config NETFILTER_XT_MATCH_STRING
 	  pattern matchings in packets.
 
 	  To compile it as a module, choose M here.  If unsure, say N.
+
+config NETFILTER_XT_MATCH_WEBSTR
+        tristate  '"webstr" match support'
+        depends on NETFILTER_XTABLES
+        help
+          This option adds a `webstr' match, which allows you to look for
+          pattern matchings in http stream.
+
+          To compile it as a module, choose M here.  If unsure, say N.
+
 
 config NETFILTER_XT_MATCH_TCPMSS
 	tristate '"tcpmss" match support'

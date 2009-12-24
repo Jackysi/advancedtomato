@@ -169,20 +169,33 @@ int fat_notify_change(struct dentry *dentry, struct iattr *attr)
 	 * hole before it.
 	 */
 	if (attr->ia_valid & ATTR_SIZE) {
+//		printk("dbg: att->ia_valid\n");
 		if (attr->ia_size > inode->i_size) {
+			unlock_kernel();
+			return 0; // Yen for samba
+#if 0
+//			printk("dbg: attr->ia_size\n");
 			error = fat_cont_expand(inode, attr->ia_size);
+//			printk("dbg: fat_notify_change, errno = %d\n", error);
 			if (error || attr->ia_valid == ATTR_SIZE)
 				goto out;
 			attr->ia_valid &= ~ATTR_SIZE;
+#endif
 		}
 	}
 
+//	printk("dbg: fat_notify_change - 1\n");
+
 	error = inode_change_ok(inode, attr);
+//	printk("dbg: fat_notify_change - 1.1\n");
 	if (error) {
 		if (sbi->options.quiet)
 			error = 0;
 		goto out;
 	}
+
+//	printk("dbg: fat_notify_change - 2\n");
+
 	if (((attr->ia_valid & ATTR_UID) &&
 	     (attr->ia_uid != sbi->options.fs_uid)) ||
 	    ((attr->ia_valid & ATTR_GID) &&

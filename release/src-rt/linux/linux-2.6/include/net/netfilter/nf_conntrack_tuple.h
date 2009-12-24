@@ -122,12 +122,23 @@ DEBUGP("tuple %p: %u %u " NIP6_FMT " %hu -> " NIP6_FMT " %hu\n",	    \
 #define NF_CT_DIRECTION(h)						\
 	((enum ip_conntrack_dir)(h)->tuple.dst.dir)
 
+//--SZ Angela 09.03 Add for QOS {
+struct ip_track 
+{
+	u_int8_t number;
+	u_int8_t large_packet;
+	u_int8_t flag;
+};
+//--SZ angela 09.03 Add for QOS }
+
 /* Connections have two entries in the hash table: one for each way */
 struct nf_conntrack_tuple_hash
 {
 	struct list_head list;
 
 	struct nf_conntrack_tuple tuple;
+
+	struct ip_track track; //--SZ angela 09.03
 };
 
 #endif /* __KERNEL__ */

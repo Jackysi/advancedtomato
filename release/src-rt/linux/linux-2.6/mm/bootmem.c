@@ -101,7 +101,9 @@ static unsigned long __init init_bootmem_core(pg_data_t *pgdat,
 	 * register free RAM areas explicitly.
 	 */
 	mapsize = get_mapsize(bdata);
+#if     !defined(CONFIG_HWSIM) || defined(CONFIG_HWSIM_ZMEM)
 	memset(bdata->node_bootmem_map, 0xff, mapsize);
+#endif
 
 	return mapsize;
 }
@@ -296,7 +298,9 @@ found:
 	for (i = start; i < start + areasize; i++)
 		if (unlikely(test_and_set_bit(i, bdata->node_bootmem_map)))
 			BUG();
+#ifndef CONFIG_HWSIM
 	memset(ret, 0, size);
+#endif
 	return ret;
 }
 

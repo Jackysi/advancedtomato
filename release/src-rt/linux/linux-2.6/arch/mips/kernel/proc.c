@@ -84,6 +84,8 @@ static const char *cpu_name[] = {
 	[CPU_VR4181A]	= "NEC VR4181A",
 	[CPU_SR71000]	= "Sandcraft SR71000",
 	[CPU_PR4450]	= "Philips PR4450",
+	[CPU_BCM4710]	= "Broadcom BCM4710",
+	[CPU_BCM3302]	= "Broadcom BCM3302",
 };
 
 
@@ -93,6 +95,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	unsigned int version = cpu_data[n].processor_id;
 	unsigned int fp_vers = cpu_data[n].fpu_id;
 	char fmt [64];
+	extern unsigned long unaligned_instructions;
 
 #ifdef CONFIG_SMP
 	if (!cpu_isset(n, cpu_online_map))
@@ -137,6 +140,16 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, fmt, 'D', vced_count);
 	seq_printf(m, fmt, 'I', vcei_count);
 	seq_printf(m, "\n");
+
+	seq_printf(m, "unaligned_instructions\t: %lu\n", unaligned_instructions);
+
+#ifdef CONFIG_BCM47XX
+	seq_printf(m, "dcache hits\t\t: %u\n", read_perf_cntr(0));
+	seq_printf(m, "dcache misses\t\t: %u\n", read_perf_cntr(1));
+	seq_printf(m, "icache hits\t\t: %u\n", read_perf_cntr(2));
+	seq_printf(m, "icache misses\t\t: %u\n", read_perf_cntr(3));
+	seq_printf(m, "instructions\t\t: %u\n", read_perf_cntr(4));
+#endif
 
 	return 0;
 }

@@ -615,14 +615,6 @@ static int usb_uevent(struct device *dev, char **envp, int num_envp,
 		return -ENOMEM;
 #endif
 
-	/* per-device configurations are common */
-	if (add_uevent_var(envp, num_envp, &i,
-			   buffer, buffer_size, &length,
-			   "PRODUCT=%x/%x/%x",
-			   le16_to_cpu(usb_dev->descriptor.idVendor),
-			   le16_to_cpu(usb_dev->descriptor.idProduct),
-			   le16_to_cpu(usb_dev->descriptor.bcdDevice)))
-		return -ENOMEM;
 
 	/* class-based driver binding models */
 	if (add_uevent_var(envp, num_envp, &i,
@@ -632,7 +624,15 @@ static int usb_uevent(struct device *dev, char **envp, int num_envp,
 			   usb_dev->descriptor.bDeviceSubClass,
 			   usb_dev->descriptor.bDeviceProtocol))
 		return -ENOMEM;
-
+#if 0
+        if (add_uevent_var(envp, num_envp, &i,
+                   buffer, buffer_size, &length,
+                   "INTERFACE=%d/%d/%d",
+                   alt->desc.bInterfaceClass,
+                   alt->desc.bInterfaceSubClass,
+                   alt->desc.bInterfaceProtocol))
+                return -ENOMEM;
+#endif
 	if (add_uevent_var(envp, num_envp, &i,
 			   buffer, buffer_size, &length,
 			   "BUSNUM=%03d",
@@ -645,6 +645,14 @@ static int usb_uevent(struct device *dev, char **envp, int num_envp,
 			   usb_dev->devnum))
 		return -ENOMEM;
 
+#if 0
+	/* From James to added USBDEVICE_PATH */
+	if (add_uevent_var(envp, num_envp, &i,
+			   buffer, buffer_size, &length,
+			   "USBDEVICE_PATH=%s",
+			   usb_dev->devpath))
+		return -ENOMEM;
+#endif
 	envp[i] = NULL;
 	return 0;
 }

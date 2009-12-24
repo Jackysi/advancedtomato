@@ -150,9 +150,6 @@ static inline void check_wait(void)
 		break;
 
 	case CPU_74K:
-		cpu_wait = r4k_wait;
-		if ((c->processor_id & 0xff) >= PRID_REV_ENCODE_332(2, 1, 0))
-			cpu_wait = r4k_wait_irqoff;
 		break;
 
 	case CPU_TX49XX:
@@ -646,6 +643,14 @@ static inline void cpu_probe_mips(struct cpuinfo_mips *c)
 		break;
 	case PRID_IMP_74K:
 		c->cputype = CPU_74K;
+		c->options &= ~MIPS_CPU_DIVEC;
+
+		/* Kernel already has hazard barrier instructions in
+		 * place so we clear the IHB bit. CFE sets the IHB bit
+		 * of config7 to enable automatic prevention of hazards.
+		 */
+		if (read_c0_config7() & (1 << 29))
+			clear_c0_config7(1 << 29);
 		break;
 	}
 }
@@ -731,6 +736,51 @@ static inline void cpu_probe_philips(struct cpuinfo_mips *c)
 	}
 }
 
+static inline void cpu_probe_broadcom(struct cpuinfo_mips *c)
+{
+	unsigned long config0 = read_c0_config(), config1;
+
+	if ((config0 & CONF_BE) != 
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
+	    0
+#else
+	    CONF_BE
+#endif
+	) {
+		panic("Kernel compiled little-endian, but running on a big-endian cpu");
+	}
+
+	decode_configs(c);
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_BCM4710:
+		c->cputype = CPU_BCM4710;
+		c->isa_level = MIPS_CPU_ISA_M32R1;
+		break;
+	case PRID_IMP_4KC:
+	case PRID_IMP_BCM3302:
+		c->cputype = CPU_BCM3302;
+		c->isa_level = MIPS_CPU_ISA_M32R1;
+		break;
+	default:
+		panic("Unknown Broadcom Core!");
+		c->cputype = CPU_UNKNOWN;
+		return;
+	}
+	
+	c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE |
+	             MIPS_CPU_COUNTER;
+	config1 = read_c0_config1();
+	if (config1 & (1 << 3))
+		c->options |= MIPS_CPU_WATCH;
+	if (config1 & (1 << 2))
+		c->options |= MIPS_ASE_MIPS16;
+	if (config1 & 1)
+		c->options |= MIPS_CPU_FPU;
+	c->scache.flags = MIPS_CACHE_NOT_PRESENT;
+
+	return;
+}
+
 
 __init void cpu_probe(void)
 {
@@ -759,6 +809,9 @@ __init void cpu_probe(void)
 		break;
  	case PRID_COMP_PHILIPS:
 		cpu_probe_philips(c);
+		break;
+ 	case PRID_COMP_BROADCOM:
+		cpu_probe_broadcom(c);
 		break;
 	default:
 		c->cputype = CPU_UNKNOWN;

@@ -445,3 +445,10 @@ config FAULT_INJECTION_STACKTRACE_FILTER
 	select FRAME_POINTER
 	help
 	  Provide stacktrace filter for fault-injection capabilities
+
+config HWSIM
+	bool "Running on a hardware simulator"
+
+config HWSIM_ZMEM
+	bool "Do clear memory"
+	depends on HWSIM

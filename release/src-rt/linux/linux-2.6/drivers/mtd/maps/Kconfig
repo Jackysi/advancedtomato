@@ -620,5 +620,8 @@ config MTD_PLATRAM
 
 	  This selection automatically selects the map_ram driver.
 
-endmenu
+config MTD_BCM947XX
+	tristate "CFI Flash device mapped on Broadcom BCM947XX boards"
+	depends on MTD_CFI
 
+endmenu

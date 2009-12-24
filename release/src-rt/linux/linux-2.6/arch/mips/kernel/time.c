@@ -23,6 +23,9 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#ifdef CONFIG_KERNPROF
+#include <linux/kernprof.h>
+#endif
 
 #include <asm/bootinfo.h>
 #include <asm/cache.h>
@@ -125,7 +128,38 @@ int (*mips_timer_state)(void);
 void (*mips_timer_ack)(void);
 
 /* last time when xtime and rtc are sync'ed up */
-static long last_rtc_update;
+static long last_rtc_update = 0;
+
+#if defined(CONFIG_KERNPROF)
+int prof_freq[NR_CPUS] = { [0 ... NR_CPUS - 1] = HZ };
+int prof_counter[NR_CPUS] = { [0 ... NR_CPUS - 1] = 1 };
+
+/*
+ * Change the frequency of the profiling timer.  The multiplier is specified
+ * by an appropriate ioctl() on /dev/kernprof.
+ */
+int setup_profiling_timer(unsigned int freq)
+{
+	int i;
+
+	/*
+	 * Sanity check.
+	 */
+	if (!freq)
+		return -EINVAL;
+
+	/* 
+	 * Set the new multiplier for each CPU. CPUs don't start using the
+	 * new values until the next timer interrupt in which they do process
+	 * accounting. At that time they also adjust their APIC timers
+	 * accordingly.
+	 */
+	for (i = 0; i < NR_CPUS; ++i)
+		prof_freq[i] = freq;
+
+	return 0;
+}
+#endif
 
 /*
  * local_timer_interrupt() does profiling and process accounting
@@ -149,10 +183,23 @@ void local_timer_interrupt(int irq, void *dev_id)
  */
 irqreturn_t timer_interrupt(int irq, void *dev_id)
 {
+#if defined(CONFIG_KERNPROF)
+	unsigned int cpu = smp_processor_id();
+#endif
+
 	write_seqlock(&xtime_lock);
 
 	mips_timer_ack();
 
+#if defined(CONFIG_KERNPROF)
+	if (prof_freq[cpu] <= HZ) {
+		if (--prof_counter[cpu] == 0) {
+			if (prof_timer_hook)
+				prof_timer_hook(regs);
+			prof_counter[cpu] = HZ / prof_freq[cpu];
+		}
+	}
+#endif
 	/*
 	 * call the generic timer interrupt handling
 	 */

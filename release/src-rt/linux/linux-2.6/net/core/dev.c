@@ -1647,6 +1647,15 @@ int netif_rx(struct sk_buff *skb)
 	if (!skb->tstamp.tv64)
 		net_timestamp(skb);
 
+	if (!strncmp(skb->dev->name + 3, ".1", 2))	/* Jiahao: match wl0.1 */
+		skb->wl_idx = 0x2;
+	else if (!strncmp(skb->dev->name + 3, ".2", 2))	/* Jiahao: match wl0.2 */
+		skb->wl_idx = 0x4;
+	else if (!strncmp(skb->dev->name + 3, ".3", 2))	/* Jiahao: match wl0.3 */
+		skb->wl_idx = 0x8;
+	else						/* Angela: for priority ssid and lan */
+		skb->wl_idx = 0x0;
+
 	/*
 	 * The code is rearranged so that the path is the most
 	 * short when CPU is congested, but is still operating.
@@ -2992,6 +3001,46 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			     cmd <= SIOCDEVPRIVATE + 15)) {
 				dev_load(ifr.ifr_name);
 				rtnl_lock();
+
+#ifdef REMOVE
+				if (strcmp(ifr.ifr_name, "eth1") == 0 && cmd >= SIOCDEVPRIVATE)
+				{
+					typedef struct wl_ioctl
+					{
+						unsigned int cmd;
+						void *buf;
+						unsigned int len;
+						char set;
+						unsigned int used;
+						unsigned int needed;
+					} wl_ioctl_t;
+
+					wl_ioctl_t *ioc;
+					int i;
+					unsigned char *dd;
+
+					ioc = (wl_ioctl_t *) ifr.ifr_data;
+
+//					if (ioc->cmd == 50)
+//					{
+						dd = (unsigned char *) ioc->buf;
+						printk("\ncmd = %d\n", ioc->cmd);
+
+						if(ioc && dd)
+						{
+							for(i=0; i < ioc->len; i++)
+							{
+								printk("%x ", dd[i]);
+								if (i%16 == 0)
+									printk("\n");
+							}
+							printk("\n");
+						}
+//					}
+				}
+#endif
+
+
 				ret = dev_ifsioc(&ifr, cmd);
 				rtnl_unlock();
 				if (!ret && copy_to_user(arg, &ifr,

@@ -469,11 +469,13 @@ __attribute__((weak)) unsigned long long printk_clock(void)
 /* Check if we have any console registered that can be called early in boot. */
 static int have_callable_console(void)
 {
+#if !defined(CONFIG_HWSIM)
 	struct console *con;
 
 	for (con = console_drivers; con; con = con->next)
 		if (con->flags & CON_ANYTIME)
 			return 1;
+#endif
 
 	return 0;
 }
@@ -520,6 +522,11 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	char *p;
 	static char printk_buf[1024];
 	static int log_level_unknown = 1;
+
+#if defined(CONFIG_HWSIM) && defined(mips)
+	if (log_buf == __log_buf)
+		log_buf = KSEG1ADDR((char *) __log_buf);
+#endif
 
 	preempt_disable();
 	if (unlikely(oops_in_progress) && printk_cpu == smp_processor_id())

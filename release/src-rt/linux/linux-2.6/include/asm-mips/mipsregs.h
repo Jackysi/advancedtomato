@@ -1477,9 +1477,18 @@ change_c0_##name(unsigned int change, unsigned int new)		\
 __BUILD_SET_C0(status)
 __BUILD_SET_C0(cause)
 __BUILD_SET_C0(config)
+__BUILD_SET_C0(config7)
 __BUILD_SET_C0(intcontrol)
 __BUILD_SET_C0(intctl)
 __BUILD_SET_C0(srsmap)
+
+/*
+ * Functions to access the performance counter and control registers
+ */
+extern asmlinkage unsigned int read_perf_cntr(unsigned int counter);
+extern asmlinkage void write_perf_cntr(unsigned int counter, unsigned int val);
+extern asmlinkage unsigned int read_perf_cntl(unsigned int counter);
+extern asmlinkage void write_perf_cntl(unsigned int counter, unsigned int val);
 
 #endif /* !__ASSEMBLY__ */
 

@@ -2,6 +2,7 @@
 #include <asm/io.h>
 #include <asm/time.h>
 
+extern void qvga_init(void);
 extern void qemu_reboot_setup(void);
 
 #define QEMU_PORT_BASE 0xb4000000
@@ -23,5 +24,9 @@ void __init plat_timer_setup(struct irqaction *irq)
 void __init plat_mem_setup(void)
 {
 	set_io_port_base(QEMU_PORT_BASE);
+#ifdef CONFIG_VT
+	qvga_init();
+#endif
+
 	qemu_reboot_setup();
 }

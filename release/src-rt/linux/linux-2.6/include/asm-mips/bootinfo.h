@@ -213,6 +213,16 @@
 #define MACH_GROUP_NEC_EMMA2RH 25	/* NEC EMMA2RH (was 23)		*/
 #define  MACH_NEC_MARKEINS	0	/* NEC EMMA2RH Mark-eins	*/
 
+/*
+ * Valid machtype for group BRCM
+ */
+#define MACH_GROUP_BRCM        26       /* Broadcom */
+#define  MACH_BCM93725          0
+#define  MACH_BCM93725_VJ       1
+#define  MACH_BCM93730          2
+#define  MACH_BCM947XX          3
+#define  MACH_BCM933XX          4
+
 #define CL_SIZE			COMMAND_LINE_SIZE
 
 const char *get_system_type(void);

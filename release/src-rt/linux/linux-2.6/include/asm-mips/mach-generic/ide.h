@@ -29,17 +29,12 @@
 
 #define IDE_ARCH_OBSOLETE_DEFAULTS
 
+extern int mips_system_has_legacy_ide;
+
 static __inline__ int ide_probe_legacy(void)
 {
 #ifdef CONFIG_PCI
-	struct pci_dev *dev;
-	if ((dev = pci_get_class(PCI_CLASS_BRIDGE_EISA << 8, NULL)) != NULL ||
-	    (dev = pci_get_class(PCI_CLASS_BRIDGE_ISA << 8, NULL)) != NULL) {
-		pci_dev_put(dev);
-
-		return 1;
-	}
-	return 0;
+	return mips_system_has_legacy_ide;
 #elif defined(CONFIG_EISA) || defined(CONFIG_ISA)
 	return 1;
 #else

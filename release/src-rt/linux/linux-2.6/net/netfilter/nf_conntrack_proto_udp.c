@@ -23,6 +23,8 @@
 #include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
 
+extern int clean_flag; // 2009.04 James. wanduck.
+
 static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
 static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
 
@@ -64,6 +66,11 @@ static int udp_print_tuple(struct seq_file *s,
 static int udp_print_conntrack(struct seq_file *s,
 			       const struct nf_conn *conntrack)
 {
+// 2009.04 James. wanduck. {
+	if(clean_flag == 101)
+		nf_ct_refresh(conntrack, NULL, 0);
+// 2009.04 James. wanduck. }
+
 	return 0;
 }
 

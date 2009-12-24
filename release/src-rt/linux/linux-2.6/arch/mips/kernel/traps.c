@@ -43,6 +43,8 @@
 #include <asm/types.h>
 #include <asm/stacktrace.h>
 
+#include <linux/reboot.h>
+
 extern asmlinkage void handle_int(void);
 extern asmlinkage void handle_tlbm(void);
 extern asmlinkage void handle_tlbl(void);
@@ -742,6 +744,8 @@ out_sigsegv:
 asmlinkage void do_ri(struct pt_regs *regs)
 {
 	die_if_kernel("Reserved instruction in kernel code", regs);
+	printk("do_ri, try to reboot it!\n");
+	machine_restart(NULL);
 
 	if (!cpu_has_llsc)
 		if (!simulate_llsc(regs))

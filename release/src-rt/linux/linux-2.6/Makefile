@@ -158,10 +158,7 @@ export srctree objtree VPATH TOPDIR
 # then ARCH is assigned, getting whatever value it gets normally, and 
 # SUBARCH is subsequently ignored.
 
-SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
-				  -e s/arm.*/arm/ -e s/sa110/arm/ \
-				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
-				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ )
+SUBARCH := mips
 
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
@@ -315,6 +312,37 @@ CPPFLAGS        := -D__KERNEL__ $(LINUXINCLUDE)
 CFLAGS          := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
                    -fno-strict-aliasing -fno-common
 AFLAGS          := -D__ASSEMBLY__
+
+
+# Broadcom source tree
+TOPDIR  := $(shell /bin/pwd)
+SRCBASE ?= $(TOPDIR)/../..
+export SRCBASE
+CFLAGS += -I$(SRCBASE)/include
+AFLAGS += -I$(SRCBASE)/include
+ASFLAGS += -I$(SRCBASE)/include
+
+ifeq ("$(CONFIG_WL_EMULATOR)","y")
+CFLAGS += -DBCM_WL_EMULATOR -DBCMPERFSTATS
+endif #CONFIG_WL_EMULATOR
+
+#ifdef BCMINTERNAL
+BCMINTERNAL := y
+ifeq ("$(strip $(BCMINTERNAL))","y")
+AFLAGS += -DBCMINTERNAL
+ASFLAGS += -DBCMINTERNAL
+CFLAGS += -DBCMINTERNAL
+#ifdef BCMDBG
+BCMDBG := y
+ifeq ("$(strip $(BCMDBG))","y")
+AFLAGS += -DBCMDBG
+ASFLAGS += -DBCMDBG
+CFLAGS += -DBCMDBG
+endif #BCMDBG
+#endif
+endif #BCMINTERNAL
+#endif
+CFLAGS += -DBCMDRIVER -Dlinux
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
@@ -539,6 +567,8 @@ export MODLIB
 #  stripped after they are installed.  If INSTALL_MOD_STRIP is '1', then
 #  the default option --strip-debug will be used.  Otherwise,
 #  INSTALL_MOD_STRIP will used as the options to the strip command.
+
+INSTALL_MOD_STRIP = 1
 
 ifdef INSTALL_MOD_STRIP
 ifeq ($(INSTALL_MOD_STRIP),1)
@@ -810,9 +840,12 @@ endif
 
 localver-full = $(localver)$(localver-auto)
 
+include/linux/config.h:
+	$(Q)ln -sfn $(srctree)/include/linux/autoconf.h include/linux/config.h
+
 # Store (new) KERNELRELASE string in include/config/kernel.release
 kernelrelease = $(KERNELVERSION)$(localver-full)
-include/config/kernel.release: include/config/auto.conf FORCE
+include/config/kernel.release: include/config/auto.conf include/linux/config.h FORCE
 	$(Q)rm -f $@
 	$(Q)echo $(kernelrelease) > $@
 

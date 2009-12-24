@@ -2276,3 +2276,171 @@ asmlinkage long sys_getcpu(unsigned __user *cpup, unsigned __user *nodep,
 	}
 	return err ? -EFAULT : 0;
 }
+
+//--SZ Angela 09.03 QOS {
+int track_flag = 0;
+ulong ipaddr = 0;
+
+int clean_flag = 0; // 2009.04 James. wanduck.
+
+asmlinkage long sys_track_flag(int __user *flag, ulong __user *addr)
+{
+	int in_flag, err;
+	err = get_user(in_flag, flag);
+
+	if(in_flag == 0 || in_flag == 1){
+		track_flag = in_flag;
+		if(track_flag == 1)
+			err = get_user(ipaddr, addr);
+	}
+// 2009.04 James. wanduck. {
+	else if(in_flag == 100 || in_flag == 101)
+		clean_flag = in_flag;//*/
+// 2009.04 James. wanduck. }
+	//printk("track_flag=%d, ipaddr=%ld\n", track_flag, ipaddr);
+	printk("[k] track_flag=%d, clean_flag=%d, ipaddr=%lu\n", track_flag, clean_flag, ipaddr);       // tmp test
+
+	return err ? -EFAULT : 0;
+}
+EXPORT_SYMBOL(track_flag);
+EXPORT_SYMBOL(ipaddr);
+EXPORT_SYMBOL(clean_flag); // wanduck.
+//--SZ Angela 09.03 QOS }
+
+#define MBSS_NOLAN_SSID_MAIN	0x0001			// Jiahao
+#define MBSS_NOLAN_SSID_1	0x0002			// Jiahao
+#define MBSS_NOLAN_SSID_2	0x0004			// Jiahao
+#define MBSS_NOLAN_SSID_3	0x0008			// Jiahao
+unsigned char mbss_nolan_g = 0;				// Jiahao
+unsigned char mbss_nolan_M_1 = 0;			// Jiahao
+unsigned char mbss_nolan_M_2 = 0;			// Jiahao
+unsigned char mbss_nolan_M_3 = 0;			// Jiahao
+unsigned char mbss_nolan_1_2 = 0;			// Jiahao
+unsigned char mbss_nolan_1_3 = 0;			// Jiahao
+unsigned char mbss_nolan_2_3 = 0;			// Jiahao
+unsigned char mbss_nolan_1 = 0;				// Jiahao
+unsigned char mbss_nolan_2 = 0;				// Jiahao
+unsigned char mbss_nolan_3 = 0;				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_g);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_M_1);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_M_2);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_M_3);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_1_2);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_1_3);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_2_3);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_1);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_2);				// Jiahao
+EXPORT_SYMBOL(mbss_nolan_3);				// Jiahao
+
+asmlinkage long sys_set_mbss_nolan(unsigned char flag)	// Jiahao
+{
+	printk("sys_set_mbss_nolan: %d\n", flag);
+
+	if (!flag)
+		return 0;
+	else
+		mbss_nolan_g = 1;
+
+	if ( (flag & MBSS_NOLAN_SSID_MAIN) || (flag & MBSS_NOLAN_SSID_1) )
+		mbss_nolan_M_1 = 1;
+
+	if ( (flag & MBSS_NOLAN_SSID_MAIN) || (flag & MBSS_NOLAN_SSID_2) )
+		mbss_nolan_M_2 = 1;
+
+	if ( (flag & MBSS_NOLAN_SSID_MAIN) || (flag & MBSS_NOLAN_SSID_3) )
+		mbss_nolan_M_3 = 1;
+
+	if ( (flag & MBSS_NOLAN_SSID_1) || (flag & MBSS_NOLAN_SSID_2) )
+		mbss_nolan_1_2 = 1;
+
+	if ( (flag & MBSS_NOLAN_SSID_1) || (flag & MBSS_NOLAN_SSID_3) )
+		mbss_nolan_1_3 = 1;
+
+	if ( (flag & MBSS_NOLAN_SSID_2) || (flag & MBSS_NOLAN_SSID_3) )
+		mbss_nolan_2_3 = 1;
+
+	if (flag & MBSS_NOLAN_SSID_1)
+		mbss_nolan_1 = 1;
+
+	if (flag & MBSS_NOLAN_SSID_2)
+		mbss_nolan_2 = 1;
+
+	if (flag & MBSS_NOLAN_SSID_3)
+		mbss_nolan_3 = 1;
+
+	return 0;
+}
+
+#define MBSS_NOWAN_SSID_MAIN	0x0001			// Jiahao
+#define MBSS_NOWAN_SSID_1	0x0002			// Jiahao
+#define MBSS_NOWAN_SSID_2	0x0004			// Jiahao
+#define MBSS_NOWAN_SSID_3	0x0008			// Jiahao
+unsigned char mbss_nowan_g = 0;				// Jiahao
+unsigned char mbss_nowan_1 = 0;				// Jiahao
+unsigned char mbss_nowan_2 = 0;				// Jiahao
+unsigned char mbss_nowan_3 = 0;				// Jiahao
+EXPORT_SYMBOL(mbss_nowan_g);				// Jiahao
+EXPORT_SYMBOL(mbss_nowan_1);				// Jiahao
+EXPORT_SYMBOL(mbss_nowan_2);				// Jiahao
+EXPORT_SYMBOL(mbss_nowan_3);				// Jiahao
+
+asmlinkage long sys_set_mbss_nowan(unsigned char flag)	// Jiahao
+{
+	printk("sys_set_mbss_nowan: %d\n", flag);
+
+	if (!flag)
+		return 0;
+	else
+		mbss_nowan_g = 1;
+
+	if (flag & MBSS_NOWAN_SSID_1)
+		mbss_nowan_1 = 1;
+
+	if (flag & MBSS_NOWAN_SSID_2)
+		mbss_nowan_2 = 1;
+
+	if (flag & MBSS_NOWAN_SSID_3)
+		mbss_nowan_3 = 1;
+
+	return 0;
+}
+
+#define MBSS_PRIO_SSID_MAIN_LOW		0x0001		// Jiahao
+#define MBSS_PRIO_SSID_MAIN_NORMAL	0x0002		// Jiahao
+#define MBSS_PRIO_SSID_1_LOW		0x0004		// Jiahao
+#define MBSS_PRIO_SSID_1_NORMAL		0x0008		// Jiahao
+#define MBSS_PRIO_SSID_2_LOW		0x0010		// Jiahao
+#define MBSS_PRIO_SSID_2_NORMAL		0x0020		// Jiahao
+#define MBSS_PRIO_SSID_3_LOW		0x0040		// Jiahao
+#define MBSS_PRIO_SSID_3_NORMAL		0x0080		// Jiahao
+unsigned char mbss_prio_1 = 1;				// Jiahao
+unsigned char mbss_prio_2 = 1;				// Jiahao
+unsigned char mbss_prio_3 = 1;				// Jiahao
+EXPORT_SYMBOL(mbss_prio_1);				// Jiahao
+EXPORT_SYMBOL(mbss_prio_2);				// Jiahao
+EXPORT_SYMBOL(mbss_prio_3);				// Jiahao
+
+asmlinkage long sys_set_mbss_prio(unsigned char flag)	// Jiahao
+{
+	printk("sys_set_mbss_prio: %d\n", flag);
+
+	if (!flag)
+		return 0;
+
+	if (flag & MBSS_PRIO_SSID_1_LOW)
+		mbss_prio_1 = 0;
+	else if (flag & MBSS_PRIO_SSID_1_NORMAL)
+		mbss_prio_1 = 1;
+
+	if (flag & MBSS_PRIO_SSID_2_LOW)
+		mbss_prio_2 = 0;
+	else if (flag & MBSS_PRIO_SSID_2_NORMAL)
+		mbss_prio_2 = 1;
+
+	if (flag & MBSS_PRIO_SSID_3_LOW)
+		mbss_prio_3 = 0;
+	else if (flag & MBSS_PRIO_SSID_3_NORMAL)
+		mbss_prio_3 = 1;
+
+	return 0;
+}

@@ -89,6 +89,19 @@
 #define PRID_IMP_34K		0x9500
 #define PRID_IMP_24KE		0x9600
 #define PRID_IMP_74K		0x9700
+#define PRID_IMP_BCM4710	0x4000
+#define PRID_IMP_BCM3302        0x9000
+#define PRID_IMP_BCM3303        0x9100
+
+#define PRID_COPT_MASK          0xff000000
+#define PRID_COMP_MASK          0x00ff0000
+#define PRID_IMP_MASK           0x0000ff00
+#define PRID_REV_MASK           0x000000ff
+
+#define BCM330X(id) \
+	(((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == (PRID_COMP_BROADCOM | PRID_IMP_BCM3302)) \
+	|| ((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == (PRID_COMP_BROADCOM | PRID_IMP_BCM3303)))
+
 
 /*
  * These are the PRID's for when 23:16 == PRID_COMP_SIBYTE
@@ -211,7 +224,9 @@
 #define CPU_SB1A		62
 #define CPU_74K			63
 #define CPU_R14000		64
-#define CPU_LAST		64
+#define CPU_BCM4710		65
+#define CPU_BCM3302		66
+#define CPU_LAST		66
 
 /*
  * ISA Level encodings

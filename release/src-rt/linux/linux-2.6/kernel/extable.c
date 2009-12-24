@@ -22,11 +22,14 @@
 
 extern struct exception_table_entry __start___ex_table[];
 extern struct exception_table_entry __stop___ex_table[];
+extern struct exception_table_entry __start___dbe_table[];
+extern struct exception_table_entry __stop___dbe_table[];
 
 /* Sort the kernel's built-in exception table */
 void __init sort_main_extable(void)
 {
 	sort_extable(__start___ex_table, __stop___ex_table);
+	sort_extable(__start___dbe_table, __stop___dbe_table);
 }
 
 /* Given an address, look for it in the exception tables. */

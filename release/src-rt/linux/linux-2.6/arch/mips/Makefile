@@ -81,7 +81,13 @@ endif
 cflags-y			+= -G 0 -mno-abicalls -fno-pic -pipe
 cflags-y			+= -msoft-float
 LDFLAGS_vmlinux			+= -G 0 -static -n -nostdlib
-MODFLAGS			+= -mlong-calls
+MODFLAGS			+= -mlong-calls -fno-common
+
+# Always compile with debug symbols. They will be stripped by the router
+# makefile to produce the final kernel. Debug versions of kernel and brcm
+# kernel modules will be kept with the extension dbgsym attached to their
+# names.
+cflags-y += -ggdb
 
 cflags-y += -ffreestanding
 
@@ -146,6 +152,8 @@ ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
 MODFLAGS	+= -msb1-pass1-workarounds
 endif
 endif
+
+cflags-y += $(call check_gcc, -m4710a0kern, )
 
 #
 # Firmware support
@@ -592,6 +600,15 @@ load-$(CONFIG_TOSHIBA_RBTX4938) += 0xffffffff80100000
 cflags-y			+= -Iinclude/asm-mips/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
+#
+# Broadcom BCM947XX variants
+#
+ifdef CONFIG_BCM947XX
+core-$(CONFIG_BCM947XX) += arch/mips/brcm-boards/generic/ arch/mips/brcm-boards/bcm947xx/
+load-$(CONFIG_BCM947XX) := 0xffffffff80001000
+zImage: vmlinux
+endif
+
 ifdef CONFIG_32BIT
 ifdef CONFIG_CPU_LITTLE_ENDIAN
 JIFFIES			= jiffies_64
@@ -603,6 +620,7 @@ JIFFIES			= jiffies_64
 endif
 
 AFLAGS		+= $(cflags-y)
+ASFLAGS		+= $(cflags-y)
 CFLAGS		+= $(cflags-y)
 
 LDFLAGS			+= -m $(ld-emul)
@@ -702,6 +720,16 @@ vmlinux.srec: $(vmlinux-32)
 CLEAN_FILES += vmlinux.ecoff \
 	       vmlinux.srec
 
+archprepare:
+ifdef CONFIG_MIPS32_N32
+	@echo '  Checking missing-syscalls for N32'
+	$(Q)$(MAKE) $(build)=. missing-syscalls EXTRA_CFLAGS="-mabi=n32"
+endif
+ifdef CONFIG_MIPS32_O32
+	@echo '  Checking missing-syscalls for O32'
+	$(Q)$(MAKE) $(build)=. missing-syscalls EXTRA_CFLAGS="-mabi=32"
+endif
+
 archclean:
 	@$(MAKE) $(clean)=arch/mips/boot
 	@$(MAKE) $(clean)=arch/mips/lasat
@@ -709,25 +737,3 @@ archclean:
 CLEAN_FILES += vmlinux.32 \
 	       vmlinux.64 \
 	       vmlinux.ecoff
-
-quiet_cmd_syscalls_n32 = CALL-N32 $<
-      cmd_syscalls_n32 = $(CONFIG_SHELL) $< $(CC) $(c_flags) -mabi=n32
-
-quiet_cmd_syscalls_o32 = CALL-O32 $<
-      cmd_syscalls_o32 = $(CONFIG_SHELL) $< $(CC) $(c_flags) -mabi=32
-
-PHONY += missing-syscalls-n32 missing-syscalls-o32
-
-missing-syscalls-n32: scripts/checksyscalls.sh FORCE
-	$(call cmd,syscalls_n32)
-
-missing-syscalls-o32: scripts/checksyscalls.sh FORCE
-	$(call cmd,syscalls_o32)
-
-archprepare:
-ifdef CONFIG_MIPS32_N32
-	$(Q)$(MAKE) $(build)=arch/mips missing-syscalls-n32
-endif
-ifdef CONFIG_MIPS32_O32
-	$(Q)$(MAKE) $(build)=arch/mips missing-syscalls-o32
-endif

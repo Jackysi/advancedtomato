@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/kallsyms.h>
 #include <linux/interrupt.h>
+#include <linux/reboot.h>
 
 static int irqfixup __read_mostly;
 
@@ -192,6 +193,9 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
 		/*
 		 * The interrupt is stuck
 		 */
+		/* reboot it */
+		printk("IRQ error and try to reboot!\n");
+		machine_restart(NULL);
 		__report_bad_irq(irq, desc, action_ret);
 		/*
 		 * Now kill the IRQ

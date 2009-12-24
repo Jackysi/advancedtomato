@@ -611,6 +611,9 @@ asmlinkage long sys_timerfd(int ufd, int clockid, int flags,
 			    const struct itimerspec __user *utmr);
 asmlinkage long sys_eventfd(unsigned int count);
 
+asmlinkage long sys_track_flag(int __user *flag, ulong __user *addr);	//--SZ Angela 09.03 QOS
+asmlinkage long sys_set_mbss_nolan(unsigned char flag);
+asmlinkage long sys_set_mbss_nowan(unsigned char flag);
+asmlinkage long sys_set_mbss_prio(unsigned char flag);			// Jiahao
 int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
-
 #endif

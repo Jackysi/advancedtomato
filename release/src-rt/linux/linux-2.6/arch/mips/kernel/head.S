@@ -129,11 +129,19 @@
 #endif
 	.endm
 
+#ifdef CONFIG_BCM47XX
+#undef eret
+#define eret nop; nop; eret
+#endif
+
+	j	kernel_entry
+	nop
+
 	/*
 	 * Reserved space for exception handlers.
 	 * Necessary for machines which link their kernels at KSEG0.
 	 */
-	.fill	0x400
+	.align 10
 
 EXPORT(stext)					# used for profiling
 EXPORT(_stext)
@@ -174,6 +182,7 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	mtc0	t0, CP0_STATUS
 #endif /* CONFIG_MIPS_MT_SMTC */
 
+#if !defined(CONFIG_HWSIM) || defined(CONFIG_HWSIM_ZMEM)
 	PTR_LA		t0, __bss_start		# clear .bss
 	LONG_S		zero, (t0)
 	PTR_LA		t1, __bss_stop - LONGSIZE
@@ -181,6 +190,7 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	PTR_ADDIU	t0, LONGSIZE
 	LONG_S		zero, (t0)
 	bne		t0, t1, 1b
+#endif
 
 	LONG_S		a0, fw_arg0		# firmware arguments
 	LONG_S		a1, fw_arg1

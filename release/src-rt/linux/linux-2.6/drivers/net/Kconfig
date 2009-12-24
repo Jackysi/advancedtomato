@@ -28,6 +28,8 @@ config NETDEVICES
 # that for each of the symbols.
 if NETDEVICES
 
+source "drivers/net/hnd/Kconfig"
+
 config IFB
 	tristate "Intermediate Functional Block support"
 	depends on NET_CLS_ACT
@@ -442,6 +444,14 @@ config MIPS_JAZZ_SONIC
 	  This is the driver for the onboard card of MIPS Magnum 4000,
 	  Acer PICA, Olivetti M700-10 and a few other identical OEM systems.
 
+config GALILEO_64240_ETH
+	tristate "Galileo GT64240 Ethernet support"
+	depends on NET_ETHERNET && MOMENCO_OCELOT_G
+	select MII
+	help
+	  This is the driver for the ethernet interfaces integrated into
+	  the Galileo (now Marvell) GT64240 chipset.
+
 config MIPS_AU1X00_ENET
 	bool "MIPS AU1000 Ethernet support"
 	depends on NET_ETHERNET && SOC_AU1X00
@@ -450,10 +460,6 @@ config MIPS_AU1X00_ENET
 	help
 	  If you have an Alchemy Semi AU1X00 based system
 	  say Y.  Otherwise, say N.
-
-config NET_SB1250_MAC
-	tristate "SB1250 Ethernet support"
-	depends on NET_ETHERNET && SIBYTE_SB1xxx_SOC
 
 config SGI_IOC3_ETH
 	bool "SGI IOC3 Ethernet"
@@ -464,26 +470,6 @@ config SGI_IOC3_ETH
 	  If you have a network (Ethernet) card of this type, say Y and read
 	  the Ethernet-HOWTO, available from
 	  <http://www.tldp.org/docs.html#howto>.
-
-config SGI_IOC3_ETH_HW_RX_CSUM
-	bool "Receive hardware checksums"
-	depends on SGI_IOC3_ETH && INET
-	default y
-	help
-	  The SGI IOC3 network adapter supports TCP and UDP checksums in
-	  hardware to offload processing of these checksums from the CPU.  At
-	  the moment only acceleration of IPv4 is supported.  This option
-	  enables offloading for checksums on receive.  If unsure, say Y.
-
-config SGI_IOC3_ETH_HW_TX_CSUM
-	bool "Transmit hardware checksums"
-	depends on SGI_IOC3_ETH && INET
-	default y
-	help
-	  The SGI IOC3 network adapter supports TCP and UDP checksums in
-	  hardware to offload processing of these checksums from the CPU.  At
-	  the moment only acceleration of IPv4 is supported.  This option
-	  enables offloading for checksums on transmit.  If unsure, say Y.
 
 config MIPS_SIM_NET
 	tristate "MIPS simulator Network device"
@@ -2068,6 +2054,10 @@ config R8169_NAPI
 
 	  If in doubt, say N.
 
+config NET_SB1250_MAC
+	tristate "SB1250 Ethernet support"
+	depends on SIBYTE_SB1xxx_SOC
+
 config R8169_VLAN
 	bool "VLAN support"
 	depends on R8169 && VLAN_8021Q
@@ -2307,8 +2297,22 @@ config MV643XX_ETH
 	select MII
 	help
 	  This driver supports the gigabit Ethernet on the Marvell MV643XX
-	  chipset which is used in the Momenco Ocelot C and Jaguar ATX and
-	  Pegasos II, amongst other PPC and MIPS boards.
+	  chipset which is used in the Momenco Ocelot C Ocelot, Jaguar ATX
+	  and Pegasos II, amongst other PPC and MIPS boards.
+
+config BIG_SUR_FE
+	bool "PMC-Sierra TITAN Fast Ethernet Support"
+	depends on NET_ETHERNET && PMC_BIG_SUR
+	help
+	  This enables support for the the integrated ethernet of
+	  PMC-Sierra's Big Sur SoC.
+
+config TITAN_GE
+	bool "PMC-Sierra TITAN Gigabit Ethernet Support"
+	depends on PMC_YOSEMITE
+	help
+	  This enables support for the the integrated ethernet of
+	  PMC-Sierra's Titan SoC.
 
 config QLA3XXX
 	tristate "QLogic QLA3XXX Network Driver Support"

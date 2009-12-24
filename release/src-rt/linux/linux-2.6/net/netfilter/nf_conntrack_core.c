@@ -29,6 +29,7 @@
 #include <linux/netdevice.h>
 #include <linux/socket.h>
 #include <linux/mm.h>
+#include <linux/ip.h>
 
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_l3proto.h>
@@ -105,6 +106,22 @@ static DEFINE_MUTEX(nf_ct_cache_mutex);
 
 static int nf_conntrack_hash_rnd_initted;
 static unsigned int nf_conntrack_hash_rnd;
+
+//--SZ angela 09.03 {
+#define IP_TRACK_SMALL		0x01
+#define IP_TRACK_PORT		0x02
+#define IP_TRACK_DATA		0x04
+#define	IP_TRACK_UDP		0x08
+
+extern int track_flag;
+extern ulong ipaddr;
+u_int8_t port_num_udp[65536];
+
+extern unsigned char mbss_prio_1;	//SZ-Angela Add for Multiple SSID
+extern unsigned char mbss_prio_2;
+extern unsigned char mbss_prio_3;
+
+//--SZ angela 09.03 }
 
 static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
 				  unsigned int size, unsigned int rnd)
@@ -696,6 +713,21 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 	}
 
 	write_lock_bh(&nf_conntrack_lock);
+	//--SZ angela 09.03 {
+	/* if the qos enable and the layer 3 protocol is ipv4 */
+	if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) {
+		conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.flag = 0;
+		conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.number =1;
+
+		if(strcmp(l4proto->name, "udp") == 0) {		
+			if(conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u3.ip == ipaddr)
+			 	port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.all]++;
+			else
+				port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.all]++;
+		}	
+	}
+	//--SZ angela 09.03 }
+	
 	exp = find_expectation(tuple);
 
 	help = nfct_help(conntrack);
@@ -738,6 +770,100 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 	return &conntrack->tuplehash[IP_CT_DIR_ORIGINAL];
 }
 
+//--SZ angela 09.03 {
+//On success, returns h->track.flags & IP_TRACK_MARK 
+inline int deal_track(struct nf_conntrack_tuple_hash *h, int len)
+{
+	struct nf_conntrack_tuple_hash *rep_h;
+	unsigned int port=0, dport=0;
+	struct nf_conn *ct = NULL;
+
+	// Add the packet number of this connect track and record the length of the packet 
+	h->track.number ++;
+//	if((h->track.flag & IP_TRACK_FULL) != IP_TRACK_FULL)
+//	{
+		if(len > 512)
+			h->track.large_packet++;
+//	}
+	
+	// The download packet set the IP_TRACK_DOWN flag 
+	if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+	{	
+	       port = h->tuple.dst.u.all;
+	       dport = h->tuple.src.u.all;
+	}
+	else
+	{
+		port = h->tuple.src.u.all;
+		dport = h->tuple.dst.u.all;
+	}
+		
+	// if the connect track is data connect ,we return IP_TRACK_DATA 
+	if((h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)	
+		return IP_TRACK_DATA;
+	
+	// if the destination port of this connect track is one of 80,8080,443.We return IP_TRACK_PORT
+	if((h->track.flag & IP_TRACK_PORT) == IP_TRACK_PORT)
+		return IP_TRACK_PORT;
+
+	if((h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
+		return IP_TRACK_SMALL;
+
+	if((h->track.flag & IP_TRACK_UDP) == IP_TRACK_UDP)
+		return IP_TRACK_UDP;
+	
+	ct = nf_ct_tuplehash_to_ctrack(h);
+
+	//start compare 
+	if(NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
+		rep_h = &ct->tuplehash[IP_CT_DIR_ORIGINAL];
+	else
+		rep_h = &ct->tuplehash[IP_CT_DIR_REPLY];
+	if(!rep_h)
+		return 0;
+
+	if(ntohs(dport) == 80 || ntohs(dport) == 8080 || ntohs(dport) == 443)
+       	{
+  		h->track.flag |= IP_TRACK_PORT;
+		rep_h->track.flag |= IP_TRACK_PORT;
+		return IP_TRACK_PORT;
+	}
+
+	// if the port has connections more than 30, we mark it and return IP_TRACK_UDP
+	// h->tuple.dst.protonum == 17 &&
+	if((port_num_udp[port] > 30 || port_num_udp[dport] >30)) 
+	{
+		h->track.flag |= IP_TRACK_UDP;		
+		rep_h->track.flag |= IP_TRACK_UDP;
+		return IP_TRACK_UDP;
+	}
+
+	if(h->track.number == 250)
+	{
+		if(h->track.large_packet<70)
+		{
+			if((rep_h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)
+			{
+				h->track.flag |= IP_TRACK_DATA;
+				return IP_TRACK_DATA;
+			}
+			h->track.flag |= IP_TRACK_SMALL;
+			return IP_TRACK_SMALL;
+		}
+		
+		if((rep_h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
+		{
+			rep_h->track.flag |= IP_TRACK_DATA;
+			rep_h->track.flag &= ~IP_TRACK_SMALL;
+		}
+		h->track.flag |= IP_TRACK_DATA;
+		return IP_TRACK_DATA;
+	}
+	
+	return 0;
+}	
+//--SZ angela 09.03 }
+
 /* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
 static inline struct nf_conn *
 resolve_normal_ct(struct sk_buff *skb,
@@ -768,7 +894,64 @@ resolve_normal_ct(struct sk_buff *skb,
 			return NULL;
 		if (IS_ERR(h))
 			return (void *)h;
+	}//--SZ angela 09.03 {
+	else if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) { 
+		write_lock_bh(&nf_conntrack_lock);
+	      
+		switch(deal_track(h, ntohs(ip_hdr(skb)->tot_len))) {
+			case IP_TRACK_UDP:
+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+					skb->mark = 91;
+				else 
+					skb->mark = 51;
+				break;
+			case IP_TRACK_DATA:
+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+					skb->mark = 90;
+				else 
+					skb->mark = 50;
+				break;
+			case IP_TRACK_PORT:
+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+					skb->mark = 80;
+				else
+					skb->mark = 20;
+				break;
+			case IP_TRACK_SMALL:
+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+					skb->mark = 70;
+				else
+					skb->mark = 10;
+				break;
+			default:
+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+					skb->mark = 90;
+				else
+					skb->mark = 50;
+				break;
 	}
+
+		switch(skb->wl_idx)	//SZ-Angela Add for Multiple SSID
+		{
+			case 2:
+				if(mbss_prio_1 == 0)
+					skb->mark = 60;
+				break;
+			case 4:
+				if(mbss_prio_2 == 0)
+					skb->mark = 60;
+				break;
+			case 8:
+				if(mbss_prio_3 == 0)
+					skb->mark = 60;
+				break;
+			default:
+				break;
+		}
+
+		write_unlock_bh(&nf_conntrack_lock);			
+	} //--SZ angela 09.03 }
+
 	ct = nf_ct_tuplehash_to_ctrack(h);
 
 	/* It exists; we have (non-exclusive) reference. */
@@ -1237,6 +1420,9 @@ int __init nf_conntrack_init(void)
 			nf_conntrack_htable_size = 16;
 	}
 	nf_conntrack_max = 8 * nf_conntrack_htable_size;
+
+	for(ret=0; ret<65535; ret++)		//--SZ Angela 09.03 QOS Initialization
+		port_num_udp[ret]=0;
 
 	printk("nf_conntrack version %s (%u buckets, %d max)\n",
 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,

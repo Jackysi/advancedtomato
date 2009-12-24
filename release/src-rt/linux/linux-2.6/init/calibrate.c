@@ -105,6 +105,10 @@ static unsigned long __devinit calibrate_delay_direct(void)
 static unsigned long __devinit calibrate_delay_direct(void) {return 0;}
 #endif
 
+#if defined(CONFIG_BCM947XX) && defined(CONFIG_HWSIM)
+#include <asm/time.h>
+#endif
+
 /*
  * This is the number of bits of precision for the loops_per_jiffy.  Each
  * bit takes on average 1.5/HZ seconds.  This (like the original) is a little
@@ -117,6 +121,9 @@ void __devinit calibrate_delay(void)
 	unsigned long ticks, loopbit;
 	int lps_precision = LPS_PREC;
 
+#if defined(CONFIG_BCM947XX) && defined(CONFIG_HWSIM)
+	preset_lpj = 10 * (mips_hpt_frequency / 1000);
+#endif
 	if (preset_lpj) {
 		loops_per_jiffy = preset_lpj;
 		printk("Calibrating delay loop (skipped)... "
