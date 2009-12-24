@@ -1,4 +1,4 @@
-/* $Id: upnpevents.c,v 1.12 2009/11/06 20:48:33 nanard Exp $ */
+/* $Id: upnpevents.c,v 1.13 2009/12/22 17:20:10 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2008-2009 Thomas Bernard
@@ -455,7 +455,7 @@ void write_events_details(int s) {
 	char buff[80];
 	struct upnp_event_notify * obj;
 	struct subscriber * sub;
-	write(s, "Events details\n", 15);
+	write(s, "Events details :\n", 17);
 	for(obj = notifylist.lh_first; obj != NULL; obj = obj->entries.le_next) {
 		n = snprintf(buff, sizeof(buff), " %p sub=%p state=%d s=%d\n",
 		             obj, obj->sub, obj->state, obj->s);

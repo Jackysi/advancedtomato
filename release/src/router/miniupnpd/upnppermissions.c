@@ -1,4 +1,4 @@
-/* $Id: upnppermissions.c,v 1.12 2007/10/24 17:34:17 nanard Exp $ */
+/* $Id: upnppermissions.c,v 1.14 2009/12/22 17:21:43 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006 Thomas Bernard
@@ -143,6 +143,7 @@ write_permlist(int fd, const struct upnpperm * permary,
 	const struct upnpperm * perm;
 	int i;
 	char buf[128];
+	write(fd, "Permissions :\n", 14);
 	for(i = 0; i<nperms; i++)
 	{
 		perm = permary + i;
