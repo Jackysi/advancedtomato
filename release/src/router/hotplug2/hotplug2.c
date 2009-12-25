@@ -549,7 +549,7 @@ end_rules:
 		if (cur_seqnum > highest_seqnum)
 			highest_seqnum = cur_seqnum;
 		
-		if (tmpevent->action == ACTION_ADD && (!dumb || modalias != NULL)) {
+		if (tmpevent->action == ACTION_REMOVE || (!dumb || modalias != NULL)) {
 			/* 
 			 * We have more children than we want. Wait until SIGCHLD handler reduces
 			 * their numbers.
@@ -573,7 +573,7 @@ end_rules:
 #ifdef HAVE_RULES
 					if (!dumb)
 						perform_action(dup_hotplug2_event(tmpevent), rules);
-					else
+					else if (tmpevent->action == ACTION_ADD)
 #endif
 						perform_dumb_action(dup_hotplug2_event(tmpevent), modalias);
 					exit(0);

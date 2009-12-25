@@ -315,12 +315,22 @@ static int rule_condition_eval(struct hotplug2_event_t *event, struct condition_
 }
 
 int rule_execute(struct hotplug2_event_t *event, struct rule_t *rule) {
-	int i, last_rv;
+	int i, last_rv, remove;
 	
+	remove = 0;
 	for (i = 0; i < rule->conditions_c; i++) {
 		if (rule_condition_eval(event, &(rule->conditions[i])) != EVAL_MATCH)
 			return 0;
+		/* Only process "remove" events if "ACTION == remove"
+		 * condition is explicitly specified.
+		 */
+		if ((event->action == ACTION_REMOVE) &&
+		    (rule->conditions[i].type == COND_MATCH_CMP) &&
+		    (!strcmp(rule->conditions[i].key, "ACTION")))
+			remove = 1;
 	}
+	if ((event->action == ACTION_REMOVE) && !remove)
+		return 0;
 	
 	last_rv = 0;
 	
