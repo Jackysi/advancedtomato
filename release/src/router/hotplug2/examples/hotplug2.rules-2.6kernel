@@ -5,3 +5,11 @@ DEVPATH is set {
 MODALIAS is set {
 	exec /sbin/modprobe -q %MODALIAS% ;
 }
+
+SUBSYSTEM ~~ ^(block|net|usb)$, ACTION == add {
+	exec /sbin/hotplug %SUBSYSTEM% ;
+}
+
+SUBSYSTEM ~~ ^(block|net|usb)$, ACTION == remove {
+	exec /sbin/hotplug %SUBSYSTEM% ;
+}
