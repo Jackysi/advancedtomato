@@ -33,6 +33,14 @@ install:
 			-e "/^$$/d" \
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
+
+# Only include Linux 2.6 options if building for Linux 2.6.
+ifneq ($(CONFIG_LINUX26),y)
+	sed -i $(INSTALLDIR)/www/nas-samba.asp -e "/LINUX26-BEGIN/,/LINUX26-END/d"
+endif
+	sed -i "/LINUX26-BEGIN/d" $(INSTALLDIR)/www/nas-samba.asp
+	sed -i "/LINUX26-END/d" $(INSTALLDIR)/www/nas-samba.asp
+
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
 	rm -f $(INSTALLDIR)/www/nas-ftp.asp

@@ -263,7 +263,11 @@ createFieldTable('', [
 	{ title: 'Workgroup Name', name: 'smbd_wgroup', type: 'text', maxlen: 20, size: 32,
 		value: nvram.smbd_wgroup },
 	{ title: 'Client Codepage', name: 'smbd_cpage', type: 'select',
-		options: [['', 'Unspecified'],['437', '437 (United States, Canada)'],['850', '850 (Western Europe)'],['852', '852 (Central / Eastern Europe)'],['866', '866 (Cyrillic / Russian)']],
+		options: [['', 'Unspecified'],['437', '437 (United States, Canada)'],['850', '850 (Western Europe)'],['852', '852 (Central / Eastern Europe)'],['866', '866 (Cyrillic / Russian)']
+/* LINUX26-BEGIN */
+		,['932', '932 (Japanese)'],['936', '936 (Simplified Chinese)'],['949', '949 (Korean)'],['950', '950 (Traditional Chinese / Big5)']
+/* LINUX26-END */
+		],
 		suffix: ' <small> (start cmd.exe and type chcp to see the current code page)</small>',
 		value: nvram.smbd_cpage },
 	{ title: 'Samba<br>Custom Configuration', name: 'smbd_custom', type: 'textarea', value: nvram.smbd_custom },

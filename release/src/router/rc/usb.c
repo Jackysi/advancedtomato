@@ -146,6 +146,12 @@ void stop_usb(void)
 		modprobe_r("nls_cp850");
 		modprobe_r("nls_cp852");
 		modprobe_r("nls_cp866");
+#ifdef LINUX26
+		modprobe_r("nls_cp932");
+		modprobe_r("nls_cp936");
+		modprobe_r("nls_cp949");
+		modprobe_r("nls_cp950");
+#endif
 #endif
 		modprobe_r("usb-storage");
 		modprobe_r("sd_mod");

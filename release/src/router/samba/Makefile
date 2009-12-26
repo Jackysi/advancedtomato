@@ -42,6 +42,12 @@ install: all
 	install -d $(INSTALLDIR)$(idir)/usr/codepages/
 	install -D $(srcdir)/codepages/codepage.* $(INSTALLDIR)$(idir)/usr/codepages
 	install -D $(srcdir)/codepages/unicode_map.* $(INSTALLDIR)$(idir)/usr/codepages
+ifneq ($(CONFIG_LINUX26),y)
+	rm -f $(INSTALLDIR)$(idir)/usr/codepages/*.932
+	rm -f $(INSTALLDIR)$(idir)/usr/codepages/*.936
+	rm -f $(INSTALLDIR)$(idir)/usr/codepages/*.949
+	rm -f $(INSTALLDIR)$(idir)/usr/codepages/*.950
+endif
 	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/sbin/smbd
 	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/sbin/nmbd
 	$(STRIP) -s $(INSTALLDIR)$(idir)/usr/bin/smbpasswd
