@@ -235,7 +235,7 @@ static int do_modprobe(struct module_entry *m)
 		m2 = get_or_add_modentry(fn);
 		if (option_mask32 & MODPROBE_OPT_REMOVE) {
 			if (m2->flags & MODULE_FLAG_LOADED) {
-				if (bb_delete_module(m2->modname, O_EXCL) != 0) {
+				if (bb_delete_module(m2->modname, O_NONBLOCK|O_EXCL) != 0) {
 					if (first)
 						rc = errno;
 				} else {
