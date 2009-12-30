@@ -513,9 +513,6 @@ void wo_resolve(char *url)
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
-/* this value should not match any of the existing EFH_ values in shared.h */
-#define EFH_PRINT	0x00000080	/* output partition list to the web response */
-
 int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
 {
 	char the_label[128];
@@ -569,13 +566,11 @@ int is_host_mounted(int host_no, int print_parts)
 {
 	if (print_parts) web_puts("[-1,[");
 
-	int fd = nvram_get_int("usb_nolock") ? -1 : file_lock("usb");
 	int mounted = exec_for_host(
 		host_no,
 		0x00,
 		print_parts ? EFH_PRINT : 0,
 		is_partition_mounted);
-	file_unlock(fd);
 	
 	if (print_parts) web_puts("]]");
 
@@ -596,13 +591,15 @@ int is_host_mounted(int host_no, int print_parts)
  */
 void asp_usbdevices(int argc, char **argv)
 {
-	DIR *scsi_dir=NULL, *usb_dir=NULL;
-	struct dirent *dp, *scsi_dirent;
+	DIR *usb_dir=NULL;
+	struct dirent *dp;
 	uint host_no;
-	int i = 0, attached, mounted;
+	int last_hn = -1;
+	char *p, *p1;
+	int i = 0, mounted;
 	FILE *fp;
 	char line[128];
-	char *tmp=NULL, g_usb_vendor[30], g_usb_product[30], g_usb_serial[30];
+	char *tmp=NULL, g_usb_vendor[30], g_usb_product[30];
 
 	web_puts("\nusbdev = [");
 
@@ -612,6 +609,41 @@ void asp_usbdevices(int argc, char **argv)
 	}
 
 	/* find all attached USB storage devices */
+#if 1	// NZ = Get the info from the SCSI subsystem.
+	fp = fopen(PROC_SCSI_ROOT"/scsi", "r");
+	if (fp) {
+		while (fgets(line, sizeof(line), fp) != NULL) {
+			p = strstr(line, "Host: scsi");
+			if (p) {
+				host_no = atoi(p + 10);
+				if (host_no == last_hn)
+					continue;
+				last_hn = host_no;
+				if (fgets(line, sizeof(line), fp) != NULL) {
+					memset(g_usb_vendor, 0, sizeof(g_usb_vendor));
+					memset(g_usb_product, 0, sizeof(g_usb_product));
+					p = strstr(line, "  Vendor: ");
+					p1 = strstr(line + 10 + 8, " Model: ");
+					if (p && p1) {
+						strncpy(g_usb_vendor, p + 10, 8);
+						strncpy(g_usb_product, p1 + 8, 16);
+						web_printf("%s['Storage','%d','%s','%s','', [", i ? "," : "",
+							host_no, g_usb_vendor, g_usb_product);
+						mounted = is_host_mounted(host_no, 1);
+						web_printf("], %d]", mounted);
+						++i;
+					}
+				}
+			}
+		}
+		fclose(fp);
+	}
+#else	// Get the info from the usb/storage subsystem.
+	DIR *scsi_dir=NULL;
+	struct dirent *scsi_dirent;
+	char *g_usb_serial[30];
+	int attached;
+
 	scsi_dir = opendir(PROC_SCSI_ROOT);
 	while (scsi_dir && (scsi_dirent = readdir(scsi_dir)))
 	{
@@ -676,6 +708,7 @@ void asp_usbdevices(int argc, char **argv)
 	}
 	if (scsi_dir)
 		closedir(scsi_dir);
+#endif
 
 	/* now look for printers */
 	usb_dir = opendir("/proc/usblp");

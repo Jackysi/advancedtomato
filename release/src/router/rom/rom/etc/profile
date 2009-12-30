@@ -4,5 +4,9 @@ export PS1='\u@\h:\w\$ '
 alias l='ls -lFA'
 alias ll='ls -lF'
 
+ldd() {
+	LD_TRACE_LOADED_OBJECTS=1 $*;
+}
+
 [ -f /jffs/etc/profile ] && . /jffs/etc/profile
 [ -f /opt/etc/profile ] && . /opt/etc/profile

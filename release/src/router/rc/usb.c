@@ -195,12 +195,10 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 		}
 #ifdef TCONFIG_SAMBASRV
 		else if (strcmp(type, "vfat") == 0) {
-			if (nvram_invmatch("smbd_cset", ""))
-				sprintf(options, "iocharset=%s%s", 
-					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
-						nvram_get("smbd_cset"));
+			if (nvram_invmatch("smbd_cset", "") && isdigit(nvram_safe_get("smbd_cset")[0]))
+				sprintf(options, "iocharset=cp%s", nvram_safe_get("smbd_cset"));
 			if (nvram_invmatch("smbd_cpage", "")) {
-				char *cp = nvram_get("smbd_cpage");
+				char *cp = nvram_safe_get("smbd_cpage");
 				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), cp);
 				sprintf(flagfn, "nls_cp%s", cp);
 
@@ -373,6 +371,13 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 	int ret = 1, count;
 	char flagfn[128];
 
+		/* Kill all NAS applications here so they are not keeping the device busy,
+		 * unless it's an unmount request from the Web GUI.
+		 */
+		if ((flags & EFH_USER) == 0) {
+			restart_nas_services(1, 0);
+		}
+
 		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
 		run_nvscript("script_autostop", mnt->mnt_dir, 5);
 		count = 0;
@@ -509,12 +514,10 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 				 */
 				run_nvscript("script_usbumount", NULL, 3);
 			}
-			/* Kill all NAS applications here
-			 * so they are not keeping the device busy.
-			 */
-			restart_nas_services(1, 0);
 			exec_for_host(host_no, (flags & EFH_USER) ? 0x00 : 0x02, flags, umount_partition);
-			/* Restart NAS applications */
+			/* Restart NAS applications (they could be killed by umount_mountpoint),
+			 * or just re-read the configuration.
+			 */
 			restart_nas_services(0, 1);
 		}
 	}
@@ -530,98 +533,27 @@ void remove_storage_main(int shutdn)
 			run_nvscript("script_usbumount", NULL, 3);
 		}
 	}
-	restart_nas_services(1, 0);
+	if (shutdn)
+		restart_nas_services(1, 0);
 	/* Unmount all partitions */
 	exec_for_host(-1, 0x02, shutdn ? EFH_SHUTDN : 0, umount_partition);
 }
 
 
-/******* KLUDGE to try to workaround a kernel concurrency bug. *******/
-/*
- * There is no reason that we should have to serialize this code, but
- * we have to.  Otherwise we will occasionally lock up when
- * we repeatedly plug and unplug a hub with several USB storage devices
- * connected to it.  This is probably be a bug in the kernel.  Like some
- * critical data structure that isn't protected by a lock.  There's a
- * lot of kernel threads that are doing things to the USB device.
+/*******
+ * All the complex locking & checking code was removed when the kernel USB-storage
+ * bugs were fixed.
+ * The crash bug was with overlapped I/O to different USB drives, not specifically
+ * with mount processing.
  *
- * Oh well-----serializing this code seems to avoid the problem.
+ * And for USB devices that are slow to come up.  The kernel now waits until the
+ * USB drive has settled, and it correctly reads the partition table before calling
+ * the hotplug agent.
  *
- * Notes on testing the position of the lock.
- * Spawning 5 hotplug threads.  2 for hub, 3 scsi hosts.
- * 6 total partitions on 3 hosts. (1 & 2 & 3)
- * 1st for add, 2nd for remove, loop 20+ times.
- * No /etc/fstab.
- * "fails" = router locks up
- *
- * -- around everything:		works
- * -- around the (*func) call		fails
- * -- around all of exec_for_host	works
- * -- Around the "when to update"	fails
- * -- The when-to-update's & func code	works
- * -- Around the /proc/parts code	fails	
- *
- * It appears to crash when we try to do the mount (?? maybe BLKRRPART) of one
- * disk at the same time as the kernel is recognizing/processing another disk.
- * This can happen on bootup, or when a daisy-chained hub is plugged in.
- * And other times, when mounting lots of disks at once via the admin
- * interface.
- *
- * The problem isn't _this_ drive.  The problem is another drive that the
- * kernel is recognizing/processing (in another thread) _after_ this drive.
- * It we ask the kernel to do something with _this_ drive at the same time it is
- * working on _that_ later drive, then it tends to crash.
- * The work-around is to stall our processing of _this_ drive until after
- * the kernel has finished its work on _that_ drive.  Kinda hard for us to do,
- * since we don't yet know that _that_ drive even exists!
- * I've tried all sorts of things to try to detect/avoid the problem.
- * Thw worst time is when a hub & discs are first detected (bootup or initial
- * plugin.  Because the kernel automatically reads the partition table as the
- * disks are detected.
- */
-
-
-/* Get the size. It'll change as USB devices are added, detected, & removed. */
-unsigned int get_size(int host)
-{
-	char bfr[1024];
-	int fd;
-	int i = -1;
-	unsigned int total = 0;
-
-	fd = open("/proc/partitions", O_RDONLY);
-	if (fd >= 0) {
-		while ((i = read(fd, bfr, sizeof(bfr))) > 0) {
-			total += i;
-		}
-		close(fd);
-	}
-	//syslog(LOG_INFO, "**** Size: %4d  HN: %5i: %d  errno: %d\n", total, host, i, errno);
-	return(total);
-}
-
-
-/* Sleep for minimum of X seconds, waiting for the known partition
- * information to stabilize.  Each time we find that the
- * partition setup has changed, extend the time.
- * The part info will change whenever new partitions are discovered
- * or old ones are deleted.
- * This will happen with automatically by the kernel, or
- * explicitly by a user program doing an ioctl BLKRRPART.
- */
-void wait_for_stabilize(int tm, int host_num)
-{
-	int n = get_size(host_num);
-	int m;
-
-	while (--tm > 0) {
-		sleep(1);
-		m = get_size(host_num);
-		if (m != n)
-			++tm;
-		n = m;
-	}
-}
+ * The kernel patch was cleaning up data structures on an unplug.  It
+ * needs to wait until the disk is unmounted.  We have 20 seconds to do
+ * the unmounts.
+ *******/
 
 
 /* Plugging or removing usb device
@@ -696,8 +628,8 @@ void hotplug_usb(void)
 	char *device = getenv("DEVICE");
 	char *scsi_host = getenv("SCSI_HOST");
 
-	//_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s HOST=%s DEVICE=%s\n",
-	//	interface, action, product, scsi_host, device);
+	_dprintf("USB hotplug INTERFACE=%s ACTION=%s PRODUCT=%s HOST=%s DEVICE=%s\n",
+		interface, action, product, scsi_host, device);
 
 	if (!nvram_get_int("usb_enable")) return;
 	if (!interface || !action || !product)	/* Hubs bail out here. */
@@ -708,12 +640,10 @@ void hotplug_usb(void)
 
 	add = (strcmp(action, "add") == 0);
 	if (add && (strncmp(interface, "TOMATO/", 7) != 0)) {
-		/* Give the kernel time to settle down. */
-		syslog(LOG_DEBUG, "Waiting for device %s [INTERFACE=%s PRODUCT=%s] to settle before scanning",
+		syslog(LOG_DEBUG, "Attached USB device %s [INTERFACE=%s PRODUCT=%s]",
 			device, interface, product);
-		wait_for_stabilize(4, host);
+		file_unlock(file_lock("usb"));	/* To allow automount to be blocked on startup. */
 	}
-	int fd = nvram_get_int("usb_nolock") ? -1 : file_lock("usb");
 
 	if (strncmp(interface, "TOMATO/", 7) == 0) {	/* web admin */
 		if (scsi_host == NULL)
@@ -729,8 +659,6 @@ void hotplug_usb(void)
 		hotplug_usb_storage_device(host, add ? -1 : 0, EFH_USER);
 	}
 	else if (strncmp(interface, "8/", 2) == 0) {	/* usb storage */
-		if (add)
-			exec_for_host(host, 0x01, 0, (host_exec) NULL);	/* so the user's hotplug script mount can work. */
 		run_nvscript("script_usbhotplug", NULL, 2);
 		hotplug_usb_storage_device(host, add, host < 0 ? EFH_HUNKNOWN : 0);
 	}
@@ -738,7 +666,5 @@ void hotplug_usb(void)
 		/* Do nothing.  The user's hotplug script must do it all. */
 		run_nvscript("script_usbhotplug", NULL, 2);
 	}
-
-	file_unlock(fd);
 }
 
