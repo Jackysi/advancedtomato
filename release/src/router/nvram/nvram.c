@@ -28,13 +28,13 @@ static void help(void)
 	printf(
 		"NVRAM Utility\n"
 		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
-		"Usage: nvram set <key=value> | get <key> | unset <key> | "
-		"ren <key> <key> | commit | show [--nosort|--nostat] | "
-		"find <text> | defaults <--yes|--initcheck> | backup <filename> | "
-		"restore <filename> [--test] [--force] [--forceall] [--nocommit] | "
-		"export <--quote|--c|--dump|--dump0|--set|--tab> | "
-		"import [--forceall] | "
-		"setfb64 <key> <filename> | getfb64 <key> <filename>"
+		"Usage: nvram set <key=value> | get <key> | unset <key> |\n"
+		"ren <key> <key> | commit | show [--nosort|--nostat] |\n"
+		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
+		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
+		"export <--quote|--c|--dump|--dump0|--set|--tab> | import [--forceall] |\n"
+		"setfb64 <key> <filename> | getfb64 <key> <filename> |\n"
+		"setfile <key> <filename> | getfile <key> <filename> | setfile2nvram <filename>"
 //		"test"
 		"\n");
 	exit(1);
@@ -94,6 +94,28 @@ static int ren_main(int argc, char **argv)
 		nvram_unset(argv[1]);
 	}
 	return 0;
+}
+
+extern int nvram_file2nvram(const char *name, const char *filename);
+extern int nvram_nvram2file(const char *name, const char *filename);
+
+static int f2n_main(int argc, char **argv)
+{
+	return (nvram_file2nvram(argv[1], argv[2]));
+}
+
+
+static int n2f_main(int argc, char **argv)
+{
+	return (nvram_nvram2file(argv[1], argv[2]));
+}
+
+static int save2f_main(int argc, char **argv)
+{
+	char name[128] = "FILE:";
+
+	strcpy(name+5, argv[1]);
+	return (nvram_file2nvram(name, argv[1]));
 }
 
 static int show_main(int argc, char **argv)
@@ -783,6 +805,9 @@ static const applets_t applets[] = {
 	{ "restore",	-3,	restore_main	},
 	{ "setfb64",	4,	setfb64_main	},
 	{ "getfb64",	4,	getfb64_main	},
+	{ "setfile",		4,	f2n_main		},
+	{ "getfile",		4,	n2f_main		},
+	{ "setfile2nvram",	3,	save2f_main		},
 //	{ "test",		2,	test_main		},
 	{ NULL, 		0,	NULL			}
 };

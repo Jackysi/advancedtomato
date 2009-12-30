@@ -357,7 +357,7 @@ include/linux/compile.h: $(CONFIGURATION) include/linux/version.h newversion
 	@echo \#define UTS_VERSION \"`cat .ver1 | $(uts_truncate)`\" > .ver
 	@LANG=C echo \#define LINUX_COMPILE_TIME \"`date +%T`\" >> .ver
 	@echo \#define LINUX_COMPILE_BY \"root\" >> .ver
-	@echo \#define LINUX_COMPILE_HOST \"localhost\" >> .ver
+	@echo \#define LINUX_COMPILE_HOST \"tomato\" >> .ver
 	@([ -x /bin/dnsdomainname ] && /bin/dnsdomainname > .ver1) || \
 	 ([ -x /bin/domainname ] && /bin/domainname > .ver1) || \
 	 echo > .ver1

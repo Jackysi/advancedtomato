@@ -142,14 +142,14 @@ static int ntpc(struct in_addr addr)
 
 						strftime(s, sizeof(s), "%a, %d %b %Y %H:%M:%S %z", localtime(&tv.tv_sec));
 						sprintf(q, "Time Updated: %s [%s%lds]", s, diff > 0 ? "+" : "", diff);
-						printf("\n\n%s\n", q);
-						syslog(LOG_INFO, q);
 					}
 					else {
 						t = time(0);
 						strftime(s, sizeof(s), "%a, %d %b %Y %H:%M:%S %z", localtime(&t));
-						printf("\n\n%s\nNo change was needed.\n", s);
+						sprintf(q, "Time: %s, no change was needed.", s);
 					}
+					printf("\n\n%s\n", q);
+					syslog(LOG_INFO, q);
 					return 0;
 				}
 			}

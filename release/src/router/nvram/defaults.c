@@ -129,7 +129,8 @@ const defaults_t defaults[] = {
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"		},	// Service set ID (network name)
-	{ "wl_country",			"Worldwide"		},	// Country (default obtained from driver)
+	{ "wl_country",			"JP"		},		// Country (default obtained from driver)
+	{ "wl_country_code",		"JP"		},		// !!TB - Country (default to JP to allow all 14 channels)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
     { "wl_ap_isolate",		"0"				},	// AP isolate mode
@@ -162,6 +163,8 @@ const defaults_t defaults[] = {
 	{ "wl_wme",				"off"			},	// WME mode (off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
+	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
+	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -401,6 +404,7 @@ const defaults_t defaults[] = {
 	{ "sshd_rport",			"2222"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
+	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
