@@ -1,3 +1,4 @@
+
 /*
  * JFFS -- Journaling Flash File System, Linux implementation.
  *
@@ -10,7 +11,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Id: jffs_fm.h,v 1.13 2001/01/11 12:03:25 dwmw2 Exp $
+ * $Id: jffs_fm.h,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
  *
  * Ported to Linux 2.3.x and MTD:
  * Copyright (C) 2000  Alexander Larsson (alex@cendio.se), Cendio Systems AB
@@ -28,8 +29,24 @@
 /* The alignment between two nodes in the flash memory.  */
 #define JFFS_ALIGN_SIZE 4
 
-/* Mark the on-flash space as obsolete when appropriate.  */
-#define JFFS_MARK_OBSOLETE 0
+/* TESTING:# 64KB blocks to use instead of flash.
+* 0 = use flash.
+* NZ = use RAM.    1 means we'll need to do inplace GC.
+*/
+#define JFFS_RAM_BLOCKS 0
+
+#define CHK_INIT (~0)
+
+
+/* When rewriting nodes, any space that cannot hold at
+ * least this many data bytes will be discarded as too
+ * small to be useful.
+ * When writing a *data* node, ditto.
+ */
+#define MIN_USEFUL_DATA_SIZE 256
+
+
+/***********************************************************/
 
 #ifndef CONFIG_JFFS_FS_VERBOSE
 #define CONFIG_JFFS_FS_VERBOSE 1
@@ -38,22 +55,33 @@
 #if CONFIG_JFFS_FS_VERBOSE > 0
 #define D(x) x
 #define D1(x) D(x)
+#define D1printk(args...) printk(args)
 #else
 #define D(x)
 #define D1(x)
+#define D1printk(args...)
 #endif
 
 #if CONFIG_JFFS_FS_VERBOSE > 1
 #define D2(x) D(x)
+#define D2printk(args...) printk(args)
 #else
 #define D2(x)
+#define D2printk(args...)
 #endif
 
 #if CONFIG_JFFS_FS_VERBOSE > 2
 #define D3(x) D(x)
+#define D3printk(args...) printk(args)
 #else
 #define D3(x)
+#define D3printk(args...)
 #endif
+
+#define xD1(x) x	/* For temp.  Turn on printk */
+#define xD2(x) x
+#define xD3(x) x
+
 
 #define ASSERT(x) x
 
@@ -61,6 +89,7 @@
    on the flash?  */
 #define JFFS_GET_PAD_BYTES(size) ( (JFFS_ALIGN_SIZE-1) & -(__u32)(size) )
 #define JFFS_PAD(size) ( (size + (JFFS_ALIGN_SIZE-1)) & ~(JFFS_ALIGN_SIZE-1) )
+
 
 
 
@@ -87,21 +116,33 @@ struct jffs_fm
 
 struct jffs_fmcontrol
 {
-	__u32 flash_size;
-	__u32 used_size;
-	__u32 dirty_size;
-	__u32 free_size;
-	__u32 sector_size;
-	__u32 min_free_size;  /* The minimum free space needed to be able
-				 to perform garbage collections.  */
-	__u32 max_chunk_size; /* The maximum size of a chunk of data.  */
-	struct mtd_info *mtd;
-	struct jffs_control *c;
-	struct jffs_fm *head;
-	struct jffs_fm *tail;
-	struct jffs_fm *head_extra;
-	struct jffs_fm *tail_extra;
-	struct semaphore biglock;
+   __u32 flash_size;
+   __u32 used_size;
+   __u32 dirty_size;
+   __u32 free_size;
+   __u32 sector_size;
+   __u32 min_free_size;  /* The reserved free space size.  Needed to be able
+			  * to perform garbage collections.
+			  * 0 => do risky in-place rewrite. */
+   __u32 max_chunk_size; /* The maximum size of a chunk of data.  */
+   __u32 first_fm;	/* Fm_offset to use for very first fmalloc. */
+   unsigned long max_used_size;
+   unsigned long max_usewst_size;
+   unsigned long low_free_size;
+   unsigned long low_frewst_size;
+   long wasted_size;	/* Regions of nodes that have been copied
+			 * elsewhere and are therefore redundant and
+			 * wasted.  Happens when a node gets split.
+			 * Corrected when GC hits the node. */
+   char *aux_block;	/* RAM block to use for gc_inplace. */
+   int do_inplace_gc;	
+   struct mtd_info *mtd;
+   struct jffs_control *c;
+   struct jffs_fm *head;
+   struct jffs_fm *tail;
+   struct jffs_fm *head_extra;
+   struct jffs_fm *tail_extra;
+   struct semaphore biglock;
 };
 
 /* Notice the two members head_extra and tail_extra in the jffs_control
@@ -143,8 +184,20 @@ int jffs_add_node(struct jffs_node *node);
 void jffs_fmfree_partly(struct jffs_fmcontrol *fmc, struct jffs_fm *fm,
 			__u32 size);
 
+#if CONFIG_JFFS_FS_VERBOSE > 0
 void jffs_print_fmcontrol(struct jffs_fmcontrol *fmc);
+#endif
+#if CONFIG_JFFS_FS_VERBOSE > 2
 void jffs_print_fm(struct jffs_fm *fm);
+#endif
+#if 0
 void jffs_print_node_ref(struct jffs_node_ref *ref);
+#endif
+
+unsigned long used_in_head_block(struct jffs_control *c);
+int gc_inplace_begin(struct jffs_fmcontrol *fmc);
+void gc_inplace_end(struct jffs_fmcontrol *fmc, int erased);
+int flash_memset(struct jffs_fmcontrol *fmc, loff_t to,
+		 const u_char c, size_t size);
 
 #endif /* __LINUX_JFFS_FM_H__  */

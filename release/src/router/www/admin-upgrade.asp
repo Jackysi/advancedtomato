@@ -106,9 +106,9 @@ function upgrade()
 </div>
 
 <div class='note-disabledw' style='display:none' id='jwarn'>
-<b>Cannot upgrade if JFFS2 is enabled.</b><br><br>
-An upgrade may overwrite the JFFS2 partition currently in use. Before upgrading,
-please backup the contents of the JFFS2 partition, disable it, then reboot the router.<br><br><br>
+<b>Cannot upgrade if JFFS is enabled.</b><br><br>
+An upgrade may overwrite the JFFS partition currently in use. Before upgrading,
+please backup the contents of the JFFS partition, disable it, then reboot the router.<br><br><br>
 <a href='admin-jffs2.asp'>Disable &raquo;</a>
 </div>
 

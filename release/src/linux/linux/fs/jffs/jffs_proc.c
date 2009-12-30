@@ -5,7 +5,7 @@
  *
  * Created by Simon Kagstrom <simonk@axis.com>.
  *
- * $Id: jffs_proc.c,v 1.5 2001/06/02 14:34:55 dwmw2 Exp $
+ * $Id: jffs_proc.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -30,6 +30,11 @@
 #include <linux/types.h>
 #include "jffs_fm.h"
 #include "jffs_proc.h"
+
+unsigned long used_in_head_block(struct jffs_control *c);
+unsigned long free_in_tail_block(struct jffs_control *c);
+
+
 
 /*
  * Structure for a JFFS partition in the system
@@ -148,19 +153,6 @@ int jffs_unregister_jffs_proc_dir(struct jffs_control *c)
 				prev_part_dir->next = part_dir->next;
 			else
 				jffs_part_dirs = part_dir->next;
-
-			/*
-			 * Check to see if this is the last one
-			 * and remove the entry from '/proc/fs'
-			 * if it is.
-			 */
-			if (jffs_part_dirs == part_dir->next)
-#if LINUX_VERSION_CODE < 0x020300
-				remove_proc_entry ("jffs", &proc_root_fs);
-#else
-				remove_proc_entry ("jffs", proc_root_fs);
-#endif
-
 			/* Free memory for entry */
 			kfree(part_dir);
 
@@ -185,23 +177,45 @@ static int jffs_proc_info_read (char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
 	struct jffs_control *c = (struct jffs_control *) data;
+	struct jffs_fmcontrol *fmc = c->fmc;
 	int len = 0;
-
+	
 	/* Get information on the parition */
 	len += sprintf (page,
-		"partition size:     %08lX (%u)\n"
-		"sector size:        %08lX (%u)\n"
-		"used size:          %08lX (%u)\n"
-		"dirty size:         %08lX (%u)\n"
-		"free size:          %08lX (%u)\n\n",
-		(unsigned long) c->fmc->flash_size, c->fmc->flash_size,
-		(unsigned long) c->fmc->sector_size, c->fmc->sector_size,
-		(unsigned long) c->fmc->used_size, c->fmc->used_size,
-		(unsigned long) c->fmc->dirty_size, c->fmc->dirty_size,
-		(unsigned long) (c->fmc->flash_size -
-			(c->fmc->used_size + c->fmc->dirty_size)),
-		c->fmc->flash_size - (c->fmc->used_size + c->fmc->dirty_size));
-
+		"flash size:         %8lX (%lu)\n"
+		"sector size:        %8lX (%lu)\n"
+		"used size:          %8lX (%lu)\n"
+		"dirty size:         %8lX (%lu)\n"
+		"free size:          %8lX (%lu)\n"
+		"wasted size:        %8lX (%lu)\n"
+		"Highest used size:  %8lx (%lu)\n"
+                "Lowest free size:   %8lx (%lu)\n"
+		"Highest used-wst:   %8lx (%lu)\n"
+                "Lowest fre+wst:     %8lx (%lu)\n"
+		"head ofs:           %8lx\n"
+		"tail ofs:           %8lx\n"
+		"free_size 1:        %8lx (%lu)\n"
+		"free_size 2:        %8lx (%lu)\n",
+		(unsigned long)fmc->flash_size, (unsigned long)fmc->flash_size,
+		(unsigned long)fmc->sector_size, (unsigned long) fmc->sector_size,
+		(unsigned long)fmc->used_size, (unsigned long) fmc->used_size,
+		(unsigned long)fmc->dirty_size, (unsigned long)fmc->dirty_size,
+		(unsigned long)fmc->flash_size - (fmc->used_size + fmc->dirty_size),
+		(unsigned long)fmc->flash_size - (fmc->used_size + fmc->dirty_size),
+		fmc->wasted_size, fmc->wasted_size,
+		fmc->max_used_size, fmc->max_used_size,
+		fmc->low_free_size, fmc->low_free_size,
+		fmc->max_usewst_size, fmc->max_usewst_size,	
+		fmc->low_frewst_size, fmc->low_frewst_size,
+			
+		//(unsigned long)fmc->flash_size - (fmc->used_size + fmc->dirty_size) - fmc->min_free_size,
+		//(unsigned long)fmc->flash_size - (fmc->used_size + fmc->dirty_size) - fmc->min_free_size,
+			
+		(unsigned long)(fmc->head? fmc->head->offset : 0),
+		(unsigned long)(fmc->tail? fmc->tail->offset : 0),
+			
+		(unsigned long)jffs_free_size1(fmc), (unsigned long)jffs_free_size1(fmc),
+		(unsigned long)jffs_free_size2(fmc),	(unsigned long)jffs_free_size2(fmc));
 	/* We're done */
 	*eof = 1;
 
@@ -217,53 +231,70 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
 	struct jffs_control *c = (struct jffs_control *) data;
+	struct jffs_fmcontrol *fmc = c->fmc;
 	struct jffs_fm *fm = 0;
 	struct jffs_fm *last_fm = 0;
 	int len = 0;
-
+	unsigned long fre_siz;
+	unsigned long end_free, fst_free;
+	      
 	/* Get the first item in the list */
- 	fm = c->fmc->head;
-
-	/* Print free space */
-	if (fm && fm->offset) {
-		len += sprintf (page, "00000000 %08lX free\n",
-			(unsigned long) fm->offset);
-	}
-
+	down(&fmc->biglock);
+	fm = fmc->head;
+	fre_siz = fmc->flash_size - (fmc->used_size + fmc->dirty_size);
+	
 	/* Loop through all of the flash control structures */
 	while (fm && (len < (off + count))) {
-		if (fm->nodes) {
-			len += sprintf (page + len,
-				"%08lX %08lX ino=%08lX, ver=%08lX\n",
-				(unsigned long) fm->offset,
-				(unsigned long) fm->size,
-				(unsigned long) fm->nodes->node->ino,
-				(unsigned long) fm->nodes->node->version);
-		}
-		else {
-			len += sprintf (page + len,
-				"%08lX %08lX dirty\n",
-				(unsigned long) fm->offset,
-				(unsigned long) fm->size);
-		}
-		last_fm = fm;
-		fm = fm->next;
+	   if (len < count) {	/* don't print too much, or we'll get an OOPS. */
+	      if (fm->nodes) {
+		 len += sprintf (page + len,
+				 "%8lX %8lX ino=%7lu., ver=%04lX"
+				 " [ofs: %8lx  siz: %8lx  remv: %8lx]\n",
+				 (unsigned long) fm->offset,
+				 (unsigned long) fm->size,
+				 (unsigned long) fm->nodes->node->ino,
+				 (unsigned long) fm->nodes->node->version,
+				 (unsigned long) fm->nodes->node->data_offset,
+				 (unsigned long) fm->nodes->node->data_size,
+				 (unsigned long) fm->nodes->node->removed_size);
+#if 0
+		 len += sprintf (page + len, "\t\tthisnode: %8lx  ->fm: %8lx  fm->offset: %8lx  range_prev: %8lx  range_next: %8lx\n",
+				 (unsigned long)fm->nodes->node,
+				 (unsigned long)fm->nodes->node->fm,
+				 (unsigned long)fm->nodes->node->fm->offset,
+				 (unsigned long)fm->nodes->node->range_prev,
+				 (unsigned long)fm->nodes->node->range_next);
+	
+#endif
+	      }
+	      else {
+		 len += sprintf (page + len, "%8lX %8lX dirty\n",
+				 (unsigned long) fm->offset,
+				 (unsigned long) fm->size);
+	      }
+	   }
+	   last_fm = fm;
+	   fm = fm->next;
 	}
+	if (len >= count)
+	   len += sprintf (page + len,"     ...\n");
 
-	/* Print free space */
-	if ((len < (off + count)) && last_fm
-	    && (last_fm->offset < c->fmc->flash_size)) {
-		len += sprintf (page + len,
-			       "%08lX %08lX free\n",
-			       (unsigned long) last_fm->offset + 
-				last_fm->size,
-			       (unsigned long) (c->fmc->flash_size -
-						    (last_fm->offset + last_fm->size)));
+	/* Print free space after tail. */
+	fst_free = 0;
+	if (last_fm)
+	   fst_free = last_fm->offset + last_fm->size;
+	end_free = fst_free + fre_siz;
+	if (end_free > fmc->flash_size) { 	/* Up to wrap point. */
+	   len += sprintf (page + len, "%8lX %8lX FREE\n",
+			   (unsigned long) fst_free, fmc->flash_size - fst_free);
+	   fre_siz = end_free - fmc->flash_size;
+	   fst_free = 0;
 	}
-
-	/* We're done */
-	*eof = 1;
-
-	/* Return length */
+	if (fre_siz > 0) {
+	   len += sprintf (page + len, "%8lX %8lX FREE\n",
+			   fst_free, fre_siz);
+	}
+	*eof = 1;	/* We're done */
+	up(&fmc->biglock);
 	return len;
 }

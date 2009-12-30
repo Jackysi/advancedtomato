@@ -13,19 +13,24 @@
 
 //	#define TEST_INTEGRITY
 
+#ifdef LINUX26
+#define JFFS_NAME	"jffs2"
+#else
+#define JFFS_NAME	"jffs"
+#endif
 
 static void error(const char *message)
 {
 	char s[512];
 
-	snprintf(s, sizeof(s), "Error %s JFFS2. Check the logs to see if they contain more details about this error.", message);
-	notice_set("jffs2", s);
+	snprintf(s, sizeof(s), "Error %s JFFS. Check the logs to see if they contain more details about this error.", message);
+	notice_set("jffs", s);
 }
 
 void start_jffs2(void)
 {
 	if (!nvram_match("jffs2_on", "1")) {
-		notice_set("jffs2", "");
+		notice_set("jffs", "");
 		return;
 	}
 
@@ -68,11 +73,11 @@ void start_jffs2(void)
 		return;
 	}
 
-	modprobe("jffs2");
+	modprobe(JFFS_NAME);
 
 	sprintf(s, "/dev/mtdblock/%d", part);
-	if (mount(s, "/jffs", "jffs2", MS_NOATIME|MS_NODIRATIME, "") != 0) {
-		modprobe_r("jffs2");
+	if (mount(s, "/jffs", JFFS_NAME, MS_NOATIME|MS_NODIRATIME, "") != 0) {
+		modprobe_r(JFFS_NAME);
 		error("mounting");
 		return;
 	}
@@ -95,7 +100,7 @@ void start_jffs2(void)
 	}
 #endif
 
-	notice_set("jffs2", format ? "Formatted." : "");
+	notice_set("jffs", format ? "Formatted." : "Loaded.");
 
 	if (((p = nvram_get("jffs2_exec")) != NULL) && (*p != 0)) {
 		chdir("/jffs");
@@ -108,7 +113,7 @@ void stop_jffs2(void)
 {
 	if (!wait_action_idle(10)) return;
 
-	notice_set("jffs2", "");
+	notice_set("jffs", "stopped");
 	umount("/jffs");
-	modprobe_r("jffs2");
+	modprobe_r(JFFS_NAME);
 }
