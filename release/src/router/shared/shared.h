@@ -107,10 +107,15 @@ extern void add_remove_usbhost(char *host, int add);
 #define EFH_HUNKNOWN	0x00000004	/* host is unknown */
 #define EFH_USER	0x00000008	/* process is user-initiated - either via Web GUI or a script */
 #define EFH_SHUTDN	0x00000010	/* exec_for_host is called at shutdown - system is stopping */
+#define EFH_HP_ADD	0x00000020	/* exec_for_host is called from "add" hotplug event */
+#define EFH_HP_REMOVE	0x00000040	/* exec_for_host is called from "remove" hotplug event */
 #define EFH_PRINT	0x00000080	/* output partition list to the web response */
 
-typedef int (*host_exec)(char *dev_name, int host_num, int disc_num, int part_num, uint flags);
+typedef int (*host_exec)(char *dev_name, int host_num, char *dsc_name, char *pt_name, uint flags);
 extern int exec_for_host(int host, int obsolete, uint flags, host_exec func);
+#ifdef LINUX26
+extern int is_no_partition(const char *discname);
+#endif
 #endif //TCONFIG_USB
 
 // id.c

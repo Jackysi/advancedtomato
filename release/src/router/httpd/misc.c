@@ -534,7 +534,7 @@ void wo_resolve(char *url)
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
-int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
+int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_name, uint flags)
 {
 	char the_label[128];
 	char *type;
@@ -544,13 +544,13 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	unsigned long psize = 0;
 
 	if (!find_label_or_uuid(dev_name, the_label, NULL)) {
-		sprintf(the_label, "disc%d_%d", disc_num, part_num);
+		strncpy(the_label, pt_name, sizeof(the_label));
 	}
 
 	if (flags & EFH_PRINT) {
 		if (flags & EFH_1ST_DISC) {
-			// [disc_no, [partitions array]],...
-			web_printf("]],[%d,[", disc_num);
+			// [disc_name, [partitions array]],...
+			web_printf("]],['%s',[", dsc_name);
 		}
 		// [partition_name, is_mounted, mount_point, type, opts, size],...
 		web_printf("%s['%s',", (flags & EFH_1ST_DISC) ? "" : ",", the_label);
@@ -711,6 +711,9 @@ void asp_usbdevices(int argc, char **argv)
 						}
 					}
 					fclose(fp);
+#ifdef LINUX26
+					attached = (strlen(g_usb_product) > 0) || (strlen(g_usb_vendor) > 0);
+#endif
 					if (attached) {
 						/* Host no. assigned by scsi driver for this UFD */
 						host_no = atoi(dp->d_name);

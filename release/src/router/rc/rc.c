@@ -48,6 +48,11 @@ static int hotplug_main(int argc, char *argv[])
 		else if (strcmp(argv[1], "usb") == 0) {
 			hotplug_usb();
 		}
+#ifdef LINUX26
+		else if (strcmp(argv[1], "block") == 0) {
+			hotplug_usb();
+		}
+#endif
 #endif
 	}
 	return 0;
