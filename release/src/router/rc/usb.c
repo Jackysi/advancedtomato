@@ -371,6 +371,13 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 	int ret = 1, count;
 	char flagfn[128];
 
+		/* Kill all NAS applications here so they are not keeping the device busy,
+		 * unless it's an unmount request from the Web GUI.
+		 */
+		if ((flags & EFH_USER) == 0) {
+			restart_nas_services(1, 0);
+		}
+
 		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
 		run_nvscript("script_autostop", mnt->mnt_dir, 5);
 		count = 0;
@@ -507,12 +514,10 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 				 */
 				run_nvscript("script_usbumount", NULL, 3);
 			}
-			/* Kill all NAS applications here
-			 * so they are not keeping the device busy.
-			 */
-			restart_nas_services(1, 0);
 			exec_for_host(host_no, (flags & EFH_USER) ? 0x00 : 0x02, flags, umount_partition);
-			/* Restart NAS applications */
+			/* Restart NAS applications (they could be killed by umount_mountpoint),
+			 * or just re-read the configuration.
+			 */
 			restart_nas_services(0, 1);
 		}
 	}
@@ -528,7 +533,8 @@ void remove_storage_main(int shutdn)
 			run_nvscript("script_usbumount", NULL, 3);
 		}
 	}
-	restart_nas_services(1, 0);
+	if (shutdn)
+		restart_nas_services(1, 0);
 	/* Unmount all partitions */
 	exec_for_host(-1, 0x02, shutdn ? EFH_SHUTDN : 0, umount_partition);
 }
