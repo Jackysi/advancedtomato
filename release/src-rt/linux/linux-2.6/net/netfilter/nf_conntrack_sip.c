@@ -198,10 +198,10 @@ int ct_sip_lnlen(const char *line, const char *limit)
 {
 	const char *k = line;
 
-	while ((line <= limit) && (*line == '\r' || *line == '\n'))
+	while ((line < limit) && (*line == '\r' || *line == '\n'))
 		line++;
 
-	while (line <= limit) {
+	while (line < limit) {
 		if (*line == '\r' || *line == '\n')
 			break;
 		line++;
@@ -217,7 +217,7 @@ const char *ct_sip_search(const char *needle, const char *haystack,
 {
 	const char *limit = haystack + (haystack_len - needle_len);
 
-	while (haystack <= limit) {
+	while (haystack < limit) {
 		if (case_sensitive) {
 			if (strncmp(haystack, needle, needle_len) == 0)
 				return haystack;
@@ -235,7 +235,7 @@ static int digits_len(struct nf_conn *ct, const char *dptr,
 		      const char *limit, int *shift)
 {
 	int len = 0;
-	while (dptr <= limit && isdigit(*dptr)) {
+	while (dptr < limit && isdigit(*dptr)) {
 		dptr++;
 		len++;
 	}
@@ -246,7 +246,7 @@ static int digits_len(struct nf_conn *ct, const char *dptr,
 static int skp_digits_len(struct nf_conn *ct, const char *dptr,
 			  const char *limit, int *shift)
 {
-	for (; dptr <= limit && *dptr == ' '; dptr++)
+	for (; dptr < limit && *dptr == ' '; dptr++)
 		(*shift)++;
 
 	return digits_len(ct, dptr, limit, shift);
@@ -301,22 +301,25 @@ static int epaddr_len(struct nf_conn *ct, const char *dptr,
 static int skp_epaddr_len(struct nf_conn *ct, const char *dptr,
 			  const char *limit, int *shift)
 {
+	const char *start = dptr;
 	int s = *shift;
 
 	/* Search for @, but stop at the end of the line.
 	 * We are inside a sip: URI, so we don't need to worry about
 	 * continuation lines. */
-	while (dptr <= limit &&
+	while (dptr < limit &&
 	       *dptr != '@' && *dptr != '\r' && *dptr != '\n') {
 		(*shift)++;
 		dptr++;
 	}
 
-	if (dptr <= limit && *dptr == '@') {
+	if (dptr < limit && *dptr == '@') {
 		dptr++;
 		(*shift)++;
-	} else
+	} else {
+		dptr = start;
 		*shift = s;
+	}
 
 	return epaddr_len(ct, dptr, limit, shift);
 }
@@ -334,9 +337,10 @@ int ct_sip_get_info(struct nf_conn *ct,
 
 	limit = dptr + (dlen - hnfo->lnlen);
 
-	while (dptr <= limit) {
+	while (dptr < limit) {
 		if ((strncmp(dptr, hnfo->lname, hnfo->lnlen) != 0) &&
-		    (strncmp(dptr, hnfo->sname, hnfo->snlen) != 0)) {
+		    (hnfo->sname == NULL ||
+		     strncmp(dptr, hnfo->sname, hnfo->snlen) != 0)) {
 			dptr++;
 			continue;
 		}
@@ -437,15 +441,15 @@ static int sip_help(struct sk_buff **pskb,
 	}
 
 	datalen = (*pskb)->len - dataoff;
-	if (datalen < sizeof("SIP/2.0 200") - 1)
+	if (datalen < strlen("SIP/2.0 200"))
 		goto out;
 
 	/* RTP info only in some SDP pkts */
-	if (memcmp(dptr, "INVITE", sizeof("INVITE") - 1) != 0 &&
-	    memcmp(dptr, "UPDATE", sizeof("UPDATE") - 1) != 0 &&
-	    memcmp(dptr, "SIP/2.0 180", sizeof("SIP/2.0 180") - 1) != 0 &&
-	    memcmp(dptr, "SIP/2.0 183", sizeof("SIP/2.0 183") - 1) != 0 &&
-	    memcmp(dptr, "SIP/2.0 200", sizeof("SIP/2.0 200") - 1) != 0) {
+	if (strnicmp(dptr, "INVITE", strlen("INVITE")) != 0 &&
+	    strnicmp(dptr, "UPDATE", strlen("UPDATE")) != 0 &&
+	    strnicmp(dptr, "SIP/2.0 180", strlen("SIP/2.0 180")) != 0 &&
+	    strnicmp(dptr, "SIP/2.0 183", strlen("SIP/2.0 183")) != 0 &&
+	    strnicmp(dptr, "SIP/2.0 200", strlen("SIP/2.0 200")) != 0) {
 		goto out;
 	}
 	/* Get address and port from SDP packet. */

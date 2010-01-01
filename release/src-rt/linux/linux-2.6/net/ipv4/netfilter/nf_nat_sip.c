@@ -26,12 +26,6 @@ MODULE_AUTHOR("Christian Hentschel <chentschel@arnet.com.ar>");
 MODULE_DESCRIPTION("SIP NAT helper");
 MODULE_ALIAS("ip_nat_sip");
 
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
 struct addr_map {
 	struct {
 		char		src[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
@@ -79,12 +73,12 @@ static int map_sip_addr(struct sk_buff **pskb, enum ip_conntrack_info ctinfo,
 
 	if ((matchlen == map->addr[dir].srciplen ||
 	     matchlen == map->addr[dir].srclen) &&
-	    memcmp(*dptr + matchoff, map->addr[dir].src, matchlen) == 0) {
+	    strncmp(*dptr + matchoff, map->addr[dir].src, matchlen) == 0) {
 		addr    = map->addr[!dir].dst;
 		addrlen = map->addr[!dir].dstlen;
 	} else if ((matchlen == map->addr[dir].dstiplen ||
 		    matchlen == map->addr[dir].dstlen) &&
-		   memcmp(*dptr + matchoff, map->addr[dir].dst, matchlen) == 0) {
+		   strncmp(*dptr + matchoff, map->addr[dir].dst, matchlen) == 0) {
 		addr    = map->addr[!dir].src;
 		addrlen = map->addr[!dir].srclen;
 	} else
@@ -110,19 +104,19 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 	dataoff = ip_hdrlen(*pskb) + sizeof(struct udphdr);
 	datalen = (*pskb)->len - dataoff;
 	if (datalen < sizeof("SIP/2.0") - 1)
-		return NF_DROP;
+		return NF_ACCEPT;
 
 	addr_map_init(ct, &map);
 
 	/* Basic rules: requests and responses. */
-	if (strncmp(*dptr, "SIP/2.0", sizeof("SIP/2.0") - 1) != 0) {
+	if (strnicmp(*dptr, "SIP/2.0", strlen("SIP/2.0")) != 0) {
 		/* 10.2: Constructing the REGISTER Request:
 		 *
 		 * The "userinfo" and "@" components of the SIP URI MUST NOT
 		 * be present.
 		 */
-		if (datalen >= sizeof("REGISTER") - 1 &&
-		    strncmp(*dptr, "REGISTER", sizeof("REGISTER") - 1) == 0)
+		if (datalen >= strlen("REGISTER") &&
+		    strnicmp(*dptr, "REGISTER", strlen("REGISTER")) == 0)
 			pos = POS_REG_REQ_URI;
 		else
 			pos = POS_REQ_URI;
@@ -230,19 +224,19 @@ static void ip_nat_sdp_expect(struct nf_conn *ct,
 	/* This must be a fresh one. */
 	BUG_ON(ct->status & IPS_NAT_DONE_MASK);
 
-	/* Change src to where master sends to */
-	range.flags = IP_NAT_RANGE_MAP_IPS;
-	range.min_ip = range.max_ip
-		= ct->master->tuplehash[!exp->dir].tuple.dst.u3.ip;
-	/* hook doesn't matter, but it has to do source manip */
-	nf_nat_setup_info(ct, &range, NF_IP_POST_ROUTING);
-
 	/* For DST manip, map port here to where it's expected. */
 	range.flags = (IP_NAT_RANGE_MAP_IPS | IP_NAT_RANGE_PROTO_SPECIFIED);
 	range.min = range.max = exp->saved_proto;
 	range.min_ip = range.max_ip = exp->saved_ip;
 	/* hook doesn't matter, but it has to do destination manip */
 	nf_nat_setup_info(ct, &range, NF_IP_PRE_ROUTING);
+
+	/* Change src to where master sends to */
+	range.flags = IP_NAT_RANGE_MAP_IPS;
+	range.min_ip = range.max_ip
+		= ct->master->tuplehash[!exp->dir].tuple.dst.u3.ip;
+	/* hook doesn't matter, but it has to do source manip */
+	nf_nat_setup_info(ct, &range, NF_IP_POST_ROUTING);
 }
 
 /* So, this packet has hit the connection tracking matching code.
@@ -257,10 +251,12 @@ static unsigned int ip_nat_sdp(struct sk_buff **pskb,
 	__be32 newip;
 	u_int16_t port;
 
-	DEBUGP("ip_nat_sdp():\n");
-
 	/* Connection will come from reply */
-	newip = ct->tuplehash[!dir].tuple.dst.u3.ip;
+	if (ct->tuplehash[dir].tuple.src.u3.ip ==
+	    ct->tuplehash[!dir].tuple.dst.u3.ip)
+		newip = exp->tuple.dst.u3.ip;
+	else
+		newip = ct->tuplehash[!dir].tuple.dst.u3.ip;
 
 	exp->saved_ip = exp->tuple.dst.u3.ip;
 	exp->tuple.dst.u3.ip = newip;
