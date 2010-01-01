@@ -46,8 +46,7 @@ void start_nas(void)
 {
 	mode_t m;
 
-	if ((nvram_match("wl_mode", "wet")) || (nvram_match("wl0_radio", "0")) ||
-		(nvram_match("security_mode", "disabled"))) {
+	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled"))) {
 		return;
 	}
 
