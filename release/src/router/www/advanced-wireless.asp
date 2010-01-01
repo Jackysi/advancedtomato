@@ -25,9 +25,10 @@
 /* REMOVE-BEGIN
 	!!TB - Added wl_reg_mode, wl_country, wl_country_code, wl_btc_mode
 REMOVE-END */
-//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode"); %>
+//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode,wl_mimo_preamble"); %>
 
 hp = features('hpamp');
+nphy = features('11n');
 
 function verifyFields(focused, quiet)
 {
@@ -69,6 +70,7 @@ function save()
 	}
 
 	fom.wl_country.value = fom._wl_country_code.value;
+	fom.wl_nmode_protection.value = fom._wl_gmode_protection.value;
 
 	form.submit(fom, 1);
 }
@@ -95,6 +97,7 @@ function save()
 
 <input type='hidden' name='wl_distance'>
 <input type='hidden' name='wl_country'>
+<input type='hidden' name='wl_nmode_protection'>
 
 <div class='section-title'>Settings</div>
 <div class='section'>
@@ -147,6 +150,8 @@ REMOVE-END */
 		value: nvram.wl_mrate },
 	{ title: 'Preamble', name: 'wl_plcphdr', type: 'select', options: [['long','Long *'],['short','Short']],
 		value: nvram.wl_plcphdr },
+	{ title: '802.11n Preamble', name: 'wl_mimo_preamble', type: 'select', options: [['auto','Auto'],['mm','Mixed Mode *'],['gf','Green Field'],['gfbcm','GF-BRCM']],
+		value: nvram.wl_mimo_preamble, hidden: !nphy },
 	{ title: 'RTS Threshold', name: 'wl_rts', type: 'text', maxlen: 4, size: 6,
 		suffix: ' <small>(range: 0 - 2347; default: 2347)</small>', value: nvram.wl_rts },
 	{ title: 'Receive Antenna', name: 'wl_antdiv', type: 'select', options: [['3','Auto *'],['1','A'],['0','B']],

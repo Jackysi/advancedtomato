@@ -112,6 +112,8 @@ void asp_wlscan(int argc, char **argv)
 
 #if WL_BSS_INFO_VERSION >= 108
 		channel = CHSPEC_CHANNEL(bssi->chanspec);
+		if (CHSPEC_IS40(bssi->chanspec))
+			channel = channel + (CHSPEC_SB_LOWER(bssi->chanspec) ? -2 : 2);
 #else
 		channel = bssi->channel;
 #endif
@@ -251,43 +253,189 @@ void asp_wlclient(int argc, char **argv)
 	web_puts(wl_client() ? "1" : "0");
 }
 
+void asp_wlnbw(int argc, char **argv)
+{
+	int chanspec;
+
+	if (wl_iovar_getint(nvram_safe_get("wl_ifname"), "chanspec", &chanspec))
+		web_puts(nvram_safe_get("wl_nbw"));
+	else
+		web_printf("%d", CHSPEC_IS40(chanspec) ? 40 : 20);
+}
+
+void asp_wlnctrlsb(int argc, char **argv)
+{
+	int chanspec;
+
+	if (wl_iovar_getint(nvram_safe_get("wl_ifname"), "chanspec", &chanspec))
+		web_puts(nvram_safe_get("wl_nctrlsb"));
+	else
+		web_puts(CHSPEC_SB_LOWER(chanspec) ? "lower" : CHSPEC_SB_UPPER(chanspec) ? "upper" : "none");
+}
+
+static int wl_chanfreq(uint ch, int band)
+{
+	if ((band == WLC_BAND_2G && (ch < 1 || ch > 14)) || (ch > 200))
+		return -1;
+	else if ((band == WLC_BAND_2G) && (ch == 14))
+		return 2484;
+	else
+		return ch * 5 + ((band == WLC_BAND_2G) ? 4814 : 10000) / 2;
+}
+
 void asp_wlchannel(int argc, char **argv)
 {
 	channel_info_t ch;
+	int chanspec, channel;
+	int phytype, band, scan = 0;
 
-	if (wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_CHANNEL, &ch, sizeof(ch)) < 0) {
-		web_puts(nvram_safe_get("wl_channel"));
+	char *ifname = nvram_safe_get("wl_ifname");
+
+	/* Get configured phy type */
+	wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
+	wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band));
+
+	channel = nvram_get_int("wl_channel");
+	if (phytype != WLC_PHY_TYPE_N) {
+		if (wl_ioctl(ifname, WLC_GET_CHANNEL, &ch, sizeof(ch)) == 0) {
+			scan = (ch.scan_channel > 0);
+			channel = (scan) ? ch.scan_channel : ch.hw_channel;
+		}
+	} else {
+		if (wl_iovar_getint(ifname, "chanspec", &chanspec) == 0) {
+			channel = CHSPEC_CHANNEL(chanspec);
+			if (CHSPEC_IS40(chanspec))
+				channel = channel + (CHSPEC_SB_LOWER(chanspec) ? -2 : 2);
+		}
 	}
-	else {
-		web_printf("%d", (ch.scan_channel > 0) ? -ch.scan_channel : ch.hw_channel);
+
+	if (argc == 0) {
+		int mhz;
+		if (channel == 0)
+			web_puts("Auto");
+		else if ((mhz = wl_chanfreq(channel, band)) > 0)
+			web_printf("%d - %.3f <small>GHz</small>%s", channel, mhz / 1000.0,
+				(scan) ? " <small>(scanning...)</small>" : "");
+		else
+			web_printf("%d%s", channel,
+				(scan) ? " <small>(scanning...)</small>" : "");
+	}
+	else
+		web_printf("%s%d", scan ? "-" : "", channel);
+}
+
+static void web_print_wlchan(uint chan, int band)
+{
+	int mhz;
+	if ((mhz = wl_chanfreq(chan, band)) > 0)
+		web_printf(",['%d', '%d - %.3f GHz']", chan, chan, mhz / 1000.0);
+	else
+		web_printf(",['%d', '%d']", chan, chan);
+}
+
+static void _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrlsb)
+{
+	chanspec_t c = 0, *chanspec;
+	int buflen;
+	wl_uint32_list_t *list;
+	int i = 0;
+
+	char *buf = (char *)malloc(WLC_IOCTL_MAXLEN);
+	if (!buf)
+		return;
+
+	strcpy(buf, "chanspecs");
+	buflen = strlen(buf) + 1;
+
+	c |= (band == WLC_BAND_5G) ? WL_CHANSPEC_BAND_5G : WL_CHANSPEC_BAND_2G;
+	c |= (bw == 20) ? WL_CHANSPEC_BW_20 : WL_CHANSPEC_BW_40;
+
+	chanspec = (chanspec_t *)(buf + buflen);
+	*chanspec = c;
+	buflen += (sizeof(chanspec_t));
+	strncpy(buf + buflen, country, WLC_CNTRY_BUF_SZ);
+	buflen += WLC_CNTRY_BUF_SZ;
+
+	/* Add list */
+	list = (wl_uint32_list_t *)(buf + buflen);
+	list->count = WL_NUMCHANSPECS;
+	buflen += sizeof(uint32)*(WL_NUMCHANSPECS + 1);
+
+	if (wl_ioctl(ifname, WLC_GET_VAR, buf, buflen) < 0) {
+		free((void *)buf);
+		return;
+	}
+
+	list = (wl_uint32_list_t *)buf;
+	for (i = 0; i < list->count; i++) {
+		c = (chanspec_t)list->element[i];
+		/* Skip upper.. (take only one of the lower or upper) */
+		if (bw == 40 && (CHSPEC_CTL_SB(c) != ctrlsb))
+			continue;
+		/* Create the actual control channel number from sideband */
+		int chan = CHSPEC_CHANNEL(c);
+		if (bw == 40)
+			chan += ((ctrlsb == WL_CHANSPEC_CTL_SB_UPPER) ? 2 : -2);
+		web_print_wlchan(chan, band);
+	}
+
+	free((void *)buf);
+}
+
+static void _wlchannels(char *ifname, char *country, int band)
+{
+	int i;
+	wl_channels_in_country_t *cic;
+
+	cic = (wl_channels_in_country_t *)malloc(WLC_IOCTL_MAXLEN);
+	if (cic) {
+		cic->buflen = WLC_IOCTL_MAXLEN;
+		strcpy(cic->country_abbrev, country);
+		cic->band = band;
+
+		if (wl_ioctl(ifname, WLC_GET_CHANNELS_IN_COUNTRY, cic, cic->buflen) == 0) {
+			for (i = 0; i < cic->count; i++) {
+				web_print_wlchan(cic->channel[i], band);
+			}
+		}
+		free((void *)cic);
 	}
 }
 
 void asp_wlchannels(int argc, char **argv)
 {
-	char s[40];
-	int d[14];
-	FILE *f;
-	int n, i;
-	const char *ghz[] = {
-		"2.412", "2.417", "2.422", "2.427", "2.432", "2.437", "2.442",
-		"2.447", "2.452", "2.457", "2.462", "2.467", "2.472", "2.484"};
+	char buf[WLC_CNTRY_BUF_SZ];
+	int band, phytype, nphy;
+	int bw, ctrlsb, chanspec;
+	char *ifname = nvram_safe_get("wl_ifname");
+
+	wl_ioctl(ifname, WLC_GET_COUNTRY, buf, sizeof(buf));
+	wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band));
+	wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
+	wl_iovar_getint(ifname, "chanspec", &chanspec);
+
+	if (argc > 0)
+		nphy = atoi(argv[0]);
+	else
+		nphy = (phytype == WLC_PHY_TYPE_N);
+	if (argc > 1)
+		bw = atoi(argv[1]);
+	else
+		bw = CHSPEC_IS40(chanspec) ? 40 : 20;
+	if (argc > 2) {
+		if (strcmp(argv[2], "upper") == 0)
+			ctrlsb = WL_CHANSPEC_CTL_SB_UPPER;
+		else
+			ctrlsb = WL_CHANSPEC_CTL_SB_LOWER;
+	}
+	else
+		ctrlsb = CHSPEC_CTL_SB(chanspec);
 
 	web_puts("\nwl_channels = [\n['0', 'Auto']");
-	if ((f = popen("wl channels", "r")) != NULL) {
-		if (fgets(s, sizeof(s), f)) {
-			n = sscanf(s, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d",
-				&d[0], &d[1], &d[2], &d[3],  &d[4],  &d[5],  &d[6],
-				&d[7], &d[8], &d[9], &d[10], &d[11], &d[12], &d[13]);
-			for (i = 0; i < n; ++i) {
-				if (d[i] <= 14) {
-					web_printf(",['%d', '%d - %s GHz']",
-						d[i], d[i], ghz[d[i] - 1]);
-				}
-			}
-		}
-		fclose(f);
-	}
+	if (nphy && (phytype == WLC_PHY_TYPE_N))
+		_wlchanspecs(ifname, buf, band, bw, ctrlsb);
+	else
+		_wlchannels(ifname, buf, band);
 	web_puts("];\n");
 }
 

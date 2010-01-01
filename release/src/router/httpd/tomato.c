@@ -257,6 +257,8 @@ const aspapi_t aspapi[] = {
 	{ "wlclient",			asp_wlclient		},
 	{ "wlcrssi",			asp_wlcrssi			},
 	{ "wlnoise",			asp_wlnoise			},
+	{ "wlnbw",			asp_wlnbw			},
+	{ "wlnctrlsb",			asp_wlnctrlsb			},
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
 	{ "wlchannels",			asp_wlchannels	},	//!!TB
@@ -447,10 +449,12 @@ static const nvset_t nvset_list[] = {
 	{ "wl_akm",				V_LENGTH(0, 32)		},	//  wpa, wpa2, psk, psk2, wpa wpa2, psk psk2, ""
 	{ "wl_auth_mode",	   	V_LENGTH(4, 6)		},	//  none, radius
 
-#if TOMATO_N
 	{ "wl_nmode",			V_NONE				},
 	{ "wl_nreqd",			V_NONE				},
-#endif
+	{ "wl_nbw_cap",			V_RANGE(0, 2)			},	// 0 - 20MHz, 1 - 40MHz, 2 - Auto
+	{ "wl_nbw",			V_NONE				},
+	{ "wl_mimo_preamble",		V_WORD				},	// 802.11n Preamble: mm/gf/auto/gfbcm
+	{ "wl_nctrlsb",			V_NONE				},	// none, lower, upper
 
 // basic-wfilter
 	{ "wl_macmode",			V_NONE				},	// allow, deny, disabled
@@ -532,10 +536,8 @@ static const nvset_t nvset_list[] = {
 	{ "wlx_hperx",			V_01				},
 	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
 
-#if TOMATO_N
-	{ "wl_nmode_protection",V_WORD,				},	// off, auto
-	{ "wl_nmcsidx",			V_RANGE(-2, 15),	},	// -2 - 15
-#endif
+	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
+	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
 
 // forward-dmz
 	{ "dmz_enable",			V_01				},
