@@ -664,6 +664,46 @@ static int init_nvram(void)
 		nvram_set("opo", "0x0008");
 		nvram_set("ag0", "0x0C");
 		break;
+	case MODEL_RTN10:
+		mfr = "Asus";
+		name = "RT-N10";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan1ports", "4 5");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_RTN12:
+		mfr = "Asus";
+		name = "RT-N12";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan0ports", "3 2 1 0 5*");
+			nvram_set("vlan1ports", "4 5");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_RTN16:
+		mfr = "Asus";
+		name = "RT-N16";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("vlan_enable", "1");
+			nvram_set("vlan1ports", "4 3 2 1 8*");
+			nvram_set("vlan2ports", "0 8");
+			nvram_set("t_fix1", name);
+		}
+		break;
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
