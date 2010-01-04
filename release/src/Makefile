@@ -215,11 +215,34 @@ define BusyboxKernelConfig
 endef
 endif
 
+# $(1) - linux/linux[-2.6]/config_$@
+
+ifeq ($(CONFIG_LINUX26),y)
+define KernelConfigMips
+	@( \
+	if [ "$(MIPS32)" = "r2" ]; then \
+		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
+		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \
+		sed -i "/CONFIG_CPU_MIPS32_R2/d" $(1); \
+		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
+		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
+		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
+	fi; \
+	)
+endef
+else
+define KernelConfigMips
+#	nothing for kernel 2.4
+endef
+endif
+
 ## Make the "normal" build
 a:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=A DESC="Std" USB="USB"
@@ -229,10 +252,12 @@ a:
 b:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_SSH/d" router/config_$@
 	@echo "# TCONFIG_SSH is not set" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=B DESC="No SSH" USB="USB"
@@ -242,10 +267,12 @@ b:
 c:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
 	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
@@ -258,10 +285,12 @@ c:
 d:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
@@ -282,6 +311,7 @@ d:
 e:
 	@cp router/config_base router/config_$@	
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_LZO/d" router/config_$@
 	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
@@ -292,6 +322,7 @@ e:
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
@@ -303,12 +334,14 @@ e:
 m:
 	@cp router/config_base router/config_$@	
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
@@ -320,6 +353,7 @@ m:
 s:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
@@ -328,6 +362,7 @@ s:
 	@sed -i "/TCONFIG_USB/d" router/config_$@
 	@echo "# TCONFIG_USB is not set" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -348,6 +383,10 @@ s:
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="" USB=""
 	@$(MAKE) all
+
+## Make Asus RT-N16 (mips32r2 CPU) build
+n16:
+	@$(MAKE) m MIPS32=r2
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -390,6 +429,12 @@ setprofile:
 		ln -s config_$(lowercase_B) config_current ; \
 		cp config_current .config
 	@$(MAKE) -C router/busybox oldconfig
+
+	@cd $(LINUXDIR) ; \
+		rm -f config_current ; \
+		ln -s config_$(lowercase_B) config_current ; \
+		cp config_current .config
+	@$(MAKE) -C $(LINUXDIR) oldconfig
 
 cleanlibc:
 #	@$(MAKE) -C ../../tools-src/uClibc clean
