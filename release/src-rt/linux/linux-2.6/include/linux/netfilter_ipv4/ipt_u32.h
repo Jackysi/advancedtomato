@@ -34,6 +34,7 @@ struct ipt_u32_test
 struct ipt_u32
 {
 	u_int8_t ntests;
+	u_int8_t invert;
 	struct ipt_u32_test tests[U32MAXSIZE+1];
 };
 
