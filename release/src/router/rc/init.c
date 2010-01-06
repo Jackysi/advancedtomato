@@ -893,6 +893,11 @@ static void sysinit(void)
 		modprobe("et");
 	}
 #endif
+
+#ifdef CONFIG_BCMWL5
+	modprobe("emf");
+	modprobe("igs");
+#endif
 	modprobe("wl");
 	modprobe("tomato_ct");
 
@@ -991,6 +996,7 @@ int init_main(int argc, char *argv[])
 			start_lan();
 			start_wan(BOOT);
 			start_services();
+			start_wl();
 
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));

@@ -524,7 +524,8 @@ get_ifname_unit(const char* ifname, int *unit, int *subunit)
 	return 0;
 }
 
-#if 0
+#ifdef CONFIG_BCMWL5
+
 /* In the space-separated/null-terminated list(haystack), try to
  * locate the string "needle"
  */
@@ -661,7 +662,7 @@ ure_any_enabled(void)
 		return 0;
 }
 
-#endif	// 0
+#endif	// CONFIG_BCMWL5
 
 #define WLMBSS_DEV_NAME	"wlmbss"
 #define WL_DEV_NAME "wl"

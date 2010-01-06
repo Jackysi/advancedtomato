@@ -144,6 +144,11 @@ extern void hotplug_net(void);
 extern void do_static_routes(int add);
 extern int radio_main(int argc, char *argv[]);
 extern int wldist_main(int argc, char *argv[]);
+#ifdef CONFIG_BCMWL5
+extern void start_wl(void);
+#else
+static inline void start_wl(void) { };
+#endif
 
 // dhcpc.c
 extern int dhcpc_event_main(int argc, char **argv);

@@ -1512,13 +1512,16 @@ TOP:
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
 			stop_wan();
+			stop_nas();
 			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
+			start_nas();
 			start_wan(BOOT);
+			start_wl();
 		}
 		goto CLEAR;
 	}

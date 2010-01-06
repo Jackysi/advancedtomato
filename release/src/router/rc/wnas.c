@@ -41,10 +41,7 @@
 
 void start_nas(void)
 {
-	mode_t m;
-
-	if ((nvram_match("wl_mode", "wet")) || (nvram_match("wl0_radio", "0")) ||
-		(nvram_match("security_mode", "disabled"))) {
+	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled"))) {
 		return;
 	}
 
@@ -56,9 +53,16 @@ void start_nas(void)
 	_dprintf("%s\n", __FUNCTION__);
 #endif	
 
+#ifdef CONFIG_BCMWL5
+	eval("eapd");
+	eval("nas");
+#else
+	mode_t m;
+
 	m = umask(0077);
 	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", nvram_match("wl_mode", "sta") ? "wan" : "lan");
 	umask(m);
+#endif /* CONFIG_BCMWL5 */
 }
 
 void stop_nas(void)
@@ -71,7 +75,10 @@ void stop_nas(void)
 	_dprintf("%s\n", __FUNCTION__);
 #endif
 
-	killall("nas", SIGTERM);
+	killall_tk("nas");
+#ifdef CONFIG_BCMWL5
+	killall_tk("eapd");
+#endif /* CONFIG_BCMWL5 */
 }
 
 void notify_nas(const char *ifname)
@@ -83,6 +90,15 @@ void notify_nas(const char *ifname)
 #else
 	_dprintf("%s: ifname=%s\n", __FUNCTION__, ifname);
 #endif
+
+#ifdef CONFIG_BCMWL5
+
+	/* Inform driver to send up new WDS link event */
+	if (wl_iovar_setint((char *)ifname, "wds_enable", 1)) {
+		_dprintf("%s: set wds_enable failed\n", ifname);
+	}
+
+#else	/* !CONFIG_BCMWL5 */
 
 	if (nvram_match("security_mode", "disabled")) return;
 	
@@ -105,6 +121,8 @@ void notify_nas(const char *ifname)
 		nvram_safe_get("wl_wpa_psk"),	// shared key
 		nvram_safe_get("wl_ssid")		// ssid
 	);
+
+#endif /* CONFIG_BCMWL5 */
 }
 
 
