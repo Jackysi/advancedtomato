@@ -1408,6 +1408,8 @@ void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb)
 	}
 
 	usbmon_urb_complete (&hcd->self, urb);
+	usb_unanchor_urb(urb);
+
 	/* pass ownership to the completion handler */
 	urb->complete (urb);
 	atomic_dec (&urb->use_count);
