@@ -1603,6 +1603,7 @@ int scsi_add_single_device(struct Scsi_Host *shpnt, int channel,
 		}
 	}
 	if (scd) {
+		scd->online = TRUE;  /* Say that it's back online. */
 		up(&scsi_host_internals_lock);
 		return -ENOSYS;
 	}
@@ -1666,6 +1667,7 @@ int scsi_remove_single_device(struct Scsi_Host *shpnt, int channel,
 	/* See if the specified device is busy.  Doesn't this race with
 	 * sd_open(), sd_release() and similar?  Why don't they lock
 	 * things when they increment/decrement the access_count? */
+	scd->online = FALSE;  /* Don't attempt to spin it up or read capacity---it's gone! Or to read from it. */
 	if (scd->access_count) {
 		up(&scsi_host_internals_lock);
 		return -EBUSY;
@@ -1704,6 +1706,42 @@ int scsi_remove_single_device(struct Scsi_Host *shpnt, int channel,
 	return 0;
 }
 
+/* Operations that can be called from other layers. Such as usb.
+ * opcode:
+ * 0xacc = Return the access count of all devices on this host.
+ * 0x0ff = Mark all of them offline.
+ * lun < 0 means to do all luns.
+ * returns of <0 means error.
+ */
+int scsi_magic_ops(struct Scsi_Host *shpnt, int channel,
+	int id, int lun, int opcode)
+{
+	Scsi_Device *scd;
+	int rtn = 0;
+	int found = 0;
+
+	/* Do a bit of sanity checking */
+	if (shpnt == NULL)
+		return -ENODEV;
+
+	down(&scsi_host_internals_lock);
+	for (scd = shpnt->host_queue; scd; scd = scd->next) {
+		if (lun >= 0 && scd->lun != lun)
+			continue;
+		++found;
+		if (opcode == 0xacc)
+			rtn += scd->access_count;
+		else if (opcode == 0x0ff)
+			scd->online = FALSE;
+		else
+			rtn = -EINVAL;
+	}
+	up(&scsi_host_internals_lock);
+	if (!found)
+		rtn = -ENODEV;
+	return (rtn);
+}
+        
 #ifdef CONFIG_PROC_FS
 static int scsi_proc_info(char *buffer, char **start, off_t offset, int length)
 {

@@ -475,6 +475,8 @@ struct usb_driver {
 	int (*ioctl)(struct usb_device *dev, unsigned int code, void *buf);
 
 	const struct usb_device_id *id_table;
+
+	int (*magic_ops)(void *, int opcode, int lun);
 };
 	
 /*----------------------------------------------------------------------------* 

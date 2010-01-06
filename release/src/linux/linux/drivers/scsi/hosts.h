@@ -554,6 +554,8 @@ extern int scsi_add_single_device(struct Scsi_Host *shpnt,
 	int channel, int id, int lun);
 extern int scsi_remove_single_device(struct Scsi_Host *shpnt,
 	int channel, int id, int lun);
+extern int scsi_magic_ops(struct Scsi_Host *shpnt, int channel,
+	int id, int lun, int opcode);
 
 /* These are used by loadable modules */
 extern int scsi_register_module(int, void *);

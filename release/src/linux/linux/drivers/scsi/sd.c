@@ -42,6 +42,7 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
+#include <linux/delay.h>
 
 #include <linux/smp.h>
 
@@ -267,7 +268,7 @@ static int sd_ioctl(struct inode * inode, struct file * file, unsigned int cmd, 
 			if (cmd == SCSI_IOCTL_STOP_UNIT) {
 				rscsi_disks[DEVICE_NR(dev)].spindown = 1;
         			sd_devname(DEVICE_NR(dev), nbuf);
-				/* printk(KERN_INFO "%s: Spinning down disk.\n",nbuf); */
+				printk(KERN_INFO "%s: Spinning down disk.\n",nbuf);
 			}
 			if (cmd == SCSI_IOCTL_START_UNIT) {
 				rscsi_disks[DEVICE_NR(dev)].spindown = 0;
@@ -737,9 +738,7 @@ static void rw_intr(Scsi_Cmnd * SCpnt)
 
 static void sd_start (Scsi_Cmnd * SCpnt)
 {
-	unsigned char cmd[12];
 	int old_use_sg = SCpnt->use_sg, oldbufflen = SCpnt->bufflen;
-	Scsi_Device * dev = rscsi_disks[DEVICE_NR(SCpnt->request.rq_dev)].device;
 	sd_init_onedisk(DEVICE_NR(SCpnt->request.rq_dev));
 	rscsi_disks[DEVICE_NR(SCpnt->request.rq_dev)].spindown = 0;
 	SCpnt->use_sg  = old_use_sg;
@@ -813,6 +812,22 @@ static int check_scsidisk_media_change(kdev_t full_dev)
 	return retval;
 }
 
+/** scsi_status_is_good - check the status return.
+ * Taken from 2.6
+ *
+ * This returns true for known good conditions that may be treated as
+ * command completed normally
+ */
+static inline int scsi_status_is_good(int status)
+{
+	status &= 0xfe;
+	return ((status == SAM_STAT_GOOD) ||
+		(status == SAM_STAT_INTERMEDIATE) ||
+		(status == SAM_STAT_INTERMEDIATE_CONDITION_MET) ||
+		/* FIXME: this is obsolete in SAM-3 */
+		(status == SAM_STAT_COMMAND_TERMINATED));
+}
+
 static int sd_init_onedisk(int i)
 {
 	unsigned char cmd[10];
@@ -823,6 +838,7 @@ static int sd_init_onedisk(int i)
 	unsigned int the_result;
 	int sector_size;
 	Scsi_Request *SRpnt;
+	int tur_retry_cnt;
 
 	/*
 	 * Get the name of the disk, in case we need to log it somewhere.
@@ -837,11 +853,12 @@ static int sd_init_onedisk(int i)
 		return i;
 
 	/*
-	 * We need to retry the READ_CAPACITY because a UNIT_ATTENTION is
+	 * We need to retry the READ_CAPACITY because a UNIT_ATTENTION (0x06) is
 	 * considered a fatal error, and many devices report such an error
 	 * just after a scsi bus reset.
 	 */
 
+	printk("%s: Waiting for disc %d to settle.\n", nbuff, i);
 	SRpnt = scsi_allocate_request(rscsi_disks[i].device);
 	if (!SRpnt) {
 		printk(KERN_WARNING "(sd_init_onedisk:) Request allocation failure.\n");
@@ -856,12 +873,19 @@ static int sd_init_onedisk(int i)
 	}
 
 	spintime = 0;
+	tur_retry_cnt = 40;
 
 	/* Spin up drives, as required.  Only do this at boot time */
 	/* Spinup needs to be done for module loads too. */
+	/* Some USB units have slow firmware and take a long time to become ready.
+	 * This is particularly the case for older devices or those with several
+	 * luns, such as camera card readers.
+	 * The worst I've seen for a valid disk is NOT_READY (0x02) for 300 msec, then
+	 * UNIT_ATTENTION (0x06) once or twice, then success.
+	 * Keep trying for 2 seconds with 50 msec delay between checks.
+	 */
 	do {
-		retries = 0;
-
+		retries = tur_retry_cnt;
 		do {
 			cmd[0] = TEST_UNIT_READY;
 			cmd[1] = (rscsi_disks[i].device->scsi_level <= SCSI_2) ?
@@ -876,18 +900,19 @@ static int sd_init_onedisk(int i)
 				0/*512*/, SD_TIMEOUT, MAX_RETRIES);
 
 			the_result = SRpnt->sr_result;
-			retries++;
-		} while (retries < 3
-			 && (the_result !=0
+			if (the_result == 0 || --retries < 0)
+				break;
+			msleep(50);
+		} while (!scsi_status_is_good(the_result)
 			     || ((driver_byte(the_result) & DRIVER_SENSE)
-				 && SRpnt->sr_sense_buffer[2] == UNIT_ATTENTION)));
+				 && SRpnt->sr_sense_buffer[2] == UNIT_ATTENTION));
 
 		/*
 		 * If the drive has indicated to us that it doesn't have
 		 * any media in it, don't bother with any of the rest of
 		 * this crap.
 		 */
-		if( the_result != 0
+		if (scsi_status_is_good(the_result)
 		    && ((driver_byte(the_result) & DRIVER_SENSE) != 0)
 		    && SRpnt->sr_sense_buffer[2] == UNIT_ATTENTION
 		    && SRpnt->sr_sense_buffer[12] == 0x3A ) {
@@ -921,6 +946,7 @@ static int sd_init_onedisk(int i)
 		    SRpnt->sr_sense_buffer[12] == 4 /* not ready */ &&
 		    SRpnt->sr_sense_buffer[13] == 3) {
 			break;		/* manual intervention required */
+
 		/* Look for non-removable devices that return NOT_READY.
 		 * Issue command to spin up drive for these cases. */
 		} else if (the_result && !rscsi_disks[i].device->removable &&
@@ -944,12 +970,10 @@ static int sd_init_onedisk(int i)
 				spintime_value = jiffies;
 			}
 			spintime = 1;
+			tur_retry_cnt = 0;
 			time1 = HZ;
 			/* Wait 1 second for next try */
-			do {
-				current->state = TASK_UNINTERRUPTIBLE;
-				time1 = schedule_timeout(time1);
-			} while(time1);
+			ssleep(1);
 			printk(".");
 		} else {
 			/* we don't understand the sense code, so it's
@@ -961,14 +985,14 @@ static int sd_init_onedisk(int i)
 			break;
 		}
 	} while (the_result && spintime &&
-		 time_after(spintime_value + 100 * HZ, jiffies));
+		 time_after(spintime_value + 15 * HZ, jiffies));
 	if (spintime) {
 		if (the_result)
 			printk("not responding...\n");
 		else
 			printk("ready\n");
 	}
-	retries = 3;
+	retries = 5;
 	do {
 		cmd[0] = READ_CAPACITY;
 		cmd[1] = (rscsi_disks[i].device->scsi_level <= SCSI_2) ?
@@ -984,9 +1008,10 @@ static int sd_init_onedisk(int i)
 			    8, SD_TIMEOUT, MAX_RETRIES);
 
 		the_result = SRpnt->sr_result;
-		retries--;
-
-	} while (the_result && retries);
+		if (the_result == 0 || --retries < 0)
+			break;
+		msleep(100);
+	} while (!scsi_status_is_good(the_result));
 
 	/*
 	 * The SCSI standard says:
