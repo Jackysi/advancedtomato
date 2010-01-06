@@ -26,6 +26,9 @@ endif
 ifeq ($(TCONFIG_JFFS2),y)
 OBJS += jffs2.o
 endif
+ifeq ($(TCONFIG_OPENVPN),y)
+OBJS += vpn.o
+endif
 
 ifeq ($(TOMATO_SL),1)
 #OBJS += usb.o
@@ -97,6 +100,12 @@ ifeq ($(TOMATO_SL),1)
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotdiskremove
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotdiskerror
 	@cd $(INSTALLDIR)/sbin && ln -sf rc umountx
+endif
+
+ifeq ($(TCONFIG_OPENVPN),y)
+	@mkdir -p $(INSTALLDIR)/rom/openvpn
+	@cp openvpn-updown.sh $(INSTALLDIR)/rom/openvpn/updown.sh
+	@chmod 0755 $(INSTALLDIR)/rom/openvpn/updown.sh
 endif
 
 clean:
