@@ -131,6 +131,12 @@ int ip_ct_gre_keymap_add(struct ip_conntrack_expect *exp,
 void ip_ct_gre_keymap_change(struct ip_ct_gre_keymap *km,
 			     struct ip_conntrack_tuple *t)
 {
+	if (!km)
+	{
+		printk(KERN_WARNING "NULL GRE conntrack keymap change requested\n");
+		return;
+	}
+
 	DEBUGP("changing entry %p to: ", km);
 	DUMP_TUPLE_GRE(t);
 

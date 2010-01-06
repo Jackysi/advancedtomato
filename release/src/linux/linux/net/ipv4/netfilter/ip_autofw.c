@@ -34,9 +34,15 @@
 #include <linux/netfilter_ipv4/ip_autofw.h>
 #include <linux/netfilter_ipv4/lockhelp.h>
 
-DECLARE_LOCK(ip_autofw_lock);
+#undef NEW_PORT_TRIG
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
+
+DECLARE_LOCK(ip_autofw_lock);
 
 static unsigned int
 autofw_nat_help(struct ip_conntrack *ct,
@@ -204,7 +210,7 @@ autofw_expect(struct ip_conntrack *ct)
 
 
 static unsigned int
-target(struct sk_buff **pskb,
+autofw_target(struct sk_buff **pskb,
        unsigned int hooknum,
        const struct net_device *in,
        const struct net_device *out,
@@ -241,7 +247,7 @@ target(struct sk_buff **pskb,
  		exp->help.exp_autofw_info.to[0] = info->to[0];
  		exp->help.exp_autofw_info.to[1] = info->to[1];
 
-		DEBUGP("autofw_expect: expecting ");
+		DEBUGP("autofw_target: expecting ");
 		DUMP_TUPLE(&exp->tuple);
 
 		/* Ignore failure; should only happen with NAT */
@@ -259,7 +265,7 @@ target(struct sk_buff **pskb,
 	exp->help.exp_autofw_info.to[0] = info->to[0];
 	exp->help.exp_autofw_info.to[1] = info->to[1];
 
-	DEBUGP("autofw_expect: expecting ");
+	DEBUGP("autofw_target: expecting ");
 	DUMP_TUPLE(&exp->tuple);
 
 	/* Ignore failure; should only happen with NAT */
@@ -273,7 +279,7 @@ target(struct sk_buff **pskb,
 
 /* Must specify -p tcp/udp --dport port */
 static int
-checkentry(const char *tablename,
+autofw_checkentry(const char *tablename,
 	   const struct ipt_entry *e,
 	   void *targinfo,
 	   unsigned int targinfosize,
@@ -302,18 +308,18 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct ipt_target autofw_target
+static struct ipt_target ipt_autofw_reg
 = { { NULL, NULL }, "autofw",
-    target, checkentry, NULL, THIS_MODULE };
+    autofw_target, autofw_checkentry, NULL, THIS_MODULE };
 
 static int __init init(void)
 {
-	return ipt_register_target(&autofw_target);
+	return ipt_register_target(&ipt_autofw_reg);
 }
 
 static void __exit fini(void)
 {
-	ipt_unregister_target(&autofw_target);
+	ipt_unregister_target(&ipt_autofw_reg);
 }
 
 module_init(init);
