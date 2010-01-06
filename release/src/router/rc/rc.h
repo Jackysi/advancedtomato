@@ -193,6 +193,10 @@ extern void restart_nas_services(int stop, int start);
 #define mkdir_if_none(args...) (0)
 #define restart_nas_services(args...) do { } while(0)
 #endif
+#ifdef LINUX26
+extern void start_hotplug2();
+extern void stop_hotplug2(void);
+#endif
 
 // !!TB - USB Support
 // usb.c

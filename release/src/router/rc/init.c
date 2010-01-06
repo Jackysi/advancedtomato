@@ -22,6 +22,10 @@
 #include <sys/wait.h>
 #include <sys/reboot.h>
 #include <sys/klog.h>
+#ifdef LINUX26
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
 #include <wlutils.h>
 #include <bcmdevs.h>
 
@@ -792,7 +796,17 @@ static void sysinit(void)
 	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
+#ifdef LINUX26
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+	mknod("/dev/console", S_IRWXU|S_IFCHR, makedev(5, 1));
+	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
+#endif
 	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
+#ifdef LINUX26
+	mkdir("/dev/shm", 0777);
+	mkdir("/dev/pts", 0777);
+	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
+#endif
 
 	if (console_init()) noconsole = 1;
 
@@ -842,6 +856,11 @@ static void sysinit(void)
 	}
 #endif
 
+#ifdef LINUX26
+	eval("hotplug2", "--coldplug");
+	start_hotplug2();
+#endif
+
 	set_action(ACT_IDLE);
 
 	for (i = 0; defenv[i]; ++i) {
@@ -874,13 +893,6 @@ static void sysinit(void)
 		break;
 	}
 
-	system("nvram defaults --initcheck");
-	init_nvram();
-
-	klogctl(8, NULL, nvram_get_int("console_loglevel"));
-
-	setup_conntrack();
-
 	hardware = check_hw_type();
 #if WL_BSS_INFO_VERSION >= 108
 	modprobe("et");
@@ -901,14 +913,21 @@ static void sysinit(void)
 	modprobe("wl");
 	modprobe("tomato_ct");
 
-	set_host_domain_name();
 	config_loopback();
 
-	eval("buttons");
+	system("nvram defaults --initcheck");
+	init_nvram();
+
+	klogctl(8, NULL, nvram_get_int("console_loglevel"));
+
+	setup_conntrack();
+	set_host_domain_name();
 
 	start_jffs2();
 
 	set_tz();
+
+	eval("buttons");
 
 	i = nvram_get_int("sesx_led");
 	led(LED_AMBER, (i & 1) != 0);

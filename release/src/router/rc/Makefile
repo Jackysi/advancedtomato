@@ -48,6 +48,9 @@ install: all
 	@$(STRIP) $(INSTALLDIR)/sbin/rc
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc init
+ifeq ($(CONFIG_LINUX26),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc preinit
+endif
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
 	@cd $(INSTALLDIR)/sbin && ln -sf rc service
 	@cd $(INSTALLDIR)/sbin && ln -sf rc buttons
