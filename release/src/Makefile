@@ -165,10 +165,39 @@ what:
 # a "...is not set" line, or the make oldconfig will stop and ask
 # what to do.
 
+# $(1) - router/busybox/config_$@
+
+define BusyboxExtraOptions
+	@sed -i "/CONFIG_UNZIP/d" $(1)
+	@echo "CONFIG_UNZIP=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1)
+	@echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1)
+	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1)
+	@echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1)
+endef
+
+define BusyboxExtraUSBOptions
+	@sed -i "/CONFIG_E2FSCK/d" $(1)
+	@echo "CONFIG_E2FSCK=y" >>$(1)
+	@sed -i "/CONFIG_MKE2FS/d" $(1)
+	@echo "CONFIG_MKE2FS=y" >>$(1)
+	@sed -i "/CONFIG_FDISK/d" $(1)
+	@echo "CONFIG_FDISK=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_FDISK_WRITABLE/d" $(1)
+	@echo "CONFIG_FEATURE_FDISK_WRITABLE=y" >>$(1)
+	@sed -i "/CONFIG_MKFS_VFAT/d" $(1)
+	@echo "CONFIG_MKFS_VFAT=y" >>$(1)
+	@sed -i "/CONFIG_MKSWAP/d" $(1)
+	@echo "CONFIG_MKSWAP=y" >>$(1)
+endef
+
 ## Make the "normal" build
 a:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+
 	@$(MAKE) setprofile N=G B=A DESC="Std" USB="USB"
 	@$(MAKE) all
 
@@ -176,102 +205,104 @@ a:
 ## Make the "normal but without SSH" build
 b:
 	@cp router/config_base router/config_$@
+	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/TCONFIG_SSH/d" router/config_$@
 	@echo "# TCONFIG_SSH is not set" >>router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
+
 	@$(MAKE) setprofile N=G B=B DESC="No SSH" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal but without cifs" build
 c:
 	@cp router/config_base router/config_$@
+	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
+
+	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>router/busybox/config_$@
+
 	@$(MAKE) setprofile N=G B=C DESC="No CIFS" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal but without SAMBA" build
 d:
 	@cp router/config_base router/config_$@
+	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_AWK/d" router/busybox/config_$@
 	@echo "# CONFIG_AWK is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
+	@sed -i "/CONFIG_BLKID/d" router/busybox/config_$@
+	@echo "# CONFIG_BLKID is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_ARPING/d" router/busybox/config_$@
 	@echo "# CONFIG_ARPING is not set" >>router/busybox/config_$@
+
 	@$(MAKE) setprofile N=G B=D DESC="Lite" USB="USB"
 	@$(MAKE) all
 
-## Make the "normal + VPN" build
+## Make the "normal with Extras + VPN" build
 e:
 	@cp router/config_base router/config_$@	
+	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/TCONFIG_LZO/d" router/config_$@
 	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
 	@echo "TCONFIG_LZO=y" >>router/config_$@
 	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
+	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
+	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
+	@sed -i "/TCONFIG_NTFS/d" router/config_$@
+	@echo "TCONFIG_NTFS=y" >>router/config_$@
+
+	$(call BusyboxExtraOptions, router/busybox/config_$@)
+	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
+
 	@$(MAKE) setprofile N=G B=E DESC="VPN" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal with Extras" build
 m:
 	@cp router/config_base router/config_$@	
+	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
-	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
-	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_LS_COLOR=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_SORT_BIG=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_E2FSCK/d" router/busybox/config_$@
-	@echo "CONFIG_E2FSCK=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_MKE2FS/d" router/busybox/config_$@
-	@echo "CONFIG_MKE2FS=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FDISK/d" router/busybox/config_$@
-	@echo "CONFIG_FDISK=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_FDISK_WRITABLE/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_FDISK_WRITABLE=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_MKFS_VFAT/d" router/busybox/config_$@
-	@echo "CONFIG_MKFS_VFAT=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_MKSWAP/d" router/busybox/config_$@
-	@echo "CONFIG_MKSWAP=y" >>router/busybox/config_$@
+
+	$(call BusyboxExtraOptions, router/busybox/config_$@)
+	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
+
 	@$(MAKE) setprofile N=G B=M DESC="Ext" USB="USB"
 	@$(MAKE) all
 
 ## Make the "No USB" build
 s:
 	@cp router/config_base router/config_$@
+	@cp router/busybox/config_base router/busybox/config_$@
+
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
 	@sed -i "/TCONFIG_FTP/d" router/config_$@
 	@echo "# TCONFIG_FTP is not set" >>router/config_$@
 	@sed -i "/TCONFIG_USB/d" router/config_$@
 	@echo "# TCONFIG_USB is not set" >>router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
+
+	$(call BusyboxExtraOptions, router/busybox/config_$@)
+
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_UNZIP/d" router/busybox/config_$@
-	@echo "CONFIG_UNZIP=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_LS_COLOR=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" router/busybox/config_$@
-	@echo "CONFIG_FEATURE_SORT_BIG=y" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_MOUNT_LABEL/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LABEL is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_FEATURE_MOUNT_FSTAB/d" router/busybox/config_$@
@@ -282,6 +313,7 @@ s:
 	@echo "# CONFIG_BLKID is not set" >>router/busybox/config_$@
 	@sed -i "/CONFIG_SWAPONOFF/d" router/busybox/config_$@
 	@echo "# CONFIG_SWAPONOFF is not set" >>router/busybox/config_$@
+
 	@$(MAKE) setprofile N=G B=S DESC="" USB=""
 	@$(MAKE) all
 

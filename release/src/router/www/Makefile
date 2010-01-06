@@ -50,6 +50,11 @@ ifneq ($(TCONFIG_CIFS),y)
 	rm -f $(INSTALLDIR)/www/admin-cifs.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
+# Only include the JFFS pages if JFFS is configured in.
+ifneq ($(TCONFIG_JFFS2),y)
+	rm -f $(INSTALLDIR)/www/admin-jffs2.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
+endif
 # Only include the Zebra options if Zebra is configured in.
 ifneq ($(TCONFIG_ZEBRA),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ZEBRA-BEGIN/,/ZEBRA-END/d"

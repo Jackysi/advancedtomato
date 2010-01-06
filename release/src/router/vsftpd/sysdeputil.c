@@ -242,7 +242,7 @@ vsf_sysdep_check_auth(struct mystr* p_user_str,
                       const struct mystr* p_remote_host)
 {
   const char* p_crypted;
-  const struct passwd* p_pwd = getpwnam(str_getbuf(p_user_str));
+  const struct passwd* p_pwd = (struct passwd*) vsf_sysutil_getpwnam(str_getbuf(p_user_str));
   (void) p_remote_host;
   if (p_pwd == NULL)
   {
