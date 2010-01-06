@@ -11,14 +11,10 @@ PKG_NAME:=uClibc
 PKG_VERSION:=$(strip $(subst ",, $(CONFIG_UCLIBC_VERSION)))#"))
 PKG_EXTRAVERSION:=$(strip $(subst ",, $(CONFIG_UCLIBC_EXTRA_VERSION)))#"))
 PKG_VERSION_SNAPSHOT:=$(strip $(subst ",, $(CONFIG_UCLIBC_VERSION_SNAPSHOT)))#"))
-ifeq ($(PKG_VERSION),0.9.19)
-PKG_SOURCE_URL:=http://www.uclibc.org/downloads/old-releases
-else
 ifeq ($(PKG_VERSION_SNAPSHOT),y)
 PKG_SOURCE_URL:=http://www.uclibc.org/downloads/snapshots
 else
 PKG_SOURCE_URL:=http://www.uclibc.org/downloads
-endif
 endif
 PATCH_DIR:=./patches/$(PKG_VERSION)$(PKG_EXTRAVERSION)
 CONFIG_DIR:=./config/$(PKG_VERSION)$(PKG_EXTRAVERSION)

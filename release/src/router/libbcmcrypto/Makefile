@@ -20,12 +20,12 @@ CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 LDFLAGS += -L.
 
 vpath %.c $(SRCBASE)/bcmcrypto
-vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt
+vpath %.o $(SRCBASE)/bcmcrypto/prebuilt
 
 OBJS := aes.o aeskeywrap.o rijndael-alg-fst.o dh.o bn.o sha1.o passhash.o prf.o md5.o hmac.o rc4.o
-ifeq ($(CONFIG_WSCCMD), y)
+#ifeq ($(CONFIG_WSCCMD), y)
 OBJS += sha256.o hmac_sha256.o random.o
-endif
+#endif
 
 # Find all ELF binaries (including extra libraries)
 BINARIES := $(shell find $(TARGETDIR) -path $(TARGETDIR)/lib -prune -o -type f -print | file -f - | grep ELF | cut -d':' -f1)

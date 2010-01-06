@@ -20,6 +20,7 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
 
 
 OBJS := wlconf.o
+vpath %.c $(SRCBASE)/wlconf
 
 all: wlconf
 
