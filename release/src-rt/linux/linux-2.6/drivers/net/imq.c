@@ -121,7 +121,7 @@ static struct nf_hook_ops imq_egress_ipv6 = {
 #if defined(CONFIG_IMQ_NUM_DEVS)
 static unsigned int numdevs = CONFIG_IMQ_NUM_DEVS;
 #else
-static unsigned int numdevs = 16;
+static unsigned int numdevs = IMQ_MAX_DEVS;
 #endif
 
 static struct net_device *imq_devs;
@@ -287,13 +287,12 @@ static int __init imq_dev_init(struct net_device *dev)
 {
 	dev->hard_start_xmit    = imq_dev_xmit;
 	dev->type               = ARPHRD_VOID;
-	dev->mtu                = 16000;
-	dev->tx_queue_len       = 11000;
+	dev->mtu                = 1500;
+	dev->tx_queue_len       = 30;
 	dev->flags              = IFF_NOARP;
-	dev->priv = kmalloc(sizeof(struct net_device_stats), GFP_KERNEL);
+	dev->priv = kzalloc(sizeof(struct net_device_stats), GFP_KERNEL);
 	if (dev->priv == NULL)
 		return -ENOMEM;
-	memset(dev->priv, 0, sizeof(struct net_device_stats));
 	dev->get_stats          = imq_get_stats;
 
 	return 0;
@@ -310,16 +309,15 @@ static int __init imq_init_devs(void)
 	int i,j;
 	j = numdevs;
 
-	if (!numdevs || numdevs > IMQ_MAX_DEVS) {
+	if (numdevs < 1 || numdevs > IMQ_MAX_DEVS) {
 		printk(KERN_ERR "IMQ: numdevs has to be betweed 1 and %u\n",
 		       IMQ_MAX_DEVS);
 		return -EINVAL;
 	}
 
-	imq_devs = kmalloc(sizeof(struct net_device) * numdevs, GFP_KERNEL);
+	imq_devs = kzalloc(sizeof(struct net_device) * numdevs, GFP_KERNEL);
 	if (!imq_devs)
 		return -ENOMEM;
-	memset(imq_devs, 0, sizeof(struct net_device) * numdevs);
 
 	/* we start counting at zero */
 	numdevs--;
@@ -395,7 +393,7 @@ static void __exit imq_cleanup_module(void)
 module_init(imq_init_module);
 module_exit(imq_cleanup_module);
 
-module_param(numdevs, int, 16);
+module_param(numdevs, int, IMQ_MAX_DEVS);
 MODULE_PARM_DESC(numdevs, "number of IMQ devices (how many imq* devices will be created)");
 MODULE_AUTHOR("http://www.linuximq.net");
 MODULE_DESCRIPTION("Pseudo-driver for the intermediate queue device. See http://www.linuximq.net/ for more information.");

@@ -215,7 +215,7 @@ config IMQ_NUM_DEVS
 		This settings defines how many IMQ devices will be
 		created.
 
-		The default value is 2.
+		The default value is 16.
 
 		More information can be found at: www.linuximq.net
 
