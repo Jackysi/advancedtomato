@@ -201,6 +201,7 @@ const defaults_t defaults[] = {
 	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off"	},	// WME AP AC_VO paramters
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
+	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
 
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add
@@ -208,6 +209,31 @@ const defaults_t defaults[] = {
 	{ "wl_leddc",			"0x640000"		},	// !!TB - 100% duty cycle for LED on router (WLAN LED fix for some routers)
 	{ "wl_bss_enabled",		"1"				},	// !!TB - If not present the new versions of wlconf may not bring up wlan
 	{ "wl_reg_mode",		"off"			},	// !!TB - Regulatory: 802.11H(h)/802.11D(d)/off(off)
+
+// !!TB: n-mode
+	{ "wl_nmode",			"-1"			},	// N-mode
+	{ "wl_nmcsidx",			"-1"			},	// MCS Index for N - rate
+	{ "wl_nreqd",			"0"			},	// Require 802.11n support
+	{ "wl_nbw",			"40"			},	// BW: 20 / 40 MHz
+	{ "wl_nbw_cap",			"1"			},	// BW: def 20inB and 40inA
+	{ "wl_mimo_preamble",		"mm"			},	// 802.11n Preamble: mm/gf/auto/gfbcm
+	{ "wl_nctrlsb",			"upper"			},	// N-CTRL SB (none/lower/upper)
+	{ "wl_nband",			"2"			},	// N-Band
+	{ "wl_nmode_protection",	"off"			},	// 802.11n RTS/CTS protection (off|auto)
+	{ "wl_rxstreams",		"0"			},	// 802.11n Rx Streams, 0 is invalid, WLCONF will change it to a radio appropriate default
+	{ "wl_txstreams",		"0"			},	// 802.11n Tx Streams 0, 0 is invalid, WLCONF will change it to a radio appropriate default
+	{ "wl_dfs_preism",		"60"			},	// 802.11H pre network CAC time
+	{ "wl_dfs_postism",		"60"			},	// 802.11H In Service Monitoring CAC time
+	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
+	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
+	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
+#ifdef LINUX26	// EMF
+	/* EMF defaults */
+	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
+	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
+	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
+	{ "emf_enable",			"0"			},	// Disable EMF by default
+#endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server

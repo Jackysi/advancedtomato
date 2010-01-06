@@ -31,7 +31,7 @@ int parse_asp(const char *path)
 	char *ident;
 	const aspapi_t *api;
 
-#if TOMATO_N
+#if 0	//TOMATO_N
 	// temp!!!
 	char npath[256];
 	int n;

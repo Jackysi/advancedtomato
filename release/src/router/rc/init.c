@@ -988,6 +988,7 @@ int init_main(int argc, char *argv[])
 			stop_wan();
 			stop_lan();
 			stop_vlan();
+			stop_syslog();
 
 			// !!TB - USB Support
 			remove_storage_main((state == REBOOT) || (state == HALT));
@@ -1006,6 +1007,7 @@ int init_main(int argc, char *argv[])
 
 		case START:
 			SET_LED(RELEASE_WAN_CONTROL);
+			start_syslog();
 
 			load_files_from_nvram();
 
