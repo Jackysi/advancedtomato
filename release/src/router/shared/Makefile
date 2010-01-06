@@ -19,6 +19,10 @@ endif
 
 all: libshared.so libshared.a
 
+ifeq ($(CONFIG_BCMWL5),y)
+OBJS += wlif_utils.o UdpLib.o
+endif
+
 libshared.so: $(OBJS)
 	@echo " [shared] LD $@"
 	@$(LD) $(LDFLAGS) -shared -o $@ $^

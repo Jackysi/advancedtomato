@@ -4,6 +4,7 @@ ROOTDIR=$PWD
 
 mkdir -p -m 0755 dev
 mkdir -p -m 0755 proc
+mkdir -p -m 0755 sys
 mkdir -p -m 0755 tmp
 mkdir -p -m 0755 jffs
 mkdir -p -m 0755 cifs1

@@ -10,7 +10,7 @@
 #include <wlutils.h>
 #include <wlioctl.h>
 
-#if TOMATO_N
+#if 0 // TOMATO_N
 #include <linux_gpio.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -20,16 +20,6 @@
 
 
 static int gf;
-
-static uint32_t _gpio_read(void)
-{
-#if TOMATO_N
-	// !
-#else
-	uint32_t v;
-	return (read(gf, &v, sizeof(v)) == sizeof(v)) ? v : ~0;
-#endif
-}
 
 static int get_btn(const char *name, uint32_t *bit, uint32_t *pushed)
 {
@@ -174,15 +164,15 @@ int buttons_main(int argc, char *argv[])
 
 	signal(SIGCHLD, handle_reap);
 
-#if TOMATO_N
+#if 0 // TOMATO_N
 	// !
 #else
-	if ((gf = open("/dev/gpio/in", O_RDONLY|O_SYNC)) < 0) return 1;
+	if ((gf = gpio_open()) < 0) return 1;
 #endif
 
 	last = 0;
 	while (1) {
-		if (((gpio = _gpio_read()) == ~0) || (last == (gpio &= mask)) || (check_action() != ACT_IDLE)) {
+		if (((gpio = _gpio_read(gf)) == ~0) || (last == (gpio &= mask)) || (check_action() != ACT_IDLE)) {
 #ifdef DEBUG_TEST
 			cprintf("gpio = %X\n", gpio);
 #endif
@@ -201,7 +191,7 @@ int buttons_main(int argc, char *argv[])
 			do {
 				sleep(1);
 				if (++count == 3) led(LED_DIAG, 1);
-			} while (((gpio = _gpio_read()) != ~0) && ((gpio & reset_mask) == reset_pushed));
+			} while (((gpio = _gpio_read(gf)) != ~0) && ((gpio & reset_mask) == reset_pushed));
 
 #ifdef DEBUG_TEST
 			cprintf("reset count = %d\n", count);
@@ -231,7 +221,7 @@ int buttons_main(int argc, char *argv[])
 				led(ses_led, LED_OFF);
 				usleep(500000);
 				++count;
-			} while (((gpio = _gpio_read()) != ~0) && ((gpio & ses_mask) == ses_pushed));
+			} while (((gpio = _gpio_read(gf)) != ~0) && ((gpio & ses_mask) == ses_pushed));
 			gpio &= mask;
 
 			if ((ses_led == LED_DMZ) && (nvram_get_int("dmz_enable") > 0)) led(LED_DMZ, 1);

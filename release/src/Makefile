@@ -28,10 +28,11 @@
 
 
 
-SRCBASE := $(shell pwd)
+export SRCBASE := $(shell pwd)
 RELEASEDIR := $(shell (cd $(SRCBASE)/.. && pwd -P))
 PATH := $(RELEASEDIR)/tools:$(PATH)
 
+include ./target.mak
 
 # Normally you'd do something like "make V1=8516 V2=sub-ver a b c d"
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
@@ -81,7 +82,7 @@ all:
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log
 ifeq ($(wildcard include/bcm20xx.h),)
-	@btools/fpkg -i lzma-loader/loader.gz -i linux/linux/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
 		-t image/tomato.trx \
 		-l W54G,image/WRT54G_WRT54GL.bin \
 		-l W54S,image/WRT54GS.bin \
@@ -90,7 +91,7 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		-m 0x10577050,image/WR850G.bin \
 		| tee -a fpkg.log
 else
-	@btools/fpkg -i lzma-loader/loader.gz -i linux/linux/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
 		-t image/tomato-ND$(current_BUILD_USB)-$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
 endif
 
@@ -122,11 +123,11 @@ cleanimage:
 	@-mkdir image
 
 cleantools:
-	@$(MAKE) -C linux/linux/scripts/squashfs clean
+	@$(MAKE) -C $(LINUXDIR)/scripts/squashfs clean
 	@$(MAKE) -C btools clean
 
 cleankernel:
-	@cd linux/linux && \
+	@cd $(LINUXDIR) && \
 	mv .config save-config && \
 	$(MAKE) distclean; \
 	cp -p save-config .config
@@ -149,7 +150,7 @@ endif
 
 
 prepk:
-	$(MAKE) -C linux/linux oldconfig dep
+	$(MAKE) -C $(LINUXDIR) oldconfig dep
 
 what:
 	@echo ""
@@ -193,47 +194,104 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKSWAP=y" >>$(1)
 endef
 
+ifeq ($(CONFIG_LINUX26),y)
+define BusyboxKernelConfig
+	@sed -i "/CONFIG_FEATURE_2_4_MODULES/d" $(1)
+	@echo "# CONFIG_FEATURE_2_4_MODULES is not set" >>$(1)
+	@sed -i "/CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT/d" $(1)
+	@echo "CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_DEVFS/d" $(1)
+	@echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1)
+	@sed -i "/CONFIG_MKNOD/d" $(1)
+	@echo "CONFIG_MKNOD=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1)
+	@echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1)
+	@sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1)
+	@echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1)
+	$(call BusyboxExtraOptions, $(1))
+endef
+else
+define BusyboxKernelConfig
+endef
+endif
+
+# $(1) - linux/linux[-2.6]/config_$@
+
+ifeq ($(CONFIG_LINUX26),y)
+define KernelConfigMips
+	@( \
+	if [ "$(MIPS32)" = "r2" ]; then \
+		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
+		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \
+		sed -i "/CONFIG_CPU_MIPS32_R2/d" $(1); \
+		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
+		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
+		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
+	fi; \
+	)
+endef
+else
+define KernelConfigMips
+#	nothing for kernel 2.4
+endef
+endif
+
 ## Make the "normal" build
 a:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
-	@$(MAKE) setprofile N=G B=A DESC="Std" USB="USB"
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
+
+	@$(MAKE) setprofile N=$(TPROFILE) B=A DESC="Std" USB="USB"
 	@$(MAKE) all
-
 
 ## Make the "normal but without SSH" build
 b:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_SSH/d" router/config_$@
 	@echo "# TCONFIG_SSH is not set" >>router/config_$@
 
-	@$(MAKE) setprofile N=G B=B DESC="No SSH" USB="USB"
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
+
+	@$(MAKE) setprofile N=$(TPROFILE) B=B DESC="No SSH" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal but without cifs" build
 c:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
+
 	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>router/busybox/config_$@
 
-	@$(MAKE) setprofile N=G B=C DESC="No CIFS" USB="USB"
+	@$(MAKE) setprofile N=$(TPROFILE) B=C DESC="No CIFS" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal but without SAMBA" build
 d:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
+
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
@@ -246,13 +304,14 @@ d:
 	@sed -i "/CONFIG_ARPING/d" router/busybox/config_$@
 	@echo "# CONFIG_ARPING is not set" >>router/busybox/config_$@
 
-	@$(MAKE) setprofile N=G B=D DESC="Lite" USB="USB"
+	@$(MAKE) setprofile N=$(TPROFILE) B=D DESC="Lite" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal with Extras + VPN" build
 e:
 	@cp router/config_base router/config_$@	
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_LZO/d" router/config_$@
 	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
@@ -263,32 +322,38 @@ e:
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
-	@$(MAKE) setprofile N=G B=E DESC="VPN" USB="USB"
+	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC="VPN" USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal with Extras" build
 m:
 	@cp router/config_base router/config_$@	
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
-	@$(MAKE) setprofile N=G B=M DESC="Ext" USB="USB"
+	@$(MAKE) setprofile N=$(TPROFILE) B=M DESC="Ext" USB="USB"
 	@$(MAKE) all
 
 ## Make the "No USB" build
 s:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
@@ -297,7 +362,9 @@ s:
 	@sed -i "/TCONFIG_USB/d" router/config_$@
 	@echo "# TCONFIG_USB is not set" >>router/config_$@
 
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
@@ -314,8 +381,12 @@ s:
 	@sed -i "/CONFIG_SWAPONOFF/d" router/busybox/config_$@
 	@echo "# CONFIG_SWAPONOFF is not set" >>router/busybox/config_$@
 
-	@$(MAKE) setprofile N=G B=S DESC="" USB=""
+	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="" USB=""
 	@$(MAKE) all
+
+## Make Asus RT-N16 (mips32r2 CPU) build
+n16:
+	@$(MAKE) m MIPS32=r2
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -359,6 +430,12 @@ setprofile:
 		cp config_current .config
 	@$(MAKE) -C router/busybox oldconfig
 
+	@cd $(LINUXDIR) ; \
+		rm -f config_current ; \
+		ln -s config_$(lowercase_B) config_current ; \
+		cp config_current .config
+	@$(MAKE) -C $(LINUXDIR) oldconfig
+
 cleanlibc:
 #	@$(MAKE) -C ../../tools-src/uClibc clean
 
@@ -376,9 +453,9 @@ help:
 	@echo "clean        -C router clean"
 	@echo "cleanimage   rm -rf image"
 	@echo "cleantools   clean btools, mksquashfs"
-	@echo "cleankernel  -C linux/linux distclean (but preserves .config)"
+	@echo "cleankernel  -C Linux distclean (but preserves .config)"
 	@echo "distclean    distclean of Linux & busybox (but preserve .configs)"
-	@echo "prepk        -C linux/linux oldconfig dep"
+	@echo "prepk        -C Linux oldconfig dep"
 	@echo "libc         -C uClibc clean, all, install"
 	
 .PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile libc help

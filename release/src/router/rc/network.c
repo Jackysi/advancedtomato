@@ -192,6 +192,38 @@ static void check_afterburner(void)
 */
 }
 
+#ifdef CONFIG_BCMWL5
+void start_wl(void)
+{
+	char *lan_ifname, *lan_ifnames, *ifname, *p;
+
+	lan_ifname = nvram_safe_get("lan_ifname");
+	if (strncmp(lan_ifname, "br", 2) == 0) {
+		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
+			p = lan_ifnames;
+			while ((ifname = strsep(&p, " ")) != NULL) {
+				while (*ifname == ' ') ++ifname;
+				if (*ifname == 0) break;
+#if 0
+				/* Ignore disabled wl vifs */
+				if (strncmp(ifname, "wl", 2) == 0) {
+					char nv[40];
+					snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
+					if (!nvram_get_int(nv))
+						continue;
+				}
+#endif
+				eval("wlconf", ifname, "start"); /* start wl iface */
+			}
+			free(lan_ifnames);
+		}
+	}
+	else if (strcmp(lan_ifname, "")) {
+		/* specific non-bridged lan iface */
+		eval("wlconf", lan_ifname, "start");
+	}
+}
+#endif	// CONFIG_BCMWL5
 
 void start_lan(void)
 {

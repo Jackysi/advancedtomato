@@ -142,6 +142,11 @@ extern void hotplug_net(void);
 extern void do_static_routes(int add);
 extern int radio_main(int argc, char *argv[]);
 extern int wldist_main(int argc, char *argv[]);
+#ifdef CONFIG_BCMWL5
+extern void start_wl(void);
+#else
+static inline void start_wl(void) { };
+#endif
 
 // dhcpc.c
 extern int dhcpc_event_main(int argc, char **argv);
@@ -185,6 +190,10 @@ extern void restart_nas_services(int stop, int start);
 #else
 #define mkdir_if_none(args...) (0)
 #define restart_nas_services(args...) do { } while(0)
+#endif
+#ifdef LINUX26
+extern void start_hotplug2();
+extern void stop_hotplug2(void);
 #endif
 
 // !!TB - USB Support

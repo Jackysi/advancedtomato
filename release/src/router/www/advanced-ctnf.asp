@@ -138,6 +138,9 @@ function save()
 	fom.ct_udp_timeout.value = udp.join(' ');
 	fom.ct_timeout.value = ct.join(' ');
 	fom.nf_l7in.value = E('_f_l7in').checked ? 1 : 0;
+/* LINUX26-BEGIN */
+	fom.nf_sip.value = E('_f_sip').checked ? 1 : 0;
+/* LINUX26-END */
 	fom.nf_rtsp.value = E('_f_rtsp').checked ? 1 : 0;
 	fom.nf_pptp.value = E('_f_pptp').checked ? 1 : 0;
 	fom.nf_h323.value = E('_f_h323').checked ? 1 : 0;
@@ -171,6 +174,9 @@ function save()
 <input type='hidden' name='nf_pptp'>
 <input type='hidden' name='nf_h323'>
 <input type='hidden' name='nf_ftp'>
+/* LINUX26-BEGIN */
+<input type='hidden' name='nf_sip'>
+/* LINUX26-END */
 
 <div class='section-title'>Connections</div>
 <div class='section'>
@@ -240,6 +246,9 @@ createFieldTable('', [
 	{ title: 'FTP', name: 'f_ftp', type: 'checkbox', value: nvram.nf_ftp != '0' },
 	{ title: 'GRE / PPTP', name: 'f_pptp', type: 'checkbox', value: nvram.nf_pptp != '0' },
 	{ title: 'H.323', name: 'f_h323', type: 'checkbox', value: nvram.nf_h323 != '0' },
+/* LINUX26-BEGIN */
+	{ title: 'SIP', name: 'f_sip', type: 'checkbox', value: nvram.nf_sip != '0' },
+/* LINUX26-END */
 	{ title: 'RTSP', name: 'f_rtsp', type: 'checkbox', value: nvram.nf_rtsp != '0' }
 ]);
 </script>

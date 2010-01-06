@@ -14,35 +14,105 @@
 #include <bcmnvram.h>
 
 #include "utils.h"
+#include "shutils.h"
 #include "shared.h"
 
 
 const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "mystery" };
 
+#ifdef LINUX26
+#define GPIO_IOCTL
+#endif
 
 // --- move begin ---
-#if TOMATO_N
+#ifdef GPIO_IOCTL
+
+#include <sys/ioctl.h>
+#include <linux_gpio.h>
+
+int gpio_open()
+{
+	int f = open("/dev/gpio", O_RDWR);
+	if (f < 0)
+		_dprintf ("Failed to open /dev/gpio\n");
+	return f;
+}
+
+static int _gpio_ioctl(int f, int gpioreg, unsigned int mask, unsigned int val)
+{
+	struct gpio_ioctl gpio;
+                                                                                                                     
+	gpio.val = val;
+	gpio.mask = mask;
+
+	if (ioctl(f, gpioreg, &gpio) < 0) {
+		_dprintf("Invalid gpioreg %d\n", gpioreg);
+		return -1;
+	}
+	return (gpio.val);
+}
+
+void gpio_write(uint32_t bit, int en)
+{
+	int f;
+
+	if ((f = gpio_open()) < 0) return;
+
+	_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
+	_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, bit);
+
+	_gpio_ioctl(f, GPIO_IOC_OUT, bit, en ? bit : 0);
+	close(f);
+}
+
+uint32_t gpio_read(void)
+{
+	int f;
+	uint32_t r;
+
+	if ((f = gpio_open()) < 0) return ~0;
+	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xffff, 0);
+	if (r < 0) r = ~0;
+	close(f);
+	return r;
+}
+
+uint32_t _gpio_read(int f)
+{
+	uint32_t r;
+	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xffff, 0);
+	if (r < 0) r = ~0;
+	return r;
+}
 
 #else
+
+int gpio_open()
+{
+	int f = open(DEV_GPIO(in), O_RDONLY|O_SYNC);
+	if (f < 0)
+		_dprintf ("Failed to open %s\n", DEV_GPIO(in));
+	return f;
+}
 
 void gpio_write(uint32_t bit, int en)
 {
 	int f;
 	uint32_t r;
 
-	if ((f = open("/dev/gpio/control", O_RDWR)) < 0) return;
+	if ((f = open(DEV_GPIO(control), O_RDWR)) < 0) return;
 	read(f, &r, sizeof(r));
 	r &= ~bit;
 	write(f, &r, sizeof(r));
 	close(f);
 
-	if ((f = open("/dev/gpio/outen", O_RDWR)) < 0) return;
+	if ((f = open(DEV_GPIO(outen), O_RDWR)) < 0) return;
 	read(f, &r, sizeof(r));
 	r |= bit;
 	write(f, &r, sizeof(r));
 	close(f);
 
-	if ((f = open("/dev/gpio/out", O_RDWR)) < 0) return;
+	if ((f = open(DEV_GPIO(out), O_RDWR)) < 0) return;
 	read(f, &r, sizeof(r));
 	if (en) r |= bit;
 		else r &= ~bit;
@@ -55,10 +125,16 @@ uint32_t gpio_read(void)
 	int f;
 	uint32_t r;
 
-	if ((f = open("/dev/gpio/in", O_RDONLY)) < 0) return ~0;
+	if ((f = open(DEV_GPIO(in), O_RDONLY)) < 0) return ~0;
 	if (read(f, &r, sizeof(r)) != sizeof(r)) r = ~0;
 	close(f);
 	return r;
+}
+
+uint32_t _gpio_read(int f)
+{
+	uint32_t v;
+	return (read(f, &v, sizeof(v)) == sizeof(v)) ? v : ~0;
 }
 
 #endif

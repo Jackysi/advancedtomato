@@ -35,6 +35,20 @@ install:
 			-e "/^$$/d" \
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
+
+# Only include Linux 2.6 options if building for Linux 2.6.
+ifneq ($(CONFIG_LINUX26),y)
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
+	done
+endif
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed	-i "/LINUX26-BEGIN/d" $$F; \
+		sed	-i "/LINUX26-END/d" $$F; \
+	done
+
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
 	rm -f $(INSTALLDIR)/www/nas-ftp.asp

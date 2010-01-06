@@ -491,6 +491,31 @@ void stop_cron(void)
 }
 
 // -----------------------------------------------------------------------------
+#ifdef LINUX26
+
+static pid_t pid_hotplug2 = -1;
+
+void start_hotplug2()
+{
+	stop_hotplug2();
+
+	f_write_string("/proc/sys/kernel/hotplug", "", FW_NEWLINE, 0);
+	xstart("hotplug2", "--persistent", "--no-coldplug");
+	sleep(1);
+
+	if (!nvram_contains_word("debug_norestart", "hotplug2")) {
+		pid_hotplug2 = -2;
+	}
+}
+
+void stop_hotplug2(void)
+{
+	pid_hotplug2 = -1;
+	killall_tk("hotplug2");
+}
+
+#endif	/* LINUX26 */
+// -----------------------------------------------------------------------------
 
 // Written by Sparq in 2002/07/16
 void start_zebra(void)
@@ -1252,6 +1277,9 @@ static void _check(pid_t *pid, const char *name, void (*func)(void) )
 
 void check_services(void)
 {
+#ifdef LINUX26
+	_check(&pid_hotplug2, "hotplug2", start_hotplug2);
+#endif
 	_check(&pid_dnsmasq, "dnsmasq", start_dnsmasq);
 	_check(&pid_crond, "crond", start_cron);
 	_check(&pid_igmp, "igmpproxy", start_igmp_proxy);
@@ -1476,6 +1504,18 @@ TOP:
 		goto CLEAR;
 	}
 
+#ifdef LINUX26
+	if (strncmp(service, "hotplug", 7) == 0) {
+		if (action & A_STOP) {
+			stop_hotplug2();
+		}
+		if (action & A_START) {
+			start_hotplug2(1);
+		}
+		goto CLEAR;
+	}
+#endif
+
 	if (strcmp(service, "upgrade") == 0) {
 		if (action & A_START) {
 #if TOMATO_SL
@@ -1580,15 +1620,16 @@ TOP:
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
 			stop_wan();
+			stop_nas();
 			stop_lan();
 			stop_vlan();
-			stop_nas();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
-			start_wan(BOOT);
 			start_nas();
+			start_wan(BOOT);
+			start_wl();
 		}
 		goto CLEAR;
 	}
