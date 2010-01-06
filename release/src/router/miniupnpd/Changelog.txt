@@ -1,4 +1,9 @@
-$Id: Changelog.txt,v 1.182 2009/11/06 20:18:16 nanard Exp $
+$Id: Changelog.txt,v 1.185 2009/12/22 17:20:09 nanard Exp $
+
+2009/12/22:
+  using PRIu64 format to printf u_int64_t
+  Fixing calls to get_redirect_rule_by_index() : ifname should be initialized.
+  Add header lines to miniupnpdctl output
 
 2009/11/06:
   implementing sending of ip address change notification when receiving

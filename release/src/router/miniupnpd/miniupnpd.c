@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.115 2009/11/06 20:49:18 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.117 2009/12/22 17:21:06 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard
@@ -268,6 +268,7 @@ write_upnphttp_details(int fd, struct upnphttp * e)
 {
 	char buffer[256];
 	int len;
+	write(fd, "HTTP :\n", 7);
 	while(e)
 	{
 		len = snprintf(buffer, sizeof(buffer),
@@ -285,6 +286,7 @@ write_ctlsockets_list(int fd, struct ctlelem * e)
 {
 	char buffer[256];
 	int len;
+	write(fd, "CTL :\n", 6);
 	while(e)
 	{
 		len = snprintf(buffer, sizeof(buffer),
@@ -300,6 +302,7 @@ write_option_list(int fd)
 	char buffer[256];
 	int len;
 	int i;
+	write(fd, "Options :\n", 10);
 	for(i=0; i<num_options; i++)
 	{
 		len = snprintf(buffer, sizeof(buffer),

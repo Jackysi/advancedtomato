@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.46 2009/10/10 19:08:33 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.49 2009/12/22 17:20:10 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard 
@@ -40,6 +40,11 @@
 #endif
 #ifdef ENABLE_LEASEFILE
 #include <sys/stat.h>
+#endif
+
+/* from <inttypes.h> */
+#ifndef PRIu64
+#define PRIu64 "llu"
 #endif
 
 /* proto_atoi() 
@@ -376,16 +381,17 @@ upnp_get_portmapping_number_of_entries()
 struct rule_state *
 get_upnp_rules_state_list(int max_rules_number_target)
 {
-	char ifname[IFNAMSIZ];
+	/*char ifname[IFNAMSIZ];*/
 	int proto;
 	unsigned short iport;
 	struct rule_state * tmp;
 	struct rule_state * list = 0;
 	int i = 0;
+	/*ifname[0] = '\0';*/
 	tmp = malloc(sizeof(struct rule_state));
 	if(!tmp)
 		return 0;
-	while(get_redirect_rule_by_index(i, ifname, &tmp->eport, 0, 0,
+	while(get_redirect_rule_by_index(i, /*ifname*/0, &tmp->eport, 0, 0,
 	                              &iport, &proto, 0, 0,
 								  &tmp->packets, &tmp->bytes) >= 0)
 	{
@@ -457,12 +463,15 @@ write_ruleset_details(int s)
 	int i = 0;
 	char buffer[256];
 	int n;
+	ifname[0] = '\0';
+	write(s, "Ruleset :\n", 10);
 	while(get_redirect_rule_by_index(i, ifname, &eport, iaddr, sizeof(iaddr),
 	                                 &iport, &proto, desc, sizeof(desc),
 	                                 &packets, &bytes) >= 0)
 	{
 		n = snprintf(buffer, sizeof(buffer), "%2d %s %s %hu->%s:%hu "
-		                                     "'%s' %llu %llu\n",
+		                                     "'%s' %" PRIu64 " %" PRIu64 "\n",
+		                                     /*"'%s' %llu %llu\n",*/
 		             i, ifname, proto==IPPROTO_TCP?"TCP":"UDP",
 		             eport, iaddr, iport, desc, packets, bytes);
 		write(s, buffer, n);
