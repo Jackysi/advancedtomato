@@ -22,6 +22,13 @@ extern const char *tomato_buildtime;
 extern const char *tomato_shortver;
 
 
+#ifdef DEBUG_NOISY
+#define _dprintf		cprintf
+#else
+#define _dprintf(args...)	do { } while(0)
+#endif
+
+
 // misc.c
 #define	WP_DISABLED		0		// order must be synced with def in misc.c
 #define	WP_STATIC		1
@@ -129,6 +136,9 @@ enum {
 	MODEL_WHR2A54G54,
 	MODEL_WHR3AG54,
 	MODEL_RT390W,
+	MODEL_RTN10,
+	MODEL_RTN12,
+	MODEL_RTN16,
 	MODEL_MN700,
 	MODEL_WRH54G,
 	MODEL_WHRG125,
@@ -156,6 +166,9 @@ enum {
 	HW_BCM4704_BCM5325F_EWC,
 	HW_BCM4705L_BCM5325E_EWC,
 	HW_BCM5350,
+	HW_BCM5356,
+	HW_BCM4716,
+	HW_BCM4718,
 	HW_UNKNOWN
 };
 

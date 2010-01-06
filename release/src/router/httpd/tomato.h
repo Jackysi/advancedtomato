@@ -33,9 +33,6 @@
 //	#define BLACKHOLE		// for testing
 
 
-#define _dprintf(args...)	do { } while(0)
-//	#define _dprintf	cprintf
-
 extern int rboot;
 
 extern void exec_service(const char *action);

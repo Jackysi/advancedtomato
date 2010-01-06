@@ -213,11 +213,13 @@ static int defaults_main(int argc, char **argv)
 			if (t->value == NULL) {
 				if (p != NULL) {
 					nvram_unset(t->key);
+					if (!force) _dprintf("%s=%s is not the default (NULL) - resetting\n", t->key, p);
 					commit = 1;
 				}
 			}
 			else {
 				nvram_set(t->key, t->value);
+				if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", t->value);
 				commit = 1;
 			}
 		}
@@ -237,6 +239,7 @@ static int defaults_main(int argc, char **argv)
 		if (((p = nvram_get(t->key)) == NULL) || (*p == 0) || (force)) {
 			nvram_set(t->key, t->value);
 			commit = 1;
+			if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", t->value);
 //			if (!force) cprintf("SET %s=%s\n", t->key, t->value);
 		}
 	}

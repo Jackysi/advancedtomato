@@ -55,6 +55,9 @@ WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      har
 WL-500G Premium v2  HW_BCM5354G           0x48E        45        0x10      0x0750
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 
+RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
+RT-N12				BCM4716               0x04cd       45        0x1201    0x????
+RT-N10				BCM5356               0x04ec       45        0x1402    0x????
 
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
@@ -117,6 +120,12 @@ int check_hw_type(void)
 		return HW_BCM5354G;
 	case 0x456:
 		return HW_BCM5350;
+	case 0x4ec:
+		return HW_BCM5356;
+	case 0x4cd:
+		return HW_BCM4716;
+	case 0x4cf:
+		return HW_BCM4718;
 	}
 
 	// WR850G may have "bcm94710dev " (extra space)
@@ -219,6 +228,12 @@ int get_model(void)
 		case HW_BCM5354G:
 			if (strncmp(nvram_safe_get("hardware_version"), "WL520GU", 7) == 0) return MODEL_WL520GU;
 			return MODEL_WL500GPv2;
+		case HW_BCM5356:
+			if (nvram_match("boardrev", "0x1402")) return MODEL_RTN10;
+		case HW_BCM4716:
+			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
+		case HW_BCM4718:
+			if (nvram_match("boardrev", "0x1218")) return MODEL_RTN16;
 		}
 		break;
 	case 0:

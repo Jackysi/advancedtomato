@@ -59,10 +59,6 @@
 
 //	#define DEBUG_SIMULATE
 
-#undef _dprintf
-//	#define _dprintf	cprintf
-#define _dprintf(args...)	do { } while(0)
-
 
 struct code_header {
 	char magic[4];

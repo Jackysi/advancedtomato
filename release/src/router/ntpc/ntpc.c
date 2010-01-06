@@ -24,10 +24,6 @@
 #include <shared.h>
 
 
-#define _dprintf(args...) do { } while (0);
-//	#define _dprintf(args...) cprintf(args)
-
-
 #define I_MISC		0
 #define I_ORTIME	6
 #define	I_TXTIME	10

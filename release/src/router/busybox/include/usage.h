@@ -2752,7 +2752,7 @@
        "-rw-------    1 andersen andersen        0 Apr 25 17:10 /tmp/temp.mWiLjM\n"
 
 #define modprobe_trivial_usage \
-       "[-knqrsv] MODULE [symbol=value...]"
+       "[OPTIONS] MODULE [symbol=value...]"
 #define modprobe_full_usage "\n\n" \
        "Options:" \
 	USE_FEATURE_2_4_MODULES( \
@@ -2761,7 +2761,9 @@
      "\n	-n	Dry run" \
      "\n	-q	Quiet" \
      "\n	-r	Remove module (stacks) or do autoclean" \
+	USE_FEATURE_2_4_MODULES( \
      "\n	-s	Report via syslog instead of stderr" \
+	) \
      "\n	-v	Verbose" \
 	USE_FEATURE_MODPROBE_BLACKLIST( \
      "\n	-b	Apply blacklist to module names too" \

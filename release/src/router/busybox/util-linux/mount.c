@@ -32,9 +32,16 @@
 #include <sys/utsname.h>
 #undef TRUE
 #undef FALSE
-#include <rpc/rpc.h>
-#include <rpc/pmap_prot.h>
-#include <rpc/pmap_clnt.h>
+#if ENABLE_FEATURE_MOUNT_NFS
+/* This is just a warning of a common mistake.  Possibly this should be a
+ * uclibc faq entry rather than in busybox... */
+# if defined(__UCLIBC__) && ! defined(__UCLIBC_HAS_RPC__)
+#  error "You need to build uClibc with UCLIBC_HAS_RPC for NFS support"
+# endif
+# include <rpc/rpc.h>
+# include <rpc/pmap_prot.h>
+# include <rpc/pmap_clnt.h>
+#endif
 
 #ifndef MS_SILENT
 #define MS_SILENT	(1 << 15)
@@ -505,12 +512,6 @@ static int mount_it_now(struct mntent *mp, long vfsflags, char *filteropts)
  * plus NFSv3 stuff.
  */
 
-/* This is just a warning of a common mistake.  Possibly this should be a
- * uclibc faq entry rather than in busybox... */
-#if defined(__UCLIBC__) && ! defined(__UCLIBC_HAS_RPC__)
-#error "You need to build uClibc with UCLIBC_HAS_RPC for NFS support."
-#endif
-
 #define MOUNTPORT 635
 #define MNTPATHLEN 1024
 #define MNTNAMLEN 255
@@ -701,28 +702,27 @@ enum {
  * "after #include <errno.h> the symbol errno is reserved for any use,
  *  it cannot even be used as a struct tag or field name".
  */
-
 #ifndef EDQUOT
-#define EDQUOT	ENOSPC
+# define EDQUOT ENOSPC
 #endif
-
 /* Convert each NFSERR_BLAH into EBLAH */
-static const struct {
-	short stat;
-	short errnum;
-} nfs_errtbl[] = {
-	{0,0}, {1,EPERM}, {2,ENOENT}, {5,EIO}, {6,ENXIO}, {13,EACCES}, {17,EEXIST},
-	{19,ENODEV}, {20,ENOTDIR}, {21,EISDIR}, {22,EINVAL}, {27,EFBIG},
-	{28,ENOSPC}, {30,EROFS}, {63,ENAMETOOLONG}, {66,ENOTEMPTY}, {69,EDQUOT},
-	{70,ESTALE}, {71,EREMOTE}, {-1,EIO}
+static const uint8_t nfs_err_stat[] = {
+	 1,  2,  5,  6, 13, 17,
+	19, 20, 21, 22, 27, 28,
+	30, 63, 66, 69, 70, 71
+};
+static const uint8_t nfs_err_errnum[] = {
+	EPERM , ENOENT      , EIO      , ENXIO , EACCES, EEXIST,
+	ENODEV, ENOTDIR     , EISDIR   , EINVAL, EFBIG , ENOSPC,
+	EROFS , ENAMETOOLONG, ENOTEMPTY, EDQUOT, ESTALE, EREMOTE
 };
 static char *nfs_strerror(int status)
 {
 	int i;
 
-	for (i = 0; nfs_errtbl[i].stat != -1; i++) {
-		if (nfs_errtbl[i].stat == status)
-			return strerror(nfs_errtbl[i].errnum);
+	for (i = 0; i < ARRAY_SIZE(nfs_err_stat); i++) {
+		if (nfs_err_stat[i] == status)
+			return strerror(nfs_err_errnum[i]);
 	}
 	return xasprintf("unknown nfs status return value: %d", status);
 }
@@ -758,8 +758,12 @@ static bool_t xdr_dirpath(XDR *xdrs, dirpath *objp)
 
 static bool_t xdr_fhandle3(XDR *xdrs, fhandle3 *objp)
 {
-	if (!xdr_bytes(xdrs, (char **)&objp->fhandle3_val, (unsigned int *) &objp->fhandle3_len, FHSIZE3))
+	if (!xdr_bytes(xdrs, (char **)&objp->fhandle3_val,
+				(unsigned int *) &objp->fhandle3_len,
+				FHSIZE3)
+	) {
 		 return FALSE;
+	}
 	return TRUE;
 }
 
@@ -767,9 +771,14 @@ static bool_t xdr_mountres3_ok(XDR *xdrs, mountres3_ok *objp)
 {
 	if (!xdr_fhandle3(xdrs, &objp->fhandle))
 		return FALSE;
-	if (!xdr_array(xdrs, &(objp->auth_flavours.auth_flavours_val), &(objp->auth_flavours.auth_flavours_len), ~0,
-				sizeof (int), (xdrproc_t) xdr_int))
+	if (!xdr_array(xdrs, &(objp->auth_flavours.auth_flavours_val),
+				&(objp->auth_flavours.auth_flavours_len),
+				~0,
+				sizeof(int),
+				(xdrproc_t) xdr_int)
+	) {
 		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -820,11 +829,7 @@ find_kernel_nfs_mount_version(void)
 
 	kernel_version = get_linux_version_code();
 	if (kernel_version) {
-		if (kernel_version < KERNEL_VERSION(2,1,32))
-			nfs_mount_version = 1;
-		else if (kernel_version < KERNEL_VERSION(2,2,18) ||
-				(kernel_version >= KERNEL_VERSION(2,3,0) &&
-				 kernel_version < KERNEL_VERSION(2,3,99)))
+		if (kernel_version < KERNEL_VERSION(2,2,18))
 			nfs_mount_version = 3;
 		/* else v4 since 2.3.99pre4 */
 	}
@@ -1553,8 +1558,10 @@ static int singlemount(struct mntent *mp, int ignore_busy)
 	int rc = -1;
 	long vfsflags;
 	char *loopFile = 0, *filteropts = 0;
-	llist_t *fl = 0;
+	llist_t *fl = NULL;
 	struct stat st;
+
+	errno = 0;
 
 	vfsflags = parse_mount_options(mp->mnt_opts, &filteropts);
 
@@ -1590,52 +1597,41 @@ static int singlemount(struct mntent *mp, int ignore_busy)
 	 && (mp->mnt_fsname[0] == '/' || mp->mnt_fsname[0] == '\\')
 	 && mp->mnt_fsname[0] == mp->mnt_fsname[1]
 	) {
-#if 0 /* reported to break things */
+		int len;
+		char c;
 		len_and_sockaddr *lsa;
-		char *ip, *dotted;
-		char *s;
+		char *hostname, *dotted, *ip;
 
-		// Replace '/' with '\' and verify that unc points to "//server/share".
-		for (s = mp->mnt_fsname; *s; ++s)
-			if (*s == '/') *s = '\\';
-
-		// Get server IP
-		s = strrchr(mp->mnt_fsname, '\\');
-		if (s <= mp->mnt_fsname+1)
+		hostname = mp->mnt_fsname + 2;
+		len = strcspn(hostname, "/\\");
+		if (len == 0 || hostname[len] == '\0')
 			goto report_error;
-		*s = '\0';
-		lsa = host2sockaddr(mp->mnt_fsname+2, 0);
-		*s = '\\';
+		c = hostname[len];
+		hostname[len] = '\0';
+		lsa = host2sockaddr(hostname, 0);
+		hostname[len] = c;
 		if (!lsa)
 			goto report_error;
 
-		// Insert ip=... option into string flags.
+		// Insert "ip=..." option into options
 		dotted = xmalloc_sockaddr2dotted_noport(&lsa->u.sa);
+		if (ENABLE_FEATURE_CLEAN_UP) free(lsa);
 		ip = xasprintf("ip=%s", dotted);
+		if (ENABLE_FEATURE_CLEAN_UP) free(dotted);
 		parse_mount_options(ip, &filteropts);
+		if (ENABLE_FEATURE_CLEAN_UP) free(ip);
 
-		// Compose new unc '\\server-ip\share'
-		// (s => slash after hostname)
-		mp->mnt_fsname = xasprintf("\\\\%s%s", dotted, s);
-#endif
-		// Lock is required [why?]
+		// "-o mand" is required [why?]
 		vfsflags |= MS_MANDLOCK;
 		mp->mnt_type = (char*)"cifs";
 		rc = mount_it_now(mp, vfsflags, filteropts);
-#if 0
-		if (ENABLE_FEATURE_CLEAN_UP) {
-			free(mp->mnt_fsname);
-			free(ip);
-			free(dotted);
-			free(lsa);
-		}
-#endif
+
 		goto report_error;
 	}
 
 	// Might this be an NFS filesystem?
 	if (ENABLE_FEATURE_MOUNT_NFS
-	 && (!mp->mnt_type || !strcmp(mp->mnt_type, "nfs"))
+	 && (!mp->mnt_type || strcmp(mp->mnt_type, "nfs") == 0)
 	 && strchr(mp->mnt_fsname, ':') != NULL
 	) {
 		rc = nfsmount(mp, vfsflags, filteropts);
@@ -1653,7 +1649,7 @@ static int singlemount(struct mntent *mp, int ignore_busy)
 		if (ENABLE_FEATURE_MOUNT_LOOP && S_ISREG(st.st_mode)) {
 			loopFile = bb_simplify_path(mp->mnt_fsname);
 			mp->mnt_fsname = NULL; // will receive malloced loop dev name
-			if (set_loop(&(mp->mnt_fsname), loopFile, 0) < 0) {
+			if (set_loop(&mp->mnt_fsname, loopFile, 0) < 0) {
 				if (errno == EPERM || errno == EACCES)
 					bb_error_msg(bb_msg_perm_denied_are_you_root);
 				else
@@ -1674,9 +1670,9 @@ static int singlemount(struct mntent *mp, int ignore_busy)
 		// Loop through filesystem types until mount succeeds
 		// or we run out
 
-		// Initialize list of block backed filesystems.  This has to be
-		// done here so that during "mount -a", mounts after /proc shows up
-		// can autodetect.
+		// Initialize list of block backed filesystems.
+		// This has to be done here so that during "mount -a",
+		// mounts after /proc shows up can autodetect.
 		if (!fslist) {
 			fslist = get_block_backed_filesystems();
 			if (ENABLE_FEATURE_CLEAN_UP && fslist)
@@ -1710,43 +1706,61 @@ static int singlemount(struct mntent *mp, int ignore_busy)
 	return rc;
 }
 
-/* -O support
- * Unlike -t, -O should interpret "no" prefix differently:
- * -t noa,b,c = -t no(a,b,c) = mount all except fs'es with types a,b, and c
- * -O noa,b,c = -O noa,b,c = mount all with without option a,
- * or with option b or c.
- * But for now we do not support -O a,b,c at all (only -O a).
- *
- * Another difference from -t support (match_fstype) is that
- * we need to examine the _list_ of options in fsopt, not just a string.
- */
-static int match_opt(const char *fs_opt, const char *O_opt)
+// -O support
+//    -O interprets a list of filter options which select whether a mount
+// point will be mounted: only mounts with options matching *all* filtering
+// options will be selected.
+//    By default each -O filter option must be present in the list of mount
+// options, but if it is prefixed by "no" then it must be absent.
+// For example,
+//  -O a,nob,c  matches  -o a,c  but fails to match  -o a,b,c
+//              (and also fails to match  -o a  because  -o c  is absent).
+//
+// It is different from -t in that each option is matched exactly; a leading
+// "no" at the beginning of one option does not negate the rest.
+static int match_opt(const char *fs_opt_in, const char *O_opt)
 {
-	int match = 1;
-	int len;
-
 	if (!O_opt)
-		return match;
+		return 1;
 
-	if (O_opt[0] == 'n' && O_opt[1] == 'o') {
-		match--;
-		O_opt += 2;
-	}
+	while (*O_opt) {
+		const char *fs_opt = fs_opt_in;
+		int O_len;
+		int match;
 
-	len = strlen(O_opt);
-	while (1) {
-		if (strncmp(fs_opt, O_opt, len) == 0
-		 && (fs_opt[len] == '\0' || fs_opt[len] == ',')
-		) {
-			return match;
+		// If option begins with "no" then treat as an inverted match:
+		// matching is a failure
+		match = 0;
+		if (O_opt[0] == 'n' && O_opt[1] == 'o') {
+			match = 1;
+			O_opt += 2;
 		}
-		fs_opt = strchr(fs_opt, ',');
-		if (!fs_opt)
+		// Isolate the current O option
+		O_len = strchrnul(O_opt, ',') - O_opt;
+		// Check for a match against existing options
+		while (1) {
+			if (strncmp(fs_opt, O_opt, O_len) == 0
+			 && (fs_opt[O_len] == '\0' || fs_opt[O_len] == ',')
+			) {
+				if (match)
+					return 0;  // "no" prefix, but option found
+				match = 1;  // current O option found, go check next one
+				break;
+			}
+			fs_opt = strchr(fs_opt, ',');
+			if (!fs_opt)
+				break;
+			fs_opt++;
+		}
+		if (match == 0)
+			return 0;     // match wanted but not found
+		if (O_opt[O_len] == '\0') // end?
 			break;
-		fs_opt++;
+		// Step to the next O option
+		O_opt += O_len + 1;
 	}
-
-	return !match;
+	// If we get here then everything matched
+	return 1;
 }
 
 // Parse options, if necessary parse fstab/mtab, and call singlemount for
@@ -1763,7 +1777,8 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 	llist_t *lst_o = NULL;
 	const char *fstabname;
 	FILE *fstab;
-	int i, j, rc = 0;
+	int i, j;
+	int rc = EXIT_SUCCESS;
 	unsigned opt;
 	struct mntent mtpair[2], *mtcur = mtpair;
 	SKIP_DESKTOP(const int nonroot = 0;)
@@ -1803,9 +1818,9 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 			{
 				// Don't show rootfs. FIXME: why??
 				// util-linux 2.12a happily shows rootfs...
-				//if (!strcmp(mtpair->mnt_fsname, "rootfs")) continue;
+				//if (strcmp(mtpair->mnt_fsname, "rootfs") == 0) continue;
 
-				if (!fstype || !strcmp(mtpair->mnt_type, fstype))
+				if (!fstype || strcmp(mtpair->mnt_type, fstype) == 0)
 					printf("%s on %s type %s (%s)\n", mtpair->mnt_fsname,
 							mtpair->mnt_dir, mtpair->mnt_type,
 							mtpair->mnt_opts);
@@ -1827,7 +1842,7 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 			mtpair->mnt_type = fstype;
 			mtpair->mnt_opts = cmdopts;
 			resolve_mount_spec(&mtpair->mnt_fsname);
-			rc = singlemount(mtpair, 0);
+			rc = singlemount(mtpair, /*ignore_busy:*/ 0);
 			return rc;
 		}
 		storage_path = bb_simplify_path(argv[0]); // malloced
@@ -1883,10 +1898,13 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 		if (argv[0]) {
 
 			// Is this what we're looking for?
-			if (strcmp(argv[0], mtcur->mnt_fsname) &&
-			   strcmp(storage_path, mtcur->mnt_fsname) &&
-			   strcmp(argv[0], mtcur->mnt_dir) &&
-			   strcmp(storage_path, mtcur->mnt_dir)) continue;
+			if (strcmp(argv[0], mtcur->mnt_fsname) != 0
+			 && strcmp(storage_path, mtcur->mnt_fsname) != 0
+			 && strcmp(argv[0], mtcur->mnt_dir) != 0
+			 && strcmp(storage_path, mtcur->mnt_dir) != 0
+			) {
+				continue; // no
+			}
 
 			// Remember this entry.  Something later may have
 			// overmounted it, and we want the _last_ match.
@@ -1894,6 +1912,7 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 
 		// If we're mounting all
 		} else {
+			struct mntent *mp;
 			// No, mount -a won't mount anything,
 			// even user mounts, for mere humans
 			if (nonroot)
@@ -1903,7 +1922,7 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 			if (!match_fstype(mtcur, fstype))
 				continue;
 
-			// Skip noauto and swap anyway.
+			// Skip noauto and swap anyway
 			if ((parse_mount_options(mtcur->mnt_opts, NULL) & (MOUNT_NOAUTO | MOUNT_SWAP))
 			// swap is bogus "fstype", parse_mount_options can't check fstypes
 			 || strcasecmp(mtcur->mnt_type, "swap") == 0
@@ -1921,10 +1940,25 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 			// NFS mounts want this to be xrealloc-able
 			mtcur->mnt_opts = xstrdup(mtcur->mnt_opts);
 
-			// Mount this thing
-			if (singlemount(mtcur, 1)) {
-				// Count number of failed mounts
-				rc++;
+			// If nothing is mounted on this directory...
+			// (otherwise repeated "mount -a" mounts everything again)
+			mp = find_mount_point(mtcur->mnt_dir);
+			// We do not check fsname match of found mount point -
+			// "/" may have fsname of "/dev/root" while fstab
+			// says "/dev/something_else".
+			if (mp) {
+				if (verbose) {
+					bb_error_msg("according to %s, "
+						"%s is already mounted on %s",
+						bb_path_mtab_file,
+						mp->mnt_fsname, mp->mnt_dir);
+				}
+			} else {
+				// ...mount this thing
+				if (singlemount(mtcur, /*ignore_busy:*/ 1)) {
+					// Count number of failed mounts
+					rc++;
+				}
 			}
 			free(mtcur->mnt_opts);
 		}
@@ -1932,7 +1966,7 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 
 	// End of fstab/mtab is reached.
 	// Were we looking for something specific?
-	if (argv[0]) {
+	if (argv[0]) { // yes
 		long l;
 
 		// If we didn't find anything, complain
@@ -1965,13 +1999,24 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 				bb_error_msg_and_die(must_be_root);
 		}
 
-		// Mount the last thing we found
-		mtcur->mnt_opts = xstrdup(mtcur->mnt_opts);
-		append_mount_options(&(mtcur->mnt_opts), cmdopts);
-		resolve_mount_spec(&mtpair->mnt_fsname);
-		rc = singlemount(mtcur, 0);
-		if (ENABLE_FEATURE_CLEAN_UP)
-			free(mtcur->mnt_opts);
+		//util-linux-2.12 does not do this check.
+		//// If nothing is mounted on this directory...
+		//// (otherwise repeated "mount FOO" mounts FOO again)
+		//mp = find_mount_point(mtcur->mnt_dir);
+		//if (mp) {
+		//	bb_error_msg("according to %s, "
+		//		"%s is already mounted on %s",
+		//		bb_path_mtab_file,
+		//		mp->mnt_fsname, mp->mnt_dir);
+		//} else {
+			// ...mount the last thing we found
+			mtcur->mnt_opts = xstrdup(mtcur->mnt_opts);
+			append_mount_options(&(mtcur->mnt_opts), cmdopts);
+			resolve_mount_spec(&mtpair->mnt_fsname);
+			rc = singlemount(mtcur, /*ignore_busy:*/ 0);
+			if (ENABLE_FEATURE_CLEAN_UP)
+				free(mtcur->mnt_opts);
+		//}
 	}
 
  //ret:
@@ -1981,5 +2026,15 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 		free(storage_path);
 		free(cmdopts);
 	}
+
+//TODO: exitcode should be ORed mask of (from "man mount"):
+// 0 success
+// 1 incorrect invocation or permissions
+// 2 system error (out of memory, cannot fork, no more loop devices)
+// 4 internal mount bug or missing nfs support in mount
+// 8 user interrupt
+//16 problems writing or locking /etc/mtab
+//32 mount failure
+//64 some mount succeeded
 	return rc;
 }

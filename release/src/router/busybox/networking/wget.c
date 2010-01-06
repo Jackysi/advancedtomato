@@ -626,7 +626,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 #endif
 
 			if (beg_range)
-				fprintf(sfp, "Range: bytes=%"OFF_FMT"d-\r\n", beg_range);
+				fprintf(sfp, "Range: bytes=%"OFF_FMT"u-\r\n", beg_range);
 #if ENABLE_FEATURE_WGET_LONG_OPTIONS
 			if (extra_headers)
 				fputs(extra_headers, sfp);
@@ -721,7 +721,7 @@ However, in real world it was observed that some web servers
 				key = index_in_strings(keywords, buf) + 1;
 				if (key == KEY_content_length) {
 					content_len = BB_STRTOOFF(str, NULL, 10);
-					if (errno || content_len < 0) {
+					if (content_len < 0 || errno) {
 						bb_error_msg_and_die("content-length %s is garbage", str);
 					}
 					got_clen = 1;
@@ -789,7 +789,7 @@ However, in real world it was observed that some web servers
 		 */
 		if (ftpcmd("SIZE ", target.path, sfp, buf) == 213) {
 			content_len = BB_STRTOOFF(buf+4, NULL, 10);
-			if (errno || content_len < 0) {
+			if (content_len < 0 || errno) {
 				bb_error_msg_and_die("SIZE value is garbage");
 			}
 			got_clen = 1;
@@ -818,7 +818,7 @@ However, in real world it was observed that some web servers
 		dfp = open_socket(lsa);
 
 		if (beg_range) {
-			sprintf(buf, "REST %"OFF_FMT"d", beg_range);
+			sprintf(buf, "REST %"OFF_FMT"u", beg_range);
 			if (ftpcmd(buf, NULL, sfp, buf) == 350)
 				content_len -= beg_range;
 		}
@@ -854,12 +854,18 @@ However, in real world it was observed that some web servers
 
 	/* Loops only if chunked */
 	while (1) {
-		while (content_len > 0 || !got_clen) {
+		while (1) {
 			int n;
-			unsigned rdsz = sizeof(buf);
+			unsigned rdsz;
 
-			if (content_len < sizeof(buf) && (chunked || got_clen))
-				rdsz = (unsigned)content_len;
+			rdsz = sizeof(buf);
+			if (got_clen) {
+				if (content_len < (off_t)sizeof(buf)) {
+					if ((int)content_len <= 0)
+						break;
+					rdsz = (unsigned)content_len;
+				}
+			}
 			n = safe_fread(buf, rdsz, dfp);
 			if (n <= 0) {
 				if (ferror(dfp)) {
@@ -886,16 +892,19 @@ However, in real world it was observed that some web servers
 		/* FIXME: error check? */
 		if (content_len == 0)
 			break; /* all done! */
+		got_clen = 1;
 	}
 
 	if (!(opt & WGET_OPT_QUIET))
 		progress_meter(0);
+	if (close(output_fd))
+		bb_perror_msg_and_die("close failed");
 
 	if ((use_proxy == 0) && target.is_ftp) {
 		fclose(dfp);
 		if (ftpcmd(NULL, NULL, sfp, buf) != 226)
 			bb_error_msg_and_die("ftp error: %s", buf+4);
-		ftpcmd("QUIT", NULL, sfp, buf);
+		/* ftpcmd("QUIT", NULL, sfp, buf); - why bother? */
 	}
 
 	return EXIT_SUCCESS;
