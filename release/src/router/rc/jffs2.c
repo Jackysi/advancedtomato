@@ -47,7 +47,6 @@ void start_jffs2(void)
 	if (nvram_match("jffs2_format", "1")) {
 		nvram_set("jffs2_format", "0");
 
-	notice_set("jffs", "doing mtd_erase of jffs2");
 		if (!mtd_erase("jffs2")) {
 			error("formatting");
 			return;
@@ -69,24 +68,19 @@ void start_jffs2(void)
 		}
 	}
 
-	notice_set("jffs", "doing mtd_unlock of jffs2 -> part: %d size: %d", part, size);
 	if (!mtd_unlock("jffs2")) {
 		error("unlocking");
 		return;
 	}
 
-	notice_set("jffs", "doing modprobe- jffs");
 	modprobe(JFFS_NAME);
 
 	sprintf(s, "/dev/mtdblock/%d", part);
-	notice_set("jffs", "doing mount- jffs");
 	if (mount(s, "/jffs", JFFS_NAME, MS_NOATIME|MS_NODIRATIME, "") != 0) {
-	   notice_set("jffs", "mount failed");
 		modprobe_r(JFFS_NAME);
 		error("mounting");
 		return;
 	}
-	notice_set("jffs", "mount worked");
 
 #ifdef TEST_INTEGRITY
 	int test;

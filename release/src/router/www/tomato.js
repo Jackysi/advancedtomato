@@ -2054,7 +2054,9 @@ REMOVE-END */
 /* CIFS-END */
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
+/* JFFS2-BEGIN */
 			['JFFS',			'jffs2.asp'],
+/* JFFS2-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],
