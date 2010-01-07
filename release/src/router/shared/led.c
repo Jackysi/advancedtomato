@@ -169,6 +169,7 @@ int led(int which, int mode)
 	static int wr850g1[]	= { 7,    3,    255,  255,  255,  255,  255,  255	};
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
+	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
 	char s[16];
 	int n;
 	int b;
@@ -247,6 +248,10 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = -5;	// power light
 		break;
+	case MODEL_DIR320:
+		b = dir320[which];
+		break;
+	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
 		b = 0;	// Invert power light as diag indicator
@@ -283,7 +288,7 @@ int led(int which, int mode)
 	}
 
 	if (b < 0) {
-		if (b == -99) b = 1; // -0 substitute
+		if (b == -99) b = 0; // -0 substitute
 			else b = -b;
 	}
 	else if (mode != LED_PROBE) {
