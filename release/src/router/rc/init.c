@@ -734,7 +734,7 @@ static int init_nvram(void)
 	case MODEL_DIR320:
 		mfr = "D-Link";
 		name = "DIR-320";
-		//	features = ?;
+		features = SUP_SES;
 		if (nvram_match("wl0gpio0", "255"))
 		{
 			nvram_set("wl0gpio0", "8");
