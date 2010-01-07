@@ -707,7 +707,7 @@ static int init_nvram(void)
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
-		//	features = ?;
+		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			if (nvram_match("vlan1ports", "4 5u")) {
 				nvram_set("vlan1ports", "4 5");
@@ -715,6 +715,7 @@ static int init_nvram(void)
 			else if (nvram_match("vlan1ports", "0 5u")) {	// 520GU?
 				nvram_set("vlan1ports", "0 5");
 			}
+			nvram_set("t_fix1", name);
 		}
 		break;
 	case MODEL_WL520GU:

@@ -175,6 +175,7 @@ int led(int which, int mode)
 	case MODEL_DIR320:
 		b = dir320[which];
 		break;
+	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
 		b = 0;	// Invert power light as diag indicator
