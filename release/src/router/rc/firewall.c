@@ -253,7 +253,11 @@ int ipt_layer7(const char *v, char *opt)
 		}
 	}
 
+#ifdef LINUX26
+	modprobe("xt_layer7");
+#else
 	modprobe("ipt_layer7");
+#endif
 	return 1;
 }
 
@@ -830,11 +834,18 @@ int start_firewall(void)
 
 	led(LED_DMZ, dmz_dst(NULL));
 
+#ifdef LINUX26
+	modprobe_r("xt_layer7");
+#else
 	modprobe_r("ipt_layer7");
+#endif
 	modprobe_r("ipt_ipp2p");
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_TTL");
 
+#ifdef TCONFIG_OPENVPN
+	run_vpn_firewall_scripts();
+#endif
 	run_nvscript("script_fire", NULL, 1);
 
 	simple_unlock("firewall");

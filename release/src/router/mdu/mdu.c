@@ -43,13 +43,6 @@
 #define BLOB_SIZE	(4 * 1024)
 
 
-#ifdef DEBUG
-#define _dprintf	cprintf
-#else
-#define _dprintf(args...)	do { } while(0)
-#endif
-
-
 #define M_UNKNOWN_ERROR__D		"Unknown error (%d)."
 #define M_UNKNOWN_RESPONSE__D	"Unknown response (%d)."
 #define M_INVALID_HOST			"Invalid hostname."

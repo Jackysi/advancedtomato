@@ -29,11 +29,10 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-ghz = ['2.412','2.417','2.422','2.427','2.432','2.437','2.442','2.447','2.452','2.457','2.462','2.467','2.472','2.484'];
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
-bgmo = {'disabled':'-','mixed':'Mixed','b-only':'B Only','g-only':'G Only','bg-mixed':'Mixed B+G','lrs':'LRS','n-only':'N Only'};
+bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mixed':'B/G Mixed','lrs':'LRS','n-only':'N Only'};
 </script>
 
 <script type='text/javascript' src='status-data.jsx?_http_id=<% nv(http_id); %>'></script>
@@ -42,6 +41,7 @@ bgmo = {'disabled':'-','mixed':'Mixed','b-only':'B Only','g-only':'G Only','bg-m
 show_dhcpc = ((nvram.wan_proto == 'dhcp') || (nvram.wan_proto == 'l2tp'));
 show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp'));
 show_radio = (nvram.wl_radio == '1');
+nphy = features('11n');
 
 
 function dhcpc(what)
@@ -114,6 +114,9 @@ function show()
 		E('b_wl_disable').disabled = !wlradio;
 	}
 	c('channel', stats.channel);
+	if (nphy) {
+		c('nbw', stats.nbw);
+	}
 
 	if (isClient) {
 		c('rssi', wlcrssi);
@@ -234,6 +237,7 @@ createFieldTable('', [
 	{ title: 'SSID', text: nvram.wl_ssid },
 	{ title: 'Security', text: sec },
 	{ title: 'Channel', rid: 'channel', text: stats.channel },
+	{ title: 'Channel Width', rid: 'nbw', text: stats.nbw, ignore: !nphy },
 	{ title: 'RSSI', rid: 'rssi', text: wlcrssi, ignore: !isClient },
 	{ title: 'Noise', rid: 'noise', text: wlnoise, ignore: !isClient },
 	{ title: 'Signal Quality', rid: 'qual', text: stats.qual, ignore: !isClient }

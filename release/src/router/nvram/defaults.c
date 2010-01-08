@@ -189,18 +189,19 @@ const defaults_t defaults[] = {
 
 	// WME parameters
 	// EDCA parameters for STA
-	{ "wl_wme_sta_bk",		"15 1023 7 0 0 off"		},	// WME STA AC_BK paramters
-	{ "wl_wme_sta_be",		"15 1023 3 0 0 off"		},	// WME STA AC_BE paramters
-	{ "wl_wme_sta_vi",		"7 15 2 6016 3008 off"	},	// WME STA AC_VI paramters
-	{ "wl_wme_sta_vo",		"3 7 2 3264 1504 off"	},	// WME STA AC_VO paramters
+	{ "wl_wme_sta_bk",		"15 1023 7 0 0 off off"		},	// WME STA AC_BK paramters
+	{ "wl_wme_sta_be",		"15 1023 3 0 0 off off"		},	// WME STA AC_BE paramters
+	{ "wl_wme_sta_vi",		"7 15 2 6016 3008 off off"	},	// WME STA AC_VI paramters
+	{ "wl_wme_sta_vo",		"3 7 2 3264 1504 off off"	},	// WME STA AC_VO paramters
 
 	// EDCA parameters for AP
-	{ "wl_wme_ap_bk",		"15 1023 7 0 0 off"		},	// WME AP AC_BK paramters
-	{ "wl_wme_ap_be",		"15 63 3 0 0 off"		},	// WME AP AC_BE paramters
-	{ "wl_wme_ap_vi",		"7 15 1 6016 3008 off"	},	// WME AP AC_VI paramters
-	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off"	},	// WME AP AC_VO paramters
+	{ "wl_wme_ap_bk",		"15 1023 7 0 0 off off"		},	// WME AP AC_BK paramters
+	{ "wl_wme_ap_be",		"15 63 3 0 0 off off"		},	// WME AP AC_BE paramters
+	{ "wl_wme_ap_vi",		"7 15 1 6016 3008 off off"	},	// WME AP AC_VI paramters
+	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off off"	},	// WME AP AC_VO paramters
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
+	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
 
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add
@@ -208,6 +209,31 @@ const defaults_t defaults[] = {
 	{ "wl_leddc",			"0x640000"		},	// !!TB - 100% duty cycle for LED on router (WLAN LED fix for some routers)
 	{ "wl_bss_enabled",		"1"				},	// !!TB - If not present the new versions of wlconf may not bring up wlan
 	{ "wl_reg_mode",		"off"			},	// !!TB - Regulatory: 802.11H(h)/802.11D(d)/off(off)
+
+// !!TB: n-mode
+	{ "wl_nmode",			"-1"			},	// N-mode
+	{ "wl_nmcsidx",			"-1"			},	// MCS Index for N - rate
+	{ "wl_nreqd",			"0"			},	// Require 802.11n support
+	{ "wl_nbw",			"40"			},	// BW: 20 / 40 MHz
+	{ "wl_nbw_cap",			"1"			},	// BW: def 20inB and 40inA
+	{ "wl_mimo_preamble",		"mm"			},	// 802.11n Preamble: mm/gf/auto/gfbcm
+	{ "wl_nctrlsb",			"upper"			},	// N-CTRL SB (none/lower/upper)
+	{ "wl_nband",			"2"			},	// N-Band
+	{ "wl_nmode_protection",	"off"			},	// 802.11n RTS/CTS protection (off|auto)
+	{ "wl_rxstreams",		"0"			},	// 802.11n Rx Streams, 0 is invalid, WLCONF will change it to a radio appropriate default
+	{ "wl_txstreams",		"0"			},	// 802.11n Tx Streams 0, 0 is invalid, WLCONF will change it to a radio appropriate default
+	{ "wl_dfs_preism",		"60"			},	// 802.11H pre network CAC time
+	{ "wl_dfs_postism",		"60"			},	// 802.11H In Service Monitoring CAC time
+	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
+	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
+	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
+#ifdef LINUX26	// EMF
+	/* EMF defaults */
+	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
+	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
+	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
+	{ "emf_enable",			"0"			},	// Disable EMF by default
+#endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
@@ -229,7 +255,7 @@ const defaults_t defaults[] = {
 	{ "btn_reset",			""				},
 	{ "env_path",			""				},
 	{ "manual_boot_nv",		"0"				},
-	{ "wlx_hpamp",			""				},
+//	{ "wlx_hpamp",			""				},
 //	{ "wlx_hperx",			""				},	//	see init.c
 	{ "t_fix1",				""				},
 
@@ -274,6 +300,9 @@ const defaults_t defaults[] = {
 	{ "ct_max",				""				},
 	{ "nf_ttl",				"0"				},
 	{ "nf_l7in",			"1"				},
+#ifdef LINUX26
+	{ "nf_sip",			"1"				},
+#endif
 	{ "nf_rtsp",			"1"				},
 	{ "nf_pptp",			"0"				},
 	{ "nf_h323",			"1"				},
@@ -559,6 +588,122 @@ const defaults_t defaults[] = {
 	{ "script_shut",		""				},
 	{ "script_fire",		""				},
 	{ "script_wanup",		""				},
+
+#ifdef TCONFIG_OPENVPN
+// vpn
+	{ "vpn_debug",            "0"             },
+	{ "vpn_server_eas",       ""              },
+	{ "vpn_server_dns",       ""              },
+	{ "vpn_server1_if",       "tun"           },
+	{ "vpn_server1_proto",    "udp"           },
+	{ "vpn_server1_port",     "1194"          },
+	{ "vpn_server1_firewall", "auto"          },
+	{ "vpn_server1_crypt",    "tls"           },
+	{ "vpn_server1_comp",     "adaptive"      },
+	{ "vpn_server1_cipher",   "default"       },
+	{ "vpn_server1_dhcp",     "1"             },
+	{ "vpn_server1_r1",       "192.168.1.50"  },
+	{ "vpn_server1_r2",       "192.168.1.55"  },
+	{ "vpn_server1_sn",       "10.8.0.0"      },
+	{ "vpn_server1_nm",       "255.255.255.0" },
+	{ "vpn_server1_local",    "10.8.0.1"      },
+	{ "vpn_server1_remote",   "10.8.0.2"      },
+	{ "vpn_server1_reneg",    "-1"            },
+	{ "vpn_server1_hmac",     "-1"            },
+	{ "vpn_server1_plan",     "1"             },
+	{ "vpn_server1_ccd",      "0"             },
+	{ "vpn_server1_c2c",      "0"             },
+	{ "vpn_server1_ccd_excl", "0"             },
+	{ "vpn_server1_ccd_val",  ""              },
+	{ "vpn_server1_pdns",     "0"             },
+	{ "vpn_server1_rgw",      "0"             },
+	{ "vpn_server1_custom",   ""              },
+	{ "vpn_server1_static",   ""              },
+	{ "vpn_server1_ca",       ""              },
+	{ "vpn_server1_crt",      ""              },
+	{ "vpn_server1_key",      ""              },
+	{ "vpn_server1_dh",       ""              },
+	{ "vpn_server2_if",       "tun"           },
+	{ "vpn_server2_proto",    "udp"           },
+	{ "vpn_server2_port",     "1194"          },
+	{ "vpn_server2_firewall", "auto"          },
+	{ "vpn_server2_crypt",    "tls"           },
+	{ "vpn_server2_comp",     "adaptive"      },
+	{ "vpn_server2_cipher",   "default"       },
+	{ "vpn_server2_dhcp",     "1"             },
+	{ "vpn_server2_r1",       "192.168.1.50"  },
+	{ "vpn_server2_r2",       "192.168.1.55"  },
+	{ "vpn_server2_sn",       "10.8.0.0"      },
+	{ "vpn_server2_nm",       "255.255.255.0" },
+	{ "vpn_server2_local",    "10.8.0.1"      },
+	{ "vpn_server2_remote",   "10.8.0.2"      },
+	{ "vpn_server2_reneg",    "-1"            },
+	{ "vpn_server2_hmac",     "-1"            },
+	{ "vpn_server2_plan",     "1"             },
+	{ "vpn_server2_ccd",      "0"             },
+	{ "vpn_server2_c2c",      "0"             },
+	{ "vpn_server2_ccd_excl", "0"             },
+	{ "vpn_server2_ccd_val",  ""              },
+	{ "vpn_server2_pdns",     "0"             },
+	{ "vpn_server2_rgw",      "0"             },
+	{ "vpn_server2_custom",   ""              },
+	{ "vpn_server2_static",   ""              },
+	{ "vpn_server2_ca",       ""              },
+	{ "vpn_server2_crt",      ""              },
+	{ "vpn_server2_key",      ""              },
+	{ "vpn_server2_dh",       ""              },
+	{ "vpn_client_eas",       ""              },
+	{ "vpn_client1_if",       "tun"           },
+	{ "vpn_client1_bridge",   "1"             },
+	{ "vpn_client1_nat",      "1"             },
+	{ "vpn_client1_proto",    "udp"           },
+	{ "vpn_client1_addr",     ""              },
+	{ "vpn_client1_port",     "1194"          },
+	{ "vpn_client1_retry",    "30"            },
+	{ "vpn_client1_rg",       "0"             },
+	{ "vpn_client1_firewall", "auto"          },
+	{ "vpn_client1_crypt",    "tls"           },
+	{ "vpn_client1_comp",     "adaptive"      },
+	{ "vpn_client1_cipher",   "default"       },
+	{ "vpn_client1_local",    "10.8.0.2"      },
+	{ "vpn_client1_remote",   "10.8.0.1"      },
+	{ "vpn_client1_nm",       "255.255.255.0" },
+	{ "vpn_client1_reneg",    "-1"            },
+	{ "vpn_client1_hmac",     "-1"            },
+	{ "vpn_client1_adns",     "0"             },
+	{ "vpn_client1_rgw",      "0"             },
+	{ "vpn_client1_gw",       ""              },
+	{ "vpn_client1_custom",   ""              },
+	{ "vpn_client1_static",   ""              },
+	{ "vpn_client1_ca",       ""              },
+	{ "vpn_client1_crt",      ""              },
+	{ "vpn_client1_key",      ""              },
+	{ "vpn_client2_if",       "tun"           },
+	{ "vpn_client2_bridge",   "1"             },
+	{ "vpn_client2_nat",      "1"             },
+	{ "vpn_client2_proto",    "udp"           },
+	{ "vpn_client2_addr",     ""              },
+	{ "vpn_client2_port",     "1194"          },
+	{ "vpn_client2_retry",    "30"            },
+	{ "vpn_client2_rg",       "0"             },
+	{ "vpn_client2_firewall", "auto"          },
+	{ "vpn_client2_crypt",    "tls"           },
+	{ "vpn_client2_comp",     "adaptive"      },
+	{ "vpn_client2_cipher",   "default"       },
+	{ "vpn_client2_local",    "10.8.0.2"      },
+	{ "vpn_client2_remote",   "10.8.0.1"      },
+	{ "vpn_client2_nm",       "255.255.255.0" },
+	{ "vpn_client2_reneg",    "-1"            },
+	{ "vpn_client2_hmac",     "-1"            },
+	{ "vpn_client2_adns",     "0"             },
+	{ "vpn_client2_rgw",      "0"             },
+	{ "vpn_client2_gw",       ""              },
+	{ "vpn_client2_custom",   ""              },
+	{ "vpn_client2_static",   ""              },
+	{ "vpn_client2_ca",       ""              },
+	{ "vpn_client2_crt",      ""              },
+	{ "vpn_client2_key",      ""              },
+#endif	// vpn
 
 #if 0
 // safe to remove?

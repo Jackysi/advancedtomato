@@ -59,10 +59,6 @@
 
 //	#define DEBUG_SIMULATE
 
-#undef _dprintf
-//	#define _dprintf	cprintf
-#define _dprintf(args...)	do { } while(0)
-
 
 struct code_header {
 	char magic[4];
@@ -152,7 +148,7 @@ static int mtd_open(const char *mtdname)
 	int size;
 
 	if (mtd_getinfo(mtdname, &part, &size)) {
-		sprintf(path, "/dev/mtd/%d", part);
+		sprintf(path, MTD_DEV(%d), part);
 		return open(path, O_RDWR|O_SYNC);
 	}
 	return -1;

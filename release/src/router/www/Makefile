@@ -35,6 +35,20 @@ install:
 			-e "/^$$/d" \
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
+
+# Only include Linux 2.6 options if building for Linux 2.6.
+ifneq ($(CONFIG_LINUX26),y)
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
+	done
+endif
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed	-i "/LINUX26-BEGIN/d" $$F; \
+		sed	-i "/LINUX26-END/d" $$F; \
+	done
+
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
 	rm -f $(INSTALLDIR)/www/nas-ftp.asp
@@ -49,6 +63,11 @@ endif
 ifneq ($(TCONFIG_CIFS),y)
 	rm -f $(INSTALLDIR)/www/admin-cifs.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
+endif
+# Only include the JFFS pages if JFFS is configured in.
+ifneq ($(TCONFIG_JFFS2),y)
+	rm -f $(INSTALLDIR)/www/admin-jffs2.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 endif
 # Only include the Zebra options if Zebra is configured in.
 ifneq ($(TCONFIG_ZEBRA),y)
@@ -94,6 +113,15 @@ endif
 
 
 
+# Only include the vpn pages in the navigation if OpenVPN is compiled in
+ifneq ($(TCONFIG_OPENVPN),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+	rm -f $(INSTALLDIR)/www/vpn.js
+	rm -f $(INSTALLDIR)/www/vpn-client.asp
+	rm -f $(INSTALLDIR)/www/vpn-server.asp
+endif
+
+	
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*

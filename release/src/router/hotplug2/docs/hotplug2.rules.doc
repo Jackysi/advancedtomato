@@ -1,0 +1,148 @@
+ INTRO
+ -----
+
+This document describes the format of /etc/hotplug2.rules file.
+
+The general syntax is:
+
+<key> <condition type> <value> [, <key> <condition type> <value> [,...]] {
+	action [parameter]
+	[action [parameter]]
+	[... [...]]
+}
+
+Comments are allowed, they are prefixed with '#', treating the whole rest of the
+line as comment. Please note that comments in place of action parameters are not
+supported.
+
+The <key> is one of the environmental variables that have been obtained by the
+uevent netlink. 
+
+ COMMON KEYS
+ -----------
+
+The most common keys available are: 
+ * ACTION
+
+ * SUBSYSTEM
+ 
+ * DEVPATH
+ 
+ * MODALIAS
+ 
+ * MAJOR
+ 
+ * MINOR
+ 
+These values are also substituted by "%variable%", eg. "%MODALIAS". There is
+a variable not sent by kernel, but exported nonetheless: DEVICENAME. This
+variable is set if DEVPATH is set, and is result of basename(DEVPATH).
+
+
+ CONDITION TYPES
+ ---------------
+
+Conditiom types specify the realtionship between <key> and <value>.
+Available condition types are:
+ * ==
+	Values are equal, case sensitive
+ 
+ * !=
+	Values are not equal, case sensitive
+ 
+ * ~~
+	The content of <key> matches regex pattern in <value>
+ 
+ * !~
+	The content of <key> does not match regex pattern in <value> 
+ 
+ * is
+	This is a special condition type. Valid values for it are 'set' and
+	'unset', specifying the key has any value at all or not. Any other
+	value implies the condition fails.
+
+
+  ACTIONS
+  -------
+
+ * run <...>
+	Execute an application using system();, takes one parameter. Note that
+	the application has set all environmental variables read by uevent
+	netlink.
+
+ * break
+	Break the processing of the current block of actions.
+
+ * break_if_failed
+	Break if return value from the last action was non-zero.
+
+ * next
+	Continue to the next event, do not process any more rules for the
+	current one.
+
+ * next_if_failed
+	Continue to the next event if return value from the last action was 
+	non-zero.
+
+ * exec <application [parameter [parameter [...]]]> ;
+	Execute an application. Takes variable number of parameters, but the
+	last parameter must be terminated with semicolon. Again, all variables
+	are set as environmental.
+	
+	If you need to escape the ';', use '\\;'. Only applies for actions with
+	variable number of parameters.
+	
+ * makedev <path> <mode>
+	Create a device with given mode. The mode is not in octal unless it
+	starts with '0', eg. "0644" != "644".
+	
+	Major, minor and devpath must be set for makedev to be able to work.
+	Tests for these variables are also performed internally in makedev
+	function.
+
+ * symlink <target> <linkname>
+	Create a symbolic link (symlink, also known as soft link) pointing at
+	target with name linkname.
+	
+ * chown <path> <owner name>
+	Change owner of path to owner name.
+	
+ * chgrp <path> <group name>
+	Change group of path to group name.
+	
+ * chmod <path> <mode>
+	Change mode of path to given mode. Like with makedev, heading '0' is
+	necessary for the mode to be interpreted as octal.
+
+ * setenv <key> <value>
+	Sets environmental variable key to the given value. If an env var
+	of the given name already exists, it gets overwritten.
+	
+ ESCAPING
+ --------
+
+There are several items you may like to escape:
+ * variable substitution
+	You can escape variable substituion by "%\\variable%\\".
+	
+ * action block terminator '}'
+	Similarly, to escape action block terminator, use '\\}'
+
+ * variable parameter terminator ';' (semicolon)
+	Likewise, you can use '\\;' to escape variable parameter terminator.
+	Note that this only works for actions that take variable number of
+	paramteres, such as 'exec'.
+
+ SAMPLE CONFIG
+ -------------
+
+Below is a sample hotplug2.rules file. It loads modules to all available devices
+quietly and creates device nodes for block devices.
+---------------------------------------------------------------------------------
+MODALIAS is set {
+	exec modprobe -q %MODALIAS% ;
+}
+
+SUBSYSTEM == block, DEVPATH is set, MAJOR is set, MINOR is set {
+	makedev /dev/%DEVICENAME% 0644
+}

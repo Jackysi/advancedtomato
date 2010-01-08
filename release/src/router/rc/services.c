@@ -257,6 +257,10 @@ void start_dnsmasq()
 
 	//
 
+#ifdef TCONFIG_OPENVPN
+	write_vpn_dnsmasq_config(f);
+#endif
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
@@ -315,18 +319,21 @@ void dns_to_resolv(void)
 
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
-		dns = get_dns();	// static buffer
-		if (dns->count == 0) {
-			// Put a pseudo DNS IP to trigger Connect On Demand
-			if ((nvram_match("ppp_demand", "1")) &&
-				(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
-				fprintf(f, "nameserver 1.1.1.1\n");
+		// Check for VPN DNS entries
+		if (!write_vpn_resolv(f)) {
+			dns = get_dns();	// static buffer
+			if (dns->count == 0) {
+				// Put a pseudo DNS IP to trigger Connect On Demand
+				if ((nvram_match("ppp_demand", "1")) &&
+					(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
+					fprintf(f, "nameserver 1.1.1.1\n");
+				}
 			}
-		}
-		else {
-			for (i = 0; i < dns->count; i++) {
-				if (dns->dns[i].port == 53) {	// resolv.conf doesn't allow for an alternate port
-					fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i].addr));
+			else {
+				for (i = 0; i < dns->count; i++) {
+					if (dns->dns[i].port == 53) {	// resolv.conf doesn't allow for an alternate port
+						fprintf(f, "nameserver %s\n", inet_ntoa(dns->dns[i].addr));
+					}
 				}
 			}
 		}
@@ -483,6 +490,31 @@ void stop_cron(void)
 	killall_tk("crond");
 }
 
+// -----------------------------------------------------------------------------
+#ifdef LINUX26
+
+static pid_t pid_hotplug2 = -1;
+
+void start_hotplug2()
+{
+	stop_hotplug2();
+
+	f_write_string("/proc/sys/kernel/hotplug", "", FW_NEWLINE, 0);
+	xstart("hotplug2", "--persistent", "--no-coldplug");
+	sleep(1);
+
+	if (!nvram_contains_word("debug_norestart", "hotplug2")) {
+		pid_hotplug2 = -2;
+	}
+}
+
+void stop_hotplug2(void)
+{
+	pid_hotplug2 = -1;
+	killall_tk("hotplug2");
+}
+
+#endif	/* LINUX26 */
 // -----------------------------------------------------------------------------
 
 // Written by Sparq in 2002/07/16
@@ -808,7 +840,7 @@ char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 /* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
 static void do_start_stop_ftpd(int stop, int start)
 {
-	if (stop) killall("vsftpd", SIGTERM);
+	if (stop) killall_tk("vsftpd");
 
 	char tmp[256];
 	FILE *fp, *f;
@@ -888,6 +920,7 @@ static void do_start_stop_ftpd(int stop, int start)
 		"listen=yes\n"
 		"listen_port=%s\n"
 		"background=yes\n"
+		"isolate=no\n"
 		"max_clients=%d\n"
 		"max_per_ip=%d\n"
 		"idle_session_timeout=%s\n"
@@ -1006,8 +1039,14 @@ void stop_ftpd(void)
 #ifdef TCONFIG_SAMBASRV
 void kill_samba(int sig)
 {
-	killall("smbd", sig);
-	killall("nmbd", sig);
+	if (sig == SIGTERM) {
+		killall_tk("smbd");
+		killall_tk("nmbd");
+	}
+	else {
+		killall("smbd", sig);
+		killall("nmbd", sig);
+	}
 }
 #endif
 
@@ -1194,7 +1233,6 @@ void stop_samba(void)
 #ifdef TCONFIG_SAMBASRV
 	int fd = file_lock("usb");
 	do_start_stop_samba(1, 0);
-	sleep(2); /* wait for smbd to finish */
 
 	if (nvram_invmatch("smbd_nlsmod", "")) {
 		modprobe_r(nvram_get("smbd_nlsmod"));
@@ -1239,6 +1277,9 @@ static void _check(pid_t *pid, const char *name, void (*func)(void) )
 
 void check_services(void)
 {
+#ifdef LINUX26
+	_check(&pid_hotplug2, "hotplug2", start_hotplug2);
+#endif
 	_check(&pid_dnsmasq, "dnsmasq", start_dnsmasq);
 	_check(&pid_crond, "crond", start_cron);
 	_check(&pid_igmp, "igmpproxy", start_igmp_proxy);
@@ -1258,7 +1299,7 @@ void start_services(void)
 		if (nvram_get_int("sshd_eas")) start_sshd();
 	}
 
-	start_syslog();
+//	start_syslog();
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
@@ -1269,6 +1310,9 @@ void start_services(void)
 	start_rstats(0);
 	start_sched();
 	restart_nas_services(1, 1);	// !!TB - Samba and FTP Server
+#ifdef TCONFIG_OPENVPN
+	start_vpn_eas();
+#endif
 }
 
 void stop_services(void)
@@ -1286,7 +1330,7 @@ void stop_services(void)
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
-	stop_syslog();
+//	stop_syslog();
 }
 
 // -----------------------------------------------------------------------------
@@ -1460,6 +1504,18 @@ TOP:
 		goto CLEAR;
 	}
 
+#ifdef LINUX26
+	if (strncmp(service, "hotplug", 7) == 0) {
+		if (action & A_STOP) {
+			stop_hotplug2();
+		}
+		if (action & A_START) {
+			start_hotplug2(1);
+		}
+		goto CLEAR;
+	}
+#endif
+
 	if (strcmp(service, "upgrade") == 0) {
 		if (action & A_START) {
 #if TOMATO_SL
@@ -1564,15 +1620,16 @@ TOP:
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
 			stop_wan();
+			stop_nas();
 			stop_lan();
 			stop_vlan();
-			stop_nas();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
-			start_wan(BOOT);
 			start_nas();
+			start_wan(BOOT);
+			start_wl();
 		}
 		goto CLEAR;
 	}
@@ -1630,6 +1687,20 @@ TOP:
 			start_dnsmasq();
 			start_samba();
 		}
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_OPENVPN
+	if (strncmp(service, "vpnclient", 9) == 0) {
+		if (action & A_STOP) stop_vpnclient(atoi(&service[9]));
+		if (action & A_START) start_vpnclient(atoi(&service[9]));
+		goto CLEAR;
+	}
+
+	if (strncmp(service, "vpnserver", 9) == 0) {
+		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
+		if (action & A_START) start_vpnserver(atoi(&service[9]));
 		goto CLEAR;
 	}
 #endif

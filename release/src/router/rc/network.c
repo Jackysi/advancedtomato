@@ -192,6 +192,38 @@ static void check_afterburner(void)
 */
 }
 
+#ifdef CONFIG_BCMWL5
+void start_wl(void)
+{
+	char *lan_ifname, *lan_ifnames, *ifname, *p;
+
+	lan_ifname = nvram_safe_get("lan_ifname");
+	if (strncmp(lan_ifname, "br", 2) == 0) {
+		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
+			p = lan_ifnames;
+			while ((ifname = strsep(&p, " ")) != NULL) {
+				while (*ifname == ' ') ++ifname;
+				if (*ifname == 0) break;
+#if 0
+				/* Ignore disabled wl vifs */
+				if (strncmp(ifname, "wl", 2) == 0) {
+					char nv[40];
+					snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
+					if (!nvram_get_int(nv))
+						continue;
+				}
+#endif
+				eval("wlconf", ifname, "start"); /* start wl iface */
+			}
+			free(lan_ifnames);
+		}
+	}
+	else if (strcmp(lan_ifname, "")) {
+		/* specific non-bridged lan iface */
+		eval("wlconf", lan_ifname, "start");
+	}
+}
+#endif	// CONFIG_BCMWL5
 
 void start_lan(void)
 {
@@ -403,6 +435,73 @@ void hotplug_net(void)
 	}
 }
 
+
+static int is_same_addr(struct ether_addr *addr1, struct ether_addr *addr2)
+{
+	int i;
+	for (i = 0; i < 6; i++) {
+		if (addr1->octet[i] != addr2->octet[i])
+			return 0;
+	}
+	return 1;
+}
+
+#define WL_MAX_ASSOC	128
+static int check_wl_client(char *ifname)
+{
+	wl_bss_info_t *bi;
+	char buf[WLC_IOCTL_MAXLEN];
+	struct maclist *mlist;
+	int mlsize, i;
+	int associated, authorized;
+
+	*(uint32 *)buf = WLC_IOCTL_MAXLEN;
+	if ((wl_ioctl(ifname, WLC_GET_BSS_INFO, buf, WLC_IOCTL_MAXLEN)) < 0)
+		return 0;
+
+	bi = (wl_bss_info_t *)(buf + 4);
+	if ((bi->SSID_len == 0) ||
+	    (bi->BSSID.octet[0] + bi->BSSID.octet[1] + bi->BSSID.octet[2] +
+	     bi->BSSID.octet[3] + bi->BSSID.octet[4] + bi->BSSID.octet[5] == 0))
+		return 0;
+
+	associated = 0;
+	authorized = strstr(nvram_safe_get("wl_akm"), "psk") == 0;
+
+	mlsize = sizeof(struct maclist) + (WL_MAX_ASSOC * sizeof(struct ether_addr));
+	if ((mlist = malloc(mlsize)) != NULL) {
+		mlist->count = WL_MAX_ASSOC;
+		if (wl_ioctl(ifname, WLC_GET_ASSOCLIST, mlist, mlsize) == 0) {
+			for (i = 0; i < mlist->count; ++i) {
+				if (is_same_addr(&mlist->ea[i], &bi->BSSID)) {
+					associated = 1;
+					break;
+				}
+			}
+		}
+
+		if (associated && !authorized) {
+			memset(mlist, 0, mlsize);
+			mlist->count = WL_MAX_ASSOC;
+			strcpy((char*)mlist, "autho_sta_list");
+			if (wl_ioctl(ifname, WLC_GET_VAR, mlist, mlsize) == 0) {
+				for (i = 0; i < mlist->count; ++i) {
+					if (is_same_addr(&mlist->ea[i], &bi->BSSID)) {
+						authorized = 1;
+						break;
+					}
+				}
+			}
+		}
+		free(mlist);
+	}
+
+	return (associated && authorized);
+}
+
+#define STACHECK_CONNECT	30
+#define STACHECK_DISCONNECT	5
+
 int radio_main(int argc, char *argv[])
 {
 	if (argc != 2) {
@@ -433,7 +532,6 @@ HELP:
 
 	if (wl_client()) {
 		int i;
-		wlc_ssid_t ssid;
 		char s[32];
 
 		if (f_read_string("/var/run/radio.pid", s, sizeof(s)) > 0) {
@@ -447,17 +545,22 @@ HELP:
 			sprintf(s, "%d", getpid());
 			f_write("/var/run/radio.pid", s, sizeof(s), 0, 0644);
 
-			while (1) {
-				if (!get_radio()) break;
+			int stacheck_connect = nvram_get_int("sta_chkint");
+			if (stacheck_connect <= 0)
+				stacheck_connect = STACHECK_CONNECT;
+			int stacheck;
 
-				eval("wl", "join", nvram_safe_get("wl_ssid"));
-				for (i = 6; i > 0; --i) {
-					sleep(1);
-					if ((wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_SSID, &ssid, sizeof(ssid)) == 0) &&
-						(ssid.SSID_len > 0)) break;
+			while (get_radio() && wl_client()) {
+
+				if (check_wl_client(nvram_safe_get("wl_ifname"))) {
+					stacheck = stacheck_connect;
 				}
-				if (i > 0) break;
-				sleep(5);
+				else {
+					eval("wl", "join", nvram_safe_get("wl_ssid"));
+					stacheck = STACHECK_DISCONNECT;
+				}
+
+				sleep(stacheck);
 			}
 
 			unlink("/var/run/radio.pid");

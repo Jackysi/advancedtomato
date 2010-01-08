@@ -90,6 +90,7 @@ print F <<"END";
 #define TOMATO_BUILD		"$build"
 #define	TOMATO_BUILDTIME	"$time"
 #define TOMATO_VERSION		"$major.$minor.$build $suffix"
+#define TOMATO_SHORTVER		"$major.$minor"
 #endif
 END
 close(F);

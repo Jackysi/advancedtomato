@@ -22,6 +22,10 @@
 #include <sys/wait.h>
 #include <sys/reboot.h>
 #include <sys/klog.h>
+#ifdef LINUX26
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
 #include <wlutils.h>
 #include <bcmdevs.h>
 
@@ -593,7 +597,7 @@ static int init_nvram(void)
 	case MODEL_WL500W:
 		mfr = "Asus";
 		name = "WL-500W";
-		features = SUP_SES;
+		features = SUP_SES | SUP_80211N;
 		/* fix WL500W mac adresses for WAN port */
 		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
 			nvram_set("et1macaddr", nvram_get("et0macaddr"));
@@ -664,10 +668,50 @@ static int init_nvram(void)
 		nvram_set("opo", "0x0008");
 		nvram_set("ag0", "0x0C");
 		break;
+	case MODEL_RTN10:
+		mfr = "Asus";
+		name = "RT-N10";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan1ports", "4 5");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_RTN12:
+		mfr = "Asus";
+		name = "RT-N12";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan0ports", "3 2 1 0 5*");
+			nvram_set("vlan1ports", "4 5");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_RTN16:
+		mfr = "Asus";
+		name = "RT-N16";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("vlan_enable", "1");
+			nvram_set("vlan1ports", "4 3 2 1 8*");
+			nvram_set("vlan2ports", "0 8");
+			nvram_set("t_fix1", name);
+		}
+		break;
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
-		//	features = ?;
+		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			if (nvram_match("vlan1ports", "4 5u")) {
 				nvram_set("vlan1ports", "4 5");
@@ -675,6 +719,7 @@ static int init_nvram(void)
 			else if (nvram_match("vlan1ports", "0 5u")) {	// 520GU?
 				nvram_set("vlan1ports", "0 5");
 			}
+			nvram_set("t_fix1", name);
 		}
 		break;
 	case MODEL_WL520GU:
@@ -694,7 +739,7 @@ static int init_nvram(void)
 	case MODEL_DIR320:
 		mfr = "D-Link";
 		name = "DIR-320";
-		//	features = ?;
+		features = SUP_SES;
 		if (nvram_match("wl0gpio0", "255"))
 		{
 			nvram_set("wl0gpio0", "8");
@@ -829,7 +874,17 @@ static void sysinit(void)
 	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
+#ifdef LINUX26
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+	mknod("/dev/console", S_IRWXU|S_IFCHR, makedev(5, 1));
+	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
+#endif
 	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
+#ifdef LINUX26
+	mkdir("/dev/shm", 0777);
+	mkdir("/dev/pts", 0777);
+	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
+#endif
 
 	if (console_init()) noconsole = 1;
 
@@ -881,6 +936,11 @@ static void sysinit(void)
 	}
 #endif
 
+#ifdef LINUX26
+	eval("hotplug2", "--coldplug");
+	start_hotplug2();
+#endif
+
 	set_action(ACT_IDLE);
 
 	for (i = 0; defenv[i]; ++i) {
@@ -913,13 +973,6 @@ static void sysinit(void)
 		break;
 	}
 
-	system("nvram defaults --initcheck");
-	init_nvram();
-
-	klogctl(8, NULL, nvram_get_int("console_loglevel"));
-
-	setup_conntrack();
-
 	hardware = check_hw_type();
 #if WL_BSS_INFO_VERSION >= 108
 	modprobe("et");
@@ -932,17 +985,29 @@ static void sysinit(void)
 		modprobe("et");
 	}
 #endif
+
+#ifdef CONFIG_BCMWL5
+	modprobe("emf");
+	modprobe("igs");
+#endif
 	modprobe("wl");
 	modprobe("tomato_ct");
 
-	set_host_domain_name();
 	config_loopback();
 
-	eval("buttons");
+	system("nvram defaults --initcheck");
+	init_nvram();
+
+	klogctl(8, NULL, nvram_get_int("console_loglevel"));
+
+	setup_conntrack();
+	set_host_domain_name();
 
 	start_jffs2();
 
 	set_tz();
+
+	eval("buttons");
 
 	i = nvram_get_int("sesx_led");
 	led(LED_AMBER, (i & 1) != 0);
@@ -988,6 +1053,7 @@ int init_main(int argc, char *argv[])
 			stop_wan();
 			stop_lan();
 			stop_vlan();
+			stop_syslog();
 
 			// !!TB - USB Support
 			remove_storage_main((state == REBOOT) || (state == HALT));
@@ -1006,19 +1072,16 @@ int init_main(int argc, char *argv[])
 
 		case START:
 			SET_LED(RELEASE_WAN_CONTROL);
+			start_syslog();
 
 			load_files_from_nvram();
 
 			int fd = -1;
-			if (!nvram_get_int("usb_nolock")) {
-				fd = file_lock("usb");	// hold off automount processing
-				start_usb();
-			}
+			fd = file_lock("usb");	// hold off automount processing
+			start_usb();
 
 			run_nvscript("script_init", NULL, 2);
 
-			if (nvram_get_int("usb_nolock"))
-				start_usb();
 			file_unlock(fd);	// allow to process usb hotplug events
 #ifdef TCONFIG_USB
 			/*
@@ -1034,6 +1097,7 @@ int init_main(int argc, char *argv[])
 			start_lan();
 			start_wan(BOOT);
 			start_services();
+			start_wl();
 
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));

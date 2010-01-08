@@ -175,42 +175,104 @@ char *detect_fs_type(char *device)
  *
  * To avoid this automatic revalidation, we go through /proc/partitions looking for the partitions
  * that /dev/discs point to.  That will avoid the implicit revalidate attempt.
- * Which means that we had better do it ourselves.  An ioctl BLKRRPART does just that.
- * 
  * 
  * If host < 0, do all hosts.   If >= 0, it is the host number to do.
- * When_to_update, flags:
- *	0x01 = before reading partition info
- *	0x02 = after reading partition info
  *
  */
 
-/* So as not to include linux/fs.h, let's explicitly do this here. */
-#ifndef BLKRRPART
-#define BLKRRPART	_IO(0x12,95)	/* re-read partition table */
+#ifdef LINUX26
+/* check if the block device has no partition */
+int is_no_partition(const char *discname)
+{
+	FILE *procpt;
+	char line[128], ptname[32];
+	int ma, mi, sz;
+	int count = 0;
+
+	if ((procpt = fopen("/proc/partitions", "r"))) {
+		while (fgets(line, sizeof(line), procpt)) {
+			if (sscanf(line, " %d %d %d %[^\n ]", &ma, &mi, &sz, ptname) != 4)
+				continue;
+			if (strstr(ptname, discname))
+				count++;
+		}
+	}
+
+	return (count == 1);
+}
 #endif
 
-int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
+int exec_for_host(int host, int obsolete, uint flags, host_exec func)
 {
 	DIR *usb_dev_disc;
-	char bfr[128];	/* Will be: /dev/discs/disc#					*/
-	char link[256];	/* Will be: ../scsi/host#/bus0/target0/lun#  that bfr links to. */
-			/* When calling the func, will be: /dev/discs/disc#/part#	*/
-	char bfr2[128];	/* Will be: /dev/discs/disc#/disc     for the BLKRRPART.	*/
-	int fd;
-	char *cp;
-	int len;
+	char bfr[256];	/* Will be: /dev/discs/disc#					*/
+	char ptname[32];/* Will be: discDN_PN	 					*/
+	char dsname[16];/* Will be: discDN	 					*/
 	int host_no;	/* SCSI controller/host # */
-	int disc_num;	/* Disc # */
-	int part_num;	/* Parition # */
 	struct dirent *dp;
 	FILE *prt_fp;
-	char *mp;	/* Ptr to after any leading ../ path */
 	int siz;
 	char line[256];
 	int result = 0;
 
 	flags |= EFH_1ST_HOST;
+
+#ifdef LINUX26
+	char hostbuf[16];
+	DIR *dir_host;
+
+	/*
+	 * Scsi block devices in kernel 2.6 (for attached devices) can be found as
+	 * 	/sys/bus/scsi/devices/<host_no>:x:x:x/block:[sda|sdb|...]
+	 */
+	if ((usb_dev_disc = opendir("/sys/bus/scsi/devices"))) {
+		sprintf(hostbuf, "%d:", host);
+
+		while ((dp = readdir(usb_dev_disc))) {
+			if (host >= 0 && strncmp(dp->d_name, hostbuf, strlen(hostbuf)) != 0)
+				continue;
+			if (sscanf(dp->d_name, "%d:%*s:%*s:%*s", &host_no) != 1)
+				continue;
+			sprintf(bfr, "/sys/bus/scsi/devices/%s", dp->d_name);
+			if ((dir_host = opendir(bfr))) {
+				while ((dp = readdir(dir_host))) {
+					if (strncmp(dp->d_name, "block:", 6) != 0)
+						continue;
+					strncpy(dsname, dp->d_name + 6, sizeof(dsname));
+					siz = strlen(dsname);
+
+					flags |= EFH_1ST_DISC;
+					if (func && (prt_fp = fopen("/proc/partitions", "r"))) {
+						while (fgets(line, sizeof(line) - 2, prt_fp)) {
+							if (sscanf(line, " %*s %*s %*s %s", ptname) == 1) {
+								if (strncmp(ptname, dsname, siz) == 0) {
+									if ((strcmp(ptname, dsname) == 0) && !is_no_partition(dsname))
+										continue;
+									sprintf(line, "/dev/%s", ptname);
+									result = (*func)(line, host_no, dsname, ptname, flags) || result;
+									flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
+								}
+							}
+						}
+						fclose(prt_fp);
+					}
+				}
+				closedir(dir_host);
+			}
+		}
+		closedir(usb_dev_disc);
+	}
+
+#else	/* !LINUX26 */
+	char link[256];	/* Will be: ../scsi/host#/bus0/target0/lun#  that bfr links to. */
+			/* When calling the func, will be: /dev/discs/disc#/part#	*/
+	char bfr2[128];	/* Will be: /dev/discs/disc#/disc     for the BLKRRPART.	*/
+	char *cp;
+	int len;
+	int disc_num;	/* Disc # */
+	int part_num;	/* Parition # */
+	char *mp;	/* Ptr to after any leading ../ path */
+
 	if ((usb_dev_disc = opendir(DEV_DISCS_ROOT))) {
 		while ((dp = readdir(usb_dev_disc))) {
 			sprintf(bfr, "%s/%s", DEV_DISCS_ROOT, dp->d_name);
@@ -240,14 +302,6 @@ int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
 				mp = cp + 3;
 			siz = strlen(mp);
 
-			if (when_to_update & 0x01) {
-				sprintf(bfr2, "%s/disc", bfr);	/* Prepare for BLKRRPART */
-				if ((fd = open(bfr2, O_RDONLY | O_NONBLOCK)) >= 0) {
-					ioctl(fd, BLKRRPART);
-					close(fd);
-				}
-			}
-
 			flags |= EFH_1ST_DISC;
 			if (func && (prt_fp = fopen("/proc/partitions", "r"))) {
 				while (fgets(line, sizeof(line) - 2, prt_fp)) {
@@ -255,24 +309,21 @@ int exec_for_host(int host, int when_to_update, uint flags, host_exec func)
 						if ((cp = strstr(bfr2, "/part")) && strncmp(bfr2, mp, siz) == 0) {
 							part_num = atoi(cp + 5);
 							sprintf(line, "%s/part%d", bfr, part_num);
-							result = (*func)(line, host_no, disc_num, part_num, flags) || result;
+							sprintf(dsname, "disc%d", disc_num);
+							sprintf(ptname, "disc%d_%d", disc_num, part_num);
+							result = (*func)(line, host_no, dsname, ptname, flags) || result;
 							flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
 						}
 					}
 				}
 				fclose(prt_fp);
 			}
-
-			if (when_to_update & 0x02) {
-				sprintf(bfr2, "%s/disc", bfr);	/* Prepare for BLKRRPART */
-				if ((fd = open(bfr2, O_RDONLY | O_NONBLOCK)) >= 0) {
-					ioctl(fd, BLKRRPART);
-					close(fd);
-				}
-			}
 		}
 		closedir(usb_dev_disc);
 	}
+
+#endif	/* LINUX26 */
+
 	return result;
 }
 
@@ -331,8 +382,13 @@ struct mntent *findmntents(char *file, int swp, int (*func)(struct mntent *mnt, 
 		}
 	}
 	while ((mnt = getmntent(f)) != NULL) {
+		/* Always ignore rootfs mount */
+		if (strcmp(mnt->mnt_fsname, "rootfs") == 0)
+			continue;
+
 		if (strcmp(file, mnt->mnt_fsname) == 0 ||
-			is_same_device(mnt->mnt_fsname, file_rdev , file_dev, file_ino)) {
+		    strcmp(file, mnt->mnt_dir) == 0 ||
+		    is_same_device(mnt->mnt_fsname, file_rdev , file_dev, file_ino)) {
 			if (func == NULL)
 				break;
 			(*func)(mnt, flags);

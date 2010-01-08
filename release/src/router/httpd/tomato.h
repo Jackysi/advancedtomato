@@ -33,9 +33,6 @@
 //	#define BLACKHOLE		// for testing
 
 
-#define _dprintf(args...)	do { } while(0)
-//	#define _dprintf	cprintf
-
 extern int rboot;
 
 extern void exec_service(const char *action);
@@ -72,6 +69,9 @@ extern void asp_compmac(int argc, char **argv);
 extern void asp_ident(int argc, char **argv);
 extern void asp_lanip(int argc, char **argv);
 extern void asp_psup(int argc, char **argv);
+#ifdef TCONFIG_OPENVPN
+extern void wo_vpn_status(char *url);
+#endif
 extern void asp_sysinfo(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);
@@ -105,6 +105,8 @@ extern void asp_wlcrssi(int argc, char **argv);
 extern void wo_wlmnoise(char *url);
 extern void asp_wlclient(int argc, char **argv);
 extern void asp_wlchannel(int argc, char **argv);
+extern void asp_wlnbw(int argc, char **argv);
+extern void asp_wlnctrlsb(int argc, char **argv);
 extern void asp_wlchannels(int argc, char **argv);	//!!TB
 
 // dhcp.c

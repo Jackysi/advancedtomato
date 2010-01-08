@@ -173,6 +173,44 @@ void asp_psup(int argc, char **argv)
 	if (argc == 1) web_printf("%d", pidof(argv[0]) > 0);
 }
 
+void wo_vpn_status(char *url)
+{
+#ifdef TCONFIG_OPENVPN
+	char buf[256];
+	char *type;
+	char *str;
+	int num;
+	FILE *fp;
+
+	type = 0;
+	if ( str = webcgi_get("server") )
+		type = "server";
+	else if ( str = webcgi_get("client") )
+		type = "client";
+
+	num = str? atoi(str): 0;
+	if ( type && num > 0 )
+	{
+		// Trigger OpenVPN to update the status file
+		snprintf(&buf[0], sizeof(buf), "vpn%s%d", type, num);
+		killall(&buf[0], SIGUSR2);
+
+		// Give it a chance to update the file
+		sleep(1);
+
+		// Read the status file and repeat it verbatim to the caller
+		snprintf(&buf[0], sizeof(buf), "/etc/openvpn/%s%d/status", type, num);
+		fp = fopen(&buf[0], "r");
+		if( fp != NULL )
+		{
+			while (fgets(&buf[0], sizeof(buf), fp) != NULL)
+				web_puts(&buf[0]);
+			fclose(fp);
+		}
+	}
+#endif
+}
+
 /*
 # cat /proc/meminfo
         total:    used:    free:  shared: buffers:  cached:
@@ -212,12 +250,32 @@ static int get_memory(meminfo_t *m)
 	char s[128];
 	int ok = 0;
 
+	memset(m, 0, sizeof(*m));
 	if ((f = fopen("/proc/meminfo", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
+#ifdef LINUX26
+			if (strncmp(s, "MemTotal:", 9) == 0) {
+				m->total = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "MemFree:", 8) == 0) {
+				m->free = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "Buffers:", 8) == 0) {
+				m->buffers = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "Cached:", 7) == 0) {
+				m->cached = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+#else
 			if (strncmp(s, "Mem:", 4) == 0) {
 				if (sscanf(s + 6, "%ld %*d %ld %ld %ld %ld", &m->total, &m->free, &m->shared, &m->buffers, &m->cached) == 5)
 					++ok;
 			}
+#endif
 			else if (strncmp(s, "SwapTotal:", 10) == 0) {
 				m->swaptotal = strtoul(s + 12, NULL, 10) * 1024;
 				++ok;
@@ -225,13 +283,14 @@ static int get_memory(meminfo_t *m)
 			else if (strncmp(s, "SwapFree:", 9) == 0) {
 				m->swapfree = strtoul(s + 11, NULL, 10) * 1024;
 				++ok;
+#ifndef LINUX26
 				break;
+#endif
 			}
 		}
 		fclose(f);
 	}
-	if (ok != 3) {
-		memset(m, 0, sizeof(*m));
+	if (ok == 0) {
 		return 0;
 	}
 	m->maxfreeram = m->free;
@@ -513,10 +572,7 @@ void wo_resolve(char *url)
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
-/* this value should not match any of the existing EFH_ values in shared.h */
-#define EFH_PRINT	0x00000080	/* output partition list to the web response */
-
-int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_num, uint flags)
+int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_name, uint flags)
 {
 	char the_label[128];
 	char *type;
@@ -526,13 +582,13 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	unsigned long psize = 0;
 
 	if (!find_label_or_uuid(dev_name, the_label, NULL)) {
-		sprintf(the_label, "disc%d_%d", disc_num, part_num);
+		strncpy(the_label, pt_name, sizeof(the_label));
 	}
 
 	if (flags & EFH_PRINT) {
 		if (flags & EFH_1ST_DISC) {
-			// [disc_no, [partitions array]],...
-			web_printf("]],[%d,[", disc_num);
+			// [disc_name, [partitions array]],...
+			web_printf("]],['%s',[", dsc_name);
 		}
 		// [partition_name, is_mounted, mount_point, type, opts, size],...
 		web_printf("%s['%s',", (flags & EFH_1ST_DISC) ? "" : ",", the_label);
@@ -569,13 +625,11 @@ int is_host_mounted(int host_no, int print_parts)
 {
 	if (print_parts) web_puts("[-1,[");
 
-	int fd = nvram_get_int("usb_nolock") ? -1 : file_lock("usb");
 	int mounted = exec_for_host(
 		host_no,
 		0x00,
 		print_parts ? EFH_PRINT : 0,
 		is_partition_mounted);
-	file_unlock(fd);
 	
 	if (print_parts) web_puts("]]");
 
@@ -596,13 +650,15 @@ int is_host_mounted(int host_no, int print_parts)
  */
 void asp_usbdevices(int argc, char **argv)
 {
-	DIR *scsi_dir=NULL, *usb_dir=NULL;
-	struct dirent *dp, *scsi_dirent;
+	DIR *usb_dir=NULL;
+	struct dirent *dp;
 	uint host_no;
-	int i = 0, attached, mounted;
+	int last_hn = -1;
+	char *p, *p1;
+	int i = 0, mounted;
 	FILE *fp;
 	char line[128];
-	char *tmp=NULL, g_usb_vendor[30], g_usb_product[30], g_usb_serial[30];
+	char *tmp=NULL, g_usb_vendor[30], g_usb_product[30];
 
 	web_puts("\nusbdev = [");
 
@@ -612,6 +668,41 @@ void asp_usbdevices(int argc, char **argv)
 	}
 
 	/* find all attached USB storage devices */
+#if 1	// NZ = Get the info from the SCSI subsystem.
+	fp = fopen(PROC_SCSI_ROOT"/scsi", "r");
+	if (fp) {
+		while (fgets(line, sizeof(line), fp) != NULL) {
+			p = strstr(line, "Host: scsi");
+			if (p) {
+				host_no = atoi(p + 10);
+				if (host_no == last_hn)
+					continue;
+				last_hn = host_no;
+				if (fgets(line, sizeof(line), fp) != NULL) {
+					memset(g_usb_vendor, 0, sizeof(g_usb_vendor));
+					memset(g_usb_product, 0, sizeof(g_usb_product));
+					p = strstr(line, "  Vendor: ");
+					p1 = strstr(line + 10 + 8, " Model: ");
+					if (p && p1) {
+						strncpy(g_usb_vendor, p + 10, 8);
+						strncpy(g_usb_product, p1 + 8, 16);
+						web_printf("%s['Storage','%d','%s','%s','', [", i ? "," : "",
+							host_no, g_usb_vendor, g_usb_product);
+						mounted = is_host_mounted(host_no, 1);
+						web_printf("], %d]", mounted);
+						++i;
+					}
+				}
+			}
+		}
+		fclose(fp);
+	}
+#else	// Get the info from the usb/storage subsystem.
+	DIR *scsi_dir=NULL;
+	struct dirent *scsi_dirent;
+	char *g_usb_serial[30];
+	int attached;
+
 	scsi_dir = opendir(PROC_SCSI_ROOT);
 	while (scsi_dir && (scsi_dirent = readdir(scsi_dir)))
 	{
@@ -658,6 +749,9 @@ void asp_usbdevices(int argc, char **argv)
 						}
 					}
 					fclose(fp);
+#ifdef LINUX26
+					attached = (strlen(g_usb_product) > 0) || (strlen(g_usb_vendor) > 0);
+#endif
 					if (attached) {
 						/* Host no. assigned by scsi driver for this UFD */
 						host_no = atoi(dp->d_name);
@@ -676,6 +770,7 @@ void asp_usbdevices(int argc, char **argv)
 	}
 	if (scsi_dir)
 		closedir(scsi_dir);
+#endif
 
 	/* now look for printers */
 	usb_dir = opendir("/proc/usblp");

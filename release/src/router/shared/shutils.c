@@ -223,7 +223,11 @@ void cprintf(const char *format, ...)
 	FILE *f;
 	va_list args;
 
+#ifdef DEBUG_NOISY
+	{
+#else
 	if (nvram_match("debug_cprintf", "1")) {
+#endif
 		if ((f = fopen("/dev/console", "w")) != NULL) {
 			va_start(args, format);
 			vfprintf(f, format, args);
@@ -524,7 +528,8 @@ get_ifname_unit(const char* ifname, int *unit, int *subunit)
 	return 0;
 }
 
-#if 0
+#ifdef CONFIG_BCMWL5
+
 /* In the space-separated/null-terminated list(haystack), try to
  * locate the string "needle"
  */
@@ -661,7 +666,7 @@ ure_any_enabled(void)
 		return 0;
 }
 
-#endif	// 0
+#endif	// CONFIG_BCMWL5
 
 #define WLMBSS_DEV_NAME	"wlmbss"
 #define WL_DEV_NAME "wl"
@@ -731,9 +736,10 @@ osifname_to_nvifname(const char *osifname, char *nvifname_buf,
 		return -1;
 	}
 
-	memset(nvifname_buf, nvifname_buf_len, 0);
+	memset(nvifname_buf, 0, nvifname_buf_len);
 
-	if (strstr(osifname, "wl") || strstr(osifname, "br")) {
+	if (strstr(osifname, "wl") || strstr(osifname, "br") ||
+	     strstr(osifname, "wds")) {
 		strncpy(nvifname_buf, osifname, nvifname_buf_len);
 		return 0;
 	}

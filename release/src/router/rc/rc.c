@@ -48,6 +48,11 @@ static int hotplug_main(int argc, char *argv[])
 		else if (strcmp(argv[1], "usb") == 0) {
 			hotplug_usb();
 		}
+#ifdef LINUX26
+		else if (strcmp(argv[1], "block") == 0) {
+			hotplug_usb();
+		}
+#endif
 #endif
 	}
 	return 0;
@@ -71,6 +76,9 @@ typedef struct {
 
 static const applets_t applets[] = {
 	{ "init",				init_main				},
+#ifdef LINUX26
+	{ "preinit",				init_main				},
+#endif
 	{ "rc",					rc_main					},
 	{ "ip-up",				ipup_main				},
 	{ "ip-down",			ipdown_main				},

@@ -16,9 +16,27 @@
 
 #define ASIZE(array)	(sizeof(array) / sizeof(array[0]))
 
+#ifdef LINUX26
+#define	MTD_DEV(arg)	"/dev/mtd"#arg
+#define	MTD_BLKDEV(arg)	"/dev/mtdblock"#arg
+#define	DEV_GPIO(arg)	"/dev/gpio"#arg
+#else
+#define	MTD_DEV(arg)	"/dev/mtd/"#arg
+#define	MTD_BLKDEV(arg)	"/dev/mtdblock/"#arg
+#define	DEV_GPIO(arg)	"/dev/gpio/"#arg
+#endif
+
 //version.c
 extern const char *tomato_version;
 extern const char *tomato_buildtime;
+extern const char *tomato_shortver;
+
+
+#ifdef DEBUG_NOISY
+#define _dprintf		cprintf
+#else
+#define _dprintf(args...)	do { } while(0)
+#endif
 
 
 // misc.c
@@ -96,9 +114,15 @@ extern void add_remove_usbhost(char *host, int add);
 #define EFH_HUNKNOWN	0x00000004	/* host is unknown */
 #define EFH_USER	0x00000008	/* process is user-initiated - either via Web GUI or a script */
 #define EFH_SHUTDN	0x00000010	/* exec_for_host is called at shutdown - system is stopping */
+#define EFH_HP_ADD	0x00000020	/* exec_for_host is called from "add" hotplug event */
+#define EFH_HP_REMOVE	0x00000040	/* exec_for_host is called from "remove" hotplug event */
+#define EFH_PRINT	0x00000080	/* output partition list to the web response */
 
-typedef int (*host_exec)(char *dev_name, int host_num, int disc_num, int part_num, uint flags);
-extern int exec_for_host(int host, int when_to_update, uint flags, host_exec func);
+typedef int (*host_exec)(char *dev_name, int host_num, char *dsc_name, char *pt_name, uint flags);
+extern int exec_for_host(int host, int obsolete, uint flags, host_exec func);
+#ifdef LINUX26
+extern int is_no_partition(const char *discname);
+#endif
 #endif //TCONFIG_USB
 
 // id.c
@@ -127,6 +151,9 @@ enum {
 	MODEL_WHR2A54G54,
 	MODEL_WHR3AG54,
 	MODEL_RT390W,
+	MODEL_RTN10,
+	MODEL_RTN12,
+	MODEL_RTN16,
 	MODEL_MN700,
 	MODEL_WRH54G,
 	MODEL_WHRG125,
@@ -154,6 +181,9 @@ enum {
 	HW_BCM4704_BCM5325F_EWC,
 	HW_BCM4705L_BCM5325E_EWC,
 	HW_BCM5350,
+	HW_BCM5356,
+	HW_BCM4716,
+	HW_BCM4718,
 	HW_UNKNOWN
 };
 
@@ -213,8 +243,10 @@ extern int f_wait_notexists(const char *name, int max);
 
 extern const char *led_names[];
 
+extern int gpio_open();
 extern void gpio_write(uint32_t bit, int en);
 extern uint32_t gpio_read(void);
+extern uint32_t _gpio_read(int f);
 extern int nvget_gpio(const char *name, int *gpio, int *inv);
 extern int led(int which, int mode);
 

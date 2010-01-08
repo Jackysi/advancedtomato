@@ -23,10 +23,12 @@ input[type='button']:hover {
 	color: #fff;
 }
 
+ul.tabs a.active,
 #tabs a.active {
 	background: #86bf30;
 	color: #fff;
 }
+ul.tabs a:hover,
 #tabs a:hover {
 	background: #96bf70;
 	color: #fff;

@@ -47,6 +47,34 @@ int modprobe_r(const char *mod)
 #endif
 }
 
+#ifndef ct_modprobe
+#ifdef LINUX26
+#define ct_modprobe(mod, args...) ({ \
+		modprobe("nf_conntrack_"mod, ## args); \
+		modprobe("nf_nat_"mod); \
+})
+#else
+#define ct_modprobe(mod, args...) ({ \
+		modprobe("ip_conntrack_"mod, ## args); \
+		modprobe("ip_nat_"mod, ## args); \
+})
+#endif
+#endif
+
+#ifndef ct_modprobe_r
+#ifdef LINUX26
+#define ct_modprobe_r(mod) ({ \
+	modprobe_r("nf_nat_"mod); \
+	modprobe_r("nf_conntrack_"mod); \
+})
+#else
+#define ct_modprobe_r(mod) ({ \
+	modprobe_r("ip_nat_"mod); \
+	modprobe_r("ip_conntrack_"mod); \
+})
+#endif
+#endif
+
 int _xstart(const char *cmd, ...)
 {
 	va_list ap;
@@ -321,34 +349,35 @@ void setup_conntrack(void)
 	}
 
 	if (!nvram_match("nf_pptp", "0")) {
-		modprobe("ip_conntrack_proto_gre");
-		modprobe("ip_nat_proto_gre");
-		modprobe("ip_conntrack_pptp");
-		modprobe("ip_nat_pptp");
+		ct_modprobe("proto_gre");
+		ct_modprobe("pptp");
 	}
 	else {
-		modprobe_r("ip_nat_pptp");
-		modprobe_r("ip_conntrack_pptp");
-		modprobe_r("ip_nat_proto_gre");
-		modprobe_r("ip_conntrack_proto_gre");
+		ct_modprobe_r("pptp");
+		ct_modprobe_r("proto_gre");
 	}
 
 	if (!nvram_match("nf_h323", "0")) {
-		modprobe("ip_conntrack_h323");
-		modprobe("ip_nat_h323");
+		ct_modprobe("h323");
 	}
 	else {
-		modprobe_r("ip_nat_h323");
-		modprobe_r("ip_conntrack_h323");
+		ct_modprobe_r("h323");
 	}
 
-	if (!nvram_match("nf_rtsp", "0")) {
-		modprobe("ip_conntrack_rtsp");
-		modprobe("ip_nat_rtsp");
+#ifdef LINUX26
+	if (!nvram_match("nf_sip", "0")) {
+		ct_modprobe("sip");
 	}
 	else {
-		modprobe_r("ip_nat_rtsp");
-		modprobe_r("ip_conntrack_rtsp");
+		ct_modprobe_r("sip");
+	}
+#endif
+
+	if (!nvram_match("nf_rtsp", "0")) {
+		ct_modprobe("rtsp");
+	}
+	else {
+		ct_modprobe_r("rtsp");
 	}
 
 	// !!TB - FTP Server
@@ -359,8 +388,7 @@ void setup_conntrack(void)
 		char ports[32];
 
 		sprintf(ports, "ports=21,%d", i);
-		modprobe("ip_conntrack_ftp", ports);
-		modprobe("ip_nat_ftp", ports);
+		ct_modprobe("ftp", ports);
 	}
 	else 
 #endif
@@ -369,12 +397,10 @@ void setup_conntrack(void)
 		|| nvram_match("ftp_enable", "1")	// !!TB - FTP Server
 #endif
 		) {
-		modprobe("ip_conntrack_ftp");
-		modprobe("ip_nat_ftp");
+		ct_modprobe("ftp");
 	}
 	else {
-		modprobe_r("ip_nat_ftp");
-		modprobe_r("ip_conntrack_ftp");
+		ct_modprobe_r("ftp");
 	}
 
 }

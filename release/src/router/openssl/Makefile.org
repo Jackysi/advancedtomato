@@ -53,15 +53,15 @@ OPENSSLDIR=/usr/local/ssl
 # equal 4.
 # PKCS1_CHECK - pkcs1 tests.
 
-CC= gcc
+#CC= gcc
 #CFLAG= -DL_ENDIAN -DTERMIO -O3 -fomit-frame-pointer -m486 -Wall -Wuninitialized -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
 CFLAG= -DTERMIOS -DL_ENDIAN -fomit-frame-pointer -O3 -m486 -Wall -DSHA1_ASM -DMD5_ASM -DRMD160_ASM
 DEPFLAG= 
 PEX_LIBS= 
 EX_LIBS= 
 EXE_EXT= 
-AR=ar r
-RANLIB= ranlib
+export AR=$(CROSS_COMPILER)ar r
+#RANLIB= ranlib
 PERL= perl
 TAR= tar
 TARFLAGS= --no-recursion
@@ -130,6 +130,8 @@ RC5_ENC= asm/r586-out.o
 #RC5_ENC= asm/r586-out.o # a.out, FreeBSD
 #RC5_ENC= asm/r586bsdi.o # bsdi
 
+AES_ENC= aes_enc.o
+
 # Also need MD5_ASM defined
 MD5_ASM_OBJ= asm/mx86-out.o
 #MD5_ASM_OBJ= asm/mx86-elf.o        # elf
@@ -155,13 +157,13 @@ RMD160_ASM_OBJ= asm/rm86-out.o
 # we might set SHLIB_MARK to '$(SHARED_LIBS)'.
 SHLIB_MARK=
 
-DIRS=   crypto ssl rsaref $(SHLIB_MARK) apps test tools
+DIRS=   crypto ssl # rsaref $(SHLIB_MARK) apps test tools
 SHLIBDIRS= crypto ssl
 
 # dirs in crypto to build
 SDIRS=  \
 	md2 md4 md5 sha mdc2 hmac ripemd \
-	des rc2 rc4 rc5 idea bf cast \
+	des rc2 rc4 rc5 aes idea bf cast \
 	bn rsa dsa dh dso \
 	buffer bio stack lhash rand err objects \
 	evp asn1 pem x509 x509v3 conf txt_db pkcs7 pkcs12 comp
@@ -196,7 +198,11 @@ HEADER=         e_os.h
 # When we're prepared to use shared libraries in the programs we link here
 # we might remove 'clean-shared' from the targets to perform at this stage
 
-all: clean-shared Makefile.ssl sub_all
+all: clean-shared Makefile.ssl sub_all shared-library my_apps
+
+my_apps:
+	(cd apps && echo "making all in apps..." && \
+		$(MAKE) CC='${CC}' PLATFORM='${PLATFORM}' CFLAG='${CFLAG}' SDIRS='$(SDIRS)' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' AR='${AR}' PROCESSOR='${PROCESSOR}' PERL='${PERL}' RANLIB='${RANLIB}' EXE_EXT='${EXE_EXT}' all )
 
 sub_all:
 	@for i in $(DIRS); \
@@ -500,6 +506,7 @@ clean:
 	do \
 	rm -fr $$i/*; \
 	done
+	rm -rf shared
 
 makefile.one: files
 	$(PERL) util/mk1mf.pl >makefile.one; \
@@ -695,5 +702,9 @@ install_docs:
 			--release=$(VERSION) `basename $$i`) \
 			>  $(INSTALL_PREFIX)$(MANDIR)/man$$sec/`basename $$i .pod`.$$sec; \
 	done
+
+shared-library:
+	$(LD) -shared -o libcrypto.so $(shell find crypto -iname "*.o")
+	$(LD) -shared -o libssl.so $(shell find ssl -iname "*.o")
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.

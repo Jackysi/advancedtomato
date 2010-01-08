@@ -7,7 +7,7 @@
 	No part of this file may be used without permission.
 */
 
-//<% nvram("l2tp_get_ip,pptp_get_ip,pptp_server_ip,router_name,wan_domain,wan_gateway,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,security_mode2,wl_crypto,wl_mode,wds_enable,wl0_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,t_model_name"); %>
+//<% nvram("l2tp_get_ip,pptp_get_ip,pptp_server_ip,router_name,wan_domain,wan_gateway,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,security_mode2,wl_crypto,wl_mode,wds_enable,wl0_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,t_model_name,t_features"); %>
 //<% uptime(); %>
 //<% sysinfo(); %>
 //<% wlradio(); %>
@@ -72,18 +72,13 @@ do {
 	stats.wanstatus = '<% wanstatus(); %>';
 	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
 
-	a = i = '<% wlchannel(); %>' * 1;
-	if (i < 0) i = -i;
-	if ((i >= 1) && (i <= 14)) {
-		stats.channel = '<a href="tools-survey.asp">' + i + ' - ' + ghz[i - 1] + ' <small>GHz</small></a>'
-		if (a < 0) stats.channel += ' <small>(scanning...)</small>';
-	}
-	else if (i == 0) {
-		stats.channel = 'Auto';
-	}
-	else {
-		stats.channel = '-';
-	}
+	stats.channel = '<a href="tools-survey.asp"><% wlchannel(); %></a>'
+
+	a = '<% wlnbw(); %>' * 1;
+	if (a > 0)
+		stats.nbw = a + ' <small>MHz</small>';
+	else
+		stats.nbw = 'Auto';
 
 	wlcrssi = wlnoise = stats.qual = '';
 	isClient = ((nvram.wl_mode == 'wet') || (nvram.wl_mode == 'sta'));
