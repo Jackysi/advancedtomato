@@ -126,11 +126,19 @@ static void _execute_command(char *url, char *command, char *query, char *output
 	char webExecFile[]  = "/tmp/.wxXXXXXX";
 	char webQueryFile[] = "/tmp/.wqXXXXXX";
 	FILE *f;
+	int fe, fq = -1;
 
-	mktemp(webExecFile);
-	if (query) mktemp(webQueryFile);
+	if ((fe = mkstemp(webExecFile)) < 0)
+		exit(1);
+	if (query) {
+		if ((fq = mkstemp(webQueryFile)) < 0) {
+			close(fe);
+			unlink(webExecFile);
+			exit(1);
+		}
+	}
 
-	if ((f = fopen(webExecFile, "wb")) != NULL) {
+	if ((f = fdopen(fe, "wb")) != NULL) {
 		fprintf(f,
 			"#!/bin/sh\n"
 			"export REQUEST_METHOD=\"%s\"\n"
@@ -144,18 +152,26 @@ static void _execute_command(char *url, char *command, char *query, char *output
 	}
 	else {
 		unlink(output);
+		close(fe);
+		unlink(webExecFile);
+		if (query) {
+			close(fq);
+			unlink(webQueryFile);
+		}
 		exit(1);
 	}
 	chmod(webExecFile, 0700);
 
 	if (query) {
-		if ((f = fopen(webQueryFile, "wb")) != NULL) {
+		if ((f = fdopen(fq, "wb")) != NULL) {
 			fprintf(f, "%s\n", query);
 			fclose(f);
 		}
 		else {
 			unlink(output);
 			unlink(webExecFile);
+			close(fq);
+			unlink(webQueryFile);
 			exit(1);
 		}
 	}
@@ -170,8 +186,12 @@ static void _execute_command(char *url, char *command, char *query, char *output
 static void wo_cgi_bin(char *url)
 {
 	char webOutpFile[] = "/tmp/.woXXXXXX";
+	int fd;
 
-	mktemp(webOutpFile);
+	if ((fd = mkstemp(webOutpFile)) < 0)
+		exit(1);
+	close(fd);
+
 	_execute_command(url, NULL, post_buf, webOutpFile);
 
 	if (post_buf) {
@@ -185,8 +205,12 @@ static void wo_cgi_bin(char *url)
 static void wo_shell(char *url)
 {
 	char webOutpFile[] = "/tmp/.woXXXXXX";
+	int fd;
 
-	mktemp(webOutpFile);
+	if ((fd = mkstemp(webOutpFile)) < 0)
+		exit(1);
+	close(fd);
+
 	_execute_command(NULL, webcgi_get("command"), NULL, webOutpFile);
 
 	web_puts("\ncmdresult = '");
