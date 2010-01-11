@@ -1380,7 +1380,6 @@ config CRAMFS
 
 config SQUASHFS
 	tristate "SquashFS 3.0 - Squashed file system support"
-	select ZLIB_INFLATE
 	help
 	  Saying Y here includes support for SquashFS 3.0 (a Compressed Read-Only File
 	  System).  Squashfs is a highly compressed read-only filesystem for Linux.
