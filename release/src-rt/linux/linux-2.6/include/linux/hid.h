@@ -524,13 +524,17 @@ static inline int hid_pidff_init(struct hid_device *hid) { return -ENODEV; }
 static inline int hid_ff_init(struct hid_device *hid) { return -1; }
 #endif
 #ifdef DEBUG
-#define dbg(format, arg...) printk(KERN_DEBUG "%s: " format "\n" , \
-		__FILE__ , ## arg)
+#define dbg_hid(format, arg...) if (hid_debug) \
+				printk(KERN_DEBUG "%s: " format ,\
+				__FILE__ , ## arg)
+#define dbg_hid_line(format, arg...) if (hid_debug) \
+				printk(format, ## arg)
 #else
-#define dbg(format, arg...) do {} while (0)
+#define dbg_hid(format, arg...) do {} while (0)
+#define dbg_hid_line dbg_hid
 #endif
 
-#define err(format, arg...) printk(KERN_ERR "%s: " format "\n" , \
+#define err_hid(format, arg...) printk(KERN_ERR "%s: " format "\n" , \
 		__FILE__ , ## arg)
 #endif
 

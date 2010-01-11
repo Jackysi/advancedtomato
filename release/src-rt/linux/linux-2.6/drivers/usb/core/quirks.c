@@ -28,23 +28,25 @@
  * devices is broken...
  */
 static const struct usb_device_id usb_quirk_list[] = {
+	/* CBM - Flash disk */
+	{ USB_DEVICE(0x0204, 0x6025), .driver_info = USB_QUIRK_RESET_RESUME },
 	/* HP 5300/5370C scanner */
 	{ USB_DEVICE(0x03f0, 0x0701), .driver_info = USB_QUIRK_STRING_FETCH_255 },
-	/* Seiko Epson Corp - Perfection 1670 */
-	{ USB_DEVICE(0x04b8, 0x011f), .driver_info = USB_QUIRK_NO_AUTOSUSPEND },
-	/* Elsa MicroLink 56k (V.250) */
-	{ USB_DEVICE(0x05cc, 0x2267), .driver_info = USB_QUIRK_NO_AUTOSUSPEND },
+
+	/* INTEL VALUE SSD */
+	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* M-Systems Flash Disk Pioneers */
+	{ USB_DEVICE(0x08ec, 0x1000), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* Philips PSC805 audio device */
+	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* SKYMEDI USB_DRIVE */
+	{ USB_DEVICE(0x1516, 0x8628), .driver_info = USB_QUIRK_RESET_RESUME },
 
 	{ }  /* terminating entry must be last */
 };
-
-static void usb_autosuspend_quirk(struct usb_device *udev)
-{
-#ifdef	CONFIG_USB_SUSPEND
-	/* disable autosuspend, but allow the user to re-enable it via sysfs */
-	udev->autosuspend_disabled = 1;
-#endif
-}
 
 static const struct usb_device_id *find_id(struct usb_device *udev)
 {
@@ -72,7 +74,9 @@ void usb_detect_quirks(struct usb_device *udev)
 		dev_dbg(&udev->dev, "USB quirks for this device: %x\n",
 				udev->quirks);
 
-	/* do any special quirk handling here if needed */
-	if (udev->quirks & USB_QUIRK_NO_AUTOSUSPEND)
-		usb_autosuspend_quirk(udev);
+	/* By default, disable autosuspend for all non-hubs */
+#ifdef	CONFIG_USB_SUSPEND
+	if (udev->descriptor.bDeviceClass != USB_CLASS_HUB)
+		udev->autosuspend_disabled = 1;
+#endif
 }

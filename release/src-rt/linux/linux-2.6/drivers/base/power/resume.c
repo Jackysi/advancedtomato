@@ -89,8 +89,7 @@ void dpm_resume(void)
 		list_move_tail(entry, &dpm_active);
 
 		up(&dpm_list_sem);
-		if (!dev->power.prev_state.event)
-			resume_device(dev);
+		resume_device(dev);
 		down(&dpm_list_sem);
 		put_device(dev);
 	}
