@@ -2666,6 +2666,9 @@ static void hub_events(void)
 				clear_port_feature(hdev, i,
 					USB_PORT_FEAT_C_SUSPEND);
 				if (hdev->children[i-1]) {
+					/* TRSMRCY = 10 msec */
+					msleep(10);
+
 					ret = remote_wakeup(hdev->
 							children[i-1]);
 					if (ret < 0)
