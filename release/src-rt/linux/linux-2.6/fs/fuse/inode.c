@@ -760,7 +760,11 @@ static int __init fuse_init(void)
 {
 	int res;
 
+#ifdef DCACHE_BUG
+	printk("fuse init (API version %i.%i), DCACHE_BUG enabled\n",
+#else
 	printk("fuse init (API version %i.%i)\n",
+#endif
 	       FUSE_KERNEL_VERSION, FUSE_KERNEL_MINOR_VERSION);
 
 	INIT_LIST_HEAD(&fuse_conn_list);

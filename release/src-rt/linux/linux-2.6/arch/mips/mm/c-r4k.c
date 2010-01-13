@@ -8,6 +8,7 @@
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  */
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -362,7 +363,7 @@ static inline void local_r4k___flush_cache_all(void * args)
 	}
 }
 
-static void r4k___flush_cache_all(void)
+void r4k___flush_cache_all(void)
 {
 	r4k_on_each_cpu(local_r4k___flush_cache_all, NULL, 1, 1);
 }
@@ -497,7 +498,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 	}
 }
 
-static void r4k_flush_cache_page(struct vm_area_struct *vma,
+void r4k_flush_cache_page(struct vm_area_struct *vma,
 	unsigned long addr, unsigned long pfn)
 {
 	struct flush_cache_page_args args;
@@ -1292,3 +1293,10 @@ void __init r4k_cache_init(void)
 	coherency_setup();
 #endif
 }
+
+/* fuse package DCACHE BUG patch exports */
+void (*fuse_flush_cache_all)(void) = r4k___flush_cache_all;
+void (*fuse_flush_cache_page)(struct vm_area_struct *vma, unsigned long page,
+	unsigned long pfn) = r4k_flush_cache_page;
+EXPORT_SYMBOL(fuse_flush_cache_page);
+EXPORT_SYMBOL(fuse_flush_cache_all);
