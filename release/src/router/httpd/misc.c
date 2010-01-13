@@ -510,6 +510,32 @@ void wo_resolve(char *url)
 
 //!!TB - USB support
 
+#ifndef BLKGETSIZE
+#define BLKGETSIZE _IO(0x12,96)
+#endif
+#ifndef BLKGETSIZE64
+#define BLKGETSIZE64 _IOR(0x12,114,size_t)
+#endif
+
+static uint64_t get_psize(char *dev)
+{
+	uint64_t bytes = 0;
+	unsigned long sectors;
+	int fd;
+
+	if ((fd = open(dev, O_RDONLY)) >= 0) {
+		if (ioctl(fd, BLKGETSIZE64, &bytes) < 0) {
+			bytes = 0;
+			/* Can't get bytes, try 512 byte sectors */
+			if (ioctl(fd, BLKGETSIZE, &sectors) >= 0)
+				bytes = (uint64_t)sectors << 9;
+		}
+		close(fd);
+	}
+
+	return bytes;
+}
+
 #define PROC_SCSI_ROOT	"/proc/scsi"
 #define USB_STORAGE	"usb-storage"
 
@@ -519,8 +545,6 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	char *type;
 	int is_mounted = 0;
 	struct mntent *mnt;
-	struct statfs s;
-	unsigned long psize = 0;
 
 	if (!find_label_or_uuid(dev_name, the_label, NULL)) {
 		sprintf(the_label, "disc%d_%d", disc_num, part_num);
@@ -538,24 +562,21 @@ int is_partition_mounted(char *dev_name, int host_num, int disc_num, int part_nu
 	if ((mnt = findmntents(dev_name, 0, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
-			if (statfs(mnt->mnt_dir, &s) == 0) {
-				psize = (s.f_blocks * (unsigned long long) s.f_bsize + 1024*1024/2) / (1024*1024);
-			}
-			web_printf("1,'%s','%s','%s','%ld']",
-				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts, psize);
+			web_printf("1,'%s','%s','%s',%llu]",
+				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts, get_psize(dev_name));
 		}
 	}
 	else if ((mnt = findmntents(dev_name, 1, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
-			web_printf("2,'','%s','','%ld']",
-				"swap", (atoi(mnt->mnt_type) + 1023) / 1024);
+			web_printf("2,'','%s','',%llu]",
+				"swap", (uint64_t)atoi(mnt->mnt_type) * 1024);
 		}
 	}
 	else {
 		if (flags & EFH_PRINT) {
 			type = detect_fs_type(dev_name);
-			web_printf("0,'','%s','','0']", type ? type : "");
+			web_printf("0,'','%s','',%llu]", type ? type : "", get_psize(dev_name));
 		}
 	}
 
