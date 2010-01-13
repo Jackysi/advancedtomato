@@ -235,7 +235,7 @@ static int get_memory(meminfo_t *m)
 		return 0;
 	}
 	m->maxfreeram = m->free;
-	if (nvram_match("t_cafree", "1")) m->maxfreeram += m->cached;
+	if (nvram_match("t_cafree", "1")) m->maxfreeram += (m->cached + m->buffers);
 	return 1;
 }
 

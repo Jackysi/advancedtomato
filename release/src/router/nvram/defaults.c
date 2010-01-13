@@ -459,7 +459,7 @@ const defaults_t defaults[] = {
 	{ "debug_cprintf_file",	"0"				},
 //	{ "debug_keepfiles",	"0"				},
 	{ "console_loglevel",	"1"				},
-	{ "t_cafree",			"0"				},
+	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},
