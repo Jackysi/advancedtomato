@@ -172,7 +172,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 {
 	struct mntent *mnt;
 	int ret;
-	char options[40];
+	char options[80];
 	char flagfn[128];
 	int dir_made;
 
@@ -209,6 +209,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 				modprobe(flagfn);
 				nvram_set("smbd_nlsmod", flagfn);
 			}
+			sprintf(options + strlen(options), ",shortname=winnt" + (options[0] ? 0 : 1));
 		}
 		else if (strncmp(type, "ntfs", 4) == 0) {
 			if (nvram_invmatch("smbd_cset", ""))
