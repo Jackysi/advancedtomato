@@ -465,6 +465,10 @@ int mount_partition(char *dev_name, int host_num, int disc_num, int part_num, ui
 	}
 
 	if (*the_label != 0) {
+		char *p;
+		for (p = the_label; *p; p++) {
+			if (*p == ' ') *p = '_';
+		}
 		sprintf(mountpoint, "%s/%s", MOUNT_ROOT, the_label);
 		if ((ret = mount_r(dev_name, mountpoint, type))) {
 			if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
