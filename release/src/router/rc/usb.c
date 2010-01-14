@@ -643,6 +643,8 @@ void hotplug_usb(void)
 	if (scsi_host)
 		host = atoi(scsi_host);
 
+	if (!wait_action_idle(10)) return;
+
 	add = (strcmp(action, "add") == 0);
 	if (add && (strncmp(interface, "TOMATO/", 7) != 0)) {
 		syslog(LOG_DEBUG, "Attached USB device %s [INTERFACE=%s PRODUCT=%s]",
