@@ -55,6 +55,8 @@ int buttons_main(int argc, char *argv[])
 	uint32_t reset_pushed;
 	uint32_t brau_mask;
 	uint32_t brau_state;
+	int brau_count_stable;
+	int brau_flag;
 	int count;
 	char s[16];
 	char *p;
@@ -152,6 +154,7 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_RTN12:
 		reset_mask = 1 << 1;
 		ses_mask = 1 << 0;
+		brau_mask = (1 << 4) | (1 << 5) | (1 << 6);
 		break;
 	case MODEL_RTN16:
 		reset_mask = 1 << 6;
@@ -186,8 +189,10 @@ int buttons_main(int argc, char *argv[])
 #endif
 
 	last = 0;
+	brau_count_stable = 0;
+	brau_flag = 0;
 	while (1) {
-		if (((gpio = _gpio_read()) == ~0) || (last == (gpio &= mask)) || (check_action() != ACT_IDLE)) {
+		if (((gpio = _gpio_read()) == ~0) || (last == (gpio &= mask) && !brau_flag) || (check_action() != ACT_IDLE)) {
 #ifdef DEBUG_TEST
 			cprintf("gpio = %X\n", gpio);
 #endif
@@ -283,10 +288,24 @@ int buttons_main(int argc, char *argv[])
 		}
 
 		if (brau_mask) {
+			if (last == gpio)
+				sleep(1);
 			last = (gpio & brau_mask);
 			if (brau_state != last) {
+				brau_flag = (brau_state != ~0); // set to 1 to run at startup
 				brau_state = last;
-				p = brau_state ? "auto" : "bridge";
+				brau_count_stable = 0;
+			}
+			else if (brau_flag && ++brau_count_stable > 2) { // stable for 2+ seconds
+				brau_flag = 0;
+				switch (nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model()) {
+				case MODEL_RTN12:
+					p = (brau_state & (1 << 4)) ? "ap" : (brau_state & (1 << 5)) ? "repeater" : "router";
+					break;
+				default:
+					p = brau_state ? "auto" : "bridge";
+					break;
+				}
 				nvram_set("brau_state", p);
 #ifdef DEBUG_TEST
 				cprintf("bridge/auto state = %s\n", p);

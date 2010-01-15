@@ -679,7 +679,7 @@ static int init_nvram(void)
 	case MODEL_RTN12:
 		mfr = "Asus";
 		name = "RT-N12";
-		features = SUP_SES | SUP_80211N;
+		features = SUP_SES | SUP_BRAU | SUP_80211N;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
