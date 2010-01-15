@@ -243,7 +243,7 @@ extern int f_wait_notexists(const char *name, int max);
 
 extern const char *led_names[];
 
-extern int gpio_open();
+extern int gpio_open(uint32_t mask);
 extern void gpio_write(uint32_t bit, int en);
 extern uint32_t gpio_read(void);
 extern uint32_t _gpio_read(int f);
