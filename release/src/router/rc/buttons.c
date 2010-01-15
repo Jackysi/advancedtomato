@@ -151,7 +151,7 @@ int buttons_main(int argc, char *argv[])
 #if 0 // TOMATO_N
 	// !
 #else
-	if ((gf = gpio_open()) < 0) return 1;
+	if ((gf = gpio_open(mask)) < 0) return 1;
 #endif
 
 	last = 0;
