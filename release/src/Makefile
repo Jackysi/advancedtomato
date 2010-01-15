@@ -194,6 +194,23 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKSWAP=y" >>$(1)
 endef
 
+define BusyboxNoUSBOptions
+	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1)
+	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1)
+	@sed -i "/CONFIG_FEATURE_DEVFS/d" $(1)
+	@echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1)
+	@sed -i "/CONFIG_FEATURE_MOUNT_LABEL/d" $(1)
+	@echo "# CONFIG_FEATURE_MOUNT_LABEL is not set" >>$(1)
+	@sed -i "/CONFIG_FEATURE_MOUNT_FSTAB/d" $(1)
+	@echo "# CONFIG_FEATURE_MOUNT_FSTAB is not set" >>$(1)
+	@sed -i "/CONFIG_VOLUMEID/d" $(1)
+	@echo "# CONFIG_VOLUMEID is not set" >>$(1)
+	@sed -i "/CONFIG_BLKID/d" $(1)
+	@echo "# CONFIG_BLKID is not set" >>$(1)
+	@sed -i "/CONFIG_SWAPONOFF/d" $(1)
+	@echo "# CONFIG_SWAPONOFF is not set" >>$(1)
+endef
+
 ifeq ($(CONFIG_LINUX26),y)
 define BusyboxKernelConfig
 	@sed -i "/CONFIG_FEATURE_2_4_MODULES/d" $(1)
@@ -227,6 +244,10 @@ define KernelConfigMips
 		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
+	fi; \
+	if [ "$(BCM57)" = "y" ]; then \
+		sed -i "/CONFIG_BCM57XX/d" $(1); \
+		echo "CONFIG_BCM57XX=m" >>$(1); \
 	fi; \
 	)
 endef
@@ -361,32 +382,53 @@ s:
 	@echo "# TCONFIG_FTP is not set" >>router/config_$@
 	@sed -i "/TCONFIG_USB/d" router/config_$@
 	@echo "# TCONFIG_USB is not set" >>router/config_$@
+	@( \
+	if [ "$(NO_JFFS)" = "y" ]; then \
+		sed -i "/TCONFIG_JFFS2/d" router/config_$@; \
+		echo "# TCONFIG_JFFS2 is not set" >>router/config_$@; \
+	fi; \
+	)
 
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
+	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
-
-	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_MOUNT_LABEL/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_MOUNT_LABEL is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_MOUNT_FSTAB/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_MOUNT_FSTAB is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_VOLUMEID/d" router/busybox/config_$@
-	@echo "# CONFIG_VOLUMEID is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_BLKID/d" router/busybox/config_$@
-	@echo "# CONFIG_BLKID is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_SWAPONOFF/d" router/busybox/config_$@
-	@echo "# CONFIG_SWAPONOFF is not set" >>router/busybox/config_$@
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="" USB=""
 	@$(MAKE) all
 
-## Make Asus RT-N16 (mips32r2 CPU) build
-n16:
-	@$(MAKE) m MIPS32=r2
+## Make the "VPN witn no USB support" build
+v:
+	@cp router/config_base router/config_$@	
+	@cp router/busybox/config_base router/busybox/config_$@
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
+
+	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
+	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
+	@sed -i "/TCONFIG_FTP/d" router/config_$@
+	@echo "# TCONFIG_FTP is not set" >>router/config_$@
+	@sed -i "/TCONFIG_USB/d" router/config_$@
+	@echo "# TCONFIG_USB is not set" >>router/config_$@
+	@sed -i "/TCONFIG_LZO/d" router/config_$@
+	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
+	@echo "TCONFIG_LZO=y" >>router/config_$@
+	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
+
+	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+	$(call BusyboxExtraOptions, router/busybox/config_$@)
+	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
+	$(call BusyboxKernelConfig, router/busybox/config_$@)
+
+	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC="VPN" USB=""
+	@$(MAKE) all
+
+## Make Mips32r2 Extras build (Asus RT-N16)
+r2m:
+	@$(MAKE) m MIPS32=r2 BCM57=y
+
+## Make Mips32r2 "no USB" build (Asus RT-N12)
+r2s:
+	@$(MAKE) s MIPS32=r2 NO_JFFS=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -449,6 +491,9 @@ help:
 	@echo "c            C build (standard minus cifs)"
 	@echo "d            D build (standard minus Samba server)"
 	@echo "m            M build (standard plus extra utilities)"
+	@echo "e            E build (standard plus VPN and extra utilities)"
+	@echo "s            S build (no USB support)"
+	@echo "v            V build (VPN with no USB support)"
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
 	@echo "cleanimage   rm -rf image"

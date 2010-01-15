@@ -159,6 +159,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv jffs/* . && rm -rf jffs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_inflate/* . && rm -rf zlib_inflate || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv zlib_deflate/* . && rm -rf zlib_deflate || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/lib && mv lzo/* . && rm -rf lzo || true
 	rm -rf $(TARGETDIR)/lib/modules/*/pcmcia
 
 ##!!TB
@@ -286,10 +287,10 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/sound/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/sound || true
 
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(CONFIG_LINUX26),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
 	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/* $(PLATFORMDIR)/extras/crypto/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
