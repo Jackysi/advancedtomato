@@ -49,6 +49,7 @@
 #include "squashfs.h"
 
 #ifdef SQUASHFS_LZMA
+#define _7ZIP_BYTE_DEFINED
 #include "LzmaDecode.h"
 
 /* default LZMA settings, should be in sync with mksquashfs */
@@ -271,9 +272,14 @@ SQSH_EXTERN unsigned int squashfs_read_data(struct super_block *s, char *buffer,
 		int zlib_err;
 
 #ifdef SQUASHFS_LZMA
-		if ((zlib_err = LzmaDecode(lzma_workspace,
-			LZMA_WORKSPACE_SIZE, LZMA_LC, LZMA_LP, LZMA_PB,
-			c_buffer, c_byte, buffer, msblk->read_size, &bytes)) != LZMA_RESULT_OK)
+		CLzmaDecoderState vs;
+		vs.Properties.lc = LZMA_LC;
+		vs.Properties.lp = LZMA_LP;
+		vs.Properties.pb = LZMA_PB;
+		vs.Probs = (CProb *)lzma_workspace;
+		if ((zlib_err = LzmaDecode(&vs, 
+			c_buffer, c_byte, &avail_bytes, 
+			buffer, msblk->read_size, &bytes)) != LZMA_RESULT_OK)
 		{
 			ERROR("lzma returned unexpected result 0x%x\n", zlib_err);
 			bytes = 0;
