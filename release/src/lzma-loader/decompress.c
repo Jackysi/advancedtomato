@@ -81,12 +81,12 @@ static __inline__ void blast_dcache(unsigned long size, unsigned long lsize)
 /* beyound the image end, size not known in advance */
 extern unsigned char workspace[];
 
-unsigned int offset;
-unsigned char *data;
+static unsigned int offset;
+static unsigned char *data;
 
 /* flash access should be aligned, so wrapper is used */
 /* read byte from the flash, all accesses are 32-bit aligned */
-static int read_byte(void *object, unsigned char **buffer, UInt32 *bufferSize)
+static int read_byte(void *object, const unsigned char **buffer, UInt32 *bufferSize)
 {
 	static unsigned int val;
 
@@ -103,10 +103,10 @@ static int read_byte(void *object, unsigned char **buffer, UInt32 *bufferSize)
 
 static __inline__ unsigned char get_byte(void)
 {
-	unsigned char *buffer;
+	const unsigned char *buffer;
 	UInt32 fake;
 	
-	return read_byte(0, &buffer, &fake), *buffer;
+	return read_byte(NULL, &buffer, &fake), *buffer;
 }
 
 /* should be the first function */
@@ -116,11 +116,9 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 	unsigned long fw_arg2, unsigned long fw_arg3)
 {
 	unsigned int i;  /* temp value */
-	unsigned int lc; /* literal context bits */
-	unsigned int lp; /* literal pos state bits */
-	unsigned int pb; /* pos state bits */
 	unsigned int osize; /* uncompressed size */
 
+	CLzmaDecoderState vs;
 	ILzmaInCallback callback;
 	callback.Read = read_byte;
 
@@ -134,8 +132,9 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 
 	/* lzma args */
 	i = get_byte();
-	lc = i % 9, i = i / 9;
-	lp = i % 5, pb = i / 5;
+	vs.Properties.lc = i % 9, i = i / 9;
+	vs.Properties.lp = i % 5, vs.Properties.pb = i / 5;
+	vs.Probs = (CProb *)workspace;
 
 	/* skip rest of the LZMA coder property */
 	for (i = 0; i < 4; i++)
@@ -152,7 +151,7 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 		get_byte();
 
 	/* decompress kernel */
-	if (LzmaDecode(workspace, ~0, lc, lp, pb, &callback,
+	if (LzmaDecode(&vs, &callback,
 		(unsigned char*)LOADADDR, osize, &i) == LZMA_RESULT_OK)
 	{
 		blast_dcache(dcache_size, dcache_lsize);

@@ -112,11 +112,7 @@ kernel: $(LINUXDIR)/.config
 
 
 lzma-loader:
-ifeq ($(CONFIG_LINUX26),y)
-	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD) LZMAPATH=$(LINUXDIR)/scripts/squashfs/lzma/C/Compress/Lzma all
-else
 	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD)
-endif
 
 lzma-loader-install: lzma-loader
 	@$(SEP)
