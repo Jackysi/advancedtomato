@@ -5,13 +5,23 @@ UTILS := wl nas
 all: $(UTILS)
 
 clean:
-	rm -f *.o *~ $(UTILS)
+	rm -f *~ $(UTILS)
 
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/wl),)
+wl:
+	@cp -f $(SRCBASE)/wl/$(PLATFORM)/wl wl
+else
 wl: wl_exe.o
-	$(CC) $(CCFLAGS) -o $@ $<
+	$(CC) $(CCFLAGS) -DBCMWPA2 -o $@ $<
+endif
 
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/nas),)
+nas:
+	@cp -f $(SRCBASE)/wl/$(PLATFORM)/nas nas
+else
 nas: nas_exe.o
-	$(CC) $(CCFLAGS) -o $@ $< -L../shared  -L../nvram -lnvram -lshared
+	$(CC) $(CCFLAGS) -DBCMWPA2 -o $@ $< -L../shared  -L../nvram -lnvram -lshared
+endif
 
 install: all
 	install -d $(INSTALLDIR)/usr/sbin

@@ -489,7 +489,7 @@ extern void cfree (void *__ptr) __THROW;
 extern void *valloc (size_t __size) __THROW __attribute_malloc__ __wur;
 #endif
 
-#ifdef __USE_XOPEN2K
+#if defined __USE_XOPEN2K && defined __UCLIBC_HAS_ADVANCED_REALTIME__
 /* Allocate memory of SIZE bytes with an alignment of ALIGNMENT.  */
 extern int posix_memalign (void **__memptr, size_t __alignment, size_t __size)
      __THROW __nonnull ((1)) __wur;
@@ -802,8 +802,10 @@ extern int getsubopt (char **__restrict __optionp,
 
 
 #ifdef __USE_XOPEN
+# if defined __UCLIBC_HAS_CRYPT__
 /* Setup DES tables according KEY.  */
 extern void setkey (__const char *__key) __THROW __nonnull ((1));
+# endif /* __UCLIBC_HAS_CRYPT__ */
 #endif
 
 
@@ -817,7 +819,7 @@ extern int posix_openpt (int __oflag) __wur;
 #ifdef __USE_XOPEN
 /* The next four functions all take a master pseudo-tty fd and
    perform an operation on the associated slave:  */
-
+#ifdef __UCLIBC_HAS_PTY__
 /* Chown the slave to the calling user.  */
 extern int grantpt (int __fd) __THROW;
 
@@ -829,17 +831,21 @@ extern int unlockpt (int __fd) __THROW;
    the master FD is open on, or NULL on errors.
    The returned storage is good until the next call to this function.  */
 extern char *ptsname (int __fd) __THROW __wur;
+#endif /* __UCLIBC_HAS_PTY__ */
 #endif
 
 #ifdef __USE_GNU
+# if defined __UCLIBC_HAS_PTY__
 /* Store at most BUFLEN characters of the pathname of the slave pseudo
    terminal associated with the master FD is open on in BUF.
    Return 0 on success, otherwise an error number.  */
 extern int ptsname_r (int __fd, char *__buf, size_t __buflen)
      __THROW __nonnull ((2));
-
+# endif
+# if defined __UCLIBC_HAS_GETPT__
 /* Open a master pseudo terminal and return its file descriptor.  */
 extern int getpt (void);
+# endif
 #endif
 
 #if 0 /* def __USE_BSD */

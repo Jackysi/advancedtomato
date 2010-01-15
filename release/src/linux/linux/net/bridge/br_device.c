@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
 #include <linux/if_bridge.h>
+#include <linux/etherdevice.h>
 #include <asm/uaccess.h>
 #include "br_private.h"
 
@@ -121,6 +122,24 @@ static int br_dev_accept_fastpath(struct net_device *dev, struct dst_entry *dst)
 	return -1;
 }
 
+/* Allow setting mac address to any valid ethernet address. */
+static int
+br_set_mac_address(struct net_device *dev, void *addr)
+{
+	struct net_bridge *br = dev->priv;
+	struct sockaddr *sa = (struct sockaddr *) addr;
+
+	if (!is_valid_ether_addr(sa->sa_data))
+		return -EINVAL;
+
+	write_lock_bh(&br->lock);
+	memcpy(br->preferred_id.addr, sa->sa_data, ETH_ALEN);
+	br_stp_recalculate_bridge_id(br);
+	write_unlock_bh(&br->lock);
+
+	return 0;
+}
+
 void br_dev_setup(struct net_device *dev)
 {
 	memset(dev->dev_addr, 0, ETH_ALEN);
@@ -133,5 +152,5 @@ void br_dev_setup(struct net_device *dev)
 	dev->stop = br_dev_stop;
 	dev->accept_fastpath = br_dev_accept_fastpath;
 	dev->tx_queue_len = 0;
-	dev->set_mac_address = NULL;
+	dev->set_mac_address = br_set_mac_address;
 }

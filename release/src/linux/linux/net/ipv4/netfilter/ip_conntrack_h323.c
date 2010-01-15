@@ -97,16 +97,27 @@ static int h245_help(const struct iphdr *iph, size_t len,
 			exp_info->offset = i;
 
 			exp->seq = ntohl(tcph->seq) + i;
-		    
+
+			// 43011 (09?): checkme
+			if (1) {
+				unsigned int chksum;
+
+				*((u_int32_t *)data) = ct->tuplehash[!dir].tuple.dst.ip;   //!!! Netmeeting fix
+				chksum = csum_partial((char *)tcph + tcph->doff*4, datalen, 0);				
+				tcph->check = 0;
+				tcph->check = tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
+				csum_partial((char *)tcph, tcph->doff*4, chksum));
+			}
+
 			exp->tuple = ((struct ip_conntrack_tuple)
 				{ { ct->tuplehash[!dir].tuple.src.ip,
 				    { 0 } },
 				  { data_ip,
-				    { data_port },
+				    { .tcp = { data_port } },
 				    IPPROTO_UDP }});
 			exp->mask = ((struct ip_conntrack_tuple)
 				{ { 0xFFFFFFFF, { 0 } },
-				  { 0xFFFFFFFF, { 0xFFFF }, 0xFFFF }});
+				  { 0xFFFFFFFF, { .tcp = { 0xFFFF } }, 0xFFFF }});
 	
 			exp->expectfn = NULL;
 			
@@ -229,11 +240,11 @@ static int h225_help(const struct iphdr *iph, size_t len,
 					{ { ct->tuplehash[!dir].tuple.src.ip,
 					    { 0 } },
 					  { data_ip,
-					    { data_port },
+					    { .tcp = { data_port } },
 					    IPPROTO_TCP }});
 				exp->mask = ((struct ip_conntrack_tuple)
 					{ { 0xFFFFFFFF, { 0 } },
-					  { 0xFFFFFFFF, { 0xFFFF }, 0xFFFF }});
+					  { 0xFFFFFFFF, { .tcp = { 0xFFFF } }, 0xFFFF }});
 	
 				exp->expectfn = h225_expect;
 				
@@ -294,9 +305,7 @@ static void __exit fini(void)
 	ip_conntrack_helper_unregister(&h225);
 }
 
-#ifdef CONFIG_IP_NF_NAT_NEEDED
 EXPORT_SYMBOL(ip_h323_lock);
-#endif
 
 module_init(init);
 module_exit(fini);

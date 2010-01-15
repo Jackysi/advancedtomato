@@ -101,21 +101,103 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 	}
 }
 
+static void write_ct_timeout(const char *type, const char *name, unsigned int val)
+{
+	unsigned char buf[128];
+	char v[16];
+
+	sprintf(buf, "/proc/sys/net/ipv4/netfilter/ip_conntrack_%s_timeout%s%s",
+		type, (name && name[0]) ? "_" : "", name ? name : "");
+	sprintf(v, "%u", val);
+
+	f_write_string(buf, v, 0, 0);
+}
+
+#ifndef write_tcp_timeout
+#define write_tcp_timeout(name, val) write_ct_timeout("tcp", name, val)
+#endif
+
+#ifndef write_udp_timeout
+#define write_udp_timeout(name, val) write_ct_timeout("udp", name, val)
+#endif
+
+static unsigned int read_ct_timeout(const char *type, const char *name)
+{
+	unsigned char buf[128];
+	unsigned int val = 0;
+	char v[16];
+
+	sprintf(buf, "/proc/sys/net/ipv4/netfilter/ip_conntrack_%s_timeout%s%s",
+		type, (name && name[0]) ? "_" : "", name ? name : "");
+	if (f_read_string(buf, v, sizeof(v)) > 0)
+		val = atoi(v);
+
+	return val;
+}
+
+#ifndef read_tcp_timeout
+#define read_tcp_timeout(name) read_ct_timeout("tcp", name)
+#endif
+
+#ifndef read_udp_timeout
+#define read_udp_timeout(name) read_ct_timeout("udp", name)
+#endif
+
 void setup_conntrack(void)
 {
 	unsigned int v[10];
 	const char *p;
+	char buf[70];
 	int i;
 
 	p = nvram_safe_get("ct_tcp_timeout");
 	if (sscanf(p, "%u%u%u%u%u%u%u%u%u%u",
 		&v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) == 10) {	// lightly verify
-		f_write_string("/proc/sys/net/ipv4/ip_conntrack_tcp_timeouts", p, 0, 0);
+		write_tcp_timeout("established", v[1]);
+		write_tcp_timeout("syn_sent", v[2]);
+		write_tcp_timeout("syn_recv", v[3]);
+		write_tcp_timeout("fin_wait", v[4]);
+		write_tcp_timeout("time_wait", v[5]);
+		write_tcp_timeout("close", v[6]);
+		write_tcp_timeout("close_wait", v[7]);
+		write_tcp_timeout("last_ack", v[8]);
+	}
+	else {
+		v[1] = read_tcp_timeout("established");
+		v[2] = read_tcp_timeout("syn_sent");
+		v[3] = read_tcp_timeout("syn_recv");
+		v[4] = read_tcp_timeout("fin_wait");
+		v[5] = read_tcp_timeout("time_wait");
+		v[6] = read_tcp_timeout("close");
+		v[7] = read_tcp_timeout("close_wait");
+		v[8] = read_tcp_timeout("last_ack");
+		sprintf(buf, "0 %u %u %u %u %u %u %u %u 0",
+			v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]);
+		nvram_set("ct_tcp_timeout", buf);
 	}
 
 	p = nvram_safe_get("ct_udp_timeout");
 	if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
-		f_write_string("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", p, 0, 0);
+		write_udp_timeout(NULL, v[0]);
+		write_udp_timeout("stream", v[1]);
+	}
+	else {
+		v[0] = read_udp_timeout(NULL);
+		v[1] = read_udp_timeout("stream");
+		sprintf(buf, "%u %u", v[0], v[1]);
+		nvram_set("ct_udp_timeout", buf);
+	}
+
+	p = nvram_safe_get("ct_timeout");
+	if (sscanf(p, "%u%u", &v[0], &v[1]) == 2) {
+		write_ct_timeout("generic", NULL, v[0]);
+		write_ct_timeout("icmp", NULL, v[1]);
+	}
+	else {
+		v[0] = read_ct_timeout("generic", NULL);
+		v[1] = read_ct_timeout("icmp", NULL);
+		sprintf(buf, "%u %u", v[0], v[1]);
+		nvram_set("ct_timeout", buf);
 	}
 
 	p = nvram_safe_get("ct_max");

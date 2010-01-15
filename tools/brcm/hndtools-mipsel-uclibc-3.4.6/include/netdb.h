@@ -55,7 +55,7 @@ __BEGIN_DECLS
 
 /* Error status for non-reentrant lookup functions.
    We use a macro to access always the thread-specific `h_errno' variable.
-   We always need the extern int here in case internal libc code undefines 
+   We always need the extern int here in case internal libc code undefines
    the macro because it needs access to the underlying storage. */
 extern int h_errno;
 #ifdef __UCLIBC_HAS_THREADS__
@@ -442,6 +442,11 @@ extern int getnetgrent_r (char **__restrict __hostp,
 			  char *__restrict __buffer, size_t __buflen);
 #endif	/* UCLIBC_HAS_NETGROUP */
 #endif	/* misc */
+
+
+/* ruserpass - remote password check.
+   This function also exists in glibc but is undocumented */
+extern int ruserpass(const char *host, const char **aname, const char **apass);
 
 
 #ifdef __USE_BSD

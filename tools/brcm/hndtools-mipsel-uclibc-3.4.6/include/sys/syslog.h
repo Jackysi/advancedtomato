@@ -67,10 +67,13 @@
 				/* mark "facility" */
 #define	INTERNAL_MARK	LOG_MAKEPRI(LOG_NFACILITIES, 0)
 typedef struct _code {
-	char	*c_name;
-	int	c_val;
+	const char      *c_name;
+	int             c_val;
 } CODE;
 
+#ifdef SYSLOG_NAMES_CONST
+const
+#endif
 CODE prioritynames[] =
   {
     { "alert", LOG_ALERT },
@@ -119,6 +122,9 @@ CODE prioritynames[] =
 #define	LOG_FAC(p)	(((p) & LOG_FACMASK) >> 3)
 
 #ifdef SYSLOG_NAMES
+#ifdef SYSLOG_NAMES_CONST
+const
+#endif
 CODE facilitynames[] =
   {
     { "auth", LOG_AUTH },

@@ -267,6 +267,7 @@ const defaults_t defaults[] = {
 // advanced-ctnf
 	{ "ct_tcp_timeout",		""				},
 	{ "ct_udp_timeout",		""				},
+	{ "ct_timeout",			""				},
 	{ "ct_max",				""				},
 	{ "nf_ttl",				"0"				},
 	{ "nf_l7in",			"1"				},

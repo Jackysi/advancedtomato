@@ -1,4 +1,5 @@
-/* Copyright (C) 1992-2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 1992-2001, 2002, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -130,8 +131,18 @@
 /* Fortify support.  */
 #define __bos(ptr) __builtin_object_size (ptr, __USE_FORTIFY_LEVEL > 1)
 #define __bos0(ptr) __builtin_object_size (ptr, 0)
-#define __warndecl(name, msg) extern void name (void)
 
+#if __GNUC_PREREQ (4,3)
+# define __warndecl(name, msg) \
+  extern void name (void) __attribute__((__warning__ (msg)))
+# define __warnattr(msg) __attribute__((__warning__ (msg)))
+# define __errordecl(name, msg) \
+  extern void name (void) __attribute__((__error__ (msg)))
+#else
+# define __warndecl(name, msg) extern void name (void)
+# define __warnattr(msg)
+# define __errordecl(name, msg) extern void name (void)
+#endif
 
 /* Support for flexible arrays.  */
 #if __GNUC_PREREQ (2,97)
@@ -284,6 +295,33 @@
 # define __always_inline __inline __attribute__ ((__always_inline__))
 #else
 # define __always_inline __inline
+#endif
+
+/* GCC 4.3 and above with -std=c99 or -std=gnu99 implements ISO C99
+   inline semantics, unless -fgnu89-inline is used.
+   For -std=gnu99, forcing gnu_inline attribute does not change behavior,
+   but may silence spurious warnings (such as in GCC 4.2).  */
+#if !defined __cplusplus || __GNUC_PREREQ (4,3)
+# if defined __GNUC_STDC_INLINE__ || defined __GNUC_GNU_INLINE__ || defined __cplusplus
+#  define __extern_inline extern __inline __attribute__ ((__gnu_inline__))
+#  if __GNUC_PREREQ (4,3)
+#   define __extern_always_inline \
+  extern __always_inline __attribute__ ((__gnu_inline__, __artificial__))
+#  else
+#   define __extern_always_inline \
+  extern __always_inline __attribute__ ((__gnu_inline__))
+#  endif
+# else
+#  define __extern_inline extern __inline
+#  define __extern_always_inline extern __always_inline
+# endif
+#endif
+
+/* GCC 4.3 and above allow passing all anonymous arguments of an
+   __extern_always_inline function to some other vararg function.  */
+#if __GNUC_PREREQ (4,3)
+# define __va_arg_pack() __builtin_va_arg_pack ()
+# define __va_arg_pack_len() __builtin_va_arg_pack_len ()
 #endif
 
 /* It is possible to compile containing GCC extensions even if GCC is

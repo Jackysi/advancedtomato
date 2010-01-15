@@ -329,6 +329,7 @@ extern int dysize (int __year) __THROW  __attribute__ ((__const__));
 
 
 # ifdef __USE_POSIX199309
+#  if defined __UCLIBC_HAS_REALTIME__
 /* Pause execution for a number of nanoseconds.
 
    This function is a cancellation point and therefore not marked with
@@ -346,10 +347,10 @@ extern int clock_gettime (clockid_t __clock_id, struct timespec *__tp) __THROW;
 /* Set clock CLOCK_ID to value TP.  */
 extern int clock_settime (clockid_t __clock_id, __const struct timespec *__tp)
      __THROW;
-
+#endif /* __UCLIBC_HAS_REALTIME__ */
 #ifdef __UCLIBC_MJN3_ONLY__
 #warning "mjn3 FIXME: a bunch of unimplemented function prototypes."
-#  ifdef __USE_XOPEN2K
+#  if defined __USE_XOPEN2K && defined __UCLIBC_HAS_ADVANCED_REALTIME__
 /* High-resolution sleep with the specified clock.
 
    This function is a cancellation point and therefore not marked with
@@ -363,7 +364,7 @@ extern int clock_getcpuclockid (pid_t __pid, clockid_t *__clock_id) __THROW;
 #  endif
 #endif /* __UCLIBC_MJN3_ONLY__ */
 
-
+#  if defined __UCLIBC_HAS_REALTIME__
 /* Create new per-process timer using CLOCK_ID.  */
 extern int timer_create (clockid_t __clock_id,
 			 struct sigevent *__restrict __evp,
@@ -383,7 +384,8 @@ extern int timer_gettime (timer_t __timerid, struct itimerspec *__value)
 
 /* Get expiration overrun for timer TIMERID.  */
 extern int timer_getoverrun (timer_t __timerid) __THROW;
-# endif
+#  endif /* __UCLIBC_HAS_REALTIME__ */
+# endif /* __USE_POSIX199309 */
 
 
 #ifdef __UCLIBC_MJN3_ONLY__
@@ -429,6 +431,9 @@ extern int getdate_r (__const char *__restrict __string,
 #endif /* __UCLIBC_MJN3_ONLY__ */
 
 __END_DECLS
+
+
+
 
 #endif /* <time.h> included.  */
 

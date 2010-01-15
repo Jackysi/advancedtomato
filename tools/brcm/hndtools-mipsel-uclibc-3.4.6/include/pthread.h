@@ -293,7 +293,7 @@ extern int pthread_attr_getstacksize (__const pthread_attr_t *__restrict
 
 #ifdef __USE_GNU
 /* Initialize thread attribute *ATTR with attributes corresponding to the
-   already running thread TH.  It shall be called on unitialized ATTR
+   already running thread TH.  It shall be called on uninitialized ATTR
    and destroyed with pthread_attr_destroy when no longer needed.  */
 extern int pthread_getattr_np (pthread_t __th, pthread_attr_t *__attr) __THROW;
 #endif

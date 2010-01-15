@@ -33,7 +33,7 @@ __BEGIN_DECLS
 /* We might need to add support for more compilers here.  But since ISO
    C99 is out hopefully all maintained compilers will soon provide the data
    types `float complex' and `double complex'.  */
-#if __GNUC_PREREQ(2, 7) && !__GNUC_PREREQ(2, 97)
+#if __GNUC_PREREQ (2, 7) && !__GNUC_PREREQ (2, 97)
 # define _Complex __complex__
 #endif
 
@@ -62,7 +62,7 @@ __BEGIN_DECLS
 #define __MATHDECL_1(type, function, args) \
   extern type __MATH_PRECNAME(function) args __THROW
 
-#define _Mdouble_ 		double
+#define _Mdouble_		double
 #define __MATH_PRECNAME(name)	name
 #include <bits/cmathcalls.h>
 #undef	_Mdouble_
@@ -72,7 +72,7 @@ __BEGIN_DECLS
 #ifndef _Mfloat_
 # define _Mfloat_		float
 #endif
-#define _Mdouble_ 		_Mfloat_
+#define _Mdouble_		_Mfloat_
 #ifdef __STDC__
 # define __MATH_PRECNAME(name)	name##f
 #else
@@ -84,11 +84,11 @@ __BEGIN_DECLS
 
 /* And the long double versions.  It is non-critical to define them
    here unconditionally since `long double' is required in ISO C99.  */
-#if __STDC__ - 0 || __GNUC__ - 0 && !defined __NO_LONG_DOUBLE_MATH
+#if __STDC__ - 0 || __GNUC__ - 0 && defined __UCLIBC_HAS_LONG_DOUBLE_MATH__
 # ifndef _Mlong_double_
 #  define _Mlong_double_	long double
 # endif
-# define _Mdouble_ 		_Mlong_double_
+# define _Mdouble_		_Mlong_double_
 # ifdef __STDC__
 #  define __MATH_PRECNAME(name)	name##l
 # else

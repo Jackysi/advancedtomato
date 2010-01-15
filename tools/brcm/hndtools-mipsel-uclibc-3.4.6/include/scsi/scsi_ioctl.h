@@ -17,7 +17,7 @@
    02111-1307 USA.  */
 
 #ifndef _SCSI_IOCTL_H
-#define _SCSI_IOCTL_H 
+#define _SCSI_IOCTL_H
 
 /* IOCTLs for SCSI.  */
 #define SCSI_IOCTL_SEND_COMMAND		1	/* Send a command to the SCSI host.  */

@@ -703,10 +703,12 @@ extern int getresuid (__uid_t *__ruid, __uid_t *__euid, __uid_t *__suid)
 extern int getresgid (__gid_t *__rgid, __gid_t *__egid, __gid_t *__sgid)
      __THROW;
 
+#if defined __UCLIBC_LINUX_SPECIFIC__
 /* Set the real user ID, effective user ID, and saved-set user ID,
    of the calling process to RUID, EUID, and SUID, respectively.  */
 extern int setresuid (__uid_t __ruid, __uid_t __euid, __uid_t __suid)
      __THROW;
+#endif
 
 /* Set the real group ID, effective group ID, and saved-set group ID,
    of the calling process to RGID, EGID, and SGID, respectively.  */
@@ -715,7 +717,7 @@ extern int setresgid (__gid_t __rgid, __gid_t __egid, __gid_t __sgid)
 #endif
 
 
-#ifdef __ARCH_USE_MMU__
+#if defined __UCLIBC_HAS_STUBS__ || defined __ARCH_USE_MMU__
 /* Clone the calling process, creating an exact copy.
    Return -1 for errors, 0 to the new process,
    and the process ID of the new process to the old process.  */
@@ -857,7 +859,7 @@ extern int sethostname (__const char *__name, size_t __len)
    This call is restricted to the super-user.  */
 extern int sethostid (long int __id) __THROW __wur;
 
-
+#if defined __UCLIBC_BSD_SPECIFIC__
 /* Get and set the NIS (aka YP) domain name, if any.
    Called just like `gethostname' and `sethostname'.
    The NIS domain name is usually the empty string when not using NIS.  */
@@ -865,12 +867,14 @@ extern int getdomainname (char *__name, size_t __len)
      __THROW __nonnull ((1)) __wur;
 extern int setdomainname (__const char *__name, size_t __len)
      __THROW __nonnull ((1)) __wur;
+#endif
 
-
+#if defined __UCLIBC_LINUX_SPECIFIC__
 /* Revoke access permissions to all processes currently communicating
    with the control terminal, and then send a SIGHUP signal to the process
    group of the control terminal.  */
 extern int vhangup (void) __THROW;
+#endif
 
 #if 0
 /* Revoke the access of all descriptors currently open on FILE.  */
@@ -1064,7 +1068,8 @@ extern int lockf64 (int __fd, int __cmd, __off64_t __len) __wur;
        __result; }))
 #endif
 
-#if defined __USE_POSIX199309 || defined __USE_UNIX98
+#if (defined __USE_POSIX199309 || defined __USE_UNIX98) \
+	&& defined __UCLIBC_HAS_REALTIME__
 /* Synchronize at least the data part of a file with the underlying
    media.  */
 extern int fdatasync (int __fildes) __THROW;
@@ -1074,6 +1079,7 @@ extern int fdatasync (int __fildes) __THROW;
 /* XPG4.2 specifies that prototypes for the encryption functions must
    be defined here.  */
 #ifdef	__USE_XOPEN
+# if defined __UCLIBC_HAS_CRYPT__
 /* Encrypt at most 8 characters from KEY using salt to perturb DES.  */
 extern char *crypt (__const char *__key, __const char *__salt)
      __THROW __nonnull ((1, 2));
@@ -1081,6 +1087,7 @@ extern char *crypt (__const char *__key, __const char *__salt)
 /* Encrypt data in BLOCK in place if EDFLAG is zero; otherwise decrypt
    block in place.  */
 extern void encrypt (char *__block, int __edflag) __THROW __nonnull ((1));
+# endif /* __UCLIBC_HAS_CRYPT__ */
 
 
 /* Swab pairs bytes in the first N bytes of the area pointed to by
@@ -1106,5 +1113,8 @@ extern char *ctermid (char *__s) __THROW;
 #endif
 
 __END_DECLS
+
+
+
 
 #endif /* unistd.h  */

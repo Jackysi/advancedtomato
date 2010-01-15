@@ -110,22 +110,22 @@ typedef uintmax_t uatomic_max_t;
 /* For all "bool" routines, we return FALSE if exchange succesful.  */
 
 #define __arch_compare_and_exchange_bool_8_int(mem, new, old, rel, acq)	\
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_8_int(mem, new, old, rel, acq);	\
    !__cmp; })
 
 #define __arch_compare_and_exchange_bool_16_int(mem, new, old, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_16_int(mem, new, old, rel, acq);	\
    !__cmp; })
 
 #define __arch_compare_and_exchange_bool_32_int(mem, new, old, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_32_int(mem, new, old, rel, acq);	\
    !__cmp; })
 
 #define __arch_compare_and_exchange_bool_64_int(mem, new, old, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_64_int(mem, new, old, rel, acq);	\
    !__cmp; })
 
@@ -133,24 +133,24 @@ typedef uintmax_t uatomic_max_t;
    successful or not.  */
 
 #define __arch_compare_and_exchange_val_8_int(mem, new, old, rel, acq)	\
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_8_int(mem, new, old, rel, acq);	\
-   (typeof (*mem))__prev; })
+   (__typeof (*mem))__prev; })
 
 #define __arch_compare_and_exchange_val_16_int(mem, new, old, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_16_int(mem, new, old, rel, acq);	\
-   (typeof (*mem))__prev; })
+   (__typeof (*mem))__prev; })
 
 #define __arch_compare_and_exchange_val_32_int(mem, new, old, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_32_int(mem, new, old, rel, acq);	\
-   (typeof (*mem))__prev; })
+   (__typeof (*mem))__prev; })
 
 #define __arch_compare_and_exchange_val_64_int(mem, new, old, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					\
+({ __typeof (*mem) __prev; int __cmp;					\
    __arch_compare_and_exchange_xxx_64_int(mem, new, old, rel, acq);	\
-   (typeof (*mem))__prev; })
+   (__typeof (*mem))__prev; })
 
 /* Compare and exchange with "acquire" semantics, ie barrier after.  */
 
@@ -183,7 +183,7 @@ typedef uintmax_t uatomic_max_t;
   (abort (), 0)
 
 #define __arch_exchange_xxx_32_int(mem, newval, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					      \
+({ __typeof (*mem) __prev; int __cmp;					      \
      __asm__ __volatile__ ("\n"						      \
      ".set	push\n\t"						      \
      MIPS_PUSH_MIPS2							      \
@@ -207,7 +207,7 @@ typedef uintmax_t uatomic_max_t;
   (abort (), 0)
 #else
 #define __arch_exchange_xxx_64_int(mem, newval, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					      \
+({ __typeof (*mem) __prev; int __cmp;					      \
      __asm__ __volatile__ ("\n"						      \
      ".set	push\n\t"						      \
      MIPS_PUSH_MIPS2							      \
@@ -236,13 +236,13 @@ typedef uintmax_t uatomic_max_t;
 /* Atomically add value and return the previous (unincremented) value.  */
 
 #define __arch_exchange_and_add_8_int(mem, newval, rel, acq) \
-  (abort (), (typeof(*mem)) 0)
+  (abort (), (__typeof(*mem)) 0)
 
 #define __arch_exchange_and_add_16_int(mem, newval, rel, acq) \
-  (abort (), (typeof(*mem)) 0)
+  (abort (), (__typeof(*mem)) 0)
 
 #define __arch_exchange_and_add_32_int(mem, value, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					      \
+({ __typeof (*mem) __prev; int __cmp;					      \
      __asm__ __volatile__ ("\n"						      \
      ".set	push\n\t"						      \
      MIPS_PUSH_MIPS2							      \
@@ -263,10 +263,10 @@ typedef uintmax_t uatomic_max_t;
 #if _MIPS_SIM == _ABIO32
 /* We can't do an atomic 64-bit operation in O32.  */
 #define __arch_exchange_and_add_64_int(mem, value, rel, acq) \
-  (abort (), (typeof(*mem)) 0)
+  (abort (), (__typeof(*mem)) 0)
 #else
 #define __arch_exchange_and_add_64_int(mem, value, rel, acq) \
-({ typeof (*mem) __prev; int __cmp;					      \
+({ __typeof (*mem) __prev; int __cmp;					      \
      __asm__ __volatile__ (						      \
      ".set	push\n\t"						      \
      MIPS_PUSH_MIPS2							      \
@@ -285,7 +285,7 @@ typedef uintmax_t uatomic_max_t;
   __prev; })
 #endif
 
-/* ??? Barrier semantics for atomic_exchange_and_add appear to be 
+/* ??? Barrier semantics for atomic_exchange_and_add appear to be
    undefined.  Use full barrier for now, as that's safe.  */
 #define atomic_exchange_and_add(mem, value) \
   __atomic_val_bysize (__arch_exchange_and_add, int, mem, value,	      \

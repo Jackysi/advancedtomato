@@ -9,7 +9,9 @@
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
  * Changes:	Alexander Atanasov, <alex@ssi.bg>
- *		Added depth,limit,divisor,hash_kind options.
+ *		Alexander Clouter, <alex@digriz.org.uk>
+ *		Corey Hickey, <bugfood-c@fatooh.org>
+ *
  */
 
 #include <stdio.h>
@@ -17,7 +19,7 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <fcntl.h>
-#include <math.h> 
+#include <math.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -30,7 +32,13 @@ static void explain(void)
 {
 	fprintf(stderr, "Usage: ... esfq [ perturb SECS ] [ quantum BYTES ] [ depth FLOWS ]\n\t[ divisor HASHBITS ] [ limit PKTS ] [ hash HASHTYPE]\n");
 	fprintf(stderr,"Where: \n");
-	fprintf(stderr,"HASHTYPE := { classic | src | dst | fwmark | src_dir | dst_dir | fwmark_dir }\n");
+	fprintf(stderr,"HASHTYPE := { classic | src | dst | fwmark | ctorigdst | ctorigsrc | ctrepldst | ctreplsrc | ctnatchg }\n");
+}
+
+static void explain1(char *arg)
+{
+    fprintf(stderr, "Illegal \"%s\"\n", arg);
+    explain();
 }
 
 #define usage() return(-1)
@@ -43,34 +51,30 @@ static int esfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
 	memset(&opt, 0, sizeof(opt));
 
 	opt.hash_kind= TCA_SFQ_HASH_CLASSIC;
-	
+
 	while (argc > 0) {
 		if (strcmp(*argv, "quantum") == 0) {
 			NEXT_ARG();
 			if (get_size(&opt.quantum, *argv)) {
-				fprintf(stderr, "Illegal \"quantum\"\n");
-				return -1;
+				explain1("quantum"); return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "perturb") == 0) {
 			NEXT_ARG();
 			if (get_integer(&opt.perturb_period, *argv, 0)) {
-				fprintf(stderr, "Illegal \"perturb\"\n");
-				return -1;
+				explain1("perturb"); return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "depth") == 0) {
 			NEXT_ARG();
 			if (get_integer((int *) &opt.flows, *argv, 0)) {
-				fprintf(stderr, "Illegal \"depth\"\n");
-				return -1;
+				explain1("depth"); return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "divisor") == 0) {
 			NEXT_ARG();
 			if (get_integer((int *) &opt.divisor, *argv, 0)) {
-				fprintf(stderr, "Illegal \"divisor\"\n");
-				return -1;
+				explain1("divisor"); return -1;
 			}
 			if(opt.divisor >= 14) {
 				fprintf(stderr, "Illegal \"divisor\": must be < 14\n");
@@ -81,15 +85,14 @@ static int esfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
 		} else if (strcmp(*argv, "limit") == 0) {
 			NEXT_ARG();
 			if (get_integer((int *) &opt.limit, *argv, 0)) {
-				fprintf(stderr, "Illegal \"limit\"\n");
-				return -1;
+				explain1("limit"); return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "hash") == 0) {
 			NEXT_ARG();
 			if(strcmp(*argv, "classic") == 0) {
 				opt.hash_kind= TCA_SFQ_HASH_CLASSIC;
-			} else 
+			} else
 			if(strcmp(*argv, "dst") == 0) {
 				opt.hash_kind= TCA_SFQ_HASH_DST;
 			} else
@@ -99,18 +102,22 @@ static int esfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
 			if(strcmp(*argv, "fwmark") == 0) {
 				opt.hash_kind= TCA_SFQ_HASH_FWMARK;
 			} else
-			if(strcmp(*argv, "dst_direct") == 0) {
-				opt.hash_kind= TCA_SFQ_HASH_DSTDIR;
+			if(strcmp(*argv, "ctorigsrc") == 0) {
+				opt.hash_kind= TCA_SFQ_HASH_CTORIGSRC;
 			} else
-			if(strcmp(*argv, "src_direct") == 0) {
-				opt.hash_kind= TCA_SFQ_HASH_SRCDIR;
+			if(strcmp(*argv, "ctorigdst") == 0) {
+				opt.hash_kind= TCA_SFQ_HASH_CTORIGDST;
 			} else
-			if(strcmp(*argv, "fwmark_direct") == 0) {
-				opt.hash_kind= TCA_SFQ_HASH_FWMARKDIR;
+			if(strcmp(*argv, "ctreplsrc") == 0) {
+				opt.hash_kind= TCA_SFQ_HASH_CTREPLSRC;
+			} else
+			if(strcmp(*argv, "ctrepldst") == 0) {
+				opt.hash_kind= TCA_SFQ_HASH_CTREPLDST;
+			} else
+			if(strcmp(*argv, "ctnatchg") == 0) {
+				opt.hash_kind= TCA_SFQ_HASH_CTNATCHG;
 			} else {
-				fprintf(stderr, "Illegal \"hash\"\n");
-				explain();
-				return -1;
+				explain1("hash"); return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "help") == 0) {
@@ -163,14 +170,20 @@ static int esfq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	case TCA_SFQ_HASH_FWMARK:
 		fprintf(f,"fwmark");
 		break;
-	case TCA_SFQ_HASH_DSTDIR:
-		fprintf(f,"dst_direct");
+	case TCA_SFQ_HASH_CTORIGSRC:
+		fprintf(f,"ctorigsrc");
 		break;
-	case TCA_SFQ_HASH_SRCDIR:
-		fprintf(f,"src_direct");
+	case TCA_SFQ_HASH_CTORIGDST:
+		fprintf(f,"ctorigdst");
 		break;
-	case TCA_SFQ_HASH_FWMARKDIR:
-		fprintf(f,"fwmark_direct");
+	case TCA_SFQ_HASH_CTREPLSRC:
+		fprintf(f,"ctreplsrc");
+		break;
+	case TCA_SFQ_HASH_CTREPLDST:
+		fprintf(f,"ctrepldst");
+		break;
+	case TCA_SFQ_HASH_CTNATCHG:
+		fprintf(f,"ctnatchg");
 		break;
 	default:
 		fprintf(f,"Unknown");
@@ -184,10 +197,10 @@ static int esfq_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xsta
 }
 
 
-struct qdisc_util esfq_qdisc_util = {
-	.id = "esfq",
-	.parse_qopt = esfq_parse_opt,
-	.print_qopt = esfq_print_opt,
-	.print_xstats = esfq_print_xstats,
+struct qdisc_util esfq_util = {
+	NULL,
+	"esfq",
+	esfq_parse_opt,
+	esfq_print_opt,
+	esfq_print_xstats,
 };
-

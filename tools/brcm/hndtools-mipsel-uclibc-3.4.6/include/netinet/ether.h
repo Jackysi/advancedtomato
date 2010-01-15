@@ -25,6 +25,8 @@
 /* Get definition of `struct ether_addr'.  */
 #include <netinet/if_ether.h>
 
+#define ETHER_FILE_NAME "/etc/ethers"
+
 __BEGIN_DECLS
 
 /* Convert 48 bit Ethernet ADDRess to ASCII.  */

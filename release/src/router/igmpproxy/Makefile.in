@@ -727,6 +727,13 @@ uninstall-am: uninstall-dist_sysconfDATA
 	uninstall-dist_sysconfDATA
 
 
+ChangeLog:
+	git --git-dir=$(srcdir)/.git log > $@
+
+AUTHORS: ChangeLog
+	( echo "Authors and contributors, in alphabetical order: "; echo; \
+	sed -r "s/^Author: (.*)/\1/;t;d" $< | sort -u ) > $@
+
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

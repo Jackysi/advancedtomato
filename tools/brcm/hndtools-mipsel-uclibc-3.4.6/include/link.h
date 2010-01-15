@@ -23,7 +23,9 @@
 
 #include <features.h>
 #include <elf.h>
+#ifdef __HAVE_SHARED__
 #include <dlfcn.h>
+#endif
 #include <sys/types.h>
 #if defined _LIBC && defined __UCLIBC_HAS_THREADS_NATIVE__
 #include <tls.h>

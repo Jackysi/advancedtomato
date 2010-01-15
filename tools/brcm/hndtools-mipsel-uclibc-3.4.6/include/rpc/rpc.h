@@ -105,6 +105,9 @@ extern struct pollfd **__rpc_thread_svc_pollfd (void)
 extern int *__rpc_thread_svc_max_pollfd (void) __attribute__ ((__const__));
 #define svc_max_pollfd (*__rpc_thread_svc_max_pollfd ())
 
+extern bool_t xdr_accepted_reply (XDR *xdrs, struct accepted_reply *ar);
+extern bool_t xdr_rejected_reply (XDR *xdrs, struct rejected_reply *rr);
+
 __END_DECLS
 
 #endif /* rpc/rpc.h */

@@ -23,7 +23,7 @@
 #ifdef _STDIO_H
 # define L_tmpnam 20
 # define TMP_MAX 238328
-# define FILENAME_MAX 4095 
+# define FILENAME_MAX 4095
 
 # ifdef __USE_POSIX
 #  define L_ctermid 9
@@ -37,5 +37,5 @@
 #endif
 
 #if defined __need_IOV_MAX && !defined IOV_MAX
-# define IOV_MAX 1024 
+# define IOV_MAX 1024
 #endif

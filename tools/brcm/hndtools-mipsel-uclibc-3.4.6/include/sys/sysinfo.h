@@ -48,7 +48,7 @@ __BEGIN_DECLS
 /* Returns information on overall system statistics.  */
 extern int sysinfo (struct sysinfo *__info) __THROW;
 
-
+#if 0
 /* Return number of configured processors.  */
 extern int get_nprocs_conf (void) __THROW;
 
@@ -61,6 +61,7 @@ extern long int get_phys_pages (void) __THROW;
 
 /* Return number of available physical pages of memory in the system.  */
 extern long int get_avphys_pages (void) __THROW;
+#endif
 
 __END_DECLS
 

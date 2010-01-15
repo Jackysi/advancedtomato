@@ -204,6 +204,11 @@ sub fillGaps
 	foreach $name (@elfs) {
 		foreach $sym (keys %{$elf_ext{$name}}) {
 			$found = 0;
+
+			if ($sym eq '__uClibc_start_main') {
+				$sym = '__uClibc_main';
+			}
+
 			if (resolve($name, $sym) eq "*** unresolved ***") {
 				@users = usersOf($name);
 				foreach $u (@users) {

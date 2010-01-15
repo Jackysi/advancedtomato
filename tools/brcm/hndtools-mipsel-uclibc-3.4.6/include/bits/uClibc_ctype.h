@@ -78,7 +78,7 @@ enum {
 #define __CTYPE_ispunct(D)		(D == __CTYPE_punct)
 #define __CTYPE_isspace(D)		(((unsigned int)(D - __CTYPE_print_space_nonblank)) <= 5)
 #define __CTYPE_isupper(D)		(((unsigned int)(D - __CTYPE_alpha_upper_lower)) <= 1)
-/*  #define __CTYPE_isxdigit(D) -- isxdigit is untestable this way. 
+/*  #define __CTYPE_isxdigit(D) -- isxdigit is untestable this way.
  *  But that's ok as isxdigit() (and isdigit() too) are locale-invariant. */
 
 #else  /* __UCLIBC_GEN_LOCALE *****************************************/

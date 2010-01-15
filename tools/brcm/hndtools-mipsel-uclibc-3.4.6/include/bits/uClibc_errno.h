@@ -9,7 +9,7 @@
 #ifdef IS_IN_rtld
 # undef errno
 # define errno _dl_errno
-extern int _dl_errno; // attribute_hidden;
+extern int _dl_errno; /* attribute_hidden; */
 #elif defined __UCLIBC_HAS_THREADS__
 # include <tls.h>
 # if defined USE___THREAD && USE___THREAD
@@ -19,7 +19,7 @@ extern int _dl_errno; // attribute_hidden;
 #  else
 #   define errno errno
 #  endif
-extern __thread int errno __attribute_tls_model_ie;
+extern __thread int errno attribute_tls_model_ie;
 # endif /* USE___THREAD */
 #endif /* IS_IN_rtld */
 
@@ -34,7 +34,6 @@ extern int *__errno_location (void) __THROW __attribute__ ((__const__))
 # if defined __UCLIBC_HAS_THREADS__
 #  include <tls.h>
 #  if defined USE___THREAD && USE___THREAD
-libc_hidden_proto(__errno_location)
 #  endif
 # endif
 

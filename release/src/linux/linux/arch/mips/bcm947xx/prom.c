@@ -48,6 +48,15 @@ void __init prom_init(int argc, char **argv, char **envp, int *prom_vec)
 			mem -= before;
 			break;
 		}
+
+	/* Ignoring the last page when ddr size is 128M. Cached
+	 * accesses to last page is causing the processor to prefetch
+	 * using address above 128M stepping out of the ddr address
+	 * space.
+	 */
+	if (mem == 0x8000000)
+		mem -= 0x1000;
+
 	add_memory_region(0, mem, BOOT_MEM_RAM);
 }
 
