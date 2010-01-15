@@ -251,6 +251,8 @@ static int do_modprobe(struct module_entry *m)
 				options = gather_options_str(options, G.cmdline_mopts);
 			rc = bb_init_module(fn, options);
 			DBG("loaded %s '%s', rc:%d", fn, options, rc);
+			if (rc == EEXIST)
+				rc = 0;
 			if (rc == 0)
 				m2->flags |= MODULE_FLAG_LOADED;
 			free(options);
