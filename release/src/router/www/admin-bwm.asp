@@ -127,18 +127,22 @@ function verifyFields(focused, quiet)
 			return 0;
 		}
 	}
+/* JFFS2-BEGIN */
 	else if (v == '/jffs/') {
 		if (nvram.jffs2_on != '1') {
 			ferror.set(eLoc, 'JFFS2 is not enabled.', quiet);
 			return 0;
 		}
 	}
+/* JFFS2-END */
+/* CIFS-BEGIN */
 	else if (v.match(/^\/cifs(1|2)\/$/)) {
 		if (nvram['cifs' + RegExp.$1].substr(0, 1) != '1') {
 			ferror.set(eLoc, 'CIFS #' + RegExp.$1 + ' is not enabled.', quiet);
 			return 0;
 		}
 	}
+/* CIFS-END */
 	else {
 		bak = 1;
 	}
@@ -238,7 +242,14 @@ default:
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_rstats_enable', type: 'checkbox', value: nvram.rstats_enable == '1' },
 	{ title: 'Save History Location', multi: [
-		{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],['*nvram','NVRAM'],['/jffs/','JFFS2'],['/cifs1/','CIFS 1'],['/cifs2/','CIFS 2'],['*user','Custom Path']], value: loc },
+		{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],['*nvram','NVRAM'],
+/* JFFS2-BEGIN */
+			['/jffs/','JFFS2'],
+/* JFFS2-END */
+/* CIFS-BEGIN */
+			['/cifs1/','CIFS 1'],['/cifs2/','CIFS 2'],
+/* CIFS-END */
+			['*user','Custom Path']], value: loc },
 		{ name: 'f_user', type: 'text', maxlen: 48, size: 50, value: nvram.rstats_path }
 	] },
 	{ title: 'Save Frequency', indent: 2, name: 'rstats_stime', type: 'select', value: nvram.rstats_stime, options: [
