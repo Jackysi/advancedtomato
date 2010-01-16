@@ -496,11 +496,13 @@ function verifyFields(focused, quiet)
 	}
 	ferror.clear('_wan_proto');
 
+/* REMOVE-BEGIN
 	if ((vis._f_wmode == 1) && (wmode != 'ap') && (sm2.substr(0, 4) == 'wpa2')) {
 		ferror.set('_security_mode2', 'WPA2 is supported only in AP mode.', quiet);
 		return 0;
 	}
 	ferror.clear('_security_mode2');
+REMOVE-END */
 
 	a = E('_wl_wpa_psk');
 	ferror.clear(a);
