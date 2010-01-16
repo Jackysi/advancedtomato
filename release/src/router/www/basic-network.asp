@@ -672,20 +672,12 @@ function save()
 		c = [];
 
 		if (sm2.indexOf('personal') != -1) {
-			if (wmode == 'wet' || wmode == 'sta')
-				c.push('psk');
-			else {
-				if (sm2.indexOf('wpa2_') == -1) c.push('psk');
-				if (sm2.indexOf('wpa_') == -1) c.push('psk2');
-			}
+			if (sm2.indexOf('wpa2_') == -1) c.push('psk');
+			if (sm2.indexOf('wpa_') == -1) c.push('psk2');
 		}
 		else {
-			if (wmode == 'wet' || wmode == 'sta')
-				c.push('wpa');
-			else {
-				if (sm2.indexOf('wpa2_') == -1) c.push('wpa');
-				if (sm2.indexOf('wpa_') == -1) c.push('wpa2');
-			}
+			if (sm2.indexOf('wpa2_') == -1) c.push('wpa');
+			if (sm2.indexOf('wpa_') == -1) c.push('wpa2');
 		}
 		c = c.join(' ');
 		fom.security_mode.value = c;
