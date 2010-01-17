@@ -458,22 +458,20 @@ static int lease_init(struct file *filp, int type, struct file_lock *fl)
 }
 
 /* Allocate a file_lock initialised to this type of lease */
-static int lease_alloc(struct file *filp, int type, struct file_lock **flp)
+static struct file_lock *lease_alloc(struct file *filp, int type)
 {
 	struct file_lock *fl = locks_alloc_lock();
 	int error = -ENOMEM;
 
 	if (fl == NULL)
-		goto out;
+		return ERR_PTR(error);
 
 	error = lease_init(filp, type, fl);
 	if (error) {
 		locks_free_lock(fl);
-		fl = NULL;
+		return ERR_PTR(error);
 	}
-out:
-	*flp = fl;
-	return error;
+	return fl;
 }
 
 /* Check if two locks overlap each other.
@@ -670,7 +668,7 @@ posix_test_lock(struct file *filp, struct file_lock *fl)
 	for (cfl = filp->f_path.dentry->d_inode->i_flock; cfl; cfl = cfl->fl_next) {
 		if (!IS_POSIX(cfl))
 			continue;
-		if (posix_locks_conflict(cfl, fl))
+		if (posix_locks_conflict(fl, cfl))
 			break;
 	}
 	if (cfl) {
@@ -698,11 +696,20 @@ EXPORT_SYMBOL(posix_test_lock);
  * Note: the above assumption may not be true when handling lock requests
  * from a broken NFS client. But broken NFS clients have a lot more to
  * worry about than proper deadlock detection anyway... --okir
+ *
+ * However, the failure of this assumption (also possible in the case of
+ * multiple tasks sharing the same open file table) also means there's no
+ * guarantee that the loop below will terminate.  As a hack, we give up
+ * after a few iterations.
  */
+
+#define MAX_DEADLK_ITERATIONS 10
+
 static int posix_locks_deadlock(struct file_lock *caller_fl,
 				struct file_lock *block_fl)
 {
 	struct list_head *tmp;
+	int i = 0;
 
 next_task:
 	if (posix_same_owner(caller_fl, block_fl))
@@ -710,6 +717,8 @@ next_task:
 	list_for_each(tmp, &blocked_list) {
 		struct file_lock *fl = list_entry(tmp, struct file_lock, fl_link);
 		if (posix_same_owner(fl, block_fl)) {
+			if (i++ > MAX_DEADLK_ITERATIONS)
+				return 0;
 			fl = fl->fl_next;
 			block_fl = fl;
 			goto next_task;
@@ -737,6 +746,15 @@ static int flock_lock_file(struct file *filp, struct file_lock *request)
 	lock_kernel();
 	if (request->fl_flags & FL_ACCESS)
 		goto find_conflict;
+
+	if (request->fl_type != F_UNLCK) {
+		error = -ENOMEM;
+		new_fl = locks_alloc_lock();
+		if (new_fl == NULL)
+			goto out;
+		error = 0;
+	}
+
 	for_each_lock(inode, before) {
 		struct file_lock *fl = *before;
 		if (IS_POSIX(fl))
@@ -758,10 +776,6 @@ static int flock_lock_file(struct file *filp, struct file_lock *request)
 		goto out;
 	}
 
-	error = -ENOMEM;
-	new_fl = locks_alloc_lock();
-	if (new_fl == NULL)
-		goto out;
 	/*
 	 * If a higher-priority process was blocked on the old file lock,
 	 * give it the opportunity to lock the file.
@@ -1179,12 +1193,10 @@ int __break_lease(struct inode *inode, unsigned int mode)
 	int error = 0, future;
 	struct file_lock *new_fl, *flock;
 	struct file_lock *fl;
-	int alloc_err;
 	unsigned long break_time;
 	int i_have_this_lease = 0;
 
-	alloc_err = lease_alloc(NULL, mode & FMODE_WRITE ? F_WRLCK : F_RDLCK,
-			&new_fl);
+	new_fl = lease_alloc(NULL, mode & FMODE_WRITE ? F_WRLCK : F_RDLCK);
 
 	lock_kernel();
 
@@ -1212,8 +1224,9 @@ int __break_lease(struct inode *inode, unsigned int mode)
 		goto out;
 	}
 
-	if (alloc_err && !i_have_this_lease && ((mode & O_NONBLOCK) == 0)) {
-		error = alloc_err;
+	if (IS_ERR(new_fl) && !i_have_this_lease
+			&& ((mode & O_NONBLOCK) == 0)) {
+		error = PTR_ERR(new_fl);
 		goto out;
 	}
 
@@ -1260,7 +1273,7 @@ restart:
 
 out:
 	unlock_kernel();
-	if (!alloc_err)
+	if (!IS_ERR(new_fl))
 		locks_free_lock(new_fl);
 	return error;
 }
@@ -1342,15 +1355,22 @@ int fcntl_getlease(struct file *filp)
 static int __setlease(struct file *filp, long arg, struct file_lock **flp)
 {
 	struct file_lock *fl, **before, **my_before = NULL, *lease;
+	struct file_lock *new_fl = NULL;
 	struct dentry *dentry = filp->f_path.dentry;
 	struct inode *inode = dentry->d_inode;
 	int error, rdlease_count = 0, wrlease_count = 0;
 
+	if ((current->fsuid != inode->i_uid) && !capable(CAP_LEASE))
+		return -EACCES;
+	if (!S_ISREG(inode->i_mode))
+		return -EINVAL;
+	error = security_file_lock(filp, arg);
+	if (error)
+		return error;
+
 	time_out_leases(inode);
 
-	error = -EINVAL;
-	if (!flp || !(*flp) || !(*flp)->fl_lmops || !(*flp)->fl_lmops->fl_break)
-		goto out;
+	BUG_ON(!(*flp)->fl_lmops->fl_break);
 
 	lease = *flp;
 
@@ -1360,6 +1380,11 @@ static int __setlease(struct file *filp, long arg, struct file_lock **flp)
 	if ((arg == F_WRLCK)
 	    && ((atomic_read(&dentry->d_count) > 1)
 		|| (atomic_read(&inode->i_count) > 1)))
+		goto out;
+
+	error = -ENOMEM;
+	new_fl = locks_alloc_lock();
+	if (new_fl == NULL)
 		goto out;
 
 	/*
@@ -1404,18 +1429,15 @@ static int __setlease(struct file *filp, long arg, struct file_lock **flp)
 	if (!leases_enable)
 		goto out;
 
-	error = -ENOMEM;
-	fl = locks_alloc_lock();
-	if (fl == NULL)
-		goto out;
+	locks_copy_lock(new_fl, lease);
+	locks_insert_lock(before, new_fl);
 
-	locks_copy_lock(fl, lease);
+	*flp = new_fl;
+	return 0;
 
-	locks_insert_lock(before, fl);
-
-	*flp = fl;
-	error = 0;
 out:
+	if (new_fl != NULL)
+		locks_free_lock(new_fl);
 	return error;
 }
 
@@ -1431,17 +1453,7 @@ out:
 
 int setlease(struct file *filp, long arg, struct file_lock **lease)
 {
-	struct dentry *dentry = filp->f_path.dentry;
-	struct inode *inode = dentry->d_inode;
 	int error;
-
-	if ((current->fsuid != inode->i_uid) && !capable(CAP_LEASE))
-		return -EACCES;
-	if (!S_ISREG(inode->i_mode))
-		return -EINVAL;
-	error = security_file_lock(filp, arg);
-	if (error)
-		return error;
 
 	lock_kernel();
 	error = __setlease(filp, arg, lease);
@@ -1469,14 +1481,6 @@ int fcntl_setlease(unsigned int fd, struct file *filp, long arg)
 	struct inode *inode = dentry->d_inode;
 	int error;
 
-	if ((current->fsuid != inode->i_uid) && !capable(CAP_LEASE))
-		return -EACCES;
-	if (!S_ISREG(inode->i_mode))
-		return -EINVAL;
-	error = security_file_lock(filp, arg);
-	if (error)
-		return error;
-
 	locks_init_lock(&fl);
 	error = lease_init(filp, arg, &fl);
 	if (error)
@@ -1490,9 +1494,9 @@ int fcntl_setlease(unsigned int fd, struct file *filp, long arg)
 
 	error = fasync_helper(fd, filp, 1, &flp->fl_fasync);
 	if (error < 0) {
-		/* remove lease just inserted by __setlease */
+		/* remove lease just inserted by setlease */
 		flp->fl_type = F_UNLCK | F_INPROGRESS;
-		flp->fl_break_time = jiffies- 10;
+		flp->fl_break_time = jiffies - 10;
 		time_out_leases(inode);
 		goto out_unlock;
 	}
