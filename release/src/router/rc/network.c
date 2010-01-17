@@ -221,6 +221,9 @@ void start_wl(void)
 		/* specific non-bridged lan iface */
 		eval("wlconf", lan_ifname, "start");
 	}
+
+	if (wl_client() && nvram_match("wl_radio", "1"))
+		xstart("radio", "join");
 }
 #endif	// CONFIG_BCMWL5
 
