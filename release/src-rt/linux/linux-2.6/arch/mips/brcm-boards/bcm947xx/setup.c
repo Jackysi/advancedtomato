@@ -206,6 +206,18 @@ plat_mem_setup(void)
 
 #ifdef CONFIG_MTD_PARTITIONS
 
+static int board_data_needed(void)
+{
+	uint boardnum = bcm_strtoul(nvram_safe_get( "boardnum" ), NULL, 0);
+
+	if ((boardnum == 1 || boardnum == 3500) && nvram_match("boardtype", "0x04CF") &&
+	    (nvram_match("boardrev", "0x1213") || nvram_match("boardrev", "02"))) {
+		/* Netgear WNR3500v2/U/L */
+		return 1;
+	}
+	return 0;
+}
+
 /*
 	new layout -- zzz 04/2006
 
@@ -232,6 +244,7 @@ static struct mtd_partition bcm947xx_parts[] = {
 	{ name: "rootfs", offset: 0, size: 0, mask_flags: MTD_WRITEABLE, },
 	{ name: "jffs2", offset: 0, size: 0, },
 	{ name: "nvram", offset: 0, size: 0, },
+	{ name: "board_data", offset: 0, size: 0, },
 	{ name: NULL, },
 };
 
@@ -240,6 +253,7 @@ static struct mtd_partition bcm947xx_parts[] = {
 #define PART_ROOTFS	2
 #define PART_JFFS2	3
 #define PART_NVRAM	4
+#define PART_BOARD	5
 
 struct mtd_partition *
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
@@ -253,6 +267,16 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	/* Find and size nvram */
 	bcm947xx_parts[PART_NVRAM].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
 	bcm947xx_parts[PART_NVRAM].size = size - bcm947xx_parts[PART_NVRAM].offset;
+
+	/* Size board_data */
+	if (board_data_needed()) {
+		bcm947xx_parts[PART_BOARD].offset = bcm947xx_parts[PART_NVRAM].offset - mtd->erasesize;
+		bcm947xx_parts[PART_BOARD].size = mtd->erasesize;
+	} else {
+		bcm947xx_parts[PART_BOARD].name = NULL;
+		bcm947xx_parts[PART_BOARD].offset = bcm947xx_parts[PART_NVRAM].offset;
+		bcm947xx_parts[PART_BOARD].size = 0;
+	}
 
 	trxsize = 0;
 	trx = (struct trx_header *) buf;
@@ -270,7 +294,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 			/* Size linux (kernel and rootfs) */
 			bcm947xx_parts[PART_LINUX].offset = off;
-			bcm947xx_parts[PART_LINUX].size = bcm947xx_parts[PART_NVRAM].offset - off;
+			bcm947xx_parts[PART_LINUX].size = bcm947xx_parts[PART_BOARD].offset - off;
 
 			trxsize = ROUNDUP(le32_to_cpu(trx->len), mtd->erasesize);	// kernel + rootfs
 
@@ -281,7 +305,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 			/* Find and size jffs2 */
 			bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
-			bcm947xx_parts[PART_JFFS2].size = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_JFFS2].offset;
+			bcm947xx_parts[PART_JFFS2].size = bcm947xx_parts[PART_BOARD].offset - bcm947xx_parts[PART_JFFS2].offset;
 
 			break;
 		}
