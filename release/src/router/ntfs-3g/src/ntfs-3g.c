@@ -74,8 +74,6 @@
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
-#else
-#include <linux/xattr.h>
 #endif
 
 #ifdef HAVE_SYS_TYPES_H

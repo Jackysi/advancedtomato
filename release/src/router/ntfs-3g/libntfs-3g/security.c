@@ -46,8 +46,6 @@
 #endif
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
-#else
-#include <linux/xattr.h>
 #endif
 
 #include <unistd.h>

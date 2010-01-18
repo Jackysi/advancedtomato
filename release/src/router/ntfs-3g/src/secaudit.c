@@ -292,7 +292,6 @@
 #include <sys/xattr.h>
 #else
 #warning "The extended attribute package is not available"
-#include <linux/xattr.h>
 #endif /* HAVE_SETXATTR */
 
 #endif /* STSC */
