@@ -15,7 +15,7 @@
  *
  *  [9]   LeVan, J., "A Fast CRC", Byte, November 1987.
  *
- * $Id: ppp_fcs.c,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $
+ * $Id: ppp_fcs.c,v 1.2 2003/06/17 17:25:47 reink Exp $
  */
 
 #include <sys/types.h>
@@ -78,13 +78,16 @@ static u16 fcstab[256] = {
  * Calculate a new fcs given the current fcs and the new data.
  */
 u16 pppfcs16(u16 fcs, void *_cp, int len)
-{   register unsigned char *cp = (unsigned char *)_cp;
-
+{
+    register unsigned char *cp = (unsigned char *)_cp;
+    /* don't worry about the efficiency of these asserts here.  gcc will
+     * recognise that the asserted expressions are constant and remove them.
+     * Whether they are usefull is another question. 
+     */
     ASSERT(sizeof (u16) == 2);
     ASSERT(((u16) -1) > 0);
     while (len--)
         fcs = (fcs >> 8) ^ fcstab[(fcs ^ *cp++) & 0xff];
-
     return (fcs);
 }
 

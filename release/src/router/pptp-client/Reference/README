@@ -1,5 +1,5 @@
 In this directory are the various standards documents implemented in
-the pptp-linux package.
+the pptp package.
 
 rfc791.txt		Internet Protocol (IP).
 rfc793.txt		Transmission Control Protocol (TCP).
@@ -11,5 +11,5 @@ rfc1990.txt		The PPP Multilink Protocol (MP).
 ms-chap.txt		Microsoft PPP CHAP extensions.
 pptp-draft.txt		July 1997 draft of the PPTP standard.
 
-rfc1990 is currently unimplemented in pptp-linux.
+rfc1990 is currently unimplemented in pptp
                                                         CSA, 12/12/97

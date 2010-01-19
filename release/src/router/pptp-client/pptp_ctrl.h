@@ -1,7 +1,7 @@
 /* pptp_ctrl.h ... handle PPTP control connection.
  *                 C. Scott Ananian <cananian@alumni.princeton.edu>
  *
- * $Id: pptp_ctrl.h,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $
+ * $Id: pptp_ctrl.h,v 1.5 2004/11/09 01:42:32 quozl Exp $
  */
 
 #ifndef INC_PPTP_CTRL_H
@@ -27,6 +27,7 @@ PPTP_CONN * pptp_conn_open(int inet_sock, int isclient,
 			   pptp_conn_cb callback);
 PPTP_CALL * pptp_call_open(PPTP_CONN * conn, 
 			   pptp_call_cb callback, char *phonenr);
+int pptp_conn_established(PPTP_CONN * conn);
 /* soft close.  Will callback on completion. */
 void pptp_call_close(PPTP_CONN * conn, PPTP_CALL * call);
 /* hard close. */
@@ -39,7 +40,7 @@ void pptp_conn_destroy(PPTP_CONN * conn);
 /* Add file descriptors used by pptp to fd_set. */
 void pptp_fd_set(PPTP_CONN * conn, fd_set * read_set, fd_set * write_set, int *max_fd);
 /* handle any pptp file descriptors set in fd_set, and clear them */
-void pptp_dispatch(PPTP_CONN * conn, fd_set * read_set, fd_set * write_set);
+int pptp_dispatch(PPTP_CONN * conn, fd_set * read_set, fd_set * write_set);
 
 /* Get info about connection, call */
 void pptp_call_get_ids(PPTP_CONN * conn, PPTP_CALL * call,
