@@ -528,8 +528,9 @@ static const nvset_t nvset_list[] = {
 	{ "wl_antdiv",			V_RANGE(0, 3)		},
 	{ "wl_txant",			V_RANGE(0, 3)		},
 	{ "wl_txpwr",			V_RANGE(0, 255)		},
-	{ "wl_wme",				V_ONOFF				},	// off, on
+	{ "wl_wme",			V_WORD				},	// auto, off, on
 	{ "wl_wme_no_ack",		V_ONOFF				},	// off, on
+	{ "wl_wme_apsd",		V_ONOFF				},	// off, on
 	{ "wl_maxassoc",		V_RANGE(0, 255)	},
 	{ "wl_distance",		V_LENGTH(0, 5)		},	// "", 1-99999
 	{ "wlx_hpamp",			V_01				},

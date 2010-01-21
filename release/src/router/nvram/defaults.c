@@ -159,7 +159,7 @@ const defaults_t defaults[] = {
 	{ "wl_gmode_protection","off"			},	// 802.11g RTS/CTS protection (off|auto)
 	{ "wl_afterburner",		"off"			},	// AfterBurner
 	{ "wl_frameburst",		"off"			},	// BRCM Frambursting mode (off|on)
-	{ "wl_wme",				"off"			},	// WME mode (off|on)
+	{ "wl_wme",			"auto"			},	// WME mode (auto|off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
@@ -186,7 +186,7 @@ const defaults_t defaults[] = {
 	{ "wl_net_reauth",		"36000"			},	// Network Re-auth/PMK caching duration
 	{ "wl_akm",				""				},	// WPA akm list
 
-	// WME parameters
+	// WME parameters (cwmin cwmax aifsn txop_b txop_ag adm_control oldest_first)
 	// EDCA parameters for STA
 	{ "wl_wme_sta_bk",		"15 1023 7 0 0 off"		},	// WME STA AC_BK paramters
 	{ "wl_wme_sta_be",		"15 1023 3 0 0 off"		},	// WME STA AC_BE paramters
@@ -201,6 +201,13 @@ const defaults_t defaults[] = {
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
 	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
+	{ "wl_wme_bss_disable",		"0"			},	// WME BSS disable advertising (off|on)
+
+	/* Per AC Tx parameters */
+	{ "wl_wme_txp_be",		"7 3 4 2 0"		},	/* WME AC_BE Tx parameters */
+	{ "wl_wme_txp_bk",		"7 3 4 2 0"		},	/* WME AC_BK Tx parameters */
+	{ "wl_wme_txp_vi",		"7 3 4 2 0"		},	/* WME AC_VI Tx parameters */
+	{ "wl_wme_txp_vo",		"7 3 4 2 0"		},	/* WME AC_VO Tx parameters */
 
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add

@@ -110,6 +110,42 @@ static int wlconf(char *ifname)
 	return r;
 }
 
+
+/* Set initial QoS mode for all et interfaces that are up. */
+void set_et_qos_mode(int sfd)
+{
+	int i, qos;
+	caddr_t ifrdata;
+	struct ifreq ifr;
+	struct ethtool_drvinfo info;
+
+	qos = (strcmp(nvram_safe_get("wl_wme"), "off") != 0);
+	for (i = 1; i <= DEV_NUMIFS; i++) {
+		ifr.ifr_ifindex = i;
+		if (ioctl(sfd, SIOCGIFNAME, &ifr)) continue;
+		if (ioctl(sfd, SIOCGIFHWADDR, &ifr)) continue;
+		if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) continue;
+		/* get flags */
+		if (ioctl(sfd, SIOCGIFFLAGS, &ifr)) continue;
+		/* if up (wan may not be up yet at this point) */
+		if (ifr.ifr_flags & IFF_UP) {
+			ifrdata = ifr.ifr_data;
+			memset(&info, 0, sizeof(info));
+			info.cmd = ETHTOOL_GDRVINFO;
+			ifr.ifr_data = (caddr_t)&info;
+			if (ioctl(sfd, SIOCETHTOOL, &ifr) >= 0) {
+				/* Set QoS for et & bcm57xx devices */
+				if (!strncmp(info.driver, "et", 2) ||
+				    !strncmp(info.driver, "bcm57", 5)) {
+					ifr.ifr_data = (caddr_t)&qos;
+					ioctl(sfd, SIOCSETCQOS, &ifr);
+				}
+			}
+			ifr.ifr_data = ifrdata;
+		}
+	}
+}
+
 static void check_afterburner(void)
 {
 	char *p;
@@ -226,35 +262,8 @@ void start_lan(void)
 	strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 	if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 
-
-	int i, qos;
-	caddr_t ifrdata;
-	struct ethtool_drvinfo info;
-
-	qos = (strcmp(nvram_safe_get("wl_wme"), "on")) ? 0 : 1;
-	for (i = 1; i <= DEV_NUMIFS; i++) {
-		ifr.ifr_ifindex = i;
-		if (ioctl(sfd, SIOCGIFNAME, &ifr)) continue;
-		if (ioctl(sfd, SIOCGIFHWADDR, &ifr)) continue;
-		if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) continue;
-		/* get flags */
-		if (ioctl(sfd, SIOCGIFFLAGS, &ifr)) continue;
-		/* if up(wan not up yet at this point) */
-		if (ifr.ifr_flags & IFF_UP) {
-			ifrdata = ifr.ifr_data;
-			memset(&info, 0, sizeof(info));
-			info.cmd = ETHTOOL_GDRVINFO;
-			ifr.ifr_data = (caddr_t)&info;
-			if (ioctl(sfd, SIOCETHTOOL, &ifr) >= 0) {
-				/* currently only need to set QoS to et devices */
-				if (!strncmp(info.driver, "et", 2)) {
-					ifr.ifr_data = (caddr_t)&qos;
-					ioctl(sfd, SIOCSETCQOS, &ifr);
-				}
-			}
-			ifr.ifr_data = ifrdata;
-		}
-	}
+	// Set initial QoS mode for LAN ports
+	set_et_qos_mode(sfd);
 
 	close(sfd);
 

@@ -656,6 +656,9 @@ void start_wan(int mode)
 		nvram_set("wan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, buf));
 	}
 
+	/* Set initial QoS mode again now that WAN port is ready. */
+	set_et_qos_mode(sd);
+
 	close(sd);
 
 	enable_ip_forward();
