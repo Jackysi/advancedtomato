@@ -255,24 +255,26 @@ static long do_sys_truncate(const char __user * path, loff_t length)
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto dput_and_out;
 
-	/*
-	 * Make sure that there are no leases.
-	 */
-	error = break_lease(inode, FMODE_WRITE);
-	if (error)
-		goto dput_and_out;
-
 	error = get_write_access(inode);
 	if (error)
 		goto dput_and_out;
+
+	/*
+	 * Make sure that there are no leases.  get_write_access() protects
+	 * against the truncate racing with a lease-granting setlease().
+	 */
+	error = break_lease(inode, FMODE_WRITE);
+	if (error)
+		goto put_write_and_out;
 
 	error = locks_verify_truncate(inode, NULL, length);
 	if (!error) {
 		DQUOT_INIT(inode);
 		error = do_truncate(nd.dentry, length, 0, NULL);
 	}
-	put_write_access(inode);
 
+put_write_and_out:
+	put_write_access(inode);
 dput_and_out:
 	path_release(&nd);
 out:
@@ -839,6 +841,18 @@ struct file *dentry_open(struct dentry *dentry, struct vfsmount *mnt, int flags)
 {
 	int error;
 	struct file *f;
+
+	/*
+	 * We must always pass in a valid mount pointer.   Historically
+	 * callers got away with not passing it, but we must enforce this at
+	 * the earliest possible point now to avoid strange problems deep in the
+	 * filesystem stack.
+	 */
+	if (!mnt) {
+		printk(KERN_WARNING "%s called with NULL vfsmount\n", __func__);
+		dump_stack();
+		return ERR_PTR(-EINVAL);
+	}
 
 	error = -ENFILE;
 	f = get_empty_filp();
