@@ -122,7 +122,8 @@ UCLIBC_MAKE := PATH=$(TARGET_PATH) $(MAKE) -C $(PKG_BUILD_DIR) \
 	DEVEL_PREFIX=/ \
 	RUNTIME_PREFIX=/ \
 	HOSTCC="$(HOSTCC)" \
-	CPU_CFLAGS="$(TARGET_CFLAGS)"
+	CPU_CFLAGS="$(TARGET_CFLAGS)" \
+	LIBGCC="$(subst libgcc.a,libgcc_initial.a,$(shell $(TARGET_CC) -print-libgcc-file-name))" \
 
 define Build/Compile
 	$(SED) 's,^CROSS=.*,CROSS=$(TARGET_CROSS),g' $(PKG_BUILD_DIR)/Rules.mak

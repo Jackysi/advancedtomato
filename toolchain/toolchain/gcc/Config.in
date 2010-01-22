@@ -13,8 +13,10 @@ choice
 		bool "gcc 4.1.2"
 
 	config GCC_VERSION_4_2_4
-		depends !LINUX_2_4
 		bool "gcc 4.2.4"
+
+	config GCC_VERSION_4_3_4
+		bool "gcc 4.3.4"
 
 endchoice
 
@@ -32,6 +34,14 @@ config EXTRA_GCC_CONFIG_OPTIONS
 	default ""
 	help
 	    Any additional gcc options you may want to include....
+
+config SSP_SUPPORT
+	bool
+	depends !GCC_VERSION_3_4_6
+	prompt "Enable Stack-Smashing Protection support" if TOOLCHAINOPTS
+	default n
+	help
+	    Enable Stack-Smashing Protection support
 
 config INSTALL_LIBSTDCPP
 	bool
