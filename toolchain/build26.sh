@@ -2,7 +2,7 @@
 #                         Toolchain Build Script                        #
 #########################################################################
 
-GCCVER=4.1.2
+GCCVER=4.2.4
 
 ROOTDIR=$PWD
 TARGETDIR=hndtools-mipsel-uclibc-${GCCVER}
