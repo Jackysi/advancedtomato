@@ -60,6 +60,8 @@
 #include "misc.h"
 #include "efs.h"
 
+#ifdef HAVE_SETXATTR	/* extended attributes interface required */
+
 static ntfschar logged_utility_stream_name[] = {
 	const_cpu_to_le16('$'),
 	const_cpu_to_le16('E'),
@@ -339,3 +341,5 @@ err_out:
 		ntfs_attr_put_search_ctx(ctx);
 	return (-1);
 }
+
+#endif /* HAVE_SETXATTR */
