@@ -64,6 +64,7 @@
 #define MAX_IP_PACKET_LEN	576
 #define MIN_IP_HEADER_LEN	20
 #define MAX_IP_HEADER_LEN	60
+#define IP_HEADER_RAOPT_LEN	24
 
 #define MAX_MC_VIFS    32     // !!! check this const in the specific includes
 

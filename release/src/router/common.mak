@@ -39,6 +39,12 @@ export TARGETDIR := $(PLATFORMDIR)/target
 
 CPTMP = @[ -d $(TOP)/dbgshare ] && cp $@ $(TOP)/dbgshare/ || true
 
+ifeq ($(CONFIG_LINUX26),y)
+export KERNELCC := $(CC)
+else
+export KERNELCC := $(CC)-3.4.6
+endif
+
 #	ifneq ($(STATIC),1)
 #	SIZECHECK = @$(SRCBASE)/btools/sizehistory.pl $@ $(TOMATO_PROFILE_L)_$(notdir $@)
 #	else
