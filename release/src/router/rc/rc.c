@@ -76,9 +76,6 @@ typedef struct {
 
 static const applets_t applets[] = {
 	{ "init",				init_main				},
-#ifdef LINUX26
-	{ "preinit",				init_main				},
-#endif
 	{ "rc",					rc_main					},
 	{ "ip-up",				ipup_main				},
 	{ "ip-down",			ipdown_main				},
