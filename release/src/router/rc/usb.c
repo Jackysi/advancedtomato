@@ -211,6 +211,9 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 				nvram_set("smbd_nlsmod", flagfn);
 			}
 			sprintf(options + strlen(options), ",shortname=winnt" + (options[0] ? 0 : 1));
+#ifdef LINUX26
+			sprintf(options + strlen(options), ",flush" + (options[0] ? 0 : 1));
+#endif
 		}
 		else if (strncmp(type, "ntfs", 4) == 0) {
 			if (nvram_invmatch("smbd_cset", ""))
