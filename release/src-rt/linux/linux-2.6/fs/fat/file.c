@@ -10,7 +10,6 @@
 #include <linux/module.h>
 #include <linux/time.h>
 #include <linux/msdos_fs.h>
-#include <linux/smp_lock.h>
 #include <linux/buffer_head.h>
 #include <linux/writeback.h>
 #include <linux/backing-dev.h>
@@ -240,9 +239,7 @@ void fat_truncate(struct inode *inode)
 
 	nr_clusters = (inode->i_size + (cluster_size - 1)) >> sbi->cluster_bits;
 
-	lock_kernel();
 	fat_free(inode, nr_clusters);
-	unlock_kernel();
 	fat_flush_inodes(inode->i_sb, inode, NULL);
 }
 
@@ -299,8 +296,6 @@ int fat_setattr(struct dentry *dentry, struct iattr *attr)
 	struct inode *inode = dentry->d_inode;
 	int mask, error = 0;
 	unsigned int ia_valid;
-
-	lock_kernel();
 
 	/*
 	 * Expand the file. Since inode_setattr() updates ->i_size
@@ -360,7 +355,6 @@ int fat_setattr(struct dentry *dentry, struct iattr *attr)
 		mask = sbi->options.fs_fmask;
 	inode->i_mode &= S_IFMT | (S_IRWXUGO & ~mask);
 out:
-	unlock_kernel();
 	return error;
 }
 EXPORT_SYMBOL_GPL(fat_setattr);
