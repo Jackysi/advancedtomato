@@ -141,6 +141,7 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
+		sleep(1);
 #ifdef TCONFIG_SAMBASRV
 		modprobe_r("nls_cp437");
 		modprobe_r("nls_cp850");
