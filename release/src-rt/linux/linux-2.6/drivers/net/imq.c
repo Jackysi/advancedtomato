@@ -166,11 +166,11 @@ static int imq_nf_queue(struct sk_buff *skb, struct nf_info *info, unsigned queu
 	struct net_device_stats *stats;
 	struct sk_buff *skb2 = NULL;
 	struct Qdisc *q;
-	unsigned int index = skb->imq_flags&IMQ_F_IFMASK;
-	int ret = -1;
+	unsigned int index = skb->imq_flags & IMQ_F_IFMASK;
+	int ret = -EINVAL;
 
 	if (index > numdevs)
-		return -1;
+		return ret;
 
 	dev = imq_devs + index;
 	if (!(dev->flags & IFF_UP)) {
@@ -184,12 +184,12 @@ static int imq_nf_queue(struct sk_buff *skb, struct nf_info *info, unsigned queu
 		skb2 = skb;
 		skb = skb_clone(skb, GFP_ATOMIC);
 		if (!skb)
-			return -1;
+			return -ENOMEM;
 	}
 	skb->nf_info = info;
 
 	stats = (struct net_device_stats *)dev->priv;
-	stats->rx_bytes+= skb->len;
+	stats->rx_bytes += skb->len;
 	stats->rx_packets++;
 
 	spin_lock_bh(&dev->queue_lock);
