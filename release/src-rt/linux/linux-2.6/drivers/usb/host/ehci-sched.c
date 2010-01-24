@@ -190,7 +190,7 @@ static inline unsigned char tt_start_uframe(struct ehci_hcd *ehci, __hc32 mask)
 }
 
 static const unsigned char
-max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 30, 0 };
+max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 58, 0 };
 
 /* carryover low/fullspeed bandwidth that crosses uframe boundries */
 static inline void carryover_tt_bandwidth(unsigned short tt_usecs[8])
@@ -322,7 +322,7 @@ static int tt_available (
 		 * already scheduled transactions
 		 */
 		if (125 < usecs) {
-			int ufs = (usecs / 125) - 1;
+			int ufs = (usecs / 125);
 			int i;
 			for (i = uframe; i < (uframe + ufs) && i < 8; i++)
 				if (0 < tt_usecs[i]) {
@@ -913,7 +913,7 @@ iso_stream_init (
 		 */
 		stream->usecs = HS_USECS_ISO (maxp);
 		bandwidth = stream->usecs * 8;
-		bandwidth /= 1 << (interval - 1);
+		bandwidth /= interval;
 
 	} else {
 		u32		addr;
@@ -946,7 +946,7 @@ iso_stream_init (
 		} else
 			stream->raw_mask = smask_out [hs_transfers - 1];
 		bandwidth = stream->usecs + stream->c_usecs;
-		bandwidth /= 1 << (interval + 2);
+		bandwidth /= interval << 3;
 
 		/* stream->splits gets created from raw_mask later */
 		stream->address = cpu_to_hc32(ehci, addr);

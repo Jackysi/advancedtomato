@@ -652,6 +652,14 @@ qh_make (
 	type = usb_pipetype (urb->pipe);
 	maxp = usb_maxpacket (urb->dev, urb->pipe, !is_input);
 
+	/* 1024 byte maxpacket is a hardware ceiling.  High bandwidth
+	 * acts like up to 3KB, but is built from smaller packets.
+	 */
+	if (max_packet(maxp) > 1024) {
+		ehci_dbg(ehci, "bogus qh maxpacket %d\n", max_packet(maxp));
+		goto done;
+	}
+
 	/* Compute interrupt scheduling parameters just once, and save.
 	 * - allowing for high bandwidth, how many nsec/uframe are used?
 	 * - split transactions need a second CSPLIT uframe; same question
@@ -754,7 +762,13 @@ qh_make (
 			info2 |= (EHCI_TUNE_MULT_HS << 30);
 		} else if (type == PIPE_BULK) {
 			info1 |= (EHCI_TUNE_RL_HS << 28);
-			info1 |= 512 << 16;	/* usb2 fixed maxpacket */
+			/* The USB spec says that high speed bulk endpoints
+			 * always use 512 byte maxpacket.  But some device
+			 * vendors decided to ignore that, and MSFT is happy
+			 * to help them do so.  So now people expect to use
+			 * such nonconformant devices with Linux too; sigh.
+			 */
+			info1 |= max_packet(maxp) << 16;
 			info2 |= (EHCI_TUNE_MULT_HS << 30);
 		} else {		/* PIPE_INTERRUPT */
 			info1 |= max_packet (maxp) << 16;
@@ -1048,7 +1062,8 @@ static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	prev->qh_next = qh->qh_next;
 	wmb ();
 
-	if (unlikely (ehci_to_hcd(ehci)->state == HC_STATE_HALT)) {
+	/* If the controller isn't running, we don't have to wait for it */
+	if (unlikely (!HC_IS_RUNNING (ehci_to_hcd(ehci)->state))) {
 		/* if (unlikely (qh->reclaim != 0))
 		 *	this will recurse, probably not much
 		 */
