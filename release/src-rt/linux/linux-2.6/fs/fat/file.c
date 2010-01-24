@@ -309,10 +309,16 @@ int fat_setattr(struct dentry *dentry, struct iattr *attr)
 	 */
 	if (attr->ia_valid & ATTR_SIZE) {
 		if (attr->ia_size > inode->i_size) {
+#if 1
+			/* FAT cannot truncate to a longer file */
+			error = -EPERM;
+			goto out;
+#else
 			error = fat_cont_expand(inode, attr->ia_size);
 			if (error || attr->ia_valid == ATTR_SIZE)
 				goto out;
 			attr->ia_valid &= ~ATTR_SIZE;
+#endif
 		}
 	}
 
