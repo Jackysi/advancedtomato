@@ -704,6 +704,10 @@ void start_wan_done(char *wan_ifname)
 		// set default route to gateway if specified
 		gw = (proto == WP_PPTP) ? nvram_safe_get("pptp_get_ip") : nvram_safe_get("wan_gateway");
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
+			if (proto == WP_DHCP || proto == WP_STATIC) {
+				// possibly gateway is over the bridge, try adding a route to gateway first
+				route_add(wan_ifname, 0, gw, NULL, "255.255.255.255");
+			}
 			n = 5;
 			while ((route_add(wan_ifname, 0, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
 				sleep(1);
