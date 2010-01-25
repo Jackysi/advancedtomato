@@ -107,6 +107,10 @@ void start_vpnclient(int clientNum)
 
 	// Make sure module is loaded
 	modprobe("tun");
+#ifdef LINUX26
+	mkdir("/dev/net", 0777);
+	symlink("/dev/tun", "/dev/net/tun");
+#endif
 
 	// Create tap/tun interface
 	sprintf(&buffer[0], "openvpn --mktun --dev %s", &iface[0]);
@@ -478,6 +482,10 @@ void start_vpnserver(int serverNum)
 
 	// Make sure module is loaded
 	modprobe("tun");
+#ifdef LINUX26
+	mkdir("/dev/net", 0777);
+	symlink("/dev/tun", "/dev/net/tun");
+#endif
 
 	// Create tap/tun interface
 	sprintf(&buffer[0], "openvpn --mktun --dev %s", &iface[0]);
