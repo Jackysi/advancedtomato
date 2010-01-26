@@ -115,7 +115,9 @@ serial_add(void *regs, uint irq, uint baud_base, uint reg_shift)
 	rs.uartclk = baud_base;
 	rs.regshift = reg_shift;
 
-	early_serial_setup(&rs);
+        if (early_serial_setup(&rs) != 0) {
+                printk(KERN_ERR "Serial setup failed!\n");
+        }
 
 	rs.line++;
 }
