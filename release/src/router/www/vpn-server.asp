@@ -4,7 +4,7 @@
 	Copyright (C) 2006-2008 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
-	Portions Copyright (C) 2008-2009 Keith Moyer, tomatovpn@keithmoyer.com
+	Portions Copyright (C) 2008-2010 Keith Moyer, tomatovpn@keithmoyer.com
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.

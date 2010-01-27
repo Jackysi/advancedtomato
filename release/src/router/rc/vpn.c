@@ -1,6 +1,6 @@
 /*
 
-	Copyright (C) 2008-2009 Keith Moyer, tomatovpn@keithmoyer.com
+	Copyright (C) 2008-2010 Keith Moyer, tomatovpn@keithmoyer.com
 
 	No part of this file may be used without permission.
 
