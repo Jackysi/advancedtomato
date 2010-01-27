@@ -808,6 +808,9 @@ void start_wan_done(char *wan_ifname)
 		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
 	}
 
+	if (wanup)
+		start_vpn_eas();
+
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");

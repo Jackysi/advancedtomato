@@ -715,7 +715,6 @@ void start_services(void)
 //	start_upnp();
 	start_rstats(0);
 	start_sched();
-	start_vpn_eas();
 }
 
 void stop_services(void)

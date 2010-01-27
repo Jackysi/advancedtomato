@@ -904,7 +904,19 @@ void start_vpn_eas()
 	i = 0;
 	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
 	nums[i] = 0;
-	for( i = 0; nums[i] > 0; i++ ) { vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]); start_vpnserver(nums[i]); }
+	for( i = 0; nums[i] > 0; i++ )
+	{
+		sprintf(&buffer[0], "vpnserver%d", nums[i]);
+		if ( pidof(&buffer[0]) >= 0 )
+		{
+			vpnlog(VPN_LOG_INFO, "Stopping server %d (eas)", nums[i]);
+			stop_vpnserver(nums[i]);
+			return;
+		}
+
+		vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]);
+		start_vpnserver(nums[i]);
+	}
 
 	// Parse and start clients
 	strlcpy(&buffer[0], nvram_safe_get("vpn_client_eas"), sizeof(buffer));
@@ -912,7 +924,19 @@ void start_vpn_eas()
 	i = 0;
 	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
 	nums[i] = 0;
-	for( i = 0; nums[i] > 0; i++ ) { vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]); start_vpnclient(nums[i]); }
+	for( i = 0; nums[i] > 0; i++ )
+	{
+		sprintf(&buffer[0], "vpnclient%d", nums[i]);
+		if ( pidof(&buffer[0]) >= 0 )
+		{
+			vpnlog(VPN_LOG_INFO, "Stopping client %d (eas)", nums[i]);
+			stop_vpnclient(nums[i]);
+			return;
+		}
+
+		vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]);
+		start_vpnclient(nums[i]);
+	}
 }
 
 void run_vpn_firewall_scripts()
