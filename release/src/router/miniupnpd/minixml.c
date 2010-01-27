@@ -1,10 +1,10 @@
-/* $Id: minixml.c,v 1.6 2007/05/15 18:14:08 nanard Exp $ */
+/* $Id: minixml.c,v 1.7 2009/10/10 19:15:35 nanard Exp $ */
 /* minixml.c : the minimum size a xml parser can be ! */
 /* Project : miniupnp
  * webpage: http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author : Thomas Bernard
 
-Copyright (c) 2005-2007, Thomas BERNARD 
+Copyright (c) 2005-2009, Thomas BERNARD 
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /* parseatt : used to parse the argument list
  * return 0 (false) in case of success and -1 (true) if the end
  * of the xmlbuffer is reached. */
-int parseatt(struct xmlparser * p)
+static int parseatt(struct xmlparser * p)
 {
 	const char * attname;
 	int attnamelen;
@@ -106,7 +106,7 @@ int parseatt(struct xmlparser * p)
 
 /* parseelt parse the xml stream and
  * call the callback functions when needed... */
-void parseelt(struct xmlparser * p)
+static void parseelt(struct xmlparser * p)
 {
 	int i;
 	const char * elementname;

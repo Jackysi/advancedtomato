@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.112 2009/02/14 11:01:13 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.113 2009/09/04 16:14:04 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard
@@ -50,6 +50,10 @@
 #include "natpmp.h"
 #endif
 #include "commonrdr.h"
+
+#ifndef DEFAULT_CONFIG
+#define DEFAULT_CONFIG "/etc/miniupnpd.conf"
+#endif
 
 #ifdef USE_MINIUPNPDCTL
 struct ctlelem {
@@ -468,7 +472,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	struct sigaction sa;
 	/*const char * logfilename = 0;*/
 	const char * presurl = 0;
-	const char * optionsfile = "/etc/miniupnpd.conf";
+	const char * optionsfile = DEFAULT_CONFIG;
 
 	/* first check if "-f" option is used */
 	for(i=2; i<argc; i++)

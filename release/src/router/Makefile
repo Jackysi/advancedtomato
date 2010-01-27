@@ -13,7 +13,7 @@
 
 include common.mak
 
-#	TOMATO_EXPERIMENTAL=1
+TOMATO_EXPERIMENTAL=0
 
 #
 #
@@ -164,7 +164,7 @@ endif
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
-	busybox/examples/depmod-t.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
+	busybox/examples/depmod.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/2.4.20/
 	@echo ---
 
 	@rm -f $(TARGETDIR)/lib/modules/2.4.20/build
@@ -274,10 +274,7 @@ busybox-clean:
 busybox-config:
 	$(MAKE) -C busybox menuconfig
 
-busybox-test: dummy
-	$(MAKE) -C busybox objsizes CFLAGS="-Os"
 
-	
 httpd: matrixssl shared nvram mssl
 	@$(SEP)
 	@$(MAKE) -C httpd
@@ -354,7 +351,7 @@ iptables-clean:
 
 ppp:
 	@$(SEP)
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp 
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
 #	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp DFLAGS="-DDEBUG -DDEBUGALL"
 
 ppp-%:
@@ -492,7 +489,7 @@ ebtables-install: dummy
 	mkdir -p $(INSTALLDIR)/ebtables/usr/lib/
 	cp ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
 	cp ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
-	
+
 ebtables-clean:
 	make -C ebtables clean
 

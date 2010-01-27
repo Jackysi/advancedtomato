@@ -4,7 +4,7 @@
 	Copyright (C) 2006-2008 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
-	Portions Copyright (C) 2008-2009 Keith Moyer, tomatovpn@keithmoyer.com
+	Portions Copyright (C) 2008-2010 Keith Moyer, tomatovpn@keithmoyer.com
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -20,7 +20,7 @@
 <script type='text/javascript' src='vpn.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_client_eas,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
+//	<% nvram("vpn_client_eas,vpn_client1_poll,vpn_client1_if,vpn_client1_bridge,vpn_client1_nat,vpn_client1_proto,vpn_client1_addr,vpn_client1_port,vpn_client1_retry,vpn_client1_firewall,vpn_client1_crypt,vpn_client1_comp,vpn_client1_cipher,vpn_client1_local,vpn_client1_remote,vpn_client1_nm,vpn_client1_reneg,vpn_client1_hmac,vpn_client1_adns,vpn_client1_rgw,vpn_client1_gw,vpn_client1_custom,vpn_client1_static,vpn_client1_ca,vpn_client1_crt,vpn_client1_key,vpn_client2_poll,vpn_client2_if,vpn_client2_bridge,vpn_client2_nat,vpn_client2_proto,vpn_client2_addr,vpn_client2_port,vpn_client2_retry,vpn_client2_firewall,vpn_client2_crypt,vpn_client2_comp,vpn_client2_cipher,vpn_client2_local,vpn_client2_remote,vpn_client2_nm,vpn_client2_reneg,vpn_client2_hmac,vpn_client2_adns,vpn_client2_rgw,vpn_client2_gw,vpn_client2_custom,vpn_client2_static,vpn_client2_ca,vpn_client2_crt,vpn_client2_key"); %>
 
 tabs = [['client1', 'Client 1'],['client2', 'Client 2']];
 sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
@@ -134,6 +134,7 @@ function verifyFields(focused, quiet)
 	{
 		t = tabs[i][0];
 
+		if (!v_range('_vpn_'+t+'_poll', quiet, 0, 1440)) ret = 0;
 		if (!v_ip('_vpn_'+t+'_addr', true) && !v_domain('_vpn_'+t+'_addr', true)) { ferror.set(E('_vpn_'+t+'_addr'), "Invalid server address.", quiet); ret = 0; }
 		if (!v_port('_vpn_'+t+'_port', quiet)) ret = 0;
 		if (!v_ip('_vpn_'+t+'_local', quiet, 1)) ret = 0;
@@ -156,7 +157,7 @@ function verifyFields(focused, quiet)
 		bridge = E('_f_vpn_'+t+'_bridge');
 		nat = E('_f_vpn_'+t+'_nat');
 		hmac = E('_vpn_'+t+'_hmac');
-		rgw = E('_f_vpn_'+t+'_rgw');
+		rgw = E('_vpn_'+t+'_rgw');
 
 		elem.display(PR('_vpn_'+t+'_ca'), PR('_vpn_'+t+'_crt'), PR('_vpn_'+t+'_key'), PR('_vpn_'+t+'_hmac'),
 		             PR('_vpn_'+t+'_adns'), PR('_vpn_'+t+'_reneg'), auth.value == "tls");
@@ -168,7 +169,7 @@ function verifyFields(focused, quiet)
 		elem.display(E(t+'_nat_warn_text'), fw.value != "custom" && (!nat.checked || (auth.value == "secret" && iface.value == "tun")));
 		elem.display(PR('_vpn_'+t+'_local'), auth.value == "secret" && iface.value == "tun");
 		elem.display(PR('_f_vpn_'+t+'_local'), auth.value == "secret" && (iface.value == "tap" && !bridge.checked));
-		elem.display(E(t+'_gateway'), iface.value == "tap" && E('_f_vpn_'+t+'_rgw').checked);
+		elem.display(E(t+'_gateway'), iface.value == "tap" && E('_vpn_'+t+'_rgw').checked);
 
 		keyHelp = E(t+'-keyhelp');
 		switch (auth.value)
@@ -205,7 +206,6 @@ function save()
 
 		E('vpn_'+t+'_bridge').value = E('_f_vpn_'+t+'_bridge').checked ? 1 : 0;
 		E('vpn_'+t+'_nat').value = E('_f_vpn_'+t+'_nat').checked ? 1 : 0;
-		E('vpn_'+t+'_rgw').value = E('_f_vpn_'+t+'_rgw').checked ? 1 : 0;
 	}
 
 	form.submit(fom, 1);
@@ -283,7 +283,6 @@ for (i = 0; i < tabs.length; ++i)
 	W('<div id=\''+t+'-tab\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_bridge\' name=\'vpn_'+t+'_bridge\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_nat\' name=\'vpn_'+t+'_nat\'>');
-	W('<input type=\'hidden\' id=\'vpn_'+t+'_rgw\' name=\'vpn_'+t+'_rgw\'>');
 
 	W('<ul class="tabs">');
 	for (j = 0; j < sections.length; j++)
@@ -294,7 +293,7 @@ for (i = 0; i < tabs.length; ++i)
 
 	W('<div id=\''+t+'-basic\'>');
 	createFieldTable('', [
-		{ title: 'Start with Router', name: 'f_vpn_'+t+'_eas', type: 'checkbox', value: nvram.vpn_client_eas.indexOf(''+(i+1)) >= 0 },
+		{ title: 'Start with WAN', name: 'f_vpn_'+t+'_eas', type: 'checkbox', value: nvram.vpn_client_eas.indexOf(''+(i+1)) >= 0 },
 		{ title: 'Interface Type', name: 'vpn_'+t+'_if', type: 'select', options: [ ['tap','TAP'], ['tun','TUN'] ], value: eval( 'nvram.vpn_'+t+'_if' ) },
 		{ title: 'Protocol', name: 'vpn_'+t+'_proto', type: 'select', options: [ ['udp','UDP'], ['tcp-client','TCP'] ], value: eval( 'nvram.vpn_'+t+'_proto' ) },
 		{ title: 'Server Address/Port', multi: [
@@ -318,8 +317,10 @@ for (i = 0; i < tabs.length; ++i)
 	W('</div>');
 	W('<div id=\''+t+'-advanced\'>');
 	createFieldTable('', [
+		{ title: 'Poll Interval', name: 'vpn_'+t+'_poll', type: 'text', maxlen: 4, size: 5, value: eval( 'nvram.vpn_'+t+'_poll' ), suffix: '&nbsp;<small>(in minutes, 0 to disable)</small>' }, 
 		{ title: 'Redirect Internet traffic', multi: [
-			{ name: 'f_vpn_'+t+'_rgw', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_rgw' ) != 0 },
+			{ name: 'vpn_'+t+'_rgw', type: 'select', options: [ ['0', 'No'], ['1', 'Yes, leave default gateway intact'], ['2', 'Yes, remove existing default gateway'] ],
+				value: eval( 'nvram.vpn_'+t+'_rgw' ) },
 			{ name: 'vpn_'+t+'_gw', type: 'text', maxlen: 15, size: 17, value: eval( 'nvram.vpn_'+t+'_gw' ), prefix: '<span id=\''+t+'_gateway\'>Gateway:&nbsp', suffix: '</span>'} ] },
 		{ title: 'Accept DNS configuration', name: 'vpn_'+t+'_adns', type: 'select', options: [[0, 'Disabled'],[1, 'Relaxed'],[2, 'Strict'],[3, 'Exclusive']], value: eval( 'nvram.vpn_'+t+'_adns' ) },
 		{ title: 'Encryption cipher', name: 'vpn_'+t+'_cipher', type: 'select', options: ciphers, value: eval( 'nvram.vpn_'+t+'_cipher' ) },

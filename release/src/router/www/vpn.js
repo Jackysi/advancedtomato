@@ -1,5 +1,9 @@
 // List of available ciphers
-var vpnciphers = ['AES-128-CBC','AES-128-CFB','AES-128-OFB','AES-192-CBC','AES-192-CFB','AES-192-OFB','AES-256-CBC','AES-256-CFB','AES-256-OFB','BF-CBC','BF-CFB','BF-OFB','CAST5-CBC','CAST5-CFB','CAST5-OFB','DES-CBC','DES-CFB','DES-EDE3-CBC','DES-EDE3-CFB','DES-EDE3-OFB','DES-EDE-CBC','DES-EDE-CFB','DES-EDE-OFB','DES-OFB','DESX-CBC','IDEA-CBC','IDEA-CFB','IDEA-OFB','RC2-40-CBC','RC2-64-CBC','RC2-CBC','RC2-CFB','RC2-OFB','RC5-CBC','RC5-CFB','RC5-OFB'];
+var vpnciphers = [];
+/*AES-BEGIN*/
+vpnciphers = vpnciphers.concat(['AES-128-CBC','AES-128-CFB','AES-128-OFB','AES-192-CBC','AES-192-CFB','AES-192-OFB','AES-256-CBC','AES-256-CFB','AES-256-OFB']);
+/*AES-END*/
+vpnciphers = vpnciphers.concat(['BF-CBC','BF-CFB','BF-OFB','CAST5-CBC','CAST5-CFB','CAST5-OFB','DES-CBC','DES-CFB','DES-EDE3-CBC','DES-EDE3-CFB','DES-EDE3-OFB','DES-EDE-CBC','DES-EDE-CFB','DES-EDE-OFB','DES-OFB','DESX-CBC','IDEA-CBC','IDEA-CFB','IDEA-OFB','RC2-40-CBC','RC2-64-CBC','RC2-CBC','RC2-CFB','RC2-OFB','RC5-CBC','RC5-CFB','RC5-OFB']);
 
 var helpURL = new Array();
 helpURL['howto'] = 'http://openvpn.net/index.php/open-source/documentation/howto.html';

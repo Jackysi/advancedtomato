@@ -26,14 +26,21 @@ void asp_nvram(int argc, char **argv)
 		}
 		web_printf("\t%s: '", k);
 		web_putj(v);
-//		web_puts((p == NULL) ? "'\n" : "',\n");
 		web_puts("',\n");
 	}
 	free(list);
+
 	web_puts("\thttp_id: '");
 	web_putj(nvram_safe_get("http_id"));
+	web_puts("',\n");
+
+	web_puts("\tweb_mx: '");
+	web_putj(nvram_safe_get("web_mx"));
+	web_puts("',\n");
+
+	web_puts("\tweb_pb: '");
+	web_putj(nvram_safe_get("web_pb"));
 	web_puts("'};\n");
-//	web_puts("};\n");
 }
 
 // <% nvramseq('foo', 'bar%d', 5, 8); %>	-> foo = ['a','b','c'];

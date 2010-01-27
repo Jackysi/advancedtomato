@@ -961,9 +961,9 @@ static void update_noip(void)
 /*
 
 	No-IP.com -- refresh
-	
+
 	http://www.no-ip.com/hostactive.php?host=<host>&domain=<dom>
-	
+
 */
 static void update_noip_refresh(void)
 {
@@ -975,10 +975,10 @@ static void update_noip_refresh(void)
 	if ((domain = strchr(host, '.')) != NULL) {
 		*domain++ = 0;
 	}
-	
+
 	sprintf(query, "/hostactive.php?host=%s", host);
 	if (domain) sprintf(query + strlen(query), "&domain=%s", domain);
-	
+
 	wget(0, 1, "www.no-ip.com", query, NULL, 0, NULL);
 	// return ignored
 }
@@ -1355,6 +1355,8 @@ static void update_everydns(void)
 	editdns.net
 	http://www.editdns.net/
 
+	source: Keith M.
+
 	---
 
 	http://DynDNS.EditDNS.net/api/dynLinux.php?p=XXX&r=XXX
@@ -1378,13 +1380,13 @@ static void update_editdns(void)
 		if (strstr(body, "Record has been updated") != NULL) {
 			success();
 		}
-		if (strstr(body, "Record already exists with the same IP") != NULL) {
+		if (strstr(body, "Record already exists") != NULL) {
 			error(M_SAME_IP);
 		}
-		else if (strstr(body, "Invalid Username/Password") != NULL) {
+		else if (strstr(body, "Invalid Username") != NULL) {
 			error(M_INVALID_AUTH);
 		}
-		else if (strstr(body, "Invalid DynRecord entry") != NULL) {
+		else if (strstr(body, "Invalid DynRecord") != NULL) {
 			error(M_INVALID_HOST);
 		}
 		else {

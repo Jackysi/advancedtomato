@@ -14,13 +14,15 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define VERSION "2.47"
+#define VERSION "2.51"
 
 #define FTABSIZ 150 /* max number of outstanding requests (default) */
 #define MAX_PROCS 20 /* max no children for TCP requests */
 #define CHILD_LIFETIME 150 /* secs 'till terminated (RFC1035 suggests > 120s) */
 #define EDNS_PKTSZ 1280 /* default max EDNS.0 UDP packet from RFC2671 */
 #define TIMEOUT 10 /* drop UDP queries after TIMEOUT seconds */
+#define FORWARD_TEST 50 /* try all servers every 50 queries */
+#define FORWARD_TIME 10 /* or 10 seconds */
 #define RANDOM_SOCKS 64 /* max simultaneous random ports */
 #define LEASE_RETRY 60 /* on error, retry writing leasefile after LEASE_RETRY seconds */
 #define CACHESIZ 150 /* default cache size */
@@ -106,9 +108,6 @@ HAVE_BSD_NETWORK
 HAVE_SOLARIS_NETWORK
    define exactly one of these to alter interaction with kernel networking.
 
-HAVE_SOLARIS_PRIVS
-   define for Solaris > 10 which can split privileges.
-
 HAVE_BROKEN_RTC
    define this on embedded systems which don't have an RTC
    which keeps time over reboots. Causes dnsmasq to use uptime
@@ -126,6 +125,12 @@ HAVE_BROKEN_RTC
 HAVE_TFTP
    define this to get dnsmasq's built-in TFTP server.
 
+HAVE_DHCP
+   define this to get dnsmasq's DHCP server.
+
+HAVE_SCRIPT
+   define this to get the ability to call scripts on lease-change
+
 HAVE_GETOPT_LONG
    define this if you have GNU libc or GNU getopt. 
 
@@ -140,11 +145,6 @@ HAVE_DBUS
    Define this if you want to link against libdbus, and have dnsmasq
    define some methods to allow (re)configuration of the upstream DNS 
    servers via DBus.
-
-HAVE_BSD_BRIDGE
-   Define this to enable the --bridge-interface option, useful on some
-   BSD systems.
-
 
 NOTES:
    For Linux you should define 
@@ -165,7 +165,9 @@ NOTES:
 */
 
 /* platform independent options- uncomment to enable */
+#define HAVE_DHCP
 /* #define HAVE_TFTP */
+/* #define HAVE_SCRIPT */
 #define HAVE_BROKEN_RTC
 /* #define HAVE_DBUS */
 
@@ -173,6 +175,18 @@ NOTES:
 #ifdef NO_TFTP
 #undef HAVE_TFTP
 #endif
+
+/* Allow DHCP to be disabled with COPTS=-DNO_DHCP */
+#ifdef NO_DHCP
+#undef HAVE_DHCP
+#endif
+
+/* Allow scripts to be disabled with COPTS=-DNO_SCRIPT */
+#ifdef NO_SCRIPT
+#undef HAVE_SCRIPT
+#endif
+
+
 
 /* platform dependent options. */
 
@@ -211,13 +225,6 @@ NOTES:
 #define HAVE_GETOPT_LONG
 #undef HAVE_ARC4RANDOM
 #undef HAVE_SOCKADDR_SA_LEN
-/* glibc < 2.2  has broken Sockaddr_in6 so we have to use our own. */
-/* glibc < 2.2 doesn't define in_addr_t */
-#if defined(__GLIBC__) && (__GLIBC__ == 2) && \
-    defined(__GLIBC_MINOR__) && (__GLIBC_MINOR__ < 2)
-typedef unsigned long in_addr_t; 
-#   define HAVE_BROKEN_SOCKADDR_IN6
-#endif
 
 #elif defined(__FreeBSD__) || \
       defined(__OpenBSD__) || \
@@ -232,7 +239,6 @@ typedef unsigned long in_addr_t;
 #   define HAVE_ARC4RANDOM
 #endif
 #define HAVE_SOCKADDR_SA_LEN
-#define HAVE_BSD_BRIDGE
 
 #elif defined(__APPLE__)
 #define HAVE_BSD_NETWORK
@@ -247,34 +253,16 @@ typedef unsigned long in_addr_t;
 #define HAVE_GETOPT_LONG
 #undef HAVE_ARC4RANDOM
 #define HAVE_SOCKADDR_SA_LEN
-#define HAVE_BSD_BRIDGE
 
 #elif defined(__sun) || defined(__sun__)
 #define HAVE_SOLARIS_NETWORK
-/* only Solaris 10 does split privs. */
-#if (SUNOS_VER >= 10)
-#  define HAVE_SOLARIS_PRIVS
-#  define HAVE_GETOPT_LONG
-#endif
-/* some CMSG stuff missing on early solaris */
-#ifndef OSSH_ALIGNBYTES
-#  define OSSH_ALIGNBYTES (sizeof(int) - 1)
-#endif
-#ifndef __CMSG_ALIGN
-#  define __CMSG_ALIGN(p) (((u_int)(p) + OSSH_ALIGNBYTES) &~ OSSH_ALIGNBYTES)
-#endif
-#ifndef CMSG_LEN
-#  define CMSG_LEN(len)   (__CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
-#endif
-#ifndef CMSG_SPACE
-#  define CMSG_SPACE(len) (__CMSG_ALIGN(sizeof(struct cmsghdr)) + __CMSG_ALIGN(len))
-#endif
+#define HAVE_GETOPT_LONG
 #undef HAVE_ARC4RANDOM
 #undef HAVE_SOCKADDR_SA_LEN
-
 #define _XPG4_2
 #define __EXTENSIONS__
-#define ETHER_ADDR_LEN 6
+#define ETHER_ADDR_LEN 6 
+ 
 #endif
 
 /* Decide if we're going to support IPv6 */
@@ -298,4 +286,8 @@ typedef unsigned long in_addr_t;
 #  define ADDRSTRLEN 16 /* 4*3 + 3 dots + NULL */
 #endif
 
-#undef HAVE_DEV_RANDOM
+/* Can't do scripts without fork */
+#ifdef NOFORK
+#  undef HAVE_SCRIPT
+#endif
+

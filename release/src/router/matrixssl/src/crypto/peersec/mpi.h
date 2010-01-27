@@ -1,11 +1,11 @@
 /*	
  *	mpi.h
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *
  *	multiple-precision integer library
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -28,6 +28,7 @@
  *	http://www.gnu.org/copyleft/gpl.html
  */
 /******************************************************************************/
+
 
 #ifndef _h_MPI
 #define _h_MPI
@@ -422,6 +423,7 @@ extern int32 mp_exptmod(psPool_t *pool, mp_int *a, mp_int *b, mp_int *c, mp_int 
 extern int32 s_mp_mul_digs(psPool_t *pool, mp_int *a, mp_int *b, mp_int *c,
 						   int32 digs);
 extern int32 s_mp_sqr(psPool_t *pool, mp_int *a, mp_int *b);
+
 #else
 #define mp_montgomery_reduce fast_mp_montgomery_reduce
 #define mp_sqr	fast_s_mp_sqr

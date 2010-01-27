@@ -50,6 +50,7 @@ FUNCTION functions[] = {
 	{FUNC_TYPE_GENERAL,"req",req_main},
 	{FUNC_TYPE_GENERAL,"rsa",rsa_main},
 	{FUNC_TYPE_GENERAL,"x509",x509_main},
+#ifndef NO_AES
 	{FUNC_TYPE_CIPHER,"aes-128-cbc",enc_main},
 	{FUNC_TYPE_CIPHER,"aes-128-ecb",enc_main},
 	{FUNC_TYPE_CIPHER,"aes-128-ofb",enc_main},
@@ -62,6 +63,7 @@ FUNCTION functions[] = {
 	{FUNC_TYPE_CIPHER,"aes-256-ecb",enc_main},
 	{FUNC_TYPE_CIPHER,"aes-256-ofb",enc_main},
 	{FUNC_TYPE_CIPHER,"aes-256-cfb",enc_main},
+#endif
 	{FUNC_TYPE_CIPHER,"bf-cbc",enc_main},
 	{FUNC_TYPE_CIPHER,"bf-ecb",enc_main},
 	{FUNC_TYPE_GENERAL,"enc",enc_main},
