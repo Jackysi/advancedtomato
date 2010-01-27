@@ -346,6 +346,22 @@ void start_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done running firewall rules");
 	}
 
+	// Set up cron job
+	sprintf(&buffer[0], "vpn_client%d_poll", clientNum);
+	if ( (nvi = nvram_get_int(&buffer[0])) > 0 )
+	{
+		vpnlog(VPN_LOG_EXTRA,"Adding cron job");
+		argv[0] = "cru";
+		argv[1] = "a";	
+		sprintf(&buffer[0], "CheckVPNClient%d", clientNum);
+		argv[2] = &buffer[0];
+		sprintf(&buffer[strlen(&buffer[0])+1], "*/%d * * * * service vpnclient%d start", nvi, clientNum);
+		argv[3] = &buffer[strlen(&buffer[0])+1];
+		argv[4] = NULL;
+		_eval(argv, NULL, 0, NULL);
+		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
+	}
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend complete.");
 }
 
@@ -356,6 +372,16 @@ void stop_vpnclient(int clientNum)
 	char buffer[BUF_SIZE];
 
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI client backend.");
+
+	// Remove cron job
+	vpnlog(VPN_LOG_EXTRA,"Removing cron job");
+	argv[0] = "cru";
+	argv[1] = "d";	
+	sprintf(&buffer[0], "CheckVPNClient%d", clientNum);
+	argv[2] = &buffer[0];
+	argv[3] = NULL;
+	_eval(argv, NULL, 0, NULL);
+	vpnlog(VPN_LOG_EXTRA,"Done removing cron job");
 
 	// Remove firewall rules
 	vpnlog(VPN_LOG_EXTRA,"Removing firewall rules.");
@@ -830,6 +856,22 @@ void start_vpnserver(int serverNum)
 		vpnlog(VPN_LOG_EXTRA,"Done running firewall rules");
 	}
 
+	// Set up cron job
+	sprintf(&buffer[0], "vpn_server%d_poll", serverNum);
+	if ( (nvi = nvram_get_int(&buffer[0])) > 0 )
+	{
+		vpnlog(VPN_LOG_EXTRA,"Adding cron job");
+		argv[0] = "cru";
+		argv[1] = "a";	
+		sprintf(&buffer[0], "CheckVPNServer%d", serverNum);
+		argv[2] = &buffer[0];
+		sprintf(&buffer[strlen(&buffer[0])+1], "*/%d * * * * service vpnserver%d start", nvi, serverNum);
+		argv[3] = &buffer[strlen(&buffer[0])+1];
+		argv[4] = NULL;
+		_eval(argv, NULL, 0, NULL);
+		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
+	}
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend complete.");
 }
 
@@ -840,6 +882,16 @@ void stop_vpnserver(int serverNum)
 	char buffer[BUF_SIZE];
 
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI server backend.");
+
+	// Remove cron job
+	vpnlog(VPN_LOG_EXTRA,"Removing cron job");
+	argv[0] = "cru";
+	argv[1] = "d";	
+	sprintf(&buffer[0], "CheckVPNServer%d", serverNum);
+	argv[2] = &buffer[0];
+	argv[3] = NULL;
+	_eval(argv, NULL, 0, NULL);
+	vpnlog(VPN_LOG_EXTRA,"Done removing cron job");
 
 	// Remove firewall rules
 	vpnlog(VPN_LOG_EXTRA,"Removing firewall rules.");

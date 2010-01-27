@@ -671,6 +671,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_debug",            V_01                },
 	{ "vpn_server_eas",       V_NONE              },
 	{ "vpn_server_dns",       V_NONE              },
+	{ "vpn_server1_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_server1_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_server1_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
 	{ "vpn_server1_port",     V_PORT              },
@@ -700,6 +701,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_crt",      V_NONE              },
 	{ "vpn_server1_key",      V_NONE              },
 	{ "vpn_server1_dh",       V_NONE              },
+	{ "vpn_server2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_server2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_server2_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
 	{ "vpn_server2_port",     V_PORT              },
@@ -730,6 +732,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_key",      V_NONE              },
 	{ "vpn_server2_dh",       V_NONE              },
 	{ "vpn_client_eas",       V_NONE              },
+	{ "vpn_client1_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client1_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client1_bridge",   V_01                },
 	{ "vpn_client1_nat",      V_01                },
@@ -754,6 +757,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_ca",       V_NONE              },
 	{ "vpn_client1_crt",      V_NONE              },
 	{ "vpn_client1_key",      V_NONE              },
+	{ "vpn_client2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge",   V_01                },
 	{ "vpn_client2_nat",      V_01                },
