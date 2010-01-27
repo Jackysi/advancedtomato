@@ -177,9 +177,9 @@ void wo_vpn_status(char *url)
 	FILE *fp;
 
 	type = 0;
-	if ( str = webcgi_get("server") )
+	if ( (str = webcgi_get("server")) )
 		type = "server";
-	else if ( str = webcgi_get("client") )
+	else if ( (str = webcgi_get("client")) )
 		type = "client";
 
 	num = str? atoi(str): 0;
