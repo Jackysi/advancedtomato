@@ -34,9 +34,13 @@ install:
 			-e "/^<!--$$/,/^-->$$/! { s,^\s\+, , }" $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
-# Only include the vpn pages in the navigation if OpenVPN is compiled in
+# Only include the vpn pages if OpenVPN is compiled in
+# Remove AES ciphers from the GUI if openssl doesn't have an AES directory
 
-ifneq ($(TCONFIG_OPENVPN),y)
+ifeq ($(TCONFIG_OPENVPN),y)
+	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
+else
+	rm -f $(INSTALLDIR)/www/vpn*
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
