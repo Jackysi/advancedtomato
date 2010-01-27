@@ -432,6 +432,14 @@ void stop_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
+	// Force OpenVPN process to end.  If we don't do this then it doesn't actually exit until
+	// all current queued service actions are run, including starting vpn back up (which
+	// will bail since the process is still running
+	vpnlog(VPN_LOG_EXTRA,"Killing OpenVPN client.");
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	killall(&buffer[0], SIGKILL);
+	vpnlog(VPN_LOG_EXTRA,"OpenVPN client killed.");
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend stopped.");
 }
 
@@ -941,6 +949,14 @@ void stop_vpnserver(int serverNum)
 		rmdir("/etc/openvpn");
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
+
+	// Force OpenVPN process to end.  If we don't do this then it doesn't actually exit until
+	// all current queued service actions are run, including starting vpn back up (which
+	// will bail since the process is still running
+	vpnlog(VPN_LOG_EXTRA,"Killing OpenVPN client.");
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	killall(&buffer[0], SIGKILL);
+	vpnlog(VPN_LOG_EXTRA,"OpenVPN server killed.");
 
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend stopped.");
 }
