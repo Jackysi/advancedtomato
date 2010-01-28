@@ -252,7 +252,7 @@ void __init cpu_time_init(void)
 	set_c0_status(SRB_TIMOCLK);
 }
 
-void __init hub_rtc_init(cnodeid_t cnode)
+void __cpuinit hub_rtc_init(cnodeid_t cnode)
 {
 	/*
 	 * We only need to initialize the current node.

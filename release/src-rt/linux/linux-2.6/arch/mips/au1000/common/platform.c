@@ -118,12 +118,12 @@ static struct resource au1xxx_usb_gdt_resources[] = {
 static struct resource au1xxx_mmc_resources[] = {
 	[0] = {
 		.start          = SD0_PHYS_ADDR,
-		.end            = SD0_PHYS_ADDR + 0x40,
+		.end            = SD0_PHYS_ADDR + 0x7ffff,
 		.flags          = IORESOURCE_MEM,
 	},
 	[1] = {
 		.start		= SD1_PHYS_ADDR,
-		.end 		= SD1_PHYS_ADDR + 0x40,
+		.end 		= SD1_PHYS_ADDR + 0x7ffff,
 		.flags		= IORESOURCE_MEM,
 	},
 	[2] = {
@@ -245,13 +245,12 @@ static struct platform_device au1x00_pcmcia_device = {
 	.id 		= 0,
 };
 
-#ifdef CONFIG_MIPS_DB1200
-
+#if defined(CONFIG_MIPS_DB1200) || defined(CONFIG_MIPS_PB1200)
 static struct resource smc91x_resources[] = {
 	[0] = {
 		.name	= "smc91x-regs",
 		.start	= AU1XXX_SMC91111_PHYS_ADDR,
-		.end	= AU1XXX_SMC91111_PHYS_ADDR + 0xfffff,
+		.end	= AU1XXX_SMC91111_PHYS_ADDR + 0xf,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
@@ -267,8 +266,7 @@ static struct platform_device smc91x_device = {
 	.num_resources	= ARRAY_SIZE(smc91x_resources),
 	.resource	= smc91x_resources,
 };
-
-#endif
+#endif /* defined(CONFIG_MIPS_DB1200) || defined(CONFIG_MIPS_PB1200) */
 
 static struct platform_device *au1xxx_platform_devices[] __initdata = {
 	&au1xxx_usb_ohci_device,
@@ -284,7 +282,7 @@ static struct platform_device *au1xxx_platform_devices[] __initdata = {
 	&au1200_ide0_device,
 	&au1xxx_mmc_device,
 #endif
-#ifdef CONFIG_MIPS_DB1200
+#if defined(CONFIG_MIPS_DB1200) || defined(CONFIG_MIPS_PB1200)
 	&smc91x_device,
 #endif
 };

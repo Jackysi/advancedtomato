@@ -186,8 +186,8 @@ get_system_type(void)
 	static char s[32];
 
 	if (bcm947xx_sih) {
-		sprintf(s, "Broadcom BCM%X chip rev %d", bcm947xx_sih->chip,
-			bcm947xx_sih->chiprev);
+		sprintf(s, "Broadcom BCM%X chip rev %d pkg %d", bcm947xx_sih->chip,
+			bcm947xx_sih->chiprev, bcm947xx_sih->chippkg);
 		return s;
 	}
 	else

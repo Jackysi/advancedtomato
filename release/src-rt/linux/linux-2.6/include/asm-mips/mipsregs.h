@@ -7,7 +7,7 @@
  * Copyright (C) 2000 Silicon Graphics, Inc.
  * Modified for further R[236]000 support by Paul M. Antoine, 1996.
  * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
- * Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
+ * Copyright (C) 2000, 07 MIPS Technologies, Inc.
  * Copyright (C) 2003, 2004  Maciej W. Rozycki
  */
 #ifndef _ASM_MIPSREGS_H
@@ -533,6 +533,7 @@
 #define MIPS_CONF3_VEIC		(_ULCAST_(1) <<  6)
 #define MIPS_CONF3_LPA		(_ULCAST_(1) <<  7)
 #define MIPS_CONF3_DSP		(_ULCAST_(1) << 10)
+#define MIPS_CONF3_ULRI		(_ULCAST_(1) << 13)
 
 #define MIPS_CONF7_WII		(_ULCAST_(1) << 31)
 
@@ -711,8 +712,8 @@ do {									\
 			".set\tmips64\n\t"				\
 			"dmfc0\t%M0, " #source "\n\t"			\
 			"dsll\t%L0, %M0, 32\n\t"			\
-			"dsrl\t%M0, %M0, 32\n\t"			\
-			"dsrl\t%L0, %L0, 32\n\t"			\
+			"dsra\t%M0, %M0, 32\n\t"			\
+			"dsra\t%L0, %L0, 32\n\t"			\
 			".set\tmips0"					\
 			: "=r" (val));					\
 	else								\
@@ -720,8 +721,8 @@ do {									\
 			".set\tmips64\n\t"				\
 			"dmfc0\t%M0, " #source ", " #sel "\n\t"		\
 			"dsll\t%L0, %M0, 32\n\t"			\
-			"dsrl\t%M0, %M0, 32\n\t"			\
-			"dsrl\t%L0, %L0, 32\n\t"			\
+			"dsra\t%M0, %M0, 32\n\t"			\
+			"dsra\t%L0, %L0, 32\n\t"			\
 			".set\tmips0"					\
 			: "=r" (val));					\
 	local_irq_restore(flags);					\
@@ -771,6 +772,9 @@ do {									\
 
 #define read_c0_context()	__read_ulong_c0_register($4, 0)
 #define write_c0_context(val)	__write_ulong_c0_register($4, 0, val)
+
+#define read_c0_userlocal()	__read_ulong_c0_register($4, 2)
+#define write_c0_userlocal(val)	__write_ulong_c0_register($4, 2, val)
 
 #define read_c0_pagemask()	__read_32bit_c0_register($5, 0)
 #define write_c0_pagemask(val)	__write_32bit_c0_register($5, 0, val)
@@ -1328,11 +1332,11 @@ static inline void tlb_write_random(void)
 static inline unsigned int					\
 set_c0_##name(unsigned int set)					\
 {								\
-	unsigned int res;					\
+	unsigned int res, new;					\
 								\
 	res = read_c0_##name();					\
-	res |= set;						\
-	write_c0_##name(res);					\
+	new = res | set;					\
+	write_c0_##name(new);					\
 								\
 	return res;						\
 }								\
@@ -1340,24 +1344,24 @@ set_c0_##name(unsigned int set)					\
 static inline unsigned int					\
 clear_c0_##name(unsigned int clear)				\
 {								\
-	unsigned int res;					\
+	unsigned int res, new;					\
 								\
 	res = read_c0_##name();					\
-	res &= ~clear;						\
-	write_c0_##name(res);					\
+	new = res & ~clear;					\
+	write_c0_##name(new);					\
 								\
 	return res;						\
 }								\
 								\
 static inline unsigned int					\
-change_c0_##name(unsigned int change, unsigned int new)		\
+change_c0_##name(unsigned int change, unsigned int val)		\
 {								\
-	unsigned int res;					\
+	unsigned int res, new;					\
 								\
 	res = read_c0_##name();					\
-	res &= ~change;						\
-	res |= (new & change);					\
-	write_c0_##name(res);					\
+	new = res & ~change;					\
+	new |= (val & change);					\
+	write_c0_##name(new);					\
 								\
 	return res;						\
 }
@@ -1421,14 +1425,15 @@ static inline unsigned int					\
 set_c0_##name(unsigned int set)					\
 {								\
 	unsigned int res;					\
+	unsigned int new;					\
 	unsigned int omt;					\
-	unsigned int flags;					\
+	unsigned long flags;					\
 								\
 	local_irq_save(flags);					\
 	omt = __dmt();						\
 	res = read_c0_##name();					\
-	res |= set;						\
-	write_c0_##name(res);					\
+	new = res | set;					\
+	write_c0_##name(new);					\
 	__emt(omt);						\
 	local_irq_restore(flags);				\
 								\
@@ -1439,14 +1444,15 @@ static inline unsigned int					\
 clear_c0_##name(unsigned int clear)				\
 {								\
 	unsigned int res;					\
+	unsigned int new;					\
 	unsigned int omt;					\
-	unsigned int flags;					\
+	unsigned long flags;					\
 								\
 	local_irq_save(flags);					\
 	omt = __dmt();						\
 	res = read_c0_##name();					\
-	res &= ~clear;						\
-	write_c0_##name(res);					\
+	new = res & ~clear;					\
+	write_c0_##name(new);					\
 	__emt(omt);						\
 	local_irq_restore(flags);				\
 								\
@@ -1454,19 +1460,20 @@ clear_c0_##name(unsigned int clear)				\
 }								\
 								\
 static inline unsigned int					\
-change_c0_##name(unsigned int change, unsigned int new)		\
+change_c0_##name(unsigned int change, unsigned int newbits)	\
 {								\
 	unsigned int res;					\
+	unsigned int new;					\
 	unsigned int omt;					\
-	unsigned int flags;					\
+	unsigned long flags;					\
 								\
 	local_irq_save(flags);					\
 								\
 	omt = __dmt();						\
 	res = read_c0_##name();					\
-	res &= ~change;						\
-	res |= (new & change);					\
-	write_c0_##name(res);					\
+	new = res & ~change;					\
+	new |= (newbits & change);				\
+	write_c0_##name(new);					\
 	__emt(omt);						\
 	local_irq_restore(flags);				\
 								\

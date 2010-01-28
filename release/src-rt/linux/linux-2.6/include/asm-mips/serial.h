@@ -174,4 +174,9 @@
 	MOMENCO_OCELOT_SERIAL_PORT_DEFNS		\
 	MOMENCO_OCELOT_3_SERIAL_PORT_DEFNS
 
+#ifdef CONFIG_SERIAL_8250_AU1X00
+#undef is_real_interrupt
+#define is_real_interrupt(irq)	(1)
+#endif
+
 #endif /* _ASM_SERIAL_H */

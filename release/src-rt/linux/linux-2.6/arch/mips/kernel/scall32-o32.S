@@ -199,7 +199,7 @@ bad_stack:
 	 * The system call does not exist in this kernel
 	 */
 illegal_syscall:
-	li	v0, -ENOSYS			# error
+	li	v0, ENOSYS			# error
 	sw	v0, PT_R2(sp)
 	li	t0, 1				# set error flag
 	sw	t0, PT_R7(sp)
@@ -285,17 +285,10 @@ bad_alignment:
 	subu	t0, a0, __NR_O32_Linux	# check syscall number
 	sltiu	v0, t0, __NR_O32_Linux_syscalls + 1
 #endif
+	beqz	t0, einval		# do not recurse
 	sll	t1, t0, 3
 	beqz	v0, einval
-
 	lw	t2, sys_call_table(t1)		# syscall routine
-
-#if defined(CONFIG_BINFMT_IRIX)
-	li	v1, 4000			# nr of sys_syscall
-#else
-	li	v1, 4000 - __NR_O32_Linux	# index of sys_syscall
-#endif
-	beq	t0, v1, einval			# do not recurse
 
 	/* Some syscalls like execve get their arguments from struct pt_regs
 	   and claim zero arguments in the syscall table. Thus we have to
@@ -320,7 +313,7 @@ bad_alignment:
 	jr	t2
 	/* Unreached */
 
-einval:	li	v0, -EINVAL
+einval:	li	v0, -ENOSYS
 	jr	ra
 	END(sys_syscall)
 
@@ -661,7 +654,7 @@ einval:	li	v0, -EINVAL
 	sys	sys_pselect6		6
 	sys	sys_ppoll		5
 	sys	sys_unshare		1
-	sys	sys_splice		4
+	sys	sys_splice		6
 	sys	sys_sync_file_range	7	/* 4305 */
 	sys	sys_tee			4
 	sys	sys_vmsplice		4

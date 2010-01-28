@@ -12,6 +12,7 @@
 #ifndef _ASM_SYSTEM_H
 #define _ASM_SYSTEM_H
 
+#include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/irqflags.h>
 
@@ -56,8 +57,6 @@ do {									\
 		__save_dsp(prev);					\
 	next->thread.emulated_fp = 0;					\
 	(last) = resume(prev, next, task_thread_info(next));		\
-	if (cpu_has_dsp)						\
-		__restore_dsp(current);					\
 } while(0)
 
 #else
@@ -66,10 +65,16 @@ do {									\
 	if (cpu_has_dsp)						\
 		__save_dsp(prev);					\
 	(last) = resume(prev, next, task_thread_info(next));		\
+} while (0)
+#endif
+
+#define finish_arch_switch(prev)					\
+do {									\
 	if (cpu_has_dsp)						\
 		__restore_dsp(current);					\
-} while(0)
-#endif
+	if (cpu_has_userlocal)						\
+		write_c0_userlocal(current_thread_info()->tp_value);	\
+} while (0)
 
 /*
  * On SMP systems, when the scheduler does migration-cost autodetection,
@@ -184,11 +189,7 @@ extern __u64 __xchg_u64_unsupported_on_32bit_kernels(volatile __u64 * m, __u64 v
 #define __xchg_u64 __xchg_u64_unsupported_on_32bit_kernels
 #endif
 
-/* This function doesn't exist, so you'll get a linker error
-   if something tries to do an invalid xchg().  */
-extern void __xchg_called_with_bad_pointer(void);
-
-static __always_inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
+static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
 {
 	switch (size) {
 	case 4:
@@ -196,11 +197,17 @@ static __always_inline unsigned long __xchg(unsigned long x, volatile void * ptr
 	case 8:
 		return __xchg_u64(ptr, x);
 	}
-	__xchg_called_with_bad_pointer();
+
 	return x;
 }
 
-#define xchg(ptr,x) ((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
+#define xchg(ptr, x)							\
+({									\
+	BUILD_BUG_ON(sizeof(*(ptr)) & ~0xc);				\
+									\
+	((__typeof__(*(ptr)))						\
+		__xchg((unsigned long)(x), (ptr), sizeof(*(ptr))));	\
+})
 
 #define __HAVE_ARCH_CMPXCHG 1
 

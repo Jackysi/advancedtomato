@@ -654,7 +654,7 @@ static int __devinit giu_probe(struct platform_device *dev)
 static int __devexit giu_remove(struct platform_device *dev)
 {
 	if (giu_base) {
-	iounmap(giu_base);
+		iounmap(giu_base);
 		giu_base = NULL;
 	}
 

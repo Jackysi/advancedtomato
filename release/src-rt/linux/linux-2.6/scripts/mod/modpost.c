@@ -1047,6 +1047,7 @@ static int init_section_ref_ok(const char *name)
 		".pdr",
 		"__param",
 		"__ex_table",
+		"__dbe_table",		/* Used on MIPS to catch bus errors */
 		".fixup",
 		".smp_locks",
 		".plt",  /* seen on ARCH=um build on x86_64. Harmless */

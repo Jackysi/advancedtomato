@@ -9,21 +9,21 @@
 #include <asm/errno.h>
 #include <asm/irqflags.h>
 #include <asm/mipsregs.h>
+#include <asm/asm-offsets.h>
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
-#include <asm/gdb-stub.h>
 
 #ifdef CONFIG_32BIT
 #define DMFC0	mfc0
 #define DMTC0	mtc0
 #define LDC1	lwc1
-#define SDC1	lwc1
+#define SDC1	swc1
 #endif
 #ifdef CONFIG_64BIT
 #define DMFC0	dmfc0
 #define DMTC0	dmtc0
 #define LDC1	ldc1
-#define SDC1	ldc1
+#define SDC1	sdc1
 #endif
 
 /*
@@ -78,10 +78,19 @@
 		LONG_S	v0, GDB_FR_EPC(sp)
 		DMFC0	v0, CP0_BADVADDR
 		LONG_S	v0, GDB_FR_BADVADDR(sp)
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+		mflhxu	v0
+		LONG_S	v0, GDB_FR_LO(sp)
+		mflhxu	v0
+		LONG_S	v0, GDB_FR_HI(sp)
+		mflhxu	v0
+		LONG_S	v0, GDB_FR_ACX(sp)
+#else
 		mfhi	v0
 		LONG_S	v0, GDB_FR_HI(sp)
 		mflo	v0
 		LONG_S	v0, GDB_FR_LO(sp)
+#endif
 
 /*
  * Now the integer registers
@@ -317,10 +326,19 @@
 		LONG_L	v1, GDB_FR_EPC(sp)
 		mtc0	v0, CP0_STATUS
 		DMTC0	v1, CP0_EPC
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+		LONG_L	v0, GDB_FR_ACX(sp)
+		mtlhx	v0
+		LONG_L	v0, GDB_FR_HI(sp)
+		mtlhx	v0
+		LONG_L	v0, GDB_FR_LO(sp)
+		mtlhx	v0
+#else
 		LONG_L	v0, GDB_FR_HI(sp)
 		LONG_L	v1, GDB_FR_LO(sp)
 		mthi	v0
 		mtlo	v1
+#endif
 		LONG_L	$31, GDB_FR_REG31(sp)
 		LONG_L	$30, GDB_FR_REG30(sp)
 		LONG_L	$28, GDB_FR_REG28(sp)

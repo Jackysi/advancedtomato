@@ -31,8 +31,6 @@ static inline const char *msk2str(unsigned int mask)
 	case PM_256M:	return "256Mb";
 #endif
 	}
-
-	return "unknown";
 }
 
 #define BARRIER()					\

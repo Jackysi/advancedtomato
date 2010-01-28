@@ -8,6 +8,7 @@
  * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  */
+#include <linux/bug.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/signal.h>
@@ -25,6 +26,7 @@
 #include <linux/swap.h>
 #include <linux/proc_fs.h>
 #include <linux/pfn.h>
+#include <linux/hardirq.h>
 
 #include <asm/bootinfo.h>
 #include <asm/cachectl.h>
@@ -131,10 +133,15 @@ void *kmap_coherent(struct page *page, unsigned long addr)
 	pte_t pte;
 	int tlbidx;
 
+	BUG_ON(Page_dcache_dirty(page));
+
 	inc_preempt_count();
 	idx = (addr >> PAGE_SHIFT) & (FIX_N_COLOURS - 1);
 #ifdef CONFIG_MIPS_MT_SMTC
-	idx += FIX_N_COLOURS * smp_processor_id();
+	idx += FIX_N_COLOURS * smp_processor_id() +
+		(in_interrupt() ? (FIX_N_COLOURS * NR_CPUS) : 0);
+#else
+	idx += in_interrupt() ? FIX_N_COLOURS : 0;
 #endif
 	vaddr = __fix_to_virt(FIX_CMAP_END - idx);
 	pte = mk_pte(page, PAGE_KERNEL);
@@ -205,12 +212,16 @@ void copy_to_user_page(struct vm_area_struct *vma,
 	struct page *page, unsigned long vaddr, void *dst, const void *src,
 	unsigned long len)
 {
-	if (cpu_has_dc_aliases) {
+	if (cpu_has_dc_aliases &&
+	    page_mapped(page) && !Page_dcache_dirty(page)) {
 		void *vto = kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
 		memcpy(vto, src, len);
 		kunmap_coherent();
-	} else
+	} else {
 		memcpy(dst, src, len);
+		if (cpu_has_dc_aliases)
+			SetPageDcacheDirty(page);
+	}
 	if ((vma->vm_flags & VM_EXEC) && !cpu_has_ic_fills_f_dc)
 		flush_cache_page(vma, vaddr, page_to_pfn(page));
 }
@@ -221,13 +232,16 @@ void copy_from_user_page(struct vm_area_struct *vma,
 	struct page *page, unsigned long vaddr, void *dst, const void *src,
 	unsigned long len)
 {
-	if (cpu_has_dc_aliases) {
-		void *vfrom =
-			kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
+	if (cpu_has_dc_aliases &&
+	    page_mapped(page) && !Page_dcache_dirty(page)) {
+		void *vfrom = kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
 		memcpy(dst, vfrom, len);
 		kunmap_coherent();
-	} else
+	} else {
 		memcpy(dst, src, len);
+		if (cpu_has_dc_aliases)
+			SetPageDcacheDirty(page);
+	}
 }
 
 EXPORT_SYMBOL(copy_from_user_page);

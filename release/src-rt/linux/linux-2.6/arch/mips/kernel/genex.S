@@ -20,6 +20,7 @@
 #include <asm/stackframe.h>
 #include <asm/war.h>
 #include <asm/page.h>
+#include <asm/thread_info.h>
 
 #define PANIC_PIC(msg)					\
 		.set push;				\
@@ -134,7 +135,42 @@ handle_vcei:
 
 	__FINIT
 
+	.align	5	/* 32 byte rollback region */
+LEAF(r4k_wait)
+	.set	push
+	.set	noreorder
+	/* start of rollback region */
+	LONG_L	t0, TI_FLAGS($28)
+	nop
+	andi	t0, _TIF_NEED_RESCHED
+	bnez	t0, 1f
+	 nop
+	nop
+	nop
+	.set	mips3
+	wait
+	/* end of rollback region (the region size must be power of two) */
+	.set	pop
+1:
+	jr	ra
+	END(r4k_wait)
+
+	.macro	BUILD_ROLLBACK_PROLOGUE handler
+	FEXPORT(rollback_\handler)
+	.set	push
+	.set	noat
+	MFC0	k0, CP0_EPC
+	PTR_LA	k1, r4k_wait
+	ori	k0, 0x1f	/* 32 byte rollback region */
+	xori	k0, 0x1f
+	bne	k0, k1, 9f
+	MTC0	k0, CP0_EPC
+9:
+	.set pop
+	.endm
+
 	.align  5
+BUILD_ROLLBACK_PROLOGUE handle_int
 NESTED(handle_int, PT_SIZE, sp)
 #ifdef CONFIG_TRACE_IRQFLAGS
 	/*
@@ -154,7 +190,7 @@ NESTED(handle_int, PT_SIZE, sp)
 	and	k0, ST0_IEP
 	bnez	k0, 1f
 
-	mfc0	k0, EP0_EPC
+	mfc0	k0, CP0_EPC
 	.set	noreorder
 	j	k0
 	rfe
@@ -209,6 +245,7 @@ NESTED(except_vec_ejtag_debug, 0, sp)
  * This prototype is copied to ebase + n*IntCtl.VS and patched
  * to invoke the handler
  */
+BUILD_ROLLBACK_PROLOGUE except_vec_vi
 NESTED(except_vec_vi, 0, sp)
 	SAVE_SOME
 	SAVE_AT
@@ -251,9 +288,11 @@ NESTED(except_vec_vi_handler, 0, sp)
 	 */
 	mfc0	t1, CP0_STATUS
 	and	t0, a0, t1
+#ifdef CONFIG_MIPS_MT_SMTC_IM_BACKSTOP
 	mfc0	t2, CP0_TCCONTEXT
 	or	t0, t0, t2
 	mtc0	t0, CP0_TCCONTEXT
+#endif /* CONFIG_MIPS_MT_SMTC_IM_BACKSTOP */
 	xor	t1, t1, t0
 	mtc0	t1, CP0_STATUS
 	_ehb

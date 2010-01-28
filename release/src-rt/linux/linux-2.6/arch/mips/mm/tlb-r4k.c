@@ -100,8 +100,7 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 	int cpu = smp_processor_id();
 
 	if (cpu_context(cpu, mm) != 0) {
-		unsigned long flags;
-		int size;
+		unsigned long size, flags;
 
 		ENTER_CRITICAL(flags);
 		size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
@@ -142,8 +141,7 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 
 void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 {
-	unsigned long flags;
-	int size;
+	unsigned long size, flags;
 
 	ENTER_CRITICAL(flags);
 	size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
@@ -367,7 +365,7 @@ void __init add_wired_entry(unsigned long entrylo0, unsigned long entrylo1,
  * lifetime of the system
  */
 
-static int temp_tlb_entry __initdata;
+static int temp_tlb_entry __cpuinitdata;
 
 __init int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 			       unsigned long entryhi, unsigned long pagemask)
@@ -406,7 +404,7 @@ out:
 	return ret;
 }
 
-static void __init probe_tlb(unsigned long config)
+static void __cpuinit probe_tlb(unsigned long config)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int reg;
@@ -434,7 +432,7 @@ static void __init probe_tlb(unsigned long config)
 	c->tlbsize = ((reg >> 25) & 0x3f) + 1;
 }
 
-static int __initdata ntlb = 0;
+static int __cpuinitdata ntlb = 0;
 static int __init set_ntlb(char *str)
 {
 	get_option(&str, &ntlb);
@@ -443,7 +441,7 @@ static int __init set_ntlb(char *str)
 
 __setup("ntlb=", set_ntlb);
 
-void __init tlb_init(void)
+void __cpuinit tlb_init(void)
 {
 	unsigned int config = read_c0_config();
 
@@ -452,12 +450,15 @@ void __init tlb_init(void)
 	 *   - On R4600 1.7 the tlbp never hits for pages smaller than
 	 *     the value in the c0_pagemask register.
 	 *   - The entire mm handling assumes the c0_pagemask register to
-	 *     be set for 4kb pages.
+	 *     be set to fixed-size pages.
 	 */
 	probe_tlb(config);
 	write_c0_pagemask(PM_DEFAULT_MASK);
 	write_c0_wired(0);
-	write_c0_framemask(0);
+	if (current_cpu_data.cputype == CPU_R10000 ||
+	    current_cpu_data.cputype == CPU_R12000 ||
+	    current_cpu_data.cputype == CPU_R14000)
+		write_c0_framemask(0);
 	temp_tlb_entry = current_cpu_data.tlbsize - 1;
 
         /* From this point on the ARC firmware is dead.  */

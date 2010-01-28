@@ -246,7 +246,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 		case FPC_EIR: {	/* implementation / version register */
 			unsigned int flags;
 #ifdef CONFIG_MIPS_MT_SMTC
-			unsigned int irqflags;
+			unsigned long irqflags;
 			unsigned int mtflags;
 #endif /* CONFIG_MIPS_MT_SMTC */
 
@@ -509,13 +509,13 @@ asmlinkage void do_syscall_trace(struct pt_regs *regs, int entryexit)
 		current->exit_code = 0;
 	}
 
- out:
+out:
 	/* There is no ->orig_eax and that's quite intensional for now making
 	   this work will require some work in various other place before it's
 	   more than a placebo.  */
 
 	if (unlikely(current->audit_context) && !entryexit)
 		audit_syscall_entry(audit_arch(), regs->orig_eax,
-				    regs->regs[4], regs->regs[5],
-				    regs->regs[6], regs->regs[7]);
+		                    regs->regs[4], regs->regs[5],
+		                    regs->regs[6], regs->regs[7]);
 }
