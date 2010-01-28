@@ -177,6 +177,14 @@ define BusyboxExtraOptions
 	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1)
 	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1)
 	@echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1)
+	@( \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1); \
+		echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
+		echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
+	fi; \
+	)
 endef
 
 define BusyboxExtraUSBOptions
@@ -221,11 +229,6 @@ define BusyboxKernelConfig
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1)
 	@sed -i "/CONFIG_MKNOD/d" $(1)
 	@echo "CONFIG_MKNOD=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1)
-	@echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1)
-	@echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1)
-	$(call BusyboxExtraOptions, $(1))
 endef
 else
 define BusyboxKernelConfig
