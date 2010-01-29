@@ -338,6 +338,7 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
 	struct request *rq = SCpnt->request;
 	struct gendisk *disk = rq->rq_disk;
 	sector_t block = rq->sector;
+	sector_t threshold;
 	unsigned int this_count = SCpnt->request_bufflen >> 9;
 	unsigned int timeout = sdp->timeout;
 
@@ -365,6 +366,24 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
 		/* printk("SCSI disk has been changed. Prohibiting further I/O.\n"); */
 		return 0;
 	}
+
+	/*
+	 * Some SD card readers can't handle multi-sector accesses which touch
+	 * the last one or two hardware sectors.  Split accesses as needed.
+	 */
+	threshold = get_capacity(disk) - SD_LAST_BUGGY_SECTORS *
+		(sdp->sector_size / 512);
+
+	if (unlikely(sdp->last_sector_bug && block + this_count > threshold)) {
+		if (block < threshold) {
+			/* Access up to the threshold but not beyond */
+			this_count = threshold - block;
+		} else {
+			/* Access only a single hardware sector */
+			this_count = sdp->sector_size / 512;
+		}
+	}
+
 	SCSI_LOG_HLQUEUE(2, scmd_printk(KERN_INFO, SCpnt, "block=%llu\n",
 					(unsigned long long)block));
 
