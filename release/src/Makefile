@@ -456,27 +456,27 @@ setprofile:
 
 # Note that changes to variables in tomato_profile.mak don't
 # get propogated to this invocation of make!
+	@echo ""
+	@echo "Using $(N) profile, $(B) build config."
+	@echo ""
+
+	@cd $(LINUXDIR) ; \
+		rm -f config_current ; \
+		ln -s config_$(lowercase_B) config_current ; \
+		cp -f config_current .config
+	@$(MAKE) -C $(LINUXDIR) oldconfig
+
 	@cd router ; \
 		rm -f config_current ; \
 		ln -s config_$(lowercase_B) config_current ; \
 		cp config_current .config
 	@$(MAKE) -C router oldconfig
 
-	@echo ""
-	@echo "Using $(N) profile, $(B) build config."
-	@echo ""
-
 	@cd router/busybox && \
 		rm -f config_current ; \
 		ln -s config_$(lowercase_B) config_current ; \
 		cp config_current .config
 	@$(MAKE) -C router/busybox oldconfig
-
-	@cd $(LINUXDIR) ; \
-		rm -f config_current ; \
-		ln -s config_$(lowercase_B) config_current ; \
-		cp config_current .config
-	@$(MAKE) -C $(LINUXDIR) oldconfig
 
 cleanlibc:
 #	@$(MAKE) -C ../../tools-src/uClibc clean
