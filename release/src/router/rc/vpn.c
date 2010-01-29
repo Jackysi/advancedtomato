@@ -1,6 +1,6 @@
 /*
 
-	Copyright (C) 2008-2009 Keith Moyer, tomatovpn@keithmoyer.com
+	Copyright (C) 2008-2010 Keith Moyer, tomatovpn@keithmoyer.com
 
 	No part of this file may be used without permission.
 
@@ -350,6 +350,22 @@ void start_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done running firewall rules");
 	}
 
+	// Set up cron job
+	sprintf(&buffer[0], "vpn_client%d_poll", clientNum);
+	if ( (nvi = nvram_get_int(&buffer[0])) > 0 )
+	{
+		vpnlog(VPN_LOG_EXTRA,"Adding cron job");
+		argv[0] = "cru";
+		argv[1] = "a";	
+		sprintf(&buffer[0], "CheckVPNClient%d", clientNum);
+		argv[2] = &buffer[0];
+		sprintf(&buffer[strlen(&buffer[0])+1], "*/%d * * * * service vpnclient%d start", nvi, clientNum);
+		argv[3] = &buffer[strlen(&buffer[0])+1];
+		argv[4] = NULL;
+		_eval(argv, NULL, 0, NULL);
+		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
+	}
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend complete.");
 }
 
@@ -360,6 +376,16 @@ void stop_vpnclient(int clientNum)
 	char buffer[BUF_SIZE];
 
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI client backend.");
+
+	// Remove cron job
+	vpnlog(VPN_LOG_EXTRA,"Removing cron job");
+	argv[0] = "cru";
+	argv[1] = "d";	
+	sprintf(&buffer[0], "CheckVPNClient%d", clientNum);
+	argv[2] = &buffer[0];
+	argv[3] = NULL;
+	_eval(argv, NULL, 0, NULL);
+	vpnlog(VPN_LOG_EXTRA,"Done removing cron job");
 
 	// Remove firewall rules
 	vpnlog(VPN_LOG_EXTRA,"Removing firewall rules.");
@@ -409,6 +435,14 @@ void stop_vpnclient(int clientNum)
 		rmdir("/etc/openvpn");
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
+
+	// Force OpenVPN process to end.  If we don't do this then it doesn't actually exit until
+	// all current queued service actions are run, including starting vpn back up (which
+	// will bail since the process is still running
+	vpnlog(VPN_LOG_EXTRA,"Killing OpenVPN client.");
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	killall(&buffer[0], SIGKILL);
+	vpnlog(VPN_LOG_EXTRA,"OpenVPN client killed.");
 
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend stopped.");
 }
@@ -838,6 +872,22 @@ void start_vpnserver(int serverNum)
 		vpnlog(VPN_LOG_EXTRA,"Done running firewall rules");
 	}
 
+	// Set up cron job
+	sprintf(&buffer[0], "vpn_server%d_poll", serverNum);
+	if ( (nvi = nvram_get_int(&buffer[0])) > 0 )
+	{
+		vpnlog(VPN_LOG_EXTRA,"Adding cron job");
+		argv[0] = "cru";
+		argv[1] = "a";	
+		sprintf(&buffer[0], "CheckVPNServer%d", serverNum);
+		argv[2] = &buffer[0];
+		sprintf(&buffer[strlen(&buffer[0])+1], "*/%d * * * * service vpnserver%d start", nvi, serverNum);
+		argv[3] = &buffer[strlen(&buffer[0])+1];
+		argv[4] = NULL;
+		_eval(argv, NULL, 0, NULL);
+		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
+	}
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend complete.");
 }
 
@@ -848,6 +898,16 @@ void stop_vpnserver(int serverNum)
 	char buffer[BUF_SIZE];
 
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI server backend.");
+
+	// Remove cron job
+	vpnlog(VPN_LOG_EXTRA,"Removing cron job");
+	argv[0] = "cru";
+	argv[1] = "d";	
+	sprintf(&buffer[0], "CheckVPNServer%d", serverNum);
+	argv[2] = &buffer[0];
+	argv[3] = NULL;
+	_eval(argv, NULL, 0, NULL);
+	vpnlog(VPN_LOG_EXTRA,"Done removing cron job");
 
 	// Remove firewall rules
 	vpnlog(VPN_LOG_EXTRA,"Removing firewall rules.");
@@ -898,6 +958,14 @@ void stop_vpnserver(int serverNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
+	// Force OpenVPN process to end.  If we don't do this then it doesn't actually exit until
+	// all current queued service actions are run, including starting vpn back up (which
+	// will bail since the process is still running
+	vpnlog(VPN_LOG_EXTRA,"Killing OpenVPN client.");
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	killall(&buffer[0], SIGKILL);
+	vpnlog(VPN_LOG_EXTRA,"OpenVPN server killed.");
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend stopped.");
 }
 
@@ -912,7 +980,19 @@ void start_vpn_eas()
 	i = 0;
 	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
 	nums[i] = 0;
-	for( i = 0; nums[i] > 0; i++ ) { vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]); start_vpnserver(nums[i]); }
+	for( i = 0; nums[i] > 0; i++ )
+	{
+		sprintf(&buffer[0], "vpnserver%d", nums[i]);
+		if ( pidof(&buffer[0]) >= 0 )
+		{
+			vpnlog(VPN_LOG_INFO, "Stopping server %d (eas)", nums[i]);
+			stop_vpnserver(nums[i]);
+			return;
+		}
+
+		vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]);
+		start_vpnserver(nums[i]);
+	}
 
 	// Parse and start clients
 	strlcpy(&buffer[0], nvram_safe_get("vpn_client_eas"), sizeof(buffer));
@@ -920,7 +1000,19 @@ void start_vpn_eas()
 	i = 0;
 	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
 	nums[i] = 0;
-	for( i = 0; nums[i] > 0; i++ ) { vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]); start_vpnclient(nums[i]); }
+	for( i = 0; nums[i] > 0; i++ )
+	{
+		sprintf(&buffer[0], "vpnclient%d", nums[i]);
+		if ( pidof(&buffer[0]) >= 0 )
+		{
+			vpnlog(VPN_LOG_INFO, "Stopping client %d (eas)", nums[i]);
+			stop_vpnclient(nums[i]);
+			return;
+		}
+
+		vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]);
+		start_vpnclient(nums[i]);
+	}
 }
 
 void run_vpn_firewall_scripts()
