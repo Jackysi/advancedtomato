@@ -387,7 +387,6 @@ int usb_sg_init (
 	if (io->entries <= 0)
 		return io->entries;
 
-	io->count = io->entries;
 	io->urbs = kmalloc (io->entries * sizeof *io->urbs, mem_flags);
 	if (!io->urbs)
 		goto nomem;
@@ -456,6 +455,7 @@ int usb_sg_init (
 	io->urbs [--i]->transfer_flags &= ~URB_NO_INTERRUPT;
 
 	/* transaction state */
+	io->count = io->entries;
 	io->status = 0;
 	io->bytes = 0;
 	init_completion (&io->complete);
