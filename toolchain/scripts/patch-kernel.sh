@@ -31,8 +31,10 @@ for i in ${patchdir}/${patchpattern} ; do
 	type="zip"; uncomp="unzip -d"; ;; 
 	*.Z)
 	type="compress"; uncomp="uncompress -c"; ;; 
-	*)
+	*.patch | *.diff)
 	type="plaintext"; uncomp="cat"; ;; 
+	*)
+	echo "Ignoring unknown ${i}"; continue; ;;
     esac
     [ -d "${i}" ] && echo "Ignoring subdirectory ${i}" && continue	
     echo ""

@@ -110,10 +110,10 @@ kernel: $(LINUXDIR)/.config
 	@$(SEP)
 
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage ; \
+	    $(MAKE) -C $(LINUXDIR) zImage CC=$(KERNELCC); \
 	fi
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) modules ; \
+	    $(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC); \
 	fi
 ifeq ($(CONFIG_LINUX26),y)
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed srctree=$(LINUXDIR)
