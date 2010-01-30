@@ -1075,8 +1075,21 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 	/* try to compute the actual residue, based on how much data
 	 * was really transferred and what the device tells us */
-	if (residue) {
-		if (!(us->flags & US_FL_IGNORE_RESIDUE)) {
+	if (residue && !(us->flags & US_FL_IGNORE_RESIDUE)) {
+
+		/* Heuristically detect devices that generate bogus residues
+		 * by seeing what happens with INQUIRY and READ CAPACITY
+		 * commands.
+		 */
+		if (bcs->Status == US_BULK_STAT_OK &&
+				srb->resid == 0 &&
+					((srb->cmnd[0] == INQUIRY &&
+						transfer_length == 36) ||
+					(srb->cmnd[0] == READ_CAPACITY &&
+						transfer_length == 8))) {
+			us->flags |= US_FL_IGNORE_RESIDUE;
+
+		} else {
 			residue = min(residue, transfer_length);
 			srb->resid = max(srb->resid, (int) residue);
 		}
