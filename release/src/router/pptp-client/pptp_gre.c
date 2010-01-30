@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -223,19 +224,10 @@ int decaps_hdlc(int fd, int (*cb)(int cl, void *pack, unsigned int len), int cl)
             warn( "The ppp mode is synchronous, "
                     "yet no pptp --sync option is specified!\n");
     }
-    /* in synchronous mode there are no hdlc control characters nor checksum
-     * bytes. Find end of packet with the length information in the PPP packet
-     */
     if ( syncppp ){
-        while ( start + 8 < end) {
-            len = ntoh16(*(short int *)(buffer + start + 6)) + 4;
-            /* note: the buffer may contain an incomplete packet at the end
-             * this packet will be read again at the next read() */
-            if ( start + len <= end)
-                if ((status = cb (cl, buffer + start, len)) < 0)
-                    return status; /* error-check */
-            start += len;
-        }
+    	/* this handling is pretty simple thanks to N_HDLC */
+        if ((status = cb (cl, buffer, end)) < 0)
+            return status; /* error-check */
         return 0;
     }
     /* asynchronous mode */
@@ -353,7 +345,16 @@ int decaps_gre (int fd, callback_t callback, int cl)
         return 0;
     }
     /* silently discard packets not for this call */
-    if (ntoh16(header->call_id) != pptp_gre_call_id) return 0;
+    if (ntoh16(header->call_id) != pptp_gre_call_id) {
+        if (log_level >= 2)
+            log("Discarding for other call : %d %d",
+                ntoh16(header->call_id), pptp_gre_call_id);
+        if (pptp_gre_call_id == 0) {
+            pptp_gre_call_id = ntoh16(header->call_id);
+        } else {
+            return 0;
+        }
+    }
     /* test if acknowledgement present */
     if (PPTP_GRE_IS_A(ntoh8(header->ver))) { 
         u_int32_t ack = (PPTP_GRE_IS_S(ntoh8(header->flags)))?
@@ -456,31 +457,29 @@ int dequeue_gre (callback_t callback, int cl)
 /*** encaps_gre ***************************************************************/
 int encaps_gre (int fd, void *pack, unsigned int len)
 {
-    union {
-        struct pptp_gre_header header;
-        unsigned char buffer[PACKET_MAX + sizeof(struct pptp_gre_header)];
-    } u;
+    struct pptp_gre_header header;
+    struct iovec iov[2] = { { &header, 0 }, { pack, len } };
     static u_int32_t seq = 1; /* first sequence number sent must be 1 */
     unsigned int header_len;
     int rc;
     /* package this up in a GRE shell. */
-    u.header.flags       = hton8 (PPTP_GRE_FLAG_K);
-    u.header.ver         = hton8 (PPTP_GRE_VER);
-    u.header.protocol    = hton16(PPTP_GRE_PROTO);
-    u.header.payload_len = hton16(len);
-    u.header.call_id     = hton16(pptp_gre_peer_call_id);
+    header.flags       = hton8 (PPTP_GRE_FLAG_K);
+    header.ver         = hton8 (PPTP_GRE_VER);
+    header.protocol    = hton16(PPTP_GRE_PROTO);
+    header.payload_len = hton16(len);
+    header.call_id     = hton16(pptp_gre_peer_call_id);
     /* special case ACK with no payload */
     if (pack == NULL) {
         if (ack_sent != seq_recv) {
-            u.header.ver |= hton8(PPTP_GRE_FLAG_A);
-            u.header.payload_len = hton16(0);
+            header.ver |= hton8(PPTP_GRE_FLAG_A);
+            header.payload_len = hton16(0);
             /* ack is in odd place because S == 0 */
-            u.header.seq = hton32(seq_recv);
+            header.seq = hton32(seq_recv);
             ack_sent = seq_recv;
-            rc = write(fd, &u.header, sizeof(u.header) - sizeof(u.header.seq));
+            rc = write(fd, &header, sizeof(header) - sizeof(header.seq));
             if (rc < 0) {
                 stats.tx_failed++;
-            } else if (rc < sizeof(u.header) - sizeof(u.header.seq)) {
+            } else if (rc < sizeof(header) - sizeof(header.seq)) {
                 stats.tx_short++;
             } else {
                 stats.tx_acks++;
@@ -489,27 +488,22 @@ int encaps_gre (int fd, void *pack, unsigned int len)
         } else return 0; /* we don't need to send ACK */
     } /* explicit brace to avoid ambiguous `else' warning */
     /* send packet with payload */
-    u.header.flags |= hton8(PPTP_GRE_FLAG_S);
-    u.header.seq    = hton32(seq);
+    header.flags |= hton8(PPTP_GRE_FLAG_S);
+    header.seq    = hton32(seq);
     if (ack_sent != seq_recv) { /* send ack with this message */
-        u.header.ver |= hton8(PPTP_GRE_FLAG_A);
-        u.header.ack  = hton32(seq_recv);
+        header.ver |= hton8(PPTP_GRE_FLAG_A);
+        header.ack  = hton32(seq_recv);
         ack_sent = seq_recv;
-        header_len = sizeof(u.header);
+        header_len = sizeof(header);
     } else { /* don't send ack */
-        header_len = sizeof(u.header) - sizeof(u.header.ack);
+        header_len = sizeof(header) - sizeof(header.ack);
     }
-    if (header_len + len >= sizeof(u.buffer)) {
-        stats.tx_oversize++;
-        return 0; /* drop this, it's too big */
-    }
-    /* copy payload into buffer */
-    memcpy(u.buffer + header_len, pack, len);
+    /* save final header length */
+    iov[0].iov_len = header_len;
     /* record and increment sequence numbers */
     seq_sent = seq; seq++;
     /* write this baby out to the net */
-    /* print_packet(2, u.buffer, header_len + len); */
-    rc = write(fd, u.buffer, header_len + len);
+    rc = writev(fd, iov, 2);
     if (rc < 0) {
         stats.tx_failed++;
     } else if (rc < header_len + len) {

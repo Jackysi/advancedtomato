@@ -44,6 +44,7 @@
  */
 
 /* Globals */
+extern int syncppp;
 
 /* control the number of times echo packets will be logged */
 static int nlogecho = 10;
@@ -950,7 +951,7 @@ int ctrlp_disp(PPTP_CONN * conn, void * buffer, size_t size)
             log("  send_accm is %08lX, recv_accm is %08lX",
                     (unsigned long) ntoh32(packet->send_accm),
                     (unsigned long) ntoh32(packet->recv_accm));
-            if (!(ntoh32(packet->send_accm) == 0 &&
+            if (syncppp && !(ntoh32(packet->send_accm) == 0 &&
                     ntoh32(packet->recv_accm) == 0))
                 warn("Non-zero Async Control Character Maps are not supported!");
             break;

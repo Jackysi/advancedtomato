@@ -11,10 +11,10 @@ BINDIR=$(DESTDIR)/usr/sbin
 MANDIR=$(DESTDIR)/usr/share/man/man8
 PPPDIR=$(DESTDIR)/etc/ppp
 
-CC	= gcc
+#CC	= gcc
 RM	= rm -f
-OPTIMIZE= -O0
-DEBUG	= -g
+OPTIMIZE= -O2
+#DEBUG	= -g
 INCLUDE =
 CFLAGS  = -Wall $(OPTIMIZE) $(DEBUG) $(INCLUDE) -I$(SRCBASE)/include $(EXTRACFLAGS)
 LIBS	= -lutil
@@ -43,11 +43,8 @@ config.h:
 vector_test: vector_test.o vector.o
 	$(CC) -o vector_test vector_test.o vector.o
 
-clean:
-	$(RM) *.o config.h
-
-clobber: clean
-	$(RM) $(PPTP_BIN) vector_test
+clobber clean:
+	$(RM) *.o config.h $(PPTP_BIN) vector_test
 
 distclean: clobber
 
