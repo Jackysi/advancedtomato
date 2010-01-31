@@ -96,7 +96,10 @@ static int br_cmd_addif(int argc, char *const* argv)
 			continue;
 
 		case ENODEV:
-			fprintf(stderr, "interface %s does not exist!\n", ifname);
+			if (if_nametoindex(ifname) == 0)
+				fprintf(stderr, "interface %s does not exist!\n", ifname);
+			else
+				fprintf(stderr, "bridge %s does not exist!\n", brname);
 			break;
 
 		case EBUSY:
@@ -136,8 +139,10 @@ static int br_cmd_delif(int argc, char *const* argv)
 			continue;
 
 		case ENODEV:
-			fprintf(stderr, "interface %s does not exist!\n", 
-				ifname);
+			if (if_nametoindex(ifname) == 0)
+				fprintf(stderr, "interface %s does not exist!\n", ifname);
+			else
+				fprintf(stderr, "bridge %s does not exist!\n", brname);
 			break;
 
 		case EINVAL:
@@ -267,7 +272,7 @@ static int br_cmd_setportprio(int argc, char *const* argv)
 		return 1;
 	}
 
-	err = br_set_path_cost(argv[1], argv[2], cost);
+	err = br_set_port_priority(argv[1], argv[2], cost);
 	if (err)
 		fprintf(stderr, "set port priority failed: %s\n",
 			strerror(errno));

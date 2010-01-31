@@ -1,11 +1,11 @@
 
 KERNEL_HEADERS=-I@KERNEL_HEADERS@
 
-AR=ar
+#AR=ar
 RANLIB=@RANLIB@
 
 CC=@CC@
-CFLAGS = -Wall -g $(KERNEL_HEADERS)
+CFLAGS = -Wall @CFLAGS@ $(KERNEL_HEADERS)
 
 prefix=@prefix@
 exec_prefix=@exec_prefix@

@@ -324,10 +324,17 @@ mdu:	shared mssl
 
 rc: nvram shared
 
+bridge/Makefile:
+	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
+	$(CONFIGURE) --host=mipsel-linux --prefix="" --with-linux-headers=$(LINUXDIR)/include
 
-bridge:
+bridge: bridge/Makefile
 	@$(SEP)
-	@$(MAKE) -C bridge brctl/brctl
+	@$(MAKE) -C bridge
+
+bridge-clean:
+	@$(MAKE) -C bridge clean || true
+	@rm -f bridge/Makefile
 
 bridge-install:
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl
