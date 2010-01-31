@@ -796,13 +796,13 @@ static void sysinit(void)
 	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
+	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
+
 #ifdef LINUX26
 	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-	mknod("/dev/console", S_IRWXU|S_IFCHR, makedev(5, 1));
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
-#endif
-	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
-#ifdef LINUX26
 	mkdir("/dev/shm", 0777);
 	mkdir("/dev/pts", 0777);
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
