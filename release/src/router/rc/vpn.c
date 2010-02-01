@@ -198,12 +198,12 @@ void start_vpnclient(int clientNum)
 	if ( !nvram_contains_word(&buffer[0], "default") )
 		fprintf(fp, "cipher %s\n", nvram_safe_get(&buffer[0]));
 	sprintf(&buffer[0], "vpn_client%d_rgw", clientNum);
-	if ( (nvi = nvram_get_int(&buffer[0])) )
+	if ( nvram_get_int(&buffer[0]) )
 	{
 		sprintf(&buffer[0], "vpn_client%d_gw", clientNum);
 		if ( ifType == TAP && nvram_safe_get(&buffer[0])[0] != '\0' )
 			fprintf(fp, "route-gateway %s\n", nvram_safe_get(&buffer[0]));
-		fprintf(fp, "redirect-gateway%s\n", nvi>1? "": " def1");
+		fprintf(fp, "redirect-gateway def1\n");
 	}
 	fprintf(fp, "verb 3\n");
 	if ( cryptMode == TLS )
@@ -249,7 +249,7 @@ void start_vpnclient(int clientNum)
 	fprintf(fp, "status status\n");
 	fprintf(fp, "\n# Custom Configuration\n");
 	sprintf(&buffer[0], "vpn_client%d_custom", clientNum);
-	fprintf(fp, nvram_safe_get(&buffer[0]));
+	fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 	fclose(fp);
 	vpnlog(VPN_LOG_EXTRA,"Done writing config file");
 
@@ -264,7 +264,7 @@ void start_vpnclient(int clientNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_client%d_ca", clientNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 
@@ -275,7 +275,7 @@ void start_vpnclient(int clientNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_client%d_key", clientNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 
@@ -286,7 +286,7 @@ void start_vpnclient(int clientNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 	}
@@ -300,7 +300,7 @@ void start_vpnclient(int clientNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_client%d_static", clientNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 	}
@@ -713,11 +713,11 @@ void start_vpnserver(int serverNum)
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_rgw", serverNum);
-		if ( (nvi = nvram_get_int(&buffer[0])) )
+		if ( nvram_get_int(&buffer[0]) )
 		{
 			if ( ifType == TAP )
 				fprintf(fp, "push \"route-gateway %s\"\n", nvram_safe_get("lan_ipaddr"));
-			fprintf(fp, "push \"redirect-gateway%s\"\n", nvi>1? "": "def1");
+			fprintf(fp, "push \"redirect-gateway def1\"\n");
 		}
 
 		sprintf(&buffer[0], "vpn_server%d_hmac", serverNum);
@@ -754,7 +754,7 @@ void start_vpnserver(int serverNum)
 	fprintf(fp, "status status\n");
 	fprintf(fp, "\n# Custom Configuration\n");
 	sprintf(&buffer[0], "vpn_server%d_custom", serverNum);
-	fprintf(fp, nvram_safe_get(&buffer[0]));
+	fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 	fclose(fp);
 	vpnlog(VPN_LOG_EXTRA,"Done writing config file");
 
@@ -769,7 +769,7 @@ void start_vpnserver(int serverNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_server%d_ca", serverNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 
@@ -780,7 +780,7 @@ void start_vpnserver(int serverNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_server%d_key", serverNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 
@@ -791,7 +791,7 @@ void start_vpnserver(int serverNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_server%d_crt", serverNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 
@@ -802,7 +802,7 @@ void start_vpnserver(int serverNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_server%d_dh", serverNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 	}
@@ -816,7 +816,7 @@ void start_vpnserver(int serverNum)
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_server%d_static", serverNum);
-			fprintf(fp, nvram_safe_get(&buffer[0]));
+			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 	}
@@ -987,7 +987,6 @@ void start_vpn_eas()
 		{
 			vpnlog(VPN_LOG_INFO, "Stopping server %d (eas)", nums[i]);
 			stop_vpnserver(nums[i]);
-			return;
 		}
 
 		vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]);
@@ -1007,7 +1006,6 @@ void start_vpn_eas()
 		{
 			vpnlog(VPN_LOG_INFO, "Stopping client %d (eas)", nums[i]);
 			stop_vpnclient(nums[i]);
-			return;
 		}
 
 		vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]);
