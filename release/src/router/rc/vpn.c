@@ -979,7 +979,6 @@ void start_vpn_eas()
 		{
 			vpnlog(VPN_LOG_INFO, "Stopping server %d (eas)", nums[i]);
 			stop_vpnserver(nums[i]);
-			return;
 		}
 
 		vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]);
@@ -999,7 +998,6 @@ void start_vpn_eas()
 		{
 			vpnlog(VPN_LOG_INFO, "Stopping client %d (eas)", nums[i]);
 			stop_vpnclient(nums[i]);
-			return;
 		}
 
 		vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]);
