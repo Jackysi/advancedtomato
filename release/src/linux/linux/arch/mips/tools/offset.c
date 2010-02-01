@@ -13,6 +13,7 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 
+#include <asm/gdb-stub.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
 
@@ -68,8 +69,8 @@ void output_ptreg_defines(void)
 	offset("#define PT_R29    ", struct pt_regs, regs[29]);
 	offset("#define PT_R30    ", struct pt_regs, regs[30]);
 	offset("#define PT_R31    ", struct pt_regs, regs[31]);
-	offset("#define PT_LO     ", struct pt_regs, lo);
 	offset("#define PT_HI     ", struct pt_regs, hi);
+	offset("#define PT_LO     ", struct pt_regs, lo);
 	offset("#define PT_EPC    ", struct pt_regs, cp0_epc);
 	offset("#define PT_BVADDR ", struct pt_regs, cp0_badvaddr);
 	offset("#define PT_STATUS ", struct pt_regs, cp0_status);
@@ -228,6 +229,112 @@ void output_signal_defined(void)
 	constant("#define _SIGPROF    ", SIGPROF);
 	constant("#define _SIGXCPU    ", SIGXCPU);
 	constant("#define _SIGXFSZ    ", SIGXFSZ);
+}
+
+void output_gdbreg_defines(void)
+{
+	text("/* MIPS struct gdb_regs offsets. */");
+	offset("#define GDB_FR_REG0     ", struct gdb_regs, reg0);
+	offset("#define GDB_FR_REG1     ", struct gdb_regs, reg1);
+	offset("#define GDB_FR_REG2     ", struct gdb_regs, reg2);
+	offset("#define GDB_FR_REG3     ", struct gdb_regs, reg3);
+	offset("#define GDB_FR_REG4     ", struct gdb_regs, reg4);
+	offset("#define GDB_FR_REG5     ", struct gdb_regs, reg5);
+	offset("#define GDB_FR_REG6     ", struct gdb_regs, reg6);
+	offset("#define GDB_FR_REG7     ", struct gdb_regs, reg7);
+	offset("#define GDB_FR_REG8     ", struct gdb_regs, reg8);
+	offset("#define GDB_FR_REG9     ", struct gdb_regs, reg9);
+	offset("#define GDB_FR_REG10    ", struct gdb_regs, reg10);
+	offset("#define GDB_FR_REG11    ", struct gdb_regs, reg11);
+	offset("#define GDB_FR_REG12    ", struct gdb_regs, reg12);
+	offset("#define GDB_FR_REG13    ", struct gdb_regs, reg13);
+	offset("#define GDB_FR_REG14    ", struct gdb_regs, reg14);
+	offset("#define GDB_FR_REG15    ", struct gdb_regs, reg15);
+	offset("#define GDB_FR_REG16    ", struct gdb_regs, reg16);
+	offset("#define GDB_FR_REG17    ", struct gdb_regs, reg17);
+	offset("#define GDB_FR_REG18    ", struct gdb_regs, reg18);
+	offset("#define GDB_FR_REG19    ", struct gdb_regs, reg19);
+	offset("#define GDB_FR_REG20    ", struct gdb_regs, reg20);
+	offset("#define GDB_FR_REG21    ", struct gdb_regs, reg21);
+	offset("#define GDB_FR_REG22    ", struct gdb_regs, reg22);
+	offset("#define GDB_FR_REG23    ", struct gdb_regs, reg23);
+	offset("#define GDB_FR_REG24    ", struct gdb_regs, reg24);
+	offset("#define GDB_FR_REG25    ", struct gdb_regs, reg25);
+	offset("#define GDB_FR_REG26    ", struct gdb_regs, reg26);
+	offset("#define GDB_FR_REG27    ", struct gdb_regs, reg27);
+	offset("#define GDB_FR_REG28    ", struct gdb_regs, reg28);
+	offset("#define GDB_FR_REG29    ", struct gdb_regs, reg29);
+	offset("#define GDB_FR_REG30    ", struct gdb_regs, reg30);
+	offset("#define GDB_FR_REG31    ", struct gdb_regs, reg31);
+	linefeed;
+
+	offset("#define GDB_FR_STATUS   ", struct gdb_regs, cp0_status);
+	offset("#define GDB_FR_HI       ", struct gdb_regs, hi);
+	offset("#define GDB_FR_LO       ", struct gdb_regs, lo);
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+	offset("#define GDB_FR_ACX      ", struct gdb_regs, acx);
+#endif
+	offset("#define GDB_FR_BADVADDR ", struct gdb_regs, cp0_badvaddr);
+	offset("#define GDB_FR_CAUSE    ", struct gdb_regs, cp0_cause);
+	offset("#define GDB_FR_EPC      ", struct gdb_regs, cp0_epc);
+	linefeed;
+
+	offset("#define GDB_FR_FPR0        ", struct gdb_regs, fpr0);
+	offset("#define GDB_FR_FPR1        ", struct gdb_regs, fpr1);
+	offset("#define GDB_FR_FPR2        ", struct gdb_regs, fpr2);
+	offset("#define GDB_FR_FPR3        ", struct gdb_regs, fpr3);
+	offset("#define GDB_FR_FPR4        ", struct gdb_regs, fpr4);
+	offset("#define GDB_FR_FPR5        ", struct gdb_regs, fpr5);
+	offset("#define GDB_FR_FPR6        ", struct gdb_regs, fpr6);
+	offset("#define GDB_FR_FPR7        ", struct gdb_regs, fpr7);
+	offset("#define GDB_FR_FPR8        ", struct gdb_regs, fpr8);
+	offset("#define GDB_FR_FPR9        ", struct gdb_regs, fpr9);
+	offset("#define GDB_FR_FPR10        ", struct gdb_regs, fpr10);
+	offset("#define GDB_FR_FPR11        ", struct gdb_regs, fpr11);
+	offset("#define GDB_FR_FPR12        ", struct gdb_regs, fpr12);
+	offset("#define GDB_FR_FPR13        ", struct gdb_regs, fpr13);
+	offset("#define GDB_FR_FPR14        ", struct gdb_regs, fpr14);
+	offset("#define GDB_FR_FPR15        ", struct gdb_regs, fpr15);
+	offset("#define GDB_FR_FPR16        ", struct gdb_regs, fpr16);
+	offset("#define GDB_FR_FPR17        ", struct gdb_regs, fpr17);
+	offset("#define GDB_FR_FPR18        ", struct gdb_regs, fpr18);
+	offset("#define GDB_FR_FPR19        ", struct gdb_regs, fpr19);
+	offset("#define GDB_FR_FPR20        ", struct gdb_regs, fpr20);
+	offset("#define GDB_FR_FPR21        ", struct gdb_regs, fpr21);
+	offset("#define GDB_FR_FPR22        ", struct gdb_regs, fpr22);
+	offset("#define GDB_FR_FPR23        ", struct gdb_regs, fpr23);
+	offset("#define GDB_FR_FPR24        ", struct gdb_regs, fpr24);
+	offset("#define GDB_FR_FPR25        ", struct gdb_regs, fpr25);
+	offset("#define GDB_FR_FPR26        ", struct gdb_regs, fpr26);
+	offset("#define GDB_FR_FPR27        ", struct gdb_regs, fpr27);
+	offset("#define GDB_FR_FPR28        ", struct gdb_regs, fpr28);
+	offset("#define GDB_FR_FPR29        ", struct gdb_regs, fpr29);
+	offset("#define GDB_FR_FPR30        ", struct gdb_regs, fpr30);
+	offset("#define GDB_FR_FPR31        ", struct gdb_regs, fpr31);
+	linefeed;
+
+	offset("#define GDB_FR_FSR          ", struct gdb_regs, cp1_fsr);
+	offset("#define GDB_FR_FIR          ", struct gdb_regs, cp1_fir);
+	offset("#define GDB_FR_FRP          ", struct gdb_regs, frame_ptr);
+	offset("#define GDB_FR_DUMMY        ", struct gdb_regs, dummy);
+
+	offset("#define GDB_FR_CP0_INDEX    ", struct gdb_regs, cp0_index);
+	offset("#define GDB_FR_CP0_RANDOM   ", struct gdb_regs, cp0_random);
+	offset("#define GDB_FR_CP0_ENTRYLO0 ", struct gdb_regs, cp0_entrylo0);
+	offset("#define GDB_FR_CP0_ENTRYLO1 ", struct gdb_regs, cp0_entrylo1);
+	offset("#define GDB_FR_CP0_CONTEXT  ", struct gdb_regs, cp0_context);
+	offset("#define GDB_FR_CP0_PAGEMASK ", struct gdb_regs, cp0_pagemask);
+	offset("#define GDB_FR_CP0_WIRED    ", struct gdb_regs, cp0_wired);
+	offset("#define GDB_FR_CP0_REG7     ", struct gdb_regs, cp0_reg7);
+	offset("#define GDB_FR_CP0_REG8     ", struct gdb_regs, cp0_reg8);
+	offset("#define GDB_FR_CP0_REG9     ", struct gdb_regs, cp0_reg9);
+	offset("#define GDB_FR_CP0_ENTRYHI  ", struct gdb_regs, cp0_entryhi);
+	offset("#define GDB_FR_CP0_REG11    ", struct gdb_regs, cp0_reg11);
+	offset("#define GDB_FR_CP0_REG12    ", struct gdb_regs, cp0_reg12);
+	offset("#define GDB_FR_CP0_REG13    ", struct gdb_regs, cp0_reg13);
+	offset("#define GDB_FR_CP0_REG14    ", struct gdb_regs, cp0_reg14);
+	offset("#define GDB_FR_CP0_PRID     ", struct gdb_regs, cp0_prid);
+	size("#define GDB_FR_SIZE         ", struct gdb_regs);
 }
 
 text("#endif /* !(_MIPS_OFFSET_H) */");

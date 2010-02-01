@@ -136,10 +136,18 @@ int __init prom_init(int argc, char **argv, char **envp)
 	set_io_port_base(KSEG1);
 #else
 	mips_revision_corid = MIPS_REVISION_CORID;
+	if (mips_revision_corid == MIPS_REVISION_CORID_CORE_EMUL) {
+		if (BONITO_PCIDID == 0x0001df53 ||
+		    BONITO_PCIDID == 0x0003df53)
+			mips_revision_corid = MIPS_REVISION_CORID_CORE_EMUL_BON;
+		else
+			mips_revision_corid = MIPS_REVISION_CORID_CORE_EMUL_MSC;
+	}
 	switch(mips_revision_corid) {
 	case MIPS_REVISION_CORID_QED_RM5261:
 	case MIPS_REVISION_CORID_CORE_LV:
 	case MIPS_REVISION_CORID_CORE_FPGA:
+	case MIPS_REVISION_CORID_CORE_FPGAR2:
 		/*
 		 * Setup the North bridge to do Master byte-lane swapping
 		 * when running in bigendian.
@@ -158,8 +166,10 @@ int __init prom_init(int argc, char **argv, char **envp)
 #endif
 
 		break;
+
 	case MIPS_REVISION_CORID_BONITO64:
 	case MIPS_REVISION_CORID_CORE_20K:
+	case MIPS_REVISION_CORID_CORE_EMUL_BON:
 		/*
 		 * Disable Bonito IOBC.
 		 */
@@ -189,6 +199,10 @@ int __init prom_init(int argc, char **argv, char **envp)
 		break;
 
 	case MIPS_REVISION_CORID_CORE_MSC:
+	case MIPS_REVISION_CORID_CORE_FPGA2:
+	case MIPS_REVISION_CORID_CORE_FPGA3:
+	case MIPS_REVISION_CORID_CORE_24K:
+	case MIPS_REVISION_CORID_CORE_EMUL_MSC:
 #ifdef CONFIG_MIPS_MALTA
 		set_io_port_base(MALTA_MSC_PORT_BASE);
 #endif

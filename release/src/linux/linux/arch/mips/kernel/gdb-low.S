@@ -9,9 +9,9 @@
 #include <asm/asm.h>
 #include <asm/errno.h>
 #include <asm/mipsregs.h>
+#include <asm/offset.h>
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
-#include <asm/gdb-stub.h>
 
 /*
  * [jsun] We reserves about 2x GDB_FR_SIZE in stack.  The lower (addressed)

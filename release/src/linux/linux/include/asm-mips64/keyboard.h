@@ -85,7 +85,7 @@ extern int kbd_translate(unsigned char scancode, unsigned char *keycode,
 extern char kbd_unexpected_up(unsigned char keycode);
 extern void kbd_leds(unsigned char leds);
 extern void kbd_init_hw(void);
-extern unsigned char *kbd_sysrq_xlate;
+extern unsigned char kbd_sysrq_xlate[];
 
 extern unsigned char kbd_sysrq_key;
 #define SYSRQ_KEY kbd_sysrq_key

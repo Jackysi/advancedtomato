@@ -134,7 +134,6 @@ LEAF(_restore_fp)
 #define FPU_DEFAULT  0x00000000
 
 LEAF(_init_fpu)
-	.set	mips3
 	mfc0	t0, CP0_STATUS
 	li	t1, ST0_CU1
 	or	t0, t1
@@ -144,26 +143,59 @@ LEAF(_init_fpu)
 	li	t1, FPU_DEFAULT
 	ctc1	t1, fcr31
 
-	li	t0, -1
+	li	t1, -1				# SNaN
 
-	dmtc1	t0, $f0
-	dmtc1	t0, $f2
-	dmtc1	t0, $f4
-	dmtc1	t0, $f6
-	dmtc1	t0, $f8
-	dmtc1	t0, $f10
-	dmtc1	t0, $f12
-	dmtc1	t0, $f14
-	dmtc1	t0, $f16
-	dmtc1	t0, $f18
-	dmtc1	t0, $f20
-	dmtc1	t0, $f22
-	dmtc1	t0, $f24
-	dmtc1	t0, $f26
-	dmtc1	t0, $f28
-	.set	noreorder
+#ifdef CONFIG_CPU_MIPS32
+	mtc1	t1, $f0
+	mtc1	t1, $f1
+	mtc1	t1, $f2
+	mtc1	t1, $f3
+	mtc1	t1, $f4
+	mtc1	t1, $f5
+	mtc1	t1, $f6
+	mtc1	t1, $f7
+	mtc1	t1, $f8
+	mtc1	t1, $f9
+	mtc1	t1, $f10
+	mtc1	t1, $f11
+	mtc1	t1, $f12
+	mtc1	t1, $f13
+	mtc1	t1, $f14
+	mtc1	t1, $f15
+	mtc1	t1, $f16
+	mtc1	t1, $f17
+	mtc1	t1, $f18
+	mtc1	t1, $f19
+	mtc1	t1, $f20
+	mtc1	t1, $f21
+	mtc1	t1, $f22
+	mtc1	t1, $f23
+	mtc1	t1, $f24
+	mtc1	t1, $f25
+	mtc1	t1, $f26
+	mtc1	t1, $f27
+	mtc1	t1, $f28
+	mtc1	t1, $f29
+	mtc1	t1, $f30
+	mtc1	t1, $f31
+#else
+	.set	mips3
+	dmtc1	t1, $f0
+	dmtc1	t1, $f2
+	dmtc1	t1, $f4
+	dmtc1	t1, $f6
+	dmtc1	t1, $f8
+	dmtc1	t1, $f10
+	dmtc1	t1, $f12
+	dmtc1	t1, $f14
+	dmtc1	t1, $f16
+	dmtc1	t1, $f18
+	dmtc1	t1, $f20
+	dmtc1	t1, $f22
+	dmtc1	t1, $f24
+	dmtc1	t1, $f26
+	dmtc1	t1, $f28
+	dmtc1	t1, $f30
+#endif
 	jr	ra
-	 dmtc1	t0, $f30
-	.set	reorder
 	END(_init_fpu)
-

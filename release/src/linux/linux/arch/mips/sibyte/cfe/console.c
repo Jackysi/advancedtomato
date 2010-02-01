@@ -60,13 +60,13 @@ static int cfe_console_setup(struct console *cons, char *str)
 		} else if (!strcmp(consdev, "uart1")) {
 			setleds("u1cn");
 			cfe_consdev = MKDEV(TTY_MAJOR, SB1250_DUART_MINOR_BASE + 1);
+		} else
 #endif
 #ifdef CONFIG_VGA_CONSOLE
-		} else if (!strcmp(consdev, "pcconsole0")) {
-			setleds("pccn");
-			cfe_consdev = MKDEV(TTY_MAJOR, 0);
-#endif
+		       if (!strcmp(consdev, "pcconsole0")) {
+				setleds("pccn");
 		} else
+#endif
 			return -ENODEV;
 	}
 	return 0;

@@ -1871,7 +1871,7 @@ static int irix_filldir32(void *__buf, const char *name, int namlen,
 	__put_user(reclen, &dirent->d_reclen);
 	copy_to_user(dirent->d_name, name, namlen);
 	__put_user(0, &dirent->d_name[namlen]);
-	((char *) dirent) += reclen;
+	dirent = (struct irix_dirent32 __user *) ((char __user *) dirent + reclen);
 	buf->current_dir = dirent;
 	buf->count -= reclen;
 
@@ -1964,7 +1964,7 @@ static int irix_filldir64(void * __buf, const char * name, int namlen,
 	__put_user(reclen, &dirent->d_reclen);
 	__copy_to_user(dirent->d_name, name, namlen);
 	__put_user(0, &dirent->d_name[namlen]);
-	((char *) dirent) += reclen;
+	dirent = (struct irix_dirent64 __user *) ((char __user *) dirent + reclen);
 	buf->curr = dirent;
 	buf->count -= reclen;
 

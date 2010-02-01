@@ -855,14 +855,17 @@ static int blkpg_ioctl_trans(unsigned int fd, unsigned int cmd,
 {
 	struct blkpg_ioctl_arg a;
 	struct blkpg_partition p;
-	int err;
 	mm_segment_t old_fs = get_fs();
+	int data, err;
 
 	err = get_user(a.op, &arg->op);
 	err |= __get_user(a.flags, &arg->flags);
 	err |= __get_user(a.datalen, &arg->datalen);
-	err |= __get_user((long)a.data, &arg->data);
-	if (err) return err;
+	err |= __get_user(data, &arg->data);
+	if (err)
+		return err;
+	a.data = (long) data;
+
 	switch (a.op) {
 	case BLKPG_ADD_PARTITION:
 	case BLKPG_DEL_PARTITION:

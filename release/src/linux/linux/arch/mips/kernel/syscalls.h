@@ -181,7 +181,7 @@ SYS(sys_sched_get_priority_max,1)
 SYS(sys_sched_get_priority_min,1)
 SYS(sys_sched_rr_get_interval,2)		/* 4165 */
 SYS(sys_nanosleep,2)
-SYS(sys_mremap,4)
+SYS(sys_mremap,5)
 SYS(sys_accept, 3)
 SYS(sys_bind, 3)
 SYS(sys_connect, 3)				/* 4170 */

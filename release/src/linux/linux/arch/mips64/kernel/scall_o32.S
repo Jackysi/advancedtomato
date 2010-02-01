@@ -121,6 +121,8 @@ trace_a_syscall:
 	move	s0, t2
 	jal	syscall_trace
 
+	move	t0, s0
+	RESTORE_STATIC
 	ld	a0, PT_R4(sp)		# Restore argument registers
 	ld	a1, PT_R5(sp)
 	ld	a2, PT_R6(sp)
@@ -128,7 +130,7 @@ trace_a_syscall:
 	ld	a4, PT_R8(sp)
 	ld	a5, PT_R9(sp)
 
-	jalr	s0
+	jalr	t0
 
 	li	t0, -EMAXERRNO - 1	# error?
 	sltu	t0, t0, v0

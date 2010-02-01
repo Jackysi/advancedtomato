@@ -9,6 +9,7 @@
 #include <asm/asm.h>
 #include <asm/errno.h>
 #include <asm/mipsregs.h>
+#include <asm/offset.h>
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
 #include <asm/gdb-stub.h>

@@ -38,8 +38,8 @@ struct pt_regs {
 
 	/* Saved special registers. */
 	unsigned long cp0_status;
-	unsigned long lo;
 	unsigned long hi;
+	unsigned long lo;
 	unsigned long cp0_badvaddr;
 	unsigned long cp0_cause;
 	unsigned long cp0_epc;
@@ -65,7 +65,7 @@ __asm__ (                                                               \
         "sw\t$22,"__str(PT_R22)"($29)\n\t"                              \
         "sw\t$23,"__str(PT_R23)"($29)\n\t"                              \
         "sw\t$30,"__str(PT_R30)"($29)\n\t"                              \
-       "j\t_" #symbol "\n\t"                                           \
+	"j\t_" #symbol "\n\t"						\
         ".end\t" #symbol "\n\t"                                         \
         ".size\t" #symbol",. - " #symbol)
 
