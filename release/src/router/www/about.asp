@@ -90,7 +90,7 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
-VPN integration and GUI Copyright (C) 2008 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2009 Jonathan Zarate<br>
