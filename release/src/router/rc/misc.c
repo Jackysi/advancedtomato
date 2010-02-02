@@ -200,7 +200,7 @@ void setup_conntrack(void)
 
 	p = nvram_safe_get("ct_max");
 	i = atoi(p);
-	if ((i >= 128) && (i <= 10240)) {
+	if (i >= 128) {
 		f_write_string("/proc/sys/net/ipv4/ip_conntrack_max", p, 0, 0);
 	}
 

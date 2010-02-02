@@ -107,7 +107,7 @@ function verifyFields(focused, quiet)
 	for (i = 0; i < 2; ++i) {
 		if (!v_range('_f_ct_' + i, quiet, 1, 432000)) return 0;
 	}
-	return v_range('_ct_max', quiet, 128, 10240);
+	return 1;
 }
 
 function save()
@@ -176,9 +176,9 @@ function save()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Maximum Connections', name: 'ct_max', type: 'text', maxlen: 5, size: 7,
+	{ title: 'Maximum Connections', name: 'ct_max', type: 'text', maxlen: 6, size: 8,
 		suffix: '&nbsp; <a href="javascript:clicked()" id="count0">[ count current... ]</a> <img src="spin.gif" style="vertical-align:bottom;padding-left:10px;visibility:hidden" id="spin" onclick="clicked()">',
-		value: fixInt(nvram.ct_max || 4096, 128, 10240, 4096) }
+		value: fixInt(nvram.ct_max || 4096, 128, 300000, 4096) }
 ]);
 </script>
 <br>
