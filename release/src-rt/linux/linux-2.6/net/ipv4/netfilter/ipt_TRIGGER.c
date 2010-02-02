@@ -33,17 +33,21 @@
 
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_nat_helper.h>
-#include <net/netfilter/nf_nat_rule.h>
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/nf_conntrack_helper.h>
 #include <net/netfilter/nf_conntrack_expect.h>
 
+#ifdef CONFIG_NF_NAT_NEEDED
+#include <net/netfilter/nf_nat_rule.h>
+#else
+#include <linux/netfilter_ipv4/ip_nat_rule.h>
+#endif
 #include <linux/netfilter_ipv4/ipt_TRIGGER.h>
 
 /* This rwlock protects the main hash table, protocol/helper/expected
- *    registrations, conntrack timers*/
-#define ASSERT_READ_LOCK(x)
-#define ASSERT_WRITE_LOCK(x)
+ * registrations, conntrack timers
+ */
+static DEFINE_RWLOCK(trigger_lock);
 
 #include <linux/list.h>
 
@@ -57,21 +61,15 @@
 ({							\
 	const struct list_head *__i, *__j = NULL;	\
 							\
-	ASSERT_READ_LOCK(head);				\
+	read_lock_bh(&trigger_lock);			\
 	list_for_each(__i, (head))			\
 		if (cmpfn((const type)__i , ## args)) {	\
 			__j = __i;			\
 			break;				\
 		}					\
+	read_unlock_bh(&trigger_lock);			\
 	(type)__j;					\
 })
-
-static inline void
-list_prepend(struct list_head *head, void *new)
-{
-	ASSERT_WRITE_LOCK(head);
-	list_add(new, head);
-}
 
 struct ipt_trigger {
 	struct list_head list;		/* Trigger list */
@@ -84,13 +82,13 @@ struct ipt_trigger {
 	u_int8_t reply;			/* Confirm a reply connection */
 };
 
-struct list_head trigger_list;
+static LIST_HEAD(trigger_list);
 
 static void trigger_refresh(struct ipt_trigger *trig, unsigned long extra_jiffies)
 {
     DEBUGP("%s: mport=%u-%u\n", __FUNCTION__, trig->ports.mport[0], trig->ports.mport[1]);
-	
-    write_lock_bh(&nf_conntrack_lock);
+    NF_CT_ASSERT(trig);
+    write_lock_bh(&trigger_lock);
 
     /* Need del_timer for race avoidance (may already be dying). */
     if (del_timer(&trig->timeout)) {
@@ -98,12 +96,13 @@ static void trigger_refresh(struct ipt_trigger *trig, unsigned long extra_jiffie
 	add_timer(&trig->timeout);
     }
 
-    write_unlock_bh(&nf_conntrack_lock);
+    write_unlock_bh(&trigger_lock);
 }
 
 static void __del_trigger(struct ipt_trigger *trig)
 {
     DEBUGP("%s: mport=%u-%u\n", __FUNCTION__, trig->ports.mport[0], trig->ports.mport[1]);
+    NF_CT_ASSERT(trig);
 
     /* delete from 'trigger_list' */
     list_del(&trig->list);
@@ -116,9 +115,25 @@ static void trigger_timeout(unsigned long ul_trig)
 
     DEBUGP("%s: mport=%u-%u\n", __FUNCTION__, trig->ports.mport[0], trig->ports.mport[1]);
 
-    write_lock_bh(&nf_conntrack_lock);
+    write_lock_bh(&trigger_lock);
     __del_trigger(trig);
-    write_unlock_bh(&nf_conntrack_lock);
+    write_unlock_bh(&trigger_lock);
+}
+
+static void trigger_flush(void)
+{
+    struct list_head *cur_item, *tmp_item;
+
+    DEBUGP("%s\n", __FUNCTION__);
+    write_lock_bh(&trigger_lock);
+    list_for_each_safe(cur_item, tmp_item, &trigger_list) {
+        struct ipt_trigger *trig = (void *)cur_item;
+
+        DEBUGP("%s: list_for_each_safe(): %p.\n", __FUNCTION__, trig);
+        del_timer(&trig->timeout);
+        __del_trigger(trig);
+    }
+    write_unlock_bh(&trigger_lock);
 }
 
 static unsigned int
@@ -127,30 +142,28 @@ add_new_trigger(struct ipt_trigger *trig)
     struct ipt_trigger *new;
 
     DEBUGP("!!!!!!!!!!!! %s !!!!!!!!!!!\n", __FUNCTION__);
-    write_lock_bh(&nf_conntrack_lock);
     new = (struct ipt_trigger *)
-	kmalloc(sizeof(struct ipt_trigger), GFP_ATOMIC);
-
+	kzalloc(sizeof(struct ipt_trigger), GFP_ATOMIC);
     if (!new) {
-	write_unlock_bh(&nf_conntrack_lock);
 	DEBUGP("%s: OOM allocating trigger list\n", __FUNCTION__);
 	return -ENOMEM;
     }
 
-    memset(new, 0, sizeof(*trig));
     INIT_LIST_HEAD(&new->list);
     memcpy(new, trig, sizeof(*trig));
 
+    write_lock_bh(&trigger_lock);
+
     /* add to global table of trigger */
-    list_prepend(&trigger_list, &new->list);
+    list_add(&new->list, &trigger_list);
     /* add and start timer if required */
     init_timer(&new->timeout);
     new->timeout.data = (unsigned long)new;
     new->timeout.function = trigger_timeout;
     new->timeout.expires = jiffies + (TRIGGER_TIMEOUT * HZ);
     add_timer(&new->timeout);
-	    
-    write_unlock_bh(&nf_conntrack_lock);
+
+    write_unlock_bh(&trigger_lock);
 
     return 0;
 }
@@ -240,7 +253,7 @@ trigger_in(struct sk_buff **pskb,
 	return NF_ACCEPT;	/* Accept it, or the imcoming packet could be 
 				   dropped in the FORWARD chain */
     }
- 
+
     return IPT_CONTINUE;	/* Our job is the interception. */
 }
 
@@ -256,8 +269,9 @@ trigger_dnat(struct sk_buff **pskb,
     struct tcphdr *tcph = (void *)iph + iph->ihl*4;	/* Might be TCP, UDP */
     struct nf_conn *ct;
     enum ip_conntrack_info ctinfo;
-    struct nf_nat_range newrange;
+    struct nf_nat_multi_range_compat newrange;
 
+    NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING);
     /* Check if the trigger-ed range has already existed in 'trigger_list'. */
     found = LIST_FIND(&trigger_list, trigger_in_matched,
 	    struct ipt_trigger *, iph->protocol, ntohs(tcph->dest));
@@ -268,16 +282,20 @@ trigger_dnat(struct sk_buff **pskb,
     DEBUGP("############# %s ############\n", __FUNCTION__);
     found->reply = 1;	/* Confirm there has been a reply connection. */
     ct = nf_ct_get(*pskb, &ctinfo);
+    NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW));
+
+    DEBUGP("%s: got ", __FUNCTION__);
+    NF_CT_DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 
     /* Alter the destination of imcoming packet. */
-    newrange = ((struct nf_nat_range)
-	    { IP_NAT_RANGE_MAP_IPS,
+    newrange = ((struct nf_nat_multi_range_compat)
+	    { 1, { { IP_NAT_RANGE_MAP_IPS,
 	             found->srcip, found->srcip,
 	             { 0 }, { 0 }
-	           });
+	           } } });
 
     /* Hand modified range to generic setup. */
-    return nf_nat_setup_info(ct, &newrange, hooknum);
+    return nf_nat_setup_info(ct, &newrange.range[0], hooknum);
 }
 
 static unsigned int
@@ -357,13 +375,12 @@ checkentry(const struct xt_tgchk_param *par)
 #else
 	const struct ipt_trigger_info *info = targinfo;
 #endif
-	struct ipt_trigger *trig;
 
 	if ((strcmp(tablename, "mangle") == 0)) {
 		DEBUGP("trigger_check: bad table `%s'.\n", tablename);
 		return 0;
 	}
-	if (hook_mask & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD) | (1 << NF_IP_LOCAL_OUT) | (1 << NF_IP_POST_ROUTING))) {
+	if (hook_mask & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD))) {
 		DEBUGP("trigger_check: bad hooks %x.\n", hook_mask);
 		return 0;
 	}
@@ -375,18 +392,13 @@ checkentry(const struct xt_tgchk_param *par)
 	}
 	if (info->type == IPT_TRIGGER_OUT) {
 	    if (!info->ports.mport[0] || !info->ports.rport[0]) {
-		DEBUGP("trigger_check: Try 'iptbles -j TRIGGER -h' for help.\n");
+		DEBUGP("trigger_check: Try 'iptables -j TRIGGER -h' for help.\n");
 		return 0;
 	    }
 	}
 
 	/* Empty the 'trigger_list' */
-
-	list_for_each_entry(trig, &trigger_list, list) {
-	    DEBUGP("%s: list_for_each_entry(): %p.\n", __FUNCTION__, trig);
-	    del_timer(&trig->timeout);
-	    __del_trigger(trig);
-	}
+	trigger_flush();
 
 	return 1;
 }
@@ -408,6 +420,7 @@ static int __init init(void)
 static void __exit fini(void)
 {
 	xt_unregister_target(&redirect_reg);
+	trigger_flush();
 }
 
 module_init(init);
