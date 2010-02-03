@@ -111,11 +111,6 @@ void start_usb(void)
 		}
 
 		if (nvram_get_int("usb_printer")) {
-#ifdef LINUX26
-			umask(0);
-			mkdir("/dev/usb", 0777);
-			mknod("/dev/usb/lp0", S_IRWXU | S_IFCHR, makedev(180, 0));
-#endif
 			symlink("/dev/usb", "/dev/printers");
 			modprobe(USBPRINTER_MOD);
 
