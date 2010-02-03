@@ -24,9 +24,12 @@
 #define ACT_CHGRP			6	/* chgrp <...> */
 #define ACT_CHOWN			7	/* chown <...> */
 #define ACT_SYMLINK			8	/* symlink <...> */
-#define ACT_NEXT_EVENT		9	/* next */
+#define ACT_NEXT_EVENT			9	/* next */
 #define ACT_NEXT_IF_FAILED		10	/* next_if_failed */
 #define ACT_SETENV			11	/* setenv <...> */
+#define ACT_REMOVE			12	/* remove <...> */
+#define ACT_DEBUG			13	/* debug */
+#define ACT_FLAG_NOTHROTTLE		14	/* sets 'nothrottle' flag */
 
 #define EVAL_MATCH			1
 #define EVAL_NOT_MATCH			0
@@ -41,6 +44,10 @@
 #define STATUS_VALUE			2	/* just about anything */
 #define STATUS_INITIATOR		3	/* ',' for next cond, '{' for block*/
 #define STATUS_ACTION			4	/* viz ACT_* and '}' for end of block */
+
+#define FLAG_UNSET			0
+#define FLAG_ALL			0xffffffff
+#define FLAG_NOTHROTTLE			1	/* We want this rule to ignore max_children limit */
 
 struct key_rec_t {
 	char *key;
@@ -65,6 +72,8 @@ struct rule_t {
 	
 	struct action_t *actions;
 	int actions_c;
+
+	unsigned int flags;
 };
 
 struct rules_t {
@@ -72,8 +81,10 @@ struct rules_t {
 	int rules_c;
 };
 
+int rule_condition_eval(struct hotplug2_event_t *, struct condition_t *);
 int rule_execute(struct hotplug2_event_t *, struct rule_t *);
+void rule_flags(struct rule_t *);
 void rules_free(struct rules_t *);
-struct rules_t *rules_from_config(char *);
+struct rules_t *rules_from_config(char *, struct rules_t *);
 
 #endif /* ifndef RULES_H*/

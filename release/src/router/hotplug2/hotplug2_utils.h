@@ -6,14 +6,16 @@
 *                 |_|            |___/                                        *
 \*****************************************************************************/
 
-#ifndef FILEMAP_UTILS_H
-#define FILEMAP_UTILS_H 1
-struct filemap_t {
-	int fd;
-	off_t size;
-	void *map;
-};
+#ifndef HOTPLUG2_UTILS_H
+#define HOTPLUG2_UTILS_H 1
 
-int map_file(const char *, struct filemap_t *);
-int unmap_file(struct filemap_t *);
+#include "hotplug2.h"
+
+#define NETLINK_UNDEFINED	0
+#define NETLINK_CONNECT		1
+#define NETLINK_BIND		2
+
+inline event_seqnum_t get_kernel_seqnum();
+inline int init_netlink_socket(int);
+
 #endif

@@ -34,7 +34,7 @@
 #endif
 
 #ifndef O_NOATIME
-#define O_NOATIME					01000000
+#define O_NOATIME			01000000
 #endif
 
 #define ERROR(action, fmt, arg...)	fprintf(stderr, "[%s]: " fmt"\n", action, ##arg);
@@ -45,9 +45,9 @@
 #define DBG(action, fmt, arg...)
 #endif
 
+#define HOTPLUG2_MSG_BACKLOG	64
 #define UEVENT_BUFFER_SIZE		2048
-#define HOTPLUG2_POLL_INTERVAL		20000
-#define HOTPLUG2_THROTTLE_INTERVAL		10000
+#define HOTPLUG2_THROTTLE_INTERVAL	50
 #define HOTPLUG2_RULE_PATH		"/etc/hotplug2.rules"
 
 #define ACTION_ADD			0
@@ -76,6 +76,7 @@ struct hotplug2_event_t {
 	int env_vars_c;
 	char *plain;
 	int plain_s;
+	struct hotplug2_event_t *next;
 };
 
 struct options_t {
