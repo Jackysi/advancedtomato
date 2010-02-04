@@ -448,9 +448,13 @@ v:
 	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC="VPN" USB=""
 	@$(MAKE) all
 
-## Make Mips32r2 Extras build (Asus RT-N16)
+## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
 r2m:
-	@$(MAKE) m MIPS32=r2 BCM57=y
+	@$(MAKE) m MIPS32=r2 BCM57=n SAMBA3=y
+
+## Make Mips32r2 VPN build
+r2e:
+	@$(MAKE) e MIPS32=r2 BCM57=n SAMBA3=y
 
 ## Make Mips32r2 "no USB" build (Asus RT-N12)
 r2s:
