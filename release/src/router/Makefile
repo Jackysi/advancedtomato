@@ -61,7 +61,15 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
-obj-$(TCONFIG_SAMBASRV) += samba
+ifeq ($(TCONFIG_SAMBASRV),y)
+ifeq ($(TCONFIG_SAMBA3),y)
+NEED_SAMBA3 = y
+else
+NEED_SAMBA2 = y
+endif
+endif
+obj-$(NEED_SAMBA2) += samba
+obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 
 obj-y += miniupnpd
@@ -559,6 +567,7 @@ usbmodeswitch-install:
 p910nd:
 sendmail:
 samba:
+samba3:
 
 nvram: shared
 

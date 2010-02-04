@@ -62,6 +62,11 @@ config TCONFIG_SAMBASRV
 	depends on TCONFIG_USB
 	default y
 
+config TCONFIG_SAMBA3
+       bool "  Compile with Samba 3"
+       depends on TCONFIG_SAMBASRV
+       default n
+
 config TCONFIG_USB_EXTRAS
 	bool "Additional modules and utilities"
 	depends on TCONFIG_USB

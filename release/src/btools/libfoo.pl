@@ -419,6 +419,7 @@ genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 
 #!!TB - Samba
 genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
+genSO("${root}/usr/lib/libbigballofmud.so", "${router}/samba3/source/bin/libbigballofmud.a");
 #!!TB - FTP SSL
 genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 
