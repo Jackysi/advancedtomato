@@ -180,7 +180,57 @@ void _fLog(char *fmt, ...);
 #define DEBUGADD( level, body ) (0)
 #define DEBUGADDC( dbgc_class, level, body ) (0)
 
-#else
+#else /* NO_LOG - AR7 */
+
+#ifdef NDEBUG
+
+#define DEBUGLVL( level ) \
+  ( (0 == (level)) && \
+     ((DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level))||  \
+     (!DEBUGLEVEL_CLASS_ISSET[ DBGC_CLASS ] && \
+      DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
+   && dbghdr( level, __FILE__, FUNCTION_MACRO, (__LINE__) ) )
+
+
+#define DEBUGLVLC( dbgc_class, level ) \
+  ( (0 == (level)) && \
+     ((DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))||  \
+     (!DEBUGLEVEL_CLASS_ISSET[ dbgc_class ] && \
+      DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
+   && dbghdr( level, __FILE__, FUNCTION_MACRO, (__LINE__) ) )
+
+
+#define DEBUG( level, body ) \
+  (void)( (0 == (level)) && \
+           ((DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level))||  \
+           (!DEBUGLEVEL_CLASS_ISSET[ DBGC_CLASS ] && \
+            DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
+       && (dbghdr( level, __FILE__, FUNCTION_MACRO, (__LINE__) )) \
+       && (dbgtext body) )
+
+#define DEBUGC( dbgc_class, level, body ) \
+  (void)( (0 == (level)) && \
+           ((DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))||  \
+           (!DEBUGLEVEL_CLASS_ISSET[ dbgc_class ] && \
+	    DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
+       && (dbghdr( level, __FILE__, FUNCTION_MACRO, (__LINE__) )) \
+       && (dbgtext body) )
+
+#define DEBUGADD( level, body ) \
+  (void)( (0 == (level)) && \
+           ((DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level))||  \
+           (!DEBUGLEVEL_CLASS_ISSET[ DBGC_CLASS ] && \
+            DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
+       && (dbgtext body) )
+
+#define DEBUGADDC( dbgc_class, level, body ) \
+  (void)( (0 == (level)) && \
+          ((DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))||  \
+           (!DEBUGLEVEL_CLASS_ISSET[ dbgc_class ] && \
+            DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
+       && (dbgtext body) )
+
+#else /* NDEBUG */
 
 #define DEBUGLVL( level ) \
   ( ((level) <= MAX_DEBUG_LEVEL) && \
@@ -228,7 +278,9 @@ void _fLog(char *fmt, ...);
             DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
        && (dbgtext body) )
 
-#endif /* AR7 */
+#endif /* NDEBUG */
+
+#endif /* NO_LOG - AR7 */
 
 
 /* Print a separator to the debug log. */

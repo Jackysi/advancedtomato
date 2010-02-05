@@ -49,7 +49,7 @@ static char *get_socket_addr(int fd)
 	}
 	
 	if (getsockname(fd, &sa, &length) < 0) {
-		DEBUG(0,("getsockname failed. Error was %s\n", strerror(errno) ));
+		DEBUG(1,("getsockname failed. Error was %s\n", strerror(errno) ));
 		return addr_buf;
 	}
 	
@@ -68,7 +68,7 @@ static int get_socket_port(int fd)
 		return -1;
 	
 	if (getsockname(fd, &sa, &length) < 0) {
-		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
+		DEBUG(1,("getpeername failed. Error was %s\n", strerror(errno) ));
 		return -1;
 	}
 	
@@ -101,7 +101,7 @@ struct in_addr *client_inaddr(struct sockaddr *sa)
 	socklen_t  length = sizeof(*sa);
 	
 	if (getpeername(client_fd, sa, &length) < 0) {
-		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
+		DEBUG(1,("getpeername failed. Error was %s\n", strerror(errno) ));
 		return NULL;
 	}
 	
@@ -353,7 +353,7 @@ ssize_t read_data_until(int fd,char *buffer,size_t N, const struct timeval *endt
 			selrtn = sys_select_intr(fd+1, &r_fds, NULL, NULL, &timeout);
 			if (selrtn == -1) {
 				/* something is wrong. Maybe the socket is dead? */
-				DEBUG(0,("read_data_until: select error = %s.\n", strerror(errno) ));
+				DEBUG(1,("read_data_until: select error = %s.\n", strerror(errno) ));
 				smb_read_error = READ_ERROR;
 				return -1;
 			}
@@ -379,7 +379,7 @@ ssize_t read_data_until(int fd,char *buffer,size_t N, const struct timeval *endt
 				/* Non-blocking socket with no data available. Try select again. */
 				continue;
 			}
-			DEBUG(0,("read_data_until: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
+			DEBUG(1,("read_data_until: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
 			smb_read_error = READ_ERROR;
 			return -1;
 		}
@@ -428,10 +428,10 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 			if (readret == -1) {
 				if (fd == client_fd) {
 					/* Try and give an error message saying what client failed. */
-					DEBUG(0,("read_socket_with_timeout: client %s read error = %s.\n",
+					DEBUG(1,("read_socket_with_timeout: client %s read error = %s.\n",
 						client_ip_string, strerror(errno) ));
 				} else {
-					DEBUG(0,("read_socket_with_timeout: read error = %s.\n", strerror(errno) ));
+					DEBUG(1,("read_socket_with_timeout: read error = %s.\n", strerror(errno) ));
 				}
 				smb_read_error = READ_ERROR;
 				return -1;
@@ -462,10 +462,10 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 			/* something is wrong. Maybe the socket is dead? */
 			if (fd == client_fd) {
 				/* Try and give an error message saying what client failed. */
-				DEBUG(0,("read_socket_with_timeout: timeout read for client %s. select error = %s.\n",
+				DEBUG(1,("read_socket_with_timeout: timeout read for client %s. select error = %s.\n",
 					client_ip_string, strerror(errno) ));
 			} else {
-				DEBUG(0,("read_socket_with_timeout: timeout read. select error = %s.\n", strerror(errno) ));
+				DEBUG(1,("read_socket_with_timeout: timeout read. select error = %s.\n", strerror(errno) ));
 			}
 			smb_read_error = READ_ERROR;
 			return -1;
@@ -491,10 +491,10 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 			/* the descriptor is probably dead */
 			if (fd == client_fd) {
 				/* Try and give an error message saying what client failed. */
-				DEBUG(0,("read_socket_with_timeout: timeout read to client %s. read error = %s.\n",
+				DEBUG(1,("read_socket_with_timeout: timeout read to client %s. read error = %s.\n",
 					client_ip_string, strerror(errno) ));
 			} else {
-				DEBUG(0,("read_socket_with_timeout: timeout read. read error = %s.\n", strerror(errno) ));
+				DEBUG(1,("read_socket_with_timeout: timeout read. read error = %s.\n", strerror(errno) ));
 			}
 			smb_read_error = READ_ERROR;
 			return -1;
@@ -530,10 +530,10 @@ ssize_t read_data(int fd,char *buffer,size_t N)
 		if (ret == -1) {
 			if (fd == client_fd) {
 				/* Try and give an error message saying what client failed. */
-				DEBUG(0,("read_data: read failure for %d bytes to client %s. Error = %s\n",
+				DEBUG(1,("read_data: read failure for %d bytes to client %s. Error = %s\n",
 					(int)(N - total), client_ip_string, strerror(errno) ));
 			} else {
-				DEBUG(0,("read_data: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
+				DEBUG(1,("read_data: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
 			}
 			smb_read_error = READ_ERROR;
 			return -1;
@@ -558,10 +558,10 @@ ssize_t write_data(int fd, const char *buffer, size_t N)
 		if (ret == -1) {
 			if (fd == client_fd) {
 				/* Try and give an error message saying what client failed. */
-				DEBUG(0,("write_data: write failure in writing to client %s. Error %s\n",
+				DEBUG(1,("write_data: write failure in writing to client %s. Error %s\n",
 					client_ip_string, strerror(errno) ));
 			} else {
-				DEBUG(0,("write_data: write failure. Error = %s\n", strerror(errno) ));
+				DEBUG(1,("write_data: write failure. Error = %s\n", strerror(errno) ));
 			}
 			return -1;
 		}
@@ -688,7 +688,7 @@ BOOL receive_smb_raw(int fd, char *buffer, unsigned int timeout)
 	 */
 
 	if (len > (BUFFER_SIZE + LARGE_WRITEX_HDR_SIZE)) {
-		DEBUG(0,("Invalid packet length! (%lu bytes).\n",(unsigned long)len));
+		DEBUG(1,("Invalid packet length! (%lu bytes).\n",(unsigned long)len));
 		if (len > BUFFER_SIZE + (SAFETY_MARGIN/2)) {
 
 			/*
@@ -738,7 +738,7 @@ BOOL receive_smb(int fd, char *buffer, unsigned int timeout)
 
 	/* Check the incoming SMB signature. */
 	if (!srv_check_sign_mac(buffer, True)) {
-		DEBUG(0, ("receive_smb: SMB Signature verification failed on incoming packet!\n"));
+		DEBUG(1, ("receive_smb: SMB Signature verification failed on incoming packet!\n"));
 		if (smb_read_error == 0)
 			smb_read_error = READ_BAD_SIG;
 		return False;
@@ -765,7 +765,7 @@ BOOL send_smb(int fd, char *buffer)
 	while (nwritten < len) {
 		ret = write_data(fd,buffer+nwritten,len - nwritten);
 		if (ret <= 0) {
-			DEBUG(0,("Error writing %d bytes to client. %d. (%s)\n",
+			DEBUG(1,("Error writing %d bytes to client. %d. (%s)\n",
 				(int)len,(int)ret, strerror(errno) ));
 			return False;
 		}
@@ -795,7 +795,7 @@ int open_socket_in( int type, int port, int dlevel, uint32 socket_addr, BOOL reb
 
 	res = socket( AF_INET, type, 0 );
 	if( res == -1 ) {
-		if( DEBUGLVL(0) ) {
+		if( DEBUGLVL(1) ) {
 			dbgtext( "open_socket_in(): socket() call failed: " );
 			dbgtext( "%s\n", strerror( errno ) );
 		}
@@ -806,7 +806,7 @@ int open_socket_in( int type, int port, int dlevel, uint32 socket_addr, BOOL reb
 	{
 		int val = rebind ? 1 : 0;
 		if( setsockopt(res,SOL_SOCKET,SO_REUSEADDR,(char *)&val,sizeof(val)) == -1 ) {
-			if( DEBUGLVL( dlevel ) ) {
+			if( DEBUGLVL( 1 ) ) {
 				dbgtext( "open_socket_in(): setsockopt: " );
 				dbgtext( "SO_REUSEADDR = %s ", val?"True":"False" );
 				dbgtext( "on port %d failed ", port );
@@ -815,7 +815,7 @@ int open_socket_in( int type, int port, int dlevel, uint32 socket_addr, BOOL reb
 		}
 #ifdef SO_REUSEPORT
 		if( setsockopt(res,SOL_SOCKET,SO_REUSEPORT,(char *)&val,sizeof(val)) == -1 ) {
-			if( DEBUGLVL( dlevel ) ) {
+			if( DEBUGLVL( 1 ) ) {
 				dbgtext( "open_socket_in(): setsockopt: ");
 				dbgtext( "SO_REUSEPORT = %s ", val?"True":"False" );
 				dbgtext( "on port %d failed ", port );
@@ -827,7 +827,7 @@ int open_socket_in( int type, int port, int dlevel, uint32 socket_addr, BOOL reb
 
 	/* now we've got a socket - we need to bind it */
 	if( bind( res, (struct sockaddr *)&sock, sizeof(sock) ) == -1 ) {
-		if( DEBUGLVL(dlevel) && (port == SMB_PORT1 || port == SMB_PORT2 || port == NMB_PORT) ) {
+		if( DEBUGLVL(1) && (port == SMB_PORT1 || port == SMB_PORT2 || port == NMB_PORT) ) {
 			dbgtext( "bind failed on port %d ", port );
 			dbgtext( "socket_addr = %s.\n", inet_ntoa( sock.sin_addr ) );
 			dbgtext( "Error = %s\n", strerror(errno) );
@@ -855,7 +855,7 @@ int open_socket_out(int type, struct in_addr *addr, int port ,int timeout)
 	/* create a socket to write to */
 	res = socket(PF_INET, type, 0);
 	if (res == -1) {
-                DEBUG(0,("socket error (%s)\n", strerror(errno)));
+                DEBUG(1,("socket error (%s)\n", strerror(errno)));
 		return -1;
 	}
 
@@ -1112,7 +1112,7 @@ static BOOL matchname(char *remotehost,struct in_addr  addr)
 	int     i;
 	
 	if ((hp = sys_gethostbyname(remotehost)) == 0) {
-		DEBUG(0,("sys_gethostbyname(%s): lookup failure.\n", remotehost));
+		DEBUG(1,("sys_gethostbyname(%s): lookup failure.\n", remotehost));
 		return False;
 	} 
 
@@ -1126,7 +1126,7 @@ static BOOL matchname(char *remotehost,struct in_addr  addr)
 	
 	if (!strequal(remotehost, hp->h_name)
 	    && !strequal(remotehost, "localhost")) {
-		DEBUG(0,("host name/name mismatch: %s != %s\n",
+		DEBUG(1,("host name/name mismatch: %s != %s\n",
 			 remotehost, hp->h_name));
 		return False;
 	}
@@ -1143,7 +1143,7 @@ static BOOL matchname(char *remotehost,struct in_addr  addr)
 	 * it, but that could be dangerous, too.
 	 */
 	
-	DEBUG(0,("host name/address mismatch: %s != %s\n",
+	DEBUG(1,("host name/address mismatch: %s != %s\n",
 		 inet_ntoa(addr), hp->h_name));
 	return False;
 }
@@ -1190,7 +1190,7 @@ char *get_peer_name(int fd, BOOL force_lookup)
 	} else {
 		pstrcpy(name_buf,(char *)hp->h_name);
 		if (!matchname(name_buf, addr)) {
-			DEBUG(0,("Matchname failed on %s %s\n",name_buf,p));
+			DEBUG(1,("Matchname failed on %s %s\n",name_buf,p));
 			pstrcpy(name_buf,"UNKNOWN");
 		}
 	}
@@ -1226,7 +1226,7 @@ char *get_peer_addr(int fd)
 	}
 	
 	if (getpeername(fd, &sa, &length) < 0) {
-		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
+		DEBUG(1,("getpeername failed. Error was %s\n", strerror(errno) ));
 		return addr_buf;
 	}
 	
@@ -1262,26 +1262,26 @@ int create_pipe_sock(const char *socket_dir,
 		if (errno == ENOENT) {
 			/* Create directory */
 			if (mkdir(socket_dir, dir_perms) == -1) {
-				DEBUG(0, ("error creating socket directory "
+				DEBUG(1, ("error creating socket directory "
 					"%s: %s\n", socket_dir, 
 					strerror(errno)));
 				goto out_umask;
 			}
 		} else {
-			DEBUG(0, ("lstat failed on socket directory %s: %s\n",
+			DEBUG(1, ("lstat failed on socket directory %s: %s\n",
 				socket_dir, strerror(errno)));
 			goto out_umask;
 		}
 	} else {
 		/* Check ownership and permission on existing directory */
 		if (!S_ISDIR(st.st_mode)) {
-			DEBUG(0, ("socket directory %s isn't a directory\n",
+			DEBUG(1, ("socket directory %s isn't a directory\n",
 				socket_dir));
 			goto out_umask;
 		}
 		if ((st.st_uid != sec_initial_uid()) || 
 				((st.st_mode & 0777) != dir_perms)) {
-			DEBUG(0, ("invalid permissions on socket directory "
+			DEBUG(1, ("invalid permissions on socket directory "
 				"%s\n", socket_dir));
 			goto out_umask;
 		}
@@ -1304,13 +1304,13 @@ int create_pipe_sock(const char *socket_dir,
 	safe_strcpy(sunaddr.sun_path, path, sizeof(sunaddr.sun_path)-1);
         
 	if (bind(sock, (struct sockaddr *)&sunaddr, sizeof(sunaddr)) == -1) {
-		DEBUG(0, ("bind failed on pipe socket %s: %s\n", path,
+		DEBUG(1, ("bind failed on pipe socket %s: %s\n", path,
 			strerror(errno)));
 		goto out_close;
 	}
         
 	if (listen(sock, 5) == -1) {
-		DEBUG(0, ("listen failed on pipe socket %s: %s\n", path,
+		DEBUG(1, ("listen failed on pipe socket %s: %s\n", path,
 			strerror(errno)));
 		goto out_close;
 	}
@@ -1326,7 +1326,7 @@ out_umask:
 	return -1;
 
 #else
-        DEBUG(0, ("create_pipe_sock: No Unix sockets on this system\n"));
+        DEBUG(1, ("create_pipe_sock: No Unix sockets on this system\n"));
         return -1;
 #endif /* HAVE_UNIXSOCKET */
 }

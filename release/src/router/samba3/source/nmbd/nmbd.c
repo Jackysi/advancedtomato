@@ -89,7 +89,7 @@ void _fDebug(char *fmt, ...)
 
 static void terminate(void)
 {
-	DEBUG(0,("Got SIGTERM: going down...\n"));
+	DEBUG(1,("Got SIGTERM: going down...\n"));
   
 	/* Write out wins.dat file if samba is a WINS server */
 	wins_write_database(0,False);
@@ -592,7 +592,7 @@ static void process(void)
 		 */
 
 		if(reload_after_sighup) {
-			DEBUG( 0, ( "Got SIGHUP dumping debug info.\n" ) );
+			DEBUG( 1, ( "Got SIGHUP dumping debug info.\n" ) );
 			msg_reload_nmbd_services(MSG_SMB_CONF_UPDATED,
 						 pid_to_procid(0), (void*) &no_subnets, 0);
 			if(no_subnets)
@@ -730,8 +730,8 @@ static BOOL open_sockets(BOOL isdaemon, int port)
 
 	reopen_logs();
 
-	DEBUG( 0, ( "Netbios nameserver version %s started.\n", SAMBA_VERSION_STRING) );
-	DEBUGADD( 0, ( "%s\n", COPYRIGHT_STARTUP_MESSAGE ) );
+	DEBUG( 1, ( "Netbios nameserver version %s started.\n%s\n",
+		SAMBA_VERSION_STRING, COPYRIGHT_STARTUP_MESSAGE ) );
 
 	if ( !reload_nmbd_services(False) )
 		return(-1);

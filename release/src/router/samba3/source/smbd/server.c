@@ -240,13 +240,13 @@ static BOOL allowable_number_of_smbd_processes(void)
 		TDB_CONTEXT *tdb = conn_tdb_ctx();
 		int32 val;
 		if (!tdb) {
-			DEBUG(0,("allowable_number_of_smbd_processes: can't open connection tdb.\n" ));
+			DEBUG(1,("allowable_number_of_smbd_processes: can't open connection tdb.\n" ));
 			return False;
 		}
 
 		val = tdb_fetch_int32(tdb, "INFO/total_smbds");
 		if (val == -1 && (tdb_error(tdb) != TDB_ERR_NOEXIST)) {
-			DEBUG(0,("allowable_number_of_smbd_processes: can't fetch INFO/total_smbds. Error %s\n",
+			DEBUG(1,("allowable_number_of_smbd_processes: can't fetch INFO/total_smbds. Error %s\n",
 				tdb_errorstr(tdb) ));
 			return False;
 		}
@@ -320,7 +320,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 			const char *ptr;
 
 			if(ifip == NULL) {
-				DEBUG(0,("open_sockets_smbd: interface %d has NULL IP address !\n", i));
+				DEBUG(1,("open_sockets_smbd: interface %d has NULL IP address !\n", i));
 				continue;
 			}
 
@@ -341,7 +341,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				set_blocking(s,False); 
  
 				if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
-					DEBUG(0,("listen: %s\n",strerror(errno)));
+					DEBUG(1,("listen: %s\n",strerror(errno)));
 					close(s);
 					return False;
 				}
@@ -350,7 +350,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 
 				num_sockets++;
 				if (num_sockets >= FD_SETSIZE) {
-					DEBUG(0,("open_sockets_smbd: Too many sockets to bind to\n"));
+					DEBUG(1,("open_sockets_smbd: Too many sockets to bind to\n"));
 					return False;
 				}
 			}
@@ -381,7 +381,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 			set_blocking(s,False); 
  
 			if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
-				DEBUG(0,("open_sockets_smbd: listen: %s\n",
+				DEBUG(1,("open_sockets_smbd: listen: %s\n",
 					 strerror(errno)));
 				close(s);
 				return False;
@@ -394,7 +394,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 			num_sockets++;
 
 			if (num_sockets >= FD_SETSIZE) {
-				DEBUG(0,("open_sockets_smbd: Too many sockets to bind to\n"));
+				DEBUG(1,("open_sockets_smbd: Too many sockets to bind to\n"));
 				return False;
 			}
 		}
@@ -474,7 +474,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				continue;
 			
 			if (smbd_server_fd() == -1) {
-				DEBUG(0,("open_sockets_smbd: accept: %s\n",
+				DEBUG(1,("open_sockets_smbd: accept: %s\n",
 					 strerror(errno)));
 				continue;
 			}
@@ -512,7 +512,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 				set_need_random_reseed();
 				/* tdb needs special fork handling - remove CLEAR_IF_FIRST flags */
 				if (tdb_reopen_all(1) == -1) {
-					DEBUG(0,("tdb_reopen_all failed.\n"));
+					DEBUG(1,("tdb_reopen_all failed.\n"));
 					smb_panic("tdb_reopen_all failed.");
 				}
 
@@ -857,7 +857,7 @@ void build_options(BOOL screen);
 	}
 
 	if (log_stdout && Fork) {
-		DEBUG(0,("ERROR: Can't log to stdout (-S) unless daemon is in foreground (-F) or interactive (-i)\n"));
+		DEBUG(1,("ERROR: Can't log to stdout (-S) unless daemon is in foreground (-F) or interactive (-i)\n"));
 		exit(1);
 	}
 
@@ -916,8 +916,8 @@ void build_options(BOOL screen);
 
 	reopen_logs();
 
-	DEBUG(0,( "smbd version %s started.\n", SAMBA_VERSION_STRING));
-	DEBUGADD( 0, ( "%s\n", COPYRIGHT_STARTUP_MESSAGE ) );
+	DEBUG(1,( "smbd version %s started.\n%s\n",
+		SAMBA_VERSION_STRING, COPYRIGHT_STARTUP_MESSAGE ));
 
 	DEBUG(2,("uid=%d gid=%d euid=%d egid=%d\n",
 		 (int)getuid(),(int)getgid(),(int)geteuid(),(int)getegid()));
@@ -928,7 +928,7 @@ void build_options(BOOL screen);
 #endif
 
 	if (sizeof(uint16) < 2 || sizeof(uint32) < 4) {
-		DEBUG(0,("ERROR: Samba is not configured correctly for the word size on your machine\n"));
+		DEBUG(1,("ERROR: Samba is not configured correctly for the word size on your machine\n"));
 		exit(1);
 	}
 
@@ -952,7 +952,7 @@ void build_options(BOOL screen);
 
 	if (!is_daemon && !is_a_socket(0)) {
 		if (!interactive)
-			DEBUG(0,("standard input is not a socket, assuming -D option\n"));
+			DEBUG(1,("standard input is not a socket, assuming -D option\n"));
 
 		/*
 		 * Setting is_daemon here prevents us from eventually calling
@@ -999,12 +999,12 @@ void build_options(BOOL screen);
 	/* Fail gracefully if we can't open secrets.tdb */
 
 	if (!secrets_init()) {
-		DEBUG(0, ("ERROR: smbd can not open secrets.tdb\n"));
+		DEBUG(1, ("ERROR: smbd can not open secrets.tdb\n"));
 		exit(1);
 	}
 
 	if(!get_global_sam_sid()) {
-		DEBUG(0,("ERROR: Samba cannot create a SAM SID.\n"));
+		DEBUG(1,("ERROR: Samba cannot create a SAM SID.\n"));
 		exit(1);
 	}
 
@@ -1035,7 +1035,7 @@ void build_options(BOOL screen);
 #endif
 
 	if (!init_guest_info()) {
-		DEBUG(0,("ERROR: failed to setup guest info.\n"));
+		DEBUG(1,("ERROR: failed to setup guest info.\n"));
 		return -1;
 	}
 
@@ -1082,7 +1082,7 @@ void build_options(BOOL screen);
 	reload_services(True);
 
 	if (!init_account_policy()) {
-		DEBUG(0,("Could not open account policy tdb.\n"));
+		DEBUG(1,("Could not open account policy tdb.\n"));
 		exit(1);
 	}
 

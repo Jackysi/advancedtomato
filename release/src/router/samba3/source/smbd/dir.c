@@ -151,7 +151,7 @@ static void dptr_idleoldest(void)
 		;
 
 	if(!dptr) {
-		DEBUG(0,("No dptrs available to idle ?\n"));
+		DEBUG(1,("No dptrs available to idle ?\n"));
 		return;
 	}
 
@@ -246,7 +246,7 @@ static void dptr_close_internal(struct dptr_struct *dptr)
 	 */
 
 	if(bitmap_query( dptr_bmap, dptr->dnum - 1) != True) {
-		DEBUG(0,("dptr_close_internal : Error - closing dnum = %d and bitmap not set !\n",
+		DEBUG(1,("dptr_close_internal : Error - closing dnum = %d and bitmap not set !\n",
 			dptr->dnum ));
 	}
 
@@ -287,7 +287,7 @@ void dptr_close(int *key)
 	dptr = dptr_get(*key, True);
 
 	if (!dptr) {
-		DEBUG(0,("Invalid key %d given to dptr_close\n", *key));
+		DEBUG(1,("Invalid key %d given to dptr_close\n", *key));
 		return;
 	}
 
@@ -354,7 +354,7 @@ static void dptr_close_oldest(BOOL old)
 		;
 
 	if(!dptr) {
-		DEBUG(0,("No old dptrs available to close oldest ?\n"));
+		DEBUG(1,("No old dptrs available to close oldest ?\n"));
 		return;
 	}
 
@@ -415,7 +415,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 
 	dptr = SMB_MALLOC_P(struct dptr_struct);
 	if(!dptr) {
-		DEBUG(0,("malloc fail in dptr_create.\n"));
+		DEBUG(1,("malloc fail in dptr_create.\n"));
 		CloseDir(dir_hnd);
 		return -1;
 	}
@@ -444,7 +444,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 			/* Now try again... */
 			dptr->dnum = bitmap_find(dptr_bmap, 0);
 			if(dptr->dnum == -1 || dptr->dnum > 254) {
-				DEBUG(0,("dptr_create: returned %d: Error - all old dirptrs in use ?\n", dptr->dnum));
+				DEBUG(1,("dptr_create: returned %d: Error - all old dirptrs in use ?\n", dptr->dnum));
 				SAFE_FREE(dptr);
 				CloseDir(dir_hnd);
 				return -1;
@@ -474,7 +474,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 			dptr->dnum = bitmap_find(dptr_bmap, 255);
 
 			if(dptr->dnum == -1 || dptr->dnum < 255) {
-				DEBUG(0,("dptr_create: returned %d: Error - all new dirptrs in use ?\n", dptr->dnum));
+				DEBUG(1,("dptr_create: returned %d: Error - all new dirptrs in use ?\n", dptr->dnum));
 				SAFE_FREE(dptr);
 				CloseDir(dir_hnd);
 				return -1;

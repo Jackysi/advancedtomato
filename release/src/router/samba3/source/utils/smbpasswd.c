@@ -289,7 +289,7 @@ static int process_root(int local_flags)
 	if (local_flags & LOCAL_SET_LDAP_ADMIN_PW) {
 		char *ldap_admin_dn = lp_ldap_admin_dn();
 		if ( ! *ldap_admin_dn ) {
-			DEBUG(0,("ERROR: 'ldap admin dn' not defined! Please check your smb.conf\n"));
+			DEBUG(1,("ERROR: 'ldap admin dn' not defined! Please check your smb.conf\n"));
 			goto done;
 		}
 
@@ -299,14 +299,14 @@ static int process_root(int local_flags)
 			fstrcpy(ldap_secret, new_passwd);
 		}
 		if (!store_ldap_admin_pw(ldap_secret)) {
-			DEBUG(0,("ERROR: Failed to store the ldap admin password!\n"));
+			DEBUG(1,("ERROR: Failed to store the ldap admin password!\n"));
 		}
 		goto done;
 	}
 
 	/* Ensure passdb startup(). */
 	if(!initialize_password_db(False)) {
-		DEBUG(0, ("Failed to open passdb!\n"));
+		DEBUG(1, ("Failed to open passdb!\n"));
 		exit(1);
 	}
 		

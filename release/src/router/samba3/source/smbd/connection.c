@@ -110,7 +110,7 @@ static int count_fn( TDB_CONTEXT *the_tdb, TDB_DATA kbuf, TDB_DATA dbuf, void *u
 		DEBUG(2,("pid %s doesn't exist - deleting connections %d [%s]\n",
 			procid_str_static(&crec.pid), crec.cnum, crec.name));
 		if (tdb_delete(the_tdb, kbuf) != 0)
-			DEBUG(0,("count_fn: tdb_delete failed with error %s\n", tdb_errorstr(tdb) ));
+			DEBUG(1,("count_fn: tdb_delete failed with error %s\n", tdb_errorstr(tdb) ));
 		return 0;
 	}
 
@@ -155,7 +155,7 @@ BOOL claim_connection(connection_struct *conn, const char *name,int max_connecti
 		 */
 
 		if (tdb_traverse(tdb, count_fn, &cs) == -1) {
-			DEBUG(0,("claim_connection: traverse of connections.tdb failed with error %s.\n",
+			DEBUG(1,("claim_connection: traverse of connections.tdb failed with error %s.\n",
 				tdb_errorstr(tdb) ));
 			return False;
 		}
@@ -192,7 +192,7 @@ BOOL claim_connection(connection_struct *conn, const char *name,int max_connecti
 	dbuf.dsize = sizeof(crec);
 
 	if (tdb_store(tdb, kbuf, dbuf, TDB_REPLACE) != 0) {
-		DEBUG(0,("claim_connection: tdb_store failed with error %s.\n",
+		DEBUG(1,("claim_connection: tdb_store failed with error %s.\n",
 			tdb_errorstr(tdb) ));
 		return False;
 	}
@@ -217,7 +217,7 @@ BOOL register_message_flags(BOOL doreg, uint32 msg_flags)
 
         dbuf = tdb_fetch(tdb, kbuf);
         if (!dbuf.dptr) {
-		DEBUG(0,("register_message_flags: tdb_fetch failed: %s\n",
+		DEBUG(1,("register_message_flags: tdb_fetch failed: %s\n",
 			tdb_errorstr(tdb)));
 		return False;
 	}
@@ -229,7 +229,7 @@ BOOL register_message_flags(BOOL doreg, uint32 msg_flags)
 		pcrec->bcast_msg_flags &= ~msg_flags;
 
 	if (tdb_store(tdb, kbuf, dbuf, TDB_REPLACE) != 0) {
-		DEBUG(0,("register_message_flags: tdb_store failed: %s.\n",
+		DEBUG(1,("register_message_flags: tdb_store failed: %s.\n",
 			tdb_errorstr(tdb) ));
 		SAFE_FREE(dbuf.dptr);
 		return False;
