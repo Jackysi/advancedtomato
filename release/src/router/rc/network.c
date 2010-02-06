@@ -479,7 +479,23 @@ HELP:
 					stacheck = stacheck_connect;
 				}
 				else {
+#ifdef CONFIG_BCMWL5
+					char *amode, *sec = nvram_safe_get("security_mode2");
+
+					if (!strcmp(sec, "wep") || !strcmp(sec, "radius")) amode = "shared";
+					else if (strstr(sec, "personal")) {
+						if (strstr(sec, "wpa2")) amode = "wpa2psk";
+						else amode = "wpapsk";
+					}
+					else if (strstr(sec, "wpa2")) amode = "wpa2";
+					else if (strstr(sec, "wpa")) amode = "wpa";
+					else amode = "open";
+
+					eval("wl", "join", nvram_safe_get("wl_ssid"),
+						"imode", "bss", "amode", amode);
+#else
 					eval("wl", "join", nvram_safe_get("wl_ssid"));
+#endif
 					stacheck = STACHECK_DISCONNECT;
 				}
 
