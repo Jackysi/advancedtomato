@@ -498,6 +498,8 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
