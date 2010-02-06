@@ -6,6 +6,6 @@
 
 obj-$(CONFIG_JFFS_FS) += jffs.o
 
-jffs-y 				:= jffs_fm.o intrep.o inode-v23.o
+jffs-y 				:= jffs_fm.o intrep.o jffs_gc.o inode-v23.o
 jffs-$(CONFIG_JFFS_PROC_FS)	+= jffs_proc.o
 jffs-objs			:= $(jffs-y)

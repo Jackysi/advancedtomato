@@ -21,6 +21,10 @@ struct jffs_node *jffs_alloc_node(void);
 void jffs_free_node(struct jffs_node *n);
 int jffs_get_node_inuse(void);
 
+__u32 jffs_checksum(const void *data, int size);
+__u16 jffs_checksum_16(const void *data, int size);
+unsigned long crc_32(const void *src, unsigned len, unsigned long crc32);
+
 void jffs_cleanup_control(struct jffs_control *c);
 int jffs_build_fs(struct super_block *sb);
 
@@ -37,6 +41,7 @@ int jffs_possibly_delete_file(struct jffs_file *f);
 int jffs_insert_file_into_tree(struct jffs_file *f);
 int jffs_unlink_file_from_tree(struct jffs_file *f);
 int jffs_file_count(struct jffs_file *f);
+long jffs_get_file_count(void);
 
 int jffs_write_node(struct jffs_control *c, struct jffs_node *node,
 		    struct jffs_raw_inode *raw_inode,
@@ -45,14 +50,28 @@ int jffs_write_node(struct jffs_control *c, struct jffs_node *node,
 int jffs_read_data(struct jffs_file *f, unsigned char *buf, __u32 read_offset, __u32 size);
 
 /* Garbage collection stuff.  */
-int jffs_garbage_collect_thread(void *c);
+int jffs_garbage_collect_thread(void *ptr);
 void jffs_garbage_collect_trigger(struct jffs_control *c);
+int jffs_garbage_collect_now(struct jffs_control *c, int force, int merge_obn);
 
 /* For debugging purposes.  */
+#if CONFIG_JFFS_FS_VERBOSE > 0
+void jffs_print_raw_inode(struct jffs_raw_inode *raw_inode);
+#endif
 #if 0
 int jffs_print_file(struct jffs_file *f);
-#endif  /*  0  */
+#endif
 void jffs_print_hash_table(struct jffs_control *c);
 void jffs_print_tree(struct jffs_file *first_file, int indent);
+
+int flash_safe_write(struct jffs_fmcontrol *fmc, loff_t to,
+		     const u_char *buf, size_t count);
+
+int jffs_write_dummy_node(struct jffs_control *c, struct jffs_fm *dirty_fm);
+int flash_erase_region(struct mtd_info *mtd, loff_t start,
+		       size_t size);
+
+unsigned long free_in_tail_block(struct jffs_control *c);
+unsigned long head_contig_dirty_size(struct jffs_fmcontrol *fmc);
 
 #endif /* __LINUX_JFFS_INTREP_H__  */
