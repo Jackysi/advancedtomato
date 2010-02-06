@@ -504,6 +504,18 @@ function verifyFields(focused, quiet)
 	ferror.clear('_security_mode2');
 REMOVE-END */
 
+	// N standard does not support WPA+TKIP
+	switch (E('_wl_net_mode').value) {
+	case 'mixed':
+	case 'n-only':
+		if (nphy && (E('_wl_crypto').value == 'tkip') &&
+		   ((sm2 == 'wpa_enterprise') || (sm2 == 'wpa_personal'))) {
+			ferror.set('_wl_crypto', 'WPA with TKIP encryption is not supported in N mode.', quiet);
+			return 0;
+		}
+		break;
+	}
+
 	a = E('_wl_wpa_psk');
 	ferror.clear(a);
 	if (vis._wl_wpa_psk == 1) {
@@ -708,7 +720,7 @@ function save()
 	case 'bg-mixed':
 		break;
 	case 'n-only':
-		fom.wl_nmode.value = -1;
+		fom.wl_nmode.value = 1;
 		fom.wl_nmcsidx.value = 32;
 		fom.wl_nreqd.value = 1;
 		break;
