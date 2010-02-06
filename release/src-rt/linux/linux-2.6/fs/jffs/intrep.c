@@ -85,6 +85,8 @@ long no_name = 0;
 
 static int jffs_scan_flash(struct jffs_control *c);
 static int jffs_update_file(struct jffs_file *f, struct jffs_node *node);
+unsigned long used_in_head_block(struct jffs_control *c);
+unsigned long free_in_tail_block(struct jffs_control *c);
 static int jffs_build_file(struct jffs_file *f);
 static int jffs_free_file(struct jffs_file *f);
 static int jffs_free_node_list(struct jffs_file *f);
@@ -102,8 +104,9 @@ static inline int JFFS_ENOUGH_SPACE(struct jffs_control *c, __u32 space)
 			>= fmc->min_free_size + space) {
 			return 1;
 		}
-		if (fmc->dirty_size < fmc->sector_size)
-			return 0;
+// This test won't work right.  We sometimes need to GC if the head block is nearly all dirty. 
+//		if (fmc->dirty_size < fmc->sector_size)
+//			return 0;
 
 		if (jffs_garbage_collect_now(c)) {
 		  D1(printk("JFFS_ENOUGH_SPACE: jffs_garbage_collect_now() failed.\n"));
@@ -1364,7 +1367,7 @@ jffs_insert_node(struct jffs_control *c, struct jffs_file *f,
 	int update_name = 0;
 	int insert_into_tree = 0;
 
-	D2(printk("jffs_insert_node(): ino = %u, version = %u, "
+	D2(printk("jffs_insert_node(): ino = %u, version = %04x, "
 		  "name = \"%s\", deleted = %d\n",
 		  raw_inode->ino, raw_inode->version,
 		  ((name && *name) ? name : ""), raw_inode->deleted));
@@ -1593,7 +1596,7 @@ jffs_remove_redundant_nodes(struct jffs_file *f)
 			&& !cur->version_prev && node_with_name_later)) {
 			/* Yes, this node is redundant. Remove it.  */
 			D2(printk("jffs_remove_redundant_nodes(): "
-				  "Removing node: ino: %u, version: %u, "
+				  "Removing node: ino: %u, version: %04x, "
 				  "mod_type: %u\n", cur->ino, cur->version,
 				  mod_type));
 			jffs_unlink_node_from_version_list(f, cur);
@@ -1862,13 +1865,28 @@ retry:
 	while (!fm) {
 
 		/* Deadlocks suck. */
-		while(fmc->free_size < fmc->min_free_size + total_size + slack) {
+	   D2printk("write_node '%s' free_size: %u dirty: %u min_free_size: %u total_size: %u slack:%u \n",
+		  name, fmc->free_size, fmc->dirty_size, fmc->min_free_size, total_size , slack);
+	   D2printk(" f+d: %u        minfree+size+slack: %d\n",fmc->free_size+ fmc->dirty_size, fmc->min_free_size + total_size + slack); 
+	   /* This fails even when free+dirty is large enough.  Even if free+dirty is enough. */
+	   used_in_head_block(c);
+	   free_in_tail_block(c);
+	   while(fmc->free_size < fmc->min_free_size + total_size + slack) {
+		   D2printk("Test failed.   Loop to try to get enough space.\n");
 			jffs_fm_write_unlock(fmc);
-			if (!JFFS_ENOUGH_SPACE(c, total_size + slack))
-				return -ENOSPC;
+			used_in_head_block(c);
+			free_in_tail_block(c);
+			if (!JFFS_ENOUGH_SPACE(c, total_size + slack)) {
+			   D2printk("JFFS_ENOUGH_SPACE said No!\n");
+			   D2printk("write_node '%s' free_size: %u dirty: %u min_free_size: %u total_size: %u slack:%u \n",
+				  name, fmc->free_size, fmc->dirty_size, fmc->min_free_size, total_size , slack);
+			   D2printk(" f+d: %u        minfree+size+slack: %d\n",fmc->free_size+ fmc->dirty_size, fmc->min_free_size + total_size + slack); 
+			   return -ENOSPC;
+			}
 			jffs_fm_write_lock(fmc);
 		}
-
+		D2printk("Enough space, call fmalloc\n");
+		
 		/* First try to allocate some flash memory.  */
 		err = jffs_fmalloc(fmc, total_size, node, &fm);
 		
@@ -1927,7 +1945,7 @@ retry:
 	*/
 	if (f) {
 		raw_inode->version = f->highest_version + 1;
-		D1(printk (KERN_NOTICE "jffs_write_node(): setting version of %s to %d\n", f->name, raw_inode->version));
+		D1(printk (KERN_NOTICE "jffs_write_node(): setting version of %s to %04X\n", f->name, raw_inode->version));
 
 		/* if the file was deleted, set the deleted bit in the raw inode */
 		if (f->deleted)
@@ -2012,7 +2030,7 @@ jffs_get_node_data(struct jffs_file *f, struct jffs_node *node,
 	__u32 r;
 
 	D2(printk("  jffs_get_node_data(): file: \"%s\", ino: %u, "
-		  "version: %u, node_offset: %u\n",
+		  "version: %04x, node_offset: %u\n",
 		  f->name, node->ino, node->version, node_offset));
 
 	r = min(avail, max_size);
@@ -2325,8 +2343,8 @@ jffs_delete_data(struct jffs_file *f, struct jffs_node *node)
 			struct jffs_node *p = n;
 			remove_size -= n->data_size;
 			n = n->range_next;
-			D3(printk("jffs_delete_data(): Removing node: "
-				  "ino: %u, version: %u%s\n",
+			D3(printk("jffs_delete_data (): Removing node: "
+				  "ino: %u, version: %04x%s\n",
 				  p->ino, p->version,
 				  (p->fm ? "" : " (virtual)")));
 			if (p->fm) {
@@ -2523,7 +2541,7 @@ jffs_update_file(struct jffs_file *f, struct jffs_node *node)
 {
 	int err;
 
-	D3(printk("jffs_update_file(): ino: %u, version: %u\n",
+	D3(printk("jffs_update_file(): ino: %u, version: %04x\n",
 		  f->ino, node->version));
 
 	if (node->data_size == 0) {
@@ -2637,7 +2655,7 @@ jffs_print_tree(struct jffs_file *first_file, int indent)
 
 	for (f = first_file; f; f = f->sibling_next) {
 		dir = S_ISDIR(f->mode);
-		printk("%s%s%s (ino: %u, highest_version: %u, size: %u)\n",
+		printk("%s%s%s (ino: %u, highest_version: %04x, size: %u)\n",
 		       space, (f->name ? f->name : ""), (dir ? "/" : ""),
 		       f->ino, f->highest_version, f->size);
 		if (dir) {
@@ -2888,6 +2906,7 @@ jffs_garbage_collect_next(struct jffs_control *c)
 	__u32 free_chunk_size1 = jffs_free_size1(fmc);
 	D2(__u32 free_chunk_size2 = jffs_free_size2(fmc));
 
+	printk("jffs_garbage_collect_next: Enter...\n");
 	/* Get the oldest node in the flash.  */
 	node = jffs_get_oldest_node(fmc);
 	ASSERT(if (!node) {
@@ -2926,7 +2945,7 @@ jffs_garbage_collect_next(struct jffs_control *c)
 	total_name_size = JFFS_PAD(f->nsize);
 
 	D1(printk("jffs_garbage_collect_next(): \"%s\", "
-		  "ino: %u, version: %u, location 0x%x, dsize %u\n",
+		  "ino: %u, version: %04x, location 0x%x, dsize %u\n",
 		  (f->name ? f->name : ""), node->ino, node->version, 
 		  node->fm->offset, node->data_size));
 
@@ -3199,6 +3218,39 @@ jffs_try_to_erase(struct jffs_control *c)
 	return erase_size;
 }
 
+#if 1
+void print_layout(struct jffs_control *c)
+{
+   struct jffs_fm *fm = 0;
+   struct jffs_fm *last_fm = 0;
+
+   /* Get the first item in the list */
+   fm = c->fmc->head;
+   /* Loop through all of the flash control structures */
+   printk(" head: %08lx\n",(unsigned long) fm);
+   while (fm) {
+      if (fm->nodes) {
+	 printk ("%08lX %08lX ino=%08lX, ver=%08lX"
+		 " [ofs: %08lx  siz: %08lx  repl: %08lx]\n",
+		 (unsigned long) fm->offset,
+		 (unsigned long) fm->size,
+		 (unsigned long) fm->nodes->node->ino,
+		 (unsigned long) fm->nodes->node->version,
+		 (unsigned long) fm->nodes->node->data_offset,
+		 (unsigned long) fm->nodes->node->data_size,
+		 (unsigned long) fm->nodes->node->removed_size);
+      }
+      else {
+	 printk (" %08lX %08lX dirty\n",
+		 (unsigned long) fm->offset,
+		 (unsigned long) fm->size);
+      }
+      last_fm = fm;
+      fm = fm->next;
+   }
+}
+#endif
+
 
 /* There are different criteria that should trigger a garbage collect:
 
@@ -3220,18 +3272,19 @@ jffs_garbage_collect_now(struct jffs_control *c)
 	long erased = 0;
 	int result = 0;
 	D1(int i = 1);
-	D2(printk("***jffs_garbage_collect_now(): fmc->dirty_size = %u, fmc->free_size = 0x%x\n, fcs1=0x%x, fcs2=0x%x",
+	D2(printk("***jffs_garbage_collect_now(): fmc->dirty_size = %u, fmc->free_size = 0x%x\n, fcs1=0x%x, fcs2=0x%x\n",
 		  fmc->dirty_size, fmc->free_size, jffs_free_size1(fmc), jffs_free_size2(fmc)));
 	D2(jffs_print_fmcontrol(fmc));
 
 	//	down(&fmc->gclock);
 
 	/* If it is possible to garbage collect, do so.  */
-	
+//	print_layout(c);	
 	while (erased == 0) {
 		D1(printk("***jffs_garbage_collect_now(): round #%u, "
 			  "fmc->dirty_size = %u\n", i++, fmc->dirty_size));
 		D2(jffs_print_fmcontrol(fmc));
+		//print_layout(c);	
 
 		if ((erased = jffs_try_to_erase(c)) < 0) {
 			printk(KERN_WARNING "JFFS: Error in "
@@ -3249,6 +3302,10 @@ jffs_garbage_collect_now(struct jffs_control *c)
 			break;
 		}
 
+		if (used_in_head_block(c) <= free_in_tail_block(c)) {
+		   printk("Used < Free, so try to GC anyway.\n");
+		}
+		else {
 		if (fmc->dirty_size < fmc->sector_size) {
 			/* Actually, we _may_ have been able to free some, 
 			 * if there are many overlapping nodes which aren't
@@ -3258,7 +3315,8 @@ jffs_garbage_collect_now(struct jffs_control *c)
 			result = -ENOSPC;
 			break;
 		}
-
+		}
+	
 		/* Let's dare to make a garbage collect.  */
 		if ((result = jffs_garbage_collect_next(c)) < 0) {
 			printk(KERN_ERR "JFFS: Something "
@@ -3275,6 +3333,7 @@ gc_end:
 	//	up(&fmc->gclock);
 
 	D3(printk("   jffs_garbage_collect_now(): Leaving...\n"));
+	//print_layout(c);	
 	D1(if (erased) {
 		printk("jffs_g_c_now(): erased = %ld\n", erased);
 		jffs_print_fmcontrol(fmc);
@@ -3447,3 +3506,51 @@ jffs_garbage_collect_thread(void *ptr)
 		mutex_unlock(&fmc->biglock);
 	} /* for (;;) */
 } /* jffs_garbage_collect_thread() */
+
+
+/* Return the used data size in the head sector.
+   Not dirty, not free, just the actual used. */
+unsigned long used_in_head_block(struct jffs_control *c)
+{
+   struct jffs_fm *fm;
+   struct jffs_fmcontrol *fmc = c->fmc;
+   __u32 len = 0;
+   __u32 next_sector;
+
+   /* Loop through all of the flash control structures from head. */
+   fm = c->fmc->head;
+   if (fm == 0)
+      return(0);
+   next_sector = ((c->fmc->head->offset / fmc->sector_size) +1) * fmc->sector_size;
+   for (; fm; fm = fm->next) {
+      if (fm->nodes) {
+	 len += fm->size;
+	 /* When this goes past the end of this sector, adjust size. */
+	 if (fm->offset + fm->size >= next_sector)
+	    len -= (fm->offset + fm->size) - next_sector;
+      }
+      if (fm->offset + fm->size >= next_sector)		/* Moved off sector -- quit. */
+	 break;
+   }
+   D3printk("Used in head block: %08lx\n", len);
+   return(len);
+}
+
+/* Return the free size in the tail sector. */
+unsigned long free_in_tail_block(struct jffs_control *c)
+{
+   struct jffs_fm *fm;
+   struct jffs_fmcontrol *fmc = c->fmc;
+   __u32 len = 0;
+   __u32 next_sector;
+   __u32 free_ofs;
+   
+   fm = c->fmc->tail;
+   if (fm == 0)
+      return(0);
+   free_ofs = fm->offset + fm->size;
+   next_sector = ((free_ofs / fmc->sector_size) +1) * fmc->sector_size;
+   len = next_sector - free_ofs;
+   D3printk("Free in tail block: %08lx\n", len);
+   return(len);
+}

@@ -38,21 +38,27 @@
 #if CONFIG_JFFS_FS_VERBOSE > 0
 #define D(x) x
 #define D1(x) D(x)
+#define D1printk(args...) printk(args)
 #else
 #define D(x)
 #define D1(x)
+#define D1printk(args...)
 #endif
 
 #if CONFIG_JFFS_FS_VERBOSE > 1
 #define D2(x) D(x)
+#define D2printk(args...) printk(args)
 #else
 #define D2(x)
+#define D2printk(args...)
 #endif
 
 #if CONFIG_JFFS_FS_VERBOSE > 2
 #define D3(x) D(x)
+#define D3printk(args...) printk(args)
 #else
 #define D3(x)
+#define D3printk(args...)
 #endif
 
 #define ASSERT(x) x
