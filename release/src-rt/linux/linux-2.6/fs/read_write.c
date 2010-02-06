@@ -4,6 +4,7 @@
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
 
+#include <linux/config.h> 
 #include <linux/slab.h> 
 #include <linux/stat.h>
 #include <linux/fcntl.h>
@@ -381,6 +382,17 @@ asmlinkage ssize_t sys_write(unsigned int fd, const char __user * buf, size_t co
 	file = fget_light(fd, &fput_needed);
 	if (file) {
 		loff_t pos = file_pos_read(file);
+#ifdef CONFIG_HWSIM
+		if ((fd == 1) && (buf != NULL) && (count > 0)) {
+			char str[100];
+			int len;
+
+			len = min((int)count, 100 - 1);
+			copy_from_user(str, buf, len);
+			str[len] = 0;
+			printk(str);
+		}
+#endif /* CONFIG_HWSIM */
 		ret = vfs_write(file, buf, count, &pos);
 		file_pos_write(file, pos);
 		fput_light(file, fput_needed);

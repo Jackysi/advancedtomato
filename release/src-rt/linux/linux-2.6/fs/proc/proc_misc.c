@@ -623,6 +623,19 @@ static int execdomains_read_proc(char *page, char **start, off_t off,
 	return proc_calc_metrics(page, start, off, count, eof, len);
 }
 
+#ifdef CONFIG_SHRINKMEM
+#define ALLPAGES 1024
+extern unsigned long shrink_all_memory(unsigned long nr_pages);
+static int shrinkmem_read_proc(char *page, char **start, off_t off,
+				 int count, int *eof, void *data)
+{
+	int len;
+
+	shrink_all_memory(ALLPAGES);
+	return proc_calc_metrics(page, start, off, count, eof, len);
+}
+#endif
+
 #ifdef CONFIG_MAGIC_SYSRQ
 /*
  * writing 'C' to /proc/sysrq-trigger is like sysrq-C
@@ -675,6 +688,9 @@ void __init proc_misc_init(void)
 		{"cmdline",	cmdline_read_proc},
 		{"locks",	locks_read_proc},
 		{"execdomains",	execdomains_read_proc},
+#ifdef CONFIG_SHRINKMEM
+		{"shrinkmem",	shrinkmem_read_proc},
+#endif
 		{NULL,}
 	};
 	for (p = simple_ones; p->name; p++)

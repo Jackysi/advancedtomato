@@ -731,10 +731,10 @@ out_sigsegv:
 
 asmlinkage void do_ri(struct pt_regs *regs)
 {
-	die_if_kernel("Reserved instruction in kernel code", regs);
 	printk("do_ri, try to reboot it!\n");
 	machine_restart(NULL);
 
+	die_if_kernel("Reserved instruction in kernel code", regs);
 	if (!cpu_has_llsc)
 		if (!simulate_llsc(regs))
 			return;

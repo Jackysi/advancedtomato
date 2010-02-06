@@ -200,6 +200,7 @@ extern int rcu_needs_cpu(int cpu);
  * can use just rcu_read_lock().
  *
  */
+#ifdef CONFIG_PREEMPT
 #define rcu_read_lock_bh() \
 	do { \
 		local_bh_disable(); \
@@ -216,6 +217,17 @@ extern int rcu_needs_cpu(int cpu);
 		__release(RCU_BH); \
 		local_bh_enable(); \
 	} while(0)
+#else
+#define rcu_read_lock_bh() \
+	do { \
+		local_bh_disable(); \
+	} while(0)
+#define rcu_read_unlock_bh() \
+	do { \
+		local_bh_enable(); \
+	} while(0)
+
+#endif
 
 /**
  * rcu_dereference - fetch an RCU-protected pointer in an
