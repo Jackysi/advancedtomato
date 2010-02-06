@@ -692,7 +692,7 @@ static int init_nvram(void)
 	case MODEL_RTN16:
 		mfr = "Asus";
 		name = "RT-N16";
-		features = SUP_SES | SUP_80211N;
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");

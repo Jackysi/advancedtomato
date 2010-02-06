@@ -1938,7 +1938,7 @@ function timeString(mins)
 
 function features(s)
 {
-	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n'];
+	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n','1000et'];
 	var i;
 
 	for (i = features.length - 1; i >= 0; --i) {
