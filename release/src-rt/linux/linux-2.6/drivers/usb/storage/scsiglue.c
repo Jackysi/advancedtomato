@@ -405,6 +405,10 @@ US_DO_ALL_FLAGS
 		*(pos++) = '\n';
 	}
 
+
+	SPRINTF("         Port: %s\n", us->pusb_dev->devpath);
+	// Added Port descriptor
+
 	/*
 	 * Calculate start of next buffer, and return value.
 	 */
