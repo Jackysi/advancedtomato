@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("ct_tcp_timeout,ct_udp_timeout,ct_timeout,ct_max,nf_l7in,nf_ttl,nf_sip,nf_rtsp,nf_pptp,nf_h323,nf_ftp"); %>
+//	<% nvram("ct_tcp_timeout,ct_udp_timeout,ct_timeout,ct_max,ct_hashsize,nf_l7in,nf_ttl,nf_sip,nf_rtsp,nf_pptp,nf_h323,nf_ftp"); %>
 
 var checker = null;
 var timer = new TomatoTimer(check);
@@ -172,7 +172,10 @@ function save()
 createFieldTable('', [
 	{ title: 'Maximum Connections', name: 'ct_max', type: 'text', maxlen: 5, size: 7,
 		suffix: '&nbsp; <a href="javascript:clicked()" id="count0">[ count current... ]</a> <img src="spin.gif" style="vertical-align:bottom;padding-left:10px;visibility:hidden" id="spin" onclick="clicked()">',
-		value: fixInt(nvram.ct_max || 4096, 128, 10240, 4096) }
+		value: fixInt(nvram.ct_max || 4096, 128, 300000, 4096) }
+/* LINUX26-BEGIN */
+	,{ title: 'Hash Table Size', name: 'f_ct_hashsize', type: 'text', maxlen: 6, size: 8, value: nvram.ct_hashsize || 1023 }
+/* LINUX26-END */
 ]);
 </script>
 <br>

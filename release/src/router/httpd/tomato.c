@@ -470,6 +470,7 @@ static const nvset_t nvset_list[] = {
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},
+	{ "ct_hashsize",		V_RANGE(127, 65535)		},
 #endif
 	{ "nf_rtsp",			V_01				},
 	{ "nf_pptp",			V_01				},
