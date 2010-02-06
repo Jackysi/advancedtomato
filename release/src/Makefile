@@ -166,6 +166,21 @@ what:
 # a "...is not set" line, or the make oldconfig will stop and ask
 # what to do.
 
+# $(1) - router/config_$@
+
+define RouterOptions
+	@( \
+	if [ "$(SAMBA3)" = "y" ]; then \
+		sed -i "/TCONFIG_SAMBA3/d" $(1); \
+		echo "TCONFIG_SAMBA3=y" >>$(1); \
+	fi; \
+	if [ "$(NO_JFFS)" = "y" ]; then \
+		sed -i "/TCONFIG_JFFS2/d" $(1); \
+		echo "# TCONFIG_JFFS2 is not set" >>$(1); \
+	fi; \
+	)
+endef
+
 # $(1) - router/busybox/config_$@
 
 define BusyboxExtraOptions
@@ -200,6 +215,12 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKFS_VFAT=y" >>$(1)
 	@sed -i "/CONFIG_MKSWAP/d" $(1)
 	@echo "CONFIG_MKSWAP=y" >>$(1)
+	@( \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		sed -i "/CONFIG_LSUSB/d" $(1); \
+		echo "CONFIG_LSUSB=y" >>$(1); \
+	fi; \
+	)
 endef
 
 define BusyboxNoUSBOptions
@@ -266,6 +287,7 @@ a:
 	@cp router/busybox/config_base router/busybox/config_$@
 	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -281,6 +303,7 @@ b:
 	@sed -i "/TCONFIG_SSH/d" router/config_$@
 	@echo "# TCONFIG_SSH is not set" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -296,6 +319,7 @@ c:
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -314,6 +338,7 @@ d:
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -346,6 +371,7 @@ e:
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
@@ -365,6 +391,7 @@ m:
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
@@ -385,13 +412,8 @@ s:
 	@echo "# TCONFIG_FTP is not set" >>router/config_$@
 	@sed -i "/TCONFIG_USB/d" router/config_$@
 	@echo "# TCONFIG_USB is not set" >>router/config_$@
-	@( \
-	if [ "$(NO_JFFS)" = "y" ]; then \
-		sed -i "/TCONFIG_JFFS2/d" router/config_$@; \
-		echo "# TCONFIG_JFFS2 is not set" >>router/config_$@; \
-	fi; \
-	)
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
@@ -417,6 +439,7 @@ v:
 	@echo "TCONFIG_LZO=y" >>router/config_$@
 	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
