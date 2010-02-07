@@ -1106,12 +1106,14 @@ static int parse_options(char *options, int is_vfat, int silent, int *debug,
 	}
 
 out:
+#if 0
 	/* UTF-8 doesn't provide FAT semantics */
 	if (!strcmp(opts->iocharset, "utf8")) {
 		printk(KERN_ERR "FAT: utf8 is not a recommended IO charset"
 		       " for FAT filesystems, filesystem will be "
 		       "case sensitive!\n");
 	}
+#endif
 
 	/* If user doesn't specify allow_utime, it's initialized from dmask. */
 	if (opts->allow_utime == (unsigned short)-1)
