@@ -229,11 +229,6 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 						nvram_get("smbd_cset"));
 			if (nvram_invmatch("smbd_cpage", "")) {
 				char *cp = nvram_safe_get("smbd_cpage");
-#ifdef LINUX26
-				/* default is UTF8 which is not recommended for FAT, so let's override it */
-				if (options[0] == 0)
-					sprintf(options, "iocharset=cp%s", cp);
-#endif
 				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), cp);
 				sprintf(flagfn, "nls_cp%s", cp);
 
