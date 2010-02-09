@@ -1501,6 +1501,10 @@ static void add_extradata_opt(struct dhcp_lease *lease, unsigned char *opt)
 static void log_packet(char *type, void *addr, unsigned char *ext_mac, 
 		       int mac_len, char *interface, char *string, u32 xid)
 {
+  /* option to reduce excessive logging for DHCP packets */
+  if ((type) && (daemon->options & OPT_QT_DHCP))
+    return;
+
   struct in_addr a;
  
   /* addr may be misaligned */
