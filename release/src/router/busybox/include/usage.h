@@ -2408,6 +2408,17 @@
 #define lsmod_full_usage "\n\n" \
        "List the currently loaded kernel modules"
 
+#define lspci_trivial_usage \
+       "[-mk]"
+#define lspci_full_usage "\n\n" \
+       "List all PCI devices" \
+     "\n" \
+     "\n	-m	Parseable output" \
+     "\n	-k	Show driver" \
+
+#define lsusb_trivial_usage NOUSAGE_STR
+#define lsusb_full_usage ""
+
 #if ENABLE_FEATURE_MAKEDEVS_LEAF
 #define makedevs_trivial_usage \
        "NAME TYPE MAJOR MINOR FIRST LAST [s]"
