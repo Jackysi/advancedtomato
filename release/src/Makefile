@@ -273,6 +273,16 @@ define KernelConfigMips
 		sed -i "/CONFIG_BCM57XX/d" $(1); \
 		echo "CONFIG_BCM57XX=m" >>$(1); \
 	fi; \
+	if [ "$(JFFSv1)" = "y" ]; then \
+		sed -i "/CONFIG_JFFS_FS/d" $(1); \
+		echo "CONFIG_JFFS_FS=m" >>$(1); \
+		sed -i "/CONFIG_JFFS_FS_VERBOSE/d" $(1); \
+		echo "CONFIG_JFFS_FS_VERBOSE=0" >>$(1); \
+		sed -i "/CONFIG_JFFS_PROC_FS/d" $(1); \
+		echo "# CONFIG_JFFS_PROC_FS is not set" >>$(1); \
+		sed -i "/CONFIG_JFFS2_FS/d" $(1); \
+		echo "# CONFIG_JFFS2_FS is not set" >>$(1); \
+	fi; \
 	)
 endef
 else
@@ -452,13 +462,17 @@ v:
 r2m:
 	@$(MAKE) m MIPS32=r2 BCM57=n SAMBA3=y
 
-## Make Mips32r2 VPN build
+## Make Mips32r2 USB+VPN build
 r2e:
 	@$(MAKE) e MIPS32=r2 BCM57=n SAMBA3=y
 
 ## Make Mips32r2 "no USB" build (Asus RT-N12)
 r2s:
 	@$(MAKE) s MIPS32=r2 NO_JFFS=y
+
+## Make Mips32r2 "no USB" VPN build
+r2v:
+	@$(MAKE) v MIPS32=r2 NO_JFFS=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
