@@ -48,12 +48,15 @@ static uint32 set_offline_flag(connection_struct *conn, const char *const path)
 	if (ISDOT(path) || ISDOTDOT(path)) {
 		return 0;
 	}
-
+#ifdef AVM_SMALLER
+	return 0;
+#else
 	if (!lp_dmapi_support(SNUM(conn)) || !dmapi_have_session()) {
 		return 0;
 	}
 
 	return dmapi_file_flags(path);
+#endif
 }
 
 /****************************************************************************

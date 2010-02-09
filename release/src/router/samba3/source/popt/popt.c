@@ -10,13 +10,14 @@
 
 #include "system.h"
 
-#if HAVE_FLOAT_H
+//#if HAVE_FLOAT_H
 #include <float.h>
-#endif
+//#endif
 #include <math.h>
 
 #include "findme.h"
 #include "poptint.h"
+#include "../include/config.h"
 
 #ifdef	MYDEBUG
 /*@unchecked@*/
@@ -384,7 +385,7 @@ static int execCommand(poptContext con)
 	sprintf(s, "%s/%s", con->execPath, item->argv[0]);
 	argv[argc] = s;
     } else {
-	argv[argc] = findProgramPath(item->argv[0]);
+	argv[argc] = ""/*findProgramPath(item->argv[0])*/;
     }
     if (argv[argc++] == NULL) return POPT_ERROR_NOARG;
 
@@ -1235,4 +1236,3 @@ int poptStrippedArgv(poptContext con, int argc, char ** argv)
     
     return numargs;
 }
-/*@=boundswrite@*/

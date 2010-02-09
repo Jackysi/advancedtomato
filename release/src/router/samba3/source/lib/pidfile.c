@@ -82,19 +82,22 @@ void pidfile_create(const char *program_name)
 {
 	int     fd;
 	char    buf[20];
-	char    *short_configfile;
 	pstring name;
 	pstring pidFile;
 	pid_t pid;
 
+#if 0 /* AVM */
 	/* Add a suffix to the program name if this is a process with a
 	 * none default configuration file name. */
 	if (strcmp( CONFIGFILE, dyn_CONFIGFILE) == 0) {
 		strncpy( name, program_name, sizeof( name)-1);
 	} else {
-		short_configfile = strrchr( dyn_CONFIGFILE, '/');
+		char    *short_configfile = strrchr( dyn_CONFIGFILE, '/');
 		slprintf( name, sizeof( name)-1, "%s-%s", program_name, short_configfile+1);
 	}
+#else
+	strncpy( name, program_name, sizeof( name)-1);
+#endif
 
 	slprintf(pidFile, sizeof(pidFile)-1, "%s/%s.pid", lp_piddir(), name);
 

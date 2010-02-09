@@ -122,7 +122,7 @@ BOOL sec_io_ace(const char *desc, SEC_ACE *psa, prs_struct *ps, int depth)
  for you as it reads them.
 ********************************************************************/
 
-BOOL sec_io_acl(const char *desc, SEC_ACL **ppsa, prs_struct *ps, int depth)
+static BOOL sec_io_acl(const char *desc, SEC_ACL **ppsa, prs_struct *ps, int depth)
 {
 	unsigned int i;
 	uint32 old_offset;
@@ -165,13 +165,10 @@ BOOL sec_io_acl(const char *desc, SEC_ACL **ppsa, prs_struct *ps, int depth)
 		return False;
 
 	if (UNMARSHALLING(ps)) {
-		/*
-		 * Even if the num_aces is zero, allocate memory as there's a difference
-		 * between a non-present DACL (allow all access) and a DACL with no ACE's
-		 * (allow no access).
-		 */
-		if((psa->ace = PRS_ALLOC_MEM(ps, SEC_ACE, psa->num_aces+1)) == NULL)
-			return False;
+		if (psa->num_aces) {
+			if((psa->ace = PRS_ALLOC_MEM(ps, SEC_ACE, psa->num_aces)) == NULL)
+				return False;
+		}
 	}
 
 	for (i = 0; i < psa->num_aces; i++) {

@@ -578,7 +578,7 @@ DYNEXP=
 
 dnl Add modules that have to be built by default here
 dnl These have to be built static:
-default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_svcctl rpc_ntsvcs rpc_net rpc_netdfs rpc_srv rpc_spoolss rpc_eventlog auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
+default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_lsa_ds rpc_wks rpc_ntsvcs rpc_net rpc_netdfs rpc_spoolss auth_sam auth_builtin"
 
 dnl These are preferably build shared, and static if dlopen() is not available
 default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_full_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy charset_CP850 charset_CP437 auth_script"
@@ -753,43 +753,7 @@ exit(1);
         AC_MSG_CHECKING([for LFS support])
         old_CPPFLAGS="$CPPFLAGS"
         CPPFLAGS="-D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $CPPFLAGS"
-       AC_TRY_RUN([
-#include <unistd.h>
-#include <sys/utsname.h>
-#include <string.h>
-#include <stdlib.h>
-main() {
-#if _LFS64_LARGEFILE == 1
-       struct utsname uts;
-       char *release;
-       int major, minor;
-
-       /* Ensure this is glibc 2.2 or higher */
-#if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
-       int libc_major = __GLIBC__;
-       int libc_minor = __GLIBC_MINOR__;
-
-       if (libc_major < 2)
-              exit(1);
-       if (libc_minor < 2)
-              exit(1);
-#endif
-
-       /* Ensure this is kernel 2.4 or higher */
-
-       uname(&uts);
-       release = strdup(uts.release);
-       major = atoi(strsep(&release, "."));
-       minor = atoi(strsep(&release, "."));
-
-       if (major > 2 || (major == 2 && minor > 3))
-               exit(0);
-       exit(1);
-#else
-       exit(1);
-#endif
-}
-], [LINUX_LFS_SUPPORT=yes], [LINUX_LFS_SUPPORT=no], [LINUX_LFS_SUPPORT=cross])
+	LINUX_LFS_SUPPORT=yes
 	CPPFLAGS="$old_CPPFLAGS"
 	if test x$LINUX_LFS_SUPPORT = xyes ; then
 		CPPFLAGS="-D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $CPPFLAGS"
@@ -1402,31 +1366,28 @@ AC_DEFINE(HAVE_PRCTL, 1, [Whether prctl is available]),[])
 #
 case "$host_os" in
     *linux*)
-       # glibc <= 2.3.2 has a broken getgrouplist
+       AC_CACHE_CHECK([for a broken Linux getgrouplist API], linux_getgrouplist_ok, [
        AC_TRY_RUN([
 #include <unistd.h>
 #include <sys/utsname.h>
-main() {
+int main() {
        /* glibc up to 2.3 has a broken getgrouplist */
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
        int libc_major = __GLIBC__;
        int libc_minor = __GLIBC_MINOR__;
 
        if (libc_major < 2)
-              exit(1);
+              return 1;
        if ((libc_major == 2) && (libc_minor <= 3))
-              exit(1);
+              return 1;
 #endif
-       exit(0);
+       return 0;
 }
-], [linux_getgrouplist_ok=yes], [linux_getgrouplist_ok=no])
+       ], [linux_getgrouplist_ok=yes], [linux_getgrouplist_ok=no], [linux_getgrouplist_ok=cross])])
+
        if test x"$linux_getgrouplist_ok" = x"yes"; then
           AC_DEFINE(HAVE_GETGROUPLIST, 1, [Have good getgrouplist])
        fi
-       ;;
-    *)
-       AC_CHECK_FUNCS(getgrouplist)
-       ;;
 esac
 
 #

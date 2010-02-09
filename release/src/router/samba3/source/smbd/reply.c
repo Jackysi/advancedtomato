@@ -3599,7 +3599,10 @@ int reply_printopen(connection_struct *conn,
 	int outsize = 0;
 	files_struct *fsp;
 	START_PROFILE(SMBsplopen);
-	
+#ifdef AVM_NO_PRINTING
+		END_PROFILE(SMBsplopen);
+		return ERROR_DOS(ERRDOS,ERRnoaccess);
+#else
 	if (!CAN_PRINT(conn)) {
 		END_PROFILE(SMBsplopen);
 		return ERROR_DOS(ERRDOS,ERRnoaccess);
@@ -3621,6 +3624,7 @@ int reply_printopen(connection_struct *conn,
 
 	END_PROFILE(SMBsplopen);
 	return(outsize);
+#endif
 }
 
 /****************************************************************************
@@ -3637,6 +3641,10 @@ int reply_printclose(connection_struct *conn,
 
 	CHECK_FSP(fsp,conn);
 
+#ifdef AVM_NO_PRINTING
+		END_PROFILE(SMBsplretq);
+		return ERROR_DOS(ERRDOS,ERRnoaccess);
+#else
 	if (!CAN_PRINT(conn)) {
 		END_PROFILE(SMBsplclose);
 		return ERROR_NT(NT_STATUS_UNSUCCESSFUL);
@@ -3655,6 +3663,7 @@ int reply_printclose(connection_struct *conn,
 
 	END_PROFILE(SMBsplclose);
 	return(outsize);
+#endif
 }
 
 /****************************************************************************
@@ -3664,6 +3673,10 @@ int reply_printclose(connection_struct *conn,
 int reply_printqueue(connection_struct *conn,
 		     char *inbuf,char *outbuf, int dum_size, int dum_buffsize)
 {
+#ifdef AVM_NO_PRINTING
+		END_PROFILE(SMBsplretq);
+		return ERROR_DOS(ERRDOS,ERRnoaccess);
+#else
 	int outsize = set_message(outbuf,2,3,True);
 	int max_count = SVAL(inbuf,smb_vwv0);
 	int start_index = SVAL(inbuf,smb_vwv1);
@@ -3726,6 +3739,7 @@ int reply_printqueue(connection_struct *conn,
   
 	END_PROFILE(SMBsplretq);
 	return(outsize);
+#endif
 }
 
 /****************************************************************************

@@ -5848,6 +5848,12 @@ static WERROR update_printer_sec(POLICY_HND *handle, uint32 level,
 		goto done;
 	}
 	
+	if (!secdesc_ctr) {
+		DEBUG(10,("update_printer_sec: secdesc_ctr is NULL !\n"));
+		result = WERR_INVALID_PARAM;
+		goto done;
+	}
+
 	/* Check the user has permissions to change the security
 	   descriptor.  By experimentation with two NT machines, the user
 	   requires Full Access to the printer to change security
@@ -9378,6 +9384,15 @@ WERROR _spoolss_enumprinterdataex(pipes_struct *p, SPOOL_Q_ENUMPRINTERDATAEX *q_
 	
 	/* housekeeping information in the reply */
 	
+	/* Fix from Martin Zielinski <mz@seh.de> - ensure
+	 * the hand marshalled container size is a multiple
+	 * of 4 bytes for RPC alignment.
+	 */
+
+	if (needed % 4) {
+		needed += 4-(needed % 4);
+	}
+
 	r_u->needed 	= needed;
 	r_u->returned 	= num_entries;
 

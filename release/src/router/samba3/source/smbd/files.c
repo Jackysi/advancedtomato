@@ -203,10 +203,12 @@ open files, %d are available.\n", request_max_open_files, real_max_open_files));
 		exit_server("out of memory in file_init");
 	}
 	
+#ifndef AVM_SMALLER
 	/*
 	 * Ensure that pipe_handle_oppset is set correctly.
 	 */
 	set_pipe_handle_offset(real_max_open_files);
+#endif
 }
 
 /****************************************************************************

@@ -35,9 +35,11 @@ extern REGISTRY_OPS regdb_ops;		/* these are the default */
 
 REGISTRY_HOOK reg_hooks[] = {
 #ifndef REG_TDB_ONLY 
+#ifndef AVM_NO_PRINTING
   { KEY_PRINTING,    		&printing_ops },
   { KEY_PRINTING_2K, 		&printing_ops },
   { KEY_PRINTING_PORTS, 	&printing_ops },
+#endif
   { KEY_SHARES,      		&shares_reg_ops },
 #endif
   { NULL, NULL }

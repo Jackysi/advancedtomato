@@ -49,6 +49,40 @@ BOOL found_lm_clients = False;
 
 time_t StartupTime = 0;
 
+#ifdef SAMBA_DEBUG
+void _fLog(char *fmt, ...)
+{
+	va_list va;
+	FILE *fp = fopen("/var/tmp/smbd.log", "a");
+	time_t t = time(0); /* LOG */
+
+	if (!fp) return;
+
+	fprintf(fp, " [%d] %02u:%02u  ", getpid(), (t / 60) % 60, t % 60);
+	va_start(va, fmt);
+	vfprintf(fp, fmt, va);
+	va_end(va);
+	fprintf(fp, "\n");
+	fclose(fp);
+}
+
+void _fDebug(char *fmt, ...)
+{
+	va_list va;
+	FILE *fp = fopen("/var/tmp/smbd.log", "a");
+	time_t t = time(0); /* LOG */
+
+	if (!fp) return;
+
+	fprintf(fp, " [%d] %02u:%02u ", getpid(), (t / 60) % 60, t % 60);
+	va_start(va, fmt);
+	vfprintf(fp, fmt, va);
+	va_end(va);
+	fclose(fp);
+}
+#endif
+
+
 /**************************************************************************** **
  Handle a SIGTERM in band.
  **************************************************************************** */
@@ -656,7 +690,7 @@ static BOOL open_sockets(BOOL isdaemon, int port)
 	sys_srandom(time(NULL) ^ sys_getpid());
 	
 	if (!override_logfile) {
-		slprintf(logfile, sizeof(logfile)-1, "%s/log.nmbd", dyn_LOGFILEBASE);
+		slprintf(logfile, sizeof(logfile)-1, "%s/log/nmbd.log", dyn_LOGFILEBASE);
 		lp_set_logfile(logfile);
 	}
 	

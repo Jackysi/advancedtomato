@@ -31,6 +31,9 @@
  
 static BOOL ads_dc_name(const char *domain, const char *realm, struct in_addr *dc_ip, fstring srv_name)
 {
+#if 1 /* AR7 */
+	return False;
+#else 
 	ADS_STRUCT *ads;
 
 	if (!realm && strequal(domain, lp_workgroup()))
@@ -63,6 +66,7 @@ static BOOL ads_dc_name(const char *domain, const char *realm, struct in_addr *d
 		 srv_name, inet_ntoa(*dc_ip)));
 	
 	return True;
+#endif /* AR7 */
 }
 
 /****************************************************************************

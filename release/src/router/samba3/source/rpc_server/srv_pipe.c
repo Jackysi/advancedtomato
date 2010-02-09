@@ -2331,6 +2331,7 @@ void get_pipe_fns( int idx, struct api_struct **fns, int *n_fns )
 	int               n_cmds = 0;
 
 	switch ( idx ) {
+#ifndef AVM_SMALLER
 		case PI_LSARPC:
 			lsa_get_pipe_fns( &cmds, &n_cmds );
 			break;
@@ -2343,12 +2344,14 @@ void get_pipe_fns( int idx, struct api_struct **fns, int *n_fns )
 		case PI_NETLOGON:
 			netlog_get_pipe_fns( &cmds, &n_cmds );
 			break;
+#endif /* AVM_SMALLER */
 		case PI_SRVSVC:
 			srvsvc_get_pipe_fns( &cmds, &n_cmds );
 			break;
 		case PI_WKSSVC:
 			wkssvc_get_pipe_fns( &cmds, &n_cmds );
 			break;
+#ifndef AVM_SMALLER
 		case PI_WINREG:
 			reg_get_pipe_fns( &cmds, &n_cmds );
 			break;
@@ -2367,6 +2370,8 @@ void get_pipe_fns( int idx, struct api_struct **fns, int *n_fns )
 		case PI_NTSVCS:
 			ntsvcs_get_pipe_fns( &cmds, &n_cmds );
 			break;
+#endif /* AVM_SMALLER */
+
 #ifdef DEVELOPER
 		case PI_ECHO:
 			echo_get_pipe_fns( &cmds, &n_cmds );

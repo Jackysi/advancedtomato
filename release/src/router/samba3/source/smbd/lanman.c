@@ -378,6 +378,7 @@ static void PACKS(struct pack_desc* desc,const char *t,const char *v)
 	PACK(desc,t,v);
 }
 
+#ifndef AVM_NO_PRINTING
 /****************************************************************************
  Get a print queue.
 ****************************************************************************/
@@ -753,6 +754,7 @@ static int get_printerdrivernumber(int snum)
 		
 	return result;
 }
+#endif /* AVM_NO_PRINTING */
 
 static BOOL api_DosPrintQGetInfo(connection_struct *conn,
 				 uint16 vuid, char *param,char *data,
@@ -760,6 +762,9 @@ static BOOL api_DosPrintQGetInfo(connection_struct *conn,
 				 char **rdata,char **rparam,
 				 int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -865,6 +870,7 @@ static BOOL api_DosPrintQGetInfo(connection_struct *conn,
 	SAFE_FREE(tmpdata);
 
 	return(True);
+#endif /* AVM_NO_PRINTING */
 }
 
 /****************************************************************************
@@ -876,6 +882,9 @@ static BOOL api_DosPrintQEnum(connection_struct *conn, uint16 vuid, char* param,
  			      char **rdata, char** rparam,
  			      int *rdata_len, int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *param_format = param+2;
 	char *output_format1 = skip_string(param_format,1);
 	char *p = skip_string(output_format1,1);
@@ -1004,6 +1013,7 @@ static BOOL api_DosPrintQEnum(connection_struct *conn, uint16 vuid, char* param,
 	SAFE_FREE(status);
 
 	return False;
+#endif /* AVM_NO_PRINTING */
 }
 
 /****************************************************************************
@@ -2378,6 +2388,9 @@ static BOOL api_RDosPrintJobDel(connection_struct *conn,uint16 vuid, char *param
 				char **rdata,char **rparam,
 				int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	int function = SVAL(param,0);
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
@@ -2438,6 +2451,7 @@ static BOOL api_RDosPrintJobDel(connection_struct *conn,uint16 vuid, char *param
 	SSVAL(*rparam,2,0);		/* converter word */
 
 	return(True);
+#endif
 }
 
 /****************************************************************************
@@ -2449,6 +2463,9 @@ static BOOL api_WPrintQueueCtrl(connection_struct *conn,uint16 vuid, char *param
 				 char **rdata,char **rparam,
 				 int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	int function = SVAL(param,0);
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
@@ -2494,6 +2511,7 @@ static BOOL api_WPrintQueueCtrl(connection_struct *conn,uint16 vuid, char *param
 	SSVAL(*rparam,2,0);		/* converter word */
 
 	return(True);
+#endif
 }
 
 /****************************************************************************
@@ -2525,6 +2543,9 @@ static BOOL api_PrintJobInfo(connection_struct *conn,uint16 vuid,char *param,cha
   			     char **rdata,char **rparam,
   			     int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	struct pack_desc desc;
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
@@ -2590,6 +2611,7 @@ static BOOL api_PrintJobInfo(connection_struct *conn,uint16 vuid,char *param,cha
 	SSVAL(*rparam,2,0);		/* converter word */
 	
 	return(True);
+#endif
 }
 
 
@@ -3272,6 +3294,9 @@ static BOOL api_WPrintJobGetInfo(connection_struct *conn,uint16 vuid, char *para
 				 char **rdata,char **rparam,
 				 int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3358,6 +3383,7 @@ static BOOL api_WPrintJobGetInfo(connection_struct *conn,uint16 vuid, char *para
 	DEBUG(4,("WPrintJobGetInfo: errorcode %d\n",desc.errcode));
 
 	return True;
+#endif
 }
 
 static BOOL api_WPrintJobEnumerate(connection_struct *conn,uint16 vuid, char *param,char *data,
@@ -3365,6 +3391,9 @@ static BOOL api_WPrintJobEnumerate(connection_struct *conn,uint16 vuid, char *pa
 				   char **rdata,char **rparam,
 				   int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3440,6 +3469,7 @@ static BOOL api_WPrintJobEnumerate(connection_struct *conn,uint16 vuid, char *pa
 	DEBUG(4,("WPrintJobEnumerate: errorcode %d\n",desc.errcode));
 
 	return True;
+#endif
 }
 
 static int check_printdest_info(struct pack_desc* desc,
@@ -3509,6 +3539,9 @@ static BOOL api_WPrintDestGetInfo(connection_struct *conn,uint16 vuid, char *par
 				  char **rdata,char **rparam,
 				  int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3573,6 +3606,7 @@ static BOOL api_WPrintDestGetInfo(connection_struct *conn,uint16 vuid, char *par
 	SAFE_FREE(tmpdata);
 
 	return True;
+#endif
 }
 
 static BOOL api_WPrintDestEnum(connection_struct *conn,uint16 vuid, char *param,char *data,
@@ -3580,6 +3614,9 @@ static BOOL api_WPrintDestEnum(connection_struct *conn,uint16 vuid, char *param,
 			       char **rdata,char **rparam,
 			       int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3648,6 +3685,7 @@ static BOOL api_WPrintDestEnum(connection_struct *conn,uint16 vuid, char *param,
 	DEBUG(4,("WPrintDestEnumerate: errorcode %d\n",desc.errcode));
 
 	return True;
+#endif
 }
 
 static BOOL api_WPrintDriverEnum(connection_struct *conn,uint16 vuid, char *param,char *data,
@@ -3655,6 +3693,9 @@ static BOOL api_WPrintDriverEnum(connection_struct *conn,uint16 vuid, char *para
 				 char **rdata,char **rparam,
 				 int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3705,6 +3746,7 @@ static BOOL api_WPrintDriverEnum(connection_struct *conn,uint16 vuid, char *para
 	DEBUG(4,("WPrintDriverEnum: errorcode %d\n",desc.errcode));
 
 	return True;
+#endif
 }
 
 static BOOL api_WPrintQProcEnum(connection_struct *conn,uint16 vuid, char *param,char *data,
@@ -3712,6 +3754,9 @@ static BOOL api_WPrintQProcEnum(connection_struct *conn,uint16 vuid, char *param
 				char **rdata,char **rparam,
 				int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3763,6 +3808,7 @@ static BOOL api_WPrintQProcEnum(connection_struct *conn,uint16 vuid, char *param
 	DEBUG(4,("WPrintQProcEnum: errorcode %d\n",desc.errcode));
 
 	return True;
+#endif
 }
 
 static BOOL api_WPrintPortEnum(connection_struct *conn,uint16 vuid, char *param,char *data,
@@ -3770,6 +3816,9 @@ static BOOL api_WPrintPortEnum(connection_struct *conn,uint16 vuid, char *param,
 			       char **rdata,char **rparam,
 			       int *rdata_len,int *rparam_len)
 {
+#ifdef AVM_NO_PRINTING
+return False;
+#else
 	char *str1 = param+2;
 	char *str2 = skip_string(str1,1);
 	char *p = skip_string(str2,1);
@@ -3822,6 +3871,7 @@ static BOOL api_WPrintPortEnum(connection_struct *conn,uint16 vuid, char *param,
 	DEBUG(4,("WPrintPortEnum: errorcode %d\n",desc.errcode));
 
 	return True;
+#endif
 }
 
 

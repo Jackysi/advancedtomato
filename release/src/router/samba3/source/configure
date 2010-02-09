@@ -5503,7 +5503,7 @@ echo "${ECHO_T}same" >&6; }
 
 DYNEXP=
 
-default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_samr rpc_reg rpc_lsa_ds rpc_wks rpc_svcctl rpc_ntsvcs rpc_net rpc_netdfs rpc_srv rpc_spoolss rpc_eventlog auth_sam auth_unix auth_winbind auth_server auth_domain auth_builtin"
+default_static_modules="pdb_smbpasswd pdb_tdbsam rpc_lsa rpc_lsa_ds rpc_wks rpc_ntsvcs rpc_net rpc_netdfs rpc_spoolss auth_sam auth_builtin"
 
 default_shared_modules="vfs_recycle vfs_audit vfs_extd_audit vfs_full_audit vfs_netatalk vfs_fake_perms vfs_default_quota vfs_readonly vfs_cap vfs_expand_msdfs vfs_shadow_copy charset_CP850 charset_CP437 auth_script"
 
@@ -5838,85 +5838,7 @@ echo "${ECHO_T}$SINIX_LFS_SUPPORT" >&6; }
 echo $ECHO_N "checking for LFS support... $ECHO_C" >&6; }
         old_CPPFLAGS="$CPPFLAGS"
         CPPFLAGS="-D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $CPPFLAGS"
-       if test "$cross_compiling" = yes; then
-  LINUX_LFS_SUPPORT=cross
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-#include <unistd.h>
-#include <sys/utsname.h>
-#include <string.h>
-#include <stdlib.h>
-main() {
-#if _LFS64_LARGEFILE == 1
-       struct utsname uts;
-       char *release;
-       int major, minor;
-
-       /* Ensure this is glibc 2.2 or higher */
-#if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
-       int libc_major = __GLIBC__;
-       int libc_minor = __GLIBC_MINOR__;
-
-       if (libc_major < 2)
-              exit(1);
-       if (libc_minor < 2)
-              exit(1);
-#endif
-
-       /* Ensure this is kernel 2.4 or higher */
-
-       uname(&uts);
-       release = strdup(uts.release);
-       major = atoi(strsep(&release, "."));
-       minor = atoi(strsep(&release, "."));
-
-       if (major > 2 || (major == 2 && minor > 3))
-               exit(0);
-       exit(1);
-#else
-       exit(1);
-#endif
-}
-
-_ACEOF
-rm -f conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
-  { (case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_try") 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  LINUX_LFS_SUPPORT=yes
-else
-  echo "$as_me: program exited with status $ac_status" >&5
-echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-( exit $ac_status )
-LINUX_LFS_SUPPORT=no
-fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
-fi
-
+LINUX_LFS_SUPPORT=yes
 
 	CPPFLAGS="$old_CPPFLAGS"
 	if test x$LINUX_LFS_SUPPORT = xyes ; then
@@ -23931,11 +23853,12 @@ case "$host_os" in
     *linux*)
        # glibc <= 2.3.2 has a broken getgrouplist
        if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
-See \`config.log' for more details." >&5
-echo "$as_me: error: cannot run test program while cross compiling
-See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+#  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+#See \`config.log' for more details." >&5
+#echo "$as_me: error: cannot run test program while cross compiling
+#See \`config.log' for more details." >&2;}
+#   { (exit 1); exit 1; }; }
+  linux_getgrouplist_ok=no
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */

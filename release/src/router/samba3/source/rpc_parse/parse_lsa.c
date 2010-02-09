@@ -1171,7 +1171,7 @@ static BOOL lsa_io_sid_enum(const char *desc, LSA_SID_ENUM *sen, prs_struct *ps,
 
 	/* Mallocate memory if we're unpacking from the wire */
 
-	if (UNMARSHALLING(ps)) {
+	if (UNMARSHALLING(ps) && sen->num_entries) {
 		if ((sen->ptr_sid = PRS_ALLOC_MEM( ps, uint32, sen->num_entries)) == NULL) {
 			DEBUG(3, ("init_lsa_sid_enum(): out of memory for "
 				  "ptr_sid\n"));
@@ -1349,12 +1349,17 @@ static BOOL lsa_io_trans_names(const char *desc, LSA_TRANS_NAME_ENUM *trn,
 			       &trn->num_entries2))
 			return False;
 
-		if (UNMARSHALLING(ps)) {
-			if ((trn->name = PRS_ALLOC_MEM(ps, LSA_TRANS_NAME, trn->num_entries)) == NULL) {
+		if (trn->num_entries2 != trn->num_entries) {
+			/* RPC fault */
+			return False;
+		}
+
+		if (UNMARSHALLING(ps) && trn->num_entries2) {
+			if ((trn->name = PRS_ALLOC_MEM(ps, LSA_TRANS_NAME, trn->num_entries2)) == NULL) {
 				return False;
 			}
 
-			if ((trn->uni_name = PRS_ALLOC_MEM(ps, UNISTR2, trn->num_entries)) == NULL) {
+			if ((trn->uni_name = PRS_ALLOC_MEM(ps, UNISTR2, trn->num_entries2)) == NULL) {
 				return False;
 			}
 		}
@@ -1406,12 +1411,17 @@ static BOOL lsa_io_trans_names2(const char *desc, LSA_TRANS_NAME_ENUM2 *trn,
 			       &trn->num_entries2))
 			return False;
 
-		if (UNMARSHALLING(ps)) {
-			if ((trn->name = PRS_ALLOC_MEM(ps, LSA_TRANS_NAME2, trn->num_entries)) == NULL) {
+		if (trn->num_entries2 != trn->num_entries) {
+			/* RPC fault */
+			return False;
+		}
+
+		if (UNMARSHALLING(ps) && trn->num_entries2) {
+			if ((trn->name = PRS_ALLOC_MEM(ps, LSA_TRANS_NAME2, trn->num_entries2)) == NULL) {
 				return False;
 			}
 
-			if ((trn->uni_name = PRS_ALLOC_MEM(ps, UNISTR2, trn->num_entries)) == NULL) {
+			if ((trn->uni_name = PRS_ALLOC_MEM(ps, UNISTR2, trn->num_entries2)) == NULL) {
 				return False;
 			}
 		}
@@ -1678,7 +1688,7 @@ BOOL lsa_io_r_lookup_names(const char *desc, LSA_R_LOOKUP_NAMES *out, prs_struct
 			return False;
 		}
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && out->num_entries2) {
 			if ((out->dom_rid = PRS_ALLOC_MEM(ps, DOM_RID, out->num_entries2))
 			    == NULL) {
 				DEBUG(3, ("lsa_io_r_lookup_names(): out of memory\n"));
@@ -1803,7 +1813,7 @@ BOOL lsa_io_r_lookup_names2(const char *desc, LSA_R_LOOKUP_NAMES2 *out, prs_stru
 			return False;
 		}
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && out->num_entries2) {
 			if ((out->dom_rid = PRS_ALLOC_MEM(ps, DOM_RID2, out->num_entries2))
 			    == NULL) {
 				DEBUG(3, ("lsa_io_r_lookup_names2(): out of memory\n"));
@@ -1956,7 +1966,7 @@ BOOL lsa_io_r_lookup_names3(const char *desc, LSA_R_LOOKUP_NAMES3 *out, prs_stru
 			return False;
 		}
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && out->num_entries2) {
 			if ((out->trans_sids = PRS_ALLOC_MEM(ps, LSA_TRANSLATED_SID3, out->num_entries2))
 			    == NULL) {
 				DEBUG(3, ("lsa_io_r_lookup_names3(): out of memory\n"));
@@ -2085,7 +2095,7 @@ BOOL lsa_io_r_lookup_names4(const char *desc, LSA_R_LOOKUP_NAMES4 *out, prs_stru
 			return False;
 		}
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && out->num_entries2) {
 			if ((out->trans_sids = PRS_ALLOC_MEM(ps, LSA_TRANSLATED_SID3, out->num_entries2))
 			    == NULL) {
 				DEBUG(3, ("lsa_io_r_lookup_names4(): out of memory\n"));
@@ -2324,7 +2334,7 @@ BOOL lsa_io_r_enum_privs(const char *desc, LSA_R_ENUM_PRIVS *out, prs_struct *ps
 		if(!prs_uint32("count1", ps, depth, &out->count1))
 			return False;
 
-		if (UNMARSHALLING(ps))
+		if (UNMARSHALLING(ps) && out->count1)
 			if (!(out->privs = PRS_ALLOC_MEM(ps, LSA_PRIV_ENTRY, out->count1)))
 				return False;
 
@@ -2759,7 +2769,7 @@ static BOOL lsa_io_luid_attr(const char *desc, LUID_ATTR *out, prs_struct *ps, i
 
 static BOOL lsa_io_privilege_set(const char *desc, PRIVILEGE_SET *out, prs_struct *ps, int depth)
 {
-	uint32 i;
+	uint32 i, dummy;
 
 	prs_debug(ps, depth, desc, "lsa_io_privilege_set");
 	depth++;
@@ -2767,7 +2777,7 @@ static BOOL lsa_io_privilege_set(const char *desc, PRIVILEGE_SET *out, prs_struc
 	if(!prs_align(ps))
 		return False;
  
-	if(!prs_uint32("count", ps, depth, &out->count))
+	if(!prs_uint32("count", ps, depth, &dummy))
 		return False;
 	if(!prs_uint32("control", ps, depth, &out->control))
 		return False;
@@ -3886,7 +3896,7 @@ static BOOL smb_io_lsa_data_buf(const char *desc, LSA_DATA_BUF *buf,
 	prs_debug(ps, depth, desc, "smb_io_lsa_data_buf");
 	depth++;
 
-	if ( UNMARSHALLING(ps) ) {
+	if ( UNMARSHALLING(ps) && length ) {
 		if ( !(buf->data = PRS_ALLOC_MEM( ps, uint8, length )) )
 			return False;
 	}
@@ -3900,7 +3910,7 @@ static BOOL smb_io_lsa_data_buf(const char *desc, LSA_DATA_BUF *buf,
 	if (!prs_uint32("length", ps, depth, &buf->length))
 		return False;
 
-	if(!prs_uint8s(False, "data", ps, depth, buf->data, size))
+	if(!prs_uint8s(False, "data", ps, depth, buf->data, length))
 		return False;
 
 	return True;

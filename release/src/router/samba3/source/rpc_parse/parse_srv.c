@@ -782,7 +782,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info0 = PRS_ALLOC_MEM(ps, SRV_SHARE_INFO_0, num_entries)))
 				return False;
 			ctr->share.info0 = info0;
@@ -808,7 +808,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info1 = PRS_ALLOC_MEM(ps, SRV_SHARE_INFO_1, num_entries)))
 				return False;
 			ctr->share.info1 = info1;
@@ -834,7 +834,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info2 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_2,num_entries)))
 				return False;
 			ctr->share.info2 = info2;
@@ -859,7 +859,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info501 = PRS_ALLOC_MEM(ps, SRV_SHARE_INFO_501, num_entries)))
 				return False;
 			ctr->share.info501 = info501;
@@ -884,7 +884,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info502 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_502,num_entries)))
 				return False;
 			ctr->share.info502 = info502;
@@ -910,7 +910,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info1004 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_1004,num_entries)))
 				return False;
 			ctr->share.info1004 = info1004;
@@ -936,7 +936,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info1005 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_1005,num_entries)))
 				return False;
 			ctr->share.info1005 = info1005;
@@ -956,7 +956,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info1006 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_1006,num_entries)))
 				return False;
 			ctr->share.info1006 = info1006;
@@ -976,7 +976,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info1007 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_1007,num_entries)))
 				return False;
 			ctr->share.info1007 = info1007;
@@ -1002,7 +1002,7 @@ static BOOL srv_io_srv_share_ctr(const char *desc, SRV_SHARE_INFO_CTR *ctr, prs_
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info1501 = PRS_ALLOC_MEM(ps,SRV_SHARE_INFO_1501,num_entries)))
 				return False;
 			ctr->share.info1501 = info1501;
@@ -2558,7 +2558,7 @@ static BOOL srv_io_srv_file_ctr(const char *desc, SRV_FILE_INFO_CTR *ctr, prs_st
 		int num_entries = ctr->num_entries;
 		int i;
 
-		if (UNMARSHALLING(ps)) {
+		if (UNMARSHALLING(ps) && num_entries) {
 			if (!(info3 = PRS_ALLOC_MEM(ps, SRV_FILE_INFO_3, num_entries)))
 				return False;
 			ctr->file.info3 = info3;
@@ -3377,7 +3377,7 @@ BOOL srv_io_r_net_disk_enum(const char *desc, SRV_R_NET_DISK_ENUM *r_n, prs_stru
 
 	r_n->disk_enum_ctr.entries_read = entries_read3;
 
-	if(UNMARSHALLING(ps)) {
+	if(UNMARSHALLING(ps) && entries_read3) {
 
 		DISK_INFO *dinfo;
 
@@ -3386,7 +3386,7 @@ BOOL srv_io_r_net_disk_enum(const char *desc, SRV_R_NET_DISK_ENUM *r_n, prs_stru
 		r_n->disk_enum_ctr.disk_info = dinfo;
 	}
 
-	for(i=0; i < r_n->disk_enum_ctr.entries_read; i++) {
+	for(i=0; i < entries_read3; i++) {
 
 		if(!prs_uint32("unknown", ps, depth, &r_n->disk_enum_ctr.disk_info[i].unknown))
 			return False;

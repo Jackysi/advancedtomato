@@ -295,7 +295,9 @@ static int close_normal_file(files_struct *fsp, enum file_close_type close_type)
 	}
 
 	if (fsp->print_file) {
+#ifndef AVM_NO_PRINTING
 		print_fsp_end(fsp, close_type);
+#endif
 		file_free(fsp);
 		return 0;
 	}

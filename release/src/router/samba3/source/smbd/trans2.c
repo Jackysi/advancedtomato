@@ -2636,13 +2636,16 @@ cap_low = 0x%x, cap_high = 0x%x\n",
 				quotas.qflags = SVAL(pdata,40);
 		
 				/* unknown_2 6 NULL bytes follow*/
-		
+
 				/* now set the quotas */
+#if 1 /* AR7 */
+					return ERROR_DOS(ERRSRV,ERRerror);
+#else
 				if (vfs_set_ntquota(fsp, SMB_USER_FS_QUOTA_TYPE, NULL, &quotas)!=0) {
 					DEBUG(0,("vfs_set_ntquota() failed for service [%s]\n",lp_servicename(SNUM(conn))));
 					return ERROR_DOS(ERRSRV,ERRerror);
 				}
-			
+#endif			
 				break;
 			}
 		default:

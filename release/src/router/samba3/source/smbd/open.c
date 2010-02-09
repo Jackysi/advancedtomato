@@ -1127,8 +1127,11 @@ files_struct *open_file_ntcreate(connection_struct *conn,
 		}
 
 		DEBUG(10, ("open_file_ntcreate: printer open fname=%s\n", fname));
-
+#ifdef AVM_NO_PRINTING
+		return NULL;
+#else
 		return print_fsp_open(conn, fname);
+#endif
 	}
 
 	/* We add aARCH to this as this mode is only used if the file is

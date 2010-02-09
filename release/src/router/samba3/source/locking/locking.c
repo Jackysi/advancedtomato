@@ -1166,6 +1166,11 @@ NTSTATUS can_set_delete_on_close(files_struct *fsp, BOOL delete_on_close,
 		return NT_STATUS_ACCESS_DENIED;
 	}
 
+	/* Don't allow delete on close for non-empty directories. */
+	if (fsp->is_directory) {
+		return can_delete_directory(fsp->conn, fsp->fsp_name);
+	}
+
 	return NT_STATUS_OK;
 }
 

@@ -38,3 +38,9 @@ BOOL conn_snum_used(int snum)
 {
 	return False;
 }
+
+NTSTATUS can_delete_directory(struct connection_struct *conn,
+                                const char *dirname)
+{
+	return NT_STATUS_OK;
+}

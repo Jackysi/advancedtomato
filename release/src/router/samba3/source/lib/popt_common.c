@@ -54,7 +54,7 @@ static void set_logfile(poptContext con, const char * arg)
 	else 
 		pname++;
 
-	pstr_sprintf(logfile, "%s/log.%s", arg, pname);
+	pstr_sprintf(logfile, "%s/log/%s.log", arg, pname);
 	lp_set_logfile(logfile);
 }
 

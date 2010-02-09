@@ -1008,7 +1008,9 @@ static int construct_reply(char *inbuf,char *outbuf,int size,int bufsize)
 
 	chain_size = 0;
 	file_chain_reset();
+#ifndef AVM_SMALLER
 	reset_chain_p();
+#endif
 
 	if (msg_type != 0)
 		return(reply_special(inbuf,outbuf));  
@@ -1285,8 +1287,10 @@ static int setup_select_timeout(void)
 	if (t != -1)
 		select_timeout = MIN(select_timeout, t*1000);
 
+#ifndef AVM_NO_PRINTING
 	if (print_notify_messages_pending())
 		select_timeout = MIN(select_timeout, 1000);
+#endif
 
 	return select_timeout;
 }
@@ -1477,10 +1481,11 @@ machine %s in domain %s.\n", global_myname(), lp_workgroup()));
 	 */
 	process_blocking_lock_queue(t);
 
+#ifndef AVM_NO_PRINTING
 	/* update printer queue caches if necessary */
-  
 	update_monitored_printq_cache();
-  
+#endif
+
 	/*
 	 * Check to see if we have any change notifies 
 	 * outstanding on the queue.
@@ -1494,9 +1499,10 @@ machine %s in domain %s.\n", global_myname(), lp_workgroup()));
 	force_check_log_size();
 	check_log_size();
 
+#ifndef AVM_NO_PRINTING
 	/* Send any queued printer notify message to interested smbd's. */
-
 	print_notify_send_messages(0);
+#endif
 
 	/*
 	 * Modify the select timeout depending upon
