@@ -171,6 +171,9 @@ static int ftp_data_fixup(const struct ip_ct_ftp_expect *exp_ftp_info,
 	       expect->seq, exp_ftp_info->len,
 	       ntohl(tcph->seq));
 
+        /********add by zg 2006.11.21 for cdrouter v3.3 item 123/124(cdrouter_app_11/12) bug ********/
+        memset(&newtuple, 0, sizeof(newtuple));
+
 	/* Change address inside packet to match way we're mapping
 	   this connection. */
 	if (exp_ftp_info->ftptype == IP_CT_FTP_PASV

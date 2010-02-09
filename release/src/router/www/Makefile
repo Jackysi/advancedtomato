@@ -57,16 +57,31 @@ ifneq ($(TCONFIG_SAMBASRV),y)
 	rm -f $(INSTALLDIR)/www/nas-samba.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/SAMBA-BEGIN/,/SAMBA-END/d"
 endif
+
 # Only include the CIFS pages if CIFS is configured in.
 ifneq ($(TCONFIG_CIFS),y)
 	rm -f $(INSTALLDIR)/www/admin-cifs.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
+	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed	-i "/CIFS-BEGIN/d" $$F; \
+		sed	-i "/CIFS-END/d" $$F; \
+	done
+
 # Only include the JFFS pages if JFFS is configured in.
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(INSTALLDIR)/www/admin-jffs2.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
+	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 endif
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed	-i "/JFFS2-BEGIN/d" $$F; \
+		sed	-i "/JFFS2-END/d" $$F; \
+	done
+
 # Only include the Zebra options if Zebra is configured in.
 ifneq ($(TCONFIG_ZEBRA),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ZEBRA-BEGIN/,/ZEBRA-END/d"
@@ -84,6 +99,7 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 endif
 	sed -i "/THEMES-BEGIN/d" $(INSTALLDIR)/www/admin-access.asp
 	sed -i "/THEMES-END/d" $(INSTALLDIR)/www/admin-access.asp
+
 # Only include NTFS settings if NTFS support is configured in.
 ifneq ($(TCONFIG_NTFS),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/NTFS-BEGIN/,/NTFS-END/d"

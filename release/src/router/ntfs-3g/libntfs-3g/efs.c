@@ -41,8 +41,6 @@
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
-#else
-#include <linux/xattr.h>
 #endif
 
 #ifdef HAVE_SYS_SYSMACROS_H
@@ -59,6 +57,8 @@
 #include "logging.h"
 #include "misc.h"
 #include "efs.h"
+
+#ifdef HAVE_SETXATTR	/* extended attributes interface required */
 
 static ntfschar logged_utility_stream_name[] = {
 	const_cpu_to_le16('$'),
@@ -339,3 +339,5 @@ err_out:
 		ntfs_attr_put_search_ctx(ctx);
 	return (-1);
 }
+
+#endif /* HAVE_SETXATTR */

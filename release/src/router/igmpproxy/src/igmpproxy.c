@@ -206,7 +206,8 @@ int igmpProxyInit() {
 
         // If there is only one VIF, or no defined upstream VIF, we send an error.
         if(vifcount < 2 || upStreamVif < 0) {
-            my_log(LOG_ERR, 0, "There must be at least 2 Vif's where one is upstream.");
+            my_log(LOG_ERR, 0, "There must be at least 2 Vif's where one is upstream (count %d, upstream Vif %d).",
+                vifcount, upStreamVif);
         }
     }  
     

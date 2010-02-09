@@ -270,6 +270,7 @@ const defaults_t defaults[] = {
 // advanced-ctnf
 	{ "ct_tcp_timeout",		""				},
 	{ "ct_udp_timeout",		""				},
+	{ "ct_timeout",			""				},
 	{ "ct_max",				""				},
 	{ "nf_ttl",				"0"				},
 	{ "nf_l7in",			"1"				},
@@ -469,7 +470,7 @@ const defaults_t defaults[] = {
 	{ "debug_cprintf_file",	"0"				},
 //	{ "debug_keepfiles",	"0"				},
 	{ "console_loglevel",	"1"				},
-	{ "t_cafree",			"0"				},
+	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},

@@ -204,6 +204,11 @@ sub fillGaps
 	foreach $name (@elfs) {
 		foreach $sym (keys %{$elf_ext{$name}}) {
 			$found = 0;
+
+			if ($sym eq '__uClibc_start_main') {
+				$sym = '__uClibc_main';
+			}
+
 			if (resolve($name, $sym) eq "*** unresolved ***") {
 				@users = usersOf($name);
 				foreach $u (@users) {
@@ -414,6 +419,7 @@ genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 
 #!!TB - Samba
 genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
+genSO("${root}/usr/lib/libbigballofmud.so", "${router}/samba3/source/bin/libbigballofmud.a");
 #!!TB - FTP SSL
 genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 

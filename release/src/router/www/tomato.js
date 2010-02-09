@@ -1916,7 +1916,7 @@ function comma(n)
 	return n;
 }
 
-function scaleSize(n)
+function doScaleSize(n, sm)
 {
 	if (isNaN(n *= 1)) return '-';
 	if (n <= 9999) return '' + n;
@@ -1925,7 +1925,12 @@ function scaleSize(n)
 		n /= 1024;
 		++s;
 	} while ((n > 9999) && (s < 2));
-	return comma(n.toFixed(2)) + '<small> ' + (['KB', 'MB', 'GB'])[s] + '</small>';
+	return comma(n.toFixed(2)) + (sm ? '<small> ' : ' ') + (['KB', 'MB', 'GB'])[s] + (sm ? '</small>' : '');
+}
+
+function scaleSize(n)
+{
+	return doScaleSize(n, 1);
 }
 
 function timeString(mins)

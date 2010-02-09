@@ -61,7 +61,15 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
-obj-$(TCONFIG_SAMBASRV) += samba
+ifeq ($(TCONFIG_SAMBASRV),y)
+ifeq ($(TCONFIG_SAMBA3),y)
+NEED_SAMBA3 = y
+else
+NEED_SAMBA2 = y
+endif
+endif
+obj-$(NEED_SAMBA2) += samba
+obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 
 obj-y += miniupnpd
@@ -108,10 +116,10 @@ kernel: $(LINUXDIR)/.config
 	@$(SEP)
 
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage ; \
+	    $(MAKE) -C $(LINUXDIR) zImage CC=$(KERNELCC); \
 	fi
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) modules ; \
+	    $(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC); \
 	fi
 ifeq ($(CONFIG_LINUX26),y)
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed srctree=$(LINUXDIR)
@@ -119,11 +127,7 @@ endif
 
 
 lzma-loader:
-ifeq ($(CONFIG_LINUX26),y)
-	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD) LZMAPATH=$(LINUXDIR)/scripts/squashfs/lzma/C/Compress/Lzma all
-else
 	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD)
-endif
 
 lzma-loader-install: lzma-loader
 	@$(SEP)
@@ -604,6 +608,7 @@ usbmodeswitch-install:
 p910nd:
 sendmail:
 samba:
+samba3:
 
 nvram: shared
 

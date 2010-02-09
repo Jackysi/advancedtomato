@@ -452,11 +452,13 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
 
 static struct mfc_cache *ipmr_cache_find(__u32 origin, __u32 mcastgrp)
 {
-	int line=MFC_HASH(mcastgrp,origin);
 	struct mfc_cache *c;
+	int line;
+	
+	line = MFC_HASH(mcastgrp,0);
 
 	for (c=mfc_cache_array[line]; c; c = c->next) {
-		if (c->mfc_origin==origin && c->mfc_mcastgrp==mcastgrp)
+		if (c->mfc_mcastgrp==mcastgrp)
 			break;
 	}
 	return c;
@@ -683,7 +685,7 @@ int ipmr_mfc_delete(struct mfcctl *mfc)
 	int line;
 	struct mfc_cache *c, **cp;
 
-	line=MFC_HASH(mfc->mfcc_mcastgrp.s_addr, mfc->mfcc_origin.s_addr);
+	line=MFC_HASH(mfc->mfcc_mcastgrp.s_addr, 0);
 
 	for (cp=&mfc_cache_array[line]; (c=*cp) != NULL; cp = &c->next) {
 		if (c->mfc_origin == mfc->mfcc_origin.s_addr &&
@@ -704,7 +706,7 @@ int ipmr_mfc_add(struct mfcctl *mfc, int mrtsock)
 	int line;
 	struct mfc_cache *uc, *c, **cp;
 
-	line=MFC_HASH(mfc->mfcc_mcastgrp.s_addr, mfc->mfcc_origin.s_addr);
+	line=MFC_HASH(mfc->mfcc_mcastgrp.s_addr, 0);
 
 	for (cp=&mfc_cache_array[line]; (c=*cp) != NULL; cp = &c->next) {
 		if (c->mfc_origin == mfc->mfcc_origin.s_addr &&

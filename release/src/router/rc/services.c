@@ -631,13 +631,14 @@ static pid_t pid_igmp = -1;
 
 void start_igmp_proxy(void)
 {
-	static char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	FILE *fp;
 	char *p;
 
 	pid_igmp = -1;
 	if (nvram_match("multicast_pass", "1")) {
 		switch (get_wan_proto()) {
+		case WP_DISABLED:
+			return;
 		case WP_PPPOE:
 		case WP_PPTP:
 		case WP_L2TP:
@@ -648,7 +649,10 @@ void start_igmp_proxy(void)
 			break;
 		}
 
-		if ((fp = fopen(igmpproxy_conf, "w")) != NULL) {
+		if (f_exists("/etc/igmp.alt")) {
+			xstart("igmpproxy", "/etc/igmp.alt");
+		}
+		else if ((fp = fopen("/etc/igmp.conf", "w")) != NULL) {
 			fprintf(fp,
 				"quickleave\n"
 				"phyint %s upstream\n"
@@ -656,13 +660,15 @@ void start_igmp_proxy(void)
 				"phyint %s downstream ratelimit 0\n",
 				nvram_safe_get(p),
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
-				nvram_safe_get("lan_ifname") ? : "br0");
+				nvram_safe_get("lan_ifname"));
 			fclose(fp);
-			xstart("igmpproxy", igmpproxy_conf);
-
-			if (!nvram_contains_word("debug_norestart", "igmprt")) {
-				pid_igmp = -2;
-			}
+			xstart("igmpproxy", "/etc/igmp.conf");
+		}
+		else {
+			return;
+		}
+		if (!nvram_contains_word("debug_norestart", "igmprt")) {
+			pid_igmp = -2;
 		}
 	}
 }
@@ -1008,6 +1014,7 @@ static void do_start_stop_samba(int stop, int start)
 		" interfaces = %s\n"
 		" bind interfaces only = yes\n"
 		" workgroup = %s\n"
+		" netbios name = %s\n"
 		" server string = %s\n"
 		" guest account = nobody\n"
 		" security = %s\n"
@@ -1018,11 +1025,13 @@ static void do_start_stop_samba(int stop, int start)
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
+		" dns proxy = no\n"
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_safe_get("lan_ifname"),
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
+		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
 		mode == 2 ? "user" : "share",
 		nvram_get_int("smbd_loglevel")
@@ -1045,7 +1054,9 @@ static void do_start_stop_samba(int stop, int start)
 
 	nv = nvram_safe_get("smbd_cpage");
 	if (*nv) {
+#ifndef TCONFIG_SAMBA3
 		fprintf(fp, " client code page = %s\n", nv);
+#endif
 		sprintf(nlsmod, "nls_cp%s", nv);
 
 		nv = nvram_safe_get("smbd_nlsmod");
@@ -1056,10 +1067,12 @@ static void do_start_stop_samba(int stop, int start)
 		nvram_set("smbd_nlsmod", nlsmod);
 	}
 
+#ifndef TCONFIG_SAMBA3
 	if (nvram_match("smbd_cset", "utf8"))
 		fprintf(fp, " coding system = utf8\n");
 	else if (nvram_invmatch("smbd_cset", ""))
 		fprintf(fp, " character set = %s\n", nvram_safe_get("smbd_cset"));
+#endif
 
 	fprintf(fp, "%s\n\n", nvram_safe_get("smbd_custom"));
 	
@@ -1134,12 +1147,20 @@ static void do_start_stop_samba(int stop, int start)
 	mkdir_if_none("/etc/samba");
 
 	/* write smbpasswd */
+#ifdef TCONFIG_SAMBA3
+	eval("smbpasswd", "nobody", "\"\"");
+#else
 	eval("smbpasswd", "-a", "nobody", "\"\"");
+#endif
 	if (mode == 2) {
 		char *smbd_user;
 		if (((smbd_user = nvram_get("smbd_user")) == NULL) || (*smbd_user == 0) || !strcmp(smbd_user, "root"))
 			smbd_user = "nas";
+#ifdef TCONFIG_SAMBA3
+		eval("smbpasswd", smbd_user, nvram_safe_get("smbd_passwd"));
+#else
 		eval("smbpasswd", "-a", smbd_user, nvram_safe_get("smbd_passwd"));
+#endif
 	}
 
 	kill_samba(SIGHUP);

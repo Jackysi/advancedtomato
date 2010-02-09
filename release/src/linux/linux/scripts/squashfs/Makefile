@@ -1,8 +1,9 @@
 CC=gcc
 CXX=g++
 INCLUDEDIR = .
-LZMALIB = lzma/C/7zip/Compress/LZMA_Lib
-LZMAPATH = lzma/C/7zip/Compress/LZMA_Alone
+LZMADIR = $(SRCBASE)/lzma/CPP/7zip/Compress
+LZMALIB = $(LZMADIR)/LZMA_Lib
+LZMAPATH = $(LZMADIR)/LZMA_Alone
 
 CFLAGS := -I$(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -O2
 
