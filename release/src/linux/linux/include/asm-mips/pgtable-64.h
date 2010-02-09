@@ -103,9 +103,10 @@ static inline pgprot_t pgprot_noncached(pgprot_t _prot)
 static inline pte_t pte_mkyoung(pte_t pte)
 {
 	(pte).pte_low |= _PAGE_ACCESSED;
-	if ((pte).pte_low & _PAGE_READ)
+	if ((pte).pte_low & _PAGE_READ) {
 		(pte).pte_low |= _PAGE_SILENT_READ;
 		(pte).pte_high |= _PAGE_SILENT_READ;
+	}
 	return pte;
 }
 

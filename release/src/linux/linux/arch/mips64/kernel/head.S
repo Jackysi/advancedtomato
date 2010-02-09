@@ -133,7 +133,8 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	bne	t0, t1, 1b
 
 	PTR_LA	$28, init_task_union		# init current pointer
-	daddiu	sp, $28, KERNEL_STACK_SIZE-32
+	/* Set the SP after an empty pt_regs.  */
+	daddiu	sp, $28, KERNEL_STACK_SIZE - 32 - PT_SIZE
 	set_saved_sp	sp, t0, t1
 	dsubu	sp, 4*SZREG			# init stack pointer
 

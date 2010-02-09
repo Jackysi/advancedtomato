@@ -94,6 +94,7 @@ void __init pcibios_init(void)
 	case MIPS_REVISION_CORID_QED_RM5261:
 	case MIPS_REVISION_CORID_CORE_LV:
 	case MIPS_REVISION_CORID_CORE_FPGA:
+	case MIPS_REVISION_CORID_CORE_FPGAR2:
 		/*
 		 * Due to a bug in the Galileo system controller, we need
 		 * to setup the PCI BAR for the Galileo internal registers.
@@ -116,10 +117,15 @@ void __init pcibios_init(void)
 
 	case MIPS_REVISION_CORID_BONITO64:
 	case MIPS_REVISION_CORID_CORE_20K:
+	case MIPS_REVISION_CORID_CORE_EMUL_BON:
 		pci_scan_bus(0, &bonito64_pci_ops, NULL);
 		break;
 
 	case MIPS_REVISION_CORID_CORE_MSC:
+	case MIPS_REVISION_CORID_CORE_FPGA2:
+	case MIPS_REVISION_CORID_CORE_FPGA3:
+	case MIPS_REVISION_CORID_CORE_24K:
+	case MIPS_REVISION_CORID_CORE_EMUL_MSC:
 		pci_scan_bus(0, &msc_pci_ops, NULL);
 		break;
 	}

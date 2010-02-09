@@ -77,7 +77,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
                  struct task_struct * p, struct pt_regs * regs)
 {
 	struct pt_regs * childregs;
-	long childksp;
+	unsigned long childksp;
 
 	childksp = (unsigned long)p + KERNEL_STACK_SIZE - 32;
 
@@ -87,6 +87,8 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	
 	/* set up new TSS. */
 	childregs = (struct pt_regs *) childksp - 1;
+	/*  Put the stack after the struct pt_regs.  */
+	childksp = (unsigned long) childregs;
 	*childregs = *regs;
 	childregs->regs[7] = 0;	/* Clear error flag */
 	if(current->personality == PER_LINUX) {

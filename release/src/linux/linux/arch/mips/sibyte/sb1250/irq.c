@@ -26,6 +26,7 @@
 #include <linux/kernel_stat.h>
 
 #include <asm/errno.h>
+#include <asm/gdb-stub.h>
 #include <asm/signal.h>
 #include <asm/system.h>
 #include <asm/ptrace.h>
@@ -142,11 +143,6 @@ static void sb1250_set_affinity(unsigned int irq, unsigned long mask)
 		}
 		mask >>= 1;
 		i++;
-	}
-
-	if (mask) {
-		printk("attempted to set irq affinity for irq %d to multiple CPUs\n", irq);
-		return;
 	}
 
 	/* Convert logical CPU to physical CPU */

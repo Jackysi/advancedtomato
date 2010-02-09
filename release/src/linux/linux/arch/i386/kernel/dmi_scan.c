@@ -977,7 +977,7 @@ static __init void dmi_check_blacklist(void)
 		if (s) { 
 			int year, disable = 0;
 			s++; 
-			year = simple_strtoul(s,NULL,0); 
+			year = simple_strtoul(s,NULL,10);
 			if (year >= 1000) 
 				disable = year < ACPI_BLACKLIST_CUTOFF_YEAR; 
 			else if (year < 1 || (year > 90 && year <= 99))

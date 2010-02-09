@@ -479,19 +479,19 @@ fault:
 	}
 
 	die_if_kernel ("Unhandled kernel unaligned access", regs);
-	send_sig(SIGSEGV, current, 1);
+	force_sig(SIGSEGV, current);
 
 	return 0;
 
 sigbus:
 	die_if_kernel("Unhandled kernel unaligned access", regs);
-	send_sig(SIGBUS, current, 1);
+	force_sig(SIGBUS, current);
 
 	return 0;
 
 sigill:
 	die_if_kernel("Unhandled kernel unaligned access or invalid instruction", regs);
-	send_sig(SIGILL, current, 1);
+	force_sig(SIGILL, current);
 
 	return 0;
 }

@@ -207,7 +207,8 @@ ejtag_return:
 		 * Stack for kernel and init, current variable
 		 */
 		la	$28, init_task_union
-		addiu	t0, $28, KERNEL_STACK_SIZE-32
+		/* Set the SP after an empty pt_regs.  */
+		addiu	t0, $28, KERNEL_STACK_SIZE - 32 - PT_SIZE
 		subu	sp, t0, 4*SZREG
 		sw	t0, kernelsp
 
