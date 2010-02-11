@@ -704,6 +704,21 @@ static int init_nvram(void)
 			nvram_set("t_fix1", name);
 		}
 		break;
+	case MODEL_WNR3500L:
+		mfr = "Netgear";
+		name = "WNR3500L";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("sromrev", "3");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan1ports", "4 3 2 1 8*");
+			nvram_set("vlan2ports", "0 8");
+			nvram_set("boardflags", "0x00000710"); // needed to enable USB
+			nvram_set("t_fix1", name);
+		}
+		break;
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
