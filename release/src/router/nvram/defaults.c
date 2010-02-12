@@ -233,12 +233,30 @@ const defaults_t defaults[] = {
 	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
 	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
 	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
-#ifdef LINUX26	// EMF
-	/* EMF defaults */
+
+#ifdef CONFIG_BCMWL5
+	// EMF
 	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
 	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
 	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
 	{ "emf_enable",			"0"			},	// Disable EMF by default
+	// AMPDU
+	{ "wl_ampdu",			"auto"			},	// Default AMPDU setting
+	{ "wl_ampdu_rtylimit_tid",	"5 5 5 5 5 5 5 5"	},	// Default AMPDU retry limit per-tid setting
+	{ "wl_ampdu_rr_rtylimit_tid",	"2 2 2 2 2 2 2 2"	},	// Default AMPDU regular rate retry limit per-tid setting
+	{ "wl_amsdu",			"auto"			},	// Default AMSDU setting
+	// power save
+	{ "wl_rxchain_pwrsave_enable",	"1"			},	// Rxchain powersave enable
+	{ "wl_rxchain_pwrsave_quiet_time","1800"		},	// Quiet time for power save
+	{ "wl_rxchain_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
+	{ "wl_radio_pwrsave_enable",	"0"			},	// Radio powersave enable
+	{ "wl_radio_pwrsave_quiet_time","1800"			},	// Quiet time for power save
+	{ "wl_radio_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
+	{ "wl_radio_pwrsave_on_time",	"50"			},	// Radio on time for power save
+	// misc
+	{ "wl_wmf_bss_enable",		"0"			},	// WMF Enable/Disable
+	{ "wl_rifs_advert",		"auto"			},	// RIFS mode advertisement
+	{ "wl_stbc_tx",			"auto"			},	// Default STBC TX setting
 #endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
