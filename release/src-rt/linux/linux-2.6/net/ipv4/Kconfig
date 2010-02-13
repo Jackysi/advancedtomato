@@ -266,6 +266,12 @@ config NET_IPGRE_BROADCAST
 	  Network), but can be distributed all over the Internet. If you want
 	  to do that, say Y here and to "IP multicast routing" below.
 
+config IPSEC_NAT_TRAVERSAL
+	bool "IPSEC NAT-Traversal (KLIPS compatible)"
+	depends on INET
+	---help---
+          Includes support for RFC3947/RFC3948 NAT-Traversal of ESP over UDP.
+
 config IP_MROUTE
 	bool "IP: multicast routing"
 	depends on IP_MULTICAST

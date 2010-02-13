@@ -15,6 +15,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <net/ip.h>
 #include <net/xfrm.h>
+#include <net/xfrmudp.h>
 
 static int xfrm4_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
 {
@@ -161,6 +162,29 @@ drop:
 	return 0;
 }
 
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+static xfrm4_rcv_encap_t xfrm4_rcv_encap_func = NULL;
+
+int udp4_register_esp_rcvencap(xfrm4_rcv_encap_t func,
+			       xfrm4_rcv_encap_t *oldfunc)
+{
+	if(oldfunc != NULL)
+		*oldfunc = xfrm4_rcv_encap_func;
+
+	xfrm4_rcv_encap_func = func;
+	return 0;
+}
+
+int udp4_unregister_esp_rcvencap(xfrm4_rcv_encap_t func)
+{
+	if(xfrm4_rcv_encap_func != func)
+		return -1;
+
+	xfrm4_rcv_encap_func = NULL;
+	return 0;
+}
+#endif /* CONFIG_IPSEC_NAT_TRAVERSAL */
+
 /* If it's a keepalive packet, then just eat it.
  * If it's an encapsulated packet, then pass it to the
  * IPsec xfrm input.
@@ -251,6 +275,11 @@ int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
 	iph->protocol = IPPROTO_ESP;
 
 	/* process ESP */
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+	if (xfrm4_rcv_encap_func != NULL)
+		ret = (*xfrm4_rcv_encap_func)(skb, encap_type);
+	else
+#endif
 	ret = xfrm4_rcv_encap(skb, encap_type);
 	return ret;
 
@@ -265,3 +294,8 @@ int xfrm4_rcv(struct sk_buff *skb)
 }
 
 EXPORT_SYMBOL(xfrm4_rcv);
+
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+EXPORT_SYMBOL(udp4_register_esp_rcvencap);
+EXPORT_SYMBOL(udp4_unregister_esp_rcvencap);
+#endif
