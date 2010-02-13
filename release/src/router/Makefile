@@ -524,7 +524,7 @@ ntfs-3g-install: ntfs-3g
 		ln -sf ../bin/ntfs-3g mount.ntfs
 
 libusb10/Makefile: libusb10/Makefile.in
-	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" LIBS="-lpthread" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
 libusb10: libusb10/Makefile
@@ -541,8 +541,8 @@ libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
 		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
-		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
-		-Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share"
+		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 -lpthread \
+		-Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share"
 
 libusb: libusb10 libusb/Makefile
 	$(MAKE) -C $@
@@ -556,9 +556,9 @@ libusb-install: libusb
 
 usbmodeswitch: libusb
 	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
-	    -Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share \
+	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
-	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
+	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"
 
 usbmodeswitch-install:
 	install -D usbmodeswitch/usb_modeswitch $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
