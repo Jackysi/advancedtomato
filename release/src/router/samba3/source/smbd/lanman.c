@@ -1504,7 +1504,9 @@ static BOOL check_share_info(int uLevel, char* id)
 			}
 			break;
 		case 1:
-			if (strcmp(id,"B13BWz") != 0) {
+			/* Level-2 descriptor is allowed (and ignored) */
+			if (strcmp(id,"B13BWz") != 0 &&
+			    strcmp(id,"B13BWzWWWzB9B") != 0) {
 				return False;
 			}
 			break;
