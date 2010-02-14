@@ -125,7 +125,7 @@ gre_manip_pkt(struct iphdr *iph, size_t len,
 		case GRE_VERSION_PPTP:
 			DEBUGP("call_id -> 0x%04x\n", 
 				ntohl(manip->u.gre.key));
-			pgreh->call_id = htons(ntohl(manip->u.gre.key));
+			pgreh->call_id = manip->u.gre.key;
 			break;
 		default:
 			DEBUGP("can't nat unknown GRE version\n");

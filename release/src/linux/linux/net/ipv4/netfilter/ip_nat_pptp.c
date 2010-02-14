@@ -317,7 +317,7 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 		break;
 	case PPTP_IN_CALL_REQUEST:
 		/* only need to nat in case PAC is behind NAT box */
-		break;
+		return NF_ACCEPT;
 	case PPTP_WAN_ERROR_NOTIFY:
 		pcid = &pptpReq.wanerr->peersCallID;
 		break;
