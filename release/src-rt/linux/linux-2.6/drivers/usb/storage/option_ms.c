@@ -94,8 +94,9 @@ int option_ms_init(struct us_data *us)
 	 */
 	if (udev->descriptor.bDeviceClass != 0 ||
 	    udev->descriptor.bDeviceSubClass != 0 ||
-	    udev->descriptor.bDeviceProtocol != 0)
-		return USB_STOR_TRANSPORT_GOOD;
+	    udev->descriptor.bDeviceProtocol != 0 ||
+	    udev->actconfig->desc.bNumInterfaces == 3)
+		return 0;
 
 	US_DEBUGP("Option MS: option_ms_init called\n");
 
@@ -106,7 +107,7 @@ int option_ms_init(struct us_data *us)
 	    iface_desc->desc.bInterfaceProtocol != 0x50) {
 		US_DEBUGP("Option MS: mass storage interface not found, no action "
 		          "required\n");
-		return USB_STOR_TRANSPORT_GOOD;
+		return 0;
 	}
 
 	/* Find the mass storage bulk endpoints */
@@ -126,7 +127,7 @@ int option_ms_init(struct us_data *us)
 	if (!ep_in_size || !ep_out_size) {
 		US_DEBUGP("Option MS: mass storage endpoints not found, no action "
 		          "required\n");
-		return USB_STOR_TRANSPORT_GOOD;
+		return 0;
 	}
 
 	/* Force Modem mode */
@@ -142,7 +143,7 @@ int option_ms_init(struct us_data *us)
 		          " requests it\n");
 	}
 
-	return USB_STOR_TRANSPORT_GOOD;
+	return 0;
 }
 
 EXPORT_SYMBOL(option_ms_init);

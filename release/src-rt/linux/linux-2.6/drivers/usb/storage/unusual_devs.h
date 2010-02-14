@@ -1975,24 +1975,35 @@ UNUSUAL_DEV(  0x05c6, 0x1000, 0x0000, 0x9999,
 		US_SC_DEVICE, US_PR_DEVICE, option_ms_init,
 		0),
 
+/* Reported by Dan Williams <dcbw@redhat.com>
+ * Option N.V. mobile broadband modems
+ * Ignore driver CD mode and force into modem mode by default.
+ */
 
-//UNUSUAL_DEV(  0x0af0, 0x6971, 0x0000, 0x9999,
-//		"Option N.V.",
-//		"Mass Storage",
-//		US_SC_DEVICE, US_PR_DEVICE, NULL,
-//		0),
-		
+/* iCON 225 */
+UNUSUAL_DEV(  0x0af0, 0x6971, 0x0000, 0x9999,
+		"Option N.V.",
+		"Mass Storage",
+		US_SC_DEVICE, US_PR_DEVICE, option_ms_init,
+		0),
 
+/* Reported by F. Aben <f.aben@option.com>
+ * This device (wrongly) has a vendor-specific device descriptor.
+ * The entry is needed so usb-storage can bind to it's mass-storage
+ * interface as an interface driver */
 UNUSUAL_DEV( 0x0af0, 0x7401, 0x0000, 0x0000,
 		"Option",
 		"GI 0401 SD-Card",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		0 ),
 
+/* Reported by Pascal Terjan <pterjan@mandriva.com>
+ * Ignore driver CD mode and force into modem mode by default.
+ */
 UNUSUAL_DEV(  0x1186, 0x3e04, 0x0000, 0x0000,
            "D-Link",
            "USB Mass Storage",
-           US_SC_DEVICE, US_PR_DEVICE, option_ms_init, 0),
+           US_SC_DEVICE, US_PR_DEVICE, option_ms_init, US_FL_IGNORE_DEVICE),
 
 /* Reported by Jan Dumon <j.dumon@option.com>
  * This device (wrongly) has a vendor-specific device descriptor.
