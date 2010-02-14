@@ -1,14 +1,15 @@
 /*
  * Misc system wide definitions
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
  * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- * $Id: bcmdefs.h,v 13.43.2.4.12.1 2008/11/03 23:30:41 Exp $
+ *
+ * $Id: bcmdefs.h,v 13.43.2.12 2009/03/12 21:32:38 Exp $
  */
 
 #ifndef	_bcmdefs_h_
@@ -158,12 +159,40 @@ typedef unsigned long dmaaddr_t;
 	} while (0)
 #endif /* BCMDMA64OSL */
 
+/* One physical DMA segment */
+typedef struct  {
+	dmaaddr_t addr;
+	uint32	  length;
+} hnddma_seg_t;
+
+#if defined(MACOSX)
+/* In MacOS, the OS API may return large number of segments. Setting this number lower
+ * will result in failure of dma map
+ */
+#define MAX_DMA_SEGS 8
+#else
+#define MAX_DMA_SEGS 4
+#endif
+
+
+typedef struct {
+	void *oshdmah; /* Opaque handle for OSL to store its information */
+	uint origsize; /* Size of the virtual packet */
+	uint nsegs;
+	hnddma_seg_t segs[MAX_DMA_SEGS];
+} hnddma_seg_map_t;
+
 /* packet headroom necessary to accomodate the largest header in the system, (i.e TXOFF).
  * By doing, we avoid the need  to allocate an extra buffer for the header when bridging to WL.
  * There is a compile time check in wlc.c which ensure that this value is at least as big
  * as TXOFF. This value is used in dma_rxfill (hnddma.c).
  */
-#define BCMEXTRAHDROOM 160
+
+#if defined(BCM_RPC_NOCOPY) || defined(BCM_RCP_TXNOCOPY)
+#define BCMEXTRAHDROOM 220
+#else
+#define BCMEXTRAHDROOM 172
+#endif
 
 /* Headroom required for dongle-to-host communication.  Packets allocated
  * locally in the dongle (e.g. for CDC ioctls or RNDIS messages) should
@@ -178,6 +207,10 @@ typedef unsigned long dmaaddr_t;
 #define BCMDONGLEHDRSZ 12
 #endif
 
+
+#if defined(BCMDBG_ASSERT) || defined(BCMASSERT_LOG)
+#define BCMASSERT_SUPPORT
+#endif /* BCMDBG_ASSERT || BCMASSERT_LOG */
 
 /* Brett's nifty macros for doing definition and get/set of bitfields
  * Usage example, e.g. a three-bit field (bits 4-6):
