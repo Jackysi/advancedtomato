@@ -1,37 +1,61 @@
 PROG        = usb_modeswitch
-VERS        = 1.0.4
-STRIP	    = strip
+VERS        = 1.1.0
 CC          = gcc
-CCFLAGS     = -l usb
+CCFLAGS      += -Wall -l usb
 RM          = /bin/rm -f
 OBJS        = usb_modeswitch.c
-PREFIX	    = $(DESTDIR)/usr
-ETCDIR	    = $(DESTDIR)/etc
-SBINDIR	    = $(PREFIX)/sbin
+PREFIX      = $(DESTDIR)/usr
+ETCDIR      = $(DESTDIR)/etc
+UDEVDIR     = $(DESTDIR)/lib/udev
+RULESDIR    = $(UDEVDIR)/rules.d
+SBINDIR     = $(PREFIX)/sbin
+MANDIR      = $(PREFIX)/share/man/man1
+
 
 .PHONY:     clean
+
 all:        $(PROG)
-$(PROG):    $(OBJS)
-	      $(CC) $(CCFLAGS) -o $(PROG) $(OBJS)
+
+$(PROG): $(OBJS)
+	$(CC) $(CCFLAGS) -o $(PROG) $(OBJS)
 
 clean:
-	      $(RM) ./usb_modeswitch
+	$(RM) ./usb_modeswitch
 
-install: all
-	mkdir -p $(SBINDIR)
-	install ./usb_modeswitch $(SBINDIR)
-	mkdir -p $(ETCDIR)
-	install --mode=644 ./usb_modeswitch.conf $(ETCDIR)
+install: all files-install rules-reload
 
-uninstall: clean
-	$(RM) /usr/sbin/usb_modeswitch
-	$(RM) /etc/usb_modeswitch.conf
+files-install:
+	install -d $(SBINDIR)
+	install --mode=755 ./usb_modeswitch $(SBINDIR)
+	install --mode=755 ./usb_modeswitch.sh $(UDEVDIR)/usb_modeswitch
+	install -d $(ETCDIR)/usb_modeswitch.d
+	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./usb_modeswitch.d/*
+	install --mode=644 usb_modeswitch.1 $(MANDIR)
+	mkdir -p $(RULESDIR)
+	install --mode=644 40-usb_modeswitch.rules $(RULESDIR)
 
-.PHONY:     clean install uninstall
+rules-reload:
+	if [ `which udevadm 2>/dev/null` ]; then \
+		UDEVADM=`which udevadm`; \
+		UDEVADM_VER=`$$UDEVADM -V 2>/dev/null`; \
+		if [ -z $$UDEVADM_VER ]; then \
+			UDEVADM_VER=`$$UDEVADM --version 2>/dev/null`; \
+		fi; \
+		if [ $$UDEVADM_VER -gt 127 ]; then \
+			$$UDEVADM control --reload-rules; \
+		else \
+			$$UDEVADM control --reload_rules; \
+		fi \
+	elif [ `which udevcontrol 2>/dev/null` ]; then \
+		`which udevcontrol` reload_rules; \
+	fi
 
-integrated:
-	make -f Makefile.integrated
+uninstall: files-uninstall rules-reload
 
-integrated_install:
-	make -f Makefile.integrated install
+files-uninstall:
+	$(RM) $(SBINDIR)/usb_modeswitch
+	$(RM) $(UDEVDIR)/usb_modeswitch
+	$(RM) $(RULESDIR)/40-usb_modeswitch.rules
+	$(RM) -R $(ETCDIR)/usb_modeswitch.d
 
+.PHONY:    clean install uninstall

@@ -1,12 +1,11 @@
 ######################################################## 
-# MobiData MBD-200HU, ST Mobile Connect
+# MobiData MBD-200HU 
 
-DefaultVendor=  0x1c9e
-DefaultProduct= 0xf000
+DefaultVendor= 0x1c9e
+DefaultProduct=0xf000
 
-TargetVendor=   0x1c9e
-
-TargetProductList="9000,9063"
+TargetVendor=  0x1c9e
+TargetProductList="9063,9603,9000"
 
 CheckSuccess=20
 

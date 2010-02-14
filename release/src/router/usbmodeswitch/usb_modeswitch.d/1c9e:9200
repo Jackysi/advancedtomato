@@ -1,11 +1,11 @@
 ######################################################## 
 # MyWave SW006 Sport Phone/Modem Combination
 
-DefaultVendor=  0x1c9e
-DefaultProduct= 0x9200
+DefaultVendor= 0x1c9e
+DefaultProduct=0x9200
 
-DefaultVendor=  0x1c9e
-DefaultProduct= 0x9202
+TargetVendor=  0x1c9e
+TargetProduct= 0x9202
 
 CheckSuccess=20
 
