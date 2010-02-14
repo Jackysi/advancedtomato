@@ -55,11 +55,10 @@ MODULE_DESCRIPTION("netfilter connection tracking protocol helper for GRE");
 #define GRE_STREAM_TIMEOUT	(180*HZ)
 
 #if 0
-#define DEBUGP(format, args...) printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
-		                       ": " format, ## args)
+#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format , __FILE__, __FUNCTION__, ## args)
 #define DUMP_TUPLE_GRE(x) printk("%u.%u.%u.%u:0x%x -> %u.%u.%u.%u:0x%x:%u:0x%x\n", \
-			NIPQUAD((x)->src.ip), ntohl((x)->src.u.gre.key), \
-			NIPQUAD((x)->dst.ip), ntohl((x)->dst.u.gre.key))
+			NIPQUAD((x)->src.ip), ntohs((x)->src.u.gre.key), \
+			NIPQUAD((x)->dst.ip), ntohs((x)->dst.u.gre.key))
 #else
 #define DEBUGP(x, args...)
 #define DUMP_TUPLE_GRE(x)
@@ -78,10 +77,10 @@ static inline int gre_key_cmpfn(const struct ip_ct_gre_keymap *km,
 }
 
 /* look up the source key for a given tuple */
-static u_int32_t gre_keymap_lookup(struct ip_conntrack_tuple *t)
+static u_int16_t gre_keymap_lookup(struct ip_conntrack_tuple *t)
 {
 	struct ip_ct_gre_keymap *km;
-	u_int32_t key;
+	u_int16_t key;
 
 	READ_LOCK(&ip_ct_gre_lock);
 	km = LIST_FIND(&gre_keymap_list, gre_key_cmpfn,
@@ -178,7 +177,7 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 {
 	struct gre_hdr *grehdr = (struct gre_hdr *) datah;
 	struct gre_hdr_pptp *pgrehdr = (struct gre_hdr_pptp *) datah;
-	u_int32_t srckey;
+	u_int16_t srckey;
 
 	/* core guarantees 8 protocol bytes, no need for size check */
 
@@ -195,11 +194,11 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 		return 0;
 	}
 
-	tuple->dst.u.gre.key = htonl(ntohs(pgrehdr->call_id));
+	tuple->dst.u.gre.key = pgrehdr->call_id;
 	srckey = gre_keymap_lookup(tuple);
 
 #if 0
-	DEBUGP("found src key %x for tuple ", ntohl(srckey));
+	DEBUGP("found src key %x for tuple ", ntohs(srckey));
 	DUMP_TUPLE_GRE(tuple);
 #endif
 	tuple->src.u.gre.key = srckey;
@@ -212,8 +211,8 @@ static unsigned int gre_print_tuple(char *buffer,
 				    const struct ip_conntrack_tuple *tuple)
 {
 	return sprintf(buffer, "srckey=0x%x dstkey=0x%x ", 
-			ntohl(tuple->src.u.gre.key),
-			ntohl(tuple->dst.u.gre.key));
+			ntohs(tuple->src.u.gre.key),
+			ntohs(tuple->dst.u.gre.key));
 }
 
 /* print private data for conntrack */
