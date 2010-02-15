@@ -406,7 +406,7 @@ int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
 	return interpret_urb_result(us, pipe, length, result, 
 			us->current_urb->actual_length);
 }
-
+EXPORT_SYMBOL(usb_stor_bulk_transfer_buf);
 /*
  * Transfer a scatter-gather list via bulk transfer
  *
@@ -671,17 +671,32 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 		/* set the result so the higher layers expect this data */
 		srb->result = SAM_STAT_CHECK_CONDITION;
 
-		/* If things are really okay, then let's show that.  Zero
-		 * out the sense buffer so the higher layers won't realize
-		 * we did an unsolicited auto-sense. */
-		if (result == USB_STOR_TRANSPORT_GOOD &&
-			/* Filemark 0, ignore EOM, ILI 0, no sense */
+		/* We often get empty sense data.  This could indicate that
+		 * everything worked or that there was an unspecified
+		 * problem.  We have to decide which.
+		 */
+		if (	/* Filemark 0, ignore EOM, ILI 0, no sense */
 				(srb->sense_buffer[2] & 0xaf) == 0 &&
 			/* No ASC or ASCQ */
 				srb->sense_buffer[12] == 0 &&
 				srb->sense_buffer[13] == 0) {
-			srb->result = SAM_STAT_GOOD;
-			srb->sense_buffer[0] = 0x0;
+
+			/* If things are really okay, then let's show that.
+			 * Zero out the sense buffer so the higher layers
+			 * won't realize we did an unsolicited auto-sense.
+			 */
+			if (result == USB_STOR_TRANSPORT_GOOD) {
+				srb->result = SAM_STAT_GOOD;
+				srb->sense_buffer[0] = 0x0;
+
+			/* If there was a problem, report an unspecified
+			 * hardware error to prevent the higher layers from
+			 * entering an infinite retry loop.
+			 */
+			} else {
+				srb->result = DID_ERROR << 16;
+				srb->sense_buffer[2] = HARDWARE_ERROR;
+			}
 		}
 	}
 
@@ -908,7 +923,7 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 				 US_BULK_GET_MAX_LUN, 
 				 USB_DIR_IN | USB_TYPE_CLASS | 
 				 USB_RECIP_INTERFACE,
-				 0, us->ifnum, us->iobuf, 1, HZ);
+				 0, us->ifnum, us->iobuf, 1, 10*HZ);
 
 	US_DEBUGP("GetMaxLUN command result is %d, data is %d\n", 
 		  result, us->iobuf[0]);
@@ -916,17 +931,6 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 	/* if we have a successful request, return the result */
 	if (result > 0)
 		return us->iobuf[0];
-
-	/* 
-	 * Some devices (i.e. Iomega Zip100) need this -- apparently
-	 * the bulk pipes get STALLed when the GetMaxLUN request is
-	 * processed.   This is, in theory, harmless to all other devices
-	 * (regardless of if they stall or not).
-	 */
-	if (result == -EPIPE) {
-		usb_stor_clear_halt(us, us->recv_bulk_pipe);
-		usb_stor_clear_halt(us, us->send_bulk_pipe);
-	}
 
 	/*
 	 * Some devices don't like GetMaxLUN.  They may STALL the control
@@ -1071,8 +1075,21 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 	/* try to compute the actual residue, based on how much data
 	 * was really transferred and what the device tells us */
-	if (residue) {
-		if (!(us->flags & US_FL_IGNORE_RESIDUE)) {
+	if (residue && !(us->flags & US_FL_IGNORE_RESIDUE)) {
+
+		/* Heuristically detect devices that generate bogus residues
+		 * by seeing what happens with INQUIRY and READ CAPACITY
+		 * commands.
+		 */
+		if (bcs->Status == US_BULK_STAT_OK &&
+				srb->resid == 0 &&
+					((srb->cmnd[0] == INQUIRY &&
+						transfer_length == 36) ||
+					(srb->cmnd[0] == READ_CAPACITY &&
+						transfer_length == 8))) {
+			us->flags |= US_FL_IGNORE_RESIDUE;
+
+		} else {
 			residue = min(residue, transfer_length);
 			srb->resid = max(srb->resid, (int) residue);
 		}

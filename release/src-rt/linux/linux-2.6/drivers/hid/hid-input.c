@@ -896,12 +896,12 @@ void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct 
 	}
 
 	if (usage->hid == (HID_UP_PID | 0x83UL)) { /* Simultaneous Effects Max */
-		dbg("Maximum Effects - %d",value);
+		dbg_hid("Maximum Effects - %d",value);
 		return;
 	}
 
 	if (usage->hid == (HID_UP_PID | 0x7fUL)) {
-		dbg("PID Pool Report\n");
+		dbg_hid("PID Pool Report\n");
 		return;
 	}
 
@@ -994,7 +994,7 @@ int hidinput_connect(struct hid_device *hid)
 				if (!hidinput || !input_dev) {
 					kfree(hidinput);
 					input_free_device(input_dev);
-					err("Out of memory during hid input probe");
+					err_hid("Out of memory during hid input probe");
 					return -1;
 				}
 

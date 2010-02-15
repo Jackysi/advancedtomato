@@ -114,9 +114,15 @@ static int slave_configure(struct scsi_device *sdev)
 	 * while others have trouble with more than 64K. At this time we
 	 * are limiting both to 32K (64 sectores).
 	 */
-	if ((us->flags & US_FL_MAX_SECTORS_64) &&
-			sdev->request_queue->max_sectors > 64)
-		blk_queue_max_sectors(sdev->request_queue, 64);
+	if (us->flags & (US_FL_MAX_SECTORS_64 | US_FL_MAX_SECTORS_MIN)) {
+		unsigned int max_sectors = 64;
+
+		if (us->flags & US_FL_MAX_SECTORS_MIN)
+			max_sectors = PAGE_CACHE_SIZE >> 9;
+		if (sdev->request_queue->max_sectors > max_sectors)
+			blk_queue_max_sectors(sdev->request_queue,
+					      max_sectors);
+	}
 
 	/* We can't put these settings in slave_alloc() because that gets
 	 * called before the device type is known.  Consequently these
@@ -177,6 +183,14 @@ static int slave_configure(struct scsi_device *sdev)
 		 * is an occasional series of retries that will all fail. */
 		sdev->retry_hwerror = 1;
 
+		/* USB disks should allow restart.  Some drives spin down
+		 * automatically, requiring a START-STOP UNIT command. */
+		sdev->allow_restart = 1;
+
+		/* Some USB cardreaders have trouble reading an sdcard's last
+		 * sector in a larger then 1 sector read, since the performance
+		 * impact is negible we set this flag for all USB disks */
+		sdev->last_sector_bug = 1;
 	} else {
 
 		/* Non-disk-type devices don't need to blacklist any pages
@@ -321,10 +335,14 @@ void usb_stor_report_device_reset(struct us_data *us)
 
 /* Report a driver-initiated bus reset to the SCSI layer.
  * Calling this for a SCSI-initiated reset is unnecessary but harmless.
- * The caller must own the SCSI host lock. */
+ * The caller must not own the SCSI host lock. */
 void usb_stor_report_bus_reset(struct us_data *us)
 {
-	scsi_report_bus_reset(us_to_host(us), 0);
+	struct Scsi_Host *host = us_to_host(us);
+
+	scsi_lock(host);
+	scsi_report_bus_reset(host, 0);
+	scsi_unlock(host);
 }
 
 /***********************************************************************

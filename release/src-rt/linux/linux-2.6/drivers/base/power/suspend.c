@@ -64,8 +64,6 @@ int suspend_device(struct device * dev, pm_message_t state)
 			dev->power.pm_parent->power.power_state.event);
 	}
 
-	dev->power.prev_state = dev->power.power_state;
-
 	if (dev->class && dev->class->suspend && !dev->power.power_state.event) {
 		dev_dbg(dev, "class %s%s\n",
 			suspend_verb(state.event),
