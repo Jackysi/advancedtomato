@@ -595,7 +595,7 @@ static const nvset_t nvset_list[] = {
 	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
-	{ "ct_max",				V_RANGE(128, 10240)	},
+	{ "ct_max",				V_RANGE(128, 300000)	},
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
 	{ "ct_timeout",			V_LENGTH(5, 15)		},

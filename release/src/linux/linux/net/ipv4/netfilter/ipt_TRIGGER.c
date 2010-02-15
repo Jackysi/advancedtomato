@@ -254,7 +254,7 @@ trigger_dnat(struct sk_buff **pskb,
     IP_NF_ASSERT(ct && (ctinfo == IP_CT_NEW));
 
     DEBUGP("%s: got ", __FUNCTION__);
-    DUMP_TUPLE_RAW(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+    DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 
     /* Alter the destination of imcoming packet. */
     newrange = ((struct ip_nat_multi_range)

@@ -57,8 +57,7 @@ DECLARE_LOCK(ip_pptp_lock);
 
 #if 0
 #include "ip_conntrack_pptp_priv.h"
-#define DEBUGP(format, args...)	printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
-					": " format, ## args)
+#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format, __FILE__, __FUNCTION__, ## args)
 #else
 #define DEBUGP(format, args...)
 #endif
@@ -96,18 +95,18 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 	DEBUGP("completing tuples with ct info\n");
 	/* we can do this, since we're unconfirmed */
 	if (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.gre.key == 
-		htonl(master->help.ct_pptp_info.pac_call_id)) {	
+		master->help.ct_pptp_info.pac_call_id) {
 		/* assume PNS->PAC */
 		ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.gre.key = 
-			htonl(master->help.ct_pptp_info.pns_call_id);
+			master->help.ct_pptp_info.pns_call_id;
 		ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
-			htonl(master->help.ct_pptp_info.pns_call_id);
+			master->help.ct_pptp_info.pns_call_id;
 	} else {
 		/* assume PAC->PNS */
 		ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.gre.key =
-			htonl(master->help.ct_pptp_info.pac_call_id);
+			master->help.ct_pptp_info.pac_call_id;
 		ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
-			htonl(master->help.ct_pptp_info.pac_call_id);
+			master->help.ct_pptp_info.pac_call_id;
 	}
 	
 	/* delete other expectation */
@@ -175,26 +174,26 @@ exp_gre(struct ip_conntrack *master,
 	memset(&exp, 0, sizeof(exp));
 	/* tuple in original direction, PNS->PAC */
 	exp.tuple.src.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip;
-	exp.tuple.src.u.gre.key = htonl(ntohs(peer_callid));
+	exp.tuple.src.u.gre.key = peer_callid;
 	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip;
-	exp.tuple.dst.u.gre.key = htonl(ntohs(callid));
+	exp.tuple.dst.u.gre.key = callid;
 	exp.tuple.dst.protonum = IPPROTO_GRE;
 
 	exp.mask.src.ip = 0xffffffff;
 	exp.mask.src.u.all = 0;
 	exp.mask.dst.u.all = 0;
-	exp.mask.dst.u.gre.key = 0xffffffff;
+	exp.mask.dst.u.gre.key = 0xffff;
 	exp.mask.dst.ip = 0xffffffff;
 	exp.mask.dst.protonum = 0xffff;
 			
 	exp.seq = seq;
 	exp.expectfn = pptp_expectfn;
 
-	exp.help.exp_pptp_info.pac_call_id = ntohs(callid);
-	exp.help.exp_pptp_info.pns_call_id = ntohs(peer_callid);
+	exp.help.exp_pptp_info.pac_call_id = callid;
+	exp.help.exp_pptp_info.pns_call_id = peer_callid;
 
 	DEBUGP("calling expect_related ");
-	DUMP_TUPLE_RAW(&exp.tuple);
+	DUMP_TUPLE(&exp.tuple);
 	
 	/* Add GRE keymap entries */
 	if (ip_ct_gre_keymap_add(&exp, &exp.tuple, 0) != 0)
@@ -214,12 +213,12 @@ exp_gre(struct ip_conntrack *master,
 
 	/* tuple in reply direction, PAC->PNS */
 	exp.tuple.src.ip = master->tuplehash[IP_CT_DIR_REPLY].tuple.src.ip;
-	exp.tuple.src.u.gre.key = htonl(ntohs(callid));
+	exp.tuple.src.u.gre.key = callid;
 	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.ip;
-	exp.tuple.dst.u.gre.key = htonl(ntohs(peer_callid));
+	exp.tuple.dst.u.gre.key = peer_callid;
 
 	DEBUGP("calling expect_related ");
-	DUMP_TUPLE_RAW(&exp.tuple);
+	DUMP_TUPLE(&exp.tuple);
 	
 	/* Add GRE keymap entries */
 	ip_ct_gre_keymap_add(&exp, &exp.tuple, 0);
@@ -307,9 +306,9 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		cid = &pptpReq.ocack->callID;
 		pcid = &pptpReq.ocack->peersCallID;
 
-		info->pac_call_id = ntohs(*cid);
+		info->pac_call_id = *cid;
 		
-		if (htons(info->pns_call_id) != *pcid) {
+		if (info->pns_call_id != *pcid) {
 			DEBUGP("%s for unknown callid %u\n",
 				strMName[msg], ntohs(*pcid));
 			break;
@@ -334,7 +333,7 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		pcid = &pptpReq.icack->peersCallID;
 		DEBUGP("%s, PCID=%X\n", strMName[msg], ntohs(*pcid));
 		info->cstate = PPTP_CALL_IN_REQ;
-		info->pac_call_id= ntohs(*pcid);
+		info->pac_call_id= *pcid;
 		break;
 
 	case PPTP_IN_CALL_CONNECT:
@@ -353,7 +352,7 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		pcid = &pptpReq.iccon->peersCallID;
 		cid = &info->pac_call_id;
 
-		if (info->pns_call_id != ntohs(*pcid)) {
+		if (info->pns_call_id != *pcid) {
 			DEBUGP("%s for unknown CallID %u\n", 
 				strMName[msg], ntohs(*cid));
 			break;
@@ -439,7 +438,7 @@ pptp_outbound_pkt(struct tcphdr *tcph,
 		/* track PNS call id */
 		cid = &pptpReq.ocreq->callID;
 		DEBUGP("%s, CID=%X\n", strMName[msg], ntohs(*cid));
-		info->pns_call_id = ntohs(*cid);
+		info->pns_call_id = *cid;
 		break;
 	case PPTP_IN_CALL_REPLY:
 		/* client answers incoming call */
@@ -454,7 +453,7 @@ pptp_outbound_pkt(struct tcphdr *tcph,
 			break;
 		}
 		pcid = &pptpReq.icack->peersCallID;
-		if (info->pac_call_id != ntohs(*pcid)) {
+		if (info->pac_call_id != *pcid) {
 			DEBUGP("%s for unknown call %u\n", 
 				strMName[msg], ntohs(*pcid));
 			break;
@@ -462,7 +461,7 @@ pptp_outbound_pkt(struct tcphdr *tcph,
 		DEBUGP("%s, CID=%X\n", strMName[msg], ntohs(*pcid));
 		/* part two of the three-way handshake */
 		info->cstate = PPTP_CALL_IN_REP;
-		info->pns_call_id = ntohs(pptpReq.icack->callID);
+		info->pns_call_id = pptpReq.icack->callID;
 		break;
 
 	case PPTP_CALL_CLEAR_REQUEST:
