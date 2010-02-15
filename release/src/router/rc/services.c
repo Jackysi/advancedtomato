@@ -620,7 +620,8 @@ void start_syslog(void)
 	if (argc > 1) {
 		argv[argc] = NULL;
 		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
+		//usleep(500000);
+		sleep(1);
 
 		argv[0] = "klogd";
 		argv[1] = NULL;

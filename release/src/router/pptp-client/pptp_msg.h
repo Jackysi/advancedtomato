@@ -1,7 +1,7 @@
 /*  pptp.h:  packet structures and magic constants for the PPTP protocol 
  *           C. Scott Ananian <cananian@alumni.princeton.edu>            
  *
- * $Id: pptp_msg.h,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $
+ * $Id: pptp_msg.h,v 1.3 2003/02/15 10:37:21 quozl Exp $
  */
 
 #ifndef INC_PPTP_H
@@ -71,30 +71,7 @@
 #define PPTP_BEARER_DIGITAL 	2
 #define PPTP_BEARER_ANY		3
 
-/* PPTP error codes: ----------------------------------------------*/
-
-/* (General Error Codes) */
-static const struct {
-  const char *name, *desc;
-} pptp_general_errors[] = {
-
-#define PPTP_GENERAL_ERROR_NONE			0
-  { "(None)", "No general error" },
-#define PPTP_GENERAL_ERROR_NOT_CONNECTED	1
-  { "(Not-Connected)", "No control connection exists yet for this "
-                       "PAC-PNS pair" },
-#define PPTP_GENERAL_ERROR_BAD_FORMAT		2
-  { "(Bad-Format)", "Length is wrong or Magic Cookie value is incorrect" },
-#define PPTP_GENERAL_ERROR_BAD_VALUE		3
-  { "(Bad-Value)", "One of the field values was out of range or "
-                    "reserved field was non-zero" },
-#define PPTP_GENERAL_ERROR_NO_RESOURCE		4
-  { "(No-Resource)", "Insufficient resources to handle this command now" },
-#define PPTP_GENERAL_ERROR_BAD_CALLID		5
-  { "(Bad-Call ID)", "The Call ID is invalid in this context" },
-#define PPTP_GENERAL_ERROR_PAC_ERROR		6
-  { "(PAC-Error)", "A generic vendor-specific error occured in the PAC" }
-};
+#define PPTP_RESULT_GENERAL_ERROR 2
 
 /* (Reasons to close a connection) */
 #define PPTP_STOP_NONE		  1 /* no good reason                        */

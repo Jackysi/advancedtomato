@@ -150,6 +150,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 8;
 		break;
+	case MODEL_WNR3500L:
+		reset_mask = 1 << 4;
+		ses_mask = 1 << 6;
+		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {

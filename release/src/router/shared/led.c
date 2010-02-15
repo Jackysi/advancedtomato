@@ -188,6 +188,7 @@ int led(int which, int mode)
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
+	static int wnr3500[]	= { 255,   1,     3,    7,  255,  255,  255,  255	};
 	char s[16];
 	int n;
 	int b;
@@ -283,6 +284,9 @@ int led(int which, int mode)
 	case MODEL_RTN16:
 		if (which != LED_DIAG) return 0;
 		b = -1;	// power light
+		break;
+	case MODEL_WNR3500L:
+		b = wnr3500[which];
 		break;
 /*
 	case MODEL_RT390W:

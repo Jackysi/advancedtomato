@@ -1,7 +1,7 @@
 /* pptp_quirks.h ...... various options to fix quirks found in buggy adsl modems
  *                      mulix <mulix@actcom.co.il>
  *
- * $Id: pptp_quirks.h,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $
+ * $Id: pptp_quirks.h,v 1.1 2001/11/20 06:30:10 quozl Exp $
  */
 
 #ifndef INC_PPTP_QUIRKS_H
