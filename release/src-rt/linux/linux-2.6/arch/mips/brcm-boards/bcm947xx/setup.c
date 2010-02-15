@@ -184,9 +184,11 @@ const char *
 get_system_type(void)
 {
 	static char s[32];
+	char cn[8];
 
 	if (bcm947xx_sih) {
-		sprintf(s, "Broadcom BCM%X chip rev %d pkg %d", bcm947xx_sih->chip,
+		bcm_chipname(bcm947xx_sih->chip, cn, 8);
+		sprintf(s, "Broadcom BCM%s chip rev %d pkg %d", cn,
 			bcm947xx_sih->chiprev, bcm947xx_sih->chippkg);
 		return s;
 	}
