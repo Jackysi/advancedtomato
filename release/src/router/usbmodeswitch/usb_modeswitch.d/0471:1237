@@ -1,11 +1,11 @@
 ########################################################
-# ZTE MF628 (NEED ID INFO!)
+# Philips TalkTalk (NXP Semiconductors "Dragonfly")
 
-DefaultVendor=  0x19d2
-DefaultProduct= 0x2000
+DefaultVendor= 0x0471
+DefaultProduct=0x1237
 
-TargetVendor=   0x19d2
-TargetProduct=  0x0015
+TargetVendor=  0x0471
+TargetProductList="1206,1234"
 
 CheckSuccess=20
 

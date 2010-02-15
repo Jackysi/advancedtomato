@@ -1,0 +1,12 @@
+######################################################## 
+# Novatel MC760 3G
+
+DefaultVendor= 0x1410
+DefaultProduct=0x5031
+
+TargetVendor=  0x1410
+TargetProduct= 0x6002
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"

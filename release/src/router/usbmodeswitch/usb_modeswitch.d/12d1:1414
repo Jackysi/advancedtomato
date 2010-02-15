@@ -1,8 +1,10 @@
 ########################################################
 # Huawei E180
 
-DefaultVendor=  0x12d1
-DefaultProduct= 0x1414
+DefaultVendor= 0x12d1
+DefaultProduct=0x1414
+
+TargetClass=0xff
 
 CheckSuccess=20
 
