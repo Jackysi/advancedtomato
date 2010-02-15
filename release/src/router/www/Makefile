@@ -129,12 +129,13 @@ endif
 
 
 
-# Only include the vpn pages in the navigation if OpenVPN is compiled in
-ifneq ($(TCONFIG_OPENVPN),y)
+# Only include the vpn pages if OpenVPN is compiled in
+# Remove AES ciphers from the GUI if openssl doesn't have an AES directory
+ifeq ($(TCONFIG_OPENVPN),y)
+	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
+else
+	rm -f $(INSTALLDIR)/www/vpn*
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
-	rm -f $(INSTALLDIR)/www/vpn.js
-	rm -f $(INSTALLDIR)/www/vpn-client.asp
-	rm -f $(INSTALLDIR)/www/vpn-server.asp
 endif
 
 	

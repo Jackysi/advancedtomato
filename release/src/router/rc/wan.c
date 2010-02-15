@@ -813,6 +813,9 @@ void start_wan_done(char *wan_ifname)
 	}
 #endif
 
+	if (wanup)
+		start_vpn_eas();
+
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");

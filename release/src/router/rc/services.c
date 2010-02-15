@@ -1325,9 +1325,6 @@ void start_services(void)
 	start_rstats(0);
 	start_sched();
 	restart_nas_services(1, 1);	// !!TB - Samba and FTP Server
-#ifdef TCONFIG_OPENVPN
-	start_vpn_eas();
-#endif
 }
 
 void stop_services(void)
