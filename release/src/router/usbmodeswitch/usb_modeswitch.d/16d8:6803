@@ -1,11 +1,11 @@
 ########################################################
 # C-motech D-50 (aka "CDU-680")
 
-DefaultVendor=  0x16d8
-DefaultProduct= 0x6803
+DefaultVendor= 0x16d8
+DefaultProduct=0x6803
 
-TargetVendor=   0x16d8
-TargetProduct=  0x6803
+TargetVendor=  0x16d8
+TargetProduct= 0x680a
 
 CheckSuccess=20
 

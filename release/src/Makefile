@@ -166,6 +166,21 @@ what:
 # a "...is not set" line, or the make oldconfig will stop and ask
 # what to do.
 
+# $(1) - router/config_$@
+
+define RouterOptions
+	@( \
+	if [ "$(SAMBA3)" = "y" ]; then \
+		sed -i "/TCONFIG_SAMBA3/d" $(1); \
+		echo "TCONFIG_SAMBA3=y" >>$(1); \
+	fi; \
+	if [ "$(NO_JFFS)" = "y" ]; then \
+		sed -i "/TCONFIG_JFFS2/d" $(1); \
+		echo "# TCONFIG_JFFS2 is not set" >>$(1); \
+	fi; \
+	)
+endef
+
 # $(1) - router/busybox/config_$@
 
 define BusyboxExtraOptions
@@ -177,6 +192,14 @@ define BusyboxExtraOptions
 	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1)
 	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1)
 	@echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1)
+	@( \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1); \
+		echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
+		echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
+	fi; \
+	)
 endef
 
 define BusyboxExtraUSBOptions
@@ -192,6 +215,12 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKFS_VFAT=y" >>$(1)
 	@sed -i "/CONFIG_MKSWAP/d" $(1)
 	@echo "CONFIG_MKSWAP=y" >>$(1)
+	@( \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		sed -i "/CONFIG_LSUSB/d" $(1); \
+		echo "CONFIG_LSUSB=y" >>$(1); \
+	fi; \
+	)
 endef
 
 define BusyboxNoUSBOptions
@@ -221,11 +250,6 @@ define BusyboxKernelConfig
 	@echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1)
 	@sed -i "/CONFIG_MKNOD/d" $(1)
 	@echo "CONFIG_MKNOD=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1)
-	@echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1)
-	@echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1)
-	$(call BusyboxExtraOptions, $(1))
 endef
 else
 define BusyboxKernelConfig
@@ -249,6 +273,16 @@ define KernelConfigMips
 		sed -i "/CONFIG_BCM57XX/d" $(1); \
 		echo "CONFIG_BCM57XX=m" >>$(1); \
 	fi; \
+	if [ "$(JFFSv1)" = "y" ]; then \
+		sed -i "/CONFIG_JFFS_FS/d" $(1); \
+		echo "CONFIG_JFFS_FS=m" >>$(1); \
+		sed -i "/CONFIG_JFFS_FS_VERBOSE/d" $(1); \
+		echo "CONFIG_JFFS_FS_VERBOSE=0" >>$(1); \
+		sed -i "/CONFIG_JFFS_PROC_FS/d" $(1); \
+		echo "# CONFIG_JFFS_PROC_FS is not set" >>$(1); \
+		sed -i "/CONFIG_JFFS2_FS/d" $(1); \
+		echo "# CONFIG_JFFS2_FS is not set" >>$(1); \
+	fi; \
 	)
 endef
 else
@@ -263,6 +297,7 @@ a:
 	@cp router/busybox/config_base router/busybox/config_$@
 	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -278,6 +313,7 @@ b:
 	@sed -i "/TCONFIG_SSH/d" router/config_$@
 	@echo "# TCONFIG_SSH is not set" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -293,6 +329,7 @@ c:
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -311,6 +348,7 @@ d:
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
@@ -343,6 +381,7 @@ e:
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
@@ -362,6 +401,7 @@ m:
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
@@ -382,13 +422,8 @@ s:
 	@echo "# TCONFIG_FTP is not set" >>router/config_$@
 	@sed -i "/TCONFIG_USB/d" router/config_$@
 	@echo "# TCONFIG_USB is not set" >>router/config_$@
-	@( \
-	if [ "$(NO_JFFS)" = "y" ]; then \
-		sed -i "/TCONFIG_JFFS2/d" router/config_$@; \
-		echo "# TCONFIG_JFFS2 is not set" >>router/config_$@; \
-	fi; \
-	)
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
@@ -414,6 +449,7 @@ v:
 	@echo "TCONFIG_LZO=y" >>router/config_$@
 	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
 
+	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
@@ -422,13 +458,21 @@ v:
 	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC="VPN" USB=""
 	@$(MAKE) all
 
-## Make Mips32r2 Extras build (Asus RT-N16)
+## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
 r2m:
-	@$(MAKE) m MIPS32=r2 BCM57=y
+	@$(MAKE) m MIPS32=r2 BCM57=n SAMBA3=y
+
+## Make Mips32r2 USB+VPN build
+r2e:
+	@$(MAKE) e MIPS32=r2 BCM57=n SAMBA3=y
 
 ## Make Mips32r2 "no USB" build (Asus RT-N12)
 r2s:
 	@$(MAKE) s MIPS32=r2 NO_JFFS=y
+
+## Make Mips32r2 "no USB" VPN build
+r2v:
+	@$(MAKE) v MIPS32=r2 NO_JFFS=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -456,27 +500,26 @@ setprofile:
 
 # Note that changes to variables in tomato_profile.mak don't
 # get propogated to this invocation of make!
-	@cd router ; \
-		rm -f config_current ; \
-		ln -s config_$(lowercase_B) config_current ; \
-		cp config_current .config
-	@$(MAKE) -C router oldconfig
-
 	@echo ""
 	@echo "Using $(N) profile, $(B) build config."
 	@echo ""
+
+	@cd $(LINUXDIR) ; \
+		rm -f config_current ; \
+		ln -s config_$(lowercase_B) config_current ; \
+		cp -f config_current .config
 
 	@cd router/busybox && \
 		rm -f config_current ; \
 		ln -s config_$(lowercase_B) config_current ; \
 		cp config_current .config
-	@$(MAKE) -C router/busybox oldconfig
 
-	@cd $(LINUXDIR) ; \
+	@cd router ; \
 		rm -f config_current ; \
 		ln -s config_$(lowercase_B) config_current ; \
 		cp config_current .config
-	@$(MAKE) -C $(LINUXDIR) oldconfig
+
+	@$(MAKE) -C router oldconfig
 
 cleanlibc:
 #	@$(MAKE) -C ../../tools-src/uClibc clean

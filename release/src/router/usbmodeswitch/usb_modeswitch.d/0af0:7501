@@ -1,5 +1,5 @@
-########################################################
-# Vodafone K3760 (made by Option, HSO driver)
+#######################################################
+# Option HSO device
 
 DefaultVendor=  0x0af0
 DefaultProduct= 0x7501

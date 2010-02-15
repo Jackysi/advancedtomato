@@ -111,11 +111,6 @@ void start_usb(void)
 		}
 
 		if (nvram_get_int("usb_printer")) {
-#ifdef LINUX26
-			umask(0);
-			mkdir("/dev/usb", 0777);
-			mknod("/dev/usb/lp0", S_IRWXU | S_IFCHR, makedev(180, 0));
-#endif
 			symlink("/dev/usb", "/dev/printers");
 			modprobe(USBPRINTER_MOD);
 
@@ -164,6 +159,7 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
+		sleep(1);
 #ifdef TCONFIG_SAMBASRV
 		modprobe_r("nls_cp437");
 		modprobe_r("nls_cp850");
@@ -204,7 +200,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 {
 	struct mntent *mnt;
 	int ret;
-	char options[40];
+	char options[80];
 	char flagfn[128];
 	int dir_made;
 
@@ -227,15 +223,12 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 		}
 #ifdef TCONFIG_SAMBASRV
 		else if (strcmp(type, "vfat") == 0) {
-			if (nvram_invmatch("smbd_cset", "") && isdigit(nvram_safe_get("smbd_cset")[0]))
-				sprintf(options, "iocharset=cp%s", nvram_safe_get("smbd_cset"));
+			if (nvram_invmatch("smbd_cset", ""))
+				sprintf(options, "iocharset=%s%s", 
+					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
+						nvram_get("smbd_cset"));
 			if (nvram_invmatch("smbd_cpage", "")) {
 				char *cp = nvram_safe_get("smbd_cpage");
-#ifdef LINUX26
-				/* default is UTF8 which is not recommended for FAT, so let's override it */
-				if (options[0] == 0)
-					sprintf(options, "iocharset=cp%s", cp);
-#endif
 				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), cp);
 				sprintf(flagfn, "nls_cp%s", cp);
 
@@ -246,6 +239,10 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 				modprobe(flagfn);
 				nvram_set("smbd_nlsmod", flagfn);
 			}
+			sprintf(options + strlen(options), ",shortname=winnt" + (options[0] ? 0 : 1));
+#ifdef LINUX26
+			sprintf(options + strlen(options), ",flush" + (options[0] ? 0 : 1));
+#endif
 		}
 		else if (strncmp(type, "ntfs", 4) == 0) {
 			if (nvram_invmatch("smbd_cset", ""))
@@ -485,7 +482,7 @@ int mount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name,
 {
 	char the_label[128], mountpoint[128], uuid[40];
 	int ret;
-	char *type;
+	char *type, *p;
 	static char *swp_argv[] = { "swapon", "-a", NULL };
 	struct mntent *mnt;
 
@@ -509,6 +506,10 @@ int mount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name,
 	}
 
 	if (*the_label != 0) {
+		for (p = the_label; *p; p++) {
+			if (!isalnum(*p) && !strchr("+-&.@", *p))
+				*p = '_';
+		}
 		sprintf(mountpoint, "%s/%s", MOUNT_ROOT, the_label);
 		if ((ret = mount_r(dev_name, mountpoint, type))) {
 			if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
@@ -739,6 +740,8 @@ void hotplug_usb(void)
 
 	if (scsi_host)
 		host = atoi(scsi_host);
+
+	if (!wait_action_idle(10)) return;
 
 	add = (strcmp(action, "add") == 0);
 	if (add && (strncmp(interface ? : "", "TOMATO/", 7) != 0)) {

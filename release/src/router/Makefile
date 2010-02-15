@@ -61,7 +61,15 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
-obj-$(TCONFIG_SAMBASRV) += samba
+ifeq ($(TCONFIG_SAMBASRV),y)
+ifeq ($(TCONFIG_SAMBA3),y)
+NEED_SAMBA3 = y
+else
+NEED_SAMBA2 = y
+endif
+endif
+obj-$(NEED_SAMBA2) += samba
+obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 
 obj-y += miniupnpd
@@ -91,8 +99,8 @@ obj-$(NEED_PPPD) += pppd
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udev
-obj-$(CONFIG_BCMWL5) += emf
-obj-$(CONFIG_BCMWL5) += igs
+obj-$(__CONFIG_BCMWL5) += emf
+obj-$(__CONFIG_BCMWL5) += igs
 
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -110,10 +118,10 @@ kernel: $(LINUXDIR)/.config
 	@$(SEP)
 
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage ; \
+	    $(MAKE) -C $(LINUXDIR) zImage CC=$(KERNELCC); \
 	fi
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) modules ; \
+	    $(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC); \
 	fi
 ifeq ($(CONFIG_LINUX26),y)
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed srctree=$(LINUXDIR)
@@ -121,11 +129,7 @@ endif
 
 
 lzma-loader:
-ifeq ($(CONFIG_LINUX26),y)
-	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD) LZMAPATH=$(LINUXDIR)/scripts/squashfs/lzma/C/Compress/Lzma all
-else
 	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD)
-endif
 
 lzma-loader-install: lzma-loader
 	@$(SEP)
@@ -286,17 +290,27 @@ endif
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/sound || true
 
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
-ifneq ($(CONFIG_LINUX26),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
 	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/* $(PLATFORMDIR)/extras/crypto/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
+ifneq ($(CONFIG_LINUX26),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
 endif
 ifneq ($(TCONFIG_SAMBASRV),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(CONFIG_LINUX26),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp9*.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp1251.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-jp.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_sjis.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_gb2312.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-kr.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_big5.*o $(PLATFORMDIR)/extras/ || true
 endif
 ifneq ($(TCONFIG_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.*o $(PLATFORMDIR)/extras/ || true
@@ -406,12 +420,16 @@ kmconf:
 
 koldconf:
 	@$(MAKE) -C $(LINUXDIR) oldconfig
+	@$(MAKE) -C $(LINUXDIR) include/linux/version.h
+
+bboldconf:
+	@$(MAKE) -C busybox oldconfig
 
 config conf: rconf kconf
 
 menuconfig mconf: rmconf kmconf
 
-oldconfig oldconf: roldconf koldconf
+oldconfig oldconf: koldconf roldconf bboldconf
 
 
 #
@@ -584,7 +602,7 @@ ntfs-3g-install: ntfs-3g
 		ln -sf ../bin/ntfs-3g mount.ntfs
 
 libusb10/Makefile: libusb10/Makefile.in
-	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" LIBS="-lpthread" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
 libusb10: libusb10/Makefile
@@ -601,8 +619,8 @@ libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
 	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
 		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
-		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
-		-Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share"
+		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 -lpthread \
+		-Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share"
 
 libusb: libusb10 libusb/Makefile
 	$(MAKE) -C $@
@@ -616,9 +634,9 @@ libusb-install: libusb
 
 usbmodeswitch: libusb
 	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
-	    -Wl,-R/usr/lib:/opt/usr/lib:/usr/local/share \
+	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
-	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
+	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"
 
 usbmodeswitch-install:
 	install -D usbmodeswitch/usb_modeswitch $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
@@ -627,6 +645,7 @@ usbmodeswitch-install:
 p910nd:
 sendmail:
 samba:
+samba3:
 
 nvram: shared
 

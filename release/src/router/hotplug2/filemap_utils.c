@@ -16,7 +16,15 @@
 
 #include "filemap_utils.h"
 
-int map_file(char *filename, struct filemap_t *filemap) {
+/**
+ * Basic open/mmap wrapper to make things simpler.
+ *
+ * @1 Filename of the mmaped file
+ * @2 Pointer to filemap structure
+ *
+ * Returns: 0 if success, 1 otherwise
+ */
+int map_file(const char *filename, struct filemap_t *filemap) {
 	struct stat statbuf;
 	
 	filemap->fd = open(filename, O_RDONLY);
@@ -40,9 +48,16 @@ int map_file(char *filename, struct filemap_t *filemap) {
 	return 0;
 }
 
+/**
+ * Basic close/munmap wrapper.
+ *
+ * @1 Pointer to filemap structure
+ *
+ * Returns: always 0
+ */
 int unmap_file(struct filemap_t *filemap) {
-	close(filemap->fd);
 	munmap(filemap->map, filemap->size);
+	close(filemap->fd);
 	
 	return 0;
 }

@@ -27,6 +27,7 @@
 
 #include "mem_utils.h"
 #include "hotplug2.h"
+#include "hotplug2_utils.h"
 #include "parser_utils.h"
 
 #define MODALIAS_MAX_LEN		1024
@@ -45,59 +46,17 @@
 
 #define TEST_INPUT_BIT(i,bm)	(bm[i / BITS_PER_LONG] & (((unsigned long)1) << (i%BITS_PER_LONG)))
 
-int init_netlink_socket() {
-	int netlink_socket;
-	struct sockaddr_nl snl;
-	int buffersize = 16 * 1024 * 1024;
-	
-	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
-	snl.nl_family = AF_NETLINK;
-	snl.nl_pid = getpid();
-	snl.nl_groups = 1;
-	netlink_socket = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT); 
-	if (netlink_socket == -1) {
-		ERROR("opening netlink","Failed socket: %s.", strerror(errno));
-		return -1;
-	}
-	
-	if (setsockopt(netlink_socket, SOL_SOCKET, SO_SNDBUFFORCE, &buffersize, sizeof(buffersize))) {
-		ERROR("opening netlink","Failed setsockopt: %s. (non-critical)", strerror(errno));
-		
-		/* Somewhat safe default. */
-		buffersize = 106496;
-		
-		if (setsockopt(netlink_socket, SOL_SOCKET, SO_SNDBUF, &buffersize, sizeof(buffersize))) {
-			ERROR("opening netlink","Failed setsockopt: %s. (critical)", strerror(errno));
-		}
-	}
-	
-	if (connect(netlink_socket, (struct sockaddr *) &snl, sizeof(struct sockaddr_nl))) {
-		ERROR("opening netlink","Failed bind: %s.", strerror(errno));
-		close(netlink_socket);
-		return -1;
-	}
-	
-	return netlink_socket;
-}
-
-inline event_seqnum_t get_kernel_seqnum() {
-	FILE *fp;
-	
-	char filename[64];
-	char seqnum[64];
-	
-	strcpy(filename, sysfs_seqnum_path);
-	
-	fp = fopen(filename, "r");
-	if (fp == NULL)
-		return 0;
-	
-	fread(seqnum, 1, 64, fp);
-	fclose(fp);
-	
-	return strtoull(seqnum, NULL, 0);
-}
-
+/**
+ * Parses a bitmap; output is a list of offsets of bits of a bitmap
+ * of arbitrary size that are set to 1.
+ *
+ * @1 Name of the bitmap parsed
+ * @2 The actual bitmap pointer
+ * @3 Lower boundary of the bitmap
+ * @4 Upper boundary of the bitmap
+ *
+ * Returns: Newly allocated string containing the offsets
+ */
 char *bitmap_to_bitstring(char name, unsigned long *bm, unsigned int min_bit, unsigned int max_bit)
 {
 	char *rv;
@@ -120,6 +79,15 @@ char *bitmap_to_bitstring(char name, unsigned long *bm, unsigned int min_bit, un
 	return rv;
 }
 
+/**
+ * Reverses the bitmap_to_bitstring function. 
+ *
+ * @1 Bitstring to be converted
+ * @2 Output bitmap
+ * @3 Size of the whole bitmap
+ *
+ * Returns: void
+ */
 void string_to_bitmap(char *input, unsigned long *bitmap, int bm_len) {
 	char *token, *ptr;
 	int i = 0;
@@ -146,6 +114,14 @@ void string_to_bitmap(char *input, unsigned long *bitmap, int bm_len) {
 	} \
 	bitmap = bitmap_to_bitstring(name, bitmap ## _bits, min, mapkey ## _MAX);
 
+/**
+ * Creates an input modalias out of preset environmental variables.
+ *
+ * @1 Pointer to where modalias will be created
+ * @2 Maximum size of the modalias
+ *
+ * Returns: 0 if success, -1 otherwise
+ */
 int get_input_modalias(char *modalias, int modalias_len) {
 	char *product_env;
 	char *ptr;
@@ -245,6 +221,14 @@ int get_input_modalias(char *modalias, int modalias_len) {
 #undef NBITS
 #undef TEST_INPUT_BIT
 
+/**
+ * Creates a PCI modalias out of preset environmental variables.
+ *
+ * @1 Pointer to where modalias will be created
+ * @2 Maximum size of the modalias
+ *
+ * Returns: 0 if success, -1 otherwise
+ */
 int get_pci_modalias(char *modalias, int modalias_len) {
 	char *class_env, *id_env, *subsys_env;
 	char *ptr;
@@ -290,6 +274,15 @@ int get_pci_modalias(char *modalias, int modalias_len) {
 	return 0;
 }
 
+/**
+ * Creates an IEEE1394 (FireWire) modalias out of preset environmental
+ * variables.
+ *
+ * @1 Pointer to where modalias will be created
+ * @2 Maximum size of the modalias
+ *
+ * Returns: 0 if success, -1 otherwise
+ */
 int get_ieee1394_modalias(char *modalias, int modalias_len) {
 	char *vendor_env, *model_env;
 	char *specifier_env, *version_env;
@@ -317,6 +310,14 @@ int get_ieee1394_modalias(char *modalias, int modalias_len) {
 	return 0;
 }
 
+/**
+ * Creates a serio modalias out of preset environmental variables.
+ *
+ * @1 Pointer to where modalias will be created
+ * @2 Maximum size of the modalias
+ *
+ * Returns: 0 if success, -1 otherwise
+ */
 int get_serio_modalias(char *modalias, int modalias_len) {
 	char *serio_type_env, *serio_proto_env;
 	char *serio_id_env, *serio_extra_env;
@@ -344,6 +345,14 @@ int get_serio_modalias(char *modalias, int modalias_len) {
 	return 0;
 }
 
+/**
+ * Creates an USB modalias out of preset environmental variables.
+ *
+ * @1 Pointer to where modalias will be created
+ * @2 Maximum size of the modalias
+ *
+ * Returns: 0 if success, -1 otherwise
+ */
 int get_usb_modalias(char *modalias, int modalias_len) {
 	char *product_env, *type_env, *interface_env;
 	char *ptr;
@@ -409,6 +418,16 @@ int get_usb_modalias(char *modalias, int modalias_len) {
 	return 0;
 }
 
+/**
+ * Distributes modalias generating according to the bus name.
+ *
+ * @1 Bus name
+ * @2 Pointer to where modalias will be created
+ * @3 Maximum size of the modalias
+ *
+ * Returns: The return value of the subsystem modalias function, or -1 if
+ * no match.
+ */
 int get_modalias(char *bus, char *modalias, int modalias_len) {
 	memset(modalias, 0, modalias_len);
 	
@@ -435,6 +454,16 @@ int get_modalias(char *bus, char *modalias, int modalias_len) {
 	return -1;
 }
 
+/**
+ * Turns all environmental variables as set when invoked by /proc/sys/hotplug
+ * into an uevent formatted (thus not null-terminated) string.
+ *
+ * @1 All environmental variables
+ * @2 Bus of the event (as read from argv)
+ * @3 Pointer to size of the returned uevent string
+ *
+ * Returns: Not null terminated uevent string.
+ */
 inline char *get_uevent_string(char **environ, char *bus, unsigned long *uevent_string_len) {
 	char *uevent_string;
 	char *tmp;
@@ -516,7 +545,7 @@ int main(int argc, char *argv[], char **environ) {
 		return 1;
 	}
 	
-	netlink_socket = init_netlink_socket();
+	netlink_socket = init_netlink_socket(NETLINK_CONNECT);
 	if (netlink_socket == -1) {
 		ERROR("netlink init","Unable to open netlink socket.");
 		goto exit;

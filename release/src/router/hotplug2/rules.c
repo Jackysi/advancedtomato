@@ -22,11 +22,18 @@
 #include <sys/stat.h>
 
 #include "mem_utils.h"
+#include "filemap_utils.h"
 #include "hotplug2.h"
 #include "rules.h"
 
-#define last_rule return_rules->rules[return_rules->rules_c - 1]
 
+/**
+ * Function supplementing 'mkdir -p'.
+ *
+ * @1 Path to be mkdir'd
+ *
+ * Returns: void
+ */
 static void mkdir_p(char *path) {
 	char *ptr;
 	struct stat statbuf;
@@ -59,6 +66,40 @@ static void mkdir_p(char *path) {
 	free(path);
 }
 
+/**
+ * Function supplementing 'rmdir -p'.
+ *
+ * @1 Path to be rmdir'd
+ *
+ * Returns: void
+ */
+static void rmdir_p(char *path) {
+	char *ptr;
+	
+	path = strdup(path);
+	ptr = path;
+	while (ptr != NULL) {
+		ptr = strrchr(path, '/');
+		if (ptr == NULL)
+			break;
+		
+		*ptr = '\0';
+		
+		if (rmdir(path))
+			break;
+	}
+	free(path);
+}
+
+/**
+ * Replaces all needles by a given value.
+ *
+ * @1 Haystack (which gets free'd in the function)
+ * @2 Needle
+ * @3 Needle replacement
+ *
+ * Returns: Newly allocated haysteck after replacement.
+ */
 static char *replace_str(char *hay, char *needle, char *replacement) {
         char *ptr, *start, *bptr, *buf;
         int occurences, j;
@@ -128,7 +169,15 @@ static char *replace_str(char *hay, char *needle, char *replacement) {
         return buf;
 }
 
-inline int isescaped(char *hay, char *ptr) {
+/**
+ * Trivial utility, figuring out whether a character is escaped or not.
+ *
+ * @1 Haystack
+ * @2 Pointer to the character in question
+ *
+ * Returns: 1 if escaped, 0 otherwise
+ */
+static inline int isescaped(char *hay, char *ptr) {
 	if (ptr <= hay)
 		return 0;
 	
@@ -138,6 +187,15 @@ inline int isescaped(char *hay, char *ptr) {
 	return 1;
 }
 
+/**
+ * Performs replacement of all keys by their value based on the hotplug
+ * event structure. Keys are identified as strings %KEY%.
+ *
+ * @1 Haystack
+ * @2 Hotplug event structure
+ *
+ * Returns: Newly allocated haystack (old is freed)
+ */
 static char *replace_key_by_value(char *hay, struct hotplug2_event_t *event) {
 	char *sptr = hay, *ptr = hay;
 	char *buf, *replacement;
@@ -171,6 +229,17 @@ static char *replace_key_by_value(char *hay, struct hotplug2_event_t *event) {
 	return hay;
 }
 
+/**
+ * Obtains all information from hotplug event structure about a device node.
+ * Creates the device node at a given path (expandable by keys) and with
+ * given mode.
+ *
+ * @1 Hotplug event structure
+ * @2 Path (may contain keys)
+ * @3 Mode of the file
+ *
+ * Returns: 0 if success, non-zero otherwise
+ */
 static int make_dev_from_event(struct hotplug2_event_t *event, char *path, mode_t devmode) {
 	char *subsystem, *major, *minor, *devpath;
 	int rv = 1;
@@ -196,12 +265,27 @@ static int make_dev_from_event(struct hotplug2_event_t *event, char *path, mode_
 	path = replace_key_by_value(path, event);
 	mkdir_p(path);
 	rv = mknod(path, devmode, makedev(atoi(major), atoi(minor)));
+
+	/*
+	 * Fixes an issue caused by devmode being modified by umask.
+	 */
+	chmod(path, devmode);
+
 	free(path);
 	
 return_value:
 	return rv;
 }
 
+/**
+ * Execute an application without invoking a shell.
+ *
+ * @1 Hotplug event structure
+ * @2 Path to the application, with expandable keys
+ * @3 Argv for the application, with expandable keys
+ *
+ * Returns: Exit status of the application.
+ */
 static int exec_noshell(struct hotplug2_event_t *event, char *application, char **argv) {
 	pid_t p;
 	int i, status;
@@ -211,11 +295,12 @@ static int exec_noshell(struct hotplug2_event_t *event, char *application, char 
 		case -1:
 			return -1;
 		case 0:
+			application = replace_key_by_value(strdup(application), event);
 			for (i = 0; argv[i] != NULL; i++) {
 				argv[i] = replace_key_by_value(argv[i], event);
 			}
 			execvp(application, argv);
-			exit(0);
+			exit(127);
 			break;
 		default:
 			if (waitpid(p, &status, 0) == -1)
@@ -226,6 +311,14 @@ static int exec_noshell(struct hotplug2_event_t *event, char *application, char 
 	}
 }
 
+/**
+ * Execute an application while invoking a shell.
+ *
+ * @1 Hotplug event structure
+ * @2 The application and all its arguments, with expandable keys
+ *
+ * Returns: Exit status of the application.
+ */
 static int exec_shell(struct hotplug2_event_t *event, char *application) {
 	int rv;
 	
@@ -235,6 +328,15 @@ static int exec_shell(struct hotplug2_event_t *event, char *application) {
 	return rv;
 }
 
+/**
+ * Create a symlink, with necessary parent directories.
+ *
+ * @1 Hotplug event structure
+ * @2 Link target, with expandable keys
+ * @3 Link name, with expandable keys
+ *
+ * Returns: return value of symlink()
+ */
 static int make_symlink(struct hotplug2_event_t *event, char *target, char *linkname) {
 	int rv;
 	
@@ -250,11 +352,50 @@ static int make_symlink(struct hotplug2_event_t *event, char *target, char *link
 	return rv;
 }
 
-static int chown_chgrp(int action, char *file, char *param) {
+/**
+ * Chmod a given file.
+ *
+ * @1 Hotplug event structure
+ * @2 File name, with expandable keys
+ * @3 Chmod value, with expandable keys
+ *
+ * Returns: return value of chmod()
+ */
+static int chmod_file(struct hotplug2_event_t *event, char *file, char *value) {
+	int rv;
+
+	file = replace_key_by_value(strdup(file), event);
+	value = replace_key_by_value(strdup(value), event);
+
+	rv = chmod(file, strtoul(value, 0, 8));
+
+	free(file);
+	free(value);
+
+	return rv;
+}
+
+
+/**
+ * Change owner or group of a given file.
+ *
+ * @1 Hotplug event structure
+ * @2 Whether we chown or chgrp
+ * @3 Filename, with expandable keys
+ * @4 Group or user name, with expandable keys
+ *
+ * Returns: return value of chown()
+ */
+static int chown_chgrp(struct hotplug2_event_t *event, int action, char *file, char *param) {
 	struct group *grp;
 	struct passwd *pwd;
 	int rv;
-	
+
+	file = replace_key_by_value(strdup(file), event);
+	param = replace_key_by_value(strdup(param), event);
+
+	rv = -1;
+
 	switch (action) {
 		case ACT_CHOWN:
 			pwd = getpwnam(param);
@@ -265,11 +406,37 @@ static int chown_chgrp(int action, char *file, char *param) {
 			rv = chown(file, -1, grp->gr_gid);
 			break;
 	}
+
+	free(file);
+	free(param);
 	
-	return -1;
+	return rv;
 }
 
-static int rule_condition_eval(struct hotplug2_event_t *event, struct condition_t *condition) {
+/**
+ * Prints all uevent keys.
+ *
+ * @1 Hotplug event structure
+ *
+ * Returns: void
+ */
+static void print_debug(struct hotplug2_event_t *event) {
+	int i;
+
+	for (i = 0; i < event->env_vars_c; i++)
+		printf("%s=%s\n", event->env_vars[i].key, event->env_vars[i].value);
+}
+
+/**
+ * Evaluates a condition according to a given hotplug event structure.
+ *
+ * @1 Hotplug event structure
+ * @2 Condition to be evaluated
+ *
+ * Returns: 1 if match, 0 if no match, EVAL_NOT_AVAILABLE if unable to
+ * perform evaluation
+ */
+int rule_condition_eval(struct hotplug2_event_t *event, struct condition_t *condition) {
 	int rv;
 	char *event_value = NULL;
 	regex_t preg;
@@ -314,23 +481,23 @@ static int rule_condition_eval(struct hotplug2_event_t *event, struct condition_
 	return EVAL_NOT_AVAILABLE;
 }
 
+/**
+ * Executes a rule. Contains evaluation of all conditions prior
+ * to execution.
+ *
+ * @1 Hotplug event structure
+ * @2 The rule to be executed
+ *
+ * Returns: 0 if success, -1 if the whole event is to be 
+ * discared, 1 if bail out of this particular rule was required
+ */
 int rule_execute(struct hotplug2_event_t *event, struct rule_t *rule) {
-	int i, last_rv, remove;
+	int i, last_rv;
 	
-	remove = 0;
 	for (i = 0; i < rule->conditions_c; i++) {
 		if (rule_condition_eval(event, &(rule->conditions[i])) != EVAL_MATCH)
 			return 0;
-		/* Only process "remove" events if "ACTION == remove"
-		 * condition is explicitly specified.
-		 */
-		if ((event->action == ACTION_REMOVE) &&
-		    (rule->conditions[i].type == COND_MATCH_CMP) &&
-		    (!strcmp(rule->conditions[i].key, "ACTION")))
-			remove = 1;
 	}
-	if ((event->action == ACTION_REMOVE) && !remove)
-		return 0;
 	
 	last_rv = 0;
 	
@@ -357,11 +524,11 @@ int rule_execute(struct hotplug2_event_t *event, struct rule_t *rule) {
 				last_rv = make_dev_from_event(event, rule->actions[i].parameter[0], strtoul(rule->actions[i].parameter[1], NULL, 0));
 				break;
 			case ACT_CHMOD:
-				last_rv = chmod(rule->actions[i].parameter[0], strtoul(rule->actions[i].parameter[1], NULL, 0));
+				last_rv = chmod_file(event, rule->actions[i].parameter[0], rule->actions[i].parameter[1]);
 				break;
 			case ACT_CHOWN:
 			case ACT_CHGRP:
-				last_rv = chown_chgrp(rule->actions[i].type, rule->actions[i].parameter[0], rule->actions[i].parameter[1]);
+				last_rv = chown_chgrp(event, rule->actions[i].type, rule->actions[i].parameter[0], rule->actions[i].parameter[1]);
 				break;
 			case ACT_SYMLINK:
 				last_rv = make_symlink(event, rule->actions[i].parameter[0], rule->actions[i].parameter[1]);
@@ -375,12 +542,49 @@ int rule_execute(struct hotplug2_event_t *event, struct rule_t *rule) {
 			case ACT_SETENV:
 				last_rv = setenv(rule->actions[i].parameter[0], rule->actions[i].parameter[1], 1);
 				break;
+			case ACT_REMOVE:
+				last_rv = unlink(rule->actions[i].parameter[0]);
+				rmdir_p(rule->actions[i].parameter[0]);
+				break;
+			case ACT_DEBUG:
+				print_debug(event);
+				last_rv = 0;
+				break;
 		}
 	}
 	
 	return 0;
 }
 
+/**
+ * Sets the flags of the given rule.
+ *
+ * @1 Rule structure
+ *
+ * Returns: void
+ */
+void rule_flags(struct rule_t *rule) {
+	int i;
+
+	for (i = 0; i < rule->actions_c; i++) {
+		switch (rule->actions[i].type) {
+			case ACT_FLAG_NOTHROTTLE:
+				rule->flags |= FLAG_NOTHROTTLE;
+				break;
+		}
+	}
+	
+	return;
+}
+
+/**
+ * Checks whether the given character should initiate
+ * further parsing.
+ *
+ * @1 Character to examine
+ *
+ * Returns: 1 if it should, 0 otherwise
+ */
 static inline int isinitiator(int c) {
 	switch (c) {
 		case ',':
@@ -393,6 +597,16 @@ static inline int isinitiator(int c) {
 	return 0;
 }
 
+/**
+ * Appends a character to a buffer. Enlarges if necessary.
+ *
+ * @1 Pointer to the buffer
+ * @2 Pointer to buffer size
+ * @3 Pointer to last buffer character
+ * @4 Appended character
+ *
+ * Returns: void
+ */
 static inline void add_buffer(char **buf, int *blen, int *slen, char c) {
 	if (*slen + 1 >= *blen) {
 		*blen = *blen + 64;
@@ -404,6 +618,14 @@ static inline void add_buffer(char **buf, int *blen, int *slen, char c) {
 	*slen += 1;
 }
 
+/**
+ * Parses a string into a syntactically acceptable value.
+ *
+ * @1 Input string
+ * @2 Pointer to the new position
+ *
+ * Returns: Newly allocated string.
+ */
 static char *rules_get_value(char *input, char **nptr) {
 	int quotes = QUOTES_NONE;
 	char *ptr = input;
@@ -481,6 +703,16 @@ return_value:
 	return buf;
 }
 
+/**
+ * Releases all memory associated with the ruleset. TODO: Make
+ * the behavior same for all _free() functions, ie. either
+ * release the given pointer itself or keep it, but do it
+ * in all functions!
+ *
+ * @1 The ruleset to be freed
+ *
+ * Returns: void
+ */
 void rules_free(struct rules_t *rules) {
 	int i, j, k;
 	
@@ -502,10 +734,54 @@ void rules_free(struct rules_t *rules) {
 	free(rules->rules);
 }
 
-struct rules_t *rules_from_config(char *input) {
-	int status = STATUS_KEY, terminate;
+/**
+ * Includes a rule file.
+ *
+ * @1 Filename
+ * @2 The ruleset structure
+ *
+ * Returns: 0 if success, -1 otherwise
+ */
+int rules_include(const char *filename, struct rules_t **return_rules) {
+	struct filemap_t filemap;
+	struct rules_t *rules;
+
+	if (map_file(filename, &filemap)) {
+		ERROR("rules parse","Unable to open/mmap rules file.");
+		return -1;
+	}
+	
+	rules = rules_from_config((char*)(filemap.map), *return_rules);
+	if (rules == NULL) {
+		ERROR("rules parse","Unable to parse rules file.");
+		return -1;
+	}
+	*return_rules = rules;
+
+	unmap_file(&filemap);
+
+	return 0;
+}
+
+/**
+ * Parses an entire file of rules.
+ *
+ * @1 The whole file in memory or mmap'd
+ *
+ * Returns: A newly allocated ruleset.
+ */
+struct rules_t *rules_from_config(char *input, struct rules_t *return_rules) {
+	#define last_rule return_rules->rules[return_rules->rules_c - 1]
+	int nested;
+	int status;	
+	int terminate;
 	char *buf;
-	struct rules_t *return_rules;
+
+	/*
+	 * TODO: cleanup
+	 *
+	 * BIIIG cleanup... Use callbacks for actions and for internal actions.
+	 */
 	
 	int i, j;
 	struct key_rec_t conditions[] = {	/*NOTE: We never have parameters for conditions. */
@@ -516,6 +792,7 @@ struct rules_t *rules_from_config(char *input) {
 		{"!~", 0, COND_NMATCH_RE},
 		{NULL, 0, -1}
 	};
+
 	struct key_rec_t actions[] = {
 		/*one line / one command*/
 		{"run", 1, ACT_RUN_SHELL},
@@ -528,6 +805,9 @@ struct rules_t *rules_from_config(char *input) {
 		{"chmod", 2, ACT_CHMOD},
 		{"chgrp", 2, ACT_CHGRP},
 		{"setenv", 2, ACT_SETENV},
+		{"remove", 1, ACT_REMOVE},
+		{"nothrottle", 0, ACT_FLAG_NOTHROTTLE},
+		{"printdebug", 0, ACT_DEBUG},
 		/*symlink*/
 		{"symlink", 2, ACT_SYMLINK},
 		{"softlink", 2, ACT_SYMLINK},
@@ -537,9 +817,19 @@ struct rules_t *rules_from_config(char *input) {
 		{NULL, 0, -1}
 	};
 
-	return_rules = xmalloc(sizeof(struct rules_t));
-	return_rules->rules_c = 1;
-	return_rules->rules = xmalloc(sizeof(struct rule_t) * return_rules->rules_c);
+	/*
+	 * A little trick for inclusion.
+	 */
+	if (return_rules == NULL) {
+		return_rules = xmalloc(sizeof(struct rules_t));
+		return_rules->rules_c = 1;
+		return_rules->rules = xmalloc(sizeof(struct rule_t) * return_rules->rules_c);
+		nested = 0;
+	} else {
+		nested = 1;
+	}
+
+	status = STATUS_KEY;
 	
 	last_rule.actions = NULL;
 	last_rule.actions_c = 0;
@@ -559,9 +849,26 @@ struct rules_t *rules_from_config(char *input) {
 			/* Skip to next line */
 			while (*input != '\0' && *input != '\n')
 				input++;
+
+			free(buf);
+			continue;
+		} else if (buf[0] == '$') {
+			buf++;
+
+			/*
+			 * Warning, hack ahead...
+			 */
+			if (!strcmp("include", buf)) {
+				buf = rules_get_value(input, &input);
+				if (rules_include(buf, &return_rules)) {
+					ERROR("rules_include", "Unable to include ruleset '%s'!", buf);
+				}
+			}
+
+			free(buf);
 			continue;
 		}
-		
+
 		switch (status) {
 			case STATUS_KEY:
 				last_rule.conditions_c++;
@@ -691,11 +998,18 @@ struct rules_t *rules_from_config(char *input) {
 	
 	if (!terminate) {
 		/* A little bit hacky cleanup */
-		return_rules->rules_c--;
+		if (!nested)
+			return_rules->rules_c--;
 		return return_rules;
 	} else {
-		rules_free(return_rules);
-		free(return_rules);
+		/*
+		 * We don't want to cleanup if we're nested.
+		 */
+		if (!nested) {
+			rules_free(return_rules);
+			free(return_rules);
+		}
+
 		return NULL;
 	}
 }

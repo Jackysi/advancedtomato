@@ -14,7 +14,7 @@ $(srcdir)/Makefile:
 		samba_cv_FTRUNCATE_NEEDS_ROOT=no samba_cv_HAVE_BROKEN_FCNTL64_LOCKS=no \
 		samba_cv_HAVE_BROKEN_GETGROUPS=no samba_cv_HAVE_BROKEN_READDIR=no \
 		samba_cv_HAVE_FCNTL_LOCK=yes samba_cv_HAVE_FNMATCH=yes \
-		samba_cv_HAVE_FTRUNCATE_EXTEND=no samba_cv_HAVE_IFACE_AIX=no \
+		samba_cv_HAVE_FTRUNCATE_EXTEND=yes samba_cv_HAVE_IFACE_AIX=no \
 		samba_cv_HAVE_IFACE_IFCONF=yes samba_cv_HAVE_IFACE_IFREQ=yes \
 		samba_cv_HAVE_INO64_T=yes samba_cv_HAVE_IRIX_SPECIFIC_CAPABILITIES=no \
 		samba_cv_HAVE_OFF64_T=yes samba_cv_HAVE_ROOT=yes \

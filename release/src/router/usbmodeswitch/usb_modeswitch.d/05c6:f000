@@ -1,0 +1,12 @@
+########################################################
+# Siptune LM-75 ("LinuxModem")
+
+DefaultVendor= 0x05c6
+DefaultProduct=0xf000
+
+TargetVendor=  0x05c6
+TargetProduct= 0x9000
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"

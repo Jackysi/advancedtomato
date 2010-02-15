@@ -30,8 +30,19 @@
 #include "../parser_utils.h"
 #include "../filemap_utils.h"
 
+#define MODULES_PATH		"/lib/modules/"
+#define MODULES_ALIAS		"modules.alias"
+
+/**
+ * A simple fork/exec wrapper
+ *
+ * @1 Complete argv, including app path
+ *
+ * Returns: -1 if error, children return value otherwise
+ */
 int execute(char **argv) {
 	pid_t p;
+	int status;
 	
 	p = fork();
 	switch (p) {
@@ -42,10 +53,11 @@ int execute(char **argv) {
 			exit(1);
 			break;
 		default:
-			waitpid(p, NULL, 0);
+			waitpid(p, &status, 0);
 			break;
 	}
-	return 0;
+
+	return WEXITSTATUS(status);
 }
 
 int main(int argc, char *argv[]) {
@@ -63,21 +75,36 @@ int main(int argc, char *argv[]) {
 	
 	match_alias = strdup(argv[argc - 1]);
 	
+	/*
+	 * If we can't do uname, we're absolutely screwed and there's no
+	 * sense thinking twice about anything.
+	 */
 	if (uname(&unamebuf)) {
 		ERROR("uname", "Unable to perform uname: %s.", strerror(errno));
 		return 1;
 	}
 	
-	/* We use this one */
+	/*
+	 * We allow setting the modprobe command to an arbitrary value.
+	 *
+	 * The whole trick lies in executing modprobe with exactly the
+	 * same argv as this app was executed, except we use a different
+	 * argv[0] (application path) and argv[argc-1] (we substitute
+	 * the given modalias by the matching module name)
+	 */
 	argv[0] = getenv("MODPROBE_COMMAND");
 	if (argv[0] == NULL)
 		argv[0] = "/sbin/modprobe";
-	
-	/* "/lib/modules/" + "/" + "\0" */
-	filename = xmalloc(15 + strlen(unamebuf.release) + strlen("modules.alias"));
-	strcpy(filename, "/lib/modules/");
+
+	/*
+	 * Compose a path, /lib/modules/`uname -r`/modules.alias
+	 *
+	 * "/lib/modules/" + "/" + "\0" 
+	 */
+	filename = xmalloc(strlen(MODULES_PATH) + strlen(unamebuf.release) + strlen(MODULES_ALIAS));
+	strcpy(filename, MODULES_PATH);
 	strcat(filename, unamebuf.release);
-	strcat(filename, "/modules.alias");
+	strcat(filename, MODULES_ALIAS);
 	
 	if (map_file(filename, &aliasmap)) {
 		ERROR("map_file", "Unable to map file: `%s'.", filename);
@@ -86,10 +113,16 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	
+	/*
+	 * Read all the aliases, match them against given parameter.
+	 */
 	nptr = aliasmap.map;
 	while ((line = dup_line(nptr, &nptr)) != NULL) {
 		nline = line;
 		
+		/*
+		 * We want aliases only
+		 */
 		token = dup_token(nline, &nline, isspace);
 		if (!token || strcmp(token, "alias")) {
 			free(token);
@@ -98,12 +131,18 @@ int main(int argc, char *argv[]) {
 		}
 		free(token);
 		
+		/*
+		 * It's an alias, so fetch it
+		 */
 		cur_alias = dup_token(nline, &nline, isspace);
 		if (!cur_alias) {
 			free(line);
 			continue;
 		}
 		
+		/*
+		 * And now we get the module name
+		 */
 		module = dup_token(nline, &nline, isspace);
 		if (!module) {
 			free(line);
@@ -111,10 +150,14 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		
+		/*
+		 * If we match, we do the modalias->module name
+		 * substitution as described above and execute.
+		 */
 		if (!fnmatch(cur_alias, match_alias, 0)) {
 			argv[argc - 1] = module;
 			if (execute(argv)) {
-				ERROR("execute", "Unable to execute: `%s'.", argv[0]);
+				ERROR("execute", "Error during exection of: `%s'.", argv[0]);
 			}
 		}
 		
@@ -122,6 +165,17 @@ int main(int argc, char *argv[]) {
 		free(module);
 		free(line);
 	}
+
+	/*
+	 * Perhaps we didn't match anything, so we might've been given
+	 * a module name instead of a modalias. Try to modprobe it
+	 * right away.
+	 */
+	if (strcmp(argv[argc - 1], match_alias) == 0) {
+		if (execute(argv)) {
+			ERROR("execute", "Error during exection of: `%s'.", argv[0]);
+		}
+	}	
 	
 	free(filename);
 	free(match_alias);

@@ -603,6 +603,7 @@ static const nvset_t nvset_list[] = {
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},
+	{ "ct_hashsize",		V_RANGE(127, 65535)		},
 #endif
 	{ "nf_rtsp",			V_01				},
 	{ "nf_pptp",			V_01				},
@@ -630,6 +631,8 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},

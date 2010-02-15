@@ -327,6 +327,7 @@ const defaults_t defaults[] = {
 	{ "nf_l7in",			"1"				},
 #ifdef LINUX26
 	{ "nf_sip",			"1"				},
+	{ "ct_hashsize",		""				},
 #endif
 	{ "nf_rtsp",			"1"				},
 	{ "nf_pptp",			"0"				},
@@ -341,6 +342,8 @@ const defaults_t defaults[] = {
 	{ "boot_wait",			"on"			},
 	{ "wait_time",			"5"				},
 	{ "wan_speed",			"4"				},	// 0=10 Mb Full, 1=10 Mb Half, 2=100 Mb Full, 3=100 Mb Half, 4=Auto
+	{ "jumbo_frame_enable",		"0"				},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		"2000"				},
 
 // advanced-dhcpdns
 	{ "dhcpd_dmdns",		"1"				},
@@ -523,7 +526,7 @@ const defaults_t defaults[] = {
 	{ "debug_cprintf_file",	"0"				},
 //	{ "debug_keepfiles",	"0"				},
 	{ "console_loglevel",	"1"				},
-	{ "t_cafree",			"0"				},
+	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},

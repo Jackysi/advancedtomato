@@ -358,6 +358,17 @@ void setup_conntrack(void)
 		nvram_set("ct_timeout", buf);
 	}
 
+#ifdef LINUX26
+	p = nvram_safe_get("ct_hashsize");
+	i = atoi(p);
+	if (i >= 127) {
+		f_write_string("/sys/module/nf_conntrack/parameters/hashsize", p, 0, 0);
+	}
+	else if (f_read_string("/sys/module/nf_conntrack/parameters/hashsize", buf, sizeof(buf)) > 0) {
+		if (atoi(buf) > 0) nvram_set("ct_hashsize", buf);
+	}
+#endif
+
 	p = nvram_safe_get("ct_max");
 	i = atoi(p);
 	if ((i >= 128) && (i <= 10240)) {

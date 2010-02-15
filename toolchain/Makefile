@@ -73,9 +73,10 @@ endif
 
 # Create addtional symlinks
 	ln -sf $(ARCH)-linux-gcc		$(TOOLCHAIN_DIR)/bin/$(ARCH)-linux-cc
-	ln -sf "$(ARCH)-linux-uclibc-g++"	"$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-g++"
+	ln -sf $(ARCH)-linux-uclibc-g\+\+	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-g\+\+
 	ln -sf $(ARCH)-linux-uclibc-ar		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-ar
 	ln -sf $(ARCH)-linux-uclibc-gcc		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-gcc
+	ln -sf $(ARCH)-linux-uclibc-gcc-$(GCCV)	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-gcc-$(GCCV)
 	ln -sf $(ARCH)-linux-uclibc-ld		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-ld
 	ln -sf $(ARCH)-linux-uclibc-nm		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-nm
 	ln -sf $(ARCH)-linux-uclibc-objcopy	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-objcopy

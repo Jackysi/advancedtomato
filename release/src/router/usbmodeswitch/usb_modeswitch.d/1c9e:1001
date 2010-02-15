@@ -1,11 +1,11 @@
 ########################################################
-# Alcatel One Touch X series
+# Alcatel One Touch X020
 
-DefaultVendor=  0x1c9e
-DefaultProduct= 0x1001
+DefaultVendor= 0x1c9e
+DefaultProduct=0x1001
 
-TargetVendor=   0x1c9e
-TargetProduct=  0x6061
+TargetVendor=  0x1c9e
+TargetProduct= 0x6061
 
 CheckSuccess=20
 

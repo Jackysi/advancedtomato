@@ -1,6 +1,6 @@
 # vim:set sw=8 nosta:
 
-CFLAGS=-Os -DHAVE_RULES -Wall -g $(EXTRACFLAGS)
+CFLAGS=-Os -DHAVE_RULES -Wall -g -Wextra $(EXTRACFLAGS)
 LDFLAGS=-g
 
 INSTALL=install -c -m 644

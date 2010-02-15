@@ -14,6 +14,6 @@ struct filemap_t {
 	void *map;
 };
 
-int map_file(char *, struct filemap_t *);
+int map_file(const char *, struct filemap_t *);
 int unmap_file(struct filemap_t *);
 #endif

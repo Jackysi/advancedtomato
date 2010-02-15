@@ -834,6 +834,8 @@ static int init_nvram(void)
 	if ((features & SUP_BRAU) == 0) nvram_set("script_brau", "");
 	if ((features & SUP_SES) == 0) nvram_set("sesx_script", "");
 
+	if ((features & SUP_1000ET) == 0) nvram_set("jumbo_frame_enable", "0");
+
 	if (nvram_match("wl_net_mode", "disabled")) {
 		nvram_set("wl_radio", "0");
 		nvram_set("wl_net_mode", "mixed");
@@ -877,13 +879,13 @@ static void sysinit(void)
 	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
+	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
+
 #ifdef LINUX26
 	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-	mknod("/dev/console", S_IRWXU|S_IFCHR, makedev(5, 1));
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
-#endif
-	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
-#ifdef LINUX26
 	mkdir("/dev/shm", 0777);
 	mkdir("/dev/pts", 0777);
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
@@ -1000,6 +1002,12 @@ static void sysinit(void)
 
 	system("nvram defaults --initcheck");
 	init_nvram();
+
+	// set the packet size
+	if (nvram_get_int("jumbo_frame_enable")) {
+		eval("et", "robowr", "0x40", "0x01", (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
+		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
+	}
 
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 

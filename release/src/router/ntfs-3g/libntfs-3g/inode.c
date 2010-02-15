@@ -37,8 +37,6 @@
 #endif
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
-#else
-#include <linux/xattr.h>
 #endif
 
 #include "compat.h"
@@ -1199,6 +1197,8 @@ int ntfs_inode_badclus_bad(u64 mft_no, ATTR_RECORD *attr)
 	return ret;
 }
 
+#ifdef HAVE_SETXATTR	/* extended attributes interface required */
+
 /*
  *		Get high precision NTFS times
  *
@@ -1346,3 +1346,5 @@ int ntfs_inode_set_times(const char *path __attribute__((unused)),
 			errno = EEXIST;
 	return (ret);
 }
+
+#endif /* HAVE_SETXATTR */
