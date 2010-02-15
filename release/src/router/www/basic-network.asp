@@ -496,11 +496,25 @@ function verifyFields(focused, quiet)
 	}
 	ferror.clear('_wan_proto');
 
+/* REMOVE-BEGIN
 	if ((vis._f_wmode == 1) && (wmode != 'ap') && (sm2.substr(0, 4) == 'wpa2')) {
 		ferror.set('_security_mode2', 'WPA2 is supported only in AP mode.', quiet);
 		return 0;
 	}
 	ferror.clear('_security_mode2');
+REMOVE-END */
+
+	// N standard does not support WPA+TKIP
+	switch (E('_wl_net_mode').value) {
+	case 'mixed':
+	case 'n-only':
+		if (nphy && (E('_wl_crypto').value == 'tkip') &&
+		   ((sm2 == 'wpa_enterprise') || (sm2 == 'wpa_personal'))) {
+			ferror.set('_wl_crypto', 'WPA with TKIP encryption is not supported in N mode.', quiet);
+			return 0;
+		}
+		break;
+	}
 
 	a = E('_wl_wpa_psk');
 	ferror.clear(a);
@@ -672,20 +686,12 @@ function save()
 		c = [];
 
 		if (sm2.indexOf('personal') != -1) {
-			if (wmode == 'wet' || wmode == 'sta')
-				c.push('psk');
-			else {
-				if (sm2.indexOf('wpa2_') == -1) c.push('psk');
-				if (sm2.indexOf('wpa_') == -1) c.push('psk2');
-			}
+			if (sm2.indexOf('wpa2_') == -1) c.push('psk');
+			if (sm2.indexOf('wpa_') == -1) c.push('psk2');
 		}
 		else {
-			if (wmode == 'wet' || wmode == 'sta')
-				c.push('wpa');
-			else {
-				if (sm2.indexOf('wpa2_') == -1) c.push('wpa');
-				if (sm2.indexOf('wpa_') == -1) c.push('wpa2');
-			}
+			if (sm2.indexOf('wpa2_') == -1) c.push('wpa');
+			if (sm2.indexOf('wpa_') == -1) c.push('wpa2');
 		}
 		c = c.join(' ');
 		fom.security_mode.value = c;
@@ -714,7 +720,7 @@ function save()
 	case 'bg-mixed':
 		break;
 	case 'n-only':
-		fom.wl_nmode.value = -1;
+		fom.wl_nmode.value = 1;
 		fom.wl_nmcsidx.value = 32;
 		fom.wl_nreqd.value = 1;
 		break;

@@ -136,6 +136,7 @@ extern void force_to_dial(void);
 
 // network.c
 extern void set_host_domain_name(void);
+extern void set_et_qos_mode(int sfd);
 extern void start_lan(void);
 extern void stop_lan(void);
 extern void hotplug_net(void);

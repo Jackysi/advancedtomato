@@ -89,23 +89,30 @@ void create_passwd(void)
 		0, 0644);
 }
 
+static inline int check_host_key(const char *ktype, const char *nvname, const char *hkfn)
+{
+	unlink(hkfn);
+
+	if (!nvram_get_file(nvname, hkfn, 2048)) {
+		eval("dropbearkey", "-t", (char *)ktype, "-f", (char *)hkfn);
+		if (nvram_set_file(nvname, hkfn, 2048)) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 void start_sshd(void)
 {
-	static const char *hkfn = "/etc/dropbear/dropbear_rsa_host_key";
-
 	mkdir("/etc/dropbear", 0700);
 	mkdir("/root/.ssh", 0700);
 
 	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0700);
 
-	unlink(hkfn);
-
-	if (!nvram_get_file("sshd_hostkey", hkfn, 2048)) {
-		eval("dropbearkey", "-t", "rsa", "-f", (char *)hkfn);
-		if (nvram_set_file("sshd_hostkey", hkfn, 2048)) {
-			nvram_commit_x();
-		}
-	}
+	if (check_host_key("rsa", "sshd_hostkey", "/etc/dropbear/dropbear_rsa_host_key") ||
+	    check_host_key("dss", "sshd_dsskey",  "/etc/dropbear/dropbear_dss_host_key"))
+		nvram_commit_x();
 
 /*
 	xstart("dropbear", "-a", "-p", nvram_safe_get("sshd_port"), nvram_get_int("sshd_pass") ? "" : "-s");

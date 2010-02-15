@@ -93,7 +93,7 @@ int _xstart(const char *cmd, ...)
 	return _eval(argv, NULL, 0, &pid);
 }
 
-int endswith (char *str, char *cmp)
+int endswith (const char *str, char *cmp)
 {
 	int cmp_len, str_len, i;
 
@@ -125,28 +125,36 @@ static void execute_with_maxwait(char *const argv[], int wtime)
 	}
 }
 
-void run_userfile (char *folder, char *extension, const char *arg1, int wtime)
+/* This is a bit ugly.  Why didn't they allow another parameter to filter???? */
+static char *filter_extension;
+static int endswith_filter(const struct dirent *entry)
 {
-	struct dirent *entry;
-	DIR *directory;
+	return endswith(entry->d_name, filter_extension);
+}
+
+void run_userfile(char *folder, char *extension, const char *arg1, int wtime)
+{
 	unsigned char buf[128];
 	char *argv[3];
+	struct dirent **namelist;
+	int i, n;
 
-	//printf("run_userfile: check %s for *%s\n", folder, extension);
-	directory = opendir (folder);
-	if (directory == NULL)
+	/* Do them in sorted order. */
+	filter_extension = extension;
+	n = scandir(folder, &namelist, endswith_filter, alphasort);
+	if (n <= 0)
 		return;
-
-	while ((entry = readdir (directory)) != NULL) {
-		if (endswith (entry->d_name, extension)) {
-			sprintf (buf, "%s/%s", folder, entry->d_name);
+	else {
+		for (i = 0; i < n; ++i) {
+			sprintf (buf, "%s/%s", folder, namelist[i]->d_name);
 			argv[0] = buf;
 			argv[1] = (char *)arg1;
 			argv[2] = NULL;
 			execute_with_maxwait(argv, wtime);
+			free(namelist[i]);
 		}
+		free(namelist);
 	}
-	closedir (directory);
 }
 
 
@@ -175,17 +183,25 @@ void run_userfile (char *folder, char *extension, const char *arg1, int wtime)
  */
 /*
 At this time, the names/events are:
-   sesx		SES/AOSS Button custom script.
-   brau		"bridge/auto" button pushed.
+   (Unless otherwise noted, there are no parameters.  Otherwise, one parameter).
+   sesx		SES/AOSS Button custom script.  Param: ??
+   brau		"bridge/auto" button pushed.  Param: mode (bridge/auto/etc)
    fire		When firewall service has been started or re-started.
    shut		At system shutdown, just before wan/lan/usb/etc. are stopped.
    init		At system startup, just before wan/lan/usb/etc. are started.
-                The root filesystem and /jffs are mounted, but not any USB devices.
+		The root filesystem and /jffs are mounted, but not any USB devices.
    usbmount	After an auto-mounted USB drive is mounted.
    usbumount	Before an auto-mounted USB drive is unmounted.
    usbhotplug	When any USB device is attached or removed.
    wanup	After WAN has come up.
-      
+   autostop	When a USB partition gets un-mounted.  Param: the mount-point (directory).
+		If unmounted from the GUI, the directory is still mounted and accessible.
+		If the USB drive was unplugged, it is still mounted but not accessible.
+
+User scripts -- no directories are searched.  One parameter.
+   autorun	When a USB disk partition gets auto-mounted. Param: the mount-point (directory).
+		But not if the partition was already mounted.
+		Only the files in that directory will be run.
 */
 void run_nvscript(const char *nv, const char *arg1, int wtime)
 {

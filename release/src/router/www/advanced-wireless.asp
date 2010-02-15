@@ -40,8 +40,8 @@ function verifyFields(focused, quiet)
 	if (!v_range('_wl_rts', quiet, 0, 2347)) return 0;
 	if (!v_range(E('_wl_txpwr'), quiet, 1, 251)) return 0;
 
-	E('_wl_wme_no_ack').disabled = E('_wl_wme').selectedIndex != 1;
-	E('_wl_wme_apsd').disabled = E('_wl_wme').selectedIndex != 1;
+	E('_wl_wme_no_ack').disabled = (E('_wl_wme').value == 'off');
+	E('_wl_wme_apsd').disabled = (E('_wl_wme').value == 'off');
 	return 1;
 }
 
@@ -166,7 +166,7 @@ REMOVE-END */
 	{ title: 'Transmission Rate', name: 'wl_rate', type: 'select',
 		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
 		value: nvram.wl_rate },
-	{ title: 'WMM', name: 'wl_wme', type: 'select', options: [['off','Disable *'],['on','Enable']], value: nvram.wl_wme },
+	{ title: 'WMM', name: 'wl_wme', type: 'select', options: [['auto','Auto *'],['off','Disable'],['on','Enable']], value: nvram.wl_wme },
 	{ title: 'No ACK', name: 'wl_wme_no_ack', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
 		value: nvram.wl_wme_no_ack },
 	{ title: 'APSD Mode', name: 'wl_wme_apsd', indent: 2, type: 'select', options: [['off','Disable'],['on','Enable *']],

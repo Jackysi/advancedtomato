@@ -1386,10 +1386,6 @@ static int sanitise(unsigned char *opt, char *buf)
 static void log_packet(char *type, void *addr, unsigned char *ext_mac, 
 		       int mac_len, char *interface, char *string, u32 xid)
 {
-  /* !!TB - reduce excessive logging for DHCP packets */
-  if ((type) && !(daemon->options & OPT_LOG_OPTS))
-    return;
-
   struct in_addr a;
  
   /* addr may be misaligned */
