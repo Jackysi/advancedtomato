@@ -508,19 +508,18 @@ setprofile:
 		rm -f config_current ; \
 		ln -s config_$(lowercase_B) config_current ; \
 		cp -f config_current .config
-	@$(MAKE) -C $(LINUXDIR) oldconfig
-
-	@cd router ; \
-		rm -f config_current ; \
-		ln -s config_$(lowercase_B) config_current ; \
-		cp config_current .config
-	@$(MAKE) -C router oldconfig
 
 	@cd router/busybox && \
 		rm -f config_current ; \
 		ln -s config_$(lowercase_B) config_current ; \
 		cp config_current .config
-	@$(MAKE) -C router/busybox oldconfig
+
+	@cd router ; \
+		rm -f config_current ; \
+		ln -s config_$(lowercase_B) config_current ; \
+		cp config_current .config
+
+	@$(MAKE) -C router oldconfig
 
 cleanlibc:
 #	@$(MAKE) -C ../../tools-src/uClibc clean

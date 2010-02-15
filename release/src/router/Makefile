@@ -407,12 +407,16 @@ kmconf:
 
 koldconf:
 	@$(MAKE) -C $(LINUXDIR) oldconfig
+	@$(MAKE) -C $(LINUXDIR) include/linux/version.h
+
+bboldconf:
+	@$(MAKE) -C busybox oldconfig
 
 config conf: rconf kconf
 
 menuconfig mconf: rmconf kmconf
 
-oldconfig oldconf: roldconf koldconf
+oldconfig oldconf: koldconf roldconf bboldconf
 
 
 #
