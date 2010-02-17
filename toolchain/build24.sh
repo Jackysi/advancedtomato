@@ -12,8 +12,11 @@ GCCVER2=4.1.2
 TARGETDIR2=hndtools-mipsel-uclibc-${GCCVER2}
 DESTDIR2=/opt/brcm/${TARGETDIR2}
 
+make -C ../release/src prepk
+
 #########################################################################
 
+cd $ROOTDIR
 rm -f .config
 ln -sf config.2.4-${GCCVER1} .config
 make clean; make dirclean; make V=99
@@ -25,6 +28,7 @@ ln -nsf mipsel-linux-uclibc-gcc-${GCCVER1} mipsel-uclibc-gcc-${GCCVER1}
 
 #########################################################################
 
+cd $ROOTDIR
 rm -f .config
 ln -sf config.2.4-${GCCVER2} .config
 make clean; make dirclean; make V=99
