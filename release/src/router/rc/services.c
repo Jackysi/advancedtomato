@@ -1250,10 +1250,12 @@ void stop_samba(void)
 	int fd = file_lock("usb");
 	do_start_stop_samba(1, 0);
 
+#if 0
 	if (nvram_invmatch("smbd_nlsmod", "")) {
 		modprobe_r(nvram_get("smbd_nlsmod"));
 		nvram_set("smbd_nlsmod", "");
 	}
+#endif
 
 	/* clean up */
 	unlink("/var/log/smb");
