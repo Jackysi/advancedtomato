@@ -150,6 +150,10 @@ endif
 
 
 prepk:
+	@cd $(LINUXDIR) ; \
+		rm -f config_current ; \
+		ln -s config_base config_current ; \
+		cp -f config_current .config
 	$(MAKE) -C $(LINUXDIR) oldconfig dep
 
 what:
