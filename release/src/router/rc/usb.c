@@ -200,7 +200,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 {
 	struct mntent *mnt;
 	int ret;
-	char options[80];
+	char options[140];
 	char flagfn[128];
 	int dir_made;
 
@@ -220,8 +220,9 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 			flags = 0;
 		}
 		else if (strcmp(type, "ext2") == 0 || strcmp(type, "ext3") == 0) {
+			if (nvram_invmatch("usb_ext_opt", ""))
+				sprintf(options, nvram_safe_get("usb_ext_opt"));
 		}
-#ifdef TCONFIG_SAMBASRV
 		else if (strcmp(type, "vfat") == 0) {
 			if (nvram_invmatch("smbd_cset", ""))
 				sprintf(options, "iocharset=%s%s", 
@@ -243,14 +244,17 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 #ifdef LINUX26
 			sprintf(options + strlen(options), ",flush" + (options[0] ? 0 : 1));
 #endif
+			if (nvram_invmatch("usb_fat_opt", ""))
+				sprintf(options + strlen(options), "%s%s", options[0] ? "," : "", nvram_safe_get("usb_fat_opt"));
 		}
 		else if (strncmp(type, "ntfs", 4) == 0) {
 			if (nvram_invmatch("smbd_cset", ""))
 				sprintf(options, "iocharset=%s%s",
 					isdigit(nvram_get("smbd_cset")[0]) ? "cp" : "",
 						nvram_get("smbd_cset"));
+			if (nvram_invmatch("usb_ntfs_opt", ""))
+				sprintf(options + strlen(options), "%s%s", options[0] ? "," : "", nvram_safe_get("usb_ntfs_opt"));
 		}
-#endif
 
 		if (flags) {
 			if ((dir_made = mkdir_if_none(mnt_dir))) {

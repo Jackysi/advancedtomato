@@ -548,6 +548,9 @@ const defaults_t defaults[] = {
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},
 	{ "usb_printer_bidirect",	"1"				},
+	{ "usb_ext_opt",		""				},
+	{ "usb_fat_opt",		""				},
+	{ "usb_ntfs_opt",		""				},
 	{ "usb_fs_ext3",		"1"				},
 	{ "usb_fs_fat",			"1"				},
 #ifdef TCONFIG_NTFS
