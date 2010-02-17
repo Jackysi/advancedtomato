@@ -39,8 +39,8 @@
 #ifndef __FORCE_GLIBC
 #define __FORCE_GLIBC
 #endif
-#ifndef _GNU_SOUCE
-#define _GNU_SOUCE
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 #define _(X)	X
 #endif
