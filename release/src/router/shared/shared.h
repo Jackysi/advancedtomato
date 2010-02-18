@@ -154,6 +154,7 @@ enum {
 	MODEL_RTN10,
 	MODEL_RTN12,
 	MODEL_RTN16,
+	MODEL_WNR3500L,
 	MODEL_MN700,
 	MODEL_WRH54G,
 	MODEL_WHRG125,
@@ -194,6 +195,7 @@ enum {
 #define SUP_HPAMP		(1 << 4)
 #define SUP_NONVE		(1 << 5)
 #define SUP_80211N		(1 << 6)
+#define SUP_1000ET		(1 << 7)
 
 extern int check_hw_type(void);
 //	extern int get_hardware(void) __attribute__ ((weak, alias ("check_hw_type")));
@@ -243,7 +245,7 @@ extern int f_wait_notexists(const char *name, int max);
 
 extern const char *led_names[];
 
-extern int gpio_open();
+extern int gpio_open(uint32_t mask);
 extern void gpio_write(uint32_t bit, int en);
 extern uint32_t gpio_read(void);
 extern uint32_t _gpio_read(int f);

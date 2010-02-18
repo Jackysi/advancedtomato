@@ -126,11 +126,19 @@ static void _execute_command(char *url, char *command, char *query, char *output
 	char webExecFile[]  = "/tmp/.wxXXXXXX";
 	char webQueryFile[] = "/tmp/.wqXXXXXX";
 	FILE *f;
+	int fe, fq = -1;
 
-	mktemp(webExecFile);
-	if (query) mktemp(webQueryFile);
+	if ((fe = mkstemp(webExecFile)) < 0)
+		exit(1);
+	if (query) {
+		if ((fq = mkstemp(webQueryFile)) < 0) {
+			close(fe);
+			unlink(webExecFile);
+			exit(1);
+		}
+	}
 
-	if ((f = fopen(webExecFile, "wb")) != NULL) {
+	if ((f = fdopen(fe, "wb")) != NULL) {
 		fprintf(f,
 			"#!/bin/sh\n"
 			"export REQUEST_METHOD=\"%s\"\n"
@@ -144,18 +152,26 @@ static void _execute_command(char *url, char *command, char *query, char *output
 	}
 	else {
 		unlink(output);
+		close(fe);
+		unlink(webExecFile);
+		if (query) {
+			close(fq);
+			unlink(webQueryFile);
+		}
 		exit(1);
 	}
 	chmod(webExecFile, 0700);
 
 	if (query) {
-		if ((f = fopen(webQueryFile, "wb")) != NULL) {
+		if ((f = fdopen(fq, "wb")) != NULL) {
 			fprintf(f, "%s\n", query);
 			fclose(f);
 		}
 		else {
 			unlink(output);
 			unlink(webExecFile);
+			close(fq);
+			unlink(webQueryFile);
 			exit(1);
 		}
 	}
@@ -170,8 +186,12 @@ static void _execute_command(char *url, char *command, char *query, char *output
 static void wo_cgi_bin(char *url)
 {
 	char webOutpFile[] = "/tmp/.woXXXXXX";
+	int fd;
 
-	mktemp(webOutpFile);
+	if ((fd = mkstemp(webOutpFile)) < 0)
+		exit(1);
+	close(fd);
+
 	_execute_command(url, NULL, post_buf, webOutpFile);
 
 	if (post_buf) {
@@ -185,8 +205,12 @@ static void wo_cgi_bin(char *url)
 static void wo_shell(char *url)
 {
 	char webOutpFile[] = "/tmp/.woXXXXXX";
+	int fd;
 
-	mktemp(webOutpFile);
+	if ((fd = mkstemp(webOutpFile)) < 0)
+		exit(1);
+	close(fd);
+
 	_execute_command(NULL, webcgi_get("command"), NULL, webOutpFile);
 
 	web_puts("\ncmdresult = '");
@@ -571,7 +595,7 @@ static const nvset_t nvset_list[] = {
 	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
-	{ "ct_max",				V_RANGE(128, 10240)	},
+	{ "ct_max",				V_RANGE(128, 300000)	},
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
 	{ "ct_timeout",			V_LENGTH(5, 15)		},
@@ -579,6 +603,7 @@ static const nvset_t nvset_list[] = {
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},
+	{ "ct_hashsize",		V_RANGE(127, 65535)		},
 #endif
 	{ "nf_rtsp",			V_01				},
 	{ "nf_pptp",			V_01				},
@@ -606,6 +631,8 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
@@ -643,8 +670,9 @@ static const nvset_t nvset_list[] = {
 	{ "wl_antdiv",			V_RANGE(0, 3)		},
 	{ "wl_txant",			V_RANGE(0, 3)		},
 	{ "wl_txpwr",			V_RANGE(0, 255)		},
-	{ "wl_wme",				V_ONOFF				},	// off, on
+	{ "wl_wme",			V_WORD				},	// auto, off, on
 	{ "wl_wme_no_ack",		V_ONOFF				},	// off, on
+	{ "wl_wme_apsd",		V_ONOFF				},	// off, on
 	{ "wl_maxassoc",		V_RANGE(0, 255)	},
 	{ "wl_distance",		V_LENGTH(0, 5)		},	// "", 1-99999
 	{ "wlx_hpamp",			V_01				},
@@ -730,6 +758,7 @@ static const nvset_t nvset_list[] = {
 	{ "sesx_b2",			V_RANGE(0, 5)		},	// "
 	{ "sesx_b3",			V_RANGE(0, 5)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
+	{ "script_brau",		V_TEXT(0, 1024)		},	//
 
 // admin-debug
 	{ "debug_nocommit",		V_01				},
@@ -862,6 +891,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_debug",            V_01                },
 	{ "vpn_server_eas",       V_NONE              },
 	{ "vpn_server_dns",       V_NONE              },
+	{ "vpn_server1_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_server1_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_server1_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
 	{ "vpn_server1_port",     V_PORT              },
@@ -891,6 +921,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server1_crt",      V_NONE              },
 	{ "vpn_server1_key",      V_NONE              },
 	{ "vpn_server1_dh",       V_NONE              },
+	{ "vpn_server2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_server2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_server2_proto",    V_TEXT(3, 10)       },  // udp, tcp-server
 	{ "vpn_server2_port",     V_PORT              },
@@ -921,6 +952,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_server2_key",      V_NONE              },
 	{ "vpn_server2_dh",       V_NONE              },
 	{ "vpn_client_eas",       V_NONE              },
+	{ "vpn_client1_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client1_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client1_bridge",   V_01                },
 	{ "vpn_client1_nat",      V_01                },
@@ -945,6 +977,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_ca",       V_NONE              },
 	{ "vpn_client1_crt",      V_NONE              },
 	{ "vpn_client1_key",      V_NONE              },
+	{ "vpn_client2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge",   V_01                },
 	{ "vpn_client2_nat",      V_01                },

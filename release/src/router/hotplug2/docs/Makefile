@@ -2,12 +2,12 @@
 
 BINS=
 SUBDIRS=
-
+MANDIR=/usr/share/man
 
 all:
 
 install:
-	$(INSTALL) $(wildcard *.8) /usr/share/man/man8/
+	$(INSTALL) $(wildcard *.8) $(PREFIX)$(MANDIR)/man8/
 
 
 include ../common.mak

@@ -1,0 +1,282 @@
+# This is part of USB_ModeSwitch version 1.x.x
+#
+ACTION!="add", GOTO="modeswitch_rules_end"
+SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
+
+# All known install partitions are on interface 0
+ATTRS{bInterfaceNumber}!="00", GOTO="modeswitch_rules_end"
+
+# only storage class devices are handled; negative
+# filtering here would exclude some quirky devices
+ATTRS{bDeviceClass}=="08", GOTO="modeswitch_rules_begin"
+ATTRS{bInterfaceClass}=="08", GOTO="modeswitch_rules_begin"
+GOTO="modeswitch_rules_end"
+
+
+LABEL="modeswitch_rules_begin"
+
+# Nokia CS-15
+ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0610", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone MD950 (Wisue Technology)
+ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
+
+# Philips TalkTalk (NXP Semiconductors "Dragonfly")
+ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1237", RUN+="usb_modeswitch '%b/%k'"
+
+# Samsung U209
+ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# AVM Fritz!Wlan USB Stick N
+ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
+
+# Samsung SGH-Z810, Vertex Wireless 100 Series, AnyDATA ADU-500A, ADU-510A, ADU-510L, ADU-520A, Older Option devices
+ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWM-162-U5 
+ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="2001", RUN+="usb_modeswitch '%b/%k'"
+
+# Siptune LM-75 ("LinuxModem")
+ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# InfoCert Business Key (SmartCard/Reader emulation)
+ATTRS{idVendor}=="072f", ATTRS{idProduct}=="100d", RUN+="usb_modeswitch '%b/%k'"
+
+# Toshiba G450
+ATTRS{idVendor}=="0930", ATTRS{idProduct}=="0d46", RUN+="usb_modeswitch '%b/%k'"
+
+# Zydas ZD1211RW WLAN USB, Sphairon HomeLink 1202 (Variant 1)
+ATTRS{idVendor}=="0ace", ATTRS{idProduct}=="2011", RUN+="usb_modeswitch '%b/%k'"
+
+# Zydas ZD1211RW WLAN USB, Sphairon HomeLink 1202 (Variant 2)
+ATTRS{idVendor}=="0ace", ATTRS{idProduct}=="20ff", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6711", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6731", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6751", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6771", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6791", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6811", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6911", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6951", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6971", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7011", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7031", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7051", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7071", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7111", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7211", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7251", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7271", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7301", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7311", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7361", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7381", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7401", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7501", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7601", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7701", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7801", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7901", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8200", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8201", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="c031", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d013", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d031", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d033", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d035", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d055", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d057", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d155", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d157", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d255", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d257", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d357", RUN+="usb_modeswitch '%b/%k'"
+
+# Sony Ericsson MD400
+ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0e1", RUN+="usb_modeswitch '%b/%k'"
+
+# LG LDU-1900D EV-DO (Rev. A)
+ATTRS{idVendor}=="1004", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E630
+ATTRS{idVendor}=="1033", ATTRS{idProduct}=="0035", RUN+="usb_modeswitch '%b/%k'"
+
+# UTStarcom UM175 (distributor "Alltel")
+ATTRS{idVendor}=="106c", ATTRS{idProduct}=="3b03", RUN+="usb_modeswitch '%b/%k'"
+
+# UTStarcom UM185E (distributor "Alltel")
+ATTRS{idVendor}=="106c", ATTRS{idProduct}=="3b06", RUN+="usb_modeswitch '%b/%k'"
+
+# Sagem F@ST 9520-35-GLR
+ATTRS{idVendor}=="1076", ATTRS{idProduct}=="7f40", RUN+="usb_modeswitch '%b/%k'"
+
+# Sierra devices (specific driver)
+ATTRS{idVendor}=="1199", ATTRS{idProduct}=="0fff", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E169
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E220, E230, E270, E870
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1003", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E180
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1414", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E270+  (HSPA+ modem)
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1446", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei K3765
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1520", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei K4505
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1521", RUN+="usb_modeswitch '%b/%k'"
+
+# Novatel Wireless devices
+ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5010", RUN+="usb_modeswitch '%b/%k'"
+
+# Novatel MC990D
+ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5020", RUN+="usb_modeswitch '%b/%k'"
+
+# Novatel U760
+ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5030", RUN+="usb_modeswitch '%b/%k'"
+
+# Novatel MC760 3G
+ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5031", RUN+="usb_modeswitch '%b/%k'"
+
+# Motorola 802.11 bg WLAN (TER/GUSB3-E)
+ATTRS{idVendor}=="148f", ATTRS{idProduct}=="2578", RUN+="usb_modeswitch '%b/%k'"
+
+# C-motech D-50 (aka "CDU-680")
+ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6803", RUN+="usb_modeswitch '%b/%k'"
+
+# C-motech CHU-629S
+ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="700a", RUN+="usb_modeswitch '%b/%k'"
+
+# C-motech CGU-628 (aka "Franklin Wireless CGU-628A" aka "4G Systems XS Stick W12")
+ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF110
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0053", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF622 and probably others (WE NEED MORE ID INFO), ZTE MF626 and others (WE NEED MORE ID INFO!), ZTE Devices
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE "fff" devices 1
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="fff5", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE "fff" devices 2
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="fff6", RUN+="usb_modeswitch '%b/%k'"
+
+# BandLuxe C120
+ATTRS{idVendor}=="1a8d", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# Hummer DTM5731 
+ATTRS{idVendor}=="1ab7", ATTRS{idProduct}=="5700", RUN+="usb_modeswitch '%b/%k'"
+
+# EpiValley SEC-7089 (featured by Alegro and Starcomms / iZAP)
+ATTRS{idVendor}=="1b7d", ATTRS{idProduct}=="0700", RUN+="usb_modeswitch '%b/%k'"
+
+# Alcatel X200/X060S
+ATTRS{idVendor}=="1bbb", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# Alcatel One Touch X020
+ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
+
+# MyWave SW006 Sport Phone/Modem Combination
+ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9200", RUN+="usb_modeswitch '%b/%k'"
+
+# MobiData MBD-200HU 
+ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# Solomon S3Gm-660
+ATTRS{idVendor}=="1dd6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# Option iCON 210, PROLiNK PHS100, Hyundai MB-810, A-Link 3GU
+ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# Cricket A600
+ATTRS{idVendor}=="1f28", ATTRS{idProduct}=="0021", RUN+="usb_modeswitch '%b/%k'"
+
+LABEL="modeswitch_rules_end"

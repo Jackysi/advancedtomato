@@ -1,11 +1,11 @@
 ########################################################
 # Cricket A600
 
-DefaultVendor=  0x1f28
-DefaultProduct= 0x0021
+DefaultVendor= 0x1f28
+DefaultProduct=0x0021
 
-TargetVendor=   0x1f28
-TargetProduct=  0x0020
+TargetVendor=  0x1f28
+TargetProduct= 0x0020
 
 CheckSuccess=20
 

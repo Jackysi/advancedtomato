@@ -22,7 +22,9 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("jffs2_on,jffs2_exec"); %>
+//	<% nvram("jffs2_on,jffs2_exec,t_fix1"); %>
+
+fmtwait = (nvram.t_fix1 == 'RT-N16' ? 100 : 60);
 
 function verifyFields(focused, quiet)
 {
@@ -42,7 +44,7 @@ function formatClicked()
 function formatClock()
 {
 	if (ftime == 0) {
-		E('fclock').innerHTML = 'a few seconds';
+		E('fclock').innerHTML = 'a few more seconds';
 	}
 	else {
 		E('fclock').innerHTML = ((ftime > 0) ? 'about ' : '') + ftime + ' second' + ((ftime == 1) ? '' : 's');
@@ -63,7 +65,7 @@ function save(format)
 	if (format) {
 		fom.jffs2_format.value = 1;
 		fom._commit.value = 0;
-		fom._nextwait.value = 60;
+		fom._nextwait.value = fmtwait;
 	}
 	else {
 		fom.jffs2_format.value = 0;
@@ -73,7 +75,7 @@ function save(format)
 	form.submit(fom, 1);
 
 	if (format) {
-		ftime = 60;
+		ftime = fmtwait;
 		formatClock();
 	}
 }
@@ -118,7 +120,7 @@ createFieldTable('', [
 	null,
 	{ title: 'Total / Free Size', text: ((jfon) && (jffs2.size)) ? (scaleSize(jffs2.size) + ' / ' + scaleSize(jffs2.free)) : '(not mounted)' },
 	null,
-	{ title: '', custom: '<input type="button" value="Format / Erase..." onclick="formatClicked()" id="format"><br>' +
+	{ title: '', custom: '<input type="button" value="Format / Erase..." onclick="formatClicked()" id="format"><br><br>' +
 		'<span style="background:#b55;color:#fff;padding:1px 8px;visibility:hidden" id="fmsg">Please wait for <span id="fclock">about 60 seconds</span>...</span>' }
 ]);
 </script>

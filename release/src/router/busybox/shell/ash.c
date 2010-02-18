@@ -5040,7 +5040,7 @@ redirect(union node *redir, int flags)
 		do {
 			sv_pos++;
 #if ENABLE_ASH_BASH_COMPAT
-			if (redir->nfile.type == NTO2)
+			if (tmp->nfile.type == NTO2)
 				sv_pos++;
 #endif
 			tmp = tmp->nfile.next;
@@ -12538,7 +12538,7 @@ readcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 #endif
 
 	status = 0;
-	startword = 2;
+	startword = 1;
 	backslash = 0;
 #if ENABLE_ASH_READ_TIMEOUT
 	if (timeout) /* NB: ensuring end_ms is nonzero */

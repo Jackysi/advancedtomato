@@ -369,7 +369,7 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	iport = (unsigned short)atoi(int_port);
 
 	if(leaseduration && atoi(leaseduration)) {
-		syslog(LOG_WARNING, "NewLeaseDuration=%s", leaseduration);
+		syslog(LOG_INFO, "NewLeaseDuration=%s", leaseduration);
 	}
 
 	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s",

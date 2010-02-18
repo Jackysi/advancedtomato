@@ -1,5 +1,5 @@
-pptp-linux uses very few linux-specific features, and should be
-easily portable to most Unix systems.
+pptp uses very few linux-specific features, and should be easily
+portable to most Unix systems.
 
 Two things to watch:
   1)

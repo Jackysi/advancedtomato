@@ -62,7 +62,7 @@ __asm__ (                                                               \
         "sd\t$22,"__str(PT_R22)"($29)\n\t"                              \
         "sd\t$23,"__str(PT_R23)"($29)\n\t"                              \
         "sd\t$30,"__str(PT_R30)"($29)\n\t"                              \
-        "j\t_" #symbol "\n\t"                                           \
+	"j\t_" #symbol "\n\t"						\
         ".end\t" #symbol "\n\t"                                         \
         ".size\t" #symbol",. - " #symbol)
 

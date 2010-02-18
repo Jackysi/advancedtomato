@@ -1,3 +1,13 @@
+0.9 - 1.0:
+* Add --set-rules-file.
+* Allow any ACTION.
+* Add 'printdebug' rule.
+* Fix chmod, chown, chgrp.
+* Use octal for chmod and makedev.
+* Add 'nothrottle' flag, allowing overriding max-children from a rule
+* Various bugfixes
+* Code comments
+
 0.8 - 0.9:
 * Use signals to handle children.
 * Separate info and debugging output.

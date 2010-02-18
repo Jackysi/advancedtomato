@@ -1,6 +1,12 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Enable deferred authentication */
+#define CONFIGURE_DEF_AUTH 1
+
+/* Enable internal packet filter */
+#define CONFIGURE_PF 1
+
 /* enable iproute2 support */
 /* #undef CONFIG_FEATURE_IPROUTE */
 
@@ -280,6 +286,9 @@
 /* Define to 1 if you have the `sendto' function. */
 #define HAVE_SENDTO 1
 
+/* SELinux support */
+/* #undef HAVE_SETCON */
+
 /* Define to 1 if you have the `setgid' function. */
 #define HAVE_SETGID 1
 
@@ -437,13 +446,13 @@
 #define PACKAGE_NAME "OpenVPN"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "OpenVPN 2.1_rc19"
+#define PACKAGE_STRING "OpenVPN 2.1.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "openvpn"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.1_rc19"
+#define PACKAGE_VERSION "2.1.1"
 
 /* Define to the necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -534,7 +543,7 @@
 /* #undef USE_VALGRIND */
 
 /* Version number of package */
-#define VERSION "2.1_rc19"
+#define VERSION "2.1.1"
 
 /* Enable GNU extensions on systems that have them.  */
 #ifndef _GNU_SOURCE

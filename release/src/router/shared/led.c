@@ -30,14 +30,6 @@ const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "br
 #include <sys/ioctl.h>
 #include <linux_gpio.h>
 
-int gpio_open()
-{
-	int f = open("/dev/gpio", O_RDWR);
-	if (f < 0)
-		_dprintf ("Failed to open /dev/gpio\n");
-	return f;
-}
-
 static int _gpio_ioctl(int f, int gpioreg, unsigned int mask, unsigned int val)
 {
 	struct gpio_ioctl gpio;
@@ -52,17 +44,52 @@ static int _gpio_ioctl(int f, int gpioreg, unsigned int mask, unsigned int val)
 	return (gpio.val);
 }
 
+static int _gpio_open()
+{
+	int f = open("/dev/gpio", O_RDWR);
+	if (f < 0)
+		_dprintf ("Failed to open /dev/gpio\n");
+	return f;
+}
+
+int gpio_open(uint32_t mask)
+{
+	uint32_t bit;
+	int i;
+	int f = _gpio_open();
+
+	if ((f >= 0) && mask) {
+		for (i = 0; i <= 15; i++) {
+			bit = 1 << i;
+			if ((mask & bit) == bit) {
+				_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
+				_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, 0);
+			}
+		}
+		close(f);
+		f = _gpio_open();
+	}
+
+	return f;
+}
+
 void gpio_write(uint32_t bit, int en)
 {
 	int f;
 
-	if ((f = gpio_open()) < 0) return;
+	if ((f = gpio_open(0)) < 0) return;
 
 	_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
-	_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, bit);
-
 	_gpio_ioctl(f, GPIO_IOC_OUT, bit, en ? bit : 0);
 	close(f);
+}
+
+uint32_t _gpio_read(int f)
+{
+	uint32_t r;
+	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xFFFF, 0);
+	if (r < 0) r = ~0;
+	return r;
 }
 
 uint32_t gpio_read(void)
@@ -70,24 +97,15 @@ uint32_t gpio_read(void)
 	int f;
 	uint32_t r;
 
-	if ((f = gpio_open()) < 0) return ~0;
-	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xffff, 0);
-	if (r < 0) r = ~0;
+	if ((f = gpio_open(0)) < 0) return ~0;
+	r = _gpio_read(f);
 	close(f);
-	return r;
-}
-
-uint32_t _gpio_read(int f)
-{
-	uint32_t r;
-	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xffff, 0);
-	if (r < 0) r = ~0;
 	return r;
 }
 
 #else
 
-int gpio_open()
+int gpio_open(uint32_t mask)
 {
 	int f = open(DEV_GPIO(in), O_RDONLY|O_SYNC);
 	if (f < 0)
@@ -120,21 +138,21 @@ void gpio_write(uint32_t bit, int en)
 	close(f);
 }
 
+uint32_t _gpio_read(int f)
+{
+	uint32_t v;
+	return (read(f, &v, sizeof(v)) == sizeof(v)) ? v : ~0;
+}
+
 uint32_t gpio_read(void)
 {
 	int f;
 	uint32_t r;
 
 	if ((f = open(DEV_GPIO(in), O_RDONLY)) < 0) return ~0;
-	if (read(f, &r, sizeof(r)) != sizeof(r)) r = ~0;
+	r = _gpio_read(f);
 	close(f);
 	return r;
-}
-
-uint32_t _gpio_read(int f)
-{
-	uint32_t v;
-	return (read(f, &v, sizeof(v)) == sizeof(v)) ? v : ~0;
 }
 
 #endif
@@ -170,6 +188,7 @@ int led(int which, int mode)
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
+	static int wnr3500[]	= { 255,   1,     3,    7,  255,  255,  255,  255	};
 	char s[16];
 	int n;
 	int b;
@@ -265,6 +284,9 @@ int led(int which, int mode)
 	case MODEL_RTN16:
 		if (which != LED_DIAG) return 0;
 		b = -1;	// power light
+		break;
+	case MODEL_WNR3500L:
+		b = wnr3500[which];
 		break;
 /*
 	case MODEL_RT390W:

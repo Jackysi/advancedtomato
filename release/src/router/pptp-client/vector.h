@@ -2,7 +2,7 @@
  *                efficiently.
  *                C. Scott Ananian <cananian@alumni.princeton.edu>
  *
- * $Id: vector.h,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $
+ * $Id: vector.h,v 1.1.1.1 2000/12/23 08:19:51 scott Exp $
  */
 
 #ifndef INC_VECTOR_H

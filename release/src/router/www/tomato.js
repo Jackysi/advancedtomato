@@ -904,7 +904,7 @@ TomatoGrid.prototype = {
 		this.editor = null;
 		this.canSort = options.indexOf('sort') != -1;
 		this.canMove = options.indexOf('move') != -1;
-		this.maxAdd = maxAdd || 100;
+		this.maxAdd = maxAdd || 140;
 		this.canEdit = (editorFields != null);
 		this.canDelete = this.canEdit || (options.indexOf('delete') != -1);
 		this.editorFields = editorFields;
@@ -1916,7 +1916,7 @@ function comma(n)
 	return n;
 }
 
-function scaleSize(n)
+function doScaleSize(n, sm)
 {
 	if (isNaN(n *= 1)) return '-';
 	if (n <= 9999) return '' + n;
@@ -1925,7 +1925,12 @@ function scaleSize(n)
 		n /= 1024;
 		++s;
 	} while ((n > 9999) && (s < 2));
-	return comma(n.toFixed(2)) + '<small> ' + (['KB', 'MB', 'GB'])[s] + '</small>';
+	return comma(n.toFixed(2)) + (sm ? '<small> ' : ' ') + (['KB', 'MB', 'GB'])[s] + (sm ? '</small>' : '');
+}
+
+function scaleSize(n)
+{
+	return doScaleSize(n, 1);
 }
 
 function timeString(mins)
@@ -1938,7 +1943,7 @@ function timeString(mins)
 
 function features(s)
 {
-	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n'];
+	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n','1000et'];
 	var i;
 
 	for (i = features.length - 1; i >= 0; --i) {

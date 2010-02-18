@@ -85,9 +85,8 @@ void set_au1x00_lcd_clock(void)
 		lcd_clock = sys_busclk / 4;
 
 	if (lcd_clock > 50000) /* Epson MAX */
-			printk(__FUNCTION__
-			       ": warning: LCD clock too high (%d KHz)\n",
-			       lcd_clock);
+			printk("%s: warning: LCD clock too high (%d KHz)\n",
+			       __FUNCTION__, lcd_clock);
 }
 
 unsigned int get_au1x00_lcd_clock(void)

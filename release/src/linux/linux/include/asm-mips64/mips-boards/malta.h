@@ -22,6 +22,8 @@
 
 #include <asm/addrspace.h>
 #include <asm/io.h>
+#include <asm/gt64120/gt64120.h>
+#include <asm/mips-boards/msc01_pci.h>
 
 /*
  * Malta I/O ports base address for the Galileo GT64120 and Algorithmics

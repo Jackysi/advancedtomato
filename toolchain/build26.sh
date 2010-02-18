@@ -8,6 +8,8 @@ ROOTDIR=$PWD
 TARGETDIR=hndtools-mipsel-uclibc-${GCCVER}
 DESTDIR=/opt/brcm/${TARGETDIR}
 
+make -C ../release/src-rt prepk
+
 rm -f .config
 ln -sf config.2.6-${GCCVER} .config
 make clean; make dirclean; make V=99

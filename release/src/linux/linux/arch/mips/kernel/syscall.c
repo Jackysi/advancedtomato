@@ -73,7 +73,8 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		 * We do not accept a shared mapping if it would violate
 		 * cache aliasing constraints.
 		 */
-		if ((flags & MAP_SHARED) && (addr & shm_align_mask))
+		if ((flags & MAP_SHARED) &&
+		    ((addr - (pgoff << PAGE_SHIFT)) & shm_align_mask))
 			return -EINVAL;
 		return addr;
 	}
@@ -159,9 +160,8 @@ sys_mmap2(unsigned long addr, unsigned long len, unsigned long prot,
 }
 
 save_static_function(sys_fork);
-static int _sys_fork(struct pt_regs regs)
-	__asm__("_sys_fork") __attribute_used__;
-static int _sys_fork(struct pt_regs regs)
+__attribute_used__ static int
+_sys_fork(struct pt_regs regs)
 {
 	int res;
 
@@ -171,9 +171,8 @@ static int _sys_fork(struct pt_regs regs)
 
 
 save_static_function(sys_clone);
-static int _sys_clone(struct pt_regs regs)
-	__asm__("_sys_clone") __attribute_used__;
-static int _sys_clone(struct pt_regs regs)
+__attribute_used__ static int
+_sys_clone(struct pt_regs regs)
 {
 	unsigned long clone_flags;
 	unsigned long newsp;

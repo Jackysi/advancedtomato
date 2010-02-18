@@ -59,6 +59,8 @@ RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      har
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
 RT-N10				BCM5356               0x04ec       45        0x1402    0x????
 
+WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
+
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
 *WL-700gE			BCM4704_BCM5325F      0x042f       44        0x10      0x0110      hardware_version=WL700g-01-10-01-00 regulation_domain=0X30DE
@@ -234,6 +236,14 @@ int get_model(void)
 			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
 		case HW_BCM4718:
 			if (nvram_match("boardrev", "0x1218")) return MODEL_RTN16;
+		}
+		break;
+	case 1:
+	case 3500:
+		switch (hw) {
+		case HW_BCM4718:
+			//if (nvram_match("boardrev", "0x1213") || nvram_match("boardrev", "02"))
+			return MODEL_WNR3500L;
 		}
 		break;
 	case 0:

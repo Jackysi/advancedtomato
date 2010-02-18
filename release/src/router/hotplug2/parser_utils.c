@@ -12,6 +12,16 @@
 #include "mem_utils.h"
 #include "parser_utils.h"
 
+/**
+ * Creates a newly allocated null-terminated string representing line
+ * starting at a given pointer and ending at the closest newline. If
+ * no newline present, returns NULL. TODO, use dup_token
+ *
+ * @1 Starting pointer
+ * @2 Pointer where the end position is returned
+ *
+ * Returns: Newly allocated string containing the line or NULL
+ */
 char *dup_line(char *start, char **nptr) {
 	char *ptr, *rv;
 	
@@ -29,6 +39,15 @@ char *dup_line(char *start, char **nptr) {
 	return rv;
 }
 
+/**
+ * Returns a token delimited by the given function.
+ *
+ * @1 Starting pointer
+ * @2 Pointer where the end position is returned
+ * @3 Function that identifies the delimiter characters
+ *
+ * Returns: Newly allocated string containing the token or NULL
+ */
 char *dup_token(char *start, char **nptr, int (*isdelimiter)(int)) {
 	char *ptr, *rv;
 	
@@ -56,6 +75,16 @@ char *dup_token(char *start, char **nptr, int (*isdelimiter)(int)) {
 	return rv;
 }
 
+/**
+ * Returns the last token delimited by the given function.
+ *
+ * @1 Starting pointer of the whole string
+ * @2 Starting position
+ * @3 Pointer where the end position is returned
+ * @4 Function that identifies the delimiter characters
+ *
+ * Returns: Newly allocated string containing the token or NULL
+ */
 char *dup_token_r(char *start, char *start_string, char **nptr, int (*isdelimiter)(int)) {
 	char *ptr, *rv;
 	

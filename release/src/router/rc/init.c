@@ -683,7 +683,7 @@ static int init_nvram(void)
 	case MODEL_RTN12:
 		mfr = "Asus";
 		name = "RT-N12";
-		features = SUP_SES | SUP_80211N;
+		features = SUP_SES | SUP_BRAU | SUP_80211N;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
@@ -696,7 +696,7 @@ static int init_nvram(void)
 	case MODEL_RTN16:
 		mfr = "Asus";
 		name = "RT-N16";
-		features = SUP_SES | SUP_80211N;
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
@@ -705,6 +705,21 @@ static int init_nvram(void)
 			nvram_set("vlan_enable", "1");
 			nvram_set("vlan1ports", "4 3 2 1 8*");
 			nvram_set("vlan2ports", "0 8");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WNR3500L:
+		mfr = "Netgear";
+		name = "WNR3500L";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("sromrev", "3");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("vlan1ports", "4 3 2 1 8*");
+			nvram_set("vlan2ports", "0 8");
+			nvram_set("boardflags", "0x00000710"); // needed to enable USB
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -834,6 +849,8 @@ static int init_nvram(void)
 	if ((features & SUP_BRAU) == 0) nvram_set("script_brau", "");
 	if ((features & SUP_SES) == 0) nvram_set("sesx_script", "");
 
+	if ((features & SUP_1000ET) == 0) nvram_set("jumbo_frame_enable", "0");
+
 	if (nvram_match("wl_net_mode", "disabled")) {
 		nvram_set("wl_radio", "0");
 		nvram_set("wl_net_mode", "mixed");
@@ -845,19 +862,22 @@ static int init_nvram(void)
 /* Get the special files from nvram and copy them to disc.
  * These were files saved with "nvram setfile2nvram <filename>".
  * Better hope that they were saved with full pathname.
-*/
+ */
 static void load_files_from_nvram(void)
 {
-	char *name, *cp, buf[NVRAM_SPACE];
+	char *name, *cp;
+	char buf[NVRAM_SPACE];
 
-	nvram_getall(buf, sizeof(buf));
+	if (nvram_getall(buf, sizeof(buf)) != 0)
+		return;
+
 	for (name = buf; *name; name += strlen(name) + 1) {
 		if (strncmp(name, "FILE:", 5) == 0) { /* This special name marks a file to get. */
 			if ((cp = strchr(name, '=')) == NULL)
 				continue;
 			*cp = 0;
-			syslog(LOG_INFO, "Loading file %s from nvram", name);
-			nvram_nvram2file(name, name+5);
+			syslog(LOG_INFO, "Loading file '%s' from nvram", name + 5);
+			nvram_nvram2file(name, name + 5);
 		}
 	}
 }
@@ -874,13 +894,13 @@ static void sysinit(void)
 	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
+	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
+
 #ifdef LINUX26
 	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-	mknod("/dev/console", S_IRWXU|S_IFCHR, makedev(5, 1));
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
-#endif
-	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
-#ifdef LINUX26
 	mkdir("/dev/shm", 0777);
 	mkdir("/dev/pts", 0777);
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
@@ -997,6 +1017,12 @@ static void sysinit(void)
 
 	system("nvram defaults --initcheck");
 	init_nvram();
+
+	// set the packet size
+	if (nvram_get_int("jumbo_frame_enable")) {
+		eval("et", "robowr", "0x40", "0x01", (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
+		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
+	}
 
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 

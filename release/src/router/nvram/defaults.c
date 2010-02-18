@@ -160,7 +160,7 @@ const defaults_t defaults[] = {
 	{ "wl_gmode_protection","off"			},	// 802.11g RTS/CTS protection (off|auto)
 	{ "wl_afterburner",		"off"			},	// AfterBurner
 	{ "wl_frameburst",		"off"			},	// BRCM Frambursting mode (off|on)
-	{ "wl_wme",				"off"			},	// WME mode (off|on)
+	{ "wl_wme",			"auto"			},	// WME mode (auto|off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
@@ -187,7 +187,7 @@ const defaults_t defaults[] = {
 	{ "wl_net_reauth",		"36000"			},	// Network Re-auth/PMK caching duration
 	{ "wl_akm",				""				},	// WPA akm list
 
-	// WME parameters
+	// WME parameters (cwmin cwmax aifsn txop_b txop_ag adm_control oldest_first)
 	// EDCA parameters for STA
 	{ "wl_wme_sta_bk",		"15 1023 7 0 0 off off"		},	// WME STA AC_BK paramters
 	{ "wl_wme_sta_be",		"15 1023 3 0 0 off off"		},	// WME STA AC_BE paramters
@@ -202,6 +202,13 @@ const defaults_t defaults[] = {
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
 	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
+	{ "wl_wme_bss_disable",		"0"			},	// WME BSS disable advertising (off|on)
+
+	/* Per AC Tx parameters */
+	{ "wl_wme_txp_be",		"7 3 4 2 0"		},	/* WME AC_BE Tx parameters */
+	{ "wl_wme_txp_bk",		"7 3 4 2 0"		},	/* WME AC_BK Tx parameters */
+	{ "wl_wme_txp_vi",		"7 3 4 2 0"		},	/* WME AC_VI Tx parameters */
+	{ "wl_wme_txp_vo",		"7 3 4 2 0"		},	/* WME AC_VO Tx parameters */
 
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add
@@ -227,12 +234,30 @@ const defaults_t defaults[] = {
 	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
 	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
 	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
-#ifdef LINUX26	// EMF
-	/* EMF defaults */
+
+#ifdef CONFIG_BCMWL5
+	// EMF
 	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
 	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
 	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
 	{ "emf_enable",			"0"			},	// Disable EMF by default
+	// AMPDU
+	{ "wl_ampdu",			"auto"			},	// Default AMPDU setting
+	{ "wl_ampdu_rtylimit_tid",	"5 5 5 5 5 5 5 5"	},	// Default AMPDU retry limit per-tid setting
+	{ "wl_ampdu_rr_rtylimit_tid",	"2 2 2 2 2 2 2 2"	},	// Default AMPDU regular rate retry limit per-tid setting
+	{ "wl_amsdu",			"auto"			},	// Default AMSDU setting
+	// power save
+	{ "wl_rxchain_pwrsave_enable",	"1"			},	// Rxchain powersave enable
+	{ "wl_rxchain_pwrsave_quiet_time","1800"		},	// Quiet time for power save
+	{ "wl_rxchain_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
+	{ "wl_radio_pwrsave_enable",	"0"			},	// Radio powersave enable
+	{ "wl_radio_pwrsave_quiet_time","1800"			},	// Quiet time for power save
+	{ "wl_radio_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
+	{ "wl_radio_pwrsave_on_time",	"50"			},	// Radio on time for power save
+	// misc
+	{ "wl_wmf_bss_enable",		"0"			},	// WMF Enable/Disable
+	{ "wl_rifs_advert",		"auto"			},	// RIFS mode advertisement
+	{ "wl_stbc_tx",			"auto"			},	// Default STBC TX setting
 #endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
@@ -302,6 +327,7 @@ const defaults_t defaults[] = {
 	{ "nf_l7in",			"1"				},
 #ifdef LINUX26
 	{ "nf_sip",			"1"				},
+	{ "ct_hashsize",		""				},
 #endif
 	{ "nf_rtsp",			"1"				},
 	{ "nf_pptp",			"0"				},
@@ -316,6 +342,8 @@ const defaults_t defaults[] = {
 	{ "boot_wait",			"on"			},
 	{ "wait_time",			"5"				},
 	{ "wan_speed",			"4"				},	// 0=10 Mb Full, 1=10 Mb Half, 2=100 Mb Full, 3=100 Mb Half, 4=Auto
+	{ "jumbo_frame_enable",		"0"				},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		"2000"				},
 
 // advanced-dhcpdns
 	{ "dhcpd_dmdns",		"1"				},
@@ -438,6 +466,7 @@ const defaults_t defaults[] = {
 	{ "sshd_rport",			"2222"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
+	{ "sshd_dsskey",		""				},
 	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
@@ -497,7 +526,7 @@ const defaults_t defaults[] = {
 	{ "debug_cprintf_file",	"0"				},
 //	{ "debug_keepfiles",	"0"				},
 	{ "console_loglevel",	"1"				},
-	{ "t_cafree",			"0"				},
+	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},
@@ -519,6 +548,9 @@ const defaults_t defaults[] = {
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},
 	{ "usb_printer_bidirect",	"1"				},
+	{ "usb_ext_opt",		""				},
+	{ "usb_fat_opt",		""				},
+	{ "usb_ntfs_opt",		""				},
 	{ "usb_fs_ext3",		"1"				},
 	{ "usb_fs_fat",			"1"				},
 #ifdef TCONFIG_NTFS
@@ -594,6 +626,7 @@ const defaults_t defaults[] = {
 	{ "vpn_debug",            "0"             },
 	{ "vpn_server_eas",       ""              },
 	{ "vpn_server_dns",       ""              },
+	{ "vpn_server1_poll",     "0"             },
 	{ "vpn_server1_if",       "tun"           },
 	{ "vpn_server1_proto",    "udp"           },
 	{ "vpn_server1_port",     "1194"          },
@@ -623,6 +656,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server1_crt",      ""              },
 	{ "vpn_server1_key",      ""              },
 	{ "vpn_server1_dh",       ""              },
+	{ "vpn_server2_poll",     "0"             },
 	{ "vpn_server2_if",       "tun"           },
 	{ "vpn_server2_proto",    "udp"           },
 	{ "vpn_server2_port",     "1194"          },
@@ -653,6 +687,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server2_key",      ""              },
 	{ "vpn_server2_dh",       ""              },
 	{ "vpn_client_eas",       ""              },
+	{ "vpn_client1_poll",     "0"             },
 	{ "vpn_client1_if",       "tun"           },
 	{ "vpn_client1_bridge",   "1"             },
 	{ "vpn_client1_nat",      "1"             },
@@ -678,6 +713,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client1_ca",       ""              },
 	{ "vpn_client1_crt",      ""              },
 	{ "vpn_client1_key",      ""              },
+	{ "vpn_client2_poll",     "0"             },
 	{ "vpn_client2_if",       "tun"           },
 	{ "vpn_client2_bridge",   "1"             },
 	{ "vpn_client2_nat",      "1"             },

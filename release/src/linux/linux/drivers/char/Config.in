@@ -135,7 +135,8 @@ if [ "$CONFIG_SERIAL_NONSTANDARD" = "y" ]; then
    fi
 fi
 if [ "$CONFIG_EXPERIMENTAL" = "y" -a "$CONFIG_ZORRO" = "y" ]; then
-   dep_tristate 'Commodore A2232 serial support (EXPERIMENTAL)' CONFIG_A2232 $CONFIG_BROKEN
+   bool '  Enable broken drivers for Commodore cards (may randomly crash)' CONFIG_A2232_BROKEN
+   dep_tristate 'Commodore A2232 serial support (broken) (EXPERIMENTAL)' CONFIG_A2232 $CONFIG_A2232_BROKEN
 fi
 if [ "$CONFIG_FOOTBRIDGE" = "y" ]; then
    bool 'DC21285 serial port support' CONFIG_SERIAL_21285

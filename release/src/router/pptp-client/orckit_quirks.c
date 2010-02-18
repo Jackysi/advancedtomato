@@ -1,7 +1,7 @@
 /* orckit_quirks.c ...... fix quirks in orckit adsl modems
  *                        mulix <mulix@actcom.co.il>
  *
- * $Id: orckit_quirks.c,v 1.1.1.1 2002/07/25 06:52:39 honor Exp $
+ * $Id: orckit_quirks.c,v 1.3 2002/03/01 01:23:36 quozl Exp $
  */
 
 #include <string.h>

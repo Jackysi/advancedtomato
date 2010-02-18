@@ -16,6 +16,8 @@
 # Copyright 2005  Oleg I. Vdovikin <oleg@cs.msu.su>
 #   Cleaned up, modified for lzma support, removed from kernel
 #
+# 2009-10-05 - Upgrade to lzma SDK 4.57 by Leonid Lisovskiy
+#
 
 TEXT_START	:= 0x80001000
 BZ_TEXT_START	:= 0x80500000
@@ -27,13 +29,15 @@ CFLAGS		= -D__KERNEL__ -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
 		  -ffunction-sections -pipe -Wa,--trap \
 		  -mabi=32 -march=mips32 -Wa,-32 -Wa,-march=mips32 -Wa,-mips32
 CFLAGS		+= -DLOADADDR=$(TEXT_START) -D_LZMA_IN_CB
-CFLAGS		+= -I$(SRCBASE)/include
+CFLAGS		+= -I$(SRCBASE)/include -I$(SRCBASE)/lzma/C/Compress/Lzma
 
 ASFLAGS		= $(CFLAGS) -D__ASSEMBLY__ -DBZ_TEXT_START=$(BZ_TEXT_START)
 
 SEDFLAGS	:= s/BZ_TEXT_START/$(BZ_TEXT_START)/;s/TEXT_START/$(TEXT_START)/
 
 OBJECTS		:= head.o data.o
+
+vpath %.c $(SRCBASE)/lzma/C/Compress/Lzma
 
 all: loader.gz
 

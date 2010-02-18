@@ -1,0 +1,12 @@
+########################################################
+# Huawei K4505
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1521
+
+TargetVendor=  0x12d1
+TargetProduct= 0x1464
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000000000000011060000000000000000000000000000"

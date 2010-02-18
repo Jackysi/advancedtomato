@@ -656,6 +656,9 @@ void start_wan(int mode)
 		nvram_set("wan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, buf));
 	}
 
+	/* Set initial QoS mode again now that WAN port is ready. */
+	set_et_qos_mode(sd);
+
 	close(sd);
 
 	enable_ip_forward();
@@ -704,6 +707,10 @@ void start_wan_done(char *wan_ifname)
 		// set default route to gateway if specified
 		gw = (proto == WP_PPTP) ? nvram_safe_get("pptp_get_ip") : nvram_safe_get("wan_gateway");
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
+			if (proto == WP_DHCP || proto == WP_STATIC) {
+				// possibly gateway is over the bridge, try adding a route to gateway first
+				route_add(wan_ifname, 0, gw, NULL, "255.255.255.255");
+			}
 			n = 5;
 			while ((route_add(wan_ifname, 0, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
 				sleep(1);
@@ -809,6 +816,9 @@ void start_wan_done(char *wan_ifname)
 		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
 	}
 #endif
+
+	if (wanup)
+		start_vpn_eas();
 
 	unlink(wan_connecting);
 

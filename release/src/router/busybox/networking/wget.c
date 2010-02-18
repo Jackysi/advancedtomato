@@ -329,8 +329,10 @@ static void parse_url(char *src_url, struct host_info *h)
 		h->path = sp;
 	}
 
+	// We used to set h->user to NULL here, but this interferes
+	// with handling of code 302 ("object was moved")
+
 	sp = strrchr(h->host, '@');
-	h->user = NULL;
 	if (sp != NULL) {
 		h->user = h->host;
 		*sp = '\0';
@@ -526,6 +528,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 	}
 #endif
 
+	target.user = NULL;
 	parse_url(argv[optind], &target);
 	server.host = target.host;
 	server.port = target.port;
@@ -534,6 +537,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 	if (use_proxy) {
 		proxy = getenv(target.is_ftp ? "ftp_proxy" : "http_proxy");
 		if (proxy && *proxy) {
+			server.user = NULL;
 			parse_url(proxy, &server);
 		} else {
 			use_proxy = 0;

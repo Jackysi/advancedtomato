@@ -1,16 +1,13 @@
-$Id: README,v 1.1.1.4 2003/10/14 08:09:37 sparq Exp $
+This version of the bridge utilities is for Linux 2.4 and 2.6,
+it uses the sysfs interface if possible on Linux 2.6
 
 
-Hi there!
+---------------------------
+Lennert Buytenhek rewrote the linux bridging code
+because the old code was a big mess and nonextensible.
 
-In this package you'll find the new-and-improved linux ethernet
-bridging code. I (Lennert Buytenhek) rewrote the linux bridging code
-over the last few months because the old code was a big mess and
-nonextensible.
-
-Snapshots of the new code are published at:
-http://openrock.net/bridge         and
-ftp://openrock.net/bridge
+The new code is published at:
+	http://bridge.sourceforge.net/
 
 
 
@@ -28,18 +25,9 @@ Advantages of the new code are:
 - It works as a module.
 
 
-If you have any comments, questions or suggestions, please visit
-http://openrock.net and look for the bridge mailing list. Or
-mail me directly at buytenh@openrock.net.
-
-
-
-Have fun!
-Lennert Buytenhek
-<buytenh@openrock.net>
-
-
-
+If you have any comments, questions or suggestions, please send email to
+the mailing list bridge@osdl.org
+--------------------------
 
 Files in this package:
 
@@ -51,8 +39,7 @@ Makefile	Recursive Makefile.
 
 README		This file.
 
-brctl/		The new-and-improved userspace bridge configuration
-		tool.
+brctl/		The userspace bridge configuration tool.
 
 bridge-utils.spec
 		A .spec file for Red Hat package building. "rpm -tb
@@ -63,6 +50,3 @@ doc/		Some documentation files.
 libbridge/	The bridge configuration interface library.
 
 misc/		Miscellaneous utilities.
-
-scripts/	A directory containing some shell scripts for setting
-		up bridge configurations that I use for testing.
