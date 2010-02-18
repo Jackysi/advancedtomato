@@ -174,14 +174,12 @@ not_o32_scall:
 	END(handle_sys)
 
 LEAF(sys32_syscall)
-	sltu	v0, a0, __NR_O32_Linux + __NR_O32_Linux_syscalls + 1
+	subu	t0, a0, __NR_O32_Linux	# check syscall number
+	sltiu	v0, t0, __NR_O32_Linux_syscalls + 1
+	beqz	t0, einval		# do not recurse
+	dsll	t1, t0, 3
 	beqz	v0, einval
-
-	dsll	v0, a0, 3
-	ld	t2, (sys_call_table - (__NR_O32_Linux * 8))(v0)
-
-	li	v1, 4000		# indirect syscall number
-	beq	a0, v1, einval		# do not recurse
+	ld	t2, sys_call_table(t1)		# syscall routine
 
 	move	a0, a1			# shift argument registers
 	move	a1, a2
@@ -198,7 +196,7 @@ LEAF(sys32_syscall)
 	jr	t2
 	/* Unreached */
 
-einval:	li	v0, -EINVAL
+einval:	li	v0, -ENOSYS
 	jr	ra
 	END(sys32_syscall)
 
@@ -452,7 +450,7 @@ sys_call_table:
 	PTR	sys_io_submit
 	PTR	sys_io_cancel			/* 4245 */
 	PTR	sys_exit_group
-	PTR	sys_lookup_dcookie
+	PTR	sys32_lookup_dcookie
 	PTR	sys_epoll_create
 	PTR	sys_epoll_ctl
 	PTR	sys_epoll_wait			/* 4250 */
@@ -507,12 +505,12 @@ sys_call_table:
 	PTR	sys_fchmodat
 	PTR	sys_faccessat			/* 4300 */
 	PTR	compat_sys_pselect6
-	PTR	sys_ppoll
+	PTR	compat_sys_ppoll
 	PTR	sys_unshare
 	PTR	sys_splice
 	PTR	sys32_sync_file_range		/* 4305 */
 	PTR	sys_tee
-	PTR	sys_vmsplice
+	PTR	compat_sys_vmsplice
 	PTR	compat_sys_move_pages
 	PTR	compat_sys_set_robust_list
 	PTR	compat_sys_get_robust_list	/* 4310 */

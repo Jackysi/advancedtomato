@@ -108,7 +108,6 @@ static inline u8 bridge_swizzle(u8 pin, u8 slot)
 	return (((pin - 1) + slot) % 4) + 1;
 }
 
-
 extern int __init pcibios_init(void);
 subsys_initcall(pcibios_init);
 

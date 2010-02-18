@@ -26,6 +26,8 @@
 
 #define NUMTXQ		4
 
+#define TXREC_THR	8
+
 struct etc_info;	/* forward declaration */
 struct bcmstrbuf;	/* forward declaration */
 
@@ -112,8 +114,10 @@ typedef struct etc_info {
 	uint32		now;		/* elapsed seconds */
 
 	uint32		boardflags;	/* board flags */
+	uint32		txrec_thresh;	/* # of tx frames after which reclaim is done */
 
 	/* sw-maintained stat counters */
+	uint32		txframes[NUMTXQ];	/* transmitted frames on each tx fifo */
 	uint32		txframe;	/* transmitted frames */
 	uint32		txbyte;		/* transmitted bytes */
 	uint32		rxframe;	/* received frames */

@@ -17,6 +17,8 @@ struct fatent_operations {
 	int (*ent_next)(struct fat_entry *);
 };
 
+static DEFINE_SPINLOCK(fat12_entry_lock);
+
 static void fat12_ent_blocknr(struct super_block *sb, int entry,
 			      int *offset, sector_t *blocknr)
 {
@@ -116,10 +118,13 @@ static int fat12_ent_get(struct fat_entry *fatent)
 	u8 **ent12_p = fatent->u.ent12_p;
 	int next;
 
+	spin_lock(&fat12_entry_lock);
 	if (fatent->entry & 1)
 		next = (*ent12_p[0] >> 4) | (*ent12_p[1] << 4);
 	else
 		next = (*ent12_p[1] << 8) | *ent12_p[0];
+	spin_unlock(&fat12_entry_lock);
+
 	next &= 0x0fff;
 	if (next >= BAD_FAT12)
 		next = FAT_ENT_EOF;
@@ -151,6 +156,7 @@ static void fat12_ent_put(struct fat_entry *fatent, int new)
 	if (new == FAT_ENT_EOF)
 		new = EOF_FAT12;
 
+	spin_lock(&fat12_entry_lock);
 	if (fatent->entry & 1) {
 		*ent12_p[0] = (new << 4) | (*ent12_p[0] & 0x0f);
 		*ent12_p[1] = new >> 4;
@@ -158,6 +164,7 @@ static void fat12_ent_put(struct fat_entry *fatent, int new)
 		*ent12_p[0] = new & 0xff;
 		*ent12_p[1] = (*ent12_p[1] & 0xf0) | (new >> 8);
 	}
+	spin_unlock(&fat12_entry_lock);
 
 	mark_buffer_dirty(fatent->bhs[0]);
 	if (fatent->nr_bhs == 2)
@@ -443,7 +450,8 @@ int fat_alloc_clusters(struct inode *inode, int *cluster, int nr_cluster)
 	BUG_ON(nr_cluster > (MAX_BUF_PER_PAGE / 2));	/* fixed limit */
 
 	lock_fat(sbi);
-	if (sbi->free_clusters != -1 && sbi->free_clusters < nr_cluster) {
+	if (sbi->free_clusters != -1 && sbi->free_clus_valid &&
+	    sbi->free_clusters < nr_cluster) {
 		unlock_fat(sbi);
 		return -ENOSPC;
 	}
@@ -497,6 +505,7 @@ int fat_alloc_clusters(struct inode *inode, int *cluster, int nr_cluster)
 
 	/* Couldn't allocate the free entries */
 	sbi->free_clusters = 0;
+	sbi->free_clus_valid = 1;
 	sb->s_dirt = 1;
 	err = -ENOSPC;
 
@@ -576,8 +585,6 @@ error:
 		brelse(bhs[i]);
 	unlock_fat(sbi);
 
-	fat_clusters_flush(sb);
-
 	return err;
 }
 
@@ -608,7 +615,7 @@ int fat_count_free_clusters(struct super_block *sb)
 	int err = 0, free;
 
 	lock_fat(sbi);
-	if (sbi->free_clusters != -1)
+	if (sbi->free_clusters != -1 && sbi->free_clus_valid)
 		goto out;
 
 	reada_blocks = FAT_READA_SIZE >> sb->s_blocksize_bits;
@@ -636,6 +643,7 @@ int fat_count_free_clusters(struct super_block *sb)
 		} while (fat_ent_next(sbi, &fatent));
 	}
 	sbi->free_clusters = free;
+	sbi->free_clus_valid = 1;
 	sb->s_dirt = 1;
 	fatent_brelse(&fatent);
 out:

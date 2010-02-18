@@ -1,7 +1,7 @@
 /*
  * Broadcom device-specific manifest constants.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmdevs.h,v 13.182.2.17.8.7 2009/05/20 02:39:20 Exp $
+ * $Id: bcmdevs.h,v 13.182.2.37 2009/11/06 02:52:26 Exp $
  */
 
 #ifndef	_BCMDEVS_H
@@ -42,6 +42,7 @@
 #define BCM_DNGL_BL_PID_4328    0xbd12
 #define BCM_DNGL_BL_PID_4322    0xbd13
 #define BCM_DNGL_BDC_PID        0xbdc
+#define BCM_DNGL_BL_PID_4319    0xbd16
 
 /* PCI Device ID's */
 #define	BCM4210_DEVICE_ID	0x1072		/* never used */
@@ -87,6 +88,11 @@
 #define BCM4319_D11N_ID		0x4337		/* 4319 802.11n dualband device */
 #define BCM4319_D11N2G_ID	0x4338		/* 4319 802.11n 2.4G device */
 #define BCM4319_D11N5G_ID	0x4339		/* 4319 802.11n 5G device */
+#define BCM43225_D11N2G_ID	0x4357		/* 43225 802.11n 2.4GHz device */
+#define BCM43421_D11N_ID	0xA99D		/* 43421 802.11n dualband device */
+#define	BCM4315_D11DUAL_ID	0x4334		/* 4315 802.11a/g id */
+#define	BCM4315_D11G_ID		0x4335		/* 4315 802.11g id */
+#define	BCM4315_D11A_ID		0x4336		/* 4315 802.11a id */
 
 
 #define	BCMGPRS_UART_ID		0x4333		/* Uart id used by 4306/gprs card */
@@ -145,8 +151,13 @@
 #define	BCM4322_CHIP_ID		0x4322		/* 4322 chipcommon chipid */
 #define	BCM43221_CHIP_ID	43221		/* 43221 chipcommon chipid (OTP chipid) */
 #define	BCM43231_CHIP_ID	43231		/* 43231 chipcommon chipid (OTP chipid) */
+#define	BCM43111_CHIP_ID	43111		/* 43111 chipcommon chipid (OTP chipid) */
+#define	BCM43112_CHIP_ID	43112		/* 43112 chipcommon chipid (OTP chipid) */
 #define	BCM43222_CHIP_ID	43222		/* 43222 chipcommon chipid */
 #define	BCM43224_CHIP_ID	43224		/* 43224 chipcommon chipid */
+#define	BCM43225_CHIP_ID	43225		/* 43225 chipcommon chipid (OTP chipid) */
+#define	BCM43421_CHIP_ID	43421		/* 43421 chipcommon chipid */
+#define	BCM4342_CHIP_ID		4342		/* 4342 chipcommon chipid (OTP, RBBU) */
 #define	BCM4325_CHIP_ID		0x4325		/* 4325 chip id */
 #define	BCM4328_CHIP_ID		0x4328		/* 4328 chip id */
 #define	BCM4402_CHIP_ID		0x4402		/* 4402 chipid */
@@ -155,12 +166,15 @@
 #define	BCM4712_CHIP_ID		0x4712		/* 4712 chipcommon chipid */
 #define	BCM4716_CHIP_ID		0x4716		/* 4716 chipcommon chipid */
 #define	BCM47162_CHIP_ID	47162		/* 47162 chipcommon chipid */
+#define	BCM4748_CHIP_ID		0x4748		/* 4716 chipcommon chipid (OTP, RBBU) */
 #define BCM4785_CHIP_ID		0x4785		/* 4785 chipcommon chipid */
 #define	BCM5350_CHIP_ID		0x5350		/* 5350 chipcommon chipid */
 #define	BCM5352_CHIP_ID		0x5352		/* 5352 chipcommon chipid */
 #define	BCM5354_CHIP_ID		0x5354		/* 5354 chipcommon chipid */
 #define BCM5365_CHIP_ID		0x5365		/* 5365 chipcommon chipid */
 #define	BCM5356_CHIP_ID		0x5356		/* 5356 chipcommon chipid */
+#define	BCM4319_CHIP_ID		0x4319		/* 4319 chip id */
+#define	BCM4329_CHIP_ID		0x4329		/* 4329 chipcommon chipid */
 
 
 /* Package ID's */
@@ -182,12 +196,14 @@
 #define HDLSIM5350_PKG_ID	1		/* HDL simulator package id for a 5350 */
 #define HDLSIM_PKG_ID		14		/* HDL simulator package id */
 #define HWSIM_PKG_ID		15		/* Hardware simulator package id */
+#define BCM43224_FAB_CSM	0x8		/* the chip is manufactured by CSM */
+#define BCM43224_FAB_SMIC	0xa		/* the chip is manufactured by SMIC */
 
 #define PCIXX21_FLASHMEDIA0_ID	0x8033		/* TI PCI xx21 Standard Host Controller */
 #define PCIXX21_SDIOH0_ID	0x8034		/* TI PCI xx21 Standard Host Controller */
 
 /* boardflags */
-#define	BFL_BTCOEXIST		0x00000001  /* Board implements Bluetooth coexistence */
+#define	BFL_BTC2WIRE		0x00000001  /* Board implements old 2wire Bluetooth coexistence */
 #define	BFL_PACTRL		0x00000002  /* Board has gpio 9 controlling the PA */
 #define	BFL_AIRLINEMODE		0x00000004  /* Board implements gpio 13 radio disable indication */
 #define	BFL_ENETROBO		0x00000010  /* Board has robo switch or core */
@@ -201,7 +217,7 @@
 #define BFL_FEM			0x00000800  /* Board supports the Front End Module */
 #define BFL_EXTLNA		0x00001000  /* Board has an external LNA in 2.4GHz band */
 #define BFL_HGPA		0x00002000  /* Board has a high gain PA */
-#define	BFL_BTCMOD		0x00004000  /* Board's BTCOEXIST is in the alternate gpios */
+#define	BFL_BTC2WIRE_ALTGPIO	0x00004000  /* Board's BTC 2wire is in the alternate gpios */
 #define	BFL_ALTIQ		0x00008000  /* Alternate I/Q settings */
 #define BFL_NOPA		0x00010000  /* Board has no PA */
 #define BFL_RSSIINV		0x00020000  /* Board's RSSI uses positive slope(not TSSI) */
@@ -213,7 +229,6 @@
 #define BFL_NOCBUCK		0x00800000  /* Power topology doesn't use CBUCK */
 #define BFL_CCKFAVOREVM		0x01000000  /* Favor CCK EVM over spectral mask */
 #define BFL_PALDO		0x02000000  /* Power topology uses PALDO */
-#define BFL_UCPWRCTL_MININDX	0x08000000  /* Enforce min power index to avoid FEM damage */
 #define BFL_EXTLNA_5GHz		0x10000000  /* Board has an external LNA in 5GHz band */
 
 /* boardflags2 */
@@ -230,9 +245,13 @@
 #define BFL2_GPLL_WAR	        0x00000400  /* Flag to implement alternative G-band PLL settings */
 #define BFL2_TRISTATE_LED	0x00000800  /* Tri-state the LED */
 #define BFL2_SINGLEANT_CCK	0x00001000  /* Tx CCK pkts on Ant 0 only */
-#define BFL2_2G_SPUR_WAR	0x00002000  /* Board has a WAR to reduce and avoid clock-harmonic */
+#define BFL2_2G_SPUR_WAR	0x00002000  /* Board has a WAR to reduce and avoid clock-harmonic
+					     * spurs in 2G band
+					     */
 #define BFL2_BPHY_ALL_TXCORES	0x00004000  /* Transmit bphy frames using all tx cores */
 #define BFL2_FCC_BANDEDGE_WAR	0x00008000  /* using 40Mhz LPF for 20Mhz bandedge channels */
+#define BFL2_GPLL_WAR2	        0x00010000  /* Flag to widen G-band PLL loop b/w */
+#define BFL2_INTERNDET_TXIQCAL  0x00040000  /* Use internal envelope detector for TX IQCAL */
 
 /* board specific GPIO assignment, gpio 0-3 are also customer-configurable led */
 #define	BOARD_GPIO_BTC3W_IN	0x850	/* bit 4 is RF_ACTIVE, bit 6 is STATUS, bit 11 is PRI */
@@ -244,6 +263,11 @@
 #define	BOARD_GPIO_PACTRL	0x200	/* bit 9 controls the PA on new 4306 boards */
 #define BOARD_GPIO_12		0x1000	/* gpio 12 */
 #define BOARD_GPIO_13		0x2000	/* gpio 13 */
+
+#define GPIO_BTC4W_OUT_4312  0x010  /* bit 4 is BT_IODISABLE */
+#define GPIO_BTC4W_OUT_43224  0x020  /* bit 5 is BT_IODISABLE */
+#define GPIO_BTC4W_OUT_43225  0x0e0  /* bit 5 BT_IODISABLE, bit 6 SW_BT, bit 7 SW_WL */
+#define GPIO_BTC4W_OUT_43421  0x020  /* bit 5 is BT_IODISABLE */
 
 #define	PCI_CFG_GPIO_SCS	0x10	/* PCI config space bit 4 for 4306c0 slow clock source */
 #define PCI_CFG_GPIO_HWRAD	0x20	/* PCI config space GPIO 13 for hw radio disable */
@@ -433,6 +457,15 @@
 
 /* 4716 boards */
 #define BCM94716NR2_SSID	0x04cd
+
+/* 4319 boards */
+#define BCM94319DEVBU_SSID	0X04e5
+#define BCM94319USBNP4L_SSID	0X04e6
+#define BCM94319WLUSBN4L_SSID	0X04e7
+#define BCM94319SDG_SSID	0X04ea
+#define BCM94319LCUSBSDN4L_SSID	0X04eb
+#define BCM94319LCSDN4L_SSID	0X0507
+#define BCM94319LSUSBN4L_SSID	0X0508
 
 /* # of GPIO pins */
 #define GPIO_NUMPINS		16

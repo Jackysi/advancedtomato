@@ -8,6 +8,7 @@
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  */
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -92,7 +93,7 @@ static inline void r4k_blast_dcache_page_dc32(unsigned long addr)
 	blast_dcache32_page(addr);
 }
 
-static void __init r4k_blast_dcache_page_setup(void)
+static void __cpuinit r4k_blast_dcache_page_setup(void)
 {
 	unsigned long  dc_lsize = cpu_dcache_line_size();
 
@@ -109,7 +110,7 @@ static void __init r4k_blast_dcache_page_setup(void)
 
 static void (* r4k_blast_dcache_page_indexed)(unsigned long addr);
 
-static void __init r4k_blast_dcache_page_indexed_setup(void)
+static void __cpuinit r4k_blast_dcache_page_indexed_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
 
@@ -126,7 +127,7 @@ static void __init r4k_blast_dcache_page_indexed_setup(void)
 
 static void (* r4k_blast_dcache)(void);
 
-static void __init r4k_blast_dcache_setup(void)
+static void __cpuinit r4k_blast_dcache_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
 
@@ -214,7 +215,7 @@ static inline void tx49_blast_icache32_page_indexed(unsigned long page)
 
 static void (* r4k_blast_icache_page)(unsigned long addr);
 
-static void __init r4k_blast_icache_page_setup(void)
+static void __cpuinit r4k_blast_icache_page_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
 
@@ -231,7 +232,7 @@ static void __init r4k_blast_icache_page_setup(void)
 
 static void (* r4k_blast_icache_page_indexed)(unsigned long addr);
 
-static void __init r4k_blast_icache_page_indexed_setup(void)
+static void __cpuinit r4k_blast_icache_page_indexed_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
 
@@ -255,7 +256,7 @@ static void __init r4k_blast_icache_page_indexed_setup(void)
 
 static void (* r4k_blast_icache)(void);
 
-static void __init r4k_blast_icache_setup(void)
+static void __cpuinit r4k_blast_icache_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
 
@@ -276,7 +277,7 @@ static void __init r4k_blast_icache_setup(void)
 
 static void (* r4k_blast_scache_page)(unsigned long addr);
 
-static void __init r4k_blast_scache_page_setup(void)
+static void __cpuinit r4k_blast_scache_page_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
@@ -294,7 +295,7 @@ static void __init r4k_blast_scache_page_setup(void)
 
 static void (* r4k_blast_scache_page_indexed)(unsigned long addr);
 
-static void __init r4k_blast_scache_page_indexed_setup(void)
+static void __cpuinit r4k_blast_scache_page_indexed_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
@@ -312,7 +313,7 @@ static void __init r4k_blast_scache_page_indexed_setup(void)
 
 static void (* r4k_blast_scache)(void);
 
-static void __init r4k_blast_scache_setup(void)
+static void __cpuinit r4k_blast_scache_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
@@ -362,7 +363,7 @@ static inline void local_r4k___flush_cache_all(void * args)
 	}
 }
 
-static void r4k___flush_cache_all(void)
+void r4k___flush_cache_all(void)
 {
 	r4k_on_each_cpu(local_r4k___flush_cache_all, NULL, 1, 1);
 }
@@ -370,20 +371,23 @@ static void r4k___flush_cache_all(void)
 static inline void local_r4k_flush_cache_range(void * args)
 {
 	struct vm_area_struct *vma = args;
+	int exec = vma->vm_flags & VM_EXEC;
 
 	if (!(cpu_context(smp_processor_id(), vma->vm_mm)))
 		return;
 
 	r4k_blast_dcache();
+	if (exec)
+		r4k_blast_icache();
 }
 
 static void r4k_flush_cache_range(struct vm_area_struct *vma,
 	unsigned long start, unsigned long end)
 {
-	if (!cpu_has_dc_aliases)
-		return;
+	int exec = vma->vm_flags & VM_EXEC;
 
-	r4k_on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
+	if (cpu_has_dc_aliases || (exec && !cpu_has_ic_fills_f_dc))
+		r4k_on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
 }
 
 static inline void local_r4k_flush_cache_mm(void * args)
@@ -497,7 +501,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 	}
 }
 
-static void r4k_flush_cache_page(struct vm_area_struct *vma,
+void r4k_flush_cache_page(struct vm_area_struct *vma,
 	unsigned long addr, unsigned long pfn)
 {
 	struct flush_cache_page_args args;
@@ -705,11 +709,11 @@ static inline void rm7k_erratum31(void)
 	}
 }
 
-static char *way_string[] __initdata = { NULL, "direct mapped", "2-way",
+static char *way_string[] __cpuinitdata = { NULL, "direct mapped", "2-way",
 	"3-way", "4-way", "5-way", "6-way", "7-way", "8-way"
 };
 
-static void __init probe_pcache(void)
+static void __cpuinit probe_pcache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int config = read_c0_config();
@@ -980,7 +984,8 @@ static void __init probe_pcache(void)
 
 	printk("Primary instruction cache %ldkB, %s, %s, linesize %d bytes.\n",
 	       icache_size >> 10,
-	       cpu_has_vtag_icache ? "virtually tagged" : "physically tagged",
+	       c->icache.flags & MIPS_CACHE_VTAG ?
+			"virtually tagged" : "physically tagged",
 	       way_string[c->icache.ways], c->icache.linesz);
 
 	printk("Primary data cache %ldkB, %s, linesize %d bytes.\n",
@@ -993,7 +998,7 @@ static void __init probe_pcache(void)
  * executes in KSEG1 space or else you will crash and burn badly.  You have
  * been warned.
  */
-static int __init probe_scache(void)
+static int __cpuinit probe_scache(void)
 {
 	extern unsigned long stext;
 	unsigned long flags, addr, begin, end, pow2;
@@ -1055,7 +1060,7 @@ extern int r5k_sc_init(void);
 extern int rm7k_sc_init(void);
 extern int mips_sc_init(void);
 
-static void __init setup_scache(void)
+static void __cpuinit setup_scache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int config = read_c0_config();
@@ -1161,7 +1166,7 @@ void au1x00_fixup_config_od(void)
 }
 
 #if defined(CONFIG_BCM47XX) || defined(CONFIG_BCM5365)
-static void __init _change_cachability(u32 cm)
+static void __cpuinit _change_cachability(u32 cm)
 {
 	change_c0_config(CONF_CM_CMASK, cm);
 
@@ -1176,7 +1181,7 @@ static void __init _change_cachability(u32 cm)
 }	
 static void (*change_cachability)(u32);
 #else
-static void __init coherency_setup(void)
+static void __cpuinit coherency_setup(void)
 {
 	change_c0_config(CONF_CM_CMASK, CONF_CM_DEFAULT);
 
@@ -1220,7 +1225,7 @@ static void __init coherency_setup(void)
 }
 #endif
 
-void __init r4k_cache_init(void)
+void __cpuinit r4k_cache_init(void)
 {
 	extern void build_clear_page(void);
 	extern void build_copy_page(void);
@@ -1292,3 +1297,10 @@ void __init r4k_cache_init(void)
 	coherency_setup();
 #endif
 }
+
+/* fuse package DCACHE BUG patch exports */
+void (*fuse_flush_cache_all)(void) = r4k___flush_cache_all;
+void (*fuse_flush_cache_page)(struct vm_area_struct *vma, unsigned long page,
+	unsigned long pfn) = r4k_flush_cache_page;
+EXPORT_SYMBOL(fuse_flush_cache_page);
+EXPORT_SYMBOL(fuse_flush_cache_all);

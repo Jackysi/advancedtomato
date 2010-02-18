@@ -1208,6 +1208,7 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
 
 				/* Gateway is different ... */
 				rt->rt_gateway		= new_gw;
+				if (rt->fl.fl4_gw) rt->fl.fl4_gw = new_gw;
 
 				/* Redirect received -> path was valid */
 				dst_confirm(&rth->u.dst);
@@ -1643,6 +1644,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	rth->fl.fl4_tos	= tos;
 	rth->fl.mark    = skb->mark;
 	rth->fl.fl4_src	= saddr;
+	rth->fl.fl4_lsrc = 0;
 	rth->rt_src	= saddr;
 #ifdef CONFIG_NET_CLS_ROUTE
 	rth->u.dst.tclassid = itag;
@@ -1653,6 +1655,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	dev_hold(rth->u.dst.dev);
 	rth->idev	= in_dev_get(rth->u.dst.dev);
 	rth->fl.oif	= 0;
+	rth->fl.fl4_gw	= 0;
 	rth->rt_gateway	= daddr;
 	rth->rt_spec_dst= spec_dst;
 	rth->rt_type	= RTN_MULTICAST;
@@ -1716,7 +1719,7 @@ static void ip_handle_martian_source(struct net_device *dev,
 static inline int __mkroute_input(struct sk_buff *skb,
 				  struct fib_result* res,
 				  struct in_device *in_dev,
-				  __be32 daddr, __be32 saddr, u32 tos,
+				  __be32 daddr, __be32 saddr, u32 tos, u32 lsrc,
 				  struct rtable **result)
 {
 
@@ -1751,6 +1754,7 @@ static inline int __mkroute_input(struct sk_buff *skb,
 		flags |= RTCF_DIRECTSRC;
 
 	if (out_dev == in_dev && err && !(flags & (RTCF_NAT | RTCF_MASQ)) &&
+	    !lsrc &&
 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
 	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
 		flags |= RTCF_DOREDIRECT;
@@ -1788,6 +1792,7 @@ static inline int __mkroute_input(struct sk_buff *skb,
 	rth->fl.mark    = skb->mark;
 	rth->fl.fl4_src	= saddr;
 	rth->rt_src	= saddr;
+	rth->fl.fl4_lsrc	= lsrc;
 	rth->rt_gateway	= daddr;
 	rth->rt_iif 	=
 		rth->fl.iif	= in_dev->dev->ifindex;
@@ -1795,6 +1800,7 @@ static inline int __mkroute_input(struct sk_buff *skb,
 	dev_hold(rth->u.dst.dev);
 	rth->idev	= in_dev_get(rth->u.dst.dev);
 	rth->fl.oif 	= 0;
+	rth->fl.fl4_gw	= 0;
 	rth->rt_spec_dst= spec_dst;
 
 	rth->u.dst.input = ip_forward;
@@ -1816,19 +1822,21 @@ static inline int ip_mkroute_input_def(struct sk_buff *skb,
 				       struct fib_result* res,
 				       const struct flowi *fl,
 				       struct in_device *in_dev,
-				       __be32 daddr, __be32 saddr, u32 tos)
+				       __be32 daddr, __be32 saddr, u32 tos,
+				       u32 lsrc)
 {
 	struct rtable* rth = NULL;
 	int err;
 	unsigned hash;
 
+	fib_select_default(fl, res);
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res->fi && res->fi->fib_nhs > 1 && fl->oif == 0)
+	if (res->fi && res->fi->fib_nhs > 1)
 		fib_select_multipath(fl, res);
 #endif
 
 	/* create a routing cache entry */
-	err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos, &rth);
+	err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos, lsrc, &rth);
 	if (err)
 		return err;
 
@@ -1841,7 +1849,8 @@ static inline int ip_mkroute_input(struct sk_buff *skb,
 				   struct fib_result* res,
 				   const struct flowi *fl,
 				   struct in_device *in_dev,
-				   __be32 daddr, __be32 saddr, u32 tos)
+				   __be32 daddr, __be32 saddr, u32 tos,
+				   u32 lsrc)
 {
 #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
 	struct rtable* rth = NULL, *rtres;
@@ -1857,7 +1866,7 @@ static inline int ip_mkroute_input(struct sk_buff *skb,
 	/* distinguish between multipath and singlepath */
 	if (hopcount < 2)
 		return ip_mkroute_input_def(skb, res, fl, in_dev, daddr,
-					    saddr, tos);
+					    saddr, tos, lsrc);
 
 	/* add all alternatives to the routing cache */
 	for (hop = 0; hop < hopcount; hop++) {
@@ -1889,7 +1898,7 @@ static inline int ip_mkroute_input(struct sk_buff *skb,
 	skb->dst = &rtres->u.dst;
 	return err;
 #else /* CONFIG_IP_ROUTE_MULTIPATH_CACHED  */
-	return ip_mkroute_input_def(skb, res, fl, in_dev, daddr, saddr, tos);
+	return ip_mkroute_input_def(skb, res, fl, in_dev, daddr, saddr, tos, lsrc);
 #endif /* CONFIG_IP_ROUTE_MULTIPATH_CACHED  */
 }
 
@@ -1905,18 +1914,18 @@ static inline int ip_mkroute_input(struct sk_buff *skb,
  */
 
 static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
-			       u8 tos, struct net_device *dev)
+			       u8 tos, struct net_device *dev, u32 lsrc)
 {
 	struct fib_result res;
 	struct in_device *in_dev = in_dev_get(dev);
 	struct flowi fl = { .nl_u = { .ip4_u =
 				      { .daddr = daddr,
-					.saddr = saddr,
+					.saddr = lsrc ? : saddr,
 					.tos = tos,
 					.scope = RT_SCOPE_UNIVERSE,
 				      } },
 			    .mark = skb->mark,
-			    .iif = dev->ifindex };
+			    .iif = lsrc? loopback_dev.ifindex : dev->ifindex };
 	unsigned	flags = 0;
 	u32		itag = 0;
 	struct rtable * rth;
@@ -1949,6 +1958,12 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	if (BADCLASS(daddr) || ZERONET(daddr) || LOOPBACK(daddr))
 		goto martian_destination;
 
+	if (lsrc) {
+		if (MULTICAST(lsrc) || BADCLASS(lsrc) ||
+		    ZERONET(lsrc) || LOOPBACK(lsrc))
+			goto e_inval;
+	}
+
 	/*
 	 *	Now we are ready to route packet.
 	 */
@@ -1958,6 +1973,10 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 		goto no_route;
 	}
 	free_res = 1;
+	if (lsrc && res.type != RTN_UNICAST && res.type != RTN_NAT)
+		goto e_inval;
+	fl.iif = dev->ifindex;
+	fl.fl4_src = saddr;
 
 	RT_CACHE_STAT_INC(in_slow_tot);
 
@@ -1982,7 +2001,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	if (res.type != RTN_UNICAST)
 		goto martian_destination;
 
-	err = ip_mkroute_input(skb, &res, &fl, in_dev, daddr, saddr, tos);
+	err = ip_mkroute_input(skb, &res, &fl, in_dev, daddr, saddr, tos, lsrc);
 	if (err == -ENOBUFS)
 		goto e_nobufs;
 	if (err == -EINVAL)
@@ -1996,6 +2015,8 @@ out:	return err;
 
 brd_input:
 	if (skb->protocol != htons(ETH_P_IP))
+		goto e_inval;
+	if (lsrc)
 		goto e_inval;
 
 	if (ZERONET(saddr))
@@ -2037,6 +2058,7 @@ local_input:
 	rth->u.dst.dev	= &loopback_dev;
 	dev_hold(rth->u.dst.dev);
 	rth->idev	= in_dev_get(rth->u.dst.dev);
+	rth->fl.fl4_gw	= 0;
 	rth->rt_gateway	= daddr;
 	rth->rt_spec_dst= spec_dst;
 	rth->u.dst.input= ip_local_deliver;
@@ -2086,8 +2108,9 @@ martian_source:
 	goto e_inval;
 }
 
-int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
-		   u8 tos, struct net_device *dev)
+static inline int
+ip_route_input_cached(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+		   u8 tos, struct net_device *dev, u32 lsrc)
 {
 	struct rtable * rth;
 	unsigned	hash;
@@ -2102,6 +2125,7 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 		if (rth->fl.fl4_dst == daddr &&
 		    rth->fl.fl4_src == saddr &&
 		    rth->fl.iif == iif &&
+		    rth->fl.fl4_lsrc == lsrc &&
 		    rth->fl.oif == 0 &&
 		    rth->fl.mark == skb->mark &&
 		    rth->fl.fl4_tos == tos) {
@@ -2148,7 +2172,19 @@ int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 		rcu_read_unlock();
 		return -EINVAL;
 	}
-	return ip_route_input_slow(skb, daddr, saddr, tos, dev);
+	return ip_route_input_slow(skb, daddr, saddr, tos, dev, lsrc);
+}
+
+int ip_route_input(struct sk_buff *skb, u32 daddr, u32 saddr,
+		   u8 tos, struct net_device *dev)
+{
+	return ip_route_input_cached(skb, daddr, saddr, tos, dev, 0);
+}
+
+int ip_route_input_lookup(struct sk_buff *skb, u32 daddr, u32 saddr,
+			  u8 tos, struct net_device *dev, u32 lsrc)
+{
+	return ip_route_input_cached(skb, daddr, saddr, tos, dev, lsrc);
 }
 
 static inline int __mkroute_output(struct rtable **result,
@@ -2227,6 +2263,7 @@ static inline int __mkroute_output(struct rtable **result,
 	rth->fl.fl4_tos	= tos;
 	rth->fl.fl4_src	= oldflp->fl4_src;
 	rth->fl.oif	= oldflp->oif;
+	rth->fl.fl4_gw  = oldflp->fl4_gw;
 	rth->fl.mark    = oldflp->mark;
 	rth->rt_dst	= fl->fl4_dst;
 	rth->rt_src	= fl->fl4_src;
@@ -2367,6 +2404,7 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 	struct flowi fl = { .nl_u = { .ip4_u =
 				      { .daddr = oldflp->fl4_dst,
 					.saddr = oldflp->fl4_src,
+					.gw = oldflp->fl4_gw,
 					.tos = tos & IPTOS_RT_MASK,
 					.scope = ((tos & RTO_ONLINK) ?
 						  RT_SCOPE_LINK :
@@ -2470,6 +2508,7 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 		dev_out = &loopback_dev;
 		dev_hold(dev_out);
 		fl.oif = loopback_dev.ifindex;
+		fl.fl4_gw = 0;
 		res.type = RTN_LOCAL;
 		flags |= RTCF_LOCAL;
 		goto make_route;
@@ -2477,7 +2516,7 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 
 	if (fib_lookup(&fl, &res)) {
 		res.fi = NULL;
-		if (oldflp->oif) {
+		if (oldflp->oif && dev_out->flags & IFF_UP) {
 			/* Apparently, routing tables are wrong. Assume,
 			   that the destination is on link.
 
@@ -2517,6 +2556,7 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 		dev_out = &loopback_dev;
 		dev_hold(dev_out);
 		fl.oif = dev_out->ifindex;
+		fl.fl4_gw = 0;
 		if (res.fi)
 			fib_info_put(res.fi);
 		res.fi = NULL;
@@ -2524,13 +2564,12 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 		goto make_route;
 	}
 
-#ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res.fi->fib_nhs > 1 && fl.oif == 0)
-		fib_select_multipath(&fl, &res);
-	else
-#endif
-	if (!res.prefixlen && res.type == RTN_UNICAST && !fl.oif)
+	if (res.type == RTN_UNICAST)
 		fib_select_default(&fl, &res);
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
+	if (res.fi->fib_nhs > 1)
+		fib_select_multipath(&fl, &res);
+#endif
 
 	if (!fl.fl4_src)
 		fl.fl4_src = FIB_RES_PREFSRC(res);
@@ -2567,6 +2606,7 @@ int __ip_route_output_key(struct rtable **rp, const struct flowi *flp)
 		    rth->fl.fl4_src == flp->fl4_src &&
 		    rth->fl.iif == 0 &&
 		    rth->fl.oif == flp->oif &&
+		    rth->fl.fl4_gw == flp->fl4_gw &&
 		    rth->fl.mark == flp->mark &&
 		    !((rth->fl.fl4_tos ^ flp->fl4_tos) &
 			    (IPTOS_RT_MASK | RTO_ONLINK))) {
@@ -3267,3 +3307,4 @@ int __init ip_rt_init(void)
 EXPORT_SYMBOL(__ip_select_ident);
 EXPORT_SYMBOL(ip_route_input);
 EXPORT_SYMBOL(ip_route_output_key);
+EXPORT_SYMBOL(ip_route_input_lookup);

@@ -25,6 +25,7 @@
 #include <linux/kernel_stat.h>
 
 #include <asm/errno.h>
+#include <asm/gdb-stub.h>
 #include <asm/irq_regs.h>
 #include <asm/signal.h>
 #include <asm/system.h>
@@ -137,22 +138,16 @@ static void bcm1480_set_affinity(unsigned int irq, cpumask_t mask)
 {
 	int i = 0, old_cpu, cpu, int_on, k;
 	u64 cur_ints;
-	struct irq_desc *desc = irq_desc + irq;
 	unsigned long flags;
 	unsigned int irq_dirty;
 
-	if (cpus_weight(mask) != 1) {
-		printk("attempted to set irq affinity for irq %d to multiple CPUs\n", irq);
-		return;
-	}
 	i = first_cpu(mask);
 
 	/* Convert logical CPU to physical CPU */
 	cpu = cpu_logical_map(i);
 
 	/* Protect against other affinity changers and IMR manipulation */
-	spin_lock_irqsave(&desc->lock, flags);
-	spin_lock(&bcm1480_imr_lock);
+	spin_lock_irqsave(&bcm1480_imr_lock, flags);
 
 	/* Swizzle each CPU's IMR (but leave the IP selection alone) */
 	old_cpu = bcm1480_irq_owner[irq];
@@ -177,8 +172,7 @@ static void bcm1480_set_affinity(unsigned int irq, cpumask_t mask)
 			____raw_writeq(cur_ints, IOADDR(A_BCM1480_IMR_MAPPER(cpu) + R_BCM1480_IMR_INTERRUPT_MASK_H + (k*BCM1480_IMR_HL_SPACING)));
 		}
 	}
-	spin_unlock(&bcm1480_imr_lock);
-	spin_unlock_irqrestore(&desc->lock, flags);
+	spin_unlock_irqrestore(&bcm1480_imr_lock, flags);
 }
 #endif
 

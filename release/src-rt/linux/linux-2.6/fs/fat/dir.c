@@ -124,8 +124,8 @@ static inline int fat_get_entry(struct inode *dir, loff_t *pos,
  * but ignore that right now.
  * Ahem... Stack smashing in ring 0 isn't fun. Fixed.
  */
-static int uni16_to_x8(unsigned char *ascii, wchar_t *uni, int uni_xlate,
-		       struct nls_table *nls)
+static int uni16_to_x8(unsigned char *ascii, wchar_t *uni, int len,
+		       int uni_xlate, struct nls_table *nls)
 {
 	wchar_t *ip, ec;
 	unsigned char *op, nc;
@@ -135,10 +135,11 @@ static int uni16_to_x8(unsigned char *ascii, wchar_t *uni, int uni_xlate,
 	ip = uni;
 	op = ascii;
 
-	while (*ip) {
+	while (*ip && ((len - NLS_MAX_CHARSET_SIZE) > 0)) {
 		ec = *ip++;
 		if ( (charlen = nls->uni2char(ec, op, NLS_MAX_CHARSET_SIZE)) > 0) {
 			op += charlen;
+			len -= charlen;
 		} else {
 			if (uni_xlate == 1) {
 				*op = ':';
@@ -149,16 +150,19 @@ static int uni16_to_x8(unsigned char *ascii, wchar_t *uni, int uni_xlate,
 					ec >>= 4;
 				}
 				op += 5;
+				len -= 5;
 			} else {
 				*op++ = '?';
+				len--;
 			}
 		}
-		/* We have some slack there, so it's OK */
-		if (op>ascii+256) {
-			op = ascii + 256;
-			break;
-		}
 	}
+
+	if (unlikely(*ip)) {
+		printk(KERN_WARNING "FAT: filename was truncated while "
+		       "converting.");
+	}
+
 	*op = 0;
 	return (op - ascii);
 }
@@ -243,7 +247,7 @@ static int fat_parse_long(struct inode *dir, loff_t *pos,
 	unsigned char id, slot, slots, alias_checksum;
 
 	if (!*unicode) {
-		*unicode = (wchar_t *)__get_free_page(GFP_KERNEL);
+		*unicode = __getname();
 		if (!*unicode) {
 			brelse(*bh);
 			return -ENOMEM;
@@ -311,15 +315,21 @@ int fat_search_long(struct inode *inode, const unsigned char *name,
 	struct nls_table *nls_io = sbi->nls_io;
 	struct nls_table *nls_disk = sbi->nls_disk;
 	wchar_t bufuname[14];
-	unsigned char xlate_len, nr_slots;
+	unsigned char nr_slots;
+	int xlate_len;
 	wchar_t *unicode = NULL;
-	unsigned char work[8], bufname[260];	/* 256 + 4 */
+	unsigned char work[MSDOS_NAME];
+	unsigned char *bufname = NULL;
 	int uni_xlate = sbi->options.unicode_xlate;
 	int utf8 = sbi->options.utf8;
 	int anycase = (sbi->options.name_check != 's');
 	unsigned short opt_shortname = sbi->options.shortname;
 	loff_t cpos = 0;
 	int chl, i, j, last_u, err;
+
+	bufname = __getname();
+	if (!bufname)
+		return -ENOMEM;
 
 	err = -ENOENT;
 	while(1) {
@@ -351,7 +361,8 @@ parse_record:
 		if (work[0] == 0x05)
 			work[0] = 0xE5;
 		for (i = 0, j = 0, last_u = 0; i < 8;) {
-			if (!work[i]) break;
+			if (!work[i])
+				break;
 			chl = fat_shortname2uni(nls_disk, &work[i], 8 - i,
 						&bufuname[j++], opt_shortname,
 						de->lcase & CASE_LOWER_BASE);
@@ -365,13 +376,15 @@ parse_record:
 		}
 		j = last_u;
 		fat_short2uni(nls_disk, ".", 1, &bufuname[j++]);
-		for (i = 0; i < 3;) {
-			if (!de->ext[i]) break;
-			chl = fat_shortname2uni(nls_disk, &de->ext[i], 3 - i,
+		for (i = 8; i < MSDOS_NAME;) {
+			if (!work[i])
+				break;
+			chl = fat_shortname2uni(nls_disk, &work[i],
+						MSDOS_NAME - i,
 						&bufuname[j++], opt_shortname,
 						de->lcase & CASE_LOWER_EXT);
 			if (chl <= 1) {
-				if (de->ext[i] != ' ')
+				if (work[i] != ' ')
 					last_u = j;
 			} else {
 				last_u = j;
@@ -383,8 +396,8 @@ parse_record:
 
 		bufuname[last_u] = 0x0000;
 		xlate_len = utf8
-			?utf8_wcstombs(bufname, bufuname, sizeof(bufname))
-			:uni16_to_x8(bufname, bufuname, uni_xlate, nls_io);
+			?utf8_wcstombs(bufname, bufuname, PATH_MAX)
+			:uni16_to_x8(bufname, bufuname, PATH_MAX, uni_xlate, nls_io);
 		if (xlate_len == name_len)
 			if ((!anycase && !memcmp(name, bufname, xlate_len)) ||
 			    (anycase && !nls_strnicmp(nls_io, name, bufname,
@@ -393,8 +406,8 @@ parse_record:
 
 		if (nr_slots) {
 			xlate_len = utf8
-				?utf8_wcstombs(bufname, unicode, sizeof(bufname))
-				:uni16_to_x8(bufname, unicode, uni_xlate, nls_io);
+				?utf8_wcstombs(bufname, unicode, PATH_MAX)
+				:uni16_to_x8(bufname, unicode, PATH_MAX, uni_xlate, nls_io);
 			if (xlate_len != name_len)
 				continue;
 			if ((!anycase && !memcmp(name, bufname, xlate_len)) ||
@@ -413,8 +426,10 @@ Found:
 	sinfo->i_pos = fat_make_i_pos(sb, sinfo->bh, sinfo->de);
 	err = 0;
 EODir:
+	if (bufname)
+		__putname(bufname);
 	if (unicode)
-		free_page((unsigned long)unicode);
+		__putname(unicode);
 
 	return err;
 }
@@ -445,7 +460,7 @@ static int __fat_readdir(struct inode *inode, struct file *filp, void *dirent,
 	int fill_len;
 	wchar_t bufuname[14];
 	wchar_t *unicode = NULL;
-	unsigned char c, work[8], bufname[56], *ptname = bufname;
+	unsigned char c, work[MSDOS_NAME], bufname[56], *ptname = bufname;
 	unsigned long lpos, dummy, *furrfu = &lpos;
 	int uni_xlate = sbi->options.unicode_xlate;
 	int isvfat = sbi->options.isvfat;
@@ -457,7 +472,7 @@ static int __fat_readdir(struct inode *inode, struct file *filp, void *dirent,
 	loff_t cpos;
 	int ret = 0;
 
-	lock_kernel();
+	lock_super(sb);
 
 	cpos = filp->f_pos;
 	/* Fake . and .. for the root directory. */
@@ -527,7 +542,8 @@ parse_record:
 	if (work[0] == 0x05)
 		work[0] = 0xE5;
 	for (i = 0, j = 0, last = 0, last_u = 0; i < 8;) {
-		if (!(c = work[i])) break;
+		if (!(c = work[i]))
+			break;
 		chl = fat_shortname2uni(nls_disk, &work[i], 8 - i,
 					&bufuname[j++], opt_shortname,
 					de->lcase & CASE_LOWER_BASE);
@@ -549,9 +565,10 @@ parse_record:
 	j = last_u;
 	fat_short2uni(nls_disk, ".", 1, &bufuname[j++]);
 	ptname[i++] = '.';
-	for (i2 = 0; i2 < 3;) {
-		if (!(c = de->ext[i2])) break;
-		chl = fat_shortname2uni(nls_disk, &de->ext[i2], 3 - i2,
+	for (i2 = 8; i2 < MSDOS_NAME;) {
+		if (!(c = work[i2]))
+			break;
+		chl = fat_shortname2uni(nls_disk, &work[i2], MSDOS_NAME - i2,
 					&bufuname[j++], opt_shortname,
 					de->lcase & CASE_LOWER_EXT);
 		if (chl <= 1) {
@@ -563,8 +580,8 @@ parse_record:
 			}
 		} else {
 			last_u = j;
-			for (chi = 0; chi < chl && i2 < 3; chi++) {
-				ptname[i++] = de->ext[i2++];
+			for (chi = 0; chi < chl && i2 < MSDOS_NAME; chi++) {
+				ptname[i++] = work[i2++];
 				last = i;
 			}
 		}
@@ -593,7 +610,7 @@ parse_record:
 	if (isvfat) {
 		bufuname[j] = 0x0000;
 		i = utf8 ? utf8_wcstombs(bufname, bufuname, sizeof(bufname))
-			 : uni16_to_x8(bufname, bufuname, uni_xlate, nls_io);
+			 : uni16_to_x8(bufname, bufuname, sizeof(bufname), uni_xlate, nls_io);
 	}
 
 	fill_name = bufname;
@@ -602,10 +619,10 @@ parse_record:
 		/* convert the unicode long name. 261 is maximum size
 		 * of unicode buffer. (13 * slots + nul) */
 		void *longname = unicode + 261;
-		int buf_size = PAGE_SIZE - (261 * sizeof(unicode[0]));
+		int buf_size = PATH_MAX - (261 * sizeof(unicode[0]));
 		int long_len = utf8
 			? utf8_wcstombs(longname, unicode, buf_size)
-			: uni16_to_x8(longname, unicode, uni_xlate, nls_io);
+			: uni16_to_x8(longname, unicode, buf_size, uni_xlate, nls_io);
 
 		if (!both) {
 			fill_name = longname;
@@ -635,9 +652,9 @@ EODir:
 FillFailed:
 	brelse(bh);
 	if (unicode)
-		free_page((unsigned long)unicode);
+		__putname(unicode);
 out:
-	unlock_kernel();
+	unlock_super(sb);
 	return ret;
 }
 

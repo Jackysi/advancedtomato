@@ -145,6 +145,7 @@ gre_manip_pkt(struct sk_buff **pskb, unsigned int iphdroff,
 static struct nf_nat_protocol gre __read_mostly = {
 	.name			= "GRE",
 	.protonum		= IPPROTO_GRE,
+	.me                     = THIS_MODULE,
 	.manip_pkt		= gre_manip_pkt,
 	.in_range		= gre_in_range,
 	.unique_tuple		= gre_unique_tuple,

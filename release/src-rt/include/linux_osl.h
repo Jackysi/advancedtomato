@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: linux_osl.h,v 13.133.2.7.12.4 2009/03/01 16:54:44 Exp $
+ * $Id: linux_osl.h,v 13.133.2.18 2009/11/04 16:51:58 Exp $
  */
 
 #ifndef _linux_osl_h_
@@ -23,17 +23,26 @@
 extern osl_t *osl_attach(void *pdev, uint bustype, bool pkttag);
 extern void osl_detach(osl_t *osh);
 
+/* Global ASSERT type */
+extern uint32 g_assert_type;
+
 /* ASSERT */
+#if defined(BCMDBG_ASSERT) || defined(BCMASSERT_LOG)
+	#define ASSERT(exp) \
+	  do { if (!(exp)) osl_assert(#exp, __FILE__, __LINE__); } while (0)
+extern void osl_assert(char *exp, char *file, int line);
+#else
 	#ifdef __GNUC__
 		#define GCC_VERSION \
 			(__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 		#if GCC_VERSION > 30100
 			#define ASSERT(exp)	do {} while (0)
 		#else
-			/* ASSERT could causes segmentation fault on GCC3.1, use empty instead */
+			/* ASSERT could cause segmentation fault on GCC3.1, use empty instead */
 			#define ASSERT(exp)
 		#endif /* GCC_VERSION > 30100 */
 	#endif /* __GNUC__ */
+#endif /* BCMDBG_ASSERT || BCMASSERT_LOG */
 
 /* microsecond delay */
 #define	OSL_DELAY(usec)		osl_delay(usec)
@@ -99,6 +108,9 @@ typedef struct {
 	extern void osl_mfree(osl_t *osh, void *addr, uint size);
 	extern uint osl_malloced(osl_t *osh);
 
+#define NATIVE_MALLOC(osh, size)		kmalloc(size, GFP_ATOMIC)
+#define NATIVE_MFREE(osh, addr, size)	kfree(addr)
+
 #define	MALLOC_FAILED(osh)	osl_malloc_failed((osh))
 extern uint osl_malloc_failed(osl_t *osh);
 
@@ -144,9 +156,6 @@ extern void osl_dma_unmap(osl_t *osh, uint pa, uint size, int direction);
 	#define SELECT_BUS_READ(osh, mmap_op, bus_op) mmap_op
 #endif 
 
-/* get system up time in milliseconds */
-#define OSL_SYSUPTIME()		(0)
-
 #define OSL_ERROR(bcmerror)	osl_error(bcmerror)
 extern int osl_error(int bcmerror);
 
@@ -159,6 +168,7 @@ extern int osl_error(int bcmerror);
  */
 #ifndef BINOSL
 
+#define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
 #ifndef printf
 #define	printf(fmt, args...)	printk(fmt , ## args)
 #endif
@@ -288,6 +298,14 @@ extern void osl_writel(osl_t *osh, volatile uint32 *r, uint32 v);
 #define OSL_UNCACHED(va)	((void *)va)
 #define OSL_CACHED(va)		((void *)va)
 #endif /* mips */
+
+#ifdef __mips__
+#define OSL_PREF_RANGE_LD(va, sz) prefetch_range_PREF_LOAD_RETAINED(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz) prefetch_range_PREF_STORE_RETAINED(va, sz)
+#else /* __mips__ */
+#define OSL_PREF_RANGE_LD(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz)
+#endif /* __mips__ */
 
 /* get processor cycle count */
 #if defined(mips)
@@ -583,11 +601,23 @@ extern void osl_writeb(uint8 v, volatile uint8 *r);
 extern void osl_writew(uint16 v, volatile uint16 *r);
 extern void osl_writel(uint32 v, volatile uint32 *r);
 
+/* system up time in ms */
+#define OSL_SYSUPTIME()		osl_sysuptime()
+extern uint32 osl_sysuptime(void);
+
 /* uncached/cached virtual address */
 #define OSL_UNCACHED(va)	osl_uncached((va))
 extern void *osl_uncached(void *va);
 #define OSL_CACHED(va)		osl_cached((va))
 extern void *osl_cached(void *va);
+
+#ifdef __mips__
+#define OSL_PREF_RANGE_LD(va, sz) prefetch_range_PREF_LOAD_RETAINED(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz) prefetch_range_PREF_STORE_RETAINED(va, sz)
+#else /* __mips__ */
+#define OSL_PREF_RANGE_LD(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz)
+#endif /* __mips__ */
 
 /* get processor cycle count */
 #define OSL_GETCYCLES(x)	((x) = osl_getcycles())
@@ -661,7 +691,12 @@ extern uint osl_pktalloced(osl_t *osh);
 
 
 /* ASSERT */
+#ifdef BCMDBG_ASSERT
+	#include <assert.h>
+	#define ASSERT assert
+#else /* BCMDBG_ASSERT */
 	#define ASSERT(exp)	do {} while (0)
+#endif /* BCMDBG_ASSERT */
 
 /* MALLOC and MFREE */
 #define MALLOC(o, l) malloc(l)

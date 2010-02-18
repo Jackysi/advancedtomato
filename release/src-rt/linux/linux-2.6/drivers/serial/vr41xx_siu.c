@@ -170,10 +170,10 @@ static inline unsigned long siu_port_size(struct uart_port *port)
 
 static inline unsigned int siu_check_type(struct uart_port *port)
 {
-		if (port->line == 0)
-			return PORT_VR41XX_SIU;
+	if (port->line == 0)
+		return PORT_VR41XX_SIU;
 	if (port->line == 1 && port->irq != -1)
-			return PORT_VR41XX_DSIU;
+		return PORT_VR41XX_DSIU;
 
 	return PORT_UNKNOWN;
 }

@@ -860,8 +860,10 @@ static int __init gt64240_probe1(unsigned long ioaddr, int irq, int port_num)
 		    ("gt64240_probe1: irq unknown - probing not supported\n");
 		return -ENODEV;
 	}
+#if 1				/* KLUDGE Alert: no check on return value: */
 	if (!request_region(ioaddr, GT64240_ETH_IO_SIZE, "gt64240eth"))
 		printk("*** request_region() failed!\n");
+#endif
 
 	cpuConfig = GT64240_READ(CPU_CONFIGURATION);
 	printk("gt64240_probe1: cpu in %s-endian mode\n",
@@ -1165,12 +1167,18 @@ static int gt64240_init(struct net_device *dev)
 		printk("%s: gt64240_init: SDMA Config=%x\n", dev->name,
 		       GT64240ETH_READ(gp, GT64240_ETH_SDMA_CONFIG));
 
+#if 0
+	// start Rx DMA
+	GT64240ETH_WRITE(gp, GT64240_ETH_SDMA_COMM, sdcmrERD);
+#endif
 
 	if (gt64240_debug > 3)
 		printk("%s: gt64240_init: SDMA Cmd =%x\n", dev->name,
 		       GT64240ETH_READ(gp, GT64240_ETH_SDMA_COMM));
 
+#if 1
 	GT64240ETH_WRITE(gp, GT64240_ETH_PORT_CONFIG, PORT_CONFIG);
+#endif
 
 	if (gt64240_debug > 3)
 		printk("%s: gt64240_init: Port Config=%x\n", dev->name,
@@ -1184,6 +1192,7 @@ static int gt64240_init(struct net_device *dev)
 	 * Disable flow-control for now. FIX! support flow control?
 	 */
 
+#if 1
 	// clear all the MIB ctr regs
 	GT64240ETH_WRITE(gp, GT64240_ETH_PORT_CONFIG_EXT,
 			 EXT_CONFIG_CLEAR);
@@ -1191,6 +1200,7 @@ static int gt64240_init(struct net_device *dev)
 	GT64240ETH_WRITE(gp, GT64240_ETH_PORT_CONFIG_EXT,
 			 EXT_CONFIG_CLEAR | pcxrMIBclrMode);
 
+#endif
 	if (gt64240_debug > 3)
 		printk("%s: gt64240_init: Port Config Ext=%x\n", dev->name,
 		       GT64240ETH_READ(gp, GT64240_ETH_PORT_CONFIG_EXT));
@@ -1208,8 +1218,10 @@ static int gt64240_init(struct net_device *dev)
 	if (gt64240_debug > 3)
 		printk("%s: gt64240_init: Port Config=%x\n", dev->name,
 		       GT64240ETH_READ(gp, GT64240_ETH_PORT_CONFIG));
+#if 1
 	// start Rx DMA
 	GT64240ETH_WRITE(gp, GT64240_ETH_SDMA_COMM, sdcmrERD);
+#endif
 
 
 	// enable interrupts

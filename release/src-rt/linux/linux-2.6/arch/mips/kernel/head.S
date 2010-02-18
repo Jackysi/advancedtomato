@@ -21,6 +21,7 @@
 #include <asm/irqflags.h>
 #include <asm/regdef.h>
 #include <asm/page.h>
+#include <asm/pgtable-bits.h>
 #include <asm/mipsregs.h>
 #include <asm/stackframe.h>
 
@@ -199,19 +200,25 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	MTC0		zero, CP0_CONTEXT	# clear context register
 	PTR_LA		$28, init_thread_union
-	PTR_LI		sp, _THREAD_SIZE - 32
+	/* Set the SP after an empty pt_regs.  */
+	PTR_LI		sp, _THREAD_SIZE - 32 - PT_SIZE
 	PTR_ADDU	sp, $28
+	back_to_back_c0_hazard
 	set_saved_sp	sp, t0, t1
 	PTR_SUBU	sp, 4 * SZREG		# init stack pointer
 
 	j		start_kernel
 	END(kernel_entry)
+	__FINIT
 
 #ifdef CONFIG_QEMU
 	__INIT
 #endif
 
 #ifdef CONFIG_SMP
+#ifndef CONFIG_HOTPLUG_CPU
+	__INIT			/* no __CPUINIT; it's a 2.6.25 thing  */
+#endif
 /*
  * SMP slave cpus entry point.  Board specific code for bootstrap calls this
  * function after setting up the stack and gp registers.
@@ -240,4 +247,6 @@ NESTED(smp_bootstrap, 16, sp)
 	END(smp_bootstrap)
 #endif /* CONFIG_SMP */
 
+#ifndef CONFIG_HOTPLUG_CPU
 	__FINIT
+#endif

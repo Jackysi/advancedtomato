@@ -228,7 +228,6 @@ enum {
  * routed to an interrupt line on the Au1000. This would issue
  * an interrupt when the panel is touched.
  */
-
 #define DEFAULT_PENDOWN_THRESH_OHMS 100
 #define DEFAULT_PENUP_THRESH_OHMS    80
 
@@ -650,6 +649,7 @@ au1000ts_init_module(void)
 	outl(SSIEN_E, SSI0_CONTROL);
 	udelay(100);
 	
+	// FIXME: is this a working baudrate?
 	ts->clkdiv = 0;
 	ts->baudrate = calc_baudrate(ts->clkdiv);
 	outl(ts->clkdiv, SSI0_CLKDIV);

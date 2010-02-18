@@ -57,7 +57,7 @@ void __init plat_mem_setup(void)
 {
 	struct	cpu_spec *sp;
 	char *argptr;
-	unsigned long prid, cpupll, bclk = 1;
+	unsigned long prid, cpufreq, bclk = 1;
 
 	set_cpuspec();
 	sp = cur_cpu_spec[0];
@@ -65,8 +65,15 @@ void __init plat_mem_setup(void)
 	board_setup();  /* board specific setup */
 
 	prid = read_c0_prid();
-	cpupll = (au_readl(0xB1900060) & 0x3F) * 12;
-	printk("(PRId %08lx) @ %ldMHZ\n", prid, cpupll);
+	if (sp->cpu_pll_wo)
+#ifdef CONFIG_SOC_AU1000_FREQUENCY
+		cpufreq = CONFIG_SOC_AU1000_FREQUENCY / 1000000;
+#else
+		cpufreq = 396;
+#endif
+	else
+		cpufreq = (au_readl(SYS_CPUPLL) & 0x3F) * 12;
+	printk(KERN_INFO "(PRID %08lx) @ %ld MHz\n", prid, cpufreq);
 
 	bclk = sp->cpu_bclk;
 	if (bclk)
@@ -147,12 +154,11 @@ phys_t __fixup_bigphys_addr(phys_t phys_addr, phys_t size)
 
 #ifdef CONFIG_PCI
 	{
-		u32 start, end;
+		u32 start = (u32)Au1500_PCI_MEM_START;
+		u32 end   = (u32)Au1500_PCI_MEM_END;
 
-		start = (u32)Au1500_PCI_MEM_START;
-		end = (u32)Au1500_PCI_MEM_END;
-		/* check for pci memory window */
-		if ((phys_addr >= start) && ((phys_addr + size) < end))
+		/* Check for PCI memory window */
+		if (phys_addr >= start && (phys_addr + size - 1) <= end)
 			return (phys_t)
 			       ((phys_addr - start) + Au1500_PCI_MEM_START);
 	}

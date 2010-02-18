@@ -8,6 +8,7 @@
  * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  */
+#include <linux/bug.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/signal.h>
@@ -25,6 +26,7 @@
 #include <linux/swap.h>
 #include <linux/proc_fs.h>
 #include <linux/pfn.h>
+#include <linux/hardirq.h>
 
 #include <asm/bootinfo.h>
 #include <asm/cachectl.h>
@@ -131,10 +133,15 @@ void *kmap_coherent(struct page *page, unsigned long addr)
 	pte_t pte;
 	int tlbidx;
 
+	BUG_ON(Page_dcache_dirty(page));
+
 	inc_preempt_count();
 	idx = (addr >> PAGE_SHIFT) & (FIX_N_COLOURS - 1);
 #ifdef CONFIG_MIPS_MT_SMTC
-	idx += FIX_N_COLOURS * smp_processor_id();
+	idx += FIX_N_COLOURS * smp_processor_id() +
+		(in_interrupt() ? (FIX_N_COLOURS * NR_CPUS) : 0);
+#else
+	idx += in_interrupt() ? FIX_N_COLOURS : 0;
 #endif
 	vaddr = __fix_to_virt(FIX_CMAP_END - idx);
 	pte = mk_pte(page, PAGE_KERNEL);
@@ -205,12 +212,17 @@ void copy_to_user_page(struct vm_area_struct *vma,
 	struct page *page, unsigned long vaddr, void *dst, const void *src,
 	unsigned long len)
 {
-	if (cpu_has_dc_aliases) {
+	if (cpu_has_dc_aliases &&
+	    page_mapped(page) && !Page_dcache_dirty(page)) {
 		void *vto = kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
 		memcpy(vto, src, len);
+		flush_data_cache_page((unsigned long)vto & PAGE_MASK);
 		kunmap_coherent();
-	} else
+	} else {
 		memcpy(dst, src, len);
+		if (cpu_has_dc_aliases)
+			SetPageDcacheDirty(page);
+	}
 	if ((vma->vm_flags & VM_EXEC) && !cpu_has_ic_fills_f_dc)
 		flush_cache_page(vma, vaddr, page_to_pfn(page));
 }
@@ -221,13 +233,16 @@ void copy_from_user_page(struct vm_area_struct *vma,
 	struct page *page, unsigned long vaddr, void *dst, const void *src,
 	unsigned long len)
 {
-	if (cpu_has_dc_aliases) {
-		void *vfrom =
-			kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
+	if (cpu_has_dc_aliases &&
+	    page_mapped(page) && !Page_dcache_dirty(page)) {
+		void *vfrom = kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
 		memcpy(dst, vfrom, len);
 		kunmap_coherent();
-	} else
+	} else {
 		memcpy(dst, src, len);
+		if (cpu_has_dc_aliases)
+			SetPageDcacheDirty(page);
+	}
 }
 
 EXPORT_SYMBOL(copy_from_user_page);
@@ -313,11 +328,12 @@ static int __init page_is_ram(unsigned long pagenr)
 
 void __init paging_init(void)
 {
+#ifdef CONFIG_FLATMEM
 	unsigned long zones_size[MAX_NR_ZONES] = { 0, };
-#ifndef CONFIG_FLATMEM
-	unsigned long zholes_size[MAX_NR_ZONES] = { 0, };
-	unsigned long i, j, pfn;
-#endif
+#else /* SPARSEMEM */
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
+	unsigned long lastpfn;
+#endif /* CONFIG_FLATMEM */
 
 	pagetable_init();
 
@@ -326,6 +342,7 @@ void __init paging_init(void)
 #endif
 	kmap_coherent_init();
 
+#ifdef CONFIG_FLATMEM
 #ifdef CONFIG_ZONE_DMA
 	if (min_low_pfn < MAX_DMA_PFN && MAX_DMA_PFN <= max_low_pfn) {
 		zones_size[ZONE_DMA] = MAX_DMA_PFN - min_low_pfn;
@@ -333,29 +350,49 @@ void __init paging_init(void)
 	} else if (max_low_pfn < MAX_DMA_PFN)
 		zones_size[ZONE_DMA] = max_low_pfn - min_low_pfn;
 	else
-#endif
+#endif /* CONFIG_ZONE_DMA */
 	zones_size[ZONE_NORMAL] = max_low_pfn - min_low_pfn;
-
+	
 #ifdef CONFIG_HIGHMEM
 	zones_size[ZONE_HIGHMEM] = highend_pfn - highstart_pfn;
+
 
 	if (cpu_has_dc_aliases && zones_size[ZONE_HIGHMEM]) {
 		printk(KERN_WARNING "This processor doesn't support highmem."
 		       " %ldk highmem ignored\n", zones_size[ZONE_HIGHMEM]);
 		zones_size[ZONE_HIGHMEM] = 0;
 	}
-#endif
+#endif /* CONFIG_HIGHMEM */
 
-#ifdef CONFIG_FLATMEM
 	free_area_init(zones_size);
-#else
-	pfn = min_low_pfn;
-	for (i = 0; i < MAX_NR_ZONES; i++)
-		for (j = 0; j < zones_size[i]; j++, pfn++)
-			if (!page_is_ram(pfn))
-				zholes_size[i]++;
-	free_area_init_node(0, NODE_DATA(0), zones_size, 0, zholes_size);
-#endif
+
+#else /* SPARSEMEM */
+
+#ifdef CONFIG_ZONE_DMA
+	max_zone_pfns[ZONE_DMA] = MAX_DMA_PFN;
+#endif /* CONFIG_ZONE_DMA */
+
+#ifdef CONFIG_ZONE_DMA32
+	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
+#endif /* CONFIG_ZONE_DMA32 */
+	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+	lastpfn = max_low_pfn;
+
+#ifdef CONFIG_HIGHMEM
+	max_zone_pfns[ZONE_HIGHMEM] = highend_pfn;
+	lastpfn = highend_pfn;
+
+	if (cpu_has_dc_aliases && max_low_pfn != highend_pfn) {
+		printk(KERN_WARNING "This processor doesn't support highmem."
+			" %ldk highmem ignored\n",
+			(highend_pfn - max_low_pfn) << (PAGE_SHIFT - 10));
+		max_zone_pfns[ZONE_HIGHMEM] = max_low_pfn;
+		lastpfn = max_low_pfn;
+	}
+#endif /* CONFIG_HIGHMEM */
+
+	free_area_init_nodes(max_zone_pfns);
+#endif /* CONFIG_FLATMEM */
 }
 
 static struct kcore_list kcore_mem, kcore_vmalloc;
@@ -372,7 +409,7 @@ void __init mem_init(void)
 #ifdef CONFIG_DISCONTIGMEM
 #error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
 #endif
-	max_mapnr = highend_pfn;
+	max_mapnr = max(max_low_pfn, highend_pfn);
 #else
 	max_mapnr = max_low_pfn;
 #endif
@@ -392,12 +429,12 @@ void __init mem_init(void)
 
 #ifdef CONFIG_HIGHMEM
 	for (tmp = highstart_pfn; tmp < highend_pfn; tmp++) {
-		struct page *page = mem_map + tmp;
+		struct page *page;
 
-		if (!page_is_ram(tmp)) {
-			SetPageReserved(page);
+		if (!page_is_ram(tmp))
 			continue;
-		}
+
+		page = pfn_to_page(tmp);
 		ClearPageReserved(page);
 		init_page_count(page);
 		__free_page(page);

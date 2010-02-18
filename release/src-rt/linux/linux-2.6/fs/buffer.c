@@ -2106,6 +2106,8 @@ int cont_prepare_write(struct page *page, unsigned offset,
 		generic_commit_write(NULL, new_page, zerofrom, PAGE_CACHE_SIZE);
 		unlock_page(new_page);
 		page_cache_release(new_page);
+
+		balance_dirty_pages_ratelimited(mapping);
 	}
 
 	if (page->index < pgpos) {

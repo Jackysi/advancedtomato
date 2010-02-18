@@ -56,26 +56,43 @@ EXPORT_SYMBOL(_dma_cache_inv);
 asmlinkage int sys_cacheflush(unsigned long addr,
 	unsigned long bytes, unsigned int cache)
 {
+	struct vm_area_struct* vma;
+
 	if (bytes == 0)
 		return 0;
 	if (!access_ok(VERIFY_WRITE, (void __user *) addr, bytes))
 		return -EFAULT;
 
-	flush_icache_range(addr, addr + bytes);
+	if (cache & DCACHE)
+        {
+                vma = find_vma(current->mm, (unsigned long) addr);
+                if (vma) {
+                        flush_cache_range(vma,(unsigned long)addr,((unsigned long)addr) + bytes);
+                }
+                else {
+                        __flush_cache_all();
+                }
+        }
+        if (cache & ICACHE)
+        {
+                flush_icache_range(addr, addr + bytes);
+        }	
 
 	return 0;
 }
 
+void *kmap_atomic_page_address(struct page *page);
+
 void __flush_dcache_page(struct page *page)
 {
-	struct address_space *mapping = page_mapping(page);
 	unsigned long addr;
 
-	if (PageHighMem(page))
-		return;
-	if (mapping && !mapping_mapped(mapping)) {
-		SetPageDcacheDirty(page);
-		return;
+	if (PageHighMem(page)) {
+		addr = (unsigned long) kmap_atomic_page_address(page);
+		if (addr) {
+			flush_data_cache_page(addr);
+			return;
+		}
 	}
 
 	/*
@@ -84,19 +101,25 @@ void __flush_dcache_page(struct page *page)
 	 * get faulted into the tlb (and thus flushed) anyways.
 	 */
 	addr = (unsigned long) page_address(page);
-	flush_data_cache_page(addr);
+	if (addr)
+		flush_data_cache_page(addr);
 }
 
 EXPORT_SYMBOL(__flush_dcache_page);
 
 void __flush_anon_page(struct page *page, unsigned long vmaddr)
 {
-	if (pages_do_alias((unsigned long)page_address(page), vmaddr)) {
-		void *kaddr;
+	unsigned long addr = (unsigned long) page_address(page);
 
-		kaddr = kmap_coherent(page, vmaddr);
-		flush_data_cache_page((unsigned long)kaddr);
-		kunmap_coherent();
+	if (pages_do_alias(addr, vmaddr)) {
+		if (page_mapped(page) && !Page_dcache_dirty(page)) {
+			void *kaddr;
+
+			kaddr = kmap_coherent(page, vmaddr);
+			flush_data_cache_page((unsigned long)kaddr);
+			kunmap_coherent();
+		} else
+			flush_data_cache_page(addr);
 	}
 }
 
@@ -113,17 +136,19 @@ void __update_cache(struct vm_area_struct *vma, unsigned long address,
 	if (unlikely(!pfn_valid(pfn)))
 		return;
 	page = pfn_to_page(pfn);
-	if (page_mapping(page) && Page_dcache_dirty(page)) {
+	if (page_mapping(page))
+	{
 		addr = (unsigned long) page_address(page);
 		if (exec || pages_do_alias(addr, address & PAGE_MASK))
-			flush_data_cache_page(addr);
-		ClearPageDcacheDirty(page);
+			if (addr)
+				flush_data_cache_page(addr);
 	}
 }
 
-static char cache_panic[] __initdata = "Yeee, unsupported cache architecture.";
+static char cache_panic[] __cpuinitdata =
+	"Yeee, unsupported cache architecture.";
 
-void __init cpu_cache_init(void)
+void __cpuinit cpu_cache_init(void)
 {
 	if (cpu_has_3k_cache) {
 		extern void __weak r3k_cache_init(void);

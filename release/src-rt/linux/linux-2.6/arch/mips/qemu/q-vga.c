@@ -97,8 +97,10 @@ void __init qvga_init_ibm(void)
 		outb(palette[i].b, 0x3c9);
 	}
 
+#if 1
 	 for (i = 0; i < 0x20000; i += 2)
 		*(volatile unsigned short *) (0xb00a0000 + i) = 0xaaaa;
+#endif
 }
 
 #ifdef LOAD_VGA_FONT
@@ -178,4 +180,10 @@ void __init qvga_init(void)
 	si->orig_video_isVGA	= VIDEO_TYPE_VGAC;	/* Card type */
 	si->orig_video_points	= 16;
 
+#if 0
+	for (i = 0; i < 80; i += 2)
+		//*(volatile unsigned short *) (0xb00b8000 + i) = 0x0100 | 'A';
+		scr_writew(0x0100 | 'A', (volatile unsigned short *) (0xb00b8000 + i));
+	while (1);
+#endif
 }

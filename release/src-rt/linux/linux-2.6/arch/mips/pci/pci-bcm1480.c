@@ -76,7 +76,10 @@ static inline void WRITECFG32(u32 addr, u32 data)
 
 int pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
-	return dev->irq;
+	if (pin == 0)
+		return -1;
+
+	return K_BCM1480_INT_PCI_INTA - 1 + pin;
 }
 
 /* Do platform specific device initialization at pci_enable_device() time */
@@ -182,8 +185,8 @@ static struct resource bcm1480_mem_resource = {
 
 static struct resource bcm1480_io_resource = {
 	.name	= "BCM1480 PCI I/O",
-	.start	= 0x2c000000UL,
-	.end	= 0x2dffffffUL,
+	.start	= A_BCM1480_PHYS_PCI_IO_MATCH_BYTES,
+	.end	= A_BCM1480_PHYS_PCI_IO_MATCH_BYTES + 0x1ffffffUL,
 	.flags	= IORESOURCE_IO,
 };
 
@@ -191,6 +194,7 @@ struct pci_controller bcm1480_controller = {
 	.pci_ops	= &bcm1480_pci_ops,
 	.mem_resource	= &bcm1480_mem_resource,
 	.io_resource	= &bcm1480_io_resource,
+	.io_offset      = A_BCM1480_PHYS_PCI_IO_MATCH_BYTES,
 };
 
 
@@ -246,8 +250,10 @@ static int __init bcm1480_pcibios_init(void)
 	 * XXX ehs: Should this happen in PCI Device mode?
 	 */
 
-	set_io_port_base((unsigned long)
-		ioremap(A_BCM1480_PHYS_PCI_IO_MATCH_BYTES, 65536));
+	bcm1480_controller.io_map_base = (unsigned long)
+		ioremap(A_BCM1480_PHYS_PCI_IO_MATCH_BYTES, 65536);
+	bcm1480_controller.io_map_base -= bcm1480_controller.io_offset;
+	set_io_port_base(bcm1480_controller.io_map_base);
 	isa_slot_offset = (unsigned long)
 		ioremap(A_BCM1480_PHYS_PCI_MEM_MATCH_BYTES, 1024*1024);
 

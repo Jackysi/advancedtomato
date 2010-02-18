@@ -25,6 +25,10 @@ config MIPS_BRCM
 	select SYS_SUPPORTS_KGDB
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_HAS_CPU_MIPS32_R2
+	select ARCH_SELECT_MEMORY_MODEL
+	select ARCH_SPARSEMEM_ENABLE
+	select CPU_SUPPORTS_HIGHMEM
+	select SYS_SUPPORTS_HIGHMEM
 
 config MACH_ALCHEMY
 	bool "Alchemy processor based machines"
@@ -63,6 +67,7 @@ config MIPS_COBALT
 	select I8259
 	select IRQ_CPU
 	select PCI_GT64XXX_PCI0
+	select PCI
 	select SYS_HAS_CPU_NEVADA
 	select SYS_HAS_EARLY_PRINTK
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -429,7 +434,14 @@ config SGI_IP22
 	select SWAP_IO_SPACE
 	select SYS_HAS_CPU_R4X00
 	select SYS_HAS_CPU_R5000
-	select SYS_HAS_EARLY_PRINTK
+	#
+	# Disable EARLY_PRINTK for now since it leads to overwritten prom
+	# memory during early boot on some machines.
+	#
+	# See http://www.linux-mips.org/cgi-bin/mesg.cgi?a=linux-mips&i=20091119164009.GA15038%40deprecation.cyrius.com
+	# for a more details discussion
+	#
+	# select SYS_HAS_EARLY_PRINTK
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
@@ -443,7 +455,7 @@ config SGI_IP27
 	select ARC
 	select ARC64
 	select BOOT_ELF64
-	select DMA_IP27
+	select DMA_COHERENT
 	select SYS_HAS_EARLY_PRINTK
 	select HW_HAS_PCI
 	select NR_CPUS_DEFAULT_64
@@ -461,8 +473,7 @@ config SGI_IP27
 	  here.
 
 config SGI_IP32
-	bool "SGI IP32 (O2) (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
+	bool "SGI IP32 (O2)"
 	select ARC
 	select ARC32
 	select BOOT_ELF32
@@ -536,19 +547,6 @@ config SIBYTE_CARMEL
 	select SWAP_IO_SPACE
 	select SYS_HAS_CPU_SB1
 	select SYS_SUPPORTS_BIG_ENDIAN
-	select SYS_SUPPORTS_LITTLE_ENDIAN
-
-config SIBYTE_PTSWARM
-	bool "Sibyte BCM91250PT-PTSWARM"
-	depends on EXPERIMENTAL
-	select BOOT_ELF32
-	select DMA_COHERENT
-	select NR_CPUS_DEFAULT_2
-	select SIBYTE_SB1250
-	select SWAP_IO_SPACE
-	select SYS_HAS_CPU_SB1
-	select SYS_SUPPORTS_BIG_ENDIAN
-	select SYS_SUPPORTS_HIGHMEM
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 
 config SIBYTE_LITTLESUR
@@ -706,6 +704,11 @@ config RAM_SIZE
        int "Memory size (in megabytes)"
        depends on BCM947XX
 
+config SHRINKMEM
+	bool "Support for shrink memory"
+	depends on BCM947XX
+	select PM
+
 endmenu
 
 
@@ -758,9 +761,6 @@ config ARCH_MAY_HAVE_PC_FDC
 	bool
 
 config DMA_COHERENT
-	bool
-
-config DMA_IP27
 	bool
 
 config DMA_IP32
@@ -937,6 +937,7 @@ config BOOT_ELF32
 config MIPS_L1_CACHE_SHIFT
 	int
 	default "4" if MACH_DECSTATION || SNI_RM
+	default "6" if MIPS_CPU_SCACHE
 	default "7" if SGI_IP27
 	default "5"
 
@@ -1387,7 +1388,6 @@ config MIPS_MT_SMP
 	depends on SYS_SUPPORTS_MULTITHREADING
 	select CPU_MIPSR2_IRQ_VI
 	select CPU_MIPSR2_IRQ_EI
-	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	select NR_CPUS_DEFAULT_2
 	select SMP
@@ -1403,7 +1403,6 @@ config MIPS_MT_SMTC
 	depends on SYS_SUPPORTS_MULTITHREADING
 	select CPU_MIPSR2_IRQ_VI
 	select CPU_MIPSR2_IRQ_EI
-	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	select NR_CPUS_DEFAULT_8
 	select SMP
@@ -1417,7 +1416,6 @@ config MIPS_VPE_LOADER
 	depends on SYS_SUPPORTS_MULTITHREADING
 	select CPU_MIPSR2_IRQ_VI
 	select CPU_MIPSR2_IRQ_EI
-	select CPU_MIPSR2_SRS
 	select MIPS_MT
 	help
 	  Includes a loader for loading an elf relocatable object
@@ -1449,6 +1447,19 @@ config MIPS_MT_SMTC_INSTANT_REPLAY
 	  processing, which adds runtime overhead (hence the option to turn
 	  it off), but ensures that IPIs are handled promptly even under
 	  heavy I/O interrupt load.
+
+config MIPS_MT_SMTC_IM_BACKSTOP
+	bool "Use per-TC register bits as backstop for inhibited IM bits"
+	depends on MIPS_MT_SMTC
+	default y
+	help
+	  To support multiple TC microthreads acting as "CPUs" within
+	  a VPE, VPE-wide interrupt mask bits must be specially manipulated
+	  during interrupt handling. To support legacy drivers and interrupt
+	  controller management code, SMTC has a "backstop" to track and
+	  if necessary restore the interrupt mask. This has some performance
+	  impact on interrupt service overhead. Disable it only if you know
+	  what you are doing.
 
 config MIPS_VPE_LOADER_TOM
 	bool "Load VPE program into memory hidden from linux"
@@ -1525,12 +1536,6 @@ config CPU_MIPSR2_IRQ_VI
 config CPU_MIPSR2_IRQ_EI
 	bool
 
-#
-# Shadow registers are an R2 feature
-#
-config CPU_MIPSR2_SRS
-	bool
-
 config CPU_HAS_SYNC
 	bool
 	depends on !CPU_R3000
@@ -1589,9 +1594,16 @@ config ARCH_DISCONTIGMEM_ENABLE
 	  or have huge holes in the physical address space for other reasons.
 	  See <file:Documentation/vm/numa> for more.
 
+config ARCH_POPULATES_NODE_MAP
+	bool
+	default y if SPARSEMEM
+
+config ARCH_SELECT_MEMORY_MODEL
+	def_bool y
+
 config ARCH_SPARSEMEM_ENABLE
 	bool
-	select SPARSEMEM_STATIC
+#	select SPARSEMEM_STATIC
 
 config NUMA
 	bool "NUMA Support"
@@ -1694,7 +1706,7 @@ choice
 	 Allows the configuration of the timer frequency.
 
 	config HZ_48
-		bool "48 HZ" if SYS_SUPPORTS_48HZ
+		bool "48 HZ" if SYS_SUPPORTS_48HZ || SYS_SUPPORTS_ARBIT_HZ
 
 	config HZ_100
 		bool "100 HZ" if SYS_SUPPORTS_100HZ || SYS_SUPPORTS_ARBIT_HZ
@@ -1801,10 +1813,6 @@ config SECCOMP
 	  If unsure, say Y. Only embedded should say N here.
 
 endmenu
-
-config RWSEM_GENERIC_SPINLOCK
-	bool
-	default y
 
 config LOCKDEP_SUPPORT
 	bool

@@ -115,7 +115,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	                            cpu_data[n].cputype : CPU_UNKNOWN],
 	                           (version >> 4) & 0x0f, version & 0x0f,
 	                           (fp_vers >> 4) & 0x0f, fp_vers & 0x0f);
-	seq_printf(m, "BogoMIPS\t\t: %lu.%02lu\n",
+	seq_printf(m, "BogoMIPS\t\t: %u.%02u\n",
 	              cpu_data[n].udelay_val / (500000/HZ),
 	              (cpu_data[n].udelay_val / (5000/HZ)) % 100);
 	seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
@@ -134,6 +134,8 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		      cpu_has_dsp ? " dsp" : "",
 		      cpu_has_mipsmt ? " mt" : ""
 		);
+	seq_printf(m, "shadow register sets\t: %d\n",
+		       cpu_data[n].srsets);
 
 	sprintf(fmt, "VCE%%c exceptions\t\t: %s\n",
 	        cpu_has_vce ? "%u" : "not available");

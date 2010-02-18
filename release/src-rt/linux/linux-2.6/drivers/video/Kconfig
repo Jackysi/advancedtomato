@@ -1459,6 +1459,17 @@ config FB_VOODOO1
 	  Please read the <file:Documentation/fb/README-sstfb.txt> for supported
 	  options and other important info  support.
 
+config FB_SMIVGX
+	tristate "Silicon Motion VoyagerGX support"
+	depends on FB && PCI && (MIPS || EXPERIMENTAL)
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	---help---
+	  This drivers supports SMI VoyagerGX 501 based PCI boards
+	  The default settings drive both a CRT and LCD.  The CRT
+	  can be turned off by passing in the no_crt option
+
 config FB_VT8623
 	tristate "VIA VT8623 support"
 	depends on FB && PCI
@@ -1554,7 +1565,25 @@ config FB_PM3
 
 config FB_AU1100
 	bool "Au1100 LCD Driver"
-	depends on (FB = y) && EXPERIMENTAL && PCI && MIPS && MIPS_PB1100=y
+	depends on FB && MIPS && SOC_AU1100
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This is the framebuffer driver for the AMD Au1100 SOC.  It can drive
+	  various panels and CRTs by passing in kernel cmd line option
+	  au1100fb:panel=<name>.
+
+config FB_AU1200
+	bool "Au1200 LCD Driver"
+	depends on FB && MIPS && SOC_AU1200
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This is the framebuffer driver for the AMD Au1200 SOC.  It can drive
+	  various panels and CRTs by passing in kernel cmd line option
+	  au1200fb:panel=<name>.
 
 config FB_AU1200
 	bool "Au1200 LCD Driver"
@@ -1607,8 +1636,8 @@ config FB_PMAGB_B
  	select FB_CFB_IMAGEBLIT
 	help
 	  Support for the PMAGB-B TURBOchannel framebuffer card used mainly
-	  in the MIPS-based DECstation series. The card is currently only
-	  supported in 1280x1024x8 mode.
+	  in the MIPS-based DECstation series. The card is currently only 
+	  supported in 1280x1024x8 mode.  
 
 config FB_MAXINE
 	bool "Maxine (Personal DECstation) onboard framebuffer support"

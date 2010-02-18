@@ -99,7 +99,9 @@ static int apply_r_mips_32_rela(struct module *me, u32 *location, Elf_Addr v)
 static int apply_r_mips_26_rel(struct module *me, u32 *location, Elf_Addr v)
 {
 	if (v % 4) {
-		printk(KERN_ERR "module %s: dangerous relocation\n", me->name);
+		printk(KERN_ERR
+		       "module %s: dangerous R_MIPS_26 REL relocation\n",
+		       me->name);
 		return -ENOEXEC;
 	}
 
@@ -119,7 +121,9 @@ static int apply_r_mips_26_rel(struct module *me, u32 *location, Elf_Addr v)
 static int apply_r_mips_26_rela(struct module *me, u32 *location, Elf_Addr v)
 {
 	if (v % 4) {
-		printk(KERN_ERR "module %s: dangerous relocation\n", me->name);
+		printk(KERN_ERR
+		       "module %s: dangerous R_MIPS_26 RELArelocation\n",
+		       me->name);
 		return -ENOEXEC;
 	}
 
@@ -223,7 +227,8 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 	return 0;
 
 out_danger:
-	printk(KERN_ERR "module %s: dangerous " "relocation\n", me->name);
+	printk(KERN_ERR
+	       "module %s: dangerous R_MIPS_LO16 REL relocation\n", me->name);
 
 	return -ENOEXEC;
 }

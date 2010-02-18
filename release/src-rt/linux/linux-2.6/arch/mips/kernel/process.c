@@ -72,9 +72,8 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	unsigned long status;
 
 	/* New thread loses kernel privileges. */
-	status = regs->cp0_status & ~(ST0_CU0|ST0_CU1|KU_MASK);
+	status = regs->cp0_status & ~(ST0_CU0|ST0_CU1|ST0_FR|KU_MASK);
 #ifdef CONFIG_64BIT
-	status &= ~ST0_FR;
 	status |= (current->thread.mflags & MF_32BIT_REGS) ? 0 : ST0_FR;
 #endif
 	status |= KU_USER;
@@ -101,7 +100,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 {
 	struct thread_info *ti = task_thread_info(p);
 	struct pt_regs *childregs;
-	long childksp;
+	unsigned long childksp;
 	p->set_child_tid = p->clear_child_tid = NULL;
 
 	childksp = (unsigned long)task_stack_page(p) + THREAD_SIZE - 32;
@@ -118,6 +117,8 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 
 	/* set up new TSS. */
 	childregs = (struct pt_regs *) childksp - 1;
+	/*  Put the stack after the struct pt_regs.  */
+	childksp = (unsigned long) childregs;
 	*childregs = *regs;
 	childregs->regs[7] = 0;	/* Clear error flag */
 

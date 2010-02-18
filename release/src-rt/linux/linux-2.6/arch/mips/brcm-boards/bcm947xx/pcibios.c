@@ -256,6 +256,8 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	else if (si_coreid(sih) == USB20H_CORE_ID) {
 		if (!si_iscoreup(sih)) {
 			si_core_reset(sih, 0, 0);
+			// USB hungup issue from broadcom 2009.6.24
+			mdelay(10);
 			writel(0x7ff, regs + 0x200);
 			udelay(1);
 		}
@@ -279,37 +281,37 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 			//printk("USB20H shim cr: 0x%x\n", tmp);
 		}
 
-                                /* War for 4716 failures. */
-                if (sih->chip == BCM4716_CHIP_ID) {
-                        uint32 tmp;
-                        uint32 delay = 500;
-                        uint32 val = 0;
-                        uint32 clk_freq;
+		/* War for 4716 failures. */
+		if (sih->chip == BCM4716_CHIP_ID) {
+			uint32 tmp;
+			uint32 delay = 500;
+			uint32 val = 0;
+			uint32 clk_freq;
 
-                        clk_freq = si_cpu_clock(sih);
-                        if(clk_freq == 480000000)
-                                val = 0x1846b;
-                        else if (clk_freq == 453000000)
-//                        else if (clk_freq == 452000000)
-                                val = 0x1046b;
+			clk_freq = si_cpu_clock(sih);
+			if(clk_freq == 480000000)
+				val = 0x1846b;
+			else if (clk_freq == 453000000)
+//			else if (clk_freq == 452000000)
+				val = 0x1046b;
 
-                        /* Change Shim mdio control reg to fix host not acking at high frequencies
-                         */
-                        if (val) {
-                                writel(val, regs + 0x524);
-                                udelay(delay);
-                                writel(0x4ab, regs + 0x524);
-                                udelay(delay);
-                                tmp = readl(regs + 0x528);
-                                udelay(delay);
-                                writel(val, regs + 0x524);
-                                udelay(delay);
-                                writel(0x4ab, regs + 0x524);
-                                udelay(delay);
-                                tmp = readl(regs + 0x528);
-                                //printk("USB20H mdio control register : 0x%x\n", tmp);
-                        }
-                }
+			/* Change Shim mdio control reg to fix host not acking at high frequencies
+			 */
+			if (val) {
+				writel(val, regs + 0x524);
+				udelay(delay);
+				writel(0x4ab, regs + 0x524);
+				udelay(delay);
+				tmp = readl(regs + 0x528);
+				udelay(delay);
+				writel(val, regs + 0x524);
+				udelay(delay);
+				writel(0x4ab, regs + 0x524);
+				udelay(delay);
+				tmp = readl(regs + 0x528);
+				//printk("USB20H mdio control register : 0x%x\n", tmp);
+			}
+		}
 
 	} else
 		si_core_reset(sih, 0, 0);

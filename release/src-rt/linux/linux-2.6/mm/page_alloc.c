@@ -2608,7 +2608,11 @@ static void __meminit free_area_init_core(struct pglist_data *pgdat,
 		 * is used by this zone for memmap. This affects the watermark
 		 * and per-cpu initialisations
 		 */
+#ifdef CONFIG_SPARSEMEM
+		memmap_pages = 0;
+#else
 		memmap_pages = (size * sizeof(struct page)) >> PAGE_SHIFT;
+#endif
 		if (realsize >= memmap_pages) {
 			realsize -= memmap_pages;
 			printk(KERN_DEBUG
@@ -2759,6 +2763,8 @@ void __init add_active_range(unsigned int nid, unsigned long start_pfn,
 			  "%d entries of %d used\n",
 			  nid, start_pfn, end_pfn,
 			  nr_nodemap_entries, MAX_ACTIVE_REGIONS);
+
+	mminit_validate_memmodel_limits(&start_pfn, &end_pfn);
 
 	/* Merge with existing active regions if possible */
 	for (i = 0; i < nr_nodemap_entries; i++) {
@@ -2945,7 +2951,7 @@ void __init free_area_init_nodes(unsigned long *max_zone_pfn)
 	}
 
 	/* Print out the zone ranges */
-	printk("Zone PFN ranges:\n");
+	printk(KERN_INFO "Zone PFN ranges:\n");
 	for (i = 0; i < MAX_NR_ZONES; i++)
 		printk("  %-8s %8lu -> %8lu\n",
 				zone_names[i],
@@ -2953,7 +2959,7 @@ void __init free_area_init_nodes(unsigned long *max_zone_pfn)
 				arch_zone_highest_possible_pfn[i]);
 
 	/* Print out the early_node_map[] */
-	printk("early_node_map[%d] active PFN ranges\n", nr_nodemap_entries);
+	printk(KERN_INFO "early_node_map[%d] active PFN ranges\n", nr_nodemap_entries);
 	for (i = 0; i < nr_nodemap_entries; i++)
 		printk("  %3d: %8lu -> %8lu\n", early_node_map[i].nid,
 						early_node_map[i].start_pfn,

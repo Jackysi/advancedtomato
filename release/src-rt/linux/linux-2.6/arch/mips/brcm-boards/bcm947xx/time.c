@@ -32,7 +32,7 @@
 #include <bcmdevs.h>
 
 /* Global SB handle */
-extern void *bcm947xx_sih;
+extern si_t *bcm947xx_sih;
 extern spinlock_t bcm947xx_sih_lock;
 
 /* Convenience */
@@ -49,6 +49,7 @@ void __init
 bcm947xx_time_init(void)
 {
 	unsigned int hz;
+	char cn[8];
 
 	/*
 	 * Use deterministic values for initial counter interrupt
@@ -60,11 +61,12 @@ bcm947xx_time_init(void)
 	if (!(hz = si_cpu_clock(sih)))
 		hz = 100000000;
 
-	printk("CPU: BCM%04x rev %d at %d MHz\n", ((si_t *)sih)->chip, ((si_t *)sih)->chiprev,
+	bcm_chipname(sih->chip, cn, 8);
+	printk("CPU: BCM%s rev %d pkg %d at %d MHz\n", cn, sih->chiprev, sih->chippkg,
 	       (hz + 500000) / 1000000);
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */
-	if (((si_t *)sih)->chip == BCM5354_CHIP_ID &&
+	if (sih->chip == BCM5354_CHIP_ID &&
 		strncmp(nvram_safe_get("hardware_version"), "WL520G", 6) == 0)
 		mips_hpt_frequency = 100000000; // Fix WL520GUGC clock
 	else

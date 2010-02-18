@@ -474,6 +474,11 @@ static void fuse_copy_finish(struct fuse_copy_state *cs)
 	}
 }
 
+#ifdef DCACHE_BUG
+extern void (*fuse_flush_cache_all)(void);
+extern void (*fuse_flush_cache_page)(struct vm_area_struct *vma, unsigned long page, unsigned long pfn);
+#endif
+
 /*
  * Get another pagefull of userspace buffer, and map it to kernel
  * address space, and lock request
@@ -482,6 +487,9 @@ static int fuse_copy_fill(struct fuse_copy_state *cs)
 {
 	unsigned long offset;
 	int err;
+#ifdef DCACHE_BUG
+	struct vm_area_struct *vma;
+#endif
 
 	unlock_request(cs->fc, cs->req);
 	fuse_copy_finish(cs);
@@ -493,14 +501,22 @@ static int fuse_copy_fill(struct fuse_copy_state *cs)
 		cs->nr_segs --;
 	}
 	down_read(&current->mm->mmap_sem);
+#ifndef DCACHE_BUG
 	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
 			     &cs->pg, NULL);
+#else
+	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
+			     &cs->pg, &vma);
+#endif
 	up_read(&current->mm->mmap_sem);
 	if (err < 0)
 		return err;
 	BUG_ON(err != 1);
 	offset = cs->addr % PAGE_SIZE;
 	cs->mapaddr = kmap_atomic(cs->pg, KM_USER0);
+#ifdef DCACHE_BUG
+	fuse_flush_cache_page(vma, cs->addr, page_to_pfn(cs->pg));
+#endif
 	cs->buf = cs->mapaddr + offset;
 	cs->len = min(PAGE_SIZE - offset, cs->seglen);
 	cs->seglen -= cs->len;
@@ -514,6 +530,11 @@ static int fuse_copy_do(struct fuse_copy_state *cs, void **val, unsigned *size)
 {
 	unsigned ncpy = min(*size, cs->len);
 	if (val) {
+#ifdef DCACHE_BUG
+		// patch from mailing list, it is very important,
+		// otherwise can't mount, or ls mount point can hang
+		fuse_flush_cache_all();
+#endif
 		if (cs->write)
 			memcpy(cs->buf, *val, ncpy);
 		else

@@ -164,7 +164,7 @@ static inline void check_mult_sh(void)
 	      );
 }
 
-static volatile int daddi_ov __initdata = 0;
+static volatile int daddi_ov __cpuinitdata = 0;
 
 asmlinkage void __init do_daddi_ov(struct pt_regs *regs)
 {

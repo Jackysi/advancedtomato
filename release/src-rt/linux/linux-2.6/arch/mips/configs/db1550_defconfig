@@ -55,7 +55,6 @@ CONFIG_MIPS_DB1550=y
 # CONFIG_SIBYTE_SENTOSA is not set
 # CONFIG_SIBYTE_RHONE is not set
 # CONFIG_SIBYTE_CARMEL is not set
-# CONFIG_SIBYTE_PTSWARM is not set
 # CONFIG_SIBYTE_LITTLESUR is not set
 # CONFIG_SIBYTE_CRHINE is not set
 # CONFIG_SIBYTE_CRHONE is not set
@@ -863,7 +862,6 @@ CONFIG_SERIO_RAW=m
 # CONFIG_VT is not set
 # CONFIG_SERIAL_NONSTANDARD is not set
 # CONFIG_AU1X00_GPIO is not set
-# CONFIG_TS_AU1X00_ADS7846 is not set
 
 #
 # Serial drivers

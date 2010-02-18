@@ -147,8 +147,8 @@ struct skb_shared_info {
 
 /* We divide dataref into two halves.  The higher 16 bits hold references
  * to the payload part of skb->data.  The lower 16 bits hold references to
- * the entire skb->data.  It is up to the users of the skb to agree on
- * where the payload starts.
+ * the entire skb->data.  A clone of a headerless skb holds the length of
+ * the header in skb->hdr_len.
  *
  * All users must obey the rule that the skb->data reference count must be
  * greater than or equal to the payload reference count.
@@ -206,6 +206,7 @@ typedef unsigned char *sk_buff_data_t;
  *	@len: Length of actual data
  *	@data_len: Data length
  *	@mac_len: Length of link layer header
+ *	@hdr_len: writable header length of cloned skb
  *	@csum: Checksum (must include start/offset pair)
  *	@csum_start: Offset from skb->head where checksumming should start
  *	@csum_offset: Offset from csum_start where checksum should be stored
@@ -260,8 +261,9 @@ struct sk_buff {
 	char			cb[48];
 
 	unsigned int		len,
-				data_len,
-				mac_len;
+				data_len;
+	__u16			mac_len,
+				hdr_len;
 	union {
 		__wsum		csum;
 		struct {
@@ -1173,9 +1175,16 @@ static inline int skb_network_offset(const struct sk_buff *skb)
  *
  * Various parts of the networking layer expect at least 16 bytes of
  * headroom, you should not reduce this.
+ *
+ * This has been changed to 64 to acommodate for routing between ethernet
+ * and wireless, but only for new allocations
  */
 #ifndef NET_SKB_PAD
 #define NET_SKB_PAD	16
+#endif
+
+#ifndef NET_SKB_PAD_ALLOC
+#define NET_SKB_PAD_ALLOC	64
 #endif
 
 extern int ___pskb_trim(struct sk_buff *skb, unsigned int len);
@@ -1281,9 +1290,9 @@ static inline void __skb_queue_purge(struct sk_buff_head *list)
 static inline struct sk_buff *__dev_alloc_skb(unsigned int length,
 					      gfp_t gfp_mask)
 {
-	struct sk_buff *skb = alloc_skb(length + NET_SKB_PAD, gfp_mask);
+	struct sk_buff *skb = alloc_skb(length + NET_SKB_PAD_ALLOC, gfp_mask);
 	if (likely(skb))
-		skb_reserve(skb, NET_SKB_PAD);
+		skb_reserve(skb, NET_SKB_PAD_ALLOC);
 	return skb;
 }
 
@@ -1327,6 +1336,20 @@ static inline struct sk_buff *netdev_alloc_skb(struct net_device *dev,
 }
 
 /**
+ *	skb_clone_writable - is the header of a clone writable
+ *	@skb: buffer to check
+ *	@len: length up to which to write
+ *
+ *	Returns true if modifying the header part of the cloned buffer
+ *	does not requires the data to be copied.
+ */
+static inline int skb_clone_writable(struct sk_buff *skb, int len)
+{
+	return !skb_header_cloned(skb) &&
+	       skb_headroom(skb) + len <= skb->hdr_len;
+}
+
+/**
  *	skb_cow - copy header of skb when it is required
  *	@skb: buffer to cow
  *	@headroom: needed headroom
@@ -1347,8 +1370,8 @@ static inline int skb_cow(struct sk_buff *skb, unsigned int headroom)
 		delta = 0;
 
 	if (delta || skb_cloned(skb))
-		return pskb_expand_head(skb, (delta + (NET_SKB_PAD-1)) &
-				~(NET_SKB_PAD-1), 0, GFP_ATOMIC);
+		return pskb_expand_head(skb, (delta + (NET_SKB_PAD_ALLOC-1)) &
+				~(NET_SKB_PAD_ALLOC-1), 0, GFP_ATOMIC);
 	return 0;
 }
 

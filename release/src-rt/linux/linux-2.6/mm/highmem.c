@@ -37,6 +37,7 @@
  *    since the last TLB flush - so we can't use it.
  *  n means that there are (n-1) current users of it.
  */
+
 #ifdef CONFIG_HIGHMEM
 
 unsigned long totalhigh_pages __read_mostly;
@@ -122,8 +123,20 @@ start:
 			flush_all_zero_pkmaps();
 			count = LAST_PKMAP;
 		}
-		if (!pkmap_count[last_pkmap_nr])
-			break;	/* Found a usable entry */
+		if (!pkmap_count[last_pkmap_nr]) {
+			if (cpu_has_dc_aliases) {
+				unsigned int pfn, map_pfn;
+
+				/* check page color */
+				pfn = page_to_pfn(page);
+				map_pfn = PKMAP_ADDR(last_pkmap_nr) >> PAGE_SHIFT;
+
+				/* Avoide possibility of cache Aliasing */
+				if (!pages_do_alias((map_pfn << PAGE_SHIFT), (pfn << PAGE_SHIFT)))
+					break;      /* Found a usable entry */
+			} else
+				break;	/* Found a usable entry */
+		}
 		if (--count)
 			continue;
 

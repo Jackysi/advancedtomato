@@ -24,8 +24,13 @@
  * flags straight, to supress compiler warnings of unused lock
  * variables, and to add the proper checker annotations:
  */
+#ifdef CONFIG_PREEMPT
 #define __LOCK(lock) \
   do { preempt_disable(); __acquire(lock); (void)(lock); } while (0)
+#else /* CONFIG_PREEMPT */
+#define __LOCK(lock) \
+  (void)(lock)
+#endif
 
 #define __LOCK_BH(lock) \
   do { local_bh_disable(); __LOCK(lock); } while (0)
@@ -36,8 +41,13 @@
 #define __LOCK_IRQSAVE(lock, flags) \
   do { local_irq_save(flags); __LOCK(lock); } while (0)
 
+#ifdef  CONFIG_PREEMPT
 #define __UNLOCK(lock) \
   do { preempt_enable(); __release(lock); (void)(lock); } while (0)
+#else
+#define __UNLOCK(lock) \
+	do { } while(0)
+#endif
 
 #define __UNLOCK_BH(lock) \
   do { preempt_enable_no_resched(); local_bh_enable(); __release(lock); (void)(lock); } while (0)
