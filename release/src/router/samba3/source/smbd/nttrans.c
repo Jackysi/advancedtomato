@@ -2334,7 +2334,7 @@ static int call_nt_transact_ioctl(connection_struct *conn, char *inbuf, char *ou
 	default:
 		if (!logged_message) {
 			logged_message = True; /* Only print this once... */
-			DEBUG(0,("call_nt_transact_ioctl(0x%x): Currently not implemented.\n",
+			DEBUG(1,("call_nt_transact_ioctl(0x%x): Currently not implemented.\n",
 				 function));
 		}
 	}
