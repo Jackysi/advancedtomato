@@ -27,6 +27,7 @@ static char const RCSID[] =
 #include <dlfcn.h>
 #include <string.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include "l2tp.h"
 
@@ -88,6 +89,8 @@ l2tp_set_errmsg(char const *fmt, ...)
     va_end(ap);
     errmsg[MAX_ERRMSG_LEN-1] = 0;
     fprintf(stderr, "Error: %s\n", errmsg);
+    
+    vsyslog(LOG_ERR, fmt, ap);
 }
 
 /**********************************************************************

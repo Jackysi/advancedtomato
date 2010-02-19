@@ -316,7 +316,7 @@ l2tp_dgram_take_from_wire(struct sockaddr_in *from)
     unsigned char *payload;
     unsigned char *tidptr;
     uint16_t tid, sid;
-    uint16_t cache_tid, cache_sid;
+    uint16_t cache_tid = 0, cache_sid = 0;
     l2tp_tunnel *tunnel;
     l2tp_session *ses = NULL;
     int mandatory, hidden, err;
@@ -535,7 +535,8 @@ l2tp_dgram_send_to_wire(l2tp_dgram const *dgram,
     unsigned char *len_ptr = NULL;
 
     DBG(l2tp_db(DBG_XMIT_RCV,
-	   "dgram_send_to_wire() -> %s\n",
+	   "dgram_send_to_wire(%s:%d) -> %s\n", 
+	   inet_ntoa(to->sin_addr), ntohs(to->sin_port),
 	   l2tp_debug_describe_dgram(dgram)));
     buf[0] = dgram->bits;
     buf[1] = dgram->version;

@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/route.h>
 
 #include "hash.h"
 #include "event.h"
@@ -132,6 +133,7 @@ typedef struct l2tp_tunnel_t {
     unsigned char response[MD5LEN]; /* Our response to challenge */
     unsigned char expected_response[MD5LEN]; /* Expected resp. to challenge */
     int state;			/* Tunnel state */
+    struct rtentry rt;		/* Route added to destination */
 } l2tp_tunnel;
 
 /* A session within a tunnel */
