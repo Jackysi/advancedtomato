@@ -383,10 +383,6 @@ struct channel {
 	void (*cleanup) __P((void));
 	/* close the device, called in children after fork */
 	void (*close) __P((void));
-	/* wuzh add 2009-3-5 for CTBS 13670 */
-	/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-	/* check if received PADT msg or not */
-	int (*check_padt_msg) __P((void));
 };
 
 extern struct channel *the_channel;

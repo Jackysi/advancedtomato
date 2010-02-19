@@ -200,28 +200,6 @@ static int verify_tag(struct session* ses,
 }
 
 
-/* wuzh add 2009-3-5 for CTBS 13670 */
-/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-int set_disc_sock_nonblock(void)
-{
-    int oldflag;
-        
-    oldflag = fcntl(disc_sock, F_GETFL, 0);
-    if (oldflag == -1) {
-        cprintf("Get disc_sock flag error!\n");
-        return (0);
-    }
-        
-    oldflag |= O_NONBLOCK;
-    if (fcntl(disc_sock, F_SETFL, oldflag) == -1) {
-        cprintf("Set disc_sock nonblock error!\n");
-	return (0);
-    }
-
-    return (1);
-}
-
-
 /*************************************************************************
  *
  * Verify the existence of an ethernet device.
@@ -237,12 +215,6 @@ int get_sockaddr_ll(const char *devnam,struct sockaddr_ll* sll){
 	disc_sock = socket(PF_PACKET, SOCK_DGRAM, 0);
 	if( disc_sock < 0 ){
 	    return -1;
-	}
-
-	/* wuzh add 2009-3-5 for CTBS 13670 */
-	/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-	if (!set_disc_sock_nonblock()) {
-		return -1;
 	}
     }
 
@@ -668,7 +640,6 @@ again:
 #else			
 				redial_immediately = 1;
 				return (0);
-				// !!TB - verify, and possibly return the original code below:
 				//	--ses->retransmits;
 				//	continue;
 #endif
@@ -706,36 +677,6 @@ again:
 
 	LOGX_DEBUG("%s: return default", __FUNCTION__);
     return (-1);
-}
-
-
-/* wuzh add 2009-3-5 for CTBS 13670 */
-/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-int check_pppoe_padt_msg(struct session *ses)
-{
-    int ret;
-    struct pppoe_packet rcv_packet;
-    int received_padt = 0;
-
-    //cprintf("Check PPPoE Discovery Message....!\n");
-				
-    ret = recv_disc(ses, &rcv_packet);
-    if( ret < 0 ) {
-    	//cprintf("Recv PPPoE msg error....error=%d!\n", errno);
-	return received_padt;
-    }
-
-    switch (rcv_packet.hdr->code) {
-	case PADT_CODE:
-             cprintf("Received PADT message and notify PPP to teardown connection!\n");
-	     received_padt = 1;
-	     break;
-	default:
-    	     //cprintf("Check PPPoE Discovery Message....!\n");
-	     break;
-    }
-
-    return received_padt;
 }
 
 

@@ -257,10 +257,6 @@ extern int relay_init_ses(struct session *ses, char* from, char* to);
 extern int srv_init_ses(struct session *ses, char* from);
 extern int session_connect(struct session *ses);
 extern int session_disconnect(struct session*ses);
-/* wuzh add 2009-3-5 for CTBS 13670 */
-/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-extern int check_pppoe_padt_msg(struct session *ses);
-extern int set_disc_sock_nonblock(void);
 
 extern int verify_packet( struct session *ses, struct pppoe_packet *p);
 
@@ -273,20 +269,6 @@ extern int add_client(char *addr);
 
 /* Make connections (including spawning pppd) as server/client */
 extern int ppp_connect(struct session *ses);
-
-/* wuzh add 2009-3-5 for CTBS 13670 */
-/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-#if 1
-#define cprintf(fmt, args...) do {} while (0)
-#else
-#define cprintf(fmt, args...) do { \
-        FILE *fp = fopen("/dev/console", "w"); \
-        if (fp) { \
-                fprintf(fp, fmt, ## args); \
-                fclose(fp); \
-        } \
-} while (0)
-#endif
 
 #include <pppd.h>
 

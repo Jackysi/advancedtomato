@@ -97,13 +97,6 @@ static void disconnect_pppoe_ses(void)
 	    sizeof(struct sockaddr_pppox));
 }
 
-/* wuzh add 2009-3-5 for CTBS 13670 */
-/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-static int recv_padt_msg(void)
-{
-    return check_pppoe_padt_msg(ses);
-}
-
 static void init_device_pppoe(void)
 {
     struct filter *filt;
@@ -294,9 +287,6 @@ struct channel pppoe_channel = {
     send_config: &send_config_pppoe,
     recv_config: &recv_config_pppoe,
     close: NULL,
-    cleanup: NULL,
-    /* wuzh add 2009-3-5 for CTBS 13670 */
-    /* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-    check_padt_msg: &recv_padt_msg
+    cleanup: NULL
 };
 
