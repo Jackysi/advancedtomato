@@ -87,7 +87,7 @@
 #endif
 
 #ifndef lint
-static const char rcsid[] = "$Id: chat.c,v 1.1 2003/07/10 07:43:04 honor Exp $";
+static const char rcsid[] = "$Id: chat.c,v 1.30 2004/01/17 05:47:55 carlsonj Exp $";
 #endif
 
 #include <stdio.h>
@@ -203,7 +203,7 @@ int n_aborts = 0, abort_next = 0, timeout_next = 0, echo_next = 0;
 int clear_abort_next = 0;
 
 char *report_string[MAX_REPORTS] ;
-char  report_buffer[50] ;
+char  report_buffer[256] ;
 int n_reports = 0, report_next = 0, report_gathering = 0 ; 
 int clear_report_next = 0;
 
@@ -211,8 +211,9 @@ int say_next = 0, hup_next = 0;
 
 void *dup_mem __P((void *b, size_t c));
 void *copy_of __P((char *s));
+char *grow __P((char *s, char **p, size_t len));
 void usage __P((void));
-void logf __P((const char *fmt, ...));
+void msgf __P((const char *fmt, ...));
 void fatal __P((int code, const char *fmt, ...));
 SIGTYPE sigalrm __P((int signo));
 SIGTYPE sigint __P((int signo));
@@ -258,6 +259,21 @@ void *copy_of (s)
 char *s;
 {
     return dup_mem (s, strlen (s) + 1);
+}
+
+/* grow a char buffer and keep a pointer offset */
+char *grow(s, p, len)
+char *s;
+char **p;
+size_t len;
+{
+    size_t l = *p - s;		/* save p as distance into s */
+
+    s = realloc(s, len);
+    if (!s)
+	fatal(2, "memory error!");
+    *p = s + l;			/* restore p */
+    return s;
 }
 
 /*
@@ -479,7 +495,7 @@ char line[1024];
 /*
  * Send a message to syslog and/or stderr.
  */
-void logf __V((const char *fmt, ...))
+void msgf __V((const char *fmt, ...))
 {
     va_list args;
 
@@ -542,7 +558,7 @@ int signo;
 	fatal(2, "Can't set file mode flags on stdin: %m");
 
     if (verbose)
-	logf("alarm");
+	msgf("alarm");
 }
 
 void unalarm()
@@ -669,67 +685,78 @@ char *clean(s, sending)
 register char *s;
 int sending;  /* set to 1 when sending (putting) this string. */
 {
-    char temp[STR_LEN], env_str[STR_LEN], cur_chr;
-    register char *s1, *phchar;
+    char cur_chr;
+    char *s1, *p, *phchar;
     int add_return = sending;
+    size_t len = strlen(s) + 3;		/* see len comments below */
+
 #define isoctal(chr)	(((chr) >= '0') && ((chr) <= '7'))
 #define isalnumx(chr)	((((chr) >= '0') && ((chr) <= '9')) \
 			 || (((chr) >= 'a') && ((chr) <= 'z')) \
 			 || (((chr) >= 'A') && ((chr) <= 'Z')) \
 			 || (chr) == '_')
 
-    s1 = temp;
+    p = s1 = malloc(len);
+    if (!p)
+	fatal(2, "memory error!");
     while (*s) {
 	cur_chr = *s++;
 	if (cur_chr == '^') {
 	    cur_chr = *s++;
 	    if (cur_chr == '\0') {
-		*s1++ = '^';
+		*p++ = '^';
 		break;
 	    }
 	    cur_chr &= 0x1F;
 	    if (cur_chr != 0) {
-		*s1++ = cur_chr;
+		*p++ = cur_chr;
 	    }
 	    continue;
 	}
-	
+
 	if (use_env && cur_chr == '$') {		/* ARI */
-	    phchar = env_str;
+	    char c;
+
+	    phchar = s;
 	    while (isalnumx(*s))
-		*phchar++ = *s++;
-	    *phchar = '\0';
-	    phchar = getenv(env_str);
-	    if (phchar)
+		s++;
+	    c = *s;		/* save */
+	    *s = '\0';
+	    phchar = getenv(phchar);
+	    *s = c;		/* restore */
+	    if (phchar) {
+		len += strlen(phchar);
+		s1 = grow(s1, &p, len);
 		while (*phchar)
-		    *s1++ = *phchar++;
+		    *p++ = *phchar++;
+	    }
 	    continue;
 	}
 
 	if (cur_chr != '\\') {
-	    *s1++ = cur_chr;
+	    *p++ = cur_chr;
 	    continue;
 	}
 
 	cur_chr = *s++;
 	if (cur_chr == '\0') {
 	    if (sending) {
-		*s1++ = '\\';
-		*s1++ = '\\';
+		*p++ = '\\';
+		*p++ = '\\';	/* +1 for len */
 	    }
 	    break;
 	}
 
 	switch (cur_chr) {
 	case 'b':
-	    *s1++ = '\b';
+	    *p++ = '\b';
 	    break;
 
 	case 'c':
 	    if (sending && *s == '\0')
 		add_return = 0;
 	    else
-		*s1++ = cur_chr;
+		*p++ = cur_chr;
 	    break;
 
 	case '\\':
@@ -737,29 +764,33 @@ int sending;  /* set to 1 when sending (putting) this string. */
 	case 'p':
 	case 'd':
 	    if (sending)
-		*s1++ = '\\';
-	    *s1++ = cur_chr;
+		*p++ = '\\';
+	    *p++ = cur_chr;
 	    break;
 
 	case 'T':
 	    if (sending && phone_num) {
+		len += strlen(phone_num);
+		s1 = grow(s1, &p, len);
 		for (phchar = phone_num; *phchar != '\0'; phchar++) 
-		    *s1++ = *phchar;
+		    *p++ = *phchar;
 	    }
 	    else {
-		*s1++ = '\\';
-		*s1++ = 'T';
+		*p++ = '\\';
+		*p++ = 'T';
 	    }
 	    break;
 
 	case 'U':
 	    if (sending && phone_num2) {
+		len += strlen(phone_num2);
+		s1 = grow(s1, &p, len);
 		for (phchar = phone_num2; *phchar != '\0'; phchar++) 
-		    *s1++ = *phchar;
+		    *p++ = *phchar;
 	    }
 	    else {
-		*s1++ = '\\';
-		*s1++ = 'U';
+		*p++ = '\\';
+		*p++ = 'U';
 	    }
 	    break;
 
@@ -768,33 +799,33 @@ int sending;  /* set to 1 when sending (putting) this string. */
 	    break;
 
 	case 'r':
-	    *s1++ = '\r';
+	    *p++ = '\r';
 	    break;
 
 	case 'n':
-	    *s1++ = '\n';
+	    *p++ = '\n';
 	    break;
 
 	case 's':
-	    *s1++ = ' ';
+	    *p++ = ' ';
 	    break;
 
 	case 't':
-	    *s1++ = '\t';
+	    *p++ = '\t';
 	    break;
 
 	case 'N':
 	    if (sending) {
-		*s1++ = '\\';
-		*s1++ = '\0';
+		*p++ = '\\';
+		*p++ = '\0';
 	    }
 	    else
-		*s1++ = 'N';
+		*p++ = 'N';
 	    break;
-	    
+
 	case '$':			/* ARI */
 	    if (use_env) {
-		*s1++ = cur_chr;
+		*p++ = cur_chr;
 		break;
 	    }
 	    /* FALL THROUGH */
@@ -813,25 +844,24 @@ int sending;  /* set to 1 when sending (putting) this string. */
 
 		if (cur_chr != 0 || sending) {
 		    if (sending && (cur_chr == '\\' || cur_chr == 0))
-			*s1++ = '\\';
-		    *s1++ = cur_chr;
+			*p++ = '\\';
+		    *p++ = cur_chr;
 		}
 		break;
 	    }
 
 	    if (sending)
-		*s1++ = '\\';
-	    *s1++ = cur_chr;
+		*p++ = '\\';
+	    *p++ = cur_chr;
 	    break;
 	}
     }
 
     if (add_return)
-	*s1++ = '\r';
+	*p++ = '\r';	/* +2 for len */
 
-    *s1++ = '\0'; /* guarantee closure */
-    *s1++ = '\0'; /* terminate the string */
-    return dup_mem (temp, (size_t) (s1 - temp)); /* may have embedded nuls */
+    *p = '\0';		/* +3 for len */
+    return s1;
 }
 
 /*
@@ -971,9 +1001,9 @@ char *s;
  * The expectation did not occur. This is terminal.
  */
     if (fail_reason)
-	logf("Failed (%s)", fail_reason);
+	msgf("Failed (%s)", fail_reason);
     else
-	logf("Failed");
+	msgf("Failed");
     terminate(exit_code);
 }
 
@@ -1049,7 +1079,7 @@ register char *s;
 	abort_string[n_aborts++] = s1;
 
 	if (verbose)
-	    logf("abort on (%v)", s);
+	    msgf("abort on (%v)", s);
 	return;
     }
 
@@ -1075,7 +1105,7 @@ register char *s;
 		pack++;
 		n_aborts--;
 		if (verbose)
-		    logf("clear abort on (%v)", s);
+		    msgf("clear abort on (%v)", s);
 	    }
 	}
         free(s1);
@@ -1092,14 +1122,14 @@ register char *s;
 	    fatal(2, "Too many REPORT strings");
 	
 	s1 = clean(s, 0);
-	
-	if (strlen(s1) > strlen(s) || strlen(s1) > sizeof fail_buffer - 1)
+	if (strlen(s1) > strlen(s)
+	    || strlen(s1) + 1 > sizeof(fail_buffer))
 	    fatal(1, "Illegal or too-long REPORT string ('%v')", s);
 	
 	report_string[n_reports++] = s1;
 	
 	if (verbose)
-	    logf("report (%v)", s);
+	    msgf("report (%v)", s);
 	return;
     }
 
@@ -1113,7 +1143,8 @@ register char *s;
 	
 	s1 = clean(s, 0);
 	
-	if (strlen(s1) > strlen(s) || strlen(s1) > sizeof fail_buffer - 1)
+	if (strlen(s1) > strlen(s)
+	    || strlen(s1) + 1 > sizeof(fail_buffer))
 	    fatal(1, "Illegal or too-long REPORT string ('%v')", s);
 
 	old_max = n_reports;
@@ -1124,7 +1155,7 @@ register char *s;
 		pack++;
 		n_reports--;
 		if (verbose)
-		    logf("clear report (%v)", s);
+		    msgf("clear report (%v)", s);
 	    }
 	}
         free(s1);
@@ -1142,7 +1173,7 @@ register char *s;
 	    timeout = DEFAULT_CHAT_TIMEOUT;
 
 	if (verbose)
-	    logf("timeout set to %d seconds", timeout);
+	    msgf("timeout set to %d seconds", timeout);
 
 	return;
     }
@@ -1205,7 +1236,7 @@ int get_char()
 	return ((int)c & 0x7F);
 
     default:
-	logf("warning: read() on stdin returned %d", status);
+	msgf("warning: read() on stdin returned %d", status);
 
     case -1:
 	if ((status = fcntl(0, F_GETFL, 0)) == -1)
@@ -1233,7 +1264,7 @@ int c;
 	return (0);
 	
     default:
-	logf("warning: write() on stdout returned %d", status);
+	msgf("warning: write() on stdout returned %d", status);
 	
     case -1:
 	if ((status = fcntl(0, F_GETFL, 0)) == -1)
@@ -1255,9 +1286,9 @@ int c;
 
 	if (verbose) {
 	    if (errno == EINTR || errno == EWOULDBLOCK)
-		logf(" -- write timed out");
+		msgf(" -- write timed out");
 	    else
-		logf(" -- write failed: %m");
+		msgf(" -- write failed: %m");
 	}
 	return (0);
     }
@@ -1272,9 +1303,9 @@ register char *s;
 
     if (verbose) {
 	if (quiet)
-	    logf("send (??????)");
+	    msgf("send (?????\?)");
 	else
-	    logf("send (%v)", s);
+	    msgf("send (%v)", s);
     }
 
     alarm(timeout); alarmed = 0;
@@ -1361,17 +1392,17 @@ register char *string;
     minlen = (len > sizeof(fail_buffer)? len: sizeof(fail_buffer)) - 1;
 
     if (verbose)
-	logf("expect (%v)", string);
+	msgf("expect (%v)", string);
 
     if (len > STR_LEN) {
-	logf("expect string is too long");
+	msgf("expect string is too long");
 	exit_code = 1;
 	return 0;
     }
 
     if (len == 0) {
 	if (verbose)
-	    logf("got it");
+	    msgf("got it");
 	return (1);
     }
 
@@ -1385,16 +1416,16 @@ register char *string;
 	    echo_stderr(c);
 	if (verbose && c == '\n') {
 	    if (s == logged)
-		logf("");	/* blank line */
+		msgf("");	/* blank line */
 	    else
-		logf("%0.*v", s - logged, logged);
+		msgf("%0.*v", s - logged, logged);
 	    logged = s + 1;
 	}
 
 	*s++ = c;
 
 	if (verbose && s >= logged + 80) {
-	    logf("%0.*v", s - logged, logged);
+	    msgf("%0.*v", s - logged, logged);
 	    logged = s;
 	}
 
@@ -1439,8 +1470,8 @@ register char *string;
 	    strncmp(s - len, string, len) == 0) {
 	    if (verbose) {
 		if (s > logged)
-		    logf("%0.*v", s - logged, logged);
-		logf(" -- got it\n");
+		    msgf("%0.*v", s - logged, logged);
+		msgf(" -- got it\n");
 	    }
 
 	    alarm(0);
@@ -1453,8 +1484,8 @@ register char *string;
 		strncmp(s - abort_len, abort_string[n], abort_len) == 0) {
 		if (verbose) {
 		    if (s > logged)
-			logf("%0.*v", s - logged, logged);
-		    logf(" -- failed");
+			msgf("%0.*v", s - logged, logged);
+		    msgf(" -- failed");
 		}
 
 		alarm(0);
@@ -1468,7 +1499,7 @@ register char *string;
 	if (s >= end) {
 	    if (logged < s - minlen) {
 		if (verbose)
-		    logf("%0.*v", s - logged, logged);
+		    msgf("%0.*v", s - logged, logged);
 		logged = s;
 	    }
 	    s -= minlen;
@@ -1478,16 +1509,16 @@ register char *string;
 	}
 
 	if (alarmed && verbose)
-	    logf("warning: alarm synchronization problem");
+	    msgf("warning: alarm synchronization problem");
     }
 
     alarm(0);
     
     if (verbose && printed) {
 	if (alarmed)
-	    logf(" -- read timed out");
+	    msgf(" -- read timed out");
 	else
-	    logf(" -- read failed: %m");
+	    msgf(" -- read failed: %m");
     }
 
     exit_code = 3;

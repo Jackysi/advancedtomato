@@ -1,10 +1,11 @@
-PPP Client Support for Microsoft's CHAP-80
-==========================================
+PPP Support for Microsoft's CHAP-80
+===================================
 
 Eric Rosenquist          rosenqui@strataware.com
 (updated by Paul Mackerras)
 (updated by Al Longyear)
 (updated by Farrell Woods)
+(updated by Frank Cusack)
 
 INTRODUCTION
 
@@ -16,7 +17,7 @@ by a bogus client to gain access to the server just as easily as if
 the password were stored in cleartext.)  The details of the Microsoft
 extensions can be found in the document:
 
-    <ftp://ftp.microsoft.com/developr/rfc/chapexts.txt>
+    <http://www.ietf.org/rfc/rfc2433.txt>
 
 In short, MS-CHAP is identified as <auth chap 80> since the hex value
 of 80 is used to designate Microsoft's scheme.  Standard PPP CHAP uses
@@ -24,70 +25,11 @@ a value of 5.  If you enable PPP debugging with the "debug" option and
 see something like the following in your logs, the remote server is
 requesting MS-CHAP:
 
-  rcvd [LCP ConfReq id=0x2 <asyncmap 0x0> <auth chap 80> <magic 0x46a3>]
-                                           ^^^^^^^^^^^^
+  rcvd [LCP ConfReq id=0x2 <asyncmap 0x0> <auth MS> <magic 0x46a3>]
+                                           ^^^^^^^
 
-The standard pppd implementation will indicate its lack of support for
-MS-CHAP by NAKing it:
-
-  sent [LCP ConfNak id=0x2 <auth chap 05>]
-
-Windows NT Server systems are often configured to "Accept only
-Microsoft Authentication" (this is intended to enhance security).  Up
-until now, that meant that you couldn't use this version of PPPD to
-connect to such a system.  I've managed to get a client-only
-implementation of MS-CHAP working; it will authenticate itself to
-another system using MS-CHAP, but if you're using PPPD as a dial-in
-server, you won't be able to use MS-CHAP to authenticate the clients.
-This would not be a lot of extra work given that the framework is in
-place, but I didn't need it myself so I didn't implement it.
-
-
-BUILDING THE PPPD
-
-MS-CHAP uses a combination of MD4 hashing and DES encryption for
-authentication.  You may need to get Eric Young's libdes library in
-order to use my MS-CHAP extensions.  A lot of UNIX systems already
-have DES encryption available via the crypt(3), encrypt(3) and
-setkey(3) interfaces.  Some may (such as that on Digital UNIX)
-provide only the encryption mechanism and will not perform
-decryption.  This is okay.  We only need to encrypt to perform
-MS-CHAP authentication.
-
-If you have encrypt/setkey available, then hopefully you need only
-define these two things in your Makefile: -DUSE_CRYPT and -DCHAPMS.
-Skip the paragraphs below about obtaining and building libdes.  Do
-the "make clean" and "make" as described below.  Linux users
-should not need to modify their Makefiles.  Instead,
-just do "make CHAPMS=1 USE_CRYPT=1".
-
-If you don't have encrypt and setkey, you will need Eric Young's
-libdes library.  You can find it in:
-
-ftp://ftp.funet.fi/pub/crypt/mirrors/ftp.psy.uq.oz.au/DES/libdes-3.06.tar.gz
-
-Australian residents can get libdes from Eric Young's site:
-
-ftp://ftp.psy.uq.oz.au/pub/Crypto/DES/libdes-3.06.tar.gz
-
-It is also available on many other sites (ask Archie).
-
-I used libdes-3.06, but hopefully anything newer than that will work
-also.  Get the library, build and test it on your system, and install
-it somewhere (typically /usr/local/lib and /usr/local/include).
-
-
-
-You should now be ready to (re)compile the PPPD.  Go to the pppd
-subdirectory and make sure the Makefile contains "-DCHAPMS" in the
-CFLAGS or COMPILE_FLAGS macro, and that the LIBS macro (or LDADD for
-BSD systems) contains "-ldes".  Depending on your system and where the
-DES library was installed, you may also need to alter the include and
-library paths used by your compiler.
-
-Do a "make clean" and then a "make" to rebuild pppd.  Assuming all
-goes well, install the new pppd and move on to the CONFIGURATION
-section.
+MS-CHAP is enabled by default under Linux in pppd/Makefile.linux by
+the line "CHAPMS=y".
 
 
 CONFIGURATION
@@ -166,7 +108,7 @@ Assuming that everything else has been configured correctly for PPP and
 CHAP, the MS-CHAP-specific problems you're likely to encounter are mostly
 related to your Windows NT account and its settings.  A Microsoft server
 returns error codes in its CHAP response.  The following are extracted from
-Microsoft's "chapexts.txt" file referenced above:
+RFC 2433:
 
  646 ERROR_RESTRICTED_LOGON_HOURS
  647 ERROR_ACCT_DISABLED
@@ -196,76 +138,6 @@ from the other end.  If you see pppd sending out LCP config requests
 without getting any reply, try putting something in your chat script
 to send the word CLIENT after the modem has connected.
 
-If everything compiles cleanly, but fails at authentication time, then
-it might be a case of the MD4 or DES code screwing up.  The following
-small program can be used to test the MS-CHAP code to see if it
-produces a known response:
-
------------------
-#include <stdio.h>
-
-#include "pppd.h"
-#include "chap.h"
-#include "chap_ms.h"
-
-int main(argc, argv)
-    int     argc;
-    char    *argv[];
-{
-    u_char          challenge[8];
-    int             challengeInt[sizeof(challenge)];
-    chap_state      cstate;
-    int             i;
-
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <16-hexchar challenge> <password>\n",
-        argv[0]); exit(1);
-    }
-
-    sscanf(argv[1], "%2x%2x%2x%2x%2x%2x%2x%2x",
-           challengeInt + 0, challengeInt + 1, challengeInt + 2,
-           challengeInt + 3, challengeInt + 4, challengeInt + 5,
-           challengeInt + 6, challengeInt + 7);
-
-    for (i = 0; i < sizeof(challenge); i++)
-        challenge[i] = (u_char)challengeInt[i];
-
-    ChapMS(&cstate, challenge, sizeof(challenge), argv[2], strlen(argv[2]));
-    printf("Response length is %d, response is:", cstate.resp_length);
-
-    for (i = 0; i < cstate.resp_length; i++) {
-        if (i % 8 == 0)
-            putchar('\n');
-        printf("%02X ", (unsigned int)cstate.response[i]);
-    }
-
-    putchar('\n');
-
-    exit(0);
-}
--------------
-
-This needs to link against chap_ms.o, md4.o, and the DES library.  When 
-you run it with the command line:
-
- $ testchap 00000000000000000000000000000000 hello
-
-it should output the following:
-
- Response length is 49, response is:
- 00 00 00 00 00 00 00 00
- 00 00 00 00 00 00 00 00
- 00 00 00 00 00 00 00 00
- F4 D9 9D AF 82 64 DC 3C
- 53 F9 BC 92 14 B5 5D 9E
- 78 C4 21 48 9D B7 A8 B4
- 01
-
-if not, then either the DES library is not working, the MD4 code isn't 
-working, or there are some problems with the port of the code in 
-chap_ms.c.
-
-
 STILL TO DO
 
 A site using only MS-CHAP to authenticate has no need to store cleartext
@@ -275,10 +147,5 @@ to be used in chap-secrets in place of the password.  The code to do this
 could quite easily be lifted from chap_ms.c (you have to convert the
 password to Unicode before hashing it).  The chap_ms.c file would also have
 to be changed to recognize a password hash (16 binary bytes == 32 ASCII hex
-characters) and skip the hashing stage.
-
-A server implementation would allow MS-CHAP to be used with Windows NT and
-Windows 95 clients for enhanced security.  Some new command-line options
-would be required, as would code to generate the Challenge packet and
-verify the response.  Most of the helper functions are in place, so this
-shouldn't be too hard for someone to add.
+characters) and skip the hashing stage.  This would have no real security
+value as the hash is plaintext-equivalent.

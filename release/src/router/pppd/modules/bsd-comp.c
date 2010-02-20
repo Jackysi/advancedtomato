@@ -41,7 +41,7 @@
  * This version is for use with STREAMS under SunOS 4.x,
  * Digital UNIX, AIX 4.x, and SVR4 systems including Solaris 2.
  *
- * $Id: bsd-comp.c,v 1.1 2003/07/10 07:43:04 honor Exp $
+ * $Id: bsd-comp.c,v 1.21 2004/01/17 05:47:55 carlsonj Exp $
  */
 
 #ifdef AIX4
@@ -64,6 +64,10 @@
 #undef FIRST
 #undef LAST
 #define BSD_LITTLE_ENDIAN
+#endif
+
+#ifdef SOL2
+#include <sys/sunddi.h>
 #endif
 
 #define PACKETPTR	mblk_t *
