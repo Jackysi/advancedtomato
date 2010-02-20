@@ -672,16 +672,21 @@ pptp-client-install:
 	$(STRIP) $(INSTALLDIR)/pptp-client/usr/sbin/pptp
 
 
-pppd:
+pppd/Makefile: pppd/linux/Makefile.top
+	cd pppd && $(CONFIGURE) --host=mipsel-linux --prefix=/usr --sysconfdir=/tmp
+
+pppd: pppd/Makefile
 	@$(SEP)
-	@$(MAKE) -C pppd/pppd
+	@$(MAKE) -C pppd
 
 pppd-clean:
-	$(MAKE) -C pppd/pppd clean
+	$(MAKE) -C pppd clean
 
 pppd-install:
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
+	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
+	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 
 #	ipupdate-install:
 #		install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
