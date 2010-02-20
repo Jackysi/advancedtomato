@@ -68,6 +68,9 @@ static const char rcsid[] = RCSID;
 
 static void lcp_delayed_up __P((void *));
 
+/* JYWeng 20031216: add to wanstatus.log */
+void saveWANStatus(char *currentstatus, int statusindex);
+
 /*
  * LCP-related command-line options.
  */
@@ -397,6 +400,7 @@ lcp_close(unit, reason)
     char *reason;
 {
     fsm *f = &lcp_fsm[unit];
+    int statusindex = 0;/* JYWeng 20031216: add to wanstatus.log */
 
     if (phase != PHASE_DEAD && phase != PHASE_MASTER)
 	new_phase(PHASE_TERMINATE);
@@ -412,6 +416,16 @@ lcp_close(unit, reason)
 
     } else
 	fsm_close(f, reason);
+/* JYWeng 20031216: add to wanstatus.log */
+    if(strstr(reason, "Link inactive")) {
+	    statusindex = 1;
+	    saveWANStatus("Terminating connection due to lack of activity.", statusindex);
+    }
+    else {
+	    statusindex = 2;
+	    saveWANStatus(reason, statusindex);
+    }
+/* JYWeng 20031216: add to wanstatus.log */
 }
 
 
@@ -1904,12 +1918,12 @@ lcp_up(f)
      * the interface MTU is set to the lowest of that, the
      * MTU we want to use, and our link MRU.
      */
-    mtu = ho->neg_mru? ho->mru: PPP_MRU;
+    mtu = MIN(ho->neg_mru? ho->mru: PPP_MRU, ao->mru);
     mru = go->neg_mru? MAX(wo->mru, go->mru): PPP_MRU;
 #ifdef HAVE_MULTILINK
     if (!(multilink && go->neg_mrru && ho->neg_mrru))
 #endif /* HAVE_MULTILINK */
-	netif_set_mtu(f->unit, MIN(MIN(mtu, mru), ao->mru));
+	netif_set_mtu(f->unit, MIN(mtu, mru));
     ppp_send_config(f->unit, mtu,
 		    (ho->neg_asyncmap? ho->asyncmap: 0xffffffff),
 		    ho->neg_pcompression, ho->neg_accompression);

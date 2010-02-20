@@ -34,6 +34,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
@@ -191,7 +192,7 @@ dumplog(f)
 	    show_time(f, c);
 	    break;
 	default:
-	    printf("?%.2x\n");
+	    printf("?%.2x\n", c);
 	}
     }
 }
@@ -421,7 +422,7 @@ dumpppp(f)
 	    show_time(f, c);
 	    break;
 	default:
-	    printf("?%.2x\n");
+	    printf("?%.2x\n", c);
 	}
     }
 }

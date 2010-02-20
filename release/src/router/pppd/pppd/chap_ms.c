@@ -898,13 +898,17 @@ set_mppe_enc_types(int policy, int types)
     /*
      * Disable undesirable encryption types.  Note that we don't ENABLE
      * any encryption types, to avoid overriding manual configuration.
+     *
+     * It seems that 56 bit keys are unsupported in MS-RADIUS (see RFC 2548)
      */
     switch(types) {
 	case MPPE_ENC_TYPES_RC4_40:
-	    ccp_wantoptions[0].mppe &= ~MPPE_OPT_128;	/* disable 128-bit */
+	    ccp_wantoptions[0].mppe_128 = 0;	/* disable 128-bit */
+	    ccp_wantoptions[0].mppe_56 = 0;	/* disable 56-bit */
 	    break;
 	case MPPE_ENC_TYPES_RC4_128:
-	    ccp_wantoptions[0].mppe &= ~MPPE_OPT_40;	/* disable 40-bit */
+	    ccp_wantoptions[0].mppe_56 = 0;	/* disable 56-bit */
+	    ccp_wantoptions[0].mppe_40 = 0;	/* disable 40-bit */
 	    break;
 	default:
 	    break;

@@ -453,6 +453,13 @@ int generic_establish_ppp (int fd)
     if (new_style_driver) {
 	int flags;
 
+        /* if a ppp_fd is already open, close it first */
+        if(ppp_fd > 0) {
+          close(ppp_fd);
+          remove_fd(ppp_fd);
+          ppp_fd = -1;
+        }
+
 	/* Open an instance of /dev/ppp and connect the channel to it */
 	if (ioctl(fd, PPPIOCGCHAN, &chindex) == -1) {
 	    error("Couldn't get channel number: %m");
@@ -627,13 +634,15 @@ static int make_ppp_unit()
 	    || fcntl(ppp_dev_fd, F_SETFL, flags | O_NONBLOCK) == -1)
 		warn("Couldn't set /dev/ppp to nonblock: %m");
 
-	ifunit = req_unit;
-	x = ioctl(ppp_dev_fd, PPPIOCNEWUNIT, &ifunit);
-	if (x < 0 && req_unit >= 0 && errno == EEXIST) {
-		warn("Couldn't allocate PPP unit %d as it is already in use", req_unit);
-		ifunit = -1;
+	ifunit = (req_unit >= 0) ? req_unit : req_minunit;
+	do {
 		x = ioctl(ppp_dev_fd, PPPIOCNEWUNIT, &ifunit);
-	}
+		if (x < 0 && errno == EEXIST) {
+			warn("Couldn't allocate PPP unit %d as it is already in use", ifunit);
+			ifunit = (req_unit >= 0) ? -1 : ++req_minunit;
+		} else break;
+	} while (ifunit < MAXUNIT);
+
 	if (x < 0)
 		error("Couldn't create new ppp unit: %m");
 	return x;

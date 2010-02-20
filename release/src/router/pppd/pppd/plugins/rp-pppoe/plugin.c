@@ -49,14 +49,13 @@ static char const RCSID[] =
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/ppp_defs.h>
-#include <linux/if_ppp.h>
 #include <linux/if_pppox.h>
 
 #ifndef _ROOT_PATH
 #define _ROOT_PATH ""
 #endif
 
-#define _PATH_ETHOPT         _ROOT_PATH "/etc/ppp/options."
+#define _PATH_ETHOPT         _ROOT_PATH "/ppp/options."
 
 char pppd_version[] = VERSION;
 
@@ -133,6 +132,17 @@ PPPOEConnectDevice(void)
 {
     struct sockaddr_pppox sp;
 
+    /* Open session socket before discovery phase, to avoid losing session */
+    /* packets sent by peer just after PADS packet (noted on some Cisco    */
+    /* server equipment).                                                  */
+    /* Opening this socket just before waitForPADS in the discovery()      */
+    /* function would be more appropriate, but it would mess-up the code   */
+    conn->sessionSocket = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_OE);
+    if (conn->sessionSocket < 0) {
+	error("Failed to create PPPoE socket: %m");
+	return -1;
+    }
+
     strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
     if (existingSession) {
 	unsigned int mac[ETH_ALEN];
@@ -147,6 +157,8 @@ PPPOEConnectDevice(void)
 	    conn->peerEth[i] = (unsigned char) mac[i];
 	}
     } else {
+        conn->discoverySocket =
+            openInterface(conn->ifName, Eth_PPPOE_Discovery, conn->myEth);
 	discovery(conn);
 	if (conn->discoveryState != STATE_SESSION) {
 	    error("Unable to complete PPPoE Discovery");
@@ -157,12 +169,6 @@ PPPOEConnectDevice(void)
     /* Set PPPoE session-number for further consumption */
     ppp_session_number = ntohs(conn->session);
 
-    /* Make the session socket */
-    conn->sessionSocket = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_OE);
-    if (conn->sessionSocket < 0) {
-	error("Failed to create PPPoE socket: %m");
-	goto errout;
-    }
     sp.sa_family = AF_PPPOX;
     sp.sa_protocol = PX_PROTO_OE;
     sp.sa_addr.pppoe.sid = conn->session;

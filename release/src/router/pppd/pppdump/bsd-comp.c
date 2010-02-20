@@ -383,7 +383,7 @@ bsd_init(db, options, opt_len, unit, hdrlen, mru, debug, decomp)
 	|| options[0] != CI_BSD_COMPRESS || options[1] != CILEN_BSD_COMPRESS
 	|| BSD_VERSION(options[2]) != BSD_CURRENT_VERSION
 	|| BSD_NBITS(options[2]) != db->maxbits
-	|| decomp && db->lens == NULL)
+	|| (decomp && db->lens == NULL))
 	return 0;
 
     if (decomp) {
@@ -556,11 +556,11 @@ bsd_decompress(state, cmsg, inlen, dmp, outlenp)
     u_int n_bits = db->n_bits;
     u_int tgtbitno = 32-n_bits;	/* bitno when we have a code */
     struct bsd_dict *dictp;
-    int explen, i, seq, len;
+    int explen, seq, len;
     u_int incode, oldcode, finchar;
     u_char *p, *rptr, *wptr;
     int ilen;
-    int dlen, space, codelen, extra;
+    int dlen=0, codelen, extra;
 
     rptr = cmsg;
     if (*rptr == 0)
@@ -616,7 +616,7 @@ bsd_decompress(state, cmsg, inlen, dmp, outlenp)
 	}
 
 	if (incode > max_ent + 2 || incode > db->maxmaxcode
-	    || incode > max_ent && oldcode == CLEAR) {
+	    || (incode > max_ent && oldcode == CLEAR)) {
 	    if (db->debug) {
 		printf("bsd_decomp%d: bad code 0x%x oldcode=0x%x ",
 		       db->unit, incode, oldcode);

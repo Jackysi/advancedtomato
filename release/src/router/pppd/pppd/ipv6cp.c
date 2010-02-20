@@ -151,6 +151,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -234,6 +235,8 @@ static option_t ipv6cp_option_list[] = {
 
     { "ipv6cp-accept-local", o_bool, &ipv6cp_allowoptions[0].accept_local,
       "Accept peer's interface identifier for us", 1 },
+    { "ipv6cp-accept-remote", o_bool, &ipv6cp_allowoptions[0].accept_remote,
+      "Accept peer's interface identifier for itself", 1 },
 
     { "ipv6cp-use-ipaddr", o_bool, &ipv6cp_allowoptions[0].use_ip,
       "Use (default) IPv4 address as interface identifier", 1 },
@@ -426,6 +429,7 @@ ipv6cp_init(unit)
     memset(ao, 0, sizeof(*ao));
 
     wo->accept_local = 1;
+    wo->accept_remote = 1;
     wo->neg_ifaceid = 1;
     ao->neg_ifaceid = 1;
 
@@ -951,7 +955,7 @@ ipv6cp_reqci(f, inp, len, reject_if_disagree)
 		orc = CONFREJ;		/* Reject CI */
 		break;
 	    }
-	    if (!eui64_iszero(wo->hisid) && 
+	    if (!eui64_iszero(wo->hisid) && !wo->accept_remote &&
 		!eui64_equals(ifaceid, wo->hisid) && 
 		eui64_iszero(go->hisid)) {
 		    
@@ -1064,7 +1068,9 @@ endswitch:
     return (rc);			/* Return final code */
 }
 
-
+#if defined(SOL2) || defined(__linux__)
+int ether_to_eui64(eui64_t *p_eui64);
+#endif
 /*
  * ipv6_check_options - check that any IP-related options are OK,
  * and assign appropriate defaults.
@@ -1232,7 +1238,7 @@ ipv6cp_up(f)
 	    }
 
 	}
-	demand_rexmit(PPP_IPV6);
+	demand_rexmit(PPP_IPV6,0);
 	sifnpmode(f->unit, PPP_IPV6, NPMODE_PASS);
 
     } else {

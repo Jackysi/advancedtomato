@@ -449,6 +449,14 @@ scripts.  If this
 option is given, the \fIstring\fR supplied is given as the 6th
 parameter to those scripts.
 .TP
+.B ipv6cp\-accept\-local
+With this option, pppd will accept the peer's idea of our local IPv6
+address, even if the local IPv6 address was specified in an option.
+.TP
+.B ipv6cp\-accept\-remote
+With this option, pppd will accept the peer's idea of its (remote) IPv6
+address, even if the remote IPv6 address was specified in an option.
+.TP
 .B ipv6cp\-max\-configure \fIn
 Set the maximum number of IPv6CP configure-request transmissions to
 \fIn\fR (default 10).
@@ -638,6 +646,9 @@ control, as for the \fIcrtscts\fR option.  This is the opposite of the
 Enables the use of PPP multilink; this is an alias for the `multilink'
 option.  This option is currently only available under Linux.
 .TP
+.B mppc
+Enables MPPC (Microsoft Point to Point Compression).  This is the default.
+.TP
 .B mppe\-stateful
 Allow MPPE to use stateful mode.  Stateless mode is still attempted first.
 The default is to disallow stateful mode.  
@@ -778,11 +789,17 @@ peer is buggy.
 Disables the use of PPP multilink.  This option is currently only
 available under Linux.
 .TP
+.B nomppc
+Disables MPPC (Microsoft Point to Point Compression).
+.TP
 .B nomppe
 Disables MPPE (Microsoft Point to Point Encryption).  This is the default.
 .TP
 .B nomppe\-40
 Disable 40-bit encryption with MPPE.
+.TP
+.B nomppe\-56
+Disable 56\-bit encryption with MPPE.
 .TP
 .B nomppe\-128
 Disable 128-bit encryption with MPPE.
@@ -991,6 +1008,9 @@ kernel has been configured to include MPPE support.
 .B require\-mppe\-40
 Require the use of MPPE, with 40-bit encryption.
 .TP
+.B require\-mppe\-56
+Require the use of MPPE, with 56\-bit encryption.
+.TP
 .B require\-mppe\-128
 Require the use of MPPE, with 128-bit encryption.
 .TP
@@ -1049,6 +1069,12 @@ under Linux and FreeBSD 2.2.8 and later.
 .B unit \fInum
 Sets the ppp unit number (for a ppp0 or ppp1 etc interface name) for outbound
 connections.
+.TP
+.B minunit \fInum
+Such as unit, but always select bigger interface
+.TP
+.B minunit \fInum
+PPP interface minimal unit number. Such as unit, but always select bigger interface
 .TP
 .B updetach
 With this option, pppd will detach from its controlling terminal once

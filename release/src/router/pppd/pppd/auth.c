@@ -555,6 +555,9 @@ void start_link(unit)
 {
     char *msg;
 
+     /* we are called via link_terminated, must be ignored */
+    if (phase == PHASE_DISCONNECT)
+	return;
     new_phase(PHASE_SERIALCONN);
 
     hungup = 0;
@@ -665,6 +668,7 @@ link_terminated(unit)
 	the_channel->disconnect();
 	devfd = -1;
     }
+    /* not only disconnect, cleanup should also be called to close the devices */
     if (the_channel->cleanup)
 	(*the_channel->cleanup)();
 
@@ -1189,6 +1193,10 @@ check_idle(arg)
     if (idle_time_hook != 0) {
 	tlim = idle_time_hook(&idle);
     } else {
+/* JYWeng 20031216: replace itime with idle.xmit_idle for only outgoing traffic is counted*/
+	if(tx_only) 
+		itime = idle.xmit_idle;
+	else
 	itime = MIN(idle.xmit_idle, idle.recv_idle);
 	tlim = idle_time_limit - itime;
     }
@@ -2354,7 +2362,8 @@ auth_script(script)
     argv[3] = user_name;
     argv[4] = devnam;
     argv[5] = strspeed;
-    argv[6] = NULL;
+    argv[6] = ipparam;
+    argv[7] = NULL;
 
     auth_script_pid = run_program(script, argv, 0, auth_script_done, NULL, 0);
 }

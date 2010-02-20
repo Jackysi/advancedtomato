@@ -1052,3 +1052,23 @@ unlock()
     }
 }
 
+/* JYWeng 20031216: add to wanstatus.log */
+
+void saveWANStatus(char *currentstatus, int statusindex)
+{
+	FILE *STATUSFILE;
+#ifdef ONWL500G_SHELL
+	if ((req_unit == 0) && (STATUSFILE = fopen("/etc/linuxigd/wanstatus.log", "w"))!=NULL)
+	{
+		fprintf(STATUSFILE, "StatusCode=\"%d\"\n", statusindex);
+		fprintf(STATUSFILE, "StatusReason=\"%s\"\n", currentstatus);
+		fclose(STATUSFILE);
+	}
+#else
+	if ((req_unit == 0) && (STATUSFILE = fopen("/tmp/wanstatus.log", "w"))!=NULL)
+	{
+		fprintf(STATUSFILE, "%d,%s\n", statusindex, currentstatus);
+		fclose(STATUSFILE);
+	}
+#endif
+}

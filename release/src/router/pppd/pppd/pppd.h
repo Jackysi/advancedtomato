@@ -80,6 +80,7 @@
 #define MAXARGS		1	/* max # args to a command */
 #define MAXNAMELEN	256	/* max length of hostname or name for auth */
 #define MAXSECRETLEN	256	/* max length of password or secret */
+#define MAXUNIT		255	/* max ppp interface */
 
 /*
  * Option descriptor structure.
@@ -209,6 +210,7 @@ struct notifier {
 /*
  * Global variables.
  */
+extern bool tx_only;			/* JYWeng 20031216: idle time counting on tx traffic */
 
 extern int	hungup;		/* Physical layer has disconnected */
 extern int	ifunit;		/* Interface unit number */
@@ -313,6 +315,9 @@ extern bool	tune_kernel;	/* May alter kernel settings as necessary */
 extern int	connect_delay;	/* Time to delay after connect script */
 extern int	max_data_rate;	/* max bytes/sec through charshunt */
 extern int	req_unit;	/* interface unit number to use */
+extern int	req_minunit;	/* interface minimal unit number to use */
+extern char	path_ipup[MAXPATHLEN]; /* pathname of ip-up script */
+extern char	path_ipdown[MAXPATHLEN]; /* pathname of ip-down script */
 extern bool	multilink;	/* enable multilink operation */
 extern bool	noendpoint;	/* don't send or accept endpt. discrim. */
 extern char	*bundle_name;	/* bundle name for multilink */
@@ -564,7 +569,7 @@ void demand_conf __P((void));	/* config interface(s) for demand-dial */
 void demand_block __P((void));	/* set all NPs to queue up packets */
 void demand_unblock __P((void)); /* set all NPs to pass packets */
 void demand_discard __P((void)); /* set all NPs to discard packets */
-void demand_rexmit __P((int));	/* retransmit saved frames for an NP */
+void demand_rexmit __P((int, u_int32_t)); /* retransmit saved frames for an NP*/
 int  loop_chars __P((unsigned char *, int)); /* process chars from loopback */
 int  loop_frame __P((unsigned char *, int)); /* should we bring link up? */
 

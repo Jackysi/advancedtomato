@@ -168,6 +168,33 @@ struct compressor {
 #define CI_MPPE			18	/* config option for MPPE */
 #define CILEN_MPPE		6	/* length of config option */
 
+/* MPPE/MPPC definitions by J.D.*/
+#define MPPE_STATELESS          MPPE_H_BIT	/* configuration bit H */
+#define MPPE_40BIT              MPPE_L_BIT	/* configuration bit L */
+#define MPPE_56BIT              MPPE_M_BIT	/* configuration bit M */
+#define MPPE_128BIT             MPPE_S_BIT	/* configuration bit S */
+#define MPPE_MPPC               MPPE_C_BIT	/* configuration bit C */
+
+/*
+ * Definitions for Stac LZS.
+ */
+
+#define CI_LZS			17	/* config option for Stac LZS */
+#define CILEN_LZS		5	/* length of config option */
+
+#define LZS_OVHD		4	/* max. LZS overhead */
+#define LZS_HIST_LEN		2048	/* LZS history size */
+#define LZS_MAX_CCOUNT		0x0FFF	/* max. coherency counter value */
+
+#define LZS_MODE_NONE		0
+#define LZS_MODE_LCB		1
+#define LZS_MODE_CRC		2
+#define LZS_MODE_SEQ		3
+#define LZS_MODE_EXT		4
+
+#define LZS_EXT_BIT_FLUSHED	0x80	/* bit A */
+#define LZS_EXT_BIT_COMP	0x20	/* bit C */
+
 /*
  * Definitions for other, as yet unsupported, compression methods.
  */
