@@ -213,6 +213,7 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	ulong flags;
 	uint coreidx;
 	void *regs;
+	uint32 tmp;
 
 	/* External PCI device enable */
 	if (dev->bus->number != 0)
@@ -255,6 +256,7 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	 */
 	else if (si_coreid(sih) == USB20H_CORE_ID) {
 		if (!si_iscoreup(sih)) {
+
 			si_core_reset(sih, 0, 0);
 			// USB hungup issue from broadcom 2009.6.24
 			mdelay(10);
@@ -262,23 +264,27 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 			udelay(1);
 		}
 
-		/* PRxxxx: War for 5354 failures. */
-		if (sih->chip == BCM5354_CHIP_ID && si_corerev(sih) == 1) {
-			uint32 tmp;
-
+		/* War for 5354 failures. */
+		if ((sih->chip == BCM5354_CHIP_ID) && (si_corerev(sih) == 1 || si_corerev(sih) == 2)) {
 			/* Change Flush control reg */
 			tmp = readl(regs + 0x400);
 			tmp &= ~8;
 			writel(tmp, regs + 0x400);
-			tmp = readl(regs + 0x400);
-			//printk("USB20H fcr: 0x%x\n", tmp);
 
 			/* Change Shim control reg */
 			tmp = readl(regs + 0x304);
 			tmp &= ~0x100;
 			writel(tmp, regs + 0x304);
-			tmp = readl(regs + 0x304);
-			//printk("USB20H shim cr: 0x%x\n", tmp);
+
+			/* Change Syn01 reg */
+			tmp = 0x00fe00fe;
+			writel(tmp, regs + 0x894);
+
+			/* Change Syn03 reg */
+			tmp = 0x1;
+			writel(tmp, regs + 0x89c);
+
+			udelay(1);
 		}
 
 		/* War for 4716 failures. */
