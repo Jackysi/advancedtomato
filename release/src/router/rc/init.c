@@ -314,8 +314,16 @@ static void check_bootnv(void)
 {
 	int dirty;
 	int hardware;
+	int model;
 
-	if (get_model() != MODEL_WRT54G) return;
+	model = get_model();
+	dirty = 0;
+
+	switch (model) {
+	case MODEL_WNR3500L:
+		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
+		break;
+	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
 
 	hardware = check_hw_type();
@@ -333,8 +341,6 @@ static void check_bootnv(void)
 			mtd_erase("nvram");
 			goto REBOOT;
 	}
-
-	dirty = 0;
 
 	switch (hardware) {
 	case HW_BCM5325E:
@@ -385,6 +391,9 @@ static void check_bootnv(void)
 		//dirty |= check_nv("pa0maxpwr", "0x48");
 		break;
 	}
+	break;
+
+	} // switch (model)
 
 	if (dirty) {
 		nvram_commit();
@@ -719,7 +728,6 @@ static int init_nvram(void)
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("vlan1ports", "4 3 2 1 8*");
 			nvram_set("vlan2ports", "0 8");
-			nvram_set("boardflags", "0x00000710"); // needed to enable USB
 			nvram_set("t_fix1", name);
 		}
 		break;
