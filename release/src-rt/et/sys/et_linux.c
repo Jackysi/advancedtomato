@@ -557,7 +557,7 @@ et_sendnext(et_info_t *et)
 
 		/* Convert the packet. */
 		if ((p = PKTFRMNATIVE(et->osh, skb)) == NULL) {
-			PKTFREE(etc->osh, skb, TRUE);
+			dev_kfree_skb_any(skb);
 			return;
 		}
 
@@ -647,7 +647,7 @@ et_down(et_info_t *et, int reset)
 	/* flush the txq(s) */
 	for (i = 0; i < NUMTXQ; i++)
 		while ((skb = skb_dequeue(&et->txq[i])))
-			PKTFREE(etc->osh, skb, TRUE);
+			dev_kfree_skb_any(skb);
 
 #ifndef BCM_NAPI
 	/* kill dpc */
@@ -1042,18 +1042,12 @@ static inline int
 et_rxevent(osl_t *osh, et_info_t *et, struct chops *chops, void *ch, int quota)
 {
 	uint processed = 0;
-	void *p = NULL, *h = NULL, *t = NULL;
+	void *p = NULL;
 	struct sk_buff *skb;
 
-	/* read the buffers first */
 	while ((p = (*chops->rx)(ch))) {
-		if (t == NULL)
-			h = t = p;
-		else {
-			PKTSETLINK(t, p);
-			t = p;
-		}
-
+		skb = PKTTONATIVE(osh, p);
+		et_sendup(et, skb);
 		/* we reached quota already */
 		if (++processed >= quota) {
 			/* reschedule et_dpc()/et_poll() */
@@ -1062,22 +1056,8 @@ et_rxevent(osl_t *osh, et_info_t *et, struct chops *chops, void *ch, int quota)
 		}
 	}
 
-	/* prefetch the headers */
-	if (h != NULL)
-		ETPREFHDRS(PKTDATA(osh, h), PREFSZ);
-
 	/* post more rx bufs */
 	(*chops->rxfill)(ch);
-
-	while ((p = h) != NULL) {
-		h = PKTLINK(h);
-		PKTSETLINK(p, NULL);
-		/* prefetch the headers */
-		if (h != NULL)
-			ETPREFHDRS(PKTDATA(osh, h), PREFSZ);
-		skb = PKTTONATIVE(osh, p);
-		et_sendup(et, skb);
-	}
 
 	return (processed);
 }
@@ -1086,7 +1066,7 @@ et_rxevent(osl_t *osh, et_info_t *et, struct chops *chops, void *ch, int quota)
 static int BCMFASTPATH
 et_poll(struct net_device *dev, int *budget)
 {
-	int quota = min(RXBND, *budget);
+	int quota = min(dev->quota, *budget);
 	et_info_t *et = ET_INFO(dev);
 #else /* BCM_NAPI */
 static void BCMFASTPATH
@@ -1176,10 +1156,10 @@ done:
 		 */
 		return (1);
 
-	netif_rx_complete(dev);
-
 	/* enable interrupts now */
 	(*chops->intrson)(ch);
+
+	netif_rx_complete(dev);
 
 	/* indicate that we are done */
 	return (0);
@@ -1189,39 +1169,13 @@ done:
 #endif /* BCM_NAPI */
 }
 
-static void
-et_error(et_info_t *et, struct sk_buff *skb, void *rxh)
-{
-	uchar eabuf[32];
-	struct ether_header *eh;
-
-	eh = (struct ether_header *)skb->data;
-	bcm_ether_ntoa((struct ether_addr *)eh->ether_shost, eabuf);
-
-	if (RXH_OVERSIZE(et->etc, rxh)) {
-		ET_ERROR(("et%d: rx: over size packet from %s\n", et->etc->unit, eabuf));
-	}
-	if (RXH_CRC(et->etc, rxh)) {
-		ET_ERROR(("et%d: rx: crc error from %s\n", et->etc->unit, eabuf));
-	}
-	if (RXH_OVF(et->etc, rxh)) {
-		ET_ERROR(("et%d: rx: fifo overflow\n", et->etc->unit));
-	}
-	if (RXH_NO(et->etc, rxh)) {
-		ET_ERROR(("et%d: rx: crc error (odd nibbles) from %s\n",
-		          et->etc->unit, eabuf));
-	}
-	if (RXH_RXER(et->etc, rxh)) {
-		ET_ERROR(("et%d: rx: symbol error from %s\n", et->etc->unit, eabuf));
-	}
-}
-
 void BCMFASTPATH
 et_sendup(et_info_t *et, struct sk_buff *skb)
 {
 	etc_info_t *etc;
 	void *rxh;
 	uint16 flags;
+	uchar eabuf[32];
 
 	etc = et->etc;
 
@@ -1229,7 +1183,7 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 	rxh = skb->data;
 
 	/* strip off rxhdr */
-	__skb_pull(skb, HWRXOFF);
+	skb_pull(skb, HWRXOFF);
 
 	ET_TRACE(("et%d: et_sendup: %d bytes\n", et->etc->unit, skb->len));
 	ET_LOG("et%d: et_sendup: len %d", et->etc->unit, skb->len);
@@ -1241,7 +1195,7 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 	ASSERT(((ulong)skb->data & 3) == 2);
 
 	/* strip off crc32 */
-	__skb_trim(skb, skb->len - ETHER_CRC_LEN);
+	skb_trim(skb, skb->len - ETHER_CRC_LEN);
 
 	ET_PRHDR("rx", (struct ether_header *)skb->data, skb->len, etc->unit);
 	ET_PRPKT("rxpkt", skb->data, skb->len, etc->unit);
@@ -1262,7 +1216,6 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 			((flags & (RXF_MULT | RXF_BRDCAST | RXF_MISS)) == 0 &&
 				ether_cmp(ether_dhost, &etc->cur_etheraddr)))
 		{
-			uchar eabuf[32];
 			bcm_ether_ntoa((struct ether_addr*)ether_dhost, eabuf);
 			ET_ERROR(("et%d: rx: bad dest address %s [%c%c%c]\n", 
 				etc->unit, eabuf, (flags & RXF_MULT) ? 'M' : ' ', 
@@ -1292,8 +1245,25 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 	return;
 
 err:
-	et_error(et, skb, rxh);
-	PKTFREE(etc->osh, skb, FALSE);
+	bcm_ether_ntoa((struct ether_addr *)((struct ether_header *)skb->data)->ether_shost, eabuf);
+	if (RXH_OVERSIZE(etc, rxh)) {
+		ET_ERROR(("et%d: rx: over size packet from %s\n", etc->unit, eabuf));
+	}
+	if (RXH_CRC(etc, rxh)) {
+		ET_ERROR(("et%d: rx: crc error from %s\n", etc->unit, eabuf));
+	}
+	if (RXH_OVF(etc, rxh)) {
+		ET_ERROR(("et%d: rx: fifo overflow\n", etc->unit));
+	}
+	if (RXH_NO(etc, rxh)) {
+		ET_ERROR(("et%d: rx: crc error (odd nibbles) from %s\n",
+		          etc->unit, eabuf));
+	}
+	if (RXH_RXER(etc, rxh)) {
+		ET_ERROR(("et%d: rx: symbol error from %s\n", etc->unit, eabuf));
+	}
+
+	dev_kfree_skb_any(skb);
 
 	return;
 }
