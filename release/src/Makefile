@@ -384,6 +384,14 @@ d:
 
 	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
 	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
+ifeq ($(CONFIG_LINUX26),y)
+	@sed -i "/TCONFIG_CIFS/d" router/config_$@
+	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
+	@sed -i "/TCONFIG_JFFS2/d" router/config_$@
+	@echo "# TCONFIG_JFFS2 is not set" >>router/config_$@
+	@sed -i "/TCONFIG_ZEBRA/d" router/config_$@
+	@echo "# TCONFIG_ZEBRA is not set" >>router/config_$@
+endif
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
@@ -497,11 +505,11 @@ v:
 
 ## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
 r2m:
-	@$(MAKE) m MIPS32=r2 BCM57=n SAMBA3=y
+	@$(MAKE) m MIPS32=r2 BCM57=y SAMBA3=y
 
 ## Make Mips32r2 USB+VPN build
 r2e:
-	@$(MAKE) e MIPS32=r2 BCM57=n SAMBA3=y
+	@$(MAKE) e MIPS32=r2 BCM57=y SAMBA3=y
 
 ## Make Mips32r2 "no USB" build (Asus RT-N12)
 r2s:
