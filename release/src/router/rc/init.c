@@ -322,7 +322,22 @@ static void check_bootnv(void)
 	switch (model) {
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
+		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+		dirty |= check_nv("vlan2ports", "0 8");
 		break;
+	case MODEL_RTN10:
+		dirty |= check_nv("vlan1ports", "4 5");
+		break;
+	case MODEL_RTN12:
+		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
+		dirty |= check_nv("vlan1ports", "4 5");
+		break;
+	case MODEL_RTN16:
+		dirty |= check_nv("vlan2hwname", "et0");
+		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+		dirty |= check_nv("vlan2ports", "0 8");
+		break;
+
 	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
 
@@ -685,7 +700,6 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan1ports", "4 5");
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -697,8 +711,6 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan0ports", "3 2 1 0 5*");
-			nvram_set("vlan1ports", "4 5");
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -710,10 +722,7 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan2hwname", "et0");
 			nvram_set("vlan_enable", "1");
-			nvram_set("vlan1ports", "4 3 2 1 8*");
-			nvram_set("vlan2ports", "0 8");
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -726,8 +735,6 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan1ports", "4 3 2 1 8*");
-			nvram_set("vlan2ports", "0 8");
 			nvram_set("t_fix1", name);
 		}
 		break;
