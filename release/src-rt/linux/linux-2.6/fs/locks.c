@@ -1374,18 +1374,20 @@ static int __setlease(struct file *filp, long arg, struct file_lock **flp)
 
 	lease = *flp;
 
-	error = -EAGAIN;
-	if ((arg == F_RDLCK) && (atomic_read(&inode->i_writecount) > 0))
-		goto out;
-	if ((arg == F_WRLCK)
-	    && ((atomic_read(&dentry->d_count) > 1)
-		|| (atomic_read(&inode->i_count) > 1)))
-		goto out;
+	if (arg != F_UNLCK) {
+		error = -ENOMEM;
+		new_fl = locks_alloc_lock();
+		if (new_fl == NULL)
+			goto out;
 
-	error = -ENOMEM;
-	new_fl = locks_alloc_lock();
-	if (new_fl == NULL)
-		goto out;
+		error = -EAGAIN;
+		if ((arg == F_RDLCK) && (atomic_read(&inode->i_writecount) > 0))
+			goto out;
+		if ((arg == F_WRLCK)
+		    && ((atomic_read(&dentry->d_count) > 1)
+			|| (atomic_read(&inode->i_count) > 1)))
+			goto out;
+	}
 
 	/*
 	 * At this point, we know that if there is an exclusive
@@ -1478,8 +1480,7 @@ EXPORT_SYMBOL(setlease);
 int fcntl_setlease(unsigned int fd, struct file *filp, long arg)
 {
 	struct file_lock fl, *flp = &fl;
-	struct dentry *dentry = filp->f_path.dentry;
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = filp->f_path.dentry->d_inode;
 	int error;
 
 	locks_init_lock(&fl);
