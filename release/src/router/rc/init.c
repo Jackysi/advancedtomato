@@ -751,6 +751,9 @@ static int init_nvram(void)
 			}
 			nvram_set("t_fix1", name);
 		}
+		/* fix AIR LED */
+		if (nvram_match("wl0gpio1", "0x02"))
+			nvram_set("wl0gpio1", "0x88");
 		break;
 	case MODEL_WL520GU:
 		mfr = "Asus";
