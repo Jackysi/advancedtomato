@@ -19,11 +19,14 @@ enum {
 	OPTION_U16,
 	OPTION_S16,
 	OPTION_U32,
-	OPTION_S32
+	OPTION_S32,
+	OPTION_STATIC_ROUTES,
 };
 
-#define OPTION_REQ      0x10 /* have the client request this option */
-#define OPTION_LIST     0x20 /* There can be a list of 1 or more of these */
+/* Client requests this option by default */
+#define OPTION_REQ      0x10
+/* There can be a list of 1 or more of these */
+#define OPTION_LIST     0x20
 
 /*****************************************************************/
 /* Do not modify below here unless you know what you are doing!! */
@@ -66,6 +69,7 @@ enum {
 #define DHCP_VENDOR             0x3c
 #define DHCP_CLIENT_ID          0x3d
 #define DHCP_FQDN               0x51
+#define DHCP_STATIC_ROUTES      0x79
 #define DHCP_END                0xFF
 /* Offsets in option byte sequence */
 #define OPT_CODE                0
