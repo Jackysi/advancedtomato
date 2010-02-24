@@ -31,6 +31,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/udp.h>
 #include <net/tcp.h>
 #include <net/netfilter/nf_nat_helper.h>
 #include <net/netfilter/nf_nat_rule.h>
@@ -71,9 +72,31 @@ MODULE_PARM_DESC(stunaddr, "Address for detecting STUN");
 module_param(destaction, charp, 0644);
 MODULE_PARM_DESC(destaction, "Action for destination parameter (auto/strip/none)");
 
+extern unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
+				 enum ip_conntrack_info ctinfo,
+				 unsigned int matchoff, unsigned int matchlen,
+				 struct ip_ct_rtsp_expect *prtspexp,
+				 struct nf_conntrack_expect *exp);
+
+extern void (*nf_nat_rtsp_hook_expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp);
+
 #define SKIP_WSPACE(ptr,len,off) while(off < len && isspace(*(ptr+off))) { off++; }
 
 /*** helper functions ***/
+
+static void *
+rtsp_nat_find_char(void *str, int ch, size_t len)
+{
+    unsigned char *pStr = NULL;
+    if (len != 0) {
+        pStr = str;
+        do {
+            if (*pStr++ == ch)
+                return (void *)(pStr - 1);
+        } while (--len != 0);
+    }
+    return NULL;
+}
 
 static void
 get_skb_tcpdata(struct sk_buff* skb, char** pptcpdata, uint* ptcpdatalen)
@@ -154,6 +177,10 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
     switch (prtspexp->pbtype)
     {
     case pb_single:
+#if 1
+        loport = prtspexp->loport;
+        DEBUGP("PB_SINGLE: LO_PORT %hu\n", loport);
+#else
         for (loport = prtspexp->loport; loport != 0; loport++) /* XXX: improper wrap? */
         {
             t->dst.u.udp.port = htons(loport);
@@ -163,6 +190,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                 break;
             }
         }
+#endif
         if (loport != 0)
         {
             rbuf1len = sprintf(rbuf1, "%hu", loport);
@@ -170,6 +198,10 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
         }
         break;
     case pb_range:
+#if 1
+        loport = prtspexp->loport;
+        DEBUGP("PB_RANGE: LO_PORT %hu\n", loport);
+#else
         for (loport = prtspexp->loport; loport != 0; loport += 2) /* XXX: improper wrap? */
         {
             t->dst.u.udp.port = htons(loport);
@@ -180,6 +212,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                 break;
             }
         }
+#endif
         if (loport != 0)
         {
             rbuf1len = sprintf(rbuf1, "%hu", loport);
@@ -189,7 +222,11 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
     case pb_discon:
         for (loport = prtspexp->loport; loport != 0; loport++) /* XXX: improper wrap? */
         {
-            t->dst.u.udp.port = htons(loport);
+            DEBUGP("Original UDP PORT value is %hu exp loport %hu hiport %hu\n", t->dst.u.udp.port,
+                    prtspexp->loport, prtspexp->hiport);
+            // Do not transpose the ports yet. If you do, you better register a helper
+            // to mangle them correctly when you receive packets on those ports.
+            // t->dst.u.udp.port = htons(loport);
             if (nf_conntrack_expect_related(exp) == 0)
             {
                 DEBUGP("using port %hu (1 of 2)\n", loport);
@@ -218,6 +255,9 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             }
         }
         break;
+    default:
+        /* oops */
+        break;
     }
 
     if (rbuf1len == 0)
@@ -232,7 +272,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
         const char* pparamend;
         uint        nextparamoff;
 
-        pparamend = memchr(ptran+off, ',', tranlen-off);
+        pparamend = rtsp_nat_find_char(ptran+off, ',', tranlen-off);
         pparamend = (pparamend == NULL) ? ptran+tranlen : pparamend+1;
         nextparamoff = pparamend-ptcp;
 
@@ -249,7 +289,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             const char* pfieldend;
             uint        nextfieldoff;
 
-            pfieldend = memchr(ptran+off, ';', nextparamoff-off);
+            pfieldend = rtsp_nat_find_char(ptran+off, ';', nextparamoff-off);
             nextfieldoff = (pfieldend == NULL) ? nextparamoff : pfieldend-ptran+1;
 
             if (dstact != DSTACT_NONE && strncmp(ptran+off, "destination=", 12) == 0)
@@ -288,7 +328,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             const char* pfieldend;
             uint        nextfieldoff;
 
-            pfieldend = memchr(ptran+off, ';', nextparamoff-off);
+            pfieldend = rtsp_nat_find_char(ptran+off, ';', nextparamoff-off);
             nextfieldoff = (pfieldend == NULL) ? nextparamoff : pfieldend-ptran+1;
 
             if (strncmp(ptran+off, "client_port=", 12) == 0)
@@ -306,12 +346,16 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                 numlen = nf_strtou16(ptran+off, &port);
                 off += numlen;
                 origlen += numlen;
+#if 0
                 if (port != prtspexp->loport)
                 {
                     DEBUGP("multiple ports found, port %hu ignored\n", port);
                 }
                 else
+#endif
                 {
+                    DEBUGP("Checking port %hu expec port %hu rbufa %s rbufalen %d\n",
+                        port, prtspexp->loport, rbufa, rbufalen);
                     if (ptran[off] == '-' || ptran[off] == '/')
                     {
                         off++;
@@ -331,11 +375,12 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                      * parameter 4 below is offset from start of tcp data.
                      */
                     diff = origlen-rbuflen;
+                    DEBUGP("Before mangle rbuf %s diff %d ptran %s\n", rbuf, diff, ptran+off);
                     if (!nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
                                               origoff, origlen, rbuf, rbuflen))
                     {
                         /* mangle failed, all we can do is bail */
-			nf_conntrack_unexpect_related(exp);
+                        nf_conntrack_unexpect_related(exp);
                         return 0;
                     }
                     get_skb_tcpdata(*pskb, &ptcp, &tcplen);
@@ -343,6 +388,9 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
                     tranlen -= diff;
                     nextparamoff -= diff;
                     nextfieldoff -= diff;
+                    DEBUGP("After mangle nextparamoff %d nextfieldoff %d ptran %s\n",
+                        nextparamoff, nextfieldoff, ptran);
+                    break;
                 }
             }
 
@@ -429,6 +477,9 @@ help(struct sk_buff **pskb, enum ip_conntrack_info ctinfo,
     	/* XXX: unmangle */
 	rc = NF_ACCEPT;
         break;
+    default:
+        /* oops */
+        break;
     }
     //UNLOCK_BH(&ip_rtsp_lock);
 
@@ -453,8 +504,11 @@ static void expected(struct nf_conn* ct, struct nf_conntrack_expect *exp)
 
     mr.rangesize = 1;
     // We don't want to manip the per-protocol, just the IPs.
+    // Actually, we did manipulate the UDP ports
     mr.range[0].flags = IP_NAT_RANGE_MAP_IPS;
     mr.range[0].min_ip = mr.range[0].max_ip = newip;
+    mr.range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
+    mr.range[0].min.udp.port = mr.range[0].max.udp.port = ct->proto.rtsp.orig_port;
 
     nf_nat_setup_info(ct, &mr.range[0], IP_NAT_MANIP_DST);
 }
