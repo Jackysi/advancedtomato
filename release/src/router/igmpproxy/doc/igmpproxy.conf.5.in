@@ -134,6 +134,11 @@ You may specify as many whitelist entries as needed. Although you should keep it
 possible, as this list is parsed for every membership report and therefore this increases igmp
 response times. Often used or large groups should be defined first, as parsing ends as soon as
 a group matches an entry.
+
+You may also specify whitelist entries for the upstream interface. Only igmp membership reports
+for explicitely whitelisted multicast groups will be sent out on the upstream interface. This
+is useful if you want to use multicast groups only between your downstream interfaces, like SSDP
+from a UPnP server.
 .RE
 
 .SH EXAMPLE
