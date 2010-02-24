@@ -92,6 +92,8 @@ static int deconfig(char *ifname)
 	nvram_set("wan_gateway", "0.0.0.0");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_lease", "0");
+	nvram_set("wan_routes", "");
+	nvram_set("wan_msroutes", "");
 	expires(0);
 
 	//	int i = 10;
@@ -133,6 +135,16 @@ static int renew(char *ifname)
 
 	changed |= env2nv("domain", "wan_get_domain");
 	changed |= env2nv("dns", "wan_get_dns");
+	changed |= env2nv("msroutes", "wan_msroutes");
+
+	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
+	 * and a Router option, the DHCP client MUST ignore the Router option.
+	 * Overwrite "wan_routes" by "staticroutes" value if present.
+	 */
+	if (!env2nv("staticroutes", "wan_routes"))
+		changed |= env2nv("routes", "wan_routes");
+	else
+		changed = 1;
 
 	if ((a = getenv("lease")) != NULL) {
 		nvram_set("wan_lease", a);
@@ -150,6 +162,8 @@ static int renew(char *ifname)
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
+	TRACE_PT("wan_routes=%s\n", nvram_safe_get("wan_routes"));
+	TRACE_PT("wan_msroutes=%s\n", nvram_safe_get("wan_msroutes"));
 	TRACE_PT("end\n");
 	return 0;
 }
@@ -166,6 +180,15 @@ static int bound(char *ifname)
 	env2nv("dns", "wan_get_dns");
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
+	env2nv("msroutes", "wan_msroutes");
+
+	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
+	 * and a Router option, the DHCP client MUST ignore the Router option.
+	 * Overwrite "wan_routes" by "staticroutes" value if present.
+	 */
+	if (!env2nv("staticroutes", "wan_routes"))
+		env2nv("routes", "wan_routes");
+
 	expires(atoi(safe_getenv("lease")));
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
@@ -174,7 +197,8 @@ static int bound(char *ifname)
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
-
+	TRACE_PT("wan_routes=%s\n", nvram_safe_get("wan_routes"));
+	TRACE_PT("wan_msroutes=%s\n", nvram_safe_get("wan_msroutes"));
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 

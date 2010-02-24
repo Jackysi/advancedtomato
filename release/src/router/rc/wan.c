@@ -527,6 +527,81 @@ void force_to_dial(void)
 
 // -----------------------------------------------------------------------------
 
+static void add_wan_routes(char *ifname, int metric)
+{
+	char *routes, *msroutes, *tmp;
+	int bit, bits;
+	struct in_addr ip, gw, mask;
+
+	char ipaddr[16];
+	char gateway[16];
+	char netmask[16];
+
+	if (nvram_get_int("dr_disable")) return;
+
+	// staticroutes or routes
+	routes = strdup(nvram_safe_get("wan_routes"));
+	for (tmp = routes; tmp && *tmp; ) {
+		char *ipaddr, *gateway, *nmask;
+
+		ipaddr = nmask = strsep(&tmp, " ");
+		strcpy(netmask, "255.255.255.255");
+
+		if (nmask) {
+			ipaddr = strsep(&nmask, "/");
+			nmask = strsep(&nmask, "/");
+			if (nmask && *nmask) {
+				bits = atoi(nmask);
+				if (bits >= 1 && bits <= 32) {
+					mask.s_addr = htonl(0xffffffff << (32 - bits));
+					strcpy(netmask, inet_ntoa(mask));
+				}
+			}
+		}
+		gateway = strsep(&tmp, " ");
+
+		if (gateway)
+			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+	}
+	free(routes);
+	
+	// ms routes
+	for (msroutes = nvram_get("wan_msroutes"); msroutes && isdigit(*msroutes); ) {
+		// read net length
+		bits = strtol(msroutes, &msroutes, 10);
+		if (bits < 1 || bits > 32 || *msroutes != ' ')
+			break;
+		mask.s_addr = htonl(0xffffffff << (32 - bits));
+
+		// read network address
+		for (ip.s_addr = 0, bit = 24; bit > (24 - bits); bit -= 8) {
+			if (*msroutes++ != ' ' || !isdigit(*msroutes))
+				return;
+			ip.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
+		}
+
+		// read gateway
+		for (gw.s_addr = 0, bit = 24; bit >= 0 && *msroutes; bit -= 8) {
+			if (*msroutes++ != ' ' || !isdigit(*msroutes))
+				return;
+			gw.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
+		}
+
+		// clear bits per RFC
+		ip.s_addr &= mask.s_addr;
+		
+		strcpy(ipaddr, inet_ntoa(ip));
+		strcpy(gateway, inet_ntoa(gw));
+		strcpy(netmask, inet_ntoa(mask));
+		route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		
+		if (*msroutes == ' ')
+			msroutes++;
+	}
+}
+
+// -----------------------------------------------------------------------------
+
 const char wan_connecting[] = "/var/lib/misc/wan.connecting";
 
 void start_wan(int mode)
@@ -783,6 +858,8 @@ void start_wan_done(char *wan_ifname)
 	start_igmp_proxy();
 	
 	do_static_routes(1);
+	// and routes supplied via DHCP
+	add_wan_routes(proto == WP_L2TP ? nvram_safe_get("wan_ifname") : wan_ifname, 0);
 
 	stop_zebra();
 	start_zebra();
