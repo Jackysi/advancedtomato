@@ -114,6 +114,7 @@ checkentry(const char *tablename,
 
 static struct ipt_match time_match = {
 	.name = "time",
+	.family = AF_INET,
 	.match = &match,
 	.matchsize = sizeof(struct ipt_time_info),
 	.checkentry = &checkentry,
