@@ -7,7 +7,8 @@ enum ipt_trigger_type
 {
 	IPT_TRIGGER_DNAT = 1,
 	IPT_TRIGGER_IN = 2,
-	IPT_TRIGGER_OUT = 3
+	IPT_TRIGGER_OUT = 3,
+	IPT_TRIGGER_REFRESH = 4
 };
 
 struct ipt_trigger_ports {

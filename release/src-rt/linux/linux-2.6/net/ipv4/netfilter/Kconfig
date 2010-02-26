@@ -282,6 +282,12 @@ config NF_NAT_SNMP_BASIC
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config NF_NAT_AUTOFW
+	tristate "Automatic port forwarding (autofw) target support"
+	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
+	help
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 # If they want FTP, set to $CONFIG_IP_NF_NAT (m or y),
 # or $CONFIG_IP_NF_FTP (m or y), whichever is weaker.
 # From kconfig-language.txt:
@@ -328,11 +334,6 @@ config NF_NAT_H323
 	tristate
 	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
 	default NF_NAT && NF_CONNTRACK_H323
-
-config NF_NAT_AUTOFW
-	tristate
-	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
-	default NF_NAT
 
 config NF_NAT_SIP
 	tristate
