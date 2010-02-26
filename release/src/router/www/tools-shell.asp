@@ -110,7 +110,7 @@ createFieldTable('', [
 	{ title: 'Command', name: 'f_cmd', type: 'textarea', wrap: 'off', value: '' }
 ]);
 </script>
-<div style='float:right'><input type='button' value='Execute' onclick='execute()' id='execb'></div>
+<div style='float:left'><input type='button' value='Execute' onclick='execute()' id='execb'></div>
 </div>
 
 <div style="visibility:hidden;text-align:right" id="wait">Please wait... <img src='spin.gif' style="vertical-align:top"></div>
