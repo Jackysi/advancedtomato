@@ -685,6 +685,9 @@ int usb_create_sysfs_intf_files(struct usb_interface *intf)
 	struct usb_host_interface *alt = intf->cur_altsetting;
 	int retval;
 
+	if (intf->unregistering)
+ 		return 0;
+
 	retval = sysfs_create_group(&dev->kobj, &intf_attr_grp);
 	if (retval)
 		return retval;
