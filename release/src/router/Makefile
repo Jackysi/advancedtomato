@@ -61,6 +61,11 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
+ifeq ($(CONFIG_LINUX26),y)
+ifeq ($(TCONFIG_SAMBASRV),y)
+NEED_EX_NLS = y
+endif
+endif
 ifeq ($(TCONFIG_SAMBASRV),y)
 ifeq ($(TCONFIG_SAMBA3),y)
 NEED_SAMBA3 = y
@@ -300,10 +305,10 @@ ifneq ($(CONFIG_LINUX26),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
 endif
-ifneq ($(TCONFIG_SAMBASRV),y)
+ifneq ($(TCONFIG_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
 endif
-ifneq ($(CONFIG_LINUX26),y)
+ifneq ($(NEED_EX_NLS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp9*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp1251.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-jp.*o $(PLATFORMDIR)/extras/ || true
@@ -791,7 +796,7 @@ igmpproxy-clean:
 	rm -f igmpproxy/src/Makefile
 
 udev:
-	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)" \
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger
 
 udev-install:
