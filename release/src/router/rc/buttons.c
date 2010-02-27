@@ -153,6 +153,7 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_WNR3500L:
 		reset_mask = 1 << 4;
 		ses_mask = 1 << 6;
+		ses_led = LED_WHITE;
 		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
