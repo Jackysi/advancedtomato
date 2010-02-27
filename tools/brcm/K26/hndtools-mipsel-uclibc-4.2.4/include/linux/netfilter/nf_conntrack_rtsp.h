@@ -48,15 +48,35 @@ struct ip_ct_rtsp_expect
 #endif
 };
 
-extern unsigned int (*nf_nat_rtsp_hook)(struct sk_buff *skb,
-				 enum ip_conntrack_info ctinfo,
-				 unsigned int matchoff, unsigned int matchlen,
-				 struct ip_ct_rtsp_expect *prtspexp,
-				 struct nf_conntrack_expect *exp);
+struct nf_ct_rtsp {
+	u_int32_t orig_port;  /* Client Port */
+};
 
-extern void (*nf_nat_rtsp_hook_expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp);
+struct nf_conn;
 
 #define RTSP_PORT   554
+
+/*
+ * Structure to hold the mappings from client to NAT vice versa. If we
+ * mangle UDP ports in the outgoing SETUP message, we must properly
+ * mangle them in the return direction so that the client will
+ * process the packets appropriately.
+ */
+struct _rtsp_data_ports {
+    u_int32_t           client_ip;
+    u_int16_t           client_tcp_port;
+    u_int16_t           client_udp_lo;
+    u_int16_t           client_udp_hi;
+    portblock_t         pbtype;
+    u_int16_t           nat_udp_lo;
+    u_int16_t           nat_udp_hi;
+    struct timer_list   pause_timeout;
+    struct nf_conn      *ct_lo;
+    struct nf_conn      *ct_hi;
+    int                 timeout_active;
+    int                 in_use;
+    struct sk_buff      *skb;
+};
 
 #endif /* __KERNEL__ */
 
