@@ -9,6 +9,9 @@
 	
 */
 
+# ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+# endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -42,11 +45,15 @@
  * @param	timeout	seconds to wait before timing out or 0 for no timeout
  * @param	ppid	NULL to wait for child termination or pointer to pid
  * @return	return value of executed command or errno
+ *
+ * Ref: http://www.open-std.org/jtc1/sc22/WG15/docs/rr/9945-2/9945-2-28.html
  */
 int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 {
-	pid_t pid;
-	int status;
+	sigset_t set, sigmask;
+	sighandler_t chld = SIG_IGN;
+	pid_t pid, w;
+	int status = 0;
 	int fd;
 	int flags;
 	int sig;
@@ -54,10 +61,20 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 	const char *p;
 	char s[256];
 
+	if (!ppid) {
+		// block SIGCHLD
+		sigemptyset(&set);
+		sigaddset(&set, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &set, &sigmask);
+		// without this we cannot rely on waitpid() to tell what happened to our children
+		chld = signal(SIGCHLD, SIG_DFL);
+	}
+
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");
-		return errno;
+		status = errno;
+		goto EXIT;
 	}
 	if (pid != 0) {
 		// parent
@@ -65,17 +82,33 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 			*ppid = pid;
 			return 0;
 		}
-		waitpid(pid, &status, 0);
-		if (WIFEXITED(status)) return WEXITSTATUS(status);
+		do {
+			if ((w = waitpid(pid, &status, 0)) == -1) {
+				status = errno;
+				perror("waitpid");
+				goto EXIT;
+			}
+		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
+
+		if (WIFEXITED(status)) status = WEXITSTATUS(status);
+EXIT:
+		if (!ppid) {
+			// restore signals
+			sigprocmask(SIG_SETMASK, &sigmask, NULL);
+			signal(SIGCHLD, chld);
+		}
 		return status;
 	}
 	
 	// child
-	
 
 	// reset signal handlers
 	for (sig = 0; sig < (_NSIG - 1); sig++)
 		signal(sig, SIG_DFL);
+
+	// unblock signals if called from signal handler
+	sigemptyset(&set);
+	sigprocmask(SIG_SETMASK, &set, NULL);
 
 	setsid();
 
@@ -143,7 +176,7 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 	execvp(argv[0], argv);
 	
 	perror(argv[0]);
-	exit(errno);
+	_exit(errno);
 }
 
 /*
