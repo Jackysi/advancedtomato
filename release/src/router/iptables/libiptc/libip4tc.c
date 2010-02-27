@@ -189,7 +189,7 @@ is_same(const STRUCT_ENTRY *a, const STRUCT_ENTRY *b, unsigned char *matchmask)
 	    || a->ip.smsk.s_addr != b->ip.smsk.s_addr
 	    || a->ip.dmsk.s_addr != b->ip.dmsk.s_addr
 	    || a->ip.proto != b->ip.proto
-	    || a->ip.flags != b->ip.flags
+	    || (a->ip.flags & ~IPT_F_NO_DEF_MATCH) != (b->ip.flags & ~IPT_F_NO_DEF_MATCH)
 	    || a->ip.invflags != b->ip.invflags)
 		return NULL;
 
