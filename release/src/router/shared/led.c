@@ -87,7 +87,8 @@ void gpio_write(uint32_t bit, int en)
 uint32_t _gpio_read(int f)
 {
 	uint32_t r;
-	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xFFFF, 0);
+//	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xFFFF, 0);
+	r = _gpio_ioctl(f, GPIO_IOC_IN, 0x07FF, 0);
 	if (r < 0) r = ~0;
 	return r;
 }
