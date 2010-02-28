@@ -186,7 +186,7 @@ createFieldTable('', [
 		suffix: '&nbsp; <a href="javascript:clicked()" id="count0">[ count current... ]</a> <img src="spin.gif" style="vertical-align:bottom;padding-left:10px;visibility:hidden" id="spin" onclick="clicked()">',
 		value: fixInt(nvram.ct_max || 4096, 128, 300000, 4096) }
 /* LINUX26-BEGIN */
-	,{ title: 'Hash Table Size', name: 'f_ct_hashsize', type: 'text', maxlen: 6, size: 8, value: nvram.ct_hashsize || 1023 }
+	,{ title: 'Hash Table Size', name: 'ct_hashsize', type: 'text', maxlen: 6, size: 8, value: nvram.ct_hashsize || 1023 }
 /* LINUX26-END */
 ]);
 </script>
