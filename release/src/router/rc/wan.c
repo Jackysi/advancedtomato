@@ -136,6 +136,8 @@ int start_pptp(int mode)
 		if (nvram_match("debug_pppd", "1")) {
 			fprintf(fp, "debug\n");
 		}
+		// user specific options
+		fprintf(fp, "%s\n", nvram_safe_get("ppp_custom"));
 		
 		fclose(fp);
 
@@ -453,11 +455,13 @@ void start_l2tp(void)
 	fprintf(fp, "nodeflate\n");				// Disable Deflate compression
 	fprintf(fp, "lcp-echo-interval 0\n");	// Don't send an LCP echo-request frame to the peer
 	fprintf(fp, "lock\n");
-	fprintf(fp, "noauth");
+	fprintf(fp, "noauth\n");
 
 	if (nvram_match("debug_pppd", "1")) {
 		fprintf(fp, "debug\n");
 	}
+	// user specific options
+	fprintf(fp, "%s\n", nvram_safe_get("ppp_custom"));
 	fclose(fp);
 
 	make_secrets();
@@ -791,6 +795,14 @@ void start_wan_done(char *wan_ifname)
 				sleep(1);
 			}
 			_dprintf("set default gateway=%s n=%d\n", gw, n);
+
+			// add routes to dns servers as well for demand ppp to work
+			char word[100], *next;
+			in_addr_t mask = inet_addr(nvram_safe_get("wan_netmask"));
+			foreach(word, nvram_safe_get("wan_dns"), next) {
+				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
+					route_add(wan_ifname, 0, word, gw, "255.255.255.255");
+			}
 		}
 		
 #ifdef THREE_ARP_GRATUATOUS_SUPPORT	// from 43011; checkme; commented-out	-- zzz
