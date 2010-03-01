@@ -518,7 +518,7 @@ rc: nvram shared
 
 bridge/Makefile:
 	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
-	$(CONFIGURE) --host=mipsel-linux --prefix="" --with-linux-headers=$(LINUXDIR)/include
+	$(CONFIGURE) --prefix="" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
 	@$(SEP)
@@ -596,7 +596,7 @@ vsftpd-install:
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \
-	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared=no --enable-static=no \
 		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal \
 		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
 
@@ -615,7 +615,7 @@ ntfs-3g-install: ntfs-3g
 
 libusb10/Makefile: libusb10/Makefile.in
 	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" LIBS="-lpthread" \
-	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
+	$(CONFIGURE) --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
 libusb10: libusb10/Makefile
 	$(MAKE) -C $@
@@ -629,7 +629,7 @@ libusb10-install: libusb10
 
 libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
-	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
+	$(CONFIGURE) --prefix=/usr \
 		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
 		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 -lpthread \
 		-Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share"
@@ -678,7 +678,7 @@ pptp-client-install:
 
 
 pppd/Makefile: pppd/linux/Makefile.top
-	cd pppd && $(CONFIGURE) --host=mipsel-linux --prefix=/usr --sysconfdir=/tmp
+	cd pppd && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
 
 pppd: pppd/Makefile
 	@$(SEP)
@@ -701,7 +701,7 @@ pppd-install:
 zebra:
 	@$(SEP)
 	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) \
-		--host=mipsel-linux --sysconfdir=/etc \
+		--sysconfdir=/etc \
 		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
 		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
@@ -776,7 +776,7 @@ dropbear-clean:
 	@make -C dropbear clean
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
