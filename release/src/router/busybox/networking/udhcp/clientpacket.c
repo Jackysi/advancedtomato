@@ -126,6 +126,7 @@ int FAST_FUNC send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 int FAST_FUNC send_discover(uint32_t xid, uint32_t requested)
 {
 	struct dhcpMessage packet;
+	static int msgs = 0;
 
 	init_packet(&packet, DHCPDISCOVER);
 	packet.xid = xid;
@@ -138,7 +139,8 @@ int FAST_FUNC send_discover(uint32_t xid, uint32_t requested)
 
 	add_param_req_option(&packet);
 
-	bb_info_msg("Sending discover...");
+	if (msgs++ < 3)
+		bb_info_msg("Sending discover...");
 	return raw_bcast_from_client_config_ifindex(&packet);
 }
 
