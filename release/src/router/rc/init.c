@@ -1143,6 +1143,16 @@ int init_main(int argc, char *argv[])
 			start_services();
 			start_wl();
 
+#ifdef CONFIG_BCMWL5
+			if (nvram_match("wds_enable", "1")) {
+				/* Restart NAS one more time - for some reason without
+				 * this the new driver doesn't always bring WDS up.
+				 */
+				stop_nas();
+				start_nas();
+			}
+#endif
+
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
 
