@@ -17,7 +17,8 @@ install:
 		$(INSTALL) hotplug2.rules-2.4kernel $(PREFIX)/etc/hotplug2.rules \
 		;; \
 	esac
-
+	# remove comments, compress whitespace
+	@sed -i 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' $(PREFIX)/etc/hotplug2.rules
 
 include ../common.mak
 MAKEDEP:=
