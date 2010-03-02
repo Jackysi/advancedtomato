@@ -803,9 +803,6 @@ udev-install:
 	install -d $(INSTALLDIR)
 	install -d $(TARGETDIR)
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
-	@mkdir -p $(INSTALLDIR)/udev/rom/etc/udev
-	# remove comments, compress whitespace
-	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < udev/etc/udev/udev.conf > $(INSTALLDIR)/udev/rom/etc/udev/udev.conf
 
 hotplug2:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)"
