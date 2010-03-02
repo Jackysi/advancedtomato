@@ -461,6 +461,7 @@ static int is_same_addr(struct ether_addr *addr1, struct ether_addr *addr2)
 #define WL_MAX_ASSOC	128
 static int check_wl_client(char *ifname)
 {
+	struct ether_addr bssid;
 	wl_bss_info_t *bi;
 	char buf[WLC_IOCTL_MAXLEN];
 	struct maclist *mlist;
@@ -468,7 +469,8 @@ static int check_wl_client(char *ifname)
 	int associated, authorized;
 
 	*(uint32 *)buf = WLC_IOCTL_MAXLEN;
-	if ((wl_ioctl(ifname, WLC_GET_BSS_INFO, buf, WLC_IOCTL_MAXLEN)) < 0)
+	if (wl_ioctl(ifname, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN) < 0 ||
+	    wl_ioctl(ifname, WLC_GET_BSS_INFO, buf, WLC_IOCTL_MAXLEN) < 0)
 		return 0;
 
 	bi = (wl_bss_info_t *)(buf + 4);
@@ -568,6 +570,7 @@ HELP:
 					stacheck = stacheck_connect;
 				}
 				else {
+					eval("wl", "disassoc");
 #ifdef CONFIG_BCMWL5
 					char *amode, *sec = nvram_safe_get("security_mode2");
 
