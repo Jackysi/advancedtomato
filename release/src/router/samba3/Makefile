@@ -22,6 +22,23 @@ apps:
 	libreplace_cv_READDIR_GETDENTS=no \
 	linux_getgrouplist_ok=no \
 	samba_cv_have_longlong=yes \
+	samba_cv_HAVE_INO64_T=yes \
+	samba_cv_HAVE_OFF64_T=yes \
+	samba_cv_HAVE_SHARED_MMAP=yes \
+	samba_cv_HAVE_STRUCT_FLOCK64=yes \
+	samba_cv_SIZEOF_OFF_T=8 \
+	samba_cv_HAVE_CREAT64=yes \
+	samba_cv_HAVE_FSEEKO64=yes \
+	samba_cv_HAVE_FSTAT64=yes \
+	samba_cv_HAVE_FTELLO64=yes \
+	samba_cv_HAVE_FTRUNCATE64=yes \
+	samba_cv_HAVE_LSEEK64=yes \
+	samba_cv_HAVE_LSTAT64=yes \
+	samba_cv_HAVE_OPEN64=yes \
+	samba_cv_HAVE_PREAD64=yes \
+	samba_cv_HAVE_PWRITE64=yes \
+	samba_cv_HAVE_READDIR64=yes \
+	samba_cv_HAVE_STAT64=yes \
 	samba_cv_HAVE_SIGSET=yes \
 	samba_cv_HAVE_MMAP=yes \
 	samba_cv_HAVE_GETDIRENTRIES=yes \
@@ -34,7 +51,6 @@ apps:
 	samba_cv_HAVE_TIMEGM=no \
 	samba_cv_HAVE_BROKEN_LINUX_SENDFILE=no \
 	samba_cv_HAVE_SENDFILE=yes \
-	samba_cv_HAVE_EXPLICIT_LARGEFILE_SUPPORT=yes \
 	samba_cv_HAVE_WRFILE_KEYTAB=yes \
 	samba_cv_HAVE_KERNEL_OPLOCKS_LINUX=yes \
 	samba_cv_HAVE_IFACE_IFCONF=yes \
@@ -44,7 +60,7 @@ apps:
 	samba_cv_USE_SETRESUID=yes \
 	samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
 	samba_cv_REALPATH_TAKES_NULL=yes \
-	CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64 -D_FILE_OFFSET_BITS=64" \
+	CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_LARGE_FILES=1" \
 	CFLAGS="$(SMBCFLAGS)" CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) \
 	$(CONFIGURE) --host=mipsel-linux \
 		--prefix=/usr \
