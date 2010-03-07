@@ -42,10 +42,6 @@
 #include <mntent.h>
 #endif
 
-#define CACHE_INODE_SIZE 32	/* inode cache, zero or >= 3 and not too big */
-#define CACHE_SECURID_SIZE 16    /* securid cache, zero or >= 3 and not too big */
-#define CACHE_LEGACY_SIZE 8    /* legacy cache size, zero or >= 3 and not too big */
-
 /*
  * Under Cygwin, DJGPP and FreeBSD we do not have MS_RDONLY,
  * so we define them ourselves.
@@ -65,6 +61,7 @@
 /* Forward declaration */
 typedef struct _ntfs_volume ntfs_volume;
 
+#include "param.h"
 #include "types.h"
 #include "support.h"
 #include "device.h"
@@ -159,7 +156,7 @@ struct _ntfs_volume {
 	ntfs_inode *vol_ni;	/* ntfs_inode structure for FILE_Volume. */
 	u8 major_ver;		/* Ntfs major version of volume. */
 	u8 minor_ver;		/* Ntfs minor version of volume. */
-	u16 flags;		/* Bit array of VOLUME_* flags. */
+	le16 flags;		/* Bit array of VOLUME_* flags. */
 
 	u16 sector_size;	/* Byte size of a sector. */
 	u8 sector_size_bits;	/* Log(2) of the byte size of a sector. */
@@ -235,6 +232,12 @@ struct _ntfs_volume {
 #if CACHE_INODE_SIZE
 	struct CACHE_HEADER *xinode_cache;
 #endif
+#if CACHE_NIDATA_SIZE
+	struct CACHE_HEADER *nidata_cache;
+#endif
+#if CACHE_LOOKUP_SIZE
+	struct CACHE_HEADER *lookup_cache;
+#endif
 #if CACHE_SECURID_SIZE
 	struct CACHE_HEADER *securid_cache;
 #endif
@@ -261,7 +264,7 @@ extern int ntfs_version_is_supported(ntfs_volume *vol);
 extern int ntfs_volume_check_hiberfile(ntfs_volume *vol, int verbose);
 extern int ntfs_logfile_reset(ntfs_volume *vol);
 
-extern int ntfs_volume_write_flags(ntfs_volume *vol, const u16 flags);
+extern int ntfs_volume_write_flags(ntfs_volume *vol, const le16 flags);
 
 extern int ntfs_volume_error(int err);
 extern void ntfs_mount_error(const char *vol, const char *mntpoint, int err);

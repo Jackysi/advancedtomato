@@ -240,6 +240,7 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+EXTRA_DIST = secaudit.h
 MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 @FUSE_INTERNAL_FALSE@FUSE_CFLAGS = $(FUSE_MODULE_CFLAGS)
 @FUSE_INTERNAL_TRUE@FUSE_CFLAGS = -I$(top_srcdir)/include/fuse-lite

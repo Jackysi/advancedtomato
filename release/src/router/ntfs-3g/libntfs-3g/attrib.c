@@ -44,6 +44,7 @@
 #include <limits.h>
 #endif
 
+#include "param.h"
 #include "compat.h"
 #include "attrib.h"
 #include "attrlist.h"
@@ -65,6 +66,7 @@
 #include "efs.h"
 
 #define STANDARD_COMPRESSION_UNIT 4
+#define MAX_COMPRESSION_CLUSTER_SIZE 4096
 
 ntfschar AT_UNNAMED[] = { const_cpu_to_le16('\0') };
 ntfschar STREAM_SDS[] = { const_cpu_to_le16('$'),
@@ -465,7 +467,8 @@ ntfs_attr *ntfs_attr_open(ntfs_inode *ni, const ATTR_TYPES type,
 		 * change when stream is wiped out.
 		 */
 		a->flags &= ~ATTR_COMPRESSION_MASK;
-		if (na->ni->flags & FILE_ATTR_COMPRESSED)
+		if ((na->ni->flags & FILE_ATTR_COMPRESSED)
+		    && (ni->vol->cluster_size <= MAX_COMPRESSION_CLUSTER_SIZE))
 			a->flags |= ATTR_IS_COMPRESSED;
 	}
 	
@@ -1473,6 +1476,15 @@ s64 ntfs_attr_pwrite(ntfs_attr *na, const s64 pos, s64 count, const void *b)
 			goto err_out;
 		}
 		na->initialized_size = pos + count;
+#if CACHE_NIDATA_SIZE
+		if (na->ni->mrec->flags & MFT_RECORD_IS_DIRECTORY
+		    ? na->type == AT_INDEX_ROOT && na->name == NTFS_INDEX_I30
+		    : na->type == AT_DATA && na->name == AT_UNNAMED) {
+			na->ni->data_size = na->data_size;
+			na->ni->allocated_size = na->allocated_size;
+			set_nino_flag(na->ni,KnownSize);
+		}
+#endif
 		ntfs_attr_put_search_ctx(ctx);
 		ctx = NULL;
 		/*
@@ -1885,8 +1897,16 @@ int ntfs_attr_pclose(ntfs_attr *na)
 retry:
 	written = 0;
 	if (!NVolReadOnly(vol)) {
-			
 		written = ntfs_compressed_close(na, rl, ofs);
+#if CACHE_NIDATA_SIZE
+		if (na->ni->mrec->flags & MFT_RECORD_IS_DIRECTORY
+		    ? na->type == AT_INDEX_ROOT && na->name == NTFS_INDEX_I30
+		    : na->type == AT_DATA && na->name == AT_UNNAMED) {
+			na->ni->data_size = na->data_size;
+			na->ni->allocated_size = na->allocated_size;
+			set_nino_flag(na->ni,KnownSize);
+		}
+#endif
 		/* If everything ok, update progress counters and continue. */
 		if (!written)
 			goto done;
@@ -2195,38 +2215,24 @@ static int ntfs_attr_find(const ATTR_TYPES type, const ntfschar *name,
 				errno = ENOENT;
 				return -1;
 			}
-		} else if (name && !ntfs_names_are_equal(name, name_len,
-			    (ntfschar*)((char*)a + le16_to_cpu(a->name_offset)),
-			    a->name_length, ic, upcase, upcase_len)) {
+		} else {
 			register int rc;
-
-			rc = ntfs_names_collate(name, name_len,
-					(ntfschar*)((char*)a +
-					le16_to_cpu(a->name_offset)),
-					a->name_length, 1, IGNORE_CASE,
-					upcase, upcase_len);
-			/*
-			 * If @name collates before a->name, there is no
-			 * matching attribute.
-			 */
-			if (rc == -1) {
-				errno = ENOENT;
-				return -1;
-			}
+			if (name && ((rc = ntfs_names_full_collate(name,
+					name_len, (ntfschar*)((char*)a +
+						le16_to_cpu(a->name_offset)),
+					a->name_length, ic,
+					upcase, upcase_len)))) {
+				/*
+				 * If @name collates before a->name,
+				 * there is no matching attribute.
+				 */
+				if (rc < 0) {
+					errno = ENOENT;
+					return -1;
+				}
 			/* If the strings are not equal, continue search. */
-			if (rc)
-				continue;
-			rc = ntfs_names_collate(name, name_len,
-					(ntfschar*)((char*)a +
-					le16_to_cpu(a->name_offset)),
-					a->name_length, 1, CASE_SENSITIVE,
-					upcase, upcase_len);
-			if (rc == -1) {
-				errno = ENOENT;
-				return -1;
+			continue;
 			}
-			if (rc)
-				continue;
 		}
 		/*
 		 * The names match or @name not present and attribute is
@@ -2506,38 +2512,22 @@ find_attr_list_attr:
 		if (name == AT_UNNAMED) {
 			if (al_name_len)
 				goto not_found;
-		} else if (name && !ntfs_names_are_equal(al_name, al_name_len,
-				name, name_len, ic, vol->upcase,
-				vol->upcase_len)) {
-			register int rc;
+		} else {
+			int rc;
 
-			rc = ntfs_names_collate(name, name_len, al_name,
-					al_name_len, 1, IGNORE_CASE,
-					vol->upcase, vol->upcase_len);
-			/*
-			 * If @name collates before al_name, there is no
-			 * matching attribute.
-			 */
-			if (rc == -1)
-				goto not_found;
-			/* If the strings are not equal, continue search. */
-			if (rc)
+			if (name && ((rc = ntfs_names_full_collate(name,
+					name_len, al_name, al_name_len, ic,
+					vol->upcase, vol->upcase_len)))) {
+
+				/*
+				 * If @name collates before al_name,
+				 * there is no matching attribute.
+				 */
+				if (rc < 0)
+					goto not_found;
+				/* If the strings are not equal, continue search. */
 				continue;
-			/*
-			 * FIXME: Reverse engineering showed 0, IGNORE_CASE but
-			 * that is inconsistent with ntfs_attr_find(). The
-			 * subsequent rc checks were also different. Perhaps I
-			 * made a mistake in one of the two. Need to recheck
-			 * which is correct or at least see what is going
-			 * on... (AIA)
-			 */
-			rc = ntfs_names_collate(name, name_len, al_name,
-					al_name_len, 1, CASE_SENSITIVE,
-					vol->upcase, vol->upcase_len);
-			if (rc == -1)
-				goto not_found;
-			if (rc)
-				continue;
+			}
 		}
 		/*
 		 * The names match or @name not present and attribute is
@@ -3280,9 +3270,12 @@ int ntfs_resident_attr_record_add(ntfs_inode *ni, ATTR_TYPES type,
 			goto put_err_out;
 		}
 	}
-	if (type == AT_DATA && name == AT_UNNAMED) {
+	if (ni->mrec->flags & MFT_RECORD_IS_DIRECTORY
+	    ? type == AT_INDEX_ROOT && name == NTFS_INDEX_I30
+	    : type == AT_DATA && name == AT_UNNAMED) {
 		ni->data_size = size;
 		ni->allocated_size = (size + 7) & ~7;
+		set_nino_flag(ni,KnownSize);
 	}
 	ntfs_inode_mark_dirty(ni);
 	ntfs_attr_put_search_ctx(ctx);
@@ -3454,7 +3447,6 @@ int ntfs_attr_record_rm(ntfs_attr_search_ctx *ctx)
 {
 	ntfs_inode *base_ni, *ni;
 	ATTR_TYPES type;
-	int err;
 
 	if (!ctx || !ctx->ntfs_ino || !ctx->mrec || !ctx->attr) {
 		errno = EINVAL;
@@ -3479,7 +3471,7 @@ int ntfs_attr_record_rm(ntfs_attr_search_ctx *ctx)
 			if (ntfs_attrlist_entry_add(ni, ctx->attr))
 				ntfs_log_trace("Rollback failed. Leaving inconstant "
 						"metadata.\n");
-		err = EIO;
+		errno = EIO;
 		return -1;
 	}
 	ntfs_inode_mark_dirty(ni);
@@ -3715,6 +3707,7 @@ int ntfs_attr_add(ntfs_inode *ni, ATTR_TYPES type,
 
 add_attr_record:
 	if ((ni->flags & FILE_ATTR_COMPRESSED)
+	    && (ni->vol->cluster_size <= MAX_COMPRESSION_CLUSTER_SIZE)
 	    && ((type == AT_DATA)
 	       || ((type == AT_INDEX_ROOT) && (name == NTFS_INDEX_I30))))
 		data_flags = ATTR_IS_COMPRESSED;
@@ -4403,10 +4396,14 @@ static int ntfs_resident_attr_resize_i(ntfs_attr *na, const s64 newsize)
 			if ((na->data_flags & ATTR_COMPRESSION_MASK)
 			    || NAttrSparse(na))
 				na->compressed_size = na->allocated_size;
-			if (na->type == AT_DATA && na->name == AT_UNNAMED) {
+			if (na->ni->mrec->flags & MFT_RECORD_IS_DIRECTORY
+			    ? na->type == AT_INDEX_ROOT && na->name == NTFS_INDEX_I30
+			    : na->type == AT_DATA && na->name == AT_UNNAMED) {
 				na->ni->data_size = na->data_size;
 				na->ni->allocated_size = na->allocated_size;
-				NInoFileNameSetDirty(na->ni);
+				set_nino_flag(na->ni,KnownSize);
+				if (na->type == AT_DATA)
+					NInoFileNameSetDirty(na->ni);
 			}
 			goto resize_done;
 		}
@@ -4602,7 +4599,7 @@ static int ntfs_attr_make_resident(ntfs_attr *na, ntfs_attr_search_ctx *ctx)
 	if (sle64_to_cpu(a->lowest_vcn)) {
 		ntfs_log_trace("Eeek!  Should be called for the first extent of the "
 				"attribute.  Aborting...\n");
-		err = EINVAL;
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -4679,6 +4676,7 @@ static int ntfs_attr_make_resident(ntfs_attr *na, ntfs_attr_search_ctx *ctx)
 	 */
 	if (!na->data_size
 	    && (na->type == AT_DATA)
+	    && (na->ni->vol->cluster_size <= MAX_COMPRESSION_CLUSTER_SIZE)
 	    && (na->ni->flags & FILE_ATTR_COMPRESSED)) {
 		a->flags |= ATTR_IS_COMPRESSED;
 		na->data_flags = a->flags;
@@ -5305,9 +5303,17 @@ static int ntfs_non_resident_attr_shrink(ntfs_attr *na, const s64 newsize)
 		ctx->attr->initialized_size = cpu_to_sle64(newsize);
 	}
 	/* Update data size in the index. */
-	if (na->type == AT_DATA && na->name == AT_UNNAMED) {
-		na->ni->data_size = na->data_size;
-		NInoFileNameSetDirty(na->ni);
+	if (na->ni->mrec->flags & MFT_RECORD_IS_DIRECTORY) {
+		if (na->type == AT_INDEX_ROOT && na->name == NTFS_INDEX_I30) {
+			na->ni->data_size = na->data_size;
+			na->ni->allocated_size = na->allocated_size;
+			set_nino_flag(na->ni,KnownSize);
+		}
+	} else {
+		if (na->type == AT_DATA && na->name == AT_UNNAMED) {
+			na->ni->data_size = na->data_size;
+			NInoFileNameSetDirty(na->ni);
+		}
 	}
 
 	/* If the attribute now has zero size, make it resident. */
@@ -5496,9 +5502,17 @@ static int ntfs_non_resident_attr_expand_i(ntfs_attr *na, const s64 newsize)
 	na->data_size = newsize;
 	ctx->attr->data_size = cpu_to_sle64(newsize);
 	/* Update data size in the index. */
-	if (na->type == AT_DATA && na->name == AT_UNNAMED) {
-		na->ni->data_size = na->data_size;
-		NInoFileNameSetDirty(na->ni);
+	if (na->ni->mrec->flags & MFT_RECORD_IS_DIRECTORY) {
+		if (na->type == AT_INDEX_ROOT && na->name == NTFS_INDEX_I30) {
+			na->ni->data_size = na->data_size;
+			na->ni->allocated_size = na->allocated_size;
+			set_nino_flag(na->ni,KnownSize);
+		}
+	} else {
+		if (na->type == AT_DATA && na->name == AT_UNNAMED) {
+			na->ni->data_size = na->data_size;
+			NInoFileNameSetDirty(na->ni);
+		}
 	}
 	/* Set the inode dirty so it is written out later. */
 	ntfs_inode_mark_dirty(ctx->ntfs_ino);
@@ -5598,7 +5612,7 @@ int ntfs_attr_truncate(ntfs_attr *na, const s64 newsize)
 	 */
 	if (na->data_flags & ATTR_IS_ENCRYPTED) {
 		errno = EACCES;
-		ntfs_log_info("Failed to truncate encrypted attribute");
+		ntfs_log_trace("Cannot truncate encrypted attribute\n");
 		goto out;
 	}
 	/*

@@ -73,8 +73,7 @@ static ntfschar logged_utility_stream_name[] = {
  *		Get the ntfs EFS info into an extended attribute
  */
 
-int ntfs_get_efs_info(const char *path,
-			char *value, size_t size, ntfs_inode *ni)
+int ntfs_get_efs_info(ntfs_inode *ni, char *value, size_t size)
 {
 	EFS_ATTR_HEADER *efs_info;
 	s64 attr_size = 0;
@@ -102,17 +101,20 @@ int ntfs_get_efs_info(const char *path,
 			} else {
 				if (efs_info) {
 					free(efs_info);
-					ntfs_log_info("Bad efs_info for file %s\n",path);
+					ntfs_log_error("Bad efs_info for inode %lld\n",
+						(long long)ni->mft_no);
 				} else {
-					ntfs_log_info("Could not get efsinfo"
-						" for file %s\n", path);
+					ntfs_log_error("Could not get efsinfo"
+						" for inode %lld\n",
+						(long long)ni->mft_no);
 				}
 				errno = EIO;
 				attr_size = 0;
 			}
 		} else {
 			errno = ENODATA;
-			ntfs_log_info("File %s is not encrypted",path); 
+			ntfs_log_trace("Inode %lld is not encrypted\n",
+				(long long)ni->mft_no); 
 		}
 	}
 	return (attr_size ? (int)attr_size : -errno);
@@ -124,9 +126,9 @@ int ntfs_get_efs_info(const char *path,
  *	Returns 0, or -1 if there is a problem
  */
 
-int ntfs_set_efs_info(const char *path	__attribute__((unused)),
-			const char *value, size_t size, int flags,
-			ntfs_inode *ni)
+int ntfs_set_efs_info(ntfs_inode *ni, const char *value, size_t size,
+			int flags)
+			
 {
 	int res;
 	int written;
@@ -138,7 +140,8 @@ int ntfs_set_efs_info(const char *path	__attribute__((unused)),
 	if (ni && value && size) {
 		if (ni->flags & (FILE_ATTR_ENCRYPTED | FILE_ATTR_COMPRESSED)) {
 			if (ni->flags & FILE_ATTR_ENCRYPTED) {
-				ntfs_log_info("File %s already encrypted",path);
+				ntfs_log_trace("Inode %lld already encrypted\n",
+						(long long)ni->mft_no);
 				errno = EEXIST;
 			} else {
 				/*
@@ -147,8 +150,8 @@ int ntfs_set_efs_info(const char *path	__attribute__((unused)),
 				 * restored as compressed.
 				 * TODO : decompress first.
 				 */
-				ntfs_log_error("File %s cannot be encrypted and compressed\n",
-					path);
+				ntfs_log_error("Inode %lld cannot be encrypted and compressed\n",
+					(long long)ni->mft_no);
 				errno = EIO;
 			}
 			return -1;
@@ -215,7 +218,7 @@ int ntfs_set_efs_info(const char *path	__attribute__((unused)),
 				while (!ntfs_attr_lookup(AT_DATA, NULL, 0, 
 					   CASE_SENSITIVE, 0, NULL, 0, ctx)) {
 					if (ntfs_efs_fixup_attribute(ctx, NULL)) {
-						ntfs_log_error("Error in efs fixup of AT_DATA Attribute");
+						ntfs_log_error("Error in efs fixup of AT_DATA Attribute\n");
 						ntfs_attr_put_search_ctx(ctx);
 						return(-1);
 					}
@@ -285,7 +288,7 @@ int ntfs_efs_fixup_attribute(ntfs_attr_search_ctx *ctx, ntfs_attr *na)
 	}
 		/* make sure size is valid for a raw encrypted stream */
 	if ((na->data_size & 511) != 2) {
-		ntfs_log_error("Bad raw encrypted stream");
+		ntfs_log_error("Bad raw encrypted stream\n");
 		goto err_out;
 	}
 	/* read padding length from last two bytes of attribute */

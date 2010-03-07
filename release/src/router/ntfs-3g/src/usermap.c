@@ -39,6 +39,12 @@
  *
  *  May 2009 Version 1.1.2
  *     - avoided selecting DOS names on Linux
+ *
+ *  Nov 2009 Version 1.1.3
+ *     - shutdown compiler warnings for unused parameters
+ *
+ *  Jan 2010 Version 1.1.4
+ *     - fixed compilation problems for Mac OSX (Erik Larsson)
  */
 
 /*
@@ -67,8 +73,8 @@
 #else
 #define USESTUBS 0 /* direct calls to API, based on following definitions */
 #define ENVNTFS3G "NTFS3G"
-#define LIBFILE64 "/lib64/libntfs-3g.so.4921"
-#define LIBFILE "/lib/libntfs-3g.so.4921"
+#define LIBFILE64 "/lib64/libntfs-3g.so.491"
+#define LIBFILE "/lib/libntfs-3g.so.491"
 #endif
 
 #define GET_FILE_SECURITY "ntfs_get_file_security"
@@ -77,7 +83,7 @@
 #define INIT_FILE_SECURITY "ntfs_initialize_file_security"
 #define LEAVE_FILE_SECURITY "ntfs_leave_file_security"
 
-#define VERSION "1.1.2"
+#define VERSION "1.1.4"
 #define MAPDIR ".NTFS-3G"
 #define MAPFILE "UserMapping"
 #define MAXATTRSZ 2048
@@ -123,18 +129,14 @@
 
 #define STATIC
 
-typedef enum { false, true } boolean;
+typedef enum { DENIED, AGREED } boolean;
 
 #else
 
 #include <unistd.h>
 #include <dlfcn.h>
 
-#if __bool_true_false_are_defined
-typedef bool boolean, BOOL;
-#else
-typedef enum { false, true } boolean, BOOL;
-#endif
+typedef enum { DENIED, AGREED } boolean, BOOL;
 typedef unsigned int DWORD; /* must be 32 bits whatever the platform */
 typedef DWORD *LPDWORD;
 
@@ -219,19 +221,28 @@ void *ntfs_handle;
 void *ntfs_context = (void*)NULL;
 
 /*
+ *		Shut down compiler warnings for unused parameters
+ */
+
+static long unused(const void *p)
+{
+return ((long)p);
+}
+
+/*
  *		Open and close the security API (platform dependent)
  */
 
 STATIC boolean open_security_api(void)
 {
 #if USESTUBS
-	return (true);
+	return (AGREED);
 #else
 	char *error;
 	boolean err;
 	const char *libfile;
 
-	err = true;
+	err = AGREED;
 	libfile = getenv(ENVNTFS3G);
 	if (!libfile)
 		libfile = (sizeof(char*) == 8 ? LIBFILE64 : LIBFILE);
@@ -286,12 +297,12 @@ STATIC boolean open_volume(const char *volume)
 {
 	boolean ok;
 
-	ok = false;
+	ok = DENIED;
 	if (!ntfs_context) {
 		ntfs_context = ntfs_initialize_file_security(volume,0);
 		if (ntfs_context) {
 			fprintf(stderr,"\"%s\" opened\n",volume);
-			ok = true;
+			ok = AGREED;
 		} else {
 			fprintf(stderr,"Could not open \"%s\"\n",volume);
 			fprintf(stderr,"Make sure \"%s\" is not mounted\n",volume);
@@ -484,7 +495,7 @@ STATIC void domapping(const char *accname, const char *filename,
 			free(sidstr);	/* decision already known */
 		else {
 			do {
-				reject = false;
+				reject = DENIED;
 				printf("\n");
 				if (accname)
 					printf("Under Windows login \"%s\"\n", accname);
@@ -507,7 +518,7 @@ STATIC void domapping(const char *accname, const char *filename,
 					 && ((p[0] == '0') || !strcmp(p, "root"))) {
 					printf("Please do not map users to root\n");
 					printf("Administrators will be mapped automatically\n");
-					reject = true;
+					reject = AGREED;
 				}
 				if (reject)
 					printf("Please retry\n");
@@ -517,7 +528,7 @@ STATIC void domapping(const char *accname, const char *filename,
 				    (struct MAPPING *)
 				    malloc(sizeof(struct MAPPING));
 				mapping->next = (struct MAPPING *)NULL;
-				mapping->defined = false;
+				mapping->defined = DENIED;
 				if (lastmapping)
 					lastmapping->next = mapping;
 				else
@@ -536,7 +547,7 @@ STATIC void domapping(const char *accname, const char *filename,
 							mapping->uidstr = idstr;
 							mapping->gidstr = idstr;
 						}
-						mapping->defined = true;
+						mapping->defined = AGREED;
 					}
 				}
 				mapping->sidstr = sidstr;
@@ -669,7 +680,7 @@ STATIC boolean recurse(const char *accname, const char *dir, int levels)
 	char *fullname;
 	boolean err;
 
-	err = false;
+	err = DENIED;
 	filter = (char *)malloc(strlen(dir) + 5);
 	if (filter) {
 		strcpy(filter, dir);
@@ -702,7 +713,7 @@ STATIC boolean recurse(const char *accname, const char *dir, int levels)
 		free(filter);
 	} else {
 		printf("Directory %s not found\n",dir);
-		err = true;
+		err = AGREED;
 	}
 	return (!err);
 }
@@ -719,6 +730,9 @@ STATIC int callback(struct CALLBACK *context, char *ntfsname,
 	char *accname;
 	char *name;
 
+	unused((void*)&pos);
+	unused((void*)&mft_ref);
+	unused((void*)&dt_type);
 	fullname = (char *)malloc(strlen(context->dir)
 			 + utf8_size(ntfsname, length) + 2);
 	if (fullname) {
@@ -783,7 +797,7 @@ STATIC boolean recurse(const char *accname, const char *dir, int levels, int doc
 	struct CALLBACK context;
 	boolean err;
 
-	err = false;
+	err = DENIED;
 	context.dir = dir;
 	context.accname = accname;
 	context.levels = levels;
@@ -810,7 +824,7 @@ STATIC boolean getusers(const char *dir, int levels)
 	const char *docset;
 
 	/* first get files from "Documents and Settings" */
-	err = false;
+	err = DENIED;
 	if (sizeof(OWNERS1) > sizeof(OWNERS2))
 		filter = (char *)malloc(strlen(dir) + strlen(OWNERS1) + 6);
 	else
@@ -885,7 +899,7 @@ STATIC boolean getusers(const char *dir, int levels)
 			FindClose(search);
 		} else {
 			printf("No directory found in %s\n",dir);
-			err = true;
+			err = AGREED;
 		}
 	}
 	return (!err);
@@ -899,7 +913,7 @@ STATIC boolean getusers(const char *dir, int levels)
 	struct CALLBACK context;
 
 	printf("* Search for \"" OWNERS1 "\" and \"" OWNERS2 "\"\n");
-	err = false;
+	err = DENIED;
 	context.dir = dir;
 	context.accname = (const char*)NULL;
 	context.levels = levels;
@@ -953,7 +967,7 @@ STATIC void loginname(boolean silent)
 			domain[domainsz] = '\0';
 			if (!silent)
 				printf("Your account domain is %s\n",domain);
-			ok = true;
+			ok = AGREED;
 		}
 	   }
 	if (ok) {
@@ -976,7 +990,7 @@ boolean minimal(unsigned char *sid)
 	const unsigned char *groupsid;
 	boolean ok;
 
-	ok = false;
+	ok = DENIED;
 	if (sid) {
 		groupsid = makegroupsid(sid);
 		printf("# %s\n",BANNER);
@@ -985,7 +999,7 @@ boolean minimal(unsigned char *sid)
 		printf("# Replace \"user\" and \"group\" hereafter by matching Linux login\n");
 		printf("user::%s\n",decodesid(sid));
 		printf(":group:%s\n",decodesid(groupsid));
-		ok = true;
+		ok = AGREED;
 	}
 	return (ok);
 }
@@ -1008,7 +1022,7 @@ STATIC boolean outputmap(const char *volume, const char *dir)
 	int s;
 #endif
 
-	done = false;
+	done = DENIED;
 	fullname = (char *)malloc(strlen(MAPFILE) + 1
 				+ strlen(volume) + 1
 				+ (dir ? strlen(dir) + 1 : 0));
@@ -1053,7 +1067,7 @@ STATIC boolean outputmap(const char *volume, const char *dir)
 #endif
 
 		printf("* Creating file %s\n", fullname);
-		err = false;
+		err = DENIED;
 #ifdef WIN32
 		fn = open(fullname,O_CREAT + O_TRUNC + O_WRONLY + O_BINARY, 
 			S_IREAD + S_IWRITE);
@@ -1064,9 +1078,9 @@ STATIC boolean outputmap(const char *volume, const char *dir)
 		if (fn > 0) {
 			sprintf(buf,"# %s\n",BANNER);
 			if (!write(fn,buf,strlen(buf)))
-				err = true;
+				err = AGREED;
 			printf("%s",buf);
-			undecided = false;
+			undecided = DENIED;
 				/* records for owner only or group only */
 			for (mapping = firstmapping; mapping && !err;
 			     mapping = mapping->next)
@@ -1077,10 +1091,10 @@ STATIC boolean outputmap(const char *volume, const char *dir)
 						mapping->gidstr,
 						mapping->sidstr);
 					if (!write(fn,buf,strlen(buf)))
-						err = true;
+						err = AGREED;
 					printf("%s",buf);
 				} else
-					undecided = true;
+					undecided = AGREED;
 				/* records for both owner and group */
 			for (mapping = firstmapping; mapping && !err;
 			     mapping = mapping->next)
@@ -1091,10 +1105,10 @@ STATIC boolean outputmap(const char *volume, const char *dir)
 						mapping->gidstr,
 						mapping->sidstr);
 					if (!write(fn,buf,strlen(buf)))
-						err = true;
+						err = AGREED;
 					printf("%s",buf);
 				} else
-					undecided = true;
+					undecided = AGREED;
 			done = !err;
 			close(fn);
 			if (undecided) {
@@ -1200,7 +1214,7 @@ STATIC boolean sanitize(void)
 				if (genericgroup) {
 					genericgroup->uidstr = "";
 					genericgroup->gidstr = firstowner->uidstr;
-					genericgroup->defined = true;
+					genericgroup->defined = AGREED;
 				} else {
 					group = (struct MAPPING*)
 						malloc(sizeof(struct MAPPING));
@@ -1211,17 +1225,17 @@ STATIC boolean sanitize(void)
 						group->gidstr = firstowner->
 								uidstr;
 						group->sidstr = sidstr;
-						group->defined = true;
+						group->defined = AGREED;
 						group->next = firstmapping;
 						firstmapping = group;
 					}
 				}
 			}
 		}
-		ok = true;
+		ok = AGREED;
 	} else {
 		printf("\nYou have defined no user, no mapping can be built\n");
-		ok = false;
+		ok = DENIED;
 	}
 
 	return (ok);
@@ -1253,6 +1267,8 @@ STATIC boolean checkoptions(int argc, char *argv[], boolean silent)
 		fprintf(stderr, "    the Windows system partition should be named first\n");
 	}
 #else
+	unused((void*)argv);
+	unused((void*)&silent);
 	err = (argc < 2);
 	if (err) {
 		fprintf(stderr, "Usage : usermap dev1 [dev2 ...]\n");
@@ -1263,7 +1279,7 @@ STATIC boolean checkoptions(int argc, char *argv[], boolean silent)
 	} else
 		if (getuid()) {
 			fprintf(stderr, "\nSorry, only root can start usermap\n");
-			err = true;
+			err = AGREED;
 		}
 #endif
 	return (!err);
@@ -1277,7 +1293,7 @@ STATIC boolean process(int argc, char *argv[])
 
 	firstmapping = (struct MAPPING *)NULL;
 	lastmapping = (struct MAPPING *)NULL;
-	ok = true;
+	ok = AGREED;
 #ifdef WIN32
 	for (xarg=1; (xarg<argc) && ok; xarg++) {
 		printf("\n* Scanning \"%s\" (two levels)\n",argv[xarg]);
@@ -1290,7 +1306,7 @@ STATIC boolean process(int argc, char *argv[])
 			ok = getusers("/",2);
 			close_volume(argv[xarg]);
 		} else
-			ok = false;
+			ok = DENIED;
 #endif
 	if (ok && sanitize()) {
 		targ = (argc > 2 ? 2 : 1);
@@ -1300,11 +1316,11 @@ STATIC boolean process(int argc, char *argv[])
 				printf("\nNote : you will have to move the file to directory \"%s\" on Linux\n",
 					MAPDIR);
 			} else
-				ok = false;
+				ok = DENIED;
 		} else
-			ok = false;
+			ok = DENIED;
 	} else
-		ok = false;
+		ok = DENIED;
 	return (ok);
 }
 
@@ -1326,11 +1342,11 @@ int main(int argc, char *argv[])
 #else
 		if (open_security_api()) {
 			ok = process(argc,argv);
-			if (!close_security_api()) ok = false;
+			if (!close_security_api()) ok = DENIED;
 		}
 #endif
 	} else
-		ok = false;
+		ok = DENIED;
 	if (!ok)
 		exit(1);
 	return (0);
