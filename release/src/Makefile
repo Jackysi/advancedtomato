@@ -17,7 +17,7 @@
 # To rebuild everything and all configurations:
 #  make distclean
 #  make libc (usually doesn't need to be done ???)
-#  make V1=whatever V2=sub-whatever a b c d m
+#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m
 # The 1st "whatever" would be the build number, the sub-whatever would
 #	be the update to the version.
 #
@@ -37,22 +37,31 @@ include ./target.mak
 # Normally you'd do something like "make V1=8516 V2=sub-ver a b c d"
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
 V1 ?= "--def"
+VPN ?= "VPN"
+ifeq ($(CONFIG_LINUX26),y)
+ND = "K26"
+else
+ND = "ND"
+endif
 
 -include tomato_profile.mak
-
 
 # This could be simpler by just using $(TOMATO_PROFILE_NAME) like it used to be,
 # but that's fragile.  If you make one certain innocuous change elsewhere in the
 # makefile(s), the build will silently be wrong.  This way it works properly every time.
 current_BUILD_NAME = $(strip $(shell grep "^TOMATO_BUILD_NAME" tomato_profile.mak  | cut -d"=" -f2))
-current_BUILD_DESC = $(strip $(shell grep "^TOMATO_BUILD_DESC" tomato_profile.mak  | cut -d"=" -f2))
-current_BUILD_USB  = $(strip $(shell grep "^TOMATO_BUILD_USB"  tomato_profile.mak  | cut -d"=" -f2))
+current_BUILD_DESC = $(strip $(shell grep "^TOMATO_BUILD_DESC" tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g"))
+current_BUILD_USB  = $(strip $(shell grep "^TOMATO_BUILD_USB"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g"))
+current_TOMATO_VER = $(strip $(shell grep "TOMATO_MAJOR" router/shared/tomato_version.h  | cut -d"\"" -f2)).$(strip $(shell grep "TOMATO_MINOR" router/shared/tomato_version.h  | cut -d"\"" -f2))
 
 uppercase_N = $(shell echo $(N) | tr a-z  A-Z)
 lowercase_N = $(shell echo $(N) | tr A-Z a-z)
 uppercase_B = $(shell echo $(B) | tr a-z  A-Z)
 lowercase_B = $(shell echo $(B) | tr A-Z a-z)
 
+tomato_ver:
+	@echo ""
+	@btools/uversion.pl --gen $(V1) $(V2) $(ND) $(current_BUILD_USB) $(current_BUILD_DESC)
 
 ifeq ($(TOMATO_BUILD),)
 
@@ -62,11 +71,10 @@ all:
 
 else
 
-all:
+all: tomato_ver
 	@echo ""
-	@echo ""
-	@echo "Building $(current_BUILD_USB) $(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
-	@btools/uversion.pl --gen $(V1) $(V2) "ND" $(current_BUILD_USB) $(current_BUILD_DESC)
+	@echo "Building Tomato $(ND) $(current_BUILD_USB) $(current_TOMATO_VER).$(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
+
 	@echo ""
 	@echo ""
 
@@ -75,7 +83,7 @@ all:
 	@$(MAKE) -C router install
 	@$(MAKE) -C btools
 
-	@rm -f image/tomato-ND$(current_BUILD_USB)-$(V1)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).trx
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
@@ -92,7 +100,7 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		| tee -a fpkg.log
 else
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
-		-t image/tomato-ND$(current_BUILD_USB)-$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
+		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
 endif
 
 	@cp fpkg.log image/fpkg-$(V1)$(V2).log
@@ -174,7 +182,7 @@ what:
 
 define RouterOptions
 	@( \
-	if [ "$(SAMBA3)" = "y" ]; then \
+	if [ "$(CONFIG_LINUX26)" = "y" ] || [ "$(SAMBA3)" = "y" ]; then \
 		sed -i "/TCONFIG_SAMBA3/d" $(1); \
 		echo "TCONFIG_SAMBA3=y" >>$(1); \
 	fi; \
@@ -432,7 +440,7 @@ e:
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
-	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC="VPN" USB="USB"
+	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC=$(VPN) USB="USB"
 	@$(MAKE) all
 
 ## Make the "normal with Extras" build
@@ -474,7 +482,7 @@ s:
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
-	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="" USB=""
+	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="Std" USB=""
 	@$(MAKE) all
 
 ## Make the "VPN witn no USB support" build
@@ -500,16 +508,16 @@ v:
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
 	$(call BusyboxKernelConfig, router/busybox/config_$@)
 
-	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC="VPN" USB=""
+	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC=$(VPN) USB=""
 	@$(MAKE) all
 
 ## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
 r2m:
-	@$(MAKE) m MIPS32=r2 BCM57=y SAMBA3=y
+	@$(MAKE) m MIPS32=r2 BCM57=y
 
 ## Make Mips32r2 USB+VPN build
 r2e:
-	@$(MAKE) e MIPS32=r2 BCM57=y SAMBA3=y
+	@$(MAKE) e MIPS32=r2 BCM57=y
 
 ## Make Mips32r2 "no USB" build (Asus RT-N12)
 r2s:
