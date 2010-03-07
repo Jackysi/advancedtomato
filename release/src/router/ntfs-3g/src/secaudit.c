@@ -1,7 +1,7 @@
 /*
  *		 Display and audit security attributes in an NTFS volume
  *
- * Copyright (c) 2007-2009 Jean-Pierre Andre
+ * Copyright (c) 2007-2010 Jean-Pierre Andre
  * 
  *	Options :
  *		-a auditing security data
@@ -168,6 +168,9 @@
  *  Jan 2010, version 1.3.15
  *     - more adaptations to opensolaris
  *     - removed the fix for return code of dorestore()
+ *
+ *  Jan 2010, version 1.3.16
+ *     - repeated the fix for return code of dorestore()
  */
 
 /*
@@ -191,7 +194,7 @@
  *		General parameters which may have to be adapted to needs
  */
 
-#define AUDT_VERSION "1.3.15"
+#define AUDT_VERSION "1.3.16"
 
 #define GET_FILE_SECURITY "ntfs_get_file_security"
 #define SET_FILE_SECURITY "ntfs_set_file_security"
@@ -2686,10 +2689,11 @@ BOOL dorestore(const char *volume, FILE *fd)
 {
 	BOOL err;
 
+	err = FALSE;
 	if (!getuid()) {
  		if (open_security_api()) {
 			if (open_volume(volume,MS_NONE)) {
-				if (!restore(fd)) err = TRUE;
+				if (restore(fd)) err = TRUE;
 				close_volume(volume);
 			} else {
 				fprintf(stderr,"Could not open volume %s\n",volume);
@@ -2706,7 +2710,7 @@ BOOL dorestore(const char *volume, FILE *fd)
 		fprintf(stderr,"Restore is only possible as root\n");
 		err = TRUE;
 	}
-	return (!err);
+	return (err);
 }
 #endif /* WIN32 */
 
@@ -4372,6 +4376,7 @@ BOOL setfull(const char *fullname, int mode, BOOL isdir)
 	printname(stdout,fullname);
 	printf(" mode 0%03o\n",mode);
 	attrsz = getfull(attr, fullname);
+	err = FALSE;
 	if (attrsz) {
 		phead = (const SECURITY_DESCRIPTOR_RELATIVE*)attr;
 		gsid = (const SID*)&attr[le32_to_cpu(phead->group)];
@@ -5049,6 +5054,7 @@ static ssize_t ntfs_getxattr(const char *path, const char *name, void *value, si
 
 void showmounted(const char *fullname)
 {
+
 	static char attr[MAXATTRSZ];
 	struct stat st;
 #if POSIXACLS
