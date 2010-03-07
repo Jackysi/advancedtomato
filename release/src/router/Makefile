@@ -746,6 +746,23 @@ lzo-install:
 	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
 
 
+openvpn: openvpn/.conf
+
+openvpn/.conf:
+	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS)" \
+	LDFLAGS=" -L../openssl/ -L../lzo/src/.libs/" \
+	$(CONFIGURE) --prefix= \
+	--with-lzo-headers="../lzo/include" \
+	--with-ssl-headers="../openssl/include/" \
+	--with-iproute-path="/usr/sbin/ip" \
+	--disable-debug --disable-plugins --enable-management --enable-small \
+	--disable-selinux --disable-socks --enable-password-save
+	touch openvpn/.conf
+
+openvpn-clean:
+	$(MAKE) -C openvpn clean || true
+	@rm -f openvpn/.conf
+
 openvpn-install:
 	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	$(STRIP) $(INSTALLDIR)/openvpn/usr/sbin/openvpn
