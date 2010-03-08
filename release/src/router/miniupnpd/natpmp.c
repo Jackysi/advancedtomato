@@ -1,4 +1,4 @@
-/* $Id: natpmp.c,v 1.16 2009/11/06 20:18:18 nanard Exp $ */
+/* $Id: natpmp.c,v 1.18 2010/01/14 18:44:31 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2007-2009 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_NATPMP
 
-int OpenAndConfNATPMPSocket()
+int OpenAndConfNATPMPSocket(in_addr_t addr)
 {
 	int snatpmp;
 	snatpmp = socket(PF_INET, SOCK_DGRAM, 0/*IPPROTO_UDP*/);
@@ -37,7 +37,8 @@ int OpenAndConfNATPMPSocket()
 		memset(&natpmp_addr, 0, sizeof(natpmp_addr));
 		natpmp_addr.sin_family = AF_INET;
 		natpmp_addr.sin_port = htons(NATPMP_PORT);
-		natpmp_addr.sin_addr.s_addr = INADDR_ANY;
+		//natpmp_addr.sin_addr.s_addr = INADDR_ANY;
+		natpmp_addr.sin_addr.s_addr = addr;
 		//natpmp_addr.sin_addr.s_addr = inet_addr("192.168.0.1");
 		if(bind(snatpmp, (struct sockaddr *)&natpmp_addr, sizeof(natpmp_addr)) < 0)
 		{
@@ -49,7 +50,26 @@ int OpenAndConfNATPMPSocket()
 	return snatpmp;
 }
 
-static void FillPublicAddressResponse(unsigned char * resp)
+int OpenAndConfNATPMPSockets(int * sockets)
+{
+	int i, j;
+	for(i=0; i<n_lan_addr; i++)
+	{
+		sockets[i] = OpenAndConfNATPMPSocket(lan_addr[i].addr.s_addr);
+		if(sockets[i] < 0)
+		{
+			for(j=0; j<i; j++)
+			{
+				close(sockets[j]);
+				sockets[j] = -1;
+			}
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void FillPublicAddressResponse(unsigned char * resp, in_addr_t senderaddr)
 {
 #ifndef MULTIPLE_EXTERNAL_IP
 	char tmp[16];
@@ -72,7 +92,7 @@ static void FillPublicAddressResponse(unsigned char * resp)
 	int i;
 
 	for(i = 0; i<n_lan_addr; i++) {
-		if( (senderaddr.sin_addr.s_addr & lan_addr[i].mask.s_addr)
+		if( (senderaddr & lan_addr[i].mask.s_addr)
 		   == (lan_addr[i].addr.s_addr & lan_addr[i].mask.s_addr)) {
 			memcpy(resp+8, &lan_addr[i].ext_ip_addr,
 			       sizeof(lan_addr[i].ext_ip_addr));
@@ -128,7 +148,7 @@ void ProcessIncomingNATPMPPacket(int s)
 	} else switch(req[1]) {
 	case 0:	/* Public address request */
 		syslog(LOG_INFO, "NAT-PMP public address request");
-		FillPublicAddressResponse(resp);
+		FillPublicAddressResponse(resp, senderaddr.sin_addr.s_addr);
 		resplen = 12;
 		break;
 	case 1:	/* UDP port mapping request */
@@ -316,13 +336,15 @@ void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets)
 	notif[2] = 0;
 	notif[3] = 0;
 	*((uint32_t *)(notif+4)) = htonl(time(NULL) - startup_time);
-	FillPublicAddressResponse(notif);
+#ifndef MULTIPLE_EXTERNAL_IP
+	FillPublicAddressResponse(notif, 0);
 	if(notif[3])
 	{
 		syslog(LOG_WARNING, "%s: cannot get public IP address, stopping",
 		       "SendNATPMPPublicAddressChangeNotification");
 		return;
 	}
+#endif
 	memset(&sockname, 0, sizeof(struct sockaddr_in));
     sockname.sin_family = AF_INET;
     sockname.sin_port = htons(NATPMP_PORT);
@@ -330,6 +352,9 @@ void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets)
 
 	for(j=0; j<n_sockets; j++)
 	{
+#ifdef MULTIPLE_EXTERNAL_IP
+		FillPublicAddressResponse(notif, lan_addr[j].addr.s_addr);
+#endif
 		n = sendto(sockets[j], notif, 12, 0,
 		           (struct sockaddr *)&sockname, sizeof(struct sockaddr_in));
 		if(n < 0)

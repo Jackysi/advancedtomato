@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.52 2009/09/04 16:14:04 nanard Exp $
+# $Id: Makefile,v 1.53 2010/01/08 16:23:16 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/
 # Author: Thomas Bernard
@@ -33,6 +33,12 @@ FWNAME != . /etc/rc.subr; . /etc/rc.conf; \
 .if $(OSNAME) == "NetBSD"
 FWNAME != . /etc/rc.subr; . /etc/rc.conf; \
           if checkyesno ipfilter; then \
+          echo "ipf"; else echo "pf"; fi
+.endif
+
+.if $(OSNAME) == "DragonFly"
+FWNAME != . /etc/rc.subr; . /etc/rc.conf; \
+          if chechyesno ipfilter; then \
           echo "ipf"; else echo "pf"; fi
 .endif
 
