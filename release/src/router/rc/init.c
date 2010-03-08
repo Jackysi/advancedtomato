@@ -728,7 +728,7 @@ static int init_nvram(void)
 		break;
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
-		name = "WNR3500L";
+		name = "WNR3500L/v2";
 		features = SUP_SES | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("sromrev", "3");
