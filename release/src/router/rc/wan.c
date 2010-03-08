@@ -541,7 +541,7 @@ static void add_wan_routes(char *ifname, int metric)
 	char gateway[16];
 	char netmask[16];
 
-	if (nvram_get_int("dr_disable")) return;
+	if (!nvram_get_int("dhcp_routes")) return;
 
 	// staticroutes or routes
 	routes = strdup(nvram_safe_get("wan_routes"));

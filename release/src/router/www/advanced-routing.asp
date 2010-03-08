@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,lan_ifname,wan_ifname"); %>
+// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,wan_ifname"); %>
 // <% activeroutes(); %>
 
 var ara = new TomatoGrid();
@@ -125,6 +125,8 @@ function save()
 /* ZEBRA-END */
 
 	fom.lan_stp.value = E('_f_stp').checked ? 1 : 0;
+	fom.dhcp_routes.value = E('_f_dhcp_routes').checked ? '1' : '0';
+	fom._service.value = (fom.dhcp_routes.value != nvram.dhcp_routes) ? 'wan-restart' : 'routing-restart';
 
 	form.submit(fom, 1);
 }
@@ -160,6 +162,7 @@ function init()
 
 <input type='hidden' name='routes_static'>
 <input type='hidden' name='lan_stp'>
+<input type='hidden' name='dhcp_routes'>
 <input type='hidden' name='dr_lan_tx'>
 <input type='hidden' name='dr_lan_rx'>
 <input type='hidden' name='dr_wan_tx'>
@@ -183,6 +186,7 @@ createFieldTable('', [
 /* ZEBRA-BEGIN */
 	{ title: 'RIPv1 &amp; v2', name: 'dr_setting', type: 'select',	options: [[0,'Disabled'],[1,'LAN'],[2,'WAN'],[3,'Both']], value:	nvram.dr_setting },
 /* ZEBRA-END */
+	{ title: 'DHCP Routes', name: 'f_dhcp_routes', type: 'checkbox', value: nvram.dhcp_routes != '0' },
 	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' },
 ]);
 </script>
