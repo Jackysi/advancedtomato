@@ -416,6 +416,7 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -698,13 +699,20 @@ pppd-install:
 #		$(STRIP) $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
 
 
-zebra:
-	@$(SEP)
-	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) \
-		--sysconfdir=/etc \
-		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
-		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
+zebra/stamp-h1:
+	@cd zebra && rm -f config.cache && \
+	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --sysconfdir=/etc \
+	--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
+	--disable-ospf6d --disable-bgpd --disable-bgpd-announce
+	@touch zebra/stamp-h1
+
+zebra: zebra/stamp-h1
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
+
+zebra-clean:
+	@$(MAKE) -C zebra clean || true
+	@rm -f zebra/stamp-h1
 
 zebra-install:
 	install -D zebra/zebra/zebra $(INSTALLDIR)/zebra/usr/sbin/zebra
