@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.117 2009/12/22 17:21:06 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.122 2010/02/15 09:56:21 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard
@@ -312,6 +312,22 @@ write_option_list(int fd)
 	}
 }
 
+static void
+write_command_line(int fd, int argc, char * * argv)
+{
+	char buffer[256];
+	int len;
+	int i;
+	write(fd, "Command Line :\n", 15);
+	for(i=0; i<argc; i++)
+	{
+		len = snprintf(buffer, sizeof(buffer),
+		               "argv[%02d]='%s'\n",
+		                i, argv[i]);
+		write(fd, buffer, len);
+	}
+}
+
 #endif
 
 /* Handler for the SIGTERM signal (kill) 
@@ -347,7 +363,7 @@ set_startup_time(int sysuptime)
 		/* use system uptime instead of daemon uptime */
 #if defined(__linux__)
 		char buff[64];
-		int uptime, fd;
+		int uptime = 0, fd;
 		fd = open("/proc/uptime", O_RDONLY);
 		if(fd < 0)
 		{
@@ -356,9 +372,15 @@ set_startup_time(int sysuptime)
 		else
 		{
 			memset(buff, 0, sizeof(buff));
-			read(fd, buff, sizeof(buff) - 1);
-			uptime = atoi(buff);
-			syslog(LOG_INFO, "system uptime is %d seconds", uptime);
+			if(read(fd, buff, sizeof(buff) - 1) < 0)
+			{
+				syslog(LOG_ERR, "read(\"/proc/uptime\" : %m");
+			}
+			else
+			{
+				uptime = atoi(buff);
+				syslog(LOG_INFO, "system uptime is %d seconds", uptime);
+			}
 			close(fd);
 			startup_time -= uptime;
 		}
@@ -414,6 +436,10 @@ struct runtime_vars {
 /* parselanaddr()
  * parse address with mask
  * ex: 192.168.1.1/24 or 192.168.1.1/255.255.255.0
+ * When MULTIPLE_EXTERNAL_IP is enabled, the ip address of the
+ * external interface associated with the lan subnet follows.
+ * ex : 192.168.1.1/24 81.21.41.11
+ *
  * return value : 
  *    0 : ok
  *   -1 : error */
@@ -421,7 +447,7 @@ static int
 parselanaddr(struct lan_addr_s * lan_addr, const char * str)
 {
 	const char * p;
-	int nbits = 24;
+	int nbits = 24;	/* by default, networks are /24 */
 	int n;
 	p = str;
 	while(*p && *p != '/' && !isspace(*p))
@@ -456,9 +482,11 @@ parselanaddr(struct lan_addr_s * lan_addr, const char * str)
 	if (nbits >= 0)
 		lan_addr->mask.s_addr = htonl(nbits ? (0xffffffff << (32 - nbits)) : 0);
 #ifdef MULTIPLE_EXTERNAL_IP
+	/* skip spaces */
 	while(*p && isspace(*p))
 		p++;
 	if(*p) {
+		/* parse the exteral ip address to associate with this subnet */
 		n = 0;
 		while(p[n] && !isspace(*p))
 			n++;
@@ -497,6 +525,12 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	const char * presurl = 0;
 	const char * optionsfile = DEFAULT_CONFIG;
 
+	/* only print usage if -h is used */
+	for(i=1; i<argc; i++)
+	{
+		if(0 == strcmp(argv[i], "-h"))
+			goto print_usage;
+	}
 	/* first check if "-f" option is used */
 	for(i=2; i<argc; i++)
 	{
@@ -764,22 +798,19 @@ init(int argc, char * * argv, struct runtime_vars * v)
 				int address_already_there = 0;
 				int j;
 				i++;
-				for(j=0; j<n_lan_addr; j++)/* for(j=0; j<v->n_lan_addr; j++)*/
+				for(j=0; j<n_lan_addr; j++)
 				{
 					struct lan_addr_s tmpaddr;
 					parselanaddr(&tmpaddr, argv[i]);
-					/*if(0 == strcmp(v->lan_addr[j].str, tmpaddr.str))*/
 					if(0 == strcmp(lan_addr[j].str, tmpaddr.str))
 						address_already_there = 1;
 				}
 				if(address_already_there)
 					break;
-				if(n_lan_addr < MAX_LAN_ADDR) /*if(v->n_lan_addr < MAX_LAN_ADDR)*/
+				if(n_lan_addr < MAX_LAN_ADDR)
 				{
-					/*v->lan_addr[v->n_lan_addr++] = argv[i];*/
-					/*if(parselanaddr(&v->lan_addr[v->n_lan_addr], argv[i]) == 0)*/
 					if(parselanaddr(&lan_addr[n_lan_addr], argv[i]) == 0)
-						n_lan_addr++; /*v->n_lan_addr++;*/
+						n_lan_addr++;
 				}
 				else
 				{
@@ -797,39 +828,10 @@ init(int argc, char * * argv, struct runtime_vars * v)
 			fprintf(stderr, "Unknown option: %s\n", argv[i]);
 		}
 	}
-	if(!ext_if_name || (/*v->*/n_lan_addr==0))
+	if(!ext_if_name || (n_lan_addr==0))
 	{
-		fprintf(stderr, "Usage:\n\t"
-		        "%s [-f config_file] [-i ext_ifname] [-o ext_ip]\n"
-#ifndef ENABLE_NATPMP
-				"\t\t[-a listening_ip] [-p port] [-d] [-L] [-U] [-S]\n"
-#else
-				"\t\t[-a listening_ip] [-p port] [-d] [-L] [-U] [-S] [-N]\n"
-#endif
-				/*"[-l logfile] " not functionnal */
-				"\t\t[-u uuid] [-s serial] [-m model_number] \n"
-				"\t\t[-t notify_interval] [-P pid_filename]\n"
-#ifdef USE_PF
-				"\t\t[-B down up] [-w url] [-q queue] [-T tag]\n"
-#else
-				"\t\t[-B down up] [-w url]\n"
-#endif
-		        "\nNotes:\n\tThere can be one or several listening_ips.\n"
-		        "\tNotify interval is in seconds. Default is 30 seconds.\n"
-				"\tDefault pid file is %s.\n"
-				"\tWith -d miniupnpd will run as a standard program.\n"
-				"\t-L sets packet log in pf and ipf on.\n"
-				"\t-S sets \"secure\" mode : clients can only add mappings to their own ip\n"
-				"\t-U causes miniupnpd to report system uptime instead "
-				"of daemon uptime.\n"
-				"\t-B sets bitrates reported by daemon in bits per second.\n"
-				"\t-w sets the presentation url. Default is http address on port 80\n"
-#ifdef USE_PF
-				"\t-q sets the ALTQ queue in pf.\n"
-				"\t-T sets the tag name in pf.\n"
-#endif
-		        "", argv[0], pidfilename);
-		return 1;
+		/* bad configuration */
+		goto print_usage;
 	}
 
 	if(debug_flag)
@@ -868,7 +870,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		return 1;
 	}	
 
-	set_startup_time(GETFLAG(SYSUPTIMEMASK)/*sysuptime*/);
+	set_startup_time(GETFLAG(SYSUPTIMEMASK));
 
 	/* presentation url */
 	if(presurl)
@@ -881,7 +883,6 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		snprintf(presentationurl, PRESENTATIONURL_MAX_LEN,
 		         "http://%s/", lan_addr[0].str);
 		         /*"http://%s:%d/", lan_addr[0].str, 80);*/
-		         /*"http://%s:%d/", v->lan_addr[0].str, 80);*/
 	}
 
 	/* set signal handler */
@@ -928,6 +929,43 @@ init(int argc, char * * argv, struct runtime_vars * v)
 #endif
 
 	return 0;
+print_usage:
+	fprintf(stderr, "Usage:\n\t"
+	        "%s [-f config_file] [-i ext_ifname] [-o ext_ip]\n"
+#ifndef ENABLE_NATPMP
+			"\t\t[-a listening_ip] [-p port] [-d] [-L] [-U] [-S]\n"
+#else
+			"\t\t[-a listening_ip] [-p port] [-d] [-L] [-U] [-S] [-N]\n"
+#endif
+			/*"[-l logfile] " not functionnal */
+			"\t\t[-u uuid] [-s serial] [-m model_number] \n"
+			"\t\t[-t notify_interval] [-P pid_filename]\n"
+#ifdef USE_PF
+			"\t\t[-B down up] [-w url] [-q queue] [-T tag]\n"
+#else
+			"\t\t[-B down up] [-w url]\n"
+#endif
+	        "\nNotes:\n\tThere can be one or several listening_ips.\n"
+	        "\tNotify interval is in seconds. Default is 30 seconds.\n"
+			"\tDefault pid file is '%s'.\n"
+			"\tDefault config file is '%s'.\n"
+			"\tWith -d miniupnpd will run as a standard program.\n"
+			"\t-L sets packet log in pf and ipf on.\n"
+			"\t-S sets \"secure\" mode : clients can only add mappings to their own ip\n"
+			"\t-U causes miniupnpd to report system uptime instead "
+			"of daemon uptime.\n"
+#ifdef ENABLE_NATPMP
+			"\t-N enable NAT-PMP functionnality.\n"
+#endif
+			"\t-B sets bitrates reported by daemon in bits per second.\n"
+			"\t-w sets the presentation url. Default is http address on port 80\n"
+#ifdef USE_PF
+			"\t-q sets the ALTQ queue in pf.\n"
+			"\t-T sets the tag name in pf.\n"
+#endif
+			"\t-h prints this help and quits.\n"
+	        "", argv[0], pidfilename, DEFAULT_CONFIG);
+	return 1;
 }
 
 /* === main === */
@@ -938,7 +976,7 @@ main(int argc, char * * argv)
 	int i;
 	int sudp = -1, shttpl = -1;
 #ifdef ENABLE_NATPMP
-	int snatpmp = -1;
+	int snatpmp[MAX_LAN_ADDR];
 #endif
 	int snotify[MAX_LAN_ADDR];
 	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
@@ -979,7 +1017,7 @@ main(int argc, char * * argv)
 		return 0;
 	}
 
-	if(GETFLAG(ENABLEUPNPMASK)/*enableupnp*/)
+	if(GETFLAG(ENABLEUPNPMASK))
 	{
 
 		/* open socket for HTTP connections. Listen on the 1st LAN address */
@@ -1004,8 +1042,6 @@ main(int argc, char * * argv)
 		sudp = OpenAndConfSSDPReceiveSocket(n_lan_addr, lan_addr);
 		if(sudp < 0)
 		{
-			/*syslog(LOG_ERR, "Failed to open socket for receiving SSDP. EXITING");
-			return 1;*/
 			syslog(LOG_INFO, "Failed to open socket for receiving SSDP. Trying to use MiniSSDPd");
 			if(SubmitServicesToMiniSSDPD(lan_addr[0].str, v.port) < 0) {
 				syslog(LOG_ERR, "Failed to connect to MiniSSDPd. EXITING");
@@ -1026,12 +1062,9 @@ main(int argc, char * * argv)
 	/* open socket for NAT PMP traffic */
 	if(GETFLAG(ENABLENATPMPMASK))
 	{
-		snatpmp = OpenAndConfNATPMPSocket();
-		if(snatpmp < 0)
+		if(OpenAndConfNATPMPSockets(snatpmp) < 0)
 		{
-			syslog(LOG_ERR, "Failed to open socket for NAT PMP.");
-			/*syslog(LOG_ERR, "Failed to open socket for NAT PMP. EXITING");
-			return 1;*/
+			syslog(LOG_ERR, "Failed to open sockets for NAT PMP.");
 		} else {
 			syslog(LOG_NOTICE, "Listening for NAT-PMP traffic on port %u",
 			       NATPMP_PORT);
@@ -1153,9 +1186,11 @@ main(int argc, char * * argv)
 		}
 #endif
 #ifdef ENABLE_NATPMP
-		if(snatpmp >= 0) {
-			FD_SET(snatpmp, &readset);
-			max_fd = MAX( max_fd, snatpmp);
+		for(i=0; i<n_lan_addr; i++) {
+			if(snatpmp[i] >= 0) {
+				FD_SET(snatpmp[i], &readset);
+				max_fd = MAX( max_fd, snatpmp[i]);
+			}
 		}
 #endif
 #ifdef USE_MINIUPNPDCTL
@@ -1207,6 +1242,7 @@ main(int argc, char * * argv)
 				if(l > 0)
 				{
 					/*write(ectl->socket, buf, l);*/
+					write_command_line(ectl->socket, argc, argv);
 					write_option_list(ectl->socket);
 					write_permlist(ectl->socket, upnppermlist, num_upnpperm);
 					write_upnphttp_details(ectl->socket, upnphttphead.lh_first);
@@ -1252,9 +1288,12 @@ main(int argc, char * * argv)
 #endif
 #ifdef ENABLE_NATPMP
 		/* process NAT-PMP packets */
-		if((snatpmp >= 0) && FD_ISSET(snatpmp, &readset))
+		for(i=0; i<n_lan_addr; i++)
 		{
-			ProcessIncomingNATPMPPacket(snatpmp);
+			if((snatpmp[i] >= 0) && FD_ISSET(snatpmp[i], &readset))
+			{
+				ProcessIncomingNATPMPPacket(snatpmp[i]);
+			}
 		}
 #endif
 		/* process SSDP packets */
@@ -1352,10 +1391,12 @@ shutdown:
 	if (sudp >= 0) close(sudp);
 	if (shttpl >= 0) close(shttpl);
 #ifdef ENABLE_NATPMP
-	if(snatpmp>=0)
-	{
-		close(snatpmp);
-		snatpmp = -1;
+	for(i=0; i<n_lan_addr; i++) {
+		if(snatpmp[i]>=0)
+		{
+			close(snatpmp[i]);
+			snatpmp[i] = -1;
+		}
 	}
 #endif
 #ifdef USE_MINIUPNPDCTL

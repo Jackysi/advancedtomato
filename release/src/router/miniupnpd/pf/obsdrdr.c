@@ -1,9 +1,39 @@
-/* $Id: obsdrdr.c,v 1.48 2009/09/04 09:18:30 nanard Exp $ */
+/* $Id: obsdrdr.c,v 1.58 2010/03/07 18:12:48 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2008 Thomas Bernard 
+ * (c) 2006-2010 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
+
+/*
+ * pf rules created (with ext_if = xl1)
+ * - OpenBSD up to version 4.6 :
+ *     rdr pass on xl1 inet proto udp from any to any port = 54321 \
+ *            label "test label" -> 192.168.0.141 port 12345
+ *   or a rdr rule + a pass rule
+ *
+ * - OpenBSD starting from version 4.7
+ *     match in on xl1 inet proto udp from any to any port 54321 \
+ *            label "test label" rdr-to 192.168.0.141 port 12345
+ *   or
+ *     pass in quick on xl1 inet proto udp from any to any port 54321 \
+ *            label "test label" rdr-to 192.168.0.141 port 12345
+ *
+ *
+ *
+ * Macros/#defines :
+ * - PF_ENABLE_FILTER_RULES
+ *   If set, two rules are created : rdr + pass. Else a rdr/pass rule
+ *   is created.
+ * - USE_IFNAME_IN_RULES
+ *   If set the interface name is set in the rule.
+ * - PFRULE_INOUT_COUNTS
+ *   Must be set with OpenBSD version 3.8 and up.
+ * - PFRULE_HAS_RTABLEID
+ *   Must be set with OpenBSD version 4.0 and up.
+ * - PF_NEWSSTYLE
+ *   Must be set with OpenBSD version 4.7 and up.
+ */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -68,7 +98,7 @@ init_redirect(void)
 	return 0;
 }
 
-#if 0
+#if TEST
 /* for debug */
 int
 clear_redirect_rules(void)
@@ -83,7 +113,11 @@ clear_redirect_rules(void)
 	io.size = 1;
 	io.esize = sizeof(ioe);
 	io.array = &ioe;
+#ifndef PF_NEWSTYLE
 	ioe.rs_num = PF_RULESET_RDR;
+#else
+	ioe.type = PF_TRANS_RULESET;
+#endif
 	strlcpy(ioe.anchor, anchor_name, MAXPATHLEN);
 	if(ioctl(dev, DIOCXBEGIN, &io) < 0)
 	{
@@ -110,8 +144,10 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 {
 	int r;
 	struct pfioc_rule pcr;
+#ifndef PF_NEWSTYLE
 	struct pfioc_pooladdr pp;
 	struct pf_pooladdr *a;
+#endif
 	if(dev<0) {
 		syslog(LOG_ERR, "pf device is not open");
 		return -1;
@@ -120,6 +156,7 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 	memset(&pcr, 0, sizeof(pcr));
 	strlcpy(pcr.anchor, anchor_name, MAXPATHLEN);
 
+#ifndef PF_NEWSTYLE
 	memset(&pp, 0, sizeof(pp));
 	strlcpy(pp.anchor, anchor_name, MAXPATHLEN);
 	if(ioctl(dev, DIOCBEGINADDRS, &pp) < 0)
@@ -130,15 +167,33 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 	else
 	{
 		pcr.pool_ticket = pp.ticket;
+#else
+	if(1)
+	{
+		pcr.rule.direction = PF_IN;
+		//pcr.rule.src.addr.type = PF_ADDR_NONE;
+		pcr.rule.src.addr.type = PF_ADDR_ADDRMASK;
+		pcr.rule.dst.addr.type = PF_ADDR_ADDRMASK;
+		pcr.rule.nat.addr.type = PF_ADDR_NONE;
+		pcr.rule.rdr.addr.type = PF_ADDR_ADDRMASK;
+#endif
 		
 		pcr.rule.dst.port_op = PF_OP_EQ;
 		pcr.rule.dst.port[0] = htons(eport);
 		pcr.rule.dst.port[1] = htons(eport);
+#ifndef PF_NEWSTYLE
 		pcr.rule.action = PF_RDR;
 #ifndef PF_ENABLE_FILTER_RULES
 		pcr.rule.natpass = 1;
 #else
 		pcr.rule.natpass = 0;
+#endif
+#else
+#ifndef PF_ENABLE_FILTER_RULES
+		pcr.rule.action = PF_PASS;
+#else
+		pcr.rule.action = PF_MATCH;
+#endif
 #endif
 		pcr.rule.af = AF_INET;
 #ifdef USE_IFNAME_IN_RULES
@@ -150,8 +205,12 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 #ifdef PFRULE_HAS_RTABLEID
 		pcr.rule.rtableid = -1;	/* first appeared in OpenBSD 4.0 */
 #endif
+		pcr.rule.quick = 1;
+		pcr.rule.keep_state = PF_STATE_NORMAL;
 		if(tag)
 			strlcpy(pcr.rule.tagname, tag, PF_TAG_NAME_SIZE);
+		strlcpy(pcr.rule.label, desc, PF_RULE_LABEL_SIZE);
+#ifndef PF_NEWSTYLE
 		pcr.rule.rpool.proxy_port[0] = iport;
 		pcr.rule.rpool.proxy_port[1] = iport;
 		TAILQ_INIT(&pcr.rule.rpool.list);
@@ -161,7 +220,6 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 		TAILQ_INSERT_TAIL(&pcr.rule.rpool.list, a, entries);
 
 		memcpy(&pp.addr, a, sizeof(struct pf_pooladdr));
-		strlcpy(pcr.rule.label, desc, PF_RULE_LABEL_SIZE);
 		if(ioctl(dev, DIOCADDADDR, &pp) < 0)
 		{
 			syslog(LOG_ERR, "ioctl(dev, DIOCADDADDR, ...): %m");
@@ -169,6 +227,14 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 		}
 		else
 		{
+#else
+		pcr.rule.rdr.proxy_port[0] = iport;
+		pcr.rule.rdr.proxy_port[1] = iport;
+		inet_pton(AF_INET, iaddr, &pcr.rule.rdr.addr.v.a.addr.v4.s_addr);
+		pcr.rule.rdr.addr.v.a.mask.v4.s_addr = htonl(INADDR_NONE);
+		if(1)
+		{
+#endif
 			pcr.action = PF_CHANGE_GET_TICKET;
         	if(ioctl(dev, DIOCCHANGERULE, &pcr) < 0)
 			{
@@ -185,7 +251,9 @@ add_redirect_rule2(const char * ifname, unsigned short eport,
 				}
 			}
 		}
+#ifndef PF_NEWSTYLE
 		free(a);
+#endif
 	}
 	return r;
 }
@@ -201,8 +269,10 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 #else
 	int r;
 	struct pfioc_rule pcr;
+#ifndef PF_NEWSTYLE
 	struct pfioc_pooladdr pp;
 	struct pf_pooladdr *a;
+#endif
 	if(dev<0) {
 		syslog(LOG_ERR, "pf device is not open");
 		return -1;
@@ -211,6 +281,7 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 	memset(&pcr, 0, sizeof(pcr));
 	strlcpy(pcr.anchor, anchor_name, MAXPATHLEN);
 
+#ifndef PF_NEWSTYLE
 	memset(&pp, 0, sizeof(pp));
 	strlcpy(pp.anchor, anchor_name, MAXPATHLEN);
 	if(ioctl(dev, DIOCBEGINADDRS, &pp) < 0)
@@ -221,6 +292,10 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 	else
 	{
 		pcr.pool_ticket = pp.ticket;
+#else
+	if(1)
+	{
+#endif
 		
 		pcr.rule.dst.port_op = PF_OP_EQ;
 		pcr.rule.dst.port[0] = htons(eport);
@@ -248,6 +323,7 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 		if(tag)
 			strlcpy(pcr.rule.tagname, tag, PF_TAG_NAME_SIZE);
 
+#ifndef PF_NEWSTYLE
 		pcr.rule.rpool.proxy_port[0] = eport;
 		a = calloc(1, sizeof(struct pf_pooladdr));
 		inet_pton(AF_INET, iaddr, &a->addr.v.a.addr.v4.s_addr);
@@ -270,6 +346,10 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 		}
 		else
 		{
+#else
+		if(1)
+		{
+#endif
 			pcr.action = PF_CHANGE_GET_TICKET;
         	if(ioctl(dev, DIOCCHANGERULE, &pcr) < 0)
 			{
@@ -286,7 +366,9 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 				}
 			}
 		}
+#ifndef PF_NEWSTYLE
 		free(a);
+#endif
 	}
 	return r;
 #endif
@@ -303,14 +385,18 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 {
 	int i, n;
 	struct pfioc_rule pr;
+#ifndef PF_NEWSTYLE
 	struct pfioc_pooladdr pp;
+#endif
 	if(dev<0) {
 		syslog(LOG_ERR, "pf device is not open");
 		return -1;
 	}
 	memset(&pr, 0, sizeof(pr));
 	strlcpy(pr.anchor, anchor_name, MAXPATHLEN);
+#ifndef PF_NEWSTYLE
 	pr.rule.action = PF_RDR;
+#endif
 	if(ioctl(dev, DIOCGETRULES, &pr) < 0)
 	{
 		syslog(LOG_ERR, "ioctl(dev, DIOCGETRULES, ...): %m");
@@ -329,7 +415,11 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 		  && (eport == ntohs(pr.rule.dst.port[1]))
 		  && (pr.rule.proto == proto) )
 		{
+#ifndef PF_NEWSTYLE
 			*iport = pr.rule.rpool.proxy_port[0];
+#else
+			*iport = pr.rule.rdr.proxy_port[0];
+#endif
 			if(desc)
 				strlcpy(desc, pr.rule.label, desclen);
 #ifdef PFRULE_INOUT_COUNTS
@@ -343,6 +433,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 			if(bytes)
 				*bytes = pr.rule.bytes;
 #endif
+#ifndef PF_NEWSTYLE
 			memset(&pp, 0, sizeof(pp));
 			strlcpy(pp.anchor, anchor_name, MAXPATHLEN);
 			pp.r_action = PF_RDR;
@@ -366,6 +457,10 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 			}
 			inet_ntop(AF_INET, &pp.addr.addr.v.a.addr.v4.s_addr,
 			          iaddr, iaddrlen);
+#else
+			inet_ntop(AF_INET, &pr.rule.rdr.addr.v.a.addr.v4.s_addr,
+			          iaddr, iaddrlen);
+#endif
 			return 0;
 		}
 	}
@@ -485,7 +580,9 @@ get_redirect_rule_by_index(int index,
 {
 	int n;
 	struct pfioc_rule pr;
+#ifndef PF_NEWSTYLE
 	struct pfioc_pooladdr pp;
+#endif
 	if(index < 0)
 		return -1;
 	if(dev<0) {
@@ -511,7 +608,11 @@ get_redirect_rule_by_index(int index,
 	}
 	*proto = pr.rule.proto;
 	*eport = ntohs(pr.rule.dst.port[0]);
+#ifndef PF_NEWSTYLE
 	*iport = pr.rule.rpool.proxy_port[0];
+#else
+	*iport = pr.rule.rdr.proxy_port[0];
+#endif
 	if(ifname)
 		strlcpy(ifname, pr.rule.ifname, IFNAMSIZ);
 	if(desc)
@@ -527,6 +628,7 @@ get_redirect_rule_by_index(int index,
 	if(bytes)
 		*bytes = pr.rule.bytes;
 #endif
+#ifndef PF_NEWSTYLE
 	memset(&pp, 0, sizeof(pp));
 	strlcpy(pp.anchor, anchor_name, MAXPATHLEN);
 	pp.r_action = PF_RDR;
@@ -550,25 +652,32 @@ get_redirect_rule_by_index(int index,
 	}
 	inet_ntop(AF_INET, &pp.addr.addr.v.a.addr.v4.s_addr,
 	          iaddr, iaddrlen);
+#else
+	inet_ntop(AF_INET, &pr.rule.rdr.addr.v.a.addr.v4.s_addr,
+	          iaddr, iaddrlen);
+#endif
 	return 0;
 error:
 	return -1;
 }
 
 /* this function is only for testing */
-#if 0
+#if TEST
 void
 list_rules(void)
 {
 	char buf[32];
 	int i, n;
 	struct pfioc_rule pr;
+#ifndef PF_NEWSTYLE
 	struct pfioc_pooladdr pp;
-    if(dev<0)
-    {
-        perror("pf dev not open");
-        return ;
-    }
+#endif
+
+	if(dev<0)
+	{
+		perror("pf dev not open");
+		return ;
+	}
 	memset(&pr, 0, sizeof(pr));
 	strlcpy(pr.anchor, anchor_name, MAXPATHLEN);
 	pr.rule.action = PF_RDR;
@@ -582,14 +691,22 @@ list_rules(void)
 		pr.nr = i;
 		if(ioctl(dev, DIOCGETRULE, &pr) < 0)
 			perror("DIOCGETRULE");
-		printf(" %s %d:%d -> %d:%d  proto %d\n",
+		printf(" %s %d:%d -> %d:%d  proto %d keep_state=%d action=%d\n",
 			pr.rule.ifname,
 			(int)ntohs(pr.rule.dst.port[0]),
 			(int)ntohs(pr.rule.dst.port[1]),
+#ifndef PF_NEWSTYLE
 			(int)pr.rule.rpool.proxy_port[0],
 			(int)pr.rule.rpool.proxy_port[1],
-			(int)pr.rule.proto);
+#else
+			(int)pr.rule.rdr.proxy_port[0],
+			(int)pr.rule.rdr.proxy_port[1],
+#endif
+			(int)pr.rule.proto,
+			(int)pr.rule.keep_state,
+			(int)pr.rule.action);
 		printf("  description: \"%s\"\n", pr.rule.label);
+#ifndef PF_NEWSTYLE
 		memset(&pp, 0, sizeof(pp));
 		strlcpy(pp.anchor, anchor_name, MAXPATHLEN);
 		pp.r_action = PF_RDR;
@@ -605,6 +722,15 @@ list_rules(void)
 			perror("DIOCGETADDR");
 		/* addr.v.a.addr.v4.s_addr */
 		printf("  %s\n", inet_ntop(AF_INET, &pp.addr.addr.v.a.addr.v4.s_addr, buf, 32));
+#else
+		printf("  rule_flag=%08x action=%d direction=%d log=%d logif=%d "
+		       "quick=%d ifnot=%d af=%d type=%d code=%d rdr.port_op=%d rdr.opts=%d\n",
+		       pr.rule.rule_flag, pr.rule.action, pr.rule.direction,
+		       pr.rule.log, pr.rule.logif, pr.rule.quick, pr.rule.ifnot,
+		       pr.rule.af, pr.rule.type, pr.rule.code,
+		       pr.rule.rdr.port_op, pr.rule.rdr.opts);
+		printf("  %s\n", inet_ntop(AF_INET, &pr.rule.rdr.addr.v.a.addr.v4.s_addr, buf, 32));
+#endif
 	}
 }
 #endif
