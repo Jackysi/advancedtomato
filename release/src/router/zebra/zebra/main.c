@@ -39,9 +39,6 @@
 /* Master of threads. */
 struct thread_master *master;
 
-/* zebra program name */
-char *progname;
-
 /* process id. */
 pid_t old_pid;
 pid_t pid;
@@ -60,7 +57,9 @@ struct option longopts[] =
   { "keep_kernel", no_argument,       NULL, 'k'},
   { "log_mode",    no_argument,       NULL, 'l'},
   { "config_file", required_argument, NULL, 'f'},
+  { "pid_file",    required_argument, NULL, 'i'},
   { "help",        no_argument,       NULL, 'h'},
+  { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "version",     no_argument,       NULL, 'v'},
@@ -71,9 +70,12 @@ struct option longopts[] =
 char config_current[] = DEFAULT_CONFIG_FILE;
 char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
+/* Process ID saved for use by init system */
+char *pid_file = PATH_ZEBRA_PID;
+
 /* Help information display. */
 static void
-usage (int status)
+usage (char *progname, int status)
 {
   if (status != 0)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
@@ -85,8 +87,10 @@ redistribution between different routing protocols.\n\n\
 -b, --batch        Runs in batch mode\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
+-i, --pid_file     Set process identifier file name\n\
 -k, --keep_kernel  Don't delete old routes which installed by zebra.\n\
 -l, --log_mode     Set verbose log mode flag\n\
+-A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by zebra.\n\
 -v, --version      Print program version\n\
@@ -119,6 +123,9 @@ sigint (int sig)
 
   if (!retain_mode)
     rib_close ();
+#ifdef HAVE_IRDP
+  irdp_finish();
+#endif
 
   exit (0);
 }
@@ -169,12 +176,15 @@ int
 main (int argc, char **argv)
 {
   char *p;
+  char *vty_addr = NULL;
   int vty_port = 0;
   int batch_mode = 0;
   int daemon_mode = 0;
   char *config_file = NULL;
+  char *progname;
   struct thread thread;
   void rib_weed_tables ();
+  void zebra_vty_init ();
 
   /* Set umask before anything for security */
   umask (0027);
@@ -189,7 +199,7 @@ main (int argc, char **argv)
     {
       int opt;
   
-      opt = getopt_long (argc, argv, "bdklf:hP:rv", longopts, 0);
+      opt = getopt_long (argc, argv, "bdklf:hA:P:rv", longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -212,6 +222,12 @@ main (int argc, char **argv)
 	case 'f':
 	  config_file = optarg;
 	  break;
+	case 'A':
+	  vty_addr = optarg;
+	  break;
+        case 'i':
+          pid_file = optarg;
+          break;
 	case 'P':
 	  vty_port = atoi (optarg);
 	  break;
@@ -219,20 +235,20 @@ main (int argc, char **argv)
 	  retain_mode = 1;
 	  break;
 	case 'v':
-	  print_version ();
+	  print_version (progname);
 	  exit (0);
 	  break;
 	case 'h':
-	  usage (0);
+	  usage (progname, 0);
 	  break;
 	default:
-	  usage (1);
+	  usage (progname, 1);
 	  break;
 	}
     }
 
   /* Make master thread emulator. */
-  master = thread_make_master ();
+  master = thread_master_create ();
 
   /* Vty related initialize. */
   signal_init ();
@@ -245,8 +261,12 @@ main (int argc, char **argv)
   rib_init ();
   zebra_if_init ();
   zebra_debug_init ();
+  zebra_vty_init ();
   access_list_init ();
   rtadv_init ();
+#ifdef HAVE_IRDP
+  irdp_init();
+#endif
 
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
@@ -285,13 +305,14 @@ main (int argc, char **argv)
     daemon (0, 0);
 
   /* Output pid of zebra. */
-  pid_output (PATH_ZEBRA_PID);
+  pid_output (pid_file);
 
   /* Needed for BSD routing socket. */
   pid = getpid ();
 
   /* Make vty server socket. */
-  vty_serv_sock (vty_port ? vty_port : ZEBRA_VTY_PORT, ZEBRA_VTYSH_PATH);
+  vty_serv_sock (vty_addr,
+		 vty_port ? vty_port : ZEBRA_VTY_PORT, ZEBRA_VTYSH_PATH);
 
   while (thread_fetch (master, &thread))
     thread_call (&thread);

@@ -1,3 +1,29 @@
+2004-11-24  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* configure.ac: Net-SNMP support.
+
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2002-06-28  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* update-autotools: Change file name from update-auto-tools.sh.
+
+2002-06-21  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* update-auto-tools.sh: Add a new script to clean up build
+	environment.
+
+2002-06-18  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* Shift to the latest build environment autoconf-2.53 and
+	automake-1.6.2.
+
+2001-10-22  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* Integrate Glen Turner <glen.turner@aarnet.edu.au>'s pid option.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

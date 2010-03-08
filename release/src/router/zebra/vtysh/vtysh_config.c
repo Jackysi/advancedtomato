@@ -1,23 +1,22 @@
 /* Configuration generator.
- * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 2000 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -46,21 +45,6 @@ struct config
 
 struct list *config_top;
 
-struct config *
-config_new ()
-{
-  struct config *config;
-  config = XMALLOC (0, sizeof (struct config));
-  memset (config, 0, sizeof (struct config));
-  return config;
-}
-
-void
-config_free (struct config *config)
-{
-  XFREE (0, config);
-}
-
 int
 line_cmp (char *c1, char *c2)
 {
@@ -70,7 +54,15 @@ line_cmp (char *c1, char *c2)
 void
 line_del (char *line)
 {
-  free (line);
+  XFREE (MTYPE_VTYSH_CONFIG_LINE, line);
+}
+
+struct config *
+config_new ()
+{
+  struct config *config;
+  config = XCALLOC (MTYPE_VTYSH_CONFIG, sizeof (struct config));
+  return config;
 }
 
 int
@@ -84,7 +76,8 @@ config_del (struct config* config)
 {
   list_delete (config->line);
   if (config->name)
-    free (config->name);
+    XFREE (MTYPE_VTYSH_CONFIG_LINE, config->name);
+  XFREE (MTYPE_VTYSH_CONFIG, config);
 }
 
 struct config *
@@ -97,7 +90,7 @@ config_get (int index, char *line)
 
   config = config_loop = NULL;
 
-  master = vector_lookup_index (configvec, index);
+  master = vector_lookup_ensure (configvec, index);
 
   if (! master)
     {
@@ -119,7 +112,7 @@ config_get (int index, char *line)
       config->line = list_new ();
       config->line->del = (void (*) (void *))line_del;
       config->line->cmp = (int (*)(void *, void *)) line_cmp;
-      config->name = strdup (line);
+      config->name = XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line);
       config->index = index;
       listnode_add (master, config);
     }
@@ -129,7 +122,7 @@ config_get (int index, char *line)
 void
 config_add_line (struct list *config, char *line)
 {
-  listnode_add (config, strdup (line));
+  listnode_add (config, XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
 void
@@ -143,7 +136,7 @@ config_add_line_uniq (struct list *config, char *line)
       if (strcmp (pnt, line) == 0)
 	return;
     }
-  listnode_add_sort (config, strdup (line));
+  listnode_add_sort (config, XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
 void
@@ -173,6 +166,8 @@ vtysh_config_parse_line (char *line)
 	{
 	  if (strncmp (line, " address-family vpnv4", strlen (" address-family vpnv4")) == 0)
 	    config = config_get (BGP_VPNV4_NODE, line);
+	  else if (strncmp (line, " address-family ipv4", strlen (" address-family ipv4")) == 0)
+	    config = config_get (BGP_IPV4_NODE, line);
 	  else if (strncmp (line, " address-family ipv4 multicast", strlen (" address-family ipv4 multicast")) == 0)
 	    config = config_get (BGP_IPV4M_NODE, line);
 	  else if (strncmp (line, " address-family ipv6", strlen (" address-family ipv6")) == 0)
@@ -190,8 +185,12 @@ vtysh_config_parse_line (char *line)
 	config = config_get (INTERFACE_NODE, line);
       else if (strncmp (line, "router rip", strlen ("router rip")) == 0)
 	config = config_get (RIP_NODE, line);
+      else if (strncmp (line, "router ripng", strlen ("router ripng")) == 0)
+   config = config_get (RIPNG_NODE, line);
       else if (strncmp (line, "router ospf", strlen ("router ospf")) == 0)
-	config = config_get (OSPF_NODE, line);
+   config = config_get (OSPF_NODE, line);
+      else if (strncmp (line, "router ospf6", strlen ("router ospf6")) == 0)
+   config = config_get (OSPF6_NODE, line);
       else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router", strlen ("router")) == 0)
@@ -200,14 +199,20 @@ vtysh_config_parse_line (char *line)
 	config = config_get (RMAP_NODE, line);
       else if (strncmp (line, "access-list", strlen ("access-list")) == 0)
 	config = config_get (ACCESS_NODE, line);
+      else if (strncmp (line, "ipv6 access-list", strlen ("ipv6 access-list")) == 0)
+   config = config_get (ACCESS_IPV6_NODE, line);
       else if (strncmp (line, "ip prefix-list", strlen ("ip prefix-list")) == 0)
 	config = config_get (PREFIX_NODE, line);
+      else if (strncmp (line, "ipv6 prefix-list", strlen ("ipv6 prefix-list")) == 0)
+   config = config_get (PREFIX_IPV6_NODE, line);
       else if (strncmp (line, "ip as-path access-list", strlen ("ip as-path access-list")) == 0)
 	config = config_get (AS_LIST_NODE, line);
       else if (strncmp (line, "ip community-list", strlen ("ip community-list")) == 0)
 	config = config_get (COMMUNITY_LIST_NODE, line);
       else if (strncmp (line, "ip route", strlen ("ip route")) == 0)
 	config = config_get (IP_NODE, line);
+      else if (strncmp (line, "ipv6 route", strlen ("ipv6 route")) == 0)
+   	config = config_get (IP_NODE, line);
       else if (strncmp (line, "key", strlen ("key")) == 0)
 	config = config_get (KEYCHAIN_NODE, line);
       else
@@ -247,6 +252,14 @@ vtysh_config_parse (char *line)
     }
 }
 
+/* Macro to check delimiter is needed between each configuration line
+   or not.  */
+#define NO_DELIMITER(I)  \
+  ((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE \
+   || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
+   (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE)
+
+/* Display configuration to file pointer.  */
 void
 vtysh_config_dump (FILE *fp)
 {
@@ -278,15 +291,13 @@ vtysh_config_dump (FILE *fp)
 		fprintf  (fp, "%s\n", line);
 		fflush (fp);
 	      }
-	    if (i != ACCESS_NODE && i != PREFIX_NODE && i != IP_NODE
-	        && i != AS_LIST_NODE && i != COMMUNITY_LIST_NODE)
+	    if (! NO_DELIMITER (i))
 	      {
 		fprintf (fp, "!\n");
 		fflush (fp);
 	      }
 	  }
-	if (i == ACCESS_NODE || i == PREFIX_NODE || i == IP_NODE
-	    || i == AS_LIST_NODE || i == COMMUNITY_LIST_NODE)
+	if (NO_DELIMITER (i))
 	  {
 	    fprintf (fp, "!\n");
 	    fflush (fp);

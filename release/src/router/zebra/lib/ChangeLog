@@ -1,3 +1,73 @@
+2004-12-11  Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
+
+	* vty.c: moreline problem is fixed.
+
+2004-05-17  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* routemap.c: Add "continue" commands.
+		      Add "show route-map" commands.
+
+2004-05-06  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* command.c: Fix password disappear problem.
+
+2003-10-21  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* vty.c: Change buffer handling to prevent DoS attack.  Reported
+	by Jay Fenlason <fenlason@redhat.com> CAN-2003-0795.
+
+2003-08-20  Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
+
+	* command.c: Fix <cr> display problem for command line
+	description.
+
+2003-08-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* vty.c (vty_serv_sock_addrinfo): Check HAVE_GETADDRINFO.
+
+2002-09-28  Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
+
+	* vty.c (vty_flush): One line more on vty.
+
+2002-09-27  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* vector.c (vector_lookup): Add new function.
+
+2002-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* thread.c (timeval_adjust): Fix unconditional crush due to
+	FreeBSD's select() system call timeval value check.
+
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2002-06-21  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* if.c (ifc_pointopoint): Add ifc_pointopoint() accoding to Frank
+	van Maarseveen's suggestion.
+
+2002-06-18  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* command.c: Change bcopy() to memcpy().
+
+2001-12-12  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* command.c (config_password): Fix host.password clear bug.
+	Reported by Wang Jian <lark@linux.net.cn>.
+
+2001-08-29  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* thread.c (thread_should_yield): New function to check thread
+	should yeild it's execution to other thread.  Suggested by: Rick
+	Payne <rickp@ayrnetworks.com>
+
+2001-08-20  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* thread.c (thread_timer_cmp): Rewrite function.
+
+	* hash.c: Add hash_get().  Change hash_pull() to hash_release().
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

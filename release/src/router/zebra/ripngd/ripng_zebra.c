@@ -25,19 +25,22 @@
 #include "command.h"
 #include "prefix.h"
 #include "stream.h"
+#include "routemap.h"
 #include "zclient.h"
 #include "log.h"
 
 #include "ripngd/ripngd.h"
-
-/* int ripng_zebra_get_interface (int, struct zebra *, zebra_size_t); */
+
+/* All information about zebra. */
+struct zclient *zclient = NULL;
+
+/* Callback prototypes for zebra client service. */
+int ripng_interface_up (int, struct zclient *, zebra_size_t);
+int ripng_interface_down (int, struct zclient *, zebra_size_t);
 int ripng_interface_add (int, struct zclient *, zebra_size_t);
 int ripng_interface_delete (int, struct zclient *, zebra_size_t);
 int ripng_interface_address_add (int, struct zclient *, zebra_size_t);
 int ripng_interface_address_delete (int, struct zclient *, zebra_size_t);
-
-/* All information about zebra. */
-struct zclient *zclient = NULL;
 
 void
 ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
@@ -152,6 +155,41 @@ ripng_redistribute_unset (int type)
   
   return CMD_SUCCESS;
 }
+
+void
+ripng_redistribute_metric_set (int type, int metric)
+{
+  ripng->route_map[type].metric_config = 1;
+  ripng->route_map[type].metric = metric;
+}
+
+void
+ripng_redistribute_metric_unset (int type)
+{
+  ripng->route_map[type].metric_config = 0;
+  ripng->route_map[type].metric = 0;
+}
+
+void
+ripng_redistribute_routemap_set (int type, char *name)
+{
+  if (ripng->route_map[type].name)
+    free (ripng->route_map[type].name);
+
+  ripng->route_map[type].name = strdup (name);
+  ripng->route_map[type].map = route_map_lookup_by_name (name);
+}
+
+void
+ripng_redistribute_routemap_unset (int type)
+{
+  if (ripng->route_map[type].name)
+    free (ripng->route_map[type].name);
+
+  ripng->route_map[type].name = NULL;
+  ripng->route_map[type].map = NULL;
+}
+
 
 DEFUN (router_zebra,
        router_zebra_cmd,
@@ -180,7 +218,7 @@ DEFUN (no_router_zebra,
 DEFUN (ripng_redistribute_ripng,
        ripng_redistribute_ripng_cmd,
        "redistribute ripng",
-       "Redistribute control\n"
+       "Redistribute information from another routing protocol\n"
        "RIPng route\n")
 {
   zclient->redist[ZEBRA_ROUTE_RIPNG] = 1;
@@ -191,7 +229,7 @@ DEFUN (no_ripng_redistribute_ripng,
        no_ripng_redistribute_ripng_cmd,
        "no redistribute ripng",
        NO_STR
-       "Redistribute control\n"
+       "Redistribute information from another routing protocol\n"
        "RIPng route\n")
 {
   zclient->redist[ZEBRA_ROUTE_RIPNG] = 0;
@@ -201,8 +239,8 @@ DEFUN (no_ripng_redistribute_ripng,
 DEFUN (ripng_redistribute_static,
        ripng_redistribute_static_cmd,
        "redistribute static",
-       "Redistribute control\n"
-       "Static route\n")
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n")
 {
   zclient_redistribute_set (zclient, ZEBRA_ROUTE_STATIC);
   return CMD_SUCCESS;
@@ -212,17 +250,19 @@ DEFUN (no_ripng_redistribute_static,
        no_ripng_redistribute_static_cmd,
        "no redistribute static",
        NO_STR
-       "Redistribute control\n"
-       "Static route\n")
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n")
 {
+  ripng_redistribute_metric_unset (ZEBRA_ROUTE_STATIC);
+  ripng_redistribute_routemap_unset (ZEBRA_ROUTE_STATIC);
   return ripng_redistribute_unset (ZEBRA_ROUTE_STATIC);
 }
 
 DEFUN (ripng_redistribute_kernel,
        ripng_redistribute_kernel_cmd,
        "redistribute kernel",
-       "Redistribute control\n"
-       "Kernel route\n")
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n")
 {
   zclient_redistribute_set (zclient, ZEBRA_ROUTE_KERNEL);
   return CMD_SUCCESS;
@@ -232,17 +272,19 @@ DEFUN (no_ripng_redistribute_kernel,
        no_ripng_redistribute_kernel_cmd,
        "no redistribute kernel",
        NO_STR
-       "Redistribute control\n"
-       "Kernel route\n")
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n")
 {
+  ripng_redistribute_metric_unset (ZEBRA_ROUTE_KERNEL);
+  ripng_redistribute_routemap_unset (ZEBRA_ROUTE_KERNEL);
   return ripng_redistribute_unset (ZEBRA_ROUTE_KERNEL);
 }
 
 DEFUN (ripng_redistribute_connected,
        ripng_redistribute_connected_cmd,
        "redistribute connected",
-       "Redistribute control\n"
-       "Connected route\n")
+       "Redistribute information from another routing protocol\n"
+       "Connected\n")
 {
   zclient_redistribute_set (zclient, ZEBRA_ROUTE_CONNECT);
   return CMD_SUCCESS;
@@ -252,17 +294,19 @@ DEFUN (no_ripng_redistribute_connected,
        no_ripng_redistribute_connected_cmd,
        "no redistribute connected",
        NO_STR
-       "Redistribute control\n"
-       "Connected route\n")
+       "Redistribute information from another routing protocol\n"
+       "Connected\n")
 {
+  ripng_redistribute_metric_unset (ZEBRA_ROUTE_CONNECT);
+  ripng_redistribute_routemap_unset (ZEBRA_ROUTE_CONNECT);
   return ripng_redistribute_unset (ZEBRA_ROUTE_CONNECT);
 }
 
 DEFUN (ripng_redistribute_bgp,
        ripng_redistribute_bgp_cmd,
        "redistribute bgp",
-       "Redistribute control\n"
-       "BGP route\n")
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n")
 {
   zclient_redistribute_set (zclient, ZEBRA_ROUTE_BGP);
   return CMD_SUCCESS;
@@ -272,17 +316,19 @@ DEFUN (no_ripng_redistribute_bgp,
        no_ripng_redistribute_bgp_cmd,
        "no redistribute bgp",
        NO_STR
-       "Redistribute control\n"
-       "BGP route\n")
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n")
 {
+  ripng_redistribute_metric_unset (ZEBRA_ROUTE_BGP);
+  ripng_redistribute_routemap_unset (ZEBRA_ROUTE_BGP);
   return ripng_redistribute_unset (ZEBRA_ROUTE_BGP);
 }
 
 DEFUN (ripng_redistribute_ospf6,
        ripng_redistribute_ospf6_cmd,
        "redistribute ospf6",
-       "Redistribute control\n"
-       "OSPF6 route\n")
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n")
 {
   zclient_redistribute_set (zclient, ZEBRA_ROUTE_OSPF6);
   return CMD_SUCCESS;
@@ -292,11 +338,408 @@ DEFUN (no_ripng_redistribute_ospf6,
        no_ripng_redistribute_ospf6_cmd,
        "no redistribute ospf6",
        NO_STR
-       "Redistribute control\n"
-       "OSPF6 route\n")
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n")
 {
+  ripng_redistribute_metric_unset (ZEBRA_ROUTE_OSPF6);
+  ripng_redistribute_routemap_unset (ZEBRA_ROUTE_OSPF6);
   return ripng_redistribute_unset (ZEBRA_ROUTE_OSPF6);
 }
+
+DEFUN (ripng_redistribute_kernel_metric,
+       ripng_redistribute_kernel_metric_cmd,
+       "redistribute kernel metric <0-16>",
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Metric\n"
+       "Metric value\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_KERNEL, atoi (argv[0]));
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_KERNEL);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_kernel,
+       no_ripng_redistribute_kernel_metric_cmd,
+       "no redistribute kernel metric",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Metric\n");
+
+ALIAS (no_ripng_redistribute_kernel,
+       no_ripng_redistribute_kernel_metric_val_cmd,
+       "no redistribute kernel metric <0-16>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Metric\n"
+       "Metric value\n");
+
+DEFUN (ripng_redistribute_connected_metric,
+       ripng_redistribute_connected_metric_cmd,
+       "redistribute connected metric <0-16>",
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Metric\n"
+       "Metric value\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_CONNECT, atoi (argv[0]));
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_CONNECT);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_connected,
+       no_ripng_redistribute_connected_metric_cmd,
+       "no redistribute connected metric",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Metric\n");
+
+ALIAS (no_ripng_redistribute_connected,
+       no_ripng_redistribute_connected_metric_val_cmd,
+       "no redistribute connected metric <0-16>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Metric\n"
+       "Metric value\n");
+
+DEFUN (ripng_redistribute_static_metric,
+       ripng_redistribute_static_metric_cmd,
+       "redistribute static metric <0-16>",
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Metric\n"
+       "Metric value\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_STATIC, atoi (argv[0]));
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_STATIC);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_static,
+       no_ripng_redistribute_static_metric_cmd,
+       "no redistribute static metric",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Metric\n");
+
+ALIAS (no_ripng_redistribute_static,
+       no_ripng_redistribute_static_metric_val_cmd,
+       "no redistribute static metric <0-16>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Metric\n"
+       "Metric value\n");
+
+DEFUN (ripng_redistribute_ospf6_metric,
+       ripng_redistribute_ospf6_metric_cmd,
+       "redistribute ospf6 metric <0-16>",
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Metric\n"
+       "Metric value\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_OSPF6, atoi (argv[0]));
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_OSPF6);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_ospf6,
+       no_ripng_redistribute_ospf6_metric_cmd,
+       "no redistribute ospf6 metric",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Metric\n");
+
+ALIAS (no_ripng_redistribute_ospf6,
+       no_ripng_redistribute_ospf6_metric_val_cmd,
+       "no redistribute ospf6 metric <0-16>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Metric\n"
+       "Metric value\n");
+
+DEFUN (ripng_redistribute_bgp_metric,
+       ripng_redistribute_bgp_metric_cmd,
+       "redistribute bgp metric <0-16>",
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Metric\n"
+       "Metric value\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_BGP, atoi (argv[0]));
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_BGP);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_bgp,
+       no_ripng_redistribute_bgp_metric_cmd,
+       "no redistribute bgp metric",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Metric\n");
+
+ALIAS (no_ripng_redistribute_bgp,
+       no_ripng_redistribute_bgp_metric_val_cmd,
+       "no redistribute bgp metric <0-16>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Metric\n"
+       "Metric value\n");
+
+DEFUN (ripng_redistribute_kernel_routemap,
+       ripng_redistribute_kernel_routemap_cmd,
+       "redistribute kernel route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_KERNEL, argv[0]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_KERNEL);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_kernel,
+       no_ripng_redistribute_kernel_routemap_cmd,
+       "no redistribute kernel route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_connected_routemap,
+       ripng_redistribute_connected_routemap_cmd,
+       "redistribute connected route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_CONNECT, argv[0]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_CONNECT);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_connected,
+       no_ripng_redistribute_connected_routemap_cmd,
+       "no redistribute connected route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_static_routemap,
+       ripng_redistribute_static_routemap_cmd,
+       "redistribute static route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_STATIC, argv[0]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_STATIC);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_static,
+       no_ripng_redistribute_static_routemap_cmd,
+       "no redistribute static route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_ospf6_routemap,
+       ripng_redistribute_ospf6_routemap_cmd,
+       "redistribute ospf6 route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_OSPF6, argv[0]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_OSPF6);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_ospf6,
+       no_ripng_redistribute_ospf6_routemap_cmd,
+       "no redistribute ospf6 route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_bgp_routemap,
+       ripng_redistribute_bgp_routemap_cmd,
+       "redistribute bgp route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_BGP, argv[0]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_BGP);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_bgp,
+       no_ripng_redistribute_bgp_routemap_cmd,
+       "no redistribute bgp route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_kernel_metric_routemap,
+       ripng_redistribute_kernel_metric_routemap_cmd,
+       "redistribute kernel metric <0-16> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_KERNEL, atoi (argv[0]));
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_KERNEL, argv[1]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_KERNEL);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_kernel,
+       no_ripng_redistribute_kernel_metric_routemap_cmd,
+       "no redistribute kernel metric <0-16> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_connected_metric_routemap,
+       ripng_redistribute_connected_metric_routemap_cmd,
+       "redistribute connected metric <0-16> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_CONNECT, atoi (argv[0]));
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_CONNECT, argv[1]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_CONNECT);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_connected,
+       no_ripng_redistribute_connected_metric_routemap_cmd,
+       "no redistribute connected metric <0-16> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Connected\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_static_metric_routemap,
+       ripng_redistribute_static_metric_routemap_cmd,
+       "redistribute static metric <0-16> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_STATIC, atoi (argv[0]));
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_STATIC, argv[1]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_STATIC);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_static,
+       no_ripng_redistribute_static_metric_routemap_cmd,
+       "no redistribute static metric <0-16> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Static routes\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_ospf6_metric_routemap,
+       ripng_redistribute_ospf6_metric_routemap_cmd,
+       "redistribute ospf6 metric <0-16> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_OSPF6, atoi (argv[0]));
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_OSPF6, argv[1]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_OSPF6);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_ospf6,
+       no_ripng_redistribute_ospf6_metric_routemap_cmd,
+       "no redistribute ospf6 metric <0-16> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "IPv6 Open Shortest Path First (OSPFv3)\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
+
+DEFUN (ripng_redistribute_bgp_metric_routemap,
+       ripng_redistribute_bgp_metric_routemap_cmd,
+       "redistribute bgp metric <0-16> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  ripng_redistribute_metric_set (ZEBRA_ROUTE_BGP, atoi (argv[0]));
+  ripng_redistribute_routemap_set (ZEBRA_ROUTE_BGP, argv[1]);
+  zclient_redistribute_set (zclient, ZEBRA_ROUTE_BGP);
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ripng_redistribute_bgp,
+       no_ripng_redistribute_bgp_metric_routemap_cmd,
+       "no redistribute bgp metric <0-16> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n");
 
 void
 ripng_redistribute_write (struct vty *vty)
@@ -307,8 +750,26 @@ ripng_redistribute_write (struct vty *vty)
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])
-      vty_out (vty, " redistribute %s%s", str[i],
-	       VTY_NEWLINE);
+      {
+	if (ripng->route_map[i].metric_config)
+	  {
+	    if (ripng->route_map[i].name)
+	      vty_out (vty, " redistribute %s metric %d route-map %s%s",
+		       str[i], ripng->route_map[i].metric,
+		       ripng->route_map[i].name, VTY_NEWLINE);
+	    else
+	      vty_out (vty, " redistribute %s metric %d%s",
+		       str[i], ripng->route_map[i].metric, VTY_NEWLINE);
+	  }
+	else
+	  {
+	    if (ripng->route_map[i].name)
+	      vty_out (vty, " redistribute %s route-map %s%s",
+		       str[i], ripng->route_map[i].name, VTY_NEWLINE);
+	    else
+	      vty_out (vty, " redistribute %s%s", str[i], VTY_NEWLINE);
+	  }
+      }
 }
 
 /* RIPng configuration write function. */
@@ -343,6 +804,9 @@ zebra_init ()
   /* Allocate zebra structure. */
   zclient = zclient_new ();
   zclient_init (zclient, ZEBRA_ROUTE_RIPNG);
+
+  zclient->interface_up = ripng_interface_up;
+  zclient->interface_down = ripng_interface_down;
   zclient->interface_add = ripng_interface_add;
   zclient->interface_delete = ripng_interface_delete;
   zclient->interface_address_add = ripng_interface_address_add;
@@ -369,4 +833,45 @@ zebra_init ()
   install_element (RIPNG_NODE, &no_ripng_redistribute_bgp_cmd);
   install_element (RIPNG_NODE, &ripng_redistribute_ospf6_cmd);
   install_element (RIPNG_NODE, &no_ripng_redistribute_ospf6_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_kernel_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_kernel_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_kernel_metric_val_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_connected_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_connected_metric_cmd);
+  install_element (RIPNG_NODE,
+		   &no_ripng_redistribute_connected_metric_val_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_static_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_static_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_static_metric_val_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_ospf6_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_ospf6_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_ospf6_metric_val_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_bgp_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_bgp_metric_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_bgp_metric_val_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_kernel_routemap_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_kernel_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_connected_routemap_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_connected_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_static_routemap_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_static_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_ospf6_routemap_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_ospf6_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_bgp_routemap_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_bgp_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_kernel_metric_routemap_cmd);
+  install_element (RIPNG_NODE,
+		   &no_ripng_redistribute_kernel_metric_routemap_cmd);
+  install_element (RIPNG_NODE,
+		   &ripng_redistribute_connected_metric_routemap_cmd);
+  install_element (RIPNG_NODE,
+		   &no_ripng_redistribute_connected_metric_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_static_metric_routemap_cmd);
+  install_element (RIPNG_NODE,
+		   &no_ripng_redistribute_static_metric_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_ospf6_metric_routemap_cmd);
+  install_element (RIPNG_NODE,
+		   &no_ripng_redistribute_ospf6_metric_routemap_cmd);
+  install_element (RIPNG_NODE, &ripng_redistribute_bgp_metric_routemap_cmd);
+  install_element (RIPNG_NODE, &no_ripng_redistribute_bgp_metric_routemap_cmd);
 }

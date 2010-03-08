@@ -65,7 +65,7 @@ struct rtadv
   struct thread *ra_timer;
 };
 
-struct rtadv *rtadv;
+struct rtadv *rtadv = NULL;
 
 struct rtadv *
 rtadv_new ()
@@ -143,7 +143,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   struct cmsghdr  *cmsgptr;
   struct in6_pktinfo *pkt;
   struct sockaddr_in6 addr;
-#if HAVE_SOCKADDR_DL
+#ifdef HAVE_SOCKADDR_DL
   struct sockaddr_dl *sdl;
 #endif /* HAVE_SOCKADDR_DL */
   char adata [sizeof (struct cmsghdr) + sizeof (struct in6_pktinfo)];
@@ -323,6 +323,22 @@ rtadv_process_packet (u_char *buf, int len, unsigned int ifindex, int hoplimit)
   struct interface *ifp;
   struct zebra_if *zif;
 
+  /* Interface search. */
+  ifp = if_lookup_by_index (ifindex);
+  if (ifp == NULL)
+    {
+      zlog_warn ("Unknown interface index: %d", ifindex);
+      return;
+    }
+
+  if (if_is_loopback (ifp))
+    return;
+
+  /* Check interface configuration. */
+  zif = ifp->info;
+  if (! zif->rtadv.AdvSendAdvertisements)
+    return;
+
   /* ICMP message length check. */
   if (len < sizeof (struct icmp6_hdr))
     {
@@ -341,25 +357,12 @@ rtadv_process_packet (u_char *buf, int len, unsigned int ifindex, int hoplimit)
     }
 
   /* Hoplimit check. */
-  if (hoplimit != 255)
+  if (hoplimit >= 0 && hoplimit != 255)
     {
       zlog_warn ("Invalid hoplimit %d for router advertisement ICMP packet",
 		 hoplimit);
       return;
     }
-
-  /* Interface search. */
-  ifp = if_lookup_by_index (ifindex);
-  if (ifp == NULL)
-    {
-      zlog_warn ("Unknown interface index: %d", ifindex);
-      return;
-    }
-
-  /* Check interface configuration. */
-  zif = ifp->info;
-  if (! zif->rtadv.AdvSendAdvertisements)
-    return;
 
   /* Check ICMP message type. */
   if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
@@ -400,24 +403,26 @@ rtadv_read (struct thread *thread)
 }
 
 int
-rtadv_make_socket ()
+rtadv_make_socket (void)
 {
   int sock;
   int ret;
   struct icmp6_filter filter;
 
   sock = socket (AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+
+  /* When we can't make ICMPV6 socket simply back.  Router
+     advertisement feature will not be supported. */
   if (sock < 0)
-    {
-      zlog_warn ("can't create router advertisement socket: %s", 
-		strerror (errno));
-      return -1;
-    }
+    return -1;
 
   ret = setsockopt_ipv6_pktinfo (sock, 1);
   if (ret < 0)
     return ret;
   ret = setsockopt_ipv6_checksum (sock, 2);
+  if (ret < 0)
+    return ret;
+  ret = setsockopt_ipv6_multicast_loop (sock, 0);
   if (ret < 0)
     return ret;
   ret = setsockopt_ipv6_unicast_hops (sock, 255);
@@ -536,6 +541,12 @@ DEFUN (ipv6_nd_suppress_ra,
   ifp = vty->index;
   zif = ifp->info;
 
+  if (if_is_loopback (ifp))
+    {
+      vty_out (vty, "Invalid interface%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   if (zif->rtadv.AdvSendAdvertisements)
     {
       zif->rtadv.AdvSendAdvertisements = 0;
@@ -557,7 +568,7 @@ ALIAS (ipv6_nd_suppress_ra,
        NO_STR
        IP_STR
        "Neighbor discovery\n"
-       "Send Router Advertisement\n")
+       "Send Router Advertisement\n");
 
 DEFUN (no_ipv6_nd_suppress_ra,
        no_ipv6_nd_suppress_ra_cmd,
@@ -572,6 +583,12 @@ DEFUN (no_ipv6_nd_suppress_ra,
 
   ifp = vty->index;
   zif = ifp->info;
+
+  if (if_is_loopback (ifp))
+    {
+      vty_out (vty, "Invalid interface%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   if (! zif->rtadv.AdvSendAdvertisements)
     {
@@ -593,7 +610,7 @@ ALIAS (no_ipv6_nd_suppress_ra,
        "ipv6 nd send-ra",
        IP_STR
        "Neighbor discovery\n"
-       "Send Router Advertisement\n")
+       "Send Router Advertisement\n");
 
 DEFUN (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
@@ -881,7 +898,7 @@ ALIAS (ipv6_nd_prefix_advertisement,
        IP_STR
        "Neighbor discovery\n"
        "Prefix information\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n");
 
 DEFUN (no_ipv6_nd_prefix_advertisement,
        no_ipv6_nd_prefix_advertisement_cmd,
@@ -926,12 +943,18 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
   struct rtadv_prefix *rprefix;
   u_char buf[INET6_ADDRSTRLEN];
 
+  if (! rtadv)
+    return;
+
   zif = ifp->info;
 
-  if (zif->rtadv.AdvSendAdvertisements)
-    vty_out (vty, " no ipv6 nd suppress-ra%s", VTY_NEWLINE);
-  else
-    vty_out (vty, " ipv6 nd suppress-ra%s", VTY_NEWLINE);
+  if (! if_is_loopback (ifp))
+    {
+      if (zif->rtadv.AdvSendAdvertisements)
+	vty_out (vty, " no ipv6 nd suppress-ra%s", VTY_NEWLINE);
+      else
+	vty_out (vty, " ipv6 nd suppress-ra%s", VTY_NEWLINE);
+    }
 
   if (zif->rtadv.MaxRtrAdvInterval != RTADV_MAX_RTR_ADV_INTERVAL)
     vty_out (vty, " ipv6 nd ra-interval %d%s", zif->rtadv.MaxRtrAdvInterval,

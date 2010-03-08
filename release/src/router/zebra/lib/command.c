@@ -1,24 +1,22 @@
-/*
- * Command interpreter routine for virtual terminal [aka TeletYpe]
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *  
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- * 
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
- */
+/* Command interpreter routine for virtual terminal [aka TeletYpe]
+   Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+ 
+GNU Zebra is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published
+by the Free Software Foundation; either version 2, or (at your
+option) any later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -38,7 +36,7 @@ struct host host;
 char *default_motd = 
 "\r\n\
 Hello, this is zebra (version " ZEBRA_VERSION ").\r\n\
-Copyright 1996-2001 Kunihiro Ishiguro.\r\n\
+Copyright 1996-2004 Kunihiro Ishiguro.\r\n\
 \r\n";
 
 /* Standard command node structures. */
@@ -73,6 +71,40 @@ struct cmd_node config_node =
   1
 };
 
+/* Utility function to concatenate argv argument into a single string
+   with inserting ' ' character between each argument.  */
+char *
+argv_concat (char **argv, int argc, int shift)
+{
+  int i;
+  int len;
+  int index;
+  char *str;
+
+  str = NULL;
+  index = 0;
+
+  for (i = shift; i < argc; i++)
+    {
+      len = strlen (argv[i]);
+
+      if (i == shift)
+	{
+	  str = XSTRDUP (MTYPE_TMP, argv[i]);
+	  index = len;
+	}
+      else
+	{
+	  str = XREALLOC (MTYPE_TMP, str, (index + len + 2));
+	  str[index++] = ' ';
+	  memcpy (str + index, argv[i], len);
+	  index += len;
+	  str[index] = '\0';
+	}
+    }
+  return str;
+}
+
 /* Install top node of command vector. */
 void
 install_node (struct cmd_node *node, 
@@ -165,7 +197,7 @@ cmd_make_strvec (char *string)
 	cp++;
       strlen = cp - start;
       token = XMALLOC (MTYPE_STRVEC, strlen + 1);
-      bcopy (start, token, strlen);
+      memcpy (token, start, strlen);
       *(token + strlen) = '\0';
       vector_set (strvec, token);
 
@@ -173,7 +205,7 @@ cmd_make_strvec (char *string)
 	     *cp != '\0')
 	cp++;
 
-      if (*cp == '\0' || *cp == '!' || *cp == '#') 
+      if (*cp == '\0')
 	return strvec;
     }
 }
@@ -222,7 +254,7 @@ cmd_desc_str (char **string)
 
   strlen = cp - start;
   token = XMALLOC (MTYPE_STRVEC, strlen + 1);
-  bcopy (start, token, strlen);
+  memcpy (token, start, strlen);
   *(token + strlen) = '\0';
 
   *string = cp;
@@ -300,7 +332,7 @@ cmd_make_descvec (char *string, char *descstr)
       memcpy (token, sp, len);
       *(token + len) = '\0';
 
-      desc = XMALLOC (MTYPE_DESC, sizeof (struct desc));
+      desc = XCALLOC (MTYPE_DESC, sizeof (struct desc));
       desc->cmd = token;
       desc->str = cmd_desc_str (&dp);
 
@@ -412,6 +444,71 @@ char *zencrypt (char *passwd)
   return crypt (passwd, salt);
 }
 
+char *
+syslog_facility_print (int facility)
+{
+  switch (facility)
+    {
+      case LOG_KERN:
+	return "kern";
+	break;
+      case LOG_USER:
+	return "user";
+	break;
+      case LOG_MAIL:
+	return "mail";
+	break;
+      case LOG_DAEMON:
+	return "daemon";
+	break;
+      case LOG_AUTH:
+	return "auth";
+	break;
+      case LOG_SYSLOG:
+	return "syslog";
+	break;
+      case LOG_LPR:
+	return "lpr";
+	break;
+      case LOG_NEWS:
+	return "news";
+	break;
+      case LOG_UUCP:
+	return "uucp";
+	break;
+      case LOG_CRON:
+	return "cron";
+	break;
+      case LOG_LOCAL0:
+	return "local0";
+	break;
+      case LOG_LOCAL1:
+	return "local1";
+	break;
+      case LOG_LOCAL2:
+	return "local2";
+	break;
+      case LOG_LOCAL3:
+	return "local3";
+	break;
+      case LOG_LOCAL4:
+	return "local4";
+	break;
+      case LOG_LOCAL5:
+	return "local5";
+	break;
+      case LOG_LOCAL6:
+	return "local6";
+	break;
+      case LOG_LOCAL7:
+	return "local7";
+	break;
+      default:
+	break;
+    }
+  return "";
+}
+
 /* This function write configuration of this host. */
 int
 config_write_host (struct vty *vty)
@@ -430,8 +527,13 @@ config_write_host (struct vty *vty)
     {
       if (host.password)
         vty_out (vty, "password %s%s", host.password, VTY_NEWLINE);
+      else if (host.password_encrypt)
+        vty_out (vty, "password 8 %s%s", host.password_encrypt, VTY_NEWLINE); 
+	
       if (host.enable)
         vty_out (vty, "enable password %s%s", host.enable, VTY_NEWLINE);
+      else if (host.enable_encrypt)
+        vty_out (vty, "enable password 8 %s%s", host.enable_encrypt, VTY_NEWLINE); 
     }
 
   if (host.logfile)
@@ -441,8 +543,12 @@ config_write_host (struct vty *vty)
     vty_out (vty, "log stdout%s", VTY_NEWLINE);
 
   if (host.log_syslog)
-    vty_out (vty, "log syslog%s", VTY_NEWLINE);
-
+    {
+      vty_out (vty, "log syslog");
+      if (zlog_default->facility != LOG_DAEMON)
+	vty_out (vty, " facility %s", syslog_facility_print (zlog_default->facility));
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
   if (zlog_default->maskpri != LOG_DEBUG)
     vty_out (vty, "log trap %s%s", zlog_priority[zlog_default->maskpri], VTY_NEWLINE);
 
@@ -545,7 +651,7 @@ cmd_ipv4_match (char *str)
 
   for (;;)
     {
-      bzero (buf, sizeof (buf));
+      memset (buf, 0, sizeof (buf));
       sp = str;
       while (*str != '\0')
 	{
@@ -602,7 +708,7 @@ cmd_ipv4_prefix_match (char *str)
 
   for (;;)
     {
-      bzero (buf, sizeof (buf));
+      memset (buf, 0, sizeof (buf));
       sp = str;
       while (*str != '\0' && *str != '/')
 	{
@@ -1389,6 +1495,9 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   vector matchvec;
   struct cmd_element *cmd_element;
   int index;
+  int ret;
+  enum match_type match;
+  char *command;
   static struct desc desc_cr = { "<cr>", "" };
 
   /* Set index. */
@@ -1401,14 +1510,10 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   matchvec = vector_init (INIT_MATCHVEC_SIZE);
 
   /* Filter commands. */
+  /* Only words precedes current word will be checked in this loop. */
   for (i = 0; i < index; i++)
     {
-      enum match_type match;
-      char *command;
-      int ret;
-
       command = vector_slot (vline, i);
-
       match = cmd_filter_by_completion (command, cmd_vector, i);
 
       if (match == vararg_match)
@@ -1430,7 +1535,6 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 	      }
 
 	  vector_set (matchvec, &desc_cr);
-
 	  vector_free (cmd_vector);
 
 	  return matchvec;
@@ -1453,6 +1557,11 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   /* Prepare match vector */
   /*  matchvec = vector_init (INIT_MATCHVEC_SIZE); */
 
+  /* Make sure that cmd_vector is filtered based on current word */
+  command = vector_slot (vline, index);
+  if (command)
+    match = cmd_filter_by_completion (command, cmd_vector, index);
+
   /* Make description vector. */
   for (i = 0; i < vector_max (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
@@ -1460,12 +1569,13 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 	char *string = NULL;
 	vector strvec = cmd_element->strvec;
 
-	if (index > vector_max (strvec))
+        /* if command is NULL, index may be equal to vector_max */
+	if (command && index >= vector_max (strvec))
 	  vector_slot (cmd_vector, i) = NULL;
 	else
 	  {
-	    /* Check is command is completed. */
-	    if (index == vector_max (strvec))
+	    /* Check if command is completed. */
+            if (command == NULL && index == vector_max (strvec))
 	      {
 		string = "<cr>";
 		if (! desc_unique_string (matchvec, string))
@@ -1480,7 +1590,7 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 		for (j = 0; j < vector_max (descvec); j++)
 		  {
 		    desc = vector_slot (descvec, j);
-		    string = cmd_entry_function_desc (vector_slot (vline, index), desc->cmd);
+		    string = cmd_entry_function_desc (command, desc->cmd);
 		    if (string)
 		      {
 			/* Uniqueness check */
@@ -1498,6 +1608,8 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
       vector_free (matchvec);
       *status= CMD_ERR_NO_MATCH;
     }
+  else
+    *status = CMD_SUCCESS;
 
   return matchvec;
 }
@@ -2053,6 +2165,7 @@ DEFUN (config_exit,
       vty->node = CONFIG_NODE;
       break;
     case BGP_VPNV4_NODE:
+    case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
       vty->node = BGP_NODE;
@@ -2070,7 +2183,7 @@ DEFUN (config_exit,
 ALIAS (config_exit,
        config_quit_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
        
 /* End of configuration. */
 DEFUN (config_end,
@@ -2091,6 +2204,7 @@ DEFUN (config_end,
     case RIPNG_NODE:
     case BGP_NODE:
     case BGP_VPNV4_NODE:
+    case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
     case RMAP_NODE:
@@ -2119,7 +2233,7 @@ DEFUN (show_version,
   vty_out (vty, "Zebra %s (%s).%s", ZEBRA_VERSION,
 	   host_name,
 	   VTY_NEWLINE);
-  vty_out (vty, "Copyright 1996-2001, Kunihiro Ishiguro.%s", VTY_NEWLINE);
+  vty_out (vty, "Copyright 1996-2004, Kunihiro Ishiguro.%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -2277,17 +2391,22 @@ DEFUN (config_write_file,
 }
 
 ALIAS (config_write_file, 
+       config_write_cmd,
+       "write",  
+       "Write running configuration to memory, network, or terminal\n");
+
+ALIAS (config_write_file, 
        config_write_memory_cmd,
        "write memory",  
        "Write running configuration to memory, network, or terminal\n"
-       "Write configuration to the file (same as write file)\n")
+       "Write configuration to the file (same as write file)\n");
 
 ALIAS (config_write_file, 
        copy_runningconfig_startupconfig_cmd,
        "copy running-config startup-config",  
        "Copy configuration\n"
        "Copy running config to... \n"
-       "Copy running config to startup config (same as write file)\n")
+       "Copy running config to startup config (same as write file)\n");
 
 /* Write current configuration into the terminal. */
 DEFUN (config_write_terminal,
@@ -2330,7 +2449,7 @@ ALIAS (config_write_terminal,
        show_running_config_cmd,
        "show running-config",
        SHOW_STR
-       "running configuration\n")
+       "running configuration\n");
 
 /* Write startup configuration into the terminal. */
 DEFUN (show_startup_config,
@@ -2420,6 +2539,7 @@ DEFUN (config_password, password_cmd,
 	{
 	  if (host.password)
 	    XFREE (0, host.password);
+	  host.password = NULL;
 	  if (host.password_encrypt)
 	    XFREE (0, host.password_encrypt);
 	  host.password_encrypt = XSTRDUP (0, strdup (argv[1]));
@@ -2443,12 +2563,12 @@ DEFUN (config_password, password_cmd,
     XFREE (0, host.password);
   host.password = NULL;
 
+  if (host.password_encrypt)
+    XFREE (0, host.password_encrypt);
+  host.password_encrypt = NULL;
+
   if (host.encrypt)
-    {
-      if (host.password_encrypt)
-	XFREE (0, host.password_encrypt);
-      host.password_encrypt = XSTRDUP (0, zencrypt (argv[0]));
-    }
+    host.password_encrypt = XSTRDUP (0, zencrypt (argv[0]));
   else
     host.password = XSTRDUP (0, argv[0]);
 
@@ -2458,7 +2578,7 @@ DEFUN (config_password, password_cmd,
 ALIAS (config_password, password_text_cmd,
        "password LINE",
        "Assign the terminal connection password\n"
-       "The UNENCRYPTED (cleartext) line password\n")
+       "The UNENCRYPTED (cleartext) line password\n");
 
 /* VTY enable password set. */
 DEFUN (config_enable_password, enable_password_cmd,
@@ -2509,13 +2629,13 @@ DEFUN (config_enable_password, enable_password_cmd,
     XFREE (0, host.enable);
   host.enable = NULL;
 
+  if (host.enable_encrypt)
+    XFREE (0, host.enable_encrypt);
+  host.enable_encrypt = NULL;
+
   /* Plain password input. */
   if (host.encrypt)
-    {
-      if (host.enable_encrypt)
-	XFREE (0, host.enable_encrypt);
-      host.enable_encrypt = XSTRDUP (0, zencrypt (argv[0]));
-    }
+    host.enable_encrypt = XSTRDUP (0, zencrypt (argv[0]));
   else
     host.enable = XSTRDUP (0, argv[0]);
 
@@ -2527,7 +2647,7 @@ ALIAS (config_enable_password,
        "enable password LINE",
        "Modify enable password parameters\n"
        "Assign the privileged level password\n"
-       "The UNENCRYPTED (cleartext) 'enable' password\n")
+       "The UNENCRYPTED (cleartext) 'enable' password\n");
 
 /* VTY enable password delete. */
 DEFUN (no_config_enable_password, no_enable_password_cmd,
@@ -2586,13 +2706,19 @@ DEFUN (no_service_password_encrypt,
 
   host.encrypt = 0;
 
-  if (host.password_encrypt)
-    XFREE (0, host.password_encrypt);
-  host.password_encrypt = NULL;
+  if (host.password)
+    {
+      if (host.password_encrypt)
+	XFREE (0, host.password_encrypt);
+      host.password_encrypt = NULL;
+    }
 
-  if (host.enable_encrypt)
-    XFREE (0, host.enable_encrypt);
-  host.enable_encrypt = NULL;
+  if (host.enable)
+    {
+      if (host.enable_encrypt)
+	XFREE (0, host.enable_encrypt);
+      host.enable_encrypt = NULL;
+    }
 
   return CMD_SUCCESS;
 }
@@ -2745,6 +2871,79 @@ DEFUN (config_log_syslog,
 {
   zlog_set_flag (NULL, ZLOG_SYSLOG);
   host.log_syslog = 1;
+  zlog_default->facility = LOG_DAEMON;
+  return CMD_SUCCESS;
+}
+
+DEFUN (config_log_syslog_facility,
+       config_log_syslog_facility_cmd,
+       "log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
+       "Logging control\n"
+       "Logging goes to syslog\n"
+       "Facility parameter for syslog messages\n"
+       "Kernel\n"
+       "User process\n"
+       "Mail system\n"
+       "System daemons\n"
+       "Authorization system\n"
+       "Syslog itself\n"
+       "Line printer system\n"
+       "USENET news\n"
+       "Unix-to-Unix copy system\n"
+       "Cron/at facility\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n")
+{
+  int facility = LOG_DAEMON;
+
+  zlog_set_flag (NULL, ZLOG_SYSLOG);
+  host.log_syslog = 1;
+
+  if (strncmp (argv[0], "kern", 1) == 0)
+    facility = LOG_KERN;
+  else if (strncmp (argv[0], "user", 2) == 0)
+    facility = LOG_USER;
+  else if (strncmp (argv[0], "mail", 1) == 0)
+    facility = LOG_MAIL;
+  else if (strncmp (argv[0], "daemon", 1) == 0)
+    facility = LOG_DAEMON;
+  else if (strncmp (argv[0], "auth", 1) == 0)
+    facility = LOG_AUTH;
+  else if (strncmp (argv[0], "syslog", 1) == 0)
+    facility = LOG_SYSLOG;
+  else if (strncmp (argv[0], "lpr", 2) == 0)
+    facility = LOG_LPR;
+  else if (strncmp (argv[0], "news", 1) == 0)
+    facility = LOG_NEWS;
+  else if (strncmp (argv[0], "uucp", 2) == 0)
+    facility = LOG_UUCP;
+  else if (strncmp (argv[0], "cron", 1) == 0)
+    facility = LOG_CRON;
+  else if (strncmp (argv[0], "local0", 6) == 0)
+    facility = LOG_LOCAL0;
+  else if (strncmp (argv[0], "local1", 6) == 0)
+    facility = LOG_LOCAL1;
+  else if (strncmp (argv[0], "local2", 6) == 0)
+    facility = LOG_LOCAL2;
+  else if (strncmp (argv[0], "local3", 6) == 0)
+    facility = LOG_LOCAL3;
+  else if (strncmp (argv[0], "local4", 6) == 0)
+    facility = LOG_LOCAL4;
+  else if (strncmp (argv[0], "local5", 6) == 0)
+    facility = LOG_LOCAL5;
+  else if (strncmp (argv[0], "local6", 6) == 0)
+    facility = LOG_LOCAL6;
+  else if (strncmp (argv[0], "local7", 6) == 0)
+    facility = LOG_LOCAL7;
+
+  zlog_default->facility = facility;
+
   return CMD_SUCCESS;
 }
 
@@ -2757,8 +2956,35 @@ DEFUN (no_config_log_syslog,
 {
   zlog_reset_flag (NULL, ZLOG_SYSLOG);
   host.log_syslog = 0;
+  zlog_default->facility = LOG_DAEMON;
   return CMD_SUCCESS;
 }
+
+ALIAS (no_config_log_syslog,
+       no_config_log_syslog_facility_cmd,
+       "no log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
+       NO_STR
+       "Logging control\n"
+       "Logging goes to syslog\n"
+       "Facility parameter for syslog messages\n"
+       "Kernel\n"
+       "User process\n"
+       "Mail system\n"
+       "System daemons\n"
+       "Authorization system\n"
+       "Syslog itself\n"
+       "Line printer system\n"
+       "USENET news\n"
+       "Unix-to-Unix copy system\n"
+       "Cron/at facility\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n");
 
 DEFUN (config_log_trap,
        config_log_trap_cmd,
@@ -2854,6 +3080,8 @@ install_default (enum node_type node)
   install_element (node, &config_write_terminal_cmd);
   install_element (node, &config_write_file_cmd);
   install_element (node, &config_write_memory_cmd);
+  install_element (node, &config_write_cmd);
+  install_element (node, &show_running_config_cmd);
 }
 
 /* Initialize command interface. Install basic nodes and commands. */
@@ -2897,7 +3125,6 @@ cmd_init (int terminal)
       install_default (ENABLE_NODE);
       install_element (ENABLE_NODE, &config_disable_cmd);
       install_element (ENABLE_NODE, &config_terminal_cmd);
-      install_element (ENABLE_NODE, &show_running_config_cmd);
       install_element (ENABLE_NODE, &copy_runningconfig_startupconfig_cmd);
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
@@ -2921,7 +3148,9 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &config_log_file_cmd);
       install_element (CONFIG_NODE, &no_config_log_file_cmd);
       install_element (CONFIG_NODE, &config_log_syslog_cmd);
+      install_element (CONFIG_NODE, &config_log_syslog_facility_cmd);
       install_element (CONFIG_NODE, &no_config_log_syslog_cmd);
+      install_element (CONFIG_NODE, &no_config_log_syslog_facility_cmd);
       install_element (CONFIG_NODE, &config_log_trap_cmd);
       install_element (CONFIG_NODE, &no_config_log_trap_cmd);
       install_element (CONFIG_NODE, &config_log_record_priority_cmd);

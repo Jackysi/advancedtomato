@@ -35,8 +35,7 @@ route_table_init (void)
 {
   struct route_table *rt;
 
-  rt = XMALLOC (MTYPE_ROUTE_TABLE, sizeof (struct route_table));
-  bzero (rt, sizeof (struct route_table));
+  rt = XCALLOC (MTYPE_ROUTE_TABLE, sizeof (struct route_table));
   return rt;
 }
 
@@ -51,10 +50,7 @@ struct route_node *
 route_node_new ()
 {
   struct route_node *node;
-  
-  node = XMALLOC (MTYPE_ROUTE_NODE, sizeof (struct route_node));
-  bzero (node, sizeof (struct route_node));
-
+  node = XCALLOC (MTYPE_ROUTE_NODE, sizeof (struct route_node));
   return node;
 }
 
@@ -64,8 +60,7 @@ route_node_set (struct route_table *table, struct prefix *prefix)
 {
   struct route_node *node;
   
-  node = XMALLOC (MTYPE_ROUTE_NODE, sizeof (struct route_node));
-  bzero (node, sizeof (struct route_node));
+  node = route_node_new ();
 
   prefix_copy (&node->p, prefix);
   node->table = table;

@@ -103,12 +103,9 @@ ospf_elect_dr (struct ospf_interface *oi, list el_list)
 
   /* Set DR to interface. */
   if (dr)
-    {
-      DR (oi) = dr->address.u.prefix4;
-      dr->d_router = dr->address.u.prefix4;
-    }
+    DR (oi) = dr->address.u.prefix4;
   else
-      DR (oi).s_addr = 0;
+    DR (oi).s_addr = 0;
 
   list_delete (dr_list);
 
@@ -149,10 +146,7 @@ ospf_elect_bdr (struct ospf_interface *oi, list el_list)
 
   /* Set BDR to interface. */
   if (bdr)
-    {
-      BDR (oi) = bdr->address.u.prefix4;
-      bdr->bd_router = bdr->address.u.prefix4;
-    }
+    BDR (oi) = bdr->address.u.prefix4;
   else
     BDR (oi).s_addr = 0;
 
@@ -163,7 +157,7 @@ ospf_elect_bdr (struct ospf_interface *oi, list el_list)
 }
 
 int
-ospf_ism_status (struct ospf_interface *oi)
+ospf_ism_state (struct ospf_interface *oi)
 {
   if (IPV4_ADDR_SAME (&DR (oi), &oi->address->u.prefix4))
     return ISM_DR;
@@ -186,13 +180,13 @@ ospf_dr_eligible_routers (struct route_table *nbrs, list el_list)
 	/* Is neighbor eligible? */
 	if (nbr->priority != 0)
 	  /* Is neighbor upper 2-Way? */
-	  if (nbr->status >= NSM_TwoWay)
+	  if (nbr->state >= NSM_TwoWay)
 	    listnode_add (el_list, nbr);
 }
 
 /* Generate AdjOK? NSM event. */
 void
-ospf_dr_change (struct route_table *nbrs)
+ospf_dr_change (struct ospf *ospf, struct route_table *nbrs)
 {
   struct route_node *rn;
   struct ospf_neighbor *nbr;
@@ -202,9 +196,9 @@ ospf_dr_change (struct route_table *nbrs)
       /* Ignore 0.0.0.0 node*/
       if (nbr->router_id.s_addr != 0)
 	/* Is neighbor upper 2-Way? */
-	if (nbr->status >= NSM_TwoWay)
+	if (nbr->state >= NSM_TwoWay)
 	  /* Ignore myself. */
-	  if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
+	  if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf->router_id))
 	    OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_AdjOK);
 }
 
@@ -212,14 +206,14 @@ int
 ospf_dr_election (struct ospf_interface *oi)
 {
   struct in_addr old_dr, old_bdr;
-  int old_status, new_status;
+  int old_state, new_state;
   list el_list;
   struct ospf_neighbor *dr, *bdr;
 
   /* backup current values. */
   old_dr = DR (oi);
   old_bdr = BDR (oi);
-  old_status = oi->status;
+  old_state = oi->state;
 
   el_list = list_new ();
 
@@ -230,18 +224,18 @@ ospf_dr_election (struct ospf_interface *oi)
   bdr = ospf_elect_bdr (oi, el_list);
   dr = ospf_elect_dr (oi, el_list);
 
-  new_status = ospf_ism_status (oi);
+  new_state = ospf_ism_state (oi);
 
   zlog_info ("DR-Election[1st]: Backup %s", inet_ntoa (BDR (oi)));
   zlog_info ("DR-Election[1st]: DR     %s", inet_ntoa (DR (oi)));
 
-  if (new_status != old_status &&
-      !(new_status == ISM_DROther && old_status < ISM_DROther))
+  if (new_state != old_state &&
+      !(new_state == ISM_DROther && old_state < ISM_DROther))
     {
       ospf_elect_bdr (oi, el_list);
       ospf_elect_dr (oi, el_list); 
 
-      new_status = ospf_ism_status (oi);
+      new_state = ospf_ism_state (oi);
 
       zlog_info ("DR-Election[2nd]: Backup %s", inet_ntoa (BDR (oi)));
       zlog_info ("DR-Election[2nd]: DR     %s", inet_ntoa (DR (oi)));
@@ -252,20 +246,20 @@ ospf_dr_election (struct ospf_interface *oi)
   /* if DR or BDR changes, cause AdjOK? neighbor event. */
   if (!IPV4_ADDR_SAME (&old_dr, &DR (oi)) ||
       !IPV4_ADDR_SAME (&old_bdr, &BDR (oi)))
-    ospf_dr_change (oi->nbrs);
+    ospf_dr_change (oi->ospf, oi->nbrs);
 
   if (oi->type == OSPF_IFTYPE_BROADCAST || oi->type == OSPF_IFTYPE_POINTOPOINT)
     {
       /* Multicast group change. */
-      if ((old_status != ISM_DR && old_status != ISM_Backup) &&
-	  (new_status == ISM_DR || new_status == ISM_Backup))
-	ospf_if_add_alldrouters (ospf_top, oi->address, oi->ifp->ifindex);
-      else if ((old_status == ISM_DR || old_status == ISM_Backup) &&
-	       (new_status != ISM_DR && new_status != ISM_Backup))
-	ospf_if_drop_alldrouters (ospf_top, oi->address, oi->ifp->ifindex);
+      if ((old_state != ISM_DR && old_state != ISM_Backup) &&
+	  (new_state == ISM_DR || new_state == ISM_Backup))
+	ospf_if_add_alldrouters (oi->ospf, oi->address, oi->ifp->ifindex);
+      else if ((old_state == ISM_DR || old_state == ISM_Backup) &&
+	       (new_state != ISM_DR && new_state != ISM_Backup))
+	ospf_if_drop_alldrouters (oi->ospf, oi->address, oi->ifp->ifindex);
     }
 
-  return new_status;
+  return new_state;
 }
 
 
@@ -314,7 +308,7 @@ ospf_wait_timer (struct thread *thread)
 void
 ism_timer_set (struct ospf_interface *oi)
 {
-  switch (oi->status)
+  switch (oi->state)
     {
     case ISM_Down:
       /* First entry point of ospf interface state machine. In this state
@@ -378,17 +372,6 @@ ism_timer_set (struct ospf_interface *oi)
     }
 }
 
-/* This function is the first starting point of all OSPF instances.
- */
-void
-ospf_ism_start (struct ospf_interface *oi)
-{
-  switch (oi->status)
-    {
-      ;
-    }
-}
-
 int
 ism_stop (struct ospf_interface *oi)
 {
@@ -415,7 +398,7 @@ ism_interface_up (struct ospf_interface *oi)
     next_state = ISM_Waiting;
 
   if (oi->type == OSPF_IFTYPE_NBMA)
-      ospf_nbr_static_if_update (oi);
+    ospf_nbr_nbma_if_update (oi->ospf, oi);
 
   /*  ospf_ism_event (t); */
   return next_state;
@@ -472,7 +455,7 @@ ism_ignore (struct ospf_interface *oi)
 struct {
   int (*func) ();
   int next_state;
-} ISM [OSPF_ISM_STATUS_MAX][OSPF_ISM_EVENT_MAX] =
+} ISM [OSPF_ISM_STATE_MAX][OSPF_ISM_EVENT_MAX] =
 {
   {
     /* DependUpon: dummy state. */
@@ -577,33 +560,33 @@ static char *ospf_ism_event_str[] =
 };
 
 void
-ism_change_status (struct ospf_interface *oi, int status)
+ism_change_state (struct ospf_interface *oi, int state)
 {
-  int old_status;
+  int old_state;
   struct ospf_lsa *lsa;
 
-  /* Logging change of status. */
+  /* Logging change of state. */
   if (IS_DEBUG_OSPF (ism, ISM_STATUS))
-    zlog (NULL, LOG_INFO, "ISM[%s]: Status change %s -> %s", IF_NAME (oi),
-	  LOOKUP (ospf_ism_status_msg, oi->status),
-	  LOOKUP (ospf_ism_status_msg, status));
+    zlog (NULL, LOG_INFO, "ISM[%s]: State change %s -> %s", IF_NAME (oi),
+	  LOOKUP (ospf_ism_state_msg, oi->state),
+	  LOOKUP (ospf_ism_state_msg, state));
 
-  old_status = oi->status;
-  oi->status = status;
-  oi->status_change++;
+  old_state = oi->state;
+  oi->state = state;
+  oi->state_change++;
 
-  if (old_status == ISM_Down || status == NSM_Down)
-    ospf_check_abr_status();
+  if (old_state == ISM_Down || state == ISM_Down)
+    ospf_check_abr_status (oi->ospf);
 
   /* Originate router-LSA. */
   if (oi->area)
     {
-      if (status == ISM_Down)
+      if (state == ISM_Down)
 	{
 	  if (oi->area->act_ints > 0)
 	    oi->area->act_ints--;
 	}
-      else if (old_status == ISM_Down)
+      else if (old_state == ISM_Down)
 	oi->area->act_ints++;
 
       /* schedule router-LSA originate. */
@@ -611,9 +594,9 @@ ism_change_status (struct ospf_interface *oi, int status)
     }
 
   /* Originate network-LSA. */
-  if (old_status != ISM_DR && status == ISM_DR)
+  if (old_state != ISM_DR && state == ISM_DR)
     ospf_network_lsa_timer_add (oi);
-  else if (old_status == ISM_DR && status != ISM_DR)
+  else if (old_state == ISM_DR && state != ISM_DR)
     {
       /* Free self originated network LSA. */
       lsa = oi->network_lsa_self;
@@ -627,10 +610,12 @@ ism_change_status (struct ospf_interface *oi, int status)
       oi->network_lsa_self = NULL;
     }
 
-  /* Preserve old status? */
+#ifdef HAVE_OPAQUE_LSA
+  ospf_opaque_ism_change (oi, old_state);
+#endif /* HAVE_OPAQUE_LSA */
 
   /* Check area border status.  */
-  ospf_check_abr_status ();
+  ospf_check_abr_status (oi->ospf);
 }
 
 /* Execute ISM event process. */
@@ -645,19 +630,19 @@ ospf_ism_event (struct thread *thread)
   event = THREAD_VAL (thread);
 
   /* Call function. */
-  next_state = (*(ISM [oi->status][event].func))(oi);
+  next_state = (*(ISM [oi->state][event].func))(oi);
 
   if (! next_state)
-    next_state = ISM [oi->status][event].next_state;
+    next_state = ISM [oi->state][event].next_state;
 
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
     zlog (NULL, LOG_INFO, "ISM[%s]: %s (%s)", IF_NAME (oi),
-	  LOOKUP (ospf_ism_status_msg, oi->status),
+	  LOOKUP (ospf_ism_state_msg, oi->state),
 	  ospf_ism_event_str[event]);
 
-  /* If status is changed. */
-  if (next_state != oi->status)
-    ism_change_status (oi, next_state);
+  /* If state is changed. */
+  if (next_state != oi->state)
+    ism_change_state (oi, next_state);
 
   /* Make sure timer is set. */
   ism_timer_set (oi);

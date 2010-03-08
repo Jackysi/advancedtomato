@@ -1,4 +1,4 @@
-@node  Packet Binary Dump Format, Command Index, Zebra Protocol, Top
+@node  Packet Binary Dump Format, , Zebra Protocol, Top
 @comment  node-name,  next,  previous,  up
 @appendix Packet Binary Dump Format
 

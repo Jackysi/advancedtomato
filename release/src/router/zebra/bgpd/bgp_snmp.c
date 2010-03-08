@@ -1,27 +1,31 @@
 /* BGP4 SNMP support
- * Copyright (C) 1999, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 1999, 2000 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
+
+#ifdef HAVE_NETSNMP
+#include <net-snmp/net-snmp-config.h>
+#endif /* HAVE_NETSNMP */
+
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
@@ -30,11 +34,11 @@
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
-#include "table.h"
 #include "thread.h"
 #include "smux.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_table.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
@@ -42,6 +46,10 @@
 
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
+
+/* BGP TRAP. */
+#define BGPESTABLISHED			1
+#define BGPBACKWARDTRANSITION		2	
 
 /* Zebra enterprise BGP MIB.  This variable is used for register
    OSPF MIB to SNMP agent under SMUX protocol.  */
@@ -278,7 +286,6 @@ peer_lookup_addr_ipv4 (struct in_addr *src)
 {
   struct bgp *bgp;
   struct peer *peer;
-  struct peer_conf *conf;
   struct listnode *nn;
   struct in_addr addr;
   int ret;
@@ -287,9 +294,8 @@ peer_lookup_addr_ipv4 (struct in_addr *src)
   if (! bgp)
     return NULL;
 
-  LIST_LOOP (bgp->peer_conf, conf, nn)
+  LIST_LOOP (bgp->peer, peer, nn)
     {
-      peer = conf->peer;
       ret = inet_pton (AF_INET, peer->host, &addr);
       if (ret > 0)
 	{
@@ -305,7 +311,6 @@ bgp_peer_lookup_next (struct in_addr *src)
 {
   struct bgp *bgp;
   struct peer *peer;
-  struct peer_conf *conf;
   struct listnode *nn;
   struct in_addr *p;
   union sockunion su;
@@ -317,9 +322,8 @@ bgp_peer_lookup_next (struct in_addr *src)
   if (! bgp)
     return NULL;
 
-  LIST_LOOP (bgp->peer_conf, conf, nn)
+  LIST_LOOP (bgp->peer, peer, nn)
     {
-      peer = conf->peer;
       ret = inet_pton (AF_INET, peer->host, &su.sin.sin_addr);
       if (ret > 0)
 	{
@@ -421,11 +425,6 @@ write_bgpPeerTable (int action, u_char *var_val,
       else
 	return SNMP_ERR_NOSUCHNAME;
       break;
-    case BGPPEERCONNECTRETRYINTERVAL:
-      SET_FLAG (peer->config, PEER_CONFIG_CONNECT);
-      peer->connect = intval;
-      peer->v_connect = intval;
-      break;
     case BGPPEERHOLDTIMECONFIGURED:
       SET_FLAG (peer->config, PEER_CONFIG_TIMER);
       peer->holdtime = intval;
@@ -478,7 +477,7 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
 	return SNMP_INTEGER (BGP_PeerAdmin_start);
       break;
     case BGPPEERNEGOTIATEDVERSION:
-      return SNMP_INTEGER (peer->version);
+      return SNMP_INTEGER (BGP_VERSION_4);
       break;
     case BGPPEERLOCALADDR:
       if (peer->su_local)
@@ -514,12 +513,14 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
       return SNMP_INTEGER (peer->update_out);
       break;
     case BGPPEERINTOTALMESSAGES:
-      return SNMP_INTEGER (peer->open_in + peer->update_in 
-			   + peer->keepalive_in + peer->notify_in);
+      return SNMP_INTEGER (peer->open_in + peer->update_in
+			   + peer->keepalive_in + peer->notify_in
+			   + peer->refresh_in + peer->dynamic_cap_in);
       break;
     case BGPPEEROUTTOTALMESSAGES:
       return SNMP_INTEGER (peer->open_out + peer->update_out
-			   + peer->keepalive_out + peer->notify_out);
+			   + peer->keepalive_out + peer->notify_out
+			   + peer->refresh_out + peer->dynamic_cap_out);
       break;
     case BGPPEERLASTERROR:
       {
@@ -598,7 +599,7 @@ bgpIdentifier (struct variable *v, oid name[], size_t *length,
   if (!bgp)
     return NULL;
 
-  return SNMP_IPADDRESS (bgp->id);
+  return SNMP_IPADDRESS (bgp->router_id);
 }
 
 u_char *
@@ -620,7 +621,7 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
   int offsetlen;
   struct bgp_info *binfo;
   struct bgp_info *min;
-  struct route_node *rn;
+  struct bgp_node *rn;
   union sockunion su;
   int len;
   struct in_addr paddr;
@@ -647,11 +648,11 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
       oid2in_addr (offset, IN_ADDR_SIZE, &su.sin.sin_addr);
 
       /* Lookup node. */
-      rn = route_node_lookup (bgp->rib[AFI_IP][SAFI_UNICAST], 
+      rn = bgp_node_lookup (bgp->rib[AFI_IP][SAFI_UNICAST], 
 			      (struct prefix *) addr);
       if (rn)
 	{
-	  route_unlock_node (rn);
+	  bgp_unlock_node (rn);
 
 	  for (binfo = rn->info; binfo; binfo = binfo->next)
 	    if (sockunion_same (&binfo->peer->su, &su))
@@ -665,7 +666,7 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
       len = offsetlen;
 
       if (offsetlen == 0)
-	rn = route_top (bgp->rib[AFI_IP][SAFI_UNICAST]);
+	rn = bgp_table_top (bgp->rib[AFI_IP][SAFI_UNICAST]);
       else
 	{
 	  if (len > IN_ADDR_SIZE)
@@ -681,7 +682,7 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
 	  else
 	    addr->prefixlen = len * 8;
 
-	  rn = route_node_get (bgp->rib[AFI_IP][SAFI_UNICAST],
+	  rn = bgp_node_get (bgp->rib[AFI_IP][SAFI_UNICAST],
 			       (struct prefix *) addr);
 
 	  offset++;
@@ -737,14 +738,14 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
 	      addr->prefix = rn->p.u.prefix4;
 	      addr->prefixlen = rn->p.prefixlen;
 
-	      route_unlock_node (rn);
+	      bgp_unlock_node (rn);
 
 	      return min;
 	    }
 
 	  paddr.s_addr = 0;
 	}
-      while ((rn = route_next (rn)) != NULL);
+      while ((rn = bgp_route_next (rn)) != NULL);
     }
   return NULL;
 }
@@ -825,7 +826,6 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
 /* BGP Traps. */
 struct trap_object bgpTrapList[] =
 {
-  {bgpPeerTable, 3, {3, 1, BGPPEERREMOTEADDR}},
   {bgpPeerTable, 3, {3, 1, BGPPEERLASTERROR}},
   {bgpPeerTable, 3, {3, 1, BGPPEERSTATE}}
 };
@@ -846,7 +846,7 @@ bgpTrapEstablished (struct peer *peer)
   smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bgp_start_time - time (NULL));
+	     bm->start_time - time (NULL), BGPESTABLISHED);
 }
 
 void
@@ -865,7 +865,7 @@ bgpTrapBackwardTransition (struct peer *peer)
   smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bgp_start_time - time (NULL));
+	     bm->start_time - time (NULL), BGPBACKWARDTRANSITION);
 }
 
 void

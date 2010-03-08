@@ -1,3 +1,13 @@
+2003-08-23  Hasso Tepper <hasso@estpak.ee>
+
+	* extract.pl: IPv6 treatment.
+	Route-map and distribute modification for vtysh.
+	All protocol module consistency for vtysh.
+	
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

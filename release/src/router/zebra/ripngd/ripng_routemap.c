@@ -113,6 +113,8 @@ route_set_metric (void *rule, struct prefix *prefix,
 	rinfo->metric = 1;
       if (rinfo->metric > RIPNG_METRIC_INFINITY)
 	rinfo->metric = RIPNG_METRIC_INFINITY;
+
+      rinfo->metric_set = 1;
     }
   return RMAP_OKAY;
 }
@@ -156,7 +158,9 @@ route_set_metric_compile (char *arg)
 
   if (metric == LONG_MAX || *endptr != '\0')
     return NULL;
-  if (metric < 0 || metric > RIPNG_METRIC_INFINITY)
+  /* Commented out by Hasso Tepper, to avoid problems in vtysh. */
+  /* if (metric < 0 || metric > RIPNG_METRIC_INFINITY) */
+  if (metric < 0)
     return NULL;
 
   mod = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, 
@@ -312,14 +316,24 @@ DEFUN (set_metric,
 
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric <0-4294967295>",
+       "no set metric",
        NO_STR
-       "Set value\n"
-       "Metric\n"
-       "METRIC value\n")
+       SET_STR
+       "Metric value for destination routing protocol\n")
 {
+  if (argc == 0)
+    return ripng_route_set_delete (vty, vty->index, "metric", NULL);
+
   return ripng_route_set_delete (vty, vty->index, "metric", argv[0]);
 }
+
+ALIAS (no_set_metric,
+       no_set_metric_val_cmd,
+       "no set metric <0-4294967295>",
+       NO_STR
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Metric value\n");
 
 void
 ripng_route_map_init ()

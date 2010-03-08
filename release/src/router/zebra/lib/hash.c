@@ -1,5 +1,4 @@
-/*
- * Hash routine.
+/* Hash routine.
  * Copyright (C) 1998 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -24,162 +23,160 @@
 
 #include "hash.h"
 #include "memory.h"
-#include "log.h"
 
-/* for hash */
-HashBacket *hash[HASHTABSIZE];
-
-/* Allocate new hash. */
-struct Hash *
-hash_new (int size)
+/* Allocate a new hash.  */
+struct hash *
+hash_create_size (unsigned int size, 
+		  unsigned int (*hash_key) (), int (*hash_cmp) ())
 {
-  struct Hash *new;
+  struct hash *hash;
 
-  new = XMALLOC (MTYPE_HASH, sizeof (struct Hash));
-  bzero (new, sizeof (struct Hash));
+  hash = XMALLOC (MTYPE_HASH, sizeof (struct hash));
+  hash->index = XMALLOC (MTYPE_HASH_INDEX, 
+			 sizeof (struct hash_backet *) * size);
+  memset (hash->index, 0, sizeof (struct hash_backet *) * size);
+  hash->size = size;
+  hash->hash_key = hash_key;
+  hash->hash_cmp = hash_cmp;
+  hash->count = 0;
 
-  new->index = XMALLOC (MTYPE_HASH, sizeof (HashBacket *) * size);
-  bzero (new->index, sizeof (HashBacket *) * size);
-
-  new->size = size;
-
-  return new;
+  return hash;
 }
 
-/* allocate new hash backet */
-static HashBacket *
-hash_backet_new (void *data)
+/* Allocate a new hash with default hash size.  */
+struct hash *
+hash_create (unsigned int (*hash_key) (), int (*hash_cmp) ())
 {
-  HashBacket *new;
-
-  new = XMALLOC (MTYPE_HASH_BACKET, sizeof (struct HashBacket));
-  new->data = data;
-  new->next = NULL;
-
-  return new;
+  return hash_create_size (HASHTABSIZE, hash_key, hash_cmp);
 }
 
-HashBacket *
-hash_head (struct Hash *hash, int index)
-{
-  return hash->index[index];
-}
-
-/* Hash search */
+/* Utility function for hash_get().  When this function is specified
+   as alloc_func, return arugment as it is.  This function is used for
+   intern already allocated value.  */
 void *
-hash_search (struct Hash *hash, void *data)
+hash_alloc_intern (void *arg)
+{
+  return arg;
+}
+
+/* Lookup and return hash backet in hash.  If there is no
+   corresponding hash backet and alloc_func is specified, create new
+   hash backet.  */
+void *
+hash_get (struct hash *hash, void *data, void * (*alloc_func) ())
 {
   unsigned int key;
-  HashBacket *backet;
+  unsigned int index;
+  void *newdata;
+  struct hash_backet *backet;
 
   key = (*hash->hash_key) (data);
+  index = key % hash->size;
 
-  if (hash->index[key] == NULL)
-    return NULL;
-
-  for (backet = hash->index[key]; backet != NULL; backet = backet->next) 
-    if ((*hash->hash_cmp) (backet->data, data) == 1)
+  for (backet = hash->index[index]; backet != NULL; backet = backet->next) 
+    if (backet->key == key && (*hash->hash_cmp) (backet->data, data))
       return backet->data;
 
+  if (alloc_func)
+    {
+      newdata = (*alloc_func) (data);
+      if (newdata == NULL)
+	return NULL;
+
+      backet = XMALLOC (MTYPE_HASH_BACKET, sizeof (struct hash_backet));
+      backet->data = newdata;
+      backet->key = key;
+      backet->next = hash->index[index];
+      hash->index[index] = backet;
+      hash->count++;
+      return backet->data;
+    }
   return NULL;
 }
 
-/* Push data into hash. */
-HashBacket *
-hash_push (struct Hash *hash, void *data)
+/* Hash lookup.  */
+void *
+hash_lookup (struct hash *hash, void *data)
 {
-  unsigned int key;
-  HashBacket  *backet, *mp;
-
-  key = (*hash->hash_key) (data);
-  backet = hash_backet_new (data);
-
-  hash->count++;
-
-  if (hash->index[key] == NULL)
-    hash->index[key] = backet;
-  else
-    {
-      for (mp = hash->index[key]; mp->next != NULL; mp = mp->next) 
-	if ((*hash->hash_cmp) (data, mp->data) == 1) 
-	  {
-	    zlog_info ("hash data [%p] was duplicated!", data);
-	    XFREE (MTYPE_HASH_BACKET, backet);
-	    return NULL;
-	  }
-      
-      if ((*hash->hash_cmp) (data, mp->data) == 1) 
-	{
-	  zlog_info ("hash account name [%p] was duplicated!", data);
-	  XFREE (MTYPE_HASH_BACKET, backet);
-	  return NULL;
-	}
-      mp->next = backet;
-    }
-  return backet;
+  return hash_get (hash, data, NULL);
 }
 
-/* When deletion is finished successfully return data of delete
-   backet. */
+/* This function release registered value from specified hash.  When
+   release is successfully finished, return the data pointer in the
+   hash backet.  */
 void *
-hash_pull (struct Hash *hash, void *data)
+hash_release (struct hash *hash, void *data)
 {
   void *ret;
   unsigned int key;
-  HashBacket *mp;
-  HashBacket *mpp;
+  unsigned int index;
+  struct hash_backet *backet;
+  struct hash_backet *pp;
 
   key = (*hash->hash_key) (data);
+  index = key % hash->size;
 
-  if(hash->index[key] == NULL) 
-    return NULL;
-
-  mp = mpp = hash->index[key];
-  while (mp) 
+  for (backet = pp = hash->index[index]; backet; backet = backet->next)
     {
-      if((*hash->hash_cmp) (mp->data, data) == 1) 
+      if (backet->key == key && (*hash->hash_cmp) (backet->data, data)) 
 	{
-	  if (mp == mpp) 
-	      hash->index[key] = mp->next;
+	  if (backet == pp) 
+	    hash->index[index] = backet->next;
 	  else 
-	      mpp->next = mp->next;
+	    pp->next = backet->next;
 
-	  ret = mp->data;
-	  XFREE (MTYPE_HASH_BACKET, mp);
+	  ret = backet->data;
+	  XFREE (MTYPE_HASH_BACKET, backet);
 	  hash->count--;
 	  return ret;
 	}
-      mpp = mp;
-      mp = mp->next;
+      pp = backet;
     }
   return NULL;
 }
 
+/* Iterator function for hash.  */
 void
-hash_clean (struct Hash *hash, void (* func) (void *))
+hash_iterate (struct hash *hash, 
+	      void (*func) (struct hash_backet *, void *), void *arg)
 {
   int i;
-  HashBacket *mp;
-  HashBacket *next;
+  struct hash_backet *hb;
 
-  for (i = 0; i < HASHTABSIZE; i++)
+  for (i = 0; i < hash->size; i++)
+    for (hb = hash->index[i]; hb; hb = hb->next)
+      (*func) (hb, arg);
+}
+
+/* Clean up hash.  */
+void
+hash_clean (struct hash *hash, void (*free_func) (void *))
+{
+  int i;
+  struct hash_backet *hb;
+  struct hash_backet *next;
+
+  for (i = 0; i < hash->size; i++)
     {
-      for (mp = hash_head (hash, i); mp; mp = next)
+      for (hb = hash->index[i]; hb; hb = next)
 	{
-	  next = mp->next;
+	  next = hb->next;
 	      
-	  if (func)
-	    (*func) (mp->data);
-	  XFREE (MTYPE_HASH_BACKET, mp);
+	  if (free_func)
+	    (*free_func) (hb->data);
+
+	  XFREE (MTYPE_HASH_BACKET, hb);
+	  hash->count--;
 	}
       hash->index[i] = NULL;
     }
 }
 
+/* Free hash memory.  You may call hash_clean before call this
+   function.  */
 void
-hash_free (struct Hash *hash)
+hash_free (struct hash *hash)
 {
- hash_clean (hash, NULL);
- XFREE(MTYPE_HASH, hash->index);
- XFREE(MTYPE_HASH, hash);
+  XFREE (MTYPE_HASH_INDEX, hash->index);
+  XFREE (MTYPE_HASH, hash);
 }

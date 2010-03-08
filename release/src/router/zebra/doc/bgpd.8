@@ -12,6 +12,9 @@ bgpd \- a BGPv4, BGPv4+, BGPv4- routing engine for use with Zebra
 .B \-f config-file
 ]
 [
+.B \-i pid-file
+]
+[
 .B \-p bgp-port-number
 ]
 [
@@ -21,7 +24,7 @@ bgpd \- a BGPv4, BGPv4+, BGPv4- routing engine for use with Zebra
 .B \-P vty-port-number
 ]
 
-.SH DESCBGPTION
+.SH DESCRIPTION
 .B bgpd 
 is a routing component that works with the 
 .B zebra
@@ -38,10 +41,16 @@ Runs in daemon mode, forking and exiting from tty.
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR 
 Specifies the config file to use for startup. If not specified this
 option will likely default to \fB\fI/usr/local/etc/bgpd.conf\fR.
- 
+
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
+
+.TP
+\fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
+When bgpd starts its process idenifier is written to
+\fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
+restart bgpd.  The likely default is \fB\fI/var/run/bgpd.pid\fR.
 
 .TP
 \fB\-p\fR, \fB\-\-bgp_port=\fR\fIport\fR

@@ -1,24 +1,22 @@
-/*
- * AS path filter list.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+/* AS path filter list.
+   Copyright (C) 1999 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -316,27 +314,6 @@ filter_type_str (enum as_filter_type type)
 }
 
 void
-as_list_print (struct as_list *aslist)
-{
-  struct as_filter *asfilter;
-
-  for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
-    printf ("regexp %s %s\n", asfilter->reg_str, 
-	    filter_type_str (asfilter->type));
-}
-
-void
-as_list_print_all ()
-{
-  struct as_list *aslist;
-
-  for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
-    as_list_print (aslist);
-  for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
-    as_list_print (aslist);
-}
-
-void
 as_list_delete (struct as_list *aslist)
 {
   struct as_list_list *list;
@@ -630,6 +607,81 @@ DEFUN (no_ip_as_path_all,
 
   as_list_delete (aslist);
 
+  /* Run hook function. */
+  if (as_list_master.delete_hook)
+    (*as_list_master.delete_hook) ();
+
+  return CMD_SUCCESS;
+}
+
+void
+as_list_show (struct vty *vty, struct as_list *aslist)
+{
+  struct as_filter *asfilter;
+
+  vty_out (vty, "AS path access list %s%s", aslist->name, VTY_NEWLINE);
+
+  for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
+    {
+      vty_out (vty, "    %s %s%s", filter_type_str (asfilter->type),
+	       asfilter->reg_str, VTY_NEWLINE);
+    }
+}
+
+void
+as_list_show_all (struct vty *vty)
+{
+  struct as_list *aslist;
+  struct as_filter *asfilter;
+
+  for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
+    {
+      vty_out (vty, "AS path access list %s%s", aslist->name, VTY_NEWLINE);
+
+      for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
+	{
+	  vty_out (vty, "    %s %s%s", filter_type_str (asfilter->type),
+		   asfilter->reg_str, VTY_NEWLINE);
+	}
+    }
+
+  for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
+    {
+      vty_out (vty, "AS path access list %s%s", aslist->name, VTY_NEWLINE);
+
+      for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
+	{
+	  vty_out (vty, "    %s %s%s", filter_type_str (asfilter->type),
+		   asfilter->reg_str, VTY_NEWLINE);
+	}
+    }
+}
+
+DEFUN (show_ip_as_path_access_list,
+       show_ip_as_path_access_list_cmd,
+       "show ip as-path-access-list WORD",
+       SHOW_STR
+       IP_STR
+       "List AS path access lists\n"
+       "AS path access list name\n")
+{
+  struct as_list *aslist;
+
+  aslist = as_list_lookup (argv[0]);
+  if (aslist)
+    as_list_show (vty, aslist);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_as_path_access_list_all,
+       show_ip_as_path_access_list_all_cmd,
+       "show ip as-path-access-list",
+       SHOW_STR
+       IP_STR
+       "List AS path access lists\n")
+{
+  as_list_show_all (vty);
   return CMD_SUCCESS;
 }
 
@@ -678,26 +730,9 @@ bgp_filter_init ()
   install_element (CONFIG_NODE, &ip_as_path_cmd);
   install_element (CONFIG_NODE, &no_ip_as_path_cmd);
   install_element (CONFIG_NODE, &no_ip_as_path_all_cmd);
-}
-
-/* For test. */
-void
-bgp_filter_test ()
-{
-  regex_t *regex;
-  struct as_list *aslist;
-  struct as_filter *asfilter;
 
-  char buf[] = "1 2";
-
-  regex = bgp_regcomp (buf);
-  if (regex == NULL)
-    fprintf (stderr, "aspath regex compile errror\n");
-
-  /* ip as-path access-list 1 permit AS1. */
-  aslist = as_list_get ("1");
-  asfilter = as_filter_make (regex, buf, AS_FILTER_PERMIT);
-  as_list_filter_add (aslist, asfilter);
-
-  as_list_print_all ();
+  install_element (VIEW_NODE, &show_ip_as_path_access_list_cmd);
+  install_element (VIEW_NODE, &show_ip_as_path_access_list_all_cmd);
+  install_element (ENABLE_NODE, &show_ip_as_path_access_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_as_path_access_list_all_cmd);
 }

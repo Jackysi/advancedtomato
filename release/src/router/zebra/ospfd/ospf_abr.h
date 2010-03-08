@@ -25,31 +25,60 @@
 
 #define OSPF_ABR_TASK_DELAY 	7
 
-#define OSPF_RANGE_SUPPRESS	0x01
-#define OSPF_RANGE_SUBST        0x02
+#define OSPF_AREA_RANGE_ADVERTISE	(1 << 0)
+#define OSPF_AREA_RANGE_SUBSTITUTE	(1 << 1)
 
+/* Area range. */
 struct ospf_area_range
 {
-  /* We do not include the range here, it will
-     be the prefix in the RT. */
-  struct route_node     *node;       /* Pointer to the RT node. */
-  u_char    		flags;
-  struct prefix_ipv4	substitute;
-  int			specifics;   /* Number of more specific prefixes. */
-  u_int32_t		cost;
+  /* Area range address. */
+  struct in_addr addr;
+
+  /* Area range masklen. */
+  u_char masklen;
+
+  /* Flags. */
+  u_char flags;
+
+  /* Number of more specific prefixes. */
+  int specifics;
+
+  /* Addr and masklen to substitute. */
+  struct in_addr subst_addr;
+  u_char subst_masklen;
+
+  /* Range cost. */
+  u_int32_t cost;
+
+  /* Configured range cost. */
+  u_int32_t cost_config;
+#define OSPF_AREA_RANGE_COST_UNSPEC	-1
 };
 
-
-struct ospf_area_range *ospf_some_area_range_match (struct prefix_ipv4 *p);
+/* Prototypes. */
 struct ospf_area_range *ospf_area_range_lookup (struct ospf_area *,
-						struct in_addr *);
+						struct prefix_ipv4 *);
+struct ospf_area_range *ospf_some_area_range_match (struct prefix_ipv4 *);
 struct ospf_area_range *ospf_area_range_lookup_next (struct ospf_area *,
 						     struct in_addr *, int);
-int ospf_range_active (struct ospf_area_range *range);                       
-int ospf_act_bb_connection ();
+int ospf_area_range_set (struct ospf *, struct in_addr, struct prefix_ipv4 *,
+			 int);
+int ospf_area_range_cost_set (struct ospf *, struct in_addr,
+			      struct prefix_ipv4 *, u_int32_t);
+int ospf_area_range_unset (struct ospf *, struct in_addr,
+			   struct prefix_ipv4 *);
+int ospf_area_range_substitute_set (struct ospf *, struct in_addr,
+				    struct prefix_ipv4 *,
+				    struct prefix_ipv4 *);
+int ospf_area_range_substitute_unset (struct ospf *, struct in_addr,
+				      struct prefix_ipv4 *);
+struct ospf_area_range *ospf_area_range_match_any (struct ospf *,
+						   struct prefix_ipv4 *);
+int ospf_area_range_active (struct ospf_area_range *);
+int ospf_act_bb_connection (struct ospf *);
 
-void ospf_check_abr_status ();
-void ospf_abr_task ();
-void ospf_schedule_abr_task ();
+void ospf_check_abr_status (struct ospf *);
+void ospf_abr_task (struct ospf *);
+void ospf_schedule_abr_task (struct ospf *);
 
 #endif /* _ZEBRA_OSPF_ABR_H */

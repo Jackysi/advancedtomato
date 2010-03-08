@@ -66,9 +66,8 @@ sin_masklen (struct in_addr mask)
 /* Interface between zebra message and rtm message. */
 int
 kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
-
 {
-  struct sockaddr_in *mask;
+  struct sockaddr_in *mask = NULL;
   struct sockaddr_in sin_dest, sin_mask, sin_gate;
   struct nexthop *nexthop;
   int nexthop_num = 0;
@@ -129,6 +128,14 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 		  || nexthop->type == NEXTHOP_TYPE_IFNAME
 		  || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 		ifindex = nexthop->ifindex;
+	      if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+		{
+		  struct in_addr loopback;
+
+		  loopback.s_addr = htonl (INADDR_LOOPBACK);
+		  sin_gate.sin_addr = loopback;
+		  gate = 1;
+		}
 	    }
 
 	  if (cmd == RTM_ADD)
@@ -350,6 +357,15 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
 		  || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
 		  || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 		ifindex = nexthop->ifindex;
+	      if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+		{
+#ifdef HAVE_IN6ADDR_GLOBAL
+		  sin_gate.sin6_addr = in6addr_loopback;
+#else /*HAVE_IN6ADDR_GLOBAL*/
+		  inet_pton (AF_INET6, "::1", &sin_gate.sin6_addr);
+#endif /*HAVE_IN6ADDR_GLOBAL*/
+		  gate = 1;
+		}
 	    }
 
 	  if (cmd == RTM_ADD)

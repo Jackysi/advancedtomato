@@ -2,8 +2,8 @@
 
 SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @VTYSH@ doc
 
-EXTRA_DIST = aczebra.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
-	vtysh/Makefile.am
+EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
+	vtysh/Makefile.am update-autotools
 
 dist-hook:
 	mkdir $(distdir)/tools
@@ -14,4 +14,3 @@ dist-hook:
 	mkdir $(distdir)/init/redhat
 	cp -p $(srcdir)/init/redhat/*.init $(distdir)/init/redhat
 	cp -p $(srcdir)/init/redhat/zebra.* $(distdir)/init/redhat
-

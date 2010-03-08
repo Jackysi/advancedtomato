@@ -1,4 +1,4 @@
-@node Filtering, Route Map, vtysh, Top
+@node Filtering
 @comment  node-name,  next,  previous,  up
 @chapter Filtering
 
@@ -9,8 +9,6 @@ defined, it can be applied in any direction.
 @menu
 * IP Access List::              
 * IP Prefix List::              
-* IP Community List::           
-* AS Path Access List::         
 @end menu
 
 @node IP Access List, IP Prefix List, Filtering, Filtering
@@ -29,7 +27,7 @@ access-list filter deny 10.0.0.0/9
 access-list filter permit 10.0.0.0/8
 @end example
 
-@node IP Prefix List, IP Community List, IP Access List, Filtering
+@node IP Prefix List,  , IP Access List, Filtering
 @comment  node-name,  next,  previous,  up
 @subsection IP Prefix List
 
@@ -190,19 +188,5 @@ used with a specified name and prefix.
 @end deffn
 
 @deffn {Command} {clear ip prefix-list @var{name} @var{a.b.c.d/m}} {}
-@end deffn
-
-@node IP Community List, AS Path Access List, IP Prefix List, Filtering
-@comment  node-name,  next,  previous,  up
-@subsection IP Community List
-
-@deffn {Command} {ip community-list @var{name} @var{type} @var{community}} {}
-@end deffn
-
-@node AS Path Access List,  , IP Community List, Filtering
-@comment  node-name,  next,  previous,  up
-@subsection AS Path Access List
-
-@deffn {Command} {ip as-path access-list @var{name} @var{type} @var{as_path}} {}
 @end deffn
 

@@ -12,6 +12,9 @@ ripd \- a RIP routing engine for use with Zebra
 .B \-f config-file
 ]
 [
+.B \-i pid-file
+]
+[
 .B \-P port-number
 ]
 
@@ -37,6 +40,12 @@ Specifies the config file to use for startup. If not specified this option will 
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
+
+.TP
+\fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
+When ripd starts its process idenifier is written to
+\fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
+restart ripd.  The likely default is \fB\fI/var/run/ripd.pid\fR.
 
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 

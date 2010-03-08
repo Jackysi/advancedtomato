@@ -55,6 +55,7 @@ struct stream_fifo
 /* Utility macros. */
 #define STREAM_PNT(S)   ((S)->data + (S)->getp)
 #define STREAM_SIZE(S)  ((S)->size)
+#define STREAM_REMAIN(S) ((S)->size - (S)->putp)
 #define STREAM_DATA(S)  ((S)->data)
 
 /* Stream prototypes. */
@@ -106,6 +107,7 @@ struct stream_fifo *stream_fifo_new ();
 void stream_fifo_push (struct stream_fifo *fifo, struct stream *s);
 struct stream *stream_fifo_pop (struct stream_fifo *fifo);
 struct stream *stream_fifo_head (struct stream_fifo *fifo);
+void stream_fifo_clean (struct stream_fifo *fifo);
 void stream_fifo_free (struct stream_fifo *fifo);
 
 #endif /* _ZEBRA_STREAM_H */

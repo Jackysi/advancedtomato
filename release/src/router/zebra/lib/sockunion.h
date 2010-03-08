@@ -103,11 +103,12 @@ int sockunion_bind (int sock, union sockunion *, unsigned short, union sockunion
 int sockopt_ttl (int family, int sock, int ttl);
 int sockunion_socket (union sockunion *su);
 const char *inet_sutop (union sockunion *su, char *str);
-char *sockunion_log (union sockunion *su);
 enum connect_result
 sockunion_connect (int fd, union sockunion *su, unsigned short port, unsigned int);
 union sockunion *sockunion_getsockname (int);
 union sockunion *sockunion_getpeername (int);
+union sockunion *sockunion_dup (union sockunion *);
+void sockunion_free (union sockunion *);
 
 #ifndef HAVE_INET_NTOP
 const char *

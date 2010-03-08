@@ -16,22 +16,7 @@ sysconf_DATA = vtysh.conf.sample
 EXTRA_DIST = extract.pl vtysh.conf.sample
 
 rebuild4:
-	./extract.pl ../zebra/*.c ../ripd/*.c ../ospfd/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c >vtysh_cmd.c
+	./extract.pl ../zebra/*.c ../ripd/*.c ../ospfd/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c > vtysh_cmd.c
 
 rebuild:
-	./extract.pl ../zebra/*.c ../ripd/*.c ../ripngd/*.c ../ospfd/*.c ../ospf6d/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c >vtysh_cmd.c
-
-depend:
-	@$(CPP) -MM $(INCLUDES) $(LDFLAGS) *.c
-
-## File dependency.
-vtysh.o: vtysh.c ../lib/command.h ../lib/vector.h ../lib/vty.h \
- ../vtysh/vtysh.h
-vtysh_cmd.o: vtysh_cmd.c ../lib/command.h ../lib/vector.h ../lib/vty.h \
- vtysh.h
-vtysh_config.o: vtysh_config.c ../lib/command.h ../lib/vector.h \
- ../lib/vty.h ../lib/linklist.h ../lib/memory.h ../vtysh/vtysh.h
-vtysh_main.o: vtysh_main.c ../lib/version.h ../lib/command.h \
- ../lib/vector.h ../lib/vty.h ../vtysh/vtysh.h ../vtysh/vtysh_user.h
-vtysh_user.o: vtysh_user.c ../lib/memory.h ../lib/linklist.h \
- ../lib/command.h ../lib/vector.h ../lib/vty.h
+	./extract.pl ../zebra/*.c ../ripd/*.c ../ripngd/*.c ../ospfd/*.c ../ospf6d/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c > vtysh_cmd.c

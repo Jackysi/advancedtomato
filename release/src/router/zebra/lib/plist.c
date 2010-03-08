@@ -98,6 +98,16 @@ static struct prefix_master prefix_master_ipv6 =
   NULL,
 };
 #endif /* HAVE_IPV6*/
+
+/* Static structure of BGP ORF prefix_list's master. */
+static struct prefix_master prefix_master_orf = 
+{ 
+  {NULL, NULL},
+  {NULL, NULL},
+  1,
+  NULL,
+  NULL,
+};
 
 struct prefix_master *
 prefix_master_get (afi_t afi)
@@ -108,6 +118,8 @@ prefix_master_get (afi_t afi)
   else if (afi == AFI_IP6)
     return &prefix_master_ipv6;
 #endif /* HAVE_IPV6 */
+  else if (afi == AFI_ORF_PREFIX)
+    return &prefix_master_orf;
   return NULL;
 }
 
@@ -141,8 +153,7 @@ prefix_list_new ()
 {
   struct prefix_list *new;
 
-  new = XMALLOC (MTYPE_PREFIX_LIST, sizeof (struct prefix_list));
-  bzero (new, sizeof (struct prefix_list));
+  new = XCALLOC (MTYPE_PREFIX_LIST, sizeof (struct prefix_list));
   return new;
 }
 
@@ -157,8 +168,7 @@ prefix_list_entry_new ()
 {
   struct prefix_list_entry *new;
 
-  new = XMALLOC (MTYPE_PREFIX_LIST_ENTRY, sizeof (struct prefix_list_entry));
-  bzero (new, sizeof (struct prefix_list_entry));
+  new = XCALLOC (MTYPE_PREFIX_LIST_ENTRY, sizeof (struct prefix_list_entry));
   return new;
 }
 
@@ -324,18 +334,16 @@ prefix_list_delete (struct prefix_list *plist)
 
 struct prefix_list_entry *
 prefix_list_entry_make (struct prefix *prefix, enum prefix_list_type type,
-			int seq, int le, int ge)
+			int seq, int le, int ge, int any)
 {
   struct prefix_list_entry *pentry;
 
   pentry = prefix_list_entry_new ();
 
-  /* If prefix is NULL then this is "any" match directive. */
-  if (prefix == NULL)
+  if (any)
     pentry->any = 1;
-  else
-    prefix_copy (&pentry->prefix, prefix);
 
+  prefix_copy (&pentry->prefix, prefix);
   pentry->type = type;
   pentry->seq = seq;
   pentry->le = le;
@@ -346,7 +354,7 @@ prefix_list_entry_make (struct prefix *prefix, enum prefix_list_type type,
 
 /* Add hook function. */
 void
-prefix_list_add_hook (void (*func) ())
+prefix_list_add_hook (void (*func) (struct prefix_list *plist))
 {
   prefix_master_ipv4.add_hook = func;
 #ifdef HAVE_IPV6
@@ -356,7 +364,7 @@ prefix_list_add_hook (void (*func) ())
 
 /* Delete hook function. */
 void
-prefix_list_delete_hook (void (*func) ())
+prefix_list_delete_hook (void (*func) (struct prefix_list *plist))
 {
   prefix_master_ipv4.delete_hook = func;
 #ifdef HAVE_IPV6
@@ -404,45 +412,26 @@ prefix_list_entry_lookup (struct prefix_list *plist, struct prefix *prefix,
   struct prefix_list_entry *pentry;
 
   for (pentry = plist->head; pentry; pentry = pentry->next)
-    {
-      if (prefix == NULL)
-	{
-	  if (pentry->any == 1 && pentry->type == type)
-	    {
-	      if (seq >= 0 && pentry->seq != seq)
-		continue;
+    if (prefix_same (&pentry->prefix, prefix) && pentry->type == type)
+      {
+	if (seq >= 0 && pentry->seq != seq)
+	  continue;
 
-	      if (pentry->le != le)
-		continue;
-	      if (pentry->ge != ge)
-		continue;
+	if (pentry->le != le)
+	  continue;
+	if (pentry->ge != ge)
+	  continue;
 
-	      return pentry;
-	    }
-	}
-      else
-	{
-	  if (prefix_same (&pentry->prefix, prefix) && pentry->type == type)
-	    {
-	      if (seq >= 0 && pentry->seq != seq)
-		continue;
-
-	      if (pentry->le != le)
-		continue;
-	      if (pentry->ge != ge)
-		continue;
-
-	      return pentry;
-	    }
-	}
-    }
+	return pentry;
+      }
 
   return NULL;
 }
 
 void
 prefix_list_entry_delete (struct prefix_list *plist, 
-			  struct prefix_list_entry *pentry)
+			  struct prefix_list_entry *pentry,
+			  int update_list)
 {
   if (plist == NULL || pentry == NULL)
     return;
@@ -459,13 +448,16 @@ prefix_list_entry_delete (struct prefix_list *plist,
 
   plist->count--;
 
-  if (plist->master->delete_hook)
-    (*plist->master->delete_hook) ();
+  if (update_list)
+    {
+      if (plist->master->delete_hook)
+	(*plist->master->delete_hook) (plist);
 
-  if (plist->head == NULL && plist->tail == NULL && plist->desc == NULL)
-    prefix_list_delete (plist);
-  else
-    plist->master->recent = plist;
+      if (plist->head == NULL && plist->tail == NULL && plist->desc == NULL)
+	prefix_list_delete (plist);
+      else
+	plist->master->recent = plist;
+    }
 }
 
 void
@@ -482,7 +474,7 @@ prefix_list_entry_add (struct prefix_list *plist,
   /* Is there any same seq prefix list entry? */
   replace = prefix_seq_check (plist, pentry->seq);
   if (replace)
-    prefix_list_entry_delete (plist, replace);
+    prefix_list_entry_delete (plist, replace, 0);
 
   /* Check insert point. */
   for (point = plist->head; point; point = point->next)
@@ -518,7 +510,7 @@ prefix_list_entry_add (struct prefix_list *plist,
 
   /* Run hook function. */
   if (plist->master->add_hook)
-    (*plist->master->add_hook) ();
+    (*plist->master->add_hook) (plist);
 
   plist->master->recent = plist;
 }
@@ -546,27 +538,23 @@ prefix_list_entry_match (struct prefix_list_entry *pentry, struct prefix *p)
 {
   int ret;
 
-  /* This is any entry. */
-  if (pentry->any)
-    return 1;
-
   ret = prefix_match (&pentry->prefix, p);
   if (! ret)
     return 0;
   
   /* In case of le nor ge is specified, exact match is performed. */
-  if (pentry->le < 0 && pentry->ge < 0)
+  if (! pentry->le && ! pentry->ge)
     {
       if (pentry->prefix.prefixlen != p->prefixlen)
 	return 0;
     }
   else
     {  
-      if (pentry->le >= 0)
+      if (pentry->le)
 	if (p->prefixlen > pentry->le)
 	  return 0;
 
-      if (pentry->ge >= 0)
+      if (pentry->ge)
 	if (p->prefixlen < pentry->ge)
 	  return 0;
     }
@@ -626,9 +614,9 @@ prefix_list_print (struct prefix_list *plist)
 		  prefix_list_type_str (pentry),
 		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		  p->prefixlen);
-	  if (pentry->ge >= 0)
+	  if (pentry->ge)
 	    printf (" ge %d", pentry->ge);
-	  if (pentry->le >= 0)
+	  if (pentry->le)
 	    printf (" le %d", pentry->le);
 	  printf ("\n");
 	}
@@ -650,8 +638,7 @@ prefix_entry_dup_check (struct prefix_list *plist,
 
   for (pentry = plist->head; pentry; pentry = pentry->next)
     {
-      if ((pentry->any == new->any)
-	  && prefix_same (&pentry->prefix, &new->prefix)
+      if (prefix_same (&pentry->prefix, &new->prefix)
 	  && pentry->type == new->type
 	  && pentry->le == new->le
 	  && pentry->ge == new->ge
@@ -659,6 +646,14 @@ prefix_entry_dup_check (struct prefix_list *plist,
 	return pentry;
     }
   return NULL;
+}
+
+int
+vty_invalid_prefix_range (struct vty *vty, char *prefix)
+{
+  vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value%s",
+           prefix, VTY_NEWLINE);
+  return CMD_WARNING;
 }
 
 int
@@ -674,12 +669,18 @@ vty_prefix_list_install (struct vty *vty, afi_t afi,
   struct prefix p;
   int any = 0;
   int seqnum = -1;
-  int lenum = -1;
-  int genum = -1;
+  int lenum = 0;
+  int genum = 0;
 
   /* Sequential number. */
   if (seq)
     seqnum = atoi (seq);
+
+  /* ge and le number */
+  if (ge)
+    genum = atoi (ge);
+  if (le)
+    lenum = atoi (le);
 
   /* Check filter type. */
   if (strncmp ("permit", typestr, 1) == 0)
@@ -693,80 +694,63 @@ vty_prefix_list_install (struct vty *vty, afi_t afi,
     }
 
   /* "any" is special token for matching any IPv4 addresses.  */
-  if (strncmp ("any", prefix, strlen (prefix)) == 0)
-    any = 1;
-  else
+  if (afi == AFI_IP)
     {
-      if (afi == AFI_IP)
+      if (strncmp ("any", prefix, strlen (prefix)) == 0)
 	{
-	  ret = str2prefix_ipv4 (prefix, (struct prefix_ipv4 *) &p);
-	  if (ret <= 0)
-	    {
-	      vty_out (vty, "%% Malformed IPv4 prefix%s", VTY_NEWLINE);
-	      return CMD_WARNING;
-	    }
+	  ret = str2prefix_ipv4 ("0.0.0.0/0", (struct prefix_ipv4 *) &p);
+	  genum = 0;
+	  lenum = IPV4_MAX_BITLEN;
+	  any = 1;
 	}
-#ifdef HAVE_IPV6
-      else if (afi == AFI_IP6)
+      else
+	ret = str2prefix_ipv4 (prefix, (struct prefix_ipv4 *) &p);
+
+      if (ret <= 0)
 	{
-	  ret = str2prefix_ipv6 (prefix, (struct prefix_ipv6 *) &p);
-	  if (ret <= 0)
-	    {
-	      vty_out (vty, "%% Malformed IPv6 prefix%s", VTY_NEWLINE);
-	      return CMD_WARNING;
-	    }
+	  vty_out (vty, "%% Malformed IPv4 prefix%s", VTY_NEWLINE);
+	  return CMD_WARNING;
 	}
-#endif /* HAVE_IPV6 */
     }
+#ifdef HAVE_IPV6
+  else if (afi == AFI_IP6)
+    {
+      if (strncmp ("any", prefix, strlen (prefix)) == 0)
+	{
+	  ret = str2prefix_ipv6 ("::/0", (struct prefix_ipv6 *) &p);
+	  genum = 0;
+	  lenum = IPV6_MAX_BITLEN;
+	  any = 1;
+	}
+      else
+	ret = str2prefix_ipv6 (prefix, (struct prefix_ipv6 *) &p);
+
+      if (ret <= 0)
+	{
+	  vty_out (vty, "%% Malformed IPv6 prefix%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+    }
+#endif /* HAVE_IPV6 */
 
   /* ge and le check. */
-  if (ge)
-    {
-      genum = atoi (ge);
-      if (! any && genum <= p.prefixlen)
-	{
-	  vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value%s",
-		   prefix, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
+  if (genum && genum <= p.prefixlen)
+    return vty_invalid_prefix_range (vty, prefix);
 
-  if (le)
-    {
-      lenum = atoi (le);
-      if (! any && lenum <= p.prefixlen)
-	{
-	  vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value%s",
-		   prefix, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
+  if (lenum && lenum <= p.prefixlen)
+    return vty_invalid_prefix_range (vty, prefix);
 
-  if (ge && le)
-    {
-      if (genum > lenum)
-	{
-	  vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value%s",
-		   prefix, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
+  if (lenum && genum > lenum)
+    return vty_invalid_prefix_range (vty, prefix);
 
-  if (ge && le)
-    if (lenum == (afi == AFI_IP ? 32 : 128))
-      {
-	le = NULL;
-	lenum = -1;
-      }
+  if (genum && lenum == (afi == AFI_IP ? 32 : 128))
+    lenum = 0;
 
   /* Get prefix_list with name. */
   plist = prefix_list_get (afi, name);
 
   /* Make prefix entry. */
-  if (any)
-    pentry = prefix_list_entry_make (NULL, type, seqnum, lenum, genum);
-  else
-    pentry = prefix_list_entry_make (&p, type, seqnum, lenum, genum);
+  pentry = prefix_list_entry_make (&p, type, seqnum, lenum, genum, any);
     
   /* Check same policy. */
   dup = prefix_entry_dup_check (plist, pentry);
@@ -776,11 +760,12 @@ vty_prefix_list_install (struct vty *vty, afi_t afi,
       prefix_list_entry_free (pentry);
       vty_out (vty, "%% Insertion failed - prefix-list entry exists:%s",
 	       VTY_NEWLINE);
-      vty_out (vty, "   seq %d %s %s%s%s%s%s%s",
-	       dup->seq, typestr, prefix,
-	       ge ? " ge " : "", ge ? ge : "",
-	       le ? " le " : "", le ? le : "",
-	       VTY_NEWLINE);
+      vty_out (vty, "   seq %d %s %s", dup->seq, typestr, prefix);
+      if (! any && genum)
+	vty_out (vty, " ge %d", genum);
+      if (! any && lenum)
+	vty_out (vty, " le %d", lenum);
+      vty_out (vty, "%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -800,10 +785,9 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi,
   struct prefix_list *plist;
   struct prefix_list_entry *pentry;
   struct prefix p;
-  int any = 0;
   int seqnum = -1;
-  int lenum = -1;
-  int genum = -1;
+  int lenum = 0;
+  int genum = 0;
 
   /* Check prefix list name. */
   plist = prefix_list_lookup (afi, name);
@@ -825,6 +809,12 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi,
   if (seq)
     seqnum = atoi (seq);
 
+  /* ge and le number */
+  if (ge)
+    genum = atoi (ge);
+  if (le)
+    lenum = atoi (le);
+
   /* Check of filter type. */
   if (strncmp ("permit", typestr, 1) == 0)
     type = PREFIX_PERMIT;
@@ -836,44 +826,46 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi,
       return CMD_WARNING;
     }
 
-  /* "any" is special token of matching IP addresses.  */
-  if (strncmp ("any", prefix, strlen (prefix)) == 0)
-    any = 1;
-  else
+  /* "any" is special token for matching any IPv4 addresses.  */
+  if (afi == AFI_IP)
     {
-      if (afi == AFI_IP)
+      if (strncmp ("any", prefix, strlen (prefix)) == 0)
 	{
-	  ret = str2prefix_ipv4 (prefix, (struct prefix_ipv4 *) &p);
-	  if (ret <= 0)
-	    {
-	      vty_out (vty, "%% Malformed IPv4 prefix%s", VTY_NEWLINE);
-	      return CMD_WARNING;
-	    }
+	  ret = str2prefix_ipv4 ("0.0.0.0/0", (struct prefix_ipv4 *) &p);
+	  genum = 0;
+	  lenum = IPV4_MAX_BITLEN;
 	}
-#ifdef HAVE_IPV6
-      else if (afi == AFI_IP6)
-	{
-	  ret = str2prefix_ipv6 (prefix, (struct prefix_ipv6 *) &p);
-	  if (ret <= 0)
-	    {
-	      vty_out (vty, "%% Malformed IPv6 prefix%s", VTY_NEWLINE);
-	      return CMD_WARNING;
-	    }
-	}
-#endif /* HAVE_IPV6 */
-    }
-  /* ge and le check. */
-  if (ge)
-    genum = atoi (ge);
+      else
+	ret = str2prefix_ipv4 (prefix, (struct prefix_ipv4 *) &p);
 
-  if (le)
-    lenum = atoi (le);
+      if (ret <= 0)
+	{
+	  vty_out (vty, "%% Malformed IPv4 prefix%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+    }
+#ifdef HAVE_IPV6
+  else if (afi == AFI_IP6)
+    {
+      if (strncmp ("any", prefix, strlen (prefix)) == 0)
+	{
+	  ret = str2prefix_ipv6 ("::/0", (struct prefix_ipv6 *) &p);
+	  genum = 0;
+	  lenum = IPV6_MAX_BITLEN;
+	}
+      else
+	ret = str2prefix_ipv6 (prefix, (struct prefix_ipv6 *) &p);
+
+      if (ret <= 0)
+	{
+	  vty_out (vty, "%% Malformed IPv6 prefix%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+    }
+#endif /* HAVE_IPV6 */
 
   /* Lookup prefix entry. */
-  if (any)
-    pentry = prefix_list_entry_lookup(plist, NULL, type, seqnum, lenum, genum);
-  else
-    pentry = prefix_list_entry_lookup(plist, &p, type, seqnum, lenum, genum);
+  pentry = prefix_list_entry_lookup(plist, &p, type, seqnum, lenum, genum);
 
   if (pentry == NULL)
     {
@@ -882,7 +874,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi,
     }
 
   /* Install new filter to the access_list. */
-  prefix_list_entry_delete (plist, pentry);
+  prefix_list_entry_delete (plist, pentry, 1);
 
   return CMD_SUCCESS;
 }
@@ -975,12 +967,12 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
 	      vty_out (vty, "%s/%d",
 		       inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		       p->prefixlen);
-	    }
 
-	  if (pentry->ge >= 0)
-	    vty_out (vty, " ge %d", pentry->ge);
-	  if (pentry->le >= 0)
-	    vty_out (vty, " le %d", pentry->le);
+	      if (pentry->ge)
+		vty_out (vty, " ge %d", pentry->ge);
+	      if (pentry->le)
+		vty_out (vty, " le %d", pentry->le);
+	    }
 
 	  if (dtype == detail_display || dtype == sequential_display)
 	    vty_out (vty, " (hit count: %ld, refcount: %ld)", 
@@ -1087,13 +1079,13 @@ vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, char *name,
 	      vty_out (vty, "%s/%d",
 		       inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		       p->prefixlen);
+
+	      if (pentry->ge)
+		vty_out (vty, " ge %d", pentry->ge);
+	      if (pentry->le)
+		vty_out (vty, " le %d", pentry->le);
 	    }
 	  
-	  if (pentry->ge >= 0)
-	    vty_out (vty, " ge %d", pentry->ge);
-	  if (pentry->le >= 0)
-	    vty_out (vty, " le %d", pentry->le);
-
 	  if (type == normal_display || type == first_match_display)
 	    vty_out (vty, " (hit count: %ld, refcount: %ld)", 
 		     pentry->hitcnt, pentry->refcnt);
@@ -1617,7 +1609,7 @@ ALIAS (no_ip_prefix_list_description,
        PREFIX_LIST_STR
        "Name of a prefix list\n"
        "Prefix-list specific description\n"
-       "Up to 80 characters describing this prefix-list\n")
+       "Up to 80 characters describing this prefix-list\n");
 
 DEFUN (show_ip_prefix_list,
        show_ip_prefix_list_cmd,
@@ -2045,7 +2037,7 @@ DEFUN (no_ipv6_prefix_list_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AF_INET6, argv[0], NULL, argv[1],
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[0], NULL, argv[1],
 				    argv[2], argv[4], argv[3]);
 }
 
@@ -2063,7 +2055,7 @@ DEFUN (no_ipv6_prefix_list_seq,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Any prefix match.  Same as \"::0/0 le 128\"\n")
 {
-  return vty_prefix_list_uninstall (vty, AF_INET6, argv[0], argv[1], argv[2],
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[0], argv[1], argv[2],
 				    argv[3], NULL, NULL);
 }
 
@@ -2082,7 +2074,7 @@ DEFUN (no_ipv6_prefix_list_seq_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AF_INET6, argv[0], argv[1], argv[2],
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[0], argv[1], argv[2],
 				    argv[3], argv[4], NULL);
 }
 
@@ -2103,7 +2095,7 @@ DEFUN (no_ipv6_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AF_INET6, argv[0], argv[1], argv[2],
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[0], argv[1], argv[2],
 				    argv[3], argv[4], argv[5]);
 }
 
@@ -2122,7 +2114,7 @@ DEFUN (no_ipv6_prefix_list_seq_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AF_INET6, argv[0], argv[1], argv[2],
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[0], argv[1], argv[2],
 				    argv[3], NULL, argv[4]);
 }
 
@@ -2143,7 +2135,7 @@ DEFUN (no_ipv6_prefix_list_seq_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AF_INET6, argv[0], argv[1], argv[2],
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[0], argv[1], argv[2],
 				    argv[3], argv[5], argv[4]);
 }
 
@@ -2227,7 +2219,7 @@ ALIAS (no_ipv6_prefix_list_description,
        PREFIX_LIST_STR
        "Name of a prefix list\n"
        "Prefix-list specific description\n"
-       "Up to 80 characters describing this prefix-list\n")
+       "Up to 80 characters describing this prefix-list\n");
 
 DEFUN (show_ipv6_prefix_list,
        show_ipv6_prefix_list_cmd,
@@ -2432,12 +2424,12 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	      vty_out (vty, "%s/%d",
 		       inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		       p->prefixlen);
-	    }
 
-	  if (pentry->ge >= 0)
-	    vty_out (vty, " ge %d", pentry->ge);
-	  if (pentry->le >= 0)
-	    vty_out (vty, " le %d", pentry->le);
+	      if (pentry->ge)
+		vty_out (vty, " ge %d", pentry->ge);
+	      if (pentry->le)
+		vty_out (vty, " le %d", pentry->le);
+	    }
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	  write++;
 	}
@@ -2475,11 +2467,12 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	      vty_out (vty, " %s/%d",
 		       inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		       p->prefixlen);
+
+	      if (pentry->ge)
+		vty_out (vty, " ge %d", pentry->ge);
+	      if (pentry->le)
+		vty_out (vty, " le %d", pentry->le);
 	    }
-	  if (pentry->ge >= 0)
-	    vty_out (vty, " ge %d", pentry->ge);
-	  if (pentry->le >= 0)
-	    vty_out (vty, " le %d", pentry->le);
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	  write++;
 	}
@@ -2487,6 +2480,168 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
   
   return write;
 }
+
+int stream_putc (struct stream *, u_char);
+int stream_putl (struct stream *, u_int32_t);
+int stream_put_prefix (struct stream *, struct prefix *);
+
+struct stream *
+prefix_bgp_orf_entry (struct stream *s, struct prefix_list *plist,
+		      u_char init_flag, u_char permit_flag, u_char deny_flag)
+{
+  struct prefix_list_entry *pentry;
+
+  if (! plist)
+    return s;
+
+  for (pentry = plist->head; pentry; pentry = pentry->next)
+    {
+      u_char flag = init_flag;
+      struct prefix *p = &pentry->prefix;
+
+      flag |= (pentry->type == PREFIX_PERMIT ?
+               permit_flag : deny_flag);
+      stream_putc (s, flag);
+      stream_putl (s, (u_int32_t)pentry->seq);
+      stream_putc (s, (u_char)pentry->ge);
+      stream_putc (s, (u_char)pentry->le);
+      stream_put_prefix (s, p);
+    }
+
+  return s;
+}
+
+int
+prefix_bgp_orf_set (char *name, afi_t afi, struct orf_prefix *orfp,
+		    int permit, int set)
+{
+  struct prefix_list *plist;
+  struct prefix_list_entry *pentry;
+
+  /* ge and le value check */ 
+  if (orfp->ge && orfp->ge <= orfp->p.prefixlen)
+    return CMD_WARNING;
+  if (orfp->le && orfp->le <= orfp->p.prefixlen)
+    return CMD_WARNING;
+  if (orfp->le && orfp->ge > orfp->le)
+    return CMD_WARNING;
+
+  if (orfp->ge && orfp->le == (afi == AFI_IP ? 32 : 128))
+    orfp->le = 0;
+
+  plist = prefix_list_get (AFI_ORF_PREFIX, name);
+  if (! plist)
+    return CMD_WARNING;
+
+  if (set)
+    {
+      pentry = prefix_list_entry_make (&orfp->p,
+				       (permit ? PREFIX_PERMIT : PREFIX_DENY),
+				       orfp->seq, orfp->le, orfp->ge, 0);
+
+      if (prefix_entry_dup_check (plist, pentry))
+	{
+	  prefix_list_entry_free (pentry);
+	  return CMD_WARNING;
+	}
+
+      prefix_list_entry_add (plist, pentry);
+    }
+  else
+    {
+      pentry = prefix_list_entry_lookup (plist, &orfp->p,
+					 (permit ? PREFIX_PERMIT : PREFIX_DENY),
+					 orfp->seq, orfp->le, orfp->ge);
+
+      if (! pentry)
+	return CMD_WARNING;
+
+      prefix_list_entry_delete (plist, pentry, 1);
+    }
+
+  return CMD_SUCCESS;
+}
+
+void
+prefix_bgp_orf_remove_all (char *name)
+{
+  struct prefix_list *plist;
+
+  plist = prefix_list_lookup (AFI_ORF_PREFIX, name);
+  if (plist)
+    prefix_list_delete (plist);
+}
+
+/* return prefix count */
+int
+prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name)
+{
+  struct prefix_list *plist;
+  struct prefix_list_entry *pentry;
+
+  plist = prefix_list_lookup (AFI_ORF_PREFIX, name);
+  if (! plist)
+    return 0;
+
+  if (! vty)
+    return plist->count;
+
+  vty_out (vty, "ip%s prefix-list %s: %d entries%s",
+	   afi == AFI_IP ? "" : "v6",
+	   plist->name, plist->count, VTY_NEWLINE);
+
+  for (pentry = plist->head; pentry; pentry = pentry->next)
+    {
+      struct prefix *p = &pentry->prefix;
+      char buf[BUFSIZ];
+
+      vty_out (vty, "   seq %d %s %s/%d", pentry->seq,
+	       prefix_list_type_str (pentry),
+	       inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+	       p->prefixlen);
+
+      if (pentry->ge)
+	vty_out (vty, " ge %d", pentry->ge);
+      if (pentry->le)
+	vty_out (vty, " le %d", pentry->le);
+
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  return plist->count;
+}
+
+void
+prefix_list_reset_orf ()
+{
+  struct prefix_list *plist;
+  struct prefix_list *next;
+  struct prefix_master *master;
+
+  master = prefix_master_get (AFI_ORF_PREFIX);
+  if (master == NULL)
+    return;
+
+  for (plist = master->num.head; plist; plist = next)
+    {
+      next = plist->next;
+      prefix_list_delete (plist);
+    }
+  for (plist = master->str.head; plist; plist = next)
+    {
+      next = plist->next;
+      prefix_list_delete (plist);
+    }
+
+  assert (master->num.head == NULL);
+  assert (master->num.tail == NULL);
+
+  assert (master->str.head == NULL);
+  assert (master->str.tail == NULL);
+
+  master->seqnum = 1;
+  master->recent = NULL;
+}
+
 
 /* Prefix-list node. */
 struct cmd_node prefix_node =
@@ -2722,4 +2877,5 @@ prefix_list_reset ()
 #ifdef HAVE_IPV6
   prefix_list_reset_ipv6 ();
 #endif /* HAVE_IPV6 */
+  prefix_list_reset_orf ();
 }

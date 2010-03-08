@@ -32,6 +32,7 @@
 #include "vty.h"
 #include "command.h"
 #include "filter.h"
+#include "plist.h"
 #include "stream.h"
 #include "log.h"
 #include "memory.h"
@@ -44,6 +45,7 @@
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_vty.h"
 
 /* Configuration filename and directory. */
 char config_current[] = OSPF_DEFAULT_CONFIG;
@@ -54,22 +56,26 @@ struct option longopts[] =
 {
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
+  { "pid_file",    required_argument, NULL, 'i'},
   { "log_mode",    no_argument,       NULL, 'l'},
   { "help",        no_argument,       NULL, 'h'},
+  { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
 
 /* OSPFd program name */
-char *progname;
 
 /* Master of threads. */
 struct thread_master *master;
 
+/* Process ID saved for use by init system */
+char *pid_file = PATH_OSPFD_PID;
+
 /* Help information display. */
 static void
-usage (int status)
+usage (char *progname, int status)
 {
   if (status != 0)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
@@ -79,7 +85,8 @@ usage (int status)
 Daemon which manages OSPF.\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
--l. --log_mode     Set verbose log mode flag\n\
+-i, --pid_file     Set process identifier file name\n\
+-A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
@@ -162,9 +169,11 @@ int
 main (int argc, char **argv)
 {
   char *p;
+  char *vty_addr = NULL;
   int vty_port = 0;
   int daemon_mode = 0;
   char *config_file = NULL;
+  char *progname;
   struct thread thread;
 
   /* Set umask before anything for security */
@@ -173,14 +182,25 @@ main (int argc, char **argv)
   /* get program name */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
+  /* Invoked by a priviledged user? -- endo. */
+  if (getuid () != 0)
+    {
+      errno = EPERM;
+      perror (progname);
+      exit (1);
+    }
+
   zlog_default = openzlog (progname, ZLOG_NOLOG, ZLOG_OSPF,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+
+  /* OSPF master init. */
+  ospf_master_init ();
 
   while (1) 
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:hP:v", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:hA:P:v", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -192,30 +212,33 @@ main (int argc, char **argv)
 	case 'd':
 	  daemon_mode = 1;
 	  break;
-	case 'l':
-	  /*	  log_mode = 1; */
-	  break;
 	case 'f':
 	  config_file = optarg;
 	  break;
+	case 'A':
+	  vty_addr = optarg;
+	  break;
+        case 'i':
+          pid_file = optarg;
+          break;
 	case 'P':
 	  vty_port = atoi (optarg);
 	  break;
 	case 'v':
-	  print_version ();
+	  print_version (progname);
 	  exit (0);
 	  break;
 	case 'h':
-	  usage (0);
+	  usage (progname, 0);
 	  break;
 	default:
-	  usage (1);
+	  usage (progname, 1);
 	  break;
 	}
     }
 
   /* Initializations. */
-  master = thread_make_master ();
+  master = om->master;
 
   /* Library inits. */
   signal_init ();
@@ -225,16 +248,24 @@ main (int argc, char **argv)
   memory_init ();
 
   access_list_init ();
+  prefix_list_init ();
 
   /* OSPFd inits. */
   ospf_init ();
   ospf_if_init ();
-  ospf_lsa_init ();
-  ospf_route_init ();
+  ospf_zebra_init ();
+
+  /* OSPF vty inits. */
+  ospf_vty_init ();
+  ospf_vty_show_init ();
+
   ospf_route_map_init ();
 #ifdef HAVE_SNMP
   ospf_snmp_init ();
 #endif /* HAVE_SNMP */
+#ifdef HAVE_OPAQUE_LSA
+  ospf_opaque_init ();
+#endif /* HAVE_OPAQUE_LSA */
   
   sort_node ();
 
@@ -246,10 +277,11 @@ main (int argc, char **argv)
     daemon (0, 0);
 
   /* Process id file create. */
-  pid_output (PATH_OSPFD_PID);
+  pid_output (pid_file);
 
   /* Create VTY socket */
-  vty_serv_sock (vty_port ? vty_port : OSPF_VTY_PORT, OSPF_VTYSH_PATH);
+  vty_serv_sock (vty_addr,
+		 vty_port ? vty_port : OSPF_VTY_PORT, OSPF_VTYSH_PATH);
 
   /* Print banner. */
   zlog (NULL, LOG_INFO, "OSPFd (%s) starts", ZEBRA_VERSION);

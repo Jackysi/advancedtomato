@@ -187,9 +187,16 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 	{
 	  if (errno == EINTR)
 	    continue;
-	  if (errno == EWOULDBLOCK)
+	  if (errno == EWOULDBLOCK || errno == EAGAIN)
 	    break;
 	  zlog (NULL, LOG_ERR, "%s recvmsg overrun", nl->name);
+	  continue;
+	}
+
+      if (snl.nl_pid != 0)
+	{
+	  zlog (NULL, LOG_ERR, "Ignoring non kernel message from pid %u",
+		snl.nl_pid);
 	  continue;
 	}
 
@@ -217,7 +224,28 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 	  if (h->nlmsg_type == NLMSG_ERROR)
 	    {
 	      struct nlmsgerr *err = (struct nlmsgerr *) NLMSG_DATA (h);
-	      if (h->nlmsg_len < NLMSG_LENGTH (sizeof (struct nlmsgerr)))
+	      
+              /* If the error field is zero, then this is an ACK */
+              if (err->error == 0) 
+                {
+                  if (IS_ZEBRA_DEBUG_KERNEL) 
+                    {  
+                      zlog_info("%s: %s ACK: type=%s(%u), seq=%u, pid=%d", 
+                        __FUNCTION__, nl->name,
+                        lookup (nlmsg_str, err->msg.nlmsg_type),
+                        err->msg.nlmsg_type, err->msg.nlmsg_seq,
+		        err->msg.nlmsg_pid);
+                    }
+                
+                  /* return if not a multipart message, otherwise continue */  
+                  if(!(h->nlmsg_flags & NLM_F_MULTI)) 
+                    { 
+                      return 0;    
+                    }
+                  continue; 
+                }
+              
+              if (h->nlmsg_len < NLMSG_LENGTH (sizeof (struct nlmsgerr)))
 		{
 		  zlog (NULL, LOG_ERR, "%s error: message truncated",
 			nl->name);
@@ -788,7 +816,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
       if (ifp == NULL)
 	{
 	  zlog (NULL, LOG_WARNING, "interface %s is deleted but can't find",
-		ifp->name);
+                name);
 	  return 0;
 	}
       
@@ -970,13 +998,17 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   struct sockaddr_nl snl;
   struct iovec iov = { (void*) n, n->nlmsg_len };
   struct msghdr msg = {(void*) &snl, sizeof snl, &iov, 1, NULL, 0, 0};
-
+  int flags = 0;
+  
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
   
   n->nlmsg_seq = ++netlink_cmd.seq;
 
-  if (IS_ZEBRA_DEBUG_KERNEL)
+  /* Request an acknowledgement by setting NLM_F_ACK */
+  n->nlmsg_flags |= NLM_F_ACK;
+  
+  if (IS_ZEBRA_DEBUG_KERNEL) 
     zlog_info ("netlink_talk: %s type %s(%u), seq=%u", netlink_cmd.name,
 	      lookup (nlmsg_str, n->nlmsg_type), n->nlmsg_type,
 	      n->nlmsg_seq);
@@ -989,8 +1021,37 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
 	    strerror (errno));
       return -1;
     }
+  
+  /* 
+   * Change socket flags for blocking I/O. 
+   * This ensures we wait for a reply in netlink_parse_info().
+   */
+  if((flags = fcntl(nl->sock, F_GETFL, 0)) < 0) 
+    {
+      zlog (NULL, LOG_ERR, "%s:%i F_GETFL error: %s", 
+              __FUNCTION__, __LINE__, strerror (errno));
+    }
+  flags &= ~O_NONBLOCK;
+  if(fcntl(nl->sock, F_SETFL, flags) < 0) 
+    {
+      zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s", 
+              __FUNCTION__, __LINE__, strerror (errno));
+    }
 
+  /* 
+   * Get reply from netlink socket. 
+   * The reply should either be an acknowlegement or an error.
+   */
   status = netlink_parse_info (netlink_talk_filter, nl);
+  
+  /* Restore socket flags for nonblocking I/O */
+  flags |= O_NONBLOCK;
+  if(fcntl(nl->sock, F_SETFL, flags) < 0) 
+    {
+      zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s", 
+              __FUNCTION__, __LINE__, strerror (errno));
+    }
+  
   return status;
 }
 
@@ -1002,6 +1063,7 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   int ret;
   int bytelen;
   struct sockaddr_nl snl;
+  int discard;
 
   struct 
   {
@@ -1021,23 +1083,34 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   req.r.rtm_table = table;
   req.r.rtm_dst_len = length;
 
+  if (zebra_flags & ZEBRA_FLAG_BLACKHOLE)
+    discard = 1;
+  else
+    discard = 0;
+
   if (cmd == RTM_NEWROUTE) 
     {
+#if 0
       req.r.rtm_protocol = RTPROT_ZEBRA;
+#endif
       req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
-      if (zebra_flags & ZEBRA_FLAG_BLACKHOLE)
+      if (discard)
 	req.r.rtm_type = RTN_BLACKHOLE;
       else
 	req.r.rtm_type = RTN_UNICAST;
     }
 
-  if (gate)
-    addattr_l (&req.n, sizeof req, RTA_GATEWAY, gate, bytelen);
   if (dest)
     addattr_l (&req.n, sizeof req, RTA_DST, dest, bytelen);
-  if (index > 0)
-    addattr32 (&req.n, sizeof req, RTA_OIF, index);
+
+  if (! discard)
+    {
+      if (gate)
+	addattr_l (&req.n, sizeof req, RTA_GATEWAY, gate, bytelen);
+      if (index > 0)
+	addattr32 (&req.n, sizeof req, RTA_OIF, index);
+    }
 
   /* Destination netlink address. */
   memset (&snl, 0, sizeof snl);
@@ -1061,6 +1134,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   struct nexthop *nexthop = NULL;
   int nexthop_num = 0;
   struct nlsock *nl;
+  int discard;
 
   struct 
   {
@@ -1080,12 +1154,21 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   req.r.rtm_table = rib->table;
   req.r.rtm_dst_len = p->prefixlen;
 
+#ifdef RTM_F_EQUALIZE
+  req.r.rtm_flags |= RTM_F_EQUALIZE;
+#endif /* RTM_F_EQUALIZE */
+
+  if (rib->flags & ZEBRA_FLAG_BLACKHOLE)
+    discard = 1;
+  else
+    discard = 0;
+
   if (cmd == RTM_NEWROUTE) 
     {
       req.r.rtm_protocol = RTPROT_ZEBRA;
       req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
-      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
+      if (discard)
 	req.r.rtm_type = RTN_BLACKHOLE;
       else
 	req.r.rtm_type = RTN_UNICAST;
@@ -1095,6 +1178,14 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 
   /* Metric. */
   addattr32 (&req.n, sizeof req, RTA_PRIORITY, rib->metric);
+
+  if (discard)
+    {
+      if (cmd == RTM_NEWROUTE)
+	for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+	  SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+      goto skip;
+    }
 
   /* Multipath case. */
   if (rib->nexthop_active_num == 1 || MULTIPATH_NUM == 1)
@@ -1254,6 +1345,8 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 	zlog_info ("netlink_route_multipath(): No useful nexthop.");
       return 0;
     }
+
+ skip:
 
   /* Destination netlink address. */
   memset (&snl, 0, sizeof snl);

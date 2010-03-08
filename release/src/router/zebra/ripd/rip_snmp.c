@@ -22,6 +22,11 @@
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
+
+#ifdef HAVE_NETSNMP
+#include <net-snmp/net-snmp-config.h>
+#endif /* HAVE_NETSNMP */
+
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
@@ -202,7 +207,9 @@ rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
     return;
 
   rn = route_node_lookup (rip_ifaddr_table, p);
-  i=rn->info;
+  if (! rn)
+    return;
+  i = rn->info;
   if (rn && !strncmp(i->name,ifp->name,INTERFACE_NAMSIZ))
     {
       rn->info = NULL;
@@ -507,7 +514,7 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
 {
   static struct in_addr addr;
   static int version;
-  /* static time_t uptime; */
+  static time_t uptime;
 
   struct rip_peer *peer;
 
@@ -529,18 +536,9 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
       return (u_char *) &peer->domain;
 
     case RIP2PEERLASTUPDATE:
-#if 0 
-      /* We don't know the SNMP agent startup time. We have two choices here:
-       * - assume ripd startup time equals SNMP agent startup time
-       * - don't support this variable, at all
-       * Currently, we do the latter...
-       */
       *val_len = sizeof (time_t);
-      uptime = peer->uptime; /* now - snmp_agent_startup - peer->uptime */
+      uptime = peer->uptime;
       return (u_char *) &uptime;
-#else
-      return (u_char *) NULL;
-#endif
 
     case RIP2PEERVERSION:
       *val_len = sizeof (int);

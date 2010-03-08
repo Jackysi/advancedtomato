@@ -1,5 +1,107 @@
 GNU Zebra is not yet released, so this NEWS is about beta version.
 
+* Changes in zebra-0.95
+
+* Changes in zebra
+
+** IRDP support is added.
+
+* Changes in ripd
+
+** Set receive UDP socket buffer to large value.
+
+* Changes in ospfd
+
+** Fix problem of OpenBSD-3.4 IP header length treatment.
+
+* Changes in ospf6d
+
+** Area support is added.
+
+* Changes in bgpd
+
+** Old commands are removed
+
+"show ipv6 summary"
+"show ipv6 mbgp summary"
+
+** New ospf6d implementation is introduced.  This is rewrite of whole
+   ospf6d code to make it far much better than old code.
+
+* Changes in vtysh
+
+** Many bugs and problems are fixed.  All of user of vtysh should
+   update to zebra-0.95.
+
+* Changes in zebra-0.94
+
+* Changes in zebra
+
+** Do not listen other process's netlink message.
+
+* Changes in bgpd
+
+** "bgp log-neighbor-changes" is added.
+
+** "set ip next-hop peer-address" is added.
+
+** Community delete bug is fixed.
+
+** Fix bug of router-id display
+
+** Option parameter length bug is fixed.
+
+* Chages in ospfd
+
+** Point-to-Multipoint support.
+
+** OSPF MD5 authentication bug is fixed.
+
+** OSPF NSSA bug is fixed.
+
+** NSM event schedule bug is fixed.
+
+** Update Opaque LSA patch.
+
+** When write queue becomes empty stop write timer.
+
+* Changes in ospf6d
+
+** Update to the latest Ohara's code.
+
+** DR election bug is fixed.
+
+** Update link-local address on interface creation
+
+* Changes in vtysh
+
+** Update for IPv6 handling
+
+** Make all protocol DEFUN/ALIAS consistent
+
+* Changes in lib
+
+** Fix route-map problem
+
+** Fix vty bug cause daemon crash.
+
+* Changes in zebra-0.93
+
+* Changes in bgpd
+
+** Configuration is changed to new format.
+
+* Changes in ospfd
+
+** Crush bugs which reported on Zebra ML is fixed.
+
+** Opaque LSA and TE LSA support is added by KDD R&D Laboratories,
+   Inc.
+
+* Chages in ospf6d
+
+** Many bugs are fixed.
+
 * Changes in zebra-0.92a
 
 * Changes in bgpd

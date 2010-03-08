@@ -1,3 +1,109 @@
+2005-09-08  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* ospf_lsdb.c: Include "log.h".
+
+2005-06-21  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf_packet.c (ospf_ls_upd): fix memory leak when NSSA enabled.
+	reported by [zebra 22449].
+
+2005-06-02  Akihiro Mizutani  <mizutani@net-chef.net>
+
+	* ospf_interface.c (ospf_if_cleanup): nbr_self added to neighbor list
+        when interface was changed from Down to Up.
+
+2005-06-01  Akihiro Mizutani  <mizutani@net-chef.net>
+
+	* ospf_ism.c (ospf_elect_bdr/ospf_elect_dr): Fix DR election bug.
+
+2005-05-26  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf_lsa.c (ospf_lsa_different): Asserting LSA length without
+	byte order conversion is fixed.
+
+2005-05-26  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf_abr.c (ospf_abr_update_aggregate): Cost of aggregated route
+	for an area is fixed (from smallest to largest).
+
+2005-05-10  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* ospf_packet.c (ospf_check_md5_digest): Suggested by Donald Sharp
+	<sharpd@cisco.com>
+
+2004-11-24  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf_snmp.c: ospf_nbr_nbma_lookup_next() added for SNMP.
+
+2003-12-20  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ospf_packet.c (ospf_recv_packet): Merge fix of OpenBSD problem.
+
+2003-08-23  Hasso Tepper <hasso@estpak.ee>
+
+	* OSPF NSSA fixes.
+
+2003-01-23  Masahiko Endo <endo@suri.co.jp>
+
+	* ospf_ism.c: NSM event schedule bug fix.
+
+2002-10-30  Greg Troxel <gdt@ir.bbn.com>
+
+	* ospf_packet.c (ospf_make_md5_digest): MD5 length fix. 
+
+2002-10-23  endo@suri.co.jp (Masahiko Endo)
+
+	* ospf_opaque.c: Update Opaque LSA patch.
+
+2002-10-23  Ralph Keller <keller@tik.ee.ethz.ch>
+
+	* ospf_vty.c (show_ip_ospf_database): Fix CLI parse.
+
+2002-10-23  Juris Kalnins <juris@mt.lv>
+
+	* ospf_interface.c (ospf_if_stream_unset): When write queue
+	becomes empty stop write timer.
+
+2002-10-10  Greg Troxel <gdt@ir.bbn.com>
+
+	* ospf_packet.c (ospf_check_md5_digest): Change >= to > to make it
+	conform to RFC.
+
+2002-07-25  Roger Venning <r.venning@telstra.com>
+
+	* ospf_lsa.c: Point-to-Multipoint support is added.
+
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2002-06-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ospf_spf.c (ospf_nexthop_calculation): Add NULL set to oi and
+	check of l2.  Reported by: Daniel Drown <dan-zebra@drown.org>
+	(ospf_lsa_has_link): LSA Length calculation fix.  Reported by:
+	Paul Jakma <paulj@alphyra.ie>.
+
+	* ospfd.c (ospf_if_update): Fix nextnode reference bug.  Reported
+	by: juris@mt.lv.
+
+2002-01-21  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ospfd.c: Merge [zebra 11445] Masahiko ENDO's Opaque-LSA support.
+
+2001-08-27  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* ospf_interface.c (ospf_add_to_if): Use /32 address to register
+	OSPF interface information.
+	(ospf_delete_from_if): Likewise.
+
+	* ospf_zebra.c (ospf_interface_address_delete): Likewise.
+
+2001-08-23  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ospf_zebra.c (ospf_redistribute_unset): When redistribute type
+	is OSPF, do not unset redistribute flag.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

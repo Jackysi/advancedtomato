@@ -41,6 +41,7 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_flood.h"
+#include "ospfd/ospf_dump.h"
 
 struct ospf_neighbor *
 ospf_nbr_new (struct ospf_interface *oi)
@@ -55,7 +56,7 @@ ospf_nbr_new (struct ospf_interface *oi)
   nbr->oi = oi;
 
   /* Set default values. */
-  nbr->status = NSM_Down;
+  nbr->state = NSM_Down;
 
   /* Set inheritance values. */
   nbr->v_inactivity = OSPF_IF_PARAM (oi, v_wait);
@@ -70,7 +71,7 @@ ospf_nbr_new (struct ospf_interface *oi)
   /* Last received and sent DD. */
   nbr->last_send = NULL;
 
-  nbr->nbr_static = NULL;
+  nbr->nbr_nbma = NULL;
 
   ospf_lsdb_init (&nbr->db_sum);
   ospf_lsdb_init (&nbr->ls_rxmt);
@@ -106,10 +107,10 @@ ospf_nbr_free (struct ospf_neighbor *nbr)
   if (nbr->last_send)
     ospf_packet_free (nbr->last_send);
 
-  if (nbr->nbr_static)
+  if (nbr->nbr_nbma)
     {
-      nbr->nbr_static->neighbor = NULL;
-      nbr->nbr_static = NULL;
+      nbr->nbr_nbma->nbr = NULL;
+      nbr->nbr_nbma = NULL;
     }
 
   /* Cancel all timers. */
@@ -117,6 +118,9 @@ ospf_nbr_free (struct ospf_neighbor *nbr)
   OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
   OSPF_NSM_TIMER_OFF (nbr->t_ls_req);
   OSPF_NSM_TIMER_OFF (nbr->t_ls_upd);
+
+  /* Cancel all events. *//* Thread lookup cost would be negligible. */
+  thread_cancel_event (master, nbr);
 
   XFREE (MTYPE_OSPF_NEIGHBOR, nbr);
 }
@@ -198,25 +202,39 @@ ospf_nbr_add_self (struct ospf_interface *oi)
 /* Get neighbor count by status.
    Specify status = 0, get all neighbor other than myself. */
 int
-ospf_nbr_count (struct route_table *nbrs, int status)
+ospf_nbr_count (struct ospf_interface *oi, int state)
 {
-  struct route_node *rn;
   struct ospf_neighbor *nbr;
+  struct route_node *rn;
   int count = 0;
 
-  /* Sanity check. */
-  if (nbrs == NULL)
-    return 0;
-
-  for (rn = route_top (nbrs); rn; rn = route_next (rn))
-    if ((nbr = rn->info) != NULL)
-      /* Ignore myself. */
-      if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
-	if (status == 0 || nbr->status == status)
+  for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
+    if ((nbr = rn->info))
+      if (!IPV4_ADDR_SAME (&nbr->router_id, &oi->ospf->router_id))
+	if (state == 0 || nbr->state == state)
 	  count++;
 
   return count;
 }
+
+#ifdef HAVE_OPAQUE_LSA
+int
+ospf_nbr_count_opaque_capable (struct ospf_interface *oi)
+{
+  struct ospf_neighbor *nbr;
+  struct route_node *rn;
+  int count = 0;
+
+  for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
+    if ((nbr = rn->info))
+      if (!IPV4_ADDR_SAME (&nbr->router_id, &oi->ospf->router_id))
+	if (nbr->state == NSM_Full)
+	  if (CHECK_FLAG (nbr->options, OSPF_OPTION_O))
+	    count++;
+
+  return count;
+}
+#endif /* HAVE_OPAQUE_LSA */
 
 struct ospf_neighbor *
 ospf_nbr_lookup_by_addr (struct route_table *nbrs,
@@ -231,8 +249,7 @@ ospf_nbr_lookup_by_addr (struct route_table *nbrs,
   p.u.prefix4 = *addr;
 
   rn = route_node_lookup (nbrs, &p);
-
-  if (rn == NULL)
+  if (! rn)
     return NULL;
 
   if (rn->info == NULL)
@@ -265,3 +282,38 @@ ospf_nbr_lookup_by_routerid (struct route_table *nbrs,
   return NULL;
 }
 
+void
+ospf_renegotiate_optional_capabilities (struct ospf *top)
+{
+  listnode node;
+  struct ospf_interface *oi;
+  struct route_table *nbrs;
+  struct route_node *rn;
+  struct ospf_neighbor *nbr;
+
+  /* At first, flush self-originated LSAs from routing domain. */
+  ospf_flush_self_originated_lsas_now (top);
+
+  /* Revert all neighbor status to ExStart. */
+  for (node = listhead (top->oiflist); node; nextnode (node))
+    {
+      if ((oi = getdata (node)) == NULL || (nbrs = oi->nbrs) == NULL)
+        continue;
+
+      for (rn = route_top (nbrs); rn; rn = route_next (rn))
+        {
+          if ((nbr = rn->info) == NULL || nbr == oi->nbr_self)
+            continue;
+
+          if (nbr->state < NSM_ExStart)
+            continue;
+
+          if (IS_DEBUG_OSPF_EVENT)
+            zlog_info ("Renegotiate optional capabilities with neighbor(%s)", inet_ntoa (nbr->router_id));
+
+          OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
+        }
+    }
+
+  return;
+}

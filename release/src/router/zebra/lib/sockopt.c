@@ -98,6 +98,19 @@ setsockopt_ipv6_hoplimit (int sock, int val)
   return ret;
 }
 
+/* Set multicast loop zero to the socket. */
+int
+setsockopt_ipv6_multicast_loop (int sock, int val)
+{
+  int ret;
+    
+  ret = setsockopt (sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &val,
+		    sizeof (val));
+  if (ret < 0)
+    zlog_warn ("can't setsockopt IPV6_MULTICAST_LOOP");
+  return ret;
+}
+
 #endif /* HAVE_IPV6 */
 
 

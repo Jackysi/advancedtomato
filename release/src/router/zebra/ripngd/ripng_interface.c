@@ -48,6 +48,7 @@
 
 /* Static utility function. */
 static void ripng_enable_apply (struct interface *);
+static void ripng_passive_interface_apply (struct interface *);
 
 /* Join to the all rip routers multicast group. */
 int
@@ -110,6 +111,116 @@ ripng_check_max_mtu ()
 	mtu = ifp->mtu;
     }
   return mtu;
+}
+
+int
+ripng_if_down (struct interface *ifp)
+{
+  struct route_node *rp;
+  struct ripng_info *rinfo;
+  struct ripng_interface *ri;
+
+  if (ripng)
+    {
+      for (rp = route_top (ripng->table); rp; rp = route_next (rp))
+	if ((rinfo = rp->info) != NULL)
+	  {
+	    /* Routes got through this interface. */
+	    if (rinfo->ifindex == ifp->ifindex
+		&& rinfo->type == ZEBRA_ROUTE_RIPNG
+		&& rinfo->sub_type == RIPNG_ROUTE_RTE)
+	      {
+		ripng_zebra_ipv6_delete ((struct prefix_ipv6 *) &rp->p,
+					 &rinfo->nexthop,
+					 rinfo->ifindex);
+
+		RIPNG_TIMER_OFF (rinfo->t_timeout);
+		RIPNG_TIMER_OFF (rinfo->t_garbage_collect);
+	      
+		rp->info = NULL;
+		route_unlock_node (rp);
+	      
+		ripng_info_free (rinfo);
+	      }
+	    else
+	      {
+		/* All redistributed routes got through this interface. */
+		if (rinfo->ifindex == ifp->ifindex)
+		  ripng_redistribute_delete (rinfo->type, rinfo->sub_type,
+					     (struct prefix_ipv6 *) &rp->p,
+					     rinfo->ifindex);
+	      }
+	  }
+    }
+
+  ri = ifp->info;
+  
+  if (ripng && ri->running)
+   {
+     if (IS_RIPNG_DEBUG_EVENT)
+       zlog_info ("turn off %s", ifp->name);
+
+     /* Leave from multicast group. */
+     ripng_multicast_leave (ifp);
+
+     ri->running = 0;
+   }
+
+  return 0;
+}
+
+/* Inteface link up message processing. */
+int
+ripng_interface_up (int command, struct zclient *zclient, zebra_size_t length)
+{
+  struct stream *s;
+  struct interface *ifp;
+
+  /* zebra_interface_state_read() updates interface structure in iflist. */
+  s = zclient->ibuf;
+  ifp = zebra_interface_state_read (s);
+
+  if (ifp == NULL)
+    return 0;
+
+  if (IS_RIPNG_DEBUG_ZEBRA)
+    zlog_info ("interface up %s index %d flags %ld metric %d mtu %d",
+	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+
+  /* Check if this interface is RIPng enabled or not. */
+  ripng_enable_apply (ifp);
+
+  /* Check for a passive interface. */
+  ripng_passive_interface_apply (ifp);
+
+  /* Apply distribute list to the all interface. */
+  ripng_distribute_update_interface (ifp);
+
+  return 0;
+}
+
+/* Inteface link down message processing. */
+int
+ripng_interface_down (int command, struct zclient *zclient,
+		      zebra_size_t length)
+{
+  struct stream *s;
+  struct interface *ifp;
+
+  /* zebra_interface_state_read() updates interface structure in iflist. */
+  s = zclient->ibuf;
+  ifp = zebra_interface_state_read (s);
+
+  if (ifp == NULL)
+    return 0;
+
+  ripng_if_down (ifp);
+
+  if (IS_RIPNG_DEBUG_ZEBRA)
+    zlog_info ("interface down %s index %d flags %ld metric %d mtu %d",
+	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+
+  return 0;
 }
 
 /* Inteface addition message from zebra. */
@@ -391,14 +502,6 @@ ripng_enable_apply (struct interface *ifp)
 	  if (! ri->t_wakeup)
 	    ri->t_wakeup = thread_add_timer (master, ripng_interface_wakeup,
 					     ifp, 1);
-#if 0
-	  /* Join to multicast group. */
-	  ripng_multicast_join (ifp);
-
-	  /* Send RIP request to the interface. */
-	  ripng_request (ifp);
-#endif /* 0 */
-
 	  ri->running = 1;
 	}
     }
@@ -430,6 +533,100 @@ ripng_enable_apply_all ()
       ripng_enable_apply (ifp);
     }
 }
+
+/* Vector to store passive-interface name. */
+vector Vripng_passive_interface;
+
+/* Utility function for looking up passive interface settings. */
+int
+ripng_passive_interface_lookup (char *ifname)
+{
+  int i;
+  char *str;
+
+  for (i = 0; i < vector_max (Vripng_passive_interface); i++)
+    if ((str = vector_slot (Vripng_passive_interface, i)) != NULL)
+      if (strcmp (str, ifname) == 0)
+	return i;
+  return -1;
+}
+
+void
+ripng_passive_interface_apply (struct interface *ifp)
+{
+  int ret;
+  struct ripng_interface *ri;
+
+  ri = ifp->info;
+
+  ret = ripng_passive_interface_lookup (ifp->name);
+  if (ret < 0)
+    ri->passive = 0;
+  else
+    ri->passive = 1;
+}
+
+void
+ripng_passive_interface_apply_all (void)
+{
+  struct interface *ifp;
+  listnode node;
+
+  for (node = listhead (iflist); node; nextnode (node))
+    {
+      ifp = getdata (node);
+      ripng_passive_interface_apply (ifp);
+    }
+}
+
+/* Passive interface. */
+int
+ripng_passive_interface_set (struct vty *vty, char *ifname)
+{
+  if (ripng_passive_interface_lookup (ifname) >= 0)
+    return CMD_WARNING;
+
+  vector_set (Vripng_passive_interface, strdup (ifname));
+
+  ripng_passive_interface_apply_all ();
+
+  return CMD_SUCCESS;
+}
+
+int
+ripng_passive_interface_unset (struct vty *vty, char *ifname)
+{
+  int i;
+  char *str;
+
+  i = ripng_passive_interface_lookup (ifname);
+  if (i < 0)
+    return CMD_WARNING;
+
+  str = vector_slot (Vripng_passive_interface, i);
+  free (str);
+  vector_unset (Vripng_passive_interface, i);
+
+  ripng_passive_interface_apply_all ();
+
+  return CMD_SUCCESS;
+}
+
+/* Free all configured RIP passive-interface settings. */
+void
+ripng_passive_interface_clean (void)
+{
+  int i;
+  char *str;
+
+  for (i = 0; i < vector_max (Vripng_passive_interface); i++)
+    if ((str = vector_slot (Vripng_passive_interface, i)) != NULL)
+      {
+	free (str);
+	vector_slot (Vripng_passive_interface, i) = NULL;
+      }
+  ripng_passive_interface_apply_all ();
+}
 
 /* Write RIPng enable network and interface to the vty. */
 int
@@ -437,6 +634,7 @@ ripng_network_write (struct vty *vty)
 {
   int i;
   char *str;
+  char *ifname;
   struct route_node *node;
   char buf[BUFSIZ];
 
@@ -457,6 +655,11 @@ ripng_network_write (struct vty *vty)
     if ((str = vector_slot (ripng_enable_if, i)) != NULL)
       vty_out (vty, " network %s%s", str,
 	       VTY_NEWLINE);
+
+  /* Write passive interface. */
+  for (i = 0; i < vector_max (Vripng_passive_interface); i++)
+    if ((ifname = vector_slot (Vripng_passive_interface, i)) != NULL)
+      vty_out (vty, " passive-interface %s%s", ifname, VTY_NEWLINE);
 
   return 0;
 }
@@ -521,15 +724,31 @@ DEFUN (no_ripng_network,
 
   return CMD_SUCCESS;
 }
+
+DEFUN (ripng_passive_interface,
+       ripng_passive_interface_cmd,
+       "passive-interface IFNAME",
+       "Suppress routing updates on an interface\n"
+       "Interface name\n")
+{
+  return ripng_passive_interface_set (vty, argv[0]);
+}
+
+DEFUN (no_ripng_passive_interface,
+       no_ripng_passive_interface_cmd,
+       "no passive-interface IFNAME",
+       NO_STR
+       "Suppress routing updates on an interface\n"
+       "Interface name\n")
+{
+  return ripng_passive_interface_unset (vty, argv[0]);
+}
 
 struct ripng_interface *
 ri_new ()
 {
   struct ripng_interface *ri;
-
-  ri = XMALLOC (MTYPE_IF, sizeof (struct ripng_interface));
-  bzero (ri, sizeof (struct ripng_interface));
-
+  ri = XCALLOC (MTYPE_IF, sizeof (struct ripng_interface));
   return ri;
 }
 
@@ -588,6 +807,9 @@ ripng_if_init ()
   /* RIPng enable interface init. */
   ripng_enable_if = vector_init (1);
 
+  /* RIPng passive interface. */
+  Vripng_passive_interface = vector_init (1);
+
   /* Install interface node. */
   install_node (&interface_node, interface_config_write);
 
@@ -600,4 +822,6 @@ ripng_if_init ()
 
   install_element (RIPNG_NODE, &ripng_network_cmd);
   install_element (RIPNG_NODE, &no_ripng_network_cmd);
+  install_element (RIPNG_NODE, &ripng_passive_interface_cmd);
+  install_element (RIPNG_NODE, &no_ripng_passive_interface_cmd);
 }

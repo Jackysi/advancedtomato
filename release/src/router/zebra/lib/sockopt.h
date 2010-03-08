@@ -28,6 +28,7 @@ int setsockopt_ipv6_checksum (int, int);
 int setsockopt_ipv6_multicast_hops (int, int);
 int setsockopt_ipv6_unicast_hops (int, int);
 int setsockopt_ipv6_hoplimit (int, int);
+int setsockopt_ipv6_multicast_loop (int, int);
 #endif /* HAVE_IPV6 */
 
 int setsockopt_multicast_ipv4(int sock, 

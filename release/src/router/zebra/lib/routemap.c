@@ -1,24 +1,22 @@
-/*
- * Route map function.
- * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+/* Route map function.
+   Copyright (C) 1998, 1999 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -80,8 +78,7 @@ route_map_new (char *name)
 {
   struct route_map *new;
 
-  new =  XMALLOC (MTYPE_ROUTE_MAP, sizeof (struct route_map));
-  bzero (new, sizeof (struct route_map));
+  new =  XCALLOC (MTYPE_ROUTE_MAP, sizeof (struct route_map));
   new->name = XSTRDUP (MTYPE_ROUTE_MAP_NAME, name);
   return new;
 }
@@ -199,30 +196,68 @@ route_map_empty (struct route_map *map)
     return 0;
 }
 
-/* For debug. */
+/* show route-map */
 void
-route_map_print ()
+vty_show_route_map_entry (struct vty *vty, struct route_map *map)
+{
+  struct route_map_rule *rule;
+  struct route_map_index *index;
+
+  for (index = map->head; index; index = index->next)
+    {
+      vty_out (vty, "route-map %s, %s, sequence %d%s", 
+	       map->name,
+	       route_map_type_str (index->type),
+	       index->pref,
+	       VTY_NEWLINE);
+
+      /* Match clauses */
+      vty_out (vty, "  Match clauses:%s", VTY_NEWLINE);
+      for (rule = index->match_list.head; rule; rule = rule->next)
+	vty_out (vty, "    %s %s%s", rule->cmd->str, rule->rule_str, VTY_NEWLINE);
+      if (index->exitpolicy == RMAP_GOTO)
+	vty_out (vty, "  Continue: sequence %d%s", index->nextpref, VTY_NEWLINE);
+      if (index->exitpolicy == RMAP_NEXT)
+	{
+	  vty_out (vty, "  Continue: to next entry");
+	  if (index->next)
+	    vty_out (vty, " %d%s", index->next->pref, VTY_NEWLINE);
+	  else
+	    vty_out (vty, " is undefined%s", VTY_NEWLINE);
+	}
+
+      /* Set clauses */
+      vty_out (vty, "  Set clauses:%s", VTY_NEWLINE);
+      for (rule = index->set_list.head; rule; rule = rule->next)
+	vty_out (vty, "    %s %s%s", rule->cmd->str, rule->rule_str, VTY_NEWLINE);
+    }
+}
+
+int
+vty_show_route_map (struct vty *vty, char *name)
 {
   struct route_map *map;
-  struct route_map_index *index;
-  struct route_map_rule *rule;
+
+  if (name)
+    {
+      map = route_map_lookup_by_name (name);
+
+      if (map)
+	{
+	  vty_show_route_map_entry (vty, map);
+	  return CMD_SUCCESS;
+	}
+      else
+	{
+	  vty_out (vty, "%%route-map %s not found%s", name, VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+    }
 
   for (map = route_map_master.head; map; map = map->next)
-    for (index = map->head; index; index = index->next)
-      {
-	printf ("route-map %s %s %d\n", 
-		map->name,
-		route_map_type_str (index->type),
-		index->pref);
-	for (rule = index->match_list.head; rule; rule = rule->next)
-	  printf (" match %s %s\n", rule->cmd->str, rule->rule_str);
-	for (rule = index->set_list.head; rule; rule = rule->next)
-	  printf (" set %s %s\n", rule->cmd->str, rule->rule_str);
-	if (index->exitpolicy == RMAP_GOTO)
-	  printf (" on-match goto %d\n", index->nextpref);
-	if (index->exitpolicy == RMAP_NEXT)
-	  printf (" on-match next\n");
-      }
+    vty_show_route_map_entry (vty, map);
+
+  return CMD_SUCCESS;
 }
 
 /* New route map allocation. Please note route map's name must be
@@ -232,8 +267,7 @@ route_map_index_new ()
 {
   struct route_map_index *new;
 
-  new =  XMALLOC (MTYPE_ROUTE_MAP_INDEX, sizeof (struct route_map_index));
-  bzero (new, sizeof (struct route_map_index));
+  new =  XCALLOC (MTYPE_ROUTE_MAP_INDEX, sizeof (struct route_map_index));
   new->exitpolicy = RMAP_EXIT; /* Default to Cisco-style */
   return new;
 }
@@ -362,8 +396,7 @@ route_map_rule_new ()
 {
   struct route_map_rule *new;
 
-  new = XMALLOC (MTYPE_ROUTE_MAP_RULE, sizeof (struct route_map_rule));
-  bzero (new, sizeof (struct route_map_rule));
+  new = XCALLOC (MTYPE_ROUTE_MAP_RULE, sizeof (struct route_map_rule));
   return new;
 }
 
@@ -639,72 +672,85 @@ route_map_delete_set (struct route_map_index *index, char *set_name,
   return 1;
 }
 
-/* Apply route map's each index to the object. */
-/*
-** The matrix for a route-map looks like this:
-** (note, this includes the description for the "NEXT"
-** and "GOTO" frobs now
-**
-**            Match   |   No Match
-**                    |
-**  permit      a     |      c
-**                    |
-**  ------------------+---------------
-**                    |
-**  deny        b     |      d
-**                    |
-**
-** a)   Apply Set statements, accept route
-**      If NEXT is specified, goto NEXT statement
-**      If GOTO is specified, goto the first clause where pref > nextpref
-**      If nothing is specified, do as Cisco and finish
-** b)   Finish route-map processing, and deny route
-** c) & d)   Goto Next index
-**
-** If we get no matches after we've processed all updates, then the route
-** is dropped too.
-**
-** Some notes on the new "NEXT" and "GOTO"
-**   on-match next    - If this clause is matched, then the set statements
-**                      are executed and then we drop through to the next clause
-**   on-match goto n  - If this clause is matched, then the set statments
-**                      are executed and then we goto the nth clause, or the
-**                      first clause greater than this. In order to ensure
-**                      route-maps *always* exit, you cannot jump backwards.
-**                      Sorry ;)
-**
-** We need to make sure our route-map processing matches the above
+/* Apply route map's each index to the object.
+
+   The matrix for a route-map looks like this:
+   (note, this includes the description for the "NEXT"
+   and "GOTO" frobs now
+  
+              Match   |   No Match
+                      |
+    permit      a     |      c
+                      |
+    ------------------+---------------
+                      |
+    deny        b     |      d
+                      |
+  
+   a) Apply Set statements, accept route
+      If NEXT is specified, goto NEXT statement
+      If GOTO is specified, goto the first clause where pref > nextpref
+      If nothing is specified, do as Cisco and finish
+   b) If NEXT is specified, goto NEXT statement
+      If nothing is specified, finally will be denied by route-map.
+   c) & d)   Goto Next index
+  
+   If we get no matches after we've processed all updates, then the route
+   is dropped too.
+  
+   Some notes on the new "NEXT" and "GOTO"
+     continue         - If this clause is matched, then the set statements
+                        are executed and then we drop through to the next clause
+     continue n       - If this clause is matched, then the set statments
+                        are executed and then we goto the nth clause, or the
+                        first clause greater than this. In order to ensure
+                        route-maps *always* exit, you cannot jump backwards.
+                        Sorry ;)
+  
+   We need to make sure our route-map processing matches the above
 */
 route_map_result_t
 route_map_apply_index (struct route_map_index *index, struct prefix *prefix,
                        route_map_object_t type, void *object)
 {
-  int ret;
+  int ret = 0;
   struct route_map_rule *match;
   struct route_map_rule *set;
-  
-  /* Check all match rule and if there is no match rule return 0. */
-  for (match = index->match_list.head; match; match = match->next)
+
+  /* Check all match rule and if there is no match rule, go to the
+     set statement. */
+  if (! index->match_list.head)
+    ret = RMAP_MATCH;
+  else
     {
-      /* Try each match statement in turn. If any return something
-       other than RM_MATCH then we don't need to check anymore and can
-       return */
-      ret = (*match->cmd->func_apply)(match->value, prefix, type, object);
-      if (ret != RMAP_MATCH)
-	return ret;
+      for (match = index->match_list.head; match; match = match->next)
+        {
+          /* Try each match statement in turn, If any return
+             RMAP_MATCH, go direct to set statement, otherwise, walk
+             to next match statement. */ 
+          ret = (*match->cmd->func_apply)(match->value, prefix, type, object);
+
+          if (ret == RMAP_MATCH)
+            break;
+	}
     }
 
+  /* If end of match statement, still can't get any RMAP_MATCH return,
+     just return to next rout-map statement. */
+
+  if (ret != RMAP_MATCH)
+    return ret;
+
   /* We get here if all match statements matched From the matrix
-   above, if this is PERMIT we go on and apply the SET functions.  If
-   we're deny, we return indicating we matched a deny */
+     above, if this is PERMIT we go on and apply the SET functions.
+     If we're deny, we return indicating we matched a deny */
 
   /* Apply set statement to the object. */
   if (index->type == RMAP_PERMIT)
     {
       for (set = index->set_list.head; set; set = set->next)
-	{
-	  ret = (*set->cmd->func_apply)(set->value, prefix, type, object);
-	}
+	ret = (*set->cmd->func_apply)(set->value, prefix, type, object);
+
       return RMAP_MATCH;
     }
   else 
@@ -731,11 +777,14 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
       /* Apply this index. End here if we get a RM_NOMATCH */
       ret = route_map_apply_index (index, prefix, type, object);
 
-      if (ret != RMAP_NOMATCH)
+      if (ret == RMAP_DENYMATCH)
+        return ret;
+      else if (ret == RMAP_MATCH)
 	{
 	  /* We now have to handle the NEXT and GOTO clauses */
 	  if(index->exitpolicy == RMAP_EXIT)
 	    return ret;
+
 	  if(index->exitpolicy == RMAP_GOTO)
 	    {
 	      /* Find the next clause to jump to */
@@ -927,11 +976,10 @@ DEFUN (no_route_map,
   return CMD_SUCCESS;
 }
 
-DEFUN (rmap_onmatch_next,
-       rmap_onmatch_next_cmd,
-       "on-match next",
-       "Exit policy on matches\n"
-       "Next clause\n")
+DEFUN (rmap_continue,
+       rmap_continue_cmd,
+       "continue",
+       "Continue on a different entry within the route-map\n")
 {
   struct route_map_index *index;
 
@@ -943,12 +991,11 @@ DEFUN (rmap_onmatch_next,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_rmap_onmatch_next,
-       no_rmap_onmatch_next_cmd,
-       "no on-match next",
+DEFUN (no_rmap_continue,
+       no_rmap_continue_cmd,
+       "no continue",
        NO_STR
-       "Exit policy on matches\n"
-       "Next clause\n")
+       "Continue on a different entry within the route-map\n")
 {
   struct route_map_index *index;
 
@@ -960,12 +1007,11 @@ DEFUN (no_rmap_onmatch_next,
   return CMD_SUCCESS;
 }
 
-DEFUN (rmap_onmatch_goto,
-       rmap_onmatch_goto_cmd,
-       "on-match goto <1-65535>",
-       "Exit policy on matches\n"
-       "Goto Clause number\n"
-       "Number\n")
+DEFUN (rmap_continue_seq,
+       rmap_continue_seq_cmd,
+       "continue <1-65535>",
+       "Continue on a different entry within the route-map\n"
+       "Route-map entry sequence number\n")
 {
   struct route_map_index *index;
   int d = 0;
@@ -979,8 +1025,7 @@ DEFUN (rmap_onmatch_goto,
       if (d <= index->pref)
 	{
 	  /* Can't allow you to do that, Dave */
-	  vty_out (vty, "can't jump backwards in route-maps%s", 
-		   VTY_NEWLINE);
+	  vty_out (vty, "%%Loop in the route-map%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
       else
@@ -992,12 +1037,12 @@ DEFUN (rmap_onmatch_goto,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_rmap_onmatch_goto,
-       no_rmap_onmatch_goto_cmd,
-       "no on-match goto",
+DEFUN (no_rmap_continue_seq,
+       no_rmap_continue_seq_cmd,
+       "no continue <1-65535>",
        NO_STR
-       "Exit policy on matches\n"
-       "Next clause\n")
+       "Continue on a different entry within the route-map\n"
+       "Route-map entry sequence number\n")
 {
   struct route_map_index *index;
 
@@ -1007,6 +1052,25 @@ DEFUN (no_rmap_onmatch_goto,
     index->exitpolicy = RMAP_EXIT;
   
   return CMD_SUCCESS;
+}
+
+DEFUN (rmap_show,
+       rmap_show_cmd,
+       "show route-map",
+       SHOW_STR
+       "route-map information\n")
+{
+    return vty_show_route_map (vty, NULL);
+}
+
+DEFUN (rmap_show_name,
+       rmap_show_name_cmd,
+       "show route-map WORD",
+       SHOW_STR
+       "route-map information\n"
+       "route-map name\n")
+{
+    return vty_show_route_map (vty, argv[0]);
 }
 
 /* Configuration write function. */
@@ -1037,15 +1101,16 @@ route_map_config_write (struct vty *vty)
 		   rule->rule_str ? rule->rule_str : "",
 		   VTY_NEWLINE);
 
+	if (index->exitpolicy == RMAP_GOTO)
+	  vty_out (vty, " continue %d%s", index->nextpref,
+		   VTY_NEWLINE);
+	if (index->exitpolicy == RMAP_NEXT)
+	  vty_out (vty," continue%s", VTY_NEWLINE);
+
 	for (rule = index->set_list.head; rule; rule = rule->next)
 	  vty_out (vty, " set %s %s%s", rule->cmd->str,
 		   rule->rule_str ? rule->rule_str : "",
 		   VTY_NEWLINE);
-	if (index->exitpolicy == RMAP_GOTO)
-	  vty_out (vty, " on-match goto %d%s", index->nextpref,
-		   VTY_NEWLINE);
-	if (index->exitpolicy == RMAP_NEXT)
-	  vty_out (vty," on-match next%s", VTY_NEWLINE);
 	
 	write++;
       }
@@ -1075,8 +1140,12 @@ route_map_init_vty ()
 
   /* Install the on-match stuff */
   install_element (RMAP_NODE, &route_map_cmd);
-  install_element (RMAP_NODE, &rmap_onmatch_next_cmd);
-  install_element (RMAP_NODE, &no_rmap_onmatch_next_cmd);
-  install_element (RMAP_NODE, &rmap_onmatch_goto_cmd);
-  install_element (RMAP_NODE, &no_rmap_onmatch_goto_cmd);
+  install_element (RMAP_NODE, &rmap_continue_cmd);
+  install_element (RMAP_NODE, &no_rmap_continue_cmd);
+  install_element (RMAP_NODE, &rmap_continue_seq_cmd);
+  install_element (RMAP_NODE, &no_rmap_continue_seq_cmd);
+
+  /* Install show command */
+  install_element (ENABLE_NODE, &rmap_show_cmd);
+  install_element (ENABLE_NODE, &rmap_show_name_cmd);
 }

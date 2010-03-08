@@ -1,3 +1,15 @@
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2001-08-28  NOGUCHI Kay <kay@v6.access.co.jp>
+
+	* ripngd.c (no_ripng_route): route_unlock_node () is not needed.
+
+2001-08-26  NOGUCHI Kay <kay@v6.access.co.jp>
+
+	* ripngd.h (struct ripng_interface): Add passive interface option.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

@@ -30,15 +30,12 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
 
-extern struct route_table *ripng_table;
-
 struct ripng_aggregate *
 ripng_aggregate_new ()
 {
   struct ripng_aggregate *new;
 
-  new = XMALLOC (MTYPE_RIPNG_AGGREGATE, sizeof (struct ripng_aggregate));
-  bzero (new, sizeof (struct ripng_aggregate));
+  new = XCALLOC (MTYPE_RIPNG_AGGREGATE, sizeof (struct ripng_aggregate));
   return new;
 }
 
@@ -89,7 +86,7 @@ ripng_aggregate_add (struct prefix *p)
   struct ripng_aggregate *sub;
 
   /* Get top node for aggregation. */
-  top = route_node_get (ripng_table, p);
+  top = route_node_get (ripng->table, p);
 
   /* Allocate new aggregate. */
   aggregate = ripng_aggregate_new ();
@@ -128,7 +125,7 @@ ripng_aggregate_delete (struct prefix *p)
   struct ripng_aggregate *sub;
 
   /* Get top node for aggregation. */
-  top = route_node_get (ripng_table, p);
+  top = route_node_get (ripng->table, p);
 
   /* Allocate new aggregate. */
   aggregate = top->aggregate;
