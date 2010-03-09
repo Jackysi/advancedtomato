@@ -2257,7 +2257,7 @@ size_t ksize(const void *object)
 	struct page *page;
 	struct kmem_cache *s;
 
-	if (unlikely(object == ZERO_SIZE_PTR))
+	if (unlikely(ZERO_OR_NULL_PTR(object)))
 		return 0;
 
 	page = virt_to_head_page(object);
