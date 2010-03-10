@@ -153,7 +153,7 @@ void asp_wlscan(int argc, char **argv)
 		for (j = 0; j < bssi->rateset.count; ++j) {
 			web_printf("%s%u", j ? "," : "", bssi->rateset.rates[j]);
 		}
-		web_puts("]]");
+		web_printf("],%d,%d]", bssi->n_cap, bssi->nbss_cap);
 
 		bssi = (wl_bss_info_t*)((uint8*)bssi + bssi->length);
 	}

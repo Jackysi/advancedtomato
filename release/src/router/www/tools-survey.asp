@@ -102,6 +102,7 @@ sg.rateSorter = function(a, b)
 sg.populate = function()
 {
 	var caps = ['infra', 'adhoc', 'poll', 'pollreq', 'wep', 'shortpre', 'pbcc', 'agility', 'X', 'Y', 'shortslot'];
+	var ncap = '802.11n';
 	var added = 0;
 	var removed = 0;
 	var i, j, k, t, e, s;
@@ -148,6 +149,10 @@ sg.populate = function()
 				t += caps[j];
 			}
 		}
+		if (s[7] != 0) {
+			k += ncap.length;
+			t += ((k > 12) ? '<br>' : ' ') + ncap;
+		} 
 		e.cap = t;
 
 		t = '';
