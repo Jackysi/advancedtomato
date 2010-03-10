@@ -2632,6 +2632,19 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
 	return slab_alloc(s, gfpflags, node, caller, size);
 }
 
+static unsigned long count_partial(struct kmem_cache_node *n)
+{
+	unsigned long flags;
+	unsigned long x = 0;
+	struct page *page;
+
+	spin_lock_irqsave(&n->list_lock, flags);
+	list_for_each_entry(page, &n->partial, lru)
+		x += page->inuse;
+	spin_unlock_irqrestore(&n->list_lock, flags);
+	return x;
+}
+
 #if defined(CONFIG_SYSFS) && defined(CONFIG_SLUB_DEBUG)
 static int validate_slab(struct kmem_cache *s, struct page *page)
 {
@@ -3007,19 +3020,6 @@ static int list_locations(struct kmem_cache *s, char *buf,
 	if (!t.count)
 		n += sprintf(buf, "No data\n");
 	return n;
-}
-
-static unsigned long count_partial(struct kmem_cache_node *n)
-{
-	unsigned long flags;
-	unsigned long x = 0;
-	struct page *page;
-
-	spin_lock_irqsave(&n->list_lock, flags);
-	list_for_each_entry(page, &n->partial, lru)
-		x += page->inuse;
-	spin_unlock_irqrestore(&n->list_lock, flags);
-	return x;
 }
 
 enum slab_stat_type {
@@ -3659,3 +3659,90 @@ static int __init slab_sysfs_init(void)
 
 __initcall(slab_sysfs_init);
 #endif
+
+/*
+ * The /proc/slabinfo ABI
+ */
+#ifdef CONFIG_PROC_FS
+
+static void print_slabinfo_header(struct seq_file *m)
+{
+	seq_puts(m, "slabinfo - version: 2.1\n");
+	seq_puts(m, "# name            <active_objs> <num_objs> <objsize> "
+		 "<objperslab> <pagesperslab>");
+	seq_puts(m, " : tunables <limit> <batchcount> <sharedfactor>");
+	seq_puts(m, " : slabdata <active_slabs> <num_slabs> <sharedavail>");
+	seq_putc(m, '\n');
+}
+
+static void *s_start(struct seq_file *m, loff_t *pos)
+{
+	loff_t n = *pos;
+	struct list_head *lh;
+
+	down_read(&slub_lock);
+	if (!n)
+		print_slabinfo_header(m);
+
+	list_for_each(lh, &slab_caches)
+		if (n-- == 0)
+			return lh;
+
+	return NULL;
+}
+
+static void *s_next(struct seq_file *m, void *p, loff_t *pos)
+{
+	struct list_head *lh = ((struct list_head *)p)->next;
+
+	++*pos;
+	return (lh == &slab_caches) ? NULL : lh;
+}
+
+static void s_stop(struct seq_file *m, void *p)
+{
+	up_read(&slub_lock);
+}
+
+static int s_show(struct seq_file *m, void *p)
+{
+	unsigned long nr_partials = 0;
+	unsigned long nr_slabs = 0;
+	unsigned long nr_inuse = 0;
+	unsigned long nr_objs;
+	struct kmem_cache *s;
+	int node;
+
+	s = list_entry(p, struct kmem_cache, list);
+
+	for_each_online_node(node) {
+		struct kmem_cache_node *n = get_node(s, node);
+
+		if (!n)
+			continue;
+
+		nr_partials += n->nr_partial;
+		nr_slabs += atomic_long_read(&n->nr_slabs);
+		nr_inuse += count_partial(n);
+	}
+
+	nr_objs = nr_slabs * s->objects;
+	nr_inuse += (nr_slabs - nr_partials) * s->objects;
+
+	seq_printf(m, "%-17s %6lu %6lu %6u %4u %4d", s->name, nr_inuse,
+		   nr_objs, s->size, s->objects, (1 << s->order));
+	seq_printf(m, " : tunables %4u %4u %4u", 0, 0, 0);
+	seq_printf(m, " : slabdata %6lu %6lu %6lu", nr_slabs, nr_slabs,
+		   0UL);
+	seq_putc(m, '\n');
+	return 0;
+}
+
+const struct seq_operations slabinfo_op = {
+	.start = s_start,
+	.next = s_next,
+	.stop = s_stop,
+	.show = s_show,
+};
+
+#endif /* CONFIG_PROC_FS */
