@@ -129,7 +129,8 @@ struct nf_conn
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 	u_int32_t secmark;
 #endif
-
+	/* cone NAT or Symmetric NAT */ 
+	u_int32_t nat_type;
 	/* Storage reserved for other modules: */
 	union nf_conntrack_proto proto;
 

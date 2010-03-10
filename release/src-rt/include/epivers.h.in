@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -7,7 +7,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: epivers.h.in,v 13.27 2008/02/29 03:29:46 Exp $
+ * $Id: epivers.h.in,v 13.27.2.1 2009/04/16 17:04:53 Exp $
  *
 */
 
@@ -27,6 +27,8 @@
 #define	EPI_VERSION		@EPI_VERSION@
 
 #define	EPI_VERSION_NUM		@EPI_VERSION_NUM@
+
+#define EPI_VERSION_DEV		@EPI_VERSION_DEV@
 
 /* Driver Version String, ASCII, 32 chars max */
 #define	EPI_VERSION_STR		"@EPI_VERSION_STR@"

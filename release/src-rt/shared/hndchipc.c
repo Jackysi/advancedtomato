@@ -1,7 +1,7 @@
 /*
  * BCM47XX support code for some chipcommon facilities (uart, jtagm)
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: hndchipc.c,v 1.23.52.1 2008/11/13 22:55:07 Exp $
+ * $Id: hndchipc.c,v 1.23 2008/03/28 19:30:38 Exp $
  */
 
 #include <typedefs.h>
@@ -142,8 +142,6 @@ BCMINITFN(si_serial_init)(si_t *sih, si_serial_init_fn add)
 	}
 }
 
-#define JTAG_RETRIES	10000
-
 /*
  * Initialize jtag master and return handle for
  * jtag_rwreg. Returns NULL on failure.
@@ -176,113 +174,52 @@ hnd_jtagm_init(si_t *sih, uint clkd, bool exttap)
 
 		/* Set clock divider if requested */
 		if (clkd != 0) {
-			tmp = R_REG(NULL, &cc->clkdiv);
+			tmp = R_REG(osh, &cc->clkdiv);
 			tmp = (tmp & ~CLKD_JTAG) |
 				((clkd << CLKD_JTAG_SHIFT) & CLKD_JTAG);
-			W_REG(NULL, &cc->clkdiv, tmp);
+			W_REG(osh, &cc->clkdiv, tmp);
 		}
 
 		/* Enable jtagm */
 		tmp = JCTRL_EN | (exttap ? JCTRL_EXT_EN : 0);
-		W_REG(NULL, &cc->jtagctrl, tmp);
+		W_REG(osh, &cc->jtagctrl, tmp);
 	}
 
 	return (regs);
 }
 
 void
-hnd_jtagm_disable(si_t *sih, void *h)
+hnd_jtagm_disable(osl_t *osh, void *h)
 {
 	chipcregs_t *cc = (chipcregs_t *)h;
 
-	W_REG(NULL, &cc->jtagctrl, R_REG(NULL, &cc->jtagctrl) & ~JCTRL_EN);
+	W_REG(osh, &cc->jtagctrl, R_REG(osh, &cc->jtagctrl) & ~JCTRL_EN);
 }
 
-
-static uint32
-jtm_wait(chipcregs_t *cc, bool readdr)
-{
-	uint i;
-
-	i = 0;
-	while (((R_REG(NULL, &cc->jtagcmd) & JCMD_BUSY) == JCMD_BUSY) &&
-	       (i < JTAG_RETRIES)) {
-		i++;
-	}
-
-	if (i >= JTAG_RETRIES)
-		return 0xbadbad03;
-
-	if (readdr)
-		return R_REG(NULL, &cc->jtagdr);
-	else
-		return 0xffffffff;
-}
-
-/* Read/write a jtag register. Assumes both ir and dr <= 64bits. */
+/*
+ * Read/write a jtag register. Assumes a target with
+ * 8 bit IR and 32 bit DR.
+ */
+#define	IRWIDTH		8	/* Default Instruction Register width */
+#define	DRWIDTH		32	/* Default Data Register width */
 
 uint32
-jtag_scan(si_t *sih, void *h, uint irsz, uint32 ir0, uint32 ir1,
-          uint drsz, uint32 dr0, uint32 *dr1, bool rti)
+jtag_rwreg(osl_t *osh, void *h, uint32 ir, uint32 dr)
 {
 	chipcregs_t *cc = (chipcregs_t *) h;
-	uint32 acc_dr, acc_irdr;
 	uint32 tmp;
 
-	if ((irsz > 64) || (drsz > 64)) {
-		return 0xbadbad00;
+	W_REG(osh, &cc->jtagir, ir);
+	W_REG(osh, &cc->jtagdr, dr);
+	tmp = JCMD_START | JCMD_ACC_IRDR |
+		((IRWIDTH - 1) << JCMD_IRW_SHIFT) |
+		(DRWIDTH - 1);
+	W_REG(osh, &cc->jtagcmd, tmp);
+	while (((tmp = R_REG(osh, &cc->jtagcmd)) & JCMD_BUSY) == JCMD_BUSY) {
+		/* OSL_DELAY(1); */
 	}
-	if (rti) {
-		if (sih->ccrev < 28)
-			return 0xbadbad01;
-		acc_irdr = JCMD_ACC_IRDR_I;
-		acc_dr = JCMD_ACC_DR_I;
-	} else {
-		acc_irdr = JCMD_ACC_IRDR;
-		acc_dr = JCMD_ACC_DR;
-	}
-	if (irsz == 0) {
-		/* scan in the first (or only) DR word with a dr-only command */
-		W_REG(NULL, &cc->jtagdr, dr0);
-		if (drsz > 32) {
-			W_REG(NULL, &cc->jtagcmd, JCMD_START | JCMD_ACC_PDR | 31);
-			drsz -= 32;
-		} else
-			W_REG(NULL, &cc->jtagcmd, JCMD_START | acc_dr | (drsz - 1));
-	} else {
-		W_REG(NULL, &cc->jtagir, ir0);
-		if (irsz > 32) {
-			/* Use Partial IR for first IR word */
-			W_REG(NULL, &cc->jtagcmd, JCMD_START | JCMD_ACC_PIR |
-			      (31 << JCMD_IRW_SHIFT));
-			jtm_wait(cc, FALSE);
-			W_REG(NULL, &cc->jtagir, ir1);
-			irsz -= 32;
-		}
-		if (drsz == 0) {
-			/* If drsz is 0, do an IR-only scan and that's it */
-			W_REG(NULL, &cc->jtagcmd, JCMD_START | JCMD_ACC_IR |
-			      ((irsz - 1) << JCMD_IRW_SHIFT));
-			return jtm_wait(cc, FALSE);
-		}
-		/* Now scan in the IR word and the first (or only) DR word */
-		W_REG(NULL, &cc->jtagdr, dr0);
-		if (drsz <= 32)
-			W_REG(NULL, &cc->jtagcmd, JCMD_START | acc_irdr |
-			      ((irsz - 1) << JCMD_IRW_SHIFT) | (drsz - 1));
-		else
-			W_REG(NULL, &cc->jtagcmd, JCMD_START | JCMD_ACC_IRPDR |
-			      ((irsz - 1) << JCMD_IRW_SHIFT) | 31);
-	}
-	/* Now scan out the DR and scan in & out the second DR word if needed */
-	tmp = jtm_wait(cc, TRUE);
-	if (drsz > 32) {
-		if (dr1 == NULL)
-			return 0xbadbad04;
-		W_REG(NULL, &cc->jtagdr, *dr1);
-		W_REG(NULL, &cc->jtagcmd, JCMD_START | acc_dr | (drsz - 33));
-		*dr1 = jtm_wait(cc, TRUE);
-	}
+
+	tmp = R_REG(osh, &cc->jtagdr);
 	return (tmp);
 }
 

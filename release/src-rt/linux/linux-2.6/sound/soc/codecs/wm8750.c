@@ -694,6 +694,8 @@ static int wm8750_dapm_event(struct snd_soc_codec *codec, int event)
 
 	switch (event) {
 	case SNDRV_CTL_POWER_D0: /* full On */
+		/* Turn On LDAC/RDAC, LOUT2/ROUT2 */
+		wm8750_write(codec, WM8750_PWR2, 0x198);
 		/* set vmid to 50k and unmute dac */
 		wm8750_write(codec, WM8750_PWR1, pwr_reg | 0x00c0);
 		break;
@@ -708,6 +710,7 @@ static int wm8750_dapm_event(struct snd_soc_codec *codec, int event)
 		break;
 	case SNDRV_CTL_POWER_D3cold: /* Off, without power */
 		wm8750_write(codec, WM8750_PWR1, 0x0001);
+		wm8750_write(codec, WM8750_PWR2, 0x0);
 		break;
 	}
 	codec->dapm_state = event;
@@ -835,10 +838,18 @@ static int wm8750_init(struct snd_soc_device *socdev)
 	wm8750_write(codec, WM8750_LOUT1V, reg | 0x0100);
 	reg = wm8750_read_reg_cache(codec, WM8750_ROUT1V);
 	wm8750_write(codec, WM8750_ROUT1V, reg | 0x0100);
-	reg = wm8750_read_reg_cache(codec, WM8750_LOUT2V);
-	wm8750_write(codec, WM8750_LOUT2V, reg | 0x0100);
-	reg = wm8750_read_reg_cache(codec, WM8750_ROUT2V);
-	wm8750_write(codec, WM8750_ROUT2V, reg | 0x0100);
+	/* Read LOUT2V/ROUT2V and strip volume bits */
+	reg = wm8750_read_reg_cache(codec, WM8750_LOUT2V) & 0x180;
+	wm8750_write(codec, WM8750_LOUT2V, reg | 0x0150);
+	reg = wm8750_read_reg_cache(codec, WM8750_ROUT2V) & 0x180;
+	wm8750_write(codec, WM8750_ROUT2V, reg | 0x0150);
+
+	/* Enable L & R Digital Inputs for the L & R Outputs of the mixer */
+	reg = wm8750_read_reg_cache(codec, WM8750_LOUTM1);
+	wm8750_write(codec, WM8750_LOUTM1, reg | 0x0100);
+	reg = wm8750_read_reg_cache(codec, WM8750_ROUTM1);
+	wm8750_write(codec, WM8750_ROUTM2, reg | 0x0100);
+
 	reg = wm8750_read_reg_cache(codec, WM8750_LINVOL);
 	wm8750_write(codec, WM8750_LINVOL, reg | 0x0100);
 	reg = wm8750_read_reg_cache(codec, WM8750_RINVOL);

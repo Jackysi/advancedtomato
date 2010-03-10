@@ -38,6 +38,9 @@
 #define NFC_IP_PROTO_UNKNOWN	0x2000
 #endif /* ! __KERNEL__ */
 
+/* Cone NAT, Otherwise Symmetric NAT */
+#define NFC_IP_CONE_NAT		0x0800
+
 /* IP Hooks */
 /* After promisc drops, checksum checks. */
 #define NF_IP_PRE_ROUTING	0

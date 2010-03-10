@@ -1,7 +1,7 @@
 /*
  * BCM43XX PCIE core hardware definitions.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: pcie_core.h,v 13.3.2.1.14.2 2008/12/19 09:40:19 Exp $
+ * $Id: pcie_core.h,v 13.3.2.3 2009/02/20 02:00:00 Exp $
  */
 #ifndef	_PCIE_CORE_H
 #define	_PCIE_CORE_H
@@ -73,7 +73,7 @@ typedef struct sbpcieregs {
 	uint32 clkreqenctrl;	/* >= rev 6, Clkreq rdma control : 0x138 */
 	uint32 PAD[177];
 	uint32 pciecfg[4][64];	/* 0x400 - 0x7FF, PCIE Cfg Space */
-	uint16 sprom[64];	/* SPROM shadow Area */
+	uint16 sprom[36];	/* SPROM shadow Area */
 } sbpcieregs_t;
 
 /* PCI control */
@@ -270,6 +270,8 @@ typedef struct sbpcieregs {
 /* SPROM offsets */
 #define SRSH_ASPM_OFFSET		4	/* word 4 */
 #define SRSH_ASPM_ENB			0x18	/* bit 3, 4 */
+#define SRSH_ASPM_L1_ENB		0x10	/* bit 4 */
+#define SRSH_ASPM_L0s_ENB		0x8	/* bit 3 */
 #define SRSH_PCIE_MISC_CONFIG		5	/* word 5 */
 #define SRSH_L23READY_EXIT_NOPERST	0x8000	/* bit 15 */
 #define SRSH_CLKREQ_OFFSET_REV5		20	/* word 20 for srom rev <= 5 */
@@ -282,8 +284,12 @@ typedef struct sbpcieregs {
 #define PCIE_CAP_LINKCTRL_OFFSET	16	/* linkctrl offset in pcie cap */
 #define PCIE_CAP_LCREG_ASPML0s		0x01	/* ASPM L0s in linkctrl */
 #define PCIE_CAP_LCREG_ASPML1		0x02	/* ASPM L1 in linkctrl */
-#define PCIE_ASPM_ENAB			0x03	/* ASPM L0s & L1 in linkctrl */
 #define PCIE_CLKREQ_ENAB		0x100	/* CLKREQ Enab in linkctrl */
+
+#define PCIE_ASPM_ENAB			3	/* ASPM L0s & L1 in linkctrl */
+#define PCIE_ASPM_L1_ENAB		2	/* ASPM L0s & L1 in linkctrl */
+#define PCIE_ASPM_L0s_ENAB		1	/* ASPM L0s & L1 in linkctrl */
+#define PCIE_ASPM_DISAB			0	/* ASPM L0s & L1 in linkctrl */
 
 /* Status reg PCIE_PLP_STATUSREG */
 #define PCIE_PLP_POLARITYINV_STAT	0x10

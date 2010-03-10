@@ -1,7 +1,7 @@
 /*
  * HND MIPS boards setup routines
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: setup.c,v 1.6 2008/04/03 03:49:45 Exp $
+ * $Id: setup.c,v 1.11 2009/10/27 00:35:09 Exp $
  */
 
 #include <linux/types.h>
@@ -50,6 +50,9 @@
 #include <sbchipc.h>
 #include <hndchipc.h>
 #include <trxhdr.h>
+#ifdef HNDCTF
+#include <ctf/hndctf.h>
+#endif /* HNDCTF */
 #include "bcm947xx.h"
 
 extern void bcm947xx_time_init(void);
@@ -74,6 +77,11 @@ EXPORT_SYMBOL(bcm947xx_sih_lock);
 /* Convenience */
 #define sih bcm947xx_sih
 #define sih_lock bcm947xx_sih_lock
+
+#ifdef HNDCTF
+ctf_t *kcih = NULL;
+EXPORT_SYMBOL(kcih);
+#endif /* HNDCTF */
 
 /* Kernel command line */
 extern char arcs_cmdline[CL_SIZE];
@@ -460,6 +468,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	       mtd->name);
 
  done:
+	/* BCMWAPI_WAI && !BCMJFFS2 */
 	/* Find and size nvram */
 	bcm947xx_parts[3].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
 	bcm947xx_parts[3].size = size - bcm947xx_parts[3].offset;

@@ -2,7 +2,7 @@
  * Misc utility routines for accessing the SOC Interconnects
  * of Broadcom HNBU chips.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,7 +10,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: siutils.h,v 13.211.2.7.4.4 2009/01/02 11:57:46 Exp $
+ * $Id: siutils.h,v 13.211.2.14 2009/06/18 12:19:28 Exp $
  */
 
 #ifndef	_siutils_h_
@@ -133,6 +133,7 @@ extern bool si_pci_war16165(si_t *sih);
 extern uint si_corelist(si_t *sih, uint coreid[]);
 extern uint si_coreid(si_t *sih);
 extern uint si_flag(si_t *sih);
+extern uint si_intflag(si_t *sih);
 extern uint si_coreidx(si_t *sih);
 extern uint si_coreunit(si_t *sih);
 extern uint si_corevendor(si_t *sih);
@@ -247,25 +248,33 @@ extern int si_getdevpathintvar(si_t *sih, const char *name);
 
 
 extern uint8 si_pcieclkreq(si_t *sih, uint32 mask, uint32 val);
+extern uint32 si_pcielcreg(si_t *sih, uint32 mask, uint32 val);
 extern void si_war42780_clkreq(si_t *sih, bool clkreq);
 extern void si_pci_sleep(si_t *sih);
 extern void si_pci_down(si_t *sih);
 extern void si_pci_up(si_t *sih);
-extern void si_pcie_war_ovr_disable(si_t *sih);
+extern void si_pcie_war_ovr_update(si_t *sih, uint8 aspm);
 extern void si_pcie_extendL1timer(si_t *sih, bool extend);
 extern int si_pci_fixcfg(si_t *sih);
 extern bool si_ldo_war(si_t *sih, uint devid);
 
 /* === debug routines === */
 
+extern bool si_taclear(si_t *sih, bool details);
 
 
-
-extern uint32 si_pcieserdesreg(si_t *sih, uint32 mdioslave, uint32 offset, uint32 mask, uint32 val);
-
-extern void si_4329_tweak(si_t *sih, uint32 mask, uint32 val);
+#if defined(BCMDBG_DUMP)
+extern void si_dump(si_t *sih, struct bcmstrbuf *b);
+extern void si_ccreg_dump(si_t *sih, struct bcmstrbuf *b);
+extern void si_clkctl_dump(si_t *sih, struct bcmstrbuf *b);
+extern int si_gpiodump(si_t *sih, struct bcmstrbuf *b);
+#endif
+#if defined(BCMDBG_DUMP)
+extern void si_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif
 extern void si_4329_vbatmeas_on(si_t *sih, uint32 *save_reg0, uint32 *save_reg5);
 extern void si_4329_vbatmeas_off(si_t *sih, uint32 save_reg0, uint32 save_reg5);
-extern void si_4329_pmu_voltage(si_t *sih);
+
+extern uint32 si_pcieserdesreg(si_t *sih, uint32 mdioslave, uint32 offset, uint32 mask, uint32 val);
 
 #endif	/* _siutils_h_ */
