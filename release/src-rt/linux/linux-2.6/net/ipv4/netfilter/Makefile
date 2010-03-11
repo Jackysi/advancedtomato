@@ -90,5 +90,8 @@ obj-$(CONFIG_IP_NF_ARPFILTER) += arptable_filter.o
 
 obj-$(CONFIG_IP_NF_QUEUE) += ip_queue.o
 
+# Broadcom NAT
+obj-$(CONFIG_BCM_NAT) += bcm_nat.o
+
 obj-$(CONFIG_IP_NF_TOMATOCT) += tomato_ct.o
 

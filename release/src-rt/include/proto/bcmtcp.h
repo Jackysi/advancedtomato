@@ -1,7 +1,7 @@
 /*
  * Fundamental constants relating to TCP Protocol
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmtcp.h,v 1.2 2007/09/12 20:49:53 Exp $
+ * $Id: bcmtcp.h,v 1.2.28.1 2009/10/12 23:01:02 Exp $
  */
 
 #ifndef _bcmtcp_h_
@@ -26,6 +26,10 @@
 #define TCP_SRC_PORT_OFFSET	0	/* TCP source port offset */
 #define TCP_DEST_PORT_OFFSET	2	/* TCP dest port offset */
 #define TCP_CHKSUM_OFFSET	16	/* TCP body checksum offset */
+
+#define	TCP_FLAG_RST		0x0004
+#define	TCP_FLAG_SYN		0x0002
+#define	TCP_FLAG_FIN		0x0001
 
 /* These fields are stored in network order */
 struct bcmtcp_hdr

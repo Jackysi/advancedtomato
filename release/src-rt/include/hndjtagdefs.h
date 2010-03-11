@@ -3,7 +3,7 @@
  *
  * $Id: hndjtagdefs.h,v 13.1 2008/11/13 22:33:43 Exp $
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY

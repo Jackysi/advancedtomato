@@ -63,21 +63,21 @@ static void i2c_gpio_setscl_val(void *data, int state)
 	gpio_set_value(pdata->scl_pin, state);
 }
 
-int i2c_gpio_getsda(void *data)
+static int i2c_gpio_getsda(void *data)
 {
 	struct i2c_gpio_platform_data *pdata = data;
 
 	return gpio_get_value(pdata->sda_pin);
 }
 
-int i2c_gpio_getscl(void *data)
+static int i2c_gpio_getscl(void *data)
 {
 	struct i2c_gpio_platform_data *pdata = data;
 
 	return gpio_get_value(pdata->scl_pin);
 }
 
-static int __init i2c_gpio_probe(struct platform_device *pdev)
+static int __devinit i2c_gpio_probe(struct platform_device *pdev)
 {
 	struct i2c_gpio_platform_data *pdata;
 	struct i2c_algo_bit_data *bit_data;
@@ -140,9 +140,17 @@ static int __init i2c_gpio_probe(struct platform_device *pdev)
 	adap->owner = THIS_MODULE;
 	snprintf(adap->name, sizeof(adap->name), "i2c-gpio%d", pdev->id);
 	adap->algo_data = bit_data;
+	//adap->class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
+	adap->class = I2C_CLASS_HWMON;
 	adap->dev.parent = &pdev->dev;
 
-	ret = i2c_bit_add_bus(adap);
+	/*
+	 * If "dev->id" is negative we consider it as zero.
+	 * The reason to do so is to avoid sysfs names that only make
+	 * sense when there are multiple adapters.
+	 */
+	adap->nr = (pdev->id != -1) ? pdev->id : 0;
+	ret = i2c_bit_add_numbered_bus(adap);
 	if (ret)
 		goto err_add_bus;
 
@@ -167,7 +175,7 @@ err_alloc_adap:
 	return ret;
 }
 
-static int __exit i2c_gpio_remove(struct platform_device *pdev)
+static int __devexit i2c_gpio_remove(struct platform_device *pdev)
 {
 	struct i2c_gpio_platform_data *pdata;
 	struct i2c_adapter *adap;
@@ -189,14 +197,15 @@ static struct platform_driver i2c_gpio_driver = {
 		.name	= "i2c-gpio",
 		.owner	= THIS_MODULE,
 	},
-	.remove		= __exit_p(i2c_gpio_remove),
+	.probe		= i2c_gpio_probe,
+	.remove		= __devexit_p(i2c_gpio_remove),
 };
 
 static int __init i2c_gpio_init(void)
 {
 	int ret;
 
-	ret = platform_driver_probe(&i2c_gpio_driver, i2c_gpio_probe);
+	ret = platform_driver_register(&i2c_gpio_driver);
 	if (ret)
 		printk(KERN_ERR "i2c-gpio: probe failed: %d\n", ret);
 
@@ -213,3 +222,4 @@ module_exit(i2c_gpio_exit);
 MODULE_AUTHOR("Haavard Skinnemoen <hskinnemoen@atmel.com>");
 MODULE_DESCRIPTION("Platform-independent bitbanging I2C driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:i2c-gpio");

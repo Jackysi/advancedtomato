@@ -1,7 +1,7 @@
 /*
  * IGMP Snooping layer linux specific code
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: igs_linux.c,v 1.6 2008/08/13 20:30:23 Exp $
+ * $Id: igs_linux.c,v 1.7 2009/04/28 00:08:23 Exp $
  */
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -25,6 +25,8 @@
 #include <emf/igs/igs_cfg.h>
 #include <emf/igs/igsc_export.h>
 #include "igs_linux.h"
+
+MODULE_LICENSE("Proprietary");
 
 static igs_struct_t igs;
 
