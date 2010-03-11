@@ -479,14 +479,7 @@ main(argc, argv)
 		while (phase != PHASE_DEAD) {
 		    handle_events();
 		    get_input();
-
-#if 0
 		    if (kill_link)
-#else
-		    //wuzh add 2009-3-5 for PADT issue CTBS 13670
-		    /* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-		    if (kill_link || the_channel->check_padt_msg())
-#endif
 				lcp_close(0, "User request");
 #ifdef CCP_SUPPORT
 			if (open_ccp_flag) {

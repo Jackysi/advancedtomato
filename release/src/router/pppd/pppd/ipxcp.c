@@ -1,25 +1,48 @@
 /*
  * ipxcp.c - PPP IPX Control Protocol.
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifdef IPX_CHANGE
 
-#define RCSID	"$Id: ipxcp.c,v 1.1 2003/07/10 07:43:04 honor Exp $"
+#define RCSID	"$Id: ipxcp.c,v 1.24 2005/08/25 23:59:34 paulus Exp $"
 
 /*
  * TODO:
@@ -59,7 +82,7 @@ static void ipxcp_resetci __P((fsm *));	/* Reset our CI */
 static int  ipxcp_cilen __P((fsm *));		/* Return length of our CI */
 static void ipxcp_addci __P((fsm *, u_char *, int *)); /* Add our CI */
 static int  ipxcp_ackci __P((fsm *, u_char *, int));	/* Peer ack'd our CI */
-static int  ipxcp_nakci __P((fsm *, u_char *, int));	/* Peer nak'd our CI */
+static int  ipxcp_nakci __P((fsm *, u_char *, int, int));/* Peer nak'd our CI */
 static int  ipxcp_rejci __P((fsm *, u_char *, int));	/* Peer rej'd our CI */
 static int  ipxcp_reqci __P((fsm *, u_char *, int *, int)); /* Rcv CI */
 static void ipxcp_up __P((fsm *));		/* We're UP */
@@ -266,7 +289,7 @@ static int
 setipxnode(argv)
     char **argv;
 {
-    char *end;
+    u_char *end;
     int have_his = 0;
     u_char our_node[6];
     u_char his_node[6];
@@ -320,7 +343,7 @@ static int
 setipxname (argv)
     char **argv;
 {
-    char *dest = ipxcp_wantoptions[0].name;
+    u_char *dest = ipxcp_wantoptions[0].name;
     char *src  = *argv;
     int  count;
     char ch;
@@ -570,7 +593,7 @@ ipxcp_cilen(f)
 
     len	 = go->neg_nn	    ? CILEN_NETN     : 0;
     len += go->neg_node	    ? CILEN_NODEN    : 0;
-    len += go->neg_name	    ? CILEN_NAME + strlen (go->name) - 1 : 0;
+    len += go->neg_name	    ? CILEN_NAME + strlen ((char *)go->name) - 1 : 0;
 
     /* RFC says that defaults should not be included. */
     if (go->neg_router && to_external(go->router) != RIP_SAP)
@@ -607,7 +630,7 @@ ipxcp_addci(f, ucp, lenp)
     }
 
     if (go->neg_name) {
-	int cilen = strlen (go->name);
+	    int cilen = strlen ((char *)go->name);
 	int indx;
 	PUTCHAR (IPX_ROUTER_NAME, ucp);
 	PUTCHAR (CILEN_NAME + cilen - 1, ucp);
@@ -676,7 +699,7 @@ ipxcp_ackci(f, p, len)
     }
 
 #define ACKCINODE(opt,neg,val) ACKCICHARS(opt,neg,val,sizeof(val))
-#define ACKCINAME(opt,neg,val) ACKCICHARS(opt,neg,val,strlen(val))
+#define ACKCINAME(opt,neg,val) ACKCICHARS(opt,neg,val,strlen((char *)val))
 
 #define ACKCINETWORK(opt, neg, val) \
     if (neg) { \
@@ -740,10 +763,11 @@ ipxcp_ackci(f, p, len)
  */
 
 static int
-ipxcp_nakci(f, p, len)
+ipxcp_nakci(f, p, len, treat_as_reject)
     fsm *f;
     u_char *p;
     int len;
+    int treat_as_reject;
 {
     u_char citype, cilen, *next;
     u_short s;
@@ -754,11 +778,11 @@ ipxcp_nakci(f, p, len)
     BZERO(&no, sizeof(no));
     try = *go;
 
-    while (len > CILEN_VOID) {
+    while (len >= CILEN_VOID) {
 	GETCHAR (citype, p);
 	GETCHAR (cilen,	 p);
 	len -= cilen;
-	if (len < 0)
+	if (cilen < CILEN_VOID || len < 0)
 	    goto bad;
 	next = &p [cilen - CILEN_VOID];
 
@@ -769,7 +793,9 @@ ipxcp_nakci(f, p, len)
 	    no.neg_nn = 1;
 
 	    GETLONG(l, p);
-	    if (l && ao->accept_network)
+	    if (treat_as_reject)
+		try.neg_nn = 0;
+	    else if (l && ao->accept_network)
 		try.our_network = l;
 	    break;
 
@@ -778,8 +804,10 @@ ipxcp_nakci(f, p, len)
 		goto bad;
 	    no.neg_node = 1;
 
-	    if (!zero_node (p) && ao->accept_local &&
-		! compare_node (p, ho->his_node))
+	    if (treat_as_reject)
+		try.neg_node = 0;
+	    else if (!zero_node (p) && ao->accept_local &&
+		     ! compare_node (p, ho->his_node))
 		copy_node (p, try.our_node);
 	    break;
 
@@ -895,7 +923,7 @@ ipxcp_rejci(f, p, len)
     }
 
 #define REJCINODE(opt,neg,val) REJCICHARS(opt,neg,val,sizeof(val))
-#define REJCINAME(opt,neg,val) REJCICHARS(opt,neg,val,strlen(val))
+#define REJCINAME(opt,neg,val) REJCICHARS(opt,neg,val,strlen((char *)val))
 
 #define REJCIVOID(opt, neg) \
     if (neg && p[0] == opt) { \
@@ -1425,12 +1453,12 @@ ipxcp_script(f, script)
     argv[6]  = strremote;
     argv[7]  = strproto_lcl;
     argv[8]  = strproto_rmt;
-    argv[9]  = go->name;
-    argv[10] = ho->name;
+    argv[9]  = (char *)go->name;
+    argv[10] = (char *)ho->name;
     argv[11] = ipparam;
     argv[12] = strpid;
     argv[13] = NULL;
-    run_program(script, argv, 0, NULL, NULL);
+    run_program(script, argv, 0, NULL, NULL, 0);
 }
 
 /*
@@ -1552,7 +1580,7 @@ ipxcp_printpkt(p, plen, printer, arg)
     case TERMREQ:
 	if (len > 0 && *p >= ' ' && *p < 0x7f) {
 	    printer(arg, " ");
-	    print_string(p, len, printer, arg);
+	    print_string((char *)p, len, printer, arg);
 	    p += len;
 	    len = 0;
 	}

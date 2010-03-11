@@ -23,6 +23,7 @@ static char const RCSID[] =
 #include <signal.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <syslog.h>
 
 static void
 usage(int argc, char *argv[], int exitcode)
@@ -36,6 +37,13 @@ usage(int argc, char *argv[], int exitcode)
     fprintf(stderr, "-h                     -- Print usage\n");
     fprintf(stderr, "\nThis program is licensed under the terms of\nthe GNU General Public License, Version 2.\n");
     exit(exitcode);
+}
+
+static void
+sighandler(int signum)
+{
+    l2tp_cleanup();
+    exit(EXIT_FAILURE);
 }
 
 int
@@ -63,6 +71,7 @@ main(int argc, char *argv[])
 	}
     }
 
+    openlog(argv[0], LOG_PID, LOG_DAEMON);
     l2tp_random_init();
     l2tp_tunnel_init(es);
     l2tp_peer_init();
@@ -111,6 +120,9 @@ main(int argc, char *argv[])
 	    if (i > 2) close(i);
 	}
     }
+
+    signal(SIGTERM, sighandler);
+    signal(SIGINT, sighandler);
 
     while(1) {
 	i = Event_HandleEvent(es);

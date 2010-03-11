@@ -199,8 +199,10 @@ int igmpProxyInit() {
                     }
                 }
 
-                addVIF( Dp );
-                vifcount++;
+                if (Dp->state != IF_STATE_DISABLED) {
+                    addVIF( Dp );
+                    vifcount++;
+                }
             }
         }
 

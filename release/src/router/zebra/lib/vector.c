@@ -1,5 +1,4 @@
-/*
- * generic vector interface routine
+/* Generic vector interface routine
  * Copyright (C) 1997 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -29,7 +28,7 @@
 vector
 vector_init (unsigned int size)
 {
-  vector v = XMALLOC (MTYPE_VECTOR, sizeof (struct _vector));
+  vector v = XCALLOC (MTYPE_VECTOR, sizeof (struct _vector));
 
   /* allocate at least one slot */
   if (size == 0)
@@ -37,8 +36,7 @@ vector_init (unsigned int size)
 
   v->alloced = size;
   v->max = 0;
-  v->index = XMALLOC (MTYPE_VECTOR_INDEX, sizeof (void *) * size);
-  memset (v->index, 0, sizeof (void *) * size);
+  v->index = XCALLOC (MTYPE_VECTOR_INDEX, sizeof (void *) * size);
   return v;
 }
 
@@ -65,13 +63,13 @@ vector
 vector_copy (vector v)
 {
   unsigned int size;
-  vector new = XMALLOC (MTYPE_VECTOR, sizeof (struct _vector));
+  vector new = XCALLOC (MTYPE_VECTOR, sizeof (struct _vector));
 
   new->max = v->max;
   new->alloced = v->alloced;
 
   size = sizeof (void *) * (v->alloced);
-  new->index = XMALLOC (MTYPE_VECTOR_INDEX, size);
+  new->index = XCALLOC (MTYPE_VECTOR_INDEX, size);
   memcpy (new->index, v->index, size);
 
   return new;
@@ -142,9 +140,18 @@ vector_set_index (vector v, unsigned int i, void *val)
   return i;
 }
 
+/* Look up vector.  */
+void *
+vector_lookup (vector v, unsigned int i)
+{
+  if (i >= v->max)
+    return NULL;
+  return v->index[i];
+}
+
 /* Lookup vector, ensure it. */
 void *
-vector_lookup_index (vector v, unsigned int i)
+vector_lookup_ensure (vector v, unsigned int i)
 {
   vector_ensure (v, i);
   return v->index[i];
@@ -179,18 +186,4 @@ vector_count (vector v)
       count++;
 
   return count;
-}
-
-/* For debug, display  contents of vector */
-void
-vector_describe (FILE *fp, vector v)
-{
-  int i;
-  
-  fprintf (fp, "vecotor max : %d\n", v->max);
-  fprintf (fp, "vecotor alloced : %d\n", v->alloced);
-
-  for (i = 0; i < v->max; i++)
-    if (v->index[i] != NULL)
-      fprintf (fp, "vector [%d]: %p\n", i, vector_slot (v, i));
 }

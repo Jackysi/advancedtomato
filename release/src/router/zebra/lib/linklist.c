@@ -183,6 +183,19 @@ listnode_delete (struct list *list, void *val)
     }
 }
 
+/* Return first node's data if it is there.  */
+void *
+listnode_head (struct list *list)
+{
+  struct listnode *node;
+
+  node = list->head;
+
+  if (node)
+    return node->data;
+  return NULL;
+}
+
 /* Delete all listnode from the list. */
 void
 list_delete_all_node (struct list *list)

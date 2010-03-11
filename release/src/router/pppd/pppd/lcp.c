@@ -1,23 +1,46 @@
 /*
  * lcp.c - PPP Link Control Protocol.
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: lcp.c,v 1.3 2004/07/07 07:48:54 honor Exp $"
+#define RCSID	"$Id: lcp.c,v 1.76 2006/05/22 00:04:07 paulus Exp $"
 
 /*
  * TODO:
@@ -30,7 +53,7 @@
 #include "pppd.h"
 #include "fsm.h"
 #include "lcp.h"
-#include "chap.h"
+#include "chap-new.h"
 #include "magic.h"
 
 static const char rcsid[] = RCSID;
@@ -44,6 +67,9 @@ static const char rcsid[] = RCSID;
 #define DELAYED_UP	0x100
 
 static void lcp_delayed_up __P((void *));
+
+/* JYWeng 20031216: add to wanstatus.log */
+void saveWANStatus(char *currentstatus, int statusindex);
 
 /*
  * LCP-related command-line options.
@@ -183,7 +209,7 @@ static void lcp_resetci __P((fsm *));	/* Reset our CI */
 static int  lcp_cilen __P((fsm *));		/* Return length of our CI */
 static void lcp_addci __P((fsm *, u_char *, int *)); /* Add our CI to pkt */
 static int  lcp_ackci __P((fsm *, u_char *, int)); /* Peer ack'd our CI */
-static int  lcp_nakci __P((fsm *, u_char *, int)); /* Peer nak'd our CI */
+static int  lcp_nakci __P((fsm *, u_char *, int, int)); /* Peer nak'd our CI */
 static int  lcp_rejci __P((fsm *, u_char *, int)); /* Peer rej'd our CI */
 static int  lcp_reqci __P((fsm *, u_char *, int *, int)); /* Rcv peer CI */
 static void lcp_up __P((fsm *));		/* We're UP */
@@ -327,7 +353,6 @@ lcp_init(unit)
     wo->neg_mru = 1;
     wo->mru = DEFMRU;
     wo->neg_asyncmap = 1;
-    wo->chap_mdtype = CHAP_DIGEST_MD5;
     wo->neg_magicnumber = 1;
     wo->neg_pcompression = 1;
     wo->neg_accompression = 1;
@@ -337,14 +362,12 @@ lcp_init(unit)
     ao->mru = MAXMRU;
     ao->neg_asyncmap = 1;
     ao->neg_chap = 1;
-    ao->chap_mdtype = CHAP_DIGEST_MD5;
+    ao->chap_mdtype = chap_mdtype_all;
     ao->neg_upap = 1;
+    ao->neg_eap = 1;
     ao->neg_magicnumber = 1;
     ao->neg_pcompression = 1;
     ao->neg_accompression = 1;
-#ifdef CBCP_SUPPORT
-    ao->neg_cbcp = 1;
-#endif
     ao->neg_endpoint = 1;
 }
 
@@ -377,8 +400,9 @@ lcp_close(unit, reason)
     char *reason;
 {
     fsm *f = &lcp_fsm[unit];
+    int statusindex = 0;/* JYWeng 20031216: add to wanstatus.log */
 
-    if (phase != PHASE_DEAD)
+    if (phase != PHASE_DEAD && phase != PHASE_MASTER)
 	new_phase(PHASE_TERMINATE);
     if (f->state == STOPPED && f->flags & (OPT_PASSIVE|OPT_SILENT)) {
 	/*
@@ -391,7 +415,17 @@ lcp_close(unit, reason)
 	lcp_finished(f);
 
     } else
-	fsm_close(&lcp_fsm[unit], reason);
+	fsm_close(f, reason);
+/* JYWeng 20031216: add to wanstatus.log */
+    if(strstr(reason, "Link inactive")) {
+	    statusindex = 1;
+	    saveWANStatus("Terminating connection due to lack of activity.", statusindex);
+    }
+    else {
+	    statusindex = 2;
+	    saveWANStatus(reason, statusindex);
+    }
+/* JYWeng 20031216: add to wanstatus.log */
 }
 
 
@@ -410,9 +444,10 @@ lcp_lowerup(unit)
      * but accept A/C and protocol compressed packets
      * if we are going to ask for A/C and protocol compression.
      */
-    ppp_send_config(unit, PPP_MRU, 0xffffffff, 0, 0);
-    ppp_recv_config(unit, PPP_MRU, (lax_recv? 0: 0xffffffff),
-		    wo->neg_pcompression, wo->neg_accompression);
+    if (ppp_send_config(unit, PPP_MRU, 0xffffffff, 0, 0) < 0
+	|| ppp_recv_config(unit, PPP_MRU, (lax_recv? 0: 0xffffffff),
+			   wo->neg_pcompression, wo->neg_accompression) < 0)
+	    return;
     peer_mru[unit] = PPP_MRU;
 
     if (listen_time != 0) {
@@ -473,7 +508,6 @@ lcp_input(unit, p, len)
     fsm_input(f, p, len);
 }
 
-
 /*
  * lcp_extcode - Handle a LCP-specific code.
  */
@@ -504,6 +538,8 @@ lcp_extcode(f, code, id, inp, len)
 	break;
 
     case DISCREQ:
+    case IDENTIF:
+    case TIMEREM:
 	break;
 
     default:
@@ -527,6 +563,7 @@ lcp_rprotrej(f, inp, len)
     int i;
     struct protent *protp;
     u_short prot;
+    const char *pname;
 
     if (len < 2) {
 	LCPDEBUG(("lcp_rprotrej: Rcvd short Protocol-Reject packet!"));
@@ -544,16 +581,27 @@ lcp_rprotrej(f, inp, len)
 	return;
     }
 
+    pname = protocol_name(prot);
+
     /*
      * Upcall the proper Protocol-Reject routine.
      */
     for (i = 0; (protp = protocols[i]) != NULL; ++i)
 	if (protp->protocol == prot && protp->enabled_flag) {
+	    if (pname == NULL)
+		dbglog("Protocol-Reject for 0x%x received", prot);
+	    else
+		dbglog("Protocol-Reject for '%s' (0x%x) received", pname,
+		       prot);
 	    (*protp->protrej)(f->unit);
 	    return;
 	}
 
-    warn("Protocol-Reject for unsupported protocol 0x%x", prot);
+    if (pname == NULL)
+	warn("Protocol-Reject for unsupported protocol 0x%x", prot);
+    else
+	warn("Protocol-Reject for unsupported protocol '%s' (0x%x)", pname,
+	     prot);
 }
 
 
@@ -636,13 +684,15 @@ lcp_cilen(f)
 #define LENCILQR(neg)	((neg) ? CILEN_LQR: 0)
 #define LENCICBCP(neg)	((neg) ? CILEN_CBCP: 0)
     /*
-     * NB: we only ask for one of CHAP and UPAP, even if we will
-     * accept either.
+     * NB: we only ask for one of CHAP, UPAP, or EAP, even if we will
+     * accept more than one.  We prefer EAP first, then CHAP, then
+     * PAP.
      */
     return (LENCISHORT(go->neg_mru && go->mru != DEFMRU) +
 	    LENCILONG(go->neg_asyncmap && go->asyncmap != 0xFFFFFFFF) +
-	    LENCICHAP(go->neg_chap) +
-	    LENCISHORT(!go->neg_chap && go->neg_upap) +
+	    LENCISHORT(go->neg_eap) +
+	    LENCICHAP(!go->neg_eap && go->neg_chap) +
+	    LENCISHORT(!go->neg_eap && !go->neg_chap && go->neg_upap) +
 	    LENCILQR(go->neg_lqr) +
 	    LENCICBCP(go->neg_cbcp) +
 	    LENCILONG(go->neg_magicnumber) +
@@ -677,12 +727,12 @@ lcp_addci(f, ucp, lenp)
 	PUTCHAR(CILEN_SHORT, ucp); \
 	PUTSHORT(val, ucp); \
     }
-#define ADDCICHAP(opt, neg, val, digest) \
+#define ADDCICHAP(opt, neg, val) \
     if (neg) { \
-	PUTCHAR(opt, ucp); \
+	PUTCHAR((opt), ucp); \
 	PUTCHAR(CILEN_CHAP, ucp); \
-	PUTSHORT(val, ucp); \
-	PUTCHAR(digest, ucp); \
+	PUTSHORT(PPP_CHAP, ucp); \
+	PUTCHAR((CHAP_DIGEST(val)), ucp); \
     }
 #define ADDCILONG(opt, neg, val) \
     if (neg) { \
@@ -716,8 +766,10 @@ lcp_addci(f, ucp, lenp)
     ADDCISHORT(CI_MRU, go->neg_mru && go->mru != DEFMRU, go->mru);
     ADDCILONG(CI_ASYNCMAP, go->neg_asyncmap && go->asyncmap != 0xFFFFFFFF,
 	      go->asyncmap);
-    ADDCICHAP(CI_AUTHTYPE, go->neg_chap, PPP_CHAP, go->chap_mdtype);
-    ADDCISHORT(CI_AUTHTYPE, !go->neg_chap && go->neg_upap, PPP_PAP);
+    ADDCISHORT(CI_AUTHTYPE, go->neg_eap, PPP_EAP);
+    ADDCICHAP(CI_AUTHTYPE, !go->neg_eap && go->neg_chap, go->chap_mdtype);
+    ADDCISHORT(CI_AUTHTYPE, !go->neg_eap && !go->neg_chap && go->neg_upap,
+	       PPP_PAP);
     ADDCILQR(CI_QUALITY, go->neg_lqr, go->lqr_period);
     ADDCICHAR(CI_CALLBACK, go->neg_cbcp, CBCP_OPT);
     ADDCILONG(CI_MAGICNUMBER, go->neg_magicnumber, go->magicnumber);
@@ -795,20 +847,20 @@ lcp_ackci(f, p, len)
 	if (cichar != val) \
 	    goto bad; \
     }
-#define ACKCICHAP(opt, neg, val, digest) \
+#define ACKCICHAP(opt, neg, val) \
     if (neg) { \
 	if ((len -= CILEN_CHAP) < 0) \
 	    goto bad; \
 	GETCHAR(citype, p); \
 	GETCHAR(cilen, p); \
 	if (cilen != CILEN_CHAP || \
-	    citype != opt) \
+	    citype != (opt)) \
 	    goto bad; \
 	GETSHORT(cishort, p); \
-	if (cishort != val) \
+	if (cishort != PPP_CHAP) \
 	    goto bad; \
 	GETCHAR(cichar, p); \
-	if (cichar != digest) \
+	if (cichar != (CHAP_DIGEST(val))) \
 	  goto bad; \
     }
 #define ACKCILONG(opt, neg, val) \
@@ -863,8 +915,10 @@ lcp_ackci(f, p, len)
     ACKCISHORT(CI_MRU, go->neg_mru && go->mru != DEFMRU, go->mru);
     ACKCILONG(CI_ASYNCMAP, go->neg_asyncmap && go->asyncmap != 0xFFFFFFFF,
 	      go->asyncmap);
-    ACKCICHAP(CI_AUTHTYPE, go->neg_chap, PPP_CHAP, go->chap_mdtype);
-    ACKCISHORT(CI_AUTHTYPE, !go->neg_chap && go->neg_upap, PPP_PAP);
+    ACKCISHORT(CI_AUTHTYPE, go->neg_eap, PPP_EAP);
+    ACKCICHAP(CI_AUTHTYPE, !go->neg_eap && go->neg_chap, go->chap_mdtype);
+    ACKCISHORT(CI_AUTHTYPE, !go->neg_eap && !go->neg_chap && go->neg_upap,
+	       PPP_PAP);
     ACKCILQR(CI_QUALITY, go->neg_lqr, go->lqr_period);
     ACKCICHAR(CI_CALLBACK, go->neg_cbcp, CBCP_OPT);
     ACKCILONG(CI_MAGICNUMBER, go->neg_magicnumber, go->magicnumber);
@@ -897,10 +951,11 @@ bad:
  *	1 - Nak was good.
  */
 static int
-lcp_nakci(f, p, len)
+lcp_nakci(f, p, len, treat_as_reject)
     fsm *f;
     u_char *p;
     int len;
+    int treat_as_reject;
 {
     lcp_options *go = &lcp_gotoptions[f->unit];
     lcp_options *wo = &lcp_wantoptions[f->unit];
@@ -1000,6 +1055,10 @@ lcp_nakci(f, p, len)
     }
 
     /*
+     * NOTE!  There must be no assignments to individual fields of *go in
+     * the code below.  Any such assignment is a BUG!
+     */
+    /*
      * We don't care if they want to send us smaller packets than
      * we want.  Therefore, accept any MRU less than what we asked for,
      * but then ignore the new value when setting the MRU in the kernel.
@@ -1027,41 +1086,60 @@ lcp_nakci(f, p, len)
      * they are proposing a different protocol, or a different
      * hash algorithm for CHAP.
      */
-    if ((go->neg_chap || go->neg_upap)
+    if ((go->neg_chap || go->neg_upap || go->neg_eap)
 	&& len >= CILEN_SHORT
 	&& p[0] == CI_AUTHTYPE && p[1] >= CILEN_SHORT && p[1] <= len) {
 	cilen = p[1];
 	len -= cilen;
 	no.neg_chap = go->neg_chap;
 	no.neg_upap = go->neg_upap;
+	no.neg_eap = go->neg_eap;
 	INCPTR(2, p);
-        GETSHORT(cishort, p);
+	GETSHORT(cishort, p);
 	if (cishort == PPP_PAP && cilen == CILEN_SHORT) {
+	    /* If we were asking for EAP, then we need to stop that. */
+	    if (go->neg_eap)
+		try.neg_eap = 0;
+
+	    /* If we were asking for CHAP, then we need to stop that. */
+	    else if (go->neg_chap)
+		try.neg_chap = 0;
 	    /*
-	     * If we were asking for CHAP, they obviously don't want to do it.
-	     * If we weren't asking for CHAP, then we were asking for PAP,
-	     * in which case this Nak is bad.
+	     * If we weren't asking for CHAP or EAP, then we were asking for
+	     * PAP, in which case this Nak is bad.
 	     */
-	    if (!go->neg_chap)
+	    else
 		goto bad;
-	    try.neg_chap = 0;
 
 	} else if (cishort == PPP_CHAP && cilen == CILEN_CHAP) {
 	    GETCHAR(cichar, p);
-	    if (go->neg_chap) {
+	    /* Stop asking for EAP, if we were. */
+	    if (go->neg_eap) {
+		try.neg_eap = 0;
+		/* Try to set up to use their suggestion, if possible */
+		if (CHAP_CANDIGEST(go->chap_mdtype, cichar))
+		    try.chap_mdtype = CHAP_MDTYPE_D(cichar);
+	    } else if (go->neg_chap) {
 		/*
-		 * We were asking for CHAP/MD5; they must want a different
-		 * algorithm.  If they can't do MD5, we can ask for M$-CHAP
-		 * if we support it, otherwise we'll have to stop
-		 * asking for CHAP.
+		 * We were asking for our preferred algorithm, they must
+		 * want something different.
 		 */
-		if (cichar != go->chap_mdtype) {
-#ifdef CHAPMS
-		    if (cichar == CHAP_MICROSOFT)
-			go->chap_mdtype = CHAP_MICROSOFT;
-		    else
-#endif /* CHAPMS */
-			try.neg_chap = 0;
+		if (cichar != CHAP_DIGEST(go->chap_mdtype)) {
+		    if (CHAP_CANDIGEST(go->chap_mdtype, cichar)) {
+			/* Use their suggestion if we support it ... */
+			try.chap_mdtype = CHAP_MDTYPE_D(cichar);
+		    } else {
+			/* ... otherwise, try our next-preferred algorithm. */
+			try.chap_mdtype &= ~(CHAP_MDTYPE(try.chap_mdtype));
+			if (try.chap_mdtype == MDTYPE_NONE) /* out of algos */
+			    try.neg_chap = 0;
+		    }
+		} else {
+		    /*
+		     * Whoops, they Nak'd our algorithm of choice
+		     * but then suggested it back to us.
+		     */
+		    goto bad;
 		}
 	    } else {
 		/*
@@ -1071,11 +1149,21 @@ lcp_nakci(f, p, len)
 	    }
 
 	} else {
+
+	    /*
+	     * If we were asking for EAP, and they're Conf-Naking EAP,
+	     * well, that's just strange.  Nobody should do that.
+	     */
+	    if (cishort == PPP_EAP && cilen == CILEN_SHORT && go->neg_eap)
+		dbglog("Unexpected Conf-Nak for EAP");
+
 	    /*
 	     * We don't recognize what they're suggesting.
 	     * Stop asking for what we were asking for.
 	     */
-	    if (go->neg_chap)
+	    if (go->neg_eap)
+		try.neg_eap = 0;
+	    else if (go->neg_chap)
 		try.neg_chap = 0;
 	    else
 		try.neg_upap = 0;
@@ -1124,7 +1212,9 @@ lcp_nakci(f, p, len)
      */
     if (go->neg_mrru) {
 	NAKCISHORT(CI_MRRU, neg_mrru,
-		   if (cishort <= wo->mrru)
+		   if (treat_as_reject)
+		       try.neg_mrru = 0;
+		   else if (cishort <= wo->mrru)
 		       try.mrru = cishort;
 		   );
     }
@@ -1157,7 +1247,7 @@ lcp_nakci(f, p, len)
      * An option we don't recognize represents the peer asking to
      * negotiate some option we don't support, so ignore it.
      */
-    while (len > CILEN_VOID) {
+    while (len >= CILEN_VOID) {
 	GETCHAR(citype, p);
 	GETCHAR(cilen, p);
 	if (cilen < CILEN_VOID || (len -= cilen) < 0)
@@ -1181,7 +1271,8 @@ lcp_nakci(f, p, len)
 		goto bad;
 	    break;
 	case CI_AUTHTYPE:
-	    if (go->neg_chap || no.neg_chap || go->neg_upap || no.neg_upap)
+	    if (go->neg_chap || no.neg_chap || go->neg_upap || no.neg_upap ||
+		go->neg_eap || no.neg_eap)
 		goto bad;
 	    break;
 	case CI_MAGICNUMBER:
@@ -1228,8 +1319,8 @@ lcp_nakci(f, p, len)
 	if (looped_back) {
 	    if (++try.numloops >= lcp_loopbackfail) {
 		notice("Serial line is looped back.");
-		lcp_close(f->unit, "Loopback detected");
 		status = EXIT_LOOPBACK;
+		lcp_close(f->unit, "Loopback detected");
 	    }
 	} else
 	    try.numloops = 0;
@@ -1294,7 +1385,7 @@ lcp_rejci(f, p, len)
 	    goto bad; \
 	try.neg = 0; \
     }
-#define REJCICHAP(opt, neg, val, digest) \
+#define REJCICHAP(opt, neg, val) \
     if (go->neg && \
 	len >= CILEN_CHAP && \
 	p[1] == CILEN_CHAP && \
@@ -1304,10 +1395,10 @@ lcp_rejci(f, p, len)
 	GETSHORT(cishort, p); \
 	GETCHAR(cichar, p); \
 	/* Check rejected value. */ \
-	if (cishort != val || cichar != digest) \
+	if ((cishort != PPP_CHAP) || (cichar != (CHAP_DIGEST(val)))) \
 	    goto bad; \
 	try.neg = 0; \
-	try.neg_upap = 0; \
+	try.neg_eap = try.neg_upap = 0; \
     }
 #define REJCILONG(opt, neg, val) \
     if (go->neg && \
@@ -1370,9 +1461,12 @@ lcp_rejci(f, p, len)
 
     REJCISHORT(CI_MRU, neg_mru, go->mru);
     REJCILONG(CI_ASYNCMAP, neg_asyncmap, go->asyncmap);
-    REJCICHAP(CI_AUTHTYPE, neg_chap, PPP_CHAP, go->chap_mdtype);
-    if (!go->neg_chap) {
-	REJCISHORT(CI_AUTHTYPE, neg_upap, PPP_PAP);
+    REJCISHORT(CI_AUTHTYPE, neg_eap, PPP_EAP);
+    if (!go->neg_eap) {
+	REJCICHAP(CI_AUTHTYPE, neg_chap, go->chap_mdtype);
+	if (!go->neg_chap) {
+	    REJCISHORT(CI_AUTHTYPE, neg_upap, PPP_PAP);
+	}
     }
     REJCILQR(CI_QUALITY, neg_lqr, go->lqr_period);
     REJCICBCP(CI_CALLBACK, neg_cbcp, CBCP_OPT);
@@ -1509,89 +1603,126 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 
 	case CI_AUTHTYPE:
 	    if (cilen < CILEN_SHORT ||
-		!(ao->neg_upap || ao->neg_chap)) {
+		!(ao->neg_upap || ao->neg_chap || ao->neg_eap)) {
 		/*
 		 * Reject the option if we're not willing to authenticate.
 		 */
+		dbglog("No auth is possible");
 		orc = CONFREJ;
 		break;
 	    }
 	    GETSHORT(cishort, p);
 
 	    /*
-	     * Authtype must be PAP or CHAP.
+	     * Authtype must be PAP, CHAP, or EAP.
 	     *
-	     * Note: if both ao->neg_upap and ao->neg_chap are set,
-	     * and the peer sends a Configure-Request with two
-	     * authenticate-protocol requests, one for CHAP and one
-	     * for UPAP, then we will reject the second request.
-	     * Whether we end up doing CHAP or UPAP depends then on
+	     * Note: if more than one of ao->neg_upap, ao->neg_chap, and
+	     * ao->neg_eap are set, and the peer sends a Configure-Request
+	     * with two or more authenticate-protocol requests, then we will
+	     * reject the second request.
+	     * Whether we end up doing CHAP, UPAP, or EAP depends then on
 	     * the ordering of the CIs in the peer's Configure-Request.
-	     */
+             */
 
 	    if (cishort == PPP_PAP) {
-		if (ho->neg_chap ||	/* we've already accepted CHAP */
+		/* we've already accepted CHAP or EAP */
+		if (ho->neg_chap || ho->neg_eap ||
 		    cilen != CILEN_SHORT) {
 		    LCPDEBUG(("lcp_reqci: rcvd AUTHTYPE PAP, rejecting..."));
 		    orc = CONFREJ;
 		    break;
 		}
 		if (!ao->neg_upap) {	/* we don't want to do PAP */
-		    orc = CONFNAK;	/* NAK it and suggest CHAP */
+		    orc = CONFNAK;	/* NAK it and suggest CHAP or EAP */
 		    PUTCHAR(CI_AUTHTYPE, nakp);
-		    PUTCHAR(CILEN_CHAP, nakp);
-		    PUTSHORT(PPP_CHAP, nakp);
-		    PUTCHAR(ao->chap_mdtype, nakp);
-		    /* XXX if we can do CHAP_MICROSOFT as well, we should
-		       probably put in another option saying so */
+		    if (ao->neg_eap) {
+			PUTCHAR(CILEN_SHORT, nakp);
+			PUTSHORT(PPP_EAP, nakp);
+		    } else {
+			PUTCHAR(CILEN_CHAP, nakp);
+			PUTSHORT(PPP_CHAP, nakp);
+			PUTCHAR(CHAP_DIGEST(ao->chap_mdtype), nakp);
+		    }
 		    break;
 		}
 		ho->neg_upap = 1;
 		break;
 	    }
 	    if (cishort == PPP_CHAP) {
-		if (ho->neg_upap ||	/* we've already accepted PAP */
+		/* we've already accepted PAP or EAP */
+		if (ho->neg_upap || ho->neg_eap ||
 		    cilen != CILEN_CHAP) {
 		    LCPDEBUG(("lcp_reqci: rcvd AUTHTYPE CHAP, rejecting..."));
 		    orc = CONFREJ;
 		    break;
 		}
 		if (!ao->neg_chap) {	/* we don't want to do CHAP */
-		    orc = CONFNAK;	/* NAK it and suggest PAP */
+		    orc = CONFNAK;	/* NAK it and suggest EAP or PAP */
 		    PUTCHAR(CI_AUTHTYPE, nakp);
 		    PUTCHAR(CILEN_SHORT, nakp);
-		    PUTSHORT(PPP_PAP, nakp);
+		    if (ao->neg_eap) {
+			PUTSHORT(PPP_EAP, nakp);
+		    } else {
+			PUTSHORT(PPP_PAP, nakp);
+		    }
 		    break;
 		}
-		GETCHAR(cichar, p);	/* get digest type*/
-		if (cichar != CHAP_DIGEST_MD5
-#ifdef CHAPMS
-		    && cichar != CHAP_MICROSOFT
-#endif
-		    ) {
+		GETCHAR(cichar, p);	/* get digest type */
+		if (!(CHAP_CANDIGEST(ao->chap_mdtype, cichar))) {
+		    /*
+		     * We can't/won't do the requested type,
+		     * suggest something else.
+		     */
 		    orc = CONFNAK;
 		    PUTCHAR(CI_AUTHTYPE, nakp);
 		    PUTCHAR(CILEN_CHAP, nakp);
 		    PUTSHORT(PPP_CHAP, nakp);
-		    PUTCHAR(ao->chap_mdtype, nakp);
+		    PUTCHAR(CHAP_DIGEST(ao->chap_mdtype), nakp);
 		    break;
 		}
-		ho->chap_mdtype = cichar; /* save md type */
+		ho->chap_mdtype = CHAP_MDTYPE_D(cichar); /* save md type */
 		ho->neg_chap = 1;
+		break;
+	    }
+	    if (cishort == PPP_EAP) {
+		/* we've already accepted CHAP or PAP */
+		if (ho->neg_chap || ho->neg_upap || cilen != CILEN_SHORT) {
+		    LCPDEBUG(("lcp_reqci: rcvd AUTHTYPE EAP, rejecting..."));
+		    orc = CONFREJ;
+		    break;
+		}
+		if (!ao->neg_eap) {	/* we don't want to do EAP */
+		    orc = CONFNAK;	/* NAK it and suggest CHAP or PAP */
+		    PUTCHAR(CI_AUTHTYPE, nakp);
+		    if (ao->neg_chap) {
+			PUTCHAR(CILEN_CHAP, nakp);
+			PUTSHORT(PPP_CHAP, nakp);
+			PUTCHAR(CHAP_DIGEST(ao->chap_mdtype), nakp);
+		    } else {
+			PUTCHAR(CILEN_SHORT, nakp);
+			PUTSHORT(PPP_PAP, nakp);
+		    }
+		    break;
+		}
+		ho->neg_eap = 1;
 		break;
 	    }
 
 	    /*
 	     * We don't recognize the protocol they're asking for.
 	     * Nak it with something we're willing to do.
-	     * (At this point we know ao->neg_upap || ao->neg_chap.)
+	     * (At this point we know ao->neg_upap || ao->neg_chap ||
+	     * ao->neg_eap.)
 	     */
 	    orc = CONFNAK;
 	    PUTCHAR(CI_AUTHTYPE, nakp);
-	    if (ao->neg_chap) {
+	    if (ao->neg_eap) {
+		PUTCHAR(CILEN_SHORT, nakp);
+		PUTSHORT(PPP_EAP, nakp);
+	    } else if (ao->neg_chap) {
 		PUTCHAR(CILEN_CHAP, nakp);
 		PUTSHORT(PPP_CHAP, nakp);
-		PUTCHAR(ao->chap_mdtype, nakp);
+		PUTCHAR(CHAP_DIGEST(ao->chap_mdtype), nakp);
 	    } else {
 		PUTCHAR(CILEN_SHORT, nakp);
 		PUTSHORT(PPP_PAP, nakp);
@@ -1771,8 +1902,7 @@ lcp_up(f)
     lcp_options *ho = &lcp_hisoptions[f->unit];
     lcp_options *go = &lcp_gotoptions[f->unit];
     lcp_options *ao = &lcp_allowoptions[f->unit];
-    int mtu;
-    char runmtu[10];
+    int mtu, mru;
 
     if (!go->neg_magicnumber)
 	go->magicnumber = 0;
@@ -1785,20 +1915,19 @@ lcp_up(f)
      * set our MRU to the larger of value we wanted and
      * the value we got in the negotiation.
      * Note on the MTU: the link MTU can be the MRU the peer wanted,
-     * the interface MTU is set to the lower of that and the
-     * MTU we want to use.
+     * the interface MTU is set to the lowest of that, the
+     * MTU we want to use, and our link MRU.
      */
     mtu = MIN(ho->neg_mru? ho->mru: PPP_MRU, ao->mru);
-    sprintf(runmtu, "%d", mtu);	// by honor 20040618
-    script_setenv("MTU", runmtu, 1);
+    mru = go->neg_mru? MAX(wo->mru, go->mru): PPP_MRU;
 #ifdef HAVE_MULTILINK
     if (!(multilink && go->neg_mrru && ho->neg_mrru))
 #endif /* HAVE_MULTILINK */
-	netif_set_mtu(f->unit, mtu);
+	netif_set_mtu(f->unit, MIN(mtu, mru));
     ppp_send_config(f->unit, mtu,
 		    (ho->neg_asyncmap? ho->asyncmap: 0xffffffff),
 		    ho->neg_pcompression, ho->neg_accompression);
-    ppp_recv_config(f->unit, (go->neg_mru? MAX(wo->mru, go->mru): PPP_MRU),
+    ppp_recv_config(f->unit, mru,
 		    (lax_recv? 0: go->neg_asyncmap? go->asyncmap: 0xffffffff),
 		    go->neg_pcompression, go->neg_accompression);
 
@@ -1862,7 +1991,8 @@ lcp_finished(f)
 static char *lcp_codenames[] = {
     "ConfReq", "ConfAck", "ConfNak", "ConfRej",
     "TermReq", "TermAck", "CodeRej", "ProtRej",
-    "EchoReq", "EchoRep", "DiscReq"
+    "EchoReq", "EchoRep", "DiscReq", "Ident",
+    "TimeRem"
 };
 
 static int
@@ -1936,18 +2066,24 @@ lcp_printpkt(p, plen, printer, arg)
 			printer(arg, "chap");
 			if (p < optend) {
 			    switch (*p) {
-			    case CHAP_DIGEST_MD5:
+			    case CHAP_MD5:
 				printer(arg, " MD5");
 				++p;
 				break;
-#ifdef CHAPMS
 			    case CHAP_MICROSOFT:
-				printer(arg, " m$oft");
+				printer(arg, " MS");
 				++p;
 				break;
-#endif
+
+			    case CHAP_MICROSOFT_V2:
+				printer(arg, " MS-v2");
+				++p;
+				break;
 			    }
 			}
+			break;
+		    case PPP_EAP:
+			printer(arg, "eap");
 			break;
 		    default:
 			printer(arg, "0x%x", cishort);
@@ -2058,8 +2194,29 @@ lcp_printpkt(p, plen, printer, arg)
 	if (len >= 4) {
 	    GETLONG(cilong, p);
 	    printer(arg, " magic=0x%x", cilong);
-	    p += 4;
 	    len -= 4;
+	}
+	break;
+
+    case IDENTIF:
+    case TIMEREM:
+	if (len >= 4) {
+	    GETLONG(cilong, p);
+	    printer(arg, " magic=0x%x", cilong);
+	    len -= 4;
+	}
+	if (code == TIMEREM) {
+	    if (len < 4)
+		break;
+	    GETLONG(cilong, p);
+	    printer(arg, " seconds=%u", cilong);
+	    len -= 4;
+	}
+	if (len > 0) {
+	    printer(arg, " ");
+	    print_string((char *)p, len, printer, arg);
+	    p += len;
+	    len = 0;
 	}
 	break;
     }
@@ -2088,8 +2245,8 @@ void LcpLinkFailure (f)
     if (f->state == OPENED) {
 	info("No response to %d echo-requests", lcp_echos_pending);
         notice("Serial link appears to be disconnected.");
-        lcp_close(f->unit, "Peer not responding");
 	status = EXIT_PEER_DEAD;
+	lcp_close(f->unit, "Peer not responding");
     }
 }
 

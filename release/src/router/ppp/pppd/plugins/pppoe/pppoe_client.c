@@ -176,11 +176,6 @@ int client_init_ses (struct session *ses, char* devnam)
 		if (disc_sock < 0){
 		    poe_fatal(ses, "Cannot create PF_PACKET socket for PPPoE discovery\n");
 		}
-		/* wuzh add 2009-3-5 for CTBS 13670 */
-		/* 1.3.9 DUT doesn't disconnect immediate after received PADT from server. It wait for 240 sec. */
-		if (!set_disc_sock_nonblock()) {
-		    poe_fatal(ses, "Cannot set PF_PACKET socket to nonblock for PPPoE discovery\n");
-		}
     }
     
     /* Check for long format */

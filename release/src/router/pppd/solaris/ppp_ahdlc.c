@@ -18,30 +18,38 @@
  * ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR
  * DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES
  *
- * Copyright (c) 1994 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1994 Paul Mackerras. All rights reserved.
  *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, provided that the above copyright
- * notice appears in all copies.  This software is provided without any
- * warranty, express or implied. The Australian National University
- * makes no representations about the suitability of this software for
- * any purpose.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
- * THE AUSTRALIAN NATIONAL UNIVERSITY HAS BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
- * OR MODIFICATIONS.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
  *
- * $Id: ppp_ahdlc.c,v 1.1 2003/07/10 07:43:05 honor Exp $
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * $Id: ppp_ahdlc.c,v 1.5 2005/06/27 00:59:57 carlsonj Exp $
  */
 
 /*
@@ -50,6 +58,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stream.h>
+#include <sys/stropts.h>
 #include <sys/errno.h>
 
 #ifdef SVR4
@@ -74,6 +83,14 @@
 #if defined(SOL2)
 #define USE_MUTEX
 #endif /* SOL2 */
+
+#ifdef USE_MUTEX
+#define	MUTEX_ENTER(x)	mutex_enter(x)
+#define	MUTEX_EXIT(x)	mutex_exit(x)
+#else
+#define	MUTEX_ENTER(x)
+#define	MUTEX_EXIT(x)
+#endif
 
 /*
  * intpointer_t and uintpointer_t are signed and unsigned integer types 
@@ -236,6 +253,7 @@ static u_int32_t paritytab[8] =
 MOD_OPEN(ahdlc_open)
 {
     ahdlc_state_t   *state;
+    mblk_t *mp;
 
     /*
      * Return if it's already opened
@@ -248,7 +266,7 @@ MOD_OPEN(ahdlc_open)
      * This can only be opened as a module
      */
     if (sflag != MODOPEN) {
-	return 0;
+	OPEN_ERROR(EINVAL);
     }
 
     state = (ahdlc_state_t *) ALLOC_NOSLEEP(sizeof(ahdlc_state_t));
@@ -261,7 +279,6 @@ MOD_OPEN(ahdlc_open)
 
 #if defined(USE_MUTEX)
     mutex_init(&state->lock, NULL, MUTEX_DEFAULT, NULL);
-    mutex_enter(&state->lock);
 #endif /* USE_MUTEX */
 
     state->xaccm[0] = ~0;	    /* escape 0x00 through 0x1f */
@@ -271,16 +288,18 @@ MOD_OPEN(ahdlc_open)
     state->flag_time = drv_usectohz(FLAG_TIME);
 #endif /* SOL2 */
 
-#if defined(USE_MUTEX)
-    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */	
-
 #if defined(SUNOS4)
     ppp_ahdlc_count++;
 #endif /* SUNOS4 */
 
     qprocson(q);
-    
+
+    if ((mp = allocb(1, BPRI_HI)) != NULL) {
+	    mp->b_datap->db_type = M_FLUSH;
+	    *mp->b_wptr++ = FLUSHR;
+	    putnext(q, mp);
+    }
+
     return 0;
 }
 
@@ -300,17 +319,12 @@ MOD_CLOSE(ahdlc_close)
 	return 0;
     }
 
-#if defined(USE_MUTEX)
-    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
-
     if (state->rx_buf != 0) {
 	freemsg(state->rx_buf);
 	state->rx_buf = 0;
     }
 
 #if defined(USE_MUTEX)
-    mutex_exit(&state->lock);
     mutex_destroy(&state->lock);
 #endif /* USE_MUTEX */
 
@@ -370,16 +384,12 @@ ahdlc_wput(q, mp)
 		DPRINT1("ahdlc_wput/%d: PPPIO_XACCM b_cont = 0!\n", state->unit);
 		break;
 	    }
-#if defined(USE_MUTEX)
-	    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_ENTER(&state->lock);
 	    bcopy((caddr_t)mp->b_cont->b_rptr, (caddr_t)state->xaccm,
 		  iop->ioc_count);
 	    state->xaccm[2] &= ~0x40000000;	/* don't escape 0x5e */
 	    state->xaccm[3] |= 0x60000000;	/* do escape 0x7d, 0x7e */
-#if defined(USE_MUTEX)
-	    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_EXIT(&state->lock);
 	    iop->ioc_count = 0;
 	    error = 0;
 	    break;
@@ -391,14 +401,10 @@ ahdlc_wput(q, mp)
 		DPRINT1("ahdlc_wput/%d: PPPIO_RACCM b_cont = 0!\n", state->unit);
 		break;
 	    }
-#if defined(USE_MUTEX)
-	    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_ENTER(&state->lock);
 	    bcopy((caddr_t)mp->b_cont->b_rptr, (caddr_t)&state->raccm,
 		  sizeof(u_int32_t));
-#if defined(USE_MUTEX)
-	    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_EXIT(&state->lock);
 	    iop->ioc_count = 0;
 	    error = 0;
 	    break;
@@ -412,13 +418,9 @@ ahdlc_wput(q, mp)
 	    if (mp->b_cont != 0)
 		freemsg(mp->b_cont);
 	    mp->b_cont = np;
-#if defined(USE_MUTEX)
-	    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_ENTER(&state->lock);
 	    *(int *)np->b_wptr = state->flags & RCV_FLAGS;
-#if defined(USE_MUTEX)
-	    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_EXIT(&state->lock);
 	    np->b_wptr += sizeof(int);
 	    iop->ioc_count = sizeof(int);
 	    error = 0;
@@ -467,37 +469,25 @@ ahdlc_wput(q, mp)
     case M_CTL:
 	switch (*mp->b_rptr) {
 	case PPPCTL_MTU:
-#if defined(USE_MUTEX)
-	    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_ENTER(&state->lock);
 	    state->mtu = ((unsigned short *)mp->b_rptr)[1];
-#if defined(USE_MUTEX)
-	    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
-	    freemsg(mp);
+	    MUTEX_EXIT(&state->lock);
 	    break;
 	case PPPCTL_MRU:
-#if defined(USE_MUTEX)
-	    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_ENTER(&state->lock);
 	    state->mru = ((unsigned short *)mp->b_rptr)[1];
-#if defined(USE_MUTEX)
-	    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
-	    freemsg(mp);
+	    MUTEX_EXIT(&state->lock);
 	    break;
 	case PPPCTL_UNIT:
-#if defined(USE_MUTEX)
-	    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_ENTER(&state->lock);
 	    state->unit = mp->b_rptr[1];
-#if defined(USE_MUTEX)
-	    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+	    MUTEX_EXIT(&state->lock);
 	    break;
 	default:
 	    putnext(q, mp);
+	    return 0;
 	}
+	freemsg(mp);
 	break;
 
     default:
@@ -527,22 +517,17 @@ ahdlc_rput(q, mp)
     switch (mp->b_datap->db_type) {
     case M_DATA:
 	ahdlc_decode(q, mp);
-	freemsg(mp);
 	break;
 
     case M_HANGUP:
-#if defined(USE_MUTEX)
-	mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+	MUTEX_ENTER(&state->lock);
 	if (state->rx_buf != 0) {
 	    /* XXX would like to send this up for debugging */
 	    freemsg(state->rx_buf);
 	    state->rx_buf = 0;
 	}
 	state->flags = IFLUSH;
-#if defined(USE_MUTEX)
-	mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+	MUTEX_EXIT(&state->lock);
 	putnext(q, mp);
 	break;
 
@@ -578,9 +563,7 @@ ahdlc_encode(q, mp)
     }
 
     state = (ahdlc_state_t *)q->q_ptr;
-#if defined(USE_MUTEX)
-    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+    MUTEX_ENTER(&state->lock);
 
     /*
      * Allocate an output buffer large enough to handle a case where all
@@ -593,9 +576,7 @@ ahdlc_encode(q, mp)
     outmp = allocb(outmp_len, BPRI_MED);
     if (outmp == NULL) {
 	state->stats.ppp_oerrors++;
-#if defined(USE_MUTEX)
-	mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+	MUTEX_EXIT(&state->lock);
 	putctl1(RD(q)->q_next, M_CTL, PPPCTL_OERROR);
 	return;
     }
@@ -689,12 +670,9 @@ ahdlc_encode(q, mp)
     state->stats.ppp_obytes += msgdsize(outmp);
     state->stats.ppp_opackets++;
 
-#if defined(USE_MUTEX)
-    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+    MUTEX_EXIT(&state->lock);
 
     putnext(q, outmp);
-    return;
 }
 
 /*
@@ -715,35 +693,14 @@ ahdlc_decode(q, mp)
     ahdlc_state_t   *state;
     mblk_t	    *om;
     uchar_t	    *dp;
-    ushort_t	    fcs;
-#if defined(SOL2)
-    mblk_t	    *zmp;
-#endif /* SOL2 */
-
-#if defined(SOL2)
-    /*
-     * In case the driver (or something below) doesn't send
-     * data upstream in one message block, concatenate everything
-     */
-    if (!((mp->b_wptr - mp->b_rptr == msgdsize(mp)) && 
-         ((intpointer_t)mp->b_rptr % sizeof(intpointer_t) == 0))) {
-
-	zmp = msgpullup(mp, -1);
-	freemsg(mp);
-	mp = zmp;
-	if (mp == 0)
-	    return; 
-    }
-#endif /* SOL2 */
 
     state = (ahdlc_state_t *) q->q_ptr;
 
-#if defined(USE_MUTEX)
-    mutex_enter(&state->lock);
-#endif /* USE_MUTEX */
+    MUTEX_ENTER(&state->lock);
 
     state->stats.ppp_ibytes += msgdsize(mp);
 
+    for (; mp != 0; om = mp->b_cont, freeb(mp), mp = om)
     for (dp = mp->b_rptr; dp < mp->b_wptr; dp++) {
 
 	/*
@@ -860,9 +817,7 @@ ahdlc_decode(q, mp)
 	}
     }
 
-#if defined(USE_MUTEX)
-    mutex_exit(&state->lock);
-#endif /* USE_MUTEX */
+    MUTEX_EXIT(&state->lock);
 }
 
 static int

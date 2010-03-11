@@ -70,10 +70,14 @@ int hostname_main(int argc, char **argv)
 			if (p)
 				puts(p + 1);
 		} else if (option_mask32 & OPT_i) {
-			while (hp->h_addr_list[0]) {
-				printf("%s ", inet_ntoa(*(struct in_addr *) (*hp->h_addr_list++)));
+			if (hp->h_length == sizeof(struct in_addr)) {
+				struct in_addr **h_addr_list = (struct in_addr **)hp->h_addr_list;
+				while (*h_addr_list) {
+					printf("%s ", inet_ntoa(**h_addr_list));
+					h_addr_list++;
+				}
+				bb_putchar('\n');
 			}
-			bb_putchar('\n');
 		}
 	}
 	/* Set the hostname */

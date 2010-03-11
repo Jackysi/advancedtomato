@@ -39,7 +39,7 @@ obj-y += www
 obj-y += bridge
 obj-y += dnsmasq
 obj-y += etc
-obj-y += vlan
+# obj-y += vlan # use Busybox vconfig
 obj-y += ppp
 obj-y += ttcp
 obj-y += ntpc
@@ -61,6 +61,11 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
+ifeq ($(CONFIG_LINUX26),y)
+ifeq ($(TCONFIG_SAMBASRV),y)
+NEED_EX_NLS = y
+endif
+endif
 ifeq ($(TCONFIG_SAMBASRV),y)
 ifeq ($(TCONFIG_SAMBA3),y)
 NEED_SAMBA3 = y
@@ -300,10 +305,10 @@ ifneq ($(CONFIG_LINUX26),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
 endif
-ifneq ($(TCONFIG_SAMBASRV),y)
+ifneq ($(TCONFIG_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
 endif
-ifneq ($(CONFIG_LINUX26),y)
+ifneq ($(NEED_EX_NLS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp9*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp1251.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-jp.*o $(PLATFORMDIR)/extras/ || true
@@ -411,6 +416,7 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -513,7 +519,7 @@ rc: nvram shared
 
 bridge/Makefile:
 	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
-	$(CONFIGURE) --host=mipsel-linux --prefix="" --with-linux-headers=$(LINUXDIR)/include
+	$(CONFIGURE) --prefix="" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
 	@$(SEP)
@@ -591,7 +597,7 @@ vsftpd-install:
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \
-	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --host=mipsel-linux --enable-shared=no --enable-static=no \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared=no --enable-static=no \
 		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal \
 		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
 
@@ -610,7 +616,7 @@ ntfs-3g-install: ntfs-3g
 
 libusb10/Makefile: libusb10/Makefile.in
 	cd libusb10 && CFLAGS="-Os -Wall $(EXTRACFLAGS)" LIBS="-lpthread" \
-	$(CONFIGURE) --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
+	$(CONFIGURE) --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
 libusb10: libusb10/Makefile
 	$(MAKE) -C $@
@@ -624,7 +630,7 @@ libusb10-install: libusb10
 
 libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
-	$(CONFIGURE) --host=mipsel-linux --prefix=/usr \
+	$(CONFIGURE) --prefix=/usr \
 		LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
 		LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0 -lpthread \
 		-Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share"
@@ -672,29 +678,41 @@ pptp-client-install:
 	$(STRIP) $(INSTALLDIR)/pptp-client/usr/sbin/pptp
 
 
-pppd:
+pppd/Makefile: pppd/linux/Makefile.top
+	cd pppd && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
+
+pppd: pppd/Makefile
 	@$(SEP)
-	@$(MAKE) -C pppd/pppd
+	@$(MAKE) -C pppd
 
 pppd-clean:
-	$(MAKE) -C pppd/pppd clean
+	$(MAKE) -C pppd clean
 
 pppd-install:
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
+	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
+	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 
 #	ipupdate-install:
 #		install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
 #		$(STRIP) $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
 
 
-zebra:
-	@$(SEP)
-	cd zebra && rm -f config.cache && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) \
-		--host=mipsel-linux --sysconfdir=/etc \
-		--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
-		--disable-ospf6d --disable-bgpd --disable-bgpd-announce
+zebra/stamp-h1:
+	@cd zebra && rm -f config.cache && \
+	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --sysconfdir=/etc \
+	--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
+	--disable-ospf6d --disable-bgpd --disable-bgpd-announce
+	@touch zebra/stamp-h1
+
+zebra: zebra/stamp-h1
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
+
+zebra-clean:
+	@$(MAKE) -C zebra clean || true
+	@rm -f zebra/stamp-h1
 
 zebra-install:
 	install -D zebra/zebra/zebra $(INSTALLDIR)/zebra/usr/sbin/zebra
@@ -766,7 +784,7 @@ dropbear-clean:
 	@make -C dropbear clean
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no ./configure --host=mipsel-linux --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	make -C dropbear clean
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
@@ -786,16 +804,13 @@ igmpproxy-clean:
 	rm -f igmpproxy/src/Makefile
 
 udev:
-	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)" \
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger
 
 udev-install:
 	install -d $(INSTALLDIR)
 	install -d $(TARGETDIR)
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
-	@mkdir -p $(INSTALLDIR)/udev/rom/etc/udev
-	# remove comments, compress whitespace
-	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < udev/etc/udev/udev.conf > $(INSTALLDIR)/udev/rom/etc/udev/udev.conf
 
 hotplug2:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)"
@@ -836,6 +851,23 @@ lzo-install:
 	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
 	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
 
+
+openvpn: openvpn/.conf
+
+openvpn/.conf:
+	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS)" \
+	LDFLAGS=" -L../openssl/ -L../lzo/src/.libs/" \
+	$(CONFIGURE) --prefix= \
+	--with-lzo-headers="../lzo/include" \
+	--with-ssl-headers="../openssl/include/" \
+	--with-iproute-path="/usr/sbin/ip" \
+	--disable-debug --disable-plugins --enable-management --enable-small \
+	--disable-selinux --disable-socks --enable-password-save
+	touch openvpn/.conf
+
+openvpn-clean:
+	$(MAKE) -C openvpn clean || true
+	@rm -f openvpn/.conf
 
 openvpn-install:
 	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn

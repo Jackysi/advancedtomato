@@ -318,7 +318,7 @@ buffer_flush_vty_all (struct buffer *b, int fd, int erase_flag,
   if (b->alloc == 1)
     iov = small_iov;
   else
-    iov = XMALLOC (MTYPE_TMP, sizeof (struct iovec) * (b->alloc + 2));
+    iov = XCALLOC (MTYPE_TMP, sizeof (struct iovec) * (b->alloc + 2));
 
   data = b->head;
   iov_index = 0;
@@ -408,7 +408,7 @@ buffer_flush_vty (struct buffer *b, int fd, int size,
   if (b->alloc == 1)
     iov = small_iov;
   else
-    iov = XMALLOC (MTYPE_TMP, sizeof (struct iovec) * (b->alloc + 2));
+    iov = XCALLOC (MTYPE_TMP, sizeof (struct iovec) * (b->alloc + 2));
 
   data = b->head;
   iov_index = 0;

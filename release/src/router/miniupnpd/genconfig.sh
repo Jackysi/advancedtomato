@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.34 2009/09/04 16:14:05 nanard Exp $
+# $Id: genconfig.sh,v 1.37 2010/03/07 18:10:19 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2009 Thomas Bernard
@@ -54,6 +54,10 @@ case $OS_NAME in
 		# from the 3.8 version, packets and bytes counters are double : in/out
 		if [ \( $MAJORVER -ge 4 \) -o \( $MAJORVER -eq 3 -a $MINORVER -ge 8 \) ]; then
 			echo "#define PFRULE_INOUT_COUNTS" >> ${CONFIGFILE}
+		fi
+		# from the 4.7 version, new pf
+		if [ \( $MAJORVER -ge 5 \) -o \( $MAJORVER -eq 4 -a $MINORVER -ge 7 \) ]; then
+			echo "#define PF_NEWSTYLE" >> ${CONFIGFILE}
 		fi
 		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		FW=pf
@@ -113,9 +117,23 @@ case $OS_NAME in
 		OS_URL=http://www.netbsd.org/
 		;;
 	DragonFly)
+		# source file with handy subroutines like checkyesno
+		. /etc/rc.subr
+		# source config file so we can probe vars
+		. /etc/rc.conf
+		if checkyesno pf; then
+			echo "#define USE_PF 1" >> ${CONFIGFILE}
+			FW=pf
+		elif checkyesno ipfilter; then
+			echo "#define USE_IPF 1" >> ${CONFIGFILE}
+			FW=ipf
+		else
+			echo "Could not detect ipf nor pf, defaulting to pf."
+			echo "#define USE_PF 1" >> ${CONFIGFILE}
+			FW=pf
+		fi
 		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		OS_URL=http://www.dragonflybsd.org/
-		FW=pf
 		;;
 	SunOS)
 		echo "#define USE_IPF 1" >> ${CONFIGFILE}
@@ -202,7 +220,9 @@ echo "#define GETIFSTATS_CACHING_DURATION 2" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* Uncomment the following line to enable multiple external ip support */" >> ${CONFIGFILE}
-echo "/* note : Thas is EXPERIMENTAL, do not use that unless you know perfectly what you are doing */" >> ${CONFIGFILE}
+echo "/* note : That is EXPERIMENTAL, do not use that unless you know perfectly what you are doing */" >> ${CONFIGFILE}
+echo "/* Dynamic external ip adresses are not supported when this option is enabled." >> ${CONFIGFILE}
+echo " * Also note that you would need to configure your .conf file accordingly. */" >> ${CONFIGFILE}
 echo "/*#define MULTIPLE_EXTERNAL_IP*/" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 

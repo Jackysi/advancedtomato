@@ -2,9 +2,9 @@
 @c This is part of the GNU Zebra Manual.
 @c Copyright (C) 1999, 2000 Kunihiro Ishiguro
 @c See file zebra.texi for copying conditions.
-@node ripd, ripngd, zebra, Top
+@node RIP
 @comment  node-name,  next,  previous,  up
-@chapter ripd
+@chapter RIP
 
 RIP -- Routing Information Protocol is widely deployed interior gateway
 protocol.  RIP was developed in the 1970s at Xerox Labs as part of the
@@ -32,7 +32,7 @@ version 1 as described in RFC1058.
 * RIP Debug Commands::          
 @end menu
 
-@node Starting and Stopping ripd, RIP Configuration, ripd, ripd
+@node Starting and Stopping ripd, RIP Configuration, RIP, RIP
 @comment  node-name,  next,  previous,  up
 @section Starting and Stopping ripd
 
@@ -107,7 +107,7 @@ old information will be suppressed.  Ripd does not currently support
 equal cost multipath routing.
 
 
-@node RIP Configuration, How to Announce RIP route, Starting and Stopping ripd, ripd
+@node RIP Configuration, How to Announce RIP route, Starting and Stopping ripd, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP Configuration
 
@@ -212,7 +212,7 @@ split-horizon}.  If you don't perform split-horizon on the interface,
 please specify @code{no ip split-horizon}.
 @end deffn
 
-@node How to Announce RIP route, Filtering RIP Routes, RIP Configuration, ripd
+@node How to Announce RIP route, Filtering RIP Routes, RIP Configuration, RIP
 @comment  node-name,  next,  previous,  up
 @section How to Announce RIP route
 
@@ -277,7 +277,7 @@ redistributing it in RIP using @code{redistribute static}.
 @end deffn
 
 
-@node  Filtering RIP Routes, RIP Metric Manipulation, How to Announce RIP route, ripd
+@node  Filtering RIP Routes, RIP Metric Manipulation, How to Announce RIP route, RIP
 @comment  node-name,  next,  previous,  up
 @section Filtering RIP Routes
 
@@ -318,7 +318,7 @@ name.  Next is the direction of @samp{in} or @samp{out}.  If
 @var{direct} is @samp{in} the access list is applied to input packets.
 @end deffn
 
-@node RIP Metric Manipulation, RIP distance, Filtering RIP Routes, ripd
+@node RIP Metric Manipulation, RIP distance, Filtering RIP Routes, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP Metric Manipulation
 
@@ -340,7 +340,7 @@ affects connected routes.
 @deffnx {RIP command} {offset-list @var{access-list} (in|out) @var{ifname}} {}
 @end deffn
 
-@node RIP distance, RIP route-map, RIP Metric Manipulation, ripd
+@node RIP distance, RIP route-map, RIP Metric Manipulation, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP distance
 
@@ -363,7 +363,7 @@ Set default RIP distance to specified value when the route's source IP
 address matches the specified prefix and the specified access-list.
 @end deffn
 
-@node RIP route-map, RIP Authentication, RIP distance, ripd
+@node RIP route-map, RIP Authentication, RIP distance, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP route-map
 
@@ -387,46 +387,47 @@ but it is draft and it may be changed at future.
 Route-map statement (@pxref{Route Map}) is needed to use route-map
 functionality.
 
-Route-map's match statement
-
-@deffn {Route-map Command} {match metric N}
-Match if the route has this metric.
+@deffn {Route Map} {match interface @var{word}} {}
+This command match to incoming interface.  Notation of this match is
+different from Cisco. Cisco uses a list of interfaces - NAME1 NAME2
+... NAMEN.  Ripd allows only one name (maybe will change in the
+future).  Next - Cisco means interface which includes next-hop of
+routes (it is somewhat similar to "ip next-hop" statement).  Ripd
+means interface where this route will be sent. This difference is
+because "next-hop" of same routes which sends to different interfaces
+must be different. Maybe it'd be better to made new matches - say
+"match interface-out NAME" or something like that.
 @end deffn
 
-@deffn {Route-map Command} {match ip address <access-list>}
+@deffn {Route Map} {match ip address @var{word}} {}
+@deffnx {Route Map} {match ip address prefix-list @var{word}} {}
 Match if route destination is permitted by access-list.
 @end deffn
 
-@deffn {Route-map Command} {match ip next-hot A.B.C.D}
-Cisco uses here <access-list>, @command{ripd} IPv4 address. Match if route has
-this next-hop (meaning next-hop listed in the rip route table - "show ip
-rip")
+@deffn {Route Map} {match ip next-hop A.B.C.D} {}
+Cisco uses here <access-list>, @command{ripd} IPv4 address. Match if
+route has this next-hop (meaning next-hop listed in the rip route
+table - "show ip rip")
 @end deffn
 
-@deffn {Route-map Command} {match interface NAME}
-Notation of this match is different from Cisco. Cisco uses a list of
-interfaces - NAME1 NAME2 ... NAMEN.  Ripd allows only one name (maybe
-will change in the future).  Next - Cisco means interface which includes
-next-hop of routes (it is somewhat similar to "ip next-hop" statement).
-Ripd means interface where this route will be sent. This difference is
-because "next-hop" of same routes which sends to different interfaces must
-be different. Maybe it'd be better to made new matches - say "match interface-out
-NAME" or something like that.
+@deffn {Route Map} {match metric <0-4294967295>} {}
+This command match to the metric value of RIP updates.  For other
+protocol compatibility metric range is shown as <0-4294967295>.  But
+for RIP protocol only the value range <0-16> make sense.
 @end deffn
 
-Route-map's set statement
-
-@deffn {Route-map Command} {set metric <0-4294967295>}
-Set a metric for matched route when sending announcement.  The metric value
-range is very large for compatibility with other protocols.  For RIP,
-valid metric values are from 1 to 16.
+@deffn {Route Map} {set ip next-hop A.B.C.D} {}
+This command set next hop value in RIPv2 protocol.  This command does
+not affect RIPv1 because there is no next hop field in the packet.
 @end deffn
 
-@deffn {Route-map Command} {set next-hop A.B.C.D}
-Set next-hop field.
+@deffn {Route Map} {set metric <0-4294967295>} {}
+Set a metric for matched route when sending announcement.  The metric
+value range is very large for compatibility with other protocols.  For
+RIP, valid metric values are from 1 to 16.
 @end deffn
 
-@node RIP Authentication, RIP Timers, RIP route-map, ripd
+@node RIP Authentication, RIP Timers, RIP route-map, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP Authentication
 
@@ -463,7 +464,7 @@ interface eth1
 !
 @end example
 
-@node RIP Timers, Show RIP Information, RIP Authentication, ripd
+@node RIP Timers, Show RIP Information, RIP Authentication, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP Timers
 
@@ -502,7 +503,7 @@ The @code{no timers basic} command will reset the timers to the default
 settings listed above.
 @end deffn
 
-@node Show RIP Information, RIP Debug Commands, RIP Timers, ripd
+@node Show RIP Information, RIP Debug Commands, RIP Timers, RIP
 @comment  node-name,  next,  previous,  up
 @section Show RIP Information
 
@@ -546,7 +547,7 @@ Routing Protocol is "rip"
 @end group
 @end example
 
-@node RIP Debug Commands,  , Show RIP Information, ripd
+@node RIP Debug Commands,  , Show RIP Information, RIP
 @comment  node-name,  next,  previous,  up
 @section RIP Debug Commands
 

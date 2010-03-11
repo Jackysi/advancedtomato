@@ -1,17 +1,20 @@
-/* $Id: testobsdrdr.c,v 1.17 2007/06/11 12:46:35 nanard Exp $ */
+/* $Id: testobsdrdr.c,v 1.19 2010/03/07 09:25:20 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2010 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
 #include <stdio.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <syslog.h>
 
 #include "obsdrdr.h"
 
-int logpackets = 1;
+/*int logpackets = 1;*/
+int runtime_flags = 0;
+const char * tag = 0;
 
 void
 list_rules(void);
@@ -49,10 +52,19 @@ main(int arc, char * * argv)
 	unsigned short iport;
 	u_int64_t packets = 0;
 	u_int64_t bytes = 0;
+
+	openlog("testobsdrdr", LOG_PERROR, LOG_USER);
+	if(init_redirect() < 0)
+	{
+		fprintf(stderr, "init_redirect() failed\n");
+		return 1;
+	}
 	//add_redirect_rule("ep0", 12123, "192.168.1.23", 1234);
 	//add_redirect_rule2("ep0", 12155, "192.168.1.155", 1255, IPPROTO_TCP);
 	//add_redirect_rule2("ep0", 12123, "192.168.1.125", 1234,
 	//                   IPPROTO_UDP, "test description");
+	//add_redirect_rule2("em0", 12123, "127.1.2.3", 1234,
+	//                   IPPROTO_TCP, "test description tcp");
 
 	list_rules();
 

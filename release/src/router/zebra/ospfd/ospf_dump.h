@@ -23,8 +23,6 @@
 #ifndef _ZEBRA_OSPF_DUMP_H
 #define _ZEBRA_OSPF_DUMP_H
 
-#include "stream.h"
-
 /* Debug Flags. */
 #define OSPF_DEBUG_HELLO	0x01
 #define OSPF_DEBUG_DB_DESC	0x02
@@ -105,6 +103,11 @@
 #define IS_CONF_DEBUG_OSPF(a, b) \
 	(conf_debug_ospf_ ## a & OSPF_DEBUG_ ## b)
 
+struct stream;
+
+#define AREA_NAME(A)    ospf_area_name_string ((A))
+#define IF_NAME(I)      ospf_if_name_string ((I))
+
 /* Extern debug flag. */
 extern unsigned long term_debug_ospf_packet[];
 extern unsigned long term_debug_ospf_event;
@@ -119,8 +122,11 @@ extern char *ospf_packet_type_str[];
 extern char *ospf_lsa_type_str[];
 
 /* Prototypes. */
+char *ospf_area_name_string (struct ospf_area *);
+char *ospf_area_desc_string (struct ospf_area *);
+char *ospf_if_name_string (struct ospf_interface *);
 void ospf_nbr_state_message (struct ospf_neighbor *, char *, size_t);
-char *ospf_option_dump (u_char, char *, size_t);
+char *ospf_options_dump (u_char);
 char *ospf_timer_dump (struct thread *, char *, size_t);
 void ospf_ip_header_dump (struct stream *);
 void ospf_packet_dump (struct stream *);

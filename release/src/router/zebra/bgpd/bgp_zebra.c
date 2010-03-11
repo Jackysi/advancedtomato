@@ -1,23 +1,22 @@
 /* zebra client
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA. 
- */
+   Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -29,20 +28,18 @@
 #include "sockunion.h"
 #include "zclient.h"
 #include "routemap.h"
+#include "thread.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_fsm.h"
 
-int bgp_interface_add (int, struct zclient *, zebra_size_t);
-int bgp_interface_delete (int, struct zclient *, zebra_size_t);
-int bgp_interface_address_add (int, struct zclient *, zebra_size_t);
-int bgp_interface_address_delete (int, struct zclient *, zebra_size_t);
-
 /* All information about zebra. */
 static struct zclient *zclient = NULL;
-
+
 /* Update default router id. */
 int
 bgp_if_update (struct interface *ifp)
@@ -51,7 +48,7 @@ bgp_if_update (struct interface *ifp)
   listnode cn;
   struct listnode *nn;
   struct listnode *nm;
-  struct peer_conf *conf;
+  struct peer *peer;
 
   for (cn = listhead (ifp->connected); cn; nextnode (cn))
     {
@@ -68,16 +65,16 @@ bgp_if_update (struct interface *ifp)
 	  if (IPV4_NET127 (ntohl (addr.s_addr)))
 	    continue;
 
-	  LIST_LOOP (bgp_list, bgp, nn)
+	  LIST_LOOP (bm->bgp, bgp, nn)
 	    {
 	      /* Respect configured router id */
 	      if (! (bgp->config & BGP_CONFIG_ROUTER_ID))
-		if (ntohl (bgp->id.s_addr) < ntohl (addr.s_addr))
+		if (ntohl (bgp->router_id.s_addr) < ntohl (addr.s_addr))
 		  {
-		    bgp->id = addr;
-		    LIST_LOOP (bgp->peer_conf, conf, nm)
+		    bgp->router_id = addr;
+		    LIST_LOOP (bgp->peer, peer, nm)
 		      {
-			conf->peer->local_id = addr;
+			peer->local_id = addr;
 		      }
 		  }
 	    }
@@ -107,13 +104,6 @@ bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   struct interface *ifp;
 
   ifp = zebra_interface_add_read (zclient->ibuf);
-
-#if 0
-  if (IS_BGP_DEBUG_ZEBRA)
-    zlog_info ("BGP interface add %s index %d flags %d metric %d mtu %d",
-	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
-#endif /* 0 */  
-
   bgp_if_update (ifp);
 
   return 0;
@@ -174,6 +164,34 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
       bgp_connected_delete (c);
     }
 
+  /* Fast external-failover (Currently IPv4 only) */
+  {
+    struct listnode *nn, *nm;
+    struct bgp *bgp;
+    struct peer *peer;
+    struct interface *peer_if;
+
+    LIST_LOOP (bm->bgp, bgp, nn)
+      {
+	if (CHECK_FLAG (bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
+	  continue;
+
+	LIST_LOOP (bgp->peer, peer, nm)
+	  {
+	    if (peer->ttl != 1)
+	      continue;
+
+	    if (peer->su.sa.sa_family == AF_INET)
+	      peer_if = if_lookup_by_ipv4 (&peer->su.sin.sin_addr);
+	    else
+	      continue;
+
+	    if (ifp == peer_if)
+	      BGP_EVENT_ADD (peer, BGP_Stop);
+	  }
+      }
+  }
+
   return 0;
 }
 
@@ -187,20 +205,6 @@ bgp_interface_address_add (int command, struct zclient *zclient,
 
   if (ifc == NULL)
     return 0;
-
-#if 0
-  if (IS_BGP_DEBUG_ZEBRA)
-    {
-      struct prefix *p;
-      char buf[INET6_ADDRSTRLEN];
-
-      p = c->address;
-      if (p->family == AF_INET6)
-	zlog_info ("BGP connected address %s/%d", 
-		   inet_ntop (AF_INET6, &p->u.prefix6, buf, INET6_ADDRSTRLEN),
-		   p->prefixlen);
-    }
-#endif /* 0 */
 
   bgp_if_update (ifc->ifp);
 
@@ -341,722 +345,6 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
 }
 #endif /* HAVE_IPV6 */
 
-/* Other routes redistribution into BGP. */
-void
-bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
-{
-  /* Set flag to BGP instance. */
-  bgp->redist[afi][type] = 1;
-
-  /* Return if already redistribute flag is set. */
-  if (zclient->redist[type])
-    return;
-
-  zclient->redist[type] = 1;
-
-  /* Return if zebra connection is not established. */
-  if (zclient->sock < 0)
-    return;
-    
-  /* Send distribute add message to zebra. */
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient->sock, type);
-}
-
-/* Redistribute with route-map specification. */
-void
-bgp_redistribute_routemap_set (struct bgp *bgp, afi_t afi, int type,
-			       char *name)
-{
-  bgp_redistribute_set (bgp, afi, type);
-
-  if (bgp->rmap[afi][type].name)
-    free (bgp->rmap[afi][type].name);
-
-  bgp->rmap[afi][type].name = strdup (name);
-  bgp->rmap[afi][type].map = route_map_lookup_by_name (name);
-}
-
-/* Unset redistribution. */
-void
-bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
-{
-  /* Unset flag from BGP instance. */
-  bgp->redist[afi][type] = 0;
-
-  /* Unset route-map. */
-  if (bgp->rmap[afi][type].name)
-    free (bgp->rmap[afi][type].name);
-  bgp->rmap[afi][type].name = NULL;
-  bgp->rmap[afi][type].map = NULL;
-
-  /* Return if zebra connection is disabled. */
-  if (! zclient->redist[type])
-    return;
-  zclient->redist[type] = 0;
-
-  if (bgp->redist[AFI_IP][type] == 0 
-      && bgp->redist[AFI_IP6][type] == 0 
-      && zclient->sock >= 0)
-    /* Send distribute delete message to zebra. */
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient->sock, type);
-  
-  /* Withdraw redistributed routes from current BGP's routing table. */
-  bgp_redistribute_withdraw (bgp, afi, type);
-}
-
-DEFUN (bgp_redistribute_kernel,
-       bgp_redistribute_kernel_cmd,
-       "redistribute kernel",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP, ZEBRA_ROUTE_KERNEL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_kernel_routemap,
-       bgp_redistribute_kernel_routemap_cmd,
-       "redistribute kernel route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP, ZEBRA_ROUTE_KERNEL, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_kernel,
-       no_bgp_redistribute_kernel_cmd,
-       "no redistribute kernel",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_KERNEL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_kernel_routemap,
-       no_bgp_redistribute_kernel_routemap_cmd,
-       "no redistribute kernel route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_KERNEL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_static,
-       bgp_redistribute_static_cmd,
-       "redistribute static",
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP, ZEBRA_ROUTE_STATIC);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_static_routemap,
-       bgp_redistribute_static_routemap_cmd,
-       "redistribute static route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP, ZEBRA_ROUTE_STATIC, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_static,
-       no_bgp_redistribute_static_cmd,
-       "no redistribute static",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_STATIC);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_static_routemap,
-       no_bgp_redistribute_static_routemap_cmd,
-       "no redistribute static route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_STATIC);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_connected,
-       bgp_redistribute_connected_cmd,
-       "redistribute connected",
-       "Redistribute information from another routing protocol\n"
-       "Connected\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP, ZEBRA_ROUTE_CONNECT);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_connected_routemap,
-       bgp_redistribute_connected_routemap_cmd,
-       "redistribute connected route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP, ZEBRA_ROUTE_CONNECT, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_connected,
-       no_bgp_redistribute_connected_cmd,
-       "no redistribute connected",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_CONNECT);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_connected_routemap,
-       no_bgp_redistribute_connected_routemap_cmd,
-       "no redistribute connected route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_CONNECT);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_rip,
-       bgp_redistribute_rip_cmd,
-       "redistribute rip",
-       "Redistribute information from another routing protocol\n"
-       "Routing Information Protocol (RIP)\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP, ZEBRA_ROUTE_RIP);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_rip_routemap,
-       bgp_redistribute_rip_routemap_cmd,
-       "redistribute rip route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Routing Information Protocol (RIP)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP, ZEBRA_ROUTE_RIP, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_rip,
-       no_bgp_redistribute_rip_cmd,
-       "no redistribute rip",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Routing Information Protocol (RIP)\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_RIP);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_rip_routemap,
-       no_bgp_redistribute_rip_routemap_cmd,
-       "no redistribute rip route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Routing Information Protocol (RIP)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_RIP);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_ospf,
-       bgp_redistribute_ospf_cmd,
-       "redistribute ospf",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPF)\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP, ZEBRA_ROUTE_OSPF);
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_redistribute_ospf_routemap,
-       bgp_redistribute_ospf_routemap_cmd,
-       "redistribute ospf route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_ospf,
-       no_bgp_redistribute_ospf_cmd,
-       "no redistribute ospf",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPF)\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_OSPF);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_redistribute_ospf_routemap,
-       no_bgp_redistribute_ospf_routemap_cmd,
-       "no redistribute ospf route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_OSPF);
-  return CMD_SUCCESS;
-}
-
-#ifdef HAVE_IPV6
-DEFUN (ipv6_bgp_redistribute_kernel,
-       ipv6_bgp_redistribute_kernel_cmd,
-       "redistribute kernel",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP6, ZEBRA_ROUTE_KERNEL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_kernel_routemap,
-       ipv6_bgp_redistribute_kernel_routemap_cmd,
-       "redistribute kernel route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP6, ZEBRA_ROUTE_KERNEL, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_kernel,
-       no_ipv6_bgp_redistribute_kernel_cmd,
-       "no redistribute kernel",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_KERNEL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_kernel_routemap,
-       no_ipv6_bgp_redistribute_kernel_routemap_cmd,
-       "no redistribute kernel route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_KERNEL);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_static,
-       ipv6_bgp_redistribute_static_cmd,
-       "redistribute static",
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP6, ZEBRA_ROUTE_STATIC);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_static_routemap,
-       ipv6_bgp_redistribute_static_routemap_cmd,
-       "redistribute static route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP6, ZEBRA_ROUTE_STATIC, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_static,
-       no_ipv6_bgp_redistribute_static_cmd,
-       "no redistribute static",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_STATIC);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_static_routemap,
-       no_ipv6_bgp_redistribute_static_routemap_cmd,
-       "no redistribute static route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_STATIC);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_connected,
-       ipv6_bgp_redistribute_connected_cmd,
-       "redistribute connected",
-       "Redistribute information from another routing protocol\n"
-       "Connected\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP6, ZEBRA_ROUTE_CONNECT);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_connected_routemap,
-       ipv6_bgp_redistribute_connected_routemap_cmd,
-       "redistribute connected route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP6, ZEBRA_ROUTE_CONNECT, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_connected,
-       no_ipv6_bgp_redistribute_connected_cmd,
-       "no redistribute connected",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_CONNECT);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_connected_routemap,
-       no_ipv6_bgp_redistribute_connected_routemap_cmd,
-       "no redistribute connected route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_CONNECT);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_ripng,
-       ipv6_bgp_redistribute_ripng_cmd,
-       "redistribute ripng",
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP6, ZEBRA_ROUTE_RIPNG);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_ripng_routemap,
-       ipv6_bgp_redistribute_ripng_routemap_cmd,
-       "redistribute ripng route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP6, ZEBRA_ROUTE_RIPNG, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_ripng,
-       no_ipv6_bgp_redistribute_ripng_cmd,
-       "no redistribute ripng",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_RIPNG);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_ripng_routemap,
-       no_ipv6_bgp_redistribute_ripng_routemap_cmd,
-       "no redistribute ripng route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_RIPNG);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_ospf6,
-       ipv6_bgp_redistribute_ospf6_cmd,
-       "redistribute ospf6",
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n")
-{
-  bgp_redistribute_set (vty->index, AFI_IP6, ZEBRA_ROUTE_OSPF6);
-  return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_bgp_redistribute_ospf6_routemap,
-       ipv6_bgp_redistribute_ospf6_routemap_cmd,
-       "redistribute ospf6 route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_routemap_set (vty->index, AFI_IP6, ZEBRA_ROUTE_OSPF6, argv[0]);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_ospf6,
-       no_ipv6_bgp_redistribute_ospf6_cmd,
-       "no redistribute ospf6",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_OSPF6);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_bgp_redistribute_ospf6_routemap,
-       no_ipv6_bgp_redistribute_ospf6_routemap_cmd,
-       "no redistribute ospf6 route-map WORD",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-  bgp_redistribute_unset (vty->index, AFI_IP6, ZEBRA_ROUTE_OSPF6);
-  return CMD_SUCCESS;
-}
-
-/* Old config.  */
-ALIAS (ipv6_bgp_redistribute_kernel,
-       old_ipv6_bgp_redistribute_kernel_cmd,
-       "ipv6 bgp redistribute kernel",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n")
-
-ALIAS (ipv6_bgp_redistribute_kernel_routemap,
-       old_ipv6_bgp_redistribute_kernel_routemap_cmd,
-       "ipv6 bgp redistribute kernel route-map WORD",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (no_ipv6_bgp_redistribute_kernel,
-       old_no_ipv6_bgp_redistribute_kernel_cmd,
-       "no ipv6 bgp redistribute kernel",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n")
-
-ALIAS (no_ipv6_bgp_redistribute_kernel_routemap,
-       old_no_ipv6_bgp_redistribute_kernel_routemap_cmd,
-       "no ipv6 bgp redistribute kernel route-map WORD",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (ipv6_bgp_redistribute_static,
-       old_ipv6_bgp_redistribute_static_cmd,
-       "ipv6 bgp redistribute static",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n")
-
-ALIAS (ipv6_bgp_redistribute_static_routemap,
-       old_ipv6_bgp_redistribute_static_routemap_cmd,
-       "ipv6 bgp redistribute static route-map WORD",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (no_ipv6_bgp_redistribute_static,
-       old_no_ipv6_bgp_redistribute_static_cmd,
-       "no ipv6 bgp redistribute static",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n")
-
-ALIAS (no_ipv6_bgp_redistribute_static_routemap,
-       old_no_ipv6_bgp_redistribute_static_routemap_cmd,
-       "no ipv6 bgp redistribute static route-map WORD",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Static routes\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (ipv6_bgp_redistribute_connected,
-       old_ipv6_bgp_redistribute_connected_cmd,
-       "ipv6 bgp redistribute connected",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n")
-
-ALIAS (ipv6_bgp_redistribute_connected_routemap,
-       old_ipv6_bgp_redistribute_connected_routemap_cmd,
-       "ipv6 bgp redistribute connected route-map WORD",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (no_ipv6_bgp_redistribute_connected,
-       old_no_ipv6_bgp_redistribute_connected_cmd,
-       "no ipv6 bgp redistribute connected",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n")
-
-ALIAS (no_ipv6_bgp_redistribute_connected_routemap,
-       old_no_ipv6_bgp_redistribute_connected_routemap_cmd,
-       "no ipv6 bgp redistribute connected route-map WORD",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (ipv6_bgp_redistribute_ripng,
-       old_ipv6_bgp_redistribute_ripng_cmd,
-       "ipv6 bgp redistribute ripng",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n")
-
-ALIAS (ipv6_bgp_redistribute_ripng_routemap,
-       old_ipv6_bgp_redistribute_ripng_routemap_cmd,
-       "ipv6 bgp redistribute ripng route-map WORD",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (no_ipv6_bgp_redistribute_ripng,
-       old_no_ipv6_bgp_redistribute_ripng_cmd,
-       "no ipv6 bgp redistribute ripng",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n")
-
-ALIAS (no_ipv6_bgp_redistribute_ripng_routemap,
-       old_no_ipv6_bgp_redistribute_ripng_routemap_cmd,
-       "no ipv6 bgp redistribute ripng route-map WORD",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Routing Information Protocol (RIPng)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (ipv6_bgp_redistribute_ospf6,
-       old_ipv6_bgp_redistribute_ospf6_cmd,
-       "ipv6 bgp redistribute ospf6",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n")
-
-ALIAS (ipv6_bgp_redistribute_ospf6_routemap,
-       old_ipv6_bgp_redistribute_ospf6_routemap_cmd,
-       "ipv6 bgp redistribute ospf6 route-map WORD",
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-
-ALIAS (no_ipv6_bgp_redistribute_ospf6,
-       old_no_ipv6_bgp_redistribute_ospf6_cmd,
-       "no ipv6 bgp redistribute ospf6",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n")
-
-ALIAS (no_ipv6_bgp_redistribute_ospf6_routemap,
-       old_no_ipv6_bgp_redistribute_ospf6_routemap_cmd,
-       "no ipv6 bgp redistribute ospf6 route-map WORD",
-       NO_STR
-       IPV6_STR
-       BGP_STR
-       "Redistribute information from another routing protocol\n"
-       "IPv6 Open Shortest Path First (OSPFv3)\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-#endif /* HAVE_IPV6 */
-
 struct interface *
 if_lookup_by_ipv4 (struct in_addr *addr)
 {
@@ -1082,6 +370,32 @@ if_lookup_by_ipv4 (struct in_addr *addr)
 	    
 	  if (cp->family == AF_INET)
 	    if (prefix_match (cp, (struct prefix *)&p))
+	      return ifp;
+	}
+    }
+  return NULL;
+}
+
+struct interface *
+if_lookup_by_ipv4_exact (struct in_addr *addr)
+{
+  listnode ifnode;
+  listnode cnode;
+  struct interface *ifp;
+  struct connected *connected;
+  struct prefix *cp; 
+  
+  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+    {
+      ifp = getdata (ifnode);
+
+      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+	{
+	  connected = getdata (cnode);
+	  cp = connected->address;
+	    
+	  if (cp->family == AF_INET)
+	    if (IPV4_ADDR_SAME (&cp->u.prefix4, addr))
 	      return ifp;
 	}
     }
@@ -1119,9 +433,33 @@ if_lookup_by_ipv6 (struct in6_addr *addr)
     }
   return NULL;
 }
-#endif /* HAVE_IPV6 */
 
-#ifdef HAVE_IPV6
+struct interface *
+if_lookup_by_ipv6_exact (struct in6_addr *addr)
+{
+  listnode ifnode;
+  listnode cnode;
+  struct interface *ifp;
+  struct connected *connected;
+  struct prefix *cp; 
+
+  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+    {
+      ifp = getdata (ifnode);
+
+      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+	{
+	  connected = getdata (cnode);
+	  cp = connected->address;
+	    
+	  if (cp->family == AF_INET6)
+	    if (IPV6_ADDR_SAME (&cp->u.prefix6, addr))
+	      return ifp;
+	}
+    }
+  return NULL;
+}
+
 int
 if_get_ipv6_global (struct interface *ifp, struct in6_addr *addr)
 {
@@ -1337,7 +675,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
       SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
     }
 
-  if (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+  if ((peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
   if (p->family == AF_INET)
@@ -1445,7 +784,8 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
       SET_FLAG (flags, ZEBRA_FLAG_IBGP);
     }
 
-  if (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+  if ((peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
   if (p->family == AF_INET)
@@ -1514,108 +854,123 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
 #endif /* HAVE_IPV6 */
 }
 
-DEFUN (router_zebra,
-       router_zebra_cmd,
-       "router zebra",
-       "Enable a routing process\n"
-       "Make connection to zebra daemon\n")
-{
-  vty->node = ZEBRA_NODE;
-  zclient->enable = 1;
-  zclient_start (zclient);
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_router_zebra,
-       no_router_zebra_cmd,
-       "no router zebra",
-       NO_STR
-       "Configure routing process\n"
-       "Disable connection to zebra daemon\n")
-{
-  zclient->enable = 0;
-  zclient_stop (zclient);
-  return CMD_SUCCESS;
-}
-
-DEFUN (redistribute_bgp,
-       redistribute_bgp_cmd,
-       "redistribute bgp",
-       "Redistribute control\n"
-       "BGP route\n")
-{
-  zclient->redist[ZEBRA_ROUTE_BGP] = 1;
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_redistribute_bgp,
-       no_redistribute_bgp_cmd,
-       "no redistribute bgp",
-       NO_STR
-       "Redistribute control\n"
-       "BGP route\n")
-{
-  zclient->redist[ZEBRA_ROUTE_BGP] = 0;
-  return CMD_SUCCESS;
-}
-
-/* Zebra configuration write function. */
+/* Other routes redistribution into BGP. */
 int
-zebra_config_write (struct vty *vty)
+bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
 {
-  if (! zclient->enable)
-    {
-      vty_out (vty, "no router zebra%s", VTY_NEWLINE);
-      return 1;
-    }
-  else if (! zclient->redist[ZEBRA_ROUTE_BGP])
-    {
-      vty_out (vty, "router zebra%s", VTY_NEWLINE);
-      vty_out (vty, " no redistribute bgp%s", VTY_NEWLINE);
-      return 1;
-    }
-  return 0;
+  /* Set flag to BGP instance. */
+  bgp->redist[afi][type] = 1;
+
+  /* Return if already redistribute flag is set. */
+  if (zclient->redist[type])
+    return CMD_WARNING;
+
+  zclient->redist[type] = 1;
+
+  /* Return if zebra connection is not established. */
+  if (zclient->sock < 0)
+    return CMD_WARNING;
+    
+  /* Send distribute add message to zebra. */
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient->sock, type);
+
+  return CMD_SUCCESS;
 }
 
-/* Redistribute configuration. */
+/* Redistribute with route-map specification.  */
 int
-bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
-			       safi_t safi, int *write)
+bgp_redistribute_rmap_set (struct bgp *bgp, afi_t afi, int type, char *name)
 {
-  int i;
-  char *str[] = { "system", "kernel", "connected", "static", "rip",
-		  "ripng", "ospf", "ospf6", "bgp"};
-
-  if (safi != SAFI_UNICAST)
+  if (bgp->rmap[afi][type].name
+      && (strcmp (bgp->rmap[afi][type].name, name) == 0))
     return 0;
 
-  for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-    {
-      if (i != ZEBRA_ROUTE_BGP && bgp->redist[afi][i])
-	{
-	  /* "address-family" display.  */
-	  bgp_config_write_family_header (vty, afi, safi, write);
+  if (bgp->rmap[afi][type].name)
+    free (bgp->rmap[afi][type].name);
+  bgp->rmap[afi][type].name = strdup (name);
+  bgp->rmap[afi][type].map = route_map_lookup_by_name (name);
 
-	  if (bgp->rmap[afi][i].name)
-	    vty_out (vty, "%sredistribute %s route-map %s%s",
-		     afi == AFI_IP ? " " : "  ",
-		     str[i], bgp->rmap[afi][i].name, VTY_NEWLINE);
-	  else
-	    vty_out (vty, "%sredistribute %s%s",
-		     afi == AFI_IP ? " " : "  ",
-		     str[i], VTY_NEWLINE);
-	}
-    }
-  return *write;
+  return 1;
 }
 
-/* Zebra node structure. */
-struct cmd_node zebra_node =
+/* Redistribute with metric specification.  */
+int
+bgp_redistribute_metric_set (struct bgp *bgp, afi_t afi, int type,
+			     u_int32_t metric)
 {
-  ZEBRA_NODE,
-  "%s(config-router)# ",
-};
+  if (bgp->redist_metric_flag[afi][type]
+      && bgp->redist_metric[afi][type] == metric)
+    return 0;
 
+  bgp->redist_metric_flag[afi][type] = 1;
+  bgp->redist_metric[afi][type] = metric;
+
+  return 1;
+}
+
+/* Unset redistribution.  */
+int
+bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
+{
+  /* Unset flag from BGP instance. */
+  bgp->redist[afi][type] = 0;
+
+  /* Unset route-map. */
+  if (bgp->rmap[afi][type].name)
+    free (bgp->rmap[afi][type].name);
+  bgp->rmap[afi][type].name = NULL;
+  bgp->rmap[afi][type].map = NULL;
+
+  /* Unset metric. */
+  bgp->redist_metric_flag[afi][type] = 0;
+  bgp->redist_metric[afi][type] = 0;
+
+  /* Return if zebra connection is disabled. */
+  if (! zclient->redist[type])
+    return CMD_WARNING;
+  zclient->redist[type] = 0;
+
+  if (bgp->redist[AFI_IP][type] == 0 
+      && bgp->redist[AFI_IP6][type] == 0 
+      && zclient->sock >= 0)
+    /* Send distribute delete message to zebra. */
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient->sock, type);
+  
+  /* Withdraw redistributed routes from current BGP's routing table. */
+  bgp_redistribute_withdraw (bgp, afi, type);
+
+  return CMD_SUCCESS;
+}
+
+/* Unset redistribution route-map configuration.  */
+int
+bgp_redistribute_routemap_unset (struct bgp *bgp, afi_t afi, int type)
+{
+  if (! bgp->rmap[afi][type].name)
+    return 0;
+
+  /* Unset route-map. */
+  free (bgp->rmap[afi][type].name);
+  bgp->rmap[afi][type].name = NULL;
+  bgp->rmap[afi][type].map = NULL;
+
+  return 1;
+}
+
+/* Unset redistribution metric configuration.  */
+int
+bgp_redistribute_metric_unset (struct bgp *bgp, afi_t afi, int type)
+{
+  if (! bgp->redist_metric_flag[afi][type])
+    return 0;
+
+  /* Unset metric. */
+  bgp->redist_metric_flag[afi][type] = 0;
+  bgp->redist_metric[afi][type] = 0;
+
+  return 1;
+}
+
 void
 bgp_zclient_reset ()
 {
@@ -1623,7 +978,7 @@ bgp_zclient_reset ()
 }
 
 void
-zebra_init (int enable)
+bgp_zebra_init (int enable)
 {
   /* Set default values. */
   zclient = zclient_new ();
@@ -1639,80 +994,6 @@ zebra_init (int enable)
 #ifdef HAVE_IPV6
   zclient->ipv6_route_add = zebra_read_ipv6;
   zclient->ipv6_route_delete = zebra_read_ipv6;
-#endif /* HAVE_IPV6 */
-
-  /* Install zebra node. */
-  install_node (&zebra_node, zebra_config_write);
-
-  install_element (CONFIG_NODE, &router_zebra_cmd);
-  install_element (CONFIG_NODE, &no_router_zebra_cmd);
-  install_default (ZEBRA_NODE);
-  install_element (ZEBRA_NODE, &redistribute_bgp_cmd);
-  install_element (ZEBRA_NODE, &no_redistribute_bgp_cmd);
-
-  install_element (BGP_NODE, &bgp_redistribute_kernel_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_kernel_routemap_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_kernel_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_kernel_routemap_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_static_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_static_routemap_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_static_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_static_routemap_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_connected_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_connected_routemap_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_connected_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_connected_routemap_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_rip_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_rip_routemap_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_rip_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_rip_routemap_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_ospf_cmd);
-  install_element (BGP_NODE, &bgp_redistribute_ospf_routemap_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_ospf_cmd);
-  install_element (BGP_NODE, &no_bgp_redistribute_ospf_routemap_cmd);
-
-#ifdef HAVE_IPV6
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_kernel_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_kernel_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_kernel_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_kernel_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_static_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_static_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_static_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_static_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_connected_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_connected_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_connected_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_connected_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_ripng_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_ripng_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_ripng_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_ripng_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_ospf6_cmd);
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_redistribute_ospf6_routemap_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_ospf6_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_redistribute_ospf6_routemap_cmd);
-
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_kernel_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_kernel_routemap_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_kernel_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_kernel_routemap_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_static_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_static_routemap_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_static_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_static_routemap_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_connected_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_connected_routemap_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_connected_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_connected_routemap_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_ripng_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_ripng_routemap_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_ripng_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_ripng_routemap_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_ospf6_cmd);
-  install_element (BGP_NODE, &old_ipv6_bgp_redistribute_ospf6_routemap_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_ospf6_cmd);
-  install_element (BGP_NODE, &old_no_ipv6_bgp_redistribute_ospf6_routemap_cmd);
 #endif /* HAVE_IPV6 */
 
   /* Interface related init. */

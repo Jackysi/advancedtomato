@@ -94,20 +94,24 @@ struct crypt_key
   u_char auth_key[OSPF_AUTH_MD5_SIZE + 1];
 };
 
-/* OSPF interface structure */
+/* OSPF interface structure. */
 struct ospf_interface
 {
   /* This interface's parent ospf instance. */
   struct ospf *ospf;
 
-  /* Packet send buffer. */
-  struct ospf_fifo *obuf;		/* Output queue */
+  /* OSPF Area. */
+  struct ospf_area *area;
 
   /* Interface data from zebra. */
   struct interface *ifp;
+  struct ospf_vl_data *vl_data;		/* Data for Virtual Link */
   
-  /* OSPF Specific interface data. */
-  u_char type;				/* OSPF Network Type */
+  /* Packet send buffer. */
+  struct ospf_fifo *obuf;		/* Output queue */
+
+  /* OSPF Network Type. */
+  u_char type;
 #define OSPF_IFTYPE_NONE		0
 #define OSPF_IFTYPE_POINTOPOINT		1
 #define OSPF_IFTYPE_BROADCAST		2
@@ -116,13 +120,12 @@ struct ospf_interface
 #define OSPF_IFTYPE_VIRTUALLINK		5
 #define OSPF_IFTYPE_LOOPBACK            6
 #define OSPF_IFTYPE_MAX			7
-  int status;				/* OSPF Interface State */
-  u_int32_t status_change;	        /* Number of status change. */
+
+  /* State of Interface State Machine. */
+  u_char state;
 
   struct prefix *address;		/* Interface prefix */
   struct connected *connected;          /* Pointer to connected */ 
-  struct ospf_vl_data *vl_data;		/* Data for Virtual Link */
-  struct ospf_area *area;		/* OSPF Area */
 
   /* Configured varables. */
   struct ospf_if_params *params;
@@ -137,10 +140,14 @@ struct ospf_interface
 #define OPTIONS(I)		((I)->nbr_self->options)
 #define PRIORITY(I)		((I)->nbr_self->priority)
 
-  list nbr_static;
+  /* List of configured NBMA neighbor. */
+  list nbr_nbma;
 
   /* self-originated LSAs. */
   struct ospf_lsa *network_lsa_self;	/* network-LSA. */
+#ifdef HAVE_OPAQUE_LSA
+  list opaque_lsa_self;			/* Type-9 Opaque-LSAs */
+#endif /* HAVE_OPAQUE_LSA */
 
   struct route_table *ls_upd_queue;
 
@@ -163,6 +170,9 @@ struct ospf_interface
   struct thread *t_ls_upd_event;        /* event */
   struct thread *t_network_lsa_self;    /* self-originated network-LSA
                                            reflesh thread. timer */
+#ifdef HAVE_OPAQUE_LSA
+  struct thread *t_opaque_lsa_self;     /* Type-9 Opaque-LSAs */
+#endif /* HAVE_OPAQUE_LSA */
 
   int on_write_q;
   
@@ -178,27 +188,33 @@ struct ospf_interface
   u_int32_t ls_ack_in;          /* LS Ack message input count. */
   u_int32_t ls_ack_out;         /* LS Ack message output count. */
   u_int32_t discarded;		/* discarded input count by error. */
+  u_int32_t state_change;	/* Number of status change. */
 
-  u_int full_nbrs;
+  u_int32_t full_nbrs;
 };
-
-#define IF_NAME(O) ospf_if_name (O)
 
 /* Prototypes. */
 char *ospf_if_name (struct ospf_interface *);
-struct ospf_interface *ospf_if_new ();
+struct ospf_interface *ospf_if_new (struct ospf *, struct interface *,
+				    struct prefix *);
 void ospf_if_cleanup (struct ospf_interface *);
 void ospf_if_free (struct ospf_interface *);
 int ospf_if_up (struct ospf_interface *);
 int ospf_if_down (struct ospf_interface *);
-struct ospf_interface *ospf_if_lookup_by_name (char *);
-struct ospf_interface *ospf_if_lookup_by_local_addr (struct interface *, struct in_addr);
-struct ospf_interface *ospf_if_lookup_by_prefix (struct prefix_ipv4 *);
-struct ospf_interface *ospf_if_addr_local (struct in_addr src);
-struct ospf_interface *ospf_if_lookup_recv_interface (struct in_addr src);
-struct ospf_interface *ospf_if_is_configured (struct in_addr *);
 
-struct ospf_if_params *ospf_lookup_if_params (struct interface *, struct in_addr);
+int ospf_if_is_up (struct ospf_interface *);
+struct ospf_interface *ospf_if_lookup_by_name (char *);
+struct ospf_interface *ospf_if_lookup_by_local_addr (struct ospf *,
+						     struct interface *,
+						     struct in_addr);
+struct ospf_interface *ospf_if_lookup_by_prefix (struct ospf *,
+						 struct prefix_ipv4 *);
+struct ospf_interface *ospf_if_addr_local (struct in_addr);
+struct ospf_interface *ospf_if_lookup_recv_if (struct ospf *, struct in_addr);
+struct ospf_interface *ospf_if_is_configured (struct ospf *, struct in_addr *);
+
+struct ospf_if_params *ospf_lookup_if_params (struct interface *,
+					      struct in_addr);
 struct ospf_if_params *ospf_get_if_params (struct interface *, struct in_addr);
 void ospf_del_if_params (struct ospf_if_params *);
 void ospf_free_if_params (struct interface *, struct in_addr);
@@ -213,22 +229,21 @@ int ospf_if_is_enable (struct ospf_interface *);
 int ospf_if_get_output_cost (struct ospf_interface *);
 void ospf_if_recalculate_output_cost (struct interface *);
 
-struct ospf_interface *ospf_vl_new (struct ospf_vl_data *);
+struct ospf_interface *ospf_vl_new (struct ospf *, struct ospf_vl_data *);
 struct ospf_vl_data *ospf_vl_data_new (struct ospf_area *, struct in_addr);
 struct ospf_vl_data *ospf_vl_lookup (struct ospf_area *, struct in_addr);
 void ospf_vl_data_free (struct ospf_vl_data *);
-void ospf_vl_add (struct ospf_vl_data *);
-void ospf_vl_delete (struct ospf_vl_data *);
+void ospf_vl_add (struct ospf *, struct ospf_vl_data *);
+void ospf_vl_delete (struct ospf *, struct ospf_vl_data *);
 void ospf_vl_up_check (struct ospf_area *, struct in_addr, struct vertex *);
-void ospf_vl_unapprove ();
-void ospf_vl_shut_unapproved ();
+void ospf_vl_unapprove (struct ospf *);
+void ospf_vl_shut_unapproved (struct ospf *);
 int ospf_full_virtual_nbrs (struct ospf_area *);
 int ospf_vls_in_area (struct ospf_area *);
 
 struct crypt_key *ospf_crypt_key_lookup (list, u_char);
 struct crypt_key *ospf_crypt_key_new ();
 void ospf_crypt_key_add (list, struct crypt_key *);
-int ospf_crypt_key_delete (list, u_char key_id);
-
+int ospf_crypt_key_delete (list, u_char);
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

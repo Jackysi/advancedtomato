@@ -17,6 +17,7 @@
 static const uint8_t max_option_length[] = {
 	[OPTION_IP] =		sizeof("255.255.255.255 "),
 	[OPTION_IP_PAIR] =	sizeof("255.255.255.255 ") * 2,
+	[OPTION_STATIC_ROUTES]= sizeof("255.255.255.255/32 255.255.255.255 "),
 	[OPTION_STRING] =	1,
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	[OPTION_STR1035] =	1,
@@ -109,6 +110,50 @@ static char *alloc_fill_opts(uint8_t *option, const struct dhcp_option *type_p, 
 			memcpy(dest, option, len);
 			dest[len] = '\0';
 			return ret;	 /* Short circuit this case */
+		case OPTION_STATIC_ROUTES: {
+			/* Option binary format:
+			 * mask [one byte, 0..32]
+			 * ip [big endian, 0..4 bytes depending on mask]
+			 * router [big endian, 4 bytes]
+			 * may be repeated
+			 * 
+			 * We convert it to a string "IP/MASK ROUTER IP2/MASK2 ROUTER2"
+			 */
+			const char *pfx = "";
+			
+			while(len >= 1 + 4) { /* mask + 0-byte ip + router */
+				uint32_t nip;
+				uint8_t *p;
+				unsigned mask;
+				int bytes;
+				
+				mask = *option++;
+				if (mask > 32)
+					break;
+				len--;
+				
+				nip=0;
+				p = (void*) &nip;
+				bytes = (mask+7) / 8; /* 0 -> 0, 1..8 -> 1, 9..16 -> 2 etc */
+				while (--bytes >= 0) {
+					*p++ = *option++;
+					len--;
+				}
+				if (len < 4)
+					break;
+				
+				/* print ip/mask */
+				dest += sprintip(dest, pfx, (void*) &nip);
+				pfx = " ";
+				dest += sprintf(dest, "/%u ", mask);
+				/* print router */
+				dest += sprintip(dest, "", option);
+				option += 4;
+				len -= 4;
+			}
+			
+			return ret;
+		}
 #if ENABLE_FEATURE_UDHCP_RFC3397
 		case OPTION_STR1035:
 			/* unpack option into dest; use ret for prefix (i.e., "optname=") */

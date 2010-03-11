@@ -1,23 +1,46 @@
 /*
  * options.c - handles option processing for PPP.
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: options.c,v 1.1 2003/07/10 07:43:04 honor Exp $"
+#define RCSID	"$Id: options.c,v 1.102 2008/06/15 06:53:06 paulus Exp $"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -31,10 +54,23 @@
 #ifdef PLUGIN
 #include <dlfcn.h>
 #endif
+
 #ifdef PPP_FILTER
 #include <pcap.h>
-#include <pcap-int.h>	/* XXX: To get struct pcap */
+/*
+ * There have been 3 or 4 different names for this in libpcap CVS, but
+ * this seems to be what they have settled on...
+ * For older versions of libpcap, use DLT_PPP - but that means
+ * we lose the inbound and outbound qualifiers.
+ */
+#ifndef DLT_PPP_PPPD
+#ifdef DLT_PPP_WITHDIRECTION
+#define DLT_PPP_PPPD	DLT_PPP_WITHDIRECTION
+#else
+#define DLT_PPP_PPPD	DLT_PPP
 #endif
+#endif
+#endif /* PPP_FILTER */
 
 #include "pppd.h"
 #include "pathnames.h"
@@ -42,6 +78,7 @@
 #if defined(ultrix) || defined(NeXT)
 char *strdup __P((char *));
 #endif
+bool tx_only;			/* JYWeng 20031216: idle time counting on tx traffic */
 
 static const char rcsid[] = RCSID;
 
@@ -54,9 +91,6 @@ struct option_value {
 /*
  * Option variables and default values.
  */
-#ifdef PPP_FILTER
-int	dflag = 0;		/* Tell libpcap we want debugging */
-#endif
 int	debug = 0;		/* Debug flag */
 int	kdebugflag = 0;		/* Tell kernel to print debug messages */
 int	default_device = 1;	/* Using /dev/tty or equivalent */
@@ -80,11 +114,22 @@ char	linkname[MAXPATHLEN];	/* logical name for link */
 bool	tune_kernel;		/* may alter kernel settings */
 int	connect_delay = 1000;	/* wait this many ms after connect script */
 int	req_unit = -1;		/* requested interface unit */
+int	req_minunit = -1;	/* requested minimal interface unit */
+char	path_ipup[MAXPATHLEN];	/* pathname of ip-up script */
+char	path_ipdown[MAXPATHLEN];/* pathname of ip-down script */
 bool	multilink = 0;		/* Enable multilink operation */
 char	*bundle_name = NULL;	/* bundle name for multilink */
 bool	dump_options;		/* print out option values */
 bool	dryrun;			/* print out option values and exit */
 char	*domain;		/* domain name set by domain option */
+int	child_wait = 5;		/* # seconds to wait for children at exit */
+
+#ifdef MAXOCTETS
+unsigned int  maxoctets = 0;    /* default - no limit */
+int maxoctets_dir = 0;       /* default - sum of traffic */
+int maxoctets_timeout = 1;   /* default 1 second */ 
+#endif
+
 
 extern option_t auth_options[];
 extern struct stat devstat;
@@ -92,7 +137,6 @@ extern struct stat devstat;
 #ifdef PPP_FILTER
 struct	bpf_program pass_filter;/* Filter program for packets to pass */
 struct	bpf_program active_filter; /* Filter program for link-active pkts */
-pcap_t  pc;			/* Fake struct pcap so we can compile expr */
 #endif
 
 char *current_option;		/* the name of the option being parsed */
@@ -121,6 +165,10 @@ static int loadplugin __P((char **));
 #ifdef PPP_FILTER
 static int setpassfilter __P((char **));
 static int setactivefilter __P((char **));
+#endif
+
+#ifdef MAXOCTETS
+static int setmodir __P((char **));
 #endif
 
 static option_t *find_option __P((const char *name));
@@ -160,7 +208,8 @@ option_t general_options[] = {
       OPT_PRIOSUB | OPT_A2CLR | 1, &nodetach },
 
     { "holdoff", o_int, &holdoff,
-      "Set time in seconds before retrying connection", OPT_PRIO },
+      "Set time in seconds before retrying connection",
+      OPT_PRIO, &holdoff_specified },
 
     { "idle", o_int, &idle_time_limit,
       "Set time in seconds before disconnecting idle link", OPT_PRIO },
@@ -226,11 +275,25 @@ option_t general_options[] = {
     { "unit", o_int, &req_unit,
       "PPP interface unit number to use if possible",
       OPT_PRIO | OPT_LLIMIT, 0, 0 },
+    { "minunit", o_int, &req_minunit,
+      "PPP interface minimal unit number",
+      OPT_PRIO | OPT_LLIMIT, 0, 0 },
 
     { "dump", o_bool, &dump_options,
       "Print out option values after parsing all options", 1 },
     { "dryrun", o_bool, &dryrun,
       "Stop after parsing, printing, and checking options", 1 },
+
+    { "child-timeout", o_int, &child_wait,
+      "Number of seconds to wait for child processes at exit",
+      OPT_PRIO },
+
+    { "ip-up-script", o_string, path_ipup,
+      "Set pathname of ip-up script",
+      OPT_PRIV|OPT_STATIC, NULL, MAXPATHLEN },
+    { "ip-down-script", o_string, path_ipdown,
+      "Set pathname of ip-down script",
+      OPT_PRIV|OPT_STATIC, NULL, MAXPATHLEN },
 
 #ifdef HAVE_MULTILINK
     { "multilink", o_bool, &multilink,
@@ -252,15 +315,29 @@ option_t general_options[] = {
 #endif
 
 #ifdef PPP_FILTER
-    { "pdebug", o_int, &dflag,
-      "libpcap debugging", OPT_PRIO },
-
-    { "pass-filter", 1, setpassfilter,
+    { "pass-filter", o_special, setpassfilter,
       "set filter for packets to pass", OPT_PRIO },
 
-    { "active-filter", 1, setactivefilter,
+    { "active-filter", o_special, setactivefilter,
       "set filter for active pkts", OPT_PRIO },
 #endif
+
+#ifdef MAXOCTETS
+    { "maxoctets", o_int, &maxoctets,
+      "Set connection traffic limit",
+      OPT_PRIO | OPT_LLIMIT | OPT_NOINCR | OPT_ZEROINF },
+    { "mo", o_int, &maxoctets,
+      "Set connection traffic limit",
+      OPT_ALIAS | OPT_PRIO | OPT_LLIMIT | OPT_NOINCR | OPT_ZEROINF },
+    { "mo-direction", o_special, setmodir,
+      "Set direction for limit traffic (sum,in,out,max)" },
+    { "mo-timeout", o_int, &maxoctets_timeout,
+      "Check for traffic limit every N seconds", OPT_PRIO | OPT_LLIMIT | 1 },
+#endif
+
+/* JYWeng 20031216: add for tx_only option*/
+    { "tx_only", o_bool, &tx_only,
+      "set idle time counting on tx_only or not", 1 },
 
     { NULL }
 };
@@ -340,16 +417,20 @@ options_from_file(filename, must_exist, check_prot, priv)
     option_t *opt;
     int oldpriv, n;
     char *oldsource;
+    uid_t euid;
     char *argv[MAXARGS];
     char args[MAXARGS][MAXWORDLEN];
     char cmd[MAXWORDLEN];
 
-    if (check_prot)
-	seteuid(getuid());
+    euid = geteuid();
+    if (check_prot && seteuid(getuid()) == -1) {
+	option_error("unable to drop privileges to open %s: %m", filename);
+	return 0;
+    }
     f = fopen(filename, "r");
     err = errno;
-    if (check_prot)
-	seteuid(0);
+    if (check_prot && seteuid(euid) == -1)
+	fatal("unable to regain privileges");
     if (f == NULL) {
 	errno = err;
 	if (!must_exist) {
@@ -440,8 +521,8 @@ options_for_tty()
     size_t pl;
 
     dev = devnam;
-    if (strncmp(dev, "/dev/", 5) == 0)
-	dev += 5;
+    if ((p = strstr(dev, "/dev/")) != NULL)
+	dev = p + 5;
     if (dev[0] == 0 || strcmp(dev, "tty") == 0)
 	return 1;		/* don't look for /etc/ppp/options.tty */
     pl = strlen(_PATH_TTYOPT) + strlen(dev) + 1;
@@ -578,6 +659,7 @@ process_option(opt, cmd, argv)
     int prio = option_priority;
     option_t *mainopt = opt;
 
+    current_option = opt->name;
     if ((opt->flags & OPT_PRIVFIX) && privileged_option)
 	prio += OPRIO_ROOT;
     while (mainopt->flags & OPT_PRIOSUB)
@@ -623,6 +705,12 @@ process_option(opt, cmd, argv)
 	*(bool *)(opt->addr) = v;
 	if (opt->addr2 && (opt->flags & OPT_A2COPY))
 	    *(bool *)(opt->addr2) = v;
+	else if (opt->addr2 && (opt->flags & OPT_A2CLR))
+	    *(bool *)(opt->addr2) = 0;
+	else if (opt->addr2 && (opt->flags & OPT_A2CLRB))
+	    *(u_char *)(opt->addr2) &= ~v;
+	else if (opt->addr2 && (opt->flags & OPT_A2OR))
+	    *(u_char *)(opt->addr2) |= v;
 	break;
 
     case o_int:
@@ -645,7 +733,7 @@ process_option(opt, cmd, argv)
 		    break;
 		case OPT_LIMITS:
 		    option_error("%s value must be%s between %d and %d",
-				opt->name, opt->lower_limit, opt->upper_limit);
+				opt->name, zok, opt->lower_limit, opt->upper_limit);
 		    break;
 		}
 		return 0;
@@ -701,17 +789,20 @@ process_option(opt, cmd, argv)
 	if (!(*parser)(argv))
 	    return 0;
 	if (opt->flags & OPT_A2LIST) {
-	    struct option_value *ovp, **pp;
+	    struct option_value *ovp, *pp;
 
 	    ovp = malloc(sizeof(*ovp) + strlen(*argv));
 	    if (ovp != 0) {
 		strcpy(ovp->value, *argv);
 		ovp->source = option_source;
 		ovp->next = NULL;
-		pp = (struct option_value **) &opt->addr2;
-		while (*pp != 0)
-		    pp = &(*pp)->next;
-		*pp = ovp;
+		if (opt->addr2 == NULL) {
+		    opt->addr2 = ovp;
+		} else {
+		    for (pp = opt->addr2; pp->next != NULL; pp = pp->next)
+			;
+		    pp->next = ovp;
+		}
 	    }
 	}
 	break;
@@ -723,8 +814,12 @@ process_option(opt, cmd, argv)
 	break;
     }
 
+    /*
+     * If addr2 wasn't used by any flag (OPT_A2COPY, etc.) but is set,
+     * treat it as a bool and set/clear it based on the OPT_A2CLR bit.
+     */
     if (opt->addr2 && (opt->flags & (OPT_A2COPY|OPT_ENABLE
-		|OPT_A2PRINTER|OPT_A2STRVAL|OPT_A2LIST)) == 0)
+		|OPT_A2PRINTER|OPT_A2STRVAL|OPT_A2LIST|OPT_A2OR)) == 0)
 	*(bool *)(opt->addr2) = !(opt->flags & OPT_A2CLR);
 
     mainopt->source = option_source;
@@ -870,7 +965,9 @@ print_option(opt, mainopt, printer, arg)
 			void (*oprt) __P((option_t *,
 					  void ((*)__P((void *, char *, ...))),
 					  void *));
-			oprt = opt->addr2;
+			oprt = (void (*) __P((option_t *,
+					 void ((*)__P((void *, char *, ...))),
+					 void *)))opt->addr2;
 			(*oprt)(opt, printer, arg);
 		} else if (opt->flags & OPT_A2STRVAL) {
 			p = (char *) opt->addr2;
@@ -894,7 +991,7 @@ print_option(opt, mainopt, printer, arg)
 		break;
 
 	default:
-		printer(arg, "# %s value (type %d??)", opt->name, opt->type);
+		printer(arg, "# %s value (type %d\?\?)", opt->name, opt->type);
 		break;
 	}
 	printer(arg, "\t\t# (from %s)\n", mainopt->source);
@@ -1383,13 +1480,18 @@ static int
 setpassfilter(argv)
     char **argv;
 {
-    pc.linktype = DLT_PPP;
-    pc.snapshot = PPP_HDRLEN;
- 
-    if (pcap_compile(&pc, &pass_filter, *argv, 1, netmask) == 0)
-	return 1;
-    option_error("error in pass-filter expression: %s\n", pcap_geterr(&pc));
-    return 0;
+    pcap_t *pc;
+    int ret = 1;
+
+    pc = pcap_open_dead(DLT_PPP_PPPD, 65535);
+    if (pcap_compile(pc, &pass_filter, *argv, 1, netmask) == -1) {
+	option_error("error in pass-filter expression: %s\n",
+		     pcap_geterr(pc));
+	ret = 0;
+    }
+    pcap_close(pc);
+
+    return ret;
 }
 
 /*
@@ -1399,13 +1501,18 @@ static int
 setactivefilter(argv)
     char **argv;
 {
-    pc.linktype = DLT_PPP;
-    pc.snapshot = PPP_HDRLEN;
- 
-    if (pcap_compile(&pc, &active_filter, *argv, 1, netmask) == 0)
-	return 1;
-    option_error("error in active-filter expression: %s\n", pcap_geterr(&pc));
-    return 0;
+    pcap_t *pc;
+    int ret = 1;
+
+    pc = pcap_open_dead(DLT_PPP_PPPD, 65535);
+    if (pcap_compile(pc, &active_filter, *argv, 1, netmask) == -1) {
+	option_error("error in active-filter expression: %s\n",
+		     pcap_geterr(pc));
+	ret = 0;
+    }
+    pcap_close(pc);
+
+    return ret;
 }
 #endif
 
@@ -1427,21 +1534,24 @@ setdomain(argv)
     return (1);
 }
 
-
 static int
 setlogfile(argv)
     char **argv;
 {
     int fd, err;
+    uid_t euid;
 
-    if (!privileged_option)
-	seteuid(getuid());
+    euid = geteuid();
+    if (!privileged_option && seteuid(getuid()) == -1) {
+	option_error("unable to drop permissions to open %s: %m", *argv);
+	return 0;
+    }
     fd = open(*argv, O_WRONLY | O_APPEND | O_CREAT | O_EXCL, 0644);
     if (fd < 0 && errno == EEXIST)
 	fd = open(*argv, O_WRONLY | O_APPEND);
     err = errno;
-    if (!privileged_option)
-	seteuid(0);
+    if (!privileged_option && seteuid(euid) == -1)
+	fatal("unable to regain privileges: %m");
     if (fd < 0) {
 	errno = err;
 	option_error("Can't open log file %s: %m", *argv);
@@ -1455,6 +1565,26 @@ setlogfile(argv)
     log_default = 0;
     return 1;
 }
+
+#ifdef MAXOCTETS
+static int
+setmodir(argv)
+    char **argv;
+{
+    if(*argv == NULL)
+	return 0;
+    if(!strcmp(*argv,"in")) {
+        maxoctets_dir = PPP_OCTETS_DIRECTION_IN;
+    } else if (!strcmp(*argv,"out")) {
+        maxoctets_dir = PPP_OCTETS_DIRECTION_OUT;
+    } else if (!strcmp(*argv,"max")) {
+        maxoctets_dir = PPP_OCTETS_DIRECTION_MAXOVERAL;
+    } else {
+        maxoctets_dir = PPP_OCTETS_DIRECTION_SUM;
+    }
+    return 1;
+}
+#endif
 
 #ifdef PLUGIN
 static int
@@ -1496,7 +1626,7 @@ loadplugin(argv)
 	warn("Warning: plugin %s has no version information", arg);
     } else if (strcmp(vers, VERSION) != 0) {
 	option_error("Plugin %s is for pppd version %s, this is %s",
-		     vers, VERSION);
+		     arg, vers, VERSION);
 	goto errclose;
     }
     info("Plugin %s loaded.", arg);

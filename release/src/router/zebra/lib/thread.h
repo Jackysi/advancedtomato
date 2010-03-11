@@ -1,5 +1,4 @@
-/*
- * Thread management routine header.
+/* Thread management routine header.
  * Copyright (C) 1998 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -22,6 +21,14 @@
 
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
+
+#ifdef HAVE_RUSAGE
+#define RUSAGE_T        struct rusage
+#define GETRUSAGE(X)    getrusage (RUSAGE_SELF, X);
+#else
+#define RUSAGE_T        struct timeval
+#define GETRUSAGE(X)    gettimeofday (X, NULL);
+#endif /* HAVE_RUSAGE */
 
 /* Linked list of thread. */
 struct thread_list
@@ -49,7 +56,6 @@ struct thread_master
 /* Thread itself. */
 struct thread
 {
-  unsigned long id;
   unsigned char type;		/* thread type */
   struct thread *next;		/* next pointer of the thread */
   struct thread *prev;		/* previous pointer of the thread */
@@ -61,57 +67,73 @@ struct thread
     int fd;			/* file descriptor in case of read/write. */
     struct timeval sands;	/* rest of time sands value. */
   } u;
+  RUSAGE_T ru;			/* Indepth usage info.  */
 };
+
+/* Thread types. */
+#define THREAD_READ           0
+#define THREAD_WRITE          1
+#define THREAD_TIMER          2
+#define THREAD_EVENT          3
+#define THREAD_READY          4
+#define THREAD_UNUSED         5
+
+/* Thread yield time.  */
+#define THREAD_YIELD_TIME_SLOT     100 * 1000L /* 100ms */
 
 /* Macros. */
 #define THREAD_ARG(X) ((X)->arg)
 #define THREAD_FD(X)  ((X)->u.fd)
 #define THREAD_VAL(X) ((X)->u.val)
 
+#define THREAD_READ_ON(master,thread,func,arg,sock) \
+  do { \
+    if (! thread) \
+      thread = thread_add_read (master, func, arg, sock); \
+  } while (0)
+
+#define THREAD_WRITE_ON(master,thread,func,arg,sock) \
+  do { \
+    if (! thread) \
+      thread = thread_add_write (master, func, arg, sock); \
+  } while (0)
+
+#define THREAD_TIMER_ON(master,thread,func,arg,time) \
+  do { \
+    if (! thread) \
+      thread = thread_add_timer (master, func, arg, time); \
+  } while (0)
+
+#define THREAD_OFF(thread) \
+  do { \
+    if (thread) \
+      { \
+        thread_cancel (thread); \
+        thread = NULL; \
+      } \
+  } while (0)
+
+#define THREAD_READ_OFF(thread)  THREAD_OFF(thread)
+#define THREAD_WRITE_OFF(thread)  THREAD_OFF(thread)
+#define THREAD_TIMER_OFF(thread)  THREAD_OFF(thread)
+
 /* Prototypes. */
-struct thread_master *thread_make_master ();
+struct thread_master *thread_master_create ();
+struct thread *thread_add_read (struct thread_master *, 
+				int (*)(struct thread *), void *, int);
+struct thread *thread_add_write (struct thread_master *,
+				 int (*)(struct thread *), void *, int);
+struct thread *thread_add_timer (struct thread_master *,
+				 int (*)(struct thread *), void *, long);
+struct thread *thread_add_event (struct thread_master *,
+				 int (*)(struct thread *), void *, int );
+void thread_cancel (struct thread *);
+void thread_cancel_event (struct thread_master *, void *);
 
-struct thread *
-thread_add_read (struct thread_master *m, 
-		 int (*func)(struct thread *),
-		 void *arg,
-		 int fd);
-
-struct thread *
-thread_add_write (struct thread_master *m,
-		 int (*func)(struct thread *),
-		 void *arg,
-		 int fd);
-
-struct thread *
-thread_add_timer (struct thread_master *m,
-		  int (*func)(struct thread *),
-		  void *arg,
-		  long timer);
-
-struct thread *
-thread_add_event (struct thread_master *m,
-		  int (*func)(struct thread *), 
-		  void *arg,
-		  int val);
-
-void
-thread_cancel (struct thread *thread);
-
-void
-thread_cancel_event (struct thread_master *m, void *arg);
-
-struct thread *
-thread_fetch (struct thread_master *m, 
-	      struct thread *fetch);
-
-void
-thread_call (struct thread *thread);
-
-struct thread *
-thread_execute (struct thread_master *m,
-		  int (*func)(struct thread *), 
-		  void *arg,
-		  int val);
+struct thread *thread_fetch (struct thread_master *, struct thread *);
+struct thread *thread_execute (struct thread_master *,
+			       int (*)(struct thread *), void *, int);
+void thread_call (struct thread *);
+char *thread_timer_remain_second (struct thread *);
 
 #endif /* _ZEBRA_THREAD_H */

@@ -28,22 +28,27 @@ print <<EOF;
 
 EOF
 
-$hash{'router_rip_cmd'} = "ignore";
-$hash{'router_ripng_cmd'} = "ignore";
-$hash{'router_ospf_cmd'} = "ignore";
-$hash{'router_ospf6_cmd'} = "ignore";
-$hash{'router_bgp_cmd'} = "ignore";
-$hash{'address_family_vpnv4_cmd'} = "ignore";
-$hash{'address_family_vpnv4_unicast_cmd'} = "ignore";
-$hash{'address_family_ipv4_multicast_cmd'} = "ignore";
-$hash{'address_family_ipv6_unicast_cmd'} = "ignore";
-$hash{'address_family_ipv6_cmd'} = "ignore";
-$hash{'exit_address_family_cmd'} = "ignore";
-$hash{'key_chain_cmd'} = "ignore";
-$hash{'key_cmd'} = "ignore";
-$hash{'route_map_cmd'} = "ignore";
-$hash{'set_metric_cmd'} = "ignore";
-$hash{'set_ip_nexthop_cmd'} = "ignore";
+$ignore{'"interface IFNAME"'} = "ignore";
+$ignore{'"ip vrf NAME"'} = "ignore";
+$ignore{'"router rip"'} = "ignore";
+$ignore{'"router ripng"'} = "ignore";
+$ignore{'"router ospf"'} = "ignore";
+$ignore{'"router ospf <0-65535>"'} = "ignore";
+$ignore{'"router ospf6"'} = "ignore";
+$ignore{'"router bgp <1-65535>"'} = "ignore";
+$ignore{'"router bgp <1-65535> view WORD"'} = "ignore";
+$ignore{'"address-family ipv4"'} = "ignore";
+$ignore{'"address-family ipv4 (unicast|multicast)"'} = "ignore";
+$ignore{'"address-family ipv6"'} = "ignore";
+$ignore{'"address-family ipv6 unicast"'} = "ignore";
+$ignore{'"address-family vpnv4"'} = "ignore";
+$ignore{'"address-family vpnv4 unicast"'} = "ignore";
+$ignore{'"address-family ipv4 vrf NAME"'} = "ignore";
+$ignore{'"exit-address-family"'} = "ignore";
+$ignore{'"key chain WORD"'} = "ignore";
+$ignore{'"key <0-2147483647>"'} = "ignore";
+$ignore{'"route-map WORD (deny|permit) <1-65535>"'} = "ignore";
+$ignore{'"show route-map"'} = "ignore";
 
 foreach (@ARGV) {
     $file = $_;
@@ -53,81 +58,127 @@ foreach (@ARGV) {
     $line = <FH>;
     close (FH);
 
-    @defun = ($line =~ /(?:DEFUN|ALIAS)\s*\((.+?)\)\n/sg);
-    @install = ($line =~ /install_element \([A-Z_46]+, &[^;]*;\n/sg);
+    @defun = ($line =~ /(?:DEFUN|ALIAS)\s*\((.+?)\);?\s?\s?\n/sg);
+    @install = ($line =~ /install_element \(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
-    if ($file =~ /lib/) {
-	if ($file =~ /keychain.c/) {
-	    $protocol = "VTYSH_RIPD";
-	}
-	if ($file =~ /routemap.c/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
-	}
-	if ($file =~ /filter.c/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
-	}
-	if ($file =~ /plist.c/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_BGPD";
-	}
-    } else {
-	($protocol) = ($file =~ /\/([a-z0-9]+)\//);
-	$protocol = "VTYSH_" . uc $protocol;
-    }
-
+    # DEFUN process
     foreach (@defun) {
-	my (@arg);
-	@arg = split (/,/);
-	$arg[0] = '';
+	my (@defun_array);
+	@defun_array = split (/,/);
+	$defun_array[0] = '';
+
 
 	# Actual input command string.
-	$cmd = "$arg[2]";
-	$cmd =~ s/^\s+//g;
-	$cmd =~ s/\s+$//g;
+	$str = "$defun_array[2]";
+	$str =~ s/^\s+//g;
+	$str =~ s/\s+$//g;
 
 	# Get VTY command structure.  This is needed for searching
 	# install_element() command.
-	$struct = "$arg[1]";
-	$struct =~ s/^\s+//g;
-	$struct =~ s/\s+$//g;
-	$arg[1] = $struct . "_vtysh";
+	$cmd = "$defun_array[1]";
+	$cmd =~ s/^\s+//g;
+	$cmd =~ s/\s+$//g;
 
-	$arg_str = join (", ", @arg);
+        # $protocol is VTYSH_PROTO format for redirection of user input
+    	if ($file =~ /lib/) {
+           if ($file =~ /keychain.c/) {
+              $protocol = "VTYSH_RIPD";
+           }
+           if ($file =~ /routemap.c/) {
+              $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD";
+           }
+           if ($file =~ /filter.c/) {
+              if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD";
+	      } else {
+                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
+              }
+           }
+           if ($file =~ /plist.c/) {
+	      if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD";
+              } else {
+                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
+              }
+           }
+           if ($file =~ /distribute.c/) {
+              if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD";
+              } else {
+                 $protocol = "VTYSH_RIPD";
+              }
+           }
+        } else {
+           ($protocol) = ($file =~ /\/([a-z0-9]+)/);
+           $protocol = "VTYSH_" . uc $protocol;
+        }
 
-	if (! grep (/$protocol/, @{$hashp{$struct}}) 
-	    && $hash{$struct} ne "ignore") {
-	    $hash{$struct} = "$arg_str";
-	    push (@{$hashp{$struct}}, $protocol);
-	    $install{$struct . $protocol} = $struct;
-	}
+	# Append _vtysh to structure then build DEFUN again
+	$defun_array[1] = $cmd . "_vtysh";
+	$defun_body = join (", ", @defun_array);
+
+	# $cmd -> $str hash for lookup
+	$cmd2str{$cmd} = $str;
+	$cmd2defun{$cmd} = $defun_body;
+	$cmd2proto{$cmd} = $protocol;
     }
 
+    # install_element() process
     foreach (@install) {
-	$struct = $_;
-	($index) = ($struct =~ /&([^\)]+)/);
-	$struct_str = $struct;
-	$struct_str =~ s/_cmd/_cmd_vtysh/;
-	if (defined ($install{$index . $protocol}) && ! defined ($install_check{$struct})) {
-	    $install_check{$struct} = $struct;
-	    push (@init, $struct_str);
+	my (@element_array);
+	@element_array = split (/,/);
+
+	# Install node
+	$enode = $element_array[0];
+	$enode =~ s/^\s+//g;
+	$enode =~ s/\s+$//g;
+	($enode) = ($enode =~ /([0-9A-Z_]+)$/);
+
+	# VTY command structure.
+	($ecmd) = ($element_array[1] =~ /&([^\)]+)/);
+	$ecmd =~ s/^\s+//g;
+	$ecmd =~ s/\s+$//g;
+
+	# Register $ecmd
+	if (defined ($cmd2str{$ecmd})
+	    && ! defined ($ignore{$cmd2str{$ecmd}})) {
+	    my ($key);
+	    $key = $enode . "," . $cmd2str{$ecmd};
+	    $ocmd{$key} = $ecmd;
+	    $odefun{$key} = $cmd2defun{$ecmd};
+	    push (@{$oproto{$key}}, $cmd2proto{$ecmd});
 	}
     }
 }
 
-foreach (keys %hash) {
-    if ($hash{$_} ne "ignore") {
-	@{$hashp{$_}} = join ("|", @{$hashp{$_}});
-	print "DEFSH (@{$hashp{$_}}$hash{$_})\n\n";
-    }
+# Check finaly alive $cmd;
+foreach (keys %odefun) {
+    my ($node, $str) = (split (/,/));
+    my ($cmd) = $ocmd{$_};
+    $live{$cmd} = $_;
 }
 
+# Output DEFSH
+foreach (keys %live) {
+    my ($proto);
+    my ($key);
+    $key = $live{$_};
+    $proto = join ("|", @{$oproto{$key}});
+    printf "DEFSH ($proto$odefun{$key})\n\n";
+}
+
+# Output install_element
 print <<EOF;
 void
 vtysh_init_cmd ()
 {
 EOF
 
-foreach (@init) {
-    print;
+foreach (keys %odefun) {
+    my ($node, $str) = (split (/,/));
+    $cmd = $ocmd{$_};
+    $cmd =~ s/_cmd/_cmd_vtysh/;
+    printf "  install_element ($node, &$cmd);\n";
 }
 
 print <<EOF

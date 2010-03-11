@@ -1,23 +1,72 @@
 /*
  * main.c - Point-to-Point Protocol main module
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Copyright (c) 1999-2004 Paul Mackerras. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 3. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: main.c,v 1.2 2004/06/30 10:31:51 honor Exp $"
+#define RCSID	"$Id: main.c,v 1.156 2008/06/23 11:47:18 paulus Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -41,6 +90,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/sysinfo.h>
 
 #include "pppd.h"
 #include "magic.h"
@@ -51,10 +101,15 @@
 #include "ipv6cp.h"
 #endif
 #include "upap.h"
-#include "chap.h"
+#include "chap-new.h"
+#include "eap.h"
 #include "ccp.h"
+#include "ecp.h"
 #include "pathnames.h"
+
+#ifdef USE_TDB
 #include "tdb.h"
+#endif
 
 #ifdef CBCP_SUPPORT
 #include "cbcp.h"
@@ -85,6 +140,7 @@ struct notifier *pidchange = NULL;
 struct notifier *phasechange = NULL;
 struct notifier *exitnotify = NULL;
 struct notifier *sigreceived = NULL;
+struct notifier *fork_notifier = NULL;
 
 int hungup;			/* terminal has been hung up */
 int privileged;			/* we're running as real uid root */
@@ -94,25 +150,37 @@ volatile int status;		/* exit status for pppd */
 int unsuccess;			/* # unsuccessful connection attempts */
 int do_callback;		/* != 0 if we should do callback next */
 int doing_callback;		/* != 0 if we are doing callback */
+int ppp_session_number;		/* Session number, for channels with such a
+				   concept (eg PPPoE) */
+int childwait_done;		/* have timed out waiting for children */
+
+#ifdef USE_TDB
 TDB_CONTEXT *pppdb;		/* database for storing status etc. */
+#endif
+
 char db_key[32];
 
 int (*holdoff_hook) __P((void)) = NULL;
 int (*new_phase_hook) __P((int)) = NULL;
+void (*snoop_recv_hook) __P((unsigned char *p, int len)) = NULL;
+void (*snoop_send_hook) __P((unsigned char *p, int len)) = NULL;
 
 static int conn_running;	/* we have a [dis]connector running */
-static int devfd;		/* fd of underlying device */
-static int fd_ppp = -1;		/* fd for talking PPP */
 static int fd_loop;		/* fd for getting demand-dial packets */
 
+int fd_devnull;			/* fd for /dev/null */
+int devfd = -1;			/* fd of underlying device */
+int fd_ppp = -1;		/* fd for talking PPP */
 int phase;			/* where the link is at */
 int kill_link;
+int asked_to_quit;
 int open_ccp_flag;
 int listen_time;
 int got_sigusr2;
 int got_sigterm;
 int got_sighup;
 
+static sigset_t signals_handled;
 static int waiting;
 static sigjmp_buf sigjmp;
 
@@ -134,9 +202,15 @@ int ngroups;			/* How many groups valid in groups */
 
 static struct timeval start_time;	/* Time when link was started. */
 
+static struct pppd_stats old_link_stats;
 struct pppd_stats link_stats;
-int link_connect_time;
+unsigned link_connect_time;
 int link_stats_valid;
+
+int error_count;
+
+bool bundle_eof;
+bool bundle_terminating;
 
 /*
  * We maintain a list of child process pids and
@@ -147,6 +221,7 @@ struct subprocess {
     char	*prog;
     void	(*done) __P((void *));
     void	*arg;
+    int		killable;
     struct subprocess *next;
 };
 
@@ -154,9 +229,10 @@ static struct subprocess *children;
 
 /* Prototypes for procedures local to this file. */
 
+static void check_time(void);
 static void setup_signals __P((void));
-static void create_pidfile __P((void));
-static void create_linkpidfile __P((void));
+static void create_pidfile __P((int pid));
+static void create_linkpidfile __P((int pid));
 static void cleanup __P((void));
 static void get_input __P((void));
 static void calltimeout __P((void));
@@ -169,12 +245,19 @@ static void toggle_debug __P((int));
 static void open_ccp __P((int));
 static void bad_signal __P((int));
 static void holdoff_end __P((void *));
-static int reap_kids __P((int waitfor));
+static void forget_child __P((int pid, int status));
+static int reap_kids __P((void));
+static void childwait_end __P((void *));
+
+#ifdef USE_TDB
 static void update_db_entry __P((void));
 static void add_db_key __P((const char *));
 static void delete_db_key __P((const char *));
 static void cleanup_db __P((void));
+#endif
+
 static void handle_events __P((void));
+void print_link_stats __P((void));
 
 extern	char	*ttyname __P((int));
 extern	char	*getlogin __P((void));
@@ -206,12 +289,14 @@ struct protent *protocols[] = {
     &ipv6cp_protent,
 #endif
     &ccp_protent,
+    &ecp_protent,
 #ifdef IPX_CHANGE
     &ipxcp_protent,
 #endif
 #ifdef AT_CHANGE
     &atcp_protent,
 #endif
+    &eap_protent,
     NULL
 };
 
@@ -233,19 +318,11 @@ main(argc, argv)
     struct protent *protp;
     char numbuf[16];
 
-    new_phase(PHASE_INITIALIZE);
+    strlcpy(path_ipup, _PATH_IPUP, sizeof(path_ipup));
+    strlcpy(path_ipdown, _PATH_IPDOWN, sizeof(path_ipdown));
 
-    /*
-     * Ensure that fds 0, 1, 2 are open, to /dev/null if nowhere else.
-     * This way we can close 0, 1, 2 in detach() without clobbering
-     * a fd that we are using.
-     */
-    if ((i = open("/dev/null", O_RDWR)) >= 0) {
-	while (0 <= i && i <= 2)
-	    i = dup(i);
-	if (i >= 0)
-	    close(i);
-    }
+    link_stats_valid = 0;
+    new_phase(PHASE_INITIALIZE);
 
     script_env = NULL;
 
@@ -342,8 +419,20 @@ main(argc, argv)
 	init_pr_log(NULL, LOG_INFO);
 	print_options(pr_log, NULL);
 	end_pr_log();
-	if (dryrun)
-	    die(0);
+    }
+
+    if (dryrun)
+	die(0);
+
+    /* Make sure fds 0, 1, 2 are open to somewhere. */
+    fd_devnull = open(_PATH_DEVNULL, O_RDWR);
+    if (fd_devnull < 0)
+	fatal("Couldn't open %s: %m", _PATH_DEVNULL);
+    while (fd_devnull <= 2) {
+	i = dup(fd_devnull);
+	if (i < 0)
+	    fatal("Critical shortage of file descriptors: dup failed: %m");
+	fd_devnull = i;
     }
 
     /*
@@ -351,6 +440,7 @@ main(argc, argv)
      */
     sys_init();
 
+#ifdef USE_TDB
     pppdb = tdb_open(_PATH_PPPDB, 0, 0, O_RDWR|O_CREAT, 0644);
     if (pppdb != NULL) {
 	slprintf(db_key, sizeof(db_key), "pppd%d", getpid());
@@ -362,6 +452,7 @@ main(argc, argv)
 	    multilink = 0;
 	}
     }
+#endif
 
     /*
      * Detach ourselves from the terminal, if required,
@@ -387,9 +478,9 @@ main(argc, argv)
 
     setup_signals();
 
-    waiting = 0;
+    create_linkpidfile(getpid());
 
-    create_linkpidfile();
+    waiting = 0;
 
     /*
      * If we're doing dial-on-demand, set up the interface now.
@@ -398,11 +489,8 @@ main(argc, argv)
 	/*
 	 * Open the loopback channel and set it up to be the ppp interface.
 	 */
-	tdb_writelock(pppdb);
 	fd_loop = open_ppp_loopback();
 	set_ifunit(1);
-	tdb_writeunlock(pppdb);
-
 	/*
 	 * Configure the interface and mark it up, etc.
 	 */
@@ -412,6 +500,8 @@ main(argc, argv)
     do_callback = 0;
     for (;;) {
 
+	bundle_eof = 0;
+	bundle_terminating = 0;
 	listen_time = 0;
 	need_holdoff = 1;
 	devfd = -1;
@@ -429,13 +519,13 @@ main(argc, argv)
 	    add_fd(fd_loop);
 	    for (;;) {
 		handle_events();
-		if (kill_link && !persist)
+		if (asked_to_quit)
 		    break;
 		if (get_loop_output())
 		    break;
 	    }
 	    remove_fd(fd_loop);
-	    if (kill_link && !persist)
+	    if (asked_to_quit)
 		break;
 
 	    /*
@@ -445,46 +535,24 @@ main(argc, argv)
 	    info("Starting link");
 	}
 
-	new_phase(PHASE_SERIALCONN);
-
-	devfd = the_channel->connect();
-	if (devfd < 0)
-	    goto fail;
-
-	/* set up the serial device as a ppp interface */
-	tdb_writelock(pppdb);
-	fd_ppp = the_channel->establish_ppp(devfd);
-	if (fd_ppp < 0) {
-	    tdb_writeunlock(pppdb);
-	    status = EXIT_FATAL_ERROR;
-	    goto disconnect;
-	}
-
-	if (!demand && ifunit >= 0)
-	    set_ifunit(1);
-	tdb_writeunlock(pppdb);
-
-	/*
-	 * Start opening the connection and wait for
-	 * incoming events (reply, timeout, etc.).
-	 */
-	notice("Connect: %s <--> %s", ifname, ppp_devnam);
-	my_gettimeofday(&start_time, NULL);
-	link_stats_valid = 0;
+	check_time();
+	gettimeofday(&start_time, NULL);
 	script_unsetenv("CONNECT_TIME");
 	script_unsetenv("BYTES_SENT");
 	script_unsetenv("BYTES_RCVD");
-	lcp_lowerup(0);
 
-	add_fd(fd_ppp);
 	lcp_open(0);		/* Start protocol */
-	status = EXIT_NEGOTIATION_FAILED;
-	new_phase(PHASE_ESTABLISH);
+	start_link(0);
 	while (phase != PHASE_DEAD) {
 	    handle_events();
 	    get_input();
 	    if (kill_link)
 		lcp_close(0, "User request");
+	    if (asked_to_quit) {
+		bundle_terminating = 1;
+		if (phase == PHASE_MASTER)
+		    mp_bundle_terminated();
+	    }
 	    if (open_ccp_flag) {
 		if (phase == PHASE_NETWORK || phase == PHASE_RUNNING) {
 		    ccp_fsm[0].flags = OPT_RESTART; /* clears OPT_SILENT */
@@ -492,63 +560,10 @@ main(argc, argv)
 		}
 	    }
 	}
+	/* restore FSMs to original state */
+	lcp_close(0, "");
 
-	/*
-	 * Print connect time and statistics.
-	 */
-	if (link_stats_valid) {
-	    int t = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
-	    info("Connect time %d.%d minutes.", t/10, t%10);
-	    info("Sent %u bytes, received %u bytes.",
-		 link_stats.bytes_out, link_stats.bytes_in);
-	}
-
-	/*
-	 * Delete pid file before disestablishing ppp.  Otherwise it
-	 * can happen that another pppd gets the same unit and then
-	 * we delete its pid file.
-	 */
-	if (!demand) {
-	    if (pidfilename[0] != 0
-		&& unlink(pidfilename) < 0 && errno != ENOENT) 
-		warn("unable to delete pid file %s: %m", pidfilename);
-	    pidfilename[0] = 0;
-	}
-
-	/*
-	 * If we may want to bring the link up again, transfer
-	 * the ppp unit back to the loopback.  Set the
-	 * real serial device back to its normal mode of operation.
-	 */
-	remove_fd(fd_ppp);
-	clean_check();
-	the_channel->disestablish_ppp(devfd);
-	fd_ppp = -1;
-	if (!hungup)
-	    lcp_lowerdown(0);
-	if (!demand)
-	    script_unsetenv("IFNAME");
-
-	/*
-	 * Run disconnector script, if requested.
-	 * XXX we may not be able to do this if the line has hung up!
-	 */
-    disconnect:
-	new_phase(PHASE_DISCONNECT);
-	the_channel->disconnect();
-
-    fail:
-	if (the_channel->cleanup)
-	    (*the_channel->cleanup)();
-
-	if (!demand) {
-	    if (pidfilename[0] != 0
-		&& unlink(pidfilename) < 0 && errno != ENOENT) 
-		warn("unable to delete pid file %s: %m", pidfilename);
-	    pidfilename[0] = 0;
-	}
-
-	if (!persist || (maxfail > 0 && unsuccess >= maxfail))
+	if (!persist || asked_to_quit || (maxfail > 0 && unsuccess >= maxfail))
 	    break;
 
 	if (demand)
@@ -570,16 +585,21 @@ main(argc, argv)
     }
 
     /* Wait for scripts to finish */
-    /* XXX should have a timeout here */
-    while (n_children > 0) {
+    reap_kids();
+    if (n_children > 0) {
+	if (child_wait > 0)
+	    TIMEOUT(childwait_end, NULL, child_wait);
 	if (debug) {
 	    struct subprocess *chp;
 	    dbglog("Waiting for %d child processes...", n_children);
 	    for (chp = children; chp != NULL; chp = chp->next)
 		dbglog("  script %s, pid %d", chp->prog, chp->pid);
 	}
-	if (reap_kids(1) < 0)
-	    break;
+	while (n_children > 0 && !childwait_done) {
+	    handle_events();
+	    if (kill_link && !childwait_done)
+		childwait_end(NULL);
+	}
     }
 
     die(status);
@@ -593,36 +613,38 @@ static void
 handle_events()
 {
     struct timeval timo;
-    sigset_t mask;
 
     kill_link = open_ccp_flag = 0;
     if (sigsetjmp(sigjmp, 1) == 0) {
-	sigprocmask(SIG_BLOCK, &mask, NULL);
+	sigprocmask(SIG_BLOCK, &signals_handled, NULL);
 	if (got_sighup || got_sigterm || got_sigusr2 || got_sigchld) {
-	    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	    sigprocmask(SIG_UNBLOCK, &signals_handled, NULL);
 	} else {
 	    waiting = 1;
-	    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	    sigprocmask(SIG_UNBLOCK, &signals_handled, NULL);
 	    wait_input(timeleft(&timo));
 	}
     }
     waiting = 0;
     calltimeout();
     if (got_sighup) {
+	info("Hangup (SIGHUP)");
 	kill_link = 1;
 	got_sighup = 0;
 	if (status != EXIT_HANGUP)
 	    status = EXIT_USER_REQUEST;
     }
     if (got_sigterm) {
+	info("Terminating on signal %d", got_sigterm);
 	kill_link = 1;
+	asked_to_quit = 1;
 	persist = 0;
 	status = EXIT_USER_REQUEST;
 	got_sigterm = 0;
     }
     if (got_sigchld) {
-	reap_kids(0);	/* Don't leave dead kids lying around */
 	got_sigchld = 0;
+	reap_kids();	/* Don't leave dead kids lying around */
     }
     if (got_sigusr2) {
 	open_ccp_flag = 1;
@@ -637,19 +659,18 @@ static void
 setup_signals()
 {
     struct sigaction sa;
-    sigset_t mask;
 
     /*
      * Compute mask of all interesting signals and install signal handlers
      * for each.  Only one signal handler may be active at a time.  Therefore,
      * all other signals should be masked when any handler is executing.
      */
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGHUP);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGCHLD);
-    sigaddset(&mask, SIGUSR2);
+    sigemptyset(&signals_handled);
+    sigaddset(&signals_handled, SIGHUP);
+    sigaddset(&signals_handled, SIGINT);
+    sigaddset(&signals_handled, SIGTERM);
+    sigaddset(&signals_handled, SIGCHLD);
+    sigaddset(&signals_handled, SIGUSR2);
 
 #define SIGNAL(s, handler)	do { \
 	sa.sa_handler = handler; \
@@ -657,7 +678,7 @@ setup_signals()
 	    fatal("Couldn't establish signal handler (%d): %m", s); \
     } while (0)
 
-    sa.sa_mask = mask;
+    sa.sa_mask = signals_handled;
     sa.sa_flags = 0;
     SIGNAL(SIGHUP, hup);		/* Hangup */
     SIGNAL(SIGINT, term);		/* Interrupt */
@@ -726,8 +747,8 @@ set_ifunit(iskey)
     slprintf(ifname, sizeof(ifname), "%s%d", PPP_DRV_NAME, ifunit);
     script_setenv("IFNAME", ifname, iskey);
     if (iskey) {
-	create_pidfile();	/* write pid to file */
-	create_linkpidfile();
+	create_pidfile(getpid());	/* write pid to file */
+	create_linkpidfile(getpid());
     }
 }
 
@@ -739,9 +760,12 @@ detach()
 {
     int pid;
     char numbuf[16];
+    int pipefd[2];
 
     if (detached)
 	return;
+    if (pipe(pipefd) == -1)
+	pipefd[0] = pipefd[1] = -1;
     if ((pid = fork()) < 0) {
 	error("Couldn't detach (fork failed: %m)");
 	die(1);			/* or just return? */
@@ -749,23 +773,28 @@ detach()
     if (pid != 0) {
 	/* parent */
 	notify(pidchange, pid);
+	/* update pid files if they have been written already */
+	if (pidfilename[0])
+	    create_pidfile(pid);
+	if (linkpidfile[0])
+	    create_linkpidfile(pid);
 	exit(0);		/* parent dies */
     }
     setsid();
     chdir("/");
-    close(0);
-    close(1);
-    close(2);
+    dup2(fd_devnull, 0);
+    dup2(fd_devnull, 1);
+    dup2(fd_devnull, 2);
     detached = 1;
     if (log_default)
 	log_to_fd = -1;
-    /* update pid files if they have been written already */
-    if (pidfilename[0])
-	create_pidfile();
-    if (linkpidfile[0])
-	create_linkpidfile();
     slprintf(numbuf, sizeof(numbuf), "%d", getpid());
     script_setenv("PPPD_PID", numbuf, 1);
+
+    /* wait for parent to finish updating pid & lock files and die */
+    close(pipefd[1]);
+    complete_read(pipefd[0], numbuf, 1);
+    close(pipefd[0]);
 }
 
 /*
@@ -774,26 +803,23 @@ detach()
 void
 reopen_log()
 {
-#ifdef ULTRIX
-    openlog("pppd", LOG_PID);
-#else
     openlog("pppd", LOG_PID | LOG_NDELAY, LOG_PPP);
     setlogmask(LOG_UPTO(LOG_INFO));
-#endif
 }
 
 /*
  * Create a file containing our process ID.
  */
 static void
-create_pidfile()
+create_pidfile(pid)
+    int pid;
 {
     FILE *pidfile;
 
     slprintf(pidfilename, sizeof(pidfilename), "%s%s.pid",
 	     _PATH_VARRUN, ifname);
     if ((pidfile = fopen(pidfilename, "w")) != NULL) {
-	fprintf(pidfile, "%d\n", getpid());
+	fprintf(pidfile, "%d\n", pid);
 	(void) fclose(pidfile);
     } else {
 	error("Failed to create pid file %s: %m", pidfilename);
@@ -801,8 +827,9 @@ create_pidfile()
     }
 }
 
-static void
-create_linkpidfile()
+void
+create_linkpidfile(pid)
+    int pid;
 {
     FILE *pidfile;
 
@@ -812,7 +839,7 @@ create_linkpidfile()
     slprintf(linkpidfile, sizeof(linkpidfile), "%sppp-%s.pid",
 	     _PATH_VARRUN, linkname);
     if ((pidfile = fopen(linkpidfile, "w")) != NULL) {
-	fprintf(pidfile, "%d\n", getpid());
+	fprintf(pidfile, "%d\n", pid);
 	if (ifname[0])
 	    fprintf(pidfile, "%s\n", ifname);
 	(void) fclose(pidfile);
@@ -820,6 +847,19 @@ create_linkpidfile()
 	error("Failed to create pid file %s: %m", linkpidfile);
 	linkpidfile[0] = 0;
     }
+}
+
+/*
+ * remove_pidfile - remove our pid files
+ */
+void remove_pidfiles()
+{
+    if (pidfilename[0] != 0 && unlink(pidfilename) < 0 && errno != ENOENT)
+	warn("unable to delete pid file %s: %m", pidfilename);
+    pidfilename[0] = 0;
+    if (linkpidfile[0] != 0 && unlink(linkpidfile) < 0 && errno != ENOENT)
+	warn("unable to delete pid file %s: %m", linkpidfile);
+    linkpidfile[0] = 0;
 }
 
 /*
@@ -860,14 +900,54 @@ struct protocol_list {
     { 0x4b,	"SNA over 802.2" },
     { 0x4d,	"SNA" },
     { 0x4f,	"IP6 Header Compression" },
+    { 0x51,	"KNX Bridging Data" },
+    { 0x53,	"Encryption" },
+    { 0x55,	"Individual Link Encryption" },
+    { 0x57,	"IPv6" },
+    { 0x59,	"PPP Muxing" },
+    { 0x5b,	"Vendor-Specific Network Protocol" },
+    { 0x61,	"RTP IPHC Full Header" },
+    { 0x63,	"RTP IPHC Compressed TCP" },
+    { 0x65,	"RTP IPHC Compressed non-TCP" },
+    { 0x67,	"RTP IPHC Compressed UDP 8" },
+    { 0x69,	"RTP IPHC Compressed RTP 8" },
     { 0x6f,	"Stampede Bridging" },
+    { 0x73,	"MP+" },
+    { 0xc1,	"NTCITS IPI" },
     { 0xfb,	"single-link compression" },
-    { 0xfd,	"1st choice compression" },
+    { 0xfd,	"Compressed Datagram" },
     { 0x0201,	"802.1d Hello Packets" },
     { 0x0203,	"IBM Source Routing BPDU" },
     { 0x0205,	"DEC LANBridge100 Spanning Tree" },
+    { 0x0207,	"Cisco Discovery Protocol" },
+    { 0x0209,	"Netcs Twin Routing" },
+    { 0x020b,	"STP - Scheduled Transfer Protocol" },
+    { 0x020d,	"EDP - Extreme Discovery Protocol" },
+    { 0x0211,	"Optical Supervisory Channel Protocol" },
+    { 0x0213,	"Optical Supervisory Channel Protocol" },
     { 0x0231,	"Luxcom" },
     { 0x0233,	"Sigma Network Systems" },
+    { 0x0235,	"Apple Client Server Protocol" },
+    { 0x0281,	"MPLS Unicast" },
+    { 0x0283,	"MPLS Multicast" },
+    { 0x0285,	"IEEE p1284.4 standard - data packets" },
+    { 0x0287,	"ETSI TETRA Network Protocol Type 1" },
+    { 0x0289,	"Multichannel Flow Treatment Protocol" },
+    { 0x2063,	"RTP IPHC Compressed TCP No Delta" },
+    { 0x2065,	"RTP IPHC Context State" },
+    { 0x2067,	"RTP IPHC Compressed UDP 16" },
+    { 0x2069,	"RTP IPHC Compressed RTP 16" },
+    { 0x4001,	"Cray Communications Control Protocol" },
+    { 0x4003,	"CDPD Mobile Network Registration Protocol" },
+    { 0x4005,	"Expand accelerator protocol" },
+    { 0x4007,	"ODSICP NCP" },
+    { 0x4009,	"DOCSIS DLL" },
+    { 0x400B,	"Cetacean Network Detection Protocol" },
+    { 0x4021,	"Stacker LZS" },
+    { 0x4023,	"RefTek Protocol" },
+    { 0x4025,	"Fibre Channel" },
+    { 0x4027,	"EMIT Protocols" },
+    { 0x405b,	"Vendor-Specific Protocol (VSP)" },
     { 0x8021,	"Internet Protocol Control Protocol" },
     { 0x8023,	"OSI Network Layer Control Protocol" },
     { 0x8025,	"Xerox NS IDP Control Protocol" },
@@ -887,17 +967,43 @@ struct protocol_list {
     { 0x804b,	"SNA over 802.2 Control Protocol" },
     { 0x804d,	"SNA Control Protocol" },
     { 0x804f,	"IP6 Header Compression Control Protocol" },
-    { 0x006f,	"Stampede Bridging Control Protocol" },
+    { 0x8051,	"KNX Bridging Control Protocol" },
+    { 0x8053,	"Encryption Control Protocol" },
+    { 0x8055,	"Individual Link Encryption Control Protocol" },
+    { 0x8057,	"IPv6 Control Protocol" },
+    { 0x8059,	"PPP Muxing Control Protocol" },
+    { 0x805b,	"Vendor-Specific Network Control Protocol (VSNCP)" },
+    { 0x806f,	"Stampede Bridging Control Protocol" },
+    { 0x8073,	"MP+ Control Protocol" },
+    { 0x80c1,	"NTCITS IPI Control Protocol" },
     { 0x80fb,	"Single Link Compression Control Protocol" },
     { 0x80fd,	"Compression Control Protocol" },
+    { 0x8207,	"Cisco Discovery Protocol Control" },
+    { 0x8209,	"Netcs Twin Routing" },
+    { 0x820b,	"STP - Control Protocol" },
+    { 0x820d,	"EDPCP - Extreme Discovery Protocol Ctrl Prtcl" },
+    { 0x8235,	"Apple Client Server Protocol Control" },
+    { 0x8281,	"MPLSCP" },
+    { 0x8285,	"IEEE p1284.4 standard - Protocol Control" },
+    { 0x8287,	"ETSI TETRA TNP1 Control Protocol" },
+    { 0x8289,	"Multichannel Flow Treatment Protocol" },
     { 0xc021,	"Link Control Protocol" },
     { 0xc023,	"Password Authentication Protocol" },
     { 0xc025,	"Link Quality Report" },
     { 0xc027,	"Shiva Password Authentication Protocol" },
     { 0xc029,	"CallBack Control Protocol (CBCP)" },
+    { 0xc02b,	"BACP Bandwidth Allocation Control Protocol" },
+    { 0xc02d,	"BAP" },
+    { 0xc05b,	"Vendor-Specific Authentication Protocol (VSAP)" },
     { 0xc081,	"Container Control Protocol" },
     { 0xc223,	"Challenge Handshake Authentication Protocol" },
+    { 0xc225,	"RSA Authentication Protocol" },
+    { 0xc227,	"Extensible Authentication Protocol" },
+    { 0xc229,	"Mitsubishi Security Info Exch Ptcl (SIEP)" },
+    { 0xc26f,	"Stampede Bridging Authorization Protocol" },
     { 0xc281,	"Proprietary Authentication Protocol" },
+    { 0xc283,	"Proprietary Authentication Protocol" },
+    { 0xc481,	"Proprietary Node ID Authentication Protocol" },
     { 0,	NULL },
 };
 
@@ -934,6 +1040,11 @@ get_input()
 	return;
 
     if (len == 0) {
+	if (bundle_eof && multilink_master) {
+	    notice("Last channel has disconnected");
+	    mp_bundle_terminated();
+	    return;
+	}
 	notice("Modem hangup");
 	hungup = 1;
 	status = EXIT_HANGUP;
@@ -942,13 +1053,13 @@ get_input()
 	return;
     }
 
-    if (debug /*&& (debugflags & DBG_INPACKET)*/)
-	dbglog("rcvd %P", p, len);
-
     if (len < PPP_HDRLEN) {
-	MAINDEBUG(("io(): Received short packet."));
+	dbglog("received short packet:%.*B", len, p);
 	return;
     }
+
+    dump_packet("rcvd", p, len);
+    if (snoop_recv_hook) snoop_recv_hook(p, len);
 
     p += 2;				/* Skip address and control */
     GETSHORT(protocol, p);
@@ -958,7 +1069,7 @@ get_input()
      * Toss all non-LCP packets unless LCP is OPEN.
      */
     if (protocol != PPP_LCP && lcp_fsm[0].state != OPENED) {
-	MAINDEBUG(("get_input: Received non-LCP packet when LCP not open."));
+	dbglog("Discarded non-LCP packet when LCP not open");
 	return;
     }
 
@@ -968,9 +1079,10 @@ get_input()
      */
     if (phase <= PHASE_AUTHENTICATE
 	&& !(protocol == PPP_LCP || protocol == PPP_LQR
-	     || protocol == PPP_PAP || protocol == PPP_CHAP)) {
-	MAINDEBUG(("get_input: discarding proto 0x%x in phase %d",
-		   protocol, phase));
+	     || protocol == PPP_PAP || protocol == PPP_CHAP ||
+		protocol == PPP_EAP)) {
+	dbglog("discarding proto 0x%x in phase %d",
+		   protocol, phase);
 	return;
     }
 
@@ -1000,6 +1112,48 @@ get_input()
 }
 
 /*
+ * ppp_send_config - configure the transmit-side characteristics of
+ * the ppp interface.  Returns -1, indicating an error, if the channel
+ * send_config procedure called error() (or incremented error_count
+ * itself), otherwise 0.
+ */
+int
+ppp_send_config(unit, mtu, accm, pcomp, accomp)
+    int unit, mtu;
+    u_int32_t accm;
+    int pcomp, accomp;
+{
+	int errs;
+
+	if (the_channel->send_config == NULL)
+		return 0;
+	errs = error_count;
+	(*the_channel->send_config)(mtu, accm, pcomp, accomp);
+	return (error_count != errs)? -1: 0;
+}
+
+/*
+ * ppp_recv_config - configure the receive-side characteristics of
+ * the ppp interface.  Returns -1, indicating an error, if the channel
+ * recv_config procedure called error() (or incremented error_count
+ * itself), otherwise 0.
+ */
+int
+ppp_recv_config(unit, mru, accm, pcomp, accomp)
+    int unit, mru;
+    u_int32_t accm;
+    int pcomp, accomp;
+{
+	int errs;
+
+	if (the_channel->recv_config == NULL)
+		return 0;
+	errs = error_count;
+	(*the_channel->recv_config)(mru, accm, pcomp, accomp);
+	return (error_count != errs)? -1: 0;
+}
+
+/*
  * new_phase - signal the start of a new phase of pppd's operation.
  */
 void
@@ -1019,6 +1173,8 @@ void
 die(status)
     int status;
 {
+    if (!doing_multilink || multilink_master)
+	print_link_stats();
     cleanup();
     notify(exitnotify, status);
     syslog(LOG_INFO, "Exit.");
@@ -1038,16 +1194,40 @@ cleanup()
 	the_channel->disestablish_ppp(devfd);
     if (the_channel->cleanup)
 	(*the_channel->cleanup)();
+    remove_pidfiles();
 
-    if (pidfilename[0] != 0 && unlink(pidfilename) < 0 && errno != ENOENT) 
-	warn("unable to delete pid file %s: %m", pidfilename);
-    pidfilename[0] = 0;
-    if (linkpidfile[0] != 0 && unlink(linkpidfile) < 0 && errno != ENOENT) 
-	warn("unable to delete pid file %s: %m", linkpidfile);
-    linkpidfile[0] = 0;
-
+#ifdef USE_TDB
     if (pppdb != NULL)
 	cleanup_db();
+#endif
+
+}
+
+void
+print_link_stats()
+{
+    /*
+     * Print connect time and statistics.
+     */
+    if (link_stats_valid) {
+       int t = (link_connect_time + 5) / 6;    /* 1/10ths of minutes */
+       info("Connect time %d.%d minutes.", t/10, t%10);
+       info("Sent %u bytes, received %u bytes.",
+	    link_stats.bytes_out, link_stats.bytes_in);
+       link_stats_valid = 0;
+    }
+}
+
+/*
+ * reset_link_stats - "reset" stats when link goes up.
+ */
+void
+reset_link_stats(u)
+    int u;
+{
+    if (!get_ppp_stats(u, &old_link_stats))
+	return;
+    gettimeofday(&start_time, NULL);
 }
 
 /*
@@ -1061,16 +1241,21 @@ update_link_stats(u)
     char numbuf[32];
 
     if (!get_ppp_stats(u, &link_stats)
-	|| my_gettimeofday(&now, NULL) < 0)
+	|| gettimeofday(&now, NULL) < 0)
 	return;
     link_connect_time = now.tv_sec - start_time.tv_sec;
     link_stats_valid = 1;
 
-    slprintf(numbuf, sizeof(numbuf), "%d", link_connect_time);
+    link_stats.bytes_in  -= old_link_stats.bytes_in;
+    link_stats.bytes_out -= old_link_stats.bytes_out;
+    link_stats.pkts_in   -= old_link_stats.pkts_in;
+    link_stats.pkts_out  -= old_link_stats.pkts_out;
+
+    slprintf(numbuf, sizeof(numbuf), "%u", link_connect_time);
     script_setenv("CONNECT_TIME", numbuf, 0);
-    slprintf(numbuf, sizeof(numbuf), "%d", link_stats.bytes_out);
+    slprintf(numbuf, sizeof(numbuf), "%u", link_stats.bytes_out);
     script_setenv("BYTES_SENT", numbuf, 0);
-    slprintf(numbuf, sizeof(numbuf), "%d", link_stats.bytes_in);
+    slprintf(numbuf, sizeof(numbuf), "%u", link_stats.bytes_in);
     script_setenv("BYTES_RCVD", numbuf, 0);
 }
 
@@ -1084,12 +1269,39 @@ struct	callout {
 
 static struct callout *callout = NULL;	/* Callout list */
 static struct timeval timenow;		/* Current time */
+static long uptime_diff = 0;
+static int uptime_diff_set = 0;
+
+static void check_time(void)
+{
+	long new_diff;
+	struct timeval t;
+	struct sysinfo i;
+    struct callout *p;
+	
+	gettimeofday(&t, NULL);
+	sysinfo(&i);
+	new_diff = t.tv_sec - i.uptime;
+	
+	if (!uptime_diff_set) {
+		uptime_diff = new_diff;
+		uptime_diff_set = 1;
+		return;
+	}
+
+	if ((new_diff - 5 > uptime_diff) || (new_diff + 5 < uptime_diff)) {
+		/* system time has changed, update counters and timeouts */
+		info("System time change detected.");
+		start_time.tv_sec += new_diff - uptime_diff;
+		
+    	for (p = callout; p != NULL; p = p->c_next)
+			p->c_time.tv_sec += new_diff - uptime_diff;
+	}
+	uptime_diff = new_diff;
+}
 
 /*
  * timeout - Schedule a timeout.
- *
- * Note that this timeout takes the number of milliseconds, NOT hz (as in
- * the kernel).
  */
 void
 timeout(func, arg, secs, usecs)
@@ -1098,10 +1310,7 @@ timeout(func, arg, secs, usecs)
     int secs, usecs;
 {
     struct callout *newp, *p, **pp;
-  
-    MAINDEBUG(("Timeout %p:%p in %d.%03d seconds.", func, arg,
-	       time / 1000, time % 1000));
-  
+
     /*
      * Allocate timeout.
      */
@@ -1109,7 +1318,7 @@ timeout(func, arg, secs, usecs)
 	fatal("Out of memory in timeout()!");
     newp->c_arg = arg;
     newp->c_func = func;
-    my_gettimeofday(&timenow, NULL);
+    gettimeofday(&timenow, NULL);
     newp->c_time.tv_sec = timenow.tv_sec + secs;
     newp->c_time.tv_usec = timenow.tv_usec + usecs;
     if (newp->c_time.tv_usec >= 1000000) {
@@ -1139,9 +1348,7 @@ untimeout(func, arg)
     void *arg;
 {
     struct callout **copp, *freep;
-  
-    MAINDEBUG(("Untimeout %p:%p.", func, arg));
-  
+
     /*
      * Find first matching timeout and remove it from the list.
      */
@@ -1162,10 +1369,12 @@ calltimeout()
 {
     struct callout *p;
 
+	check_time();
+	
     while (callout != NULL) {
 	p = callout;
 
-	if (my_gettimeofday(&timenow, NULL) < 0)
+	if (gettimeofday(&timenow, NULL) < 0)
 	    fatal("Failed to get time of day: %m");
 	if (!(p->c_time.tv_sec < timenow.tv_sec
 	      || (p->c_time.tv_sec == timenow.tv_sec
@@ -1189,8 +1398,10 @@ timeleft(tvp)
 {
     if (callout == NULL)
 	return NULL;
+	
+	check_time();
 
-    my_gettimeofday(&timenow, NULL);
+    gettimeofday(&timenow, NULL);
     tvp->tv_sec = callout->c_time.tv_sec - timenow.tv_sec;
     tvp->tv_usec = callout->c_time.tv_usec - timenow.tv_usec;
     if (tvp->tv_usec < 0) {
@@ -1206,16 +1417,43 @@ timeleft(tvp)
 
 /*
  * kill_my_pg - send a signal to our process group, and ignore it ourselves.
+ * We assume that sig is currently blocked.
  */
 static void
 kill_my_pg(sig)
     int sig;
 {
     struct sigaction act, oldact;
+    struct subprocess *chp;
 
+    if (!detached) {
+	/*
+	 * There might be other things in our process group that we
+	 * didn't start that would get hit if we did a kill(0), so
+	 * just send the signal individually to our children.
+	 */
+	for (chp = children; chp != NULL; chp = chp->next)
+	    if (chp->killable)
+		kill(chp->pid, sig);
+	return;
+    }
+
+    /* We've done a setsid(), so we can just use a kill(0) */
+    sigemptyset(&act.sa_mask);		/* unnecessary in fact */
     act.sa_handler = SIG_IGN;
     act.sa_flags = 0;
     kill(0, sig);
+    /*
+     * The kill() above made the signal pending for us, as well as
+     * the rest of our process group, but we don't want it delivered
+     * to us.  It is blocked at the moment.  Setting it to be ignored
+     * will cause the pending signal to be discarded.  If we did the
+     * kill() after setting the signal to be ignored, it is unspecified
+     * (by POSIX) whether the signal is immediately discarded or left
+     * pending, and in fact Linux would leave it pending, and so it
+     * would be delivered after the current signal handler exits,
+     * leading to an infinite loop.
+     */
     sigaction(sig, &act, &oldact);
     sigaction(sig, &oldact, NULL);
 }
@@ -1232,7 +1470,7 @@ static void
 hup(sig)
     int sig;
 {
-    info("Hangup (SIGHUP)");
+    /* can't log a message here, it can deadlock */
     got_sighup = 1;
     if (conn_running)
 	/* Send the signal to the [dis]connector process(es) also */
@@ -1253,8 +1491,8 @@ static void
 term(sig)
     int sig;
 {
-    info("Terminating on signal %d.", sig);
-    got_sigterm = 1;
+    /* can't log a message here, it can deadlock */
+    got_sigterm = sig;
     if (conn_running)
 	/* Send the signal to the [dis]connector process(es) also */
 	kill_my_pg(sig);
@@ -1332,6 +1570,90 @@ bad_signal(sig)
     die(127);
 }
 
+/*
+ * safe_fork - Create a child process.  The child closes all the
+ * file descriptors that we don't want to leak to a script.
+ * The parent waits for the child to do this before returning.
+ * This also arranges for the specified fds to be dup'd to
+ * fds 0, 1, 2 in the child.
+ */
+pid_t
+safe_fork(int infd, int outfd, int errfd)
+{
+	pid_t pid;
+	int fd, pipefd[2];
+	char buf[1];
+
+	/* make sure fds 0, 1, 2 are occupied (probably not necessary) */
+	while ((fd = dup(fd_devnull)) >= 0) {
+		if (fd > 2) {
+			close(fd);
+			break;
+		}
+	}
+
+	if (pipe(pipefd) == -1)
+		pipefd[0] = pipefd[1] = -1;
+	pid = fork();
+	if (pid < 0) {
+		error("fork failed: %m");
+		return -1;
+	}
+	if (pid > 0) {
+		/* parent */
+		close(pipefd[1]);
+		/* this read() blocks until the close(pipefd[1]) below */
+		complete_read(pipefd[0], buf, 1);
+		close(pipefd[0]);
+		return pid;
+	}
+
+	/* Executing in the child */
+	sys_close();
+#ifdef USE_TDB
+	tdb_close(pppdb);
+#endif
+
+	/* make sure infd, outfd and errfd won't get tromped on below */
+	if (infd == 1 || infd == 2)
+		infd = dup(infd);
+	if (outfd == 0 || outfd == 2)
+		outfd = dup(outfd);
+	if (errfd == 0 || errfd == 1)
+		errfd = dup(errfd);
+
+	closelog();
+
+	/* dup the in, out, err fds to 0, 1, 2 */
+	if (infd != 0)
+		dup2(infd, 0);
+	if (outfd != 1)
+		dup2(outfd, 1);
+	if (errfd != 2)
+		dup2(errfd, 2);
+
+	if (log_to_fd > 2)
+		close(log_to_fd);
+	if (the_channel->close)
+		(*the_channel->close)();
+	else
+		close(devfd);	/* some plugins don't have a close function */
+	close(fd_ppp);
+	close(fd_devnull);
+	if (infd != 0)
+		close(infd);
+	if (outfd != 1)
+		close(outfd);
+	if (errfd != 2)
+		close(errfd);
+
+	notify(fork_notifier, 0);
+	close(pipefd[0]);
+	/* this close unblocks the read() call above in the parent */
+	close(pipefd[1]);
+
+	return 0;
+}
 
 /*
  * device_script - run a program to talk to the specified fds
@@ -1344,12 +1666,20 @@ device_script(program, in, out, dont_wait)
     int in, out;
     int dont_wait;
 {
-    int pid, fd;
+    int pid;
     int status = -1;
     int errfd;
 
+    if (log_to_fd >= 0)
+	errfd = log_to_fd;
+    else
+	errfd = open(_PATH_CONNERRS, O_WRONLY | O_APPEND | O_CREAT, 0644);
+
     ++conn_running;
-    pid = fork();
+    pid = safe_fork(in, out, errfd);
+
+    if (pid != 0 && log_to_fd < 0)
+	close(errfd);
 
     if (pid < 0) {
 	--conn_running;
@@ -1358,73 +1688,38 @@ device_script(program, in, out, dont_wait)
     }
 
     if (pid != 0) {
-	if (dont_wait) {
-	    record_child(pid, program, NULL, NULL);
-	    status = 0;
-	} else {
+	record_child(pid, program, NULL, NULL, 1);
+	status = 0;
+	if (!dont_wait) {
 	    while (waitpid(pid, &status, 0) < 0) {
 		if (errno == EINTR)
 		    continue;
 		fatal("error waiting for (dis)connection process: %m");
 	    }
+	    forget_child(pid, status);
 	    --conn_running;
 	}
 	return (status == 0 ? 0 : -1);
     }
 
     /* here we are executing in the child */
-    /* make sure fds 0, 1, 2 are occupied */
-    while ((fd = dup(in)) >= 0) {
-	if (fd > 2) {
-	    close(fd);
-	    break;
-	}
-    }
 
-    /* dup in and out to fds > 2 */
-    in = dup(in);
-    out = dup(out);
-    if (log_to_fd >= 0) {
-	errfd = dup(log_to_fd);
-    } else {
-	errfd = open(_PATH_CONNERRS, O_WRONLY | O_APPEND | O_CREAT, 0600);
-    }
-
-    /* close fds 0 - 2 and any others we can think of */
-    close(0);
-    close(1);
-    close(2);
-    sys_close();
-    if (the_channel->close)
-	(*the_channel->close)();
-    closelog();
-
-    /* dup the in, out, err fds to 0, 1, 2 */
-    dup2(in, 0);
-    close(in);
-    dup2(out, 1);
-    close(out);
-    if (errfd >= 0) {
-	dup2(errfd, 2);
-	close(errfd);
-    }
-
+    setgid(getgid());
     setuid(uid);
     if (getuid() != uid) {
-	error("setuid failed");
+	fprintf(stderr, "pppd: setuid failed\n");
 	exit(1);
     }
-    setgid(getgid());
     execl("/bin/sh", "sh", "-c", program, (char *)0);
-    error("could not exec /bin/sh: %m");
+    perror("pppd: could not exec /bin/sh");
     exit(99);
     /* NOTREACHED */
 }
 
 
 /*
- * run-program - execute a program with given arguments,
- * but don't wait for it.
+ * run_program - execute a program with given arguments,
+ * but don't wait for it unless wait is non-zero.
  * If the program can't be executed, logs an error unless
  * must_exist is 0 and the program file doesn't exist.
  * Returns -1 if it couldn't fork, 0 if the file doesn't exist
@@ -1433,14 +1728,15 @@ device_script(program, in, out, dont_wait)
  * reap_kids) iff the return value is > 0.
  */
 pid_t
-run_program(prog, args, must_exist, done, arg)
+run_program(prog, args, must_exist, done, arg, wait)
     char *prog;
     char **args;
     int must_exist;
     void (*done) __P((void *));
     void *arg;
+    int wait;
 {
-    int pid;
+    int pid, status;
     struct stat sbuf;
 
     /*
@@ -1457,66 +1753,49 @@ run_program(prog, args, must_exist, done, arg)
 	return 0;
     }
 
-    pid = fork();
+    pid = safe_fork(fd_devnull, fd_devnull, fd_devnull);
     if (pid == -1) {
 	error("Failed to create child process for %s: %m", prog);
 	return -1;
     }
-    if (pid == 0) {
-	int new_fd;
-
-	/* Leave the current location */
-	(void) setsid();	/* No controlling tty. */
-	(void) umask (S_IRWXG|S_IRWXO);
-	(void) chdir ("/");	/* no current directory. */
-	setuid(0);		/* set real UID = root */
-	setgid(getegid());
-
-	/* Ensure that nothing of our device environment is inherited. */
-	sys_close();
-	closelog();
-	close (0);
-	close (1);
-	close (2);
-	if (the_channel->close)
-	    (*the_channel->close)();
-
-        /* Don't pass handles to the PPP device, even by accident. */
-	new_fd = open (_PATH_DEVNULL, O_RDWR);
-	if (new_fd >= 0) {
-	    if (new_fd != 0) {
-	        dup2  (new_fd, 0); /* stdin <- /dev/null */
-		close (new_fd);
+    if (pid != 0) {
+	if (debug)
+	    dbglog("Script %s started (pid %d)", prog, pid);
+	record_child(pid, prog, done, arg, 0);
+	if (wait) {
+	    while (waitpid(pid, &status, 0) < 0) {
+		if (errno == EINTR)
+		    continue;
+		fatal("error waiting for script %s: %m", prog);
 	    }
-	    dup2 (0, 1); /* stdout -> /dev/null */
-	    dup2 (0, 2); /* stderr -> /dev/null */
+	    forget_child(pid, status);
 	}
-
-#ifdef BSD
-	/* Force the priority back to zero if pppd is running higher. */
-	if (setpriority (PRIO_PROCESS, 0, 0) < 0)
-	    warn("can't reset priority to 0: %m"); 
-#endif
-
-	/* SysV recommends a second fork at this point. */
-
-	/* run the program */
-	execve(prog, args, script_env);
-	if (must_exist || errno != ENOENT) {
-	    /* have to reopen the log, there's nowhere else
-	       for the message to go. */
-	    reopen_log();
-	    syslog(LOG_ERR, "Can't execute %s: %m", prog);
-	    closelog();
-	}
-	_exit(-1);
+	return pid;
     }
 
-    if (debug)
-	dbglog("Script %s started (pid %d)", prog, pid);
-    record_child(pid, prog, done, arg);
+    /* Leave the current location */
+    (void) setsid();	/* No controlling tty. */
+    (void) umask (S_IRWXG|S_IRWXO);
+    (void) chdir ("/");	/* no current directory. */
+    setuid(0);		/* set real UID = root */
+    setgid(getegid());
 
-    return pid;
+#ifdef BSD
+    /* Force the priority back to zero if pppd is running higher. */
+    if (setpriority (PRIO_PROCESS, 0, 0) < 0)
+	warn("can't reset priority to 0: %m");
+#endif
+
+    /* run the program */
+    execve(prog, args, script_env);
+    if (must_exist || errno != ENOENT) {
+	/* have to reopen the log, there's nowhere else
+	   for the message to go. */
+	reopen_log();
+	syslog(LOG_ERR, "Can't execute %s: %m", prog);
+	closelog();
+    }
+    _exit(-1);
 }
 
 
@@ -1525,11 +1804,12 @@ run_program(prog, args, must_exist, done, arg)
  * to use.
  */
 void
-record_child(pid, prog, done, arg)
+record_child(pid, prog, done, arg, killable)
     int pid;
     char *prog;
     void (*done) __P((void *));
     void *arg;
+    int killable;
 {
     struct subprocess *chp;
 
@@ -1544,43 +1824,71 @@ record_child(pid, prog, done, arg)
 	chp->done = done;
 	chp->arg = arg;
 	chp->next = children;
+	chp->killable = killable;
 	children = chp;
     }
 }
 
+/*
+ * childwait_end - we got fed up waiting for the child processes to
+ * exit, send them all a SIGTERM.
+ */
+static void
+childwait_end(arg)
+    void *arg;
+{
+    struct subprocess *chp;
+
+    for (chp = children; chp != NULL; chp = chp->next) {
+	if (debug)
+	    dbglog("sending SIGTERM to process %d", chp->pid);
+	kill(chp->pid, SIGTERM);
+    }
+    childwait_done = 1;
+}
+
+/*
+ * forget_child - clean up after a dead child
+ */
+static void
+forget_child(pid, status)
+    int pid, status;
+{
+    struct subprocess *chp, **prevp;
+
+    for (prevp = &children; (chp = *prevp) != NULL; prevp = &chp->next) {
+        if (chp->pid == pid) {
+	    --n_children;
+	    *prevp = chp->next;
+	    break;
+	}
+    }
+    if (WIFSIGNALED(status)) {
+        warn("Child process %s (pid %d) terminated with signal %d",
+	     (chp? chp->prog: "??"), pid, WTERMSIG(status));
+    } else if (debug)
+        dbglog("Script %s finished (pid %d), status = 0x%x",
+	       (chp? chp->prog: "??"), pid,
+	       WIFEXITED(status) ? WEXITSTATUS(status) : status);
+    if (chp && chp->done)
+        (*chp->done)(chp->arg);
+    if (chp)
+        free(chp);
+}
 
 /*
  * reap_kids - get status from any dead child processes,
  * and log a message for abnormal terminations.
  */
 static int
-reap_kids(waitfor)
-    int waitfor;
+reap_kids()
 {
     int pid, status;
-    struct subprocess *chp, **prevp;
 
     if (n_children == 0)
 	return 0;
-    while ((pid = waitpid(-1, &status, (waitfor? 0: WNOHANG))) != -1
-	   && pid != 0) {
-	for (prevp = &children; (chp = *prevp) != NULL; prevp = &chp->next) {
-	    if (chp->pid == pid) {
-		--n_children;
-		*prevp = chp->next;
-		break;
-	    }
-	}
-	if (WIFSIGNALED(status)) {
-	    warn("Child process %s (pid %d) terminated with signal %d",
-		 (chp? chp->prog: "??"), pid, WTERMSIG(status));
-	} else if (debug)
-	    dbglog("Script %s finished (pid %d), status = 0x%x",
-		   (chp? chp->prog: "??"), pid, status);
-	if (chp && chp->done)
-	    (*chp->done)(chp->arg);
-	if (chp)
-	    free(chp);
+    while ((pid = waitpid(-1, &status, WNOHANG)) != -1 && pid != 0) {
+        forget_child(pid, status);
     }
     if (pid == -1) {
 	if (errno == ECHILD)
@@ -1633,7 +1941,7 @@ remove_notifier(notif, func, arg)
 }
 
 /*
- * notify - call a set of functions registered with add_notify.
+ * notify - call a set of functions registered with add_notifier.
  */
 void
 notify(notif, val)
@@ -1682,13 +1990,19 @@ script_setenv(var, value, iskey)
     if (script_env != 0) {
 	for (i = 0; (p = script_env[i]) != 0; ++i) {
 	    if (strncmp(p, var, varl) == 0 && p[varl] == '=') {
+#ifdef USE_TDB
 		if (p[-1] && pppdb != NULL)
 		    delete_db_key(p);
+#endif
 		free(p-1);
 		script_env[i] = newstring;
-		if (iskey && pppdb != NULL)
-		    add_db_key(newstring);
-		update_db_entry();
+#ifdef USE_TDB
+		if (pppdb != NULL) {
+		    if (iskey)
+			add_db_key(newstring);
+		    update_db_entry();
+		}
+#endif
 		return;
 	    }
 	}
@@ -1715,11 +2029,13 @@ script_setenv(var, value, iskey)
     script_env[i] = newstring;
     script_env[i+1] = 0;
 
+#ifdef USE_TDB
     if (pppdb != NULL) {
 	if (iskey)
 	    add_db_key(newstring);
 	update_db_entry();
     }
+#endif
 }
 
 /*
@@ -1738,18 +2054,58 @@ script_unsetenv(var)
 	return;
     for (i = 0; (p = script_env[i]) != 0; ++i) {
 	if (strncmp(p, var, vl) == 0 && p[vl] == '=') {
+#ifdef USE_TDB
 	    if (p[-1] && pppdb != NULL)
 		delete_db_key(p);
+#endif
 	    free(p-1);
 	    while ((script_env[i] = script_env[i+1]) != 0)
 		++i;
 	    break;
 	}
     }
+#ifdef USE_TDB
     if (pppdb != NULL)
 	update_db_entry();
+#endif
 }
 
+/*
+ * Any arbitrary string used as a key for locking the database.
+ * It doesn't matter what it is as long as all pppds use the same string.
+ */
+#define PPPD_LOCK_KEY	"pppd lock"
+
+/*
+ * lock_db - get an exclusive lock on the TDB database.
+ * Used to ensure atomicity of various lookup/modify operations.
+ */
+void lock_db()
+{
+#ifdef USE_TDB
+	TDB_DATA key;
+
+	key.dptr = PPPD_LOCK_KEY;
+	key.dsize = strlen(key.dptr);
+	tdb_chainlock(pppdb, key);
+#endif
+}
+
+/*
+ * unlock_db - remove the exclusive lock obtained by lock_db.
+ */
+void unlock_db()
+{
+#ifdef USE_TDB
+	TDB_DATA key;
+
+	key.dptr = PPPD_LOCK_KEY;
+	key.dsize = strlen(key.dptr);
+	tdb_chainunlock(pppdb, key);
+#endif
+}
+
+#ifdef USE_TDB
 /*
  * update_db_entry - update our entry in the database.
  */
@@ -1765,7 +2121,7 @@ update_db_entry()
     vlen = 0;
     for (i = 0; (p = script_env[i]) != 0; ++i)
 	vlen += strlen(p) + 1;
-    vbuf = malloc(vlen);
+    vbuf = malloc(vlen + 1);
     if (vbuf == 0)
 	novm("database entry");
     q = vbuf;
@@ -1777,7 +2133,10 @@ update_db_entry()
     dbuf.dptr = vbuf;
     dbuf.dsize = vlen;
     if (tdb_store(pppdb, key, dbuf, TDB_REPLACE))
-	error("tdb_store failed: %s", tdb_error(pppdb));
+	error("tdb_store failed: %s", tdb_errorstr(pppdb));
+
+    if (vbuf)
+        free(vbuf);
 
 }
 
@@ -1795,7 +2154,7 @@ add_db_key(str)
     dbuf.dptr = db_key;
     dbuf.dsize = strlen(db_key);
     if (tdb_store(pppdb, key, dbuf, TDB_REPLACE))
-	error("tdb_store key failed: %s", tdb_error(pppdb));
+	error("tdb_store key failed: %s", tdb_errorstr(pppdb));
 }
 
 /*
@@ -1829,3 +2188,4 @@ cleanup_db()
 	if (p[-1])
 	    delete_db_key(p);
 }
+#endif /* USE_TDB */

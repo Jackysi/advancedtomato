@@ -1,23 +1,46 @@
 /*
  * fsm.c - {Link, IP} Control Protocol Finite State Machine.
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: fsm.c,v 1.1 2003/07/10 07:43:04 honor Exp $"
+#define RCSID	"$Id: fsm.c,v 1.23 2004/11/13 02:28:15 paulus Exp $"
 
 /*
  * TODO:
@@ -47,6 +70,8 @@ static void fsm_sconfreq __P((fsm *, int));
 
 int peer_mru[NUM_PPP];
 
+/* JYWeng 20031216: add to wanstatus.log */
+void saveWANStatus(char *currentstatus, int statusindex);
 
 /*
  * fsm_init - Initialize fsm.
@@ -178,6 +203,44 @@ fsm_open(f)
     }
 }
 
+/*
+ * terminate_layer - Start process of shutting down the FSM
+ *
+ * Cancel any timeout running, notify upper layers we're done, and
+ * send a terminate-request message as configured.
+ */
+static void
+terminate_layer(f, nextstate)
+    fsm *f;
+    int nextstate;
+{
+    if( f->state != OPENED )
+	UNTIMEOUT(fsm_timeout, f);	/* Cancel timeout */
+    else if( f->callbacks->down )
+	(*f->callbacks->down)(f);	/* Inform upper layers we're down */
+
+    /* Init restart counter and send Terminate-Request */
+    f->retransmits = f->maxtermtransmits;
+    fsm_sdata(f, TERMREQ, f->reqid = ++f->id,
+	      (u_char *) f->term_reason, f->term_reason_len);
+
+    if (f->retransmits == 0) {
+	/*
+	 * User asked for no terminate requests at all; just close it.
+	 * We've already fired off one Terminate-Request just to be nice
+	 * to the peer, but we're not going to wait for a reply.
+	 */
+	f->state = nextstate == CLOSING ? CLOSED : STOPPED;
+	if( f->callbacks->finished )
+	    (*f->callbacks->finished)(f);
+	return;
+    }
+
+    TIMEOUT(fsm_timeout, f, f->timeouttime);
+    --f->retransmits;
+
+    f->state = nextstate;
+}
 
 /*
  * fsm_close - Start closing connection.
@@ -207,19 +270,7 @@ fsm_close(f, reason)
     case ACKRCVD:
     case ACKSENT:
     case OPENED:
-	if( f->state != OPENED )
-	    UNTIMEOUT(fsm_timeout, f);	/* Cancel timeout */
-	else if( f->callbacks->down )
-	    (*f->callbacks->down)(f);	/* Inform upper layers we're down */
-
-	/* Init restart counter, send Terminate-Request */
-	f->retransmits = f->maxtermtransmits;
-	fsm_sdata(f, TERMREQ, f->reqid = ++f->id,
-		  (u_char *) f->term_reason, f->term_reason_len);
-	TIMEOUT(fsm_timeout, f, f->timeouttime);
-	--f->retransmits;
-
-	f->state = CLOSING;
+	terminate_layer(f, CLOSING);
 	break;
     }
 }
@@ -257,6 +308,10 @@ fsm_timeout(arg)
     case ACKRCVD:
     case ACKSENT:
 	if (f->retransmits <= 0) {
+/* JYWeng 20031216: add to wanstatus.log */
+	    int statusindex=0; 
+	    saveWANStatus("No response from ISP.", statusindex);
+/* JYWeng 20031216: add to wanstatus.log */
 	    warn("%s: timeout sending Config-Requests\n", PROTO_NAME(f));
 	    f->state = STOPPED;
 	    if( (f->flags & OPT_PASSIVE) == 0 && f->callbacks->finished )
@@ -383,6 +438,7 @@ fsm_rconfreq(f, id, inp, len)
 	if( f->callbacks->down )
 	    (*f->callbacks->down)(f);	/* Inform upper layers */
 	fsm_sconfreq(f, 0);		/* Send initial Configure-Request */
+	f->state = REQSENT;
 	break;
 
     case STOPPED:
@@ -446,6 +502,7 @@ fsm_rconfack(f, id, inp, len)
 	return;
     }
     f->seen_ack = 1;
+    f->rnakloops = 0;
 
     switch (f->state) {
     case CLOSED:
@@ -494,17 +551,29 @@ fsm_rconfnakrej(f, code, id, inp, len)
     u_char *inp;
     int len;
 {
-    int (*proc) __P((fsm *, u_char *, int));
     int ret;
+    int treat_as_reject;
 
     if (id != f->reqid || f->seen_ack)	/* Expected id? */
 	return;				/* Nope, toss... */
-    proc = (code == CONFNAK)? f->callbacks->nakci: f->callbacks->rejci;
-    if (!proc || !(ret = proc(f, inp, len))) {
-	/* Nak/reject is bad - ignore it */
-	error("Received bad configure-nak/rej: %P", inp, len);
-	return;
+
+    if (code == CONFNAK) {
+	++f->rnakloops;
+	treat_as_reject = (f->rnakloops >= f->maxnakloops);
+	if (f->callbacks->nakci == NULL
+	    || !(ret = f->callbacks->nakci(f, inp, len, treat_as_reject))) {
+	    error("Received bad configure-nak: %P", inp, len);
+	    return;
+	}
+    } else {
+	f->rnakloops = 0;
+	if (f->callbacks->rejci == NULL
+	    || !(ret = f->callbacks->rejci(f, inp, len))) {
+	    error("Received bad configure-rej: %P", inp, len);
+	    return;
+	}
     }
+
     f->seen_ack = 1;
 
     switch (f->state) {
@@ -562,10 +631,10 @@ fsm_rtermreq(f, id, p, len)
 	    info("%s terminated by peer (%0.*v)", PROTO_NAME(f), len, p);
 	} else
 	    info("%s terminated by peer", PROTO_NAME(f));
-	if (f->callbacks->down)
-	    (*f->callbacks->down)(f);	/* Inform upper layers */
 	f->retransmits = 0;
 	f->state = STOPPING;
+	if (f->callbacks->down)
+	    (*f->callbacks->down)(f);	/* Inform upper layers */
 	TIMEOUT(fsm_timeout, f, f->timeouttime);
 	break;
     }
@@ -603,6 +672,7 @@ fsm_rtermack(f)
 	if (f->callbacks->down)
 	    (*f->callbacks->down)(f);	/* Inform upper layers */
 	fsm_sconfreq(f, 0);
+	f->state = REQSENT;
 	break;
     }
 }
@@ -664,17 +734,7 @@ fsm_protreject(f)
 	break;
 
     case OPENED:
-	if( f->callbacks->down )
-	    (*f->callbacks->down)(f);
-
-	/* Init restart counter, send Terminate-Request */
-	f->retransmits = f->maxtermtransmits;
-	fsm_sdata(f, TERMREQ, f->reqid = ++f->id,
-		  (u_char *) f->term_reason, f->term_reason_len);
-	TIMEOUT(fsm_timeout, f, f->timeouttime);
-	--f->retransmits;
-
-	f->state = STOPPING;
+	terminate_layer(f, STOPPING);
 	break;
 
     default:
@@ -700,6 +760,7 @@ fsm_sconfreq(f, retransmit)
 	if( f->callbacks->resetci )
 	    (*f->callbacks->resetci)(f);
 	f->nakloops = 0;
+	f->rnakloops = 0;
     }
 
     if( !retransmit ){

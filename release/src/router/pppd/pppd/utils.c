@@ -1,23 +1,34 @@
 /*
  * utils.c - various utility functions used in pppd.
  *
- * Copyright (c) 1999 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1999-2002 Paul Mackerras. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by the Australian National University.  The name of the University
- * may not be used to endorse or promote products derived from this
- * software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 3. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: utils.c,v 1.6 2004/09/23 06:40:55 tallest Exp $"
+#define RCSID	"$Id: utils.c,v 1.25 2008/06/03 12:06:37 paulus Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -29,6 +40,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
+#include <time.h>
 #include <utmp.h>
 #include <pwd.h>
 #include <sys/param.h>
@@ -44,8 +56,8 @@
 #endif
 
 #include "pppd.h"
-
-#include <sys/sysinfo.h>
+#include "fsm.h"
+#include "lcp.h"
 
 static const char rcsid[] = RCSID;
 
@@ -106,7 +118,7 @@ strlcat(dest, src, len)
 /*
  * slprintf - format a message into a buffer.  Like sprintf except we
  * also specify the length of the output buffer, and we handle
- * %r (recursive format), %m (error message), %v (visible string),
+ * %m (error message), %v (visible string),
  * %q (quoted string), %t (current time) and %I (IP address) formats.
  * Doesn't do floating-point formats.
  * Returns the number of chars put into buf.
@@ -208,6 +220,28 @@ vslprintf(buf, buflen, fmt, args)
 	neg = 0;
 	++fmt;
 	switch (c) {
+	case 'l':
+	    c = *fmt++;
+	    switch (c) {
+	    case 'd':
+		val = va_arg(args, long);
+		if (val < 0) {
+		    neg = 1;
+		    val = -val;
+		}
+		base = 10;
+		break;
+	    case 'u':
+		val = va_arg(args, unsigned long);
+		base = 10;
+		break;
+	    default:
+		OUTCHAR('%');
+		OUTCHAR('l');
+		--fmt;		/* so %lz outputs %lz etc. */
+		continue;
+	    }
+	    break;
 	case 'd':
 	    i = va_arg(args, int);
 	    if (i < 0) {
@@ -253,6 +287,7 @@ vslprintf(buf, buflen, fmt, args)
 		     (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff);
 	    str = num;
 	    break;
+#if 0	/* not used, and breaks on S/390, apparently */
 	case 'r':
 	    f = va_arg(args, char *);
 #ifndef __powerpc__
@@ -264,6 +299,7 @@ vslprintf(buf, buflen, fmt, args)
 	    buf += n;
 	    buflen -= n;
 	    continue;
+#endif
 	case 't':
 	    time(&t);
 	    str = ctime(&t);
@@ -491,7 +527,7 @@ static int llevel;		/* level for logging */
 
 void
 init_pr_log(prefix, level)
-     char *prefix;
+     const char *prefix;
      int level;
 {
 	linep = line;
@@ -681,6 +717,7 @@ error __V((char *fmt, ...))
 
     logit(LOG_ERR, fmt, pvar);
     va_end(pvar);
+    ++error_count;
 }
 
 /*
@@ -763,9 +800,65 @@ dbglog __V((char *fmt, ...))
     va_end(pvar);
 }
 
+/*
+ * dump_packet - print out a packet in readable form if it is interesting.
+ * Assumes len >= PPP_HDRLEN.
+ */
+void
+dump_packet(const char *tag, unsigned char *p, int len)
+{
+    int proto;
+
+    if (!debug)
+	return;
+
+    /*
+     * don't print LCP echo request/reply packets if debug <= 1
+     * and the link is up.
+     */
+    proto = (p[2] << 8) + p[3];
+    if (debug <= 1 && unsuccess == 0 && proto == PPP_LCP
+	&& len >= PPP_HDRLEN + HEADERLEN) {
+	unsigned char *lcp = p + PPP_HDRLEN;
+	int l = (lcp[2] << 8) + lcp[3];
+
+	if ((lcp[0] == ECHOREQ || lcp[0] == ECHOREP)
+	    && l >= HEADERLEN && l <= len - PPP_HDRLEN)
+	    return;
+    }
+
+    dbglog("%s %P", tag, p, len);
+}
+
+/*
+ * complete_read - read a full `count' bytes from fd,
+ * unless end-of-file or an error other than EINTR is encountered.
+ */
+ssize_t
+complete_read(int fd, void *buf, size_t count)
+{
+	size_t done;
+	ssize_t nb;
+	char *ptr = buf;
+
+	for (done = 0; done < count; ) {
+		nb = read(fd, ptr, count - done);
+		if (nb < 0) {
+			if (errno == EINTR)
+				continue;
+			return -1;
+		}
+		if (nb == 0)
+			break;
+		done += nb;
+		ptr += nb;
+	}
+	return done;
+}
+
 /* Procedures for locking the serial device using a lock file. */
 #ifndef LOCK_DIR
-#ifdef _linux_
+#ifdef __linux__
 #define LOCK_DIR	"/var/lock"
 #else
 #ifdef SVR4
@@ -790,7 +883,7 @@ lock(dev)
 
     result = mklock (dev, (void *) 0);
     if (result == 0) {
-	strlcpy(lock_file, sizeof(lock_file), dev);
+	strlcpy(lock_file, dev, sizeof(lock_file));
 	return 0;
     }
 
@@ -821,9 +914,20 @@ lock(dev)
 	     major(sbuf.st_rdev), minor(sbuf.st_rdev));
 #else
     char *p;
+    char lockdev[MAXPATHLEN];
 
-    if ((p = strrchr(dev, '/')) != NULL)
-	dev = p + 1;
+    if ((p = strstr(dev, "dev/")) != NULL) {
+	dev = p + 4;
+	strncpy(lockdev, dev, MAXPATHLEN-1);
+	lockdev[MAXPATHLEN-1] = 0;
+	while ((p = strrchr(lockdev, '/')) != NULL) {
+	    *p = '_';
+	}
+	dev = lockdev;
+    } else
+	if ((p = strrchr(dev, '/')) != NULL)
+	    dev = p + 1;
+
     slprintf(lock_file, sizeof(lock_file), "%s/LCK..%s", LOCK_DIR, dev);
 #endif
 
@@ -948,46 +1052,23 @@ unlock()
     }
 }
 
-//===================================================
-#include <fcntl.h>
-#define GOT_IP                  0x01
-#define RELEASE_IP              0x02
-#define GET_IP_ERROR            0x03
-#define RELEASE_WAN_CONTROL     0x04
-#define SET_LED(val) \
-{ \
-        int filep; \
-        if ((filep = open("/dev/extio", O_RDWR,0))) \
-        { \
-                ioctl(filep, val, 0); \
-                close(filep); \
-        } \
-}
-//==================================================
+/* JYWeng 20031216: add to wanstatus.log */
 
-int
-log_to_file(char *buf)	// add by honor
-{	
-	FILE *fp;
-	
-	if ((fp = fopen("/tmp/ppp/log", "w"))) {
-		fprintf(fp, "%s", buf);
-		fclose(fp);
-		SET_LED(GET_IP_ERROR)
-		return 1;
-	}	
-	return 0;
-}
-
-int
-my_gettimeofday(struct timeval *timenow, struct timezone *tz)
+void saveWANStatus(char *currentstatus, int statusindex)
 {
-	struct sysinfo info;
-
-        sysinfo(&info);
-
-	timenow->tv_sec = info.uptime;
-	timenow->tv_usec = 0;
-
-	return 0;
+	FILE *STATUSFILE;
+#ifdef ONWL500G_SHELL
+	if ((req_unit == 0) && (STATUSFILE = fopen("/etc/linuxigd/wanstatus.log", "w"))!=NULL)
+	{
+		fprintf(STATUSFILE, "StatusCode=\"%d\"\n", statusindex);
+		fprintf(STATUSFILE, "StatusReason=\"%s\"\n", currentstatus);
+		fclose(STATUSFILE);
+	}
+#else
+	if ((req_unit == 0) && (STATUSFILE = fopen("/tmp/wanstatus.log", "w"))!=NULL)
+	{
+		fprintf(STATUSFILE, "%d,%s\n", statusindex, currentstatus);
+		fclose(STATUSFILE);
+	}
+#endif
 }

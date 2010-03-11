@@ -1,34 +1,42 @@
 /*
  * ppp-comp.h - Definitions for doing PPP packet compression.
  *
- * Copyright (c) 1994 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1984 Paul Mackerras. All rights reserved.
  *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, provided that the above copyright
- * notice appears in all copies.  This software is provided without any
- * warranty, express or implied. The Australian National University
- * makes no representations about the suitability of this software for
- * any purpose.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
- * THE AUSTRALIAN NATIONAL UNIVERSITY HAVE BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
- * OR MODIFICATIONS.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
  *
- * $Id: ppp-comp.h,v 1.1 2003/07/10 07:43:04 honor Exp $
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * $Id: ppp-comp.h,v 1.10 2002/12/06 09:49:15 paulus Exp $
  */
 
 /*
- *  ==FILEVERSION 980319==
+ *  ==FILEVERSION 20020715==
  *
  *  NOTE TO MAINTAINERS:
  *     If you modify this file at all, please set the above date.
@@ -187,6 +195,40 @@ struct compressor {
 #define DEFLATE_CHK_SEQUENCE	0
 
 /*
+ * Definitions for MPPE.
+ */
+
+#define CI_MPPE			18	/* config option for MPPE */
+#define CILEN_MPPE		6	/* length of config option */
+
+/* MPPE/MPPC definitions by J.D.*/
+#define MPPE_STATELESS          MPPE_H_BIT	/* configuration bit H */
+#define MPPE_40BIT              MPPE_L_BIT	/* configuration bit L */
+#define MPPE_56BIT              MPPE_M_BIT	/* configuration bit M */
+#define MPPE_128BIT             MPPE_S_BIT	/* configuration bit S */
+#define MPPE_MPPC               MPPE_C_BIT	/* configuration bit C */
+
+/*
+ * Definitions for Stac LZS.
+ */
+
+#define CI_LZS			17	/* config option for Stac LZS */
+#define CILEN_LZS		5	/* length of config option */
+
+#define LZS_OVHD		4	/* max. LZS overhead */
+#define LZS_HIST_LEN		2048	/* LZS history size */
+#define LZS_MAX_CCOUNT		0x0FFF	/* max. coherency counter value */
+
+#define LZS_MODE_NONE		0
+#define LZS_MODE_LCB		1
+#define LZS_MODE_CRC		2
+#define LZS_MODE_SEQ		3
+#define LZS_MODE_EXT		4
+
+#define LZS_EXT_BIT_FLUSHED	0x80	/* bit A */
+#define LZS_EXT_BIT_COMP	0x20	/* bit C */
+
+/*
  * Definitions for other, as yet unsupported, compression methods.
  */
 
@@ -194,10 +236,5 @@ struct compressor {
 #define CILEN_PREDICTOR_1	2	/* length of its config option */
 #define CI_PREDICTOR_2		2	/* config option for Predictor-2 */
 #define CILEN_PREDICTOR_2	2	/* length of its config option */
-
-#ifdef __KERNEL__
-extern int ppp_register_compressor(struct compressor *);
-extern void ppp_unregister_compressor(struct compressor *);
-#endif /* __KERNEL__ */
 
 #endif /* _NET_PPP_COMP_H */

@@ -1,6 +1,6 @@
-@node vtysh, Filtering, bgpd, Top
+@node VTY shell
 @comment  node-name,  next,  previous,  up
-@chapter vtysh
+@chapter VTY shell
 
 @command{vtysh} is integrated shell of Zebra software.
 

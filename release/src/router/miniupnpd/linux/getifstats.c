@@ -1,4 +1,4 @@
-/* $Id: getifstats.c,v 1.6 2008/10/15 10:15:17 nanard Exp $ */
+/* $Id: getifstats.c,v 1.7 2010/02/15 10:11:34 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006,2007 Thomas Bernard 
@@ -53,8 +53,9 @@ getifstats(const char * ifname, struct ifdata * data)
 		return -1;
 	}
 	/* discard the two header lines */
-	fgets(line, sizeof(line), f);
-	fgets(line, sizeof(line), f);
+	if(!fgets(line, sizeof(line), f) || !fgets(line, sizeof(line), f)) {
+		syslog(LOG_ERR, "getifstats() : error reading /proc/net/dev : %m");
+	}
 	while(fgets(line, sizeof(line), f)) {
 		p = line;
 		while(*p==' ') p++;

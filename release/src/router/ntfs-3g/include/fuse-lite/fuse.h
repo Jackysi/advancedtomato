@@ -67,6 +67,7 @@ typedef int (*fuse_fill_dir_t) (void *buf, const char *name,
  * Changed in fuse 2.8.0 (regardless of API version)
  * Previously, paths were limited to a length of PATH_MAX.
  */
+
 struct fuse_operations {
 	/** Get file attributes.
 	 *
@@ -419,6 +420,19 @@ struct fuse_operations {
 	 * Introduced in version 2.6
 	 */
 	int (*bmap) (const char *, size_t blocksize, uint64_t *idx);
+ 	unsigned int flag_nullpath_ok : 1;
+ 
+ 	/**
+	 * Flag indicating that the filesystem accepts special
+	 * UTIME_NOW and UTIME_OMIT values in its utimens operation.
+	 */
+	unsigned int flag_utime_omit_ok : 1;
+
+	/**
+ 	 * Reserved flags, don't set
+ 	 */
+	unsigned int flag_reserved : 30;
+ 
 };
 
 /** Extra context that may be needed by some filesystems

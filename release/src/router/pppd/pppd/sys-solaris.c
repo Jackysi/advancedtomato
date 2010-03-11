@@ -18,36 +18,80 @@
  * ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR
  * DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES
  *
- * Copyright (c) 1994 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1995-2002 Paul Mackerras. All rights reserved.
  *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, provided that the above copyright
- * notice appears in all copies.  This software is provided without any
- * warranty, express or implied. The Australian National University
- * makes no representations about the suitability of this software for
- * any purpose.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
- * THE AUSTRALIAN NATIONAL UNIVERSITY HAVE BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
- * OR MODIFICATIONS.
+ * 2. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 3. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Derived from main.c and pppd.h, which are:
+ *
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: sys-solaris.c,v 1.1 2003/07/10 07:43:04 honor Exp $"
+#define RCSID	"$Id: sys-solaris.c,v 1.16 2008/01/30 14:26:53 carlsonj Exp $"
 
 #include <limits.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -58,6 +102,7 @@
 #endif
 #include <signal.h>
 #include <utmpx.h>
+#include <stropts.h>
 #include <sys/types.h>
 #include <sys/ioccom.h>
 #include <sys/stream.h>
@@ -149,7 +194,7 @@ static int	if6_is_up = 0;	/* IPv6 interface has been marked up */
 	eui64_copy(eui64, s->sin6_addr.s6_addr32[2]);	\
 	s->sin6_family = AF_INET6;		\
 	l.lifr_addr.ss_family = AF_INET6;	\
-	l.lifr_addrlen = 10;			\
+	l.lifr_addrlen = 64;			\
 	l.lifr_addr = laddr;			\
 	} while (0)
 
@@ -1292,8 +1337,8 @@ output(unit, p, len)
     int retries;
     struct pollfd pfd;
 
-    if (debug)
-	dbglog("sent %P", p, len);
+    dump_packet("sent", p, len);
+    if (snoop_send_hook) snoop_send_hook(p, len);
 
     data.len = len;
     data.buf = (caddr_t) p;
@@ -1500,27 +1545,27 @@ tty_send_config(mtu, asyncmap, pcomp, accomp)
 
     link_mtu = mtu;
     if (strioctl(pppfd, PPPIO_MTU, &mtu, sizeof(mtu), 0) < 0) {
-	if (hungup && errno == ENXIO)
+	if (hungup && errno == ENXIO) {
+	    ++error_count;
 	    return;
+	}
 	error("Couldn't set MTU: %m");
     }
     if (fdmuxid >= 0) {
 	if (!sync_serial) {
-	    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
+	    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
 		error("Couldn't set transmit ACCM: %m");
-	    }
 	}
 	cf[0] = (pcomp? COMP_PROT: 0) + (accomp? COMP_AC: 0);
 	cf[1] = COMP_PROT | COMP_AC;
 	if (any_compressions() &&
-	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
+	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0)
 	    error("Couldn't set prot/AC compression: %m");
-	}
     }
 }
 
 /*
- * ppp_set_xaccm - set the extended transmit ACCM for the interface.
+ * tty_set_xaccm - set the extended transmit ACCM for the interface.
  */
 void
 tty_set_xaccm(accm)
@@ -1537,7 +1582,7 @@ tty_set_xaccm(accm)
 }
 
 /*
- * ppp_recv_config - configure the receive-side characteristics of
+ * tty_recv_config - configure the receive-side characteristics of
  * the ppp interface.
  */
 void
@@ -1550,22 +1595,22 @@ tty_recv_config(mru, asyncmap, pcomp, accomp)
 
     link_mru = mru;
     if (strioctl(pppfd, PPPIO_MRU, &mru, sizeof(mru), 0) < 0) {
-	if (hungup && errno == ENXIO)
+	if (hungup && errno == ENXIO) {
+	    ++error_count;
 	    return;
+	}
 	error("Couldn't set MRU: %m");
     }
     if (fdmuxid >= 0) {
 	if (!sync_serial) {
-	    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
+	    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
 		error("Couldn't set receive ACCM: %m");
-	    }
 	}
 	cf[0] = (pcomp? DECOMP_PROT: 0) + (accomp? DECOMP_AC: 0);
 	cf[1] = DECOMP_PROT | DECOMP_AC;
 	if (any_compressions() &&
-	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
+	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0)
 	    error("Couldn't set prot/AC decompression: %m");
-	}
     }
 }
 
@@ -1629,6 +1674,8 @@ get_ppp_stats(u, stats)
     }
     stats->bytes_in = s.p.ppp_ibytes;
     stats->bytes_out = s.p.ppp_obytes;
+    stats->pkts_in = s.p.ppp_ipackets;
+    stats->pkts_out = s.p.ppp_opackets;
     return 1;
 }
 
@@ -1956,12 +2003,6 @@ sifaddr(u, o, h, m)
 	error("Couldn't set remote IP address: %m");
 	ret = 0;
     }
-#if 0	/* now done in ppp_send_config */
-    ifr.ifr_metric = link_mtu;
-    if (ioctl(ipfd, SIOCSIFMTU, &ifr) < 0) {
-	error("Couldn't set IP MTU: %m");
-    }
-#endif
 
     remote_addr = h;
     return ret;
@@ -2179,7 +2220,7 @@ get_hw_addr_dlpi(name, hwaddr)
     char *name;
     struct sockaddr *hwaddr;
 {
-    char *p, *q;
+    char *q;
     int unit, iffd, adrlen;
     unsigned char *adrp;
     char ifdev[24];
@@ -2424,8 +2465,13 @@ logwtmp(line, name, host)
     if (name[0] != 0) {
 	/* logging in */
 	strncpy(utmpx.ut_user, name, sizeof(utmpx.ut_user));
-	strncpy(utmpx.ut_id, ifname, sizeof(utmpx.ut_id));
 	strncpy(utmpx.ut_line, line, sizeof(utmpx.ut_line));
+	strncpy(utmpx.ut_host, host, sizeof(utmpx.ut_host));
+	if (*host != '\0') {
+	    utmpx.ut_syslen = strlen(host) + 1;
+	    if (utmpx.ut_syslen > sizeof(utmpx.ut_host))
+		utmpx.ut_syslen = sizeof(utmpx.ut_host);
+	}
 	utmpx.ut_pid = getpid();
 	utmpx.ut_type = USER_PROCESS;
     } else {
@@ -2698,7 +2744,6 @@ get_pty(master_fdp, slave_fdp, slave_name, uid)
 {
     int mfd, sfd;
     char *pty_name;
-    struct termios tios;
 
     mfd = open("/dev/ptmx", O_RDWR);
     if (mfd < 0) {

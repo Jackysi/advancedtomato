@@ -57,8 +57,9 @@ void start_nas(void)
 #endif	
 
 #ifdef CONFIG_BCMWL5
-	eval("eapd");
-	eval("nas");
+	xstart("eapd");
+	usleep(250000);
+	xstart("nas");
 #else
 	mode_t m;
 
@@ -67,7 +68,7 @@ void start_nas(void)
 	umask(m);
 #endif /* CONFIG_BCMWL5 */
 
-	if (!nvram_match("wl_mode", "sta")) {
+	if (nvram_match("wds_enable", "1")) {
 		// notify NAS of all wds up ifaces upon startup
 		FILE *fd;
 		char *ifname, buf[256];

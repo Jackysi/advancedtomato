@@ -153,7 +153,7 @@ void asp_wlscan(int argc, char **argv)
 		for (j = 0; j < bssi->rateset.count; ++j) {
 			web_printf("%s%u", j ? "," : "", bssi->rateset.rates[j]);
 		}
-		web_puts("]]");
+		web_printf("],%d,%d]", bssi->n_cap, bssi->nbss_cap);
 
 		bssi = (wl_bss_info_t*)((uint8*)bssi + bssi->length);
 	}
@@ -447,6 +447,15 @@ void asp_wlchannels(int argc, char **argv)
 	else
 		_wlchannels(ifname, buf, band);
 	web_puts("];\n");
+}
+
+void asp_wlrate(int argc, char **argv)
+{
+	int rate;
+
+	if (wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_RATE, &rate, sizeof(rate)) < 0)
+		rate = 0;
+	web_printf("%d", rate);
 }
 
 #if 0

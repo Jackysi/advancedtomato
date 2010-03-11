@@ -12,10 +12,13 @@ ospfd \- an OSPF v2 routing engine for use with Zebra
 .B \-f config-file
 ]
 [
+.B \-i pid-file
+]
+[
 .B \-P port-number
 ]
 
-.SH DESCOSPFTION
+.SH DESCRIPTION
 .B ospfd 
 is a routing component that works with the 
 .B zebra
@@ -36,6 +39,12 @@ option will likely default to \fB\fI/usr/local/etc/ospfd.conf\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
+
+.TP
+\fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
+When ospfd starts its process idenifier is written to
+\fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
+restart ospfd.  The likely default is \fB\fI/var/run/ospfd.pid\fR.
 
 .TP
 \fB\-l\fR, \fB\-\-log_mode\fR

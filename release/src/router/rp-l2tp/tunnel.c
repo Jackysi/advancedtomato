@@ -5,6 +5,8 @@
 * Functions for manipulating L2TP tunnel objects.
 *
 * Copyright (C) 2002 Roaring Penguin Software Inc.
+* Copyright (C) 2005-2007 Oleg I. Vdovikin (oleg@cs.msu.su)
+*	Persist fixes, route manipulation
 *
 * This software may be distributed under the terms of the GNU General
 * Public License, Version 2, or (at your option) any later version.
@@ -24,6 +26,9 @@ static char const RCSID[] =
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <netdb.h>
 #include <cyutils.h>
 
 /* Hash tables of all tunnels */
@@ -86,6 +91,11 @@ static char *state_names[] = {
 
 #define SERIAL_LT(a, b) \
 (((a) < (b) && (b) - (a) < 32768) || ((a) > (b) && (a) - (b) > 32768))
+
+/* Route manipulation */
+#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+static int route_add(const struct in_addr inetaddr, struct rtentry *rt);
+static int route_del(struct rtentry *rt);
 
 /**********************************************************************
 * %FUNCTION: tunnel_set_state
@@ -489,6 +499,7 @@ tunnel_free(l2tp_tunnel *tunnel)
     while(tunnel->xmit_queue_head) {
 	tunnel_dequeue_head(tunnel);
     }
+    route_del(&tunnel->rt);
     memset(tunnel, 0, sizeof(l2tp_tunnel));
     free(tunnel);
 }
@@ -507,12 +518,35 @@ static l2tp_tunnel *
 tunnel_establish(l2tp_peer *peer, EventSelector *es)
 {
     l2tp_tunnel *tunnel;
+    struct sockaddr_in peer_addr = peer->addr;
+    struct hostent *he;
 
+    /* check peer_addr and resolv it based on the peername if needed */
+    if (peer_addr.sin_addr.s_addr == INADDR_ANY) {
+	he = gethostbyname(peer->peername);
+	if (!he) {
+            l2tp_set_errmsg("tunnel_establish: gethostbyname failed for '%s'", peer->peername);
+	    if (peer->persist && (peer->maxfail == 0 || peer->fail++ < peer->maxfail)) 
+	    {
+		struct timeval t;
+
+		t.tv_sec = peer->holdoff;
+		t.tv_usec = 0;
+		Event_AddTimerHandler(es, t, l2tp_tunnel_reestablish, peer);
+	    }
+	    return NULL;
+	}
+	memcpy(&peer_addr.sin_addr, he->h_addr, sizeof(peer_addr.sin_addr));
+    }
+    
     tunnel = tunnel_new(es);
     if (!tunnel) return NULL;
 
     tunnel->peer = peer;
-    tunnel->peer_addr = peer->addr;
+    tunnel->peer_addr = peer_addr;
+
+    memset(&tunnel->rt, 0, sizeof(tunnel->rt));
+    route_add(tunnel->peer_addr.sin_addr, &tunnel->rt);
 
     hash_insert(&tunnels_by_peer_address, tunnel);
     tunnel_send_SCCRQ(tunnel);
@@ -558,7 +592,7 @@ tunnel_send_SCCRQ(l2tp_tunnel *tunnel)
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
 		  sizeof(u32), VENDOR_IETF, AVP_FRAMING_CAPABILITIES, &u32);
 
-    //hostname = tunnel->peer->hostname ? tunnel->peer->hostname : Hostname; //2005-04-14 by kanki
+    //hostname = tunnel->peer->hostname[0] ? tunnel->peer->hostname : Hostname; //2005-04-14 by kanki
 
     /* Host name */
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
@@ -639,8 +673,8 @@ l2tp_tunnel_handle_received_control_datagram(l2tp_dgram *dgram,
 
     if (!tunnel) {
 	/* TODO: Send error message back? */
-	l2tp_set_errmsg("Invalid control message - unknown tunnel ID %d",
-		   (int) dgram->tid);
+	DBG(l2tp_db(DBG_TUNNEL, "Invalid control message - unknown tunnel ID %d",
+		   (int) dgram->tid));
 	return;
     }
 
@@ -783,7 +817,7 @@ tunnel_handle_SCCRQ(l2tp_dgram *dgram,
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
 		  sizeof(u32), VENDOR_IETF, AVP_FRAMING_CAPABILITIES, &u32);
 
-    //hostname = tunnel->peer->hostname ? tunnel->peer->hostname : Hostname; //2005-04-14 by kanki
+    //hostname = tunnel->peer->hostname[0] ? tunnel->peer->hostname : Hostname; //2005-04-14 by kanki
 
     /* Host name */
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
@@ -977,6 +1011,17 @@ tunnel_handle_timeout(EventSelector *es,
     if (tunnel->retransmissions >= MAX_RETRANSMISSIONS) {
 	l2tp_set_errmsg("Too many retransmissions on tunnel (%s); closing down",
 		   l2tp_debug_tunnel_to_str(tunnel));
+		   
+	if (tunnel->state < TUNNEL_ESTABLISHED && tunnel->peer && tunnel->peer->persist && 
+	    (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) 
+	{
+	    struct timeval t;
+
+	    t.tv_sec = tunnel->peer->holdoff;
+	    t.tv_usec = 0;
+	    Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
+	}
+	
 	/* Close tunnel... */
 	tunnel_free(tunnel);
 	return;
@@ -1268,7 +1313,7 @@ tunnel_send_ZLB(l2tp_tunnel *tunnel)
 	return;
     }
     dgram->Nr = tunnel->Nr;
-    dgram->Ns = tunnel->Ns;
+    dgram->Ns = tunnel->Ns_on_wire;
     l2tp_dgram_send_to_wire(dgram, &tunnel->peer_addr);
     l2tp_dgram_free(dgram);
 }
@@ -1363,7 +1408,8 @@ tunnel_set_params(l2tp_tunnel *tunnel,
                            l2tp_debug_tunnel_to_str(tunnel), tunnel->peer_hostname));
 
     /* Find peer */
-    tunnel->peer = l2tp_peer_find(&tunnel->peer_addr, tunnel->peer_hostname);
+    if (tunnel->peer == NULL || tunnel->peer->addr.sin_addr.s_addr != INADDR_ANY)
+	tunnel->peer = l2tp_peer_find(&tunnel->peer_addr, tunnel->peer_hostname);
 
     /* Get assigned tunnel ID */
     val = l2tp_dgram_search_avp(dgram, tunnel, &mandatory, &hidden, &len,
@@ -1635,7 +1681,18 @@ l2tp_tunnel *
 l2tp_tunnel_find_for_peer(l2tp_peer *peer,
 		     EventSelector *es)
 {
-    l2tp_tunnel *tunnel = tunnel_find_bypeer(peer->addr);
+    l2tp_tunnel *tunnel;
+    void *cursor;
+    
+    if (peer->addr.sin_addr.s_addr == INADDR_ANY)
+    {
+	for (tunnel = hash_start(&tunnels_by_my_id, &cursor);
+	    tunnel && tunnel->peer != peer; 
+	    tunnel = hash_next(&tunnels_by_my_id, &cursor));
+    } else {
+	tunnel = tunnel_find_bypeer(peer->addr);
+    }
+
     if (tunnel) {
 	if (tunnel->state == TUNNEL_WAIT_CTL_REPLY ||
 	    tunnel->state == TUNNEL_WAIT_CTL_CONN ||
@@ -1926,4 +1983,101 @@ l2tp_session *
 l2tp_tunnel_next_session(l2tp_tunnel *tunnel, void **cursor)
 {
     return hash_next(&tunnel->sessions_by_my_id, cursor);
+}
+
+/*** route manipulation ************************************************/
+
+static int
+route_ctrl(int ctrl, struct rtentry *rt)
+{
+	int s;
+
+	/* Open a raw socket to the kernel */
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ||	ioctl(s, ctrl, rt) < 0)
+	        l2tp_set_errmsg("route_ctrl: %s", strerror(errno));
+	else errno = 0;
+
+	close(s);
+	return errno;
+}
+
+static int
+route_del(struct rtentry *rt)
+{
+	if (rt->rt_dev) {
+		route_ctrl(SIOCDELRT, rt);
+		free(rt->rt_dev), rt->rt_dev = NULL;
+	}
+	
+	return 0;
+}
+
+static int
+route_add(const struct in_addr inetaddr, struct rtentry *rt)
+{
+	char buf[256], dev[64];
+	int metric, flags;
+	u_int32_t dest, mask;
+	
+	FILE *f = fopen("/proc/net/route", "r");
+	if (f == NULL) {
+	        l2tp_set_errmsg("/proc/net/route: %s", strerror(errno));
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), f)) 
+	{
+		if (sscanf(buf, "%63s %x %x %X %*s %*s %d %x", dev, &dest,
+		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
+			continue;
+		if ((flags & RTF_UP) == (RTF_UP) && (inetaddr.s_addr & mask) == dest &&
+		    (dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/)
+		{
+			rt->rt_metric = metric + 1;
+			rt->rt_gateway.sa_family = AF_INET;
+			break;
+		}
+	}
+	
+	fclose(f);
+
+	/* check for no route */
+	if (rt->rt_gateway.sa_family != AF_INET) 
+	{
+	        /*l2tp_set_errmsg("route_add: no route to host");*/
+		return -1;
+	}
+
+	/* check for existing route to this host, 
+	add if missing based on the existing routes */
+	if (flags & RTF_HOST) {
+	        /*l2tp_set_errmsg("route_add: not adding existing route");*/
+		return -1;
+	}
+
+	sin_addr(&rt->rt_dst) = inetaddr;
+	rt->rt_dst.sa_family = AF_INET;
+
+	sin_addr(&rt->rt_genmask).s_addr = INADDR_BROADCAST;
+	rt->rt_genmask.sa_family = AF_INET;
+
+	rt->rt_flags = RTF_UP | RTF_HOST;
+	if (flags & RTF_GATEWAY)
+		rt->rt_flags |= RTF_GATEWAY;
+
+	rt->rt_metric++;
+	rt->rt_dev = strdup(dev);
+
+	if (!rt->rt_dev)
+	{
+	        l2tp_set_errmsg("route_add: no memory");
+		return -1;
+	}
+	
+	if (!route_ctrl(SIOCADDRT, rt))
+		return 0;
+
+	free(rt->rt_dev), rt->rt_dev = NULL;
+
+	return -1;
 }

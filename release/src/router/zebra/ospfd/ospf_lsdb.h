@@ -33,23 +33,32 @@ struct ospf_lsdb
     struct route_table *db;
   } type[OSPF_MAX_LSA];
   unsigned long total;
+#define MONITOR_LSDB_CHANGE 1 /* XXX */
+#ifdef MONITOR_LSDB_CHANGE
+  /* Hooks for callback functions to catch every add/del event. */
+  int (* new_lsa_hook)(struct ospf_lsa *);
+  int (* del_lsa_hook)(struct ospf_lsa *);
+#endif /* MONITOR_LSDB_CHANGE */
 };
 
 /* Macros. */
+#define LSDB_LOOP(T,N,L)                                                      \
+  if ((T) != NULL)                                                            \
+  for ((N) = route_top ((T)); ((N)); ((N)) = route_next ((N)))                \
+    if (((L) = (N)->info))
+
 #define ROUTER_LSDB(A)       ((A)->lsdb->type[OSPF_ROUTER_LSA].db)
 #define NETWORK_LSDB(A)	     ((A)->lsdb->type[OSPF_NETWORK_LSA].db)
 #define SUMMARY_LSDB(A)      ((A)->lsdb->type[OSPF_SUMMARY_LSA].db)
-#define SUMMARY_ASBR_LSDB(A) ((A)->lsdb->type[OSPF_SUMMARY_LSA_ASBR].db)
+#define ASBR_SUMMARY_LSDB(A) ((A)->lsdb->type[OSPF_ASBR_SUMMARY_LSA].db)
 #define EXTERNAL_LSDB(O)     ((O)->lsdb->type[OSPF_AS_EXTERNAL_LSA].db)
-#ifdef HAVE_NSSA
-/* Dummy Type-6. */
-#define NSSA_LSDB(A)           ((A)->lsdb->type[OSPF_AS_NSSA_LSA].db)
-/* Future Type-8. */
-/* Future Type-9. */
-/* Future Type-10. */
-/* Future Type-11. */
-#endif /* HAVE_NSSA */
+#define NSSA_LSDB(A)         ((A)->lsdb->type[OSPF_AS_NSSA_LSA].db)
+#define OPAQUE_LINK_LSDB(A)  ((A)->lsdb->type[OSPF_OPAQUE_LINK_LSA].db)
+#define OPAQUE_AREA_LSDB(A)  ((A)->lsdb->type[OSPF_OPAQUE_AREA_LSA].db)
+#define OPAQUE_AS_LSDB(O)    ((O)->lsdb->type[OSPF_OPAQUE_AS_LSA].db)
+
 #define AREA_LSDB(A,T)       ((A)->lsdb->type[(T)].db)
+#define AS_LSDB(O,T)         ((O)->lsdb->type[(T)].db)
 
 /* OSPF LSDB related functions. */
 struct ospf_lsdb *ospf_lsdb_new ();
@@ -69,7 +78,5 @@ unsigned long ospf_lsdb_count_all (struct ospf_lsdb *);
 unsigned long ospf_lsdb_count (struct ospf_lsdb *, int);
 unsigned long ospf_lsdb_count_self (struct ospf_lsdb *, int);
 unsigned long ospf_lsdb_isempty (struct ospf_lsdb *);
-struct ospf_lsa *foreach_lsa (struct route_table *, void *, int,
-	              int (*callback) (struct ospf_lsa *, void *, int));
 
 #endif /* _ZEBRA_OSPF_LSDB_H */

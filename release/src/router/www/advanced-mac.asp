@@ -122,7 +122,7 @@ createFieldTable('', [
 </script>
 <br>
 <table border=0 cellpadding=1>
-	<tr><td>Router's MAC Address:</td><td><b><% nv('et0macaddr'); %></b></td></tr>
+	<tr><td>Router's LAN MAC Address:</td><td><b><% nv('et0macaddr'); %></b></td></tr>
 	<tr><td>Computer's MAC Address:</td><td><b><% compmac(); %></b></td></tr>
 </table>
 </div>

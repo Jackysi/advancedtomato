@@ -4,7 +4,7 @@
  * Copyright (c) 2005-2007 Yura Pakhuchiy
  * Copyright (c) 2005 Yuval Fledel
  * Copyright (c) 2006-2009 Szabolcs Szakacsits
- * Copyright (c) 2007-2009 Jean-Pierre Andre
+ * Copyright (c) 2007-2010 Jean-Pierre Andre
  * Copyright (c) 2009 Erik Larsson
  *
  * This file is originated from the Linux-NTFS project.
@@ -98,9 +98,35 @@
 #include "ntfstime.h"
 #include "security.h"
 #include "reparse.h"
+#include "object_id.h"
 #include "efs.h"
 #include "logging.h"
 #include "misc.h"
+
+/*
+ *	The following permission checking modes are governed by
+ *	the HPERMSCONFIG value in param.h
+ */
+
+/*	ACLS may be checked by kernel (requires a fuse patch) or here */
+#define KERNELACLS ((HPERMSCONFIG > 6) & (HPERMSCONFIG < 10))
+/*	basic permissions may be checked by kernel or here */
+#define KERNELPERMS (((HPERMSCONFIG - 1) % 6) < 3)
+/*	may want to use fuse/kernel cacheing */
+#define CACHEING (!(HPERMSCONFIG % 3))
+
+#if KERNELACLS & !KERNELPERMS
+#error Incompatible options KERNELACLS and KERNELPERMS
+#endif
+
+		/* sometimes the kernel cannot check access */
+#define ntfs_real_allowed_access(scx, ni, type) ntfs_allowed_access(scx, ni, type)
+#if POSIXACLS & KERNELPERMS & !KERNELACLS
+		/* short-circuit if PERMS checked by kernel and ACLs by fs */
+#define ntfs_allowed_access(scx, ni, type) \
+	((scx)->vol->secure_flags & (1 << SECURITY_DEFAULT) \
+	    ? 1 : ntfs_allowed_access(scx, ni, type))
+#endif
 
 #define set_archive(ni) (ni)->flags |= FILE_ATTR_ARCHIVE
 
@@ -158,6 +184,7 @@ typedef struct {
 	BOOL inherit;
 	unsigned int secure_flags;
 	char *usermap_path;
+	char *abs_mnt_point;
 	struct PERMISSIONS_CACHE *seccache;
 	struct SECURITY_CONTEXT security;
 } ntfs_fuse_context_t;
@@ -176,7 +203,7 @@ static u32 ntfs_sequence;
 static const char *usage_msg = 
 "\n"
 "%s %s %s %d - Third Generation NTFS Driver\n"
-"\t\t"
+"\t\tConfiguration type %d, "
 #ifdef HAVE_SETXATTR
 "XATTRS are on, "
 #else
@@ -190,7 +217,7 @@ static const char *usage_msg =
 "\n"
 "Copyright (C) 2005-2007 Yura Pakhuchiy\n"
 "Copyright (C) 2006-2009 Szabolcs Szakacsits\n"
-"Copyright (C) 2007-2009 Jean-Pierre Andre\n"
+"Copyright (C) 2007-2010 Jean-Pierre Andre\n"
 "Copyright (C) 2009 Erik Larsson\n"
 "\n"
 "Usage:    %s [-o option[,...]] <device|image_file> <mount_point>\n"
@@ -248,8 +275,10 @@ static void ntfs_fuse_update_times(ntfs_inode *ni, ntfs_time_update_flags mask)
 	if (ctx->atime == ATIME_DISABLED)
 		mask &= ~NTFS_UPDATE_ATIME;
 	else if (ctx->atime == ATIME_RELATIVE && mask == NTFS_UPDATE_ATIME &&
-			ni->last_access_time >= ni->last_data_change_time &&
-			ni->last_access_time >= ni->last_mft_change_time)
+			(le64_to_cpu(ni->last_access_time)
+				>= le64_to_cpu(ni->last_data_change_time)) &&
+			(le64_to_cpu(ni->last_access_time)
+				>= le64_to_cpu(ni->last_mft_change_time)))
 		return;
 	ntfs_inode_update_times(ni, mask);
 }
@@ -294,6 +323,131 @@ static BOOL ntfs_fuse_fill_security_context(struct SECURITY_CONTEXT *scx)
 
 	return (ctx->security.mapping[MAPUSERS] != (struct MAPPING*)NULL);
 }
+
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+
+/*
+ *		Check access to parent directory
+ *
+ *	directory and file inodes are only opened when not fed in,
+ *	they *HAVE TO* be fed in when already open, however
+ *	file inode is only useful when S_ISVTX is requested
+ *
+ *	returns 1 if allowed,
+ *		0 if not allowed or some error occurred (errno tells why)
+ */
+
+static int ntfs_allowed_dir_access(struct SECURITY_CONTEXT *scx,
+			const char *path, ntfs_inode *dir_ni,
+			ntfs_inode *ni, mode_t accesstype)
+{
+	int allowed;
+	ntfs_inode *ni2;
+	ntfs_inode *dir_ni2;
+	char *dirpath;
+	char *name;
+	struct stat stbuf;
+
+#if POSIXACLS & KERNELPERMS & !KERNELACLS
+		/* short-circuit if PERMS checked by kernel and ACLs by fs */
+	if (scx->vol->secure_flags & (1 << SECURITY_DEFAULT))
+		allowed = 1;
+	else
+#endif
+		if (dir_ni)
+			allowed = ntfs_real_allowed_access(scx, dir_ni,
+					accesstype);
+		else {
+			allowed = 0;
+			dirpath = strdup(path);
+			if (dirpath) {
+		/* the root of file system is seen as a parent of itself */
+		/* is that correct ? */
+				name = strrchr(dirpath, '/');
+				*name = 0;
+				dir_ni2 = ntfs_pathname_to_inode(scx->vol,
+						NULL, dirpath);
+				if (dir_ni2) {
+					allowed = ntfs_real_allowed_access(scx,
+						 dir_ni2, accesstype);
+					if (ntfs_inode_close(dir_ni2))
+						allowed = 0;
+				}
+				free(dirpath);
+			}
+		}
+			/*
+			 * for a not-owned sticky directory, have to
+			 * check whether file itself is owned
+			 */
+		if ((accesstype == (S_IWRITE + S_IEXEC + S_ISVTX))
+		   && (allowed == 2)) {
+			if (ni)
+				ni2 = ni;
+			else
+				ni2 = ntfs_pathname_to_inode(scx->vol, NULL,
+					path);
+			allowed = 0;
+			if (ni2) {
+				allowed = (ntfs_get_owner_mode(scx,ni2,&stbuf)
+						>= 0)
+					&& (stbuf.st_uid == scx->uid);
+				if (!ni)
+					ntfs_inode_close(ni2);
+			}
+		}
+	return (allowed);
+}
+
+#endif
+
+#ifdef HAVE_SETXATTR	/* extended attributes interface required */
+
+/*
+ *		Check access to parent directory
+ *
+ *	for non-standard cases where access control cannot be checked by kernel
+ *
+ *	no known situations where S_ISVTX is requested
+ *
+ *	returns 1 if allowed,
+ *		0 if not allowed or some error occurred (errno tells why)
+ */
+
+static int ntfs_allowed_real_dir_access(struct SECURITY_CONTEXT *scx,
+			const char *path, ntfs_inode *dir_ni,
+			mode_t accesstype)
+{
+	int allowed;
+	ntfs_inode *dir_ni2;
+	char *dirpath;
+	char *name;
+
+	if (dir_ni)
+		allowed = ntfs_real_allowed_access(scx, dir_ni, accesstype);
+	else {
+		allowed = 0;
+		dirpath = strdup(path);
+		if (dirpath) {
+		/* the root of file system is seen as a parent of itself */
+		/* is that correct ? */
+			name = strrchr(dirpath, '/');
+			*name = 0;
+			dir_ni2 = ntfs_pathname_to_inode(scx->vol, NULL,
+					dirpath);
+			if (dir_ni2) {
+				allowed = ntfs_real_allowed_access(scx,
+					dir_ni2, accesstype);
+				if (ntfs_inode_close(dir_ni2))
+					allowed = 0;
+			}
+			free(dirpath);
+		}
+	}
+	return (allowed);
+}
+
+#endif /* HAVE_SETXATTR */
 
 /**
  * ntfs_fuse_statfs - return information about mounted NTFS volume
@@ -541,14 +695,16 @@ static int ntfs_fuse_getattr(const char *org_path, struct stat *stbuf)
 		goto exit;
 	}
 	withusermapping = ntfs_fuse_fill_security_context(&security);
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		/*
 		 * make sure the parent directory is searchable
 		 */
 	if (withusermapping
-	   && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
-		res = -EACCES;  
-		goto exit;
+	    && !ntfs_allowed_dir_access(&security,path,
+			(!strcmp(org_path,"/") ? ni : (ntfs_inode*)NULL),
+			ni, S_IEXEC)) {
+               	res = -EACCES;
+               	goto exit;
 	}
 #endif
 	if (((ni->mrec->flags & MFT_RECORD_IS_DIRECTORY)
@@ -559,7 +715,7 @@ static int ntfs_fuse_getattr(const char *org_path, struct stat *stbuf)
 			int attr_size;
 
 			errno = 0;
-			target = ntfs_make_symlink(org_path, ni, &attr_size);
+			target = ntfs_make_symlink(ni, ctx->abs_mnt_point, &attr_size);
 				/*
 				 * If the reparse point is not a valid
 				 * directory junction, and there is no error
@@ -582,12 +738,18 @@ static int ntfs_fuse_getattr(const char *org_path, struct stat *stbuf)
 		} else {
 			/* Directory. */
 			stbuf->st_mode = S_IFDIR | (0777 & ~ctx->dmask);
-			na = ntfs_attr_open(ni, AT_INDEX_ALLOCATION, NTFS_INDEX_I30, 4);
-			if (na) {
-				stbuf->st_size = na->data_size;
-				stbuf->st_blocks = na->allocated_size >> 9;
-				ntfs_attr_close(na);
+			/* get index size, if not known */
+			if (!test_nino_flag(ni, KnownSize)) {
+				na = ntfs_attr_open(ni, AT_INDEX_ALLOCATION, NTFS_INDEX_I30, 4);
+				if (na) {
+					ni->data_size = na->data_size;
+					ni->allocated_size = na->allocated_size;
+					set_nino_flag(ni, KnownSize);
+					ntfs_attr_close(na);
+				}
 			}
+			stbuf->st_size = ni->data_size;
+			stbuf->st_blocks = ni->allocated_size >> 9;
 			stbuf->st_nlink = 1;	/* Make find(1) work */
 		}
 	} else {
@@ -691,7 +853,7 @@ static int ntfs_fuse_getattr(const char *org_path, struct stat *stbuf)
 		stbuf->st_mode |= (0777 & ~ctx->fmask);
 	}
 	if (withusermapping) {
-		if (ntfs_get_owner_mode(&security,path,ni,stbuf) < 0)
+		if (ntfs_get_owner_mode(&security,ni,stbuf) < 0)
 			set_fuse_error(&res);
 	} else {
 		stbuf->st_uid = ctx->uid;
@@ -700,9 +862,27 @@ static int ntfs_fuse_getattr(const char *org_path, struct stat *stbuf)
 	if (S_ISLNK(stbuf->st_mode))
 		stbuf->st_mode |= 0777;
 	stbuf->st_ino = ni->mft_no;
-	stbuf->st_atime = ni->last_access_time;
-	stbuf->st_ctime = ni->last_mft_change_time;
-	stbuf->st_mtime = ni->last_data_change_time;
+#ifdef HAVE_STRUCT_STAT_ST_ATIMESPEC
+	stbuf->st_atimespec = ntfs2timespec(ni->last_access_time);
+	stbuf->st_ctimespec = ntfs2timespec(ni->last_mft_change_time);
+	stbuf->st_mtimespec = ntfs2timespec(ni->last_data_change_time);
+#elif defined(HAVE_STRUCT_STAT_ST_ATIM)
+ 	stbuf->st_atim = ntfs2timespec(ni->last_access_time);
+ 	stbuf->st_ctim = ntfs2timespec(ni->last_mft_change_time);
+ 	stbuf->st_mtim = ntfs2timespec(ni->last_data_change_time);
+#else
+	/* No known timespec member in struct stat */
+	struct timespec ts;
+	ts = ntfs2timespec(ni->last_access_time);
+	stbuf->st_atime = ts.tv_sec;
+	stbuf->st_atimensec = ts.tv_nsec;
+	ts = ntfs2timespec(ni->last_mft_change_time);
+	stbuf->st_ctime = ts.tv_sec;
+	stbuf->st_ctimensec = ts.tv_nsec;
+	ts = ntfs2timespec(ni->last_data_change_time);
+	stbuf->st_mtime = ts.tv_sec;
+	stbuf->st_mtimensec = ts.tv_nsec;
+#endif
 exit:
 	if (ntfs_inode_close(ni))
 		set_fuse_error(&res);
@@ -743,7 +923,7 @@ static int ntfs_fuse_readlink(const char *org_path, char *buf, size_t buf_size)
 
 		errno = 0;
 		res = 0;
-		target = ntfs_make_symlink(org_path, ni, &attr_size);
+		target = ntfs_make_symlink(ni, ctx->abs_mnt_point, &attr_size);
 		if (target) {
 			strncpy(buf,target,buf_size);
 			free(target);
@@ -864,7 +1044,7 @@ static int ntfs_fuse_filler(ntfs_fuse_fill_context_t *fill_ctx,
 	return ret;
 }
 
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 
 static int ntfs_fuse_opendir(const char *path,
 		struct fuse_file_info *fi)
@@ -887,10 +1067,17 @@ static int ntfs_fuse_opendir(const char *path,
 					accesstype = S_IWRITE | S_IREAD;
 				else
 					accesstype = S_IREAD;
-				/* directory must be searchable */
-			if (!ntfs_allowed_dir_access(&security,path,S_IEXEC)
-				/* check whether requested access is allowed */
-			  || !ntfs_allowed_access(&security,path,ni,accesstype))
+				/*
+				 * directory must be searchable
+				 * and requested access be allowed
+				 */
+			if (!strcmp(path,"/")
+				? !ntfs_allowed_dir_access(&security,
+					path, ni, ni, accesstype | S_IEXEC)
+				: !ntfs_allowed_dir_access(&security, path,
+						(ntfs_inode*)NULL, ni, S_IEXEC)
+				     || !ntfs_allowed_access(&security,
+						ni,accesstype))
 				res = -EACCES;
 		}
 		if (ntfs_inode_close(ni))
@@ -926,7 +1113,7 @@ static int ntfs_fuse_readdir(const char *path, void *buf,
 }
 
 static int ntfs_fuse_open(const char *org_path,
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		struct fuse_file_info *fi)
 #else
 		struct fuse_file_info *fi __attribute__((unused)))
@@ -938,7 +1125,7 @@ static int ntfs_fuse_open(const char *org_path,
 	char *path = NULL;
 	ntfschar *stream_name;
 	int stream_name_len;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	int accesstype;
 	struct SECURITY_CONTEXT security;
 #endif
@@ -950,7 +1137,7 @@ static int ntfs_fuse_open(const char *org_path,
 	if (ni) {
 		na = ntfs_attr_open(ni, AT_DATA, stream_name, stream_name_len);
 		if (na) {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			if (ntfs_fuse_fill_security_context(&security)) {
 				if (fi->flags & O_WRONLY)
 					accesstype = S_IWRITE;
@@ -959,12 +1146,14 @@ static int ntfs_fuse_open(const char *org_path,
 						 accesstype = S_IWRITE | S_IREAD;
 					else
 						accesstype = S_IREAD;
-			     /* JPA directory must be searchable */
+				/*
+				 * directory must be searchable
+				 * and requested access allowed
+				 */
 				if (!ntfs_allowed_dir_access(&security,
-				    path,S_IEXEC)
-			     /* JPA check whether requested access is allowed */
+					    path,(ntfs_inode*)NULL,ni,S_IEXEC)
 				  || !ntfs_allowed_access(&security,
-				    path,ni,accesstype))
+						ni,accesstype))
 					res = -EACCES;
 			}
 #endif
@@ -1166,7 +1355,7 @@ out:
  */
 
 static int ntfs_fuse_trunc(const char *org_path, off_t size,
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			BOOL chkwrite)
 #else
 			BOOL chkwrite __attribute__((unused)))
@@ -1179,7 +1368,7 @@ static int ntfs_fuse_trunc(const char *org_path, off_t size,
 	ntfschar *stream_name;
 	int stream_name_len;
 	s64 oldsize;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
 #endif
 
@@ -1193,15 +1382,16 @@ static int ntfs_fuse_trunc(const char *org_path, off_t size,
 	na = ntfs_attr_open(ni, AT_DATA, stream_name, stream_name_len);
 	if (!na)
 		goto exit;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	/*
 	 * JPA deny truncation if cannot search in parent directory
 	 * or cannot write to file (already checked for ftruncate())
 	 */
 	if (ntfs_fuse_fill_security_context(&security)
-		&& (!ntfs_allowed_dir_access(&security, path, S_IEXEC)
+		&& (!ntfs_allowed_dir_access(&security, path,
+			 (ntfs_inode*)NULL, ni, S_IEXEC)
 	          || (chkwrite
-		     && !ntfs_allowed_access(&security, path, ni, S_IWRITE)))) {
+		     && !ntfs_allowed_access(&security, ni, S_IWRITE)))) {
 		errno = EACCES;
 		goto exit;
 	}
@@ -1274,15 +1464,16 @@ static int ntfs_fuse_chmod(const char *path,
 		else
 			res = -EOPNOTSUPP;
 	} else {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* parent directory must be executable */
-		if (ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+		if (ntfs_allowed_dir_access(&security,path,
+				(ntfs_inode*)NULL,(ntfs_inode*)NULL,S_IEXEC)) {
 #endif
 			ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 			if (!ni)
 				res = -errno;
 			else {
-				if (ntfs_set_mode(&security,path,ni,mode))
+				if (ntfs_set_mode(&security,ni,mode))
 					res = -errno;
 				else
 					ntfs_fuse_update_times(ni, NTFS_UPDATE_CTIME);
@@ -1290,7 +1481,7 @@ static int ntfs_fuse_chmod(const char *path,
 				if (ntfs_inode_close(ni))
 					set_fuse_error(&res);
 			}
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		} else
 			res = -errno;
 #endif
@@ -1315,24 +1506,25 @@ static int ntfs_fuse_chown(const char *path, uid_t uid, gid_t gid)
 	} else {
 		res = 0;
 		if (((int)uid != -1) || ((int)gid != -1)) {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			   /* parent directory must be executable */
 		
-			if (ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+			if (ntfs_allowed_dir_access(&security,path,
+				(ntfs_inode*)NULL,(ntfs_inode*)NULL,S_IEXEC)) {
 #endif
 				ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 				if (!ni)
 					res = -errno;
 				else {
 					if (ntfs_set_owner(&security,
-							path,ni,uid,gid))
+							ni,uid,gid))
 						res = -errno;
 					else
 						ntfs_fuse_update_times(ni, NTFS_UPDATE_CTIME);
 					if (ntfs_inode_close(ni))
 						set_fuse_error(&res);
 				}
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			} else
 				res = -errno;
 #endif
@@ -1341,7 +1533,7 @@ static int ntfs_fuse_chown(const char *path, uid_t uid, gid_t gid)
 	return (res);
 }
 
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 
 static int ntfs_fuse_access(const char *path, int type)
 {
@@ -1360,8 +1552,9 @@ static int ntfs_fuse_access(const char *path, int type)
 		else
 			res = -EOPNOTSUPP;
 	} else {
-		   /* parent directory must be readable */
-		if (ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+		   /* parent directory must be seachable */
+		if (ntfs_allowed_dir_access(&security,path,(ntfs_inode*)NULL,
+				(ntfs_inode*)NULL,S_IEXEC)) {
 			ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 			if (!ni) {
 				res = -errno;
@@ -1372,7 +1565,7 @@ static int ntfs_fuse_access(const char *path, int type)
 					if (type & W_OK) mode += S_IWRITE;
 					if (type & R_OK) mode += S_IREAD;
 					if (!ntfs_allowed_access(&security,
-							path, ni, mode))
+							ni, mode))
 						res = -errno;
 				}
 				if (ntfs_inode_close(ni))
@@ -1427,10 +1620,10 @@ static int ntfs_fuse_create(const char *org_path, mode_t typemode, dev_t dev,
 		res = -errno;
 		goto exit;
 	}
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		/* make sure parent directory is writeable and executable */
 	if (!ntfs_fuse_fill_security_context(&security)
-	       || ntfs_allowed_access(&security,dir_path,
+	       || ntfs_allowed_access(&security,
 				dir_ni,S_IWRITE + S_IEXEC)) {
 #else
 		ntfs_fuse_fill_security_context(&security);
@@ -1449,13 +1642,13 @@ static int ntfs_fuse_create(const char *org_path, mode_t typemode, dev_t dev,
 			securid = 0;
 		else
 			if (ctx->inherit)
-				securid = ntfs_inherited_id(&security, dir_path,
+				securid = ntfs_inherited_id(&security,
 					dir_ni, S_ISDIR(type));
 			else
 #if POSIXACLS
 				securid = ntfs_alloc_securid(&security,
 					security.uid, security.gid,
-					dir_path, dir_ni, perm, S_ISDIR(type));
+					dir_ni, perm, S_ISDIR(type));
 #else
 				securid = ntfs_alloc_securid(&security,
 					security.uid, security.gid,
@@ -1493,7 +1686,7 @@ static int ntfs_fuse_create(const char *org_path, mode_t typemode, dev_t dev,
 			   	if (!securid
 				   && ntfs_set_inherited_posix(&security, ni,
 					security.uid, security.gid,
-					dir_path, dir_ni, perm) < 0)
+					dir_ni, perm) < 0)
 					set_fuse_error(&res);
 #else
 			   	if (!securid
@@ -1517,19 +1710,15 @@ static int ntfs_fuse_create(const char *org_path, mode_t typemode, dev_t dev,
 #endif /* HAVE_SETXATTR */
 			NInoSetDirty(ni);
 			/*
-			 * closing ni will necessitate to open dir_ni to
-			 * synchronize the index.
-			 * Better avoid a dangerous double opening.
+			 * closing ni requires access to dir_ni to
+			 * synchronize the index, avoid double opening.
 			 */
+			if (ntfs_inode_close_in_dir(ni, dir_ni))
+				set_fuse_error(&res);
 			ntfs_fuse_update_times(dir_ni, NTFS_UPDATE_MCTIME);
-			if (ntfs_inode_close(dir_ni))
-				set_fuse_error(&res);
-			dir_ni = (ntfs_inode*)NULL;
-			if (ntfs_inode_close(ni))
-				set_fuse_error(&res);
 		} else
 			res = -errno;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	} else
 		res = -errno;
 #endif
@@ -1648,7 +1837,8 @@ static int ntfs_fuse_link(const char *old_path, const char *new_path)
 	ntfs_inode *dir_ni = NULL, *ni;
 	char *path;
 	int res = 0, uname_len;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+	BOOL samedir;
 	struct SECURITY_CONTEXT security;
 #endif
 
@@ -1682,11 +1872,14 @@ static int ntfs_fuse_link(const char *old_path, const char *new_path)
 		goto exit;
 	}
 
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+	samedir = !strncmp(old_path, path, strlen(path))
+			&& (old_path[strlen(path)] == '/');
 		/* JPA make sure the parent directories are writeable */
 	if (ntfs_fuse_fill_security_context(&security)
-	   && (!ntfs_allowed_dir_access(&security,old_path,S_IWRITE + S_IEXEC)
-	      || !ntfs_allowed_access(&security,path,dir_ni,S_IWRITE + S_IEXEC)))
+	   && ((!samedir && !ntfs_allowed_dir_access(&security,old_path,
+			(ntfs_inode*)NULL,ni,S_IWRITE + S_IEXEC))
+	      || !ntfs_allowed_access(&security,dir_ni,S_IWRITE + S_IEXEC)))
 		res = -EACCES;
 	else
 #endif
@@ -1721,7 +1914,7 @@ static int ntfs_fuse_rm(const char *org_path)
 	ntfs_inode *dir_ni = NULL, *ni;
 	char *path;
 	int res = 0, uname_len;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
 #endif
 
@@ -1750,10 +1943,10 @@ static int ntfs_fuse_rm(const char *org_path)
 		goto exit;
 	}
 	
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	/* JPA deny unlinking if directory is not writable and executable */
 	if (!ntfs_fuse_fill_security_context(&security)
-	    || ntfs_allowed_dir_access(&security, org_path,
+	    || ntfs_allowed_dir_access(&security, org_path, dir_ni, ni,
 				   S_IEXEC + S_IWRITE + S_ISVTX)) {
 #endif
 		if (ntfs_delete(ctx->vol, org_path, ni, dir_ni,
@@ -1761,7 +1954,7 @@ static int ntfs_fuse_rm(const char *org_path)
 			res = -errno;
 		/* ntfs_delete() always closes ni and dir_ni */
 		ni = dir_ni = NULL;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	} else
 		res = -EACCES;
 #endif
@@ -1799,7 +1992,7 @@ static int ntfs_fuse_unlink(const char *org_path)
 	ntfschar *stream_name;
 	int stream_name_len;
 	int res = 0;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
 #endif
 
@@ -1809,15 +2002,17 @@ static int ntfs_fuse_unlink(const char *org_path)
 	if (!stream_name_len)
 		res = ntfs_fuse_rm(path);
 	else {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			/*
 			 * JPA deny unlinking stream if directory is not
 			 * writable and executable (debatable)
 			 */
 		if (!ntfs_fuse_fill_security_context(&security)
 		   || ntfs_allowed_dir_access(&security, path,
+				(ntfs_inode*)NULL, (ntfs_inode*)NULL,
 				S_IEXEC + S_IWRITE + S_ISVTX))
-			res = ntfs_fuse_rm_stream(path, stream_name, stream_name_len);
+			res = ntfs_fuse_rm_stream(path, stream_name,
+					stream_name_len);
 		else
 			res = -errno;
 #else
@@ -1883,7 +2078,7 @@ static int ntfs_fuse_rename_existing_dest(const char *old_path, const char *new_
 	int ret, len;
 	char *tmp;
 	const char *ext = ".ntfs-3g-";
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
 #endif
 
@@ -1899,7 +2094,7 @@ static int ntfs_fuse_rename_existing_dest(const char *old_path, const char *new_
 		ntfs_log_error("snprintf failed: %d != %d\n", ret, len - 1);
 		ret = -EOVERFLOW;
 	} else {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			/*
 			 * Make sure existing dest can be removed.
 			 * This is only needed if parent directory is
@@ -1909,6 +2104,7 @@ static int ntfs_fuse_rename_existing_dest(const char *old_path, const char *new_
 			 */
 		if (!ntfs_fuse_fill_security_context(&security)
 		  || ntfs_allowed_dir_access(&security, new_path,
+				(ntfs_inode*)NULL, (ntfs_inode*)NULL,
 				S_IEXEC + S_IWRITE + S_ISVTX))
 			ret = ntfs_fuse_safe_rename(old_path, new_path, tmp);
 		else
@@ -1927,6 +2123,8 @@ static int ntfs_fuse_rename(const char *old_path, const char *new_path)
 	char *path = NULL;
 	ntfschar *stream_name;
 	ntfs_inode *ni;
+	u64 inum;
+	BOOL same;
 	
 	ntfs_log_debug("rename: old: '%s'  new: '%s'\n", old_path, new_path);
 	
@@ -1946,12 +2144,34 @@ static int ntfs_fuse_rename(const char *old_path, const char *new_path)
 			goto out;
 		}
 		
+		inum = ni->mft_no;
 		if (ntfs_inode_close(ni)) {
 			set_fuse_error(&ret);
 			goto out;
 		}
-		
-		ret = ntfs_fuse_rename_existing_dest(old_path, new_path);
+
+		free(path);
+		path = (char*)NULL;
+		if (stream_name_len)
+			free(stream_name);
+
+			/* silently ignore a rename to same inode */
+		stream_name_len = ntfs_fuse_parse_path(old_path,
+						&path, &stream_name);
+		if (stream_name_len < 0)
+			return stream_name_len;
+	
+		ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
+		if (ni) {
+			same = ni->mft_no == inum;
+			if (ntfs_inode_close(ni))
+				ret = -errno;
+			else
+				if (!same)
+					ret = ntfs_fuse_rename_existing_dest(
+							old_path, new_path);
+		} else
+			ret = -errno;
 		goto out;
 	}
 
@@ -1985,11 +2205,72 @@ static int ntfs_fuse_rmdir(const char *path)
 	return ntfs_fuse_rm(path);
 }
 
+#ifdef HAVE_UTIMENSAT
+
+static int ntfs_fuse_utimens(const char *path, const struct timespec tv[2])
+{
+	ntfs_inode *ni;
+	int res = 0;
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+	struct SECURITY_CONTEXT security;
+#endif
+
+	if (ntfs_fuse_is_named_data_stream(path))
+		return -EINVAL; /* n/a for named data streams. */
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+		   /* parent directory must be executable */
+	if (ntfs_fuse_fill_security_context(&security)
+	    && !ntfs_allowed_dir_access(&security,path,
+			(ntfs_inode*)NULL,(ntfs_inode*)NULL,S_IEXEC)) {
+		return (-errno);
+	}
+#endif
+	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
+	if (!ni)
+		return -errno;
+
+			/* no check or update if both UTIME_OMIT */
+	if ((tv[0].tv_nsec != UTIME_OMIT) || (tv[1].tv_nsec != UTIME_OMIT)) {
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+		if (ntfs_allowed_access(&security, ni, S_IWRITE)
+		    || ((tv[0].tv_nsec == UTIME_NOW)
+			&& (tv[0].tv_nsec == UTIME_NOW)
+			&& ntfs_allowed_as_owner(&security, ni))) {
+#endif
+			ntfs_time_update_flags mask = NTFS_UPDATE_CTIME;
+
+			if (tv[0].tv_nsec == UTIME_NOW)
+				mask |= NTFS_UPDATE_ATIME;
+			else
+				if (tv[0].tv_nsec != UTIME_OMIT)
+					ni->last_access_time
+						= timespec2ntfs(tv[0]);
+			if (tv[1].tv_nsec == UTIME_NOW)
+				mask |= NTFS_UPDATE_MTIME;
+			else
+				if (tv[1].tv_nsec != UTIME_OMIT)
+					ni->last_data_change_time
+						= timespec2ntfs(tv[1]);
+			ntfs_inode_update_times(ni, mask);
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+		} else
+			res = -errno;
+#endif
+	}
+	if (ntfs_inode_close(ni))
+		set_fuse_error(&res);
+	return res;
+}
+
+#else /* HAVE_UTIMENSAT */
+
 static int ntfs_fuse_utime(const char *path, struct utimbuf *buf)
 {
 	ntfs_inode *ni;
 	int res = 0;
-#if POSIXACLS
+	struct timespec actime;
+	struct timespec modtime;
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	BOOL ownerok;
 	BOOL writeok;
 	struct SECURITY_CONTEXT security;
@@ -1997,18 +2278,20 @@ static int ntfs_fuse_utime(const char *path, struct utimbuf *buf)
 
 	if (ntfs_fuse_is_named_data_stream(path))
 		return -EINVAL; /* n/a for named data streams. */
-#if POSIXACLS
-		/* parent directory must be executable */
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+		   /* parent directory must be executable */
 	if (ntfs_fuse_fill_security_context(&security)
-	    && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+	    && !ntfs_allowed_dir_access(&security,path,
+			(ntfs_inode*)NULL,(ntfs_inode*)NULL,S_IEXEC)) {
 		return (-errno);
 	}
 #endif
 	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 	if (!ni)
 		return -errno;
-#if POSIXACLS
-	ownerok = ntfs_allowed_as_owner(&security, path, ni);
+	
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+	ownerok = ntfs_allowed_as_owner(&security, ni);
 	if (buf) {
 		/*
 		 * fuse never calls with a NULL buf and we do not
@@ -2018,19 +2301,23 @@ static int ntfs_fuse_utime(const char *path, struct utimbuf *buf)
 		 */
 		writeok = !ownerok
 			&& (buf->actime == buf->modtime)
-			&& ntfs_allowed_access(&security, path, ni, S_IWRITE);
+			&& ntfs_allowed_access(&security, ni, S_IWRITE);
 			/* Must be owner */
 		if (!ownerok && !writeok)
 			res = (buf->actime == buf->modtime ? -EACCES : -EPERM);
 		else {
-			ni->last_access_time = buf->actime;
-			ni->last_data_change_time = buf->modtime;
+			actime.tv_sec = buf->actime;
+			actime.tv_nsec = 0;
+			modtime.tv_sec = buf->modtime;
+			modtime.tv_nsec = 0;
+			ni->last_access_time = timespec2ntfs(actime);
+			ni->last_data_change_time = timespec2ntfs(modtime);
 			ntfs_fuse_update_times(ni, NTFS_UPDATE_CTIME);
 		}
 	} else {
 			/* Must be owner or have write access */
 		writeok = !ownerok
-			&& ntfs_allowed_access(&security, path, ni, S_IWRITE);
+			&& ntfs_allowed_access(&security, ni, S_IWRITE);
 		if (!ownerok && !writeok)
 			res = -EACCES;
 		else
@@ -2038,8 +2325,12 @@ static int ntfs_fuse_utime(const char *path, struct utimbuf *buf)
 	}
 #else
 	if (buf) {
-		ni->last_access_time = buf->actime;
-		ni->last_data_change_time = buf->modtime;
+		actime.tv_sec = buf->actime;
+		actime.tv_nsec = 0;
+		modtime.tv_sec = buf->modtime;
+		modtime.tv_nsec = 0;
+		ni->last_access_time = timespec2ntfs(actime);
+		ni->last_data_change_time = timespec2ntfs(modtime);
 		ntfs_fuse_update_times(ni, NTFS_UPDATE_CTIME);
 	} else
 		ntfs_inode_update_times(ni, NTFS_UPDATE_AMCTIME);
@@ -2049,6 +2340,8 @@ static int ntfs_fuse_utime(const char *path, struct utimbuf *buf)
 		set_fuse_error(&res);
 	return res;
 }
+
+#endif /* HAVE_UTIMENSAT */
 
 static int ntfs_fuse_bmap(const char *path, size_t blocksize, uint64_t *idx)
 {
@@ -2129,6 +2422,7 @@ enum { XATTR_UNMAPPED,
 	XATTR_NTFS_ATTRIB,
 	XATTR_NTFS_EFSINFO,
 	XATTR_NTFS_REPARSE_DATA,
+	XATTR_NTFS_OBJECT_ID,
 	XATTR_NTFS_DOS_NAME,
 	XATTR_NTFS_TIMES,
 	XATTR_POSIX_ACC, 
@@ -2138,6 +2432,7 @@ static const char nf_ns_xattr_ntfs_acl[] = "system.ntfs_acl";
 static const char nf_ns_xattr_attrib[] = "system.ntfs_attrib";
 static const char nf_ns_xattr_efsinfo[] = "user.ntfs.efsinfo";
 static const char nf_ns_xattr_reparse[] = "system.ntfs_reparse_data";
+static const char nf_ns_xattr_object_id[] = "system.ntfs_object_id";
 static const char nf_ns_xattr_dos_name[] = "system.ntfs_dos_name";
 static const char nf_ns_xattr_times[] = "system.ntfs_times";
 static const char nf_ns_xattr_posix_access[] = "system.posix_acl_access";
@@ -2153,6 +2448,7 @@ static struct XATTRNAME nf_ns_xattr_names[] = {
 	{ XATTR_NTFS_ATTRIB, nf_ns_xattr_attrib },
 	{ XATTR_NTFS_EFSINFO, nf_ns_xattr_efsinfo },
 	{ XATTR_NTFS_REPARSE_DATA, nf_ns_xattr_reparse },
+	{ XATTR_NTFS_OBJECT_ID, nf_ns_xattr_object_id },
 	{ XATTR_NTFS_DOS_NAME, nf_ns_xattr_dos_name },
 	{ XATTR_NTFS_TIMES, nf_ns_xattr_times },
 	{ XATTR_POSIX_ACC, nf_ns_xattr_posix_access },
@@ -2200,8 +2496,15 @@ static ntfs_inode *ntfs_check_access_xattr(struct SECURITY_CONTEXT *security,
 				acctype = S_IEXEC | S_IWRITE;
 			else
 				acctype = S_IEXEC;
-			if (ntfs_allowed_dir_access(security,path,acctype)) {
-				ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
+			if ((attr == XATTR_NTFS_DOS_NAME)
+			    && !strcmp(path,"/"))
+				/* forbid getting/setting names on root */
+				errno = EPERM;
+			else
+				if (ntfs_allowed_real_dir_access(security, path,
+					   (ntfs_inode*)NULL ,acctype)) {
+					ni = ntfs_pathname_to_inode(ctx->vol,
+							NULL, path);
 			}
 		}
 	}
@@ -2306,22 +2609,23 @@ static int ntfs_fuse_listxattr(const char *path, char *list, size_t size)
 	ntfs_inode *ni;
 	char *to = list;
 	int ret = 0;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
 #endif
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* parent directory must be executable */
 	if (ntfs_fuse_fill_security_context(&security)
-	    && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+	    && !ntfs_allowed_dir_access(&security,path,(ntfs_inode*)NULL,
+			(ntfs_inode*)NULL,S_IEXEC)) {
 		return (-errno);
 	}
 #endif
 	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 	if (!ni)
 		return -errno;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* file must be readable */
-	if (!ntfs_allowed_access(&security,path,ni,S_IREAD)) {
+	if (!ntfs_allowed_access(&security,ni,S_IREAD)) {
 		ret = -EACCES;
 		goto exit;
 	}
@@ -2413,24 +2717,25 @@ static int ntfs_fuse_getxattr_windows(const char *path, const char *name,
 	ntfs_inode *ni;
 	char *to = value;
 	int ret = 0;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
 #endif
 
 	if (strcmp(name, "ntfs.streams.list"))
 		return -EOPNOTSUPP;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* parent directory must be executable */
 	if (ntfs_fuse_fill_security_context(&security)
-	    && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+	    && !ntfs_allowed_dir_access(&security,path,(ntfs_inode*)NULL,
+			(ntfs_inode*)NULL,S_IEXEC)) {
 		return (-errno);
 	}
 #endif
 	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 	if (!ni)
 		return -errno;
-#if POSIXACLS
-	if (!ntfs_allowed_access(&security,path,ni,S_IREAD)) {
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
+	if (!ntfs_allowed_access(&security,ni,S_IREAD)) {
 		ret = -errno;
 		goto exit;
 	}
@@ -2484,6 +2789,86 @@ exit:
 	return ret;
 }
 
+static __inline__ int ntfs_system_getxattr(struct SECURITY_CONTEXT *scx,
+			const char *path, int attr, ntfs_inode *ni,
+			char *value, size_t size)
+{
+	int res;
+	ntfs_inode *dir_ni;
+	char *dirpath;
+	char *p;
+				/*
+				 * the returned value is the needed
+				 * size. If it is too small, no copy
+				 * is done, and the caller has to
+				 * issue a new call with correct size.
+				 */
+	switch (attr) {
+	case XATTR_NTFS_ACL :
+		res = ntfs_get_ntfs_acl(scx, ni, value, size);
+		break;
+#if POSIXACLS
+	case XATTR_POSIX_ACC :
+		res = ntfs_get_posix_acl(scx, ni, nf_ns_xattr_posix_access,
+					value, size);
+		break;
+	case XATTR_POSIX_DEF :
+		res = ntfs_get_posix_acl(scx, ni, nf_ns_xattr_posix_default,
+					value, size);
+		break;
+#endif
+	case XATTR_NTFS_ATTRIB :
+		res = ntfs_get_ntfs_attrib(ni, value, size);
+		break;
+	case XATTR_NTFS_EFSINFO :
+		if (ctx->efs_raw)
+			res = ntfs_get_efs_info(ni, value, size);
+		else
+			res = -EPERM;
+		break;
+	case XATTR_NTFS_REPARSE_DATA :
+		res = ntfs_get_ntfs_reparse_data(ni, value, size);
+		break;
+	case XATTR_NTFS_OBJECT_ID :
+		res = ntfs_get_ntfs_object_id(ni, value, size);
+		break;
+	case XATTR_NTFS_DOS_NAME:
+		res = 0;
+		dirpath = strdup(path);
+		if (dirpath) {
+			p = strrchr(dirpath,'/'); /* always present */
+			*p = 0;
+			dir_ni = ntfs_pathname_to_inode(ni->vol,
+						NULL, dirpath);
+			if (dir_ni) {
+				res = ntfs_get_ntfs_dos_name(ni,
+						dir_ni, value, size);
+				if (ntfs_inode_close(dir_ni))
+						set_fuse_error(&res);
+			} else
+				res = -errno;
+			free(dirpath);
+		} else
+			res = -ENOMEM;
+		if (res < 0)
+			errno = -res;
+		break;
+	case XATTR_NTFS_TIMES:
+		res = ntfs_inode_get_times(ni, value, size);
+		break;
+	default :
+			/*
+			 * make sure applications do not see
+			 * Posix ACL not consistent with mode
+			 */
+		errno = EOPNOTSUPP;
+		res = -errno;
+		break;
+	}
+	return (res);
+}
+
+
 static int ntfs_fuse_getxattr(const char *path, const char *name,
 				char *value, size_t size)
 {
@@ -2498,57 +2883,17 @@ static int ntfs_fuse_getxattr(const char *path, const char *name,
 
 	attr = mapped_xattr_system(name);
 	if (attr != XATTR_UNMAPPED) {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			/*
 			 * hijack internal data and ACL retrieval, whatever
 			 * mode was selected for xattr (from the user's
 			 * point of view, ACLs are not xattr)
 			 */
-		ni = ntfs_check_access_xattr(&security,path,attr,FALSE);
+		ni = ntfs_check_access_xattr(&security, path, attr, FALSE);
 		if (ni) {
-			if (ntfs_allowed_access(&security,path,ni,S_IREAD)) {
-				/*
-				 * the returned value is the needed
-				 * size. If it is too small, no copy
-				 * is done, and the caller has to
-				 * issue a new call with correct size.
-				 */
-				switch (attr) {
-				case XATTR_NTFS_ACL :
-					res = ntfs_get_ntfs_acl(&security,path,
-						name,value,size,ni);
-					break;
-				case XATTR_POSIX_ACC :
-				case XATTR_POSIX_DEF :
-					res = ntfs_get_posix_acl(&security,path,
-						name,value,size,ni);
-					break;
-				case XATTR_NTFS_ATTRIB :
-					res = ntfs_get_ntfs_attrib(path,
-						value,size,ni);
-					break;
-				case XATTR_NTFS_EFSINFO :
-					if (ctx->efs_raw)
-						res = ntfs_get_efs_info(path,
-							value,size,ni);
-					else
-						res = -EPERM;
-					break;
-				case XATTR_NTFS_REPARSE_DATA :
-					res = ntfs_get_ntfs_reparse_data(path,
-						value,size,ni);
-					break;
-				case XATTR_NTFS_DOS_NAME:
-					res = ntfs_get_ntfs_dos_name(path,
-						value,size,ni);
-					break;
-				case XATTR_NTFS_TIMES:
-					res = ntfs_inode_get_times(path,
-						value,size,ni);
-					break;
-				default : /* not possible */
-					break;
-				}
+			if (ntfs_allowed_access(&security,ni,S_IREAD)) {
+				res = ntfs_system_getxattr(&security,
+					path, attr, ni, value, size);
 			} else {
 				res = -errno;
                         }
@@ -2569,49 +2914,8 @@ static int ntfs_fuse_getxattr(const char *path, const char *name,
 			if (ni) {
 					/* user mapping not mandatory */
 				ntfs_fuse_fill_security_context(&security);
-				/*
-				 * the returned value is the needed
-				 * size. If it is too small, no copy
-				 * is done, and the caller has to
-				 * issue a new call with correct size.
-				 */
-				switch (attr) {
-				case XATTR_NTFS_ACL :
-					res = ntfs_get_ntfs_acl(&security,path,
-						name,value,size,ni);
-					break;
-				case XATTR_NTFS_ATTRIB :
-					res = ntfs_get_ntfs_attrib(path,
-						value,size,ni);
-					break;
-				case XATTR_NTFS_EFSINFO :
-					if (ctx->efs_raw)
-						res = ntfs_get_efs_info(path,
-							value,size,ni);
-					else
-						res = -EPERM;
-					break;
-				case XATTR_NTFS_REPARSE_DATA :
-					res = ntfs_get_ntfs_reparse_data(path,
-						value,size,ni);
-					break;
-				case XATTR_NTFS_DOS_NAME:
-					res = ntfs_get_ntfs_dos_name(path,
-						value,size,ni);
-					break;
-				case XATTR_NTFS_TIMES:
-					res = ntfs_inode_get_times(path,
-						value,size,ni);
-					break;
-				default :
-					/*
-					 * make sure applications do not see
-					 * Posix ACL not consistent with mode
-					 */
-					errno = EOPNOTSUPP;
-					res = -errno;
-					break;
-				}
+				res = ntfs_system_getxattr(&security,
+					path, attr, ni, value, size);
 				if (ntfs_inode_close(ni))
 					set_fuse_error(&res);
 			} else
@@ -2627,10 +2931,11 @@ static int ntfs_fuse_getxattr(const char *path, const char *name,
 	namespace = xattr_namespace(name);
 	if (namespace == XATTRNS_NONE)
 		return -EOPNOTSUPP;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* parent directory must be executable */
 	if (ntfs_fuse_fill_security_context(&security)
-	    && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+	    && !ntfs_allowed_dir_access(&security,path,(ntfs_inode*)NULL,
+			(ntfs_inode*)NULL,S_IEXEC)) {
 		return (-errno);
 	}
 		/* trusted only readable by root */
@@ -2641,9 +2946,9 @@ static int ntfs_fuse_getxattr(const char *path, const char *name,
 	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 	if (!ni)
 		return -errno;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* file must be readable */
-	if (!ntfs_allowed_access(&security, path, ni, S_IREAD)) {
+	if (!ntfs_allowed_access(&security, ni, S_IREAD)) {
 		res = -errno;
 		goto exit;
 	}
@@ -2681,6 +2986,80 @@ exit:
 	return res;
 }
 
+static __inline__ int ntfs_system_setxattr(struct SECURITY_CONTEXT *scx,
+			const char *path, int attr, ntfs_inode *ni,
+			const char *value, size_t size, int flags)
+{
+	int res;
+	char *dirpath;
+	char *p;
+	ntfs_inode *dir_ni;
+
+	switch (attr) {
+	case XATTR_NTFS_ACL :
+		res = ntfs_set_ntfs_acl(scx, ni, value, size, flags);
+		break;
+#if POSIXACLS
+	case XATTR_POSIX_ACC :
+		res = ntfs_set_posix_acl(scx,ni, nf_ns_xattr_posix_access,
+					value, size, flags);
+		break;
+	case XATTR_POSIX_DEF :
+		res = ntfs_set_posix_acl(scx, ni, nf_ns_xattr_posix_default,
+					value, size, flags);
+		break;
+#endif
+	case XATTR_NTFS_ATTRIB :
+		res = ntfs_set_ntfs_attrib(ni, value, size, flags);
+		break;
+	case XATTR_NTFS_EFSINFO :
+		if (ctx->efs_raw)
+			res = ntfs_set_efs_info(ni, value, size, flags);
+		else
+			res = -EPERM;
+		break;
+	case XATTR_NTFS_REPARSE_DATA :
+		res = ntfs_set_ntfs_reparse_data(ni, value, size, flags);
+		break;
+	case XATTR_NTFS_OBJECT_ID :
+		res = ntfs_set_ntfs_object_id(ni, value, size, flags);
+		break;
+	case XATTR_NTFS_DOS_NAME:
+		res = 0;
+		dirpath = strdup(path);
+		if (dirpath) {
+			p = strrchr(dirpath,'/'); /* always present */
+			*p = 0;
+			dir_ni = ntfs_pathname_to_inode(ni->vol,
+						NULL, dirpath);
+			if (dir_ni)
+					/* warning : this closes both inodes */
+				res = ntfs_set_ntfs_dos_name(ni, dir_ni,
+						value,size,flags);
+			else
+				res = -errno;
+			free(dirpath);
+		} else
+			res = -ENOMEM;
+		if (res < 0)
+			errno = -res;
+		break;
+	case XATTR_NTFS_TIMES:
+		res = ntfs_inode_set_times(ni, value, size, flags);
+		break;
+	default :
+				/*
+				 * make sure applications do not see
+				 * Posix ACL not consistent with mode
+				 */
+		errno = EOPNOTSUPP;
+		res = -errno;
+		break;
+	}
+	return (res);
+}
+
+
 static int ntfs_fuse_setxattr(const char *path, const char *name,
 				const char *value, size_t size, int flags)
 {
@@ -2695,7 +3074,7 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 
 	attr = mapped_xattr_system(name);
 	if (attr != XATTR_UNMAPPED) {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 			/*
 			 * hijack internal data and ACL setting, whatever
 			 * mode was selected for xattr (from the user's
@@ -2704,44 +3083,9 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 			 */
 		ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
 		if (ni) {
-			if (ntfs_allowed_as_owner(&security,path,ni)) {
-				switch (attr) {
-				case XATTR_NTFS_ACL :
-					res = ntfs_set_ntfs_acl(&security,path,
-						name,value,size,flags,ni);
-					break;
-				case XATTR_POSIX_ACC :
-				case XATTR_POSIX_DEF :
-					res = ntfs_set_posix_acl(&security,path,
-						name,value,size,flags,ni);
-					break;
-				case XATTR_NTFS_ATTRIB :
-					res = ntfs_set_ntfs_attrib(path,
-						value,size,flags,ni);
-					break;
-				case XATTR_NTFS_EFSINFO :
-					if (ctx->efs_raw)
-						res = ntfs_set_efs_info(path,
-							value,size,flags,ni);
-					else
-						res = -EPERM;
-					break;
-				case XATTR_NTFS_REPARSE_DATA :
-					res = ntfs_set_ntfs_reparse_data(path,
-						value,size,flags,ni);
-					break;
-				case XATTR_NTFS_DOS_NAME:
-					/* warning : this closes the inode */
-					res = ntfs_set_ntfs_dos_name(path,
-						value,size,flags,ni);
-					break;
-				case XATTR_NTFS_TIMES:
-					res = ntfs_inode_set_times(path,
-						value,size,flags,ni);
-					break;
-				default : /* not possible */
-					break;
-				}
+			if (ntfs_allowed_as_owner(&security,ni)) {
+				res = ntfs_system_setxattr(&security,
+					path, attr, ni, value, size, flags);
 				if (res)
 					res = -errno;
 			} else
@@ -2771,45 +3115,10 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 					 * if defined, only owner is allowed
 					 */
 				if (!ntfs_fuse_fill_security_context(&security)
-				   || ntfs_allowed_as_owner(&security,path,ni)) {
-					switch (attr) {
-					case XATTR_NTFS_ACL :
-						res = ntfs_set_ntfs_acl(&security,path,
-							name,value,size,flags,ni);
-						break;
-					case XATTR_NTFS_ATTRIB :
-						res = ntfs_set_ntfs_attrib(path,
-							value,size,flags,ni);
-						break;
-					case XATTR_NTFS_EFSINFO :
-						if (ctx->efs_raw)
-							res = ntfs_set_efs_info(path,
-								value,size,flags,ni);
-						else
-							res = -EPERM;
-						break;
-					case XATTR_NTFS_REPARSE_DATA :
-						res = ntfs_set_ntfs_reparse_data(path,
-							value,size,flags,ni);
-						break;
-					case XATTR_NTFS_DOS_NAME:
-					/* warning : this closes the inode */
-						res = ntfs_set_ntfs_dos_name(path,
-							value,size,flags,ni);
-						break;
-					case XATTR_NTFS_TIMES:
-						res = ntfs_inode_set_times(path,
-							value,size,flags,ni);
-						break;
-					default :
-						/*
-						 * make sure applications do not see
-						 * Posix ACL not consistent with mode
-						 */
-						errno = EOPNOTSUPP;
-						res = -errno;
-						break;
-					}
+				   || ntfs_allowed_as_owner(&security,ni)) {
+					res = ntfs_system_setxattr(&security,
+						path, attr, ni, value,
+						size, flags);
 					if (res)
 						res = -errno;
 				} else
@@ -2829,10 +3138,11 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 	namespace = xattr_namespace(name);
 	if (namespace == XATTRNS_NONE)
 		return -EOPNOTSUPP;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* parent directory must be executable */
 	if (ntfs_fuse_fill_security_context(&security)
-	    && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+	    && !ntfs_allowed_dir_access(&security,path,(ntfs_inode*)NULL,
+			(ntfs_inode*)NULL,S_IEXEC)) {
 		return (-errno);
 	}
 		/* security and trusted only settable by root */
@@ -2844,7 +3154,7 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 	if (!ni)
 		return -errno;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	switch (namespace) {
 	case XATTRNS_SECURITY :
 	case XATTRNS_TRUSTED :
@@ -2854,13 +3164,13 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 		}
 		break;
 	case XATTRNS_SYSTEM :
-		if (!ntfs_allowed_as_owner(&security,path,ni)) {
+		if (!ntfs_allowed_as_owner(&security,ni)) {
 			res = -EACCES;
 			goto exit;
 		}
 		break;
 	default :
-		if (!ntfs_allowed_access(&security,path,ni,S_IWRITE)) {
+		if (!ntfs_allowed_access(&security,ni,S_IWRITE)) {
 			res = -EACCES;
 			goto exit;
 		}
@@ -2886,7 +3196,10 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 			res = -errno;
 			goto exit;
 		}
-		set_archive(ni);
+		if (!(ni->flags & FILE_ATTR_ARCHIVE)) {
+			set_archive(ni);
+			NInoFileNameSetDirty(ni);
+		}
 		na = ntfs_attr_open(ni, AT_DATA, lename, lename_len);
 		if (!na) {
 			res = -errno;
@@ -2915,8 +3228,10 @@ static int ntfs_fuse_setxattr(const char *path, const char *name,
 				   && (ni->flags & FILE_ATTR_ENCRYPTED))
 					res = ntfs_efs_fixup_attribute(NULL,
 						na);
-		if (total)
+		if (total && !(ni->flags & FILE_ATTR_ARCHIVE)) {
 			set_archive(ni);
+			NInoFileNameSetDirty(ni);
+		}
 	} else
 		res = 0;
 exit:
@@ -2928,6 +3243,100 @@ exit:
 	return res;
 }
 
+static __inline__ int ntfs_system_removexattr(const char *path,
+			int attr)
+{
+	int res;
+	ntfs_inode *dir_ni;
+	ntfs_inode *ni;
+	char *dirpath;
+	char *p;
+	struct SECURITY_CONTEXT security;
+
+	res = 0;
+	switch (attr) {
+			/*
+			 * Removal of NTFS ACL, ATTRIB, EFSINFO or TIMES
+			 * is never allowed
+			 */
+	case XATTR_NTFS_ACL :
+	case XATTR_NTFS_ATTRIB :
+	case XATTR_NTFS_EFSINFO :
+	case XATTR_NTFS_TIMES :
+		res = -EPERM;
+		break;
+#if POSIXACLS
+	case XATTR_POSIX_ACC :
+	case XATTR_POSIX_DEF :
+		ni = ntfs_check_access_xattr(&security, path, attr, TRUE);
+		if (ni) {
+			if (!ntfs_allowed_as_owner(&security,ni)
+			   || ntfs_remove_posix_acl(&security,ni,
+					(attr == XATTR_POSIX_ACC ?
+					nf_ns_xattr_posix_access :
+					nf_ns_xattr_posix_default)))
+				res = -errno;
+			if (ntfs_inode_close(ni))
+				set_fuse_error(&res);
+		} else
+			res = -errno;
+		break;
+#endif
+	case XATTR_NTFS_REPARSE_DATA :
+		ni = ntfs_check_access_xattr(&security, path, attr, TRUE);
+		if (ni) {
+			if (!ntfs_allowed_as_owner(&security,ni)
+			    || ntfs_remove_ntfs_reparse_data(ni))
+				res = -errno;
+			if (ntfs_inode_close(ni))
+				set_fuse_error(&res);
+		} else
+			res = -errno;
+		break;
+	case XATTR_NTFS_OBJECT_ID :
+		ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
+		if (ni) {
+			if (!ntfs_allowed_as_owner(&security,ni)
+			    || ntfs_remove_ntfs_object_id(ni))
+				res = -errno;
+			if (ntfs_inode_close(ni))
+				set_fuse_error(&res);
+		} else
+			res = -errno;
+		break;
+	case XATTR_NTFS_DOS_NAME:
+		res = 0;
+		ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
+		if (ni) {
+			dirpath = strdup(path);
+			if (dirpath) {
+				p = strrchr(dirpath,'/'); /* always present */
+				*p = 0;
+				dir_ni = ntfs_pathname_to_inode(ni->vol,
+							NULL, dirpath);
+				if (!dir_ni
+				   || ntfs_remove_ntfs_dos_name(ni, dir_ni))
+					res = -errno;
+				free(dirpath);
+			} else
+				res = -ENOMEM;
+			if (res < 0)
+				errno = -res;
+		} else
+			res = -errno;
+		break;
+	default :
+			/*
+			 * make sure applications do not see
+			 * Posix ACL not consistent with mode
+			 */
+		errno = EOPNOTSUPP;
+		res = -errno;
+		break;
+	}
+	return (res);
+}
+
 static int ntfs_fuse_removexattr(const char *path, const char *name)
 {
 	ntfs_inode *ni;
@@ -2935,11 +3344,13 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 	int res = 0, lename_len;
 	int attr;
 	int namespace;
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	struct SECURITY_CONTEXT security;
+#endif
 
 	attr = mapped_xattr_system(name);
 	if (attr != XATTR_UNMAPPED) {
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 
 			/*
 			 * hijack internal data and ACL removal, whatever
@@ -2947,56 +3358,7 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 			 * point of view, ACLs are not xattr)
 			 * Note : updating an ACL does not set ctime
 			 */
-		res = 0;
-		switch (attr) {
-			/*
-			 * Removal of NTFS ACL, ATTRIB, EFSINFO or TIMES
-			 * is never allowed
-			 */
-		case XATTR_NTFS_ACL :
-		case XATTR_NTFS_ATTRIB :
-		case XATTR_NTFS_EFSINFO :
-		case XATTR_NTFS_TIMES :
-			res = -EPERM;
-			break;
-		case XATTR_POSIX_ACC :
-		case XATTR_POSIX_DEF :
-			ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
-			if (ni) {
-				if (!ntfs_allowed_as_owner(&security,path,ni)
-				   || ntfs_remove_posix_acl(&security,path,
-						name,ni))
-					res = -errno;
-				if (ntfs_inode_close(ni))
-					set_fuse_error(&res);
-			} else
-				res = -errno;
-			break;
-		case XATTR_NTFS_REPARSE_DATA :
-			ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
-			if (ni) {
-				if (!ntfs_allowed_as_owner(&security,path,ni)
-				    || ntfs_remove_ntfs_reparse_data(path,ni))
-						res = -errno;
-				if (ntfs_inode_close(ni))
-					set_fuse_error(&res);
-			} else
-				res = -errno;
-			break;
-		case XATTR_NTFS_DOS_NAME:
-			ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
-			if (ni) {
-				if (ntfs_remove_ntfs_dos_name(path,ni))
-					res = -errno;
-			} else
-				res = -errno;
-			break;
-		default :
-			errno = EOPNOTSUPP;
-			res = -errno;
-			break;
-			break;
-		}
+		res = ntfs_system_removexattr(path, attr);
 #else
 			/*
 			 * Only hijack NTFS ACL and ATTRIB removal if POSIX ACLS
@@ -3006,50 +3368,7 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 		if (ntfs_fuse_is_named_data_stream(path))
 			res = -EINVAL; /* n/a for named data streams. */
 		else {
-			switch (attr) {
-				/*
-				 * Removal of NTFS ACL, ATTRIB, EFSINFO or TIMES
-				 * is never allowed
-				 */
-			case XATTR_NTFS_ACL :
-			case XATTR_NTFS_ATTRIB :
-			case XATTR_NTFS_EFSINFO :
-			case XATTR_NTFS_TIMES :
-				res = -EPERM;
-				break;
-			case XATTR_NTFS_REPARSE_DATA :
-				ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
-				if (ni) {
-					/*
-					 * user mapping is not mandatory
-					 * if defined, only owner is allowed
-					 */
-					if ((ntfs_fuse_fill_security_context(&security)
-					   && !ntfs_allowed_as_owner(&security,path,ni))
-					     || ntfs_remove_ntfs_reparse_data(path,ni))
-						res = -errno;
-					if (ntfs_inode_close(ni))
-						set_fuse_error(&res);
-				} else
-					res = -errno;
-				break;
-			case XATTR_NTFS_DOS_NAME:
-				ni = ntfs_check_access_xattr(&security,path,attr,TRUE);
-				if (ni) {
-					if (ntfs_remove_ntfs_dos_name(path,ni))
-						res = -errno;
-				} else
-					res = -errno;
-				break;
-			default :
-				/*
-				 * make sure applications do not see
-				 * Posix ACL not consistent with mode
-				 */
-				errno = EOPNOTSUPP;
-				res = -errno;
-				break;
-			}
+			res = ntfs_system_removexattr(path, attr);
 		}
 #endif
 		return (res);
@@ -3060,10 +3379,11 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 	namespace = xattr_namespace(name);
 	if (namespace == XATTRNS_NONE)
 		return -EOPNOTSUPP;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 		   /* parent directory must be executable */
 	if (ntfs_fuse_fill_security_context(&security)
-	    && !ntfs_allowed_dir_access(&security,path,S_IEXEC)) {
+	    && !ntfs_allowed_dir_access(&security,path,(ntfs_inode*)NULL,
+			(ntfs_inode*)NULL,S_IEXEC)) {
 		return (-errno);
 	}
 		/* security and trusted only settable by root */
@@ -3075,7 +3395,7 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 	ni = ntfs_pathname_to_inode(ctx->vol, NULL, path);
 	if (!ni)
 		return -errno;
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	switch (namespace) {
 	case XATTRNS_SECURITY :
 	case XATTRNS_TRUSTED :
@@ -3085,13 +3405,13 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 		}
 		break;
 	case XATTRNS_SYSTEM :
-		if (!ntfs_allowed_as_owner(&security,path,ni)) {
+		if (!ntfs_allowed_as_owner(&security,ni)) {
 			res = -EACCES;
 			goto exit;
 		}
 		break;
 	default :
-		if (!ntfs_allowed_access(&security,path,ni,S_IWRITE)) {
+		if (!ntfs_allowed_access(&security,ni,S_IWRITE)) {
 			res = -EACCES;
 			goto exit;
 		}
@@ -3108,7 +3428,10 @@ static int ntfs_fuse_removexattr(const char *path, const char *name)
 			errno = ENODATA;
 		res = -errno;
 	}
-	set_archive(ni);
+	if (!(ni->flags & FILE_ATTR_ARCHIVE)) {
+		set_archive(ni);
+		NInoFileNameSetDirty(ni);
+	}
 exit:
 	free(lename);
 	if (ntfs_inode_close(ni))
@@ -3162,6 +3485,14 @@ static void ntfs_fuse_destroy2(void *unused __attribute__((unused)))
 }
 
 static struct fuse_operations ntfs_3g_ops = {
+#if defined(HAVE_UTIMENSAT) && (defined(FUSE_INTERNAL) || (FUSE_VERSION > 28))
+		/*
+		 * Accept UTIME_NOW and UTIME_OMIT in utimens, when
+		 * using internal fuse or a fuse version since 2.9
+		 * (this field is not present in older versions)
+		 */
+	.flag_utime_omit_ok = 1,
+#endif
 	.getattr	= ntfs_fuse_getattr,
 	.readlink	= ntfs_fuse_readlink,
 	.readdir	= ntfs_fuse_readdir,
@@ -3182,10 +3513,14 @@ static struct fuse_operations ntfs_3g_ops = {
 	.rename		= ntfs_fuse_rename,
 	.mkdir		= ntfs_fuse_mkdir,
 	.rmdir		= ntfs_fuse_rmdir,
+#ifdef HAVE_UTIMENSAT
+	.utimens	= ntfs_fuse_utimens,
+#else
 	.utime		= ntfs_fuse_utime,
+#endif
 	.bmap		= ntfs_fuse_bmap,
 	.destroy        = ntfs_fuse_destroy2,
-#if POSIXACLS
+#if !KERNELPERMS | (POSIXACLS & !KERNELACLS)
 	.access		= ntfs_fuse_access,
 	.opendir	= ntfs_fuse_opendir,
 #endif
@@ -3385,9 +3720,7 @@ static char *parse_mount_options(const char *orig_opts)
 				goto err_exit;
 			sscanf(val, "%o", &ctx->fmask);
 			ctx->dmask = ctx->fmask;
-#if !POSIXACLS
-			default_permissions = 1;
-#endif
+			want_permissions = 1;
 		} else if (!strcmp(opt, "fmask")) {
 			if (missing_option_value(val, "fmask"))
 				goto err_exit;
@@ -3571,7 +3904,8 @@ err_exit:
 static void usage(void)
 {
 	ntfs_log_info(usage_msg, EXEC_NAME, VERSION, FUSE_TYPE, fuse_version(),
-		      EXEC_NAME, ntfs_home);
+			4 + POSIXACLS*6 - KERNELPERMS*3 + CACHEING,
+			EXEC_NAME, ntfs_home);
 }
 
 #ifndef HAVE_REALPATH
@@ -3830,8 +4164,13 @@ static struct fuse *mount_fuse(char *parsed_options)
 	
 	if (fuse_opt_add_arg(&args, "") == -1)
 		goto err;
+#if !CACHEING
 	if (fuse_opt_add_arg(&args, "-ouse_ino,kernel_cache,attr_timeout=0") == -1)
 		goto err;
+#else
+	if (fuse_opt_add_arg(&args, "-ouse_ino,kernel_cache,attr_timeout=1") == -1)
+		goto err;
+#endif
 	if (ctx->debug)
 		if (fuse_opt_add_arg(&args, "-odebug") == -1)
 			goto err;
@@ -3926,6 +4265,24 @@ int main(int argc, char *argv[])
 		goto err_out;
 	}
 	
+			/* need absolute mount point for junctions */
+	if (opts.mnt_point[0] == '/')
+		ctx->abs_mnt_point = strdup(opts.mnt_point);
+	else {
+		ctx->abs_mnt_point = (char*)ntfs_malloc(PATH_MAX);
+		if (ctx->abs_mnt_point) {
+			if (getcwd(ctx->abs_mnt_point,
+				     PATH_MAX - strlen(opts.mnt_point) - 1)) {
+				strcat(ctx->abs_mnt_point, "/");
+				strcat(ctx->abs_mnt_point, opts.mnt_point);
+			}
+		}
+	}
+	if (!ctx->abs_mnt_point) {
+		err = NTFS_VOLUME_OUT_OF_MEMORY;
+		goto err_out;
+	}
+
 	ctx->security.uid = 0;
 	ctx->security.gid = 0;
 	if ((opts.mnt_point[0] == '/')
@@ -3944,7 +4301,6 @@ int main(int argc, char *argv[])
 
 	if (fstype == FSTYPE_NONE || fstype == FSTYPE_UNKNOWN)
 		fstype = load_fuse_module();
-	
 	create_dev_fuse();
 
 	if (drop_privs())
@@ -3965,6 +4321,7 @@ int main(int argc, char *argv[])
 #ifndef FUSE_INTERNAL
 	if (getuid() && ctx->blkdev) {
 		ntfs_log_error("%s", unpriv_fuseblk_msg);
+		err = NTFS_VOLUME_NO_PRIVILEGE;
 		goto err2;
 	}
 #endif
@@ -3989,9 +4346,17 @@ int main(int argc, char *argv[])
 #if POSIXACLS
 		if (ctx->vol->secure_flags & (1 << SECURITY_DEFAULT))
 			permissions_mode = "User mapping built, Posix ACLs not used";
-		else
+		else {
 			permissions_mode = "User mapping built, Posix ACLs in use";
-#else
+#if KERNELACLS
+			if (strappend(&parsed_options, ",default_permissions,acl")) {
+				err = NTFS_VOLUME_SYNTAX_ERROR;
+				goto err_out;
+			}
+#endif /* KERNELACLS */
+		}
+#else /* POSIXACLS */
+#if KERNELPERMS
 		if (!(ctx->vol->secure_flags & (1 << SECURITY_DEFAULT))) {
 			/*
 			 * No explicit option but user mapping found
@@ -4003,16 +4368,23 @@ int main(int argc, char *argv[])
 				goto err_out;
 			}
 		}
+#endif /* KERNELPERMS */
 		permissions_mode = "User mapping built";
-#endif
+#endif /* POSIXACLS */
 	} else {
 		ctx->security.uid = ctx->uid;
 		ctx->security.gid = ctx->gid;
 		/* same ownership/permissions for all files */
 		ctx->security.mapping[MAPUSERS] = (struct MAPPING*)NULL;
 		ctx->security.mapping[MAPGROUPS] = (struct MAPPING*)NULL;
-		if (ctx->secure_flags & (1 << SECURITY_WANTED))
+		if ((ctx->secure_flags & (1 << SECURITY_WANTED))
+		   && !(ctx->secure_flags & (1 << SECURITY_DEFAULT))) {
 			ctx->secure_flags |= (1 << SECURITY_DEFAULT);
+			if (strappend(&parsed_options, ",default_permissions")) {
+				err = NTFS_VOLUME_SYNTAX_ERROR;
+				goto err_out;
+			}
+		}
 		if (ctx->secure_flags & (1 << SECURITY_DEFAULT)) {
 			ctx->secure_flags |= (1 << SECURITY_RAW);
 			permissions_mode = "Global ownership and permissions enforced";
@@ -4040,7 +4412,11 @@ int main(int argc, char *argv[])
 	if (failed_secure)
 	        ntfs_log_info("%s\n",failed_secure);
 	if (permissions_mode)
-	        ntfs_log_info("%s\n",permissions_mode);
+	        ntfs_log_info("%s, configuration type %d\n",permissions_mode,
+			4 + POSIXACLS*6 - KERNELPERMS*3 + CACHEING);
+	if ((ctx->secure_flags & (1 << SECURITY_RAW))
+	    && !ctx->uid && ctx->gid)
+		ntfs_log_error("Warning : using problematic uid==0 and gid!=0\n");
 	
 	fuse_loop(fh);
 	
@@ -4050,6 +4426,8 @@ int main(int argc, char *argv[])
 	fuse_destroy(fh);
 err_out:
 	ntfs_mount_error(opts.device, opts.mnt_point, err);
+	if (ctx->abs_mnt_point)
+		free(ctx->abs_mnt_point);
 err2:
 	ntfs_close();
 	free(ctx);

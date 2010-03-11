@@ -78,7 +78,7 @@ static void perform_renew(void)
 //		state = RENEW_REQUESTED;	// zzz
 //		break;
 	case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
-		udhcp_run_script(NULL, "deconfig");
+//		udhcp_run_script(NULL, "deconfig");
 	case REQUESTING:
 	case RELEASED:
 		change_listen_mode(LISTEN_RAW);
@@ -338,6 +338,13 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	for (;;) {
 		/* silence "uninitialized!" warning */
 		unsigned timestamp_before_wait = timestamp_before_wait;
+
+		/* When running on a bridge, the ifindex may have changed (e.g. if
+		 * member interfaces were added/removed or if the status of the
+		 * bridge changed).
+		 * Workaround: refresh it here before processing the next packet */
+		udhcp_read_interface(client_config.interface,
+			&client_config.ifindex, NULL, client_config.arp);
 
 		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
 

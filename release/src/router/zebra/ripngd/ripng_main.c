@@ -43,8 +43,10 @@ struct option longopts[] =
 {
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
+  { "pid_file",    required_argument, NULL, 'i'},
   { "log_mode",    no_argument,       NULL, 'l'},
   { "help",        no_argument,       NULL, 'h'},
+  { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "version",     no_argument,       NULL, 'v'},
@@ -52,7 +54,6 @@ struct option longopts[] =
 };
 
 /* RIPngd program name */
-char *progname;
 
 /* Route retain mode flag. */
 int retain_mode = 0;
@@ -60,9 +61,12 @@ int retain_mode = 0;
 /* Master of threads. */
 struct thread_master *master;
 
+/* Process ID saved for use by init system */
+char *pid_file = PATH_RIPNGD_PID;
+
 /* Help information display. */
 static void
-usage (int status)
+usage (char *progname, int status)
 {
   if (status != 0)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
@@ -72,7 +76,9 @@ usage (int status)
 Daemon which manages RIPng.\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
+-i, --pid_file     Set process identifier file name\n\
 -l. --log_mode     Set verbose log mode flag\n\
+-A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by ripngd.\n\
 -v, --version      Print program version\n\
@@ -148,9 +154,11 @@ int
 main (int argc, char **argv)
 {
   char *p;
+  char *vty_addr = NULL;
   int vty_port = 0;
   int daemon_mode = 0;
   char *config_file = NULL;
+  char *progname;
   struct thread thread;
 
   /* Set umask before anything for security */
@@ -166,7 +174,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:hP:v", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:hA:P:v", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -184,6 +192,12 @@ main (int argc, char **argv)
 	case 'f':
 	  config_file = optarg;
 	  break;
+	case 'A':
+	  vty_addr = optarg;
+	  break;
+        case 'i':
+          pid_file = optarg;
+          break;
 	case 'P':
 	  vty_port = atoi (optarg);
 	  break;
@@ -191,19 +205,19 @@ main (int argc, char **argv)
 	  retain_mode = 1;
 	  break;
 	case 'v':
-	  print_version ();
+	  print_version (progname);
 	  exit (0);
 	  break;
 	case 'h':
-	  usage (0);
+	  usage (progname, 0);
 	  break;
 	default:
-	  usage (1);
+	  usage (progname, 1);
 	  break;
 	}
     }
 
-  master = thread_make_master ();
+  master = thread_master_create ();
 
   /* Library inits. */
   signal_init ();
@@ -223,10 +237,11 @@ main (int argc, char **argv)
     daemon (0, 0);
 
   /* Create VTY socket */
-  vty_serv_sock (vty_port ? vty_port : RIPNG_VTY_PORT, RIPNG_VTYSH_PATH);
+  vty_serv_sock (vty_addr,
+		 vty_port ? vty_port : RIPNG_VTY_PORT, RIPNG_VTYSH_PATH);
 
   /* Process id file create. */
-  pid_output (PATH_RIPNGD_PID);
+  pid_output (pid_file);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))

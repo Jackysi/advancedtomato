@@ -29,45 +29,6 @@ unsigned long ripng_debug_event = 0;
 unsigned long ripng_debug_packet = 0;
 unsigned long ripng_debug_zebra = 0;
 
-DEFUN (show_debugging_ripng,
-       show_debugging_ripng_cmd,
-       "show debugging ripng",
-       SHOW_STR
-       "RIPng configuration\n"
-       "Debugging information\n")
-{
-  vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
-
-  if (IS_RIPNG_DEBUG_EVENT)
-    vty_out (vty, "  RIPng event debugging is on%s", VTY_NEWLINE);
-
-  if (IS_RIPNG_DEBUG_PACKET)
-    {
-      if (IS_RIPNG_DEBUG_SEND && IS_RIPNG_DEBUG_RECV)
-	{
-	  vty_out (vty, "  RIPng packet%s debugging is on%s",
-		   IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
-		   VTY_NEWLINE);
-	}
-      else
-	{
-	  if (IS_RIPNG_DEBUG_SEND)
-	    vty_out (vty, "  RIPng packet send%s debugging is on%s",
-		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
-		     VTY_NEWLINE);
-	  else
-	    vty_out (vty, "  RIPng packet receive%s debugging is on%s",
-		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
-		     VTY_NEWLINE);
-	}
-    }
-
-  if (IS_RIPNG_DEBUG_ZEBRA)
-    vty_out (vty, "  RIPng zebra debugging is on%s", VTY_NEWLINE);
-
-  return CMD_SUCCESS;
-}
-
 DEFUN (debug_ripng_events,
        debug_ripng_events_cmd,
        "debug ripng events",
@@ -101,7 +62,7 @@ DEFUN (debug_ripng_packet_direct,
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n")
 {
-  ripng_debug_packet = RIPNG_DEBUG_PACKET;
+  ripng_debug_packet |= RIPNG_DEBUG_PACKET;
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_SEND;
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
@@ -120,7 +81,7 @@ DEFUN (debug_ripng_packet_detail,
        "Debug option set for send packet\n"
        "Debug option set detaied information\n")
 {
-  ripng_debug_packet = RIPNG_DEBUG_PACKET;
+  ripng_debug_packet |= RIPNG_DEBUG_PACKET;
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_SEND;
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
@@ -175,9 +136,19 @@ DEFUN (no_debug_ripng_packet_direct,
        "Debug option set for send packet\n")
 {
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
-    ripng_debug_packet &= ~RIPNG_DEBUG_SEND;
-  if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
-    ripng_debug_packet &= ~RIPNG_DEBUG_RECV;
+    {
+      if (IS_RIPNG_DEBUG_RECV)
+       ripng_debug_packet &= ~RIPNG_DEBUG_SEND;
+      else
+       ripng_debug_packet = 0;
+    }
+  else if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
+    {
+      if (IS_RIPNG_DEBUG_SEND)
+       ripng_debug_packet &= ~RIPNG_DEBUG_RECV;
+      else
+       ripng_debug_packet = 0;
+    }
   return CMD_SUCCESS;
 }
 
@@ -191,6 +162,45 @@ DEFUN (no_debug_ripng_zebra,
 {
   ripng_debug_zebra = 0;
   return CMD_WARNING;
+}
+
+DEFUN (show_debugging_ripng,
+       show_debugging_ripng_cmd,
+       "show debugging ripng",
+       SHOW_STR
+       "RIPng configuration\n"
+       "Debugging information\n")
+{
+  vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
+
+  if (IS_RIPNG_DEBUG_EVENT)
+    vty_out (vty, "  RIPng event debugging is on%s", VTY_NEWLINE);
+
+  if (IS_RIPNG_DEBUG_PACKET)
+    {
+      if (IS_RIPNG_DEBUG_SEND && IS_RIPNG_DEBUG_RECV)
+	{
+	  vty_out (vty, "  RIPng packet%s debugging is on%s",
+		   IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+		   VTY_NEWLINE);
+	}
+      else
+	{
+	  if (IS_RIPNG_DEBUG_SEND)
+	    vty_out (vty, "  RIPng packet send%s debugging is on%s",
+		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+		     VTY_NEWLINE);
+	  else
+	    vty_out (vty, "  RIPng packet receive%s debugging is on%s",
+		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+		     VTY_NEWLINE);
+	}
+    }
+
+  if (IS_RIPNG_DEBUG_ZEBRA)
+    vty_out (vty, "  RIPng zebra debugging is on%s", VTY_NEWLINE);
+
+  return CMD_SUCCESS;
 }
 
 /* Debug node. */
@@ -257,8 +267,6 @@ ripng_debug_init ()
 
   install_node (&debug_node, config_write_debug);
 
-  install_element (VIEW_NODE, &show_debugging_ripng_cmd);
-
   install_element (ENABLE_NODE, &show_debugging_ripng_cmd);
   install_element (ENABLE_NODE, &debug_ripng_events_cmd);
   install_element (ENABLE_NODE, &debug_ripng_packet_cmd);
@@ -267,6 +275,7 @@ ripng_debug_init ()
   install_element (ENABLE_NODE, &debug_ripng_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ripng_events_cmd);
   install_element (ENABLE_NODE, &no_debug_ripng_packet_cmd);
+  install_element (ENABLE_NODE, &no_debug_ripng_packet_direct_cmd);
   install_element (ENABLE_NODE, &no_debug_ripng_zebra_cmd);
 
   install_element (CONFIG_NODE, &debug_ripng_events_cmd);
@@ -276,5 +285,8 @@ ripng_debug_init ()
   install_element (CONFIG_NODE, &debug_ripng_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ripng_events_cmd);
   install_element (CONFIG_NODE, &no_debug_ripng_packet_cmd);
+  install_element (CONFIG_NODE, &no_debug_ripng_packet_direct_cmd);
   install_element (CONFIG_NODE, &no_debug_ripng_zebra_cmd);
+
+  install_element (VIEW_NODE, &show_debugging_ripng_cmd);
 }

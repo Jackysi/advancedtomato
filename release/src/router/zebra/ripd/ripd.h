@@ -38,8 +38,12 @@
 /* RIP metric infinity value.*/
 #define RIP_METRIC_INFINITY             16
 
-/* Normal RIP packet min and max size. */
+/* Normal RIP packet min size. */
 #define RIP_PACKET_MINSIZ                4
+
+/* Normal RIP packet max size is 512 but some implementation has a bug
+   in authentication handling.  In that case 524 length RIP packet may
+   come.  */
 #define RIP_PACKET_MAXSIZ              512
 
 #define RIP_HEADER_SIZE                  4
@@ -55,7 +59,6 @@
 
 /* RIP timers */
 #define RIP_UPDATE_TIMER_DEFAULT        30
-#define RIP_UPDATE_RANDOM_DEFAULT       5
 #define RIP_TIMEOUT_TIMER_DEFAULT      180
 #define RIP_GARBAGE_TIMER_DEFAULT      120
 
@@ -79,6 +82,9 @@
 
 /* RIP MD5 authentication. */
 #define RIP_AUTH_MD5_SIZE               16
+
+/* UDP socket receive buffer size.  */
+#define RIP_UDP_RCV_BUF 41600
 
 /* RIP structure. */
 struct rip 
@@ -222,6 +228,9 @@ struct rip_interface
 
   /* RIP is running on this interface. */
   int running;
+
+  /* Joined to multicast group for this interface. */
+  int joined_multicast;
 
   /* RIP version control. */
   int ri_send;

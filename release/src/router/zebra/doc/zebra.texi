@@ -1,15 +1,17 @@
 \input texinfo @c -*- texinfo -*-
 @c %**start of header
-@setfilename zebra.info
-@settitle GNU Zebra
 @setchapternewpage odd
+@settitle GNU Zebra
+@setfilename zebra.info
+@defcodeindex op
+@synindex pg cp
 @c %**end of header
 
 @c Set variables
-@set EDITION 0.1
-@set VERSION 0.91
-@set UPDATED 11 January 2001
-@set UPDATED-MONTH January 2001
+@set EDITION 0.3
+@set VERSION 0.95
+@set UPDATED 1 March 2004
+@set UPDATED-MONTH March 2004
 
 @c These may vary with installation environment.
 @set INSTALL_PREFIX_ETC /usr/local/etc
@@ -30,7 +32,7 @@ TCP/IP routing protocols.
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
 @cite{The GNU Zebra Manual}, for Zebra Version @value{VERSION}.
 
-Copyright (C) 1999, 2000, 2001 Kunihiro Ishiguro
+Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Kunihiro Ishiguro
 
 Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -57,13 +59,13 @@ approved by Kunihiro Ishiguro.
 @titlepage
 @title GNU Zebra
 @subtitle A routing software package for TCP/IP networks
-@subtitle Edition @value{EDITION}, for Zebra version @value{VERSION}
+@subtitle Zebra version @value{VERSION}
 @subtitle @value{UPDATED-MONTH}
 @author Kunihiro Ishiguro
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1999, 2000, 2001 Kunihiro Ishiguro
+Copyright @copyright{} 1999, 2000, 2001, 2002, 2003, 2004 Kunihiro Ishiguro
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -86,39 +88,31 @@ by Kunihiro Ishiguro.
 @comment  node-name,  next,  previous,  up
 @top Zebra
 		     
-Zebra is a routing software package that manages TCP/IP based routing
-protocols.  In addition to routing protocol support, Zebra provides
-interface address configuration and advanced filtering.
-
-This is the @sc{gnu} Zebra Manual for zebra-@value{VERSION}.
+Zebra is the advanced TCP/IP routing software.  This Info file
+describes how to install and use it.  This manual coressponds to GNU
+Zebra @value{VERSION}.
 @end ifnottex
 
 @menu
-* Overview::                    Overview of the Zebra
-* Installation::                How to install the Zebra
-
-The Zebra Suite
-* Basic commands::              Basic Zebra commands
-* zebra::                       The routing manager
-* ripd::                        A RIP protocol daemon
-* ripngd::                      A RIPng protocol daemon
-* ospfd::                       An OSPF protocol daemon
-* ospf6d::                      An OSPF for IPv6 protocol daemon
-* bgpd::                        A BGP protocol daemon
-* vtysh::                       An integrated shell
-
-Additional Features
-* Filtering::                   How to filter routes
-* Route Map::                   Route map description
-* IPv6 Support::                IP version 6 support
-* Kernel Interface::            Zebra between kernel interface
-* SNMP Support::                Support for SNMP
-
-Appendix
+* Overview::                    
+* Installation::                
+* Basic commands::              
+* Zebra::                       
+* RIP::                         
+* RIPng::                       
+* OSPFv2::                      
+* OSPFv3::                      
+* BGP::                         
+* VTY shell::                       
+* Filtering::                   
+* Route Map::                   
+* IPv6 Support::                
+* Kernel Interface::            
+* SNMP Support::                
 * Zebra Protocol::              
 * Packet Binary Dump Format::   
-* Command Index::               An item for each command name
-* VTY Key Index::               An item for each VTY key
+* Command Index::               
+* VTY Key Index::               
 @end menu
 
 @include overview.texi
@@ -139,7 +133,7 @@ Appendix
 @include protocol.texi
 @include appendix.texi
 
-@node Command Index, VTY Key Index, Packet Binary Dump Format, Top
+@node Command Index, VTY Key Index, Top, Top
 @comment  node-name,  next,  previous,  up
 @unnumbered Command Index
 

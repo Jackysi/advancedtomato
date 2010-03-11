@@ -148,6 +148,7 @@ rtm_flag_dump (int flag)
   struct message *mes;
   static char buf[BUFSIZ];
 
+  buf[0] = '0';
   for (mes = rtm_flag_str; mes->key != 0; mes++)
     {
       if (mes->key & flag)
@@ -293,9 +294,9 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
       }
 
   /* Be sure structure is cleared */
-  bzero (mask, sizeof (union sockunion));
-  bzero (addr, sizeof (union sockunion));
-  bzero (dest, sizeof (union sockunion));
+  memset (mask, 0, sizeof (union sockunion));
+  memset (addr, 0, sizeof (union sockunion));
+  memset (dest, 0, sizeof (union sockunion));
 
   /* We fetch each socket variable into sockunion. */
   IFAMADDRGET (NULL, RTA_DST);
@@ -309,7 +310,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 
   /* Assert read up end point matches to end point */
   if (pnt != end)
-    zlog_warn ("ifam_read() does't read all socket data");
+    zlog_warn ("ifam_read() doesn't read all socket data");
 }
 
 /* Interface's address information get. */
@@ -409,9 +410,9 @@ rtm_read_mesg (struct rt_msghdr *rtm,
       }
 
   /* Be sure structure is cleared */
-  bzero (dest, sizeof (union sockunion));
-  bzero (gate, sizeof (union sockunion));
-  bzero (mask, sizeof (union sockunion));
+  memset (dest, 0, sizeof (union sockunion));
+  memset (gate, 0, sizeof (union sockunion));
+  memset (mask, 0, sizeof (union sockunion));
 
   /* We fetch each socket variable into sockunion. */
   RTMADDRGET (dest, RTA_DST);
@@ -430,7 +431,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
 
   /* Assert read up to the end of pointer. */
   if (pnt != end) 
-      zlog (NULL, LOG_WARNING, "rtm_read() does't read all socket data.");
+      zlog (NULL, LOG_WARNING, "rtm_read() doesn't read all socket data.");
 
   return rtm->rtm_flags;
 }
@@ -465,10 +466,6 @@ rtm_read (struct rt_msghdr *rtm)
   if ((rtm->rtm_type == RTM_ADD) && ! (flags & RTF_UP))
     return;
 
-  /* Ignore route which has both HOST and GATEWAY attribute. */
-  if ((flags & RTF_GATEWAY) && (flags & RTF_HOST))
-    return;
-
   /* This is connected route. */
   if (! (flags & RTF_GATEWAY))
       return;
@@ -486,7 +483,10 @@ rtm_read (struct rt_msghdr *rtm)
 
       p.family = AF_INET;
       p.prefix = dest.sin.sin_addr;
-      p.prefixlen = ip_masklen (mask.sin.sin_addr);
+      if (flags & RTF_HOST)
+	p.prefixlen = IPV4_MAX_PREFIXLEN;
+      else
+	p.prefixlen = ip_masklen (mask.sin.sin_addr);
 
       if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD)
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, 
@@ -503,7 +503,10 @@ rtm_read (struct rt_msghdr *rtm)
 
       p.family = AF_INET6;
       p.prefix = dest.sin6.sin6_addr;
-      p.prefixlen = ip6_masklen (mask.sin6.sin6_addr);
+      if (flags & RTF_HOST)
+	p.prefixlen = IPV6_MAX_PREFIXLEN;
+      else
+	p.prefixlen = ip6_masklen (mask.sin6.sin6_addr);
 
 #ifdef KAME
       if (IN6_IS_ADDR_LINKLOCAL (&gate.sin6.sin6_addr))
@@ -570,7 +573,7 @@ rtm_write (int message,
     return ZEBRA_ERR_EPERM;
 
   /* Clear and set rt_msghdr values */
-  bzero (&msg, sizeof (struct rt_msghdr));
+  memset (&msg, 0, sizeof (struct rt_msghdr));
   msg.rtm.rtm_version = RTM_VERSION;
   msg.rtm.rtm_type = message;
   msg.rtm.rtm_seq = msg_seq++;
@@ -623,7 +626,7 @@ rtm_write (int message,
   if (msg.rtm.rtm_addrs & (R)) \
     { \
       int len = ROUNDUP ((X)->sa.sa_len); \
-      bcopy ((caddr_t)(X), pnt, len); \
+      memcpy (pnt, (caddr_t)(X), len); \
       pnt += len; \
     }
 #else 
@@ -631,7 +634,7 @@ rtm_write (int message,
   if (msg.rtm.rtm_addrs & (R)) \
     { \
       int len = ROUNDUP (sizeof((X)->sa)); \
-      bcopy ((caddr_t)(X), pnt, len); \
+      memcpy (pnt, (caddr_t)(X), len); \
       pnt += len; \
     }
 #endif /* HAVE_SIN_LEN */
@@ -744,7 +747,7 @@ kernel_read (struct thread *thread)
 
   if (nbytes <= 0)
     {
-      if (nbytes < 0 && errno != EWOULDBLOCK)
+      if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
 	zlog_warn ("routing socket error: %s", strerror (errno));
       return 0;
     }

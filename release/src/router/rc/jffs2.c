@@ -107,6 +107,7 @@ void start_jffs2(void)
 		xstart(p);
 		chdir("/");
 	}
+	run_userfile("/jffs", ".autorun", NULL, 0);
 }
 
 void stop_jffs2(void)

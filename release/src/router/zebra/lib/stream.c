@@ -46,10 +46,9 @@ stream_new (size_t size)
 {
   struct stream *s;
 
-  s = XMALLOC (MTYPE_STREAM, sizeof (struct stream));
-  bzero (s, sizeof (struct stream));
+  s = XCALLOC (MTYPE_STREAM, sizeof (struct stream));
 
-  s->data = XMALLOC (MTYPE_STREAM_DATA, size);
+  s->data = XCALLOC (MTYPE_STREAM_DATA, size);
   s->size = size;
   return s;
 }
@@ -411,8 +410,7 @@ stream_fifo_new ()
 {
   struct stream_fifo *new;
  
-  new = XMALLOC (MTYPE_STREAM_FIFO, sizeof (struct stream_fifo));
-  bzero (new, sizeof (struct stream_fifo)); 
+  new = XCALLOC (MTYPE_STREAM_FIFO, sizeof (struct stream_fifo));
   return new;
 }
 
@@ -459,7 +457,7 @@ stream_fifo_head (struct stream_fifo *fifo)
 }
 
 void
-stream_fifo_free (struct stream_fifo *fifo)
+stream_fifo_clean (struct stream_fifo *fifo)
 {
   struct stream *s;
   struct stream *next;
@@ -471,4 +469,11 @@ stream_fifo_free (struct stream_fifo *fifo)
     }
   fifo->head = fifo->tail = NULL;
   fifo->count = 0;
+}
+
+void
+stream_fifo_free (struct stream_fifo *fifo)
+{
+  stream_fifo_clean (fifo);
+  XFREE (MTYPE_STREAM_FIFO, fifo);
 }

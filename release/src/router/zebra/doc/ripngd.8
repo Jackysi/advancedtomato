@@ -12,10 +12,13 @@ ripngd \- a RIP routing engine for use with Zebra and IPv6
 .B \-f config-file
 ]
 [
+.B \-i pid-file
+]
+[
 .B \-P port-number
 ]
 
-.SH DESCRIPNGTION
+.SH DESCRIPTION
 .B ripngd 
 is a routing component that works with the 
 .B zebra
@@ -37,6 +40,12 @@ option will likely default to \fB\fI/usr/local/etc/ripngd.conf\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
+
+.TP
+\fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
+When ripngd starts its process idenifier is written to
+\fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
+restart ripngd.  The likely default is \fB\fI/var/run/ripngd.pid\fR.
 
 .TP
 \fB\-l\fR, \fB\-\-log_mode\fR 

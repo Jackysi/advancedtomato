@@ -20,16 +20,16 @@
 
 <style type='text/css'>
 #dev-grid .co1 {
-	width: 10%;
+	width: 9%;
 }
 #dev-grid .co2 {
 	width: 18%;
 }
 #dev-grid .co3 {
-	width: 17%;
+	width: 14%;
 }
 #dev-grid .co4 {
-	width: 24%;
+	width: 21%;
 }
 #dev-grid .co5 {
 	width: 8%;
@@ -40,7 +40,11 @@
 	text-align: center;
 }
 #dev-grid .co7 {
-	width: 15%;
+	width: 9%;
+	text-align: right;
+}
+#dev-grid .co8 {
+	width: 13%;
 	text-align: right;
 }
 #dev-grid .header {
@@ -89,6 +93,7 @@ function get(mac, ip)
 		ifname: '',
 		name: '',
 		rssi: '',
+		txrx: '',
 		lease: ''
 	};
 	list.push(e);
@@ -193,6 +198,7 @@ dg.populate = function()
 		list[i].ifname = '';
 		list[i].name = '';
 		list[i].rssi = '';
+		list[i].txrx = '';
 		list[i].lease = '';
 	}
 
@@ -215,6 +221,9 @@ dg.populate = function()
 			e.ifname = nvram.wl_ifname;
 		}
 		e.rssi = a[2];
+
+		if ((a[3] > 1000) || (a[4] > 1000))
+			e.txrx = ((a[3] > 1000) ? (a[3] / 1000) : '-') + ' / ' + ((a[4] > 1000) ? (a[4] / 1000) : '-'); //+ '<br><small>Mbps</small>';
 	}
 
 	for (i = arplist.length - 1; i >= 0; --i) {
@@ -279,14 +288,14 @@ dg.populate = function()
 			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,
 			(e.rssi != 0) ? e.rssi + ' <small>dBm</small>' : '',
 			(e.qual < 0) ? '' : '<small>' + e.qual + '</small> <img src="bar' + MIN(MAX(Math.floor(e.qual / 10), 1), 6) + '.gif">',
-			e.lease], false);
+			e.txrx,	e.lease], false);
 	}
 }
 
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Interface', 'MAC Address', 'IP Address', 'Name', 'RSSI &nbsp; &nbsp; ', 'Quality', 'Lease &nbsp; &nbsp; ']);
+	this.headerSet(['Interface', 'MAC Address', 'IP Address', 'Name', 'RSSI &nbsp; &nbsp; ', 'Quality', 'TX/RX Rate&nbsp;', 'Lease &nbsp; &nbsp; ']);
 	this.populate();
 	this.sort(2);
 }

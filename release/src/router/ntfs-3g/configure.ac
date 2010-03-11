@@ -23,8 +23,8 @@
 
 # Autoconf
 AC_PREREQ(2.59)
-AC_INIT([ntfs-3g],[2010.1.16],[ntfs-3g-devel@lists.sf.net])
-LIBNTFS_3G_VERSION="73"
+AC_INIT([ntfs-3g],[2010.3.6],[ntfs-3g-devel@lists.sf.net])
+LIBNTFS_3G_VERSION="75"
 AC_CONFIG_SRCDIR([src/ntfs-3g.c])
 
 # Environment
@@ -313,7 +313,7 @@ AC_CHECK_FUNCS([ \
 	atexit basename daemon dup2 fdatasync ffs getopt_long hasmntopt \
 	mbsinit memmove memset realpath regcomp setlocale setxattr \
 	strcasecmp strchr strdup strerror strnlen strsep strtol strtoul \
-	sysconf utime fork \
+	sysconf utime utimensat gettimeofday clock_gettime fork \
 ])
 AC_SYS_LARGEFILE
 
@@ -328,7 +328,7 @@ if test "${enable_pedantic}" = "yes"; then
 fi
 
 if test "${enable_warnings}" = "yes"; then
-	CFLAGS="${CFLAGS} -W -Wall -Waggregate-return -Wbad-function-cast -Wcast-align -Wcast-qual -Wdisabled-optimization -Wdiv-by-zero -Wfloat-equal -Winline -Wmissing-declarations -Wmissing-format-attribute -Wmissing-noreturn -Wmissing-prototypes -Wmultichar -Wnested-externs -Wpointer-arith -Wredundant-decls -Wshadow -Wsign-compare -Wstrict-prototypes -Wundef -Wwrite-strings -Wformat -Wformat-security"
+	CFLAGS="${CFLAGS} -W -Wall -Waggregate-return -Wbad-function-cast -Wcast-align -Wcast-qual -Wdisabled-optimization -Wdiv-by-zero -Wfloat-equal -Winline -Wmissing-declarations -Wmissing-format-attribute -Wmissing-noreturn -Wmissing-prototypes -Wmultichar -Wnested-externs -Wpointer-arith -Wredundant-decls -Wshadow -Wsign-compare -Wstrict-prototypes -Wundef -Wwrite-strings -Wformat -Wformat-security -Wuninitialized"
 fi
 
 if test "${enable_debug}" = "yes"; then

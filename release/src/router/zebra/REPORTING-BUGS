@@ -3,7 +3,7 @@ You are not obliged to follow this format , but it would be
 great help for Zebra developers if you report a bug as described
 below.
 
-Send your report to zebra@zebra.org mailing list.
+Send your report to bug-zebra@gnu.org mailing list.
 
 Please supply the following information:
 1. Your zebra version or if it is CVS version then the date you did checkout.

@@ -99,6 +99,8 @@ const defaults_t defaults[] = {
 	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
 	{ "dhcp_domain",		"wan"			},	// Use WAN domain name first if available (wan|lan)
 	{ "wan_get_dns",		""				},	// DNS IP address which get by dhcpc // Add
+	{ "wan_routes",			""				},
+	{ "wan_msroutes",		""				},
 
 
 	// PPPoE parameters
@@ -366,6 +368,7 @@ const defaults_t defaults[] = {
 
 // advanced-routing
 	{ "routes_static",		""				},
+	{ "dhcp_routes",		"1"				},
 	{ "wk_mode",			"gateway"		},	// Network mode [gateway|router]
 #ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]

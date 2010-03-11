@@ -314,8 +314,31 @@ static void check_bootnv(void)
 {
 	int dirty;
 	int hardware;
+	int model;
 
-	if (get_model() != MODEL_WRT54G) return;
+	model = get_model();
+	dirty = 0;
+
+	switch (model) {
+	case MODEL_WNR3500L:
+		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
+		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+		dirty |= check_nv("vlan2ports", "0 8");
+		break;
+	case MODEL_RTN10:
+		dirty |= check_nv("vlan1ports", "4 5");
+		break;
+	case MODEL_RTN12:
+		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
+		dirty |= check_nv("vlan1ports", "4 5");
+		break;
+	case MODEL_RTN16:
+		dirty |= check_nv("vlan2hwname", "et0");
+		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+		dirty |= check_nv("vlan2ports", "0 8");
+		break;
+
+	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
 
 	hardware = check_hw_type();
@@ -333,8 +356,6 @@ static void check_bootnv(void)
 			mtd_erase("nvram");
 			goto REBOOT;
 	}
-
-	dirty = 0;
 
 	switch (hardware) {
 	case HW_BCM5325E:
@@ -385,6 +406,9 @@ static void check_bootnv(void)
 		//dirty |= check_nv("pa0maxpwr", "0x48");
 		break;
 	}
+	break;
+
+	} // switch (model)
 
 	if (dirty) {
 		nvram_commit();
@@ -676,7 +700,6 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan1ports", "4 5");
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -688,8 +711,6 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan0ports", "3 2 1 0 5*");
-			nvram_set("vlan1ports", "4 5");
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -701,25 +722,19 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan2hwname", "et0");
 			nvram_set("vlan_enable", "1");
-			nvram_set("vlan1ports", "4 3 2 1 8*");
-			nvram_set("vlan2ports", "0 8");
 			nvram_set("t_fix1", name);
 		}
 		break;
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
-		name = "WNR3500L";
+		name = "WNR3500L/v2";
 		features = SUP_SES | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("sromrev", "3");
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
-			nvram_set("vlan1ports", "4 3 2 1 8*");
-			nvram_set("vlan2ports", "0 8");
-			nvram_set("boardflags", "0x00000710"); // needed to enable USB
 			nvram_set("t_fix1", name);
 		}
 		break;
@@ -736,6 +751,9 @@ static int init_nvram(void)
 			}
 			nvram_set("t_fix1", name);
 		}
+		/* fix AIR LED */
+		if (nvram_match("wl0gpio1", "0x02"))
+			nvram_set("wl0gpio1", "0x88");
 		break;
 	case MODEL_WL520GU:
 		mfr = "Asus";
@@ -1020,7 +1038,7 @@ static void sysinit(void)
 
 	// set the packet size
 	if (nvram_get_int("jumbo_frame_enable")) {
-		eval("et", "robowr", "0x40", "0x01", (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
+		eval("et", "robowr", "0x40", "0x01", "0x1F"); // (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4)
 		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
 	}
 
@@ -1124,6 +1142,16 @@ int init_main(int argc, char *argv[])
 			start_wan(BOOT);
 			start_services();
 			start_wl();
+
+#ifdef CONFIG_BCMWL5
+			if (nvram_match("wds_enable", "1")) {
+				/* Restart NAS one more time - for some reason without
+				 * this the new driver doesn't always bring WDS up.
+				 */
+				stop_nas();
+				start_nas();
+			}
+#endif
 
 			syslog(LOG_INFO, "Tomato %s", tomato_version);
 			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));

@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.31 2009/10/10 18:57:39 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.32 2010/03/03 11:23:52 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard
@@ -525,6 +525,7 @@ iptc_init_verify_and_append(const char * table, const char * miniupnpd_chain, st
 #endif
 		return -1;
 	}
+	/* iptc_insert_entry(miniupnpd_chain, e, n, h/&h) could also be used */
 #ifdef IPTABLES_143
 	if(!iptc_append_entry(miniupnpd_chain, e, h))
 #else

@@ -1,4 +1,31 @@
-$Id: Changelog.txt,v 1.185 2009/12/22 17:20:09 nanard Exp $
+$Id: Changelog.txt,v 1.193 2010/03/08 17:13:48 nanard Exp $
+
+2010/03/08:
+  Fix Makefile.linux to compile properly under Mandriva/rh/Fedora with
+  Iptables >= 1.4.3
+
+2010/03/07:
+  Tried to make a OpenBSD version 4.7 compatible code... still some
+  issues.
+
+2010/03/06:
+  updates to testobsdrdr
+
+2010/03/03:
+  -lip4tc in Makefile.linux.
+
+2010/02/15:
+  some more error handling in set_startup_time()
+  silencing some warnings
+
+2010/01/14:
+  Open Several sockets for NAT-PMP to make sure the source address
+  of NAT-PMP replies is right.
+  see http://miniupnp.tuxfamily.org/forum/viewtopic.php?t=609
+
+2009/12/31:
+  miniupnpdctl now output command line arguments.
+  added a -h option to get help. improved help.
 
 2009/12/22:
   using PRIu64 format to printf u_int64_t

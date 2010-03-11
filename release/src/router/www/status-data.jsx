@@ -80,9 +80,12 @@ do {
 	else
 		stats.nbw = 'Auto';
 
-	wlcrssi = wlnoise = stats.qual = '';
+	wlcrssi = wlnoise = stats.qual = stats.rate = '';
 	isClient = ((nvram.wl_mode == 'wet') || (nvram.wl_mode == 'sta'));
 	if (wlradio) {
+		a = '<% wlrate(); %>' * 1;
+		if (a > 0)
+			stats.rate = (a / 2) + ((a & 1) ? '.5' : '') + ' <small>Mbps</small>';
 		if (isClient) {
 			//<% wlnoise(); %>
 			//<% wlcrssi(); %>

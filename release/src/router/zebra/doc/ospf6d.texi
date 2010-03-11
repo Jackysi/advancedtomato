@@ -1,6 +1,6 @@
-@node ospf6d, bgpd, ospfd, Top
+@node OSPFv3, BGP, OSPFv2, Top
 @comment  node-name,  next,  previous,  up
-@chapter ospf6d
+@chapter OSPFv3
 
 @command{ospf6d} is a daemon support OSPF version 3 for IPv6 network.
 OSPF for IPv6 is described in RFC2740.
@@ -13,7 +13,7 @@ OSPF for IPv6 is described in RFC2740.
 * Showing OSPF6 information::   
 @end menu
 
-@node OSPF6 router, OSPF6 area, ospf6d, ospf6d
+@node OSPF6 router, OSPF6 area, OSPFv3, OSPFv3
 @comment  node-name,  next,  previous,  up
 @section OSPF6 router
 
@@ -29,13 +29,13 @@ Bind interface to specified area, and start sending OSPF packets.  @var{area} ca
 be specified as 0.
 @end deffn
 
-@node OSPF6 area, OSPF6 interface, OSPF6 router, ospf6d
+@node OSPF6 area, OSPF6 interface, OSPF6 router, OSPFv3
 @comment  node-name,  next,  previous,  up
 @section OSPF6 area
 
 Area support for OSPFv3 is not yet implemented.
 
-@node OSPF6 interface, Redistribute routes to OSPF6, OSPF6 area, ospf6d
+@node OSPF6 interface, Redistribute routes to OSPF6, OSPF6 area, OSPFv3
 @comment  node-name,  next,  previous,  up
 @section OSPF6 interface
 
@@ -63,7 +63,7 @@ Sets interface's Router Priority.  Default value is 1.
 Sets interface's Inf-Trans-Delay.  Default value is 1.
 @end deffn
 
-@node Redistribute routes to OSPF6, Showing OSPF6 information, OSPF6 interface, ospf6d
+@node Redistribute routes to OSPF6, Showing OSPF6 information, OSPF6 interface, OSPFv3
 @comment  node-name,  next,  previous,  up
 @section Redistribute routes to OSPF6
 
@@ -72,7 +72,7 @@ Sets interface's Inf-Trans-Delay.  Default value is 1.
 @deffnx {OSPF6 Command} {redistribute ripng} {}
 @end deffn
 
-@node Showing OSPF6 information,  , Redistribute routes to OSPF6, ospf6d
+@node Showing OSPF6 information,  , Redistribute routes to OSPF6, OSPFv3
 @comment  node-name,  next,  previous,  up
 @section Showing OSPF6 information
 

@@ -392,6 +392,7 @@ const aspapi_t aspapi[] = {
 	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
 	{ "wlchannels",			asp_wlchannels	},	//!!TB
+	{ "wlrate",			asp_wlrate		},
 #ifdef TCONFIG_USB
 	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
 #endif
@@ -640,6 +641,7 @@ static const nvset_t nvset_list[] = {
 
 // advanced-routing
 	{ "routes_static",		V_LENGTH(0, 2048)	},
+	{ "dhcp_routes",		V_01			},
 	{ "lan_stp",			V_RANGE(0, 1)		},
 	{ "wk_mode",			V_LENGTH(1, 32)		},	// gateway, router
 #ifdef TCONFIG_ZEBRA

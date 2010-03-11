@@ -143,6 +143,7 @@ sub fixDyn
 
 	fixDynDep("l2tpd", "cmd.so");
 	fixDynDep("l2tpd", "sync-pppd.so");
+	fixDynDep("pppd", "pppol2tp.so");
 	
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");

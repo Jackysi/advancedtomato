@@ -38,7 +38,9 @@ static struct option longopts[] =
 {
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
+  { "pid_file",    required_argument, NULL, 'i'},
   { "help",        no_argument,       NULL, 'h'},
+  { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "version",     no_argument,       NULL, 'v'},
@@ -51,10 +53,12 @@ char config_default[] = SYSCONFDIR RIPD_DEFAULT_CONFIG;
 char *config_file = NULL;
 
 /* ripd program name */
-char *progname;
 
 /* Route retain mode flag. */
 int retain_mode = 0;
+
+/* RIP VTY bind address. */
+char *vty_addr = NULL;
 
 /* RIP VTY connection port. */
 int vty_port = RIP_VTY_PORT;
@@ -62,9 +66,12 @@ int vty_port = RIP_VTY_PORT;
 /* Master of threads. */
 struct thread_master *master;
 
+/* Process ID saved for use by init system */
+char *pid_file = PATH_RIPD_PID;
+
 /* Help information display. */
 static void
-usage (int status)
+usage (char *progname, int status)
 {
   if (status != 0)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
@@ -74,6 +81,8 @@ usage (int status)
 Daemon which manages RIP version 1 and 2.\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
+-i, --pid_file     Set process identifier file name\n\
+-A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by ripd.\n\
 -v, --version      Print program version\n\
@@ -121,7 +130,7 @@ sighup (int sig)
   vty_read_config (config_file, config_current, config_default);
 
   /* Create VTY's socket */
-  vty_serv_sock (vty_port, RIP_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
 
   /* Try to return to normal operation. */
 }
@@ -162,6 +171,7 @@ main (int argc, char **argv)
 {
   char *p;
   int daemon_mode = 0;
+  char *progname;
   struct thread thread;
 
   /* Set umask before anything for security */
@@ -179,7 +189,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:hP:rv", longopts, 0);
+      opt = getopt_long (argc, argv, "df:hA:P:rv", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -194,6 +204,12 @@ main (int argc, char **argv)
 	case 'f':
 	  config_file = optarg;
 	  break;
+	case 'A':
+	  vty_addr = optarg;
+	  break;
+        case 'i':
+          pid_file = optarg;
+          break;
 	case 'P':
 	  vty_port = atoi (optarg);
 	  break;
@@ -201,20 +217,20 @@ main (int argc, char **argv)
 	  retain_mode = 1;
 	  break;
 	case 'v':
-	  print_version ();
+	  print_version (progname);
 	  exit (0);
 	  break;
 	case 'h':
-	  usage (0);
+	  usage (progname, 0);
 	  break;
 	default:
-	  usage (1);
+	  usage (progname, 1);
 	  break;
 	}
     }
 
   /* Prepare master thread. */
-  master = thread_make_master ();
+  master = thread_master_create ();
 
   /* Library initialization. */
   signal_init ();
@@ -240,10 +256,10 @@ main (int argc, char **argv)
     daemon (0, 0);
 
   /* Pid file create. */
-  pid_output (PATH_RIPD_PID);
+  pid_output (pid_file);
 
   /* Create VTY's socket */
-  vty_serv_sock (vty_port, RIP_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
 
   /* Execute each thread. */
   while (thread_fetch (master, &thread))

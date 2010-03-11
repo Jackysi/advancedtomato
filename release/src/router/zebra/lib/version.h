@@ -22,13 +22,13 @@
 #ifndef _ZEBRA_VERSION_H
 #define _ZEBRA_VERSION_H
 
-#define ZEBRA_VERSION     "0.92a"
+#define ZEBRA_VERSION     "0.95a"
 
 #define ZEBRA_BUG_ADDRESS "bug-zebra@gnu.org"
 
 extern char *host_name;
 
-void print_version();
+void print_version(char *);
 pid_t pid_output (char *);
 pid_t pid_output_lock (char *);
 

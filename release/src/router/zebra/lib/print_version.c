@@ -1,5 +1,4 @@
-/*
- * Print version function.
+/* Print version function.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -24,11 +23,9 @@
 
 #include "version.h"
 
-extern char *progname;
-
 void
-print_version ()
+print_version (char *progname)
 {
   printf ("%s version %s (%s)\n", progname, ZEBRA_VERSION, host_name);
-  printf ("Copyright 1996-1999, Kunihiro Ishiguro\n");
+  printf ("Copyright 1996-2001, Kunihiro Ishiguro\n");
 }

@@ -87,7 +87,8 @@ void gpio_write(uint32_t bit, int en)
 uint32_t _gpio_read(int f)
 {
 	uint32_t r;
-	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xFFFF, 0);
+//	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xFFFF, 0);
+	r = _gpio_ioctl(f, GPIO_IOC_IN, 0x07FF, 0);
 	if (r < 0) r = ~0;
 	return r;
 }
@@ -177,18 +178,18 @@ int nvget_gpio(const char *name, int *gpio, int *inv)
 
 int led(int which, int mode)
 {
-//								WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST
-//								----- ----- ----- ----- ----- ----- ----- -----
-	static int wrt54g[]		= { 0,    1,    2,    3,    7,    255,  255,  255	};
-	static int wrtsl[]		= { 255,  1,    5,    7,    0,    255,  255,  255	};
-	static int whrg54[]		= { 2,    7,    255,  255,  255,  6,    1,    3		};
+//				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST
+//				    ----- ----- ----- ----- ----- ----- ----- -----
+	static int wrt54g[]	= { 0,    1,    2,    3,    7,    255,  255,  255	};
+	static int wrtsl[]	= { 255,  1,    5,    7,    0,    255,  255,  255	};
+	static int whrg54[]	= { 2,    7,    255,  255,  255,  6,    1,    3		};
 	static int wbr2g54[]	= { 255,  -1,   255,  255,  255,  -6,   255,  255	};
-	static int wzrg54[]		= { 2,    7,    255,  255,  255,  6,    255,  255	};
+	static int wzrg54[]	= { 2,    7,    255,  255,  255,  6,    255,  255	};
 	static int wr850g1[]	= { 7,    3,    255,  255,  255,  255,  255,  255	};
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
-	static int wnr3500[]	= { 255,   1,     3,    7,  255,  255,  255,  255	};
+	static int wnr3500[]	= { 255,   3,     1,    7,  255,    2,  255,  255	};
 	char s[16];
 	int n;
 	int b;

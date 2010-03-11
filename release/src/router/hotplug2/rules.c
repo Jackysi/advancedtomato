@@ -482,6 +482,30 @@ int rule_condition_eval(struct hotplug2_event_t *event, struct condition_t *cond
 }
 
 /**
+ * Creates a "key=value" string from the given key and value
+ *
+ * @1 Key
+ * @2 Value
+ *
+ * Returns: Newly allocated string in "key=value" form
+ *
+ */
+static char* alloc_env(const char *key, const char *value) {
+	size_t keylen, vallen;
+	char *combined;
+
+	keylen = strlen(key);
+	vallen = strlen(value) + 1;
+
+	combined = xmalloc(keylen + vallen + 1);
+	memcpy(combined, key, keylen);
+	combined[keylen] = '=';
+	memcpy(&combined[keylen + 1], value, vallen);
+
+	return combined;
+}
+
+/**
  * Executes a rule. Contains evaluation of all conditions prior
  * to execution.
  *
@@ -492,33 +516,38 @@ int rule_condition_eval(struct hotplug2_event_t *event, struct condition_t *cond
  * discared, 1 if bail out of this particular rule was required
  */
 int rule_execute(struct hotplug2_event_t *event, struct rule_t *rule) {
-	int i, last_rv;
+	int i, last_rv, res;
+	char **env;
 	
 	for (i = 0; i < rule->conditions_c; i++) {
 		if (rule_condition_eval(event, &(rule->conditions[i])) != EVAL_MATCH)
 			return 0;
 	}
 	
+	res = 0;
 	last_rv = 0;
 	
-	for (i = 0; i < event->env_vars_c; i++)
-		setenv(event->env_vars[i].key, event->env_vars[i].value, 1);
+	env = xmalloc(sizeof(char *) * event->env_vars_c);
+	for (i = 0; i < event->env_vars_c; i++) {
+		env[i] = alloc_env(event->env_vars[i].key, event->env_vars[i].value);
+		putenv(env[i]);
+	}
 	
 	for (i = 0; i < rule->actions_c; i++) {
 		switch (rule->actions[i].type) {
 			case ACT_STOP_PROCESSING:
-				return 1;
+				res = 1;
 				break;
 			case ACT_STOP_IF_FAILED:
 				if (last_rv != 0)
-					return 1;
+					res = 1;
 				break;
 			case ACT_NEXT_EVENT:
-				return -1;
+				res = -1;
 				break;
 			case ACT_NEXT_IF_FAILED:
 				if (last_rv != 0)
-					return -1;
+					res = -1;
 				break;
 			case ACT_MAKE_DEVICE:
 				last_rv = make_dev_from_event(event, rule->actions[i].parameter[0], strtoul(rule->actions[i].parameter[1], NULL, 0));
@@ -551,9 +580,17 @@ int rule_execute(struct hotplug2_event_t *event, struct rule_t *rule) {
 				last_rv = 0;
 				break;
 		}
+		if (res != 0)
+			break;
 	}
 	
-	return 0;
+	for (i = 0; i < event->env_vars_c; i++) {
+		unsetenv(event->env_vars[i].key);
+		free(env[i]);
+	}
+	free(env);
+	
+	return res;
 }
 
 /**

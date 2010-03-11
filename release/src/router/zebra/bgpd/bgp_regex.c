@@ -1,24 +1,22 @@
-/*
- * AS regular expression routine
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+/* AS regular expression routine
+   Copyright (C) 1999 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -53,11 +51,9 @@ bgp_regcomp (char *regstr)
       magic++;
 
   magic_str = XMALLOC (MTYPE_TMP, len + (14 * magic) + 1);
-  regex = XMALLOC (MTYPE_TMP, sizeof (regex_t));
   
   for (i = 0, j = 0; i < len; i++)
     {
-
       if (regstr[i] == '_')
 	{
 	  memcpy (magic_str + j, magic_regexp, strlen (magic_regexp));
@@ -67,14 +63,16 @@ bgp_regcomp (char *regstr)
 	magic_str[j++] = regstr[i];
     }
   magic_str[j] = '\0';
-  
+
+  regex = XMALLOC (MTYPE_BGP_REGEXP, sizeof (regex_t));
+
   ret = regcomp (regex, magic_str, REG_EXTENDED);
 
   XFREE (MTYPE_TMP, magic_str);
 
   if (ret != 0)
     {
-      XFREE (MTYPE_TMP, regex);
+      XFREE (MTYPE_BGP_REGEXP, regex);
       return NULL;
     }
 
@@ -91,5 +89,5 @@ void
 bgp_regex_free (regex_t *regex)
 {
   regfree (regex);
-  XFREE (MTYPE_TMP, regex);
+  XFREE (MTYPE_BGP_REGEXP, regex);
 }

@@ -23,6 +23,10 @@
 
 #ifdef HAVE_SNMP
 
+#ifdef HAVE_NETSNMP
+#include <net-snmp/net-snmp-config.h>
+#endif /* HAVE_NETSNMP */
+
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
@@ -280,7 +284,7 @@ smux_getresp_send (oid objid[], size_t objid_len, long reqid, long errstat,
   if (debug_smux)
     {
       zlog_info ("SMUX GETRSP send");
-      zlog_info ("SMUX GETRSP reqid: %d", reqid);
+      zlog_info ("SMUX GETRSP reqid: %ld", reqid);
     }
 
   h1 = ptr;
@@ -293,13 +297,13 @@ smux_getresp_send (oid objid[], size_t objid_len, long reqid, long errstat,
 		       &reqid, sizeof (reqid));
 
   if (debug_smux)
-    zlog_info ("SMUX GETRSP errstat: %d", errstat);
+    zlog_info ("SMUX GETRSP errstat: %ld", errstat);
 
   ptr = asn_build_int (ptr, &len,
 		       (u_char) (ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
 		       &errstat, sizeof (errstat));
   if (debug_smux)
-    zlog_info ("SMUX GETRSP errindex: %d", errindex);
+    zlog_info ("SMUX GETRSP errindex: %ld", errindex);
 
   ptr = asn_build_int (ptr, &len,
 		       (u_char) (ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
@@ -668,13 +672,13 @@ smux_parse_get_header (char *ptr, size_t *len, long *reqid)
   ptr = asn_parse_int (ptr, len, &type, &errstat, sizeof (errstat));
 
   if (debug_smux)
-    zlog_info ("SMUX GET errstat %d len: %d", errstat, *len);
+    zlog_info ("SMUX GET errstat %ld len: %d", errstat, *len);
 
   /* Error index. */
   ptr = asn_parse_int (ptr, len, &type, &errindex, sizeof (errindex));
 
   if (debug_smux)
-    zlog_info ("SMUX GET errindex %d len: %d", errindex, *len);
+    zlog_info ("SMUX GET errindex %ld len: %d", errindex, *len);
 
   return ptr;
 }
@@ -754,7 +758,7 @@ smux_parse_close (char *ptr, int len)
       reason = (reason << 8) | (long) *ptr;
       ptr++;
     }
-  zlog_info ("SMUX_CLOSE with reason: %d", reason);
+  zlog_info ("SMUX_CLOSE with reason: %ld", reason);
 }
 
 /* SMUX_RRSP message. */
@@ -767,7 +771,7 @@ smux_parse_rrsp (char *ptr, int len)
   ptr = asn_parse_int (ptr, &len, &val, &errstat, sizeof (errstat));
 
   if (debug_smux)
-    zlog_info ("SMUX_RRSP value: %d errstat: %d", val, errstat);
+    zlog_info ("SMUX_RRSP value: %d errstat: %ld", val, errstat);
 }
 
 /* Parse SMUX message. */
@@ -997,7 +1001,7 @@ int
 smux_trap (oid *name, size_t namelen,
 	   oid *iname, size_t inamelen,
 	   struct trap_object *trapobj, size_t trapobjlen,
-	   unsigned int tick)
+	   unsigned int tick, u_char sptrap)
 {
   int i;
   u_char buf[BUFSIZ];
@@ -1038,7 +1042,7 @@ smux_trap (oid *name, size_t namelen,
 		       &val, sizeof (int));
 
   /* Specific trap integer. */
-  val = 2;
+  val = sptrap;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
 		       &val, sizeof (int));
@@ -1142,8 +1146,8 @@ smux_register (int sock)
       if (debug_smux)
         {
           smux_oid_dump ("SMUX register oid", subtree->name, subtree->name_len);
-          zlog_info ("SMUX register priority: %d", priority);
-          zlog_info ("SMUX register operation: %d", operation);
+          zlog_info ("SMUX register priority: %ld", priority);
+          zlog_info ("SMUX register operation: %ld", operation);
         }
 
       len = BUFSIZ;

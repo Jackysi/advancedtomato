@@ -41,8 +41,8 @@ const char *zlog_proto_names[] =
   NULL,
 };
 
-const char *zlog_priority [] =
-  {
+const char *zlog_priority[] =
+{
   "emergencies",
   "alerts",
   "critical",
@@ -51,8 +51,8 @@ const char *zlog_priority [] =
   "notifications",
   "informational",
   "debugging",
-  NULL
-  } ;
+  NULL,
+};
   
 
 
@@ -106,7 +106,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
 		
   /* Syslog output */
   if (zl->flags & ZLOG_SYSLOG)
-    vsyslog (priority, format, args[ZLOG_SYSLOG_INDEX]);
+    vsyslog (priority|zlog_default->facility, format, args[ZLOG_SYSLOG_INDEX]);
 
   /* File output. */
   if (zl->flags & ZLOG_FILE)
