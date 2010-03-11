@@ -131,11 +131,12 @@ void asp_devlist(int argc, char **argv)
 						if (get_wds_ifname(&rssi.ea, ifname)) p = ifname;
 					}
 
-					web_printf("%c['%s','%s',%d]",
+					web_printf("%c['%s','%s',%d,%u,%u,%u]",
 						comma,
 						p,
 						ether_etoa(rssi.ea.octet, buf),
-						rssi.val);
+						rssi.val,
+						sti.tx_rate, sti.rx_rate, sti.in);
 					comma = ',';
 				}
 			}

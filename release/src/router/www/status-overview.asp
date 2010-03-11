@@ -109,6 +109,7 @@ function show()
 	}
 
 	c('radio', wlradio ? 'Enabled' : '<b>Disabled</b>');
+	c('rate', stats.rate);
 	if (show_radio) {
 		E('b_wl_enable').disabled = wlradio;
 		E('b_wl_disable').disabled = !wlradio;
@@ -238,6 +239,7 @@ createFieldTable('', [
 	{ title: 'Security', text: sec },
 	{ title: 'Channel', rid: 'channel', text: stats.channel },
 	{ title: 'Channel Width', rid: 'nbw', text: stats.nbw, ignore: !nphy },
+	{ title: 'Rate', rid: 'rate', text: stats.rate },
 	{ title: 'RSSI', rid: 'rssi', text: wlcrssi, ignore: !isClient },
 	{ title: 'Noise', rid: 'noise', text: wlnoise, ignore: !isClient },
 	{ title: 'Signal Quality', rid: 'qual', text: stats.qual, ignore: !isClient }

@@ -449,6 +449,15 @@ void asp_wlchannels(int argc, char **argv)
 	web_puts("];\n");
 }
 
+void asp_wlrate(int argc, char **argv)
+{
+	int rate;
+
+	if (wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_RATE, &rate, sizeof(rate)) < 0)
+		rate = 0;
+	web_printf("%d", rate);
+}
+
 #if 0
 void asp_wlcountries(int argc, char **argv)
 {
