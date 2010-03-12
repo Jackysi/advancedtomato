@@ -458,23 +458,24 @@ void asp_wlrate(int argc, char **argv)
 	web_printf("%d", rate);
 }
 
-#if 0
 void asp_wlcountries(int argc, char **argv)
 {
-	char *js, s[128], code[15], country[64];
+	char s[128], *p, *code, *country;
 	FILE *f;
 	int i = 0;
 
-	web_puts("\nwl_countries = [\n");
+	web_puts("\nwl_countries = [");
 	if ((f = popen("wl country list", "r")) != NULL) {
+		// skip the header line
+		fgets(s, sizeof(s), f);
 		while (fgets(s, sizeof(s), f)) {
-			if (sscanf(s, "%s %s", code, country) == 2) {
-				// skip all bogus country names
-				if (strlen(code) < 5 && strcmp(code, country) != 0) {
-					js = js_string(strstr(s, country));
-					web_printf("%c['%s', '%s']", i == 0 ? ' ' : ',', code, js);
-					free(js);
-					i++;
+			p = s;
+			if ((code = strsep(&p, " \t\n")) && p) {
+				country = strsep(&p, "\n");
+				if (country && *country && strcmp(code, country) != 0) {
+					p = js_string(country);
+					web_printf("%c['%s', '%s']", i++ ? ',' : ' ', code, p);
+					free(p);
 				}
 			}
 		}
@@ -482,4 +483,3 @@ void asp_wlcountries(int argc, char **argv)
 	}
 	web_puts("];\n");
 }
-#endif

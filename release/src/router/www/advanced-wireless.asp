@@ -26,6 +26,7 @@
 	!!TB - Added wl_reg_mode, wl_country, wl_country_code, wl_btc_mode
 REMOVE-END */
 //	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode,wl_mimo_preamble"); %>
+//	<% wlcountries(); %>
 
 hp = features('hpamp');
 nphy = features('11n');
@@ -124,8 +125,7 @@ REMOVE-END */
 		options: [['off', 'Off *'],['d', '802.11d'],['h', '802.11h']],
 		value: nvram.wl_reg_mode },
 	{ title: 'Country / Region', name: 'wl_country_code', type: 'select',
-		options: [['CN','China'],['DE','Europe'],['IL','Israel'],['JP','Japan'],['JO','Jordan'],['SG','Singapore'],['TW','Taiwan'],['TH','Thailand'],['US','U.S. / Americas, FCC'],['AU','Worldwide']],
-		value: nvram.wl_country_code },
+		options: wl_countries, value: nvram.wl_country_code },
 	{ title: 'Bluetooth Coexistence', name: 'wl_btc_mode', type: 'select',
 		options: [['0', 'Disable *'],['1', 'Enable'],['2', 'Preemption']],
 		value: nvram.wl_btc_mode },
