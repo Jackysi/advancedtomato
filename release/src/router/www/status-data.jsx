@@ -85,7 +85,7 @@ do {
 	if (wlradio) {
 		a = '<% wlrate(); %>' * 1;
 		if (a > 0)
-			stats.rate = (a / 2) + ((a & 1) ? '.5' : '') + ' <small>Mbps</small>';
+			stats.rate = Math.floor(a / 2) + ((a & 1) ? '.5' : '') + ' <small>Mbps</small>';
 		if (isClient) {
 			//<% wlnoise(); %>
 			//<% wlcrssi(); %>
