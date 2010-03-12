@@ -1038,7 +1038,8 @@ static void sysinit(void)
 
 	// set the packet size
 	if (nvram_get_int("jumbo_frame_enable")) {
-		eval("et", "robowr", "0x40", "0x01", "0x1F"); // (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4)
+		// only set the size here - 'enable' flag is set by the driver
+		// eval("et", "robowr", "0x40", "0x01", "0x1F"); // (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4)
 		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
 	}
 
