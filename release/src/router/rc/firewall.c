@@ -544,10 +544,11 @@ static void filter_input(void)
 // clamp TCP MSS to PMTU of WAN interface
 static void clampmss(void)
 {
+	int wanproto = get_wan_proto();
 	int rmtu = nvram_get_int("wan_run_mtu");
 
 	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS ", rmtu - 39);
-	if (rmtu < 576) {
+	if ((rmtu < 576) || (wanproto == WP_PPTP) || (wanproto == WP_L2TP) || (wanproto == WP_PPPOE)) {
 		ipt_write("--clamp-mss-to-pmtu\n");
 	}
 	else {

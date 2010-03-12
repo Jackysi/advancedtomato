@@ -223,7 +223,7 @@ dg.populate = function()
 		e.rssi = a[2];
 
 		if ((a[3] > 1000) || (a[4] > 1000))
-			e.txrx = ((a[3] > 1000) ? (a[3] / 1000) : '-') + ' / ' + ((a[4] > 1000) ? (a[4] / 1000) : '-'); //+ '<br><small>Mbps</small>';
+			e.txrx = ((a[3] > 1000) ? Math.round(a[3] / 1000) : '-') + ' / ' + ((a[4] > 1000) ? Math.round(a[4] / 1000) : '-'); //+ '<br><small>Mbps</small>';
 	}
 
 	for (i = arplist.length - 1; i >= 0; --i) {
