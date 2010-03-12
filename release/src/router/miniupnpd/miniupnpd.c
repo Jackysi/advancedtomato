@@ -1002,6 +1002,11 @@ main(int argc, char * * argv)
 	memset(snotify, 0, sizeof(snotify));
 	if(init(argc, argv, &v) != 0)
 		return 1;
+#ifdef ENABLE_NATPMP
+	for (i=0; i<MAX_LAN_ADDR; i++) {
+		snatpmp[i] = -1;
+	}
+#endif
 
 	LIST_INIT(&upnphttphead);
 #ifdef USE_MINIUPNPDCTL
