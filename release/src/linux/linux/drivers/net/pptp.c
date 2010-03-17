@@ -60,6 +60,8 @@ static int log_level=0;
 static int log_packets=10;
 
 #define MAX_CALLID 65535
+#define PPP_LCP_ECHOREQ 0x09
+#define PPP_LCP_ECHOREP 0x0A
 
 static unsigned long *callid_bitmap=NULL;
 static struct pppox_sock **callid_sock=NULL;
@@ -89,6 +91,20 @@ static inline void *kzalloc(size_t size,int gfp)
 	memset(p,0,size);
 	return p;
 }
+#endif
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,4,20)
+static inline void nf_reset(struct sk_buff *skb)
+{
+#ifdef CONFIG_NETFILTER
+	nf_conntrack_put(skb->nfct);
+	skb->nfct=NULL;
+#ifdef CONFIG_NETFILTER_DEBUG
+	skb->nf_debug=0;
+#endif
+#endif
+}
+#define __user
 #endif
 
 #if 0 // already defined for mips32
@@ -387,8 +403,8 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 		*/
 	if ((opt->ppp_flags & SC_COMP_AC) == 0 || islcp) {
 		data=skb_push(skb,2);
-		data[0]=0xff;
-		data[1]=0x03;
+		data[0]=PPP_ALLSTATIONS;
+		data[1]=PPP_UI;
 	}
 	
 	len=skb->len;
@@ -487,12 +503,12 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	ip_send_check(iph);
 
 	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, ip_send);
+	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, ip_send);
 	#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, dst_output);
- 	#else
- 	err = ip_local_out(skb);
- 	#endif
+	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, dst_output);
+	#else
+	err = ip_local_out(skb);
+	#endif
 
 tx_error:
 	return 1;
@@ -550,12 +566,24 @@ static int pptp_rcv_core(struct sock *sk,struct sk_buff *skb)
 	payload=skb->data+headersize;
 	/* check for expected sequence number */
 	if ( seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq) ){
+		if ( (payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
+		     (PPP_PROTOCOL(payload) == PPP_LCP) &&
+		     ((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)) ){
+			#ifdef DEBUG
+			if ( log_level >= 1)
+				printk(KERN_INFO"PPTP[%i]: allowing old LCP Echo packet %d (expecting %d)\n", opt->src_addr.call_id,
+							seq, opt->seq_recv + 1);
+			#endif
+			goto allow_packet;
+		}
 		#ifdef DEBUG
 		if ( log_level >= 1)
 			printk(KERN_INFO"PPTP[%i]: discarding duplicate or old packet %d (expecting %d)\n",opt->src_addr.call_id,
 							seq, opt->seq_recv + 1);
 		#endif
 	}else{
+		opt->seq_recv = seq;
+allow_packet:
 		#ifdef DEBUG
 		if ( log_level >= 3 && opt->seq_sent<=log_packets)
 			printk(KERN_INFO"PPTP[%i]: accepting packet %d size=%i (%02x %02x %02x %02x %02x %02x)\n",opt->src_addr.call_id, seq,payload_len,
@@ -566,7 +594,6 @@ static int pptp_rcv_core(struct sock *sk,struct sk_buff *skb)
 				*(payload +4),
 				*(payload +5));
 		#endif
-		opt->seq_recv = seq;
 
 		skb_pull(skb,headersize);
 
