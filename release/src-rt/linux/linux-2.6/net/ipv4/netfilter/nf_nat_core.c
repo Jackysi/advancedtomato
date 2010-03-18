@@ -111,34 +111,8 @@ nf_nat_used_tuple(const struct nf_conntrack_tuple *tuple,
 
 	   We could keep a separate hash if this proves too slow. */
 	struct nf_conntrack_tuple reply;
-	struct nf_conntrack_tuple_hash *h;
-	struct nf_conn *pExistedConnection;
 
 	nf_ct_invert_tuplepr(&reply, tuple);
-
-	if (ignored_conntrack->nat_type & NFC_IP_CONE_NAT ) {
-
-
-		h = nf_conntrack_find_get(&reply, ignored_conntrack);
-		if ( h) {
-
-			pExistedConnection = nf_ct_tuplehash_to_ctrack(h);
-
-			if ( !nf_ct_tuple_src_equal(&ignored_conntrack->tuplehash[ IP_CT_DIR_ORIGINAL].tuple ,  &pExistedConnection->tuplehash[ IP_CT_DIR_ORIGINAL].tuple )  ) {
-				return 1;
-			}
-			else {
-				/*
-				 * Put the use count back, which has been increased in nf_conntrack_find_get()
-				 * to fix using out all the net filter entries.
-				 */
-				nf_ct_put(pExistedConnection);
-			}
-		}
-
-		return 0;
-	}
-
 	return nf_conntrack_tuple_taken(&reply, ignored_conntrack);
 }
 EXPORT_SYMBOL(nf_nat_used_tuple);
@@ -411,18 +385,6 @@ manip_pkt(u_int16_t proto,
 	}
 	return 1;
 }
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-int
-bcm_manip_pkt(u_int16_t proto,
-	  struct sk_buff **pskb,
-	  unsigned int iphdroff,
-	  const struct nf_conntrack_tuple *target,
-	  enum nf_nat_manip_type maniptype)
-{
-	return manip_pkt(proto, pskb, iphdroff, target, maniptype);
-}
-#endif
 
 /* Do packet manipulations according to nf_nat_setup_info. */
 unsigned int nf_nat_packet(struct nf_conn *ct,

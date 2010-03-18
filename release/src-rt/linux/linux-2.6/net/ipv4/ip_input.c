@@ -439,9 +439,8 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	}
 
 	/* Remove any debris in the socket control block */
-#ifndef CONFIG_BCM_NAT
 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-#endif
+
 	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
 		       ip_rcv_finish);
 

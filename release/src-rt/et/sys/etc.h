@@ -2,7 +2,7 @@
  * Common [OS-independent] header file for
  * Broadcom BCM47XX 10/100Mbps Ethernet Device Driver
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: etc.h,v 1.66.96.4 2009/07/07 19:25:16 Exp $
+ * $Id: etc.h,v 1.66.96.2.12.1 2009/03/13 00:45:23 Exp $
  */
 
 #ifndef _etc_h_
@@ -25,8 +25,6 @@
 #endif
 
 #define NUMTXQ		4
-
-#define TXREC_THR	8
 
 struct etc_info;	/* forward declaration */
 struct bcmstrbuf;	/* forward declaration */
@@ -114,10 +112,8 @@ typedef struct etc_info {
 	uint32		now;		/* elapsed seconds */
 
 	uint32		boardflags;	/* board flags */
-	uint32		txrec_thresh;	/* # of tx frames after which reclaim is done */
 
 	/* sw-maintained stat counters */
-	uint32		txframes[NUMTXQ];	/* transmitted frames on each tx fifo */
 	uint32		txframe;	/* transmitted frames */
 	uint32		txbyte;		/* transmitted bytes */
 	uint32		rxframe;	/* received frames */
@@ -241,11 +237,13 @@ extern void etc_init(etc_info_t *etc, uint options);
 extern void etc_up(etc_info_t *etc);
 extern uint etc_down(etc_info_t *etc, int reset);
 extern int etc_ioctl(etc_info_t *etc, int cmd, void *arg);
-extern int etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg);
 extern void etc_promisc(etc_info_t *etc, uint on);
 extern void etc_qos(etc_info_t *etc, uint on);
 extern void etc_dump(etc_info_t *etc, struct bcmstrbuf *b);
 extern void etc_watchdog(etc_info_t *etc);
 extern uint etc_totlen(etc_info_t *etc, void *p);
+#ifdef ETROBO
+extern void *etc_bcm53115_war(etc_info_t *etc, void *p);
+#endif /* ETROBO */
 
 #endif	/* _etc_h_ */

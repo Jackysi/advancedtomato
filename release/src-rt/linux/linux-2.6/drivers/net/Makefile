@@ -230,7 +230,6 @@ obj-$(CONFIG_ET) += et/
 obj-$(CONFIG_BCM57XX) += bcm57xx/
 obj-$(CONFIG_WL) += wl/
 obj-$(CONFIG_EMF) += emf/ igs/
-obj-$(CONFIG_BCM_CTF) += ctf/
 
 
 obj-y += wireless/
