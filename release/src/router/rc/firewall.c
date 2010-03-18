@@ -480,7 +480,9 @@ static void filter_input(void)
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
-		ipt_write("-A INPUT -p icmp -j ACCEPT\n");
+		ipt_write("-A INPUT -p icmp -j %s\n", chain_in_accept);
+		// allow udp traceroute packets
+		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", chain_in_accept);
 	}
 
 
