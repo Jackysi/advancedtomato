@@ -831,6 +831,7 @@ checkentry(const char *tablename,
 			if(debug) printk(KERN_INFO RECENT_NAME ": checkentry() create_proc failed, no tables.\n");
 #endif
 			spin_unlock_bh(&recent_lock);
+			vfree(hold);
 			return 0;
 		}
 		while( strncmp(info->name,curr_table->name,IPT_RECENT_NAME_LEN) && (last_table = curr_table) && (curr_table = curr_table->next) );
@@ -839,6 +840,7 @@ checkentry(const char *tablename,
 			if(debug) printk(KERN_INFO RECENT_NAME ": checkentry() create_proc failed, table already destroyed.\n");
 #endif
 			spin_unlock_bh(&recent_lock);
+			vfree(hold);
 			return 0;
 		}
 		if(last_table) last_table->next = curr_table->next; else r_tables = curr_table->next;
