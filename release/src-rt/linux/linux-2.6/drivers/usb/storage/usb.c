@@ -47,6 +47,10 @@
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#ifdef CONFIG_USB_STORAGE_DEBUG
+#define DEBUG
+#endif
+
 #include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/freezer.h>
@@ -314,9 +318,9 @@ static int usb_stor_control_thread(void * __us)
 
 	for(;;) {
 		US_DEBUGP("*** thread sleeping.\n");
-		if(down_interruptible(&us->sema))
+		if (wait_for_completion_interruptible(&us->cmnd_ready))
 			break;
-			
+
 		US_DEBUGP("*** thread awakened.\n");
 
 		/* lock the device pointers */
@@ -819,7 +823,7 @@ static void usb_stor_release_resources(struct us_data *us)
 	 */
 	US_DEBUGP("-- sending exit command to thread\n");
 	set_bit(US_FLIDX_DISCONNECTING, &us->flags);
-	up(&us->sema);
+	complete(&us->cmnd_ready);
 	if (us->ctl_thread)
 		kthread_stop(us->ctl_thread);
 
@@ -904,14 +908,13 @@ static int usb_stor_scan_thread(void * __us)
 {
 	struct us_data *us = (struct us_data *)__us;
 
-	printk(KERN_DEBUG
-		"usb-storage: device found at %d\n", us->pusb_dev->devnum);
+	dev_dbg(&us->pusb_intf->dev, "device found\n");
 
 	set_freezable();
 	/* Wait for the timeout to expire or for a disconnect */
 	if (delay_use > 0) {
-		printk(KERN_DEBUG "usb-storage: waiting for device "
-				"to settle before scanning\n");
+		dev_dbg(&us->pusb_intf->dev, "waiting for device to settle "
+				"before scanning\n");
 retry:
 		wait_event_interruptible_timeout(us->delay_wait,
 				test_bit(US_FLIDX_DISCONNECTING, &us->flags),
@@ -931,7 +934,7 @@ retry:
 			mutex_unlock(&us->dev_mutex);
 		}
 		scsi_scan_host(us_to_host(us));
-		printk(KERN_DEBUG "usb-storage: device scan complete\n");
+		dev_dbg(&us->pusb_intf->dev, "scan complete\n");
 
 		/* Should we unbind if no devices were detected? */
 	}
@@ -972,7 +975,7 @@ static int storage_probe(struct usb_interface *intf,
 	us = host_to_us(host);
 	memset(us, 0, sizeof(struct us_data));
 	mutex_init(&(us->dev_mutex));
-	init_MUTEX_LOCKED(&(us->sema));
+	init_completion(&us->cmnd_ready);
 	init_completion(&(us->notify));
 	init_waitqueue_head(&us->delay_wait);
 	init_completion(&us->scanning_done);
