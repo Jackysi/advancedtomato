@@ -45,7 +45,7 @@ module_param(ip_list_perms, uint, 0400);
 module_param(ip_list_uid, uint, 0400);
 module_param(ip_list_gid, uint, 0400);
 MODULE_PARM_DESC(ip_list_tot, "number of IPs to remember per list");
-MODULE_PARM_DESC(ip_pkt_list_tot, "number of packets per IP to remember (max. 255)");
+MODULE_PARM_DESC(ip_pkt_list_tot, "number of packets per IP address to remember (max. 255)");
 MODULE_PARM_DESC(ip_list_hash_size, "size of hash table used to look up IPs");
 MODULE_PARM_DESC(ip_list_perms, "permissions on /proc/net/ipt_recent/* files");
 MODULE_PARM_DESC(ip_list_uid,"owner of /proc/net/ipt_recent/* files");
@@ -141,10 +141,10 @@ recent_entry_init(struct recent_table *t, __be32 addr, u_int8_t ttl)
 
 static void recent_entry_update(struct recent_table *t, struct recent_entry *e)
 {
+	e->index %= ip_pkt_list_tot;
 	e->stamps[e->index++] = jiffies;
 	if (e->index > e->nstamps)
 		e->nstamps = e->index;
-	e->index %= ip_pkt_list_tot;
 	list_move_tail(&e->lru_list, &t->lru_list);
 }
 
@@ -212,13 +212,13 @@ ipt_recent_match(const struct sk_buff *skb,
 		recent_entry_remove(t, e);
 		ret ^= 1;
 	} else if (info->check_set & (IPT_RECENT_CHECK | IPT_RECENT_UPDATE)) {
-		unsigned long t = jiffies - info->seconds * HZ;
+		unsigned long time = jiffies - info->seconds * HZ;
 		unsigned int i, hits = 0;
 
 		for (i = 0; i < e->nstamps; i++) {
-			if (info->seconds && time_after(t, e->stamps[i]))
+			if (info->seconds && time_after(time, e->stamps[i]))
 				continue;
-			if (++hits >= info->hit_count) {
+			if (info->hit_count && ++hits >= info->hit_count) {
 				ret ^= 1;
 				break;
 			}
@@ -251,6 +251,8 @@ ipt_recent_checkentry(const char *tablename, const void *ip,
 		return 0;
 	if ((info->check_set & (IPT_RECENT_SET | IPT_RECENT_REMOVE)) &&
 	    (info->seconds || info->hit_count))
+		return 0;
+	if (info->hit_count > ip_pkt_list_tot)
 		return 0;
 	if (info->name[0] == '\0' ||
 	    strnlen(info->name, IPT_RECENT_NAME_LEN) == IPT_RECENT_NAME_LEN)
@@ -305,10 +307,10 @@ ipt_recent_destroy(const struct xt_match *match, void *matchinfo)
 		spin_lock_bh(&recent_lock);
 		list_del(&t->list);
 		spin_unlock_bh(&recent_lock);
-		recent_table_flush(t);
 #ifdef CONFIG_PROC_FS
 		remove_proc_entry(t->name, proc_dir);
 #endif
+		recent_table_flush(t);
 		kfree(t);
 	}
 	mutex_unlock(&recent_mutex);
@@ -321,6 +323,7 @@ struct recent_iter_state {
 };
 
 static void *recent_seq_start(struct seq_file *seq, loff_t *pos)
+	__acquires(recent_lock)
 {
 	struct recent_iter_state *st = seq->private;
 	struct recent_table *t = st->table;
@@ -355,6 +358,7 @@ static void *recent_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 }
 
 static void recent_seq_stop(struct seq_file *s, void *v)
+	__releases(recent_lock)
 {
 	spin_unlock_bh(&recent_lock);
 }
@@ -391,11 +395,14 @@ static int recent_seq_open(struct inode *inode, struct file *file)
 	if (st == NULL)
 		return -ENOMEM;
 	ret = seq_open(file, &recent_seq_ops);
-	if (ret)
+	if (ret) {
 		kfree(st);
+		goto out;
+	}
 	st->table    = pde->data;
 	seq          = file->private_data;
 	seq->private = st;
+out:
 	return ret;
 }
 
