@@ -1,12 +1,11 @@
 ########################################################
-# ZTE Devices
+# ZTE AC581
 
-DefaultVendor=  0x19d2
-DefaultProduct= 0x2000
+DefaultVendor= 0x19d2
+DefaultProduct=0x0026
 
-TargetVendor=   0x19d2
-
-TargetProductList="0001,0002,0015,0017,0031,0037,0052,0055,0063"
+TargetVendor=  0x19d2
+TargetProduct= 0x0094
 
 CheckSuccess=20
 

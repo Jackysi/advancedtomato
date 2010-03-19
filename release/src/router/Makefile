@@ -342,6 +342,7 @@ ifneq ($(CONFIG_LINUX26),y)
 	@mkdir -p $(PLATFORMDIR)/extras/apps
 	@mv $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
 	@cp usbmodeswitch/usb_modeswitch.conf $(PLATFORMDIR)/extras/apps/usb_modeswitch.conf || true
+	@cp usbmodeswitch/usb_modeswitch.setup $(PLATFORMDIR)/extras/apps/usb_modeswitch.setup || true
 endif
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
@@ -647,7 +648,7 @@ libusb-install: libusb
 		ln -sf libusb-0.1.so.4 libusb.so
 
 usbmodeswitch: libusb
-	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
+	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) \
 	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"

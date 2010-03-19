@@ -1,0 +1,15 @@
+########################################################
+# Beceem BCSM250
+
+DefaultVendor= 0x198f
+DefaultProduct=0xbccd
+
+TargetVendor=  0x198f
+TargetProduct= 0x0220
+
+CheckSuccess=20
+
+MessageContent="55534243f0298d8124000000800006bc626563240000000000000000000000"
+
+NoDriverLoading=1
+
