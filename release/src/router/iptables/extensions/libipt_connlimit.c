@@ -26,6 +26,12 @@ static struct option opts[] = {
 	{0}
 };
 
+static void connlimit_init(struct ipt_entry_match *match, unsigned int *nfc)
+{
+	struct ipt_connlimit_info *info = (void *)match->data;
+	info->mask = htonl(0xFFFFFFFF);
+}
+
 /* Function which parses command options; returns true if it
    ate an option */
 static int
@@ -35,61 +41,57 @@ parse(int c, char **argv, int invert, unsigned int *flags,
       struct ipt_entry_match **match)
 {
 	struct ipt_connlimit_info *info = (struct ipt_connlimit_info*)(*match)->data;
+	char *err;
 	int i;
 
-	if (0 == (*flags & 2)) {
-		/* set default mask unless we've already seen a mask option */
-		info->mask = htonl(0xFFFFFFFF);
-	}
+	if (*flags & c)
+		exit_error(PARAMETER_PROBLEM,
+		           "--connlimit-above and/or --connlimit-mask may "
+			   "only be given once");
 
 	switch (c) {
 	case '1':
 		check_inverse(optarg, &invert, &optind, 0);
-		info->limit = atoi(argv[optind-1]);
+		info->limit = strtoul(argv[optind-1], NULL, 0);
 		info->inverse = invert;
-		*flags |= 1;
 		break;
 
 	case '2':
-		i = atoi(argv[optind-1]);
-		if ((i < 0) || (i > 32))
+		i = strtoul(argv[optind-1], &err, 0);
+		if (i > 32 || *err != '\0')
 			exit_error(PARAMETER_PROBLEM,
 				"--connlimit-mask must be between 0 and 32");
-
 		if (i == 0)
 			info->mask = 0;
 		else
 			info->mask = htonl(0xFFFFFFFF << (32 - i));
-		*flags |= 2;
 		break;
 
 	default:
 		return 0;
 	}
 
+	*flags |= c;
 	return 1;
 }
 
 /* Final check */
 static void final_check(unsigned int flags)
 {
-	if (!flags & 1)
-		exit_error(PARAMETER_PROBLEM, "You must specify `--connlimit-above'");
+	if (!(flags & 1))
+		exit_error(PARAMETER_PROBLEM,
+		           "You must specify \"--connlimit-above\"");
 }
 
 static int
 count_bits(u_int32_t mask)
 {
-	int i, bits;
+	unsigned int bits = 0;
 
-	for (bits = 0, i = 31; i >= 0; i--) {
-		if (mask & htonl((u_int32_t)1 << i)) {
-			bits++;
-			continue;
-		}
-		break;
-	}
-	return bits;
+	for (mask = ~ntohl(mask); mask != 0; mask >>= 1)
+		++bits;
+
+	return 32 - bits;
 }
 
 /* Prints out the matchinfo. */
@@ -109,8 +111,9 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 {
 	struct ipt_connlimit_info *info = (struct ipt_connlimit_info*)match->data;
 
-	printf("%s--connlimit-above %d ",info->inverse ? "! " : "",info->limit);
-	printf("--connlimit-mask %d ",count_bits(info->mask));
+	printf("%s--connlimit-above %u --connlimit-mask %u ",
+	       info->inverse ? "! " : "", info->limit,
+	       count_bits(info->mask));
 }
 
 static struct iptables_match connlimit = {
@@ -119,6 +122,7 @@ static struct iptables_match connlimit = {
 	.size		= IPT_ALIGN(sizeof(struct ipt_connlimit_info)),
 	.userspacesize 	= offsetof(struct ipt_connlimit_info,data),
 	.help		= help,
+	.init		= connlimit_init,
 	.parse 		= parse,
 	.final_check	= final_check,
 	.print		= print,
