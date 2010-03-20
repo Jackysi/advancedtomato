@@ -507,16 +507,6 @@ config IP_NF_TARGET_TARPIT
 	  hardware or IPs.  Any TCP port that you would normally DROP or REJECT
 	  can instead become a tarpit.
 
-config IP_NF_MATCH_CONNLIMIT
-	tristate  'Connections/IP limit match support'
-	depends on IP_NF_IPTABLES
-	help
-	  This match allows you to restrict the number of parallel TCP
-	  connections to a server per client IP address (or address block).
-	
-	  If you want to compile it as a module, say M here and read
-	  Documentation/modules.txt.  If unsure, say `N'.
-
 config IP_NF_MATCH_IPP2P
 	tristate  'IPP2P match support'
 	depends on IP_NF_IPTABLES
