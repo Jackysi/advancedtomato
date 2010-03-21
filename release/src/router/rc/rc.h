@@ -133,6 +133,7 @@ extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
 extern void stop_wan(void);
 extern void force_to_dial(void);
+extern void do_wan_routes(char *ifname, int metric, int add);
 
 // network.c
 extern void set_host_domain_name(void);

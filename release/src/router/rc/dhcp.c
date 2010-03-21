@@ -106,7 +106,7 @@ static int deconfig(char *ifname)
 static int renew(char *ifname)
 {
 	char *a, *b;
-	int changed;
+	int changed, routes_changed;
 
 	TRACE_PT("begin\n");
 
@@ -135,16 +135,20 @@ static int renew(char *ifname)
 
 	changed |= env2nv("domain", "wan_get_domain");
 	changed |= env2nv("dns", "wan_get_dns");
-	changed |= env2nv("msroutes", "wan_msroutes");
+
+	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
+	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
+	routes_changed = env2nv("msroutes", "wan_msroutes_save");
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
 	 * and a Router option, the DHCP client MUST ignore the Router option.
 	 * Overwrite "wan_routes" by "staticroutes" value if present.
 	 */
-	if (!env2nv("staticroutes", "wan_routes"))
-		changed |= env2nv("routes", "wan_routes");
+	if (!env2nv("staticroutes", "wan_routes_save"))
+		routes_changed |= env2nv("routes", "wan_routes_save");
 	else
-		changed = 1;
+		routes_changed = 1;
+	changed |= routes_changed;
 
 	if ((a = getenv("lease")) != NULL) {
 		nvram_set("wan_lease", a);
@@ -155,6 +159,15 @@ static int renew(char *ifname)
 		set_host_domain_name();
 		start_dnsmasq();	// (re)start
 	}
+
+	if (routes_changed) {
+		do_wan_routes(ifname, 0, 0);
+		nvram_set("wan_routes", nvram_safe_get("wan_routes_save"));
+		nvram_set("wan_msroutes", nvram_safe_get("wan_msroutes_save"));
+		do_wan_routes(ifname, 0, 1);
+	}
+	nvram_unset("wan_routes_save");
+	nvram_unset("wan_msroutes_save");
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));

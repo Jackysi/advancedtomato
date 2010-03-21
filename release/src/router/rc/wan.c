@@ -549,7 +549,7 @@ void force_to_dial(void)
 
 // -----------------------------------------------------------------------------
 
-static void add_wan_routes(char *ifname, int metric)
+void do_wan_routes(char *ifname, int metric, int add)
 {
 	char *routes, *msroutes, *tmp;
 	int bit, bits;
@@ -582,8 +582,10 @@ static void add_wan_routes(char *ifname, int metric)
 		}
 		gateway = strsep(&tmp, " ");
 
-		if (gateway)
-			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		if (gateway) {
+			if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+			else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
+		}
 	}
 	free(routes);
 	
@@ -615,7 +617,8 @@ static void add_wan_routes(char *ifname, int metric)
 		strcpy(ipaddr, inet_ntoa(ip));
 		strcpy(gateway, inet_ntoa(gw));
 		strcpy(netmask, inet_ntoa(mask));
-		route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
 		
 		if (*msroutes == ' ')
 			msroutes++;
@@ -897,7 +900,7 @@ void start_wan_done(char *wan_ifname)
 	
 	do_static_routes(1);
 	// and routes supplied via DHCP
-	add_wan_routes(proto == WP_L2TP ? nvram_safe_get("wan_ifname") : wan_ifname, 0);
+	do_wan_routes(proto == WP_L2TP ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
 
 	stop_zebra();
 	start_zebra();
