@@ -203,6 +203,11 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	shinfo->ip6_frag_id = 0;
 	shinfo->frag_list = NULL;
 
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	skb->imq_flags = 0;
+	skb->nf_info = NULL;
+#endif
+
 	if (fclone) {
 		struct sk_buff *child = skb + 1;
 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
