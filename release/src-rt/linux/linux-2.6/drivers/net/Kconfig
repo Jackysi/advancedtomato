@@ -135,6 +135,9 @@ choice
 		The default behavior is to hook before NAT on PREROUTING
 		and after NAT on POSTROUTING (#3).
 
+		You can change it later with the 'behaviour' module parameter
+		(if compiled as module) or 'imq.behaviour' kernel parameter.
+
 		This settings are specially usefull when trying to use IMQ
 		to shape NATed clients.
 

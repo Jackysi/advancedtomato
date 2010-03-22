@@ -73,11 +73,7 @@ static struct nf_hook_ops imq_ingress_ipv4 = {
 	.owner		= THIS_MODULE,
 	.pf		= PF_INET,
 	.hooknum	= NF_IP_PRE_ROUTING,
-#if defined(CONFIG_IMQ_BEHAVIOR_BA) || defined(CONFIG_IMQ_BEHAVIOR_BB)
 	.priority	= NF_IP_PRI_MANGLE + 1
-#else
-	.priority	= NF_IP_PRI_NAT_DST + 1
-#endif
 };
 
 static struct nf_hook_ops imq_egress_ipv4 = {
@@ -85,11 +81,7 @@ static struct nf_hook_ops imq_egress_ipv4 = {
 	.owner		= THIS_MODULE,
 	.pf		= PF_INET,
 	.hooknum	= NF_IP_POST_ROUTING,
-#if defined(CONFIG_IMQ_BEHAVIOR_AA) || defined(CONFIG_IMQ_BEHAVIOR_BA)
-	.priority	= NF_IP_PRI_LAST
-#else
 	.priority	= NF_IP_PRI_NAT_SRC - 1
-#endif
 };
 
 #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
@@ -98,11 +90,7 @@ static struct nf_hook_ops imq_ingress_ipv6 = {
 	.owner		= THIS_MODULE,
 	.pf		= PF_INET6,
 	.hooknum	= NF_IP6_PRE_ROUTING,
-#if defined(CONFIG_IMQ_BEHAVIOR_BA) || defined(CONFIG_IMQ_BEHAVIOR_BB)
 	.priority	= NF_IP6_PRI_MANGLE + 1
-#else
-	.priority	= NF_IP6_PRI_NAT_DST + 1
-#endif
 };
 
 static struct nf_hook_ops imq_egress_ipv6 = {
@@ -110,11 +98,7 @@ static struct nf_hook_ops imq_egress_ipv6 = {
 	.owner		= THIS_MODULE,
 	.pf		= PF_INET6,
 	.hooknum	= NF_IP6_POST_ROUTING,
-#if defined(CONFIG_IMQ_BEHAVIOR_AA) || defined(CONFIG_IMQ_BEHAVIOR_BA)
-	.priority	= NF_IP6_PRI_LAST
-#else
 	.priority	= NF_IP6_PRI_NAT_SRC - 1
-#endif
 };
 #endif
 
@@ -122,6 +106,20 @@ static struct nf_hook_ops imq_egress_ipv6 = {
 static unsigned int numdevs = CONFIG_IMQ_NUM_DEVS;
 #else
 static unsigned int numdevs = IMQ_MAX_DEVS;
+#endif
+
+static char *behaviour;
+
+#if defined(CONFIG_IMQ_BEHAVIOR_BB)
+static int imq_behaviour = 0;
+#elif defined(CONFIG_IMQ_BEHAVIOR_BA)
+static int imq_behaviour = IMQ_BEHAV_EGRESS_AFTER;
+#elif defined(CONFIG_IMQ_BEHAVIOR_AB)
+static int imq_behaviour = IMQ_BEHAV_INGRESS_AFTER;
+#elif defined(CONFIG_IMQ_BEHAVIOR_AA)
+static int imq_behaviour = IMQ_BEHAV_INGRESS_AFTER | IMQ_BEHAV_EGRESS_AFTER;
+#else
+static int imq_behaviour = IMQ_BEHAV_EGRESS_AFTER;
 #endif
 
 static struct net_device *imq_devs;
@@ -237,6 +235,38 @@ static int __init imq_init_hooks(void)
 {
 	int err;
 
+	if (behaviour) {
+		if (strlen(behaviour) == 2) {
+			if (behaviour[0] == 'b')
+				imq_behaviour &= ~IMQ_BEHAV_INGRESS_AFTER;
+			else if (behaviour[0] == 'a')
+				imq_behaviour |= IMQ_BEHAV_INGRESS_AFTER;
+			else
+				goto errp;
+			if (behaviour[1] == 'b')
+				imq_behaviour &= ~IMQ_BEHAV_EGRESS_AFTER;
+			else if (behaviour[1] == 'a')
+				imq_behaviour |= IMQ_BEHAV_EGRESS_AFTER;
+			else
+				goto errp;
+		}
+		else
+			goto errp;
+	}
+
+	if (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER) {
+		imq_ingress_ipv4.priority = NF_IP_PRI_NAT_DST + 1;
+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+		imq_ingress_ipv6.priority = NF_IP6_PRI_NAT_DST + 1;
+#endif
+	}
+	if (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER) {
+		imq_egress_ipv4.priority = NF_IP_PRI_LAST;
+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+		imq_egress_ipv6.priority = NF_IP6_PRI_LAST;
+#endif
+	}
+
 	err = nf_register_queue_handler(PF_INET, &nfqh);
 	if (err > 0)
 		goto err1;
@@ -255,6 +285,9 @@ static int __init imq_init_hooks(void)
 
 	return 0;
 
+errp:
+	printk(KERN_ERR "IMQ: behaviour must be one of these: \"bb\", \"ba\", \"ab\", \"aa\".\n");
+	return -EINVAL;
 #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 err6:
 	nf_unregister_hook(&imq_ingress_ipv6);
@@ -368,16 +401,14 @@ static int __init imq_init_module(void)
 
 	printk(KERN_INFO "IMQ driver loaded successfully.\n");
 
-#if defined(CONFIG_IMQ_BEHAVIOR_BA) || defined(CONFIG_IMQ_BEHAVIOR_BB)
-	printk(KERN_INFO "\tHooking IMQ before NAT on PREROUTING.\n");
-#else
-	printk(KERN_INFO "\tHooking IMQ after NAT on PREROUTING.\n");
-#endif
-#if defined(CONFIG_IMQ_BEHAVIOR_AB) || defined(CONFIG_IMQ_BEHAVIOR_BB)
-	printk(KERN_INFO "\tHooking IMQ before NAT on POSTROUTING.\n");
-#else
-	printk(KERN_INFO "\tHooking IMQ after NAT on POSTROUTING.\n");
-#endif
+	if (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER)
+		printk(KERN_INFO "\tHooking IMQ after NAT on PREROUTING.\n");
+	else
+		printk(KERN_INFO "\tHooking IMQ before NAT on PREROUTING.\n");
+	if (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER)
+		printk(KERN_INFO "\tHooking IMQ after NAT on POSTROUTING.\n");
+	else
+		printk(KERN_INFO "\tHooking IMQ before NAT on POSTROUTING.\n");
 
 	return 0;
 }
@@ -395,6 +426,8 @@ module_exit(imq_cleanup_module);
 
 module_param(numdevs, int, IMQ_MAX_DEVS);
 MODULE_PARM_DESC(numdevs, "number of IMQ devices (how many imq* devices will be created)");
+module_param(behaviour, charp, 0);
+MODULE_PARM_DESC(behaviour, "where to hook in PREROUTING and POSTROUTING - before or after NAT (aa,ab,ba,bb)");
 MODULE_AUTHOR("http://www.linuximq.net");
 MODULE_DESCRIPTION("Pseudo-driver for the intermediate queue device. See http://www.linuximq.net/ for more information.");
 MODULE_LICENSE("GPL");
