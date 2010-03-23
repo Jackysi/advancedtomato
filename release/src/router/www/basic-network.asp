@@ -524,6 +524,12 @@ REMOVE-END */
 		break;
 	}
 
+	if (((wmode == 'sta') || (wmode == 'wet')) &&
+	    (E('_wl_net_mode').value == 'n-only')) {
+		ferror.set('_wl_net_mode', 'N-only is not supported in wireless client modes.', quiet);
+		return 0;
+	}
+
 	a = E('_wl_wpa_psk');
 	ferror.clear(a);
 	if (vis._wl_wpa_psk == 1) {
