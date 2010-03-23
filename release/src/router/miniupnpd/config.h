@@ -7,7 +7,7 @@
 
 #define UPNP_VERSION	"1.4"
 #define USE_NETFILTER 1
-#define OS_NAME		"Tomato"
+#define OS_NAME		"UPnP"
 #define OS_VERSION	"Tomato"
 #define OS_URL		"http://www.polarcloud.com/tomato/"
 
