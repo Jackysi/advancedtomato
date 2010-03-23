@@ -305,7 +305,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
 	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
-	{ "**.htm",			mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
+	{ "**.htm|**.html",		mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
 	{ "**.gif",			"image/gif",				5,	wi_generic_noid,	do_file,		1 },
 	{ "**.jpg",			"image/jpeg",				5,	wi_generic_noid,	do_file,		1 },
 	{ "**.png",			"image/png",				5,	wi_generic_noid,	do_file,		1 },
