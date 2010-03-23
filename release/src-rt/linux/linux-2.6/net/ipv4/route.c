@@ -254,15 +254,13 @@ static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);
 static int rt_intern_hash(unsigned hash, struct rtable *rth,
 				struct rtable **res);
 
-static unsigned int rt_hash_code(u32 daddr, u32 saddr)
+static inline unsigned int rt_hash(__be32 daddr, __be32 saddr, int idx)
 {
-	return (jhash_2words(daddr, saddr, rt_hash_rnd)
-		& rt_hash_mask);
+	return jhash_3words((__force u32)(__be32)(daddr),
+			    (__force u32)(__be32)(saddr),
+			    idx, rt_hash_rnd)
+		& rt_hash_mask;
 }
-
-#define rt_hash(daddr, saddr, idx) \
-	rt_hash_code((__force u32)(__be32)(daddr),\
-		     (__force u32)(__be32)(saddr) ^ ((idx) << 5))
 
 #ifdef CONFIG_PROC_FS
 struct rt_cache_iter_state {
@@ -493,20 +491,20 @@ static const struct file_operations rt_cpu_seq_fops = {
 
 #endif /* CONFIG_PROC_FS */
 
-static __inline__ void rt_free(struct rtable *rt)
+static inline void rt_free(struct rtable *rt)
 {
 	multipath_remove(rt);
 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
 }
 
-static __inline__ void rt_drop(struct rtable *rt)
+static inline void rt_drop(struct rtable *rt)
 {
 	multipath_remove(rt);
 	ip_rt_put(rt);
 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
 }
 
-static __inline__ int rt_fast_clean(struct rtable *rth)
+static inline int rt_fast_clean(struct rtable *rth)
 {
 	/* Kill broadcast/multicast entries very aggresively, if they
 	   collide in hash table with more useful entries */
@@ -514,7 +512,7 @@ static __inline__ int rt_fast_clean(struct rtable *rth)
 		rth->fl.iif && rth->u.dst.rt_next;
 }
 
-static __inline__ int rt_valuable(struct rtable *rth)
+static inline int rt_valuable(struct rtable *rth)
 {
 	return (rth->rt_flags & (RTCF_REDIRECTED | RTCF_NOTIFY)) ||
 		rth->u.dst.expires;
@@ -1266,7 +1264,8 @@ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
 			ip_rt_put(rt);
 			ret = NULL;
 		} else if ((rt->rt_flags & RTCF_REDIRECTED) ||
-			   rt->u.dst.expires) {
+			   (rt->u.dst.expires &&
+			    time_after_eq(jiffies, rt->u.dst.expires))) {
 			unsigned hash = rt_hash(rt->fl.fl4_dst, rt->fl.fl4_src,
 						rt->fl.oif);
 #if RT_CACHE_DEBUG >= 1
@@ -1389,7 +1388,7 @@ out:	kfree_skb(skb);
 static const unsigned short mtu_plateau[] =
 {32000, 17914, 8166, 4352, 2002, 1492, 576, 296, 216, 128 };
 
-static __inline__ unsigned short guess_mtu(unsigned short old_mtu)
+static inline unsigned short guess_mtu(unsigned short old_mtu)
 {
 	int i;
 
@@ -1716,11 +1715,11 @@ static void ip_handle_martian_source(struct net_device *dev,
 #endif
 }
 
-static inline int __mkroute_input(struct sk_buff *skb,
-				  struct fib_result* res,
-				  struct in_device *in_dev,
-				  __be32 daddr, __be32 saddr, u32 tos, u32 lsrc,
-				  struct rtable **result)
+static int __mkroute_input(struct sk_buff *skb,
+			   struct fib_result *res,
+			   struct in_device *in_dev,
+			   __be32 daddr, __be32 saddr, u32 tos, u32 lsrc,
+			   struct rtable **result)
 {
 
 	struct rtable *rth;
@@ -1845,12 +1844,12 @@ static inline int ip_mkroute_input_def(struct sk_buff *skb,
 	return rt_intern_hash(hash, rth, (struct rtable**)&skb->dst);
 }
 
-static inline int ip_mkroute_input(struct sk_buff *skb,
-				   struct fib_result* res,
-				   const struct flowi *fl,
-				   struct in_device *in_dev,
-				   __be32 daddr, __be32 saddr, u32 tos,
-				   u32 lsrc)
+static int ip_mkroute_input(struct sk_buff *skb,
+			    struct fib_result *res,
+			    const struct flowi *fl,
+			    struct in_device *in_dev,
+			    __be32 daddr, __be32 saddr, u32 tos,
+			    u32 lsrc)
 {
 #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
 	struct rtable* rth = NULL, *rtres;
@@ -2122,13 +2121,13 @@ ip_route_input_cached(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	rcu_read_lock();
 	for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
 	     rth = rcu_dereference(rth->u.dst.rt_next)) {
-		if (rth->fl.fl4_dst == daddr &&
-		    rth->fl.fl4_src == saddr &&
-		    rth->fl.iif == iif &&
-		    rth->fl.fl4_lsrc == lsrc &&
-		    rth->fl.oif == 0 &&
-		    rth->fl.mark == skb->mark &&
-		    rth->fl.fl4_tos == tos) {
+		if (((rth->fl.fl4_dst ^ daddr) |
+		     (rth->fl.fl4_src ^ saddr) |
+		     (rth->fl.iif ^ iif) |
+		     (rth->fl.fl4_lsrc ^ lsrc) |
+		     rth->fl.oif |
+		     (rth->fl.fl4_tos ^ tos)) == 0 &&
+		    rth->fl.mark == skb->mark) {
 			rth->u.dst.lastuse = jiffies;
 			dst_hold(&rth->u.dst);
 			rth->u.dst.__use++;
@@ -2187,12 +2186,12 @@ int ip_route_input_lookup(struct sk_buff *skb, u32 daddr, u32 saddr,
 	return ip_route_input_cached(skb, daddr, saddr, tos, dev, lsrc);
 }
 
-static inline int __mkroute_output(struct rtable **result,
-				   struct fib_result* res,
-				   const struct flowi *fl,
-				   const struct flowi *oldflp,
-				   struct net_device *dev_out,
-				   unsigned flags)
+static int __mkroute_output(struct rtable **result,
+			    struct fib_result *res,
+			    const struct flowi *fl,
+			    const struct flowi *oldflp,
+			    struct net_device *dev_out,
+			    unsigned flags)
 {
 	struct rtable *rth;
 	struct in_device *in_dev;
@@ -2314,12 +2313,12 @@ static inline int __mkroute_output(struct rtable **result,
 	return err;
 }
 
-static inline int ip_mkroute_output_def(struct rtable **rp,
-					struct fib_result* res,
-					const struct flowi *fl,
-					const struct flowi *oldflp,
-					struct net_device *dev_out,
-					unsigned flags)
+static int ip_mkroute_output_def(struct rtable **rp,
+				struct fib_result* res,
+				const struct flowi *fl,
+				const struct flowi *oldflp,
+				struct net_device *dev_out,
+				unsigned flags)
 {
 	struct rtable *rth = NULL;
 	int err = __mkroute_output(&rth, res, fl, oldflp, dev_out, flags);
@@ -2332,12 +2331,12 @@ static inline int ip_mkroute_output_def(struct rtable **rp,
 	return err;
 }
 
-static inline int ip_mkroute_output(struct rtable** rp,
-				    struct fib_result* res,
-				    const struct flowi *fl,
-				    const struct flowi *oldflp,
-				    struct net_device *dev_out,
-				    unsigned flags)
+static int ip_mkroute_output(struct rtable** rp,
+			    struct fib_result* res,
+			    const struct flowi *fl,
+			    const struct flowi *oldflp,
+			    struct net_device *dev_out,
+			    unsigned flags)
 {
 #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
 	unsigned char hop;
