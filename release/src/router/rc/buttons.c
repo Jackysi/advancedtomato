@@ -210,21 +210,21 @@ int buttons_main(int argc, char *argv[])
 
 #endif
 
-			if ((count != 3) && (count != 7) && (count != 11) && (count != 15) && (count != 19)) {
+			if ((count != 3) && (count != 7) && (count != 11)) {
 				n = count >> 2;
 				if (n > 3) n = 3;
 				/*
 					0-2  = func0
 					4-6  = func1
 					8-10 = func2
-					12-14 = func3
-					18+ = func4
+					12+  = func3
 				*/
 
 #ifdef DEBUG_TEST
 				cprintf("ses func=%d\n", n);
 #else
 				sprintf(s, "sesx_b%d", n);
+				//	syslog(LOG_DEBUG, "ses-func: count=%d %s='%s'", count, s, nvram_safe_get(s));
 				if ((p = nvram_get(s)) != NULL) {
 					switch (*p) {
 					case '1':	// toggle wl
@@ -241,14 +241,11 @@ int buttons_main(int argc, char *argv[])
 						sprintf(s, "%d", count);
 						run_nvscript("sesx_script", s, 2);
 						break;
-					case '5':	// run a script
-						sprintf(s, "%d", count);
-						run_nvscript("sesx_script_1", s, 2);
+#ifdef TCONFIG_USB
+					case '5':	// !!TB: unmount all USB drives
+						add_remove_usbhost("-1", 0);
 						break;
-					case '6':	// run a script
-						sprintf(s, "%d", count);
-						run_nvscript("sesx_script_2", s, 2);
-						break;
+#endif
 					}
 				}
 #endif

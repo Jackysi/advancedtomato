@@ -594,14 +594,12 @@ static const nvset_t nvset_list[] = {
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
-	{ "sesx_b0",			V_RANGE(0, 6)		},	// 0-6: toggle wireless, reboot, shutdown, script, script 1, script 2
-	{ "sesx_b1",			V_RANGE(0, 6)		},	// "
-	{ "sesx_b2",			V_RANGE(0, 6)		},	// "
-	{ "sesx_b3",			V_RANGE(0, 6)		},	// "
-	{ "sesx_b4",			V_RANGE(0, 6)		},	// "	
+	{ "sesx_b0",			V_RANGE(0, 5)		},	// 0-5: toggle wireless, reboot, shutdown, script, usb unmount
+	{ "sesx_b1",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b2",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b3",			V_RANGE(0, 5)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
-	{ "sesx_script_1",		V_TEXT(0, 1024)		},	//
-	{ "sesx_script_2",		V_TEXT(0, 1024)		},	//
+	{ "script_brau",		V_TEXT(0, 1024)		},	//
 
 // admin-debug
 	{ "debug_nocommit",		V_01				},

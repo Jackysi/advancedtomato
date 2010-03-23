@@ -406,13 +406,12 @@ const defaults_t defaults[] = {
 // advanced-buttons
 	{ "sesx_led",			"0"				},
 	{ "sesx_b0",			"1"				},
-	{ "sesx_b1",			"2"				},
-	{ "sesx_b2",			"3"				},
+	{ "sesx_b1",			"4"				},
+	{ "sesx_b2",			"4"				},
 	{ "sesx_b3",			"4"				},
-	{ "sesx_b4",			"5"				},
-	{ "sesx_script",		"[ $1 -ge 20 ] && telnetd -p 233 -l /bin/sh\n" },
-	{ "sesx_script_1",		"service wan restart"		},
-	{ "sesx_script_2",		""				},
+	{ "sesx_script",
+		"[ $1 -ge 20 ] && telnetd -p 233 -l /bin/sh\n"
+	},
 	{ "script_brau",
 		"if [ ! -e /tmp/switch-start ]; then\n"
 		"  # do something at startup\n"
