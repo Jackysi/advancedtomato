@@ -86,17 +86,22 @@ function init()
 <!-- / / / -->
 
 <div style='float:right;margin:20px 20px;text-align:center'>
-<img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
+<img src='kinaree.png' alt='Linux &amp; Tomato' id='kinaree'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware v<% version(1); %><br>
+<b>Tomato Firmware v<% version(1); %> RAF</b><br>
 Copyright (C) 2006-2008 Jonathan Zarate<br>
-<a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br><br>
-<b>Addons by Victek@gmail.com</b><br>
-- CPU Info & Overclock | WAN Info<br>
-- ISP Concentrator ID<br>
-- IP/MAC Limiter | ARP Binding<br>
-- Additional Skins<br>
+<a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
+<br>
+<b>Compilation by Toastman, Bangkok</b><br>
+<b>Based on Tomato USBmod by Fedor</b><br><br>
+<b>Victek RAF features:</b><br>
+- CPU Info & Overclock | Previous WAN IP<br>
+- IP/MAC Bandwidth Limiter | ARP Binding<br>
+- Access Concentrator ID | Additional Themes<br>
+<br>
+<b>Toastman Features:</b><br>
+- 200 users
 
 <br>
 Built on <% build_time(); %><br>
