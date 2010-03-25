@@ -141,7 +141,7 @@ static int u32_match_it(const struct ipt_u32 *data,
 		at  = 0;
 		pos = ct->location[0].number;
 
-		if (skb->len < 4 || pos > skb->len - 4);
+		if (skb->len < 4 || pos > skb->len - 4)
 			return 0;
 
 		ret   = skb_copy_bits(skb, pos, &val, sizeof(val));
