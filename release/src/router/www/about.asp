@@ -90,8 +90,14 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
-Copyright (C) 2006-2009 Jonathan Zarate<br>
-<a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
+Copyright (C) 2006-2008 Jonathan Zarate<br>
+<a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br><br>
+<b>Addons by Victek@gmail.com</b><br>
+- CPU Info & Overclock | WAN Info<br>
+- ISP Concentrator ID<br>
+- IP/MAC Limiter | ARP Binding<br>
+- Additional Skins<br>
+
 <br>
 Built on <% build_time(); %><br>
 <br><br>

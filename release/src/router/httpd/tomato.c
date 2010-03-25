@@ -633,6 +633,7 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "clkfreq",                    V_RANGE(125,500)        },
 	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 
@@ -716,7 +717,7 @@ static const nvset_t nvset_list[] = {
 
 
 // access restriction
-	{ "rruleN",				V_RANGE(0, 49)		},
+	{ "rruleN",				V_RANGE(0, 99)		},
 //	{ "rrule##",			V_LENGTH(0, 2048)	},	// in save_variables()
 
 // admin-access
@@ -870,6 +871,7 @@ static const nvset_t nvset_list[] = {
 
 //	qos
 	{ "qos_enable",			V_01				},
+	{ "qos_pfifo",			V_01				},
 	{ "qos_ack",			V_01				},
 	{ "qos_syn",			V_01				},
 	{ "qos_fin",			V_01				},
@@ -888,6 +890,17 @@ static const nvset_t nvset_list[] = {
 	{ "ne_valpha",			V_NUM				},
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
+
+// new_qoslimit
+	{ "new_qoslimit_enable",         V_01                    },
+	{ "new_qoslimit_obw",            V_RANGE(10, 999999)     },
+	{ "new_qoslimit_ibw",            V_RANGE(10, 999999)     },
+	{ "new_qoslimit_rules",          V_LENGTH(0, 4096)       },
+
+// new_arpbind
+	{ "new_arpbind_enable",          V_01                    },
+	{ "new_arpbind_only",            V_01                   },
+	{ "new_arpbind_list",            V_LENGTH(0, 4096)       },
 
 #ifdef TCONFIG_OPENVPN
 // vpn
@@ -1006,6 +1019,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
 #endif // vpn
+
+
 
 /*
 ppp_static			0/1

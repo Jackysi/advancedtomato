@@ -1,0 +1,243 @@
+
+
+body {
+	background-color: #6D5434;
+	
+}
+
+#container {
+	border: 3px solid #4E3525;
+}
+
+a {
+	color: #993333;
+	font-family: 'Trebuchet MS', verdana, sans-serif;
+}
+a:hover {
+	text-decoration:underline;
+	color: #006699;
+	background:none;
+}
+
+input[type='button']:hover {
+	background: #555;
+	color: #fff;
+}
+
+#header {
+	border-bottom: none;
+	background-image: url(tomato.png);
+	background-repeat: no-repeat;
+	background-position: right center;
+	background-color: #4E3525;
+}
+
+
+
+#header .title {
+	font: bold 50px 'Trebuchet MS', Sans-serif;
+	letter-spacing: -2px;
+	color: #FFF;
+	margin: 0;
+	padding: 0;	
+}
+#header .version {
+	font: bold 20px 'Trebuchet MS', Sans-serif;
+	letter-spacing: -2px; 
+	color: #FFF;
+	margin: 0; padding: 0;
+}
+
+#navi {
+	background: #F3F0EB;
+	border-top-width: 15px;
+	border-right-width: 0px;
+	border-bottom-width: 15px;
+	border-left-width: 15px;
+	border-top-style: solid;
+	border-right-style: solid;
+	border-bottom-style: solid;
+	border-left-style: solid;
+	border-top-color: #FFFFFF;
+	border-right-color: #E4E1DC;
+	border-bottom-color: #FFFFFF;
+	border-left-color: #FFFFFF;
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;	
+}
+#navi a {
+	color: #404040;
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+#navi a:hover {
+	background: #C8935D;
+	color: #fff;
+	text-decoration:none;
+}
+
+#navi .active {	
+	color: #993333;
+}
+
+#tabs a {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+
+#tabs a.active {
+	background: #993333;
+	color: #fff;
+}
+#tabs a:hover {
+	background: #C8935D;
+	color: #fff;
+}
+
+.tomato-grid .odd:hover,
+.tomato-grid .even:hover {
+	background: #ddd;
+}
+.tomato-grid a {
+	color: #606060;
+}
+
+#content {
+	background-color: #F3F0EB;
+	border: 15px solid #FFFFFF;	
+}
+
+.content {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+
+.content a:hover {
+	text-decoration:underline;
+	color: #006699;
+	background-color: #FAFAFA;
+}
+
+.fields {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+	background-color: #FAFAFA;
+	border: solid 1px #EEEEEE;
+	padding: 10px;
+	margin: 5px;
+	margin-left: 0px;
+	-moz-border-radius: 15px;
+}
+
+.fields td.title.indent1 {
+	padding: 1px 15px 1px 0;
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+
+.fields td.title.indent2 {
+	padding: 1px 5px 1px 10px;
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+
+.section {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+
+.section-title {
+	font: bold 1.5em 'Trebuchet MS', Tahoma, Sans-serif !important;
+	color: #333 !important;
+}
+
+small {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}
+
+input,
+select {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+	font-size: 12px;
+}
+input[type='checkbox'][disabled] {
+	opacity: 0.3;
+}
+input[type='text'],
+input[type='password'] {
+padding: 0;
+margin: 1px;
+}
+input[type='checkbox'] {
+padding: 0;
+margin: 1px 0 2px 0;
+border: 1px solid #CCC;
+	background: #FFF; 
+}
+input[type='radio'] {
+padding-left: 0;
+margin-left: 0;
+}
+select {
+margin: 0;
+}
+input[type='button'] {
+	margin: 0; 
+	font: bold 1em Arial, Sans-serif; 
+	border: 1px solid #CCC;
+	background: #FFF; 
+	padding: 2px 3px; 
+	color: #333;
+}
+input[type='button']:hover {
+background: #6D5434;
+color: #fff;
+}
+
+label {
+	display:block;
+	font-weight:bold;
+	margin:5px 0;
+}
+input {
+	padding: 2px;
+	border:1px solid #655E56;
+	font: normal 1em 'Trebuchet MS', verdana, sans-serif;
+	color:#777;
+}
+
+textarea {
+	width:400px;
+	padding:2px;
+	font: normal 1em 'Trebuchet MS', verdana, sans-serif;
+	border:1px solid #655E56;
+	height:100px;
+	display:block;
+	color:#777;
+}
+
+#footer {
+	border-top: none;
+}
+
+form {
+	-moz-border-radius: 25px;
+}
+
+input[type=text],
+input[type=password],
+textarea,
+select {
+ height: 18px;
+ border: 1px solid #6D5434;
+ margin: 0px;
+ margin-right: 2px;
+ /*background-color: #FCEBD0;*/
+ background-color: #F5EFEB;
+ color: #4E3525;
+}
+
+input[type=text],
+input[type=password],
+textarea
+{
+	padding-left: 3px;
+	padding-right: 3px;
+	max-width: 99%;
+}
+
+li, div {
+	font-family: 'Trebuchet MS', Tahoma, Sans-serif;
+}

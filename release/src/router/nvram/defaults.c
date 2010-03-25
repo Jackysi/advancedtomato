@@ -130,7 +130,6 @@ const defaults_t defaults[] = {
 	{ "wl_corerev",			""				},	// Current core revision
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
-	{ "wl_ssid",			"wireless"		},	// Service set ID (network name)
 #ifdef CONFIG_BCMWL5
 	{ "wl_country",			""		},		// Country (default obtained from driver)
 	{ "wl_country_code",		""		},		// Country (default obtained from driver)
@@ -138,6 +137,8 @@ const defaults_t defaults[] = {
 	{ "wl_country",			"JP"		},		// Country (default obtained from driver)
 	{ "wl_country_code",		"JP"		},		// !!TB - Country (default to JP to allow all 14 channels)
 #endif
+	{ "wl_ssid",			"TomatoRAF"		},	// Service set ID (network name)
+	{ "wl_country",			"Worldwide"		},	// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
     { "wl_ap_isolate",		"0"				},	// AP isolate mode
@@ -153,7 +154,7 @@ const defaults_t defaults[] = {
 	{ "wl_key3",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key4",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_maclist",			""				},	// xx:xx:xx:xx:xx:xx ...
-	{ "wl_channel",			"6"				},	// Channel number
+	{ "wl_channel",			"10"				},	// Channel number
 	{ "wl_rate",			"0"				},	// Rate (bps, 0 for auto)
 	{ "wl_mrate",			"0"				},	// Mcast Rate (bps, 0 for auto)
 	{ "wl_rateset",			"default"		},	// "default" or "all" or "12"
@@ -308,12 +309,12 @@ const defaults_t defaults[] = {
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
-	{ "tm_tz",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
+	{ "tm_sel",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
+	{ "tm_tz",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
-	{ "ntp_server",			"0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org" },
+	{ "ntp_server",			"0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org" },
 	{ "ntp_kiss",			""								},
 	{ "ntp_kiss_ignore",	""								},
 
@@ -330,6 +331,7 @@ const defaults_t defaults[] = {
 	{ "ct_udp_timeout",		""				},
 	{ "ct_timeout",			""				},
 	{ "ct_max",				""				},
+	{ "ct_max",				"8192"			},
 	{ "nf_ttl",				"0"				},
 	{ "nf_l7in",			"1"				},
 #ifdef LINUX26
@@ -401,8 +403,8 @@ const defaults_t defaults[] = {
 	{ "upnp_secure",		"1"				},
 	{ "upnp_port",			"0"				},
 	{ "upnp_ssdp_interval",		"60"				},	// SSDP interval
+	{ "upnp_max_age",		"180"			},	// Max age
 	{ "upnp_mnp",			"0"				},
-
 	{ "upnp_clean",			"1"				},	/* 0:Disable 1:Enable */
 	{ "upnp_clean_interval",	"600"				},	/* Cleaning interval in seconds */
 	{ "upnp_clean_threshold",	"20"				},	/* Threshold for cleaning unused rules */
@@ -413,6 +415,8 @@ const defaults_t defaults[] = {
 
 // qos
 	{ "qos_enable",			"0"				},
+	{ "qos_method",			"0"				},	// remove later	zzz
+	{ "qos_sticky",			"1"				},	// remove later	zzz
 	{ "qos_ack",			"1"				},
 	{ "qos_syn",			"0"				},
 	{ "qos_fin",			"0"				},
@@ -429,8 +433,8 @@ const defaults_t defaults[] = {
 	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
-	{ "ne_valpha",			"2"				},	// "
-	{ "ne_vbeta",			"6"				},	// "
+	{ "ne_valpha",			"3"				},	// "
+	{ "ne_vbeta",			"3"				},	// "
 	{ "ne_vgamma",			"2"				},	// "
 
 // access restrictions
@@ -463,7 +467,8 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_css",			"tomato"		},
+	{ "web_favicon",		"0"				},
+	{ "web_css",			"enlightened"			},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
 	{ "telnetd_port",		"23"			},
@@ -616,10 +621,10 @@ const defaults_t defaults[] = {
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},
-	{ "sch_c1",				""				},
+	{ "sch_c1",				"1,-1440,127"	},
 	{ "sch_c2",				""				},
 	{ "sch_c3",				""				},
-	{ "sch_c1_cmd",			""				},
+	{ "sch_c1_cmd",			"service upnp restart" },
 	{ "sch_c2_cmd",			""				},
 	{ "sch_c3_cmd",			""				},
 
@@ -847,6 +852,17 @@ const defaults_t defaults[] = {
 	{ "wd_aof",				""				},
 
 #endif	// 0
+
+// new_qoslimit
+	{ "new_qoslimit_enable",		"0"			},
+	{ "new_qoslimit_obw",			""			},
+	{ "new_qoslimit_ibw",			""			},
+	{ "new_qoslimit_rules",			"" 			},
+
+// new_arpbind
+	{ "new_arpbind_enable",			"0"			},
+	{ "new_arpbind_only",			"0"			},
+	{ "new_arpbind_list",			"" 			},
 
 	{ NULL, NULL	}
 };

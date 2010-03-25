@@ -865,6 +865,8 @@ void start_wan_done(char *wan_ifname)
 
 	start_firewall();
 	start_qos();
+	new_qoslimit_start();
+	new_arpbind_start();
 
 	stop_igmp_proxy();
 	start_igmp_proxy();
@@ -921,6 +923,8 @@ void stop_wan(void)
 	
 	_dprintf("%s: begin\n", __FUNCTION__);
 
+	new_arpbind_stop();
+	new_qoslimit_stop();
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
