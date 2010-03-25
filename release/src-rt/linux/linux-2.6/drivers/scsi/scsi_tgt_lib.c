@@ -474,7 +474,7 @@ int scsi_tgt_kspace_exec(int host_no, int result, u64 tag,
 
 	/* TODO: replace with a O(1) alg */
 	shost = scsi_host_lookup(host_no);
-	if (IS_ERR(shost)) {
+	if (!shost) {
 		printk(KERN_ERR "Could not find host no %d\n", host_no);
 		return -EINVAL;
 	}
@@ -563,7 +563,7 @@ int scsi_tgt_kspace_tsk_mgmt(int host_no, u64 mid, int result)
 	dprintk("%d %d %llx\n", host_no, result, (unsigned long long) mid);
 
 	shost = scsi_host_lookup(host_no);
-	if (IS_ERR(shost)) {
+	if (!shost) {
 		printk(KERN_ERR "Could not find host no %d\n", host_no);
 		return err;
 	}

@@ -218,7 +218,7 @@ static int qla4xxx_tgt_dscvr(enum iscsi_tgt_dscvr type, uint32_t host_no,
 	int ret = 0;
 
 	shost = scsi_host_lookup(host_no);
-	if (IS_ERR(shost)) {
+	if (!shost) {
 		printk(KERN_ERR "Could not find host no %u\n", host_no);
 		return -ENODEV;
 	}
