@@ -97,7 +97,11 @@
 
 //	<% nvram("qos_enable,qos_orules"); %>
 
-var abc = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'A','B','C','D','E'];
+//Toastman Class Labels
+
+var abc = ['Service','Games','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
+//	var abc = ['1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
+//      var abc = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'A','B','C','D','E'];
 
 var ipp2p = [
 	[0,'IPP2P (disabled)'],[0xFFF,'All IPP2P filters'],[1,'AppleJuice'],[2,'Ares'],[4,'BitTorrent'],[8,'Direct Connect'],

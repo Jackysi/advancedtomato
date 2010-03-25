@@ -89,20 +89,22 @@ function init()
 <img src='kinaree.png' alt='Linux &amp; Tomato' id='kinaree'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-<b>Tomato Firmware v<% version(1); %> RAF</b><br>
+<b>Tomato Firmware v<% version(1); %> </b><br>
 Copyright (C) 2006-2008 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 <b>Compilation by Toastman, Bangkok</b><br>
-<b>Based on Tomato USBmod by Fedor</b><br><br>
+Based on Tomato USBmod by Fedor<br>
+ND Wireless Driver version 4.150.10.29<br><br>
 <b>Victek RAF features:</b><br>
 - CPU Info & Overclock | Previous WAN IP<br>
 - IP/MAC Bandwidth Limiter | ARP Binding<br>
 - Access Concentrator ID | Additional Themes<br>
 <br>
 <b>Toastman Features:</b><br>
-- 200 users
-
+- 200 users<br>
+- QOS Class Labels<br>
+<br>
 <br>
 Built on <% build_time(); %><br>
 <br><br>

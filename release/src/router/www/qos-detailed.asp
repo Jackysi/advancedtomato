@@ -23,7 +23,12 @@
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
 
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A','Class B','Class C','Class D','Class E'];
+//Toastman Class Labels
+
+var abc = ['Unclassified', 'Service','Games','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
+//	var abc = ['Unclassified', '1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
+//      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A','Class B','Class C','Class D','Class E'];
+
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
 
 if ((viewClass = '<% cgi_get("class"); %>') == '') {
