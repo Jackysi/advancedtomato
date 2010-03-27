@@ -22,7 +22,6 @@
 #include <net/netfilter/nf_nat_rule.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter/x_tables.h>
-#include <linux/netfilter_ipv4.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
@@ -81,9 +80,6 @@ masquerade_target(struct sk_buff **pskb,
 
 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED
 			    || ctinfo == IP_CT_RELATED + IP_CT_IS_REPLY));
-
-	/* Mark the connection as cone if we have such rule configured */
-	ct->nat_type |= ((*pskb)->nfcache & NFC_IP_CONE_NAT) ? NFC_IP_CONE_NAT:0;
 
 	/* Source address is 0.0.0.0 - locally generated packet that is
 	 * probably not supposed to be masqueraded.

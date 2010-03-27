@@ -7,7 +7,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: time.c,v 1.9 2009/07/17 06:23:12 Exp $
+ * $Id: time.c,v 1.8 2008/07/04 01:06:30 Exp $
  */
 #include <linux/config.h>
 #include <linux/init.h>
@@ -39,10 +39,8 @@ extern spinlock_t bcm947xx_sih_lock;
 #define sih bcm947xx_sih
 #define sih_lock bcm947xx_sih_lock
 
-#define WATCHDOG_MIN	3000	/* milliseconds */
 extern int panic_timeout;
 static int watchdog = 0;
-
 #ifndef	CONFIG_HWSIM
 static u8 *mcr = NULL;
 #endif /* CONFIG_HWSIM */
@@ -77,9 +75,11 @@ bcm947xx_time_init(void)
 	/* Set watchdog interval in ms */
 	watchdog = simple_strtoul(nvram_safe_get("watchdog"), NULL, 0);
 
-	/* Ensure at least WATCHDOG_MIN */
-	if ((watchdog > 0) && (watchdog < WATCHDOG_MIN))
-		watchdog = WATCHDOG_MIN;
+	/* Please set the watchdog to 3 sec if it is less than 3 but not equal to 0 */
+	if (watchdog > 0) {
+		if (watchdog < 3000)
+			watchdog = 3000;
+	}
 
 	/* Set panic timeout in seconds */
 	panic_timeout = watchdog / 1000;
@@ -116,8 +116,12 @@ bcm947xx_timer_interrupt(int irq, void *dev_id)
 	timer_interrupt(irq, dev_id);
 
 	/* Set the watchdog timer to reset after the specified number of ms */
-	if (watchdog > 0)
-		si_watchdog_ms(sih, watchdog);
+	if (watchdog > 0) {
+		if (((si_t *)sih)->chip == BCM5354_CHIP_ID)
+			si_watchdog(sih, WATCHDOG_CLOCK_5354 / 1000 * watchdog);
+		else
+			si_watchdog(sih, WATCHDOG_CLOCK / 1000 * watchdog);
+	}
 
 #ifdef	CONFIG_HWSIM
 	(*((int *)0xa0000f1c))++;
