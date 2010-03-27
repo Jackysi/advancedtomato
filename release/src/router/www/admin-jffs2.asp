@@ -24,7 +24,7 @@
 
 //	<% nvram("jffs2_on,jffs2_exec,t_fix1"); %>
 
-fmtwait = (nvram.t_fix1 == 'RT-N16' ? 100 : 60);
+fmtwait = (nvram.t_fix1 == 'RT-N16' ? 120 : 60);
 
 function verifyFields(focused, quiet)
 {
