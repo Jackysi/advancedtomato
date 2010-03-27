@@ -12222,7 +12222,7 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
 	char *action;
 	char **ap;
-	int signo;
+	int signo, exitcode;
 
 	nextopt(nullstr);
 	ap = argptr;
@@ -12239,10 +12239,15 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	action = NULL;
 	if (ap[1])
 		action = *ap++;
+	exitcode = 0;
 	while (*ap) {
 		signo = get_signum(*ap);
-		if (signo < 0)
-			ash_msg_and_raise_error("%s: bad trap", *ap);
+		if (signo < 0) {
+			/* Mimic bash message exactly */
+			ash_msg("%s: invalid signal specification", *ap);
+			exitcode = 1;
+			goto next;
+		}
 		INT_OFF;
 		if (action) {
 			if (LONE_DASH(action))
@@ -12255,9 +12260,10 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 		if (signo != 0)
 			setsignal(signo);
 		INT_ON;
+ next:
 		ap++;
 	}
-	return 0;
+	return exitcode;
 }
 
 
