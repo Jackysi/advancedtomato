@@ -106,7 +106,7 @@ static int deconfig(char *ifname)
 static int renew(char *ifname)
 {
 	char *a, *b;
-	int changed;
+	int changed, routes_changed;
 
 	TRACE_PT("begin\n");
 
@@ -135,16 +135,20 @@ static int renew(char *ifname)
 
 	changed |= env2nv("domain", "wan_get_domain");
 	changed |= env2nv("dns", "wan_get_dns");
-	changed |= env2nv("msroutes", "wan_msroutes");
+
+	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
+	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
+	routes_changed = env2nv("msroutes", "wan_msroutes_save");
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
 	 * and a Router option, the DHCP client MUST ignore the Router option.
 	 * Overwrite "wan_routes" by "staticroutes" value if present.
 	 */
-	if (!env2nv("staticroutes", "wan_routes"))
-		changed |= env2nv("routes", "wan_routes");
+	if (!env2nv("staticroutes", "wan_routes_save"))
+		routes_changed |= env2nv("routes", "wan_routes_save");
 	else
-		changed = 1;
+		routes_changed = 1;
+	changed |= routes_changed;
 
 	if ((a = getenv("lease")) != NULL) {
 		nvram_set("wan_lease", a);
@@ -155,6 +159,15 @@ static int renew(char *ifname)
 		set_host_domain_name();
 		start_dnsmasq();	// (re)start
 	}
+
+	if (routes_changed) {
+		do_wan_routes(ifname, 0, 0);
+		nvram_set("wan_routes", nvram_safe_get("wan_routes_save"));
+		nvram_set("wan_msroutes", nvram_safe_get("wan_msroutes_save"));
+		do_wan_routes(ifname, 0, 1);
+	}
+	nvram_unset("wan_routes_save");
+	nvram_unset("wan_msroutes_save");
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
@@ -202,7 +215,8 @@ static int bound(char *ifname)
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
-	if (get_wan_proto() == WP_L2TP) {
+	int wan_proto = get_wan_proto();
+	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
 		int i = 0;
 
 		/* Delete all default routes */
@@ -214,12 +228,22 @@ static int bound(char *ifname)
 		/* Backup the default gateway. It should be used if L2TP connection is broken */
 		nvram_set("wan_gateway_buf", nvram_get("wan_gateway"));
 
+		dns_to_resolv();
+		start_dnsmasq();
 		/* clear dns from the resolv.conf */
 		nvram_set("wan_get_dns","");
-		dns_to_resolv();
 
 		start_firewall();
-		start_l2tp();
+		switch (wan_proto) {
+		case WP_PPTP:
+			start_pptp(BOOT);
+			// we don't need dhcp anymore ?
+			// xstart("service", "dhcpc", "stop");
+			break;
+		case WP_L2TP:
+			start_l2tp();
+			break;
+		}
 	}
 	else {
 		start_wan_done(ifname);

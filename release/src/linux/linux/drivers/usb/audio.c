@@ -3074,6 +3074,8 @@ struct consmixstate {
 	unsigned int chconfig;
 };
 
+const char *sound_device_names[] = SOUND_DEVICE_LABELS;
+
 static struct mixerchannel *getmixchannel(struct consmixstate *state, unsigned int nr)
 {
 	struct mixerchannel *c;
@@ -3089,6 +3091,7 @@ static struct mixerchannel *getmixchannel(struct consmixstate *state, unsigned i
 	c = &state->mixch[state->nrmixch++];
 	c->osschannel = nr;
 	state->mixchmask &= ~(1 << nr);
+	printk(KERN_WARNING "usbaudio: OSS mixer channel is %u (mixer_control: \"%s\")\n", nr, sound_device_names[nr]);
 	return c;
 }
 

@@ -2,6 +2,13 @@
 History of USB-ModeSwitch
 =========================
 
+Version 1.1.1, 2010/03/17
+    Attention: old usb_modeswitch.conf renamed to usb_modeswitch.setup!
+    Add separate config file for wrapper (global settings for switching and
+    logging); add config file option to disable driver loading; handling of
+    kernel attribute AVOID_RESET_QUIRK added; bug fixed in SonyMode (reported
+    by "no-0n3"); bug fixed in SuccessCheck logic; minor flow alignments and
+    fixes; new devices
 Version 1.1.0, 2010/01/24
     Attention: wrapper script location changed, uninstall old versions!
     Major fixes in the wrapper script (stabilizing and time-saving);

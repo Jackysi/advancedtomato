@@ -1188,6 +1188,21 @@ int reboothalt_main(int argc, char *argv[])
 	fflush(stdout);
 	sleep(1);
 	kill(1, reboot ? SIGTERM : SIGQUIT);
+
+	/* In the case we're hung, we'll get stuck and never actually reboot.
+	 * The only way out is to pull power.
+	 * So after 10 seconds, forcibly crash & restart.
+	 */
+	if (fork() == 0) {
+		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
+		sleep(10);
+		puts("Still running... Doing machine reset.");
+		fflush(stdout);
+		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
+		sleep(1);
+		f_write("/proc/sysrq-trigger", "b", 1, 0 , 0); /* machine reset */
+	}
+
 	return 0;
 }
 

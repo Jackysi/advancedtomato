@@ -29,7 +29,7 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap"); %>
 //	<% wlchannels(0, 20); %>
 
 xob = null;
@@ -230,6 +230,7 @@ function verifyFields(focused, quiet)
 		_wan_netmask: 1,
 		_wan_gateway: 1,
 		_pptp_server_ip: 1,
+		_f_pptp_dhcp: 1,
 		_ppp_demand: 1,
 		_ppp_idletime: 1,
 		_ppp_redialperiod: 1,
@@ -303,6 +304,7 @@ function verifyFields(focused, quiet)
 		vis._wan_netmask = 0;
 		vis._wan_gateway = 0;
 		vis._pptp_server_ip = 0;
+		vis._f_pptp_dhcp = 0;
 		vis._ppp_demand = 0;
 		vis._mtu_enable = 0;
 		vis._f_wan_mtu = 0;
@@ -313,6 +315,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
 		vis._pptp_server_ip = 0;
+		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -322,6 +325,7 @@ function verifyFields(focused, quiet)
 	case 'pppoe':
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
+		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -334,6 +338,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
 		vis._pptp_server_ip = 0;
+		vis._f_pptp_dhcp = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -341,12 +346,15 @@ function verifyFields(focused, quiet)
 		vis._l2tp_server_ip = 0;
 		vis._ppp_service = 0;
 		vis._wan_gateway = 0;
+		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
+		vis._wan_netmask = vis._wan_ipaddr;
 
 		vis._lan_gateway = 0;
 		break;
 	case 'l2tp':
 		vis._ppp_service = 0;
 		vis._pptp_server_ip = 0;
+		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -516,6 +524,12 @@ REMOVE-END */
 		break;
 	}
 
+	if (((wmode == 'sta') || (wmode == 'wet')) &&
+	    (E('_wl_net_mode').value == 'n-only')) {
+		ferror.set('_wl_net_mode', 'N-only is not supported in wireless client modes.', quiet);
+		return 0;
+	}
+
 	a = E('_wl_wpa_psk');
 	ferror.clear(a);
 	if (vis._wl_wpa_psk == 1) {
@@ -532,8 +546,16 @@ REMOVE-END */
 	}
 	else ferror.clear('_wl_channel');
 
+	// domain name or IP address
+	a = ['_l2tp_server_ip', '_pptp_server_ip'];
+	for (i = a.length - 1; i >= 0; --i)
+		if ((vis[a[i]]) && ((!v_length(a[i], 1, 1)) || ((!v_ip(a[i], 1)) && (!v_domain(a[i], 1))))) {
+			ok = 0;
+			if (!quiet) ferror.show(a[i]);
+		}
+
 	// IP address
-	a = ['_l2tp_server_ip','_pptp_server_ip', '_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_wl_radius_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
+	a = ['_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_wl_radius_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet))) ok = 0;
 
@@ -650,6 +672,7 @@ function save()
 	}
 	
 	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
+	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
 
 	a = [];
 	for (i = 0; i < 10; ++i) a.push(E('_f_wds_' + i).value);
@@ -784,6 +807,7 @@ function save()
 
 <input type='hidden' name='wan_mtu'>
 <input type='hidden' name='wan_islan'>
+<input type='hidden' name='pptp_dhcp'>
 <input type='hidden' name='wl_mode'>
 <input type='hidden' name='wds_enable'>
 <input type='hidden' name='wl_wds'>
@@ -816,11 +840,12 @@ createFieldTable('', [
 	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_username },
 	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 50, size: 54, peekaboo: 1, value: nvram.ppp_passwd },
 	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_service },
-	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 15, size: 17, value: nvram.l2tp_server_ip },
+	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 54, value: nvram.l2tp_server_ip },
+	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
-	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 15, size: 17, value: nvram.pptp_server_ip },
+	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 54, value: nvram.pptp_server_ip },
 	{ title: 'Connect Mode', name: 'ppp_demand', type: 'select', options: [['1', 'Connect On Demand'],['0', 'Keep Alive']],
 		value: nvram.ppp_demand },
 	{ title: 'Max Idle Time', indent: 2, name: 'ppp_idletime', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(minutes)</i>',

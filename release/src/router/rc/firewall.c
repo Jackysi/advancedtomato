@@ -480,7 +480,9 @@ static void filter_input(void)
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
-		ipt_write("-A INPUT -p icmp -j ACCEPT\n");
+		ipt_write("-A INPUT -p icmp -j %s\n", chain_in_accept);
+		// allow udp traceroute packets
+		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", chain_in_accept);
 	}
 
 
@@ -544,16 +546,18 @@ static void filter_input(void)
 // clamp TCP MSS to PMTU of WAN interface
 static void clampmss(void)
 {
-	int wanproto = get_wan_proto();
+#if 1
+	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+#else
 	int rmtu = nvram_get_int("wan_run_mtu");
-
 	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS ", rmtu - 39);
-	if ((rmtu < 576) || (wanproto == WP_PPTP) || (wanproto == WP_L2TP) || (wanproto == WP_PPPOE)) {
+	if (rmtu < 576) {
 		ipt_write("--clamp-mss-to-pmtu\n");
 	}
 	else {
 		ipt_write("--set-mss %d\n", rmtu - 40);
 	}
+#endif
 }
 
 static void filter_forward(void)

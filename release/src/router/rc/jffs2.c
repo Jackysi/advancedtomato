@@ -60,7 +60,7 @@ void start_jffs2(void)
 	if ((p == NULL) || (strcmp(p, s) != 0)) {
 		if (format) {
 			nvram_set("jffs2_size", s);
-			 nvram_commit_x();
+			nvram_commit_x();
 		}
 		else if ((p != NULL) && (*p != 0)) {
 			error("verifying known size of");
@@ -100,21 +100,21 @@ void start_jffs2(void)
 	}
 #endif
 
-	notice_set("jffs", format ? "Formatted." : "Loaded.");
+	notice_set("jffs", format ? "Formatted" : "Loaded");
 
 	if (((p = nvram_get("jffs2_exec")) != NULL) && (*p != 0)) {
 		chdir("/jffs");
-		xstart(p);
+		system(p);
 		chdir("/");
 	}
-	run_userfile("/jffs", ".autorun", NULL, 0);
+	run_userfile("/jffs", ".autorun", NULL, 3);
 }
 
 void stop_jffs2(void)
 {
 	if (!wait_action_idle(10)) return;
 
-	notice_set("jffs", "stopped");
+	notice_set("jffs", "Stopped");
 	umount("/jffs");
 	modprobe_r(JFFS_NAME);
 }

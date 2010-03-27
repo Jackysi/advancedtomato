@@ -1661,7 +1661,7 @@ _static int uhci_submit_urb (struct urb *urb)
 		     (!(urb->transfer_flags & USB_QUEUE_BULK) || !(queued_urb->transfer_flags & USB_QUEUE_BULK)))) {
 			spin_unlock_irqrestore (&s->urb_list_lock, flags);
 			usb_dec_dev_use (urb->dev);
-			err("ENXIO %08x, flags %x, urb %p, burb %p",urb->pipe,urb->transfer_flags,urb,queued_urb);
+			dbg("ENXIO %08x, flags %x, urb %p, burb %p",urb->pipe,urb->transfer_flags,urb,queued_urb);
 			return -ENXIO;	// urb already queued
 		}
 	}

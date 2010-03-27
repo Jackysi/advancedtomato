@@ -1173,10 +1173,30 @@ static void do_start_stop_samba(int stop, int start)
 		free(buf);
 	}
 
-	/* share everything below MOUNT_ROOT */
+	/* Share every mountpoint below MOUNT_ROOT */
 	if (nvram_get_int("smbd_autoshare") && (dir = opendir(MOUNT_ROOT))) {
 		while ((dp = readdir(dir))) {
 			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
+
+				char path[256];
+				struct stat sb;
+				int thisdev;
+
+				/* Only if is a directory and is mounted */
+				sprintf(path, "%s/%s", MOUNT_ROOT, dp->d_name);
+				sb.st_mode = S_IFDIR;	/* failsafe */
+				stat(path, &sb);
+				if (!S_ISDIR(sb.st_mode))
+					continue;
+				/* If this dir & its parent dir are on the same device, it is not a mountepoint */
+				strcat(path, "/.");
+				stat(path, &sb);
+				thisdev = sb.st_dev;
+				strcat(path, ".");
+				++sb.st_dev;	/* failsafe */
+				stat(path, &sb);
+				if (thisdev == sb.st_dev)
+					continue;
 
 				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
 				fprintf(fp, "\n[%s]\n path = %s/%s\n comment = %s\n",

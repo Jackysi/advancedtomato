@@ -788,7 +788,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in	sai;
 	sai.sin_family = AF_INET;
 	sai.sin_port = htons(server_port);
-	sai.sin_addr.s_addr = INADDR_ANY;
+	sai.sin_addr.s_addr = inet_addr(nvram_get("lan_ipaddr"));
 	if (bind(listenfd, (struct sockaddr *)&sai, sizeof(sai)) < 0) {
 		syslog(LOG_ERR, "bind: %m");
 		return 1;

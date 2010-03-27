@@ -10,3 +10,6 @@ TargetProduct= 0x9021
 CheckSuccess=20
 
 MessageContent="55534243908ecd89000000000000061b000000020000000000000000000000"
+
+NoDriverLoading=1
+
