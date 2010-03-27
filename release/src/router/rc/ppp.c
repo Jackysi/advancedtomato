@@ -47,7 +47,7 @@ int ipup_main(int argc, char **argv)
 	char buf[256];
 	const char *p;
 
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	killall("listen", SIGKILL);
 	
@@ -105,7 +105,7 @@ int ipup_main(int argc, char **argv)
 	
 	start_wan_done(wan_ifname);
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -113,7 +113,7 @@ int ipdown_main(int argc, char **argv)
 {
 	int proto;
 	
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	if (!wait_action_idle(10)) return -1;
 
@@ -143,7 +143,7 @@ int ipdown_main(int argc, char **argv)
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 1;
 }
 
@@ -151,7 +151,7 @@ int pppevent_main(int argc, char **argv)
 {
 	int i;
 	
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	for (i = 1; i < argc; ++i) {
 		_dprintf("%s: arg%d=%s\n", __FUNCTION__, i, argv[i]);
@@ -165,7 +165,7 @@ int pppevent_main(int argc, char **argv)
 		}
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 1;
 }
 

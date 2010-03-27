@@ -73,13 +73,15 @@ static void make_secrets(void)
 
 int start_pptp(int mode)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	FILE *fp;
 	char username[80];
 	char passwd[80];
+	int use_dhcp;
 
-	stop_dhcpc();
+	use_dhcp = nvram_get_int("pptp_dhcp");
+	if (!use_dhcp) stop_dhcpc();
 	stop_pppoe();
 
 	strlcpy(username, nvram_safe_get("ppp_username"), sizeof(username));
@@ -99,11 +101,14 @@ int start_pptp(int mode)
 		
 		fprintf(fp, "defaultroute\n");		// Add a default route to the system routing tables, using the peer as the gateway
 		fprintf(fp, "usepeerdns\n");		// Ask the peer for up to 2 DNS server addresses
-		fprintf(fp, "pty 'pptp %s --nolaunchpppd'\n", nvram_safe_get("pptp_server_ip"));
+		//fprintf(fp, "pty 'pptp %s --nolaunchpppd'\n", nvram_safe_get("pptp_server_ip"));
+		fprintf(fp, "plugin pptp.so\n");
+		fprintf(fp, "pptp_server %s\n", nvram_safe_get("pptp_server_ip"));
+		//fprintf(fp, "nomppe-stateful\n");
 		fprintf(fp, "user '%s'\n", username);
 		//fprintf(fp, "persist\n");			// Do not exit after a connection is terminated.
 
-		fprintf(fp, "mtu %s\n",nvram_safe_get("wan_mtu"));
+		fprintf(fp, "mtu %d\n", nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
 
 		if (nvram_match("ppp_demand", "1")) {
 			//demand mode
@@ -130,8 +135,8 @@ int start_pptp(int mode)
 		fprintf(fp, "nobsdcomp\n");				// Disables BSD-Compress  compression
 		fprintf(fp, "nodeflate\n");				// Disables Deflate compression
 		fprintf(fp, "lcp-echo-interval 0\n");	// Don't send an LCP echo-request frame to the peer
-		fprintf(fp, "lock\n");
-		fprintf(fp, "noauth\n");
+		//fprintf(fp, "lock\n");
+		fprintf(fp, "noauth refuse-eap\n");
 		
 		if (nvram_match("debug_pppd", "1")) {
 			fprintf(fp, "debug\n");
@@ -144,9 +149,11 @@ int start_pptp(int mode)
 		make_secrets();
 	}
 
-	// Bring up  WAN interface
-	ifconfig(nvram_safe_get("wan_ifname"), IFUP,
-		nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+	if (!use_dhcp) {
+		// Bring up  WAN interface
+		ifconfig(nvram_safe_get("wan_ifname"), IFUP,
+			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+	}
 
 	eval("pppd");
 
@@ -165,13 +172,13 @@ int start_pptp(int mode)
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 0;
 }
 
 int stop_pptp(void)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	unlink("/tmp/ppp/link");
 
@@ -179,7 +186,7 @@ int stop_pptp(void)
 		sleep(1);
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -195,7 +202,7 @@ static void start_tmp_ppp(int num)
 	struct ifreq ifr;
 	int s;
 
-	_dprintf("%s: num=%d\n", __FUNCTION__, num);
+	TRACE_PT("begin: num=%d\n", num);
 
 	if (num != 0) return;
 
@@ -229,6 +236,7 @@ static void start_tmp_ppp(int num)
 	close(s);
 
 	start_wan_done(ifname);
+	TRACE_PT("end\n");
 }
 
 
@@ -243,7 +251,7 @@ void start_pppoe(int num)
 	int dod;
 	int n;
 	
-	_dprintf("%s pppoe_num=%d\n", __FUNCTION__, num);
+	TRACE_PT("begin pppoe_num=%d\n", num);
 	
 	if (num != 0) return;
 
@@ -337,6 +345,7 @@ void start_pppoe(int num)
 	if (dod) {
 		start_tmp_ppp(num);
 	}
+	TRACE_PT("end\n");
 }
 
 void stop_pppoe(void)
@@ -377,7 +386,7 @@ void stop_singe_pppoe(int num)
 
 void start_l2tp(void)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	int ret;
 	FILE *fp;
@@ -385,12 +394,16 @@ void start_l2tp(void)
 	char l2tpctrl[64];
 	char username[80];
 	char passwd[80];
+	struct in_addr l2tp_server_ip;
+	int is_ip;
 
 	stop_pppoe();
 	stop_pptp();
 
 	snprintf(username, sizeof(username), "%s", nvram_safe_get("ppp_username"));
 	snprintf(passwd, sizeof(passwd), "%s", nvram_safe_get("ppp_passwd"));
+
+	is_ip = inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip);
 
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
@@ -407,7 +420,7 @@ void start_l2tp(void)
 	fprintf(fp, "listen-port 1701\n");		// Bind address
 	fprintf(fp, "section sync-pppd\n");		// Configure the sync-pppd handler
 	fprintf(fp, "section peer\n");			// Peer section
-	fprintf(fp, "peer %s\n", nvram_safe_get("l2tp_server_ip"));
+	fprintf(fp, "peer%s %s\n", (is_ip) ? "" : "name", nvram_safe_get("l2tp_server_ip"));
 	fprintf(fp, "port 1701\n");
 	fprintf(fp, "lac-handler sync-pppd\n");
 	fprintf(fp, "section cmd\n");			// Configure the cmd handler
@@ -423,7 +436,7 @@ void start_l2tp(void)
 	fprintf(fp, "user '%s'\n", username);
 	//fprintf(fp, "persist\n");				// Do not exit after a connection is terminated.
 
-	fprintf(fp, "mtu %s\n",nvram_safe_get("wan_mtu"));
+	if (nvram_get_int("mtu_enable")) fprintf(fp, "mtu %s\n", nvram_safe_get("wan_mtu"));
 
 	if (nvram_match("ppp_demand", "1")){	// demand mode
 		fprintf(fp, "idle %d\n", nvram_get_int("ppp_idletime") * 60);
@@ -478,25 +491,27 @@ void start_l2tp(void)
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
 	else {
-		snprintf(l2tpctrl, sizeof(l2tpctrl), "l2tp-control \"start-session %s\"", nvram_safe_get("l2tp_server_ip"));
+		snprintf(l2tpctrl, sizeof(l2tpctrl), "l2tp-control \"start-session %s\"",
+			(is_ip) ? nvram_safe_get("l2tp_server_ip") : "0.0.0.0");
 		system(l2tpctrl);
 		_dprintf("%s\n", l2tpctrl);
 
 		start_redial();
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 }
 
 void stop_l2tp(void)
 {
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	unlink("/tmp/ppp/link");
 	while ((killall("pppd", SIGKILL) == 0) || (killall("l2tpd", SIGKILL) == 0) || (killall("listen", SIGKILL) == 0)) {
 		sleep(1);
 	}
-	_dprintf("%s: end\n", __FUNCTION__);
+
+	TRACE_PT("end\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -505,13 +520,16 @@ void stop_l2tp(void)
 void force_to_dial(void)
 {
 	char s[64];
+	struct in_addr l2tp_server_ip;
 
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	sleep(1);
 	switch (get_wan_proto()) {
 	case WP_L2TP:
-		snprintf(s, sizeof(s), "/usr/sbin/l2tp-control \"start-session %s\"", nvram_safe_get("l2tp_server_ip"));
+		snprintf(s, sizeof(s), "l2tp-control \"start-session %s\"",
+			inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip) ?
+			nvram_safe_get("l2tp_server_ip") : "0.0.0.0");
 		system(s);
 		_dprintf("%s\n", s);
 		break;
@@ -526,7 +544,7 @@ void force_to_dial(void)
 		break;
 	}
 	
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -619,6 +637,8 @@ void start_wan(int mode)
 	int mtu;
 	char buf[128];
 
+	TRACE_PT("begin\n");
+
 	f_write(wan_connecting, NULL, 0, 0, 0);
 	
 	//
@@ -691,9 +711,11 @@ void start_wan(int mode)
 		mtu += 40;
 	} */	// commented out; checkme -- zzz
 	
-	ifr.ifr_mtu =  mtu;
-	strcpy(ifr.ifr_name, wan_ifname);
-	ioctl(sd, SIOCSIFMTU, &ifr);
+	if ((wan_proto != WP_PPTP && wan_proto != WP_L2TP) || nvram_get_int("mtu_enable")) {
+		ifr.ifr_mtu =  mtu;
+		strcpy(ifr.ifr_name, wan_ifname);
+		ioctl(sd, SIOCSIFMTU, &ifr);
+	}
 
 	//
 	
@@ -714,7 +736,11 @@ void start_wan(int mode)
 		start_dhcpc();
 		break;
 	case WP_PPTP:
-		start_pptp(mode);
+		if (nvram_get_int("pptp_dhcp")) {
+			stop_dhcpc();
+			start_dhcpc();
+		}
+		else start_pptp(mode);
 		break;
 	default:	// static
 		nvram_set("wan_iface", wan_ifname);
@@ -745,7 +771,7 @@ void start_wan(int mode)
 	led(LED_DIAG, 0);	// for 4712, 5325E (?)
 	led(LED_DMZ, nvram_match("dmz_enable", "1"));
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 }
 
 
@@ -799,7 +825,7 @@ void start_wan_done(char *wan_ifname)
 			// add routes to dns servers as well for demand ppp to work
 			char word[100], *next;
 			in_addr_t mask = inet_addr(nvram_safe_get("wan_netmask"));
-			foreach(word, nvram_safe_get("wan_dns"), next) {
+			foreach(word, nvram_safe_get("wan_get_dns"), next) {
 				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
 					route_add(wan_ifname, 0, word, gw, "255.255.255.255");
 			}
@@ -824,7 +850,7 @@ void start_wan_done(char *wan_ifname)
 		if (proto == WP_PPTP) {
 			// For PPTP protocol, we must use pptp_get_ip as gateway, not pptp_server_ip
 			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");
-			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("pptp_server_ip"), NULL, "255.255.255.255");
+			// route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("pptp_server_ip"), NULL, "255.255.255.255");
 			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("pptp_get_ip"), NULL, "255.255.255.255");
 		}
 		else if (proto == WP_L2TP) {
@@ -852,7 +878,7 @@ void start_wan_done(char *wan_ifname)
 			}
 			else {
 				// Fail to change IP from char to struct, still add this route.
-				route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+				//route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
 			}
 #else
 			route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
@@ -919,7 +945,7 @@ void stop_wan(void)
 	char name[80];
 	char *next;
 	
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
@@ -944,5 +970,5 @@ void stop_wan(void)
 	notice_set("wan", "");
 	unlink(wan_connecting);
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 }

@@ -85,7 +85,8 @@ obj-y += miniupnpd
 # configurable packages
 #
 obj-$(TCONFIG_L2TP) += rp-l2tp
-obj-$(TCONFIG_PPTP) += pptp-client
+#obj-$(TCONFIG_PPTP) += pptp-client
+obj-$(TCONFIG_PPTP) += accel-pptp
 obj-$(TCONFIG_HTTPS) += openssl
 obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
@@ -295,8 +296,12 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/sound/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/sound || true
 
+ifneq ($(TCONFIG_PPTP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(TCONFIG_L2TP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
+endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
@@ -678,6 +683,22 @@ vlan-install:
 pptp-client-install:
 	install -D pptp-client/pptp $(INSTALLDIR)/pptp-client/usr/sbin/pptp
 	$(STRIP) $(INSTALLDIR)/pptp-client/usr/sbin/pptp
+
+
+accel-pptp: pppd accel-pptp/Makefile
+	@$(MAKE) -C accel-pptp
+
+accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
+	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
+
+accel-pptp-clean:
+	@$(MAKE) -C accel-pptp clean || true
+	@rm -f accel-pptp/Makefile
+
+accel-pptp-install: accel-pptp
+	install -D accel-pptp/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
+	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
 
 pppd/Makefile: pppd/linux/Makefile.top

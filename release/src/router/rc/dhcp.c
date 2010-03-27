@@ -202,7 +202,8 @@ static int bound(char *ifname)
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
-	if (get_wan_proto() == WP_L2TP) {
+	int wan_proto = get_wan_proto();
+	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
 		int i = 0;
 
 		/* Delete all default routes */
@@ -214,12 +215,22 @@ static int bound(char *ifname)
 		/* Backup the default gateway. It should be used if L2TP connection is broken */
 		nvram_set("wan_gateway_buf", nvram_get("wan_gateway"));
 
+		dns_to_resolv();
+		start_dnsmasq();
 		/* clear dns from the resolv.conf */
 		nvram_set("wan_get_dns","");
-		dns_to_resolv();
 
 		start_firewall();
-		start_l2tp();
+		switch (wan_proto) {
+		case WP_PPTP:
+			start_pptp(BOOT);
+			// we don't need dhcp anymore ?
+			// xstart("service", "dhcpc", "stop");
+			break;
+		case WP_L2TP:
+			start_l2tp();
+			break;
+		}
 	}
 	else {
 		start_wan_done(ifname);

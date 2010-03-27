@@ -269,6 +269,7 @@ const defaults_t defaults[] = {
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
+	{ "pptp_dhcp",			"1"				},
 
 	// for firewall
 	{ "mtu_enable",			"0"				},	// WAN MTU [1|0]
