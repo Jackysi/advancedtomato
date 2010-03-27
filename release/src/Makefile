@@ -137,19 +137,19 @@ cleantools:
 cleankernel:
 	@cd $(LINUXDIR) && \
 	mv .config save-config && \
-	$(MAKE) distclean; \
-	cp -p save-config .config
+	$(MAKE) distclean || true; \
+	cp -p save-config .config || true
 
 distclean: clean cleanimage cleankernel cleantools cleanlibc
 ifneq ($(INSIDE_MAK),1)
 	@$(MAKE) -C router $@ INSIDE_MAK=1
 endif
-	mv router/busybox/.config busybox-saved-config
+	mv router/busybox/.config busybox-saved-config || true
 	@$(MAKE) -C router/busybox distclean
-	@rm -f router/busybox/config_current || true
-	@cp -p busybox-saved-config router/busybox/.config
-	@cp -p router/busybox/.config  router/busybox/config_current
-	@rm -f router/config_current || true
+	@rm -f router/busybox/config_current
+	@cp -p busybox-saved-config router/busybox/.config || true
+	@cp -p router/busybox/.config  router/busybox/config_current || true
+	@rm -f router/config_current
 	@rm -f router/.config.cmd router/.config.old router/.config
 	@rm -f router/libfoo_xref.txt
 	@rm -f tomato_profile.mak router/shared/tomato_profile.h
@@ -590,6 +590,12 @@ help:
 	@echo "e            E build (standard plus VPN and extra utilities)"
 	@echo "s            S build (no USB support)"
 	@echo "v            V build (VPN with no USB support)"
+ifeq ($(CONFIG_LINUX26),y)
+	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
+	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
+	@echo "r2v          MIPS Release 2 V build (standard plus VPN)"
+	@echo "r2s          MIPS Release 2 S build (no USB support)"
+endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
 	@echo "cleanimage   rm -rf image"

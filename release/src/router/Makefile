@@ -263,6 +263,8 @@ ifneq ($(TCONFIG_OPENVPN),y)
 endif
 
 #!!TB
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/smbfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.*o $(PLATFORMDIR)/extras/ || true
@@ -275,6 +277,7 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/auth_rpcgss.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/rpcsec_gss_krb5.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/sr_mod.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(CONFIG_LINUX26),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbserial.*o $(PLATFORMDIR)/extras/ || true
@@ -404,7 +407,7 @@ distclean: clean
 ifneq ($(INSIDE_MAK),1)
 	$(MAKE) -C .. $@ INSIDE_MAK=1
 endif
-	-rm -f $(LIBDIR)/*.so.0  $(LIBDIR)/*.so
+#	-rm -f $(LIBDIR)/*.so.0  $(LIBDIR)/*.so
 
 #
 # configuration
@@ -423,7 +426,7 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean openssl-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -482,7 +485,7 @@ matrixssl-install:
 matrixssl-clean:
 	$(MAKE) -C matrixssl/src clean
 
-openssl-config:
+openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
 	cd openssl && \
 	CC=$(CC) && ./Configure linux-mipsel
@@ -491,10 +494,15 @@ else
 	CC=$(CC) && ./Configure linux-mipsel no-aes no-idea no-md2 no-mdc2 no-rc5
 endif
 	@$(MAKE) -C openssl clean
+	@touch openssl/stamp-h1
 
-openssl: openssl-config
+openssl: openssl/stamp-h1
 
-openssl-install:
+openssl-clean:
+	-@$(MAKE) -C openssl clean
+	@rm -f openssl/stamp-h1
+
+openssl-install: openssl
 	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 
@@ -533,7 +541,7 @@ bridge: bridge/Makefile
 	@$(MAKE) -C bridge
 
 bridge-clean:
-	@$(MAKE) -C bridge clean || true
+	-@$(MAKE) -C bridge clean
 	@rm -f bridge/Makefile
 
 bridge-install:
@@ -612,7 +620,8 @@ ntfs-3g: ntfs-3g/Makefile
 	@$(MAKE) -C ntfs-3g CFLAGS="-Os -Wall $(EXTRACFLAGS)"
 
 ntfs-3g-clean:
-	@$(MAKE) -C ntfs-3g clean || true
+	-@$(MAKE) -C ntfs-3g clean
+	@rm -f ntfs-3g/Makefile
 
 ntfs-3g-install: ntfs-3g
 	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
@@ -693,7 +702,7 @@ accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
 	$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
 
 accel-pptp-clean:
-	@$(MAKE) -C accel-pptp clean || true
+	-@$(MAKE) -C accel-pptp clean
 	@rm -f accel-pptp/Makefile
 
 accel-pptp-install: accel-pptp
@@ -709,9 +718,10 @@ pppd: pppd/Makefile
 	@$(MAKE) -C pppd
 
 pppd-clean:
-	$(MAKE) -C pppd clean
+	-$(MAKE) -C pppd clean
+	@rm -f pppd/Makefile
 
-pppd-install:
+pppd-install: pppd
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
 	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
@@ -734,7 +744,7 @@ zebra: zebra/stamp-h1
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
 
 zebra-clean:
-	@$(MAKE) -C zebra clean || true
+	-@$(MAKE) -C zebra clean
 	@rm -f zebra/stamp-h1
 
 zebra-install:
@@ -790,7 +800,7 @@ ntpc: nvram shared
 
 dropbear: dropbear/config.h
 	@$(SEP)
-	@make -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1
+	@$(MAKE) -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1
 
 dropbear-install:
 	install -D dropbear/dropbearmulti $(INSTALLDIR)/dropbear/usr/bin/dropbearmulti
@@ -804,11 +814,12 @@ dropbear-install:
 	ln -sf dropbearmulti scp
 
 dropbear-clean:
-	@make -C dropbear clean
+	-@$(MAKE) -C dropbear clean
+	@rm -f dropbear/config.h
 
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
-	make -C dropbear clean
+	@$(MAKE) -C dropbear clean
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
 	cd igmpproxy && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
@@ -823,8 +834,8 @@ igmpproxy-install:
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 
 igmpproxy-clean:
-	$(MAKE) -C igmpproxy/src clean
-	rm -f igmpproxy/src/Makefile
+	-$(MAKE) -C igmpproxy/src clean
+	@rm -f igmpproxy/src/Makefile
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
@@ -889,7 +900,7 @@ openvpn/.conf:
 	touch openvpn/.conf
 
 openvpn-clean:
-	$(MAKE) -C openvpn clean || true
+	-$(MAKE) -C openvpn clean
 	@rm -f openvpn/.conf
 
 openvpn-install:
