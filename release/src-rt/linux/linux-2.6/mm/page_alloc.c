@@ -668,7 +668,18 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 		struct page *page = __rmqueue(zone, order);
 		if (unlikely(page == NULL))
 			break;
+
+		/*
+		 * Split buddy pages returned by expand() are received here
+		 * in physical page order. The page is added to the callers and
+		 * list and the list head then moves forward. From the callers
+		 * perspective, the linked list is ordered by page number in
+		 * some conditions. This is useful for IO devices that can
+		 * merge IO requests if the physical pages are ordered
+		 * properly.
+		 */
 		list_add_tail(&page->lru, list);
+		list = &page->lru;
 	}
 	spin_unlock(&zone->lock);
 	return i;
@@ -1337,6 +1348,10 @@ nofail_alloc:
 				zonelist, ALLOC_WMARK_HIGH|ALLOC_CPUSET);
 		if (page)
 			goto got_pg;
+
+		/* The OOM killer will not help higher order allocs so fail */
+		if (order > 3)
+			goto nopage;
 
 		out_of_memory(zonelist, gfp_mask, order);
 		goto restart;

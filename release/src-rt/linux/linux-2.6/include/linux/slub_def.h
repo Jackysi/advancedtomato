@@ -38,6 +38,7 @@ struct kmem_cache {
 
 	/* Allocation and freeing of slabs */
 	int objects;		/* Number of objects in slab */
+	gfp_t allocflags;	/* gfp flags to use on each alloc */
 	int refcount;		/* Refcount for slab cache destroy */
 	void (*ctor)(void *, struct kmem_cache *, unsigned long);
 	int inuse;		/* Offset to metadata */
@@ -47,7 +48,10 @@ struct kmem_cache {
 	struct kobject kobj;	/* For sysfs */
 
 #ifdef CONFIG_NUMA
-	int defrag_ratio;
+	/*
+	 * Defragmentation by allocating from a remote node.
+	 */
+	int remote_node_defrag_ratio;
 	struct kmem_cache_node *node[MAX_NUMNODES];
 #endif
 	struct page *cpu_slab[NR_CPUS];
@@ -146,12 +150,16 @@ static inline struct kmem_cache *kmalloc_slab(size_t size)
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
 void *__kmalloc(size_t size, gfp_t flags);
 
+static inline void *kmalloc_large(size_t size, gfp_t flags)
+{
+	return (void *)__get_free_pages(flags | __GFP_COMP, get_order(size));
+}
+
 static inline void *kmalloc(size_t size, gfp_t flags)
 {
 	if (__builtin_constant_p(size)) {
 		if (size > PAGE_SIZE)
-			return (void *)__get_free_pages(flags | __GFP_COMP,
-							get_order(size));
+			return kmalloc_large(size, flags);
 
 		if (!(flags & SLUB_DMA)) {
 			struct kmem_cache *s = kmalloc_slab(size);
