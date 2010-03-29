@@ -190,6 +190,8 @@ int led(int which, int mode)
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
 	static int wnr3500[]	= { 255,  -1,   255,  255,  255,    1,  255,  2		};
+	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+
 	char s[16];
 	int n;
 	int b = 255, c = 255;
@@ -293,6 +295,9 @@ int led(int which, int mode)
 			c = (mode) ? 3 : 7;
 		} else
 			b = wnr3500[which];
+		break;
+	case MODEL_WRT160Nv3:
+		b = wrt160nv3[which];
 		break;
 /*
 	case MODEL_RT390W:

@@ -28,6 +28,7 @@ WRT54GS 3.0, 4.0    BCM5352E              0x0467       42        0x10      0x275
 WRT300N 1.0         BCM4704_BCM5325F_EWC  0x0472       42        0x10      0x10
 WRTSL54GS           BCM4704_BCM5325F      0x042f       42        0x10      0x0018
 WTR54GS v1, v2      BCM5350               0x456        56        0x10      0xb18       (source: BaoWeiQuan)
+WRT160Nv3           BCM4716               0x04cd       42        0x1700                boot_hw_model=WRT160N boot_hw_ver=3.0
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
 WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
@@ -217,6 +218,8 @@ int get_model(void)
 		case HW_BCM4704_BCM5325F_EWC:
 			return MODEL_WRT300N;
 #endif
+		case HW_BCM4716:
+			return MODEL_WRT160Nv3;
 		}
 		return MODEL_WRT54G;
 	case 45:

@@ -745,6 +745,17 @@ static int init_nvram(void)
 			nvram_set("t_fix1", name);
 		}
 		break;
+	case MODEL_WRT160Nv3:
+		mfr = "Linksys";
+		name = "WRT160N v3";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("t_fix1", name);
+		}
+		break;
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
