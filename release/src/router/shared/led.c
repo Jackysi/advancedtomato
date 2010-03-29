@@ -192,7 +192,7 @@ int led(int which, int mode)
 	static int wnr3500[]	= { 255,  -1,   255,  255,  255,    1,  255,  2		};
 	char s[16];
 	int n;
-	int b;
+	int b = 255, c = 255;
 
 	if ((which < 0) || (which >= LED_COUNT)) return 0;
 
@@ -290,6 +290,7 @@ int led(int which, int mode)
 		if (which == LED_DIAG) {
 			// power led gpio: 0x03 - green, 0x07 - amber
 			b = (mode) ? 7 : 3;
+			c = (mode) ? 3 : 7;
 		} else
 			b = wnr3500[which];
 		break;
@@ -326,6 +327,13 @@ SET:
 	if (b < 16) {
 		if (mode != LED_PROBE) {
 			gpio_write(1 << b, mode);
+
+			if (c < 0) {
+				if (c == -99) c = 0;
+				else c = -c;
+			}
+			else mode = !mode;
+			if (c < 16) gpio_write(1 << c, mode);
 		}
 		return 1;
 	}
