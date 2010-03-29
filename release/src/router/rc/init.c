@@ -1091,6 +1091,7 @@ int init_main(int argc, char *argv[])
 		case HALT:
 		case REBOOT:
 			led(LED_DIAG, 1);
+			unlink("/var/notice/sysup");
 
 			run_nvscript("script_shut", NULL, 10);
 
