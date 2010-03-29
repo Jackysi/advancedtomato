@@ -1134,8 +1134,13 @@ static void do_start_stop_samba(int stop, int start)
 		fprintf(fp, " character set = %s\n", nvram_safe_get("smbd_cset"));
 #endif
 
-	fprintf(fp, "%s\n\n", nvram_safe_get("smbd_custom"));
-	
+	nv = nvram_safe_get("smbd_custom");
+	/* add socket options unless overriden by the user */
+	if (strstr(nv, "socket options") == NULL) {
+		fprintf(fp, "socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=16384 SO_SNDBUF=16384\n");
+	}
+	fprintf(fp, "%s\n\n", nv);
+
 	/* configure shares */
 
 	char *buf;
@@ -1160,7 +1165,7 @@ static void do_start_stop_samba(int stop, int start)
 
 			/* access level */
 			if (!strcmp(writeable, "1"))
-				fprintf(fp, " writable = yes\n force user = %s\n", "root");
+				fprintf(fp, " writable = yes\n delete readonly = yes\n force user = root\n");
 			if (!strcmp(hidden, "1"))
 				fprintf(fp, " browseable = no\n");
 
@@ -1205,7 +1210,7 @@ static void do_start_stop_samba(int stop, int start)
 					fprintf(fp, "\n[%s$]\n path = %s/%s\n browseable = no\n",
 						dp->d_name, MOUNT_ROOT, dp->d_name);
 				if (nvram_match("smbd_autoshare", "2") || nvram_match("smbd_autoshare", "3"))	// RW
-					fprintf(fp, " writable = yes\n force user = %s\n", "root");
+					fprintf(fp, " writable = yes\n delete readonly = yes\n force user = root\n");
 
 				cnt++;
 			}
