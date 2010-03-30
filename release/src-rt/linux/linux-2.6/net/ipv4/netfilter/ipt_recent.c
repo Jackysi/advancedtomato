@@ -218,7 +218,7 @@ ipt_recent_match(const struct sk_buff *skb,
 		for (i = 0; i < e->nstamps; i++) {
 			if (info->seconds && time_after(time, e->stamps[i]))
 				continue;
-			if (info->hit_count && ++hits >= info->hit_count) {
+			if (!info->hit_count || ++hits >= info->hit_count) {
 				ret ^= 1;
 				break;
 			}
