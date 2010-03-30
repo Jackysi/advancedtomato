@@ -135,17 +135,19 @@ static void localtime_3(struct xtm *r, time_t time)
 	 * from w repeatedly while counting.)
 	 */
 	if (is_leap(year)) {
+		/* use days_since_leapyear[] in a leap year */
 		for (i = ARRAY_SIZE(days_since_leapyear) - 1;
-		    i > 0 && days_since_year[i] > w; --i)
+		    i > 0 && days_since_leapyear[i] > w; --i)
 			/* just loop */;
+		r->monthday = w - days_since_leapyear[i] + 1;
 	} else {
 		for (i = ARRAY_SIZE(days_since_year) - 1;
 		    i > 0 && days_since_year[i] > w; --i)
 			/* just loop */;
+		r->monthday = w - days_since_year[i] + 1;
 	}
 
 	r->month    = i + 1;
-	r->monthday = w - days_since_year[i] + 1;
 	return;
 }
 
@@ -173,7 +175,7 @@ static int xt_time_match(const struct sk_buff *skb,
 		__net_timestamp((struct sk_buff *)skb);
 
 	stamp = skb->tstamp.tv64;
-	do_div(stamp, NSEC_PER_SEC);
+	stamp = div_s64(stamp, NSEC_PER_SEC);
 
 	if (info->flags & XT_TIME_LOCAL_TZ)
 		/* Adjust for local timezone */
@@ -255,6 +257,17 @@ static struct xt_match xt_time_reg[] __read_mostly = {
 
 static int __init xt_time_init(void)
 {
+	int minutes = sys_tz.tz_minuteswest;
+
+	if (minutes < 0) /* east of Greenwich */
+		printk(KERN_INFO KBUILD_MODNAME
+		       ": kernel timezone is +%02d%02d\n",
+		       -minutes / 60, -minutes % 60);
+	else /* west of Greenwich */
+		printk(KERN_INFO KBUILD_MODNAME
+		       ": kernel timezone is -%02d%02d\n",
+		       minutes / 60, minutes % 60);
+
 	return xt_register_matches(xt_time_reg, ARRAY_SIZE(xt_time_reg));
 }
 
