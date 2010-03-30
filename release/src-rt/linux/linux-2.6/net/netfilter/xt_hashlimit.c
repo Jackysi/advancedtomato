@@ -20,7 +20,10 @@
 #include <linux/mm.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 #include <linux/ipv6.h>
+#include <net/ipv6.h>
+#endif
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
@@ -46,10 +49,12 @@ struct dsthash_dst {
 			__be32 src;
 			__be32 dst;
 		} ip;
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 		struct {
 			__be32 src[4];
 			__be32 dst[4];
 		} ip6;
+#endif
 	} addr;
 	__be16 src_port;
 	__be16 dst_port;
@@ -71,7 +76,7 @@ struct dsthash_ent {
 
 struct xt_hashlimit_htable {
 	struct hlist_node node;		/* global list of all htables */
-	atomic_t use;
+	int use;
 	int family;
 
 	struct hashlimit_cfg cfg;	/* config */
@@ -89,8 +94,7 @@ struct xt_hashlimit_htable {
 	struct hlist_head hash[0];	/* hashtable itself */
 };
 
-static DEFINE_SPINLOCK(hashlimit_lock);	/* protects htables list */
-static DEFINE_MUTEX(hlimit_mutex);	/* additional checkentry protection */
+static DEFINE_MUTEX(hashlimit_mutex);	/* protects htables list */
 static HLIST_HEAD(hashlimit_htables);
 static struct kmem_cache *hashlimit_cachep __read_mostly;
 
@@ -102,7 +106,16 @@ static inline int dst_cmp(const struct dsthash_ent *ent, struct dsthash_dst *b)
 static u_int32_t
 hash_dst(const struct xt_hashlimit_htable *ht, const struct dsthash_dst *dst)
 {
-	return jhash(dst, sizeof(*dst), ht->rnd) % ht->cfg.size;
+	u_int32_t hash = jhash2((const u32 *)dst,
+				sizeof(*dst)/sizeof(u32),
+				ht->rnd);
+	/*
+	 * Instead of returning hash % ht->cfg.size (implying a divide)
+	 * we return the high 32 bits of the (hash * ht->cfg.size) that will
+	 * give results between [0 and cfg.size-1] and same hash distribution,
+	 * but using a multiply, less expensive than a divide
+	 */
+	return ((u64)hash * ht->cfg.size) >> 32;
 }
 
 static struct dsthash_ent *
@@ -201,7 +214,7 @@ static int htable_create(struct xt_hashlimit_info *minfo, int family)
 	for (i = 0; i < hinfo->cfg.size; i++)
 		INIT_HLIST_HEAD(&hinfo->hash[i]);
 
-	atomic_set(&hinfo->use, 1);
+	hinfo->use = 1;
 	hinfo->count = 0;
 	hinfo->family = family;
 	hinfo->rnd_initialized = 0;
@@ -220,9 +233,7 @@ static int htable_create(struct xt_hashlimit_info *minfo, int family)
 	hinfo->timer.expires = jiffies + msecs_to_jiffies(hinfo->cfg.gc_interval);
 	add_timer(&hinfo->timer);
 
-	spin_lock_bh(&hashlimit_lock);
 	hlist_add_head(&hinfo->node, &hashlimit_htables);
-	spin_unlock_bh(&hashlimit_lock);
 
 	return 0;
 }
@@ -234,7 +245,7 @@ static int select_all(struct xt_hashlimit_htable *ht, struct dsthash_ent *he)
 
 static int select_gc(struct xt_hashlimit_htable *ht, struct dsthash_ent *he)
 {
-	return (jiffies >= he->expires);
+	return time_after_eq(jiffies, he->expires);
 }
 
 static void htable_selective_cleanup(struct xt_hashlimit_htable *ht,
@@ -270,9 +281,7 @@ static void htable_gc(unsigned long htlong)
 
 static void htable_destroy(struct xt_hashlimit_htable *hinfo)
 {
-	/* remove timer, if it is pending */
-	if (timer_pending(&hinfo->timer))
-		del_timer(&hinfo->timer);
+	del_timer_sync(&hinfo->timer);
 
 	/* remove proc entry */
 	remove_proc_entry(hinfo->pde->name,
@@ -287,27 +296,24 @@ static struct xt_hashlimit_htable *htable_find_get(char *name, int family)
 	struct xt_hashlimit_htable *hinfo;
 	struct hlist_node *pos;
 
-	spin_lock_bh(&hashlimit_lock);
 	hlist_for_each_entry(hinfo, pos, &hashlimit_htables, node) {
 		if (!strcmp(name, hinfo->pde->name) &&
 		    hinfo->family == family) {
-			atomic_inc(&hinfo->use);
-			spin_unlock_bh(&hashlimit_lock);
+			hinfo->use++;
 			return hinfo;
 		}
 	}
-	spin_unlock_bh(&hashlimit_lock);
 	return NULL;
 }
 
 static void htable_put(struct xt_hashlimit_htable *hinfo)
 {
-	if (atomic_dec_and_test(&hinfo->use)) {
-		spin_lock_bh(&hashlimit_lock);
+	mutex_lock(&hashlimit_mutex);
+	if (--hinfo->use == 0) {
 		hlist_del(&hinfo->node);
-		spin_unlock_bh(&hashlimit_lock);
 		htable_destroy(hinfo);
 	}
+	mutex_unlock(&hashlimit_mutex);
 }
 
 /* The algorithm used is the Simple Token Bucket Filter (TBF)
@@ -371,7 +377,7 @@ hashlimit_init_dst(struct xt_hashlimit_htable *hinfo, struct dsthash_dst *dst,
 		   const struct sk_buff *skb, unsigned int protoff)
 {
 	__be16 _ports[2], *ports;
-	int nexthdr;
+	u8 nexthdr;
 
 	memset(dst, 0, sizeof(*dst));
 
@@ -399,8 +405,9 @@ hashlimit_init_dst(struct xt_hashlimit_htable *hinfo, struct dsthash_dst *dst,
 		if (!(hinfo->cfg.mode &
 		      (XT_HASHLIMIT_HASH_DPT | XT_HASHLIMIT_HASH_SPT)))
 			return 0;
-		nexthdr = ipv6_find_hdr(skb, &protoff, -1, NULL);
-		if (nexthdr < 0)
+		nexthdr = ipv6_hdr(skb)->nexthdr;
+		protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr);
+		if ((int)protoff < 0)
 			return -1;
 		break;
 #endif
@@ -520,19 +527,13 @@ hashlimit_checkentry(const char *tablename,
 	if (r->name[sizeof(r->name) - 1] != '\0')
 		return 0;
 
-	/* This is the best we've got: We cannot release and re-grab lock,
-	 * since checkentry() is called before x_tables.c grabs xt_mutex.
-	 * We also cannot grab the hashtable spinlock, since htable_create will
-	 * call vmalloc, and that can sleep.  And we cannot just re-search
-	 * the list of htable's in htable_create(), since then we would
-	 * create duplicate proc files. -HW */
-	mutex_lock(&hlimit_mutex);
+	mutex_lock(&hashlimit_mutex);
 	r->hinfo = htable_find_get(r->name, match->family);
 	if (!r->hinfo && htable_create(r, match->family) != 0) {
-		mutex_unlock(&hlimit_mutex);
+		mutex_unlock(&hashlimit_mutex);
 		return 0;
 	}
-	mutex_unlock(&hlimit_mutex);
+	mutex_unlock(&hashlimit_mutex);
 
 	/* Ugly hack: For SMP, we only want to use one set */
 	r->u.master = r;
@@ -586,6 +587,7 @@ static struct xt_match xt_hashlimit[] = {
 		.destroy	= hashlimit_destroy,
 		.me		= THIS_MODULE
 	},
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	{
 		.name		= "hashlimit",
 		.family		= AF_INET6,
@@ -600,6 +602,7 @@ static struct xt_match xt_hashlimit[] = {
 		.destroy	= hashlimit_destroy,
 		.me		= THIS_MODULE
 	},
+#endif
 };
 
 /* PROC stuff */
@@ -641,7 +644,8 @@ static void dl_seq_stop(struct seq_file *s, void *v)
 	struct xt_hashlimit_htable *htable = pde->data;
 	unsigned int *bucket = (unsigned int *)v;
 
-	kfree(bucket);
+	if (!IS_ERR(bucket))
+		kfree(bucket);
 	spin_unlock_bh(&htable->lock);
 }
 
@@ -662,6 +666,7 @@ static int dl_seq_real_show(struct dsthash_ent *ent, int family,
 				 ntohs(ent->dst.dst_port),
 				 ent->rateinfo.credit, ent->rateinfo.credit_cap,
 				 ent->rateinfo.cost);
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	case AF_INET6:
 		return seq_printf(s, "%ld " NIP6_FMT ":%u->"
 				     NIP6_FMT ":%u %u %u %u\n",
@@ -672,6 +677,7 @@ static int dl_seq_real_show(struct dsthash_ent *ent, int family,
 				 ntohs(ent->dst.dst_port),
 				 ent->rateinfo.credit, ent->rateinfo.credit_cap,
 				 ent->rateinfo.cost);
+#endif
 	default:
 		BUG();
 		return 0;
@@ -689,7 +695,7 @@ static int dl_seq_show(struct seq_file *s, void *v)
 	if (!hlist_empty(&htable->hash[*bucket])) {
 		hlist_for_each_entry(ent, pos, &htable->hash[*bucket], node)
 			if (dl_seq_real_show(ent, htable->family, s))
-				return 1;
+				return -1;
 	}
 	return 0;
 }
@@ -742,14 +748,17 @@ static int __init xt_hashlimit_init(void)
 				"entry\n");
 		goto err3;
 	}
+	err = 0;
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	hashlimit_procdir6 = proc_mkdir("ip6t_hashlimit", proc_net);
 	if (!hashlimit_procdir6) {
 		printk(KERN_ERR "xt_hashlimit: unable to create proc dir "
 				"entry\n");
-		goto err4;
+		err = -ENOMEM;
 	}
-	return 0;
-err4:
+#endif
+	if (!err)
+		return 0;
 	remove_proc_entry("ipt_hashlimit", proc_net);
 err3:
 	kmem_cache_destroy(hashlimit_cachep);
@@ -763,7 +772,9 @@ err1:
 static void __exit xt_hashlimit_fini(void)
 {
 	remove_proc_entry("ipt_hashlimit", proc_net);
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	remove_proc_entry("ip6t_hashlimit", proc_net);
+#endif
 	kmem_cache_destroy(hashlimit_cachep);
 	xt_unregister_matches(xt_hashlimit, ARRAY_SIZE(xt_hashlimit));
 }
