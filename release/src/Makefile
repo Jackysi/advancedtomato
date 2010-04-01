@@ -190,6 +190,10 @@ define RouterOptions
 		sed -i "/TCONFIG_JFFS2/d" $(1); \
 		echo "# TCONFIG_JFFS2 is not set" >>$(1); \
 	fi; \
+	if [ "$(NO_CIFS)" = "y" ]; then \
+		sed -i "/TCONFIG_CIFS/d" $(1); \
+		echo "# TCONFIG_CIFS is not set" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -210,6 +214,8 @@ define BusyboxExtraOptions
 		echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
 		echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
+		echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
 	fi; \
 	)
 endef
@@ -227,6 +233,8 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKFS_VFAT=y" >>$(1)
 	@sed -i "/CONFIG_MKSWAP/d" $(1)
 	@echo "CONFIG_MKSWAP=y" >>$(1)
+	@sed -i "/CONFIG_FLOCK/d" $(1)
+	@echo "CONFIG_FLOCK=y" >>$(1)
 	@( \
 	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 		sed -i "/CONFIG_LSUSB/d" $(1); \
@@ -252,21 +260,24 @@ define BusyboxNoUSBOptions
 	@echo "# CONFIG_SWAPONOFF is not set" >>$(1)
 endef
 
-ifeq ($(CONFIG_LINUX26),y)
-define BusyboxKernelConfig
-	@sed -i "/CONFIG_FEATURE_2_4_MODULES/d" $(1)
-	@echo "# CONFIG_FEATURE_2_4_MODULES is not set" >>$(1)
-	@sed -i "/CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT/d" $(1)
-	@echo "CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_DEVFS/d" $(1)
-	@echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1)
-	@sed -i "/CONFIG_MKNOD/d" $(1)
-	@echo "CONFIG_MKNOD=y" >>$(1)
+define BusyboxOptions
+	@( \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_2_4_MODULES/d" $(1); \
+		echo "# CONFIG_FEATURE_2_4_MODULES is not set" >>$(1); \
+		sed -i "/CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT/d" $(1); \
+		echo "CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_DEVFS/d" $(1); \
+		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
+		sed -i "/CONFIG_MKNOD/d" $(1); \
+		echo "CONFIG_MKNOD=y" >>$(1); \
+	fi; \
+	if [ "$(NO_CIFS)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" $(1); \
+		echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>$(1); \
+	fi; \
+	)
 endef
-else
-define BusyboxKernelConfig
-endef
-endif
 
 # $(1) - linux/linux[-2.6]/config_$@
 
@@ -344,7 +355,7 @@ a:
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=A DESC="Std" USB="USB"
 	@$(MAKE) all
@@ -360,12 +371,12 @@ b:
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=B DESC="No SSH" USB="USB"
 	@$(MAKE) all
 
-## Make the "normal but without cifs" build
+## Make the "normal but without CIFS" build
 c:
 	@cp router/config_base router/config_$@
 	@cp router/busybox/config_base router/busybox/config_$@
@@ -376,7 +387,7 @@ c:
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>router/busybox/config_$@
@@ -395,6 +406,10 @@ d:
 ifeq ($(CONFIG_LINUX26),y)
 	@sed -i "/TCONFIG_CIFS/d" router/config_$@
 	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
+
+	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
+	@echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>router/busybox/config_$@
+
 	@sed -i "/TCONFIG_JFFS2/d" router/config_$@
 	@echo "# TCONFIG_JFFS2 is not set" >>router/config_$@
 	@sed -i "/TCONFIG_ZEBRA/d" router/config_$@
@@ -403,7 +418,7 @@ endif
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
 	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
@@ -438,7 +453,7 @@ e:
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC=$(VPN) USB="USB"
 	@$(MAKE) all
@@ -458,7 +473,7 @@ m:
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=M DESC="Ext" USB="USB"
 	@$(MAKE) all
@@ -478,9 +493,11 @@ s:
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+ifneq ($(CONFIG_LINUX26),y)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
+endif
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="Std" USB=""
 	@$(MAKE) all
@@ -504,9 +521,11 @@ v:
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+ifneq ($(CONFIG_LINUX26),y)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
+endif
 	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
-	$(call BusyboxKernelConfig, router/busybox/config_$@)
+	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC=$(VPN) USB=""
 	@$(MAKE) all
@@ -519,7 +538,7 @@ r2m:
 r2e:
 	@$(MAKE) e MIPS32=r2 BCM57=y
 
-## Make Mips32r2 "no USB" build (Asus RT-N12)
+## Make Mips32r2 "no USB" build (RT-N12, WRT160Nv3)
 r2s:
 	@$(MAKE) s MIPS32=r2 NO_JFFS=y
 
@@ -584,7 +603,7 @@ libc: cleanlibc
 help:
 	@echo "a            A build (standard)"
 	@echo "b            B build (standard minus SSH)"
-	@echo "c            C build (standard minus cifs)"
+	@echo "c            C build (standard minus CIFS)"
 	@echo "d            D build (standard minus Samba server)"
 	@echo "m            M build (standard plus extra utilities)"
 	@echo "e            E build (standard plus VPN and extra utilities)"
@@ -593,7 +612,7 @@ help:
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
-	@echo "r2v          MIPS Release 2 V build (standard plus VPN)"
+	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 endif
 	@echo "..etc..      other build configs"
