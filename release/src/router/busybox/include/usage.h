@@ -1233,6 +1233,16 @@
      "\n	-j	format the device for jffs2" \
      "\n	-q	don't display progress messages"
 
+#define flock_trivial_usage \
+       "[-sxun] FD|{FILE [-c] PROG ARGS}"
+#define flock_full_usage "\n\n" \
+       "[Un]lock file descriptor, or lock FILE and run PROG\n" \
+     "\nOptions:" \
+     "\n	-s	Shared lock" \
+     "\n	-x	Exclusive lock (default)" \
+     "\n	-u	Unlock FD" \
+     "\n	-n	Fail rather than wait" \
+
 #define fold_trivial_usage \
        "[-bs] [-w WIDTH] [FILE]"
 #define fold_full_usage "\n\n" \
