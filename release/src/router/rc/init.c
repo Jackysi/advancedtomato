@@ -357,6 +357,13 @@ static void check_bootnv(void)
 			goto REBOOT;
 	}
 
+	dirty |= check_nv("aa0", "3");
+	dirty |= check_nv("wl0gpio0", "136");
+	dirty |= check_nv("wl0gpio2", "0");
+	dirty |= check_nv("wl0gpio3", "0");
+	dirty |= check_nv("cctl", "0");
+	dirty |= check_nv("ccode", "0");
+
 	switch (hardware) {
 	case HW_BCM5325E:
 		/* Lower the DDR ram drive strength , the value will be stable for all boards
