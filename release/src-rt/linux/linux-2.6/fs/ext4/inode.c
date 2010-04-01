@@ -1712,6 +1712,7 @@ static const struct address_space_operations ext4_ordered_aops = {
 	.releasepage	= ext4_releasepage,
 	.direct_IO	= ext4_direct_IO,
 	.migratepage	= buffer_migrate_page,
+	.is_partially_uptodate	= block_is_partially_uptodate,
 };
 
 static const struct address_space_operations ext4_writeback_aops = {
@@ -1726,6 +1727,7 @@ static const struct address_space_operations ext4_writeback_aops = {
 	.releasepage	= ext4_releasepage,
 	.direct_IO	= ext4_direct_IO,
 	.migratepage	= buffer_migrate_page,
+	.is_partially_uptodate	= block_is_partially_uptodate,
 };
 
 static const struct address_space_operations ext4_journalled_aops = {
@@ -1739,6 +1741,7 @@ static const struct address_space_operations ext4_journalled_aops = {
 	.bmap		= ext4_bmap,
 	.invalidatepage	= ext4_invalidatepage,
 	.releasepage	= ext4_releasepage,
+	.is_partially_uptodate	= block_is_partially_uptodate,
 };
 
 void ext4_set_aops(struct inode *inode)
