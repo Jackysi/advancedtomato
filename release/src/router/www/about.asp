@@ -90,6 +90,23 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
+
+/* USB-BEGIN */
+<br>USB support integration and GUI,<br>
+/* USB-END */
+Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates,<br>
+support for additional router models and Wireless-N mode.<br>
+Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
+<a href='https://sourceforge.net/projects/tomatousb/'>https://sourceforge.net/projects/tomatousb</a><br>
+<!-- / / / -->
+<br><br>
+
+/* VPN-BEGIN */
+VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+<br><br>
+/* VPN-END */
+
+Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2009 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
