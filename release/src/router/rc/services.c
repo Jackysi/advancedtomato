@@ -1137,7 +1137,7 @@ static void do_start_stop_samba(int stop, int start)
 	nv = nvram_safe_get("smbd_custom");
 	/* add socket options unless overriden by the user */
 	if (strstr(nv, "socket options") == NULL) {
-		fprintf(fp, "socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=16384 SO_SNDBUF=16384\n");
+		fprintf(fp, " socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=16384 SO_SNDBUF=16384\n");
 	}
 	fprintf(fp, "%s\n\n", nv);
 
