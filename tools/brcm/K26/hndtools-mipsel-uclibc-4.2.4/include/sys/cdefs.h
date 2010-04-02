@@ -226,6 +226,12 @@
 # define __attribute_pure__ /* Ignore */
 #endif
 
+#if __GNUC_PREREQ (2,96)
+# define __attribute_const__ __attribute__((__const__))
+#else
+# define __attribute_const__     /* unimplemented */
+#endif
+
 /* At some point during the gcc 3.1 development the `used' attribute
    for functions was introduced.  We don't want to use it unconditionally
    (although this would be possible) since it generates warnings.  */

@@ -561,12 +561,6 @@ enum {
 #define EXT2_DIR_ROUND 			(EXT2_DIR_PAD - 1)
 #define EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) & \
 					 ~EXT2_DIR_ROUND)
-
-static inline ext2_fsblk_t
-ext2_group_first_block_no(struct super_block *sb, unsigned long group_no)
-{
-	return group_no * (ext2_fsblk_t)EXT2_BLOCKS_PER_GROUP(sb) +
-		le32_to_cpu(EXT2_SB(sb)->s_es->s_first_data_block);
-}
+#define EXT2_MAX_REC_LEN		((1<<16)-1)
 
 #endif	/* _LINUX_EXT2_FS_H */

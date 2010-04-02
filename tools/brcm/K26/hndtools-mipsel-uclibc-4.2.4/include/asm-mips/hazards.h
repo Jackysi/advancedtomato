@@ -209,23 +209,25 @@ ASMMACRO(back_to_back_c0_hazard,
  * instructions on R4000 / R4400.  Other processors only have a single cycle
  * hazard so this is nice trick to have an optimal code for a range of
  * processors.
+ * Make it compatible with Mips32r2 processors
  */
 ASMMACRO(mtc0_tlbw_hazard,
-	nop; nop
+	nop; nop; _ehb
 	)
 ASMMACRO(tlbw_use_hazard,
-	nop; nop; nop
+	nop; nop; nop; _ehb
 	)
 ASMMACRO(tlb_probe_hazard,
-	 nop; nop; nop
+	nop; nop; nop; _ehb
 	)
 ASMMACRO(irq_enable_hazard,
+	_ehb
 	)
 ASMMACRO(irq_disable_hazard,
-	nop; nop; nop
+	nop; nop; nop; _ehb
 	)
 ASMMACRO(back_to_back_c0_hazard,
-	 _ssnop; _ssnop; _ssnop;
+	_ssnop; _ssnop; _ssnop; _ehb
 	)
 #define instruction_hazard() do { } while (0)
 
@@ -256,7 +258,7 @@ ASMMACRO(disable_fpu_hazard,
 )
 #else
 ASMMACRO(enable_fpu_hazard,
-	 nop; nop; nop; nop
+	 nop; nop; nop; nop; _ehb
 )
 ASMMACRO(disable_fpu_hazard,
 	 _ehb
