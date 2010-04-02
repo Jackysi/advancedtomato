@@ -276,8 +276,7 @@ int led(int which, int mode)
 	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
-		b = 0;	// Invert power light as diag indicator
-		if (mode != LED_PROBE) mode = !mode;
+		b = -99;	// Invert power light as diag indicator
 		break;
 	case MODEL_RTN12:
 		if (which != LED_DIAG) return 0;
