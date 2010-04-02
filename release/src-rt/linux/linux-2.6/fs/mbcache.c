@@ -396,13 +396,13 @@ mb_cache_destroy(struct mb_cache *cache)
  * if no more memory was available.
  */
 struct mb_cache_entry *
-mb_cache_entry_alloc(struct mb_cache *cache)
+mb_cache_entry_alloc(struct mb_cache *cache, gfp_t gfp_flags)
 {
 	struct mb_cache_entry *ce;
 
-	atomic_inc(&cache->c_entry_count);
-	ce = kmem_cache_alloc(cache->c_entry_cache, GFP_KERNEL);
+	ce = kmem_cache_alloc(cache->c_entry_cache, gfp_flags);
 	if (ce) {
+		atomic_inc(&cache->c_entry_count);
 		INIT_LIST_HEAD(&ce->e_lru_list);
 		INIT_LIST_HEAD(&ce->e_block_list);
 		ce->e_cache = cache;
