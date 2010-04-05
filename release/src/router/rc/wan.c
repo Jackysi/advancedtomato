@@ -571,9 +571,8 @@ void do_wan_routes(char *ifname, int metric, int add)
 
 		if (nmask) {
 			ipaddr = strsep(&nmask, "/");
-			nmask = strsep(&nmask, "/");
 			if (nmask && *nmask) {
-				bits = atoi(nmask);
+				bits = strtol(nmask, &nmask, 10);
 				if (bits >= 1 && bits <= 32) {
 					mask.s_addr = htonl(0xffffffff << (32 - bits));
 					strcpy(netmask, inet_ntoa(mask));
@@ -582,13 +581,13 @@ void do_wan_routes(char *ifname, int metric, int add)
 		}
 		gateway = strsep(&tmp, " ");
 
-		if (gateway) {
+		if (gateway && *gateway) {
 			if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 			else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
 		}
 	}
 	free(routes);
-	
+
 	// ms routes
 	for (msroutes = nvram_get("wan_msroutes"); msroutes && isdigit(*msroutes); ) {
 		// read net length
@@ -613,13 +612,13 @@ void do_wan_routes(char *ifname, int metric, int add)
 
 		// clear bits per RFC
 		ip.s_addr &= mask.s_addr;
-		
+
 		strcpy(ipaddr, inet_ntoa(ip));
 		strcpy(gateway, inet_ntoa(gw));
 		strcpy(netmask, inet_ntoa(mask));
 		if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 		else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
-		
+
 		if (*msroutes == ' ')
 			msroutes++;
 	}
@@ -970,7 +969,8 @@ void stop_wan(void)
 		ifconfig(name, 0, "0.0.0.0", NULL);
 
 	SET_LED(RELEASE_IP);
-	notice_set("wan", "");
+	//notice_set("wan", "");
+	unlink("/var/notice/wan");
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");

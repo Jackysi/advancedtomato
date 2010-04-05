@@ -138,16 +138,21 @@ static int renew(char *ifname)
 
 	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
 	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
-	routes_changed = env2nv("msroutes", "wan_msroutes_save");
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
 	 * and a Router option, the DHCP client MUST ignore the Router option.
-	 * Overwrite "wan_routes" by "staticroutes" value if present.
+	 * Similarly, if the DHCP server returns both a Classless Static Routes
+	 * option and a Static Routes option, the DHCP client MUST ignore the
+	 * Static Routes option.
+	 * Read more: http://www.faqs.org/rfcs/rfc3442.html
 	 */
-	if (!env2nv("staticroutes", "wan_routes_save"))
+	routes_changed = env2nv("staticroutes", "wan_routes_save");
+	if (routes_changed)
+		nvram_set("wan_msroutes_save", "");
+	else {
 		routes_changed |= env2nv("routes", "wan_routes_save");
-	else
-		routes_changed = 1;
+		routes_changed |= env2nv("msroutes", "wan_msroutes_save");
+	}
 	changed |= routes_changed;
 
 	if ((a = getenv("lease")) != NULL) {
@@ -187,20 +192,25 @@ static int bound(char *ifname)
 
 	unlink(renewing);
 
+	nvram_set("wan_routes", "");
+	nvram_set("wan_msroutes", "");
 	env2nv("ip", "wan_ipaddr");
 	env2nv("subnet", "wan_netmask");
 	env2nv_gateway("wan_gateway");
 	env2nv("dns", "wan_get_dns");
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
-	env2nv("msroutes", "wan_msroutes");
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
 	 * and a Router option, the DHCP client MUST ignore the Router option.
-	 * Overwrite "wan_routes" by "staticroutes" value if present.
+	 * Similarly, if the DHCP server returns both a Classless Static Routes
+	 * option and a Static Routes option, the DHCP client MUST ignore the
+	 * Static Routes option.
 	 */
-	if (!env2nv("staticroutes", "wan_routes"))
+	if (!env2nv("staticroutes", "wan_routes")) {
 		env2nv("routes", "wan_routes");
+		env2nv("msroutes", "wan_msroutes");
+	}
 
 	expires(atoi(safe_getenv("lease")));
 

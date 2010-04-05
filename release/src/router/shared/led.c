@@ -189,7 +189,9 @@ int led(int which, int mode)
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
-	static int wnr3500[]	= { 255,  -1,   255,  255,  255,    1,  255,  2		};
+	static int wnr3500[]	= { 255, 255,   255,  -99,  255,   -1,  255,   -2	};
+	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+
 	char s[16];
 	int n;
 	int b = 255, c = 255;
@@ -274,8 +276,7 @@ int led(int which, int mode)
 	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
-		b = 0;	// Invert power light as diag indicator
-		if (mode != LED_PROBE) mode = !mode;
+		b = -99;	// Invert power light as diag indicator
 		break;
 	case MODEL_RTN12:
 		if (which != LED_DIAG) return 0;
@@ -293,6 +294,9 @@ int led(int which, int mode)
 			c = (mode) ? 3 : 7;
 		} else
 			b = wnr3500[which];
+		break;
+	case MODEL_WRT160Nv3:
+		b = wrt160nv3[which];
 		break;
 /*
 	case MODEL_RT390W:

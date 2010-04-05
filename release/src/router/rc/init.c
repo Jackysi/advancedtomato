@@ -324,6 +324,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
+		dirty |= check_nv("ledbh0", "7");
 		break;
 	case MODEL_RTN10:
 		dirty |= check_nv("vlan1ports", "4 5");
@@ -356,6 +357,13 @@ static void check_bootnv(void)
 			mtd_erase("nvram");
 			goto REBOOT;
 	}
+
+	dirty |= check_nv("aa0", "3");
+	dirty |= check_nv("wl0gpio0", "136");
+	dirty |= check_nv("wl0gpio2", "0");
+	dirty |= check_nv("wl0gpio3", "0");
+	dirty |= check_nv("cctl", "0");
+	dirty |= check_nv("ccode", "0");
 
 	switch (hardware) {
 	case HW_BCM5325E:
@@ -728,10 +736,22 @@ static int init_nvram(void)
 		break;
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
-		name = "WNR3500L/v2";
-		features = SUP_SES | SUP_80211N | SUP_1000ET;
+		name = "WNR3500L/U/v2";
+		features = SUP_SES | SUP_AOSS_LED | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("sromrev", "3");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("portprio_support", "0");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WRT160Nv3:
+		mfr = "Linksys";
+		name = "WRT160N v3";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
+		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
@@ -1091,6 +1111,7 @@ int init_main(int argc, char *argv[])
 		case HALT:
 		case REBOOT:
 			led(LED_DIAG, 1);
+			unlink("/var/notice/sysup");
 
 			run_nvscript("script_shut", NULL, 10);
 

@@ -155,6 +155,10 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 6;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_WRT160Nv3:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 5;
+		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {

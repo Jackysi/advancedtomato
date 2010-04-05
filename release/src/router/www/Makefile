@@ -43,11 +43,6 @@ ifneq ($(CONFIG_LINUX26),y)
 		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
 	done
 endif
-	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
-		sed	-i "/LINUX26-BEGIN/d" $$F; \
-		sed	-i "/LINUX26-END/d" $$F; \
-	done
 
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
@@ -66,11 +61,6 @@ ifneq ($(TCONFIG_CIFS),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
-	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
-		sed	-i "/CIFS-BEGIN/d" $$F; \
-		sed	-i "/CIFS-END/d" $$F; \
-	done
 
 # Only include the JFFS pages if JFFS is configured in.
 ifneq ($(TCONFIG_JFFS2),y)
@@ -78,18 +68,11 @@ ifneq ($(TCONFIG_JFFS2),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 endif
-	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
-		sed	-i "/JFFS2-BEGIN/d" $$F; \
-		sed	-i "/JFFS2-END/d" $$F; \
-	done
 
 # Only include the Zebra options if Zebra is configured in.
 ifneq ($(TCONFIG_ZEBRA),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ZEBRA-BEGIN/,/ZEBRA-END/d"
 endif
-	sed -i "/ZEBRA-BEGIN/d" $(INSTALLDIR)/www/advanced-routing.asp
-	sed -i "/ZEBRA-END/d" $(INSTALLDIR)/www/advanced-routing.asp
 
 # Only include extra themes if USB Extras are configured in.
 ifneq ($(TCONFIG_USB_EXTRAS),y)
@@ -99,24 +82,19 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
 endif
-	sed -i "/THEMES-BEGIN/d" $(INSTALLDIR)/www/admin-access.asp
-	sed -i "/THEMES-END/d" $(INSTALLDIR)/www/admin-access.asp
 
 # Only include NTFS settings if NTFS support is configured in.
 ifneq ($(TCONFIG_NTFS),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/NTFS-BEGIN/,/NTFS-END/d"
 endif
-	sed -i "/NTFS-BEGIN/d" $(INSTALLDIR)/www/nas-usb.asp
-	sed -i "/NTFS-END/d" $(INSTALLDIR)/www/nas-usb.asp
 
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
 	rm -f $(INSTALLDIR)/www/nas-*.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/admin-buttons.asp -e "/USB-BEGIN/,/USB-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
 endif
-	sed -i "/USB-BEGIN/d" $(INSTALLDIR)/www/admin-buttons.asp
-	sed -i "/USB-END/d" $(INSTALLDIR)/www/admin-buttons.asp
 
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
@@ -136,9 +114,28 @@ ifeq ($(TCONFIG_OPENVPN),y)
 else
 	rm -f $(INSTALLDIR)/www/vpn*
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
-	
+
+# clean up
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
+		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
+		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
+		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
+		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \
+		-e "/THEMES-BEGIN/d"	-e "/THEMES-END/d" \
+		-e "/JFFS2-BEGIN/d"	-e "/JFFS2-END/d" \
+		-e "/CIFS-BEGIN/d"	-e "/CIFS-END/d" \
+		-e "/ZEBRA-BEGIN/d"	-e "/ZEBRA-END/d" \
+		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
+		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
+		|| true; \
+	done
+
 # make sure old and debugging crap is gone
 	@rm -f $(INSTALLDIR)/www/debug.js
 	@rm -f $(INSTALLDIR)/www/*-x.*
@@ -149,5 +146,5 @@ endif
 
 # remove C-style comments from java files. All "control" comments have been processed by now.
 	for F in $(wildcard *.js *.jsx); do \
-		$(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
+		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
 	done
