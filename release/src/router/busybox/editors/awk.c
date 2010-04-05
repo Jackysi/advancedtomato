@@ -1104,15 +1104,13 @@ static node *new_node(uint32_t info)
 	return n;
 }
 
-static node *mk_re_node(const char *s, node *n, regex_t *re)
+static void mk_re_node(const char *s, node *n, regex_t *re)
 {
 	n->info = OC_REGEXP;
 	n->l.re = re;
 	n->r.ire = re + 1;
 	xregcomp(re, s, REG_EXTENDED);
 	xregcomp(re + 1, s, REG_EXTENDED | REG_ICASE);
-
-	return n;
 }
 
 static node *condition(void)
@@ -1508,13 +1506,17 @@ static regex_t *as_regex(node *op, regex_t *preg)
 	return preg;
 }
 
-/* gradually increasing buffer */
-static void qrealloc(char **b, int n, int *size)
+/* gradually increasing buffer.
+ * note that we reallocate even if n == old_size,
+ * and thus there is at least one extra allocated byte.
+ */
+static char* qrealloc(char *b, int n, int *size)
 {
-	if (!*b || n >= *size) {
+	if (!b || n >= *size) {
 		*size = n + (n>>1) + 80;
-		*b = xrealloc(*b, *size);
+		b = xrealloc(b, *size);
 	}
+	return b;
 }
 
 /* resize field storage space */
@@ -1674,7 +1676,7 @@ static void handle_special(var *v)
 				memcpy(b+len, sep, sl);
 				len += sl;
 			}
-			qrealloc(&b, len+l+sl, &bsize);
+			b = qrealloc(b, len+l+sl, &bsize);
 			memcpy(b+len, s, l);
 			len += l;
 		}
@@ -1786,7 +1788,8 @@ static int awk_getline(rstream *rsm, var *v)
 	c = (char) rsplitter.n.info;
 	rp = 0;
 
-	if (!m) qrealloc(&m, 256, &size);
+	if (!m)
+		m = qrealloc(m, 256, &size);
 	do {
 		b = m + a;
 		so = eo = p;
@@ -1827,7 +1830,7 @@ static int awk_getline(rstream *rsm, var *v)
 			a = 0;
 		}
 
-		qrealloc(&m, a+p+128, &size);
+		m = qrealloc(m, a+p+128, &size);
 		b = m + a;
 		pp = p;
 		p += safe_read(fd, b+p, size-p-1);
@@ -1906,7 +1909,7 @@ static char *awk_printf(node *n)
 		}
 
 		incr = (f - s) + MAXVARFMT;
-		qrealloc(&b, incr + i, &bsize);
+		b = qrealloc(b, incr + i, &bsize);
 		c = *f;
 		if (c != '\0') f++;
 		c1 = *f;
@@ -1919,7 +1922,7 @@ static char *awk_printf(node *n)
 					(char)getvar_i(arg) : *getvar_s(arg));
 		} else if (c == 's') {
 			s1 = getvar_s(arg);
-			qrealloc(&b, incr+i+strlen(s1), &bsize);
+			b = qrealloc(b, incr+i+strlen(s1), &bsize);
 			i += sprintf(b+i, s, s1);
 		} else {
 			i += fmt_num(b+i, incr, s, getvar_i(arg), FALSE);
@@ -1937,78 +1940,102 @@ static char *awk_printf(node *n)
 	return b;
 }
 
-/* common substitution routine
- * replace (nm) substring of (src) that match (n) with (repl), store
- * result into (dest), return number of substitutions. If nm=0, replace
- * all matches. If src or dst is NULL, use $0. If ex=TRUE, enable
- * subexpression matching (\1-\9)
+/* Common substitution routine.
+ * Replace (nm)'th substring of (src) that matches (rn) with (repl),
+ * store result into (dest), return number of substitutions.
+ * If nm = 0, replace all matches.
+ * If src or dst is NULL, use $0.
+ * If subexp != 0, enable subexpression matching (\1-\9).
  */
-static int awk_sub(node *rn, const char *repl, int nm, var *src, var *dest, int ex)
+static int awk_sub(node *rn, const char *repl, int nm, var *src, var *dest, int subexp)
 {
-	char *ds = NULL;
-	const char *s;
+	char *resbuf;
 	const char *sp;
-	int c, i, j, di, rl, so, eo, nbs, n, dssize;
+	int match_no, residx, replen, resbufsize;
+	int regexec_flags;
 	regmatch_t pmatch[10];
-	regex_t sreg, *re;
+	regex_t sreg, *regex;
 
-	re = as_regex(rn, &sreg);
-	if (!src) src = intvar[F0];
-	if (!dest) dest = intvar[F0];
+	resbuf = NULL;
+	residx = 0;
+	match_no = 0;
+	regexec_flags = 0;
+	regex = as_regex(rn, &sreg);
+	sp = getvar_s(src ? src : intvar[F0]);
+	replen = strlen(repl);
+	while (regexec(regex, sp, 10, pmatch, regexec_flags) == 0) {
+		int so = pmatch[0].rm_so;
+		int eo = pmatch[0].rm_eo;
 
-	i = di = 0;
-	sp = getvar_s(src);
-	rl = strlen(repl);
-	while (regexec(re, sp, 10, pmatch, sp==getvar_s(src) ? 0 : REG_NOTBOL) == 0) {
-		so = pmatch[0].rm_so;
-		eo = pmatch[0].rm_eo;
+		//bb_error_msg("match %u: [%u,%u] '%s'%p", match_no+1, so, eo, sp,sp);
+		resbuf = qrealloc(resbuf, residx + eo + replen, &resbufsize);
+		memcpy(resbuf + residx, sp, eo);
+		residx += eo;
+		if (++match_no >= nm) {
+			const char *s;
+			int nbs;
 
-		qrealloc(&ds, di + eo + rl, &dssize);
-		memcpy(ds + di, sp, eo);
-		di += eo;
-		if (++i >= nm) {
 			/* replace */
-			di -= (eo - so);
+			residx -= (eo - so);
 			nbs = 0;
 			for (s = repl; *s; s++) {
-				ds[di++] = c = *s;
+				char c = resbuf[residx++] = *s;
 				if (c == '\\') {
 					nbs++;
 					continue;
 				}
-				if (c == '&' || (ex && c >= '0' && c <= '9')) {
-					di -= ((nbs + 3) >> 1);
+				if (c == '&' || (subexp && c >= '0' && c <= '9')) {
+					int j;
+					residx -= ((nbs + 3) >> 1);
 					j = 0;
 					if (c != '&') {
 						j = c - '0';
 						nbs++;
 					}
 					if (nbs % 2) {
-						ds[di++] = c;
+						resbuf[residx++] = c;
 					} else {
-						n = pmatch[j].rm_eo - pmatch[j].rm_so;
-						qrealloc(&ds, di + rl + n, &dssize);
-						memcpy(ds + di, sp + pmatch[j].rm_so, n);
-						di += n;
+						int n = pmatch[j].rm_eo - pmatch[j].rm_so;
+						resbuf = qrealloc(resbuf, residx + replen + n, &resbufsize);
+						memcpy(resbuf + residx, sp + pmatch[j].rm_so, n);
+						residx += n;
 					}
 				}
 				nbs = 0;
 			}
 		}
 
+		regexec_flags = REG_NOTBOL;
 		sp += eo;
-		if (i == nm) break;
+		if (match_no == nm)
+			break;
 		if (eo == so) {
-			ds[di] = *sp++;
-			if (!ds[di++]) break;
+			/* Empty match (e.g. "b*" will match anywhere).
+			 * Advance by one char. */
+//BUG (bug 1333):
+//gsub(/\<b*/,"") on "abc" will reach this point, advance to "bc"
+//... and will erroneously match "b" even though it is NOT at the word start.
+//we need REG_NOTBOW but it does not exist...
+//TODO: if EXTRA_COMPAT=y, use GNU matching and re_search,
+//it should be able to do it correctly.
+			/* Subtle: this is safe only because
+			 * qrealloc allocated at least one extra byte */
+			resbuf[residx] = *sp;
+			if (*sp == '\0')
+				goto ret;
+			sp++;
+			residx++;
 		}
 	}
 
-	qrealloc(&ds, di + strlen(sp), &dssize);
-	strcpy(ds + di, sp);
-	setvar_p(dest, ds);
-	if (re == &sreg) regfree(re);
-	return i;
+	resbuf = qrealloc(resbuf, residx + strlen(sp), &resbufsize);
+	strcpy(resbuf + residx, sp);
+ ret:
+	//bb_error_msg("end sp:'%s'%p", sp,sp);
+	setvar_p(dest ? dest : intvar[F0], resbuf);
+	if (regex == &sreg)
+		regfree(regex);
+	return match_no;
 }
 
 static var *exec_builtin(node *op, var *res)
