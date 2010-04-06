@@ -337,10 +337,14 @@ const defaults_t defaults[] = {
 	{ "nf_sip",			"1"				},
 	{ "ct_hashsize",		""				},
 #endif
+#ifdef LINUX26
+	{ "nf_rtsp",			"0"				},
+#else
 	{ "nf_rtsp",			"1"				},
-	{ "nf_pptp",			"0"				},
+#endif
+	{ "nf_pptp",			"1"				},
 	{ "nf_h323",			"1"				},
-	{ "nf_ftp",				"1"				},
+	{ "nf_ftp",			"1"				},
 
 // advanced-mac
 	{ "mac_wan",			""				},
