@@ -46,6 +46,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 
 	check_id(url);
 
+#ifdef TCONFIG_JFFS2
 	// quickly check if JFFS2 is mounted by checking if /jffs/ is not squashfs
 	struct statfs sf;
 	if ((statfs("/jffs", &sf) != 0) || (sf.f_type != 0x73717368)) {
@@ -53,6 +54,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 			"JFFS2 partition, please backup the contents, disable JFFS2, then reboot the router";
 		goto ERROR;
 	}
+#endif
 
 	// skip the rest of the header
 	if (!skip_header(&len)) goto ERROR;

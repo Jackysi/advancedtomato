@@ -67,6 +67,7 @@ ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(INSTALLDIR)/www/admin-jffs2.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
+	sed -i $(INSTALLDIR)/www/admin-upgrade.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 endif
 
 # Only include the Zebra options if Zebra is configured in.
