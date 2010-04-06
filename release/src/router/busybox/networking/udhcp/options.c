@@ -48,7 +48,7 @@ const struct dhcp_option dhcp_options[] = {
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	{ OPTION_STR1035 | OPTION_LIST            , 0x77 }, /* search             */
 #endif
-	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0x79 }, /* DHCP_STATIC_ROUTES */
+	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
 	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x21 }, /* routes             */
 	{ OPTION_U8 | OPTION_LIST     | OPTION_REQ, 0xF9 }, /* msroutes           */
 	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
