@@ -155,7 +155,7 @@ int start_pptp(int mode)
 			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 	}
 
-	eval("pppd");
+	xstart("pppd");
 
 	if (nvram_match("ppp_demand", "1")) {
 #if 1	// 43011: added by crazy 20070720
@@ -169,7 +169,7 @@ int start_pptp(int mode)
 #endif
 	
 		// Trigger Connect On Demand if user ping pptp server
-		eval("listen", nvram_safe_get("lan_ifname"));
+		xstart("listen", nvram_safe_get("lan_ifname"));
 	}
 
 	TRACE_PT("end\n");
@@ -388,7 +388,7 @@ void start_l2tp(void)
 {
 	TRACE_PT("begin\n");
 
-	int ret;
+	pid_t pid;
 	FILE *fp;
 	char *l2tp_argv[] = { "l2tpd", NULL };
 	char l2tpctrl[64];
@@ -484,11 +484,11 @@ void start_l2tp(void)
 	//ifconfig(nvram_safe_get("wan_ifname"), IFUP,
 	//	 nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
-	ret = _eval(l2tp_argv, NULL, 0, NULL);
+	_eval(l2tp_argv, NULL, 0, &pid);
 	sleep(1);
 
 	if (nvram_match("ppp_demand", "1")) {
-		eval("listen", nvram_safe_get("lan_ifname"));
+		xstart("listen", nvram_safe_get("lan_ifname"));
 	}
 	else {
 		snprintf(l2tpctrl, sizeof(l2tpctrl), "l2tp-control \"start-session %s\"",
@@ -928,13 +928,11 @@ void start_wan_done(char *wan_ifname)
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
-#if 0	//!!TB
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
 		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
 	}
-#endif
 
 	if (wanup)
 		start_vpn_eas();
