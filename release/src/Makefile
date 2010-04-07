@@ -90,7 +90,7 @@ all: tomato_ver
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log
 ifeq ($(wildcard include/bcm20xx.h),)
-	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-t image/tomato.trx \
 		-l W54G,image/WRT54G_WRT54GL.bin \
 		-l W54S,image/WRT54GS.bin \
@@ -99,7 +99,7 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		-m 0x10577050,image/WR850G.bin \
 		| tee -a fpkg.log
 else
-	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -i router/mipsel-uclibc/target.image \
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
 endif
 
