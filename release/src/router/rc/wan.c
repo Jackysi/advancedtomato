@@ -155,7 +155,7 @@ int start_pptp(int mode)
 			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 	}
 
-	eval("pppd");
+	xstart("pppd");
 
 	if (nvram_match("ppp_demand", "1")) {
 #if 1	// 43011: added by crazy 20070720
@@ -169,7 +169,7 @@ int start_pptp(int mode)
 #endif
 	
 		// Trigger Connect On Demand if user ping pptp server
-		eval("listen", nvram_safe_get("lan_ifname"));
+		xstart("listen", nvram_safe_get("lan_ifname"));
 	}
 
 	TRACE_PT("end\n");
@@ -388,7 +388,7 @@ void start_l2tp(void)
 {
 	TRACE_PT("begin\n");
 
-	int ret;
+	pid_t pid;
 	FILE *fp;
 	char *l2tp_argv[] = { "l2tpd", NULL };
 	char l2tpctrl[64];
@@ -484,11 +484,11 @@ void start_l2tp(void)
 	//ifconfig(nvram_safe_get("wan_ifname"), IFUP,
 	//	 nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
-	ret = _eval(l2tp_argv, NULL, 0, NULL);
+	_eval(l2tp_argv, NULL, 0, &pid);
 	sleep(1);
 
 	if (nvram_match("ppp_demand", "1")) {
-		eval("listen", nvram_safe_get("lan_ifname"));
+		xstart("listen", nvram_safe_get("lan_ifname"));
 	}
 	else {
 		snprintf(l2tpctrl, sizeof(l2tpctrl), "l2tp-control \"start-session %s\"",
@@ -551,7 +551,7 @@ void force_to_dial(void)
 
 void do_wan_routes(char *ifname, int metric, int add)
 {
-	char *routes, *msroutes, *tmp;
+	char *routes, *tmp;
 	int bit, bits;
 	struct in_addr ip, gw, mask;
 
@@ -562,8 +562,8 @@ void do_wan_routes(char *ifname, int metric, int add)
 	if (!nvram_get_int("dhcp_routes")) return;
 
 	// staticroutes or routes
-	routes = strdup(nvram_safe_get("wan_routes"));
-	for (tmp = routes; tmp && *tmp; ) {
+	tmp = routes = strdup(nvram_safe_get("wan_routes"));
+	while (tmp && *tmp) {
 		char *ipaddr, *gateway, *nmask;
 
 		ipaddr = nmask = strsep(&tmp, " ");
@@ -589,25 +589,26 @@ void do_wan_routes(char *ifname, int metric, int add)
 	free(routes);
 
 	// ms routes
-	for (msroutes = nvram_get("wan_msroutes"); msroutes && isdigit(*msroutes); ) {
+	routes = nvram_get("wan_msroutes");
+	while (routes && isdigit(*routes)) {
 		// read net length
-		bits = strtol(msroutes, &msroutes, 10);
-		if (bits < 1 || bits > 32 || *msroutes != ' ')
+		bits = strtol(routes, &routes, 10);
+		if (bits < 1 || bits > 32 || *routes != ' ')
 			break;
 		mask.s_addr = htonl(0xffffffff << (32 - bits));
 
 		// read network address
 		for (ip.s_addr = 0, bit = 24; bit > (24 - bits); bit -= 8) {
-			if (*msroutes++ != ' ' || !isdigit(*msroutes))
+			if (*routes++ != ' ' || !isdigit(*routes))
 				return;
-			ip.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
+			ip.s_addr |= htonl(strtol(routes, &routes, 10) << bit);
 		}
 
 		// read gateway
-		for (gw.s_addr = 0, bit = 24; bit >= 0 && *msroutes; bit -= 8) {
-			if (*msroutes++ != ' ' || !isdigit(*msroutes))
+		for (gw.s_addr = 0, bit = 24; bit >= 0 && *routes; bit -= 8) {
+			if (*routes++ != ' ' || !isdigit(*routes))
 				return;
-			gw.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
+			gw.s_addr |= htonl(strtol(routes, &routes, 10) << bit);
 		}
 
 		// clear bits per RFC
@@ -616,11 +617,12 @@ void do_wan_routes(char *ifname, int metric, int add)
 		strcpy(ipaddr, inet_ntoa(ip));
 		strcpy(gateway, inet_ntoa(gw));
 		strcpy(netmask, inet_ntoa(mask));
+
 		if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 		else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
 
-		if (*msroutes == ' ')
-			msroutes++;
+		if (*routes == ' ')
+			routes++;
 	}
 }
 
@@ -926,13 +928,11 @@ void start_wan_done(char *wan_ifname)
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
-#if 0	//!!TB
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
 		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
 	}
-#endif
 
 	if (wanup)
 		start_vpn_eas();

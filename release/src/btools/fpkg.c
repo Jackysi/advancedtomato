@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <time.h>
@@ -111,7 +112,7 @@ void help(void)
 		"fpkg - Package a firmware\n"
 		"Copyright (C) 2007 Jonathan Zarate\n"
 		"\n"
-		"Usage: -i <input> [-i <input>] {output}\n"
+		"Usage: -i <input> [-a <align>] [-i <input>] [-a <align>] {output}\n"
 		"Output:\n"
 		" TRX:      -t <output file>\n"
 		" Linksys:  -l <id>,<output file>\n"
@@ -169,6 +170,32 @@ void load_image(const char *fname)
 	strncpy(names[trx_count], fname, sizeof(names[0]) -1);
 	trx->offsets[trx_count++] = trx->length;
 	trx->length += rsize;
+}
+
+void align_trx(const char *align)
+{
+	uint32_t len;
+	size_t n;
+	char *e;
+
+	errno = 0;
+	n = strtoul(align, &e, 0);
+	if (errno || (e == align) || *e) {
+		fprintf(stderr, "Illegal numeric string\n");
+		help();
+	}
+
+	if (trx_final) {
+		fprintf(stderr, "Cannot align if an output has already been written.\n");
+		exit(1);
+	}
+
+	len = ROUNDUP(trx->length, n);
+	if (len > TRX_MAX_LEN) {
+		fprintf(stderr, "Total size is too big.\n");
+		exit(1);
+	}
+	trx->length = len;
 }
 
 void finalize_trx(void)
@@ -289,10 +316,13 @@ int main(int argc, char **argv)
 	}
 	trx->length = sizeof(*trx);
 
-	while ((o = getopt(argc, argv, "i:t:l:m:")) != -1) {
+	while ((o = getopt(argc, argv, "i:a:t:l:m:")) != -1) {
 		switch (o) {
 		case 'i':
 			load_image(optarg);
+			break;
+		case 'a':
+			align_trx(optarg);
 			break;
 		case 't':
 			create_trx(optarg);
@@ -324,6 +354,7 @@ int main(int argc, char **argv)
 		printf("   Images ...... : %u (0x%08x)\n", l , l);
 		printf("   Padding ..... : %d\n", trx_padding);
 		/* Reserved: 2 EBs for pmon, 1 EB for nvram. */
+		l = trx->length;
 		if (l < (4 * 1024 * 1024) - (3 * 64 * 1024))
 			l = (4 * 1024 * 1024) - (3 * 64 * 1024) - l;
 		else

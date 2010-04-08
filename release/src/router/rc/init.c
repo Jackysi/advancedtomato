@@ -338,6 +338,12 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
+	case MODEL_WRT160Nv3:
+		if (nvram_match("clkdivsf", "4")) {
+			// fix lan port numbering on CSE41, CSE51
+			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
+		}
+		break;
 
 	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;

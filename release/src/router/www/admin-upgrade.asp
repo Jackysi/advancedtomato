@@ -32,7 +32,9 @@
 
 <script type='text/javascript'>
 
+/* JFFS2-BEGIN */
 // <% nvram("jffs2_on"); %>
+/* JFFS2-END */
 
 function clock()
 {
@@ -105,12 +107,14 @@ function upgrade()
 	</div>
 </div>
 
+/* JFFS2-BEGIN */
 <div class='note-disabledw' style='display:none' id='jwarn'>
 <b>Cannot upgrade if JFFS is enabled.</b><br><br>
 An upgrade may overwrite the JFFS partition currently in use. Before upgrading,
 please backup the contents of the JFFS partition, disable it, then reboot the router.<br><br><br>
 <a href='admin-jffs2.asp'>Disable &raquo;</a>
 </div>
+/* JFFS2-END */
 
 <div id='afu-progress' style='display:none;margin:auto'>
 	<img src='spin.gif' style='vertical-align:baseline'> <span id='afu-time'>0:00</span><br>
@@ -123,11 +127,13 @@ please backup the contents of the JFFS partition, disable it, then reboot the ro
 </td></tr>
 <tr><td id='footer' colspan=2>&nbsp;</td></tr>
 </table>
+/* JFFS2-BEGIN */
 <script type='text/javascript'>
 if (nvram.jffs2_on != '0') {
 	E('jwarn').style.display = '';
 	E('afu-input').style.display = 'none';
 }
 </script>
+/* JFFS2-END */
 </body>
 </html>

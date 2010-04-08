@@ -378,13 +378,11 @@ void setup_conntrack(void)
 		if (atoi(buf) > 0) nvram_set("ct_max", buf);
 	}
 
-	if (!nvram_match("nf_pptp", "0")) {
-		ct_modprobe("proto_gre");
-		ct_modprobe("pptp");
+	if (!nvram_match("nf_rtsp", "0")) {
+		ct_modprobe("rtsp");
 	}
 	else {
-		ct_modprobe_r("pptp");
-		ct_modprobe_r("proto_gre");
+		ct_modprobe_r("rtsp");
 	}
 
 	if (!nvram_match("nf_h323", "0")) {
@@ -402,13 +400,6 @@ void setup_conntrack(void)
 		ct_modprobe_r("sip");
 	}
 #endif
-
-	if (!nvram_match("nf_rtsp", "0")) {
-		ct_modprobe("rtsp");
-	}
-	else {
-		ct_modprobe_r("rtsp");
-	}
 
 	// !!TB - FTP Server
 #ifdef TCONFIG_FTP
@@ -433,6 +424,14 @@ void setup_conntrack(void)
 		ct_modprobe_r("ftp");
 	}
 
+	if (!nvram_match("nf_pptp", "0")) {
+		ct_modprobe("proto_gre");
+		ct_modprobe("pptp");
+	}
+	else {
+		ct_modprobe_r("pptp");
+		ct_modprobe_r("proto_gre");
+	}
 }
 
 void set_mac(const char *ifname, const char *nvname, int plus)
