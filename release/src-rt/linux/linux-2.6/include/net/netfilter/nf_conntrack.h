@@ -22,7 +22,6 @@
 #include <linux/netfilter/nf_conntrack_tcp.h>
 #include <linux/netfilter/nf_conntrack_sctp.h>
 #include <linux/netfilter/nf_conntrack_proto_gre.h>
-#include <linux/netfilter/nf_conntrack_rtsp.h>
 #include <net/netfilter/ipv4/nf_conntrack_icmp.h>
 #include <net/netfilter/ipv6/nf_conntrack_icmpv6.h>
 
@@ -53,7 +52,6 @@ union nf_conntrack_proto {
 	struct ip_ct_icmp icmp;
 	struct nf_ct_icmpv6 icmpv6;
 	struct nf_ct_gre gre;
-	struct nf_ct_rtsp rtsp;
 };
 
 union nf_conntrack_expect_proto {

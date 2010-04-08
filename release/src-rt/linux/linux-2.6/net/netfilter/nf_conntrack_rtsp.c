@@ -31,7 +31,6 @@
 #include <linux/module.h>
 #include <linux/netfilter.h>
 #include <linux/ip.h>
-#include <linux/udp.h>
 #include <linux/inet.h>
 #include <net/tcp.h>
 
@@ -76,11 +75,9 @@ MODULE_PARM_DESC(setup_timeout, "timeout on for unestablished data channels");
 static char *rtsp_buffer;
 static DEFINE_SPINLOCK(rtsp_buffer_lock);
 
-
 unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
 				 enum ip_conntrack_info ctinfo,
-				 unsigned int matchoff, unsigned int matchlen,
-				 struct ip_ct_rtsp_expect* prtspexp,
+				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
 				 struct nf_conntrack_expect *exp);
 void (*nf_nat_rtsp_hook_expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp);
 
@@ -94,264 +91,9 @@ EXPORT_SYMBOL_GPL(nf_nat_rtsp_hook);
  */
 #define MAX_PORT_MAPS 16
 
-static u_int16_t g_tr_port = 7000;
-
-#define PAUSE_TIMEOUT      (5 * HZ)
-#define RTSP_PAUSE_TIMEOUT (6 * HZ)
-
 /*** default port list was here in the masq code: 554, 3030, 4040 ***/
 
 #define SKIP_WSPACE(ptr,len,off) while(off < len && isspace(*(ptr+off))) { off++; }
-
-struct _rtsp_data_ports rtsp_data_ports[MAX_PORT_MAPS];
-//EXPORT_SYMBOL_GPL(rtsp_data_ports);
-
-/*
- * Performs NAT to client port mapping. Incoming UDP ports are looked up and
- * appropriate client ports are extracted from the table and returned.
- * Return client_udp_port or 0 when no matches found.
- */
-static u_int16_t
-rtsp_nat_to_client_pmap(u_int16_t nat_port)
-{
-    int i;
-    u_int16_t tr_port = 0;
-
-    for (i = 0; i < MAX_PORT_MAPS; i++) {
-        if (!rtsp_data_ports[i].in_use)
-            continue;
-        /*
-         * Check if the UDP ports match any of our NAT ports and return
-         * the client UDP ports.
-         */
-        DEBUGP("Searching at index %d NAT_PORT %hu CLIENT PORTS (%hu-%hu)\n", i,
-               ntohs(nat_port), rtsp_data_ports[i].client_udp_lo,
-               rtsp_data_ports[i].client_udp_hi);
-        if (ntohs(nat_port) == rtsp_data_ports[i].nat_udp_lo ||
-            ntohs(nat_port) == rtsp_data_ports[i].client_udp_lo) {
-            tr_port = rtsp_data_ports[i].client_udp_lo;
-            DEBUGP("Found at index %d NAT_PORT %hu CLIENT PORTS (%hu-%hu) tr_port %hu\n", i,
-                   nat_port, rtsp_data_ports[i].client_udp_lo,
-                   rtsp_data_ports[i].client_udp_hi, tr_port);
-        } else if (ntohs(nat_port) == rtsp_data_ports[i].nat_udp_hi ||
-                   ntohs(nat_port) == rtsp_data_ports[i].client_udp_hi) {
-            tr_port = rtsp_data_ports[i].client_udp_hi;
-            DEBUGP("Found at index %d NAT_PORT %hu CLIENT PORTS %hu-%hu tr_port %hu\n", i,
-                   nat_port, rtsp_data_ports[i].client_udp_lo,
-                   rtsp_data_ports[i].client_udp_hi, tr_port);
-            return tr_port;
-        }
-    }
-    return tr_port;
-}
-
-static void
-save_ct(struct nf_conn *ct)
-{
-    int i;
-    struct nf_conntrack_tuple *tp = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-
-    for (i = 0; i < MAX_PORT_MAPS; i++) {
-        if (!rtsp_data_ports[i].in_use)
-            continue;
-        if (rtsp_data_ports[i].nat_udp_lo == ntohs((tp)->dst.u.all)) {
-            rtsp_data_ports[i].ct_lo = ct;
-            break;
-        }
-        else if (rtsp_data_ports[i].nat_udp_hi == ntohs((tp)->dst.u.all)) {
-            rtsp_data_ports[i].ct_hi = ct;
-            break;
-        }
-    }
-}
-
-static void
-rtp_expect(struct nf_conn *ct)
-{
-    u_int16_t nat_port = ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u.udp.port;
-    u_int16_t orig_port = rtsp_nat_to_client_pmap(nat_port);
-    NF_CT_DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
-    NF_CT_DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
-
-    if (orig_port) {
-        ct->proto.rtsp.orig_port = orig_port;
-        DEBUGP("UDP client port %hu\n", ct->proto.rtsp.orig_port);
-        save_ct(ct);
-    }
-}
-
-static void
-rtsp_pause_timeout(unsigned long data)
-{
-    int    index = (int)data;
-    struct _rtsp_data_ports *rtsp_data = &rtsp_data_ports[index];
-    struct nf_conn *ct_lo = rtsp_data->ct_lo;
-
-    if (rtsp_data->in_use) {
-        setup_timer(&rtsp_data->pause_timeout, rtsp_pause_timeout, (unsigned long)data);
-        rtsp_data->pause_timeout.expires = jiffies + PAUSE_TIMEOUT;
-        nf_ct_refresh(ct_lo, rtsp_data->skb, RTSP_PAUSE_TIMEOUT);
-        add_timer(&rtsp_data->pause_timeout);
-        rtsp_data->timeout_active = 1;
-    }
-}
-
-static void
-ip_conntrack_rtsp_proc_play(struct sk_buff **pskb, struct nf_conn *ct, const struct iphdr *iph)
-{
-    int i;
-    struct tcphdr *tcph = (void *)iph + iph->ihl * 4;
-
-    for (i = 0; i < MAX_PORT_MAPS; i++) {
-        if (!rtsp_data_ports[i].in_use)
-            continue;
-
-        DEBUGP("Searching client info IP %u.%u.%u.%u->%hu PORTS (%hu-%hu)\n",
-                NIPQUAD(iph->saddr), tcph->source, rtsp_data_ports[i].client_udp_lo,
-                rtsp_data_ports[i].client_udp_hi);
-        if ((rtsp_data_ports[i].client_ip == iph->saddr) &&
-            (rtsp_data_ports[i].client_tcp_port == tcph->source))
-        {
-            DEBUGP("Found client info SRC IP %u.%u.%u.%u TCP PORT %hu UDP PORTS (%hu-%hu)\n",
-                    NIPQUAD(iph->saddr), tcph->source, rtsp_data_ports[i].client_udp_lo,
-                    rtsp_data_ports[i].client_udp_hi);
-            if (rtsp_data_ports[i].timeout_active) {
-                del_timer(&rtsp_data_ports[i].pause_timeout);
-                rtsp_data_ports[i].timeout_active = 0;
-            }
-        }
-    }
-}
-
-static void
-ip_conntrack_rtsp_proc_pause(struct sk_buff **pskb, struct nf_conn *ct, const struct iphdr *iph)
-{
-    int i;
-    struct tcphdr *tcph = (void *)iph + iph->ihl * 4;
-
-    for (i = 0; i < MAX_PORT_MAPS; i++) {
-        if (!rtsp_data_ports[i].in_use)
-            continue;
-
-        DEBUGP("Searching client info IP %u.%u.%u.%u->%hu PORTS (%hu-%hu)\n",
-                NIPQUAD(iph->saddr), tcph->source, rtsp_data_ports[i].client_udp_lo,
-                rtsp_data_ports[i].client_udp_hi);
-        if ((rtsp_data_ports[i].client_ip == iph->saddr) &&
-            (rtsp_data_ports[i].client_tcp_port == tcph->source))
-        {
-            DEBUGP("Found client info SRC IP %u.%u.%u.%u TCP PORT %hu UDP PORTS (%hu-%hu)\n",
-                    NIPQUAD(iph->saddr), tcph->source, rtsp_data_ports[i].client_udp_lo,
-                    rtsp_data_ports[i].client_udp_hi);
-            if (rtsp_data_ports[i].timeout_active != 0 ||
-                rtsp_data_ports[i].ct_lo == NULL)
-                break;
-
-            setup_timer(&rtsp_data_ports[i].pause_timeout, rtsp_pause_timeout, (unsigned long)i);
-            rtsp_data_ports[i].pause_timeout.expires = jiffies + PAUSE_TIMEOUT;
-            add_timer(&rtsp_data_ports[i].pause_timeout);
-            rtsp_data_ports[i].timeout_active = 1;
-            rtsp_data_ports[i].ct_lo = ct;
-            rtsp_data_ports[i].skb = *pskb;
-            nf_ct_refresh(ct, *pskb, RTSP_PAUSE_TIMEOUT);
-        }
-    }
-}
-
-/*
- * Maps client ports that are overlapping with other client UDP transport to
- * new NAT ports that will be tracked and converted back to client assigned
- * UDP ports.
- * Return (N/A)
- */
-static int
-rtsp_client_to_nat_pmap(struct sk_buff **pskb, struct ip_ct_rtsp_expect *prtspexp,
-                        const struct iphdr *iph, struct nf_conn *ct)
-{
-    int i  = 0;
-    int rc = 0;
-    struct tcphdr *tcph   = (void *)iph + iph->ihl * 4;
-
-    DEBUGP("IP %u.%u.%u.%u->%u.%u.%u.%u PORTS (%hu-%hu)\n", NIPQUAD(iph->saddr),
-           NIPQUAD(iph->daddr), tcph->source, tcph->dest);
-
-    for (i = 0; i < MAX_PORT_MAPS; i++) {
-        if (rtsp_data_ports[i].in_use) {
-            DEBUGP("Index %d in_use flag %d IP %u.%u.%u.%u CLIENT %hu-%hu NAT %hu-%hu\n", i,
-                   rtsp_data_ports[i].in_use, NIPQUAD(rtsp_data_ports[i].client_ip),
-                   rtsp_data_ports[i].client_udp_lo, rtsp_data_ports[i].client_udp_hi,
-                   rtsp_data_ports[i].nat_udp_lo, rtsp_data_ports[i].nat_udp_hi);
-            if (ntohl(iph->saddr) == rtsp_data_ports[i].client_ip &&
-                ntohs(tcph->source) == rtsp_data_ports[i].client_tcp_port &&
-                ntohs(prtspexp->loport) == rtsp_data_ports[i].client_udp_lo &&
-                ntohs(prtspexp->hiport) == rtsp_data_ports[i].client_udp_hi)
-            {
-                prtspexp->loport  = rtsp_data_ports[i].nat_udp_lo;
-                prtspexp->hiport  = rtsp_data_ports[i].nat_udp_hi;
-                return rc = 2;
-            }
-            continue;
-        }
-        rtsp_data_ports[i].skb             = *pskb;
-        rtsp_data_ports[i].client_ip       = ntohl(iph->saddr);
-        rtsp_data_ports[i].client_tcp_port = ntohs(tcph->source);
-        rtsp_data_ports[i].client_udp_lo   = ntohs(prtspexp->loport);
-        rtsp_data_ports[i].client_udp_hi   = ntohs(prtspexp->hiport);
-        rtsp_data_ports[i].pbtype          = prtspexp->pbtype;
-        rtsp_data_ports[i].in_use          = 1;
-        init_timer(&rtsp_data_ports[i].pause_timeout);
-        DEBUGP("Mapped at index %d ORIGINAL PORTS %hu-%hu\n", i,
-               ntohs(prtspexp->loport), ntohs(prtspexp->hiport));
-        prtspexp->loport = rtsp_data_ports[i].nat_udp_lo = g_tr_port++;
-        prtspexp->hiport = rtsp_data_ports[i].nat_udp_hi = g_tr_port++;
-        DEBUGP("NEW PORTS %hu-%hu\n", ntohs(prtspexp->loport), ntohs(prtspexp->hiport));
-        return rc = 1;
-    }
-    return rc;
-}
-
-static void
-ip_conntrack_rtsp_proc_teardown(struct sk_buff **pskb, struct iphdr *iph)
-{
-    int i;
-    struct tcphdr *tcph = (void *)iph + iph->ihl * 4;
-
-    for (i = 0; i < MAX_PORT_MAPS; i++) {
-        if (!rtsp_data_ports[i].in_use)
-            continue;
-
-        DEBUGP("Searching client info IP %u.%u.%u.%u->%hu PORTS (%hu-%hu)\n",
-                NIPQUAD(iph->saddr), tcph->source, rtsp_data_ports[i].client_udp_lo,
-                rtsp_data_ports[i].client_udp_hi);
-        if ((rtsp_data_ports[i].client_ip == iph->saddr) &&
-            (rtsp_data_ports[i].client_tcp_port == tcph->source))
-        {
-            DEBUGP("Found client info SRC IP %u.%u.%u.%u TCP PORT %hu UDP PORTS (%hu-%hu)\n",
-                    NIPQUAD(iph->saddr), tcph->source, rtsp_data_ports[i].client_udp_lo,
-                    rtsp_data_ports[i].client_udp_hi);
-            if (rtsp_data_ports[i].timeout_active) {
-                del_timer(&rtsp_data_ports[i].pause_timeout);
-                rtsp_data_ports[i].timeout_active = 0;
-            }
-            memset(&rtsp_data_ports[i], 0, sizeof(struct _rtsp_data_ports));
-            rtsp_data_ports[i].in_use = 0;
-            //break;
-        }
-    }
-}
-
-static void *
-find_char(void *str, int ch, size_t len)
-{
-    unsigned char *pStr = NULL;
-    if (len != 0) {
-        pStr = str;
-        do {
-            if (*pStr++ == ch)
-                return (void *)(pStr - 1);
-        } while (--len != 0);
-    }
-    return NULL;
-}
 
 /*
  * Parse an RTSP packet.
@@ -449,7 +191,7 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 		const char* pparamend;
 		uint        nextparamoff;
 
-		pparamend = find_char(ptran+off, ',', tranlen-off);
+		pparamend = memchr(ptran+off, ',', tranlen-off);
 		pparamend = (pparamend == NULL) ? ptran+tranlen : pparamend+1;
 		nextparamoff = pparamend-ptran;
 
@@ -457,7 +199,7 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 			const char* pfieldend;
 			uint        nextfieldoff;
 
-			pfieldend = find_char(ptran+off, ';', nextparamoff-off);
+			pfieldend = memchr(ptran+off, ';', nextparamoff-off);
 			nextfieldoff = (pfieldend == NULL) ? nextparamoff : pfieldend-ptran+1;
 
 			if (strncmp(ptran+off, "client_port=", 12) == 0) {
@@ -518,8 +260,6 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 void expected(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 {
 	typeof(nf_nat_rtsp_hook_expectfn) nf_nat_rtsp_expectfn;
-
-	rtp_expect(ct);
 	nf_nat_rtsp_expectfn = rcu_dereference(nf_nat_rtsp_hook_expectfn);
 
 	if (nf_nat_rtsp_expectfn && ct->master->status & IPS_NAT_MASK) {
@@ -535,7 +275,6 @@ static inline int
 help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 	struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
-	struct iphdr *iph = ip_hdr(*pskb);
 	struct ip_ct_rtsp_expect expinfo;
 
 	int dir = CTINFO2DIR(ctinfo);   /* = IP_CT_DIR_ORIGINAL */
@@ -562,28 +301,12 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 		uint    transoff = 0;
 		uint    translen = 0;
 		uint    off;
-		uint    port = 0;
-		struct  nf_conntrack_expect *new_exp = NULL;
-		int     res = 0;
 
 		if (!rtsp_parse_message(pdata, datalen, &dataoff,
 					&hdrsoff, &hdrslen,
 					&cseqoff, &cseqlen,
 					&transoff, &translen))
 			break;      /* not a valid message */
-
-		if (strncmp(pdata+cmdoff, "PLAY ", 5) == 0) {
-			ip_conntrack_rtsp_proc_play(pskb, ct, iph);
-			continue;
-		}
-		if (strncmp(pdata+cmdoff, "PAUSE ", 6) == 0) {
-			ip_conntrack_rtsp_proc_pause(pskb, ct, iph);
-			continue;
-		}
-		if (strncmp(pdata+cmdoff, "TEARDOWN ", 6) == 0)	{
-			ip_conntrack_rtsp_proc_teardown(pskb, iph);   /* TEARDOWN message */
-			continue;
-		}
 
 		if (strncmp(pdata+cmdoff, "SETUP ", 6) != 0)
 			continue;   /* not a SETUP message */
@@ -602,66 +325,43 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 		DEBUGP("udp transport found, ports=(%d,%hu,%hu)\n",
 		       (int)expinfo.pbtype, expinfo.loport, expinfo.hiport);
 
-		/*
-		 * Translate the original ports to the NAT ports and note them
-		 * down to translate back in the return direction.
-		 */
-		if (!(res = rtsp_client_to_nat_pmap(pskb, &expinfo, iph, ct)))
-		{
-			DEBUGP("Dropping the packet. No more space in the mapping table\n");
+		exp = nf_conntrack_expect_alloc(ct);
+		if (!exp) {
 			ret = NF_DROP;
 			goto out;
 		}
 
-		port = expinfo.loport;
-		while (port <= expinfo.hiport) {
-			/*
-			 * Allocate expectation for tracking this connection
-			 */
-			new_exp = nf_conntrack_expect_alloc(ct);
-			if (!new_exp) {
-				ret = NF_DROP;
-				goto out;
-			}
-			memcpy(new_exp, &exp, sizeof(struct nf_conntrack_expect));
+		be_loport = htons(expinfo.loport);
 
-			if (res == 2) {
-				be_loport = htons(g_tr_port);
-				g_tr_port++;
-			} else
-				be_loport = htons(port);
+		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
+			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
+			IPPROTO_UDP, NULL, &be_loport);
 
-			nf_conntrack_expect_init(new_exp, ct->tuplehash[!dir].tuple.src.l3num,
-				&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
-				IPPROTO_UDP, NULL, &be_loport);
+		exp->master = ct;
 
-			new_exp->master = ct;
-			new_exp->expectfn = expected;
-			new_exp->flags = 0;
+		exp->expectfn = expected;
+		exp->flags = 0;
 
-			if (expinfo.pbtype == pb_range) {
-				DEBUGP("Changing expectation mask to handle multiple ports\n");
-				//new_exp->mask.src.u.udp.port  = 0xfffe;
-			}
-
-			DEBUGP("expect_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",
-			       NIPQUAD(new_exp->tuple.src.u3.ip),
-			       ntohs(new_exp->tuple.src.u.udp.port),
-			       NIPQUAD(new_exp->tuple.dst.u3.ip),
-			       ntohs(new_exp->tuple.dst.u.udp.port));
-
-			nf_nat_rtsp = rcu_dereference(nf_nat_rtsp_hook);
-			if (nf_nat_rtsp && ct->status & IPS_NAT_MASK)
-				/* pass the request off to the nat helper */
-				ret = nf_nat_rtsp(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, new_exp);
-			else if (nf_conntrack_expect_related(new_exp) != 0) {
-				INFOP("nf_conntrack_expect_related failed\n");
-				ret  = NF_DROP;
-			}
-			nf_conntrack_expect_put(new_exp);
-
-			port++;
+		if (expinfo.pbtype == pb_range) {
+			DEBUGP("Changing expectation mask to handle multiple ports\n");
+			//exp->mask.src.u.udp.port  = 0xfffe;
 		}
+
+		DEBUGP("expect_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",
+		       NIPQUAD(exp->tuple.src.u3.ip),
+		       ntohs(exp->tuple.src.u.udp.port),
+		       NIPQUAD(exp->tuple.dst.u3.ip),
+		       ntohs(exp->tuple.dst.u.udp.port));
+
+		nf_nat_rtsp = rcu_dereference(nf_nat_rtsp_hook);
+		if (nf_nat_rtsp && ct->status & IPS_NAT_MASK)
+			/* pass the request off to the nat helper */
+			ret = nf_nat_rtsp(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
+		else if (nf_conntrack_expect_related(exp) != 0) {
+			INFOP("nf_conntrack_expect_related failed\n");
+			ret  = NF_DROP;
+		}
+		nf_conntrack_expect_put(exp);
 		goto out;
 	}
 out:
@@ -730,9 +430,6 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
 		/* inbound packet: server->client */
 		ret = NF_ACCEPT;
 		break;
-	default:
-		/* oops */
-		break;
 	}
 
 	spin_unlock_bh(&rtsp_buffer_lock);
@@ -751,14 +448,6 @@ fini(void)
 	for (i = 0; i < num_ports; i++) {
 		DEBUGP("unregistering port %d\n", ports[i]);
 		nf_conntrack_helper_unregister(&rtsp_helpers[i]);
-	}
-	for (i = 0; i < MAX_PORT_MAPS; i++) {
-		if (!rtsp_data_ports[i].in_use)
-			continue;
-		if (rtsp_data_ports[i].timeout_active == 1)
-			del_timer(&rtsp_data_ports[i].pause_timeout);
-		rtsp_data_ports[i].timeout_active = 0;
-		rtsp_data_ports[i].in_use = 0;
 	}
 	kfree(rtsp_buffer);
 }
@@ -788,11 +477,6 @@ init(void)
 	/* If no port given, default to standard rtsp port */
 	if (ports[0] == 0) {
 		ports[0] = RTSP_PORT;
-	}
-
-	for (i = 0; i < MAX_PORT_MAPS; i++) {
-		memset(&rtsp_data_ports[i], 0, sizeof(struct _rtsp_data_ports));
-		rtsp_data_ports[i].in_use = 0;
 	}
 
 	for (i = 0; (i < MAX_PORTS) && ports[i]; i++) {
