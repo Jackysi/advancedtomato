@@ -320,6 +320,37 @@ static void check_bootnv(void)
 	dirty = 0;
 
 	switch (model) {
+	case MODEL_WTR54GS:
+		dirty |= check_nv("vlan0hwname", "et0");
+		dirty |= check_nv("vlan1hwname", "et0");
+		dirty |= check_nv("vlan0ports", "0 5*");
+		dirty |= check_nv("vlan1ports", "1 5");
+		break;
+	case MODEL_WL500GP:
+		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
+		dirty |= check_nv("vlan1ports", "0 5");		// default: 0 5u
+		break;
+	case MODEL_WL500W:
+		/* fix WL500W mac adresses for WAN port */
+		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
+			dirty |= check_nv("et1macaddr", nvram_get("et0macaddr"));
+		break;
+	case MODEL_WL500GE:
+		dirty |= check_nv("vlan1ports", "0 5");		// default: 0 5u
+		break;
+	case MODEL_WL500GPv2:
+		if (nvram_match("vlan1ports", "4 5u"))
+			dirty |= check_nv("vlan1ports", "4 5");
+		else if (nvram_match("vlan1ports", "0 5u"))	// 520GU?
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WL520GU:
+		dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_DIR320:
+		dirty |= check_nv("vlan1hwname", "et0");
+		dirty |= check_nv("vlan1ports", "0 5");
+		break;
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
@@ -485,10 +516,6 @@ static int init_nvram(void)
 		mfr = "Linksys";
 		name = "WTR54GS";
 		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set ("vlan0hwname", "et0");
-			nvram_set ("vlan1hwname", "et0");
-			nvram_set("vlan0ports", "0 5*");
-			nvram_set("vlan1ports", "1 5");
 			nvram_set("vlan_enable", "1");
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("gpio2", "ses_button");
@@ -625,8 +652,6 @@ static int init_nvram(void)
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
-			nvram_set("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
-			nvram_set("vlan1ports", "0 5");		// default: 0 5u
 			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");	// set to "vlan0 eth2" by DD-WRT; default: vlan0 eth1
 			// !!TB - WLAN LED fix
 			nvram_set("wl0gpio0", "136");
@@ -636,9 +661,6 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500W";
 		features = SUP_SES | SUP_80211N;
-		/* fix WL500W mac adresses for WAN port */
-		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
-			nvram_set("et1macaddr", nvram_get("et0macaddr"));
 		/* fix AIR LED */
 		if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
 			nvram_set("wl0gpio0", "0x88");
@@ -647,10 +669,6 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500gE";
 		//	features = ?
-		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("t_fix1", name);
-			nvram_set("vlan1ports", "0 5");			// default: 0 5u
-		}
 		break;
 	case MODEL_WX6615GT:
 		mfr = "SparkLAN";
@@ -769,12 +787,6 @@ static int init_nvram(void)
 		name = "WL-500gP v2";
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
-			if (nvram_match("vlan1ports", "4 5u")) {
-				nvram_set("vlan1ports", "4 5");
-			}
-			else if (nvram_match("vlan1ports", "0 5u")) {	// 520GU?
-				nvram_set("vlan1ports", "0 5");
-			}
 			nvram_set("t_fix1", name);
 		}
 		/* fix AIR LED */
@@ -787,7 +799,6 @@ static int init_nvram(void)
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
-			nvram_set("vlan1ports", "0 5");
 			// !!TB - LED fix
 			nvram_set("wl0gpio0", "0");
 			nvram_set("wl0gpio1", "136");
@@ -810,8 +821,6 @@ static int init_nvram(void)
 			nvram_set("t_fix1", name);
 			nvram_unset( "vlan2ports" );
 			nvram_unset( "vlan2hwname" );
-			nvram_set("vlan1hwname", "et0");
-			nvram_set("vlan1ports", "0 5");
 			nvram_set("wandevs", "vlan1");
 			nvram_set("wan_ifname", "vlan1");
 			nvram_set("wan_ifnames", "vlan1");
