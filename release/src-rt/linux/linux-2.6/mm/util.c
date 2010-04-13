@@ -1,4 +1,5 @@
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/string.h>
 #include <linux/module.h>
 #include <linux/err.h>
@@ -80,6 +81,27 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 	return ret;
 }
 EXPORT_SYMBOL(krealloc);
+
+int kern_ptr_validate(const void *ptr, unsigned long size)
+{
+	unsigned long addr = (unsigned long)ptr;
+	unsigned long min_addr = PAGE_OFFSET;
+	unsigned long align_mask = sizeof(void *) - 1;
+
+	if (unlikely(addr < min_addr))
+		goto out;
+	if (unlikely(addr > (unsigned long)high_memory - size))
+		goto out;
+	if (unlikely(addr & align_mask))
+		goto out;
+	if (unlikely(!kern_addr_valid(addr)))
+		goto out;
+	if (unlikely(!kern_addr_valid(addr + size - 1)))
+		goto out;
+	return 1;
+out:
+	return 0;
+}
 
 /*
  * strndup_user - duplicate an existing string from user space
