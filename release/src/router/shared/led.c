@@ -189,8 +189,10 @@ int led(int which, int mode)
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
+#ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+#endif
 
 	char s[16];
 	int n;
@@ -278,6 +280,7 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = -99;	// Invert power light as diag indicator
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_RTN12:
 		if (which != LED_DIAG) return 0;
 		b = -2;	// power light
@@ -298,6 +301,7 @@ int led(int which, int mode)
 	case MODEL_WRT160Nv3:
 		b = wrt160nv3[which];
 		break;
+#endif
 /*
 	case MODEL_RT390W:
 		break;

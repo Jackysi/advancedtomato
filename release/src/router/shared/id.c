@@ -125,10 +125,12 @@ int check_hw_type(void)
 		return HW_BCM5350;
 	case 0x4ec:
 		return HW_BCM5356;
+#ifdef CONFIG_BCMWL5
 	case 0x4cd:
 		return HW_BCM4716;
 	case 0x4cf:
 		return HW_BCM4718;
+#endif
 	}
 
 	// WR850G may have "bcm94710dev " (extra space)
@@ -218,8 +220,10 @@ int get_model(void)
 		case HW_BCM4704_BCM5325F_EWC:
 			return MODEL_WRT300N;
 #endif
+#ifdef CONFIG_BCMWL5
 		case HW_BCM4716:
 			return MODEL_WRT160Nv3;
+#endif
 		}
 		return MODEL_WRT54G;
 	case 45:
@@ -233,14 +237,17 @@ int get_model(void)
 		case HW_BCM5354G:
 			if (strncmp(nvram_safe_get("hardware_version"), "WL520GU", 7) == 0) return MODEL_WL520GU;
 			return MODEL_WL500GPv2;
+#ifdef CONFIG_BCMWL5
 		case HW_BCM5356:
 			if (nvram_match("boardrev", "0x1402")) return MODEL_RTN10;
 		case HW_BCM4716:
 			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
 		case HW_BCM4718:
 			if (nvram_match("boardrev", "0x1218")) return MODEL_RTN16;
+#endif
 		}
 		break;
+#ifdef CONFIG_BCMWL5
 	case 1:
 	case 3500:
 		switch (hw) {
@@ -249,6 +256,7 @@ int get_model(void)
 			return MODEL_WNR3500L;
 		}
 		break;
+#endif
 	case 0:
 		switch (hw) {
 		case HW_BCM5354G:

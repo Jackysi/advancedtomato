@@ -137,6 +137,7 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_WLA2G54L:
 		reset_mask = reset_pushed = 1 << 7;
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_RTN10:
 		reset_mask = 1 << 3;
 		ses_mask = 1 << 2;
@@ -159,6 +160,7 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 5;
 		break;
+#endif
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {
@@ -304,9 +306,11 @@ int buttons_main(int argc, char *argv[])
 			else if (brau_flag && ++brau_count_stable > 2) { // stable for 2+ seconds
 				brau_flag = 0;
 				switch (nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model()) {
+#ifdef CONFIG_BCMWL5
 				case MODEL_RTN12:
 					p = (brau_state & (1 << 4)) ? "ap" : (brau_state & (1 << 5)) ? "repeater" : "router";
 					break;
+#endif
 				default:
 					p = brau_state ? "auto" : "bridge";
 					break;

@@ -351,6 +351,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan1hwname", "et0");
 		dirty |= check_nv("vlan1ports", "0 5");
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
@@ -375,6 +376,7 @@ static void check_bootnv(void)
 			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		}
 		break;
+#endif
 
 	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
@@ -724,6 +726,7 @@ static int init_nvram(void)
 		nvram_set("opo", "0x0008");
 		nvram_set("ag0", "0x0C");
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_RTN10:
 		mfr = "Asus";
 		name = "RT-N10";
@@ -782,6 +785,7 @@ static int init_nvram(void)
 			nvram_set("t_fix1", name);
 		}
 		break;
+#endif	// CONFIG_BCMWL5
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
@@ -828,7 +832,7 @@ static int init_nvram(void)
 			nvram_set("wan0_ifnames", "vlan1");
 		}
 		break;
-#endif
+#endif	// WL_BSS_INFO_VERSION >= 108
 #if TOMATO_N
 	case MODEL_WZRG300N:
 		mfr = "Buffalo";
