@@ -33,8 +33,7 @@
 #define ROUNDUP(n, a)	((n + (a - 1)) & ~(a - 1))
 
 #define TRX_MAGIC		0x30524448
-#define TRX_VERSION		1
-#define TRX_MAX_OFFSET	3
+#define TRX_MAX_OFFSET		4
 #define TRX_MAX_LEN		((8 * 1024 * 1024) - ((256 + 128) * 1024))		// 8MB - (256K cfe + 128K cfg)
 
 typedef struct {
@@ -46,6 +45,9 @@ typedef struct {
 } trx_t;
 
 char names[TRX_MAX_OFFSET][80];
+
+char trx_version = 1;
+int trx_max_offset = 3;
 
 
 typedef struct {
@@ -71,6 +73,11 @@ int trx_count = 0;
 int trx_final = 0;
 int trx_padding;
 time_t max_time = 0;
+
+inline size_t trx_header_size(void)
+{
+	return sizeof(*trx) - sizeof(trx->offsets) + (trx_max_offset * sizeof(trx->offsets[0]));
+}
 
 int crc_init(void)
 {
@@ -112,7 +119,7 @@ void help(void)
 		"fpkg - Package a firmware\n"
 		"Copyright (C) 2007 Jonathan Zarate\n"
 		"\n"
-		"Usage: -i <input> [-a <align>] [-i <input>] [-a <align>] {output}\n"
+		"Usage: [-v <trx version>] -i <input> [-a <align>] [-i <input>] [-a <align>] {output}\n"
 		"Output:\n"
 		" TRX:      -t <output file>\n"
 		" Linksys:  -l <id>,<output file>\n"
@@ -140,7 +147,7 @@ void load_image(const char *fname)
 		fprintf(stderr, "Cannot load another image if an output has already been written.\n");
 		exit(1);
 	}
-	if (trx_count >= TRX_MAX_OFFSET) {
+	if (trx_count >= trx_max_offset) {
 		fprintf(stderr, "Too many input files.\n");
 		exit(1);
 	}
@@ -198,6 +205,40 @@ void align_trx(const char *align)
 	trx->length = len;
 }
 
+void set_trx_version(const char *ver)
+{
+	int n;
+	char *e;
+
+	errno = 0;
+	n = strtoul(ver, &e, 0);
+	if (errno || (e == ver) || *e) {
+		fprintf(stderr, "Illegal numeric string\n");
+		help();
+	}
+
+	if (trx_count > 0) {
+		fprintf(stderr, "Cannot change trx version after images have already been loaded.\n");
+		exit(1);
+	}
+
+	if (n < 1 || n > 2) {
+		fprintf(stderr, "TRX version %d is not supported.\n", n);
+		exit(1);
+	}
+
+	trx_version = (char)n;
+	switch (trx_version) {
+	case 2:
+		trx_max_offset = 4;
+		break;
+	default:
+		trx_max_offset = 3;
+		break;
+	}
+	trx->length = trx_header_size();
+}
+
 void finalize_trx(void)
 {
 	uint32_t len;
@@ -214,7 +255,7 @@ void finalize_trx(void)
 
 	trx->length = ROUNDUP(len, 4096);
 	trx->magic = TRX_MAGIC;
-	trx->flag_version = TRX_VERSION << 16;
+	trx->flag_version = trx_version << 16;
 	trx->crc32 = crc_calc(0xFFFFFFFF, (void *)&trx->flag_version,
 		trx->length - (sizeof(*trx) - (sizeof(trx->flag_version) + sizeof(trx->offsets))));
 
@@ -314,10 +355,13 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Not enough memory\n");
 		exit(1);
 	}
-	trx->length = sizeof(*trx);
+	trx->length = trx_header_size();
 
-	while ((o = getopt(argc, argv, "i:a:t:l:m:")) != -1) {
+	while ((o = getopt(argc, argv, "v:i:a:t:l:m:")) != -1) {
 		switch (o) {
+		case 'v':
+			set_trx_version(optarg);
+			break;
 		case 'i':
 			load_image(optarg);
 			break;
@@ -348,7 +392,7 @@ int main(int argc, char **argv)
 	}
 	else {
 		finalize_trx();
-		l = trx->length - trx_padding - sizeof(*trx);
+		l = trx->length - trx_padding - trx_header_size();
 		printf("\nTRX Image:\n");
 		printf(" Total Size .... : %u (%.1f KB) (%.1f MB)\n", trx->length, trx->length / 1024.0, trx->length / 1024.0 / 1024.0);
 		printf("   Images ...... : %u (0x%08x)\n", l , l);
@@ -366,7 +410,7 @@ int main(int argc, char **argv)
 		l = (ROUNDUP(trx->length, (64 * 1024)) / (64 * 1024));
 		printf("  64K Blocks ... : %u (0x%08X)\n", l, l);
 		printf(" Offsets:\n");
-		for (o = 0; o < TRX_MAX_OFFSET; ++o) {
+		for (o = 0; o < trx_max_offset; ++o) {
 		   printf("   %d: 0x%08X  %s\n", o, trx->offsets[o], names[o]);
 		}
 	}
