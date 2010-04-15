@@ -32,9 +32,7 @@
 
 <script type='text/javascript'>
 
-/* JFFS2-BEGIN */
 // <% nvram("jffs2_on"); %>
-/* JFFS2-END */
 
 function clock()
 {

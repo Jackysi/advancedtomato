@@ -434,7 +434,7 @@ endif
 	@$(MAKE) setprofile N=$(TPROFILE) B=D DESC="Lite" USB="USB"
 	@$(MAKE) all
 
-## Make the "normal with Extras + VPN" build
+## Make the "normal (with Extras) + VPN" build
 e:
 	@cp router/config_base router/config_$@	
 	@cp router/busybox/config_base router/busybox/config_$@
@@ -444,21 +444,25 @@ e:
 	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
 	@echo "TCONFIG_LZO=y" >>router/config_$@
 	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
+ifeq ($(CONFIG_LINUX26),y)
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
+endif
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
+ifeq ($(CONFIG_LINUX26),y)
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
+endif
 	$(call BusyboxOptions, router/busybox/config_$@)
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC=$(VPN) USB="USB"
 	@$(MAKE) all
 
-## Make the "normal with Extras" build
+## Make the "normal with Extras and NTFS" build
 m:
 	@cp router/config_base router/config_$@	
 	@cp router/busybox/config_base router/busybox/config_$@
@@ -605,8 +609,12 @@ help:
 	@echo "b            B build (standard minus SSH)"
 	@echo "c            C build (standard minus CIFS)"
 	@echo "d            D build (standard minus Samba server)"
-	@echo "m            M build (standard plus extra utilities)"
-	@echo "e            E build (standard plus VPN and extra utilities)"
+	@echo "m            M build (standard plus extra utilities and NTFS support)"
+ifeq ($(CONFIG_LINUX26),y)
+	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
+else
+	@echo "e            E build (standard plus VPN and NTFS support)"
+endif
 	@echo "s            S build (no USB support)"
 	@echo "v            V build (VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)

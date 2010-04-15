@@ -19,6 +19,9 @@ endif
 # playing with ipkg / from OpenWrt svn
 #!!TB	install -m 0700 ipkg $(INSTALLDIR)/usr/sbin
 
+# system info
+	install -m 0700 sysinfo $(INSTALLDIR)/usr/sbin
+
 # keep winscp happy
 #	install -m 0700 groups $(INSTALLDIR)/usr/bin
 
