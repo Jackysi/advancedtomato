@@ -949,13 +949,37 @@ static void tcp_cwnd_validate(struct sock *sk)
 	}
 }
 
-static unsigned int tcp_window_allows(struct tcp_sock *tp, struct sk_buff *skb, unsigned int mss_now, unsigned int cwnd)
+/* Returns the portion of skb which can be sent right away without
+ * introducing MSS oddities to segment boundaries. In rare cases where
+ * mss_now != mss_cache, we will request caller to create a small skb
+ * per input skb which could be mostly avoided here (if desired).
+ *
+ * We explicitly want to create a request for splitting write queue tail
+ * to a small skb for Nagle purposes while avoiding unnecessary modulos,
+ * thus all the complexity (cwnd_len is always MSS multiple which we
+ * return whenever allowed by the other factors). Basically we need the
+ * modulo only when the receiver window alone is the limiting factor or
+ * when we would be allowed to send the split-due-to-Nagle skb fully.
+ */
+static unsigned int tcp_mss_split_point(struct sock *sk, struct sk_buff *skb,
+					unsigned int mss_now,
+					unsigned int cwnd)
 {
-	u32 window, cwnd_len;
+	struct tcp_sock *tp = tcp_sk(sk);
+	u32 needed, window, cwnd_len;
 
 	window = (tp->snd_una + tp->snd_wnd - TCP_SKB_CB(skb)->seq);
 	cwnd_len = mss_now * cwnd;
-	return min(window, cwnd_len);
+
+	if (likely(cwnd_len <= window && skb != tcp_write_queue_tail(sk)))
+		return cwnd_len;
+
+	needed = min(skb->len, window);
+
+	if (skb == tcp_write_queue_tail(sk) && cwnd_len <= needed)
+		return cwnd_len;
+
+	return needed - needed % mss_now;
 }
 
 /* Can at least one segment of SKB be sent right now, according to the
@@ -1089,8 +1113,7 @@ int tcp_may_send_now(struct sock *sk)
 	return (skb &&
 		tcp_snd_test(sk, skb, tcp_current_mss(sk, 1),
 			     (tcp_skb_is_last(sk, skb) ?
-			      TCP_NAGLE_PUSH :
-			      tp->nonagle)));
+			      tp->nonagle : TCP_NAGLE_PUSH)));
 }
 
 /* Trim TSO SKB to LEN bytes, put the remaining data into a new packet
@@ -1163,7 +1186,8 @@ static int tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
 		goto send_now;
 
 	/* Defer for less than two clock ticks. */
-	if (!tp->tso_deferred && ((jiffies<<1)>>1) - (tp->tso_deferred>>1) > 1)
+	if (tp->tso_deferred &&
+	    ((jiffies << 1) >> 1) - (tp->tso_deferred >> 1) > 1)
 		goto send_now;
 
 	in_flight = tcp_packets_in_flight(tp);
@@ -1222,6 +1246,7 @@ static int tcp_mtu_probe(struct sock *sk)
 	struct sk_buff *skb, *nskb, *next;
 	int len;
 	int probe_size;
+	int size_needed;
 	unsigned int pif;
 	int copy;
 	int mss_now;
@@ -1240,27 +1265,20 @@ static int tcp_mtu_probe(struct sock *sk)
 	/* Very simple search strategy: just double the MSS. */
 	mss_now = tcp_current_mss(sk, 0);
 	probe_size = 2*tp->mss_cache;
+	size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
 	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high)) {
 		/* TODO: set timer for probe_converge_event */
 		return -1;
 	}
 
 	/* Have enough data in the send queue to probe? */
-	len = 0;
-	if ((skb = tcp_send_head(sk)) == NULL)
-		return -1;
-	while ((len += skb->len) < probe_size && !tcp_skb_is_last(sk, skb))
-		skb = tcp_write_queue_next(sk, skb);
-	if (len < probe_size)
+	if (tp->write_seq - tp->snd_nxt < size_needed)
 		return -1;
 
-	/* Receive window check. */
-	if (after(TCP_SKB_CB(skb)->seq + probe_size, tp->snd_una + tp->snd_wnd)) {
-		if (tp->snd_wnd < probe_size)
-			return -1;
-		else
-			return 0;
-	}
+	if (tp->snd_wnd < size_needed)
+		return -1;
+	if (after(tp->snd_nxt + size_needed, tp->snd_una + tp->snd_wnd))
+		return 0;
 
 	/* Do we need to wait to drain cwnd? */
 	pif = tcp_packets_in_flight(tp);
@@ -1278,7 +1296,6 @@ static int tcp_mtu_probe(struct sock *sk)
 	sk_charge_skb(sk, nskb);
 
 	skb = tcp_send_head(sk);
-	tcp_insert_write_queue_before(nskb, skb, sk);
 
 	TCP_SKB_CB(nskb)->seq = TCP_SKB_CB(skb)->seq;
 	TCP_SKB_CB(nskb)->end_seq = TCP_SKB_CB(skb)->seq + probe_size;
@@ -1286,6 +1303,8 @@ static int tcp_mtu_probe(struct sock *sk)
 	TCP_SKB_CB(nskb)->sacked = 0;
 	nskb->csum = 0;
 	nskb->ip_summed = skb->ip_summed;
+
+	tcp_insert_write_queue_before(nskb, skb, sk);
 
 	len = 0;
 	while (len < probe_size) {
@@ -1398,17 +1417,9 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle)
 		}
 
 		limit = mss_now;
-		if (tso_segs > 1) {
-			limit = tcp_window_allows(tp, skb,
-						  mss_now, cwnd_quota);
-
-			if (skb->len < limit) {
-				unsigned int trim = skb->len % mss_now;
-
-				if (trim)
-					limit = skb->len - trim;
-			}
-		}
+		if (tso_segs > 1)
+			limit = tcp_mss_split_point(sk, skb, mss_now,
+						    cwnd_quota);
 
 		if (skb->len > limit &&
 		    unlikely(tso_fragment(sk, skb, limit, mss_now)))
@@ -1455,7 +1466,6 @@ void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
  */
 void tcp_push_one(struct sock *sk, unsigned int mss_now)
 {
-	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *skb = tcp_send_head(sk);
 	unsigned int tso_segs, cwnd_quota;
 
@@ -1470,17 +1480,9 @@ void tcp_push_one(struct sock *sk, unsigned int mss_now)
 		BUG_ON(!tso_segs);
 
 		limit = mss_now;
-		if (tso_segs > 1) {
-			limit = tcp_window_allows(tp, skb,
-						  mss_now, cwnd_quota);
-
-			if (skb->len < limit) {
-				unsigned int trim = skb->len % mss_now;
-
-				if (trim)
-					limit = skb->len - trim;
-			}
-		}
+		if (tso_segs > 1)
+			limit = tcp_mss_split_point(sk, skb, mss_now,
+						    cwnd_quota);
 
 		if (skb->len > limit &&
 		    unlikely(tso_fragment(sk, skb, limit, mss_now)))
@@ -1567,7 +1569,7 @@ u32 __tcp_select_window(struct sock *sk)
 	if (mss > full_space)
 		mss = full_space;
 
-	if (free_space < full_space/2) {
+	if (free_space < (full_space >> 1)) {
 		icsk->icsk_ack.quick = 0;
 
 		if (tcp_memory_pressure)
@@ -1606,7 +1608,7 @@ u32 __tcp_select_window(struct sock *sk)
 		if (window <= free_space - mss || window > free_space)
 			window = (free_space/mss)*mss;
 		else if (mss == full_space &&
-		         free_space > window + full_space/2)
+		         free_space > window + (full_space >> 1))
 			window = free_space;
 	}
 
