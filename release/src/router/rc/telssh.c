@@ -105,13 +105,16 @@ static inline int check_host_key(const char *ktype, const char *nvname, const ch
 
 void start_sshd(void)
 {
+	int dirty = 0;
+
 	mkdir("/etc/dropbear", 0700);
 	mkdir("/root/.ssh", 0700);
 
 	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0700);
 
-	if (check_host_key("rsa", "sshd_hostkey", "/etc/dropbear/dropbear_rsa_host_key") ||
-	    check_host_key("dss", "sshd_dsskey",  "/etc/dropbear/dropbear_dss_host_key"))
+	dirty |= check_host_key("rsa", "sshd_hostkey", "/etc/dropbear/dropbear_rsa_host_key");
+	dirty |= check_host_key("dss", "sshd_dsskey",  "/etc/dropbear/dropbear_dss_host_key");
+	if (dirty)
 		nvram_commit_x();
 
 /*
