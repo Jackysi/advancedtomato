@@ -348,6 +348,19 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_DIR320:
+		if (strlen(nvram_safe_get("et0macaddr")) == 12) {
+			// goofy et0macaddr, make something up
+			nvram_set("et0macaddr", "00:90:4c:c0:00:01");
+			dirty = 1;
+		}
+		if (nvram_get("vlan2ports") != NULL) {
+			nvram_unset("vlan2ports");
+			nvram_unset("vlan2hwname");
+			// this can only happen after nvram erase:
+			// reset LAN IP here since CFE sets it to 192.168.0.1
+			nvram_set("lan_ipaddr", "192.168.1.1");
+			dirty = 1;
+		}
 		dirty |= check_nv("vlan1hwname", "et0");
 		dirty |= check_nv("vlan1ports", "0 5");
 		break;
@@ -814,22 +827,15 @@ static int init_nvram(void)
 		mfr = "D-Link";
 		name = "DIR-320";
 		features = SUP_SES;
-		if (nvram_match("wl0gpio0", "255"))
-		{
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0gpio0", "8");
 			nvram_set("wl0gpio1", "0");
 			nvram_set("wl0gpio2", "0");
 			nvram_set("wl0gpio3", "0");
-		}
-		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("t_fix1", name);
-			nvram_unset( "vlan2ports" );
-			nvram_unset( "vlan2hwname" );
-			nvram_set("wandevs", "vlan1");
-			nvram_set("wan_ifname", "vlan1");
-			nvram_set("wan_ifnames", "vlan1");
-			nvram_set("wan0_ifname", "vlan1");
-			nvram_set("wan0_ifnames", "vlan1");
 		}
 		break;
 #endif	// WL_BSS_INFO_VERSION >= 108
