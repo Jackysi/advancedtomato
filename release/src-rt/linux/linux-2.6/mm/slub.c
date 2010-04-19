@@ -245,9 +245,12 @@ static int sysfs_slab_add(struct kmem_cache *);
 static int sysfs_slab_alias(struct kmem_cache *, const char *);
 static void sysfs_slab_remove(struct kmem_cache *);
 #else
-static int sysfs_slab_add(struct kmem_cache *s) { return 0; }
-static int sysfs_slab_alias(struct kmem_cache *s, const char *p) { return 0; }
-static void sysfs_slab_remove(struct kmem_cache *s) {}
+static inline int sysfs_slab_add(struct kmem_cache *s) { return 0; }
+static inline int sysfs_slab_alias(struct kmem_cache *s, const char *p) { return 0; }
+static inline void sysfs_slab_remove(struct kmem_cache *s)
+{
+	kfree(s);
+}
 #endif
 
 /********************************************************************
@@ -376,18 +379,12 @@ static struct track *get_track(struct kmem_cache *s, void *object,
 static void set_track(struct kmem_cache *s, void *object,
 				enum track_item alloc, void *addr)
 {
-	struct track *p;
+	struct track *p = get_track(s, object, alloc);
 
-	if (s->offset)
-		p = object + s->offset + sizeof(void *);
-	else
-		p = object + s->inuse;
-
-	p += alloc;
 	if (addr) {
 		p->addr = addr;
 		p->cpu = smp_processor_id();
-		p->pid = current ? current->pid : -1;
+		p->pid = current->pid;
 		p->when = jiffies;
 	} else
 		memset(p, 0, sizeof(struct track));
@@ -1488,6 +1485,7 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
 	void **object;
 	unsigned long flags;
 
+	might_sleep_if(gfpflags & __GFP_WAIT);
 	local_irq_save(flags);
 	page = s->cpu_slab[smp_processor_id()];
 	if (unlikely(!page || !page->lockless_freelist ||
@@ -1501,7 +1499,7 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
 	}
 	local_irq_restore(flags);
 
-	if (unlikely((gfpflags & __GFP_ZERO) && object))
+	if (unlikely(gfpflags & __GFP_ZERO) && object)
 		memset(object, 0, length);
 
 	return object;
@@ -1752,7 +1750,7 @@ static inline int calculate_order(int size)
 	 * Doh this slab cannot be placed using slub_max_order.
 	 */
 	order = slab_order(size, 1, MAX_ORDER, 1);
-	if (order <= MAX_ORDER)
+	if (order < MAX_ORDER)
 		return order;
 	return -ENOSYS;
 }
@@ -1973,6 +1971,7 @@ static int calculate_sizes(struct kmem_cache *s)
 	 * on bootup.
 	 */
 	align = calculate_alignment(flags, align, s->objsize);
+	s->align = align;
 
 	/*
 	 * SLUB stores one object immediately after another beginning from
@@ -2156,7 +2155,6 @@ void kmem_cache_destroy(struct kmem_cache *s)
 		if (s->flags & SLAB_DESTROY_BY_RCU)
 			rcu_barrier();
 		sysfs_slab_remove(s);
-		kfree(s);
 	}
 	up_write(&slub_lock);
 }
@@ -2185,6 +2183,7 @@ __setup("slub_min_order=", setup_slub_min_order);
 static int __init setup_slub_max_order(char *str)
 {
 	get_option (&str, &slub_max_order);
+	slub_max_order = min(slub_max_order, MAX_ORDER - 1);
 
 	return 1;
 }
@@ -2532,8 +2531,6 @@ void __init kmem_cache_init(void)
 		create_kmalloc_cache(&kmalloc_caches[1],
 				"kmalloc-96", 96, GFP_KERNEL);
 		caches++;
-	}
-	if (KMALLOC_MIN_SIZE <= 128) {
 		create_kmalloc_cache(&kmalloc_caches[2],
 				"kmalloc-192", 192, GFP_KERNEL);
 		caches++;
@@ -2562,6 +2559,16 @@ void __init kmem_cache_init(void)
 
 	for (i = 8; i < KMALLOC_MIN_SIZE;i++)
 		size_index[(i - 1) / 8] = KMALLOC_SHIFT_LOW;
+
+	if (KMALLOC_MIN_SIZE == 128) {
+		/*
+		 * The 192 byte sized cache is not used if the alignment
+		 * is 128 byte. Redirect kmalloc to use the 256 byte cache
+		 * instead.
+		 */
+		for (i = 128 + 8; i <= 192; i += 8)
+			size_index[(i - 1) / 8] = 8;
+	}
 
 	slab_state = UP;
 
@@ -3614,6 +3621,13 @@ static ssize_t slab_attr_store(struct kobject *kobj,
 	return err;
 }
 
+static void kmem_cache_release(struct kobject *kobj)
+{
+	struct kmem_cache *s = to_slab(kobj);
+
+	kfree(s);
+}
+
 static struct sysfs_ops slab_sysfs_ops = {
 	.show = slab_attr_show,
 	.store = slab_attr_store,
@@ -3621,6 +3635,7 @@ static struct sysfs_ops slab_sysfs_ops = {
 
 static struct kobj_type slab_ktype = {
 	.sysfs_ops = &slab_sysfs_ops,
+	.release = kmem_cache_release,
 };
 
 static int uevent_filter(struct kset *kset, struct kobject *kobj)
@@ -3722,6 +3737,7 @@ static void sysfs_slab_remove(struct kmem_cache *s)
 {
 	kobject_uevent(&s->kobj, KOBJ_REMOVE);
 	kobject_del(&s->kobj);
+	kobject_put(&s->kobj);
 }
 
 /*

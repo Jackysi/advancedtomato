@@ -879,6 +879,7 @@ static void __slab_error(const char *function, struct kmem_cache *cachep,
   */
 
 static int use_alien_caches __read_mostly = 1;
+static int numa_platform __read_mostly = 1;
 static int __init noaliencache_setup(char *s)
 {
 	use_alien_caches = 0;
@@ -982,7 +983,6 @@ static int transfer_objects(struct array_cache *to,
 
 	from->avail -= nr;
 	to->avail += nr;
-	to->touched = 1;
 	return nr;
 }
 
@@ -1159,7 +1159,7 @@ static int __cpuinit cpuup_callback(struct notifier_block *nfb,
 	struct kmem_cache *cachep;
 	struct kmem_list3 *l3 = NULL;
 	int node = cpu_to_node(cpu);
-	int memsize = sizeof(struct kmem_list3);
+	const int memsize = sizeof(struct kmem_list3);
 
 	switch (action) {
 	case CPU_LOCK_ACQUIRE:
@@ -1220,13 +1220,18 @@ static int __cpuinit cpuup_callback(struct notifier_block *nfb,
 				shared = alloc_arraycache(node,
 					cachep->shared * cachep->batchcount,
 					0xbaadf00d);
-				if (!shared)
+				if (!shared) {
+					kfree(nc);
 					goto bad;
+				}
 			}
 			if (use_alien_caches) {
                                 alien = alloc_alien_cache(node, cachep->limit);
-                                if (!alien)
-                                        goto bad;
+                                if (!alien) {
+					kfree(shared);
+					kfree(nc);
+					goto bad;
+				}
                         }
 			cachep->array[cpu] = nc;
 			l3 = cachep->nodelists[node];
@@ -1411,8 +1416,10 @@ void __init kmem_cache_init(void)
 	int order;
 	int node;
 
-	if (num_possible_nodes() == 1)
+	if (num_possible_nodes() == 1) {
 		use_alien_caches = 0;
+		numa_platform = 0;
+	}
 
 	for (i = 0; i < NUM_INIT_LISTS; i++) {
 		kmem_list3_init(&initkmem_list3[i]);
@@ -2587,7 +2594,7 @@ static struct slab *alloc_slabmgmt(struct kmem_cache *cachep, void *objp,
 	if (OFF_SLAB(cachep)) {
 		/* Slab management obj is off-slab. */
 		slabp = kmem_cache_alloc_node(cachep->slabp_cache,
-					      local_flags & ~GFP_THISNODE, nodeid);
+					      local_flags, nodeid);
 		if (!slabp)
 			return NULL;
 	} else {
@@ -2952,8 +2959,10 @@ retry:
 	spin_lock(&l3->list_lock);
 
 	/* See if we can refill from the shared array */
-	if (l3->shared && transfer_objects(ac, l3->shared, batchcount))
+	if (l3->shared && transfer_objects(ac, l3->shared, batchcount)) {
+		l3->shared->touched = 1;
 		goto alloc_done;
+	}
 
 	while (batchcount > 0) {
 		struct list_head *entry;
@@ -3557,7 +3566,14 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp)
 	check_irq_off();
 	objp = cache_free_debugcheck(cachep, objp, __builtin_return_address(0));
 
-	if (cache_free_alien(cachep, objp))
+	/*
+	 * Skip calling cache_free_alien() when the platform is not numa.
+	 * This will avoid cache misses that happen while accessing slabp (which
+	 * is per page memory  reference) to get nodeid. Instead use a global
+	 * variable to skip the call, which is mostly likely to be present in
+	 * the cache.
+	 */
+	if (numa_platform && cache_free_alien(cachep, objp))
 		return;
 
 	if (likely(ac->avail < ac->limit)) {
