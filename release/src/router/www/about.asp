@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -90,7 +90,7 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
-Copyright (C) 2006-2009 Jonathan Zarate<br>
+Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 Built on <% build_time(); %><br>
