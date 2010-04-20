@@ -65,7 +65,8 @@ function upgrade()
 	startTime = (new Date()).getTime();
 	setInterval('clock()', 800);
 
-	fom.action += '?_http_id=' + nvram.http_id;
+	fom.action += '?_reset=' + (E('f_reset').checked ? "1" : "0");
+	form.addIdAction(fom);
 	fom.submit();
 }
 </script>
@@ -90,6 +91,11 @@ function upgrade()
 		<div id='box-input'>
 			Select the file to use:<br>
 			<input type='file' name='file' size='50' style='height:20px'> <input type='button' value='Upgrade' id='afu-upgrade-button' onclick='upgrade()' style='height:20px'>
+		</div>
+		</form>
+		<br><form name='form_reset' action='javascript:{}'>
+		<div id='reset-input'>
+			<input type='checkbox' id='f_reset'>&nbsp;&nbsp;After flashing, erase all data in NVRAM memory
 		</div>
 		</form>
 
