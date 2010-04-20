@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -107,7 +107,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovp
 /* VPN-END */
 
 Based on Tomato Firmware v<% version(); %><br>
-Copyright (C) 2006-2009 Jonathan Zarate<br>
+Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 Built on <% build_time(); %><br>

@@ -1,6 +1,6 @@
 /*
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -354,15 +354,13 @@ var ferror = {
 
 function _v_range(e, quiet, min, max, name)
 {
-	var v;
-
 	if ((e = E(e)) == null) return 0;
-	v = e.value * 1;
-	if ((isNaN(v)) || (v < min) || (v > max)) {
+	var v = e.value;
+	if ((!v.match(/^ *\d+ *$/)) || (v < min) || (v > max)) {
 		ferror.set(e, 'Invalid ' + name + '. Valid range: ' + min + '-' + max, quiet);
 		return 0;
 	}
-	e.value = v;
+	e.value = v * 1;
 	ferror.clear(e);
 	return 1;
 }
@@ -635,17 +633,18 @@ function fixPort(p, def)
 	if (def == null) def = -1;
 	if (p == null) return def;
 	p *= 1;
-	if ((isNaN(p)) || (p < 1) || (p > 65535)) return def;
+	if ((isNaN(p) || (p < 1) || (p > 65535) || (('' + p).indexOf('.') != -1))) return def;
 	return p;
 }
 
 function _v_portrange(e, quiet, v)
 {
-	var x, y;
-
 	if (v.match(/^(.*)[-:](.*)$/)) {
-		x = fixPort(RegExp.$1, -1);
-		y = fixPort(RegExp.$2, -1);
+		var x = RegExp.$1;
+		var y = RegExp.$2;
+
+		x = fixPort(x, -1);
+		y = fixPort(y, -1);
 		if ((x == -1) || (y == -1)) {
 			ferror.set(e, 'Invalid port range: ' + v, quiet);
 			return null;
@@ -687,7 +686,7 @@ function v_iptport(e, quiet)
 
 	if ((e = E(e)) == null) return 0;
 
-	a = e.value.split(/,/);
+	a = e.value.split(/[,\.]/);
 
 	if (a.length == 0) {
 		ferror.set(e, 'Expecting a list of ports or port range.', quiet);
