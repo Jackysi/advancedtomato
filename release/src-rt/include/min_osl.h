@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: min_osl.h,v 13.22.2.1.6.2 2008/11/19 01:45:21 Exp $
+ * $Id: min_osl.h,v 13.22.2.6 2009/11/04 01:17:49 Exp $
  */
 
 #ifndef _min_osl_h_
@@ -122,6 +122,14 @@ extern void *malloc(uint size);
 #define	OSL_CACHED(va)		((void *)(va))
 #endif
 
+#ifdef __mips__
+#define OSL_PREF_RANGE_LD(va, sz) prefetch_range_PREF_LOAD_RETAINED(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz) prefetch_range_PREF_STORE_RETAINED(va, sz)
+#else /* __mips__ */
+#define OSL_PREF_RANGE_LD(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz)
+#endif /* __mips__ */
+
 /* host/bus architecture-specific address byte swap */
 #define BUS_SWAP32(v)		(v)
 
@@ -173,7 +181,7 @@ extern int osl_error(int);
 #define PKTFRMNATIVE(osh, lb)		((void *)NULL)
 #define PKTTONATIVE(osh, p)		((struct lbuf *)NULL)
 
-/* get system up time in miliseconds */
-#define OSL_SYSUPTIME()			(0)
+/* Global ASSERT type */
+extern uint32 g_assert_type;
 
 #endif	/* _min_osl_h_ */

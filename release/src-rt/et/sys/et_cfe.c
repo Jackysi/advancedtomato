@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: et_cfe.c,v 1.19.96.2.12.1 2008/11/11 04:11:06 Exp $
+ * $Id: et_cfe.c,v 1.19.96.2 2008/09/12 04:31:31 Exp $
  */
 
 #include "lib_types.h"
@@ -202,11 +202,6 @@ et_probe(cfe_driver_t *drv,
 	et->osh = osl_attach(et);
 	ASSERT(et->osh);
 
-#ifdef	CFG_SIM
-	/* Make it chatty in simulation */
-	et_msg_level = 0xf;
-#endif
-
 	/* common load-time initialization */
 	if ((et->etc = etc_attach(et, VENDOR_BROADCOM, device, unit, et->osh, probe_ptr)) == NULL) {
 		ET_ERROR(("et%d: etc_attach failed\n", unit));
@@ -224,6 +219,11 @@ et_probe(cfe_driver_t *drv,
 	/* print hello string */
 	et->etc->chops->longname(et->etc->ch, name, sizeof (name));
 	printf("et%d: %s %s\n", unit, name, EPI_VERSION_STR);
+
+#ifdef	CFG_SIM
+	/* Make it chatty in simulation */
+	et_msg_level = 0xf;
+#endif
 
 	cfe_attach(drv, et, NULL, name);
 }

@@ -35,4 +35,7 @@
 #define	NRXBUFPOST	2
 #endif
 
+#define	PREFSZ			96
+#define ETPREFHDRS(h, sz)	OSL_PREF_RANGE_ST((h), (sz))
+
 #endif	/* _et_linux_h_ */

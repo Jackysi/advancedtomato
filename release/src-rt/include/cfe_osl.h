@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: cfe_osl.h,v 1.49.2.1.12.3 2009/01/22 19:44:31 Exp $
+ * $Id: cfe_osl.h,v 1.49.2.6 2009/11/04 01:17:49 Exp $
  */
 
 #ifndef _cfe_osl_h_
@@ -31,7 +31,13 @@
 #include <bcmstdlib.h>
 
 /* assert and panic */
+#ifdef BCMDBG_ASSERT
+#define ASSERT(exp) \
+	do { if (!(exp)) osl_assert(#exp, __FILE__, __LINE__); } while (0)
+extern void osl_assert(char *exp, char *file, int line);
+#else /* BCMDBG_ASSERT */
 #define	ASSERT(exp)		do {} while (0)
+#endif /* BCMDBG_ASSERT */
 
 /* PCMCIA attribute space access macros */
 #define	OSL_PCMCIA_READ_ATTR(osh, offset, buf, size) \
@@ -126,6 +132,14 @@ extern void osl_detach(osl_t *osh);
 #define OSL_UNCACHED(a)		(a)
 #define OSL_CACHED(a)		(a)
 #endif
+
+#ifdef __mips__
+#define OSL_PREF_RANGE_LD(va, sz) prefetch_range_PREF_LOAD_RETAINED(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz) prefetch_range_PREF_STORE_RETAINED(va, sz)
+#else /* __mips__ */
+#define OSL_PREF_RANGE_LD(va, sz)
+#define OSL_PREF_RANGE_ST(va, sz)
+#endif /* __mips__ */
 
 /* host/bus architecture-specific address byte swap */
 #define BUS_SWAP32(v)		(v)
@@ -230,7 +244,7 @@ extern uchar *osl_pktpull(struct lbuf *lb, uint bytes);
 extern struct lbuf *osl_pktdup(struct lbuf *lb);
 extern int osl_error(int bcmerror);
 
-/* get system up time in miliseconds */
-#define OSL_SYSUPTIME()		(0)
+/* Global ASSERT type */
+extern uint32 g_assert_type;
 
 #endif	/* _cfe_osl_h_ */
