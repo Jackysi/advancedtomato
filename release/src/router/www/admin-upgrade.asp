@@ -48,7 +48,7 @@ function upgrade()
 	var ext;
 
 	name = fom.file.value;
-	if (name.search(/\.(bin|trx)$/i) == -1) {
+	if (name.search(/\.(bin|trx|chk)$/i) == -1) {
 		alert('Expecting a ".bin" or ".trx" file.');
 		return;
 	}
