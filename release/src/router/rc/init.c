@@ -25,6 +25,7 @@
 #ifdef LINUX26
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
 #endif
 #include <wlutils.h>
 #include <bcmdevs.h>
@@ -945,6 +946,21 @@ static void load_files_from_nvram(void)
 	}
 }
 
+#if defined(LINUX26) && defined(TCONFIG_USB)
+static inline void tune_min_free_kbytes(void)
+{
+	struct sysinfo info;
+
+	memset(&info, 0, sizeof(struct sysinfo));
+	sysinfo(&info);
+	if (info.totalram >= 55 * 1024 * 1024) {
+		// If we have 64MB+ RAM, tune min_free_kbytes
+		// to reduce page allocation failure errors.
+		f_write_string("/proc/sys/vm/min_free_kbytes", "8192", 0, 0);
+	}
+}
+#endif
+
 static void sysinit(void)
 {
 	static const time_t tm = 0;
@@ -1090,6 +1106,9 @@ static void sysinit(void)
 
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 
+#if defined(LINUX26) && defined(TCONFIG_USB)
+	tune_min_free_kbytes();
+#endif
 	setup_conntrack();
 	set_host_domain_name();
 
