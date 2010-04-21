@@ -1,7 +1,16 @@
-# This is part of USB_ModeSwitch version 1.x.x
+# Part of usb-modeswitch-data, version 20100418
 #
+# This file is intended for USB_ModeSwitch version >= 1.0.3
+#
+
 ACTION!="add", GOTO="modeswitch_rules_end"
+
+# This adds a symlink "gsmmodem[n]" to the right (interrupt) ttyUSB port;
+# will work only with wrapper 1.1.2 and above (otherwise ignored)
+KERNEL=="ttyUSB*", PROGRAM="/usr/bin/tclsh /lib/udev/usb_modeswitch symlink name %p", SYMLINK="%c"
+
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
+
 
 # All known install partitions are on interface 0
 ATTRS{bInterfaceNumber}!="00", GOTO="modeswitch_rules_end"
@@ -33,7 +42,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Samsung SGH-Z810, Vertex Wireless 100 Series, AnyDATA ADU-500A, ADU-510A, ADU-510L, ADU-520A, Older Option devices
+# Samsung SGH-Z810, Vertex Wireless 100 Series, AnyDATA ADU-500 Series, older Option devices
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5 
@@ -177,6 +186,9 @@ ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d257", RUN+="usb_modeswitch '%b/%k'"
 # Option HSO device
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d357", RUN+="usb_modeswitch '%b/%k'"
 
+# Sony Ericsson MD300
+ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0cf", RUN+="usb_modeswitch '%b/%k'"
+
 # Sony Ericsson MD400
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0e1", RUN+="usb_modeswitch '%b/%k'"
 
@@ -201,6 +213,9 @@ ATTRS{idVendor}=="1076", ATTRS{idProduct}=="7f40", RUN+="usb_modeswitch '%b/%k'"
 # Sierra devices (specific driver)
 ATTRS{idVendor}=="1199", ATTRS{idProduct}=="0fff", RUN+="usb_modeswitch '%b/%k'"
 
+# Digicom 8E4455 (and all Pirelli devices - EXPERIMENTAL)
+ATTRS{idVendor}=="1266", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei E169
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
 
@@ -213,7 +228,7 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="101e", RUN+="usb_modeswitch '%b/%k'"
 # Huawei E180
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1414", RUN+="usb_modeswitch '%b/%k'"
 
-# Huawei E270+  (HSPA+ modem)
+# Huawei E270+ (HSPA+ modem)
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1446", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei K3765
@@ -234,6 +249,9 @@ ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5030", RUN+="usb_modeswitch '%b/%k'"
 # Novatel MC760 3G
 ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5031", RUN+="usb_modeswitch '%b/%k'"
 
+# Novatel MiFi 2352
+ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5041", RUN+="usb_modeswitch '%b/%k'"
+
 # Motorola 802.11 bg WLAN (TER/GUSB3-E)
 ATTRS{idVendor}=="148f", ATTRS{idProduct}=="2578", RUN+="usb_modeswitch '%b/%k'"
 
@@ -252,8 +270,26 @@ ATTRS{idVendor}=="198f", ATTRS{idProduct}=="bccd", RUN+="usb_modeswitch '%b/%k'"
 # ZTE AC581
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0026", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone (ZTE) K2525
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0040", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF110
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0053", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (ZTE) K4505-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0101", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE MF651
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0115", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (ZTE) K3805-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (ZTE) K3570-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1007", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (ZTE) K3571-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1009", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE devices
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
@@ -295,3 +331,4 @@ ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 ATTRS{idVendor}=="1f28", ATTRS{idProduct}=="0021", RUN+="usb_modeswitch '%b/%k'"
 
 LABEL="modeswitch_rules_end"
+

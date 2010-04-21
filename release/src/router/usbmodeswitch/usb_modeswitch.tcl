@@ -9,19 +9,20 @@ sleep 1; \
 exit
 
 
-# Wrapper (tcl) for usb_modeswitch, called by
+# Wrapper (tcl) for usb_modeswitch, called from
 # /lib/udev/rules.d/40-usb_modeswitch.rules
+# (part of data pack "usb-modeswitch-data")
 #
 # Does ID check on hotplugged USB devices and calls the
 # mode switching program with the matching parameter file
 # from /etc/usb_modeswitch.d
 #
-# Part of usb-modeswitch-1.1.1 package
+# Part of usb-modeswitch-1.1.2 package
 # (C) Josua Dietze 2009, 2010
 
 
-# Setting of these switches is done by an external config
-# file now
+# Setting of the following switches is done in an external config
+# file (/etc/usb_modeswitch.conf)
 
 set logging 0
 set noswitching 0
@@ -36,9 +37,23 @@ proc {Main} {argc argv} {
 
 global scsi usb match wc device logging noswitching
 
+# The facility to add a symbolic link pointing to the
+# ttyUSB port which provides interrupt transfer, i.e.
+# the port to connect through; returns a symlink name
+# for udev and exits
+
+if {[lindex $argv 0] == "symlink"} {
+	puts [SymLinkName [lindex $argv 2]]
+	exit
+}
+eval file delete d [glob -nocomplain /tmp/gsmmodem_*]
 
 set dbdir	/etc/usb_modeswitch.d
 set bindir	/usr/sbin
+
+set devList1 {}
+set devList2 {}
+
 
 # argv contains the values provided from the udev rule
 # separated by "/"
@@ -131,9 +146,19 @@ Log "----------------"
 if $noswitching {
 	Log "\nSwitching globally disabled. Exiting\n"
 	catch {exec logger -p syslog.notice "usb_modeswitch: switching disabled, no action for $usb(idVendor):$usb(idProduct)"}
-	exit
+	SafeExit
 }
 
+# Special ZTE check
+if {"$usb(idVendor)$usb(idProduct)" == "19d22000"} {
+	foreach dir {/etc/udev/rules.d /lib/udev/rules.d} {
+		catch {eval exec grep {"19d2.*2000.*eject"} [glob -nocomplain $dir/*]} result
+		if [regexp {(.*?):.*19d2} $result d ruleFile] {
+			Log "\nExisting ZTE rule found in $ruleFile. Exiting\n"
+			SafeExit
+		}
+	}
+}
 
 # Check if there is more than one config file for this USB ID,
 # which would point to a possible ambiguity. If so, check if
@@ -261,6 +286,8 @@ foreach configuration [lsort -decreasing $configList] {
 		set switch_config $configuration
 		set devList1 [glob -nocomplain /dev/ttyUSB* /dev/ttyACM* /dev/ttyHS*]
 		Log "! matched, now switching"
+		set tc [open /tmp/gsmmodem_$dev_top w]
+		close $tc
 		if $logging {
 			Log " (running command: $bindir/usb_modeswitch -I -W -c $configuration)"
 			set report [exec $bindir/usb_modeswitch -I -W -D -c $configuration 2>@ stdout]
@@ -284,7 +311,30 @@ foreach configuration [lsort -decreasing $configList] {
 # If switching was OK we now check for drivers by
 # simply recounting serial devices under /dev
 
+# If target ID given, driver shall be loaded
 if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}} $report] {
+
+	# For general driver loading; TODO: add respective device names.
+	# Presently only useful for HSO devices (which are recounted now)
+	set driverModule ""
+	set driverIDPath ""
+	set rc [open $configuration r]
+	set lineList [split [read $rc] \n]
+	close $rc
+	foreach line $lineList {
+		regexp {DriverModule[[:blank:]]*=[[:blank:]]*"?(\w+)"?} $line d driverModule
+		regexp {DriverIDPath[[:blank:]]*=[[:blank:]]*?"?([/\-\w]+)"?} $line d driverIDPath
+	}
+	if {$driverModule == ""} {
+		set driverModule "option"
+		set driverIDPath "/sys/bus/usb-serial/drivers/option1"
+	} else {
+		if {$driverIDPath == ""} {
+			set driverIDPath "/sys/bus/usb/drivers/$driverModule"
+		}
+	}
+	Log "Driver module is \"$driverModule\", ID path is $driverIDPath\n"
+
 	# some settle time in ms
 	after 500
 
@@ -294,53 +344,57 @@ if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}} $report] {
 	if {[llength $devList1] >= [llength $devList2]} {
 		Log " no new serial devices found"
 
-		# Backup for unknown target IDs: check sysfs again
-		# as soon as device is back
-		if [regexp {ok:0000:0000} $report] {
-			for {set i 0} {$i < 19} {incr i} {
-				if {![file exists $devdir/idProduct]} {
-					after 1000
-					continue
-				}
-			}
+		if {![file isdirectory $devdir]} {
+			Log "Device directory in sysfs is gone! Something went wrong, aborting"
+			SafeExit
 		}
+
+		# Give the device annother second if it's not fully back yet
+		if {![file exists $devdir/idProduct]} {
+			after 1000
+		}
+
 		ReadUSBAttrs $devdir
 		if {[string length "$usb(idVendor)$usb(idProduct)"] < 8} {
 			regexp {ok:(\w{4}):(\w{4})} $report d usb(idVendor) usb(idProduct)
 		}
 		set t "$usb(idVendor)$usb(idProduct)"
 		if {[string length $t] == 8 && [string trim $t 0] != ""} {
-			set idfile /sys/bus/usb-serial/drivers/option1/new_id
+			set idfile $driverIDPath/new_id
 			if {![file exists $idfile]} {
-				Log "\nTrying to load the option driver"
+				Log "\nTrying to load driver \"$driverModule\""
 				set loader /sbin/modprobe
 				Log " loader is: $loader"
 				if [file exists $loader] {
-					catch {set result [exec $loader -v option]}
-					if {[regexp {not found} $result]} {
-						Log " option driver not present as module"
+					if [catch {set result [exec $loader -v $driverModule]} err] {
+						Log " Running \"$loader $driverModule\" gave an error:\n  $err"
 					}
 				} else {
 					Log " /sbin/modprobe not found"
 				}
 			}
 			if [file exists $idfile] {
-				Log "Trying to add ID to option driver"
-				catch {exec logger -p syslog.notice "usb_modeswitch: adding device ID $usb(idVendor):$usb(idProduct) to driver \"option\""}
+				Log "Trying to add ID to driver \"$driverModule\""
+				catch {exec logger -p syslog.notice "usb_modeswitch: adding device ID $usb(idVendor):$usb(idProduct) to driver \"$driverModule\""}
 				catch {exec echo "$usb(idVendor) $usb(idProduct)" >$idfile}
 				after 600
-				set devList2 [glob -nocomplain /dev/ttyUSB* /dev/ttyACM*]
+				set devList2 [glob -nocomplain /dev/ttyUSB* /dev/ttyACM* /dev/ttyHS*]
 				if {[llength $devList1] >= [llength $devList2]} {
 					Log " still no new serial devices found"
 				} else {
 					Log " driver successfully bound"
 				}
+			} else {
+				Log " \"$idfile\" not found, can't add ID"
 			}
 		}
 	} else {
 		Log " new serial devices found, driver has bound"
 	}
 }
+
+
+
 if [regexp {ok:$} $report] {
 	Log "Doing no driver checking or binding for this device"
 }
@@ -422,11 +476,13 @@ foreach teststring $stringList {
 	set tokenList [split $teststring =]
 	set id [lindex $tokenList 0]
 	set matchstring [lindex $tokenList 1]
-	regsub -all {_} $matchstring { } matchstring
+	set blankstring ""
+	regsub -all {_} $matchstring { } blankstring
 	Log "matching $match($id)"
-	Log "  match string: $matchstring"
+	Log "  match string1: $matchstring"
+	Log "  match string2: $blankstring"
 	Log " device string: [set $match($id)]"
-	if {![string match $matchstring* [set $match($id)]] } {
+	if {!([string match $matchstring* [set $match($id)]] || [string match $blankstring* [set $match($id)]])} {
 		return 0
 	}
 }
@@ -477,13 +533,67 @@ proc {Log} {msg} {
 global wc logging device
 if {$logging == 0} {return}
 if {![info exists wc]} {
-	set wc [open /var/log/usb_modeswitch_$device a+]
+	set wc [open /var/log/usb_modeswitch_$device a]
 	puts $wc "\n\nUSB_ModeSwitch log from [clock format [clock seconds]]\n"
 }
 puts $wc $msg
 
 }
 # end of proc {Log}
+
+
+
+# Checking for interrupt endpoint in ttyUSB port; if found,
+# check for unused "gsmmodem[n]" name.
+# First link will be "gsmmodem", then "gsmmodem2" and up
+
+proc {SymLinkName} {path} {
+
+# HACK ... /tmp/gsmmodem_* was generated by a switching run before;
+# no way found to signal annother instance in the udev environment
+set tmpname [lindex [glob -nocomplain /tmp/gsmmodem_*] 0]
+set dev_top [lindex [split $tmpname _] 1]
+
+set dirList [split $path /]
+set idx -1
+set idx [lsearch -regexp $dirList {\d+-\d+:\d+\.\d+}]
+if {$idx == -1} {
+	return ""
+}
+set ifDir /sys[join [lrange $dirList 0 $idx] /]
+set port [lindex $dirList end]
+
+if {![regexp "/$dev_top/" $path]} {
+	return ""
+}
+
+set symlinkName ""
+foreach epDir [glob -nocomplain $ifDir/ep_*] {
+	if [file exists $epDir/type] {
+		set rc [open $epDir/type r]
+		set type [read $rc]
+		close $rc
+		if [regexp {Interrupt} $type] {
+			set symlinkName "gsmmodem"
+			break
+		}
+	}
+}
+cd /dev
+set idx 2
+set trunkName $symlinkName
+while {$idx < 256} {
+	if {![file exists $symlinkName]} {
+		break
+	}
+	set symlinkName $trunkName$idx
+	incr idx
+}
+
+return $symlinkName
+
+}
+# end of proc {SymLinkName}
 
 
 proc {SafeExit} {} {

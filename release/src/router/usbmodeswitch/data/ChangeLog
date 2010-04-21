@@ -1,0 +1,13 @@
+20100418 (with release 1.1.2):
+    First version with proper ChangeLog; added Digicom 8E4455 (needs multiple
+    commands, implemented in usb-modeswitch-1.1.2); added all other Pirelli
+    target IDs (from "option" driver) assuming they behave like the Digicom -
+    this is EXPERIMENTAL; added several ZTE devices and S.E. MD300, contributed
+    by Betavine project; new rule to add a symlink to interrupt ports (ignored
+    if wrapper is < 1.1.2)
+20100322:
+    Changed all ZTE devices to the "non-eject" command after annother report
+    of "eject" failure; even older ZTE devices seem to work with the former;
+    a conflict was exposed between two versions of 16d8:6803 (C-motech D50);
+    changed the default to the one which keeps the ID during switching
+

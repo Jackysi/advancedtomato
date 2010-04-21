@@ -1,11 +1,11 @@
 ########################################################
-# Huawei E270+  (HSPA+ modem)
+# Huawei, newer modems
 
 DefaultVendor= 0x12d1
 DefaultProduct=0x1446
 
 TargetVendor=  0x12d1
-TargetProductList="1001,1406,140c,14ac"
+TargetProductList="1001,1406,140c,141b,14ac"
 
 CheckSuccess=20
 

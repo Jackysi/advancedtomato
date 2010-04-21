@@ -4,9 +4,6 @@ For up-to-date and more detailed information (plus a friendly forum) visit
 http://www.draisberghof.de/usb_modeswitch
 
 
-NEW AUTOMATED DEVICE HANDLING - NO USER CONFIG NEEDED (well, generally ;-))
-
-
 What it is
 ==========
 
@@ -47,6 +44,7 @@ we can find out what you need!
 How to install
 ==============
 
+!! You need the usb-modeswitch-data package from the same source as this !!
 
 If you have an earlier version installed, de-installation is recommended ("make
 uninstall"). The wrapper script location changed in 1.1.0, old ones might be
@@ -60,10 +58,11 @@ To install, unpack and in the new directory use this line at the shell (as root)
 
 > make install
 
-This installs a setup file folder "/etc/usb-modeswitch.d", a script, a "rules"
-file for the udev system, a global config file and the binary.
-You are set already; if your device is known, you should be able to just plug
-it and use it. If it doesn't work we'll find out why.
+This installs a wrapper script, a global config file, the binary and a man page.
+
+Install the data package as well, and you are set already; if your device is
+known, you should be able to just plug it and use it. If it doesn't work we'll
+find out why.
 
 
 For manual use just run "make". Work with the command line interface or
@@ -98,7 +97,8 @@ Important: libusb programs - like this tool - need to be run as root!
 Known working hardware, Troubleshooting
 =======================================
 
-Please see the homepage.
+Please see the homepage. Read carefully.
+For support use ONLY the forum.
 
 
 
@@ -113,7 +113,8 @@ output of lsusb); the assigned driver is usually "usb-storage". Then try spying
 on the USB communication to the device with the same ID inside M$ Windoze. I
 recommend this tool:
 "SniffUSB" (http://benoit.papillault.free.fr/usbsnoop/index.php.en).
-Please post any improvements, new device information and/or bug reports to the
+
+PLEASE post any improvements, new device information and/or bug reports to the
 forum (see above) or send it to the author (see below)!
 
 
@@ -122,7 +123,7 @@ Whodunit
 
 Copyright 2007, 2008, 2009, 2010 Josua Dietze (mail to "usb_admin"
  at the domain "draisberghof.de" or write a personal message through the forum
- to "Josh"; NO SUPPORT QUESTIONS, use the forum for these!)
+ to "Josh"; NO SUPPORT QUESTIONS VIA E-MAIL, use the forum!)
 
 Command line parsing, decent usage/config output and handling, advanced options
  and bugfixes:
@@ -176,4 +177,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-03-17, Josua Dietze
+Last revised: 2010-04-12, Josua Dietze
