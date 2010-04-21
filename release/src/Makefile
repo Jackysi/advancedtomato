@@ -186,9 +186,21 @@ define RouterOptions
 		sed -i "/TCONFIG_SAMBA3/d" $(1); \
 		echo "TCONFIG_SAMBA3=y" >>$(1); \
 	fi; \
+	sed -i "/TCONFIG_JFFSV1/d" $(1); \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		if [ "$(JFFSv1)" = "y" ]; then \
+			echo "TCONFIG_JFFSV1=y" >>$(1); \
+		else \
+			echo "# TCONFIG_JFFSV1 is not set" >>$(1); \
+		fi; \
+	else \
+		echo "TCONFIG_JFFSV1=y" >>$(1); \
+	fi; \
 	if [ "$(NO_JFFS)" = "y" ]; then \
 		sed -i "/TCONFIG_JFFS2/d" $(1); \
 		echo "# TCONFIG_JFFS2 is not set" >>$(1); \
+		sed -i "/TCONFIG_JFFSV1/d" $(1); \
+		echo "# TCONFIG_JFFSV1 is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_CIFS)" = "y" ]; then \
 		sed -i "/TCONFIG_CIFS/d" $(1); \
@@ -511,7 +523,7 @@ r2e:
 
 ## Make Mips32r2 "no USB" build (RT-N12, WRT160Nv3)
 r2s:
-	@$(MAKE) s MIPS32=r2 NO_JFFS=y
+	@$(MAKE) s MIPS32=r2 JFFSv1=y
 
 ## Make Mips32r2 "no USB" VPN build
 r2v:

@@ -13,10 +13,10 @@
 
 //	#define TEST_INTEGRITY
 
-#ifdef LINUX26
-#define JFFS_NAME	"jffs2"
-#else
+#ifdef TCONFIG_JFFSV1
 #define JFFS_NAME	"jffs"
+#else
+#define JFFS_NAME	"jffs2"
 #endif
 
 static void error(const char *message)
