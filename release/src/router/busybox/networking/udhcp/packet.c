@@ -286,7 +286,7 @@ int FAST_FUNC udhcp_send_kernel_packet(struct dhcpMessage *payload,
 	bb_info_msg("n=%d", n);
 	bb_info_msg("DHCP_SIZE=%d", DHCP_SIZE);
 */
-	result = write(fd, payload, n);
+	result = safe_write(fd, payload, n);
 	
 #else
 	/* Currently we send full-sized DHCP packets (see above) */
