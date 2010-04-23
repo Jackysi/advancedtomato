@@ -190,7 +190,7 @@ int add_home_service(const char *service, const char *username, const char *home
 {
 	int iHomeService;
 
-	if (!service || !homedir)
+	if (!service || !homedir || homedir[0] == '\0')
 		return -1;
 
 	if ((iHomeService = lp_servicenumber(HOMES_NAME)) < 0)
@@ -758,6 +758,15 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 		pstring s;
 		pstrcpy(s,lp_pathname(snum));
 		standard_sub_conn(conn,s,sizeof(s));
+
+		if (s[0] == '\0') {
+			DEBUG(6, ("service [%s] did not resolve to a path\n",
+				lp_servicename(snum)));
+			conn_free(conn);
+			*status = NT_STATUS_BAD_NETWORK_NAME;
+			return NULL;
+		}
+
 		set_conn_connectpath(conn,s);
 		DEBUG(3,("Connect path is '%s' for service [%s]\n",s,
 			 lp_servicename(snum)));
