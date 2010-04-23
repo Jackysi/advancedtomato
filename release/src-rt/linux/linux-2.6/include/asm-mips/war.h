@@ -110,7 +110,12 @@
  * will just return and take the exception again if the information was
  * found to be inconsistent.
  */
-#define BCM1250_M3_WAR 1
+#ifndef __ASSEMBLY__
+extern int sb1250_m3_workaround_needed(void);
+#endif
+
+#define BCM1250_M3_WAR  sb1250_m3_workaround_needed()
+#define SIBYTE_1956_WAR 1
 
 /*
  * This is a DUART workaround related to glitches around register accesses
