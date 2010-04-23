@@ -1116,8 +1116,19 @@ TomatoGrid.prototype = {
 
 	dataToView: function(data) {
 		var v = [];
-		for (var i = 0; i < data.length; ++i)
-			v.push(escapeHTML('' + data[i]));
+		for (var i = 0; i < data.length; ++i) {
+			var s = escapeHTML('' + data[i]);
+			if (this.editorFields && this.editorFields.length > i) {
+				var ef = this.editorFields[i].multi;
+				if (!ef) ef = [this.editorFields[i]];
+				var f = (ef && ef.length > 0 ? ef[0] : null);
+				if (f && f.type == 'password') {
+					if (!f.peekaboo || get_config('web_pb', '1') != '0')
+						s = s.replace(/./g, '&#x25CF;');
+				}
+			}
+			v.push(s);
+		}
 		return v;
 	},
 
@@ -1147,7 +1158,7 @@ TomatoGrid.prototype = {
 		this.source = sr;
 
 		er = this.createEditor('edit', sr.rowIndex, sr);
-        er.className = 'editor';
+		er.className = 'editor';
 		this.editor = er;
 
 		c = er.cells[cell.cellIndex || 0];
@@ -1180,7 +1191,7 @@ TomatoGrid.prototype = {
 		var vi = 0;
 		for (var i = 0; i < this.editorFields.length; ++i) {
 			var s = '';
-    		var ef = this.editorFields[i].multi;
+			var ef = this.editorFields[i].multi;
 			if (!ef) ef = [this.editorFields[i]];
 
 			for (var j = 0; j < ef.length; ++j) {
@@ -1188,9 +1199,24 @@ TomatoGrid.prototype = {
 
 				if (f.prefix) s += f.prefix;
 				var attrib = ' class="fi' + (vi + 1) + '" ' + (f.attrib || '');
+				var id = (this.tb ? ('_' + this.tb + '_' + (vi + 1)) : null);
+				if (id) attrib += ' id="' + id + '"';
 				switch (f.type) {
+				case 'password':
+					if (f.peekaboo) {
+						switch (get_config('web_pb', '1')) {
+						case '0':
+							f.type = 'text';
+						case '2':
+							f.peekaboo = 0;
+							break;
+						}
+					}
+					attrib += ' autocomplete="off"';
+					if (f.peekaboo && id) attrib += ' onfocus=\'peekaboo("' + id + '",1)\'';
+					// drop
 				case 'text':
-					s += '<input type="text" maxlength=' + f.maxlen + common + attrib;
+					s += '<input type="' + f.type + '" maxlength=' + f.maxlen + common + attrib;
 					if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
 						else s += '>';
 					break;
