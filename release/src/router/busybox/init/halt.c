@@ -40,9 +40,14 @@ static void write_wtmp(void)
 #define RB_HALT_SYSTEM RB_HALT
 #endif
 
-#ifndef RB_POWER_OFF
-#define RB_POWER_OFF RB_POWERDOWN
+#ifndef RB_POWERDOWN
+/* Stop system and switch power off if possible.  */
+# define RB_POWERDOWN   0x4321fedc
 #endif
+#ifndef RB_POWER_OFF
+# define RB_POWER_OFF RB_POWERDOWN
+#endif
+
 
 int halt_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int halt_main(int argc UNUSED_PARAM, char **argv)
@@ -85,6 +90,8 @@ int halt_main(int argc UNUSED_PARAM, char **argv)
 //TODO: I tend to think that signalling linuxrc is wrong
 // pity original author didn't comment on it...
 		if (ENABLE_FEATURE_INITRD) {
+			/* talk to linuxrc */
+			/* bbox init/linuxrc assumed */
 			pid_t *pidlist = find_pid_by_name("linuxrc");
 			if (pidlist[0] > 0)
 				rc = kill(pidlist[0], signals[which]);
@@ -92,7 +99,21 @@ int halt_main(int argc UNUSED_PARAM, char **argv)
 				free(pidlist);
 		}
 		if (rc) {
-			rc = kill(1, signals[which]);
+			/* talk to init */
+			if (!ENABLE_FEATURE_CALL_TELINIT) {
+				/* bbox init assumed */
+				rc = kill(1, signals[which]);
+			} else {
+				/* SysV style init assumed */
+				/* runlevels:
+				 * 0 == shutdown
+				 * 6 == reboot */
+				rc = execlp(CONFIG_TELINIT_PATH,
+						CONFIG_TELINIT_PATH,
+						which == 2 ? "6" : "0",
+						(char *)NULL
+				);
+			}
 		}
 	} else {
 		rc = reboot(magic[which]);

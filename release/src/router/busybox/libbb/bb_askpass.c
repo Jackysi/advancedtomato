@@ -37,9 +37,12 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 	tcgetattr(fd, &oldtio);
 	tcflush(fd, TCIFLUSH);
 	tio = oldtio;
+#ifndef IUCLC
+# define IUCLC 0
+#endif
 	tio.c_iflag &= ~(IUCLC|IXON|IXOFF|IXANY);
 	tio.c_lflag &= ~(ECHO|ECHOE|ECHOK|ECHONL|TOSTOP);
-	tcsetattr(fd, TCSANOW, &tio);
+	tcsetattr_stdin_TCSANOW(&tio);
 
 	memset(&sa, 0, sizeof(sa));
 	/* sa.sa_flags = 0; - no SA_RESTART! */
@@ -52,7 +55,7 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 	}
 
 	fputs(prompt, stdout);
-	fflush(stdout);
+	fflush_all();
 	ret = NULL;
 	/* On timeout or Ctrl-C, read will hopefully be interrupted,
 	 * and we return NULL */
@@ -71,8 +74,9 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 		alarm(0);
 	}
 	sigaction_set(SIGINT, &oldsa);
-	tcsetattr(fd, TCSANOW, &oldtio);
+
+	tcsetattr_stdin_TCSANOW(&oldtio);
 	bb_putchar('\n');
-	fflush(stdout);
+	fflush_all();
 	return ret;
 }

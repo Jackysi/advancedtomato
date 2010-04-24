@@ -28,7 +28,8 @@ httpd_indexcgi.c -o index.cgi
 /* We don't use printf, as it pulls in >12 kb of code from uclibc (i386). */
 /* Currently malloc machinery is the biggest part of libc we pull in. */
 /* We have only one realloc and one strdup, any idea how to do without? */
-/* Size (i386, approximate):
+
+/* Size (i386, static uclibc, approximate):
  *   text    data     bss     dec     hex filename
  *  13036      44    3052   16132    3f04 index.cgi
  *   2576       4    2048    4628    1214 index.cgi.o
@@ -148,7 +149,7 @@ static void fmt_url(/*char *dst,*/ const char *name)
 		guarantee(3);
 		*dst = c;
 		if ((c - '0') > 9 /* not a digit */
-		 && ((c|0x20) - 'a') > 26 /* not A-Z or a-z */
+		 && ((c|0x20) - 'a') > ('z' - 'a') /* not A-Z or a-z */
 		 && !strchr("._-+@", c)
 		) {
 			*dst++ = '%';
@@ -210,7 +211,7 @@ static void fmt_04u(/*char *dst,*/ unsigned n)
 	fmt_02u(n % 100);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	dir_list_t *dir_list;
 	dir_list_t *cdir;
@@ -225,6 +226,7 @@ int main(void)
 	QUERY_STRING = getenv("QUERY_STRING");
 	if (!QUERY_STRING
 	 || QUERY_STRING[0] != '/'
+	 || strstr(QUERY_STRING, "//")
 	 || strstr(QUERY_STRING, "/../")
 	 || strcmp(strrchr(QUERY_STRING, '/'), "/..") == 0
 	) {
@@ -289,7 +291,7 @@ int main(void)
 	size_total = 0;
 	cdir = dir_list;
 	while (dir_list_count--) {
-		struct tm *tm;
+		struct tm *ptm;
 
 		if (S_ISDIR(cdir->dl_mode)) {
 			count_dirs++;
@@ -314,12 +316,12 @@ int main(void)
 			fmt_ull(cdir->dl_size);
 		fmt_str("<td class=dt>");
 		tm = gmtime(&cdir->dl_mtime);
-		fmt_04u(1900 + tm->tm_year); *dst++ = '-';
-		fmt_02u(tm->tm_mon + 1); *dst++ = '-';
-		fmt_02u(tm->tm_mday); *dst++ = ' ';
-		fmt_02u(tm->tm_hour); *dst++ = ':';
-		fmt_02u(tm->tm_min); *dst++ = ':';
-		fmt_02u(tm->tm_sec);
+		fmt_04u(1900 + ptm->tm_year); *dst++ = '-';
+		fmt_02u(ptm->tm_mon + 1); *dst++ = '-';
+		fmt_02u(ptm->tm_mday); *dst++ = ' ';
+		fmt_02u(ptm->tm_hour); *dst++ = ':';
+		fmt_02u(ptm->tm_min); *dst++ = ':';
+		fmt_02u(ptm->tm_sec);
 		*dst++ = '\n';
 
 		odd = 1 - odd;

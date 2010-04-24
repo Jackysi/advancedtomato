@@ -61,9 +61,9 @@ int acpid_main(int argc, char **argv)
 	const char *opt_logfile = "/var/log/acpid.log";
 
 	getopt32(argv, "c:e:l:d"
-		USE_FEATURE_ACPID_COMPAT("g:m:s:S:v"),
+		IF_FEATURE_ACPID_COMPAT("g:m:s:S:v"),
 		&opt_conf, &opt_input, &opt_logfile
-		USE_FEATURE_ACPID_COMPAT(, NULL, NULL, NULL, NULL, NULL)
+		IF_FEATURE_ACPID_COMPAT(, NULL, NULL, NULL, NULL, NULL)
 	);
 
 	// daemonize unless -d given
@@ -74,6 +74,7 @@ int acpid_main(int argc, char **argv)
 	}
 
 	argv += optind;
+	argc -= optind;
 
 	// goto configuration directory
 	xchdir(opt_conf);
@@ -102,7 +103,7 @@ int acpid_main(int argc, char **argv)
 	// evdev files given, use evdev interface
 
 	// open event devices
-	pfd = xzalloc(sizeof(*pfd) * (argc - optind));
+	pfd = xzalloc(sizeof(*pfd) * argc);
 	nfd = 0;
 	while (*argv) {
 		pfd[nfd].fd = open_or_warn(*argv++, O_RDONLY | O_NONBLOCK);

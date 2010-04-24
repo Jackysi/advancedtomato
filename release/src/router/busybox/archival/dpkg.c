@@ -493,7 +493,7 @@ static void free_package(common_node_t *node)
 }
 
 /*
- * Gets the next package field from package_buffer, seperated into the field name
+ * Gets the next package field from package_buffer, separated into the field name
  * and field value, it returns the int offset to the first character of the next field
  */
 static int read_package_field(const char *package_buffer, char **field_name, char **field_value)
@@ -806,7 +806,7 @@ static void write_status_file(deb_file_t **deb_file)
 		write_flag = FALSE;
 		tmp_string = strstr(control_buffer, "Status:");
 		if (tmp_string != NULL) {
-			/* Seperate the status value from the control buffer */
+			/* Separate the status value from the control buffer */
 			tmp_string += 7;
 			tmp_string += strspn(tmp_string, " \n\t");
 			status_from_file = xstrndup(tmp_string, strcspn(tmp_string, "\n"));
@@ -912,7 +912,7 @@ static void write_status_file(deb_file_t **deb_file)
 	/* Create a separate backfile to dpkg */
 	if (rename("/var/lib/dpkg/status", "/var/lib/dpkg/status.udeb.bak") == -1) {
 		if (errno != ENOENT)
-			bb_error_msg_and_die("cannot create backup status file");
+			bb_error_msg_and_die("can't create backup status file");
 		/* Its ok if renaming the status file fails because status
 		 * file doesnt exist, maybe we are starting from scratch */
 		bb_error_msg("no status file found, creating new one");
@@ -1354,8 +1354,8 @@ static void remove_package(const unsigned package_num, int noisy)
 	free_array(exclude_files);
 	free_array(remove_files);
 
-	/* Create a list of files in /var/lib/dpkg/info/<package>.* to keep  */
-	exclude_files = xzalloc(sizeof(char*) * 3);
+	/* Create a list of files in /var/lib/dpkg/info/<package>.* to keep */
+	exclude_files = xzalloc(sizeof(exclude_files[0]) * 3);
 	exclude_files[0] = xstrdup(conffile_name);
 	exclude_files[1] = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, "postrm");
 
@@ -1393,20 +1393,25 @@ static void purge_package(const unsigned package_num)
 	sprintf(list_name, "/var/lib/dpkg/info/%s.%s", package_name, "list");
 	remove_files = create_list(list_name);
 
-	exclude_files = xzalloc(sizeof(char*));
-
 	/* Some directories cant be removed straight away, so do multiple passes */
-	while (remove_file_array(remove_files, exclude_files)) /* repeat */;
+	while (remove_file_array(remove_files, NULL))
+		continue;
 	free_array(remove_files);
 
 	/* Create a list of all /var/lib/dpkg/info/<package> files */
 	remove_files = all_control_list(package_name);
-	remove_file_array(remove_files, exclude_files);
-	free_array(remove_files);
-	free(exclude_files);
 
-	/* Run postrm script */
+	/* Delete all of them except the postrm script */
+	exclude_files = xzalloc(sizeof(exclude_files[0]) * 2);
+	exclude_files[0] = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, "postrm");
+	remove_file_array(remove_files, exclude_files);
+	free_array(exclude_files);
+
+	/* Run and remove postrm script */
 	run_package_script_or_die(package_name, "postrm");
+	remove_file_array(remove_files, NULL);
+
+	free_array(remove_files);
 
 	/* Change package status */
 	set_status(status_num, "not-installed", 3);
@@ -1441,7 +1446,7 @@ static void init_archive_deb_control(archive_handle_t *ar_handle)
 #endif
 
 	/* Assign the tar handle as a subarchive of the ar handle */
-	ar_handle->sub_archive = tar_handle;
+	ar_handle->dpkg__sub_archive = tar_handle;
 }
 
 static void init_archive_deb_data(archive_handle_t *ar_handle)
@@ -1461,28 +1466,47 @@ static void init_archive_deb_data(archive_handle_t *ar_handle)
 #endif
 
 	/* Assign the tar handle as a subarchive of the ar handle */
-	ar_handle->sub_archive = tar_handle;
+	ar_handle->dpkg__sub_archive = tar_handle;
+}
+
+static void FAST_FUNC data_extract_to_buffer(archive_handle_t *archive_handle)
+{
+	unsigned size = archive_handle->file_header->size;
+
+	archive_handle->dpkg__buffer = xzalloc(size + 1);
+	xread(archive_handle->src_fd, archive_handle->dpkg__buffer, size);
 }
 
 static char *deb_extract_control_file_to_buffer(archive_handle_t *ar_handle, llist_t *myaccept)
 {
-	ar_handle->sub_archive->action_data = data_extract_to_buffer;
-	ar_handle->sub_archive->accept = myaccept;
-	ar_handle->sub_archive->filter = filter_accept_list;
+	ar_handle->dpkg__sub_archive->action_data = data_extract_to_buffer;
+	ar_handle->dpkg__sub_archive->accept = myaccept;
+	ar_handle->dpkg__sub_archive->filter = filter_accept_list;
 
 	unpack_ar_archive(ar_handle);
 	close(ar_handle->src_fd);
 
-	return ar_handle->sub_archive->buffer;
+	return ar_handle->dpkg__sub_archive->dpkg__buffer;
 }
 
 static void FAST_FUNC data_extract_all_prefix(archive_handle_t *archive_handle)
 {
 	char *name_ptr = archive_handle->file_header->name;
 
-	name_ptr += strspn(name_ptr, "./");
+	/* Skip all leading "/" */
+	while (*name_ptr == '/')
+		name_ptr++;
+	/* Skip all leading "./" and "../" */
+	while (name_ptr[0] == '.') {
+		if (name_ptr[1] == '.' && name_ptr[2] == '/')
+			name_ptr++;
+		if (name_ptr[1] != '/')
+			break;
+		name_ptr += 2;
+	}
+
 	if (name_ptr[0] != '\0') {
-		archive_handle->file_header->name = xasprintf("%s%s", archive_handle->buffer, name_ptr);
+		archive_handle->file_header->name = xasprintf("%s%s", archive_handle->dpkg__buffer, name_ptr);
 		data_extract_all(archive_handle);
 	}
 }
@@ -1522,11 +1546,11 @@ static void unpack_package(deb_file_t *deb_file)
 		llist_add_to(&accept_list, c);
 		i++;
 	}
-	archive_handle->sub_archive->accept = accept_list;
-	archive_handle->sub_archive->filter = filter_accept_list;
-	archive_handle->sub_archive->action_data = data_extract_all_prefix;
-	archive_handle->sub_archive->buffer = info_prefix;
-	archive_handle->sub_archive->ah_flags |= ARCHIVE_EXTRACT_UNCONDITIONAL;
+	archive_handle->dpkg__sub_archive->accept = accept_list;
+	archive_handle->dpkg__sub_archive->filter = filter_accept_list;
+	archive_handle->dpkg__sub_archive->action_data = data_extract_all_prefix;
+	archive_handle->dpkg__sub_archive->dpkg__buffer = info_prefix;
+	archive_handle->dpkg__sub_archive->ah_flags |= ARCHIVE_UNLINK_OLD;
 	unpack_ar_archive(archive_handle);
 
 	/* Run the preinst prior to extracting */
@@ -1535,19 +1559,19 @@ static void unpack_package(deb_file_t *deb_file)
 	/* Extract data.tar.gz to the root directory */
 	archive_handle = init_archive_deb_ar(deb_file->filename);
 	init_archive_deb_data(archive_handle);
-	archive_handle->sub_archive->action_data = data_extract_all_prefix;
-	archive_handle->sub_archive->buffer = (char*)"/"; /* huh? */
-	archive_handle->sub_archive->ah_flags |= ARCHIVE_EXTRACT_UNCONDITIONAL;
+	archive_handle->dpkg__sub_archive->action_data = data_extract_all_prefix;
+	archive_handle->dpkg__sub_archive->dpkg__buffer = (char*)"/"; /* huh? */
+	archive_handle->dpkg__sub_archive->ah_flags |= ARCHIVE_UNLINK_OLD;
 	unpack_ar_archive(archive_handle);
 
 	/* Create the list file */
 	list_filename = xasprintf("/var/lib/dpkg/info/%s.%s", package_name, "list");
 	out_stream = xfopen_for_write(list_filename);
-	while (archive_handle->sub_archive->passed) {
+	while (archive_handle->dpkg__sub_archive->passed) {
 		/* the leading . has been stripped by data_extract_all_prefix already */
-		fputs(archive_handle->sub_archive->passed->data, out_stream);
+		fputs(archive_handle->dpkg__sub_archive->passed->data, out_stream);
 		fputc('\n', out_stream);
-		archive_handle->sub_archive->passed = archive_handle->sub_archive->passed->link;
+		archive_handle->dpkg__sub_archive->passed = archive_handle->dpkg__sub_archive->passed->link;
 	}
 	fclose(out_stream);
 
@@ -1641,7 +1665,7 @@ int dpkg_main(int argc UNUSED_PARAM, char **argv)
 			init_archive_deb_control(archive_handle);
 			deb_file[deb_count]->control_file = deb_extract_control_file_to_buffer(archive_handle, control_list);
 			if (deb_file[deb_count]->control_file == NULL) {
-				bb_error_msg_and_die("cannot extract control file");
+				bb_error_msg_and_die("can't extract control file");
 			}
 			deb_file[deb_count]->filename = xstrdup(argv[0]);
 			package_num = fill_package_struct(deb_file[deb_count]->control_file);

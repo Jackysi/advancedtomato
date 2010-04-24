@@ -114,7 +114,7 @@ typedef struct nvblock_s {
 	var *pos;
 	struct nvblock_s *prev;
 	struct nvblock_s *next;
-	var nv[0];
+	var nv[];
 } nvblock;
 
 typedef struct tsplitter_s {
@@ -250,7 +250,7 @@ enum {
 
 /* builtins */
 enum {
-	B_a2,	B_ix,	B_ma,	B_sp,	B_ss,	B_ti,	B_lo,	B_up,
+	B_a2,	B_ix,	B_ma,	B_sp,	B_ss,	B_ti,   B_mt,	B_lo,	B_up,
 	B_ge,	B_gs,	B_su,
 	B_an,	B_co,	B_ls,	B_or,	B_rs,	B_xo,
 };
@@ -299,7 +299,7 @@ static const char tokenlist[] ALIGN1 =
 	"\4rand"    "\3sin"     "\4sqrt"    "\5srand"
 	"\6gensub"  "\4gsub"    "\5index"   "\6length"
 	"\5match"   "\5split"   "\7sprintf" "\3sub"
-	"\6substr"  "\7systime" "\10strftime"
+	"\6substr"  "\7systime" "\10strftime" "\6mktime"
 	"\7tolower" "\7toupper" NTC
 	"\7getline" NTC
 	"\4func"    "\10function"   NTC
@@ -353,7 +353,7 @@ static const uint32_t tokeninfo[] = {
 	OC_FBLTIN|F_rn,    OC_FBLTIN|Nx|F_si, OC_FBLTIN|Nx|F_sq, OC_FBLTIN|Nx|F_sr,
 	OC_B|B_ge|P(0xd6), OC_B|B_gs|P(0xb6), OC_B|B_ix|P(0x9b), OC_FBLTIN|Sx|F_le,
 	OC_B|B_ma|P(0x89), OC_B|B_sp|P(0x8b), OC_SPRINTF,        OC_B|B_su|P(0xb6),
-	OC_B|B_ss|P(0x8f), OC_FBLTIN|F_ti,    OC_B|B_ti|P(0x0b),
+	OC_B|B_ss|P(0x8f), OC_FBLTIN|F_ti,    OC_B|B_ti|P(0x0b), OC_B|B_mt|P(0x0b),
 	OC_B|B_lo|P(0x49), OC_B|B_up|P(0x49),
 	OC_GETLINE|SV|P(0),
 	0,	0,
@@ -486,7 +486,7 @@ struct globals2 {
 #define fsplitter    (G.fsplitter   )
 #define rsplitter    (G.rsplitter   )
 #define INIT_G() do { \
-	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G1) + sizeof(G)) + sizeof(G1)); \
+	SET_PTR_TO_GLOBALS((char*)xzalloc(sizeof(G1)+sizeof(G)) + sizeof(G1)); \
 	G.next_token__ltclass = TC_OPTERM; \
 	G.evaluate__seed = 1; \
 } while (0)
@@ -516,13 +516,13 @@ static const char EMSG_UNDEF_FUNC[] ALIGN1 = "Call to undefined function";
 static const char EMSG_NO_MATH[] ALIGN1 = "Math support is not compiled in";
 #endif
 
-static void zero_out_var(var * vp)
+static void zero_out_var(var *vp)
 {
 	memset(vp, 0, sizeof(*vp));
 }
 
-static void syntax_error(const char *const message) NORETURN;
-static void syntax_error(const char *const message)
+static void syntax_error(const char *message) NORETURN;
+static void syntax_error(const char *message)
 {
 	bb_error_msg_and_die("%s:%i: %s", g_progname, g_lineno, message);
 }
@@ -533,7 +533,8 @@ static unsigned hashidx(const char *name)
 {
 	unsigned idx = 0;
 
-	while (*name) idx = *name++ + (idx << 6) - idx;
+	while (*name)
+		idx = *name++ + (idx << 6) - idx;
 	return idx;
 }
 
@@ -542,9 +543,9 @@ static xhash *hash_init(void)
 {
 	xhash *newhash;
 
-	newhash = xzalloc(sizeof(xhash));
+	newhash = xzalloc(sizeof(*newhash));
 	newhash->csize = FIRST_PRIME;
-	newhash->items = xzalloc(newhash->csize * sizeof(hash_item *));
+	newhash->items = xzalloc(FIRST_PRIME * sizeof(newhash->items[0]));
 
 	return newhash;
 }
@@ -554,7 +555,7 @@ static void *hash_search(xhash *hash, const char *name)
 {
 	hash_item *hi;
 
-	hi = hash->items [ hashidx(name) % hash->csize ];
+	hi = hash->items[hashidx(name) % hash->csize];
 	while (hi) {
 		if (strcmp(hi->name, name) == 0)
 			return &(hi->data);
@@ -573,7 +574,7 @@ static void hash_rebuild(xhash *hash)
 		return;
 
 	newsize = PRIMES[hash->nprime++];
-	newitems = xzalloc(newsize * sizeof(hash_item *));
+	newitems = xzalloc(newsize * sizeof(newitems[0]));
 
 	for (i = 0; i < hash->csize; i++) {
 		hi = hash->items[i];
@@ -659,9 +660,8 @@ static void skip_spaces(char **s)
 static char *nextword(char **s)
 {
 	char *p = *s;
-
-	while (*(*s)++) /* */;
-
+	while (*(*s)++)
+		continue;
 	return p;
 }
 
@@ -671,8 +671,10 @@ static char nextchar(char **s)
 
 	c = *((*s)++);
 	pps = *s;
-	if (c == '\\') c = bb_process_escape_sequence((const char**)s);
-	if (c == '\\' && *s == pps) c = *((*s)++);
+	if (c == '\\')
+		c = bb_process_escape_sequence((const char**)s);
+	if (c == '\\' && *s == pps)
+		c = *((*s)++);
 	return c;
 }
 
@@ -754,10 +756,10 @@ static var *setvar_s(var *v, const char *value)
 	return setvar_p(v, (value && *value) ? xstrdup(value) : NULL);
 }
 
-/* same as setvar_s but set USER flag */
+/* same as setvar_s but sets USER flag */
 static var *setvar_u(var *v, const char *value)
 {
-	setvar_s(v, value);
+	v = setvar_s(v, value);
 	v->type |= VF_USER;
 	return v;
 }
@@ -765,11 +767,9 @@ static var *setvar_u(var *v, const char *value)
 /* set array element to user string */
 static void setari_u(var *a, int idx, const char *s)
 {
-	char sidx[sizeof(int)*3 + 1];
 	var *v;
 
-	sprintf(sidx, "%d", idx);
-	v = findvar(iamarray(a), sidx);
+	v = findvar(iamarray(a), itoa(idx));
 	setvar_u(v, s);
 }
 
@@ -844,7 +844,7 @@ static var *copyvar(var *dest, const var *src)
 
 static var *incvar(var *v)
 {
-	return setvar_i(v, getvar_i(v) + 1.);
+	return setvar_i(v, getvar_i(v) + 1.0);
 }
 
 /* return true if v is number or numeric string */
@@ -858,8 +858,8 @@ static int is_numeric(var *v)
 static int istrue(var *v)
 {
 	if (is_numeric(v))
-		return (v->number == 0) ? 0 : 1;
-	return (v->string && *(v->string)) ? 1 : 0;
+		return (v->number != 0);
+	return (v->string && v->string[0]);
 }
 
 /* temporary variables allocator. Last allocated should be first freed */
@@ -871,7 +871,8 @@ static var *nvalloc(int n)
 
 	while (g_cb) {
 		pb = g_cb;
-		if ((g_cb->pos - g_cb->nv) + n <= g_cb->size) break;
+		if ((g_cb->pos - g_cb->nv) + n <= g_cb->size)
+			break;
 		g_cb = g_cb->next;
 	}
 
@@ -882,7 +883,8 @@ static var *nvalloc(int n)
 		g_cb->pos = g_cb->nv;
 		g_cb->prev = pb;
 		/*g_cb->next = NULL; - xzalloc did it */
-		if (pb) pb->next = g_cb;
+		if (pb)
+			pb->next = g_cb;
 	}
 
 	v = r = g_cb->pos;
@@ -910,10 +912,8 @@ static void nvfree(var *v)
 			free(p->x.array->items);
 			free(p->x.array);
 		}
-		if (p->type & VF_WALK) {
-			//bb_error_msg("free(walker@%p:%p) #1", &p->x.walker, p->x.walker);
+		if (p->type & VF_WALK)
 			free(p->x.walker);
-		}
 
 		clrvar(p);
 	}
@@ -1046,7 +1046,7 @@ static uint32_t next_token(uint32_t expected)
 				*(p-1) = '\0';
 				tc = TC_VARIABLE;
 				/* also consume whitespace between functionname and bracket */
-				if (!(expected & TC_VARIABLE) || (expected & TC_ARRAY))
+				if (!(expected & TC_VARIABLE))
 					skip_spaces(&p);
 				if (*p == '(') {
 					tc = TC_FUNCTION;
@@ -1104,13 +1104,15 @@ static node *new_node(uint32_t info)
 	return n;
 }
 
-static void mk_re_node(const char *s, node *n, regex_t *re)
+static node *mk_re_node(const char *s, node *n, regex_t *re)
 {
 	n->info = OC_REGEXP;
 	n->l.re = re;
 	n->r.ire = re + 1;
 	xregcomp(re, s, REG_EXTENDED);
 	xregcomp(re + 1, s, REG_EXTENDED | REG_ICASE);
+
+	return n;
 }
 
 static node *condition(void)
@@ -1145,9 +1147,11 @@ static node *parse_expr(uint32_t iexp)
 			/* for binary and postfix-unary operators, jump back over
 			 * previous operators with higher priority */
 			vn = cn;
-			while ( ((t_info & PRIMASK) > (vn->a.n->info & PRIMASK2))
-			 || ((t_info == vn->info) && ((t_info & OPCLSMASK) == OC_COLON)) )
+			while (((t_info & PRIMASK) > (vn->a.n->info & PRIMASK2))
+			    || ((t_info == vn->info) && ((t_info & OPCLSMASK) == OC_COLON))
+			) {
 				vn = vn->a.n;
+			}
 			if ((t_info & OPCLSMASK) == OC_TERNARY)
 				t_info += P(6);
 			cn = vn->a.n->r.n = new_node(t_info);
@@ -1506,17 +1510,13 @@ static regex_t *as_regex(node *op, regex_t *preg)
 	return preg;
 }
 
-/* gradually increasing buffer.
- * note that we reallocate even if n == old_size,
- * and thus there is at least one extra allocated byte.
- */
-static char* qrealloc(char *b, int n, int *size)
+/* gradually increasing buffer */
+static void qrealloc(char **b, int n, int *size)
 {
-	if (!b || n >= *size) {
+	if (!*b || n >= *size) {
 		*size = n + (n>>1) + 80;
-		b = xrealloc(b, *size);
+		*b = xrealloc(*b, *size);
 	}
-	return b;
 }
 
 /* resize field storage space */
@@ -1676,7 +1676,7 @@ static void handle_special(var *v)
 				memcpy(b+len, sep, sl);
 				len += sl;
 			}
-			b = qrealloc(b, len+l+sl, &bsize);
+			qrealloc(&b, len+l+sl, &bsize);
 			memcpy(b+len, s, l);
 			len += l;
 		}
@@ -1724,20 +1724,18 @@ static void hashwalk_init(var *v, xhash *array)
 	char **w;
 	hash_item *hi;
 	unsigned i;
-	char **prev_walker = (v->type & VF_WALK) ? v->x.walker : NULL;
+
+	if (v->type & VF_WALK)
+		free(v->x.walker);
 
 	v->type |= VF_WALK;
-
-	/* walker structure is: "[ptr2end][ptr2start][prev]<word1>NUL<word2>NUL" */
-	w = v->x.walker = xzalloc(2 + 3*sizeof(char *) + array->glen);
-	//bb_error_msg("walker@%p=%p", &v->x.walker, v->x.walker);
-	w[0] = w[1] = (char *)(w + 3);
-	w[2] = (char *)prev_walker;
+	w = v->x.walker = xzalloc(2 + 2*sizeof(char *) + array->glen);
+	w[0] = w[1] = (char *)(w + 2);
 	for (i = 0; i < array->csize; i++) {
 		hi = array->items[i];
 		while (hi) {
-			strcpy(w[0], hi->name);
-			nextword(&w[0]);
+			strcpy(*w, hi->name);
+			nextword(w);
 			hi = hi->next;
 		}
 	}
@@ -1748,16 +1746,10 @@ static int hashwalk_next(var *v)
 	char **w;
 
 	w = v->x.walker;
-	if (w[1] == w[0]) {
-		char **prev_walker = (char**)w[2];
-
-		//bb_error_msg("free(walker@%p:%p) #3, restoring to %p", &v->x.walker, v->x.walker, prev_walker);
-		free(v->x.walker);
-		v->x.walker = prev_walker;
+	if (w[1] == w[0])
 		return FALSE;
-	}
 
-	setvar_s(v, nextword(&w[1]));
+	setvar_s(v, nextword(w+1));
 	return TRUE;
 }
 
@@ -1788,8 +1780,7 @@ static int awk_getline(rstream *rsm, var *v)
 	c = (char) rsplitter.n.info;
 	rp = 0;
 
-	if (!m)
-		m = qrealloc(m, 256, &size);
+	if (!m) qrealloc(&m, 256, &size);
 	do {
 		b = m + a;
 		so = eo = p;
@@ -1830,7 +1821,7 @@ static int awk_getline(rstream *rsm, var *v)
 			a = 0;
 		}
 
-		m = qrealloc(m, a+p+128, &size);
+		qrealloc(&m, a+p+128, &size);
 		b = m + a;
 		pp = p;
 		p += safe_read(fd, b+p, size-p-1);
@@ -1909,7 +1900,7 @@ static char *awk_printf(node *n)
 		}
 
 		incr = (f - s) + MAXVARFMT;
-		b = qrealloc(b, incr + i, &bsize);
+		qrealloc(&b, incr + i, &bsize);
 		c = *f;
 		if (c != '\0') f++;
 		c1 = *f;
@@ -1922,7 +1913,7 @@ static char *awk_printf(node *n)
 					(char)getvar_i(arg) : *getvar_s(arg));
 		} else if (c == 's') {
 			s1 = getvar_s(arg);
-			b = qrealloc(b, incr+i+strlen(s1), &bsize);
+			qrealloc(&b, incr+i+strlen(s1), &bsize);
 			i += sprintf(b+i, s, s1);
 		} else {
 			i += fmt_num(b+i, incr, s, getvar_i(arg), FALSE);
@@ -1940,109 +1931,115 @@ static char *awk_printf(node *n)
 	return b;
 }
 
-/* Common substitution routine.
- * Replace (nm)'th substring of (src) that matches (rn) with (repl),
- * store result into (dest), return number of substitutions.
- * If nm = 0, replace all matches.
- * If src or dst is NULL, use $0.
- * If subexp != 0, enable subexpression matching (\1-\9).
+/* common substitution routine
+ * replace (nm) substring of (src) that match (n) with (repl), store
+ * result into (dest), return number of substitutions. If nm=0, replace
+ * all matches. If src or dst is NULL, use $0. If ex=TRUE, enable
+ * subexpression matching (\1-\9)
  */
-static int awk_sub(node *rn, const char *repl, int nm, var *src, var *dest, int subexp)
+static int awk_sub(node *rn, const char *repl, int nm, var *src, var *dest, int ex)
 {
-	char *resbuf;
+	char *ds = NULL;
+	const char *s;
 	const char *sp;
-	int match_no, residx, replen, resbufsize;
-	int regexec_flags;
+	int c, i, j, di, rl, so, eo, nbs, n, dssize;
 	regmatch_t pmatch[10];
-	regex_t sreg, *regex;
+	regex_t sreg, *re;
 
-	resbuf = NULL;
-	residx = 0;
-	match_no = 0;
-	regexec_flags = 0;
-	regex = as_regex(rn, &sreg);
-	sp = getvar_s(src ? src : intvar[F0]);
-	replen = strlen(repl);
-	while (regexec(regex, sp, 10, pmatch, regexec_flags) == 0) {
-		int so = pmatch[0].rm_so;
-		int eo = pmatch[0].rm_eo;
+	re = as_regex(rn, &sreg);
+	if (!src) src = intvar[F0];
+	if (!dest) dest = intvar[F0];
 
-		//bb_error_msg("match %u: [%u,%u] '%s'%p", match_no+1, so, eo, sp,sp);
-		resbuf = qrealloc(resbuf, residx + eo + replen, &resbufsize);
-		memcpy(resbuf + residx, sp, eo);
-		residx += eo;
-		if (++match_no >= nm) {
-			const char *s;
-			int nbs;
+	i = di = 0;
+	sp = getvar_s(src);
+	rl = strlen(repl);
+	while (regexec(re, sp, 10, pmatch, sp==getvar_s(src) ? 0 : REG_NOTBOL) == 0) {
+		so = pmatch[0].rm_so;
+		eo = pmatch[0].rm_eo;
 
+		qrealloc(&ds, di + eo + rl, &dssize);
+		memcpy(ds + di, sp, eo);
+		di += eo;
+		if (++i >= nm) {
 			/* replace */
-			residx -= (eo - so);
+			di -= (eo - so);
 			nbs = 0;
 			for (s = repl; *s; s++) {
-				char c = resbuf[residx++] = *s;
+				ds[di++] = c = *s;
 				if (c == '\\') {
 					nbs++;
 					continue;
 				}
-				if (c == '&' || (subexp && c >= '0' && c <= '9')) {
-					int j;
-					residx -= ((nbs + 3) >> 1);
+				if (c == '&' || (ex && c >= '0' && c <= '9')) {
+					di -= ((nbs + 3) >> 1);
 					j = 0;
 					if (c != '&') {
 						j = c - '0';
 						nbs++;
 					}
 					if (nbs % 2) {
-						resbuf[residx++] = c;
+						ds[di++] = c;
 					} else {
-						int n = pmatch[j].rm_eo - pmatch[j].rm_so;
-						resbuf = qrealloc(resbuf, residx + replen + n, &resbufsize);
-						memcpy(resbuf + residx, sp + pmatch[j].rm_so, n);
-						residx += n;
+						n = pmatch[j].rm_eo - pmatch[j].rm_so;
+						qrealloc(&ds, di + rl + n, &dssize);
+						memcpy(ds + di, sp + pmatch[j].rm_so, n);
+						di += n;
 					}
 				}
 				nbs = 0;
 			}
 		}
 
-		regexec_flags = REG_NOTBOL;
 		sp += eo;
-		if (match_no == nm)
+		if (i == nm)
 			break;
 		if (eo == so) {
-			/* Empty match (e.g. "b*" will match anywhere).
-			 * Advance by one char. */
-//BUG (bug 1333):
-//gsub(/\<b*/,"") on "abc" will reach this point, advance to "bc"
-//... and will erroneously match "b" even though it is NOT at the word start.
-//we need REG_NOTBOW but it does not exist...
-//TODO: if EXTRA_COMPAT=y, use GNU matching and re_search,
-//it should be able to do it correctly.
-			/* Subtle: this is safe only because
-			 * qrealloc allocated at least one extra byte */
-			resbuf[residx] = *sp;
-			if (*sp == '\0')
-				goto ret;
-			sp++;
-			residx++;
+			ds[di] = *sp++;
+			if (!ds[di++])
+				break;
 		}
 	}
 
-	resbuf = qrealloc(resbuf, residx + strlen(sp), &resbufsize);
-	strcpy(resbuf + residx, sp);
- ret:
-	//bb_error_msg("end sp:'%s'%p", sp,sp);
-	setvar_p(dest ? dest : intvar[F0], resbuf);
-	if (regex == &sreg)
-		regfree(regex);
-	return match_no;
+	qrealloc(&ds, di + strlen(sp), &dssize);
+	strcpy(ds + di, sp);
+	setvar_p(dest, ds);
+	if (re == &sreg)
+		regfree(re);
+	return i;
 }
 
-static var *exec_builtin(node *op, var *res)
+static NOINLINE int do_mktime(const char *ds)
+{
+	struct tm then;
+	int count;
+
+	/*memset(&then, 0, sizeof(then)); - not needed */
+	then.tm_isdst = -1; /* default is unknown */
+
+	/* manpage of mktime says these fields are ints,
+	 * so we can sscanf stuff directly into them */
+	count = sscanf(ds, "%u %u %u %u %u %u %d",
+		&then.tm_year, &then.tm_mon, &then.tm_mday,
+		&then.tm_hour, &then.tm_min, &then.tm_sec,
+		&then.tm_isdst);
+
+	if (count < 6
+	 || (unsigned)then.tm_mon < 1
+	 || (unsigned)then.tm_year < 1900
+	) {
+		return -1;
+	}
+
+	then.tm_mon -= 1;
+	then.tm_year -= 1900;
+
+	return mktime(&then);
+}
+
+static NOINLINE var *exec_builtin(node *op, var *res)
 {
 #define tspl (G.exec_builtin__tspl)
 
-	int (*to_xxx)(int);
 	var *tv;
 	node *an[4];
 	var *av[4];
@@ -2072,7 +2069,8 @@ static var *exec_builtin(node *op, var *res)
 	if ((uint32_t)nargs < (info >> 30))
 		syntax_error(EMSG_TOO_FEW_ARGS);
 
-	switch (info & OPNMASK) {
+	info &= OPNMASK;
+	switch (info) {
 
 	case B_a2:
 #if ENABLE_FEATURE_AWK_LIBM
@@ -2137,15 +2135,12 @@ static var *exec_builtin(node *op, var *res)
 		break;
 
 	case B_lo:
-		to_xxx = tolower;
-		goto lo_cont;
-
 	case B_up:
-		to_xxx = toupper;
- lo_cont:
 		s1 = s = xstrdup(as[0]);
 		while (*s1) {
-			*s1 = (*to_xxx)(*s1);
+			//*s1 = (info == B_up) ? toupper(*s1) : tolower(*s1);
+			if ((unsigned char)((*s1 | 0x20) - 'a') <= ('z' - 'a'))
+				*s1 = (info == B_up) ? (*s1 & 0xdf) : (*s1 | 0x20);
 			s1++;
 		}
 		setvar_p(res, s);
@@ -2185,6 +2180,10 @@ static var *exec_builtin(node *op, var *res)
 			localtime(&tt));
 		g_buf[i] = '\0';
 		setvar_s(res, g_buf);
+		break;
+
+	case B_mt:
+		setvar_i(res, do_mktime(as[0]));
 		break;
 
 	case B_ma:
@@ -2425,7 +2424,7 @@ static var *evaluate(node *op, var *res)
 			X.re = as_regex(op1, &sreg);
 			R.i = regexec(X.re, L.s, 0, NULL, 0);
 			if (X.re == &sreg) regfree(X.re);
-			setvar_i(res, (R.i == 0 ? 1 : 0) ^ (opn == '!' ? 1 : 0));
+			setvar_i(res, (R.i == 0) ^ (opn == '!'));
 			break;
 
 		case XC( OC_MOVE ):
@@ -2450,7 +2449,7 @@ static var *evaluate(node *op, var *res)
 			if (!op->r.f->body.first)
 				syntax_error(EMSG_UNDEF_FUNC);
 
-			X.v = R.v = nvalloc(op->r.f->nargs+1);
+			X.v = R.v = nvalloc(op->r.f->nargs + 1);
 			while (op1) {
 				L.v = evaluate(nextarg(&op1), v1);
 				copyvar(R.v, L.v);
@@ -2564,7 +2563,7 @@ static var *evaluate(node *op, var *res)
 				break;
 
 			case F_sy:
-				fflush(NULL);
+				fflush_all();
 				R.d = (ENABLE_FEATURE_ALLOW_EXEC && L.s && *L.s)
 						? (system(L.s) >> 8) : 0;
 				break;
@@ -2577,7 +2576,7 @@ static var *evaluate(node *op, var *res)
 						X.rsm = newfile(L.s);
 						fflush(X.rsm->F);
 					} else {
-						fflush(NULL);
+						fflush_all();
 					}
 				}
 				break;
@@ -2622,7 +2621,7 @@ static var *evaluate(node *op, var *res)
 				R.d--;
 				goto r_op_change;
 			case '!':
-				L.d = istrue(X.v) ? 0 : 1;
+				L.d = !istrue(X.v);
 				break;
 			case '-':
 				L.d = -R.d;
@@ -2682,7 +2681,8 @@ static var *evaluate(node *op, var *res)
 				L.d *= R.d;
 				break;
 			case '/':
-				if (R.d == 0) syntax_error(EMSG_DIV_BY_ZERO);
+				if (R.d == 0)
+					syntax_error(EMSG_DIV_BY_ZERO);
 				L.d /= R.d;
 				break;
 			case '&':
@@ -2693,7 +2693,8 @@ static var *evaluate(node *op, var *res)
 #endif
 				break;
 			case '%':
-				if (R.d == 0) syntax_error(EMSG_DIV_BY_ZERO);
+				if (R.d == 0)
+					syntax_error(EMSG_DIV_BY_ZERO);
 				L.d -= (int)(L.d / R.d) * R.d;
 				break;
 			}
@@ -2719,7 +2720,7 @@ static var *evaluate(node *op, var *res)
 				R.i = (L.d == 0);
 				break;
 			}
-			setvar_i(res, (opn & 0x1 ? R.i : !R.i) ? 1 : 0);
+			setvar_i(res, (opn & 1 ? R.i : !R.i) ? 1 : 0);
 			break;
 
 		default:
@@ -2801,7 +2802,8 @@ static rstream *next_input_file(void)
 	FILE *F = NULL;
 	const char *fname, *ind;
 
-	if (rsm.F) fclose(rsm.F);
+	if (rsm.F)
+		fclose(rsm.F);
 	rsm.F = NULL;
 	rsm.pos = rsm.adv = 0;
 
@@ -2941,7 +2943,8 @@ int awk_main(int argc, char **argv)
 		awk_exit(EXIT_SUCCESS);
 
 	/* input file could already be opened in BEGIN block */
-	if (!iF) iF = next_input_file();
+	if (!iF)
+		iF = next_input_file();
 
 	/* passing through input files */
 	while (iF) {

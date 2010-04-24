@@ -29,7 +29,7 @@ static const struct suffix_mult sfx[] = {
 	{ "m", 60 },
 	{ "h", 60*60 },
 	{ "d", 24*60*60 },
-	{ }
+	{ "", 0 }
 };
 #endif
 
@@ -54,11 +54,13 @@ int sleep_main(int argc UNUSED_PARAM, char **argv)
 		char *arg = *argv;
 		if (strchr(arg, '.')) {
 			double d;
+			char *pp;
 			int len = strspn(arg, "0123456789.");
 			char sv = arg[len];
 			arg[len] = '\0';
-			d = bb_strtod(arg, NULL);
-			if (errno)
+			errno = 0;
+			d = strtod(arg, &pp);
+			if (errno || *pp)
 				bb_show_usage();
 			arg[len] = sv;
 			len--;

@@ -1,18 +1,16 @@
 /*
  * ##/%% variable matching code ripped out of ash shell for code sharing
  *
- * Copyright (c) 1989, 1991, 1993, 1994
- *      The Regents of the University of California.  All rights reserved.
- *
- * Copyright (c) 1997-2005 Herbert Xu <herbert@gondor.apana.org.au>
- * was re-ported from NetBSD and debianized.
- *
  * This code is derived from software contributed to Berkeley by
  * Kenneth Almquist.
  *
  * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  *
- * Original BSD copyright notice is retained at the end of this file.
+ * Copyright (c) 1989, 1991, 1993, 1994
+ *      The Regents of the University of California.  All rights reserved.
+ *
+ * Copyright (c) 1997-2005 Herbert Xu <herbert@gondor.apana.org.au>
+ * was re-ported from NetBSD and debianized.
  */
 #ifdef STANDALONE
 # include <stdbool.h>
@@ -28,7 +26,7 @@
 
 #define pmatch(a, b) !fnmatch((a), (b), 0)
 
-char *scanleft(char *string, char *pattern, bool zero)
+char *scanleft(char *string, char *pattern, bool match_at_left)
 {
 	char c;
 	char *loc = string;
@@ -38,7 +36,7 @@ char *scanleft(char *string, char *pattern, bool zero)
 		const char *s;
 
 		c = *loc;
-		if (zero) {
+		if (match_at_left) {
 			*loc = '\0';
 			s = string;
 		} else
@@ -55,7 +53,7 @@ char *scanleft(char *string, char *pattern, bool zero)
 	return NULL;
 }
 
-char *scanright(char *string, char *pattern, bool zero)
+char *scanright(char *string, char *pattern, bool match_at_left)
 {
 	char c;
 	char *loc = string + strlen(string);
@@ -65,7 +63,7 @@ char *scanright(char *string, char *pattern, bool zero)
 		const char *s;
 
 		c = *loc;
-		if (zero) {
+		if (match_at_left) {
 			*loc = '\0';
 			s = string;
 		} else
@@ -88,7 +86,7 @@ int main(int argc, char *argv[])
 	char *string;
 	char *op;
 	char *pattern;
-	bool zero;
+	bool match_at_left;
 	char *loc;
 
 	int i;
@@ -117,15 +115,15 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		op = string + off;
-		scan = pick_scan(op[0], op[1], &zero);
+		scan = pick_scan(op[0], op[1], &match_at_left);
 		pattern = op + 1;
 		if (op[0] == op[1])
 			op[1] = '\0', ++pattern;
 		op[0] = '\0';
 
-		loc = scan(string, pattern, zero);
+		loc = scan(string, pattern, match_at_left);
 
-		if (zero) {
+		if (match_at_left) {
 			printf("'%s'\n", loc);
 		} else {
 			*loc = '\0';

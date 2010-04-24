@@ -27,10 +27,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
-extern unsigned byte_chr(char *s,unsigned n,int c);
-
-#define direntry struct dirent
-
+//extern unsigned byte_chr(char *s,unsigned n,int c);
+//
 //struct tai {
 //	uint64_t x;
 //};
@@ -90,7 +88,7 @@ typedef struct svstatus_t {
 	uint32_t time_nsec_be32 PACKED;
 	uint32_t pid_le32 PACKED;
 	uint8_t  paused;
-	uint8_t  want;
+	uint8_t  want; /* 'u' or 'd' */
 	uint8_t  got_term;
 	uint8_t  run_or_finish;
 } svstatus_t;

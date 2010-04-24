@@ -26,71 +26,80 @@
 #include "options.h"
 
 
-/* send a packet to giaddr using the kernel ip stack */
-static int send_packet_to_relay(struct dhcpMessage *payload)
+/* send a packet to gateway_nip using the kernel ip stack */
+static int send_packet_to_relay(struct dhcp_packet *dhcp_pkt)
 {
-	DEBUG("Forwarding packet to relay");
+	log1("Forwarding packet to relay");
 
-	return udhcp_send_kernel_packet(payload, server_config.server, SERVER_PORT,
-			payload->giaddr, SERVER_PORT);
+	return udhcp_send_kernel_packet(dhcp_pkt,
+			server_config.server_nip, SERVER_PORT,
+			dhcp_pkt->gateway_nip, SERVER_PORT);
 }
 
 
-/* send a packet to a specific arp address and ip address by creating our own ip packet */
-static int send_packet_to_client(struct dhcpMessage *payload, int force_broadcast)
+/* send a packet to a specific mac address and ip address by creating our own ip packet */
+static int send_packet_to_client(struct dhcp_packet *dhcp_pkt, int force_broadcast)
 {
 	const uint8_t *chaddr;
 	uint32_t ciaddr;
 
-	if (force_broadcast) {
-		DEBUG("broadcasting packet to client (NAK)");
-		ciaddr = INADDR_BROADCAST;
-		chaddr = MAC_BCAST_ADDR;
-	} else if (payload->ciaddr) {
-		DEBUG("unicasting packet to client ciaddr");
-		ciaddr = payload->ciaddr;
-		chaddr = payload->chaddr;
-	} else if (payload->flags & htons(BROADCAST_FLAG)) {
-		DEBUG("broadcasting packet to client (requested)");
+	// Was:
+	//if (force_broadcast) { /* broadcast */ }
+	//else if (dhcp_pkt->ciaddr) { /* unicast to dhcp_pkt->ciaddr */ }
+	//else if (dhcp_pkt->flags & htons(BROADCAST_FLAG)) { /* broadcast */ }
+	//else { /* unicast to dhcp_pkt->yiaddr */ }
+	// But this is wrong: yiaddr is _our_ idea what client's IP is
+	// (for example, from lease file). Client may not know that,
+	// and may not have UDP socket listening on that IP!
+	// We should never unicast to dhcp_pkt->yiaddr!
+	// dhcp_pkt->ciaddr, OTOH, comes from client's request packet,
+	// and can be used.
+
+	if (force_broadcast
+	 || (dhcp_pkt->flags & htons(BROADCAST_FLAG))
+	 || !dhcp_pkt->ciaddr
+	) {
+		log1("Broadcasting packet to client");
 		ciaddr = INADDR_BROADCAST;
 		chaddr = MAC_BCAST_ADDR;
 	} else {
-		DEBUG("unicasting packet to client yiaddr");
-		ciaddr = payload->yiaddr;
-		chaddr = payload->chaddr;
+		log1("Unicasting packet to client ciaddr");
+		ciaddr = dhcp_pkt->ciaddr;
+		chaddr = dhcp_pkt->chaddr;
 	}
-	return udhcp_send_raw_packet(payload,
-		/*src*/ server_config.server, SERVER_PORT,
+
+	return udhcp_send_raw_packet(dhcp_pkt,
+		/*src*/ server_config.server_nip, SERVER_PORT,
 		/*dst*/ ciaddr, CLIENT_PORT, chaddr,
 		server_config.ifindex);
 }
 
 
 /* send a dhcp packet, if force broadcast is set, the packet will be broadcast to the client */
-static int send_packet(struct dhcpMessage *payload, int force_broadcast)
+static int send_packet(struct dhcp_packet *dhcp_pkt, int force_broadcast)
 {
-	if (payload->giaddr)
-		return send_packet_to_relay(payload);
-	return send_packet_to_client(payload, force_broadcast);
+	if (dhcp_pkt->gateway_nip)
+		return send_packet_to_relay(dhcp_pkt);
+	return send_packet_to_client(dhcp_pkt, force_broadcast);
 }
 
 
-static void init_packet(struct dhcpMessage *packet, struct dhcpMessage *oldpacket, char type)
+static void init_packet(struct dhcp_packet *packet, struct dhcp_packet *oldpacket, char type)
 {
 	udhcp_init_header(packet, type);
 	packet->xid = oldpacket->xid;
-	memcpy(packet->chaddr, oldpacket->chaddr, 16);
+	memcpy(packet->chaddr, oldpacket->chaddr, sizeof(oldpacket->chaddr));
 	packet->flags = oldpacket->flags;
-	packet->giaddr = oldpacket->giaddr;
+	packet->gateway_nip = oldpacket->gateway_nip;
 	packet->ciaddr = oldpacket->ciaddr;
-	add_simple_option(packet->options, DHCP_SERVER_ID, server_config.server);
+	add_simple_option(packet->options, DHCP_SERVER_ID, server_config.server_nip);
 }
 
 
 /* add in the bootp options */
-static void add_bootp_options(struct dhcpMessage *packet)
+static void add_bootp_options(struct dhcp_packet *packet)
 {
-	packet->siaddr = server_config.siaddr;
+	packet->siaddr_nip = server_config.siaddr_nip;
 	if (server_config.sname)
 		strncpy((char*)packet->sname, server_config.sname, sizeof(packet->sname) - 1);
 	if (server_config.boot_file)
@@ -98,76 +107,90 @@ static void add_bootp_options(struct dhcpMessage *packet)
 }
 
 
-/* send a DHCP OFFER to a DHCP DISCOVER */
-int FAST_FUNC send_offer(struct dhcpMessage *oldpacket)
+static uint32_t select_lease_time(struct dhcp_packet *packet)
 {
-	struct dhcpMessage packet;
-	uint32_t req_align;
-	uint32_t lease_time_aligned = server_config.lease;
+	uint32_t lease_time_sec = server_config.max_lease_sec;
+	uint8_t *lease_time_opt = get_option(packet, DHCP_LEASE_TIME);
+	if (lease_time_opt) {
+		move_from_unaligned32(lease_time_sec, lease_time_opt);
+		lease_time_sec = ntohl(lease_time_sec);
+		if (lease_time_sec > server_config.max_lease_sec)
+			lease_time_sec = server_config.max_lease_sec;
+		if (lease_time_sec < server_config.min_lease_sec)
+			lease_time_sec = server_config.min_lease_sec;
+	}
+	return lease_time_sec;
+}
+
+
+/* send a DHCP OFFER to a DHCP DISCOVER */
+int FAST_FUNC send_offer(struct dhcp_packet *oldpacket)
+{
+	struct dhcp_packet packet;
+	uint32_t req_nip;
+	uint32_t lease_time_sec = server_config.max_lease_sec;
 	uint32_t static_lease_ip;
-	uint8_t *req, *lease_time, *p_host_name;
+	uint8_t *req_ip_opt;
+	const char *p_host_name;
 	struct option_set *curr;
 	struct in_addr addr;
 
 	init_packet(&packet, oldpacket, DHCPOFFER);
 
-	static_lease_ip = getIpByMac(server_config.static_leases, oldpacket->chaddr);
+	static_lease_ip = get_static_nip_by_mac(server_config.static_leases, oldpacket->chaddr);
 
 	/* ADDME: if static, short circuit */
 	if (!static_lease_ip) {
-		struct dhcpOfferedAddr *lease;
+		struct dyn_lease *lease;
 
-		lease = find_lease_by_chaddr(oldpacket->chaddr);
-		/* the client is in our lease/offered table */
+		lease = find_lease_by_mac(oldpacket->chaddr);
+		/* The client is in our lease/offered table */
 		if (lease) {
 			signed_leasetime_t tmp = lease->expires - time(NULL);
 			if (tmp >= 0)
-				lease_time_aligned = tmp;
-			packet.yiaddr = lease->yiaddr;
-		/* Or the client has requested an ip */
-		} else if ((req = get_option(oldpacket, DHCP_REQUESTED_IP)) != NULL
-		 /* Don't look here (ugly hackish thing to do) */
-		 && (move_from_unaligned32(req_align, req), 1)
-		 /* and the ip is in the lease range */
-		 && ntohl(req_align) >= server_config.start_ip
-		 && ntohl(req_align) <= server_config.end_ip
+				lease_time_sec = tmp;
+			packet.yiaddr = lease->lease_nip;
+		}
+		/* Or the client has requested an IP */
+		else if ((req_ip_opt = get_option(oldpacket, DHCP_REQUESTED_IP)) != NULL
+		 /* (read IP) */
+		 && (move_from_unaligned32(req_nip, req_ip_opt), 1)
+		 /* and the IP is in the lease range */
+		 && ntohl(req_nip) >= server_config.start_ip
+		 && ntohl(req_nip) <= server_config.end_ip
 		 /* and is not already taken/offered */
-		 && (!(lease = find_lease_by_yiaddr(req_align))
+		 && (!(lease = find_lease_by_nip(req_nip))
 			/* or its taken, but expired */
-			|| lease_expired(lease))
+			|| is_expired_lease(lease))
 		) {
-			packet.yiaddr = req_align;
-		/* otherwise, find a free IP */
-		} else {
-			packet.yiaddr = find_free_or_expired_address();
+			packet.yiaddr = req_nip;
+		}
+		/* Otherwise, find a free IP */
+		else {
+			packet.yiaddr = find_free_or_expired_nip(oldpacket->chaddr);
 		}
 
 		if (!packet.yiaddr) {
 			bb_error_msg("no IP addresses to give - OFFER abandoned");
 			return -1;
 		}
-		p_host_name = get_option(oldpacket, DHCP_HOST_NAME);
-		if (!add_lease(packet.chaddr, packet.yiaddr, server_config.offer_time, p_host_name)) {
+		p_host_name = (const char*) get_option(oldpacket, DHCP_HOST_NAME);
+		if (add_lease(packet.chaddr, packet.yiaddr,
+				server_config.offer_time,
+				p_host_name,
+				p_host_name ? (unsigned char)p_host_name[OPT_LEN - OPT_DATA] : 0
+			) == 0
+		) {
 			bb_error_msg("lease pool is full - OFFER abandoned");
 			return -1;
 		}
-		lease_time = get_option(oldpacket, DHCP_LEASE_TIME);
-		if (lease_time) {
-			move_from_unaligned32(lease_time_aligned, lease_time);
-			lease_time_aligned = ntohl(lease_time_aligned);
-			if (lease_time_aligned > server_config.lease)
-				lease_time_aligned = server_config.lease;
-		}
-
-		/* Make sure we aren't just using the lease time from the previous offer */
-		if (lease_time_aligned < server_config.min_lease)
-			lease_time_aligned = server_config.min_lease;
+		lease_time_sec = select_lease_time(oldpacket);
 	} else {
 		/* It is a static lease... use it */
 		packet.yiaddr = static_lease_ip;
 	}
 
-	add_simple_option(packet.options, DHCP_LEASE_TIME, htonl(lease_time_aligned));
+	add_simple_option(packet.options, DHCP_LEASE_TIME, htonl(lease_time_sec));
 
 	curr = server_config.options;
 	while (curr) {
@@ -184,40 +207,31 @@ int FAST_FUNC send_offer(struct dhcpMessage *oldpacket)
 }
 
 
-int FAST_FUNC send_NAK(struct dhcpMessage *oldpacket)
+int FAST_FUNC send_NAK(struct dhcp_packet *oldpacket)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 
 	init_packet(&packet, oldpacket, DHCPNAK);
 
-	DEBUG("Sending NAK");
+	log1("Sending NAK");
 	return send_packet(&packet, 1);
 }
 
 
-int FAST_FUNC send_ACK(struct dhcpMessage *oldpacket, uint32_t yiaddr)
+int FAST_FUNC send_ACK(struct dhcp_packet *oldpacket, uint32_t yiaddr)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 	struct option_set *curr;
-	uint8_t *lease_time;
-	uint32_t lease_time_aligned = server_config.lease;
+	uint32_t lease_time_sec;
 	struct in_addr addr;
-	uint8_t *p_host_name;
+	const char *p_host_name;
 
 	init_packet(&packet, oldpacket, DHCPACK);
 	packet.yiaddr = yiaddr;
 
-	lease_time = get_option(oldpacket, DHCP_LEASE_TIME);
-	if (lease_time) {
-		move_from_unaligned32(lease_time_aligned, lease_time);
-		lease_time_aligned = ntohl(lease_time_aligned);
-		if (lease_time_aligned > server_config.lease)
-			lease_time_aligned = server_config.lease;
-		else if (lease_time_aligned < server_config.min_lease)
-			lease_time_aligned = server_config.min_lease;
-	}
+	lease_time_sec = select_lease_time(oldpacket);
 
-	add_simple_option(packet.options, DHCP_LEASE_TIME, htonl(lease_time_aligned));
+	add_simple_option(packet.options, DHCP_LEASE_TIME, htonl(lease_time_sec));
 
 	curr = server_config.options;
 	while (curr) {
@@ -234,8 +248,12 @@ int FAST_FUNC send_ACK(struct dhcpMessage *oldpacket, uint32_t yiaddr)
 	if (send_packet(&packet, 0) < 0)
 		return -1;
 
-	p_host_name = get_option(oldpacket, DHCP_HOST_NAME);
-	add_lease(packet.chaddr, packet.yiaddr, lease_time_aligned, p_host_name);
+	p_host_name = (const char*) get_option(oldpacket, DHCP_HOST_NAME);
+	add_lease(packet.chaddr, packet.yiaddr,
+		lease_time_sec,
+		p_host_name,
+		p_host_name ? (unsigned char)p_host_name[OPT_LEN - OPT_DATA] : 0
+	);
 	if (ENABLE_FEATURE_UDHCPD_WRITE_LEASES_EARLY) {
 		/* rewrite the file with leases at every new acceptance */
 		write_leases();
@@ -245,9 +263,9 @@ int FAST_FUNC send_ACK(struct dhcpMessage *oldpacket, uint32_t yiaddr)
 }
 
 
-int FAST_FUNC send_inform(struct dhcpMessage *oldpacket)
+int FAST_FUNC send_inform(struct dhcp_packet *oldpacket)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 	struct option_set *curr;
 
 	init_packet(&packet, oldpacket, DHCPACK);

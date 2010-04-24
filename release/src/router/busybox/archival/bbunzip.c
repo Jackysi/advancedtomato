@@ -30,11 +30,11 @@ int open_to_or_warn(int to_fd, const char *filename, int flags, int mode)
 
 int FAST_FUNC bbunpack(char **argv,
 	char* (*make_new_name)(char *filename),
-	USE_DESKTOP(long long) int (*unpacker)(unpack_info_t *info)
+	IF_DESKTOP(long long) int (*unpacker)(unpack_info_t *info)
 )
 {
 	struct stat stat_buf;
-	USE_DESKTOP(long long) int status;
+	IF_DESKTOP(long long) int status;
 	char *filename, *new_name;
 	smallint exitcode = 0;
 	unpack_info_t info;
@@ -98,22 +98,22 @@ int FAST_FUNC bbunpack(char **argv,
 		status = unpacker(&info);
 		if (status < 0)
 			exitcode = 1;
+		xclose(STDOUT_FILENO); /* with error check! */
 
 		if (filename) {
 			char *del = new_name;
 			if (status >= 0) {
 				/* TODO: restore other things? */
 				if (info.mtime) {
-					struct utimbuf times;
+					struct timeval times[2];
 
-					times.actime = info.mtime;
-					times.modtime = info.mtime;
-					/* Close first.
-					 * On some systems calling utime
-					 * then closing resets the mtime. */
-					close(STDOUT_FILENO);
-					/* Ignoring errors */
-					utime(new_name, &times);
+					times[1].tv_sec = times[0].tv_sec = info.mtime;
+					times[1].tv_usec = times[0].tv_usec = 0;
+					/* Note: we closed it first.
+					 * On some systems calling utimes
+					 * then closing resets the mtime
+					 * back to current time. */
+					utimes(new_name, times); /* ignoring errors */
 				}
 
 				/* Delete _compressed_ file */
@@ -175,7 +175,7 @@ char* make_new_name_bunzip2(char *filename)
 }
 
 static
-USE_DESKTOP(long long) int unpack_bunzip2(unpack_info_t *info UNUSED_PARAM)
+IF_DESKTOP(long long) int unpack_bunzip2(unpack_info_t *info UNUSED_PARAM)
 {
 	return unpack_bz2_stream_prime(STDIN_FILENO, STDOUT_FILENO);
 }
@@ -251,9 +251,9 @@ char* make_new_name_gunzip(char *filename)
 }
 
 static
-USE_DESKTOP(long long) int unpack_gunzip(unpack_info_t *info)
+IF_DESKTOP(long long) int unpack_gunzip(unpack_info_t *info)
 {
-	USE_DESKTOP(long long) int status = -1;
+	IF_DESKTOP(long long) int status = -1;
 
 	/* do the decompression, and cleanup */
 	if (xread_char(STDIN_FILENO) == 0x1f) {
@@ -325,7 +325,7 @@ char* make_new_name_unlzma(char *filename)
 }
 
 static
-USE_DESKTOP(long long) int unpack_unlzma(unpack_info_t *info UNUSED_PARAM)
+IF_DESKTOP(long long) int unpack_unlzma(unpack_info_t *info UNUSED_PARAM)
 {
 	return unpack_lzma_stream(STDIN_FILENO, STDOUT_FILENO);
 }
@@ -360,9 +360,9 @@ char* make_new_name_uncompress(char *filename)
 }
 
 static
-USE_DESKTOP(long long) int unpack_uncompress(unpack_info_t *info UNUSED_PARAM)
+IF_DESKTOP(long long) int unpack_uncompress(unpack_info_t *info UNUSED_PARAM)
 {
-	USE_DESKTOP(long long) int status = -1;
+	IF_DESKTOP(long long) int status = -1;
 
 	if ((xread_char(STDIN_FILENO) != 0x1f) || (xread_char(STDIN_FILENO) != 0x9d)) {
 		bb_error_msg("invalid magic");

@@ -77,11 +77,10 @@ struct globals {
 	struct termios termios_raw;
 };
 #define G (*(struct globals*)&bb_common_bufsiz1)
-void BUG_telnet_globals_too_big(void);
 #define INIT_G() do { \
-	if (sizeof(G) > COMMON_BUFSIZE) \
-		BUG_telnet_globals_too_big(); \
-	/* memset(&G, 0, sizeof G); - already is */ \
+	struct G_sizecheck { \
+		char G_sizecheck[sizeof(G) > COMMON_BUFSIZE ? -1 : 1]; \
+	}; \
 } while (0)
 
 /* Function prototypes */
@@ -619,12 +618,12 @@ int telnet_main(int argc UNUSED_PARAM, char **argv)
 		default:
 
 #ifdef USE_POLL
-			if (ufds[0].revents) /* well, should check POLLIN, but ... */
+			if (ufds[0].revents)
 #else
 			if (FD_ISSET(STDIN_FILENO, &rfds))
 #endif
 			{
-				len = read(STDIN_FILENO, G.buf, DATABUFSIZE);
+				len = safe_read(STDIN_FILENO, G.buf, DATABUFSIZE);
 				if (len <= 0)
 					doexit(EXIT_SUCCESS);
 				TRACE(0, ("Read con: %d\n", len));
@@ -632,12 +631,12 @@ int telnet_main(int argc UNUSED_PARAM, char **argv)
 			}
 
 #ifdef USE_POLL
-			if (ufds[1].revents) /* well, should check POLLIN, but ... */
+			if (ufds[1].revents)
 #else
 			if (FD_ISSET(netfd, &rfds))
 #endif
 			{
-				len = read(netfd, G.buf, DATABUFSIZE);
+				len = safe_read(netfd, G.buf, DATABUFSIZE);
 				if (len <= 0) {
 					write_str(1, "Connection closed by foreign host\r\n");
 					doexit(EXIT_FAILURE);

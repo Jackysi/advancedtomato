@@ -86,7 +86,7 @@ int ipcalc_main(int argc, char **argv)
 #if ENABLE_FEATURE_IPCALC_LONG_OPTIONS
 	applet_long_options = ipcalc_longopts;
 #endif
-	opt = getopt32(argv, "mbn" USE_FEATURE_IPCALC_FANCY("phs"));
+	opt = getopt32(argv, "mbn" IF_FEATURE_IPCALC_FANCY("phs"));
 	argc -= optind;
 	argv += optind;
 	if (opt & (BROADCAST | NETWORK | NETPREFIX)) {
@@ -178,7 +178,7 @@ int ipcalc_main(int argc, char **argv)
 
 			hostinfo = gethostbyaddr((char *) &ipaddr, sizeof(ipaddr), AF_INET);
 			if (!hostinfo) {
-				bb_herror_msg_and_die("cannot find hostname for %s", argv[0]);
+				bb_herror_msg_and_die("can't find hostname for %s", argv[0]);
 			}
 			str_tolower(hostinfo->h_name);
 

@@ -152,7 +152,7 @@ enum {
 /* Debug: squirt whatever message and sleep a bit so we can see it go by. */
 /* Beware: writes to stdOUT... */
 #if 0
-#define Debug(...) do { printf(__VA_ARGS__); printf("\n"); fflush(stdout); sleep(1); } while (0)
+#define Debug(...) do { printf(__VA_ARGS__); printf("\n"); fflush_all(); sleep(1); } while (0)
 #else
 #define Debug(...) do { } while (0)
 #endif
@@ -278,9 +278,9 @@ static void dolisten(void)
 	 random unknown port is probably not very useful without "netstat". */
 	if (o_verbose) {
 		char *addr;
-		rr = getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
-		if (rr < 0)
-			bb_perror_msg_and_die("getsockname after bind");
+		getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
+		//if (rr < 0)
+		//	bb_perror_msg_and_die("getsockname after bind");
 		addr = xmalloc_sockaddr2dotted(&ouraddr->u.sa);
 		fprintf(stderr, "listening on %s ...\n", addr);
 		free(addr);
@@ -340,16 +340,29 @@ create new one, and bind() it. TODO */
 			rr = accept(netfd, &remend.u.sa, &remend.len);
 			if (rr < 0)
 				bb_perror_msg_and_die("accept");
-			if (themaddr && memcmp(&remend.u.sa, &themaddr->u.sa, remend.len) != 0) {
-				/* nc 1.10 bails out instead, and its error message
-				 * is not suppressed by o_verbose */
-				if (o_verbose) {
-					char *remaddr = xmalloc_sockaddr2dotted(&remend.u.sa);
-					bb_error_msg("connect from wrong ip/port %s ignored", remaddr);
-					free(remaddr);
+			if (themaddr) {
+				int sv_port, port, r;
+
+				sv_port = get_nport(&remend.u.sa); /* save */
+				port = get_nport(&themaddr->u.sa);
+				if (port == 0) {
+					/* "nc -nl -p LPORT RHOST" (w/o RPORT!):
+					 * we should accept any remote port */
+					set_nport(&remend, 0); /* blot out remote port# */
 				}
-				close(rr);
-				goto again;
+				r = memcmp(&remend.u.sa, &themaddr->u.sa, remend.len);
+				set_nport(&remend, sv_port); /* restore */
+				if (r != 0) {
+					/* nc 1.10 bails out instead, and its error message
+					 * is not suppressed by o_verbose */
+					if (o_verbose) {
+						char *remaddr = xmalloc_sockaddr2dotted(&remend.u.sa);
+						bb_error_msg("connect from wrong ip/port %s ignored", remaddr);
+						free(remaddr);
+					}
+					close(rr);
+					goto again;
+				}
 			}
 			unarm();
 		} else
@@ -359,9 +372,9 @@ create new one, and bind() it. TODO */
 		 doing a listen-on-any on a multihomed machine.  This allows one to
 		 offer different services via different alias addresses, such as the
 		 "virtual web site" hack. */
-		rr = getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
-		if (rr < 0)
-			bb_perror_msg_and_die("getsockname after accept");
+		getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
+		//if (rr < 0)
+		//	bb_perror_msg_and_die("getsockname after accept");
 	}
 
 	if (o_verbose) {
@@ -377,9 +390,7 @@ create new one, and bind() it. TODO */
 		socklen_t x = sizeof(optbuf);
 
 		rr = getsockopt(netfd, IPPROTO_IP, IP_OPTIONS, optbuf, &x);
-		if (rr < 0)
-			bb_perror_msg("getsockopt failed");
-		else if (x) {    /* we've got options, lessee em... */
+		if (rr >= 0 && x) {    /* we've got options, lessee em... */
 			bin2hex(bigbuf_net, optbuf, x);
 			bigbuf_net[2*x] = '\0';
 			fprintf(stderr, "IP options: %s\n", bigbuf_net);
@@ -603,7 +614,10 @@ Debug("got %d from the net, errno %d", rr, errno);
 	 mobygrams are kinda fun and exercise the reassembler. */
 			if (rr <= 0) {                        /* at end, or fukt, or ... */
 				FD_CLR(STDIN_FILENO, &ding1);                /* disable and close stdin */
-				close(0);
+				close(STDIN_FILENO);
+// Does it make sense to shutdown(net_fd, SHUT_WR)
+// to let other side know that we won't write anything anymore?
+// (and what about keeping compat if we do that?)
 			} else {
 				rzleft = rr;
 				zp = bigbuf_in;
@@ -672,10 +686,10 @@ Debug("wrote %d to net, errno %d", rr, errno);
 
 /* main: now we pull it all together... */
 int nc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int nc_main(int argc, char **argv)
+int nc_main(int argc UNUSED_PARAM, char **argv)
 {
 	char *str_p, *str_s;
-	USE_NC_EXTRA(char *str_i, *str_o;)
+	IF_NC_EXTRA(char *str_i, *str_o;)
 	char *themdotted = themdotted; /* gcc */
 	char **proggie;
 	int x;
@@ -701,7 +715,6 @@ int nc_main(int argc, char **argv)
 	while (*++proggie) {
 		if (strcmp(*proggie, "-e") == 0) {
 			*proggie = NULL;
-			argc = proggie - argv;
 			proggie++;
 			goto e_found;
 		}
@@ -711,10 +724,10 @@ int nc_main(int argc, char **argv)
 
 	// -g -G -t -r deleted, unimplemented -a deleted too
 	opt_complementary = "?2:vv:w+"; /* max 2 params; -v is a counter; -w N */
-	getopt32(argv, "hnp:s:uvw:" USE_NC_SERVER("l")
-			USE_NC_EXTRA("i:o:z"),
+	getopt32(argv, "hnp:s:uvw:" IF_NC_SERVER("l")
+			IF_NC_EXTRA("i:o:z"),
 			&str_p, &str_s, &o_wait
-			USE_NC_EXTRA(, &str_i, &str_o, &o_verbose));
+			IF_NC_EXTRA(, &str_i, &str_o, &o_verbose));
 	argv += optind;
 #if ENABLE_NC_EXTRA
 	if (option_mask32 & OPT_i) /* line-interval time */
@@ -768,7 +781,12 @@ int nc_main(int argc, char **argv)
 	setsockopt_reuseaddr(netfd);
 	if (o_udpmode)
 		socket_want_pktinfo(netfd);
-	xbind(netfd, &ouraddr->u.sa, ouraddr->len);
+	if (!ENABLE_FEATURE_UNIX_LOCAL
+	 || o_listen
+	 || ouraddr->u.sa.sa_family != AF_UNIX
+	) {
+		xbind(netfd, &ouraddr->u.sa, ouraddr->len);
+	}
 #if 0
 	setsockopt(netfd, SOL_SOCKET, SO_RCVBUF, &o_rcvbuf, sizeof o_rcvbuf);
 	setsockopt(netfd, SOL_SOCKET, SO_SNDBUF, &o_sndbuf, sizeof o_sndbuf);

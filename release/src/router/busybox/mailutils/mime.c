@@ -35,12 +35,68 @@ Options:
                     -c auto to set Content-Type: to text/plain or
                     application/octet-stream based on picked encoding.
   -j file1 file2  - join mime section file2 to multipart section file1.
-  -o file         - write ther result to file, instead of stdout (not
+  -o file         - write the result to file, instead of stdout (not
                     allowed in child processes).
   -a header       - prepend an additional header to the output.
 
   @file - read all of the above options from file, one option or
           value on each line.
+  {which version of makemime is this? What do we support?}
+*/
+
+
+/* In busybox 1.15.0.svn, makemime generates output like this
+ * (empty lines are shown exactly!):
+{headers added with -a HDR}
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="24269534-2145583448-1655890676"
+
+--24269534-2145583448-1655890676
+Content-Type: {set by -c, e.g. text/plain}; charset={set by -C, e.g. us-ascii}
+Content-Disposition: inline; filename="A"
+Content-Transfer-Encoding: base64
+
+...file A contents...
+--24269534-2145583448-1655890676
+Content-Type: {set by -c, e.g. text/plain}; charset={set by -C, e.g. us-ascii}
+Content-Disposition: inline; filename="B"
+Content-Transfer-Encoding: base64
+
+...file B contents...
+--24269534-2145583448-1655890676--
+
+*/
+
+
+/* For reference: here is an example email to LKML which has
+ * 1st unnamed part (so it serves as an email body)
+ * and one attached file:
+...other headers...
+Content-Type: multipart/mixed; boundary="=-tOfTf3byOS0vZgxEWcX+"
+...other headers...
+Mime-Version: 1.0
+...other headers...
+
+
+--=-tOfTf3byOS0vZgxEWcX+
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+...email text...
+...email text...
+
+
+--=-tOfTf3byOS0vZgxEWcX+
+Content-Disposition: attachment; filename="xyz"
+Content-Type: text/plain; name="xyz"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+...file contents...
+...file contents...
+
+--=-tOfTf3byOS0vZgxEWcX+--
+
+...random junk added by mailing list robots and such...
 */
 
 int makemime_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -86,7 +142,8 @@ int makemime_main(int argc UNUSED_PARAM, char **argv)
 
 	// make a random string -- it will delimit message parts
 	srand(monotonic_us());
-	boundary = xasprintf("%d-%d-%d", rand(), rand(), rand());
+	boundary = xasprintf("%u-%u-%u",
+			(unsigned)rand(), (unsigned)rand(), (unsigned)rand());
 
 	// put multipart header
 	printf(
@@ -120,7 +177,8 @@ int makemime_main(int argc UNUSED_PARAM, char **argv)
 static const char *find_token(const char *const string_array[], const char *key, const char *defvalue)
 {
 	const char *r = NULL;
-	for (int i = 0; string_array[i] != 0; i++) {
+	int i;
+	for (i = 0; string_array[i] != NULL; i++) {
 		if (strcasecmp(string_array[i], key) == 0) {
 			r = (char *)string_array[i+1];
 			break;
@@ -175,7 +233,7 @@ static int parse(const char *boundary, char **argv)
 		// N.B. to avoid false positives let us seek to the _last_ occurance
 		p = NULL;
 		s = line;
-		while ((s=strcasestr(s, "Content-Type:")) != NULL)
+		while ((s = strcasestr(s, "Content-Type:")) != NULL)
 			p = s++;
 		if (!p)
 			goto next;
@@ -224,8 +282,8 @@ static int parse(const char *boundary, char **argv)
 				pid = vfork();
 				if (0 == pid) {
 					// child reads from fd[0]
-					xdup2(fd[0], STDIN_FILENO);
-					close(fd[0]); close(fd[1]);
+					close(fd[1]);
+					xmove_fd(fd[0], STDIN_FILENO);
 					xsetenv("CONTENT_TYPE", type);
 					xsetenv("CHARSET", charset);
 					xsetenv("ENCODING", encoding);
@@ -235,7 +293,7 @@ static int parse(const char *boundary, char **argv)
 				}
 				// parent dumps to fd[1]
 				close(fd[0]);
-				fp = fdopen(fd[1], "w");
+				fp = xfdopen_for_write(fd[1]);
 				signal(SIGPIPE, SIG_IGN); // ignore EPIPE
 			// or create a file for dump
 			} else {
@@ -251,7 +309,8 @@ static int parse(const char *boundary, char **argv)
 			if (0 == strcasecmp(encoding, "base64")) {
 				decode_base64(stdin, fp);
 			} else if (0 != strcasecmp(encoding, "7bit")
-				&& 0 != strcasecmp(encoding, "8bit")) {
+				&& 0 != strcasecmp(encoding, "8bit")
+			) {
 				// quoted-printable, binary, user-defined are unsupported so far
 				bb_error_msg_and_die("no support of encoding '%s'", encoding);
 			} else {
@@ -266,11 +325,15 @@ static int parse(const char *boundary, char **argv)
 				// no means to truncate what we already have sent to the helper.
 				p = xmalloc_fgets_str(stdin, "\r\n");
 				while (p) {
-					if ((s = xmalloc_fgets_str(stdin, "\r\n")) == NULL)
+					s = xmalloc_fgets_str(stdin, "\r\n");
+					if (s == NULL)
 						break;
-					if ('-' == s[0] && '-' == s[1]
-						&& 0 == strncmp(s+2, boundary, boundary_len))
+					if ('-' == s[0]
+					 && '-' == s[1]
+					 && 0 == strncmp(s+2, boundary, boundary_len)
+					) {
 						break;
+					}
 					fputs(p, fp);
 					p = s;
 				}
@@ -306,7 +369,7 @@ static int parse(const char *boundary, char **argv)
 			}
 		}
  next:
- 		free(line);
+		free(line);
 	}
 
 //bb_info_msg("ENDPARSE[%s]", boundary);
@@ -341,11 +404,11 @@ int reformime_main(int argc UNUSED_PARAM, char **argv)
 
 	// parse options
 	// N.B. only -x and -X are supported so far
-	opt_complementary = "x--X:X--x" USE_FEATURE_REFORMIME_COMPAT(":m::");
+	opt_complementary = "x--X:X--x" IF_FEATURE_REFORMIME_COMPAT(":m::");
 	opts = getopt32(argv,
-		"x:X" USE_FEATURE_REFORMIME_COMPAT("deis:r:c:m:h:o:O:"),
+		"x:X" IF_FEATURE_REFORMIME_COMPAT("deis:r:c:m:h:o:O:"),
 		&opt_prefix
-		USE_FEATURE_REFORMIME_COMPAT(, NULL, NULL, &G.opt_charset, NULL, NULL, NULL, NULL)
+		IF_FEATURE_REFORMIME_COMPAT(, NULL, NULL, &G.opt_charset, NULL, NULL, NULL, NULL)
 	);
 	//argc -= optind;
 	argv += optind;

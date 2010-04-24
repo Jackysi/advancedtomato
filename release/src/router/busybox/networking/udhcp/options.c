@@ -59,7 +59,7 @@ const struct dhcp_option dhcp_options[] = {
 	 * with "option XXX YYY" syntax in dhcpd config file. */
 
 	{ OPTION_U16                              , 0x39 }, /* DHCP_MAX_SIZE      */
-	{ } /* zeroed terminating entry */
+	{ 0, 0 } /* zeroed terminating entry */
 };
 
 /* Used for converting options from incoming packets to env variables
@@ -127,8 +127,22 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
 };
 
 
+#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 2
+static void log_option(const char *pfx, const uint8_t *opt)
+{
+	if (dhcp_verbose >= 2) {
+		char buf[256 * 2 + 2];
+		*bin2hex(buf, (void*) (opt + OPT_DATA), opt[OPT_LEN]) = '\0';
+		bb_info_msg("%s: 0x%02x %s", pfx, opt[OPT_CODE], buf);
+	}
+}
+#else
+# define log_option(pfx, opt) ((void)0)
+#endif
+
+
 /* get an option with bounds checking (warning, result is not aligned). */
-uint8_t* FAST_FUNC get_option(struct dhcpMessage *packet, int code)
+uint8_t* FAST_FUNC get_option(struct dhcp_packet *packet, int code)
 {
 	uint8_t *optionptr;
 	int len;
@@ -174,8 +188,10 @@ uint8_t* FAST_FUNC get_option(struct dhcpMessage *packet, int code)
 		if (rem < 0)
 			continue; /* complain and return NULL */
 
-		if (optionptr[OPT_CODE] == code)
+		if (optionptr[OPT_CODE] == code) {
+			log_option("Option found", optionptr);
 			return optionptr + OPT_DATA;
+		}
 
 		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
 			overload |= optionptr[OPT_DATA];
@@ -183,6 +199,9 @@ uint8_t* FAST_FUNC get_option(struct dhcpMessage *packet, int code)
 		}
 		optionptr += len;
 	}
+
+	/* log3 because udhcpc uses it a lot - very noisy */
+	log3("Option 0x%02x not found", code);
 	return NULL;
 }
 
@@ -213,7 +232,7 @@ int FAST_FUNC add_option_string(uint8_t *optionptr, uint8_t *string)
 				string[OPT_CODE]);
 		return 0;
 	}
-	DEBUG("adding option 0x%02x", string[OPT_CODE]);
+	log_option("Adding option", string);
 	memcpy(optionptr + end, string, string[OPT_LEN] + 2);
 	optionptr[end + string[OPT_LEN] + 2] = DHCP_END;
 	return string[OPT_LEN] + 2;
@@ -240,6 +259,6 @@ int FAST_FUNC add_simple_option(uint8_t *optionptr, uint8_t code, uint32_t data)
 		}
 	}
 
-	bb_error_msg("cannot add option 0x%02x", code);
+	bb_error_msg("can't add option 0x%02x", code);
 	return 0;
 }

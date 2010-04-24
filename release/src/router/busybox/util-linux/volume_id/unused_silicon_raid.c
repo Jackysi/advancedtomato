@@ -37,11 +37,11 @@ struct silicon_meta {
 	uint16_t	vendor_id;
 	uint16_t	minor_ver;
 	uint16_t	major_ver;
-} __attribute__((packed));
+} PACKED;
 
 #define SILICON_MAGIC		0x2F000000
 
-int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int FAST_FUNC volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t meta_off;
 	struct silicon_meta *sil;

@@ -88,9 +88,17 @@ enum {
 	CPIO_OPT_PRESERVE_MTIME     = (1 << 6),
 	CPIO_OPT_DEREF              = (1 << 7),
 	CPIO_OPT_FILE               = (1 << 8),
-	CPIO_OPT_CREATE             = (1 << 9) * ENABLE_FEATURE_CPIO_O,
-	CPIO_OPT_FORMAT             = (1 << 10) * ENABLE_FEATURE_CPIO_O,
-	CPIO_OPT_PASSTHROUGH        = (1 << 11) * ENABLE_FEATURE_CPIO_P,
+	OPTBIT_FILE = 8,
+	IF_FEATURE_CPIO_O(OPTBIT_CREATE     ,)
+	IF_FEATURE_CPIO_O(OPTBIT_FORMAT     ,)
+	IF_FEATURE_CPIO_P(OPTBIT_PASSTHROUGH,)
+	IF_LONG_OPTS(     OPTBIT_QUIET      ,)
+	IF_LONG_OPTS(     OPTBIT_2STDOUT    ,)
+	CPIO_OPT_CREATE             = IF_FEATURE_CPIO_O((1 << OPTBIT_CREATE     )) + 0,
+	CPIO_OPT_FORMAT             = IF_FEATURE_CPIO_O((1 << OPTBIT_FORMAT     )) + 0,
+	CPIO_OPT_PASSTHROUGH        = IF_FEATURE_CPIO_P((1 << OPTBIT_PASSTHROUGH)) + 0,
+	CPIO_OPT_QUIET              = IF_LONG_OPTS(     (1 << OPTBIT_QUIET      )) + 0,
+	CPIO_OPT_2STDOUT            = IF_LONG_OPTS(     (1 << OPTBIT_2STDOUT    )) + 0,
 };
 
 #define OPTION_STR "it0uvdmLF:"
@@ -109,7 +117,7 @@ static off_t cpio_pad4(off_t size)
 
 /* Return value will become exit code.
  * It's ok to exit instead of return. */
-static int cpio_o(void)
+static NOINLINE int cpio_o(void)
 {
 	static const char trailer[] ALIGN1 = "TRAILER!!!";
 	struct name_s {
@@ -244,7 +252,7 @@ static int cpio_o(void)
 				free(lpath);
 			} else { /* S_ISREG */
 				int fd = xopen(name, O_RDONLY);
-				fflush(stdout);
+				fflush_all();
 				/* We must abort if file got shorter too! */
 				bb_copyfd_exact_size(fd, STDOUT_FILENO, st.st_size);
 				bytes += st.st_size;
@@ -270,10 +278,10 @@ int cpio_main(int argc UNUSED_PARAM, char **argv)
 {
 	archive_handle_t *archive_handle;
 	char *cpio_filename;
-	USE_FEATURE_CPIO_O(const char *cpio_fmt = "";)
+	IF_FEATURE_CPIO_O(const char *cpio_fmt = "";)
 	unsigned opt;
 
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 	applet_long_options =
 		"extract\0"      No_argument       "i"
 		"list\0"         No_argument       "t"
@@ -284,8 +292,15 @@ int cpio_main(int argc UNUSED_PARAM, char **argv)
 		"pass-through\0" No_argument       "p"
 #endif
 #endif
+		"verbose\0"      No_argument       "v"
+		"quiet\0"        No_argument       "\xff"
+		"to-stdout\0"    No_argument       "\xfe"
 		;
 #endif
+
+	archive_handle = init_handle();
+	/* archive_handle->src_fd = STDIN_FILENO; - done by init_handle */
+	archive_handle->ah_flags = ARCHIVE_EXTRACT_NEWER;
 
 	/* As of now we do not enforce this: */
 	/* -i,-t,-o,-p are mutually exclusive */
@@ -293,19 +308,30 @@ int cpio_main(int argc UNUSED_PARAM, char **argv)
 	/* -L makes sense only with -o or -p */
 
 #if !ENABLE_FEATURE_CPIO_O
+	/* no parameters */
+	opt_complementary = "=0";
 	opt = getopt32(argv, OPTION_STR, &cpio_filename);
+	if (opt & CPIO_OPT_FILE) { /* -F */
+		xmove_fd(xopen(cpio_filename, O_RDONLY), STDIN_FILENO);
+	}
 #else
-	opt = getopt32(argv, OPTION_STR "oH:" USE_FEATURE_CPIO_P("p"), &cpio_filename, &cpio_fmt);
+	/* _exactly_ one parameter for -p, thus <= 1 param if -p is allowed */
+	opt_complementary = ENABLE_FEATURE_CPIO_P ? "?1" : "=0";
+	opt = getopt32(argv, OPTION_STR "oH:" IF_FEATURE_CPIO_P("p"), &cpio_filename, &cpio_fmt);
+	argv += optind;
+	if ((opt & (CPIO_OPT_FILE|CPIO_OPT_CREATE)) == CPIO_OPT_FILE) { /* -F without -o */
+		xmove_fd(xopen(cpio_filename, O_RDONLY), STDIN_FILENO);
+	}
 	if (opt & CPIO_OPT_PASSTHROUGH) {
 		pid_t pid;
 		struct fd_pair pp;
 
-		if (argv[optind] == NULL)
+		if (argv[0] == NULL)
 			bb_show_usage();
 		if (opt & CPIO_OPT_CREATE_LEADING_DIR)
-			mkdir(argv[optind], 0777);
+			mkdir(argv[0], 0777);
 		/* Crude existence check:
-		 * close(xopen(argv[optind], O_RDONLY | O_DIRECTORY));
+		 * close(xopen(argv[0], O_RDONLY | O_DIRECTORY));
 		 * We can also xopen, fstat, IS_DIR, later fchdir.
 		 * This would check for existence earlier and cleaner.
 		 * As it stands now, if we fail xchdir later,
@@ -324,41 +350,32 @@ int cpio_main(int argc UNUSED_PARAM, char **argv)
 #else
 		xpiped_pair(pp);
 #endif
-		pid = fork_or_rexec(argv);
+		pid = fork_or_rexec(argv - optind);
 		if (pid == 0) { /* child */
 			close(pp.rd);
 			xmove_fd(pp.wr, STDOUT_FILENO);
 			goto dump;
 		}
 		/* parent */
-		xchdir(argv[optind++]);
+		xchdir(*argv++);
 		close(pp.wr);
 		xmove_fd(pp.rd, STDIN_FILENO);
-		opt &= ~CPIO_OPT_PASSTHROUGH;
+		//opt &= ~CPIO_OPT_PASSTHROUGH;
 		opt |= CPIO_OPT_EXTRACT;
 		goto skip;
 	}
 	/* -o */
 	if (opt & CPIO_OPT_CREATE) {
-		if (*cpio_fmt != 'n') /* we _require_ "-H newc" */
+		if (cpio_fmt[0] != 'n') /* we _require_ "-H newc" */
 			bb_show_usage();
 		if (opt & CPIO_OPT_FILE) {
-			fclose(stdout);
-			stdout = fopen_for_write(cpio_filename);
-			/* Paranoia: I don't trust libc that much */
-			xdup2(fileno(stdout), STDOUT_FILENO);
+			xmove_fd(xopen3(cpio_filename, O_WRONLY | O_CREAT | O_TRUNC, 0666), STDOUT_FILENO);
 		}
  dump:
 		return cpio_o();
 	}
  skip:
 #endif
-	argv += optind;
-
-	archive_handle = init_handle();
-	archive_handle->src_fd = STDIN_FILENO;
-	archive_handle->seek = seek_by_read;
-	archive_handle->ah_flags = ARCHIVE_EXTRACT_NEWER;
 
 	/* One of either extract or test options must be given */
 	if ((opt & (CPIO_OPT_TEST | CPIO_OPT_EXTRACT)) == 0) {
@@ -372,9 +389,11 @@ int cpio_main(int argc UNUSED_PARAM, char **argv)
 	}
 	if (opt & CPIO_OPT_EXTRACT) {
 		archive_handle->action_data = data_extract_all;
+		if (opt & CPIO_OPT_2STDOUT)
+			archive_handle->action_data = data_extract_to_stdout;
 	}
 	if (opt & CPIO_OPT_UNCONDITIONAL) {
-		archive_handle->ah_flags |= ARCHIVE_EXTRACT_UNCONDITIONAL;
+		archive_handle->ah_flags |= ARCHIVE_UNLINK_OLD;
 		archive_handle->ah_flags &= ~ARCHIVE_EXTRACT_NEWER;
 	}
 	if (opt & CPIO_OPT_VERBOSE) {
@@ -384,30 +403,29 @@ int cpio_main(int argc UNUSED_PARAM, char **argv)
 			archive_handle->action_header = header_list;
 		}
 	}
-	if (opt & CPIO_OPT_FILE) { /* -F */
-		archive_handle->src_fd = xopen(cpio_filename, O_RDONLY);
-		archive_handle->seek = seek_by_jump;
-	}
 	if (opt & CPIO_OPT_CREATE_LEADING_DIR) {
 		archive_handle->ah_flags |= ARCHIVE_CREATE_LEADING_DIRS;
 	}
 	if (opt & CPIO_OPT_PRESERVE_MTIME) {
-		archive_handle->ah_flags |= ARCHIVE_PRESERVE_DATE;
+		archive_handle->ah_flags |= ARCHIVE_RESTORE_DATE;
 	}
 
 	while (*argv) {
 		archive_handle->filter = filter_accept_list;
-		llist_add_to(&(archive_handle->accept), *argv);
+		llist_add_to(&archive_handle->accept, *argv);
 		argv++;
 	}
 
 	/* see get_header_cpio */
-	archive_handle->ah_priv[2] = (void*) ~(ptrdiff_t)0;
+	archive_handle->cpio__blocks = (off_t)-1;
 	while (get_header_cpio(archive_handle) == EXIT_SUCCESS)
 		continue;
 
-	if (archive_handle->ah_priv[2] != (void*) ~(ptrdiff_t)0)
-		printf("%lu blocks\n", (unsigned long)(ptrdiff_t)(archive_handle->ah_priv[2]));
+	if (archive_handle->cpio__blocks != (off_t)-1
+	 && !(opt & CPIO_OPT_QUIET)
+	) {
+		printf("%"OFF_FMT"u blocks\n", archive_handle->cpio__blocks);
+	}
 
 	return EXIT_SUCCESS;
 }

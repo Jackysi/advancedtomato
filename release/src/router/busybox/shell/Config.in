@@ -15,6 +15,7 @@ choice
 config FEATURE_SH_IS_ASH
 	select ASH
 	bool "ash"
+	depends on !NOMMU
 
 config FEATURE_SH_IS_HUSH
 	select HUSH
@@ -24,9 +25,9 @@ config FEATURE_SH_IS_HUSH
 ####	select LASH
 ####	bool "lash"
 
-config FEATURE_SH_IS_MSH
-	select MSH
-	bool "msh"
+####config FEATURE_SH_IS_MSH
+####	select MSH
+####	bool "msh"
 
 config FEATURE_SH_IS_NONE
 	bool "none"
@@ -36,15 +37,13 @@ endchoice
 config ASH
 	bool "ash"
 	default n
+	depends on !NOMMU
 	help
 	  Tha 'ash' shell adds about 60k in the default configuration and is
 	  the most complete and most pedantically correct shell included with
 	  busybox. This shell is actually a derivative of the Debian 'dash'
 	  shell (by Herbert Xu), which was created by porting the 'ash' shell
 	  (written by Kenneth Almquist) from NetBSD.
-
-comment "Ash Shell Options"
-	depends on ASH
 
 config ASH_BASH_COMPAT
 	bool "bash-compatible extensions"
@@ -59,23 +58,6 @@ config ASH_JOB_CONTROL
 	depends on ASH
 	help
 	  Enable job control in the ash shell.
-
-config ASH_READ_NCHARS
-	bool "'read -n N' and 'read -s' support"
-	default n
-	depends on ASH
-	help
-	  'read -n N' will return a value after N characters have been read.
-	  'read -s' will read without echoing the user's input.
-
-config ASH_READ_TIMEOUT
-	bool "'read -t S' support"
-	default n
-	depends on ASH
-	help
-	  'read -t S' will return a value after S seconds have passed.
-	  This implementation will allow fractional seconds, expressed
-	  as a decimal fraction, e.g. 'read -t 2.5 foo'.
 
 config ASH_ALIAS
 	bool "alias support"
@@ -169,6 +151,13 @@ config HUSH
 	  It does not handle select, aliases, brace expansion,
 	  tilde expansion, &>file and >&file redirection of stdout+stderr.
 
+config HUSH_BASH_COMPAT
+	bool "bash-compatible extensions"
+	default y
+	depends on HUSH
+	help
+	  Enable bash-compatible extensions.
+
 config HUSH_HELP
 	bool "help builtin"
 	default n
@@ -183,7 +172,7 @@ config HUSH_INTERACTIVE
 	help
 	  Enable interactive mode (prompt and command editing).
 	  Without this, hush simply reads and executes commands
-	  from stdin just like a shell script from the file.
+	  from stdin just like a shell script from a file.
 	  No prompt, no PS1/PS2 magic shell variables.
 
 config HUSH_JOB
@@ -232,12 +221,27 @@ config HUSH_FUNCTIONS
 	help
 	  Enable support for shell functions in hush. +800 bytes.
 
+config HUSH_LOCAL
+	bool "Support local builtin"
+	default n
+	depends on HUSH_FUNCTIONS
+	help
+	  Enable support for local variables in functions.
+
 config HUSH_EXPORT_N
 	bool "Support export '-n' option"
 	default n
 	depends on HUSH
 	help
 	  Enable support for export '-n' option in hush. It is a bash extension.
+
+config HUSH_RANDOM_SUPPORT
+	bool "Pseudorandom generator and $RANDOM variable"
+	default n
+	depends on HUSH
+	help
+	  Enable pseudorandom generator and dynamic variable "$RANDOM".
+	  Each read of "$RANDOM" will generate a new pseudorandom value.
 
 config LASH
 	bool "lash (deprecated: aliased to hush)"
@@ -249,6 +253,7 @@ config LASH
 config MSH
 	bool "msh (deprecated: please use hush)"
 	default n
+	select HUSH
 	help
 	  msh is deprecated and will be removed, please migrate to hush.
 	  If there is a feature msh has but hush does not, please let us know.
@@ -260,9 +265,6 @@ config MSH
 #	  on it and compare vs bash) but for most things it works quite well.
 #	  It uses only vfork, so it can be used on uClinux systems.
 
-
-comment "Bourne Shell Options"
-	depends on MSH || LASH || HUSH || ASH
 
 config SH_MATH_SUPPORT
 	bool "POSIX math support"

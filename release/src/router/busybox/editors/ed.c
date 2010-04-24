@@ -454,11 +454,7 @@ static void subCommand(const char *cmd, int num1, int num2)
 		 * structure and use that.  Link it in in place of
 		 * the old line structure.
 		 */
-		nlp = malloc(sizeof(LINE) + lp->len + deltaLen);
-		if (nlp == NULL) {
-			bb_error_msg("cannot get memory for line");
-			return;
-		}
+		nlp = xmalloc(sizeof(LINE) + lp->len + deltaLen);
 
 		nlp->len = lp->len + deltaLen;
 
@@ -686,7 +682,7 @@ static int readLines(const char *file, int num)
 	cc = 0;
 
 	printf("\"%s\", ", file);
-	fflush(stdout);
+	fflush_all();
 
 	do {
 		cp = memchr(bufPtr, '\n', bufUsed);
@@ -712,12 +708,7 @@ static int readLines(const char *file, int num)
 
 		if (bufUsed >= bufSize) {
 			len = (bufSize * 3) / 2;
-			cp = realloc(bufBase, len);
-			if (cp == NULL) {
-				bb_error_msg("no memory for buffer");
-				close(fd);
-				return FALSE;
-			}
+			cp = xrealloc(bufBase, len);
 			bufBase = cp;
 			bufPtr = bufBase + bufUsed;
 			bufSize = len;
@@ -775,7 +766,7 @@ static int writeLines(const char *file, int num1, int num2)
 	}
 
 	printf("\"%s\", ", file);
-	fflush(stdout);
+	fflush_all();
 
 	lp = findLine(num1);
 	if (lp == NULL) {
@@ -872,11 +863,7 @@ static int insertLine(int num, const char *data, int len)
 		return FALSE;
 	}
 
-	newLp = malloc(sizeof(LINE) + len - 1);
-	if (newLp == NULL) {
-		bb_error_msg("failed to allocate memory for line");
-		return FALSE;
-	}
+	newLp = xmalloc(sizeof(LINE) + len - 1);
 
 	memcpy(newLp->data, data, len);
 	newLp->len = len;
@@ -951,7 +938,7 @@ static void deleteLines(int num1, int num2)
  * Returns the line number which matches, or 0 if there was no match
  * with an error printed.
  */
-static int searchLines(const char *str, int num1, int num2)
+static NOINLINE int searchLines(const char *str, int num1, int num2)
 {
 	const LINE *lp;
 	int len;
@@ -983,7 +970,7 @@ static int searchLines(const char *str, int num1, int num2)
 		lp = lp->next;
 	}
 
-	bb_error_msg("cannot find string \"%s\"", str);
+	bb_error_msg("can't find string \"%s\"", str);
 	return 0;
 }
 

@@ -2,7 +2,7 @@
 # Copyright 2008 by Denys Vlasenko
 # Licensed under GPL v2, see file LICENSE for details.
 
-. testing.sh
+. ./testing.sh
 
 # testing "test name" "options" "expected result" "file input" "stdin"
 
@@ -26,5 +26,8 @@ testing "unexpand case 6" "unexpand" \
 
 testing "unexpand case 7" "unexpand" \
 	"123\t 45678\n" "" "123 \t 45678\n" \
+
+testing "unexpand with unicode characher 0x394" "unexpand" \
+	"1ΔΔΔ5\t99999\n" "" "1ΔΔΔ5   99999\n" \
 
 exit $FAILCOUNT

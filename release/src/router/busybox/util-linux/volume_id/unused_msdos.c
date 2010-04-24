@@ -31,7 +31,7 @@ struct msdos_partition_entry {
 	uint8_t		end_cyl;
 	uint32_t	start_sect;
 	uint32_t	nr_sects;
-} __attribute__((packed));
+} PACKED;
 
 #define MSDOS_PARTTABLE_OFFSET		0x1be
 #define MSDOS_SIG_OFF			0x1fe
@@ -47,7 +47,7 @@ struct msdos_partition_entry {
 #define is_raid(type) \
 	(type == LINUX_RAID_PARTITION)
 
-int volume_id_probe_msdos_part_table(struct volume_id *id, uint64_t off)
+int FAST_FUNC volume_id_probe_msdos_part_table(struct volume_id *id, uint64_t off)
 {
 	const uint8_t *buf;
 	int i;

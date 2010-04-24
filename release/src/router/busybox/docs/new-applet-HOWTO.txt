@@ -9,7 +9,7 @@ Mark Whitley - the remix
 Thomas Lundquist - Trying to keep it updated.
 
 When doing this you should consider using the latest svn trunk.
-This is a good thing if you plan to getting it commited into mainline.
+This is a good thing if you plan to getting it committed into mainline.
 
 Initial Write
 -------------
@@ -107,7 +107,7 @@ the function declaration. If not, add it somewhere anyway, with or without
 ifdefs to include or not.
 
 You can look at libbb/Config.in and try to find out if the function is
-tuneable and add it there if it is.
+tunable and add it there if it is.
 
 
 Placement / Directory
@@ -162,7 +162,7 @@ algorithm in busybox.c and the Gods of BusyBox smite you. Yea, verily:
 Be sure to read the top of applets.h before adding your applet.
 
 	/* all programs above here are alphabetically "less than" 'mu' */
-	USE_MU(APPLET(mu, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+	IF_MU(APPLET(mu, _BB_DIR_USR_BIN, _BB_SUID_DROP))
 	/* all programs below here are alphabetically "greater than" 'mu' */
 
 

@@ -41,6 +41,16 @@
  * API for fsck.something, NOT ad-hoc hacks in generic fsck. */
 #define DO_PROGRESS_INDICATOR 0
 
+/* fsck 1.41.4 (27-Jan-2009) manpage says:
+ * 0   - No errors
+ * 1   - File system errors corrected
+ * 2   - System should be rebooted
+ * 4   - File system errors left uncorrected
+ * 8   - Operational error
+ * 16  - Usage or syntax error
+ * 32  - Fsck canceled by user request
+ * 128 - Shared library error
+ */
 #define EXIT_OK          0
 #define EXIT_NONDESTRUCT 1
 #define EXIT_DESTRUCT    2
@@ -52,7 +62,6 @@
 /*
  * Internal structure for mount table entries.
  */
-
 struct fs_info {
 	struct fs_info *next;
 	char	*device;
@@ -103,9 +112,7 @@ static const char really_wanted[] ALIGN1 =
 
 #define BASE_MD "/dev/md"
 
-static char **devices;
 static char **args;
-static int num_devices;
 static int num_args;
 static int verbose;
 
@@ -116,13 +123,10 @@ static char **fs_type_list;
 static uint8_t *fs_type_flag;
 static smallint fs_type_negated;
 
-static volatile smallint cancel_requested;
-static smallint doall;
 static smallint noexecute;
 static smallint serialize;
 static smallint skip_root;
 /* static smallint like_mount; */
-static smallint notitle;
 static smallint parallel_root;
 static smallint force_all_parallel;
 
@@ -303,7 +307,7 @@ static void load_fs_info(const char *filename)
 
 	fstab = setmntent(filename, "r");
 	if (!fstab) {
-		bb_perror_msg("cannot read %s", filename);
+		bb_perror_msg("can't read %s", filename);
 		return;
 	}
 
@@ -353,13 +357,13 @@ static int progress_active(void)
 /*
  * Send a signal to all outstanding fsck child processes
  */
-static void kill_all_if_cancel_requested(void)
+static void kill_all_if_got_signal(void)
 {
 	static smallint kill_sent;
 
 	struct fsck_instance *inst;
 
-	if (!cancel_requested || kill_sent)
+	if (!bb_got_signal || kill_sent)
 		return;
 
 	for (inst = instance_list; inst; inst = inst->next) {
@@ -388,7 +392,7 @@ static int wait_one(int flags)
 
 	while (1) {
 		pid = waitpid(-1, &status, flags);
-		kill_all_if_cancel_requested();
+		kill_all_if_got_signal();
 		if (pid == 0) /* flags == WNOHANG and no children exited */
 			return -1;
 		if (pid < 0) {
@@ -495,60 +499,55 @@ static int wait_many(int flags)
 static void execute(const char *type, const char *device,
 		const char *mntpt /*, int interactive */)
 {
-	char *argv[num_args + 4]; /* see count below: */
-	int argc;
 	int i;
 	struct fsck_instance *inst;
 	pid_t pid;
 
-	argv[0] = xasprintf("fsck.%s", type); /* 1 */
-	for (i = 0; i < num_args; i++)
-		argv[i+1] = args[i]; /* num_args */
-	argc = num_args + 1;
+	args[0] = xasprintf("fsck.%s", type);
 
 #if DO_PROGRESS_INDICATOR
 	if (progress && !progress_active()) {
 		if (strcmp(type, "ext2") == 0
 		 || strcmp(type, "ext3") == 0
 		) {
-			argv[argc++] = xasprintf("-C%d", progress_fd); /* 1 */
+			args[XXX] = xasprintf("-C%d", progress_fd); /* 1 */
 			inst->flags |= FLAG_PROGRESS;
 		}
 	}
 #endif
 
-	argv[argc++] = (char*)device; /* 1 */
-	argv[argc] = NULL; /* 1 */
+	args[num_args - 2] = (char*)device;
+	/* args[num_args - 1] = NULL; - already is */
 
 	if (verbose || noexecute) {
-		printf("[%s (%d) -- %s]", argv[0], num_running,
+		printf("[%s (%d) -- %s]", args[0], num_running,
 					mntpt ? mntpt : device);
-		for (i = 0; i < argc; i++)
-			printf(" %s", argv[i]);
+		for (i = 0; args[i]; i++)
+			printf(" %s", args[i]);
 		bb_putchar('\n');
 	}
 
 	/* Fork and execute the correct program. */
 	pid = -1;
 	if (!noexecute) {
-		pid = spawn(argv);
+		pid = spawn(args);
 		if (pid < 0)
-			bb_simple_perror_msg(argv[0]);
+			bb_simple_perror_msg(args[0]);
 	}
 
 #if DO_PROGRESS_INDICATOR
-	free(argv[num_args + 1]);
+	free(args[XXX]);
 #endif
 
 	/* No child, so don't record an instance */
 	if (pid <= 0) {
-		free(argv[0]);
+		free(args[0]);
 		return;
 	}
 
 	inst = xzalloc(sizeof(*inst));
 	inst->pid = pid;
-	inst->prog = argv[0];
+	inst->prog = args[0];
 	inst->device = xstrdup(device);
 	inst->base_device = base_device(device);
 #if DO_PROGRESS_INDICATOR
@@ -788,7 +787,7 @@ static int check_all(void)
 		pass_done = 1;
 
 		for (fs = filesys_info; fs; fs = fs->next) {
-			if (cancel_requested)
+			if (bb_got_signal)
 				break;
 			if (fs->flags & FLAG_DONE)
 				continue;
@@ -828,7 +827,7 @@ static int check_all(void)
 				break;
 			}
 		}
-		if (cancel_requested)
+		if (bb_got_signal)
 			break;
 		if (verbose > 1)
 			printf("--waiting-- (pass %d)\n", passno);
@@ -841,7 +840,7 @@ static int check_all(void)
 		} else
 			not_done_yet = 1;
 	}
-	kill_all_if_cancel_requested();
+	kill_all_if_got_signal();
 	status |= wait_many(FLAG_WAIT_ATLEAST_ONE);
 	return status;
 }
@@ -904,22 +903,43 @@ static void compile_fs_type(char *fs_type)
 	}
 }
 
-static void parse_args(char **argv)
+static char **new_args(void)
 {
-	int i, j;
-	char *arg, *tmp;
-	char *options;
-	int optpos;
-	int opts_for_fsck = 0;
+	args = xrealloc_vector(args, 2, num_args);
+	return &args[num_args++];
+}
 
-	/* in bss, so already zeroed
+int fsck_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int fsck_main(int argc UNUSED_PARAM, char **argv)
+{
+	int i, status;
+	/*int interactive;*/
+	struct fs_info *fs;
+	const char *fstab;
+	char *tmp;
+	char **devices;
+	int num_devices;
+	smallint opts_for_fsck;
+	smallint doall;
+	smallint notitle;
+
+	/* we want wait() to be interruptible */
+	signal_no_SA_RESTART_empty_mask(SIGINT, record_signo);
+	signal_no_SA_RESTART_empty_mask(SIGTERM, record_signo);
+
+	setbuf(stdout, NULL);
+
+	opts_for_fsck = doall = notitle = 0;
+	devices = NULL;
 	num_devices = 0;
-	num_args = 0;
-	instance_list = NULL;
-	*/
+	new_args(); /* args[0] = NULL, will be replaced by fsck.<type> */
+	/* instance_list = NULL; - in bss, so already zeroed */
 
-	for (i = 1; argv[i]; i++) {
-		arg = argv[i];
+	while (*++argv) {
+		int j;
+		int optpos;
+		char *options;
+		char *arg = *argv;
 
 		/* "/dev/blk" or "/path" or "UUID=xxx" or "LABEL=xxx" */
 		if ((arg[0] == '/' && !opts_for_fsck) || strchr(arg, '=')) {
@@ -927,13 +947,12 @@ static void parse_args(char **argv)
 // "/path", "UUID=xxx" or "LABEL=xxx" into block device name
 // ("UUID=xxx"/"LABEL=xxx" can probably shifted to fsck.auto duties)
 			devices = xrealloc_vector(devices, 2, num_devices);
-			devices[num_devices++] = xstrdup(arg);
+			devices[num_devices++] = arg;
 			continue;
 		}
 
 		if (arg[0] != '-' || opts_for_fsck) {
-			args = xrealloc_vector(args, 2, num_args);
-			args[num_args++] = xstrdup(arg);
+			*new_args() = arg;
 			continue;
 		}
 
@@ -957,8 +976,9 @@ static void parse_args(char **argv)
 					goto next_arg;
 				}
 				/* -C n */
-				if (!argv[++i]) bb_show_usage();
-				progress_fd = xatoi_u(argv[i]);
+				if (!*++argv)
+					bb_show_usage();
+				progress_fd = xatoi_u(*argv);
 				goto next_arg;
 #endif
 			case 'V':
@@ -987,8 +1007,8 @@ static void parse_args(char **argv)
 					bb_show_usage();
 				if (arg[++j])
 					tmp = &arg[j];
-				else if (argv[++i])
-					tmp = argv[i];
+				else if (*++argv)
+					tmp = *argv;
 				else
 					bb_show_usage();
 				fstype = xstrdup(tmp);
@@ -1009,8 +1029,7 @@ static void parse_args(char **argv)
 		if (optpos) {
 			options[0] = '-';
 			options[optpos + 1] = '\0';
-			args = xrealloc_vector(args, 2, num_args);
-			args[num_args++] = options;
+			*new_args() = options;
 		}
 	}
 	if (getenv("FSCK_FORCE_ALL_PARALLEL"))
@@ -1018,28 +1037,8 @@ static void parse_args(char **argv)
 	tmp = getenv("FSCK_MAX_INST");
 	if (tmp)
 		max_running = xatoi(tmp);
-}
-
-static void signal_cancel(int sig UNUSED_PARAM)
-{
-	cancel_requested = 1;
-}
-
-int fsck_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int fsck_main(int argc UNUSED_PARAM, char **argv)
-{
-	int i, status;
-	/*int interactive;*/
-	const char *fstab;
-	struct fs_info *fs;
-
-	/* we want wait() to be interruptible */
-	signal_no_SA_RESTART_empty_mask(SIGINT, signal_cancel);
-	signal_no_SA_RESTART_empty_mask(SIGTERM, signal_cancel);
-
-	setbuf(stdout, NULL);
-
-	parse_args(argv);
+	new_args(); /* args[num_args - 2] will be replaced by <device> */
+	new_args(); /* args[num_args - 1] is the last, NULL element */
 
 	if (!notitle)
 		puts("fsck (busybox "BB_VER", "BB_BT")");
@@ -1060,8 +1059,8 @@ int fsck_main(int argc UNUSED_PARAM, char **argv)
 
 	status = 0;
 	for (i = 0; i < num_devices; i++) {
-		if (cancel_requested) {
-			kill_all_if_cancel_requested();
+		if (bb_got_signal) {
+			kill_all_if_got_signal();
 			break;
 		}
 

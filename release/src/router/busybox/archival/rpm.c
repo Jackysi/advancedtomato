@@ -116,7 +116,9 @@ int rpm_main(int argc, char **argv)
 	}
 	argv += optind;
 	//argc -= optind;
-	if (!argv[0]) bb_show_usage();
+	if (!argv[0]) {
+		bb_show_usage();
+	}
 
 	while (*argv) {
 		rpm_fd = xopen(*argv++, O_RDONLY);
@@ -143,13 +145,13 @@ int rpm_main(int argc, char **argv)
 			if (func & rpm_query_info) {
 				/* Do the nice printout */
 				time_t bdate_time;
-				struct tm *bdate;
+				struct tm *bdate_ptm;
 				char bdatestring[50];
 				printf("Name        : %-29sRelocations: %s\n", rpm_getstr(TAG_NAME, 0), rpm_getstr(TAG_PREFIXS, 0) ? rpm_getstr(TAG_PREFIXS, 0) : "(not relocateable)");
 				printf("Version     : %-34sVendor: %s\n", rpm_getstr(TAG_VERSION, 0), rpm_getstr(TAG_VENDOR, 0) ? rpm_getstr(TAG_VENDOR, 0) : "(none)");
 				bdate_time = rpm_getint(TAG_BUILDTIME, 0);
-				bdate = localtime((time_t *) &bdate_time);
-				strftime(bdatestring, 50, "%a %d %b %Y %T %Z", bdate);
+				bdate_ptm = localtime(&bdate_time);
+				strftime(bdatestring, 50, "%a %d %b %Y %T %Z", bdate_ptm);
 				printf("Release     : %-30sBuild Date: %s\n", rpm_getstr(TAG_RELEASE, 0), bdatestring);
 				printf("Install date: %-30sBuild Host: %s\n", "(not installed)", rpm_getstr(TAG_BUILDHOST, 0));
 				printf("Group       : %-30sSource RPM: %s\n", rpm_getstr(TAG_GROUP, 0), rpm_getstr(TAG_SOURCERPM, 0));
@@ -190,7 +192,7 @@ static void extract_cpio_gz(int fd)
 	archive_handle_t *archive_handle;
 	unsigned char magic[2];
 #if BB_MMU
-	USE_DESKTOP(long long) int FAST_FUNC (*xformer)(int src_fd, int dst_fd);
+	IF_DESKTOP(long long) int FAST_FUNC (*xformer)(int src_fd, int dst_fd);
 	enum { xformer_prog = 0 };
 #else
 	enum { xformer = 0 };
@@ -202,12 +204,12 @@ static void extract_cpio_gz(int fd)
 	archive_handle->seek = seek_by_read;
 	//archive_handle->action_header = header_list;
 	archive_handle->action_data = data_extract_all;
-	archive_handle->ah_flags = ARCHIVE_PRESERVE_DATE | ARCHIVE_CREATE_LEADING_DIRS
+	archive_handle->ah_flags = ARCHIVE_RESTORE_DATE | ARCHIVE_CREATE_LEADING_DIRS
 		/* compat: overwrite existing files.
 		 * try "rpm -i foo.src.rpm" few times in a row -
 		 * standard rpm will not complain.
 		 * (TODO? real rpm creates "file;1234" and then renames it) */
-		| ARCHIVE_EXTRACT_UNCONDITIONAL;
+		| ARCHIVE_UNLINK_OLD;
 	archive_handle->src_fd = fd;
 	/*archive_handle->offset = 0; - init_handle() did it */
 
@@ -224,7 +226,7 @@ static void extract_cpio_gz(int fd)
 		 || magic[0] != 'B' || magic[1] != 'Z'
 		) {
 			bb_error_msg_and_die("no gzip"
-				USE_FEATURE_SEAMLESS_BZ2("/bzip2")
+				IF_FEATURE_SEAMLESS_BZ2("/bzip2")
 				" magic");
 		}
 #if BB_MMU
@@ -324,7 +326,7 @@ static char *rpm_getstr(int tag, int itemindex)
 		return NULL;
 	if (found[0]->type == RPM_STRING_TYPE || found[0]->type == RPM_I18NSTRING_TYPE || found[0]->type == RPM_STRING_ARRAY_TYPE) {
 		int n;
-		char *tmpstr = (char *) (map + found[0]->offset);
+		char *tmpstr = (char *) map + found[0]->offset;
 		for (n=0; n < itemindex; n++)
 			tmpstr = tmpstr + strlen(tmpstr) + 1;
 		return tmpstr;
@@ -343,7 +345,7 @@ static int rpm_getint(int tag, int itemindex)
 	if (!found || itemindex >= found[0]->count)
 		return -1;
 
-	tmpint = (int *) (map + found[0]->offset);
+	tmpint = (int *) ((char *) map + found[0]->offset);
 
 	if (found[0]->type == RPM_INT32_TYPE) {
 		tmpint = (int *) ((char *) tmpint + itemindex*4);

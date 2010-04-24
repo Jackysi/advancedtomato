@@ -37,12 +37,12 @@ struct mdp_super_block {
 	uint32_t	set_uuid1;
 	uint32_t	set_uuid2;
 	uint32_t	set_uuid3;
-} __attribute__((packed));
+} PACKED;
 
 #define MD_RESERVED_BYTES		0x10000
 #define MD_MAGIC			0xa92b4efc
 
-int volume_id_probe_linux_raid(struct volume_id *id /*,uint64_t off*/, uint64_t size)
+int FAST_FUNC volume_id_probe_linux_raid(struct volume_id *id /*,uint64_t off*/, uint64_t size)
 {
 #define off ((uint64_t)0)
 	uint64_t sboff;

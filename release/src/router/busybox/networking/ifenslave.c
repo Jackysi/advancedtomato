@@ -101,19 +101,18 @@
 #include "libbb.h"
 
 /* #include <net/if.h> - no. linux/if_bonding.h pulls in linux/if.h */
+#include <linux/if.h>
 #include <net/if_arp.h>
 #include <linux/if_bonding.h>
 #include <linux/sockios.h>
-
-#ifndef IFNAMSIZ
-#define IFNAMSIZ 16
-#endif
-
-typedef uint64_t u64; /* hack, so we may include kernel's ethtool.h */
-typedef uint32_t u32; /* ditto */
-typedef uint16_t u16; /* ditto */
-typedef uint8_t u8;   /* ditto */
+#include "fix_u32.h" /* hack, so we may include kernel's ethtool.h */
 #include <linux/ethtool.h>
+#ifndef BOND_ABI_VERSION
+# define BOND_ABI_VERSION 2
+#endif
+#ifndef IFNAMSIZ
+# define IFNAMSIZ 16
+#endif
 
 
 struct dev_data {
@@ -457,7 +456,7 @@ int ifenslave_main(int argc UNUSED_PARAM, char **argv)
 		OPT_d = (1 << 1),
 		OPT_f = (1 << 2),
 	};
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 	static const char ifenslave_longopts[] ALIGN1 =
 		"change-active\0"  No_argument "c"
 		"detach\0"         No_argument "d"

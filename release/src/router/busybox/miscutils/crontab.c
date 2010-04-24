@@ -118,9 +118,9 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 	argv += optind;
 
 	if (sanitize_env_if_suid()) { /* Clears dangerous stuff, sets PATH */
-		/* run by non-root? */
+		/* Run by non-root */
 		if (opt_ler & (OPT_u|OPT_c))
-			bb_error_msg_and_die("only root can use -c or -u");
+			bb_error_msg_and_die(bb_msg_you_must_be_root);
 	}
 
 	if (opt_ler & OPT_u) {
@@ -193,7 +193,7 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 			close(fd);
 			xrename(new_fname, pas->pw_name);
 		} else {
-			bb_error_msg("cannot create %s/%s",
+			bb_error_msg("can't create %s/%s",
 					crontab_dir, new_fname);
 		}
 		if (tmp_fname)
@@ -220,7 +220,7 @@ int crontab_main(int argc UNUSED_PARAM, char **argv)
 		/* loop */
 	}
 	if (fd < 0) {
-		bb_error_msg("cannot append to %s/%s",
+		bb_error_msg("can't append to %s/%s",
 				crontab_dir, CRONUPDATE);
 	}
 	return 0;

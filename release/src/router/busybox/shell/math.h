@@ -80,19 +80,20 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 #if ENABLE_SH_MATH_SUPPORT_64
 typedef long long arith_t;
 #define arith_t_fmt "%lld"
-#define strto_arith_t strtoll
+#define strto_arith_t strtoull
 #else
 typedef long arith_t;
 #define arith_t_fmt "%ld"
-#define strto_arith_t strtol
+#define strto_arith_t strtoul
 #endif
 
-typedef const char *(*arith_var_lookup_t)(const char *name);
-typedef void (*arith_var_set_t)(const char *name, const char *val, int flags);
-typedef char *(*arith_var_endofname_t)(const char *name);
+typedef const char* FAST_FUNC (*arith_var_lookup_t)(const char *name);
+typedef void        FAST_FUNC (*arith_var_set_t)(const char *name, const char *val);
+typedef char*       FAST_FUNC (*arith_var_endofname_t)(const char *name);
+
 typedef struct arith_eval_hooks {
-	arith_var_lookup_t lookupvar;
-	arith_var_set_t setvar;
+	arith_var_lookup_t    lookupvar;
+	arith_var_set_t       setvar;
 	arith_var_endofname_t endofname;
 } arith_eval_hooks_t;
 

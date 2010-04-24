@@ -312,7 +312,7 @@ static int builtin_help(struct child_prog UNUSED_PARAM *dummy)
 {
 	const struct built_in_command *x;
 
-	printf("\n"
+	printf(
 		"Built-in commands:\n"
 		"------------------\n");
 	for (x = bltins; x <= &VEC_LAST(bltins); x++) {
@@ -697,7 +697,7 @@ static char * strsep_space(char *string, int * ix)
 
 	/* Find the end of any whitespace trailing behind
 	 * the token and let that be part of the token */
-	while (string[*ix] && (isspace)(string[*ix]) ) {
+	while (string[*ix] && isspace(string[*ix])) {
 		(*ix)++;
 	}
 
@@ -841,7 +841,7 @@ static int expand_arguments(char *command)
 				num_skip_chars = 1;
 			} else {
 				src = dst + 1;
-				while ((isalnum)(*src) || *src == '_') src++;
+				while (isalnum(*src) || *src == '_') src++;
 			}
 			if (src == NULL) {
 				src = dst+dstlen;
