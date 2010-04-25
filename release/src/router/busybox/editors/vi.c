@@ -458,12 +458,10 @@ int vi_main(int argc, char **argv)
 	save_argc = argc;
 
 	//----- This is the main file handling loop --------------
-	if (optind >= argc) {
-		edit_file(0);
-	} else {
-		for (; optind < argc; optind++) {
-			edit_file(argv[optind]);
-		}
+	while (1) {
+		edit_file(argv[optind]); /* param might be NULL */
+		if (++optind >= argc)
+			break;
 	}
 	//-----------------------------------------------------------
 
@@ -502,6 +500,19 @@ static int init_text_buffer(char *fn)
 	return rc;
 }
 
+#if ENABLE_FEATURE_VI_WIN_RESIZE
+static void query_screen_dimensions(void)
+{
+	get_terminal_width_height(STDIN_FILENO, &columns, &rows);
+	if (rows > MAX_SCR_ROWS)
+		rows = MAX_SCR_ROWS;
+	if (columns > MAX_SCR_COLS)
+		columns = MAX_SCR_COLS;
+}
+#else
+# define query_screen_dimensions() ((void)0)
+#endif
+
 static void edit_file(char *fn)
 {
 #if ENABLE_FEATURE_VI_YANKMARK
@@ -518,11 +529,7 @@ static void edit_file(char *fn)
 	rows = 24;
 	columns = 80;
 	size = 0;
-	if (ENABLE_FEATURE_VI_WIN_RESIZE) {
-		get_terminal_width_height(0, &columns, &rows);
-		if (rows > MAX_SCR_ROWS) rows = MAX_SCR_ROWS;
-		if (columns > MAX_SCR_COLS) columns = MAX_SCR_COLS;
-	}
+	query_screen_dimensions();
 	new_screen(rows, columns);	// get memory for virtual screen
 	init_text_buffer(fn);
 
@@ -537,7 +544,7 @@ static void edit_file(char *fn)
 	ccol = 0;
 
 #if ENABLE_FEATURE_VI_USE_SIGNALS
-	catch_sig(0);
+	signal(SIGINT, catch_sig);
 	signal(SIGWINCH, winch_sig);
 	signal(SIGTSTP, suspend_sig);
 	sig = sigsetjmp(restart, 1);
@@ -563,7 +570,7 @@ static void edit_file(char *fn)
 		char *p, *q;
 		int n = 0;
 
-		while ((p = initial_cmds[n])) {
+		while ((p = initial_cmds[n]) != NULL) {
 			do {
 				q = p;
 				p = strchr(q, '\n');
@@ -946,6 +953,7 @@ static void colon(char *buf)
 	} else if (strncmp(cmd, "quit", i) == 0 // Quit
 	        || strncmp(cmd, "next", i) == 0 // edit next file
 	) {
+		int n;
 		if (useforce) {
 			// force end of argv list
 			if (*cmd == 'q') {
@@ -961,11 +969,12 @@ static void colon(char *buf)
 			goto vc1;
 		}
 		// are there other file to edit
-		if (*cmd == 'q' && optind < save_argc - 1) {
-			status_line_bold("%d more file to edit", (save_argc - optind - 1));
+		n = save_argc - optind - 1;
+		if (*cmd == 'q' && n > 0) {
+			status_line_bold("%d more file(s) to edit", n);
 			goto vc1;
 		}
-		if (*cmd == 'n' && optind >= save_argc - 1) {
+		if (*cmd == 'n' && n <= 0) {
 			status_line_bold("No more files to edit");
 			goto vc1;
 		}
@@ -2141,50 +2150,51 @@ static void cookmode(void)
 	tcsetattr_stdin_TCSANOW(&term_orig);
 }
 
-//----- Come here when we get a window resize signal ---------
 #if ENABLE_FEATURE_VI_USE_SIGNALS
+//----- Come here when we get a window resize signal ---------
 static void winch_sig(int sig UNUSED_PARAM)
 {
+	int save_errno = errno;
 	// FIXME: do it in main loop!!!
 	signal(SIGWINCH, winch_sig);
-	if (ENABLE_FEATURE_VI_WIN_RESIZE) {
-		get_terminal_width_height(0, &columns, &rows);
-		if (rows > MAX_SCR_ROWS) rows = MAX_SCR_ROWS;
-		if (columns > MAX_SCR_COLS) columns = MAX_SCR_COLS;
-	}
+	query_screen_dimensions();
 	new_screen(rows, columns);	// get memory for virtual screen
 	redraw(TRUE);		// re-draw the screen
+	errno = save_errno;
 }
 
 //----- Come here when we get a continue signal -------------------
 static void cont_sig(int sig UNUSED_PARAM)
 {
+	int save_errno = errno;
 	rawmode(); // terminal to "raw"
 	last_status_cksum = 0; // force status update
 	redraw(TRUE); // re-draw the screen
 
 	signal(SIGTSTP, suspend_sig);
 	signal(SIGCONT, SIG_DFL);
-	kill(my_pid, SIGCONT); // huh? why? we are already "continued"...
+	//kill(my_pid, SIGCONT); // huh? why? we are already "continued"...
+	errno = save_errno;
 }
 
 //----- Come here when we get a Suspend signal -------------------
 static void suspend_sig(int sig UNUSED_PARAM)
 {
+	int save_errno = errno;
 	go_bottom_and_clear_to_eol();
 	cookmode(); // terminal to "cooked"
 
 	signal(SIGCONT, cont_sig);
 	signal(SIGTSTP, SIG_DFL);
 	kill(my_pid, SIGTSTP);
+	errno = save_errno;
 }
 
 //----- Come here when we get a signal ---------------------------
 static void catch_sig(int sig)
 {
 	signal(SIGINT, catch_sig);
-	if (sig)
-		siglongjmp(restart, sig);
+	siglongjmp(restart, sig);
 }
 #endif /* FEATURE_VI_USE_SIGNALS */
 
@@ -2294,7 +2304,7 @@ static int file_size(const char *fn) // what is the byte size of "fn"
 	int cnt;
 
 	cnt = -1;
-	if (fn && fn[0] && stat(fn, &st_buf) == 0)	// see if file exists
+	if (fn && stat(fn, &st_buf) == 0)	// see if file exists
 		cnt = (int) st_buf.st_size;
 	return cnt;
 }
@@ -2779,9 +2789,7 @@ static void refresh(int full_screen)
 
 	if (ENABLE_FEATURE_VI_WIN_RESIZE) {
 		unsigned c = columns, r = rows;
-		get_terminal_width_height(0, &columns, &rows);
-		if (rows > MAX_SCR_ROWS) rows = MAX_SCR_ROWS;
-		if (columns > MAX_SCR_COLS) columns = MAX_SCR_COLS;
+		query_screen_dimensions();
 		full_screen |= (c - columns) | (r - rows);
 	}
 	sync_cursor(dot, &crow, &ccol);	// where cursor will be (on "dot")
@@ -3013,17 +3021,17 @@ static void do_cmd(int c)
 	case KEYCODE_LEFT:	// cursor key Left
 	case 8:		// ctrl-H- move left    (This may be ERASE char)
 	case 0x7f:	// DEL- move left   (This may be ERASE char)
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_left();
 		break;
 	case 10:			// Newline ^J
 	case 'j':			// j- goto next line, same col
 	case KEYCODE_DOWN:	// cursor key Down
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_next();		// go to next B-o-l
 		dot = move_to_col(dot, ccol + offset);	// try stay in same col
 		break;
@@ -3038,9 +3046,9 @@ static void do_cmd(int c)
 		break;
 	case 13:			// Carriage Return ^M
 	case '+':			// +- goto next line
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_next();
 		dot_skip_over_ws();
 		break;
@@ -3060,9 +3068,9 @@ static void do_cmd(int c)
 	case ' ':			// move right
 	case 'l':			// move right
 	case KEYCODE_RIGHT:	// Cursor Key Right
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_right();
 		break;
 #if ENABLE_FEATURE_VI_YANKMARK
@@ -3145,9 +3153,10 @@ static void do_cmd(int c)
 #endif /* FEATURE_VI_YANKMARK */
 	case '$':			// $- goto end of line
 	case KEYCODE_END:		// Cursor Key End
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
+			dot_next();
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot = end_line(dot);
 		break;
 	case '%':			// %- find matching char of pair () [] {}
@@ -3173,9 +3182,9 @@ static void do_cmd(int c)
 		//
 		//**** fall through to ... ';'
 	case ';':			// ;- look at rest of line for last forward char
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(';');
-		}				// repeat cnt
+		}
 		if (last_forward_char == 0)
 			break;
 		q = dot + 1;
@@ -3186,9 +3195,9 @@ static void do_cmd(int c)
 			dot = q;
 		break;
 	case ',':           // repeat latest 'f' in opposite direction
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(',');
-		}                               // repeat cnt
+		}
 		if (last_forward_char == 0)
 			break;
 		q = dot - 1;
@@ -3200,9 +3209,9 @@ static void do_cmd(int c)
 		break;
 
 	case '-':			// -- goto prev line
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_prev();
 		dot_skip_over_ws();
 		break;
@@ -3236,9 +3245,9 @@ static void do_cmd(int c)
 		// user changed mind and erased the "/"-  do nothing
 		break;
 	case 'N':			// N- backward search for last pattern
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		if (last_search_pattern == 0) {
 			msg = "No previous regular expression";
 			goto dc2;
@@ -3254,9 +3263,9 @@ static void do_cmd(int c)
 	case 'n':			// n- repeat search for last pattern
 		// search rest of text[] starting at next char
 		// if search fails return orignal "p" not the "p+1" address
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
  dc3:
 		dir = FORWARD;	// assume FORWARD search
 		p = dot + 1;
@@ -3407,9 +3416,9 @@ static void do_cmd(int c)
 	case 'B':			// B- back a blank-delimited Word
 	case 'E':			// E- end of a blank-delimited word
 	case 'W':			// W- forward a blank-delimited word
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dir = FORWARD;
 		if (c == 'B')
 			dir = BACK;
@@ -3457,9 +3466,9 @@ static void do_cmd(int c)
 		if (cmdcnt > (rows - 1)) {
 			cmdcnt = (rows - 1);
 		}
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd('+');
-		}				// repeat cnt
+		}
 		dot_skip_over_ws();
 		break;
 	case 'I':			// I- insert before first non-blank
@@ -3472,9 +3481,9 @@ static void do_cmd(int c)
 		cmd_mode = 1;	// start insrting
 		break;
 	case 'J':			// J- join current and next lines together
-		if (cmdcnt-- > 2) {
+		if (--cmdcnt > 1) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_end();		// move to NL
 		if (dot < end - 1) {	// make sure not last char in text[]
 			*dot++ = ' ';	// replace NL with space
@@ -3490,9 +3499,9 @@ static void do_cmd(int c)
 		if (cmdcnt > (rows - 1)) {
 			cmdcnt = (rows - 1);
 		}
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd('-');
-		}				// repeat cnt
+		}
 		dot_begin();
 		dot_skip_over_ws();
 		break;
@@ -3526,9 +3535,9 @@ static void do_cmd(int c)
 	case 'X':			// X- delete char before dot
 	case 'x':			// x- delete the current char
 	case 's':			// s- substitute the current char
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dir = 0;
 		if (c == 'X')
 			dir = -1;
@@ -3570,9 +3579,9 @@ static void do_cmd(int c)
 		break;
 	case 'b':			// b- back a word
 	case 'e':			// e- end of word
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dir = FORWARD;
 		if (c == 'b')
 			dir = BACK;
@@ -3671,9 +3680,9 @@ static void do_cmd(int c)
 	}
 	case 'k':			// k- goto prev line, same col
 	case KEYCODE_UP:		// cursor key Up
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		dot_prev();
 		dot = move_to_col(dot, ccol + offset);	// try stay in same col
 		break;
@@ -3693,9 +3702,9 @@ static void do_cmd(int c)
 		last_forward_char = 0;
 		break;
 	case 'w':			// w- forward a word
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		if (isalnum(*dot) || *dot == '_') {	// we are on ALNUM
 			dot = skip_thing(dot, 1, FORWARD, S_END_ALNUM);
 		} else if (ispunct(*dot)) {	// we are on PUNCT
@@ -3721,9 +3730,9 @@ static void do_cmd(int c)
 		dot = move_to_col(dot, cmdcnt - 1);	// try to move to column
 		break;
 	case '~':			// ~- flip the case of letters   a-z -> A-Z
-		if (cmdcnt-- > 1) {
+		if (--cmdcnt > 0) {
 			do_cmd(c);
-		}				// repeat cnt
+		}
 		if (islower(*dot)) {
 			*dot = toupper(*dot);
 			file_modified++;

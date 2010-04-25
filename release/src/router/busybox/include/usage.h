@@ -1207,7 +1207,7 @@
 	) \
      "\n	-b 2048		(for certain MO disks) use 2048-byte sectors" \
      "\n	-C CYLINDERS	Set number of cylinders/heads/sectors" \
-     "\n	-H HEADS\n" \
+     "\n	-H HEADS" \
      "\n	-S SECTORS" \
 
 #define blkid_trivial_usage \
@@ -1313,6 +1313,16 @@
        "Copy an image to MTD device\n" \
      "\nOptions:" \
      "\n	-v	Verbose" \
+
+#define flock_trivial_usage \
+       "[-sxun] FD|{FILE [-c] PROG ARGS}"
+#define flock_full_usage "\n\n" \
+       "[Un]lock file descriptor, or lock FILE and run PROG\n" \
+     "\nOptions:" \
+     "\n	-s	Shared lock" \
+     "\n	-x	Exclusive lock (default)" \
+     "\n	-u	Unlock FD" \
+     "\n	-n	Fail rather than wait" \
 
 #define fold_trivial_usage \
        "[-bs] [-w WIDTH] [FILE]..."
