@@ -247,6 +247,8 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKSWAP=y" >>$(1)
 	@sed -i "/CONFIG_FLOCK/d" $(1)
 	@echo "CONFIG_FLOCK=y" >>$(1)
+	@sed -i "/CONFIG_FSYNC/d" $(1)
+	@echo "CONFIG_FSYNC=y" >>$(1)
 	@( \
 	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 		sed -i "/CONFIG_LSUSB/d" $(1); \
