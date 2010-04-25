@@ -1402,7 +1402,6 @@ load_freelist:
 	if (unlikely(SlabDebug(page)))
 		goto debug;
 
-	object = page->freelist;
 	page->lockless_freelist = object[page->offset];
 	page->inuse = s->objects;
 	page->freelist = NULL;
@@ -1458,7 +1457,6 @@ new_slab:
 	}
 	return NULL;
 debug:
-	object = page->freelist;
 	if (!alloc_debug_processing(s, page, object, addr))
 		goto another_slab;
 
