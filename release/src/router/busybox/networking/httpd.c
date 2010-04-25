@@ -20,14 +20,14 @@
  * httpd -p 80 -u 80 -h /www -c /etc/httpd.conf -r "Web Server Authentication"
  *
  *
- * When a url starts by "/cgi-bin/" it is assumed to be a cgi script.  The
+ * When an url starts by "/cgi-bin/" it is assumed to be a cgi script.  The
  * server changes directory to the location of the script and executes it
  * after setting QUERY_STRING and other environment variables.
  *
  * Doc:
  * "CGI Environment Variables": http://hoohoo.ncsa.uiuc.edu/cgi/env.html
  *
- * The applet can also be invoked as a url arg decoder and html text encoder
+ * The applet can also be invoked as an url arg decoder and html text encoder
  * as follows:
  *  foo=`httpd -d $foo`           # decode "Hello%20World" as "Hello World"
  *  bar=`httpd -e "<Hello World>"`  # encode as "&#60Hello&#32World&#62"
@@ -231,6 +231,8 @@ static const struct {
 #endif
 };
 
+static const char index_html[] ALIGN1 = "index.html";
+
 
 struct globals {
 	int verbose;            /* must be int (used by getopt32) */
@@ -250,13 +252,13 @@ struct globals {
 	const char *found_moved_temporarily;
 	Htaccess_IP *ip_a_d;    /* config allow/deny lines */
 
-	USE_FEATURE_HTTPD_BASIC_AUTH(const char *g_realm;)
-	USE_FEATURE_HTTPD_BASIC_AUTH(char *remoteuser;)
-	USE_FEATURE_HTTPD_CGI(char *referer;)
-	USE_FEATURE_HTTPD_CGI(char *user_agent;)
-	USE_FEATURE_HTTPD_CGI(char *host;)
-	USE_FEATURE_HTTPD_CGI(char *http_accept;)
-	USE_FEATURE_HTTPD_CGI(char *http_accept_language;)
+	IF_FEATURE_HTTPD_BASIC_AUTH(const char *g_realm;)
+	IF_FEATURE_HTTPD_BASIC_AUTH(char *remoteuser;)
+	IF_FEATURE_HTTPD_CGI(char *referer;)
+	IF_FEATURE_HTTPD_CGI(char *user_agent;)
+	IF_FEATURE_HTTPD_CGI(char *host;)
+	IF_FEATURE_HTTPD_CGI(char *http_accept;)
+	IF_FEATURE_HTTPD_CGI(char *http_accept_language;)
 
 	off_t file_size;        /* -1 - unknown */
 #if ENABLE_FEATURE_HTTPD_RANGES
@@ -326,9 +328,9 @@ enum {
 #define proxy             (G.proxy            )
 #define INIT_G() do { \
 	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
-	USE_FEATURE_HTTPD_BASIC_AUTH(g_realm = "Web Server Authentication";) \
+	IF_FEATURE_HTTPD_BASIC_AUTH(g_realm = "Web Server Authentication";) \
 	bind_addr_or_port = "80"; \
-	index_page = "index.html"; \
+	index_page = index_html; \
 	file_size = -1; \
 } while (0)
 
@@ -569,6 +571,8 @@ static void parse_conf(const char *path, int flag)
 		ch = (buf[0] & ~0x20); /* toupper if it's a letter */
 
 		if (ch == 'I') {
+			if (index_page != index_html)
+				free((char*)index_page);
 			index_page = xstrdup(after_colon);
 			continue;
 		}
@@ -1321,10 +1325,8 @@ static void send_cgi_and_exit(
 	/* Check for [dirs/]script.cgi/PATH_INFO */
 	script = (char*)url;
 	while ((script = strchr(script + 1, '/')) != NULL) {
-		struct stat sb;
-
 		*script = '\0';
-		if (!is_directory(url + 1, 1, &sb)) {
+		if (!is_directory(url + 1, 1, NULL)) {
 			/* not directory, found script.cgi/PATH_INFO */
 			*script = '/';
 			break;
@@ -1500,32 +1502,8 @@ static void send_cgi_and_exit(
  */
 static NOINLINE void send_file_and_exit(const char *url, int what)
 {
-	static const char *const suffixTable[] = {
-	/* Warning: shorter equivalent suffix in one line must be first */
-		".htm.html", "text/html",
-		".jpg.jpeg", "image/jpeg",
-		".gif",      "image/gif",
-		".png",      "image/png",
-		".txt.h.c.cc.cpp", "text/plain",
-		".css",      "text/css",
-		".wav",      "audio/wav",
-		".avi",      "video/x-msvideo",
-		".qt.mov",   "video/quicktime",
-		".mpe.mpeg", "video/mpeg",
-		".mid.midi", "audio/midi",
-		".mp3",      "audio/mpeg",
-#if 0                        /* unpopular */
-		".au",       "audio/basic",
-		".pac",      "application/x-ns-proxy-autoconfig",
-		".vrml.wrl", "model/vrml",
-#endif
-		NULL
-	};
-
 	char *suffix;
 	int fd;
-	const char *const *table;
-	const char *try_suffix;
 	ssize_t count;
 
 	fd = open(url, O_RDONLY);
@@ -1543,22 +1521,61 @@ static NOINLINE void send_file_and_exit(const char *url, int what)
 	 * (happens if you abort downloads from local httpd): */
 	signal(SIGPIPE, SIG_IGN);
 
-	suffix = strrchr(url, '.');
-
-	/* If not found, set default as "application/octet-stream";  */
+	/* If not found, default is "application/octet-stream" */
 	found_mime_type = "application/octet-stream";
+	suffix = strrchr(url, '.');
 	if (suffix) {
+		static const char suffixTable[] ALIGN1 =
+			/* Shorter suffix must be first:
+			 * ".html.htm" will fail for ".htm"
+			 */
+			".txt.h.c.cc.cpp\0" "text/plain\0"
+			/* .htm line must be after .h line */
+			".htm.html\0" "text/html\0"
+			".jpg.jpeg\0" "image/jpeg\0"
+			".gif\0"      "image/gif\0"
+			".png\0"      "image/png\0"
+			/* .css line must be after .c line */
+			".css\0"      "text/css\0"
+			".wav\0"      "audio/wav\0"
+			".avi\0"      "video/x-msvideo\0"
+			".qt.mov\0"   "video/quicktime\0"
+			".mpe.mpeg\0" "video/mpeg\0"
+			".mid.midi\0" "audio/midi\0"
+			".mp3\0"      "audio/mpeg\0"
+#if 0  /* unpopular */
+			".au\0"       "audio/basic\0"
+			".pac\0"      "application/x-ns-proxy-autoconfig\0"
+			".vrml.wrl\0" "model/vrml\0"
+#endif
+			/* compiler adds another "\0" here */
+		;
 		Htaccess *cur;
-		for (table = suffixTable; *table; table += 2) {
-			try_suffix = strstr(table[0], suffix);
-			if (try_suffix) {
-				try_suffix += strlen(suffix);
-				if (*try_suffix == '\0' || *try_suffix == '.') {
-					found_mime_type = table[1];
-					break;
-				}
+
+		/* Examine built-in table */
+		const char *table = suffixTable;
+		const char *table_next;
+		for (; *table; table = table_next) {
+			const char *try_suffix;
+			const char *mime_type;
+			mime_type  = table + strlen(table) + 1;
+			table_next = mime_type + strlen(mime_type) + 1;
+			try_suffix = strstr(table, suffix);
+			if (!try_suffix)
+				continue;
+			try_suffix += strlen(suffix);
+			if (*try_suffix == '\0' || *try_suffix == '.') {
+				found_mime_type = mime_type;
+				break;
 			}
+			/* Example: strstr(table, ".av") != NULL, but it
+			 * does not match ".avi" after all and we end up here.
+			 * The table is arranged so that in this case we know
+			 * that it can't match anything in the following lines,
+			 * and we stop the search: */
+			break;
 		}
+		/* ...then user's table */
 		for (cur = mime_a; cur; cur = cur->next) {
 			if (strcmp(cur->before_colon, suffix) == 0) {
 				found_mime_type = cur->after_colon;
@@ -1599,14 +1616,14 @@ static NOINLINE void send_file_and_exit(const char *url, int what)
 		while (1) {
 			/* sz is rounded down to 64k */
 			ssize_t sz = MAXINT(ssize_t) - 0xffff;
-			USE_FEATURE_HTTPD_RANGES(if (sz > range_len) sz = range_len;)
+			IF_FEATURE_HTTPD_RANGES(if (sz > range_len) sz = range_len;)
 			count = sendfile(STDOUT_FILENO, fd, &offset, sz);
 			if (count < 0) {
 				if (offset == range_start)
 					break; /* fall back to read/write loop */
 				goto fin;
 			}
-			USE_FEATURE_HTTPD_RANGES(range_len -= sz;)
+			IF_FEATURE_HTTPD_RANGES(range_len -= sz;)
 			if (count == 0 || range_len == 0)
 				log_and_exit();
 		}
@@ -1614,16 +1631,16 @@ static NOINLINE void send_file_and_exit(const char *url, int what)
 #endif
 	while ((count = safe_read(fd, iobuf, IOBUF_SIZE)) > 0) {
 		ssize_t n;
-		USE_FEATURE_HTTPD_RANGES(if (count > range_len) count = range_len;)
+		IF_FEATURE_HTTPD_RANGES(if (count > range_len) count = range_len;)
 		n = full_write(STDOUT_FILENO, iobuf, count);
 		if (count != n)
 			break;
-		USE_FEATURE_HTTPD_RANGES(range_len -= count;)
+		IF_FEATURE_HTTPD_RANGES(range_len -= count;)
 		if (range_len == 0)
 			break;
 	}
 	if (count < 0) {
- USE_FEATURE_HTTPD_USE_SENDFILE(fin:)
+ IF_FEATURE_HTTPD_USE_SENDFILE(fin:)
 		if (verbose > 1)
 			bb_perror_msg("error");
 	}
@@ -1851,12 +1868,12 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
 
 	/* Find end of URL and parse HTTP version, if any */
 	http_major_version = '0';
-	USE_FEATURE_HTTPD_PROXY(http_minor_version = '0';)
+	IF_FEATURE_HTTPD_PROXY(http_minor_version = '0';)
 	tptr = strchrnul(urlp, ' ');
 	/* Is it " HTTP/"? */
 	if (tptr[0] && strncmp(tptr + 1, HTTP_200, 5) == 0) {
 		http_major_version = tptr[6];
-		USE_FEATURE_HTTPD_PROXY(http_minor_version = tptr[8];)
+		IF_FEATURE_HTTPD_PROXY(http_minor_version = tptr[8];)
 	}
 	*tptr = '\0';
 
@@ -1915,7 +1932,7 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
 
 	/* If URL is a directory, add '/' */
 	if (urlp[-1] != '/') {
-		if (is_directory(urlcopy + 1, 1, &sb)) {
+		if (is_directory(urlcopy + 1, 1, NULL)) {
 			found_moved_temporarily = urlcopy;
 		}
 	}
@@ -1929,7 +1946,7 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
 	while (ip_allowed && (tptr = strchr(tptr + 1, '/')) != NULL) {
 		/* have path1/path2 */
 		*tptr = '\0';
-		if (is_directory(urlcopy + 1, 1, &sb)) {
+		if (is_directory(urlcopy + 1, 1, NULL)) {
 			/* may have subdir config */
 			parse_conf(urlcopy + 1, SUBDIR_PARSE);
 			ip_allowed = checkPermIP();
@@ -2258,10 +2275,10 @@ enum {
 	c_opt_config_file = 0,
 	d_opt_decode_url,
 	h_opt_home_httpd,
-	USE_FEATURE_HTTPD_ENCODE_URL_STR(e_opt_encode_url,)
-	USE_FEATURE_HTTPD_BASIC_AUTH(    r_opt_realm     ,)
-	USE_FEATURE_HTTPD_AUTH_MD5(      m_opt_md5       ,)
-	USE_FEATURE_HTTPD_SETUID(        u_opt_setuid    ,)
+	IF_FEATURE_HTTPD_ENCODE_URL_STR(e_opt_encode_url,)
+	IF_FEATURE_HTTPD_BASIC_AUTH(    r_opt_realm     ,)
+	IF_FEATURE_HTTPD_AUTH_MD5(      m_opt_md5       ,)
+	IF_FEATURE_HTTPD_SETUID(        u_opt_setuid    ,)
 	p_opt_port      ,
 	p_opt_inetd     ,
 	p_opt_foreground,
@@ -2269,10 +2286,10 @@ enum {
 	OPT_CONFIG_FILE = 1 << c_opt_config_file,
 	OPT_DECODE_URL  = 1 << d_opt_decode_url,
 	OPT_HOME_HTTPD  = 1 << h_opt_home_httpd,
-	OPT_ENCODE_URL  = USE_FEATURE_HTTPD_ENCODE_URL_STR((1 << e_opt_encode_url)) + 0,
-	OPT_REALM       = USE_FEATURE_HTTPD_BASIC_AUTH(    (1 << r_opt_realm     )) + 0,
-	OPT_MD5         = USE_FEATURE_HTTPD_AUTH_MD5(      (1 << m_opt_md5       )) + 0,
-	OPT_SETUID      = USE_FEATURE_HTTPD_SETUID(        (1 << u_opt_setuid    )) + 0,
+	OPT_ENCODE_URL  = IF_FEATURE_HTTPD_ENCODE_URL_STR((1 << e_opt_encode_url)) + 0,
+	OPT_REALM       = IF_FEATURE_HTTPD_BASIC_AUTH(    (1 << r_opt_realm     )) + 0,
+	OPT_MD5         = IF_FEATURE_HTTPD_AUTH_MD5(      (1 << m_opt_md5       )) + 0,
+	OPT_SETUID      = IF_FEATURE_HTTPD_SETUID(        (1 << u_opt_setuid    )) + 0,
 	OPT_PORT        = 1 << p_opt_port,
 	OPT_INETD       = 1 << p_opt_inetd,
 	OPT_FOREGROUND  = 1 << p_opt_foreground,
@@ -2286,10 +2303,10 @@ int httpd_main(int argc UNUSED_PARAM, char **argv)
 	int server_socket = server_socket; /* for gcc */
 	unsigned opt;
 	char *url_for_decode;
-	USE_FEATURE_HTTPD_ENCODE_URL_STR(const char *url_for_encode;)
-	USE_FEATURE_HTTPD_SETUID(const char *s_ugid = NULL;)
-	USE_FEATURE_HTTPD_SETUID(struct bb_uidgid_t ugid;)
-	USE_FEATURE_HTTPD_AUTH_MD5(const char *pass;)
+	IF_FEATURE_HTTPD_ENCODE_URL_STR(const char *url_for_encode;)
+	IF_FEATURE_HTTPD_SETUID(const char *s_ugid = NULL;)
+	IF_FEATURE_HTTPD_SETUID(struct bb_uidgid_t ugid;)
+	IF_FEATURE_HTTPD_AUTH_MD5(const char *pass;)
 
 	INIT_G();
 
@@ -2305,16 +2322,16 @@ int httpd_main(int argc UNUSED_PARAM, char **argv)
 	 * If user gives relative path in -h,
 	 * $SCRIPT_FILENAME will not be set. */
 	opt = getopt32(argv, "c:d:h:"
-			USE_FEATURE_HTTPD_ENCODE_URL_STR("e:")
-			USE_FEATURE_HTTPD_BASIC_AUTH("r:")
-			USE_FEATURE_HTTPD_AUTH_MD5("m:")
-			USE_FEATURE_HTTPD_SETUID("u:")
+			IF_FEATURE_HTTPD_ENCODE_URL_STR("e:")
+			IF_FEATURE_HTTPD_BASIC_AUTH("r:")
+			IF_FEATURE_HTTPD_AUTH_MD5("m:")
+			IF_FEATURE_HTTPD_SETUID("u:")
 			"p:ifv",
 			&opt_c_configFile, &url_for_decode, &home_httpd
-			USE_FEATURE_HTTPD_ENCODE_URL_STR(, &url_for_encode)
-			USE_FEATURE_HTTPD_BASIC_AUTH(, &g_realm)
-			USE_FEATURE_HTTPD_AUTH_MD5(, &pass)
-			USE_FEATURE_HTTPD_SETUID(, &s_ugid)
+			IF_FEATURE_HTTPD_ENCODE_URL_STR(, &url_for_encode)
+			IF_FEATURE_HTTPD_BASIC_AUTH(, &g_realm)
+			IF_FEATURE_HTTPD_AUTH_MD5(, &pass)
+			IF_FEATURE_HTTPD_SETUID(, &s_ugid)
 			, &bind_addr_or_port
 			, &verbose
 		);
@@ -2330,7 +2347,12 @@ int httpd_main(int argc UNUSED_PARAM, char **argv)
 #endif
 #if ENABLE_FEATURE_HTTPD_AUTH_MD5
 	if (opt & OPT_MD5) {
-		puts(pw_encrypt(pass, "$1$", 1));
+		char salt[sizeof("$1$XXXXXXXX")];
+		salt[0] = '$';
+		salt[1] = '1';
+		salt[2] = '$';
+		crypt_make_salt(salt + 3, 4, 0);
+		puts(pw_encrypt(pass, salt, 1));
 		return 0;
 	}
 #endif

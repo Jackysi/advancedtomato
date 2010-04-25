@@ -267,7 +267,7 @@ struct globals {
 #define DECLARE(type, array, size) \
 	type * array
 #define ALLOC(type, array, size) \
-	array = xzalloc((size_t)(((size)+1L)/2) * 2*sizeof(type));
+	array = xzalloc((size_t)(((size)+1L)/2) * 2*sizeof(type))
 #define FREE(array) \
 	do { free(array); array = NULL; } while (0)
 
@@ -1173,7 +1173,7 @@ static void gen_codes(ct_data * tree, int max_code)
 
 		Tracec(tree != G2.static_ltree,
 			   (stderr, "\nn %3d %c l %2d c %4x (%x) ", n,
-				(isgraph(n) ? n : ' '), len, tree[n].Code,
+				(n > ' ' ? n : ' '), len, tree[n].Code,
 				next_code[len] - 1));
 	}
 }
@@ -1541,7 +1541,7 @@ static void compress_block(ct_data * ltree, ct_data * dtree)
 		lc = G1.l_buf[lx++];
 		if ((flag & 1) == 0) {
 			SEND_CODE(lc, ltree);	/* send a literal byte */
-			Tracecv(isgraph(lc), (stderr, " '%c' ", lc));
+			Tracecv(lc > ' ', (stderr, " '%c' ", lc));
 		} else {
 			/* Here, lc is the match length - MIN_MATCH */
 			code = G2.length_code[lc];
@@ -2002,7 +2002,7 @@ char* make_new_name_gzip(char *filename)
 }
 
 static
-USE_DESKTOP(long long) int pack_gzip(unpack_info_t *info UNUSED_PARAM)
+IF_DESKTOP(long long) int pack_gzip(unpack_info_t *info UNUSED_PARAM)
 {
 	struct stat s;
 
@@ -2043,6 +2043,23 @@ USE_DESKTOP(long long) int pack_gzip(unpack_info_t *info UNUSED_PARAM)
 	return 0;
 }
 
+#if ENABLE_FEATURE_GZIP_LONG_OPTIONS
+static const char gzip_longopts[] ALIGN1 =
+	"stdout\0"              No_argument       "c"
+	"to-stdout\0"           No_argument       "c"
+	"force\0"               No_argument       "f"
+	"verbose\0"             No_argument       "v"
+#if ENABLE_GUNZIP
+	"decompress\0"          No_argument       "d"
+	"uncompress\0"          No_argument       "d"
+	"test\0"                No_argument       "t"
+#endif
+	"quiet\0"               No_argument       "q"
+	"fast\0"                No_argument       "1"
+	"best\0"                No_argument       "9"
+	;
+#endif
+
 /*
  * Linux kernel build uses gzip -d -n. We accept and ignore it.
  * Man page says:
@@ -2066,8 +2083,11 @@ int gzip_main(int argc UNUSED_PARAM, char **argv)
 {
 	unsigned opt;
 
+#if ENABLE_FEATURE_GZIP_LONG_OPTIONS
+	applet_long_options = gzip_longopts;
+#endif
 	/* Must match bbunzip's constants OPT_STDOUT, OPT_FORCE! */
-	opt = getopt32(argv, "cfv" USE_GUNZIP("dt") "q123456789n");
+	opt = getopt32(argv, "cfv" IF_GUNZIP("dt") "q123456789n");
 #if ENABLE_GUNZIP /* gunzip_main may not be visible... */
 	if (opt & 0x18) // -d and/or -t
 		return gunzip_main(argc, argv);
@@ -2078,9 +2098,8 @@ int gzip_main(int argc UNUSED_PARAM, char **argv)
 	//if (opt & 0x4) // -v
 	argv += optind;
 
-	SET_PTR_TO_GLOBALS(xzalloc(sizeof(struct globals) + sizeof(struct globals2))
+	SET_PTR_TO_GLOBALS((char *)xzalloc(sizeof(struct globals)+sizeof(struct globals2))
 			+ sizeof(struct globals));
-	barrier();
 
 	/* Allocate all global buffers (for DYN_ALLOC option) */
 	ALLOC(uch, G1.l_buf, INBUFSIZ);

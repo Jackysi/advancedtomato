@@ -94,12 +94,11 @@ static void print_queuelen(char *name)
 		printf("qlen %d", ifr.ifr_qlen);
 }
 
-static int print_linkinfo(const struct nlmsghdr *n)
+static NOINLINE int print_linkinfo(const struct nlmsghdr *n)
 {
 	struct ifinfomsg *ifi = NLMSG_DATA(n);
-	struct rtattr * tb[IFLA_MAX+1];
+	struct rtattr *tb[IFLA_MAX+1];
 	int len = n->nlmsg_len;
-	unsigned m_flag = 0;
 
 	if (n->nlmsg_type != RTM_NEWLINK && n->nlmsg_type != RTM_DELLINK)
 		return 0;
@@ -130,22 +129,27 @@ static int print_linkinfo(const struct nlmsghdr *n)
 		printf("Deleted ");
 
 	printf("%d: %s", ifi->ifi_index,
-		tb[IFLA_IFNAME] ? (char*)RTA_DATA(tb[IFLA_IFNAME]) : "<nil>");
+		/*tb[IFLA_IFNAME] ? (char*)RTA_DATA(tb[IFLA_IFNAME]) : "<nil>" - we checked tb[IFLA_IFNAME] above*/
+		(char*)RTA_DATA(tb[IFLA_IFNAME])
+	);
 
-	if (tb[IFLA_LINK]) {
-		SPRINT_BUF(b1);
-		int iflink = *(int*)RTA_DATA(tb[IFLA_LINK]);
-		if (iflink == 0)
-			printf("@NONE: ");
-		else {
-			printf("@%s: ", ll_idx_n2a(iflink, b1));
-			m_flag = ll_index_to_flags(iflink);
-			m_flag = !(m_flag & IFF_UP);
+	{
+		unsigned m_flag = 0;
+		if (tb[IFLA_LINK]) {
+			SPRINT_BUF(b1);
+			int iflink = *(int*)RTA_DATA(tb[IFLA_LINK]);
+			if (iflink == 0)
+				printf("@NONE: ");
+			else {
+				printf("@%s: ", ll_idx_n2a(iflink, b1));
+				m_flag = ll_index_to_flags(iflink);
+				m_flag = !(m_flag & IFF_UP);
+			}
+		} else {
+			printf(": ");
 		}
-	} else {
-		printf(": ");
+		print_link_flags(ifi->ifi_flags, m_flag);
 	}
-	print_link_flags(ifi->ifi_flags, m_flag);
 
 	if (tb[IFLA_MTU])
 		printf("mtu %u ", *(int*)RTA_DATA(tb[IFLA_MTU]));
@@ -162,7 +166,7 @@ static int print_linkinfo(const struct nlmsghdr *n)
 
 	if (!filter.family || filter.family == AF_PACKET) {
 		SPRINT_BUF(b1);
-		printf("%c    link/%s ", _SL_, ll_type_n2a(ifi->ifi_type, b1, sizeof(b1)));
+		printf("%c    link/%s ", _SL_, ll_type_n2a(ifi->ifi_type, b1));
 
 		if (tb[IFLA_ADDRESS]) {
 			fputs(ll_addr_n2a(RTA_DATA(tb[IFLA_ADDRESS]),
@@ -182,7 +186,7 @@ static int print_linkinfo(const struct nlmsghdr *n)
 		}
 	}
 	bb_putchar('\n');
-	/*fflush(stdout);*/
+	/*fflush_all();*/
 	return 0;
 }
 
@@ -196,7 +200,7 @@ static int flush_update(void)
 	return 0;
 }
 
-static int print_addrinfo(const struct sockaddr_nl *who UNUSED_PARAM,
+static int FAST_FUNC print_addrinfo(const struct sockaddr_nl *who UNUSED_PARAM,
 		struct nlmsghdr *n, void *arg UNUSED_PARAM)
 {
 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
@@ -308,7 +312,7 @@ static int print_addrinfo(const struct sockaddr_nl *who UNUSED_PARAM,
 				    RTA_DATA(rta_tb[IFA_ANYCAST]),
 				    abuf, sizeof(abuf)));
 	}
-	printf("scope %s ", rtnl_rtscope_n2a(ifa->ifa_scope, b1, sizeof(b1)));
+	printf("scope %s ", rtnl_rtscope_n2a(ifa->ifa_scope, b1));
 	if (ifa->ifa_flags & IFA_F_SECONDARY) {
 		ifa->ifa_flags &= ~IFA_F_SECONDARY;
 		printf("secondary ");
@@ -344,13 +348,12 @@ static int print_addrinfo(const struct sockaddr_nl *who UNUSED_PARAM,
 		printf("       %s", buf);
 	}
 	bb_putchar('\n');
-	/*fflush(stdout);*/
+	/*fflush_all();*/
 	return 0;
 }
 
 
-struct nlmsg_list
-{
+struct nlmsg_list {
 	struct nlmsg_list *next;
 	struct nlmsghdr	  h;
 };
@@ -377,18 +380,16 @@ static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo)
 }
 
 
-static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+static int FAST_FUNC store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	struct nlmsg_list **linfo = (struct nlmsg_list**)arg;
 	struct nlmsg_list *h;
 	struct nlmsg_list **lp;
 
-	h = malloc(n->nlmsg_len+sizeof(void*));
-	if (h == NULL)
-		return -1;
+	h = xzalloc(n->nlmsg_len + sizeof(void*));
 
 	memcpy(&h->h, n, n->nlmsg_len);
-	h->next = NULL;
+	/*h->next = NULL; - xzalloc did it */
 
 	for (lp = linfo; *lp; lp = &(*lp)->next)
 		continue;
@@ -427,7 +428,7 @@ int ipaddr_list_or_flush(char **argv, int flush)
 			bb_error_msg_and_die(bb_msg_requires_arg, "flush");
 		}
 		if (filter.family == AF_PACKET) {
-			bb_error_msg_and_die("cannot flush link addresses");
+			bb_error_msg_and_die("can't flush link addresses");
 		}
 	}
 

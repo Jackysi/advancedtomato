@@ -279,7 +279,7 @@ static int xargs_ask_confirmation(void)
 
 	tty_stream = xfopen_for_read(CURRENT_TTY);
 	fputs(" ?...", stderr);
-	fflush(stderr);
+	fflush_all();
 	c = savec = getc(tty_stream);
 	while (c != EOF && c != '\n')
 		c = getc(tty_stream);
@@ -356,9 +356,9 @@ enum {
 	OPTBIT_UPTO_SIZE,
 	OPTBIT_EOF_STRING,
 	OPTBIT_EOF_STRING1,
-	USE_FEATURE_XARGS_SUPPORT_CONFIRMATION(OPTBIT_INTERACTIVE,)
-	USE_FEATURE_XARGS_SUPPORT_TERMOPT(     OPTBIT_TERMINATE  ,)
-	USE_FEATURE_XARGS_SUPPORT_ZERO_TERM(   OPTBIT_ZEROTERM   ,)
+	IF_FEATURE_XARGS_SUPPORT_CONFIRMATION(OPTBIT_INTERACTIVE,)
+	IF_FEATURE_XARGS_SUPPORT_TERMOPT(     OPTBIT_TERMINATE  ,)
+	IF_FEATURE_XARGS_SUPPORT_ZERO_TERM(   OPTBIT_ZEROTERM   ,)
 
 	OPT_VERBOSE     = 1 << OPTBIT_VERBOSE    ,
 	OPT_NO_EMPTY    = 1 << OPTBIT_NO_EMPTY   ,
@@ -366,14 +366,14 @@ enum {
 	OPT_UPTO_SIZE   = 1 << OPTBIT_UPTO_SIZE  ,
 	OPT_EOF_STRING  = 1 << OPTBIT_EOF_STRING , /* GNU: -e[<param>] */
 	OPT_EOF_STRING1 = 1 << OPTBIT_EOF_STRING1, /* SUS: -E<param> */
-	OPT_INTERACTIVE = USE_FEATURE_XARGS_SUPPORT_CONFIRMATION((1 << OPTBIT_INTERACTIVE)) + 0,
-	OPT_TERMINATE   = USE_FEATURE_XARGS_SUPPORT_TERMOPT(     (1 << OPTBIT_TERMINATE  )) + 0,
-	OPT_ZEROTERM    = USE_FEATURE_XARGS_SUPPORT_ZERO_TERM(   (1 << OPTBIT_ZEROTERM   )) + 0,
+	OPT_INTERACTIVE = IF_FEATURE_XARGS_SUPPORT_CONFIRMATION((1 << OPTBIT_INTERACTIVE)) + 0,
+	OPT_TERMINATE   = IF_FEATURE_XARGS_SUPPORT_TERMOPT(     (1 << OPTBIT_TERMINATE  )) + 0,
+	OPT_ZEROTERM    = IF_FEATURE_XARGS_SUPPORT_ZERO_TERM(   (1 << OPTBIT_ZEROTERM   )) + 0,
 };
 #define OPTION_STR "+trn:s:e::E:" \
-	USE_FEATURE_XARGS_SUPPORT_CONFIRMATION("p") \
-	USE_FEATURE_XARGS_SUPPORT_TERMOPT(     "x") \
-	USE_FEATURE_XARGS_SUPPORT_ZERO_TERM(   "0")
+	IF_FEATURE_XARGS_SUPPORT_CONFIRMATION("p") \
+	IF_FEATURE_XARGS_SUPPORT_TERMOPT(     "x") \
+	IF_FEATURE_XARGS_SUPPORT_ZERO_TERM(   "0")
 
 int xargs_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int xargs_main(int argc, char **argv)
@@ -405,7 +405,7 @@ int xargs_main(int argc, char **argv)
 		eof_str = NULL;
 
 	if (opt & OPT_ZEROTERM)
-		USE_FEATURE_XARGS_SUPPORT_ZERO_TERM(read_args = process0_stdin);
+		IF_FEATURE_XARGS_SUPPORT_ZERO_TERM(read_args = process0_stdin);
 
 	argv += optind;
 	argc -= optind;
@@ -426,7 +426,7 @@ int xargs_main(int argc, char **argv)
 			n_chars += strlen(*argv) + 1;
 		}
 		if (n_max_chars < n_chars) {
-			bb_error_msg_and_die("cannot fit single argument within argument list size limit");
+			bb_error_msg_and_die("can't fit single argument within argument list size limit");
 		}
 		n_max_chars -= n_chars;
 	} else {

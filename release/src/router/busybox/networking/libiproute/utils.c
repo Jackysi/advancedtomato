@@ -22,6 +22,7 @@ unsigned get_unsigned(char *arg, const char *errmsg)
 
 	if (*arg) {
 		res = strtoul(arg, &ptr, 0);
+//FIXME: "" will be accepted too, is it correct?!
 		if (!*ptr && res <= UINT_MAX) {
 			return res;
 		}
@@ -36,6 +37,7 @@ uint32_t get_u32(char *arg, const char *errmsg)
 
 	if (*arg) {
 		res = strtoul(arg, &ptr, 0);
+//FIXME: "" will be accepted too, is it correct?!
 		if (!*ptr && res <= 0xFFFFFFFFUL) {
 			return res;
 		}
@@ -50,6 +52,7 @@ uint16_t get_u16(char *arg, const char *errmsg)
 
 	if (*arg) {
 		res = strtoul(arg, &ptr, 0);
+//FIXME: "" will be accepted too, is it correct?!
 		if (!*ptr && res <= 0xFFFF) {
 			return res;
 		}
@@ -133,7 +136,7 @@ static int get_prefix_1(inet_prefix *dst, char *arg, int family)
 				if (!(host & (host + 1))) {
 					for (plen = 0; mask; mask <<= 1)
 						++plen;
-					if (plen >= 0 && plen <= dst->bitlen) {
+					if (plen <= dst->bitlen) {
 						dst->bitlen = plen;
 						/* dst->flags |= PREFIXLEN_SPECIFIED; */
 					} else

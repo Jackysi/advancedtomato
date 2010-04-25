@@ -27,11 +27,11 @@ struct swap_header_v1_2 {
 	uint32_t	nr_badpages;
 	uint8_t		uuid[16];
 	uint8_t		volume_name[16];
-} __attribute__((__packed__));
+} PACKED;
 
 #define LARGEST_PAGESIZE			0x4000
 
-int volume_id_probe_linux_swap(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_linux_swap(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct swap_header_v1_2 *sw;

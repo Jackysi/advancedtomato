@@ -377,8 +377,7 @@ static struct fs_info *create_fs_device(const char *device, const char *mntpnt,
 {
 	struct fs_info *fs;
 
-	if (!(fs = malloc(sizeof(struct fs_info))))
-		return NULL;
+	fs = xmalloc(sizeof(struct fs_info));
 
 	fs->device = string_copy(device);
 	fs->mountpt = string_copy(mntpnt);
@@ -573,10 +572,7 @@ static int execute(const char *type, const char *device, const char *mntpt,
 	struct fsck_instance *inst, *p;
 	pid_t   pid;
 
-	inst = malloc(sizeof(struct fsck_instance));
-	if (!inst)
-		return ENOMEM;
-	memset(inst, 0, sizeof(struct fsck_instance));
+	inst = xzalloc(sizeof(struct fsck_instance));
 
 	prog = xasprintf("fsck.%s", type);
 	argv[0] = prog;
@@ -1001,7 +997,7 @@ static int ignore(struct fs_info *fs)
 	s = find_fsck(fs->type);
 	if (s == NULL) {
 		if (wanted)
-			bb_error_msg("cannot check %s: fsck.%s not found",
+			bb_error_msg("can't check %s: fsck.%s not found",
 				fs->device, fs->type);
 		return 1;
 	}
@@ -1203,7 +1199,7 @@ static void PRS(int argc, char **argv)
 				 * /proc/partitions isn't found.
 				 */
 				if (access("/proc/partitions", R_OK) < 0) {
-					bb_perror_msg_and_die("cannot open /proc/partitions "
+					bb_perror_msg_and_die("can't open /proc/partitions "
 							"(is /proc mounted?)");
 				}
 				/*
@@ -1215,7 +1211,7 @@ static void PRS(int argc, char **argv)
 		"must be root to scan for matching filesystems: %s\n", arg);
 				else
 					bb_error_msg_and_die(
-		"cannot find matching filesystem: %s", arg);
+		"can't find matching filesystem: %s", arg);
 			}
 			devices[num_devices++] = dev ? dev : string_copy(arg);
 			continue;

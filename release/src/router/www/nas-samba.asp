@@ -255,7 +255,7 @@ createFieldTable('', [
 		value: nvram.smbd_enable },
 	{ title: 'User Name', indent: 2, name: 'smbd_user', type: 'text', maxlen: 50, size: 32,
 		value: nvram.smbd_user },
-	{ title: 'Password', indent: 2, name: 'smbd_passwd', type: 'text', maxlen: 50, size: 32,
+	{ title: 'Password', indent: 2, name: 'smbd_passwd', type: 'password', maxlen: 50, size: 32, peekaboo: 1,
 		value: nvram.smbd_passwd },
 	null,
 	{ title: 'Workgroup Name', name: 'smbd_wgroup', type: 'text', maxlen: 20, size: 32,

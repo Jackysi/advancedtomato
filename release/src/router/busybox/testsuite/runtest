@@ -1,20 +1,8 @@
 #!/bin/sh
-
 # Usage:
 # runtest [applet1] [applet2...]
 
-# Helper for helpers. Oh my...
-test x"$ECHO" != x"" || {
-	ECHO="echo"
-	test x"`echo -ne`" = x"" || {
-		# Compile and use a replacement 'echo' which understands -e -n
-		ECHO="$PWD/echo-ne"
-		test -x "$ECHO" || {
-			gcc -Os -o "$ECHO" ../scripts/echo.c || exit 1
-		}
-	}
-	export ECHO
-}
+. ./testing.sh
 
 # Run one old-style test.
 # Tests are stored in applet/testcase shell scripts.
@@ -104,6 +92,7 @@ if [ x"$1" = x"-v" ]; then
 fi
 
 implemented=$(
+	printf "busybox " # always implemented
 	"$bindir/busybox" 2>&1 |
 	while read line; do
 		if [ x"$line" = x"Currently defined functions:" ]; then
@@ -121,10 +110,17 @@ fi
 # Populate a directory with links to all busybox applets
 
 LINKSDIR="$bindir/runtest-tempdir-links"
+
+# Comment this line out if you have put a different binary in $LINKSDIR
+# (say, a "standard" tool's binary) in order to run tests against it:
 rm -rf "$LINKSDIR" 2>/dev/null
-mkdir "$LINKSDIR"
+
+mkdir "$LINKSDIR" 2>/dev/null
 for i in $implemented; do
-	ln -s "$bindir/busybox" "$LINKSDIR/$i"
+	# Note: if $LINKSDIR/applet exists, we do not overwrite it.
+	# Useful if one wants to run tests against a standard utility,
+	# not an applet.
+	ln -s "$bindir/busybox" "$LINKSDIR/$i" 2>/dev/null
 done
 
 # Set up option flags so tests can be selective.
@@ -142,7 +138,7 @@ for applet in $applets; do
 
 	# Is this a new-style test?
 	if [ -f "$applet.tests" ]; then
-		if [ ! -h "$LINKSDIR/$applet" ]; then
+		if [ ! -e "$LINKSDIR/$applet" ]; then
 			# (avoiding bash'ism "${applet:0:4}")
 			if ! echo "$applet" | grep "^all_" >/dev/null; then
 				echo "SKIPPED: $applet (not built)"

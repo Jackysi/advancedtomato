@@ -43,8 +43,10 @@ void wi_upgrade(char *url, int len, char *boundary)
 	const char *error = "Error reading file";
 	int ok = 0;
 	int n;
+	int reset;
 
 	check_id(url);
+	reset = (strcmp(webcgi_safeget("_reset", "0"), "1") == 0);
 
 #ifdef TCONFIG_JFFS2
 	// quickly check if JFFS2 is mounted by checking if /jffs/ is not squashfs
@@ -118,10 +120,15 @@ void wi_upgrade(char *url, int len, char *boundary)
 
 ERROR2:
 	rboot = 1;
-	set_action(ACT_REBOOT);
 
 	if (f) fclose(f);
 	if (pid != -1) waitpid(pid, &n, 0);
+
+	if (error == NULL && reset) {
+		set_action(ACT_IDLE);
+		eval("mtd-erase", "-d", "nvram");
+	}
+	set_action(ACT_REBOOT);
 
 	resmsg_fread("/tmp/.mtd-write");
 

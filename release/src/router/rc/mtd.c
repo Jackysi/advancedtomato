@@ -332,6 +332,20 @@ int mtd_write_main(int argc, char *argv[])
 			goto ERROR;
 		}
 		break;
+	case 0x5E24232A: // Netgear
+		// header length is next
+		if (safe_fread(&n, 1, sizeof(n), f) != sizeof(n)) {
+			goto ERROR;
+		}
+		// skip the header
+		if (fseek(f, ntohl(n), SEEK_SET) != 0) {
+			goto ERROR;
+		}
+		// trx should be next...
+		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
+			goto ERROR;
+		}
+		break;
 	case TRX_MAGIC:
 		break;
 	default:

@@ -28,15 +28,18 @@ cat .config \
 | grep -v CONFIG_WERROR \
 | cat >.config.new
 mv .config.new .config
-echo CONFIG_WERROR=y >>.config
+#echo CONFIG_WERROR=y >>.config
+echo '# CONFIG_WERROR is not set' >>.config
 
 test "$libc" = glibc && {
 cat .config \
-| grep -v ^CONFIG_SELINUX= \
-| grep -v ^CONFIG_EFENCE= \
-| grep -v ^CONFIG_DMALLOC= \
+| grep -v CONFIG_STATIC \
+| grep -v CONFIG_SELINUX \
+| grep -v CONFIG_EFENCE \
+| grep -v CONFIG_DMALLOC \
 | cat >.config.new
 mv .config.new .config
+echo '# CONFIG_STATIC is not set' >>.config
 }
 
 test "$libc" = uclibc && {
@@ -57,15 +60,6 @@ echo 'CONFIG_CROSS_COMPILER_PREFIX="'"$uclibc_cross"'"' >>.config
 echo 'CONFIG_STATIC=y' >>.config
 }
 
-# If NOMMU, remove some things
-grep -q ^CONFIG_NOMMU= .config && {
-cat .config \
-| grep -v ^CONFIG_ASH= \
-| grep -v ^CONFIG_FEATURE_SH_IS_ASH= \
-| cat >.config.new
-mv .config.new .config
-}
-
 # If STATIC, remove some things
 # PAM with static linking is probably pointless
 # (but I need to try - now I don't have libpam.a on my system, only libpam.so)
@@ -79,7 +73,7 @@ mv .config.new .config
 # Regenerate .config with default answers for yanked-off options
 { yes "" | make oldconfig >/dev/null; } || exit 1
 
-nice -n 10 make 2>&1 | tee -a make.log
+nice -n 10 make $MAKEOPTS 2>&1 | tee -a make.log
 
 test -x busybox && {
     cd ..

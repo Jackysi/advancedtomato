@@ -74,12 +74,48 @@ int patch_main(int argc UNUSED_PARAM, char **argv)
 	int patch_level;
 	int ret = 0;
 	char plus = '+';
+	unsigned opt;
+	enum {
+		OPT_R = (1 << 2),
+		OPT_N = (1 << 3),
+		/*OPT_f = (1 << 4), ignored */
+		/*OPT_E = (1 << 5), ignored, this is the default */
+		/*OPT_g = (1 << 6), ignored */
+		OPT_dry_run = (1 << 7) * ENABLE_LONG_OPTS,
+	};
 
 	xfunc_error_retval = 2;
 	{
 		const char *p = "-1";
 		const char *i = "-"; /* compat */
-		if (getopt32(argv, "p:i:R", &p, &i) & 4)
+#if ENABLE_LONG_OPTS
+		static const char patch_longopts[] ALIGN1 =
+			"strip\0"                 Required_argument "p"
+			"input\0"                 Required_argument "i"
+			"reverse\0"               No_argument       "R"
+			"forward\0"               No_argument       "N"
+		/* "Assume user knows what [s]he is doing, do not ask any questions": */
+			"force\0"                 No_argument       "f" /*ignored*/
+# if ENABLE_DESKTOP
+			"remove-empty-files\0"    No_argument       "E" /*ignored*/
+		/* "Controls actions when a file is under RCS or SCCS control,
+		 * and does not exist or is read-only and matches the default version,
+		 * or when a file is under ClearCase control and does not exist..."
+		 * IOW: rather obscure option.
+		 * But Gentoo's portage does use -g0 */
+			"get\0"                   Required_argument "g" /*ignored*/
+# endif
+			"dry-run\0"               No_argument       "\xfd"
+# if ENABLE_DESKTOP
+			"backup-if-mismatch\0"    No_argument       "\xfe" /*ignored*/
+			"no-backup-if-mismatch\0" No_argument       "\xff" /*ignored*/
+# endif
+			;
+		applet_long_options = patch_longopts;
+#endif
+		/* -f,-E,-g are ignored */
+		opt = getopt32(argv, "p:i:RN""fEg:", &p, &i, NULL);
+		if (opt & OPT_R)
 			plus = '-';
 		patch_level = xatoi(p); /* can be negative! */
 		patch_file = xfopen_stdin(i);
@@ -91,7 +127,7 @@ int patch_main(int argc UNUSED_PARAM, char **argv)
 		FILE *dst_stream;
 		//char *old_filename;
 		char *new_filename;
-		char *backup_filename;
+		char *backup_filename = NULL;
 		unsigned src_cur_line = 1;
 		unsigned dst_cur_line = 0;
 		unsigned dst_beg_line;
@@ -125,16 +161,21 @@ int patch_main(int argc UNUSED_PARAM, char **argv)
 				bb_make_directory(new_filename, -1, FILEUTILS_RECUR);
 				*slash = '/';
 			}
-			backup_filename = NULL;
 			src_stream = NULL;
 			saved_stat.st_mode = 0644;
-		} else {
+		} else if (!(opt & OPT_dry_run)) {
 			backup_filename = xasprintf("%s.orig", new_filename);
 			xrename(new_filename, backup_filename);
 			src_stream = xfopen_for_read(backup_filename);
+		} else
+			src_stream = xfopen_for_read(new_filename);
+
+		if (opt & OPT_dry_run) {
+			dst_stream = xfopen_for_write("/dev/null");
+		} else {
+			dst_stream = xfopen_for_write(new_filename);
+			fchmod(fileno(dst_stream), saved_stat.st_mode);
 		}
-		dst_stream = xfopen_for_write(new_filename);
-		fchmod(fileno(dst_stream), saved_stat.st_mode);
 
 		printf("patching file %s\n", new_filename);
 
@@ -183,6 +224,11 @@ int patch_main(int argc UNUSED_PARAM, char **argv)
 				patch_line = xmalloc_fgets(patch_file);
 				if (patch_line == NULL)
 					break; /* EOF */
+				if (!*patch_line) {
+					/* whitespace-damaged patch with "" lines */
+					free(patch_line);
+					patch_line = xstrdup(" ");
+				}
 				if ((*patch_line != '-') && (*patch_line != '+')
 				 && (*patch_line != ' ')
 				) {
@@ -201,6 +247,10 @@ int patch_main(int argc UNUSED_PARAM, char **argv)
 							if (diff)
 								src_line = NULL;
 						}
+					}
+					/* Do not patch an already patched hunk with -N */
+					if (src_line == 0 && (opt & OPT_N)) {
+						continue;
 					}
 					if (!src_line) {
 						bb_error_msg("hunk #%u FAILED at %u", hunk_count, hunk_offset_start);
@@ -234,7 +284,9 @@ int patch_main(int argc UNUSED_PARAM, char **argv)
 			if (backup_filename) {
 				unlink(backup_filename);
 			}
-			if ((dst_cur_line == 0) || (dst_beg_line == 0)) {
+			if (!(opt & OPT_dry_run)
+			 && ((dst_cur_line == 0) || (dst_beg_line == 0))
+			) {
 				/* The new patched file is empty, remove it */
 				xunlink(new_filename);
 				// /* old_filename and new_filename may be the same file */

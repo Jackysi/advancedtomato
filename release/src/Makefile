@@ -186,9 +186,21 @@ define RouterOptions
 		sed -i "/TCONFIG_SAMBA3/d" $(1); \
 		echo "TCONFIG_SAMBA3=y" >>$(1); \
 	fi; \
+	sed -i "/TCONFIG_JFFSV1/d" $(1); \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		if [ "$(JFFSv1)" = "y" ]; then \
+			echo "TCONFIG_JFFSV1=y" >>$(1); \
+		else \
+			echo "# TCONFIG_JFFSV1 is not set" >>$(1); \
+		fi; \
+	else \
+		echo "TCONFIG_JFFSV1=y" >>$(1); \
+	fi; \
 	if [ "$(NO_JFFS)" = "y" ]; then \
 		sed -i "/TCONFIG_JFFS2/d" $(1); \
 		echo "# TCONFIG_JFFS2 is not set" >>$(1); \
+		sed -i "/TCONFIG_JFFSV1/d" $(1); \
+		echo "# TCONFIG_JFFSV1 is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_CIFS)" = "y" ]; then \
 		sed -i "/TCONFIG_CIFS/d" $(1); \
@@ -235,6 +247,8 @@ define BusyboxExtraUSBOptions
 	@echo "CONFIG_MKSWAP=y" >>$(1)
 	@sed -i "/CONFIG_FLOCK/d" $(1)
 	@echo "CONFIG_FLOCK=y" >>$(1)
+	@sed -i "/CONFIG_FSYNC/d" $(1)
+	@echo "CONFIG_FSYNC=y" >>$(1)
 	@( \
 	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 		sed -i "/CONFIG_LSUSB/d" $(1); \
@@ -291,39 +305,6 @@ define KernelConfigMips
 		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
-		sed -i "/CONFIG_HIGHMEM=/d" $(1); \
-		echo "CONFIG_HIGHMEM=y" >>$(1); \
-		sed -i "/CONFIG_FLATMEM_MANUAL/d" $(1); \
-		echo "# CONFIG_FLATMEM_MANUAL is not set" >>$(1); \
-		sed -i "/CONFIG_SPARSEMEM_MANUAL/d" $(1); \
-		echo "CONFIG_SPARSEMEM_MANUAL=y" >>$(1); \
-		sed -i "/CONFIG_SPARSEMEM=/d" $(1); \
-		echo "CONFIG_SPARSEMEM=y" >>$(1); \
-		sed -i "/CONFIG_SPARSEMEM_EXTREME/d" $(1); \
-		echo "CONFIG_SPARSEMEM_EXTREME=y" >>$(1); \
-		sed -i "/CONFIG_FLATMEM=/d" $(1); \
-		echo "# CONFIG_FLATMEM is not set" >>$(1); \
-		sed -i "/CONFIG_FLAT_NODE_MEM_MAP/d" $(1); \
-		echo "# CONFIG_FLAT_NODE_MEM_MAP is not set" >>$(1); \
-		sed -i "/CONFIG_HAVE_MEMORY_PRESENT/d" $(1); \
-		echo "CONFIG_HAVE_MEMORY_PRESENT=y" >>$(1); \
-	else \
-		sed -i "/CONFIG_HIGHMEM=/d" $(1); \
-		echo "# CONFIG_HIGHMEM is not set" >>$(1); \
-		sed -i "/CONFIG_FLATMEM_MANUAL/d" $(1); \
-		echo "CONFIG_FLATMEM_MANUAL=y" >>$(1); \
-		sed -i "/CONFIG_SPARSEMEM=/d" $(1); \
-		echo "# CONFIG_SPARSEMEM is not set" >>$(1); \
-		sed -i "/CONFIG_SPARSEMEM_MANUAL/d" $(1); \
-		echo "# CONFIG_SPARSEMEM_MANUAL is not set" >>$(1); \
-		sed -i "/CONFIG_SPARSEMEM_EXTREME/d" $(1); \
-		echo "# CONFIG_SPARSEMEM_EXTREME is not set" >>$(1); \
-		sed -i "/CONFIG_FLATMEM=/d" $(1); \
-		echo "CONFIG_FLATMEM=y" >>$(1); \
-		sed -i "/CONFIG_FLAT_NODE_MEM_MAP/d" $(1); \
-		echo "CONFIG_FLAT_NODE_MEM_MAP=y" >>$(1); \
-		sed -i "/CONFIG_HAVE_MEMORY_PRESENT/d" $(1); \
-		echo "# CONFIG_HAVE_MEMORY_PRESENT is not set" >>$(1); \
 	fi; \
 	if [ "$(BCM57)" = "y" ]; then \
 		sed -i "/CONFIG_BCM57XX/d" $(1); \
@@ -544,7 +525,7 @@ r2e:
 
 ## Make Mips32r2 "no USB" build (RT-N12, WRT160Nv3)
 r2s:
-	@$(MAKE) s MIPS32=r2 NO_JFFS=y
+	@$(MAKE) s MIPS32=r2 JFFSv1=y
 
 ## Make Mips32r2 "no USB" VPN build
 r2v:

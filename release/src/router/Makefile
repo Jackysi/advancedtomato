@@ -667,9 +667,19 @@ usbmodeswitch: libusb
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"
 
-usbmodeswitch-install:
+usbmodeswitchdb-install:
+	@mkdir -p $(TARGETDIR)/rom/etc/usb_modeswitch.d
+	# compress whitespace
+	@for D in $(wildcard $(TOP)/usbmodeswitch/data/usb_modeswitch.d/*); do \
+		F=`basename $$D`; \
+		sed 's/###.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $$D > $(TARGETDIR)/rom/etc/usb_modeswitch.d/$$F; \
+	done
+
+usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	install -D usbmodeswitch/usb_modeswitch $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
 	$(STRIP) -s $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
+	@mkdir -p $(TARGETDIR)/rom/etc
+	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
 p910nd:
 sendmail:

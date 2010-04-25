@@ -298,7 +298,7 @@ static void update_feature_set(ext2_filsys fs, char *features)
 		if (!sb->s_def_hash_version)
 			sb->s_def_hash_version = EXT2_HASH_TEA;
 		if (uuid_is_null((unsigned char *) sb->s_hash_seed))
-			uuid_generate((unsigned char *) sb->s_hash_seed);
+			generate_uuid((unsigned char *) sb->s_hash_seed);
 	}
 
 	if (sb->s_rev_level == EXT2_GOOD_OLD_REV &&
@@ -392,7 +392,7 @@ static time_t parse_time(char *str)
 		ts.tm_mday = 0;
 #endif
 	if (ts.tm_mday == 0) {
-		bb_error_msg_and_die("Cannot parse date/time specifier: %s", str);
+		bb_error_msg_and_die("can't parse date/time specifier: %s", str);
 	}
 	return mktime(&ts);
 }
@@ -590,7 +590,7 @@ int tune2fs_main(int argc, char **argv)
 	}
 	retval = ext2fs_check_if_mounted(device_name, &mount_flags);
 	if (retval)
-		bb_error_msg_and_die("cannot determine if %s is mounted", device_name);
+		bb_error_msg_and_die("can't determine if %s is mounted", device_name);
 	/* Normally we only need to write out the superblock */
 	fs->flags |= EXT2_FLAG_SUPER_ONLY;
 
@@ -694,10 +694,12 @@ int tune2fs_main(int argc, char **argv)
 		if ((strcasecmp(new_UUID, "null") == 0) ||
 		    (strcasecmp(new_UUID, "clear") == 0)) {
 			uuid_clear(sb->s_uuid);
+/*
 		} else if (strcasecmp(new_UUID, "time") == 0) {
 			uuid_generate_time(sb->s_uuid);
+*/
 		} else if (strcasecmp(new_UUID, "random") == 0) {
-			uuid_generate(sb->s_uuid);
+			generate_uuid(sb->s_uuid);
 		} else if (uuid_parse(new_UUID, sb->s_uuid)) {
 			bb_error_msg_and_die("Invalid UUID format");
 		}

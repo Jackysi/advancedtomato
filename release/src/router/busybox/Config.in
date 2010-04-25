@@ -30,17 +30,22 @@ config EXTRA_COMPAT
 	  some GNU extensions in libc. You probably only need this option
 	  if you plan to run busybox on desktop.
 
-config FEATURE_ASSUME_UNICODE
-	bool "Assume that 1:1 char/glyph correspondence is not true"
+config INCLUDE_SUSv2
+	bool "Enable obsolete features removed before SUSv3"
+	default y
+	help
+	  This option will enable backwards compatibility with SuSv2,
+	  specifically, old-style numeric options ('command -1 <file>')
+	  will be supported in head, tail, and fold. (Note: should
+	  affect renice too.)
+
+config USE_PORTABLE_CODE
+	bool "Avoid using GCC-specific code constructs"
 	default n
 	help
-	  This makes various applets aware that one byte is not
-	  one character on screen.
-
-	  Busybox aims to eventually work correctly with Unicode displays.
-	  Any older encodings are not guaranteed to work.
-	  Probably by the time when busybox will be fully Unicode-clean,
-	  other encodings will be mainly of historic interest.
+	  Use this option if you are trying to compile busybox with
+	  compiler other than gcc.
+	  If you do use gcc, this option may needlessly increase code size.
 
 choice
 	prompt "Buffer allocation policy"
@@ -114,7 +119,29 @@ config LOCALE_SUPPORT
 	  Enable this if your system has locale support and you would like
 	  busybox to support locale settings.
 
-config GETOPT_LONG
+config FEATURE_ASSUME_UNICODE
+	bool "Support Unicode"
+	default n
+	help
+	  This makes various applets aware that one byte is not
+	  one character on screen.
+
+	  Busybox aims to eventually work correctly with Unicode displays.
+	  Any older encodings are not guaranteed to work.
+	  Probably by the time when busybox will be fully Unicode-clean,
+	  other encodings will be mainly of historic interest.
+
+config FEATURE_CHECK_UNICODE_IN_ENV
+	bool "Check $LANG environment variable"
+	default y
+	depends on FEATURE_ASSUME_UNICODE && !LOCALE_SUPPORT
+	help
+	  With this option on, Unicode support is activated
+	  only if LANG variable has the value of the form "xxxx.utf8"
+
+	  Otherwise, Unicode support will be always enabled and active.
+
+config LONG_OPTS
 	bool "Support for --long-options"
 	default y
 	help
@@ -493,17 +520,8 @@ config EFENCE
 
 endchoice
 
-config INCLUDE_SUSv2
-	bool "Enable obsolete features removed before SUSv3?"
-	default y
-	help
-	  This option will enable backwards compatibility with SuSv2,
-	  specifically, old-style numeric options ('command -1 <file>')
-	  will be supported in head, tail, and fold. (Note: should
-	  affect renice too.)
-
 ### config PARSE
-### 	bool "Uniform config file parser debugging applet: parse"
+###	bool "Uniform config file parser debugging applet: parse"
 
 endmenu
 

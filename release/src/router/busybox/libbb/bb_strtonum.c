@@ -59,7 +59,9 @@ unsigned long long FAST_FUNC bb_strtoull(const char *arg, char **endp, int base)
 
 	/* strtoul("  -4200000000") returns 94967296, errno 0 (!) */
 	/* I don't think that this is right. Preventing this... */
-	if (!isalnum(arg[0])) return ret_ERANGE();
+	//if (!isalnum(arg[0])) return ret_ERANGE();
+	char first = (arg[0] != '-' ? arg[0] : arg[1]);
+	if (!isalnum(first)) return ret_ERANGE();
 
 	/* not 100% correct for lib func, but convenient for the caller */
 	errno = 0;
@@ -89,7 +91,9 @@ unsigned long FAST_FUNC bb_strtoul(const char *arg, char **endp, int base)
 	unsigned long v;
 	char *endptr;
 
-	if (!isalnum(arg[0])) return ret_ERANGE();
+	char first = (arg[0] != '-' ? arg[0] : arg[1]);
+	if (!isalnum(first)) return ret_ERANGE();
+
 	errno = 0;
 	v = strtoul(arg, &endptr, base);
 	return handle_errors(v, endp, endptr);
@@ -115,7 +119,9 @@ unsigned FAST_FUNC bb_strtou(const char *arg, char **endp, int base)
 	unsigned long v;
 	char *endptr;
 
-	if (!isalnum(arg[0])) return ret_ERANGE();
+	char first = (arg[0] != '-' ? arg[0] : arg[1]);
+	if (!isalnum(first)) return ret_ERANGE();
+
 	errno = 0;
 	v = strtoul(arg, &endptr, base);
 	if (v > UINT_MAX) return ret_ERANGE();

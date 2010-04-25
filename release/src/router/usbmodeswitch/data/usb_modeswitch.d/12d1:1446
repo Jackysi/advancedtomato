@@ -1,0 +1,12 @@
+########################################################
+# Huawei, newer modems
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1446
+
+TargetVendor=  0x12d1
+TargetProductList="1001,1406,140c,141b,14ac"
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000000000000011060000000000000000000000000000"

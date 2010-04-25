@@ -19,6 +19,28 @@ config BBCONFIG
 	  The bbconfig applet will print the config file with which
 	  busybox was built.
 
+config BEEP
+	bool "beep"
+	default n
+	help
+	  The beep applets beeps in a given freq/Hz.
+
+config FEATURE_BEEP_FREQ
+	int "default frequency"
+	range 0 2147483647
+	default 4000
+	depends on BEEP
+	help
+	  Frequency for default beep.
+
+config FEATURE_BEEP_LENGTH_MS
+	int "default length"
+	range 0 2147483647
+	default 30
+	depends on BEEP
+	help
+	  Length in ms for default beep.
+
 config CHAT
 	bool "chat"
 	default n
@@ -115,11 +137,11 @@ config FEATURE_CROND_D
 	  -d sets loglevel to 0 (most verbose) and directs all output to stderr.
 
 config FEATURE_CROND_CALL_SENDMAIL
-	bool "Using /usr/sbin/sendmail?"
+	bool "Report command output via email (using sendmail)"
 	default n
 	depends on CROND
 	help
-	  Support calling /usr/sbin/sendmail for send cmd outputs.
+	  Command output will be sent to corresponding user via email.
 
 config FEATURE_CROND_DIR
 	string "crond spool directory"
@@ -249,6 +271,27 @@ config FBSPLASH
 	  - commands for fifo:
 	    "NN" (ASCII decimal number) - percentage to show on progress bar
 	    "exit" - well you guessed it
+
+config FLASHCP
+	bool "flashcp"
+	default n
+	help
+	  The flashcp binary, inspired by mtd-utils as of git head 5eceb74f7.
+	  This utility is used to copy images into a MTD device.
+
+config FLASH_LOCK
+	bool "flash_lock"
+	default n
+	help
+	  The flash_lock binary from mtd-utils as of git head 5ec0c10d0. This
+	  utility locks part or all of the flash device.
+
+config FLASH_UNLOCK
+	bool "flash_unlock"
+	default n
+	help
+	  The flash_unlock binary from mtd-utils as of git head 5ec0c10d0. This
+	  utility unlocks part or all of the flash device.
 
 config FLASH_ERASEALL
 	bool "flash_eraseall"
@@ -569,6 +612,18 @@ config TTYSIZE
 	  only height, or both, in any order. It also does not complain on
 	  error, but returns default 80x24.
 	  Usage in shell scripts: width=`ttysize w`.
+
+config VOLNAME
+	bool "volname"
+	default n
+	help
+	  Prints a CD-ROM volume name.
+
+config WALL
+	bool "wall"
+	default n
+	help
+	  Write a message to all users that are logged in.
 
 config WATCHDOG
 	bool "watchdog"

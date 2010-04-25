@@ -6,8 +6,146 @@
  *
  * Licensed under GPL version 2, see file LICENSE in this tarball for details.
  */
-
 #include "libbb.h"
+
+void FAST_FUNC parse_datestr(const char *date_str, struct tm *ptm)
+{
+	char end = '\0';
+	const char *last_colon = strrchr(date_str, ':');
+
+	if (last_colon != NULL) {
+		/* Parse input and assign appropriately to ptm */
+
+		/* HH:MM */
+		if (sscanf(date_str, "%u:%u%c",
+					&ptm->tm_hour,
+					&ptm->tm_min,
+					&end) >= 2) {
+			/* no adjustments needed */
+		} else
+		/* mm.dd-HH:MM */
+		if (sscanf(date_str, "%u.%u-%u:%u%c",
+					&ptm->tm_mon, &ptm->tm_mday,
+					&ptm->tm_hour, &ptm->tm_min,
+					&end) >= 4) {
+			/* Adjust month from 1-12 to 0-11 */
+			ptm->tm_mon -= 1;
+		} else
+		/* yyyy.mm.dd-HH:MM */
+		if (sscanf(date_str, "%u.%u.%u-%u:%u%c", &ptm->tm_year,
+					&ptm->tm_mon, &ptm->tm_mday,
+					&ptm->tm_hour, &ptm->tm_min,
+					&end) >= 5) {
+			ptm->tm_year -= 1900; /* Adjust years */
+			ptm->tm_mon -= 1; /* Adjust month from 1-12 to 0-11 */
+		} else
+		/* yyyy-mm-dd HH:MM */
+		if (sscanf(date_str, "%u-%u-%u %u:%u%c", &ptm->tm_year,
+					&ptm->tm_mon, &ptm->tm_mday,
+					&ptm->tm_hour, &ptm->tm_min,
+					&end) >= 5) {
+			ptm->tm_year -= 1900; /* Adjust years */
+			ptm->tm_mon -= 1; /* Adjust month from 1-12 to 0-11 */
+//TODO: coreutils 6.9 also accepts "yyyy-mm-dd HH" (no minutes)
+		} else {
+			bb_error_msg_and_die(bb_msg_invalid_date, date_str);
+		}
+		if (end == ':') {
+			/* xxx:SS */
+			if (sscanf(last_colon + 1, "%u%c", &ptm->tm_sec, &end) == 1)
+				end = '\0';
+			/* else end != NUL and we error out */
+		}
+	} else {
+		/* Googled the following on an old date manpage:
+		 *
+		 * The canonical representation for setting the date/time is:
+		 * cc   Century (either 19 or 20)
+		 * yy   Year in abbreviated form (e.g. 89, 06)
+		 * mm   Numeric month, a number from 1 to 12
+		 * dd   Day, a number from 1 to 31
+		 * HH   Hour, a number from 0 to 23
+		 * MM   Minutes, a number from 0 to 59
+		 * .SS  Seconds, a number from 0 to 61 (with leap seconds)
+		 * Everything but the minutes is optional
+		 *
+		 * This coincides with the format of "touch -t TIME"
+		 */
+		int len = strchrnul(date_str, '.') - date_str;
+
+		/* MM[.SS] */
+		if (len == 2 && sscanf(date_str, "%2u%2u%2u%2u""%2u%c" + 12,
+					&ptm->tm_min,
+					&end) >= 1) {
+		} else
+		/* HHMM[.SS] */
+		if (len == 4 && sscanf(date_str, "%2u%2u%2u""%2u%2u%c" + 9,
+					&ptm->tm_hour,
+					&ptm->tm_min,
+					&end) >= 2) {
+		} else
+		/* ddHHMM[.SS] */
+		if (len == 6 && sscanf(date_str, "%2u%2u""%2u%2u%2u%c" + 6,
+					&ptm->tm_mday,
+					&ptm->tm_hour,
+					&ptm->tm_min,
+					&end) >= 3) {
+		} else
+		/* mmddHHMM[.SS] */
+		if (len == 8 && sscanf(date_str, "%2u""%2u%2u%2u%2u%c" + 3,
+					&ptm->tm_mon,
+					&ptm->tm_mday,
+					&ptm->tm_hour,
+					&ptm->tm_min,
+					&end) >= 4) {
+			/* Adjust month from 1-12 to 0-11 */
+			ptm->tm_mon -= 1;
+		} else
+		/* yymmddHHMM[.SS] */
+		if (len == 10 && sscanf(date_str, "%2u%2u%2u%2u%2u%c",
+					&ptm->tm_year,
+					&ptm->tm_mon,
+					&ptm->tm_mday,
+					&ptm->tm_hour,
+					&ptm->tm_min,
+					&end) >= 5) {
+			/* Adjust month from 1-12 to 0-11 */
+			ptm->tm_mon -= 1;
+		} else
+		/* ccyymmddHHMM[.SS] */
+		if (len == 12 && sscanf(date_str, "%4u%2u%2u%2u%2u%c",
+					&ptm->tm_year,
+					&ptm->tm_mon,
+					&ptm->tm_mday,
+					&ptm->tm_hour,
+					&ptm->tm_min,
+					&end) >= 5) {
+			ptm->tm_year -= 1900; /* Adjust years */
+			ptm->tm_mon -= 1; /* Adjust month from 1-12 to 0-11 */
+		} else {
+			bb_error_msg_and_die(bb_msg_invalid_date, date_str);
+		}
+		if (end == '.') {
+			/* xxx.SS */
+			if (sscanf(strchr(date_str, '.') + 1, "%u%c",
+					&ptm->tm_sec, &end) == 1)
+				end = '\0';
+			/* else end != NUL and we error out */
+		}
+	}
+	if (end != '\0') {
+		bb_error_msg_and_die(bb_msg_invalid_date, date_str);
+	}
+}
+
+time_t FAST_FUNC validate_tm_time(const char *date_str, struct tm *ptm)
+{
+	time_t t = mktime(ptm);
+	if (t == (time_t) -1L) {
+		bb_error_msg_and_die(bb_msg_invalid_date, date_str);
+	}
+	return t;
+}
 
 #if ENABLE_MONOTONIC_SYSCALL
 
@@ -37,6 +175,12 @@ unsigned long long FAST_FUNC monotonic_us(void)
 	get_mono(&ts);
 	return ts.tv_sec * 1000000ULL + ts.tv_nsec/1000;
 }
+unsigned long long FAST_FUNC monotonic_ms(void)
+{
+	struct timespec ts;
+	get_mono(&ts);
+	return ts.tv_sec * 1000ULL + ts.tv_nsec/1000000;
+}
 unsigned FAST_FUNC monotonic_sec(void)
 {
 	struct timespec ts;
@@ -57,6 +201,12 @@ unsigned long long FAST_FUNC monotonic_us(void)
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return tv.tv_sec * 1000000ULL + tv.tv_usec;
+}
+unsigned long long FAST_FUNC monotonic_ms(void)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec * 1000ULL + tv.tv_usec / 1000;
 }
 unsigned FAST_FUNC monotonic_sec(void)
 {

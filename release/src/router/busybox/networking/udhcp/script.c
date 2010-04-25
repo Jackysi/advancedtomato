@@ -14,7 +14,7 @@
 
 
 /* get a rough idea of how long an option will be (rounding up...) */
-static const uint8_t max_option_length[] = {
+static const uint8_t len_of_option_as_string[] = {
 	[OPTION_IP] =		sizeof("255.255.255.255 "),
 	[OPTION_IP_PAIR] =	sizeof("255.255.255.255 ") * 2,
 	[OPTION_STATIC_ROUTES]= sizeof("255.255.255.255/32 255.255.255.255 "),
@@ -31,16 +31,10 @@ static const uint8_t max_option_length[] = {
 };
 
 
-static inline int upper_length(int length, int opt_index)
+/* note: ip is a pointer to an IP in network order, possibly misaliged */
+static int sprint_nip(char *dest, const char *pre, const uint8_t *ip)
 {
-	return max_option_length[opt_index] *
-		(length / dhcp_option_lengths[opt_index]);
-}
-
-
-static int sprintip(char *dest, const char *pre, const uint8_t *ip)
-{
-	return sprintf(dest, "%s%d.%d.%d.%d", pre, ip[0], ip[1], ip[2], ip[3]);
+	return sprintf(dest, "%s%u.%u.%u.%u", pre, ip[0], ip[1], ip[2], ip[3]);
 }
 
 
@@ -57,9 +51,10 @@ static int mton(uint32_t mask)
 }
 
 
-/* Allocate and fill with the text of option 'option'. */
-static char *alloc_fill_opts(uint8_t *option, const struct dhcp_option *type_p, const char *opt_name)
+/* Create "opt_name=opt_value" string */
+static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_option *type_p, const char *opt_name)
 {
+	unsigned upper_length;
 	int len, type, optlen;
 	uint16_t val_u16;
 	int16_t val_s16;
@@ -67,22 +62,24 @@ static char *alloc_fill_opts(uint8_t *option, const struct dhcp_option *type_p, 
 	int32_t val_s32;
 	char *dest, *ret;
 
-	len = option[OPT_LEN - 2];
+	/* option points to OPT_DATA, need to go back and get OPT_LEN */
+	len = option[OPT_LEN - OPT_DATA];
 	type = type_p->flags & TYPE_MASK;
 	optlen = dhcp_option_lengths[type];
+	upper_length = len_of_option_as_string[type] * (len / optlen);
 
-	dest = ret = xmalloc(upper_length(len, type) + strlen(opt_name) + 2);
+	dest = ret = xmalloc(upper_length + strlen(opt_name) + 2);
 	dest += sprintf(ret, "%s=", opt_name);
 
-	for (;;) {
+	while (len >= optlen) {
 		switch (type) {
 		case OPTION_IP_PAIR:
-			dest += sprintip(dest, "", option);
+			dest += sprint_nip(dest, "", option);
 			*dest++ = '/';
 			option += 4;
 			optlen = 4;
 		case OPTION_IP:	/* Works regardless of host byte order. */
-			dest += sprintip(dest, "", option);
+			dest += sprint_nip(dest, "", option);
 			break;
 		case OPTION_BOOLEAN:
 			dest += sprintf(dest, *option ? "yes" : "no");
@@ -116,64 +113,69 @@ static char *alloc_fill_opts(uint8_t *option, const struct dhcp_option *type_p, 
 			 * ip [big endian, 0..4 bytes depending on mask]
 			 * router [big endian, 4 bytes]
 			 * may be repeated
-			 * 
+			 *
 			 * We convert it to a string "IP/MASK ROUTER IP2/MASK2 ROUTER2"
 			 */
 			const char *pfx = "";
-			
-			while(len >= 1 + 4) { /* mask + 0-byte ip + router */
+
+			while (len >= 1 + 4) { /* mask + 0-byte ip + router */
 				uint32_t nip;
 				uint8_t *p;
 				unsigned mask;
 				int bytes;
-				
+
 				mask = *option++;
 				if (mask > 32)
 					break;
 				len--;
-				
-				nip=0;
+
+				nip = 0;
 				p = (void*) &nip;
-				bytes = (mask+7) / 8; /* 0 -> 0, 1..8 -> 1, 9..16 -> 2 etc */
+				bytes = (mask + 7) / 8; /* 0 -> 0, 1..8 -> 1, 9..16 -> 2 etc */
 				while (--bytes >= 0) {
 					*p++ = *option++;
 					len--;
 				}
 				if (len < 4)
 					break;
-				
+
 				/* print ip/mask */
-				dest += sprintip(dest, pfx, (void*) &nip);
+				dest += sprint_nip(dest, pfx, (void*) &nip);
 				pfx = " ";
 				dest += sprintf(dest, "/%u ", mask);
 				/* print router */
-				dest += sprintip(dest, "", option);
+				dest += sprint_nip(dest, "", option);
 				option += 4;
 				len -= 4;
 			}
-			
+
 			return ret;
 		}
 #if ENABLE_FEATURE_UDHCP_RFC3397
 		case OPTION_STR1035:
 			/* unpack option into dest; use ret for prefix (i.e., "optname=") */
 			dest = dname_dec(option, len, ret);
-			free(ret);
-			return dest;
+			if (dest) {
+				free(ret);
+				return dest;
+			}
+			/* error. return "optname=" string */
+			return ret;
 #endif
 		}
 		option += optlen;
 		len -= optlen;
 		if (len <= 0)
 			break;
-		dest += sprintf(dest, " ");
+		*dest++ = ' ';
+		*dest = '\0';
 	}
 	return ret;
 }
 
 
 /* put all the parameters into an environment */
-static char **fill_envp(struct dhcpMessage *packet)
+static char **fill_envp(struct dhcp_packet *packet)
 {
 	int num_options = 0;
 	int i;
@@ -190,7 +192,7 @@ static char **fill_envp(struct dhcpMessage *packet)
 					num_options++; /* for mton */
 			}
 		}
-		if (packet->siaddr)
+		if (packet->siaddr_nip)
 			num_options++;
 		temp = get_option(packet, DHCP_OPTION_OVERLOAD);
 		if (temp)
@@ -209,7 +211,7 @@ static char **fill_envp(struct dhcpMessage *packet)
 		return envp;
 
 	*curr = xmalloc(sizeof("ip=255.255.255.255"));
-	sprintip(*curr, "ip=", (uint8_t *) &packet->yiaddr);
+	sprint_nip(*curr, "ip=", (uint8_t *) &packet->yiaddr);
 	putenv(*curr++);
 
 	opt_name = dhcp_option_strings;
@@ -218,7 +220,7 @@ static char **fill_envp(struct dhcpMessage *packet)
 		temp = get_option(packet, dhcp_options[i].code);
 		if (!temp)
 			goto next;
-		*curr = alloc_fill_opts(temp, &dhcp_options[i], opt_name);
+		*curr = xmalloc_optname_optval(temp, &dhcp_options[i], opt_name);
 		putenv(*curr++);
 
 		/* Fill in a subnet bits option for things like /24 */
@@ -232,9 +234,9 @@ static char **fill_envp(struct dhcpMessage *packet)
 		opt_name += strlen(opt_name) + 1;
 		i++;
 	}
-	if (packet->siaddr) {
+	if (packet->siaddr_nip) {
 		*curr = xmalloc(sizeof("siaddr=255.255.255.255"));
-		sprintip(*curr, "siaddr=", (uint8_t *) &packet->siaddr);
+		sprint_nip(*curr, "siaddr=", (uint8_t *) &packet->siaddr_nip);
 		putenv(*curr++);
 	}
 	if (!(over & FILE_FIELD) && packet->file[0]) {
@@ -254,7 +256,7 @@ static char **fill_envp(struct dhcpMessage *packet)
 
 
 /* Call a script with a par file and env vars */
-void FAST_FUNC udhcp_run_script(struct dhcpMessage *packet, const char *name)
+void FAST_FUNC udhcp_run_script(struct dhcp_packet *packet, const char *name)
 {
 	char **envp, **curr;
 	char *argv[3];
@@ -262,17 +264,17 @@ void FAST_FUNC udhcp_run_script(struct dhcpMessage *packet, const char *name)
 	if (client_config.script == NULL)
 		return;
 
-	DEBUG("vfork'ing and exec'ing %s", client_config.script);
-
 	envp = fill_envp(packet);
 
 	/* call script */
+	log1("Executing %s %s", client_config.script, name);
 	argv[0] = (char*) client_config.script;
 	argv[1] = (char*) name;
 	argv[2] = NULL;
 	wait4pid(spawn(argv));
 
 	for (curr = envp; *curr; curr++) {
+		log2(" %s", *curr);
 		bb_unsetenv(*curr);
 		free(*curr);
 	}

@@ -87,11 +87,13 @@ static unsigned long long getOctal(char *str, int len)
 {
 	unsigned long long v;
 	/* NB: leading spaces are allowed. Using strtoull to handle that.
-	 * The downside is that we accept e.g. "-123" too :)
+	 * The downside is that we accept e.g. "-123" too :(
 	 */
 	str[len] = '\0';
 	v = strtoull(str, &str, 8);
-	if (*str && (!ENABLE_FEATURE_TAR_OLDGNU_COMPATIBILITY || *str != ' '))
+	/* std: "Each numeric field is terminated by one or more
+	 * <space> or NUL characters". We must support ' '! */
+	if (*str != '\0' && *str != ' ')
 		bb_error_msg_and_die("corrupted octal value in tar header");
 	return v;
 }
@@ -133,20 +135,13 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 	int parse_names;
 
 	/* Our "private data" */
-#define p_end (*(smallint *)(&archive_handle->ah_priv[0]))
 #if ENABLE_FEATURE_TAR_GNU_EXTENSIONS
-#define p_longname (*(char* *)(&archive_handle->ah_priv[1]))
-#define p_linkname (*(char* *)(&archive_handle->ah_priv[2]))
+# define p_longname (archive_handle->tar__longname)
+# define p_linkname (archive_handle->tar__linkname)
 #else
-#define p_longname 0
-#define p_linkname 0
+# define p_longname 0
+# define p_linkname 0
 #endif
-//	if (!archive_handle->ah_priv_inited) {
-//		archive_handle->ah_priv_inited = 1;
-//		p_end = 0;
-//		USE_FEATURE_TAR_GNU_EXTENSIONS(p_longname = NULL;)
-//		USE_FEATURE_TAR_GNU_EXTENSIONS(p_linkname = NULL;)
-//	}
 
 	if (sizeof(tar) != 512)
 		BUG_tar_header_size();
@@ -176,7 +171,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		bb_error_msg_and_die("short read");
 	}
 	if (i != 512) {
-		USE_FEATURE_TAR_AUTODETECT(goto autodetect;)
+		IF_FEATURE_TAR_AUTODETECT(goto autodetect;)
 		goto short_read;
 	}
 
@@ -188,7 +183,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 
 	/* If there is no filename its an empty header */
 	if (tar.name[0] == 0 && tar.prefix[0] == 0) {
-		if (p_end) {
+		if (archive_handle->tar__end) {
 			/* Second consecutive empty header - end of archive.
 			 * Read until the end to empty the pipe from gz or bz2
 			 */
@@ -196,10 +191,10 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 				continue;
 			return EXIT_FAILURE;
 		}
-		p_end = 1;
+		archive_handle->tar__end = 1;
 		return EXIT_SUCCESS;
 	}
-	p_end = 0;
+	archive_handle->tar__end = 0;
 
 	/* Check header has valid magic, "ustar" is for the proper tar,
 	 * five NULs are for the old tar format  */
@@ -262,20 +257,21 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		sum_s += ((signed char*)&tar)[i];
 #endif
 	}
-#if ENABLE_FEATURE_TAR_OLDGNU_COMPATIBILITY
-	sum = strtoul(tar.chksum, &cp, 8);
-	if ((*cp && *cp != ' ')
-	 || (sum_u != sum USE_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum))
-	) {
-		bb_error_msg_and_die("invalid tar header checksum");
-	}
-#else
 	/* This field does not need special treatment (getOctal) */
-	sum = xstrtoul(tar.chksum, 8);
-	if (sum_u != sum USE_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum)) {
+	{
+		char *endp; /* gcc likes temp var for &endp */
+		sum = strtoul(tar.chksum, &endp, 8);
+		if ((*endp != '\0' && *endp != ' ')
+		 || (sum_u != sum IF_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum))
+		) {
+			bb_error_msg_and_die("invalid tar header checksum");
+		}
+	}
+	/* don't use xstrtoul, tar.chksum may have leading spaces */
+	sum = strtoul(tar.chksum, NULL, 8);
+	if (sum_u != sum IF_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum)) {
 		bb_error_msg_and_die("invalid tar header checksum");
 	}
-#endif
 
 	/* 0 is reserved for high perf file, treat as normal file */
 	if (!tar.typeflag) tar.typeflag = '0';
@@ -298,8 +294,8 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		/* Will link_target be free()ed? */
 	}
 #if ENABLE_FEATURE_TAR_UNAME_GNAME
-	file_header->uname = tar.uname[0] ? xstrndup(tar.uname, sizeof(tar.uname)) : NULL;
-	file_header->gname = tar.gname[0] ? xstrndup(tar.gname, sizeof(tar.gname)) : NULL;
+	file_header->tar__uname = tar.uname[0] ? xstrndup(tar.uname, sizeof(tar.uname)) : NULL;
+	file_header->tar__gname = tar.gname[0] ? xstrndup(tar.gname, sizeof(tar.gname)) : NULL;
 #endif
 	/* mtime: rudimentally handle GNU tar's "base256 encoding"
 	 * People report tarballs with NEGATIVE unix times encoded that way */
@@ -360,7 +356,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		file_header->mode |= S_IFBLK;
 		goto size0;
 	case '5':
- USE_FEATURE_TAR_OLDGNU_COMPATIBILITY(set_dir:)
+ IF_FEATURE_TAR_OLDGNU_COMPATIBILITY(set_dir:)
 		file_header->mode |= S_IFDIR;
 		goto size0;
 	case '6':
@@ -446,8 +442,8 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 	free(file_header->link_target);
 	/* Do not free(file_header->name)! (why?) */
 #if ENABLE_FEATURE_TAR_UNAME_GNAME
-	free(file_header->uname);
-	free(file_header->gname);
+	free(file_header->tar__uname);
+	free(file_header->tar__gname);
 #endif
 	return EXIT_SUCCESS;
 }

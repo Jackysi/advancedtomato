@@ -27,12 +27,12 @@
 /* Turn on nonblocking I/O on a fd */
 int FAST_FUNC ndelay_on(int fd)
 {
-	return fcntl(fd, F_SETFL, fcntl(fd,F_GETFL) | O_NONBLOCK);
+	return fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 }
 
 int FAST_FUNC ndelay_off(int fd)
 {
-	return fcntl(fd, F_SETFL, fcntl(fd,F_GETFL) & ~O_NONBLOCK);
+	return fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK);
 }
 
 int FAST_FUNC close_on_exec_on(int fd)
@@ -46,110 +46,6 @@ char* FAST_FUNC strncpy_IFNAMSIZ(char *dst, const char *src)
 	enum { IFNAMSIZ = 16 };
 #endif
 	return strncpy(dst, src, IFNAMSIZ);
-}
-
-/* Convert unsigned long long value into compact 4-char
- * representation. Examples: "1234", "1.2k", " 27M", "123T"
- * String is not terminated (buf[4] is untouched) */
-void FAST_FUNC smart_ulltoa4(unsigned long long ul, char buf[5], const char *scale)
-{
-	const char *fmt;
-	char c;
-	unsigned v, u, idx = 0;
-
-	if (ul > 9999) { // do not scale if 9999 or less
-		ul *= 10;
-		do {
-			ul /= 1024;
-			idx++;
-		} while (ul >= 10000);
-	}
-	v = ul; // ullong divisions are expensive, avoid them
-
-	fmt = " 123456789";
-	u = v / 10;
-	v = v % 10;
-	if (!idx) {
-		// 9999 or less: use "1234" format
-		// u is value/10, v is last digit
-		c = buf[0] = " 123456789"[u/100];
-		if (c != ' ') fmt = "0123456789";
-		c = buf[1] = fmt[u/10%10];
-		if (c != ' ') fmt = "0123456789";
-		buf[2] = fmt[u%10];
-		buf[3] = "0123456789"[v];
-	} else {
-		// u is value, v is 1/10ths (allows for 9.2M format)
-		if (u >= 10) {
-			// value is >= 10: use "123M', " 12M" formats
-			c = buf[0] = " 123456789"[u/100];
-			if (c != ' ') fmt = "0123456789";
-			v = u % 10;
-			u = u / 10;
-			buf[1] = fmt[u%10];
-		} else {
-			// value is < 10: use "9.2M" format
-			buf[0] = "0123456789"[u];
-			buf[1] = '.';
-		}
-		buf[2] = "0123456789"[v];
-		buf[3] = scale[idx]; /* typically scale = " kmgt..." */
-	}
-}
-
-/* Convert unsigned long long value into compact 5-char representation.
- * String is not terminated (buf[5] is untouched) */
-void FAST_FUNC smart_ulltoa5(unsigned long long ul, char buf[6], const char *scale)
-{
-	const char *fmt;
-	char c;
-	unsigned v, u, idx = 0;
-
-	if (ul > 99999) { // do not scale if 99999 or less
-		ul *= 10;
-		do {
-			ul /= 1024;
-			idx++;
-		} while (ul >= 100000);
-	}
-	v = ul; // ullong divisions are expensive, avoid them
-
-	fmt = " 123456789";
-	u = v / 10;
-	v = v % 10;
-	if (!idx) {
-		// 99999 or less: use "12345" format
-		// u is value/10, v is last digit
-		c = buf[0] = " 123456789"[u/1000];
-		if (c != ' ') fmt = "0123456789";
-		c = buf[1] = fmt[u/100%10];
-		if (c != ' ') fmt = "0123456789";
-		c = buf[2] = fmt[u/10%10];
-		if (c != ' ') fmt = "0123456789";
-		buf[3] = fmt[u%10];
-		buf[4] = "0123456789"[v];
-	} else {
-		// value has been scaled into 0..9999.9 range
-		// u is value, v is 1/10ths (allows for 92.1M format)
-		if (u >= 100) {
-			// value is >= 100: use "1234M', " 123M" formats
-			c = buf[0] = " 123456789"[u/1000];
-			if (c != ' ') fmt = "0123456789";
-			c = buf[1] = fmt[u/100%10];
-			if (c != ' ') fmt = "0123456789";
-			v = u % 10;
-			u = u / 10;
-			buf[2] = fmt[u%10];
-		} else {
-			// value is < 100: use "92.1M" format
-			c = buf[0] = " 123456789"[u/10];
-			if (c != ' ') fmt = "0123456789";
-			buf[1] = fmt[u%10];
-			buf[2] = '.';
-		}
-		buf[3] = "0123456789"[v];
-		buf[4] = scale[idx]; /* typically scale = " kmgt..." */
-	}
 }
 
 
@@ -312,4 +208,67 @@ int FAST_FUNC get_terminal_width_height(int fd, unsigned *width, unsigned *heigh
 int FAST_FUNC tcsetattr_stdin_TCSANOW(const struct termios *tp)
 {
 	return tcsetattr(STDIN_FILENO, TCSANOW, tp);
+}
+
+void FAST_FUNC generate_uuid(uint8_t *buf)
+{
+	/* http://www.ietf.org/rfc/rfc4122.txt
+	 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |                          time_low                             |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |       time_mid                |         time_hi_and_version   |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |clk_seq_and_variant            |         node (0-1)            |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |                         node (2-5)                            |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * IOW, uuid has this layout:
+	 * uint32_t time_low (big endian)
+	 * uint16_t time_mid (big endian)
+	 * uint16_t time_hi_and_version (big endian)
+	 *  version is a 4-bit field:
+	 *   1 Time-based
+	 *   2 DCE Security, with embedded POSIX UIDs
+	 *   3 Name-based (MD5)
+	 *   4 Randomly generated
+	 *   5 Name-based (SHA-1)
+	 * uint16_t clk_seq_and_variant (big endian)
+	 *  variant is a 3-bit field:
+	 *   0xx Reserved, NCS backward compatibility
+	 *   10x The variant specified in rfc4122
+	 *   110 Reserved, Microsoft backward compatibility
+	 *   111 Reserved for future definition
+	 * uint8_t node[6]
+	 *
+	 * For version 4, these bits are set/cleared:
+	 * time_hi_and_version & 0x0fff | 0x4000
+	 * clk_seq_and_variant & 0x3fff | 0x8000
+	 */
+	pid_t pid;
+	int i;
+
+	i = open("/dev/urandom", O_RDONLY);
+	if (i >= 0) {
+		read(i, buf, 16);
+		close(i);
+	}
+	/* Paranoia. /dev/urandom may be missing.
+	 * rand() is guaranteed to generate at least [0, 2^15) range,
+	 * but lowest bits in some libc are not so "random".  */
+	srand(monotonic_us());
+	pid = getpid();
+	while (1) {
+		for (i = 0; i < 16; i++)
+			buf[i] ^= rand() >> 5;
+		if (pid == 0)
+			break;
+		srand(pid);
+		pid = 0;
+	}
+
+	/* version = 4 */
+	buf[4 + 2    ] = (buf[4 + 2    ] & 0x0f) | 0x40;
+	/* variant = 10x */
+	buf[4 + 2 + 2] = (buf[4 + 2 + 2] & 0x3f) | 0x80;
 }

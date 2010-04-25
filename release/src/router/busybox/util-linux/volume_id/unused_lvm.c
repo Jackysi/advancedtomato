@@ -22,7 +22,7 @@
 
 struct lvm1_super_block {
 	uint8_t	id[2];
-} __attribute__((packed));
+} PACKED;
 
 struct lvm2_super_block {
 	uint8_t		id[8];
@@ -30,11 +30,11 @@ struct lvm2_super_block {
 	uint32_t	crc_xl;
 	uint32_t	offset_xl;
 	uint8_t		type[8];
-} __attribute__((packed));
+} PACKED;
 
 #define LVM1_SB_OFF			0x400
 
-int volume_id_probe_lvm1(struct volume_id *id, uint64_t off)
+int FAST_FUNC volume_id_probe_lvm1(struct volume_id *id, uint64_t off)
 {
 	struct lvm1_super_block *lvm;
 
@@ -56,7 +56,7 @@ int volume_id_probe_lvm1(struct volume_id *id, uint64_t off)
 #define LVM2_LABEL_ID			"LABELONE"
 #define LVM2LABEL_SCAN_SECTORS		4
 
-int volume_id_probe_lvm2(struct volume_id *id, uint64_t off)
+int FAST_FUNC volume_id_probe_lvm2(struct volume_id *id, uint64_t off)
 {
 	const uint8_t *buf;
 	unsigned soff;

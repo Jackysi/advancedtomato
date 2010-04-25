@@ -99,7 +99,15 @@ void start_usb(void)
 
 		/* if enabled, force USB2 before USB1.1 */
 		if (nvram_get_int("usb_usb2")) {
+#ifdef LINUX26
+			/* Increase the default interrupt delay for EHCI controller.
+			 * With only a few devices on a bus, it improves performance,
+			 * and reduces the number of USB device resets.
+			 */
+			modprobe(USB20_MOD, "log2_irq_thresh=4");
+#else
 			modprobe(USB20_MOD);
+#endif
 		}
 
 		if (nvram_get_int("usb_uhci")) {

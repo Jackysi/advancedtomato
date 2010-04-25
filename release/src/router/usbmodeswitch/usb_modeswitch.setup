@@ -1,9 +1,9 @@
 # usb_modeswitch.setup
 #
-# Last modified: 2010-03-16
+# Last modified: 2010-04-18
 #
-# Configuration collection for usb_modeswitch, a mode switching tool for
-# controlling flip flop (multiple mode) USB devices
+# Collection of configurations for usb_modeswitch, a mode switching
+# tool for controlling flip flop (multiple mode) USB devices
 #
 # Detailed instructions and a friendly forum on the homepage:
 # http://www.draisberghof.de/usb_modeswitch
@@ -12,14 +12,14 @@
 # http://www.draisberghof.de/usb_modeswitch/usb_modeswitch.setup
 
 
-####################################################################
-# Important! This file is now mainly intended as a reference!
-####################################################################
+#####################################################################
+# Important! This file is now just a reference! Use the data package!
+#####################################################################
 #
 # If your device is on the "Supported Hardware" list or your USB ID
 # is contained in this file, rather use the latest release of
-# USB_ModeSwitch (automatic handling) and the latest database; see home
-# page!
+# USB_ModeSwitch (automatic handling) and the latest 'database'; see
+# home page!
 #
 ####################################################################
 
@@ -27,7 +27,10 @@
 # In order to activate a device included here, just remove the comment
 # signs (";") from the respective entry.
 #
-# The actual entries are further down, after the reference.
+# It might be preferable to copy device information to a different
+# file, to avoid possible conflicts by activating multiple entries.
+#
+# The actual entries are further down, after the command reference.
 
 
 # For custom settings:
@@ -579,19 +582,6 @@
 # MessageEndpoint=0x01
 
 ;MessageContent="5553424312345678000000000000061b000000030000000000000000000000"
-
-
-#######################################################
-# ZTE MF636 (Other version ?)
-#
-# Contributor: Cleber Santz
-
-;DefaultVendor= 0x19d2
-;DefaultProduct= 0x2000
-
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-
-;ResetUSB= 1
 
 
 ########################################################
@@ -1258,7 +1248,7 @@
 
 
 ######################################################## 
-# D-Link DWM-162-U5
+# D-Link DWM-162-U5, Micromax MMX 300c
 #
 # Contributor: Zhang Le
 
@@ -1266,7 +1256,7 @@
 ;DefaultProduct= 0x2001
 
 ;TargetVendor=   0x1e0e
-;TargetProduct=  0xce16
+;TargetProductList="ce16,cefe"
 
 ;MessageContent="55534243e0c26a85000000000000061b000000020000000000000000000000"
 
@@ -1652,5 +1642,55 @@ MessageContent="55534243f0298d8124000000800006bc626563240000000000000000000000"
 ;DefaultProduct=0x024d
 
 ;Configuration=2
+
+
+########################################################
+# Digicom 8E4455
+#
+# Contributor: Alberto Ciampini
+
+;DefaultVendor= 0x1266
+;DefaultProduct=0x1000
+
+;TargetVendor=  0x1266
+;TargetProduct= 0x1009
+
+;NeedResponse=1
+
+# only for reference and 0.x versions
+# MessageEndpoint=1
+
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424387654321000000000000061b000000020000000000000000000000"
+
+
+########################################################
+# Sony Ericsson MD300
+#
+# Contributor: Betavine Project
+
+;DefaultVendor= 0x0fce
+;DefaultProduct=0xd0cf
+
+;TargetClass=0x02
+
+;DetachStorageOnly=1
+;Configuration=3
+
+
+########################################################
+# Franklin Wireless U210
+#
+# Contributor: Adam J. Porter
+
+;DefaultVendor= 0x1fac
+;DefaultProduct=0x0130
+
+;TargetVendor=  0x1fac
+;TargetProduct= 0x0131
+
+;CheckSuccess=20
+
+;MessageContent="555342431234567824000000800108df200000000000000000000000000000"
 
 

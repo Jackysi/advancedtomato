@@ -25,18 +25,18 @@
 /* This is a NOFORK applet. Be very careful! */
 
 int logname_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int logname_main(int argc, char **argv UNUSED_PARAM)
+int logname_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
-	char buf[128];
+	char buf[64];
 
-	if (argc > 1) {
+	if (argv[1]) {
 		bb_show_usage();
 	}
 
 	/* Using _r function - avoid pulling in static buffer from libc */
 	if (getlogin_r(buf, sizeof(buf)) == 0) {
 		puts(buf);
-		return fflush(stdout);
+		return fflush_all();
 	}
 
 	bb_perror_msg_and_die("getlogin");

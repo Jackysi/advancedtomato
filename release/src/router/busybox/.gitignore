@@ -1,0 +1,34 @@
+#
+# Kbuild ignores
+#
+.*
+*.o
+*.o.*
+*.a
+*.s
+
+#
+# Never ignore these
+#
+!.gitignore
+
+#
+# Normal output
+#
+/busybox
+/busybox_unstripped*
+
+#
+# Backups / patches
+#
+*~
+*.orig
+*.rej
+/*.patch
+
+#
+# debugging stuff
+#
+core
+.gdb_history
+.gdbinit

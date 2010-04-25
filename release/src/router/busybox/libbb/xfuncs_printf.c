@@ -140,6 +140,15 @@ int FAST_FUNC xopen(const char *pathname, int flags)
 	return xopen3(pathname, flags, 0666);
 }
 
+/* Die if we can't open an existing file readonly with O_NONBLOCK
+ * and return the fd.
+ * Note that for ioctl O_RDONLY is sufficient.
+ */
+int FAST_FUNC xopen_nonblocking(const char *pathname)
+{
+	return xopen(pathname, O_RDONLY | O_NONBLOCK);
+}
+
 // Warn if we can't open a file and return a fd.
 int FAST_FUNC open3_or_warn(const char *pathname, int flags, int mode)
 {
@@ -213,6 +222,12 @@ void FAST_FUNC xwrite_str(int fd, const char *str)
 	xwrite(fd, str, strlen(str));
 }
 
+void FAST_FUNC xclose(int fd)
+{
+	if (close(fd))
+		bb_perror_msg_and_die("close failed");
+}
+
 // Die with an error message if we can't lseek to the right spot.
 off_t FAST_FUNC xlseek(int fd, off_t offset, int whence)
 {
@@ -240,30 +255,24 @@ void FAST_FUNC die_if_ferror_stdout(void)
 	die_if_ferror(stdout, bb_msg_standard_output);
 }
 
-// Die with an error message if we have trouble flushing stdout.
-void FAST_FUNC xfflush_stdout(void)
+int FAST_FUNC fflush_all(void)
 {
-	if (fflush(stdout)) {
-		bb_perror_msg_and_die(bb_msg_standard_output);
-	}
+	return fflush(NULL);
 }
 
 
 int FAST_FUNC bb_putchar(int ch)
 {
-	/* time.c needs putc(ch, stdout), not putchar(ch).
-	 * it does "stdout = stderr;", but then glibc's putchar()
-	 * doesn't work as expected. bad glibc, bad */
-	return putc(ch, stdout);
+	return putchar(ch);
 }
 
 /* Die with an error message if we can't copy an entire FILE* to stdout,
  * then close that file. */
 void FAST_FUNC xprint_and_close_file(FILE *file)
 {
-	fflush(stdout);
+	fflush_all();
 	// copyfd outputs error messages for us.
-	if (bb_copyfd_eof(fileno(file), 1) == -1)
+	if (bb_copyfd_eof(fileno(file), STDOUT_FILENO) == -1)
 		xfunc_die();
 
 	fclose(file);
@@ -277,59 +286,14 @@ char* FAST_FUNC xasprintf(const char *format, ...)
 	int r;
 	char *string_ptr;
 
-#if 1
-	// GNU extension
 	va_start(p, format);
 	r = vasprintf(&string_ptr, format, p);
 	va_end(p);
-#else
-	// Bloat for systems that haven't got the GNU extension.
-	va_start(p, format);
-	r = vsnprintf(NULL, 0, format, p);
-	va_end(p);
-	string_ptr = xmalloc(r+1);
-	va_start(p, format);
-	r = vsnprintf(string_ptr, r+1, format, p);
-	va_end(p);
-#endif
 
 	if (r < 0)
 		bb_error_msg_and_die(bb_msg_memory_exhausted);
 	return string_ptr;
 }
-
-#if 0 /* If we will ever meet a libc which hasn't [f]dprintf... */
-int FAST_FUNC fdprintf(int fd, const char *format, ...)
-{
-	va_list p;
-	int r;
-	char *string_ptr;
-
-#if 1
-	// GNU extension
-	va_start(p, format);
-	r = vasprintf(&string_ptr, format, p);
-	va_end(p);
-#else
-	// Bloat for systems that haven't got the GNU extension.
-	va_start(p, format);
-	r = vsnprintf(NULL, 0, format, p) + 1;
-	va_end(p);
-	string_ptr = malloc(r);
-	if (string_ptr) {
-		va_start(p, format);
-		r = vsnprintf(string_ptr, r, format, p);
-		va_end(p);
-	}
-#endif
-
-	if (r >= 0) {
-		full_write(fd, string_ptr, r);
-		free(string_ptr);
-	}
-	return r;
-}
-#endif
 
 void FAST_FUNC xsetenv(const char *key, const char *value)
 {
@@ -420,8 +384,8 @@ int FAST_FUNC xsocket(int domain, int type, int protocol)
 		const char *s = "INET";
 		if (domain == AF_PACKET) s = "PACKET";
 		if (domain == AF_NETLINK) s = "NETLINK";
-USE_FEATURE_IPV6(if (domain == AF_INET6) s = "INET6";)
-		bb_perror_msg_and_die("socket(AF_%s)", s);
+IF_FEATURE_IPV6(if (domain == AF_INET6) s = "INET6";)
+		bb_perror_msg_and_die("socket(AF_%s,%d,%d)", s, type, protocol);
 #else
 		bb_perror_msg_and_die("socket");
 #endif

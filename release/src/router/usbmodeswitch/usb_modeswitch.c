@@ -1,6 +1,6 @@
 /*
   Mode switching tool for controlling flip flop (multiple device) USB gear
-  Version 1.1.1, 2010/03/17
+  Version 1.1.2, 2010/04/18
 
   Copyright (C) 2007, 2008, 2009, 2010 Josua Dietze (mail to "usb_admin" at the
   domain from the README; please do not post the complete address to the Net!
@@ -52,7 +52,7 @@
 
 /* Recommended tab size: 4 */
 
-char *version="1.1.1";
+char *version="1.1.2alpha";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,6 +99,8 @@ char NeedResponse=0, NoDriverLoading=0, InquireDevice=1, sysmode=0;
 char imanufact[DESCR_MAX], iproduct[DESCR_MAX], iserial[DESCR_MAX];
 
 char MessageContent[LINE_DIM];
+char MessageContent2[LINE_DIM];
+char MessageContent3[LINE_DIM];
 char TargetProductList[LINE_DIM];
 char ByteString[LINE_DIM/2];
 char buffer[BUF_SIZE];
@@ -117,6 +119,8 @@ static struct option long_options[] = {
 	{"target-class",		required_argument, 0, 'C'},
 	{"message-endpoint",	required_argument, 0, 'm'},
 	{"message-content",		required_argument, 0, 'M'},
+	{"message-content2",	required_argument, 0, '2'},
+	{"message-content3",	required_argument, 0, '3'},
 	{"response-endpoint",	required_argument, 0, 'r'},
 	{"detach-only",			no_argument, 0, 'd'},
 	{"huawei-mode",			no_argument, 0, 'H'},
@@ -155,6 +159,8 @@ void readConfigFile(const char *configFilename)
 	ParseParamBool(configFilename, NoDriverLoading);
 	ParseParamHex(configFilename, MessageEndpoint);
 	ParseParamString(configFilename, MessageContent);
+	ParseParamString(configFilename, MessageContent2);
+	ParseParamString(configFilename, MessageContent3);
 	ParseParamHex(configFilename, NeedResponse);
 	ParseParamHex(configFilename, ResponseEndpoint);
 	ParseParamHex(configFilename, ResetUSB);
@@ -203,6 +209,10 @@ void printConfig()
 		printf ("MessageContent=\"%s\"\n",	MessageContent);
 	else
 		printf ("MessageContent= not set\n");
+	if ( strlen(MessageContent2) )
+		printf ("MessageContent2=\"%s\"\n",	MessageContent2);
+	if ( strlen(MessageContent3) )
+		printf ("MessageContent3=\"%s\"\n",	MessageContent3);
 	printf ("NeedResponse=%i\n",		(int)NeedResponse);
 	if ( ResponseEndpoint )
 		printf ("ResponseEndpoint=0x%02x\n",	ResponseEndpoint);
@@ -236,7 +246,7 @@ int readArguments(int argc, char **argv)
 
 	while (1)
 	{
-		c = getopt_long (argc, argv, "heWQDndHSOGRIv:p:V:P:C:m:M:r:c:i:u:a:s:",
+		c = getopt_long (argc, argv, "heWQDndHSOGRIv:p:V:P:C:m:M:2:3:r:c:i:u:a:s:",
 						long_options, &option_index);
 
 		/* Detect the end of the options. */
@@ -253,6 +263,8 @@ int readArguments(int argc, char **argv)
 			case 'C': TargetClass = strtol(optarg, NULL, 16); break;
 			case 'm': MessageEndpoint = strtol(optarg, NULL, 16); break;
 			case 'M': strcpy(MessageContent, optarg); break;
+			case '2': strcpy(MessageContent2, optarg); break;
+			case '3': strcpy(MessageContent3, optarg); break;
 			case 'n': NeedResponse = 1; break;
 			case 'r': ResponseEndpoint = strtol(optarg, NULL, 16); break;
 			case 'd': DetachStorageOnly = 1; break;
@@ -287,6 +299,7 @@ int readArguments(int argc, char **argv)
 				printf (" -C, --target-class NUM        target device class\n");
 				printf (" -m, --message-endpoint NUM    where to direct the message (optional)\n");
 				printf (" -M, --message-content <msg>   command to send (hex number as string)\n");
+				printf (" -2 <msg>, -3 <msg>            additional commands to send\n");
 				printf (" -n, --need-response           read a response to the message transfer\n");
 				printf (" -r, --response-endpoint NUM   where from read the response (optional)\n");
 				printf (" -d, --detach-only             just detach the storage driver\n");
@@ -698,7 +711,7 @@ void resetUSB ()
 
 int switchSendMessage ()
 {
-	int message_length, ret;
+	int ret;
 
 	SHOW_PROGRESS("Setting up communication with interface %d ...\n", Interface);
 	if (InquireDevice != 2) {
@@ -709,20 +722,20 @@ int switchSendMessage ()
 		}
 	}
 	usb_clear_halt(devh, MessageEndpoint);
-	SHOW_PROGRESS("Trying to send the message to endpoint 0x%02x ...\n", MessageEndpoint);
-	fflush(stdout);
+	SHOW_PROGRESS("Using endpoint 0x%02x for message sending ...\n", MessageEndpoint);
+	if (show_progress)
+		fflush(stdout);
 
-	message_length = strlen(MessageContent) / 2;
-	ret = write_bulk(MessageEndpoint, ByteString, message_length);
-	if (ret == -19)
+	if ( sendMessage(MessageContent, 1) )
 		goto skip;
 
-	if (NeedResponse) {
-		SHOW_PROGRESS("Reading the response to the message ...\n");
-		ret = read_bulk(ResponseEndpoint, ByteString, LINE_DIM/2);
-		if (ret == -19)
+	if (strlen(MessageContent2))
+		if ( sendMessage(MessageContent2, 2) )
 			goto skip;
-	}
+
+	if (strlen(MessageContent3))
+		if ( sendMessage(MessageContent3, 3) )
+			goto skip;
 
 	ret = usb_clear_halt(devh, MessageEndpoint);
 	if (ret)
@@ -920,6 +933,35 @@ int detachDriver()
 	} else
 		SHOW_PROGRESS(" Driver \"%s\" detach failed with error %d. Trying to continue\n", buffer, ret);
 	return 1;
+}
+
+
+int sendMessage(char* message, int count)
+{
+	int message_length, ret;
+
+	if (strlen(message) % 2 != 0) {
+		fprintf(stderr, "Error: MessageContent %d hex string has uneven length. Skipping ...\n", count);
+		return 1;
+	}
+	message_length = strlen(message) / 2;
+	if ( hexstr2bin(message, ByteString, message_length) == -1) {
+		fprintf(stderr, "Error: MessageContent %d %s\n is not a hex string. Skipping ...\n", count, MessageContent);
+		return 1;
+	}
+	SHOW_PROGRESS("Trying to send message %d to endpoint 0x%02x ...\n", count, MessageEndpoint);
+	fflush(stdout);
+	ret = write_bulk(MessageEndpoint, ByteString, message_length);
+	if (ret == -19)
+		return 1;
+
+	if (NeedResponse) {
+		SHOW_PROGRESS("Reading the response to message %d ...\n", count);
+		ret = read_bulk(ResponseEndpoint, ByteString, 13);
+		if (ret == -19)
+			return 1;
+	}
+	return 0;
 }
 
 

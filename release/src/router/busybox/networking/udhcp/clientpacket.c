@@ -7,8 +7,12 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
+#include "common.h"
+#include "dhcpd.h"
+#include "dhcpc.h"
+#include "options.h"
 
-#include <features.h>
+//#include <features.h>
 #if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined _NEWLIB_VERSION
 #include <netpacket/packet.h>
 #include <net/ethernet.h>
@@ -17,11 +21,6 @@
 #include <linux/if_packet.h>
 #include <linux/if_ether.h>
 #endif
-
-#include "common.h"
-#include "dhcpd.h"
-#include "dhcpc.h"
-#include "options.h"
 
 
 /* Create a random xid */
@@ -37,11 +36,11 @@ uint32_t FAST_FUNC random_xid(void)
 }
 
 
-/* initialize a packet with the proper defaults */
-static void init_packet(struct dhcpMessage *packet, char type)
+/* Initialize the packet with the proper defaults */
+static void init_packet(struct dhcp_packet *packet, char type)
 {
 	udhcp_init_header(packet, type);
-	memcpy(packet->chaddr, client_config.arp, 6);
+	memcpy(packet->chaddr, client_config.client_mac, 6);
 	if (client_config.clientid)
 		add_option_string(packet->options, client_config.clientid);
 	if (client_config.hostname)
@@ -56,7 +55,7 @@ static void init_packet(struct dhcpMessage *packet, char type)
 /* Add a parameter request list for stubborn DHCP servers. Pull the data
  * from the struct in options.c. Don't do bounds checking here because it
  * goes towards the head of the packet. */
-static void add_param_req_option(struct dhcpMessage *packet)
+static void add_param_req_option(struct dhcp_packet *packet)
 {
 	uint8_t c;
 	int end = end_option(packet->options);
@@ -96,7 +95,7 @@ static void add_param_req_option(struct dhcpMessage *packet)
  * client reverts to using the IP broadcast address.
  */
 
-static int raw_bcast_from_client_config_ifindex(struct dhcpMessage *packet)
+static int raw_bcast_from_client_config_ifindex(struct dhcp_packet *packet)
 {
 	return udhcp_send_raw_packet(packet,
 		/*src*/ INADDR_ANY, CLIENT_PORT,
@@ -109,7 +108,7 @@ static int raw_bcast_from_client_config_ifindex(struct dhcpMessage *packet)
 /* Broadcast a DHCP decline message */
 int FAST_FUNC send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 
 	init_packet(&packet, DHCPDECLINE);
 	packet.xid = xid;
@@ -122,10 +121,11 @@ int FAST_FUNC send_decline(uint32_t xid, uint32_t server, uint32_t requested)
 }
 #endif
 
+
 /* Broadcast a DHCP discover packet to the network, with an optionally requested IP */
 int FAST_FUNC send_discover(uint32_t xid, uint32_t requested)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 	static int msgs = 0;
 
 	init_packet(&packet, DHCPDISCOVER);
@@ -140,18 +140,18 @@ int FAST_FUNC send_discover(uint32_t xid, uint32_t requested)
 	add_param_req_option(&packet);
 
 	if (msgs++ < 3)
-		bb_info_msg("Sending discover...");
+	bb_info_msg("Sending discover...");
 	return raw_bcast_from_client_config_ifindex(&packet);
 }
 
 
-/* Broadcasts a DHCP request message */
+/* Broadcast a DHCP request message */
 /* RFC 2131 3.1 paragraph 3:
  * "The client _broadcasts_ a DHCPREQUEST message..."
  */
 int FAST_FUNC send_select(uint32_t xid, uint32_t server, uint32_t requested)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 	struct in_addr addr;
 
 	init_packet(&packet, DHCPREQUEST);
@@ -167,10 +167,10 @@ int FAST_FUNC send_select(uint32_t xid, uint32_t server, uint32_t requested)
 }
 
 
-/* Unicasts or broadcasts a DHCP renew message */
+/* Unicast or broadcast a DHCP renew message */
 int FAST_FUNC send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 
 	init_packet(&packet, DHCPREQUEST);
 	packet.xid = xid;
@@ -187,10 +187,10 @@ int FAST_FUNC send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
 }
 
 
-/* Unicasts a DHCP release message */
+/* Unicast a DHCP release message */
 int FAST_FUNC send_release(uint32_t server, uint32_t ciaddr)
 {
-	struct dhcpMessage packet;
+	struct dhcp_packet packet;
 
 	init_packet(&packet, DHCPRELEASE);
 	packet.xid = random_xid();
@@ -204,28 +204,28 @@ int FAST_FUNC send_release(uint32_t server, uint32_t ciaddr)
 
 
 /* Returns -1 on errors that are fatal for the socket, -2 for those that aren't */
-int FAST_FUNC udhcp_recv_raw_packet(struct dhcpMessage *payload, int fd)
+int FAST_FUNC udhcp_recv_raw_packet(struct dhcp_packet *dhcp_pkt, int fd)
 {
 	int bytes;
-	struct udp_dhcp_packet packet;
+	struct ip_udp_dhcp_packet packet;
 	uint16_t check;
 
 	memset(&packet, 0, sizeof(packet));
 	bytes = safe_read(fd, &packet, sizeof(packet));
 	if (bytes < 0) {
-		DEBUG("Cannot read on raw listening socket - ignoring");
+		log1("Packet read error, ignoring");
 		/* NB: possible down interface, etc. Caller should pause. */
 		return bytes; /* returns -1 */
 	}
 
 	if (bytes < (int) (sizeof(packet.ip) + sizeof(packet.udp))) {
-		DEBUG("Packet is too short, ignoring");
+		log1("Packet is too short, ignoring");
 		return -2;
 	}
 
 	if (bytes < ntohs(packet.ip.tot_len)) {
 		/* packet is bigger than sizeof(packet), we did partial read */
-		DEBUG("Oversized packet, ignoring");
+		log1("Oversized packet, ignoring");
 		return -2;
 	}
 
@@ -239,7 +239,7 @@ int FAST_FUNC udhcp_recv_raw_packet(struct dhcpMessage *payload, int fd)
 	/* || bytes > (int) sizeof(packet) - can't happen */
 	 || ntohs(packet.udp.len) != (uint16_t)(bytes - sizeof(packet.ip))
 	) {
-		DEBUG("Unrelated/bogus packet");
+		log1("Unrelated/bogus packet, ignoring");
 		return -2;
 	}
 
@@ -247,7 +247,7 @@ int FAST_FUNC udhcp_recv_raw_packet(struct dhcpMessage *payload, int fd)
 	check = packet.ip.check;
 	packet.ip.check = 0;
 	if (check != udhcp_checksum(&packet.ip, sizeof(packet.ip))) {
-		DEBUG("Bad IP header checksum, ignoring");
+		log1("Bad IP header checksum, ignoring");
 		return -2;
 	}
 
@@ -258,16 +258,17 @@ int FAST_FUNC udhcp_recv_raw_packet(struct dhcpMessage *payload, int fd)
 	check = packet.udp.check;
 	packet.udp.check = 0;
 	if (check && check != udhcp_checksum(&packet, bytes)) {
-		bb_error_msg("packet with bad UDP checksum received, ignoring");
+		log1("Packet with bad UDP checksum received, ignoring");
 		return -2;
 	}
 
-	memcpy(payload, &packet.data, bytes - (sizeof(packet.ip) + sizeof(packet.udp)));
+	memcpy(dhcp_pkt, &packet.data, bytes - (sizeof(packet.ip) + sizeof(packet.udp)));
 
-	if (payload->cookie != htonl(DHCP_MAGIC)) {
-		bb_error_msg("received bogus message (bad magic), ignoring");
+	if (dhcp_pkt->cookie != htonl(DHCP_MAGIC)) {
+		bb_info_msg("Packet with bad magic, ignoring");
 		return -2;
 	}
-	DEBUG("Got valid DHCP packet");
+	log1("Got valid DHCP packet");
+	udhcp_dump_packet(dhcp_pkt);
 	return bytes - (sizeof(packet.ip) + sizeof(packet.udp));
 }

@@ -17,7 +17,7 @@ PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web dscp
 PF_EXT_SLIB+=bcount BCOUNT
 PF_EXT_SLIB+=IMQ ipp2p
 ifeq ($(CONFIG_LINUX26),y)
-PF_EXT_SLIB+=hashlimit
+PF_EXT_SLIB+=hashlimit NFQUEUE
 endif
 
 

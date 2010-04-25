@@ -29,12 +29,11 @@ int nc_main(int argc, char **argv)
 	int sfd = sfd; /* for gcc */
 	int cfd = 0;
 	unsigned lport = 0;
-	SKIP_NC_SERVER(const) unsigned do_listen = 0;
-	SKIP_NC_EXTRA (const) unsigned wsecs = 0;
-	SKIP_NC_EXTRA (const) unsigned delay = 0;
-	SKIP_NC_EXTRA (const int execparam = 0;)
-	USE_NC_EXTRA  (char **execparam = NULL;)
-	len_and_sockaddr *lsa;
+	IF_NOT_NC_SERVER(const) unsigned do_listen = 0;
+	IF_NOT_NC_EXTRA (const) unsigned wsecs = 0;
+	IF_NOT_NC_EXTRA (const) unsigned delay = 0;
+	IF_NOT_NC_EXTRA (const int execparam = 0;)
+	IF_NC_EXTRA     (char **execparam = NULL;)
 	fd_set readfds, testfds;
 	int opt; /* must be signed (getopt returns -1) */
 
@@ -42,24 +41,24 @@ int nc_main(int argc, char **argv)
 		/* getopt32 is _almost_ usable:
 		** it cannot handle "... -e prog -prog-opt" */
 		while ((opt = getopt(argc, argv,
-		        "" USE_NC_SERVER("lp:") USE_NC_EXTRA("w:i:f:e:") )) > 0
+		        "" IF_NC_SERVER("lp:") IF_NC_EXTRA("w:i:f:e:") )) > 0
 		) {
-			if (ENABLE_NC_SERVER && opt=='l')
-				USE_NC_SERVER(do_listen++);
-			else if (ENABLE_NC_SERVER && opt=='p')
-				USE_NC_SERVER(lport = bb_lookup_port(optarg, "tcp", 0));
-			else if (ENABLE_NC_EXTRA && opt=='w')
-				USE_NC_EXTRA( wsecs = xatou(optarg));
-			else if (ENABLE_NC_EXTRA && opt=='i')
-				USE_NC_EXTRA( delay = xatou(optarg));
-			else if (ENABLE_NC_EXTRA && opt=='f')
-				USE_NC_EXTRA( cfd = xopen(optarg, O_RDWR));
-			else if (ENABLE_NC_EXTRA && opt=='e' && optind <= argc) {
+			if (ENABLE_NC_SERVER && opt == 'l')
+				IF_NC_SERVER(do_listen++);
+			else if (ENABLE_NC_SERVER && opt == 'p')
+				IF_NC_SERVER(lport = bb_lookup_port(optarg, "tcp", 0));
+			else if (ENABLE_NC_EXTRA && opt == 'w')
+				IF_NC_EXTRA( wsecs = xatou(optarg));
+			else if (ENABLE_NC_EXTRA && opt == 'i')
+				IF_NC_EXTRA( delay = xatou(optarg));
+			else if (ENABLE_NC_EXTRA && opt == 'f')
+				IF_NC_EXTRA( cfd = xopen(optarg, O_RDWR));
+			else if (ENABLE_NC_EXTRA && opt == 'e' && optind <= argc) {
 				/* We cannot just 'break'. We should let getopt finish.
 				** Or else we won't be able to find where
 				** 'host' and 'port' params are
 				** (think "nc -w 60 host port -e prog"). */
-				USE_NC_EXTRA(
+				IF_NC_EXTRA(
 					char **p;
 					// +2: one for progname (optarg) and one for NULL
 					execparam = xzalloc(sizeof(char*) * (argc - optind + 2));
@@ -80,9 +79,12 @@ int nc_main(int argc, char **argv)
 		argc -= optind;
 		// -l and -f don't mix
 		if (do_listen && cfd) bb_show_usage();
-		// Listen or file modes need zero arguments, client mode needs 2
-		if (do_listen || cfd) {
+		// File mode needs need zero arguments, listen mode needs zero or one,
+		// client mode needs one or two
+		if (cfd) {
 			if (argc) bb_show_usage();
+		} else if (do_listen) {
+			if (argc > 1) bb_show_usage();
 		} else {
 			if (!argc || argc > 2) bb_show_usage();
 		}
@@ -99,23 +101,19 @@ int nc_main(int argc, char **argv)
 
 	if (!cfd) {
 		if (do_listen) {
-			/* create_and_bind_stream_or_die(NULL, lport)
-			 * would've work wonderfully, but we need
-			 * to know lsa */
-			sfd = xsocket_stream(&lsa);
-			if (lport)
-				set_nport(lsa, htons(lport));
-			setsockopt_reuseaddr(sfd);
-			xbind(sfd, &lsa->u.sa, lsa->len);
+			sfd = create_and_bind_stream_or_die(argv[0], lport);
 			xlisten(sfd, do_listen); /* can be > 1 */
+#if 0  /* nc-1.10 does not do this (without -v) */
 			/* If we didn't specify a port number,
 			 * query and print it after listen() */
 			if (!lport) {
-				socklen_t addrlen = lsa->len;
-				getsockname(sfd, &lsa->u.sa, &addrlen);
-				lport = get_nport(&lsa->u.sa);
+				len_and_sockaddr lsa;
+				lsa.len = LSA_SIZEOF_SA;
+				getsockname(sfd, &lsa.u.sa, &lsa.len);
+				lport = get_nport(&lsa.u.sa);
 				fdprintf(2, "%d\n", ntohs(lport));
 			}
+#endif
 			close_on_exec_on(sfd);
  accept_again:
 			cfd = accept(sfd, NULL, 0);
@@ -131,35 +129,33 @@ int nc_main(int argc, char **argv)
 
 	if (wsecs) {
 		alarm(0);
-		/* Non-ignored siganls revert to SIG_DFL on exec anyway */
+		/* Non-ignored signals revert to SIG_DFL on exec anyway */
 		/*signal(SIGALRM, SIG_DFL);*/
 	}
 
 	/* -e given? */
 	if (execparam) {
-		signal(SIGCHLD, SIG_IGN);
-		// With more than one -l, repeatedly act as server.
-		if (do_listen > 1 && vfork()) {
-			/* parent */
-			// This is a bit weird as cleanup goes, since we wind up with no
-			// stdin/stdout/stderr.  But it's small and shouldn't hurt anything.
-			// We check for cfd == 0 above.
-			logmode = LOGMODE_NONE;
-			close(0);
-			close(1);
-			close(2);
+		pid_t pid;
+		/* With more than one -l, repeatedly act as server */
+		if (do_listen > 1 && (pid = vfork()) != 0) {
+			/* parent or error */
+			if (pid < 0)
+				bb_perror_msg_and_die("vfork");
+			/* prevent zombies */
+			signal(SIGCHLD, SIG_IGN);
+			close(cfd);
 			goto accept_again;
 		}
-		/* child (or main thread if no multiple -l) */
+		/* child, or main thread if only one -l */
 		xmove_fd(cfd, 0);
 		xdup2(0, 1);
 		xdup2(0, 2);
-		USE_NC_EXTRA(BB_EXECVP(execparam[0], execparam);)
-		/* Don't print stuff or it will go over the wire.... */
+		IF_NC_EXTRA(BB_EXECVP(execparam[0], execparam);)
+		/* Don't print stuff or it will go over the wire... */
 		_exit(127);
 	}
 
-	// Select loop copying stdin to cfd, and cfd to stdout.
+	/* Select loop copying stdin to cfd, and cfd to stdout */
 
 	FD_ZERO(&readfds);
 	FD_SET(cfd, &readfds);
@@ -172,11 +168,12 @@ int nc_main(int argc, char **argv)
 
 		testfds = readfds;
 
-		if (select(FD_SETSIZE, &testfds, NULL, NULL, NULL) < 0)
+		if (select(cfd + 1, &testfds, NULL, NULL, NULL) < 0)
 			bb_perror_msg_and_die("select");
 
 #define iobuf bb_common_bufsiz1
-		for (fd = 0; fd < FD_SETSIZE; fd++) {
+		fd = STDIN_FILENO;
+		while (1) {
 			if (FD_ISSET(fd, &testfds)) {
 				nread = safe_read(fd, iobuf, sizeof(iobuf));
 				if (fd == cfd) {
@@ -184,17 +181,21 @@ int nc_main(int argc, char **argv)
 						exit(EXIT_SUCCESS);
 					ofd = STDOUT_FILENO;
 				} else {
-					if (nread<1) {
-						// Close outgoing half-connection so they get EOF, but
-						// leave incoming alone so we can see response.
+					if (nread < 1) {
+						/* Close outgoing half-connection so they get EOF,
+						 * but leave incoming alone so we can see response */
 						shutdown(cfd, 1);
 						FD_CLR(STDIN_FILENO, &readfds);
 					}
 					ofd = cfd;
 				}
 				xwrite(ofd, iobuf, nread);
-				if (delay > 0) sleep(delay);
+				if (delay > 0)
+					sleep(delay);
 			}
+			if (fd == cfd)
+				break;
+			fd = cfd;
 		}
 	}
 }

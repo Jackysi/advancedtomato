@@ -7,10 +7,11 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
-
+#include <sys/mount.h> /* BLKGETSIZE64 */
+#if !defined(BLKGETSIZE64)
+# define BLKGETSIZE64 _IOR(0x12,114,size_t)
+#endif
 #include "volume_id_internal.h"
-
-//#define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
 static struct uuidCache_s {
 	struct uuidCache_s *next;
@@ -43,7 +44,7 @@ get_label_uuid(int fd, char **label, char **uuid)
 	if (vid->label[0] != '\0' || vid->uuid[0] != '\0') {
 		*label = xstrndup(vid->label, sizeof(vid->label));
 		*uuid  = xstrndup(vid->uuid, sizeof(vid->uuid));
-		dbg("found label '%s', uuid '%s' on %s", *label, *uuid, device);
+		dbg("found label '%s', uuid '%s'", *label, *uuid);
 		rv = 0;
 	}
  ret:
@@ -86,7 +87,16 @@ uuidcache_check_device(const char *device,
 	char *label = label;
 	int fd;
 
+	/* note: this check rejects links to devices, among other nodes */
 	if (!S_ISBLK(statbuf->st_mode))
+		return TRUE;
+
+	/* Users report that mucking with floppies (especially non-present
+	 * ones) is significant PITA. This is a horribly dirty hack,
+	 * but it is very useful in real world.
+	 * If this will ever need to be enabled, consider using O_NONBLOCK.
+	 */
+	if (major(statbuf->st_rdev) == 2)
 		return TRUE;
 
 	fd = open(device, O_RDONLY);

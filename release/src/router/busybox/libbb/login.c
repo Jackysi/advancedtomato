@@ -9,9 +9,9 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <sys/param.h>  /* MAXHOSTNAMELEN */
-#include <sys/utsname.h>
 #include "libbb.h"
+/* After libbb.h, since it needs sys/types.h on some systems */
+#include <sys/utsname.h>
 
 #define LOGIN " login: "
 
@@ -62,10 +62,13 @@ void FAST_FUNC print_login_issue(const char *issue_file, const char *tty)
 			case 'm':
 				outbuf = uts.machine;
 				break;
+/* The field domainname of struct utsname is Linux specific. */
+#if defined(__linux__)
 			case 'D':
 			case 'o':
 				outbuf = uts.domainname;
 				break;
+#endif
 			case 'd':
 				strftime(buf, sizeof(buf), fmtstr_d, localtime(&t));
 				break;
@@ -82,7 +85,7 @@ void FAST_FUNC print_login_issue(const char *issue_file, const char *tty)
 		fputs(outbuf, stdout);
 	}
 	fclose(fp);
-	fflush(stdout);
+	fflush_all();
 }
 
 void FAST_FUNC print_login_prompt(void)
@@ -91,7 +94,7 @@ void FAST_FUNC print_login_prompt(void)
 
 	fputs(hostname, stdout);
 	fputs(LOGIN, stdout);
-	fflush(stdout);
+	fflush_all();
 	free(hostname);
 }
 

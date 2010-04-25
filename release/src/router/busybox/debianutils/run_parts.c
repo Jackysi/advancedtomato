@@ -124,7 +124,7 @@ int run_parts_main(int argc UNUSED_PARAM, char **argv)
 	/* We require exactly one argument: the directory name */
 	/* We require exactly one argument: the directory name */
 	opt_complementary = "=1:a::";
-	getopt32(argv, "ra:u:t"USE_FEATURE_RUN_PARTS_FANCY("l"), &arg_list, &umask_p);
+	getopt32(argv, "ra:u:t"IF_FEATURE_RUN_PARTS_FANCY("l"), &arg_list, &umask_p);
 
 	umask(xstrtou_range(umask_p, 8, 0, 07777));
 
@@ -164,7 +164,7 @@ int run_parts_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		n = 1;
 		if (ret < 0)
-			bb_perror_msg("can't exec %s", name);
+			bb_perror_msg("can't execute '%s'", name);
 		else /* ret > 0 */
 			bb_error_msg("%s exited with code %d", name, ret);
 	}

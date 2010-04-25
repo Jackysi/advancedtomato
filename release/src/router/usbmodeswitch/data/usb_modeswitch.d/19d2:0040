@@ -1,0 +1,12 @@
+########################################################
+# Vodafone (ZTE) K2525
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x0040
+
+TargetVendor=  0x19d2
+TargetProduct= 0x0022
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000030000000000000000000000"

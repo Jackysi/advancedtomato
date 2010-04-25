@@ -29,7 +29,7 @@
 #define SENDMAIL        "sendmail"
 #endif
 #ifndef SENDMAIL_ARGS
-#define SENDMAIL_ARGS   "-ti", "oem"
+#define SENDMAIL_ARGS   "-ti", NULL
 #endif
 #ifndef CRONUPDATE
 #define CRONUPDATE      "cron.update"
@@ -171,11 +171,11 @@ int crond_main(int argc UNUSED_PARAM, char **argv)
 	INIT_G();
 
 	/* "-b after -f is ignored", and so on for every pair a-b */
-	opt_complementary = "f-b:b-f:S-L:L-S" USE_FEATURE_CROND_D(":d-l")
+	opt_complementary = "f-b:b-f:S-L:L-S" IF_FEATURE_CROND_D(":d-l")
 			":l+:d+"; /* -l and -d have numeric param */
-	opts = getopt32(argv, "l:L:fbSc:" USE_FEATURE_CROND_D("d:"),
+	opts = getopt32(argv, "l:L:fbSc:" IF_FEATURE_CROND_D("d:"),
 			&LogLevel, &LogFile, &CDir
-			USE_FEATURE_CROND_D(,&LogLevel));
+			IF_FEATURE_CROND_D(,&LogLevel));
 	/* both -d N and -l N set the same variable: LogLevel */
 
 	if (!(opts & OPT_f)) {
@@ -331,11 +331,13 @@ static void ParseField(char *user, char *ary, int modvalue, int off,
 			skip = 1;
 			++ptr;
 		} else if (isdigit(*ptr)) {
+			char *endp;
 			if (n1 < 0) {
-				n1 = strtol(ptr, &ptr, 10) + off;
+				n1 = strtol(ptr, &endp, 10) + off;
 			} else {
-				n2 = strtol(ptr, &ptr, 10) + off;
+				n2 = strtol(ptr, &endp, 10) + off;
 			}
+			ptr = endp; /* gcc likes temp var for &endp */
 			skip = 1;
 		} else if (names) {
 			int i;
@@ -372,7 +374,9 @@ static void ParseField(char *user, char *ary, int modvalue, int off,
 			n2 = n1;
 		}
 		if (*ptr == '/') {
-			skip = strtol(ptr + 1, &ptr, 10);
+			char *endp;
+			skip = strtol(ptr + 1, &endp, 10);
+			ptr = endp; /* gcc likes temp var for &endp */
 		}
 
 		/*
@@ -650,14 +654,14 @@ static int TestJobs(time_t t1, time_t t2)
 	/* Find jobs > t1 and <= t2 */
 
 	for (t = t1 - t1 % 60; t <= t2; t += 60) {
-		struct tm *tp;
+		struct tm *ptm;
 		CronFile *file;
 		CronLine *line;
 
 		if (t <= t1)
 			continue;
 
-		tp = localtime(&t);
+		ptm = localtime(&t);
 		for (file = FileBase; file; file = file->cf_Next) {
 			if (DebugOpt)
 				crondlog(LVL5 "file %s:", file->cf_User);
@@ -666,9 +670,9 @@ static int TestJobs(time_t t1, time_t t2)
 			for (line = file->cf_LineBase; line; line = line->cl_Next) {
 				if (DebugOpt)
 					crondlog(LVL5 " line %s", line->cl_Shell);
-				if (line->cl_Mins[tp->tm_min] && line->cl_Hrs[tp->tm_hour]
-				 && (line->cl_Days[tp->tm_mday] || line->cl_Dow[tp->tm_wday])
-				 && line->cl_Mons[tp->tm_mon]
+				if (line->cl_Mins[ptm->tm_min] && line->cl_Hrs[ptm->tm_hour]
+				 && (line->cl_Days[ptm->tm_mday] || line->cl_Dow[ptm->tm_wday])
+				 && line->cl_Mons[ptm->tm_mon]
 				) {
 					if (DebugOpt) {
 						crondlog(LVL5 " job: %d %s",
@@ -841,7 +845,7 @@ static void RunJob(const char *user, CronLine *line)
 				line->cl_Shell);
 			line->cl_MailPos = lseek(mailFd, 0, SEEK_CUR);
 		} else {
-			crondlog(ERR20 "cannot create mail file %s for user %s, "
+			crondlog(ERR20 "can't create mail file %s for user %s, "
 					"discarding output", mailFile, user);
 		}
 	}

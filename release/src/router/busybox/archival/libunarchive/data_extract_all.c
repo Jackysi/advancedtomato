@@ -13,31 +13,33 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 	int res;
 
 	if (archive_handle->ah_flags & ARCHIVE_CREATE_LEADING_DIRS) {
-		char *name = xstrdup(file_header->name);
-		bb_make_directory(dirname(name), -1, FILEUTILS_RECUR);
-		free(name);
+		char *slash = strrchr(file_header->name, '/');
+		if (slash) {
+			*slash = '\0';
+			bb_make_directory(file_header->name, -1, FILEUTILS_RECUR);
+			*slash = '/';
+		}
 	}
 
-	/* Check if the file already exists */
-	if (archive_handle->ah_flags & ARCHIVE_EXTRACT_UNCONDITIONAL) {
+	if (archive_handle->ah_flags & ARCHIVE_UNLINK_OLD) {
 		/* Remove the entry if it exists */
-		if (((file_header->mode & S_IFMT) != S_IFDIR)
+		if ((!S_ISDIR(file_header->mode))
 		 && (unlink(file_header->name) == -1)
 		 && (errno != ENOENT)
 		) {
-			bb_perror_msg_and_die("cannot remove old file %s",
+			bb_perror_msg_and_die("can't remove old file %s",
 					file_header->name);
 		}
 	}
 	else if (archive_handle->ah_flags & ARCHIVE_EXTRACT_NEWER) {
 		/* Remove the existing entry if its older than the extracted entry */
-		struct stat statbuf;
-		if (lstat(file_header->name, &statbuf) == -1) {
+		struct stat existing_sb;
+		if (lstat(file_header->name, &existing_sb) == -1) {
 			if (errno != ENOENT) {
-				bb_perror_msg_and_die("cannot stat old file");
+				bb_perror_msg_and_die("can't stat old file");
 			}
 		}
-		else if (statbuf.st_mtime <= file_header->mtime) {
+		else if (existing_sb.st_mtime >= file_header->mtime) {
 			if (!(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)) {
 				bb_error_msg("%s not created: newer or "
 					"same age file exists", file_header->name);
@@ -46,20 +48,21 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 			return;
 		}
 		else if ((unlink(file_header->name) == -1) && (errno != EISDIR)) {
-			bb_perror_msg_and_die("cannot remove old file %s",
+			bb_perror_msg_and_die("can't remove old file %s",
 					file_header->name);
 		}
 	}
 
 	/* Handle hard links separately
 	 * We identified hard links as regular files of size 0 with a symlink */
-	if (S_ISREG(file_header->mode) && (file_header->link_target)
-	 && (file_header->size == 0)
+	if (S_ISREG(file_header->mode)
+	 && file_header->link_target
+	 && file_header->size == 0
 	) {
 		/* hard link */
 		res = link(file_header->link_target, file_header->name);
 		if ((res == -1) && !(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)) {
-			bb_perror_msg("cannot create %slink "
+			bb_perror_msg("can't create %slink "
 					"from %s to %s", "hard",
 					file_header->name,
 					file_header->link_target);
@@ -69,8 +72,13 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 		switch (file_header->mode & S_IFMT) {
 		case S_IFREG: {
 			/* Regular file */
-			dst_fd = xopen3(file_header->name, O_WRONLY | O_CREAT | O_EXCL,
-							file_header->mode);
+			int flags = O_WRONLY | O_CREAT | O_EXCL;
+			if (archive_handle->ah_flags & ARCHIVE_O_TRUNC)
+				flags = O_WRONLY | O_CREAT | O_TRUNC;
+			dst_fd = xopen3(file_header->name,
+				flags,
+				file_header->mode
+				);
 			bb_copyfd_exact_size(archive_handle->src_fd, dst_fd, file_header->size);
 			close(dst_fd);
 			break;
@@ -82,7 +90,7 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 			 && (errno != EEXIST)
 			 && !(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)
 			) {
-				bb_perror_msg("cannot make dir %s", file_header->name);
+				bb_perror_msg("can't make dir %s", file_header->name);
 			}
 			break;
 		case S_IFLNK:
@@ -91,7 +99,7 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 			if ((res == -1)
 			 && !(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)
 			) {
-				bb_perror_msg("cannot create %slink "
+				bb_perror_msg("can't create %slink "
 					"from %s to %s", "sym",
 					file_header->name,
 					file_header->link_target);
@@ -105,7 +113,7 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 			if ((res == -1)
 			 && !(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)
 			) {
-				bb_perror_msg("cannot create node %s", file_header->name);
+				bb_perror_msg("can't create node %s", file_header->name);
 			}
 			break;
 		default:
@@ -113,40 +121,41 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 		}
 	}
 
-	if (!(archive_handle->ah_flags & ARCHIVE_NOPRESERVE_OWN)) {
+	if (!(archive_handle->ah_flags & ARCHIVE_DONT_RESTORE_OWNER)) {
 #if ENABLE_FEATURE_TAR_UNAME_GNAME
 		if (!(archive_handle->ah_flags & ARCHIVE_NUMERIC_OWNER)) {
 			uid_t uid = file_header->uid;
 			gid_t gid = file_header->gid;
 
-			if (file_header->uname) {
-				struct passwd *pwd = getpwnam(file_header->uname);
+			if (file_header->tar__uname) {
+//TODO: cache last name/id pair?
+				struct passwd *pwd = getpwnam(file_header->tar__uname);
 				if (pwd) uid = pwd->pw_uid;
 			}
-			if (file_header->gname) {
-				struct group *grp = getgrnam(file_header->gname);
+			if (file_header->tar__gname) {
+				struct group *grp = getgrnam(file_header->tar__gname);
 				if (grp) gid = grp->gr_gid;
 			}
-			lchown(file_header->name, uid, gid);
-		} else {
-			lchown(file_header->name, file_header->uid, file_header->gid);
-		}
-#else
-		lchown(file_header->name, file_header->uid, file_header->gid);
+			/* GNU tar 1.15.1 uses chown, not lchown */
+			chown(file_header->name, uid, gid);
+		} else
 #endif
+			chown(file_header->name, file_header->uid, file_header->gid);
 	}
-	if ((file_header->mode & S_IFMT) != S_IFLNK) {
+	if (!S_ISLNK(file_header->mode)) {
 		/* uclibc has no lchmod, glibc is even stranger -
 		 * it has lchmod which seems to do nothing!
 		 * so we use chmod... */
-		if (!(archive_handle->ah_flags & ARCHIVE_NOPRESERVE_PERM)) {
+		if (!(archive_handle->ah_flags & ARCHIVE_DONT_RESTORE_PERM)) {
 			chmod(file_header->name, file_header->mode);
 		}
 		/* same for utime */
-		if (archive_handle->ah_flags & ARCHIVE_PRESERVE_DATE) {
-			struct utimbuf t;
-			t.actime = t.modtime = file_header->mtime;
-			utime(file_header->name, &t);
+		if (archive_handle->ah_flags & ARCHIVE_RESTORE_DATE) {
+			struct timeval t[2];
+
+			t[1].tv_sec = t[0].tv_sec = file_header->mtime;
+			t[1].tv_usec = t[0].tv_usec = 0;
+			utimes(file_header->name, t);
 		}
 	}
 }

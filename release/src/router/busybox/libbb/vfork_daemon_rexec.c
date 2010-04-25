@@ -15,7 +15,6 @@
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
 
-#include <paths.h>
 #include "busybox.h" /* uses applet tables */
 
 /* This does a fork/exec in one call, using vfork().  Returns PID of new child,
@@ -26,7 +25,7 @@ pid_t FAST_FUNC spawn(char **argv)
 	volatile int failed;
 	pid_t pid;
 
-// Ain't it a good place to fflush(NULL)?
+	fflush_all();
 
 	/* Be nice to nommu machines. */
 	failed = 0;
@@ -42,6 +41,8 @@ pid_t FAST_FUNC spawn(char **argv)
 		 * (but don't run atexit() stuff, which would screw up parent.)
 		 */
 		failed = errno;
+		/* mount, for example, does not want the message */
+		/*bb_perror_msg("can't execute '%s'", argv[0]);*/
 		_exit(111);
 	}
 	/* parent */
@@ -256,8 +257,7 @@ pid_t FAST_FUNC fork_or_rexec(char **argv)
 	pid_t pid;
 	/* Maybe we are already re-execed and come here again? */
 	if (re_execed)
-		return 0; /* child */
-
+		return 0;
 	pid = vfork();
 	if (pid < 0) /* wtf? */
 		bb_perror_msg_and_die("vfork");

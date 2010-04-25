@@ -70,7 +70,7 @@ static void resuse_end(pid_t pid, resource_t *resp)
 			return;
 		}
 	}
-	resp->elapsed_ms = (monotonic_us() / 1000) - resp->elapsed_ms;
+	resp->elapsed_ms = monotonic_ms() - resp->elapsed_ms;
 }
 
 static void printargv(char *const *argv)
@@ -371,7 +371,7 @@ static void run_command(char *const *cmd, resource_t *resp)
 	void (*interrupt_signal)(int);
 	void (*quit_signal)(int);
 
-	resp->elapsed_ms = monotonic_us() / 1000;
+	resp->elapsed_ms = monotonic_ms();
 	pid = vfork();		/* Run CMD as child process.  */
 	if (pid < 0)
 		bb_perror_msg_and_die("fork");
@@ -380,7 +380,7 @@ static void run_command(char *const *cmd, resource_t *resp)
 		   versus merely warnings if the cast is left off.  */
 		BB_EXECVP(cmd[0], cmd);
 		xfunc_error_retval = (errno == ENOENT ? 127 : 126);
-		bb_error_msg_and_die("cannot run %s", cmd[0]);
+		bb_error_msg_and_die("can't run %s", cmd[0]);
 	}
 
 	/* Have signals kill the child but not self (if possible).  */
@@ -414,9 +414,7 @@ int time_main(int argc UNUSED_PARAM, char **argv)
 	run_command(argv, &res);
 
 	/* Cheat. printf's are shorter :) */
-	/* (but see bb_putchar() body for additional wrinkle!) */
-	xdup2(2, 1); /* just in case libc does something silly :( */
-	stdout = stderr;
+	xdup2(STDERR_FILENO, STDOUT_FILENO);
 	summarize(output_format, argv, &res);
 
 	if (WIFSTOPPED(res.waitstatus))

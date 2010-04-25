@@ -24,7 +24,7 @@ static inline uint64_t hton64(uint64_t v)
 
 
 /* on these functions, make sure your datatype matches */
-static int read_ip(const char *line, void *arg)
+static int FAST_FUNC read_nip(const char *line, void *arg)
 {
 	len_and_sockaddr *lsa;
 
@@ -37,13 +37,13 @@ static int read_ip(const char *line, void *arg)
 }
 
 
-static int read_mac(const char *line, void *arg)
+static int FAST_FUNC read_mac(const char *line, void *arg)
 {
 	return NULL == ether_aton_r(line, (struct ether_addr *)arg);
 }
 
 
-static int read_str(const char *line, void *arg)
+static int FAST_FUNC read_str(const char *line, void *arg)
 {
 	char **dest = arg;
 
@@ -53,14 +53,14 @@ static int read_str(const char *line, void *arg)
 }
 
 
-static int read_u32(const char *line, void *arg)
+static int FAST_FUNC read_u32(const char *line, void *arg)
 {
 	*(uint32_t*)arg = bb_strtou32(line, NULL, 10);
 	return errno == 0;
 }
 
 
-static int read_yn(const char *line, void *arg)
+static int FAST_FUNC read_yn(const char *line, void *arg)
 {
 	char *dest = arg;
 
@@ -96,7 +96,7 @@ static void attach_option(struct option_set **opt_list,
 
 	existing = find_option(*opt_list, option->code);
 	if (!existing) {
-		DEBUG("Attaching option %02x to list", option->code);
+		log2("Attaching option %02x to list", option->code);
 
 #if ENABLE_FEATURE_UDHCP_RFC3397
 		if ((option->flags & TYPE_MASK) == OPTION_STR1035)
@@ -125,7 +125,7 @@ static void attach_option(struct option_set **opt_list,
 	}
 
 	/* add it to an existing option */
-	DEBUG("Attaching option %02x to existing member of list", option->code);
+	log1("Attaching option %02x to existing member of list", option->code);
 	if (option->flags & OPTION_LIST) {
 #if ENABLE_FEATURE_UDHCP_RFC3397
 		if ((option->flags & TYPE_MASK) == OPTION_STR1035)
@@ -156,7 +156,7 @@ static void attach_option(struct option_set **opt_list,
 
 
 /* read a dhcp option and add it to opt_list */
-static int read_opt(const char *const_line, void *arg)
+static int FAST_FUNC read_opt(const char *const_line, void *arg)
 {
 	struct option_set **opt_list = arg;
 	char *opt, *val, *endptr;
@@ -187,15 +187,15 @@ static int read_opt(const char *const_line, void *arg)
 		opt = buffer; /* new meaning for variable opt */
 		switch (option->flags & TYPE_MASK) {
 		case OPTION_IP:
-			retval = read_ip(val, buffer);
+			retval = read_nip(val, buffer);
 			break;
 		case OPTION_IP_PAIR:
-			retval = read_ip(val, buffer);
+			retval = read_nip(val, buffer);
 			val = strtok(NULL, ", \t/-");
 			if (!val)
 				retval = 0;
 			if (retval)
-				retval = read_ip(val, buffer + 4);
+				retval = read_nip(val, buffer + 4);
 			break;
 		case OPTION_STRING:
 #if ENABLE_FEATURE_UDHCP_RFC3397
@@ -251,7 +251,7 @@ static int read_opt(const char *const_line, void *arg)
 	return retval;
 }
 
-static int read_staticlease(const char *const_line, void *arg)
+static int FAST_FUNC read_staticlease(const char *const_line, void *arg)
 {
 	char *line;
 	char *mac_string;
@@ -266,11 +266,11 @@ static int read_staticlease(const char *const_line, void *arg)
 
 	/* Read ip */
 	ip_string = strtok_r(NULL, " \t", &line);
-	read_ip(ip_string, &ip);
+	read_nip(ip_string, &ip);
 
-	addStaticLease(arg, (uint8_t*) &mac_bytes, ip);
+	add_static_lease(arg, (uint8_t*) &mac_bytes, ip);
 
-	if (ENABLE_UDHCP_DEBUG) printStaticLeases(arg);
+	log_static_leases(arg);
 
 	return 1;
 }
@@ -278,28 +278,27 @@ static int read_staticlease(const char *const_line, void *arg)
 
 struct config_keyword {
 	const char *keyword;
-	int (*handler)(const char *line, void *var);
+	int (*handler)(const char *line, void *var) FAST_FUNC;
 	void *var;
 	const char *def;
 };
 
 static const struct config_keyword keywords[] = {
 	/* keyword       handler   variable address               default */
-	{"start",        read_ip,  &(server_config.start_ip),     "192.168.0.20"},
-	{"end",          read_ip,  &(server_config.end_ip),       "192.168.0.254"},
+	{"start",        read_nip, &(server_config.start_ip),     "192.168.0.20"},
+	{"end",          read_nip, &(server_config.end_ip),       "192.168.0.254"},
 	{"interface",    read_str, &(server_config.interface),    "eth0"},
 	/* Avoid "max_leases value not sane" warning by setting default
 	 * to default_end_ip - default_start_ip + 1: */
 	{"max_leases",   read_u32, &(server_config.max_leases),   "235"},
-//	{"remaining",    read_yn,  &(server_config.remaining),    "yes"},
 	{"auto_time",    read_u32, &(server_config.auto_time),    "7200"},
 	{"decline_time", read_u32, &(server_config.decline_time), "3600"},
 	{"conflict_time",read_u32, &(server_config.conflict_time),"3600"},
 	{"offer_time",   read_u32, &(server_config.offer_time),   "60"},
-	{"min_lease",    read_u32, &(server_config.min_lease),    "60"},
+	{"min_lease",    read_u32, &(server_config.min_lease_sec),"60"},
 	{"lease_file",   read_str, &(server_config.lease_file),   LEASES_FILE},
 	{"pidfile",      read_str, &(server_config.pidfile),      "/var/run/udhcpd.pid"},
-	{"siaddr",       read_ip,  &(server_config.siaddr),       "0.0.0.0"},
+	{"siaddr",       read_nip, &(server_config.siaddr_nip),   "0.0.0.0"},
 	/* keywords with no defaults must be last! */
 	{"option",       read_opt, &(server_config.options),      ""},
 	{"opt",          read_opt, &(server_config.options),      ""},
@@ -360,23 +359,23 @@ void FAST_FUNC write_leases(void)
 	for (i = 0; i < server_config.max_leases; i++) {
 		leasetime_t tmp_time;
 
-		if (leases[i].yiaddr == 0)
+		if (g_leases[i].lease_nip == 0)
 			continue;
 
 		/* Screw with the time in the struct, for easier writing */
-		tmp_time = leases[i].expires;
+		tmp_time = g_leases[i].expires;
 
-		leases[i].expires -= curr;
-		if ((signed_leasetime_t) leases[i].expires < 0)
-			leases[i].expires = 0;
-		leases[i].expires = htonl(leases[i].expires);
+		g_leases[i].expires -= curr;
+		if ((signed_leasetime_t) g_leases[i].expires < 0)
+			g_leases[i].expires = 0;
+		g_leases[i].expires = htonl(g_leases[i].expires);
 
 		/* No error check. If the file gets truncated,
 		 * we lose some leases on restart. Oh well. */
-		full_write(fd, &leases[i], sizeof(leases[i]));
+		full_write(fd, &g_leases[i], sizeof(g_leases[i]));
 
 		/* Then restore it when done */
-		leases[i].expires = tmp_time;
+		g_leases[i].expires = tmp_time;
 	}
 	close(fd);
 
@@ -391,10 +390,12 @@ void FAST_FUNC write_leases(void)
 
 void FAST_FUNC read_leases(const char *file)
 {
-	struct dhcpOfferedAddr lease;
+	struct dyn_lease lease;
 	int64_t written_at, time_passed;
 	int fd;
-	USE_UDHCP_DEBUG(unsigned i;)
+#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
+	unsigned i = 0;
+#endif
 
 	fd = open_or_warn(file, O_RDONLY);
 	if (fd < 0)
@@ -410,24 +411,29 @@ void FAST_FUNC read_leases(const char *file)
 	if ((uint64_t)time_passed > 12 * 60 * 60)
 		goto ret;
 
-	USE_UDHCP_DEBUG(i = 0;)
 	while (full_read(fd, &lease, sizeof(lease)) == sizeof(lease)) {
-		/* ADDME: what if it matches some static lease? */
-		uint32_t y = ntohl(lease.yiaddr);
+//FIXME: what if it matches some static lease?
+		uint32_t y = ntohl(lease.lease_nip);
 		if (y >= server_config.start_ip && y <= server_config.end_ip) {
 			signed_leasetime_t expires = ntohl(lease.expires) - (signed_leasetime_t)time_passed;
 			if (expires <= 0)
 				continue;
 			/* NB: add_lease takes "relative time", IOW,
 			 * lease duration, not lease deadline. */
-			if (!(add_lease(lease.chaddr, lease.yiaddr, expires, NULL /* was lease.hostname. bug in add_lease, disabled */ ))) {
+			if (add_lease(lease.lease_mac, lease.lease_nip,
+					expires,
+					lease.hostname, sizeof(lease.hostname)
+				) == 0
+			) {
 				bb_error_msg("too many leases while loading %s", file);
 				break;
 			}
-			USE_UDHCP_DEBUG(i++;)
+#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
+			i++;
+#endif
 		}
 	}
-	DEBUG("Read %d leases", i);
+	log1("Read %d leases", i);
  ret:
 	close(fd);
 }

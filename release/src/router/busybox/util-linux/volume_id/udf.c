@@ -30,32 +30,32 @@ struct volume_descriptor {
 		uint16_t	crc;
 		uint16_t	crc_len;
 		uint32_t	location;
-	} __attribute__((__packed__)) tag;
+	} PACKED tag;
 	union {
 		struct anchor_descriptor {
 			uint32_t	length;
 			uint32_t	location;
-		} __attribute__((__packed__)) anchor;
+		} PACKED anchor;
 		struct primary_descriptor {
 			uint32_t	seq_num;
 			uint32_t	desc_num;
 			struct dstring {
 				uint8_t	clen;
 				uint8_t	c[31];
-			} __attribute__((__packed__)) ident;
-		} __attribute__((__packed__)) primary;
-	} __attribute__((__packed__)) type;
-} __attribute__((__packed__));
+			} PACKED ident;
+		} PACKED primary;
+	} PACKED type;
+} PACKED;
 
 struct volume_structure_descriptor {
 	uint8_t		type;
 	uint8_t		id[5];
 	uint8_t		version;
-} __attribute__((__packed__));
+} PACKED;
 
 #define UDF_VSD_OFFSET			0x8000
 
-int volume_id_probe_udf(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_udf(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct volume_descriptor *vd;

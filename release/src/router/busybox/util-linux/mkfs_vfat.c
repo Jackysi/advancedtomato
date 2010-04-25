@@ -8,11 +8,15 @@
  * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 #include "libbb.h"
-#include "volume_id/volume_id_internal.h"
 
 #include <linux/hdreg.h> /* HDIO_GETGEO */
 #include <linux/fd.h>    /* FDGETPRM */
+#include <sys/mount.h>   /* BLKSSZGET */
+#if !defined(BLKSSZGET)
+# define BLKSSZGET _IO(0x12, 104)
+#endif
 //#include <linux/msdos_fs.h>
+#include "volume_id/volume_id_internal.h"
 
 #define SECTOR_SIZE             512
 
@@ -75,7 +79,7 @@ struct msdos_dir_entry {
 	uint16_t date;           /* 018 date */
 	uint16_t start;          /* 01a first cluster */
 	uint32_t size;           /* 01c file size in bytes */
-} __attribute__ ((packed));
+} PACKED;
 
 /* Example of boot sector's beginning:
 0000  eb 58 90 4d 53 57 49 4e  34 2e 31 00 02 08 26 00  |...MSWIN4.1...&.|
@@ -92,7 +96,7 @@ struct msdos_volume_info { /* (offsets are relative to start of boot sector) */
 	uint32_t volume_id32;     /* 043 volume ID number */
 	char     volume_label[11];/* 047 volume label */
 	char     fs_type[8];      /* 052 typically "FATnn" */
-} __attribute__ ((packed));       /* 05a end. Total size 26 (0x1a) bytes */
+} PACKED;                         /* 05a end. Total size 26 (0x1a) bytes */
 
 struct msdos_boot_sector {
 	char     boot_jump[3];       /* 000 short or near jump instruction */
@@ -120,7 +124,7 @@ struct msdos_boot_sector {
 	char     boot_code[0x200 - 0x5a - 2]; /* 05a */
 #define BOOT_SIGN 0xAA55
 	uint16_t boot_sign;          /* 1fe */
-} __attribute__ ((packed));
+} PACKED;
 
 #define FAT_FSINFO_SIG1 0x41615252
 #define FAT_FSINFO_SIG2 0x61417272
@@ -133,7 +137,7 @@ struct fat32_fsinfo {
 	uint32_t reserved2[3];
 	uint16_t reserved3;          /* 1fc */
 	uint16_t boot_sign;          /* 1fe */
-} __attribute__ ((packed));
+} PACKED;
 
 struct bug_check {
 	char BUG1[sizeof(struct msdos_dir_entry  ) == 0x20 ? 1 : -1];
@@ -204,7 +208,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 	int dev;
 	unsigned bytes_per_sect;
 	unsigned sect_per_fat;
-  	unsigned opts;
+	unsigned opts;
 	uint16_t sect_per_track;
 	uint8_t media_byte;
 	uint8_t sect_per_clust;
@@ -275,7 +279,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 		)
 			bb_error_msg_and_die("will not try to make filesystem on full-disk device (use -I if wanted)");
 		// can't work on mounted filesystems
-		if (find_mount_point(device_name))
+		if (find_mount_point(device_name, 0))
 			bb_error_msg_and_die("can't format mounted filesystem");
 #endif
 		// get true sector size
@@ -467,7 +471,8 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 		strcpy(boot_blk->boot_jump, "\xeb\x58\x90" "mkdosfs"); // system_id[8] included :)
 		STORE_LE(boot_blk->bytes_per_sect, bytes_per_sect);
 		STORE_LE(boot_blk->sect_per_clust, sect_per_clust);
-		STORE_LE(boot_blk->reserved_sect, reserved_sect);
+		// cast in needed on big endian to suppress a warning
+		STORE_LE(boot_blk->reserved_sect, (uint16_t)reserved_sect);
 		STORE_LE(boot_blk->fats, 2);
 		//STORE_LE(boot_blk->dir_entries, 0); // for FAT32, stays 0
 		if (volume_size_sect <= 0xffff)
@@ -533,16 +538,16 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 		// create dir entry for volume_label
 		struct msdos_dir_entry *de;
 #if 0
-		struct tm tm;
+		struct tm tm_time;
 		uint16_t t, d;
 #endif
 		de = (void*)buf;
 		strncpy(de->name, volume_label, sizeof(de->name));
 		STORE_LE(de->attr, ATTR_VOLUME);
 #if 0
-		localtime_r(&create_time, &tm);
-		t = (tm.tm_sec >> 1) + (tm.tm_min << 5) + (tm.tm_hour << 11);
-		d = tm.tm_mday + ((tm.tm_mon+1) << 5) + ((tm.tm_year-80) << 9);
+		localtime_r(&create_time, &tm_time);
+		t = (tm_time.tm_sec >> 1) + (tm_time.tm_min << 5) + (tm_time.tm_hour << 11);
+		d = tm_time.tm_mday + ((tm_time.tm_mon+1) << 5) + ((tm_time.tm_year-80) << 9);
 		STORE_LE(de->time, t);
 		STORE_LE(de->date, d);
 		//STORE_LE(de->ctime_cs, 0);
@@ -568,7 +573,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 		start_data_sector = (reserved_sect + NUM_FATS * sect_per_fat) * (bytes_per_sect / SECTOR_SIZE);
 		start_data_block = (start_data_sector + SECTORS_PER_BLOCK - 1) / SECTORS_PER_BLOCK;
 
-		bb_info_msg("Searching for bad blocks ");
+		bb_info_msg("searching for bad blocks ");
 		currently_testing = 0;
 		try = TEST_BUFFER_BLOCKS;
 		while (currently_testing < volume_size_blocks) {
@@ -583,7 +588,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 			if (got < 0)
 				got = 0;
 			if (got & (BLOCK_SIZE - 1))
-				bb_error_msg("Unexpected values in do_check: probably bugs");
+				bb_error_msg("unexpected values in do_check: probably bugs");
 			got /= BLOCK_SIZE;
 			currently_testing += got;
 			if (got == try) {
@@ -598,7 +603,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 			for (i = 0; i < SECTORS_PER_BLOCK; i++) {
 				int cluster = (currently_testing * SECTORS_PER_BLOCK + i - start_data_sector) / (int) (sect_per_clust) / (bytes_per_sect / SECTOR_SIZE);
 				if (cluster < 0)
-					bb_error_msg_and_die("Invalid cluster number in mark_sector: probably bug!");
+					bb_error_msg_and_die("invalid cluster number in mark_sector: probably bug!");
 				MARK_CLUSTER(cluster, BAD_FAT32);
 			}
 			badblocks++;

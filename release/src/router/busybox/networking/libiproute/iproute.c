@@ -78,7 +78,7 @@ static unsigned get_hz(void)
 	return hz_internal;
 }
 
-static int print_route(const struct sockaddr_nl *who UNUSED_PARAM,
+static int FAST_FUNC print_route(const struct sockaddr_nl *who UNUSED_PARAM,
 		struct nlmsghdr *n, void *arg UNUSED_PARAM)
 {
 	struct rtmsg *r = NLMSG_DATA(n);
@@ -196,7 +196,7 @@ static int print_route(const struct sockaddr_nl *who UNUSED_PARAM,
 		printf("Deleted ");
 	}
 	if (r->rtm_type != RTN_UNICAST && !filter.type) {
-		printf("%s ", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
+		printf("%s ", rtnl_rtntype_n2a(r->rtm_type, b1));
 	}
 
 	if (tb[RTA_DST]) {
@@ -287,14 +287,14 @@ static int print_route(const struct sockaddr_nl *who UNUSED_PARAM,
 static int iproute_modify(int cmd, unsigned flags, char **argv)
 {
 	static const char keywords[] ALIGN1 =
-		"src\0""via\0""mtu\0""lock\0""protocol\0"USE_FEATURE_IP_RULE("table\0")
+		"src\0""via\0""mtu\0""lock\0""protocol\0"IF_FEATURE_IP_RULE("table\0")
 		"dev\0""oif\0""to\0""metric\0";
 	enum {
 		ARG_src,
 		ARG_via,
 		ARG_mtu, PARM_lock,
 		ARG_protocol,
-USE_FEATURE_IP_RULE(ARG_table,)
+IF_FEATURE_IP_RULE(ARG_table,)
 		ARG_dev,
 		ARG_oif,
 		ARG_to,
@@ -499,7 +499,7 @@ static void iproute_flush_cache(void)
 	}
 
 	if (write(flush_fd, "-1", 2) < 2) {
-		bb_perror_msg("cannot flush routing cache");
+		bb_perror_msg("can't flush routing cache");
 		return;
 	}
 	close(flush_fd);
@@ -681,7 +681,7 @@ static int iproute_list_or_flush(char **argv, int flush)
 	if (filter.tb != -1) {
 		xrtnl_wilddump_request(&rth, do_ipv6, RTM_GETROUTE);
 	} else if (rtnl_rtcache_request(&rth, do_ipv6) < 0) {
-		bb_perror_msg_and_die("cannot send dump request");
+		bb_perror_msg_and_die("can't send dump request");
 	}
 	xrtnl_dump_filter(&rth, print_route, NULL);
 

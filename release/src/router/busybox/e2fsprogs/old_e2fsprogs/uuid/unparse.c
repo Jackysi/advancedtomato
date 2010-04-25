@@ -35,8 +35,10 @@
 
 #include <stdio.h>
 
+#include "libbb.h"
 #include "uuidP.h"
 
+#ifdef OBSOLETE
 static const char *fmt_lower =
 	"%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x";
 
@@ -70,8 +72,18 @@ void uuid_unparse_upper(const uuid_t uu, char *out)
 {
 	uuid_unparse_x(uu, out,	fmt_upper);
 }
+#endif /* OBSOLETE */
 
 void uuid_unparse(const uuid_t uu, char *out)
 {
-	uuid_unparse_x(uu, out, FMT_DEFAULT);
+	char uuid_string[32];
+
+	bin2hex(uuid_string, uu, 16);
+	sprintf(out, "%.8s-%.4s-%.4s-%.4s-%.12s\n",
+		uuid_string,
+		uuid_string+8,
+		uuid_string+8+4,
+		uuid_string+8+4+4,
+		uuid_string+8+4+4+4
+	);
 }

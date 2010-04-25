@@ -89,7 +89,7 @@ static int get_qdisc_handle(__u32 *h, const char *str) {
 	if (p == str)
 		return 1;
 	maj <<= 16;
-	if (*p != ':' && *p!=0)
+	if (*p != ':' && *p != '\0')
 		return 1;
  ok:
 	*h = maj;
@@ -119,7 +119,8 @@ static int get_tc_classid(__u32 *h, const char *str) {
 		maj <<= 16;
 		str = p + 1;
 		min = strtoul(str, &p, 16);
-		if (*p != 0 || min >= (1<<16))
+//FIXME: check for "" too?
+		if (*p != '\0' || min >= (1<<16))
 			return 1;
 		maj |= min;
 	} else if (*p != 0)
@@ -190,8 +191,8 @@ static int cbq_print_opt(struct rtattr *opt)
 	struct tc_cbq_wrropt *wrr = NULL;
 	struct tc_cbq_fopt *fopt = NULL;
 	struct tc_cbq_ovl *ovl = NULL;
-	const char * const error = "CBQ: too short %s opt";
-	RESERVE_CONFIG_BUFFER(buf, 64);
+	const char *const error = "CBQ: too short %s opt";
+	char buf[64];
 
 	if (opt == NULL)
 		goto done;
@@ -271,7 +272,6 @@ static int cbq_print_opt(struct rtattr *opt)
 		}
 	}
  done:
-	RELEASE_CONFIG_BUFFER(buf);
 	return 0;
 }
 
@@ -284,12 +284,12 @@ static int print_qdisc(const struct sockaddr_nl *who UNUSED_PARAM,
 	char *name;
 
 	if (hdr->nlmsg_type != RTM_NEWQDISC && hdr->nlmsg_type != RTM_DELQDISC) {
-		/* bb_error_msg("Not a qdisc"); */
+		/* bb_error_msg("not a qdisc"); */
 		return 0; /* ??? mimic upstream; should perhaps return -1 */
 	}
 	len -= NLMSG_LENGTH(sizeof(*msg));
 	if (len < 0) {
-		/* bb_error_msg("Wrong len %d", len); */
+		/* bb_error_msg("wrong len %d", len); */
 		return -1;
 	}
 	/* not the desired interface? */
@@ -322,7 +322,7 @@ static int print_qdisc(const struct sockaddr_nl *who UNUSED_PARAM,
 		int qqq = index_in_strings(_q_, name);
 		if (qqq == 0) { /* pfifo_fast aka prio */
 			prio_print_opt(tb[TCA_OPTIONS]);
-		} else if (qqq == 1) { /* class based queueing */
+		} else if (qqq == 1) { /* class based queuing */
 			cbq_print_opt(tb[TCA_OPTIONS]);
 		} else
 			bb_error_msg("unknown %s", name);
@@ -342,12 +342,12 @@ static int print_class(const struct sockaddr_nl *who UNUSED_PARAM,
 	/*XXX Eventually factor out common code */
 
 	if (hdr->nlmsg_type != RTM_NEWTCLASS && hdr->nlmsg_type != RTM_DELTCLASS) {
-		/* bb_error_msg("Not a class"); */
+		/* bb_error_msg("not a class"); */
 		return 0; /* ??? mimic upstream; should perhaps return -1 */
 	}
 	len -= NLMSG_LENGTH(sizeof(*msg));
 	if (len < 0) {
-		/* bb_error_msg("Wrong len %d", len); */
+		/* bb_error_msg("wrong len %d", len); */
 		return -1;
 	}
 	/* not the desired interface? */
@@ -388,7 +388,7 @@ static int print_class(const struct sockaddr_nl *who UNUSED_PARAM,
 		int qqq = index_in_strings(_q_, name);
 		if (qqq == 0) { /* pfifo_fast aka prio */
 			/* nothing. */ /*prio_print_opt(tb[TCA_OPTIONS]);*/
-		} else if (qqq == 1) { /* class based queueing */
+		} else if (qqq == 1) { /* class based queuing */
 			/* cbq_print_copt() is identical to cbq_print_opt(). */
 			cbq_print_opt(tb[TCA_OPTIONS]);
 		} else
@@ -516,7 +516,7 @@ int tc_main(int argc UNUSED_PARAM, char **argv)
 				duparg(*argv, "priority");
 			filter_prio = get_u32(*argv, "priority");
 		} else if (arg == ARG_proto) { /* filter::list */
-			__u16 tmp;
+			uint16_t tmp;
 			if (filter_proto)
 				duparg(*argv, "protocol");
 			if (ll_proto_a2n(&tmp, *argv))
@@ -530,7 +530,7 @@ int tc_main(int argc UNUSED_PARAM, char **argv)
 		if (rtnl_dump_request(&rth, obj == OBJ_qdisc ? RTM_GETQDISC :
 						obj == OBJ_class ? RTM_GETTCLASS : RTM_GETTFILTER,
 						&msg, sizeof(msg)) < 0)
-			bb_simple_perror_msg_and_die("cannot send dump request");
+			bb_simple_perror_msg_and_die("can't send dump request");
 
 		xrtnl_dump_filter(&rth, obj == OBJ_qdisc ? print_qdisc :
 						obj == OBJ_class ? print_class : print_filter,

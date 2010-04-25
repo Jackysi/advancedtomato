@@ -80,7 +80,7 @@ static int in_cksum(unsigned short *buf, int sz)
 struct globals {
 	char *hostname;
 	char packet[DEFDATALEN + ICMP_MINLEN + MAXIPLEN + MAXICMPLEN];
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { } while (0)
 
@@ -223,7 +223,7 @@ static int common_ping_main(sa_family_t af, char **argv)
 
 /* Full(er) version */
 
-#define OPT_STRING ("qvc:s:w:W:I:4" USE_PING6("6"))
+#define OPT_STRING ("qvc:s:w:W:I:4" IF_PING6("6"))
 enum {
 	OPT_QUIET = 1 << 0,
 	OPT_VERBOSE = 1 << 1,
@@ -496,7 +496,7 @@ static void unpack_tail(int sz, uint32_t *tp,
 	if (tp)
 		printf(" time=%u.%03u ms", triptime / 1000, triptime % 1000);
 	puts(dupmsg);
-	fflush(stdout);
+	fflush_all();
 }
 static void unpack4(char *buf, int sz, struct sockaddr_in *from)
 {

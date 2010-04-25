@@ -22,6 +22,10 @@
 #include <utmp.h> /* updwtmp() */
 #endif
 
+#ifndef IUCLC
+# define IUCLC 0
+#endif
+
 /*
  * Some heuristics to find out what environment we are in: if it is not
  * System V, assume it is SunOS 4.
@@ -235,7 +239,7 @@ static void open_tty(const char *tty)
 //		cur_dir_fd = xopen(".", O_DIRECTORY | O_NONBLOCK);
 //		xchdir("/dev");
 //		xstat(tty, &st);
-//		if ((st.st_mode & S_IFMT) != S_IFCHR)
+//		if (!S_ISCHR(st.st_mode))
 //			bb_error_msg_and_die("%s: not a character device", tty);
 
 		if (tty[0] != '/')
@@ -483,7 +487,7 @@ static char *get_logname(char *logname, unsigned size_logname,
 			case CTL('D'):
 				exit(EXIT_SUCCESS);
 			default:
-				if (!isprint(ascval)) {
+				if (ascval < ' ') {
 					/* ignore garbage characters */
 				} else if ((int)(bp - logname) >= size_logname - 1) {
 					bb_error_msg_and_die("%s: input overrun", op->tty);
@@ -579,7 +583,7 @@ static void touch(const char *filename)
 }
 
 /* update_utmp - update our utmp entry */
-static void update_utmp(const char *line, char *fakehost)
+static NOINLINE void update_utmp(const char *line, char *fakehost)
 {
 	struct utmp ut;
 	struct utmp *utp;

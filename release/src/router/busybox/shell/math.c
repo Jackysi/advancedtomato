@@ -1,20 +1,17 @@
 /*
  * arithmetic code ripped out of ash shell for code sharing
  *
+ * This code is derived from software contributed to Berkeley by
+ * Kenneth Almquist.
+ *
+ * Original BSD copyright notice is retained at the end of this file.
+ *
  * Copyright (c) 1989, 1991, 1993, 1994
  *      The Regents of the University of California.  All rights reserved.
  *
  * Copyright (c) 1997-2005 Herbert Xu <herbert@gondor.apana.org.au>
  * was re-ported from NetBSD and debianized.
  *
- * This code is derived from software contributed to Berkeley by
- * Kenneth Almquist.
- *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
- *
- * Original BSD copyright notice is retained at the end of this file.
- */
-/*
  * rewrite arith.y to micro stack based cryptic algorithm by
  * Copyright (c) 2001 Aaron Lehmann <aaronl@vitelus.com>
  *
@@ -25,15 +22,9 @@
  * used in busybox and size optimizations,
  * rewrote arith (see notes to this), added locale support,
  * rewrote dynamic variables.
+ *
+ * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
  */
-#include "libbb.h"
-#include "math.h"
-
-#define a_e_h_t arith_eval_hooks_t
-#define lookupvar (math_hooks->lookupvar)
-#define setvar (math_hooks->setvar)
-#define endofname (math_hooks->endofname)
-
 /* Copyright (c) 2001 Aaron Lehmann <aaronl@vitelus.com>
 
    Permission is hereby granted, free of charge, to any person obtaining
@@ -100,7 +91,6 @@
  * whitespace chars should be considered.  Look below the "#include"s for a
  * precompiler test.
  */
-
 /*
  * Aug 26, 2001              Manuel Novoa III
  *
@@ -110,7 +100,6 @@
  * modified slightly to take account of my changes to the code.
  *
  */
-
 /*
  *  (C) 2003 Vladimir Oleynik <dzo@simtreas.ru>
  *
@@ -127,6 +116,13 @@
  * - protect $((num num)) as true zero expr (Manuel`s error)
  * - always use special isspace(), see comment from bash ;-)
  */
+#include "libbb.h"
+#include "math.h"
+
+#define a_e_h_t arith_eval_hooks_t
+#define lookupvar (math_hooks->lookupvar)
+#define setvar    (math_hooks->setvar   )
+#define endofname (math_hooks->endofname)
 
 #define arith_isspace(arithval) \
 	(arithval == ' ' || arithval == '\n' || arithval == '\t')
@@ -258,7 +254,7 @@ static int
 arith_lookup_val(v_n_t *t, a_e_h_t *math_hooks)
 {
 	if (t->var) {
-		const char * p = lookupvar(t->var);
+		const char *p = lookupvar(t->var);
 
 		if (p) {
 			int errcode;
@@ -293,7 +289,7 @@ arith_lookup_val(v_n_t *t, a_e_h_t *math_hooks)
 /* "applying" a token means performing it on the top elements on the integer
  * stack. For a unary operator it will only change the top element, but a
  * binary operator will pop two arguments and push a result */
-static int
+static NOINLINE int
 arith_apply(operator op, v_n_t *numstack, v_n_t **numstackptr, a_e_h_t *math_hooks)
 {
 	v_n_t *numptr_m1;
@@ -421,7 +417,7 @@ arith_apply(operator op, v_n_t *numstack, v_n_t **numstackptr, a_e_h_t *math_hoo
 		}
 		/* save to shell variable */
 		sprintf(buf, arith_t_fmt, rez);
-		setvar(numptr_m1->var, buf, 0);
+		setvar(numptr_m1->var, buf);
 		/* after saving, make previous value for v++ or v-- */
 		if (op == TOK_POST_INC)
 			rez--;
@@ -562,7 +558,11 @@ arith(const char *expr, int *perrcode, a_e_h_t *math_hooks)
 		}
 		if (isdigit(arithval)) {
 			numstackptr->var = NULL;
+			errno = 0;
+			/* call strtoul[l]: */
 			numstackptr->val = strto_arith_t(expr, (char **) &expr, 0);
+			if (errno)
+				numstackptr->val = 0; /* bash compat */
 			goto num;
 		}
 		for (p = op_tokens; ; p++) {
@@ -592,7 +592,7 @@ arith(const char *expr, int *perrcode, a_e_h_t *math_hooks)
 			lasttok = TOK_NUM;
 
 		/* Plus and minus are binary (not unary) _only_ if the last
-		 * token was as number, or a right paren (which pretends to be
+		 * token was a number, or a right paren (which pretends to be
 		 * a number, since it evaluates to one). Think about it.
 		 * It makes sense. */
 		if (lasttok != TOK_NUM) {
@@ -611,7 +611,7 @@ arith(const char *expr, int *perrcode, a_e_h_t *math_hooks)
 				break;
 			}
 		}
-		/* We don't want a unary operator to cause recursive descent on the
+		/* We don't want an unary operator to cause recursive descent on the
 		 * stack, because there can be many in a row and it could cause an
 		 * operator to be evaluated before its argument is pushed onto the
 		 * integer stack. */

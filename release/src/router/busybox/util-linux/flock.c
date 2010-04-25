@@ -18,7 +18,7 @@ int flock_main(int argc UNUSED_PARAM, char **argv)
 		OPT_c = (1 << 4),
 	};
 
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
         static const char getopt_longopts[] ALIGN1 =
 		"shared\0"      No_argument       "s"
 		"exclusive\0"   No_argument       "x"
@@ -52,7 +52,7 @@ int flock_main(int argc UNUSED_PARAM, char **argv)
 	if (argv[0]
 	 && argv[0][0] == '-'
 	 && (  (argv[0][1] == 'c' && !argv[0][2])
-	    || (ENABLE_GETOPT_LONG && strcmp(argv[0] + 1, "-command") == 0)
+	    || (ENABLE_LONG_OPTS && strcmp(argv[0] + 1, "-command") == 0)
 	    )
 	) {
 		argv++;

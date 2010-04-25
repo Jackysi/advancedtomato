@@ -97,7 +97,7 @@ static void xid_del(uint32_t xid)
  * p - pointer to the dhcp packet
  * returns the message type on success, -1 otherwise
  */
-static int get_dhcp_packet_type(struct dhcpMessage *p)
+static int get_dhcp_packet_type(struct dhcp_packet *p)
 {
 	uint8_t *op;
 
@@ -175,7 +175,7 @@ static int init_sockets(char **client_ifaces, int num_clients,
  * p - packet to send
  * client - number of the client
  */
-static void pass_to_server(struct dhcpMessage *p, int packet_len, int client, int *fds,
+static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, int *fds,
 			struct sockaddr_in *client_addr, struct sockaddr_in *server_addr)
 {
 	int res, type;
@@ -206,7 +206,7 @@ static void pass_to_server(struct dhcpMessage *p, int packet_len, int client, in
  * pass_to_client() - forwards dhcp packets from server to client
  * p - packet to send
  */
-static void pass_to_client(struct dhcpMessage *p, int packet_len, int *fds)
+static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 {
 	int res, type;
 	struct xid_item *item;
@@ -240,14 +240,14 @@ static void pass_to_client(struct dhcpMessage *p, int packet_len, int *fds)
 int dhcprelay_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int dhcprelay_main(int argc, char **argv)
 {
-	struct dhcpMessage dhcp_msg;
+	struct dhcp_packet dhcp_msg;
 	struct sockaddr_in server_addr;
 	struct sockaddr_in client_addr;
 	fd_set rfds;
 	char **client_ifaces;
 	int *fds;
 	int num_sockets, max_socket;
-	uint32_t our_ip;
+	uint32_t our_nip;
 
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(SERVER_PORT);
@@ -272,7 +272,7 @@ int dhcprelay_main(int argc, char **argv)
 	max_socket = init_sockets(client_ifaces, num_sockets, argv[2], fds);
 
 	/* Get our IP on server_iface */
-	if (udhcp_read_interface(argv[2], NULL, &our_ip, NULL))
+	if (udhcp_read_interface(argv[2], NULL, &our_nip, NULL))
 		return 1;
 
 	/* Main loop */
@@ -309,10 +309,10 @@ int dhcprelay_main(int argc, char **argv)
 
 				/* Get our IP on corresponding client_iface */
 //why? what if server can't route such IP?
-				if (udhcp_read_interface(client_ifaces[i-1], NULL, &dhcp_msg.giaddr, NULL)) {
+				if (udhcp_read_interface(client_ifaces[i-1], NULL, &dhcp_msg.gateway_nip, NULL)) {
 					/* Fall back to our server_iface's IP */
 //this makes more sense!
-					dhcp_msg.giaddr = our_ip;
+					dhcp_msg.gateway_nip = our_nip;
 				}
 //maybe set dhcp_msg.flags |= BROADCAST_FLAG too?
 				pass_to_server(&dhcp_msg, packlen, i, fds, &client_addr, &server_addr);

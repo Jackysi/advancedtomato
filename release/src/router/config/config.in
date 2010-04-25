@@ -22,7 +22,12 @@ config TCONFIG_CIFS
 	default y
 
 config TCONFIG_JFFS2
-	bool "JFFS2"
+	bool "JFFS Support"
+	default y
+
+config TCONFIG_JFFSV1
+	bool "  Use JFFSv1 (if not selected, JFFS2 is used)"
+	depends on TCONFIG_JFFS2
 	default y
 
 config TCONFIG_ZEBRA
@@ -38,7 +43,7 @@ config TCONFIG_L7
 	default y
 
 config TCONFIG_L7PAT
-	bool "Standard Layer 7 Patterns"
+	bool "  Standard Layer 7 Patterns"
 	depends on TCONFIG_L7
 	default y
 
@@ -57,31 +62,31 @@ config TCONFIG_USB
 	default y
 
 config TCONFIG_FTP
-	bool "FTP Server"
+	bool "  FTP Server"
 	depends on TCONFIG_USB
 	default y
 
 config TCONFIG_FTP_SSL
-	bool "FTP SSL Support"
+	bool "    FTP SSL Support"
 	depends on TCONFIG_USB && TCONFIG_FTP
 	default n
 
 config TCONFIG_SAMBASRV
-	bool "Samba File Sharing"
+	bool "  Samba File Sharing"
 	depends on TCONFIG_USB
 	default y
 
 config TCONFIG_SAMBA3
-       bool "  Compile with Samba 3"
+       bool "    Compile with Samba 3"
        depends on TCONFIG_SAMBASRV
        default n
 
 config TCONFIG_USB_EXTRAS
-	bool "Additional modules and utilities"
+	bool "  Additional modules and utilities"
 	depends on TCONFIG_USB
 	default n
 
 config TCONFIG_NTFS
-	bool "NTFS-3g Support"
+	bool "  NTFS-3g Support"
 	depends on TCONFIG_USB
 	default n

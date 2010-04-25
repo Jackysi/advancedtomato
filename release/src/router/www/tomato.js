@@ -1,6 +1,6 @@
 /*
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -354,15 +354,13 @@ var ferror = {
 
 function _v_range(e, quiet, min, max, name)
 {
-	var v;
-
 	if ((e = E(e)) == null) return 0;
-	v = e.value * 1;
-	if ((isNaN(v)) || (v < min) || (v > max)) {
+	var v = e.value;
+	if ((!v.match(/^ *\d+ *$/)) || (v < min) || (v > max)) {
 		ferror.set(e, 'Invalid ' + name + '. Valid range: ' + min + '-' + max, quiet);
 		return 0;
 	}
-	e.value = v;
+	e.value = v * 1;
 	ferror.clear(e);
 	return 1;
 }
@@ -635,17 +633,18 @@ function fixPort(p, def)
 	if (def == null) def = -1;
 	if (p == null) return def;
 	p *= 1;
-	if ((isNaN(p)) || (p < 1) || (p > 65535)) return def;
+	if ((isNaN(p) || (p < 1) || (p > 65535) || (('' + p).indexOf('.') != -1))) return def;
 	return p;
 }
 
 function _v_portrange(e, quiet, v)
 {
-	var x, y;
-
 	if (v.match(/^(.*)[-:](.*)$/)) {
-		x = fixPort(RegExp.$1, -1);
-		y = fixPort(RegExp.$2, -1);
+		var x = RegExp.$1;
+		var y = RegExp.$2;
+
+		x = fixPort(x, -1);
+		y = fixPort(y, -1);
 		if ((x == -1) || (y == -1)) {
 			ferror.set(e, 'Invalid port range: ' + v, quiet);
 			return null;
@@ -687,7 +686,7 @@ function v_iptport(e, quiet)
 
 	if ((e = E(e)) == null) return 0;
 
-	a = e.value.split(/,/);
+	a = e.value.split(/[,\.]/);
 
 	if (a.length == 0) {
 		ferror.set(e, 'Expecting a list of ports or port range.', quiet);
@@ -1117,8 +1116,19 @@ TomatoGrid.prototype = {
 
 	dataToView: function(data) {
 		var v = [];
-		for (var i = 0; i < data.length; ++i)
-			v.push(escapeHTML('' + data[i]));
+		for (var i = 0; i < data.length; ++i) {
+			var s = escapeHTML('' + data[i]);
+			if (this.editorFields && this.editorFields.length > i) {
+				var ef = this.editorFields[i].multi;
+				if (!ef) ef = [this.editorFields[i]];
+				var f = (ef && ef.length > 0 ? ef[0] : null);
+				if (f && f.type == 'password') {
+					if (!f.peekaboo || get_config('web_pb', '1') != '0')
+						s = s.replace(/./g, '&#x25CF;');
+				}
+			}
+			v.push(s);
+		}
 		return v;
 	},
 
@@ -1148,7 +1158,7 @@ TomatoGrid.prototype = {
 		this.source = sr;
 
 		er = this.createEditor('edit', sr.rowIndex, sr);
-        er.className = 'editor';
+		er.className = 'editor';
 		this.editor = er;
 
 		c = er.cells[cell.cellIndex || 0];
@@ -1181,7 +1191,7 @@ TomatoGrid.prototype = {
 		var vi = 0;
 		for (var i = 0; i < this.editorFields.length; ++i) {
 			var s = '';
-    		var ef = this.editorFields[i].multi;
+			var ef = this.editorFields[i].multi;
 			if (!ef) ef = [this.editorFields[i]];
 
 			for (var j = 0; j < ef.length; ++j) {
@@ -1189,9 +1199,24 @@ TomatoGrid.prototype = {
 
 				if (f.prefix) s += f.prefix;
 				var attrib = ' class="fi' + (vi + 1) + '" ' + (f.attrib || '');
+				var id = (this.tb ? ('_' + this.tb + '_' + (vi + 1)) : null);
+				if (id) attrib += ' id="' + id + '"';
 				switch (f.type) {
+				case 'password':
+					if (f.peekaboo) {
+						switch (get_config('web_pb', '1')) {
+						case '0':
+							f.type = 'text';
+						case '2':
+							f.peekaboo = 0;
+							break;
+						}
+					}
+					attrib += ' autocomplete="off"';
+					if (f.peekaboo && id) attrib += ' onfocus=\'peekaboo("' + id + '",1)\'';
+					// drop
 				case 'text':
-					s += '<input type="text" maxlength=' + f.maxlen + common + attrib;
+					s += '<input type="' + f.type + '" maxlength=' + f.maxlen + common + attrib;
 					if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
 						else s += '>';
 					break;
