@@ -1754,6 +1754,9 @@ static void tcp_mark_head_lost(struct sock *sk,
 	struct sk_buff *skb;
 	int cnt;
 
+	if (packets == 0)
+		return;
+
 	BUG_TRAP(packets <= tp->packets_out);
 	if (tp->lost_skb_hint) {
 		skb = tp->lost_skb_hint;
