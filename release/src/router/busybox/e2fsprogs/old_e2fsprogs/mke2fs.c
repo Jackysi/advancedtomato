@@ -1212,13 +1212,13 @@ int mke2fs_main (int argc, char **argv)
 	/*
 	 * Generate a UUID for it...
 	 */
-	uuid_generate(fs->super->s_uuid);
+	generate_uuid(fs->super->s_uuid);
 
 	/*
 	 * Initialize the directory index variables
 	 */
 	fs->super->s_def_hash_version = EXT2_HASH_TEA;
-	uuid_generate((unsigned char *) fs->super->s_hash_seed);
+	generate_uuid((uint8_t *) fs->super->s_hash_seed);
 
 	/*
 	 * Add "jitter" to the superblock's check interval so that we

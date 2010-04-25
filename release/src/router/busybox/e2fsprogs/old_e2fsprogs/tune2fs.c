@@ -298,7 +298,7 @@ static void update_feature_set(ext2_filsys fs, char *features)
 		if (!sb->s_def_hash_version)
 			sb->s_def_hash_version = EXT2_HASH_TEA;
 		if (uuid_is_null((unsigned char *) sb->s_hash_seed))
-			uuid_generate((unsigned char *) sb->s_hash_seed);
+			generate_uuid((unsigned char *) sb->s_hash_seed);
 	}
 
 	if (sb->s_rev_level == EXT2_GOOD_OLD_REV &&
@@ -694,10 +694,12 @@ int tune2fs_main(int argc, char **argv)
 		if ((strcasecmp(new_UUID, "null") == 0) ||
 		    (strcasecmp(new_UUID, "clear") == 0)) {
 			uuid_clear(sb->s_uuid);
+/*
 		} else if (strcasecmp(new_UUID, "time") == 0) {
 			uuid_generate_time(sb->s_uuid);
+*/
 		} else if (strcasecmp(new_UUID, "random") == 0) {
-			uuid_generate(sb->s_uuid);
+			generate_uuid(sb->s_uuid);
 		} else if (uuid_parse(new_UUID, sb->s_uuid)) {
 			bb_error_msg_and_die("Invalid UUID format");
 		}

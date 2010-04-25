@@ -1905,7 +1905,7 @@ static void e2fsck_journal_reset_super(e2fsck_t ctx, journal_superblock_t *jsb,
 	 * This avoids the need to zero the whole journal (slow to do,
 	 * and risky when we are just recovering the filesystem).
 	 */
-	uuid_generate(u.uuid);
+	generate_uuid((uint8_t *)u.uuid);
 	for (i = 0; i < 4; i ++)
 		new_seq ^= u.val[i];
 	jsb->s_sequence = htonl(new_seq);
@@ -11887,7 +11887,7 @@ static void check_super_block(e2fsck_t ctx)
 	 */
 	if (!(ctx->options & E2F_OPT_READONLY) && uuid_is_null(sb->s_uuid)) {
 		if (fix_problem(ctx, PR_0_ADD_UUID, &pctx)) {
-			uuid_generate(sb->s_uuid);
+			generate_uuid(sb->s_uuid);
 			ext2fs_mark_super_dirty(fs);
 			fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
 		}
