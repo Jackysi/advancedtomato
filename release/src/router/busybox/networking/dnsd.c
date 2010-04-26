@@ -45,7 +45,7 @@ struct dns_head {
 	uint16_t nadd;
 };
 /* Structure used to access type and class fields.
- * They are totally unaligned, but gcc 4.3.4 thinks thet pointer of type uint16_t*
+ * They are totally unaligned, but gcc 4.3.4 thinks that pointer of type uint16_t*
  * is 16-bit aligned and replaces 16-bit memcpy (in move_from_unaligned16 macro)
  * with aligned halfword access on arm920t!
  * Oh well. Slapping PACKED everywhere seems to help: */
