@@ -288,7 +288,7 @@ static int ingress_init(struct Qdisc *sch,struct rtattr *opt)
 	printk("You MUST compile classifier actions into the kernel\n");
 	return -EINVAL;
 #else
-	printk("Ingress scheduler: Classifier actions prefered over netfilter\n");
+//	printk("Ingress scheduler: Classifier actions prefered over netfilter\n");
 #endif
 #endif
 

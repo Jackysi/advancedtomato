@@ -291,9 +291,9 @@ struct sk_buff {
 #endif
 #ifdef CONFIG_NET_SCHED
 	__u16			tc_index;	/* traffic control index */
-#ifdef CONFIG_NET_CLS_ACT
+//#ifdef CONFIG_NET_CLS_ACT
 	__u16			tc_verd;	/* traffic control verdict */
-#endif
+//#endif
 #endif
 #ifdef CONFIG_NET_DMA
 	dma_cookie_t		dma_cookie;
