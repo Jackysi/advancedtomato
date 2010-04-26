@@ -853,8 +853,7 @@ struct tty_ldisc *tty_ldisc_ref_wait(struct tty_struct *tty)
 {
 	/* wait_event is a macro */
 	wait_event(tty_ldisc_wait, tty_ldisc_try(tty));
-	if(tty->ldisc.refcount == 0)
-		printk(KERN_ERR "tty_ldisc_ref_wait\n");
+	WARN_ON(tty->ldisc.refcount == 0);
 	return &tty->ldisc;
 }
 
@@ -913,15 +912,17 @@ EXPORT_SYMBOL_GPL(tty_ldisc_deref);
  *	@tty: terminal to activate ldisc on
  *
  *	Set the TTY_LDISC flag when the line discipline can be called
- *	again. Do neccessary wakeups for existing sleepers.
+ *	again. Do neccessary wakeups for existing sleepers. Clear the LDISC
+ *	changing flag to indicate any ldisc change is now over.
  *
- *	Note: nobody should set this bit except via this function. Clearing
- *	directly is allowed.
+ *	Note: nobody should set the TTY_LDISC bit except via this function.
+ *	Clearing directly is allowed.
  */
 
 static void tty_ldisc_enable(struct tty_struct *tty)
 {
 	set_bit(TTY_LDISC, &tty->flags);
+	clear_bit(TTY_LDISC_CHANGING, &tty->flags);
 	wake_up(&tty_ldisc_wait);
 }
 	
@@ -988,7 +989,14 @@ restart:
 	 *	reference to the line discipline. The TTY_LDISC bit
 	 *	prevents anyone taking a reference once it is clear.
 	 *	We need the lock to avoid racing reference takers.
+	 *
+	 *	We must clear the TTY_LDISC bit here to avoid a livelock
+	 *	with a userspace app continually trying to use the tty in
+	 *	parallel to the change and re-referencing the tty.
 	 */
+	clear_bit(TTY_LDISC, &tty->flags);
+	if (o_tty)
+		clear_bit(TTY_LDISC, &o_tty->flags);
 
 	spin_lock_irqsave(&tty_ldisc_lock, flags);
 	if (tty->ldisc.refcount || (o_tty && o_tty->ldisc.refcount)) {
@@ -1019,17 +1027,21 @@ restart:
 
 	/* if the TTY_LDISC bit is set, then we are racing against another ldisc change */
 
-	if (!test_bit(TTY_LDISC, &tty->flags)) {
+	if (test_bit(TTY_LDISC_CHANGING, &tty->flags)) {
 		spin_unlock_irqrestore(&tty_ldisc_lock, flags);
 		tty_ldisc_put(ldisc);
 		ld = tty_ldisc_ref_wait(tty);
 		tty_ldisc_deref(ld);
 		goto restart;
 	}
-
-	clear_bit(TTY_LDISC, &tty->flags);
+	/*
+	 *	This flag is used to avoid two parallel ldisc changes. Once
+	 *	open and close are fine grained locked this may work better
+	 *	as a mutex shared with the open/close/hup paths
+	 */
+	set_bit(TTY_LDISC_CHANGING, &tty->flags);
 	if (o_tty)
-		clear_bit(TTY_LDISC, &o_tty->flags);
+		set_bit(TTY_LDISC_CHANGING, &o_tty->flags);
 	spin_unlock_irqrestore(&tty_ldisc_lock, flags);
 
 	/*
