@@ -475,6 +475,8 @@ static int disable_periodic (struct ehci_hcd *ehci)
 	writel (cmd, &ehci->regs->command);
 	/* posted write ... */
 
+	free_cached_itd_list(ehci);
+
 	ehci->next_uframe = -1;
 	return 0;
 }
@@ -760,8 +762,10 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	if (status) {
 		/* "normal" case, uframing flexible except with splits */
 		if (qh->period) {
-			frame = qh->period - 1;
- 			do {
+			int             i;
+
+ 			for (i = qh->period; status && i > 0; --i) {
+ 				frame = ++ehci->random_frame % qh->period;
 				for (uframe = 0; uframe < 8; uframe++) {
 					status = check_intr_schedule (ehci,
 							frame, uframe, qh,
@@ -769,7 +773,7 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 					if (status == 0)
 						break;
 				}
-			} while (status && frame--);
+			}
 
 		/* qh->period == 0 means every uframe */
 		} else {
