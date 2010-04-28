@@ -356,7 +356,7 @@ function _v_range(e, quiet, min, max, name)
 {
 	if ((e = E(e)) == null) return 0;
 	var v = e.value;
-	if ((!v.match(/^ *\d+ *$/)) || (v < min) || (v > max)) {
+	if ((!v.match(/^ *[-\+]?\d+ *$/)) || (v < min) || (v > max)) {
 		ferror.set(e, 'Invalid ' + name + '. Valid range: ' + min + '-' + max, quiet);
 		return 0;
 	}
