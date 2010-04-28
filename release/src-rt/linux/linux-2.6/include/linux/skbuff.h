@@ -1164,7 +1164,7 @@ static inline int skb_network_offset(const struct sk_buff *skb)
  * The networking layer reserves some headroom in skb data (via
  * dev_alloc_skb). This is used to avoid having to reallocate skb data when
  * the header has to grow. In the default case, if the header has to grow
- * 16 bytes or less we avoid the reallocation.
+ * 32 bytes or less we avoid the reallocation.
  *
  * Unfortunately this headroom changes the DMA alignment of the resulting
  * network packet. As for NET_IP_ALIGN, this unaligned DMA is expensive
@@ -1172,14 +1172,14 @@ static inline int skb_network_offset(const struct sk_buff *skb)
  * perhaps setting it to a cacheline in size (since that will maintain
  * cacheline alignment of the DMA). It must be a power of 2.
  *
- * Various parts of the networking layer expect at least 16 bytes of
+ * Various parts of the networking layer expect at least 32 bytes of
  * headroom, you should not reduce this.
  *
  * This has been changed to 64 to acommodate for routing between ethernet
  * and wireless, but only for new allocations
  */
 #ifndef NET_SKB_PAD
-#define NET_SKB_PAD	16
+#define NET_SKB_PAD	32
 #endif
 
 #ifndef NET_SKB_PAD_ALLOC
@@ -1348,6 +1348,22 @@ static inline int skb_clone_writable(struct sk_buff *skb, int len)
 	       skb_headroom(skb) + len <= skb->hdr_len;
 }
 
+static inline int __skb_cow(struct sk_buff *skb, unsigned int headroom,
+			    int cloned)
+{
+	int delta = 0;
+
+	if (headroom < NET_SKB_PAD)
+		headroom = NET_SKB_PAD;
+	if (headroom > skb_headroom(skb))
+		delta = headroom - skb_headroom(skb);
+
+	if (delta || cloned)
+		return pskb_expand_head(skb, ALIGN(delta, NET_SKB_PAD_ALLOC), 0,
+					GFP_ATOMIC);
+	return 0;
+}
+
 /**
  *	skb_cow - copy header of skb when it is required
  *	@skb: buffer to cow
@@ -1362,16 +1378,22 @@ static inline int skb_clone_writable(struct sk_buff *skb, int len)
  */
 static inline int skb_cow(struct sk_buff *skb, unsigned int headroom)
 {
-	int delta = (headroom > NET_SKB_PAD ? headroom : NET_SKB_PAD) -
-			skb_headroom(skb);
+	return __skb_cow(skb, headroom, skb_cloned(skb));
+}
 
-	if (delta < 0)
-		delta = 0;
-
-	if (delta || skb_cloned(skb))
-		return pskb_expand_head(skb, (delta + (NET_SKB_PAD_ALLOC-1)) &
-				~(NET_SKB_PAD_ALLOC-1), 0, GFP_ATOMIC);
-	return 0;
+/**
+ *	skb_cow_head - skb_cow but only making the head writable
+ *	@skb: buffer to cow
+ *	@headroom: needed headroom
+ *
+ *	This function is identical to skb_cow except that we replace the
+ *	skb_cloned check by skb_header_cloned.  It should be used when
+ *	you only need to push on some header and do not need to modify
+ *	the data.
+ */
+static inline int skb_cow_head(struct sk_buff *skb, unsigned int headroom)
+{
+	return __skb_cow(skb, headroom, skb_header_cloned(skb));
 }
 
 /**
