@@ -57,6 +57,10 @@ config TCONFIG_OPENVPN
 	default n
 
 # !!TB
+config TCONFIG_EBTABLES
+	bool "Ebtables"
+	default n
+
 config TCONFIG_USB
 	bool "USB Support"
 	default y
