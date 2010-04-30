@@ -1656,7 +1656,7 @@ static void uhci_transfer_result(struct uhci *uhci, struct urb *urb)
 		break;
 	case PIPE_INTERRUPT:
 		/* Interrupts are an exception */
-		if (urb->interval)
+		if (urb->interval && !(URB_NO_RESUBMIT & urb->transfer_flags))
 			goto out_complete;
 
 		/* Release bandwidth for Interrupt or Isoc. transfers */
@@ -2319,6 +2319,7 @@ static void uhci_call_completion(struct urb *urb)
 	killed = (urb->status == -ENOENT || urb->status == -ECONNABORTED ||
 			urb->status == -ECONNRESET);
 	resubmit_interrupt = (usb_pipetype(urb->pipe) == PIPE_INTERRUPT &&
+			!(URB_NO_RESUBMIT & urb->transfer_flags) &&
 			urb->interval);
 
 	nurb = urb->next;

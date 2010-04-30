@@ -261,7 +261,8 @@ ehci_urb_done (struct ehci_hcd *ehci, struct urb *urb)
 
 #ifdef	INTR_AUTOMAGIC
 	if (resubmit && ((urb->status == -ENOENT)
-				|| (urb->status == -ECONNRESET))) {
+				|| (urb->status == -ECONNRESET)
+				|| (urb->transfer_flags & URB_NO_RESUBMIT))) {
 		usb_put_urb (resubmit);
 		resubmit = 0;
 	}
