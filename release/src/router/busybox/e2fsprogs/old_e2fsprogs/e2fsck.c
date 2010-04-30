@@ -1000,8 +1000,6 @@ static void e2fsck_free_context(e2fsck_t ctx)
 		return;
 
 	e2fsck_reset_context(ctx);
-	if (ctx->blkid)
-		blkid_put_cache(ctx->blkid);
 
 	ext2fs_free_mem(&ctx);
 }
@@ -1646,11 +1644,10 @@ static errcode_t e2fsck_get_journal(e2fsck_t ctx, journal_t **ret_journal)
 		if (!ctx->journal_name) {
 			char uuid[37];
 
-			uuid_unparse(sb->s_journal_uuid, uuid);
-			ctx->journal_name = blkid_get_devname(ctx->blkid,
-							      "UUID", uuid);
+			unparse_uuid(sb->s_journal_uuid, uuid);
+			ctx->journal_name = get_devname_from_uuid(uuid);
 			if (!ctx->journal_name)
-				ctx->journal_name = blkid_devno_to_devname(sb->s_journal_dev);
+				ctx->journal_name = get_devname_from_device(sb->s_journal_dev);
 		}
 		journal_name = ctx->journal_name;
 
@@ -1875,7 +1872,7 @@ static void e2fsck_journal_reset_super(e2fsck_t ctx, journal_superblock_t *jsb,
 {
 	char *p;
 	union {
-		uuid_t uuid;
+		__u8  uuid[16];
 		__u32 val[4];
 	} u;
 	__u32 new_seq = 0;
@@ -1905,7 +1902,7 @@ static void e2fsck_journal_reset_super(e2fsck_t ctx, journal_superblock_t *jsb,
 	 * This avoids the need to zero the whole journal (slow to do,
 	 * and risky when we are just recovering the filesystem).
 	 */
-	generate_uuid((uint8_t *)u.uuid);
+	generate_uuid(u.uuid);
 	for (i = 0; i < 4; i ++)
 		new_seq ^= u.val[i];
 	jsb->s_sequence = htonl(new_seq);
@@ -12187,10 +12184,9 @@ static void swap_filesys(e2fsck_t ctx)
 
 
 void *e2fsck_allocate_memory(e2fsck_t ctx EXT2FS_ATTR((unused)), unsigned int size,
-			     const char *description)
+			     const char *description EXT2FS_ATTR((unused)))
 {
 	void *ret;
-	char buf[256];
 
 	ret = xzalloc(size);
 	return ret;
@@ -12986,7 +12982,6 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 	}
 	memset(bar, '=', sizeof(bar)-1);
 	memset(spaces, ' ', sizeof(spaces)-1);
-	blkid_get_cache(&ctx->blkid, NULL);
 
 	if (argc && *argv)
 		ctx->program_name = *argv;
@@ -13108,8 +13103,9 @@ static errcode_t PRS(int argc, char **argv, e2fsck_t *ret_ctx)
 	ctx->io_options = strchr(argv[optind], '?');
 	if (ctx->io_options)
 		*ctx->io_options++ = 0;
-	ctx->filesystem_name = blkid_get_devname(ctx->blkid, argv[optind], 0);
-	if (!ctx->filesystem_name) {
+	ctx->filesystem_name = argv[optind];
+	if (resolve_mount_spec(&ctx->filesystem_name) < 0 ||
+	    !ctx->filesystem_name) {
 		bb_error_msg_and_die(_("Unable to resolve '%s'"), argv[optind]);
 	}
 	if (extended_opts)

@@ -10,4 +10,5 @@ NEEDED-$(CONFIG_MKE2FS) = y
 NEEDED-$(CONFIG_TUNE2FS) = y
 
 lib-y:=
-lib-$(NEEDED-y) += pack.o parse.o unparse.o
+lib-$(NEEDED-y) += compare.o gen_uuid.o pack.o parse.o unpack.o unparse.o \
+                   uuid_time.o

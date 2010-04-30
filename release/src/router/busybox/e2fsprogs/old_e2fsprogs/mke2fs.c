@@ -29,7 +29,7 @@
 
 #include "e2fsbb.h"
 #include "ext2fs/ext2_fs.h"
-#include "uuid/uuid.h"
+#include "../e2fs_lib.h"
 #include "e2p/e2p.h"
 #include "ext2fs/ext2fs.h"
 #include "util.h"
