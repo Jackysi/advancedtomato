@@ -65,8 +65,9 @@ struct ehci_hcd {			/* one per controller */
 	int			next_uframe;	/* scan periodic, start here */
 	unsigned		periodic_sched;	/* periodic activity count */
 
-	/* list of itds completed while clock_frame was still active */
+	/* list of itds & sitds completed while clock_frame was still active */
 	struct list_head	cached_itd_list;
+	struct list_head	cached_sitd_list;
 	unsigned		clock_frame;
 
 	/* per root hub port */
@@ -178,7 +179,7 @@ timer_action (struct ehci_hcd *ehci, enum ehci_timer_action action)
 	}
 }
 
-static void free_cached_itd_list(struct ehci_hcd *ehci);
+static void free_cached_lists(struct ehci_hcd *ehci);
 
 /*-------------------------------------------------------------------------*/
 

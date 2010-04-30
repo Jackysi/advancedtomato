@@ -491,6 +491,7 @@ static int ehci_start (struct usb_hcd *hcd)
 	 */
 	ehci->periodic_size = DEFAULT_I_TDPS;
 	INIT_LIST_HEAD(&ehci->cached_itd_list);
+	INIT_LIST_HEAD(&ehci->cached_sitd_list);
 	if ((retval = ehci_mem_init (ehci, SLAB_KERNEL)) < 0)
 		return retval;
 
