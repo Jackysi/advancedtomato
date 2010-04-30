@@ -1078,9 +1078,9 @@ static void do_start_stop_samba(int stop, int start)
 		" server string = %s\n"
 		" guest account = nobody\n"
 		" security = %s\n"
-		" browseable = yes\n"
-		" guest ok = yes\n"
+		" guest ok = %s\n"
 		" guest only = no\n"
+		" browseable = yes\n"
 		" log level = %d\n"
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
@@ -1094,6 +1094,7 @@ static void do_start_stop_samba(int stop, int start)
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
 		mode == 2 ? "user" : "share",
+		mode == 2 ? "no" : "yes",	// guest ok
 		nvram_get_int("smbd_loglevel")
 	);
 
