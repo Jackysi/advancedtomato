@@ -311,6 +311,42 @@ static int check_nv(const char *name, const char *value)
 	return 0;
 }
 
+static int find_dir320_mac_addr()
+{
+	FILE *fp;
+	char *buffer, s[18];
+	int i, part, size, found = 0;
+
+	if (!mtd_getinfo("board_data", &part, &size)) return 0;
+	sprintf(s, MTD_DEV(%d), part);
+
+	fp = fopen(s, "rb");
+	if (fp != NULL) {
+		buffer = malloc(size);
+		memset(buffer, 0, size);
+		fread(buffer, size, 1, fp);
+		if (!memcmp(buffer, "RGCFG1", 6)) {
+			for (i = 6; i < size - 24; i++) {
+				if (!memcmp(buffer + i, "lanmac=", 7)) {
+					memcpy(s, buffer + i + 7, 17);
+					s[17] = 0;
+					nvram_set("il0macaddr", s);
+				}
+				else if (!memcmp(buffer + i, "wanmac=", 7)) {
+					memcpy(s, buffer + i + 7, 17);
+					s[17] = 0;
+					nvram_set("et0macaddr", s);
+					found = 1;
+				}
+			}
+		}
+		free(buffer);
+	}
+	fclose(fp);
+
+	return (found);
+}
+
 static void check_bootnv(void)
 {
 	int dirty;
@@ -350,8 +386,10 @@ static void check_bootnv(void)
 		break;
 	case MODEL_DIR320:
 		if (strlen(nvram_safe_get("et0macaddr")) == 12) {
-			// goofy et0macaddr, make something up
-			nvram_set("et0macaddr", "00:90:4c:c0:00:01");
+			if (!find_dir320_mac_addr()) {
+				// goofy et0macaddr, make something up
+				nvram_set("et0macaddr", "00:90:4c:c0:00:01");
+			}
 			dirty = 1;
 		}
 		if (nvram_get("vlan2ports") != NULL) {
