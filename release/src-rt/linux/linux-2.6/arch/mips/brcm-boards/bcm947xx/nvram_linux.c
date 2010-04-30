@@ -43,7 +43,7 @@
 static char nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
 static char *nvram_commit_buf = NULL;
 
-#define CFE_UPDATE 1 // added by Chen-I for mac/regulation update
+//#define CFE_UPDATE  // added by Chen-I for mac/regulation update
 #ifdef CFE_UPDATE
 //#include <sbextif.h>
 
@@ -72,7 +72,7 @@ static int cfe_commit(void);
 #endif
 
 
-#define WPS	1
+#define WPS	0
 
 #ifdef MODULE
 
@@ -522,8 +522,10 @@ nvram_set(const char *name, const char *value)
 	unsigned long flags;
 	int ret;
 	struct nvram_header *header;
+#if WPS
 	char wps_name[32];
 	int wep_len;
+#endif
 
 	spin_lock_irqsave(&nvram_lock, flags);
 
