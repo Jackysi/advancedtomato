@@ -1,6 +1,6 @@
 /*
  * Linux usbfs backend for libusb
- * Copyright (C) 2007-2008 Daniel Drake <dsd@gentoo.org>
+ * Copyright (C) 2007-2009 Daniel Drake <dsd@gentoo.org>
  * Copyright (c) 2001 Johannes Erdfelt <johannes@erdfelt.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -31,6 +31,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "libusb.h"
@@ -70,6 +71,20 @@
  */
 
 static const char *usbfs_path = NULL;
+
+/* Linux 2.6.32 adds support for a bulk continuation URB flag. this should
+ * be set on all URBs in the transfer except the first. also set the
+ * SHORT_NOT_OK flag on all of them, to raise error conditions on short
+ * transfers.
+ * then, on any error except a cancellation, all URBs until the next
+ * non-continuation URB will be cancelled with the endpoint disabled,
+ * meaning that no more data can creep in during the time it takes us to
+ * cancel the remaining URBs. */
+static int supports_flag_bulk_continuation = -1;
+
+/* clock ID for monotonic clock, as not all clock sources are available on all
+ * systems. appropriate choice made at initialization time. */
+static clockid_t monotonic_clkid = -1;
 
 /* do we have a busnum to relate devices? this also implies that we can read
  * the active configuration through bConfigurationValue */
@@ -172,6 +187,41 @@ static const char *find_usbfs_path(void)
 	return ret;
 }
 
+/* the monotonic clock is not usable on all systems (e.g. embedded ones often
+ * seem to lack it). fall back to REALTIME if we have to. */
+static clockid_t find_monotonic_clock(void)
+{
+	struct timespec ts;
+	int r;
+
+	/* Linux 2.6.28 adds CLOCK_MONOTONIC_RAW but we don't use it
+	 * because it's not available through timerfd */
+	r = clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (r == 0) {
+		return CLOCK_MONOTONIC;
+	} else {
+		usbi_dbg("monotonic clock doesn't work, errno %d", errno);
+		return CLOCK_REALTIME;
+	}
+}
+
+/* bulk continuation URB flag available from Linux 2.6.32 */
+static int check_flag_bulk_continuation(void)
+{
+	struct utsname uts;
+	int sublevel;
+
+	if (uname(&uts) < 0)
+		return -1;
+	if (strlen(uts.release) < 4)
+		return 0;
+	if (strncmp(uts.release, "2.6.", 4) != 0)
+		return 0;
+
+	sublevel = atoi(uts.release + 4);
+	return sublevel >= 32;
+}
+
 static int op_init(struct libusb_context *ctx)
 {
 	struct stat statbuf;
@@ -182,6 +232,20 @@ static int op_init(struct libusb_context *ctx)
 		usbi_err(ctx, "could not find usbfs");
 		return LIBUSB_ERROR_OTHER;
 	}
+
+	if (monotonic_clkid == -1)
+		monotonic_clkid = find_monotonic_clock();
+
+	if (supports_flag_bulk_continuation == -1) {
+		supports_flag_bulk_continuation = check_flag_bulk_continuation();
+		if (supports_flag_bulk_continuation == -1) {
+			usbi_err(ctx, "error checking for bulk continuation support");
+			return LIBUSB_ERROR_OTHER;
+		}
+	}
+
+	if (supports_flag_bulk_continuation)
+		usbi_dbg("bulk continuation flag supported");
 
 	r = stat(SYSFS_DEVICE_PATH, &statbuf);
 	if (r == 0 && S_ISDIR(statbuf.st_mode)) {
@@ -317,7 +381,8 @@ static int sysfs_get_active_config(struct libusb_device *dev, int *config)
 
 /* takes a usbfs/descriptors fd seeked to the start of a configuration, and
  * seeks to the next one. */
-static int seek_to_next_config(struct libusb_context *ctx, int fd)
+static int seek_to_next_config(struct libusb_context *ctx, int fd,
+	int host_endian)
 {
 	struct libusb_config_descriptor config;
 	unsigned char tmp[6];
@@ -335,7 +400,7 @@ static int seek_to_next_config(struct libusb_context *ctx, int fd)
 	}
 
 	/* seek forward to end of config */
-	usbi_parse_descriptor(tmp, "bbwbb", &config, 1);
+	usbi_parse_descriptor(tmp, "bbwbb", &config, host_endian);
 	off = lseek(fd, config.wTotalLength - sizeof(tmp), SEEK_CUR);
 	if (off < 0) {
 		usbi_err(ctx, "seek failed ret=%d errno=%d", off, errno);
@@ -412,7 +477,7 @@ static int sysfs_get_active_config_descriptor(struct libusb_device *dev,
 		if (off < 0)
 			return LIBUSB_ERROR_IO;
 
-		r = seek_to_next_config(DEVICE_CTX(dev), fd);
+		r = seek_to_next_config(DEVICE_CTX(dev), fd, 1);
 		if (r < 0)
 			return r;
 	}
@@ -467,7 +532,7 @@ static int get_config_descriptor(struct libusb_context *ctx, int fd,
 	/* might need to skip some configuration descriptors to reach the
 	 * requested configuration */
 	while (config_index > 0) {
-		r = seek_to_next_config(ctx, fd);
+		r = seek_to_next_config(ctx, fd, 0);
 		if (r < 0)
 			return r;
 		config_index--;
@@ -542,7 +607,7 @@ static int cache_active_config(struct libusb_device *dev, int fd,
 		return r;
 	}
 
-	usbi_parse_descriptor(tmp, "bbw", &config, 1);
+	usbi_parse_descriptor(tmp, "bbw", &config, 0);
 	buf = malloc(config.wTotalLength);
 	if (!buf)
 		return LIBUSB_ERROR_NO_MEM;
@@ -1300,12 +1365,17 @@ static int submit_bulk_transfer(struct usbi_transfer *itransfer,
 		urb->type = urb_type;
 		urb->endpoint = transfer->endpoint;
 		urb->buffer = transfer->buffer + (i * MAX_BULK_BUFFER_LENGTH);
+		if (supports_flag_bulk_continuation)
+			urb->flags = USBFS_URB_SHORT_NOT_OK;
 		if (i == num_urbs - 1 && last_urb_partial)
 			urb->buffer_length = transfer->length % MAX_BULK_BUFFER_LENGTH;
 		else if (transfer->length == 0)
 			urb->buffer_length = 0;
 		else
 			urb->buffer_length = MAX_BULK_BUFFER_LENGTH;
+
+		if (i > 0 && supports_flag_bulk_continuation)
+			urb->flags |= USBFS_URB_BULK_CONTINUATION;
 
 		r = ioctl(dpriv->fd, IOCTL_USBFS_SUBMITURB, urb);
 		if (r < 0) {
@@ -1704,11 +1774,22 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
 	int num_urbs = tpriv->num_urbs;
 	int urb_idx = urb - tpriv->urbs;
 	enum libusb_transfer_status status = LIBUSB_TRANSFER_COMPLETED;
+	int r = 0;
 
+	pthread_mutex_lock(&itransfer->lock);
 	usbi_dbg("handling completion status %d of bulk urb %d/%d", urb->status,
 		urb_idx + 1, num_urbs);
 
 	tpriv->num_retired++;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	/* Workaround for 2.4 UHCI interrupt transfers */
+	if ((urb->status == -ECONNABORTED || urb->status == -ECONNRESET) &&
+			urb->type == USBFS_URB_TYPE_INTERRUPT &&
+			urb->actual_length > 0) {
+		urb->status = 0;
+	}
+#endif
 
 	if (tpriv->reap_action != NORMAL) {
 		/* cancelled, submit_fail, or completed early */
@@ -1748,26 +1829,18 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
 			if (tpriv->reap_action == CANCELLED) {
 				free(tpriv->urbs);
 				tpriv->urbs = NULL;
-				usbi_handle_transfer_cancellation(itransfer);
-				return 0;
+				pthread_mutex_unlock(&itransfer->lock);
+				r = usbi_handle_transfer_cancellation(itransfer);
+				goto out_unlock;
 			}
 			if (tpriv->reap_action != COMPLETED_EARLY)
 				status = LIBUSB_TRANSFER_ERROR;
-			goto out;
+			goto completed;
 		}
-		return 0;
+		goto out_unlock;
 	}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	/* Workaround for 2.4 UHCI interrupt transfers */
-	if ((urb->status == -ECONNABORTED || urb->status == -ECONNRESET) &&
-			urb->type == USBFS_URB_TYPE_INTERRUPT &&
-			urb->actual_length > 0) {
-		urb->status = 0;
-	}
-#endif
-
-	if (urb->status == 0 ||
+	if (urb->status == 0 || urb->status == -EREMOTEIO ||
 			(urb->status == -EOVERFLOW && urb->actual_length > 0))
 		itransfer->transferred += urb->actual_length;
 
@@ -1775,26 +1848,28 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
 	switch (urb->status) {
 	case 0:
 		break;
+	case -EREMOTEIO: /* short transfer */
+		break;
 	case -EPIPE:
 		usbi_dbg("detected endpoint stall");
 		status = LIBUSB_TRANSFER_STALL;
-		goto out;
+		goto completed;
 	case -EOVERFLOW:
 		/* overflow can only ever occur in the last urb */
 		usbi_dbg("overflow, actual_length=%d", urb->actual_length);
 		status = LIBUSB_TRANSFER_OVERFLOW;
-		goto out;
+		goto completed;
 	case -ETIME:
 	case -EPROTO:
 	case -EILSEQ:
 		usbi_dbg("low level error %d", urb->status);
 		status = LIBUSB_TRANSFER_ERROR;
-		goto out;
+		goto completed;
 	default:
 		usbi_warn(ITRANSFER_CTX(itransfer),
 			"unrecognised urb status %d", urb->status);
 		status = LIBUSB_TRANSFER_ERROR;
-		goto out;
+		goto completed;
 	}
 
 	/* if we're the last urb or we got less data than requested then we're
@@ -1815,21 +1890,28 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
 		 * before reporting results */
 		tpriv->reap_action = COMPLETED_EARLY;
 		for (i = urb_idx + 1; i < tpriv->num_urbs; i++) {
-			int r = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, &tpriv->urbs[i]);
-			if (r && errno != EINVAL)
+			/* remaining URBs with continuation flag are automatically
+			 * cancelled by the kernel */
+			if (tpriv->urbs[i].flags & USBFS_URB_BULK_CONTINUATION)
+				continue;
+			int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, &tpriv->urbs[i]);
+			if (tmp && errno != EINVAL)
 				usbi_warn(TRANSFER_CTX(transfer),
 					"unrecognised discard errno %d", errno);
 		}
-		return 0;
+		goto out_unlock;
 	} else {
-		return 0;
+		goto out_unlock;
 	}
 
-out:
+completed:
 	free(tpriv->urbs);
 	tpriv->urbs = NULL;
-	usbi_handle_transfer_completion(itransfer, status);
-	return 0;
+	pthread_mutex_unlock(&itransfer->lock);
+	return usbi_handle_transfer_completion(itransfer, status);
+out_unlock:
+	pthread_mutex_unlock(&itransfer->lock);
+	return r;
 }
 
 static int handle_iso_completion(struct usbi_transfer *itransfer,
@@ -1842,6 +1924,7 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 	int urb_idx = 0;
 	int i;
 
+	pthread_mutex_lock(&itransfer->lock);
 	for (i = 0; i < num_urbs; i++) {
 		if (urb == tpriv->iso_urbs[i]) {
 			urb_idx = i + 1;
@@ -1850,6 +1933,7 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 	}
 	if (urb_idx == 0) {
 		usbi_err(TRANSFER_CTX(transfer), "could not locate urb!");
+		pthread_mutex_unlock(&itransfer->lock);
 		return LIBUSB_ERROR_NOT_FOUND;
 	}
 
@@ -1876,13 +1960,16 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 		if (tpriv->num_retired == num_urbs) {
 			usbi_dbg("CANCEL: last URB handled, reporting");
 			free_iso_urbs(tpriv);
-			if (tpriv->reap_action == CANCELLED)
-				usbi_handle_transfer_cancellation(itransfer);
-			else
-				usbi_handle_transfer_completion(itransfer,
+			if (tpriv->reap_action == CANCELLED) {
+				pthread_mutex_unlock(&itransfer->lock);
+				return usbi_handle_transfer_cancellation(itransfer);
+			} else {
+				pthread_mutex_unlock(&itransfer->lock);
+				return usbi_handle_transfer_completion(itransfer,
 					LIBUSB_TRANSFER_ERROR);
+			}
 		}
-		return 0;
+		goto out;
 	}
 
 	switch (urb->status) {
@@ -1904,9 +1991,12 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 	if (urb_idx == num_urbs) {
 		usbi_dbg("last URB in transfer --> complete!");
 		free_iso_urbs(tpriv);
-		usbi_handle_transfer_completion(itransfer, LIBUSB_TRANSFER_COMPLETED);
+		pthread_mutex_unlock(&itransfer->lock);
+		return usbi_handle_transfer_completion(itransfer, LIBUSB_TRANSFER_COMPLETED);
 	}
 
+out:
+	pthread_mutex_unlock(&itransfer->lock);
 	return 0;
 }
 
@@ -1916,6 +2006,7 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
 	struct linux_transfer_priv *tpriv = usbi_transfer_get_os_priv(itransfer);
 	int status;
 
+	pthread_mutex_lock(&itransfer->lock);
 	usbi_dbg("handling completion status %d", urb->status);
 
 	if (urb->status == 0)
@@ -1927,8 +2018,8 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
 				"cancel: unrecognised urb status %d", urb->status);
 		free(tpriv->urbs);
 		tpriv->urbs = NULL;
-		usbi_handle_transfer_cancellation(itransfer);
-		return 0;
+		pthread_mutex_unlock(&itransfer->lock);
+		return usbi_handle_transfer_cancellation(itransfer);
 	}
 
 	switch (urb->status) {
@@ -1955,8 +2046,8 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
 
 	free(tpriv->urbs);
 	tpriv->urbs = NULL;
-	usbi_handle_transfer_completion(itransfer, status);
-	return 0;
+	pthread_mutex_unlock(&itransfer->lock);
+	return usbi_handle_transfer_completion(itransfer, status);
 }
 
 static int reap_for_handle(struct libusb_device_handle *handle)
@@ -2045,15 +2136,21 @@ static int op_clock_gettime(int clk_id, struct timespec *tp)
 {
 	switch (clk_id) {
 	case USBI_CLOCK_MONOTONIC:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-		return clock_gettime(CLOCK_MONOTONIC, tp);
-#endif
+		return clock_gettime(monotonic_clkid, tp);
 	case USBI_CLOCK_REALTIME:
 		return clock_gettime(CLOCK_REALTIME, tp);
 	default:
 		return LIBUSB_ERROR_INVALID_PARAM;
   }
 }
+
+#ifdef USBI_TIMERFD_AVAILABLE
+static clockid_t op_get_timerfd_clockid(void)
+{
+	return monotonic_clkid;
+
+}
+#endif
 
 const struct usbi_os_backend linux_usbfs_backend = {
 	.name = "Linux usbfs",
@@ -2088,6 +2185,10 @@ const struct usbi_os_backend linux_usbfs_backend = {
 	.handle_events = op_handle_events,
 
 	.clock_gettime = op_clock_gettime,
+
+#ifdef USBI_TIMERFD_AVAILABLE
+	.get_timerfd_clockid = op_get_timerfd_clockid,
+#endif
 
 	.device_priv_size = sizeof(struct linux_device_priv),
 	.device_handle_priv_size = sizeof(struct linux_device_handle_priv),
