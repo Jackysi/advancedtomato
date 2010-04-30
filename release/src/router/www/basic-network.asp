@@ -733,6 +733,7 @@ function save()
 	fom.wl_nreqd.value = 0;
 	fom.wl_nmcsidx.value = -2; // Legacy Rate
 	fom.wl_nbw.value = 0;
+	fom.wl_obss_coex.value = 0;
 	switch (fom.wl_net_mode.value) {
 	case 'b-only':
 		fom.wl_gmode.value = 0;
@@ -753,16 +754,17 @@ function save()
 		break;
 	}
 	if (fom.wl_nmode.value != 0) {
-		fom.wl_nbw.value = 40;
 		i = fom.wl_channel.value * 1;
 		if (fom.wl_nbw_cap.value == 0) {
 			fom.wl_nctrlsb.value = 'none';
 			fom.wl_nbw.value = 20;
+		} 
+		else {
+			fom.wl_nctrlsb.value = ((i >= 0) && (i < 5)) ? 'lower' : 'upper';
+			fom.wl_nbw.value = 40;
+			if (fom.wl_nreqd.value == 1)
+				fom.wl_obss_coex.value = 1;
 		}
-		else if ((i > 0) && (i < 5))
-			fom.wl_nctrlsb.value = 'lower';
-		else
-			fom.wl_nctrlsb.value = 'upper';
 	}
 
 	fom.wl_gmode.disabled = fom.wl_net_mode.disabled;
@@ -829,6 +831,7 @@ function save()
 <input type='hidden' name='wl_nreqd'>
 <input type='hidden' name='wl_nctrlsb'>
 <input type='hidden' name='wl_nbw'>
+<input type='hidden' name='wl_obss_coex'>
 
 
 <div class='section-title'>WAN / Internet</div>
