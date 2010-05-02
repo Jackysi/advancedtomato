@@ -780,9 +780,6 @@ void start_wan_done(char *wan_ifname)
 	stop_zebra();
 	start_zebra();
 
-	stop_upnp();
-	start_upnp();
-
 	wanup = check_wanup();
 	
 	if ((wanup) || (time(0) < Y2K)) {
@@ -794,6 +791,9 @@ void start_wan_done(char *wan_ifname)
 		stop_ddns();
 		start_ddns();
 	}
+
+	stop_upnp();
+	start_upnp();
 
 	if (wanup) {
 		SET_LED(GOT_IP);
