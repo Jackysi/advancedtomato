@@ -91,7 +91,7 @@ struct parport_splink_device_info {
 	char description[MAX_DESCRIPT];
 };
 
-char *strunknown="unknown"; // Added by JYWeng 20031212:
+static char *strunknown="unknown"; // Added by JYWeng 20031212:
 static void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data);// Added by JYWeng 20031212:
 
 static ssize_t usblp_write(struct file *file, const char *buffer, size_t count, loff_t *ppos);
