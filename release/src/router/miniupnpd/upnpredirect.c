@@ -435,8 +435,8 @@ remove_unused_rules(struct rule_state * list)
 		{
 			if(packets == list->packets && bytes == list->bytes)
 			{
-				_upnp_delete_redir(list->eport, list->proto);
-				n++;
+				if(_upnp_delete_redir(list->eport, list->proto) >= 0)
+					n++;
 			}
 		}
 		tmp = list;

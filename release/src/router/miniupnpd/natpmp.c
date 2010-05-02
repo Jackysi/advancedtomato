@@ -307,17 +307,22 @@ int ScanNATPMPforExpiration()
 int CleanExpiredNATPMP()
 {
 	char desc[64];
+	unsigned timestamp;
 	unsigned short iport;
 	if(get_redirect_rule(ext_if_name, nextnatpmptoclean_eport,
 	                     nextnatpmptoclean_proto,
 	                     0, 0,
 	                     &iport, desc, sizeof(desc), 0, 0) < 0)
 		return ScanNATPMPforExpiration();
-	/* TODO: check desc */
+	/* check desc - this is important since we keep expiration time as part of the desc */
+	if(sscanf(desc, "NAT-PMP %u", &timestamp) == 1) {
+		if(timestamp > nextnatpmptoclean_timestamp)
+			return ScanNATPMPforExpiration();
+	}
 	/* remove redirection then search for next one:) */
 	if(_upnp_delete_redir(nextnatpmptoclean_eport, nextnatpmptoclean_proto)<0)
 		return -1;
-	syslog(LOG_INFO, "Expired NAT-PMP mapping port %hu %s removed",
+	syslog(LOG_NOTICE, "Expired NAT-PMP mapping port %hu %s removed",
 	       nextnatpmptoclean_eport,
 	       nextnatpmptoclean_proto==IPPROTO_TCP?"TCP":"UDP");
 	return ScanNATPMPforExpiration();
