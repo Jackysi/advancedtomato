@@ -444,7 +444,7 @@ static struct attribute_group dev_attr_grp = {
 /* Binary descriptors */
 
 static ssize_t
-read_descriptors(struct kobject *kobj, struct bin_attribute *attr,
+read_descriptors(struct kobject *kobj,
 		char *buf, loff_t off, size_t count)
 {
 	struct usb_device *udev = to_usb_device(
