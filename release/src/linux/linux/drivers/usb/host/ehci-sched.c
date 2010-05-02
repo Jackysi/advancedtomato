@@ -475,6 +475,8 @@ static int disable_periodic (struct ehci_hcd *ehci)
 	writel (cmd, &ehci->regs->command);
 	/* posted write ... */
 
+	free_cached_lists(ehci);
+
 	ehci->next_uframe = -1;
 	return 0;
 }
@@ -592,6 +594,17 @@ static int qh_unlink_periodic(struct ehci_hcd *ehci, struct ehci_qh *qh)
 static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 {
 	unsigned	wait; 
+	int		rc;
+
+	/* If the QH isn't linked then there's nothing we can do
+	 * unless we were called during a giveback, in which case
+	 * qh_completions() has to deal with it.
+	 */
+	if (qh->qh_state != QH_STATE_LINKED) {
+		if (qh->qh_state == QH_STATE_COMPLETING)
+			qh->needs_rescan = 1;
+		return;
+	}
 
 	qh_unlink_periodic (ehci, qh);
 
@@ -611,6 +624,24 @@ static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	qh->qh_state = QH_STATE_IDLE;
 	qh->hw_next = EHCI_LIST_END;
 	wmb ();
+
+	qh_completions(ehci, qh);
+
+	/* reschedule QH iff another request is queued */
+	if (!list_empty(&qh->qtd_list) &&
+			HCD_IS_RUNNING(ehci->hcd.state)) {
+		rc = qh_schedule(ehci, qh);
+
+		/* An error here likely indicates handshake failure
+		 * or no space left in the schedule.  Neither fault
+		 * should happen often ...
+		 *
+		 * FIXME kill the now-dysfunctional queued urbs
+		 */
+		if (rc != 0)
+			ehci_err(ehci, "can't reschedule qh %p, err %d\n",
+					qh, rc);
+	}
 
 	dbg ("descheduled qh %p, period = %d frame = %d count = %d, urbs = %d",
 		qh, qh->period, qh->start,
@@ -760,8 +791,10 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	if (status) {
 		/* "normal" case, uframing flexible except with splits */
 		if (qh->period) {
-			frame = qh->period - 1;
- 			do {
+			int             i;
+
+ 			for (i = qh->period; status && i > 0; --i) {
+ 				frame = ++ehci->random_frame % qh->period;
 				for (uframe = 0; uframe < 8; uframe++) {
 					status = check_intr_schedule (ehci,
 							frame, uframe, qh,
@@ -769,7 +802,7 @@ static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
 					if (status == 0)
 						break;
 				}
-			} while (status && frame--);
+			}
 
 		/* qh->period == 0 means every uframe */
 		} else {
@@ -2026,13 +2059,27 @@ sitd_complete (
 			(stream->bEndpointAddress & USB_DIR_IN) ? "in" : "out");
 	}
 	iso_stream_put (ehci, stream);
-	/* OK to recycle this SITD now that its completion callback ran. */
+
 done:
 	sitd->urb = NULL;
-	sitd->stream = NULL;
-	list_move(&sitd->sitd_list, &stream->free_list);
-	iso_stream_put(ehci, stream);
-
+	if (ehci->clock_frame != sitd->frame) {
+		/* OK to recycle this SITD now. */
+		sitd->stream = NULL;
+		list_move(&sitd->sitd_list, &stream->free_list);
+		iso_stream_put(ehci, stream);
+	} else {
+		/* HW might remember this SITD, so we can't recycle it yet.
+		 * Move it to a safe place until a new frame starts.
+		 */
+		list_move(&sitd->sitd_list, &ehci->cached_sitd_list);
+		if (stream->refcount == 2) {
+			/* If iso_stream_put() were called here, stream
+			 * would be freed.  Instead, just prevent reuse.
+			 */
+//2.6			stream->ep->hcpriv = NULL;
+			stream->ep = NULL;
+		}
+	}
 	return retval;
 }
 
@@ -2089,15 +2136,23 @@ done:
 
 /*-------------------------------------------------------------------------*/
 
-static void free_cached_itd_list(struct ehci_hcd *ehci)
+static void free_cached_lists(struct ehci_hcd *ehci)
 {
 	struct ehci_itd *itd, *n;
+	struct ehci_sitd *sitd, *sn;
 
 	list_for_each_entry_safe(itd, n, &ehci->cached_itd_list, itd_list) {
 		struct ehci_iso_stream	*stream = itd->stream;
 		itd->stream = NULL;
 		list_move(&itd->itd_list, &stream->free_list);
 		iso_stream_put (ehci, stream);
+	}
+
+	list_for_each_entry_safe(sitd, sn, &ehci->cached_sitd_list, sitd_list) {
+		struct ehci_iso_stream	*stream = sitd->stream;
+		sitd->stream = NULL;
+		list_move(&sitd->sitd_list, &stream->free_list);
+		iso_stream_put(ehci, stream);
 	}
 }
 
@@ -2125,7 +2180,7 @@ scan_periodic (struct ehci_hcd *ehci)
 		clock_frame = -1;
 	}
 	if (ehci->clock_frame != clock_frame) {
-		free_cached_itd_list(ehci);
+		free_cached_lists(ehci);
 		ehci->clock_frame = clock_frame;
 	}
 	clock %= mod;
@@ -2159,7 +2214,8 @@ restart:
 				type = Q_NEXT_TYPE (q.qh->hw_next);
 				q = q.qh->qh_next;
 				modified = qh_completions (ehci, temp.qh);
-				if (unlikely (list_empty (&temp.qh->qtd_list)))
+				if (unlikely(list_empty(&temp.qh->qtd_list) ||
+						temp.qh->needs_rescan))
 					intr_deschedule (ehci, temp.qh);
 				qh_put (ehci, temp.qh);
 				break;
@@ -2214,9 +2270,13 @@ restart:
 				 * No need to check for activity unless the
 				 * frame is current.
 				 */
-				if (frame == clock_frame && live &&
-						(q.sitd->hw_results &
-							SITD_ACTIVE)) {
+				if (((frame == clock_frame) ||
+				     (((frame + 1) % ehci->periodic_size)
+				      == clock_frame))
+				    && live
+				    && (q.sitd->hw_results &
+					SITD_ACTIVE)) {
+
 					incomplete = 1;
 					q_p = &q.sitd->sitd_next;
 					hw_p = &q.sitd->hw_next;
@@ -2285,7 +2345,7 @@ restart:
 			clock = now;
 			clock_frame = clock >> 3;
 			if (ehci->clock_frame != clock_frame) {
-				free_cached_itd_list(ehci);
+				free_cached_lists(ehci);
 				ehci->clock_frame = clock_frame;
 			}
 		} else {

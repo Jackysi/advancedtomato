@@ -80,7 +80,7 @@ void ext2fs_warn_bitmap(errcode_t errcode EXT2FS_ATTR((unused)),
 }
 
 void ext2fs_warn_bitmap2(ext2fs_generic_bitmap bitmap,
-			    int code, unsigned long arg)
+			    int code EXT2FS_ATTR((unused)), unsigned long arg)
 {
 #ifndef OMIT_COM_ERR
 	if (bitmap->description)

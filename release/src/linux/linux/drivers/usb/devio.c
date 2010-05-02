@@ -814,11 +814,16 @@ static int proc_submiturb(struct dev_state *ps, void *arg)
 		if ((ret = checkintf(ps, intf)))
 			return ret;
 	}
+	if ((uurb.endpoint & ~USB_ENDPOINT_DIR_MASK) != 0) {
+		ep_desc = usb_epnum_to_ep_desc(ps->dev, uurb.endpoint);
+	} else {
+		ep_desc = ps->dev->actconfig->interface[0].altsetting[0].endpoint;
+	}
+	if (!ep_desc)
+		return -ENOENT;
 	switch(uurb.type) {
 	case USBDEVFS_URB_TYPE_CONTROL:
 		if ((uurb.endpoint & ~USB_ENDPOINT_DIR_MASK) != 0) {
-			if (!(ep_desc = usb_epnum_to_ep_desc(ps->dev, uurb.endpoint)))
-				return -ENOENT;
 			if ((ep_desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) != USB_ENDPOINT_XFER_CONTROL)
 				return -EINVAL;
 		}
@@ -889,6 +894,7 @@ static int proc_submiturb(struct dev_state *ps, void *arg)
 			return -EINVAL;
 		if (!access_ok((uurb.endpoint & USB_DIR_IN) ? VERIFY_WRITE : VERIFY_READ, uurb.buffer, uurb.buffer_length))
 			return -EFAULT;   
+		uurb.flags |= URB_NO_RESUBMIT;
 		break;
 
 	default:
@@ -917,6 +923,11 @@ static int proc_submiturb(struct dev_state *ps, void *arg)
 	as->urb.setup_packet = (unsigned char*)dr;
 	as->urb.start_frame = uurb.start_frame;
 	as->urb.number_of_packets = uurb.number_of_packets;
+	if (uurb.type == USBDEVFS_URB_TYPE_ISO ||
+			ps->dev->speed == USB_SPEED_HIGH)
+		as->urb.interval = 1 << min(15, ep_desc->bInterval - 1);
+	else
+		as->urb.interval = ep_desc->bInterval;
         as->urb.context = as;
         as->urb.complete = async_completed;
 	for (totlen = u = 0; u < uurb.number_of_packets; u++) {

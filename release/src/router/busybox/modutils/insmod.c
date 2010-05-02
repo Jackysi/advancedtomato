@@ -38,6 +38,7 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 	struct stat st;
 	char *filename;
 	FILE *fp = NULL;
+	int pos;
 	int rc;
 
 	/* Compat note:
@@ -59,7 +60,7 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 
 	m_filename = NULL;
 
-	int pos = strlen(filename) - 2;
+	pos = strlen(filename) - 2;
 	if (get_linux_version_code() < KERNEL_VERSION(2,6,0)) {
 		if (pos < 0) pos = 0;
 		if (strncmp(&filename[pos], ".o", 2) !=0)

@@ -76,6 +76,7 @@ endif
 obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
+obj-$(TCONFIG_EBTABLES) += ebtables
 
 obj-y += miniupnpd
 #	obj-y += upnp
@@ -263,6 +264,9 @@ ifneq ($(TCONFIG_OPENVPN),y)
 endif
 
 #!!TB
+ifneq ($(TCONFIG_EBTABLES),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/bridge/netfilter/ebt*.*o $(PLATFORMDIR)/extras/ || true
+endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
@@ -877,14 +881,18 @@ igs-install:
 
 
 ebtables: dummy
-	@make -C ebtables
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="$(EXTRACFLAGS) -Wall -Wunused"
 
-ebtables-install: dummy
+ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
 
-	mkdir -p $(INSTALLDIR)/ebtables/usr/lib/
-	cp ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
-	cp ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	install -d $(INSTALLDIR)/ebtables/usr/lib
+	install -D ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	install -D ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/sbin/ebtables
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebt*.so
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebtc.so
 
 ebtables-clean:
 	make -C ebtables clean

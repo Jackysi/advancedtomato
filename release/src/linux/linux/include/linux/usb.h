@@ -496,6 +496,7 @@ struct usb_driver {
 #define URB_NO_INTERRUPT	0x0080	/* HINT: no non-error interrupt needed */
 					/* ... less overhead for QUEUE_BULK */
 #define USB_TIMEOUT_KILLED	0x1000	// only set by HCD!
+#define URB_NO_RESUBMIT		0x0200	/* don't resubmit interrupt urb */
 #define URB_NO_TRANSFER_DMA_MAP	0x0400	/* urb->transfer_dma valid on submit */
 #define URB_NO_SETUP_DMA_MAP	0x0800	/* urb->setup_dma valid on submit */
 

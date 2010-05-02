@@ -206,6 +206,10 @@ define RouterOptions
 		sed -i "/TCONFIG_CIFS/d" $(1); \
 		echo "# TCONFIG_CIFS is not set" >>$(1); \
 	fi; \
+	if [ "$(EBTABLES)" = "y" ]; then \
+		sed -i "/TCONFIG_EBTABLES/d" $(1); \
+		echo "TCONFIG_EBTABLES=y" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -295,10 +299,9 @@ endef
 
 # $(1) - linux/linux[-2.6]/config_$@
 
-ifeq ($(CONFIG_LINUX26),y)
 define KernelConfigMips
 	@( \
-	if [ "$(MIPS32)" = "r2" ]; then \
+	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(MIPS32)" = "r2" ]; then \
 		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
 		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPS32_R2/d" $(1); \
@@ -306,11 +309,11 @@ define KernelConfigMips
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
-	if [ "$(BCM57)" = "y" ]; then \
+	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(BCM57)" = "y" ]; then \
 		sed -i "/CONFIG_BCM57XX/d" $(1); \
 		echo "CONFIG_BCM57XX=m" >>$(1); \
 	fi; \
-	if [ "$(JFFSv1)" = "y" ]; then \
+	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(JFFSv1)" = "y" ]; then \
 		sed -i "/CONFIG_JFFS_FS/d" $(1); \
 		echo "CONFIG_JFFS_FS=m" >>$(1); \
 		sed -i "/CONFIG_JFFS_FS_VERBOSE/d" $(1); \
@@ -320,13 +323,12 @@ define KernelConfigMips
 		sed -i "/CONFIG_JFFS2_FS/d" $(1); \
 		echo "# CONFIG_JFFS2_FS is not set" >>$(1); \
 	fi; \
+	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
+		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \
+		echo "CONFIG_BRIDGE_NF_EBTABLES=m" >>$(1); \
+	fi; \
 	)
 endef
-else
-define KernelConfigMips
-#	nothing for kernel 2.4
-endef
-endif
 
 ## Make the "normal" build
 a:
@@ -517,11 +519,11 @@ endif
 
 ## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
 r2m:
-	@$(MAKE) m MIPS32=r2 BCM57=y
+	@$(MAKE) m MIPS32=r2 BCM57=y EBTABLES=y
 
 ## Make Mips32r2 USB+VPN build
 r2e:
-	@$(MAKE) e MIPS32=r2 BCM57=y
+	@$(MAKE) e MIPS32=r2 BCM57=y EBTABLES=y
 
 ## Make Mips32r2 "no USB" build (RT-N12, WRT160Nv3)
 r2s:

@@ -531,7 +531,8 @@ static int sohci_return_urb (struct ohci *hc, struct urb * urb)
 				usb_pipeout (urb->pipe)
 					? PCI_DMA_TODEVICE
 					: PCI_DMA_FROMDEVICE);
-			if (urb->interval) {
+			if (urb->interval &&
+				 !(URB_NO_RESUBMIT & urb->transfer_flags)) {
 				urb->complete (urb);
 
 				/* implicitly requeued */
