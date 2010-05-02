@@ -72,14 +72,21 @@
 
 static const char *usbfs_path = NULL;
 
-/* Linux 2.6.32 adds support for a bulk continuation URB flag. this should
- * be set on all URBs in the transfer except the first. also set the
- * SHORT_NOT_OK flag on all of them, to raise error conditions on short
- * transfers.
- * then, on any error except a cancellation, all URBs until the next
- * non-continuation URB will be cancelled with the endpoint disabled,
- * meaning that no more data can creep in during the time it takes us to
- * cancel the remaining URBs. */
+/* Linux 2.6.32 adds support for a bulk continuation URB flag. this basically
+ * allows us to mark URBs as being part of a specific logical transfer when
+ * we submit them to the kernel. then, on any error error except a
+ * cancellation, all URBs within that transfer will be cancelled with the
+ * endpoint is disabled, meaning that no more data can creep in during the
+ * time it takes to cancel the remaining URBs.
+ *
+ * The BULK_CONTINUATION flag must be set on all URBs within a bulk transfer
+ * (in either direction) except the first.
+ * For IN transfers, we must also set SHORT_NOT_OK on all the URBs.
+ * For OUT transfers, SHORT_NOT_OK must not be set. The effective behaviour
+ * (where an OUT transfer does not complete, the rest of the URBs in the
+ * transfer get cancelled) is already in effect, and setting this flag is
+ * disallowed (a kernel with USB debugging enabled will reject such URBs).
+ */
 static int supports_flag_bulk_continuation = -1;
 
 /* clock ID for monotonic clock, as not all clock sources are available on all
@@ -646,7 +653,8 @@ static int usbfs_get_active_config(struct libusb_device *dev, int fd)
 		if (errno == ENODEV)
 			return LIBUSB_ERROR_NO_DEVICE;
 
-		usbi_err(DEVICE_CTX(dev),
+		/* we hit this error path frequently with buggy devices :( */
+		usbi_warn(DEVICE_CTX(dev),
 			"get_configuration failed ret=%d errno=%d", r, errno);
 		return LIBUSB_ERROR_IO;
 	}
@@ -716,7 +724,13 @@ static int initialize_device(struct libusb_device *dev, uint8_t busnum,
 				"determine active configuration descriptor", path);
 		} else {
 			active_config = usbfs_get_active_config(dev, fd);
-			if (active_config < 0) {
+			if (active_config == LIBUSB_ERROR_IO) {
+				/* buggy devices sometimes fail to report their active config.
+				 * assume unconfigured and continue the probing */
+				usbi_warn(DEVICE_CTX(dev), "couldn't query active "
+					"configuration, assumung unconfigured");
+				device_configured = 0;
+			} else if (active_config < 0) {
 				close(fd);
 				return active_config;
 			} else if (active_config == 0) {
@@ -725,7 +739,7 @@ static int initialize_device(struct libusb_device *dev, uint8_t busnum,
 				 * not support buggy devices in these circumstances.
 				 * stick to the specs: a configuration value of 0 means
 				 * unconfigured. */
-				usbi_dbg("assuming unconfigured device");
+				usbi_dbg("active cfg 0? assuming unconfigured device");
 				device_configured = 0;
 			}
 		}
@@ -1327,6 +1341,8 @@ static int submit_bulk_transfer(struct usbi_transfer *itransfer,
 	struct linux_device_handle_priv *dpriv =
 		__device_handle_priv(transfer->dev_handle);
 	struct usbfs_urb *urbs;
+	int is_out = (transfer->endpoint & LIBUSB_ENDPOINT_DIR_MASK)
+		== LIBUSB_ENDPOINT_OUT;
 	int r;
 	int i;
 	size_t alloc_size;
@@ -1365,7 +1381,7 @@ static int submit_bulk_transfer(struct usbi_transfer *itransfer,
 		urb->type = urb_type;
 		urb->endpoint = transfer->endpoint;
 		urb->buffer = transfer->buffer + (i * MAX_BULK_BUFFER_LENGTH);
-		if (supports_flag_bulk_continuation)
+		if (supports_flag_bulk_continuation && !is_out)
 			urb->flags = USBFS_URB_SHORT_NOT_OK;
 		if (i == num_urbs - 1 && last_urb_partial)
 			urb->buffer_length = transfer->length % MAX_BULK_BUFFER_LENGTH;
