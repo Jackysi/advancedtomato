@@ -374,7 +374,7 @@ void start_upnp(void)
 					"upnp_forward_chain=upnp\n"
 					"upnp_nat_chain=upnp\n"
 					"notify_interval=%d\n"
-					"system_uptime=no\n"
+					"system_uptime=yes\n"
 					"\n"
 					,
 					nvram_safe_get("wan_iface"),
