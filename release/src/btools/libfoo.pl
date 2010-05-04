@@ -303,7 +303,7 @@ sub genXref
 
 sub genSO
 {
-	my ($so, $arc, $opt) = @_;
+	my ($so, $arc, $strip, $opt) = @_;
 	my $name = basename($so);
 	my $sym;
 	my $fn;
@@ -325,7 +325,7 @@ sub genSO
 	}
 	
 	foreach $sym (sort keys %{$elf_exp{$name}}) {
-		if (scalar(usersOf($name, $sym)) > 0) {
+		if ((scalar(usersOf($name, $sym)) > 0) || (${strip} eq "no")) {
 			push(@used, $sym);
 		}
 		else {
@@ -406,15 +406,19 @@ fillGaps();
 
 genXref();
 
+$stripshared = "yes";
+if ($ARGV[0] eq "--noopt") {
+	$stripshared = "no";
+}
 
-genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
-genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a");
-genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a");
-genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a");
-genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a");
-genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a");
-#	genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a");
-#  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a");
+genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "${stripshared}", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
+genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a", "${stripshared}");
+genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a", "${stripshared}");
+genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a", "${stripshared}");
+genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}");
+genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
+#  genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a", "${stripshared}");
+#  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a", "${stripshared}");
 
 genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
@@ -423,8 +427,6 @@ genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 #!!TB - Samba
 genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
 genSO("${root}/usr/lib/libbigballofmud.so", "${router}/samba3/source/bin/libbigballofmud.a");
-#!!TB - FTP SSL
-genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 
 genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libtamba.so", "${router}/samba3/source/bin/libtamba.a");

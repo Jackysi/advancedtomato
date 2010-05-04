@@ -441,6 +441,10 @@ ifeq ($(CONFIG_LINUX26),y)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
 endif
 	$(call BusyboxOptions, router/busybox/config_$@)
+ifeq ($(CONFIG_LINUX26),y)
+	@sed -i "/TCONFIG_OPTIMIZE_SHARED_LIBS/d" router/config_$@
+	@echo "# TCONFIG_OPTIMIZE_SHARED_LIBS is not set" >>router/config_$@
+endif
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC=$(VPN) USB="USB"
 	@$(MAKE) all
@@ -461,6 +465,10 @@ m:
 	$(call BusyboxExtraOptions, router/busybox/config_$@)
 	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
 	$(call BusyboxOptions, router/busybox/config_$@)
+ifeq ($(CONFIG_LINUX26),y)
+	@sed -i "/TCONFIG_OPTIMIZE_SHARED_LIBS/d" router/config_$@
+	@echo "# TCONFIG_OPTIMIZE_SHARED_LIBS is not set" >>router/config_$@
+endif
 
 	@$(MAKE) setprofile N=$(TPROFILE) B=M DESC="Ext" USB="USB"
 	@$(MAKE) all
