@@ -318,7 +318,7 @@ static int find_dir320_mac_addr()
 	int i, part, size, found = 0;
 
 	if (!mtd_getinfo("board_data", &part, &size)) return 0;
-	sprintf(s, MTD_DEV(%d), part);
+	sprintf(s, MTD_DEV(%dro), part);
 
 	fp = fopen(s, "rb");
 	if (fp != NULL) {
@@ -341,8 +341,8 @@ static int find_dir320_mac_addr()
 			}
 		}
 		free(buffer);
+		fclose(fp);
 	}
-	fclose(fp);
 
 	return (found);
 }
@@ -395,9 +395,6 @@ static void check_bootnv(void)
 		if (nvram_get("vlan2ports") != NULL) {
 			nvram_unset("vlan2ports");
 			nvram_unset("vlan2hwname");
-			// this can only happen after nvram erase:
-			// reset LAN IP here since CFE sets it to 192.168.0.1
-			nvram_set("lan_ipaddr", "192.168.1.1");
 			dirty = 1;
 		}
 		dirty |= check_nv("vlan1hwname", "et0");

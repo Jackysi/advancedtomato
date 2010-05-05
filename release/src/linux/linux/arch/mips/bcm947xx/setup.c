@@ -354,7 +354,8 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 			/* Find and size jffs2 */
 			bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
-			bcm947xx_parts[PART_JFFS2].size = boardoff - bcm947xx_parts[PART_JFFS2].offset;
+			if (boardoff > bcm947xx_parts[PART_JFFS2].offset)
+				bcm947xx_parts[PART_JFFS2].size = boardoff - bcm947xx_parts[PART_JFFS2].offset;
 
 			break;
 		}
