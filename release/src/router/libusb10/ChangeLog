@@ -1,3 +1,33 @@
+commit a04cbb0095a78aeed3f65aaf06c46069d0ac184a
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Tue May 4 19:01:59 2010 -0300
+
+    v1.0.8 release
+
+commit 53b47299531974fa8901b74a163f3c8ebae4eec9
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Thu Apr 22 18:12:51 2010 -0300
+
+    Linux: don't set SHORT_NOT_OK on bulk out URBs (#20
+    
+    Setting this flag is illegal, and the behaviour we're looking for
+    is already in place for host-to-device transfers without this flag.
+
+commit 1519828b7ee1fce46d4c51fc097d52e01b8e0bb4
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Tue Apr 20 20:14:09 2010 -0300
+
+    Linux: Handle failure to read active configuration during enumeration
+
+commit 45168627cc15aee3875192f34286110dbbd27095
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Tue Apr 20 19:43:06 2010 -0300
+
+    Darwin: don't reuse cached descriptors during enumeration
+    
+    Descriptor reuse was causing scans to return invalid information when
+    the device at a location has changed.
+
 commit 3af329db6dcbfb96d24867c757f9e125e5b7b0e5
 Author: Daniel Drake <dan@reactivated.net>
 Date:   Mon Apr 19 19:36:55 2010 -0300
