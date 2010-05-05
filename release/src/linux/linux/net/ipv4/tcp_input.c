@@ -1528,6 +1528,9 @@ tcp_mark_head_lost(struct sock *sk, struct tcp_opt *tp, int packets, u32 high_se
 	struct sk_buff *skb;
 	int cnt = packets;
 
+	if (packets == 0)
+		return;
+
 	BUG_TRAP(cnt <= tp->packets_out);
 
 	for_retrans_queue(skb, sk, tp) {
