@@ -141,7 +141,7 @@ EXIT:
 		if (fd > STDERR_FILENO) close(fd);
 	}
 
-	// Redirect stdout to <path>
+	// Redirect stdout & stderr to <path>
 	if (path) {
 		flags = O_WRONLY | O_CREAT;
 		if (*path == '>') {
@@ -162,6 +162,7 @@ EXIT:
 		}
 		else {
 			dup2(fd, STDOUT_FILENO);
+			dup2(fd, STDERR_FILENO);
 			close(fd);
 		}
 	}

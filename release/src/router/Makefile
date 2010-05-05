@@ -245,12 +245,20 @@ endif
 ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
 endif
+ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
+	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
+	$(STRIP) $(TARGETDIR)/lib/*.so.0
+endif
 
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
 
+ifeq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	@../btools/libfoo.pl
+else
+	@../btools/libfoo.pl --noopt
+endif
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
 	@chmod 0555 $(TARGETDIR)/usr/lib/*.so*
 

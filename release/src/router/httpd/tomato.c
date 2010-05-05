@@ -176,9 +176,8 @@ static void _execute_command(char *url, char *command, char *query, char *output
 		}
 	}
 
-	char cmd[128];
-	sprintf(cmd, "%s >%s 2>&1", webExecFile, output);
-	system(cmd);
+	char *cmd[] = { webExecFile, NULL };
+	_eval(cmd, output, 0, NULL);
 	unlink(webQueryFile);
 	unlink(webExecFile);
 }

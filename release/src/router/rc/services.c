@@ -276,7 +276,7 @@ void start_dnsmasq()
 
 	TRACE_PT("run dnsmasq\n");
 
-	eval("dnsmasq");
+	xstart("dnsmasq");
 
 	if (!nvram_contains_word("debug_norestart", "dnsmasq")) {
 		f_read_string(dmpid, buf, sizeof(buf));
@@ -394,7 +394,7 @@ void start_upnp(void)
 					"upnp_forward_chain=upnp\n"
 					"upnp_nat_chain=upnp\n"
 					"notify_interval=%d\n"
-					"system_uptime=no\n"
+					"system_uptime=yes\n"
 					"\n"
 					,
 					nvram_safe_get("wan_iface"),
@@ -1008,7 +1008,7 @@ static void do_start_stop_ftpd(int stop, int start)
 
 	/* start vsftpd if it's not already running */
 	if (pidof("vsftpd") <= 0)
-		eval("vsftpd");
+		xstart("vsftpd");
 }
 #endif
 
@@ -1038,7 +1038,7 @@ void stop_ftpd(void)
 // !!TB - Samba
 
 #ifdef TCONFIG_SAMBASRV
-void kill_samba(int sig)
+static void kill_samba(int sig)
 {
 	if (sig == SIGTERM) {
 		killall_tk("smbd");
@@ -1049,9 +1049,7 @@ void kill_samba(int sig)
 		killall("nmbd", sig);
 	}
 }
-#endif
 
-#ifdef TCONFIG_SAMBASRV
 static void do_start_stop_samba(int stop, int start)
 {
 	if (stop) kill_samba(SIGTERM);
@@ -1253,9 +1251,9 @@ static void do_start_stop_samba(int stop, int start)
 	int ret1 = 0, ret2 = 0;
 	/* start samba if it's not already running */
 	if (pidof("nmbd") <= 0)
-		ret1 = eval("nmbd", "-D");
+		ret1 = xstart("nmbd", "-D");
 	if (pidof("smbd") <= 0)
-		ret2 = eval("smbd", "-D");
+		ret2 = xstart("smbd", "-D");
 
 	if (ret1 || ret2) kill_samba(SIGTERM);
 }
@@ -1295,7 +1293,7 @@ void stop_samba(void)
 void restart_nas_services(int stop, int start)
 {	
 	/* restart all NAS applications */
-#if TCONFIG_SAMBASRV || TCONFIG_FTP
+#if defined(TCONFIG_SAMBASRV) || defined(TCONFIG_FTP)
 	int fd = file_lock("usb");
 	#ifdef TCONFIG_SAMBASRV
 	do_start_stop_samba(stop, start && nvram_get_int("smbd_enable"));
