@@ -231,7 +231,7 @@ createFieldTable('', [
 		['GMT0BST,M3.5.0/2,M10.5.0/2','UTC+00:00 England'],
 		['UTC-1','UTC+01:00 Tunisia'],
 		['CET-1CEST,M3.5.0/2,M10.5.0/3','UTC+01:00 France, Germany, Italy, Poland, Sweden'],
-		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Finland'],
+		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Estonia, Finland, Latvia, Lithuania'],
 		['UTC-2','UTC+02:00 South Africa, Israel'],
 		['STD-2DST,M3.5.0/2,M10.5.0/2','UTC+02:00 Greece, Ukraine, Romania, Turkey, Latvia'],
 		['UTC-3','UTC+03:00 Iraq, Jordan, Kuwait'],
