@@ -1480,7 +1480,7 @@ ppp_input_error(struct ppp_channel *chan, int code)
 static void
 ppp_receive_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 {
-	if (skb->len >= 2) {
+	if (pskb_may_pull(skb, 2)) {
 #ifdef CONFIG_PPP_MULTILINK
 		/* XXX do channel-level decompression here */
 		if (PPP_PROTO(skb) == PPP_MP)
@@ -1528,7 +1528,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
 		/* decompress VJ compressed packets */
 		if (ppp->vj == 0 || (ppp->flags & SC_REJ_COMP_TCP))
 			goto err;
-		if (skb_tailroom(skb) < 124) {
+		if (skb_tailroom(skb) < 124 || skb_cloned(skb)) {
 			/* copy to a new sk_buff with more tailroom */
 			ns = dev_alloc_skb(skb->len + 128);
 			if (ns == 0) {
@@ -1589,23 +1589,29 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
 		/* check if the packet passes the pass and active filters */
 		/* the filter instructions are constructed assuming
 		   a four-byte PPP header on each packet */
-		*skb_push(skb, 2) = 0;
-		if (ppp->pass_filter.filter
-		    && sk_run_filter(skb, ppp->pass_filter.filter,
-				     ppp->pass_filter.len) == 0) {
-			if (ppp->debug & 1)
-				printk(KERN_DEBUG "PPP: inbound frame not passed\n");
-			kfree_skb(skb);
-			return;
-		}
-		if (!(ppp->active_filter.filter
-		      && sk_run_filter(skb, ppp->active_filter.filter,
-				       ppp->active_filter.len) == 0))
-			ppp->last_recv = jiffies;
-		skb_pull(skb, 2);
-#else
-		ppp->last_recv = jiffies;
+		if (ppp->pass_filter.filter || ppp->active_filter.filter) {
+			if (skb_cloned(skb) &&
+			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+				goto err;
+
+			*skb_push(skb, 2) = 0;
+			if (ppp->pass_filter.filter
+			    && sk_run_filter(skb, ppp->pass_filter.filter,
+					     ppp->pass_filter.len) == 0) {
+				if (ppp->debug & 1)
+					printk(KERN_DEBUG "PPP: inbound frame "
+					       "not passed\n");
+				kfree_skb(skb);
+				return;
+			}
+			if (!(ppp->active_filter.filter
+			      && sk_run_filter(skb, ppp->active_filter.filter,
+					       ppp->active_filter.len) == 0))
+				ppp->last_recv = jiffies;
+			__skb_pull(skb, 2);
+		} else
 #endif /* CONFIG_PPP_FILTER */
+			ppp->last_recv = jiffies;
 
 		if ((ppp->dev->flags & IFF_UP) == 0
 		    || ppp->npmode[npi] != NPMODE_PASS) {
@@ -1693,7 +1699,7 @@ ppp_receive_mp_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 	struct list_head *l;
 	int mphdrlen = (ppp->flags & SC_MP_SHORTSEQ)? MPHDRLEN_SSN: MPHDRLEN;
 
-	if (skb->len < mphdrlen + 1 || ppp->mrru == 0)
+	if (!pskb_may_pull(skb, mphdrlen + 1) || ppp->mrru == 0)
 		goto err;		/* no good, throw it away */
 
 	/* Decode sequence number and begin/end bits */
@@ -1762,8 +1768,15 @@ ppp_receive_mp_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 		ppp->minseq = ppp->mrq.next->sequence;
 
 	/* Pull completed packets off the queue and receive them. */
-	while ((skb = ppp_mp_reconstruct(ppp)) != 0)
-		ppp_receive_nonmp_frame(ppp, skb);
+	while ((skb = ppp_mp_reconstruct(ppp)) != 0) {
+		if (pskb_may_pull(skb, 2))
+			ppp_receive_nonmp_frame(ppp, skb);
+		else {
+			++ppp->dev->stats.rx_length_errors;
+			kfree_skb(skb);
+			ppp_receive_error(ppp);
+		}
+	}
 
 	return;
 
