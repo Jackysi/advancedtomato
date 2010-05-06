@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/pagemap.h>
+#include <linux/bio.h>
 
 /*
  * Default IO end handler for temporary BJ_IO buffer_heads.
@@ -160,14 +161,15 @@ static int journal_write_commit_record(journal_t *journal,
 	return (ret == -EIO);
 }
 
-static void journal_do_submit_data(struct buffer_head **wbuf, int bufs)
+static void journal_do_submit_data(struct buffer_head **wbuf, int bufs,
+				   int write_op)
 {
 	int i;
 
 	for (i = 0; i < bufs; i++) {
 		wbuf[i]->b_end_io = end_buffer_write_sync;
 		/* We use-up our safety reference in submit_bh() */
-		submit_bh(WRITE, wbuf[i]);
+		submit_bh(write_op, wbuf[i]);
 	}
 }
 
@@ -175,7 +177,8 @@ static void journal_do_submit_data(struct buffer_head **wbuf, int bufs)
  *  Submit all the data buffers to disk
  */
 static void journal_submit_data_buffers(journal_t *journal,
-				transaction_t *commit_transaction)
+				       transaction_t *commit_transaction,
+				       int write_op)
 {
 	struct journal_head *jh;
 	struct buffer_head *bh;
@@ -213,7 +216,7 @@ write_out_data:
 				BUFFER_TRACE(bh, "needs blocking lock");
 				spin_unlock(&journal->j_list_lock);
 				/* Write out all data to prevent deadlocks */
-				journal_do_submit_data(wbuf, bufs);
+				journal_do_submit_data(wbuf, bufs, write_op);
 				bufs = 0;
 				lock_buffer(bh);
 				spin_lock(&journal->j_list_lock);
@@ -244,7 +247,7 @@ write_out_data:
 			jbd_unlock_bh_state(bh);
 			if (bufs == journal->j_wbufsize) {
 				spin_unlock(&journal->j_list_lock);
-				journal_do_submit_data(wbuf, bufs);
+				journal_do_submit_data(wbuf, bufs, write_op);
 				bufs = 0;
 				goto write_out_data;
 			}
@@ -272,7 +275,7 @@ write_out_data:
 		}
 	}
 	spin_unlock(&journal->j_list_lock);
-	journal_do_submit_data(wbuf, bufs);
+	journal_do_submit_data(wbuf, bufs, write_op);
 }
 
 /*
@@ -297,6 +300,7 @@ void journal_commit_transaction(journal_t *journal)
 	int first_tag = 0;
 	int tag_flag;
 	int i;
+	int write_op = WRITE;
 
 	/*
 	 * First job: lock down the current transaction and wait for
@@ -329,6 +333,8 @@ void journal_commit_transaction(journal_t *journal)
 	spin_lock(&journal->j_state_lock);
 	commit_transaction->t_state = T_LOCKED;
 
+	if (commit_transaction->t_synchronous_commit)
+		write_op = WRITE_SYNC;
 	spin_lock(&commit_transaction->t_handle_lock);
 	while (commit_transaction->t_updates) {
 		DEFINE_WAIT(wait);
@@ -413,7 +419,8 @@ void journal_commit_transaction(journal_t *journal)
 	 * on the transaction lists.  Data blocks go first.
 	 */
 	err = 0;
-	journal_submit_data_buffers(journal, commit_transaction);
+	journal_submit_data_buffers(journal, commit_transaction,
+				    write_op);
 
 	/*
 	 * Wait for all previously submitted IO to complete.
@@ -624,7 +631,7 @@ start_journal_io:
 				clear_buffer_dirty(bh);
 				set_buffer_uptodate(bh);
 				bh->b_end_io = journal_end_buffer_io_sync;
-				submit_bh(WRITE, bh);
+				submit_bh(write_op, bh);
 			}
 			cond_resched();
 
