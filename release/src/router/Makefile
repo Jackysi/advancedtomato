@@ -78,6 +78,16 @@ obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
 
+obj-$(TCONFIG_MEDIA_SERVER) += zlib
+obj-$(TCONFIG_MEDIA_SERVER) += sqlite
+obj-$(TCONFIG_MEDIA_SERVER) += ffmpeg
+obj-$(TCONFIG_MEDIA_SERVER) += libogg
+obj-$(TCONFIG_MEDIA_SERVER) += flac
+obj-$(TCONFIG_MEDIA_SERVER) += jpeg
+obj-$(TCONFIG_MEDIA_SERVER) += libexif
+obj-$(TCONFIG_MEDIA_SERVER) += libid3tag
+obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
+
 obj-y += miniupnpd
 #	obj-y += upnp
 
@@ -842,6 +852,162 @@ dropbear-clean:
 dropbear/config.h:
 	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	@$(MAKE) -C dropbear clean
+
+# Media libraries
+
+sqlite/stamp-h1:
+	cd sqlite && \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) \
+		--prefix=/usr --enable-shared --enable-static \
+		--disable-readline --disable-dynamic-extensions --enable-threadsafe
+	touch sqlite/stamp-h1
+
+sqlite: sqlite/stamp-h1
+	@$(MAKE) -C sqlite all
+
+sqlite-clean:
+	-@$(MAKE) -C sqlite clean
+	@rm -f sqlite/Makefile
+
+sqlite-install:
+	@$(SEP)
+
+ffmpeg/stamp-h1:
+	cd ffmpeg && \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" \
+		./configure --enable-cross-compile --arch=mips --target_os=linux --cross-prefix=$(CROSS_COMPILE) \
+		--enable-shared --enable-static --enable-gpl --disable-doc \
+		--enable-pthreads --enable-small --disable-encoders --disable-filters \
+		--disable-muxers --disable-devices --disable-ffmpeg --disable-ffplay \
+		--disable-ffserver --disable-debug --prefix=''
+	touch ffmpeg/stamp-h1
+
+ffmpeg: ffmpeg/stamp-h1
+	@$(MAKE) -C ffmpeg all
+
+ffmpeg-clean:
+	-@$(MAKE) -C ffmpeg clean
+	@rm -f lffmpeg/stamp-h1
+
+ffmpeg-install:
+	@$(SEP)
+
+libogg/stamp-h1:
+	cd libogg && \
+	CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	touch libogg/stamp-h1
+
+libogg: libogg/stamp-h1
+	@$(MAKE) -C libogg all
+
+libogg-clean:
+	-@$(MAKE) -C libogg clean
+	@rm -f libogg/stamp-h1
+
+libogg-install:
+	@$(SEP)
+
+flac/stamp-h1: libogg
+	cd flac && \
+	CFLAGS="-Os $(EXTRACFLAGS)" \
+	CPPFLAGS="-I../../../libogg/include" LDFLAGS="-L../../../libogg/src/.libs" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-rpath \
+		--disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs
+	touch flac/stamp-h1
+
+flac: flac/stamp-h1
+	@$(MAKE) -C flac/src/libFLAC all
+
+flac-clean:
+	-@$(MAKE) -C flac clean
+	@rm -f flac/stamp-h1
+
+flac-install:
+	@$(SEP)
+
+jpeg/stamp-h1:
+	cd jpeg && \
+	CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	touch jpeg/stamp-h1
+
+jpeg: jpeg/stamp-h1
+	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) libjpeg.a libjpeg.so
+
+jpeg-clean:
+	-@$(MAKE) -C jpeg clean
+	@rm -f jpeg/Makefile
+	@rm -f jpeg/stamp-h1
+
+jpeg-install:
+	@$(SEP)
+
+libexif/stamp-h1:
+	cd libexif && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
+		--disable-docs --disable-rpath --without-libiconv-prefix --without-libintl-prefix
+	touch libexif/stamp-h1
+
+libexif: libexif/stamp-h1
+	@$(MAKE) -C libexif all
+
+libexif-clean:
+	-@$(MAKE) -C libexif clean
+	@rm -f libexif/stamp-h1
+
+libexif-install:
+	@$(SEP)
+
+zlib/stamp-h1:
+	cd zlib && \
+	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	./configure --shared --prefix=''
+	touch zlib/stamp-h1
+
+zlib: zlib/stamp-h1
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" all libz.a
+
+zlib-clean:
+	-@$(MAKE) -C zlib clean
+	@rm -f zlib/Makefile
+	@rm -f zlib/stamp-h1
+
+zlib-install:
+	@$(SEP)
+
+libid3tag/stamp-h1: zlib
+	cd libid3tag && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" CPPFLAGS="-I../zlib" LDFLAGS="-L../zlib" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-debugging --disable-profiling
+	touch libid3tag/stamp-h1
+
+libid3tag: libid3tag/stamp-h1 zlib
+	@$(MAKE) -C libid3tag all
+
+libid3tag-clean:
+	-@$(MAKE) -C libid3tag clean
+	@rm -f libid3tag/stamp-h1
+
+libid3tag-install:
+	@$(SEP)
+
+libvorbis/stamp-h1: libogg
+	cd libvorbis && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CPPFLAGS="-I../../libogg/include" LDFLAGS="-L../../libogg/src/.libs" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-oggtest \
+		--with-ogg-includes="../libogg/include" --with-ogg-libraries="../libogg/src/.libs"
+	touch libvorbis/stamp-h1
+
+libvorbis: libvorbis/stamp-h1
+	@$(MAKE) -C libvorbis/lib all
+
+libvorbis-clean:
+	-@$(MAKE) -C libvorbis clean
+	@rm -f libvorbis/stamp-h1
+
+libvorbis-install:
+	@$(SEP)
+
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
 	cd igmpproxy && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
