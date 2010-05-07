@@ -60,9 +60,6 @@
 #undef DEBUG
 #include <linux/usb.h>
 
-#define U2EC 1
-
-#ifdef U2EC
 /* Added by PaN */
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
@@ -79,7 +76,6 @@ struct print_buffer
 #define MAX_MFR         16
 #define MAX_MODEL       32
 #define MAX_DESCRIPT    64
-#define MAX_STATUS_TYPE 6
 
 #ifdef CONFIG_PROC_FS
 static struct proc_dir_entry *usblp_dir;
@@ -91,6 +87,8 @@ struct parport_splink_device_info {
 	char description[MAX_DESCRIPT];
 };
 
+#define USBLP_SPLINK_ID_SIZE	sizeof(struct parport_splink_device_info)
+
 static char *strunknown="unknown"; // Added by JYWeng 20031212:
 static void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data);// Added by JYWeng 20031212:
 
@@ -98,7 +96,6 @@ static ssize_t usblp_write(struct file *file, const char *buffer, size_t count, 
 static ssize_t usblp_read(struct file *file, char *buffer, size_t count, loff_t *ppos);
 static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 // End PaN
-#endif // U2EC
 
 /*
  * Version Information
@@ -110,7 +107,6 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 #define USBLP_BUF_SIZE_IN	1024
 #define USBLP_DEVICE_ID_SIZE	1024
 
-#ifdef U2EC
 /****************add by JY 20031118*************************************/
 #define LPGETID         0x0610  /* get printer's device ID */
 #define LPWRITEDATA     0x0613  /* write data to printer */
@@ -118,7 +114,6 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 #define LPREADDATA      0x0615  /* read data from pinter */
 #define LPREADADDR      0x0616  /* read address from pinter */
 /*******************************************************/
-#endif // U2EC
 
 /* ioctls: */
 #define IOCNR_GET_DEVICE_ID		1
@@ -221,7 +216,7 @@ struct usblp {
 #ifdef CONFIG_PROC_FS
 	struct proc_dir_entry	*usblpid_file;
 #endif
-	struct parport_splink_device_info usblpid_info;
+	struct parport_splink_device_info *usblpid_info;
 };
 
 #ifdef DEBUG
@@ -397,18 +392,19 @@ static void usblp_bulk_write(struct urb *urb)
 
 static const char *usblp_messages[] = { "ok", "out of paper", "off-line", "on fire" };
 
-#ifdef U2EC
 /* Added by PaN */
+#ifdef CONFIG_PROC_FS
 static int proc_read_usblpid(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
-	struct usblp *usblp = data;
-	int len=0;
-	
-	len=sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n", 
-	usblp->usblpid_info.mfr, usblp->usblpid_info.model, usblp->usblpid_info.class_name, usblp->usblpid_info.description);
-	
-	return len;
+	struct parport_splink_device_info *usblpid_info = ((struct usblp *)data)->usblpid_info;
+
+	return sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n",
+		usblpid_info->mfr,
+		usblpid_info->model,
+		usblpid_info->class_name,
+		usblpid_info->description);
 }
+#endif
 
 static int proc_get_usblpid(struct usblp *usblp)
 {
@@ -420,15 +416,14 @@ static int proc_get_usblpid(struct usblp *usblp)
 		return length;
 
 	str_dev_id = &usblp->device_id_string[2];
-	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info.mfr);
-	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info.model);
-	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info.class_name);
-	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info.description);
+	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info->mfr);
+	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info->model);
+	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info->class_name);
+	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info->description);
 
-	return sizeof(usblp->usblpid_info);
+	return 0;
 }
 // End PaN
-#endif // U2EC
 
 static int usblp_check_status(struct usblp *usblp, int err)
 {
@@ -481,9 +476,7 @@ static int usblp_open(struct inode *inode, struct file *file)
 	struct usblp *usblp;
 	struct usb_interface *intf;
 	int retval;
-#ifdef U2EC
 	unsigned long arg = 0, ioctl_retval; //Added by PaN
-#endif //U2EC
 
 	if (minor < 0)
 		return -ENODEV;
@@ -526,14 +519,11 @@ static int usblp_open(struct inode *inode, struct file *file)
 		retval = -EIO;
 	}
 
-#ifdef U2EC
 	/* Added by PaN */
 	if ((ioctl_retval=usblp_ioctl(file, LPGETID, arg)) <0)
 	{
 		// Update device id failed
 	}
-#endif // U2EC
-
 out:
 	mutex_unlock (&usblp_mutex);
 	return retval;
@@ -541,7 +531,6 @@ out:
 
 static void usblp_cleanup (struct usblp *usblp)
 {
-#ifdef U2EC
 	/* Added by PaN */
 #ifdef CONFIG_PROC_FS
 	char name[6];
@@ -551,8 +540,8 @@ static void usblp_cleanup (struct usblp *usblp)
 		usblp->usblpid_file = NULL;
 	}
 #endif
+	kfree(usblp->usblpid_info);
 	/* End PaN */
-#endif // U2EC
 
 	//printk(KERN_INFO "usblp%d: removed\n", usblp->minor);
 
@@ -603,9 +592,7 @@ static unsigned int usblp_poll(struct file *file, struct poll_table_struct *wait
 
 static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-#ifdef U2EC
 	struct print_buffer *user_buf; // Added by PaN
-#endif // U2EC
 	struct usblp *usblp = file->private_data;
 	int length, err, i;
 	unsigned char newChannel;
@@ -774,15 +761,11 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 	else	/* old-style ioctl value */
 		switch (cmd) {
-#ifdef U2EC
-			/*=================================================================================== PaN */
+/*=================================================================================== PaN */
 			case LPGETID: /* get the DEVICE_ID string */
-				length = proc_get_usblpid(usblp);
-
-				//printk(KERN_INFO "Parsing USBLPID...\n");
-				if (length < 0 ||
+				if (usblp->usblpid_info == NULL ||
 				    copy_to_user((unsigned char *) arg,
-						&usblp->usblpid_info, (unsigned long) length)) {
+						usblp->usblpid_info, (unsigned long) USBLP_SPLINK_ID_SIZE)) {
 					retval = -EFAULT;
 					goto done;
 				}
@@ -809,39 +792,10 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			case LPRESET:
 				usblp_reset(usblp);
 				break;
+/*=================================================================== PaN for Printer Server */
 
 			case LPGETSTATUS:
 				/* OLD USB Code Removed by PaN for Printer Server 
-				if ((retval = usblp_read_status(usblp, &status))) {
-					if (printk_ratelimit())
-						printk(KERN_ERR "usblp%d:"
-						    "failed reading printer status (%d)\n",
-						    usblp->minor, retval);
-					retval = -EIO;
-					goto done;
-				}
-				if (copy_to_user ((int *)arg, &status, 2))
-					retval = -EFAULT;
-				*/
-				status = usblp_check_status(usblp, 0);
-#if 0
-				printk(KERN_INFO "start=%s\n", usblpid_info.mfr);
-				for (i=0; i< MAX_STATUS_TYPE; i++) {
-				printk(KERN_INFO "compare=%s\n", usblp_status_type[i]);
-					if ( !( strcmp(usblpid_info.mfr, usblp_status_type[i]) ) )
-						break;
-				}
-				printk(KERN_INFO "%d=%s\n", i, usblp_status_type[i]);
-				status=usblp_status_maping[i][status];
-				printk(KERN_INFO "STATUS=%x\n", status);
-#endif
-				status = 0;
-				if (copy_to_user ((void __user *)arg, &status, sizeof(int)))
-					retval = -EFAULT;
-				break;
-/*=================================================================== PaN for Printer Server */
-#else	// U2EC	/* Marked by JY 20031118*/
-			case LPGETSTATUS:
 				if ((retval = usblp_read_status(usblp, usblp->statusbuf))) {
 					if (printk_ratelimit())
 						printk(KERN_ERR "usblp%d:"
@@ -851,10 +805,12 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					goto done;
 				}
 				status = *usblp->statusbuf;
+				*/
+				status = usblp_check_status(usblp, 0);
+				status = 0;
 				if (copy_to_user ((void __user *)arg, &status, sizeof(int)))
 					retval = -EFAULT;
 				break;
-#endif //U2EC /* Marked by JY 20031118*/
 
 			case LPABORT:
 				if (arg)
@@ -872,7 +828,6 @@ done:
 	return retval;
 }
 
-#ifdef U2EC
 /*********************************************************
 ** JYWeng 20031212: parsing the information of printers **
 *********************************************************/
@@ -906,7 +861,6 @@ static void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char
 
 	return;
 }
-#endif //U2EC
 
 static struct urb *usblp_new_writeurb(struct usblp *usblp, int transfer_length)
 {
@@ -1401,8 +1355,15 @@ static int usblp_probe(struct usb_interface *intf,
 		le16_to_cpu(usblp->dev->descriptor.idVendor),
 		le16_to_cpu(usblp->dev->descriptor.idProduct));
 
-#ifdef U2EC
 	/* Added by PaN */
+	/* get device id */
+	if (!(usblp->usblpid_info = kmalloc(USBLP_SPLINK_ID_SIZE, GFP_KERNEL))) {
+		retval = -ENOMEM;
+		goto abort;
+	}
+	if (proc_get_usblpid(usblp) < 0) 
+		printk(KERN_INFO "usblp: get usblpid error!\n");
+
 #ifdef CONFIG_PROC_FS
 	sprintf(name, "lp%d", usblp->minor);
 	if (usblp_dir == NULL) {
@@ -1415,18 +1376,12 @@ static int usblp_probe(struct usb_interface *intf,
 	}
 
 	usblp->usblpid_file = create_proc_read_entry(name, 0444, usblp_dir, proc_read_usblpid, usblp);
-	if (usblp->usblpid_file == NULL) {
-		goto outpan;
-	}
-	usblp->usblpid_file->owner = THIS_MODULE;
-	/* get device id */
-	if (proc_get_usblpid(usblp) < 0) 
-		printk(KERN_INFO "procfs: get usblpid error!\n");
+	if (usblp->usblpid_file)
+		usblp->usblpid_file->owner = THIS_MODULE;
 
 outpan:
 #endif // CONFIG_PROC_FS
 	// End PaN 
-#endif // U2EC
 
 	return 0;
 
@@ -1437,6 +1392,7 @@ abort:
 	kfree(usblp->readbuf);
 	kfree(usblp->statusbuf);
 	kfree(usblp->device_id_string);
+	kfree(usblp->usblpid_info);
 	kfree(usblp);
 abort_ret:
 	return retval;
