@@ -435,7 +435,7 @@ init(int argc, char * * argv)
 		}
 		else if(strcmp(argv[i], "--help")==0)
 		{
-			runtime_vars.port = 0;
+			runtime_vars.port = -1;
 			break;
 		}
 		else switch(argv[i][1])
@@ -552,7 +552,7 @@ init(int argc, char * * argv)
 			i++;	/* discarding, the config file is already read */
 			break;
 		case 'h':
-			runtime_vars.port = 0; // triggers help display
+			runtime_vars.port = -1; // triggers help display
 			break;
 		case 'R':
 			snprintf(real_path, sizeof(real_path), "rm -rf %s", db_path);
@@ -581,7 +581,7 @@ init(int argc, char * * argv)
 		}
 	}
 
-	if( (n_lan_addr==0) || (runtime_vars.port<=0) )
+	if( (n_lan_addr==0) || (runtime_vars.port<0) )
 	{
 		fprintf(stderr, "Usage:\n\t"
 		        "%s [-d] [-f config_file]\n"
@@ -647,7 +647,7 @@ init(int argc, char * * argv)
 		         "http://%s/admin/", lan_addr[0].str);
 #else
 		snprintf(presentationurl, PRESENTATIONURL_MAX_LEN,
-		         "http://%s:%d/", lan_addr[0].str, runtime_vars.port);
+		         "http://%s/", lan_addr[0].str);
 #endif
 	}
 
@@ -772,10 +772,20 @@ main(int argc, char * * argv)
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to open socket for receiving SSDP. EXITING\n");
 	}
 	/* open socket for HTTP connections. Listen on the 1st LAN address */
-	shttpl = OpenAndConfHTTPSocket(runtime_vars.port);
+	shttpl = OpenAndConfHTTPSocket((runtime_vars.port > 0) ? runtime_vars.port : 0);
 	if(shttpl < 0)
 	{
 		DPRINTF(E_FATAL, L_GENERAL, "Failed to open socket for HTTP. EXITING\n");
+	}
+	if(runtime_vars.port <= 0)
+	{
+		struct sockaddr_in sockinfo;
+		socklen_t len = sizeof(struct sockaddr_in);
+		if (getsockname(shttpl, (struct sockaddr *)&sockinfo, &len) < 0)
+		{
+			DPRINTF(E_FATAL, L_GENERAL, "getsockname(): %s. EXITING\n", strerror(errno));
+		}
+		runtime_vars.port = ntohs(sockinfo.sin_port);
 	}
 	DPRINTF(E_WARN, L_GENERAL, "HTTP listening on port %d\n", runtime_vars.port);
 
