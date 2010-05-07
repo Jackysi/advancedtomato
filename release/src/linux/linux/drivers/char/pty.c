@@ -137,7 +137,7 @@ static void pty_unthrottle(struct tty_struct * tty)
  *
  * FIXME: Our pty_write method is called with our ldisc lock held but
  * not our partners. We can't just take the other one blindly without
- * risking deadlocks.  There is also the small matter of TTY_DONT_FLIP
+ * risking deadlocks.
  */
 static int pty_write(struct tty_struct * tty, int from_user,
 		       const unsigned char *buf, int count)
@@ -218,15 +218,14 @@ static int pty_write_room(struct tty_struct *tty)
 static int pty_chars_in_buffer(struct tty_struct *tty)
 {
 	struct tty_struct *to = tty->link;
-	ssize_t (*chars_in_buffer)(struct tty_struct *);
 	int count;
 
 	/* We should get the line discipline lock for "tty->link" */
-	if (!to || !(chars_in_buffer = to->ldisc.chars_in_buffer))
+	if (!to || !to->ldisc.chars_in_buffer)
 		return 0;
 
 	/* The ldisc must report 0 if no characters available to be read */
-	count = chars_in_buffer(to);
+	count = to->ldisc.chars_in_buffer(to);
 
 	if (tty->driver.subtype == PTY_TYPE_SLAVE) return count;
 
