@@ -10,20 +10,26 @@
 # or :
 # $ make install
 #
+
+include ../common.mak
+
 #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
 #CFLAGS = -Wall -g -Os -D_GNU_SOURCE
-CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
-	 -I/usr/include/ffmpeg \
-	 -I/usr/include/libavutil -I/usr/include/libavcodec -I/usr/include/libavformat \
-	 -I/usr/include/ffmpeg/libavutil -I/usr/include/ffmpeg/libavcodec -I/usr/include/ffmpeg/libavformat
+CFLAGS = -Wall -g -Os $(EXTRACFLAGS) -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+	-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
+	-I$(TOP)/ffmpeg/libswscale -I$(TOP)/ffmpeg \
+	-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
+	-I$(TOP)/libexif -I$(TOP)/libid3tag -I$(TOP)/libogg/include \
+	-I$(TOP)/libvorbis/include
+
 #STATIC_LINKING: LDFLAGS = -static
-CC = gcc
+#CC = gcc
 RM = rm -f
 INSTALL = install
 
-INSTALLPREFIX ?= $(PREFIX)/usr
+INSTALLPREFIX ?= $(INSTALLDIR)
 SBININSTALLDIR = $(INSTALLPREFIX)/sbin
-ETCINSTALLDIR = $(PREFIX)/etc
+ETCINSTALLDIR = $(INSTALLDIR)/etc
 
 BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
            upnpreplyparse.o minixml.o \
@@ -36,8 +42,20 @@ BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
 
 ALLOBJS = $(BASEOBJS) $(LNXOBJS)
 
-LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -lvorbis
+#LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -lvorbis
 #STATIC_LINKING: LIBS = -lvorbis -logg -lm -lsqlite3 -lpthread -lexif -ljpeg -lFLAC -lm -lid3tag -lz -lavformat -lavutil -lavcodec -lm
+LIBS = -lpthread -lm \
+	$(TOP)/libvorbis/lib/.libs/libvorbis.a \
+	$(TOP)/libogg/src/.libs/libogg.a \
+	$(TOP)/sqlite/.libs/libsqlite3.a \
+	$(TOP)/libexif/libexif/.libs/libexif.a \
+	$(TOP)/jpeg/libjpeg.a \
+	$(TOP)/flac/src/libFLAC/.libs/libFLAC.a \
+	$(TOP)/libid3tag/.libs/libid3tag.a \
+	$(TOP)/zlib/libz.a \
+	$(TOP)/ffmpeg/libavformat/libavformat.a \
+	$(TOP)/ffmpeg/libavcodec/libavcodec.a \
+	$(TOP)/ffmpeg/libavutil/libavutil.a
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
 
@@ -53,10 +71,8 @@ clean:
 	$(RM) testupnpdescgen.o
 
 install:	minidlna
-	$(INSTALL) -d $(SBININSTALLDIR)
-	$(INSTALL) minidlna $(SBININSTALLDIR)
-	$(INSTALL) -d $(ETCINSTALLDIR)
-	$(INSTALL) --mode=0644 minidlna.conf $(ETCINSTALLDIR)
+	$(INSTALL) -D minidlna $(INSTALLDIR)/usr/sbin/minidlna
+	$(STRIP) $(INSTALLDIR)/usr/sbin/minidlna
 
 minidlna:	$(BASEOBJS) $(LNXOBJS) $(LIBS)
 	@echo Linking $@
@@ -66,9 +82,6 @@ minidlna:	$(BASEOBJS) $(LNXOBJS) $(LIBS)
 testupnpdescgen:	$(TESTUPNPDESCGENOBJS)
 	@echo Linking $@
 	@$(CC) $(CFLAGS) -o $@ $(TESTUPNPDESCGENOBJS)
-
-config.h:	genconfig.sh
-	./genconfig.sh
 
 depend:	config.h
 	makedepend -f$(MAKEFILE_LIST) -Y \

@@ -87,6 +87,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += jpeg
 obj-$(TCONFIG_MEDIA_SERVER) += libexif
 obj-$(TCONFIG_MEDIA_SERVER) += libid3tag
 obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
+obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 
 obj-y += miniupnpd
 #	obj-y += upnp
@@ -1007,6 +1008,10 @@ libvorbis-clean:
 
 libvorbis-install:
 	@$(SEP)
+
+minidlna: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis
+	@$(SEP)
+	@$(MAKE) -C minidlna CC=$(CC) minidlna
 
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
