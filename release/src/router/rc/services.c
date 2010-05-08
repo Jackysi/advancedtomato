@@ -1289,6 +1289,86 @@ void stop_samba(void)
 #endif
 }
 
+#ifdef TCONFIG_MEDIA_SERVER
+void start_media_server(void)
+{
+	int enable;
+	FILE *f;
+	int port, pid, https;
+	char *dbdir;
+	char *argv[] = { "minidlna", "-f", "/etc/minidlna.conf", "-R", NULL };
+
+	if ((enable = nvram_get_int("ms_enable"))) {
+		if (nvram_get_int("ms_rescan") == 0) {
+			// no forced rescan
+			argv[3] = NULL;
+		}
+		nvram_unset("ms_rescan");
+
+		if (f_exists("/etc/minidlna.alt")) {
+			argv[2] = "/etc/minidlna.alt";
+		}
+		else {
+			if ((f = fopen(argv[2], "w")) != NULL) {
+				port = nvram_get_int("ms_port");
+				https = nvram_get_int("https_enable");
+				dbdir = nvram_safe_get("ms_dbdir");
+				if (!(*dbdir)) dbdir = NULL;
+				mkdir_if_none(dbdir ? : "/var/run/minidlna");
+
+				fprintf(f,
+					"network_interface=%s\n"
+					"port=%d\n"
+					"friendly_name=%s\n"
+					"db_dir=%s\n"
+					"enable_tivo=%s\n"
+					"strict_dlna=%s\n"
+					"presentation_url=http%s://%s:%s/nas-media.asp\n"
+					"inotify=yes\n"
+					"notify_interval=600\n"
+					"album_art_names=Cover.jpg/cover.jpg/Thumb.jpg/thumb.jpg\n"
+					"\n",
+					nvram_safe_get("lan_ifname"),
+					(port < 0) || (port >= 0xffff) ? 0 : port,
+					nvram_get("router_name") ? : "Tomato",
+					dbdir ? : "/var/run/minidlna",
+					nvram_get_int("ms_tivo") ? "yes" : "no",
+					nvram_get_int("ms_stdlna") ? "yes" : "no",
+					https ? "s" : "", nvram_safe_get("lan_ipaddr"), nvram_safe_get(https ? "https_lanport" : "http_lanport")
+				);
+
+				// media directories
+				char *buf, *p, *q;
+				char *path, *restrict;
+
+				if ((buf = strdup(nvram_safe_get("ms_dirs"))) != NULL) {
+					/* path<restrict[A|V|P|] */
+
+					p = buf;
+					while ((q = strsep(&p, ">")) != NULL) {
+						if (vstrsep(q, "<", &path, &restrict) < 1 || !path || !(*path))
+							continue;
+						fprintf(f, "media_dir=%s%s%s\n",
+							restrict ? : "", (restrict && *restrict) ? "," : "", path);
+					}
+					free(buf);
+				}
+
+				fclose(f);
+			}
+		}
+		_eval(argv, NULL, 0, &pid);
+	}
+}
+
+void stop_media_server(void)
+{
+	killall_tk("minidlna");
+}
+#endif	// TCONFIG_MEDIA_SERVER
+
+// -----------------------------------------------------------------------------
+
 #ifdef TCONFIG_USB
 void restart_nas_services(int stop, int start)
 {	
@@ -1352,12 +1432,14 @@ void start_services(void)
 	start_rstats(0);
 	start_sched();
 	restart_nas_services(1, 1);	// !!TB - Samba and FTP Server
+	start_media_server();
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
+	stop_media_server();
 	stop_ftpd();		// !!TB - FTP Server
 	stop_samba();		// !!TB - Samba
 	stop_sched();
@@ -1561,6 +1643,7 @@ TOP:
 			stop_usbevent();
 			stop_smbd();
 #endif
+			stop_media_server();
 			stop_ftpd();		// !!TB - FTP Server
 			stop_samba();		// !!TB - Samba
 			stop_jffs2();
@@ -1725,6 +1808,14 @@ TOP:
 		stop_firewall();
 		start_firewall();
 		if (action & A_START) start_ftpd();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_MEDIA_SERVER
+	if (strcmp(service, "media") == 0 || strcmp(service, "dlna") == 0) {
+		if (action & A_STOP) stop_media_server();
+		if (action & A_START) start_media_server();
 		goto CLEAR;
 	}
 #endif

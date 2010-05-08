@@ -869,6 +869,17 @@ static const nvset_t nvset_list[] = {
 	{ "smbd_passwd",		V_LENGTH(0, 50)			},
 #endif
 
+#ifdef TCONFIG_MEDIA_SERVER
+// nas-media
+	{ "ms_enable",			V_01				},
+	{ "ms_dirs",			V_LENGTH(0, 1024)		},
+	{ "ms_port",			V_RANGE(0, 65535)		},
+	{ "ms_dbdir",			V_LENGTH(0, 256)		},
+	{ "ms_tivo",			V_01				},
+	{ "ms_stdlna",			V_01				},
+	{ "ms_rescan",			V_01				},
+#endif
+
 //	qos
 	{ "qos_enable",			V_01				},
 	{ "qos_ack",			V_01				},
