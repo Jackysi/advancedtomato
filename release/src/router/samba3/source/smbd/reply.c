@@ -117,7 +117,7 @@ NTSTATUS check_path_syntax(pstring destname, const pstring srcname)
 		}
 
 		if (!(*s & 0x80)) {
-			if (*s <= 0x1f) {
+			if (*s <= 0x1f || *s == '|') {
 				return NT_STATUS_OBJECT_NAME_INVALID;
 			}
 			switch (*s) {
@@ -248,7 +248,7 @@ NTSTATUS check_path_syntax_wcard(pstring destname, const pstring srcname, BOOL *
 		}
 
 		if (!(*s & 0x80)) {
-			if (*s <= 0x1f) {
+			if (*s <= 0x1f || *s == '|') {
 				return NT_STATUS_OBJECT_NAME_INVALID;
 			}
 			if (!*p_contains_wcard) {
@@ -623,6 +623,7 @@ int reply_tcon_and_X(connection_struct *conn, char *inbuf,char *outbuf,int lengt
 	int passlen = SVAL(inbuf,smb_vwv3);
 	pstring path;
 	char *p, *q;
+	uint16 tcon_flags = SVAL(inbuf,smb_vwv2);
 	
 	START_PROFILE(SMBtconX);	
 
@@ -639,13 +640,22 @@ int reply_tcon_and_X(connection_struct *conn, char *inbuf,char *outbuf,int lengt
  
 	if (global_encrypted_passwords_negotiated) {
 		password = data_blob(smb_buf(inbuf),passlen);
+		if (lp_security() == SEC_SHARE) {
+			/*
+			 * Security = share always has a pad byte
+			 * after the password.
+			 */
+			p = smb_buf(inbuf) + passlen + 1;
+		} else {
+			p = smb_buf(inbuf) + passlen;
+		}
 	} else {
 		password = data_blob(smb_buf(inbuf),passlen+1);
 		/* Ensure correct termination */
-		password.data[passlen]=0;    
+		password.data[passlen]=0;
+		p = smb_buf(inbuf) + passlen + 1;
 	}
 
-	p = smb_buf(inbuf) + passlen;
 	p += srvstr_pull_buf(inbuf, path, p, sizeof(path), STR_TERMINATE);
 
 	/*
@@ -693,7 +703,27 @@ int reply_tcon_and_X(connection_struct *conn, char *inbuf,char *outbuf,int lengt
 		/* NT sets the fstype of IPC$ to the null string */
 		const char *fstype = IS_IPC(conn) ? "" : lp_fstype(SNUM(conn));
 		
-		set_message(outbuf,3,0,True);
+		if (tcon_flags & TCONX_FLAG_EXTENDED_RESPONSE) {
+			/* Return permissions. */
+			uint32 perm1 = 0;
+			uint32 perm2 = 0;
+
+			set_message(outbuf,7,0,True);
+
+			if (IS_IPC(conn)) {
+				perm1 = FILE_ALL_ACCESS;
+				perm2 = FILE_ALL_ACCESS;
+			} else {
+				perm1 = CAN_WRITE(conn) ?
+						SHARE_ALL_ACCESS :
+						SHARE_READ_ONLY;
+			}
+
+			SIVAL(outbuf, smb_vwv3, perm1);
+			SIVAL(outbuf, smb_vwv5, perm2);
+		} else {
+			set_message(outbuf,3,0,True);
+		}
 
 		p = smb_buf(outbuf);
 		p += srvstr_push(outbuf, p, server_devicetype, -1, 
@@ -1121,33 +1151,25 @@ int reply_search(connection_struct *conn, char *inbuf,char *outbuf, int dum_size
 
 	if (status_len == 0) {
 		SMB_STRUCT_STAT sbuf;
-		pstring dir2;
 
 		pstrcpy(directory,path);
-		pstrcpy(dir2,path);
 		unix_convert(directory,conn,0,&bad_path,&sbuf);
-		unix_format(dir2);
 
 		if (!check_name(directory,conn))
 			can_open = False;
 
-		p = strrchr_m(dir2,'/');
-		if (p == NULL) {
-			pstrcpy(mask,dir2);
-			*dir2 = 0;
+		p = strrchr_m(directory,'/');
+		if (!p) {
+			pstrcpy(mask,directory);
+			pstrcpy(directory,".");
 		} else {
 			*p = 0;
 			pstrcpy(mask,p+1);
 		}
 
-		p = strrchr_m(directory,'/');
-		if (!p) 
-			*directory = 0;
-		else
-			*p = 0;
-
-		if (strlen(directory) == 0)
+		if (*directory == '\0') {
 			pstrcpy(directory,".");
+		}
 		memset((char *)status,'\0',21);
 		SCVAL(status,0,(dirtype & 0x1F));
 	} else {
@@ -1163,6 +1185,11 @@ int reply_search(connection_struct *conn, char *inbuf,char *outbuf, int dum_size
 			goto SearchEmpty;
 		string_set(&conn->dirpath,dptr_path(dptr_num));
 		pstrcpy(mask, dptr_wcard(dptr_num));
+		/*
+		 * For a 'continue' search we have no string. So
+		 * check from the initial saved string.
+		 */
+		mask_contains_wcard = ms_has_wild(mask);
 	}
 
 	if (can_open) {
@@ -3950,7 +3977,25 @@ BOOL rmdir_internals(connection_struct *conn, char *directory)
 	BOOL ok;
 	SMB_STRUCT_STAT st;
 
-	ok = (SMB_VFS_RMDIR(conn,directory) == 0);
+	/* Might be a symlink. */
+	if(SMB_VFS_LSTAT(conn, directory, &st) != 0) {
+		return False;
+	}
+
+	if (S_ISLNK(st.st_mode)) {
+		/* Is what it points to a directory ? */
+		if(SMB_VFS_STAT(conn, directory, &st) != 0) {
+			return False;
+		}
+		if (!(S_ISDIR(st.st_mode))) {
+			errno = ENOTDIR;
+			return False;
+		}
+		ok = (SMB_VFS_UNLINK(conn,directory) == 0);
+	} else {
+		ok = (SMB_VFS_RMDIR(conn,directory) == 0);
+	}
+
 	if(!ok && ((errno == ENOTEMPTY)||(errno == EEXIST)) && lp_veto_files(SNUM(conn))) {
 		/* 
 		 * Check to see if the only thing in this directory are

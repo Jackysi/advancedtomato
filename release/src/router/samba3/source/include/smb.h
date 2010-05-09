@@ -785,7 +785,7 @@ struct connections_data {
 	int cnum;
 	uid_t uid;
 	gid_t gid;
-	char name[24];
+	char servicename[FSTRING_LEN];
 	char addr[24];
 	char machine[FSTRING_LEN];
 	time_t start;
@@ -1206,6 +1206,10 @@ struct bitmap {
 #define FILE_GENERIC_EXECUTE (STANDARD_RIGHTS_EXECUTE_ACCESS|\
 								FILE_EXECUTE|SYNCHRONIZE_ACCESS)
 
+/* Share specific rights. */
+#define SHARE_ALL_ACCESS	FILE_GENERIC_ALL
+#define SHARE_READ_ONLY		(FILE_GENERIC_READ|FILE_EXECUTE)
+
 /* Mapping of access rights to UNIX perms. */
 #define UNIX_ACCESS_RWX		FILE_GENERIC_ALL
 #define UNIX_ACCESS_R 		FILE_GENERIC_READ
@@ -1446,6 +1450,9 @@ char *strdup(char *s);
 #define FLAGS2_UNICODE_STRINGS         0x8000
 
 #define FLAGS2_WIN2K_SIGNATURE         0xC852 /* Hack alert ! For now... JRA. */
+
+/* TCONX Flag (smb_vwv2). */
+#define TCONX_FLAG_EXTENDED_RESPONSE   0x8
 
 /* Capabilities.  see ftp.microsoft.com/developr/drg/cifs/cifs/cifs4.txt */
 
