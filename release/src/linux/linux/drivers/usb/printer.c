@@ -78,7 +78,6 @@ struct print_buffer
 #define MAX_MFR         16
 #define MAX_MODEL       32
 #define MAX_DESCRIPT    64
-//#define MAX_STATUS_TYPE 6
 
 #ifdef CONFIG_PROC_FS
 static struct proc_dir_entry *usblp_dir;
@@ -89,6 +88,8 @@ struct parport_splink_device_info {
 	char model[MAX_MODEL];
 	char description[MAX_DESCRIPT];
 };
+
+#define USBLP_SPLINK_ID_SIZE	sizeof(struct parport_splink_device_info)
 
 static char *strunknown="unknown"; // Added by JYWeng 20031212:
 static void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data);// Added by JYWeng 20031212:
@@ -204,7 +205,7 @@ struct usblp {
 #ifdef CONFIG_PROC_FS
 	struct proc_dir_entry	*usblpid_file;		/* proc directory entry */
 #endif
-	struct parport_splink_device_info usblpid_info;
+	struct parport_splink_device_info *usblpid_info;
 };
 
 #ifdef DEBUG
@@ -362,16 +363,18 @@ static char *usblp_messages[] = { "ok", "out of paper", "off-line", "on fire" };
 
 
 /* Added by PaN */
+#ifdef CONFIG_PROC_FS
 static int proc_read_usblpid(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
-	struct usblp *usblp = data;
-	int len=0;
+	struct parport_splink_device_info *usblpid_info = ((struct usblp *)data)->usblpid_info;
 
-	len=sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n",
-	usblp->usblpid_info.mfr, usblp->usblpid_info.model, usblp->usblpid_info.class_name, usblp->usblpid_info.description);
-
-	return len;
+	return sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n",
+		usblpid_info->mfr,
+		usblpid_info->model,
+		usblpid_info->class_name,
+		usblpid_info->description);
 }
+#endif
 
 static int proc_get_usblpid(struct usblp *usblp)
 {
@@ -383,12 +386,12 @@ static int proc_get_usblpid(struct usblp *usblp)
 		return length;
 
 	str_dev_id = &usblp->device_id_string[2];
-	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info.mfr);
-	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info.model);
-	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info.class_name);
-	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info.description);
+	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info->mfr);
+	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info->model);
+	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info->class_name);
+	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info->description);
 
-	return sizeof(usblp->usblpid_info);
+	return 0;
 }
 // End PaN
 
@@ -533,6 +536,7 @@ static void usblp_cleanup (struct usblp *usblp)
 		usblp->usblpid_file = NULL;
 	}
 #endif
+	kfree(usblp->usblpid_info);
 	/* End PaN */
 
 	kfree (usblp->writebuf);
@@ -733,13 +737,9 @@ static int usblp_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		switch (cmd) {
 			/*=================================================================================== PaN */
 			case LPGETID: /* get the DEVICE_ID string */
-				length = proc_get_usblpid(usblp);
-
-				info("Parsing USBLPID...");
-
-				if (length < 0 ||
+				if (usblp->usblpid_info == NULL ||
 				    copy_to_user((unsigned char *) arg,
-						&usblp->usblpid_info, (unsigned long) length)) {
+						usblp->usblpid_info, (unsigned long) USBLP_SPLINK_ID_SIZE)) {
 					retval = -EFAULT;
 					goto done;
 				}
@@ -1156,6 +1156,14 @@ static void *usblp_probe(struct usb_device *dev, unsigned int ifnum,
 	usblp->present = 1;
 
 	/* Added by PaN */
+	/* get device id */
+	if (!(usblp->usblpid_info = kmalloc(USBLP_SPLINK_ID_SIZE, GFP_KERNEL))) {
+		err("out of memory for usblpid info");
+		goto abort;
+	}
+	if (proc_get_usblpid(usblp) < 0)
+		info("usblp: get usblpid error!");
+
 #ifdef CONFIG_PROC_FS
 	if (usblp_dir == NULL) {
 		/* create directory */
@@ -1167,13 +1175,8 @@ static void *usblp_probe(struct usb_device *dev, unsigned int ifnum,
 	}
 
 	usblp->usblpid_file = create_proc_read_entry(name, 0444, usblp_dir, proc_read_usblpid, usblp);
-	if (usblp->usblpid_file == NULL) {
-		goto outpan;
-	}
-	usblp->usblpid_file->owner = THIS_MODULE;
-	/* get device id */
-	if (proc_get_usblpid(usblp) < 0)
-		info("procfs: get usblpid error!");
+	if (usblp->usblpid_file)
+		usblp->usblpid_file->owner = THIS_MODULE;
 
 outpan:
 #endif
@@ -1189,6 +1192,7 @@ abort:
 			kfree (usblp->readbuf);
 		kfree(usblp->statusbuf);
 		kfree(usblp->device_id_string);
+		kfree(usblp->usblpid_info);
 		usb_free_urb(usblp->writeurb);
 		usb_free_urb(usblp->readurb);
 		kfree(usblp);

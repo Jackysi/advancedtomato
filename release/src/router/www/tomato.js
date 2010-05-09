@@ -2063,7 +2063,7 @@ function navi()
 			] ],
 REMOVE-END */
 /* USB-BEGIN */
-// ---- !!TB - USB, FTP, Samba
+// ---- !!TB - USB, FTP, Samba, Media Server
 		['USB and NAS',			'nas', 0, [
 			['USB Support',		'usb.asp']
 /* FTP-BEGIN */
@@ -2072,6 +2072,9 @@ REMOVE-END */
 /* SAMBA-BEGIN */
 			,['File Sharing',	'samba.asp']
 /* SAMBA-END */
+/* MEDIA-SRV-BEGIN */
+			,['Media Server',	'media.asp']
+/* MEDIA-SRV-END */
 			] ],
 /* USB-END */
 /* VPN-BEGIN */

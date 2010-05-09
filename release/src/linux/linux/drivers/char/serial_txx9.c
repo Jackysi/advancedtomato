@@ -332,7 +332,7 @@ static inline void receive_chars(struct rs_port *port,
 		if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
 			tty->flip.tqueue.routine((void *) tty);
 			if (tty->flip.count >= TTY_FLIPBUF_SIZE)
-				return;		// if TTY_DONT_FLIP is set
+				return;
 		}
 		ch = sio_in(port, TXX9_SIRFIFO);
 		*tty->flip.char_buf_ptr = ch;

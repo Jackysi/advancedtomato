@@ -936,6 +936,9 @@ static int init_nvram(void)
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
 	nvram_unset("https_crt_gen");
+#ifdef TCONFIG_MEDIA_SERVER
+	nvram_unset("ms_rescan");
+#endif
 	if (nvram_get_int("http_id_gen") == 1) nvram_unset("http_id");
 
 	nvram_unset("sch_rboot_last");

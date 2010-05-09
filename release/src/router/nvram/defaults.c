@@ -619,6 +619,16 @@ const defaults_t defaults[] = {
 	{ "smbd_passwd",		""				},
 #endif
 
+#ifdef TCONFIG_MEDIA_SERVER
+// nas-media
+	{ "ms_enable",			"0"				},	/* 0:Disable 1:Enable 2:Enable&Rescan */
+	{ "ms_dirs",			"/mnt<"				},
+	{ "ms_port",			"0"				},
+	{ "ms_dbdir",			""				},
+	{ "ms_tivo",			"0"				},
+	{ "ms_stdlna",			"0"				},
+#endif
+
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},

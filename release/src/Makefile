@@ -430,6 +430,8 @@ e:
 ifeq ($(CONFIG_LINUX26),y)
 	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
+	@sed -i "/TCONFIG_MEDIA_SERVER/d" router/config_$@
+	@echo "TCONFIG_MEDIA_SERVER=y" >>router/config_$@
 endif
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
@@ -459,6 +461,10 @@ m:
 	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
 	@sed -i "/TCONFIG_NTFS/d" router/config_$@
 	@echo "TCONFIG_NTFS=y" >>router/config_$@
+ifeq ($(CONFIG_LINUX26),y)
+	@sed -i "/TCONFIG_MEDIA_SERVER/d" router/config_$@
+	@echo "TCONFIG_MEDIA_SERVER=y" >>router/config_$@
+endif
 
 	$(call RouterOptions, router/config_$@)
 	$(call KernelConfigMips, $(LINUXDIR)/config_$@)

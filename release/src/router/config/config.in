@@ -69,6 +69,11 @@ config TCONFIG_USB
 	bool "USB Support"
 	default y
 
+config TCONFIG_MEDIA_SERVER
+	bool "Media Server (MiniDLNA)"
+	depends on TCONFIG_USB
+	default n
+
 config TCONFIG_FTP
 	bool "  FTP Server"
 	depends on TCONFIG_USB
