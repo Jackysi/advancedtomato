@@ -205,12 +205,9 @@ BOOL conn_idle_all(time_t t, int deadtime)
 	 * idle with a handle open.
 	 */
 
-
-#ifndef AVM_SMALLER
 	for (plist = get_first_internal_pipe(); plist; plist = get_next_internal_pipe(plist))
 		if (plist->pipe_handles && plist->pipe_handles->count)
 			allidle = False;
-#endif	
 
 	return allidle;
 }
