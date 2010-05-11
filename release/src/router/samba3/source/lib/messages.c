@@ -577,7 +577,7 @@ static int traverse_fn(TDB_CONTEXT *the_tdb, TDB_DATA kbuf, TDB_DATA dbuf, void 
 		if (errno == ESRCH) {
 			DEBUG(2,("pid %s doesn't exist - deleting connections %d [%s]\n",
 				 procid_str_static(&crec.pid),
-				 crec.cnum, crec.name));
+				 crec.cnum, crec.servicename));
 			tdb_delete(the_tdb, kbuf);
 		}
 	}

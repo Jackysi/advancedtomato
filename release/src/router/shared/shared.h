@@ -120,9 +120,7 @@ extern void add_remove_usbhost(char *host, int add);
 
 typedef int (*host_exec)(char *dev_name, int host_num, char *dsc_name, char *pt_name, uint flags);
 extern int exec_for_host(int host, int obsolete, uint flags, host_exec func);
-#ifdef LINUX26
 extern int is_no_partition(const char *discname);
-#endif
 #endif //TCONFIG_USB
 
 // id.c

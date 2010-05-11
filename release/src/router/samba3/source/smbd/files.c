@@ -127,10 +127,12 @@ files_struct *file_new(connection_struct *conn)
 
 	chain_fsp = fsp;
 
-	/* A new fsp invalidates a negative fsp_fi_cache. */
-	if (fsp_fi_cache.fsp == NULL) {
-		ZERO_STRUCT(fsp_fi_cache);
-	}
+	/* A new fsp invalidates the positive and
+	  negative fsp_fi_cache as the new fsp is pushed
+	  at the start of the list and we search from
+	  a cache hit to the *end* of the list. */
+
+	ZERO_STRUCT(fsp_fi_cache);
 	
 	return fsp;
 }
@@ -203,12 +205,10 @@ open files, %d are available.\n", request_max_open_files, real_max_open_files));
 		exit_server("out of memory in file_init");
 	}
 	
-#ifndef AVM_SMALLER
 	/*
 	 * Ensure that pipe_handle_oppset is set correctly.
 	 */
 	set_pipe_handle_offset(real_max_open_files);
-#endif
 }
 
 /****************************************************************************

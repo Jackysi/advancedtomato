@@ -180,7 +180,6 @@ char *detect_fs_type(char *device)
  *
  */
 
-#ifdef LINUX26
 /* check if the block device has no partition */
 int is_no_partition(const char *discname)
 {
@@ -200,7 +199,6 @@ int is_no_partition(const char *discname)
 
 	return (count == 1);
 }
-#endif
 
 int exec_for_host(int host, int obsolete, uint flags, host_exec func)
 {
@@ -305,15 +303,28 @@ int exec_for_host(int host, int obsolete, uint flags, host_exec func)
 			flags |= EFH_1ST_DISC;
 			if (func && (prt_fp = fopen("/proc/partitions", "r"))) {
 				while (fgets(line, sizeof(line) - 2, prt_fp)) {
-					if (sscanf(line, " %*s %*s %*s %s", bfr2) == 1) {
-						if ((cp = strstr(bfr2, "/part")) && strncmp(bfr2, mp, siz) == 0) {
+					if (sscanf(line, " %*s %*s %*s %s", bfr2) == 1 &&
+					    strncmp(bfr2, mp, siz) == 0)
+					{
+						if ((cp = strstr(bfr2, "/part"))) {
 							part_num = atoi(cp + 5);
 							sprintf(line, "%s/part%d", bfr, part_num);
 							sprintf(dsname, "disc%d", disc_num);
 							sprintf(ptname, "disc%d_%d", disc_num, part_num);
-							result = (*func)(line, host_no, dsname, ptname, flags) || result;
-							flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
 						}
+						else if ((cp = strstr(bfr2, "/disc"))) {
+							*(++cp) = 0;
+							if (!is_no_partition(bfr2))
+								continue;
+							sprintf(line, "%s/disc", bfr);
+							sprintf(dsname, "disc%d", disc_num);
+							strcpy(ptname, dsname);
+						}
+						else {
+							continue;
+						}
+						result = (*func)(line, host_no, dsname, ptname, flags) || result;
+						flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
 					}
 				}
 				fclose(prt_fp);

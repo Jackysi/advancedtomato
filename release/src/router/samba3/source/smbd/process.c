@@ -1016,9 +1016,7 @@ static int construct_reply(char *inbuf,char *outbuf,int size,int bufsize)
 
 	chain_size = 0;
 	file_chain_reset();
-#ifndef AVM_SMALLER
 	reset_chain_p();
-#endif
 
 	if (msg_type != 0)
 		return(reply_special(inbuf,outbuf));  
