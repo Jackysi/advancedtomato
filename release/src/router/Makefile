@@ -61,11 +61,16 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
+
 ifeq ($(CONFIG_LINUX26),y)
 ifeq ($(TCONFIG_SAMBASRV),y)
 NEED_EX_NLS = y
 endif
+ifeq ($(TCONFIG_USB_EXTRAS),y)
+NEED_EX_USB = y
 endif
+endif
+
 ifeq ($(TCONFIG_SAMBASRV),y)
 ifeq ($(TCONFIG_SAMBA3),y)
 NEED_SAMBA3 = y
@@ -73,6 +78,7 @@ else
 NEED_SAMBA2 = y
 endif
 endif
+
 obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
@@ -302,14 +308,14 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/sr_mod.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.*o $(PLATFORMDIR)/extras/ || true
-ifneq ($(CONFIG_LINUX26),y)
+ifneq ($(NEED_EX_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbserial.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/option.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/sierra.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*acm.*o $(PLATFORMDIR)/extras/ || true
-endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.*o $(PLATFORMDIR)/extras/ || true
+endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ipw.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/audio.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ov51*.*o $(PLATFORMDIR)/extras/ || true
@@ -374,6 +380,8 @@ ifneq ($(CONFIG_LINUX26),y)
 	@mv $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
 	@cp usbmodeswitch/usb_modeswitch.conf $(PLATFORMDIR)/extras/apps/usb_modeswitch.conf || true
 	@cp usbmodeswitch/usb_modeswitch.setup $(PLATFORMDIR)/extras/apps/usb_modeswitch.setup || true
+	@mkdir -p $(PLATFORMDIR)/extras/apps/usb_modeswitch.d
+	@cp -f usbmodeswitch/data/usb_modeswitch.d/* $(PLATFORMDIR)/extras/apps/usb_modeswitch.d || true
 endif
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
