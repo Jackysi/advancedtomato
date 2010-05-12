@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.122 2010/02/15 09:56:21 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.124 2010/03/14 00:35:27 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2009 Thomas Bernard
@@ -1000,13 +1000,12 @@ main(int argc, char * * argv)
 	struct timeval checktime = {0, 0};
 
 	memset(snotify, 0, sizeof(snotify));
+#ifdef ENABLE_NATPMP
+	for(i = 0; i < MAX_LAN_ADDR; i++)
+		snatpmp[i] = -1;
+#endif
 	if(init(argc, argv, &v) != 0)
 		return 1;
-#ifdef ENABLE_NATPMP
-	for (i=0; i<MAX_LAN_ADDR; i++) {
-		snatpmp[i] = -1;
-	}
-#endif
 
 	LIST_INIT(&upnphttphead);
 #ifdef USE_MINIUPNPDCTL
@@ -1088,6 +1087,11 @@ main(int argc, char * * argv)
 	/* main loop */
 	while(!quitting)
 	{
+		/* Correct startup_time if it was set with a RTC close to 0 */
+		if((startup_time<60*60*24) && (time(NULL)>60*60*24))
+		{
+			set_startup_time(GETFLAG(SYSUPTIMEMASK));
+		} 
 		/* Check if we need to send SSDP NOTIFY messages and do it if
 		 * needed */
 		if(gettimeofday(&timeofday, 0) < 0)
@@ -1370,7 +1374,7 @@ main(int argc, char * * argv)
 		{
 #ifdef ENABLE_NATPMP
 			if(GETFLAG(ENABLENATPMPMASK))
-				SendNATPMPPublicAddressChangeNotification(snotify, n_lan_addr);
+				SendNATPMPPublicAddressChangeNotification(snatpmp/*snotify*/, n_lan_addr);
 #endif
 #ifdef ENABLE_EVENTS
 			if(GETFLAG(ENABLEUPNPMASK))
