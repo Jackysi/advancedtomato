@@ -8,6 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/pfkeyv2.h>
 #include <linux/random.h>
+#include <linux/in6.h>
 #include <net/icmp.h>
 #include <net/protocol.h>
 #include <net/udp.h>
@@ -219,6 +220,10 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
 		goto out;
 
 	/* ... check padding bits here. Silly. :-) */
+
+	/* RFC4303: Drop dummy packets without any error */
+	if (nexthdr[1] == IPPROTO_NONE)
+		goto out;
 
 	iph = ip_hdr(skb);
 	ihl = iph->ihl * 4;

@@ -225,6 +225,12 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 		}
 		/* ... check padding bits here. Silly. :-) */
 
+		/* RFC4303: Drop dummy packets without any error */
+		if (nexthdr[1] == IPPROTO_NONE) {
+			ret = -EINVAL;
+			goto out;
+		}
+
 		pskb_trim(skb, skb->len - alen - padlen - 2);
 		ret = nexthdr[1];
 	}
