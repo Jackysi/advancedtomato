@@ -55,6 +55,7 @@
 static int jffs_remove(struct inode *dir, struct dentry *dentry, int type);
 
 static const struct super_operations jffs_ops;
+static const struct export_operations jffs_export_ops;
 static const struct file_operations jffs_file_operations;
 static const struct inode_operations jffs_file_inode_operations;
 static const struct file_operations jffs_dir_operations;
@@ -70,7 +71,7 @@ static int jffs_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode *root_inode;
 	struct jffs_control *c;
 
-	sb->s_flags |= MS_NODIRATIME;
+	sb->s_flags |= MS_NOATIME;
 
 	D1(printk(KERN_NOTICE "JFFS: Trying to mount device %s.\n",
 		  sb->s_id));
@@ -96,6 +97,7 @@ static int jffs_fill_super(struct super_block *sb, void *data, int silent)
 	 */
 	sb->s_magic = JFFS_MAGIC_SB_BITMASK;
 	sb->s_op = &jffs_ops;
+	sb->s_export_op = &jffs_export_ops;
 
 	root_inode = iget(sb, JFFS_MIN_INO);
 	if (!root_inode)

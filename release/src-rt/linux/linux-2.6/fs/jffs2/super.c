@@ -75,6 +75,9 @@ static const struct super_operations jffs2_super_operations =
 	.sync_fs =	jffs2_sync_fs,
 };
 
+/* Just declare a void structure as a NULL value implies the default */
+static const struct export_operations jffs2_export_ops;
+
 /*
  * fill in the superblock
  */
@@ -104,6 +107,7 @@ static int jffs2_fill_super(struct super_block *sb, void *data, int silent)
 	spin_lock_init(&c->inocache_lock);
 
 	sb->s_op = &jffs2_super_operations;
+	sb->s_export_op = &jffs2_export_ops;
 	sb->s_flags = sb->s_flags | MS_NOATIME;
 	sb->s_xattr = jffs2_xattr_handlers;
 #ifdef CONFIG_JFFS2_FS_POSIX_ACL
@@ -161,6 +165,7 @@ static struct file_system_type jffs2_fs_type = {
 	.name =		"jffs2",
 	.get_sb =	jffs2_get_sb,
 	.kill_sb =	jffs2_kill_sb,
+	.fs_flags =	FS_REQUIRES_DEV,
 };
 
 static int __init init_jffs2_fs(void)
