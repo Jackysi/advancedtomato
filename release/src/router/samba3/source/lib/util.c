@@ -673,11 +673,11 @@ void close_low_fds(BOOL stderr_too)
 		if (fd < 0)
 			fd = sys_open("/dev/null",O_WRONLY,0);
 		if (fd < 0) {
-			DEBUG(0,("Can't open /dev/null\n"));
+			DEBUG(1,("Can't open /dev/null\n"));
 			return;
 		}
 		if (fd != i) {
-			DEBUG(0,("Didn't get file descriptor %d\n",i));
+			DEBUG(1,("Didn't get file descriptor %d\n",i));
 			return;
 		}
 	}
@@ -703,7 +703,7 @@ ssize_t write_data_at_offset(int fd, const char *buffer, size_t N, SMB_OFF_T pos
 			return write_data(fd, buffer + total,N - total);
 		}
 		if (ret == -1) {
-			DEBUG(0,("write_data_at_offset: write failure. Error = %s\n", strerror(errno) ));
+			DEBUG(1,("write_data_at_offset: write failure. Error = %s\n", strerror(errno) ));
 			return -1;
 		}
 		if (ret == 0) {
@@ -780,7 +780,7 @@ ssize_t transfer_file_internal(int infd, int outfd, size_t n, ssize_t (*read_fn)
 
 		read_ret = (*read_fn)(infd, buf, num_to_read_thistime);
 		if (read_ret == -1) {
-			DEBUG(0,("transfer_file_internal: read failure. Error = %s\n", strerror(errno) ));
+			DEBUG(1,("transfer_file_internal: read failure. Error = %s\n", strerror(errno) ));
 			SAFE_FREE(buf);
 			return -1;
 		}
@@ -793,7 +793,7 @@ ssize_t transfer_file_internal(int infd, int outfd, size_t n, ssize_t (*read_fn)
 			write_ret = (*write_fn)(outfd,buf + num_written, read_ret - num_written);
  
 			if (write_ret == -1) {
-				DEBUG(0,("transfer_file_internal: write failure. Error = %s\n", strerror(errno) ));
+				DEBUG(1,("transfer_file_internal: write failure. Error = %s\n", strerror(errno) ));
 				SAFE_FREE(buf);
 				return -1;
 			}
@@ -1169,7 +1169,7 @@ BOOL get_myname(char *my_name)
 
 	/* get my host name */
 	if (gethostname(hostname, sizeof(hostname)) == -1) {
-		DEBUG(0,("gethostname failed\n"));
+		DEBUG(1,("gethostname failed\n"));
 		return False;
 	} 
 
@@ -1202,7 +1202,7 @@ BOOL get_mydnsfullname(fstring my_dnsname)
 		/* get my host name */
 		if (gethostname(dnshostname, sizeof(dnshostname)) == -1) {
 			*dnshostname = '\0';
-			DEBUG(0,("gethostname failed\n"));
+			DEBUG(1,("gethostname failed\n"));
 			return False;
 		} 
 
@@ -2352,7 +2352,7 @@ int set_maxfiles(int requested_max)
 	int saved_current_limit;
 
 	if(getrlimit(RLIMIT_NOFILE, &rlp)) {
-		DEBUG(0,("set_maxfiles: getrlimit (1) for RLIMIT_NOFILE failed with error %s\n",
+		DEBUG(1,("set_maxfiles: getrlimit (1) for RLIMIT_NOFILE failed with error %s\n",
 			strerror(errno) ));
 		/* just guess... */
 		return requested_max;
@@ -2394,14 +2394,14 @@ int set_maxfiles(int requested_max)
 	saved_current_limit = rlp.rlim_cur = MIN(requested_max,rlp.rlim_max);
 
 	if(setrlimit(RLIMIT_NOFILE, &rlp)) {
-		DEBUG(0,("set_maxfiles: setrlimit for RLIMIT_NOFILE for %d files failed with error %s\n", 
+		DEBUG(1,("set_maxfiles: setrlimit for RLIMIT_NOFILE for %d files failed with error %s\n", 
 			(int)rlp.rlim_cur, strerror(errno) ));
 		/* just guess... */
 		return saved_current_limit;
 	}
 
 	if(getrlimit(RLIMIT_NOFILE, &rlp)) {
-		DEBUG(0,("set_maxfiles: getrlimit (2) for RLIMIT_NOFILE failed with error %s\n",
+		DEBUG(1,("set_maxfiles: getrlimit (2) for RLIMIT_NOFILE failed with error %s\n",
 			strerror(errno) ));
 		/* just guess... */
 		return saved_current_limit;
@@ -2455,7 +2455,7 @@ void *smb_xmalloc_array(size_t size, unsigned int count)
                 smb_panic("smb_xmalloc: alloc size too large.\n");
         }
 	if ((p = SMB_MALLOC(size*count)) == NULL) {
-		DEBUG(0, ("smb_xmalloc_array failed to allocate %lu * %lu bytes\n",
+		DEBUG(1, ("smb_xmalloc_array failed to allocate %lu * %lu bytes\n",
 			(unsigned long)size, (unsigned long)count));
 		smb_panic("smb_xmalloc_array: malloc fail.\n");
 	}
@@ -2976,9 +2976,9 @@ void *talloc_check_name_abort(const void *ptr, const char *name)
 	if (result != NULL)
 		return result;
 
-	DEBUG(0, ("Talloc type mismatch, expected %s, got %s\n",
+	DEBUG(1, ("Talloc type mismatch, expected %s, got %s\n",
 		  name, talloc_get_name(ptr)));
-	smb_panic("aborting");
+	smb_panic("Talloc type mismatch, aborting");
 	/* Keep the compiler happy */
 	return NULL;
 }

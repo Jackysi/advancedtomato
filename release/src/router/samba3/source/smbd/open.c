@@ -98,7 +98,7 @@ static void change_file_owner_to_parent(connection_struct *conn,
 
 	ret = SMB_VFS_STAT(conn, inherit_from_dir, &parent_st);
 	if (ret == -1) {
-		DEBUG(0,("change_file_owner_to_parent: failed to stat parent "
+		DEBUG(1,("change_file_owner_to_parent: failed to stat parent "
 			 "directory %s. Error was %s\n",
 			 inherit_from_dir, strerror(errno) ));
 		return;
@@ -108,7 +108,7 @@ static void change_file_owner_to_parent(connection_struct *conn,
 	ret = SMB_VFS_FCHOWN(fsp, fsp->fh->fd, parent_st.st_uid, (gid_t)-1);
 	unbecome_root();
 	if (ret == -1) {
-		DEBUG(0,("change_file_owner_to_parent: failed to fchown "
+		DEBUG(1,("change_file_owner_to_parent: failed to fchown "
 			 "file %s to parent directory uid %u. Error "
 			 "was %s\n", fsp->fsp_name,
 			 (unsigned int)parent_st.st_uid,
@@ -132,7 +132,7 @@ static void change_dir_owner_to_parent(connection_struct *conn,
 
 	ret = SMB_VFS_STAT(conn, inherit_from_dir, &parent_st);
 	if (ret == -1) {
-		DEBUG(0,("change_dir_owner_to_parent: failed to stat parent "
+		DEBUG(1,("change_dir_owner_to_parent: failed to stat parent "
 			 "directory %s. Error was %s\n",
 			 inherit_from_dir, strerror(errno) ));
 		return;
@@ -146,7 +146,7 @@ static void change_dir_owner_to_parent(connection_struct *conn,
 	*/
 
 	if (!vfs_GetWd(conn,saved_dir)) {
-		DEBUG(0,("change_dir_owner_to_parent: failed to get "
+		DEBUG(1,("change_dir_owner_to_parent: failed to get "
 			 "current working directory\n"));
 		return;
 	}
@@ -333,7 +333,7 @@ static NTSTATUS open_file(files_struct *fsp,
 			ret = SMB_VFS_FSTAT(fsp,fsp->fh->fd,psbuf);
 			/* If we have an fd, this stat should succeed. */
 			if (ret == -1) {
-				DEBUG(0,("Error doing fstat on open file %s "
+				DEBUG(1,("Error doing fstat on open file %s "
 					 "(%s)\n", path,strerror(errno) ));
 			}
 		}
@@ -520,7 +520,7 @@ static void validate_my_share_entries(int num,
 	fsp = file_find_dif(share_entry->dev, share_entry->inode,
 			    share_entry->share_file_id);
 	if (!fsp) {
-		DEBUG(0,("validate_my_share_entries: PANIC : %s\n",
+		DEBUG(1,("validate_my_share_entries: PANIC : %s\n",
 			 share_mode_str(num, share_entry) ));
 		smb_panic("validate_my_share_entries: Cannot match a "
 			  "share entry with an open file\n");
@@ -547,7 +547,7 @@ static void validate_my_share_entries(int num,
  panic:
 	{
 		pstring str;
-		DEBUG(0,("validate_my_share_entries: PANIC : %s\n",
+		DEBUG(1,("validate_my_share_entries: PANIC : %s\n",
 			 share_mode_str(num, share_entry) ));
 		slprintf(str, sizeof(str)-1, "validate_my_share_entries: "
 			 "file %s, oplock_type = 0x%x, op_type = 0x%x\n",
@@ -787,7 +787,7 @@ static void defer_open(struct share_mode_lock *lck,
 		}
 
 		if (procid_is_me(&e->pid) && (e->op_mid == mid)) {
-			DEBUG(0, ("Trying to defer an already deferred "
+			DEBUG(1, ("Trying to defer an already deferred "
 				  "request: mid=%d, exiting\n", mid));
 			exit_server("attempt to defer a deferred request");
 		}
@@ -1199,7 +1199,7 @@ NTSTATUS open_file_ntcreate(connection_struct *conn,
 		/* Remove the deferred open entry under lock. */
 		lck = get_share_mode_lock(NULL, state->dev, state->inode, NULL, NULL);
 		if (lck == NULL) {
-			DEBUG(0, ("could not get share mode lock\n"));
+			DEBUG(1, ("could not get share mode lock\n"));
 		} else {
 			del_deferred_open_entry(lck, mid);
 			TALLOC_FREE(lck);
@@ -1435,7 +1435,7 @@ NTSTATUS open_file_ntcreate(connection_struct *conn,
 
 		if (lck == NULL) {
 			file_free(fsp);
-			DEBUG(0, ("Could not get share mode lock\n"));
+			DEBUG(1, ("Could not get share mode lock\n"));
 			return NT_STATUS_SHARING_VIOLATION;
 		}
 
@@ -1648,7 +1648,7 @@ NTSTATUS open_file_ntcreate(connection_struct *conn,
 					  fname);
 
 		if (lck == NULL) {
-			DEBUG(0, ("open_file_ntcreate: Could not get share "
+			DEBUG(1, ("open_file_ntcreate: Could not get share "
 				  "mode lock for %s\n", fname));
 			fd_close(conn, fsp);
 			file_free(fsp);
@@ -2060,7 +2060,7 @@ NTSTATUS open_directory(connection_struct *conn,
 		 (unsigned int)file_attributes));
 
 	if (is_ntfs_stream_name(fname)) {
-		DEBUG(0,("open_directory: %s is a stream name!\n", fname ));
+		DEBUG(1,("open_directory: %s is a stream name!\n", fname ));
 		return NT_STATUS_NOT_A_DIRECTORY;
 	}
 
@@ -2175,7 +2175,7 @@ NTSTATUS open_directory(connection_struct *conn,
 				  fname);
 
 	if (lck == NULL) {
-		DEBUG(0, ("open_directory: Could not get share mode lock for %s\n", fname));
+		DEBUG(1, ("open_directory: Could not get share mode lock for %s\n", fname));
 		file_free(fsp);
 		return NT_STATUS_SHARING_VIOLATION;
 	}
@@ -2314,7 +2314,7 @@ void msg_file_was_renamed(int msg_type, struct process_id src,
 	size_t sp_len;
 
 	if (buf == NULL || len < MSG_FILE_RENAMED_MIN_SIZE + 2) {
-                DEBUG(0, ("msg_file_was_renamed: Got invalid msg len %d\n", (int)len));
+                DEBUG(1, ("msg_file_was_renamed: Got invalid msg len %d\n", (int)len));
                 return;
         }
 

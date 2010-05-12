@@ -147,11 +147,9 @@ static void unbecome_local_master_success(struct subnet_record *subrec,
 	reset_workgroup_state( subrec, relname, force_new_election );
 
 	if( DEBUGLVL( 0 ) ) {
-		dbgtext( "*****\n\n" );
-		dbgtext( "Samba name server %s ", global_myname() );
-		dbgtext( "has stopped being a local master browser " );
-		dbgtext( "for workgroup %s ", relname );
-		dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+		dbgtext( "Samba name server %s has stopped being a local master browser "
+		         "for workgroup %s on subnet %s\n",
+		         global_myname(), relname, subrec->subnet_name );
 	}
 
 }
@@ -183,11 +181,9 @@ Removing from namelist anyway.\n", nmb_namestr(fail_name)));
 	reset_workgroup_state( subrec, failname, force_new_election );
 
 	if( DEBUGLVL( 0 ) ) {
-		dbgtext( "*****\n\n" );
-		dbgtext( "Samba name server %s ", global_myname() );
-		dbgtext( "has stopped being a local master browser " );
-		dbgtext( "for workgroup %s ", failname );
-		dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+		dbgtext( "Samba name server %s has stopped being a local master browser "
+		         "for workgroup %s on subnet %s\n",
+		         global_myname(), failname, subrec->subnet_name );
 	}
 }
 
@@ -394,11 +390,9 @@ on subnet %s\n", work->work_group, subrec->subnet_name));
 	reset_announce_timer();
 
 	if( DEBUGLVL( 0 ) ) {
-		dbgtext( "*****\n\n" );
-		dbgtext( "Samba name server %s ", global_myname() );
-		dbgtext( "is now a local master browser " );
-		dbgtext( "for workgroup %s ", work->work_group );
-		dbgtext( "on subnet %s\n\n*****\n", subrec->subnet_name );
+		dbgtext( "Samba name server %s is now a local master browser "
+		         "for workgroup %s on subnet %s\n",
+		         global_myname(), work->work_group, subrec->subnet_name );
 	}
 }
 
@@ -516,7 +510,7 @@ void become_local_master_browser(struct subnet_record *subrec, struct work_recor
 
 	/* Sanity check. */
 	if (!lp_local_master()) { 
-		DEBUG(0,("become_local_master_browser: Samba not configured as a local master browser.\n"));
+		DEBUG(1,("become_local_master_browser: Samba not configured as a local master browser.\n"));
 		return;
 	}
 

@@ -335,7 +335,7 @@ NTSTATUS connect_dst_pipe(struct cli_state **cli_dst, struct rpc_pipe_client **p
 
 	pipe_hnd = cli_rpc_pipe_open_noauth(cli_tmp, pipe_num, &nt_status);
 	if (!pipe_hnd) {
-		DEBUG(0, ("couldn't not initialize pipe\n"));
+		DEBUG(1, ("couldn't not initialize pipe\n"));
 		cli_shutdown(cli_tmp);
 		SAFE_FREE(server_name);
 		return nt_status;
@@ -632,7 +632,7 @@ static int net_getlocalsid(int argc, const char **argv)
 	}
 
 	if(!initialize_password_db(False)) {
-		DEBUG(0, ("WARNING: Could not open passdb - local sid may not reflect passdb\n"
+		DEBUG(1, ("WARNING: Could not open passdb - local sid may not reflect passdb\n"
 			  "backend knowlege (such as the sid stored in LDAP)\n"));
 	}
 
@@ -648,7 +648,7 @@ static int net_getlocalsid(int argc, const char **argv)
 	get_global_sam_sid();
 
 	if (!secrets_fetch_domain_sid(name, &sid)) {
-		DEBUG(0, ("Can't fetch domain SID for name: %s\n", name));
+		DEBUG(1, ("Can't fetch domain SID for name: %s\n", name));
 		return 1;
 	}
 	sid_to_string(sid_str, &sid);
@@ -669,7 +669,7 @@ static int net_setlocalsid(int argc, const char **argv)
 	}
 
 	if (!secrets_store_domain_sid(global_myname(), &sid)) {
-		DEBUG(0,("Can't store domain SID as a pdc/bdc.\n"));
+		DEBUG(1,("Can't store domain SID as a pdc/bdc.\n"));
 		return 1;
 	}
 
@@ -689,7 +689,7 @@ static int net_setdomainsid(int argc, const char **argv)
 	}
 
 	if (!secrets_store_domain_sid(lp_workgroup(), &sid)) {
-		DEBUG(0,("Can't store domain SID.\n"));
+		DEBUG(1,("Can't store domain SID.\n"));
 		return 1;
 	}
 
@@ -702,7 +702,7 @@ static int net_getdomainsid(int argc, const char **argv)
 	fstring sid_str;
 
 	if(!initialize_password_db(False)) {
-		DEBUG(0, ("WARNING: Could not open passdb - domain sid may not reflect passdb\n"
+		DEBUG(1, ("WARNING: Could not open passdb - domain sid may not reflect passdb\n"
 			  "backend knowlege (such as the sid stored in LDAP)\n"));
 	}
 
@@ -859,12 +859,12 @@ static int net_maxrid(int argc, const char **argv)
 	uint32 rid;
 
 	if (argc != 0) {
-	        DEBUG(0, ("usage: net maxrid\n"));
+	        DEBUG(1, ("usage: net maxrid\n"));
 		return 1;
 	}
 
 	if ((rid = get_maxrid()) == 0) {
-		DEBUG(0, ("can't get current maximum rid\n"));
+		DEBUG(1, ("can't get current maximum rid\n"));
 		return 1;
 	}
 

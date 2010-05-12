@@ -180,7 +180,7 @@ BOOL set_current_service(connection_struct *conn, uint16 flags, BOOL do_chdir)
 	if (do_chdir &&
 	    vfs_ChDir(conn,conn->connectpath) != 0 &&
 	    vfs_ChDir(conn,conn->origpath) != 0) {
-		DEBUG(0,("chdir (%s) failed\n",
+		DEBUG(1,("chdir (%s) failed\n",
 			 conn->connectpath));
 		return(False);
 	}
@@ -351,7 +351,7 @@ int find_service(fstring service)
 
 	if (iService >= 0) {
 		if (!VALID_SNUM(iService)) {
-			DEBUG(0,("Invalid snum %d for %s\n",iService, service));
+			DEBUG(1,("Invalid snum %d for %s\n",iService, service));
 			iService = -1;
 		}
 	}
@@ -461,7 +461,7 @@ static NTSTATUS find_forced_group(BOOL force_user,
 
 	mem_ctx = talloc_new(NULL);
 	if (mem_ctx == NULL) {
-		DEBUG(0, ("talloc_new failed\n"));
+		DEBUG(1, ("talloc_new failed\n"));
 		return NT_STATUS_NO_MEMORY;
 	}
 
@@ -515,7 +515,7 @@ static NTSTATUS find_forced_group(BOOL force_user,
 			DEBUG(3,("Forced group %s for member %s\n",
 				 groupname, username));
 		} else {
-			DEBUG(0,("find_forced_group: forced user %s is not a member "
+			DEBUG(1,("find_forced_group: forced user %s is not a member "
 				"of forced group %s. Disallowing access.\n",
 				username, groupname ));
 			result = NT_STATUS_MEMBER_NOT_IN_GROUP;
@@ -561,7 +561,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 
 	conn = conn_new();
 	if (!conn) {
-		DEBUG(0,("Couldn't find free connection.\n"));
+		DEBUG(1,("Couldn't find free connection.\n"));
 		*status = NT_STATUS_INSUFFICIENT_RESOURCES;
 		return NULL;
 	}
@@ -577,7 +577,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 		guest = True;
 		pass = getpwnam_alloc(NULL, guestname);
 		if (!pass) {
-			DEBUG(0,("make_connection_snum: Invalid guest "
+			DEBUG(1,("make_connection_snum: Invalid guest "
 				 "account %s??\n",guestname));
 			conn_free(conn);
 			*status = NT_STATUS_NO_SUCH_USER;
@@ -657,7 +657,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 		TALLOC_FREE(found_username);
 		conn->force_user = True;
 	} else {
-		DEBUG(0, ("invalid VUID (vuser) but not in security=share\n"));
+		DEBUG(1, ("invalid VUID (vuser) but not in security=share\n"));
 		conn_free(conn);
 		*status = NT_STATUS_ACCESS_DENIED;
 		return NULL;
@@ -745,7 +745,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 			conn->nt_user_token = dup_nt_token(
 				NULL, vuser->nt_user_token);
 			if (conn->nt_user_token == NULL) {
-				DEBUG(0, ("dup_nt_token failed\n"));
+				DEBUG(1, ("dup_nt_token failed\n"));
 				conn_free(conn);
 				*status = NT_STATUS_NO_MEMORY;
 				return NULL;
@@ -855,7 +855,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 						lp_servicename(snum),
 						FILE_READ_DATA)) {
 				/* No access, read or write. */
-				DEBUG(0,("make_connection: connection to %s "
+				DEBUG(1,("make_connection: connection to %s "
 					 "denied due to security "
 					 "descriptor.\n",
 					  lp_servicename(snum)));
@@ -870,7 +870,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 	/* Initialise VFS function pointers */
 
 	if (!smbd_vfs_init(conn)) {
-		DEBUG(0, ("vfs_init failed for service %s\n",
+		DEBUG(1, ("vfs_init failed for service %s\n",
 			  lp_servicename(snum)));
 		conn_free(conn);
 		*status = NT_STATUS_BAD_NETWORK_NAME;
@@ -936,7 +936,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 /* USER Activites: */
 	if (!change_to_user(conn, conn->vuid)) {
 		/* No point continuing if they fail the basic checks */
-		DEBUG(0,("Can't become connected user!\n"));
+		DEBUG(1,("Can't become connected user!\n"));
 		yield_connection(conn, lp_servicename(snum));
 		conn_free(conn);
 		*status = NT_STATUS_LOGON_FAILURE;
@@ -988,7 +988,7 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 	   themselves. */
 
 	if (SMB_VFS_CONNECT(conn, lp_servicename(snum), user) < 0) {
-		DEBUG(0,("make_connection: VFS make connection failed!\n"));
+		DEBUG(1,("make_connection: VFS make connection failed!\n"));
 		change_to_root_user();
 		yield_connection(conn, lp_servicename(snum));
 		conn_free(conn);
@@ -1004,11 +1004,11 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 	if ((ret = SMB_VFS_STAT(conn, conn->connectpath, &st)) != 0 ||
 	    !S_ISDIR(st.st_mode)) {
 		if (ret == 0 && !S_ISDIR(st.st_mode)) {
-			DEBUG(0,("'%s' is not a directory, when connecting to "
+			DEBUG(1,("'%s' is not a directory, when connecting to "
 				 "[%s]\n", conn->connectpath,
 				 lp_servicename(snum)));
 		} else {
-			DEBUG(0,("'%s' does not exist or permission denied "
+			DEBUG(1,("'%s' does not exist or permission denied "
 				 "when connecting to [%s] Error was %s\n",
 				 conn->connectpath, lp_servicename(snum),
 				 strerror(errno) ));
@@ -1076,7 +1076,7 @@ connection_struct *make_connection_with_chdir(const char *service_in,
 	 */
 	 
 	if ( conn && vfs_ChDir(conn,conn->connectpath) != 0 ) {
-		DEBUG(0,("move_driver_to_download_area: Can't change "
+		DEBUG(1,("move_driver_to_download_area: Can't change "
 			 "directory to %s for [print$] (%s)\n",
 			 conn->connectpath,strerror(errno)));
 		yield_connection(conn, lp_servicename(SNUM(conn)));
@@ -1109,7 +1109,7 @@ connection_struct *make_connection(const char *service_in, DATA_BLOB password,
 	/* This must ONLY BE CALLED AS ROOT. As it exits this function as
 	 * root. */
 	if (!non_root_mode() && (euid = geteuid()) != 0) {
-		DEBUG(0,("make_connection: PANIC ERROR. Called as nonroot "
+		DEBUG(1,("make_connection: PANIC ERROR. Called as nonroot "
 			 "(%u)\n", (unsigned int)euid ));
 		smb_panic("make_connection: PANIC ERROR. Called as nonroot\n");
 	}
@@ -1198,7 +1198,7 @@ connection_struct *make_connection(const char *service_in, DATA_BLOB password,
 			return NULL;
 		}
 
-		DEBUG(0,("%s (%s) couldn't find service %s\n",
+		DEBUG(1,("%s (%s) couldn't find service %s\n",
 			 get_remote_machine_name(), client_addr(), service));
 		*status = NT_STATUS_BAD_NETWORK_NAME;
 		return NULL;

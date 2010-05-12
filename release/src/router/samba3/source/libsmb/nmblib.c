@@ -789,7 +789,7 @@ static BOOL send_udp(int fd,char *buf,int len,struct in_addr ip,int port)
 	}
 
 	if (!ret)
-		DEBUG(0,("Packet send failed to %s(%d) ERRNO=%s\n",
+		DEBUG(1,("Packet send failed to %s(%d) ERRNO=%s\n",
 			inet_ntoa(ip),port,strerror(errno)));
 
 	if (ret)
@@ -1018,7 +1018,7 @@ struct packet_struct *receive_packet(int fd,enum packet_type type,int t)
 
 	if ((ret = sys_select_intr(fd+1,&fds,NULL,NULL,&timeout)) == -1) {
 		/* errno should be EBADF or EINVAL. */
-		DEBUG(0,("select returned -1, errno = %s (%d)\n", strerror(errno), errno));
+		DEBUG(1,("select returned -1, errno = %s (%d)\n", strerror(errno), errno));
 		return NULL;
 	}
 

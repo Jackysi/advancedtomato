@@ -141,7 +141,7 @@ static BOOL get_rpc_shares(struct cli_state *cli,
 
 	mem_ctx = talloc_new(NULL);
 	if (mem_ctx == NULL) {
-		DEBUG(0, ("talloc_new failed\n"));
+		DEBUG(1, ("talloc_new failed\n"));
 		return False;
 	}
 

@@ -2382,7 +2382,7 @@ void get_pipe_fns( int idx, struct api_struct **fns, int *n_fns )
 			break;
 #endif
 		default:
-			DEBUG(0,("get_pipe_fns: Unknown pipe index! [%d]\n", idx));
+			DEBUG(1,("get_pipe_fns: Unknown pipe index! [%d]\n", idx));
 	}
 
 	*fns = cmds;
