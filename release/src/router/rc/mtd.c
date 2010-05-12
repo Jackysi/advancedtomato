@@ -337,10 +337,17 @@ int mtd_write_main(int argc, char *argv[])
 		if (safe_fread(&n, 1, sizeof(n), f) != sizeof(n)) {
 			goto ERROR;
 		}
-		// skip the header
-		if (fseek(f, ntohl(n), SEEK_SET) != 0) {
+		// skip the header - we can't use seek() for fifo, so read the rest of the header
+		n = ntohl(n) - sizeof(sig) - sizeof(n);
+		if ((buf = malloc(n + 1)) == NULL) {
+			error = "Not enough memory";
 			goto ERROR;
 		}
+		if (safe_fread(buf, 1, n, f) != n) {
+			goto ERROR;
+		}
+		free(buf);
+		buf = NULL;
 		// trx should be next...
 		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
 			goto ERROR;
