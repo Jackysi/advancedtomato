@@ -1564,7 +1564,7 @@ static void ub_reset_task(struct work_struct *work)
 	unsigned long flags;
 	struct list_head *p;
 	struct ub_lun *lun;
-	int lkr, rc;
+	int rc;
 
 	if (!sc->reset) {
 		printk(KERN_WARNING "%s: Running reset unrequested\n",
@@ -1582,10 +1582,11 @@ static void ub_reset_task(struct work_struct *work)
 	} else if (sc->dev->actconfig->desc.bNumInterfaces != 1) {
 		;
 	} else {
-		if ((lkr = usb_lock_device_for_reset(sc->dev, sc->intf)) < 0) {
+		rc = usb_lock_device_for_reset(sc->dev, sc->intf);
+		if (rc < 0) {
 			printk(KERN_NOTICE
 			    "%s: usb_lock_device_for_reset failed (%d)\n",
-			    sc->name, lkr);
+			    sc->name, rc);
 		} else {
 			rc = usb_reset_device(sc->dev);
 			if (rc < 0) {
@@ -1593,9 +1594,7 @@ static void ub_reset_task(struct work_struct *work)
 				    "usb_lock_device_for_reset failed (%d)\n",
 				    sc->name, rc);
 			}
-
-			if (lkr)
-				usb_unlock_device(sc->dev);
+			usb_unlock_device(sc->dev);
 		}
 	}
 

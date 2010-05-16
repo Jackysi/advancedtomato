@@ -98,7 +98,7 @@ struct pl2303_buf {
 
 /* format of the control packet */
 struct oti6858_control_pkt {
-	u16	divisor;	/* baud rate = 96000000 / (16 * divisor), LE */
+	__le16	divisor;	/* baud rate = 96000000 / (16 * divisor), LE */
 #define OTI6858_MAX_BAUD_RATE	3000000
 	u8	frame_fmt;
 #define FMT_STOP_BITS_MASK	0xc0
@@ -214,7 +214,7 @@ struct oti6858_private {
 	struct delayed_work delayed_write_work;
 
 	struct {
-		u16 divisor;
+		__le16 divisor;
 		u8 frame_fmt;
 		u8 control;
 	} pending_setup;
@@ -256,7 +256,7 @@ static void setup_line(struct work_struct *work)
 				100);
 
 	if (result != OTI6858_CTRL_PKT_SIZE) {
-		dev_err(&port->dev, "%s(): error reading status", __FUNCTION__);
+		dev_err(&port->dev, "%s(): error reading status\n", __FUNCTION__);
 		kfree(new_setup);
 		/* we will try again */
 		schedule_delayed_work(&priv->delayed_setup_work, msecs_to_jiffies(2));
@@ -453,7 +453,7 @@ static void oti6858_set_termios(struct usb_serial_port *port,
 	unsigned long flags;
 	unsigned int cflag;
 	u8 frame_fmt, control;
-	u16 divisor;
+	__le16 divisor;
 	int br;
 
 	dbg("%s(port = %d)", __FUNCTION__, port->number);

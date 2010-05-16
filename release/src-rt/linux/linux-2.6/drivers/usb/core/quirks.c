@@ -33,11 +33,23 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* HP 5300/5370C scanner */
 	{ USB_DEVICE(0x03f0, 0x0701), .driver_info = USB_QUIRK_STRING_FETCH_255 },
 
+	/* Creative SB Audigy 2 NX */
+	{ USB_DEVICE(0x041e, 0x3020), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* Roland SC-8820 */
+	{ USB_DEVICE(0x0582, 0x0007), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* Edirol SD-20 */
+	{ USB_DEVICE(0x0582, 0x0027), .driver_info = USB_QUIRK_RESET_RESUME },
+
 	/* INTEL VALUE SSD */
 	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
 
 	/* M-Systems Flash Disk Pioneers */
 	{ USB_DEVICE(0x08ec, 0x1000), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* X-Rite/Gretag-Macbeth Eye-One Pro display colorimeter */
+	{ USB_DEVICE(0x0971, 0x2000), .driver_info = USB_QUIRK_NO_SET_INTF },
 
 	/* Philips PSC805 audio device */
 	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
@@ -79,4 +91,16 @@ void usb_detect_quirks(struct usb_device *udev)
 	if (udev->descriptor.bDeviceClass != USB_CLASS_HUB)
 		udev->autosuspend_disabled = 1;
 #endif
+
+#ifdef	CONFIG_PM
+	/* Hubs are automatically enabled for USB-PERSIST */
+	if (udev->descriptor.bDeviceClass == USB_CLASS_HUB)
+		udev->persist_enabled = 1;
+#else
+	/* In the absense of PM, we can safely enable USB-PERSIST
+	 * for all devices.  It will affect things like hub resets
+	 * and EMF-related port disables.
+	 */
+	udev->persist_enabled = 1;
+#endif	/* CONFIG_PM */
 }

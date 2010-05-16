@@ -19,6 +19,12 @@
 #ifndef __LINUX_EHCI_HCD_H
 #define __LINUX_EHCI_HCD_H
 
+#ifdef  __KERNEL__
+#ifndef BIT
+#define BIT(nr)	(1UL << (nr))
+#endif
+#endif
+
 /* definitions used for the EHCI driver */
 
 /*
@@ -74,7 +80,6 @@ struct ehci_hcd {			/* one per controller */
 	/* async schedule support */
 	struct ehci_qh		*async;
 	struct ehci_qh		*reclaim;
-	unsigned		reclaim_ready : 1;
 	unsigned		scanning : 1;
 
 	/* periodic schedule support */
@@ -88,6 +93,11 @@ struct ehci_hcd {			/* one per controller */
 	int			next_uframe;	/* scan periodic, start here */
 	unsigned		periodic_sched;	/* periodic activity count */
 
+	/* list of itds & sitds completed while clock_frame was still active */
+	struct list_head	cached_itd_list;
+	struct list_head	cached_sitd_list;
+	unsigned		clock_frame;
+
 	/* per root hub port */
 	unsigned long		reset_done [EHCI_MAX_ROOT_PORTS];
 
@@ -98,6 +108,10 @@ struct ehci_hcd {			/* one per controller */
 			dedicated to the companion controller */
 	unsigned long		owned_ports;		/* which ports are
 			owned by the companion during a bus suspend */
+	unsigned long		port_c_suspend;		/* which ports have
+			the change-suspend feature turned on */
+	unsigned long		suspended_ports;	/* which ports are
+			suspended */
 
 	/* per-HC memory pools (could be per-bus, but ...) */
 	struct dma_pool		*qh_pool;	/* qh per active urb */
@@ -105,18 +119,22 @@ struct ehci_hcd {			/* one per controller */
 	struct dma_pool		*itd_pool;	/* itd per iso urb */
 	struct dma_pool		*sitd_pool;	/* sitd per split iso urb */
 
+	struct timer_list	iaa_watchdog;
 	struct timer_list	watchdog;
 	unsigned long		actions;
 	unsigned		stamp;
+	unsigned		random_frame;
 	unsigned long		next_statechange;
+	ktime_t			last_periodic_enable;
 	u32			command;
 
 	/* SILICON QUIRKS */
-	unsigned		is_tdi_rh_tt:1;	/* TDI roothub with TT */
 	unsigned		no_selective_suspend:1;
 	unsigned		has_fsl_port_bug:1; /* FreeScale */
 	unsigned		big_endian_mmio:1;
 	unsigned		big_endian_desc:1;
+	unsigned		need_io_watchdog:1;
+	unsigned		broken_periodic:1;
 
 	u8			sbrn;		/* packed release number */
 
@@ -126,6 +144,14 @@ struct ehci_hcd {			/* one per controller */
 #	define COUNT(x) do { (x)++; } while (0)
 #else
 #	define COUNT(x) do {} while (0)
+#endif
+
+	/* debug files */
+#ifdef DEBUG
+	struct dentry		*debug_dir;
+	struct dentry		*debug_async;
+	struct dentry		*debug_periodic;
+	struct dentry		*debug_registers;
 #endif
 };
 
@@ -140,9 +166,21 @@ static inline struct usb_hcd *ehci_to_hcd (struct ehci_hcd *ehci)
 }
 
 
+static inline void
+iaa_watchdog_start(struct ehci_hcd *ehci)
+{
+	WARN_ON(timer_pending(&ehci->iaa_watchdog));
+	mod_timer(&ehci->iaa_watchdog,
+			jiffies + msecs_to_jiffies(EHCI_IAA_MSECS));
+}
+
+static inline void iaa_watchdog_done(struct ehci_hcd *ehci)
+{
+	del_timer(&ehci->iaa_watchdog);
+}
+
 enum ehci_timer_action {
 	TIMER_IO_WATCHDOG,
-	TIMER_IAA_WATCHDOG,
 	TIMER_ASYNC_SHRINK,
 	TIMER_ASYNC_OFF,
 };
@@ -153,39 +191,7 @@ timer_action_done (struct ehci_hcd *ehci, enum ehci_timer_action action)
 	clear_bit (action, &ehci->actions);
 }
 
-static inline void
-timer_action (struct ehci_hcd *ehci, enum ehci_timer_action action)
-{
-	if (!test_and_set_bit (action, &ehci->actions)) {
-		unsigned long t;
-
-		switch (action) {
-		case TIMER_IAA_WATCHDOG:
-			t = EHCI_IAA_JIFFIES;
-			break;
-		case TIMER_IO_WATCHDOG:
-			t = EHCI_IO_JIFFIES;
-			break;
-		case TIMER_ASYNC_OFF:
-			t = EHCI_ASYNC_JIFFIES;
-			break;
-		// case TIMER_ASYNC_SHRINK:
-		default:
-			t = EHCI_SHRINK_JIFFIES;
-			break;
-		}
-		t += jiffies;
-		// all timings except IAA watchdog can be overridden.
-		// async queue SHRINK often precedes IAA.  while it's ready
-		// to go OFF neither can matter, and afterwards the IO
-		// watchdog stops unless there's still periodic traffic.
-		if (action != TIMER_IAA_WATCHDOG
-				&& t > ehci->watchdog.expires
-				&& timer_pending (&ehci->watchdog))
-			return;
-		mod_timer (&ehci->watchdog, t);
-	}
-}
+static void free_cached_lists(struct ehci_hcd *ehci);
 
 /*-------------------------------------------------------------------------*/
 
@@ -428,8 +434,8 @@ union ehci_shadow {
  * These appear in both the async and (for interrupt) periodic schedules.
  */
 
-struct ehci_qh {
-	/* first part defined by EHCI spec */
+/* first part defined by EHCI spec */
+struct ehci_qh_hw {
 	__hc32			hw_next;	/* see EHCI 3.6.1 */
 	__hc32			hw_info1;       /* see EHCI 3.6.2 */
 #define	QH_HEAD		0x00008000
@@ -447,7 +453,10 @@ struct ehci_qh {
 	__hc32			hw_token;
 	__hc32			hw_buf [5];
 	__hc32			hw_buf_hi [5];
+} __attribute__ ((aligned(32)));
 
+struct ehci_qh {
+	struct ehci_qh_hw	*hw;
 	/* the rest is HCD-private */
 	dma_addr_t		qh_dma;		/* address of qh */
 	union ehci_shadow	qh_next;	/* ptr to qh; or periodic */
@@ -473,6 +482,9 @@ struct ehci_qh {
 #define	QH_STATE_UNLINK_WAIT	4		/* LINKED and on reclaim q */
 #define	QH_STATE_COMPLETING	5		/* don't touch token.HALT */
 
+	u8			xacterrs;	/* XactErr retry counter */
+#define	QH_XACTERR_MAX		32		/* XactErr retry limit */
+
 	/* periodic schedule info */
 	u8			usecs;		/* intr bandwidth */
 	u8			gap_uf;		/* uframes split/csplit gap */
@@ -482,7 +494,8 @@ struct ehci_qh {
 	unsigned short		start;		/* where polling starts */
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
 	struct usb_device	*dev;		/* access to TT */
-} __attribute__ ((aligned (32)));
+	unsigned		clearing_tt:1;	/* Clear-TT-Buf in progress */
+};
 
 /*-------------------------------------------------------------------------*/
 
@@ -511,9 +524,8 @@ struct ehci_iso_sched {
  * acts like a qh would, if EHCI had them for ISO.
  */
 struct ehci_iso_stream {
-	/* first two fields match QH, but info1 == 0 */
-	__hc32			hw_next;
-	__hc32			hw_info1;
+	/* first field matches ehci_hq, but is NULL */
+	struct ehci_qh_hw	*hw;
 
 	u32			refcount;
 	u8			bEndpointAddress;
@@ -586,7 +598,6 @@ struct ehci_itd {
 	unsigned		frame;		/* where scheduled */
 	unsigned		pg;
 	unsigned		index[8];	/* in urb->iso_frame_desc */
-	u8			usecs[8];
 } __attribute__ ((aligned (32)));
 
 /*-------------------------------------------------------------------------*/
@@ -663,7 +674,7 @@ struct ehci_fstn {
  * needed (mostly in root hub code).
  */
 
-#define	ehci_is_TDI(e)			((e)->is_tdi_rh_tt)
+#define	ehci_is_TDI(e)			(ehci_to_hcd(e)->has_tt)
 
 /* Returns the speed of a device attached to a port on the root hub. */
 static inline unsigned int

@@ -70,7 +70,6 @@ int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
 	if (pci_enable_device (dev) < 0)
 		return -ENODEV;
 	dev->current_state = PCI_D0;
-	dev->dev.power.power_state = PMSG_ON;
 	
         if (!dev->irq) {
         	dev_err (&dev->dev,
@@ -144,7 +143,7 @@ int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
 	dev_err (&dev->dev, "init %s fail, %d\n", pci_name(dev), retval);
 	return retval;
 } 
-EXPORT_SYMBOL (usb_hcd_pci_probe);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_probe);
 
 
 /* may be called without controller electrically present */
@@ -179,7 +178,7 @@ void usb_hcd_pci_remove (struct pci_dev *dev)
 	usb_put_hcd (hcd);
 	pci_disable_device(dev);
 }
-EXPORT_SYMBOL (usb_hcd_pci_remove);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_remove);
 
 
 #ifdef	CONFIG_PM
@@ -211,9 +210,9 @@ int usb_hcd_pci_suspend (struct pci_dev *dev, pm_message_t message)
 			hcd->state == HC_STATE_HALT))
 		return -EBUSY;
 
-	if (hcd->driver->suspend) {
-		retval = hcd->driver->suspend(hcd, message);
-		suspend_report_result(hcd->driver->suspend, retval);
+	if (hcd->driver->pci_suspend) {
+		retval = hcd->driver->pci_suspend(hcd, message);
+		suspend_report_result(hcd->driver->pci_suspend, retval);
 		if (retval)
 			goto done;
 	}
@@ -291,8 +290,6 @@ int usb_hcd_pci_suspend (struct pci_dev *dev, pm_message_t message)
 
 done:
 	if (retval == 0) {
-		dev->dev.power.power_state = PMSG_SUSPEND;
-
 #ifdef CONFIG_PPC_PMAC
 		/* Disable ASIC clocks for USB */
 		if (machine_is(powermac)) {
@@ -308,7 +305,7 @@ done:
 
 	return retval;
 }
-EXPORT_SYMBOL (usb_hcd_pci_suspend);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_suspend);
 
 /**
  * usb_hcd_pci_resume - power management resume of a PCI-based HCD
@@ -395,12 +392,10 @@ int usb_hcd_pci_resume (struct pci_dev *dev)
 	pci_set_master (dev);
 	pci_restore_state (dev);
 
-	dev->dev.power.power_state = PMSG_ON;
-
 	clear_bit(HCD_FLAG_SAW_IRQ, &hcd->flags);
 
-	if (hcd->driver->resume) {
-		retval = hcd->driver->resume(hcd);
+	if (hcd->driver->pci_resume) {
+		retval = hcd->driver->pci_resume(hcd);
 		if (retval) {
 			dev_err (hcd->self.controller,
 				"PCI post-resume error %d!\n", retval);
@@ -410,7 +405,7 @@ int usb_hcd_pci_resume (struct pci_dev *dev)
 
 	return retval;
 }
-EXPORT_SYMBOL (usb_hcd_pci_resume);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_resume);
 
 #endif	/* CONFIG_PM */
 
@@ -429,5 +424,5 @@ void usb_hcd_pci_shutdown (struct pci_dev *dev)
 	if (hcd->driver->shutdown)
 		hcd->driver->shutdown(hcd);
 }
-EXPORT_SYMBOL (usb_hcd_pci_shutdown);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_shutdown);
 
