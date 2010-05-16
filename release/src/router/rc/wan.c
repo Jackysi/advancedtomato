@@ -106,7 +106,7 @@ int start_pptp(int mode)
 		fprintf(fp, "pptp_server %s\n", nvram_safe_get("pptp_server_ip"));
 		//fprintf(fp, "nomppe-stateful\n");
 		fprintf(fp, "user '%s'\n", username);
-		//fprintf(fp, "persist\n");			// Do not exit after a connection is terminated.
+		fprintf(fp, "persist\n");			// Do not exit after a connection is terminated.
 
 		fprintf(fp, "mtu %d\n", nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
 
@@ -114,7 +114,6 @@ int start_pptp(int mode)
 			//demand mode
 			fprintf(fp, "idle %d\n", nvram_get_int("ppp_idletime") * 60);
 			fprintf(fp, "demand\n");				// Dial on demand
-			fprintf(fp, "persist\n");				// Do not exit after a connection is terminated.
 			//43011: fprintf(fp, "%s:%s\n", PPP_PSEUDO_IP, PPP_PSEUDO_GW);	// <local IP>:<remote IP>
 			fprintf(fp, "ipcp-accept-remote\n");
 			fprintf(fp, "ipcp-accept-local\n");
@@ -127,14 +126,15 @@ int start_pptp(int mode)
 			start_redial();
 		}
 
-		fprintf(fp, "default-asyncmap\n");		// Disable  asyncmap  negotiation
+		fprintf(fp, "default-asyncmap\n");			// Disable  asyncmap  negotiation
 		fprintf(fp, "nopcomp\n");				// Disable protocol field compression
 		fprintf(fp, "noaccomp\n");				// Disable Address/Control compression
 		fprintf(fp, "noccp\n");					// Disable CCP (Compression Control Protocol)
 		fprintf(fp, "novj\n");					// Disable Van Jacobson style TCP/IP header compression
 		fprintf(fp, "nobsdcomp\n");				// Disables BSD-Compress  compression
 		fprintf(fp, "nodeflate\n");				// Disables Deflate compression
-		fprintf(fp, "lcp-echo-interval 0\n");	// Don't send an LCP echo-request frame to the peer
+		fprintf(fp, "lcp-echo-interval %d\n", nvram_get_int("pppoe_lei") ? : 10);
+		fprintf(fp, "lcp-echo-failure %d\n", nvram_get_int("pppoe_lef") ? : 5);
 		//fprintf(fp, "lock\n");
 		fprintf(fp, "noauth refuse-eap\n");
 		
@@ -423,6 +423,9 @@ void start_l2tp(void)
 	fprintf(fp, "peer%s %s\n", (is_ip) ? "" : "name", nvram_safe_get("l2tp_server_ip"));
 	fprintf(fp, "port 1701\n");
 	fprintf(fp, "lac-handler sync-pppd\n");
+	fprintf(fp, "persist yes\n");
+	fprintf(fp, "maxfail 32767\n");
+	fprintf(fp, "holdoff %d\n", nvram_get_int("ppp_redialperiod") ? : 30);
 	fprintf(fp, "section cmd\n");			// Configure the cmd handler
 	fclose(fp);
 
@@ -434,14 +437,12 @@ void start_l2tp(void)
 	fprintf(fp, "usepeerdns\n");			// Ask the peer for up to 2 DNS server addresses
 	//fprintf(fp, "pty 'pptp %s --nolaunchpppd'\n",nvram_safe_get("pptp_server_ip"));
 	fprintf(fp, "user '%s'\n", username);
-	//fprintf(fp, "persist\n");				// Do not exit after a connection is terminated.
 
 	if (nvram_get_int("mtu_enable")) fprintf(fp, "mtu %s\n", nvram_safe_get("wan_mtu"));
 
 	if (nvram_match("ppp_demand", "1")){	// demand mode
 		fprintf(fp, "idle %d\n", nvram_get_int("ppp_idletime") * 60);
 		//fprintf(fp, "demand\n");			// Dial on demand
-		//fprintf(fp, "persist\n");			// Do not exit after a connection is terminated.
 		//fprintf(fp, "%s:%s\n",PPP_PSEUDO_IP,PPP_PSEUDO_GW);   // <local IP>:<remote IP>
 		fprintf(fp, "ipcp-accept-remote\n");
 		fprintf(fp, "ipcp-accept-local\n");
@@ -466,7 +467,8 @@ void start_l2tp(void)
 	fprintf(fp, "novj\n");					// Disable Van Jacobson style TCP/IP header compression
 	fprintf(fp, "nobsdcomp\n");				// Disable BSD-Compress  compression
 	fprintf(fp, "nodeflate\n");				// Disable Deflate compression
-	fprintf(fp, "lcp-echo-interval 0\n");	// Don't send an LCP echo-request frame to the peer
+	fprintf(fp, "lcp-echo-interval %d\n", nvram_get_int("pppoe_lei") ? : 10);
+	fprintf(fp, "lcp-echo-failure %d\n", nvram_get_int("pppoe_lef") ? : 5);
 	fprintf(fp, "lock\n");
 	fprintf(fp, "noauth\n");
 
