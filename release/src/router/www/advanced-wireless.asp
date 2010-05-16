@@ -70,8 +70,8 @@ function save()
 		fom.wlx_hperx.disabled = 1;
 	}
 
-	fom.wl_country.value = fom._wl_country_code.value;
-	fom.wl_nmode_protection.value = fom._wl_gmode_protection.value;
+	fom.wl_country.value = fom.wl_country_code.value;
+	fom.wl_nmode_protection.value = fom.wl_gmode_protection.value;
 
 	form.submit(fom, 1);
 }
