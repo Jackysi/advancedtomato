@@ -825,7 +825,10 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT160Nv3:
 		mfr = "Linksys";
-		name = "WRT160N v3";
+		if (nvram_match("boot_hw_model", "M10") && nvram_match("boot_hw_ver", "1.0"))
+			name = "M10 v1"; // renamed wrt160nv3
+		else
+			name = "WRT160N v3";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
