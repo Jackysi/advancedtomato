@@ -193,13 +193,6 @@ extern void restart_nas_services(int stop, int start);
 #define mkdir_if_none(args...) (0)
 #define restart_nas_services(args...) do { } while(0)
 #endif
-#ifdef TCONFIG_MEDIA_SERVER
-extern void start_media_server(void);
-extern void stop_media_server(void);
-#else
-#define start_media_server(args...) do { } while(0)
-#define stop_media_server(args...) do { } while(0)
-#endif
 #ifdef LINUX26
 extern void start_hotplug2();
 extern void stop_hotplug2(void);

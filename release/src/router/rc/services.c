@@ -831,22 +831,25 @@ char *nvram_storage_path(char *var)
 #endif // TCONFIG_USB
 
 #ifdef TCONFIG_FTP
-
 char vsftpd_conf[] = "/etc/vsftpd.conf";
 char vsftpd_users[] = "/etc/vsftpd.users";
 char vsftpd_passwd[] = "/etc/vsftpd.passwd";
 #endif
 
-#ifdef TCONFIG_FTP
 /* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
-static void do_start_stop_ftpd(int stop, int start)
-{
-	if (stop) killall_tk("vsftpd");
 
+static void start_ftpd(void)
+{
+#ifdef TCONFIG_FTP
 	char tmp[256];
 	FILE *fp, *f;
 
-	if (!start || !nvram_get_int("ftp_enable")) return;
+	if (getpid() != 1) {
+		start_service("ftpd");
+		return;
+	}
+
+	if (!nvram_get_int("ftp_enable")) return;
 
 	mkdir_if_none(vsftpd_users);
 	mkdir_if_none("/var/run/vsftpd");
@@ -1009,27 +1012,21 @@ static void do_start_stop_ftpd(int stop, int start)
 	/* start vsftpd if it's not already running */
 	if (pidof("vsftpd") <= 0)
 		xstart("vsftpd");
-}
-#endif
-
-void start_ftpd(void)
-{
-#ifdef TCONFIG_FTP
-	int fd = file_lock("usb");
-	do_start_stop_ftpd(0, 1);
-	file_unlock(fd);
 #endif
 }
 
-void stop_ftpd(void)
+static void stop_ftpd(void)
 {
 #ifdef TCONFIG_FTP
-	int fd = file_lock("usb");
-	do_start_stop_ftpd(1, 0);
+	if (getpid() != 1) {
+		stop_service("ftpd");
+		return;
+	}
+
+	killall_tk("vsftpd");
 	unlink(vsftpd_passwd);
 	unlink(vsftpd_conf);
 	eval("rm", "-rf", vsftpd_users);
-	file_unlock(fd);
 #endif
 }
 
@@ -1049,20 +1046,25 @@ static void kill_samba(int sig)
 		killall("nmbd", sig);
 	}
 }
+#endif
 
-static void do_start_stop_samba(int stop, int start)
+static void start_samba(void)
 {
-	if (stop) kill_samba(SIGTERM);
-
+#ifdef TCONFIG_SAMBASRV
 	FILE *fp;
 	DIR *dir = NULL;
 	struct dirent *dp;
 	char nlsmod[15];
 	int mode;
 	char *nv;
-	
+
+	if (getpid() != 1) {
+		start_service("smbd");
+		return;
+	}
+
 	mode = nvram_get_int("smbd_enable");
-	if (!start || !mode || !nvram_invmatch("lan_hostname", ""))
+	if (!mode || !nvram_invmatch("lan_hostname", ""))
 		return;
 
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL)
@@ -1256,54 +1258,43 @@ static void do_start_stop_samba(int stop, int start)
 		ret2 = xstart("smbd", "-D");
 
 	if (ret1 || ret2) kill_samba(SIGTERM);
-}
-#endif
-
-void start_samba(void)
-{
-#ifdef TCONFIG_SAMBASRV
-	int fd = file_lock("usb");
-	do_start_stop_samba(0, 1);
-	file_unlock(fd);
 #endif
 }
 
-void stop_samba(void)
+static void stop_samba(void)
 {
 #ifdef TCONFIG_SAMBASRV
-	int fd = file_lock("usb");
-	do_start_stop_samba(1, 0);
-
-#if 0
-	if (nvram_invmatch("smbd_nlsmod", "")) {
-		modprobe_r(nvram_get("smbd_nlsmod"));
-		nvram_set("smbd_nlsmod", "");
+	if (getpid() != 1) {
+		stop_service("smbd");
+		return;
 	}
-#endif
 
+	kill_samba(SIGTERM);
 	/* clean up */
 	unlink("/var/log/smb");
 	unlink("/var/log/nmb");
 	eval("rm", "-rf", "/var/run/samba");
-	file_unlock(fd);
 #endif
 }
 
 #ifdef TCONFIG_MEDIA_SERVER
-
 #define MEDIA_SERVER_APP	"minidlna"
+#endif
 
-static void do_start_stop_media_server(int stop, int start)
+static void start_media_server(void)
 {
-	int enable;
+#ifdef TCONFIG_MEDIA_SERVER
 	FILE *f;
 	int port, pid, https;
 	char *dbdir;
 	char *argv[] = { MEDIA_SERVER_APP, "-f", "/etc/"MEDIA_SERVER_APP".conf", "-R", NULL };
 
-	if (stop) killall_tk(MEDIA_SERVER_APP);
+	if (getpid() != 1) {
+		start_service("media");
+		return;
+	}
 
-	if (start && (enable = nvram_get_int("ms_enable"))) {
+	if (nvram_get_int("ms_enable") != 0) {
 		if (nvram_get_int("ms_rescan") == 0) {
 			// no forced rescan
 			argv[3] = NULL;
@@ -1367,43 +1358,61 @@ static void do_start_stop_media_server(int stop, int start)
 		if (pidof(MEDIA_SERVER_APP) <= 0)
 			_eval(argv, NULL, 0, &pid);
 	}
+#endif
 }
 
-void start_media_server(void)
+static void stop_media_server(void)
 {
-	int fd = file_lock("usb");
-	do_start_stop_media_server(0, 1);
-	file_unlock(fd);
+#ifdef TCONFIG_MEDIA_SERVER
+	if (getpid() != 1) {
+		stop_service("media");
+		return;
+	}
+
+	killall_tk(MEDIA_SERVER_APP);
+#endif
 }
 
-void stop_media_server(void)
+static void start_nas_services(void)
 {
-	int fd = file_lock("usb");
-	do_start_stop_media_server(1, 0);
-	file_unlock(fd);
+#ifdef TCONFIG_USB
+	if (getpid() != 1) {
+		start_service("usbapps");
+		return;
+	}
+
+	start_samba();
+	start_ftpd();
+	start_media_server();
+#endif
 }
 
-#endif	// TCONFIG_MEDIA_SERVER
+static void stop_nas_services(void)
+{
+#ifdef TCONFIG_USB
+	if (getpid() != 1) {
+		stop_service("usbapps");
+		return;
+	}
+
+	stop_media_server();
+	stop_ftpd();
+	stop_samba();
+#endif
+}
 
 // -----------------------------------------------------------------------------
 
 #ifdef TCONFIG_USB
 void restart_nas_services(int stop, int start)
-{	
-	/* restart all NAS applications */
-#if defined(TCONFIG_SAMBASRV) || defined(TCONFIG_FTP) || defined(TCONFIG_MEDIA_SERVER)
+{
 	int fd = file_lock("usb");
-	#ifdef TCONFIG_SAMBASRV
-	do_start_stop_samba(stop, start && nvram_get_int("smbd_enable"));
-	#endif
-	#ifdef TCONFIG_FTP
-	do_start_stop_ftpd(stop, start && nvram_get_int("ftp_enable"));
-	#endif
-	#ifdef TCONFIG_MEDIA_SERVER
-	do_start_stop_media_server(stop, start && nvram_get_int("ms_enable"));
-	#endif
+	/* restart all NAS applications */
+	if (stop)
+		stop_nas_services();
+	if (start)
+		start_nas_services();
 	file_unlock(fd);
-#endif	// TCONFIG_SAMBASRV || TCONFIG_FTP || TCONFIG_MEDIA_SERVER
 }
 #endif // TCONFIG_USB
 
@@ -1812,6 +1821,12 @@ TOP:
 			// restart Samba and ftp since they may be killed by stop_usb()
 			restart_nas_services(0, 1);
 		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "usbapps") == 0) {
+		if (action & A_STOP) stop_nas_services();
+		if (action & A_START) start_nas_services();
 		goto CLEAR;
 	}
 #endif
