@@ -28,7 +28,7 @@
 void tune_bdflush(void)
 {
 	f_write_string("/proc/sys/vm/dirty_expire_centisecs", "200", 0, 0);
-	//f_write_string("/proc/sys/vm/dirty_writeback_centisecs", "100", 0, 0);
+	f_write_string("/proc/sys/vm/dirty_writeback_centisecs", "200", 0, 0);
 }
 #else
 #include <sys/kdaemon.h>
