@@ -1288,14 +1288,18 @@ static void start_media_server(void)
 	int port, pid, https;
 	char *dbdir;
 	char *argv[] = { MEDIA_SERVER_APP, "-f", "/etc/"MEDIA_SERVER_APP".conf", "-R", NULL };
+	static int once = 1;
 
 	if (getpid() != 1) {
 		start_service("media");
 		return;
 	}
 
+	if (nvram_get_int("ms_sas") == 0)
+		once = 0;
+
 	if (nvram_get_int("ms_enable") != 0) {
-		if (nvram_get_int("ms_rescan") == 0) {
+		if ((!once) && (nvram_get_int("ms_rescan") == 0)) {
 			// no forced rescan
 			argv[3] = NULL;
 		}
@@ -1355,8 +1359,18 @@ static void start_media_server(void)
 		}
 
 		/* start media server if it's not already running */
-		if (pidof(MEDIA_SERVER_APP) <= 0)
-			_eval(argv, NULL, 0, &pid);
+		if (pidof(MEDIA_SERVER_APP) <= 0) {
+			if ((_eval(argv, NULL, 0, &pid) == 0) && (once)) {
+				/* If we started the media server successfully, wait 1 sec
+				 * to let it die if it can't open the database file.
+				 * If it's still alive after that, assume it's running and
+				 * disable forced once-after-reboot rescan.
+				 */
+				sleep(1);
+				if (pidof(MEDIA_SERVER_APP) > 0)
+					once = 0;
+			}
+		}
 	}
 #endif
 }

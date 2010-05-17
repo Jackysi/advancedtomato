@@ -627,6 +627,7 @@ const defaults_t defaults[] = {
 	{ "ms_dbdir",			""				},
 	{ "ms_tivo",			"0"				},
 	{ "ms_stdlna",			"0"				},
+	{ "ms_sas",			"0"				},
 #endif
 
 // admin-sch
