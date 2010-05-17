@@ -34,6 +34,9 @@
 
 //	<% nvram("ms_enable,ms_port,ms_dirs,ms_dbdir,ms_tivo,ms_stdlna,cifs1,cifs2,jffs2_on"); %>
 
+changed = 0;
+mdup = parseInt('<% psup("minidlna"); %>');
+
 function v_nodelim(e, quiet, name)
 {
 	e.value = e.value.trim().replace(/>/g, '_');
@@ -75,13 +78,15 @@ msg.dataToView = function(data) {
 
 msg.verifyFields = function(row, quiet)
 {
+	var ok = 1;
 	var f;
 	f = fields.getAll(row);
 
 	if (!v_nodelim(f[0], quiet, 'Directory') || !v_path(f[0], quiet))
-		return 0;
+		ok = 0;
 
-	return 1;
+	changed |= ok;
+	return ok;
 }
 
 msg.resetNewEditor = function()
@@ -121,8 +126,11 @@ function getDbPath()
 
 function verifyFields(focused, quiet)
 {
+	var ok = 1;
 	var a, b, v;
 	var eLoc, eUser;
+
+	elem.display('_restart_button', nvram.ms_enable == '1');
 
 	a = E('_f_ms_enable').checked ? 1 : 0;
 
@@ -134,6 +142,7 @@ function verifyFields(focused, quiet)
 	E('_f_ms_rescan').disabled = (a == 0);
 	E('_f_ms_tivo').disabled = (a == 0);
 	E('_f_ms_stdlna').disabled = (a == 0);
+	E('_restart_button').disabled = (a == 0);
 
 	ferror.clear(eLoc);
 	ferror.clear(eUser);
@@ -142,15 +151,19 @@ function verifyFields(focused, quiet)
 	b = (v == '*user');
 	elem.display(eUser, b);
 
-	if (a == 0) return 1;
+	if (a == 0) {
+		if (focused != E('_f_ms_rescan'))
+			changed |= ok;
+		return ok;
+	}
 	if (b) {
-		if (!v_path(eUser, quiet)) return 0;
+		if (!v_path(eUser, quiet)) ok = 0;
 	}
 /* JFFS2-BEGIN */
 	else if (v == '/jffs/dlna') {
 		if (nvram.jffs2_on != '1') {
 			ferror.set(eLoc, 'JFFS is not enabled.', quiet);
-			return 0;
+			ok = 0;
 		}
 	}
 /* JFFS2-END */
@@ -158,12 +171,14 @@ function verifyFields(focused, quiet)
 	else if (v.match(/^\/cifs(1|2)\/dlna$/)) {
 		if (nvram['cifs' + RegExp.$1].substr(0, 1) != '1') {
 			ferror.set(eLoc, 'CIFS #' + RegExp.$1 + ' is not enabled.', quiet);
-			return 0;
+			ok = 0;
 		}
 	}
 /* CIFS-END */
 
-	return 1;
+	if (focused != E('_f_ms_rescan'))
+		changed |= ok;
+	return ok;
 }
 
 function save()
@@ -188,14 +203,34 @@ function save()
 	form.submit(fom, 1);
 }
 
+function restart(isup)
+{
+	if (changed) {
+		if (!confirm("Unsaved changes will be lost. Continue anyway?")) return;
+	}
+	E('_restart_button').disabled = true;
+	form.submitHidden('tomato.cgi', {
+		ms_rescan: E('_f_ms_rescan').checked ? 1 : 0,
+		_reboot: 0, _commit: 0, _nvset: 1,
+		_redirect: 'nas-media.asp',
+		_sleep: '3',
+		_service: 'media-' + (isup ? 're' : '') + 'start'
+	});
+}
+
 function submit_complete()
 {
 	reloadPage();
 }
+
+function init()
+{
+	changed = 0;
+}
 </script>
 
 </head>
-<body>
+<body onload="init()">
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
@@ -252,6 +287,7 @@ createFieldTable('', [
 	{ title: 'TiVo Support', name: 'f_ms_tivo', type: 'checkbox', value: nvram.ms_tivo == '1' },
 	{ title: 'Strictly adhere to DLNA standards', name: 'f_ms_stdlna', type: 'checkbox', value: nvram.ms_stdlna == '1' }
 ]);
+W('<br><input type="button" value="' + (mdup ? 'Res' : 'S') + 'tart Now" onclick="restart(mdup)" id="_restart_button">');
 </script>
 </div>
 <br>

@@ -1290,23 +1290,28 @@ void stop_samba(void)
 }
 
 #ifdef TCONFIG_MEDIA_SERVER
-void start_media_server(void)
+
+#define MEDIA_SERVER_APP	"minidlna"
+
+static void do_start_stop_media_server(int stop, int start)
 {
 	int enable;
 	FILE *f;
 	int port, pid, https;
 	char *dbdir;
-	char *argv[] = { "minidlna", "-f", "/etc/minidlna.conf", "-R", NULL };
+	char *argv[] = { MEDIA_SERVER_APP, "-f", "/etc/"MEDIA_SERVER_APP".conf", "-R", NULL };
 
-	if ((enable = nvram_get_int("ms_enable"))) {
+	if (stop) killall_tk(MEDIA_SERVER_APP);
+
+	if (start && (enable = nvram_get_int("ms_enable"))) {
 		if (nvram_get_int("ms_rescan") == 0) {
 			// no forced rescan
 			argv[3] = NULL;
 		}
 		nvram_unset("ms_rescan");
 
-		if (f_exists("/etc/minidlna.alt")) {
-			argv[2] = "/etc/minidlna.alt";
+		if (f_exists("/etc/"MEDIA_SERVER_APP".alt")) {
+			argv[2] = "/etc/"MEDIA_SERVER_APP".alt";
 		}
 		else {
 			if ((f = fopen(argv[2], "w")) != NULL) {
@@ -1314,7 +1319,7 @@ void start_media_server(void)
 				https = nvram_get_int("https_enable");
 				dbdir = nvram_safe_get("ms_dbdir");
 				if (!(*dbdir)) dbdir = NULL;
-				mkdir_if_none(dbdir ? : "/var/run/minidlna");
+				mkdir_if_none(dbdir ? : "/var/run/"MEDIA_SERVER_APP);
 
 				fprintf(f,
 					"network_interface=%s\n"
@@ -1331,7 +1336,7 @@ void start_media_server(void)
 					nvram_safe_get("lan_ifname"),
 					(port < 0) || (port >= 0xffff) ? 0 : port,
 					nvram_get("router_name") ? : "Tomato",
-					dbdir ? : "/var/run/minidlna",
+					dbdir ? : "/var/run/"MEDIA_SERVER_APP,
 					nvram_get_int("ms_tivo") ? "yes" : "no",
 					nvram_get_int("ms_stdlna") ? "yes" : "no",
 					https ? "s" : "", nvram_safe_get("lan_ipaddr"), nvram_safe_get(https ? "https_lanport" : "http_lanport")
@@ -1357,14 +1362,27 @@ void start_media_server(void)
 				fclose(f);
 			}
 		}
-		_eval(argv, NULL, 0, &pid);
+
+		/* start media server if it's not already running */
+		if (pidof(MEDIA_SERVER_APP) <= 0)
+			_eval(argv, NULL, 0, &pid);
 	}
+}
+
+void start_media_server(void)
+{
+	int fd = file_lock("usb");
+	do_start_stop_media_server(0, 1);
+	file_unlock(fd);
 }
 
 void stop_media_server(void)
 {
-	killall_tk("minidlna");
+	int fd = file_lock("usb");
+	do_start_stop_media_server(1, 0);
+	file_unlock(fd);
 }
+
 #endif	// TCONFIG_MEDIA_SERVER
 
 // -----------------------------------------------------------------------------
@@ -1373,7 +1391,7 @@ void stop_media_server(void)
 void restart_nas_services(int stop, int start)
 {	
 	/* restart all NAS applications */
-#if defined(TCONFIG_SAMBASRV) || defined(TCONFIG_FTP)
+#if defined(TCONFIG_SAMBASRV) || defined(TCONFIG_FTP) || defined(TCONFIG_MEDIA_SERVER)
 	int fd = file_lock("usb");
 	#ifdef TCONFIG_SAMBASRV
 	do_start_stop_samba(stop, start && nvram_get_int("smbd_enable"));
@@ -1381,8 +1399,11 @@ void restart_nas_services(int stop, int start)
 	#ifdef TCONFIG_FTP
 	do_start_stop_ftpd(stop, start && nvram_get_int("ftp_enable"));
 	#endif
+	#ifdef TCONFIG_MEDIA_SERVER
+	do_start_stop_media_server(stop, start && nvram_get_int("ms_enable"));
+	#endif
 	file_unlock(fd);
-#endif	// TCONFIG_SAMBASRV || TCONFIG_FTP
+#endif	// TCONFIG_SAMBASRV || TCONFIG_FTP || TCONFIG_MEDIA_SERVER
 }
 #endif // TCONFIG_USB
 
@@ -1431,17 +1452,14 @@ void start_services(void)
 //	start_upnp();
 	start_rstats(0);
 	start_sched();
-	restart_nas_services(1, 1);	// !!TB - Samba and FTP Server
-	start_media_server();
+	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
-	stop_media_server();
-	stop_ftpd();		// !!TB - FTP Server
-	stop_samba();		// !!TB - Samba
+	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 	stop_sched();
 	stop_rstats();
 //	stop_upnp();
@@ -1643,9 +1661,7 @@ TOP:
 			stop_usbevent();
 			stop_smbd();
 #endif
-			stop_media_server();
-			stop_ftpd();		// !!TB - FTP Server
-			stop_samba();		// !!TB - Samba
+			restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 			stop_jffs2();
 //			stop_cifs();
 			stop_zebra();
