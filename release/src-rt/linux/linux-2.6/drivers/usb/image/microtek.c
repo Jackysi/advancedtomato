@@ -515,8 +515,7 @@ static void mts_do_sg (struct urb* transfer)
 	context->fragment++;
 	mts_int_submit_urb(transfer,
 			   context->data_pipe,
-			   page_address(sg[context->fragment].page) +
-			   sg[context->fragment].offset,
+			   sg_virt(&sg[context->fragment]),
 			   sg[context->fragment].length,
 			   context->fragment + 1 == context->srb->use_sg ? mts_data_done : mts_do_sg);
 	return;
@@ -560,7 +559,7 @@ mts_build_transfer_context(struct scsi_cmnd *srb, struct mts_desc* desc)
 	} else {
 		MTS_DEBUG("Using scatter/gather\n");
 		sg = srb->request_buffer;
-		desc->context.data = page_address(sg[0].page) + sg[0].offset;
+		desc->context.data = sg_virt(&sg[0]);
 		desc->context.data_length = sg[0].length;
 	}
 

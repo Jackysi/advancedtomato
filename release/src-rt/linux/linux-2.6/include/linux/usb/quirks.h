@@ -12,3 +12,9 @@
 
 /* device can't handle Set-Interface requests */
 #define USB_QUIRK_NO_SET_INTF		0x00000004
+
+/* device can't handle its Configuration or Interface strings */
+#define USB_QUIRK_CONFIG_INTF_STRINGS	0x00000008
+
+/*device will morph if reset, don't use reset for handling errors */
+#define USB_QUIRK_RESET_MORPHS		0x00000010

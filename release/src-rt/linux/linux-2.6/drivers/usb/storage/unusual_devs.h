@@ -27,7 +27,8 @@
 
 /* IMPORTANT NOTE: This file must be included in another file which does
  * the following thing for it to work:
- * The macro UNUSUAL_DEV() must be defined before this file is included
+ * The UNUSUAL_DEV, COMPLIANT_DEV, and USUAL_DEV macros must be defined
+ * before this file is included.
  */
 
 /* If you edit this file, please try to keep it sorted first by VendorID,
@@ -43,6 +44,12 @@
  * Send your submission to either Phil Dibowitz <phil@ipom.com> or
  * Alan Stern <stern@rowland.harvard.edu>, and don't forget to CC: the
  * USB development list <linux-usb-devel@lists.sourceforge.net>.
+ */
+
+/* Note: If you add an entry only in order to set the CAPACITY_OK flag,
+ * use the COMPLIANT_DEV macro instead of UNUSUAL_DEV.  This is
+ * because such entries mark devices which actually work correctly,
+ * as opposed to devices that do something strangely or wrongly.
  */
 
 /* patch submitted by Vivian Bregier <Vivian.Bregier@imag.fr>
@@ -83,6 +90,13 @@ UNUSUAL_DEV(  0x03f0, 0x0307, 0x0001, 0x0001,
 		"CD-Writer+ CD-4e",
 		US_SC_8070, US_PR_USBAT, init_usbat_cd, 0),
 #endif
+
+/* Reported by Ben Efros <ben@pc-doctor.com> */
+UNUSUAL_DEV(  0x03f0, 0x070c, 0x0000, 0x0000,
+		"HP",
+		"Personal Media Drive",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE ),
 
 /* Reported by Grant Grundler <grundler@parisc-linux.org>
  * HP r707 camera in "Disk" mode with 2.00.23 or 2.00.24 firmware.
@@ -339,62 +353,6 @@ UNUSUAL_DEV(  0x04b0, 0x0301, 0x0010, 0x0010,
 		US_SC_DEVICE, US_PR_DEVICE,NULL,
 		US_FL_NOT_LOCKABLE ),
 
-/* Reported by Stefan de Konink <skinkie@xs4all.nl> */
-UNUSUAL_DEV(  0x04b0, 0x0401, 0x0200, 0x0200,
-		"NIKON",
-		"NIKON DSC D100",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Milinevsky Dmitry <niam.niam@gmail.com> */
-UNUSUAL_DEV(  0x04b0, 0x0409, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D50",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Andreas Bockhold <andreas@bockionline.de> */
-UNUSUAL_DEV(  0x04b0, 0x0405, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D70",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Jamie Kitson <jamie@staberinde.fsnet.co.uk> */
-UNUSUAL_DEV(  0x04b0, 0x040d, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D70s",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Graber and Mike Pagano <mpagano-kernel@mpagano.com> */
-UNUSUAL_DEV(  0x04b0, 0x040f, 0x0200, 0x0200,
-       "NIKON",
-       "NIKON DSC D200",
-       US_SC_DEVICE, US_PR_DEVICE, NULL,
-       US_FL_FIX_CAPACITY),
-
-/* Reported by Emil Larsson <emil@swip.net> */
-UNUSUAL_DEV(  0x04b0, 0x0411, 0x0100, 0x0101,
-		"NIKON",
-		"NIKON DSC D80",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Ortwin Glueck <odi@odi.ch> */
-UNUSUAL_DEV(  0x04b0, 0x0413, 0x0110, 0x0110,
-		"NIKON",
-		"NIKON DSC D40",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Shan Destromp (shansan@gmail.com) */
-UNUSUAL_DEV(  0x04b0, 0x0417, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D40X",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
 /* Reported by Doug Maxey (dwm@austin.ibm.com) */
 UNUSUAL_DEV(  0x04b3, 0x4001, 0x0110, 0x0110,
 		"IBM",
@@ -605,6 +563,13 @@ UNUSUAL_DEV(  0x0525, 0xa140, 0x0100, 0x0100,
 		"USB Clik! 40",
 		US_SC_8070, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
+
+/* Added by Alan Stern <stern@rowland.harvard.edu> */
+COMPLIANT_DEV(0x0525, 0xa4a5, 0x0000, 0x9999,
+		"Linux",
+		"File-backed Storage Gadget",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_CAPACITY_OK ),
 
 /* Yakumo Mega Image 37
  * Submitted by Stephan Fuhrmann <atomenergie@t-online.de> */
@@ -918,6 +883,13 @@ UNUSUAL_DEV(  0x05e3, 0x0702, 0x0000, 0xffff,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_GO_SLOW | US_FL_MAX_SECTORS_64 | US_FL_IGNORE_RESIDUE ),
 
+/* Reported by Ben Efros <ben@pc-doctor.com> */
+UNUSUAL_DEV(  0x05e3, 0x0723, 0x9451, 0x9451,
+		"Genesys Logic",
+		"USB to SATA",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE ),
+
 /* Reported by Hanno Boeck <hanno@gmx.de>
  * Taken from the Lycoris Kernel */
 UNUSUAL_DEV(  0x0636, 0x0003, 0x0000, 0x9999,
@@ -945,6 +917,13 @@ UNUSUAL_DEV( 0x066f, 0x8000, 0x0001, 0x0001,
 		"USBMSC Audio Player",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY ),
+
+/* Reported by Daniel Kukula <daniel.kuku@gmail.com> */
+UNUSUAL_DEV( 0x067b, 0x1063, 0x0100, 0x0100,
+		"Prolific Technology, Inc.",
+		"Prolific Storage Gadget",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_BAD_SENSE ),
 
 /* Reported by Rogerio Brito <rbrito@ime.usp.br> */
 UNUSUAL_DEV( 0x067b, 0x2317, 0x0001, 0x001,
@@ -1355,14 +1334,6 @@ UNUSUAL_DEV( 0x0a17, 0x0004, 0x1000, 0x1000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 
-
-/* Submitted by Per Winkvist <per.winkvist@uk.com> */
-UNUSUAL_DEV( 0x0a17, 0x006, 0x0000, 0xffff,
-		"Pentax",
-		"Optio S/S4",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_INQUIRY ),
-
 /* These are virtual windows driver CDs, which the zd1211rw driver
  * automatically converts into WLAN devices. */
 UNUSUAL_DEV( 0x0ace, 0x2011, 0x0101, 0x0101,
@@ -1394,6 +1365,13 @@ UNUSUAL_DEV( 0x0af0, 0x7401, 0x0000, 0x0000,
 		"GI 0401 SD-Card",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		0 ),
+
+/* Reported by Ben Efros <ben@pc-doctor.com> */
+UNUSUAL_DEV( 0x0bc2, 0x3010, 0x0000, 0x0000,
+		"Seagate",
+		"FreeAgent Pro",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE ),
 
 #ifdef CONFIG_USB_STORAGE_ISD200
 UNUSUAL_DEV(  0x0bf6, 0xa001, 0x0100, 0x0110,
@@ -1434,6 +1412,12 @@ UNUSUAL_DEV( 0x0c0b, 0xa109, 0x0000, 0xffff,
 			US_SC_DEVICE, US_PR_DEVICE, onetouch_connect_input,
 			0),
 #endif
+
+UNUSUAL_DEV(  0x0d49, 0x7310, 0x0000, 0x9999,
+		"Maxtor",
+		"USB to SATA",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE),
 
 /*
  * Pete Zaitcev <zaitcev@yahoo.com>, bz#164688.
@@ -1623,6 +1607,12 @@ UNUSUAL_DEV(  0x1019, 0x0c55, 0x0000, 0x0110,
 		"UCR-61S2B",
 		US_SC_DEVICE, US_PR_DEVICE, usb_stor_ucr61s2b_init,
 		0 ),
+
+UNUSUAL_DEV(  0x1058, 0x0704, 0x0000, 0x9999,
+		"Western Digital",
+		"External HDD",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE),
 
 /* Reported by Kevin Lloyd <linux@sierrawireless.com>
  * Entry is needed for the initializer function override,
@@ -2133,10 +2123,10 @@ UNUSUAL_DEV(  0x14cd, 0x6600, 0x0201, 0x0201,
  * JMicron responds to USN and several other SCSI ioctls with a
  * residue that causes subsequent I/O requests to fail.  */
 UNUSUAL_DEV(  0x152d, 0x2329, 0x0100, 0x0100,
-	        "JMicron",
-	        "USB to ATA/ATAPI Bridge",
-	        US_SC_DEVICE, US_PR_DEVICE, NULL,
-	        US_FL_IGNORE_RESIDUE ),
+		"JMicron",
+		"USB to ATA/ATAPI Bridge",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE | US_FL_SANE_SENSE ),
 
 /* Reported by Robert Schedel <r.schedel@yahoo.de>
  * Note: this is a 'super top' device like the above 14cd/6600 device */
@@ -2162,23 +2152,15 @@ UNUSUAL_DEV(  0x22b8, 0x3010, 0x0001, 0x0001,
 		US_FL_FIX_CAPACITY | US_FL_IGNORE_RESIDUE ),
 
 /*
- * Patch by Pete Zaitcev <zaitcev@redhat.com>
- * Report by Mark Patton. Red Hat bz#208928.
+ * Patch by Constantin Baranov <const@tltsu.ru>
+ * Report by Andreas Koenecke.
+ * Motorola ROKR Z6.
  */
-UNUSUAL_DEV(  0x22b8, 0x4810, 0x0001, 0x0002,
+UNUSUAL_DEV(  0x22b8, 0x6426, 0x0101, 0x0101,
 		"Motorola",
-		"RAZR V3i/ROKR W5",
+		"MSnc.",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/*
- * Patch by Jost Diederichs <jost@qdusa.com>
- */
-UNUSUAL_DEV(0x22b8, 0x6410, 0x0001, 0x9999,
-		"Motorola Inc.",
-		"Motorola Phone (RAZRV3xx)",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
+		US_FL_FIX_INQUIRY | US_FL_FIX_CAPACITY | US_FL_BULK_IGNORE_TAG),
 
 /* Reported by Radovan Garabik <garabik@kassiopeia.juls.savba.sk> */
 UNUSUAL_DEV(  0x2735, 0x100b, 0x0000, 0x9999,
