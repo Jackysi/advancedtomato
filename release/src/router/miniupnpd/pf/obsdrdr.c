@@ -1,4 +1,4 @@
-/* $Id: obsdrdr.c,v 1.58 2010/03/07 18:12:48 nanard Exp $ */
+/* $Id: obsdrdr.c,v 1.59 2010/05/11 16:19:26 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2010 Thomas Bernard 
@@ -479,7 +479,9 @@ delete_redirect_rule(const char * ifname, unsigned short eport, int proto)
 	}
 	memset(&pr, 0, sizeof(pr));
 	strlcpy(pr.anchor, anchor_name, MAXPATHLEN);
+#ifndef PF_NEWSTYLE
 	pr.rule.action = PF_RDR;
+#endif
 	if(ioctl(dev, DIOCGETRULES, &pr) < 0)
 	{
 		syslog(LOG_ERR, "ioctl(dev, DIOCGETRULES, ...): %m");
@@ -591,7 +593,9 @@ get_redirect_rule_by_index(int index,
 	}
 	memset(&pr, 0, sizeof(pr));
 	strlcpy(pr.anchor, anchor_name, MAXPATHLEN);
+#ifndef PF_NEWSTYLE
 	pr.rule.action = PF_RDR;
+#endif
 	if(ioctl(dev, DIOCGETRULES, &pr) < 0)
 	{
 		syslog(LOG_ERR, "ioctl(dev, DIOCGETRULES, ...): %m");

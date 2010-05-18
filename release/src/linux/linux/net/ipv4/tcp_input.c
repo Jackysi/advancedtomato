@@ -172,6 +172,8 @@ static __inline__ void tcp_measure_rcv_mss(struct tcp_opt *tp, struct sk_buff *s
 				return;
 			}
 		}
+		if (tp->ack.pending & TCP_ACK_PUSHED)
+			tp->ack.pending |= TCP_ACK_PUSHED2;
 		tp->ack.pending |= TCP_ACK_PUSHED;
 	}
 }

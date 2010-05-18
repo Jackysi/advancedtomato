@@ -89,15 +89,8 @@ extern int nvram_contains_word(const char *key, const char *word);
 extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
-//!!TB
-#ifdef TCONFIG_USB
-extern int file_lock(char *tag);
-extern void file_unlock(int lockfd);
-#else
-#define file_lock(args...) (-1)
-#define file_unlock(args...) do { } while(0)
-#endif
 
+// usb.c
 #ifdef TCONFIG_USB
 extern char *detect_fs_type(char *device);
 extern struct mntent *findmntents(char *file, int swp,
@@ -121,6 +114,11 @@ extern void add_remove_usbhost(char *host, int add);
 typedef int (*host_exec)(char *dev_name, int host_num, char *dsc_name, char *pt_name, uint flags);
 extern int exec_for_host(int host, int obsolete, uint flags, host_exec func);
 extern int is_no_partition(const char *discname);
+extern int file_lock(char *tag);
+extern void file_unlock(int lockfd);
+#else
+#define file_lock(args...) (-1)
+#define file_unlock(args...) do { } while(0)
 #endif //TCONFIG_USB
 
 // id.c

@@ -32,7 +32,10 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("ms_enable,ms_port,ms_dirs,ms_dbdir,ms_tivo,ms_stdlna,cifs1,cifs2,jffs2_on"); %>
+//	<% nvram("ms_enable,ms_port,ms_dirs,ms_dbdir,ms_tivo,ms_stdlna,ms_sas,cifs1,cifs2,jffs2_on"); %>
+
+changed = 0;
+mdup = parseInt('<% psup("minidlna"); %>');
 
 function v_nodelim(e, quiet, name)
 {
@@ -75,13 +78,15 @@ msg.dataToView = function(data) {
 
 msg.verifyFields = function(row, quiet)
 {
+	var ok = 1;
 	var f;
 	f = fields.getAll(row);
 
 	if (!v_nodelim(f[0], quiet, 'Directory') || !v_path(f[0], quiet))
-		return 0;
+		ok = 0;
 
-	return 1;
+	changed |= ok;
+	return ok;
 }
 
 msg.resetNewEditor = function()
@@ -121,8 +126,11 @@ function getDbPath()
 
 function verifyFields(focused, quiet)
 {
+	var ok = 1;
 	var a, b, v;
 	var eLoc, eUser;
+
+	elem.display('_restart_button', nvram.ms_enable == '1');
 
 	a = E('_f_ms_enable').checked ? 1 : 0;
 
@@ -131,9 +139,11 @@ function verifyFields(focused, quiet)
 
 	eLoc.disabled = (a == 0);
 	eUser.disabled = (a == 0);
+	E('_f_ms_sas').disabled = (a == 0);
 	E('_f_ms_rescan').disabled = (a == 0);
 	E('_f_ms_tivo').disabled = (a == 0);
 	E('_f_ms_stdlna').disabled = (a == 0);
+	E('_restart_button').disabled = (a == 0);
 
 	ferror.clear(eLoc);
 	ferror.clear(eUser);
@@ -141,29 +151,38 @@ function verifyFields(focused, quiet)
 	v = eLoc.value;
 	b = (v == '*user');
 	elem.display(eUser, b);
+	elem.display(PR('_f_ms_sas'), (v != ''));
 
-	if (a == 0) return 1;
+	if (a == 0) {
+		if (focused != E('_f_ms_rescan'))
+			changed |= ok;
+		return ok;
+	}
 	if (b) {
-		if (!v_path(eUser, quiet)) return 0;
+		if (!v_path(eUser, quiet)) ok = 0;
 	}
 /* JFFS2-BEGIN */
 	else if (v == '/jffs/dlna') {
 		if (nvram.jffs2_on != '1') {
 			ferror.set(eLoc, 'JFFS is not enabled.', quiet);
-			return 0;
+			ok = 0;
 		}
 	}
 /* JFFS2-END */
+/* REMOVE-BEGIN */
 /* CIFS-BEGIN */
 	else if (v.match(/^\/cifs(1|2)\/dlna$/)) {
 		if (nvram['cifs' + RegExp.$1].substr(0, 1) != '1') {
 			ferror.set(eLoc, 'CIFS #' + RegExp.$1 + ' is not enabled.', quiet);
-			return 0;
+			ok = 0;
 		}
 	}
 /* CIFS-END */
+/* REMOVE-END */
 
-	return 1;
+	if (focused != E('_f_ms_rescan'))
+		changed |= ok;
+	return ok;
 }
 
 function save()
@@ -177,6 +196,7 @@ function save()
 	fom.ms_tivo.value = E('_f_ms_tivo').checked ? 1 : 0;
 	fom.ms_stdlna.value = E('_f_ms_stdlna').checked ? 1 : 0;
 	fom.ms_rescan.value = E('_f_ms_rescan').checked ? 1 : 0;
+	fom.ms_sas.value = E('_f_ms_sas').checked ? 1 : 0;
 
 	fom.ms_dbdir.value = getDbPath();
 
@@ -188,14 +208,34 @@ function save()
 	form.submit(fom, 1);
 }
 
+function restart(isup)
+{
+	if (changed) {
+		if (!confirm("Unsaved changes will be lost. Continue anyway?")) return;
+	}
+	E('_restart_button').disabled = true;
+	form.submitHidden('tomato.cgi', {
+		ms_rescan: E('_f_ms_rescan').checked ? 1 : 0,
+		_reboot: 0, _commit: 0, _nvset: 1,
+		_redirect: 'nas-media.asp',
+		_sleep: '3',
+		_service: 'media-' + (isup ? 're' : '') + 'start'
+	});
+}
+
 function submit_complete()
 {
 	reloadPage();
 }
+
+function init()
+{
+	changed = 0;
+}
 </script>
 
 </head>
-<body>
+<body onload="init()">
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
@@ -217,6 +257,7 @@ function submit_complete()
 <input type='hidden' name='ms_tivo'>
 <input type='hidden' name='ms_stdlna'>
 <input type='hidden' name='ms_rescan'>
+<input type='hidden' name='ms_sas'>
 
 <div class='section-title'>Media / DLNA Server</div>
 <div class='section'>
@@ -241,17 +282,22 @@ createFieldTable('', [
 /* JFFS2-BEGIN */
 			['/jffs/dlna','JFFS'],
 /* JFFS2-END */
+/* REMOVE-BEGIN */
 /* CIFS-BEGIN */
 			['/cifs1/dlna','CIFS 1'],['/cifs2/dlna','CIFS 2'],
 /* CIFS-END */
+/* REMOVE-END */
 			['*user','Custom Path']], value: loc },
 		{ name: 'f_user', type: 'text', maxlen: 256, size: 60, value: nvram.ms_dbdir }
 	] },
-	{ title: 'Rescan on the next run', indent: 2, name: 'f_ms_rescan', type: 'checkbox', value: 0, suffix: '&nbsp&nbsp<small>(media scan may take considerable time to complete)</small>' },
+	{ title: 'Scan Media at Startup*', indent: 2, name: 'f_ms_sas', type: 'checkbox', value: nvram.ms_sas == '1', hidden: 1 },
+	{ title: 'Rescan on the next run*', indent: 2, name: 'f_ms_rescan', type: 'checkbox', value: 0,
+		suffix: '<br><small>* Media scan may take considerable time to complete.</small>' },
 	null,
 	{ title: 'TiVo Support', name: 'f_ms_tivo', type: 'checkbox', value: nvram.ms_tivo == '1' },
 	{ title: 'Strictly adhere to DLNA standards', name: 'f_ms_stdlna', type: 'checkbox', value: nvram.ms_stdlna == '1' }
 ]);
+W('<br><input type="button" value="' + (mdup ? 'Res' : 'S') + 'tart Now" onclick="restart(mdup)" id="_restart_button">');
 </script>
 </div>
 <br>

@@ -13489,8 +13489,10 @@ restart:
 
 	ext2fs_close(fs);
 	ctx->fs = NULL;
-	free(ctx->filesystem_name);
-	free(ctx->journal_name);
+	if (ENABLE_FEATURE_CLEAN_UP) {
+		free(ctx->filesystem_name);
+		free(ctx->journal_name);
+	}
 	e2fsck_free_context(ctx);
 
 	return exit_value;

@@ -878,6 +878,7 @@ static const nvset_t nvset_list[] = {
 	{ "ms_tivo",			V_01				},
 	{ "ms_stdlna",			V_01				},
 	{ "ms_rescan",			V_01				},
+	{ "ms_sas",			V_01				},
 #endif
 
 //	qos

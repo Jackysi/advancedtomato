@@ -71,16 +71,16 @@ writepidfile(const char * fname, int pid)
 	if(!fname || (strlen(fname) == 0))
 		return -1;
 	
-	if( (pidfile = open(fname, O_WRONLY|O_CREAT|O_EXCL, 0666)) < 0)
+	if( (pidfile = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0666)) < 0)
 	{
-		DPRINTF(E_ERROR, L_GENERAL, "Unable to open pidfile for writing %s: %s\n", fname, strerror(errno));
+		DPRINTF(E_INFO, L_GENERAL, "Unable to open pidfile for writing %s: %s\n", fname, strerror(errno));
 		return -1;
 	}
 
 	pidstringlen = snprintf(pidstring, sizeof(pidstring), "%d\n", pid);
 	if(pidstringlen <= 0)
 	{
-		DPRINTF(E_ERROR, L_GENERAL, 
+		DPRINTF(E_INFO, L_GENERAL, 
 			"Unable to write to pidfile %s: snprintf(): FAILED\n", fname);
 		close(pidfile);
 		return -1;
@@ -88,7 +88,7 @@ writepidfile(const char * fname, int pid)
 	else
 	{
 		if(write(pidfile, pidstring, pidstringlen) < 0)
-			DPRINTF(E_ERROR, L_GENERAL, "Unable to write to pidfile %s: %s\n", fname, strerror(errno));
+			DPRINTF(E_INFO, L_GENERAL, "Unable to write to pidfile %s: %s\n", fname, strerror(errno));
 	}
 
 	close(pidfile);

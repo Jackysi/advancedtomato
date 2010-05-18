@@ -28,7 +28,7 @@
 void tune_bdflush(void)
 {
 	f_write_string("/proc/sys/vm/dirty_expire_centisecs", "200", 0, 0);
-	//f_write_string("/proc/sys/vm/dirty_writeback_centisecs", "100", 0, 0);
+	f_write_string("/proc/sys/vm/dirty_writeback_centisecs", "200", 0, 0);
 }
 #else
 #include <sys/kdaemon.h>
@@ -417,18 +417,18 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 	int ret = 1, count;
 	char flagfn[128];
 
-		/* Kill all NAS applications here so they are not keeping the device busy,
-		 * unless it's an unmount request from the Web GUI.
-		 */
-		if ((flags & EFH_USER) == 0) {
-			restart_nas_services(1, 0);
-		}
-
 		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
 		run_nvscript("script_autostop", mnt->mnt_dir, 5);
+
 		count = 0;
 		while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
 			count++;
+			/* If we could not unmount the drive on the 1st try,
+			 * kill all NAS applications so they are not keeping the device busy -
+			 * unless it's an unmount request from the Web GUI.
+			 */
+			if ((count == 1) && ((flags & EFH_USER) == 0))
+				restart_nas_services(1, 0);
 			sleep(1);
 		}
 

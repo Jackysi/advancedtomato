@@ -1,6 +1,6 @@
-/* $Id: natpmp.c,v 1.18 2010/01/14 18:44:31 nanard Exp $ */
+/* $Id: natpmp.c,v 1.20 2010/05/06 13:42:47 nanard Exp $ */
 /* MiniUPnP project
- * (c) 2007-2009 Thomas Bernard
+ * (c) 2007-2010 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
@@ -276,6 +276,8 @@ void ProcessIncomingNATPMPPacket(int s)
 	}
 }
 
+/* iterate through the redirection list to find those who came
+ * from NAT-PMP and select the first to expire */
 int ScanNATPMPforExpiration()
 {
 	char desc[64];
@@ -304,6 +306,8 @@ int ScanNATPMPforExpiration()
 	return 0;
 }
 
+/* remove the next redirection that is expired
+ */
 int CleanExpiredNATPMP()
 {
 	char desc[64];
@@ -314,7 +318,10 @@ int CleanExpiredNATPMP()
 	                     0, 0,
 	                     &iport, desc, sizeof(desc), 0, 0) < 0)
 		return ScanNATPMPforExpiration();
-	/* check desc - this is important since we keep expiration time as part of the desc */
+	/* check desc - this is important since we keep expiration time as part
+	 * of the desc.
+	 * If the rule is renewed, timestamp and nextnatpmptoclean_timestamp 
+	 * can be different. In that case, the rule must not be removed ! */
 	if(sscanf(desc, "NAT-PMP %u", &timestamp) == 1) {
 		if(timestamp > nextnatpmptoclean_timestamp)
 			return ScanNATPMPforExpiration();
@@ -357,6 +364,8 @@ void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets)
 
 	for(j=0; j<n_sockets; j++)
 	{
+		if(sockets[j] < 0)
+			continue;
 #ifdef MULTIPLE_EXTERNAL_IP
 		FillPublicAddressResponse(notif, lan_addr[j].addr.s_addr);
 #endif

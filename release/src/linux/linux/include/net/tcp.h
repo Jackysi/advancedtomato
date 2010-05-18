@@ -693,9 +693,10 @@ extern void			tcp_rcv_space_adjust(struct sock *sk);
 
 enum tcp_ack_state_t
 {
-	TCP_ACK_SCHED = 1,
-	TCP_ACK_TIMER = 2,
-	TCP_ACK_PUSHED= 4
+	TCP_ACK_SCHED   = 1,
+	TCP_ACK_TIMER   = 2,
+	TCP_ACK_PUSHED  = 4,
+	TCP_ACK_PUSHED2 = 8
 };
 
 static inline void tcp_schedule_ack(struct tcp_opt *tp)

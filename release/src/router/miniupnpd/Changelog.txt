@@ -1,8 +1,15 @@
-$Id: Changelog.txt,v 1.193 2010/03/08 17:13:48 nanard Exp $
+$Id: Changelog.txt,v 1.196 2010/05/06 13:42:47 nanard Exp $
+
+2010/05/06:
+  Bugfix un CleanNATPMPRules() : see http://miniupnp.tuxfamily.org/forum/viewtopic.php?t=640
+
+2010/03/14:
+  Fixing natpmp sockets.
 
 2010/03/08:
   Fix Makefile.linux to compile properly under Mandriva/rh/Fedora with
-  Iptables >= 1.4.3
+    Iptables >= 1.4.3
+  Workaround for bad uptime when started with a bad time set.
 
 2010/03/07:
   Tried to make a OpenBSD version 4.7 compatible code... still some
