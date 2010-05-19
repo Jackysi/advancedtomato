@@ -859,7 +859,7 @@ dropbear-clean:
 	@rm -f dropbear/config.h
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
 	@$(MAKE) -C dropbear clean
 
 # Media libraries
@@ -1068,7 +1068,7 @@ igs-install:
 
 
 ebtables: dummy
-	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="$(EXTRACFLAGS) -Wall -Wunused"
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
