@@ -248,15 +248,14 @@ createFieldTable('', [
 	{ title: 'Anonymous Users Access', name: 'ftp_anonymous', type: 'select',
 		options: [['0', 'Disabled'],['1', 'Read/Write'],['2', 'Read Only'],['3', 'Write Only']],
 		value: nvram.ftp_anonymous },
-	{ title: 'Allow Super User to Login*', name: 'f_ftp_super', type: 'checkbox',
+	{ title: 'Allow Admin Login*', name: 'f_ftp_super', type: 'checkbox',
 		suffix: ' <small>Allows users to connect with admin account.</small>',
 		value: nvram.ftp_super == 1 },
 	{ title: 'Log FTP requests and responses', name: 'f_log_ftp', type: 'checkbox',
 		value: nvram.log_ftp == 1 }
 ]);
 </script>
-<br>
-<small>* Avoid using this option when FTP server is enabled for WAN. IT PROVIDES FULL ACCESS TO THE ROUTER FILE SYSTEM!</small>
+<small><br>*&nbsp;Avoid using this option when FTP server is enabled for WAN. IT PROVIDES FULL ACCESS TO THE ROUTER FILE SYSTEM!</small>
 </div>
 
 <div class='section-title'>Directories</div>
@@ -266,7 +265,7 @@ createFieldTable('', [
 	{ title: 'Public Root Directory*', name: 'ftp_pubroot', type: 'text', maxlen: 256, size: 32,
 		suffix: ' <small>(for authenticated users access)</small>',
 		value: nvram.ftp_pubroot },
-	{ title: 'Private Root Directory*', name: 'ftp_pvtroot', type: 'text', maxlen: 256, size: 32,
+	{ title: 'Private Root Directory**', name: 'ftp_pvtroot', type: 'text', maxlen: 256, size: 32,
 		suffix: ' <small>(for authenticated users access in private mode)</small>',
 		value: nvram.ftp_pvtroot },
 	{ title: 'Anonymous Root Directory*', name: 'ftp_anonroot', type: 'text', maxlen: 256, size: 32, 
@@ -274,12 +273,14 @@ createFieldTable('', [
 		value: nvram.ftp_anonroot },
 	{ title: 'Directory Listings', name: 'ftp_dirlist', type: 'select',
 		options: [['0', 'Enabled'],['1', 'Disabled'],['2', 'Disabled for Anonymous']],
-		suffix: ' <small>(always enabled for Super User)</small>',
+		suffix: ' <small>(always enabled for Admin)</small>',
 		value: nvram.ftp_dirlist }
 ]);
 </script>
-<br>
-<small>* When no directory is specified, /mnt is used as a root directory.</small>
+<small>
+<br>*&nbsp;&nbsp;When no directory is specified, /mnt is used as a root directory.
+<br>**&nbsp;In private mode, the root directory is the directory under the "Private Root Directory" with the name matching the name of the user.
+</small>
 </div>
 
 <div class='section-title'>Limits</div>
