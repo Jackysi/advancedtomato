@@ -616,13 +616,13 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)
 			if (tp->mdev_max < tp->rttvar)
 				tp->rttvar -= (tp->rttvar-tp->mdev_max)>>2;
 			tp->rtt_seq = tp->snd_nxt;
-			tp->mdev_max = TCP_RTO_MIN;
+			tp->mdev_max = tcp_rto_min(sk);
 		}
 	} else {
 		/* no previous measure. */
 		tp->srtt = m<<3;	/* take the measured time to be rtt */
 		tp->mdev = m<<1;	/* make sure rto = 3*rtt */
-		tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
+		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
 		tp->rtt_seq = tp->snd_nxt;
 	}
 }
@@ -843,7 +843,7 @@ static void tcp_init_metrics(struct sock *sk)
 	}
 	if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
 		tp->mdev = dst_metric(dst, RTAX_RTTVAR);
-		tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
+		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
 	}
 	tcp_set_rto(sk);
 	tcp_bound_rto(sk);
