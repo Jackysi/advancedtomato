@@ -1081,7 +1081,6 @@ static void start_samba(void)
 		" guest ok = %s\n"
 		" guest only = no\n"
 		" browseable = yes\n"
-		" log level = %d\n"
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
@@ -1094,8 +1093,7 @@ static void start_samba(void)
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
 		mode == 2 ? "user" : "share",
-		mode == 2 ? "no" : "yes",	// guest ok
-		nvram_get_int("smbd_loglevel")
+		mode == 2 ? "no" : "yes"	// guest ok
 	);
 
 	if (nvram_get_int("smbd_wins")) {

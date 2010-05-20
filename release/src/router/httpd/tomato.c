@@ -861,7 +861,6 @@ static const nvset_t nvset_list[] = {
 	{ "smbd_wins",			V_01				},
 	{ "smbd_cpage",			V_LENGTH(0, 4)			},
 	{ "smbd_cset",			V_LENGTH(0, 20)			},
-	{ "smbd_loglevel",		V_RANGE(0, 100)			},
 	{ "smbd_custom",		V_TEXT(0, 2048)			},
 	{ "smbd_autoshare",		V_RANGE(0, 3)			},
 	{ "smbd_shares",		V_LENGTH(0, 4096)		},

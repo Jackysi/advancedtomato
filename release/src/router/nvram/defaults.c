@@ -609,7 +609,6 @@ const defaults_t defaults[] = {
 	{ "smbd_wins",			"1"				},
 	{ "smbd_cpage",			""				},
 	{ "smbd_cset",			"utf8"				},
-	{ "smbd_loglevel",		"0"				},
 	{ "smbd_custom",		""				},
 	{ "smbd_autoshare",		"1"				},
 	{ "smbd_shares",
