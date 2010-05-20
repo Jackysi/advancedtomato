@@ -29,16 +29,13 @@ textarea {
 	width: 10%;
 }
 #dev-grid .co2 {
-	width: 7%;
+	width: 9%;
 }
 #dev-grid .co3 {
-	width: 18%;
+	width: 65%;
 }
 #dev-grid .co4 {
-	width: 53%;
-}
-#dev-grid .co5 {
-	width: 14%;
+	width: 16%;
 	text-align: center;
 }
 #dev-grid .header {
@@ -217,7 +214,7 @@ dg.populate = function()
 			else
 				s = 'Yes<br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="Safely Remove Storage Device" id="L' + i + '">[ Unmount ]</a></small>';
 		}
-		desc = e.product + '<small>'; // + (e.serial == '' ? '' : '<br>Serial No: ' + e.serial);
+		desc = (e.vendor + ' ' + e.product).trim() + '<small>'; // + (e.serial == '' ? '' : '<br>Serial No: ' + e.serial);
 		if (e.discs) {
 			for (j = 0; j <= e.discs.length - 1; ++j) {
 				d = e.discs[j];
@@ -234,7 +231,7 @@ dg.populate = function()
 			}
 		}
 		desc = desc + '</small>';
-		this.insert(-1, e, [e.type, e.host, e.vendor, desc, s], false);
+		this.insert(-1, e, [e.type, e.host, desc, s], false);
 	}
 
 	list = [];
@@ -243,7 +240,7 @@ dg.populate = function()
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Type', 'Host', 'Vendor', 'Description', 'Mounted?']);
+	this.headerSet(['Type', 'Host', 'Description', 'Mounted?']);
 	this.populate();
 	this.sort(1);
 }
@@ -345,9 +342,9 @@ function submit_complete()
 <input type='hidden' name='usb_printer_bidirect'>
 <input type='hidden' name='usb_fs_ext3'>
 <input type='hidden' name='usb_fs_fat'>
-/* NTFS-BEGIN */
+<!-- NTFS-BEGIN
 <input type='hidden' name='usb_fs_ntfs'>
-/* NTFS-END */
+NTFS-END -->
 <input type='hidden' name='usb_automount'>
 
 <div class='section-title'>USB Support</div>
