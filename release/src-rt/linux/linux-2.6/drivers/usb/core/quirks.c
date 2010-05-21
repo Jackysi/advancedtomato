@@ -45,6 +45,10 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* INTEL VALUE SSD */
 	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
 
+	/* Saitek Cyborg Gold Joystick */
+	{ USB_DEVICE(0x06a3, 0x0006), .driver_info =
+			USB_QUIRK_CONFIG_INTF_STRINGS },
+
 	/* M-Systems Flash Disk Pioneers */
 	{ USB_DEVICE(0x08ec, 0x1000), .driver_info = USB_QUIRK_RESET_RESUME },
 

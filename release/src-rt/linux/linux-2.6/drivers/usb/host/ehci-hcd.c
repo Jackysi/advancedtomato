@@ -862,12 +862,18 @@ static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	if (!HC_IS_RUNNING(ehci_to_hcd(ehci)->state) && ehci->reclaim)
 		end_unlink_async(ehci);
 
-	/* if it's not linked then there's nothing to do */
-	if (qh->qh_state != QH_STATE_LINKED)
-		;
+	/* If the QH isn't linked then there's nothing we can do
+	 * unless we were called during a giveback, in which case
+	 * qh_completions() has to deal with it.
+	 */
+	if (qh->qh_state != QH_STATE_LINKED) {
+		if (qh->qh_state == QH_STATE_COMPLETING)
+			qh->needs_rescan = 1;
+		return;
+	}
 
 	/* defer till later if busy */
-	else if (ehci->reclaim) {
+	if (ehci->reclaim) {
 		struct ehci_qh		*last;
 
 		for (last = ehci->reclaim;
@@ -926,8 +932,9 @@ static int ehci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 			break;
 		switch (qh->qh_state) {
 		case QH_STATE_LINKED:
+		case QH_STATE_COMPLETING:
 			intr_deschedule (ehci, qh);
-			/* FALL THROUGH */
+			break;
 		case QH_STATE_IDLE:
 			qh_completions (ehci, qh);
 			break;
@@ -935,23 +942,6 @@ static int ehci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 			ehci_dbg (ehci, "bogus qh %p state %d\n",
 					qh, qh->qh_state);
 			goto done;
-		}
-
-		/* reschedule QH iff another request is queued */
-		if (!list_empty (&qh->qtd_list)
-				&& HC_IS_RUNNING (hcd->state)) {
-			rc = qh_schedule(ehci, qh);
-
-			/* An error here likely indicates handshake failure
-			 * or no space left in the schedule.  Neither fault
-			 * should happen often ...
-			 *
-			 * FIXME kill the now-dysfunctional queued urbs
-			 */
-			if (rc != 0)
-				ehci_err(ehci,
-					"can't reschedule qh %p, err %d",
-					qh, rc);
 		}
 		break;
 
@@ -999,6 +989,7 @@ rescan:
 		qh->qh_state = QH_STATE_IDLE;
 	switch (qh->qh_state) {
 	case QH_STATE_LINKED:
+	case QH_STATE_COMPLETING:
 		for (tmp = ehci->async->qh_next.qh;
 				tmp && tmp != qh;
 				tmp = tmp->qh_next.qh)

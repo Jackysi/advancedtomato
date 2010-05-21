@@ -251,8 +251,8 @@ extern int usb_hcd_pci_probe (struct pci_dev *dev,
 extern void usb_hcd_pci_remove (struct pci_dev *dev);
 
 #ifdef CONFIG_PM
-extern int usb_hcd_pci_suspend (struct pci_dev *dev, pm_message_t state);
-extern int usb_hcd_pci_resume (struct pci_dev *dev);
+extern int usb_hcd_pci_suspend(struct pci_dev *dev, pm_message_t msg);
+extern int usb_hcd_pci_resume(struct pci_dev *dev);
 #endif /* CONFIG_PM */
 
 extern void usb_hcd_pci_shutdown (struct pci_dev *dev);
