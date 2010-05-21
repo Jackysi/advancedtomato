@@ -55,12 +55,12 @@
 static int jffs_remove(struct inode *dir, struct dentry *dentry, int type);
 
 static const struct super_operations jffs_ops;
-static const struct export_operations jffs_export_ops;
 static const struct file_operations jffs_file_operations;
 static const struct inode_operations jffs_file_inode_operations;
 static const struct file_operations jffs_dir_operations;
 static const struct inode_operations jffs_dir_inode_operations;
 static const struct address_space_operations jffs_address_operations;
+static struct export_operations jffs_export_ops;
 
 struct kmem_cache     *node_cache = NULL;
 struct kmem_cache     *fm_cache = NULL;

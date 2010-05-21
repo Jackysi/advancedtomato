@@ -76,7 +76,7 @@ static const struct super_operations jffs2_super_operations =
 };
 
 /* Just declare a void structure as a NULL value implies the default */
-static const struct export_operations jffs2_export_ops;
+static struct export_operations jffs2_export_ops;
 
 /*
  * fill in the superblock
