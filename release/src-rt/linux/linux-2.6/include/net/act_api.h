@@ -146,9 +146,13 @@ tcf_police_release(struct tcf_police *p, int bind)
 		}
 	}
 #else
-	if (p && --p->tcf_refcnt == 0)
-		tcf_police_destroy(p);
-
+	if (p) {
+		p->tcf_refcnt--;
+		if (p->tcf_refcnt <= 0) {
+			tcf_police_destroy(p);
+			ret = 1;
+		}
+	}
 #endif /* CONFIG_NET_CLS_ACT */
 	return ret;
 }
