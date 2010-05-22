@@ -155,7 +155,7 @@ EXPORT(_stext)
 	 */
 	j	kernel_entry
 #endif
-	__INIT
+	__INIT_REFOK
 
 NESTED(kernel_entry, 16, sp)			# kernel entry point
 
