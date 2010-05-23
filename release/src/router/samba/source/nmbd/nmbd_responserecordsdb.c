@@ -235,7 +235,7 @@ never happen !\n", remote_broadcast_subnet->subnet_name));
       return rrec;
   }
 
-  DEBUG(0,("find_response_record: response packet id %hu received with no \
+  DEBUG(3,("find_response_record: response packet id %hu received with no \
 matching record.\n", id));
  
   *ppsubrec = NULL;
