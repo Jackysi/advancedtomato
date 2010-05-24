@@ -135,7 +135,7 @@ createFieldTable('', [
 	{ title: 'Domain', indent: 2, name: 'f_cifs1_dom', type: 'text', maxlen: 32, size: 34, value: a[4] },
 	{ title: 'Execute When Mounted', indent: 2, name: 'f_cifs1_exec', type: 'text', maxlen: 64, size: 34, value: a[5] },
 	{ title: 'Security', indent: 2, name: 'f_cifs1_sec', type: 'select',
-		options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['krb5','Kerberos v5'],['krb5i','Kerberos v5 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
+		options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
 		value: a[7] },
 	{ title: 'Total / Free Size', indent: 2, text: cifs1.size ? (scaleSize(cifs1.size) + ' / ' + scaleSize(cifs1.free)) : '(not mounted)' },
 	null,
@@ -148,7 +148,7 @@ createFieldTable('', [
 	{ title: 'Domain', indent: 2, name: 'f_cifs2_dom', type: 'text', maxlen: 32, size: 34, value: b[4] },
 	{ title: 'Execute When Mounted', indent: 2, name: 'f_cifs2_exec', type: 'text', maxlen: 64, size: 34, value: b[5] },
 	{ title: 'Security', indent: 2, name: 'f_cifs2_sec', type: 'select',
-		options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['krb5','Kerberos v5'],['krb5i','Kerberos v5 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
+		options: [['','Default (NTLM)'],['ntlmi','NTLM and packet signing'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 and packet signing'],['nontlm','No NTLM'],['lanman','LANMAN'],['none','None']],
 		value: b[7] },
 	{ title: 'Total / Free Size', indent: 2, text: cifs2.size ? (scaleSize(cifs2.size) + ' / ' + scaleSize(cifs2.free)) : '(not mounted)' }
 ]);
