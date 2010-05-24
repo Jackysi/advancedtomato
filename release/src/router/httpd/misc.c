@@ -628,8 +628,8 @@ int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_
 	else if ((mnt = findmntents(dev_name, 1, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
-			web_printf("2,'','%s','',%llu]",
-				"swap", (uint64_t)atoi(mnt->mnt_type) * 1024);
+			web_printf("2,'','swap','',%llu]",
+				(uint64_t)atoi(mnt->mnt_type) * 1024);
 		}
 	}
 	else {
