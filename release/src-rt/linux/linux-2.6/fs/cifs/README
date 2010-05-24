@@ -225,12 +225,9 @@ If no password is provided, mount.cifs will prompt for password entry
 
 Restrictions
 ============
-Servers must support the NTLM SMB dialect (which is the most recent, supported 
-by Samba and Windows NT version 4, 2000 and XP and many other SMB/CIFS servers) 
 Servers must support either "pure-TCP" (port 445 TCP/IP CIFS connections) or RFC 
-1001/1002 support for "Netbios-Over-TCP/IP." Neither of these is likely to be a 
-problem as most servers support this.  IPv6 support is planned for the future,
-and is almost complete.
+1001/1002 support for "Netbios-Over-TCP/IP." This is not likely to be a 
+problem as most servers support this.
 
 Valid filenames differ between Windows and Linux.  Windows typically restricts
 filenames which contain certain reserved characters (e.g.the character : 
@@ -301,10 +298,21 @@ A partial list of the supported mount options follows:
 		during the local client kernel build will be used.
 		If server does not support Unicode, this parameter is
 		unused.
-  rsize		default read size (usually 16K)
-  wsize		default write size (usually 16K, 32K is often better over GigE)
-		maximum wsize currently allowed by CIFS is 57344 (14 4096 byte
-		pages)
+  rsize		default read size (usually 16K). The client currently
+		can not use rsize larger than CIFSMaxBufSize. CIFSMaxBufSize
+		defaults to 16K and may be changed (from 8K to the maximum
+		kmalloc size allowed by your kernel) at module install time
+		for cifs.ko. Setting CIFSMaxBufSize to a very large value
+		will cause cifs to use more memory and may reduce performance
+		in some cases.  To use rsize greater than 127K (the original
+		cifs protocol maximum) also requires that the server support
+		a new Unix Capability flag (for very large read) which some
+		newer servers (e.g. Samba 3.0.26 or later) do. rsize can be
+		set from a minimum of 2048 to a maximum of 130048 (127K or
+		CIFSMaxBufSize, whichever is smaller)
+  wsize		default write size (default 57344)
+		maximum wsize currently allowed by CIFS is 57344 (fourteen
+		4096 byte pages)
   rw		mount the network share read-write (note that the
 		server may still consider the share read-only)
   ro		mount network share read-only
@@ -359,7 +367,7 @@ A partial list of the supported mount options follows:
 		Note that this does not affect the normal ACL check on the
 		target machine done by the server software (of the server
 		ACL against the user name provided at mount time).
-  serverino	Use servers inode numbers instead of generating automatically
+  serverino	Use server's inode numbers instead of generating automatically
 		incrementing inode numbers on the client.  Although this will
 		make it easier to spot hardlinked files (as they will have
 		the same inode numbers) and inode numbers may be persistent,
@@ -367,12 +375,11 @@ A partial list of the supported mount options follows:
 		are unique if multiple server side mounts are exported under a
 		single share (since inode numbers on the servers might not
 		be unique if multiple filesystems are mounted under the same
-		shared higher level directory).  Note that this requires that
-		the server support the CIFS Unix Extensions as other servers
-		do not return a unique IndexNumber on SMB FindFirst (most
-		servers return zero as the IndexNumber).  Parameter has no
-		effect to Windows servers and others which do not support the
-		CIFS Unix Extensions.
+		shared higher level directory).  Note that some older
+		(e.g. pre-Windows 2000) do not support returning UniqueIDs
+		or the CIFS Unix Extensions equivalent and for those
+		this mount option will have no effect.  Exporting cifs mounts
+		under nfsd requires this mount option on the cifs mount.
   noserverino   Client generates inode numbers (rather than using the actual one
 		from the server) by default.
   setuids       If the CIFS Unix extensions are negotiated with the server
@@ -434,6 +441,13 @@ A partial list of the supported mount options follows:
  noposixpaths   If CIFS Unix extensions are supported, do not request
 		posix path name support (this may cause servers to
 		reject creatingfile with certain reserved characters).
+ nounix         Disable the CIFS Unix Extensions for this mount (tree
+		connection). This is rarely needed, but it may be useful
+		in order to turn off multiple settings all at once (ie
+		posix acls, posix locks, posix paths, symlink support
+		and retrieving uids/gids/mode from the server) or to
+		work around a bug in server which implement the Unix
+		Extensions.
  nobrl          Do not send byte range lock requests to the server.
 		This is necessary for certain applications that break
 		with cifs style mandatory byte range locks (and most
@@ -441,6 +455,14 @@ A partial list of the supported mount options follows:
 		byte range locks).
  remount        remount the share (often used to change from ro to rw mounts
 	        or vice versa)
+ cifsacl        Report mode bits (e.g. on stat) based on the Windows ACL for
+	        the file. (EXPERIMENTAL)
+ servern        Specify the server 's netbios name (RFC1001 name) to use
+		when attempting to setup a session to the server.  This is
+		This is needed for mounting to some older servers (such
+		as OS/2 or Windows 98 and Windows ME) since they do not
+		support a default server name.  A server name can be up
+		to 15 characters long and is usually uppercased.
  sfu            When the CIFS Unix Extensions are not negotiated, attempt to
 		create device files and fifos in a format compatible with
 		Services for Unix (SFU).  In addition retrieve bits 10-12
@@ -561,8 +583,8 @@ Experimental            When set to 1 used to enable certain experimental
 			performance enhancement was disabled when
 			signing turned on in case buffer was modified
 			just before it was sent, also this flag will
-			be used to use the new experimental sessionsetup
-			code).
+			be used to use the new experimental directory change 
+			notification code).
 
 These experimental features and tracing can be enabled by changing flags in 
 /proc/fs/cifs (after the cifs module has been installed or built into the 
@@ -582,10 +604,11 @@ the start of smb requests and responses can be enabled via:
 
 	echo 1 > /proc/fs/cifs/traceSMB
 
-Two other experimental features are under development and to test 
-require enabling CONFIG_CIFS_EXPERIMENTAL
+Two other experimental features are under development. To test these
+requires enabling CONFIG_CIFS_EXPERIMENTAL
 
-	More efficient write operations
+	cifsacl support needed to retrieve approximated mode bits based on
+		the contents on the CIFS ACL.
 
 	DNOTIFY fcntl: needed for support of directory change 
 			    notification and perhaps later for file leases)
@@ -602,10 +625,7 @@ that they represent all for that share, not just those for which the server
 returned success.
 	
 Also note that "cat /proc/fs/cifs/DebugData" will display information about 
-the active sessions and the shares that are mounted.  Note: NTLMv2 enablement 
-will not work since its implementation is not quite complete yet. Do not alter
-the ExtendedSecurity configuration value unless you are doing specific testing.
-Enabling extended security works to Windows 2000 Workstations and XP but not to 
-Windows 2000 server or Samba since it does not usually send "raw NTLMSSP" 
-(instead it sends NTLMSSP encapsulated in SPNEGO/GSSAPI, which support is not 
-complete in the CIFS VFS yet).  
+the active sessions and the shares that are mounted.
+Enabling Kerberos (extended security) works when CONFIG_CIFS_EXPERIMENTAL is enabled
+but requires a user space helper (from the Samba project). NTLM and NTLMv2 and
+LANMAN support do not require this helpr.
