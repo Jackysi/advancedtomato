@@ -491,6 +491,7 @@ static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
 			       skb_queue_len(&session->reorder_q));
 			skb_unlink(skb, &session->reorder_q);
 			kfree_skb(skb);
+			sock_put(session->sock);
 			goto again;
 		}
 
@@ -836,14 +837,18 @@ static int pppol2tp_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	skb=skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
 			      flags & MSG_DONTWAIT, &err);
-	if (skb) {
-		err = memcpy_toiovec(msg->msg_iov, (unsigned char *) skb->data,
-				     skb->len);
-		if (err < 0)
-			goto do_skb_free;
-		err = skb->len;
-	}
-do_skb_free:
+	if (!skb)
+		goto error;
+
+	if (len > skb->len)
+		len = skb->len;
+	else if (len < skb->len)
+		msg->msg_flags |= MSG_TRUNC;
+
+	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, len);
+	if (likely(err == 0))
+		err = len;
+
 	if (skb)
 		kfree_skb(skb);
 error:
@@ -1246,6 +1251,8 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
 
 	for (hash = 0; hash < PPPOL2TP_HASH_SIZE; hash++) {
 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
+			struct sk_buff *skb;
+
 			session = hlist_entry(walk, struct pppol2tp_session, hlist);
 
 			sk = session->sock;
@@ -1270,6 +1277,10 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
 			/* Purge any queued data */
 			skb_queue_purge(&sk->sk_receive_queue);
 			skb_queue_purge(&sk->sk_write_queue);
+			while ((skb = skb_dequeue(&session->reorder_q))) {
+				kfree_skb(skb);
+				sock_put(sk);
+			}
 
 			release_sock(sk);
 
@@ -1439,6 +1450,14 @@ static int pppol2tp_release(struct socket *sock)
 	/* Purge any queued data */
 	skb_queue_purge(&sk->sk_receive_queue);
 	skb_queue_purge(&sk->sk_write_queue);
+	if (session != NULL) {
+		struct sk_buff *skb;
+		while ((skb = skb_dequeue(&session->reorder_q))) {
+			kfree_skb(skb);
+			sock_put(sk);
+		}
+		sock_put(sk);
+	}
 
 	release_sock(sk);
 
