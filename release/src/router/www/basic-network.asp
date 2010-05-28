@@ -34,7 +34,11 @@
 
 xob = null;
 
-ghz = wl_channels;
+ghz = [];
+for (var i = 0; i < wl_channels.length; ++i) {
+	ghz.push([wl_channels[i][0] + '',
+		(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+}
 
 if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';

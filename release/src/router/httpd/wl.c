@@ -298,6 +298,10 @@ void asp_wlchannel(int argc, char **argv)
 	channel_info_t ch;
 	int chanspec, channel;
 	int phytype, band, scan = 0;
+	int mhz;
+	int chanim_enab = 0;
+	int interference = -1;
+	char retbuf[WLC_IOCTL_SMLEN];
 
 	char *ifname = nvram_safe_get("wl_ifname");
 
@@ -320,15 +324,14 @@ void asp_wlchannel(int argc, char **argv)
 	}
 
 	if (argc == 0) {
-		int mhz;
-		if (channel == 0)
-			web_puts("Auto");
-		else if ((mhz = wl_chanfreq(channel, band)) > 0)
-			web_printf("%d - %.3f <small>GHz</small>%s", channel, mhz / 1000.0,
-				(scan) ? " <small>(scanning...)</small>" : "");
-		else
-			web_printf("%d%s", channel,
-				(scan) ? " <small>(scanning...)</small>" : "");
+		mhz = (channel) ? wl_chanfreq(channel, band) : 0;
+		if (wl_iovar_getint(ifname, "chanim_enab", (int*)(void*)&chanim_enab) != 0)
+			chanim_enab = 0;
+		if (chanim_enab) {
+			if (wl_iovar_getbuf(ifname, "chanim_state", &chanspec, sizeof(chanspec), retbuf, WLC_IOCTL_SMLEN) == 0)
+				interference = *(int*)retbuf;
+		}
+		web_printf("\nwlchaninfo = [%s%d, %d, %d];\n", scan ? "-" : "", channel, mhz, interference);
 	}
 	else
 		web_printf("%s%d", scan ? "-" : "", channel);
@@ -338,9 +341,9 @@ static void web_print_wlchan(uint chan, int band)
 {
 	int mhz;
 	if ((mhz = wl_chanfreq(chan, band)) > 0)
-		web_printf(",['%d', '%d - %.3f GHz']", chan, chan, mhz / 1000.0);
+		web_printf(",[%d, %d]", chan, mhz);
 	else
-		web_printf(",['%d', '%d']", chan, chan);
+		web_printf(",[%d, 0]", chan);
 }
 
 static void _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrlsb)
@@ -441,7 +444,7 @@ void asp_wlchannels(int argc, char **argv)
 	else
 		ctrlsb = CHSPEC_CTL_SB(chanspec);
 
-	web_puts("\nwl_channels = [\n['0', 'Auto']");
+	web_puts("\nwl_channels = [\n[0, 0]");
 	if (nphy && (phytype == WLC_PHY_TYPE_N))
 		_wlchanspecs(ifname, buf, band, bw, ctrlsb);
 	else
