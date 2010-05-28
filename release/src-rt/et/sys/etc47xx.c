@@ -4,14 +4,14 @@
  * This file implements the chip-specific routines
  * for Broadcom HNBU Sonics SiliconBackplane enet cores.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: etc47xx.c,v 1.164.2.1.14.3 2008/11/21 02:57:04 Exp $
+ * $Id: etc47xx.c,v 1.164.2.5 2009/01/23 01:55:15 Exp $
  */
 
 #include <typedefs.h>
@@ -212,6 +212,23 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	boardflags = etc->boardflags;
 	boardtype = ch->sih->boardtype;
 
+	/* configure pci core */
+	si_pci_setup(ch->sih, (1 << si_coreidx(ch->sih)));
+
+	/* reset the enet core */
+	chipreset(ch);
+
+	/* dma attach */
+	sprintf(name, "et%d", etc->coreunit);
+	if ((ch->di = dma_attach(osh, name, ch->sih,
+	                         (void *)&regs->dmaregs.xmt, (void *)&regs->dmaregs.rcv,
+	                         NTXD, NRXD, RXBUFSZ, -1, NRXBUFPOST, HWRXOFF,
+	                         &et_msg_level)) == NULL) {
+		ET_ERROR(("et%d: chipattach: dma_attach failed\n", etc->unit));
+		goto fail;
+	}
+	etc->txavail[TX_Q0] = (uint *)&ch->di->txavail;
+
 	/* get our local ether addr */
 	sprintf(name, "et%dmacaddr", etc->coreunit);
 	var = getvar(ch->vars, name);
@@ -255,23 +272,6 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		goto fail;
 	}
 	etc->mdcport = bcm_atoi(var);
-
-	/* configure pci core */
-	si_pci_setup(ch->sih, (1 << si_coreidx(ch->sih)));
-
-	/* reset the enet core */
-	chipreset(ch);
-
-	/* dma attach */
-	sprintf(name, "et%d", etc->coreunit);
-	if ((ch->di = dma_attach(osh, name, ch->sih,
-	                         (void *)&regs->dmaregs.xmt, (void *)&regs->dmaregs.rcv,
-	                         NTXD, NRXD, RXBUFSZ, NRXBUFPOST, HWRXOFF,
-	                         &et_msg_level)) == NULL) {
-		ET_ERROR(("et%d: chipattach: dma_attach failed\n", etc->unit));
-		goto fail;
-	}
-	etc->txavail[TX_Q0] = (uint *)&ch->di->txavail;
 
 	/* set default sofware intmask */
 	ch->intmask = DEF_INTMASK;
@@ -607,8 +607,11 @@ chipinit(struct bcm4xxx *ch, uint options)
 		OR_REG(ch->osh, &regs->rxconfig, ERC_LE);
 
 	/* set max frame lengths - account for possible vlan tag */
-	W_REG(ch->osh, &regs->rxmaxlength, ETHER_MAX_LEN + 32);
-	W_REG(ch->osh, &regs->txmaxlength, ETHER_MAX_LEN + 32);
+//	W_REG(ch->osh, &regs->rxmaxlength, ETHER_MAX_LEN + 32);
+//	W_REG(ch->osh, &regs->txmaxlength, ETHER_MAX_LEN + 32);
+
+	W_REG(ch->osh, &regs->rxmaxlength, 4000 + 32);
+	W_REG(ch->osh, &regs->txmaxlength, 4000 + 32);
 
 	/* set tx watermark */
 	W_REG(ch->osh, &regs->txwatermark, 56);
@@ -671,7 +674,7 @@ static void BCMFASTPATH
 chiptxreclaim(struct bcm4xxx *ch, bool forceall)
 {
 	ET_TRACE(("et%d: chiptxreclaim\n", ch->etc->unit));
-	dma_txreclaim(ch->di, forceall);
+	dma_txreclaim(ch->di, forceall ? HNDDMA_RANGE_ALL : HNDDMA_RANGE_TRANSMITTED);
 	ch->intstatus &= ~I_XI;
 }
 

@@ -1,7 +1,7 @@
 /*
  * SROM format definition.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmsrom_fmt.h,v 13.6.2.3 2008/08/11 21:28:20 Exp $
+ * $Id: bcmsrom_fmt.h,v 13.6.2.8 2010/01/28 01:05:00 Exp $
  */
 
 #ifndef	_bcmsrom_fmt_h_
@@ -19,6 +19,9 @@
 #define	SROM_MAX		768
 #define SROM_MAXW		384
 #define VARS_MAX		4096
+
+/* PCI fields */
+#define PCI_F0DEVID		48
 
 
 #define	SROM_WORDS		64
@@ -256,6 +259,12 @@
 #define SROM8_FEM_TSSIPOS_MASK		0x0001
 #define SROM8_FEM_TSSIPOS_SHIFT		0
 
+#define SROM8_THERMAL		89
+#define SROM8_EXTLNAGAIN        93
+
+/* Temperature delta for PHY calibration */
+#define SROM8_PHYCAL_TEMPDELTA	94
+
 /* Per-path offsets & fields */
 #define	SROM8_PATH0		96
 #define	SROM8_PATH1		112
@@ -310,4 +319,11 @@
 
 #define	SROM8_CRCREV		219
 
+typedef struct {
+	uint8 tssipos;		/* TSSI positive slope, 1: positive, 0: negative */
+	uint8 extpagain;	/* Ext PA gain-type: full-gain: 0, pa-lite: 1, no_pa: 2 */
+	uint8 pdetrange;	/* support 32 combinations of different Pdet dynamic ranges */
+	uint8 triso;		/* TR switch isolation */
+	uint8 antswctrllut;	/* antswctrl lookup table configuration: 32 possible choices */
+} srom_fem_t;
 #endif	/* _bcmsrom_fmt_h_ */

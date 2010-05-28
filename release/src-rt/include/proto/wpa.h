@@ -1,7 +1,7 @@
 /*
  * Fundamental types and constants relating to WPA
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: wpa.h,v 1.16 2006/04/27 01:26:35 Exp $
+ * $Id: wpa.h,v 1.16.198.1 2009/08/10 07:58:32 Exp $
  */
 
 #ifndef _proto_wpa_h_
@@ -111,6 +111,7 @@ typedef struct
 #define WPA_CIPHER_AES_OCB	3	/* AES (OCB) */
 #define WPA_CIPHER_AES_CCM	4	/* AES (CCM) */
 #define WPA_CIPHER_WEP_104	5	/* WEP (104-bit) */
+
 
 #define IS_WPA_CIPHER(cipher)	((cipher) == WPA_CIPHER_NONE || \
 				 (cipher) == WPA_CIPHER_WEP_40 || \

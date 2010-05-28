@@ -64,6 +64,11 @@ do {								\
 #define inline
 #endif
 
+unsigned int
+ipt_cone_target(struct sk_buff **pskb, unsigned int hooknum,
+	const struct net_device *in, const struct net_device *out,
+	const struct xt_target *target, const void *targinfo);
+
 /*
    We keep a set of rules for each CPU, so we can avoid write-locking
    them in the softirq when updating the counters and therefore
@@ -288,6 +293,9 @@ ipt_do_table(struct sk_buff **pskb,
 	do {
 		IP_NF_ASSERT(e);
 		IP_NF_ASSERT(back);
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+		(*pskb)->nfcache |= e->nfcache;
+#endif
 		if (ip_packet_match(ip, indev, outdev, &e->ip, offset)) {
 			struct ipt_entry_target *t;
 
@@ -309,6 +317,13 @@ ipt_do_table(struct sk_buff **pskb,
 					/* Pop from stack? */
 					if (v != IPT_RETURN) {
 						verdict = (unsigned)(-v) - 1;
+
+						if (ipt_cone_target(pskb, hook, in, out,
+							t->u.kernel.target,
+							t->data) == NF_ACCEPT) {
+							/* Accept cone target as default */
+							verdict = NF_ACCEPT;
+						}
 						break;
 					}
 					e = back;

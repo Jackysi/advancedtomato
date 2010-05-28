@@ -1,7 +1,7 @@
 /*
  * Table that encodes the srom formats for PCI/PCIe NICs.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmsrom_tbl.h,v 13.4.8.20.4.1 2009/04/06 21:07:38 Exp $
+ * $Id: bcmsrom_tbl.h,v 13.4.8.29 2010/01/28 01:05:00 Exp $
  */
 
 #ifndef	_bcmsrom_tbl_h_
@@ -33,6 +33,7 @@ typedef struct {
 #define	SRFL_CCODE	0x10		/* value is in country code format */
 #define	SRFL_ETHADDR	0x20		/* value is an Ethernet address */
 #define SRFL_LEDDC	0x40		/* value is an LED duty cycle */
+#define SRFL_NOVAR	0x80		/* do not generate a nvram param, entry is for mfgc */
 
 /* Assumptions:
  * - Ethernet address spans across 3 consective words
@@ -48,6 +49,7 @@ typedef struct {
  */
 
 static const sromvar_t pci_sromvars[] = {
+	{"devid",	0xffffff00,	SRFL_PRHEX|SRFL_NOVAR,	PCI_F0DEVID,	0xffff},
 	{"boardrev",	0x0000000e,	SRFL_PRHEX,	SROM_AABREV,		SROM_BR_MASK},
 	{"boardrev",	0x000000f0,	SRFL_PRHEX,	SROM4_BREV,		0xffff},
 	{"boardrev",	0xffffff00,	SRFL_PRHEX,	SROM8_BREV,		0xffff},
@@ -193,6 +195,10 @@ static const sromvar_t pci_sromvars[] = {
 	{"pdetrange5g",	0xffffff00,	0,		SROM8_FEM5G,	SROM8_FEM_PDET_RANGE_MASK},
 	{"triso5g",	0xffffff00,	0,		SROM8_FEM5G,	SROM8_FEM_TR_ISO_MASK},
 	{"antswctl5g",	0xffffff00,	0,		SROM8_FEM5G,	SROM8_FEM_ANTSWLUT_MASK},
+	{"elna2g",      0xffffff00,     0,              SROM8_EXTLNAGAIN,       0x00ff},
+	{"elna5g",      0xffffff00,     0,              SROM8_EXTLNAGAIN,       0xff00},
+	{"tempthresh",	0xffffff00,	0,		SROM8_THERMAL,		0xff00},
+	{"tempoffset",	0xffffff00,	0,		SROM8_THERMAL,		0x00ff},
 	{"txpid2ga0",	0x000000f0,	0,		SROM4_TXPID2G,		0x00ff},
 	{"txpid2ga1",	0x000000f0,	0,		SROM4_TXPID2G,		0xff00},
 	{"txpid2ga2",	0x000000f0,	0,		SROM4_TXPID2G + 1,	0x00ff},
@@ -313,6 +319,7 @@ static const sromvar_t pci_sromvars[] = {
 	{"leddc",	0x000000e0,	SRFL_NOFFS|SRFL_LEDDC,	SROM5_LEDDC,	0xffff},
 	{"leddc",	0x00000010,	SRFL_NOFFS|SRFL_LEDDC,	SROM4_LEDDC,	0xffff},
 	{"leddc",	0x00000008,	SRFL_NOFFS|SRFL_LEDDC,	SROM3_LEDDC,	0xffff},
+	{"phycal_tempdelta",	0xffffff00,	0,	SROM8_PHYCAL_TEMPDELTA,	0x00ff},
 	{NULL,		0,		0,		0,			0}
 };
 
@@ -360,10 +367,9 @@ static const sromvar_t perpath_pci_sromvars[] = {
 	{NULL,		0,		0,		0, 			0}
 };
 
-#if !(defined(PHY_TYPE_N) && defined(PHY_TYPE_LP) && defined(PHY_TYPE_SSN))
+#if !(defined(PHY_TYPE_N) && defined(PHY_TYPE_LP))
 #define	PHY_TYPE_N		4	/* N-Phy value */
 #define	PHY_TYPE_LP		5	/* LP-Phy value */
-#define	PHY_TYPE_SSN		6	/* SSLPN-Phy value */
 #endif /* !(defined(PHY_TYPE_N) && defined(PHY_TYPE_LP)) */
 #if !defined(PHY_TYPE_NULL)
 #define	PHY_TYPE_NULL		0xf	/* Invalid Phy value */
@@ -391,11 +397,6 @@ static const pavars_t pavars[] = {
 	{PHY_TYPE_LP, WL_CHAN_FREQ_RANGE_5GL, 0, "pa1lob0 pa1lob1 pa1lob2"},
 	{PHY_TYPE_LP, WL_CHAN_FREQ_RANGE_5GM, 0, "pa1b0 pa1b1 pa1b2"},
 	{PHY_TYPE_LP, WL_CHAN_FREQ_RANGE_5GH, 0, "pa1hib0 pa1hib1 pa1hib2"},
-	/* SSLPNPHY */
-	{PHY_TYPE_SSN, WL_CHAN_FREQ_RANGE_2G,  0, "pa0b0 pa0b1 pa0b2"},
-	{PHY_TYPE_SSN, WL_CHAN_FREQ_RANGE_5GL, 0, "pa1lob0 pa1lob1 pa1lob2"},
-	{PHY_TYPE_SSN, WL_CHAN_FREQ_RANGE_5GM, 0, "pa1b0 pa1b1 pa1b2"},
-	{PHY_TYPE_SSN, WL_CHAN_FREQ_RANGE_5GH, 0, "pa1hib0 pa1hib1 pa1hib2"},
 	{PHY_TYPE_NULL, 0, 0, ""}
 };
 
@@ -407,10 +408,14 @@ typedef struct {
 
 static const povars_t povars[] = {
 	/* NPHY */
-	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_2G,  "cck2gpo ofdm2gpo"},
-	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_5GL, "ofdm5glpo"},
-	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_5GM, "ofdm5gpo"},
-	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_5GH, "ofdm5ghpo"},
+	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_2G,  "mcs2gpo0 mcs2gpo1 mcs2gpo2 mcs2gpo3 "
+	"mcs2gpo4 mcs2gpo5 mcs2gpo6 mcs2gpo7"},
+	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_5GL, "mcs5glpo0 mcs5glpo1 mcs5glpo2 mcs5glpo3 "
+	"mcs5glpo4 mcs5glpo5 mcs5glpo6 mcs5glpo7"},
+	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_5GM, "mcs5gpo0 mcs5gpo1 mcs5gpo2 mcs5gpo3 "
+	"mcs5gpo4 mcs5gpo5 mcs5gpo6 mcs5gpo7"},
+	{PHY_TYPE_N, WL_CHAN_FREQ_RANGE_5GH, "mcs5ghpo0 mcs5ghpo1 mcs5ghpo2 mcs5ghpo3 "
+	"mcs5ghpo4 mcs5ghpo5 mcs5ghpo6 mcs5ghpo7"},
 	{PHY_TYPE_NULL, 0, ""}
 };
 
@@ -442,6 +447,8 @@ static const cis_tuple_t cis_hnbuvars[] = {
 	{HNBU_BOARDFLAGS,	9, "4boardflags 4boardflags2"},
 	{HNBU_LEDS,		5, "1ledbh0 1ledbh1 1ledbh2 1ledbh3"},
 	{HNBU_CCODE,		4, "2ccode 1cctl"},
+	{HNBU_CCKPO,		3, "2cckpo"},
+	{HNBU_OFDMPO,		5, "2ofdmpo"},
 	{HNBU_RDLID,		3, "2rdlid"},
 	{HNBU_RSSISMBXA2G,	3, "0rssismf2g 0rssismc2g 0rssisav2g 0bxa2g"}, /* special case */
 	{HNBU_RSSISMBXA5G,	3, "0rssismf5g 0rssismc5g 0rssisav5g 0bxa5g"}, /* special case */
@@ -479,9 +486,15 @@ static const cis_tuple_t cis_hnbuvars[] = {
 	"2mcs5glpo4 2mcs5glpo5 2mcs5glpo6 2mcs5glpo7 "
 	"2mcs5ghpo0 2mcs5ghpo1 2mcs5ghpo2 2mcs5ghpo3 "
 	"2mcs5ghpo4 2mcs5ghpo5 2mcs5ghpo6 2mcs5ghpo7"},
+	{HNBU_PO_CDD,		3, "2cddpo"},
+	{HNBU_PO_STBC,		3, "2stbcpo"},
+	{HNBU_PO_40M,		3, "2bw40po"},
+	{HNBU_PO_40MDUP,	3, "2bwduppo"},
 	{HNBU_RDLRWU,		2, "1rdlrwu"},
-	{HNBU_WPS,		2, "1wpsgpio"},
+	{HNBU_WPS,		3, "1wpsgpio 1wpsled"},
 	{HNBU_USBFS,		2, "1usbfs"},
+	{HNBU_ELNA2G,           2, "1elna2g"},
+	{HNBU_ELNA5G,           2, "1elna5g"},
 	{HNBU_CUSTOM1,		5, "4customvar1"},
 	{OTP_RAW,		0, ""},	/* special case */
 	{0xFF,			0, ""}

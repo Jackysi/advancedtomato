@@ -1,7 +1,7 @@
 /*
  * Code to operate on PCI/E core, in NIC mode
  * Implements pci_api.h
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: nicpci.c,v 1.15.2.7.4.1 2008/11/18 18:15:09 Exp $
+ * $Id: nicpci.c,v 1.15.2.12 2009/04/23 05:17:12 Exp $
  */
 
 #include <typedefs.h>
@@ -36,7 +36,7 @@ typedef struct {
 	uint8	pciecap_lcreg_offset;	/* PCIE capability LCreg offset in the config space */
 	bool	pcie_pr42767;
 	uint8	pcie_polarity;
-	bool	pcie_war_aspm_ovr;		/* Override ASPM/Clkreq settings */
+	uint8	pcie_war_aspm_ovr;		/* Override ASPM/Clkreq settings */
 
 	uint8 pmecap_offset;	/* PM Capability offset in the config space */
 	bool pmecap;		/* Capable of generating PME */
@@ -472,24 +472,27 @@ pcie_war_aspm_clkreq(pcicore_info_t *pi)
 
 		reg16 = &pcieregs->sprom[SRSH_ASPM_OFFSET];
 		val16 = R_REG(pi->osh, reg16);
-		if (!pi->pcie_war_aspm_ovr)
+
+		val16 &= ~SRSH_ASPM_ENB;
+		if (pi->pcie_war_aspm_ovr == PCIE_ASPM_ENAB)
 			val16 |= SRSH_ASPM_ENB;
-		else
-			val16 &= ~SRSH_ASPM_ENB;
+		else if (pi->pcie_war_aspm_ovr == PCIE_ASPM_L1_ENAB)
+			val16 |= SRSH_ASPM_L1_ENB;
+		else if (pi->pcie_war_aspm_ovr == PCIE_ASPM_L0s_ENAB)
+			val16 |= SRSH_ASPM_L0s_ENB;
+
 		W_REG(pi->osh, reg16, val16);
 
 		w = OSL_PCI_READ_CONFIG(pi->osh, pi->pciecap_lcreg_offset, sizeof(uint32));
-		if (!pi->pcie_war_aspm_ovr)
-			w |= PCIE_ASPM_ENAB;
-		else
-			w &= ~PCIE_ASPM_ENAB;
+		w &= ~PCIE_ASPM_ENAB;
+		w |= pi->pcie_war_aspm_ovr;
 		OSL_PCI_WRITE_CONFIG(pi->osh, pi->pciecap_lcreg_offset, sizeof(uint32), w);
 	}
 
 	reg16 = &pcieregs->sprom[SRSH_CLKREQ_OFFSET_REV5];
 	val16 = R_REG(pi->osh, reg16);
 
-	if (!pi->pcie_war_aspm_ovr) {
+	if (pi->pcie_war_aspm_ovr != PCIE_ASPM_DISAB) {
 		val16 |= SRSH_CLKREQ_ENB;
 		pi->pcie_pr42767 = TRUE;
 	} else
@@ -595,11 +598,18 @@ pcie_war_pci_setup(pcicore_info_t *pi)
 }
 
 void
-pcie_war_ovr_aspm_disable(void *pch)
+pcie_war_ovr_aspm_update(void *pch, uint8 aspm)
 {
 	pcicore_info_t *pi = (pcicore_info_t *)pch;
 
-	pi->pcie_war_aspm_ovr = FALSE;
+	if (!PCIE_ASPM(pi->sih))
+		return;
+
+	/* Validate */
+	if (aspm > PCIE_ASPM_ENAB)
+		return;
+
+	pi->pcie_war_aspm_ovr = aspm;
 
 	/* Update the current state */
 	pcie_war_aspm_clkreq(pi);
@@ -613,10 +623,16 @@ BCMATTACHFN(pcicore_attach)(void *pch, char *pvars, int state)
 	si_t *sih = pi->sih;
 
 	/* Determine if this board needs override */
-	pi->pcie_war_aspm_ovr = ((sih->boardvendor == VENDOR_APPLE) &&
-	                         ((uint8)getintvar(pvars, "sromrev") == 4) &&
-	                         ((uint8)getintvar(pvars, "boardrev") <= 0x71)) ||
-	        ((uint32)getintvar(pvars, "boardflags2") & BFL2_PCIEWAR_OVR);
+	if (PCIE_ASPM(sih)) {
+		if (((sih->boardvendor == VENDOR_APPLE) &&
+		     ((uint8)getintvar(pvars, "sromrev") == 4) &&
+		     ((uint8)getintvar(pvars, "boardrev") <= 0x71)) ||
+		    ((uint32)getintvar(pvars, "boardflags2") & BFL2_PCIEWAR_OVR)) {
+			pi->pcie_war_aspm_ovr = PCIE_ASPM_DISAB;
+		} else {
+			pi->pcie_war_aspm_ovr = PCIE_ASPM_ENAB;
+		}
+	}
 
 	/* These need to happen in this order only */
 	pcie_war_polarity(pi);
@@ -626,6 +642,12 @@ BCMATTACHFN(pcicore_attach)(void *pch, char *pvars, int state)
 	pcie_war_aspm_clkreq(pi);
 
 	pcie_clkreq_upd(pi, state);
+
+	/* Default setting for increasing the TX drive strength */
+	if ((sih->boardvendor == VENDOR_APPLE) &&
+	    (sih->boardtype == 0x8d))
+		pcicore_pcieserdesreg(pch, MDIO_DEV_TXCTRL0, 0x18, 0xff, 0x7f);
+
 }
 
 void
@@ -640,6 +662,11 @@ pcicore_hwup(void *pch)
 		pcicore_fixlatencytimer(pch, 0x20);
 
 	pcie_war_pci_setup(pi);
+
+	/* Default setting for increasing the TX drive strength */
+	if ((pi->sih->boardvendor == VENDOR_APPLE) &&
+	    (pi->sih->boardtype == 0x8d))
+		pcicore_pcieserdesreg(pch, MDIO_DEV_TXCTRL0, 0x18, 0xff, 0x7f);
 }
 
 void
@@ -796,6 +823,23 @@ pcicore_fixlatencytimer(pcicore_info_t* pch, uint8 timer_val)
 		           __FUNCTION__, lattim, timer_val));
 		write_pci_cfg_byte(PCI_CFG_LATTIM, timer_val);
 	}
+}
+
+uint32
+pcie_lcreg(void *pch, uint32 mask, uint32 val)
+{
+	pcicore_info_t *pi = (pcicore_info_t *)pch;
+	uint8 offset;
+
+	offset = pi->pciecap_lcreg_offset;
+	if (!offset)
+		return 0;
+
+	/* set operation */
+	if (mask)
+		OSL_PCI_WRITE_CONFIG(pi->osh, offset, sizeof(uint32), val);
+
+	return OSL_PCI_READ_CONFIG(pi->osh, offset, sizeof(uint32));
 }
 
 

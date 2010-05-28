@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -7,7 +7,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: typedefs.h,v 1.85.32.7 2008/07/02 00:20:05 Exp $
+ * $Id: typedefs.h,v 1.85.32.8 2009/02/26 17:07:08 Exp $
  */
 
 #ifndef _TYPEDEFS_H_
@@ -170,8 +170,12 @@ typedef unsigned __int64 uint64;
 
 /* See note above */
 #if !defined(LINUX_HYBRID) || defined(LINUX_PORT)
+#ifdef USER_MODE
+#include <sys/types.h>
+#else
 #include <linux/types.h>	/* sys/types.h and linux/types.h are oil and water */
-#endif
+#endif /* USER_MODE */
+#endif /* !defined(LINUX_HYBRID) || defined(LINUX_PORT) */
 
 #else
 

@@ -1,7 +1,7 @@
 /*
  * pcicfg.h: PCI configuration constants and structures.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,13 +9,13 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: pcicfg.h,v 1.43.2.4 2008/10/13 01:37:28 Exp $
+ * $Id: pcicfg.h,v 1.43.2.6 2009/03/11 05:27:38 Exp $
  */
 
 #ifndef	_h_pcicfg_
 #define	_h_pcicfg_
 
-#ifndef LINUX_HYBRID_POSTMOGRIFY_REMOVAL
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* The following inside ifndef's so we don't collide with NTDDK.H */
 #ifndef PCI_MAX_BUS
 #define PCI_MAX_BUS		0x100
@@ -475,9 +475,9 @@ typedef struct _pcie_enhanced_caphdr {
 #define bar0_window	dev_dep[0x80 - 0x40]
 #define bar1_window	dev_dep[0x84 - 0x40]
 #define sprom_control	dev_dep[0x88 - 0x40]
-#endif /* LINUX_HYBRID_POSTMOGRIFY_REMOVAL */
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 #define	PCI_BAR0_WIN		0x80	/* backplane addres space accessed by BAR0 */
-#ifndef LINUX_HYBRID_POSTMOGRIFY_REMOVAL
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
 #define	PCI_BAR1_WIN		0x84	/* backplane addres space accessed by BAR1 */
 #define	PCI_SPROM_CONTROL	0x88	/* sprom property control */
 #define	PCI_BAR1_CONTROL	0x8c	/* BAR1 region burst control */
@@ -499,9 +499,9 @@ typedef struct _pcie_enhanced_caphdr {
 						 * 8KB window, so their address is the "regular"
 						 * address plus 4K
 						 */
-#endif /* LINUX_HYBRID_POSTMOGRIFY_REMOVAL */
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 #define PCI_BAR0_WINSZ		(16 * 1024)	/* bar0 window size Match with corerev 13 */
-#ifndef LINUX_HYBRID_POSTMOGRIFY_REMOVAL
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* On pci corerev >= 13 and all pcie, the bar0 is now 16KB and it maps: */
 #define	PCI_16KB0_PCIREGS_OFFSET (8 * 1024)	/* bar0 + 8K accesses pci/pcie core registers */
 #define	PCI_16KB0_CCREGS_OFFSET	(12 * 1024)	/* bar0 + 12K accesses chipc core registers */
@@ -532,5 +532,5 @@ typedef struct _pcie_enhanced_caphdr {
 #define PCI_CMD_INVALIDATE	0x00000010	/* Invalidate? */
 #define PCI_CMD_VGA_PAL		0x00000040	/* VGA Palate */
 #define PCI_STAT_TA		0x08000000	/* target abort status */
-#endif /* LINUX_HYBRID_POSTMOGRIFY_REMOVAL */
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 #endif	/* _h_pcicfg_ */

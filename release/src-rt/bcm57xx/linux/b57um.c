@@ -10,7 +10,7 @@
 /*                                                                            */
 /******************************************************************************/
 
-/* $Id: b57um.c,v 1.29 2008/03/28 19:46:36 Exp $ */
+/* $Id: b57um.c,v 1.29.2.6 2010/02/21 20:06:36 Exp $ */
 
 char bcm5700_driver[] = "bcm5700";
 char bcm5700_version[] = "8.3.14";
@@ -1201,6 +1201,16 @@ robo_fail:
 	dev->irq = pdev->irq;
 
 	*dev_out = dev;
+
+#ifdef HNDCTF
+	pUmDevice->osh = osl_attach(pdev, PCI_BUS, FALSE);
+
+	pUmDevice->cih = ctf_attach(pUmDevice->osh, dev->name, &b57_msg_level, NULL, NULL);
+
+	ctf_dev_register(pUmDevice->cih, dev, FALSE);
+	ctf_enable(pUmDevice->cih, dev, TRUE);
+#endif /* HNDCTF */
+
 	return 0;
 
 err_out_unmap:
@@ -1506,6 +1516,9 @@ bcm5700_remove_one (struct pci_dev *pdev)
 	if (atomic_read(&bcm5700_load_count) == 0)
 		unregister_ioctl32_conversion(SIOCNICE);
 #endif
+#ifdef HNDCTF
+	ctf_dev_unregister(pUmDevice->cih, dev);
+#endif /* HNDCTF */
 	unregister_netdev(dev);
 
 	if (pUmDevice->lm_dev.pMappedMemBase)
@@ -5704,6 +5717,20 @@ MM_IndicateRxPackets(PLM_DEVICE_BLOCK pDevice)
 		skb = pUmPacket->skbuff;
 		skb_put(skb, size);
 		skb->pkt_type = 0;
+
+#ifdef HNDCTF
+		if (CTF_ENAB(pUmDevice->cih)) {
+			if (ctf_forward(pUmDevice->cih, skb) != BCME_ERROR) {
+				pUmDevice->dev->last_rx = jiffies;
+				pUmDevice->stats.rx_bytes += skb->len;
+				goto drop_rx;
+			}
+
+			/* clear skipct flag before sending up */
+			PKTCLRSKIPCT(pUmDevice->osh, skb);
+		}
+#endif /* HNDCTF */
+
 		/* Extract priority from payload and put it in skb->priority */
 		dscp_prio = 0;
 		if (pUmDevice->qos) {
