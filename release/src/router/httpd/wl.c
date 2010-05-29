@@ -310,7 +310,7 @@ void asp_wlchannel(int argc, char **argv)
 	wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band));
 
 	channel = nvram_get_int("wl_channel");
-	if (phytype != WLC_PHY_TYPE_N) {
+	if (!wl_phytype_n(phytype)) {
 		if (wl_ioctl(ifname, WLC_GET_CHANNEL, &ch, sizeof(ch)) == 0) {
 			scan = (ch.scan_channel > 0);
 			channel = (scan) ? ch.scan_channel : ch.hw_channel;
@@ -427,10 +427,9 @@ void asp_wlchannels(int argc, char **argv)
 	wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
 	wl_iovar_getint(ifname, "chanspec", &chanspec);
 
+	nphy = wl_phytype_n(phytype);
 	if (argc > 0)
-		nphy = atoi(argv[0]);
-	else
-		nphy = (phytype == WLC_PHY_TYPE_N);
+		nphy = nphy && atoi(argv[0]);
 	if (argc > 1)
 		bw = atoi(argv[1]);
 	else
@@ -445,7 +444,7 @@ void asp_wlchannels(int argc, char **argv)
 		ctrlsb = CHSPEC_CTL_SB(chanspec);
 
 	web_puts("\nwl_channels = [\n[0, 0]");
-	if (nphy && (phytype == WLC_PHY_TYPE_N))
+	if (nphy)
 		_wlchanspecs(ifname, buf, band, bw, ctrlsb);
 	else
 		_wlchannels(ifname, buf, band);
