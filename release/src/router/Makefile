@@ -13,7 +13,7 @@
 
 include common.mak
 
-TOMATO_EXPERIMENTAL=0
+#TOMATO_EXPERIMENTAL=0
 
 #
 #
@@ -68,6 +68,7 @@ NEED_EX_NLS = y
 endif
 ifeq ($(TCONFIG_USB_EXTRAS),y)
 NEED_EX_USB = y
+NEED_BCM57 = y
 endif
 endif
 
@@ -328,6 +329,9 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/sound/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/sound || true
 
+ifneq ($(NEED_BCM57),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/bcm57*.*o $(PLATFORMDIR)/extras/ || true
+endif
 ifneq ($(TCONFIG_PPTP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
 endif
