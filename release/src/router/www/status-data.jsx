@@ -72,7 +72,13 @@ do {
 	stats.wanstatus = '<% wanstatus(); %>';
 	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
 
-	stats.channel = '<a href="tools-survey.asp"><% wlchannel(); %></a>'
+	// <% wlchannel(); %>
+	a = i = wlchaninfo[0] * 1;
+	if (i < 0) i = -i;
+	stats.channel = '<a href="tools-survey.asp">' + ((i) ? i + '' : 'Auto') +
+		((wlchaninfo[1]) ? ' - ' + (wlchaninfo[1] / 1000.0).toFixed(3) + ' <small>GHz</small>' : '') + '</a>' +
+		((a < 0) ? ' <small>(scanning...)</small>' : '');
+	stats.interference = (wlchaninfo[2] >= 0) ? ((wlchaninfo[2]) ? 'Severe' : 'Acceptable') : '';
 
 	a = '<% wlnbw(); %>' * 1;
 	if (a > 0)

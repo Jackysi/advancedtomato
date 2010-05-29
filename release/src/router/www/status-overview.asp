@@ -118,6 +118,8 @@ function show()
 	if (nphy) {
 		c('nbw', stats.nbw);
 	}
+	c('interference', stats.interference);
+	elem.display('interference', stats.interference != '');
 
 	if (isClient) {
 		c('rssi', wlcrssi);
@@ -239,6 +241,7 @@ createFieldTable('', [
 	{ title: 'Security', text: sec },
 	{ title: 'Channel', rid: 'channel', text: stats.channel },
 	{ title: 'Channel Width', rid: 'nbw', text: stats.nbw, ignore: !nphy },
+	{ title: 'Interference Level', rid: 'interference', text: stats.interference, hidden: (stats.interference == '') },
 	{ title: 'Rate', rid: 'rate', text: stats.rate },
 	{ title: 'RSSI', rid: 'rssi', text: wlcrssi, ignore: !isClient },
 	{ title: 'Noise', rid: 'noise', text: wlnoise, ignore: !isClient },

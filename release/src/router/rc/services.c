@@ -1077,7 +1077,8 @@ static void start_samba(void)
 		" netbios name = %s\n"
 		" server string = %s\n"
 		" guest account = nobody\n"
-		" security = %s\n"
+		" security = user\n"
+		" %s\n"
 		" guest ok = %s\n"
 		" guest only = no\n"
 		" browseable = yes\n"
@@ -1092,7 +1093,7 @@ static void start_samba(void)
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
-		mode == 2 ? "user" : "share",
+		mode == 2 ? "" : "map to guest = Bad User",
 		mode == 2 ? "no" : "yes"	// guest ok
 	);
 

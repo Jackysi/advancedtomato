@@ -434,7 +434,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			case BOUND:
 				/* 1/2 lease passed, enter renewing state */
 				state = RENEWING;
-				change_listen_mode(LISTEN_KERNEL);
+				change_listen_mode(LISTEN_RAW);	// was: LISTEN_KERNEL -- zzz
 				log1("Entering renew state");
 				/* fall right through */
 			case RENEW_REQUESTED: /* manual (SIGUSR1) renew */

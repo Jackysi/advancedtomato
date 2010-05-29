@@ -728,7 +728,6 @@ int start_firewall(void)
 
 	/* DoS-related tweaks */
 	f_write_string("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", "1", 0, 0);
-	f_write_string("/proc/sys/net/ipv4/tcp_abort_on_overflow", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/tcp_rfc1337", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/ip_local_port_range", "1024 65535", 0, 0);
 
