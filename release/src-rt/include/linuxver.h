@@ -2,7 +2,7 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,7 +10,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: linuxver.h,v 13.40.2.4 2008/05/02 20:40:31 Exp $
+ * $Id: linuxver.h,v 13.40.2.5 2008/12/15 18:36:58 Exp $
  */
 
 #ifndef _linuxver_h_
@@ -111,7 +111,10 @@ typedef irqreturn_t(*FN_ISR) (int irq, void *dev_id, struct pt_regs *ptregs);
 
 #if defined(CONFIG_PCMCIA) || defined(CONFIG_PCMCIA_MODULE)
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 27)
 #include <pcmcia/version.h>
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 27) */
+
 #include <pcmcia/cs_types.h>
 #include <pcmcia/cs.h>
 #include <pcmcia/cistpl.h>

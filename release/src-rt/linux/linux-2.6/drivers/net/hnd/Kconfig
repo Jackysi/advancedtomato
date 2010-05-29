@@ -1,7 +1,7 @@
 #
 # Broadcom Home Networking Division (HND) driver configuration
 #
-# Copyright (C) 2008, Broadcom Corporation
+# Copyright (C) 2009, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Kconfig,v 1.3 2008/08/11 23:05:54 Exp $
+# $Id: Kconfig,v 1.5 2009/10/27 00:38:19 Exp $
 #
 
 menu "Broadcom HND network devices"
@@ -22,6 +22,9 @@ config ET
 config ET_47XX
 	bool "BCM47xx support"
 	depends on ET
+config BCM_CTF
+	tristate "BCMCTF support"
+	depends on HND
 config WL_EMULATOR
 	bool "WL emulation using Gigabit ethernet"
 	depends on HND
@@ -38,6 +41,9 @@ config BCM57XX
 config WL
 	tristate "BCM43xx 802.11 Wireless support"
 	depends on HND && !WL_EMULATOR
+config WAPI
+	bool "Wireless Authentication Privacy Infrastructure (WAPI) support"
+	depends on HND && !WL_EMULATOR && WL
 choice
 	prompt "Wireless feature variant"
 	depends on HND && !WL_EMULATOR && WL

@@ -3,7 +3,7 @@
  * This header file housing the define and function prototype use by
  * both the wl driver, tools & Apps.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -11,7 +11,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmwifi.h,v 1.19.2.1 2008/07/02 00:20:05 Exp $
+ * $Id: bcmwifi.h,v 1.19.2.3 2009/05/21 21:22:19 Exp $
  */
 
 #ifndef	_bcmwifi_h_
@@ -27,6 +27,7 @@ typedef uint16 chanspec_t;
 #define CH_EWA_VALID			0x04
 #define CH_20MHZ_APART			4
 #define CH_10MHZ_APART			2
+#define CH_5MHZ_APART			1	/* 2G band channels are 5 Mhz apart */
 #define CH_MAX_2G_CHANNEL		14	/* Max channel in 2G band */
 #define WLC_MAX_2G_CHANNEL		CH_MAX_2G_CHANNEL /* legacy define */
 #define	MAXCHANNEL		224	/* max # supported channels. The max channel no is 216,
@@ -94,6 +95,7 @@ typedef uint16 chanspec_t;
 #define CHSPEC_CTL_CHAN(chspec)  ((CHSPEC_SB_LOWER(chspec)) ? \
 				  (LOWER_20_SB((chspec & WL_CHANSPEC_CHAN_MASK))) : \
 				  (UPPER_20_SB((chspec & WL_CHANSPEC_CHAN_MASK))))
+#define CHSPEC2WLC_BAND(chspec) (CHSPEC_IS5G((chspec))? WLC_BAND_5G: WLC_BAND_2G)
 
 #define CHANSPEC_STR_LEN    8
 

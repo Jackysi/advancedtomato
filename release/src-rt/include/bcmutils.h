@@ -1,7 +1,7 @@
 /*
  * Misc useful os-independent macros and functions.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmutils.h,v 13.199.2.1.20.1 2008/10/31 23:39:09 Exp $
+ * $Id: bcmutils.h,v 13.199.2.8 2010/01/20 20:51:04 Exp $
  */
 
 #ifndef	_bcmutils_h_
@@ -43,9 +43,9 @@ extern const unsigned char bcm_ctype[];
 #define bcm_toupper(c)	(bcm_islower((c)) ? ((c) + 'A' - 'a') : (c))
 
 /* Buffer structure for collecting string-formatted data
- * using bcm_bprintf() API.
- * Use bcm_binit() to initialize before use
- */
+* using bcm_bprintf() API.
+* Use bcm_binit() to initialize before use
+*/
 
 struct bcmstrbuf {
 	char *buf;	/* pointer to current position in origbuf */
@@ -257,6 +257,7 @@ typedef struct bcm_iovar {
 #define IOV_GVAL(id)		((id)*2)
 #define IOV_SVAL(id)		(((id)*2)+IOV_SET)
 #define IOV_ISSET(actionid)	((actionid & IOV_SET) == IOV_SET)
+#define IOV_ID(actionid)	(actionid >> 1)
 
 /* flags are per-driver based on driver attributes */
 
@@ -350,8 +351,11 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 #define BCME_NOT_WME_ASSOCIATION	-34	/* Not WME Association */
 #define BCME_SDIO_ERROR			-35	/* SDIO Bus Error */
 #define BCME_DONGLE_DOWN		-36	/* Dongle Not Accessible */
-#define BCME_VERSION			-37 /* Incorrect version */
-#define BCME_LAST			BCME_VERSION
+#define BCME_VERSION			-37 	/* Incorrect version */
+#define BCME_TXFAIL			-38 	/* TX failure */
+#define BCME_RXFAIL			-39	/* RX failure */
+#define BCME_NODEVICE			-40 	/* Device not present */
+#define BCME_LAST			BCME_NODEVICE
 
 /* These are collection of BCME Error strings */
 #define BCMERRSTRINGTABLE {		\
@@ -392,7 +396,10 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 	"Not WME Association",		\
 	"SDIO Bus Error",		\
 	"Dongle Not Accessible",	\
-	"Incorrect version"	\
+	"Incorrect version",	\
+	"TX Failure",	\
+	"RX Failure",	\
+	"Device Not Present",	\
 }
 
 #ifndef ABS
@@ -548,13 +555,38 @@ store16_ua(uint8 *a, uint16 v)
 
 #endif /* IL_BIGENDIAN */
 
+/* crypto utility function */
+/* 128-bit xor: *dst = *src1 xor *src2. dst1, src1 and src2 may have any alignment */
+static INLINE void
+xor_128bit_block(const uint8 *src1, const uint8 *src2, uint8 *dst)
+{
+	if (
+#ifdef __i386__
+	    1 ||
+#endif
+	    (((uintptr)src1 | (uintptr)src2 | (uintptr)dst) & 3) == 0) {
+		/* ARM CM3 rel time: 1229 (727 if alignment check could be omitted) */
+		/* x86 supports unaligned.  This version runs 6x-9x faster on x86. */
+		((uint32 *)dst)[0] = ((const uint32 *)src1)[0] ^ ((const uint32 *)src2)[0];
+		((uint32 *)dst)[1] = ((const uint32 *)src1)[1] ^ ((const uint32 *)src2)[1];
+		((uint32 *)dst)[2] = ((const uint32 *)src1)[2] ^ ((const uint32 *)src2)[2];
+		((uint32 *)dst)[3] = ((const uint32 *)src1)[3] ^ ((const uint32 *)src2)[3];
+	} else {
+		/* ARM CM3 rel time: 4668 (4191 if alignment check could be omitted) */
+		int k;
+		for (k = 0; k < 16; k++)
+			dst[k] = src1[k] ^ src2[k];
+	}
+}
+
 /* externs */
 /* crc */
 extern uint8 BCMROMFN(hndcrc8)(uint8 *p, uint nbytes, uint8 crc);
 extern uint16 BCMROMFN(hndcrc16)(uint8 *p, uint nbytes, uint16 crc);
 extern uint32 BCMROMFN(hndcrc32)(uint8 *p, uint nbytes, uint32 crc);
 /* format/print */
-#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC)
+#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || \
+	defined(BCMDBG_DUMP)
 extern int bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len);
 extern int bcm_format_hex(char *str, const void *bytes, int len);
 extern void prhex(const char *msg, uchar *buf, uint len);
@@ -591,6 +623,9 @@ struct fielddesc {
 
 extern void bcm_binit(struct bcmstrbuf *b, char *buf, uint size);
 extern int bcm_bprintf(struct bcmstrbuf *b, const char *fmt, ...);
+extern void bcm_inc_bytes(uchar *num, int num_bytes, uint8 amount);
+extern int bcm_cmp_bytes(uchar *arg1, uchar *arg2, uint8 nbytes);
+extern void bcm_print_bytes(char *name, const uchar *cdata, int len);
 
 typedef  uint32 (*bcmutl_rdreg_rtn)(void *arg0, uint arg1, uint32 offset);
 extern uint bcmdumpfields(bcmutl_rdreg_rtn func_ptr, void *arg0, uint arg1, struct fielddesc *str,
@@ -599,5 +634,16 @@ extern uint bcmdumpfields(bcmutl_rdreg_rtn func_ptr, void *arg0, uint arg1, stru
 extern uint bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint len);
 extern uint BCMROMFN(bcm_bitcount)(uint8 *bitmap, uint bytelength);
 
+#ifdef BCMDBG_PKT      /* pkt logging for debugging */
+#define PKTLIST_SIZE 3000
+typedef struct {
+	void *list[PKTLIST_SIZE]; /* List of pointers to packets */
+	uint count; /* Total count of the packets */
+} pktlist_info_t;
+
+extern void pktlist_add(pktlist_info_t *pktlist, void *p);
+extern void pktlist_remove(pktlist_info_t *pktlist, void *p);
+extern char* pktlist_dump(pktlist_info_t *pktlist, char *buf);
+#endif  /* BCMDBG_PKT */
 
 #endif	/* _bcmutils_h_ */

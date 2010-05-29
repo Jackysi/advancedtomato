@@ -1,7 +1,7 @@
 /*
  * Low-Level PCI and SI support for BCM47xx
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: hndpci.c,v 1.36.2.3.6.5 2009/01/22 22:07:12 Exp $
+ * $Id: hndpci.c,v 1.36.2.8 2009/06/16 22:41:34 Exp $
  */
 
 #include <typedefs.h>
@@ -31,7 +31,11 @@
 #include "siutils_priv.h"
 
 /* debug/trace */
+#ifdef BCMDBG_PCI
+#define	PCI_MSG(args)	printf args
+#else
 #define	PCI_MSG(args)
+#endif
 
 /* to free some function memory after boot */
 #ifndef linux
@@ -318,8 +322,12 @@ extpci_write_config(si_t *sih, uint bus, uint dev, uint func, uint off, void *bu
 			              PCIE_CONFIG_INDADDR(func, off), val);
 
 		si_setcoreidx(sih, coreidx);
-	} else
+	} else {
 		W_REG(osh, reg, val);
+
+		if ((sih->chip == BCM4716_CHIP_ID) || (sih->chip == BCM4748_CHIP_ID))
+			(void)R_REG(osh, reg);
+	}
 
 done:
 	if (reg && addr)
@@ -659,7 +667,7 @@ hndpci_init_pci(si_t *sih)
 		/* On 4716 (and other AXI chips?) make sure the slave wrapper
 		 * is also put in reset.
 		 */
-		if (chip == BCM4716_CHIP_ID) {
+		if ((chip == BCM4716_CHIP_ID) || (chip == BCM4748_CHIP_ID)) {
 			uint32 *resetctrl;
 
 			resetctrl = (uint32 *)OSL_UNCACHED(SI_WRAP_BASE + (9 * SI_CORE_SIZE) +
@@ -731,7 +739,7 @@ hndpci_init_pci(si_t *sih)
 			 * as mips can't generate 64-bit address on the
 			 * backplane.
 			 */
-			if (chip == BCM4716_CHIP_ID)
+			if ((chip == BCM4716_CHIP_ID) || (chip == BCM4748_CHIP_ID))
 				W_REG(osh, &pcie->sbtopcie0, SBTOPCIE_MEM | SI_PCI_MEM);
 			else
 				W_REG(osh, &pcie->sbtopcie0, SBTOPCIE_IO);

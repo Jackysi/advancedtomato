@@ -1,7 +1,7 @@
 /*
  * From FreeBSD 2.2.7: Fundamental constants relating to ethernet.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: ethernet.h,v 9.45.12.1 2008/08/13 02:24:19 Exp $
+ * $Id: ethernet.h,v 9.45.12.3 2009/10/12 23:01:02 Exp $
  */
 
 #ifndef _NET_ETHERNET_H_	    /* use native BSD ethernet.h when available */
@@ -171,6 +171,13 @@ static const struct ether_addr ether_null = {{0, 0, 0, 0, 0, 0}};
 			    ((uint8 *)(ea))[3] |		\
 			    ((uint8 *)(ea))[4] |		\
 			    ((uint8 *)(ea))[5]) == 0)
+
+#define ETHER_MOVE_HDR(d, s) \
+do { \
+	struct ether_header t; \
+	t = *(struct ether_header *)(s); \
+	*(struct ether_header *)(d) = t; \
+} while (0)
 
 #undef PACKED
 #if !defined(__GNUC__)

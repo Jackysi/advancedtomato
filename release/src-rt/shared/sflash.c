@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane chipcommon serial flash interface
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sflash.c,v 1.44.2.5.4.4 2009/01/22 01:16:14 Exp $
+ * $Id: sflash.c,v 1.44.2.7 2010/02/18 02:08:55 Exp $
  */
 
 #include <typedefs.h>
@@ -28,6 +28,7 @@ bool sflash_uncached = FALSE;
 
 /* Private global state */
 static struct sflash sflash;
+
 
 /* Issue a serial flash command */
 static INLINE void
@@ -163,7 +164,8 @@ sflash_init(si_t *sih, chipcregs_t *cc)
 		       sflash.size / (1024 * 1024), name);
 
 	/* 4716A0 hack */
-	if ((sih->chip == BCM4716_CHIP_ID) && (sih->chiprev == 0)) {
+	if (((sih->chip == BCM4716_CHIP_ID) || (sih->chip == BCM4748_CHIP_ID)) &&
+		(sih->chiprev == 0)) {
 		if (sflash.size > (4 * 1024 * 1024)) {
 			sflash.size = 4 * 1024 * 1024;
 			if (firsttime)

@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation (direct mapped flash)
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: nvram_rw.c,v 1.50 2009/03/17 19:39:25 Exp $
+ * $Id: nvram_rw.c,v 1.51 2010/01/05 19:11:25 Exp $
  */
 
 #include <typedefs.h>
@@ -188,7 +188,7 @@ BCMINITFN(find_nvram)(bool embonly, bool *isemb)
 }
 
 int
-BCMINITFN(nvram_init)(void *si)
+BCMATTACHFN(nvram_init)(void *si)
 {
 	bool isemb;
 	int ret;

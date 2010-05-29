@@ -282,7 +282,9 @@ static int eth_mac_addr(struct net_device *dev, void *p)
  */
 static int eth_change_mtu(struct net_device *dev, int new_mtu)
 {
-	if (new_mtu < 68 || new_mtu > ETH_DATA_LEN)
+//	if (new_mtu < 68 || new_mtu > ETH_DATA_LEN)
+	/* Yen, Jumbo frame = 9720*/
+	if (new_mtu < 68 || new_mtu > 9720)
 		return -EINVAL;
 	dev->mtu = new_mtu;
 	return 0;

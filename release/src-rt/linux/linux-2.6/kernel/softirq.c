@@ -118,9 +118,7 @@ EXPORT_SYMBOL_GPL(__local_bh_enable);
  */
 void _local_bh_enable(void)
 {
-#ifdef CONFIG_TRACE_IRQFLAGS
 	WARN_ON_ONCE(in_irq());
-#endif
 	WARN_ON_ONCE(!irqs_disabled());
 
 	if (softirq_count() == SOFTIRQ_OFFSET)

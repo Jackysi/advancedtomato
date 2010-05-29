@@ -1,7 +1,7 @@
 /*
  * Broadcom Event  protocol definitions
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -11,7 +11,7 @@
  *
  * Dependencies: proto/bcmeth.h
  *
- * $Id: bcmevent.h,v 9.35.2.2 2008/07/02 00:20:05 Exp $
+ * $Id: bcmevent.h,v 9.35.2.6 2009/08/10 07:58:32 Exp $
  *
  */
 
@@ -114,7 +114,8 @@ typedef struct bcm_event {
 #define WLC_E_ICV_ERROR		49	/* WEP ICV error occurred */
 #define WLC_E_UNICAST_DECODE_ERROR 50 /* Unsupported unicast encrypted frame */
 #define WLC_E_MULTICAST_DECODE_ERROR 51 /* Unsupported multicast encrypted frame */
-#define WLC_E_LAST			52	/* highest val + 1 for range checking */
+#define WLC_E_EXTLOG_MSG	52
+#define WLC_E_LAST			55	/* highest val + 1 for range checking */
 
 
 /* Event status codes */
@@ -139,6 +140,10 @@ typedef struct bcm_event {
 #define WLC_E_REASON_DEAUTH		2	/* roamed due to DEAUTH indication */
 #define WLC_E_REASON_DISASSOC		3	/* roamed due to DISASSOC indication */
 #define WLC_E_REASON_BCNS_LOST		4	/* roamed due to lost beacons */
+#define WLC_E_REASON_MINTXRATE		9	/* roamed because at mintxrate for too long */
+#define WLC_E_REASON_TXFAIL		10	/* We can hear AP, but AP can't hear us */
+
+/* Roam codes used primarily by CCX */
 #define WLC_E_REASON_FAST_ROAM_FAILED	5	/* roamed due to fast roam failure */
 #define WLC_E_REASON_DIRECTED_ROAM	6	/* roamed due to request by AP */
 #define WLC_E_REASON_TSPEC_REJECTED	7	/* roamed due to TSPEC rejection */
@@ -177,6 +182,12 @@ typedef struct bcm_event {
 #define WLC_E_SUP_GTK_DECRYPT_FAIL	12	/* GTK decrypt failure */
 #define WLC_E_SUP_SEND_FAIL			13	/* message send failure */
 #define WLC_E_SUP_DEAUTH			14	/* received FC_DEAUTH */
+
+/* Reason codes for LINK */
+#define WLC_E_LINK_BCN_LOSS	1	/* Link down because of beacon loss */
+#define WLC_E_LINK_DISASSOC	2	/* Link down because of disassoc */
+#define WLC_E_LINK_ASSOC_REC	3	/* Link down because assoc recreate failed */
+#define WLC_E_LINK_BSSCFG_DIS	4	/* Link down due to bsscfg down */
 
 #undef PACKED
 #if !defined(__GNUC__)
