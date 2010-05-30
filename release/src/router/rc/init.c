@@ -430,6 +430,15 @@ static void check_bootnv(void)
 			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		}
 		break;
+	case MODEL_WRT320N:
+		if (nvram_match("clkdivsf", "2")) {
+			// fix lan port numbering
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
+		dirty |= check_nv("ledbh0", "136");
+		dirty |= check_nv("ledbh1", "11");
+		break;
 #endif
 
 	case MODEL_WRT54G:
@@ -846,6 +855,17 @@ static int init_nvram(void)
 		else
 			name = "WRT160N v3";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WRT320N:
+		mfr = "Linksys";
+		name = "WRT320N";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");

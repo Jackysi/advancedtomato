@@ -165,6 +165,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 5;
 		break;
+	case MODEL_WRT320N:
+		reset_mask = 1 << 8;
+		ses_mask = 1 << 5;
+		break;
 #endif
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);

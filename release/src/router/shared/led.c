@@ -193,6 +193,7 @@ int led(int which, int mode)
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
 	static int wnr2000v2[]	= { 255,   2,     6,  255,  255,   -7,  255,  255	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
 #endif
 
 	char s[16];
@@ -304,6 +305,9 @@ int led(int which, int mode)
 		break;
 	case MODEL_WRT160Nv3:
 		b = wrt160nv3[which];
+		break;
+	case MODEL_WRT320N:
+		b = wrt320n[which];
 		break;
 #endif
 /*
