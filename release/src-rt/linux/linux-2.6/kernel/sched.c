@@ -305,7 +305,7 @@ struct rq {
 };
 
 static DEFINE_PER_CPU(struct rq, runqueues) ____cacheline_aligned_in_smp;
-static DEFINE_MUTEX(sched_hotcpu_mutex);
+DEFINE_MUTEX(sched_hotcpu_mutex);
 
 static inline int cpu_of(struct rq *rq)
 {
