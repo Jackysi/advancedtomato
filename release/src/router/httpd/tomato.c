@@ -817,6 +817,7 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_01				},
 	{ "usb_ohci",			V_01				},
 	{ "usb_usb2",			V_01				},
+	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},
 	{ "usb_printer_bidirect",	V_01				},

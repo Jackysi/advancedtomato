@@ -62,6 +62,9 @@ void tune_bdflush(void)
 
 void start_usb(void)
 {
+	char param[32];
+	int i;
+
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
 
@@ -99,7 +102,11 @@ void start_usb(void)
 
 		/* if enabled, force USB2 before USB1.1 */
 		if (nvram_get_int("usb_usb2")) {
-			modprobe(USB20_MOD);
+			i = nvram_get_int("usb_irq_thresh");
+			if ((i < 0) || (i > 6))
+				i = 0;
+			sprintf(param, "log2_irq_thresh=%d", i);
+			modprobe(USB20_MOD, param);
 		}
 
 		if (nvram_get_int("usb_uhci")) {
