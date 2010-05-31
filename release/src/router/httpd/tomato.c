@@ -620,7 +620,6 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd_gwmode",		V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
-	{ "dhcpc_minpkt",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
 //	{ "dnsmasq_norw",		V_01				},
 

@@ -365,7 +365,6 @@ const defaults_t defaults[] = {
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
-	{ "dhcpc_minpkt",		"0"				},
 	{ "dnsmasq_custom",		""				},
 //	{ "dnsmasq_norw",		"0"				},
 

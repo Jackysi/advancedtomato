@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -56,15 +56,8 @@ function save()
 	fom.dns_addget.value = E('_f_dns_addget').checked ? 1 : 0;
 	fom.dhcpd_gwmode.value = E('_f_dhcpd_gwmode').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
-	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 
-	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt) {
-		nvram.dhcpc_minpkt = fom.dhcpc_minpkt.value;
-		fom._service.value = '*';
-	}
-	else {
-		fom._service.value = 'dnsmasq-restart';
-	}
+	fom._service.value = 'dnsmasq-restart';
 
 	if (fom.dns_intcpt.value != nvram.dns_intcpt) {
 		nvram.dns_intcpt = fom.dns_intcpt.value;
@@ -97,7 +90,6 @@ function save()
 <input type='hidden' name='dns_addget'>
 <input type='hidden' name='dhcpd_gwmode'>
 <input type='hidden' name='dns_intcpt'>
-<input type='hidden' name='dhcpc_minpkt'>
 
 <div class='section-title'>DHCP / DNS Server (LAN)</div>
 <div class='section'>
@@ -120,15 +112,6 @@ createFieldTable('', [
 Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configuration file if it exists.
 </div>
 <br>
-
-<div class='section-title'>DHCP Client (WAN)</div>
-<div class='section'>
-<script type='text/javascript'>
-createFieldTable('', [
-	{ title: 'Reduce packet size', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
-]);
-</script>
-</div>
 
 
 <!-- / / / -->
