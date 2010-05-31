@@ -191,6 +191,7 @@ int led(int which, int mode)
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
+	static int wnr2000v2[]	= { 255,   2,     6,  255,  255,   -7,  255,  255	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
 #endif
 
@@ -297,6 +298,9 @@ int led(int which, int mode)
 			c = (mode) ? 3 : 7;
 		} else
 			b = wnr3500[which];
+		break;
+	case MODEL_WNR2000v2:
+		b = wnr2000v2[which];
 		break;
 	case MODEL_WRT160Nv3:
 		b = wrt160nv3[which];

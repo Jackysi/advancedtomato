@@ -407,6 +407,11 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan2ports", "0 8");
 		dirty |= check_nv("ledbh0", "7");
 		break;
+	case MODEL_WNR2000v2:
+		dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
+		dirty |= check_nv("vlan1ports", "0 5");
+		dirty |= check_nv("ledbh5", "8");
+		break;
 	case MODEL_RTN10:
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
@@ -820,6 +825,17 @@ static int init_nvram(void)
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("portprio_support", "0");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WNR2000v2:
+		mfr = "Netgear";
+		name = "WNR2000 v2";
+		features = SUP_SES | SUP_AOSS_LED | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
 			nvram_set("t_fix1", name);
 		}
 		break;
