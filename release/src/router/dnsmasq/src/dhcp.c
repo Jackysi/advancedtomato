@@ -977,29 +977,40 @@ void dhcp_update_configs(struct dhcp_config *configs)
 /* If we've not found a hostname any other way, try and see if there's one in /etc/hosts
    for this address. If it has a domain part, that must match the set domain and
    it gets stripped. The set of legal domain names is bigger than the set of legal hostnames
-   so check here that the domain name is legal as a hostname. */
+   so check here that the domain name is legal as a hostname. 
+   NOTE: we're only allowed to overwrite daemon->dhcp_buff if we succeed. */
 char *host_from_dns(struct in_addr addr)
 {
   struct crec *lookup;
-  char *hostname = NULL;
-  char *d1, *d2;
 
   if (daemon->port == 0)
     return NULL; /* DNS disabled. */
   
   lookup = cache_find_by_addr(NULL, (struct all_addr *)&addr, 0, F_IPV4);
+
   if (lookup && (lookup->flags & F_HOSTS))
     {
-      hostname = daemon->dhcp_buff;
-      strncpy(hostname, cache_get_name(lookup), 256);
-      hostname[255] = 0;
-      d1 = strip_hostname(hostname);
-      d2 = get_domain(addr);
-      if (!legal_hostname(hostname) || (d1 && (!d2 || !hostname_isequal(d1, d2))))
-	hostname = NULL;
+      char *dot, *hostname = cache_get_name(lookup);
+      dot = strchr(hostname, '.');
+      
+      if (dot && strlen(dot+1) != 0)
+	{
+	  char *d2 = get_domain(addr);
+	  if (!d2 || !hostname_isequal(dot+1, d2))
+	    return NULL; /* wrong domain */
+	}
+
+      if (!legal_hostname(hostname))
+	return NULL;
+      
+      strncpy(daemon->dhcp_buff, hostname, 256);
+      daemon->dhcp_buff[255] = 0;
+      strip_hostname(daemon->dhcp_buff);
+
+      return daemon->dhcp_buff;
     }
   
-  return hostname;
+  return NULL;
 }
 
 /* return domain or NULL if none. */
