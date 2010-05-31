@@ -461,7 +461,7 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean openssl-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean openssl-clean prebuilt-clean libbcmcrypto-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
