@@ -55,7 +55,7 @@ struct iphdr {
 	u_int16_t check;
 	u_int8_t saddr[4];
 	u_int8_t daddr[4];
-};
+} __attribute__((packed));
 
 struct EthPacket {
 	u_int8_t dst_mac[6];
@@ -73,7 +73,7 @@ struct EthPacket {
 	u_int8_t saddr[4];
 	u_int8_t daddr[4];
 	u_int8_t data[1500 - 20];
-};
+} __attribute__((packed));
 
 
 static int read_interface(const char *interface, int *ifindex, unsigned char *mac)
