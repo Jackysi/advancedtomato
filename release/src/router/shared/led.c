@@ -80,6 +80,7 @@ void gpio_write(uint32_t bit, int en)
 	if ((f = gpio_open(0)) < 0) return;
 
 	_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
+	_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, bit);
 	_gpio_ioctl(f, GPIO_IOC_OUT, bit, en ? bit : 0);
 	close(f);
 }
@@ -193,7 +194,7 @@ int led(int which, int mode)
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
 	static int wnr2000v2[]	= { 255,   2,     6,  255,  255,   -7,  255,  255	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
-	static int wrt320n[]	= { 255,  -2,     3,    4,  255,  255,  255,  255	};
+	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
 #endif
 
 	char s[16];
