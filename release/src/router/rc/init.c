@@ -419,6 +419,11 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
+	case MODEL_WRT320N:
+		dirty |= check_nv("reset_gpio", "5");
+		dirty |= check_nv("ledbh0", "136");
+		dirty |= check_nv("ledbh1", "11");
+		/* fall through, same as RT-N16 */
 	case MODEL_RTN16:
 		dirty |= check_nv("vlan2hwname", "et0");
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
@@ -429,15 +434,6 @@ static void check_bootnv(void)
 			// fix lan port numbering on CSE41, CSE51
 			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		}
-		break;
-	case MODEL_WRT320N:
-		if (nvram_match("clkdivsf", "2")) {
-			// fix lan port numbering
-			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
-			dirty |= check_nv("vlan2ports", "0 8");
-		}
-		dirty |= check_nv("ledbh0", "136");
-		dirty |= check_nv("ledbh1", "11");
 		break;
 #endif
 
@@ -864,7 +860,10 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT320N:
 		mfr = "Linksys";
-		name = "WRT320N";
+		if (nvram_match("boardrev", "0x1307"))
+			name = "E2000";
+		else
+			name = "WRT320N";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
