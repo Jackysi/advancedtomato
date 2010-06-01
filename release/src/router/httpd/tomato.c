@@ -319,6 +319,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
+	{ "wpad.dat|proxy.pac",		"application/x-ns-proxy-autoconfig",	0,	wi_generic_noid,	do_file,		1 },
 
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
@@ -619,7 +620,6 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd_gwmode",		V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
-	{ "dhcpc_minpkt",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
 //	{ "dnsmasq_norw",		V_01				},
 
@@ -817,6 +817,7 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_01				},
 	{ "usb_ohci",			V_01				},
 	{ "usb_usb2",			V_01				},
+	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},
 	{ "usb_printer_bidirect",	V_01				},

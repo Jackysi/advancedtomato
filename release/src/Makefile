@@ -178,7 +178,13 @@ what:
 # a "...is not set" line, or the make oldconfig will stop and ask
 # what to do.
 
-# $(1) - router/config_$@
+# Options for "make bin" :
+# BUILD_DESC (Std|Lite|Ext|...)
+# MIPS32 (r2|r1)
+# USB ("USB"|"")
+# JFFSv1 | NO_JFFS
+# NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
+# SAMBA3, OPENVPN, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, SLIM
 
 define RouterOptions
 	@( \
@@ -196,6 +202,35 @@ define RouterOptions
 	else \
 		echo "TCONFIG_JFFSV1=y" >>$(1); \
 	fi; \
+	if [ "$(USB)" = "USB" ]; then \
+		if [ "$(USBEXTRAS)" = "y" ]; then \
+			sed -i "/TCONFIG_USB_EXTRAS/d" $(1); \
+			echo "TCONFIG_USB_EXTRAS=y" >>$(1); \
+		fi; \
+		if [ "$(NTFS)" = "y" ]; then \
+			sed -i "/TCONFIG_NTFS/d" $(1); \
+			echo "TCONFIG_NTFS=y" >>$(1); \
+		fi; \
+		if [ "$(MEDIASRV)" = "y" ]; then \
+			sed -i "/TCONFIG_MEDIA_SERVER/d" $(1); \
+			echo "TCONFIG_MEDIA_SERVER=y" >>$(1); \
+		fi; \
+	else \
+		sed -i "/TCONFIG_SAMBASRV/d" $(1); \
+		echo "# TCONFIG_SAMBASRV is not set" >>$(1); \
+		sed -i "/TCONFIG_FTP/d" $(1); \
+		echo "# TCONFIG_FTP is not set" >>$(1); \
+		sed -i "/TCONFIG_USB/d" $(1); \
+		echo "# TCONFIG_USB is not set" >>$(1); \
+	fi; \
+	if [ "$(NO_SAMBA)" = "y" ]; then \
+		sed -i "/TCONFIG_SAMBASRV/d" $(1); \
+		echo "# TCONFIG_SAMBASRV is not set" >>$(1); \
+	fi; \
+	if [ "$(NO_ZEBRA)" = "y" ]; then \
+		sed -i "/TCONFIG_ZEBRA/d" $(1); \
+		echo "# TCONFIG_ZEBRA is not set" >>$(1); \
+	fi; \
 	if [ "$(NO_JFFS)" = "y" ]; then \
 		sed -i "/TCONFIG_JFFS2/d" $(1); \
 		echo "# TCONFIG_JFFS2 is not set" >>$(1); \
@@ -206,76 +241,25 @@ define RouterOptions
 		sed -i "/TCONFIG_CIFS/d" $(1); \
 		echo "# TCONFIG_CIFS is not set" >>$(1); \
 	fi; \
+	if [ "$(NO_SSH)" = "y" ]; then \
+		sed -i "/TCONFIG_SSH/d" $(1); \
+		echo "# TCONFIG_SSH is not set" >>$(1); \
+	fi; \
+	if [ "$(NO_LIBOPT)" = "y" ]; then \
+		sed -i "/TCONFIG_OPTIMIZE_SHARED_LIBS/d" $(1); \
+		echo "# TCONFIG_OPTIMIZE_SHARED_LIBS is not set" >>$(1); \
+	fi; \
 	if [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/TCONFIG_EBTABLES/d" $(1); \
 		echo "TCONFIG_EBTABLES=y" >>$(1); \
 	fi; \
-	)
-endef
-
-# $(1) - router/busybox/config_$@
-
-define BusyboxExtraOptions
-	@sed -i "/CONFIG_UNZIP/d" $(1)
-	@echo "CONFIG_UNZIP=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1)
-	@echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1)
-	@echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1)
-	@echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1)
-	@( \
-	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-		sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1); \
-		echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
-		sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
-		echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
-		sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
-		echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
+	if [ "$(OPENVPN)" = "y" ]; then \
+		sed -i "/TCONFIG_LZO/d" $(1); \
+		echo "TCONFIG_LZO=y" >>$(1); \
+		sed -i "/TCONFIG_OPENVPN/d" $(1); \
+		echo "TCONFIG_OPENVPN=y" >>$(1); \
 	fi; \
 	)
-endef
-
-define BusyboxExtraUSBOptions
-	@sed -i "/CONFIG_E2FSCK/d" $(1)
-	@echo "CONFIG_E2FSCK=y" >>$(1)
-	@sed -i "/CONFIG_MKE2FS/d" $(1)
-	@echo "CONFIG_MKE2FS=y" >>$(1)
-	@sed -i "/CONFIG_FDISK/d" $(1)
-	@echo "CONFIG_FDISK=y" >>$(1)
-	@sed -i "/CONFIG_FEATURE_FDISK_WRITABLE/d" $(1)
-	@echo "CONFIG_FEATURE_FDISK_WRITABLE=y" >>$(1)
-	@sed -i "/CONFIG_MKFS_VFAT/d" $(1)
-	@echo "CONFIG_MKFS_VFAT=y" >>$(1)
-	@sed -i "/CONFIG_MKSWAP/d" $(1)
-	@echo "CONFIG_MKSWAP=y" >>$(1)
-	@sed -i "/CONFIG_FLOCK/d" $(1)
-	@echo "CONFIG_FLOCK=y" >>$(1)
-	@sed -i "/CONFIG_FSYNC/d" $(1)
-	@echo "CONFIG_FSYNC=y" >>$(1)
-	@( \
-	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-		sed -i "/CONFIG_LSUSB/d" $(1); \
-		echo "CONFIG_LSUSB=y" >>$(1); \
-	fi; \
-	)
-endef
-
-define BusyboxNoUSBOptions
-	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1)
-	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1)
-	@sed -i "/CONFIG_FEATURE_DEVFS/d" $(1)
-	@echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1)
-	@sed -i "/CONFIG_FEATURE_MOUNT_LABEL/d" $(1)
-	@echo "# CONFIG_FEATURE_MOUNT_LABEL is not set" >>$(1)
-	@sed -i "/CONFIG_FEATURE_MOUNT_FSTAB/d" $(1)
-	@echo "# CONFIG_FEATURE_MOUNT_FSTAB is not set" >>$(1)
-	@sed -i "/CONFIG_VOLUMEID/d" $(1)
-	@echo "# CONFIG_VOLUMEID is not set" >>$(1)
-	@sed -i "/CONFIG_BLKID/d" $(1)
-	@echo "# CONFIG_BLKID is not set" >>$(1)
-	@sed -i "/CONFIG_SWAPONOFF/d" $(1)
-	@echo "# CONFIG_SWAPONOFF is not set" >>$(1)
 endef
 
 define BusyboxOptions
@@ -294,12 +278,79 @@ define BusyboxOptions
 		sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" $(1); \
 		echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>$(1); \
 	fi; \
+	if [ "$(BBEXTRAS)" = "y" ]; then \
+		sed -i "/CONFIG_UNZIP/d" $(1); \
+		echo "CONFIG_UNZIP=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
+		echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1); \
+		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
+		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
+		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+			sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1); \
+			echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
+			sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
+			echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
+			sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
+			echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
+		fi; \
+	fi; \
+	if [ "$(USB)" = "USB" ]; then \
+		if [ "$(USBEXTRAS)" = "y" ]; then \
+			sed -i "/CONFIG_E2FSCK/d" $(1); \
+			echo "CONFIG_E2FSCK=y" >>$(1); \
+			sed -i "/CONFIG_MKE2FS/d" $(1); \
+			echo "CONFIG_MKE2FS=y" >>$(1); \
+			sed -i "/CONFIG_FDISK/d" $(1); \
+			echo "CONFIG_FDISK=y" >>$(1); \
+			sed -i "/CONFIG_FEATURE_FDISK_WRITABLE/d" $(1); \
+			echo "CONFIG_FEATURE_FDISK_WRITABLE=y" >>$(1); \
+			sed -i "/CONFIG_MKFS_VFAT/d" $(1); \
+			echo "CONFIG_MKFS_VFAT=y" >>$(1); \
+			sed -i "/CONFIG_MKSWAP/d" $(1); \
+			echo "CONFIG_MKSWAP=y" >>$(1); \
+			sed -i "/CONFIG_FLOCK/d" $(1); \
+			echo "CONFIG_FLOCK=y" >>$(1); \
+			sed -i "/CONFIG_FSYNC/d" $(1); \
+			echo "CONFIG_FSYNC=y" >>$(1); \
+			if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+				sed -i "/CONFIG_LSUSB/d" $(1); \
+				echo "CONFIG_LSUSB=y" >>$(1); \
+			fi; \
+		fi; \
+	else \
+		sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1); \
+		echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1); \
+		sed -i "/CONFIG_FEATURE_DEVFS/d" $(1); \
+		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
+		sed -i "/CONFIG_FEATURE_MOUNT_LABEL/d" $(1); \
+		echo "# CONFIG_FEATURE_MOUNT_LABEL is not set" >>$(1); \
+		sed -i "/CONFIG_FEATURE_MOUNT_FSTAB/d" $(1); \
+		echo "# CONFIG_FEATURE_MOUNT_FSTAB is not set" >>$(1); \
+		sed -i "/CONFIG_VOLUMEID/d" $(1); \
+		echo "# CONFIG_VOLUMEID is not set" >>$(1); \
+		sed -i "/CONFIG_BLKID/d" $(1); \
+		echo "# CONFIG_BLKID is not set" >>$(1); \
+		sed -i "/CONFIG_SWAPONOFF/d" $(1); \
+		echo "# CONFIG_SWAPONOFF is not set" >>$(1); \
+	fi; \
+	if [ "$(SLIM)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1); \
+		echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1); \
+		sed -i "/CONFIG_AWK/d" $(1); \
+		echo "# CONFIG_AWK is not set" >>$(1); \
+		sed -i "/CONFIG_FEATURE_DEVFS/d" $(1); \
+		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
+		sed -i "/CONFIG_BLKID/d" $(1); \
+		echo "# CONFIG_BLKID is not set" >>$(1); \
+		sed -i "/CONFIG_ARPING/d" $(1); \
+		echo "# CONFIG_ARPING is not set" >>$(1); \
+	fi; \
 	)
 endef
 
-# $(1) - linux/linux[-2.6]/config_$@
-
-define KernelConfigMips
+define KernelConfig
 	@( \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(MIPS32)" = "r2" ]; then \
 		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
@@ -309,7 +360,7 @@ define KernelConfigMips
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
-	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(BCM57)" = "y" ]; then \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 		sed -i "/CONFIG_BCM57XX/d" $(1); \
 		echo "CONFIG_BCM57XX=m" >>$(1); \
 	fi; \
@@ -330,222 +381,94 @@ define KernelConfigMips
 	)
 endef
 
+
+bin:
+ifeq ($(B),)
+	@echo $@" is not a valid target!"
+	@false
+endif
+	@cp router/config_base router/config_$(lowercase_B)
+	@cp router/busybox/config_base router/busybox/config_$(lowercase_B)
+	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$(lowercase_B)
+
+	$(call RouterOptions, router/config_$(lowercase_B))
+	$(call KernelConfig, $(LINUXDIR)/config_$(lowercase_B))
+	$(call BusyboxOptions, router/busybox/config_$(lowercase_B))
+
+	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
+	@$(MAKE) all
+
 ## Make the "normal" build
 a:
-	@cp router/config_base router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=A DESC="Std" USB="USB"
-	@$(MAKE) all
+	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB"
 
 ## Make the "normal but without SSH" build
 b:
-	@cp router/config_base router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_SSH/d" router/config_$@
-	@echo "# TCONFIG_SSH is not set" >>router/config_$@
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=B DESC="No SSH" USB="USB"
-	@$(MAKE) all
+	@$(MAKE) bin NO_SSH=y B=B BUILD_DESC="No SSH" USB="USB"
 
 ## Make the "normal but without CIFS" build
 c:
-	@cp router/config_base router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_CIFS/d" router/config_$@
-	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
-
-	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>router/busybox/config_$@
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=C DESC="No CIFS" USB="USB"
-	@$(MAKE) all
+	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB"
 
 ## Make the "normal but without SAMBA" build
 d:
-	@cp router/config_base router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
-	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
 ifeq ($(CONFIG_LINUX26),y)
-	@sed -i "/TCONFIG_CIFS/d" router/config_$@
-	@echo "# TCONFIG_CIFS is not set" >>router/config_$@
-
-	@sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>router/busybox/config_$@
-
-	@sed -i "/TCONFIG_JFFS2/d" router/config_$@
-	@echo "# TCONFIG_JFFS2 is not set" >>router/config_$@
-	@sed -i "/TCONFIG_ZEBRA/d" router/config_$@
-	@echo "# TCONFIG_ZEBRA is not set" >>router/config_$@
+	@$(MAKE) bin NO_SAMBA=y SLIM=y NO_CIFS=y NO_JFFS=y NO_ZEBRA=y B=D BUILD_DESC="Lite" USB="USB"
+else
+	@$(MAKE) bin NO_SAMBA=y SLIM=y B=D BUILD_DESC="Lite" USB="USB"
 endif
 
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
-
-	@sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_AWK/d" router/busybox/config_$@
-	@echo "# CONFIG_AWK is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_FEATURE_DEVFS/d" router/busybox/config_$@
-	@echo "# CONFIG_FEATURE_DEVFS is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_BLKID/d" router/busybox/config_$@
-	@echo "# CONFIG_BLKID is not set" >>router/busybox/config_$@
-	@sed -i "/CONFIG_ARPING/d" router/busybox/config_$@
-	@echo "# CONFIG_ARPING is not set" >>router/busybox/config_$@
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=D DESC="Lite" USB="USB"
-	@$(MAKE) all
-
-## Make the "normal (with Extras) + VPN" build
+## Make the "normal (with NTFS support) + VPN" build
 e:
-	@cp router/config_base router/config_$@	
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_LZO/d" router/config_$@
-	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
-	@echo "TCONFIG_LZO=y" >>router/config_$@
-	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
 ifeq ($(CONFIG_LINUX26),y)
-	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
-	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
-	@sed -i "/TCONFIG_MEDIA_SERVER/d" router/config_$@
-	@echo "TCONFIG_MEDIA_SERVER=y" >>router/config_$@
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=E BUILD_DESC="$(VPN)" USB="USB"
+else
+	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
 endif
-	@sed -i "/TCONFIG_NTFS/d" router/config_$@
-	@echo "TCONFIG_NTFS=y" >>router/config_$@
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-ifeq ($(CONFIG_LINUX26),y)
-	$(call BusyboxExtraOptions, router/busybox/config_$@)
-	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
-endif
-	$(call BusyboxOptions, router/busybox/config_$@)
-ifeq ($(CONFIG_LINUX26),y)
-	@sed -i "/TCONFIG_OPTIMIZE_SHARED_LIBS/d" router/config_$@
-	@echo "# TCONFIG_OPTIMIZE_SHARED_LIBS is not set" >>router/config_$@
-endif
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=E DESC=$(VPN) USB="USB"
-	@$(MAKE) all
 
 ## Make the "normal with Extras and NTFS" build
 m:
-	@cp router/config_base router/config_$@	
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_USB_EXTRAS/d" router/config_$@
-	@echo "TCONFIG_USB_EXTRAS=y" >>router/config_$@
-	@sed -i "/TCONFIG_NTFS/d" router/config_$@
-	@echo "TCONFIG_NTFS=y" >>router/config_$@
 ifeq ($(CONFIG_LINUX26),y)
-	@sed -i "/TCONFIG_MEDIA_SERVER/d" router/config_$@
-	@echo "TCONFIG_MEDIA_SERVER=y" >>router/config_$@
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=M BUILD_DESC="Ext" USB="USB"
+else
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
 endif
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-	$(call BusyboxExtraOptions, router/busybox/config_$@)
-	$(call BusyboxExtraUSBOptions, router/busybox/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
-ifeq ($(CONFIG_LINUX26),y)
-	@sed -i "/TCONFIG_OPTIMIZE_SHARED_LIBS/d" router/config_$@
-	@echo "# TCONFIG_OPTIMIZE_SHARED_LIBS is not set" >>router/config_$@
-endif
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=M DESC="Ext" USB="USB"
-	@$(MAKE) all
 
 ## Make the "No USB" build
 s:
-	@cp router/config_base router/config_$@
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
-	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
-	@sed -i "/TCONFIG_FTP/d" router/config_$@
-	@echo "# TCONFIG_FTP is not set" >>router/config_$@
-	@sed -i "/TCONFIG_USB/d" router/config_$@
-	@echo "# TCONFIG_USB is not set" >>router/config_$@
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-ifneq ($(CONFIG_LINUX26),y)
-	$(call BusyboxExtraOptions, router/busybox/config_$@)
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin JFFSv1=y B=S BUILD_DESC="Std" USB=""
+else
+	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif
-	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
 
-	@$(MAKE) setprofile N=$(TPROFILE) B=S DESC="Std" USB=""
-	@$(MAKE) all
+## Make the "Mini: no USB, no CIFS, no JFFS" build
+f:
+	@$(MAKE) bin NO_JFFS=y NO_CIFS=y SLIM=y B=F BUILD_DESC="Mini" USB=""
 
 ## Make the "VPN witn no USB support" build
 v:
-	@cp router/config_base router/config_$@	
-	@cp router/busybox/config_base router/busybox/config_$@
-	@cp $(LINUXDIR)/config_base $(LINUXDIR)/config_$@
-
-	@sed -i "/TCONFIG_SAMBASRV/d" router/config_$@
-	@echo "# TCONFIG_SAMBASRV is not set" >>router/config_$@
-	@sed -i "/TCONFIG_FTP/d" router/config_$@
-	@echo "# TCONFIG_FTP is not set" >>router/config_$@
-	@sed -i "/TCONFIG_USB/d" router/config_$@
-	@echo "# TCONFIG_USB is not set" >>router/config_$@
-	@sed -i "/TCONFIG_LZO/d" router/config_$@
-	@sed -i "/TCONFIG_OPENVPN/d" router/config_$@
-	@echo "TCONFIG_LZO=y" >>router/config_$@
-	@echo "TCONFIG_OPENVPN=y" >>router/config_$@
-
-	$(call RouterOptions, router/config_$@)
-	$(call KernelConfigMips, $(LINUXDIR)/config_$@)
-ifneq ($(CONFIG_LINUX26),y)
-	$(call BusyboxExtraOptions, router/busybox/config_$@)
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""
+else
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y B=V BUILD_DESC="$(VPN)" USB=""
 endif
-	$(call BusyboxNoUSBOptions, router/busybox/config_$@)
-	$(call BusyboxOptions, router/busybox/config_$@)
-
-	@$(MAKE) setprofile N=$(TPROFILE) B=V DESC=$(VPN) USB=""
-	@$(MAKE) all
 
 ## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
 r2m:
-	@$(MAKE) m MIPS32=r2 BCM57=y EBTABLES=y
+	@$(MAKE) m MIPS32=r2
 
 ## Make Mips32r2 USB+VPN build
 r2e:
-	@$(MAKE) e MIPS32=r2 BCM57=y EBTABLES=y
+	@$(MAKE) e MIPS32=r2
 
 ## Make Mips32r2 "no USB" build (RT-N12, WRT160Nv3)
 r2s:
-	@$(MAKE) s MIPS32=r2 JFFSv1=y
+	@$(MAKE) s MIPS32=r2
 
 ## Make Mips32r2 "no USB" VPN build
 r2v:
-	@$(MAKE) v MIPS32=r2 NO_JFFS=y
+	@$(MAKE) v MIPS32=r2
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -613,6 +536,7 @@ else
 	@echo "e            E build (standard plus VPN and NTFS support)"
 endif
 	@echo "s            S build (no USB support)"
+	@echo "f            F build (no USB support minus JFFS and CIFS)"
 	@echo "v            V build (VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"

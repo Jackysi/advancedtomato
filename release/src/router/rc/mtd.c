@@ -315,6 +315,8 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x73343557: // W54s	GS v4
 	case 0x55343557: // W54U	SL
 	case 0x31345257: // WR41	WRH54G
+	case 0x4E303233: // 320N	WRT320N
+	case 0x3036314E: // N160	WRT160N
 #if TOMATO_N
 	case 0x42435745: // EWCB	WRT300N v1
 //	case 0x32435745: // EWC2	WRT300N?

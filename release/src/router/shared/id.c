@@ -29,6 +29,7 @@ WRT300N 1.0         BCM4704_BCM5325F_EWC  0x0472       42        0x10      0x10
 WRTSL54GS           BCM4704_BCM5325F      0x042f       42        0x10      0x0018
 WTR54GS v1, v2      BCM5350               0x456        56        0x10      0xb18       (source: BaoWeiQuan)
 WRT160Nv3, M10      BCM4716               0x04cd       42        0x1700                boot_hw_model=WRT160N boot_hw_ver=3.0 (M10: boot_hw_model=M10 boot_hw_ver=1.0)
+WRT320N             BCM4717               0x04ef       42/66     0x1304/0x1305         boardflags: 0x0040F10 / 0x00000602 (??)
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
 WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
@@ -61,6 +62,7 @@ RT-N12				BCM4716               0x04cd       45        0x1201    0x????
 RT-N10				BCM5356               0x04ec       45        0x1402    0x????
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
+WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
 
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
@@ -126,9 +128,12 @@ int check_hw_type(void)
 	case 0x4ec:
 		return HW_BCM5356;
 #ifdef CONFIG_BCMWL5
-	case 0x4cd:
+	case 0x04cd:
+	case 0xe4cd:
 		return HW_BCM4716;
-	case 0x4cf:
+	case 0x04ef:
+		return HW_BCM4717;
+	case 0x04cf:
 		return HW_BCM4718;
 #endif
 	}
@@ -223,6 +228,8 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 		case HW_BCM4716:
 			return MODEL_WRT160Nv3;
+		case HW_BCM4717:
+			return MODEL_WRT320N;
 #endif
 		}
 		return MODEL_WRT54G;
@@ -248,7 +255,19 @@ int get_model(void)
 		}
 		break;
 #ifdef CONFIG_BCMWL5
+	case 66:
+		switch (hw) {
+		case HW_BCM4717:
+			return MODEL_WRT320N;
+		}
+		break;
 	case 1:
+		switch (hw) {
+		case HW_BCM4716:
+			//if (nvram_match("boardrev", "0x1700"))
+			return MODEL_WNR2000v2;
+		}
+		/* fall through */
 	case 3500:
 		switch (hw) {
 		case HW_BCM4718:
