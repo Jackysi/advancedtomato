@@ -5059,7 +5059,7 @@ static int is_hidden_fd(struct redirtab *rp, int fd)
 		return 0;
 	pf = g_parsefile;
 	while (pf) {
-		if (fd == pf->fd) {
+		if (pf->fd > 0 && fd == pf->fd) {
 			return 1;
 		}
 		pf = pf->prev;
