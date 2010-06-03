@@ -1009,3 +1009,25 @@ Netgear WNR2000v2 (untested).
 
 Fixed flashing with Netgear .chk images from Web GUI (untested).
 
+
+build 47 - 06/03/2010
+---------------------
+
+Include Busybox sendmail applet into Extras builds.
+
+Fixed proxy autodiscovery mime handler to not require authorization.
+
+Software update: ntfs-3g release 2010.5.22 (in Extras build).
+
+* Kernel 2.4-based builds only:
+
+Fixed regression introduced in build 46 when empty USB cardreaders cause
+the USB GUI page to hang for a long time.
+
+* Kernel 2.6-based builds only (changes from beta14 to beta15):
+
+Fixed flashing power led on Linksys routers: WRT320N and WRT54G-TM.
+
+Fixed kernel warning messages (introduced in build 46) in the system log
+when using VPN.
+
