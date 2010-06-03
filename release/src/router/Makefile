@@ -881,7 +881,7 @@ sqlite: sqlite/stamp-h1
 
 sqlite-clean:
 	-@$(MAKE) -C sqlite clean
-	@rm -f sqlite/Makefile
+	@rm -f sqlite/stamp-h1
 
 sqlite-install:
 	@$(SEP)
@@ -949,8 +949,8 @@ jpeg: jpeg/stamp-h1
 
 jpeg-clean:
 	-@$(MAKE) -C jpeg clean
-	@rm -f jpeg/Makefile
 	@rm -f jpeg/stamp-h1
+	@rm -f jpeg/Makefile
 
 jpeg-install:
 	@$(SEP)
@@ -982,8 +982,8 @@ zlib: zlib/stamp-h1
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
-	@rm -f zlib/Makefile
 	@rm -f zlib/stamp-h1
+	@rm -f zlib/Makefile
 
 zlib-install:
 	@$(SEP)
