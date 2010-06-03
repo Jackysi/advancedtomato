@@ -95,6 +95,12 @@ ifneq ($(TCONFIG_MEDIA_SERVER),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/MEDIA-SRV-BEGIN/,/MEDIA-SRV-END/d"
 endif
 
+# Only include IPv6 options if IPv6 is configured in.
+ifneq ($(TCONFIG_IPV6),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
+endif
+
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
 	rm -f $(INSTALLDIR)/www/nas-*.*
@@ -142,6 +148,7 @@ endif
 		-e "/ZEBRA-BEGIN/d"	-e "/ZEBRA-END/d" \
 		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
+		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		|| true; \
 	done
 

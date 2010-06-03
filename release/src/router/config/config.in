@@ -61,6 +61,10 @@ config TCONFIG_OPENVPN
 	default n
 
 # !!TB
+config TCONFIG_IPV6
+	bool "IPv6 Support"
+	default n
+
 config TCONFIG_EBTABLES
 	bool "Ebtables"
 	default n
