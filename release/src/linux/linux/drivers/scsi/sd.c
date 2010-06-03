@@ -916,7 +916,7 @@ static int sd_init_onedisk(int i)
 		    && ((driver_byte(the_result) & DRIVER_SENSE) != 0)
 		    && SRpnt->sr_sense_buffer[2] == UNIT_ATTENTION
 		    && SRpnt->sr_sense_buffer[12] == 0x3A ) {
-			rscsi_disks[i].capacity = 0x1fffff;
+			rscsi_disks[i].capacity = 0;
 			sector_size = 512;
 			rscsi_disks[i].device->changed = 1;
 			rscsi_disks[i].ready = 0;
@@ -1042,9 +1042,9 @@ static int sd_init_onedisk(int i)
 		else
 			printk("%s : sense not available. \n", nbuff);
 
-		printk("%s : block size assumed to be 512 bytes, disk size 1GB.  \n",
+		printk("%s : block size assumed to be 512 bytes.  \n",
 		       nbuff);
-		rscsi_disks[i].capacity = 0x1fffff;
+		rscsi_disks[i].capacity = 0;
 		sector_size = 512;
 
 		/* Set dirty bit for removable devices if not ready -
