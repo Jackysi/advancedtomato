@@ -202,14 +202,12 @@ int nfsd_create_serv(void)
 		/* choose a suitable default */
 		struct sysinfo i;
 		si_meminfo(&i);
-		/* Aim for 1/4096 of memory per thread
-		 * This gives 1MB on 4Gig machines
-		 * But only uses 32K on 128M machines.
-		 * Bottom out at 8K on 32M and smaller.
+		/* Aim for 1/1024 of memory per thread
+		 * Bottom out at 8K on 16M and smaller.
 		 * Of course, this is only a default.
 		 */
 		nfsd_max_blksize = NFSSVC_MAXBLKSIZE;
-		i.totalram <<= PAGE_SHIFT - 12;
+		i.totalram <<= PAGE_SHIFT - 10;
 		while (nfsd_max_blksize > i.totalram &&
 		       nfsd_max_blksize >= 8*1024*2)
 			nfsd_max_blksize /= 2;
