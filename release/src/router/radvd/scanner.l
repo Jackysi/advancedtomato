@@ -134,3 +134,5 @@ high		{ yylval.snum = 1; return SIGNEDNUMBER; }
 
 .		{ return T_BAD_TOKEN; }
 %%
+
+yywrap() { return(1); }

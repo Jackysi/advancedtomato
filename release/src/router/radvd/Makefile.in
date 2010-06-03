@@ -113,7 +113,7 @@ sbin_PROGRAMS = radvd radvdump
 radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
 	device.c device-common.c gram.y gram.h scanner.l
 
-radvd_LDADD = -lfl
+#radvd_LDADD = -lfl
 EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c
 YFLAGS = -d
 
