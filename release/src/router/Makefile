@@ -338,6 +338,7 @@ endif
 ifneq ($(TCONFIG_L2TP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
 endif
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ctf*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
@@ -880,7 +881,7 @@ sqlite: sqlite/stamp-h1
 
 sqlite-clean:
 	-@$(MAKE) -C sqlite clean
-	@rm -f sqlite/Makefile
+	@rm -f sqlite/stamp-h1
 
 sqlite-install:
 	@$(SEP)
@@ -948,8 +949,8 @@ jpeg: jpeg/stamp-h1
 
 jpeg-clean:
 	-@$(MAKE) -C jpeg clean
-	@rm -f jpeg/Makefile
 	@rm -f jpeg/stamp-h1
+	@rm -f jpeg/Makefile
 
 jpeg-install:
 	@$(SEP)
@@ -981,8 +982,8 @@ zlib: zlib/stamp-h1
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
-	@rm -f zlib/Makefile
 	@rm -f zlib/stamp-h1
+	@rm -f zlib/Makefile
 
 zlib-install:
 	@$(SEP)

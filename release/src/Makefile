@@ -22,7 +22,7 @@
 #	be the update to the version.
 #
 # Example:
-# make V1=8516 V2="jffs.1" a b c d m s
+# make V1=8516 V2="-jffs.1" a b c d m s
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -34,7 +34,7 @@ PATH := $(RELEASEDIR)/tools:$(PATH)
 
 include ./target.mak
 
-# Normally you'd do something like "make V1=8516 V2=sub-ver a b c d"
+# Normally you'd do something like "make V1=8516 V2=-sub-ver a b c d"
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
 V1 ?= "--def"
 VPN ?= "VPN"
@@ -59,9 +59,15 @@ lowercase_N = $(shell echo $(N) | tr A-Z a-z)
 uppercase_B = $(shell echo $(B) | tr a-z  A-Z)
 lowercase_B = $(shell echo $(B) | tr A-Z a-z)
 
+ifeq ($(CONFIG_LINUX26),y)
+mips_rev = $(if $(filter $(MIPS32),r2),MIPSR2,MIPSR1)
+else
+mips_rev =
+endif
+
 tomato_ver:
 	@echo ""
-	@btools/uversion.pl --gen $(V1) $(V2) $(ND) $(current_BUILD_USB) $(current_BUILD_DESC)
+	@btools/uversion.pl --gen $(V1) $(mips_rev)$(V2) $(ND) $(current_BUILD_USB) $(current_BUILD_DESC)
 
 ifeq ($(TOMATO_BUILD),)
 
@@ -73,7 +79,7 @@ else
 
 all: tomato_ver
 	@echo ""
-	@echo "Building Tomato $(ND) $(current_BUILD_USB) $(current_TOMATO_VER).$(V1)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
+	@echo "Building Tomato $(ND) $(current_BUILD_USB) $(current_TOMATO_VER).$(V1)$(mips_rev)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
 
 	@echo ""
 	@echo ""
@@ -83,7 +89,7 @@ all: tomato_ver
 	@$(MAKE) -C router install
 	@$(MAKE) -C btools
 
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
@@ -100,10 +106,10 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		| tee -a fpkg.log
 else
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
+		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
 endif
 
-	@cp fpkg.log image/fpkg-$(V1)$(V2).log
+	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(V2).log
 	@echo ""
 	@echo "-----------------"
 	@echo `cat router/shared/tomato_version` " ready"
@@ -279,8 +285,8 @@ define BusyboxOptions
 		echo "# CONFIG_FEATURE_MOUNT_CIFS is not set" >>$(1); \
 	fi; \
 	if [ "$(BBEXTRAS)" = "y" ]; then \
-		sed -i "/CONFIG_UNZIP/d" $(1); \
-		echo "CONFIG_UNZIP=y" >>$(1); \
+		sed -i "/CONFIG_SENDMAIL/d" $(1); \
+		echo "CONFIG_SENDMAIL=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
 		echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1); \
@@ -288,10 +294,6 @@ define BusyboxOptions
 		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-			sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1); \
-			echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
-			sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
-			echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
 			sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
 			echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
 		fi; \
@@ -314,9 +316,15 @@ define BusyboxOptions
 			echo "CONFIG_FLOCK=y" >>$(1); \
 			sed -i "/CONFIG_FSYNC/d" $(1); \
 			echo "CONFIG_FSYNC=y" >>$(1); \
+			sed -i "/CONFIG_UNZIP/d" $(1); \
+			echo "CONFIG_UNZIP=y" >>$(1); \
 			if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 				sed -i "/CONFIG_LSUSB/d" $(1); \
 				echo "CONFIG_LSUSB=y" >>$(1); \
+				sed -i "/CONFIG_FEATURE_WGET_STATUSBAR/d" $(1); \
+				echo "CONFIG_FEATURE_WGET_STATUSBAR=y" >>$(1); \
+				sed -i "/CONFIG_FEATURE_VERBOSE_USAGE/d" $(1); \
+				echo "CONFIG_FEATURE_VERBOSE_USAGE=y" >>$(1); \
 			fi; \
 		fi; \
 	else \
@@ -437,7 +445,7 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y JFFSv1=y B=S BUILD_DESC="Std" USB=""
 else
 	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif
