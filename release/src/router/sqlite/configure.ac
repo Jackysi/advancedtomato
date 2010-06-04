@@ -8,7 +8,7 @@
 #
 
 AC_PREREQ(2.61)
-AC_INIT(sqlite, 3.6.22, http://www.sqlite.org)
+AC_INIT(sqlite, 3.6.23.1, http://www.sqlite.org)
 AC_CONFIG_SRCDIR([sqlite3.c])
 
 # Use automake.
@@ -51,7 +51,7 @@ AC_SUBST(READLINE_LIBS)
 #
 AC_ARG_ENABLE(threadsafe, [AS_HELP_STRING(
   [--enable-threadsafe], [build a thread-safe library [default=yes]])], 
-  [], [enable_threadsafe=no])
+  [], [enable_threadsafe=yes])
 THREADSAFE_FLAGS=-DSQLITE_THREADSAFE=0
 if test x"$enable_threadsafe" != "xno"; then
   THREADSAFE_FLAGS=-DSQLITE_THREADSAFE=1
