@@ -253,13 +253,11 @@ plat_irq_dispatch(struct pt_regs *regs)
 	set_c0_status(pending);
 	irq_enable_hazard();
 
-#if 0
 	/* Process any pending softirqs (tasklets, softirqs ...) */
 	local_irq_save(flags);
 	if (local_softirq_pending() && !in_interrupt())
 		__do_softirq();
 	local_irq_restore(flags);
-#endif
 }
 
 /* MIPS IRQ0 to IRQ7 interrupt controller */
