@@ -29,7 +29,9 @@
 #include <linux/netdevice.h>
 #include <linux/socket.h>
 #include <linux/mm.h>
-#include <linux/ip.h>
+//#ifdef CONFIG_BCM_NAT
+#include <net/ip.h>
+//#endif
 
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_l3proto.h>
@@ -77,6 +79,27 @@ static unsigned int nf_conntrack_next_id;
 DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#define	BCM_FASTNAT_DENY	1
+extern int ipv4_conntrack_fastnat;
+extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4;
+
+typedef int (*bcmNatBindHook)(struct nf_conn *ct,enum ip_conntrack_info ctinfo,
+	    						struct sk_buff **pskb, struct nf_conntrack_l4proto *l4proto);
+static bcmNatBindHook bcm_nat_bind_hook = NULL;
+int bcm_nat_bind_hook_func(bcmNatBindHook hook_func) {
+	bcm_nat_bind_hook = hook_func;
+	return 1;
+};
+
+typedef int (*bcmNatHitHook)(struct sk_buff *skb);
+bcmNatHitHook bcm_nat_hit_hook = NULL;
+int bcm_nat_hit_hook_func(bcmNatHitHook hook_func) {
+	bcm_nat_hit_hook = hook_func;
+	return 1;
+};
+#endif
+
 /*
  * This scheme offers various size of "struct nf_conn" dependent on
  * features(helper, nat, ...)
@@ -104,36 +127,51 @@ DEFINE_RWLOCK(nf_ct_cache_lock);
 /* This avoids calling kmem_cache_create() with same name simultaneously */
 static DEFINE_MUTEX(nf_ct_cache_mutex);
 
-static int nf_conntrack_hash_rnd_initted;
-static unsigned int nf_conntrack_hash_rnd;
-
-//--SZ angela 09.03 {
-#define IP_TRACK_SMALL		0x01
-#define IP_TRACK_PORT		0x02
-#define IP_TRACK_DATA		0x04
-#define	IP_TRACK_UDP		0x08
+/*--SZ angela 09.03 { */
+#define IP_TRACK_SMALL          0x01
+#define IP_TRACK_PORT           0x02
+#define IP_TRACK_DATA           0x04
+#define IP_TRACK_UDP            0x08
 
 extern int track_flag;
 extern ulong ipaddr;
 u_int8_t port_num_udp[65536];
 
-extern unsigned char mbss_prio_1;	//SZ-Angela Add for Multiple SSID
+extern unsigned char mbss_prio_1;       /*SZ-Angela Add for Multiple SSID */
 extern unsigned char mbss_prio_2;
 extern unsigned char mbss_prio_3;
 
 //--SZ angela 09.03 }
 
+static int nf_conntrack_hash_rnd_initted;
+static unsigned int nf_conntrack_hash_rnd;
+
+
 static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
 				  unsigned int size, unsigned int rnd)
 {
-	unsigned int a, b;
-
-	a = jhash2(tuple->src.u3.all, ARRAY_SIZE(tuple->src.u3.all),
-		   (tuple->src.l3num << 16) | tuple->dst.protonum);
-	b = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
-		   (tuple->src.u.all << 16) | tuple->dst.u.all);
-
-	return jhash_2words(a, b, rnd) % size;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (tuple->src.l3num == PF_INET && tuple->dst.protonum == PF_INET) {
+		/* ntohl because more differences in low bits. */
+		/* To ensure that halves of the same connection don't hash
+		   clash, we add the source per-proto again. */
+		return (ntohl(tuple->src.u3.ip + tuple->dst.u3.ip
+			     + tuple->src.u.all + tuple->dst.u.all
+			     + tuple->dst.protonum)
+			+ ntohs(tuple->src.u.all))
+			% nf_conntrack_htable_size;
+	} else
+#endif
+	{
+		unsigned int a, b;
+	
+		a = jhash2(tuple->src.u3.all, ARRAY_SIZE(tuple->src.u3.all),
+			   (tuple->src.l3num << 16) | tuple->dst.protonum);
+		b = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
+			   (tuple->src.u.all << 16) | tuple->dst.u.all);
+	
+		return jhash_2words(a, b, rnd) % size;
+	}
 }
 
 static inline u_int32_t hash_conntrack(const struct nf_conntrack_tuple *tuple)
@@ -281,18 +319,69 @@ nf_ct_get_tuple(const struct sk_buff *skb,
 }
 EXPORT_SYMBOL_GPL(nf_ct_get_tuple);
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+static int
+ipv4_ct_get_tuple(const struct sk_buff *skb,
+		unsigned int nhoff,
+		unsigned int dataoff,
+		u_int8_t protonum,
+		struct nf_conntrack_tuple *tuple,
+		const struct nf_conntrack_l4proto *l4proto)
+{
+	const struct iphdr *iph = ip_hdr(skb);
+
+	tuple->src.u.all = tuple->dst.u.all = 0;
+	tuple->src.u3.all[0]
+	= tuple->src.u3.all[1]
+	= tuple->src.u3.all[2]
+	= tuple->src.u3.all[3]
+	= 0;
+	tuple->dst.u3.all[0]
+	= tuple->dst.u3.all[1]
+	= tuple->dst.u3.all[2]
+	= tuple->dst.u3.all[3]
+	= 0;
+	
+	tuple->src.l3num = PF_INET;
+	tuple->src.u3.ip = iph->saddr;
+	tuple->dst.u3.ip = iph->daddr;
+	tuple->dst.protonum = protonum;
+	tuple->dst.dir = IP_CT_DIR_ORIGINAL;
+
+	return l4proto->pkt_to_tuple(skb, dataoff, tuple);
+}
+#endif
+
 int
 nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 		   const struct nf_conntrack_tuple *orig,
 		   const struct nf_conntrack_l3proto *l3proto,
 		   const struct nf_conntrack_l4proto *l4proto)
 {
-	NF_CT_TUPLE_U_BLANK(inverse);
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (inverse->src.l3num == PF_INET && inverse->dst.protonum == PF_INET){
+		inverse->src.u.all = inverse->dst.u.all = 0;
+		inverse->src.u3.all[0]
+		= inverse->src.u3.all[1]
+		= inverse->src.u3.all[2]
+		= inverse->src.u3.all[3]
+		= 0;
+		inverse->dst.u3.all[0]
+		= inverse->dst.u3.all[1]
+		= inverse->dst.u3.all[2]
+		= inverse->dst.u3.all[3]
+		= 0;
+		inverse->src.u3.ip = orig->dst.u3.ip;
+		inverse->dst.u3.ip = orig->src.u3.ip;
+	} else
+#endif
+	{
+		NF_CT_TUPLE_U_BLANK(inverse);
 
+		if (l3proto->invert_tuple(inverse, orig) == 0)
+			return 0;
+	}
 	inverse->src.l3num = orig->src.l3num;
-	if (l3proto->invert_tuple(inverse, orig) == 0)
-		return 0;
-
 	inverse->dst.dir = !orig->dst.dir;
 
 	inverse->dst.protonum = orig->dst.protonum;
@@ -902,64 +991,65 @@ resolve_normal_ct(struct sk_buff *skb,
 			return NULL;
 		if (IS_ERR(h))
 			return (void *)h;
-	}//--SZ angela 09.03 {
-	else if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) { 
-		write_lock_bh(&nf_conntrack_lock);
-	      
-		switch(deal_track(h, ntohs(ip_hdr(skb)->tot_len))) {
-			case IP_TRACK_UDP:
-				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-					skb->mark = 91;
-				else 
-					skb->mark = 51;
-				break;
-			case IP_TRACK_DATA:
-				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-					skb->mark = 90;
-				else 
-					skb->mark = 50;
-				break;
-			case IP_TRACK_PORT:
-				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-					skb->mark = 80;
-				else
-					skb->mark = 20;
-				break;
-			case IP_TRACK_SMALL:
-				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-					skb->mark = 70;
-				else
-					skb->mark = 10;
-				break;
-			default:
-				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-					skb->mark = 90;
-				else
-					skb->mark = 50;
-				break;
 	}
+        /*/--SZ angela 09.03 {*/
+        else if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) {
+                write_lock_bh(&nf_conntrack_lock);
 
-		switch(skb->wl_idx)	//SZ-Angela Add for Multiple SSID
-		{
-			case 2:
-				if(mbss_prio_1 == 0)
-					skb->mark = 60;
-				break;
-			case 4:
-				if(mbss_prio_2 == 0)
-					skb->mark = 60;
-				break;
-			case 8:
-				if(mbss_prio_3 == 0)
-					skb->mark = 60;
-				break;
-			default:
-				break;
-		}
+               switch(deal_track(h, ntohs(ip_hdr(skb)->tot_len))) {
+                        case IP_TRACK_UDP:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 91;
+                                else
+                                        skb->mark = 51;
+                                break;
+                        case IP_TRACK_DATA:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 90;
+                                else
+                                        skb->mark = 50;
+                                break;
+                        case IP_TRACK_PORT:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 80;
+                                else
+                                        skb->mark = 20;
+                                break;
+                        case IP_TRACK_SMALL:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 70;
+                                else
+                                        skb->mark = 10;
+                                break;
+                        default:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 90;
+                                else
+                                        skb->mark = 50;
+                                break;
 
-		write_unlock_bh(&nf_conntrack_lock);			
-	} //--SZ angela 09.03 }
+                }
 
+                switch(skb->wl_idx)     /*/SZ-Angela Add for Multiple SSID*/
+                {
+                        case 2:
+                                if(mbss_prio_1 == 0)
+                                        skb->mark = 60;
+                                break;
+                        case 4:
+                                if(mbss_prio_2 == 0)
+                                        skb->mark = 60;
+                                break;
+                        case 8:
+                                if(mbss_prio_3 == 0)
+                                        skb->mark = 60;
+                                break;
+                        default:
+                                break;
+                }
+
+                write_unlock_bh(&nf_conntrack_lock);
+        } //--SZ angela 09.03 }
 	ct = nf_ct_tuplehash_to_ctrack(h);
 
 	/* It exists; we have (non-exclusive) reference. */
@@ -985,6 +1075,122 @@ resolve_normal_ct(struct sk_buff *skb,
 	skb->nfctinfo = *ctinfo;
 	return ct;
 }
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+static inline struct nf_conn *
+ipv4_resolve_normal_ct(struct sk_buff *skb,
+		  unsigned int dataoff,
+		  u_int8_t protonum,
+		  struct nf_conntrack_l4proto *l4proto,
+		  int *set_reply,
+		  enum ip_conntrack_info *ctinfo)
+{
+	struct nf_conntrack_tuple tuple;
+	struct nf_conntrack_tuple_hash *h;
+	struct nf_conn *ct;
+	struct nf_conntrack_l3proto *l3proto;
+
+	if (!ipv4_ct_get_tuple(skb, skb_network_offset(skb),
+			     dataoff, protonum, &tuple, l4proto)) {
+		DEBUGP("resolve_normal_ct: Can't get tuple\n");
+		return NULL;
+	}
+
+	l3proto = &nf_conntrack_l3proto_ipv4;
+
+	/* look for tuple match */
+	h = nf_conntrack_find_get(&tuple, NULL);
+	if (!h) {
+		h = init_conntrack(&tuple, &nf_conntrack_l3proto_ipv4, l4proto, skb, dataoff);
+		if (!h)
+			return NULL;
+		if (IS_ERR(h))
+			return (void *)h;
+	}
+        /*/--SZ angela 09.03 {*/
+	else if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) {
+                write_lock_bh(&nf_conntrack_lock);
+
+                switch(deal_track(h, ntohs(ip_hdr(skb)->tot_len))) {
+                        case IP_TRACK_UDP:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 91;
+                                else
+                                        skb->mark = 51;
+                                break;
+                        case IP_TRACK_DATA:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 90;
+                                else
+                                        skb->mark = 50;
+                                break;
+                        case IP_TRACK_PORT:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 80;
+                                else
+                                        skb->mark = 20;
+                                break;
+                        case IP_TRACK_SMALL:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 70;
+                                else
+                                        skb->mark = 10;
+                                break;
+                        default:
+                                if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+                                        skb->mark = 90;
+                                else
+                                        skb->mark = 50;
+                                break;
+
+                }
+
+                switch(skb->wl_idx)     /*/SZ-Angela Add for Multiple SSID*/
+                {
+                        case 2:
+                                if(mbss_prio_1 == 0)
+                                        skb->mark = 60;
+                                break;
+                        case 4:
+                                if(mbss_prio_2 == 0)
+                                        skb->mark = 60;
+                                break;
+                        case 8:
+                                if(mbss_prio_3 == 0)
+                                        skb->mark = 60;
+                                break;
+                        default:
+                                break;
+                }
+
+                write_unlock_bh(&nf_conntrack_lock);
+        } //--SZ angela 09.03 }
+	ct = nf_ct_tuplehash_to_ctrack(h);
+
+	/* It exists; we have (non-exclusive) reference. */
+	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY) {
+		*ctinfo = IP_CT_ESTABLISHED + IP_CT_IS_REPLY;
+		/* Please set reply bit if this packet OK */
+		*set_reply = 1;
+	} else {
+		/* Once we've had two way comms, always ESTABLISHED. */
+		if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+			DEBUGP("nf_conntrack_in: normal packet for %p\n", ct);
+			*ctinfo = IP_CT_ESTABLISHED;
+		} else if (test_bit(IPS_EXPECTED_BIT, &ct->status)) {
+			DEBUGP("nf_conntrack_in: related packet for %p\n", ct);
+			*ctinfo = IP_CT_RELATED;
+		} else {
+			DEBUGP("nf_conntrack_in: new packet for %p\n", ct);
+			*ctinfo = IP_CT_NEW;
+		}
+		*set_reply = 0;
+	}
+	skb->nfct = &ct->ct_general;
+	skb->nfctinfo = *ctinfo;
+	return ct;
+}
+#endif
 
 unsigned int
 nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
@@ -1057,6 +1263,113 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_in);
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern struct sk_buff * nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
+
+unsigned int
+ipv4_nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
+{
+	struct nf_conn *ct;
+	struct nf_conn_nat *nat;
+	enum ip_conntrack_info ctinfo;
+	struct nf_conntrack_l3proto *l3proto;
+	struct nf_conntrack_l4proto *l4proto;
+	unsigned int dataoff;
+	u_int8_t protonum;
+	int set_reply = 0;
+	int ret;
+	struct nf_conn_help *help;
+
+	/* Previously seen (loopback or untracked)?  Ignore. */
+	if ((*pskb)->nfct) {
+		NF_CT_STAT_INC_ATOMIC(ignore);
+		return NF_ACCEPT;
+	}
+
+	/* rcu_read_lock()ed by nf_hook_slow */
+	l3proto = &nf_conntrack_l3proto_ipv4;
+	dataoff = skb_network_offset(*pskb) + ip_hdrlen(*pskb);
+	protonum = ip_hdr(*pskb)->protocol;
+
+	/* Gather fragments. */
+	if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+		*pskb = nf_ct_ipv4_gather_frags(*pskb,
+						hooknum == NF_IP_PRE_ROUTING ?
+						IP_DEFRAG_CONNTRACK_IN :
+						IP_DEFRAG_CONNTRACK_OUT);
+		if (!*pskb)
+			return NF_STOLEN;
+	}
+	
+	l4proto = __nf_ct_l4proto_find((u_int16_t)pf, protonum);
+
+	/* It may be an special packet, error, unclean...
+	 * inverse of the return code tells to the netfilter
+	 * core what to do with the packet. */
+
+	if (l4proto->error != NULL &&
+	    (ret = l4proto->error(*pskb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
+		NF_CT_STAT_INC_ATOMIC(error);
+		NF_CT_STAT_INC_ATOMIC(invalid);
+		return -ret;
+	}
+	ct = ipv4_resolve_normal_ct(*pskb, dataoff, protonum, l4proto,
+			       &set_reply, &ctinfo);
+	if (!ct) {
+		/* Not valid part of a connection */
+		NF_CT_STAT_INC_ATOMIC(invalid);
+		return NF_ACCEPT;
+	}
+
+	if (IS_ERR(ct)) {
+		/* Too stressed to deal. */
+		NF_CT_STAT_INC_ATOMIC(drop);
+		return NF_DROP;
+	}
+
+	NF_CT_ASSERT((*pskb)->nfct);
+
+	ret = l4proto->packet(ct, *pskb, dataoff, ctinfo, pf, hooknum);
+	if (ret < 0) {
+		/* Invalid: inverse of the return code tells
+		 * the netfilter core what to do */
+		DEBUGP("nf_conntrack_in: Can't track with proto module\n");
+		nf_conntrack_put((*pskb)->nfct);
+		(*pskb)->nfct = NULL;
+		NF_CT_STAT_INC_ATOMIC(invalid);
+		return -ret;
+	}
+
+	help = nfct_help(ct);
+	nat = nfct_nat(ct);
+	if (ipv4_conntrack_fastnat && bcm_nat_bind_hook
+		&& !(nat->info.nat_type & BCM_FASTNAT_DENY)
+		&& !help->helper
+		&& (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY)
+		&& (hooknum == NF_IP_PRE_ROUTING) && 
+		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+
+		struct nf_conntrack_tuple *t1, *t2;
+		t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+		t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+		if (!(t1->dst.u3.ip == t2->src.u3.ip &&
+			t1->src.u3.ip == t2->dst.u3.ip &&
+			t1->dst.u.all == t2->src.u.all &&
+			t1->src.u.all == t2->dst.u.all)) {
+			ret = bcm_nat_bind_hook(ct, ctinfo, pskb, l4proto);
+		}
+	}
+	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+		if (hooknum == NF_IP_LOCAL_OUT)
+			nat->info.nat_type |= BCM_FASTNAT_DENY;
+
+		nf_conntrack_event_cache(IPCT_STATUS, *pskb);
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(ipv4_nf_conntrack_in);
+#endif
 
 int nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
 			 const struct nf_conntrack_tuple *orig)

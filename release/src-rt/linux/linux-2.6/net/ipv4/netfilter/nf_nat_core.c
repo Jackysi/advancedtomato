@@ -31,6 +31,7 @@
 #include <net/netfilter/nf_conntrack_helper.h>
 #include <net/netfilter/nf_conntrack_l3proto.h>
 #include <net/netfilter/nf_conntrack_l4proto.h>
+#include <linux/netfilter_ipv4/ipt_cone.h>
 
 #if 0
 #define DEBUGP printk
@@ -98,6 +99,9 @@ static void nf_nat_cleanup_conntrack(struct nf_conn *conn)
 	write_lock_bh(&nf_nat_lock);
 	list_del(&nat->info.bysource);
 	write_unlock_bh(&nf_nat_lock);
+
+	/* Detach from cone list */
+	ipt_cone_cleanup_conntrack(nat);
 }
 
 /* Is this tuple already taken? (not by us) */
@@ -385,6 +389,18 @@ manip_pkt(u_int16_t proto,
 	}
 	return 1;
 }
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+int
+bcm_manip_pkt(u_int16_t proto,
+	  struct sk_buff **pskb,
+	  unsigned int iphdroff,
+	  const struct nf_conntrack_tuple *target,
+	  enum nf_nat_manip_type maniptype)
+{
+	return manip_pkt(proto, pskb, iphdroff, target, maniptype);
+}
+#endif
 
 /* Do packet manipulations according to nf_nat_setup_info. */
 unsigned int nf_nat_packet(struct nf_conn *ct,

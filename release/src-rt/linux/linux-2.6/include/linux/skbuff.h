@@ -320,6 +320,10 @@ struct sk_buff {
 	unsigned char		imq_flags;
 	struct nf_info		*nf_info;
 #endif
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	/* Cache info */
+	__u32			nfcache;
+#endif
 };
 
 #ifdef __KERNEL__
