@@ -1161,6 +1161,11 @@ static void sysinit(void)
 		break;
 	}
 
+#ifdef CONFIG_BCMWL5
+	// ctf must be loaded prior to any other modules
+	modprobe("ctf");
+#endif
+
 	hardware = check_hw_type();
 #if WL_BSS_INFO_VERSION >= 108
 	modprobe("et");
