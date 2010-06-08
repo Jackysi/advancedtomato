@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -38,7 +38,7 @@
  * where <base-IRQ> is specified in setup.c when calling
  * sb_mips_init(), 2 is to offset the two software IRQs.
  *
- * $Id: irq.c,v 1.11 2010/01/07 06:40:35 Exp $
+ * $Id: irq.c,v 1.8 2008/07/04 01:20:42 Exp $
  */
 
 #include <linux/config.h>
@@ -253,11 +253,13 @@ plat_irq_dispatch(struct pt_regs *regs)
 	set_c0_status(pending);
 	irq_enable_hazard();
 
+#if 0
 	/* Process any pending softirqs (tasklets, softirqs ...) */
 	local_irq_save(flags);
 	if (local_softirq_pending() && !in_interrupt())
 		__do_softirq();
 	local_irq_restore(flags);
+#endif
 }
 
 /* MIPS IRQ0 to IRQ7 interrupt controller */

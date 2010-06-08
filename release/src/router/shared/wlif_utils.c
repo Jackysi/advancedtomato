@@ -436,8 +436,7 @@ get_wsec(wsec_info_t *info, char *mac, char *osifname)
 #if 0
 		int i;
 		/* get per wds settings */
-//		for (i = 0; i < MAX_NVPARSE; i ++) {
-		for (i = 0; i < WLIFU_MAX_NO_BRIDGE; i ++) {
+		for (i = 0; i < MAX_NVPARSE; i ++) {
 			char macaddr[18];
 			uint8 ea[ETHER_ADDR_LEN];
 

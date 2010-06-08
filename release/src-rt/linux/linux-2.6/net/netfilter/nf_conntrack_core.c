@@ -79,10 +79,6 @@ static unsigned int nf_conntrack_next_id;
 DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
 
-#ifdef HNDCTF
-extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
-#endif /* HNDCTF */
-
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 #define	BCM_FASTNAT_DENY	1
 extern int ipv4_conntrack_fastnat;
@@ -415,10 +411,6 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
 	NF_CT_ASSERT(!timer_pending(&ct->timeout));
 
-#ifdef HNDCTF
-	ip_conntrack_ipct_delete(ct, 0);
-#endif /* HNDCTF*/
-
 	nf_conntrack_event(IPCT_DESTROY, ct);
 	set_bit(IPS_DYING_BIT, &ct->status);
 
@@ -473,14 +465,6 @@ static void death_by_timeout(unsigned long ul_conntrack)
 	struct nf_conn *ct = (void *)ul_conntrack;
 	struct nf_conn_help *help = nfct_help(ct);
 	struct nf_conntrack_helper *helper;
-
-#ifdef HNDCTF
-	/* If negative error is returned it means the entry hasn't
-	 * timed out yet.
-	 */
-	if (ip_conntrack_ipct_delete(ct, jiffies >= ct->timeout.expires ? 1 : 0) != 0)
-		return;
-#endif /* HNDCTF */
 
 	if (help) {
 		rcu_read_lock();
@@ -603,8 +587,9 @@ __nf_conntrack_confirm(struct sk_buff **pskb)
 			goto out;
 	list_for_each_entry(h, &nf_conntrack_hash[repl_hash], list)
 		if (nf_ct_tuple_equal(&ct->tuplehash[IP_CT_DIR_REPLY].tuple,
-					  &h->tuple))
+				      &h->tuple))
 			goto out;
+
 	/* Remove from unconfirmed list */
 	list_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list);
 
@@ -675,10 +660,6 @@ static int early_drop(struct list_head *chain)
 
 	if (!ct)
 		return dropped;
-
-#ifdef HNDCTF
-	ip_conntrack_ipct_delete(ct, 0);
-#endif /* HNDCTF */
 
 	if (del_timer(&ct->timeout)) {
 		death_by_timeout((unsigned long)ct);
@@ -828,22 +809,21 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 	}
 
 	write_lock_bh(&nf_conntrack_lock);
+	//--SZ angela 09.03 {
+	/* if the qos enable and the layer 3 protocol is ipv4 */
+	if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) {
+		conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.flag = 0;
+		conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.number =1;
 
-        /*/--SZ angela 09.03 { */
-        /* if the qos enable and the layer 3 protocol is ipv4 */
-        if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) {
-                conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.flag = 0;
-                conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.number =1;
-
-                if(strcmp(l4proto->name, "udp") == 0) {
-                        if(conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u3.ip == ipaddr)
-                                port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.all]++;
-                        else
-                                port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.all]++;
-                }
-        }
-        //--SZ angela 09.03 }
-
+		if(strcmp(l4proto->name, "udp") == 0) {		
+			if(conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u3.ip == ipaddr)
+			 	port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.all]++;
+			else
+				port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.all]++;
+		}	
+	}
+	//--SZ angela 09.03 }
+	
 	exp = find_expectation(tuple);
 
 	help = nfct_help(conntrack);
@@ -890,90 +870,94 @@ init_conntrack(const struct nf_conntrack_tuple *tuple,
 //On success, returns h->track.flags & IP_TRACK_MARK 
 inline int deal_track(struct nf_conntrack_tuple_hash *h, int len)
 {
-        struct nf_conntrack_tuple_hash *rep_h;
-        unsigned int port=0, dport=0;
-        struct nf_conn *ct = NULL;
+	struct nf_conntrack_tuple_hash *rep_h;
+	unsigned int port=0, dport=0;
+	struct nf_conn *ct = NULL;
 
-        /*/ Add the packet number of this connect track and record the length of the packet */
-        h->track.number ++;
-        if(len > 512)
-                h->track.large_packet++;
-        /*/ The download packet set the IP_TRACK_DOWN flag*/
-        if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-        {       
-               port = h->tuple.dst.u.all;
-               dport = h->tuple.src.u.all;
-        }
-        else
-        {
-                port = h->tuple.src.u.all;
-                dport = h->tuple.dst.u.all;
-        }
-                
-        /*/ if the connect track is data connect ,we return IP_TRACK_DATA */
-        if((h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)
-                return IP_TRACK_DATA;
+	// Add the packet number of this connect track and record the length of the packet 
+	h->track.number ++;
+//	if((h->track.flag & IP_TRACK_FULL) != IP_TRACK_FULL)
+//	{
+		if(len > 512)
+			h->track.large_packet++;
+//	}
+	
+	// The download packet set the IP_TRACK_DOWN flag 
+	if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
+	{	
+	       port = h->tuple.dst.u.all;
+	       dport = h->tuple.src.u.all;
+	}
+	else
+	{
+		port = h->tuple.src.u.all;
+		dport = h->tuple.dst.u.all;
+	}
+		
+	// if the connect track is data connect ,we return IP_TRACK_DATA 
+	if((h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)	
+		return IP_TRACK_DATA;
+	
+	// if the destination port of this connect track is one of 80,8080,443.We return IP_TRACK_PORT
+	if((h->track.flag & IP_TRACK_PORT) == IP_TRACK_PORT)
+		return IP_TRACK_PORT;
 
-        /*/ if the destination port of this connect track is one of 80,8080,443.We return IP_TRACK_PORT*/
-        if((h->track.flag & IP_TRACK_PORT) == IP_TRACK_PORT)
-                return IP_TRACK_PORT;
+	if((h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
+		return IP_TRACK_SMALL;
 
-        if((h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
-                return IP_TRACK_SMALL;
+	if((h->track.flag & IP_TRACK_UDP) == IP_TRACK_UDP)
+		return IP_TRACK_UDP;
+	
+	ct = nf_ct_tuplehash_to_ctrack(h);
 
-        if((h->track.flag & IP_TRACK_UDP) == IP_TRACK_UDP)
-                return IP_TRACK_UDP;
+	//start compare 
+	if(NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
+		rep_h = &ct->tuplehash[IP_CT_DIR_ORIGINAL];
+	else
+		rep_h = &ct->tuplehash[IP_CT_DIR_REPLY];
+	if(!rep_h)
+		return 0;
 
-        ct = nf_ct_tuplehash_to_ctrack(h);
+	if(ntohs(dport) == 80 || ntohs(dport) == 8080 || ntohs(dport) == 443)
+       	{
+  		h->track.flag |= IP_TRACK_PORT;
+		rep_h->track.flag |= IP_TRACK_PORT;
+		return IP_TRACK_PORT;
+	}
 
-        /*start compare */
-        if(NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
-                rep_h = &ct->tuplehash[IP_CT_DIR_ORIGINAL];
-        else
-                rep_h = &ct->tuplehash[IP_CT_DIR_REPLY];
-        if(!rep_h)
-                return 0;
+	// if the port has connections more than 30, we mark it and return IP_TRACK_UDP
+	// h->tuple.dst.protonum == 17 &&
+	if((port_num_udp[port] > 30 || port_num_udp[dport] >30)) 
+	{
+		h->track.flag |= IP_TRACK_UDP;		
+		rep_h->track.flag |= IP_TRACK_UDP;
+		return IP_TRACK_UDP;
+	}
 
-        if(ntohs(dport) == 80 || ntohs(dport) == 8080 || ntohs(dport) == 443)
-        {
-                h->track.flag |= IP_TRACK_PORT;
-                rep_h->track.flag |= IP_TRACK_PORT;
-                return IP_TRACK_PORT;
-        }
-
-        /*/ if the port has connections more than 30, we mark it and return IP_TRACK_UDP
- *  *         // h->tuple.dst.protonum == 17 && */
-        if((port_num_udp[port] > 30 || port_num_udp[dport] >30))
-        {
-                h->track.flag |= IP_TRACK_UDP;
-                rep_h->track.flag |= IP_TRACK_UDP;
-                return IP_TRACK_UDP;
-        }
-
-        if(h->track.number == 250)
-        {
-                if(h->track.large_packet<70)
-                {
-                        if((rep_h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)
-                        {
-                                h->track.flag |= IP_TRACK_DATA;
-                                return IP_TRACK_DATA;
-                        }
-                        h->track.flag |= IP_TRACK_SMALL;
-                        return IP_TRACK_SMALL;
-                }
-
-                if((rep_h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
-                {
-                        rep_h->track.flag |= IP_TRACK_DATA;
-                        rep_h->track.flag &= ~IP_TRACK_SMALL;
-                }
-                h->track.flag |= IP_TRACK_DATA;
-                return IP_TRACK_DATA;
-        }
-
-        return 0;
-}
+	if(h->track.number == 250)
+	{
+		if(h->track.large_packet<70)
+		{
+			if((rep_h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)
+			{
+				h->track.flag |= IP_TRACK_DATA;
+				return IP_TRACK_DATA;
+			}
+			h->track.flag |= IP_TRACK_SMALL;
+			return IP_TRACK_SMALL;
+		}
+		
+		if((rep_h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
+		{
+			rep_h->track.flag |= IP_TRACK_DATA;
+			rep_h->track.flag &= ~IP_TRACK_SMALL;
+		}
+		h->track.flag |= IP_TRACK_DATA;
+		return IP_TRACK_DATA;
+	}
+	
+	return 0;
+}	
 //--SZ angela 09.03 }
 
 /* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
@@ -1424,7 +1408,6 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
 		/* not in hash table yet, so not strictly necessary */
 		rcu_assign_pointer(help->helper, helper);
 	}
-
 	write_unlock_bh(&nf_conntrack_lock);
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_alter_reply);
@@ -1449,9 +1432,6 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 	/* If not in hash table, timer will not be active yet */
 	if (!nf_ct_is_confirmed(ct)) {
-#ifdef HNDCTF
-		ct->expire_jiffies = extra_jiffies;
-#endif /* HNDCTF */
 		ct->timeout.expires = extra_jiffies;
 		event = IPCT_REFRESH;
 	} else {
@@ -1462,9 +1442,6 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 		   avoidance (may already be dying). */
 		if (newtime - ct->timeout.expires >= HZ
 		    && del_timer(&ct->timeout)) {
-#ifdef HNDCTF
-			ct->expire_jiffies = extra_jiffies;
-#endif /* HNDCTF */
 			ct->timeout.expires = newtime;
 			add_timer(&ct->timeout);
 			event = IPCT_REFRESH;
@@ -1602,9 +1579,6 @@ nf_ct_iterate_cleanup(int (*iter)(struct nf_conn *i, void *data), void *data)
 	unsigned int bucket = 0;
 
 	while ((ct = get_next_corpse(iter, data, &bucket)) != NULL) {
-#ifdef HNDCTF
-		ip_conntrack_ipct_delete(ct, 0);
-#endif /* HNDCTF */
 		/* Time to push up daises... */
 		if (del_timer(&ct->timeout))
 			death_by_timeout((unsigned long)ct);
@@ -1775,6 +1749,9 @@ int __init nf_conntrack_init(void)
 	}
 
 	nf_conntrack_max = 8 * nf_conntrack_htable_size;
+
+	for(ret=0; ret<65535; ret++)		//--SZ Angela 09.03 QOS Initialization
+		port_num_udp[ret]=0;
 
 	printk("nf_conntrack version %s (%u buckets, %d max)\n",
 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,

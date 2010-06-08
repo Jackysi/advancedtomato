@@ -25,7 +25,7 @@
 
 extern int clean_flag; // 2009.04 James. wanduck.
 
-static unsigned int nf_ct_udp_timeout __read_mostly = 90*HZ;
+static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
 static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
 
 static int udp_pkt_to_tuple(const struct sk_buff *skb,

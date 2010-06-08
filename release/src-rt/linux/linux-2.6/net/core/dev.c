@@ -123,7 +123,6 @@
 #include <typedefs.h>
 #include <bcmdefs.h>
 
-
 /*
  *	The list of packet types we will receive (as opposed to discard)
  *	and the routines to invoke.
