@@ -136,6 +136,9 @@ sub fixDyn
 		if (/^libipt_.+\.so$/) {
 			fixDynDep("iptables", $_);
 		}
+		elsif (/^libip6t_.+\.so$/) {
+			fixDynDep("ip6tables", $_);
+		}
 		elsif (/^CP\d+\.so$/) {
 			fixDynDep("smbd", $_);
 		}

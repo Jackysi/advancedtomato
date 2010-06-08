@@ -170,6 +170,11 @@ enum {
 #endif
 };
 
+/* NOTE: Do not insert new entries in the middle of this enum,
+ * always add them at the end! The numeric Hardware ID value is
+ * stored in the configuration file, and is used to determine
+ * whether or not this config file can be restored on the router.
+ */
 enum {
 	HW_BCM4702,
 	HW_BCM4712,
@@ -183,8 +188,8 @@ enum {
 	HW_BCM5350,
 	HW_BCM5356,
 	HW_BCM4716,
-	HW_BCM4717,
 	HW_BCM4718,
+	HW_BCM4717,
 	HW_UNKNOWN
 };
 

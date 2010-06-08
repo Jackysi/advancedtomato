@@ -360,12 +360,11 @@ static void check_bootnv(void)
 	case MODEL_WTR54GS:
 		dirty |= check_nv("vlan0hwname", "et0");
 		dirty |= check_nv("vlan1hwname", "et0");
-		dirty |= check_nv("vlan0ports", "0 5*");
-		dirty |= check_nv("vlan1ports", "1 5");
 		break;
 	case MODEL_WL500GP:
 		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
-		dirty |= check_nv("vlan1ports", "0 5");		// default: 0 5u
+		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
+			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
@@ -373,7 +372,8 @@ static void check_bootnv(void)
 			dirty |= check_nv("et1macaddr", nvram_get("et0macaddr"));
 		break;
 	case MODEL_WL500GE:
-		dirty |= check_nv("vlan1ports", "0 5");		// default: 0 5u
+		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
+			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_WL500GPv2:
 		if (nvram_match("vlan1ports", "4 5u"))
@@ -382,7 +382,8 @@ static void check_bootnv(void)
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_WL520GU:
-		dirty |= check_nv("vlan1ports", "0 5");
+		if (nvram_match("vlan1ports", "0 5u"))
+			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_DIR320:
 		if (strlen(nvram_safe_get("et0macaddr")) == 12) {
@@ -398,26 +399,35 @@ static void check_bootnv(void)
 			dirty = 1;
 		}
 		dirty |= check_nv("vlan1hwname", "et0");
-		dirty |= check_nv("vlan1ports", "0 5");
+		if ((nvram_get("vlan1ports") == NULL) || nvram_match("vlan1ports", "0 5u"))
+			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
-		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
-		dirty |= check_nv("vlan2ports", "0 8");
+		dirty |= check_nv("vlan2hwname", "et0");
+		if (nvram_match("vlan1ports", "1 2 3 4 8*") || nvram_match("vlan2ports", "0 8u")) {
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
 		dirty |= check_nv("ledbh0", "7");
 		break;
 	case MODEL_WNR2000v2:
-		dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
-		dirty |= check_nv("vlan1ports", "0 5");
+		if (nvram_match("vlan0ports", "1 2 3 4 5*") || nvram_match("vlan1ports", "0 5u")) {
+			dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
+			dirty |= check_nv("vlan1ports", "0 5");
+		}
 		dirty |= check_nv("ledbh5", "8");
 		break;
 	case MODEL_RTN10:
-		dirty |= check_nv("vlan1ports", "4 5");
+		if (nvram_match("vlan1ports", "4 5u"))
+			dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_RTN12:
-		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
-		dirty |= check_nv("vlan1ports", "4 5");
+		if (nvram_match("vlan0ports", "0 1 2 3 5*") || nvram_match("vlan1ports", "4 5u")) {
+			dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
+			dirty |= check_nv("vlan1ports", "4 5");
+		}
 		break;
 	case MODEL_WRT320N:
 		dirty |= check_nv("reset_gpio", "5");
@@ -426,11 +436,13 @@ static void check_bootnv(void)
 		/* fall through, same as RT-N16 */
 	case MODEL_RTN16:
 		dirty |= check_nv("vlan2hwname", "et0");
-		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
-		dirty |= check_nv("vlan2ports", "0 8");
+		if (nvram_match("vlan1ports", "1 2 3 4 8*") || nvram_match("vlan2ports", "0 8u")) {
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
 		break;
 	case MODEL_WRT160Nv3:
-		if (nvram_match("clkdivsf", "4")) {
+		if (nvram_match("clkdivsf", "4") && nvram_match("vlan1ports", "1 2 3 4 5*")) {
 			// fix lan port numbering on CSE41, CSE51
 			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		}
@@ -577,11 +589,12 @@ static int init_nvram(void)
 		mfr = "Linksys";
 		name = "WTR54GS";
 		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("vlan0ports", "0 5*");
+			nvram_set("vlan1ports", "1 5");
 			nvram_set("vlan_enable", "1");
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("gpio2", "ses_button");
 			nvram_set("reset_gpio", "7");
-
 		}
 		nvram_set("pa0itssit", "62");
 		nvram_set("pa0b0", "0x1542");
@@ -1147,6 +1160,11 @@ static void sysinit(void)
 		}
 		break;
 	}
+
+#ifdef CONFIG_BCMWL5
+	// ctf must be loaded prior to any other modules
+	modprobe("ctf");
+#endif
 
 	hardware = check_hw_type();
 #if WL_BSS_INFO_VERSION >= 108

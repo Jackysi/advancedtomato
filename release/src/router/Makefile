@@ -80,10 +80,17 @@ NEED_SAMBA2 = y
 endif
 endif
 
+ifeq ($(TCONFIG_IPV6),y)
+export TCONFIG_IPV6 := y
+else
+TCONFIG_IPV6 :=
+endif
+
 obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
+obj-$(TCONFIG_IPV6) += radvd
 
 obj-$(TCONFIG_MEDIA_SERVER) += zlib
 obj-$(TCONFIG_MEDIA_SERVER) += sqlite
@@ -338,7 +345,6 @@ endif
 ifneq ($(TCONFIG_L2TP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
 endif
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ctf*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
@@ -463,6 +469,7 @@ rmconf: config/mconf
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
 	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean openssl-clean prebuilt-clean libbcmcrypto-clean
+	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -586,7 +593,7 @@ bridge-install:
 
 dnsmasq:
 	@$(SEP)
-	@$(MAKE) -C dnsmasq COPTS="-DNO_IPV6 -DNO_SCRIPT $(EXTRACFLAGS)"
+	@$(MAKE) -C dnsmasq COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DNO_SCRIPT $(EXTRACFLAGS)"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -609,6 +616,13 @@ iptables-install:
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/*.so
 	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/libiptc.so
+
+ifeq ($(TCONFIG_IPV6),y)
+	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
+	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
+	cd $(INSTALLDIR)/iptables/usr/sbin && \
+		ln -sf ip6tables ip6tables-restore
+endif
 
 iptables-clean:
 	-$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
@@ -717,6 +731,19 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@mkdir -p $(TARGETDIR)/rom/etc
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
+
+radvd/stamp-h: radvd/Makefile.in
+	cd radvd && CPPFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --prefix=""
+
+radvd: radvd/stamp-h
+
+radvd-clean:
+	-@$(MAKE) -C radvd distclean
+
+radvd-install:
+	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
+	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
+
 p910nd:
 sendmail:
 samba:
@@ -761,7 +788,7 @@ pppd/Makefile: pppd/linux/Makefile.top
 
 pppd: pppd/Makefile
 	@$(SEP)
-	@$(MAKE) -C pppd
+	@$(MAKE) -C pppd $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 
 pppd-clean:
 	-$(MAKE) -C pppd clean
@@ -782,7 +809,7 @@ zebra/stamp-h1:
 	@cd zebra && rm -f config.cache && \
 	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --sysconfdir=/etc \
-	--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
+	--enable-netlink $(if $(TCONFIG_IPV6),--enable-ipv6,--disable-ipv6) --disable-ripngd --disable-ospfd --disable-doc \
 	--disable-ospf6d --disable-bgpd --disable-bgpd-announce
 	@touch zebra/stamp-h1
 

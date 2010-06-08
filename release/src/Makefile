@@ -190,7 +190,7 @@ what:
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
-# SAMBA3, OPENVPN, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, SLIM
+# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, SLIM
 
 define RouterOptions
 	@( \
@@ -258,6 +258,10 @@ define RouterOptions
 	if [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/TCONFIG_EBTABLES/d" $(1); \
 		echo "TCONFIG_EBTABLES=y" >>$(1); \
+	fi; \
+	if [ "$(IPV6SUPP)" = "y" ]; then \
+		sed -i "/TCONFIG_IPV6/d" $(1); \
+		echo "TCONFIG_IPV6=y" >>$(1); \
 	fi; \
 	if [ "$(OPENVPN)" = "y" ]; then \
 		sed -i "/TCONFIG_LZO/d" $(1); \
@@ -343,6 +347,14 @@ define BusyboxOptions
 		sed -i "/CONFIG_SWAPONOFF/d" $(1); \
 		echo "# CONFIG_SWAPONOFF is not set" >>$(1); \
 	fi; \
+	if [ "$(IPV6SUPP)" = "y" ]; then \
+		sed -i "/CONFIG_FEATURE_IPV6/d" $(1); \
+		echo "CONFIG_FEATURE_IPV6=y" >>$(1); \
+		sed -i "/CONFIG_PING6/d" $(1); \
+		echo "CONFIG_PING6=y" >>$(1); \
+		sed -i "/CONFIG_TRACEROUTE6/d" $(1); \
+		echo "CONFIG_TRACEROUTE6=y" >>$(1); \
+	fi; \
 	if [ "$(SLIM)" = "y" ]; then \
 		sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1); \
 		echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1); \
@@ -381,6 +393,61 @@ define KernelConfig
 		echo "# CONFIG_JFFS_PROC_FS is not set" >>$(1); \
 		sed -i "/CONFIG_JFFS2_FS/d" $(1); \
 		echo "# CONFIG_JFFS2_FS is not set" >>$(1); \
+	fi; \
+	if [ "$(IPV6SUPP)" = "y" ]; then \
+		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
+		echo "CONFIG_IPV6=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_IPTABLES/d" $(1); \
+		echo "CONFIG_IP6_NF_IPTABLES=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
+		echo "CONFIG_IP6_NF_MATCH_RT=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_FILTER/d" $(1); \
+		echo "CONFIG_IP6_NF_FILTER=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_TARGET_LOG/d" $(1); \
+		echo "CONFIG_IP6_NF_TARGET_LOG=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_TARGET_REJECT/d" $(1); \
+		echo "CONFIG_IP6_NF_TARGET_REJECT=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_MANGLE/d" $(1); \
+		echo "CONFIG_IP6_NF_MANGLE=m" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_TARGET_IMQ/d" $(1); \
+		echo "CONFIG_IP6_NF_TARGET_IMQ=m" >>$(1); \
+		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+			sed -i "/CONFIG_NF_CONNTRACK_IPV6/d" $(1); \
+			echo "CONFIG_NF_CONNTRACK_IPV6=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_ROUTER_PREF/d" $(1); \
+			echo "CONFIG_IPV6_ROUTER_PREF=y" >>$(1); \
+			sed -i "/CONFIG_IPV6_SIT/d" $(1); \
+			echo "CONFIG_IPV6_SIT=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_MULTIPLE_TABLES/d" $(1); \
+			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
+			echo "CONFIG_IP6_NF_TARGET_ROUTE=y" >>$(1); \
+		else \
+			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
+			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_FTP/d" $(1); \
+			echo "CONFIG_IP6_NF_FTP=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_LIMIT/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_LIMIT=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_CONDITION/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_CONDITION=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_MAC/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_MAC=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_MULTIPORT/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_MULTIPORT=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_MARK/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_MARK=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_LENGTH/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_LENGTH=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_STATE/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_STATE=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_TARGET_MARK/d" $(1); \
+			echo "CONFIG_IP6_NF_TARGET_MARK=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_TARGET_TCPMSS/d" $(1); \
+			echo "CONFIG_IP6_NF_TARGET_TCPMSS=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
+			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \

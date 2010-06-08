@@ -29,7 +29,7 @@ static void help(void)
 		"NVRAM Utility\n"
 		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
 		"Usage: nvram set <key=value> | get <key> | unset <key> |\n"
-		"ren <key> <key> | commit | show [--nosort|--nostat] |\n"
+		"ren <key> <key> | commit | erase | show [--nosort|--nostat] |\n"
 		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
 		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
 		"export <--quote|--c|--dump|--dump0|--set|--tab> | import [--forceall] |\n"
@@ -294,6 +294,12 @@ static int commit_main(int argc, char **argv)
 	r = nvram_commit();
 	printf("done.\n");
 	return r ? 1 : 0;
+}
+
+static int erase_main(int argc, char **argv)
+{
+	printf("Erasing nvram...\n");
+	return eval("mtd-erase", "-d", "nvram");
 }
 
 #define X_QUOTE		0
@@ -810,6 +816,7 @@ static const applets_t applets[] = {
 	{ "ren",		4,	ren_main		},
 	{ "show",		-2,	show_main		},
 	{ "commit",		2,	commit_main		},
+	{ "erase",		2,	erase_main		},
 	{ "find",		3,	find_main		},
 	{ "export",		3,	export_main		},
 	{ "import",		-3,	import_main		},

@@ -282,7 +282,7 @@ static void nl_routechange(struct nlmsghdr *h)
 
       /* Force re-reading resolv file right now, for luck. */
       daemon->last_resolv = 0;
-
+      
       if (daemon->srv_save)
 	{
 	  if (daemon->srv_save->sfd)

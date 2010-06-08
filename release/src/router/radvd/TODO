@@ -1,0 +1,42 @@
+$Id: TODO,v 1.15 2005/02/15 08:15:35 psavola Exp $
+
+read list of interfaces with SIOCGIFCONF (AF_INET6 support in the kernel would
+be nice) or from /proc
+
+follow interface state via netlink interface and send RAs only when the
+interface is up
+
+use getaddrinfo() instead of inet_pton in scanner.l so that DNS names
+can be used
+
+Consider reducing the amount of 'if (MIPv6)' code segments, especially when
+checking for allowed minimum values.  Retain the defaults, though.
+
+Quoting Peter Bieringer (peter@bieringer.de):
+> Das war's schon. Ach ja, wenn Du mal eine neue Version machst, kannst Du
+> noch einen Schalter einbauen, damit radvd trotz debug-level >0 auf Wunsch
+> als daemon in den Hintergrund starten kann?
+[ Peter wants that a debugging level greater than 0 doesn't stop radvd
+from forking.]
+
+support for few protocol constants defined in RFC 2461 Sec 10 is missing.
+
+consider whether it's worth integrating radvdump print_ff and print_ra
+functions as they provide very similar service and there's some code
+duplication.
+
+consider whether UnicastOnly flag should be detected by radvdump.
+
+read the man pages one more time and make sure their are understandable
+and English is correct
+
+The following parts of RFC2461(bis) are not implemented:
+ - section 6.2.1: Adv{Valid,Preferred}Lifetime that decrements in real time,
+   that is, one that will result in a Lifetime of zero at the specified time in
+   the future. (MUST)
+ - section 6.2.5: when AdvSendAdvertisements changes to FALSE, we don't send 
+   a final RA with zero Router Lifetime (we just send it when shutting down).
+   (SHOULD)
+ - section 6.2.8: if the link-local address of the router changes, it should
+   multicast a few RAs from the old address with zero router lifetime, and a
+   few from the new address. (SHOULD).

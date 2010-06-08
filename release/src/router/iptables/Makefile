@@ -1,10 +1,15 @@
 # uncomment this to get a fully statically linked version
 # NO_SHARED_LIBS = 1
 
+ifeq ($(TCONFIG_IPV6),y)
+DO_IPV6 = 1
+else
+DO_IPV6 = 0
+endif
+
 # uncomment this to disable IPv6 support
 # DO_IPV6 = 0
 
-DO_IPV6 = 0
 DO_MULTI = 1
 
 DO_SAVE = 0
@@ -62,8 +67,10 @@ EXTRA_INSTALLS+=$(DESTDIR)$(BINDIR)/iptables-save $(DESTDIR)$(BINDIR)/iptables-r
 ifeq ($(DO_IPV6), 1)
 EXTRAS+=ip6tables ip6tables.o ip6tables.8
 EXTRA_INSTALLS+=$(DESTDIR)$(BINDIR)/ip6tables $(DESTDIR)$(MANDIR)/man8/ip6tables.8
-EXTRAS_EXP+=ip6tables-save ip6tables-restore
-EXTRA_INSTALLS_EXP+=$(DESTDIR)$(BINDIR)/ip6tables-save $(DESTDIR)$(BINDIR)/ip6tables-restore # $(DESTDIR)$(MANDIR)/man8/iptables-restore.8 $(DESTDIR)$(MANDIR)/man8/iptables-save.8 $(DESTDIR)$(MANDIR)/man8/ip6tables-save.8 $(DESTDIR)$(MANDIR)/man8/ip6tables-restore.8
+ifneq ($(DO_MULTI), 1)
+EXTRAS_+=ip6tables-save ip6tables-restore
+endif
+EXTRA_INSTALLS+=$(DESTDIR)$(BINDIR)/ip6tables-save $(DESTDIR)$(BINDIR)/ip6tables-restore # $(DESTDIR)$(MANDIR)/man8/iptables-restore.8 $(DESTDIR)$(MANDIR)/man8/iptables-save.8 $(DESTDIR)$(MANDIR)/man8/ip6tables-save.8 $(DESTDIR)$(MANDIR)/man8/ip6tables-restore.8
 endif
 
 # Sparc64 hack
@@ -125,6 +132,9 @@ LDLIBS       += -lselinux
 endif
 endif
 
+STATIC6_LIBS += libiptc/libip6tc.a
+LDLIBS       += -L. -liptc
+
 .PHONY: default
 default: libiptc.so all
 
@@ -143,17 +153,17 @@ ifeq ($(DO_MULTI), 1)
 
 ifeq ($(DO_SAVE), 1)
 iptables: iptables-multi.c iptables-save.c iptables-restore.c iptables-standalone.c iptables.o $(STATIC_LIBS)
-	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPTABLES_SAVE -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS) -L. -liptc
+	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPTABLES_SAVE -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 else
 iptables: iptables-multi.c iptables-restore.c iptables-standalone.c iptables.o $(STATIC_LIBS)
-	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS) -L. -liptc
+	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 endif
 
-#	iptables: iptables-multi.c iptables-save.c iptables-restore.c iptables-xml.c iptables-standalone.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
+#	iptables: iptables-multi.c iptables-save.c iptables-restore.c iptables-xml.c iptables-standalone.c iptables.o $(STATIC_LIBS)
 #		$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 else
-iptables: iptables-standalone.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
+iptables: iptables-standalone.c iptables.o $(STATIC_LIBS)
 	$(CC) $(CFLAGS) -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 endif
 
@@ -162,7 +172,7 @@ $(DESTDIR)$(BINDIR)/iptables: iptables
 	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)
 	cp $< $@
 
-iptables-save: iptables-save.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
+iptables-save: iptables-save.c iptables.o $(STATIC_LIBS)
 	$(CC) $(CFLAGS) -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 ifeq ($(DO_MULTI), 1)
@@ -175,7 +185,7 @@ $(DESTDIR)$(BINDIR)/iptables-save: iptables-save
 	cp $< $@
 endif
 
-iptables-restore: iptables-restore.c iptables.o $(STATIC_LIBS) libiptc/libiptc.a
+iptables-restore: iptables-restore.c iptables.o $(STATIC_LIBS)
 	$(CC) $(CFLAGS) -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 ifeq ($(DO_MULTI), 1)
@@ -188,7 +198,7 @@ $(DESTDIR)$(BINDIR)/iptables-restore: iptables-restore
 	cp $< $@
 endif
 
-iptables-xml: iptables-xml.c #iptables.o # $(STATIC_LIBS) libiptc/libiptc.a
+iptables-xml: iptables-xml.c #iptables.o # $(STATIC_LIBS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 ifeq ($(DO_MULTI), 1)
@@ -204,26 +214,48 @@ endif
 ip6tables.o: ip6tables.c
 	$(CC) $(CFLAGS) -DIP6T_LIB_DIR=\"$(IPT_LIBDIR)\" -c -o $@ $<
 
-ip6tables: ip6tables-standalone.c ip6tables.o $(STATIC6_LIBS) libiptc/libiptc.a
+ifeq ($(DO_MULTI), 1)
+ifeq ($(DO_SAVE), 1)
+ip6tables: ip6tables-multi.c ip6tables-save.c ip6tables-restore.c ip6tables-standalone.c ip6tables.o $(STATIC6_LIBS)
+	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIPTABLES_SAVE -DIP6T_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
+else
+ip6tables: ip6tables-multi.c ip6tables-restore.c ip6tables-standalone.c ip6tables.o $(STATIC6_LIBS)
+	$(CC) $(CFLAGS) -DIPTABLES_MULTI -DIP6T_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
+endif
+else
+ip6tables: ip6tables-standalone.c ip6tables.o $(STATIC6_LIBS)
 	$(CC) $(CFLAGS) -DIP6T_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
+endif
 
 $(DESTDIR)$(BINDIR)/ip6tables: ip6tables
 	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)
 	cp $< $@
 
-ip6tables-save: ip6tables-save.c ip6tables.o $(STATIC6_LIBS) libiptc/libiptc.a
+ip6tables-save: ip6tables-save.c ip6tables.o $(STATIC6_LIBS)
 	$(CC) $(CFLAGS) -DIP6T_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
+ifeq ($(DO_MULTI), 1)
+$(DESTDIR)$(BINDIR)/ip6tables-save: ip6tables
+	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)
+	ln -sf $< $@
+else
 $(DESTDIR)$(BINDIR)/ip6tables-save: ip6tables-save
 	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)
 	cp $< $@
+endif
 
-ip6tables-restore: ip6tables-restore.c ip6tables.o $(STATIC6_LIBS) libiptc/libiptc.a
+ip6tables-restore: ip6tables-restore.c ip6tables.o $(STATIC6_LIBS)
 	$(CC) $(CFLAGS) -DIP6T_LIB_DIR=\"$(IPT_LIBDIR)\" $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
+ifeq ($(DO_MULTI), 1)
+$(DESTDIR)$(BINDIR)/ip6tables-restore: ip6tables
+	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)
+	ln -sf $< $@
+else
 $(DESTDIR)$(BINDIR)/ip6tables-restore: ip6tables-restore
 	@[ -d $(DESTDIR)$(BINDIR) ] || mkdir -p $(DESTDIR)$(BINDIR)
 	cp $< $@
+endif
 
 $(DESTDIR)$(MANDIR)/man8/%.8: %.8
 	@[ -d $(DESTDIR)$(MANDIR)/man8 ] || mkdir -p $(DESTDIR)$(MANDIR)/man8
