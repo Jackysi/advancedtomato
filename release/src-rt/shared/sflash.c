@@ -163,7 +163,8 @@ sflash_init(si_t *sih, chipcregs_t *cc)
 		       sflash.size / (1024 * 1024), name);
 
 	/* 4716A0 hack */
-	if ((sih->chip == BCM4716_CHIP_ID) && (sih->chiprev == 0)) {
+	if (((sih->chip == BCM4716_CHIP_ID) || (sih->chip == BCM4748_CHIP_ID)) &&
+		(sih->chiprev == 0)) {
 		if (sflash.size > (4 * 1024 * 1024)) {
 			sflash.size = 4 * 1024 * 1024;
 			if (firsttime)

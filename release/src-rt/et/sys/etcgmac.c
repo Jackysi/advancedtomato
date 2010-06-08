@@ -3,14 +3,14 @@
  *
  * This file implements the chip-specific routines for the GMAC core.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: etcgmac.c,v 1.2.2.3.14.15 2009/04/09 08:03:38 Exp $
+ * $Id: etcgmac.c,v 1.2.2.8 2009/09/01 20:10:51 Exp $
  */
 
 #include <typedefs.h>
@@ -59,6 +59,7 @@ struct bcmgmac {
 
 	uint32		intstatus;	/* saved interrupt condition bits */
 	uint32		intmask;	/* current software interrupt mask */
+	uint32		def_intmask;	/* default interrupt mask */
 
 	hnddma_t	*di[NUMTXQ];	/* dma engine software state */
 
@@ -137,6 +138,7 @@ struct chops bcmgmac_et_chops = {
 static uint devices[] = {
 	BCM47XX_GMAC_ID,
 	BCM4716_CHIP_ID,
+	BCM4748_CHIP_ID,
 	0x0000
 };
 
@@ -206,41 +208,6 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	boardflags = etc->boardflags;
 	boardtype = ch->sih->boardtype;
 
-	/* get our local ether addr */
-	sprintf(name, "et%dmacaddr", etc->coreunit);
-	var = getvar(ch->vars, name);
-	if (var == NULL) {
-		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
-		goto fail;
-	}
-	bcm_ether_atoe(var, &etc->perm_etheraddr);
-
-	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
-		ET_ERROR(("et%d: chipattach: invalid format: %s=%s\n", etc->unit, name, var));
-		goto fail;
-	}
-	bcopy((char *)&etc->perm_etheraddr, (char *)&etc->cur_etheraddr, ETHER_ADDR_LEN);
-
-	/*
-	 * Too much can go wrong in scanning MDC/MDIO playing "whos my phy?" .
-	 * Instead, explicitly require the environment var "et<coreunit>phyaddr=<val>".
-	 */
-
-	/* get our phyaddr value */
-	sprintf(name, "et%dphyaddr", etc->coreunit);
-	var = getvar(ch->vars, name);
-	if (var == NULL) {
-		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
-		goto fail;
-	}
-	etc->phyaddr = bcm_atoi(var) & EPHY_MASK;
-
-	/* nvram says no phy is present */
-	if (etc->phyaddr == EPHY_NONE) {
-		ET_ERROR(("et%d: chipattach: phy not present\n", etc->unit));
-		goto fail;
-	}
-
 	/* configure pci core */
 	si_pci_setup(ch->sih, (1 << si_coreidx(ch->sih)));
 
@@ -286,8 +253,53 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		if (ch->di[i] != NULL)
 			etc->txavail[i] = (uint *)&ch->di[i]->txavail;
 
+	/* get our local ether addr */
+	sprintf(name, "et%dmacaddr", etc->coreunit);
+	var = getvar(ch->vars, name);
+	if (var == NULL) {
+		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
+		goto fail;
+	}
+	bcm_ether_atoe(var, &etc->perm_etheraddr);
+
+	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
+		ET_ERROR(("et%d: chipattach: invalid format: %s=%s\n", etc->unit, name, var));
+		goto fail;
+	}
+	bcopy((char *)&etc->perm_etheraddr, (char *)&etc->cur_etheraddr, ETHER_ADDR_LEN);
+
+	/*
+	 * Too much can go wrong in scanning MDC/MDIO playing "whos my phy?" .
+	 * Instead, explicitly require the environment var "et<coreunit>phyaddr=<val>".
+	 */
+
+	/* get our phyaddr value */
+	sprintf(name, "et%dphyaddr", etc->coreunit);
+	var = getvar(ch->vars, name);
+	if (var == NULL) {
+		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
+		goto fail;
+	}
+	etc->phyaddr = bcm_atoi(var) & EPHY_MASK;
+
+	/* nvram says no phy is present */
+	if (etc->phyaddr == EPHY_NONE) {
+		ET_ERROR(("et%d: chipattach: phy not present\n", etc->unit));
+		goto fail;
+	}
+
 	/* set default sofware intmask */
-	ch->intmask = DEF_INTMASK;
+	sprintf(name, "et%d_no_txint", etc->coreunit);
+	if (getintvar(ch->vars, name)) {
+		/* if no_txint variable is non-zero we disable tx interrupts.
+		 * we do the tx buffer reclaim once every few frames.
+		 */
+		ch->def_intmask = (DEF_INTMASK & ~(I_XI0 | I_XI1 | I_XI2 | I_XI3));
+		etc->txrec_thresh = (((NTXD >> 2) > TXREC_THR) ? TXREC_THR - 1 : 1);
+	} else
+		ch->def_intmask = DEF_INTMASK;
+
+	ch->intmask = ch->def_intmask;
 
 	/* reset the external phy */
 	if ((reset = getgpiopin(ch->vars, "ephy_reset", GPIO_PIN_NOTDEFINED)) !=
@@ -431,6 +443,7 @@ chiplongname(ch_t *ch, char *buf, uint bufsize)
 	switch (ch->etc->deviceid) {
 		case BCM47XX_GMAC_ID:
 		case BCM4716_CHIP_ID:
+		case BCM4748_CHIP_ID:
 		default:
 			s = "Broadcom BCM47XX 10/100/1000 Mbps Ethernet Controller";
 			break;
@@ -997,6 +1010,7 @@ chiptx(ch_t *ch, void *p0)
 	if (len > (ETHER_MAX_LEN + 32)) {
 		ET_ERROR(("et%d: chiptx: max frame length exceeded\n",
 		          ch->etc->unit));
+		PKTFREE(ch->osh, p0, TRUE);
 		return FALSE;
 	}
 
@@ -1008,16 +1022,25 @@ chiptx(ch_t *ch, void *p0)
 		q = etc_up2tc(PKTPRIO(p0));
 
 	ASSERT(q < NUMTXQ);
-	error = dma_txfast(ch->di[q], p0, TRUE);
 
-	/* set back the orig length */
-	PKTSETLEN(ch->osh, p0, len);
+	/* if tx completion intr is disabled then do the reclaim
+	 * once every few frames transmitted.
+	 */
+	if ((ch->etc->txframes[q] & ch->etc->txrec_thresh) == 1)
+		dma_txreclaim(ch->di[q], false);
+
+	error = dma_txfast(ch->di[q], p0, TRUE);
 
 	if (error) {
 		ET_ERROR(("et%d: chiptx: out of txds\n", ch->etc->unit));
 		ch->etc->txnobuf++;
 		return FALSE;
 	}
+
+	ch->etc->txframes[q]++;
+
+	/* set back the orig length */
+	PKTSETLEN(ch->osh, p0, len);
 
 	return TRUE;
 }
@@ -1110,7 +1133,7 @@ chipgetintrevents(ch_t *ch, bool in_isr)
 	intstatus = R_REG(ch->osh, &ch->regs->intstatus);
 
 	/* defer unsolicited interrupts */
-	intstatus &= (in_isr ? ch->intmask : DEF_INTMASK);
+	intstatus &= (in_isr ? ch->intmask : ch->def_intmask);
 
 	if (intstatus != 0)
 		events = INTR_NEW;
@@ -1137,7 +1160,7 @@ chipgetintrevents(ch_t *ch, bool in_isr)
 static void BCMFASTPATH
 chipintrson(ch_t *ch)
 {
-	ch->intmask = DEF_INTMASK;
+	ch->intmask = ch->def_intmask;
 	W_REG(ch->osh, &ch->regs->intmask, ch->intmask);
 }
 

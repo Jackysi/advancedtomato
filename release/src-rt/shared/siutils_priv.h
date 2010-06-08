@@ -130,7 +130,8 @@ typedef struct si_info {
 #define PCI_FORCEHT(si)	\
 	(((PCIE(si)) && (si->pub.chip == BCM4311_CHIP_ID) && ((si->pub.chiprev <= 1))) || \
 	((PCI(si) || PCIE(si)) && (si->pub.chip == BCM4321_CHIP_ID)) || \
-	(PCIE(si) && (si->pub.chip == BCM4716_CHIP_ID)))
+	(PCIE(si) && (si->pub.chip == BCM4716_CHIP_ID)) || \
+	(PCIE(si) && (si->pub.chip == BCM4748_CHIP_ID)))
 
 /* GPIO Based LED powersave defines */
 #define DEFAULT_GPIO_ONTIME	10		/* Default: 10% on */

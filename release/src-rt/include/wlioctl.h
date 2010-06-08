@@ -1046,6 +1046,7 @@ typedef struct {
 #define	WLC_PHY_TYPE_N		4
 #define	WLC_PHY_TYPE_LP		5
 #define	WLC_PHY_TYPE_SSN	6
+#define	WLC_PHY_TYPE_LCN	8
 #define	WLC_PHY_TYPE_NULL	0xf
 
 /* MAC list modes */

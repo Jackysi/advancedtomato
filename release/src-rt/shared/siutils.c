@@ -1221,7 +1221,6 @@ si_watchdog(si_t *sih, uint ticks)
 	}
 }
 
-#if !defined(BCMBUSTYPE) || (BCMBUSTYPE == SI_BUS)
 /* trigger watchdog reset after ms milliseconds */
 void
 si_watchdog_ms(si_t *sih, uint32 ms)
@@ -1232,7 +1231,6 @@ si_watchdog_ms(si_t *sih, uint32 ms)
 
 	si_watchdog(sih, wd_msticks * ms);
 }
-#endif
 
 
 uint16

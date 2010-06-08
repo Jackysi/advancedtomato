@@ -39,8 +39,10 @@ extern spinlock_t bcm947xx_sih_lock;
 #define sih bcm947xx_sih
 #define sih_lock bcm947xx_sih_lock
 
+#define WATCHDOG_MIN	3000	/* milliseconds */
 extern int panic_timeout;
 static int watchdog = 0;
+
 #ifndef	CONFIG_HWSIM
 static u8 *mcr = NULL;
 #endif /* CONFIG_HWSIM */
@@ -75,11 +77,9 @@ bcm947xx_time_init(void)
 	/* Set watchdog interval in ms */
 	watchdog = simple_strtoul(nvram_safe_get("watchdog"), NULL, 0);
 
-	/* Please set the watchdog to 3 sec if it is less than 3 but not equal to 0 */
-	if (watchdog > 0) {
-		if (watchdog < 3000)
-			watchdog = 3000;
-	}
+	/* Ensure at least WATCHDOG_MIN */
+	if ((watchdog > 0) && (watchdog < WATCHDOG_MIN))
+		watchdog = WATCHDOG_MIN;
 
 	/* Set panic timeout in seconds */
 	panic_timeout = watchdog / 1000;
@@ -120,7 +120,7 @@ bcm947xx_timer_interrupt(int irq, void *dev_id)
 		if (((si_t *)sih)->chip == BCM5354_CHIP_ID)
 			si_watchdog(sih, WATCHDOG_CLOCK_5354 / 1000 * watchdog);
 		else
-			si_watchdog(sih, WATCHDOG_CLOCK / 1000 * watchdog);
+			si_watchdog_ms(sih, watchdog);
 	}
 
 #ifdef	CONFIG_HWSIM

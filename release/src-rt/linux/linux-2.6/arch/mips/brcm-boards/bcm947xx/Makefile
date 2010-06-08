@@ -11,12 +11,6 @@
 #
 # $Id: Makefile,v 1.3 2008/05/02 22:49:54 Exp $
 #
-#
-
-ifeq ($(CONFIG_USB),m)
- EXTRA_CFLAGS += -DNLS_XFR
-endif
-
 
 SHARED := ../../../../../../shared
 

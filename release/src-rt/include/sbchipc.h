@@ -309,9 +309,6 @@ typedef volatile struct {
 /* HT clock */
 #define	HT_CLOCK		80000000
 
-/* watchdog clock */
-#define	WATCHDOG_CLOCK_5354	32000		/* Hz */
-
 /* corecontrol */
 #define CC_UARTCLKO		0x00000001	/* Drive UART with internal clock */
 #define	CC_SE			0x00000002	/* sync clk out enable (corerev >= 3) */
