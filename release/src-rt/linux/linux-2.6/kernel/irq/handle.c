@@ -15,8 +15,6 @@
 #include <linux/random.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
-#include <typedefs.h>
-#include <bcmdefs.h>
 
 #include "internals.h"
 
@@ -128,7 +126,7 @@ irqreturn_t no_action(int cpl, void *dev_id)
  *
  * Handles the action chain of an irq event
  */
-irqreturn_t BCMFASTPATH handle_IRQ_event(unsigned int irq, struct irqaction *action)
+irqreturn_t handle_IRQ_event(unsigned int irq, struct irqaction *action)
 {
 	irqreturn_t ret, retval = IRQ_NONE;
 	unsigned int status = 0;
@@ -165,7 +163,7 @@ irqreturn_t BCMFASTPATH handle_IRQ_event(unsigned int irq, struct irqaction *act
  * This is the original x86 implementation which is used for every
  * interrupt type.
  */
-fastcall unsigned int BCMFASTPATH __do_IRQ(unsigned int irq)
+fastcall unsigned int __do_IRQ(unsigned int irq)
 {
 	struct irq_desc *desc = irq_desc + irq;
 	struct irqaction *action;

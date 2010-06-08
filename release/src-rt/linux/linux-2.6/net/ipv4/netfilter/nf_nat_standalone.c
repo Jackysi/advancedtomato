@@ -25,7 +25,6 @@
 #include <net/netfilter/nf_nat_core.h>
 #include <net/netfilter/nf_nat_helper.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ipt_cone.h>
 
 #if 0
 #define DEBUGP printk
@@ -148,9 +147,6 @@ nf_nat_fn(unsigned int hooknum,
 			if (ret != NF_ACCEPT) {
 				return ret;
 			}
-
-			ipt_cone_place_in_hashes(ct);
-			
 		} else
 			DEBUGP("Already setup manip %s for ct %p\n",
 			       maniptype == IP_NAT_MANIP_SRC ? "SRC" : "DST",

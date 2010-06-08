@@ -35,12 +35,6 @@ extern int clean_flag; // 2009.04 James. wanduck.
 #define DEBUGP(format, args...)
 #endif
 
-#ifdef HNDCTF
-#include <ctf/hndctf.h>
-extern ctf_t *kcih;
-extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
-#endif /* HNDCTF */
-
 /* Protects conntrack->proto.tcp */
 static DEFINE_RWLOCK(tcp_lock);
 
@@ -324,8 +318,8 @@ static int tcp_print_conntrack(struct seq_file *s,
 	enum tcp_conntrack state;
 
 // 2009.04 James. wanduck. {
-        if(clean_flag == 101)
-                nf_ct_refresh(conntrack, NULL, 0);
+	if(clean_flag == 101)
+		nf_ct_refresh(conntrack, NULL, 0);
 // 2009.04 James. wanduck. }
 
 	read_lock_bh(&tcp_lock);
@@ -961,16 +955,6 @@ static int tcp_packet(struct nf_conn *conntrack,
 		break;
 	}
 
-#ifdef HNDCTF
-	/* Remove the ipc entries on receipt of FIN or RST */
-	if (CTF_ENAB(kcih) && (th->fin || th->rst)) {
-		if (conntrack->ctf_flags & CTF_FLAGS_CACHED) {
-			ip_conntrack_ipct_delete(conntrack, 0);
-			goto in_window;
-		}
-	}
-#endif /* HNDCTF */
-
 	if (!tcp_in_window(&conntrack->proto.tcp, dir, index,
 			   skb, dataoff, th, pf)) {
 		write_unlock_bh(&tcp_lock);
@@ -1432,11 +1416,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 =
 	.print_conntrack 	= tcp_print_conntrack,
 	.packet 		= tcp_packet,
 	.new 			= tcp_new,
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	.error			= NULL,
-#else
 	.error			= tcp_error,
-#endif
 #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.to_nfattr		= tcp_to_nfattr,
 	.from_nfattr		= nfattr_to_tcp,

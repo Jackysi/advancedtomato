@@ -120,9 +120,6 @@
 #include <linux/err.h>
 #include <linux/ctype.h>
 #include <linux/if_arp.h>
-#include <typedefs.h>
-#include <bcmdefs.h>
-
 
 /*
  *	The list of packet types we will receive (as opposed to discard)
@@ -1487,7 +1484,7 @@ out_kfree_skb:
  *          --BLG
  */
 
-int BCMFASTPATH dev_queue_xmit(struct sk_buff *skb)
+int dev_queue_xmit(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
 	struct Qdisc *q;

@@ -30,11 +30,6 @@
 #define DEBUGP(format, args...)
 #endif
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-int ipv4_conntrack_fastnat = 1;
-EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);
-#endif
-
 static int ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
 			     struct nf_conntrack_tuple *tuple)
 {
@@ -74,10 +69,7 @@ static int ipv4_print_conntrack(struct seq_file *s,
 }
 
 /* Returns new sk_buff, or NULL */
-#if !defined(CONFIG_BCM_NAT) && !defined(CONFIG_BCM_NAT_MODULE)
-static
-#endif
- struct sk_buff *
+static struct sk_buff *
 nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
 {
 	skb_orphan(skb);
@@ -181,10 +173,6 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
 	}
 	return NF_ACCEPT;
 }
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern unsigned int
-ipv4_nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb);
-#endif
 
 static unsigned int ipv4_conntrack_in(unsigned int hooknum,
 				      struct sk_buff **pskb,
@@ -192,11 +180,7 @@ static unsigned int ipv4_conntrack_in(unsigned int hooknum,
 				      const struct net_device *out,
 				      int (*okfn)(struct sk_buff *))
 {
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	return ipv4_nf_conntrack_in(PF_INET, hooknum, pskb);
-#else
 	return nf_conntrack_in(PF_INET, hooknum, pskb);
-#endif
 }
 
 static unsigned int ipv4_conntrack_local(unsigned int hooknum,
@@ -212,17 +196,12 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
 			printk("ipt_hook: happy cracking.\n");
 		return NF_ACCEPT;
 	}
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	return ipv4_nf_conntrack_in(PF_INET, hooknum, pskb);
-#else
 	return nf_conntrack_in(PF_INET, hooknum, pskb);
-#endif
 }
 
 /* Connection tracking may drop packets, but never alters them, so
    make it the first hook. */
 static struct nf_hook_ops ipv4_conntrack_ops[] = {
-#if !defined(CONFIG_BCM_NAT) && !defined(CONFIG_BCM_NAT_MODULE)
 	{
 		.hook		= ipv4_conntrack_defrag,
 		.owner		= THIS_MODULE,
@@ -230,7 +209,6 @@ static struct nf_hook_ops ipv4_conntrack_ops[] = {
 		.hooknum	= NF_IP_PRE_ROUTING,
 		.priority	= NF_IP_PRI_CONNTRACK_DEFRAG,
 	},
-#endif
 	{
 		.hook		= ipv4_conntrack_in,
 		.owner		= THIS_MODULE,
@@ -330,16 +308,6 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.extra1		= &log_invalid_proto_min,
 		.extra2		= &log_invalid_proto_max,
 	},
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	{
-		.ctl_name	= NET_IPV4_CONNTRACK_FASTNAT,
-		.procname	= "ip_conntrack_fastnat",
-		.data		= &ipv4_conntrack_fastnat,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-	},
-#endif
 	{
 		.ctl_name	= 0
 	}

@@ -33,8 +33,6 @@
 #include <linux/list.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
-#include <typedefs.h>
-#include <bcmdefs.h>
 
 /* Main transmission queue. */
 
@@ -183,7 +181,7 @@ int qdisc_restart1(struct net_device *dev)
 	return qdisc_restart(dev);
 }
 
-void BCMFASTPATH __qdisc_run(struct net_device *dev)
+void __qdisc_run(struct net_device *dev)
 {
 	do {
 		if (!qdisc_restart(dev))

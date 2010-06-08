@@ -56,11 +56,6 @@ struct nf_nat_multi_range_compat
 struct nf_nat_info
 {
 	struct list_head bysource;
-
-	/* cone NAT or Symmetric NAT */
-	struct list_head bycone;
-	u_int32_t nat_type;
-
 	struct nf_nat_seq seq[IP_CT_DIR_MAX];
 };
 
