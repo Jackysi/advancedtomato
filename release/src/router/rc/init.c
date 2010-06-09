@@ -1353,8 +1353,11 @@ int reboothalt_main(int argc, char *argv[])
 	 * So after 10 seconds, forcibly crash & restart.
 	 */
 	if (fork() == 0) {
+		int wait = nvram_get_int("reset_wait");
+		if ((wait < 10) || (wait > 120)) wait = 10;
+
 		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
-		sleep(10);
+		sleep(wait);
 		puts("Still running... Doing machine reset.");
 		fflush(stdout);
 		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
