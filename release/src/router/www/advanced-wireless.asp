@@ -57,6 +57,9 @@ function save()
 	n = fom._f_distance.value * 1;
 	fom.wl_distance.value = n ? n : '';
 
+	fom.wl_country.value = fom.wl_country_code.value;
+	fom.wl_nmode_protection.value = fom.wl_gmode_protection.value;
+
 	if (hp) {
 		if ((fom.wlx_hpamp.value != nvram.wlx_hpamp) || (fom.wlx_hperx.value != nvram.wlx_hperx)) {
 			fom._service.disabled = 1;
@@ -69,9 +72,6 @@ function save()
 		fom.wlx_hpamp.disabled = 1;
 		fom.wlx_hperx.disabled = 1;
 	}
-
-	fom.wl_country.value = fom.wl_country_code.value;
-	fom.wl_nmode_protection.value = fom.wl_gmode_protection.value;
 
 	form.submit(fom, 1);
 }
