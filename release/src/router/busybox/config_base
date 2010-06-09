@@ -144,7 +144,7 @@ CONFIG_FEATURE_TAR_GNU_EXTENSIONS=y
 #
 # Coreutils
 #
-# CONFIG_BASENAME is not set
+CONFIG_BASENAME=y
 # CONFIG_CAL is not set
 CONFIG_CAT=y
 # CONFIG_CATV is not set
