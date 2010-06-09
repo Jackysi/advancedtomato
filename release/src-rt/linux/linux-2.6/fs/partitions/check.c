@@ -546,14 +546,33 @@ int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
 		return 0;
 	if (IS_ERR(state))	/* I/O error reading the partition table */
 		return -EIO;
+
+	/* tell userspace that the media / partition table may have changed */
+	kobject_uevent(&disk->kobj, KOBJ_CHANGE);
+
 	for (p = 1; p < state->limit; p++) {
 		sector_t size = state->parts[p].size;
 		sector_t from = state->parts[p].from;
 		if (!size)
 			continue;
+		if (from >= get_capacity(disk)) {
+			printk(KERN_WARNING
+			       "%s: p%d ignored, start %llu is behind the end of the disk\n",
+			       disk->disk_name, p, (unsigned long long) from);
+			continue;
+		}
 		if (from + size > get_capacity(disk)) {
-			printk(" %s: p%d exceeds device capacity\n",
-				disk->disk_name, p);
+			/*
+			 * we can not ignore partitions of broken tables
+			 * created by for example camera firmware, but we
+			 * limit them to the end of the disk to avoid
+			 * creating invalid block devices
+			 */
+			printk(KERN_WARNING
+			       "%s: p%d size %llu exceeds device capacity, "
+			       "limited to end of disk\n",
+			       disk->disk_name, p, (unsigned long long) size);
+			size = get_capacity(disk) - from;
 		}
 		add_partition(disk, p, from, size, state->parts[p].flags);
 #ifdef CONFIG_BLK_DEV_MD
