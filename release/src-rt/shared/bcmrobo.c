@@ -1054,7 +1054,7 @@ vlan_setup:
 					  ((vid0 >> 4) << 12));	/* vlan id bit[11:4] */
 			} else {
 				val32 |= ((1 << 24) |		/* valid write */
-					  (vid0 << 12));	/* vlan id bit[11:4] */
+					  ((vid0 | vid) << 12));	/* vlan id bit[11:0] */
 			}
 			ET_MSG(("bcm_robo_config_vlan: programming REG_VLAN_WRITE %08x\n", val32));
 
@@ -1190,8 +1190,10 @@ bcm_robo_enable_switch(robo_info_t *robo)
 	}
 
 	/* Enable WAN port (#0) on the asus wl-500g deluxe boxes */
-	val8 = 0;
-	robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
+	if (robo->sih->chip == BCM5365_CHIP_ID) {
+		val8 = 0;
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
+	}
 
 	/* Disable management interface access */
 	if (robo->ops->disable_mgmtif)
