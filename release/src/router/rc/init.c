@@ -417,7 +417,8 @@ static void check_bootnv(void)
 			dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
 			dirty |= check_nv("vlan1ports", "0 5");
 		}
-		dirty |= check_nv("ledbh5", "8");
+		if (nvram_match("ledbh5", "2"))
+			dirty |= check_nv("ledbh5", "8");
 		break;
 	case MODEL_RTN10:
 		if (nvram_match("vlan1ports", "4 5u"))
