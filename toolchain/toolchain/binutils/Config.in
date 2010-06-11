@@ -12,6 +12,9 @@ choice
 	config BINUTILS_VERSION_2_19_1
 		bool "binutils 2.19.1"
 
+	config BINUTILS_VERSION_2_20_1
+		bool "binutils 2.20.1"
+
 endchoice
 
 config EXTRA_BINUTILS_CONFIG_OPTIONS
@@ -26,6 +29,7 @@ config BINUTILS_VERSION
 	prompt "Binutils Version" if (TOOLCHAINOPTS && NULL)
 	default "2.17"            if BINUTILS_VERSION_2_17
 	default "2.19.1"          if BINUTILS_VERSION_2_19_1
+	default "2.20.1"          if BINUTILS_VERSION_2_20_1
 	default "2.17"
 
 

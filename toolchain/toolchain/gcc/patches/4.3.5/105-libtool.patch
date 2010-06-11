@@ -12,11 +12,9 @@
 	(lt_dict_add): Fix typo.
 	* libtool.m4 (_LT_DECL): Don't overquote separator.
 
-diff --git a/libtool.m4 b/libtool.m4
-index e86cd02..26a039a 100644
 --- a/libtool.m4
 +++ b/libtool.m4
-@@ -319,7 +319,7 @@ m4_bpatsubst([m4_bpatsubst([$1], [^ *], [# ])],
+@@ -319,7 +319,7 @@ m4_bpatsubst([m4_bpatsubst([$1], [^ *], 
  # VALUE may be 0, 1 or 2 for a computed quote escaped value based on
  # VARNAME.  Any other value will be used directly.
  m4_define([_LT_DECL],
@@ -25,8 +23,6 @@ index e86cd02..26a039a 100644
      [lt_dict_add_subkey([lt_decl_dict], [$2], [libtool_name],
  	[m4_ifval([$1], [$1], [$2])])
      lt_dict_add_subkey([lt_decl_dict], [$2], [value], [$3])
-diff --git a/ltsugar.m4 b/ltsugar.m4
-index fc51dc7..dd4f871 100644
 --- a/ltsugar.m4
 +++ b/ltsugar.m4
 @@ -1,13 +1,13 @@
@@ -81,4 +77,3 @@ index fc51dc7..dd4f871 100644
  
  
  # lt_dict_add(DICT, KEY, VALUE)
-

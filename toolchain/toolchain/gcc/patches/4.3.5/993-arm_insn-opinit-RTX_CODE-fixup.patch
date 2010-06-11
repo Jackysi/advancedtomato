@@ -6,11 +6,9 @@ gcc/ChangeLog
 	function prototypes in RTX_CODE.
 	* genopinit.c: Include tm_p.h.
 
-Index: gcc-4.3.0/gcc/config/arm/arm-protos.h
-===================================================================
---- gcc-4.3.0/gcc/config/arm/arm-protos.h	(revision 130463)
-+++ gcc-4.3.0/gcc/config/arm/arm-protos.h	(working copy)
-@@ -40,15 +40,14 @@
+--- a/gcc/config/arm/arm-protos.h
++++ b/gcc/config/arm/arm-protos.h
+@@ -40,15 +40,14 @@ extern HOST_WIDE_INT thumb_compute_initi
  							       unsigned int);
  extern unsigned int arm_dbx_register_number (unsigned int);
  extern void arm_output_fn_unwind (FILE *, bool);
@@ -27,11 +25,9 @@ Index: gcc-4.3.0/gcc/config/arm/arm-protos.h
  extern int arm_split_constant (RTX_CODE, enum machine_mode, rtx,
  			       HOST_WIDE_INT, rtx, rtx, int);
  extern RTX_CODE arm_canonicalize_comparison (RTX_CODE, enum machine_mode,
-Index: gcc-4.3.0/gcc/genopinit.c
-===================================================================
---- gcc-4.3.0/gcc/genopinit.c	(revision 130463)
-+++ gcc-4.3.0/gcc/genopinit.c	(working copy)
-@@ -486,6 +486,7 @@
+--- a/gcc/genopinit.c
++++ b/gcc/genopinit.c
+@@ -487,6 +487,7 @@ from the machine description file `md'. 
    printf ("#include \"expr.h\"\n");
    printf ("#include \"optabs.h\"\n");
    printf ("#include \"reload.h\"\n\n");

@@ -17,24 +17,22 @@
 	This patch was authored by Thorsten Glaser <tg at mirbsd.de>
 	with copyright assignment to the FSF in effect.
 
-Index: gcc-4.3.0/gcc/c-opts.c
-===================================================================
---- gcc-4.3.0.orig/gcc/c-opts.c	2007-07-31 02:27:12.007256629 +0200
-+++ gcc-4.3.0/gcc/c-opts.c	2007-07-31 02:27:39.324813371 +0200
-@@ -108,6 +108,9 @@
+--- a/gcc/c-opts.c
++++ b/gcc/c-opts.c
+@@ -108,6 +108,9 @@ static size_t deferred_count;
  /* Number of deferred options scanned for -include.  */
  static size_t include_cursor;
-
+ 
 +/* Check if a port honours COPTS.  */
 +static int honour_copts = 0;
 +
  static void set_Wimplicit (int);
  static void handle_OPT_d (const char *);
  static void set_std_cxx98 (int);
-@@ -462,6 +465,14 @@
-       enable_warning_as_error ("implicit-function-declaration", value, CL_C | CL_ObjC);
+@@ -462,6 +465,14 @@ c_common_handle_option (size_t scode, co
+       enable_warning_as_error ("implicit-function-declaration", value, CL_C | CL_ObjC); 
        break;
-
+ 
 +    case OPT_Werror_maybe_reset:
 +      {
 +	char *ev = getenv ("GCC_NO_WERROR");
@@ -46,10 +44,10 @@ Index: gcc-4.3.0/gcc/c-opts.c
      case OPT_Wformat:
        set_Wformat (value);
        break;
-@@ -708,6 +719,12 @@
+@@ -708,6 +719,12 @@ c_common_handle_option (size_t scode, co
        flag_exceptions = value;
        break;
-
+ 
 +    case OPT_fhonour_copts:
 +      if (c_language == clk_c) {
 +	honour_copts++;
@@ -59,10 +57,10 @@ Index: gcc-4.3.0/gcc/c-opts.c
      case OPT_fimplement_inlines:
        flag_implement_inlines = value;
        break;
-@@ -1248,6 +1265,47 @@
+@@ -1248,6 +1265,47 @@ c_common_init (void)
    /* Has to wait until now so that cpplib has its hash table.  */
    init_pragma ();
-
+ 
 +  if (c_language == clk_c) {
 +    char *ev = getenv ("GCC_HONOUR_COPTS");
 +    int evv;
@@ -106,15 +104,13 @@ Index: gcc-4.3.0/gcc/c-opts.c
 +
    return true;
  }
-
-Index: gcc-4.3.0/gcc/c.opt
-===================================================================
---- gcc-4.3.0.orig/gcc/c.opt	2007-07-31 02:27:12.015257093 +0200
-+++ gcc-4.3.0/gcc/c.opt	2007-07-31 02:27:39.328813597 +0200
-@@ -207,6 +207,10 @@
+ 
+--- a/gcc/c.opt
++++ b/gcc/c.opt
+@@ -207,6 +207,10 @@ Werror-implicit-function-declaration
  C ObjC RejectNegative Warning
  This switch is deprecated; use -Werror=implicit-function-declaration instead
-
+ 
 +Werror-maybe-reset
 +C ObjC C++ ObjC++
 +; Documented in common.opt
@@ -122,24 +118,22 @@ Index: gcc-4.3.0/gcc/c.opt
  Wfloat-equal
  C ObjC C++ ObjC++ Var(warn_float_equal) Warning
  Warn if testing floating point numbers for equality
-@@ -590,6 +594,9 @@
+@@ -590,6 +594,9 @@ C++ ObjC++ Optimization
  fhonor-std
  C++ ObjC++
-
+ 
 +fhonour-copts
 +C ObjC C++ ObjC++ RejectNegative
 +
  fhosted
  C ObjC
  Assume normal C execution environment
-Index: gcc-4.3.0/gcc/common.opt
-===================================================================
---- gcc-4.3.0.orig/gcc/common.opt	2007-07-31 02:27:12.023257546 +0200
-+++ gcc-4.3.0/gcc/common.opt	2007-07-31 02:27:39.360815422 +0200
-@@ -102,6 +102,10 @@
+--- a/gcc/common.opt
++++ b/gcc/common.opt
+@@ -102,6 +102,10 @@ Werror=
  Common Joined
  Treat specified warning as error
-
+ 
 +Werror-maybe-reset
 +Common
 +If environment variable GCC_NO_WERROR is set, act as -Wno-error
@@ -147,21 +141,19 @@ Index: gcc-4.3.0/gcc/common.opt
  Wextra
  Common Warning
  Print extra (possibly unwanted) warnings
-@@ -528,6 +532,9 @@
+@@ -528,6 +532,9 @@ fguess-branch-probability
  Common Report Var(flag_guess_branch_prob) Optimization
  Enable guessing of branch probabilities
-
+ 
 +fhonour-copts
 +Common RejectNegative
 +
  ; Nonzero means ignore `#ident' directives.  0 means handle them.
  ; Generate position-independent code for executables if possible
  ; On SVR4 targets, it also controls whether or not to emit a
-Index: gcc-4.3.0/gcc/opts.c
-===================================================================
---- gcc-4.3.0.orig/gcc/opts.c	2007-07-31 02:27:12.031257991 +0200
-+++ gcc-4.3.0/gcc/opts.c	2007-07-31 02:28:36.320061346 +0200
-@@ -830,9 +830,6 @@
+--- a/gcc/opts.c
++++ b/gcc/opts.c
+@@ -830,9 +830,6 @@ decode_options (unsigned int argc, const
        flag_schedule_insns_after_reload = 1;
  #endif
        flag_regmove = 1;
@@ -171,8 +163,8 @@ Index: gcc-4.3.0/gcc/opts.c
        flag_reorder_blocks = 1;
        flag_reorder_functions = 1;
        flag_tree_store_ccp = 1;
-@@ -850,6 +847,10 @@
-
+@@ -853,6 +850,10 @@ decode_options (unsigned int argc, const
+ 
    if (optimize >= 3)
      {
 +      flag_strict_aliasing = 1;
@@ -182,10 +174,10 @@ Index: gcc-4.3.0/gcc/opts.c
        flag_predictive_commoning = 1;
        flag_inline_functions = 1;
        flag_unswitch_loops = 1;
-@@ -1441,6 +1442,17 @@
+@@ -1444,6 +1445,17 @@ common_handle_option (size_t scode, cons
        enable_warning_as_error (arg, value, lang_mask);
        break;
-
+ 
 +    case OPT_Werror_maybe_reset:
 +      {
 +	char *ev = getenv ("GCC_NO_WERROR");
@@ -200,14 +192,12 @@ Index: gcc-4.3.0/gcc/opts.c
      case OPT_Wextra:
        set_Wextra (value);
        break;
-Index: gcc-4.3.0/gcc/doc/cppopts.texi
-===================================================================
---- gcc-4.3.0.orig/gcc/doc/cppopts.texi	2007-07-31 02:27:12.039258455 +0200
-+++ gcc-4.3.0/gcc/doc/cppopts.texi	2007-07-31 02:27:39.408818157 +0200
-@@ -168,6 +168,11 @@
+--- a/gcc/doc/cppopts.texi
++++ b/gcc/doc/cppopts.texi
+@@ -168,6 +168,11 @@ in older programs.  This warning is on b
  Make all warnings into hard errors.  Source code which triggers warnings
  will be rejected.
-
+ 
 + at item -Werror-maybe-reset
 + at opindex Werror-maybe-reset
 +Act like @samp{-Wno-error} if the @env{GCC_NO_WERROR} environment
@@ -216,11 +206,9 @@ Index: gcc-4.3.0/gcc/doc/cppopts.texi
  @item -Wsystem-headers
  @opindex Wsystem-headers
  Issue warnings for code in system headers.  These are normally unhelpful
-Index: gcc-4.3.0/gcc/doc/invoke.texi
-===================================================================
---- gcc-4.3.0.orig/gcc/doc/invoke.texi	2007-07-31 02:27:12.047258920 +0200
-+++ gcc-4.3.0/gcc/doc/invoke.texi	2007-07-31 02:29:13.218164047 +0200
-@@ -233,7 +233,7 @@
+--- a/gcc/doc/invoke.texi
++++ b/gcc/doc/invoke.texi
+@@ -233,7 +233,7 @@ Objective-C and Objective-C++ Dialects}.
  -Wconversion  -Wcoverage-mismatch  -Wno-deprecated-declarations @gol
  -Wdisabled-optimization  -Wno-div-by-zero  @gol
  -Wempty-body  -Wno-endif-labels @gol
@@ -229,10 +217,10 @@ Index: gcc-4.3.0/gcc/doc/invoke.texi
  -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
  -Wno-format-extra-args -Wformat-nonliteral @gol
  -Wformat-security  -Wformat-y2k -Wignored-qualifiers @gol
-@@ -4030,6 +4030,22 @@
+@@ -4031,6 +4031,22 @@ This option is only supported for C and 
  @option{-Wall} and by @option{-pedantic}, which can be disabled with
  @option{-Wno-pointer-sign}.
-
+ 
 + at item -Werror-maybe-reset
 + at opindex Werror-maybe-reset
 +Act like @samp{-Wno-error} if the @env{GCC_NO_WERROR} environment
@@ -252,31 +240,29 @@ Index: gcc-4.3.0/gcc/doc/invoke.texi
  @item -Wstack-protector
  @opindex Wstack-protector
  @opindex Wno-stack-protector
-@@ -5490,7 +5806,7 @@
+@@ -5493,7 +5509,7 @@ so, the first branch is redirected to ei
  second branch or a point immediately following it, depending on whether
  the condition is known to be true or false.
-
+ 
 -Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 +Enabled at levels @option{-O3}.
-
+ 
  @item -fsplit-wide-types
  @opindex fsplit-wide-types
-@@ -5635,7 +5514,7 @@
+@@ -5638,7 +5654,7 @@ safely dereference null pointers.  Use
  @option{-fno-delete-null-pointer-checks} to disable this optimization
  for programs which depend on that behavior.
-
+ 
 -Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 +Enabled at levels @option{-O3}.
-
+ 
  @item -fexpensive-optimizations
  @opindex fexpensive-optimizations
-Index: gcc-4.3.0/gcc/java/jvspec.c
-===================================================================
---- gcc-4.3.0.orig/gcc/java/jvspec.c	2007-07-31 02:27:12.055259364 +0200
-+++ gcc-4.3.0/gcc/java/jvspec.c	2007-07-31 02:27:39.484822490 +0200
-@@ -670,6 +670,7 @@
+--- a/gcc/java/jvspec.c
++++ b/gcc/java/jvspec.c
+@@ -670,6 +670,7 @@ lang_specific_pre_link (void)
       class name.  Append dummy `.c' that can be stripped by set_input so %b
-      is correct.  */
+      is correct.  */ 
    set_input (concat (main_class_name, "main.c", NULL));
 +  putenv ("GCC_HONOUR_COPTS=s"); /* XXX hack!  */
    err = do_spec (jvgenmain_spec);
