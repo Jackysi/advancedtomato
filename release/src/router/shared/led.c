@@ -192,7 +192,7 @@ int led(int which, int mode)
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
-	static int wnr2000v2[]	= { 255,   2,     6,  255,  255,   -7,  255,  255	};
+	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
 	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
 #endif
@@ -302,7 +302,12 @@ int led(int which, int mode)
 			b = wnr3500[which];
 		break;
 	case MODEL_WNR2000v2:
-		b = wnr2000v2[which];
+		if (which == LED_DIAG) {
+			// power led gpio: 0x01 - green, 0x02 - amber
+			b = (mode) ? 2 : 1;
+			c = (mode) ? 1 : 2;
+		} else
+			b = wnr2000v2[which];
 		break;
 	case MODEL_WRT160Nv3:
 		b = wrt160nv3[which];

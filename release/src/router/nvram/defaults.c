@@ -241,7 +241,7 @@ const defaults_t defaults[] = {
 	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
 	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
 	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
-	{ "wl_obss_coex",		"1"			},	// OBSS Coexistence (off/on)
+	{ "wl_obss_coex",		"0"			},	// OBSS Coexistence (0|1): when enabled, channel width is forced to 20MHz
 
 #ifdef CONFIG_BCMWL5
 	// EMF

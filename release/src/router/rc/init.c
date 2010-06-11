@@ -417,7 +417,8 @@ static void check_bootnv(void)
 			dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
 			dirty |= check_nv("vlan1ports", "0 5");
 		}
-		dirty |= check_nv("ledbh5", "8");
+		if (nvram_match("ledbh5", "2"))
+			dirty |= check_nv("ledbh5", "8");
 		break;
 	case MODEL_RTN10:
 		if (nvram_match("vlan1ports", "4 5u"))
@@ -1353,8 +1354,11 @@ int reboothalt_main(int argc, char *argv[])
 	 * So after 10 seconds, forcibly crash & restart.
 	 */
 	if (fork() == 0) {
+		int wait = nvram_get_int("reset_wait");
+		if ((wait < 10) || (wait > 120)) wait = 10;
+
 		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
-		sleep(10);
+		sleep(wait);
 		puts("Still running... Doing machine reset.");
 		fflush(stdout);
 		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */

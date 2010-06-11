@@ -360,6 +360,8 @@ define BusyboxOptions
 		echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1); \
 		sed -i "/CONFIG_AWK/d" $(1); \
 		echo "# CONFIG_AWK is not set" >>$(1); \
+		sed -i "/CONFIG_BASENAME/d" $(1); \
+		echo "# CONFIG_BASENAME is not set" >>$(1); \
 		sed -i "/CONFIG_FEATURE_DEVFS/d" $(1); \
 		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
 		sed -i "/CONFIG_BLKID/d" $(1); \
@@ -512,7 +514,7 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y JFFSv1=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y NO_JFFS=y B=S BUILD_DESC="Std" USB=""
 else
 	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif

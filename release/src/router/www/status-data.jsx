@@ -29,9 +29,15 @@ do {
 		(sysinfo.loads[2] / 65536.0).toFixed(2));
 	stats.uptime = sysinfo.uptime_s;
 
-	a = sysinfo.totalram + sysinfo.totalswap;
-	b = sysinfo.totalfreeram + sysinfo.freeswap;
+	a = sysinfo.totalram;
+	b = sysinfo.totalfreeram;
 	stats.memory = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
+	if (sysinfo.totalswap > 0) {
+		a = sysinfo.totalswap;
+		b = sysinfo.freeswap;
+		stats.swap = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
+	} else
+		stats.swap = '';
 
 	stats.time = '<% time(); %>';
 	stats.wanup = '<% wanup(); %>' == '1';

@@ -605,3 +605,15 @@ long fappend(FILE *out, const char *fname)
 	fclose(in);
 	return r;
 }
+
+long fappend_file(const char *path, const char *fname)
+{
+	FILE *f;
+	int r = -1;
+
+	if (f_exists(fname) && (f = fopen(path, "a")) != NULL) {
+		r = fappend(f, fname);
+		fclose(f);
+	}
+	return r;
+}

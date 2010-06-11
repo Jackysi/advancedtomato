@@ -1013,11 +1013,28 @@ Fixed flashing with Netgear .chk images from Web GUI (untested).
 build 47 - 06/03/2010
 ---------------------
 
-Include Busybox sendmail applet into Extras builds.
+Added Busybox sendmail applet to Extras and no-USB Std builds.
+
+Added basename command to all builds except Lite.
 
 Fixed proxy autodiscovery mime handler to not require authorization.
 
-Software update: ntfs-3g release 2010.5.22 (in Extras build).
+Software updates: ntfs-3g release 2010.5.22 (in Extras build),
+Dnsmasq 2.55, MiniDLNA 1.0.18 (cvs 2010-06-09).
+
+Added "nvram erase" command.
+
+Fixed issue with overriding vlan ports configuration on every reboot.
+
+Fixed error saving settings on "Advanced->Wireless" page for Buffalo
+routers.
+
+Allowed to append custom content to /etc/[passwd|group|shadow|gshadow]
+files.
+
+Changed dropbear config to simplify using Optware openssh-sftp-server.
+
+Cosmetics.
 
 * Kernel 2.4-based builds only:
 
@@ -1028,6 +1045,24 @@ the USB GUI page to hang for a long time.
 
 Fixed flashing power led on Linksys routers: WRT320N and WRT54G-TM.
 
-Fixed kernel warning messages (introduced in build 46) in the system log
+Fixed kernel warning messages (introduced in beta 14) in the system log
 when using VPN.
+
+* Kernel 2.6-based builds only (changes from beta15 to beta16):
+
+Reverted Broadcom wireless driver binaries back to version 5.10.56.46
+since the new driver caused intermittent problems with port forwarding
+and UPnP. Included some updates extracted from the new Broadcom SDK
+("fast NAT" module, wifi security binaries (nas/eapd), minor patches
+for wlconf utility).
+
+Removed JFFSv1 support from Non-USB Std build since JFFSv1 for kernel
+2.6 seems to be buggy and causes various problems, while JFFS2 is too
+big to be useful on 4MB flash.
+
+Fixed detection of some non-standard or invalid partition table entries.
+
+Fixed VLAN initialization for Asus RT-N10.
+
+Fixed support for Netgear WNR2000v2.
 

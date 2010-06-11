@@ -301,7 +301,8 @@ extern int _vstrsep(char *buf, const char *sep, ...);
 extern void simple_unlock(const char *name);
 extern void simple_lock(const char *name);
 extern void killall_tk(const char *name);
-long fappend(FILE *out, const char *fname);
+extern long fappend(FILE *out, const char *fname);
+extern long fappend_file(const char *path, const char *fname);
 
 // telssh.c
 extern void create_passwd(void);

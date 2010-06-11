@@ -99,6 +99,8 @@ function show()
 	c('wangateway', stats.wangateway);
 	c('dns', stats.dns);
 	c('memory', stats.memory);
+	c('swap', stats.swap);
+	elem.display('swap', stats.swap != '');
 
 	c('wanstatus', stats.wanstatus);
 	c('wanuptime', stats.wanuptime);
@@ -167,7 +169,8 @@ createFieldTable('', [
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
-	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory }
+	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
+	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
 ]);
 </script>
 </div>

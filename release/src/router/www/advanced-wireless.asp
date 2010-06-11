@@ -57,6 +57,9 @@ function save()
 	n = fom._f_distance.value * 1;
 	fom.wl_distance.value = n ? n : '';
 
+	fom.wl_country.value = fom.wl_country_code.value;
+	fom.wl_nmode_protection.value = fom.wl_gmode_protection.value;
+
 	if (hp) {
 		if ((fom.wlx_hpamp.value != nvram.wlx_hpamp) || (fom.wlx_hperx.value != nvram.wlx_hperx)) {
 			fom._service.disabled = 1;
@@ -69,9 +72,6 @@ function save()
 		fom.wlx_hpamp.disabled = 1;
 		fom.wlx_hperx.disabled = 1;
 	}
-
-	fom.wl_country.value = fom.wl_country_code.value;
-	fom.wl_nmode_protection.value = fom.wl_gmode_protection.value;
 
 	form.submit(fom, 1);
 }
@@ -152,7 +152,7 @@ REMOVE-END */
 		value: nvram.wl_plcphdr },
 	{ title: '802.11n Preamble', name: 'wl_mimo_preamble', type: 'select', options: [['auto','Auto'],['mm','Mixed Mode *'],['gf','Green Field'],['gfbcm','GF-BRCM']],
 		value: nvram.wl_mimo_preamble, hidden: !nphy },
-	{ title: 'Overlapping BSS Coexistence', name: 'wl_obss_coex', type: 'select', options: [['0','Off'],['1','On *']],
+	{ title: 'Overlapping BSS Coexistence', name: 'wl_obss_coex', type: 'select', options: [['0','Off *'],['1','On']],
 		value: nvram.wl_obss_coex, hidden: !nphy },
 	{ title: 'RTS Threshold', name: 'wl_rts', type: 'text', maxlen: 4, size: 6,
 		suffix: ' <small>(range: 0 - 2347; default: 2347)</small>', value: nvram.wl_rts },
