@@ -1079,7 +1079,6 @@ static void start_samba(void)
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
-		" dns proxy = no\n"
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
