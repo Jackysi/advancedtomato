@@ -29,15 +29,17 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb"); %>
 //	<% wlchannels(0, 20); %>
 
 xob = null;
 
 ghz = [];
+max_channel = 0;
 for (var i = 0; i < wl_channels.length; ++i) {
 	ghz.push([wl_channels[i][0] + '',
 		(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+	max_channel = wl_channels[i][0] * 1;
 }
 
 if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
@@ -261,6 +263,7 @@ function verifyFields(focused, quiet)
 		_f_bcast: 1,
 		_wl_channel: 1,
 		_wl_nbw_cap: nphy ? 1 : 0,
+		_f_wl_nctrlsb: nphy ? 1 : 0,
 		_f_scan: 1,
 
 		_security_mode2: 1,
@@ -474,6 +477,19 @@ function verifyFields(focused, quiet)
 		if ((sm2 == 'wpa_enterprise') && (E('_wl_crypto').value == 'tkip')) {
 			vis._wl_nbw_cap = 2;
 			E('_wl_nbw_cap').value = 0;
+		}
+	}
+
+	vis._f_wl_nctrlsb = (E('_wl_nbw_cap').value == 0) ? 0 : vis._wl_nbw_cap;
+	if (vis._wl_channel == 1 && vis._f_wl_nctrlsb != 0) {
+		i = E('_wl_channel').value * 1;
+		if (i > 0 && i < 5) {
+			E('_f_wl_nctrlsb').value = 'lower';
+			vis._f_wl_nctrlsb = 2;
+		}
+		else if (i > max_channel - 4) {
+			E('_f_wl_nctrlsb').value = 'upper';
+			vis._f_wl_nctrlsb = 2;
 		}
 	}
 
@@ -756,16 +772,12 @@ function save()
 		fom.wl_nmcsidx.value = -1;
 		break;
 	}
+
+	fom.wl_nctrlsb.value = nvram.wl_nctrlsb;
 	if (fom.wl_nmode.value != 0) {
 		i = fom.wl_channel.value * 1;
-		if (fom.wl_nbw_cap.value == 0) {
-			fom.wl_nctrlsb.value = 'none';
-			fom.wl_nbw.value = 20;
-		} 
-		else {
-			fom.wl_nctrlsb.value = ((i >= 0) && (i < 5)) ? 'lower' : 'upper';
-			fom.wl_nbw.value = 40;
-		}
+		fom.wl_nctrlsb.value = fom.f_wl_nctrlsb.value;
+		fom.wl_nbw.value = (fom.wl_nbw_cap.value == 0) ? 20 : 40;
 	}
 
 	fom.wl_gmode.disabled = fom.wl_net_mode.disabled;
@@ -907,6 +919,8 @@ f = [
 		 value: nvram.wl_channel },
 	{ title: 'Channel Width', name: 'wl_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
 		 value: nvram.wl_nbw_cap },
+	{ title: 'Control Sideband', name: 'f_wl_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
+		value: nvram.wl_nctrlsb == 'none' ? 'lower' : nvram.wl_nctrlsb },
 	null,
 	{ title: 'Security', name: 'security_mode2', type: 'select',
 		options: [['disabled','Disabled'],['wep','WEP'],['wpa_personal','WPA Personal'],['wpa_enterprise','WPA Enterprise'],['wpa2_personal','WPA2 Personal'],['wpa2_enterprise','WPA2 Enterprise'],['wpaX_personal','WPA / WPA2 Personal'],['wpaX_enterprise','WPA / WPA2 Enterprise'],['radius','Radius']],
