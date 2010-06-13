@@ -187,6 +187,10 @@ void stop_usb(void)
 		modprobe_r(SCSI_MOD);
 	}
 
+	if (!nvram_get_int("usb_ohci")) modprobe_r(USBOHCI_MOD);
+	if (!nvram_get_int("usb_uhci")) modprobe_r(USBUHCI_MOD);
+	if (!nvram_get_int("usb_usb2")) modprobe_r(USB20_MOD);
+
 	// only unload core modules if usb is disabled
 	if (!nvram_get_int("usb_enable")) {
 		umount("/proc/bus/usb"); // unmount usb device filesystem

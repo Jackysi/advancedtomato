@@ -1260,11 +1260,10 @@ int init_main(int argc, char *argv[])
 			stop_vlan();
 			stop_syslog();
 
-			// !!TB - USB Support
-			remove_storage_main((state == REBOOT) || (state == HALT));
-			stop_usb();
-
 			if ((state == REBOOT) || (state == HALT)) {
+				remove_storage_main(1);
+				stop_usb();
+
 				shutdn(state == REBOOT);
 				exit(0);
 			}
