@@ -18,7 +18,8 @@
 #include <linux/mutex.h>
 
 #define SERIAL_TTY_MAJOR	188	/* Nice legal number now */
-#define SERIAL_TTY_MINORS	255	/* loads of devices :) */
+#define SERIAL_TTY_MINORS	254	/* loads of devices :) */
+#define SERIAL_TTY_NO_MINOR	255	/* No minor was assigned */
 
 #define MAX_NUM_PORTS		8	/* The maximum number of ports one device can grab at once */
 
@@ -126,9 +127,11 @@ static inline void usb_set_serial_port_data (struct usb_serial_port *port, void 
  *	usb_set_serial_data() to access this.
  */
 struct usb_serial {
-	struct usb_device *		dev;
-	struct usb_serial_driver *	type;
-	struct usb_interface *		interface;
+	struct usb_device		*dev;
+	struct usb_serial_driver	*type;
+	struct usb_interface		*interface;
+	unsigned char			disconnected:1;
+	unsigned char			suspending:1;
 	unsigned char			minor;
 	unsigned char			num_ports;
 	unsigned char			num_port_pointers;
@@ -136,9 +139,10 @@ struct usb_serial {
 	char				num_interrupt_out;
 	char				num_bulk_in;
 	char				num_bulk_out;
-	struct usb_serial_port *	port[MAX_NUM_PORTS];
+	struct usb_serial_port		*port[MAX_NUM_PORTS];
 	struct kref			kref;
-	void *				private;
+	struct mutex			disc_mutex;
+	void				*private;
 };
 #define to_usb_serial(d) container_of(d, struct usb_serial, kref)
 

@@ -380,6 +380,7 @@ static void sierra_set_termios(struct usb_serial_port *port,
 			struct ktermios *old_termios)
 {
 	dev_dbg(&port->dev, "%s\n", __func__);
+	tty_termios_copy_hw(port->tty->termios, old_termios);
 	sierra_send_setup(port);
 }
 
@@ -751,7 +752,10 @@ static void sierra_close(struct usb_serial_port *port, struct file *filp)
 	portdata->dtr_state = 0;
 
 	if (serial->dev) {
-		sierra_send_setup(port);
+		mutex_lock(&serial->disc_mutex);
+		if (!serial->disconnected)
+			sierra_send_setup(port);
+		mutex_unlock(&serial->disc_mutex);
 
 		/* Stop reading urbs */
 		sierra_stop_rx_urbs(port);

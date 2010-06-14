@@ -55,7 +55,11 @@ static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_DCU11) },
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_RSAQ3) },
 	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_PHAROS) },
+	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_ALDIGA) },
+	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_MMX) },
+	{ USB_DEVICE(PL2303_VENDOR_ID, PL2303_PRODUCT_ID_GPRS) },
 	{ USB_DEVICE(IODATA_VENDOR_ID, IODATA_PRODUCT_ID) },
+	{ USB_DEVICE(IODATA_VENDOR_ID, IODATA_PRODUCT_ID_RSAQ5) },
 	{ USB_DEVICE(ATEN_VENDOR_ID, ATEN_PRODUCT_ID) },
 	{ USB_DEVICE(ATEN_VENDOR_ID2, ATEN_PRODUCT_ID) },
 	{ USB_DEVICE(ELCOM_VENDOR_ID, ELCOM_PRODUCT_ID) },
@@ -73,6 +77,8 @@ static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_SX1) },
 	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_X65) },
 	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_X75) },
+	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_EF81) },
+	{ USB_DEVICE(BENQ_VENDOR_ID, BENQ_PRODUCT_ID_S81) }, /* Benq/Siemens S81 */
 	{ USB_DEVICE(SYNTECH_VENDOR_ID, SYNTECH_PRODUCT_ID) },
 	{ USB_DEVICE(NOKIA_CA42_VENDOR_ID, NOKIA_CA42_PRODUCT_ID) },
 	{ USB_DEVICE(CA_42_CA42_VENDOR_ID, CA_42_CA42_PRODUCT_ID) },
@@ -82,8 +88,11 @@ static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(DATAPILOT_U2_VENDOR_ID, DATAPILOT_U2_PRODUCT_ID) },
 	{ USB_DEVICE(BELKIN_VENDOR_ID, BELKIN_PRODUCT_ID) },
 	{ USB_DEVICE(ALCOR_VENDOR_ID, ALCOR_PRODUCT_ID) },
-	{ USB_DEVICE(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_ID) },
 	{ USB_DEVICE(WS002IN_VENDOR_ID, WS002IN_PRODUCT_ID) },
+	{ USB_DEVICE(COREGA_VENDOR_ID, COREGA_PRODUCT_ID) },
+	{ USB_DEVICE(YCCABLE_VENDOR_ID, YCCABLE_PRODUCT_ID) },
+	{ USB_DEVICE(SUPERIAL_VENDOR_ID, SUPERIAL_PRODUCT_ID) },
+	{ USB_DEVICE(HP_VENDOR_ID, HP_LD220_PRODUCT_ID) },
 	{ }					/* Terminating entry */
 };
 
@@ -94,7 +103,10 @@ static struct usb_driver pl2303_driver = {
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table,
+	.suspend =      usb_serial_suspend,
+	.resume =       usb_serial_resume,
 	.no_dynamic_id = 	1,
+	.supports_autosuspend =	1,
 };
 
 #define SET_LINE_REQUEST_TYPE		0x21
@@ -307,11 +319,38 @@ static unsigned int pl2303_buf_get(struct pl2303_buf *pb, char *buf,
 	return count;
 }
 
+static int pl2303_vendor_read(__u16 value, __u16 index,
+		struct usb_serial *serial, unsigned char *buf)
+{
+	int res = usb_control_msg(serial->dev, usb_rcvctrlpipe(serial->dev, 0),
+			VENDOR_READ_REQUEST, VENDOR_READ_REQUEST_TYPE,
+			value, index, buf, 1, 100);
+	dbg("0x%x:0x%x:0x%x:0x%x  %d - %x", VENDOR_READ_REQUEST_TYPE,
+			VENDOR_READ_REQUEST, value, index, res, buf[0]);
+	return res;
+}
+
+static int pl2303_vendor_write(__u16 value, __u16 index,
+		struct usb_serial *serial)
+{
+	int res = usb_control_msg(serial->dev, usb_sndctrlpipe(serial->dev, 0),
+			VENDOR_WRITE_REQUEST, VENDOR_WRITE_REQUEST_TYPE,
+			value, index, NULL, 0, 100);
+	dbg("0x%x:0x%x:0x%x:0x%x  %d", VENDOR_WRITE_REQUEST_TYPE,
+			VENDOR_WRITE_REQUEST, value, index, res);
+	return res;
+}
+
 static int pl2303_startup(struct usb_serial *serial)
 {
 	struct pl2303_private *priv;
 	enum pl2303_type type = type_0;
+	unsigned char *buf;
 	int i;
+
+	buf = kmalloc(10, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
 
 	if (serial->dev->descriptor.bDeviceClass == 0x02)
 		type = type_0;
@@ -337,9 +376,27 @@ static int pl2303_startup(struct usb_serial *serial)
 		priv->type = type;
 		usb_set_serial_port_data(serial->port[i], priv);
 	}
+
+	pl2303_vendor_read(0x8484, 0, serial, buf);
+	pl2303_vendor_write(0x0404, 0, serial);
+	pl2303_vendor_read(0x8484, 0, serial, buf);
+	pl2303_vendor_read(0x8383, 0, serial, buf);
+	pl2303_vendor_read(0x8484, 0, serial, buf);
+	pl2303_vendor_write(0x0404, 1, serial);
+	pl2303_vendor_read(0x8484, 0, serial, buf);
+	pl2303_vendor_read(0x8383, 0, serial, buf);
+	pl2303_vendor_write(0, 1, serial);
+	pl2303_vendor_write(1, 0, serial);
+	if (type == HX)
+		pl2303_vendor_write(2, 0x44, serial);
+	else
+		pl2303_vendor_write(2, 0x24, serial);
+
+	kfree(buf);
 	return 0;
 
 cleanup:
+	kfree(buf);
 	for (--i; i>=0; --i) {
 		priv = usb_get_serial_port_data(serial->port[i]);
 		pl2303_buf_free(priv->buf);
@@ -469,25 +526,31 @@ static void pl2303_set_termios(struct usb_serial_port *port,
 
 	dbg("%s -  port %d", __FUNCTION__, port->number);
 
-	if ((!port->tty) || (!port->tty->termios)) {
-		dbg("%s - no tty structures", __FUNCTION__);
-		return;
-	}
-
 	spin_lock_irqsave(&priv->lock, flags);
 	if (!priv->termios_initialized) {
 		*(port->tty->termios) = tty_std_termios;
 		port->tty->termios->c_cflag = B9600 | CS8 | CREAD |
 					      HUPCL | CLOCAL;
+		port->tty->termios->c_ispeed = 9600;
+		port->tty->termios->c_ospeed = 9600;
 		priv->termios_initialized = 1;
 	}
 	spin_unlock_irqrestore(&priv->lock, flags);
+
+	/* The PL2303 is reported to lose bytes if you change
+	   serial settings even to the same values as before. Thus
+	   we actually need to filter in this specific case */
+
+	if (!tty_termios_hw_change(port->tty->termios, old_termios))
+		return;
 
 	cflag = port->tty->termios->c_cflag;
 
 	buf = kzalloc(7, GFP_KERNEL);
 	if (!buf) {
 		dev_err(&port->dev, "%s - out of memory.\n", __FUNCTION__);
+		/* Report back no change occurred */
+		*port->tty->termios = *old_termios;
 		return;
 	}
 
@@ -575,25 +638,17 @@ static void pl2303_set_termios(struct usb_serial_port *port,
 	     buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6]);
 
 	if (cflag & CRTSCTS) {
-		__u16 index;
 		if (priv->type == HX)
-			index = 0x61;
+			pl2303_vendor_write(0x0, 0x61, serial);
 		else
-			index = 0x41;
-		i = usb_control_msg(serial->dev,
-				    usb_sndctrlpipe(serial->dev, 0),
-				    VENDOR_WRITE_REQUEST,
-				    VENDOR_WRITE_REQUEST_TYPE,
-				    0x0, index, NULL, 0, 100);
-		dbg("0x40:0x1:0x0:0x%x  %d", index, i);
+			pl2303_vendor_write(0x0, 0x41, serial);
 	} else {
-		i = usb_control_msg(serial->dev,
-				    usb_sndctrlpipe(serial->dev, 0),
-				    VENDOR_WRITE_REQUEST,
-				    VENDOR_WRITE_REQUEST_TYPE,
-				    0x0, 0x0, NULL, 0, 100);
-		dbg ("0x40:0x1:0x0:0x0  %d", i);
+		pl2303_vendor_write(0x0, 0x0, serial);
 	}
+
+	/* FIXME: Need to read back resulting baud rate */
+	if (baud)
+		tty_encode_baud_rate(port->tty, baud, baud);
 
 	kfree(buf);
 }
@@ -618,7 +673,7 @@ static void pl2303_close(struct usb_serial_port *port, struct file *filp)
 		set_current_state(TASK_INTERRUPTIBLE);
 		if (pl2303_buf_data_avail(priv->buf) == 0 ||
 		    timeout == 0 || signal_pending(current) ||
-		    !usb_get_intfdata(port->serial->interface))	/* disconnect */
+		    port->serial->disconnected)
 			break;
 		spin_unlock_irqrestore(&priv->lock, flags);
 		timeout = schedule_timeout(timeout);
@@ -667,7 +722,6 @@ static int pl2303_open(struct usb_serial_port *port, struct file *filp)
 	struct ktermios tmp_termios;
 	struct usb_serial *serial = port->serial;
 	struct pl2303_private *priv = usb_get_serial_port_data(port);
-	unsigned char *buf;
 	int result;
 
 	dbg("%s -  port %d", __FUNCTION__, port->number);
@@ -675,44 +729,11 @@ static int pl2303_open(struct usb_serial_port *port, struct file *filp)
 	if (priv->type != HX) {
 		usb_clear_halt(serial->dev, port->write_urb->pipe);
 		usb_clear_halt(serial->dev, port->read_urb->pipe);
-	}
-
-	buf = kmalloc(10, GFP_KERNEL);
-	if (buf==NULL)
-		return -ENOMEM;
-
-#define FISH(a,b,c,d)								\
-	result=usb_control_msg(serial->dev, usb_rcvctrlpipe(serial->dev,0),	\
-			       b, a, c, d, buf, 1, 100);			\
-	dbg("0x%x:0x%x:0x%x:0x%x  %d - %x",a,b,c,d,result,buf[0]);
-
-#define SOUP(a,b,c,d)								\
-	result=usb_control_msg(serial->dev, usb_sndctrlpipe(serial->dev,0),	\
-			       b, a, c, d, NULL, 0, 100);			\
-	dbg("0x%x:0x%x:0x%x:0x%x  %d",a,b,c,d,result);
-
-	FISH (VENDOR_READ_REQUEST_TYPE, VENDOR_READ_REQUEST, 0x8484, 0);
-	SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 0x0404, 0);
-	FISH (VENDOR_READ_REQUEST_TYPE, VENDOR_READ_REQUEST, 0x8484, 0);
-	FISH (VENDOR_READ_REQUEST_TYPE, VENDOR_READ_REQUEST, 0x8383, 0);
-	FISH (VENDOR_READ_REQUEST_TYPE, VENDOR_READ_REQUEST, 0x8484, 0);
-	SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 0x0404, 1);
-	FISH (VENDOR_READ_REQUEST_TYPE, VENDOR_READ_REQUEST, 0x8484, 0);
-	FISH (VENDOR_READ_REQUEST_TYPE, VENDOR_READ_REQUEST, 0x8383, 0);
-	SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 0, 1);
-	SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 1, 0);
-
-	if (priv->type == HX) {
-		/* HX chip */
-		SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 2, 0x44);
-		/* reset upstream data pipes */
-          	SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 8, 0);
-        	SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 9, 0);
 	} else {
-		SOUP (VENDOR_WRITE_REQUEST_TYPE, VENDOR_WRITE_REQUEST, 2, 0x24);
+		/* reset upstream data pipes */
+		pl2303_vendor_write(8, 0, serial);
+		pl2303_vendor_write(9, 0, serial);
 	}
-
-	kfree(buf);
 
 	/* Setup termios */
 	if (port->tty) {
@@ -927,7 +948,7 @@ static void pl2303_update_line_status(struct usb_serial_port *port,
 
 static void pl2303_read_int_callback(struct urb *urb)
 {
-	struct usb_serial_port *port = (struct usb_serial_port *) urb->context;
+	struct usb_serial_port *port =  urb->context;
 	unsigned char *data = urb->transfer_buffer;
 	unsigned int actual_length = urb->actual_length;
 	int status = urb->status;
@@ -967,7 +988,7 @@ exit:
 
 static void pl2303_read_bulk_callback(struct urb *urb)
 {
-	struct usb_serial_port *port = (struct usb_serial_port *) urb->context;
+	struct usb_serial_port *port =  urb->context;
 	struct pl2303_private *priv = usb_get_serial_port_data(port);
 	struct tty_struct *tty;
 	unsigned char *data = urb->transfer_buffer;
@@ -1050,7 +1071,7 @@ static void pl2303_read_bulk_callback(struct urb *urb)
 
 static void pl2303_write_bulk_callback(struct urb *urb)
 {
-	struct usb_serial_port *port = (struct usb_serial_port *) urb->context;
+	struct usb_serial_port *port =  urb->context;
 	struct pl2303_private *priv = usb_get_serial_port_data(port);
 	int result;
 	int status = urb->status;

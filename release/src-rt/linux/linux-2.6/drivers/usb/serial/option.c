@@ -940,11 +940,7 @@ static struct usb_serial_driver option_1port_device = {
 	.read_int_callback = option_instat_callback,
 };
 
-#ifdef CONFIG_USB_DEBUG
 static int debug;
-#else
-#define debug 0
-#endif
 
 /* per port private data */
 
@@ -1154,7 +1150,7 @@ static void option_indat_callback(struct urb *urb)
 	dbg("%s: %p", __FUNCTION__, urb);
 
 	endpoint = usb_pipeendpoint(urb->pipe);
-	port = (struct usb_serial_port *) urb->context;
+	port =  urb->context;
 
 	if (status) {
 		dbg("%s: nonzero status: %d on endpoint %02x.",
@@ -1188,7 +1184,7 @@ static void option_outdat_callback(struct urb *urb)
 
 	dbg("%s", __FUNCTION__);
 
-	port = (struct usb_serial_port *) urb->context;
+	port =  urb->context;
 
 	usb_serial_port_softint(port);
 
@@ -1206,7 +1202,7 @@ static void option_instat_callback(struct urb *urb)
 {
 	int err;
 	int status = urb->status;
-	struct usb_serial_port *port = (struct usb_serial_port *) urb->context;
+	struct usb_serial_port *port =  urb->context;
 	struct option_port_private *portdata = usb_get_serial_port_data(port);
 
 	dbg("%s", __FUNCTION__);
@@ -1322,8 +1318,6 @@ static int option_open(struct usb_serial_port *port, struct file *filp)
 		}
 	}
 
-	port->tty->low_latency = 1;
-
 	option_send_setup(port);
 
 	return (0);
@@ -1342,7 +1336,10 @@ static void option_close(struct usb_serial_port *port, struct file *filp)
 	portdata->dtr_state = 0;
 
 	if (serial->dev) {
-		option_send_setup(port);
+		mutex_lock(&serial->disc_mutex);
+		if (!serial->disconnected)
+			option_send_setup(port);
+		mutex_unlock(&serial->disc_mutex);
 
 		/* Stop reading/writing urbs */
 		for (i = 0; i < N_IN_URB; i++)
@@ -1545,8 +1542,5 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_VERSION(DRIVER_VERSION);
 MODULE_LICENSE("GPL");
 
-#ifdef CONFIG_USB_DEBUG
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug messages");
-#endif
-
