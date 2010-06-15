@@ -157,12 +157,14 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
 	if (!skb)
 		goto out;
+	prefetchw(skb);
 
 	size = SKB_DATA_ALIGN(size);
 	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
 			gfp_mask, node);
 	if (!data)
 		goto nodata;
+	prefetchw(data + size);
 
 	/*
 	 * See comment in sk_buff definition, just before the 'tail' member
@@ -179,13 +181,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #endif
 	/* make sure we initialize shinfo sequentially */
 	shinfo = skb_shinfo(skb);
+	memset(shinfo, 0, offsetof(struct skb_shared_info, frags));
 	atomic_set(&shinfo->dataref, 1);
-	shinfo->nr_frags  = 0;
-	shinfo->gso_size = 0;
-	shinfo->gso_segs = 0;
-	shinfo->gso_type = 0;
-	shinfo->ip6_frag_id = 0;
-	shinfo->frag_list = NULL;
 
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
 	skb->imq_flags = 0;
