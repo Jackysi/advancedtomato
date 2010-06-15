@@ -46,7 +46,8 @@ struct hiddev {
 	wait_queue_head_t wait;
 	devfs_handle_t devfs;
 	struct hid_device *hid;
-	struct hiddev_list *list;
+	struct list_head list;
+	spinlock_t list_lock;
 };
 
 struct hiddev_list {
@@ -56,7 +57,7 @@ struct hiddev_list {
 	unsigned flags;
 	struct fasync_struct *fasync;
 	struct hiddev *hiddev;
-	struct hiddev_list *next;
+	struct list_head node;
 };
 
 static struct hiddev *hiddev_table[HIDDEV_MINORS];
@@ -71,12 +72,15 @@ static devfs_handle_t hiddev_devfs_handle;
 static struct hid_report *
 hiddev_lookup_report(struct hid_device *hid, struct hiddev_report_info *rinfo)
 {
-	unsigned flags = rinfo->report_id & ~HID_REPORT_ID_MASK;
+	unsigned int flags = rinfo->report_id & ~HID_REPORT_ID_MASK;
+	unsigned int rid = rinfo->report_id & HID_REPORT_ID_MASK;
 	struct hid_report_enum *report_enum = NULL;
+	struct hid_report *report;
 	struct list_head *list;
 
 	if (rinfo->report_type < HID_REPORT_TYPE_MIN ||
-	    rinfo->report_type > HID_REPORT_TYPE_MAX) return NULL;
+	    rinfo->report_type > HID_REPORT_TYPE_MAX)
+		return NULL;
 
 	report_enum = hid->report_enum +
 		(rinfo->report_type - HID_REPORT_TYPE_MIN);
@@ -86,19 +90,21 @@ hiddev_lookup_report(struct hid_device *hid, struct hiddev_report_info *rinfo)
 		break;
 
 	case HID_REPORT_ID_FIRST:
+		if (list_empty(&report_enum->report_list))
+ 			return NULL;
 		list = report_enum->report_list.next;
-		if (list == &report_enum->report_list) return NULL;
-		rinfo->report_id = ((struct hid_report *) list)->id;
+		report = list_entry(list, struct hid_report, list);
+		rinfo->report_id = report->id;
 		break;
 		
 	case HID_REPORT_ID_NEXT:
-		list = (struct list_head *)
-			report_enum->report_id_hash[rinfo->report_id &
-						    HID_REPORT_ID_MASK];
-		if (list == NULL) return NULL;
-		list = list->next;
+		report = report_enum->report_id_hash[rid];
+		if (!report)
+			return NULL;
+		list = report->list.next;
 		if (list == &report_enum->report_list) return NULL;
-		rinfo->report_id = ((struct hid_report *) list)->id;
+		report = list_entry(list, struct hid_report, list);
+		rinfo->report_id = report->id;
 		break;
 		
 	default:
@@ -118,7 +124,6 @@ hiddev_lookup_usage(struct hid_device *hid, struct hiddev_usage_ref *uref)
 	int i, j;
 	struct hid_report *report;
 	struct hid_report_enum *report_enum;
-	struct list_head *list;
 	struct hid_field *field;
 
 	if (uref->report_type < HID_REPORT_TYPE_MIN ||
@@ -126,9 +131,7 @@ hiddev_lookup_usage(struct hid_device *hid, struct hiddev_usage_ref *uref)
 
 	report_enum = hid->report_enum +
 		(uref->report_type - HID_REPORT_TYPE_MIN);
-	list = report_enum->report_list.next;
-	while (list != &report_enum->report_list) {
-		report = (struct hid_report *) list;
+	list_for_each_entry(report, &report_enum->report_list, list) {
 		for (i = 0; i < report->maxfield; i++) {
 			field = report->field[i];
 			for (j = 0; j < field->maxusage; j++) {
@@ -140,7 +143,6 @@ hiddev_lookup_usage(struct hid_device *hid, struct hiddev_usage_ref *uref)
 				}
 			}
 		}
-		list = list->next;
 	}
 
 	return NULL;
@@ -150,9 +152,11 @@ static void hiddev_send_event(struct hid_device *hid,
 			      struct hiddev_usage_ref *uref)
 {
 	struct hiddev *hiddev = hid->hiddev;
-	struct hiddev_list *list = hiddev->list;
+	struct hiddev_list *list;
+	unsigned long flags;
 
-	while (list) {
+	spin_lock_irqsave(&hiddev->list_lock, flags);
+	list_for_each_entry(list, &hiddev->list, node) {
 		if (uref->field_index != HID_FIELD_INDEX_NONE ||
 		    (list->flags & HIDDEV_FLAG_REPORT) != 0) {
 			list->buffer[list->head] = *uref;
@@ -160,9 +164,8 @@ static void hiddev_send_event(struct hid_device *hid,
 				(HIDDEV_BUFFER_SIZE - 1);
 			kill_fasync(&list->fasync, SIGIO, POLL_IN);
 		}
-
-		list = list->next;
 	}
+	spin_unlock_irqrestore(&hiddev->list_lock, flags);
 
 	wake_up_interruptible(&hiddev->wait);
 }
@@ -180,7 +183,7 @@ void hiddev_hid_event(struct hid_device *hid, struct hid_field *field,
 	uref.report_type = 
 	  (type == HID_INPUT_REPORT) ? HID_REPORT_TYPE_INPUT :
 	  ((type == HID_OUTPUT_REPORT) ? HID_REPORT_TYPE_OUTPUT : 
-	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE:0));
+	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE : 0));
 	uref.report_id = field->report->id;
 	uref.field_index = field->index;
 	uref.usage_index = (usage - field->usage);
@@ -200,7 +203,7 @@ void hiddev_report_event(struct hid_device *hid, struct hid_report *report)
 	uref.report_type = 
 	  (type == HID_INPUT_REPORT) ? HID_REPORT_TYPE_INPUT :
 	  ((type == HID_OUTPUT_REPORT) ? HID_REPORT_TYPE_OUTPUT : 
-	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE:0));
+	   ((type == HID_FEATURE_REPORT) ? HID_REPORT_TYPE_FEATURE : 0));
 	uref.report_id = report->id;
 	uref.field_index = HID_FIELD_INDEX_NONE;
 
@@ -234,14 +237,13 @@ static void hiddev_cleanup(struct hiddev *hiddev)
 static int hiddev_release(struct inode * inode, struct file * file)
 {
 	struct hiddev_list *list = file->private_data;
-	struct hiddev_list **listptr;
+	unsigned long flags;
 
-	listptr = &list->hiddev->list;
 	hiddev_fasync(-1, file, 0);
 
-	while (*listptr && (*listptr != list))
-		listptr = &((*listptr)->next);
-	*listptr = (*listptr)->next;
+	spin_lock_irqsave(&list->hiddev->list_lock, flags);
+	list_del(&list->node);
+	spin_unlock_irqrestore(&list->hiddev->list_lock, flags);
 
 	if (!--list->hiddev->open) {
 		if (list->hiddev->exist) 
@@ -258,8 +260,10 @@ static int hiddev_release(struct inode * inode, struct file * file)
 /*
  * open file op
  */
-static int hiddev_open(struct inode * inode, struct file * file) {
+static int hiddev_open(struct inode *inode, struct file *file)
+{
 	struct hiddev_list *list;
+	unsigned long flags;
 
 	int i = MINOR(inode->i_rdev) - HIDDEV_MINOR_BASE;
 
@@ -271,8 +275,10 @@ static int hiddev_open(struct inode * inode, struct file * file) {
 	memset(list, 0, sizeof(struct hiddev_list));
 
 	list->hiddev = hiddev_table[i];
-	list->next = hiddev_table[i]->list;
-	hiddev_table[i]->list = list;
+
+	spin_lock_irqsave(&list->hiddev->list_lock, flags);
+	list_add_tail(&list->node, &hiddev_table[i]->list);
+	spin_unlock_irqrestore(&list->hiddev->list_lock, flags);
 
 	file->private_data = list;
 
@@ -731,10 +737,10 @@ int hiddev_connect(struct hid_device *hid)
 	memset(hiddev, 0, sizeof(struct hiddev));
 
 	init_waitqueue_head(&hiddev->wait);
+	INIT_LIST_HEAD(&hiddev->list);
+	spin_lock_init(&hiddev->list_lock);
 
 	hiddev->minor = minor;
-	hiddev_table[minor] = hiddev;
-
 	hiddev->hid = hid;
 	hiddev->exist = 1;
 
@@ -746,6 +752,8 @@ int hiddev_connect(struct hid_device *hid)
 				       &hiddev_fops, NULL);
 	hid->minor = minor;
 	hid->hiddev = hiddev;
+
+	hiddev_table[minor] = hiddev;
 
 	return 0;
 }
