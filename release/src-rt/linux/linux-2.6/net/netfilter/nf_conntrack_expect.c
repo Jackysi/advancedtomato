@@ -174,17 +174,10 @@ static inline int expect_matches(const struct nf_conntrack_expect *a,
 /* Generally a bad idea to call this: could have matched already. */
 void nf_conntrack_unexpect_related(struct nf_conntrack_expect *exp)
 {
-	struct nf_conntrack_expect *i;
-
 	write_lock_bh(&nf_conntrack_lock);
-	/* choose the oldest expectation to evict */
-	list_for_each_entry_reverse(i, &nf_conntrack_expect_list, list) {
-		if (expect_matches(i, exp) && del_timer(&i->timeout)) {
-			nf_ct_unlink_expect(i);
-			write_unlock_bh(&nf_conntrack_lock);
-			nf_conntrack_expect_put(i);
-			return;
-		}
+	if (del_timer(&exp->timeout)) {
+		nf_ct_unlink_expect(exp);
+		nf_conntrack_expect_put(exp);
 	}
 	write_unlock_bh(&nf_conntrack_lock);
 }
