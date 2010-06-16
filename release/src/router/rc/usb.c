@@ -766,10 +766,13 @@ void hotplug_usb(void)
 #endif
 		syslog(LOG_DEBUG, "Attached USB device %s [INTERFACE=%s PRODUCT=%s]",
 			device, interface, product);
-#ifdef LINUX26
-		if (is_block)
+#ifndef LINUX26
+		/* To allow automount to be blocked on startup.
+		 * In kernel 2.6 we still need to serialize mount/umount calls -
+		 * so the lock is down below in the "block" hotplug processing.
+		 */
+		file_unlock(file_lock("usb"));
 #endif
-		file_unlock(file_lock("usb"));	/* To allow automount to be blocked on startup. */
 	}
 
 	if (strncmp(interface ? : "", "TOMATO/", 7) == 0) {	/* web admin */
@@ -789,7 +792,10 @@ void hotplug_usb(void)
 	else if (is_block && strcmp(getenv("MAJOR") ? : "", "8") == 0 && strcmp(getenv("PHYSDEVBUS") ? : "", "scsi") == 0) {
 		/* scsi partition */
 		char devname[64];
+		int lock;
+
 		sprintf(devname, "/dev/%s", device);
+		lock = file_lock("usb");
 		if (add) {
 			if (nvram_get_int("usb_storage") && nvram_get_int("usb_automount")) {
 				int minor = atoi(getenv("MINOR") ? : "0");
@@ -812,6 +818,7 @@ void hotplug_usb(void)
 			 */
 			restart_nas_services(0, 1);
 		}
+		file_unlock(lock);
 	}
 #endif
 	else if (strncmp(interface ? : "", "8/", 2) == 0) {	/* usb storage */
