@@ -175,7 +175,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             t->dst.u.udp.port = htons(loport);
             if (nf_conntrack_expect_related(exp) == 0)
             {
-                hiport = loport + 1; //~exp->mask.src.u.udp.port;
+                hiport = loport + ~exp->mask.src.u.udp.port;
                 DEBUGP("using ports %hu-%hu\n", loport, hiport);
                 break;
             }
