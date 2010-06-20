@@ -103,7 +103,7 @@ print(const struct ipt_ip *ip,
 	struct ipt_connlimit_info *info = (struct ipt_connlimit_info*)match->data;
 
 	printf("#conn/%d %s %d ", count_bits(info->mask),
-	       info->inverse ? "<" : ">", info->limit);
+	       info->inverse ? "<=" : ">", info->limit);
 }
 
 /* Saves the matchinfo in parsable form to stdout. */

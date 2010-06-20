@@ -24,7 +24,7 @@ IPTABLES_VERSION);
 
 static struct option opts[] = {
 	{ "to-ports", 1, 0, '1' },
-	{ "random", 1, 0, '2' },
+	{ "random", 0, 0, '2' },
 	{ 0 }
 };
 
