@@ -46,6 +46,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../e2fsbb.h"
 #include "ext2_types.h"
 #include "ext2_fs.h"
 

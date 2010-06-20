@@ -26,6 +26,8 @@
 #include <sys/types.h>
 #include <linux/types.h>
 
+#include "e2fsbb.h"
+
 /*
  * Now pull in the real linux/jfs.h definitions.
  */
