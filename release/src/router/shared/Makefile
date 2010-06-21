@@ -10,11 +10,11 @@ OBJS += misc.o led.o version.o base64.o files.o strings.o process.o
 
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
-OBJS += ../busybox/util-linux/volume_id/ext.o
-OBJS += ../busybox/util-linux/volume_id/util2.o
-OBJS += ../busybox/util-linux/volume_id/fat.o
-OBJS += ../busybox/util-linux/volume_id/ntfs.o
-OBJS += ../busybox/util-linux/volume_id/linux_swap.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/ext.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/util2.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/fat.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/ntfs.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/linux_swap.o
 endif
 
 all: libshared.so libshared.a

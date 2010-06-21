@@ -382,20 +382,6 @@ define KernelConfig
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
-	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-		sed -i "/CONFIG_BCM57XX/d" $(1); \
-		echo "CONFIG_BCM57XX=m" >>$(1); \
-	fi; \
-	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(JFFSv1)" = "y" ]; then \
-		sed -i "/CONFIG_JFFS_FS/d" $(1); \
-		echo "CONFIG_JFFS_FS=m" >>$(1); \
-		sed -i "/CONFIG_JFFS_FS_VERBOSE/d" $(1); \
-		echo "CONFIG_JFFS_FS_VERBOSE=0" >>$(1); \
-		sed -i "/CONFIG_JFFS_PROC_FS/d" $(1); \
-		echo "# CONFIG_JFFS_PROC_FS is not set" >>$(1); \
-		sed -i "/CONFIG_JFFS2_FS/d" $(1); \
-		echo "# CONFIG_JFFS2_FS is not set" >>$(1); \
-	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
 		echo "CONFIG_IPV6=m" >>$(1); \

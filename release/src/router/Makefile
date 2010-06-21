@@ -240,6 +240,17 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
 
+ifneq ($(TCONFIG_JFFSV1),y)
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
+endif
+ifeq ($(TCONFIG_JFFS2),y)
+ifeq ($(TCONFIG_JFFSV1),y)
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
+ifneq ($(CONFIG_LINUX26),y)
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
+endif
+endif
+endif
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
@@ -293,7 +304,9 @@ endif
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_OPENVPN),y)
+ifneq ($(TCONFIG_USB_EXTRAS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
+endif
 endif
 
 #!!TB
@@ -374,6 +387,7 @@ ifneq ($(TCONFIG_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/mbcache.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/msdos.*o $(PLATFORMDIR)/extras/ || true
@@ -468,8 +482,8 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean openssl-clean prebuilt-clean libbcmcrypto-clean
-	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean
+	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean openssl-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -496,7 +510,7 @@ oldconfig oldconf: koldconf roldconf bboldconf
 #
 
 busybox: dummy
-	@$(MAKE) -C busybox CFLAGS_busybox="$(EXTRACFLAGS)"
+	@$(MAKE) -C busybox EXTRA_CFLAGS="$(EXTRACFLAGS)"
 
 # V=1
 
