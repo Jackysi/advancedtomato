@@ -346,6 +346,8 @@ define BusyboxOptions
 		echo "# CONFIG_BLKID is not set" >>$(1); \
 		sed -i "/CONFIG_SWAPONOFF/d" $(1); \
 		echo "# CONFIG_SWAPONOFF is not set" >>$(1); \
+		sed -i "/CONFIG_TRUE/d" $(1); \
+		echo "# CONFIG_TRUE is not set" >>$(1); \
 	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_FEATURE_IPV6/d" $(1); \
