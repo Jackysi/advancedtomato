@@ -1876,7 +1876,7 @@ static int ip_mkroute_input(struct sk_buff *skb,
 			ip_rt_put(rtres);
 
 		/* create a routing cache entry */
-		err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos,
+		err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos, lsrc,
 				      &rth);
 		if (err)
 			return err;
