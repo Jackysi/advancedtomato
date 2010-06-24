@@ -586,6 +586,14 @@ dev_dbg(struct device * dev, const char * fmt, ...)
 #define dev_notice(dev, format, arg...)		\
 	dev_printk(KERN_NOTICE , dev , format , ## arg)
 
+#ifdef VERBOSE_DEBUG
+#define dev_vdbg	dev_dbg
+#else
+
+#define dev_vdbg(dev, format, arg...)		\
+	({ if (0) dev_printk(KERN_DEBUG, dev, format, ##arg); 0; })
+#endif
+
 /* Create alias, so I can be autoloaded. */
 #define MODULE_ALIAS_CHARDEV(major,minor) \
 	MODULE_ALIAS("char-major-" __stringify(major) "-" __stringify(minor))
