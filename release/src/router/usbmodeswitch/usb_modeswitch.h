@@ -2,11 +2,8 @@
   This file is part of usb-modeswitch, a mode switching tool for controlling
   flip flop (multiple device) USB gear
 
-  Version 1.1.2, 2010/04/18
+  Version 1.1.3, 2010/06/21
   Copyright (C) 2007, 2008, 2009, 2010  Josua Dietze
-
-
-  Created with help from usbsnoop2libusb.pl (http://iki.fi/lindi/usb/usbsnoop2libusb.pl)
 
   Config file parsing stuff borrowed from Guillaume Dargaud
   (http://www.gdargaud.net/Hack/SourceCode.html)
@@ -53,6 +50,7 @@ int hex2num(char c);
 int hex2byte(const char *hex);
 int hexstr2bin(const char *hex, char *buffer, int len);
 void printVersion();
+void printHelp();
 int readArguments(int argc, char **argv);
 void deviceDescription();
 int deviceInquire();

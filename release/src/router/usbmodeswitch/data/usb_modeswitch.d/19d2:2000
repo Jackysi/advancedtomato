@@ -1,12 +1,15 @@
 ########################################################
-# ZTE MF622 and probably others (WE NEED MORE ID INFO)
+# ZTE devices
 
 DefaultVendor=  0x19d2
 DefaultProduct= 0x2000
 
 TargetVendor=   0x19d2
-TargetProductList="0001,0002,0015,0016,0017,0031,0037,0052,0055,0063"
+TargetProductList="0001,0002,0015,0016,0017,0031,0037,0052,0055,0063,0064,0128"
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+NeedResponse=1
 
 CheckSuccess=20
 
-MessageContent="55534243123456782000000080000c85010101180101010101000000000000"

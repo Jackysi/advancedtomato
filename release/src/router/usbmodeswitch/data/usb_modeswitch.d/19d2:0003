@@ -1,0 +1,10 @@
+########################################################
+# ZTE MU351
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x0003
+
+TargetClass=0xff
+
+CheckSuccess=20
+

@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20100418
+VERS        = 20100623
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -20,8 +20,7 @@ install: files-install rules-reload
 files-install:
 	install -d $(ETCDIR)/usb_modeswitch.d
 	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./usb_modeswitch.d/*
-	install -d $(RULESDIR)
-	install --mode=644 40-usb_modeswitch.rules $(RULESDIR)
+	install -D --mode=644 40-usb_modeswitch.rules $(RULESDIR)/40-usb_modeswitch.rules
 
 rules-reload:
 	if [ -f $(ETCDIR)/issue ]; then \
@@ -50,3 +49,4 @@ files-uninstall:
 	$(RM) -R $(ETCDIR)/usb_modeswitch.d
 
 .PHONY:    clean install uninstall
+

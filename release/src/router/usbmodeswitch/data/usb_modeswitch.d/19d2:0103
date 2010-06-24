@@ -1,8 +1,8 @@
 ########################################################
-# ZTE MF110 (Variant)
+# ZTE MF112
 
 DefaultVendor= 0x19d2
-DefaultProduct=0x0053
+DefaultProduct=0x0103
 
 TargetVendor=  0x19d2
 TargetProduct= 0x0031
