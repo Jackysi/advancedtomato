@@ -173,9 +173,15 @@ small_smb_init(int smb_command, int wct, struct cifsTconInfo *tcon,
 							nls_codepage);
 			if(!rc && (tcon->tidStatus == CifsNeedReconnect)) {
 				mark_open_files_invalid(tcon);
-				rc = CIFSTCon(0, tcon->ses, tcon->treeName, tcon
-					, nls_codepage);
+				rc = CIFSTCon(0, tcon->ses, tcon->treeName, 
+					      tcon, nls_codepage);
 				up(&tcon->ses->sesSem);
+				/* tell server which Unix caps we support */
+				if (tcon->ses->capabilities & CAP_UNIX)
+					reset_cifs_unix_caps(0 /* no xid */,
+						tcon, 
+						NULL /* we do not know sb */,
+						NULL /* no vol info */);	
 				/* BB FIXME add code to check if wsize needs
 				   update due to negotiated smb buffer size
 				   shrinking */
@@ -325,6 +331,12 @@ smb_init(int smb_command, int wct, struct cifsTconInfo *tcon,
 				rc = CIFSTCon(0, tcon->ses, tcon->treeName,
 					      tcon, nls_codepage);
 				up(&tcon->ses->sesSem);
+				/* tell server which Unix caps we support */
+				if (tcon->ses->capabilities & CAP_UNIX)
+					reset_cifs_unix_caps(0 /* no xid */,
+						tcon, 
+						NULL /* do not know sb */,
+						NULL /* no vol info */);
 				/* BB FIXME add code to check if wsize needs
 				update due to negotiated smb buffer size
 				shrinking */
@@ -441,19 +453,24 @@ CIFSSMBNegotiate(unsigned int xid, struct cifsSesInfo *ses)
 
 	/* if any of auth flags (ie not sign or seal) are overriden use them */
 	if(ses->overrideSecFlg & (~(CIFSSEC_MUST_SIGN | CIFSSEC_MUST_SEAL)))
-		secFlags = ses->overrideSecFlg;
+		secFlags = ses->overrideSecFlg;  /* BB FIXME fix sign flags? */
 	else /* if override flags set only sign/seal OR them with global auth */
 		secFlags = extended_security | ses->overrideSecFlg;
 
-	cFYI(1,("secFlags 0x%x",secFlags));
+	cFYI(1, ("secFlags 0x%x", secFlags));
 
 	pSMB->hdr.Mid = GetNextMid(server);
-	pSMB->hdr.Flags2 |= SMBFLG2_UNICODE;
-	if((secFlags & CIFSSEC_MUST_KRB5) == CIFSSEC_MUST_KRB5)
+	pSMB->hdr.Flags2 |= (SMBFLG2_UNICODE | SMBFLG2_ERR_STATUS);
+
+	if ((secFlags & CIFSSEC_MUST_KRB5) == CIFSSEC_MUST_KRB5)
 		pSMB->hdr.Flags2 |= SMBFLG2_EXT_SEC;
-	
+	else if ((secFlags & CIFSSEC_AUTH_MASK) == CIFSSEC_MAY_KRB5) {
+		cFYI(1, ("Kerberos only mechanism, enable extended security"));
+		pSMB->hdr.Flags2 |= SMBFLG2_EXT_SEC;
+	}
+
 	count = 0;
-	for(i=0;i<CIFS_NUM_PROT;i++) {
+	for (i = 0; i < CIFS_NUM_PROT; i++) {
 		strncpy(pSMB->DialectsArray+count, protocols[i].name, 16);
 		count += strlen(protocols[i].name) + 1;
 		/* null at end of source and target buffers anyway */
@@ -594,7 +611,20 @@ CIFSSMBNegotiate(unsigned int xid, struct cifsSesInfo *ses)
 		server->secType = NTLM;
 	else if(secFlags & CIFSSEC_MAY_NTLMV2)
 		server->secType = NTLMv2;
-	/* else krb5 ... any others ... */
+	else if (secFlags & CIFSSEC_MAY_KRB5)
+		server->secType = Kerberos;
+	else if (secFlags & CIFSSEC_MAY_LANMAN)
+		server->secType = LANMAN;
+/* #ifdef CONFIG_CIFS_EXPERIMENTAL
+	else if (secFlags & CIFSSEC_MAY_PLNTXT)
+		server->secType = ??
+#endif */
+	else {
+		rc = -EOPNOTSUPP;
+		cERROR(1, ("Invalid security type"));
+		goto neg_err_exit;
+	}
+	/* else ... any others ...? */
 
 	/* one byte, so no need to convert this or EncryptionKeyLen from
 	   little endian */
@@ -658,22 +688,33 @@ CIFSSMBNegotiate(unsigned int xid, struct cifsSesInfo *ses)
 #ifdef CONFIG_CIFS_WEAK_PW_HASH
 signing_check:
 #endif
-	if(sign_CIFS_PDUs == FALSE) {        
-		if(server->secMode & SECMODE_SIGN_REQUIRED)
-			cERROR(1,("Server requires "
-				 "/proc/fs/cifs/PacketSigningEnabled to be on"));
-		server->secMode &= 
+	if ((secFlags & CIFSSEC_MAY_SIGN) == 0) {
+		/* MUST_SIGN already includes the MAY_SIGN FLAG
+		   so if this is zero it means that signing is disabled */
+		cFYI(1, ("Signing disabled"));
+		if (server->secMode & SECMODE_SIGN_REQUIRED)
+			cERROR(1, ("Server requires "
+				   "packet signing to be enabled in "
+				   "/proc/fs/cifs/SecurityFlags."));
+		server->secMode &=
 			~(SECMODE_SIGN_ENABLED | SECMODE_SIGN_REQUIRED);
-	} else if(sign_CIFS_PDUs == 1) {
+	} else if ((secFlags & CIFSSEC_MUST_SIGN) == CIFSSEC_MUST_SIGN) {
+		/* signing required */
+		cFYI(1, ("Must sign - secFlags 0x%x", secFlags));
+		if ((server->secMode &
+			(SECMODE_SIGN_ENABLED | SECMODE_SIGN_REQUIRED)) == 0) {
+			cERROR(1,
+				("signing required but server lacks support"));
+			rc = -EOPNOTSUPP;
+		} else
+			server->secMode |= SECMODE_SIGN_REQUIRED;
+	} else {
+		/* signing optional ie CIFSSEC_MAY_SIGN */
 		if((server->secMode & SECMODE_SIGN_REQUIRED) == 0)
 			server->secMode &= 
 				~(SECMODE_SIGN_ENABLED | SECMODE_SIGN_REQUIRED);
-	} else if(sign_CIFS_PDUs == 2) {
-		if((server->secMode & 
-			(SECMODE_SIGN_ENABLED | SECMODE_SIGN_REQUIRED)) == 0) {
-			cERROR(1,("signing required but server lacks support"));
-		}
 	}
+	
 neg_err_exit:	
 	cifs_buf_release(pSMB);
 
@@ -3033,7 +3074,7 @@ CIFSSMBGetCIFSACL(const int xid, struct cifsTconInfo *tcon, __u16 fid,
 			goto qsec_out;
 		pSMBr = (struct smb_com_ntransact_rsp *)iov[0].iov_base;
 
-		cERROR(1,("smb %p parm %p data %p",pSMBr,parm,psec_desc));  /* BB removeme BB */
+		cFYI(1, ("smb %p parm %p data %p", pSMBr, parm, psec_desc));
 
 		if (le32_to_cpu(pSMBr->ParameterCount) != 4) {
 			rc = -EIO;      /* bad smb */
@@ -3292,6 +3333,9 @@ UnixQPathInfoRetry:
 		rc = validate_t2((struct smb_t2_rsp *)pSMBr);
 
 		if (rc || (pSMBr->ByteCount < sizeof(FILE_UNIX_BASIC_INFO))) {
+			cERROR(1, ("Malformed FILE_UNIX_BASIC_INFO response.\n"
+				   "Unix Extensions can be disabled on mount "
+				   "by specifying the nosfu mount option."));
 			rc = -EIO;	/* bad smb */
 		} else {
 			__u16 data_offset = le16_to_cpu(pSMBr->t2.DataOffset);
@@ -3986,10 +4030,6 @@ SMBOldQFSInfo(const int xid, struct cifsTconInfo *tcon, struct statfs *FSData)
 oldQFSInfoRetry:
 	rc = smb_init(SMB_COM_TRANSACTION2, 15, tcon, (void **) &pSMB,
 		(void **) &pSMBr);
-	if (rc)
-		return rc;
-	rc = smb_init(SMB_COM_TRANSACTION2, 15, tcon, (void **) &pSMB,
-		      (void **) &pSMBr);
 	if (rc)
 		return rc;
 

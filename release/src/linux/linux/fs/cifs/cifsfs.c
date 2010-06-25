@@ -101,10 +101,10 @@ cifs_read_super(struct super_block *sb, void *data,
 	struct inode *inode;
 	struct cifs_sb_info *cifs_sb;
 	int rc = 0;
-	
+
 	/* BB should we make this contingent on mount parm? */
 	sb->s_flags |= MS_NODIRATIME | MS_NOATIME;
-	sb->s_fs_info = kzalloc(sizeof(struct cifs_sb_info),GFP_KERNEL);
+	sb->s_fs_info = kzalloc(sizeof(struct cifs_sb_info), GFP_KERNEL);
 	cifs_sb = CIFS_SB(sb);
 	if (cifs_sb == NULL)
 		return -ENOMEM;
@@ -120,12 +120,9 @@ cifs_read_super(struct super_block *sb, void *data,
 
 	sb->s_magic = CIFS_MAGIC_NUMBER;
 	sb->s_op = &cifs_super_ops;
-#ifdef CONFIG_CIFS_EXPERIMENTAL
-	if (experimEnabled != 0)
-		sb->s_export_op = &cifs_export_ops;
-#endif /* EXPERIMENTAL */	
 /*	if (cifs_sb->tcon->ses->server->maxBuf > MAX_CIFS_HDR_SIZE + 512)
-	    sb->s_blocksize = cifs_sb->tcon->ses->server->maxBuf - MAX_CIFS_HDR_SIZE; */
+	    sb->s_blocksize =
+		cifs_sb->tcon->ses->server->maxBuf - MAX_CIFS_HDR_SIZE; */
 #ifdef CONFIG_CIFS_QUOTA
 	sb->s_qcop = &cifs_quotactl_ops;
 #endif
@@ -144,6 +141,13 @@ cifs_read_super(struct super_block *sb, void *data,
 		rc = -ENOMEM;
 		goto out_no_root;
 	}
+	
+#ifdef CONFIG_CIFS_EXPERIMENTAL
+	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SERVER_INUM) {
+		cFYI(1, ("export ops supported"));
+		sb->s_export_op = &cifs_export_ops;
+	}
+#endif /* EXPERIMENTAL */
 
 	return 0;
 
@@ -369,7 +373,7 @@ int cifs_xquota_set(struct super_block * sb, int quota_type, qid_t qid,
 	if (pTcon) {
 		cFYI(1,("set type: 0x%x id: %d",quota_type,qid));		
 	} else {
-		return -EIO;
+		rc = -EIO;
 	}
 
 	FreeXid(xid);
@@ -922,8 +926,8 @@ cifs_init_mids(void)
 				sizeof (struct oplock_q_entry), 0,
 				SLAB_HWCACHE_ALIGN, NULL, NULL);
 	if (cifs_oplock_cachep == NULL) {
-		kmem_cache_destroy(cifs_mid_cachep);
 		mempool_destroy(cifs_mid_poolp);
+		kmem_cache_destroy(cifs_mid_cachep);
 		return -ENOMEM;
 	}
 

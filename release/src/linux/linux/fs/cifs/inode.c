@@ -956,19 +956,25 @@ int cifs_mkdir(struct inode *inode, struct dentry *direntry, int mode)
 			rc = -ENOMEM;
 			goto mkdir_out;
 		}
-			
+
+		mode &= ~current->fs->umask;
 		rc = CIFSPOSIXCreate(xid, pTcon, SMB_O_DIRECTORY | SMB_O_CREAT,
 				mode, NULL /* netfid */, pInfo, &oplock,
 				full_path, cifs_sb->local_nls, 
 				cifs_sb->mnt_cifs_flags & 
 					CIFS_MOUNT_MAP_SPECIAL_CHR);
-		if (rc) {
+		if (rc == -EOPNOTSUPP) {
+			kfree(pInfo);
+			goto mkdir_retry_old;
+		} else if (rc) {
 			cFYI(1, ("posix mkdir returned 0x%x", rc));
 			d_drop(direntry);
 		} else {
 			int obj_type;
-			if (pInfo->Type == -1) /* no return info - go query */
+			if (pInfo->Type == -1) /* no return info - go query */ {
+				kfree(pInfo);
 				goto mkdir_get_info; 
+			}
 /*BB check (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID ) to see if need to set uid/gid */
 			inode->i_nlink++;
 			if (pTcon->nocase)
@@ -977,8 +983,10 @@ int cifs_mkdir(struct inode *inode, struct dentry *direntry, int mode)
 				direntry->d_op = &cifs_dentry_ops;
 
 			newinode = new_inode(inode->i_sb);
-			if (newinode == NULL)
+			if (newinode == NULL) {
+				kfree(pInfo);
 				goto mkdir_get_info;
+			}
 			/* Is an i_ino of zero legal? */
 			/* Are there sanity checks we can use to ensure that
 			   the server is really filling in that field? */
@@ -1008,8 +1016,8 @@ int cifs_mkdir(struct inode *inode, struct dentry *direntry, int mode)
 		}
 		kfree(pInfo);
 		goto mkdir_out;
-	}	
-	
+	}
+mkdir_retry_old:
 	/* BB add setting the equivalent of mode via CreateX w/ACLs */
 	rc = CIFSSMBMkDir(xid, pTcon, full_path, cifs_sb->local_nls,
 			  cifs_sb->mnt_cifs_flags & CIFS_MOUNT_MAP_SPECIAL_CHR);
@@ -1035,7 +1043,8 @@ mkdir_get_info:
 		  * failed to get it from the server or was set bogus */ 
 		if ((direntry->d_inode) && (direntry->d_inode->i_nlink < 2))
 				direntry->d_inode->i_nlink = 2; 
-		if (cifs_sb->tcon->ses->capabilities & CAP_UNIX)
+		if (cifs_sb->tcon->ses->capabilities & CAP_UNIX) {
+			mode &= ~current->fs->umask;
 			if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID) {
 				CIFSSMBUnixSetPerms(xid, pTcon, full_path,
 						    mode,
@@ -1053,7 +1062,7 @@ mkdir_get_info:
 						    cifs_sb->mnt_cifs_flags & 
 						    CIFS_MOUNT_MAP_SPECIAL_CHR);
 			}
-		else {
+		} else {
 			/* BB to be implemented via Windows secrty descriptors
 			   eg CIFSSMBWinSetPerms(xid, pTcon, full_path, mode,
 						 -1, -1, local_nls); */
@@ -1428,8 +1437,17 @@ static int cifs_vmtruncate(struct inode * inode, loff_t offset)
 	}
 	i_size_write(inode, offset);
 	spin_unlock(&inode->i_lock);
+	/*
+	 * unmap_mapping_range is called twice, first simply for efficiency
+	 * so that truncate_inode_pages does fewer single-page unmaps. However
+	 * after this first call, and before truncate_inode_pages finishes,
+	 * it is possible for private pages to be COWed, which remain after
+	 * truncate_inode_pages finishes, hence the second unmap_mapping_range
+	 * call must be made for correctness.
+	 */
 	unmap_mapping_range(mapping, offset + PAGE_SIZE - 1, 0, 1);
 	truncate_inode_pages(mapping, offset);
+	unmap_mapping_range(mapping, offset + PAGE_SIZE - 1, 0, 1);
 	goto out_truncate;
 
 do_expand:

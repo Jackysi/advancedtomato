@@ -24,6 +24,7 @@
 #include <linux/version.h>
 
 struct statfs;
+struct smb_vol;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,8)
 #define kvec iovec
@@ -166,6 +167,8 @@ extern int get_dfs_path(int xid, struct cifsSesInfo *pSesInfo,
 			unsigned int *pnum_referrals, 
 			unsigned char ** preferrals,
 			int remap);
+extern void reset_cifs_unix_caps(int xid, struct cifsTconInfo *tcon,
+			struct super_block * sb, struct smb_vol * vol);
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 0)
 extern int CIFSSMBQFSInfo(const int xid, struct cifsTconInfo *tcon,
 			struct kstatfs *FSData);
@@ -323,9 +326,11 @@ extern int cifs_reconnect(struct TCP_Server_Info *server);
 extern int cifs_sign_smb(struct smb_hdr *, struct TCP_Server_Info *,__u32 *);
 extern int cifs_sign_smb2(struct kvec *iov, int n_vec, struct TCP_Server_Info *,
 			  __u32 *);
-extern int cifs_verify_signature(struct smb_hdr *, const char * mac_key,
-	__u32 expected_sequence_number);
-extern int cifs_calculate_mac_key(char * key,const char * rn,const char * pass);
+extern int cifs_verify_signature(struct smb_hdr *,
+				 const struct mac_key *mac_key,
+				__u32 expected_sequence_number);
+extern int cifs_calculate_mac_key(struct mac_key *key, const char *rn,
+				 const char *pass);
 extern int CalcNTLMv2_partial_mac_key(struct cifsSesInfo *, 
 			const struct nls_table *);
 extern void CalcNTLMv2_response(const struct cifsSesInfo *, char * );

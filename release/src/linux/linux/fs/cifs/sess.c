@@ -380,6 +380,10 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 
 	/* 2000 big enough to fit max user, domain, NOS name etc. */
 	str_area = kmalloc(2000, GFP_KERNEL);
+	if (str_area == NULL) {
+		cifs_small_buf_release(smb_buf);
+		return -ENOMEM;
+	}
 	bcc_ptr = str_area;
 
 	ses->flags &= ~CIFS_SES_LANMAN;
@@ -427,7 +431,7 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 
 		if(first_time) /* should this be moved into common code 
 				  with similar ntlmv2 path? */
-			cifs_calculate_mac_key(ses->server->mac_signing_key,
+			cifs_calculate_mac_key(&ses->server->mac_signing_key,
 				ntlm_session_key, ses->password);
 		/* copy session key */
 
