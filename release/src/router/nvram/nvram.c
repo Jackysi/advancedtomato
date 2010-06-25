@@ -167,6 +167,23 @@ static int find_main(int argc, char **argv)
 	return (r == -1) ? 1 : WEXITSTATUS(r);
 }
 
+static const char *nv_default_value(const defaults_t *t)
+{
+	if (strcmp(t->key, "wl_txpwr") == 0) {
+		switch (get_model()) {
+		case MODEL_WHRG54S:
+			return "28";
+#ifdef CONFIG_BCMWL5
+		case MODEL_RTN10:
+		case MODEL_RTN12:
+		case MODEL_RTN16:
+			return "17";
+#endif
+		}
+	}
+	return t->value;
+}
+
 static int defaults_main(int argc, char **argv)
 {
 	const defaults_t *t;
@@ -218,8 +235,8 @@ static int defaults_main(int argc, char **argv)
 				}
 			}
 			else {
-				nvram_set(t->key, t->value);
-				if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", t->value);
+				nvram_set(t->key, nv_default_value(t));
+				if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", nv_default_value(t));
 				commit = 1;
 			}
 		}
