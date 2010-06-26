@@ -76,6 +76,8 @@ aftg.verifyFields = function(row, quiet)
 	ferror.clear(f[0]);
 	ferror.clear(f[1]);
 
+	if (!v_length(f[0], quiet, 1)) return 0;
+
 	s = f[0].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[a-zA-Z0-9_\-]+$/) == -1) {
@@ -88,16 +90,9 @@ aftg.verifyFields = function(row, quiet)
 		}
 		f[0].value = s;
 	}
-	else {
-		ferror.set(f[0], 'Empty user name is not allowed.', quiet);
-		return 0;
-	}
 
-	f[1].value = f[1].value.replace(/>/g, '_');
-	if (f[1].value.length <= 0) {
-		ferror.set(f[1], 'Password must not be empty.', quiet);
-		return 0;
-	}
+	if (!v_length(f[1], quiet, 1)) return 0;
+	if (!v_nodelim(f[1], quiet, 'Password', 1)) return 0;
 
 	return 1;
 }
@@ -170,6 +165,9 @@ function verifyFields(focused, quiet)
 		if (!v_range('_ftp_anonrate', quiet || !ok, 0, 99999)) ok = 0;
 		if (!v_range('_ftp_staytimeout', quiet || !ok, 0, 65535)) ok = 0;
 		if (!v_length('_ftp_custom', quiet || !ok, 0, 2048)) ok = 0;
+		if (!v_path('_ftp_pubroot', quiet || !ok, 0)) ok = 0;
+		if (!v_path('_ftp_pvtroot', quiet || !ok, 0)) ok = 0;
+		if (!v_path('_ftp_anonroot', quiet || !ok, 0)) ok = 0;
 		if (a == 1 && b) {
 			if (!v_range('_f_limit_hit', quiet || !ok, 1, 100)) ok = 0;
 			if (!v_range('_f_limit_sec', quiet || !ok, 3, 3600)) ok = 0;

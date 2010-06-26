@@ -43,17 +43,6 @@ textarea {
 
 //	<% nvram("smbd_enable,smbd_user,smbd_passwd,smbd_wgroup,smbd_cpage,smbd_custom,smbd_master,smbd_wins,smbd_shares,smbd_autoshare,wan_wins"); %>
 
-function v_nodelim(e, quiet, name)
-{
-	e.value = e.value.trim().replace(/>/g, '_');
-	if (e.value.indexOf('<') != -1) {
-		ferror.set(e, 'Invalid ' + name, quiet);
-		return 0;
-	}
-	ferror.clear(e);
-	return 1;
-}
-
 var ssg = new TomatoGrid();
 
 ssg.exist = function(f, v)
@@ -90,6 +79,7 @@ ssg.fieldValuesToData = function(row) {
 ssg.verifyFields = function(row, quiet)
 {
 	var f, s;
+
 	f = fields.getAll(row);
 
 	s = f[0].value.trim().replace(/\s+/g, ' ');
@@ -109,13 +99,8 @@ ssg.verifyFields = function(row, quiet)
 		return 0;
 	}
 
-	if ((!v_nodelim(f[1], quiet, 'Directory')) || (!v_nodelim(f[2], quiet, 'Description')))
-		return 0;
-
-	if (f[1].value.trim().length <= 0) {
-		ferror.set(f[1], 'Directory must not be empty.', quiet);
-		return 0;
-	}
+	if (!v_nodelim(f[1], quiet, 'Directory', 1) || !v_path(f[1], quiet, 1)) return 0;
+	if (!v_nodelim(f[2], quiet, 'Description', 1)) return 0;
 
 	return 1;
 }
@@ -176,20 +161,12 @@ function verifyFields(focused, quiet)
 	if (a != 0 && !v_length('_smbd_custom', quiet, 0, 2048)) return 0;
 
 	if (a == 2) {
-		b = E('_smbd_user');
-		if (b.value.trim() == '') {
-			ferror.set(b, 'User Name must not be empty.', quiet);
-			return 0;
-		}
-		if (b.value == 'root') {
-			ferror.set(b, 'User Name root is not allowed.', quiet);
-			return 0;
-		}
-		ferror.clear(b);
+		if (!v_length('_smbd_user', quiet, 1)) return 0;
+		if (!v_length('_smbd_passwd', quiet, 1)) return 0;
 
-		b = E('_smbd_passwd');
-		if (b.value.trim() == '') {
-			ferror.set(b, 'Password must not be empty.', quiet);
+		b = E('_smbd_user');
+		if (b.value == 'root') {
+			ferror.set(b, 'User Name \"root\" is not allowed.', quiet);
 			return 0;
 		}
 		ferror.clear(b);

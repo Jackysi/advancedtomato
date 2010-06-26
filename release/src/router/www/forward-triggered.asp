@@ -78,6 +78,7 @@ tg.verifyFields = function(row, quiet) {
 	if (!v_portrange(f[2], quiet)) return 0;
 	if (!v_portrange(f[3], quiet)) return 0;
 	f[4].value = f[4].value.replace(/>/g, '_');
+	if (!v_nodelim(f[4], quiet, 'Description')) return 0;
 	return 1;
 }
 

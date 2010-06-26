@@ -39,7 +39,10 @@
 var smg = new TomatoGrid();
 
 smg.verifyFields = function(row, quiet) {
-	return v_mac(fields.getAll(row)[0], quiet);
+	var f;
+	f = fields.getAll(row);
+
+	return v_mac(f[0], quiet) && v_nodelim(f[1], quiet, 'Description', 1);
 }
 
 smg.resetNewEditor = function() {

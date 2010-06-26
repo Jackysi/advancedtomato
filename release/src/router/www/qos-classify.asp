@@ -242,6 +242,7 @@ qosg.verifyFields = function(row, quiet) {
 		return 0;
 	}
 
+	if (!v_nodelim(f[10], quiet, 'Description', 1)) return 0;
 	return v_length(f[10], quiet);
 }
 
