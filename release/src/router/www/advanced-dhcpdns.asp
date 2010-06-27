@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_vendorclass,dhcpc_requestip"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_vendorclass,dhcpc_requestip"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -62,9 +62,12 @@ function save()
 	fom.dns_addget.value = E('_f_dns_addget').checked ? 1 : 0;
 	fom.dhcpd_gwmode.value = E('_f_dhcpd_gwmode').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
+	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 
-	if (fom.dhcpc_vendorclass.value != nvram.dhcpc_vendorclass ||
+	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt ||
+	    fom.dhcpc_vendorclass.value != nvram.dhcpc_vendorclass ||
 	    nval(fom.dhcpc_requestip.value, '0.0.0.0') != nval(nvram.dhcpc_requestip, '0.0.0.0')) {
+		nvram.dhcpc_minpkt = fom.dhcpc_minpkt.value;
 		nvram.dhcpc_vendorclass = fom.dhcpc_vendorclass.value;
 		nvram.dhcpc_requestip = fom.dhcpc_requestip.value;
 		fom._service.value = '*';
@@ -104,6 +107,7 @@ function save()
 <input type='hidden' name='dns_addget'>
 <input type='hidden' name='dhcpd_gwmode'>
 <input type='hidden' name='dns_intcpt'>
+<input type='hidden' name='dhcpc_minpkt'>
 
 <div class='section-title'>DHCP / DNS Server (LAN)</div>
 <div class='section'>
@@ -132,7 +136,8 @@ Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configu
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Vendor Class ID', name: 'dhcpc_vendorclass', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_vendorclass },
-	{ title: 'IP Address to request', name: 'dhcpc_requestip', type: 'text', maxlen: 15, size: 34, value: nvram.dhcpc_requestip }
+	{ title: 'IP Address to request', name: 'dhcpc_requestip', type: 'text', maxlen: 15, size: 34, value: nvram.dhcpc_requestip },
+	{ title: 'Reduce packet size', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
 ]);
 </script>
 </div>

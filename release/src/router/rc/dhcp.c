@@ -359,11 +359,7 @@ void start_dhcpc(void)
 		argv[argc++] = p;
 	}
 
-	/* Remove dhcpc_minpkt nvram setting, always minimize packet size.
-	 * Busybox already has the same functionality enabled in trunk,
-	 * remove the "-m" parameter after merging with upstream.
-	 */
-	argv[argc++] = "-m";
+	if (nvram_get_int("dhcpc_minpkt")) argv[argc++] = "-m";
 
 	if (nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-S";
 
