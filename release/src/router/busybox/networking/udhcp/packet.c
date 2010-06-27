@@ -19,6 +19,8 @@
 #include "dhcpd.h"
 #include "options.h"
 
+int minpkt = 0;	// zzz
+
 #define SECS	3	/* lame attempt to add secs field */
 
 void FAST_FUNC udhcp_init_header(struct dhcp_packet *packet, char type)
@@ -217,7 +219,7 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
 	 * In order to work with those buggy servers,
 	 * we truncate packets after end option byte.
 	 */
-	padding = DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(packet.data.options);
+	padding = minpkt ? DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(packet.data.options) : 0;
 
 	packet.ip.protocol = IPPROTO_UDP;
 	packet.ip.saddr = source_ip;
@@ -291,7 +293,7 @@ int FAST_FUNC udhcp_send_kernel_packet(struct dhcp_packet *dhcp_pkt,
 
 	udhcp_dump_packet(dhcp_pkt);
 
-	padding = DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(dhcp_pkt->options);
+	padding = minpkt ? DHCP_OPTIONS_BUFSIZE - 1 - udhcp_end_option(dhcp_pkt->options) : 0;
 	result = safe_write(fd, dhcp_pkt, DHCP_SIZE - padding);
 	msg = "write";
  ret_close:
