@@ -181,10 +181,6 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
 	}
 	return NF_ACCEPT;
 }
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern unsigned int
-ipv4_nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb);
-#endif
 
 static unsigned int ipv4_conntrack_in(unsigned int hooknum,
 				      struct sk_buff **pskb,
@@ -192,11 +188,7 @@ static unsigned int ipv4_conntrack_in(unsigned int hooknum,
 				      const struct net_device *out,
 				      int (*okfn)(struct sk_buff *))
 {
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	return ipv4_nf_conntrack_in(PF_INET, hooknum, pskb);
-#else
 	return nf_conntrack_in(PF_INET, hooknum, pskb);
-#endif
 }
 
 static unsigned int ipv4_conntrack_local(unsigned int hooknum,
@@ -212,17 +204,12 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
 			printk("ipt_hook: happy cracking.\n");
 		return NF_ACCEPT;
 	}
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	return ipv4_nf_conntrack_in(PF_INET, hooknum, pskb);
-#else
 	return nf_conntrack_in(PF_INET, hooknum, pskb);
-#endif
 }
 
 /* Connection tracking may drop packets, but never alters them, so
    make it the first hook. */
 static struct nf_hook_ops ipv4_conntrack_ops[] = {
-#if !defined(CONFIG_BCM_NAT) && !defined(CONFIG_BCM_NAT_MODULE)
 	{
 		.hook		= ipv4_conntrack_defrag,
 		.owner		= THIS_MODULE,
@@ -230,7 +217,6 @@ static struct nf_hook_ops ipv4_conntrack_ops[] = {
 		.hooknum	= NF_IP_PRE_ROUTING,
 		.priority	= NF_IP_PRI_CONNTRACK_DEFRAG,
 	},
-#endif
 	{
 		.hook		= ipv4_conntrack_in,
 		.owner		= THIS_MODULE,
