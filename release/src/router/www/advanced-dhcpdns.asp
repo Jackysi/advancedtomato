@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_vendorclass,dhcpc_requestip"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -40,7 +40,13 @@ function verifyFields(focused, quiet)
 	if ((b) && (!v_range('_f_dhcpd_slt', quiet, 1, 43200))) return 0;
 	if (!v_length('_dnsmasq_custom', quiet, 0, 2048)) return 0;
 	if (!v_range('_dhcpd_lmax', quiet, 1, 0xFFFF)) return 0;
+	if (!v_ipz('_dhcpc_requestip', quiet)) return 0;
 	return 1;
+}
+
+function nval(a, b)
+{
+	return (a == null || (a + '').trim() == '') ? b : a;
 }
 
 function save()
@@ -57,7 +63,15 @@ function save()
 	fom.dhcpd_gwmode.value = E('_f_dhcpd_gwmode').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
 
-	fom._service.value = 'dnsmasq-restart';
+	if (fom.dhcpc_vendorclass.value != nvram.dhcpc_vendorclass ||
+	    nval(fom.dhcpc_requestip.value, '0.0.0.0') != nval(nvram.dhcpc_requestip, '0.0.0.0')) {
+		nvram.dhcpc_vendorclass = fom.dhcpc_vendorclass.value;
+		nvram.dhcpc_requestip = fom.dhcpc_requestip.value;
+		fom._service.value = '*';
+	}
+	else {
+		fom._service.value = 'dnsmasq-restart';
+	}
 
 	if (fom.dns_intcpt.value != nvram.dns_intcpt) {
 		nvram.dns_intcpt = fom.dns_intcpt.value;
@@ -112,6 +126,16 @@ createFieldTable('', [
 Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configuration file if it exists.
 </div>
 <br>
+
+<div class='section-title'>DHCP Client (WAN)</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Vendor Class ID', name: 'dhcpc_vendorclass', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_vendorclass },
+	{ title: 'IP Address to request', name: 'dhcpc_requestip', type: 'text', maxlen: 15, size: 34, value: nvram.dhcpc_requestip }
+]);
+</script>
+</div>
 
 
 <!-- / / / -->
