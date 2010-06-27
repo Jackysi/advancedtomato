@@ -115,34 +115,11 @@ static inline int bcm_fast_path(struct sk_buff *skb)
 	return -EINVAL;
 }
 
-static int inline
-ipv4_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
-		   const struct nf_conntrack_tuple *orig,
-		   const struct nf_conntrack_l4proto *l4proto)
-{
-	inverse->src.u.all = inverse->dst.u.all = 0;
-	inverse->src.u3.all[0]
-	= inverse->src.u3.all[1]
-	= inverse->src.u3.all[2]
-	= inverse->src.u3.all[3]
-	= 0;
-	inverse->dst.u3.all[0]
-	= inverse->dst.u3.all[1]
-	= inverse->dst.u3.all[2]
-	= inverse->dst.u3.all[3]
-	= 0;
-	inverse->src.u3.ip = orig->dst.u3.ip;
-	inverse->dst.u3.ip = orig->src.u3.ip;
-	inverse->src.l3num = orig->src.l3num;
-	inverse->dst.dir = !orig->dst.dir;
-	inverse->dst.protonum = orig->dst.protonum;
-	return l4proto->invert_tuple(inverse, orig);
-}
-
 static inline int
 bcm_do_bindings(struct nf_conn *ct,
-	    enum ip_conntrack_info ctinfo,
-	    struct sk_buff **pskb,
+		enum ip_conntrack_info ctinfo,
+		struct sk_buff **pskb,
+		struct nf_conntrack_l3proto *l3proto,
 		struct nf_conntrack_l4proto *l4proto)
 {
 	struct iphdr *iph = ip_hdr(*pskb);
@@ -187,7 +164,7 @@ bcm_do_bindings(struct nf_conn *ct,
 			}
 
 			/* We are aiming to look like inverse of other direction. */
-			ipv4_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l4proto);
+			nf_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l3proto, l4proto);
 #ifdef HNDCTF
 			if (enabled)
 				ip_conntrack_ipct_add(*pskb, hn[i], ct, ctinfo, &target);
