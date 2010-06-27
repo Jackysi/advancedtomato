@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall $(EXTRACFLAGS)
+CFLAGS	= -O2 -Wall $(EXTRACFLAGS) -fPIC
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 LDFLAGS	=
 

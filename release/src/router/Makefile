@@ -510,13 +510,13 @@ oldconfig oldconf: koldconf roldconf bboldconf
 #
 
 busybox: dummy
-	@$(MAKE) -C busybox EXTRA_CFLAGS="$(EXTRACFLAGS)"
+	@$(MAKE) -C busybox EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)"
 
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox
+	$(MAKE) -C busybox install EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)" CONFIG_PREFIX=$(INSTALLDIR)/busybox
 
 busybox-clean:
 	$(MAKE) -C busybox distclean
@@ -545,10 +545,11 @@ matrixssl-clean:
 openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel
+	CC=$(CC) && ./Configure linux-mipsel shared
 else
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel no-aes no-idea no-md2 no-mdc2 no-rc5
+	CC=$(CC) && ./Configure linux-mipsel shared \
+		no-aes no-idea no-md2 no-mdc2 no-rc5 no-rmd160 no-ripemd
 endif
 	@$(MAKE) -C openssl clean
 	@touch openssl/stamp-h1
@@ -982,7 +983,7 @@ flac-install:
 
 jpeg/stamp-h1:
 	cd jpeg && \
-	CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" $(CONFIGURE) --enable-shared --enable-static --prefix=''
 	touch jpeg/stamp-h1
 
 jpeg: jpeg/stamp-h1
@@ -1014,12 +1015,12 @@ libexif-install:
 
 zlib/stamp-h1:
 	cd zlib && \
-	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
 	./configure --shared --prefix=''
 	touch zlib/stamp-h1
 
 zlib: zlib/stamp-h1
-	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" all libz.a
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" all libz.a
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
