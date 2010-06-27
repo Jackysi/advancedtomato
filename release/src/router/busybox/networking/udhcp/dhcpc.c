@@ -206,9 +206,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		OPT_O = 1 << 17,
 		OPT_o = 1 << 18,
 		OPT_f = 1 << 19,
-		OPT_m = 1 << 20,	// zzz
 /* The rest has variable bit positions, need to be clever */
-		OPTBIT_LAST = 20,
+		OPTBIT_f = 19,
 		USE_FOR_MMU(             OPTBIT_b,)
 		IF_FEATURE_UDHCPC_ARPING(OPTBIT_a,)
 		IF_FEATURE_UDHCP_PORT(   OPTBIT_P,)
@@ -232,7 +231,6 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		;
 	IF_LONG_OPTS(applet_long_options = udhcpc_longopts;)
 	opt = getopt32(argv, "c:CV:H:h:F:i:np:qRr:s:T:t:SA:O:of"
-		"m"	// zzz
 		USE_FOR_MMU("b")
 		IF_FEATURE_UDHCPC_ARPING("a")
 		IF_FEATURE_UDHCP_PORT("P:")
@@ -283,7 +281,6 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		n = dhcp_options[n].code;
 		client_config.opt_mask[n >> 3] |= 1 << (n & 7);
 	}
-	if (opt & OPT_m) minpkt = 1;	// zzz
 
 	if (udhcp_read_interface(client_config.interface,
 			&client_config.ifindex,

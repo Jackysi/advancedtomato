@@ -73,7 +73,6 @@ int udhcp_send_kernel_packet(struct dhcp_packet *dhcp_pkt,
 		uint32_t source_ip, int source_port,
 		uint32_t dest_ip, int dest_port) FAST_FUNC;
 
-extern int minpkt;	// zzz
 
 /**/
 
