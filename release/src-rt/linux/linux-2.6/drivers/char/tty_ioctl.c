@@ -243,7 +243,8 @@ EXPORT_SYMBOL(tty_termios_input_baud_rate);
  *	and will all go away once this is done.
  */
 
-void tty_termios_encode_baud_rate(struct ktermios *termios, speed_t ibaud, speed_t obaud)
+void tty_termios_encode_baud_rate(struct ktermios *termios,
+				  speed_t ibaud, speed_t obaud)
 {
 	int i = 0;
 	int ifound = -1, ofound = -1;
@@ -278,11 +279,15 @@ void tty_termios_encode_baud_rate(struct ktermios *termios, speed_t ibaud, speed
 	 */
 
 	do {
-		if (obaud - oclose >= baud_table[i] && obaud + oclose <= baud_table[i]) {
+		if (obaud - oclose <= baud_table[i] &&
+		    obaud + oclose >= baud_table[i]) {
 			termios->c_cflag |= baud_bits[i];
 			ofound = i;
 		}
-		if (ibaud - iclose >= baud_table[i] && ibaud + iclose <= baud_table[i]) {
+		if (ibaud - iclose <= baud_table[i] &&
+		    ibaud + iclose >= baud_table[i]) {
+			/* For the case input == output don't set IBAUD bits
+			   if the user didn't do so */
 			if (ofound == i && !ibinput)
 				ifound  = i;
 #ifdef IBSHIFT
@@ -892,14 +897,14 @@ int n_tty_ioctl(struct tty_struct * tty, struct file * file,
 				retval = inq_canon(tty);
 			return put_user(retval, (unsigned int __user *) arg);
 		case TIOCGLCKTRMIOS:
-			if (kernel_termios_to_user_termios((struct termios __user *)arg, real_tty->termios_locked))
+			if (kernel_termios_to_user_termios_1((struct termios __user *)arg, real_tty->termios_locked))
 				return -EFAULT;
 			return 0;
 
 		case TIOCSLCKTRMIOS:
 			if (!capable(CAP_SYS_ADMIN))
 				return -EPERM;
-			if (user_termios_to_kernel_termios(real_tty->termios_locked, (struct termios __user *) arg))
+			if (user_termios_to_kernel_termios_1(real_tty->termios_locked, (struct termios __user *) arg))
 				return -EFAULT;
 			return 0;
 
