@@ -598,6 +598,7 @@ static const nvset_t nvset_list[] = {
 	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
 	{ "sesx_b3",			V_RANGE(0, 4)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
+	{ "script_brau",		V_TEXT(0, 1024)		},	//
 
 // admin-debug
 	{ "debug_nocommit",		V_01				},
