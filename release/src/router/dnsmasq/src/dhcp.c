@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ struct iface_param {
 static int complete_context(struct in_addr local, int if_index, 
 			    struct in_addr netmask, struct in_addr broadcast, void *vparam);
 
-void dhcp_init(void)
+static int make_fd(int port)
 {
   int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
   struct sockaddr_in saddr;
@@ -67,7 +67,7 @@ void dhcp_init(void)
   
   memset(&saddr, 0, sizeof(saddr));
   saddr.sin_family = AF_INET;
-  saddr.sin_port = htons(daemon->dhcp_server_port);
+  saddr.sin_port = htons(port);
   saddr.sin_addr.s_addr = INADDR_ANY;
 #ifdef HAVE_SOCKADDR_SA_LEN
   saddr.sin_len = sizeof(struct sockaddr_in);
@@ -76,7 +76,20 @@ void dhcp_init(void)
   if (bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in)))
     die(_("failed to bind DHCP server socket: %s"), NULL, EC_BADNET);
 
-  daemon->dhcpfd = fd;
+  return fd;
+}
+
+void dhcp_init(void)
+{
+#if defined(HAVE_BSD_NETWORK)
+  int oneopt = 1;
+#endif
+
+  daemon->dhcpfd = make_fd(daemon->dhcp_server_port);
+  if (daemon->enable_pxe)
+    daemon->pxefd = make_fd(PXE_PORT);
+  else
+    daemon->pxefd = -1;
 
 #if defined(HAVE_BSD_NETWORK)
   /* When we're not using capabilities, we need to do this here before
@@ -99,8 +112,9 @@ void dhcp_init(void)
   daemon->dhcp_packet.iov_base = safe_malloc(daemon->dhcp_packet.iov_len);
 }
   
-void dhcp_packet(time_t now)
+void dhcp_packet(time_t now, int pxe_fd)
 {
+  int fd = pxe_fd ? daemon->pxefd : daemon->dhcpfd;
   struct dhcp_packet *mess;
   struct dhcp_context *context;
   struct iname *tmp;
@@ -113,7 +127,10 @@ void dhcp_packet(time_t now)
   int iface_index = 0, unicast_dest = 0, is_inform = 0;
   struct in_addr iface_addr, *addrp = NULL;
   struct iface_param parm;
-
+#ifdef HAVE_LINUX_NETWORK
+  struct arpreq arp_req;
+#endif
+  
   union {
     struct cmsghdr align; /* this ensures alignment */
 #if defined(HAVE_LINUX_NETWORK)
@@ -135,7 +152,7 @@ void dhcp_packet(time_t now)
   while (1)
     {
       msg.msg_flags = 0;
-      while ((sz = recvmsg(daemon->dhcpfd, &msg, MSG_PEEK | MSG_TRUNC)) == -1 && errno == EINTR);
+      while ((sz = recvmsg(fd, &msg, MSG_PEEK | MSG_TRUNC)) == -1 && errno == EINTR);
       
       if (sz == -1)
 	return;
@@ -165,7 +182,7 @@ void dhcp_packet(time_t now)
   msg.msg_name = &dest;
   msg.msg_namelen = sizeof(dest);
 
-  while ((sz = recvmsg(daemon->dhcpfd, &msg, 0)) == -1 && errno == EINTR);
+  while ((sz = recvmsg(fd, &msg, 0)) == -1 && errno == EINTR);
  
   if ((msg.msg_flags & MSG_TRUNC) || sz < (ssize_t)(sizeof(*mess) - sizeof(mess->options)))
     return;
@@ -175,8 +192,13 @@ void dhcp_packet(time_t now)
     for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
       if (cmptr->cmsg_level == SOL_IP && cmptr->cmsg_type == IP_PKTINFO)
 	{
-	  iface_index = ((struct in_pktinfo *)CMSG_DATA(cmptr))->ipi_ifindex;
-	  if (((struct in_pktinfo *)CMSG_DATA(cmptr))->ipi_addr.s_addr != INADDR_BROADCAST)
+	  union {
+	    unsigned char *c;
+	    struct in_pktinfo *p;
+	  } p;
+	  p.c = CMSG_DATA(cmptr);
+	  iface_index = p.p->ipi_ifindex;
+	  if (p.p->ipi_addr.s_addr != INADDR_BROADCAST)
 	    unicast_dest = 1;
 	}
 
@@ -184,19 +206,36 @@ void dhcp_packet(time_t now)
   if (msg.msg_controllen >= sizeof(struct cmsghdr))
     for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
       if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_RECVIF)
-        iface_index = ((struct sockaddr_dl *)CMSG_DATA(cmptr))->sdl_index;
-
+        {
+	  union {
+            unsigned char *c;
+            struct sockaddr_dl *s;
+          } p;
+	  p.c = CMSG_DATA(cmptr);
+	  iface_index = p.s->sdl_index;
+	}
   
 #elif defined(HAVE_SOLARIS_NETWORK) 
   if (msg.msg_controllen >= sizeof(struct cmsghdr))
     for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
       if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_RECVIF)
-	iface_index = *((unsigned int *)CMSG_DATA(cmptr));
-	  
+	{
+	  union {
+	    unsigned char *c;
+	    unsigned int *i;
+	  } p;
+	  p.c = CMSG_DATA(cmptr);
+	  iface_index = *(p.i);
+	}
 #endif
 	
   if (!indextoname(daemon->dhcpfd, iface_index, ifr.ifr_name))
     return;
+
+#ifdef HAVE_LINUX_NETWORK
+  /* ARP fiddling uses original interface even if we pretend to use a different one. */
+  strncpy(arp_req.arp_dev, ifr.ifr_name, 16);
+#endif 
 
 #ifdef MSG_BCAST
   /* OpenBSD tells us when a packet was broadcast */
@@ -217,18 +256,14 @@ void dhcp_packet(time_t now)
   for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
     if (tmp->name && (strcmp(tmp->name, ifr.ifr_name) == 0))
       return;
-  
-  /* interface may have been changed by alias in iface_check */
-  if (!addrp)
-    {
-      if (ioctl(daemon->dhcpfd, SIOCGIFADDR, &ifr) == -1)
-	{
-	  my_syslog(MS_DHCP | LOG_WARNING, _("DHCP packet received on %s which has no address"), ifr.ifr_name);
-	  return;
-	}
-      else
-	iface_addr = ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr;
-    }
+
+  /* weird libvirt-inspired access control */
+  for (context = daemon->dhcp; context; context = context->next)
+    if (!context->interface || strcmp(context->interface, ifr.ifr_name) == 0)
+      break;
+
+  if (!context)
+    return;
   
   /* unlinked contexts are marked by context->current == context */
   for (context = daemon->dhcp; context; context = context->next)
@@ -239,11 +274,32 @@ void dhcp_packet(time_t now)
   parm.current = NULL;
   parm.ind = iface_index;
 
+    /* interface may have been changed by alias in iface_check, make sure it gets priority in case
+       there is more than one address on the interface in the same subnet */
+  if (ioctl(daemon->dhcpfd, SIOCGIFADDR, &ifr) == -1)
+    {
+      my_syslog(MS_DHCP | LOG_WARNING, _("DHCP packet received on %s which has no address"), ifr.ifr_name);
+      return;
+    }
+  else
+    {
+      iface_addr = ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr;
+      if (ioctl(daemon->dhcpfd, SIOCGIFNETMASK, &ifr) != -1)
+	{
+	  struct in_addr netmask =  ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr;
+	  if (ioctl(daemon->dhcpfd, SIOCGIFBRDADDR, &ifr) != -1)
+	    {
+	      struct in_addr broadcast =  ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr;
+	      complete_context(iface_addr, iface_index, netmask, broadcast, &parm);
+	    }
+	}
+    } 
+
   if (!iface_enumerate(&parm, complete_context, NULL))
     return;
   lease_prune(NULL, now); /* lose any expired leases */
   iov.iov_len = dhcp_reply(parm.current, ifr.ifr_name, iface_index, (size_t)sz, 
-			   now, unicast_dest, &is_inform);
+			   now, unicast_dest, &is_inform, pxe_fd);
   lease_update_file(now);
   lease_update_dns();
     
@@ -264,7 +320,12 @@ void dhcp_packet(time_t now)
   dest.sin_len = sizeof(struct sockaddr_in);
 #endif
      
-  if (mess->giaddr.s_addr)
+  if (pxe_fd)
+    { 
+      if (mess->ciaddr.s_addr != 0)
+	dest.sin_addr = mess->ciaddr;
+    }
+  else if (mess->giaddr.s_addr)
     {
       /* Send to BOOTP relay  */
       dest.sin_port = htons(daemon->dhcp_server_port);
@@ -305,15 +366,14 @@ void dhcp_packet(time_t now)
     {
       /* unicast to unconfigured client. Inject mac address direct into ARP cache. 
 	 struct sockaddr limits size to 14 bytes. */
-      struct arpreq req;
       dest.sin_addr = mess->yiaddr;
       dest.sin_port = htons(daemon->dhcp_client_port);
-      *((struct sockaddr_in *)&req.arp_pa) = dest;
-      req.arp_ha.sa_family = mess->htype;
-      memcpy(req.arp_ha.sa_data, mess->chaddr, mess->hlen);
-      strncpy(req.arp_dev, ifr.ifr_name, 16);
-      req.arp_flags = ATF_COM;
-      ioctl(daemon->dhcpfd, SIOCSARP, &req);
+      memcpy(&arp_req.arp_pa, &dest, sizeof(struct sockaddr_in));
+      arp_req.arp_ha.sa_family = mess->htype;
+      memcpy(arp_req.arp_ha.sa_data, mess->chaddr, mess->hlen);
+      /* interface name already copied in */
+      arp_req.arp_flags = ATF_COM;
+      ioctl(daemon->dhcpfd, SIOCSARP, &arp_req);
     }
 #elif defined(HAVE_SOLARIS_NETWORK)
   else if ((ntohs(mess->flags) & 0x8000) || mess->hlen != ETHER_ADDR_LEN || mess->htype != ARPHRD_ETHER)
@@ -348,10 +408,10 @@ void dhcp_packet(time_t now)
 #endif
    
 #ifdef HAVE_SOLARIS_NETWORK
-  setsockopt(daemon->dhcpfd, IPPROTO_IP, IP_BOUND_IF, &iface_index, sizeof(iface_index));
+  setsockopt(fd, IPPROTO_IP, IP_BOUND_IF, &iface_index, sizeof(iface_index));
 #endif
   
-  while(sendmsg(daemon->dhcpfd, &msg, 0) == -1 && retry_send());
+  while(sendmsg(fd, &msg, 0) == -1 && retry_send());
 }
  
 /* This is a complex routine: it gets called with each (address,netmask,broadcast) triple 
@@ -472,13 +532,15 @@ struct dhcp_context *narrow_context(struct dhcp_context *context,
   if (!(tmp = address_available(context, taddr, netids)))
     {
       for (tmp = context; tmp; tmp = tmp->current)
-	if (is_same_net(taddr, tmp->start, tmp->netmask) && 
+	if (match_netid(tmp->filter, netids, 1) &&
+	    is_same_net(taddr, tmp->start, tmp->netmask) && 
 	    (tmp->flags & CONTEXT_STATIC))
 	  break;
       
       if (!tmp)
 	for (tmp = context; tmp; tmp = tmp->current)
-	  if (is_same_net(taddr, tmp->start, tmp->netmask))
+	  if (match_netid(tmp->filter, netids, 1) &&
+	      is_same_net(taddr, tmp->start, tmp->netmask))
 	    break;
     }
   
@@ -511,7 +573,8 @@ int match_netid(struct dhcp_netid *check, struct dhcp_netid *pool, int tagnotnee
 
   for (; check; check = check->next)
     {
-      if (check->net[0] != '#')
+      /* '#' for not is for backwards compat. */
+      if (check->net[0] != '!' && check->net[0] != '#')
 	{
 	  for (tmp1 = pool; tmp1; tmp1 = tmp1->next)
 	    if (strcmp(check->net, tmp1->net) == 0)
@@ -527,6 +590,22 @@ int match_netid(struct dhcp_netid *check, struct dhcp_netid *pool, int tagnotnee
   return 1;
 }
 
+struct dhcp_netid *run_tag_if(struct dhcp_netid *tags)
+{
+  struct tag_if *exprs;
+  struct dhcp_netid_list *list;
+
+  for (exprs = daemon->tag_if; exprs; exprs = exprs->next)
+    if (match_netid(exprs->tag, tags, 1))
+      for (list = exprs->set; list; list = list->next)
+	{
+	  list->list->next = tags;
+	  tags = list->list;
+	}
+
+  return tags;
+}
+
 int address_allocate(struct dhcp_context *context,
 		     struct in_addr *addrp, unsigned char *hwaddr, int hw_len, 
 		     struct dhcp_netid *netids, time_t now)   
@@ -540,9 +619,10 @@ int address_allocate(struct dhcp_context *context,
   int i, pass;
   unsigned int j; 
 
-  /* hash hwaddr */
+  /* hash hwaddr: use the SDBM hashing algorithm.  Seems to give good
+     dispersal even with similarly-valued "strings". */ 
   for (j = 0, i = 0; i < hw_len; i++)
-    j += hwaddr[i] + (hwaddr[i] << 8) + (hwaddr[i] << 16);
+    j += hwaddr[i] + (j << 6) + (j << 16) - j;
   
   for (pass = 0; pass <= 1; pass++)
     for (c = context; c; c = c->current)
@@ -837,6 +917,7 @@ void dhcp_read_ethers(void)
 	      config->flags = CONFIG_FROM_ETHERS;
 	      config->hwaddr = NULL;
 	      config->domain = NULL;
+	      config->netid = NULL;
 	      config->next = daemon->dhcp_conf;
 	      daemon->dhcp_conf = config;
 	    }
@@ -958,29 +1039,40 @@ void dhcp_update_configs(struct dhcp_config *configs)
 /* If we've not found a hostname any other way, try and see if there's one in /etc/hosts
    for this address. If it has a domain part, that must match the set domain and
    it gets stripped. The set of legal domain names is bigger than the set of legal hostnames
-   so check here that the domain name is legal as a hostname. */
+   so check here that the domain name is legal as a hostname. 
+   NOTE: we're only allowed to overwrite daemon->dhcp_buff if we succeed. */
 char *host_from_dns(struct in_addr addr)
 {
   struct crec *lookup;
-  char *hostname = NULL;
-  char *d1, *d2;
 
   if (daemon->port == 0)
     return NULL; /* DNS disabled. */
   
   lookup = cache_find_by_addr(NULL, (struct all_addr *)&addr, 0, F_IPV4);
+
   if (lookup && (lookup->flags & F_HOSTS))
     {
-      hostname = daemon->dhcp_buff;
-      strncpy(hostname, cache_get_name(lookup), 256);
-      hostname[255] = 0;
-      d1 = strip_hostname(hostname);
-      d2 = get_domain(addr);
-      if (!legal_hostname(hostname) || (d1 && (!d2 || !hostname_isequal(d1, d2))))
-	hostname = NULL;
+      char *dot, *hostname = cache_get_name(lookup);
+      dot = strchr(hostname, '.');
+      
+      if (dot && strlen(dot+1) != 0)
+	{
+	  char *d2 = get_domain(addr);
+	  if (!d2 || !hostname_isequal(dot+1, d2))
+	    return NULL; /* wrong domain */
+	}
+
+      if (!legal_hostname(hostname))
+	return NULL;
+      
+      strncpy(daemon->dhcp_buff, hostname, 256);
+      daemon->dhcp_buff[255] = 0;
+      strip_hostname(daemon->dhcp_buff);
+
+      return daemon->dhcp_buff;
     }
   
-  return hostname;
+  return NULL;
 }
 
 /* return domain or NULL if none. */

@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 
 */
 
@@ -387,8 +387,8 @@ static const nvset_t nvset_list[] = {
 	{ "hb_server_ip",		V_LENGTH(0, 32)		},
 	{ "l2tp_server_ip",		V_IP				},
 	{ "pptp_server_ip",		V_IP				},
-	{ "ppp_username",		V_LENGTH(0, 50)		},
-	{ "ppp_passwd",			V_LENGTH(0, 50)		},
+	{ "ppp_username",		V_LENGTH(0, 60)		},
+	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
 	{ "ppp_demand",			V_01				},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
@@ -568,8 +568,8 @@ static const nvset_t nvset_list[] = {
 	{ "http_lanport",		V_PORT				},
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
-//	{ "web_favicon",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
+	{ "web_mx",				V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
 	{ "telnetd_port",		V_PORT				},
@@ -598,6 +598,7 @@ static const nvset_t nvset_list[] = {
 	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
 	{ "sesx_b3",			V_RANGE(0, 4)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
+	{ "script_brau",		V_TEXT(0, 1024)		},	//
 
 // admin-debug
 	{ "debug_nocommit",		V_01				},

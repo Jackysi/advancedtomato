@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -282,7 +282,7 @@ static void nl_routechange(struct nlmsghdr *h)
 
       /* Force re-reading resolv file right now, for luck. */
       daemon->last_resolv = 0;
-
+      
       if (daemon->srv_save)
 	{
 	  if (daemon->srv_save->sfd)

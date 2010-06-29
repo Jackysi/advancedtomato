@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -37,6 +37,9 @@ sdup = parseInt('<% psup("dropbear"); %>');
 
 shlimit = nvram.ne_shlimit.split(',');
 if (shlimit.length != 3) shlimit = [0,3,60];
+
+var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['Basic', 'basic'],
+	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'], ['Administration', 'admin']];
 
 function toggle(service, isup)
 {
@@ -206,6 +209,13 @@ function save()
 	fom.ne_shlimit.value = ((E('_f_limit_ssh').checked ? 1 : 0) | (E('_f_limit_telnet').checked ? 2 : 0)) +
 		',' + E('_f_limit_hit').value + ',' + E('_f_limit_sec').value;
 
+	a = [];
+	for (var i = 0; i < xmenus.length; ++i) {
+		b = xmenus[i][1];
+		if (E('_f_mx_' + b).checked) a.push(b);
+	}
+	fom.web_mx.value = a.join(',');
+
 	form.submit(fom, 0);
 }
 
@@ -245,11 +255,12 @@ function init()
 <input type='hidden' name='sshd_remote'>
 <input type='hidden' name='ne_shlimit'>
 <input type='hidden' name='rmgt_sip'>
+<input type='hidden' name='web_mx'>
 
 <div class='section-title'>Web Admin</div>
 <div class='section'>
 <script type='text/javascript'>
-createFieldTable('', [
+var m = [
 	{ title: 'Local Access', name: 'f_http_local', type: 'select', options: [[0,'Disabled'],[1,'HTTP'],[2,'HTTPS'],[3,'HTTP &amp; HTTPS']],
 		value: ((nvram.https_enable != 0) ? 2 : 0) | ((nvram.http_enable != 0) ? 1 : 0) },
 	{ title: 'HTTP Port', indent: 2, name: 'http_lanport', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.http_lanport, 80) },
@@ -265,8 +276,17 @@ createFieldTable('', [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css }
-]);
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+	{ title: 'Open Menus' }
+];
+
+var webmx = get_config('web_mx', '').toLowerCase();
+for (var i = 0; i < xmenus.length; ++i) {
+	m.push({ title: xmenus[i][0], indent: 2, name: 'f_mx_' + xmenus[i][1],
+		type: 'checkbox', value: (webmx.indexOf(xmenus[i][1]) != -1) });
+}
+
+createFieldTable('', m);
 </script>
 </div>
 

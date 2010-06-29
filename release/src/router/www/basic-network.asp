@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -720,8 +720,8 @@ function save()
 createFieldTable('', [
 	{ title: 'Type', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','Static'],['pptp','PPTP'],['l2tp','L2TP'],['disabled','Disabled']],
 		value: nvram.wan_proto },
-	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_username },
-	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 50, size: 54, peekaboo: 1, value: nvram.ppp_passwd },
+	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram.ppp_username },
+	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram.ppp_passwd },
 	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_service },
 	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 15, size: 17, value: nvram.l2tp_server_ip },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
