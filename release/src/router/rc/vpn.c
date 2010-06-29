@@ -38,8 +38,6 @@ static int waitfor(const char *name)
 		// Reap the zombie if it has terminated
 		waitpid(pid, NULL, WNOHANG);
 		sleep(1);
-		if ( kill(pid, 0) != 0 )
-			return 0;
 	}
 	return (pid >= 0);
 }
@@ -58,9 +56,14 @@ void start_vpnclient(int clientNum)
 	long int nvl;
 	int pid;
 
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	if (getpid() != 1) {
+		start_service(&buffer[0]);
+		return;
+	}
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend starting...");
 
-	sprintf(&buffer[0], "vpnclient%d", clientNum);
 	if ( (pid = pidof(&buffer[0])) >= 0 )
 	{
 		vpnlog(VPN_LOG_NOTE, "VPN Client %d already running...", clientNum);
@@ -388,6 +391,12 @@ void stop_vpnclient(int clientNum)
 	char *argv[7];
 	char buffer[BUF_SIZE];
 
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	if (getpid() != 1) {
+		stop_service(&buffer[0]);
+		return;
+	}
+
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI client backend.");
 
 	// Remove cron job
@@ -466,9 +475,14 @@ void start_vpnserver(int serverNum)
 	long int nvl;
 	int pid;
 
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	if (getpid() != 1) {
+		start_service(&buffer[0]);
+		return;
+	}
+
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend starting...");
 
-	sprintf(&buffer[0], "vpnserver%d", serverNum);
 	if ( (pid = pidof(&buffer[0])) >= 0 )
 	{
 		vpnlog(VPN_LOG_NOTE, "VPN Server %d already running...", serverNum);
@@ -898,6 +912,12 @@ void stop_vpnserver(int serverNum)
 	int argc;
 	char *argv[9];
 	char buffer[BUF_SIZE];
+
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	if (getpid() != 1) {
+		stop_service(&buffer[0]);
+		return;
+	}
 
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI server backend.");
 
