@@ -1,0 +1,15 @@
+########################################################
+# Huawei U8110 (Android smartphone)
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1031
+
+TargetVendor=  0x12d1
+TargetProduct= 0x1035
+
+CheckSuccess=20 
+
+MessageContent="55534243123456780600000080010a11060000000000000000000000000000"
+
+# for Android SDK
+NoDriverLoading=1

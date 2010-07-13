@@ -1,3 +1,9 @@
+20100707:
+    added Vodafone/Huawei K4605 and Huawei R201 (from Betavine),
+    added Atheros Wireless / Netgear WNDA3200, added Onda MW833UP,
+    added Huawei U8110, added ZTE device from BSNL, added Nokia CS-10,
+    changed commands for ZTE 19d2:2000 - again ...;
+    remove unneeded definitions from Makefile
 20100623:
     Huawei E173 was left out in previous release, add it again;
     added BandLuxe C170 and C270 (now confirmed working)
