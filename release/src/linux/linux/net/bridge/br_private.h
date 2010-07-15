@@ -86,6 +86,8 @@ struct net_bridge
 	rwlock_t			hash_lock;
 	struct net_bridge_fdb_entry	*hash[BR_HASH_SIZE];
 	struct timer_list		tick;
+	unsigned int			flags;
+#define	BR_SET_MAC_ADDR			0x00000001
 
 	/* STP */
 	bridge_id			designated_root;
@@ -95,7 +97,6 @@ struct net_bridge
 	int				hello_time;
 	int				forward_delay;
 	bridge_id			bridge_id;
-	bridge_id			preferred_id;
 	int				bridge_max_age;
 	int				bridge_hello_time;
 	int				bridge_forward_delay;
@@ -124,6 +125,7 @@ extern void br_dev_setup(struct net_device *dev);
 extern int br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
 
 /* br_fdb.c */
+extern int br_fdb_init(void);
 extern void br_fdb_changeaddr(struct net_bridge_port *p,
 		       unsigned char *newaddr);
 extern void br_fdb_cleanup(struct net_bridge *br);
@@ -189,6 +191,7 @@ extern void br_stp_enable_bridge(struct net_bridge *br);
 extern void br_stp_disable_bridge(struct net_bridge *br);
 extern void br_stp_enable_port(struct net_bridge_port *p);
 extern void br_stp_disable_port(struct net_bridge_port *p);
+extern void br_stp_change_bridge_id(struct net_bridge *br, unsigned char *addr);
 extern void br_stp_recalculate_bridge_id(struct net_bridge *br);
 extern void br_stp_set_bridge_priority(struct net_bridge *br,
 				int newprio);

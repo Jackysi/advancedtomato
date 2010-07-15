@@ -145,6 +145,18 @@ extern void dump_stack(void);
 	((unsigned char *)&addr)[2], \
 	((unsigned char *)&addr)[3]
 
+#define NIP6(addr) \
+	ntohs((addr).s6_addr16[0]), \
+	ntohs((addr).s6_addr16[1]), \
+	ntohs((addr).s6_addr16[2]), \
+	ntohs((addr).s6_addr16[3]), \
+	ntohs((addr).s6_addr16[4]), \
+	ntohs((addr).s6_addr16[5]), \
+	ntohs((addr).s6_addr16[6]), \
+	ntohs((addr).s6_addr16[7])
+#define NIP6_FMT "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
+#define NIP6_SEQFMT "%04x%04x%04x%04x%04x%04x%04x%04x"
+
 #if defined(__LITTLE_ENDIAN)
 #define HIPQUAD(addr) \
 	((unsigned char *)&addr)[3], \
@@ -185,6 +197,17 @@ extern void dump_stack(void);
 #define max_t(type,x,y) \
 	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
 
+/**
+ * container_of - cast a member of a structure out to the containing structure
+ * @ptr:        the pointer to the member.
+ * @type:       the type of the container struct this is embedded in.
+ * @member:     the name of the member within the struct.
+ *
+ */
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
+
 extern void __out_of_line_bug(int line) ATTRIB_NORET;
 #define out_of_line_bug() __out_of_line_bug(__LINE__)
 
@@ -216,5 +239,18 @@ struct sysinfo {
 		dump_stack(); \
 	} \
 } while (0)
+
+/* Force a compilation error if condition is true */
+#define BUILD_BUG_ON(condition) ((void)BUILD_BUG_ON_ZERO(condition))
+
+/* Force a compilation error if condition is constant and true */
+#define MAYBE_BUILD_BUG_ON(cond) ((void)sizeof(char[1 - 2 * !!(cond)]))
+
+/* Force a compilation error if condition is true, but also produce a
+   result (of value 0 and type size_t), so the expression can be used
+   e.g. in a structure initializer (or where-ever else comma expressions
+   aren't permitted). */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+#define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:-!!(e); }))
 
 #endif /* _LINUX_KERNEL_H */

@@ -15,10 +15,22 @@
 
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
+#include <linux/init.h>
 #include <linux/if_bridge.h>
+#include <linux/jhash.h>
+#include <linux/random.h>
 #include <asm/atomic.h>
 #include <asm/uaccess.h>
+#include <asm/unaligned.h>
 #include "br_private.h"
+
+static u32 fdb_salt;
+
+int __init br_fdb_init(void)
+{
+        get_random_bytes(&fdb_salt, sizeof(fdb_salt));
+        return 0;
+}
 
 static __inline__ unsigned long __timeout(struct net_bridge *br)
 {
@@ -54,18 +66,9 @@ static __inline__ void copy_fdb(struct __fdb_entry *ent, struct net_bridge_fdb_e
 
 static __inline__ int br_mac_hash(unsigned char *mac)
 {
-	unsigned long x;
-
-	x = mac[0];
-	x = (x << 2) ^ mac[1];
-	x = (x << 2) ^ mac[2];
-	x = (x << 2) ^ mac[3];
-	x = (x << 2) ^ mac[4];
-	x = (x << 2) ^ mac[5];
-
-	x ^= x >> 8;
-
-	return x & (BR_HASH_SIZE - 1);
+	/* use 1 byte of OUI cnd 3 bytes of NIC */
+	u32 key = get_unaligned((u32 *)(mac + 2));
+	return jhash_1word(key, fdb_salt) & (BR_HASH_SIZE - 1);
 }
 
 static __inline__ void __hash_link(struct net_bridge *br,
