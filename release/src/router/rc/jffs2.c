@@ -76,7 +76,7 @@ void start_jffs2(void)
 	modprobe(JFFS_NAME);
 
 	sprintf(s, MTD_BLKDEV(%d), part);
-	if (mount(s, "/jffs", JFFS_NAME, MS_NOATIME|MS_NODIRATIME, "") != 0) {
+	if (mount(s, "/jffs", JFFS_NAME, MS_NOATIME, "") != 0) {
 		modprobe_r(JFFS_NAME);
 		error("mounting");
 		return;

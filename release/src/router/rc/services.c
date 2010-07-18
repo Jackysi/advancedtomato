@@ -1702,7 +1702,7 @@ TOP:
 #endif
 
 #ifdef TCONFIG_JFFS2
-	if (strcmp(service, "jffs2") == 0) {
+	if (strncmp(service, "jffs", 4) == 0) {
 		if (action & A_STOP) stop_jffs2();
 		if (action & A_START) start_jffs2();
 		goto CLEAR;
