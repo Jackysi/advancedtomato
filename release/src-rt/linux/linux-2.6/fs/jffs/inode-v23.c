@@ -43,6 +43,7 @@
 #include <linux/highmem.h>
 #include <linux/vfs.h>
 #include <linux/mutex.h>
+#include <linux/kthread.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>
 
@@ -70,6 +71,7 @@ static int jffs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct inode *root_inode;
 	struct jffs_control *c;
+	struct task_struct *task;
 
 	sb->s_flags |= MS_NOATIME;
 
@@ -84,7 +86,7 @@ static int jffs_fill_super(struct super_block *sb, void *data, int silent)
 
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
-	sb->s_fs_info = (void *) 0;
+	sb->s_fs_info = NULL;
 	sb->s_maxbytes = 0xFFFFFFFF;
 
 	/* Build the file system.  */
@@ -135,16 +137,14 @@ static int jffs_fill_super(struct super_block *sb, void *data, int silent)
 	init_completion(&c->gc_thread_comp);
 	init_completion(&c->gc_thread_init);
 
-	c->thread_pid = kernel_thread (jffs_garbage_collect_thread, 
-				        (void *) c, 
-				        CLONE_FS|CLONE_KERNEL);
-	if (c->thread_pid < 0) {
-		printk(KERN_WARNING "JFFS: fork failed for garbage collect thread: %d\n", -c->thread_pid);
-		complete(&c->gc_thread_comp);
-		goto jffs_sb_err3;
+	task = kthread_run(jffs_garbage_collect_thread,
+			   (void *) c, "jffs_gcd_mtd%d", c->fmc->mtd->index);
+	if (IS_ERR(task)) {
+	   printk(KERN_WARNING "JFFS: fork failed for garbage collect thread\n");
+	   complete(&c->gc_thread_comp);
+	   goto jffs_sb_err3;
 	}
-
-	D1(printk(KERN_NOTICE "JFFS: GC thread pid=%d.\n", (int) c->thread_pid));
+	D1(printk(KERN_NOTICE "JFFS: GC thread pid=%d.\n", task->pid));
 	wait_for_completion(&c->gc_thread_init);
 
 	D1(printk(KERN_NOTICE "JFFS: Successfully mounted device %s.\n",
@@ -152,9 +152,10 @@ static int jffs_fill_super(struct super_block *sb, void *data, int silent)
 	return 0;
 
 jffs_sb_err3:
-	iput(root_inode);
+	//iput(root_inode);	// It crashes if we do this!!
 jffs_sb_err2:
 	jffs_cleanup_control((struct jffs_control *)sb->s_fs_info);
+	sb->s_fs_info = NULL;
 jffs_sb_err1:
 	printk(KERN_WARNING "JFFS: Failed to mount device %s.\n",
 	       sb->s_id);
@@ -169,20 +170,19 @@ jffs_put_super(struct super_block *sb)
 	struct jffs_control *c = (struct jffs_control *) sb->s_fs_info;
 
 	D2(printk("jffs_put_super()\n"));
-
+	if (c) {
 #ifdef CONFIG_JFFS_PROC_FS
-	jffs_unregister_jffs_proc_dir(c);
+	   jffs_unregister_jffs_proc_dir(c);
 #endif
-
-	if (c->gc_task) {
-		D1(printk (KERN_NOTICE "jffs_put_super(): Telling gc thread to die.\n"));
-		send_sig(SIGKILL, c->gc_task, 1);
+	   if (c->gc_task) {
+	      D1(printk (KERN_NOTICE "jffs_put_super(): Telling gc thread to die.\n"));
+	      send_sig(SIGKILL, c->gc_task, 1);
+	      wait_for_completion(&c->gc_thread_comp);
+	      D1(printk (KERN_NOTICE "jffs_put_super(): Successfully waited on gc thread.\n"));
+	   }
+	   jffs_cleanup_control(c);
+	   sb->s_fs_info = NULL;
 	}
-	wait_for_completion(&c->gc_thread_comp);
-
-	D1(printk (KERN_NOTICE "jffs_put_super(): Successfully waited on thread.\n"));
-
-	jffs_cleanup_control((struct jffs_control *)sb->s_fs_info);
 	D1(printk(KERN_NOTICE "JFFS: Successfully unmounted device %s.\n",
 	       sb->s_id));
 }
@@ -913,12 +913,12 @@ jffs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct jffs_control *c = (struct jffs_control *)dir->i_sb->s_fs_info;
 	int ret;
-	D3(printk("***jffs_rmdir()\n"));
-	D3(printk (KERN_NOTICE "rmdir(): down biglock\n"));
+	D1(printk("***jffs_rmdir()\n"));
+	D2(printk (KERN_NOTICE "rmdir(): down biglock\n"));
 	lock_kernel();
 	mutex_lock(&c->fmc->biglock);
 	ret = jffs_remove(dir, dentry, S_IFDIR);
-	D3(printk (KERN_NOTICE "rmdir(): up biglock\n"));
+	D2(printk (KERN_NOTICE "rmdir(): up biglock\n"));
 	mutex_unlock(&c->fmc->biglock);
 	unlock_kernel();
 	return ret;
@@ -933,11 +933,11 @@ jffs_unlink(struct inode *dir, struct dentry *dentry)
 	int ret; 
 
 	lock_kernel();
-	D3(printk("***jffs_unlink()\n"));
-	D1(printk (KERN_NOTICE "unlink(): down biglock\n"));
+	D1(printk("***jffs_unlink()\n"));
+	D2(printk (KERN_NOTICE "unlink(): down biglock\n"));
 	mutex_lock(&c->fmc->biglock);
 	ret = jffs_remove(dir, dentry, 0);
-	D1(printk (KERN_NOTICE "unlink(): up biglock\n"));
+	D2(printk (KERN_NOTICE "unlink(): up biglock\n"));
 	mutex_unlock(&c->fmc->biglock);
 	unlock_kernel();
 	return ret;
@@ -1047,12 +1047,6 @@ jffs_remove(struct inode *dir, struct dentry *dentry, int type)
 	inode->i_ctime = dir->i_ctime;
 	inode_dec_link_count(inode);
 	jffs_garbage_collect_trigger(c);
-
-	/* This operation marks the nodes as dirty. */
-	/* What gets called is: jffs_delete_inode */
-	d_delete(dentry);	/* This also frees the inode */
-	jffs_garbage_collect_trigger(c);
-
 	result = 0;
 jffs_remove_end:
 	return result;
@@ -1572,7 +1566,7 @@ jffs_read_inode(struct inode *inode)
 	struct jffs_file *f;
 	struct jffs_control *c;
 
-	D3(printk("jffs_read_inode(): inode->i_ino == %lu\n", inode->i_ino));
+	D1(printk("jffs_read_inode(): inode->i_ino == %lu\n", inode->i_ino));
 
 	if (!inode->i_sb) {
 		D(printk("jffs_read_inode(): !inode->i_sb ==> "
@@ -1580,7 +1574,7 @@ jffs_read_inode(struct inode *inode)
 		return;
 	}
 	c = (struct jffs_control *)inode->i_sb->s_fs_info;
-	D3(printk (KERN_NOTICE "read_inode(): down biglock\n"));
+	D2(printk (KERN_NOTICE "read_inode(): down biglock\n"));
 	mutex_lock(&c->fmc->biglock);
 	if (!(f = jffs_find_file(c, inode->i_ino))) {
 		D(printk("jffs_read_inode(): No such inode (%lu).\n",
@@ -1626,7 +1620,7 @@ jffs_read_inode(struct inode *inode)
 			old_decode_dev(val));
 	}
 
-	D3(printk (KERN_NOTICE "read_inode(): up biglock\n"));
+	D2(printk (KERN_NOTICE "read_inode(): up biglock\n"));
 	mutex_unlock(&c->fmc->biglock);
 }
 
@@ -1636,7 +1630,7 @@ jffs_delete_inode(struct inode *inode)
 {
 	struct jffs_file *f;
 	struct jffs_control *c;
-	D3(printk("jffs_delete_inode(): inode->i_ino == %lu\n",
+	D1(printk("jffs_delete_inode(): inode->i_ino == %lu\n",
 		  inode->i_ino));
 
 	truncate_inode_pages(&inode->i_data, 0);
@@ -1649,6 +1643,7 @@ jffs_delete_inode(struct inode *inode)
 		c = (struct jffs_control *) inode->i_sb->s_fs_info;
 		f = (struct jffs_file *) jffs_find_file (c, inode->i_ino);
 		jffs_possibly_delete_file(f);
+		jffs_garbage_collect_trigger(c);
 	}
 
 	unlock_kernel();
@@ -1698,7 +1693,7 @@ static struct file_system_type jffs_fs_type = {
 static int __init
 init_jffs_fs(void)
 {
-	printk(KERN_INFO "JFFS version " JFFS_VERSION_STRING
+	printk(KERN_INFO "JFFS version " JFFS_VERSION_STRING " [2.6]"
 		", (C) 1999, 2000  Axis Communications AB  Mods by Ray Van Tassle\n");
 #if JFFS_RAM_BLOCKS > 0
 	printk(KERN_INFO "JFFS: " __DATE__" " __TIME__"\n");

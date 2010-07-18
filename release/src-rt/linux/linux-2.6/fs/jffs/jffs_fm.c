@@ -175,10 +175,13 @@ jffs_build_end(struct jffs_fmcontrol *fmc)
    frees all memory used by this module.  */
 void jffs_cleanup_fmcontrol(struct jffs_fmcontrol *fmc)
 {
+	struct jffs_fm *next;
+	struct jffs_fm *cur;
+   
 	if (fmc) {
-		struct jffs_fm *next = fmc->head;
+		next = fmc->head;
 		while (next) {
-			struct jffs_fm *cur = next;
+			cur = next;
 			next = next->next;
 			jffs_free_fm(cur);
 		}

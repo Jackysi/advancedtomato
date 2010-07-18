@@ -569,21 +569,19 @@ static struct jffs_control *
 jffs_create_control(struct super_block *sb)
 {
 	struct jffs_control *c;
-	register int s = sizeof(struct jffs_control);
 	int i;
 	D(char *t = 0);
 
 	D2(printk("jffs_create_control()\n"));
 
-	if (!(c = kmalloc(s, GFP_KERNEL))) {
+	if (!(c = kmalloc(sizeof(*c), GFP_KERNEL))) {
 		goto fail_control;
 	}
 	DJM(no_jffs_control++);
 	c->root = NULL;
 	c->gc_task = NULL;
 	c->hash_len = JFFS_HASH_SIZE;
-	s = sizeof(struct list_head) * c->hash_len;
-	if (!(c->hash = kmalloc(s, GFP_KERNEL))) {
+	if (!(c->hash = kmalloc(sizeof(struct list_head) * c->hash_len, GFP_KERNEL))) {
 		goto fail_hash;
 	}
 	DJM(no_hash++);
@@ -613,7 +611,7 @@ fail_hash:
 fail_control:
 	D(t = t ? t : "control");
 	D(printk("jffs_create_control: Allocation failed: (%s)\n", t));
-	return (struct jffs_control *)0;
+	return (NULL);
 }
 
 
@@ -624,12 +622,11 @@ void jffs_cleanup_control(struct jffs_control *c)
 #if JFFS_RAM_BLOCKS > 0
 	if (jffs_ram)
 	   vfree(jffs_ram);
+	jffs_ram = NULL;
 #endif
 
-	if (!c) {
-		D(printk("jffs_cleanup_control: c == NULL !!!\n"));
+	if (!c)
 		return;
-	}
 
 	while (c->delete_list) {
 		struct jffs_delete_list *delete_list_element;
@@ -781,6 +778,7 @@ jffs_build_fs(struct super_block *sb)
 
 jffs_build_fs_fail:
 	jffs_cleanup_control(c);
+	sb->s_fs_info = NULL;
 	return err;
 } /* jffs_build_fs()  */
 
@@ -837,8 +835,8 @@ static int check_partly_erased_sectors(struct jffs_fmcontrol *fmc){
  CHECK_NEXT:
 	while(pos < end){
 		
-		D1(printk("check_partly_erased_sector: checking sector which contains"
-			  " offset 0x%x for flipping bits..\n", (__u32)pos));
+	   D3(printk("check_partly_erased_sector: checking sector which contains"
+	   	  " offset 0x%x for flipping bits..\n", (__u32)pos));
 		
 		retlen = flash_safe_read(fmc->mtd, pos,
 					 &read_buf1[0], READ_AHEAD_BYTES);
@@ -1158,6 +1156,7 @@ jffs_scan_flash(struct jffs_control *c)
 				  "bad inode: "
 				  "hexdump(pos = 0x%lx, len = 128):\n",
 				  (long)pos));
+			D1(jffs_hexdump(fmc->mtd, pos, 128));
 
 			for (pos += 4; pos < end; pos += 4) {
 				switch (flash_read_u32(fmc->mtd, pos)) {
@@ -1991,7 +1990,7 @@ retry:	   jffs_fmfree_partly(fmc, fm, 0);
 	   /* Deadlocks suck. */
 	   D1(printk("write_node '%s' free_size: %u dirty: %u min_free_size: %u total_size: %u slack:%d \n",
 		     name? name: "Null", fmc->free_size, fmc->dirty_size, fmc->min_free_size, total_size , slack));
-	   D1(printk(" w: %d  f+d: %u        minfree+size+slack: %d   nsize = %u \n", fmc->wasted_size, fmc->free_size+fmc->dirty_size,
+	   D1(printk(" w: %ld  f+d: %u        minfree+size+slack: %d   nsize = %u \n", fmc->wasted_size, fmc->free_size+fmc->dirty_size,
 		     fmc->min_free_size + total_size + slack, raw_inode? raw_inode->nsize: -1)); 
 	   /* This fails even when free+dirty is large enough.  Even if free+dirty is enough. */
 
@@ -2297,13 +2296,12 @@ jffs_possibly_delete_file(struct jffs_file *f)
 {
 	struct jffs_node *n;
 
-	D3(printk("jffs_possibly_delete_file: ino: %u\n",
-		  f->ino));
-
 	ASSERT(if (!f) {
 		printk(KERN_ERR "jffs_possibly_delete_file: f == NULL\n");
 		return -1;
 	});
+	D1(printk("jffs_possibly_delete_file: ino: %u\n",
+		  f->ino));
 
 	if (f->deleted) {
 		/* First try to remove all older versions.  Commence with

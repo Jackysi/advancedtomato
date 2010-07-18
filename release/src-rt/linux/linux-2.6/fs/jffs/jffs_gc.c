@@ -525,7 +525,6 @@ int jffs_garbage_collect_next(struct jffs_control *c, int merge_obn)
    __u32 data_size;		/* The number of bytes to move (file data). */
    __u32 size;			/* data_size plus raw-inode + filename + pad */
 
-   D2(__u32 free_chunk_size2 = jffs_free_size2(fmc));
    
    D1(printk(KERN_NOTICE "jffs_garbage_collect_next: Enter...\n"));
    D1(printk(KERN_NOTICE "Free blocks:  %u   Free+dirty blocks: %u\n",
@@ -719,8 +718,8 @@ int jffs_garbage_collect_next(struct jffs_control *c, int merge_obn)
    D2(printk("  f->nsize: %u\n", f->nsize));
    D2(printk("  f->size: %u\n", f->size));
    D2(printk("  node->data_offset: %u\n", node->data_offset));
-   D2(printk("  free_chunk_size1: %u\n", free_chunk_size1));
-   D2(printk("  free_chunk_size2: %u\n", free_chunk_size2));
+   D2(printk("  free_chunk_size1: %u\n", jffs_free_size1(fmc)));
+   D2(printk("  free_chunk_size2: %u\n", jffs_free_size2(fmc)));
    D2(printk("  node->fm->offset: %8x   size: %4x\n", node->fm->offset, data_size));
 
    if ((err = jffs_rewrite_data(f, node, data_size))) {
@@ -1098,7 +1097,7 @@ static inline int thread_should_wake (struct jffs_control *c)
 /******************************************************************/
 void jffs_garbage_collect_trigger(struct jffs_control *c)
 {
-   D3(printk("jffs_garbage_collect_trigger"));
+   D3(printk("jffs_garbage_collect_trigger\n"));
    c->gc_sleep_time = INIT_GC_SLEEP;	/* Reset GC sleep time. */
    if (c->gc_task)
       send_sig(SIGHUP, c->gc_task, 1);
@@ -1147,23 +1146,18 @@ int jffs_garbage_collect_thread(void *ptr)
    int blocks_would_be_freed;	/* Number of free blocks that a complete GC would add. */
    int dirty_optimal;		/* Boolean: All the dirty is contiguous at the head. */
 
-   daemonize("jffs_gcd_mtd%d", c->fmc->mtd->index);
    allow_signal(SIGKILL);
    allow_signal(SIGSTOP);
    allow_signal(SIGCONT);
+   allow_signal(SIGHUP);
 
    c->gc_task = current;
    complete(&c->gc_thread_init);
    set_user_nice(current, 10);
-
-   strcpy(current->comm, "jffs_gcd");
-
-   D1(printk (KERN_NOTICE "jffs_garbage_collect_thread: Starting infinite loop.\n"));
    c->gc_sleep_time = 0;
-   
+   D1(printk (KERN_NOTICE "jffs_garbage_collect_thread: Starting infinite loop.\n"));
+
    for (;;) {
-      allow_signal(SIGHUP);
-   again:
       /* See if we need to start gc. If we don't, go to sleep. */
       if (!thread_should_wake(c)) {
 	 set_current_state(TASK_INTERRUPTIBLE);
@@ -1185,9 +1179,6 @@ int jffs_garbage_collect_thread(void *ptr)
 	 siginfo_t info;
 	 unsigned long signr;
 
-	 if (try_to_freeze())
-	    goto again;
-
 	 signr = dequeue_signal_lock(current, &current->blocked, &info);
 
 	 switch(signr) {
@@ -1202,8 +1193,6 @@ int jffs_garbage_collect_thread(void *ptr)
 	    goto die;
 	 }
       }
-      /* We don't want SIGHUP to interrupt us. STOP and KILL are OK though. */
-      disallow_signal(SIGHUP);
 
       D1(printk (KERN_NOTICE "jffs_garbage_collect_thread: checking.\n"));
       mutex_lock(&fmc->biglock);
@@ -1255,9 +1244,8 @@ int jffs_garbage_collect_thread(void *ptr)
 	 goto gc_end;
 
       if (fmc->free_size == 0) {
-	 /* Argh. Might as well commit suicide. */
 	 printk(KERN_ERR "jffs_garbage_collect_thread: free_size == 0. This is BAD.\n");
-	 send_sig(SIGQUIT, c->gc_task, 1);
+	 c->gc_sleep_time = 0;
 	 goto gc_end;
       }
 		
@@ -1285,61 +1273,7 @@ int jffs_garbage_collect_thread(void *ptr)
       }
    }
 die: 
+   D1(printk("jffs_garbage_collect exiting.\n"));
    c->gc_task = NULL;
    complete_and_exit(&c->gc_thread_comp, 0);
 } /* jffs_garbage_collect_thread() */
-
-
-
-#if 0
-/******************************************************************/
-/* Return the used data size in the head sector.
-   Not dirty, not free, just the actual used.
-   Including any bytes that span into the next EB.
-*/
-unsigned long used_in_head_block(struct jffs_control *c)
-{
-   struct jffs_fm *fm;
-   struct jffs_fmcontrol *fmc = c->fmc;
-   __u32 len = 0;
-   __u32 next_sector;
-
-   /* Loop through all of the flash control structures from head. */
-   fm = c->fmc->head;
-   if (fm == 0)
-      return(0);
-   next_sector = ((fm->offset / fmc->sector_size) +1) * fmc->sector_size;
-   for (; fm; fm = fm->next) {
-      if (fm->nodes) {
-	 len += fm->size;
-	 /* When this goes past the end of this sector, adjust size. */
-      }
-      if (fm->offset + fm->size >= next_sector)		/* Moved off sector -- quit. */
-	 break;
-   }
-   D3printk("Used in head block: %08lx\n", len);
-   return(len);
-}
-
-
-
-/******************************************************************/
-/* Return the free size in the tail sector. */
-unsigned long free_in_tail_block(struct jffs_control *c)
-{
-   struct jffs_fm *fm;
-   struct jffs_fmcontrol *fmc = c->fmc;
-   __u32 len = 0;
-   __u32 next_sector;
-   __u32 free_ofs;
-   
-   fm = c->fmc->tail;
-   if (fm == 0)
-      return(fmc->sector_size);
-   free_ofs = fm->offset + fm->size;
-   next_sector = ((free_ofs / fmc->sector_size) +1) * fmc->sector_size;
-   len = next_sector - free_ofs;
-   D3(printk("Free in tail block: %08lx\n", len));
-   return(len);
-}
-#endif
