@@ -200,4 +200,10 @@ void gc_inplace_end(struct jffs_fmcontrol *fmc, int erased);
 int flash_memset(struct jffs_fmcontrol *fmc, loff_t to,
 		 const u_char c, size_t size);
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
+#define mutex_unlock(lock) up(lock)
+#define mutex_lock(lock)   up(lock)
+#define mutex_init(lock)   init_MUTEX(lock)   
+#endif
+
 #endif /* __LINUX_JFFS_FM_H__  */

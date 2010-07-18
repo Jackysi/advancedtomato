@@ -73,8 +73,7 @@ struct jffs_fmcontrol *jffs_build_begin(struct jffs_control *c, kdev_t dev)
 	struct mtd_info *mtd;
 	
 	D3(printk("jffs_build_begin()\n"));
-	fmc = (struct jffs_fmcontrol *)kmalloc(sizeof(struct jffs_fmcontrol),
-					       GFP_KERNEL);
+	fmc = kmalloc(sizeof(*fmc), GFP_KERNEL);
 	if (!fmc) {
 		D(printk("jffs_build_begin(): Allocation of "
 			 "struct jffs_fmcontrol failed!\n"));
@@ -85,7 +84,7 @@ struct jffs_fmcontrol *jffs_build_begin(struct jffs_control *c, kdev_t dev)
 
 	mtd = get_mtd_device(NULL, MINOR(dev));
 
-	if (!mtd) {
+	if (IS_ERR(mtd)) {
 		kfree(fmc);
 		DJM(no_jffs_fmcontrol--);
 		return NULL;
@@ -138,7 +137,7 @@ struct jffs_fmcontrol *jffs_build_begin(struct jffs_control *c, kdev_t dev)
 	fmc->min_free_size = fmc->sector_size * 1;
 	fmc->mtd = mtd;
 	fmc->c = c;
-	init_MUTEX(&fmc->biglock);
+	mutex_init(&fmc->biglock);
 	fmc->low_free_size = fmc->free_size;
 	fmc->low_frewst_size = fmc->free_size;
 	return fmc;
@@ -160,8 +159,8 @@ void jffs_build_end(struct jffs_fmcontrol *fmc)
 		fmc->head->prev = fmc->tail_extra;
 		fmc->head = fmc->head_extra;
 	}
-	fmc->head_extra = 0; /* These two instructions should be omitted.  */
-	fmc->tail_extra = 0;
+	fmc->head_extra = NULL; /* These two instructions should be omitted.  */
+	fmc->tail_extra = NULL;
 	D3(jffs_print_fmcontrol(fmc));
 }
 
@@ -170,11 +169,12 @@ void jffs_build_end(struct jffs_fmcontrol *fmc)
    frees all memory used by this module.  */
 void jffs_cleanup_fmcontrol(struct jffs_fmcontrol *fmc)
 {
+   struct jffs_fm *cur;
+   struct jffs_fm *next;
 	if (fmc) {
-		struct jffs_fm *cur;
-		struct jffs_fm *next = fmc->head;
-
-		while ((cur = next)) {
+		next = fmc->head;
+		while (next) {
+		        cur = next;
 			next = next->next;
 			jffs_free_fm(cur);
 		}
@@ -297,7 +297,7 @@ int jffs_fmalloc(struct jffs_fmcontrol *fmc, __u32 size, struct jffs_node *node,
 	D1(printk("jffs_fmalloc(): fmc = 0x%p, size = %d, "
 		  "node = 0x%p\n", fmc, size, node));
 
-	*result = 0;
+	*result = NULL;
 
 	if (!(fm = jffs_alloc_fm())) {
 		D(printk("jffs_fmalloc(): kmalloc() failed! (fm)\n"));
@@ -326,7 +326,7 @@ int jffs_fmalloc(struct jffs_fmcontrol *fmc, __u32 size, struct jffs_node *node,
 		}
 		DJM(no_jffs_node_ref++);
 		fm->nodes->node = node;
-		fm->nodes->next = 0;
+		fm->nodes->next = NULL;
 		if (fmc->tail) {
 			fm->offset = fmc->tail->offset + fmc->tail->size;
 			if (fm->offset == fmc->flash_size) {
@@ -356,14 +356,14 @@ int jffs_fmalloc(struct jffs_fmcontrol *fmc, __u32 size, struct jffs_node *node,
 	else {
 		fm->offset = fmc->tail->offset + fmc->tail->size;
 		fm->size = free_chunk_size1;
-		fm->nodes = 0;
+		fm->nodes = NULL;
 		fmc->free_size -= fm->size;
 		fmc->dirty_size += fm->size;
 	}
 
-	fm->next = 0;
+	fm->next = NULL;
 	if (!fmc->head) {
-		fm->prev = 0;
+		fm->prev = NULL;
 		fmc->head = fm;
 		fmc->tail = fm;
 	}
@@ -406,13 +406,13 @@ int jffs_fmfree(struct jffs_fmcontrol *fmc, struct jffs_fm *fm, struct jffs_node
 	ASSERT(if (!fmc || !fm || !fm->nodes) {
 		printk(KERN_ERR "jffs_fmfree(): fmc: 0x%p, fm: 0x%p, "
 		       "fm->nodes: 0x%p\n",
-		       fmc, fm, (fm ? fm->nodes : 0));
+		       fmc, fm, (fm ? fm->nodes : NULL));
 		return -1;
 	});
 
 	/* Find the reference to the node that is going to be removed
 	   and remove it.  */
-	for (ref = fm->nodes, prev = 0; ref; ref = ref->next) {
+	for (ref = fm->nodes, prev = NULL; ref; ref = ref->next) {
 	   if (ref->node == node) {
 	      skip = node->fm_offset - (sizeof(struct jffs_raw_inode) +
 					node->name_size + JFFS_GET_PAD_BYTES(node->name_size));
@@ -470,13 +470,13 @@ struct jffs_fm *jffs_fmalloced(struct jffs_fmcontrol *fmc, __u32 offset, __u32 s
 	if (!(fm = jffs_alloc_fm())) {
 		D(printk("jffs_fmalloced(0x%p, %u, %u, 0x%p): failed!\n",
 			 fmc, offset, size, node));
-		return 0;
+		return NULL;
 	}
 	fm->offset = offset;
 	fm->size = size;
-	fm->prev = 0;
-	fm->next = 0;
-	fm->nodes = 0;
+	fm->prev = NULL;
+	fm->next = NULL;
+	fm->nodes = NULL;
 	if (node) {
 		/* `node' exists and it should be associated with the
 		    jffs_fm structure `fm'.  */
@@ -485,11 +485,11 @@ struct jffs_fm *jffs_fmalloced(struct jffs_fmcontrol *fmc, __u32 offset, __u32 s
 					  GFP_KERNEL))) {
 			D(printk("jffs_fmalloced(): !fm->nodes\n"));
 			jffs_free_fm(fm);
-			return 0;
+			return NULL;
 		}
 		DJM(no_jffs_node_ref++);
 		fm->nodes->node = node;
-		fm->nodes->next = 0;
+		fm->nodes->next = NULL;
 		fmc->used_size += size;
 		fmc->free_size -= size;
 	}
@@ -530,8 +530,7 @@ int jffs_add_node(struct jffs_node *node)
 
 	D3(printk("jffs_add_node(): ino = %u\n", node->ino));
 
-	ref = (struct jffs_node_ref *)kmalloc(sizeof(struct jffs_node_ref),
-					      GFP_KERNEL);
+	ref = kmalloc(sizeof(*ref), GFP_KERNEL);
 	if (!ref)
 		return -ENOMEM;
 
@@ -554,7 +553,7 @@ void jffs_fmfree_partly(struct jffs_fmcontrol *fmc, struct jffs_fm *fm, __u32 si
 	if (fm->nodes) {
 		kfree(fm->nodes);
 		DJM(no_jffs_node_ref--);
-		fm->nodes = 0;
+		fm->nodes = NULL;
 	}
 	fmc->used_size -= fm->size;
 	if (fm == fmc->tail) {
@@ -575,12 +574,12 @@ struct jffs_fm *jffs_cut_node(struct jffs_fmcontrol *fmc, __u32 size)
 	__u32 pos = 0;
 
 	if (size == 0) {
-		return 0;
+		return NULL;
 	}
 
 	ASSERT(if (!fmc) {
 		printk(KERN_ERR "jffs_cut_node(): fmc == NULL\n");
-		return 0;
+		return NULL;
 	});
 
 	fm = fmc->head;
@@ -594,7 +593,7 @@ struct jffs_fm *jffs_cut_node(struct jffs_fmcontrol *fmc, __u32 size)
 			break;
 		}
 		else {
-			fm = 0;
+			fm = NULL;
 			break;
 		}
 	}
@@ -648,18 +647,18 @@ struct jffs_node *jffs_get_oldest_node(struct jffs_fmcontrol *fmc)
 {
 	struct jffs_fm *fm;
 	struct jffs_node_ref *nref;
-	struct jffs_node *node = 0;
+	struct jffs_node *node = NULL;
 
 	ASSERT(if (!fmc) {
 		printk(KERN_ERR "jffs_get_oldest_node(): fmc == NULL\n");
-		return 0;
+		return NULL;
 	});
 
 	for (fm = fmc->head; fm && !fm->nodes; fm = fm->next)
 	   ;	/* From the head, pass over the dirty nodes to the 1st used node. */
 
 	if (!fm) {
-		return 0;
+		return NULL;
 	}
 
 	/* The oldest node is the last one in the reference list.  This list
