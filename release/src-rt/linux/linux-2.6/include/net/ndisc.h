@@ -133,9 +133,9 @@ static inline struct neighbour * ndisc_get_neigh(struct net_device *dev, struct 
 {
 
 	if (dev)
-		return __neigh_lookup(&nd_tbl, addr, dev, 1);
+		return __neigh_lookup_errno(&nd_tbl, addr, dev);
 
-	return NULL;
+	return ERR_PTR(-ENODEV);
 }
 
 
