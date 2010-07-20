@@ -113,6 +113,7 @@ void start_dnsmasq()
 		"resolv-file=%s\n"		// the real stuff is here
 		"addn-hosts=%s\n"		// "
 		"expand-hosts\n"		// expand hostnames in hosts file
+		"stop-dns-rebind\n"		// DNS rebinding protection, will discard upstream RFC1918 responses
 		"min-port=%u\n", 		// min port used for random src port
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
