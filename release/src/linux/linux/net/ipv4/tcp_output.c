@@ -453,7 +453,9 @@ static int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len)
 	buff = tcp_alloc_skb(sk, nsize, GFP_ATOMIC);
 	if (buff == NULL)
 		return -ENOMEM; /* We'll just try again later. */
-	tcp_charge_skb(sk, buff);
+
+	buff->truesize = skb->len - len;
+	skb->truesize -= buff->truesize;
 
 	/* Correct the sequence numbers. */
 	TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
@@ -563,10 +565,9 @@ int tcp_sync_mss(struct sock *sk, u32 pmtu)
  * Returns 1, if no segments are in flight and we have queued segments, but
  * cannot send anything now because of SWS or another problem.
  */
-int tcp_write_xmit(struct sock *sk, int nonagle)
+int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle)
 {
 	struct tcp_opt *tp = &(sk->tp_pinfo.af_tcp);
-	unsigned int mss_now;
 
 	/* If we are closed, the bytes will have to remain here.
 	 * In time closedown will finish, we empty the write queue and all
@@ -575,13 +576,6 @@ int tcp_write_xmit(struct sock *sk, int nonagle)
 	if(sk->state != TCP_CLOSE) {
 		struct sk_buff *skb;
 		int sent_pkts = 0;
-
-		/* Account for SACKS, we may need to fragment due to this.
-		 * It is just like the real MSS changing on us midstream.
-		 * We also handle things correctly when the user adds some
-		 * IP options mid-stream.  Silly to do, but cover it.
-		 */
-		mss_now = tcp_current_mss(sk); 
 
 		while((skb = tp->send_head) &&
 		      tcp_snd_test(tp, skb, mss_now, tcp_skb_is_last(sk, skb) ? nonagle : 1)) {

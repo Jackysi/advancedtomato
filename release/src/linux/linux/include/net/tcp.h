@@ -831,7 +831,7 @@ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb,
 
 /* tcp_output.c */
 
-extern int tcp_write_xmit(struct sock *, int nonagle);
+extern int tcp_write_xmit(struct sock *, unsigned int mss_now, int nonagle);
 extern int tcp_retransmit_skb(struct sock *, struct sk_buff *);
 extern void tcp_xmit_retransmit_queue(struct sock *);
 extern void tcp_simple_retransmit(struct sock *);
@@ -1354,16 +1354,13 @@ static __inline__ int tcp_skb_is_last(struct sock *sk, struct sk_buff *skb)
  */
 static __inline__ void __tcp_push_pending_frames(struct sock *sk,
 						 struct tcp_opt *tp,
-						 unsigned cur_mss,
+						 unsigned int cur_mss,
 						 int nonagle)
 {
 	struct sk_buff *skb = tp->send_head;
 
 	if (skb) {
-		if (!tcp_skb_is_last(sk, skb))
-			nonagle = 1;
-		if (!tcp_snd_test(tp, skb, cur_mss, nonagle) ||
-		    tcp_write_xmit(sk, nonagle))
+		if (tcp_write_xmit(sk, cur_mss, nonagle))
 			tcp_check_probe_timer(sk, tp);
 	}
 	tcp_cwnd_validate(sk, tp);
