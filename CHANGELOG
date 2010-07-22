@@ -907,7 +907,7 @@ build 46 - 05/29/2010
 Fixed upnp bug when NAT-PMP redirections were expired prematurely.
 
 D-Link DIR-320 support: the router should retain its original MAC address
-after flashing with Tomato (untested).
+after flashing with Tomato.
 
 Software updates: Busybox updated to the latest ver. 1.16.1 with additional
 patches from trunk, miniupnpd 1.4 (20100511), ntfs-3g (in Extras builds)
@@ -1066,3 +1066,46 @@ Fixed VLAN initialization for Asus RT-N10.
 
 Fixed support for Netgear WNR2000v2.
 
+
+build 48 - 07/23/2010
+---------------------
+
+Merged with official Tomato 1.28 update.
+
+Software updates: Busybox 1.16.2, usb-modeswitch 1.1.3 with data
+package 2010-07-07.
+
+Added NETMAP iptables target.
+
+Wireless N-mode support: added GUI option to configure Control Sideband,
+fixed issue causing 40MHz bandwidth to be disabled in N-only mode.
+
+Added GUI options to configure Vendor Class and Requested IP for DHCP
+client.
+
+JFFSv1 is updated to ver. 1.4 (updates by ray123): fixed system crash
+in kernel 2.6, removed BKL, a few bug fixes, clean-up.
+
+Remstored "Reduce packet size" GUI option for DHCP settings - apparently
+some ISPs don't like truncated packets.
+
+DNS vunerability fix: turned on rebinding protection in dnsmasq (see
+http://blogs.forbes.com/firewall/2010/07/13/
+millions-of-home-routers-vulnerable-to-web-hack).
+
+Samba: do not explicitly disable dns proxy.
+
+Backported various fixes and optimization patches from upstream kernel 2.6.
+
+Minor bug fixes and cosmetics.
+
+* Kernel 2.4-based builds only:
+
+CIFS updated to version 1.50 backported from kernel 2.6.
+
+* Kernel 2.6-based builds only (beta18):
+
+Disabled Broadcom "fast NAT" module - this should fix various problems with
+Access Restrictions, QOS, VPN and iptables rules.
+
+Software update: MiniDLNA 1.0.18 (cvs 2010-07-21).
