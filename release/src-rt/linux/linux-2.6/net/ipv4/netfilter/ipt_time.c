@@ -77,8 +77,15 @@ match(const struct sk_buff *skb,
 
 	/* ... check the time now */
 	packet_time = (currenttime.tm_hour * 60) + currenttime.tm_min;
-	if ((packet_time < info->time_start) || (packet_time > info->time_stop))
-		return 0;
+	if (info->time_start < info->time_stop) {
+		if (packet_time < info->time_start ||
+		    packet_time > info->time_stop)
+			return 0;
+	} else {
+		if (packet_time < info->time_start &&
+		    packet_time > info->time_stop)
+			return 0;
+	}
 
 	/* here we match ! */
 	return 1;
