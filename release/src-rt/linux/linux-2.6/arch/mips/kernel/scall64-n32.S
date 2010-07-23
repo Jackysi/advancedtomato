@@ -403,4 +403,21 @@ EXPORT(sysn32_call_table)
 	PTR	compat_sys_signalfd		/* 5280 */
 	PTR	compat_sys_timerfd
 	PTR	sys_eventfd
+	PTR	sys_ni_syscall			/* sys_fallocate */
+	PTR	sys_ni_syscall			/* sys_timerfd_create */
+	PTR	sys_ni_syscall		/* 5285, compat_sys_timerfd_gettime */
+	PTR	sys_ni_syscall			/* compat_sys_timerfd_settime */
+	PTR	sys_ni_syscall			/* sys_signalfd4 */
+	PTR	sys_ni_syscall			/* sys_eventfd2 */
+	PTR	sys_ni_syscall			/* sys_epoll_create1 */
+	PTR	sys_ni_syscall			/* 5290, sys_dup3 */
+	PTR	sys_ni_syscall			/* sys_pipe2 */
+	PTR	sys_ni_syscall			/* sys_inotify_init1 */
+	PTR	sys_ni_syscall			/* sys_preadv */
+	PTR	sys_ni_syscall			/* sys_pwritev */
+	PTR	sys_ni_syscall		/* 5295, compat_sys_rt_tgsigqueueinfo */
+	PTR	sys_ni_syscall			/* sys_perf_counter_open */
+	PTR	sys_ni_syscall			/* sys_accept4 */
+	PTR     sys_ni_syscall
+	PTR     sys_getdents
 	.size	sysn32_call_table,.-sysn32_call_table
