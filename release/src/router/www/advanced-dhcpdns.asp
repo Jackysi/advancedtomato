@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_vendorclass,dhcpc_requestip"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -40,7 +40,13 @@ function verifyFields(focused, quiet)
 	if ((b) && (!v_range('_f_dhcpd_slt', quiet, 1, 43200))) return 0;
 	if (!v_length('_dnsmasq_custom', quiet, 0, 2048)) return 0;
 	if (!v_range('_dhcpd_lmax', quiet, 1, 0xFFFF)) return 0;
+	if (!v_ipz('_dhcpc_requestip', quiet)) return 0;
 	return 1;
+}
+
+function nval(a, b)
+{
+	return (a == null || (a + '').trim() == '') ? b : a;
 }
 
 function save()
@@ -56,8 +62,19 @@ function save()
 	fom.dns_addget.value = E('_f_dns_addget').checked ? 1 : 0;
 	fom.dhcpd_gwmode.value = E('_f_dhcpd_gwmode').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
+	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 
-	fom._service.value = 'dnsmasq-restart';
+	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt ||
+	    fom.dhcpc_vendorclass.value != nvram.dhcpc_vendorclass ||
+	    nval(fom.dhcpc_requestip.value, '0.0.0.0') != nval(nvram.dhcpc_requestip, '0.0.0.0')) {
+		nvram.dhcpc_minpkt = fom.dhcpc_minpkt.value;
+		nvram.dhcpc_vendorclass = fom.dhcpc_vendorclass.value;
+		nvram.dhcpc_requestip = fom.dhcpc_requestip.value;
+		fom._service.value = '*';
+	}
+	else {
+		fom._service.value = 'dnsmasq-restart';
+	}
 
 	if (fom.dns_intcpt.value != nvram.dns_intcpt) {
 		nvram.dns_intcpt = fom.dns_intcpt.value;
@@ -90,6 +107,7 @@ function save()
 <input type='hidden' name='dns_addget'>
 <input type='hidden' name='dhcpd_gwmode'>
 <input type='hidden' name='dns_intcpt'>
+<input type='hidden' name='dhcpc_minpkt'>
 
 <div class='section-title'>DHCP / DNS Server (LAN)</div>
 <div class='section'>
@@ -112,6 +130,17 @@ createFieldTable('', [
 Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configuration file if it exists.
 </div>
 <br>
+
+<div class='section-title'>DHCP Client (WAN)</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Vendor Class ID', name: 'dhcpc_vendorclass', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_vendorclass },
+	{ title: 'IP Address to request', name: 'dhcpc_requestip', type: 'text', maxlen: 15, size: 34, value: nvram.dhcpc_requestip },
+	{ title: 'Reduce packet size', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
+]);
+</script>
+</div>
 
 
 <!-- / / / -->

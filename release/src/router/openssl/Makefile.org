@@ -198,7 +198,7 @@ HEADER=         e_os.h
 # When we're prepared to use shared libraries in the programs we link here
 # we might remove 'clean-shared' from the targets to perform at this stage
 
-all: clean-shared Makefile.ssl sub_all shared-library my_apps
+all: clean-shared Makefile.ssl sub_all my_apps
 
 my_apps:
 	(cd apps && echo "making all in apps..." && \
@@ -228,7 +228,7 @@ libcrypto$(SHLIB_EXT): libcrypto.a
 	fi
 libssl$(SHLIB_EXT): libcrypto$(SHLIB_EXT) libssl.a
 	@if [ "$(SHLIB_TARGET)" != "" ]; then \
-		$(MAKE) SHLIBDIRS=ssl SHLIBDEPS='-lcrypto' build-shared; \
+		$(MAKE) SHLIBDIRS=ssl build-shared; \
 	else \
 		echo "There's no support for shared libraries on this platform" >&2; \
 	fi
@@ -266,11 +266,9 @@ do_linux-shared: do_gnu-shared
 do_gnu-shared:
 	libs='-L. ${SHLIBDEPS}'; for i in ${SHLIBDIRS}; do \
 	( set -x; ${CC} ${SHARED_LDFLAGS} \
-		-shared -o lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
-		-Wl,-soname=lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
-		-Wl,-Bsymbolic \
-		-Wl,--whole-archive lib$$i.a \
-		-Wl,--no-whole-archive $$libs ${EX_LIBS} -lc ) || exit 1; \
+		-shared -o lib$$i${SHLIB_EXT} \
+		-Wl,-soname,lib$$i${SHLIB_EXT} \
+		$(shell find $$i -iname "*.o") $$libs ${EX_LIBS} -lc ) || exit 1; \
 	libs="$$libs -l$$i"; \
 	done
 

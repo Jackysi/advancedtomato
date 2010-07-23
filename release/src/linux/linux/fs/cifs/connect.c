@@ -1,7 +1,7 @@
 /*
  *   fs/cifs/connect.c
  *
- *   Copyright (C) International Business Machines  Corp., 2002,2006
+ *   Copyright (C) International Business Machines  Corp., 2002,2007
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
  *   This library is free software; you can redistribute it and/or modify
@@ -371,7 +371,6 @@ cifs_demultiplex_thread(struct TCP_Server_Info *server)
 	sprintf(current->comm,"cifsd");
 #else
 	daemonize("cifsd");
-	allow_signal(SIGKILL);
 #endif
 	reparent_to_init();
 	current->flags |= PF_MEMALLOC;
@@ -432,14 +431,17 @@ cifs_demultiplex_thread(struct TCP_Server_Info *server)
 		iov.iov_len = 4;
 		smb_msg.msg_control = NULL;
 		smb_msg.msg_controllen = 0;
+		pdu_length = 4; /* enough to get RFC1001 header */
+incomplete_rcv:
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 8)
 		smb_msg.msg_iov = &iov;
 		smb_msg.msg_iovlen = 1;
 		length =
-			sock_recvmsg(csocket, &smb_msg, 4 /* RFC1001 len */, 0);
+			sock_recvmsg(csocket, &smb_msg, pdu_length, 0);
 #else
-		length = kernel_recvmsg(csocket, &smb_msg,
-				 &iov, 1, 4, 0 /* BB see socket.h flags */);
+		length =
+		    kernel_recvmsg(csocket, &smb_msg,
+				&iov, 1, pdu_length, 0 /* BB other flags? */);
 #endif
 		if (server->tcpStatus == CifsExiting) {
 			break;
@@ -453,7 +455,10 @@ cifs_demultiplex_thread(struct TCP_Server_Info *server)
 			msleep(1); /* minimum sleep to prevent looping
 				allowing socket to clear and app threads to set
 				tcpStatus CifsNeedReconnect if server hung */
-			continue;
+			if (pdu_length < 4)
+				goto incomplete_rcv;
+			else
+				continue;
 		} else if (length <= 0) {
 			if (server->tcpStatus == CifsNew) {
 				cFYI(1, ("tcp session abend after SMBnegprot"));
@@ -478,13 +483,11 @@ cifs_demultiplex_thread(struct TCP_Server_Info *server)
 			wake_up(&server->response_q);
 			continue;
 		} else if (length < 4) {
-			cFYI(1,
-			    ("Frame under four bytes received (%d bytes long)",
+			cFYI(1, ("less than four bytes received (%d bytes)",
 			      length));
-			cifs_reconnect(server);
-			csocket = server->ssocket;
-			wake_up(&server->response_q);
-			continue;
+			pdu_length -= length;
+			msleep(1);
+			goto incomplete_rcv;
 		}
 
 		/* The right amount was read from socket - 4 bytes */
@@ -592,6 +595,7 @@ cifs_demultiplex_thread(struct TCP_Server_Info *server)
                                               allowing socket to clear and app 
 					      threads to set tcpStatus
 					      CifsNeedReconnect if server hung*/
+				length = 0;
 				continue;
 			} else if (length <= 0) {
 				cERROR(1,("Received no data, expecting %d",
@@ -1697,6 +1701,103 @@ ipv6_connect(struct sockaddr_in6 *psin_server, struct socket **csocket)
 	return rc;
 }
 
+void reset_cifs_unix_caps(int xid, struct cifsTconInfo * tcon, 
+			  struct super_block * sb, struct smb_vol * vol_info)
+{
+	/* if we are reconnecting then should we check to see if
+	 * any requested capabilities changed locally e.g. via
+	 * remount but we can not do much about it here
+	 * if they have (even if we could detect it by the following)
+	 * Perhaps we could add a backpointer to array of sb from tcon
+	 * or if we change to make all sb to same share the same
+	 * sb as NFS - then we only have one backpointer to sb.
+	 * What if we wanted to mount the server share twice once with
+	 * and once without posixacls or posix paths? */
+	__u64 saved_cap = le64_to_cpu(tcon->fsUnixInfo.Capability);
+	   
+	if(!CIFSSMBQFSUnixInfo(xid, tcon)) {
+		__u64 cap = le64_to_cpu(tcon->fsUnixInfo.Capability);
+		
+		/* check for reconnect case in which we do not
+		   want to change the mount behavior if we can avoid it */
+		if(vol_info == NULL) {
+			/* turn off POSIX ACL and PATHNAMES if not set 
+			   originally at mount time */
+			if ((saved_cap & CIFS_UNIX_POSIX_ACL_CAP) == 0)
+				cap &= ~CIFS_UNIX_POSIX_ACL_CAP;
+			if ((saved_cap & CIFS_UNIX_POSIX_PATHNAMES_CAP) == 0)
+				cap &= ~CIFS_UNIX_POSIX_PATHNAMES_CAP;
+		}
+		
+		cap &= CIFS_UNIX_CAP_MASK;
+		if (vol_info && vol_info->no_psx_acl)
+			cap &= ~CIFS_UNIX_POSIX_ACL_CAP;
+		else if (CIFS_UNIX_POSIX_ACL_CAP & cap) {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 0)			
+			cFYI(1,("negotiated posix acl support"));
+			if(sb)
+				sb->s_flags |= MS_POSIXACL;
+#else
+				cFYI(1,("ACLs not supported"));
+#endif
+		}
+
+		if (vol_info && vol_info->posix_paths == 0)
+			cap &= ~CIFS_UNIX_POSIX_PATHNAMES_CAP;
+		else if (cap & CIFS_UNIX_POSIX_PATHNAMES_CAP) {
+			cFYI(1,("negotiate posix pathnames"));
+			if (sb)
+				CIFS_SB(sb)->mnt_cifs_flags |= 
+					CIFS_MOUNT_POSIX_PATHS;
+		}
+	
+		/* We might be setting the path sep back to a different
+		form if we are reconnecting and the server switched its
+		posix path capability for this share */	
+		if (sb && (CIFS_SB(sb)->prepathlen > 0))
+			CIFS_SB(sb)->prepath[0] = CIFS_DIR_SEP(CIFS_SB(sb));
+
+		if (sb && (CIFS_SB(sb)->rsize > 127 * 1024)) {
+			if ((cap & CIFS_UNIX_LARGE_READ_CAP) == 0) {
+				CIFS_SB(sb)->rsize = 127 * 1024;
+#ifdef CONFIG_CIFS_DEBUG2
+				cFYI(1,("larger reads not supported by srv"));
+#endif
+			}
+		}
+	
+		cFYI(1,("Negotiate caps 0x%x",(int)cap));
+#ifdef CONFIG_CIFS_DEBUG2
+		if (cap & CIFS_UNIX_FCNTL_CAP)
+			cFYI(1,("FCNTL cap"));
+		if (cap & CIFS_UNIX_EXTATTR_CAP)
+			cFYI(1,("EXTATTR cap"));
+		if (cap & CIFS_UNIX_POSIX_PATHNAMES_CAP)
+			cFYI(1,("POSIX path cap"));
+		if (cap & CIFS_UNIX_XATTR_CAP)
+			cFYI(1,("XATTR cap"));
+		if (cap & CIFS_UNIX_POSIX_ACL_CAP)
+			cFYI(1,("POSIX ACL cap"));
+		if (cap & CIFS_UNIX_LARGE_READ_CAP)
+			cFYI(1,("very large read cap"));
+		if (cap & CIFS_UNIX_LARGE_WRITE_CAP)
+			cFYI(1,("very large write cap"));
+#endif /* CIFS_DEBUG2 */
+		if (CIFSSMBSetFSUnixInfo(xid, tcon, cap)) {
+			if (vol_info == NULL)
+				cFYI(1, ("resetting capabilities failed"));
+			else
+				cERROR(1, ("Negotiating Unix capabilities "
+					   "with the server failed.  Consider "
+					   "mounting with the Unix Extensions\n"
+					   "disabled, if problems are found, "
+					   "by specifying the nounix mount "
+					   "option."));
+
+		}
+	}
+}
+
 int
 cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 	   char *mount_data, const char *devname)
@@ -1726,12 +1827,12 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		return -EINVAL;
 	}
 
-	if (volume_info.username) {
+	if (volume_info.nullauth) {
+		cFYI(1,("null user"));
+		volume_info.username = NULL;
+	} else if (volume_info.username) {
 		/* BB fixme parse for domain name here */
 		cFYI(1, ("Username: %s ", volume_info.username));
-
-	} else if (volume_info.nullauth) {
-		cFYI(1,("null user"));
 	} else {
 		cifserror("No username specified");
         /* In userspace mount helper we can get user name from alternate
@@ -1939,13 +2040,14 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 			cERROR(1,("rsize %d too large, using MaxBufSize",
 				volume_info.rsize));
 			cifs_sb->rsize = CIFSMaxBufSize;
-		} else if((volume_info.rsize) && (volume_info.rsize <= CIFSMaxBufSize))
+		} else if ((volume_info.rsize) &&
+				(volume_info.rsize <= CIFSMaxBufSize))
 			cifs_sb->rsize = volume_info.rsize;
 		else /* default */
 			cifs_sb->rsize = CIFSMaxBufSize;
 
 		if (volume_info.wsize > PAGEVEC_SIZE * PAGE_CACHE_SIZE) {
-			cERROR(1,("wsize %d too large using 4096 instead",
+			cERROR(1,("wsize %d too large, using 4096 instead",
 				  volume_info.wsize));
 			cifs_sb->wsize = 4096;
 		} else if (volume_info.wsize)
@@ -1964,7 +2066,7 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		if (cifs_sb->rsize < 2048) {
 			cifs_sb->rsize = 2048; 
 			/* Windows ME may prefer this */
-			cFYI(1,("readsize set to minimum 2048"));
+			cFYI(1,("readsize set to minimum: 2048"));
 		}
 		/* calculate prepath */
 		cifs_sb->prepath = volume_info.prepath;
@@ -2022,20 +2124,25 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 			if (tcon == NULL)
 				rc = -ENOMEM;
 			else {
-				/* check for null share name ie connect to dfs root */
+				/* check for null share name ie connecting to 
+				 * dfs root */
 
-				/* BB check if this works for exactly length three strings */
+				/* BB check if this works for exactly length 
+				 * three strings */
 				if ((strchr(volume_info.UNC + 3, '\\') == NULL)
 				    && (strchr(volume_info.UNC + 3, '/') ==
 					NULL)) {
 					rc = connect_to_dfs_path(xid, pSesInfo,
-							"", cifs_sb->local_nls,
-							cifs_sb->mnt_cifs_flags & 
-							  CIFS_MOUNT_MAP_SPECIAL_CHR);
+						"", cifs_sb->local_nls,
+						cifs_sb->mnt_cifs_flags & 
+						  CIFS_MOUNT_MAP_SPECIAL_CHR);
 					kfree(volume_info.UNC);
 					FreeXid(xid);
 					return -ENODEV;
 				} else {
+					/* BB Do we need to wrap sesSem around
+					 * this TCon call and Unix SetFS as
+					 * we do on SessSetup and reconnect? */
 					rc = CIFSTCon(xid, pSesInfo, 
 						volume_info.UNC,
 						tcon, cifs_sb->local_nls);
@@ -2055,7 +2162,9 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		} else
 			sb->s_maxbytes = (u64) 1 << 31;	/* 2 GB */
 	}
+
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 10)
+	/* BB FIXME fix time_gran to be larger for LANMAN sessions */
 	sb->s_time_gran = 100;
 #endif
 
@@ -2068,7 +2177,7 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 			srvTcp->tcpStatus = CifsExiting;
 			spin_unlock(&GlobalMid_Lock);
 			if (srvTcp->tsk) {
-				send_sig(SIGKILL,srvTcp->tsk,1);
+				force_sig(SIGKILL, srvTcp->tsk);
 				wait_for_completion(&cifsd_complete);
 			}
 		}
@@ -2083,12 +2192,21 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 					temp_rc = CIFSSMBLogoff(xid, pSesInfo);
 					/* if the socketUseCount is now zero */
 					if ((temp_rc == -ESHUTDOWN) &&
-					   (pSesInfo->server->tsk)) {
-						send_sig(SIGKILL,pSesInfo->server->tsk,1);
+					    (pSesInfo->server) &&
+					    (pSesInfo->server->tsk)) {
+						force_sig(SIGKILL,
+							pSesInfo->server->tsk);
 						wait_for_completion(&cifsd_complete);
 					}
-				} else
+				} else {
 					cFYI(1, ("No session or bad tcon"));
+					if ((pSesInfo->server) &&
+					    (pSesInfo->server->tsk)) {
+						force_sig(SIGKILL,
+							pSesInfo->server->tsk);
+						wait_for_completion(&cifsd_complete);
+					}
+				}
 				sesInfoFree(pSesInfo);
 				/* pSesInfo = NULL; */
 			}
@@ -2101,48 +2219,16 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		/* do not care if following two calls succeed - informational */
 		CIFSSMBQFSDeviceInfo(xid, tcon);
 		CIFSSMBQFSAttributeInfo(xid, tcon);
-
-		if (tcon->ses->capabilities & CAP_UNIX) {
-			if (!CIFSSMBQFSUnixInfo(xid, tcon)) {
-				__u64 cap = 
-				       le64_to_cpu(tcon->fsUnixInfo.Capability);
-				cap &= CIFS_UNIX_CAP_MASK;
-				if (volume_info.no_psx_acl)
-					cap &= ~CIFS_UNIX_POSIX_ACL_CAP;
-				else if (CIFS_UNIX_POSIX_ACL_CAP & cap) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 0)
-					cFYI(1,("negotiated posix acl support"));
-					sb->s_flags |= MS_POSIXACL;
-#else
-					cFYI(1,("ACLs not supported"));
-#endif
-				}
-
-				if (volume_info.posix_paths == 0)
-					cap &= ~CIFS_UNIX_POSIX_PATHNAMES_CAP;
-				else if (cap & CIFS_UNIX_POSIX_PATHNAMES_CAP) {
-					cFYI(1,("negotiate posix pathnames"));
-					cifs_sb->mnt_cifs_flags |= 
-						CIFS_MOUNT_POSIX_PATHS;
-				}
-					
-				cFYI(1,("Negotiate caps 0x%x",(int)cap));
+		
+		/* tell server which Unix caps we support */
+		if (tcon->ses->capabilities & CAP_UNIX)
+			reset_cifs_unix_caps(xid, tcon, sb, &volume_info);
+		else if(cifs_sb->rsize > (1024 * 127)) {
+			cifs_sb->rsize = 1024 * 127;
 #ifdef CONFIG_CIFS_DEBUG2
-				if (cap & CIFS_UNIX_FCNTL_CAP)
-					cFYI(1,("FCNTL cap"));
-				if (cap & CIFS_UNIX_EXTATTR_CAP)
-					cFYI(1,("EXTATTR cap"));
-				if (cap & CIFS_UNIX_POSIX_PATHNAMES_CAP)
-					cFYI(1,("POSIX path cap"));
-				if (cap & CIFS_UNIX_XATTR_CAP)
-					cFYI(1,("XATTR cap"));
-				if (cap & CIFS_UNIX_POSIX_ACL_CAP)
-					cFYI(1,("POSIX ACL cap"));
-#endif /* CIFS_DEBUG2 */
-				if (CIFSSMBSetFSUnixInfo(xid, tcon, cap)) {
-					cFYI(1,("setting capabilities failed"));
-				}
-			}
+			cFYI(1,("no very large read support, rsize 127K"));
+#endif
+			
 		}
 		if (!(tcon->ses->capabilities & CAP_LARGE_WRITE_X))
 			cifs_sb->wsize = min(cifs_sb->wsize,
@@ -3336,9 +3422,11 @@ CIFSTCon(unsigned int xid, struct cifsSesInfo *ses,
 				kfree(tcon->nativeFileSystem);
 				tcon->nativeFileSystem =
 				    kzalloc((4 * length) + 2, GFP_KERNEL);
-				cifs_strfromUCS_le(tcon->nativeFileSystem,
-						   (__le16 *) bcc_ptr,
-						   length, nls_codepage);
+				if (tcon->nativeFileSystem)
+					cifs_strfromUCS_le(
+						tcon->nativeFileSystem,
+						(__le16 *) bcc_ptr,
+						length, nls_codepage);
 				bcc_ptr += (2 * length) + 2;
 			}
 			/* else do not bother copying these informational fields */
@@ -3350,8 +3438,9 @@ CIFSTCon(unsigned int xid, struct cifsSesInfo *ses,
 				kfree(tcon->nativeFileSystem);
 				tcon->nativeFileSystem =
 				    kzalloc(length + 1, GFP_KERNEL);
-				strncpy(tcon->nativeFileSystem, bcc_ptr,
-					length);
+				if (tcon->nativeFileSystem)
+					strncpy(tcon->nativeFileSystem, bcc_ptr,
+						length);
 			}
 			/* else do not bother copying these informational fields */
 		}
@@ -3400,9 +3489,9 @@ cifs_umount(struct super_block *sb, struct cifs_sb_info *cifs_sb)
 				FreeXid(xid);
 				return 0;
 			} else if (rc == -ESHUTDOWN) {
-				cFYI(1,("Waking up socket by sending it signal"));
+				cFYI(1,("Waking up socket by sending signal"));
 				if(cifsd_task) {
-					send_sig(SIGKILL,cifsd_task,1);
+					force_sig(SIGKILL,cifsd_task);
 					wait_for_completion(&cifsd_complete);
 				}
 				rc = 0;
@@ -3514,7 +3603,7 @@ int cifs_setup_session(unsigned int xid, struct cifsSesInfo *pSesInfo,
 
 					if(first_time)
 						cifs_calculate_mac_key(
-							pSesInfo->server->mac_signing_key,
+							&pSesInfo->server->mac_signing_key,
 							ntlm_session_key,
 							pSesInfo->password);
 				}
@@ -3534,7 +3623,7 @@ int cifs_setup_session(unsigned int xid, struct cifsSesInfo *pSesInfo,
 
 			if(first_time) 		
 				cifs_calculate_mac_key(
-					pSesInfo->server->mac_signing_key,
+					&pSesInfo->server->mac_signing_key,
 					ntlm_session_key, pSesInfo->password);
 
 			rc = CIFSSessSetup(xid, pSesInfo,

@@ -7,6 +7,10 @@
 #	- create xref of symbols used
 #
 
+$root = $ENV{"TARGETDIR"};
+$uclibc = $ENV{"TOOLCHAIN"};
+$router = $ENV{"SRCBASE"} . "/router";
+
 sub error
 {
 	print STDERR "\n*** ERROR: " . (shift) . "\n\n";
@@ -214,7 +218,11 @@ sub fillGaps
 				$sym = '__uClibc_main';
 			}
 
-			if (resolve($name, $sym) eq "*** unresolved ***") {
+			#  __gnu_local_gp is defined specially by the linker on MIPS
+			if ($sym eq '__gnu_local_gp') {
+				$found = 1;
+			}
+			elsif (resolve($name, $sym) eq "*** unresolved ***") {
 				@users = usersOf($name);
 				foreach $u (@users) {
 					# if exported by $u
@@ -340,7 +348,7 @@ sub genSO
 
 	print LOG "\n\n${base}\n";
 	
-	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
+	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so} -L${root}/usr/lib";
 	foreach (@{$elf_lib{$name}}) {
 		if ((!$elf_dyn{$name}{$_}) && (/^lib(.+)\.so/)) {
 			$cmd .= " -l$1";
@@ -387,10 +395,6 @@ sub genSO
 
 #	print "\nlibfoo.pl - fooify shared libraries\n";
 #	print "Copyright (C) 2006-2007 Jonathan Zarate\n\n";
-
-$root = $ENV{"TARGETDIR"};
-$uclibc = $ENV{"TOOLCHAIN"};
-$router = $ENV{"SRCBASE"} . "/router";
 
 if ((!-d $root) || (!-d $uclibc) || (!-d $router)) {
 	print "Missing or invalid environment variables\n";

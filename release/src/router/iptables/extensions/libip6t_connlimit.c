@@ -117,7 +117,7 @@ static void connlimit_print(const struct ip6t_ip6 *ip,
 	const struct xt_connlimit_info *info = (const void *)match->data;
 
 	printf("#conn/%u %s %u ", count_bits(info->v6_mask),
-	       info->inverse ? "<" : ">", info->limit);
+	       info->inverse ? "<=" : ">", info->limit);
 }
 
 /* Saves the matchinfo in parsable form to stdout. */

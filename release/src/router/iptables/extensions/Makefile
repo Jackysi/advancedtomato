@@ -10,7 +10,7 @@
 
 
 PF_EXT_SLIB:=CLASSIFY CONNMARK DNAT DSCP LOG MARK MASQUERADE REDIRECT REJECT
-PF_EXT_SLIB+=ROUTE SNAT TCPMSS TOS TRIGGER TTL
+PF_EXT_SLIB+=ROUTE SNAT TCPMSS TOS TRIGGER TTL NETMAP
 PF_EXT_SLIB+=condition connlimit connmark geoip icmp iprange layer7
 PF_EXT_SLIB+=length limit mac mark mport multiport recent standard state
 PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web dscp

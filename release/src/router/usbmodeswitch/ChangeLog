@@ -2,6 +2,15 @@
 History of USB-ModeSwitch
 =========================
 
+Version 1.1.3, 2010/06/21
+    Added delay option to separate multiple message transfers by millisecs;
+    fixed (possibly dangerous) sloppy string handling (thanks to Christophe
+    Fergeau); added "clear_halt" for response endpoint; small additions in
+    Makefile (install with -D); changes in option handling (NO MORE DEFAULT
+    CONFIG FILE!) and help text; symlink feature in wrapper can now cope
+    with devices providing more than one interrupt port; wrapper now ignores
+    package manager leftovers in config folder; replaced bash-specific syntax
+    in wrapper; changed ZTE skipping (if existing rules are found) to warning
 Version 1.1.2, 2010/04/18
     Added support for two additional bulk messages; wrapper handles special
 	ZTE case; generalized driver loading, new parameter "DriverModule" and

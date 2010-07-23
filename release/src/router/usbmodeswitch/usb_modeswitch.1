@@ -19,7 +19,7 @@ message (most likely a mass storage command) to the device which is known
 to initiate the mode switching.
 .PP
 In some cases, USB control commands are used for switching. These cases are
-handled by custom functions, and no command needs to be provided.
+handled by custom functions, and no bulk message needs to be provided.
 .PP
 Usually, the program is distributed with a set of configurations for many
 known devices, which in combination with a wrapper script launched from the
@@ -63,15 +63,19 @@ A bulk message to send as a switching command. Provided as a hexadecimal string
 Additional bulk messages to send as switching commands. Provided as hexadecimal strings.
 When used with mass storage commands, setting \fB\-\-need-response\fR is
 strongly advised to comply with specifications and to avoid likely errors
+.IP "\fB-w\fP \fB\-\-message-delay NUM\fP         " 10
+If there is more than one message content, wait for NUM milliseconds
+before sending the next one. Otherwise it is ignored. Note: this will release
+and reclaim the interface
 .IP "\fB-n\fP \fB\-\-need-response\fP         " 10
-Read the response (containing the command status) to a mass storage command
+Read the response (command status wrapper) to a mass storage command
 transfer.
 Some devices have trouble switching if the response is not read; most
 are disappearing right away. When sending multiple mass storage commands
 with \fB\-2\fR and \fB\-3\fR, this must be set to avoid transfer errors
 .IP "\fB-r\fP \fB\-\-response-endpoint NUM\fP         " 10 
 Try to read the response to a storage command from there
-if option -n is active). Only for testing purposes; usually
+if option -n is active. Only for testing purposes; usually
 endpoints are determined from the device attributes
 .IP "\fB-d\fP \fB\-\-detach-only\fP         " 10
 Detach the storage driver as the only action. This is sufficient for some
@@ -92,8 +96,8 @@ Few devices need it to complete the switching; apart from that it may be
 useful during testing
 .IP "\fB-c\fP \fB\-\-config filename\fP         " 10 
 Use a specific config file. If any ID or switching options are given as
-command line parameters, no config file (default or specific) is used.
-In that case all mandatory and optional parameters have to be provided on
+command line parameters, this option is ignored.
+In that case all mandatory parameters have to be provided on
 the command line
 .IP "\fB-Q\fP \fB\-\-quiet\fP         " 10 
 Don't show progress or error messages 
@@ -113,9 +117,9 @@ of differing devices the attributes of the storage part provide valuable informa
 This is not needed for devices that are known and supported 
 .IP "\fB-i\fP \fB\-\-interface NUM\fP         " 10 
 Select initial USB interface (default: 0). Only for testing purposes
-.IP "\fB-u\fP \fB\-\-configuration NUM\fP         " 10 
+.IP "\fB-u\fP \fB\-\-configuration NUM\fP         " 10
 Select USB configuration (applied after switching). Mainly for testing
-.IP "\fB-a\fP \fB\-\-altsetting NUM\fP         " 10 
+.IP "\fB-a\fP \fB\-\-altsetting NUM\fP         " 10
 Select alternative USB interface setting (applied after switching). Mainly
 for testing
 .SH "AUTHOR" 
@@ -130,4 +134,4 @@ later version published by the Free Software Foundation.
 The complete text of the current GNU General Public
 License can be found in http://www.gnu.org/licenses/gpl.txt
 
-.\" last edited 2010-04-03
+.\" last edited 2010-06-21

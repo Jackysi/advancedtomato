@@ -25,6 +25,7 @@
 #define _LINUX_ETHERDEVICE_H
 
 #include <linux/if_ether.h>
+#include <linux/random.h>
 
 #ifdef __KERNEL__
 extern int		eth_header(struct sk_buff *skb, struct net_device *dev,
@@ -63,6 +64,35 @@ static inline int is_valid_ether_addr( u8 *addr )
 	return !(addr[0]&1) && memcmp( addr, zaddr, 6);
 }
 
+/**
+ * random_ether_addr - Generate software assigned random Ethernet address
+ * @addr: Pointer to a six-byte array containing the Ethernet address
+ *
+ * Generate a random Ethernet address (MAC) that is not multicast
+ * and has the local assigned bit set.
+ */
+static inline void random_ether_addr(u8 *addr)
+{
+	get_random_bytes (addr, ETH_ALEN);
+	addr [0] &= 0xfe;	/* clear multicast bit */
+	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
+}
+
+/**
+ * compare_ether_addr - Compare two Ethernet addresses
+ * @addr1: Pointer to a six-byte array containing the Ethernet address
+ * @addr2: Pointer other six-byte array containing the Ethernet address
+ *
+ * Compare two ethernet addresses, returns 0 if equal
+ */
+static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
+{
+	const u16 *a = (const u16 *) addr1;
+	const u16 *b = (const u16 *) addr2;
+
+	BUILD_BUG_ON(ETH_ALEN != 6);
+	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
+}
 #endif
 
 #endif	/* _LINUX_ETHERDEVICE_H */

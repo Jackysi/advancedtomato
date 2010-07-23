@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -121,11 +121,7 @@ function verifyFields(focused, quiet)
 	b = (v == '*user');
 	elem.display(eUser, b);
 	if (b) {
-		if (!v_length(eUser, quiet, 2)) return 0;
-		if (path.substr(0, 1) != '/') {
-			ferror.set(eUser, 'Please start at the / root directory.', quiet);
-			return 0;
-		}
+		if (!v_path(eUser, quiet, 1)) return 0;
 	}
 /* JFFS2-BEGIN */
 	else if (v == '/jffs/') {

@@ -5,6 +5,8 @@ ifeq ($(DO_IPV6), 1)
 EXTRAS+=libiptc/libip6tc.a
 endif
 
+CFLAGS+=-fPIC
+
 # libiptc is not a public interface and therefore not installed
 # DEVEL_LIBS+=libiptc/libiptc.a
 

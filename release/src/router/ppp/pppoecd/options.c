@@ -30,6 +30,9 @@
 #include "fsm.h"
 #include "lcp.h"
 #include "ipcp.h"
+#ifdef INET6
+#include "ipv6cp.h"
+#endif
 
 int	debug = 0;		/* Debug flag */
 int	kdebugflag = 0;		/* Tell kernel to print debug messages */
@@ -82,7 +85,11 @@ extern int retransmit_time;
 
 extern int setdevname_pppoe(const char *cp);
 
-static char *usage_string = "usage: %s interface -d -k [-i idle] [-u username] [-p passwd] [-a acname] [-s srvname] [-r mru] [-t mtu] [-I lcp_echo_interval] [-T lcp_echo_fails] [-P ipparam] [-L Local IP] [-N retry_num] [-R set default route] [-n use unnumber ip] [-C disconnected function]\n";
+static char *usage_string = "usage: %s interface -d -k [-i idle] [-u username] [-p passwd] [-a acname] [-s srvname] [-r mru] [-t mtu] [-I lcp_echo_interval] [-T lcp_echo_fails] [-P ipparam] [-L Local IP] [-N retry_num] [-R set default route]"
+#ifdef INET6
+			    " [-6 enable PPP IPv6CP]"
+#endif
+			    " [-n use unnumber ip] [-C disconnected function]\n";
 
 /*
  * parse_args - parse a string of arguments from the command line.
@@ -95,7 +102,7 @@ parse_args(argc, argv)
     int opt;
     struct in_addr Laddr;	//, Naddr;
 
-    while ((opt = getopt(argc, argv, "dki:u:p:a:s:r:t:U:I:T:P:L:N:RnC:v:x")) != -1) {
+    while ((opt = getopt(argc, argv, "dki:u:p:a:s:r:t:U:I:T:P:L:N:R6nC:v:x")) != -1) {
 	    switch (opt) {
 	    case 'd':
 		    debug = nodetach = 1;
@@ -157,6 +164,11 @@ parse_args(argc, argv)
 	    case 'R':	//by tallest set default route
 		    	ipcp_wantoptions[0].default_route = 1;
 		    break;
+	    case '6':   //by Polaris75 - enable IPv6CP
+#ifdef INET6
+			ipv6cp_protent.enabled_flag = 1;
+#endif
+			break;
 	    case 'n':   //by tallest for unnumber ip use. 
 #ifdef UNNUMBERIP_SUPPORT
                         is_unnumber_ip = 1;

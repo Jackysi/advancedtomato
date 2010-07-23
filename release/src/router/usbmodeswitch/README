@@ -1,4 +1,4 @@
-README for USB-ModeSwitch
+README for USB_ModeSwitch
 
 For up-to-date and more detailed information (plus a friendly forum) visit
 http://www.draisberghof.de/usb_modeswitch
@@ -7,23 +7,24 @@ http://www.draisberghof.de/usb_modeswitch
 What it is
 ==========
 
-USB-ModeSwitch is (surprise!) a small mode switching tool for controlling
-"flip flop" (multiple device) USB gear.
+USB_ModeSwitch is (surprise!) a small mode switching tool for controlling
+"flip flop" (multiple mode) USB gear.
 
 Several new USB devices (especially high-speed WAN stuff, based on cell phone
 chipsets containing that feature) have their MS Windows drivers onboard; when
 plugged in for the first time they act like a flash storage and start
 installing the driver from there.
-After that (and on every consecutive plugging) this driver switches the mode
-internally, the storage device vanishes (in most cases), and a new device (like
-an USB modem) shows up. Some call that feature "ZeroCD".
+After installation (and on every consecutive plugging) the driver switches the
+mode internally, the storage device vanishes (in most cases), and a new device
+(like an USB modem) shows up. Modem maker "Option" calls that feature "ZeroCD
+(TM)".
 
 In the beginning, nothing of this was documented in any form and there was
 hardly any Linux support available.
-On the good side, most of the known devices work out of the box with the
-available Linux modules like "usb-storage" or serial USB drivers. That leaves
-the problem of the mode switching from storage to whatever the thing is
-supposed to do.
+On the good side, most of the known devices work out of the box in all modes
+with the available Linux modules like "usb-storage" or serial USB drivers.
+That leaves only the problem of the mode-switching from storage to whatever
+the thing is supposed to do.
 
 Fortunately there are things like human intelligence, USB sniffing programs and
 "libusb". It is possible to eavesdrop the communication of the MS Windows
@@ -33,12 +34,13 @@ the same thing with Linux.
 USB-ModeSwitch eases the pain considerably by taking just the important para-
 meters from a configuration file and doing all the initialization and communi-
 cation stuff, with heavy help from "libusb".
-Starting from version 0.9.7 it has an optional success check which spares the
-manual call of "lsusb" to note any changes after execution.
+It is mainly used automatically - via udev events and rules - to do the switch
+without any user interaction. But it can also be run as a command line tool,
+usually when trying to make it work with unknown devices.
 
 We have already collected a wide range of information on how to switch all
 sorts of devices. If you run into a new one that is unknown yet, don't despair:
-we can find out what you need!
+we can find out what you need to do!
 
 
 How to install
@@ -67,11 +69,10 @@ find out why.
 
 For manual use just run "make". Work with the command line interface or
 with a setup file. You can use any file and give its path with the "-c"
-parameter. If you don't give anything on the command line, the program
-looks for "/etc/usb-modeswitch.setup". The file with the same name that
-you can find in the package is a reference containing all known devices;
-you can use it directly by activating the entry you want, or you use it
-as a base to create your own setup file.
+parameter.
+The file named "device_reference.txt" that you can find in this package is
+a device and configuration reference containing most known devices; you can
+use it as a base to create your own configuration file.
 It's heavily commented and should tell you what to do.
 
 Run "usb-modeswitch -h" to list the command line parameters. If any of them
@@ -154,8 +155,10 @@ Code, fixes and ideas from:
  Andrew Bird
  Yaroslav Levandovskiy
  Sakis Dimopoulos
+ Steven Fernandez
+ Christophe Fergeau
 
-More contributors are listed in the config file.
+Device information contributors are named in the "device_reference.txt" file.
 
 
 Legal
@@ -177,4 +180,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-04-12, Josua Dietze
+Last revised: 2010-06-21, Josua Dietze

@@ -25,6 +25,9 @@
 /* Enable if the system iconv.h exists.  ID3 tag reading in various character sets will not work properly otherwise. */
 /*#define HAVE_ICONV_H*/
 
+/* Enable if the system libintl.h exists for NLS support. */
+/*#define ENABLE_NLS*/
+
 /* Enable NETGEAR-specific tweaks. */
 /*#define NETGEAR*/
 /* Enable ReadyNAS-specific tweaks. */

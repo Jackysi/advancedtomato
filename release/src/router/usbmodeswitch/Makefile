@@ -1,5 +1,5 @@
 PROG        = usb_modeswitch
-VERS        = 1.1.2
+VERS        = 1.1.3
 CC          = gcc
 CFLAGS      += -Wall -l usb
 RM          = /bin/rm -f
@@ -15,25 +15,23 @@ MANDIR      = $(PREFIX)/share/man/man1
 all:        $(PROG)
 
 $(PROG): $(OBJS)
-	$(CC) -o $(PROG) $(OBJS) $(CFLAGS)
+	$(CC) -o $(PROG) $(OBJS) $(CFLAGS) $(LDFLAGS)
 
 clean:
 	$(RM) usb_modeswitch
 
 install: all
-	install -d $(SBINDIR)
-	install --mode=755 usb_modeswitch $(SBINDIR)/usb_modeswitch
-	install --mode=755 usb_modeswitch.tcl $(UDEVDIR)/usb_modeswitch
-	install --mode=644 usb_modeswitch.conf $(ETCDIR)/usb_modeswitch.conf
-	install --mode=644 usb_modeswitch.1 $(MANDIR)/usb_modeswitch.1
+	install -D --mode=755 usb_modeswitch $(SBINDIR)/usb_modeswitch
+	install -D --mode=755 usb_modeswitch.tcl $(UDEVDIR)/usb_modeswitch
+	install -D --mode=644 usb_modeswitch.conf $(ETCDIR)/usb_modeswitch.conf
+	install -D --mode=644 usb_modeswitch.1 $(MANDIR)/usb_modeswitch.1
 
 
 uninstall:
 	$(RM) $(SBINDIR)/usb_modeswitch
 	$(RM) $(UDEVDIR)/usb_modeswitch
-	$(RM) $(RULESDIR)/40-usb_modeswitch.rules
 	$(RM) $(ETCDIR)/usb_modeswitch.conf
-	$(RM) -R $(ETCDIR)/usb_modeswitch.d
+	$(RM) $(MANDIR)/usb_modeswitch.1
 
 .PHONY:    clean install uninstall
 

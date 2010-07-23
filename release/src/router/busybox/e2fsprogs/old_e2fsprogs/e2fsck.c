@@ -330,6 +330,7 @@ static void free_nodes(dict_t *dict, dnode_t *node, dnode_t *nil)
 	dict->dict_freenode(node);
 }
 
+#if 0
 /*
  * Verify that the tree contains the given node. This is done by
  * traversing all of the nodes and comparing their pointers to the
@@ -346,7 +347,7 @@ static int verify_dict_has_node(dnode_t *nil, dnode_t *root, dnode_t *node)
 	}
 	return 0;
 }
-
+#endif
 
 /*
  * Select a different set of node allocator routines.

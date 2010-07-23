@@ -346,6 +346,8 @@ define BusyboxOptions
 		echo "# CONFIG_BLKID is not set" >>$(1); \
 		sed -i "/CONFIG_SWAPONOFF/d" $(1); \
 		echo "# CONFIG_SWAPONOFF is not set" >>$(1); \
+		sed -i "/CONFIG_TRUE/d" $(1); \
+		echo "# CONFIG_TRUE is not set" >>$(1); \
 	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_FEATURE_IPV6/d" $(1); \
@@ -382,23 +384,9 @@ define KernelConfig
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
-	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-		sed -i "/CONFIG_BCM57XX/d" $(1); \
-		echo "CONFIG_BCM57XX=m" >>$(1); \
-	fi; \
-	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(JFFSv1)" = "y" ]; then \
-		sed -i "/CONFIG_JFFS_FS/d" $(1); \
-		echo "CONFIG_JFFS_FS=m" >>$(1); \
-		sed -i "/CONFIG_JFFS_FS_VERBOSE/d" $(1); \
-		echo "CONFIG_JFFS_FS_VERBOSE=0" >>$(1); \
-		sed -i "/CONFIG_JFFS_PROC_FS/d" $(1); \
-		echo "# CONFIG_JFFS_PROC_FS is not set" >>$(1); \
-		sed -i "/CONFIG_JFFS2_FS/d" $(1); \
-		echo "# CONFIG_JFFS2_FS is not set" >>$(1); \
-	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
-		echo "CONFIG_IPV6=m" >>$(1); \
+		echo "CONFIG_IPV6=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_IPTABLES/d" $(1); \
 		echo "CONFIG_IP6_NF_IPTABLES=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
@@ -423,7 +411,7 @@ define KernelConfig
 			sed -i "/CONFIG_IPV6_MULTIPLE_TABLES/d" $(1); \
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
-			echo "CONFIG_IP6_NF_TARGET_ROUTE=y" >>$(1); \
+			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
@@ -514,7 +502,7 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y NO_JFFS=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y JFFSv1=y B=S BUILD_DESC="Std" USB=""
 else
 	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif

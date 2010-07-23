@@ -98,7 +98,8 @@ enum statusEnum {
 };
 
 enum securityEnum {
-	LANMAN = 0,             /* Legacy LANMAN auth */
+	PLAINTXT = 0, 		/* Legacy with Plaintext passwords */
+	LANMAN,			/* Legacy LANMAN auth */
 	NTLM,			/* Legacy NTLM012 auth with NTLM hash */
 	NTLMv2,			/* Legacy NTLM auth with NTLMv2 hash */
 	RawNTLMSSP,		/* NTLMSSP without SPNEGO */
@@ -111,6 +112,17 @@ enum protocolEnum {
 	IPV6,
 	SCTP
 	/* Netbios frames protocol not supported at this time */
+};
+
+struct mac_key {
+	unsigned int len;
+	union {
+		char ntlm[CIFS_SESS_KEY_SIZE + 16];
+		struct {
+			char key[16];
+			struct ntlmv2_resp resp;
+		} ntlmv2;
+	} data;
 };
 
 /*
@@ -168,7 +180,8 @@ struct TCP_Server_Info {
 	/* 16th byte of RFC1001 workstation name is always null */
 	char workstation_RFC1001_name[SERVER_NAME_LEN_WITH_NULL];
 	__u32 sequence_number; /* needed for CIFS PDU signature */
-	char mac_signing_key[CIFS_SESS_KEY_SIZE + 16];
+	struct mac_key mac_signing_key;
+	char ntlmv2_hash[16];
 	unsigned long lstrp; /* when we got last response from this server */
 };
 
@@ -477,6 +490,9 @@ struct dir_notify_req {
 #ifdef CONFIG_CIFS_WEAK_PW_HASH
 #define   CIFSSEC_MAY_LANMAN	0x00010
 #define   CIFSSEC_MAY_PLNTXT	0x00020
+#else
+#define   CIFSSEC_MAY_LANMAN    0
+#define   CIFSSEC_MAY_PLNTXT    0
 #endif /* weak passwords */
 #define   CIFSSEC_MAY_SEAL	0x00040 /* not supported yet */
 
@@ -498,6 +514,7 @@ require use of the stronger protocol */
 
 #define   CIFSSEC_DEF  CIFSSEC_MAY_SIGN | CIFSSEC_MAY_NTLM | CIFSSEC_MAY_NTLMV2
 #define   CIFSSEC_MAX  CIFSSEC_MUST_SIGN | CIFSSEC_MUST_NTLMV2
+#define   CIFSSEC_AUTH_MASK (CIFSSEC_MAY_NTLM | CIFSSEC_MAY_NTLMV2 | CIFSSEC_MAY_LANMAN | CIFSSEC_MAY_PLNTXT | CIFSSEC_MAY_KRB5)
 /*
  *****************************************************************
  * All constants go here

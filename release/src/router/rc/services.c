@@ -113,6 +113,7 @@ void start_dnsmasq()
 		"resolv-file=%s\n"		// the real stuff is here
 		"addn-hosts=%s\n"		// "
 		"expand-hosts\n"		// expand hostnames in hosts file
+		"stop-dns-rebind\n"		// DNS rebinding protection, will discard upstream RFC1918 responses
 		"min-port=%u\n", 		// min port used for random src port
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
@@ -1079,7 +1080,6 @@ static void start_samba(void)
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
-		" dns proxy = no\n"
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
@@ -1703,7 +1703,7 @@ TOP:
 #endif
 
 #ifdef TCONFIG_JFFS2
-	if (strcmp(service, "jffs2") == 0) {
+	if (strncmp(service, "jffs", 4) == 0) {
 		if (action & A_STOP) stop_jffs2();
 		if (action & A_START) start_jffs2();
 		goto CLEAR;
@@ -1827,6 +1827,8 @@ TOP:
 			start_usb();
 			// restart Samba and ftp since they may be killed by stop_usb()
 			restart_nas_services(0, 1);
+			// remount all partitions by simulating hotplug event
+			add_remove_usbhost("-1", 1);
 		}
 		goto CLEAR;
 	}

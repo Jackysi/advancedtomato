@@ -833,6 +833,37 @@ function v_domain(e, quiet)
 	return 1;
 }
 
+function v_nodelim(e, quiet, name, checklist)
+{
+	if ((e = E(e)) == null) return 0;
+
+	e.value = e.value.trim();
+	if (e.value.indexOf('<') != -1 ||
+	   (checklist && e.value.indexOf('>') != -1)) {
+		ferror.set(e, 'Invalid ' + name + ': \"<\" ' + (checklist ? 'or \">\" are' : 'is') + ' not allowed.', quiet);
+		return 0;
+	}
+	ferror.clear(e);
+	return 1;
+}
+
+function v_path(e, quiet, required)
+{
+	if (required && !v_length(e, quiet, 2)) return 0;
+	if ((e = E(e)) == null) return 0;
+
+	if (!required && e.value.trim().length == 0) {
+		ferror.clear(e);
+		return 1;
+	}
+	if (e.value.substr(0, 1) != '/') {
+		ferror.set(e, 'Please start at the / root directory.', quiet);
+		return 0;
+	}
+	ferror.clear(e);
+	return 1;
+}
+
 function isMAC0(mac)
 {
 	return (mac == '00:00:00:00:00:00');

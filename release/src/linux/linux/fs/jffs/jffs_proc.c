@@ -56,7 +56,7 @@ struct proc_dir_entry *jffs_proc_root;
  * Linked list of 'jffs_partition_dirs' to help us track
  * the mounted JFFS partitions in the system
  */
-static struct jffs_partition_dir *jffs_part_dirs = 0;
+static struct jffs_partition_dir *jffs_part_dirs = NULL;
 
 /*
  * Read functions for entries
@@ -73,9 +73,9 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 int jffs_register_jffs_proc_dir(kdev_t dev, struct jffs_control *c)
 {
 	struct jffs_partition_dir *part_dir;
-	struct proc_dir_entry *part_info = 0;
-	struct proc_dir_entry *part_layout = 0;
-	struct proc_dir_entry *part_root = 0;
+	struct proc_dir_entry *part_info = NULL;
+	struct proc_dir_entry *part_layout = NULL;
+	struct proc_dir_entry *part_root = NULL;
 
 	/* Allocate structure for local JFFS partition table */
 	if (!(part_dir = (struct jffs_partition_dir *)
@@ -136,7 +136,7 @@ int jffs_register_jffs_proc_dir(kdev_t dev, struct jffs_control *c)
 int jffs_unregister_jffs_proc_dir(struct jffs_control *c)
 {
 	struct jffs_partition_dir *part_dir = jffs_part_dirs;
-	struct jffs_partition_dir *prev_part_dir = 0;
+	struct jffs_partition_dir *prev_part_dir = NULL;
 
 	while (part_dir) {
 		if (part_dir->c == c) {
@@ -232,14 +232,14 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 {
 	struct jffs_control *c = (struct jffs_control *) data;
 	struct jffs_fmcontrol *fmc = c->fmc;
-	struct jffs_fm *fm = 0;
-	struct jffs_fm *last_fm = 0;
+	struct jffs_fm *fm = NULL;
+	struct jffs_fm *last_fm = NULL;
 	int len = 0;
 	unsigned long fre_siz;
 	unsigned long end_free, fst_free;
 	      
 	/* Get the first item in the list */
-	down(&fmc->biglock);
+	mutex_lock(&fmc->biglock);
 	fm = fmc->head;
 	fre_siz = fmc->flash_size - (fmc->used_size + fmc->dirty_size);
 	
@@ -295,6 +295,6 @@ static int jffs_proc_layout_read (char *page, char **start, off_t off,
 			   fst_free, fre_siz);
 	}
 	*eof = 1;	/* We're done */
-	up(&fmc->biglock);
+	mutex_unlock(&fmc->biglock);
 	return len;
 }

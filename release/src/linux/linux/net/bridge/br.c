@@ -44,6 +44,8 @@ static int __init br_init(void)
 {
 	printk(KERN_INFO "NET4: Ethernet Bridge 008 for NET4.0\n");
 
+	br_fdb_init();
+
 	br_handle_frame_hook = br_handle_frame;
 	br_ioctl_hook = br_ioctl_deviceless_stub;
 #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)

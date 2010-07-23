@@ -53,7 +53,7 @@
 
 #include <asm/uaccess.h>
 
-static void	tcp_v6_send_reset(struct sk_buff *skb);
+static void	tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb);
 static void	tcp_v6_or_send_ack(struct sk_buff *skb, struct open_request *req);
 static void	tcp_v6_send_check(struct sock *sk, struct tcphdr *th, int len, 
 				  struct sk_buff *skb);
@@ -975,7 +975,7 @@ static void tcp_v6_send_check(struct sock *sk, struct tcphdr *th, int len,
 }
 
 
-static void tcp_v6_send_reset(struct sk_buff *skb)
+static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcphdr *th = skb->h.th, *t1; 
 	struct sk_buff *buff;
@@ -1533,7 +1533,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
 	return 0;
 
 reset:
-	tcp_v6_send_reset(skb);
+	tcp_v6_send_reset(sk, skb);
 discard:
 	if (opt_skb)
 		__kfree_skb(opt_skb);
@@ -1643,7 +1643,7 @@ no_tcp_socket:
 bad_packet:
 		TCP_INC_STATS_BH(TcpInErrs);
 	} else {
-		tcp_v6_send_reset(skb);
+		tcp_v6_send_reset(NULL, skb);
 	}
 
 discard_it:

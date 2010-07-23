@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.16 2009/11/19 03:22:35 jmaggard Exp $
+# $Id: genconfig.sh,v 1.17 2010/07/17 00:47:48 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -165,6 +165,14 @@ echo "#define HAVE_ICONV_H" >> ${CONFIGFILE}
 else
 echo -e "\nWARNING!!  Iconv support not found.  ID3 tag reading may not work."
 echo "/*#define HAVE_ICONV_H*/" >> ${CONFIGFILE}
+fi
+echo "" >> ${CONFIGFILE}
+
+echo "/* Enable if the system libintl.h exists for NLS support. */" >> ${CONFIGFILE}
+if [ -f /usr/include/libintl.h ]; then
+echo "#define ENABLE_NLS" >> ${CONFIGFILE}
+else
+echo "/*#define ENABLE_NLS*/" >> ${CONFIGFILE}
 fi
 echo "" >> ${CONFIGFILE}
 

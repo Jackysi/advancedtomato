@@ -1,0 +1,12 @@
+########################################################
+# Nokia CS-10
+
+DefaultVendor= 0x0421
+DefaultProduct=0x060c
+
+TargetVendor=  0x0421
+TargetProduct= 0x060e
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"

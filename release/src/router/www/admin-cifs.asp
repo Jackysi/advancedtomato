@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -23,17 +23,6 @@
 <script type='text/javascript'>
 
 //	<% nvram("cifs1,cifs2"); %>
-
-function v_nodelim(e, quiet, name)
-{
-	e.value = e.value.trim();
-	if (e.value.indexOf('<') != -1) {
-		ferror.set(e, 'Invalid ' + name, quiet);
-		return 0;
-	}
-	ferror.clear(e);
-	return 1;
-}
 
 function verifyFields(focused, quiet)
 {
@@ -60,7 +49,7 @@ function verifyFields(focused, quiet)
 		sec.disabled = b;
 		if (!b) {
 			if ((!v_nodelim(unc, quiet, 'UNC')) || (!v_nodelim(user, quiet, 'username')) || (!v_nodelim(pass, quiet, 'password')) ||
-				 (!v_nodelim(servern, quiet, 'servername')) || (!v_nodelim(sec, quiet, 'security')) ||
+				 (!v_nodelim(servern, quiet, 'Netbios name')) ||
 				 (!v_nodelim(dom, quiet, 'domain')) || (!v_nodelim(exec, quiet, 'exec path'))) return 0;
 			if ((!v_length(user, quiet, 1)) || (!v_length(pass, quiet, 1))) return 0;
 			unc.value = unc.value.replace(/\//g, '\\');

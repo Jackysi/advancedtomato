@@ -56,7 +56,7 @@ int jffs_write_node(struct jffs_control *c, struct jffs_node *node,
 int jffs_read_data(struct jffs_file *f, unsigned char *buf, __u32 read_offset, __u32 size);
 
 /* Garbage collection stuff.  */
-int jffs_garbage_collect_thread(void *c);
+int jffs_garbage_collect_thread(void *ptr);
 void jffs_garbage_collect_trigger(struct jffs_control *c);
 int jffs_garbage_collect_now(struct jffs_control *c, int force, int merge_obn);
 

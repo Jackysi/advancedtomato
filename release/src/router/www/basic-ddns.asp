@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -164,7 +164,8 @@ function verifyFields(focused, quiet)
 					r = 0;
 				}
 				else {
-					ferror.clear(e);
+					if (!v_nodelim('_f_cust' + i, quiet, 'URL')) r = 0;
+					else ferror.clear(e);
 				}
 			}
 			else if (op.a) {
@@ -178,14 +179,16 @@ function verifyFields(focused, quiet)
 					r = 0;
 				}
 				else {
-					ferror.clear(e);
+					if (!v_nodelim('_f_afraid' + i, quiet, 'Token / URL')) r = 0;
+					else ferror.clear(e);
 				}
 			}
 			else {
-				if (((op.u) && (!v_length('_f_user' + i, quiet, 1))) ||
-					(!v_length('_f_pass' + i, quiet, 1)) ||
-					((op.h) && (!op.o) && (!v_length('_f_host' + i, quiet, 1))) ||
-					((op.t) && (!v_length('_f_hosttop' + i, quiet, 1)))) {
+				if (((op.u) && (!v_length('_f_user' + i, quiet, 1) || !v_nodelim('_f_user' + i, quiet, 'Username'))) ||
+					(!v_length('_f_pass' + i, quiet, 1) || !v_nodelim('_f_pass' + i, quiet, 'Password')) ||
+					((op.m) && (!v_nodelim('_f_mx' + i, quiet, 'MX'))) ||
+					((op.h) && (!op.o) && (!v_length('_f_host' + i, quiet, 1) || !v_nodelim('_f_host' + i, quiet, 'Hostname'))) ||
+					((op.t) && (!v_length('_f_hosttop' + i, quiet, 1) || !v_nodelim('_f_hosttop' + i, quiet, 'Hostname')))) {
 					r = 0;
 				}
 			}

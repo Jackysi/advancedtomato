@@ -72,6 +72,7 @@ clean:
 	rm -f *.o *.a *~
 	rm -f l2tpd
 	$(MAKE) -C handlers clean
+	test -d libevent && $(MAKE) -C libevent clean
 
 distclean: clean
 	rm -f Makefile config.cache .depend

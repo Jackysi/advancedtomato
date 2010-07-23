@@ -326,9 +326,10 @@ int dhcpc_renew_main(int argc, char **argv)
 
 void start_dhcpc(void)
 {
-	char *argv[6];
+	char *argv[10];
 	int argc;
 	char *ifname;
+	char *p;
 
 	TRACE_PT("begin\n");
 
@@ -336,24 +337,32 @@ void start_dhcpc(void)
 	f_write(renewing, NULL, 0, 0, 0);
 
 	ifname = nvram_safe_get("wan_ifname");
-	if (get_wan_proto() != WP_L2TP) {
+	if (get_wan_proto() != WP_L2TP && get_wan_proto() != WP_PPTP) {
 		nvram_set("wan_iface", ifname);
 	}
 
 	argc = 0;
-	argv[1] = nvram_safe_get("wan_hostname");
-	if (*argv[1]) {
-		argv[0] = "-H";
-		argc = 2;
+
+	p = nvram_safe_get("wan_hostname");
+	if (*p) {
+		argv[argc++] = "-H";
+		argv[argc++] = p;
+	}
+	p = nvram_safe_get("dhcpc_vendorclass");
+	if (*p) {
+		argv[argc++] = "-V";
+		argv[argc++] = p;
+	}
+	p = nvram_safe_get("dhcpc_requestip");
+	if ((*p) && (strcmp(p, "0.0.0.0") != 0)) {
+		argv[argc++] = "-r";
+		argv[argc++] = p;
 	}
 
-	/* Remove dhcpc_minpkt nvram setting, always minimize packet size.
-	 * Busybox already has the same functionality enabled in trunk,
-	 * remove the "-m" parameter after merging with upstream.
-	 */
-	argv[argc++] = "-m";
+	if (nvram_get_int("dhcpc_minpkt")) argv[argc++] = "-m";
 
 	if (nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-S";
+
 	argv[argc] = NULL;
 
 	xstart(
@@ -361,8 +370,10 @@ void start_dhcpc(void)
 		"-i", ifname,
 		"-s", "dhcpc-event",
 		argv[0], argv[1],	// -H wan_hostname
-		argv[2],			// -m
-		argv[3]				// -S
+		argv[2], argv[3],	// -V vendorclass
+		argv[4], argv[5],	// -r requestip
+		argv[6],			// -m
+		argv[7]				// -S
 	);
 	TRACE_PT("end\n");
 }

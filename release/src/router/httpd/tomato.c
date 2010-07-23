@@ -620,6 +620,9 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd_gwmode",		V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
+	{ "dhcpc_minpkt",		V_01				},
+	{ "dhcpc_vendorclass",		V_LENGTH(0, 80)			},
+	{ "dhcpc_requestip",		V_LENGTH(0, 16)			},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
 //	{ "dnsmasq_norw",		V_01				},
 
@@ -629,6 +632,7 @@ static const nvset_t nvset_list[] = {
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "dhcp_pass",			V_01				},
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},

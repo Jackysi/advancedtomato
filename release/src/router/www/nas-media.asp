@@ -37,28 +37,6 @@
 changed = 0;
 mdup = parseInt('<% psup("minidlna"); %>');
 
-function v_nodelim(e, quiet, name)
-{
-	e.value = e.value.trim().replace(/>/g, '_');
-	if (e.value.indexOf('<') != -1) {
-		ferror.set(e, 'Invalid ' + name, quiet);
-		return 0;
-	}
-	ferror.clear(e);
-	return 1;
-}
-
-function v_path(e, quiet)
-{
-	if (!v_length(e, quiet, 2)) return 0;
-	if (e.value.substr(0, 1) != '/') {
-		ferror.set(e, 'Please start at the / root directory.', quiet);
-		return 0;
-	}
-	ferror.clear(e);
-	return 1;
-}
-
 var mediatypes = [['', 'All Media Files'], ['A', 'Audio only'], ['V', 'Video only'], ['P', 'Images only']];
 var msg = new TomatoGrid();
 
@@ -82,7 +60,7 @@ msg.verifyFields = function(row, quiet)
 	var f;
 	f = fields.getAll(row);
 
-	if (!v_nodelim(f[0], quiet, 'Directory') || !v_path(f[0], quiet))
+	if (!v_nodelim(f[0], quiet, 'Directory', 1) || !v_path(f[0], quiet, 1))
 		ok = 0;
 
 	changed |= ok;
@@ -159,23 +137,25 @@ function verifyFields(focused, quiet)
 		return ok;
 	}
 	if (b) {
-		if (!v_path(eUser, quiet)) ok = 0;
+		if (!v_path(eUser, quiet || !ok, 1)) ok = 0;
 	}
 /* JFFS2-BEGIN */
 	else if (v == '/jffs/dlna') {
 		if (nvram.jffs2_on != '1') {
-			ferror.set(eLoc, 'JFFS is not enabled.', quiet);
+			ferror.set(eLoc, 'JFFS is not enabled.', quiet || !ok);
 			ok = 0;
 		}
+		else ferror.clear(eLoc);
 	}
 /* JFFS2-END */
 /* REMOVE-BEGIN */
 /* CIFS-BEGIN */
 	else if (v.match(/^\/cifs(1|2)\/dlna$/)) {
 		if (nvram['cifs' + RegExp.$1].substr(0, 1) != '1') {
-			ferror.set(eLoc, 'CIFS #' + RegExp.$1 + ' is not enabled.', quiet);
+			ferror.set(eLoc, 'CIFS #' + RegExp.$1 + ' is not enabled.', quiet || !ok);
 			ok = 0;
 		}
+		else ferror.clear(eLoc);
 	}
 /* CIFS-END */
 /* REMOVE-END */

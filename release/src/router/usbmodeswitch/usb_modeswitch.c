@@ -1,6 +1,6 @@
 /*
   Mode switching tool for controlling flip flop (multiple device) USB gear
-  Version 1.1.2, 2010/04/18
+  Version 1.1.3, 2010/06/21
 
   Copyright (C) 2007, 2008, 2009, 2010 Josua Dietze (mail to "usb_admin" at the
   domain from the README; please do not post the complete address to the Net!
@@ -22,19 +22,9 @@
   Hexstr2bin function borrowed from:
     Jouni Malinen (http://hostap.epitest.fi/wpa_supplicant, from "common.c")
 
-  Code, fixes, ideas and testing assistance from:
-    Aki Makkonen
-    Denis Sutter
-    Lucas Benedicic
-    Roman Laube
-    Vincent Teoh
-    Tommy Cheng
-    Daniel Cooper
-    Andrew Bird
-    Steven Fernandez
-    Yaroslav Levandovskiy
+  Other contributions: see README
 
-  More contributors are listed in the config file.
+  Device information contributors are named in the "usb_modeswitch.setup" file.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -52,7 +42,7 @@
 
 /* Recommended tab size: 4 */
 
-char *version="1.1.2alpha";
+#define VERSION "1.1.3"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +77,7 @@ struct usb_device *dev;
 struct usb_dev_handle *devh;
 
 int DefaultVendor=0, DefaultProduct=0, TargetVendor=0, TargetProduct=0, TargetClass=0;
-int MessageEndpoint=0, ResponseEndpoint=0, defaultClass=0;
+int MessageEndpoint=0, ResponseEndpoint=0, defaultClass=0, MessageDelay=0;
 int targetDeviceCount=0;
 int devnum=-1, busnum=-1;
 int ret;
@@ -121,6 +111,7 @@ static struct option long_options[] = {
 	{"message-content",		required_argument, 0, 'M'},
 	{"message-content2",	required_argument, 0, '2'},
 	{"message-content3",	required_argument, 0, '3'},
+	{"message-delay",		required_argument, 0, 'w'},
 	{"response-endpoint",	required_argument, 0, 'r'},
 	{"detach-only",			no_argument, 0, 'd'},
 	{"huawei-mode",			no_argument, 0, 'H'},
@@ -161,6 +152,7 @@ void readConfigFile(const char *configFilename)
 	ParseParamString(configFilename, MessageContent);
 	ParseParamString(configFilename, MessageContent2);
 	ParseParamString(configFilename, MessageContent3);
+	ParseParamInt(configFilename, MessageDelay);
 	ParseParamHex(configFilename, NeedResponse);
 	ParseParamHex(configFilename, ResponseEndpoint);
 	ParseParamHex(configFilename, ResetUSB);
@@ -180,8 +172,14 @@ void readConfigFile(const char *configFilename)
 
 void printConfig()
 {
-	printf ("DefaultVendor=  0x%04x\n",			DefaultVendor);
-	printf ("DefaultProduct= 0x%04x\n",			DefaultProduct);
+	if ( DefaultVendor )
+		printf ("DefaultVendor=  0x%04x\n",			DefaultVendor);
+	else
+		printf ("DefaultVendor=  not set\n");
+	if ( DefaultProduct )
+		printf ("DefaultProduct= 0x%04x\n",			DefaultProduct);
+	else
+		printf ("DefaultProduct= not set\n");
 	if ( TargetVendor )
 		printf ("TargetVendor=   0x%04x\n",		TargetVendor);
 	else
@@ -190,12 +188,11 @@ void printConfig()
 		printf ("TargetProduct=  0x%04x\n",		TargetProduct);
 	else
 		printf ("TargetProduct=  not set\n");
-	if ( strlen(TargetProductList) )
-		printf ("TargetProductList=%s\n",		TargetProductList);
 	if ( TargetClass )
 		printf ("TargetClass=    0x%02x\n",		TargetClass);
 	else
 		printf ("TargetClass=    not set\n");
+	printf ("TargetProductList=\"%s\"\n",		TargetProductList);
 	printf ("\nDetachStorageOnly=%i\n",	(int)DetachStorageOnly);
 	printf ("HuaweiMode=%i\n",			(int)HuaweiMode);
 	printf ("SierraMode=%i\n",			(int)SierraMode);
@@ -204,11 +201,11 @@ void printConfig()
 	if ( MessageEndpoint )
 		printf ("MessageEndpoint=0x%02x\n",	MessageEndpoint);
 	else
-		printf ("MessageEndpoint= not set\n");
-	if ( strlen(MessageContent) )
-		printf ("MessageContent=\"%s\"\n",	MessageContent);
-	else
-		printf ("MessageContent= not set\n");
+		printf ("MessageEndpoint=  not set\n");
+//	if ( strlen(MessageContent) )
+	printf ("MessageContent=\"%s\"\n",	MessageContent);
+//	else
+//		printf ("MessageContent=   not set\n");
 	if ( strlen(MessageContent2) )
 		printf ("MessageContent2=\"%s\"\n",	MessageContent2);
 	if ( strlen(MessageContent3) )
@@ -242,11 +239,17 @@ void printConfig()
 int readArguments(int argc, char **argv)
 {
 	int c, option_index = 0, count=0;
-	if(argc==1) return 0;
+//	if (argc==1)
+//		return 0;
+	if (argc==1)
+	{
+		printHelp();
+		exit(1);
+	}
 
 	while (1)
 	{
-		c = getopt_long (argc, argv, "heWQDndHSOGRIv:p:V:P:C:m:M:2:3:r:c:i:u:a:s:",
+		c = getopt_long (argc, argv, "heWQDndHSOGRIv:p:V:P:C:m:M:2:3:w:r:c:i:u:a:s:",
 						long_options, &option_index);
 
 		/* Detect the end of the options. */
@@ -265,6 +268,7 @@ int readArguments(int argc, char **argv)
 			case 'M': strcpy(MessageContent, optarg); break;
 			case '2': strcpy(MessageContent2, optarg); break;
 			case '3': strcpy(MessageContent3, optarg); break;
+			case 'w': MessageDelay = strtol(optarg, NULL, 10); count--; break;
 			case 'n': NeedResponse = 1; break;
 			case 'r': ResponseEndpoint = strtol(optarg, NULL, 16); break;
 			case 'd': DetachStorageOnly = 1; break;
@@ -276,7 +280,7 @@ int readArguments(int argc, char **argv)
 			case 'W': verbose = 1; show_progress = 1; count--; break;
 			case 'Q': show_progress = 0; verbose = 0; count--; break;
 			case 'D': sysmode = 1; count--; break;
-			case 's': CheckSuccess = strtol(optarg, NULL, 16); count--; break;
+			case 's': CheckSuccess = strtol(optarg, NULL, 10); count--; break;
 			case 'I': InquireDevice = 0; break;
 
 			case 'i': Interface = strtol(optarg, NULL, 16); break;
@@ -289,39 +293,13 @@ int readArguments(int argc, char **argv)
 				break;
 			case 'h':
 				printVersion();
-				printf ("Usage: usb-modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
-				printf (" -h, --help                    this help\n");
-				printf (" -e, --version                 print version number and exit\n");
-				printf (" -v, --default-vendor NUM      vendor ID to look for (mandatory)\n");
-				printf (" -p, --default-product NUM     product ID to look for (mandatory)\n");
-				printf (" -V, --target-vendor NUM       target vendor (optional, for success check)\n");
-				printf (" -P, --target-product NUM      target model (optional, for success check)\n");
-				printf (" -C, --target-class NUM        target device class\n");
-				printf (" -m, --message-endpoint NUM    where to direct the message (optional)\n");
-				printf (" -M, --message-content <msg>   command to send (hex number as string)\n");
-				printf (" -2 <msg>, -3 <msg>            additional commands to send\n");
-				printf (" -n, --need-response           read a response to the message transfer\n");
-				printf (" -r, --response-endpoint NUM   where from read the response (optional)\n");
-				printf (" -d, --detach-only             just detach the storage driver\n");
-				printf (" -H, --huawei-mode             apply a special procedure\n");
-				printf (" -S, --sierra-mode             apply a special procedure\n");
-				printf (" -O, --sony-mode               apply a special procedure\n");
-				printf (" -G, --gct-mode                apply a special procedure\n");
-				printf (" -R, --reset-usb               reset the device in the end\n");
-				printf (" -c, --config <filename>       load different config file\n");
-				printf (" -Q, --quiet                   don't show progress or error messages\n");
-				printf (" -W, --verbose                 print all settings before running\n");
-				printf (" -D, --sysmode                 specific result and syslog message\n");
-				printf (" -s, --success NUM             check switching result after NUM secs\n");
-				printf (" -I, --no-inquire              do not get device details (default on)\n\n");
-				printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
-				printf (" -u, --configuration NUM       select USB configuration\n");
-				printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");
+				printHelp();
 				exit(0);
 				break;
 
 			default: //Unsupported - error message has already been printed
 				printf ("\n");
+				printHelp();
 				exit(1);
 		}
 	}
@@ -334,6 +312,13 @@ int main(int argc, char **argv)
 {
 	int numDefaults = 0, specialMode = 0, sonySuccess = 0;
 
+	// Make sure we have an empty string even if not set by config
+	TargetProductList[0] = '\0';
+	MessageContent[0] = '\0';
+	MessageContent2[0] = '\0';
+	MessageContent3[0] = '\0';
+
+
 	signal(SIGTERM, release_usb_device);
 	/*
 	 * Parameter parsing, USB preparation/diagnosis, plausibility checks
@@ -342,7 +327,7 @@ int main(int argc, char **argv)
 	// Check command arguments, use params instead of config file when given
 	switch (readArguments(argc, argv)) {
 		case 0:						// no argument or -W, -q or -s
-			readConfigFile("/etc/usb_modeswitch.setup");
+//			readConfigFile("/etc/usb_modeswitch.setup");
 			break;
 		default:					// one or more arguments except -W, -q or -s 
 			if (!config_read)		// if arguments contain -c, the config file was already processed
@@ -713,6 +698,9 @@ int switchSendMessage ()
 {
 	int ret;
 
+//	if (MessageContent2[0] != '\0' || MessageContent3[0] != '\0')
+//		NeedResponse = 1;
+
 	SHOW_PROGRESS("Setting up communication with interface %d ...\n", Interface);
 	if (InquireDevice != 2) {
 		ret = usb_claim_interface(devh, Interface);
@@ -729,17 +717,66 @@ int switchSendMessage ()
 	if ( sendMessage(MessageContent, 1) )
 		goto skip;
 
-	if (strlen(MessageContent2))
+	if (NeedResponse) {
+		SHOW_PROGRESS("Reading the response to the message (CSW) ...\n");
+		ret = read_bulk(ResponseEndpoint, ByteString, 0x200);
+		if (ret < 0)
+			goto skip;
+	}
+
+	if (strlen(MessageContent2)) {
+		if (MessageDelay) {
+			usb_release_interface(devh, Interface);
+			SHOW_PROGRESS("Delaying next message transfer for %d ms\n", MessageDelay);
+			usleep(MessageDelay*1000);
+			ret = usb_claim_interface(devh, Interface);
+			if (ret != 0) {
+				SHOW_PROGRESS(" Could not reclaim interface\n");
+				goto skip;
+			}
+		}
 		if ( sendMessage(MessageContent2, 2) )
 			goto skip;
 
-	if (strlen(MessageContent3))
+		if (NeedResponse) {
+			SHOW_PROGRESS("Reading the response to message 2 ...\n");
+			ret = read_bulk(ResponseEndpoint, ByteString, 0x200);
+			if (ret < 0)
+				goto skip;
+		}
+	}
+
+	if (strlen(MessageContent3)) {
+		if (MessageDelay) {
+			usb_release_interface(devh, Interface);
+			SHOW_PROGRESS("Delaying next message transfer for %d ms\n", MessageDelay);
+			usleep(MessageDelay*1000);
+			ret = usb_claim_interface(devh, Interface);
+			if (ret != 0) {
+				SHOW_PROGRESS(" Could not reclaim interface\n");
+				goto skip;
+			}
+		}
 		if ( sendMessage(MessageContent3, 3) )
 			goto skip;
+		if (NeedResponse) {
+			SHOW_PROGRESS("Reading the response to message 3 ...\n");
+			ret = read_bulk(ResponseEndpoint, ByteString, 0x200);
+			if (ret < 0)
+				goto skip;
+		}
+	}
 
+	SHOW_PROGRESS("Resetting response endpoint 0x%02x\n",	ResponseEndpoint);
+	ret = usb_clear_halt(devh, ResponseEndpoint);
+	if (ret)
+		SHOW_PROGRESS(" Error resetting endpoint: %d\n", ret);
+//		goto skip;
+	SHOW_PROGRESS("Resetting message endpoint 0x%02x\n", MessageEndpoint);
 	ret = usb_clear_halt(devh, MessageEndpoint);
 	if (ret)
-		goto skip;
+		SHOW_PROGRESS(" Error resetting endpoint: %d\n", ret);
+//		goto skip;
 	ret = usb_release_interface(devh, Interface);
 	if (ret)
 		goto skip;
@@ -955,12 +992,6 @@ int sendMessage(char* message, int count)
 	if (ret == -19)
 		return 1;
 
-	if (NeedResponse) {
-		SHOW_PROGRESS("Reading the response to message %d ...\n", count);
-		ret = read_bulk(ResponseEndpoint, ByteString, 13);
-		if (ret == -19)
-			return 1;
-	}
 	return 0;
 }
 
@@ -1121,14 +1152,18 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 	int devClass;
 	struct usb_device* right_dev = NULL;
 
+	// only target class given
 	if ( targetClass && !(vendor || product) ) {
 		vendor = DefaultVendor;
 		product = DefaultProduct;
 	}
 	*numFound = 0;
-	if (!vendor || (!product && productList==NULL))
+
+	// sanity check
+	if (!vendor || (!product && productList == '\0') )
 		return NULL;
-	if (productList != NULL)
+		
+	if (productList != '\0')
 		listcopy = malloc(strlen(productList)+1);
 
 	for (bus = usb_get_busses(); bus; bus = bus->next) {
@@ -1392,9 +1427,41 @@ int hexstr2bin(const char *hex, char *buffer, int len)
 
 void printVersion()
 {
+	char* version = VERSION;
 	printf("\n * usb-modeswitch: handle USB devices with multiple modes\n");
 	printf(" * Version %s (C) Josua Dietze 2010\n", version);
 	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
 	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
 }
 
+void printHelp()
+{
+	printf ("Usage: usb-modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
+	printf (" -h, --help                    this help\n");
+	printf (" -e, --version                 print version number and exit\n");
+	printf (" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n");
+	printf (" -p, --default-product NUM     product ID of original mode (mandatory)\n");
+	printf (" -V, --target-vendor NUM       target mode vendor ID (optional)\n");
+	printf (" -P, --target-product NUM      target mode product ID (optional)\n");
+	printf (" -C, --target-class NUM        target mode device class (optional)\n");
+	printf (" -m, --message-endpoint NUM    direct the message transfer there (optional)\n");
+	printf (" -M, --message-content <msg>   message to send (hex number as string)\n");
+	printf (" -2 <msg>, -3 <msg>            additional messages to send (implies -n)\n");
+	printf (" -n, --need-response           read response to the message transfer (CSW)\n");
+	printf (" -r, --response-endpoint NUM   read response from there (optional)\n");
+	printf (" -d, --detach-only             detach the active driver, no further action\n");
+	printf (" -H, --huawei-mode             apply a special procedure\n");
+	printf (" -S, --sierra-mode             apply a special procedure\n");
+	printf (" -O, --sony-mode               apply a special procedure\n");
+	printf (" -G, --gct-mode                apply a special procedure\n");
+	printf (" -R, --reset-usb               reset the device after all other actions\n");
+	printf (" -c, --config <filename>       load configuration from file\n");
+	printf (" -Q, --quiet                   don't show progress or error messages\n");
+	printf (" -W, --verbose                 print all settings and debug output\n");
+	printf (" -D, --sysmode                 specific result and syslog message\n");
+	printf (" -s, --success NUM             check switching result after NUM secs\n");
+	printf (" -I, --no-inquire              do not get SCSI attributes (default on)\n\n");
+	printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
+	printf (" -u, --configuration NUM       select USB configuration\n");
+	printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");
+}

@@ -205,12 +205,16 @@ cifs_debug_data_read(char *buf, char **beginBuffer, off_t offset,
 		i++;
 		tcon = list_entry(tmp, struct cifsTconInfo, cifsConnectionList);
 		dev_type = le32_to_cpu(tcon->fsDevInfo.DeviceType);
-		length =
-		    sprintf(buf,
-			    "\n%d) %s Uses: %d Type: %s DevInfo: 0x%x Attributes: 0x%x\nPathComponentMax: %d Status: %d",
-			    i, tcon->treeName,
-			    atomic_read(&tcon->useCount),
-			    tcon->nativeFileSystem,
+		length = sprintf(buf, "\n%d) %s Uses: %d ", i,
+				 tcon->treeName, atomic_read(&tcon->useCount));
+		buf += length;
+		if (tcon->nativeFileSystem) {
+			length = sprintf(buf, "Type: %s ",
+					 tcon->nativeFileSystem);
+			buf += length;
+		}
+		length = sprintf(buf, "DevInfo: 0x%x Attributes: 0x%x"
+				 "\nPathComponentMax: %d Status: %d",
 			    le32_to_cpu(tcon->fsDevInfo.DeviceCharacteristics),
 			    le32_to_cpu(tcon->fsAttrInfo.Attributes),
 			    le32_to_cpu(tcon->fsAttrInfo.MaxPathNameComponentLength),
@@ -871,11 +875,16 @@ security_flags_write(struct file *file, const char __user *buffer,
 	if(count < 3) {
 		/* single char or single char followed by null */
 		c = flags_string[0];
-		if (c == '0' || c == 'n' || c == 'N')
+		if (c == '0' || c == 'n' || c == 'N') {
 			extended_security = CIFSSEC_DEF; /* default */
-		else if (c == '1' || c == 'y' || c == 'Y')
+			return count;
+		} else if (c == '1' || c == 'y' || c == 'Y') {
 			extended_security = CIFSSEC_MAX;
-		return count;
+			return count;
+		} else if (!isdigit(c)) {
+			cERROR(1, ("invalid flag %c", c));
+			return -EINVAL;
+		}
 	}
 	/* else we have a number */
 
@@ -895,90 +904,14 @@ security_flags_write(struct file *file, const char __user *buffer,
 	}
 	/* flags look ok - update the global security flags for cifs module */
 	extended_security = flags;
+	if (extended_security & CIFSSEC_MUST_SIGN) {
+		/* requiring signing implies signing is allowed */
+		extended_security |= CIFSSEC_MAY_SIGN;
+		cFYI(1, ("packet signing now required"));
+	} else if ((extended_security & CIFSSEC_MAY_SIGN) == 0) {
+		cFYI(1, ("packet signing disabled"));
+	}
+	/* BB should we turn on MAY flags for other MUST options? */
 	return count;
 }
-
-/* static int
-ntlmv2_enabled_read(char *page, char **start, off_t off,
-		       int count, int *eof, void *data)
-{
-	int len;
-
-	len = sprintf(page, "%d\n", ntlmv2_support);
-
-	len -= off;
-	*start = page + off;
-
-	if (len > count)
-		len = count;
-	else
-		*eof = 1;
-
-	if (len < 0)
-		len = 0;
-
-	return len;
-}
-static int
-ntlmv2_enabled_write(struct file *file, const char __user *buffer,
-			unsigned long count, void *data)
-{
-	char c;
-	int rc;
-
-	rc = get_user(c, buffer);
-	if (rc)
-		return rc;
-	if (c == '0' || c == 'n' || c == 'N')
-		ntlmv2_support = 0;
-	else if (c == '1' || c == 'y' || c == 'Y')
-		ntlmv2_support = 1;
-	else if (c == '2')
-		ntlmv2_support = 2;
-
-	return count;
-}
-
-static int
-packet_signing_enabled_read(char *page, char **start, off_t off,
-		       int count, int *eof, void *data)
-{
-	int len;
-
-	len = sprintf(page, "%d\n", sign_CIFS_PDUs);
-
-	len -= off;
-	*start = page + off;
-
-	if (len > count)
-		len = count;
-	else
-		*eof = 1;
-
-	if (len < 0)
-		len = 0;
-
-	return len;
-}
-static int
-packet_signing_enabled_write(struct file *file, const char __user *buffer,
-			unsigned long count, void *data)
-{
-	char c;
-	int rc;
-
-	rc = get_user(c, buffer);
-	if (rc)
-		return rc;
-	if (c == '0' || c == 'n' || c == 'N')
-		sign_CIFS_PDUs = 0;
-	else if (c == '1' || c == 'y' || c == 'Y')
-		sign_CIFS_PDUs = 1;
-	else if (c == '2')
-		sign_CIFS_PDUs = 2;
-
-	return count;
-} */
-
-
 #endif

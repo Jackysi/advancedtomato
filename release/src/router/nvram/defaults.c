@@ -365,6 +365,9 @@ const defaults_t defaults[] = {
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
+	{ "dhcpc_minpkt",		"1"				},
+	{ "dhcpc_vendorclass",		""				},
+	{ "dhcpc_requestip",		""				},
 	{ "dnsmasq_custom",		""				},
 //	{ "dnsmasq_norw",		"0"				},
 
@@ -374,6 +377,7 @@ const defaults_t defaults[] = {
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"		},
 
 // advanced-routing

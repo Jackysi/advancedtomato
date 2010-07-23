@@ -1036,7 +1036,8 @@ void ip_rt_send_redirect(struct sk_buff *skb)
 	/* Check for load limit; set rate_last to the latest sent
 	 * redirect.
 	 */
-	if (time_after(jiffies,
+	if (rt->u.dst.rate_tokens == 0 ||
+	    time_after(jiffies,
 		       (rt->u.dst.rate_last +
 			(ip_rt_redirect_load << rt->u.dst.rate_tokens)))) {
 		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, rt->rt_gateway);
@@ -1713,7 +1714,7 @@ martian_source:
 		printk(KERN_WARNING "martian source %u.%u.%u.%u from "
 			"%u.%u.%u.%u, on dev %s\n",
 			NIPQUAD(daddr), NIPQUAD(saddr), dev->name);
-		if (dev->hard_header_len) {
+		if (dev->hard_header_len && skb->mac.raw) {
 			int i;
 			unsigned char *p = skb->mac.raw;
 			printk(KERN_WARNING "ll header: ");

@@ -40,6 +40,7 @@ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
 fi
 bool '  IP: TCP Explicit Congestion Notification support' CONFIG_INET_ECN
 bool '  IP: TCP syncookie support (disabled per default)' CONFIG_SYN_COOKIES
+bool '  IP: TCP RFC2385 MD5 Support' CONFIG_TCP_RFC2385
 if [ "$CONFIG_NETFILTER" != "n" ]; then
    source net/ipv4/netfilter/Config.in
 fi

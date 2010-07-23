@@ -240,6 +240,17 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
 
+ifneq ($(TCONFIG_JFFSV1),y)
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
+endif
+ifeq ($(TCONFIG_JFFS2),y)
+ifeq ($(TCONFIG_JFFSV1),y)
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
+ifneq ($(CONFIG_LINUX26),y)
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
+endif
+endif
+endif
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
@@ -293,7 +304,9 @@ endif
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_OPENVPN),y)
+ifneq ($(TCONFIG_USB_EXTRAS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
+endif
 endif
 
 #!!TB
@@ -374,6 +387,7 @@ ifneq ($(TCONFIG_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/mbcache.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/msdos.*o $(PLATFORMDIR)/extras/ || true
@@ -468,8 +482,8 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean openssl-clean prebuilt-clean libbcmcrypto-clean
-	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean
+	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean openssl-clean ppp-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -496,13 +510,13 @@ oldconfig oldconf: koldconf roldconf bboldconf
 #
 
 busybox: dummy
-	@$(MAKE) -C busybox CFLAGS_busybox="$(EXTRACFLAGS)"
+	@$(MAKE) -C busybox EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)"
 
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox
+	$(MAKE) -C busybox install EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)" CONFIG_PREFIX=$(INSTALLDIR)/busybox
 
 busybox-clean:
 	$(MAKE) -C busybox distclean
@@ -531,10 +545,11 @@ matrixssl-clean:
 openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel
+	CC=$(CC) && ./Configure linux-mipsel shared
 else
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel no-aes no-idea no-md2 no-mdc2 no-rc5
+	CC=$(CC) && ./Configure linux-mipsel shared \
+		no-aes no-idea no-md2 no-mdc2 no-rc5 no-rmd160 no-ripemd
 endif
 	@$(MAKE) -C openssl clean
 	@touch openssl/stamp-h1
@@ -629,11 +644,11 @@ iptables-clean:
 
 ppp:
 	@$(SEP)
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 #	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp DFLAGS="-DDEBUG -DDEBUGALL"
 
 ppp-%:
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 
 
 upnp: nvram shared iptables
@@ -968,7 +983,7 @@ flac-install:
 
 jpeg/stamp-h1:
 	cd jpeg && \
-	CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" $(CONFIGURE) --enable-shared --enable-static --prefix=''
 	touch jpeg/stamp-h1
 
 jpeg: jpeg/stamp-h1
@@ -1000,12 +1015,12 @@ libexif-install:
 
 zlib/stamp-h1:
 	cd zlib && \
-	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
 	./configure --shared --prefix=''
 	touch zlib/stamp-h1
 
 zlib: zlib/stamp-h1
-	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" all libz.a
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" all libz.a
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean

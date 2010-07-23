@@ -191,6 +191,10 @@ struct tcp_tw_bucket {
 	struct in6_addr		v6_daddr;
 	struct in6_addr		v6_rcv_saddr;
 #endif
+#ifdef CONFIG_TCP_RFC2385
+	__u8                    *md5_key;
+	__u8                    md5_keylen;
+#endif
 };
 
 extern kmem_cache_t *tcp_timewait_cachep;
@@ -200,6 +204,14 @@ static inline void tcp_tw_put(struct tcp_tw_bucket *tw)
 	if (atomic_dec_and_test(&tw->refcnt)) {
 #ifdef INET_REFCNT_DEBUG
 		printk(KERN_DEBUG "tw_bucket %p released\n", tw);
+#endif
+#ifdef CONFIG_TCP_RFC2385
+		/* Free the memory used for any md5 key */
+		if (tw->md5_key) {
+			kfree (tw->md5_key);
+			tw->md5_key = NULL;
+			tw->md5_keylen = 0;
+		}
 #endif
 		kmem_cache_free(tcp_timewait_cachep, tw);
 	}
@@ -424,6 +436,7 @@ static __inline__ int tcp_sk_listen_hashfn(struct sock *sk)
 #define TCPOPT_SACK_PERM        4       /* SACK Permitted */
 #define TCPOPT_SACK             5       /* SACK Block */
 #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
+#define TCPOPT_RFC2385          19      /* MD5 protection */
 
 /*
  *     TCP option lengths
@@ -433,6 +446,7 @@ static __inline__ int tcp_sk_listen_hashfn(struct sock *sk)
 #define TCPOLEN_WINDOW         3
 #define TCPOLEN_SACK_PERM      2
 #define TCPOLEN_TIMESTAMP      10
+#define TCPOLEN_RFC2385        18
 
 /* But this is what stacks really send out. */
 #define TCPOLEN_TSTAMP_ALIGNED		12
@@ -441,6 +455,7 @@ static __inline__ int tcp_sk_listen_hashfn(struct sock *sk)
 #define TCPOLEN_SACK_BASE		2
 #define TCPOLEN_SACK_BASE_ALIGNED	4
 #define TCPOLEN_SACK_PERBLOCK		8
+#define TCPOLEN_RFC2385_ALIGNED         20
 
 #define TCP_TIME_RETRANS	1	/* Retransmit timer */
 #define TCP_TIME_DACK		2	/* Delayed ack timer */
@@ -505,7 +520,7 @@ struct or_calltable {
 	int  (*rtx_syn_ack)	(struct sock *sk, struct open_request *req, struct dst_entry*);
 	void (*send_ack)	(struct sk_buff *skb, struct open_request *req);
 	void (*destructor)	(struct open_request *req);
-	void (*send_reset)	(struct sk_buff *skb);
+	void (*send_reset)	(struct sock *sk, struct sk_buff *skb);
 };
 
 struct tcp_v4_open_req {
@@ -727,6 +742,9 @@ static __inline__ void tcp_delack_init(struct tcp_opt *tp)
 static inline void tcp_clear_options(struct tcp_opt *tp)
 {
  	tp->tstamp_ok = tp->sack_ok = tp->wscale_ok = tp->snd_wscale = 0;
+#ifdef CONFIG_TCP_RFC2385
+	tp->md5_db_entries = 0;
+#endif
 }
 
 enum tcp_tw_status
@@ -831,7 +849,7 @@ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb,
 
 /* tcp_output.c */
 
-extern int tcp_write_xmit(struct sock *, int nonagle);
+extern int tcp_write_xmit(struct sock *, unsigned int mss_now, int nonagle);
 extern int tcp_retransmit_skb(struct sock *, struct sk_buff *);
 extern void tcp_xmit_retransmit_queue(struct sock *);
 extern void tcp_simple_retransmit(struct sock *);
@@ -947,6 +965,12 @@ static __inline__ unsigned int tcp_current_mss(struct sock *sk)
 	if (tp->eff_sacks)
 		mss_now -= (TCPOLEN_SACK_BASE_ALIGNED +
 			    (tp->eff_sacks * TCPOLEN_SACK_PERBLOCK));
+
+#ifdef CONFIG_TCP_RFC2385
+	if (tcp_v4_md5_lookup (sk, sk->daddr))
+		mss_now -= TCPOLEN_RFC2385_ALIGNED;
+#endif
+
 	return mss_now;
 }
 
@@ -1354,16 +1378,13 @@ static __inline__ int tcp_skb_is_last(struct sock *sk, struct sk_buff *skb)
  */
 static __inline__ void __tcp_push_pending_frames(struct sock *sk,
 						 struct tcp_opt *tp,
-						 unsigned cur_mss,
+						 unsigned int cur_mss,
 						 int nonagle)
 {
 	struct sk_buff *skb = tp->send_head;
 
 	if (skb) {
-		if (!tcp_skb_is_last(sk, skb))
-			nonagle = 1;
-		if (!tcp_snd_test(tp, skb, cur_mss, nonagle) ||
-		    tcp_write_xmit(sk, nonagle))
+		if (tcp_write_xmit(sk, cur_mss, nonagle))
 			tcp_check_probe_timer(sk, tp);
 	}
 	tcp_cwnd_validate(sk, tp);
@@ -1529,7 +1550,11 @@ static __inline__ void tcp_sack_reset(struct tcp_opt *tp)
 	tp->num_sacks = 0;
 }
 
+#ifdef CONFIG_TCP_RFC2385
+static __inline__ void tcp_build_and_update_options(__u32 *ptr, struct tcp_opt *tp, __u32 tstamp, int md5, __u8 **md5_hash)
+#else
 static __inline__ void tcp_build_and_update_options(__u32 *ptr, struct tcp_opt *tp, __u32 tstamp)
+#endif
 {
 	if (tp->tstamp_ok) {
 		*ptr++ = __constant_htonl((TCPOPT_NOP << 24) |
@@ -1557,6 +1582,14 @@ static __inline__ void tcp_build_and_update_options(__u32 *ptr, struct tcp_opt *
 			tp->eff_sacks--;
 		}
 	}
+
+#ifdef CONFIG_TCP_RFC2385
+	if (md5) {
+		*ptr++ = __constant_htonl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16) |
+					  (TCPOPT_RFC2385 << 8) | 18);
+		*md5_hash = (__u8 *)ptr;
+	}
+#endif
 }
 
 /* Construct a tcp options header for a SYN or SYN_ACK packet.
@@ -1564,8 +1597,19 @@ static __inline__ void tcp_build_and_update_options(__u32 *ptr, struct tcp_opt *
  * MAX_SYN_SIZE to match the new maximum number of options that you
  * can generate.
  */
+/*
+ * Note - that with the CONFIG_TCP_RFC2385 option, we make room for the
+ * 16 byte MD5 hash. This will be filled in later, so the pointer for the
+ * location to be filled is passed back up
+ */
+#ifdef CONFIG_TCP_RFC2385
 static inline void tcp_syn_build_options(__u32 *ptr, int mss, int ts, int sack,
-					     int offer_wscale, int wscale, __u32 tstamp, __u32 ts_recent)
+					 int offer_wscale, int wscale, __u32 tstamp, __u32 ts_recent,
+					 __u8 md5_enabled, __u8 **md5_hash)
+#else
+static inline void tcp_syn_build_options(__u32 *ptr, int mss, int ts, int sack,
+					 int offer_wscale, int wscale, __u32 tstamp, __u32 ts_recent)
+#endif
 {
 	/* We always get an MSS option.
 	 * The option bytes which will be seen in normal data
@@ -1595,6 +1639,17 @@ static inline void tcp_syn_build_options(__u32 *ptr, int mss, int ts, int sack,
 					  (TCPOPT_SACK_PERM << 8) | TCPOLEN_SACK_PERM);
 	if (offer_wscale)
 		*ptr++ = htonl((TCPOPT_NOP << 24) | (TCPOPT_WINDOW << 16) | (TCPOLEN_WINDOW << 8) | (wscale));
+
+#ifdef CONFIG_TCP_RFC2385
+	/* If MD5 is enabled, then we set the option, and include the size
+	 * (always 18). The actual MD5 hash is added just before the
+	 * packet is sent */
+	if (md5_enabled) {
+		*ptr++ = __constant_htonl((TCPOPT_NOP << 24) | (TCPOPT_NOP << 16) |
+					  (TCPOPT_RFC2385 << 8) | 18);
+		*md5_hash = (__u8 *)ptr;
+	}
+#endif
 }
 
 /* Determine a window scaling and initial window to offer.
