@@ -41,6 +41,10 @@
 #include <linux/compiler.h>
 #include <linux/smp_lock.h>
 
+#ifdef CONFIG_TCP_RFC2385
+#include <linux/tcp_rfc2385.h>
+#endif
+
 /* People can turn this off for buggy TCP's found in printers etc. */
 int sysctl_tcp_retrans_collapse = 1;
 
@@ -202,6 +206,10 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 		struct tcphdr *th;
 		int sysctl_flags;
 		int err;
+#ifdef CONFIG_TCP_RFC2385
+		struct tcp_rfc2385 *md5 = NULL;
+		__u8 *md5_hash_location;
+#endif
 
 #define SYSCTL_FLAG_TSTAMPS	0x1
 #define SYSCTL_FLAG_WSCALE	0x2
@@ -230,7 +238,15 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 			tcp_header_size += (TCPOLEN_SACK_BASE_ALIGNED +
 					    (tp->eff_sacks * TCPOLEN_SACK_PERBLOCK));
 		}
-		
+
+#ifdef CONFIG_TCP_RFC2385
+		/* Are we doing MD5 on this segment? If so - make room for it */
+		md5 = tcp_v4_md5_lookup (sk, sk->daddr);
+		if (md5) {
+			tcp_header_size += TCPOLEN_RFC2385_ALIGNED;
+		}
+#endif
+
 		/*
 		 * If the connection is idle and we are restarting,
 		 * then we don't want to do any Vegas calculations
@@ -278,13 +294,34 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 					      (sysctl_flags & SYSCTL_FLAG_WSCALE),
 					      tp->rcv_wscale,
 					      tcb->when,
-		      			      tp->ts_recent);
+		      			      tp->ts_recent
+#ifdef CONFIG_TCP_RFC2385
+					      , md5 ? 1 : 0,
+					      &md5_hash_location
+#endif
+					      );
 		} else {
 			tcp_build_and_update_options((__u32 *)(th + 1),
-						     tp, tcb->when);
+						     tp, tcb->when
+#ifdef CONFIG_TCP_RFC2385
+						     , md5 ? 1 : 0,
+						     &md5_hash_location
+#endif
+						     );
 
 			TCP_ECN_send(sk, tp, skb, tcp_header_size);
 		}
+
+#ifdef CONFIG_TCP_RFC2385
+		/* Calculate the MD5 hash, as we have all we need now */
+		if (md5) {
+			tcp_v4_calc_md5_hash (md5_hash_location,
+					      md5,
+					      sk->saddr, sk->daddr,
+					      skb->h.th, sk->protocol,
+					      skb->len);
+		}
+#endif
 		tp->af_specific->send_check(sk, th, skb->len, skb);
 
 		if (tcb->flags & TCPCB_FLAG_ACK)
@@ -1118,6 +1155,11 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 	struct tcphdr *th;
 	int tcp_header_size;
 	struct sk_buff *skb;
+#ifdef CONFIG_TCP_RFC2385
+	struct rtable *rt = (struct rtable *)dst;
+	struct tcp_rfc2385 *md5 = NULL;
+	__u8 *md5_hash_location;
+#endif
 
 	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
 	if (skb == NULL)
@@ -1133,6 +1175,15 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 			   (req->wscale_ok ? TCPOLEN_WSCALE_ALIGNED : 0) +
 			   /* SACK_PERM is in the place of NOP NOP of TS */
 			   ((req->sack_ok && !req->tstamp_ok) ? TCPOLEN_SACKPERM_ALIGNED : 0));
+
+#ifdef CONFIG_TCP_RFC2385
+	/* Are we doing MD5 on this segment? If so - make room for it */
+	md5 = tcp_v4_md5_lookup (sk, rt->rt_dst);
+	if (md5) {
+		tcp_header_size += TCPOLEN_RFC2385_ALIGNED;
+	}
+#endif
+
 	skb->h.th = th = (struct tcphdr *) skb_push(skb, tcp_header_size);
 
 	memset(th, 0, sizeof(struct tcphdr));
@@ -1166,11 +1217,27 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 	tcp_syn_build_options((__u32 *)(th + 1), dst->advmss, req->tstamp_ok,
 			      req->sack_ok, req->wscale_ok, req->rcv_wscale,
 			      TCP_SKB_CB(skb)->when,
-			      req->ts_recent);
+			      req->ts_recent
+#ifdef CONFIG_TCP_RFC2385
+			      , (md5 ? 1 : 0) , &md5_hash_location
+#endif
+			      );
 
 	skb->csum = 0;
 	th->doff = (tcp_header_size >> 2);
 	TCP_INC_STATS(TcpOutSegs);
+
+#ifdef CONFIG_TCP_RFC2385
+	/* Okay, we have all we need - do the md5 hash if needed */
+	if (md5) {
+		tcp_v4_calc_md5_hash (md5_hash_location,
+				      md5,
+				      rt->rt_src, rt->rt_dst,
+				      skb->h.th, sk->protocol,
+				      skb->len);
+	}
+#endif
+
 	return skb;
 }
 
@@ -1187,6 +1254,11 @@ static inline void tcp_connect_init(struct sock *sk)
 	 */
 	tp->tcp_header_len = sizeof(struct tcphdr) +
 		(sysctl_tcp_timestamps ? TCPOLEN_TSTAMP_ALIGNED : 0);
+
+#ifdef CONFIG_TCP_RFC2385
+	if (tcp_v4_md5_lookup (sk, sk->daddr))
+		tp->tcp_header_len += TCPOLEN_RFC2385_ALIGNED;
+#endif
 
 	/* If user gave his TCP_MAXSEG, record it to clamp */
 	if (tp->user_mss)

@@ -111,6 +111,10 @@ struct atm_vcc;
 #include <asm/atomic.h>
 #include <net/dst.h>
 
+#ifdef CONFIG_TCP_RFC2385
+#include <linux/tcp_rfc2385.h>
+#endif
+
 
 /* The AF_UNIX specific socket options */
 struct unix_opt {
@@ -428,6 +432,11 @@ struct tcp_opt {
         __u8	rcv_wscale;	/* Window scaling to send to receiver	*/
 	__u8	nonagle;	/* Disable Nagle algorithm?             */
 	__u8	keepalive_probes; /* num of allowed keep alive probes	*/
+
+#ifdef CONFIG_TCP_RFC2385
+	__u16   md5_db_entries; /* Number of entries in the database */
+	struct tcp_rfc2385 *md5_db; /* MD5 Key Database */
+#endif
 
 /*	PAWS/RTTM data	*/
         __u32	rcv_tsval;	/* Time stamp value             	*/

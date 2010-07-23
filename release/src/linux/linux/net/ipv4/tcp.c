@@ -2402,6 +2402,13 @@ int tcp_setsockopt(struct sock *sk, int level, int optname, char *optval,
 		}
 		break;
 
+#ifdef CONFIG_TCP_RFC2385
+	case TCP_RFC2385:
+		/* Read the IP->Key mappings from usermode */
+		err = tcp_v4_parse_md5_keys (sk, optval, optlen);
+		break;
+#endif
+
 	default:
 		err = -ENOPROTOOPT;
 		break;

@@ -325,6 +325,7 @@ CONFIG_IP_MROUTE=y
 # CONFIG_ARPD is not set
 # CONFIG_INET_ECN is not set
 CONFIG_SYN_COOKIES=y
+# CONFIG_TCP_RFC2385 is not set
 
 #
 #   IP: Netfilter Configuration

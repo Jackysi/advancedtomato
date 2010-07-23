@@ -390,6 +390,28 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
 			       sizeof(struct in6_addr));
 		}
 #endif
+
+#ifdef CONFIG_TCP_RFC2385
+		/* The timewait bucket does not have the key DB from the
+		 * sock structure. We just make a quick copy of the
+		 * md5 key being used (if indeed we are using one)
+		 * so the timewait ack generating code has the key.
+		 */
+		{
+			struct tcp_rfc2385 *key;
+			
+			tw->md5_key = NULL;
+			tw->md5_keylen  = 0;
+			if ((key = tcp_v4_md5_lookup (sk, sk->daddr))) {
+				char *newkey = kmalloc (key->keylen, GFP_ATOMIC);
+				if (newkey) {
+					memcpy (newkey, key->key, key->keylen);
+					tw->md5_key = newkey;
+					tw->md5_keylen = key->keylen;
+				}
+			}
+		}
+#endif
 		/* Linkage updates. */
 		__tcp_tw_hashdance(sk, tw);
 
@@ -742,6 +764,11 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct open_request *req,
 		/* Deinitialize syn_wait_lock to trap illegal accesses. */
 		memset(&newtp->syn_wait_lock, 0, sizeof(newtp->syn_wait_lock));
 
+#ifdef CONFIG_TCP_RFC2385
+		newtp->md5_db = NULL;
+		newtp->md5_db_entries = 0;
+#endif
+
 		/* Back to base struct sock members. */
 		newsk->err = 0;
 		newsk->priority = 0;
@@ -783,6 +810,12 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct open_request *req,
 			newtp->ts_recent_stamp = 0;
 			newtp->tcp_header_len = sizeof(struct tcphdr);
 		}
+
+#ifdef CONFIG_TCP_RFC2385
+		if (tcp_v4_md5_lookup (sk, sk->daddr))
+		    	newtp->tcp_header_len += TCPOLEN_RFC2385_ALIGNED;
+#endif
+
 		if (skb->len >= TCP_MIN_RCVMSS+newtp->tcp_header_len)
 			newtp->ack.last_seg_size = skb->len-newtp->tcp_header_len;
 		newtp->mss_clamp = req->mss;
@@ -963,6 +996,27 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	if (child == NULL)
 		goto listen_overflow;
 
+#ifdef CONFIG_TCP_RFC2385
+	/* Copy over the MD5 key from the original socket */
+	{
+		struct tcp_rfc2385 *key;
+		
+		if ((key = tcp_v4_md5_lookup (sk, child->daddr))) {
+			/* We're using one, so create a matching key
+			 * on the newsk structure. If we fail to get
+			 * memory, then we end up not copying the key
+			 * across. Shucks.
+			 */
+			char *newkey = kmalloc (key->keylen, GFP_ATOMIC);
+			if (newkey) {
+				memcpy (newkey, key->key, key->keylen);
+				tcp_v4_md5_do_add (child, child->daddr,
+						   newkey, key->keylen);
+			}
+		}
+	}
+#endif
+
 	tcp_synq_unlink(tp, req, prev);
 	tcp_synq_removed(sk, req);
 
@@ -978,7 +1032,7 @@ listen_overflow:
 embryonic_reset:
 	NET_INC_STATS_BH(EmbryonicRsts);
 	if (!(flg & TCP_FLAG_RST))
-		req->class->send_reset(skb);
+		req->class->send_reset(sk, skb);
 
 	tcp_synq_drop(sk, req, prev);
 	return NULL;

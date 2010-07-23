@@ -70,6 +70,9 @@
 #include <net/tcp.h>
 #include <net/inet_common.h>
 #include <linux/ipsec.h>
+#ifdef CONFIG_TCP_RFC2385
+#include <linux/tcp_rfc2385.h>
+#endif
 
 int sysctl_tcp_timestamps = 1;
 int sysctl_tcp_window_scaling = 1;
@@ -2948,6 +2951,14 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_opt *tp, int estab)
 					   tp->sack_ok) {
 						TCP_SKB_CB(skb)->sacked = (ptr - 2) - (unsigned char *)th;
 					}
+
+#ifdef CONFIG_TCP_RFC2385
+				case TCPOPT_RFC2385:
+					/* The MD5 Hash has already been checked
+					 * (see tcp_v4_do_rcv)
+					 */
+					break;
+#endif
 	  			};
 	  			ptr+=opsize-2;
 	  			length-=opsize;
