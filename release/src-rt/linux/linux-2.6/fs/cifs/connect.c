@@ -2129,10 +2129,10 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		}
 	}
 	if (pSesInfo) {
-		if (pSesInfo->capabilities & CAP_LARGE_FILES) {
-			sb->s_maxbytes = (u64) 1 << 63;
-		} else
-			sb->s_maxbytes = (u64) 1 << 31;	/* 2 GB */
+		if (pSesInfo->capabilities & CAP_LARGE_FILES)
+			sb->s_maxbytes = MAX_LFS_FILESIZE;
+		else
+			sb->s_maxbytes = MAX_NON_LFS;
 	}
 
 	/* BB FIXME fix time_gran to be larger for LANMAN sessions */
