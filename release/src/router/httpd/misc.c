@@ -518,7 +518,7 @@ void wo_wakeup(char *url)
 			while ((*p != 0) && (*p != ' ') && (*p != '\r') && (*p != '\n')) ++p;
 			*p = 0;
 
-			eval("ether-wake", "-i", nvram_safe_get("lan_ifname"), mac);
+			eval("ether-wake", "-b", "-i", nvram_safe_get("lan_ifname"), mac);
 			mac = p + 1;
 		}
 	}
