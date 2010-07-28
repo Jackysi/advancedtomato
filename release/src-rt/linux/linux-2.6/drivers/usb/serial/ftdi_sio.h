@@ -80,6 +80,9 @@
 
 /* OpenDCC (www.opendcc.de) product id */
 #define FTDI_OPENDCC_PID	0xBFD8
+#define FTDI_OPENDCC_SNIFFER_PID	0xBFD9
+#define FTDI_OPENDCC_THROTTLE_PID	0xBFDA
+#define FTDI_OPENDCC_GATEWAY_PID	0xBFDB
 
 /* www.crystalfontz.com devices - thanx for providing free devices for evaluation ! */
 /* they use the ftdi chipset for the USB interface and the vendor id is the same */
@@ -379,6 +382,8 @@
 
 
 
+#define FTDI_NXTCAM_PID		0xABB8 /* NXTCam for Mindstorms NXT */
+
 /* OOCDlink by Joern Kaipf <joernk@web.de>
  * (http://www.joernonline.de/dw/doku.php?id=start&idx=projects:oocdlink) */
 #define FTDI_OOCDLINK_PID	0xbaf8	/* Amontec JTAGkey */
@@ -496,12 +501,22 @@
 /*
  * ELV USB devices submitted by Christian Abt of ELV (www.elv.de).
  * All of these devices use FTDI's vendor ID (0x0403).
+ * Further IDs taken from ELV Windows .inf file.
  *
  * The previously included PID for the UO 100 module was incorrect.
  * In fact, that PID was for ELV's UR 100 USB-RS232 converter (0xFB58).
  *
  * Armin Laeuger originally sent the PID for the UM 100 module.
  */
+#define FTDI_ELV_USR_PID	0xE000	/* ELV Universal-Sound-Recorder */
+#define FTDI_ELV_MSM1_PID	0xE001	/* ELV Mini-Sound-Modul */
+#define FTDI_ELV_KL100_PID	0xE002	/* ELV Kfz-Leistungsmesser KL 100 */
+#define FTDI_ELV_WS550_PID	0xE004	/* WS 550 */
+#define FTDI_ELV_EC3000_PID	0xE006	/* ENERGY CONTROL 3000 USB */
+#define FTDI_ELV_WS888_PID	0xE008	/* WS 888 */
+#define FTDI_ELV_TWS550_PID	0xE009	/* Technoline WS 550 */
+#define FTDI_ELV_FEM_PID	0xE00A	/* Funk Energie Monitor */
+#define FTDI_R2000KU_TRUE_RNG	0xFB80  /* R2000KU TRUE RNG */
 #define FTDI_ELV_UR100_PID	0xFB58	/* USB-RS232-Umsetzer (UR 100) */
 #define FTDI_ELV_UM100_PID	0xFB5A	/* USB-Modul UM 100 */
 #define FTDI_ELV_UO100_PID	0xFB5B	/* USB-Modul UO 100 */
@@ -527,10 +542,16 @@
 #define FTDI_ELV_PCK100_PID	0xE0F2	/* PC-Kabeltester (PCK 100) */
 #define FTDI_ELV_RFP500_PID	0xE0F3	/* HF-Leistungsmesser (RFP 500) */
 #define FTDI_ELV_FS20SIG_PID	0xE0F4	/* Signalgeber (FS 20 SIG) */
+#define FTDI_ELV_UTP8_PID	0xE0F5	/* ELV UTP 8 */
 #define FTDI_ELV_WS300PC_PID	0xE0F6	/* PC-Wetterstation (WS 300 PC) */
+#define FTDI_ELV_WS444PC_PID	0xE0F7	/* Conrad WS 444 PC */
 #define FTDI_ELV_FHZ1300PC_PID	0xE0E8	/* FHZ 1300 PC */
 #define FTDI_ELV_WS500_PID	0xE0E9	/* PC-Wetterstation (WS 500) */
 #define FTDI_ELV_HS485_PID	0xE0EA	/* USB to RS-485 adapter */
+#define FTDI_ELV_UMS100_PID	0xE0EB	/* ELV USB Master-Slave Schaltsteckdose UMS 100 */
+#define FTDI_ELV_TFD128_PID	0xE0EC	/* ELV Temperatur-Feuchte-Datenlogger TFD 128 */
+#define FTDI_ELV_FM3RX_PID	0xE0ED	/* ELV Messwertuebertragung FM3 RX */
+#define FTDI_ELV_WS777_PID	0xE0EE	/* Conrad WS 777 */
 #define FTDI_ELV_EM1010PC_PID	0xE0EF	/* Engery monitor EM 1010 PC */
 #define FTDI_PHI_FISCO_PID      0xE40B  /* PHI Fisco USB to Serial cable */
 
@@ -610,6 +631,9 @@
 #define FTDI_CCSICDU20_0_PID    0xF9D0
 #define FTDI_CCSICDU40_1_PID    0xF9D1
 #define FTDI_CCSMACHX_2_PID     0xF9D2
+#define FTDI_CCSLOAD_N_GO_3_PID 0xF9D3
+#define FTDI_CCSICDU64_4_PID    0xF9D4
+#define FTDI_CCSPRIME8_5_PID    0xF9D5
 
 /* Inside Accesso contactless reader (http://www.insidefr.com) */
 #define INSIDE_ACCESSO		0xFAD0
@@ -640,12 +664,33 @@
 #define TTI_QL355P_PID		0x03E8	/* TTi QL355P power supply */
 
 /*
+ * Contec products (http://www.contec.com)
+ * Submitted by Daniel Sangorrin
+ */
+#define CONTEC_VID		0x06CE	/* Vendor ID */
+#define CONTEC_COM1USBH_PID	0x8311	/* COM-1(USB)H */
+
+/*
  * Definitions for B&B Electronics products.
  */
 #define BANDB_VID		0x0856	/* B&B Electronics Vendor ID */
 #define BANDB_USOTL4_PID	0xAC01	/* USOTL4 Isolated RS-485 Converter */
 #define BANDB_USTL4_PID		0xAC02	/* USTL4 RS-485 Converter */
 #define BANDB_USO9ML2_PID	0xAC03	/* USO9ML2 Isolated RS-232 Converter */
+#define BANDB_USOPTL4_PID	0xAC11
+#define BANDB_USPTL4_PID	0xAC12
+#define BANDB_USO9ML2DR_2_PID	0xAC16
+#define BANDB_USO9ML2DR_PID	0xAC17
+#define BANDB_USOPTL4DR2_PID	0xAC18	/* USOPTL4R-2 2-port Isolated RS-232 Converter */
+#define BANDB_USOPTL4DR_PID	0xAC19
+#define BANDB_485USB9F_2W_PID	0xAC25
+#define BANDB_485USB9F_4W_PID	0xAC26
+#define BANDB_232USB9M_PID	0xAC27
+#define BANDB_485USBTB_2W_PID	0xAC33
+#define BANDB_485USBTB_4W_PID	0xAC34
+#define BANDB_TTL5USB9M_PID	0xAC49
+#define BANDB_TTL3USB9M_PID	0xAC50
+#define BANDB_ZZ_PROG1_USB_PID	0xBA02
 
 /*
  * RM Michaelides CANview USB (http://www.rmcan.com)
@@ -727,6 +772,15 @@
 #define FTDI_PYRAMID_PID	0xE6C8	/* Pyramid Appliance Display */
 
 /*
+ * NDI (www.ndigital.com) product ids
+ */
+#define FTDI_NDI_HUC_PID		0xDA70	/* NDI Host USB Converter */
+#define FTDI_NDI_SPECTRA_SCU_PID	0xDA71	/* NDI Spectra SCU */
+#define FTDI_NDI_FUTURE_2_PID		0xDA72	/* NDI future device #2 */
+#define FTDI_NDI_FUTURE_3_PID		0xDA73	/* NDI future device #3 */
+#define FTDI_NDI_AURORA_SCU_PID		0xDA74	/* NDI Aurora SCU */
+
+/*
  * Posiflex inc retail equipment (http://www.posiflex.com.tw)
  */
 #define POSIFLEX_VID		0x0d3a  /* Vendor ID */
@@ -757,6 +811,7 @@
 #define PAPOUCH_VID			0x5050	/* Vendor ID */
 #define PAPOUCH_TMU_PID			0x0400	/* TMU USB Thermometer */
 #define PAPOUCH_QUIDO4x4_PID		0x0900	/* Quido 4/4 Module */
+#define PAPOUCH_AD4USB_PID		0x8003	/* AD4USB Measurement Module */
 
 /*
  * ACG Identification Technologies GmbH products (http://www.acg.de/).
@@ -803,6 +858,12 @@
 #define TELLDUS_TELLSTICK_PID		0x0C30	/* RF control dongle 433 MHz using FT232RL */
 
 /*
+ * RT Systems programming cables for various ham radios
+ */
+#define RTSYSTEMS_VID			0x2100	/* Vendor ID */
+#define RTSYSTEMS_SERIAL_VX7_PID	0x9e52	/* Serial converter for VX-7 Radios using FT232RL */
+
+/*
  * IBS elektronik product ids
  * Submitted by Thomas Schleusener
  */
@@ -838,9 +899,6 @@
  */
 #define TML_VID			0x1B91	/* Vendor ID */
 #define TML_USB_SERIAL_PID	0x0064	/* USB - Serial Converter */
-
-/* NDI Polaris System */
-#define FTDI_NDI_HUC_PID        0xDA70
 
 /* Propox devices */
 #define FTDI_PROPOX_JTAGCABLEII_PID	0xD738
@@ -887,6 +945,8 @@
  */
 #define DIEBOLD_BCS_SE923_PID	0xfb99
 
+#define FTDI_TURTELIZER_PID	0xBDC8 /* JTAG/RS-232 adapter by egnite GmBH */
+
 /*
  * Atmel STK541
  */
@@ -906,6 +966,7 @@
  */
 #define ADI_VID 		0x0456
 #define ADI_GNICE_PID 		0xF000
+#define ADI_GNICEPLUS_PID 	0xF001
 
 /*
  * JETI SPECTROMETER SPECBOS 1201
@@ -919,6 +980,49 @@
  */
 #define MARVELL_VID		0x9e88
 #define MARVELL_SHEEVAPLUG_PID	0x9e8f
+
+/*
+ * GN Otometrics (http://www.otometrics.com)
+ * Submitted by Ville Sundberg.
+ */
+#define GN_OTOMETRICS_VID	0x0c33	/* Vendor ID */
+#define AURICAL_USB_PID		0x0010	/* Aurical USB Audiometer */
+
+/*
+ * Bayer Ascensia Contour blood glucose meter USB-converter cable.
+ * http://winglucofacts.com/cables/
+ */
+#define BAYER_VID                      0x1A79
+#define BAYER_CONTOUR_CABLE_PID        0x6001
+
+/*
+ * Marvell OpenRD Base, Client
+ * http://www.open-rd.org
+ * OpenRD Base, Client use VID 0x0403
+ */
+#define MARVELL_OPENRD_PID	0x9e90
+
+/*
+ * Hameg HO820 and HO870 interface (using VID 0x0403)
+ */
+#define        HAMEG_HO820_PID         0xed74
+#define        HAMEG_HO870_PID         0xed71
+
+/*
+ * MJS Gadgets HD Radio / XM Radio / Sirius Radio interfaces (using VID 0x0403)
+ */
+#define MJSG_GENERIC_PID	0x9378
+#define MJSG_SR_RADIO_PID	0x9379
+#define MJSG_XM_RADIO_PID	0x937A
+#define MJSG_HD_RADIO_PID	0x937C
+
+/*
+ * Xverve Signalyzer tools (http://www.signalyzer.com/)
+ */
+#define XVERVE_SIGNALYZER_ST_PID	0xBCA0
+#define XVERVE_SIGNALYZER_SLITE_PID	0xBCA1
+#define XVERVE_SIGNALYZER_SH2_PID	0xBCA2
+#define XVERVE_SIGNALYZER_SH4_PID	0xBCA4
 
 /*
  *   BmRequestType:  1100 0000b

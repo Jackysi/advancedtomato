@@ -30,11 +30,20 @@
 static const struct usb_device_id usb_quirk_list[] = {
 	/* CBM - Flash disk */
 	{ USB_DEVICE(0x0204, 0x6025), .driver_info = USB_QUIRK_RESET_RESUME },
+
 	/* HP 5300/5370C scanner */
-	{ USB_DEVICE(0x03f0, 0x0701), .driver_info = USB_QUIRK_STRING_FETCH_255 },
+	{ USB_DEVICE(0x03f0, 0x0701), .driver_info =
+			USB_QUIRK_STRING_FETCH_255 },
 
 	/* Creative SB Audigy 2 NX */
 	{ USB_DEVICE(0x041e, 0x3020), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* Philips PSC805 audio device */
+	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* Artisman Watchdog Dongle */
+	{ USB_DEVICE(0x04b4, 0x0526), .driver_info =
+			USB_QUIRK_CONFIG_INTF_STRINGS },
 
 	/* Roland SC-8820 */
 	{ USB_DEVICE(0x0582, 0x0007), .driver_info = USB_QUIRK_RESET_RESUME },
@@ -42,8 +51,9 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* Edirol SD-20 */
 	{ USB_DEVICE(0x0582, 0x0027), .driver_info = USB_QUIRK_RESET_RESUME },
 
-	/* INTEL VALUE SSD */
-	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
+	/* Avision AV600U */
+	{ USB_DEVICE(0x0638, 0x0a13), .driver_info =
+	  USB_QUIRK_STRING_FETCH_255 },
 
 	/* Saitek Cyborg Gold Joystick */
 	{ USB_DEVICE(0x06a3, 0x0006), .driver_info =
@@ -55,11 +65,22 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* X-Rite/Gretag-Macbeth Eye-One Pro display colorimeter */
 	{ USB_DEVICE(0x0971, 0x2000), .driver_info = USB_QUIRK_NO_SET_INTF },
 
-	/* Philips PSC805 audio device */
-	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
+	/* Broadcom BCM92035DGROM BT dongle */
+	{ USB_DEVICE(0x0a5c, 0x2021), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* Action Semiconductor flash disk */
+	{ USB_DEVICE(0x10d6, 0x2200), .driver_info =
+			USB_QUIRK_STRING_FETCH_255 },
 
 	/* SKYMEDI USB_DRIVE */
 	{ USB_DEVICE(0x1516, 0x8628), .driver_info = USB_QUIRK_RESET_RESUME },
+
+	/* BUILDWIN Photo Frame */
+	{ USB_DEVICE(0x1908, 0x1315), .driver_info =
+			USB_QUIRK_HONOR_BNUMINTERFACES },
+
+	/* INTEL VALUE SSD */
+	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
 
 	{ }  /* terminating entry must be last */
 };

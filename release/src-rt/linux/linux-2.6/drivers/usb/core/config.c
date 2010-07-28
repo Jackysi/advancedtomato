@@ -1,5 +1,6 @@
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
+#include <linux/usb/quirks.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -300,9 +301,10 @@ skip_to_next_interface_descriptor:
 	return buffer - buffer0 + i;
 }
 
-static int usb_parse_configuration(struct device *ddev, int cfgidx,
+static int usb_parse_configuration(struct usb_device *dev, int cfgidx,
     struct usb_host_config *config, unsigned char *buffer, int size)
 {
+	struct device *ddev = &dev->dev;
 	unsigned char *buffer0 = buffer;
 	int cfgno;
 	int nintf, nintf_orig;
@@ -371,6 +373,16 @@ static int usb_parse_configuration(struct device *ddev, int cfgidx,
 			}
 
 			inum = d->bInterfaceNumber;
+
+			if ((dev->quirks & USB_QUIRK_HONOR_BNUMINTERFACES) &&
+			    n >= nintf_orig) {
+				dev_warn(ddev, "config %d has more interface "
+				    "descriptors than it declares in "
+				    "bNumInterfaces, ignoring interface "
+				    "number: %d\n", cfgno, inum);
+				continue;
+			}
+
 			if (inum >= nintf_orig)
 				dev_warn(ddev, "config %d has an invalid "
 				    "interface number: %d but max is %d\n",
@@ -605,7 +617,7 @@ int usb_get_configuration(struct usb_device *dev)
 
 		dev->rawdescriptors[cfgno] = bigbuffer;
 
-		result = usb_parse_configuration(&dev->dev, cfgno,
+		result = usb_parse_configuration(dev, cfgno,
 		    &dev->config[cfgno], bigbuffer, length);
 		if (result < 0) {
 			++cfgno;
