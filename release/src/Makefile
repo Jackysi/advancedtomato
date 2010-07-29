@@ -368,6 +368,8 @@ define BusyboxOptions
 		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
 		sed -i "/CONFIG_BLKID/d" $(1); \
 		echo "# CONFIG_BLKID is not set" >>$(1); \
+		sed -i "/CONFIG_TELNET=y/d" $(1); \
+		echo "# CONFIG_TELNET is not set" >>$(1); \
 		sed -i "/CONFIG_ARPING/d" $(1); \
 		echo "# CONFIG_ARPING is not set" >>$(1); \
 	fi; \
@@ -475,7 +477,7 @@ b:
 c:
 	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB"
 
-## Make the "normal but without SAMBA" build
+## Make the "normal but without SAMBA" (Lite) build
 d:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NO_SAMBA=y SLIM=y NO_CIFS=y NO_JFFS=y NO_ZEBRA=y B=D BUILD_DESC="Lite" USB="USB"
@@ -519,21 +521,24 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y B=V BUILD_DESC="$(VPN)" USB=""
 endif
 
-## Make Mips32r2 Extras build (Asus RT-N16, Netgear WNR3500L)
+## Make Mips32r2 builds
 r2m:
 	@$(MAKE) m MIPS32=r2
 
-## Make Mips32r2 USB+VPN build
 r2e:
 	@$(MAKE) e MIPS32=r2
 
-## Make Mips32r2 "no USB" build (RT-N12, WRT160Nv3)
 r2s:
 	@$(MAKE) s MIPS32=r2
 
-## Make Mips32r2 "no USB" VPN build
 r2v:
 	@$(MAKE) v MIPS32=r2
+
+r2f:
+	@$(MAKE) f MIPS32=r2
+
+r2d:
+	@$(MAKE) d MIPS32=r2
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -608,6 +613,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
+	@echo "r2f          MIPS Release 2 F build (no USB support minus JFFS and CIFS)"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
