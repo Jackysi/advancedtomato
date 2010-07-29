@@ -737,6 +737,7 @@ endif
 archclean:
 	@$(MAKE) $(clean)=arch/mips/boot
 	@$(MAKE) $(clean)=arch/mips/lasat
+	$(Q)$(MAKE) -C arch/mips/brcm-boards/bcm947xx/compressed clean
 
 CLEAN_FILES += vmlinux.32 \
 	       vmlinux.64 \

@@ -99,4 +99,4 @@ piggy: $(SYSTEM)
 mrproper: clean
 
 clean:
-	rm -f vmlinux vmlinuz zImage piggz piggy *.lds *.o
+	$(Q)rm -f vmlinux vmlinuz zImage piggz piggy *.lds *.o

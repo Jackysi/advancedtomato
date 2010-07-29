@@ -54,6 +54,8 @@ endif
 
 obj-$(CONFIG_HND) := hnd.o shared_ksyms.o
 
+clean-files := shared_ksyms.c
+
 ifeq ($(wildcard $(src)/$(SHARED)/bcmutils.c),)
 $(src)/$(SHARED)/bcmutils.o: $(src)/$(SHARED)/linux/bcmutils.o
 	cp $< $@
