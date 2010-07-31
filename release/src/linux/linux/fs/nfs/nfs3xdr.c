@@ -779,7 +779,7 @@ nfs3_xdr_readlinkres(struct rpc_rqst *req, u32 *p, struct nfs_fattr *fattr)
 	len = ntohl(*strlen);
 	if (len >= rcvbuf->page_len - sizeof(u32)) {
 		dprintk("NFS: server returned giant symlink!\n");
-		kunmap(rcvbuf->pages[0]);
+		kunmap_atomic(strlen, KM_USER0);
 		return -ENAMETOOLONG;
         }
 	*strlen = len;

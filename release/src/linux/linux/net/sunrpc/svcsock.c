@@ -350,6 +350,12 @@ svc_sendto(struct svc_rqst *rqstp, struct iovec *iov, int nr)
 	 */
 	msg.msg_flags	= 0;
 
+	/* 
+	 * Make sure there is a socket before sending
+	 */
+	if (test_bit(SK_DEAD, &svsk->sk_flags))
+		return -ENOTCONN;
+
 	oldfs = get_fs(); set_fs(KERNEL_DS);
 	len = sock_sendmsg(sock, &msg, buflen);
 	set_fs(oldfs);

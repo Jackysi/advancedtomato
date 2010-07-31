@@ -182,6 +182,8 @@ static struct usb_driver acm_driver;
 static struct tty_driver acm_tty_driver;
 static struct acm *acm_table[ACM_TTY_MINORS];
 
+static DECLARE_MUTEX(open_sem);
+
 #define ACM_READY(acm)	(acm && acm->dev && acm->used)
 
 /*
@@ -317,23 +319,23 @@ static void acm_softint(void *private)
 
 static int acm_tty_open(struct tty_struct *tty, struct file *filp)
 {
-	struct acm *acm = acm_table[MINOR(tty->device)];
+	struct acm *acm;
+	int rv = -EINVAL;
 
-	if (!acm || !acm->dev) return -EINVAL;
+	down(&open_sem);
+
+	acm = acm_table[MINOR(tty->device)];
+	if (!acm || !acm->dev)
+		goto err_out;
+	rv = 0;
 
 	tty->driver_data = acm;
 	acm->tty = tty;
 
 	MOD_INC_USE_COUNT;
 
-        lock_kernel();
-
-	if (acm->used++) {
-                unlock_kernel();
-                return 0;
-        }
-
-        unlock_kernel();
+	if (acm->used++)
+		goto done;
 
 	acm->ctrlurb.dev = acm->dev;
 	if (usb_submit_urb(&acm->ctrlurb))
@@ -349,14 +351,22 @@ static int acm_tty_open(struct tty_struct *tty, struct file *filp)
 	   otherwise it is scheduled, and with high data rates data can get lost. */
 	tty->low_latency = 1;
 
-	return 0;
+done:
+err_out:
+	up(&open_sem);
+	return rv;
 }
 
 static void acm_tty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct acm *acm = tty->driver_data;
 
-	if (!acm || !acm->used) return;
+	down(&open_sem);
+
+	if (!acm || !acm->used) {
+		up(&open_sem);
+		return;
+	}
 
 	if (!--acm->used) {
 		if (acm->dev) {
@@ -370,6 +380,7 @@ static void acm_tty_close(struct tty_struct *tty, struct file *filp)
 			kfree(acm);
 		}
 	}
+	up(&open_sem);
 	MOD_DEC_USE_COUNT;
 }
 
@@ -688,7 +699,10 @@ static void acm_disconnect(struct usb_device *dev, void *ptr)
 {
 	struct acm *acm = ptr;
 
+	down(&open_sem);
+
 	if (!acm || !acm->dev) {
+		up(&open_sem);
 		dbg("disconnect on nonexisting interface");
 		return;
 	}
@@ -712,9 +726,12 @@ static void acm_disconnect(struct usb_device *dev, void *ptr)
 		tty_unregister_devfs(&acm_tty_driver, acm->minor);
 		acm_table[acm->minor] = NULL;
 		kfree(acm);
+		up(&open_sem);
 		return;
 	}
 	
+	up(&open_sem);
+
 	if (acm->tty)
 		tty_hangup(acm->tty);
 }

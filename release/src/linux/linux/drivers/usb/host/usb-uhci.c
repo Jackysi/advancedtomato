@@ -2820,7 +2820,7 @@ _static void reset_hc (uhci_t *s)
 _static void start_hc (uhci_t *s)
 {
 	unsigned int io_addr = s->io_addr;
-	int timeout = 10;
+	int timeout = 250;
 
 	/*
 	 * Reset the HC - this will force us to get a

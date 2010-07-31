@@ -845,7 +845,15 @@ int
 nfs_revalidate(struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
-	return nfs_revalidate_inode(NFS_SERVER(inode), inode);
+	int error;
+
+	error = nfs_revalidate_inode(NFS_SERVER(inode), inode);
+	if (error == -ESTALE) {
+		nfs_zap_caches(dentry->d_parent->d_inode);
+		d_drop(dentry);
+	}
+
+	return error;
 }
 
 /*
@@ -912,7 +920,7 @@ int
 __nfs_revalidate_inode(struct nfs_server *server, struct inode *inode)
 {
 	int		 status = -ESTALE;
-	struct nfs_fattr fattr;
+	struct nfs_fattr *fattr = NULL;
 
 	dfprintk(PAGECACHE, "NFS: revalidating (%x/%Ld)\n",
 		inode->i_dev, (long long)NFS_FILEID(inode));
@@ -934,19 +942,20 @@ __nfs_revalidate_inode(struct nfs_server *server, struct inode *inode)
 	}
 	NFS_FLAGS(inode) |= NFS_INO_REVALIDATING;
 
-	status = NFS_PROTO(inode)->getattr(inode, &fattr);
+	fattr = kmalloc(sizeof(*fattr), GFP_KERNEL);
+	if (fattr == NULL)
+		goto out;
+
+	status = NFS_PROTO(inode)->getattr(inode, fattr);
 	if (status) {
 		dfprintk(PAGECACHE, "nfs_revalidate_inode: (%x/%Ld) getattr failed, error=%d\n",
 			 inode->i_dev, (long long)NFS_FILEID(inode), status);
-		if (status == -ESTALE) {
+		if (status == -ESTALE)
 			NFS_FLAGS(inode) |= NFS_INO_STALE;
-			if (inode != inode->i_sb->s_root->d_inode)
-				remove_inode_hash(inode);
-		}
 		goto out;
 	}
 
-	status = nfs_refresh_inode(inode, &fattr);
+	status = nfs_refresh_inode(inode, fattr);
 	if (status) {
 		dfprintk(PAGECACHE, "nfs_revalidate_inode: (%x/%Ld) refresh failed, error=%d\n",
 			 inode->i_dev, (long long)NFS_FILEID(inode), status);
@@ -957,6 +966,8 @@ __nfs_revalidate_inode(struct nfs_server *server, struct inode *inode)
 
 	NFS_FLAGS(inode) &= ~NFS_INO_STALE;
 out:
+	if (fattr)
+		kfree(fattr);
 	NFS_FLAGS(inode) &= ~NFS_INO_REVALIDATING;
 	wake_up(&inode->i_wait);
  out_nowait:
