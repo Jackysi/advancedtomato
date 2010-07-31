@@ -1145,13 +1145,14 @@ static NOINLINE void cgi_io_loop_and_exit(int fromCgi_rd, int toCgi_wr, int post
 				/* post_len <= 0 && hdr_cnt <= 0:
 				 * no more POST data to CGI,
 				 * let CGI see EOF on CGI's stdin */
-				close(toCgi_wr);
+				if (toCgi_wr != fromCgi_rd)
+					close(toCgi_wr);
 				toCgi_wr = 0;
 			}
 		}
 
 		/* Now wait on the set of sockets */
-		count = safe_poll(pfd, 3, -1);
+		count = safe_poll(pfd, toCgi_wr ? TO_CGI+1 : FROM_CGI+1, -1);
 		if (count <= 0) {
 #if 0
 			if (safe_waitpid(pid, &status, WNOHANG) <= 0) {
@@ -1432,7 +1433,7 @@ static void send_cgi_and_exit(
 		if (script != url) { /* paranoia */
 			*script = '\0';
 			if (chdir(url + 1) != 0) {
-				bb_perror_msg("chdir %s", url + 1);
+				bb_perror_msg("chdir(%s)", url + 1);
 				goto error_execing_cgi;
 			}
 			// not needed: *script = '/';
@@ -1473,7 +1474,7 @@ static void send_cgi_and_exit(
 		 * in the current directory */
 		execv(argv[0], argv);
 		if (verbose)
-			bb_perror_msg("exec %s", argv[0]);
+			bb_perror_msg("can't execute '%s'", argv[0]);
  error_execing_cgi:
 		/* send to stdout
 		 * (we are CGI here, our stdout is pumped to the net) */
@@ -2103,8 +2104,7 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
 		header_ptr += 2;
 		write(proxy_fd, header_buf, header_ptr - header_buf);
 		free(header_buf); /* on the order of 8k, free it */
-		/* cgi_io_loop_and_exit needs to have two distinct fds */
-		cgi_io_loop_and_exit(proxy_fd, dup(proxy_fd), length);
+		cgi_io_loop_and_exit(proxy_fd, proxy_fd, length);
 	}
 #endif
 

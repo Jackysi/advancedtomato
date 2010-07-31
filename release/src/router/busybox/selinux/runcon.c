@@ -59,13 +59,13 @@ static context_t runcon_compute_new_context(char *user, char *role, char *type, 
 	if (!con)
 		bb_error_msg_and_die("'%s' is not a valid context", cur_context);
 	if (user && context_user_set(con, user))
-		bb_error_msg_and_die("failed to set new user '%s'", user);
+		bb_error_msg_and_die("can't set new user '%s'", user);
 	if (type && context_type_set(con, type))
-		bb_error_msg_and_die("failed to set new type '%s'", type);
+		bb_error_msg_and_die("can't set new type '%s'", type);
 	if (range && context_range_set(con, range))
-		bb_error_msg_and_die("failed to set new range '%s'", range);
+		bb_error_msg_and_die("can't set new range '%s'", range);
 	if (role && context_role_set(con, role))
-		bb_error_msg_and_die("failed to set new role '%s'", role);
+		bb_error_msg_and_die("can't set new role '%s'", role);
 
 	return con;
 }
@@ -133,6 +133,5 @@ int runcon_main(int argc UNUSED_PARAM, char **argv)
 				     context_str(con));
 
 	execvp(argv[0], argv);
-
 	bb_perror_msg_and_die("can't execute '%s'", argv[0]);
 }

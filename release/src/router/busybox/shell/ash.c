@@ -36,19 +36,13 @@
 
 #define JOBS ENABLE_ASH_JOB_CONTROL
 
-#if DEBUG
-# ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
-# endif
-#endif
-
 #include "busybox.h" /* for applet_names */
 #include <paths.h>
 #include <setjmp.h>
 #include <fnmatch.h>
+#include <sys/times.h>
 
 #include "shell_common.h"
-#include "builtin_read.h"
 #include "math.h"
 #if ENABLE_ASH_RANDOM_SUPPORT
 # include "random.h"
@@ -56,9 +50,7 @@
 # define CLEAR_RANDOM_T(rnd) ((void)0)
 #endif
 
-#define SKIP_definitions 1
-#include "applet_tables.h"
-#undef SKIP_definitions
+#include "NUM_APPLETS.h"
 #if NUM_APPLETS == 1
 /* STANDALONE does not make sense, and won't compile */
 # undef CONFIG_FEATURE_SH_STANDALONE
@@ -74,7 +66,7 @@
 # define PIPE_BUF 4096           /* amount of buffering in a pipe */
 #endif
 
-#if defined(__uClinux__)
+#if !BB_MMU
 # error "Do not even bother, ash will not run on NOMMU machine"
 #endif
 
@@ -120,9 +112,7 @@ enum { NOPTS = ARRAY_SIZE(optletters_optnames) };
 
 /* ============ Misc data */
 
-static const char homestr[] ALIGN1 = "HOME";
-static const char snlfmt[] ALIGN1 = "%s\n";
-static const char msg_illnum[] ALIGN1 = "Illegal number: %s";
+#define msg_illnum "Illegal number: %s"
 
 /*
  * We enclose jmp_buf in a structure so that we can declare pointers to
@@ -207,6 +197,7 @@ struct globals_misc {
 
 	/* indicates specified signal received */
 	uint8_t gotsig[NSIG - 1]; /* offset by 1: "signal" 0 is meaningless */
+	uint8_t may_have_traps; /* 0: definitely no traps are set, 1: some traps may be set */
 	char *trap[NSIG];
 	char **trap_ptr;        /* used only by "trap hack" */
 
@@ -235,6 +226,7 @@ extern struct globals_misc *const ash_ptr_to_globals_misc;
 #define optlist     (G_misc.optlist    )
 #define sigmode     (G_misc.sigmode    )
 #define gotsig      (G_misc.gotsig     )
+#define may_have_traps    (G_misc.may_have_traps   )
 #define trap        (G_misc.trap       )
 #define trap_ptr    (G_misc.trap_ptr   )
 #define random_gen  (G_misc.random_gen )
@@ -276,6 +268,14 @@ static int isdigit_str9(const char *str)
 	while (--maxlen && isdigit(*str))
 		str++;
 	return (*str == '\0');
+}
+
+static const char *var_end(const char *var)
+{
+	while (*var)
+		if (*var++ == '=')
+			break;
+	return var;
 }
 
 
@@ -332,7 +332,7 @@ raise_interrupt(void)
 	/* Signal is not automatically unmasked after it is raised,
 	 * do it ourself - unmask all signals */
 	sigprocmask_allsigs(SIG_UNBLOCK);
-	/* pending_sig = 0; - now done in onsig() */
+	/* pending_sig = 0; - now done in signal_handler() */
 
 	ex_type = EXSIG;
 	if (gotsig[SIGINT - 1] && !trap[SIGINT]) {
@@ -1037,7 +1037,7 @@ struct strpush {
 struct parsefile {
 	struct parsefile *prev; /* preceding file on stack */
 	int linno;              /* current line */
-	int fd;                 /* file descriptor (or -1 if string) */
+	int pf_fd;              /* file descriptor (or -1 if string) */
 	int left_in_line;       /* number of chars left in this line */
 	int left_in_buffer;     /* number of chars left in this buffer past the line */
 	char *next_to_pgetc;    /* next char in buffer */
@@ -1063,7 +1063,7 @@ ash_vmsg(const char *msg, va_list ap)
 	if (commandname) {
 		if (strcmp(arg0, commandname))
 			fprintf(stderr, "%s: ", commandname);
-		if (!iflag || g_parsefile->fd)
+		if (!iflag || g_parsefile->pf_fd > 0)
 			fprintf(stderr, "line %d: ", startlinno);
 	}
 	vfprintf(stderr, msg, ap);
@@ -1711,8 +1711,8 @@ static void FAST_FUNC getoptsreset(const char *value);
 struct var {
 	struct var *next;               /* next entry in hash list */
 	int flags;                      /* flags are defined above */
-	const char *text;               /* name=value */
-	void (*func)(const char *) FAST_FUNC; /* function to be called when  */
+	const char *var_text;           /* name=value */
+	void (*var_func)(const char *) FAST_FUNC; /* function to be called when  */
 					/* the variable gets set/unset */
 };
 
@@ -1766,13 +1766,13 @@ static void change_random(const char *) FAST_FUNC;
 
 static const struct {
 	int flags;
-	const char *text;
-	void (*func)(const char *) FAST_FUNC;
+	const char *var_text;
+	void (*var_func)(const char *) FAST_FUNC;
 } varinit_data[] = {
 	{ VSTRFIXED|VTEXTFIXED       , defifsvar   , NULL            },
 #if ENABLE_ASH_MAIL
-	{ VSTRFIXED|VTEXTFIXED|VUNSET, "MAIL\0"    , changemail      },
-	{ VSTRFIXED|VTEXTFIXED|VUNSET, "MAILPATH\0", changemail      },
+	{ VSTRFIXED|VTEXTFIXED|VUNSET, "MAIL"      , changemail      },
+	{ VSTRFIXED|VTEXTFIXED|VUNSET, "MAILPATH"  , changemail      },
 #endif
 	{ VSTRFIXED|VTEXTFIXED       , bb_PATH_root_path, changepath },
 	{ VSTRFIXED|VTEXTFIXED       , "PS1=$ "    , NULL            },
@@ -1782,14 +1782,14 @@ static const struct {
 	{ VSTRFIXED|VTEXTFIXED       , "OPTIND=1"  , getoptsreset    },
 #endif
 #if ENABLE_ASH_RANDOM_SUPPORT
-	{ VSTRFIXED|VTEXTFIXED|VUNSET|VDYNAMIC, "RANDOM\0", change_random },
+	{ VSTRFIXED|VTEXTFIXED|VUNSET|VDYNAMIC, "RANDOM", change_random },
 #endif
 #if ENABLE_LOCALE_SUPPORT
-	{ VSTRFIXED|VTEXTFIXED|VUNSET, "LC_ALL\0"  , change_lc_all   },
-	{ VSTRFIXED|VTEXTFIXED|VUNSET, "LC_CTYPE\0", change_lc_ctype },
+	{ VSTRFIXED|VTEXTFIXED|VUNSET, "LC_ALL"    , change_lc_all   },
+	{ VSTRFIXED|VTEXTFIXED|VUNSET, "LC_CTYPE"  , change_lc_ctype },
 #endif
 #if ENABLE_FEATURE_EDITING_SAVEHISTORY
-	{ VSTRFIXED|VTEXTFIXED|VUNSET, "HISTFILE\0", NULL            },
+	{ VSTRFIXED|VTEXTFIXED|VUNSET, "HISTFILE"  , NULL            },
 #endif
 };
 
@@ -1816,9 +1816,9 @@ extern struct globals_var *const ash_ptr_to_globals_var;
 	(*(struct globals_var**)&ash_ptr_to_globals_var) = xzalloc(sizeof(G_var)); \
 	barrier(); \
 	for (i = 0; i < ARRAY_SIZE(varinit_data); i++) { \
-		varinit[i].flags = varinit_data[i].flags; \
-		varinit[i].text  = varinit_data[i].text; \
-		varinit[i].func  = varinit_data[i].func; \
+		varinit[i].flags    = varinit_data[i].flags; \
+		varinit[i].var_text = varinit_data[i].var_text; \
+		varinit[i].var_func = varinit_data[i].var_func; \
 	} \
 } while (0)
 
@@ -1849,19 +1849,19 @@ extern struct globals_var *const ash_ptr_to_globals_var;
  * They have to skip over the name.  They return the null string
  * for unset variables.
  */
-#define ifsval()        (vifs.text + 4)
+#define ifsval()        (vifs.var_text + 4)
 #define ifsset()        ((vifs.flags & VUNSET) == 0)
 #if ENABLE_ASH_MAIL
-# define mailval()      (vmail.text + 5)
-# define mpathval()     (vmpath.text + 9)
+# define mailval()      (vmail.var_text + 5)
+# define mpathval()     (vmpath.var_text + 9)
 # define mpathset()     ((vmpath.flags & VUNSET) == 0)
 #endif
-#define pathval()       (vpath.text + 5)
-#define ps1val()        (vps1.text + 4)
-#define ps2val()        (vps2.text + 4)
-#define ps4val()        (vps4.text + 4)
+#define pathval()       (vpath.var_text + 5)
+#define ps1val()        (vps1.var_text + 4)
+#define ps2val()        (vps2.var_text + 4)
+#define ps4val()        (vps4.var_text + 4)
 #if ENABLE_ASH_GETOPTS
-# define optindval()    (voptind.text + 7)
+# define optindval()    (voptind.var_text + 7)
 #endif
 
 
@@ -1920,12 +1920,6 @@ varcmp(const char *p, const char *q)
 	return c - d;
 }
 
-static int
-varequal(const char *a, const char *b)
-{
-	return !varcmp(a, b);
-}
-
 /*
  * Find the appropriate entry in the hash table from the name.
  */
@@ -1960,15 +1954,15 @@ initvar(void)
 	 * PS1 depends on uid
 	 */
 #if ENABLE_FEATURE_EDITING && ENABLE_FEATURE_EDITING_FANCY_PROMPT
-	vps1.text = "PS1=\\w \\$ ";
+	vps1.var_text = "PS1=\\w \\$ ";
 #else
 	if (!geteuid())
-		vps1.text = "PS1=# ";
+		vps1.var_text = "PS1=# ";
 #endif
 	vp = varinit;
 	end = vp + ARRAY_SIZE(varinit);
 	do {
-		vpp = hashvar(vp->text);
+		vpp = hashvar(vp->var_text);
 		vp->next = *vpp;
 		*vpp = vp;
 	} while (++vp < end);
@@ -1978,7 +1972,7 @@ static struct var **
 findvar(struct var **vpp, const char *name)
 {
 	for (; *vpp; vpp = &(*vpp)->next) {
-		if (varequal((*vpp)->text, name)) {
+		if (varcmp((*vpp)->var_text, name) == 0) {
 			break;
 		}
 	}
@@ -2002,11 +1996,11 @@ lookupvar(const char *name)
 	 * As soon as they're unset, they're no longer dynamic, and dynamic
 	 * lookup will no longer happen at that point. -- PFM.
 	 */
-		if ((v->flags & VDYNAMIC))
-			(*v->func)(NULL);
+		if (v->flags & VDYNAMIC)
+			v->var_func(NULL);
 #endif
 		if (!(v->flags & VUNSET))
-			return strchrnul(v->text, '=') + 1;
+			return var_end(v->var_text);
 	}
 	return NULL;
 }
@@ -2020,8 +2014,8 @@ bltinlookup(const char *name)
 	struct strlist *sp;
 
 	for (sp = cmdenviron; sp; sp = sp->next) {
-		if (varequal(sp->text, name))
-			return strchrnul(sp->text, '=') + 1;
+		if (varcmp(sp->text, name) == 0)
+			return var_end(sp->text);
 	}
 	return lookupvar(name);
 }
@@ -2047,24 +2041,24 @@ setvareq(char *s, int flags)
 
 			if (flags & VNOSAVE)
 				free(s);
-			n = vp->text;
+			n = vp->var_text;
 			ash_msg_and_raise_error("%.*s: is read only", strchrnul(n, '=') - n, n);
 		}
 
 		if (flags & VNOSET)
 			return;
 
-		if (vp->func && (flags & VNOFUNC) == 0)
-			(*vp->func)(strchrnul(s, '=') + 1);
+		if (vp->var_func && !(flags & VNOFUNC))
+			vp->var_func(var_end(s));
 
-		if ((vp->flags & (VTEXTFIXED|VSTACK)) == 0)
-			free((char*)vp->text);
+		if (!(vp->flags & (VTEXTFIXED|VSTACK)))
+			free((char*)vp->var_text);
 
 		flags |= vp->flags & ~(VTEXTFIXED|VSTACK|VNOSAVE|VUNSET);
 	} else {
+		/* variable s is not found */
 		if (flags & VNOSET)
 			return;
-		/* not found */
 		vp = ckzalloc(sizeof(*vp));
 		vp->next = *vpp;
 		/*vp->func = NULL; - ckzalloc did it */
@@ -2072,7 +2066,7 @@ setvareq(char *s, int flags)
 	}
 	if (!(flags & (VTEXTFIXED|VSTACK|VNOSAVE)))
 		s = ckstrdup(s);
-	vp->text = s;
+	vp->var_text = s;
 	vp->flags = flags;
 }
 
@@ -2170,7 +2164,7 @@ unsetvar(const char *s)
 		if ((flags & VSTRFIXED) == 0) {
 			INT_OFF;
 			if ((flags & (VTEXTFIXED|VSTACK)) == 0)
-				free((char*)vp->text);
+				free((char*)vp->var_text);
 			*vpp = vp->next;
 			free(vp);
 			INT_ON;
@@ -2222,7 +2216,7 @@ listvars(int on, int off, char ***end)
 			if ((vp->flags & mask) == on) {
 				if (ep == stackstrend())
 					ep = growstackstr();
-				*ep++ = (char *) vp->text;
+				*ep++ = (char*)vp->var_text;
 			}
 		}
 	} while (++vpp < vartab + VTABSIZE);
@@ -2517,7 +2511,7 @@ cdcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	flags = cdopt();
 	dest = *argptr;
 	if (!dest)
-		dest = bltinlookup(homestr);
+		dest = bltinlookup("HOME");
 	else if (LONE_DASH(dest)) {
 		dest = bltinlookup("OLDPWD");
 		flags |= CD_PRINT;
@@ -2564,7 +2558,7 @@ cdcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	/* NOTREACHED */
  out:
 	if (flags & CD_PRINT)
-		out1fmt(snlfmt, curdir);
+		out1fmt("%s\n", curdir);
 	return 0;
 }
 
@@ -2580,7 +2574,7 @@ pwdcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 			setpwd(dir, 0);
 		dir = physdir;
 	}
-	out1fmt(snlfmt, dir);
+	out1fmt("%s\n", dir);
 	return 0;
 }
 
@@ -2588,9 +2582,7 @@ pwdcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 /* ============ ... */
 
 
-#define IBUFSIZ COMMON_BUFSIZE
-/* buffer for top level input file */
-#define basebuf bb_common_bufsiz1
+#define IBUFSIZ (ENABLE_FEATURE_EDITING ? CONFIG_FEATURE_EDITING_MAX_LEN : 1024)
 
 /* Syntax classes */
 #define CWORD     0             /* character is nothing special */
@@ -3269,10 +3261,10 @@ ignoresig(int signo)
 }
 
 /*
- * Signal handler. Only one usage site - in setsignal()
+ * Only one usage site - in setsignal()
  */
 static void
-onsig(int signo)
+signal_handler(int signo)
 {
 	gotsig[signo - 1] = 1;
 
@@ -3367,7 +3359,7 @@ setsignal(int signo)
 	act.sa_handler = SIG_DFL;
 	switch (new_act) {
 	case S_CATCH:
-		act.sa_handler = onsig;
+		act.sa_handler = signal_handler;
 		act.sa_flags = 0; /* matters only if !DFL and !IGN */
 		sigfillset(&act.sa_mask); /* ditto */
 		break;
@@ -3873,9 +3865,9 @@ dowait(int wait_flags, struct job *job)
 }
 
 static int
-blocking_wait_with_raise_on_sig(struct job *job)
+blocking_wait_with_raise_on_sig(void)
 {
-	pid_t pid = dowait(DOWAIT_BLOCK, job);
+	pid_t pid = dowait(DOWAIT_BLOCK, NULL);
 	if (pid <= 0 && pending_sig)
 		raise_exception(EXSIG);
 	return pid;
@@ -4068,14 +4060,21 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
 				jp->waited = 1;
 				jp = jp->prev_job;
 			}
+			blocking_wait_with_raise_on_sig();
 	/* man bash:
 	 * "When bash is waiting for an asynchronous command via
 	 * the wait builtin, the reception of a signal for which a trap
 	 * has been set will cause the wait builtin to return immediately
 	 * with an exit status greater than 128, immediately after which
 	 * the trap is executed."
-	 * Do we do it that way? */
-			blocking_wait_with_raise_on_sig(NULL);
+	 *
+	 * blocking_wait_with_raise_on_sig raises signal handlers
+	 * if it gets no pid (pid < 0). However,
+	 * if child sends us a signal *and immediately exits*,
+	 * blocking_wait_with_raise_on_sig gets pid > 0
+	 * and does not handle pending_sig. Check this case: */
+			if (pending_sig)
+				raise_exception(EXSIG);
 		}
 	}
 
@@ -4095,7 +4094,7 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
 			job = getjob(*argv, 0);
 		/* loop until process terminated or stopped */
 		while (job->state == JOBRUNNING)
-			blocking_wait_with_raise_on_sig(NULL);
+			blocking_wait_with_raise_on_sig();
 		job->waited = 1;
 		retval = getstatus(job);
  repeat: ;
@@ -5057,15 +5056,26 @@ static int is_hidden_fd(struct redirtab *rp, int fd)
 
 	if (fd == -1)
 		return 0;
+	/* Check open scripts' fds */
 	pf = g_parsefile;
 	while (pf) {
-		if (pf->fd > 0 && fd == pf->fd) {
+		/* We skip pf_fd == 0 case because of the following case:
+		 * $ ash  # running ash interactively
+		 * $ . ./script.sh
+		 * and in script.sh: "exec 9>&0".
+		 * Even though top-level pf_fd _is_ 0,
+		 * it's still ok to use it: "read" builtin uses it,
+		 * why should we cripple "exec" builtin?
+		 */
+		if (pf->pf_fd > 0 && fd == pf->pf_fd) {
 			return 1;
 		}
 		pf = pf->prev;
 	}
+
 	if (!rp)
 		return 0;
+	/* Check saved fds of redirects */
 	fd |= COPYFD_RESTORE;
 	for (i = 0; i < rp->pair_count; i++) {
 		if (rp->two_fd[i].copy == fd) {
@@ -5078,9 +5088,7 @@ static int is_hidden_fd(struct redirtab *rp, int fd)
 /*
  * Process a list of redirection commands.  If the REDIR_PUSH flag is set,
  * old file descriptors are stashed away so that the redirection can be
- * undone by calling popredir.  If the REDIR_BACKQ flag is set, then the
- * standard output, and the standard error if it becomes a duplicate of
- * stdout, is saved in memory.
+ * undone by calling popredir.
  */
 /* flags passed to redirect */
 #define REDIR_PUSH    01        /* save previous values of file descriptors */
@@ -5126,13 +5134,15 @@ redirect(union node *redir, int flags)
 	}
 
 	do {
+		int right_fd = -1;
 		fd = redir->nfile.fd;
 		if (redir->nfile.type == NTOFD || redir->nfile.type == NFROMFD) {
-			int right_fd = redir->ndup.dupfd;
+			right_fd = redir->ndup.dupfd;
+			//bb_error_msg("doing %d > %d", fd, right_fd);
 			/* redirect from/to same file descriptor? */
 			if (right_fd == fd)
 				continue;
-			/* echo >&10 and 10 is a fd opened to the sh script? */
+			/* "echo >&10" and 10 is a fd opened to a sh script? */
 			if (is_hidden_fd(sv, right_fd)) {
 				errno = EBADF; /* as if it is closed */
 				ash_msg_and_raise_error("%d: %m", right_fd);
@@ -5154,7 +5164,10 @@ redirect(union node *redir, int flags)
 #endif
 		if (need_to_remember(sv, fd)) {
 			/* Copy old descriptor */
-			i = fcntl(fd, F_DUPFD, 10);
+			/* Careful to not accidentally "save"
+			 * to the same fd as right side fd in N>&M */
+			int minfd = right_fd < 10 ? 10 : right_fd + 1;
+			i = fcntl(fd, F_DUPFD, minfd);
 /* You'd expect copy to be CLOEXECed. Currently these extra "saved" fds
  * are closed in popredir() in the child, preventing them from leaking
  * into child. (popredir() also cleans up the mess in case of failures)
@@ -5617,7 +5630,7 @@ exptilde(char *startp, char *p, int flags)
  done:
 	*p = '\0';
 	if (*name == '\0') {
-		home = lookupvar(homestr);
+		home = lookupvar("HOME");
 	} else {
 		pw = getpwnam(name);
 		if (pw == NULL)
@@ -6591,7 +6604,7 @@ evalvar(char *p, int flags, struct strlist *var_str_list)
 	var = p;
 	easy = (!quoted || (*var == '@' && shellparam.nparam));
 	startloc = expdest - (char *)stackblock();
-	p = strchr(p, '=') + 1;
+	p = strchr(p, '=') + 1; //TODO: use var_end(p)?
 
  again:
 	varlen = varvalue(var, varflags, flags, var_str_list);
@@ -7235,6 +7248,7 @@ tryexec(IF_FEATURE_SH_STANDALONE(int applet_no,) char *cmd, char **argv, char **
 #if ENABLE_FEATURE_SH_STANDALONE
 	if (applet_no >= 0) {
 		if (APPLET_IS_NOEXEC(applet_no)) {
+			clearenv();
 			while (*envp)
 				putenv(*envp++);
 			run_applet_no_and_exit(applet_no, argv);
@@ -7294,7 +7308,7 @@ shellexec(char **argv, const char *path, int idx)
 #endif
 
 	clearredir(/*drop:*/ 1);
-	envp = listvars(VEXPORT, VUNSET, 0);
+	envp = listvars(VEXPORT, VUNSET, /*end:*/ NULL);
 	if (strchr(argv[0], '/') != NULL
 #if ENABLE_FEATURE_SH_STANDALONE
 	 || (applet_no = find_applet_by_name(argv[0])) >= 0
@@ -7543,8 +7557,10 @@ changepath(const char *new)
 		if (*old != *new) {
 			firstchange = idx;
 			if ((*old == '\0' && *new == ':')
-			 || (*old == ':' && *new == '\0'))
+			 || (*old == ':' && *new == '\0')
+			) {
 				firstchange++;
+			}
 			old = new;      /* ignore subsequent differences */
 		}
 		if (*new == '\0')
@@ -7553,7 +7569,8 @@ changepath(const char *new)
 			idx_bltin = idx;
 		if (*new == ':')
 			idx++;
-		new++, old++;
+		new++;
+		old++;
 	}
 	if (builtinloc < 0 && idx_bltin >= 0)
 		builtinloc = idx_bltin;             /* zap builtins */
@@ -7628,23 +7645,6 @@ static const char *const tokname_array[] = {
 	"\0{",
 	"\1}",
 };
-
-static const char *
-tokname(int tok)
-{
-	static char buf[16];
-
-//try this:
-//if (tok < TSEMI) return tokname_array[tok] + 1;
-//sprintf(buf, "\"%s\"", tokname_array[tok] + 1);
-//return buf;
-
-	if (tok >= TSEMI)
-		buf[0] = '"';
-	sprintf(buf + (tok >= TSEMI), "%s%c",
-			tokname_array[tok] + 1, (tok >= TSEMI ? '"' : 0));
-	return buf;
-}
 
 /* Wrapper around strcmp for qsort/bsearch/... */
 static int
@@ -8441,15 +8441,16 @@ evalsubshell(union node *n, int flags)
 	int status;
 
 	expredir(n->nredir.redirect);
-	if (!backgnd && flags & EV_EXIT && !trap[0])
+	if (!backgnd && (flags & EV_EXIT) && !may_have_traps)
 		goto nofork;
 	INT_OFF;
 	jp = makejob(/*n,*/ 1);
 	if (forkshell(jp, n, backgnd) == 0) {
+		/* child */
 		INT_ON;
 		flags |= EV_EXIT;
 		if (backgnd)
-			flags &=~ EV_TESTED;
+			flags &= ~EV_TESTED;
  nofork:
 		redirect(n->nredir.redirect, 0);
 		evaltreenr(n->nredir.n, flags);
@@ -8648,14 +8649,14 @@ poplocalvars(void)
 			free((char*)lvp->text);
 			optschanged();
 		} else if ((lvp->flags & (VUNSET|VSTRFIXED)) == VUNSET) {
-			unsetvar(vp->text);
+			unsetvar(vp->var_text);
 		} else {
-			if (vp->func)
-				(*vp->func)(strchrnul(lvp->text, '=') + 1);
+			if (vp->var_func)
+				vp->var_func(var_end(lvp->text));
 			if ((vp->flags & (VTEXTFIXED|VSTACK)) == 0)
-				free((char*)vp->text);
+				free((char*)vp->var_text);
 			vp->flags = lvp->flags;
-			vp->text = lvp->text;
+			vp->var_text = lvp->text;
 		}
 		free(lvp);
 	}
@@ -8774,7 +8775,7 @@ mklocal(char *name)
 			vp = *vpp;      /* the new variable */
 			lvp->flags = VUNSET;
 		} else {
-			lvp->text = vp->text;
+			lvp->text = vp->var_text;
 			lvp->flags = vp->flags;
 			vp->flags |= VSTRFIXED|VTEXTFIXED;
 			if (eq)
@@ -8886,77 +8887,79 @@ static int FAST_FUNC testcmd(int argc, char **argv)   { return test_main(argc, a
 
 /* Keep these in proper order since it is searched via bsearch() */
 static const struct builtincmd builtintab[] = {
-	{ BUILTIN_SPEC_REG      ".", dotcmd },
-	{ BUILTIN_SPEC_REG      ":", truecmd },
+	{ BUILTIN_SPEC_REG      "."       , dotcmd     },
+	{ BUILTIN_SPEC_REG      ":"       , truecmd    },
 #if ENABLE_ASH_BUILTIN_TEST
-	{ BUILTIN_REGULAR       "[", testcmd },
+	{ BUILTIN_REGULAR       "["       , testcmd    },
 #if ENABLE_ASH_BASH_COMPAT
-	{ BUILTIN_REGULAR       "[[", testcmd },
+	{ BUILTIN_REGULAR       "[["      , testcmd    },
 #endif
 #endif
 #if ENABLE_ASH_ALIAS
-	{ BUILTIN_REG_ASSG      "alias", aliascmd },
+	{ BUILTIN_REG_ASSG      "alias"   , aliascmd   },
 #endif
 #if JOBS
-	{ BUILTIN_REGULAR       "bg", fg_bgcmd },
+	{ BUILTIN_REGULAR       "bg"      , fg_bgcmd   },
 #endif
-	{ BUILTIN_SPEC_REG      "break", breakcmd },
-	{ BUILTIN_REGULAR       "cd", cdcmd },
-	{ BUILTIN_NOSPEC        "chdir", cdcmd },
+	{ BUILTIN_SPEC_REG      "break"   , breakcmd   },
+	{ BUILTIN_REGULAR       "cd"      , cdcmd      },
+	{ BUILTIN_NOSPEC        "chdir"   , cdcmd      },
 #if ENABLE_ASH_CMDCMD
-	{ BUILTIN_REGULAR       "command", commandcmd },
+	{ BUILTIN_REGULAR       "command" , commandcmd },
 #endif
-	{ BUILTIN_SPEC_REG      "continue", breakcmd },
+	{ BUILTIN_SPEC_REG      "continue", breakcmd   },
 #if ENABLE_ASH_BUILTIN_ECHO
-	{ BUILTIN_REGULAR       "echo", echocmd },
+	{ BUILTIN_REGULAR       "echo"    , echocmd    },
 #endif
-	{ BUILTIN_SPEC_REG      "eval", evalcmd },
-	{ BUILTIN_SPEC_REG      "exec", execcmd },
-	{ BUILTIN_SPEC_REG      "exit", exitcmd },
-	{ BUILTIN_SPEC_REG_ASSG "export", exportcmd },
-	{ BUILTIN_REGULAR       "false", falsecmd },
+	{ BUILTIN_SPEC_REG      "eval"    , evalcmd    },
+	{ BUILTIN_SPEC_REG      "exec"    , execcmd    },
+	{ BUILTIN_SPEC_REG      "exit"    , exitcmd    },
+	{ BUILTIN_SPEC_REG_ASSG "export"  , exportcmd  },
+	{ BUILTIN_REGULAR       "false"   , falsecmd   },
 #if JOBS
-	{ BUILTIN_REGULAR       "fg", fg_bgcmd },
+	{ BUILTIN_REGULAR       "fg"      , fg_bgcmd   },
 #endif
 #if ENABLE_ASH_GETOPTS
-	{ BUILTIN_REGULAR       "getopts", getoptscmd },
+	{ BUILTIN_REGULAR       "getopts" , getoptscmd },
 #endif
-	{ BUILTIN_NOSPEC        "hash", hashcmd },
+	{ BUILTIN_NOSPEC        "hash"    , hashcmd    },
 #if !ENABLE_FEATURE_SH_EXTRA_QUIET
-	{ BUILTIN_NOSPEC        "help", helpcmd },
+	{ BUILTIN_NOSPEC        "help"    , helpcmd    },
 #endif
 #if JOBS
-	{ BUILTIN_REGULAR       "jobs", jobscmd },
-	{ BUILTIN_REGULAR       "kill", killcmd },
+	{ BUILTIN_REGULAR       "jobs"    , jobscmd    },
+	{ BUILTIN_REGULAR       "kill"    , killcmd    },
 #endif
 #if ENABLE_SH_MATH_SUPPORT
-	{ BUILTIN_NOSPEC        "let", letcmd },
+	{ BUILTIN_NOSPEC        "let"     , letcmd     },
 #endif
-	{ BUILTIN_ASSIGN        "local", localcmd },
+	{ BUILTIN_ASSIGN        "local"   , localcmd   },
 #if ENABLE_ASH_BUILTIN_PRINTF
-	{ BUILTIN_REGULAR       "printf", printfcmd },
+	{ BUILTIN_REGULAR       "printf"  , printfcmd  },
 #endif
-	{ BUILTIN_NOSPEC        "pwd", pwdcmd },
-	{ BUILTIN_REGULAR       "read", readcmd },
-	{ BUILTIN_SPEC_REG_ASSG "readonly", exportcmd },
-	{ BUILTIN_SPEC_REG      "return", returncmd },
-	{ BUILTIN_SPEC_REG      "set", setcmd },
-	{ BUILTIN_SPEC_REG      "shift", shiftcmd },
-	{ BUILTIN_SPEC_REG      "source", dotcmd },
+	{ BUILTIN_NOSPEC        "pwd"     , pwdcmd     },
+	{ BUILTIN_REGULAR       "read"    , readcmd    },
+	{ BUILTIN_SPEC_REG_ASSG "readonly", exportcmd  },
+	{ BUILTIN_SPEC_REG      "return"  , returncmd  },
+	{ BUILTIN_SPEC_REG      "set"     , setcmd     },
+	{ BUILTIN_SPEC_REG      "shift"   , shiftcmd   },
+#if ENABLE_ASH_BASH_COMPAT
+	{ BUILTIN_SPEC_REG      "source"  , dotcmd     },
+#endif
 #if ENABLE_ASH_BUILTIN_TEST
-	{ BUILTIN_REGULAR       "test", testcmd },
+	{ BUILTIN_REGULAR       "test"    , testcmd    },
 #endif
-	{ BUILTIN_SPEC_REG      "times", timescmd },
-	{ BUILTIN_SPEC_REG      "trap", trapcmd },
-	{ BUILTIN_REGULAR       "true", truecmd },
-	{ BUILTIN_NOSPEC        "type", typecmd },
-	{ BUILTIN_NOSPEC        "ulimit", ulimitcmd },
-	{ BUILTIN_REGULAR       "umask", umaskcmd },
+	{ BUILTIN_SPEC_REG      "times"   , timescmd   },
+	{ BUILTIN_SPEC_REG      "trap"    , trapcmd    },
+	{ BUILTIN_REGULAR       "true"    , truecmd    },
+	{ BUILTIN_NOSPEC        "type"    , typecmd    },
+	{ BUILTIN_NOSPEC        "ulimit"  , ulimitcmd  },
+	{ BUILTIN_REGULAR       "umask"   , umaskcmd   },
 #if ENABLE_ASH_ALIAS
-	{ BUILTIN_REGULAR       "unalias", unaliascmd },
+	{ BUILTIN_REGULAR       "unalias" , unaliascmd },
 #endif
-	{ BUILTIN_SPEC_REG      "unset", unsetcmd },
-	{ BUILTIN_REGULAR       "wait", waitcmd },
+	{ BUILTIN_SPEC_REG      "unset"   , unsetcmd   },
+	{ BUILTIN_REGULAR       "wait"    , waitcmd    },
 };
 
 /* Should match the above table! */
@@ -9082,7 +9085,7 @@ evalcommand(union node *cmd, int flags)
 	expredir(cmd->ncmd.redirect);
 	status = redirectsafe(cmd->ncmd.redirect, REDIR_PUSH | REDIR_SAVEFD2);
 
-	path = vpath.text;
+	path = vpath.var_text;
 	for (argp = cmd->ncmd.assign; argp; argp = argp->narg.next) {
 		struct strlist **spp;
 		char *p;
@@ -9095,7 +9098,7 @@ evalcommand(union node *cmd, int flags)
 		 * is present
 		 */
 		p = (*spp)->text;
-		if (varequal(p, path))
+		if (varcmp(p, path) == 0)
 			path = p;
 	}
 
@@ -9168,12 +9171,14 @@ evalcommand(union node *cmd, int flags)
 
 	/* Execute the command. */
 	switch (cmdentry.cmdtype) {
-	default:
+	default: {
 
 #if ENABLE_FEATURE_SH_NOFORK
-/* Hmmm... shouldn't it happen somewhere in forkshell() instead?
- * Why "fork off a child process if necessary" doesn't apply to NOFORK? */
-	{
+/* (1) BUG: if variables are set, we need to fork, or save/restore them
+ *     around run_nofork_applet() call.
+ * (2) Should this check also be done in forkshell()?
+ *     (perhaps it should, so that "VAR=VAL nofork" at least avoids exec...)
+ */
 		/* find_command() encodes applet_no as (-2 - applet_no) */
 		int applet_no = (- cmdentry.u.index - 2);
 		if (applet_no >= 0 && APPLET_IS_NOFORK(applet_no)) {
@@ -9182,24 +9187,30 @@ evalcommand(union node *cmd, int flags)
 			exitstatus = run_nofork_applet(applet_no, argv);
 			break;
 		}
-	}
 #endif
-		/* Fork off a child process if necessary. */
-		if (!(flags & EV_EXIT) || trap[0]) {
+		/* Can we avoid forking off? For example, very last command
+		 * in a script or a subshell does not need forking,
+		 * we can just exec it.
+		 */
+		if (!(flags & EV_EXIT) || may_have_traps) {
+			/* No, forking off a child is necessary */
 			INT_OFF;
 			jp = makejob(/*cmd,*/ 1);
 			if (forkshell(jp, cmd, FORK_FG) != 0) {
+				/* parent */
 				exitstatus = waitforjob(jp);
 				INT_ON;
 				TRACE(("forked child exited with %d\n", exitstatus));
 				break;
 			}
+			/* child */
 			FORCE_INT_ON;
+			/* fall through to exec'ing external program */
 		}
 		listsetvar(varlist.list, VEXPORT|VSTACK);
 		shellexec(argv, path, cmdentry.u.index);
 		/* NOTREACHED */
-
+	} /* default */
 	case CMDBUILTIN:
 		cmdenviron = varlist.list;
 		if (cmdenviron) {
@@ -9244,7 +9255,8 @@ evalcommand(union node *cmd, int flags)
 		if (evalfun(cmdentry.u.func, argc, argv, flags))
 			goto raise;
 		break;
-	}
+
+	} /* switch */
 
  out:
 	popredir(/*drop:*/ cmd_is_exec, /*restore:*/ cmd_is_exec);
@@ -9438,13 +9450,13 @@ preadfd(void)
 	g_parsefile->next_to_pgetc = buf;
 #if ENABLE_FEATURE_EDITING
  retry:
-	if (!iflag || g_parsefile->fd != STDIN_FILENO)
-		nr = nonblock_safe_read(g_parsefile->fd, buf, BUFSIZ - 1);
+	if (!iflag || g_parsefile->pf_fd != STDIN_FILENO)
+		nr = nonblock_safe_read(g_parsefile->pf_fd, buf, IBUFSIZ - 1);
 	else {
 #if ENABLE_FEATURE_TAB_COMPLETION
 		line_input_state->path_lookup = pathval();
 #endif
-		nr = read_line_input(cmdedit_prompt, buf, BUFSIZ, line_input_state);
+		nr = read_line_input(cmdedit_prompt, buf, IBUFSIZ, line_input_state);
 		if (nr == 0) {
 			/* Ctrl+C pressed */
 			if (trap[SIGINT]) {
@@ -9461,7 +9473,7 @@ preadfd(void)
 		}
 	}
 #else
-	nr = nonblock_safe_read(g_parsefile->fd, buf, BUFSIZ - 1);
+	nr = nonblock_safe_read(g_parsefile->pf_fd, buf, IBUFSIZ - 1);
 #endif
 
 #if 0
@@ -9688,7 +9700,7 @@ pushfile(void)
 
 	pf = ckzalloc(sizeof(*pf));
 	pf->prev = g_parsefile;
-	pf->fd = -1;
+	pf->pf_fd = -1;
 	/*pf->strpush = NULL; - ckzalloc did it */
 	/*pf->basestrpush.prev = NULL;*/
 	g_parsefile = pf;
@@ -9700,8 +9712,8 @@ popfile(void)
 	struct parsefile *pf = g_parsefile;
 
 	INT_OFF;
-	if (pf->fd >= 0)
-		close(pf->fd);
+	if (pf->pf_fd >= 0)
+		close(pf->pf_fd);
 	free(pf->buf);
 	while (pf->strpush)
 		popstring();
@@ -9728,9 +9740,9 @@ static void
 closescript(void)
 {
 	popallfiles();
-	if (g_parsefile->fd > 0) {
-		close(g_parsefile->fd);
-		g_parsefile->fd = 0;
+	if (g_parsefile->pf_fd > 0) {
+		close(g_parsefile->pf_fd);
+		g_parsefile->pf_fd = 0;
 	}
 }
 
@@ -9746,7 +9758,7 @@ setinputfd(int fd, int push)
 		pushfile();
 		g_parsefile->buf = NULL;
 	}
-	g_parsefile->fd = fd;
+	g_parsefile->pf_fd = fd;
 	if (g_parsefile->buf == NULL)
 		g_parsefile->buf = ckmalloc(IBUFSIZ);
 	g_parsefile->left_in_buffer = 0;
@@ -9851,7 +9863,7 @@ chkmail(void)
 		}
 		if (!mail_var_path_changed && statb.st_mtime != *mtp) {
 			fprintf(
-				stderr, snlfmt,
+				stderr, "%s\n",
 				pathopt ? pathopt : "you have mail"
 			);
 		}
@@ -10109,7 +10121,7 @@ change_random(const char *value)
 		/* "get", generate */
 		t = next_random(&random_gen);
 		/* set without recursion */
-		setvar(vrandom.text, utoa(t), VNOFUNC);
+		setvar(vrandom.var_text, utoa(t), VNOFUNC);
 		vrandom.flags &= ~VNOFUNC;
 	} else {
 		/* set/reset */
@@ -10260,7 +10272,16 @@ static struct nodelist *backquotelist;
 static union node *redirnode;
 static struct heredoc *heredoc;
 
-/*
+static const char *
+tokname(char *buf, int tok)
+{
+	if (tok < TSEMI)
+		return tokname_array[tok] + 1;
+	sprintf(buf, "\"%s\"", tokname_array[tok] + 1);
+	return buf;
+}
+
+/* raise_error_unexpected_syntax:
  * Called when an unexpected token is read during the parse.  The argument
  * is the token that is expected, or -1 if more than one type of token can
  * occur at this point.
@@ -10270,11 +10291,12 @@ static void
 raise_error_unexpected_syntax(int token)
 {
 	char msg[64];
+	char buf[16];
 	int l;
 
-	l = sprintf(msg, "unexpected %s", tokname(lasttoken));
+	l = sprintf(msg, "unexpected %s", tokname(buf, lasttoken));
 	if (token >= 0)
-		sprintf(msg + l, " (expecting %s)", tokname(token));
+		sprintf(msg + l, " (expecting %s)", tokname(buf, token));
 	raise_error_syntax(msg);
 	/* NOTREACHED */
 }
@@ -10662,7 +10684,7 @@ parse_command(void)
 		n1->nbinary.ch1 = list(0);
 		got = readtoken();
 		if (got != TDO) {
-			TRACE(("expecting DO got %s %s\n", tokname(got),
+			TRACE(("expecting DO got '%s' %s\n", tokname_array[got] + 1,
 					got == TWORD ? wordtext : ""));
 			raise_error_unexpected_syntax(TDO);
 		}
@@ -11746,7 +11768,7 @@ readtoken(void)
 		pp = findkwd(wordtext);
 		if (pp) {
 			lasttoken = t = pp - tokname_array;
-			TRACE(("keyword %s recognized\n", tokname(t)));
+			TRACE(("keyword '%s' recognized\n", tokname_array[t] + 1));
 			goto out;
 		}
 	}
@@ -11767,9 +11789,9 @@ readtoken(void)
 	checkkwd = 0;
 #if DEBUG
 	if (!alreadyseen)
-		TRACE(("token %s %s\n", tokname(t), t == TWORD ? wordtext : ""));
+		TRACE(("token '%s' %s\n", tokname_array[t] + 1, t == TWORD ? wordtext : ""));
 	else
-		TRACE(("reread token %s %s\n", tokname(t), t == TWORD ? wordtext : ""));
+		TRACE(("reread token '%s' %s\n", tokname_array[t] + 1, t == TWORD ? wordtext : ""));
 #endif
 	return t;
 }
@@ -12023,36 +12045,43 @@ find_dot_file(char *name)
 static int FAST_FUNC
 dotcmd(int argc, char **argv)
 {
+	char *fullname;
 	struct strlist *sp;
 	volatile struct shparam saveparam;
-	int status = 0;
 
 	for (sp = cmdenviron; sp; sp = sp->next)
 		setvareq(ckstrdup(sp->text), VSTRFIXED | VTEXTFIXED);
 
-	if (argv[1]) {        /* That's what SVR2 does */
-		char *fullname = find_dot_file(argv[1]);
-		argv += 2;
-		argc -= 2;
-		if (argc) { /* argc > 0, argv[0] != NULL */
-			saveparam = shellparam;
-			shellparam.malloced = 0;
-			shellparam.nparam = argc;
-			shellparam.p = argv;
-		};
-
-		setinputfile(fullname, INPUT_PUSH_FILE);
-		commandname = fullname;
-		cmdloop(0);
-		popfile();
-
-		if (argc) {
-			freeparam(&shellparam);
-			shellparam = saveparam;
-		};
-		status = exitstatus;
+	if (!argv[1]) {
+		/* bash says: "bash: .: filename argument required" */
+		return 2; /* bash compat */
 	}
-	return status;
+
+	/* "false; . empty_file; echo $?" should print 0, not 1: */
+	exitstatus = 0;
+
+	fullname = find_dot_file(argv[1]);
+
+	argv += 2;
+	argc -= 2;
+	if (argc) { /* argc > 0, argv[0] != NULL */
+		saveparam = shellparam;
+		shellparam.malloced = 0;
+		shellparam.nparam = argc;
+		shellparam.p = argv;
+	};
+
+	setinputfile(fullname, INPUT_PUSH_FILE);
+	commandname = fullname;
+	cmdloop(0);
+	popfile();
+
+	if (argc) {
+		freeparam(&shellparam);
+		shellparam = saveparam;
+	};
+
+	return exitstatus;
 }
 
 static int FAST_FUNC
@@ -12284,7 +12313,7 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
 	char *action;
 	char **ap;
-	int signo;
+	int signo, exitcode;
 
 	nextopt(nullstr);
 	ap = argptr;
@@ -12317,10 +12346,15 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	action = NULL;
 	if (ap[1])
 		action = *ap++;
+	exitcode = 0;
 	while (*ap) {
 		signo = get_signum(*ap);
-		if (signo < 0)
-			ash_msg_and_raise_error("%s: bad trap", *ap);
+		if (signo < 0) {
+			/* Mimic bash message exactly */
+			ash_msg("%s: invalid signal specification", *ap);
+			exitcode = 1;
+			goto next;
+		}
 		INT_OFF;
 		if (action) {
 			if (LONE_DASH(action))
@@ -12329,13 +12363,16 @@ trapcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 				action = ckstrdup(action);
 		}
 		free(trap[signo]);
+		if (action)
+			may_have_traps = 1;
 		trap[signo] = action;
 		if (signo != 0)
 			setsignal(signo);
 		INT_ON;
+ next:
 		ap++;
 	}
-	return 0;
+	return exitcode;
 }
 
 
@@ -12391,8 +12428,17 @@ exportcmd(int argc UNUSED_PARAM, char **argv)
 	const char *p;
 	char **aptr;
 	int flag = argv[0][0] == 'r' ? VREADONLY : VEXPORT;
+	int mask = ~0;
+	int nopt;
+	while ((nopt = nextopt("np"))) {
+		if (nopt == 'n') {
+				mask = ~flag;
+		} else { /* p */
+			break;
+		}
+	}
 
-	if (nextopt("p") != 'p') {
+	if (nopt != 'p') {
 		aptr = argptr;
 		name = *aptr;
 		if (name) {
@@ -12404,10 +12450,12 @@ exportcmd(int argc UNUSED_PARAM, char **argv)
 					vp = *findvar(hashvar(name), name);
 					if (vp) {
 						vp->flags |= flag;
+						vp->flags &= mask;
 						continue;
 					}
 				}
 				setvar(name, p, flag);
+				setvar(name, p, flag & mask);
 			} while ((name = *++aptr) != NULL);
 			return 0;
 		}
@@ -12425,7 +12473,7 @@ unsetfunc(const char *name)
 	struct tblentry *cmdp;
 
 	cmdp = cmdlookup(name, 0);
-	if (cmdp!= NULL && cmdp->cmdtype == CMDFUNCTION)
+	if (cmdp != NULL && cmdp->cmdtype == CMDFUNCTION)
 		delete_cmd_entry();
 }
 
@@ -12442,7 +12490,7 @@ unsetcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	int flag = 0;
 	int ret = 0;
 
-	while ((i = nextopt("vf")) != '\0') {
+	while ((i = nextopt("vf")) != 0) {
 		flag = i;
 	}
 
@@ -12459,11 +12507,6 @@ unsetcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	return ret & 1;
 }
 
-
-/*      setmode.c      */
-
-#include <sys/times.h>
-
 static const unsigned char timescmd_str[] ALIGN1 = {
 	' ',  offsetof(struct tms, tms_utime),
 	'\n', offsetof(struct tms, tms_stime),
@@ -12471,11 +12514,10 @@ static const unsigned char timescmd_str[] ALIGN1 = {
 	'\n', offsetof(struct tms, tms_cstime),
 	0
 };
-
 static int FAST_FUNC
 timescmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
-	long clk_tck, s, t;
+	unsigned long clk_tck, s, t;
 	const unsigned char *p;
 	struct tms buf;
 
@@ -12486,18 +12528,20 @@ timescmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	do {
 		t = *(clock_t *)(((char *) &buf) + p[1]);
 		s = t / clk_tck;
-		out1fmt("%ldm%ld.%.3lds%c",
-			s/60, s%60,
-			((t - s * clk_tck) * 1000) / clk_tck,
+		t = t % clk_tck;
+		out1fmt("%lum%lu.%03lus%c",
+			s / 60, s % 60,
+			(t * 1000) / clk_tck,
 			p[0]);
-	} while (*(p += 2));
+		p += 2;
+	} while (*p);
 
 	return 0;
 }
 
 #if ENABLE_SH_MATH_SUPPORT
 /*
- * The let builtin. partial stolen from GNU Bash, the Bourne Again SHell.
+ * The let builtin. Partially stolen from GNU Bash, the Bourne Again SHell.
  * Copyright (C) 1987, 1989, 1991 Free Software Foundation, Inc.
  *
  * Copyright (C) 2003 Vladimir Oleynik <dzo@simtreas.ru>
@@ -12516,18 +12560,6 @@ letcmd(int argc UNUSED_PARAM, char **argv)
 
 	return !i;
 }
-#endif /* SH_MATH_SUPPORT */
-
-
-/* ============ miscbltin.c
- *
- * Miscellaneous builtins.
- */
-
-#undef rflag
-
-#if defined(__GLIBC__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 1
-typedef enum __rlimit_resource rlim_t;
 #endif
 
 /*
@@ -12666,219 +12698,10 @@ umaskcmd(int argc UNUSED_PARAM, char **argv)
 	return 0;
 }
 
-/*
- * ulimit builtin
- *
- * This code, originally by Doug Gwyn, Doug Kingston, Eric Gisin, and
- * Michael Rendell was ripped from pdksh 5.0.8 and hacked for use with
- * ash by J.T. Conklin.
- *
- * Public domain.
- */
-struct limits {
-	uint8_t cmd;          /* RLIMIT_xxx fit into it */
-	uint8_t factor_shift; /* shift by to get rlim_{cur,max} values */
-	char    option;
-};
-
-static const struct limits limits_tbl[] = {
-#ifdef RLIMIT_CPU
-	{ RLIMIT_CPU,        0, 't' },
-#endif
-#ifdef RLIMIT_FSIZE
-	{ RLIMIT_FSIZE,      9, 'f' },
-#endif
-#ifdef RLIMIT_DATA
-	{ RLIMIT_DATA,      10, 'd' },
-#endif
-#ifdef RLIMIT_STACK
-	{ RLIMIT_STACK,     10, 's' },
-#endif
-#ifdef RLIMIT_CORE
-	{ RLIMIT_CORE,       9, 'c' },
-#endif
-#ifdef RLIMIT_RSS
-	{ RLIMIT_RSS,       10, 'm' },
-#endif
-#ifdef RLIMIT_MEMLOCK
-	{ RLIMIT_MEMLOCK,   10, 'l' },
-#endif
-#ifdef RLIMIT_NPROC
-	{ RLIMIT_NPROC,      0, 'p' },
-#endif
-#ifdef RLIMIT_NOFILE
-	{ RLIMIT_NOFILE,     0, 'n' },
-#endif
-#ifdef RLIMIT_AS
-	{ RLIMIT_AS,        10, 'v' },
-#endif
-#ifdef RLIMIT_LOCKS
-	{ RLIMIT_LOCKS,      0, 'w' },
-#endif
-};
-static const char limits_name[] =
-#ifdef RLIMIT_CPU
-	"time(seconds)" "\0"
-#endif
-#ifdef RLIMIT_FSIZE
-	"file(blocks)" "\0"
-#endif
-#ifdef RLIMIT_DATA
-	"data(kb)" "\0"
-#endif
-#ifdef RLIMIT_STACK
-	"stack(kb)" "\0"
-#endif
-#ifdef RLIMIT_CORE
-	"coredump(blocks)" "\0"
-#endif
-#ifdef RLIMIT_RSS
-	"memory(kb)" "\0"
-#endif
-#ifdef RLIMIT_MEMLOCK
-	"locked memory(kb)" "\0"
-#endif
-#ifdef RLIMIT_NPROC
-	"process" "\0"
-#endif
-#ifdef RLIMIT_NOFILE
-	"nofiles" "\0"
-#endif
-#ifdef RLIMIT_AS
-	"vmemory(kb)" "\0"
-#endif
-#ifdef RLIMIT_LOCKS
-	"locks" "\0"
-#endif
-;
-
-enum limtype { SOFT = 0x1, HARD = 0x2 };
-
-static void
-printlim(enum limtype how, const struct rlimit *limit,
-			const struct limits *l)
-{
-	rlim_t val;
-
-	val = limit->rlim_max;
-	if (how & SOFT)
-		val = limit->rlim_cur;
-
-	if (val == RLIM_INFINITY)
-		out1fmt("unlimited\n");
-	else {
-		val >>= l->factor_shift;
-		out1fmt("%lld\n", (long long) val);
-	}
-}
-
 static int FAST_FUNC
-ulimitcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
+ulimitcmd(int argc UNUSED_PARAM, char **argv)
 {
-	rlim_t val;
-	enum limtype how = SOFT | HARD;
-	const struct limits *l;
-	int set, all = 0;
-	int optc, what;
-	struct rlimit limit;
-
-	what = 'f';
-	while ((optc = nextopt("HSa"
-#ifdef RLIMIT_CPU
-				"t"
-#endif
-#ifdef RLIMIT_FSIZE
-				"f"
-#endif
-#ifdef RLIMIT_DATA
-				"d"
-#endif
-#ifdef RLIMIT_STACK
-				"s"
-#endif
-#ifdef RLIMIT_CORE
-				"c"
-#endif
-#ifdef RLIMIT_RSS
-				"m"
-#endif
-#ifdef RLIMIT_MEMLOCK
-				"l"
-#endif
-#ifdef RLIMIT_NPROC
-				"p"
-#endif
-#ifdef RLIMIT_NOFILE
-				"n"
-#endif
-#ifdef RLIMIT_AS
-				"v"
-#endif
-#ifdef RLIMIT_LOCKS
-				"w"
-#endif
-					)) != '\0')
-		switch (optc) {
-		case 'H':
-			how = HARD;
-			break;
-		case 'S':
-			how = SOFT;
-			break;
-		case 'a':
-			all = 1;
-			break;
-		default:
-			what = optc;
-		}
-
-	for (l = limits_tbl; l->option != what; l++)
-		continue;
-
-	set = *argptr ? 1 : 0;
-	val = 0;
-	if (set) {
-		char *p = *argptr;
-
-		if (all || argptr[1])
-			ash_msg_and_raise_error("too many arguments");
-		if (strncmp(p, "unlimited\n", 9) == 0)
-			val = RLIM_INFINITY;
-		else {
-			if (sizeof(val) == sizeof(int))
-				val = bb_strtou(p, NULL, 10);
-			else if (sizeof(val) == sizeof(long))
-				val = bb_strtoul(p, NULL, 10);
-			else
-				val = bb_strtoull(p, NULL, 10);
-			if (errno)
-				ash_msg_and_raise_error("bad number");
-			val <<= l->factor_shift;
-		}
-	}
-	if (all) {
-		const char *lname = limits_name;
-		for (l = limits_tbl; l != &limits_tbl[ARRAY_SIZE(limits_tbl)]; l++) {
-			getrlimit(l->cmd, &limit);
-			out1fmt("%-20s ", lname);
-			lname += strlen(lname) + 1;
-			printlim(how, &limit, l);
-		}
-		return 0;
-	}
-
-	getrlimit(l->cmd, &limit);
-	if (set) {
-		if (how & HARD)
-			limit.rlim_max = val;
-		if (how & SOFT)
-			limit.rlim_cur = val;
-		if (setrlimit(l->cmd, &limit) < 0)
-			ash_msg_and_raise_error("error setting limit (%m)");
-	} else {
-		printlim(how, &limit, l);
-	}
-	return 0;
+	return shell_builtin_ulimit(argv);
 }
 
 /* ============ main() and helpers */
@@ -12923,7 +12746,8 @@ static void
 init(void)
 {
 	/* from input.c: */
-	basepf.next_to_pgetc = basepf.buf = basebuf;
+	/* we will never free this */
+	basepf.next_to_pgetc = basepf.buf = ckmalloc(IBUFSIZ);
 
 	/* from trap.c: */
 	signal(SIGCHLD, SIG_DFL);
@@ -13173,8 +12997,9 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 		 * Ensure we don't falsely claim that 0 (stdin)
 		 * is one of stacked source fds.
 		 * Testcase: ash -c 'exec 1>&0' must not complain. */
-		if (!sflag)
-			g_parsefile->fd = -1;
+		// if (!sflag) g_parsefile->pf_fd = -1;
+		// ^^ not necessary since now we special-case fd 0
+		// in is_hidden_fd() to not be considered "hidden fd"
 		evalstring(minusc, 0);
 	}
 

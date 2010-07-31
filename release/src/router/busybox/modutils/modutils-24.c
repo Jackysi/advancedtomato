@@ -865,19 +865,23 @@ arch_apply_relocation(struct obj_file *f,
 			break;
 		case R_H8_PCREL16:
 			v -= dot + 2;
-			if ((ElfW(Sword))v > 0x7fff ||
-			    (ElfW(Sword))v < -(ElfW(Sword))0x8000)
+			if ((ElfW(Sword))v > 0x7fff
+			 || (ElfW(Sword))v < -(ElfW(Sword))0x8000
+			) {
 				ret = obj_reloc_overflow;
-			else
+			} else {
 				*(unsigned short *)loc = v;
+			}
 			break;
 		case R_H8_PCREL8:
 			v -= dot + 1;
-			if ((ElfW(Sword))v > 0x7f ||
-			    (ElfW(Sword))v < -(ElfW(Sword))0x80)
+			if ((ElfW(Sword))v > 0x7f
+			 || (ElfW(Sword))v < -(ElfW(Sword))0x80
+			) {
 				ret = obj_reloc_overflow;
-			else
+			} else {
 				*(unsigned char *)loc = v;
+			}
 			break;
 
 #elif defined(__i386__)
@@ -1566,7 +1570,7 @@ arch_apply_relocation(struct obj_file *f,
 #endif
 
 		default:
-			printf("Warning: unhandled reloc %d\n",(int)ELF_R_TYPE(rel->r_info));
+			printf("Warning: unhandled reloc %d\n", (int)ELF_R_TYPE(rel->r_info));
 			ret = obj_reloc_unhandled;
 			break;
 
@@ -3199,6 +3203,7 @@ static int obj_create_image(struct obj_file *f, char *image)
 
 static struct obj_file *obj_load(char *image, size_t image_size, int loadprogbits)
 {
+	typedef uint32_t aliased_uint32_t FIX_ALIASING;
 #if BB_LITTLE_ENDIAN
 # define ELFMAG_U32 ((uint32_t)(ELFMAG0 + 0x100 * (ELFMAG1 + (0x100 * (ELFMAG2 + 0x100 * ELFMAG3)))))
 #else
@@ -3220,7 +3225,7 @@ static struct obj_file *obj_load(char *image, size_t image_size, int loadprogbit
 		bb_error_msg_and_die("error while loading ELF header");
 	memcpy(&f->header, image, sizeof(f->header));
 
-	if (*(uint32_t*)(&f->header.e_ident) != ELFMAG_U32) {
+	if (*(aliased_uint32_t*)(&f->header.e_ident) != ELFMAG_U32) {
 		bb_error_msg_and_die("not an ELF file");
 	}
 	if (f->header.e_ident[EI_CLASS] != ELFCLASSM
@@ -3524,20 +3529,18 @@ static void set_tainted(int fd, const char *m_name,
 /* Check if loading this module will taint the kernel. */
 static void check_tainted_module(struct obj_file *f, const char *m_name)
 {
-	static const char tainted_file[] ALIGN1 = TAINT_FILENAME;
-
 	int fd, kernel_has_tainted;
 	const char *ptr;
 
 	kernel_has_tainted = 1;
-	fd = open(tainted_file, O_RDWR);
+	fd = open(TAINT_FILENAME, O_RDWR);
 	if (fd < 0) {
 		if (errno == ENOENT)
 			kernel_has_tainted = 0;
 		else if (errno == EACCES)
 			kernel_has_tainted = 1;
 		else {
-			perror(tainted_file);
+			perror(TAINT_FILENAME);
 			kernel_has_tainted = 0;
 		}
 	}

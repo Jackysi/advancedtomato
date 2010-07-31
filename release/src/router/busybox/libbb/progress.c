@@ -57,6 +57,7 @@ void FAST_FUNC bb_progress_init(bb_progress_t *p)
 	p->start_sec = monotonic_sec();
 	p->lastupdate_sec = p->start_sec;
 	p->lastsize = 0;
+	p->inited = 1;
 }
 
 void FAST_FUNC bb_progress_update(bb_progress_t *p,
@@ -77,7 +78,7 @@ void FAST_FUNC bb_progress_update(bb_progress_t *p,
 		if (ratio > 100) ratio = 100;
 	}
 
-#if ENABLE_FEATURE_ASSUME_UNICODE
+#if ENABLE_UNICODE_SUPPORT
 	init_unicode();
 	/* libbb candidate? */
 	{

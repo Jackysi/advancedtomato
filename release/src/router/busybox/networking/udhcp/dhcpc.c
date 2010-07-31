@@ -1,11 +1,22 @@
 /* vi: set sw=4 ts=4: */
-/* dhcpc.c
- *
- * udhcp DHCP client
+/*
+ * udhcp client
  *
  * Russ Dill <Russ.Dill@asu.edu> July 2001
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include <syslog.h>
 /* Override ENABLE_FEATURE_PIDFILE - ifupdown needs our pidfile to always exist */
@@ -13,8 +24,567 @@
 #include "common.h"
 #include "dhcpd.h"
 #include "dhcpc.h"
-#include "options.h"
 
+#include <asm/types.h>
+#if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined(_NEWLIB_VERSION)
+# include <netpacket/packet.h>
+# include <net/ethernet.h>
+#else
+# include <linux/if_packet.h>
+# include <linux/if_ether.h>
+#endif
+#include <linux/filter.h>
+
+/* struct client_config_t client_config is in bb_common_bufsiz1 */
+
+
+/*** Script execution code ***/
+
+/* get a rough idea of how long an option will be (rounding up...) */
+static const uint8_t len_of_option_as_string[] = {
+	[OPTION_IP              ] = sizeof("255.255.255.255 "),
+	[OPTION_IP_PAIR         ] = sizeof("255.255.255.255 ") * 2,
+	[OPTION_STATIC_ROUTES   ] = sizeof("255.255.255.255/32 255.255.255.255 "),
+	[OPTION_STRING          ] = 1,
+#if ENABLE_FEATURE_UDHCP_RFC3397
+	[OPTION_DNS_STRING      ] = 1, /* unused */
+	/* Hmmm, this severely overestimates size if SIP_SERVERS option
+	 * is in domain name form: N-byte option in binary form
+	 * mallocs ~16*N bytes. But it is freed almost at once.
+	 */
+	[OPTION_SIP_SERVERS     ] = sizeof("255.255.255.255 "),
+#endif
+//	[OPTION_BOOLEAN         ] = sizeof("yes "),
+	[OPTION_U8              ] = sizeof("255 "),
+	[OPTION_U16             ] = sizeof("65535 "),
+//	[OPTION_S16             ] = sizeof("-32768 "),
+	[OPTION_U32             ] = sizeof("4294967295 "),
+	[OPTION_S32             ] = sizeof("-2147483684 "),
+};
+
+/* note: ip is a pointer to an IP in network order, possibly misaliged */
+static int sprint_nip(char *dest, const char *pre, const uint8_t *ip)
+{
+	return sprintf(dest, "%s%u.%u.%u.%u", pre, ip[0], ip[1], ip[2], ip[3]);
+}
+
+/* really simple implementation, just count the bits */
+static int mton(uint32_t mask)
+{
+	int i = 0;
+	mask = ntohl(mask); /* 111110000-like bit pattern */
+	while (mask) {
+		i++;
+		mask <<= 1;
+	}
+	return i;
+}
+
+/* Create "opt_name=opt_value" string */
+static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_optflag *optflag, const char *opt_name)
+{
+	unsigned upper_length;
+	int len, type, optlen;
+	char *dest, *ret;
+
+	/* option points to OPT_DATA, need to go back and get OPT_LEN */
+	len = option[OPT_LEN - OPT_DATA];
+	type = optflag->flags & OPTION_TYPE_MASK;
+	optlen = dhcp_option_lengths[type];
+	upper_length = len_of_option_as_string[type] * ((unsigned)len / (unsigned)optlen);
+
+	dest = ret = xmalloc(upper_length + strlen(opt_name) + 2);
+	dest += sprintf(ret, "%s=", opt_name);
+
+	while (len >= optlen) {
+		switch (type) {
+		case OPTION_IP_PAIR:
+			dest += sprint_nip(dest, "", option);
+			*dest++ = '/';
+			option += 4;
+			optlen = 4;
+		case OPTION_IP:
+			dest += sprint_nip(dest, "", option);
+// TODO: it can be a list only if (optflag->flags & OPTION_LIST).
+// Should we bail out/warn if we see multi-ip option which is
+// not allowed to be such? For example, DHCP_BROADCAST...
+			break;
+//		case OPTION_BOOLEAN:
+//			dest += sprintf(dest, *option ? "yes" : "no");
+//			break;
+		case OPTION_U8:
+			dest += sprintf(dest, "%u", *option);
+			break;
+//		case OPTION_S16:
+		case OPTION_U16: {
+			uint16_t val_u16;
+			move_from_unaligned16(val_u16, option);
+			dest += sprintf(dest, "%u", ntohs(val_u16));
+			break;
+		}
+		case OPTION_S32:
+		case OPTION_U32: {
+			uint32_t val_u32;
+			move_from_unaligned32(val_u32, option);
+			dest += sprintf(dest, type == OPTION_U32 ? "%lu" : "%ld", (unsigned long) ntohl(val_u32));
+			break;
+		}
+		case OPTION_STRING:
+			memcpy(dest, option, len);
+			dest[len] = '\0';
+			return ret;	 /* Short circuit this case */
+		case OPTION_STATIC_ROUTES: {
+			/* Option binary format:
+			 * mask [one byte, 0..32]
+			 * ip [big endian, 0..4 bytes depending on mask]
+			 * router [big endian, 4 bytes]
+			 * may be repeated
+			 *
+			 * We convert it to a string "IP/MASK ROUTER IP2/MASK2 ROUTER2"
+			 */
+			const char *pfx = "";
+
+			while (len >= 1 + 4) { /* mask + 0-byte ip + router */
+				uint32_t nip;
+				uint8_t *p;
+				unsigned mask;
+				int bytes;
+
+				mask = *option++;
+				if (mask > 32)
+					break;
+				len--;
+
+				nip = 0;
+				p = (void*) &nip;
+				bytes = (mask + 7) / 8; /* 0 -> 0, 1..8 -> 1, 9..16 -> 2 etc */
+				while (--bytes >= 0) {
+					*p++ = *option++;
+					len--;
+				}
+				if (len < 4)
+					break;
+
+				/* print ip/mask */
+				dest += sprint_nip(dest, pfx, (void*) &nip);
+				pfx = " ";
+				dest += sprintf(dest, "/%u ", mask);
+				/* print router */
+				dest += sprint_nip(dest, "", option);
+				option += 4;
+				len -= 4;
+			}
+
+			return ret;
+		}
+#if ENABLE_FEATURE_UDHCP_RFC3397
+		case OPTION_DNS_STRING:
+			/* unpack option into dest; use ret for prefix (i.e., "optname=") */
+			dest = dname_dec(option, len, ret);
+			if (dest) {
+				free(ret);
+				return dest;
+			}
+			/* error. return "optname=" string */
+			return ret;
+		case OPTION_SIP_SERVERS:
+			/* Option binary format:
+			 * type: byte
+			 * type=0: domain names, dns-compressed
+			 * type=1: IP addrs
+			 */
+			option++;
+			len--;
+			if (option[-1] == 0) {
+				dest = dname_dec(option, len, ret);
+				if (dest) {
+					free(ret);
+					return dest;
+				}
+			} else
+			if (option[-1] == 1) {
+				const char *pfx = "";
+				while (1) {
+					len -= 4;
+					if (len < 0)
+						break;
+					dest += sprint_nip(dest, pfx, option);
+					pfx = " ";
+					option += 4;
+				}
+			}
+			return ret;
+#endif
+		} /* switch */
+		option += optlen;
+		len -= optlen;
+		if (len <= 0)
+			break;
+		*dest++ = ' ';
+		*dest = '\0';
+	}
+	return ret;
+}
+
+/* put all the parameters into the environment */
+static char **fill_envp(struct dhcp_packet *packet)
+{
+	int envc;
+	int i;
+	char **envp, **curr;
+	const char *opt_name;
+	uint8_t *temp;
+	uint8_t overload = 0;
+
+	/* We need 6 elements for:
+	 * "interface=IFACE"
+	 * "ip=N.N.N.N" from packet->yiaddr
+	 * "siaddr=IP" from packet->siaddr_nip (unless 0)
+	 * "boot_file=FILE" from packet->file (unless overloaded)
+	 * "sname=SERVER_HOSTNAME" from packet->sname (unless overloaded)
+	 * terminating NULL
+	 */
+	envc = 6;
+	/* +1 element for each option, +2 for subnet option: */
+	if (packet) {
+		for (i = 0; dhcp_optflags[i].code; i++) {
+			if (udhcp_get_option(packet, dhcp_optflags[i].code)) {
+				if (dhcp_optflags[i].code == DHCP_SUBNET)
+					envc++; /* for mton */
+				envc++;
+			}
+		}
+		temp = udhcp_get_option(packet, DHCP_OPTION_OVERLOAD);
+		if (temp)
+			overload = *temp;
+	}
+	curr = envp = xzalloc(sizeof(char *) * envc);
+
+	*curr = xasprintf("interface=%s", client_config.interface);
+	putenv(*curr++);
+
+	if (!packet)
+		return envp;
+
+	*curr = xmalloc(sizeof("ip=255.255.255.255"));
+	sprint_nip(*curr, "ip=", (uint8_t *) &packet->yiaddr);
+	putenv(*curr++);
+
+	opt_name = dhcp_option_strings;
+	i = 0;
+	while (*opt_name) {
+		temp = udhcp_get_option(packet, dhcp_optflags[i].code);
+		if (!temp)
+			goto next;
+		*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
+		putenv(*curr++);
+		if (dhcp_optflags[i].code == DHCP_SUBNET) {
+			/* Subnet option: make things like "$ip/$mask" possible */
+			uint32_t subnet;
+			move_from_unaligned32(subnet, temp);
+			*curr = xasprintf("mask=%d", mton(subnet));
+			putenv(*curr++);
+		}
+ next:
+		opt_name += strlen(opt_name) + 1;
+		i++;
+	}
+	if (packet->siaddr_nip) {
+		*curr = xmalloc(sizeof("siaddr=255.255.255.255"));
+		sprint_nip(*curr, "siaddr=", (uint8_t *) &packet->siaddr_nip);
+		putenv(*curr++);
+	}
+	if (!(overload & FILE_FIELD) && packet->file[0]) {
+		/* watch out for invalid packets */
+		*curr = xasprintf("boot_file=%."DHCP_PKT_FILE_LEN_STR"s", packet->file);
+		putenv(*curr++);
+	}
+	if (!(overload & SNAME_FIELD) && packet->sname[0]) {
+		/* watch out for invalid packets */
+		*curr = xasprintf("sname=%."DHCP_PKT_SNAME_LEN_STR"s", packet->sname);
+		putenv(*curr++);
+	}
+	return envp;
+}
+
+/* Call a script with a par file and env vars */
+static void udhcp_run_script(struct dhcp_packet *packet, const char *name)
+{
+	char **envp, **curr;
+	char *argv[3];
+
+	if (client_config.script == NULL)
+		return;
+
+	envp = fill_envp(packet);
+
+	/* call script */
+	log1("Executing %s %s", client_config.script, name);
+	argv[0] = (char*) client_config.script;
+	argv[1] = (char*) name;
+	argv[2] = NULL;
+	spawn_and_wait(argv);
+
+	for (curr = envp; *curr; curr++) {
+		log2(" %s", *curr);
+		bb_unsetenv_and_free(*curr);
+	}
+	free(envp);
+}
+
+
+/*** Sending/receiving packets ***/
+
+static ALWAYS_INLINE uint32_t random_xid(void)
+{
+	return rand();
+}
+
+/* Initialize the packet with the proper defaults */
+static void init_packet(struct dhcp_packet *packet, char type)
+{
+	udhcp_init_header(packet, type);
+	memcpy(packet->chaddr, client_config.client_mac, 6);
+	if (client_config.clientid)
+		udhcp_add_binary_option(packet, client_config.clientid);
+	if (client_config.hostname)
+		udhcp_add_binary_option(packet, client_config.hostname);
+	if (client_config.fqdn)
+		udhcp_add_binary_option(packet, client_config.fqdn);
+	if (type != DHCPDECLINE
+	 && type != DHCPRELEASE
+	 && client_config.vendorclass
+	) {
+		udhcp_add_binary_option(packet, client_config.vendorclass);
+	}
+}
+
+static void add_client_options(struct dhcp_packet *packet)
+{
+	/* Add a "param req" option with the list of options we'd like to have
+	 * from stubborn DHCP servers. Pull the data from the struct in common.c.
+	 * No bounds checking because it goes towards the head of the packet. */
+	uint8_t c;
+	int end = udhcp_end_option(packet->options);
+	int i, len = 0;
+
+	for (i = 0; (c = dhcp_optflags[i].code) != 0; i++) {
+		if ((   (dhcp_optflags[i].flags & OPTION_REQ)
+		     && !client_config.no_default_options
+		    )
+		 || (client_config.opt_mask[c >> 3] & (1 << (c & 7)))
+		) {
+			packet->options[end + OPT_DATA + len] = c;
+			len++;
+		}
+	}
+	if (len) {
+		packet->options[end + OPT_CODE] = DHCP_PARAM_REQ;
+		packet->options[end + OPT_LEN] = len;
+		packet->options[end + OPT_DATA + len] = DHCP_END;
+	}
+
+	/* Add -x options if any */
+	{
+		struct option_set *curr = client_config.options;
+		while (curr) {
+			udhcp_add_binary_option(packet, curr->data);
+			curr = curr->next;
+		}
+//		if (client_config.sname)
+//			strncpy((char*)packet->sname, client_config.sname, sizeof(packet->sname) - 1);
+//		if (client_config.boot_file)
+//			strncpy((char*)packet->file, client_config.boot_file, sizeof(packet->file) - 1);
+	}
+}
+
+/* RFC 2131
+ * 4.4.4 Use of broadcast and unicast
+ *
+ * The DHCP client broadcasts DHCPDISCOVER, DHCPREQUEST and DHCPINFORM
+ * messages, unless the client knows the address of a DHCP server.
+ * The client unicasts DHCPRELEASE messages to the server. Because
+ * the client is declining the use of the IP address supplied by the server,
+ * the client broadcasts DHCPDECLINE messages.
+ *
+ * When the DHCP client knows the address of a DHCP server, in either
+ * INIT or REBOOTING state, the client may use that address
+ * in the DHCPDISCOVER or DHCPREQUEST rather than the IP broadcast address.
+ * The client may also use unicast to send DHCPINFORM messages
+ * to a known DHCP server. If the client receives no response to DHCP
+ * messages sent to the IP address of a known DHCP server, the DHCP
+ * client reverts to using the IP broadcast address.
+ */
+
+static int raw_bcast_from_client_config_ifindex(struct dhcp_packet *packet)
+{
+	return udhcp_send_raw_packet(packet,
+		/*src*/ INADDR_ANY, CLIENT_PORT,
+		/*dst*/ INADDR_BROADCAST, SERVER_PORT, MAC_BCAST_ADDR,
+		client_config.ifindex);
+}
+
+/* Broadcast a DHCP discover packet to the network, with an optionally requested IP */
+static int send_discover(uint32_t xid, uint32_t requested)
+{
+	struct dhcp_packet packet;
+	static int msgs = 0;
+
+	init_packet(&packet, DHCPDISCOVER);
+	packet.xid = xid;
+	if (requested)
+		udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
+	/* Explicitly saying that we want RFC-compliant packets helps
+	 * some buggy DHCP servers to NOT send bigger packets */
+	udhcp_add_simple_option(&packet, DHCP_MAX_SIZE, htons(576));
+	add_client_options(&packet);
+
+	if (msgs++ < 3)
+	bb_info_msg("Sending discover...");
+	return raw_bcast_from_client_config_ifindex(&packet);
+}
+
+/* Broadcast a DHCP request message */
+/* RFC 2131 3.1 paragraph 3:
+ * "The client _broadcasts_ a DHCPREQUEST message..."
+ */
+static int send_select(uint32_t xid, uint32_t server, uint32_t requested)
+{
+	struct dhcp_packet packet;
+	struct in_addr addr;
+
+	init_packet(&packet, DHCPREQUEST);
+	packet.xid = xid;
+	udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
+	udhcp_add_simple_option(&packet, DHCP_SERVER_ID, server);
+	add_client_options(&packet);
+
+	addr.s_addr = requested;
+	bb_info_msg("Sending select for %s...", inet_ntoa(addr));
+	return raw_bcast_from_client_config_ifindex(&packet);
+}
+
+/* Unicast or broadcast a DHCP renew message */
+static int send_renew(uint32_t xid, uint32_t server, uint32_t ciaddr)
+{
+	struct dhcp_packet packet;
+
+	init_packet(&packet, DHCPREQUEST);
+	packet.xid = xid;
+	packet.ciaddr = ciaddr;
+	add_client_options(&packet);
+
+	bb_info_msg("Sending renew...");
+	if (server)
+		return udhcp_send_kernel_packet(&packet,
+			ciaddr, CLIENT_PORT,
+			server, SERVER_PORT);
+	return raw_bcast_from_client_config_ifindex(&packet);
+}
+
+#if ENABLE_FEATURE_UDHCPC_ARPING
+/* Broadcast a DHCP decline message */
+static int send_decline(uint32_t xid, uint32_t server, uint32_t requested)
+{
+	struct dhcp_packet packet;
+
+	init_packet(&packet, DHCPDECLINE);
+	packet.xid = xid;
+	udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
+	udhcp_add_simple_option(&packet, DHCP_SERVER_ID, server);
+
+	bb_info_msg("Sending decline...");
+	return raw_bcast_from_client_config_ifindex(&packet);
+}
+#endif
+
+/* Unicast a DHCP release message */
+static int send_release(uint32_t server, uint32_t ciaddr)
+{
+	struct dhcp_packet packet;
+
+	init_packet(&packet, DHCPRELEASE);
+	packet.xid = random_xid();
+	packet.ciaddr = ciaddr;
+
+	udhcp_add_simple_option(&packet, DHCP_SERVER_ID, server);
+
+	bb_info_msg("Sending release...");
+	return udhcp_send_kernel_packet(&packet, ciaddr, CLIENT_PORT, server, SERVER_PORT);
+}
+
+/* Returns -1 on errors that are fatal for the socket, -2 for those that aren't */
+static NOINLINE int udhcp_recv_raw_packet(struct dhcp_packet *dhcp_pkt, int fd)
+{
+	int bytes;
+	struct ip_udp_dhcp_packet packet;
+	uint16_t check;
+
+	memset(&packet, 0, sizeof(packet));
+	bytes = safe_read(fd, &packet, sizeof(packet));
+	if (bytes < 0) {
+		log1("Packet read error, ignoring");
+		/* NB: possible down interface, etc. Caller should pause. */
+		return bytes; /* returns -1 */
+	}
+
+	if (bytes < (int) (sizeof(packet.ip) + sizeof(packet.udp))) {
+		log1("Packet is too short, ignoring");
+		return -2;
+	}
+
+	if (bytes < ntohs(packet.ip.tot_len)) {
+		/* packet is bigger than sizeof(packet), we did partial read */
+		log1("Oversized packet, ignoring");
+		return -2;
+	}
+
+	/* ignore any extra garbage bytes */
+	bytes = ntohs(packet.ip.tot_len);
+
+	/* make sure its the right packet for us, and that it passes sanity checks */
+	if (packet.ip.protocol != IPPROTO_UDP || packet.ip.version != IPVERSION
+	 || packet.ip.ihl != (sizeof(packet.ip) >> 2)
+	 || packet.udp.dest != htons(CLIENT_PORT)
+	/* || bytes > (int) sizeof(packet) - can't happen */
+	 || ntohs(packet.udp.len) != (uint16_t)(bytes - sizeof(packet.ip))
+	) {
+		log1("Unrelated/bogus packet, ignoring");
+		return -2;
+	}
+
+	/* verify IP checksum */
+	check = packet.ip.check;
+	packet.ip.check = 0;
+	if (check != udhcp_checksum(&packet.ip, sizeof(packet.ip))) {
+		log1("Bad IP header checksum, ignoring");
+		return -2;
+	}
+
+	/* verify UDP checksum. IP header has to be modified for this */
+	memset(&packet.ip, 0, offsetof(struct iphdr, protocol));
+	/* ip.xx fields which are not memset: protocol, check, saddr, daddr */
+	packet.ip.tot_len = packet.udp.len; /* yes, this is needed */
+	check = packet.udp.check;
+	packet.udp.check = 0;
+	if (check && check != udhcp_checksum(&packet, bytes)) {
+		log1("Packet with bad UDP checksum received, ignoring");
+		return -2;
+	}
+
+	memcpy(dhcp_pkt, &packet.data, bytes - (sizeof(packet.ip) + sizeof(packet.udp)));
+
+	if (dhcp_pkt->cookie != htonl(DHCP_MAGIC)) {
+		bb_info_msg("Packet with bad magic, ignoring");
+		return -2;
+	}
+	log1("Got valid DHCP packet");
+	udhcp_dump_packet(dhcp_pkt);
+	return bytes - (sizeof(packet.ip) + sizeof(packet.udp));
+}
+
+
+/*** Main ***/
 
 static int sockfd = -1;
 
@@ -39,10 +609,77 @@ static smallint listen_mode;
 #define RELEASED        6
 static smallint state;
 
-/* struct client_config_t client_config is in bb_common_bufsiz1 */
+static int udhcp_raw_socket(int ifindex)
+{
+	int fd;
+	struct sockaddr_ll sock;
 
+	/*
+	 * Comment:
+	 *
+	 *	I've selected not to see LL header, so BPF doesn't see it, too.
+	 *	The filter may also pass non-IP and non-ARP packets, but we do
+	 *	a more complete check when receiving the message in userspace.
+	 *
+	 * and filter shamelessly stolen from:
+	 *
+	 *	http://www.flamewarmaster.de/software/dhcpclient/
+	 *
+	 * There are a few other interesting ideas on that page (look under
+	 * "Motivation").  Use of netlink events is most interesting.  Think
+	 * of various network servers listening for events and reconfiguring.
+	 * That would obsolete sending HUP signals and/or make use of restarts.
+	 *
+	 * Copyright: 2006, 2007 Stefan Rompf <sux@loplof.de>.
+	 * License: GPL v2.
+	 *
+	 * TODO: make conditional?
+	 */
+#define SERVER_AND_CLIENT_PORTS  ((67 << 16) + 68)
+	static const struct sock_filter filter_instr[] = {
+		/* check for udp */
+		BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 9),
+		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, IPPROTO_UDP, 2, 0),     /* L5, L1, is UDP? */
+		/* ugly check for arp on ethernet-like and IPv4 */
+		BPF_STMT(BPF_LD|BPF_W|BPF_ABS, 2),                      /* L1: */
+		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 0x08000604, 3, 4),      /* L3, L4 */
+		/* skip IP header */
+		BPF_STMT(BPF_LDX|BPF_B|BPF_MSH, 0),                     /* L5: */
+		/* check udp source and destination ports */
+		BPF_STMT(BPF_LD|BPF_W|BPF_IND, 0),
+		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SERVER_AND_CLIENT_PORTS, 0, 1),	/* L3, L4 */
+		/* returns */
+		BPF_STMT(BPF_RET|BPF_K, 0x0fffffff ),                   /* L3: pass */
+		BPF_STMT(BPF_RET|BPF_K, 0),                             /* L4: reject */
+	};
+	static const struct sock_fprog filter_prog = {
+		.len = sizeof(filter_instr) / sizeof(filter_instr[0]),
+		/* casting const away: */
+		.filter = (struct sock_filter *) filter_instr,
+	};
 
-/* just a little helper */
+	log1("Opening raw socket on ifindex %d", ifindex); //log2?
+
+	fd = xsocket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
+	log1("Got raw socket fd %d", fd); //log2?
+
+	if (SERVER_PORT == 67 && CLIENT_PORT == 68) {
+		/* Use only if standard ports are in use */
+		/* Ignoring error (kernel may lack support for this) */
+		if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter_prog,
+				sizeof(filter_prog)) >= 0)
+			log1("Attached filter to raw socket fd %d", fd); // log?
+	}
+
+	sock.sll_family = AF_PACKET;
+	sock.sll_protocol = htons(ETH_P_IP);
+	sock.sll_ifindex = ifindex;
+	xbind(fd, (struct sockaddr *) &sock, sizeof(sock));
+	log1("Created raw socket");
+
+	return fd;
+}
+
 static void change_listen_mode(int new_mode)
 {
 	log1("Entering listen mode: %s",
@@ -60,11 +697,9 @@ static void change_listen_mode(int new_mode)
 		sockfd = udhcp_listen_socket(/*INADDR_ANY,*/ CLIENT_PORT, client_config.interface);
 	else if (new_mode != LISTEN_NONE)
 		sockfd = udhcp_raw_socket(client_config.ifindex);
-	/* else LISTEN_NONE: sockfd stay closed */
+	/* else LISTEN_NONE: sockfd stays closed */
 }
 
-
-/* perform a renew */
 static void perform_renew(void)
 {
 	bb_info_msg("Performing a DHCP renew");
@@ -86,8 +721,6 @@ static void perform_renew(void)
 	}
 }
 
-
-/* perform a release */
 static void perform_release(uint32_t requested_ip, uint32_t server_addr)
 {
 	char buffer[sizeof("255.255.255.255")];
@@ -109,6 +742,16 @@ static void perform_release(uint32_t requested_ip, uint32_t server_addr)
 	state = RELEASED;
 }
 
+static uint8_t* alloc_dhcp_option(int code, const char *str, int extra)
+{
+	uint8_t *storage;
+	int len = strnlen(str, 255);
+	storage = xzalloc(len + extra + OPT_DATA);
+	storage[OPT_CODE] = code;
+	storage[OPT_LEN] = len + extra;
+	memcpy(storage + extra + OPT_DATA, str, len);
+	return storage;
+}
 
 #if BB_MMU
 static void client_background(void)
@@ -120,27 +763,14 @@ static void client_background(void)
 }
 #endif
 
-
-static uint8_t* alloc_dhcp_option(int code, const char *str, int extra)
-{
-	uint8_t *storage;
-	int len = strlen(str);
-	if (len > 255) len = 255;
-	storage = xzalloc(len + extra + OPT_DATA);
-	storage[OPT_CODE] = code;
-	storage[OPT_LEN] = len + extra;
-	memcpy(storage + extra + OPT_DATA, str, len);
-	return storage;
-}
-
-
 int udhcpc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 {
 	uint8_t *temp, *message;
-	char *str_c, *str_V, *str_h, *str_F, *str_r;
+	const char *str_c, *str_V, *str_h, *str_F, *str_r;
 	IF_FEATURE_UDHCP_PORT(char *str_P;)
 	llist_t *list_O = NULL;
+	llist_t *list_x = NULL;
 	int tryagain_timeout = 20;
 	int discover_timeout = 3;
 	int discover_retries = 5;
@@ -205,10 +835,11 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		OPT_A = 1 << 16,
 		OPT_O = 1 << 17,
 		OPT_o = 1 << 18,
-		OPT_f = 1 << 19,
-		OPT_m = 1 << 20,	// zzz
+		OPT_x = 1 << 19,
+		OPT_f = 1 << 20,
+		OPT_m = 1 << 21,	// zzz
 /* The rest has variable bit positions, need to be clever */
-		OPTBIT_LAST = 20,
+		OPTBIT_LAST = 21,
 		USE_FOR_MMU(             OPTBIT_b,)
 		IF_FEATURE_UDHCPC_ARPING(OPTBIT_a,)
 		IF_FEATURE_UDHCP_PORT(   OPTBIT_P,)
@@ -221,17 +852,18 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	IF_FEATURE_UDHCP_PORT(SERVER_PORT = 67;)
 	IF_FEATURE_UDHCP_PORT(CLIENT_PORT = 68;)
 	client_config.interface = "eth0";
-	client_config.script = DEFAULT_SCRIPT;
+	client_config.script = CONFIG_UDHCPC_DEFAULT_SCRIPT;
+	str_V = "udhcp "BB_VER;
 
 	/* Parse command line */
-	/* Cc: mutually exclusive; O: list; -T,-t,-A take numeric param */
-	opt_complementary = "c--C:C--c:O::T+:t+:A+"
+	/* Cc: mutually exclusive; O,x: list; -T,-t,-A take numeric param */
+	opt_complementary = "c--C:C--c:O::x::T+:t+:A+"
 #if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
 		":vv"
 #endif
 		;
 	IF_LONG_OPTS(applet_long_options = udhcpc_longopts;)
-	opt = getopt32(argv, "c:CV:H:h:F:i:np:qRr:s:T:t:SA:O:of"
+	opt = getopt32(argv, "c:CV:H:h:F:i:np:qRr:s:T:t:SA:O:ox:f"
 		"m"	// zzz
 		USE_FOR_MMU("b")
 		IF_FEATURE_UDHCPC_ARPING("a")
@@ -242,28 +874,28 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		, &client_config.script /* s */
 		, &discover_timeout, &discover_retries, &tryagain_timeout /* T,t,A */
 		, &list_O
+		, &list_x
 		IF_FEATURE_UDHCP_PORT(, &str_P)
 #if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
 		, &dhcp_verbose
 #endif
 		);
-	if (opt & OPT_c)
-		client_config.clientid = alloc_dhcp_option(DHCP_CLIENT_ID, str_c, 0);
-	if (opt & OPT_V)
-		client_config.vendorclass = alloc_dhcp_option(DHCP_VENDOR, str_V, 0);
 	if (opt & (OPT_h|OPT_H))
 		client_config.hostname = alloc_dhcp_option(DHCP_HOST_NAME, str_h, 0);
 	if (opt & OPT_F) {
+		/* FQDN option format: [0x51][len][flags][0][0]<fqdn> */
 		client_config.fqdn = alloc_dhcp_option(DHCP_FQDN, str_F, 3);
-		/* Flags: 0000NEOS
-		S: 1 => Client requests Server to update A RR in DNS as well as PTR
-		O: 1 => Server indicates to client that DNS has been updated regardless
-		E: 1 => Name data is DNS format, i.e. <4>host<6>domain<3>com<0> not "host.domain.com"
-		N: 1 => Client requests Server to not update DNS
-		*/
+		/* Flag bits: 0000NEOS
+		 * S: 1 = Client requests server to update A RR in DNS as well as PTR
+		 * O: 1 = Server indicates to client that DNS has been updated regardless
+		 * E: 1 = Name is in DNS format, i.e. <4>host<6>domain<3>com<0>,
+		 *    not "host.domain.com". Format 0 is obsolete.
+		 * N: 1 = Client requests server to not update DNS (S must be 0 then)
+		 * Two [0] bytes which follow are deprecated and must be 0.
+		 */
 		client_config.fqdn[OPT_DATA + 0] = 0x1;
-		/* client_config.fqdn[OPT_DATA + 1] = 0; - redundant */
-		/* client_config.fqdn[OPT_DATA + 2] = 0; - redundant */
+		/*client_config.fqdn[OPT_DATA + 1] = 0; - xzalloc did it */
+		/*client_config.fqdn[OPT_DATA + 2] = 0; */
 	}
 	if (opt & OPT_r)
 		requested_ip = inet_addr(str_r);
@@ -277,13 +909,22 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		client_config.no_default_options = 1;
 	while (list_O) {
 		char *optstr = llist_pop(&list_O);
-		int n = index_in_strings(dhcp_option_strings, optstr);
-		if (n < 0)
-			bb_error_msg_and_die("unknown option '%s'", optstr);
-		n = dhcp_options[n].code;
+		unsigned n = udhcp_option_idx(optstr);
+		n = dhcp_optflags[n].code;
 		client_config.opt_mask[n >> 3] |= 1 << (n & 7);
 	}
-	if (opt & OPT_m) minpkt = 1;	// zzz
+	while (list_x) {
+		char *optstr = llist_pop(&list_x);
+		char *colon = strchr(optstr, ':');
+		if (colon)
+			*colon = ' ';
+		/* now it looks similar to udhcpd's config file line:
+		 * "optname optval", using the common routine: */
+		udhcp_str2optset(optstr, &client_config.options);
+	}
+
+	if (opt & OPT_m)	// zzz
+		minpkt = 1;
 
 	if (udhcp_read_interface(client_config.interface,
 			&client_config.ifindex,
@@ -293,6 +934,16 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		return 1;
 	}
 
+	if (opt & OPT_c) {
+		client_config.clientid = alloc_dhcp_option(DHCP_CLIENT_ID, str_c, 0);
+	} else if (!(opt & OPT_C)) {
+		/* not set and not suppressed, set the default client ID */
+		client_config.clientid = alloc_dhcp_option(DHCP_CLIENT_ID, "", 7);
+		client_config.clientid[OPT_DATA] = 1; /* type: ethernet */
+		memcpy(client_config.clientid + OPT_DATA+1, client_config.client_mac, 6);
+	}
+	if (str_V[0] != '\0')
+		client_config.vendorclass = alloc_dhcp_option(DHCP_VENDOR, str_V, 0);
 #if !BB_MMU
 	/* on NOMMU reexec (i.e., background) early */
 	if (!(opt & OPT_f)) {
@@ -309,25 +960,14 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	bb_sanitize_stdio();
 	/* Equivalent of doing a fflush after every \n */
 	setlinebuf(stdout);
-
 	/* Create pidfile */
 	write_pidfile(client_config.pidfile);
-
 	/* Goes to stdout (unless NOMMU) and possibly syslog */
 	bb_info_msg("%s (v"BB_VER") started", applet_name);
-
-	/* If not set, and not suppressed, set up the default client ID */
-	if (!client_config.clientid && !(opt & OPT_C)) {
-		client_config.clientid = alloc_dhcp_option(DHCP_CLIENT_ID, "", 7);
-		client_config.clientid[OPT_DATA] = 1;
-		memcpy(client_config.clientid + OPT_DATA+1, client_config.client_mac, 6);
-	}
-
-	if (!client_config.vendorclass)
-		client_config.vendorclass = alloc_dhcp_option(DHCP_VENDOR, "udhcp "BB_VER, 0);
-
 	/* Set up the signal pipe */
 	udhcp_sp_setup();
+	/* We want random_xid to be random... */
+	srand(monotonic_us());
 
 	state = INIT_SELECTING;
 	udhcp_run_script(NULL, "deconfig");
@@ -363,7 +1003,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 
 		tv.tv_sec = timeout - already_waited_sec;
 		tv.tv_usec = 0;
-		retval = 0; /* If we already timed out, fall through, else... */
+		retval = 0;
+		/* If we already timed out, fall through with retval = 0, else... */
 		if ((int)tv.tv_sec > 0) {
 			timestamp_before_wait = (unsigned)monotonic_sec();
 			log1("Waiting on select...");
@@ -549,7 +1190,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		}
 
-		message = get_option(&packet, DHCP_MESSAGE_TYPE);
+		message = udhcp_get_option(&packet, DHCP_MESSAGE_TYPE);
 		if (message == NULL) {
 			bb_error_msg("no message type option, ignoring packet");
 			continue;
@@ -560,7 +1201,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			/* Must be a DHCPOFFER to one of our xid's */
 			if (*message == DHCPOFFER) {
 		/* TODO: why we don't just fetch server's IP from IP header? */
-				temp = get_option(&packet, DHCP_SERVER_ID);
+				temp = udhcp_get_option(&packet, DHCP_SERVER_ID);
 				if (!temp) {
 					bb_error_msg("no server ID in message");
 					continue;
@@ -583,7 +1224,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		case RENEW_REQUESTED:
 		case REBINDING:
 			if (*message == DHCPACK) {
-				temp = get_option(&packet, DHCP_LEASE_TIME);
+				temp = udhcp_get_option(&packet, DHCP_LEASE_TIME);
 				if (!temp) {
 					bb_error_msg("no lease time with ACK, using 1 hour lease");
 					lease_seconds = 60 * 60;

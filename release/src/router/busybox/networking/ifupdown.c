@@ -106,7 +106,7 @@ enum {
 struct globals {
 	char **my_environ;
 	const char *startup_PATH;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { } while (0)
 
@@ -573,8 +573,10 @@ static int FAST_FUNC dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 static int FAST_FUNC dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 {
 	int result;
-	result = execute("kill "
-	               "`cat /var/run/udhcpc.%iface%.pid` 2>/dev/null", ifd, exec);
+	result = execute(
+		"test -f /var/run/udhcpc.%iface%.pid && "
+		"kill `cat /var/run/udhcpc.%iface%.pid` 2>/dev/null",
+		ifd, exec);
 	/* Also bring the hardware interface down since
 	   killing the dhcp client alone doesn't do it.
 	   This enables consecutive ifup->ifdown->ifup */
@@ -1039,19 +1041,16 @@ static int popen2(FILE **in, FILE **out, char *command, char *param)
 	xpiped_pair(outfd);
 
 	fflush_all();
-	pid = vfork();
+	pid = xvfork();
 
-	switch (pid) {
-	case -1:  /* failure */
-		bb_perror_msg_and_die("vfork");
-	case 0:  /* child */
+	if (pid == 0) {
+		/* Child */
 		/* NB: close _first_, then move fds! */
 		close(infd.wr);
 		close(outfd.rd);
 		xmove_fd(infd.rd, 0);
 		xmove_fd(outfd.wr, 1);
-		BB_EXECVP(command, argv);
-		_exit(127);
+		BB_EXECVP_or_die(argv);
 	}
 	/* parent */
 	close(infd.rd);

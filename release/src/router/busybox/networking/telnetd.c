@@ -20,17 +20,21 @@
  * Vladimir Oleynik <dzo@simtreas.ru> 2001
  * Set process group corrections, initial busybox port
  */
-
 #define DEBUG 0
 
 #include "libbb.h"
 #include <syslog.h>
 
 #if DEBUG
-#define TELCMDS
-#define TELOPTS
+# define TELCMDS
+# define TELOPTS
 #endif
 #include <arpa/telnet.h>
+
+#if ENABLE_FEATURE_UTMP
+# include <utmp.h> /* LOGIN_PROCESS */
+#endif
+
 
 struct tsession {
 	struct tsession *next;
@@ -60,7 +64,7 @@ struct globals {
 	const char *loginpath;
 	const char *issuefile;
 	int maxfd;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	G.loginpath = "/bin/login"; \
@@ -74,11 +78,11 @@ struct globals {
    string of characters fit for the terminal.  Do this by packing
    all characters meant for the terminal sequentially towards the end of buf.
 
-   Return a pointer to the beginning of the characters meant for the terminal.
+   Return a pointer to the beginning of the characters meant for the terminal
    and make *num_totty the number of characters that should be sent to
    the terminal.
 
-   Note - If an IAC (3 byte quantity) starts before (bf + len) but extends
+   Note - if an IAC (3 byte quantity) starts before (bf + len) but extends
    past (bf + len) then that IAC will be left unprocessed and *processed
    will be less than len.
 
@@ -222,6 +226,9 @@ make_new_session(
 		IF_FEATURE_TELNETD_STANDALONE(int sock)
 		IF_NOT_FEATURE_TELNETD_STANDALONE(void)
 ) {
+#if !ENABLE_FEATURE_TELNETD_STANDALONE
+	enum { sock = 0 };
+#endif
 	const char *login_argv[2];
 	struct termios termbuf;
 	int fd, pid;
@@ -239,9 +246,9 @@ make_new_session(
 	ndelay_on(fd);
 	close_on_exec_on(fd);
 
-#if ENABLE_FEATURE_TELNETD_STANDALONE
 	/* SO_KEEPALIVE by popular demand */
 	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
+#if ENABLE_FEATURE_TELNETD_STANDALONE
 	ts->sockfd_read = sock;
 	ndelay_on(sock);
 	if (sock == 0) { /* We are called with fd 0 - we are in inetd mode */
@@ -252,8 +259,6 @@ make_new_session(
 	if (sock > G.maxfd)
 		G.maxfd = sock;
 #else
-	/* SO_KEEPALIVE by popular demand */
-	setsockopt(0, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
 	/* ts->sockfd_read = 0; - done by xzalloc */
 	ts->sockfd_write = 1;
 	ndelay_on(0);
@@ -310,6 +315,17 @@ make_new_session(
 	bb_signals((1 << SIGCHLD) + (1 << SIGPIPE), SIG_DFL);
 	signal(SIGINT, SIG_DFL);
 
+	if (ENABLE_FEATURE_UTMP) {
+		len_and_sockaddr *lsa = get_peer_lsa(sock);
+		char *hostname = NULL;
+		if (lsa) {
+			hostname = xmalloc_sockaddr2dotted(&lsa->u.sa);
+			free(lsa);
+		}
+		write_new_utmp(pid, LOGIN_PROCESS, tty_name, /*username:*/ "LOGIN", hostname);
+		free(hostname);
+	}
+
 	/* Make new session and process group */
 	setsid();
 
@@ -320,7 +336,8 @@ make_new_session(
 	xopen(tty_name, O_RDWR); /* becomes our ctty */
 	xdup2(0, 1);
 	xdup2(0, 2);
-	tcsetpgrp(0, getpid()); /* switch this tty's process group to us */
+	pid = getpid();
+	tcsetpgrp(0, pid); /* switch this tty's process group to us */
 
 	/* The pseudo-terminal allocated to the client is configured to operate
 	 * in cooked mode, and with XTABS CRMOD enabled (see tty(4)) */
@@ -359,12 +376,13 @@ make_new_session(
 static void
 free_session(struct tsession *ts)
 {
-	struct tsession *t = G.sessions;
+	struct tsession *t;
 
 	if (option_mask32 & OPT_INETD)
 		exit(EXIT_SUCCESS);
 
 	/* Unlink this telnet session from the session list */
+	t = G.sessions;
 	if (t == ts)
 		G.sessions = ts->next;
 	else {
@@ -415,6 +433,7 @@ static void handle_sigchld(int sig UNUSED_PARAM)
 {
 	pid_t pid;
 	struct tsession *ts;
+	int save_errno = errno;
 
 	/* Looping: more than one child may have exited */
 	while (1) {
@@ -425,11 +444,22 @@ static void handle_sigchld(int sig UNUSED_PARAM)
 		while (ts) {
 			if (ts->shell_pid == pid) {
 				ts->shell_pid = -1;
+// man utmp:
+// When init(8) finds that a process has exited, it locates its utmp entry
+// by ut_pid, sets ut_type to DEAD_PROCESS, and clears ut_user, ut_host
+// and ut_time with null bytes.
+// [same applies to other processes which maintain utmp entries, like telnetd]
+//
+// We do not bother actually clearing fields:
+// it might be interesting to know who was logged in and from where
+				update_utmp(pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
 				break;
 			}
 			ts = ts->next;
 		}
 	}
+
+	errno = save_errno;
 }
 
 int telnetd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -690,6 +720,8 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		ts = next;
 		continue;
  kill_session:
+		if (ts->shell_pid > 0)
+			update_utmp(ts->shell_pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
 		free_session(ts);
 		ts = next;
 	}

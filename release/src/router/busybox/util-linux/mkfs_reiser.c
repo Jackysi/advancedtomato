@@ -8,15 +8,14 @@
  */
 #include "libbb.h"
 #include <linux/fs.h>
-#include "volume_id/volume_id_internal.h"
 
 char BUG_wrong_field_size(void);
 #define STORE_LE(field, value) \
 do { \
 	if (sizeof(field) == 4) \
-		field = cpu_to_le32(value); \
+		field = SWAP_LE32(value); \
 	else if (sizeof(field) == 2) \
-		field = cpu_to_le16(value); \
+		field = SWAP_LE16(value); \
 	else if (sizeof(field) == 1) \
 		field = (value); \
 	else \
@@ -24,7 +23,7 @@ do { \
 } while (0)
 
 #define FETCH_LE32(field) \
-	(sizeof(field) == 4 ? cpu_to_le32(field) : BUG_wrong_field_size())
+	(sizeof(field) == 4 ? SWAP_LE32(field) : BUG_wrong_field_size())
 
 struct journal_params {
 	uint32_t jp_journal_1st_block;      /* where does journal start from on its device */
@@ -175,23 +174,12 @@ int mkfs_reiser_main(int argc UNUSED_PARAM, char **argv)
 
 	// check if it is mounted
 	// N.B. what if we format a file? find_mount_point will return false negative since
-	// it is loop block device which mounted!
+	// it is loop block device which is mounted!
 	if (find_mount_point(argv[0], 0))
 		bb_error_msg_and_die("can't format mounted filesystem");
 
 	// open the device, get size in blocks
-	if (argv[1]) {
-		blocks = xatoull(argv[1]);
-		// seek past end fails on block devices but works on files
-		if (lseek(fd, blocks * blocksize - 1, SEEK_SET) != (off_t)-1) {
-			xwrite(fd, "", 1); // file grows if needed
-		}
-		//else {
-		//	bb_error_msg("warning, block device is smaller");
-		//}
-	} else {
-		blocks = (uoff_t)xlseek(fd, 0, SEEK_END) / blocksize;
-	}
+	blocks = get_volume_size_in_bytes(fd, argv[1], blocksize, /*extend:*/ 1) / blocksize;
 
 	// block number sanity check
 	// we have a limit: skipped area, super block, journal and root block

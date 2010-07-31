@@ -13,13 +13,8 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 
 /* For 2.6, use the cleaned up header to get the 64 bit API. */
-/* linux/loop.h relies on __u64. Make sure we have that as a proper type
- * until userspace is widely fixed. */
-# if (defined __INTEL_COMPILER && !defined __GNUC__) \
-  || (defined __GNUC__ && defined __STRICT_ANSI__)
-__extension__ typedef long long __s64;
-__extension__ typedef unsigned long long __u64;
-# endif
+// Commented out per Rob's request
+//# include "fix_u32.h" /* some old toolchains need __u64 for linux/loop.h */
 # include <linux/loop.h>
 typedef struct loop_info64 bb_loop_info;
 # define BB_LOOP_SET_STATUS LOOP_SET_STATUS64
@@ -56,14 +51,16 @@ char* FAST_FUNC query_loop(const char *device)
 {
 	int fd;
 	bb_loop_info loopinfo;
-	char *dev = 0;
+	char *dev = NULL;
 
 	fd = open(device, O_RDONLY);
-	if (fd < 0) return 0;
-	if (!ioctl(fd, BB_LOOP_GET_STATUS, &loopinfo))
-		dev = xasprintf("%ld %s", (long) loopinfo.lo_offset,
-				(char *)loopinfo.lo_file_name);
-	close(fd);
+	if (fd >= 0) {
+		if (ioctl(fd, BB_LOOP_GET_STATUS, &loopinfo) == 0) {
+			dev = xasprintf("%"OFF_FMT"u %s", (off_t) loopinfo.lo_offset,
+					(char *)loopinfo.lo_file_name);
+		}
+		close(fd);
+	}
 
 	return dev;
 }
@@ -73,7 +70,8 @@ int FAST_FUNC del_loop(const char *device)
 	int fd, rc;
 
 	fd = open(device, O_RDONLY);
-	if (fd < 0) return 1;
+	if (fd < 0)
+		return 1;
 	rc = ioctl(fd, LOOP_CLR_FD, 0);
 	close(fd);
 
@@ -106,14 +104,25 @@ int FAST_FUNC set_loop(char **device, const char *file, unsigned long long offse
 
 	/* Find a loop device.  */
 	try = *device ? *device : dev;
-	for (i = 0; rc; i++) {
+	/* 1048575 is a max possible minor number in Linux circa 2010 */
+	for (i = 0; rc && i < 1048576; i++) {
 		sprintf(dev, LOOP_FORMAT, i);
 
-		/* Ran out of block devices, return failure.  */
-		if (stat(try, &statbuf) || !S_ISBLK(statbuf.st_mode)) {
+		IF_FEATURE_MOUNT_LOOP_CREATE(errno = 0;)
+		if (stat(try, &statbuf) != 0 || !S_ISBLK(statbuf.st_mode)) {
+			if (ENABLE_FEATURE_MOUNT_LOOP_CREATE
+			 && errno == ENOENT
+			 && try == dev
+			) {
+				/* Node doesn't exist, try to create it.  */
+				if (mknod(dev, S_IFBLK|0644, makedev(7, i)) == 0)
+					goto try_to_open;
+			}
+			/* Ran out of block devices, return failure.  */
 			rc = -ENOENT;
 			break;
 		}
+ try_to_open:
 		/* Open the sucker and check its loopiness.  */
 		dfd = open(try, mode);
 		if (dfd < 0 && errno == EROFS) {
@@ -131,8 +140,8 @@ int FAST_FUNC set_loop(char **device, const char *file, unsigned long long offse
 			safe_strncpy((char *)loopinfo.lo_file_name, file, LO_NAME_SIZE);
 			loopinfo.lo_offset = offset;
 			/* Associate free loop device with file.  */
-			if (!ioctl(dfd, LOOP_SET_FD, ffd)) {
-				if (!ioctl(dfd, BB_LOOP_SET_STATUS, &loopinfo))
+			if (ioctl(dfd, LOOP_SET_FD, ffd) == 0) {
+				if (ioctl(dfd, BB_LOOP_SET_STATUS, &loopinfo) == 0)
 					rc = 0;
 				else
 					ioctl(dfd, LOOP_CLR_FD, 0);
@@ -143,8 +152,10 @@ int FAST_FUNC set_loop(char **device, const char *file, unsigned long long offse
 		   file isn't pretty either.  In general, mounting the same file twice
 		   without using losetup manually is problematic.)
 		 */
-		} else if (strcmp(file, (char *)loopinfo.lo_file_name) != 0
-		|| offset != loopinfo.lo_offset) {
+		} else
+		if (strcmp(file, (char *)loopinfo.lo_file_name) != 0
+		 || offset != loopinfo.lo_offset
+		) {
 			rc = -1;
 		}
 		close(dfd);
@@ -152,7 +163,7 @@ int FAST_FUNC set_loop(char **device, const char *file, unsigned long long offse
 		if (*device) break;
 	}
 	close(ffd);
-	if (!rc) {
+	if (rc == 0) {
 		if (!*device)
 			*device = xstrdup(dev);
 		return (mode == O_RDONLY); /* 1:ro, 0:rw */

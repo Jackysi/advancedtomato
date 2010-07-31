@@ -184,7 +184,7 @@ struct globals {
 
 	sigset_t blocked_sigset;
 };
-#define G (*(struct globals*)ptr_to_globals)
+#define G (*ptr_to_globals)
 #define dir            (G.dir           )
 #define verbose        (G.verbose       )
 #define linemax        (G.linemax       )
@@ -354,7 +354,7 @@ static void processorstart(struct logdir *ld)
 		xmove_fd(fd, 5);
 
 // getenv("SHELL")?
-		execl("/bin/sh", "/bin/sh" + 5, "-c", ld->processor, (char*) NULL);
+		execl(DEFAULT_SHELL, DEFAULT_SHELL_SHORT_NAME, "-c", ld->processor, (char*) NULL);
 		bb_perror_msg_and_die(FATAL"can't %s processor %s", "run", ld->name);
 	}
 	ld->fnsave[26] = sv_ch; /* ...restore */

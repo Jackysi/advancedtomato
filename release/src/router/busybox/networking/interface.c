@@ -30,17 +30,20 @@
  *	    20001008 - Bernd Eckenfels, Patch from RH for setting mtu
  *			(default AF was wrong)
  */
-
 #include <net/if.h>
 #include <net/if_arp.h>
-#include "inet_common.h"
+#if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined(_NEWLIB_VERSION)
+# include <net/ethernet.h>
+#else
+# include <linux/if_ether.h>
+#endif
 #include "libbb.h"
-
+#include "inet_common.h"
 
 #if ENABLE_FEATURE_HWIB
 /* #include <linux/if_infiniband.h> */
-#undef INFINIBAND_ALEN
-#define INFINIBAND_ALEN 20
+# undef INFINIBAND_ALEN
+# define INFINIBAND_ALEN 20
 #endif
 
 #if ENABLE_FEATURE_IPV6
@@ -53,39 +56,35 @@
 #define _PATH_PROCNET_IFINET6           "/proc/net/if_inet6"
 
 #ifdef HAVE_AFINET6
-
-#ifndef _LINUX_IN6_H
+# ifndef _LINUX_IN6_H
 /*
- *    This is in linux/include/net/ipv6.h.
+ * This is from linux/include/net/ipv6.h
  */
-
 struct in6_ifreq {
 	struct in6_addr ifr6_addr;
 	uint32_t ifr6_prefixlen;
 	unsigned int ifr6_ifindex;
 };
-
-#endif
-
+# endif
 #endif /* HAVE_AFINET6 */
 
 /* Defines for glibc2.0 users. */
 #ifndef SIOCSIFTXQLEN
-#define SIOCSIFTXQLEN      0x8943
-#define SIOCGIFTXQLEN      0x8942
+# define SIOCSIFTXQLEN      0x8943
+# define SIOCGIFTXQLEN      0x8942
 #endif
 
 /* ifr_qlen is ifru_ivalue, but it isn't present in 2.0 kernel headers */
 #ifndef ifr_qlen
-#define ifr_qlen        ifr_ifru.ifru_mtu
+# define ifr_qlen        ifr_ifru.ifru_mtu
 #endif
 
 #ifndef HAVE_TXQUEUELEN
-#define HAVE_TXQUEUELEN 1
+# define HAVE_TXQUEUELEN 1
 #endif
 
 #ifndef IFF_DYNAMIC
-#define IFF_DYNAMIC     0x8000	/* dialup device with changing addresses */
+# define IFF_DYNAMIC     0x8000 /* dialup device with changing addresses */
 #endif
 
 /* Display an Internet socket address. */
@@ -711,14 +710,6 @@ static const struct hwtype loop_hwtype = {
 	.type =		ARPHRD_LOOPBACK
 };
 
-#include <net/if_arp.h>
-
-#if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined(_NEWLIB_VERSION)
-#include <net/ethernet.h>
-#else
-#include <linux/if_ether.h>
-#endif
-
 /* Display an Ethernet address in readable format. */
 static char* FAST_FUNC ether_print(unsigned char *ptr)
 {
@@ -793,8 +784,6 @@ static int FAST_FUNC ether_input(const char *bufp, struct sockaddr *sap)
 	}
 	return 0;
 }
-
-#include <net/if_arp.h>
 
 static const struct hwtype ppp_hwtype = {
 	.name =		"ppp",
@@ -992,7 +981,6 @@ static void ife_print6(struct interface *ptr)
 #else
 #define ife_print6(a) ((void)0)
 #endif
-
 
 static void ife_print(struct interface *ptr)
 {
@@ -1225,57 +1213,15 @@ static int if_print(char *ifname)
 /* Input an Infiniband address and convert to binary. */
 int FAST_FUNC in_ib(const char *bufp, struct sockaddr *sap)
 {
-	unsigned char *ptr;
-	char c;
-	const char *orig;
-	int i;
-	unsigned val;
-
 	sap->sa_family = ib_hwtype.type;
-	ptr = (unsigned char *) sap->sa_data;
-
-	i = 0;
-	orig = bufp;
-	while ((*bufp != '\0') && (i < INFINIBAND_ALEN)) {
-		val = 0;
-		c = *bufp++;
-		if (isdigit(c))
-			val = c - '0';
-		else if ((c|0x20) >= 'a' && (c|0x20) <= 'f')
-			val = (c|0x20) - ('a' - 10);
-		else {
-			errno = EINVAL;
-			return -1;
-		}
-		val <<= 4;
-		c = *bufp;
-		if (isdigit(c))
-			val |= c - '0';
-		else if ((c|0x20) >= 'a' && (c|0x20) <= 'f')
-			val |= (c|0x20) - ('a' - 10);
-		else if (c == ':' || c == '\0')
-			val >>= 4;
-		else {
-			errno = EINVAL;
-			return -1;
-		}
-		if (c != '\0')
-			bufp++;
-		*ptr++ = (unsigned char) (val & 0377);
-		i++;
-
-		/* We might get a semicolon here - not required. */
-		if (*bufp == ':') {
-			bufp++;
-		}
-	}
-#ifdef DEBUG
-	fprintf(stderr, "in_ib(%s): %s\n", orig, UNSPEC_print(sap->sa_data));
-#endif
+//TODO: error check?
+	hex2bin((char*)sap->sa_data, bufp, INFINIBAND_ALEN);
+# ifdef HWIB_DEBUG
+	fprintf(stderr, "in_ib(%s): %s\n", bufp, UNSPEC_print(sap->sa_data));
+# endif
 	return 0;
 }
 #endif
-
 
 int FAST_FUNC display_interfaces(char *ifname)
 {

@@ -157,7 +157,6 @@ struct globals {
 	/* File-name data */
 	char current_name[MAX_DEPTH * MINIX_NAME_MAX];
 };
-
 #define G (*ptr_to_globals)
 #if ENABLE_FEATURE_MINIX2
 #define version2           (G.version2           )
@@ -898,8 +897,12 @@ static void check_zones(unsigned i)
 	if (inode_count[i] > 1)		/* have we counted this file already? */
 		return;
 	inode = Inode1 + i;
-	if (!S_ISDIR(inode->i_mode) && !S_ISREG(inode->i_mode) &&
-		!S_ISLNK(inode->i_mode)) return;
+	if (!S_ISDIR(inode->i_mode)
+	 && !S_ISREG(inode->i_mode)
+	 && !S_ISLNK(inode->i_mode)
+	) {
+		return;
+	}
 	for (i = 0; i < 7; i++)
 		add_zone(i + inode->i_zone, &changed);
 	add_zone_ind(7 + inode->i_zone, &changed);

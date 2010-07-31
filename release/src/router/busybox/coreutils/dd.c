@@ -38,7 +38,7 @@ struct globals {
 	unsigned long long total_bytes;
 	unsigned long long begin_time_us;
 #endif
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	/* we have to zero it out because of NOEXEC */ \
@@ -301,9 +301,12 @@ int dd_main(int argc UNUSED_PARAM, char **argv)
 			if (ftruncate(ofd, seek * obs) < 0) {
 				struct stat st;
 
-				if (fstat(ofd, &st) < 0 || S_ISREG(st.st_mode) ||
-						S_ISDIR(st.st_mode))
+				if (fstat(ofd, &st) < 0
+				 || S_ISREG(st.st_mode)
+				 || S_ISDIR(st.st_mode)
+				) {
 					goto die_outfile;
+				}
 			}
 		}
 	} else {

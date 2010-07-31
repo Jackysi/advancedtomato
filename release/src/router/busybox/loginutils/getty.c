@@ -19,7 +19,7 @@
 #include <syslog.h>
 
 #if ENABLE_FEATURE_UTMP
-#include <utmp.h> /* updwtmp() */
+# include <utmp.h> /* LOGIN_PROCESS */
 #endif
 
 #ifndef IUCLC
@@ -431,6 +431,7 @@ static char *get_logname(char *logname, unsigned size_logname,
 		while (cp->eol == '\0') {
 
 			/* Do not report trivial EINTR/EIO errors. */
+			errno = EINTR; /* make read of 0 bytes be silent too */
 			if (read(STDIN_FILENO, &c, 1) < 1) {
 				if (errno == EINTR || errno == EIO)
 					exit(EXIT_SUCCESS);
@@ -575,65 +576,11 @@ static void termios_final(struct options *op, struct termios *tp, struct chardat
 	ioctl_or_perror_and_die(0, TCSETS, tp, "%s: TCSETS", op->tty);
 }
 
-#if ENABLE_FEATURE_UTMP
-static void touch(const char *filename)
-{
-	if (access(filename, R_OK | W_OK) == -1)
-		close(open(filename, O_WRONLY | O_CREAT, 0664));
-}
-
-/* update_utmp - update our utmp entry */
-static NOINLINE void update_utmp(const char *line, char *fakehost)
-{
-	struct utmp ut;
-	struct utmp *utp;
-	int mypid = getpid();
-
-	/* In case we won't find an entry below... */
-	memset(&ut, 0, sizeof(ut));
-	safe_strncpy(ut.ut_id, line + 3, sizeof(ut.ut_id));
-
-	/*
-	 * The utmp file holds miscellaneous information about things started by
-	 * /sbin/init and other system-related events. Our purpose is to update
-	 * the utmp entry for the current process, in particular the process type
-	 * and the tty line we are listening to. Return successfully only if the
-	 * utmp file can be opened for update, and if we are able to find our
-	 * entry in the utmp file.
-	 */
-	touch(_PATH_UTMP);
-
-	utmpname(_PATH_UTMP);
-	setutent();
-	while ((utp = getutent()) != NULL) {
-		if (utp->ut_type == INIT_PROCESS && utp->ut_pid == mypid) {
-			memcpy(&ut, utp, sizeof(ut));
-			break;
-		}
-	}
-
-	strcpy(ut.ut_user, "LOGIN");
-	safe_strncpy(ut.ut_line, line, sizeof(ut.ut_line));
-	if (fakehost)
-		safe_strncpy(ut.ut_host, fakehost, sizeof(ut.ut_host));
-	ut.ut_tv.tv_sec = time(NULL);
-	ut.ut_type = LOGIN_PROCESS;
-	ut.ut_pid = mypid;
-
-	pututline(&ut);
-	endutent();
-
-#if ENABLE_FEATURE_WTMP
-	touch(bb_path_wtmp_file);
-	updwtmp(bb_path_wtmp_file, &ut);
-#endif
-}
-#endif /* CONFIG_FEATURE_UTMP */
-
 int getty_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int getty_main(int argc UNUSED_PARAM, char **argv)
 {
 	int n;
+	pid_t pid;
 	char *fakehost = NULL;          /* Fake hostname for ut_host */
 	char *logname;                  /* login name, given to /bin/login */
 	/* Merging these into "struct local" may _seem_ to reduce
@@ -706,19 +653,18 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	/* tcgetattr() + error check */
 	ioctl_or_perror_and_die(0, TCGETS, &termios, "%s: TCGETS", options.tty);
 
+	pid = getpid();
 #ifdef __linux__
 // FIXME: do we need this? Otherwise "-" case seems to be broken...
 	// /* Forcibly make fd 0 our controlling tty, even if another session
 	//  * has it as a ctty. (Another session loses ctty). */
 	// ioctl(0, TIOCSCTTY, (void*)1);
 	/* Make ourself a foreground process group within our session */
-	tcsetpgrp(0, getpid());
+	tcsetpgrp(0, pid);
 #endif
 
-#if ENABLE_FEATURE_UTMP
 	/* Update the utmp file. This tty is ours now! */
-	update_utmp(options.tty, fakehost);
-#endif
+	update_utmp(pid, LOGIN_PROCESS, options.tty, "LOGIN", fakehost);
 
 	/* Initialize the termios settings (raw mode, eight-bit, blocking i/o). */
 	debug("calling termios_init\n");
@@ -727,8 +673,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	/* Write the modem init string and DON'T flush the buffers */
 	if (options.flags & F_INITSTRING) {
 		debug("writing init string\n");
-		/* todo: use xwrite_str? */
-		full_write(STDOUT_FILENO, options.initstring, strlen(options.initstring));
+		full_write1_str(options.initstring);
 	}
 
 	/* Optionally detect the baud rate from the modem status message */

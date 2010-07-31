@@ -29,11 +29,11 @@
 #endif
 
 /* The escape codes for highlighted and normal text */
-#define HIGHLIGHT "\033[7m"
-#define NORMAL "\033[0m"
-/* The escape code to clear the screen */
-#define CLEAR "\033[H\033[J"
-/* The escape code to clear to end of line */
+#define HIGHLIGHT   "\033[7m"
+#define NORMAL      "\033[0m"
+/* The escape code to home and clear to the end of screen */
+#define CLEAR       "\033[H\033[J"
+/* The escape code to clear to the end of line */
 #define CLEAR_2_EOL "\033[K"
 
 enum {
@@ -430,7 +430,7 @@ static void read_lines(void)
 					 * immediately */
 					eof_error = 1;
 				} else {
-					print_statusline("read error");
+					print_statusline(bb_msg_read_error);
 				}
 			}
 #if !ENABLE_FEATURE_LESS_REGEXP
@@ -542,7 +542,7 @@ static void cap_cur_fline(int nlines)
 			cur_fline = 0;
 		diff = max_fline - (cur_fline + max_displayed_line) + TILDES;
 		/* As the number of lines requested was too large, we just move
-		to the end of the file */
+		 * to the end of the file */
 		if (diff > 0)
 			cur_fline += diff;
 	}
@@ -554,7 +554,8 @@ static const char controls[] ALIGN1 =
 	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
 	"\x7f\x9b"; /* DEL and infamous Meta-ESC :( */
 static const char ctrlconv[] ALIGN1 =
-	/* '\n': it's a former NUL - subst with '@', not 'J' */
+	/* why 40 instead of 4a below? - it is a replacement for '\n'.
+	 * '\n' is a former NUL - we subst it with @, not J */
 	"\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x40\x4b\x4c\x4d\x4e\x4f"
 	"\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f";
 
@@ -854,7 +855,7 @@ static int getch_nowait(void)
 
 	/* We have kbd_fd in O_NONBLOCK mode, read inside read_key()
 	 * would not block even if there is no input available */
-	rd = read_key(kbd_fd, kbd_input);
+	rd = read_key(kbd_fd, kbd_input, /*timeout off:*/ -2);
 	if (rd == -1) {
 		if (errno == EAGAIN) {
 			/* No keyboard input available. Since poll() did return,

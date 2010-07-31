@@ -14,26 +14,113 @@
  * 2004,2006 (C) Vladimir Oleynik <dzo@simtreas.ru> -
  * correction "-e pattern1 -e pattern2" logic and more optimizations.
  * precompiled regex
- */
-/*
+ *
  * (C) 2006 Jac Goudsmit added -o option
  */
+
+//applet:IF_GREP(APPLET(grep, _BB_DIR_BIN, _BB_SUID_DROP))
+//applet:IF_FEATURE_GREP_EGREP_ALIAS(APPLET_ODDNAME(egrep, grep, _BB_DIR_BIN, _BB_SUID_DROP, egrep))
+//applet:IF_FEATURE_GREP_FGREP_ALIAS(APPLET_ODDNAME(fgrep, grep, _BB_DIR_BIN, _BB_SUID_DROP, fgrep))
+
+//kbuild:lib-$(CONFIG_GREP) += grep.o
+
+//config:config GREP
+//config:	bool "grep"
+//config:	default y
+//config:	help
+//config:	  grep is used to search files for a specified pattern.
+//config:
+//config:config FEATURE_GREP_EGREP_ALIAS
+//config:	bool "Enable extended regular expressions (egrep & grep -E)"
+//config:	default y
+//config:	depends on GREP
+//config:	help
+//config:	  Enabled support for extended regular expressions. Extended
+//config:	  regular expressions allow for alternation (foo|bar), grouping,
+//config:	  and various repetition operators.
+//config:
+//config:config FEATURE_GREP_FGREP_ALIAS
+//config:	bool "Alias fgrep to grep -F"
+//config:	default y
+//config:	depends on GREP
+//config:	help
+//config:	  fgrep sees the search pattern as a normal string rather than
+//config:	  regular expressions.
+//config:	  grep -F always works, this just creates the fgrep alias.
+//config:
+//config:config FEATURE_GREP_CONTEXT
+//config:	bool "Enable before and after context flags (-A, -B and -C)"
+//config:	default y
+//config:	depends on GREP
+//config:	help
+//config:	  Print the specified number of leading (-B) and/or trailing (-A)
+//config:	  context surrounding our matching lines.
+//config:	  Print the specified number of context lines (-C).
 
 #include "libbb.h"
 #include "xregex.h"
 
+
 /* options */
+//usage:#define grep_trivial_usage
+//usage:       "[-HhnlLoqvsriw"
+//usage:       "F"
+//usage:	IF_FEATURE_GREP_EGREP_ALIAS("E")
+//usage:	IF_EXTRA_COMPAT("z")
+//usage:       "] [-m N] "
+//usage:	IF_FEATURE_GREP_CONTEXT("[-A/B/C N] ")
+//usage:       "PATTERN/-e PATTERN.../-f FILE [FILE]..."
+//usage:#define grep_full_usage "\n\n"
+//usage:       "Search for PATTERN in FILEs (or stdin)\n"
+//usage:     "\nOptions:"
+//usage:     "\n	-H	Add 'filename:' prefix"
+//usage:     "\n	-h	Do not add 'filename:' prefix"
+//usage:     "\n	-n	Add 'line_no:' prefix"
+//usage:     "\n	-l	Show only names of files that match"
+//usage:     "\n	-L	Show only names of files that don't match"
+//usage:     "\n	-c	Show only count of matching lines"
+//usage:     "\n	-o	Show only the matching part of line"
+//usage:     "\n	-q	Quiet. Return 0 if PATTERN is found, 1 otherwise"
+//usage:     "\n	-v	Select non-matching lines"
+//usage:     "\n	-s	Suppress open and read errors"
+//usage:     "\n	-r	Recurse"
+//usage:     "\n	-i	Ignore case"
+//usage:     "\n	-w	Match whole words only"
+//usage:     "\n	-F	PATTERN is a literal (not regexp)"
+//usage:	IF_FEATURE_GREP_EGREP_ALIAS(
+//usage:     "\n	-E	PATTERN is an extended regexp"
+//usage:	)
+//usage:	IF_EXTRA_COMPAT(
+//usage:     "\n	-z	Input is NUL terminated"
+//usage:	)
+//usage:     "\n	-m N	Match up to N times per file"
+//usage:	IF_FEATURE_GREP_CONTEXT(
+//usage:     "\n	-A N	Print N lines of trailing context"
+//usage:     "\n	-B N	Print N lines of leading context"
+//usage:     "\n	-C N	Same as '-A N -B N'"
+//usage:	)
+//usage:     "\n	-e PTRN	Pattern to match"
+//usage:     "\n	-f FILE	Read pattern from file"
+//usage:
+//usage:#define grep_example_usage
+//usage:       "$ grep root /etc/passwd\n"
+//usage:       "root:x:0:0:root:/root:/bin/bash\n"
+//usage:       "$ grep ^[rR]oo. /etc/passwd\n"
+//usage:       "root:x:0:0:root:/root:/bin/bash\n"
+//usage:
+//usage:#define egrep_trivial_usage NOUSAGE_STR
+//usage:#define egrep_full_usage ""
+//usage:#define fgrep_trivial_usage NOUSAGE_STR
+//usage:#define fgrep_full_usage ""
+
 #define OPTSTR_GREP \
-	"lnqvscFiHhe:f:Lorm:" \
+	"lnqvscFiHhe:f:Lorm:w" \
 	IF_FEATURE_GREP_CONTEXT("A:B:C:") \
 	IF_FEATURE_GREP_EGREP_ALIAS("E") \
-	IF_DESKTOP("w") \
 	IF_EXTRA_COMPAT("z") \
 	"aI"
-
 /* ignored: -a "assume all files to be text" */
 /* ignored: -I "assume binary files have no matches" */
-
 enum {
 	OPTBIT_l, /* list matched file names only */
 	OPTBIT_n, /* print line# */
@@ -51,11 +138,11 @@ enum {
 	OPTBIT_o, /* show only matching parts of lines */
 	OPTBIT_r, /* recurse dirs */
 	OPTBIT_m, /* -m MAX_MATCHES */
+	OPTBIT_w, /* -w whole word match */
 	IF_FEATURE_GREP_CONTEXT(    OPTBIT_A ,) /* -A NUM: after-match context */
 	IF_FEATURE_GREP_CONTEXT(    OPTBIT_B ,) /* -B NUM: before-match context */
 	IF_FEATURE_GREP_CONTEXT(    OPTBIT_C ,) /* -C NUM: -A and -B combined */
 	IF_FEATURE_GREP_EGREP_ALIAS(OPTBIT_E ,) /* extended regexp */
-	IF_DESKTOP(                 OPTBIT_w ,) /* whole word match */
 	IF_EXTRA_COMPAT(            OPTBIT_z ,) /* input is NUL terminated */
 	OPT_l = 1 << OPTBIT_l,
 	OPT_n = 1 << OPTBIT_n,
@@ -73,11 +160,11 @@ enum {
 	OPT_o = 1 << OPTBIT_o,
 	OPT_r = 1 << OPTBIT_r,
 	OPT_m = 1 << OPTBIT_m,
+	OPT_w = 1 << OPTBIT_w,
 	OPT_A = IF_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_A)) + 0,
 	OPT_B = IF_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_B)) + 0,
 	OPT_C = IF_FEATURE_GREP_CONTEXT(    (1 << OPTBIT_C)) + 0,
 	OPT_E = IF_FEATURE_GREP_EGREP_ALIAS((1 << OPTBIT_E)) + 0,
-	OPT_w = IF_DESKTOP(                 (1 << OPTBIT_w)) + 0,
 	OPT_z = IF_EXTRA_COMPAT(            (1 << OPTBIT_z)) + 0,
 };
 
@@ -111,7 +198,7 @@ struct globals {
 	/* globals used internally */
 	llist_t *pattern_head;   /* growable list of patterns to match */
 	const char *cur_file;    /* the current file we are reading */
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	struct G_sizecheck { \
@@ -255,7 +342,10 @@ static int grep_file(FILE *file)
 		while (pattern_ptr) {
 			gl = (grep_list_data_t *)pattern_ptr->data;
 			if (FGREP_FLAG) {
-				found |= (strstr(line, gl->pattern) != NULL);
+				found |= (((option_mask32 & OPT_i)
+					? strcasestr(line, gl->pattern)
+					: strstr(line, gl->pattern)
+					) != NULL);
 			} else {
 				if (!(gl->flg_mem_alocated_compiled & COMPILED)) {
 					gl->flg_mem_alocated_compiled |= COMPILED;

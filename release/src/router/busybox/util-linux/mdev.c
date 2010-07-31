@@ -64,7 +64,7 @@
 struct globals {
 	int root_major, root_minor;
 	char *subsystem;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 
 /* Prevent infinite loops in /sys symlinks */
@@ -353,7 +353,7 @@ static void make_device(char *path, int delete)
 
 			if (!delete && major >= 0) {
 				if (mknod(node_name, mode | type, makedev(major, minor)) && errno != EEXIST)
-					bb_perror_msg("can't create %s", node_name);
+					bb_perror_msg("can't create '%s'", node_name);
 				if (major == G.root_major && minor == G.root_minor)
 					symlink(node_name, "root");
 				if (ENABLE_FEATURE_MDEV_CONF) {
@@ -374,10 +374,8 @@ static void make_device(char *path, int delete)
 				putenv(s1);
 				if (system(command) == -1)
 					bb_perror_msg("can't run '%s'", command);
-				unsetenv("SUBSYSTEM");
-				free(s1);
-				unsetenv("MDEV");
-				free(s);
+				bb_unsetenv_and_free(s1);
+				bb_unsetenv_and_free(s);
 				free(command);
 			}
 

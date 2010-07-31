@@ -75,7 +75,7 @@ struct globals {
 	char    iacbuf[IACBUFSIZE];
 	struct termios termios_def;
 	struct termios termios_raw;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	struct G_sizecheck { \
@@ -299,7 +299,7 @@ static void put_iac_subopt(byte c, char *str)
 static void put_iac_subopt_autologin(void)
 {
 	int len = strlen(G.autologin) + 6;	// (2 + 1 + 1 + strlen + 2)
-	const char *user = "USER";
+	const char *p = "USER";
 
 	if (G.iaclen + len > IACBUFSIZE)
 		iac_flush();
@@ -310,13 +310,14 @@ static void put_iac_subopt_autologin(void)
 	put_iac(TELQUAL_IS);
 	put_iac(NEW_ENV_VAR);
 
-	while (*user)
-		put_iac(*user++);
+	while (*p)
+		put_iac(*p++);
 
 	put_iac(NEW_ENV_VALUE);
 
-	while (*G.autologin)
-		put_iac(*G.autologin++);
+	p = G.autologin;
+	while (*p)
+		put_iac(*p++);
 
 	put_iac(IAC);
 	put_iac(SE);
@@ -417,7 +418,7 @@ static void to_echo(void)
 		put_iac2(DONT, TELOPT_ECHO);
 
 	setConMode();
-	write_str(1, "\r\n");  /* sudden modec */
+	full_write1_str("\r\n");  /* sudden modec */
 }
 
 static void to_sga(void)
@@ -441,7 +442,6 @@ static void to_sga(void)
 static void to_ttype(void)
 {
 	/* Tell server we will (or won't) do TTYPE */
-
 	if (G.ttype)
 		put_iac2(WILL, TELOPT_TTYPE);
 	else
@@ -453,7 +453,6 @@ static void to_ttype(void)
 static void to_new_environ(void)
 {
 	/* Tell server we will (or will not) do AUTOLOGIN */
-
 	if (G.autologin)
 		put_iac2(WILL, TELOPT_NEW_ENVIRON);
 	else
@@ -505,12 +504,12 @@ static int subneg(byte c)
 			G.telstate = TS_SUB2;
 #if ENABLE_FEATURE_TELNET_TTYPE
 		else
-		if (c == TELOPT_TTYPE)
+		if (c == TELOPT_TTYPE && G.ttype)
 			put_iac_subopt(TELOPT_TTYPE, G.ttype);
 #endif
 #if ENABLE_FEATURE_TELNET_AUTOLOGIN
 		else
-		if (c == TELOPT_NEW_ENVIRON)
+		if (c == TELOPT_NEW_ENVIRON && G.autologin)
 			put_iac_subopt_autologin();
 #endif
 		break;
@@ -638,7 +637,7 @@ int telnet_main(int argc UNUSED_PARAM, char **argv)
 			{
 				len = safe_read(netfd, G.buf, DATABUFSIZE);
 				if (len <= 0) {
-					write_str(1, "Connection closed by foreign host\r\n");
+					full_write1_str("Connection closed by foreign host\r\n");
 					doexit(EXIT_FAILURE);
 				}
 				TRACE(0, ("Read netfd (%d): %d\n", netfd, len));

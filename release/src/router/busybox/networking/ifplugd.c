@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * ifplugd for busybox
+ * ifplugd for busybox, based on ifplugd 0.28 (written by Lennart Poettering).
  *
  * Copyright (C) 2009 Maksym Kryzhanovskyy <xmaks@email.cz>
  *
@@ -22,7 +22,11 @@
 #include <linux/wireless.h>
 
 /*
-TODO: describe compat status here.
+From initial port to busybox, removed most of the redundancy by
+converting implementation of a polymorphic interface to the strict
+functional style. The main role is run a script when link state
+changed, other activities like audio signal or detailed reports
+are on the script itself.
 
 One questionable point of the design is netlink usage:
 
@@ -89,6 +93,7 @@ enum { // constant fds
 
 struct globals {
 	smallint iface_last_status;
+	smallint iface_prev_status;
 	smallint iface_exists;
 
 	/* Used in getopt32, must have sizeof == sizeof(int) */
@@ -117,14 +122,20 @@ struct globals {
 } while (0)
 
 
+static const char *strstatus(int status)
+{
+	if (status == IFSTATUS_ERR)
+		return "error";
+	return "down\0up" + (status * 5);
+}
+
 static int run_script(const char *action)
 {
+	char *env_PREVIOUS, *env_CURRENT;
 	char *argv[5];
 	int r;
 
 	bb_error_msg("executing '%s %s %s'", G.script_name, G.iface, action);
-
-#if 1
 
 	argv[0] = (char*) G.script_name;
 	argv[1] = (char*) G.iface;
@@ -132,89 +143,28 @@ static int run_script(const char *action)
 	argv[3] = (char*) G.extra_arg;
 	argv[4] = NULL;
 
-	/* r < 0 - can't exec, 0 <= r < 1000 - exited, >1000 - killed by sig (r-1000) */
-	r = wait4pid(spawn(argv));
+	env_PREVIOUS = xasprintf("%s=%s", IFPLUGD_ENV_PREVIOUS, strstatus(G.iface_prev_status));
+	putenv(env_PREVIOUS);
+	env_CURRENT = xasprintf("%s=%s", IFPLUGD_ENV_CURRENT, strstatus(G.iface_last_status));
+	putenv(env_CURRENT);
 
-	bb_error_msg("exit code: %d", r);
+	/* r < 0 - can't exec, 0 <= r < 0x180 - exited, >=0x180 - killed by sig (r-0x180) */
+	r = spawn_and_wait(argv);
+
+	unsetenv(IFPLUGD_ENV_PREVIOUS);
+	unsetenv(IFPLUGD_ENV_CURRENT);
+	free(env_PREVIOUS);
+	free(env_CURRENT);
+
+	bb_error_msg("exit code: %d", r & 0xff);
 	return (option_mask32 & FLAG_IGNORE_RETVAL) ? 0 : r;
-
-#else /* insanity */
-
-	struct fd_pair pipe_pair;
-	char buf[256];
-	int i = 0;
-
-	xpiped_pair(pipe_pair);
-
-	pid = vfork();
-	if (pid < 0) {
-		bb_perror_msg("fork");
-		return -1;
-	}
-
-	/* child */
-	if (pid == 0) {
-		xmove_fd(pipe_pair.wr, 1);
-		xdup2(1, 2);
-		if (pipe_pair.rd > 2)
-			close(pipe_pair.rd);
-
-		// umask(0022); // Set up a sane umask
-
-		execlp(G.script_name, G.script_name, G.iface, action, G.extra_arg, NULL);
-		_exit(EXIT_FAILURE);
-	}
-
-	/* parent */
-	close(pipe_pair.wr);
-
-	while (1) {
-		if (bb_got_signal && bb_got_signal != SIGCHLD) {
-			bb_error_msg("killing child");
-			kill(pid, SIGTERM);
-			bb_got_signal = 0;
-			break;
-		}
-
-		r = read(pipe_pair.rd, &buf[i], 1);
-
-		if (buf[i] == '\n' || i == sizeof(buf)-2 || r != 1) {
-			if (r == 1 && buf[i] != '\n')
-				i++;
-
-			buf[i] = '\0';
-
-			if (i > 0)
-				bb_error_msg("client: %s", buf);
-
-			i = 0;
-		} else {
-			i++;
-		}
-
-		if (r != 1)
-			break;
-	}
-
-	close(pipe_pair.rd);
-
-	wait(&r);
-
-	if (!WIFEXITED(r) || WEXITSTATUS(r) != 0) {
-		bb_error_msg("program execution failed, return value is %i",
-			WEXITSTATUS(r));
-		return option_mask32 & FLAG_IGNORE_RETVAL ? 0 : WEXITSTATUS(r);
-	}
-	bb_error_msg("program executed successfully");
-	return 0;
-#endif
 }
 
 static int network_ioctl(int request, void* data, const char *errmsg)
 {
 	int r = ioctl(ioctl_fd, request, data);
 	if (r < 0 && errmsg)
-		bb_perror_msg(errmsg);
+		bb_perror_msg("%s failed", errmsg);
 	return r;
 }
 
@@ -222,13 +172,6 @@ static void set_ifreq_to_ifname(struct ifreq *ifreq)
 {
 	memset(ifreq, 0, sizeof(struct ifreq));
 	strncpy_IFNAMSIZ(ifreq->ifr_name, G.iface);
-}
-
-static const char *strstatus(int status)
-{
-	if (status == IFSTATUS_ERR)
-		return "error";
-	return "down\0up" + (status * 5);
 }
 
 static void up_iface(void)
@@ -239,7 +182,7 @@ static void up_iface(void)
 		return;
 
 	set_ifreq_to_ifname(&ifrequest);
-	if (network_ioctl(SIOCGIFFLAGS, &ifrequest, "can't get interface flags") < 0) {
+	if (network_ioctl(SIOCGIFFLAGS, &ifrequest, "getting interface flags") < 0) {
 		G.iface_exists = 0;
 		return;
 	}
@@ -248,7 +191,7 @@ static void up_iface(void)
 		ifrequest.ifr_flags |= IFF_UP;
 		/* Let user know we mess up with interface */
 		bb_error_msg("upping interface");
-		if (network_ioctl(SIOCSIFFLAGS, &ifrequest, "can't set interface flags") < 0)
+		if (network_ioctl(SIOCSIFFLAGS, &ifrequest, "setting interface flags") < 0)
 			xfunc_die();
 	}
 
@@ -307,13 +250,13 @@ static smallint detect_link_mii(void)
 
 	set_ifreq_to_ifname(&ifreq);
 
-	if (network_ioctl(SIOCGMIIPHY, &ifreq, "SIOCGMIIPHY failed") < 0) {
+	if (network_ioctl(SIOCGMIIPHY, &ifreq, "SIOCGMIIPHY") < 0) {
 		return IFSTATUS_ERR;
 	}
 
 	mii->reg_num = 1;
 
-	if (network_ioctl(SIOCGMIIREG, &ifreq, "SIOCGMIIREG failed") < 0) {
+	if (network_ioctl(SIOCGMIIREG, &ifreq, "SIOCGMIIREG") < 0) {
 		return IFSTATUS_ERR;
 	}
 
@@ -327,13 +270,13 @@ static smallint detect_link_priv(void)
 
 	set_ifreq_to_ifname(&ifreq);
 
-	if (network_ioctl(SIOCDEVPRIVATE, &ifreq, "SIOCDEVPRIVATE failed") < 0) {
+	if (network_ioctl(SIOCDEVPRIVATE, &ifreq, "SIOCDEVPRIVATE") < 0) {
 		return IFSTATUS_ERR;
 	}
 
 	mii->reg_num = 1;
 
-	if (network_ioctl(SIOCDEVPRIVATE+1, &ifreq, "SIOCDEVPRIVATE+1 failed") < 0) {
+	if (network_ioctl(SIOCDEVPRIVATE+1, &ifreq, "SIOCDEVPRIVATE+1") < 0) {
 		return IFSTATUS_ERR;
 	}
 
@@ -350,7 +293,7 @@ static smallint detect_link_ethtool(void)
 	edata.cmd = ETHTOOL_GLINK;
 	ifreq.ifr_data = (void*) &edata;
 
-	if (network_ioctl(SIOCETHTOOL, &ifreq, "ETHTOOL_GLINK failed") < 0) {
+	if (network_ioctl(SIOCETHTOOL, &ifreq, "ETHTOOL_GLINK") < 0) {
 		return IFSTATUS_ERR;
 	}
 
@@ -363,7 +306,7 @@ static smallint detect_link_iff(void)
 
 	set_ifreq_to_ifname(&ifreq);
 
-	if (network_ioctl(SIOCGIFFLAGS, &ifreq, "SIOCGIFFLAGS failed") < 0) {
+	if (network_ioctl(SIOCGIFFLAGS, &ifreq, "SIOCGIFFLAGS") < 0) {
 		return IFSTATUS_ERR;
 	}
 
@@ -381,20 +324,21 @@ static smallint detect_link_iff(void)
 
 static smallint detect_link_wlan(void)
 {
+	int i;
 	struct iwreq iwrequest;
 	uint8_t mac[ETH_ALEN];
 
-	memset(&iwrequest, 0, sizeof(struct iwreq));
+	memset(&iwrequest, 0, sizeof(iwrequest));
 	strncpy_IFNAMSIZ(iwrequest.ifr_ifrn.ifrn_name, G.iface);
 
-	if (network_ioctl(SIOCGIWAP, &iwrequest, "SIOCGIWAP failed") < 0) {
+	if (network_ioctl(SIOCGIWAP, &iwrequest, "SIOCGIWAP") < 0) {
 		return IFSTATUS_ERR;
 	}
 
-	memcpy(mac, &(iwrequest.u.ap_addr.sa_data), ETH_ALEN);
+	memcpy(mac, &iwrequest.u.ap_addr.sa_data, ETH_ALEN);
 
 	if (mac[0] == 0xFF || mac[0] == 0x44 || mac[0] == 0x00) {
-		for (int i = 1; i < ETH_ALEN; ++i) {
+		for (i = 1; i < ETH_ALEN; ++i) {
 			if (mac[i] != mac[0])
 				return IFSTATUS_UP;
 		}
@@ -406,7 +350,17 @@ static smallint detect_link_wlan(void)
 
 static smallint detect_link_auto(void)
 {
-	const char *method;
+	static const struct {
+		const char *name;
+		smallint (*func)(void);
+	} method[] = {
+		{ "SIOCETHTOOL"       , &detect_link_ethtool },
+		{ "SIOCGMIIPHY"       , &detect_link_mii     },
+		{ "SIOCDEVPRIVATE"    , &detect_link_priv    },
+		{ "wireless extension", &detect_link_wlan    },
+		{ "IFF_RUNNING"       , &detect_link_iff     },
+	};
+	int i;
 	smallint iface_status;
 	smallint sv_logmode;
 
@@ -417,48 +371,17 @@ static smallint detect_link_auto(void)
 	}
 
 	sv_logmode = logmode;
-	logmode = LOGMODE_NONE;
-
-	iface_status = detect_link_ethtool();
-	if (iface_status != IFSTATUS_ERR) {
-		G.cached_detect_link_func = detect_link_ethtool;
-		method = "SIOCETHTOOL";
- found_method:
+	for (i = 0; i < ARRAY_SIZE(method); i++) {
+		logmode = LOGMODE_NONE;
+		iface_status = method[i].func();
 		logmode = sv_logmode;
-		bb_error_msg("using %s detection mode", method);
-		return iface_status;
+		if (iface_status != IFSTATUS_ERR) {
+			G.cached_detect_link_func = method[i].func;
+			bb_error_msg("using %s detection mode", method[i].name);
+			break;
+		}
 	}
-
-	iface_status = detect_link_mii();
-	if (iface_status != IFSTATUS_ERR) {
-		G.cached_detect_link_func = detect_link_mii;
-		method = "SIOCGMIIPHY";
-		goto found_method;
-	}
-
-	iface_status = detect_link_priv();
-	if (iface_status != IFSTATUS_ERR) {
-		G.cached_detect_link_func = detect_link_priv;
-		method = "SIOCDEVPRIVATE";
-		goto found_method;
-	}
-
-	iface_status = detect_link_wlan();
-	if (iface_status != IFSTATUS_ERR) {
-		G.cached_detect_link_func = detect_link_wlan;
-		method = "wireless extension";
-		goto found_method;
-	}
-
-	iface_status = detect_link_iff();
-	if (iface_status != IFSTATUS_ERR) {
-		G.cached_detect_link_func = detect_link_iff;
-		method = "IFF_RUNNING";
-		goto found_method;
-	}
-
-	logmode = sv_logmode;
-	return iface_status; /* IFSTATUS_ERR */
+	return iface_status;
 }
 
 static smallint detect_link(void)
@@ -486,13 +409,11 @@ static smallint detect_link(void)
 	if (status == IFSTATUS_ERR
 	 && G.detect_link_func == detect_link_auto
 	) {
-		bb_error_msg("failed to detect link status");
+		bb_error_msg("can't detect link status");
 	}
 
 	if (status != G.iface_last_status) {
-//TODO: is it safe to repeatedly do this?
-		setenv(IFPLUGD_ENV_PREVIOUS, strstatus(G.iface_last_status), 1);
-		setenv(IFPLUGD_ENV_CURRENT, strstatus(status), 1);
+		G.iface_prev_status = G.iface_last_status;
 		G.iface_last_status = status;
 	}
 
@@ -501,8 +422,10 @@ static smallint detect_link(void)
 
 static NOINLINE int check_existence_through_netlink(void)
 {
+	int iface_len;
 	char replybuf[1024];
 
+	iface_len = strlen(G.iface);
 	while (1) {
 		struct nlmsghdr *mhdr;
 		ssize_t bytes;
@@ -520,38 +443,31 @@ static NOINLINE int check_existence_through_netlink(void)
 
 		mhdr = (struct nlmsghdr*)replybuf;
 		while (bytes > 0) {
-			if (!NLMSG_OK(mhdr, bytes)
-			 || bytes < sizeof(struct nlmsghdr)
-			 || bytes < mhdr->nlmsg_len
-			) {
+			if (!NLMSG_OK(mhdr, bytes)) {
 				bb_error_msg("netlink packet too small or truncated");
 				return -1;
 			}
 
 			if (mhdr->nlmsg_type == RTM_NEWLINK || mhdr->nlmsg_type == RTM_DELLINK) {
 				struct rtattr *attr;
-				struct ifinfomsg *imsg;
 				int attr_len;
-
-				imsg = NLMSG_DATA(mhdr);
 
 				if (mhdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifinfomsg))) {
 					bb_error_msg("netlink packet too small or truncated");
 					return -1;
 				}
 
-				attr = (struct rtattr*)((char*)imsg + NLMSG_ALIGN(sizeof(struct ifinfomsg)));
-				attr_len = NLMSG_PAYLOAD(mhdr, sizeof(struct ifinfomsg));
+				attr = IFLA_RTA(NLMSG_DATA(mhdr));
+				attr_len = IFLA_PAYLOAD(mhdr);
 
 				while (RTA_OK(attr, attr_len)) {
 					if (attr->rta_type == IFLA_IFNAME) {
-						char ifname[IFNAMSIZ + 1];
 						int len = RTA_PAYLOAD(attr);
-
 						if (len > IFNAMSIZ)
 							len = IFNAMSIZ;
-						memcpy(ifname, RTA_DATA(attr), len);
-						if (strcmp(G.iface, ifname) == 0) {
+						if (iface_len <= len
+						 && strncmp(G.iface, RTA_DATA(attr), len) == 0
+						) {
 							G.iface_exists = (mhdr->nlmsg_type == RTM_NEWLINK);
 						}
 					}

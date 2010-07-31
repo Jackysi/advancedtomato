@@ -87,8 +87,8 @@ int cal_main(int argc UNUSED_PARAM, char **argv)
 	/* "Su Mo Tu We Th Fr Sa" */
 	/* -j heading: */
 	/* " Su  Mo  Tu  We  Th  Fr  Sa" */
-	char day_headings[ENABLE_FEATURE_ASSUME_UNICODE ? 28 * 6 : 28];
-	IF_FEATURE_ASSUME_UNICODE(char *hp = day_headings;)
+	char day_headings[ENABLE_UNICODE_SUPPORT ? 28 * 6 : 28];
+	IF_UNICODE_SUPPORT(char *hp = day_headings;)
 	char buf[40];
 
 	init_unicode();
@@ -113,7 +113,10 @@ int cal_main(int argc UNUSED_PARAM, char **argv)
 			if (argv[2]) {
 				bb_show_usage();
 			}
-			month = xatou_range(*argv++, 1, 12);
+			if (!(flags & 2)) { /* no -y */
+				month = xatou_range(*argv, 1, 12);
+			}
+			argv++;
 		}
 		year = xatou_range(*argv, 1, 9999);
 	}
@@ -131,11 +134,11 @@ int cal_main(int argc UNUSED_PARAM, char **argv)
 			zero_tm.tm_wday = i;
 			/* abbreviated weekday name according to locale */
 			strftime(buf, sizeof(buf), "%a", &zero_tm);
-#if ENABLE_FEATURE_ASSUME_UNICODE
+#if ENABLE_UNICODE_SUPPORT
 			if (julian)
 				*hp++ = ' ';
 			{
-				char *two_wchars = unicode_cut_nchars(2, buf);
+				char *two_wchars = unicode_conv_to_printable_fixedwidth(NULL, buf, 2);
 				strcpy(hp, two_wchars);
 				free(two_wchars);
 			}
@@ -146,7 +149,7 @@ int cal_main(int argc UNUSED_PARAM, char **argv)
 #endif
 		}
 	} while (++i < 12);
-	IF_FEATURE_ASSUME_UNICODE(hp[-1] = '\0';)
+	IF_UNICODE_SUPPORT(hp[-1] = '\0';)
 
 	if (month) {
 		unsigned row, len, days[MAXDAYS];
