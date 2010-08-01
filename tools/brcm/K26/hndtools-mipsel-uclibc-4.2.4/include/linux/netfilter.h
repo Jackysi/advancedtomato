@@ -18,7 +18,12 @@
 #define NF_STOLEN 2
 #define NF_QUEUE 3
 #define NF_REPEAT 4
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#define NF_FAST_NAT 5
+#define NF_STOP 6
+#else
 #define NF_STOP 5
+#endif
 #define NF_MAX_VERDICT NF_STOP
 
 /* we overload the higher bits for encoding auxiliary data such as the queue

@@ -53,7 +53,7 @@
 /************************************************************************ 
  * PPPoE addressing definition 
  */ 
-typedef __u16 sid_t; 
+typedef __be16 sid_t;
 struct pppoe_addr{ 
        sid_t           sid;                    /* Session identifier */ 
        unsigned char   remote[ETH_ALEN];       /* Remote address */ 
@@ -121,8 +121,8 @@ struct sockaddr_pppol2tp {
 #define PADS_CODE	0x65
 #define PADT_CODE	0xa7
 struct pppoe_tag {
-	__u16 tag_type;
-	__u16 tag_len;
+	__be16 tag_type;
+	__be16 tag_len;
 	char tag_data[0];
 } __attribute ((packed));
 
@@ -149,8 +149,8 @@ struct pppoe_hdr {
 #error	"Please fix <asm/byteorder.h>"
 #endif
 	__u8 code;
-	__u16 sid;
-	__u16 length;
+	__be16 sid;
+	__be16 length;
 	struct pppoe_tag tag[0];
 } __attribute__ ((packed));
 
@@ -195,7 +195,7 @@ struct pppox_sock {
 		struct pppoe_opt pppoe;
 		struct pptp_opt  pptp;
 	} proto;
-	unsigned short		num;
+	__be16			num;
 };
 #define pppoe_dev	proto.pppoe.dev
 #define pppoe_ifindex	proto.pppoe.ifindex

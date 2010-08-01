@@ -18,7 +18,8 @@
 #include <linux/mutex.h>
 
 #define SERIAL_TTY_MAJOR	188	/* Nice legal number now */
-#define SERIAL_TTY_MINORS	255	/* loads of devices :) */
+#define SERIAL_TTY_MINORS	254	/* loads of devices :) */
+#define SERIAL_TTY_NO_MINOR	255	/* No minor was assigned */
 
 #define MAX_NUM_PORTS		8	/* The maximum number of ports one device can grab at once */
 
@@ -92,6 +93,7 @@ struct usb_serial_port {
 	int			open_count;
 	char			throttled;
 	char			throttle_req;
+	char			console;
 	struct device		dev;
 };
 #define to_usb_serial_port(d) container_of(d, struct usb_serial_port, dev)
@@ -125,9 +127,11 @@ static inline void usb_set_serial_port_data (struct usb_serial_port *port, void 
  *	usb_set_serial_data() to access this.
  */
 struct usb_serial {
-	struct usb_device *		dev;
-	struct usb_serial_driver *	type;
-	struct usb_interface *		interface;
+	struct usb_device		*dev;
+	struct usb_serial_driver	*type;
+	struct usb_interface		*interface;
+	unsigned char			disconnected:1;
+	unsigned char			suspending:1;
 	unsigned char			minor;
 	unsigned char			num_ports;
 	unsigned char			num_port_pointers;
@@ -135,13 +139,14 @@ struct usb_serial {
 	char				num_interrupt_out;
 	char				num_bulk_in;
 	char				num_bulk_out;
-	struct usb_serial_port *	port[MAX_NUM_PORTS];
+	struct usb_serial_port		*port[MAX_NUM_PORTS];
 	struct kref			kref;
-	void *				private;
+	struct mutex			disc_mutex;
+	void				*private;
 };
 #define to_usb_serial(d) container_of(d, struct usb_serial, kref)
 
-#define NUM_DONT_CARE	(-1)
+#define NUM_DONT_CARE	99
 
 /* get and set the serial private data pointer helper functions */
 static inline void *usb_get_serial_data (struct usb_serial *serial)
@@ -160,12 +165,18 @@ static inline void usb_set_serial_data (struct usb_serial *serial, void *data)
  *	in the syslog messages when a device is inserted or removed.
  * @id_table: pointer to a list of usb_device_id structures that define all
  *	of the devices this structure can support.
- * @num_interrupt_in: the number of interrupt in endpoints this device will
- *	have.
- * @num_interrupt_out: the number of interrupt out endpoints this device will
- *	have.
- * @num_bulk_in: the number of bulk in endpoints this device will have.
- * @num_bulk_out: the number of bulk out endpoints this device will have.
+ * @num_interrupt_in: If a device doesn't have this many interrupt-in
+ *	endpoints, it won't be sent to the driver's attach() method.
+ *	(But it might still be sent to the probe() method.)
+ * @num_interrupt_out: If a device doesn't have this many interrupt-out
+ *	endpoints, it won't be sent to the driver's attach() method.
+ *	(But it might still be sent to the probe() method.)
+ * @num_bulk_in: If a device doesn't have this many bulk-in
+ *	endpoints, it won't be sent to the driver's attach() method.
+ *	(But it might still be sent to the probe() method.)
+ * @num_bulk_out: If a device doesn't have this many bulk-out
+ *	endpoints, it won't be sent to the driver's attach() method.
+ *	(But it might still be sent to the probe() method.)
  * @num_ports: the number of different ports this device will have.
  * @calc_num_ports: pointer to a function to determine how many ports this
  *	device has dynamically.  It will be called after the probe()

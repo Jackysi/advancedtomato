@@ -101,9 +101,14 @@
 #endif
 #define FIRST_USER_ADDRESS	0UL
 
-#define VMALLOC_START		MAP_BASE
+/*
+ * TLB refill handlers also map the vmalloc area into xuseg.  Avoid
+ * the first couple of pages so NULL pointer dereferences will still
+ * reliably trap.
+ */
+#define VMALLOC_START		(MAP_BASE + (2 * PAGE_SIZE))
 #define VMALLOC_END	\
-	(VMALLOC_START + PTRS_PER_PGD * PTRS_PER_PMD * PTRS_PER_PTE * PAGE_SIZE)
+	(MAP_BASE + PTRS_PER_PGD * PTRS_PER_PMD * PTRS_PER_PTE * PAGE_SIZE)
 #if defined(CONFIG_MODULES) && !defined(CONFIG_BUILD_ELF64) && \
 	VMALLOC_START != CKSSEG
 /* Load modules into 32bit-compatible segment. */

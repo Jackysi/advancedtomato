@@ -403,10 +403,8 @@ extern char *strsep (char **__restrict __stringp,
 
 #ifdef	__USE_GNU
 /* Compare S1 and S2 as strings holding name & indices/version numbers.  */
-#if 0
 extern int strverscmp (__const char *__s1, __const char *__s2)
      __THROW __attribute_pure__ __nonnull ((1, 2));
-#endif
 
 /* Return a string describing the meaning of the signal number in SIG.  */
 extern char *strsignal (int __sig) __THROW;

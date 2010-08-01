@@ -546,6 +546,13 @@ struct signal_struct {
 #define is_rt_policy(p)		((p) != SCHED_NORMAL && (p) != SCHED_BATCH)
 #define has_rt_policy(p)	unlikely(is_rt_policy((p)->policy))
 
+/* If true, all threads except ->group_exit_task have pending SIGKILL */
+static inline int signal_group_exit(const struct signal_struct *sig)
+{
+	return	(sig->flags & SIGNAL_GROUP_EXIT) ||
+		(sig->group_exit_task != NULL);
+}
+
 /*
  * Some day this will be a full-fledged user tracking system..
  */

@@ -945,16 +945,33 @@
 #define __NR_signalfd			(__NR_Linux + 280)
 #define __NR_timerfd			(__NR_Linux + 281)
 #define __NR_eventfd			(__NR_Linux + 282)
+/* #define __NR_fallocate		(__NR_Linux + 283) */
+/* #define __NR_timerfd_create		(__NR_Linux + 284) */
+/* #define __NR_timerfd_gettime		(__NR_Linux + 285) */
+/* #define __NR_timerfd_settime		(__NR_Linux + 286) */
+/* #define __NR_signalfd4		(__NR_Linux + 287) */
+/* #define __NR_eventfd2		(__NR_Linux + 288) */
+/* #define __NR_epoll_create1		(__NR_Linux + 289) */
+/* #define __NR_dup3			(__NR_Linux + 290) */
+/* #define __NR_pipe2			(__NR_Linux + 291) */
+/* #define __NR_inotify_init1		(__NR_Linux + 292) */
+/* #define __NR_preadv			(__NR_Linux + 293) */
+/* #define __NR_pwritev			(__NR_Linux + 294) */
+/* #define __NR_rt_tgsigqueueinfo	(__NR_Linux + 295) */
+/* #define __NR_perf_counter_open	(__NR_Linux + 296) */
+/* #define __NR_accept4			(__NR_Linux + 297) */
+/* #define __NR_recvmmsg		(__NR_Linux + 298) */
+#define __NR_getdents64			(__NR_Linux + 299)
 
 /*
  * Offset of the last N32 flavoured syscall
  */
-#define __NR_Linux_syscalls		282
+#define __NR_Linux_syscalls		299
 
 #endif /* _MIPS_SIM == _MIPS_SIM_NABI32 */
 
 #define __NR_N32_Linux			6000
-#define __NR_N32_Linux_syscalls		282
+#define __NR_N32_Linux_syscalls		299
 
 #ifdef __KERNEL__
 

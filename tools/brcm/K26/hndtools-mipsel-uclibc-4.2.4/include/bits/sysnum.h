@@ -998,7 +998,7 @@
 #define __NR_N32_Linux 6000
 #define SYS_N32_Linux __NR_N32_Linux
 #undef __NR_N32_Linux_syscalls
-#define __NR_N32_Linux_syscalls 282
+#define __NR_N32_Linux_syscalls 299
 #define SYS_N32_Linux_syscalls __NR_N32_Linux_syscalls
 
 #endif

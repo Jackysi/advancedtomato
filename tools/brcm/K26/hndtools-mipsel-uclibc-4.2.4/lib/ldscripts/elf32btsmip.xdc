@@ -7,7 +7,7 @@ SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
-  . = 0 + SIZEOF_HEADERS;
+  . = SEGMENT_START("text-segment", 0) + SIZEOF_HEADERS;
   .interp         : { *(.interp) }
   .reginfo        : { *(.reginfo) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
@@ -38,6 +38,11 @@ SECTIONS
       *(.rel.sdata2 .rel.sdata2.* .rel.gnu.linkonce.s2.*)
       *(.rel.sbss2 .rel.sbss2.* .rel.gnu.linkonce.sb2.*)
       *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
+      PROVIDE_HIDDEN (__rel_iplt_start = .);
+      *(.rel.iplt)
+      PROVIDE_HIDDEN (__rel_iplt_end = .);
+      PROVIDE_HIDDEN (__rela_iplt_start = .);
+      PROVIDE_HIDDEN (__rela_iplt_end = .);
     }
   .rela.dyn       :
     {
@@ -56,17 +61,30 @@ SECTIONS
       *(.rela.sdata2 .rela.sdata2.* .rela.gnu.linkonce.s2.*)
       *(.rela.sbss2 .rela.sbss2.* .rela.gnu.linkonce.sb2.*)
       *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+      PROVIDE_HIDDEN (__rel_iplt_start = .);
+      PROVIDE_HIDDEN (__rel_iplt_end = .);
+      PROVIDE_HIDDEN (__rela_iplt_start = .);
+      *(.rela.iplt)
+      PROVIDE_HIDDEN (__rela_iplt_end = .);
     }
-  .rel.plt        : { *(.rel.plt) }
-  .rela.plt       : { *(.rela.plt) }
+  .rel.plt        :
+    {
+      *(.rel.plt)
+    }
+  .rela.plt       :
+    {
+      *(.rela.plt)
+    }
   .init           :
   {
     KEEP (*(.init))
   } =0
   .plt            : { *(.plt) }
+  .iplt           : { *(.iplt) }
   .text           :
   {
     _ftext = . ;
+    *(.text.unlikely .text.*_unlikely)
     *(.text .stub .text.* .gnu.linkonce.t.*)
     /* .gnu.warning sections are handled specially by elf32.em.  */
     *(.gnu.warning)
@@ -242,5 +260,5 @@ SECTIONS
   .mdebug.eabi64 : { KEEP(*(.mdebug.eabi64)) }
   .gcc_compiled_long32 : { KEEP(*(.gcc_compiled_long32)) }
   .gcc_compiled_long64 : { KEEP(*(.gcc_compiled_long64)) }
-  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) }
+  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }
 }

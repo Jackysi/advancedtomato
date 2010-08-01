@@ -7,7 +7,7 @@ SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
-  . = 0 + SIZEOF_HEADERS;
+  . = SEGMENT_START("text-segment", 0) + SIZEOF_HEADERS;
   .reginfo        : { *(.reginfo) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
   .dynamic        : { *(.dynamic) }
@@ -51,16 +51,32 @@ SECTIONS
   .rela.sbss2     : { *(.rela.sbss2 .rela.sbss2.* .rela.gnu.linkonce.sb2.*) }
   .rel.bss        : { *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*) }
   .rela.bss       : { *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*) }
-  .rel.plt        : { *(.rel.plt) }
-  .rela.plt       : { *(.rela.plt) }
+  .rel.iplt       :
+    {
+      *(.rel.iplt)
+    }
+  .rela.iplt      :
+    {
+      *(.rela.iplt)
+    }
+  .rel.plt        :
+    {
+      *(.rel.plt)
+    }
+  .rela.plt       :
+    {
+      *(.rela.plt)
+    }
   .init           :
   {
     KEEP (*(.init))
   } =0
   .plt            : { *(.plt) }
+  .iplt           : { *(.iplt) }
   .text           :
   {
     _ftext = . ;
+    *(.text.unlikely .text.*_unlikely)
     *(.text .stub .text.* .gnu.linkonce.t.*)
     /* .gnu.warning sections are handled specially by elf32.em.  */
     *(.gnu.warning)
@@ -227,5 +243,5 @@ SECTIONS
   .mdebug.eabi64 : { KEEP(*(.mdebug.eabi64)) }
   .gcc_compiled_long32 : { KEEP(*(.gcc_compiled_long32)) }
   .gcc_compiled_long64 : { KEEP(*(.gcc_compiled_long64)) }
-  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) }
+  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }
 }
