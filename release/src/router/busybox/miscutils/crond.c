@@ -94,7 +94,7 @@ struct globals {
 	char *env_var_user;
 	char *env_var_home;
 #endif
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define LogLevel           (G.LogLevel               )
 #define LogFile            (G.LogFile                )
@@ -264,8 +264,7 @@ static void safe_setenv(char **pvar_val, const char *var, const char *val)
 	char *var_val = *pvar_val;
 
 	if (var_val) {
-		bb_unsetenv(var_val);
-		free(var_val);
+		bb_unsetenv_and_free(var_val);
 	}
 	*pvar_val = xasprintf("%s=%s", var, val);
 	putenv(*pvar_val);
@@ -292,9 +291,9 @@ static void ChangeUser(struct passwd *pas)
 	/* careful: we're after vfork! */
 	change_identity(pas); /* - initgroups, setgid, setuid */
 	if (chdir(pas->pw_dir) < 0) {
-		crondlog(WARN9 "can't chdir(%s)", pas->pw_dir);
+		crondlog(WARN9 "chdir(%s)", pas->pw_dir);
 		if (chdir(TMPDIR) < 0) {
-			crondlog(DIE9 "can't chdir(%s)", TMPDIR); /* exits */
+			crondlog(DIE9 "chdir(%s)", TMPDIR); /* exits */
 		}
 	}
 }
@@ -420,7 +419,7 @@ static void ParseField(char *user, char *ary, int modvalue, int off,
 		int i;
 		for (i = 0; i < modvalue; ++i)
 			fprintf(stderr, "%d", (unsigned char)ary[i]);
-		fputc('\n', stderr);
+		bb_putchar_stderr('\n');
 	}
 }
 
@@ -575,14 +574,14 @@ static void SynchronizeDir(void)
 	 */
 	unlink(CRONUPDATE);
 	if (chdir(CDir) < 0) {
-		crondlog(DIE9 "can't chdir(%s)", CDir);
+		crondlog(DIE9 "chdir(%s)", CDir);
 	}
 	{
 		DIR *dir = opendir(".");
 		struct dirent *den;
 
 		if (!dir)
-			crondlog(DIE9 "can't chdir(%s)", "."); /* exits */
+			crondlog(DIE9 "chdir(%s)", "."); /* exits */
 		while ((den = readdir(dir)) != NULL) {
 			if (strchr(den->d_name, '.') != NULL) {
 				continue;

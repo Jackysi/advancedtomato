@@ -617,6 +617,9 @@ rta->rta_prefsrc ? *(u32*)rta->rta_prefsrc : 0);
 			goto out;
 
 		if (n->nlmsg_flags&NLM_F_REPLACE) {
+			if (fi->fib_treeref > 1)
+				goto out;
+
 			del_fp = fp;
 			fp = &f->fn_next;
 			f = *fp;

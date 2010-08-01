@@ -166,9 +166,12 @@ static NOINLINE int lzo1x_optimize(uint8_t *in, unsigned in_len,
 					o_m1_a++;
 				}
 				/* test if a literal run follows */
-				else if (nl == 0 && ip[0] < 16 && ip[0] != 0 &&
-						 (lit + 2 + ip[0] < 16))
-				{
+				else
+				if (nl == 0
+				 && ip[0] < 16
+				 && ip[0] != 0
+				 && (lit + 2 + ip[0] < 16)
+				) {
 					t = *ip++;
 					/* remove short run */
 					*litp &= ~3;
@@ -393,7 +396,7 @@ struct globals {
 	const uint32_t *lzo_crc32_table;
 	chksum_t chksum_in;
 	chksum_t chksum_out;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { } while (0)
 //#define G (*ptr_to_globals)
@@ -472,7 +475,7 @@ lzo_crc32(uint32_t c, const uint8_t* buf, unsigned len)
 
 	crc = ~c;
 	if (len != 0) do {
-	crc = G.lzo_crc32_table[((int)crc ^ *buf) & 0xff] ^ (crc >> 8);
+		crc = G.lzo_crc32_table[(uint8_t)((int)crc ^ *buf)] ^ (crc >> 8);
 		buf += 1;
 		len -= 1;
 	} while (len > 0);
@@ -735,12 +738,12 @@ static NOINLINE smallint lzo_decompress(const header_t *h)
 			bb_error_msg_and_die("this file is a split lzop file");
 
 		if (dst_len > MAX_BLOCK_SIZE)
-			bb_error_msg_and_die("lzop file corrupted");
+			bb_error_msg_and_die("corrupted data");
 
 		/* read compressed block size */
 		src_len = read32();
 		if (src_len <= 0 || src_len > dst_len)
-			bb_error_msg_and_die("lzop file corrupted");
+			bb_error_msg_and_die("corrupted data");
 
 		if (dst_len > block_size) {
 			if (b2) {
@@ -794,7 +797,7 @@ static NOINLINE smallint lzo_decompress(const header_t *h)
 				r = lzo1x_decompress_safe(b1, src_len, b2, &d, NULL);
 
 			if (r != 0 /*LZO_E_OK*/ || dst_len != d) {
-				bb_error_msg_and_die("corrupted compressed data");
+				bb_error_msg_and_die("corrupted data");
 			}
 			dst = b2;
 		} else {
@@ -1039,7 +1042,7 @@ static smallint do_lzo_decompress(void)
 	return lzo_decompress(&header);
 }
 
-static char* make_new_name_lzop(char *filename)
+static char* FAST_FUNC make_new_name_lzop(char *filename, const char *expected_ext UNUSED_PARAM)
 {
 	if (option_mask32 & OPT_DECOMPRESS) {
 		char *extension = strrchr(filename, '.');
@@ -1051,7 +1054,7 @@ static char* make_new_name_lzop(char *filename)
 	return xasprintf("%s.lzo", filename);
 }
 
-static IF_DESKTOP(long long) int pack_lzop(unpack_info_t *info UNUSED_PARAM)
+static IF_DESKTOP(long long) int FAST_FUNC pack_lzop(unpack_info_t *info UNUSED_PARAM)
 {
 	if (option_mask32 & OPT_DECOMPRESS)
 		return do_lzo_decompress();
@@ -1071,5 +1074,5 @@ int lzop_main(int argc UNUSED_PARAM, char **argv)
 		option_mask32 |= OPT_DECOMPRESS;
 
 	G.lzo_crc32_table = crc32_filltable(NULL, 0);
-	return bbunpack(argv, make_new_name_lzop, pack_lzop);
+	return bbunpack(argv, pack_lzop, make_new_name_lzop, /*unused:*/ NULL);
 }

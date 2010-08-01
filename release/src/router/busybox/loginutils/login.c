@@ -2,25 +2,26 @@
 /*
  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
  */
-
 #include "libbb.h"
 #include <syslog.h>
-#include <utmp.h>
+#if ENABLE_FEATURE_UTMP
+# include <utmp.h> /* USER_PROCESS */
+#endif
 #include <sys/resource.h>
 
 #if ENABLE_SELINUX
-#include <selinux/selinux.h>  /* for is_selinux_enabled()  */
-#include <selinux/get_context_list.h> /* for get_default_context() */
-#include <selinux/flask.h> /* for security class definitions  */
+# include <selinux/selinux.h>  /* for is_selinux_enabled()  */
+# include <selinux/get_context_list.h> /* for get_default_context() */
+# include <selinux/flask.h> /* for security class definitions  */
 #endif
 
 #if ENABLE_PAM
 /* PAM may include <locale.h>. We may need to undefine bbox's stub define: */
-#undef setlocale
+# undef setlocale
 /* For some obscure reason, PAM is not in pam/xxx, but in security/xxx.
  * Apparently they like to confuse people. */
-#include <security/pam_appl.h>
-#include <security/pam_misc.h>
+# include <security/pam_appl.h>
+# include <security/pam_misc.h>
 static const struct pam_conv conv = {
 	misc_conv,
 	NULL
@@ -35,86 +36,6 @@ enum {
 };
 
 static char* short_tty;
-
-#if ENABLE_FEATURE_UTMP
-/* vv  Taken from tinylogin utmp.c  vv */
-/*
- * read_or_build_utent - see if utmp file is correct for this process
- *
- *	System V is very picky about the contents of the utmp file
- *	and requires that a slot for the current process exist.
- *	The utmp file is scanned for an entry with the same process
- *	ID.  If no entry exists the process exits with a message.
- *
- *	The "picky" flag is for network and other logins that may
- *	use special flags.  It allows the pid checks to be overridden.
- *	This means that getty should never invoke login with any
- *	command line flags.
- */
-
-static void read_or_build_utent(struct utmp *utptr, int run_by_root)
-{
-	struct utmp *ut;
-	pid_t pid = getpid();
-
-	setutent();
-
-	/* First, try to find a valid utmp entry for this process.  */
-	/* If there is one, just use it.  */
-	while ((ut = getutent()) != NULL)
-		if (ut->ut_pid == pid && ut->ut_line[0] && ut->ut_id[0]
-		 && (ut->ut_type == LOGIN_PROCESS || ut->ut_type == USER_PROCESS)
-		) {
-			*utptr = *ut; /* struct copy */
-			if (run_by_root) /* why only for root? */
-				memset(utptr->ut_host, 0, sizeof(utptr->ut_host));
-			return;
-		}
-
-// Why? Do we require non-root to exec login from another
-// former login process (e.g. login shell)? Some login's have
-// login shells as children, so it won't work...
-//	if (!run_by_root)
-//		bb_error_msg_and_die("no utmp entry found");
-
-	/* Otherwise create a new one.  */
-	memset(utptr, 0, sizeof(*utptr));
-	utptr->ut_type = LOGIN_PROCESS;
-	utptr->ut_pid = pid;
-	strncpy(utptr->ut_line, short_tty, sizeof(utptr->ut_line));
-	/* This one is only 4 chars wide. Try to fit something
-	 * remotely meaningful by skipping "tty"... */
-	strncpy(utptr->ut_id, short_tty + 3, sizeof(utptr->ut_id));
-	strncpy(utptr->ut_user, "LOGIN", sizeof(utptr->ut_user));
-	utptr->ut_tv.tv_sec = time(NULL);
-}
-
-/*
- * write_utent - put a USER_PROCESS entry in the utmp file
- *
- *	write_utent changes the type of the current utmp entry to
- *	USER_PROCESS.  the wtmp file will be updated as well.
- */
-static void write_utent(struct utmp *utptr, const char *username)
-{
-	utptr->ut_type = USER_PROCESS;
-	strncpy(utptr->ut_user, username, sizeof(utptr->ut_user));
-	utptr->ut_tv.tv_sec = time(NULL);
-	/* other fields already filled in by read_or_build_utent above */
-	setutent();
-	pututline(utptr);
-	endutent();
-#if ENABLE_FEATURE_WTMP
-	if (access(bb_path_wtmp_file, R_OK|W_OK) == -1) {
-		close(creat(bb_path_wtmp_file, 0664));
-	}
-	updwtmp(bb_path_wtmp_file, utptr);
-#endif
-}
-#else /* !ENABLE_FEATURE_UTMP */
-#define read_or_build_utent(utptr, run_by_root) ((void)0)
-#define write_utent(utptr, username) ((void)0)
-#endif /* !ENABLE_FEATURE_UTMP */
 
 #if ENABLE_FEATURE_NOLOGIN
 static void die_if_nologin(void)
@@ -143,7 +64,7 @@ static void die_if_nologin(void)
 	exit(EXIT_FAILURE);
 }
 #else
-static ALWAYS_INLINE void die_if_nologin(void) {}
+# define die_if_nologin() ((void)0)
 #endif
 
 #if ENABLE_FEATURE_SECURETTY && !ENABLE_PAM
@@ -280,16 +201,15 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	};
 	char *fromhost;
 	char username[USERNAME_SIZE];
-	const char *tmp;
+	const char *shell;
 	int run_by_root;
 	unsigned opt;
 	int count = 0;
 	struct passwd *pw;
-	char *opt_host = opt_host; /* for compiler */
+	char *opt_host = NULL;
 	char *opt_user = opt_user; /* for compiler */
 	char *full_tty;
 	IF_SELINUX(security_context_t user_sid = NULL;)
-	IF_FEATURE_UTMP(struct utmp utent;)
 #if ENABLE_PAM
 	int pamret;
 	pam_handle_t *pamh;
@@ -329,14 +249,9 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	full_tty = xmalloc_ttyname(STDIN_FILENO);
 	if (!full_tty)
 		full_tty = xstrdup("UNKNOWN");
-	short_tty = full_tty;
-	if (strncmp(full_tty, "/dev/", 5) == 0)
-		short_tty += 5;
+	short_tty = skip_dev_pfx(full_tty);
 
-	read_or_build_utent(&utent, run_by_root);
-
-	if (opt & LOGIN_OPT_h) {
-		IF_FEATURE_UTMP(safe_strncpy(utent.ut_host, opt_host, sizeof(utent.ut_host));)
+	if (opt_host) {
 		fromhost = xasprintf(" on '%s' from '%s'", short_tty, opt_host);
 	} else {
 		fromhost = xasprintf(" on '%s'", short_tty);
@@ -460,8 +375,6 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	if (pw->pw_uid != 0)
 		die_if_nologin();
 
-	write_utent(&utent, username);
-
 	IF_SELINUX(initselinux(username, full_tty, &user_sid));
 
 	/* Try these, but don't complain if they fail.
@@ -469,16 +382,19 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	fchown(0, pw->pw_uid, pw->pw_gid);
 	fchmod(0, 0600);
 
+	update_utmp(getpid(), USER_PROCESS, short_tty, username, run_by_root ? opt_host : NULL);
+
 	/* We trust environment only if we run by root */
 	if (ENABLE_LOGIN_SCRIPTS && run_by_root)
 		run_login_script(pw, full_tty);
 
 	change_identity(pw);
-	tmp = pw->pw_shell;
-	if (!tmp || !*tmp)
-		tmp = DEFAULT_SHELL;
-	/* setup_environment params: shell, clear_env, change_env, pw */
-	setup_environment(tmp, !(opt & LOGIN_OPT_p), 1, pw);
+	shell = pw->pw_shell;
+	if (!shell || !shell[0])
+		shell = DEFAULT_SHELL;
+	setup_environment(shell,
+			(!(opt & LOGIN_OPT_p) * SETUP_ENV_CLEARENV) + SETUP_ENV_CHANGEENV,
+			pw);
 
 	motd();
 
@@ -511,7 +427,7 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	signal(SIGINT, SIG_DFL);
 
 	/* Exec login shell with no additional parameters */
-	run_shell(tmp, 1, NULL, NULL);
+	run_shell(shell, 1, NULL, NULL);
 
 	/* return EXIT_FAILURE; - not reached */
 }

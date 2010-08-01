@@ -113,10 +113,29 @@ void start_dnsmasq()
 		"resolv-file=%s\n"		// the real stuff is here
 		"addn-hosts=%s\n"		// "
 		"expand-hosts\n"		// expand hostnames in hosts file
-		"stop-dns-rebind\n"		// DNS rebinding protection, will discard upstream RFC1918 responses
 		"min-port=%u\n", 		// min port used for random src port
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
+
+	// DNS rebinding protection, will discard upstream RFC1918 responses
+	if (nvram_get_int("dns_norebind")) {
+		fprintf(f,
+			"stop-dns-rebind\n"
+			"rebind-localhost-ok\n");
+		// allow RFC1918 responses for server domain
+		switch (get_wan_proto()) {
+		case WP_PPTP:
+			nv = nvram_get("pptp_server_ip");
+			break;
+		case WP_L2TP:
+			nv = nvram_get("l2tp_server_ip");
+			break;
+		default:
+			nv = NULL;
+			break;
+		}
+		if (nv && *nv) fprintf(f, "rebind-domain-ok=%s\n", nv);
+	}
 
 	for (n = 0 ; n < dns->count; ++n) {
 		if (dns->dns[n].port != 53) {

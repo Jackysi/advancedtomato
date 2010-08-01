@@ -1,14 +1,11 @@
 /* vi: set sw=4 ts=4: */
 /*
- * leases.c -- tools to manage DHCP leases
  * Russ Dill <Russ.Dill@asu.edu> July 2001
  *
  * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
-
 #include "common.h"
 #include "dhcpd.h"
-
 
 /* Find the oldest expired lease, NULL if there are no expired leases */
 static struct dyn_lease *oldest_expired_lease(void)
@@ -28,17 +25,15 @@ static struct dyn_lease *oldest_expired_lease(void)
 	return oldest_lease;
 }
 
-
-/* Clear every lease out that chaddr OR yiaddr matches and is nonzero */
-static void clear_lease(const uint8_t *chaddr, uint32_t yiaddr)
+/* Clear out all leases with matching nonzero chaddr OR yiaddr.
+ * If chaddr == NULL, this is a conflict lease.
+ */
+static void clear_leases(const uint8_t *chaddr, uint32_t yiaddr)
 {
-	unsigned i, j;
-
-	for (j = 0; j < 16 && !chaddr[j]; j++)
-		continue;
+	unsigned i;
 
 	for (i = 0; i < server_config.max_leases; i++) {
-		if ((j != 16 && memcmp(g_leases[i].lease_mac, chaddr, 6) == 0)
+		if ((chaddr && memcmp(g_leases[i].lease_mac, chaddr, 6) == 0)
 		 || (yiaddr && g_leases[i].lease_nip == yiaddr)
 		) {
 			memset(&g_leases[i], 0, sizeof(g_leases[i]));
@@ -46,8 +41,9 @@ static void clear_lease(const uint8_t *chaddr, uint32_t yiaddr)
 	}
 }
 
-
-/* Add a lease into the table, clearing out any old ones */
+/* Add a lease into the table, clearing out any old ones.
+ * If chaddr == NULL, this is a conflict lease.
+ */
 struct dyn_lease* FAST_FUNC add_lease(
 		const uint8_t *chaddr, uint32_t yiaddr,
 		leasetime_t leasetime,
@@ -56,12 +52,12 @@ struct dyn_lease* FAST_FUNC add_lease(
 	struct dyn_lease *oldest;
 
 	/* clean out any old ones */
-	clear_lease(chaddr, yiaddr);
+	clear_leases(chaddr, yiaddr);
 
 	oldest = oldest_expired_lease();
 
 	if (oldest) {
-		oldest->hostname[0] = '\0';
+		memset(oldest, 0, sizeof(*oldest));
 		if (hostname) {
 			char *p;
 
@@ -76,7 +72,8 @@ struct dyn_lease* FAST_FUNC add_lease(
 				p++;
 			}
 		}
-		memcpy(oldest->lease_mac, chaddr, 6);
+		if (chaddr)
+			memcpy(oldest->lease_mac, chaddr, 6);
 		oldest->lease_nip = yiaddr;
 		oldest->expires = time(NULL) + leasetime;
 	}
@@ -84,13 +81,11 @@ struct dyn_lease* FAST_FUNC add_lease(
 	return oldest;
 }
 
-
 /* True if a lease has expired */
 int FAST_FUNC is_expired_lease(struct dyn_lease *lease)
 {
 	return (lease->expires < (leasetime_t) time(NULL));
 }
-
 
 /* Find the first lease that matches MAC, NULL if no match */
 struct dyn_lease* FAST_FUNC find_lease_by_mac(const uint8_t *mac)
@@ -104,7 +99,6 @@ struct dyn_lease* FAST_FUNC find_lease_by_mac(const uint8_t *mac)
 	return NULL;
 }
 
-
 /* Find the first lease that matches IP, NULL is no match */
 struct dyn_lease* FAST_FUNC find_lease_by_nip(uint32_t nip)
 {
@@ -117,14 +111,9 @@ struct dyn_lease* FAST_FUNC find_lease_by_nip(uint32_t nip)
 	return NULL;
 }
 
-
 /* Check if the IP is taken; if it is, add it to the lease table */
 static int nobody_responds_to_arp(uint32_t nip, const uint8_t *safe_mac)
 {
-	/* 16 zero bytes */
-	static const uint8_t blank_chaddr[16] = { 0 };
-	/* = { 0 } helps gcc to put it in rodata, not bss */
-
 	struct in_addr temp;
 	int r;
 
@@ -138,10 +127,9 @@ static int nobody_responds_to_arp(uint32_t nip, const uint8_t *safe_mac)
 	temp.s_addr = nip;
 	bb_info_msg("%s belongs to someone, reserving it for %u seconds",
 		inet_ntoa(temp), (unsigned)server_config.conflict_time);
-	add_lease(blank_chaddr, nip, server_config.conflict_time, NULL, 0);
+	add_lease(NULL, nip, server_config.conflict_time, NULL, 0);
 	return 0;
 }
-
 
 /* Find a new usable (we think) address */
 uint32_t FAST_FUNC find_free_or_expired_nip(const uint8_t *safe_mac)
@@ -167,6 +155,7 @@ uint32_t FAST_FUNC find_free_or_expired_nip(const uint8_t *safe_mac)
 
 		lease = find_lease_by_nip(nip);
 		if (!lease) {
+//TODO: DHCP servers do not always sit on the same subnet as clients: should *ping*, not arp-ping!
 			if (nobody_responds_to_arp(nip, safe_mac))
 				return nip;
 		} else {
@@ -175,7 +164,8 @@ uint32_t FAST_FUNC find_free_or_expired_nip(const uint8_t *safe_mac)
 		}
 	}
 
-	if (oldest_lease && is_expired_lease(oldest_lease)
+	if (oldest_lease
+	 && is_expired_lease(oldest_lease)
 	 && nobody_responds_to_arp(oldest_lease->lease_nip, safe_mac)
 	) {
 		return oldest_lease->lease_nip;

@@ -106,7 +106,7 @@ struct globals {
 	/* We need these aligned to uint32_t */
 	char msg_ok [(sizeof("NNN " MSG_OK ) + 3) & 0xfffc];
 	char msg_err[(sizeof("NNN " MSG_ERR) + 3) & 0xfffc];
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { \
 	/* Moved to main */ \
@@ -461,21 +461,6 @@ handle_epsv(void)
 	free(response);
 }
 
-/* libbb candidate */
-static
-len_and_sockaddr* get_peer_lsa(int fd)
-{
-	len_and_sockaddr *lsa;
-	socklen_t len = 0;
-
-	if (getpeername(fd, NULL, &len) != 0)
-		return NULL;
-	lsa = xzalloc(LSA_LEN_SIZE + len);
-	lsa->len = len;
-	getpeername(fd, &lsa->u.sa, &lsa->len);
-	return lsa;
-}
-
 static void
 handle_port(void)
 {
@@ -633,10 +618,10 @@ popen_ls(const char *opt)
 	argv[4] = NULL;
 
 	/* Improve compatibility with non-RFC conforming FTP clients
-	 * which send e.g. "LIST -l", "LIST -la".
+	 * which send e.g. "LIST -l", "LIST -la", "LIST -aL".
 	 * See https://bugs.kde.org/show_bug.cgi?id=195578 */
 	if (ENABLE_FEATURE_FTPD_ACCEPT_BROKEN_LIST
-	 && G.ftp_arg && G.ftp_arg[0] == '-' && G.ftp_arg[1] == 'l'
+	 && G.ftp_arg && G.ftp_arg[0] == '-'
 	) {
 		const char *tmp = strchr(G.ftp_arg, ' ');
 		if (tmp) /* skip the space */
@@ -647,10 +632,7 @@ popen_ls(const char *opt)
 	xpiped_pair(outfd);
 
 	/*fflush_all(); - so far we dont use stdio on output */
-	pid = BB_MMU ? fork() : vfork();
-	if (pid < 0)
-		bb_perror_msg_and_die(BB_MMU ? "fork" : "vfork");
-
+	pid = BB_MMU ? xfork() : xvfork();
 	if (pid == 0) {
 		/* child */
 #if !BB_MMU
@@ -981,17 +963,23 @@ handle_stou(void)
 static uint32_t
 cmdio_get_cmd_and_arg(void)
 {
-	size_t len;
+	int len;
 	uint32_t cmdval;
 	char *cmd;
 
 	alarm(G.timeout);
 
 	free(G.ftp_cmd);
-	len = 8 * 1024; /* Paranoia. Peer may send 1 gigabyte long cmd... */
-	G.ftp_cmd = cmd = xmalloc_fgets_str_len(stdin, "\r\n", &len);
-	if (!cmd)
-		exit(0);
+	{
+		/* Paranoia. Peer may send 1 gigabyte long cmd... */
+		/* Using separate len_on_stk instead of len optimizes
+		 * code size (allows len to be in CPU register) */
+		size_t len_on_stk = 8 * 1024;
+		G.ftp_cmd = cmd = xmalloc_fgets_str_len(stdin, "\r\n", &len_on_stk);
+		if (!cmd)
+			exit(0);
+		len = len_on_stk;
+	}
 
 	/* De-escape telnet: 0xff,0xff => 0xff */
 	/* RFC959 says that ABOR, STAT, QUIT may be sent even during
@@ -1127,9 +1115,9 @@ int ftpd_main(int argc UNUSED_PARAM, char **argv)
 	opts = getopt32(argv, "l1vS" IF_FEATURE_FTP_WRITE("w") "t:T:", &G.timeout, &abs_timeout, &G.verbose, &verbose_S);
 	if (opts & (OPT_l|OPT_1)) {
 		/* Our secret backdoor to ls */
-/* TODO: pass -n? It prevents user/group resolution, whicj may not work in chroot anyway */
+/* TODO: pass -n? It prevents user/group resolution, which may not work in chroot anyway */
 /* TODO: pass -A? It shows dot files */
-/* TODO: pass --group-directories-first? would be nice, but ls don't do that yet */
+/* TODO: pass --group-directories-first? would be nice, but ls doesn't do that yet */
 		xchdir(argv[2]);
 		argv[2] = (char*)"--";
 		/* memset(&G, 0, sizeof(G)); - ls_main does it */

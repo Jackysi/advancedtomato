@@ -1,5 +1,7 @@
 /* vi: set sw=4 ts=4: */
-/* dhcpd.h */
+/*
+ * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ */
 #ifndef UDHCP_DHCPD_H
 #define UDHCP_DHCPD_H 1
 
@@ -7,16 +9,11 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
 /* Defaults you may want to tweak */
 /* Default max_lease_sec */
-#define LEASE_TIME      (60*60*24 * 10)
-#define LEASES_FILE     CONFIG_DHCPD_LEASES_FILE
+#define DEFAULT_LEASE_TIME      (60*60*24 * 10)
+#define LEASES_FILE             CONFIG_DHCPD_LEASES_FILE
 /* Where to find the DHCP server configuration file */
 #define DHCPD_CONF_FILE         "/etc/udhcpd.conf"
 
-
-struct option_set {
-	uint8_t *data;
-	struct option_set *next;
-};
 
 struct static_lease {
 	struct static_lease *next;
@@ -39,7 +36,6 @@ struct server_config_t {
 #endif
 	uint8_t server_mac[6];          /* our MAC address (used only for ARP probing) */
 	struct option_set *options;     /* list of DHCP options loaded from the config file */
-	int verbose;
 	/* start,end are in host order: we need to compare start <= ip <= end */
 	uint32_t start_ip;              /* start address of leases, in host order */
 	uint32_t end_ip;                /* end of leases, in host order */
@@ -59,7 +55,7 @@ struct server_config_t {
 	char *sname;                    /* bootp server name */
 	char *boot_file;                /* bootp boot file option */
 	struct static_lease *static_leases; /* List of ip/mac pairs to assign static leases */
-};
+} FIX_ALIASING;
 
 #define server_config (*(struct server_config_t*)&bb_common_bufsiz1)
 /* client_config sits in 2nd half of bb_common_bufsiz1 */
@@ -71,17 +67,15 @@ struct server_config_t {
 #endif
 
 
-/*** leases.h ***/
-
 typedef uint32_t leasetime_t;
 typedef int32_t signed_leasetime_t;
 
 struct dyn_lease {
-	/* "nip": IP in network order */
 	/* Unix time when lease expires. Kept in memory in host order.
 	 * When written to file, converted to network order
 	 * and adjusted (current time subtracted) */
 	leasetime_t expires;
+	/* "nip": IP in network order */
 	uint32_t lease_nip;
 	/* We use lease_mac[6], since e.g. ARP probing uses
 	 * only 6 first bytes anyway. We check received dhcp packets
@@ -107,8 +101,6 @@ struct dyn_lease *find_lease_by_nip(uint32_t nip) FAST_FUNC;
 uint32_t find_free_or_expired_nip(const uint8_t *safe_mac) FAST_FUNC;
 
 
-/*** static_leases.h ***/
-
 /* Config file parser will pass static lease info to this function
  * which will add it to a data structure that can be searched later */
 void add_static_lease(struct static_lease **st_lease_pp, uint8_t *mac, uint32_t nip) FAST_FUNC;
@@ -124,20 +116,9 @@ void log_static_leases(struct static_lease **st_lease_pp) FAST_FUNC;
 #endif
 
 
-/*** serverpacket.h ***/
-
-int send_offer(struct dhcp_packet *oldpacket) FAST_FUNC;
-int send_NAK(struct dhcp_packet *oldpacket) FAST_FUNC;
-int send_ACK(struct dhcp_packet *oldpacket, uint32_t yiaddr) FAST_FUNC;
-int send_inform(struct dhcp_packet *oldpacket) FAST_FUNC;
-
-
-/*** files.h ***/
-
 void read_config(const char *file) FAST_FUNC;
 void write_leases(void) FAST_FUNC;
 void read_leases(const char *file) FAST_FUNC;
-struct option_set *find_option(struct option_set *opt_list, uint8_t code) FAST_FUNC;
 
 
 POP_SAVED_FUNCTION_VISIBILITY

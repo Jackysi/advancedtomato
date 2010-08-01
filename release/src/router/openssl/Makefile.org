@@ -198,7 +198,7 @@ HEADER=         e_os.h
 # When we're prepared to use shared libraries in the programs we link here
 # we might remove 'clean-shared' from the targets to perform at this stage
 
-all: clean-shared Makefile.ssl sub_all my_apps
+all: clean-shared Makefile.ssl sub_all shared-library my_apps
 
 my_apps:
 	(cd apps && echo "making all in apps..." && \

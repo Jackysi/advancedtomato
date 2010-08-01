@@ -16,6 +16,7 @@
 #define HAVE_SETBIT 1
 #define HAVE_STRCASESTR 1
 #define HAVE_STRCHRNUL 1
+#define HAVE_STRSEP 1
 #define HAVE_STRSIGNAL 1
 #define HAVE_VASPRINTF 1
 
@@ -100,6 +101,13 @@
 # define EXTERNALLY_VISIBLE
 #endif
 
+/* At 4.4 gcc become much more anal about this, need to use "aliased" types */
+#if __GNUC_PREREQ(4,4)
+# define FIX_ALIASING __attribute__((__may_alias__))
+#else
+# define FIX_ALIASING
+#endif
+
 /* We use __extension__ in some places to suppress -pedantic warnings
    about GCC extensions.  This feature didn't work properly before
    gcc 2.8.  */
@@ -161,10 +169,10 @@
 #if defined(__BIG_ENDIAN__) && __BIG_ENDIAN__
 # define BB_BIG_ENDIAN 1
 # define BB_LITTLE_ENDIAN 0
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
 # define BB_BIG_ENDIAN 1
 # define BB_LITTLE_ENDIAN 0
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#elif (defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN) || defined(__386__)
 # define BB_BIG_ENDIAN 0
 # define BB_LITTLE_ENDIAN 1
 #else
@@ -193,32 +201,30 @@
 /* NB: unaligned parameter should be a pointer, aligned one -
  * a lvalue. This makes it more likely to not swap them by mistake
  */
-#if defined(i386) || defined(__x86_64__)
-# define move_from_unaligned_int(v, intp) ((v) = *(int*)(intp))
-# define move_from_unaligned16(v, u16p) ((v) = *(uint16_t*)(u16p))
-# define move_from_unaligned32(v, u32p) ((v) = *(uint32_t*)(u32p))
-# define move_to_unaligned32(u32p, v)   (*(uint32_t*)(u32p) = (v))
+#if defined(i386) || defined(__x86_64__) || defined(__powerpc__)
+# include <stdint.h>
+typedef int      bb__aliased_int      FIX_ALIASING;
+typedef uint16_t bb__aliased_uint16_t FIX_ALIASING;
+typedef uint32_t bb__aliased_uint32_t FIX_ALIASING;
+# define move_from_unaligned_int(v, intp) ((v) = *(bb__aliased_int*)(intp))
+# define move_from_unaligned16(v, u16p) ((v) = *(bb__aliased_uint16_t*)(u16p))
+# define move_from_unaligned32(v, u32p) ((v) = *(bb__aliased_uint32_t*)(u32p))
+# define move_to_unaligned16(u16p, v)   (*(bb__aliased_uint16_t*)(u16p) = (v))
+# define move_to_unaligned32(u32p, v)   (*(bb__aliased_uint32_t*)(u32p) = (v))
 /* #elif ... - add your favorite arch today! */
 #else
 /* performs reasonably well (gcc usually inlines memcpy here) */
 # define move_from_unaligned_int(v, intp) (memcpy(&(v), (intp), sizeof(int)))
 # define move_from_unaligned16(v, u16p) (memcpy(&(v), (u16p), 2))
 # define move_from_unaligned32(v, u32p) (memcpy(&(v), (u32p), 4))
+# define move_to_unaligned16(u16p, v) do { \
+	uint16_t __t = (v); \
+	memcpy((u16p), &__t, 4); \
+} while (0)
 # define move_to_unaligned32(u32p, v) do { \
 	uint32_t __t = (v); \
 	memcpy((u32p), &__t, 4); \
 } while (0)
-#endif
-
-/* ---- Networking ------------------------------------------ */
-
-#ifndef __APPLE__
-# include <arpa/inet.h>
-# if !defined(__socklen_t_defined) && !defined(_SOCKLEN_T_DECLARED)
-typedef int socklen_t;
-# endif
-#else
-# include <netinet/in.h>
 #endif
 
 /* ---- Compiler dependent settings ------------------------- */
@@ -250,21 +256,6 @@ typedef int socklen_t;
 #if defined __GLIBC__ || defined __UCLIBC__ \
  || defined __dietlibc__ || defined _NEWLIB_VERSION
 # include <features.h>
-# define HAVE_FEATURES_H
-# include <stdint.h>
-# define HAVE_STDINT_H
-#elif !defined __APPLE__
-/* Largest integral types. */
-# if BB_BIG_ENDIAN
-/* Looks BROKEN! */
-typedef long                intmax_t;
-typedef unsigned long       uintmax_t;
-# else
-__extension__
-typedef long long           intmax_t;
-__extension__
-typedef unsigned long long  uintmax_t;
-# endif
 #endif
 
 /* Size-saving "small" ints (arch-dependent) */
@@ -363,6 +354,7 @@ typedef unsigned smalluint;
 # undef HAVE_SETBIT
 # undef HAVE_STRCASESTR
 # undef HAVE_STRCHRNUL
+# undef HAVE_STRSEP
 # undef HAVE_STRSIGNAL
 # undef HAVE_VASPRINTF
 #endif
@@ -399,6 +391,10 @@ extern char *strcasestr(const char *s, const char *pattern) FAST_FUNC;
 
 #ifndef HAVE_STRCHRNUL
 extern char *strchrnul(const char *s, int c) FAST_FUNC;
+#endif
+
+#ifndef HAVE_STRSEP
+extern char *strsep(char **stringp, const char *delim) FAST_FUNC;
 #endif
 
 #ifndef HAVE_STRSIGNAL

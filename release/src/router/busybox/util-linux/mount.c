@@ -267,8 +267,7 @@ struct globals {
 #endif
 	llist_t *fslist;
 	char getmntent_buf[1];
-
-};
+} FIX_ALIASING;
 enum { GETMNTENT_BUFSIZE = COMMON_BUFSIZE - offsetof(struct globals, getmntent_buf) };
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define nfs_mount_version (G.nfs_mount_version)
@@ -457,7 +456,7 @@ static int mount_it_now(struct mntent *mp, long vfsflags, char *filteropts)
 				args[rc++] = filteropts;
 			}
 			args[rc] = NULL;
-			rc = wait4pid(spawn(args));
+			rc = spawn_and_wait(args);
 			free(args[0]);
 			if (!rc)
 				break;
@@ -915,10 +914,12 @@ get_mountport(struct pmap *pm_mnt,
 			goto next;
 		if (version && version <= 2 && pmap->pml_map.pm_vers > 2)
 			goto next;
-		if (pmap->pml_map.pm_vers > MAX_NFSPROT ||
-		    (proto && pm_mnt->pm_prot && pmap->pml_map.pm_prot != proto) ||
-		    (port && pmap->pml_map.pm_port != port))
+		if (pmap->pml_map.pm_vers > MAX_NFSPROT
+		 || (proto && pm_mnt->pm_prot && pmap->pml_map.pm_prot != proto)
+		 || (port && pmap->pml_map.pm_port != port)
+		) {
 			goto next;
+		}
 		memcpy(pm_mnt, &pmap->pml_map, sizeof(*pm_mnt));
  next:
 		pmap = pmap->pml_next;
@@ -1640,7 +1641,7 @@ static int singlemount(struct mntent *mp, int ignore_busy)
 		}
 		args[n++] = mp->mnt_dir;
 		args[n] = NULL;
-		rc = wait4pid(xspawn(args));
+		rc = spawn_and_wait(args);
 		goto report_error;
 	}
 
@@ -1928,7 +1929,7 @@ int mount_main(int argc UNUSED_PARAM, char **argv)
 	}
 	fstab = setmntent(fstabname, "r");
 	if (!fstab)
-		bb_perror_msg_and_die("can't read %s", fstabname);
+		bb_perror_msg_and_die("can't read '%s'", fstabname);
 
 	// Loop through entries until we find what we're looking for
 	memset(mtpair, 0, sizeof(mtpair));

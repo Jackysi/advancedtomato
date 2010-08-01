@@ -620,10 +620,12 @@ static int longest_match(IPos cur_match)
 		/* Skip to next match if the match length cannot increase
 		 * or if the match length is less than 2:
 		 */
-		if (match[best_len] != scan_end ||
-			match[best_len - 1] != scan_end1 ||
-			*match != *scan || *++match != scan[1])
+		if (match[best_len] != scan_end
+		 || match[best_len - 1] != scan_end1
+		 || *match != *scan || *++match != scan[1]
+		) {
 			continue;
+		}
 
 		/* The check at best_len-1 can be removed because it will be made
 		 * again later. (This heuristic is not always a win.)
@@ -674,7 +676,7 @@ static void check_match(IPos start, IPos match, int length)
 	if (verbose > 1) {
 		bb_error_msg("\\[%d,%d]", start - match, length);
 		do {
-			fputc(G1.window[start++], stderr);
+			bb_putchar_stderr(G1.window[start++]);
 		} while (--length != 0);
 	}
 }
@@ -962,7 +964,7 @@ static void compress_block(ct_data * ltree, ct_data * dtree);
 #else
 #  define SEND_CODE(c, tree) \
 { \
-	if (verbose > 1) bb_error_msg("\ncd %3d ",(c)); \
+	if (verbose > 1) bb_error_msg("\ncd %3d ", (c)); \
 	send_bits(tree[c].Code, tree[c].Len); \
 }
 #endif
@@ -1996,13 +1998,7 @@ static void zip(ulg time_stamp)
 
 /* ======================================================================== */
 static
-char* make_new_name_gzip(char *filename)
-{
-	return xasprintf("%s.gz", filename);
-}
-
-static
-IF_DESKTOP(long long) int pack_gzip(unpack_info_t *info UNUSED_PARAM)
+IF_DESKTOP(long long) int FAST_FUNC pack_gzip(unpack_info_t *info UNUSED_PARAM)
 {
 	struct stat s;
 
@@ -2061,7 +2057,7 @@ static const char gzip_longopts[] ALIGN1 =
 #endif
 
 /*
- * Linux kernel build uses gzip -d -n. We accept and ignore it.
+ * Linux kernel build uses gzip -d -n. We accept and ignore -n.
  * Man page says:
  * -n --no-name
  * gzip: do not save the original file name and time stamp.
@@ -2111,5 +2107,5 @@ int gzip_main(int argc UNUSED_PARAM, char **argv)
 	/* Initialise the CRC32 table */
 	G1.crc_32_tab = crc32_filltable(NULL, 0);
 
-	return bbunpack(argv, make_new_name_gzip, pack_gzip);
+	return bbunpack(argv, pack_gzip, append_ext, "gz");
 }

@@ -545,10 +545,10 @@ matrixssl-clean:
 openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel shared
+	CC=$(CC) && ./Configure linux-mipsel
 else
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel shared \
+	CC=$(CC) && ./Configure linux-mipsel \
 		no-aes no-idea no-md2 no-mdc2 no-rc5 no-rmd160 no-ripemd
 endif
 	@$(MAKE) -C openssl clean

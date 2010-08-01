@@ -288,8 +288,7 @@ static int parse(const char *boundary, char **argv)
 					xsetenv("CHARSET", charset);
 					xsetenv("ENCODING", encoding);
 					xsetenv("FILENAME", filename);
-					BB_EXECVP(*argv, argv);
-					_exit(EXIT_FAILURE);
+					BB_EXECVP_or_die(argv);
 				}
 				// parent dumps to fd[1]
 				close(fd[0]);
@@ -357,7 +356,7 @@ static int parse(const char *boundary, char **argv)
 			if (opts & OPT_X) {
 				signal(SIGPIPE, SIG_DFL);
 				// exit if helper exited >0
-				rc = wait4pid(pid);
+				rc = (wait4pid(pid) & 0xff);
 				if (rc)
 					return rc+20;
 			}

@@ -16,7 +16,6 @@
 # define BLKSSZGET _IO(0x12, 104)
 #endif
 //#include <linux/msdos_fs.h>
-#include "volume_id/volume_id_internal.h"
 
 #define SECTOR_SIZE             512
 
@@ -99,8 +98,9 @@ struct msdos_volume_info { /* (offsets are relative to start of boot sector) */
 } PACKED;                         /* 05a end. Total size 26 (0x1a) bytes */
 
 struct msdos_boot_sector {
-	char     boot_jump[3];       /* 000 short or near jump instruction */
-	char     system_id[8];       /* 003 name - can be used to special case partition manager volumes */
+	/* We use strcpy to fill both, and gcc-4.4.x complains if they are separate */
+	char     boot_jump_and_sys_id[3+8]; /* 000 short or near jump instruction */
+	/*char   system_id[8];*/     /* 003 name - can be used to special case partition manager volumes */
 	uint16_t bytes_per_sect;     /* 00b bytes per logical sector */
 	uint8_t  sect_per_clust;     /* 00d sectors/cluster */
 	uint16_t reserved_sect;      /* 00e reserved sectors (sector offset of 1st FAT relative to volume start) */
@@ -168,15 +168,15 @@ static const char boot_code[] ALIGN1 =
 
 
 #define MARK_CLUSTER(cluster, value) \
-	((uint32_t *)fat)[cluster] = cpu_to_le32(value)
+	((uint32_t *)fat)[cluster] = SWAP_LE32(value)
 
 void BUG_unsupported_field_size(void);
 #define STORE_LE(field, value) \
 do { \
 	if (sizeof(field) == 4) \
-		field = cpu_to_le32(value); \
+		field = SWAP_LE32(value); \
 	else if (sizeof(field) == 2) \
-		field = cpu_to_le16(value); \
+		field = SWAP_LE16(value); \
 	else if (sizeof(field) == 1) \
 		field = (value); \
 	else \
@@ -244,7 +244,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 	// default volume ID = creation time
 	volume_id = time(NULL);
 
-	dev = xopen(device_name, O_EXCL | O_RDWR);
+	dev = xopen(device_name, O_RDWR);
 	if (fstat(dev, &st) < 0)
 		bb_simple_perror_msg_and_die(device_name);
 
@@ -252,7 +252,6 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 	// Get image size and sector size
 	//
 	bytes_per_sect = SECTOR_SIZE;
-	volume_size_bytes = st.st_size;
 	if (!S_ISBLK(st.st_mode)) {
 		if (!S_ISREG(st.st_mode)) {
 			if (!argv[1])
@@ -262,10 +261,6 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 		opts &= ~OPT_c;
 	} else {
 		int min_bytes_per_sect;
-
-		// more portable than BLKGETSIZE[64]
-		volume_size_bytes = xlseek(dev, 0, SEEK_END);
-		xlseek(dev, 0, SEEK_SET);
 #if 0
 		unsigned device_num;
 		// for true block devices we do check sanity
@@ -290,12 +285,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 			bb_error_msg("for this device sector size is %u", min_bytes_per_sect);
 		}
 	}
-	if (argv[1]) {
-		volume_size_bytes = XATOOFF(argv[1]);
-		if (volume_size_bytes >= MAXINT(off_t) / 1024)
-			bb_error_msg_and_die("image size is too big");
-		volume_size_bytes *= 1024;
-	}
+	volume_size_bytes = get_volume_size_in_bytes(dev, argv[1], 1024, /*extend:*/ 1);
 	volume_size_sect = volume_size_bytes / bytes_per_sect;
 
 	//
@@ -468,7 +458,7 @@ int mkfs_vfat_main(int argc UNUSED_PARAM, char **argv)
 		struct msdos_boot_sector *boot_blk = (void*)buf;
 		struct fat32_fsinfo *info = (void*)(buf + bytes_per_sect);
 
-		strcpy(boot_blk->boot_jump, "\xeb\x58\x90" "mkdosfs"); // system_id[8] included :)
+		strcpy(boot_blk->boot_jump_and_sys_id, "\xeb\x58\x90" "mkdosfs");
 		STORE_LE(boot_blk->bytes_per_sect, bytes_per_sect);
 		STORE_LE(boot_blk->sect_per_clust, sect_per_clust);
 		// cast in needed on big endian to suppress a warning

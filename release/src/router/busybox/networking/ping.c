@@ -79,7 +79,7 @@ static int in_cksum(unsigned short *buf, int sz)
 
 struct globals {
 	char *hostname;
-	char packet[DEFDATALEN + ICMP_MINLEN + MAXIPLEN + MAXICMPLEN];
+	char packet[DEFDATALEN + MAXIPLEN + MAXICMPLEN];
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { } while (0)
@@ -264,7 +264,7 @@ struct globals {
 #endif
 	} pingaddr;
 	char rcvd_tbl[MAX_DUP_CHK / 8];
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define pingsock     (G.pingsock    )
 #define if_index     (G.if_index    )

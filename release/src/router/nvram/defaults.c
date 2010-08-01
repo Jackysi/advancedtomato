@@ -368,6 +368,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_minpkt",		"1"				},
 	{ "dhcpc_vendorclass",		""				},
 	{ "dhcpc_requestip",		""				},
+	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
 //	{ "dnsmasq_norw",		"0"				},
 

@@ -9,9 +9,7 @@
  *                   Netbeat AG
  * Upstream has GPL v2 or later
  */
-
 #include "common.h"
-#include "options.h"
 
 #define SERVER_PORT      67
 #define SELECT_TIMEOUT    5 /* select timeout in sec. */
@@ -105,7 +103,7 @@ static int get_dhcp_packet_type(struct dhcp_packet *p)
 	if (p->op != BOOTREQUEST && p->op != BOOTREPLY)
 		return -1;
 	/* get message type option */
-	op = get_option(p, DHCP_MESSAGE_TYPE);
+	op = udhcp_get_option(p, DHCP_MESSAGE_TYPE);
 	if (op != NULL)
 		return op[0];
 	return -1;
@@ -147,7 +145,6 @@ static char **get_client_devices(char *dev_list, int *client_number)
 	return client_dev;
 }
 
-
 /* Creates listen sockets (in fds) bound to client and server ifaces,
  * and returns numerically max fd.
  */
@@ -169,7 +166,6 @@ static int init_sockets(char **client_ifaces, int num_clients,
 	return n;
 }
 
-
 /**
  * pass_to_server() - forwards dhcp packets from client to server
  * p - packet to send
@@ -179,7 +175,6 @@ static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, in
 			struct sockaddr_in *client_addr, struct sockaddr_in *server_addr)
 {
 	int res, type;
-	struct xid_item *item;
 
 	/* check packet_type */
 	type = get_dhcp_packet_type(p);
@@ -191,7 +186,7 @@ static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, in
 	}
 
 	/* create new xid entry */
-	item = xid_add(p->xid, client_addr, client);
+	xid_add(p->xid, client_addr, client);
 
 	/* forward request to LAN (server) */
 	errno = 0;

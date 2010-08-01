@@ -17,36 +17,22 @@
 #define CRONUPDATE      "cron.update"
 #endif
 
-static void change_user(const struct passwd *pas)
-{
-	xsetenv("USER", pas->pw_name);
-	xsetenv("HOME", pas->pw_dir);
-	xsetenv("SHELL", DEFAULT_SHELL);
-
-	/* initgroups, setgid, setuid */
-	change_identity(pas);
-
-	if (chdir(pas->pw_dir) < 0) {
-		bb_perror_msg("chdir(%s) by %s failed",
-				pas->pw_dir, pas->pw_name);
-		xchdir("/tmp");
-	}
-}
-
 static void edit_file(const struct passwd *pas, const char *file)
 {
 	const char *ptr;
-	int pid = vfork();
+	int pid = xvfork();
 
-	if (pid < 0) /* failure */
-		bb_perror_msg_and_die("vfork");
 	if (pid) { /* parent */
 		wait4pid(pid);
 		return;
 	}
 
 	/* CHILD - change user and run editor */
-	change_user(pas);
+	/* initgroups, setgid, setuid */
+	change_identity(pas);
+	setup_environment(DEFAULT_SHELL,
+			SETUP_ENV_CHANGEENV | SETUP_ENV_TO_TMP,
+			pas);
 	ptr = getenv("VISUAL");
 	if (!ptr) {
 		ptr = getenv("EDITOR");
@@ -63,9 +49,7 @@ static int open_as_user(const struct passwd *pas, const char *file)
 	pid_t pid;
 	char c;
 
-	pid = vfork();
-	if (pid < 0) /* ERROR */
-		bb_perror_msg_and_die("vfork");
+	pid = xvfork();
 	if (pid) { /* PARENT */
 		if (wait4pid(pid) == 0) {
 			/* exitcode 0: child says it can read */

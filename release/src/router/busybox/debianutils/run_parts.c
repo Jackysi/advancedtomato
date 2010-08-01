@@ -36,7 +36,7 @@ struct globals {
 	char **names;
 	int    cur;
 	char  *cmd[1];
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define names (G.names)
 #define cur   (G.cur  )
@@ -122,7 +122,6 @@ int run_parts_main(int argc UNUSED_PARAM, char **argv)
 	applet_long_options = runparts_longopts;
 #endif
 	/* We require exactly one argument: the directory name */
-	/* We require exactly one argument: the directory name */
 	opt_complementary = "=1:a::";
 	getopt32(argv, "ra:u:t"IF_FEATURE_RUN_PARTS_FANCY("l"), &arg_list, &umask_p);
 
@@ -159,14 +158,14 @@ int run_parts_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		}
 		cmd[0] = name;
-		ret = wait4pid(spawn(cmd));
+		ret = spawn_and_wait(cmd);
 		if (ret == 0)
 			continue;
 		n = 1;
 		if (ret < 0)
 			bb_perror_msg("can't execute '%s'", name);
 		else /* ret > 0 */
-			bb_error_msg("%s exited with code %d", name, ret);
+			bb_error_msg("%s exited with code %d", name, ret & 0xff);
 	}
 
 	return n;

@@ -8,30 +8,7 @@
  */
 #include "libbb.h"
 #include "unarchive.h"
-
-#define RPM_MAGIC            0xedabeedb
-#define RPM_MAGIC_STR        "\355\253\356\333"
-
-struct rpm_lead {
-	uint32_t magic;
-	uint8_t major, minor;
-	uint16_t type;
-	uint16_t archnum;
-	char name[66];
-	uint16_t osnum;
-	uint16_t signature_type;
-	char reserved[16];
-};
-
-#define RPM_HEADER_MAGICnVER 0x8eade801
-#define RPM_HEADER_MAGIC_STR "\216\255\350"
-
-struct rpm_header {
-	uint32_t magic_and_ver; /* 3 byte magic: 0x8e 0xad 0xe8; 1 byte version */
-	uint32_t reserved; /* 4 bytes reserved */
-	uint32_t entries; /* Number of entries in header (4 bytes) */
-	uint32_t size; /* Size of store (4 bytes) */
-};
+#include "rpm.h"
 
 enum { rpm_fd = STDIN_FILENO };
 
@@ -65,8 +42,6 @@ int rpm2cpio_main(int argc UNUSED_PARAM, char **argv)
 {
 	struct rpm_lead lead;
 	unsigned pos;
-	unsigned char magic[2];
-	IF_DESKTOP(long long) int FAST_FUNC (*unpack)(int src_fd, int dst_fd);
 
 	if (argv[1]) {
 		xmove_fd(xopen(argv[1], O_RDONLY), rpm_fd);
@@ -74,33 +49,61 @@ int rpm2cpio_main(int argc UNUSED_PARAM, char **argv)
 	xread(rpm_fd, &lead, sizeof(lead));
 
 	/* Just check the magic, the rest is irrelevant */
-	if (lead.magic != htonl(RPM_MAGIC)) {
+	if (lead.magic != htonl(RPM_LEAD_MAGIC)) {
 		bb_error_msg_and_die("invalid RPM magic");
 	}
 
 	/* Skip the signature header, align to 8 bytes */
 	pos = skip_header();
-	seek_by_jump(rpm_fd, (8 - pos) & 7);
+	seek_by_jump(rpm_fd, (-(int)pos) & 7);
 
 	/* Skip the main header */
 	skip_header();
 
-	xread(rpm_fd, &magic, 2);
-	unpack = unpack_gz_stream;
-	if (magic[0] != 0x1f || magic[1] != 0x8b) {
-		if (!ENABLE_FEATURE_SEAMLESS_BZ2
-		 || magic[0] != 'B' || magic[1] != 'Z'
+#if 0
+	/* This works, but doesn't report uncompress errors (they happen in child) */
+	setup_unzip_on_fd(rpm_fd /*fail_if_not_detected: 1*/);
+	if (bb_copyfd_eof(rpm_fd, STDOUT_FILENO) < 0)
+		bb_error_msg_and_die("error unpacking");
+#else
+	/* BLOAT */
+	{
+		union {
+			uint8_t b[4];
+			uint16_t b16[2];
+			uint32_t b32[1];
+		} magic;
+		IF_DESKTOP(long long) int FAST_FUNC (*unpack)(int src_fd, int dst_fd);
+
+		xread(rpm_fd, magic.b16, sizeof(magic.b16[0]));
+		if (magic.b16[0] == GZIP_MAGIC) {
+			unpack = unpack_gz_stream;
+		} else
+		if (ENABLE_FEATURE_SEAMLESS_BZ2
+		 && magic.b16[0] == BZIP2_MAGIC
 		) {
-			bb_error_msg_and_die("invalid gzip"
+			unpack = unpack_bz2_stream;
+		} else
+		if (ENABLE_FEATURE_SEAMLESS_XZ
+		 && magic.b16[0] == XZ_MAGIC1
+		) {
+			xread(rpm_fd, magic.b32, sizeof(magic.b32[0]));
+			if (magic.b32[0] != XZ_MAGIC2)
+				goto no_magic;
+			/* unpack_xz_stream wants fd at position 6, no need to seek */
+			//xlseek(rpm_fd, -6, SEEK_CUR);
+			unpack = unpack_xz_stream;
+		} else {
+ no_magic:
+			bb_error_msg_and_die("no gzip"
 					IF_FEATURE_SEAMLESS_BZ2("/bzip2")
+					IF_FEATURE_SEAMLESS_XZ("/xz")
 					" magic");
 		}
-		unpack = unpack_bz2_stream;
+		if (unpack(rpm_fd, STDOUT_FILENO) < 0)
+			bb_error_msg_and_die("error unpacking");
 	}
-
-	if (unpack(rpm_fd, STDOUT_FILENO) < 0) {
-		bb_error_msg_and_die("error unpacking");
-	}
+#endif
 
 	if (ENABLE_FEATURE_CLEAN_UP) {
 		close(rpm_fd);
