@@ -54,8 +54,8 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_SIP_SERVERS                      , 0x78 }, /* DHCP_SIP_SERVERS   */
 #endif
 	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
-	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x21 }, /* routes             */
-	{ OPTION_U8 | OPTION_LIST     | OPTION_REQ, 0xF9 }, /* msroutes           */
+	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x21 }, /* DHCP_ROUTES        */
+	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
 	{ OPTION_STRING                           , 0xfc }, /* DHCP_WPAD          */
 
 	/* Options below have no match in dhcp_option_strings[],
@@ -116,8 +116,8 @@ const char dhcp_option_strings[] ALIGN1 =
 // doesn't work in udhcpd.conf since OPTION_STATIC_ROUTES
 // is not handled yet by "string->option" conversion code:
 	"staticroutes" "\0"/* DHCP_STATIC_ROUTES  */
-	"routes" "\0"      /*                     */
-	"msroutes" "\0"    /*                     */
+	"routes" "\0"      /* DHCP_ROUTES         */
+	"msstaticroutes" "\0" /* DHCP_MS_STATIC_ROUTES */
 	"wpad" "\0"        /* DHCP_WPAD           */
 	;
 
