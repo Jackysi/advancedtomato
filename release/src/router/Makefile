@@ -407,6 +407,12 @@ ifneq ($(CONFIG_LINUX26),y)
 	@cp usbmodeswitch/usb_modeswitch.setup $(PLATFORMDIR)/extras/apps/usb_modeswitch.setup || true
 	@mkdir -p $(PLATFORMDIR)/extras/apps/usb_modeswitch.d
 	@cp -f usbmodeswitch/data/usb_modeswitch.d/* $(PLATFORMDIR)/extras/apps/usb_modeswitch.d || true
+	@rm -rf $(TARGETDIR)/rom/etc/usb_modeswitch.d || true
+	@rm -f  $(TARGETDIR)/rom/etc/usb_modeswitch.conf || true
+	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
+endif
+ifneq ($(TCONFIG_USB),y)
+	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
 endif
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
@@ -812,6 +818,8 @@ pppd-clean:
 pppd-install: pppd
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
+	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
+	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
 	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
 	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 
