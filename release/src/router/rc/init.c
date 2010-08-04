@@ -404,8 +404,7 @@ static void check_bootnv(void)
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
-		if (nvram_match("boardflags", "0x00001710"))
-			dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
+		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
 		dirty |= check_nv("vlan2hwname", "et0");
 		if (nvram_match("vlan1ports", "1 2 3 4 8*") || nvram_match("vlan2ports", "0 8u")) {
 			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
