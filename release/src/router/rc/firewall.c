@@ -447,7 +447,11 @@ static void filter_input(void)
 		if (nvram_get_int("telnetd_eas"))
 		if (nvram_get_int("sshd_eas"))
 */
+#ifdef LINUX26
+		modprobe("xt_recent");
+#else
 		modprobe("ipt_recent");
+#endif
 
 		ipt_write(
 			"-N shlimit\n"
@@ -462,7 +466,11 @@ static void filter_input(void)
 #ifdef TCONFIG_FTP
 	strlcpy(s, nvram_safe_get("ftp_limit"), sizeof(s));
 	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && (atoi(en)) && (nvram_get_int("ftp_enable") == 1)) {
+#ifdef LINUX26
+		modprobe("xt_recent");
+#else
 		modprobe("ipt_recent");
+#endif
 
 		ipt_write(
 			"-N ftplimit\n"
