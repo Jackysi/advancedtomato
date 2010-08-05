@@ -90,25 +90,17 @@ static struct proc_dir_entry *recent_proc_dir;
 static const struct file_operations recent_mt_fops;
 #endif
 
-static u_int32_t hash_rnd;
-static bool hash_rnd_initted;
+static u_int32_t hash_rnd __read_mostly;
+static bool hash_rnd_inited __read_mostly;
 
-static unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
+static inline unsigned int recent_entry_hash4(const union nf_inet_addr *addr)
 {
-	if (!hash_rnd_initted) {
-		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
-		hash_rnd_initted = true;
-	}
 	return jhash_1word((__force u32)addr->ip, hash_rnd) &
 	       (ip_list_hash_size - 1);
 }
 
-static unsigned int recent_entry_hash6(const union nf_inet_addr *addr)
+static inline unsigned int recent_entry_hash6(const union nf_inet_addr *addr)
 {
-	if (!hash_rnd_initted) {
-		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
-		hash_rnd_initted = true;
-	}
 	return jhash2((u32 *)addr->ip6, ARRAY_SIZE(addr->ip6), hash_rnd) &
 	       (ip_list_hash_size - 1);
 }
@@ -317,6 +309,10 @@ recent_mt_check(const char *tablename, const void *ip,
 	unsigned i;
 	int ret = 0;
 
+	if (unlikely(!hash_rnd_inited)) {
+		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
+		hash_rnd_inited = true;
+	}
 	if (info->check_set & ~XT_RECENT_VALID_FLAGS) {
 		pr_info(KBUILD_MODNAME ": Unsupported user space flags "
 			"(%08x)\n", info->check_set);
