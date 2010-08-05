@@ -385,6 +385,14 @@ static void check_bootnv(void)
 		if (nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
+	case MODEL_WL500GD:
+		dirty |= check_nv("vlan0hwname", "et0");
+		dirty |= check_nv("vlan1hwname", "et0");
+		if (!nvram_get("vlan0ports")) {
+			dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
+			dirty |= check_nv("vlan1ports", "0 5");
+		}
+		break;
 	case MODEL_DIR320:
 		if (strlen(nvram_safe_get("et0macaddr")) == 12) {
 			if (!find_dir320_mac_addr()) {
@@ -909,6 +917,18 @@ static int init_nvram(void)
 			nvram_set("wl0gpio1", "136");
 			nvram_set("wl0gpio2", "0");
 			nvram_set("wl0gpio3", "0");
+		}
+		break;
+	case MODEL_WL500GD:
+		mfr = "Asus";
+		name = "WL-500g Deluxe";
+		// features = SUP_SES;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_unset("wl0gpio0");
 		}
 		break;
 	case MODEL_DIR320:
