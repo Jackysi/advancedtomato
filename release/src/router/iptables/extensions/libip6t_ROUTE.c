@@ -20,11 +20,6 @@
 #define XTABLES_VERSION IPTABLES_VERSION
 #endif
 
-#ifdef IPT_LIB_DIR
-#define xtables_target ip6tables_target
-#define xtables_register_target register_target6
-#endif
-
 /* compile IP6T_ROUTE_TEE support even if kernel headers are unpatched */
 #ifndef IP6T_ROUTE_TEE
 #define IP6T_ROUTE_TEE		0x02
@@ -188,7 +183,7 @@ static void
 print(const void *ip,
       const struct xt_entry_target *target,
 #else
-print(const struct ip6t_ip *ip,
+print(const struct ip6t_ip6 *ip,
       const struct ip6t_entry_target *target,
 #endif
       int numeric)
@@ -223,7 +218,7 @@ static void
 save(const void *ip,
      const struct xt_entry_target *target)
 #else
-save(const struct ip6t_ip *ip,
+save(const struct ip6t_ip6 *ip,
      const struct ip6t_entry_target *target)
 #endif
 {
@@ -249,7 +244,7 @@ save(const struct ip6t_ip *ip,
 }
 
 
-static struct xtables_target route = { 
+static struct ip6tables_target route = { 
 	.name 		= "ROUTE",
 	.version	= XTABLES_VERSION,
 	.size		= IP6T_ALIGN(sizeof(struct ip6t_route_target_info)),
@@ -265,5 +260,5 @@ static struct xtables_target route = {
 
 void _init(void)
 {
-	xtables_register_target(&route);
+	register_target6(&route);
 }
