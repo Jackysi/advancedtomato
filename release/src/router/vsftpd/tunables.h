@@ -85,6 +85,8 @@ extern int tunable_sandbox;                   /* Deploy ptrace sandbox */
 extern int tunable_require_ssl_reuse;         /* Require re-used data conn */
 extern int tunable_isolate;                   /* Use container clone() flags */
 extern int tunable_isolate_network;           /* Use CLONE_NEWNET */
+extern int tunable_ftp_enable;                /* Allow FTP protocol */
+extern int tunable_http_enable;               /* Allow HTTP protocol */
 
 /* Integer/numeric defines */
 extern unsigned int tunable_accept_timeout;

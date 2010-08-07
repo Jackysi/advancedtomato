@@ -1260,6 +1260,30 @@ vsf_set_term_if_parent_dies()
 }
 
 int
+vsf_sysutil_fork_isolate_all_failok()
+{
+#ifdef VSF_SYSDEP_HAVE_LINUX_CLONE
+  static int cloneflags_work = 1;
+  if (cloneflags_work)
+  {
+    int ret = syscall(__NR_clone,
+                      CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNET | SIGCHLD,
+                      NULL);
+    if (ret != -1 || (errno != EINVAL && errno != EPERM))
+    {
+      if (ret == 0)
+      {
+        vsf_sysutil_post_fork();
+      }
+      return ret;
+    }
+    cloneflags_work = 0;
+  }
+#endif
+  return vsf_sysutil_fork_isolate_failok();
+}
+
+int
 vsf_sysutil_fork_isolate_failok()
 {
 #ifdef VSF_SYSDEP_HAVE_LINUX_CLONE

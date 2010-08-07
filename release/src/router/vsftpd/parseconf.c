@@ -103,6 +103,8 @@ parseconf_bool_array[] =
   { "require_ssl_reuse", &tunable_require_ssl_reuse },
   { "isolate", &tunable_isolate },
   { "isolate_network", &tunable_isolate_network },
+  { "ftp_enable", &tunable_ftp_enable },
+  { "http_enable", &tunable_http_enable },
   { 0, 0 }
 };
 

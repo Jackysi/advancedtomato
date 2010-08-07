@@ -33,9 +33,11 @@ static enum EVSFPrivopLoginResult handle_login(
 
 int
 vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess,
-                             unsigned short remote_port)
+                             unsigned short remote_port,
+                             int use_port_sockaddr)
 {
   static struct vsf_sysutil_sockaddr* p_sockaddr;
+  const struct vsf_sysutil_sockaddr* p_connect_to;
   int retval;
   int i;
   int s = vsf_sysutil_get_ipsock(p_sess->p_local_addr);
@@ -71,8 +73,16 @@ vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess,
     sleep_for += 1.0;
     vsf_sysutil_sleep(sleep_for);
   }
-  vsf_sysutil_sockaddr_set_port(p_sess->p_remote_addr, remote_port);
-  retval = vsf_sysutil_connect_timeout(s, p_sess->p_remote_addr,
+  if (use_port_sockaddr)
+  {
+    p_connect_to = p_sess->p_port_sockaddr;
+  }
+  else
+  {
+    vsf_sysutil_sockaddr_set_port(p_sess->p_remote_addr, remote_port);
+    p_connect_to = p_sess->p_remote_addr;
+  }
+  retval = vsf_sysutil_connect_timeout(s, p_connect_to,
                                        tunable_connect_timeout);
   if (vsf_sysutil_retval_is_error(retval))
   {

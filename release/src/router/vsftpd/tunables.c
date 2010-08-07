@@ -84,6 +84,8 @@ int tunable_sandbox;
 int tunable_require_ssl_reuse;
 int tunable_isolate;
 int tunable_isolate_network;
+int tunable_ftp_enable;
+int tunable_http_enable;
 
 unsigned int tunable_accept_timeout;
 unsigned int tunable_connect_timeout;
@@ -220,6 +222,8 @@ tunables_load_defaults()
   tunable_require_ssl_reuse = 1;
   tunable_isolate = 1;
   tunable_isolate_network = 1;
+  tunable_ftp_enable = 1;
+  tunable_http_enable = 0;
 
   tunable_accept_timeout = 60;
   tunable_connect_timeout = 60;

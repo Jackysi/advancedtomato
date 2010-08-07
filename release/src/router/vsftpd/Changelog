@@ -1213,3 +1213,24 @@ his live server.
 
 At this point: v2.2.2 released!
 ===============================
+
+- Add extremely simply HTTP support. It's very experimental, ignorant of HTTP
+protocol and headers, and likely has all sorts of other issues. The use case
+it might satisfy is if you need to serve simple static unathenticated content
+with large levels of paranoia.
+- Fix port_promiscuous breakage. Report from Soeren <soeren84@fastmail.net>.
+(v2.3.0pre1)
+- Minor FAQ update.
+- Use a larger address space limit if using text_userdb_names=YES
+- Always use CLONE_NEWNET if possible when in HTTP mode.
+- Change REST + STOR so that it's possible to overwrite part of file without
+truncating it.
+(v2.3.0pre2)
+- Boot the session if we see a USER where encryption was required. May prevent
+the transmission of plaintext passwords by buggy clients. Idea from
+Marcin Hlybin <marcin@rootnode.net>.
+- Fix failure to transmit a large ASCII file over SSL, if it contains \n -> \r\n
+fixups.
+
+At this point: v2.3.0 released!
+===============================
