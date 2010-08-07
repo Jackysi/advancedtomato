@@ -597,7 +597,7 @@ mdu:	shared mssl
 rc: nvram shared
 
 bridge/Makefile:
-	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
+	cd bridge && CFLAGS="-O2 -g $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix="" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
@@ -622,7 +622,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
@@ -1123,7 +1123,7 @@ igs-install:
 
 
 ebtables: dummy
-	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-O2 $(EXTRACFLAGS) -Wall -Wunused"
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
