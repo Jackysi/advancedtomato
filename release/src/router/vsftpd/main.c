@@ -45,6 +45,8 @@ main(int argc, const char* argv[])
     1, 0, INIT_MYSTR, INIT_MYSTR,
     /* Protocol state */
     0, 1, INIT_MYSTR, 0, 0,
+    /* HTTP hacks */
+    0, INIT_MYSTR,
     /* Session state */
     0,
     /* Userids */
@@ -282,6 +284,14 @@ do_sanity_checks(void)
   {
     die("vsftpd: both local and anonymous access disabled!");
   }
+  if (!tunable_ftp_enable && !tunable_http_enable)
+  {
+    die("vsftpd: both FTP and HTTP disabled!");
+  }
+  if (tunable_http_enable && !tunable_one_process_model)
+  {
+    die("vsftpd: HTTP needs 'one_process_model' for now");
+  }
 }
 
 static void
@@ -299,7 +309,15 @@ env_init(void)
 static void
 limits_init(void)
 {
-  vsf_sysutil_set_address_space_limit(VSFTP_AS_LIMIT);
+  unsigned long limit = VSFTP_AS_LIMIT;
+  if (tunable_text_userdb_names)
+  {
+    /* Turns out, LDAP lookups for lots of userid -> name mappings can really
+     * bloat memory usage.
+     */
+    limit *= 3;
+  }
+  vsf_sysutil_set_address_space_limit(limit);
 }
 
 static void

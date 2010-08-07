@@ -153,7 +153,14 @@ vsf_standalone_main(void)
     child_info.num_this_ip = handle_ip_count(p_raw_addr);
     if (tunable_isolate)
     {
-      new_child = vsf_sysutil_fork_isolate_failok();
+      if (tunable_http_enable && tunable_isolate_network)
+      {
+        new_child = vsf_sysutil_fork_isolate_all_failok();
+      }
+      else
+      {
+        new_child = vsf_sysutil_fork_isolate_failok();
+      }
     }
     else
     {

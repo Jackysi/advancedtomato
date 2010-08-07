@@ -485,6 +485,17 @@ vsf_sysutil_lseek_to(const int fd, filesize_t seek_pos)
   }
 }
 
+void
+vsf_sysutil_lseek_end(const int fd)
+{
+  filesize_t retval;
+  retval = lseek(fd, 0, SEEK_END);
+  if (retval < 0)
+  {
+    die("lseek");
+  }
+}
+
 void*
 vsf_sysutil_malloc(unsigned int size)
 {
@@ -1183,7 +1194,7 @@ vsf_sysutil_create_overwrite_file(const char* p_filename)
 int
 vsf_sysutil_create_or_open_file(const char* p_filename, unsigned int mode)
 {
-  return open(p_filename, O_CREAT | O_WRONLY | O_APPEND | O_NONBLOCK, mode);
+  return open(p_filename, O_CREAT | O_WRONLY | O_NONBLOCK, mode);
 }
 
 void
