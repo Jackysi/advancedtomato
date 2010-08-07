@@ -882,9 +882,10 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT320N:
 		mfr = "Linksys";
-		if (nvram_match("boardrev", "0x1307"))
+		if (nvram_match("boardrev", "0x1307")) {
 			name = "E2000";
-		else
+			gpio_write(1 << 0, 0); // fix for WLAN LED
+		} else
 			name = "WRT320N";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
