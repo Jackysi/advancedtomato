@@ -74,10 +74,9 @@ int mount_cifs_main(int argc, char *argv[])
 
 					if (*exec) {
 						chdir(mpath);
-						exargv[0] = exec;
-						exargv[1] = NULL;
-						_eval(exargv, NULL, 0, &pid);
+						system(exec);
 					}
+					run_userfile(mpath, ".autorun", NULL, 3);
 				}
 				if ((done[1]) && (done[2])) {
 					notice_set("cifs", "");
