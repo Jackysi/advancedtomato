@@ -4,7 +4,7 @@ CFLAGS	= -O2 -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared -I$(TOP)/mssl
 LDFLAGS	=
 
-OBJS = mdu.o
+OBJS = mdu.o md5.o
 
 all: mdu
 	

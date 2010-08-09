@@ -62,6 +62,7 @@ var services = [
 	['everydns', 'EveryDNS', 'http://www.everydns.net/', 'uj', null, null, 'Domain <small>(optional)</small>'],
 	['enom', 'eNom', 'http://www.enom.com/', 'ut', 'Domain'],
 	['afraid', 'FreeDNS (afraid.org)', 'http://freedns.afraid.org/', 'az'],
+	['heipv6tb', 'HE.net IPv6 Tunnel Broker', 'http://www.tunnelbroker.net/', 'uh', 'User ID <small>(not your username)</small>', null, 'Global Tunnel ID'],
 	['ieserver', 'ieServer.net', 'http://www.ieserver.net/', 'uhz', 'Username / Hostname', null, 'Domain'],
 	['namecheap', 'namecheap', 'http://www.namecheap.com/', 'ut', 'Domain'],
 	['noip', 'No-IP.com', 'http://www.no-ip.com/', 'uh', 'Email Address', null, 'Hostname / Group'],
