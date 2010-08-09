@@ -209,6 +209,11 @@ typedef struct {
 	ntfs_atime_t atime;
 	BOOL ro;
 	BOOL show_sys_files;
+	BOOL hide_hid_files;
+	BOOL hide_dot_files;
+	BOOL ignore_case;
+	BOOL windows_names;
+	BOOL compression;
 	BOOL silent;
 	BOOL recover;
 	BOOL hiberfile;
@@ -237,7 +242,7 @@ static struct options {
 } opts;
 
 static const char *EXEC_NAME = "ntfs-3g";
-static char def_opts[] = "silent,allow_other,nonempty,";
+static char def_opts[] = "allow_other,nonempty,";
 static ntfs_fuse_context_t *ctx;
 static u32 ntfs_sequence;
 static const char ghostformat[] = ".ghost-ntfs-3g-%020llu";
@@ -374,6 +379,11 @@ static u64 ntfs_fuse_inode_lookup(fuse_ino_t parent, const char *name)
 	if (dir_ni) {
 		/* Lookup file */
 		inum = ntfs_inode_lookup_by_mbsname(dir_ni, name);
+			/* never return inodes 0 and 1 */
+		if (MREF(inum) <= 1) {
+			inum = (u64)-1;
+			errno = ENOENT;
+		}
 		if (ntfs_inode_close(dir_ni)
 		    || (inum == (u64)-1))
 			ino = (u64)-1;
@@ -685,7 +695,9 @@ static int ntfs_fuse_getstat(struct SECURITY_CONTEXT *scx,
 		 * encrypted files to include padding required for decryption
 		 * also include 2 bytes for padding info
 		*/
-		if (ctx->efs_raw && ni->flags & FILE_ATTR_ENCRYPTED)
+		if (ctx->efs_raw
+		    && (ni->flags & FILE_ATTR_ENCRYPTED)
+		    && ni->data_size)
 			stbuf->st_size = ((ni->data_size + 511) & ~511) + 2;
 #endif /* HAVE_SETXATTR */
 		/* 
@@ -878,6 +890,11 @@ static void ntfs_fuse_lookup(fuse_req_t req, fuse_ino_t parent,
 #endif
 				iref = ntfs_inode_lookup_by_mbsname(dir_ni,
 								name);
+					/* never return inodes 0 and 1 */
+				if (MREF(iref) <= 1) {
+					iref = (u64)-1;
+					errno = ENOENT;
+				}
 				ok = !ntfs_inode_close(dir_ni)
 					&& (iref != (u64)-1)
 					&& ntfs_fuse_fillstat(
@@ -1002,9 +1019,8 @@ static int ntfs_fuse_filler(ntfs_fuse_fill_context_t *fill_ctx,
 				(unsigned long long)MREF(mref));
 		return -1;
 	}
-        
-	if (MREF(mref) == FILE_root || MREF(mref) >= FILE_first_user ||
-			ctx->show_sys_files) {
+		/* never return inodes 0 and 1 */
+	if (MREF(mref) > 1) {
 		struct stat st = { .st_ino = MREF(mref) };
 		 
 		if (dt_type == NTFS_DT_REG)
@@ -1311,8 +1327,10 @@ static void ntfs_fuse_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 	max_read = na->data_size;
 #ifdef HAVE_SETXATTR	/* extended attributes interface required */
 	/* limit reads at next 512 byte boundary for encrypted attributes */
-	if (ctx->efs_raw && (na->data_flags & ATTR_IS_ENCRYPTED) && 
-	    NAttrNonResident(na)) {
+	if (ctx->efs_raw
+	    && max_read
+	    && (na->data_flags & ATTR_IS_ENCRYPTED)
+	    && NAttrNonResident(na)) {
 		max_read = ((na->data_size+511) & ~511) + 2;
 	}
 #endif /* HAVE_SETXATTR */
@@ -1541,16 +1559,9 @@ static int ntfs_fuse_trunc(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 	}
 #endif
 		/*
-		 * for compressed files, only deleting contents and expanding
-		 * are implemented. Expanding is done by inserting a final
+		 * for compressed files, upsizing is done by inserting a final
 		 * zero, which is optimized as creating a hole when possible. 
 		 */
-	if ((na->data_flags & ATTR_COMPRESSION_MASK)
-	    && size
-	    && (size < na->initialized_size)) {
-		errno = EOPNOTSUPP;
-		goto exit;
-	}
 	oldsize = na->data_size;
 	if ((na->data_flags & ATTR_COMPRESSION_MASK)
 	    && (size > na->initialized_size)) {
@@ -1574,7 +1585,7 @@ exit:
 	return res;
 }
 
-#ifdef HAVE_UTIMENSAT
+#if defined(HAVE_UTIMENSAT) & defined(FUSE_SET_ATTR_ATIME_NOW)
 
 static int ntfs_fuse_utimens(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 		struct stat *stin, struct stat *stbuf, int to_set)
@@ -1621,7 +1632,7 @@ static int ntfs_fuse_utimens(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 	return res;
 }
 
-#else /* HAVE_UTIMENSAT */
+#else /* defined(HAVE_UTIMENSAT) & defined(FUSE_SET_ATTR_ATIME_NOW) */
 
 static int ntfs_fuse_utime(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 		struct stat *stin, struct stat *stbuf)
@@ -1692,7 +1703,7 @@ static int ntfs_fuse_utime(struct SECURITY_CONTEXT *scx, fuse_ino_t ino,
 	return res;
 }
 
-#endif /* HAVE_UTIMENSAT */
+#endif /* defined(HAVE_UTIMENSAT) & defined(FUSE_SET_ATTR_ATIME_NOW) */
 
 static void ntfs_fuse_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
 			 int to_set, struct fuse_file_info *fi __attribute__((unused)))
@@ -1767,11 +1778,11 @@ static void ntfs_fuse_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
 	}
 						/* some set of atime/mtime */
 	if (!res && (to_set & (FUSE_SET_ATTR_ATIME + FUSE_SET_ATTR_MTIME))) {
-#ifdef HAVE_UTIMENSAT
+#if defined(HAVE_UTIMENSAT) & defined(FUSE_SET_ATTR_ATIME_NOW)
 		res = ntfs_fuse_utimens(&security, ino, attr, &stbuf, to_set);
-#else /* HAVE_UTIMENSAT */
+#else /* defined(HAVE_UTIMENSAT) & defined(FUSE_SET_ATTR_ATIME_NOW) */
 		res = ntfs_fuse_utime(&security, ino, attr, &stbuf);
-#endif /* HAVE_UTIMENSAT */
+#endif /* defined(HAVE_UTIMENSAT) & defined(FUSE_SET_ATTR_ATIME_NOW) */
 	}
 	if (res)
 		fuse_reply_err(req, -res);
@@ -1837,7 +1848,9 @@ static int ntfs_fuse_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 
 	/* Generate unicode filename. */
 	uname_len = ntfs_mbstoucs(name, &uname);
-	if (uname_len < 0) {
+	if ((uname_len < 0)
+	    || (ctx->windows_names
+		&& ntfs_forbidden_chars(uname,uname_len))) {
 		res = -errno;
 		goto exit;
 	}
@@ -2041,7 +2054,9 @@ static int ntfs_fuse_newlink(fuse_req_t req __attribute__((unused)),
         
 	/* Generate unicode filename. */
 	uname_len = ntfs_mbstoucs(newname, &uname);
-	if (uname_len < 0) {
+	if ((uname_len < 0)
+            || (ctx->windows_names
+                && ntfs_forbidden_chars(uname,uname_len))) {
 		res = -errno;
 		goto exit;
 	}
@@ -3016,10 +3031,6 @@ static void ntfs_fuse_getxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 		res = -EOPNOTSUPP;
 		goto out;
 	}
-	if (ctx->streams == NF_STREAMS_INTERFACE_NONE) {
-		res = -EOPNOTSUPP;
-		goto out;
-	}
 	namespace = xattr_namespace(name);
 	if (namespace == XATTRNS_NONE) {
 		res = -EOPNOTSUPP;
@@ -3058,10 +3069,11 @@ static void ntfs_fuse_getxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 		goto exit;
 	}
 	rsize = na->data_size;
-	if (ctx->efs_raw && 
-	    (na->data_flags & ATTR_IS_ENCRYPTED) &&
-	    NAttrNonResident(na))
-		rsize = ((na->data_size + 511) & ~511)+2;
+	if (ctx->efs_raw
+	    && rsize
+	    && (na->data_flags & ATTR_IS_ENCRYPTED)
+	    && NAttrNonResident(na))
+		rsize = ((na->data_size + 511) & ~511) + 2;
 	if (size) {
 		if (size >= (size_t)rsize) {
 			value = (char*)ntfs_malloc(rsize);
@@ -3154,7 +3166,8 @@ static void ntfs_fuse_setxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 	ntfs_attr *na = NULL;
 	ntfschar *lename = NULL;
 	int res, lename_len;
-	size_t part, total;
+	size_t total;
+	s64 part;
 	int attr;
 	int namespace;
 	struct SECURITY_CONTEXT security;
@@ -3263,7 +3276,9 @@ static void ntfs_fuse_setxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 	}
 #endif
 	lename_len = fix_xattr_prefix(name, namespace, &lename);
-	if (lename_len == -1) {
+	if ((lename_len == -1)
+	    || (ctx->windows_names
+		&& ntfs_forbidden_chars(lename,lename_len))) {
 		res = -errno;
 		goto exit;
 	}
@@ -3298,6 +3313,7 @@ static void ntfs_fuse_setxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 		}
 	}
 	total = 0;
+	res = 0;
 	if (size) {
 		do {
 			part = ntfs_attr_pwrite(na, total, size - total,
@@ -3305,20 +3321,20 @@ static void ntfs_fuse_setxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
 			if (part > 0)
 				total += part;
 		} while ((part > 0) && (total < size));
-		if (total != size)
-			res = -errno;
-		else
-			if (!(res = ntfs_attr_pclose(na)))
-				if (ctx->efs_raw 
-				   && (ni->flags & FILE_ATTR_ENCRYPTED))
-					res = ntfs_efs_fixup_attribute(NULL,
-						na);
-		if (total && !(ni->flags & FILE_ATTR_ARCHIVE)) {
-			set_archive(ni);
-			NInoFileNameSetDirty(ni);
+	}
+	if ((total != size) || ntfs_attr_pclose(na))
+		res = -errno;
+	else {
+		if (ctx->efs_raw 
+		   && (ni->flags & FILE_ATTR_ENCRYPTED)) {
+			if (ntfs_efs_fixup_attribute(NULL,na))
+				res = -errno;
 		}
-	} else
-		res = 0;
+	}
+	if (!res && !(ni->flags & FILE_ATTR_ARCHIVE)) {
+		set_archive(ni);
+		NInoFileNameSetDirty(ni);
+	}
 exit:
 	if (na)
 		ntfs_attr_close(na);
@@ -3623,6 +3639,7 @@ static int ntfs_fuse_init(void)
 static int ntfs_open(const char *device)
 {
 	unsigned long flags = 0;
+	ntfs_volume *vol;
         
 	if (!ctx->blkdev)
 		flags |= MS_EXCLUSIVE;
@@ -3633,25 +3650,38 @@ static int ntfs_open(const char *device)
 	if (ctx->hiberfile)
 		flags |= MS_IGNORE_HIBERFILE;
 
-	ctx->vol = ntfs_mount(device, flags);
-	if (!ctx->vol) {
+	ctx->vol = vol = ntfs_mount(device, flags);
+	if (!vol) {
 		ntfs_log_perror("Failed to mount '%s'", device);
 		goto err_out;
 	}
+	if (ctx->compression)
+		NVolSetCompression(ctx->vol);
+#ifdef HAVE_SETXATTR
+			/* archivers must see hidden files */
+	if (ctx->efs_raw)
+		ctx->hide_hid_files = FALSE;
+#endif
+	if (ntfs_set_shown_files(ctx->vol, ctx->show_sys_files,
+				!ctx->hide_hid_files, ctx->hide_dot_files))
+		goto err_out;
+
+	if (ctx->ignore_case && ntfs_set_ignore_case(vol))
+		goto err_out;
         
-	ctx->vol->free_clusters = ntfs_attr_get_free_bits(ctx->vol->lcnbmp_na);
-	if (ctx->vol->free_clusters < 0) {
+	vol->free_clusters = ntfs_attr_get_free_bits(vol->lcnbmp_na);
+	if (vol->free_clusters < 0) {
 		ntfs_log_perror("Failed to read NTFS $Bitmap");
 		goto err_out;
 	}
 
-	ctx->vol->free_mft_records = ntfs_get_nr_free_mft_records(ctx->vol);
-	if (ctx->vol->free_mft_records < 0) {
+	vol->free_mft_records = ntfs_get_nr_free_mft_records(vol);
+	if (vol->free_mft_records < 0) {
 		ntfs_log_perror("Failed to calculate free MFT records");
 		goto err_out;
 	}
 
-	if (ctx->hiberfile && ntfs_volume_check_hiberfile(ctx->vol, 0)) {
+	if (ctx->hiberfile && ntfs_volume_check_hiberfile(vol, 0)) {
 		if (errno != EPERM)
 			goto err_out;
 		if (ntfs_fuse_rm((fuse_req_t)NULL,FILE_root,"hiberfil.sys"))
@@ -3722,12 +3752,14 @@ static char *parse_mount_options(const char *orig_opts)
 	char *options, *s, *opt, *val, *ret = NULL;
 	BOOL no_def_opts = FALSE;
 	int default_permissions = 0;
+	int permissions = 0;
 	int want_permissions = 0;
 
 	ctx->secure_flags = 0;
 #ifdef HAVE_SETXATTR	/* extended attributes interface required */
 	ctx->efs_raw = FALSE;
 #endif /* HAVE_SETXATTR */
+	ctx->compression = DEFAULT_COMPRESSION;
 	options = strdup(orig_opts ? orig_opts : "");
 	if (!options) {
 		ntfs_log_perror("%s: strdup failed", EXEC_NAME);
@@ -3770,8 +3802,11 @@ static char *parse_mount_options(const char *orig_opts)
 			if (bogus_option_value(val, "no_def_opts"))
 				goto err_exit;
 			no_def_opts = TRUE; /* Don't add default options. */
+			ctx->silent = FALSE; /* cancel default silent */
 		} else if (!strcmp(opt, "default_permissions")) {
 			default_permissions = 1;
+		} else if (!strcmp(opt, "permissions")) {
+			permissions = 1;
 		} else if (!strcmp(opt, "umask")) {
 			if (missing_option_value(val, "umask"))
 				goto err_exit;
@@ -3802,6 +3837,30 @@ static char *parse_mount_options(const char *orig_opts)
 			if (bogus_option_value(val, "show_sys_files"))
 				goto err_exit;
 			ctx->show_sys_files = TRUE;
+		} else if (!strcmp(opt, "hide_hid_files")) {
+			if (bogus_option_value(val, "hide_hid_files"))
+				goto err_exit;
+			ctx->hide_hid_files = TRUE;
+		} else if (!strcmp(opt, "hide_dot_files")) {
+			if (bogus_option_value(val, "hide_dot_files"))
+				goto err_exit;
+			ctx->hide_dot_files = TRUE;
+		} else if (!strcmp(opt, "ignore_case")) {
+			if (bogus_option_value(val, "ignore_case"))
+				goto err_exit;
+			ctx->ignore_case = TRUE;
+		} else if (!strcmp(opt, "windows_names")) {
+			if (bogus_option_value(val, "windows_names"))
+				goto err_exit;
+			ctx->windows_names = TRUE;
+		} else if (!strcmp(opt, "compression")) {
+			if (bogus_option_value(val, "compression"))
+				goto err_exit;
+			ctx->compression = TRUE;
+		} else if (!strcmp(opt, "nocompression")) {
+			if (bogus_option_value(val, "nocompression"))
+				goto err_exit;
+			ctx->compression = FALSE;
 		} else if (!strcmp(opt, "silent")) {
 			if (bogus_option_value(val, "silent"))
 				goto err_exit;
@@ -3928,7 +3987,8 @@ static char *parse_mount_options(const char *orig_opts)
 	if (!no_def_opts && strappend(&ret, def_opts))
 		goto err_exit;
 #if KERNELPERMS
-	if (default_permissions && strappend(&ret, "default_permissions,"))
+	if ((default_permissions || permissions)
+			&& strappend(&ret, "default_permissions,"))
 		goto err_exit;
 #endif
         
@@ -3943,7 +4003,7 @@ static char *parse_mount_options(const char *orig_opts)
 		goto err_exit;
 	if (strappend(&ret, opts.device))
 		goto err_exit;
-	if (default_permissions)
+	if (permissions)
 		ctx->secure_flags |= (1 << SECURITY_DEFAULT);
 	if (want_permissions)
 		ctx->secure_flags |= (1 << SECURITY_WANTED);
@@ -4279,6 +4339,7 @@ int main(int argc, char *argv[])
 	const char *permissions_mode = (const char*)NULL;
 	const char *failed_secure = (const char*)NULL;
 	struct stat sbuf;
+	unsigned long existing_mount;
 	int err, fd;
 
 	/*
@@ -4318,7 +4379,12 @@ int main(int argc, char *argv[])
 		err = NTFS_VOLUME_SYNTAX_ERROR;
 		goto err_out;
 	}
-        
+	if (ntfs_check_if_mounted(opts.device,&existing_mount)
+	    || (existing_mount & NTFS_MF_MOUNTED)) {
+		err = NTFS_VOLUME_LOCKED;
+		goto err_out;
+	}
+
 			/* need absolute mount point for junctions */
 	if (opts.mnt_point[0] == '/')
 		ctx->abs_mnt_point = strdup(opts.mnt_point);
@@ -4396,7 +4462,9 @@ int main(int argc, char *argv[])
 		/* to initialize security data */
 	if (ntfs_open_secure(ctx->vol) && (ctx->vol->major_ver >= 3))
 		failed_secure = "Could not open file $Secure";
-	if (!ntfs_build_mapping(&ctx->security,ctx->usermap_path)) {
+	if (!ntfs_build_mapping(&ctx->security,ctx->usermap_path,
+		(ctx->vol->secure_flags & (1 << SECURITY_DEFAULT))
+		&& !(ctx->vol->secure_flags & (1 << SECURITY_WANTED)))) {
 #if POSIXACLS
 		if (ctx->vol->secure_flags & (1 << SECURITY_DEFAULT))
 			permissions_mode = "User mapping built, Posix ACLs not used";
