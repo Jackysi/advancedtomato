@@ -51,6 +51,7 @@ struct fib_node {
 	struct hlist_node	fn_hash;
 	struct list_head	fn_alias;
 	__be32			fn_key;
+	struct fib_alias        fn_embedded_alias;
 };
 
 struct fn_zone {
@@ -191,10 +192,13 @@ static inline void fn_free_node(struct fib_node * f)
 	kmem_cache_free(fn_hash_kmem, f);
 }
 
-static inline void fn_free_alias(struct fib_alias *fa)
+static inline void fn_free_alias(struct fib_alias *fa, struct fib_node *f)
 {
 	fib_release_info(fa->fa_info);
-	kmem_cache_free(fn_alias_kmem, fa);
+	if (fa == &f->fn_embedded_alias)
+		fa->fa_info = NULL;
+	else
+		kmem_cache_free(fn_alias_kmem, fa);
 }
 
 static struct fn_zone *
@@ -271,8 +275,6 @@ out:
 	return err;
 }
 
-static int fn_hash_last_dflt=-1;
-
 static void
 fn_hash_select_default(struct fib_table *tb, const struct flowi *flp, struct fib_result *res)
 {
@@ -313,12 +315,9 @@ fn_hash_select_default(struct fib_table *tb, const struct flowi *flp, struct fib
 				if (next_fi != res->fi)
 					break;
 			} else if (!fib_detect_death(fi, order, &last_resort,
-						     &last_idx, &fn_hash_last_dflt)) {
-				if (res->fi)
-					fib_info_put(res->fi);
-				res->fi = fi;
-				atomic_inc(&fi->fib_clntref);
-				fn_hash_last_dflt = order;
+						     &last_idx, &tb->tb_default)) {
+				fib_result_assign(res, fi);
+				tb->tb_default = order;
 				goto out;
 			}
 			fi = next_fi;
@@ -327,27 +326,19 @@ fn_hash_select_default(struct fib_table *tb, const struct flowi *flp, struct fib
 	}
 
 	if (order <= 0 || fi == NULL) {
-		fn_hash_last_dflt = -1;
+		tb->tb_default = -1;
 		goto out;
 	}
 
-	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &fn_hash_last_dflt)) {
-		if (res->fi)
-			fib_info_put(res->fi);
-		res->fi = fi;
-		atomic_inc(&fi->fib_clntref);
-		fn_hash_last_dflt = order;
+	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &tb->tb_default)) {
+		fib_result_assign(res, fi);
+		tb->tb_default = order;
 		goto out;
 	}
 
-	if (last_idx >= 0) {
-		if (res->fi)
-			fib_info_put(res->fi);
-		res->fi = last_resort;
-		if (last_resort)
-			atomic_inc(&last_resort->fib_clntref);
-	}
-	fn_hash_last_dflt = last_idx;
+	if (last_idx >= 0)
+		fib_result_assign(res, last_resort);
+	tb->tb_default = last_idx;
 out:
 	read_unlock(&fib_hash_lock);
 }
@@ -430,19 +421,43 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 
 	if (fa && fa->fa_tos == tos &&
 	    fa->fa_info->fib_priority == fi->fib_priority) {
-		struct fib_alias *fa_orig;
+		struct fib_alias *fa_first, *fa_match;
 
 		err = -EEXIST;
 		if (cfg->fc_nlflags & NLM_F_EXCL)
 			goto out;
 
+		/* We have 2 goals:
+		 * 1. Find exact match for type, scope, fib_info to avoid
+		 * duplicate routes
+		 * 2. Find next 'fa' (or head), NLM_F_APPEND inserts before it
+		 */
+		fa_match = NULL;
+		fa_first = fa;
+		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
+		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
+			if (fa->fa_tos != tos)
+				break;
+			if (fa->fa_info->fib_priority != fi->fib_priority)
+				break;
+			if (fa->fa_type == cfg->fc_type &&
+			    fa->fa_scope == cfg->fc_scope &&
+			    fa->fa_info == fi) {
+				fa_match = fa;
+				break;
+			}
+		}
+
 		if (cfg->fc_nlflags & NLM_F_REPLACE) {
 			struct fib_info *fi_drop;
 			u8 state;
 
-			if (fi->fib_treeref > 1)
+			fa = fa_first;
+			if (fa_match) {
+				if (fa == fa_match)
+					err = 0;
 				goto out;
-
+			}
 			write_lock_bh(&fib_hash_lock);
 			fi_drop = fa->fa_info;
 			fa->fa_info = fi;
@@ -465,20 +480,11 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		 * uses the same scope, type, and nexthop
 		 * information.
 		 */
-		fa_orig = fa;
-		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
-			if (fa->fa_tos != tos)
-				break;
-			if (fa->fa_info->fib_priority != fi->fib_priority)
-				break;
-			if (fa->fa_type == cfg->fc_type &&
-			    fa->fa_scope == cfg->fc_scope &&
-			    fa->fa_info == fi)
-				goto out;
-		}
+		if (fa_match)
+			goto out;
+
 		if (!(cfg->fc_nlflags & NLM_F_APPEND))
-			fa = fa_orig;
+			fa = fa_first;
 	}
 
 	err = -ENOENT;
@@ -486,15 +492,12 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		goto out;
 
 	err = -ENOBUFS;
-	new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
-	if (new_fa == NULL)
-		goto out;
 
 	new_f = NULL;
 	if (!f) {
-		new_f = kmem_cache_alloc(fn_hash_kmem, GFP_KERNEL);
+		new_f = kmem_cache_zalloc(fn_hash_kmem, GFP_KERNEL);
 		if (new_f == NULL)
-			goto out_free_new_fa;
+			goto out;
 
 		INIT_HLIST_NODE(&new_f->fn_hash);
 		INIT_LIST_HEAD(&new_f->fn_alias);
@@ -502,6 +505,12 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		f = new_f;
 	}
 
+	new_fa = &f->fn_embedded_alias;
+	if (new_fa->fa_info != NULL) {
+		new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
+		if (new_fa == NULL)
+			goto out_free_new_f;
+	}
 	new_fa->fa_info = fi;
 	new_fa->fa_tos = tos;
 	new_fa->fa_type = cfg->fc_type;
@@ -528,8 +537,8 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		  &cfg->fc_nlinfo, 0);
 	return 0;
 
-out_free_new_fa:
-	kmem_cache_free(fn_alias_kmem, new_fa);
+out_free_new_f:
+	kmem_cache_free(fn_hash_kmem, new_f);
 out:
 	fib_release_info(fi);
 	return err;
@@ -605,7 +614,7 @@ static int fn_hash_delete(struct fib_table *tb, struct fib_config *cfg)
 
 		if (fa->fa_state & FA_S_ACCESSED)
 			rt_cache_flush(-1);
-		fn_free_alias(fa);
+		fn_free_alias(fa, f);
 		if (kill_fn) {
 			fn_free_node(f);
 			fz->fz_nent--;
@@ -641,7 +650,7 @@ static int fn_flush_list(struct fn_zone *fz, int idx)
 				fib_hash_genid++;
 				write_unlock_bh(&fib_hash_lock);
 
-				fn_free_alias(fa);
+				fn_free_alias(fa, f);
 				found++;
 			}
 		}
@@ -770,13 +779,13 @@ struct fib_table * __init fib_hash_init(u32 id)
 	if (fn_hash_kmem == NULL)
 		fn_hash_kmem = kmem_cache_create("ip_fib_hash",
 						 sizeof(struct fib_node),
-						 0, SLAB_HWCACHE_ALIGN,
+						 0, SLAB_PANIC,
 						 NULL, NULL);
 
 	if (fn_alias_kmem == NULL)
 		fn_alias_kmem = kmem_cache_create("ip_fib_alias",
 						  sizeof(struct fib_alias),
-						  0, SLAB_HWCACHE_ALIGN,
+						  0, SLAB_PANIC,
 						  NULL, NULL);
 
 	tb = kmalloc(sizeof(struct fib_table) + sizeof(struct fn_hash),
@@ -785,6 +794,7 @@ struct fib_table * __init fib_hash_init(u32 id)
 		return NULL;
 
 	tb->tb_id = id;
+	tb->tb_default = -1;
 	tb->tb_lookup = fn_hash_lookup;
 	tb->tb_insert = fn_hash_insert;
 	tb->tb_delete = fn_hash_delete;

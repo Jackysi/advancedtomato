@@ -7,12 +7,14 @@
 
 struct fib_alias {
 	struct list_head	fa_list;
-	struct rcu_head rcu;
 	struct fib_info		*fa_info;
 	u8			fa_tos;
 	u8			fa_type;
 	u8			fa_scope;
 	u8			fa_state;
+#ifdef CONFIG_IP_FIB_TRIE
+	struct rcu_head		rcu;
+#endif
 };
 
 #define FA_S_ACCESSED	0x01
@@ -37,5 +39,15 @@ extern struct fib_alias *fib_find_alias(struct list_head *fah,
 extern int fib_detect_death(struct fib_info *fi, int order,
 			    struct fib_info **last_resort,
 			    int *last_idx, int *dflt);
+
+static inline void fib_result_assign(struct fib_result *res,
+				     struct fib_info *fi)
+{
+	if (res->fi != NULL)
+		fib_info_put(res->fi);
+	res->fi = fi;
+	if (fi != NULL)
+		atomic_inc(&fi->fib_clntref);
+}
 
 #endif /* _FIB_LOOKUP_H */
