@@ -1667,17 +1667,14 @@ static int usb_resume(struct device *dev)
 	return status;
 }
 
-#else
-
-#define usb_suspend	NULL
-#define usb_resume	NULL
-
 #endif /* CONFIG_PM */
 
 struct bus_type usb_bus_type = {
 	.name =		"usb",
 	.match =	usb_device_match,
 	.uevent =	usb_uevent,
+#ifdef CONFIG_PM
 	.suspend =	usb_suspend,
 	.resume =	usb_resume,
+#endif
 };

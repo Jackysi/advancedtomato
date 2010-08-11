@@ -19,6 +19,7 @@
 #include <linux/ioctl.h>
 #include <linux/usb.h>
 #include <linux/usbdevice_fs.h>
+#include <linux/usb/quirks.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/freezer.h>
@@ -1520,9 +1521,6 @@ int usb_new_device(struct usb_device *udev)
 	if (udev->parent)
 		usb_autoresume_device(udev->parent);
 
-	/* Determine quirks */
-	usb_detect_quirks(udev);
-
 	err = usb_get_configuration(udev);
 	if (err < 0) {
 		dev_err(&udev->dev, "can't read configurations, error %d\n",
@@ -2734,6 +2732,10 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		status = hub_port_init(hub, udev, port1, i);
 		if (status < 0)
 			goto loop;
+
+		usb_detect_quirks(udev);
+		if (udev->quirks & USB_QUIRK_DELAY_INIT)
+			msleep(1000);
 
 		/* consecutive bus-powered hubs aren't reliable; they can
 		 * violate the voltage drop budget.  if the new child has

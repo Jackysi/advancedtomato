@@ -573,7 +573,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 	unsigned long	flags;
 	char		buffer[4];	/* Any root hubs with > 31 ports? */
 
-	if (unlikely(!hcd->rh_registered))
+	if (unlikely(!hcd->rh_pollable))
 		return;
 	if (!hcd->uses_new_polling && !hcd->status_urb)
 		return;
@@ -1839,6 +1839,7 @@ int usb_add_hcd(struct usb_hcd *hcd,
 		dev_err(hcd->self.controller, "can't setup\n");
 		goto err_hcd_driver_setup;
 	}
+	hcd->rh_pollable = 1;
 
 	/* NOTE: root hub and controller capabilities may not be the same */
 	if (device_can_wakeup(hcd->self.controller)
@@ -1892,14 +1893,16 @@ int usb_add_hcd(struct usb_hcd *hcd,
 	return retval;
 
 err_register_root_hub:
+	hcd->rh_pollable = 0;
+	hcd->poll_rh = 0;
+	del_timer_sync(&hcd->rh_timer);
 	hcd->driver->stop(hcd);
 err_hcd_driver_start:
 	if (hcd->irq >= 0)
 		free_irq(irqnum, hcd);
 err_request_irq:
 err_hcd_driver_setup:
-	hcd->self.root_hub = NULL;
-	usb_put_dev(rhdev);
+	usb_put_dev(hcd->self.root_hub);
 err_allocate_root_hub:
 	usb_deregister_bus(&hcd->self);
 err_register_bus:
@@ -1918,7 +1921,10 @@ EXPORT_SYMBOL_GPL(usb_add_hcd);
  */
 void usb_remove_hcd(struct usb_hcd *hcd)
 {
+	struct usb_device *rhdev = hcd->self.root_hub;
+
 	dev_info(hcd->self.controller, "remove, state %x\n", hcd->state);
+	usb_get_dev(rhdev);
 
 	if (HC_IS_RUNNING (hcd->state))
 		hcd->state = HC_STATE_QUIESCING;
@@ -1933,17 +1939,29 @@ void usb_remove_hcd(struct usb_hcd *hcd)
 #endif
 
 	mutex_lock(&usb_bus_list_lock);
-	usb_disconnect(&hcd->self.root_hub);
+	usb_disconnect(&rhdev);		/* Sets rhdev to NULL */
 	mutex_unlock(&usb_bus_list_lock);
+
+	/* Prevent any more root-hub status calls from the timer.
+	 * The HCD might still restart the timer (if a port status change
+	 * interrupt occurs), but usb_hcd_poll_rh_status() won't invoke
+	 * the hub_status_data() callback.
+	 */
+	hcd->rh_pollable = 0;
+	hcd->poll_rh = 0;
+	del_timer_sync(&hcd->rh_timer);
 
 	hcd->driver->stop(hcd);
 	hcd->state = HC_STATE_HALT;
 
+	/* In case the HCD restarted the timer, stop it again. */
 	hcd->poll_rh = 0;
 	del_timer_sync(&hcd->rh_timer);
 
 	if (hcd->irq >= 0)
 		free_irq(hcd->irq, hcd);
+
+	usb_put_dev(hcd->self.root_hub);
 	usb_deregister_bus(&hcd->self);
 	hcd_buffer_destroy(hcd);
 }
