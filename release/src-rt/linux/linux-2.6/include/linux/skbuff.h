@@ -142,6 +142,7 @@ struct skb_shared_info {
 	unsigned short  gso_type;
 	__be32          ip6_frag_id;
 	struct sk_buff	*frag_list;
+	/* must be last field, see pskb_expand_head() */
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
 
