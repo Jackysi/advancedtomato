@@ -610,35 +610,47 @@ rta->rta_prefsrc ? *(u32*)rta->rta_prefsrc : 0);
 #endif
 	    fn_key_eq(f->fn_key, key) &&
 	    fi->fib_priority == FIB_INFO(f)->fib_priority) {
-		struct fib_node **ins_fp;
+		struct fib_node **fp_first, **fp_match;
 
 		err = -EEXIST;
 		if (n->nlmsg_flags&NLM_F_EXCL)
 			goto out;
 
-		if (n->nlmsg_flags&NLM_F_REPLACE) {
-			if (fi->fib_treeref > 1)
-				goto out;
+		/* We have 2 goals:
+		 * 1. Find exact match for type, scope, fib_info to avoid
+		 * duplicate routes
+		 * 2. Find next 'fp' (or head), NLM_F_APPEND inserts before it
+		 */
+		fp_match = NULL;
+		fp_first = fp;
+		FIB_SCAN_TOS(f, fp, key, tos) {
+			if (fi->fib_priority != FIB_INFO(f)->fib_priority)
+				break;
+			if (f->fn_type == type && f->fn_scope == r->rtm_scope
+			    && FIB_INFO(f) == fi) {
+				fp_match = fp;
+				break;
+			}
+		}
 
+		if (n->nlmsg_flags&NLM_F_REPLACE) {
+			fp = fp_first;
+			if (fp_match) {
+				if (fp == fp_match)
+					err = 0;
+				goto out;
+			}
 			del_fp = fp;
 			fp = &f->fn_next;
 			f = *fp;
 			goto replace;
 		}
 
-		ins_fp = fp;
-		err = -EEXIST;
-
-		FIB_SCAN_TOS(f, fp, key, tos) {
-			if (fi->fib_priority != FIB_INFO(f)->fib_priority)
-				break;
-			if (f->fn_type == type && f->fn_scope == r->rtm_scope
-			    && FIB_INFO(f) == fi)
-				goto out;
-		}
+		if (fp_match)
+			goto out;
 
 		if (!(n->nlmsg_flags&NLM_F_APPEND)) {
-			fp = ins_fp;
+			fp = fp_first;
 			f = *fp;
 		}
 	}
