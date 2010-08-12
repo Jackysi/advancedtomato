@@ -136,15 +136,19 @@ static unsigned int nf_conntrack_hash_rnd;
 static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
 				  unsigned int size, unsigned int rnd)
 {
-	unsigned int a, b;
+	unsigned int n;
+	u_int32_t h;
 
-	a = jhash2(tuple->src.u3.all, ARRAY_SIZE(tuple->src.u3.all),
-		   (tuple->src.l3num << 16) | tuple->dst.protonum);
-	b = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
-		   (tuple->src.u.all << 16) | tuple->dst.u.all);
+	/* The direction must be ignored, so we hash everything up to the
+	 * destination ports (which is a multiple of 4) and treat the last
+	 * three bytes manually.
+	 */
+	n = (sizeof(tuple->src) + sizeof(tuple->dst.u3)) / sizeof(u32);
+	h = jhash2((u32 *)tuple, n,
+		   rnd ^ (((__force __u16)tuple->dst.u.all << 16) |
+			  tuple->dst.protonum));
 
-	/* SpeedMod: change modulo to AND */
-	return jhash_2words(a, b, rnd) & (size - 1);
+	return ((u64)h * size) >> 32;
 }
 
 static inline u_int32_t hash_conntrack(const struct nf_conntrack_tuple *tuple)
@@ -279,7 +283,7 @@ nf_ct_get_tuple(const struct sk_buff *skb,
 		const struct nf_conntrack_l3proto *l3proto,
 		const struct nf_conntrack_l4proto *l4proto)
 {
-	NF_CT_TUPLE_U_BLANK(tuple);
+	memset(tuple, 0, sizeof(*tuple));
 
 	tuple->src.l3num = l3num;
 	if (l3proto->pkt_to_tuple(skb, nhoff, tuple) == 0)
@@ -297,7 +301,7 @@ nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 		   const struct nf_conntrack_l3proto *l3proto,
 		   const struct nf_conntrack_l4proto *l4proto)
 {
-	NF_CT_TUPLE_U_BLANK(inverse);
+	memset(inverse, 0, sizeof(*inverse));
 
 	inverse->src.l3num = orig->src.l3num;
 	if (l3proto->invert_tuple(inverse, orig) == 0)
@@ -405,15 +409,13 @@ static void death_by_timeout(unsigned long ul_conntrack)
 }
 
 struct nf_conntrack_tuple_hash *
-__nf_conntrack_find(const struct nf_conntrack_tuple *tuple,
-		    const struct nf_conn *ignored_conntrack)
+__nf_conntrack_find(const struct nf_conntrack_tuple *tuple)
 {
 	struct nf_conntrack_tuple_hash *h;
 	unsigned int hash = hash_conntrack(tuple);
 
 	list_for_each_entry(h, &nf_conntrack_hash[hash], list) {
-		if (nf_ct_tuplehash_to_ctrack(h) != ignored_conntrack &&
-		    nf_ct_tuple_equal(tuple, &h->tuple)) {
+		if (nf_ct_tuple_equal(tuple, &h->tuple)) {
 			NF_CT_STAT_INC(found);
 			return h;
 		}
@@ -430,11 +432,15 @@ nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
 		      const struct nf_conn *ignored_conntrack)
 {
 	struct nf_conntrack_tuple_hash *h;
+	struct nf_conn *ct;
 
 	read_lock_bh(&nf_conntrack_lock);
-	h = __nf_conntrack_find(tuple, ignored_conntrack);
-	if (h)
-		atomic_inc(&nf_ct_tuplehash_to_ctrack(h)->ct_general.use);
+	h = __nf_conntrack_find(tuple);
+	if (h) {
+		ct = nf_ct_tuplehash_to_ctrack(h);
+		if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+			h = NULL;
+	}
 	read_unlock_bh(&nf_conntrack_lock);
 
 	return h;
@@ -550,18 +556,27 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
 			 const struct nf_conn *ignored_conntrack)
 {
 	struct nf_conntrack_tuple_hash *h;
+	unsigned int hash = hash_conntrack(tuple);
 
 	read_lock_bh(&nf_conntrack_lock);
-	h = __nf_conntrack_find(tuple, ignored_conntrack);
+	list_for_each_entry(h, &nf_conntrack_hash[hash], list) {
+		if (nf_ct_tuplehash_to_ctrack(h) != ignored_conntrack &&
+		    nf_ct_tuple_equal(tuple, &h->tuple)) {
+			NF_CT_STAT_INC(found);
+			read_unlock_bh(&nf_conntrack_lock);
+			return 1;
+		}
+		NF_CT_STAT_INC(searched);
+	}
 	read_unlock_bh(&nf_conntrack_lock);
 
-	return h != NULL;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(nf_conntrack_tuple_taken);
 
 /* There's a small race here where we may free a just-assured
    connection.  Too bad: we're in trouble anyway. */
-static int early_drop(struct list_head *chain)
+static noinline int early_drop(struct list_head *chain)
 {
 	/* Traverse backwards: gives us oldest, which is roughly LRU */
 	struct nf_conntrack_tuple_hash *h;
@@ -608,8 +623,8 @@ __nf_conntrack_alloc(const struct nf_conntrack_tuple *orig,
 	/* We don't want any race condition at early drop stage */
 	atomic_inc(&nf_conntrack_count);
 
-	if (nf_conntrack_max
-	    && atomic_read(&nf_conntrack_count) > nf_conntrack_max) {
+	if (nf_conntrack_max &&
+	    unlikely(atomic_read(&nf_conntrack_count) > nf_conntrack_max)) {
 		unsigned int hash = hash_conntrack(orig);
 		/* Try dropping from this hash chain. */
 		if (!early_drop(&nf_conntrack_hash[hash])) {

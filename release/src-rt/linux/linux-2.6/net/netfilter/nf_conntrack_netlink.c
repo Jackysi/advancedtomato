@@ -1034,9 +1034,9 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
 
 	write_lock_bh(&nf_conntrack_lock);
 	if (cda[CTA_TUPLE_ORIG-1])
-		h = __nf_conntrack_find(&otuple, NULL);
+		h = __nf_conntrack_find(&otuple);
 	else if (cda[CTA_TUPLE_REPLY-1])
-		h = __nf_conntrack_find(&rtuple, NULL);
+		h = __nf_conntrack_find(&rtuple);
 
 	if (h == NULL) {
 		write_unlock_bh(&nf_conntrack_lock);

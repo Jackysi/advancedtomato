@@ -83,9 +83,13 @@ EXPORT_SYMBOL_GPL(nf_nat_proto_put);
 static inline unsigned int
 hash_by_src(const struct nf_conntrack_tuple *tuple)
 {
+	unsigned int hash;
+
 	/* Original src, to ensure we map it consistently if poss. */
-	return jhash_3words((__force u32)tuple->src.u3.ip, tuple->src.u.all,
-			    tuple->dst.protonum, 0) % nf_nat_htable_size;
+	hash = jhash_3words((__force u32)tuple->src.u3.ip,
+			    (__force u32)tuple->src.u.all,
+			    tuple->dst.protonum, 0);
+	return ((u64)hash * nf_nat_htable_size) >> 32;
 }
 
 /* Noone using conntrack by the time this called. */
@@ -231,7 +235,8 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
 	maxip = ntohl(range->max_ip);
 	j = jhash_2words((__force u32)tuple->src.u3.ip,
 			 (__force u32)tuple->dst.u3.ip, 0);
-	*var_ipp = htonl(minip + j % (maxip - minip + 1));
+	j = ((u64)j * (maxip - minip + 1)) >> 32;
+	*var_ipp = htonl(minip + j);
 }
 
 /* Manipulate the tuple into the range given.  For NF_IP_POST_ROUTING,

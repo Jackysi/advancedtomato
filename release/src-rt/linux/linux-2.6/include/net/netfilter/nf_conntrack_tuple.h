@@ -100,16 +100,6 @@ struct nf_conntrack_tuple
 	} dst;
 };
 
-/* This is optimized opposed to a memset of the whole structure.  Everything we
- * really care about is the  source/destination unions */
-#define NF_CT_TUPLE_U_BLANK(tuple)                              	\
-        do {                                                    	\
-                (tuple)->src.u.all = 0;                         	\
-                (tuple)->dst.u.all = 0;                         	\
-		memset(&(tuple)->src.u3, 0, sizeof((tuple)->src.u3));	\
-		memset(&(tuple)->dst.u3, 0, sizeof((tuple)->dst.u3));	\
-        } while (0)
-
 #ifdef __KERNEL__
 
 #define NF_CT_DUMP_TUPLE(tp)						    \
@@ -143,34 +133,33 @@ struct nf_conntrack_tuple_hash
 
 #endif /* __KERNEL__ */
 
-static inline int nf_ct_tuple_src_equal(const struct nf_conntrack_tuple *t1,
-				        const struct nf_conntrack_tuple *t2)
+static inline int __nf_ct_tuple_src_equal(const struct nf_conntrack_tuple *t1,
+					  const struct nf_conntrack_tuple *t2)
 { 
 	return (t1->src.u3.all[0] == t2->src.u3.all[0] &&
 		t1->src.u3.all[1] == t2->src.u3.all[1] &&
 		t1->src.u3.all[2] == t2->src.u3.all[2] &&
 		t1->src.u3.all[3] == t2->src.u3.all[3] &&
 		t1->src.u.all == t2->src.u.all &&
-		t1->src.l3num == t2->src.l3num &&
-		t1->dst.protonum == t2->dst.protonum);
+		t1->src.l3num == t2->src.l3num);
 }
 
-static inline int nf_ct_tuple_dst_equal(const struct nf_conntrack_tuple *t1,
-				        const struct nf_conntrack_tuple *t2)
+static inline int __nf_ct_tuple_dst_equal(const struct nf_conntrack_tuple *t1,
+					  const struct nf_conntrack_tuple *t2)
 {
 	return (t1->dst.u3.all[0] == t2->dst.u3.all[0] &&
 		t1->dst.u3.all[1] == t2->dst.u3.all[1] &&
 		t1->dst.u3.all[2] == t2->dst.u3.all[2] &&
 		t1->dst.u3.all[3] == t2->dst.u3.all[3] &&
 		t1->dst.u.all == t2->dst.u.all &&
-		t1->src.l3num == t2->src.l3num &&
 		t1->dst.protonum == t2->dst.protonum);
 }
 
 static inline int nf_ct_tuple_equal(const struct nf_conntrack_tuple *t1,
 				    const struct nf_conntrack_tuple *t2)
 {
-	return nf_ct_tuple_src_equal(t1, t2) && nf_ct_tuple_dst_equal(t1, t2);
+	return __nf_ct_tuple_src_equal(t1, t2) &&
+	       __nf_ct_tuple_dst_equal(t1, t2);
 }
 
 static inline int nf_ct_tuple_mask_cmp(const struct nf_conntrack_tuple *t,
