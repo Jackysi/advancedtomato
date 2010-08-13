@@ -90,15 +90,18 @@ input[type='button']:hover {
 	padding:4px 0 4px 25px;
 }
 
-#tabs a {
+#tabs li a,
+ul.tabs li a, {
 	font-family: Tahoma, Arial, Sans-serif;
 }
 
-#tabs a.active {
+#tabs li a.active,
+ul.tabs li a.active {
 	background: #2f3d40;
 	color: #fff;
 }
-#tabs a:hover {
+#tabs li a:hover,
+ul.tabs li a:hover {
 	background: #51f06;
 	color: #fff;
 }

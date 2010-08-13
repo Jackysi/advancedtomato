@@ -407,6 +407,12 @@ ifneq ($(CONFIG_LINUX26),y)
 	@cp usbmodeswitch/usb_modeswitch.setup $(PLATFORMDIR)/extras/apps/usb_modeswitch.setup || true
 	@mkdir -p $(PLATFORMDIR)/extras/apps/usb_modeswitch.d
 	@cp -f usbmodeswitch/data/usb_modeswitch.d/* $(PLATFORMDIR)/extras/apps/usb_modeswitch.d || true
+	@rm -rf $(TARGETDIR)/rom/etc/usb_modeswitch.d || true
+	@rm -f  $(TARGETDIR)/rom/etc/usb_modeswitch.conf || true
+	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
+endif
+ifneq ($(TCONFIG_USB),y)
+	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
 endif
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
@@ -591,7 +597,7 @@ mdu:	shared mssl
 rc: nvram shared
 
 bridge/Makefile:
-	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
+	cd bridge && CFLAGS="-O2 -g $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix="" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
@@ -616,7 +622,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
@@ -812,6 +818,8 @@ pppd-clean:
 pppd-install: pppd
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
+	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
+	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
 	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
 	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 
@@ -1115,7 +1123,7 @@ igs-install:
 
 
 ebtables: dummy
-	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-O2 $(EXTRACFLAGS) -Wall -Wunused"
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables

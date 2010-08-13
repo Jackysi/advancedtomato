@@ -106,7 +106,7 @@ static int deconfig(char *ifname)
 static int renew(char *ifname)
 {
 	char *a, *b;
-	int changed, routes_changed;
+	int changed, routes_changed = 0;
 
 	TRACE_PT("begin\n");
 
@@ -139,20 +139,10 @@ static int renew(char *ifname)
 	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
 	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
 
-	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
-	 * and a Router option, the DHCP client MUST ignore the Router option.
-	 * Similarly, if the DHCP server returns both a Classless Static Routes
-	 * option and a Static Routes option, the DHCP client MUST ignore the
-	 * Static Routes option.
-	 * Read more: http://www.faqs.org/rfcs/rfc3442.html
-	 */
-	routes_changed = env2nv("staticroutes", "wan_routes_save");
-	if (routes_changed)
-		nvram_set("wan_msroutes_save", "");
-	else {
-		routes_changed |= env2nv("routes", "wan_routes_save");
-		routes_changed |= env2nv("msroutes", "wan_msroutes_save");
-	}
+	/* Static Routes */
+	routes_changed |= env2nv("routes", "wan_routes_save");
+	/* MS Classless Static Routes */
+	routes_changed |= env2nv("msstaticroutes", "wan_msroutes_save");
 	changed |= routes_changed;
 
 	if ((a = getenv("lease")) != NULL) {
@@ -206,11 +196,12 @@ static int bound(char *ifname)
 	 * Similarly, if the DHCP server returns both a Classless Static Routes
 	 * option and a Static Routes option, the DHCP client MUST ignore the
 	 * Static Routes option.
+	 * Read more: http://www.faqs.org/rfcs/rfc3442.html
 	 */
-	if (!env2nv("staticroutes", "wan_routes")) {
-		env2nv("routes", "wan_routes");
-		env2nv("msroutes", "wan_msroutes");
-	}
+	/* Static Routes */
+	env2nv("routes", "wan_routes");
+	/* MS Classless Static Routes */
+	env2nv("msstaticroutes", "wan_msroutes");
 
 	expires(atoi(safe_getenv("lease")));
 

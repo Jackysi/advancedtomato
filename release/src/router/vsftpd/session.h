@@ -44,6 +44,10 @@ struct vsf_session
   int abor_received;
   int epsv_all;
 
+  /* HTTP hacks */
+  int is_http;
+  struct mystr http_get_arg;
+
   /* Details of FTP session state */
   struct mystr_list* p_visited_dir_list;
 

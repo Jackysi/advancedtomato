@@ -9,8 +9,9 @@ struct vsf_session;
  * Return a network socket potentially bound to a privileged port (less than
  * 1024) and connected to the remote.
  * PARAMETERS
- * p_sess       - the current session object
- * remote_port  - the remote port to connect to
+ * p_sess            - the current session object
+ * remote_port       - the remote port to connect to
+ * use_port_sockaddr - true if we should use the specific sockaddr for connect
  * RETURNS
  * A file descriptor which is a socket bound to the privileged port, and
  * connected to the remote on the specified port.
@@ -18,7 +19,8 @@ struct vsf_session;
  * Returns -1 if the bind() worked but the connect() was not possible.
  */
 int vsf_privop_get_ftp_port_sock(struct vsf_session* p_sess,
-                                 unsigned short remote_port);
+                                 unsigned short remote_port,
+                                 int use_port_sockaddr);
 
 /* vsf_privop_pasv_cleanup()
  * PURPOSE

@@ -125,7 +125,7 @@ static void
 cmd_process_get_data_sock(struct vsf_session* p_sess)
 {
   unsigned short port = (unsigned short) priv_sock_get_int(p_sess->parent_fd);
-  int sock_fd = vsf_privop_get_ftp_port_sock(p_sess, port);
+  int sock_fd = vsf_privop_get_ftp_port_sock(p_sess, port, 0);
   if (sock_fd == -1)
   {
     priv_sock_send_result(p_sess->parent_fd, PRIV_SOCK_RESULT_BAD);

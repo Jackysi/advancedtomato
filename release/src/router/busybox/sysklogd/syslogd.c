@@ -546,7 +546,7 @@ static int try_to_resolve_remote(remoteHost_t *rh)
 		if (!rh->remoteAddr)
 			return -1;
 	}
-	return socket(rh->remoteAddr->u.sa.sa_family, SOCK_DGRAM, 0);
+	return xsocket(rh->remoteAddr->u.sa.sa_family, SOCK_DGRAM, 0);
 }
 #endif
 
@@ -555,7 +555,6 @@ static void do_syslogd(void)
 {
 	int sock_fd;
 #if ENABLE_FEATURE_REMOTE_LOG
-	int send_err = 0;
 	llist_t *item;
 #endif
 #if ENABLE_FEATURE_SYSLOGD_DUP
@@ -637,23 +636,24 @@ static void do_syslogd(void)
 				if (rh->remoteFD == -1)
 					continue;
 			}
-			/* Send message to remote logger, ignore possible error */
-			if (sendto(rh->remoteFD, recvbuf, sz+1, MSG_DONTWAIT,
-				&(rh->remoteAddr->u.sa), rh->remoteAddr->len) == -1) {
-				send_err = errno;
-			}
 
-			/* On some errors, close and set rh->remoteFD to -1
-			 * so that DNS resolution and connect is retried */
-			switch (send_err) {
+			/* Send message to remote logger.
+			 * On some errors, close and set remoteFD to -1
+			 * so that DNS resolution is retried.
+			 */
+			if (sendto(rh->remoteFD, recvbuf, sz+1,
+					MSG_DONTWAIT | MSG_NOSIGNAL,
+					&(rh->remoteAddr->u.sa), rh->remoteAddr->len) == -1
+			) {
+				switch (errno) {
 				case ECONNRESET:
-				case EDESTADDRREQ:
-				case EISCONN:
-				case ENOTCONN:
+				case ENOTCONN: /* paranoia */
 				case EPIPE:
 					close(rh->remoteFD);
 					rh->remoteFD = -1;
-					break;
+					free(rh->remoteAddr);
+					rh->remoteAddr = NULL;
+				}
 			}
 		}
 #endif

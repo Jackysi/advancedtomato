@@ -98,6 +98,7 @@ void vsf_sysutil_ftruncate(int fd);
 
 /* Reading and writing */
 void vsf_sysutil_lseek_to(const int fd, filesize_t seek_pos);
+void vsf_sysutil_lseek_end(const int fd);
 filesize_t vsf_sysutil_get_file_offset(const int file_fd);
 int vsf_sysutil_read(const int fd, void* p_buf, const unsigned int size);
 int vsf_sysutil_write(const int fd, const void* p_buf,

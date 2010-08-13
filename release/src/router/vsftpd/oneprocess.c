@@ -129,7 +129,7 @@ int
 vsf_one_process_get_priv_data_sock(struct vsf_session* p_sess)
 {
   unsigned short port = vsf_sysutil_sockaddr_get_port(p_sess->p_port_sockaddr);
-  return vsf_privop_get_ftp_port_sock(p_sess, port);
+  return vsf_privop_get_ftp_port_sock(p_sess, port, 1);
 }
 
 void

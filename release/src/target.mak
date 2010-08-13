@@ -1,4 +1,4 @@
-export TPROFILE := G
+export TPROFILE := N
 
 export LINUXDIR := $(SRCBASE)/linux/linux
 

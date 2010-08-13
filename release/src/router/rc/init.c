@@ -385,6 +385,14 @@ static void check_bootnv(void)
 		if (nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
+	case MODEL_WL500GD:
+		dirty |= check_nv("vlan0hwname", "et0");
+		dirty |= check_nv("vlan1hwname", "et0");
+		if (!nvram_get("vlan0ports")) {
+			dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
+			dirty |= check_nv("vlan1ports", "0 5");
+		}
+		break;
 	case MODEL_DIR320:
 		if (strlen(nvram_safe_get("et0macaddr")) == 12) {
 			if (!find_dir320_mac_addr()) {
@@ -404,8 +412,7 @@ static void check_bootnv(void)
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
-		if (nvram_match("boardflags", "0x00001710"))
-			dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
+		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
 		dirty |= check_nv("vlan2hwname", "et0");
 		if (nvram_match("vlan1ports", "1 2 3 4 8*") || nvram_match("vlan2ports", "0 8u")) {
 			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
@@ -875,9 +882,10 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT320N:
 		mfr = "Linksys";
-		if (nvram_match("boardrev", "0x1307"))
+		if (nvram_match("boardrev", "0x1307")) {
 			name = "E2000";
-		else
+			gpio_write(1 << 0, 0); // fix for WLAN LED
+		} else
 			name = "WRT320N";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
@@ -910,6 +918,18 @@ static int init_nvram(void)
 			nvram_set("wl0gpio1", "136");
 			nvram_set("wl0gpio2", "0");
 			nvram_set("wl0gpio3", "0");
+		}
+		break;
+	case MODEL_WL500GD:
+		mfr = "Asus";
+		name = "WL-500g Deluxe";
+		// features = SUP_SES;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_unset("wl0gpio0");
 		}
 		break;
 	case MODEL_DIR320:

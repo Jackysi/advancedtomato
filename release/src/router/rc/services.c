@@ -1099,6 +1099,9 @@ static void start_samba(void)
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
+#ifdef TCONFIG_SAMBA3
+		" host msdfs = no\n"
+#endif
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",

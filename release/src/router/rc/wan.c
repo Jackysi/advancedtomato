@@ -551,20 +551,15 @@ void force_to_dial(void)
 
 // -----------------------------------------------------------------------------
 
-void do_wan_routes(char *ifname, int metric, int add)
+static void _do_wan_routes(char *ifname, char *nvname, int metric, int add)
 {
 	char *routes, *tmp;
-	int bit, bits;
-	struct in_addr ip, gw, mask;
-
-	char ipaddr[16];
-	char gateway[16];
+	int bits;
+	struct in_addr mask;
 	char netmask[16];
 
-	if (!nvram_get_int("dhcp_routes")) return;
-
-	// staticroutes or routes
-	tmp = routes = strdup(nvram_safe_get("wan_routes"));
+	// IP[/MASK] ROUTER IP2[/MASK2] ROUTER2 ...
+	tmp = routes = strdup(nvram_safe_get(nvname));
 	while (tmp && *tmp) {
 		char *ipaddr, *gateway, *nmask;
 
@@ -589,42 +584,15 @@ void do_wan_routes(char *ifname, int metric, int add)
 		}
 	}
 	free(routes);
+}
 
-	// ms routes
-	routes = nvram_get("wan_msroutes");
-	while (routes && isdigit(*routes)) {
-		// read net length
-		bits = strtol(routes, &routes, 10);
-		if (bits < 1 || bits > 32 || *routes != ' ')
-			break;
-		mask.s_addr = htonl(0xffffffff << (32 - bits));
-
-		// read network address
-		for (ip.s_addr = 0, bit = 24; bit > (24 - bits); bit -= 8) {
-			if (*routes++ != ' ' || !isdigit(*routes))
-				return;
-			ip.s_addr |= htonl(strtol(routes, &routes, 10) << bit);
-		}
-
-		// read gateway
-		for (gw.s_addr = 0, bit = 24; bit >= 0 && *routes; bit -= 8) {
-			if (*routes++ != ' ' || !isdigit(*routes))
-				return;
-			gw.s_addr |= htonl(strtol(routes, &routes, 10) << bit);
-		}
-
-		// clear bits per RFC
-		ip.s_addr &= mask.s_addr;
-
-		strcpy(ipaddr, inet_ntoa(ip));
-		strcpy(gateway, inet_ntoa(gw));
-		strcpy(netmask, inet_ntoa(mask));
-
-		if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
-		else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
-
-		if (*routes == ' ')
-			routes++;
+void do_wan_routes(char *ifname, int metric, int add)
+{
+	if (nvram_get_int("dhcp_routes")) {
+		// Static Routes: IP ROUTER IP2 ROUTER2 ...
+		_do_wan_routes(ifname, "wan_routes",   metric, add);
+		// MS Classless Static Routes: IP/MASK ROUTER IP2/MASK2 ROUTER2 ...
+		_do_wan_routes(ifname, "wan_msroutes", metric, add);
 	}
 }
 

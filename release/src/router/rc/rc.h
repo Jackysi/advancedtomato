@@ -286,7 +286,7 @@ static inline void stop_ddns(void) { };
 
 // misc.c
 extern void usage_exit(const char *cmd, const char *help) __attribute__ ((noreturn));
-#define modprobe(mod, args...) ({ char *argv[] = { "modprobe", mod, ## args, NULL }; _eval(argv, NULL, 0, NULL); })
+#define modprobe(mod, args...) ({ char *argv[] = { "modprobe", "-s", mod, ## args, NULL }; _eval(argv, NULL, 0, NULL); })
 extern int modprobe_r(const char *mod);
 #define xstart(args...)	_xstart(args, NULL)
 extern int _xstart(const char *cmd, ...);
