@@ -20,101 +20,11 @@
 #include <linux/netfilter_bridge.h>
 #include "br_private.h"
 
-extern unsigned char mbss_nolan_g;				// Jiahao
-extern unsigned char mbss_nolan_M_1;				// Jiahao
-extern unsigned char mbss_nolan_M_2;				// Jiahao
-extern unsigned char mbss_nolan_M_3;				// Jiahao
-extern unsigned char mbss_nolan_1_2;				// Jiahao
-extern unsigned char mbss_nolan_1_3;				// Jiahao
-extern unsigned char mbss_nolan_2_3;				// Jiahao
-extern unsigned char mbss_nolan_1;				// Jiahao
-extern unsigned char mbss_nolan_2;				// Jiahao
-extern unsigned char mbss_nolan_3;				// Jiahao
-
-int SSID1_to_SSID2(unsigned char *deva, unsigned char *devb)	// Jiahao
-{
-	if (!mbss_nolan_g)
-		return 0;
-
-	if ( mbss_nolan_M_1 && !strncmp(deva + 3, "1", 1) && !strncmp(devb + 3, ".1", 2) )
-		return 1;
-	else if ( mbss_nolan_M_2 && !strncmp(deva + 3, "1", 1) && !strncmp(devb + 3, ".2", 2) )
-		return 1;
-	else if ( mbss_nolan_M_3 && !strncmp(deva + 3, "1", 1) && !strncmp(devb + 3, ".3", 2) )
-		return 1;
-
-	else if ( mbss_nolan_M_1 && !strncmp(deva + 3, ".1", 2) && !strncmp(devb + 3, "1", 1) )
-		return 1;
-	else if ( mbss_nolan_1_2 && !strncmp(deva + 3, ".1", 2) && !strncmp(devb + 3, ".2", 2) )
-		return 1;
-	else if ( mbss_nolan_1_3 && !strncmp(deva + 3, ".1", 2) && !strncmp(devb + 3, ".3", 2) )
-		return 1;
-	else if ( mbss_nolan_1 && !strncmp(deva + 3, ".1", 2) && !strncmp(devb, "v", 1) )
-		return 1;
-
-	else if ( mbss_nolan_M_2 && !strncmp(deva + 3, ".2", 2) && !strncmp(devb + 3, "1", 1) )
-		return 1;
-	else if ( mbss_nolan_1_2 && !strncmp(deva + 3, ".2", 2) && !strncmp(devb + 3, ".1", 2) )
-		return 1;
-	else if ( mbss_nolan_2_3 && !strncmp(deva + 3, ".2", 2) && !strncmp(devb + 3, ".3", 2) )
-		return 1;
-	else if ( mbss_nolan_2 && !strncmp(deva + 3, ".2", 2) && !strncmp(devb, "v", 1) )
-		return 1;
-
-	else if ( mbss_nolan_M_3 && !strncmp(deva + 3, ".3", 2) && !strncmp(devb + 3, "1", 1) )
-		return 1;
-	else if ( mbss_nolan_1_3 && !strncmp(deva + 3, ".3", 2) && !strncmp(devb + 3, ".1", 2) )
-		return 1;
-	else if ( mbss_nolan_2_3 && !strncmp(deva + 3, ".3", 2) && !strncmp(devb + 3, ".2", 2) )
-		return 1;
-	else if ( mbss_nolan_3 && !strncmp(deva + 3, ".3", 2) && !strncmp(devb, "v", 1) )
-		return 1;
-
-/*
-	if ( mbss_nolan_M_1 && !strncmp(deva, "eth1", 4) && !strncmp(devb, "wl0.1", 5) )
-		return 1;
-	else if ( mbss_nolan_M_2 && !strncmp(deva, "eth1", 4) && !strncmp(devb, "wl0.2", 5) )
-		return 1;
-	else if ( mbss_nolan_M_3 && !strncmp(deva, "eth1", 4) && !strncmp(devb, "wl0.3", 5) )
-		return 1;
-
-	else if ( mbss_nolan_M_1 && !strncmp(deva, "wl0.1", 5) && !strncmp(devb, "eth1", 4) )
-		return 1;
-	else if ( mbss_nolan_1_2 && !strncmp(deva, "wl0.1", 5) && !strncmp(devb, "wl0.2", 5) )
-		return 1;
-	else if ( mbss_nolan_1_3 && !strncmp(deva, "wl0.1", 5) && !strncmp(devb, "wl0.3", 5) )
-		return 1;
-	else if ( mbss_nolan_1 && !strncmp(deva, "wl0.1", 5) && !strncmp(devb, "vlan1", 5) )
-		return 1;
-
-	else if ( mbss_nolan_M_2 && !strncmp(deva, "wl0.2", 5) && !strncmp(devb, "eth1", 4) )
-		return 1;
-	else if ( mbss_nolan_1_2 && !strncmp(deva, "wl0.2", 5) && !strncmp(devb, "wl0.1", 5) )
-		return 1;
-	else if ( mbss_nolan_2_3 && !strncmp(deva, "wl0.2", 5) && !strncmp(devb, "wl0.3", 5) )
-		return 1;
-	else if ( mbss_nolan_2 && !strncmp(deva, "wl0.2", 5) && !strncmp(devb, "vlan1", 5) )
-		return 1;
-
-	else if ( mbss_nolan_M_3 && !strncmp(deva, "wl0.3", 5) && !strncmp(devb, "eth1", 4) )
-		return 1;
-	else if ( mbss_nolan_1_3 && !strncmp(deva, "wl0.3", 5) && !strncmp(devb, "wl0.1", 5) )
-		return 1;
-	else if ( mbss_nolan_2_3 && !strncmp(deva, "wl0.3", 5) && !strncmp(devb, "wl0.2", 5) )
-		return 1;
-	else if ( mbss_nolan_3 && !strncmp(deva, "wl0.3", 5) && !strncmp(devb, "vlan1", 5) )
-		return 1;
-*/
-
-	return 0;
-}
-
 /* Don't forward packets to originating port or forwarding diasabled */
 static inline int should_deliver(const struct net_bridge_port *p,
 				 const struct sk_buff *skb)
 {
-//	return (skb->dev != p->dev && p->state == BR_STATE_FORWARDING);	// Jiahao
-	return ((skb->dev != p->dev && p->state == BR_STATE_FORWARDING) && !SSID1_to_SSID2(skb->dev->name, p->dev->name));
+	return (skb->dev != p->dev && p->state == BR_STATE_FORWARDING);
 }
 
 static inline unsigned packet_length(const struct sk_buff *skb)

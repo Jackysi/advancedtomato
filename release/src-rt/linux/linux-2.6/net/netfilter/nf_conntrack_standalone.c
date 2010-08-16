@@ -213,124 +213,6 @@ static int ct_seq_show(struct seq_file *s, void *v)
 	return 0;
 }
 
-//--SZ Angela 09.03 for QOS {
-/* return 0 on success, 1 in case of error */
-static int ct_seq_show_track(struct seq_file *s, void *v)
-{
-	const struct nf_conntrack_tuple_hash *hash = v;
-	const struct nf_conn *conntrack = nf_ct_tuplehash_to_ctrack(hash);
-	struct nf_conntrack_l3proto *l3proto;
-	struct nf_conntrack_l4proto *l4proto;
-
-	NF_CT_ASSERT(conntrack);
-
-	/* we only want to print DIR_ORIGINAL */
-	if (NF_CT_DIRECTION(hash))
-		return 0;
-
-	l3proto = __nf_ct_l3proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-				       .tuple.src.l3num);
-
-	NF_CT_ASSERT(l3proto);
-	l4proto = __nf_ct_l4proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-				   .tuple.src.l3num,
-				   conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-				   .tuple.dst.protonum);
-	NF_CT_ASSERT(l4proto);
-
-	if (seq_printf(s, "%-8s %u %-8s %u %ld ",
-		       l3proto->name,
-		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num,
-		       l4proto->name,
-		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum,
-		       timer_pending(&conntrack->timeout)
-		       ? (long)(conntrack->timeout.expires - jiffies)/HZ : 0) != 0)
-		return -ENOSPC;
-
-	if (l3proto->print_conntrack(s, conntrack))
-		return -ENOSPC;
-
-	if (l4proto->print_conntrack(s, conntrack))
-		return -ENOSPC;
-
-	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-			l3proto, l4proto))
-		return -ENOSPC;
-
-	if (seq_print_counters(s, &conntrack->counters[IP_CT_DIR_ORIGINAL]))
-		return -ENOSPC;
-
-	if(seq_printf(s, " flag=%d number=%d large_packet=%d \n\t\t",
-			conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.flag,
-			conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.number,
-			conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.large_packet))
-		return -ENOSPC;
-
-	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_REPLY].tuple,
-			l3proto, l4proto))
-		return -ENOSPC;
-
-	if (seq_print_counters(s, &conntrack->counters[IP_CT_DIR_REPLY]))
-		return -ENOSPC;
-
-	if(seq_printf(s, " flag=%d number=%d large_packet=%d ",
-			conntrack->tuplehash[IP_CT_DIR_REPLY].track.flag,
-			conntrack->tuplehash[IP_CT_DIR_REPLY].track.number,
-			conntrack->tuplehash[IP_CT_DIR_REPLY].track.large_packet))
-		return -ENOSPC;
-
-#if defined(CONFIG_NF_CONNTRACK_MARK)
-	if (seq_printf(s, "mark=%u ", conntrack->mark))
-		return -ENOSPC;
-#endif
-
-#ifdef CONFIG_NF_CONNTRACK_SECMARK
-	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
-		return -ENOSPC;
-#endif
-
-	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
-		return -ENOSPC;
-	
-	return 0;
-}
-
-static struct seq_operations ct_seq_ops_track = {
-	.start = ct_seq_start,
-	.next  = ct_seq_next,
-	.stop  = ct_seq_stop,
-	.show  = ct_seq_show_track
-};
-
-static int ct_open_track(struct inode *inode, struct file *file)
-{
-	struct seq_file *seq;
-	struct ct_iter_state *st;
-	int ret;
-
-	st = kzalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
-	if (st == NULL)
-		return -ENOMEM;
-	ret = seq_open(file, &ct_seq_ops_track);
-	if (ret)
-		goto out_free;
-	seq          = file->private_data;
-	seq->private = st;
-	return ret;
-out_free:
-	kfree(st);
-	return ret;
-}
-
-static const struct file_operations ct_file_ops_track = {
-	.owner   = THIS_MODULE,
-	.open    = ct_open_track,
-	.read    = seq_read,
-	.llseek  = seq_lseek,
-	.release = seq_release_private,
-};
-//--SZ Angela 09.03 }
-
 static struct seq_operations ct_seq_ops = {
 	.start = ct_seq_start,
 	.next  = ct_seq_next,
@@ -550,7 +432,7 @@ EXPORT_SYMBOL_GPL(nf_ct_log_invalid);
 static int __init nf_conntrack_standalone_init(void)
 {
 #ifdef CONFIG_PROC_FS
-	struct proc_dir_entry *proc, *proc_track, *proc_exp, *proc_stat;
+	struct proc_dir_entry *proc, *proc_exp, *proc_stat;
 #endif
 	int ret = 0;
 
@@ -561,9 +443,6 @@ static int __init nf_conntrack_standalone_init(void)
 #ifdef CONFIG_PROC_FS
 	proc = proc_net_fops_create("nf_conntrack", 0440, &ct_file_ops);
 	if (!proc) goto cleanup_init;
-
-	proc_track = proc_net_fops_create("ip_track", 0440, &ct_file_ops_track);	//--SZ Angela 09.03 QOS
-	if (!proc_track) goto cleanup_init_track;
 
 	proc_exp = proc_net_fops_create("nf_conntrack_expect", 0440,
 					&exp_file_ops);
@@ -595,8 +474,6 @@ static int __init nf_conntrack_standalone_init(void)
 	proc_net_remove("nf_conntrack_expect");
  cleanup_proc:
 	proc_net_remove("nf_conntrack");
-cleanup_init_track:			//--SZ Angela 09.03 QOS
-	proc_net_remove("ip_track");
  cleanup_init:
 #endif /* CNFIG_PROC_FS */
 	nf_conntrack_cleanup();

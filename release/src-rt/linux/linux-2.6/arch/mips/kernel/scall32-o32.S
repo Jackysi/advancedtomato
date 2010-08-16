@@ -670,10 +670,6 @@ einval:	li	v0, -ENOSYS
 	sys	sys_signalfd		3
 	sys	sys_timerfd		4
 	sys	sys_eventfd		1
-	sys	sys_track_flag		2	/* 4320 */ /* --SZ Angela 09.03 QOS */
-	sys	sys_set_mbss_nolan	1	/* Jiahao */
-	sys	sys_set_mbss_nowan	1	/* Jiahao */
-	sys	sys_set_mbss_prio	1	/* Jiahao */
 	.endm
 
 	/* We pre-compute the number of _instruction_ bytes needed to

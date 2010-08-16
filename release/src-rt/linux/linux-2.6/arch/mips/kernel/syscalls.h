@@ -334,7 +334,3 @@ SYS(sys_utimensat, 4)
 SYS(sys_signalfd, 3)
 SYS(sys_timerfd, 4)
 SYS(sys_eventfd, 1)				/* 4319 */
-SYS(sys_track_flag, 2)				/* --SZ Angela 09.03 QOS */
-SYS(sys_set_mbss_nolan, 1)			/* Jiahao */
-SYS(sys_set_mbss_nowan, 1)			/* Jiahao */
-SYS(sys_set_mbss_prio, 1)			/* Jiahao */

@@ -52,31 +52,11 @@ static inline int ip_forward_finish(struct sk_buff *skb)
 	return dst_output(skb);
 }
 
-extern unsigned char mbss_nowan_g;				// Jiahao
-extern unsigned char mbss_nowan_1;				// Jiahao
-extern unsigned char mbss_nowan_2;				// Jiahao
-extern unsigned char mbss_nowan_3;				// Jiahao
-
-#define MBSS_NOWAN_SSID_MAIN	0x0001				// Jiahao
-#define MBSS_NOWAN_SSID_1	0x0002				// Jiahao
-#define MBSS_NOWAN_SSID_2	0x0004				// Jiahao
-#define MBSS_NOWAN_SSID_3	0x0008				// Jiahao
-
 int ip_forward(struct sk_buff *skb)
 {
 	struct iphdr *iph;	/* Our header */
 	struct rtable *rt;	/* Route we use */
 	struct ip_options * opt	= &(IPCB(skb)->opt);
-
-	if (mbss_nowan_g)					// Jiahao
-	{
-		if (mbss_nowan_1 && (skb->wl_idx & MBSS_NOWAN_SSID_1))
-			goto drop;
-		else if (mbss_nowan_2 && (skb->wl_idx & MBSS_NOWAN_SSID_2))
-			goto drop;
-		else if (mbss_nowan_3 && (skb->wl_idx & MBSS_NOWAN_SSID_3))
-			goto drop;
-	}
 
 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_FWD, skb))
 		goto drop;

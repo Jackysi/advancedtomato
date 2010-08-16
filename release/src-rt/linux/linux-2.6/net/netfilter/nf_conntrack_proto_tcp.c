@@ -30,8 +30,6 @@
 #define DEBUGP printk
 #define DEBUGP_VARS
 #else
-extern int clean_flag; // 2009.04 James. wanduck.
-
 #define DEBUGP(format, args...)
 #endif
 
@@ -316,11 +314,6 @@ static int tcp_print_conntrack(struct seq_file *s,
 			       const struct nf_conn *conntrack)
 {
 	enum tcp_conntrack state;
-
-// 2009.04 James. wanduck. {
-	if(clean_flag == 101)
-		nf_ct_refresh(conntrack, NULL, 0);
-// 2009.04 James. wanduck. }
 
 	read_lock_bh(&tcp_lock);
 	state = conntrack->proto.tcp.state;
