@@ -88,6 +88,7 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
     dep_tristate '  MACSAVE target' CONFIG_IP_NF_TARGET_MACSAVE $CONFIG_IP_NF_IPTABLES
     dep_tristate '  macsave match' CONFIG_IP_NF_MATCH_MACSAVE $CONFIG_IP_NF_TARGET_MACSAVE
     dep_tristate '  exp match (experimental rig - do not use)' CONFIG_IP_NF_MATCH_EXP $CONFIG_IP_NF_IPTABLES
+    dep_tristate '  Web Monitor match support' CONFIG_IP_NF_MATCH_WEBMON $CONFIG_IP_NF_IPTABLES
 
   fi
 # The targets
