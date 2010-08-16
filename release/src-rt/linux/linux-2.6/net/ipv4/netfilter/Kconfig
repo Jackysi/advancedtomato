@@ -541,6 +541,10 @@ config IP_NF_MATCH_EXP
 	tristate  'exp match (experimental rig - do not use)'
 	depends on IP_NF_IPTABLES && EXPERIMENTAL
 
+config IP_NF_MATCH_WEBMON
+	tristate  'Web Monitor match'
+	depends on IP_NF_IPTABLES && EXPERIMENTAL
+
 config IP_NF_TOMATOCT
 	tristate  'tomato_ct'
 	depends on NF_CONNTRACK_MARK && EXPERIMENTAL
