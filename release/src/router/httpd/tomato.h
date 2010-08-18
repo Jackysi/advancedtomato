@@ -169,5 +169,8 @@ extern void wo_umount(char *url);
 extern void wo_usb(char *url);
 #endif
 
+// utf8.c
+extern char *utf8_to_js_string(const char *ins);
+extern char *utf8_to_html_string(const char *ins);
 
 #endif
