@@ -956,8 +956,12 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT300N:
 		mfr = "Linksys";
-		name = "WRT300N";
+		name = "WRT300N v1";
 		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("wan_ifnameX", "eth1");
+			nvram_set("wl0gpio0", "8");
+		}
 		break;
 #endif
 	}
