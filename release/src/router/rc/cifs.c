@@ -32,8 +32,6 @@ int mount_cifs_main(int argc, char *argv[])
 	int first;
 	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec;
 	int done[3];
-	char *exargv[3];
-	int pid;
 
 	if (argc == 2) {
 		if (strcmp(argv[1], "-m") == 0) {
