@@ -296,6 +296,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "logs/view.cgi",	NULL,						0,	wi_generic,			wo_viewlog,		1 },
 	{ "logs/*.txt",		NULL,						0,	wi_generic,			wo_syslog,		1 },
+	{ "webmon_**",		NULL,						0,	wi_generic,			wo_syslog,		1 },
 
 	{ "logout.asp",			NULL,					0,	wi_generic,			wo_asp,			1 },
 	{ "clearcookies.asp",	NULL,					0,	wi_generic,			wo_asp,			1 },
@@ -360,6 +361,7 @@ const aspapi_t aspapi[] = {
 	{ "ctdump",				asp_ctdump			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
+	{ "webmon",			asp_webmon			},
 	{ "dhcpc_time",			asp_dhcpc_time		},
 	{ "dns",				asp_dns				},
 	{ "ident",				asp_ident			},
@@ -806,6 +808,13 @@ static const nvset_t nvset_list[] = {
 	{ "log_out",			V_RANGE(0, 3)		},
 	{ "log_mark",			V_RANGE(0, 1440)	},
 	{ "log_events",			V_TEXT(0, 32)		},	// "acre,crond,ntp"
+
+// admin-log-webmonitor
+	{ "log_wm",			V_01				},
+	{ "log_wmtype",			V_RANGE(0, 2)			},
+	{ "log_wmip",			V_LENGTH(0, 512)		},
+	{ "log_wmdmax",			V_RANGE(0, 9999)		},
+	{ "log_wmsmax",			V_RANGE(0, 9999)		},
 
 // admin-cifs
 	{ "cifs1",				V_LENGTH(1, 1024)	},

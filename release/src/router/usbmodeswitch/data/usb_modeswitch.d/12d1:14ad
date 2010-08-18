@@ -1,11 +1,11 @@
 ########################################################
-# Huawei, newer modems
+# Vodafone (Huawei) K3806
 
 DefaultVendor= 0x12d1
-DefaultProduct=0x1446
+DefaultProduct=0x14ad
 
 TargetVendor=  0x12d1
-TargetProductList="1001,1406,140b,140c,141b,14ac"
+TargetProduct= 0x14ae
 
 CheckSuccess=20
 

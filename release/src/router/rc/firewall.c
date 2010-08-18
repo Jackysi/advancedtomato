@@ -262,6 +262,38 @@ int ipt_layer7(const char *v, char *opt)
 }
 
 
+// -----------------------------------------------------------------------------
+
+static void save_webmon(void)
+{
+	system("cp /proc/webmon_recent_domains /var/webmon/domain");
+	system("cp /proc/webmon_recent_searches /var/webmon/search");
+}
+
+static void ipt_webmon(void)
+{
+	int wmtype;
+
+	if (!nvram_get_int("log_wm")) return;
+	wmtype = nvram_get_int("log_wmtype");
+
+	ipt_write(
+		":monitor - [0:0]\n"
+		"-A FORWARD -o %s -j monitor\n",
+		wanface);
+
+	ipt_write(
+		"-A monitor -m webmon "
+		"--max_domains %d --max_searches %d %s%s "
+		"--search_load_file /var/webmon/search "
+		"--domain_load_file /var/webmon/domain\n",
+		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
+		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
+		wmtype == 0 ? "" : nvram_safe_get("log_wmip"));
+
+	modprobe("ipt_webmon");
+}
+
 
 // -----------------------------------------------------------------------------
 // MANGLE
@@ -606,6 +638,8 @@ static void filter_forward(void)
 		ipt_layer7_inbound();
 	}
 
+	ipt_webmon();
+
 	ipt_write(
 		":wanin - [0:0]\n"
 		":wanout - [0:0]\n"
@@ -692,6 +726,7 @@ static void filter_table(void)
 	else {
 		ipt_write(":FORWARD ACCEPT [0:0]\n");
 		clampmss();
+		ipt_webmon();
 	}
 	ipt_write("COMMIT\n");
 }
@@ -822,6 +857,8 @@ int start_firewall(void)
 	}
 #endif
 
+	save_webmon();
+
 	if (nvram_get_int("upnp_enable") & 3) {
 		f_write("/etc/upnp/save", NULL, 0, 0, 0);
 		if (killall("miniupnpd", SIGUSR2) == 0) {
@@ -872,6 +909,10 @@ int start_firewall(void)
 	modprobe_r("ipt_ipp2p");
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_TTL");
+	modprobe_r("ipt_webmon");
+
+	unlink("/var/webmon/domain");
+	unlink("/var/webmon/search");
 
 #ifdef TCONFIG_OPENVPN
 	run_vpn_firewall_scripts();

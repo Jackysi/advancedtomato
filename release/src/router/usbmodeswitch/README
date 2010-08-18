@@ -31,7 +31,7 @@ Fortunately there are things like human intelligence, USB sniffing programs and
 driver, to isolate the command or action that does the switching, and to replay
 the same thing with Linux.
 
-USB-ModeSwitch eases the pain considerably by taking just the important para-
+USB_ModeSwitch eases the pain considerably by taking just the important para-
 meters from a configuration file and doing all the initialization and communi-
 cation stuff, with heavy help from "libusb".
 It is mainly used automatically - via udev events and rules - to do the switch
@@ -60,7 +60,8 @@ To install, unpack and in the new directory use this line at the shell (as root)
 
 > make install
 
-This installs a wrapper script, a global config file, the binary and a man page.
+This installs a small shell script, a dispatcher (wrapper) script, a global
+config file, the binary and a man page.
 
 Install the data package as well, and you are set already; if your device is
 known, you should be able to just plug it and use it. If it doesn't work we'll
@@ -75,7 +76,7 @@ a device and configuration reference containing most known devices; you can
 use it as a base to create your own configuration file.
 It's heavily commented and should tell you what to do.
 
-Run "usb-modeswitch -h" to list the command line parameters. If any of them
+Run "usb_modeswitch -h" to list the command line parameters. If any of them
 except -W and -q are used, the default config file in /etc is NOT read.
 See also the provided man page.
 
@@ -85,7 +86,7 @@ path (preferably "/sbin" or "/usr/sbin").
 Note: manual use is intended for testing and analyzing !
 
 Once your new device is switching fine you can add a rule entry to the rules
-file to let udev run usb-modeswitch as soon as the default IDs are found
+file to let udev run usb_modeswitch as soon as the default IDs are found
 (when the device is plugged). Then add your new setup file to
 "/etc/usb_modeswitch.d". But don't forget to report your success !!
 
@@ -106,7 +107,7 @@ For support use ONLY the forum.
 Contribute
 ==========
 
-USB-ModeSwitch comes quite handy for experimenting with your own hardware if
+USB_ModeSwitch comes quite handy for experimenting with your own hardware if
 not supported yet. You could try this approach:
 
 Note the device's Vendor and Product ID from /proc/bus/usb/devices (or from the
@@ -157,6 +158,7 @@ Code, fixes and ideas from:
  Sakis Dimopoulos
  Steven Fernandez
  Christophe Fergeau
+ Nils Radtke
 
 Device information contributors are named in the "device_reference.txt" file.
 
@@ -180,4 +182,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-06-21, Josua Dietze
+Last revised: 2010-08-17, Josua Dietze

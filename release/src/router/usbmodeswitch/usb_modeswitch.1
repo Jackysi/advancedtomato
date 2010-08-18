@@ -1,4 +1,4 @@
-.TH "USB-MODESWITCH" "1" 
+.TH "USB_MODESWITCH" "1" 
 .SH "NAME" 
 usb_modeswitch - switch mode of "multi-state" USB devices 
 .SH "SYNOPSIS" 
@@ -72,7 +72,7 @@ Read the response (command status wrapper) to a mass storage command
 transfer.
 Some devices have trouble switching if the response is not read; most
 are disappearing right away. When sending multiple mass storage commands
-with \fB\-2\fR and \fB\-3\fR, this must be set to avoid transfer errors
+with \fB\-2\fR and \fB\-3\fR, this may need to be set to avoid transfer errors
 .IP "\fB-r\fP \fB\-\-response-endpoint NUM\fP         " 10 
 Try to read the response to a storage command from there
 if option -n is active. Only for testing purposes; usually

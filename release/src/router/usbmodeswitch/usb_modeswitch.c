@@ -1,6 +1,6 @@
 /*
   Mode switching tool for controlling flip flop (multiple device) USB gear
-  Version 1.1.3, 2010/06/21
+  Version 1.1.4, 2010/08/17
 
   Copyright (C) 2007, 2008, 2009, 2010 Josua Dietze (mail to "usb_admin" at the
   domain from the README; please do not post the complete address to the Net!
@@ -42,7 +42,7 @@
 
 /* Recommended tab size: 4 */
 
-#define VERSION "1.1.3"
+#define VERSION "1.1.4"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,7 +95,7 @@ char TargetProductList[LINE_DIM];
 char ByteString[LINE_DIM/2];
 char buffer[BUF_SIZE];
 
-// Settable Interface and Configuration (for debugging mostly) (jmw)
+/* Settable Interface and Configuration (for debugging mostly) (jmw) */
 int Interface = 0, Configuration = -1, AltSetting = -1;
 
 
@@ -120,7 +120,7 @@ static struct option long_options[] = {
 	{"gct-mode",			no_argument, 0, 'G'},
 	{"need-response",		no_argument, 0, 'n'},
 	{"reset-usb",			no_argument, 0, 'R'},
-	{"config",				required_argument, 0, 'c'},
+	{"config-file",			required_argument, 0, 'c'},
 	{"verbose",				no_argument, 0, 'W'},
 	{"quiet",				no_argument, 0, 'Q'},
 	{"sysmode",				no_argument, 0, 'D'},
@@ -162,9 +162,12 @@ void readConfigFile(const char *configFilename)
 	ParseParamHex(configFilename, Configuration);
 	ParseParamHex(configFilename, AltSetting);
 
-	// TargetProductList has priority over TargetProduct
+	/* TargetProductList has priority over TargetProduct */
 	if (strlen(TargetProductList))
+	{
 		TargetProduct = 0;
+		SHOW_PROGRESS("Warning: TargetProductList overrides TargetProduct!\n");
+	}
 
 	config_read = 1;
 }
@@ -202,10 +205,7 @@ void printConfig()
 		printf ("MessageEndpoint=0x%02x\n",	MessageEndpoint);
 	else
 		printf ("MessageEndpoint=  not set\n");
-//	if ( strlen(MessageContent) )
 	printf ("MessageContent=\"%s\"\n",	MessageContent);
-//	else
-//		printf ("MessageContent=   not set\n");
 	if ( strlen(MessageContent2) )
 		printf ("MessageContent2=\"%s\"\n",	MessageContent2);
 	if ( strlen(MessageContent3) )
@@ -239,11 +239,10 @@ void printConfig()
 int readArguments(int argc, char **argv)
 {
 	int c, option_index = 0, count=0;
-//	if (argc==1)
-//		return 0;
 	if (argc==1)
 	{
 		printHelp();
+		printVersion();
 		exit(1);
 	}
 
@@ -297,7 +296,7 @@ int readArguments(int argc, char **argv)
 				exit(0);
 				break;
 
-			default: //Unsupported - error message has already been printed
+			default: /* Unsupported - error message has already been printed */
 				printf ("\n");
 				printHelp();
 				exit(1);
@@ -312,7 +311,7 @@ int main(int argc, char **argv)
 {
 	int numDefaults = 0, specialMode = 0, sonySuccess = 0;
 
-	// Make sure we have an empty string even if not set by config
+	/* Make sure we have empty strings even if not set by config */
 	TargetProductList[0] = '\0';
 	MessageContent[0] = '\0';
 	MessageContent2[0] = '\0';
@@ -324,13 +323,12 @@ int main(int argc, char **argv)
 	 * Parameter parsing, USB preparation/diagnosis, plausibility checks
 	 */
 
-	// Check command arguments, use params instead of config file when given
+	/* Check command arguments, use params instead of config file when given */
 	switch (readArguments(argc, argv)) {
-		case 0:						// no argument or -W, -q or -s
-//			readConfigFile("/etc/usb_modeswitch.setup");
+		case 0:						/* no argument or -W, -q or -s */
 			break;
-		default:					// one or more arguments except -W, -q or -s 
-			if (!config_read)		// if arguments contain -c, the config file was already processed
+		default:					/* one or more arguments except -W, -q or -s */
+			if (!config_read)		/* if arguments contain -c, the config file was already processed */
 				if (verbose) printf("Taking all parameters from the command line\n\n");
 	}
 
@@ -340,7 +338,7 @@ int main(int argc, char **argv)
 	if (verbose)
 		printConfig();
 
-	// libusb initialization
+	/* libusb initialization */
 	usb_init();
 
 	if (verbose)
@@ -349,7 +347,7 @@ int main(int argc, char **argv)
 	usb_find_busses();
 	usb_find_devices();
 
-	// Plausibility checks. The default IDs are mandatory
+	/* Plausibility checks. The default IDs are mandatory */
 	if (!(DefaultVendor && DefaultProduct)) {
 		SHOW_PROGRESS("No default vendor/product ID given. Aborting.\n\n");
 		exit(1);
@@ -370,7 +368,7 @@ int main(int argc, char **argv)
 		if (CheckSuccess && !(TargetVendor || TargetProduct || strlen(TargetProductList)) && !TargetClass)
 			printf("Note: target parameter missing; success check limited\n");
 
-	// Count existing target devices (remember for success check)
+	/* Count existing target devices, remember for success check */
 	if (TargetVendor || TargetClass) {
 		SHOW_PROGRESS("Looking for target devices ...\n");
 		search_devices(&targetDeviceCount, TargetVendor, TargetProduct, TargetProductList, TargetClass, SEARCH_TARGET);
@@ -380,7 +378,7 @@ int main(int argc, char **argv)
 			SHOW_PROGRESS(" No devices in target mode or class found\n");
 	}
 
-	// Count default devices, return the last one found
+	/* Count default devices, get the last one found */
 	SHOW_PROGRESS("Looking for default devices ...\n");
 	dev = search_devices(&numDefaults, DefaultVendor, DefaultProduct, "\0", TargetClass, SEARCH_DEFAULT);
 	if (numDefaults) {
@@ -399,32 +397,34 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	// Get class of default device
+	/* Get class of default device/interface */
 	defaultClass = dev->descriptor.bDeviceClass;
 	if (defaultClass == 0)
 		defaultClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
 	else 
 		if (dev->config[0].interface[0].altsetting[0].bInterfaceClass == 8 && defaultClass != 8) {
-			// Weird device with default class other than 0 and differing interface class
-			SHOW_PROGRESS("Ambiguous Class/InterfaceClass: 0x%02x/0x08", defaultClass);
+			/* Weird device with default class other than 0 and differing interface class */
+			SHOW_PROGRESS("Ambiguous Class/InterfaceClass: 0x%02x/0x08\n", defaultClass);
 			defaultClass = 8;
 		}
 
-	// Check or get endpoints if needed
-	if (!MessageEndpoint && (strlen(MessageContent) || InquireDevice) ) {
-		MessageEndpoint = find_first_bulk_output_endpoint(dev);
-		if (!MessageEndpoint && strlen(MessageContent)) {
+	/* Check or get endpoints */
+	if (strlen(MessageContent) || InquireDevice) {
+		if (!MessageEndpoint)
+			MessageEndpoint = find_first_bulk_output_endpoint(dev);
+		if (!MessageEndpoint) {
 			fprintf(stderr,"Error: message endpoint not given or found. Aborting.\n\n");
 			exit(1);
 		}
-	}
-	if (!ResponseEndpoint && (NeedResponse || InquireDevice) ) {
-		ResponseEndpoint = find_first_bulk_input_endpoint(dev);
-		if (!ResponseEndpoint && NeedResponse) {
+		if (!ResponseEndpoint)
+			ResponseEndpoint = find_first_bulk_input_endpoint(dev);
+		if (!ResponseEndpoint) {
 			fprintf(stderr,"Error: response endpoint not given or found. Aborting.\n\n");
 			exit(1);
 		}
+		SHOW_PROGRESS("Using endpoints 0x%02x (out) and 0x%02x (in)\n", MessageEndpoint, ResponseEndpoint);
 	}
+
 	if (MessageEndpoint && ResponseEndpoint) {
 		SHOW_PROGRESS("Using endpoints 0x%02x (out) and 0x%02x (in)\n", MessageEndpoint, ResponseEndpoint);
 	} else
@@ -453,7 +453,7 @@ int main(int argc, char **argv)
 		printf("-------------------------\n");
 	}
 
-	// Some scenarios are exclusive, so check for unwanted combinations
+	/* Some scenarios are exclusive, so check for unwanted combinations */
 	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode;
 	if ( specialMode > 1 ) {
 		SHOW_PROGRESS("Invalid mode combination. Check your configuration. Aborting.\n\n");
@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 	if (SonyMode) {
 		if (CheckSuccess)
 			SHOW_PROGRESS("Note: ignoring CheckSuccess. Separate checks for Sony mode\n");
-		CheckSuccess = 0; // separate and implied success control
+		CheckSuccess = 0; /* separate and implied success control */
 		sonySuccess = switchSonyMode();
 	}
 
@@ -537,7 +537,7 @@ int main(int argc, char **argv)
 			if (sonySuccess) {
 				if (sysmode) {
 					syslog(LOG_NOTICE, "switched S.E. MD400 to modem mode");
-					printf("ok:\n"); // ACM device, no driver action
+					printf("ok:\n"); /* ACM device, no driver action */
 				}
 				SHOW_PROGRESS("-> device should be stable now. Bye.\n\n");
 			} else {
@@ -698,6 +698,7 @@ int switchSendMessage ()
 {
 	int ret;
 
+	/* May be activated in future versions */
 //	if (MessageContent2[0] != '\0' || MessageContent3[0] != '\0')
 //		NeedResponse = 1;
 
@@ -767,16 +768,14 @@ int switchSendMessage ()
 		}
 	}
 
-	SHOW_PROGRESS("Resetting response endpoint 0x%02x\n",	ResponseEndpoint);
+	SHOW_PROGRESS("Resetting response endpoint 0x%02x\n", ResponseEndpoint);
 	ret = usb_clear_halt(devh, ResponseEndpoint);
 	if (ret)
 		SHOW_PROGRESS(" Error resetting endpoint: %d\n", ret);
-//		goto skip;
 	SHOW_PROGRESS("Resetting message endpoint 0x%02x\n", MessageEndpoint);
 	ret = usb_clear_halt(devh, MessageEndpoint);
 	if (ret)
 		SHOW_PROGRESS(" Error resetting endpoint: %d\n", ret);
-//		goto skip;
 	ret = usb_release_interface(devh, Interface);
 	if (ret)
 		goto skip;
@@ -937,7 +936,9 @@ int switchSonyMode ()
 }
 
 
-// Detach driver either as the main action or as preparation for other modes
+/* Detach driver either as the main action or as preparation for other
+ * switching methods
+ */
 int detachDriver()
 {
 	int ret;
@@ -1004,8 +1005,9 @@ int checkSuccess()
 	SHOW_PROGRESS("\nChecking for mode switch (max. %d times, once per second) ...\n", CheckSuccess);
 	sleep(1);
 
-	// if target ID is not given but target class is, assign default as target;
-	// it will be needed for sysmode output
+	/* if target ID is not given but target class is, assign default as target;
+	 * it will be needed for sysmode output
+	 */
 	if (!TargetVendor && TargetClass) {
 		TargetVendor = DefaultVendor;
 		TargetProduct = DefaultProduct;
@@ -1014,8 +1016,9 @@ int checkSuccess()
 	if (devh) // devh is 0 if device vanished during command transmission
 		for (i=0; i < CheckSuccess; i++) {
 
-			// Test if default device still can be accessed; positive result does
-			// not necessarily mean failure
+			/* Test if default device still can be accessed; positive result does
+			 * not necessarily mean failure
+			 */
 			SHOW_PROGRESS(" Waiting for original device to vanish ...\n");
 
 			ret = usb_claim_interface(devh, Interface);
@@ -1040,9 +1043,10 @@ int checkSuccess()
 
 	if ( TargetVendor && (TargetProduct || strlen(TargetProductList)) )
 
-		// Recount target devices (compare with previous count) if target data is given.
-		// Target device on the same bus with higher device number is returned,
-		// description is read for syslog message
+		/* Recount target devices (compare with previous count) if target data is given.
+		 * Target device on the same bus with higher device number is returned,
+		 * description is read for syslog message
+		 */
 		for (i=i; i < CheckSuccess; i++) {
 			SHOW_PROGRESS(" Searching for target devices ...\n");
 			usb_find_devices();
@@ -1072,7 +1076,7 @@ int checkSuccess()
 				sleep(1);
 		}
 	else
-		// No target data given, rely on the vanished device
+		/* No target data given, rely on the vanished device */
 		if (!devh) {
 			SHOW_PROGRESS(" (For a better success check provide target IDs or class)\n");
 			SHOW_PROGRESS(" Original device vanished after switching\n\nMode switch most likely succeeded. Bye.\n\n");
@@ -1143,8 +1147,9 @@ void release_usb_device(int dummy) {
 }
 
 
-// iterates over busses and devices, counts the ones found and returns the last one of them
-
+/* Iterates over busses and devices, counts the ones with the given
+ * ID/class and returns the last one of them
+*/
 struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int mode)
 {
 	struct usb_bus *bus;
@@ -1152,14 +1157,14 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 	int devClass;
 	struct usb_device* right_dev = NULL;
 
-	// only target class given
+	/* only target class given, target vendor and product assumed unchanged */
 	if ( targetClass && !(vendor || product) ) {
 		vendor = DefaultVendor;
 		product = DefaultProduct;
 	}
 	*numFound = 0;
 
-	// sanity check
+	/* Sanity check */
 	if (!vendor || (!product && productList == '\0') )
 		return NULL;
 		
@@ -1209,7 +1214,7 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 					NextToken:
 					token = strtok(NULL, ",");
 				}
-			// product is given
+			/* Product ID is given */
 			} else
 				if (product == dev->descriptor.idProduct) {
 					if (verbose)
@@ -1224,7 +1229,7 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 						if (devClass == 0)
 							devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
 						else
-							// Check for some quirky devices
+							/* Check for some quirky devices */
 							if (devClass != dev->config[0].interface[0].altsetting[0].bInterfaceClass)
 								devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
 						if (devClass == targetClass) {
@@ -1249,8 +1254,9 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 							}
 						}
 					}
-					// dirty hack: if busnum has other than init value, we're at
-					// success checking and probe for plausible new devnum/busnum
+					/* hack: if busnum has other than init value, we are called from
+					 * successCheck() and do probe for plausible new devnum/busnum
+					 */
 					if (busnum != -1)
 						if (dev->devnum < devnum || (int)strtol(dev->bus->dirname,NULL,10) != busnum) {
 							if (verbose)
@@ -1269,7 +1275,7 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 #define USB_DIR_OUT 0x00
 #define USB_DIR_IN  0x80
 
-// Autodetect bulk endpoints (ab)
+/* Autodetect bulk endpoints (ab) */
 
 int find_first_bulk_output_endpoint(struct usb_device *dev)
 {
@@ -1308,7 +1314,7 @@ int find_first_bulk_input_endpoint(struct usb_device *dev)
 
 
 
-// the parameter parsing stuff
+/* Parameter parsing */
 
 char* ReadParseParam(const char* FileName, char *VariableName)
 {
@@ -1357,7 +1363,6 @@ char* ReadParseParam(const char* FileName, char *VariableName)
 			if (P1!=NULL) *P1='\0';
 			else if (P2!=NULL) *P2='\0';
 		VarName=Str+Pos;
-		//while (strspn(VarName, " \t")==strlen(VarName)) VarName++;
 
 		Pos=strspn (Equal, " \t");
 		if (Pos==strlen(Equal)) {
@@ -1373,9 +1378,6 @@ char* ReadParseParam(const char* FileName, char *VariableName)
 		Next:;
 	}
 
-	// not found
-//	fprintf(stderr, "Error reading parameter file %s - Variable %s not found.", 
-//				FileName, VariableName);
 	fclose(file);
 	return NULL;
 }
@@ -1411,24 +1413,21 @@ int hexstr2bin(const char *hex, char *buffer, int len)
 	int a;
 	const char *ipos = hex;
 	char *opos = buffer;
-//    printf("Debug: hexstr2bin bytestring is ");
 
 	for (i = 0; i < len; i++) {
 	a = hex2byte(ipos);
-//        printf("%02X", a);
 	if (a < 0)
 		return -1;
 	*opos++ = a;
 	ipos += 2;
 	}
-//    printf(" \n");
 	return 0;
 }
 
 void printVersion()
 {
 	char* version = VERSION;
-	printf("\n * usb-modeswitch: handle USB devices with multiple modes\n");
+	printf(" * usb_modeswitch: handle USB devices with multiple modes\n");
 	printf(" * Version %s (C) Josua Dietze 2010\n", version);
 	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
 	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
@@ -1436,9 +1435,9 @@ void printVersion()
 
 void printHelp()
 {
-	printf ("Usage: usb-modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
+	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
 	printf (" -h, --help                    this help\n");
-	printf (" -e, --version                 print version number and exit\n");
+	printf (" -e, --version                 print version information and exit\n");
 	printf (" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n");
 	printf (" -p, --default-product NUM     product ID of original mode (mandatory)\n");
 	printf (" -V, --target-vendor NUM       target mode vendor ID (optional)\n");
@@ -1446,7 +1445,7 @@ void printHelp()
 	printf (" -C, --target-class NUM        target mode device class (optional)\n");
 	printf (" -m, --message-endpoint NUM    direct the message transfer there (optional)\n");
 	printf (" -M, --message-content <msg>   message to send (hex number as string)\n");
-	printf (" -2 <msg>, -3 <msg>            additional messages to send (implies -n)\n");
+	printf (" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n");
 	printf (" -n, --need-response           read response to the message transfer (CSW)\n");
 	printf (" -r, --response-endpoint NUM   read response from there (optional)\n");
 	printf (" -d, --detach-only             detach the active driver, no further action\n");
@@ -1455,12 +1454,12 @@ void printHelp()
 	printf (" -O, --sony-mode               apply a special procedure\n");
 	printf (" -G, --gct-mode                apply a special procedure\n");
 	printf (" -R, --reset-usb               reset the device after all other actions\n");
-	printf (" -c, --config <filename>       load configuration from file\n");
 	printf (" -Q, --quiet                   don't show progress or error messages\n");
 	printf (" -W, --verbose                 print all settings and debug output\n");
 	printf (" -D, --sysmode                 specific result and syslog message\n");
 	printf (" -s, --success NUM             check switching result after NUM secs\n");
 	printf (" -I, --no-inquire              do not get SCSI attributes (default on)\n\n");
+	printf (" -c, --config-file <filename>  load configuration from file\n\n");
 	printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
 	printf (" -u, --configuration NUM       select USB configuration\n");
 	printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");

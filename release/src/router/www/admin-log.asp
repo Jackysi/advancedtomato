@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("log_remote,log_remoteip,log_remoteport,log_file,log_limit,log_in,log_out,log_mark,log_events"); %>
+//	<% nvram("log_remote,log_remoteip,log_remoteport,log_file,log_limit,log_in,log_out,log_mark,log_events,log_wm,log_wmtype,log_wmip,log_wmdmax,log_wmsmax"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -47,13 +47,30 @@ function verifyFields(focused, quiet)
 	E('_log_remoteip').disabled = !b;
 	E('_log_remoteport').disabled = !b;
 
-	if (a) return 1;
-
-	if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
-	if (!v_range('_log_mark', quiet, 0, 1440)) return 0;
-	if (b) {
-		if ((!v_ip('_log_remoteip', quiet)) || (!v_port('_log_remoteport', quiet))) return 0;
+	if (!a) {
+		if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
+		if (!v_range('_log_mark', quiet, 0, 1440)) return 0;
+		if (b) {
+			if ((!v_ip('_log_remoteip', quiet)) || (!v_port('_log_remoteport', quiet))) return 0;
+		}
 	}
+
+	a = E('_f_log_wm').checked;
+	b = E('_log_wmtype').value != 0;
+	E('_log_wmtype').disabled = !a;
+	E('_f_log_wmip').disabled = !a;
+	E('_log_wmdmax').disabled = !a;
+	E('_log_wmsmax').disabled = !a;
+	elem.display(PR('_f_log_wmip'), b);
+
+	if (a) {
+		if (b) {
+			if (!v_iptip('_f_log_wmip', quiet, 15)) return 0;
+		}
+		if (!v_range('_log_wmdmax', quiet, 0, 9999)) return 0;
+		if (!v_range('_log_wmsmax', quiet, 0, 9999)) return 0;
+	}
+
 	return 1;
 }
 
@@ -75,6 +92,9 @@ function save()
 	if (E('_f_log_pppoe').checked) a.push('pppoe');
 	if (E('_f_log_sched').checked) a.push('sched');
 	fom.log_events.value = a.join(',');
+
+	fom.log_wm.value = E('_f_log_wm').checked ? 1 : 0;
+	fom.log_wmip.value = fom.f_log_wmip.value.split(/\s*,\s*/).join(',');
 
 	form.submit(fom, 1);
 }
@@ -100,6 +120,9 @@ function save()
 <input type='hidden' name='log_remote'>
 <input type='hidden' name='log_file'>
 <input type='hidden' name='log_events'>
+
+<input type='hidden' name='log_wm'>
+<input type='hidden' name='log_wmip'>
 
 <script type='text/javascript'>
 </script>
@@ -133,6 +156,20 @@ createFieldTable('', [
 		{ title: 'Inbound', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
 		{ title: 'Outbound', indent: 2, name: 'log_out', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_out },
 		{ title: 'Limit', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(messages per minute / 0 for unlimited)</small>' }
+]);
+</script>
+</div>
+
+<div class='section-title'>Web Monitor</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Monitor Web Usage', name: 'f_log_wm', type: 'checkbox', value: nvram.log_wm == 1 },
+	{ title: 'Monitor', name: 'log_wmtype', type: 'select', options: [[0,'All Computers / Devices'],[1,'The Following...'],[2,'All Except...']], value: nvram.log_wmtype },
+		{ title: 'IP Address(es)', indent: 2,  name: 'f_log_wmip', type: 'text', maxlen: 512, size: 64, value: nvram.log_wmip },
+	{ title: 'Number of Entries to remember' },
+		{ title: 'Domains', indent: 2,  name: 'log_wmdmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmdmax, suffix: ' <small>(0 to disable)</small>' },
+		{ title: 'Searches', indent: 2, name: 'log_wmsmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmsmax, suffix: ' <small>(0 to disable)</small>' }
 ]);
 </script>
 </div>

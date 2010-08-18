@@ -1,8 +1,8 @@
 /*
-  This file is part of usb-modeswitch, a mode switching tool for controlling
+  This file is part of usb_modeswitch, a mode switching tool for controlling
   flip flop (multiple device) USB gear
 
-  Version 1.1.3, 2010/06/21
+  Version 1.1.4, 2010/08/17
   Copyright (C) 2007, 2008, 2009, 2010  Josua Dietze
 
   Config file parsing stuff borrowed from Guillaume Dargaud

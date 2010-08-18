@@ -1,17 +1,21 @@
-# Part of usb-modeswitch-data, version 20100707
+# Part of usb-modeswitch-data, version 20100817
 #
-# This file is intended for USB_ModeSwitch version >= 1.1.2
+# This file is intended for USB_ModeSwitch version >= 1.1.4
 # but will not break anything if used with versions >= 1.0.3
 #
 
 ACTION!="add", GOTO="modeswitch_rules_end"
 
-# This adds a symlink "gsmmodem[n]" to the right (interrupt) ttyUSB port;
-# will work only with wrapper 1.1.2 and above (otherwise ignored)
-KERNEL=="ttyUSB*", PROGRAM="/usr/bin/tclsh /lib/udev/usb_modeswitch symlink name %p", SYMLINK="%c"
+# This adds a symlink "gsmmodem[n]" to ttyUSB ports with interrupt transfer;
+# will work only with wrapper from 1.1.4 and above (otherwise ignored)
+KERNEL=="ttyUSB*", DRIVERS=="option1|usbserial", PROGRAM="/usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher --symlink-name %p", SYMLINK="%c"
+
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 
+# This adds the device ID to the "option" driver after a warm boot
+# in cases when the device is yet unknown to the driver
+ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
 
 # Most known install partitions are on interface 0, one on 5, one on 9
 ATTRS{bInterfaceNumber}!="0[059]", GOTO="modeswitch_rules_end"
@@ -38,7 +42,10 @@ ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1237", RUN+="usb_modeswitch '%b/%k'"
 
 # Kyocera W06K CDMA modem
-ATTRS{idVendor}=="0482", ATTRS{idProduct}=="024d", RUN+="usb_modeswitch '%b/%k'"
+ATTRS{idVendor}=="0482", ATTRS{idProduct}=="024d", ATTRS{bConfigurationValue}=="1", RUN+="usb_modeswitch '%b/%k'"
+
+# Samsung GT-B3730
+ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="689a", RUN+="usb_modeswitch '%b/%k'"
 
 # Samsung U209
 ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
@@ -46,7 +53,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices
+# Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
@@ -271,6 +278,9 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1414", RUN+="usb_modeswitch '%b/%k'"
 # Huawei, newer modems
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1446", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone (Huawei) K3806
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14ad", RUN+="usb_modeswitch '%b/%k'"
+
 # Vodafone (Huawei) K4605
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14c1", RUN+="usb_modeswitch '%b/%k'"
 
@@ -304,7 +314,7 @@ ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5041", RUN+="usb_modeswitch '%b/%k'"
 # Motorola 802.11 bg WLAN (TER/GUSB3-E)
 ATTRS{idVendor}=="148f", ATTRS{idProduct}=="2578", RUN+="usb_modeswitch '%b/%k'"
 
-# C-motech D-50 (aka "CDU-680"), C-motech D-50 (aka "CDU-680") - Variant
+# C-motech D-50 (aka "CDU-680"), C-motech D-50 (aka "CDU-680")
 ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6803", RUN+="usb_modeswitch '%b/%k'"
 
 # C-motech CHU-629S
@@ -349,6 +359,9 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1007", RUN+="usb_modeswitch '%b/%k'"
 # Vodafone (ZTE) K3571-Z
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1009", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone (ZTE) K3806-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1013", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE devices
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
@@ -376,7 +389,10 @@ ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
 # MyWave SW006 Sport Phone/Modem Combination
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9200", RUN+="usb_modeswitch '%b/%k'"
 
-# MobiData MBD-200HU 
+# BSNL Capitel
+ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9e00", RUN+="usb_modeswitch '%b/%k'"
+
+# MobiData MBD-200HU and others
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # Solomon S3Gm-660

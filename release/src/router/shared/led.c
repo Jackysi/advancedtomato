@@ -329,6 +329,12 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = 1;
 		break;
+#if TOMATO_N
+	case MODEL_WRT300N:
+		if (which != LED_DIAG) return 0;
+		b = 1;
+		break;
+#endif
 	default:
 		sprintf(s, "led_%s", led_names[which]);
 		if (nvget_gpio(s, &b, &n)) {

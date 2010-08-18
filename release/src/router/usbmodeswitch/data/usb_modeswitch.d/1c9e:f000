@@ -1,11 +1,11 @@
 ######################################################## 
-# MobiData MBD-200HU 
+# MobiData MBD-200HU and others
 
 DefaultVendor= 0x1c9e
 DefaultProduct=0xf000
 
 TargetVendor=  0x1c9e
-TargetProductList="9063,9603,9000"
+TargetProductList="9000,9603,9605"
 
 CheckSuccess=20
 

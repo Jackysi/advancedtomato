@@ -67,10 +67,66 @@ void wo_viewlog(char *url)
 	}
 }
 
+static void webmon_list(char *name, int webmon)
+{
+	FILE *f;
+	char s[512], ip[16], val[256];
+	char *valj;
+	char comma;
+	unsigned long time;
+
+	web_printf("\nwm_%s = [", name);
+
+	if (webmon) {
+		sprintf(s, "/proc/webmon_recent_%s", name);
+		if ((f = fopen(s, "r")) != NULL) {
+			comma = ' ';
+			while (fgets(s, sizeof(s), f)) {
+				if (sscanf(s, "%lu %15s %s", &time, ip, val) != 3) continue;
+				valj = utf8_to_js_string(val);
+				web_printf("%c['%lu','%s','%s']", comma,
+					time, ip, valj ? valj : "");
+				free(valj);
+				comma = ',';
+			}
+			fclose(f);
+		}
+	}
+
+	web_puts("];\n");
+}
+
+void asp_webmon(int argc, char **argv)
+{
+	int webmon = nvram_get_int("log_wm");
+
+	webmon_list("domains", webmon);
+	webmon_list("searches", webmon);
+}
+
+static int webmon_ok(int searches)
+{
+	if (nvram_get_int("log_wm") && nvram_get_int(searches ? "log_wmsmax" : "log_wmdmax") > 0) return 1;
+	resmsg_set("Web Monitoring disabled");
+	redirect("error.asp");
+	return 0;
+}
+
 void wo_syslog(char *url)
 {
-	if (!logok()) return;
-	send_header(200, NULL, mime_binary, 0);
-	do_file("/var/log/messages.0");
-	do_file("/var/log/messages");
+	if (strncmp(url, "webmon_", 7) == 0) {
+		// web monitor
+		char file[64];
+		snprintf(file, sizeof(file), "/proc/%s", url);
+		if (!webmon_ok(strstr(url, "searches") != NULL)) return;
+		send_header(200, NULL, mime_binary, 0);
+		do_file(file);
+	}
+	else {
+		// syslog
+		if (!logok()) return;
+		send_header(200, NULL, mime_binary, 0);
+		do_file("/var/log/messages.0");
+		do_file("/var/log/messages");
+	}
 }

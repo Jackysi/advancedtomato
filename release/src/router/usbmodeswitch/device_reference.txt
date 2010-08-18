@@ -1,6 +1,6 @@
 # Device and Configuration Reference
 #
-# Last modified: 2010-06-21
+# Last modified: 2010-07-07
 #
 # Collection of configurations for usb_modeswitch, a mode switching
 # tool for controlling flip flop (multiple mode) USB devices
@@ -9,7 +9,7 @@
 # http://www.draisberghof.de/usb_modeswitch
 #
 # You may want to check for a newer version of this file at:
-# http://www.draisberghof.de/usb_modeswitch/usb_modeswitch.setup
+# http://www.draisberghof.de/usb_modeswitch/device_reference.txt
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -440,7 +440,7 @@
 #
 # Probably works with DetachStorageOnly too
 #
-# Contributor: Fl�vio Moringa and others
+# Contributor: Flávio Moringa and others
 
 ;DefaultVendor=  0x19d2
 ;DefaultProduct= 0x2000
@@ -448,8 +448,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProductList="0001"
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543212000000080000c85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -465,8 +465,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0002
 
-;MessageContent="5553424312345678240000008000061b000000020000000000000000000000"
-;MessageContent2="55534243f8f993882000000080000a85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -488,8 +488,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0015
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543212000000080000a85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -519,8 +519,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0031
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="5553424312345678000000000000061b000000030000000000000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -536,8 +536,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0037
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543212000000080000c85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -604,8 +604,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0052
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543212000000080000c85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -621,8 +621,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0002
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543212000000080000a85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -638,8 +638,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0002
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543210000010080000a28000000001c00002000000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -931,7 +931,7 @@
 #
 # Recommended init command: ATE0V1&D2&C1S0=0
 #
-# Contributor: J�r�me Oufella
+# Contributor: Jérôme Oufella
 
 ;DefaultVendor=  0x1004
 ;DefaultProduct= 0x1000
@@ -1094,8 +1094,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0055
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
-;MessageContent2="55534243876543212000000080000c85010101180101010101000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -1207,7 +1207,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0063
 
-;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -1455,7 +1456,8 @@
 ;TargetVendor=   0x19d2
 ;TargetProduct=  0x0094
 
-;MessageContent="5553424312345678240000008000061b000000020000000000000000000000"
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
 
 ;NeedResponse=1
 
@@ -1544,6 +1546,27 @@ MessageContent="555342431234567824000000800006bc626563240000000000000000000000"
 
 
 ########################################################
+# Vodafone (ZTE) K3805-Z
+#
+# Contributor: Betavine Project
+#
+# Note:
+#   This device has multiple USB profiles. Depending upon how it is flipped
+#   from storage mode to modem mode determines its final PID and the packages
+#   shown on its ISO CD image.
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x1001
+
+TargetVendor=  0x19d2
+TargetProduct= 0x1003
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+NeedResponse=1
+
+
+########################################################
 # Franklin Wireless U210
 #
 # Contributor: Adam J. Porter
@@ -1593,7 +1616,7 @@ MessageContent="555342431234567824000000800006bc626563240000000000000000000000"
 ########################################################
 # Olivetti Olicard 100 and others
 #
-# Contributor: Nils Radke
+# Contributor: Nils Radtke
 
 ;DefaultVendor=  0x0b3c
 ;DefaultProduct= 0xc700
@@ -1722,4 +1745,147 @@ MessageContent="555342431234567824000000800006bc626563240000000000000000000000"
 
 ;NeedResponse=1
 
+
+########################################################
+# Vodafone (Huawei) K4605
+#
+# Contributor: Betavine Project
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14c1
+
+TargetVendor=  0x12d1
+TargetProduct= 0x14c6
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000000000000011060000000000000000000000000000"
+
+
+########################################################
+# Huawei R201
+#
+# Contributor: Betavine Project
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1523
+
+TargetVendor=  0x12d1
+TargetProduct= 0x1491
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000000000000011060000000000000000000000000000"
+
+
+########################################################
+# Atheros Wireless / Netgear WNDA3200
+#
+# Contributor: Sujith Manoharan (Atheros)
+
+DefaultVendor= 0x0cf3
+DefaultProduct=0x20ff
+
+TargetVendor=  0x0cf3
+TargetProduct= 0x7010
+
+CheckSuccess=10
+NoDriverLoading=1
+
+MessageContent="5553424329000000000000000000061b000000020000000000000000000000"
+NeedResponse=1
+
+
+########################################################
+# Onda MW833UP
+#
+# Contributor: Riccardo Sepe aka zeroidle
+
+DefaultVendor= 0x1ee8
+DefaultProduct=0x0013
+
+TargetVendor=  0x1ee8
+TargetProduct= 0x0012
+
+CheckSuccess=20
+
+MessageContent="555342431234567800000000000010ff000000000000000000000000000000"
+ResponseNeeded=1
+
+
+########################################################
+# Huawei U8110 (Android smartphone)
+#
+# Contributor: David Erosa García
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1031
+
+TargetVendor=  0x12d1
+TargetProduct= 0x1035
+
+CheckSuccess=20 
+
+MessageContent="55534243123456780600000080010a11060000000000000000000000000000"
+
+# for Android SDK
+NoDriverLoading=1
+
+
+########################################################
+# Nokia CS-10
+#
+# Contributor: Wacław Sierek
+
+DefaultVendor= 0x0421
+DefaultProduct=0x060c
+
+TargetVendor=  0x0421
+TargetProduct= 0x060e
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+########################################################
+# ZTE WCDMA Stick from BNSL
+#
+# Contributor: Anoop John
+
+;DefaultVendor=  0x19d2
+;DefaultProduct= 0x2000
+
+;TargetVendor=   0x19d2
+;TargetProduct=  0x0108
+
+;MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+;MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
+
+;NeedResponse=1
+
+
+########################################################
+# BSNL Capitel
+
+;DefaultVendor=  0x1c9e
+;DefaultProduct= 0x9e00
+
+;TargetClass=0xff
+
+;MessageContent="55534243123456780000000000000606f50402527000000000000000000000"
+
+
+#######################################################
+# Samsung GT-B3730
+#
+# Contributor: Per Øyvind Karlsen
+
+;DefaultVendor= 0x04e8
+;DefaultProduct=0x689a
+
+;TargetVendor=  0x04e8
+;TargetProduct= 0x6889
+
+;MessageContent="55534243785634120100000080000601000000000000000000000000000000"
 
