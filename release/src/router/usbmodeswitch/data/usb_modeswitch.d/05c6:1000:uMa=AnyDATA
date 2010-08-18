@@ -1,5 +1,5 @@
 ########################################################
-# AnyDATA ADU-500A, ADU-510A, ADU-510L, ADU-520A
+# AnyDATA devices
 
 DefaultVendor=  0x05c6
 DefaultProduct= 0x1000

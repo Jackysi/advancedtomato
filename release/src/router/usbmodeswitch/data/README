@@ -4,17 +4,32 @@ README for USB_ModeSwitch Data
 For up-to-date and detailed information (plus a friendly forum) visit
 http://www.draisberghof.de/usb_modeswitch
 
-PLEASE REPORT NEW DEVICES
+PLEASE REPORT NEW DEVICES !
 
 
 
 This is a data package to complement the full release package of
-USB_ModeSwitch, a tool to switch multi-mode (or composite) USB devices.
+USB_ModeSwitch, a tool to switch multi-mode USB devices.
 It is used since usb-modeswitch version 1.0.3.
 
-Recommended version of usb-modeswitch package is 1.1.2 and above. Some
+Recommended version of usb-modeswitch package is 1.1.4 and above. Some
 devices contained here may not be switched with older versions, even if
 they will not cause any error.
+
+
+Tasks initiated by the rules file:
+==================================
+
+- call wrapper to initiate switching for known devices when plugged in
+  (starting from version 1.1.4 at boot time too)
+
+- adding symlink "gsmmodem" to appropriate connection port (out of 2-5
+  ports provided by some devices); this is only a help for handling and
+  NOT needed for switching to work
+
+- reloading the driver after warm boot when the device is still in modem
+  state and the device ID is not yet known to the driver; this is not
+  needed if the device is plugged during normal system operation
 
 
 Explanation about config file names:
@@ -47,6 +62,22 @@ Example:
 If information is missing about ambiguous devices, a ":?" is attached
 to the file/ID in question. Please contact the forum if you need help
 in such a case.
+
+
+Parameters used only in config files:
+=====================================
+
+These are not evaluated by the binary but by the wrapper.
+
+WaitBefore=<seconds>		delay the switching process
+
+DriverModule=<module name>	load a specific driver module after switch
+
+DriverIDPath=<path to attribute>
+				if the driver has the ability to add new device IDs
+				on-the-fly, this is the file node to use.
+				Example: "/sys/bus/usb-serial/drivers/option1/new_id"
+
 
 
 Notes about specific devices:
@@ -82,5 +113,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-06-21, Josua Dietze
-
+Last revised: 2010-08-17, Josua Dietze

@@ -1,3 +1,10 @@
+20100817:
+    added BSNL Capitel; added Samsung GT-B3730; added Vodafone/
+    ZTE K3806-Z; changed Vodafone/Huawei devices (added switching
+    command for cdc_ether mode): K4605, K3765 and K4505;
+    added rule for driver loading after reboot (wrapper 1.1.4)
+    change symlink rule in sync with changes in wrapper 1.1.4
+    final changes for ZTE 19d2:2000 ("...!")
 20100707:
     added Vodafone/Huawei K4605 and Huawei R201 (from Betavine),
     added Atheros Wireless / Netgear WNDA3200, added Onda MW833UP,
@@ -27,4 +34,3 @@
     of "eject" failure; even older ZTE devices seem to work with the former;
     a conflict was exposed between two versions of 16d8:6803 (C-motech D50);
     changed the default to the one which keeps the ID during switching
-

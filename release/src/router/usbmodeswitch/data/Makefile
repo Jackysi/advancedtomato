@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20100707
+VERS        = 20100817
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -12,12 +12,22 @@ all:
 
 clean:
 
-install: files-install rules-reload
+install: files-install db-install rules-reload
+
+install-packed: files-install db-install-packed rules-reload
 
 files-install:
 	install -d $(ETCDIR)/usb_modeswitch.d
-	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./usb_modeswitch.d/*
 	install -D --mode=644 40-usb_modeswitch.rules $(RULESDIR)/40-usb_modeswitch.rules
+
+db-install:
+	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./usb_modeswitch.d/*
+
+db-install-packed:
+	cd ./usb_modeswitch.d; tar -czf ../configPack.tar.gz *
+	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./configPack.tar.gz
+	rm -f ./configPack.tar.gz
+
 
 rules-reload:
 	if [ -f $(ETCDIR)/issue ]; then \

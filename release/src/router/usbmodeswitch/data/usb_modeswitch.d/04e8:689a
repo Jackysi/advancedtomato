@@ -1,0 +1,15 @@
+#######################################################
+# Samsung GT-B3730
+
+DefaultVendor= 0x04e8
+DefaultProduct=0x689a
+
+TargetVendor=  0x04e8
+TargetProduct= 0x6889
+
+MessageContent="55534243785634120100000080000601000000000000000000000000000000"
+
+CheckSuccess=20
+
+#NoDriverLoading=1
+
