@@ -539,6 +539,13 @@ const defaults_t defaults[] = {
 	{ "log_mark",			"60"			},
 	{ "log_events",			""				},
 
+// admin-log-webmonitor
+	{ "log_wm",			"0"				},
+	{ "log_wmtype",			"0"				},
+	{ "log_wmip",			""				},
+	{ "log_wmdmax",			"300"				},
+	{ "log_wmsmax",			"300"				},
+
 // admin-debugging
 	{ "debug_nocommit",		"0"				},
 	{ "debug_cprintf",		"0"				},

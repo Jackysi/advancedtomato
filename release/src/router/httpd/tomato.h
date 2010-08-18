@@ -127,6 +127,7 @@ extern void wo_ping(char *url);
 // log.c
 extern void wo_viewlog(char *url);
 extern void wo_syslog(char *url);
+extern void asp_webmon(int argc, char **argv);
 
 // ddns.c
 extern void asp_ddnsx(int argc, char **argv);
