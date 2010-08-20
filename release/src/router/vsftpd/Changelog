@@ -1234,3 +1234,14 @@ fixups.
 
 At this point: v2.3.0 released!
 ===============================
+
+- Fix silly regression re: log files being overwritten from the start.
+- Rename a few file-open functions to make it clearer what they do.
+
+At this point: v2.3.1 released!
+===============================
+
+- Argh! Fix version number.
+
+At this point: v2.3.2 released!
+===============================

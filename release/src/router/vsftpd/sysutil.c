@@ -1176,7 +1176,7 @@ vsf_sysutil_open_file(const char* p_filename,
 }
 
 int
-vsf_sysutil_create_file(const char* p_filename)
+vsf_sysutil_create_file_exclusive(const char* p_filename)
 {
   /* umask() also contributes to end mode */
   return open(p_filename, O_CREAT | O_EXCL | O_WRONLY | O_APPEND,
@@ -1184,17 +1184,16 @@ vsf_sysutil_create_file(const char* p_filename)
 }
 
 int
-vsf_sysutil_create_overwrite_file(const char* p_filename)
-{
-  return open(p_filename, O_CREAT | O_TRUNC | O_WRONLY |
-                          O_APPEND | O_NONBLOCK,
-              tunable_file_open_mode);
-}
-
-int
 vsf_sysutil_create_or_open_file(const char* p_filename, unsigned int mode)
 {
   return open(p_filename, O_CREAT | O_WRONLY | O_NONBLOCK, mode);
+}
+
+int
+vsf_sysutil_create_or_open_file_append(const char* p_filename,
+                                       unsigned int mode)
+{
+  return open(p_filename, O_CREAT | O_WRONLY | O_NONBLOCK | O_APPEND, mode);
 }
 
 void
