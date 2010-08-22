@@ -181,6 +181,35 @@ void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map*
 	*/
 }
 
+void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
+{
+	if( full_queue->length >= max_queue_length ) return;
+
+	queue_node *new_node = (queue_node*)kzalloc(sizeof(queue_node), GFP_ATOMIC);
+	char* dyn_value = kernel_strdup(value);
+
+	if(new_node == NULL || dyn_value == NULL)
+	{
+		kfree(dyn_value);
+		kfree(new_node);
+		return;
+	}
+	set_map_element(queue_index, queue_index_key, (void*)new_node);
+
+	new_node->time.tv_sec = sec;
+	new_node->src_ip = src_ip;
+	new_node->value = dyn_value;
+	
+	new_node->previous = full_queue->last;
+	if(full_queue->last != NULL)
+	{
+		full_queue->last->next = new_node;
+	}
+	full_queue->last = new_node;
+	full_queue->first = (full_queue->first == NULL) ? new_node : full_queue->first ;
+	full_queue->length = full_queue->length + 1;
+}
+
 void destroy_queue(queue* q)
 {	
 	queue_node *last_node = q->last;
@@ -548,11 +577,11 @@ static int webmon_proc_domain_show(struct seq_file *s, void *v)
 {
 	spin_lock_bh(&webmon_lock);
 
-	queue_node* next_node = recent_domains->last;
+	queue_node* next_node = recent_domains->first;
 	while(next_node != NULL)
 	{
 		seq_printf(s, "%ld\t"STRIP"\t%s\n", (unsigned long)(next_node->time).tv_sec, NIPQUAD(next_node->src_ip), next_node->value);
-		next_node = (queue_node*)next_node->previous;
+		next_node = (queue_node*)next_node->next;
 	}
 	spin_unlock_bh(&webmon_lock);
 
@@ -563,11 +592,11 @@ static int webmon_proc_search_show(struct seq_file *s, void *v)
 {
 	spin_lock_bh(&webmon_lock);
 
-	queue_node* next_node = recent_searches->last;
+	queue_node* next_node = recent_searches->first;
 	while(next_node != NULL)
 	{
 		seq_printf(s, "%ld\t"STRIP"\t%s\n", (unsigned long)(next_node->time).tv_sec, NIPQUAD(next_node->src_ip), next_node->value);
-		next_node = (queue_node*)next_node->previous;
+		next_node = (queue_node*)next_node->next;
 	}
 	spin_unlock_bh(&webmon_lock);
 
@@ -705,13 +734,11 @@ static int ipt_webmon_set_ctl(struct sock *sk, int cmd, void *user, u_int32_t le
 						sprintf(value_key, STRIP"@%s", NIPQUAD(ip), value);
 						if(type == WEBMON_DOMAIN)
 						{
-							add_queue_node(ip, value, recent_domains, domain_map, value_key, max_domain_queue_length );
-							(recent_domains->first->time).tv_sec = time;
+							add_queue_node_last(ip, value, time, recent_domains, domain_map, value_key, max_domain_queue_length );
 						}
 						else if(type == WEBMON_SEARCH)
 						{
-							add_queue_node(ip, value, recent_searches, search_map, value_key, max_search_queue_length );
-							(recent_searches->first->time).tv_sec = time;
+							add_queue_node_last(ip, value, time, recent_searches, search_map, value_key, max_search_queue_length );
 						}
 					}
 				}
@@ -1250,6 +1277,7 @@ static void __exit fini(void)
 
 	#ifdef CONFIG_PROC_FS
 		remove_proc_entry("webmon_recent_domains", NULL);
+		remove_proc_entry("webmon_recent_searches", NULL);
 	#endif
 	nf_unregister_sockopt(&ipt_webmon_sockopts);
 	ipt_unregister_match(&webmon_match);
