@@ -181,6 +181,7 @@ struct ipv6_devconf {
 #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
 	__s32		optimistic_dad;
 #endif
+	__s32		disable_ipv6;
 	void		*sysctl;
 };
 
@@ -211,6 +212,7 @@ enum {
 	DEVCONF_PROXY_NDP,
 	DEVCONF_OPTIMISTIC_DAD,
 	DEVCONF_ACCEPT_SOURCE_ROUTE,
+	DEVCONF_DISABLE_IPV6,
 	DEVCONF_MAX
 };
 

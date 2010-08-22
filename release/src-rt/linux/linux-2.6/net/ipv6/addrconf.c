@@ -175,6 +175,7 @@ struct ipv6_devconf ipv6_devconf __read_mostly = {
 #endif
 	.proxy_ndp		= 0,
 	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
+	.disable_ipv6		= 0,
 };
 
 static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
@@ -207,6 +208,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
 #endif
 	.proxy_ndp		= 0,
 	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
+	.disable_ipv6		= 0,
 };
 
 /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
@@ -525,10 +527,22 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
 	struct rt6_info *rt;
 	int hash;
 	int err = 0;
+	int addr_type = ipv6_addr_type(addr);
+
+	if (addr_type == IPV6_ADDR_ANY ||
+	    addr_type & IPV6_ADDR_MULTICAST ||
+	    (!(idev->dev->flags & IFF_LOOPBACK) &&
+	     addr_type & IPV6_ADDR_LOOPBACK))
+		return ERR_PTR(-EADDRNOTAVAIL);
 
 	rcu_read_lock_bh();
 	if (idev->dead) {
 		err = -ENODEV;			/*XXX*/
+		goto out2;
+	}
+
+	if (idev->cnf.disable_ipv6) {
+		err = -EACCES;
 		goto out2;
 	}
 
@@ -1326,7 +1340,9 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp)
 void addrconf_dad_failure(struct inet6_ifaddr *ifp)
 {
 	if (net_ratelimit())
-		printk(KERN_INFO "%s: duplicate address detected!\n", ifp->idev->dev->name);
+		printk(KERN_INFO "%s: IPv6 duplicate address detected!\n",
+			ifp->idev->dev->name);
+
 	addrconf_dad_stop(ifp);
 }
 
@@ -1607,8 +1623,12 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
 
 	ASSERT_RTNL();
 
-	if ((idev = ipv6_find_idev(dev)) == NULL)
-		return NULL;
+	idev = ipv6_find_idev(dev);
+	if (!idev)
+		return ERR_PTR(-ENOBUFS);
+
+	if (idev->cnf.disable_ipv6)
+		return ERR_PTR(-EACCES);
 
 	/* Add default multicast route */
 	addrconf_add_mroute(dev);
@@ -1781,8 +1801,32 @@ ok:
 					update_lft = 1;
 				else if (stored_lft <= MIN_VALID_LIFETIME) {
 					/* valid_lft <= stored_lft is always true */
-					/* XXX: IPsec */
-					update_lft = 0;
+					/*
+					 * RFC 4862 Section 5.5.3e:
+					 * "Note that the preferred lifetime of
+					 *  the corresponding address is always
+					 *  reset to the Preferred Lifetime in
+					 *  the received Prefix Information
+					 *  option, regardless of whether the
+					 *  valid lifetime is also reset or
+					 *  ignored."
+					 *
+					 *  So if the preferred lifetime in
+					 *  this advertisement is different
+					 *  than what we have stored, but the
+					 *  valid lifetime is invalid, just
+					 *  reset prefered_lft.
+					 *
+					 *  We must set the valid lifetime
+					 *  to the stored lifetime since we'll
+					 *  be updating the timestamp below,
+					 *  else we'll set it back to the
+					 *  minumum.
+					 */
+					if (prefered_lft != ifp->prefered_lft) {
+						valid_lft = stored_lft;
+						update_lft = 1;
+					}
 				} else {
 					valid_lft = MIN_VALID_LIFETIME;
 					if (valid_lft < prefered_lft)
@@ -1928,8 +1972,9 @@ static int inet6_addr_add(int ifindex, struct in6_addr *pfx, int plen,
 	if ((dev = __dev_get_by_index(ifindex)) == NULL)
 		return -ENODEV;
 
-	if ((idev = addrconf_add_dev(dev)) == NULL)
-		return -ENOBUFS;
+	idev = addrconf_add_dev(dev);
+	if (IS_ERR(idev))
+		return PTR_ERR(idev);
 
 	scope = ipv6_addr_scope(pfx);
 
@@ -2171,7 +2216,7 @@ static void addrconf_dev_config(struct net_device *dev)
 	}
 
 	idev = addrconf_add_dev(dev);
-	if (idev == NULL)
+	if (IS_ERR(idev))
 		return;
 
 	memset(&addr, 0, sizeof(struct in6_addr));
@@ -2250,7 +2295,8 @@ static void addrconf_ip6_tnl_config(struct net_device *dev)
 
 	ASSERT_RTNL();
 
-	if ((idev = addrconf_add_dev(dev)) == NULL) {
+	idev = addrconf_add_dev(dev);
+	if (IS_ERR(idev)) {
 		printk(KERN_DEBUG "init ip6-ip6: add_dev failed\n");
 		return;
 	}
@@ -2523,32 +2569,33 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 static void addrconf_rs_timer(unsigned long data)
 {
 	struct inet6_ifaddr *ifp = (struct inet6_ifaddr *) data;
+	struct inet6_dev *idev = ifp->idev;
 
-	if (ifp->idev->cnf.forwarding)
+	read_lock(&idev->lock);
+	if (idev->dead || !(idev->if_flags & IF_READY))
 		goto out;
 
-	if (ifp->idev->if_flags & IF_RA_RCVD) {
-		/*
-		 *	Announcement received after solicitation
-		 *	was sent
-		 */
+	if (idev->cnf.forwarding)
 		goto out;
-	}
+
+	/* Announcement received after solicitation was sent */
+	if (idev->if_flags & IF_RA_RCVD)
+		goto out;
 
 	spin_lock(&ifp->lock);
-	if (ifp->probes++ < ifp->idev->cnf.rtr_solicits) {
+	if (ifp->probes++ < idev->cnf.rtr_solicits) {
 		struct in6_addr all_routers;
 
 		/* The wait after the last probe can be shorter */
 		addrconf_mod_timer(ifp, AC_RS,
-				   (ifp->probes == ifp->idev->cnf.rtr_solicits) ?
-				   ifp->idev->cnf.rtr_solicit_delay :
-				   ifp->idev->cnf.rtr_solicit_interval);
+				   (ifp->probes == idev->cnf.rtr_solicits) ?
+				   idev->cnf.rtr_solicit_delay :
+				   idev->cnf.rtr_solicit_interval);
 		spin_unlock(&ifp->lock);
 
 		ipv6_addr_all_routers(&all_routers);
 
-		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
+		ndisc_send_rs(idev->dev, &ifp->addr, &all_routers);
 	} else {
 		spin_unlock(&ifp->lock);
 		/*
@@ -2556,10 +2603,11 @@ static void addrconf_rs_timer(unsigned long data)
 		 * assumption any longer.
 		 */
 		printk(KERN_DEBUG "%s: no IPv6 routers present\n",
-		       ifp->idev->dev->name);
+		       idev->dev->name);
 	}
 
 out:
+	read_unlock(&idev->lock);
 	in6_ifa_put(ifp);
 }
 
@@ -3472,6 +3520,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
 #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
 	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
 #endif
+	array[DEVCONF_DISABLE_IPV6] = cnf->disable_ipv6;
 }
 
 static inline size_t inet6_if_nlmsg_size(void)
@@ -4051,6 +4100,14 @@ static struct addrconf_sysctl_table
 
 		},
 #endif
+		{
+			.ctl_name	=	CTL_UNNUMBERED,
+			.procname	=	"disable_ipv6",
+			.data		=	&ipv6_devconf.disable_ipv6,
+			.maxlen		=	sizeof(int),
+			.mode		=	0644,
+			.proc_handler	=	&proc_dointvec,
+		},
 		{
 			.ctl_name	=	0,	/* sentinel */
 		}
