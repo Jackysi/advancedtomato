@@ -209,6 +209,8 @@ define RouterOptions
 		echo "TCONFIG_JFFSV1=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
+		sed -i "/TCONFIG_USB/d" $(1); \
+		echo "TCONFIG_USB=y" >>$(1); \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
 			sed -i "/TCONFIG_USB_EXTRAS/d" $(1); \
 			echo "TCONFIG_USB_EXTRAS=y" >>$(1); \
@@ -222,10 +224,6 @@ define RouterOptions
 			echo "TCONFIG_MEDIA_SERVER=y" >>$(1); \
 		fi; \
 	else \
-		sed -i "/TCONFIG_SAMBASRV/d" $(1); \
-		echo "# TCONFIG_SAMBASRV is not set" >>$(1); \
-		sed -i "/TCONFIG_FTP/d" $(1); \
-		echo "# TCONFIG_FTP is not set" >>$(1); \
 		sed -i "/TCONFIG_USB/d" $(1); \
 		echo "# TCONFIG_USB is not set" >>$(1); \
 	fi; \
@@ -390,9 +388,9 @@ define KernelConfig
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
 		echo "CONFIG_IPV6=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_IPTABLES/d" $(1); \
-		echo "CONFIG_IP6_NF_IPTABLES=m" >>$(1); \
+		echo "CONFIG_IP6_NF_IPTABLES=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
-		echo "CONFIG_IP6_NF_MATCH_RT=m" >>$(1); \
+		echo "CONFIG_IP6_NF_MATCH_RT=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_FILTER/d" $(1); \
 		echo "CONFIG_IP6_NF_FILTER=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_TARGET_LOG/d" $(1); \

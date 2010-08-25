@@ -41,7 +41,7 @@ obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
 obj-y += ppp
-obj-y += ttcp
+#obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
 
@@ -68,7 +68,7 @@ NEED_EX_NLS = y
 endif
 ifeq ($(TCONFIG_USB_EXTRAS),y)
 NEED_EX_USB = y
-NEED_BCM57 = y
+#NEED_BCM57 = y
 endif
 endif
 
@@ -603,7 +603,7 @@ mdu:	shared mssl
 rc: nvram shared
 
 bridge/Makefile:
-	cd bridge && CFLAGS="-O2 -g $(EXTRACFLAGS)" \
+	cd bridge && CFLAGS="-Os -g $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix="" --with-linux-headers=$(LINUXDIR)/include
 
 bridge: bridge/Makefile
@@ -628,7 +628,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)"
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
@@ -1129,7 +1129,7 @@ igs-install:
 
 
 ebtables: dummy
-	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-O2 $(EXTRACFLAGS) -Wall -Wunused"
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
@@ -1145,6 +1145,16 @@ ebtables-install: ebtables
 ebtables-clean:
 	make -C ebtables clean
 
+lzo/stamp-h1:
+	cd lzo && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	touch lzo/stamp-h1
+
+lzo: lzo/stamp-h1
+
+lzo-clean:
+	-$(MAKE) -C lzo clean
+	@rm -f lzo/stamp-h1
 
 lzo-install:
 	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
@@ -1155,7 +1165,7 @@ lzo-install:
 openvpn: openvpn/.conf
 
 openvpn/.conf:
-	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS)" \
+	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	LDFLAGS=" -L../openssl/ -L../lzo/src/.libs/" \
 	$(CONFIGURE) --prefix= \
 	--with-lzo-headers="../lzo/include" \
