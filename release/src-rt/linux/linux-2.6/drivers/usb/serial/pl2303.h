@@ -122,3 +122,7 @@
 /* Hewlett-Packard LD220-HP POS Pole Display */
 #define HP_VENDOR_ID		0x03f0
 #define HP_LD220_PRODUCT_ID	0x3524
+
+/* Zeagle dive computer interface */
+#define ZEAGLE_VENDOR_ID	0x04b8
+#define ZEAGLE_N2ITION3_PRODUCT_ID	0x0522

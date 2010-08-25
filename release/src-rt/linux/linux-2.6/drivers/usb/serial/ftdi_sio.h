@@ -84,6 +84,9 @@
 #define FTDI_OPENDCC_THROTTLE_PID	0xBFDA
 #define FTDI_OPENDCC_GATEWAY_PID	0xBFDB
 
+/* Sprog II (Andrew Crosland's SprogII DCC interface) */
+#define FTDI_SPROG_II		0xF0C8
+
 /* www.crystalfontz.com devices - thanx for providing free devices for evaluation ! */
 /* they use the ftdi chipset for the USB interface and the vendor id is the same */
 #define FTDI_XF_632_PID 0xFC08	/* 632: 16x2 Character Display */
@@ -744,6 +747,9 @@
  */
 #define FTDI_ACTIVE_ROBOTS_PID	0xE548	/* USB comms board */
 
+/* Lenz LI-USB Computer Interface. */
+#define FTDI_LENZ_LIUSB_PID	0xD780
+
 /*
  * Xsens Technologies BV products (http://www.xsens.com).
  */
@@ -918,6 +924,12 @@
 /* Alti-2 products  http://www.alti-2.com */
 #define ALTI2_VID	0x1BC9
 #define ALTI2_N3_PID	0x6001	/* Neptune 3 */
+
+/*
+ * Ionics PlugComputer
+ */
+#define IONICS_VID			0x1c0c
+#define IONICS_PLUGCOMPUTER_PID		0x0102
 
 /* Commands */
 #define FTDI_SIO_RESET 		0 /* Reset the port */
