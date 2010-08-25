@@ -226,6 +226,8 @@ const defaults_t defaults[] = {
 
 // !!TB: n-mode
 	{ "wl_nmode",			"-1"			},	// N-mode
+	{ "wl_nband",			"2"			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
+
 	{ "wl_nmcsidx",			"-1"			},	// MCS Index for N - rate
 	{ "wl_nreqd",			"0"			},	// Require 802.11n support
 	{ "wl_nbw",			"40"			},	// BW: 20 / 40 MHz

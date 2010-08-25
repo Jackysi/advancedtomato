@@ -887,7 +887,7 @@ static int init_nvram(void)
 			gpio_write(1 << 0, 0); // fix for WLAN LED
 		} else
 			name = "WRT320N";
-		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");

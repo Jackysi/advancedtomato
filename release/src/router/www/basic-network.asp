@@ -29,18 +29,12 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb"); %>
-//	<% wlchannels(0, 20); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband"); %>
 
 xob = null;
 
+wl_channels = [];
 ghz = [];
-max_channel = 0;
-for (var i = 0; i < wl_channels.length; ++i) {
-	ghz.push([wl_channels[i][0] + '',
-		(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
-	max_channel = wl_channels[i][0] * 1;
-}
 
 if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
@@ -49,10 +43,92 @@ if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 }
 
 var nphy = features('11n');
-var modes = [['mixed','Auto'],['b-only','B Only'],['g-only','G Only']];
-if (nphy) {
-	modes.push(['bg-mixed','B/G Mixed']);
-	modes.push(['n-only','N Only']);
+var dualband = features('2g5g');
+var modes = [];
+
+function refreshNetModes()
+{
+	var e, i, buf, val, band5;
+
+	if (dualband) {
+		e = E('_wl_nband');
+		band5 = (e.value + '' == '' ? nvram.wl_nband : e.value) == '1' ? true : false;
+	} else
+		band5 = false;
+
+	modes = [['mixed','Auto']];
+	if (band5) {
+		// ?? modes.push(['a-only','A Only']);
+		modes.push(['n-only','N Only']);
+	}
+	else {
+		modes.push(['b-only','B Only']);
+		modes.push(['g-only','G Only']);
+		if (nphy) {
+			modes.push(['bg-mixed','B/G Mixed']);
+			modes.push(['n-only','N Only']);
+		}
+	}
+
+	e = E('_wl_net_mode');
+	buf = '';
+	val = (e.value + '' == '') ? nvram.wl_net_mode : e.value;
+	if (val == 'disabled') val = 'mixed';
+	for (i = 0; i < modes.length; ++i)
+		buf += '<option value="' + modes[i][0] + '"' + ((modes[i][0] == val) ? ' selected' : '') + '>' + modes[i][1] + '</option>';
+
+	e = E('__wl_net_mode');
+	buf = '<select name="wl_net_mode" onchange="verifyFields(this, 1)" id = "_wl_net_mode">' + buf + '</select>';
+	elem.setInnerHTML(e, buf);
+}
+
+var refresher = null;
+
+function refreshChannels()
+{
+	if (refresher != null) return;
+
+	refresher = new XmlHttp();
+	refresher.onCompleted = function(text, xml) {
+
+		var e, i, buf, val;
+
+		eval(text);
+		ghz = [];
+		for (i = 0; i < wl_channels.length; ++i) {
+			ghz.push([wl_channels[i][0] + '',
+				(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+		}
+
+		e = E('_wl_channel');
+		buf = '';
+		val = (e.value + '' == '') ? nvram.wl_channel : e.value;
+		for (i = 0; i < ghz.length; ++i)
+			buf += '<option value="' + ghz[i][0] + '"' + ((ghz[i][0] == val) ? ' selected' : '') + '>' + ghz[i][1] + '</option>';
+
+		e = E('__wl_channel');
+		buf = '<select name="wl_channel" onchange="verifyFields(this, 1)" id = "_wl_channel">' + buf + '</select>';
+		elem.setInnerHTML(e, buf);
+
+		refresher = null;
+		verifyFields(null, 1);
+	}
+
+	var band, bw, sb, e;
+
+	if (dualband) {
+		e = E('_wl_nband');
+		band = (e.value + '' == '' ? nvram.wl_nband : e.value);
+	} else
+		band = '0';
+	e = E('_f_wl_nctrlsb');
+	sb = (e.value + '' == '' ? nvram.wl_nctrlsb : e.value);
+	e = E('_wl_nbw_cap');
+	bw = (e.value + '' == '' ? nvram.wl_nbw_cap : e.value) == '0' ? '20' : '40';
+
+	refresher.onError = function(ex) { alert(ex); reloadPage(); }
+	refresher.post('update.cgi', 'exec=wlchannels&arg0=' + (nphy ? '1' : '0') +
+		'&arg1=' + bw + '&arg2=' + band + '&arg3=' + sb);
 }
 
 function spin(x)
@@ -102,7 +178,7 @@ function scan()
 			var e = E('_wl_channel');
 			for (i = 1; i < ghz.length; ++i) {
 				var s = ghz[i][1];
-				var u = wscan.inuse[i];
+				var u = wscan.inuse[ghz[i][0]];
 				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / strongest: "' + ellipsis(u.ssid, 15) + '" ' + u.rssi + ' dBm)';
 				e.options[i].innerHTML = s;
 			}
@@ -223,6 +299,13 @@ function verifyFields(focused, quiet)
 	var ok = 1;
 	var a, b, c, d, e;
 
+	if (focused == E('_wl_nband')) {
+		refreshNetModes();
+		refreshChannels();
+	}
+	else if (focused == E('_f_wl_nctrlsb') || focused == E('_wl_nbw_cap')) {
+		refreshChannels();
+	}
 
 	// --- visibility ---
 
@@ -258,6 +341,7 @@ function verifyFields(focused, quiet)
 
 		_f_wl_radio: 1,
 		_f_wmode: 1,
+		_wl_nband: (nphy && dualband) ? 1 : 0,
 		_wl_net_mode: 1,
 		_wl_ssid: 1,
 		_f_bcast: 1,
@@ -401,6 +485,7 @@ function verifyFields(focused, quiet)
 		vis._security_mode2 = 2;
 		vis._wl_channel = 2;
 		vis._wl_nbw_cap = nphy ? 2 : 0;
+		vis._wl_nband = (nphy && dualband) ? 2 : 0;
 		vis._f_bcast = 2;
 		vis._wl_crypto = 2;
 		vis._wl_net_mode = 2;
@@ -468,30 +553,26 @@ function verifyFields(focused, quiet)
 		switch (E('_wl_net_mode').value) {
 		case 'b-only':
 		case 'g-only':
+		case 'a-only':
 		case 'bg-mixed':
 			vis._wl_nbw_cap = 2;
-			E('_wl_nbw_cap').value = 0;
+			if (E('_wl_nbw_cap').value != '0') {
+				E('_wl_nbw_cap').value = 0;
+				refreshChannels();
+			}
 			break;
 		}
 		// avoid Enterprise-TKIP with 40MHz
 		if ((sm2 == 'wpa_enterprise') && (E('_wl_crypto').value == 'tkip')) {
 			vis._wl_nbw_cap = 2;
-			E('_wl_nbw_cap').value = 0;
+			if (E('_wl_nbw_cap').value != '0') {
+				E('_wl_nbw_cap').value = 0;
+				refreshChannels();
+			}
 		}
 	}
 
 	vis._f_wl_nctrlsb = (E('_wl_nbw_cap').value == 0) ? 0 : vis._wl_nbw_cap;
-	if (vis._wl_channel == 1 && vis._f_wl_nctrlsb != 0) {
-		i = E('_wl_channel').value * 1;
-		if (i > 0 && i < 5) {
-			E('_f_wl_nctrlsb').value = 'lower';
-			vis._f_wl_nctrlsb = 2;
-		}
-		else if (i > max_channel - 4) {
-			E('_f_wl_nctrlsb').value = 'upper';
-			vis._f_wl_nctrlsb = 2;
-		}
-	}
 
 	//
 
@@ -762,6 +843,9 @@ function save()
 		break;
 	case 'bg-mixed':
 		break;
+	case 'a-only':
+		// ??
+		break;
 	case 'n-only':
 		fom.wl_nmode.value = 1;
 		fom.wl_nmcsidx.value = 32;
@@ -799,10 +883,16 @@ function save()
 		form.submit(fom, 1);
 	}
 }
+
+function init()
+{
+	refreshNetModes();
+	refreshChannels();
+}
 </script>
 
 </head>
-<body>
+<body onload='init()'>
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
@@ -912,13 +1002,15 @@ f = [
 	{ title: 'Wireless Mode', name: 'f_wmode', type: 'select',
 		options: [['ap', 'Access Point'],['apwds', 'Access Point + WDS'],['sta', 'Wireless Client'],['wet', 'Wireless Ethernet Bridge'],['wds', 'WDS']],
 		value: ((nvram.wl_mode == 'ap') && (nvram.wds_enable == '1')) ? 'apwds' : nvram.wl_mode },
-	{ title: 'Wireless Network Mode', name: 'wl_net_mode', type: 'select', value: (nvram.wl_net_mode == 'disabled') ? 'mixed' : nvram.wl_net_mode, options: modes },
+	{ title: 'Radio Band', name: 'wl_nband', type: 'select', options: [['2','2.4 GHz'],['1','5 GHz']],
+		value: nvram.wl_nband == '0' ? '2' : nvram.wl_nband },
+	{ title: 'Wireless Network Mode', name: 'wl_net_mode', type: 'select', value: (nvram.wl_net_mode == 'disabled') ? 'mixed' : nvram.wl_net_mode, options: modes, prefix: '<span id="__wl_net_mode">', suffix: '</span>' },
 	{ title: 'SSID', name: 'wl_ssid', type: 'text', maxlen: 32, size: 34, value: nvram.wl_ssid },
 	{ title: 'Broadcast', indent: 2, name: 'f_bcast', type: 'checkbox', value: (nvram.wl_closed == '0') },
-	{ title: 'Channel', name: 'wl_channel', type: 'select', options: ghz, suffix: ' <input type="button" id="_f_scan" value="Scan" onclick="scanButton()"> <img src="spin.gif" id="spin">',
-		 value: nvram.wl_channel },
+	{ title: 'Channel', name: 'wl_channel', type: 'select', options: ghz, prefix: '<span id="__wl_channel">', suffix: '</span> <input type="button" id="_f_scan" value="Scan" onclick="scanButton()"> <img src="spin.gif" id="spin">',
+		value: nvram.wl_channel },
 	{ title: 'Channel Width', name: 'wl_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
-		 value: nvram.wl_nbw_cap },
+		value: nvram.wl_nbw_cap },
 	{ title: 'Control Sideband', name: 'f_wl_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
 		value: nvram.wl_nctrlsb == 'none' ? 'lower' : nvram.wl_nctrlsb },
 	null,

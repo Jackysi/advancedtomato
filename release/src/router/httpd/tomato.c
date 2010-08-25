@@ -557,7 +557,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
-	{ "wl_channel",			V_RANGE(0, 14)		},	//!!TB - 0=Auto
+	{ "wl_channel",			V_RANGE(0, 216)		},
 #if TOMATO_N
 	// ! update
 #endif
@@ -588,6 +588,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_auth_mode",	   	V_LENGTH(4, 6)		},	//  none, radius
 
 	{ "wl_nmode",			V_NONE				},
+	{ "wl_nband",			V_RANGE(0, 2)			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
 	{ "wl_nreqd",			V_NONE				},
 	{ "wl_nbw_cap",			V_RANGE(0, 2)			},	// 0 - 20MHz, 1 - 40MHz, 2 - Auto
 	{ "wl_nbw",			V_NONE				},
