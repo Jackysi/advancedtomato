@@ -31,6 +31,7 @@
 export SRCBASE := $(shell pwd)
 RELEASEDIR := $(shell (cd $(SRCBASE)/.. && pwd -P))
 PATH := $(RELEASEDIR)/tools:$(PATH)
+export TPROFILE := N
 
 include ./target.mak
 
@@ -567,7 +568,8 @@ setprofile:
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
-	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)' >> tomato_profile.mak
+
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 -DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)' >> tomato_profile.mak
 
 
 # Note that changes to variables in tomato_profile.mak don't
