@@ -169,6 +169,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 8;
 		ses_mask = 1 << 5;
 		break;
+	case MODEL_WRT610Nv2:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 4;
+		break;
 #endif
 #if TOMATO_N
 	case MODEL_WRT300N:

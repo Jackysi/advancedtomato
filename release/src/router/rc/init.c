@@ -450,6 +450,17 @@ static void check_bootnv(void)
 			dirty |= check_nv("vlan2ports", "0 8");
 		}
 		break;
+	case MODEL_WRT610Nv2:
+		dirty |= check_nv("vlan2hwname", "et0");
+	//	if (strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4C", 8) == 0 ||
+	//	    strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+	//		dirty |= check_nv("pci/1/1/macaddr", nvram_get("et0macaddr"));
+	//	}
+		if (strcmp(nvram_safe_get("vlan1ports"), "") == 0) {
+			dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
+		break;
 	case MODEL_WRT160Nv3:
 		if (nvram_match("clkdivsf", "4") && nvram_match("vlan1ports", "1 2 3 4 5*")) {
 			// fix lan port numbering on CSE41, CSE51
@@ -882,16 +893,25 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT320N:
 		mfr = "Linksys";
-		if (nvram_match("boardrev", "0x1307")) {
-			name = "E2000";
-			gpio_write(1 << 0, 0); // fix for WLAN LED
-		} else
-			name = "WRT320N";
+		name = nvram_match("boardrev", "0x1307") ? "E2000" : "WRT320N";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WRT610Nv2:
+		mfr = "Linksys";
+		name = nvram_match("boot_hw_model", "E300") ? "E3000" : "WRT610N v2";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("pci/1/1/ledbh2", "8");
+			nvram_set("sb/1/ledbh1", "8");
 			nvram_set("t_fix1", name);
 		}
 		break;

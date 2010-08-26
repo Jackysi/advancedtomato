@@ -29,7 +29,8 @@ WRT300N 1.0         BCM4704_BCM5325F_EWC  0x0472       42        0x10      0x10
 WRTSL54GS           BCM4704_BCM5325F      0x042f       42        0x10      0x0018
 WTR54GS v1, v2      BCM5350               0x456        56        0x10      0xb18       (source: BaoWeiQuan)
 WRT160Nv3, M10      BCM4716               0x04cd       42        0x1700                boot_hw_model=WRT160N boot_hw_ver=3.0 (M10: boot_hw_model=M10 boot_hw_ver=1.0)
-WRT320N             BCM4717               0x04ef       42/66     0x1304/0x1305         boardflags: 0x0040F10 / 0x00000602 (??)
+WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0x1307  boardflags: 0x0040F10 / 0x00000602 (??)
+WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
 WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
@@ -220,6 +221,14 @@ int get_model(void)
 	}
 */
 
+#ifdef CONFIG_BCMWL5
+	if (hw == HW_BCM4718) {
+		if (nvram_match("boot_hw_model", "WRT610N") ||
+		    nvram_match("boot_hw_model", "E300"))
+		return MODEL_WRT610Nv2;
+	}
+#endif
+
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {
 	case 42:
 		switch (hw) {
@@ -234,6 +243,8 @@ int get_model(void)
 			return MODEL_WRT160Nv3;
 		case HW_BCM4717:
 			return MODEL_WRT320N;
+		case HW_BCM4718:
+			return MODEL_WRT610Nv2;
 #endif
 		}
 		return MODEL_WRT54G;
