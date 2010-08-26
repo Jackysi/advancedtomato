@@ -2247,6 +2247,7 @@ int kernel_accept(struct socket *sock, struct socket **newsock, int flags)
 	err = sock->ops->accept(sock, *newsock, flags);
 	if (err < 0) {
 		sock_release(*newsock);
+		*newsock = NULL;
 		goto done;
 	}
 
