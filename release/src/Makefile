@@ -44,6 +44,10 @@ else
 ND = "ND"
 endif
 
+ifeq ($(NVRAM_SIZE),)
+NVRAM_SIZE = 0
+endif
+
 -include tomato_profile.mak
 
 # This could be simpler by just using $(TOMATO_PROFILE_NAME) like it used to be,
@@ -376,6 +380,8 @@ endef
 
 define KernelConfig
 	@( \
+	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
+	echo "CONFIG_NVRAM_SIZE="$(NVRAM_SIZE) >>$(1); \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(MIPS32)" = "r2" ]; then \
 		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
 		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \
@@ -547,6 +553,7 @@ setprofile:
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
+	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
 
 	echo 'TOMATO_$(N) = 1' > tomato_profile.mak
@@ -560,6 +567,7 @@ setprofile:
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)' >> tomato_profile.mak
 
 
 # Note that changes to variables in tomato_profile.mak don't
