@@ -122,14 +122,17 @@ function switchMaxCount(c)
 	cookie.set('webmon-maxcount', maxCount);
 }
 
-function monitorGridResolveAll(grid)
+function WMGrid() { return this; }
+WMGrid.prototype = new TomatoGrid;
+
+WMGrid.prototype.resolveAll = function()
 {
 	var i, ip, row, q;
 
 	q = [];
 	queue = [];
-	for (i = 1; i < grid.tb.rows.length; ++i) {
-		row = grid.tb.rows[i];
+	for (i = 1; i < this.tb.rows.length; ++i) {
+		row = this.tb.rows[i];
 		ip = row.getRowData().ip;
 		if (ip.indexOf('<') == -1) {
 			if (!q[ip]) {
@@ -143,14 +146,14 @@ function monitorGridResolveAll(grid)
 	resolve();
 }
 
-function monitorGridClick(grid, cell)
+WMGrid.prototype.onClick = function(cell)
 {
 	if ((cell.cellIndex || 0) == 2 /* url */) return;
 
 	var row = PR(cell);
 	var ip = row.getRowData().ip;
-	if (grid.lastClicked != row) {
-		grid.lastClicked = row;
+	if (this.lastClicked != row) {
+		this.lastClicked = row;
 		queue = [];
 		if (ip.indexOf('<') == -1) {
 			queue.push(ip);
@@ -159,16 +162,16 @@ function monitorGridClick(grid, cell)
 		}
 	}
 	else {
-		monitorGridResolveAll(grid);
+		this.resolveAll();
 	}
 }
 
-function monitorGridSetName(grid, ip, name)
+WMGrid.prototype.setName = function(ip, name)
 {
 	var i, row, data;
 
-	for (i = grid.tb.rows.length - 1; i > 0; --i) {
-		row = grid.tb.rows[i];
+	for (i = this.tb.rows.length - 1; i > 0; --i) {
+		row = this.tb.rows[i];
 		data = row.getRowData();
 		if (data.ip == ip) {
 			data[1] = name + ' <small>(' + ip + ')</small>';
@@ -179,15 +182,15 @@ function monitorGridSetName(grid, ip, name)
 	}
 }
 
-function monitorGridPopulate(grid, data, url)
+WMGrid.prototype.populateData = function(data, url)
 {
 	var a, e, i;
 	var maxl = 45;
 	var cursor;
 
 	list = [];
-	grid.lastClicked = null;
-	grid.removeAllData();
+	this.lastClicked = null;
+	this.removeAllData();
 	for (i = 0; i < list.length; ++i) {
 		list[i].time = 0;
 		list[i].ip = '';
@@ -223,18 +226,19 @@ function monitorGridPopulate(grid, data, url)
 				e.value = e.value.substr(0, maxl) + '...';
 		}
 		dt.setTime(e.time * 1000);
-		var row = grid.insert(-1, e, [dt.toDateString() + ', ' + dt.toLocaleTimeString(),
+		var row = this.insert(-1, e, [dt.toDateString() + ', ' + dt.toLocaleTimeString(),
 			e.ip, e.value], false);
 		if (cursor) row.style.cursor = cursor;
 	}
 
 	list = [];
-	grid.resort();
+	this.resort();
+	this.recolor();
 }
 
-function monitorGridCompare(grid, a, b)
+WMGrid.prototype.sortCompare = function(a, b)
 {
-	var col = grid.sortColumn;
+	var col = this.sortColumn;
 	var ra = a.getRowData();
 	var rb = b.getRowData();
 	var r;
@@ -254,10 +258,10 @@ function monitorGridCompare(grid, a, b)
 	default:
 		r = cmpText(a.cells[col].innerHTML, b.cells[col].innerHTML);
 	}
-	return grid.sortAscending ? r : -r;
+	return this.sortAscending ? r : -r;
 }
 
-var dg = new TomatoGrid();
+var dg = new WMGrid();
 
 dg.setup = function() {
 	this.init('dom-grid', 'sort');
@@ -266,22 +270,10 @@ dg.setup = function() {
 }
 
 dg.populate = function() {
-	monitorGridPopulate(this, wm_domains, 1);
+	this.populateData(wm_domains, 1);
 }
 
-dg.sortCompare = function(a, b) {
-	return monitorGridCompare(this, a, b);
-}
-
-dg.onClick = function(cell) {
-	monitorGridClick(this, cell);
-}
-
-dg.setName = function(ip, name) {
-	monitorGridSetName(this, ip, name);
-}
-
-var sg = new TomatoGrid();
+var sg = new WMGrid();
 
 sg.setup = function() {
 	this.init('srh-grid', 'sort');
@@ -290,28 +282,11 @@ sg.setup = function() {
 }
 
 sg.populate = function() {
-	monitorGridPopulate(this, wm_searches, 0);
-}
-
-sg.sortCompare = function(a, b) {
-	return monitorGridCompare(this, a, b);
-}
-
-sg.onClick = function(cell) {
-	monitorGridClick(this, cell);
-}
-
-sg.setName = function(ip, name) {
-	monitorGridSetName(this, ip, name);
+	this.populateData(wm_searches, 0);
 }
 
 function init()
 {
-	dg.recolor();
-	sg.recolor();
-
-	maxCount = fixInt(cookie.get('webmon-maxcount'), 0, maxLimit, 50);
-	showMaxCount();
 	refresh();
 }
 
@@ -338,6 +313,9 @@ function earlyInit()
 		if (nvram.log_wmsmax == '0') E('webmon-searches').style.display = 'none';
 		dg.setup();
 		sg.setup();
+
+		maxCount = fixInt(cookie.get('webmon-maxcount'), 0, maxLimit, 50);
+		showMaxCount();
 	}
 }
 </script>
@@ -360,7 +338,7 @@ function earlyInit()
 	<div id='webmon-domains'>
 		<div class='section-title'>Recently Visited Web Sites</div>
 		<div class='section'>
-			<table id='dom-grid' class='tomato-grid' cellspacing=0></table>
+			<table id='dom-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 			&raquo; <a href="webmon_recent_domains?_http_id=<% nv(http_id) %>">Download</a>
 		</div>
 	</div>
@@ -368,7 +346,7 @@ function earlyInit()
 	<div id='webmon-searches'>
 		<div class='section-title'>Recent Web Searches</div>
 		<div class='section'>
-			<table id='srh-grid' class='tomato-grid' cellspacing=0></table>
+			<table id='srh-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 			&raquo; <a href="webmon_recent_searches?_http_id=<% nv(http_id) %>">Download</a>
 		</div>
 	</div>
