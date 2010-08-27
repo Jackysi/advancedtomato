@@ -1634,6 +1634,9 @@ int sifdefaultroute (int unit, u_int32_t ouraddr, u_int32_t gateway)
     memset (&rt, 0, sizeof (rt));
     SET_SA_FAMILY (rt.rt_dst, AF_INET);
 
+    SET_SA_FAMILY(rt.rt_gateway, AF_INET);
+    SIN_ADDR(rt.rt_gateway) = gateway;
+
     rt.rt_dev = ifname;
 
     if (kernel_version > KVERSION(2,1,0)) {
@@ -1641,7 +1644,7 @@ int sifdefaultroute (int unit, u_int32_t ouraddr, u_int32_t gateway)
 	SIN_ADDR(rt.rt_genmask) = 0L;
     }
 
-    rt.rt_flags = RTF_UP;
+    rt.rt_flags = RTF_UP | RTF_GATEWAY;
     if (ioctl(sock_fd, SIOCADDRT, &rt) < 0) {
 	if ( ! ok_error ( errno ))
 	    error("default route ioctl(SIOCADDRT): %m");
