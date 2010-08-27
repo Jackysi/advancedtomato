@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall $(EXTRACFLAGS) #-mips32
+CFLAGS	= -Os -Wall $(EXTRACFLAGS) #-mips32
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 LDFLAGS	=
 

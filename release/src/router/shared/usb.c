@@ -130,7 +130,7 @@ char *detect_fs_type(char *device)
 		return "vfat";
 	}
 
-	return NULL;
+	return "unknown";
 }
 
 

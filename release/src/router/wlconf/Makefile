@@ -15,7 +15,7 @@ include ../common.mak
 
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2 -DBCMWPA2 $(EXTRACFLAGS)
+CFLAGS	+= -s -Os -DBCMWPA2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
 
 

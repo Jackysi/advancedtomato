@@ -296,11 +296,10 @@ void start_dnsmasq()
 
 	TRACE_PT("run dnsmasq\n");
 
-	xstart("dnsmasq");
+	eval("dnsmasq");
 
 	if (!nvram_contains_word("debug_norestart", "dnsmasq")) {
-		f_read_string(dmpid, buf, sizeof(buf));
-		pid_dnsmasq = atol(buf);
+		pid_dnsmasq = -2;
 	}
 
 	TRACE_PT("end\n");
@@ -756,7 +755,7 @@ void start_igmp_proxy(void)
 void stop_igmp_proxy(void)
 {
 	pid_igmp = -1;
-	killall("igmpproxy", SIGTERM);
+	killall_tk("igmpproxy");
 }
 
 

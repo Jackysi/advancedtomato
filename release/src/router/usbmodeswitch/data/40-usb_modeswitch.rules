@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20100817
+# Part of usb-modeswitch-data, version 20100825
 #
 # This file is intended for USB_ModeSwitch version >= 1.1.4
 # but will not break anything if used with versions >= 1.0.3
@@ -218,6 +218,9 @@ ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="d357", RUN+="usb_modeswitch '%b/%k'"
 # Olivetti Olicard 100 and others
 ATTRS{idVendor}=="0b3c", ATTRS{idProduct}=="c700", RUN+="usb_modeswitch '%b/%k'"
 
+# Olivetti Olicard 145
+ATTRS{idVendor}=="0b3c", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
 # Atheros Wireless / Netgear WNDA3200
 ATTRS{idVendor}=="0cf3", ATTRS{idProduct}=="20ff", RUN+="usb_modeswitch '%b/%k'"
 
@@ -400,6 +403,9 @@ ATTRS{idVendor}=="1dd6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # Option iCON 210, PROLiNK PHS100, Hyundai MB-810, A-Link 3GU
 ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# Onda MW833UP
+ATTRS{idVendor}=="1ee8", ATTRS{idProduct}=="0009", RUN+="usb_modeswitch '%b/%k'"
 
 # Onda MW833UP
 ATTRS{idVendor}=="1ee8", ATTRS{idProduct}=="0013", RUN+="usb_modeswitch '%b/%k'"

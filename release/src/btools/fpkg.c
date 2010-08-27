@@ -160,7 +160,9 @@ void load_image(const char *fname)
 
 	rsize = ROUNDUP(st.st_size, 4);
 	if ((trx->length + rsize) > TRX_MAX_LEN) {
-		fprintf(stderr, "Total size is too big.\n");
+		fprintf(stderr, "Total size %u (%.1f KB) is too big. Maximum is %lu (%.1f KB).\n",
+			(trx->length + rsize), (trx->length + rsize) / 1024.0,
+			TRX_MAX_LEN, TRX_MAX_LEN / 1024.0);
 		exit(1);
 	}
 
@@ -199,7 +201,8 @@ void align_trx(const char *align)
 
 	len = ROUNDUP(trx->length, n);
 	if (len > TRX_MAX_LEN) {
-		fprintf(stderr, "Total size is too big.\n");
+		fprintf(stderr, "Total size %u (%.1f KB) is too big. Maximum is %lu (%.1f KB).\n",
+			len, len / 1024.0, TRX_MAX_LEN, TRX_MAX_LEN / 1024.0);
 		exit(1);
 	}
 	trx->length = len;

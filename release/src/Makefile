@@ -31,6 +31,7 @@
 export SRCBASE := $(shell pwd)
 RELEASEDIR := $(shell (cd $(SRCBASE)/.. && pwd -P))
 PATH := $(RELEASEDIR)/tools:$(PATH)
+export TPROFILE := N
 
 include ./target.mak
 
@@ -42,6 +43,10 @@ ifeq ($(CONFIG_LINUX26),y)
 ND = "K26"
 else
 ND = "ND"
+endif
+
+ifeq ($(NVRAM_SIZE),)
+NVRAM_SIZE = 0
 endif
 
 -include tomato_profile.mak
@@ -209,6 +214,8 @@ define RouterOptions
 		echo "TCONFIG_JFFSV1=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
+		sed -i "/TCONFIG_USB/d" $(1); \
+		echo "TCONFIG_USB=y" >>$(1); \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
 			sed -i "/TCONFIG_USB_EXTRAS/d" $(1); \
 			echo "TCONFIG_USB_EXTRAS=y" >>$(1); \
@@ -222,10 +229,6 @@ define RouterOptions
 			echo "TCONFIG_MEDIA_SERVER=y" >>$(1); \
 		fi; \
 	else \
-		sed -i "/TCONFIG_SAMBASRV/d" $(1); \
-		echo "# TCONFIG_SAMBASRV is not set" >>$(1); \
-		sed -i "/TCONFIG_FTP/d" $(1); \
-		echo "# TCONFIG_FTP is not set" >>$(1); \
 		sed -i "/TCONFIG_USB/d" $(1); \
 		echo "# TCONFIG_USB is not set" >>$(1); \
 	fi; \
@@ -378,6 +381,8 @@ endef
 
 define KernelConfig
 	@( \
+	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
+	echo "CONFIG_NVRAM_SIZE="$(NVRAM_SIZE) >>$(1); \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(MIPS32)" = "r2" ]; then \
 		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
 		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \
@@ -390,9 +395,9 @@ define KernelConfig
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
 		echo "CONFIG_IPV6=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_IPTABLES/d" $(1); \
-		echo "CONFIG_IP6_NF_IPTABLES=m" >>$(1); \
+		echo "CONFIG_IP6_NF_IPTABLES=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
-		echo "CONFIG_IP6_NF_MATCH_RT=m" >>$(1); \
+		echo "CONFIG_IP6_NF_MATCH_RT=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_FILTER/d" $(1); \
 		echo "CONFIG_IP6_NF_FILTER=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_TARGET_LOG/d" $(1); \
@@ -488,7 +493,7 @@ endif
 ## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB"
 else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
 endif
@@ -496,7 +501,7 @@ endif
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB"
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
 endif
@@ -549,6 +554,7 @@ setprofile:
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
+	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
 
 	echo 'TOMATO_$(N) = 1' > tomato_profile.mak
@@ -562,6 +568,8 @@ setprofile:
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
+
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 -DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)' >> tomato_profile.mak
 
 
 # Note that changes to variables in tomato_profile.mak don't

@@ -1026,12 +1026,12 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
    */
   if (is_unique || (p_sess->is_anonymous && !tunable_anon_other_write_enable))
   {
-    new_file_fd = str_create(p_filename);
+    new_file_fd = str_create_exclusive(p_filename);
   }
   else
   {
     /* For non-anonymous, allow open() to overwrite or append existing files */
-    new_file_fd = str_create_append(p_filename);
+    new_file_fd = str_create(p_filename);
     if (!is_append && offset == 0)
     {
       do_truncate = 1;

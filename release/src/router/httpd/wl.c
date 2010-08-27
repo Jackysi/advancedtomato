@@ -307,7 +307,8 @@ void asp_wlchannel(int argc, char **argv)
 
 	/* Get configured phy type */
 	wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
-	wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band));
+	if (wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band)) != 0)
+		band = nvram_get_int("wl_nband");
 
 	channel = nvram_get_int("wl_channel");
 	if (!wl_phytype_n(phytype)) {
@@ -423,7 +424,8 @@ void asp_wlchannels(int argc, char **argv)
 	char *ifname = nvram_safe_get("wl_ifname");
 
 	wl_ioctl(ifname, WLC_GET_COUNTRY, buf, sizeof(buf));
-	wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band));
+	if (wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band)) != 0)
+		band = nvram_get_int("wl_nband");
 	wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
 	wl_iovar_getint(ifname, "chanspec", &chanspec);
 
@@ -433,9 +435,12 @@ void asp_wlchannels(int argc, char **argv)
 	if (argc > 1)
 		bw = atoi(argv[1]);
 	else
-		bw = CHSPEC_IS40(chanspec) ? 40 : 20;
-	if (argc > 2) {
-		if (strcmp(argv[2], "upper") == 0)
+		bw = 0;
+	bw = bw ? : CHSPEC_IS40(chanspec) ? 40 : 20;
+	if (argc > 2)
+		band = atoi(argv[2]) ? : band;
+	if (argc > 3) {
+		if (strcmp(argv[3], "upper") == 0)
 			ctrlsb = WL_CHANSPEC_CTL_SB_UPPER;
 		else
 			ctrlsb = WL_CHANSPEC_CTL_SB_LOWER;

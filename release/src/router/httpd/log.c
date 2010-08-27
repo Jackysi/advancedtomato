@@ -8,6 +8,9 @@
 #include "tomato.h"
 
 #include <ctype.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 static int logok(void)
 {
@@ -67,13 +70,16 @@ void wo_viewlog(char *url)
 	}
 }
 
-static void webmon_list(char *name, int webmon)
+static void webmon_list(char *name, int webmon, int resolve, unsigned int maxcount)
 {
 	FILE *f;
 	char s[512], ip[16], val[256];
-	char *valj;
+	char *js, *jh;
+	struct hostent *he;
+	struct in_addr ia;
 	char comma;
 	unsigned long time;
+	unsigned int i;
 
 	web_printf("\nwm_%s = [", name);
 
@@ -81,12 +87,20 @@ static void webmon_list(char *name, int webmon)
 		sprintf(s, "/proc/webmon_recent_%s", name);
 		if ((f = fopen(s, "r")) != NULL) {
 			comma = ' ';
-			while (fgets(s, sizeof(s), f)) {
+			i = 0;
+			while ((!maxcount || i++ < maxcount) && fgets(s, sizeof(s), f)) {
 				if (sscanf(s, "%lu %15s %s", &time, ip, val) != 3) continue;
-				valj = utf8_to_js_string(val);
-				web_printf("%c['%lu','%s','%s']", comma,
-					time, ip, valj ? valj : "");
-				free(valj);
+				if (resolve) {
+					ia.s_addr = inet_addr(ip);
+					he = gethostbyaddr(&ia, sizeof(ia), AF_INET);
+					jh = js_string(he ? he->h_name : "");
+				} else
+					jh = NULL;
+				js = utf8_to_js_string(val);
+				web_printf("%c['%lu','%s','%s', '%s']", comma,
+					time, ip, js ? : "", jh ? : "");
+				free(js);
+				free(jh);
 				comma = ',';
 			}
 			fclose(f);
@@ -99,9 +113,11 @@ static void webmon_list(char *name, int webmon)
 void asp_webmon(int argc, char **argv)
 {
 	int webmon = nvram_get_int("log_wm");
+	int maxcount = (argc > 0) ? atoi(argv[0]) : 0;
+	int resolve = (argc > 1) ? atoi(argv[1]) : 0;
 
-	webmon_list("domains", webmon);
-	webmon_list("searches", webmon);
+	webmon_list("domains", webmon, resolve, maxcount);
+	webmon_list("searches", webmon, resolve, maxcount);
 }
 
 static int webmon_ok(int searches)

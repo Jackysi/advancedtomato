@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall $(EXTRACFLAGS)
+CFLAGS	= -Os -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared -I$(TOP)/mssl
 LDFLAGS	=
 

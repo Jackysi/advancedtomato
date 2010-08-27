@@ -135,7 +135,7 @@ enum {
 	MODEL_WL500GP,
 	MODEL_WL500GPv2,
 	MODEL_WL500GE,
-	MODEL_WL500GD,
+	MODEL_WL500GD,
 	MODEL_WL520GU,
 	MODEL_DIR320,
 	MODEL_WBRG54,
@@ -155,6 +155,7 @@ enum {
 	MODEL_WNR2000v2,
 	MODEL_WRT160Nv3,
 	MODEL_WRT320N,
+	MODEL_WRT610Nv2,
 	MODEL_MN700,
 	MODEL_WRH54G,
 	MODEL_WHRG125,
@@ -172,7 +173,7 @@ enum {
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,
- * always add them at the end! The numeric Hardware ID value is
+ * always add them to the end! The numeric Hardware ID value is
  * stored in the configuration file, and is used to determine
  * whether or not this config file can be restored on the router.
  */
@@ -197,18 +198,18 @@ enum {
 
 #define SUP_SES			(1 << 0)
 #define SUP_BRAU		(1 << 1)
-#define SUP_AOSS_LED	(1 << 2)
-#define SUP_WHAM_LED	(1 << 3)
+#define SUP_AOSS_LED		(1 << 2)
+#define SUP_WHAM_LED		(1 << 3)
 #define SUP_HPAMP		(1 << 4)
 #define SUP_NONVE		(1 << 5)
 #define SUP_80211N		(1 << 6)
 #define SUP_1000ET		(1 << 7)
+#define SUP_2G_5G		(1 << 8)
 
 extern int check_hw_type(void);
 //	extern int get_hardware(void) __attribute__ ((weak, alias ("check_hw_type")));
 extern int get_model(void);
 extern int supports(unsigned long attr);
-
 
 
 // process.c
@@ -261,7 +262,7 @@ extern int led(int which, int mode);
 
 
 // base64.c
-extern int base64_encode(unsigned char *in, char *out, int inlen);			// returns amount of out buffer used
+extern int base64_encode(unsigned char *in, char *out, int inlen);		// returns amount of out buffer used
 extern int base64_decode(const char *in, unsigned char *out, int inlen);	// returns amount of out buffer used
 extern int base64_encoded_len(int len);
 extern int base64_decoded_len(int len);										// maximum possible, not actual

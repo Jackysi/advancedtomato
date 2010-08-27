@@ -2,12 +2,10 @@ include ../common.mak
 
 srcdir=source
 
-SMBCFLAGS = $(EXTRACFLAGS)
+SMBCFLAGS = $(EXTRACFLAGS) -Os
 
-ifeq ($(CONFIG_LINUX26),y)
-SMBCFLAGS += -O3
-else
-SMBCFLAGS += -Os -DNO_LOG
+ifneq ($(CONFIG_LINUX26),y)
+SMBCFLAGS += -DNO_LOG
 endif
 
 all: .conf apps
