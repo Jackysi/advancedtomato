@@ -1277,9 +1277,11 @@ static void sysinit(void)
 int init_main(int argc, char *argv[])
 {
 	pid_t shell_pid = 0;
+	sigset_t sigset;
 
 	sysinit();
 
+	sigemptyset(&sigset);
 	state = START;
 	signaled = -1;
 
@@ -1383,7 +1385,7 @@ int init_main(int argc, char *argv[])
 					shell_pid = run_shell(0, 1);
 				}
 				else {
-					pause();
+					sigsuspend(&sigset);
 				}
 			}
 			state = signaled;
