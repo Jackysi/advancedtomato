@@ -300,6 +300,12 @@ define BusyboxOptions
 		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
+		sed -i "/CONFIG_FTPPUT/d" $(1); \
+		echo "CONFIG_FTPPUT=y" >>$(1); \
+		sed -i "/CONFIG_CLEAR/d" $(1); \
+		echo "CONFIG_CLEAR=y" >>$(1); \
+		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
+		echo "CONFIG_SETCONSOLE=y" >>$(1); \
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 			sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
 			echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
