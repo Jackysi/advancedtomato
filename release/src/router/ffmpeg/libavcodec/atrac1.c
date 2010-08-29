@@ -21,7 +21,7 @@
  */
 
 /**
- * @file libavcodec/atrac1.c
+ * @file
  * Atrac 1 compatible decoder.
  * This decoder handles raw ATRAC1 data and probably SDDS data.
  */
@@ -35,6 +35,7 @@
 #include "avcodec.h"
 #include "get_bits.h"
 #include "dsputil.h"
+#include "fft.h"
 
 #include "atrac.h"
 #include "atrac1data.h"
@@ -58,11 +59,11 @@ typedef struct {
     int                 log2_block_count[AT1_QMF_BANDS];    ///< log2 number of blocks in a band
     int                 num_bfus;                           ///< number of Block Floating Units
     float*              spectrum[2];
-    DECLARE_ALIGNED_16(float, spec1)[AT1_SU_SAMPLES];     ///< mdct buffer
-    DECLARE_ALIGNED_16(float, spec2)[AT1_SU_SAMPLES];     ///< mdct buffer
-    DECLARE_ALIGNED_16(float, fst_qmf_delay)[46];         ///< delay line for the 1st stacked QMF filter
-    DECLARE_ALIGNED_16(float, snd_qmf_delay)[46];         ///< delay line for the 2nd stacked QMF filter
-    DECLARE_ALIGNED_16(float, last_qmf_delay)[256+23];    ///< delay line for the last stacked QMF filter
+    DECLARE_ALIGNED(16, float, spec1)[AT1_SU_SAMPLES];     ///< mdct buffer
+    DECLARE_ALIGNED(16, float, spec2)[AT1_SU_SAMPLES];     ///< mdct buffer
+    DECLARE_ALIGNED(16, float, fst_qmf_delay)[46];         ///< delay line for the 1st stacked QMF filter
+    DECLARE_ALIGNED(16, float, snd_qmf_delay)[46];         ///< delay line for the 2nd stacked QMF filter
+    DECLARE_ALIGNED(16, float, last_qmf_delay)[256+23];    ///< delay line for the last stacked QMF filter
 } AT1SUCtx;
 
 /**
@@ -70,13 +71,13 @@ typedef struct {
  */
 typedef struct {
     AT1SUCtx            SUs[AT1_MAX_CHANNELS];              ///< channel sound unit
-    DECLARE_ALIGNED_16(float, spec)[AT1_SU_SAMPLES];      ///< the mdct spectrum buffer
+    DECLARE_ALIGNED(16, float, spec)[AT1_SU_SAMPLES];      ///< the mdct spectrum buffer
 
-    DECLARE_ALIGNED_16(float,  low)[256];
-    DECLARE_ALIGNED_16(float,  mid)[256];
-    DECLARE_ALIGNED_16(float, high)[512];
+    DECLARE_ALIGNED(16, float,  low)[256];
+    DECLARE_ALIGNED(16, float,  mid)[256];
+    DECLARE_ALIGNED(16, float, high)[512];
     float*              bands[3];
-    DECLARE_ALIGNED_16(float, out_samples)[AT1_MAX_CHANNELS][AT1_SU_SAMPLES];
+    DECLARE_ALIGNED(16, float, out_samples)[AT1_MAX_CHANNELS][AT1_SU_SAMPLES];
     FFTContext          mdct_ctx[3];
     int                 channels;
     DSPContext          dsp;
@@ -251,7 +252,7 @@ static int at1_unpack_dequant(GetBitContext* gb, AT1SUCtx* su,
 }
 
 
-void at1_subband_synthesis(AT1Ctx *q, AT1SUCtx* su, float *pOut)
+static void at1_subband_synthesis(AT1Ctx *q, AT1SUCtx* su, float *pOut)
 {
     float temp[256];
     float iqmf_temp[512 + 46];
@@ -304,20 +305,15 @@ static int atrac1_decode_frame(AVCodecContext *avctx, void *data,
         at1_subband_synthesis(q, su, q->out_samples[ch]);
     }
 
-    /* round, convert to 16bit and interleave */
+    /* interleave; FIXME, should create/use a DSP function */
     if (q->channels == 1) {
         /* mono */
-        q->dsp.vector_clipf(samples, q->out_samples[0], -32700.0 / (1 << 15),
-                            32700.0 / (1 << 15), AT1_SU_SAMPLES);
+        memcpy(samples, q->out_samples[0], AT1_SU_SAMPLES * 4);
     } else {
         /* stereo */
         for (i = 0; i < AT1_SU_SAMPLES; i++) {
-            samples[i * 2]     = av_clipf(q->out_samples[0][i],
-                                          -32700.0 / (1 << 15),
-                                           32700.0 / (1 << 15));
-            samples[i * 2 + 1] = av_clipf(q->out_samples[1][i],
-                                          -32700.0 / (1 << 15),
-                                           32700.0 / (1 << 15));
+            samples[i * 2]     = q->out_samples[0][i];
+            samples[i * 2 + 1] = q->out_samples[1][i];
         }
     }
 
@@ -371,7 +367,7 @@ static av_cold int atrac1_decode_end(AVCodecContext * avctx) {
 
 AVCodec atrac1_decoder = {
     .name = "atrac1",
-    .type = CODEC_TYPE_AUDIO,
+    .type = AVMEDIA_TYPE_AUDIO,
     .id = CODEC_ID_ATRAC1,
     .priv_data_size = sizeof(AT1Ctx),
     .init = atrac1_decode_init,

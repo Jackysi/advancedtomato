@@ -22,11 +22,14 @@
  */
 
 /**
- * @file libavcodec/fft.c
+ * @file
  * FFT/IFFT transforms.
  */
 
-#include "dsputil.h"
+#include <stdlib.h>
+#include <string.h>
+#include "libavutil/mathematics.h"
+#include "fft.h"
 
 /* cos(2*pi*x/n) for 0<=x<=n/4, followed by its reverse */
 #if !CONFIG_HARDCODED_TABLES

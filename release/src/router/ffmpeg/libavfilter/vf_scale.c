@@ -19,7 +19,7 @@
  */
 
 /**
- * @file libavfilter/vf_scale.c
+ * @file
  * scale video filter
  */
 
@@ -145,6 +145,7 @@ static void start_frame(AVFilterLink *link, AVFilterPicRef *picref)
 
     outpicref = avfilter_get_video_buffer(outlink, AV_PERM_WRITE, outlink->w, outlink->h);
     outpicref->pts = picref->pts;
+    outpicref->pos = picref->pos;
     outlink->outpic = outpicref;
 
     av_reduce(&outpicref->pixel_aspect.num, &outpicref->pixel_aspect.den,
@@ -196,13 +197,13 @@ AVFilter avfilter_vf_scale = {
     .priv_size = sizeof(ScaleContext),
 
     .inputs    = (AVFilterPad[]) {{ .name             = "default",
-                                    .type             = CODEC_TYPE_VIDEO,
+                                    .type             = AVMEDIA_TYPE_VIDEO,
                                     .start_frame      = start_frame,
                                     .draw_slice       = draw_slice,
                                     .min_perms        = AV_PERM_READ, },
                                   { .name = NULL}},
     .outputs   = (AVFilterPad[]) {{ .name             = "default",
-                                    .type             = CODEC_TYPE_VIDEO,
+                                    .type             = AVMEDIA_TYPE_VIDEO,
                                     .config_props     = config_props, },
                                   { .name = NULL}},
 };

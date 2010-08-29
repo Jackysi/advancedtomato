@@ -171,11 +171,12 @@ int avfilter_config_links(AVFilterContext *filter)
 static void dprintf_picref(void *ctx, AVFilterPicRef *picref, int end)
 {
     dprintf(ctx,
-            "picref[%p data[%p, %p, %p, %p] linesize[%d, %d, %d, %d] pts:%"PRId64" s:%dx%d]%s",
+            "picref[%p data[%p, %p, %p, %p] linesize[%d, %d, %d, %d] pts:%"PRId64" pos:%"PRId64" a:%d/%d s:%dx%d]%s",
             picref,
             picref->data    [0], picref->data    [1], picref->data    [2], picref->data    [3],
             picref->linesize[0], picref->linesize[1], picref->linesize[2], picref->linesize[3],
-            picref->pts, picref->w, picref->h,
+            picref->pts, picref->pos,
+            picref->pixel_aspect.num, picref->pixel_aspect.den, picref->w, picref->h,
             end ? "\n" : "");
 }
 
@@ -263,6 +264,7 @@ void avfilter_start_frame(AVFilterLink *link, AVFilterPicRef *picref)
         link->cur_pic = avfilter_default_get_video_buffer(link, dst->min_perms, link->w, link->h);
         link->srcpic = picref;
         link->cur_pic->pts = link->srcpic->pts;
+        link->cur_pic->pos = link->srcpic->pos;
         link->cur_pic->pixel_aspect = link->srcpic->pixel_aspect;
     }
     else
@@ -292,14 +294,13 @@ void avfilter_end_frame(AVFilterLink *link)
 void avfilter_draw_slice(AVFilterLink *link, int y, int h, int slice_dir)
 {
     uint8_t *src[4], *dst[4];
-    int i, j, hsub, vsub;
+    int i, j, vsub;
     void (*draw_slice)(AVFilterLink *, int, int, int);
 
     DPRINTF_START(NULL, draw_slice); dprintf_link(NULL, link, 0); dprintf(NULL, " y:%d h:%d dir:%d\n", y, h, slice_dir);
 
     /* copy the slice if needed for permission reasons */
     if(link->srcpic) {
-        hsub = av_pix_fmt_descriptors[link->format].log2_chroma_w;
         vsub = av_pix_fmt_descriptors[link->format].log2_chroma_h;
 
         for(i = 0; i < 4; i ++) {
@@ -384,7 +385,9 @@ static const char *filter_name(void *p)
 
 static const AVClass avfilter_class = {
     "AVFilter",
-    filter_name
+    filter_name,
+    NULL,
+    LIBAVUTIL_VERSION_INT,
 };
 
 AVFilterContext *avfilter_open(AVFilter *filter, const char *inst_name)

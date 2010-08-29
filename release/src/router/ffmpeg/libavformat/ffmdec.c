@@ -301,7 +301,7 @@ static int ffm_read_header(AVFormatContext *s, AVFormatParameters *ap)
         codec->debug = get_be32(pb);
         /* specific info */
         switch(codec->codec_type) {
-        case CODEC_TYPE_VIDEO:
+        case AVMEDIA_TYPE_VIDEO:
             codec->time_base.num = get_be32(pb);
             codec->time_base.den = get_be32(pb);
             codec->width = get_be16(pb);
@@ -350,11 +350,11 @@ static int ffm_read_header(AVFormatContext *s, AVFormatParameters *ap)
             codec->refs = get_be32(pb);
             codec->directpred = get_be32(pb);
             break;
-        case CODEC_TYPE_AUDIO:
+        case AVMEDIA_TYPE_AUDIO:
             codec->sample_rate = get_be32(pb);
             codec->channels = get_le16(pb);
             codec->frame_size = get_le16(pb);
-            codec->sample_fmt = get_le16(pb);
+            codec->sample_fmt = (int16_t) get_le16(pb);
             break;
         default:
             goto fail;
@@ -432,7 +432,7 @@ static int ffm_read_packet(AVFormatContext *s, AVPacket *pkt)
         }
         pkt->pos = url_ftell(s->pb);
         if (ffm->header[1] & FLAG_KEY_FRAME)
-            pkt->flags |= PKT_FLAG_KEY;
+            pkt->flags |= AV_PKT_FLAG_KEY;
 
         ffm->read_state = READ_HEADER;
         if (ffm_read_data(s, pkt->data, size, 0) != size) {
@@ -512,6 +512,16 @@ static int ffm_probe(AVProbeData *p)
     return 0;
 }
 
+static int ffm_close(AVFormatContext *s)
+{
+    int i;
+
+    for (i = 0; i < s->nb_streams; i++)
+        av_freep(&s->streams[i]->codec->rc_eq);
+
+    return 0;
+}
+
 AVInputFormat ffm_demuxer = {
     "ffm",
     NULL_IF_CONFIG_SMALL("FFM (FFserver live feed) format"),
@@ -519,6 +529,6 @@ AVInputFormat ffm_demuxer = {
     ffm_probe,
     ffm_read_header,
     ffm_read_packet,
-    NULL,
+    ffm_close,
     ffm_seek,
 };

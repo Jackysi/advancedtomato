@@ -160,9 +160,9 @@ static int64_t concat_seek(URLContext *h, int64_t pos, int whence)
     switch (whence) {
     case SEEK_END:
         for (i = data->length - 1;
-             i && pos < -nodes[i-1].size;
+             i && pos < -nodes[i].size;
              i--)
-            pos += nodes[i-1].size;
+            pos += nodes[i].size;
         break;
     case SEEK_CUR:
         /* get the absolute position */
@@ -183,7 +183,7 @@ static int64_t concat_seek(URLContext *h, int64_t pos, int whence)
     if (result >= 0) {
         data->current = i;
         while (i)
-            result += nodes[i--].size;
+            result += nodes[--i].size;
     }
     return result;
 }

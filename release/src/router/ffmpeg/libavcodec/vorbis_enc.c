@@ -19,7 +19,7 @@
  */
 
 /**
- * @file libavcodec/vorbis_enc.c
+ * @file
  * Native Vorbis encoder.
  * @author Oded Shimon <ods15@ods15.dyndns.org>
  */
@@ -27,6 +27,7 @@
 #include <float.h>
 #include "avcodec.h"
 #include "dsputil.h"
+#include "fft.h"
 #include "vorbis.h"
 #include "vorbis_enc_data.h"
 
@@ -1092,13 +1093,13 @@ static av_cold int vorbis_encode_close(AVCodecContext *avccontext)
 
 AVCodec vorbis_encoder = {
     "vorbis",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_VORBIS,
     sizeof(vorbis_enc_context),
     vorbis_encode_init,
     vorbis_encode_frame,
     vorbis_encode_close,
-    .capabilities= CODEC_CAP_DELAY,
+    .capabilities= CODEC_CAP_DELAY | CODEC_CAP_EXPERIMENTAL,
     .sample_fmts = (const enum SampleFormat[]){SAMPLE_FMT_S16,SAMPLE_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("Vorbis"),
 };

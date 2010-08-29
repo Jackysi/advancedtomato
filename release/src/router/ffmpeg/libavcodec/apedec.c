@@ -27,7 +27,7 @@
 #include "bytestream.h"
 
 /**
- * @file libavcodec/apedec.c
+ * @file
  * Monkey's Audio lossless audio decoder
  */
 
@@ -879,7 +879,7 @@ static int ape_decode_frame(AVCodecContext * avctx,
 
 AVCodec ape_decoder = {
     "ape",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_APE,
     sizeof(APEContext),
     ape_decode_init,

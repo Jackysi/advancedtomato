@@ -20,13 +20,14 @@
  */
 
 /**
- * @file libavformat/udp.c
+ * @file
  * UDP protocol
  */
 
 #define _BSD_SOURCE     /* Needed for using struct ip_mreq with recent glibc */
 #include "avformat.h"
 #include <unistd.h>
+#include "internal.h"
 #include "network.h"
 #include "os_support.h"
 #if HAVE_SYS_SELECT_H
@@ -159,6 +160,7 @@ static struct addrinfo* udp_resolve_host(const char *hostname, int port,
     hints.ai_family   = family;
     hints.ai_flags = flags;
     if ((error = getaddrinfo(node, service, &hints, &res))) {
+        res = NULL;
         av_log(NULL, AV_LOG_ERROR, "udp_resolve_host: %s\n", gai_strerror(error));
     }
 
@@ -264,7 +266,7 @@ int udp_set_remote_url(URLContext *h, const char *uri)
     char hostname[256];
     int port;
 
-    url_split(NULL, 0, NULL, 0, hostname, sizeof(hostname), &port, NULL, 0, uri);
+    ff_url_split(NULL, 0, NULL, 0, hostname, sizeof(hostname), &port, NULL, 0, uri);
 
     /* set the destination address */
     s->dest_addr_len = udp_set_url(&s->dest_addr, hostname, port);
@@ -319,9 +321,6 @@ static int udp_open(URLContext *h, const char *uri, int flags)
 
     is_output = (flags & URL_WRONLY);
 
-    if(!ff_network_init())
-        return AVERROR(EIO);
-
     s = av_mallocz(sizeof(UDPContext));
     if (!s)
         return AVERROR(ENOMEM);
@@ -348,9 +347,9 @@ static int udp_open(URLContext *h, const char *uri, int flags)
     }
 
     /* fill the dest addr */
-    url_split(NULL, 0, NULL, 0, hostname, sizeof(hostname), &port, NULL, 0, uri);
+    ff_url_split(NULL, 0, NULL, 0, hostname, sizeof(hostname), &port, NULL, 0, uri);
 
-    /* XXX: fix url_split */
+    /* XXX: fix ff_url_split */
     if (hostname[0] == '\0' || hostname[0] == '?') {
         /* only accepts null hostname if input */
         if (flags & URL_WRONLY)
@@ -438,8 +437,11 @@ static int udp_read(URLContext *h, uint8_t *buf, int size)
         tv.tv_sec = 0;
         tv.tv_usec = 100 * 1000;
         ret = select(s->udp_fd + 1, &rfds, NULL, NULL, &tv);
-        if (ret < 0)
+        if (ret < 0) {
+            if (ff_neterrno() == FF_NETERROR(EINTR))
+                continue;
             return AVERROR(EIO);
+        }
         if (!(ret > 0 && FD_ISSET(s->udp_fd, &rfds)))
             continue;
         len = recv(s->udp_fd, buf, size, 0);
@@ -481,7 +483,6 @@ static int udp_close(URLContext *h)
     if (s->is_multicast && !(h->flags & URL_WRONLY))
         udp_leave_multicast_group(s->udp_fd, (struct sockaddr *)&s->dest_addr);
     closesocket(s->udp_fd);
-    ff_network_close();
     av_free(s);
     return 0;
 }

@@ -21,7 +21,7 @@
  */
 
 /**
- * @file libavcodec/utils.c
+ * @file
  * utils.
  */
 
@@ -31,11 +31,13 @@
 #include "libavutil/avstring.h"
 #include "libavutil/integer.h"
 #include "libavutil/crc.h"
+#include "libavutil/pixdesc.h"
 #include "avcodec.h"
 #include "dsputil.h"
 #include "opt.h"
 #include "imgconvert.h"
 #include "audioconvert.h"
+#include "libxvid_internal.h"
 #include "internal.h"
 #include <stdlib.h>
 #include <stdarg.h>
@@ -99,6 +101,11 @@ void register_avcodec(AVCodec *codec)
 }
 #endif
 
+unsigned avcodec_get_edge_width(void)
+{
+    return EDGE_WIDTH;
+}
+
 void avcodec_set_dimensions(AVCodecContext *s, int width, int height){
     s->coded_width = width;
     s->coded_height= height;
@@ -117,7 +124,7 @@ typedef struct InternalBuffer{
 
 #define INTERNAL_BUFFER_SIZE 32
 
-void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height){
+void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height, int linesize_align[4]){
     int w_align= 1;
     int h_align= 1;
 
@@ -180,6 +187,36 @@ void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height){
     *height= FFALIGN(*height, h_align);
     if(s->codec_id == CODEC_ID_H264)
         *height+=2; // some of the optimized chroma MC reads one line too much
+
+    linesize_align[0] =
+    linesize_align[1] =
+    linesize_align[2] =
+    linesize_align[3] = STRIDE_ALIGN;
+//STRIDE_ALIGN is 8 for SSE* but this does not work for SVQ1 chroma planes
+//we could change STRIDE_ALIGN to 16 for x86/sse but it would increase the
+//picture size unneccessarily in some cases. The solution here is not
+//pretty and better ideas are welcome!
+#if HAVE_MMX
+    if(s->codec_id == CODEC_ID_SVQ1 || s->codec_id == CODEC_ID_VP5 ||
+       s->codec_id == CODEC_ID_VP6 || s->codec_id == CODEC_ID_VP6F ||
+       s->codec_id == CODEC_ID_VP6A) {
+        linesize_align[0] =
+        linesize_align[1] =
+        linesize_align[2] = 16;
+    }
+#endif
+}
+
+void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height){
+    int chroma_shift = av_pix_fmt_descriptors[s->pix_fmt].log2_chroma_w;
+    int linesize_align[4];
+    int align;
+    avcodec_align_dimensions2(s, width, height, linesize_align);
+    align = FFMAX(linesize_align[0], linesize_align[3]);
+    linesize_align[1] <<= chroma_shift;
+    linesize_align[2] <<= chroma_shift;
+    align = FFMAX3(align, linesize_align[1], linesize_align[2]);
+    *width=FFALIGN(*width, align);
 }
 
 int avcodec_check_dimensions(void *av_log_ctx, unsigned int w, unsigned int h){
@@ -187,7 +224,7 @@ int avcodec_check_dimensions(void *av_log_ctx, unsigned int w, unsigned int h){
         return 0;
 
     av_log(av_log_ctx, AV_LOG_ERROR, "picture size invalid (%ux%u)\n", w, h);
-    return -1;
+    return AVERROR(EINVAL);
 }
 
 int avcodec_default_get_buffer(AVCodecContext *s, AVFrame *pic){
@@ -244,7 +281,7 @@ int avcodec_default_get_buffer(AVCodecContext *s, AVFrame *pic){
 
         avcodec_get_chroma_sub_sample(s->pix_fmt, &h_chroma_shift, &v_chroma_shift);
 
-        avcodec_align_dimensions(s, &w, &h);
+        avcodec_align_dimensions2(s, &w, &h, stride_align);
 
         if(!(s->flags&CODEC_FLAG_EMU_EDGE)){
             w+= EDGE_WIDTH*2;
@@ -260,18 +297,6 @@ int avcodec_default_get_buffer(AVCodecContext *s, AVFrame *pic){
 
             unaligned = 0;
             for (i=0; i<4; i++){
-//STRIDE_ALIGN is 8 for SSE* but this does not work for SVQ1 chroma planes
-//we could change STRIDE_ALIGN to 16 for x86/sse but it would increase the
-//picture size unneccessarily in some cases. The solution here is not
-//pretty and better ideas are welcome!
-#if HAVE_MMX
-                if(s->codec_id == CODEC_ID_SVQ1 || s->codec_id == CODEC_ID_VP5 ||
-                   s->codec_id == CODEC_ID_VP6 || s->codec_id == CODEC_ID_VP6F ||
-                   s->codec_id == CODEC_ID_VP6A)
-                    stride_align[i]= 16;
-                else
-#endif
-                stride_align[i] = STRIDE_ALIGN;
                 unaligned |= picture.linesize[i] % stride_align[i];
             }
         } while (unaligned);
@@ -477,7 +502,7 @@ int attribute_align_arg avcodec_open(AVCodecContext *avctx, AVCodec *codec)
     }
 
     avctx->codec = codec;
-    if ((avctx->codec_type == CODEC_TYPE_UNKNOWN || avctx->codec_type == codec->type) &&
+    if ((avctx->codec_type == AVMEDIA_TYPE_UNKNOWN || avctx->codec_type == codec->type) &&
         avctx->codec_id == CODEC_ID_NONE) {
         avctx->codec_type = codec->type;
         avctx->codec_id   = codec->id;
@@ -685,7 +710,7 @@ av_cold int avcodec_close(AVCodecContext *avctx)
         avctx->codec->close(avctx);
     avcodec_default_free_buffers(avctx);
     av_freep(&avctx->priv_data);
-    if(avctx->codec->encode)
+    if(avctx->codec && avctx->codec->encode)
         av_freep(&avctx->extradata);
     avctx->codec = NULL;
     entangled_thread_counter--;
@@ -699,14 +724,18 @@ av_cold int avcodec_close(AVCodecContext *avctx)
 
 AVCodec *avcodec_find_encoder(enum CodecID id)
 {
-    AVCodec *p;
+    AVCodec *p, *experimental=NULL;
     p = first_avcodec;
     while (p) {
-        if (p->encode != NULL && p->id == id)
-            return p;
+        if (p->encode != NULL && p->id == id) {
+            if (p->capabilities & CODEC_CAP_EXPERIMENTAL && !experimental) {
+                experimental = p;
+            } else
+                return p;
+        }
         p = p->next;
     }
-    return NULL;
+    return experimental;
 }
 
 AVCodec *avcodec_find_encoder_by_name(const char *name)
@@ -749,27 +778,21 @@ AVCodec *avcodec_find_decoder_by_name(const char *name)
     return NULL;
 }
 
-int av_get_bit_rate(AVCodecContext *ctx)
+static int get_bit_rate(AVCodecContext *ctx)
 {
     int bit_rate;
     int bits_per_sample;
 
     switch(ctx->codec_type) {
-    case CODEC_TYPE_VIDEO:
+    case AVMEDIA_TYPE_VIDEO:
+    case AVMEDIA_TYPE_DATA:
+    case AVMEDIA_TYPE_SUBTITLE:
+    case AVMEDIA_TYPE_ATTACHMENT:
         bit_rate = ctx->bit_rate;
         break;
-    case CODEC_TYPE_AUDIO:
+    case AVMEDIA_TYPE_AUDIO:
         bits_per_sample = av_get_bits_per_sample(ctx->codec_id);
         bit_rate = bits_per_sample ? ctx->sample_rate * ctx->channels * bits_per_sample : ctx->bit_rate;
-        break;
-    case CODEC_TYPE_DATA:
-        bit_rate = ctx->bit_rate;
-        break;
-    case CODEC_TYPE_SUBTITLE:
-        bit_rate = ctx->bit_rate;
-        break;
-    case CODEC_TYPE_ATTACHMENT:
-        bit_rate = ctx->bit_rate;
         break;
     default:
         bit_rate = 0;
@@ -816,7 +839,7 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode)
     }
 
     switch(enc->codec_type) {
-    case CODEC_TYPE_VIDEO:
+    case AVMEDIA_TYPE_VIDEO:
         snprintf(buf, buf_size,
                  "Video: %s%s",
                  codec_name, enc->mb_decision ? " (hq)" : "");
@@ -851,7 +874,7 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode)
                      ", q=%d-%d", enc->qmin, enc->qmax);
         }
         break;
-    case CODEC_TYPE_AUDIO:
+    case AVMEDIA_TYPE_AUDIO:
         snprintf(buf, buf_size,
                  "Audio: %s",
                  codec_name);
@@ -866,13 +889,13 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode)
                      ", %s", avcodec_get_sample_fmt_name(enc->sample_fmt));
         }
         break;
-    case CODEC_TYPE_DATA:
+    case AVMEDIA_TYPE_DATA:
         snprintf(buf, buf_size, "Data: %s", codec_name);
         break;
-    case CODEC_TYPE_SUBTITLE:
+    case AVMEDIA_TYPE_SUBTITLE:
         snprintf(buf, buf_size, "Subtitle: %s", codec_name);
         break;
-    case CODEC_TYPE_ATTACHMENT:
+    case AVMEDIA_TYPE_ATTACHMENT:
         snprintf(buf, buf_size, "Attachment: %s", codec_name);
         break;
     default:
@@ -887,7 +910,7 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode)
             snprintf(buf + strlen(buf), buf_size - strlen(buf),
                      ", pass 2");
     }
-    bitrate = av_get_bit_rate(enc);
+    bitrate = get_bit_rate(enc);
     if (bitrate != 0) {
         snprintf(buf + strlen(buf), buf_size - strlen(buf),
                  ", %d kb/s", bitrate / 1000);

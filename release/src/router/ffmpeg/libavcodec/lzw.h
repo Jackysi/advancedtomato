@@ -21,7 +21,7 @@
  */
 
 /**
- * @file libavcodec/lzw.h
+ * @file
  * @brief LZW decoding routines
  * @author Fabrice Bellard
  * Modified for use in TIFF by Konstantin Shishkov
@@ -29,6 +29,8 @@
 
 #ifndef AVCODEC_LZW_H
 #define AVCODEC_LZW_H
+
+#include <stdint.h>
 
 struct PutBitContext;
 

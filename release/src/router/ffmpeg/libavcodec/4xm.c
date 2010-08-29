@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavcodec/4xm.c
+ * @file
  * 4XM codec.
  */
 
@@ -137,7 +137,7 @@ typedef struct FourXContext{
     int mv[256];
     VLC pre_vlc;
     int last_dc;
-    DECLARE_ALIGNED_16(DCTELEM, block)[6][64];
+    DECLARE_ALIGNED(16, DCTELEM, block)[6][64];
     void *bitstream_buffer;
     unsigned int bitstream_buffer_size;
     int version;
@@ -842,7 +842,7 @@ static av_cold int decode_end(AVCodecContext *avctx){
 
 AVCodec fourxm_decoder = {
     "4xm",
-    CODEC_TYPE_VIDEO,
+    AVMEDIA_TYPE_VIDEO,
     CODEC_ID_4XM,
     sizeof(FourXContext),
     decode_init,

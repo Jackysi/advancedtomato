@@ -45,10 +45,12 @@ static int mp3_read_probe(AVProbeData *p)
     if(ff_id3v2_match(buf0)) {
         buf0 += ff_id3v2_tag_len(buf0);
     }
+    end = p->buf + p->buf_size - sizeof(uint32_t);
+    while(buf0 < end && !*buf0)
+        buf0++;
 
     max_frames = 0;
     buf = buf0;
-    end = p->buf + p->buf_size - sizeof(uint32_t);
 
     for(; buf < end; buf= buf2+1) {
         buf2 = buf;
@@ -138,7 +140,7 @@ static int mp3_read_header(AVFormatContext *s,
     if (!st)
         return AVERROR(ENOMEM);
 
-    st->codec->codec_type = CODEC_TYPE_AUDIO;
+    st->codec->codec_type = AVMEDIA_TYPE_AUDIO;
     st->codec->codec_id = CODEC_ID_MP3;
     st->need_parsing = AVSTREAM_PARSE_FULL;
     st->start_time = 0;
@@ -358,6 +360,7 @@ AVOutputFormat mp3_muxer = {
     mp3_write_header,
     mp3_write_packet,
     mp3_write_trailer,
+    AVFMT_NOTIMESTAMPS,
     .metadata_conv = ff_id3v2_metadata_conv,
 };
 #endif

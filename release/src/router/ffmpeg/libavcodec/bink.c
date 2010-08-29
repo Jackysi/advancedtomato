@@ -43,7 +43,7 @@ enum Sources {
     BINK_SRC_X_OFF,           ///< X components of motion value
     BINK_SRC_Y_OFF,           ///< Y components of motion value
     BINK_SRC_INTRA_DC,        ///< DC values for intrablocks with DCT
-    BINK_SRC_INTER_DC,        ///< DC values for intrablocks with DCT
+    BINK_SRC_INTER_DC,        ///< DC values for interblocks with DCT
     BINK_SRC_RUN,             ///< run lengths for special fill block
 
     BINK_NB_SRC
@@ -681,8 +681,8 @@ static int bink_decode_plane(BinkContext *c, GetBitContext *gb, int plane_idx,
     int v, col[2];
     const uint8_t *scan;
     int xoff, yoff;
-    DECLARE_ALIGNED_16(DCTELEM, block[64]);
-    DECLARE_ALIGNED_16(uint8_t, ublock[64]);
+    DECLARE_ALIGNED(16, DCTELEM, block[64]);
+    DECLARE_ALIGNED(16, uint8_t, ublock[64]);
     int coordmap[64];
 
     const int stride = c->pic.linesize[plane_idx];
@@ -956,7 +956,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
     }
     flags = AV_RL32(avctx->extradata);
     c->has_alpha = flags & BINK_FLAG_ALPHA;
-    c->swap_planes = c->version >= 'i';
+    c->swap_planes = c->version >= 'h';
     if (!bink_trees[15].table) {
         for (i = 0; i < 16; i++) {
             const int maxbits = bink_tree_lens[i][15];
@@ -1001,7 +1001,7 @@ static av_cold int decode_end(AVCodecContext *avctx)
 
 AVCodec bink_decoder = {
     "binkvideo",
-    CODEC_TYPE_VIDEO,
+    AVMEDIA_TYPE_VIDEO,
     CODEC_ID_BINKVIDEO,
     sizeof(BinkContext),
     decode_init,

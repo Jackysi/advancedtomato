@@ -38,7 +38,6 @@ struct vfw_ctx {
     HANDLE mutex;
     HANDLE event;
     AVPacketList *pktl;
-    AVFormatContext *s;
     unsigned int curbufsize;
     unsigned int frame_num;
 };
@@ -46,6 +45,8 @@ struct vfw_ctx {
 static enum PixelFormat vfw_pixfmt(DWORD biCompression, WORD biBitCount)
 {
     switch(biCompression) {
+    case MKTAG('U', 'Y', 'V', 'Y'):
+        return PIX_FMT_UYVY422;
     case MKTAG('Y', 'U', 'Y', '2'):
         return PIX_FMT_YUYV422;
     case MKTAG('I', '4', '2', '0'):
@@ -148,15 +149,15 @@ static void dump_bih(AVFormatContext *s, BITMAPINFOHEADER *bih)
     dstruct(s, bih, biClrImportant, "lu");
 }
 
-static int shall_we_drop(struct vfw_ctx *ctx)
+static int shall_we_drop(AVFormatContext *s)
 {
-    AVFormatContext *s = ctx->s;
+    struct vfw_ctx *ctx = s->priv_data;
     const uint8_t dropscore[] = {62, 75, 87, 100};
     const int ndropscores = FF_ARRAY_ELEMS(dropscore);
     unsigned int buffer_fullness = (ctx->curbufsize*100)/s->max_picture_buffer;
 
     if(dropscore[++ctx->frame_num%ndropscores] <= buffer_fullness) {
-        av_log(ctx->s, AV_LOG_ERROR,
+        av_log(s, AV_LOG_ERROR,
               "real-time buffer %d%% full! frame dropped!\n", buffer_fullness);
         return 1;
     }
@@ -166,14 +167,16 @@ static int shall_we_drop(struct vfw_ctx *ctx)
 
 static LRESULT CALLBACK videostream_cb(HWND hwnd, LPVIDEOHDR vdhdr)
 {
+    AVFormatContext *s;
     struct vfw_ctx *ctx;
     AVPacketList **ppktl, *pktl_next;
 
-    ctx = (struct vfw_ctx *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    s = (AVFormatContext *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    ctx = s->priv_data;
 
-    dump_videohdr(ctx->s, vdhdr);
+    dump_videohdr(s, vdhdr);
 
-    if(shall_we_drop(ctx))
+    if(shall_we_drop(s))
         return FALSE;
 
     WaitForSingleObject(ctx->mutex, INFINITE);
@@ -207,6 +210,7 @@ fail:
 static int vfw_read_close(AVFormatContext *s)
 {
     struct vfw_ctx *ctx = s->priv_data;
+    AVPacketList *pktl;
 
     if(ctx->hwnd) {
         SendMessage(ctx->hwnd, WM_CAP_SET_CALLBACK_VIDEOSTREAM, 0, 0);
@@ -217,6 +221,14 @@ static int vfw_read_close(AVFormatContext *s)
         CloseHandle(ctx->mutex);
     if(ctx->event)
         CloseHandle(ctx->event);
+
+    pktl = ctx->pktl;
+    while (pktl) {
+        AVPacketList *next = pktl->next;
+        av_destruct_packet(&pktl->pkt);
+        av_free(pktl);
+        pktl = next;
+    }
 
     return 0;
 }
@@ -238,15 +250,13 @@ static int vfw_read_header(AVFormatContext *s, AVFormatParameters *ap)
 
     if(!ap->time_base.den) {
         av_log(s, AV_LOG_ERROR, "A time base must be specified.\n");
-        return AVERROR_IO;
+        return AVERROR(EIO);
     }
-
-    ctx->s = s;
 
     ctx->hwnd = capCreateCaptureWindow(NULL, 0, 0, 0, 0, 0, HWND_MESSAGE, 0);
     if(!ctx->hwnd) {
         av_log(s, AV_LOG_ERROR, "Could not create capture window.\n");
-        return AVERROR_IO;
+        return AVERROR(EIO);
     }
 
     /* If atoi fails, devnum==0 and the default device is used */
@@ -269,12 +279,12 @@ static int vfw_read_header(AVFormatContext *s, AVFormatParameters *ap)
         goto fail_io;
     }
 
-    SetWindowLongPtr(ctx->hwnd, GWLP_USERDATA, (LONG_PTR) ctx);
+    SetWindowLongPtr(ctx->hwnd, GWLP_USERDATA, (LONG_PTR) s);
 
     st = av_new_stream(s, 0);
     if(!st) {
         vfw_read_close(s);
-        return AVERROR_NOMEM;
+        return AVERROR(ENOMEM);
     }
 
     /* Set video format */
@@ -284,7 +294,7 @@ static int vfw_read_header(AVFormatContext *s, AVFormatParameters *ap)
     bi = av_malloc(bisize);
     if(!bi) {
         vfw_read_close(s);
-        return AVERROR_NOMEM;
+        return AVERROR(ENOMEM);
     }
     ret = SendMessage(ctx->hwnd, WM_CAP_GET_VIDEOFORMAT, bisize, (LPARAM) bi);
     if(!ret)
@@ -343,7 +353,7 @@ static int vfw_read_header(AVFormatContext *s, AVFormatParameters *ap)
 
     codec = st->codec;
     codec->time_base = ap->time_base;
-    codec->codec_type = CODEC_TYPE_VIDEO;
+    codec->codec_type = AVMEDIA_TYPE_VIDEO;
     codec->width = width;
     codec->height = height;
     codec->pix_fmt = vfw_pixfmt(biCompression, biBitCount);
@@ -358,8 +368,14 @@ static int vfw_read_header(AVFormatContext *s, AVFormatParameters *ap)
         codec->bits_per_coded_sample = biBitCount;
     } else {
         codec->codec_id = CODEC_ID_RAWVIDEO;
-        if(biCompression == BI_RGB)
+        if(biCompression == BI_RGB) {
             codec->bits_per_coded_sample = biBitCount;
+            codec->extradata = av_malloc(9 + FF_INPUT_BUFFER_PADDING_SIZE);
+            if (codec->extradata) {
+                codec->extradata_size = 9;
+                memcpy(codec->extradata, "BottomUp", 9);
+            }
+        }
     }
 
     av_set_pts_info(st, 32, 1, 1000);
@@ -388,7 +404,7 @@ fail_bi:
 
 fail_io:
     vfw_read_close(s);
-    return AVERROR_IO;
+    return AVERROR(EIO);
 }
 
 static int vfw_read_packet(AVFormatContext *s, AVPacket *pkt)

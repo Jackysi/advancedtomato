@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavcodec/aacenc.c
+ * @file
  * AAC encoder
  */
 
@@ -168,6 +168,14 @@ static av_cold int aac_encode_init(AVCodecContext *avctx)
     }
     if (avctx->channels > 6) {
         av_log(avctx, AV_LOG_ERROR, "Unsupported number of channels: %d\n", avctx->channels);
+        return -1;
+    }
+    if (avctx->profile != FF_PROFILE_UNKNOWN && avctx->profile != FF_PROFILE_AAC_LOW) {
+        av_log(avctx, AV_LOG_ERROR, "Unsupported profile %d\n", avctx->profile);
+        return -1;
+    }
+    if (1024.0 * avctx->bit_rate / avctx->sample_rate > 6144 * avctx->channels) {
+        av_log(avctx, AV_LOG_ERROR, "Too many bits per frame requested\n");
         return -1;
     }
     s->samplerate_index = i;
@@ -553,6 +561,7 @@ static int aac_encode_frame(AVCodecContext *avctx,
             chans    = tag == TYPE_CPE ? 2 : 1;
             cpe      = &s->cpe[i];
             for (j = 0; j < chans; j++) {
+                s->cur_channel = start_ch + j;
                 s->coder->search_for_quantizers(avctx, s, &cpe->ch[j], s->lambda);
             }
             cpe->common_window = 0;
@@ -568,6 +577,7 @@ static int aac_encode_frame(AVCodecContext *avctx,
                     }
                 }
             }
+            s->cur_channel = start_ch;
             if (cpe->common_window && s->coder->search_for_ms)
                 s->coder->search_for_ms(s, cpe, s->lambda);
             adjust_frame_information(s, cpe, chans);
@@ -629,13 +639,13 @@ static av_cold int aac_encode_end(AVCodecContext *avctx)
 
 AVCodec aac_encoder = {
     "aac",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_AAC,
     sizeof(AACEncContext),
     aac_encode_init,
     aac_encode_frame,
     aac_encode_end,
-    .capabilities = CODEC_CAP_SMALL_LAST_FRAME | CODEC_CAP_DELAY,
+    .capabilities = CODEC_CAP_SMALL_LAST_FRAME | CODEC_CAP_DELAY | CODEC_CAP_EXPERIMENTAL,
     .sample_fmts = (const enum SampleFormat[]){SAMPLE_FMT_S16,SAMPLE_FMT_NONE},
     .long_name = NULL_IF_CONFIG_SMALL("Advanced Audio Coding"),
 };
