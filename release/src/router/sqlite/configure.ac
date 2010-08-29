@@ -8,7 +8,7 @@
 #
 
 AC_PREREQ(2.61)
-AC_INIT(sqlite, 3.7.0.1, http://www.sqlite.org)
+AC_INIT(sqlite, 3.7.2, http://www.sqlite.org)
 AC_CONFIG_SRCDIR([sqlite3.c])
 
 # Use automake.
@@ -37,7 +37,7 @@ AC_ARG_ENABLE(readline, [AS_HELP_STRING(
 if test x"$enable_readline" != xno ; then
   sLIBS=$LIBS
   LIBS=""
-  AC_SEARCH_LIBS(tgetent, curses, [], [])
+  AC_SEARCH_LIBS(tgetent, curses ncurses ncursesw, [], [])
   AC_SEARCH_LIBS(readline, readline, [], [enable_readline=no])
   AC_CHECK_FUNCS(readline, [], [])
   READLINE_LIBS=$LIBS
