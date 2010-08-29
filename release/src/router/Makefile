@@ -1029,17 +1029,19 @@ libexif-install:
 
 zlib/stamp-h1:
 	cd zlib && \
-	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
+	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	./configure --shared --prefix=''
 	touch zlib/stamp-h1
 
 zlib: zlib/stamp-h1
-	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" all libz.a
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) all
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
 	@rm -f zlib/stamp-h1
 	@rm -f zlib/Makefile
+	@rm -f zlib/zconf.h
+	@rm -f zlib/zlib.pc
 
 zlib-install:
 	@$(SEP)
