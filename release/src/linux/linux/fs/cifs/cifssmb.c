@@ -726,9 +726,7 @@ int
 CIFSSMBTDis(const int xid, struct cifsTconInfo *tcon)
 {
 	struct smb_hdr *smb_buffer;
-	struct smb_hdr *smb_buffer_response; /* BB removeme BB */
 	int rc = 0;
-	int length;
 
 	cFYI(1, ("In tree disconnect"));
 	/*
@@ -765,16 +763,12 @@ CIFSSMBTDis(const int xid, struct cifsTconInfo *tcon)
 	if (rc) {
 		up(&tcon->tconSem);
 		return rc;
-	} else {
-		smb_buffer_response = smb_buffer; /* BB removeme BB */
 	}
-	rc = SendReceive(xid, tcon->ses, smb_buffer, smb_buffer_response,
-			 &length, 0);
+
+	rc = SendReceiveNoRsp(xid, tcon->ses, smb_buffer, 0);
 	if (rc)
 		cFYI(1, ("Tree disconnect failed %d", rc));
 
-	if (smb_buffer)
-		cifs_small_buf_release(smb_buffer);
 	up(&tcon->tconSem);
 
 	/* No need to return error on this operation if tid invalidated and 
@@ -788,10 +782,8 @@ CIFSSMBTDis(const int xid, struct cifsTconInfo *tcon)
 int
 CIFSSMBLogoff(const int xid, struct cifsSesInfo *ses)
 {
-	struct smb_hdr *smb_buffer_response;
 	LOGOFF_ANDX_REQ *pSMB;
 	int rc = 0;
-	int length;
 
 	cFYI(1, ("In SMBLogoff for session disconnect"));
 	if (ses)
@@ -810,8 +802,6 @@ CIFSSMBLogoff(const int xid, struct cifsSesInfo *ses)
 		return rc;
 	}
 
-	smb_buffer_response = (struct smb_hdr *)pSMB; /* BB removeme BB */
-	
 	if(ses->server) {
 		pSMB->hdr.Mid = GetNextMid(ses->server);
 
@@ -823,8 +813,7 @@ CIFSSMBLogoff(const int xid, struct cifsSesInfo *ses)
 	pSMB->hdr.Uid = ses->Suid;
 
 	pSMB->AndXCommand = 0xFF;
-	rc = SendReceive(xid, ses, (struct smb_hdr *) pSMB,
-			 smb_buffer_response, &length, 0);
+	rc = SendReceiveNoRsp(xid, ses, (struct smb_hdr *) pSMB, 0);
 	if (ses->server) {
 		atomic_dec(&ses->server->socketUseCount);
 		if (atomic_read(&ses->server->socketUseCount) == 0) {
@@ -835,7 +824,6 @@ CIFSSMBLogoff(const int xid, struct cifsSesInfo *ses)
 		}
 	}
 	up(&ses->sesSem);
-	cifs_small_buf_release(pSMB);
 
 	/* if session dead then we do not need to do ulogoff,
 		since server closed smb session, no sense reporting 
@@ -1209,7 +1197,7 @@ OldOpenRetry:
 	pSMB->ByteCount = cpu_to_le16(count);
 	/* long_op set to 1 to allow for oplock break timeouts */
 	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-		         (struct smb_hdr *) pSMBr, &bytes_returned, 1);
+		         (struct smb_hdr *) pSMBr, &bytes_returned, CIFS_LONG_OP);
 	cifs_stats_inc(&tcon->num_opens);
 	if (rc) {
 		cFYI(1, ("Error in Open = %d", rc));
@@ -1323,7 +1311,7 @@ openRetry:
 	pSMB->ByteCount = cpu_to_le16(count);
 	/* long_op set to 1 to allow for oplock break timeouts */
 	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			 (struct smb_hdr *) pSMBr, &bytes_returned, 1);
+			(struct smb_hdr *)pSMBr, &bytes_returned, CIFS_LONG_OP);
 	cifs_stats_inc(&tcon->num_opens);
 	if (rc) {
 		cFYI(1, ("Error in Open = %d", rc));
@@ -1403,7 +1391,7 @@ CIFSSMBRead(const int xid, struct cifsTconInfo *tcon,
 	iov[0].iov_len = pSMB->hdr.smb_buf_length + 4;
 	rc = SendReceive2(xid, tcon->ses, iov, 
 			  1 /* num iovecs */,
-			  &resp_buf_type, 0); 
+			  &resp_buf_type, CIFS_STD_OP | CIFS_LOG_ERROR); 
 	cifs_stats_inc(&tcon->num_reads);
 	pSMBr = (READ_RSP *)iov[0].iov_base;
 	if (rc) {
@@ -1549,6 +1537,14 @@ CIFSSMBWrite(const int xid, struct cifsTconInfo *tcon,
 		*nbytes = le16_to_cpu(pSMBr->CountHigh);
 		*nbytes = (*nbytes) << 16;
 		*nbytes += le16_to_cpu(pSMBr->Count);
+
+		/*
+		 * Mask off high 16 bits when bytes written as returned by the
+		 * server is greater than bytes requested by the client. Some
+		 * OS/2 servers are known to set incorrect CountHigh values.
+		 */
+		if (*nbytes > count)
+			*nbytes &= 0xFFFF;
 	}
 
 	cifs_buf_release(pSMB);
@@ -1634,6 +1630,14 @@ CIFSSMBWrite2(const int xid, struct cifsTconInfo *tcon,
 		*nbytes = le16_to_cpu(pSMBr->CountHigh);
 		*nbytes = (*nbytes) << 16;
 		*nbytes += le16_to_cpu(pSMBr->Count);
+
+		/*
+		 * Mask off high 16 bits when bytes written as returned by the
+		 * server is greater than bytes requested by the client. OS/2
+		 * servers are known to set incorrect CountHigh values.
+		 */
+		if (*nbytes > count)
+			*nbytes &= 0xFFFF;
 	} 
 
 /*	cifs_small_buf_release(pSMB); */ /* Freed earlier now in SendReceive2 */
@@ -1662,7 +1666,7 @@ CIFSSMBLock(const int xid, struct cifsTconInfo *tcon,
 	int timeout = 0;
 	__u16 count;
 
-	cFYI(1, ("In CIFSSMBLock - timeout %d numLock %d",waitFlag,numLock));
+	cFYI(1, ("CIFSSMBLock timeout %d numLock %d", waitFlag, numLock));
 	rc = small_smb_init(SMB_COM_LOCKING_ANDX, 8, tcon, (void **) &pSMB);
 
 	if (rc)
@@ -1671,10 +1675,10 @@ CIFSSMBLock(const int xid, struct cifsTconInfo *tcon,
 	pSMBr = (LOCK_RSP *)pSMB; /* BB removeme BB */
 
 	if(lockType == LOCKING_ANDX_OPLOCK_RELEASE) {
-		timeout = -1; /* no response expected */
+		timeout = CIFS_ASYNC_OP; /* no response expected */
 		pSMB->Timeout = 0;
 	} else if (waitFlag == TRUE) {
-		timeout = 3;  /* blocking operation, no timeout */
+		timeout = CIFS_BLOCKING_OP; /* blocking operation, no timeout */
 		pSMB->Timeout = cpu_to_le32(-1);/* blocking - do not time out */
 	} else {
 		pSMB->Timeout = 0;
@@ -1704,15 +1708,16 @@ CIFSSMBLock(const int xid, struct cifsTconInfo *tcon,
 	if (waitFlag) {
 		rc = SendReceiveBlockingLock(xid, tcon, (struct smb_hdr *) pSMB,
 			(struct smb_hdr *) pSMBr, &bytes_returned);
+		cifs_small_buf_release(pSMB);
 	} else {
-		rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			 (struct smb_hdr *) pSMBr, &bytes_returned, timeout);
+		rc = SendReceiveNoRsp(xid, tcon->ses, (struct smb_hdr *)pSMB,
+				      timeout);
+		/* SMB buffer freed by function above */
 	}
 	cifs_stats_inc(&tcon->num_locks);
 	if (rc) {
 		cFYI(1, ("Send error in Lock = %d", rc));
 	}
-	cifs_small_buf_release(pSMB);
 
 	/* Note: On -EAGAIN error only caller can retry on handle based calls 
 	since file handle passed in no longer valid */
@@ -1732,7 +1737,9 @@ CIFSSMBPosixLock(const int xid, struct cifsTconInfo *tcon,
 	int rc = 0;
 	int timeout = 0;
 	int bytes_returned = 0;
+	int resp_buf_type = 0;
 	__u16 params, param_offset, offset, byte_count, count;
+	struct kvec iov[1];
 
 	cFYI(1, ("Posix Lock"));
 
@@ -1776,7 +1783,7 @@ CIFSSMBPosixLock(const int xid, struct cifsTconInfo *tcon,
 
 	parm_data->lock_type = cpu_to_le16(lock_type);
 	if(waitFlag) {
-		timeout = 3;  /* blocking operation, no timeout */
+		timeout = CIFS_BLOCKING_OP; /* blocking operation, no timeout */
 		parm_data->lock_flags = cpu_to_le16(1);
 		pSMB->Timeout = cpu_to_le32(-1);
 	} else
@@ -1796,8 +1803,13 @@ CIFSSMBPosixLock(const int xid, struct cifsTconInfo *tcon,
 		rc = SendReceiveBlockingLock(xid, tcon, (struct smb_hdr *) pSMB,
 			(struct smb_hdr *) pSMBr, &bytes_returned);
 	} else {
-		rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			(struct smb_hdr *) pSMBr, &bytes_returned, timeout);
+		iov[0].iov_base = (char *)pSMB;
+		iov[0].iov_len = pSMB->hdr.smb_buf_length + 4;
+		rc = SendReceive2(xid, tcon->ses, iov, 1 /* num iovecs */,
+				&resp_buf_type, timeout);
+		pSMB = NULL; /* request buf already freed by SendReceive2. Do
+				not try to free it twice below on exit */
+		pSMBr = (struct smb_com_transaction2_sfi_rsp *)iov[0].iov_base;
 	}
 
 	if (rc) {
@@ -1832,6 +1844,11 @@ plk_err_exit:
 	if (pSMB)
 		cifs_small_buf_release(pSMB);
 
+	if (resp_buf_type == CIFS_SMALL_BUFFER)
+		cifs_small_buf_release(iov[0].iov_base);
+	else if (resp_buf_type == CIFS_LARGE_BUFFER)
+		cifs_buf_release(iov[0].iov_base);
+
 	/* Note: On -EAGAIN error only caller can retry on handle based calls
 	   since file handle passed in no longer valid */
 
@@ -1844,8 +1861,6 @@ CIFSSMBClose(const int xid, struct cifsTconInfo *tcon, int smb_file_id)
 {
 	int rc = 0;
 	CLOSE_REQ *pSMB = NULL;
-	CLOSE_RSP *pSMBr = NULL;
-	int bytes_returned;
 	cFYI(1, ("In CIFSSMBClose"));
 
 /* do not retry on dead session on close */
@@ -1855,13 +1870,10 @@ CIFSSMBClose(const int xid, struct cifsTconInfo *tcon, int smb_file_id)
 	if (rc)
 		return rc;
 
-	pSMBr = (CLOSE_RSP *)pSMB; /* BB removeme BB */
-
 	pSMB->FileID = (__u16) smb_file_id;
 	pSMB->LastWriteTime = 0xFFFFFFFF;
 	pSMB->ByteCount = 0;
-	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			 (struct smb_hdr *) pSMBr, &bytes_returned, 0);
+	rc = SendReceiveNoRsp(xid, tcon->ses, (struct smb_hdr *) pSMB, 0);
 	cifs_stats_inc(&tcon->num_closes);
 	if (rc) {
 		if(rc!=-EINTR) {
@@ -1869,8 +1881,6 @@ CIFSSMBClose(const int xid, struct cifsTconInfo *tcon, int smb_file_id)
 			cERROR(1, ("Send error in Close = %d", rc));
 		}
 	}
-
-	cifs_small_buf_release(pSMB);
 
 	/* Since session is dead, file will be closed on server already */
 	if(rc == -EAGAIN)
@@ -3053,7 +3063,8 @@ CIFSSMBGetCIFSACL(const int xid, struct cifsTconInfo *tcon, __u16 fid,
 	iov[0].iov_base = (char *)pSMB;
 	iov[0].iov_len = pSMB->hdr.smb_buf_length + 4;
 
-	rc = SendReceive2(xid, tcon->ses, iov, 1 /* num iovec */, &buf_type, 0);
+	rc = SendReceive2(xid, tcon->ses, iov, 1 /* num iovec */, &buf_type,
+		CIFS_STD_OP);
 	cifs_stats_inc(&tcon->num_acl_get);
 	if (rc) {
 		cFYI(1, ("Send error in QuerySecDesc = %d", rc));
@@ -3705,8 +3716,6 @@ CIFSFindClose(const int xid, struct cifsTconInfo *tcon, const __u16 searchHandle
 {
 	int rc = 0;
 	FINDCLOSE_REQ *pSMB = NULL;
-	CLOSE_RSP *pSMBr = NULL; /* BB removeme BB */
-	int bytes_returned;
 
 	cFYI(1, ("In CIFSSMBFindClose"));
 	rc = small_smb_init(SMB_COM_FIND_CLOSE2, 1, tcon, (void **)&pSMB);
@@ -3718,16 +3727,13 @@ CIFSFindClose(const int xid, struct cifsTconInfo *tcon, const __u16 searchHandle
 	if (rc)
 		return rc;
 
-	pSMBr = (CLOSE_RSP *)pSMB;  /* BB removeme BB */
 	pSMB->FileID = searchHandle;
 	pSMB->ByteCount = 0;
-	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			 (struct smb_hdr *) pSMBr, &bytes_returned, 0);
+	rc = SendReceiveNoRsp(xid, tcon->ses, (struct smb_hdr *) pSMB, 0);
 	if (rc) {
 		cERROR(1, ("Send error in FindClose = %d", rc));
 	}
 	cifs_stats_inc(&tcon->num_fclose);
-	cifs_small_buf_release(pSMB);
 
 	/* Since session is dead, search handle closed on server already */
 	if (rc == -EAGAIN)
@@ -4650,11 +4656,9 @@ CIFSSMBSetFileSize(const int xid, struct cifsTconInfo *tcon, __u64 size,
                    __u16 fid, __u32 pid_of_opener, int SetAllocation)
 {
 	struct smb_com_transaction2_sfi_req *pSMB  = NULL;
-	struct smb_com_transaction2_sfi_rsp *pSMBr = NULL;
 	char *data_offset;
 	struct file_end_of_file_info *parm_data;
 	int rc = 0;
-	int bytes_returned = 0;
 	__u16 params, param_offset, offset, byte_count, count;
 
 	cFYI(1, ("SetFileSize (via SetFileInfo) %lld",
@@ -4663,8 +4667,6 @@ CIFSSMBSetFileSize(const int xid, struct cifsTconInfo *tcon, __u64 size,
 
 	if (rc)
 		return rc;
-
-	pSMBr = (struct smb_com_transaction2_sfi_rsp *)pSMB;
 
 	pSMB->hdr.Pid = cpu_to_le16((__u16)pid_of_opener);
 	pSMB->hdr.PidHigh = cpu_to_le16((__u16)(pid_of_opener >> 16));
@@ -4716,16 +4718,12 @@ CIFSSMBSetFileSize(const int xid, struct cifsTconInfo *tcon, __u64 size,
 	pSMB->Reserved4 = 0;
 	pSMB->hdr.smb_buf_length += byte_count;
 	pSMB->ByteCount = cpu_to_le16(byte_count);
-	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			 (struct smb_hdr *) pSMBr, &bytes_returned, 0);
+	rc = SendReceiveNoRsp(xid, tcon->ses, (struct smb_hdr *) pSMB, 0);
 	if (rc) {
 		cFYI(1,
 		     ("Send error in SetFileInfo (SetFileSize) = %d",
 		      rc));
 	}
-
-	if (pSMB)
-		cifs_small_buf_release(pSMB);
 
 	/* Note: On -EAGAIN error only caller can retry on handle based calls 
 		since file handle passed in no longer valid */
@@ -4744,10 +4742,8 @@ CIFSSMBSetFileTimes(const int xid, struct cifsTconInfo *tcon, const FILE_BASIC_I
                    __u16 fid)
 {
 	struct smb_com_transaction2_sfi_req *pSMB  = NULL;
-	struct smb_com_transaction2_sfi_rsp *pSMBr = NULL;
 	char *data_offset;
 	int rc = 0;
-	int bytes_returned = 0;
 	__u16 params, param_offset, offset, byte_count, count;
 
 	cFYI(1, ("Set Times (via SetFileInfo)"));
@@ -4755,8 +4751,6 @@ CIFSSMBSetFileTimes(const int xid, struct cifsTconInfo *tcon, const FILE_BASIC_I
 
 	if (rc)
 		return rc;
-
-	pSMBr = (struct smb_com_transaction2_sfi_rsp *)pSMB;
 
 	/* At this point there is no need to override the current pid
 	with the pid of the opener, but that could change if we someday
@@ -4797,13 +4791,10 @@ CIFSSMBSetFileTimes(const int xid, struct cifsTconInfo *tcon, const FILE_BASIC_I
 	pSMB->hdr.smb_buf_length += byte_count;
 	pSMB->ByteCount = cpu_to_le16(byte_count);
 	memcpy(data_offset,data,sizeof(FILE_BASIC_INFO));
-	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			 (struct smb_hdr *) pSMBr, &bytes_returned, 0);
+	rc = SendReceiveNoRsp(xid, tcon->ses, (struct smb_hdr *) pSMB, 0);
 	if (rc) {
 		cFYI(1,("Send error in Set Time (SetFileInfo) = %d",rc));
 	}
-
-	cifs_small_buf_release(pSMB);
 
 	/* Note: On -EAGAIN error only caller can retry on handle based calls 
 		since file handle passed in no longer valid */
@@ -5095,7 +5086,8 @@ int CIFSSMBNotify(const int xid, struct cifsTconInfo *tcon,
 	pSMB->ByteCount = 0;
 
 	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
-			(struct smb_hdr *) pSMBr, &bytes_returned, -1);
+			 (struct smb_hdr *)pSMBr, &bytes_returned,
+			 CIFS_ASYNC_OP);
 	if (rc) {
 		cFYI(1, ("Error in Notify = %d", rc));
 	} else {
