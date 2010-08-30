@@ -348,7 +348,7 @@ sub genSO
 
 	print LOG "\n\n${base}\n";
 	
-	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so} -L${root}/usr/lib";
+	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
 	foreach (@{$elf_lib{$name}}) {
 		if ((!$elf_dyn{$name}{$_}) && (/^lib(.+)\.so/)) {
 			$cmd .= " -l$1";
@@ -430,6 +430,17 @@ genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
 genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
 genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
+genSO("${root}/usr/lib/libz.so.1", "${router}/zlib/libz.a");
+genSO("${root}/usr/lib/libjpeg.so", "${router}/jpeg/libjpeg.a");
+genSO("${root}/usr/lib/libsqlite3.so.0", "${router}/sqlite/.libs/libsqlite3.a");
+genSO("${root}/usr/lib/libogg.so.0", "${router}/libogg/src/.libs/libogg.a");
+genSO("${root}/usr/lib/libvorbis.so.0", "${router}/libvorbis/lib/.libs/libvorbis.a", "", "-L${router}/libogg/src/.libs");
+genSO("${root}/usr/lib/libid3tag.so.0", "${router}/libid3tag/.libs/libid3tag.a", "", "-L${router}/zlib");
+genSO("${root}/usr/lib/libexif.so.12", "${router}/libexif/libexif/.libs/libexif.a");
+genSO("${root}/usr/lib/libFLAC.so.8", "${router}/flac/src/libFLAC/.libs/libFLAC.a", "", "-L${router}/libogg/src/.libs");
+genSO("${root}/usr/lib/libavcodec.so.52", "${router}/ffmpeg/libavcodec/libavcodec.a", "", "-L${router}/ffmpeg/libavutil");
+genSO("${root}/usr/lib/libavutil.so.50", "${router}/ffmpeg/libavutil/libavutil.a");
+genSO("${root}/usr/lib/libavformat.so.52", "${router}/ffmpeg/libavformat/libavformat.a", "", "-L${router}/ffmpeg/libavutil -L${router}/ffmpeg/libavcodec");
 
 #!!TB - Samba
 genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
