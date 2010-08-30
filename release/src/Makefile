@@ -397,6 +397,12 @@ define KernelConfig
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
+	if [ "$(USB)" = "" ]; then \
+		sed -i "/CONFIG_MSDOS_PARTITION/d" $(1); \
+		echo "# CONFIG_MSDOS_PARTITION is not set" >>$(1); \
+		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
+		echo "# CONFIG_EFI_PARTITION is not set" >>$(1); \
+	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
 		echo "CONFIG_IPV6=y" >>$(1); \
