@@ -45,7 +45,7 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v1.4.3"
+#define DRIVER_VERSION "v1.5.0"
 #define DRIVER_AUTHOR "Greg Kroah-Hartman <greg@kroah.com>, Bill Ryder <bryder@sgi.com>, Kuba Ober <kuba@mareimbrium.org>, Andreas Mohr"
 #define DRIVER_DESC "USB FTDI Serial Converters Driver"
 
@@ -75,15 +75,18 @@ struct ftdi_private {
 	int rx_processed;
 	unsigned long rx_bytes;
 
-	__u16 interface;	/* FT2232C port interface (0 for FT232/245) */
+	__u16 interface;	/* FT2232C, FT2232H or FT4232H port interface
+				   (0 for FT232/245) */
 
 	speed_t force_baud;	/* if non-zero, force the baud rate to this value */
 	int force_rtscts;	/* if non-zero, force RTS-CTS to always be enabled */
 
+	unsigned int latency;		/* latency setting in use */
 	spinlock_t tx_lock;	/* spinlock for transmit state */
 	unsigned long tx_bytes;
 	unsigned long tx_outstanding_bytes;
 	unsigned long tx_outstanding_urbs;
+	unsigned short max_packet_size;
 };
 
 /* struct ftdi_sio_quirk is used by devices requiring special attention. */
@@ -166,6 +169,7 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_8U232AM_ALT_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_232RL_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_8U2232C_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_4232H_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_MICRO_CHAMELEON_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_RELAIS_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_OPENDCC_PID) },
@@ -767,12 +771,13 @@ static const char *ftdi_chip_name[] = {
 	[FT232BM] = "FT232BM",
 	[FT2232C] = "FT2232C",
 	[FT232RL] = "FT232RL",
+	[FT2232H] = "FT2232H",
+	[FT4232H] = "FT4232H"
 };
 
 
 /* Constants for read urb and write urb */
 #define BUFSZ 512
-#define PKTSZ 64
 
 /* rx_flags */
 #define THROTTLED		0x01
@@ -807,10 +812,12 @@ static void ftdi_break_ctl		(struct usb_serial_port *port, int break_state );
 static void ftdi_throttle		(struct usb_serial_port *port);
 static void ftdi_unthrottle		(struct usb_serial_port *port);
 
-static unsigned short int ftdi_232am_baud_base_to_divisor (int baud, int base);
-static unsigned short int ftdi_232am_baud_to_divisor (int baud);
-static __u32 ftdi_232bm_baud_base_to_divisor (int baud, int base);
-static __u32 ftdi_232bm_baud_to_divisor (int baud);
+static unsigned short int ftdi_232am_baud_base_to_divisor(int baud, int base);
+static unsigned short int ftdi_232am_baud_to_divisor(int baud);
+static __u32 ftdi_232bm_baud_base_to_divisor(int baud, int base);
+static __u32 ftdi_232bm_baud_to_divisor(int baud);
+static __u32 ftdi_2232h_baud_base_to_divisor(int baud, int base);
+static __u32 ftdi_2232h_baud_to_divisor(int baud);
 
 static struct usb_serial_driver ftdi_sio_device = {
 	.driver = {
@@ -896,6 +903,36 @@ static __u32 ftdi_232bm_baud_base_to_divisor(int baud, int base)
 static __u32 ftdi_232bm_baud_to_divisor(int baud)
 {
 	 return(ftdi_232bm_baud_base_to_divisor(baud, 48000000));
+}
+
+static __u32 ftdi_2232h_baud_base_to_divisor(int baud, int base)
+{
+	static const unsigned char divfrac[8] = { 0, 3, 2, 4, 1, 5, 6, 7 };
+	__u32 divisor;
+	int divisor3;
+
+	/* hi-speed baud rate is 10-bit sampling instead of 16-bit */
+	divisor3 = (base / 10 / baud) * 8;
+
+	divisor = divisor3 >> 3;
+	divisor |= (__u32)divfrac[divisor3 & 0x7] << 14;
+	/* Deal with special cases for highest baud rates. */
+	if (divisor == 1)
+		divisor = 0;
+	else if (divisor == 0x4001)
+		divisor = 1;
+	/*
+	 * Set this bit to turn off a divide by 2.5 on baud rate generator
+	 * This enables baud rates up to 12Mbaud but cannot reach below 1200
+	 * baud with this bit set
+	 */
+	divisor |= 0x00020000;
+	return divisor;
+}
+
+static __u32 ftdi_2232h_baud_to_divisor(int baud)
+{
+	 return ftdi_2232h_baud_base_to_divisor(baud, 120000000);
 }
 
 #define set_mctrl(port, set)		update_mctrl((port), (set), 0)
@@ -1090,6 +1127,19 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
 			baud = 9600;
 		}
 		break;
+	case FT2232H: /* FT2232H chip */
+	case FT4232H: /* FT4232H chip */
+		if ((baud <= 12000000) & (baud >= 1200)) {
+			div_value = ftdi_2232h_baud_to_divisor(baud);
+		} else if (baud < 1200) {
+			div_value = ftdi_232bm_baud_to_divisor(baud);
+		} else {
+			dbg("%s - Baud rate too high!", __func__);
+			div_value = ftdi_232bm_baud_to_divisor(9600);
+			div_okay = 0;
+			baud = 9600;
+		}
+		break;
 	} /* priv->chip_type */
 
 	if (div_okay) {
@@ -1102,6 +1152,54 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
 	return(div_value);
 }
 
+static int write_latency_timer(struct usb_serial_port *port)
+{
+	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct usb_device *udev = port->serial->dev;
+	char buf[1];
+	int rv = 0;
+	int l = priv->latency;
+
+	if (priv->flags & ASYNC_LOW_LATENCY)
+		l = 1;
+
+	dbg("%s: setting latency timer = %i", __func__, l);
+
+	rv = usb_control_msg(udev,
+			     usb_sndctrlpipe(udev, 0),
+			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST,
+			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST_TYPE,
+			     l, priv->interface,
+			     buf, 0, WDR_TIMEOUT);
+
+	if (rv < 0)
+		dev_err(&port->dev, "Unable to write latency timer: %i\n", rv);
+	return rv;
+}
+
+static int read_latency_timer(struct usb_serial_port *port)
+{
+	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct usb_device *udev = port->serial->dev;
+	unsigned short latency = 0;
+	int rv = 0;
+
+
+	dbg("%s", __func__);
+
+	rv = usb_control_msg(udev,
+			     usb_rcvctrlpipe(udev, 0),
+			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST,
+			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST_TYPE,
+			     0, priv->interface,
+			     (char *) &latency, 1, WDR_TIMEOUT);
+
+	if (rv < 0) {
+		dev_err(&port->dev, "Unable to read latency timer: %i\n", rv);
+		return -EIO;
+	}
+	return latency;
+}
 
 static int get_serial_info(struct usb_serial_port * port, struct serial_struct __user * retinfo)
 {
@@ -1153,6 +1251,7 @@ static int set_serial_info(struct usb_serial_port * port, struct serial_struct _
 	priv->custom_divisor = new_serial.custom_divisor;
 
 	port->tty->low_latency = (priv->flags & ASYNC_LOW_LATENCY) ? 1 : 0;
+	write_latency_timer(port);
 
 check_and_exit:
 	if ((old_priv.flags & ASYNC_SPD_MASK) !=
@@ -1200,14 +1299,28 @@ static void ftdi_determine_type(struct usb_serial_port *port)
 	if (interfaces > 1) {
 		int inter;
 
-		/* Multiple interfaces.  Assume FT2232C. */
-		priv->chip_type = FT2232C;
+		/* Multiple interfaces.*/
+		if (version == 0x0800) {
+			priv->chip_type = FT4232H;
+			/* Hi-speed - baud clock runs at 120MHz */
+			priv->baud_base = 120000000 / 2;
+		} else if (version == 0x0700) {
+			priv->chip_type = FT2232H;
+			/* Hi-speed - baud clock runs at 120MHz */
+			priv->baud_base = 120000000 / 2;
+		} else
+			priv->chip_type = FT2232C;
+
 		/* Determine interface code. */
 		inter = serial->interface->altsetting->desc.bInterfaceNumber;
 		if (inter == 0) {
-			priv->interface = PIT_SIOA;
-		} else {
-			priv->interface = PIT_SIOB;
+			priv->interface = INTERFACE_A;
+		} else  if (inter == 1) {
+			priv->interface = INTERFACE_B;
+		} else  if (inter == 2) {
+			priv->interface = INTERFACE_C;
+		} else  if (inter == 3) {
+			priv->interface = INTERFACE_D;
 		}
 		/* BM-type devices have a bug where bcdDevice gets set
 		 * to 0x200 when iSerialNumber is 0.  */
@@ -1236,6 +1349,45 @@ static void ftdi_determine_type(struct usb_serial_port *port)
 }
 
 
+/* Determine the maximum packet size for the device.  This depends on the chip
+ * type and the USB host capabilities.  The value should be obtained from the
+ * device descriptor as the chip will use the appropriate values for the host.*/
+static void ftdi_set_max_packet_size(struct usb_serial_port *port)
+{
+	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct usb_serial *serial = port->serial;
+	struct usb_device *udev = serial->dev;
+
+	struct usb_interface *interface = serial->interface;
+	struct usb_endpoint_descriptor *ep_desc = &interface->cur_altsetting->endpoint[1].desc;
+
+	unsigned num_endpoints;
+	int i = 0;
+
+	num_endpoints = interface->cur_altsetting->desc.bNumEndpoints;
+	dev_info(&udev->dev, "Number of endpoints %d\n", num_endpoints);
+
+	/* NOTE: some customers have programmed FT232R/FT245R devices
+	 * with an endpoint size of 0 - not good.  In this case, we
+	 * want to override the endpoint descriptor setting and use a
+	 * value of 64 for wMaxPacketSize */
+	for (i = 0; i < num_endpoints; i++) {
+		dev_info(&udev->dev, "Endpoint %d MaxPacketSize %d\n", i+1,
+			interface->cur_altsetting->endpoint[i].desc.wMaxPacketSize);
+		ep_desc = &interface->cur_altsetting->endpoint[i].desc;
+		if (ep_desc->wMaxPacketSize == 0) {
+			ep_desc->wMaxPacketSize = cpu_to_le16(0x40);
+			dev_info(&udev->dev, "Overriding wMaxPacketSize on endpoint %d\n", i);
+		}
+	}
+
+	/* set max packet size based on descriptor */
+	priv->max_packet_size = ep_desc->wMaxPacketSize;
+
+	dev_info(&udev->dev, "Setting MaxPacketSize %d\n", priv->max_packet_size);
+}
+
+
 /*
  * ***************************************************************************
  * Sysfs Attribute
@@ -1246,25 +1398,10 @@ static ssize_t show_latency_timer(struct device *dev, struct device_attribute *a
 {
 	struct usb_serial_port *port = to_usb_serial_port(dev);
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	struct usb_device *udev = port->serial->dev;
-	unsigned short latency = 0;
-	int rv = 0;
-
-
-	dbg("%s",__FUNCTION__);
-
-	rv = usb_control_msg(udev,
-			     usb_rcvctrlpipe(udev, 0),
-			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST,
-			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST_TYPE,
-			     0, priv->interface,
-			     (char*) &latency, 1, WDR_TIMEOUT);
-
-	if (rv < 0) {
-		dev_err(dev, "Unable to read latency timer: %i\n", rv);
-		return -EIO;
-	}
-	return sprintf(buf, "%i\n", latency);
+	if (priv->flags & ASYNC_LOW_LATENCY)
+		return sprintf(buf, "1\n");
+	else
+		return sprintf(buf, "%i\n", priv->latency);
 }
 
 /* Write a new value of the latency timer, in units of milliseconds. */
@@ -1273,25 +1410,13 @@ static ssize_t store_latency_timer(struct device *dev, struct device_attribute *
 {
 	struct usb_serial_port *port = to_usb_serial_port(dev);
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	struct usb_device *udev = port->serial->dev;
-	char buf[1];
 	int v = simple_strtoul(valbuf, NULL, 10);
 	int rv = 0;
 
-	dbg("%s: setting latency timer = %i", __FUNCTION__, v);
-
-	rv = usb_control_msg(udev,
-			     usb_sndctrlpipe(udev, 0),
-			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST,
-			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST_TYPE,
-			     v, priv->interface,
-			     buf, 0, WDR_TIMEOUT);
-
-	if (rv < 0) {
-		dev_err(dev, "Unable to write latency timer: %i\n", rv);
+	priv->latency = v;
+	rv = write_latency_timer(port);
+	if (rv < 0)
 		return -EIO;
-	}
-
 	return count;
 }
 
@@ -1342,7 +1467,9 @@ static int create_sysfs_attrs(struct usb_serial_port *port)
 		if ((!retval) &&
 		    (priv->chip_type == FT232BM ||
 		     priv->chip_type == FT2232C ||
-		     priv->chip_type == FT232RL)) {
+		     priv->chip_type == FT232RL ||
+		     priv->chip_type == FT2232H ||
+		     priv->chip_type == FT4232H)) {
 			retval = device_create_file(&port->dev,
 						    &dev_attr_latency_timer);
 		}
@@ -1359,7 +1486,11 @@ static void remove_sysfs_attrs(struct usb_serial_port *port)
 	/* XXX see create_sysfs_attrs */
 	if (priv->chip_type != SIO) {
 		device_remove_file(&port->dev, &dev_attr_event_char);
-		if (priv->chip_type == FT232BM || priv->chip_type == FT2232C) {
+		if (priv->chip_type == FT232BM ||
+		    priv->chip_type == FT2232C ||
+		    priv->chip_type == FT232RL ||
+		    priv->chip_type == FT2232H ||
+		    priv->chip_type == FT4232H) {
 			device_remove_file(&port->dev, &dev_attr_latency_timer);
 		}
 	}
@@ -1438,7 +1569,9 @@ static int ftdi_sio_port_probe(struct usb_serial_port *port)
 
 	usb_set_serial_port_data(port, priv);
 
-	ftdi_determine_type (port);
+	ftdi_determine_type(port);
+	ftdi_set_max_packet_size(port);
+	read_latency_timer(port);
 	create_sysfs_attrs(port);
 	return 0;
 }
@@ -1544,7 +1677,7 @@ static int ftdi_mtxorb_hack_setup(struct usb_serial *serial)
  *      calls __serial_close for each open of the port
  *      shutdown is called then (ie ftdi_shutdown)
  */
-static void ftdi_shutdown (struct usb_serial *serial)
+static void ftdi_shutdown(struct usb_serial *serial)
 {
 	dbg("%s", __FUNCTION__);
 }
@@ -1569,7 +1702,7 @@ static int ftdi_sio_port_remove(struct usb_serial_port *port)
 	return 0;
 }
 
-static int  ftdi_open (struct usb_serial_port *port, struct file *filp)
+static int  ftdi_open(struct usb_serial_port *port, struct file *filp)
 { /* ftdi_open */
 	struct usb_device *dev = port->serial->dev;
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
@@ -1589,6 +1722,8 @@ static int  ftdi_open (struct usb_serial_port *port, struct file *filp)
 
 	if (port->tty)
 		port->tty->low_latency = (priv->flags & ASYNC_LOW_LATENCY) ? 1 : 0;
+
+	write_latency_timer(port);
 
 	/* No error checking for this (will get errors later anyway) */
 	/* See ftdi_sio.h for description of what is reset */
@@ -1629,8 +1764,6 @@ static int  ftdi_open (struct usb_serial_port *port, struct file *filp)
 
 	return result;
 } /* ftdi_open */
-
-
 
 /*
  * usbserial:__serial_close  only calls ftdi_close if the point is open
@@ -1716,8 +1849,8 @@ static int ftdi_write (struct usb_serial_port *port,
 	if (data_offset > 0) {
 		/* Original sio needs control bytes too... */
 		transfer_size += (data_offset *
-				((count + (PKTSZ - 1 - data_offset)) /
-				 (PKTSZ - data_offset)));
+				((count + (priv->max_packet_size - 1 - data_offset)) /
+				 (priv->max_packet_size - data_offset)));
 	}
 
 	buffer = kmalloc (transfer_size, GFP_ATOMIC);
@@ -1736,8 +1869,9 @@ static int ftdi_write (struct usb_serial_port *port,
 
 	/* Copy data */
 	if (data_offset > 0) {
-		/* Original sio requires control byte at start of each packet. */
-		int user_pktsz = PKTSZ - data_offset;
+		/* Original sio requires control byte at start of
+		   each packet. */
+		int user_pktsz = priv->max_packet_size - data_offset;
 		int todo = count;
 		unsigned char *first_byte = buffer;
 		const unsigned char *current_position = buf;
@@ -1825,7 +1959,7 @@ static void ftdi_write_bulk_callback (struct urb *urb)
 	data_offset = priv->write_offset;
 	if (data_offset > 0) {
 		/* Subtract the control bytes */
-		countback -= (data_offset * DIV_ROUND_UP(countback, PKTSZ));
+		countback -= (data_offset * DIV_ROUND_UP(countback, priv->max_packet_size));
 	}
 	spin_lock_irqsave(&priv->tx_lock, flags);
 	--priv->tx_outstanding_urbs;
@@ -1930,7 +2064,7 @@ static void ftdi_read_bulk_callback (struct urb *urb)
 
 	/* count data bytes, but not status bytes */
 	countread = urb->actual_length;
-	countread -= 2 * DIV_ROUND_UP(countread, PKTSZ);
+	countread -= 2 * DIV_ROUND_UP(countread, priv->max_packet_size);
 	spin_lock_irqsave(&priv->rx_lock, flags);
 	priv->rx_bytes += countread;
 	spin_unlock_irqrestore(&priv->rx_lock, flags);
@@ -2001,7 +2135,8 @@ static void ftdi_process_read (struct work_struct *work)
 	/* if CD is dropped and the line is not CLOCAL then we should hangup */
 
 	need_flip = 0;
-	for (packet_offset = priv->rx_processed; packet_offset < urb->actual_length; packet_offset += PKTSZ) {
+	for (packet_offset = priv->rx_processed;
+		packet_offset < urb->actual_length; packet_offset += priv->max_packet_size) {
 		int length;
 
 		/* Compare new line status to the old one, signal if different */
@@ -2016,7 +2151,7 @@ static void ftdi_process_read (struct work_struct *work)
 			priv->prev_status = new_status;
 		}
 
-		length = min_t(u32, PKTSZ, urb->actual_length-packet_offset)-2;
+		length = min_t(u32, priv->max_packet_size, urb->actual_length-packet_offset)-2;
 		if (length < 0) {
 			err("%s - bad packet length: %d", __FUNCTION__, length+2);
 			length = 0;
@@ -2326,7 +2461,7 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 } /* ftdi_termios */
 
 
-static int ftdi_tiocmget (struct usb_serial_port *port, struct file *file)
+static int ftdi_tiocmget(struct usb_serial_port *port, struct file *file)
 {
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
 	unsigned char buf[2];
@@ -2348,6 +2483,9 @@ static int ftdi_tiocmget (struct usb_serial_port *port, struct file *file)
 	case FT8U232AM:
 	case FT232BM:
 	case FT2232C:
+	case FT232RL:
+	case FT2232H:
+	case FT4232H:
 		/* the 8U232AM returns a two byte value (the sio is a 1 byte value) - in the same
 		   format as the data returned from the in point */
 		if ((ret = usb_control_msg(port->serial->dev,
