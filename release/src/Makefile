@@ -214,7 +214,7 @@ define RouterOptions
 		echo "TCONFIG_JFFSV1=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
-		sed -i "/TCONFIG_USB/d" $(1); \
+		sed -i "/TCONFIG_USB is not set/d" $(1); \
 		echo "TCONFIG_USB=y" >>$(1); \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
 			sed -i "/TCONFIG_USB_EXTRAS/d" $(1); \
@@ -229,7 +229,7 @@ define RouterOptions
 			echo "TCONFIG_MEDIA_SERVER=y" >>$(1); \
 		fi; \
 	else \
-		sed -i "/TCONFIG_USB/d" $(1); \
+		sed -i "/TCONFIG_USB=y/d" $(1); \
 		echo "# TCONFIG_USB is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_SAMBA)" = "y" ]; then \
