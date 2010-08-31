@@ -996,7 +996,7 @@ static int init_nvram(void)
 	}
 	nvram_set("t_model_name", s);
 
-	nvram_set("pa0maxpwr", "251");				// allow Tx power up tp 251 mW, needed for ND only
+	nvram_set("pa0maxpwr", "400");	// allow Tx power up tp 400 mW, needed for ND only
 
 	sprintf(s, "0x%lX", features);
 	nvram_set("t_features", s);
