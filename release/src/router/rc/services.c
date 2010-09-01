@@ -1330,7 +1330,7 @@ static void start_media_server(void)
 					"network_interface=%s\n"
 					"port=%d\n"
 					"friendly_name=%s\n"
-					"db_dir=%s\n"
+					"db_dir=%s/.db\n"
 					"enable_tivo=%s\n"
 					"strict_dlna=%s\n"
 					"presentation_url=http%s://%s:%s/nas-media.asp\n"
