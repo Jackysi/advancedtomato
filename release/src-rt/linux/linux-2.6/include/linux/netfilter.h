@@ -327,10 +327,13 @@ static inline void nf_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
 				(__force __be32)to, pseudohdr);
 }
 
+struct flowi;
+
 struct nf_afinfo {
 	unsigned short	family;
 	__sum16		(*checksum)(struct sk_buff *skb, unsigned int hook,
 				    unsigned int dataoff, u_int8_t protocol);
+	int		(*route)(struct dst_entry **dst, struct flowi *fl);
 	void		(*saveroute)(const struct sk_buff *skb,
 				     struct nf_info *info);
 	int		(*reroute)(struct sk_buff **skb,
