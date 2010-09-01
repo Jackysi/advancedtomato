@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.26 2010/03/18 21:37:39 jmaggard Exp $
+# $Id: Makefile,v 1.27 2010/08/28 08:08:24 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -42,7 +42,7 @@ BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
 
 ALLOBJS = $(BASEOBJS) $(LNXOBJS)
 
-#LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -lvorbis
+LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -logg -lvorbis
 #STATIC_LINKING: LIBS = -lvorbis -logg -lm -lsqlite3 -lpthread -lexif -ljpeg -lFLAC -lm -lid3tag -lz -lavformat -lavutil -lavcodec -lm
 LIBS = -lpthread -lm \
 	$(TOP)/libvorbis/lib/.libs/libvorbis.a \
