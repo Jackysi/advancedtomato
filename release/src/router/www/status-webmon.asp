@@ -44,7 +44,6 @@ wm_searches = [];
 var maxLimit = 0;
 var maxCount = 50;
 var lastMaxCount = -1;
-var refresher = null;
 
 var queue = [];
 var xob = null;
@@ -77,22 +76,27 @@ function resolve()
 	xob.post('resolve.cgi', 'ip=' + queue.splice(0, 20).join(','));
 }
 
-function refresh()
+var ref = new TomatoRefresh('update.cgi', '', 0, 'status_webmon');
+
+ref.refresh = function(text)
 {
-	refresher = new XmlHttp();
-	refresher.onCompleted = function(text, xml) {
-		++lock;
+	++lock;
+
+	try {
 		eval(text);
-		new_cache = [];
-		dg.populate();
-		sg.populate();
-		cache = new_cache;
-		new_cache = null;
-		--lock;
-		refresher = null;
 	}
-	refresher.onError = function(ex) { alert(ex); reloadPage(); }
-	refresher.post('update.cgi', 'exec=webmon&arg0=' + maxCount);
+	catch (ex) {
+		wm_domains = [];
+		wm_searches = [];
+	}
+
+	new_cache = [];
+	dg.populate();
+	sg.populate();
+	cache = new_cache;
+	new_cache = null;
+
+	--lock;
 }
 
 function showSelectedOption(prev, curr)
@@ -111,14 +115,15 @@ function showMaxCount()
 	if (maxCount == lastMaxCount) return;
 	showSelectedOption(lastMaxCount, maxCount);
 	lastMaxCount = maxCount;
+	ref.postData = 'exec=webmon&arg0=' + maxCount;
 }
 
 function switchMaxCount(c)
 {
-	if (refresher != null) return;
 	maxCount = c;
 	showMaxCount();
-	refresh();
+	if (!ref.running) ref.once = 1;
+	ref.start();
 	cookie.set('webmon-maxcount', maxCount);
 }
 
@@ -287,7 +292,10 @@ sg.populate = function() {
 
 function init()
 {
-	refresh();
+	ref.initPage();
+
+	if (!ref.running) ref.once = 1;
+	ref.start();
 }
 
 function earlyInit()
@@ -298,9 +306,10 @@ function earlyInit()
 
 		maxLimit = nvram.log_wmdmax * 1;
 		if (nvram.log_wmsmax * 1 > maxLimit) maxLimit = nvram.log_wmsmax * 1;
-		if (maxLimit <= 50)
+		if (maxLimit <= 10)
 			E('webmon-mc').style.display = 'none';
 		else {
+			if (maxLimit <= 50) E('mc50').style.display = 'none';
 			if (maxLimit <= 100) E('mc100').style.display = 'none';
 			if (maxLimit <= 200) E('mc200').style.display = 'none';
 			if (maxLimit <= 500) E('mc500').style.display = 'none';
@@ -311,12 +320,12 @@ function earlyInit()
 
 		if (nvram.log_wmdmax == '0') E('webmon-domains').style.display = 'none';
 		if (nvram.log_wmsmax == '0') E('webmon-searches').style.display = 'none';
-		dg.setup();
-		sg.setup();
-
-		maxCount = fixInt(cookie.get('webmon-maxcount'), 0, maxLimit, 50);
-		showMaxCount();
 	}
+	dg.setup();
+	sg.setup();
+
+	maxCount = fixInt(cookie.get('webmon-maxcount'), 0, maxLimit, 50);
+	showMaxCount();
 }
 </script>
 
@@ -354,6 +363,7 @@ function earlyInit()
 	<div id='webmon-controls'>
 		<div id='webmon-mc'>
 			Show up to&nbsp;
+			<a href='javascript:switchMaxCount(10);' id='mc10'>10,</a>
 			<a href='javascript:switchMaxCount(50);' id='mc50'>50,</a>
 			<a href='javascript:switchMaxCount(100);' id='mc100'>100,</a>
 			<a href='javascript:switchMaxCount(200);' id='mc200'>200,</a>
@@ -365,7 +375,8 @@ function earlyInit()
 			<small>available entries</small>
 		</div>
 		&raquo; <a href="admin-log.asp">Web Monitor Configuration</a>
-		<br><br><input type='button' value='Refresh' onclick='refresh()' id='refreshb'>
+		<br><br>
+		<script type='text/javascript'>genStdRefresh(1,5,'ref.toggle()');</script>
 	</div>
 </div>
 
