@@ -217,11 +217,11 @@ static int board_data_size(struct mtd_info *mtd)
 	if ((boardnum == 1 || boardnum == 3500) && nvram_match("boardtype", "0x04CF") &&
 	    (nvram_match("boardrev", "0x1213") || nvram_match("boardrev", "02"))) {
 		/* Netgear WNR3500v2/U/L */
-		return mtd->erasesize * 4;
+		return mtd->erasesize * 5;
 	}
 	else if ((boardnum == 1) && nvram_match("boardtype", "0xE4CD") && nvram_match("boardrev", "0x1700")) {
 		/* Netgear WNR2000v2 */
-		return mtd->erasesize;
+		return mtd->erasesize * 3;
 	}
 	else if ((boardnum == 0) && nvram_match("boardtype", "0x048E") &&
 	    nvram_match("boardrev", "0x35")) {
