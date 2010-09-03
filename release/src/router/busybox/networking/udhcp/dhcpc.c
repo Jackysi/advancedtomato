@@ -711,6 +711,7 @@ static void perform_renew(void)
 //		state = RENEW_REQUESTED;	// zzz
 //		break;
 	case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
+		udhcp_run_script(NULL, "deconfig");
 	case REQUESTING:
 	case RELEASED:
 		change_listen_mode(LISTEN_RAW);
