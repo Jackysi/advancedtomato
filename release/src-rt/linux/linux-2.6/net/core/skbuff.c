@@ -402,6 +402,42 @@ void kfree_skb(struct sk_buff *skb)
 	__kfree_skb(skb);
 }
 
+static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+{
+	new->tstamp		= old->tstamp;
+	new->dev		= old->dev;
+	new->transport_header	= old->transport_header;
+	new->network_header	= old->network_header;
+	new->mac_header		= old->mac_header;
+	new->dst		= dst_clone(old->dst);
+#ifdef CONFIG_INET
+	new->sp			= secpath_get(old->sp);
+#endif
+	memcpy(new->cb, old->cb, sizeof(old->cb));
+	new->csum_start		= old->csum_start;
+	new->csum_offset	= old->csum_offset;
+	new->local_df		= old->local_df;
+	new->pkt_type		= old->pkt_type;
+	new->ip_summed		= old->ip_summed;
+	new->priority		= old->priority;
+#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+	new->ipvs_property	= old->ipvs_property;
+#endif
+	new->protocol		= old->protocol;
+	new->mark		= old->mark;
+	__nf_copy(new, old);
+#ifdef CONFIG_NET_SCHED
+	new->tc_index		= old->tc_index;
+#ifdef CONFIG_NET_CLS_ACT
+	new->tc_verd		= old->tc_verd;
+#endif
+#endif
+	skb_copy_secmark(new, old);
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	new->nfcache		= old->nfcache;
+#endif
+}
+
 /**
  *	skb_clone	-	duplicate an sk_buff
  *	@skb: buffer to clone
@@ -437,55 +473,22 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
 
 	n->next = n->prev = NULL;
 	n->sk = NULL;
-	C(tstamp);
-	C(dev);
-	C(transport_header);
-	C(network_header);
-	C(mac_header);
-	C(dst);
-	dst_clone(skb->dst);
-	C(sp);
-#ifdef CONFIG_INET
-	secpath_get(skb->sp);
-#endif
-	memcpy(n->cb, skb->cb, sizeof(skb->cb));
+	__copy_skb_header(n, skb);
+
 	C(len);
 	C(data_len);
 	C(mac_len);
-	C(csum);
-	C(local_df);
-	n->cloned = 1;
 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
+	n->cloned = 1;
 	n->nohdr = 0;
-	C(pkt_type);
-	C(ip_summed);
-	C(priority);
-#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
-	C(ipvs_property);
-#endif
-	C(protocol);
 	n->destructor = NULL;
-	C(mark);
-	__nf_copy(n, skb);
-#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-	C(nfcache);
-#endif
-#ifdef CONFIG_NET_SCHED
-	C(tc_index);
-#ifdef CONFIG_NET_CLS_ACT
-	n->tc_verd = SET_TC_VERD(skb->tc_verd,0);
-	n->tc_verd = CLR_TC_OK2MUNGE(n->tc_verd);
-	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
 	C(iif);
-#endif
-#endif
-	skb_copy_secmark(n, skb);
-	C(truesize);
-	atomic_set(&n->users, 1);
-	C(head);
-	C(data);
 	C(tail);
 	C(end);
+	C(head);
+	C(data);
+	C(truesize);
+	atomic_set(&n->users, 1);
 
 	atomic_inc(&(skb_shinfo(skb)->dataref));
 	skb->cloned = 1;
@@ -501,48 +504,18 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	 */
 	unsigned long offset = new->data - old->data;
 #endif
-	new->sk		= NULL;
-	new->dev	= old->dev;
-	new->priority	= old->priority;
-	new->protocol	= old->protocol;
-	new->dst	= dst_clone(old->dst);
-#ifdef CONFIG_INET
-	new->sp		= secpath_get(old->sp);
-#endif
-	new->transport_header = old->transport_header;
-	new->network_header   = old->network_header;
-	new->mac_header	      = old->mac_header;
+
+	__copy_skb_header(new, old);
+
 #ifndef NET_SKBUFF_DATA_USES_OFFSET
 	/* {transport,network,mac}_header are relative to skb->head */
 	new->transport_header += offset;
 	new->network_header   += offset;
 	new->mac_header	      += offset;
 #endif
-	memcpy(new->cb, old->cb, sizeof(old->cb));
-	new->local_df	= old->local_df;
-	new->fclone	= SKB_FCLONE_UNAVAILABLE;
-	new->pkt_type	= old->pkt_type;
-	new->tstamp	= old->tstamp;
-	new->destructor = NULL;
-	new->mark	= old->mark;
-	__nf_copy(new, old);
-#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
-	new->ipvs_property = old->ipvs_property;
-#endif
-#ifdef CONFIG_NET_SCHED
-#ifdef CONFIG_NET_CLS_ACT
-	new->tc_verd = old->tc_verd;
-#endif
-	new->tc_index	= old->tc_index;
-#endif
-	skb_copy_secmark(new, old);
-	atomic_set(&new->users, 1);
 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
-#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-	new->nfcache=old->nfcache;
-#endif
 }
 
 /**
@@ -581,8 +554,6 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
 	skb_reserve(n, headerlen);
 	/* Set the tail pointer and length */
 	skb_put(n, skb->len);
-	n->csum	     = skb->csum;
-	n->ip_summed = skb->ip_summed;
 
 	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
 		BUG();
@@ -625,8 +596,6 @@ struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
 	skb_put(n, skb_headlen(skb));
 	/* Copy the bytes */
 	skb_copy_from_linear_data(skb, n->data, n->len);
-	n->csum	     = skb->csum;
-	n->ip_summed = skb->ip_summed;
 
 	n->truesize += skb->data_len;
 	n->data_len  = skb->data_len;
@@ -680,6 +649,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 #endif
 	long off;
 
+	BUG_ON(nhead < 0);
+
 	if (skb_shared(skb))
 		BUG();
 
@@ -722,6 +693,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 	skb->transport_header += off;
 	skb->network_header   += off;
 	skb->mac_header	      += off;
+	skb->csum_start       += nhead;
 	skb->cloned   = 0;
 	skb->hdr_len  = 0;
 	skb->nohdr    = 0;
@@ -770,9 +742,6 @@ struct sk_buff *skb_realloc_headroom(struct sk_buff *skb, unsigned int headroom)
  *
  *	You must pass %GFP_ATOMIC as the allocation priority if this function
  *	is called from an interrupt.
- *
- *	BUG ALERT: ip_summed is not copied. Why does this work? Is it used
- *	only by netfilter in the cases when checksum is recalculated? --ANK
  */
 struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
 				int newheadroom, int newtailroom,
@@ -785,7 +754,7 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
 				      gfp_mask);
 	int oldheadroom = skb_headroom(skb);
 	int head_copy_len, head_copy_off;
-	int off = 0;
+	int off;
 
 	if (!n)
 		return NULL;
@@ -809,12 +778,13 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
 
 	copy_skb_header(n, skb);
 
-#ifdef NET_SKBUFF_DATA_USES_OFFSET
 	off                  = newheadroom - oldheadroom;
-#endif
+	n->csum_start       += off;
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
 	n->transport_header += off;
 	n->network_header   += off;
 	n->mac_header	    += off;
+#endif
 
 	return n;
 }
@@ -2197,12 +2167,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
 			segs = nskb;
 		tail = nskb;
 
-		nskb->dev = skb->dev;
-		nskb->priority = skb->priority;
-		nskb->protocol = skb->protocol;
-		nskb->dst = dst_clone(skb->dst);
-		memcpy(nskb->cb, skb->cb, sizeof(skb->cb));
-		nskb->pkt_type = skb->pkt_type;
+		__copy_skb_header(nskb, skb);
 		nskb->mac_len = skb->mac_len;
 
 		skb_reserve(nskb, headroom);
@@ -2213,6 +2178,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
 		skb_copy_from_linear_data(skb, skb_put(nskb, doffset),
 					  doffset);
 		if (!sg) {
+			nskb->ip_summed = CHECKSUM_NONE;
 			nskb->csum = skb_copy_and_csum_bits(skb, offset,
 							    skb_put(nskb, len),
 							    len, 0);
@@ -2222,8 +2188,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
 		frag = skb_shinfo(nskb)->frags;
 		k = 0;
 
-		nskb->ip_summed = CHECKSUM_PARTIAL;
-		nskb->csum = skb->csum;
 		skb_copy_from_linear_data_offset(skb, offset,
 						 skb_put(nskb, hsize), hsize);
 
