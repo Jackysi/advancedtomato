@@ -1109,3 +1109,102 @@ Disabled Broadcom "fast NAT" module - this should fix various problems with
 Access Restrictions, QOS, VPN and iptables rules.
 
 Software update: MiniDLNA 1.0.18 (cvs 2010-07-21).
+
+
+build 49 - 08/02/2010
+---------------------
+
+This is a hot-fix release fixing a problem with OpenVPN not working in
+build 48. This build (including K26 beta19 builds) only exists for VPN
+editions.
+
+build 50 - 09/04/2010
+---------------------
+
+Added Web Monitoring (domains and searches) with GUI using kernel and
+iptables modules by Eric Bishop from Gargoyle Project
+(http://www.gargoyle-router.com).
+
+DNS rebinding protection in dnsmasq is now optional (can be turned off
+in GUI). Fixed connectivity issues with some applications (i.e. Netflix
+iPad app) related to this protection being active.
+
+Support for Asus WL-500g Deluxe (untested), fixed support for Linksys
+WRT-300Nv1 in both - K26 and K24 - builds.
+
+Added Hurricane Electric IPv6 Tunnel Broker IPv4 endpoint address updater
+to Dynamic DNS services.
+
+Added Unicode support to httpd server - used for Web Usage display, and to
+show commands output on the Tools->System screen.
+
+Fixed error displaying USB Support GUI page when attached drive's label or
+model name contains quotes.
+
+Fixed timing bugs with restarting dnsmasq and other services - thanks to Ray
+<ray123> for finding and analyzing these problems.
+
+Allowed auto-mount of file systems not supported by the firmware as long as
+corresponding kernel module for this file system is loaded.
+
+Allowed to set radio power up to 400mW (26dBm) - this will only work for
+some router models and some countries.
+
+Removed some Busybox applets (ftpput, clear, setconsole) from Lite builds
+to reduce size.
+
+Minor CIFS kernel driver fixes from upstream.
+
+Software updates: PPTP kernel drivers and accell-pptp client 0.8.5-rc1,
+Busybox 1.17.2, FTP Server (vsftpd) 2.3.2, ntfs-3g 2010.8.8 (in Extras
+builds), usb_modeswitch 1.1.4 with data package 2010-08-26.
+
+Toolchain: updated binutils to ver. 2.20.1.
+
+Simplified custom builds by allowing to specify nvram size at compile time
+(can be used to make special builds for Linksys E-series routers with 60KB
+nvram).
+
+Cosmetics and code clean up.
+
+* Kernel 2.6-based builds only (beta20):
+
+Support for dual-band (2.4 and 5 GHz) wireless-N radios. Only single radio
+interface is currently supported and can be configured via GUI (so no
+simultaneous dual-band just yet). Tested on Linksys WRT-320N. Experimental
+(not tested) support for Linksys WRT-610Nv2 (single radio only). Many thanks
+to Dominique <dbt78> for pilot implementation and lots of testing!
+
+Fixed very bad misconfiguration issue witn MiniDLNA media server causing it
+to erase all files in the media directory if the same directory is specified
+as the media database location.
+
+Fixed board data partition size for Netgear routers to prevent flashing a
+firmware image that's too big.
+
+Fixed occasional wireless disconnects during data transfers for some
+routers (namely Asus RT-N12, other models might be affected too).
+
+Disabled DFS server in Samba 3 to prevent errors when using with certain
+Linux clients (thanks to yatu for finding the issue and suggesting a fix).
+
+Fixed /dev/null, /dev/zero, /dev/gpio nodes permissions for non-priveledged
+users (needed for some additional software).
+
+Preliminary support for IPv6 in Extras and USB+VPN editions: all required
+kernel modules are included, iptables and other user space applications are
+compiled with IPv6 support activated, included radvd daemon. Firewall is not
+configured, no GUI configuration exists yet, and by default IPv6 is disabled
+on all interfaces!
+
+Various kernel bug fixes and optimization patches backported from upstream
+2.6 kernel (mostly network/conntrack and USB related).
+
+Added support for GUID (EFI) partition tables.
+
+Removed unused decoders from building FFMpeg library used by MiniDLNA -
+significant size reduction.
+
+Software updates: MiniDLNA 1.0.18 (cvs 2010-08-31), libraries used by
+MiniDLNA (sqlite 3.7.2, zlib 1.2.5, FFMpeg 0.6).
+
