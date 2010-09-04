@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavcodec/allcodecs.c
+ * @file
  * Provides registration of all codecs, parsers and bitstream filters for libavcodec.
  */
 
@@ -122,6 +122,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER (INDEO5, indeo5);
     REGISTER_DECODER (INTERPLAY_VIDEO, interplay_video);
     REGISTER_ENCDEC  (JPEGLS, jpegls);
+    REGISTER_DECODER (KGV1, kgv1);
     REGISTER_DECODER (KMVC, kmvc);
     REGISTER_ENCODER (LJPEG, ljpeg);
     REGISTER_DECODER (LOCO, loco);
@@ -206,6 +207,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER (WNV1, wnv1);
     REGISTER_DECODER (XAN_WC3, xan_wc3);
     REGISTER_DECODER (XL, xl);
+    REGISTER_DECODER (YOP, yop);
     REGISTER_ENCDEC  (ZLIB, zlib);
     REGISTER_ENCDEC  (ZMBV, zmbv);
 
@@ -251,7 +253,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER (TTA, tta);
     REGISTER_DECODER (TWINVQ, twinvq);
     REGISTER_DECODER (VMDAUDIO, vmdaudio);
-    REGISTER_ENCDEC  (VORBIS, vorbis);
+    REGISTER_DECODER  (VORBIS, vorbis);
     REGISTER_DECODER (WAVPACK, wavpack);
     REGISTER_DECODER (WMAPRO, wmapro);
     REGISTER_ENCDEC  (WMAV1, wmav1);
@@ -342,6 +344,7 @@ void avcodec_register_all(void)
     REGISTER_DECODER (LIBSPEEX, libspeex);
     REGISTER_ENCODER (LIBTHEORA, libtheora);
     REGISTER_ENCODER (LIBVORBIS, libvorbis);
+    REGISTER_ENCDEC  (LIBVPX, libvpx);
     REGISTER_ENCODER (LIBX264, libx264);
     REGISTER_ENCODER (LIBXVID, libxvid);
 

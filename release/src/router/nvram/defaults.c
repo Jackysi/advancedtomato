@@ -426,19 +426,19 @@ const defaults_t defaults[] = {
 
 // qos
 	{ "qos_enable",			"0"				},
-	{ "qos_ack",			"1"				},
-	{ "qos_syn",			"0"				},
-	{ "qos_fin",			"0"				},
-	{ "qos_rst",			"0"				},
+	{ "qos_ack",			"0"				},
+	{ "qos_syn",			"1"				},
+	{ "qos_fin",			"1"				},
+	{ "qos_rst",			"1"				},
 	{ "qos_icmp",			"0"				},
 	{ "qos_reset",			"0"				},
 	{ "qos_obw",			"230"			},
 	{ "qos_ibw",			"1000"			},
-	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)>0<<-1<d<1024:65535<0<<<4<Bulk Traffic" },
+	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)" },
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
 
-	{ "qos_default",		"3"				},
+	{ "qos_default",		"4"				},
 	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas

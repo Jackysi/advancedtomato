@@ -16,6 +16,7 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
+
 <style tyle='text/css'>
 #ms-grid {
 	width: 81%;
@@ -208,9 +209,33 @@ function submit_complete()
 	reloadPage();
 }
 
+var xob = null;
+
+function setNoticeText(s)
+{
+	if (s.length)
+		s = '<div id="notice1">' + s.replace(/\n/g, '<br>') + '</div><br style="clear:both">';
+	elem.setInnerHTML('notice-msg', s);
+}
+
+function updateNotice()
+{
+	if (xob) return;
+
+	xob = new XmlHttp();
+	xob.onCompleted = function(text, xml) {
+		setNoticeText(text);
+		xob = null;
+		setTimeout(updateNotice, 5000);
+	}
+	xob.onError = function(ex) { xob = null; }
+	xob.post('update.cgi', 'exec=notice&arg0=dlna');
+}
+
 function init()
 {
 	changed = 0;
+	updateNotice();
 }
 </script>
 
@@ -280,6 +305,7 @@ createFieldTable('', [
 W('<br><input type="button" value="' + (mdup ? 'Res' : 'S') + 'tart Now" onclick="restart(mdup)" id="_restart_button">');
 </script>
 </div>
+<span id="notice-msg"></span>
 <br>
 
 <div class='section-title'>Media Directories</div>

@@ -311,17 +311,17 @@ static int check_nv(const char *name, const char *value)
 	return 0;
 }
 
-static int find_dir320_mac_addr()
+static void find_dir320_mac_addr()
 {
 	FILE *fp;
 	char *buffer, s[18];
 	int i, part, size, found = 0;
 
-	if (!mtd_getinfo("board_data", &part, &size)) return 0;
+	if (!mtd_getinfo("board_data", &part, &size))
+		goto out;
 	sprintf(s, MTD_DEV(%dro), part);
 
-	fp = fopen(s, "rb");
-	if (fp != NULL) {
+	if ((fp = fopen(s, "rb"))) {
 		buffer = malloc(size);
 		memset(buffer, 0, size);
 		fread(buffer, size, 1, fp);
@@ -343,8 +343,14 @@ static int find_dir320_mac_addr()
 		free(buffer);
 		fclose(fp);
 	}
-
-	return (found);
+out:
+	if (!found) {
+		strcpy(s, nvram_safe_get("wl0_hwaddr"));
+		inc_mac(s, -1);
+		nvram_set("il0macaddr", s);
+		inc_mac(s, -1);
+		nvram_set("et0macaddr", s);
+	}
 }
 
 static void check_bootnv(void)
@@ -394,11 +400,11 @@ static void check_bootnv(void)
 		}
 		break;
 	case MODEL_DIR320:
-		if (strlen(nvram_safe_get("et0macaddr")) == 12) {
-			if (!find_dir320_mac_addr()) {
-				// goofy et0macaddr, make something up
-				nvram_set("et0macaddr", "00:90:4c:c0:00:01");
-			}
+		if (strlen(nvram_safe_get("et0macaddr")) == 12 ||
+		    strlen(nvram_safe_get("il0macaddr")) == 12) {
+			find_dir320_mac_addr();
+			nvram_unset("lan_hwaddr");
+			nvram_unset("wan_hwaddr");
 			dirty = 1;
 		}
 		if (nvram_get("vlan2ports") != NULL) {
@@ -406,6 +412,7 @@ static void check_bootnv(void)
 			nvram_unset("vlan2hwname");
 			dirty = 1;
 		}
+		dirty |= check_nv("wandevs", "vlan1");
 		dirty |= check_nv("vlan1hwname", "et0");
 		if ((nvram_get("vlan1ports") == NULL) || nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
@@ -452,10 +459,13 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
-	//	if (strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4C", 8) == 0 ||
-	//	    strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
-	//		dirty |= check_nv("pci/1/1/macaddr", nvram_get("et0macaddr"));
-	//	}
+		if (strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4C", 8) == 0 ||
+		    strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+			char mac[18];
+			strcpy(mac, nvram_get("et0macaddr"));
+			inc_mac(mac, 3);
+			dirty |= check_nv("pci/1/1/macaddr", mac);
+		}
 		if (strcmp(nvram_safe_get("vlan1ports"), "") == 0) {
 			dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
 			dirty |= check_nv("vlan2ports", "0 8");
@@ -958,7 +968,6 @@ static int init_nvram(void)
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
-			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0gpio0", "8");
@@ -996,7 +1005,7 @@ static int init_nvram(void)
 	}
 	nvram_set("t_model_name", s);
 
-	nvram_set("pa0maxpwr", "251");				// allow Tx power up tp 251 mW, needed for ND only
+	nvram_set("pa0maxpwr", "400");	// allow Tx power up tp 400 mW, needed for ND only
 
 	sprintf(s, "0x%lX", features);
 	nvram_set("t_features", s);
@@ -1277,9 +1286,11 @@ static void sysinit(void)
 int init_main(int argc, char *argv[])
 {
 	pid_t shell_pid = 0;
+	sigset_t sigset;
 
 	sysinit();
 
+	sigemptyset(&sigset);
 	state = START;
 	signaled = -1;
 
@@ -1383,7 +1394,7 @@ int init_main(int argc, char *argv[])
 					shell_pid = run_shell(0, 1);
 				}
 				else {
-					pause();
+					sigsuspend(&sigset);
 				}
 			}
 			state = signaled;

@@ -21,7 +21,7 @@
  */
 
 /**
- * @file libavcodec/atrac.c
+ * @file
  */
 
 #include <math.h>
@@ -30,6 +30,7 @@
 
 #include "avcodec.h"
 #include "dsputil.h"
+#include "atrac.h"
 
 float sf_table[64];
 float qmf_window[48];

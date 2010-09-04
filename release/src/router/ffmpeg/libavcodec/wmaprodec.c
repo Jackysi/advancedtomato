@@ -21,7 +21,7 @@
  */
 
 /**
- * @file  libavcodec/wmaprodec.c
+ * @file
  * @brief wmapro decoder implementation
  * Wmapro is an MDCT based codec comparable to wma standard or AAC.
  * The decoding therefore consists of the following steps:
@@ -142,7 +142,7 @@ typedef struct {
     int*     scale_factors;                           ///< pointer to the scale factor values used for decoding
     uint8_t  table_idx;                               ///< index in sf_offsets for the scale factor reference block
     float*   coeffs;                                  ///< pointer to the subframe decode buffer
-    DECLARE_ALIGNED_16(float, out)[WMAPRO_BLOCK_MAX_SIZE + WMAPRO_BLOCK_MAX_SIZE / 2]; ///< output buffer
+    DECLARE_ALIGNED(16, float, out)[WMAPRO_BLOCK_MAX_SIZE + WMAPRO_BLOCK_MAX_SIZE / 2]; ///< output buffer
 } WMAProChannelCtx;
 
 /**
@@ -167,7 +167,7 @@ typedef struct WMAProDecodeCtx {
                       FF_INPUT_BUFFER_PADDING_SIZE];///< compressed frame data
     PutBitContext    pb;                            ///< context for filling the frame_data buffer
     FFTContext       mdct_ctx[WMAPRO_BLOCK_SIZES];  ///< MDCT context per block size
-    DECLARE_ALIGNED_16(float, tmp)[WMAPRO_BLOCK_MAX_SIZE]; ///< IMDCT output buffer
+    DECLARE_ALIGNED(16, float, tmp)[WMAPRO_BLOCK_MAX_SIZE]; ///< IMDCT output buffer
     float*           windows[WMAPRO_BLOCK_SIZES];   ///< windows for the different block sizes
 
     /* frame size dependent frame information (set during initialization) */
@@ -343,9 +343,12 @@ static av_cold int decode_init(AVCodecContext *avctx)
         }
     }
 
-    if (s->num_channels < 0 || s->num_channels > WMAPRO_MAX_CHANNELS) {
-        av_log_ask_for_sample(avctx, "invalid number of channels\n");
-        return AVERROR_NOTSUPP;
+    if (s->num_channels < 0) {
+        av_log(avctx, AV_LOG_ERROR, "invalid number of channels %d\n", s->num_channels);
+        return AVERROR_INVALIDDATA;
+    } else if (s->num_channels > WMAPRO_MAX_CHANNELS) {
+        av_log_ask_for_sample(avctx, "unsupported number of channels\n");
+        return AVERROR_PATCHWELCOME;
     }
 
     INIT_VLC_STATIC(&sf_vlc, SCALEVLCBITS, HUFF_SCALE_SIZE,
@@ -1343,15 +1346,14 @@ static int decode_frame(WMAProDecodeCtx *s)
 
     /** interleave samples and write them to the output buffer */
     for (i = 0; i < s->num_channels; i++) {
-        float* ptr;
+        float* ptr  = s->samples + i;
         int incr = s->num_channels;
         float* iptr = s->channel[i].out;
-        int x;
+        float* iend = iptr + s->samples_per_frame;
 
-        ptr = s->samples + i;
-
-        for (x = 0; x < s->samples_per_frame; x++) {
-            *ptr = av_clipf(*iptr++, -1.0, 32767.0 / 32768.0);
+        // FIXME should create/use a DSP function here
+        while (iptr < iend) {
+            *ptr = *iptr++;
             ptr += incr;
         }
 
@@ -1564,7 +1566,7 @@ static void flush(AVCodecContext *avctx)
  */
 AVCodec wmapro_decoder = {
     "wmapro",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_WMAPRO,
     sizeof(WMAProDecodeCtx),
     decode_init,

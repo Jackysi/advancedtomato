@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavformat/rtmpproto.c
+ * @file
  * RTMP protocol
  */
 
@@ -29,6 +29,7 @@
 #include "libavutil/lfg.h"
 #include "libavutil/sha.h"
 #include "avformat.h"
+#include "internal.h"
 
 #include "network.h"
 
@@ -113,7 +114,7 @@ static void gen_connect(URLContext *s, RTMPContext *rt, const char *proto,
     ff_rtmp_packet_create(&pkt, RTMP_SYSTEM_CHANNEL, RTMP_PT_INVOKE, 0, 4096);
     p = pkt.data;
 
-    snprintf(tcurl, sizeof(tcurl), "%s://%s:%d/%s", proto, host, port, rt->app);
+    ff_url_join(tcurl, sizeof(tcurl), proto, NULL, host, port, "/%s", rt->app);
     ff_amf_write_string(&p, "connect");
     ff_amf_write_number(&p, 1.0);
     ff_amf_write_object_start(&p);
@@ -812,12 +813,12 @@ static int rtmp_open(URLContext *s, const char *uri, int flags)
     s->priv_data = rt;
     rt->is_input = !(flags & URL_WRONLY);
 
-    url_split(proto, sizeof(proto), NULL, 0, hostname, sizeof(hostname), &port,
-              path, sizeof(path), s->filename);
+    ff_url_split(proto, sizeof(proto), NULL, 0, hostname, sizeof(hostname), &port,
+                 path, sizeof(path), s->filename);
 
     if (port < 0)
         port = RTMP_DEFAULT_PORT;
-    snprintf(buf, sizeof(buf), "tcp://%s:%d", hostname, port);
+    ff_url_join(buf, sizeof(buf), "tcp", NULL, hostname, port, NULL);
 
     if (url_open(&rt->stream, buf, URL_RDWR) < 0) {
         av_log(LOG_CONTEXT, AV_LOG_ERROR, "Cannot open connection %s\n", buf);

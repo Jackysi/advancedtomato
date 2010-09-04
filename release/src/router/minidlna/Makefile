@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.26 2010/03/18 21:37:39 jmaggard Exp $
+# $Id: Makefile,v 1.27 2010/08/28 08:08:24 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -15,12 +15,19 @@ include ../common.mak
 
 #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
 #CFLAGS = -Wall -g -Os -D_GNU_SOURCE
-CFLAGS = -Wall -g -Os $(EXTRACFLAGS) -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+CFLAGS = -Wall -g -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
 	-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
 	-I$(TOP)/ffmpeg/libswscale -I$(TOP)/ffmpeg \
 	-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
 	-I$(TOP)/libexif -I$(TOP)/libid3tag -I$(TOP)/libogg/include \
-	-I$(TOP)/libvorbis/include
+	-I$(TOP)/libvorbis/include \
+
+ifneq ($(STATIC),1)
+CFLAGS += -L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg -L$(TOP)/libvorbis/lib/.libs \
+	-L$(TOP)/libogg/src/.libs -L$(TOP)/libexif/libexif/.libs -L$(TOP)/flac/src/libFLAC/.libs \
+	-L$(TOP)/ffmpeg/libavutil -L$(TOP)/ffmpeg/libavcodec -L$(TOP)/ffmpeg/libavformat \
+	-L$(TOP)/libid3tag/.libs
+endif
 
 #STATIC_LINKING: LDFLAGS = -static
 #CC = gcc
@@ -42,8 +49,10 @@ BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
 
 ALLOBJS = $(BASEOBJS) $(LNXOBJS)
 
-#LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -lvorbis
+LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -logg -lvorbis
 #STATIC_LINKING: LIBS = -lvorbis -logg -lm -lsqlite3 -lpthread -lexif -ljpeg -lFLAC -lm -lid3tag -lz -lavformat -lavutil -lavcodec -lm
+
+ifeq ($(STATIC),1)
 LIBS = -lpthread -lm \
 	$(TOP)/libvorbis/lib/.libs/libvorbis.a \
 	$(TOP)/libogg/src/.libs/libogg.a \
@@ -56,6 +65,9 @@ LIBS = -lpthread -lm \
 	$(TOP)/ffmpeg/libavformat/libavformat.a \
 	$(TOP)/ffmpeg/libavcodec/libavcodec.a \
 	$(TOP)/ffmpeg/libavutil/libavutil.a
+else
+LIBS += -lavutil -lavcodec -lm -lz
+endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
 
@@ -74,7 +86,7 @@ install:	minidlna
 	$(INSTALL) -D minidlna $(INSTALLDIR)/usr/sbin/minidlna
 	$(STRIP) $(INSTALLDIR)/usr/sbin/minidlna
 
-minidlna:	$(BASEOBJS) $(LNXOBJS) $(LIBS)
+minidlna:	$(BASEOBJS) $(LNXOBJS)
 	@echo Linking $@
 	@$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(BASEOBJS) $(LNXOBJS) $(LIBS)
 

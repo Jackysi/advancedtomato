@@ -21,7 +21,7 @@
  */
 
 /**
- * @file libavcodec/atrac3.c
+ * @file
  * Atrac 3 compatible decoder.
  * This decoder handles Sony's ATRAC3 data.
  *
@@ -40,6 +40,7 @@
 #include "get_bits.h"
 #include "dsputil.h"
 #include "bytestream.h"
+#include "fft.h"
 
 #include "atrac.h"
 #include "atrac3data.h"
@@ -73,8 +74,8 @@ typedef struct {
     int               gcBlkSwitch;
     gain_block        gainBlock[2];
 
-    DECLARE_ALIGNED_16(float, spectrum)[1024];
-    DECLARE_ALIGNED_16(float, IMDCT_buf)[1024];
+    DECLARE_ALIGNED(16, float, spectrum)[1024];
+    DECLARE_ALIGNED(16, float, IMDCT_buf)[1024];
 
     float             delayBuf1[46]; ///<qmf delay buffers
     float             delayBuf2[46];
@@ -119,7 +120,7 @@ typedef struct {
     //@}
 } ATRAC3Context;
 
-static DECLARE_ALIGNED_16(float,mdct_window)[512];
+static DECLARE_ALIGNED(16, float,mdct_window)[512];
 static VLC              spectral_coeff_tab[7];
 static float            gain_tab1[16];
 static float            gain_tab2[31];
@@ -1015,7 +1016,7 @@ static av_cold int atrac3_decode_init(AVCodecContext *avctx)
 AVCodec atrac3_decoder =
 {
     .name = "atrac3",
-    .type = CODEC_TYPE_AUDIO,
+    .type = AVMEDIA_TYPE_AUDIO,
     .id = CODEC_ID_ATRAC3,
     .priv_data_size = sizeof(ATRAC3Context),
     .init = atrac3_decode_init,

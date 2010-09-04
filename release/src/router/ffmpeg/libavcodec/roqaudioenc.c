@@ -21,6 +21,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "libavutil/intmath.h"
 #include "avcodec.h"
 #include "bytestream.h"
 
@@ -154,7 +155,7 @@ static av_cold int roq_dpcm_encode_close(AVCodecContext *avctx)
 
 AVCodec roq_dpcm_encoder = {
     "roq_dpcm",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_ROQ_DPCM,
     sizeof(ROQDPCMContext),
     roq_dpcm_encode_init,

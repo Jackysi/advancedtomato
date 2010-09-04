@@ -19,7 +19,7 @@
  */
 
 /**
- * @file libavfilter/vf_slicify.c
+ * @file
  * video slicing filter
  */
 
@@ -29,6 +29,8 @@
 typedef struct {
     int h;          ///< output slice height
     int vshift;     ///< vertical chroma subsampling shift
+    uint32_t lcg_state; ///< LCG state used to compute random slice height
+    int use_random_h;   ///< enable the use of random slice height values
 } SliceContext;
 
 static av_cold int init(AVFilterContext *ctx, const char *args, void *opaque)
@@ -36,9 +38,13 @@ static av_cold int init(AVFilterContext *ctx, const char *args, void *opaque)
     SliceContext *slice = ctx->priv;
 
     slice->h = 16;
-    if (args)
-        sscanf(args, "%d", &slice->h);
-
+    if (args) {
+        if (!strcmp(args, "random")) {
+            slice->use_random_h = 1;
+        } else {
+            sscanf(args, "%d", &slice->h);
+        }
+    }
     return 0;
 }
 
@@ -48,29 +54,25 @@ static int config_props(AVFilterLink *link)
 
     slice->vshift = av_pix_fmt_descriptors[link->format].log2_chroma_h;
 
-    /* ensure that slices play nice with chroma subsampling, and enforce
-     * a reasonable minimum size for the slices */
-    slice->h = FFMAX(8, slice->h & (-1 << slice->vshift));
-
-    av_log(link->dst, AV_LOG_INFO, "h:%d\n", slice->h);
-
     return 0;
-}
-
-static AVFilterPicRef *get_video_buffer(AVFilterLink *link, int perms,
-                                        int w, int h)
-{
-    return avfilter_get_video_buffer(link->dst->outputs[0], perms, w, h);
 }
 
 static void start_frame(AVFilterLink *link, AVFilterPicRef *picref)
 {
-    avfilter_start_frame(link->dst->outputs[0], picref);
-}
+    SliceContext *slice = link->dst->priv;
 
-static void end_frame(AVFilterLink *link)
-{
-    avfilter_end_frame(link->dst->outputs[0]);
+    if (slice->use_random_h) {
+        slice->lcg_state = slice->lcg_state * 1664525 + 1013904223;
+        slice->h = 8 + (uint64_t)slice->lcg_state * 25 / UINT32_MAX;
+    }
+
+    /* ensure that slices play nice with chroma subsampling, and enforce
+     * a reasonable minimum size for the slices */
+    slice->h = FFMAX(8, slice->h & (-1 << slice->vshift));
+
+    av_log(link->dst, AV_LOG_DEBUG, "h:%d\n", slice->h);
+
+    avfilter_start_frame(link->dst->outputs[0], picref);
 }
 
 static void draw_slice(AVFilterLink *link, int y, int h, int slice_dir)
@@ -102,14 +104,14 @@ AVFilter avfilter_vf_slicify = {
     .priv_size = sizeof(SliceContext),
 
     .inputs    = (AVFilterPad[]) {{ .name             = "default",
-                                    .type             = CODEC_TYPE_VIDEO,
-                                    .get_video_buffer = get_video_buffer,
+                                    .type             = AVMEDIA_TYPE_VIDEO,
+                                    .get_video_buffer = avfilter_null_get_video_buffer,
                                     .start_frame      = start_frame,
                                     .draw_slice       = draw_slice,
                                     .config_props     = config_props,
-                                    .end_frame        = end_frame, },
+                                    .end_frame        = avfilter_null_end_frame, },
                                   { .name = NULL}},
     .outputs   = (AVFilterPad[]) {{ .name            = "default",
-                                    .type            = CODEC_TYPE_VIDEO, },
+                                    .type            = AVMEDIA_TYPE_VIDEO, },
                                   { .name = NULL}},
 };

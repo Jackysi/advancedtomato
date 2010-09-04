@@ -30,7 +30,7 @@ int mount_cifs_main(int argc, char *argv[])
 	int i, j;
 	int try;
 	int first;
-	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec;
+	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec, *custom;
 	int done[3];
 
 	if (argc == 2) {
@@ -48,6 +48,7 @@ int mount_cifs_main(int argc, char *argv[])
 					sprintf(s, "cifs%d", i);
 					strlcpy(s, nvram_safe_get(s), sizeof(s));
 					if ((vstrsep(s, "<", &on, &unc, &user, &pass, &dom, &exec, &servern, &sec) != 8) || (*on != '1')) continue;
+					custom = nvram_safe_get("cifs_opts");
 
 					done[i] = 0;
 
@@ -63,6 +64,7 @@ int mount_cifs_main(int argc, char *argv[])
 					if (*dom) j += sprintf(opt + j, "<dom=%s", dom);
 					if (*servern) j += sprintf(opt + j, "<servern=%s", servern);
 					if (*sec) j += sprintf(opt + j, "<sec=%s", sec);
+					if (*custom) j += sprintf(opt + j, "<%s", custom);
 
 					sprintf(mpath, "/cifs%d", i);
 					umount(mpath);

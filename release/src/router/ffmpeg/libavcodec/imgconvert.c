@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavcodec/imgconvert.c
+ * @file
  * misc image conversion routines
  */
 
@@ -33,6 +33,8 @@
 #include "avcodec.h"
 #include "dsputil.h"
 #include "colorspace.h"
+#include "internal.h"
+#include "imgconvert.h"
 #include "libavutil/pixdesc.h"
 
 #if HAVE_MMX
@@ -238,6 +240,18 @@ static const PixFmtInfo pix_fmt_info[PIX_FMT_NB] = {
         .pixel_type = FF_PIXEL_PACKED,
         .depth = 5,
     },
+    [PIX_FMT_RGB444BE] = {
+        .nb_channels = 3,
+        .color_type = FF_COLOR_RGB,
+        .pixel_type = FF_PIXEL_PACKED,
+        .depth = 4,
+    },
+    [PIX_FMT_RGB444LE] = {
+        .nb_channels = 3,
+        .color_type = FF_COLOR_RGB,
+        .pixel_type = FF_PIXEL_PACKED,
+        .depth = 4,
+    },
 
     /* gray / mono formats */
     [PIX_FMT_GRAY16BE] = {
@@ -313,6 +327,18 @@ static const PixFmtInfo pix_fmt_info[PIX_FMT_NB] = {
         .color_type = FF_COLOR_RGB,
         .pixel_type = FF_PIXEL_PACKED,
         .depth = 5,
+    },
+    [PIX_FMT_BGR444BE] = {
+        .nb_channels = 3,
+        .color_type = FF_COLOR_RGB,
+        .pixel_type = FF_PIXEL_PACKED,
+        .depth = 4,
+    },
+    [PIX_FMT_BGR444LE] = {
+        .nb_channels = 3,
+        .color_type = FF_COLOR_RGB,
+        .pixel_type = FF_PIXEL_PACKED,
+        .depth = 4,
     },
     [PIX_FMT_RGB8] = {
         .nb_channels = 1,
@@ -466,103 +492,36 @@ int ff_set_systematic_pal(uint32_t pal[256], enum PixelFormat pix_fmt){
 
 int ff_fill_linesize(AVPicture *picture, enum PixelFormat pix_fmt, int width)
 {
-    int w2;
+    int i;
     const AVPixFmtDescriptor *desc = &av_pix_fmt_descriptors[pix_fmt];
+    int max_plane_step     [4];
+    int max_plane_step_comp[4];
 
     memset(picture->linesize, 0, sizeof(picture->linesize));
 
-    switch(pix_fmt) {
-    case PIX_FMT_YUV420P:
-    case PIX_FMT_YUV422P:
-    case PIX_FMT_YUV444P:
-    case PIX_FMT_YUV410P:
-    case PIX_FMT_YUV411P:
-    case PIX_FMT_YUV440P:
-    case PIX_FMT_YUVJ420P:
-    case PIX_FMT_YUVJ422P:
-    case PIX_FMT_YUVJ444P:
-    case PIX_FMT_YUVJ440P:
-        w2 = (width + (1 << desc->log2_chroma_w) - 1) >> desc->log2_chroma_w;
-        picture->linesize[0] = width;
-        picture->linesize[1] = w2;
-        picture->linesize[2] = w2;
-        break;
-    case PIX_FMT_YUV420P16LE:
-    case PIX_FMT_YUV422P16LE:
-    case PIX_FMT_YUV444P16LE:
-    case PIX_FMT_YUV420P16BE:
-    case PIX_FMT_YUV422P16BE:
-    case PIX_FMT_YUV444P16BE:
-        w2 = (width + (1 << desc->log2_chroma_w) - 1) >> desc->log2_chroma_w;
-        picture->linesize[0] = 2*width;
-        picture->linesize[1] = 2*w2;
-        picture->linesize[2] = 2*w2;
-        break;
-    case PIX_FMT_YUVA420P:
-        w2 = (width + (1 << desc->log2_chroma_w) - 1) >> desc->log2_chroma_w;
-        picture->linesize[0] = width;
-        picture->linesize[1] = w2;
-        picture->linesize[2] = w2;
-        picture->linesize[3] = width;
-        break;
-    case PIX_FMT_NV12:
-    case PIX_FMT_NV21:
-        w2 = (width + (1 << desc->log2_chroma_w) - 1) >> desc->log2_chroma_w;
-        picture->linesize[0] = width;
-        picture->linesize[1] = 2 * w2;
-        break;
-    case PIX_FMT_RGB24:
-    case PIX_FMT_BGR24:
-        picture->linesize[0] = width * 3;
-        break;
-    case PIX_FMT_ARGB:
-    case PIX_FMT_ABGR:
-    case PIX_FMT_RGBA:
-    case PIX_FMT_BGRA:
-        picture->linesize[0] = width * 4;
-        break;
-    case PIX_FMT_RGB48BE:
-    case PIX_FMT_RGB48LE:
-        picture->linesize[0] = width * 6;
-        break;
-    case PIX_FMT_GRAY16BE:
-    case PIX_FMT_GRAY16LE:
-    case PIX_FMT_BGR555BE:
-    case PIX_FMT_BGR555LE:
-    case PIX_FMT_BGR565BE:
-    case PIX_FMT_BGR565LE:
-    case PIX_FMT_RGB555BE:
-    case PIX_FMT_RGB555LE:
-    case PIX_FMT_RGB565BE:
-    case PIX_FMT_RGB565LE:
-    case PIX_FMT_YUYV422:
-        picture->linesize[0] = width * 2;
-        break;
-    case PIX_FMT_UYVY422:
-        picture->linesize[0] = width * 2;
-        break;
-    case PIX_FMT_UYYVYY411:
-        picture->linesize[0] = width + width/2;
-        break;
-    case PIX_FMT_RGB4:
-    case PIX_FMT_BGR4:
-        picture->linesize[0] = width / 2;
-        break;
-    case PIX_FMT_MONOWHITE:
-    case PIX_FMT_MONOBLACK:
-        picture->linesize[0] = (width + 7) >> 3;
-        break;
-    case PIX_FMT_PAL8:
-    case PIX_FMT_RGB8:
-    case PIX_FMT_BGR8:
-    case PIX_FMT_RGB4_BYTE:
-    case PIX_FMT_BGR4_BYTE:
-    case PIX_FMT_GRAY8:
-        picture->linesize[0] = width;
-        break;
-    default:
+    if (desc->flags & PIX_FMT_HWACCEL)
         return -1;
+
+    if (desc->flags & PIX_FMT_BITSTREAM) {
+        picture->linesize[0] = (width * (desc->comp[0].step_minus1+1) + 7) >> 3;
+        return 0;
     }
+
+    memset(max_plane_step     , 0, sizeof(max_plane_step     ));
+    memset(max_plane_step_comp, 0, sizeof(max_plane_step_comp));
+    for (i = 0; i < 4; i++) {
+        const AVComponentDescriptor *comp = &(desc->comp[i]);
+        if ((comp->step_minus1+1) > max_plane_step[comp->plane]) {
+            max_plane_step     [comp->plane] = comp->step_minus1+1;
+            max_plane_step_comp[comp->plane] = i;
+        }
+    }
+
+    for (i = 0; i < 4; i++) {
+        int s = (max_plane_step_comp[i] == 1 || max_plane_step_comp[i] == 2) ? desc->log2_chroma_w : 0;
+        picture->linesize[i] = max_plane_step[i] * (((width + (1 << s) - 1)) >> s);
+    }
+
     return 0;
 }
 
@@ -624,10 +583,14 @@ int ff_fill_pointer(AVPicture *picture, uint8_t *ptr, enum PixelFormat pix_fmt,
     case PIX_FMT_RGB48LE:
     case PIX_FMT_GRAY16BE:
     case PIX_FMT_GRAY16LE:
+    case PIX_FMT_BGR444BE:
+    case PIX_FMT_BGR444LE:
     case PIX_FMT_BGR555BE:
     case PIX_FMT_BGR555LE:
     case PIX_FMT_BGR565BE:
     case PIX_FMT_BGR565LE:
+    case PIX_FMT_RGB444BE:
+    case PIX_FMT_RGB444LE:
     case PIX_FMT_RGB555BE:
     case PIX_FMT_RGB555LE:
     case PIX_FMT_RGB565BE:
@@ -639,6 +602,7 @@ int ff_fill_pointer(AVPicture *picture, uint8_t *ptr, enum PixelFormat pix_fmt,
     case PIX_FMT_BGR4:
     case PIX_FMT_MONOWHITE:
     case PIX_FMT_MONOBLACK:
+    case PIX_FMT_Y400A:
         picture->data[0] = ptr;
         picture->data[1] = NULL;
         picture->data[2] = NULL;
@@ -697,10 +661,14 @@ int avpicture_layout(const AVPicture* src, enum PixelFormat pix_fmt, int width, 
             pix_fmt == PIX_FMT_BGR565LE ||
             pix_fmt == PIX_FMT_BGR555BE ||
             pix_fmt == PIX_FMT_BGR555LE ||
+            pix_fmt == PIX_FMT_BGR444BE ||
+            pix_fmt == PIX_FMT_BGR444LE ||
             pix_fmt == PIX_FMT_RGB565BE ||
             pix_fmt == PIX_FMT_RGB565LE ||
             pix_fmt == PIX_FMT_RGB555BE ||
-            pix_fmt == PIX_FMT_RGB555LE)
+            pix_fmt == PIX_FMT_RGB555LE ||
+            pix_fmt == PIX_FMT_RGB444BE ||
+            pix_fmt == PIX_FMT_RGB444LE)
             w = width * 2;
         else if (pix_fmt == PIX_FMT_UYYVYY411)
             w = width + width/2;
@@ -722,8 +690,8 @@ int avpicture_layout(const AVPicture* src, enum PixelFormat pix_fmt, int width, 
 
     for (i=0; i<data_planes; i++) {
         if (i == 1) {
-            w = ((width >> desc->log2_chroma_w) * pf->depth + 7) / 8;
-            h = height >> desc->log2_chroma_h;
+            w = (- ((-width) >> desc->log2_chroma_w) * pf->depth + 7) / 8;
+            h = -((-height) >> desc->log2_chroma_h);
             if (pix_fmt == PIX_FMT_NV12 || pix_fmt == PIX_FMT_NV21)
                 w <<= 1;
         } else if (i == 3) {
@@ -775,8 +743,10 @@ int avcodec_get_pix_fmt_loss(enum PixelFormat dst_pix_fmt, enum PixelFormat src_
     loss = 0;
     pf = &pix_fmt_info[dst_pix_fmt];
     if (pf->depth < ps->depth ||
-        ((dst_pix_fmt == PIX_FMT_RGB555BE || dst_pix_fmt == PIX_FMT_RGB555LE) &&
-         (src_pix_fmt == PIX_FMT_RGB565BE || src_pix_fmt == PIX_FMT_RGB565LE)))
+        ((dst_pix_fmt == PIX_FMT_RGB555BE || dst_pix_fmt == PIX_FMT_RGB555LE ||
+          dst_pix_fmt == PIX_FMT_BGR555BE || dst_pix_fmt == PIX_FMT_BGR555LE) &&
+         (src_pix_fmt == PIX_FMT_RGB565BE || src_pix_fmt == PIX_FMT_RGB565LE ||
+          src_pix_fmt == PIX_FMT_BGR565BE || src_pix_fmt == PIX_FMT_BGR565LE)))
         loss |= FF_LOSS_DEPTH;
     if (dst_desc->log2_chroma_w > src_desc->log2_chroma_w ||
         dst_desc->log2_chroma_h > src_desc->log2_chroma_h)
@@ -834,10 +804,14 @@ static int avg_bits_per_pixel(enum PixelFormat pix_fmt)
         case PIX_FMT_RGB565LE:
         case PIX_FMT_RGB555BE:
         case PIX_FMT_RGB555LE:
+        case PIX_FMT_RGB444BE:
+        case PIX_FMT_RGB444LE:
         case PIX_FMT_BGR565BE:
         case PIX_FMT_BGR565LE:
         case PIX_FMT_BGR555BE:
         case PIX_FMT_BGR555LE:
+        case PIX_FMT_BGR444BE:
+        case PIX_FMT_BGR444LE:
             bits = 16;
             break;
         case PIX_FMT_UYYVYY411:
@@ -954,10 +928,14 @@ int ff_get_plane_bytewidth(enum PixelFormat pix_fmt, int width, int plane)
         case PIX_FMT_RGB565LE:
         case PIX_FMT_RGB555BE:
         case PIX_FMT_RGB555LE:
+        case PIX_FMT_RGB444BE:
+        case PIX_FMT_RGB444LE:
         case PIX_FMT_BGR565BE:
         case PIX_FMT_BGR565LE:
         case PIX_FMT_BGR555BE:
         case PIX_FMT_BGR555LE:
+        case PIX_FMT_BGR444BE:
+        case PIX_FMT_BGR444LE:
             bits = 16;
             break;
         case PIX_FMT_UYYVYY411:

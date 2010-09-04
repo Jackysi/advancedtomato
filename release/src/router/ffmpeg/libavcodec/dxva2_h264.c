@@ -220,11 +220,11 @@ static void fill_slice_long(AVCodecContext *avctx, DXVA_Slice_H264_Long *slice,
                 for (plane = 0; plane < 3; plane++) {
                     int w, o;
                     if (plane == 0 && h->luma_weight_flag[list]) {
-                        w = h->luma_weight[list][i];
-                        o = h->luma_offset[list][i];
+                        w = h->luma_weight[i][list][0];
+                        o = h->luma_weight[i][list][1];
                     } else if (plane >= 1 && h->chroma_weight_flag[list]) {
-                        w = h->chroma_weight[list][i][plane-1];
-                        o = h->chroma_offset[list][i][plane-1];
+                        w = h->chroma_weight[i][list][plane-1][0];
+                        o = h->chroma_weight[i][list][plane-1][1];
                     } else {
                         w = 1 << (plane == 0 ? h->luma_log2_weight_denom :
                                                h->chroma_log2_weight_denom);
@@ -425,7 +425,7 @@ static int end_frame(AVCodecContext *avctx)
 
 AVHWAccel h264_dxva2_hwaccel = {
     .name           = "h264_dxva2",
-    .type           = CODEC_TYPE_VIDEO,
+    .type           = AVMEDIA_TYPE_VIDEO,
     .id             = CODEC_ID_H264,
     .pix_fmt        = PIX_FMT_DXVA2_VLD,
     .capabilities   = 0,

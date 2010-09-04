@@ -21,7 +21,7 @@
  */
 
 /**
- * @file libavcodec/aac.h
+ * @file
  * AAC definitions and structures
  * @author Oded Shimon  ( ods15 ods15 dyndns org )
  * @author Maxim Gavrilov ( maxim.gavrilov gmail com )
@@ -32,7 +32,9 @@
 
 #include "avcodec.h"
 #include "dsputil.h"
+#include "fft.h"
 #include "mpeg4audio.h"
+#include "sbr.h"
 
 #include <stdint.h>
 
@@ -214,9 +216,9 @@ typedef struct {
     float sf[120];                            ///< scalefactors
     int sf_idx[128];                          ///< scalefactor indices (used by encoder)
     uint8_t zeroes[128];                      ///< band is not coded (used by encoder)
-    DECLARE_ALIGNED_16(float, coeffs)[1024];  ///< coefficients for IMDCT
-    DECLARE_ALIGNED_16(float, saved)[1024];   ///< overlap
-    DECLARE_ALIGNED_16(float, ret)[1024];     ///< PCM output
+    DECLARE_ALIGNED(16, float, coeffs)[1024]; ///< coefficients for IMDCT
+    DECLARE_ALIGNED(16, float, saved)[1024];  ///< overlap
+    DECLARE_ALIGNED(16, float, ret)[2048];    ///< PCM output
     PredictorState predictor_state[MAX_PREDICTORS];
 } SingleChannelElement;
 
@@ -232,6 +234,7 @@ typedef struct {
     SingleChannelElement ch[2];
     // CCE specific
     ChannelCoupling coup;
+    SpectralBandReplication sbr;
 } ChannelElement;
 
 /**
@@ -261,7 +264,7 @@ typedef struct {
      * @defgroup temporary aligned temporary buffers (We do not want to have these on the stack.)
      * @{
      */
-    DECLARE_ALIGNED_16(float, buf_mdct)[1024];
+    DECLARE_ALIGNED(16, float, buf_mdct)[1024];
     /** @} */
 
     /**

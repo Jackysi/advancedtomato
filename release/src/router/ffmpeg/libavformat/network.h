@@ -27,8 +27,8 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#define ff_neterrno() WSAGetLastError()
-#define FF_NETERROR(err) WSA##err
+#define ff_neterrno() (-WSAGetLastError())
+#define FF_NETERROR(err) (-WSA##err)
 #define WSAEAGAIN WSAEWOULDBLOCK
 #else
 #include <sys/types.h>
@@ -36,8 +36,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define ff_neterrno() errno
-#define FF_NETERROR(err) err
+#define ff_neterrno() AVERROR(errno)
+#define FF_NETERROR(err) AVERROR(err)
 #endif
 
 #if HAVE_ARPA_INET_H
@@ -63,10 +63,7 @@ static inline void ff_network_close(void)
 #endif
 }
 
-#if !HAVE_INET_ATON
-/* in os_support.c */
-int inet_aton (const char * str, struct in_addr * add);
-#endif
+int ff_inet_aton (const char * str, struct in_addr * add);
 
 #if !HAVE_STRUCT_SOCKADDR_STORAGE
 struct sockaddr_storage {

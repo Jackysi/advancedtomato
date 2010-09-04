@@ -66,13 +66,8 @@ function _mountHost(host)
 
 function _forceRefresh()
 {
-	var e;
-	if ((e = E('refresh-button')) != null) {
-		if (e.value == 'Refresh' && (!e.disabled)) {
-			ref.once = 1;
-			ref.toggle();
-		}
-	}
+	if (!ref.running) ref.once = 1;
+	ref.start();
 }
 
 function umountHost(a, host)

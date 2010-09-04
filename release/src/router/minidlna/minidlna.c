@@ -718,6 +718,7 @@ main(int argc, char * * argv)
 	unlink("/ramfs/.upnp-av_scan");
 #else
 	DPRINTF(E_WARN, L_GENERAL, "Starting MiniDLNA version " MINIDLNA_VERSION " [SQLite %s].\n", sqlite3_libversion());
+	unlink("/var/notice/dlna");
 	if( !sqlite3_threadsafe() )
 	{
 		DPRINTF(E_ERROR, L_GENERAL, "SQLite library is not threadsafe!  "

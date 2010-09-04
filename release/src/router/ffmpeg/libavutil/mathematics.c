@@ -19,13 +19,13 @@
  */
 
 /**
- * @file libavutil/mathematics.c
+ * @file
  * miscellaneous math routines and tables
  */
 
 #include <assert.h>
-#include "avutil.h"
-#include "common.h"
+#include <stdint.h>
+#include <limits.h>
 #include "mathematics.h"
 
 const uint8_t ff_sqrt_tab[256]={

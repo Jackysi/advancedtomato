@@ -152,7 +152,7 @@ static void build_frame_code(AVFormatContext *s){
         int start2= start + (end-start)*stream_id / s->nb_streams;
         int end2  = start + (end-start)*(stream_id+1) / s->nb_streams;
         AVCodecContext *codec = s->streams[stream_id]->codec;
-        int is_audio= codec->codec_type == CODEC_TYPE_AUDIO;
+        int is_audio= codec->codec_type == AVMEDIA_TYPE_AUDIO;
         int intra_only= /*codec->intra_only || */is_audio;
         int pred_count;
 
@@ -394,9 +394,9 @@ static int write_streamheader(NUTContext *nut, ByteIOContext *bc, AVStream *st, 
     AVCodecContext *codec = st->codec;
     put_v(bc, i);
     switch(codec->codec_type){
-    case CODEC_TYPE_VIDEO: put_v(bc, 0); break;
-    case CODEC_TYPE_AUDIO: put_v(bc, 1); break;
-    case CODEC_TYPE_SUBTITLE: put_v(bc, 2); break;
+    case AVMEDIA_TYPE_VIDEO: put_v(bc, 0); break;
+    case AVMEDIA_TYPE_AUDIO: put_v(bc, 1); break;
+    case AVMEDIA_TYPE_SUBTITLE: put_v(bc, 2); break;
     default              : put_v(bc, 3); break;
     }
     put_v(bc, 4);
@@ -415,12 +415,12 @@ static int write_streamheader(NUTContext *nut, ByteIOContext *bc, AVStream *st, 
     put_buffer(bc, codec->extradata, codec->extradata_size);
 
     switch(codec->codec_type){
-    case CODEC_TYPE_AUDIO:
+    case AVMEDIA_TYPE_AUDIO:
         put_v(bc, codec->sample_rate);
         put_v(bc, 1);
         put_v(bc, codec->channels);
         break;
-    case CODEC_TYPE_VIDEO:
+    case AVMEDIA_TYPE_VIDEO:
         put_v(bc, codec->width);
         put_v(bc, codec->height);
 
@@ -603,7 +603,7 @@ static int write_header(AVFormatContext *s){
 static int get_needed_flags(NUTContext *nut, StreamContext *nus, FrameCode *fc, AVPacket *pkt){
     int flags= 0;
 
-    if(pkt->flags & PKT_FLAG_KEY                ) flags |= FLAG_KEY;
+    if(pkt->flags & AV_PKT_FLAG_KEY             ) flags |= FLAG_KEY;
     if(pkt->stream_index != fc->stream_id       ) flags |= FLAG_STREAM_ID;
     if(pkt->size / fc->size_mul                 ) flags |= FLAG_SIZE_MSB;
     if(pkt->pts - nus->last_pts != fc->pts_delta) flags |= FLAG_CODED_PTS;
@@ -644,7 +644,7 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt){
     FrameCode *fc;
     int64_t coded_pts;
     int best_length, frame_code, flags, needed_flags, i, header_idx, best_header_idx;
-    int key_frame = !!(pkt->flags & PKT_FLAG_KEY);
+    int key_frame = !!(pkt->flags & AV_PKT_FLAG_KEY);
     int store_sp=0;
     int ret;
 
@@ -677,7 +677,8 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt){
         }
         if(dummy.pos == INT64_MAX)
             dummy.pos= 0;
-        sp= av_tree_find(nut->syncpoints, &dummy, ff_nut_sp_pos_cmp, NULL);
+        sp= av_tree_find(nut->syncpoints, &dummy, (void *) ff_nut_sp_pos_cmp,
+                         NULL);
 
         nut->last_syncpoint_pos= url_ftell(bc);
         ret = url_open_dyn_buf(&dyn_bc);
@@ -797,6 +798,9 @@ static int write_trailer(AVFormatContext *s){
     while(nut->header_count<3)
         write_headers(nut, bc);
     put_flush_packet(bc);
+    ff_nut_free_sp(nut);
+    av_freep(&nut->stream);
+    av_freep(&nut->time_base);
 
     return 0;
 }

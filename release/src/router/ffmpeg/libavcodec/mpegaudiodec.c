@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavcodec/mpegaudiodec.c
+ * @file
  * MPEG Audio decoder.
  */
 
@@ -95,13 +95,13 @@ static const int32_t scale_factor_mult2[3][3] = {
     SCALE_GEN(4.0 / 9.0), /* 9 steps */
 };
 
-DECLARE_ALIGNED_16(MPA_INT, ff_mpa_synth_window)[512];
+DECLARE_ALIGNED(16, MPA_INT, ff_mpa_synth_window)[512];
 
 /**
  * Convert region offsets to region sizes and truncate
  * size to big_values.
  */
-void ff_region_offset2size(GranuleDef *g){
+static void ff_region_offset2size(GranuleDef *g){
     int i, k, j=0;
     g->region_size[2] = (576 / 2);
     for(i=0;i<3;i++) {
@@ -111,7 +111,7 @@ void ff_region_offset2size(GranuleDef *g){
     }
 }
 
-void ff_init_short_region(MPADecodeContext *s, GranuleDef *g){
+static void ff_init_short_region(MPADecodeContext *s, GranuleDef *g){
     if (g->block_type == 2)
         g->region_size[0] = (36 / 2);
     else {
@@ -125,7 +125,7 @@ void ff_init_short_region(MPADecodeContext *s, GranuleDef *g){
     g->region_size[1] = (576 / 2);
 }
 
-void ff_init_long_region(MPADecodeContext *s, GranuleDef *g, int ra1, int ra2){
+static void ff_init_long_region(MPADecodeContext *s, GranuleDef *g, int ra1, int ra2){
     int l;
     g->region_size[0] =
         band_index_long[s->sample_rate_index][ra1 + 1] >> 1;
@@ -135,7 +135,7 @@ void ff_init_long_region(MPADecodeContext *s, GranuleDef *g, int ra1, int ra2){
         band_index_long[s->sample_rate_index][l] >> 1;
 }
 
-void ff_compute_band_indexes(MPADecodeContext *s, GranuleDef *g){
+static void ff_compute_band_indexes(MPADecodeContext *s, GranuleDef *g){
     if (g->block_type == 2) {
         if (g->switch_point) {
             /* if switched mode, we handle the 36 first samples as
@@ -1315,23 +1315,32 @@ static int mp_decode_layer2(MPADecodeContext *s)
     return 3 * 12;
 }
 
-static inline void lsf_sf_expand(int *slen,
+#define SPLIT(dst,sf,n)\
+    if(n==3){\
+        int m= (sf*171)>>9;\
+        dst= sf - 3*m;\
+        sf=m;\
+    }else if(n==4){\
+        dst= sf&3;\
+        sf>>=2;\
+    }else if(n==5){\
+        int m= (sf*205)>>10;\
+        dst= sf - 5*m;\
+        sf=m;\
+    }else if(n==6){\
+        int m= (sf*171)>>10;\
+        dst= sf - 6*m;\
+        sf=m;\
+    }else{\
+        dst=0;\
+    }
+
+static av_always_inline void lsf_sf_expand(int *slen,
                                  int sf, int n1, int n2, int n3)
 {
-    if (n3) {
-        slen[3] = sf % n3;
-        sf /= n3;
-    } else {
-        slen[3] = 0;
-    }
-    if (n2) {
-        slen[2] = sf % n2;
-        sf /= n2;
-    } else {
-        slen[2] = 0;
-    }
-    slen[1] = sf % n1;
-    sf /= n1;
+    SPLIT(slen[3], sf, n3)
+    SPLIT(slen[2], sf, n2)
+    SPLIT(slen[1], sf, n1)
     slen[0] = sf;
 }
 
@@ -2485,7 +2494,7 @@ static int decode_frame_mp3on4(AVCodecContext * avctx,
 AVCodec mp1_decoder =
 {
     "mp1",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_MP1,
     sizeof(MPADecodeContext),
     decode_init,
@@ -2501,7 +2510,7 @@ AVCodec mp1_decoder =
 AVCodec mp2_decoder =
 {
     "mp2",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_MP2,
     sizeof(MPADecodeContext),
     decode_init,
@@ -2517,7 +2526,7 @@ AVCodec mp2_decoder =
 AVCodec mp3_decoder =
 {
     "mp3",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_MP3,
     sizeof(MPADecodeContext),
     decode_init,
@@ -2533,7 +2542,7 @@ AVCodec mp3_decoder =
 AVCodec mp3adu_decoder =
 {
     "mp3adu",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_MP3ADU,
     sizeof(MPADecodeContext),
     decode_init,
@@ -2549,7 +2558,7 @@ AVCodec mp3adu_decoder =
 AVCodec mp3on4_decoder =
 {
     "mp3on4",
-    CODEC_TYPE_AUDIO,
+    AVMEDIA_TYPE_AUDIO,
     CODEC_ID_MP3ON4,
     sizeof(MP3On4DecodeContext),
     decode_init_mp3on4,

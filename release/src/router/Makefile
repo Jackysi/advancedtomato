@@ -102,6 +102,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += libexif
 obj-$(TCONFIG_MEDIA_SERVER) += libid3tag
 obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
 obj-$(TCONFIG_MEDIA_SERVER) += minidlna
+MEDIA_SERVER_STATIC=y
 
 obj-y += miniupnpd
 #	obj-y += upnp
@@ -939,32 +940,62 @@ sqlite-clean:
 	-@$(MAKE) -C sqlite clean
 	@rm -f sqlite/stamp-h1
 
-sqlite-install:
+sqlite-install: sqlite
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D sqlite/.libs/libsqlite3.so.0 $(INSTALLDIR)/sqlite/usr/lib/libsqlite3.so.0
+	$(STRIP) $(INSTALLDIR)/sqlite/usr/lib/libsqlite3.so.0
+endif
 
-ffmpeg/stamp-h1:
-	cd ffmpeg && \
-	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" \
-		./configure --enable-cross-compile --arch=mips --target_os=linux --cross-prefix=$(CROSS_COMPILE) \
-		--enable-shared --enable-static --enable-gpl --disable-doc \
+FFMPEG_FILTER_CONFIG= $(foreach c, $(2), --enable-$(1)="$(c)")
+
+FFMPEG_DECODERS:=aac ac3 atrac3 h264 jpegls mp3 mpeg1video mpeg2video mpeg4 mpeg4aac mpegvideo png wmav1 wmav2
+FFMPEG_CONFIGURE_DECODERS:=$(call FFMPEG_FILTER_CONFIG,decoder,$(FFMPEG_DECODERS))
+
+FFMPEG_PARSERS:=aac ac3 h264 mpeg4video mpegaudio mpegvideo
+FFMPEG_CONFIGURE_PARSERS:=$(call FFMPEG_FILTER_CONFIG,parser,$(FFMPEG_PARSERS))
+
+FFMPEG_PROTOCOLS:=file
+FFMPEG_CONFIGURE_PROTOCOLS:=$(call FFMPEG_FILTER_CONFIG,protocol,$(FFMPEG_PROTOCOLS))
+
+ffmpeg/stamp-h1: zlib
+	cd ffmpeg && symver_asm_label=no symver_gnu_asm=no symver=no CC=$(CC) \
+		./configure --enable-cross-compile --arch=mips --target_os=linux \
+		--cross-prefix=$(CROSS_COMPILE) --enable-shared --enable-gpl --disable-doc \
 		--enable-pthreads --enable-small --disable-encoders --disable-filters \
 		--disable-muxers --disable-devices --disable-ffmpeg --disable-ffplay \
-		--disable-ffserver --disable-debug --prefix=''
+		--disable-ffserver --disable-ffprobe --disable-avdevice --disable-swscale \
+		--disable-hwaccels --disable-network --disable-bsfs \
+		--enable-demuxers \
+		--disable-decoders $(FFMPEG_CONFIGURE_DECODERS) \
+		--disable-parsers $(FFMPEG_CONFIGURE_PARSERS) \
+		--disable-protocols $(FFMPEG_CONFIGURE_PROTOCOLS) \
+		--extra-cflags="-Os $(EXTRACFLAGS) -fPIC -I$(TOP)/zlib" \
+		--extra-libs="-L$(TOP)/zlib -lz" \
+		--enable-zlib --disable-debug --prefix=''
 	touch ffmpeg/stamp-h1
 
-ffmpeg: ffmpeg/stamp-h1
+ffmpeg: ffmpeg/stamp-h1 zlib
 	@$(MAKE) -C ffmpeg all
 
 ffmpeg-clean:
 	-@$(MAKE) -C ffmpeg clean
-	@rm -f lffmpeg/stamp-h1
+	@rm -f ffmpeg/stamp-h1 ffmpeg/config.h ffmpeg/config.mak
 
-ffmpeg-install:
+ffmpeg-install: ffmpeg
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D ffmpeg/libavformat/libavformat.so.52 $(INSTALLDIR)/ffmpeg/usr/lib/libavformat.so.52
+	install -D ffmpeg/libavcodec/libavcodec.so.52 $(INSTALLDIR)/ffmpeg/usr/lib/libavcodec.so.52
+	install -D ffmpeg/libavutil/libavutil.so.50 $(INSTALLDIR)/ffmpeg/usr/lib/libavutil.so.50
+	$(STRIP) $(INSTALLDIR)/ffmpeg/usr/lib/libavformat.so.52
+	$(STRIP) $(INSTALLDIR)/ffmpeg/usr/lib/libavcodec.so.52
+	$(STRIP) $(INSTALLDIR)/ffmpeg/usr/lib/libavutil.so.50
+endif
 
 libogg/stamp-h1:
 	cd libogg && \
-	CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" $(CONFIGURE) --enable-shared --enable-static --prefix=''
 	touch libogg/stamp-h1
 
 libogg: libogg/stamp-h1
@@ -974,47 +1005,59 @@ libogg-clean:
 	-@$(MAKE) -C libogg clean
 	@rm -f libogg/stamp-h1
 
-libogg-install:
+libogg-install: libogg
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libogg/src/.libs/libogg.so.0 $(INSTALLDIR)/libogg/usr/lib/libogg.so.0
+	$(STRIP) $(INSTALLDIR)/libogg/usr/lib/libogg.so.0
+endif
 
 flac/stamp-h1: libogg
 	cd flac && \
-	CFLAGS="-Os $(EXTRACFLAGS)" \
-	CPPFLAGS="-I../../../libogg/include" LDFLAGS="-L../../../libogg/src/.libs" \
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" \
+	CPPFLAGS="-I$(TOP)/libogg/include" LDFLAGS="-L$(TOP)/libogg/src/.libs" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-rpath \
-		--disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs
+		--disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs \
+		--without-libiconv-prefix --disable-altivec --disable-3dnow --disable-sse
 	touch flac/stamp-h1
 
-flac: flac/stamp-h1
+flac: flac/stamp-h1 libogg
 	@$(MAKE) -C flac/src/libFLAC all
 
 flac-clean:
 	-@$(MAKE) -C flac clean
 	@rm -f flac/stamp-h1
 
-flac-install:
+flac-install: flac
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D flac/src/libFLAC/.libs/libFLAC.so.8 $(INSTALLDIR)/flac/usr/lib/libFLAC.so.8
+	$(STRIP) $(INSTALLDIR)/flac/usr/lib/libFLAC.so.8
+endif
 
 jpeg/stamp-h1:
 	cd jpeg && \
-	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" AR2="touch" $(CONFIGURE) --enable-shared --enable-static --prefix=''
 	touch jpeg/stamp-h1
 
 jpeg: jpeg/stamp-h1
-	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) libjpeg.a libjpeg.so
+	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) AR2="touch" libjpeg.a libjpeg.so
 
 jpeg-clean:
 	-@$(MAKE) -C jpeg clean
-	@rm -f jpeg/stamp-h1
-	@rm -f jpeg/Makefile
+	@rm -f jpeg/stamp-h1 jpeg/Makefile
 
-jpeg-install:
+jpeg-install: jpeg
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D jpeg/libjpeg.so $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
+	$(STRIP) $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
+endif
 
 libexif/stamp-h1:
-	cd libexif && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	cd libexif && CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
-		--disable-docs --disable-rpath --without-libiconv-prefix --without-libintl-prefix
+		--disable-docs --disable-rpath --disable-nls --without-libiconv-prefix --without-libintl-prefix
 	touch libexif/stamp-h1
 
 libexif: libexif/stamp-h1
@@ -1024,30 +1067,39 @@ libexif-clean:
 	-@$(MAKE) -C libexif clean
 	@rm -f libexif/stamp-h1
 
-libexif-install:
+libexif-install: libexif
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libexif/libexif/.libs/libexif.so.12 $(INSTALLDIR)/libexif/usr/lib/libexif.so.12
+	$(STRIP) $(INSTALLDIR)/libexif/usr/lib/libexif.so.12
+endif
 
 zlib/stamp-h1:
 	cd zlib && \
-	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
+	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	./configure --shared --prefix=''
 	touch zlib/stamp-h1
 
 zlib: zlib/stamp-h1
-	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" all libz.a
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) all
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
-	@rm -f zlib/stamp-h1
-	@rm -f zlib/Makefile
+	@rm -f zlib/stamp-h1 zlib/Makefile zlib/zconf.h zlib/zlib.pc
 
-zlib-install:
+zlib-install: zlib
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -d $(INSTALLDIR)/zlib/usr/lib
+	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
+	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
+endif
 
 libid3tag/stamp-h1: zlib
 	cd libid3tag && \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" CPPFLAGS="-I../zlib" LDFLAGS="-L../zlib" \
-	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-debugging --disable-profiling
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" CPPFLAGS="-I$(TOP)/zlib" LDFLAGS="-L$(TOP)/zlib" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
+		--disable-debugging --disable-profiling
 	touch libid3tag/stamp-h1
 
 libid3tag: libid3tag/stamp-h1 zlib
@@ -1057,15 +1109,20 @@ libid3tag-clean:
 	-@$(MAKE) -C libid3tag clean
 	@rm -f libid3tag/stamp-h1
 
-libid3tag-install:
+libid3tag-install: libid3tag
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libid3tag/.libs/libid3tag.so.0 $(INSTALLDIR)/libid3tag/usr/lib/libid3tag.so.0
+	$(STRIP) $(INSTALLDIR)/libid3tag/usr/lib/libid3tag.so.0
+endif
 
 libvorbis/stamp-h1: libogg
 	cd libvorbis && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
-	CPPFLAGS="-I../../libogg/include" LDFLAGS="-L../../libogg/src/.libs" \
+	CPPFLAGS="-I$(TOP)/libogg/include" LDFLAGS="-L$(TOP)/libogg/src/.libs" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-oggtest \
-		--with-ogg-includes="../libogg/include" --with-ogg-libraries="../libogg/src/.libs"
+		--with-ogg-includes="$(TOP)/libogg/include" \
+		--with-ogg-libraries="$(TOP)/libogg/src/.libs"
 	touch libvorbis/stamp-h1
 
 libvorbis: libvorbis/stamp-h1
@@ -1075,12 +1132,16 @@ libvorbis-clean:
 	-@$(MAKE) -C libvorbis clean
 	@rm -f libvorbis/stamp-h1
 
-libvorbis-install:
+libvorbis-install: libvorbis
 	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libvorbis/lib/.libs/libvorbis.so.0 $(INSTALLDIR)/libvorbis/usr/lib/libvorbis.so.0
+	$(STRIP) $(INSTALLDIR)/libvorbis/usr/lib/libvorbis.so.0
+endif
 
 minidlna: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis
 	@$(SEP)
-	@$(MAKE) -C minidlna CC=$(CC) minidlna
+	@$(MAKE) -C minidlna CC=$(CC) $(if $(MEDIA_SERVER_STATIC),STATIC=1,) minidlna
 
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in

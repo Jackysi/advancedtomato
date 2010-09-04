@@ -20,7 +20,7 @@
  */
 
 /**
- * @file libavcodec/rawdec.c
+ * @file
  * Raw Video Decoder
  */
 
@@ -152,6 +152,8 @@ static int raw_decode(AVCodecContext *avctx,
         memcpy(frame->data[1], avctx->palctrl->palette, AVPALETTE_SIZE);
         avctx->palctrl->palette_changed = 0;
     }
+    if(avctx->pix_fmt==PIX_FMT_BGR24 && ((frame->linesize[0]+3)&~3)*avctx->height <= buf_size)
+        frame->linesize[0] = (frame->linesize[0]+3)&~3;
 
     if(context->flip)
         flip(avctx, picture);
@@ -185,7 +187,7 @@ static av_cold int raw_close_decoder(AVCodecContext *avctx)
 
 AVCodec rawvideo_decoder = {
     "rawvideo",
-    CODEC_TYPE_VIDEO,
+    AVMEDIA_TYPE_VIDEO,
     CODEC_ID_RAWVIDEO,
     sizeof(RawVideoContext),
     raw_init_decoder,

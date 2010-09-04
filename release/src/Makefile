@@ -214,7 +214,7 @@ define RouterOptions
 		echo "TCONFIG_JFFSV1=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
-		sed -i "/TCONFIG_USB/d" $(1); \
+		sed -i "/TCONFIG_USB is not set/d" $(1); \
 		echo "TCONFIG_USB=y" >>$(1); \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
 			sed -i "/TCONFIG_USB_EXTRAS/d" $(1); \
@@ -229,7 +229,7 @@ define RouterOptions
 			echo "TCONFIG_MEDIA_SERVER=y" >>$(1); \
 		fi; \
 	else \
-		sed -i "/TCONFIG_USB/d" $(1); \
+		sed -i "/TCONFIG_USB=y/d" $(1); \
 		echo "# TCONFIG_USB is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_SAMBA)" = "y" ]; then \
@@ -300,6 +300,12 @@ define BusyboxOptions
 		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
+		sed -i "/CONFIG_FTPPUT/d" $(1); \
+		echo "CONFIG_FTPPUT=y" >>$(1); \
+		sed -i "/CONFIG_CLEAR/d" $(1); \
+		echo "CONFIG_CLEAR=y" >>$(1); \
+		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
+		echo "CONFIG_SETCONSOLE=y" >>$(1); \
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 			sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
 			echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
@@ -390,6 +396,12 @@ define KernelConfig
 		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
+	fi; \
+	if [ "$(USB)" = "" ]; then \
+		sed -i "/CONFIG_MSDOS_PARTITION/d" $(1); \
+		echo "# CONFIG_MSDOS_PARTITION is not set" >>$(1); \
+		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
+		echo "# CONFIG_EFI_PARTITION is not set" >>$(1); \
 	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
@@ -509,7 +521,7 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y JFFSv1=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y NO_JFFS=y B=S BUILD_DESC="Std" USB=""
 else
 	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif
