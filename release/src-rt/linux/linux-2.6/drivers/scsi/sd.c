@@ -1080,23 +1080,19 @@ sd_spinup_disk(struct scsi_disk *sdkp)
 		/*
 		 * The device does not want the automatic start to be issued.
 		 */
-		if (sdkp->device->no_start_on_add) {
+		if (sdkp->device->no_start_on_add)
 			break;
-		}
 
-		/*
-		 * If manual intervention is required, or this is an
-		 * absent USB storage device, a spinup is meaningless.
-		 */
-		if (sense_valid &&
-		    sshdr.sense_key == NOT_READY &&
-		    sshdr.asc == 4 && sshdr.ascq == 3) {
-			break;		/* manual intervention required */
-
-		/*
-		 * Issue command to spin up drive when not ready
-		 */
-		} else if (sense_valid && sshdr.sense_key == NOT_READY) {
+		if (sense_valid && sshdr.sense_key == NOT_READY) {
+			if (sshdr.asc == 4 && sshdr.ascq == 3)
+				break;	/* manual intervention required */
+			if (sshdr.asc == 4 && sshdr.ascq == 0xb)
+				break;	/* standby */
+			if (sshdr.asc == 4 && sshdr.ascq == 0xc)
+				break;	/* unavailable */
+			/*
+			 * Issue command to spin up drive when not ready
+			 */
 			if (!spintime) {
 				sd_printk(KERN_NOTICE, sdkp, "Spinning up disk...");
 				cmd[0] = START_STOP;
@@ -1160,6 +1156,7 @@ sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer)
 	struct scsi_sense_hdr sshdr;
 	int sense_valid = 0;
 	struct scsi_device *sdp = sdkp->device;
+	sector_t old_capacity = sdkp->capacity;
 
 repeat:
 	retries = 3;
@@ -1254,18 +1251,22 @@ repeat:
 			(buffer[9] << 16) | (buffer[10] << 8) | buffer[11];
 	}	
 
-	/* Some devices return the total number of sectors, not the
-	 * highest sector number.  Make the necessary adjustment. */
-	if (sdp->fix_capacity) {
+	/* Some devices are known to return the total number of blocks,
+	 * not the highest block number.  Some devices have versions
+	 * which do this and others which do not.  Some devices we might
+	 * suspect of doing this but we don't know for certain.
+	 *
+	 * If we know the reported capacity is wrong, decrement it.  If
+	 * we can only guess, then assume the number of blocks is even
+	 * (usually true but not always) and err on the side of lowering
+	 * the capacity.
+	 */
+	if (sdp->fix_capacity ||
+	    (sdp->guess_capacity && (sdkp->capacity & 0x01))) {
+		sd_printk(KERN_INFO, sdkp, "Adjusting the sector count "
+				"from its reported value: %llu\n",
+				(unsigned long long) sdkp->capacity);
 		--sdkp->capacity;
-
-	/* Some devices have version which report the correct sizes
-	 * and others which do not. We guess size according to a heuristic
-	 * and err on the side of lowering the capacity. */
-	} else {
-		if (sdp->guess_capacity)
-			if (sdkp->capacity & 0x01) /* odd sizes are odd */
-				--sdkp->capacity;
 	}
 
 got_data:
@@ -1314,10 +1315,11 @@ got_data:
 		mb -= sz - 974;
 		sector_div(mb, 1950);
 
-		sd_printk(KERN_NOTICE, sdkp,
-			  "%llu %d-byte hardware sectors (%llu MB)\n",
-			  (unsigned long long)sdkp->capacity,
-			  hard_sector, (unsigned long long)mb);
+		if (sdkp->first_scan || old_capacity != sdkp->capacity)
+			sd_printk(KERN_NOTICE, sdkp,
+				  "%llu %d-byte hardware sectors (%llu MB)\n",
+				  (unsigned long long)sdkp->capacity,
+				  hard_sector, (unsigned long long)mb);
 	}
 
 	/* Rescale capacity to 512-byte units */
@@ -1354,6 +1356,7 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 	int res;
 	struct scsi_device *sdp = sdkp->device;
 	struct scsi_mode_data data;
+	int old_wp = sdkp->write_prot;
 
 	set_disk_ro(sdkp->disk, 0);
 	if (sdp->skip_ms_page_3f) {
@@ -1394,11 +1397,13 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 	} else {
 		sdkp->write_prot = ((data.device_specific & 0x80) != 0);
 		set_disk_ro(sdkp->disk, sdkp->write_prot);
-		sd_printk(KERN_NOTICE, sdkp, "Write Protect is %s\n",
-			  sdkp->write_prot ? "on" : "off");
-		sd_printk(KERN_DEBUG, sdkp,
-			  "Mode Sense: %02x %02x %02x %02x\n",
-			  buffer[0], buffer[1], buffer[2], buffer[3]);
+		if (sdkp->first_scan || old_wp != sdkp->write_prot) {
+			sd_printk(KERN_NOTICE, sdkp, "Write Protect is %s\n",
+				  sdkp->write_prot ? "on" : "off");
+			sd_printk(KERN_DEBUG, sdkp,
+				  "Mode Sense: %02x %02x %02x %02x\n",
+				  buffer[0], buffer[1], buffer[2], buffer[3]);
+		}
 	}
 }
 
@@ -1411,6 +1416,9 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
 {
 	int len = 0, res;
 	struct scsi_device *sdp = sdkp->device;
+	int old_wce = sdkp->WCE;
+	int old_rcd = sdkp->RCD;
+	int old_dpofua = sdkp->DPOFUA;
 
 	int dbd;
 	int modepage;
@@ -1487,12 +1495,14 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
 			sdkp->DPOFUA = 0;
 		}
 
-		sd_printk(KERN_NOTICE, sdkp,
-		       "Write cache: %s, read cache: %s, %s\n",
-		       sdkp->WCE ? "enabled" : "disabled",
-		       sdkp->RCD ? "disabled" : "enabled",
-		       sdkp->DPOFUA ? "supports DPO and FUA"
-		       : "doesn't support DPO or FUA");
+		if (sdkp->first_scan || old_wce != sdkp->WCE ||
+		    old_rcd != sdkp->RCD || old_dpofua != sdkp->DPOFUA)
+			sd_printk(KERN_NOTICE, sdkp,
+			       "Write cache: %s, read cache: %s, %s\n",
+			       sdkp->WCE ? "enabled" : "disabled",
+			       sdkp->RCD ? "disabled" : "enabled",
+			       sdkp->DPOFUA ? "supports DPO and FUA"
+			       : "doesn't support DPO or FUA");
 
 		return;
 	}
@@ -1535,20 +1545,12 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	if (!scsi_device_online(sdp))
 		goto out;
 
-	buffer = kmalloc(SD_BUF_SIZE, GFP_KERNEL | __GFP_DMA);
+	buffer = kmalloc(SD_BUF_SIZE, GFP_KERNEL);
 	if (!buffer) {
 		sd_printk(KERN_WARNING, sdkp, "sd_revalidate_disk: Memory "
 			  "allocation failure.\n");
 		goto out;
 	}
-
-	/* defaults, until the device tells us otherwise */
-	sdp->sector_size = 512;
-	sdkp->capacity = 0;
-	sdkp->media_present = 1;
-	sdkp->write_prot = 0;
-	sdkp->WCE = 0;
-	sdkp->RCD = 0;
 
 	sd_spinup_disk(sdkp);
 
@@ -1561,6 +1563,8 @@ static int sd_revalidate_disk(struct gendisk *disk)
 		sd_read_write_protect_flag(sdkp, buffer);
 		sd_read_cache_type(sdkp, buffer);
 	}
+
+	sdkp->first_scan = 0;
 
 	/*
 	 * We now have all cache related info, determine how we deal
@@ -1680,6 +1684,15 @@ static int sd_probe(struct device *dev)
 
 	gd->private_data = &sdkp->driver;
 	gd->queue = sdkp->device->request_queue;
+
+	/* defaults, until the device tells us otherwise */
+	sdp->sector_size = 512;
+	sdkp->capacity = 0;
+	sdkp->media_present = 1;
+	sdkp->write_prot = 0;
+	sdkp->WCE = 0;
+	sdkp->RCD = 0;
+	sdkp->first_scan = 1;
 
 	sd_revalidate_disk(gd);
 
