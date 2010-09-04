@@ -67,9 +67,10 @@ static inline int nf_conntrack_confirm(struct sk_buff **pskb)
 	int ret = NF_ACCEPT;
 
 	if (ct && ct != &nf_conntrack_untracked) {
-		if (!nf_ct_is_confirmed(ct) && !nf_ct_is_dying(ct))
+		if (!nf_ct_is_confirmed(ct))
 			ret = __nf_conntrack_confirm(pskb);
-		nf_ct_deliver_cached_events(ct);
+		if (likely(ret == NF_ACCEPT))
+			nf_ct_deliver_cached_events(ct);
 	}
 	return ret;
 }
