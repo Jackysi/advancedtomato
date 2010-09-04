@@ -521,7 +521,7 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y JFFSv1=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y NO_JFFS=y B=S BUILD_DESC="Std" USB=""
 else
 	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif
