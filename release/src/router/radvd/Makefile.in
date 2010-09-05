@@ -74,8 +74,11 @@ am__objects_1 = log.$(OBJEXT) socket.$(OBJEXT) recv.$(OBJEXT) \
 	util.$(OBJEXT)
 am_radvd_OBJECTS = $(am__objects_1) radvd.$(OBJEXT) timer.$(OBJEXT) \
 	send.$(OBJEXT) process.$(OBJEXT) interface.$(OBJEXT) \
-	device.$(OBJEXT) device-common.$(OBJEXT) privsep.$(OBJEXT) \
+	device.$(OBJEXT) device-common.$(OBJEXT) \
 	gram.$(OBJEXT) scanner.$(OBJEXT)
+ifeq ($(USE_PRIVSEP),y)
+am_radvd_OBJECTS += privsep.$(OBJEXT)
+endif
 radvd_OBJECTS = $(am_radvd_OBJECTS)
 radvd_DEPENDENCIES =
 am_radvdump_OBJECTS = $(am__objects_1) radvdump.$(OBJEXT)
@@ -220,7 +223,11 @@ COMMON_SRC = log.c socket.c recv.c util.c radvd.h defaults.h pathnames.h \
 	includes.h
 
 radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
-	device.c device-common.c privsep.c gram.y gram.h scanner.l
+	device.c device-common.c gram.y gram.h scanner.l
+
+ifeq ($(USE_PRIVSEP),y)
+radvd_SOURCES += privsep.c
+endif
 
 #radvd_LDADD = -lfl
 EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c privsep-linux.c privsep-bsd44.c
