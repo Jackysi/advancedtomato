@@ -306,3 +306,34 @@ resolve_unknown_type(const char * path, enum media_types dir_type)
 	return type;
 }
 
+void
+begin_scan()
+{
+	FILE * flag;
+
+#ifdef READYNAS
+	flag = fopen("/ramfs/.upnp-av_scan", "w");
+	if( flag )
+		fclose(flag);
+#else
+	mkdir("/var/notice", 0755);
+	flag = fopen("/var/notice/dlna", "w");
+	if( flag )
+	{
+		fprintf(flag, "Scan in progress");
+		fclose(flag);
+	}
+#endif
+}
+
+void
+end_scan()
+{
+#ifdef READYNAS
+	if( access("/ramfs/.rescan_done", F_OK) == 0 )
+		system("/bin/sh /ramfs/.rescan_done");
+	unlink("/ramfs/.upnp-av_scan");
+#else
+	unlink("/var/notice/dlna");
+#endif
+}
