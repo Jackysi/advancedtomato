@@ -1220,8 +1220,31 @@ nf_reset(struct sk_buff *skb)
 	skb->nf_debug = 0;
 #endif
 }
+
+/* Note: This doesn't put any conntrack and bridge info in dst. */
+static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src)
+{
+	dst->nfmark = src->nfmark;
+	dst->nfcache = src->nfcache;
+	dst->nfct = src->nfct;
+	nf_conntrack_get(src->nfct);
+#ifdef CONFIG_NETFILTER_DEBUG
+	dst->nf_debug = src->nf_debug;
+#endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	dst->imq_flags = src->imq_flags;
+	dst->nf_info = src->nf_info;
+#endif
+}
+
+static inline void nf_copy(struct sk_buff *dst, const struct sk_buff *src)
+{
+	nf_conntrack_put(dst->nfct);
+	__nf_copy(dst, src);
+}
 #else /* CONFIG_NETFILTER */
 static inline void nf_reset(struct sk_buff *skb) {}
+static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src) {}
 #endif /* CONFIG_NETFILTER */
 
 #endif	/* __KERNEL__ */
