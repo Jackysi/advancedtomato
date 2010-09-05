@@ -211,9 +211,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->data = data;
 	skb_reset_tail_pointer(skb);
 	skb->end = skb->tail + size;
-#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-	skb->nfcache = 0;
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
+	skb->mac_header = ~0U;
 #endif
+
 	/* make sure we initialize shinfo sequentially */
 	shinfo = skb_shinfo(skb);
 	memset(shinfo, 0, offsetof(struct skb_shared_info, frags));
@@ -222,6 +223,9 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
 	skb->imq_flags = 0;
 	skb->nf_info = NULL;
+#endif
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	skb->nfcache = 0;
 #endif
 
 	if (fclone) {
@@ -414,8 +418,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->sp			= secpath_get(old->sp);
 #endif
 	memcpy(new->cb, old->cb, sizeof(old->cb));
-	new->csum_start		= old->csum_start;
-	new->csum_offset	= old->csum_offset;
+	new->csum		= old->csum;
 	new->local_df		= old->local_df;
 	new->pkt_type		= old->pkt_type;
 	new->ip_summed		= old->ip_summed;
@@ -511,7 +514,8 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	/* {transport,network,mac}_header are relative to skb->head */
 	new->transport_header += offset;
 	new->network_header   += offset;
-	new->mac_header	      += offset;
+	if (skb_mac_header_was_set(new))
+		new->mac_header	      += offset;
 #endif
 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
@@ -692,8 +696,11 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 	skb->tail	      += off;
 	skb->transport_header += off;
 	skb->network_header   += off;
-	skb->mac_header	      += off;
-	skb->csum_start       += nhead;
+	if (skb_mac_header_was_set(skb))
+		skb->mac_header += off;
+	/* Only adjust this if it actually is csum_start rather than csum */
+	if (skb->ip_summed == CHECKSUM_PARTIAL)
+		skb->csum_start += nhead;
 	skb->cloned   = 0;
 	skb->hdr_len  = 0;
 	skb->nohdr    = 0;
@@ -779,11 +786,13 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
 	copy_skb_header(n, skb);
 
 	off                  = newheadroom - oldheadroom;
-	n->csum_start       += off;
+	if (n->ip_summed == CHECKSUM_PARTIAL)
+		n->csum_start += off;
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 	n->transport_header += off;
 	n->network_header   += off;
-	n->mac_header	    += off;
+	if (skb_mac_header_was_set(skb))
+		n->mac_header += off;
 #endif
 
 	return n;
