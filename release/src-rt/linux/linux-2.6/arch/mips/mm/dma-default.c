@@ -47,7 +47,7 @@ void *dma_alloc_noncoherent(struct device *dev, size_t size,
 	/* ignore region specifiers */
 	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
 
-	if (dev == NULL || (dev->coherent_dma_mask < 0xffffffff))
+	if (dev == NULL || (dev->coherent_dma_mask < DMA_64BIT_MASK))
 		gfp |= GFP_DMA;
 	ret = (void *) __get_free_pages(gfp, get_order(size));
 
@@ -69,7 +69,7 @@ void *dma_alloc_coherent(struct device *dev, size_t size,
 	/* ignore region specifiers */
 	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
 
-	if (dev == NULL || (dev->coherent_dma_mask < 0xffffffff))
+	if (dev == NULL || (dev->coherent_dma_mask < DMA_64BIT_MASK))
 		gfp |= GFP_DMA;
 	ret = (void *) __get_free_pages(gfp, get_order(size));
 
@@ -345,7 +345,7 @@ int dma_supported(struct device *dev, u64 mask)
 	 * so we can't guarantee allocations that must be
 	 * within a tighter range than GFP_DMA..
 	 */
-	if (mask < 0x00ffffff)
+	if (mask < DMA_24BIT_MASK)
 		return 0;
 
 	return 1;
