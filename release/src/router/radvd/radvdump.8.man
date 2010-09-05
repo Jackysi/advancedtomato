@@ -1,5 +1,5 @@
 .\"
-.\"   $Id: radvdump.8.man,v 1.3 2001/12/31 11:40:56 psavola Exp $
+.\"   $Id: radvdump.8.man,v 1.6 2008/03/31 09:18:15 psavola Exp $
 .\"
 .\"   Authors:
 .\"    Lars Fenneberg		<lf@elemental.net>	 
@@ -10,7 +10,7 @@
 .\"
 .\"   The license which is distributed with this software in the file COPYRIGHT
 .\"   applies to this software. If your distribution is missing this file, you
-.\"   may request it from <lutchann@litech.org>.
+.\"   may request it from <pekkas@netcore.fi>.
 .\"
 .\"
 .\"
@@ -27,7 +27,7 @@ radvdump \- dump router advertisements
 prints out the contents of incoming router advertisements sent by
 .B radvd
 or some other software implementing (parts of)
-"Neighbor Discovery for IP Version 6 (IPv6)" (RFC 2461).
+"Neighbor Discovery for IP Version 6 (IPv6)" (RFC 4861).
 
 .SH OPTIONS
 
@@ -46,7 +46,9 @@ Displays a short usage description and then aborts.
 .BR "\-f" , " \-\-file\-format"
 Output received router advertisements in the format of the
 .B radvd
-configuration file. 
+configuration file.
+Since radvd 0.9, this is the default and the switch is provided
+for backward compatibility only.
 .TP
 .BR "\-e" , " \-\-exclude-defaults"
 Exclude default valued options from configuration file format.
@@ -69,8 +71,7 @@ The default debugging level is 0.
 .SH BUGS
 
 There certainly are some bugs. If you find them or have other
-suggestions please contact Pekka Savola <pekkas@netcore.fi> or
-Nathan Lutchansky <lutchann@litech.org>.
+suggestions please contact Pekka Savola <pekkas@netcore.fi>.
 
 .SH "SEE ALSO"
 
@@ -80,7 +81,7 @@ Nathan Lutchansky <lutchann@litech.org>.
 
 .nf
 Lars Fenneberg	<lf@elemental.net>	- previous maintainer
-Nathan Lutchansky <lutchann@litech.org> - current maintainer
+Nathan Lutchansky <lutchann@litech.org> - previous maintainer
 Pekka Savola	<pekkas@netcore.fi>	- current maintainer
 Marko Myllynen	<myllynen@lut.fi>	- Mobile IPv6 support
 .fi

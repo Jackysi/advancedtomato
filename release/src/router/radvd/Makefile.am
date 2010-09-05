@@ -1,5 +1,5 @@
 #
-#   $Id: Makefile.am,v 1.2 2004/08/20 07:25:59 psavola Exp $
+#   $Id: Makefile.am,v 1.7 2009/08/25 05:41:56 psavola Exp $
 #
 #   Authors:
 #    Lars Fenneberg		<lf@elemental.net>	 
@@ -9,7 +9,7 @@
 #
 #   The license which is distributed with this software in the file COPYRIGHT
 #   applies to this software. If your distribution is missing this file, you
-#   may request it from <lutchann@litech.org>.
+#   may request it from <pekkas@netcore.fi>.
 #
 
 AUTOMAKE_OPTIONS = 1.2 foreign
@@ -28,10 +28,12 @@ COMMON_SRC = log.c socket.c recv.c util.c radvd.h defaults.h pathnames.h \
 sbin_PROGRAMS = radvd radvdump
 
 radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
-	device.c device-common.c gram.y gram.h scanner.l
+	device.c device-common.c privsep.c gram.y gram.h scanner.l
 radvd_LDADD = -lfl
-EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c
+EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c privsep-linux.c privsep-bsd44.c
 YFLAGS = -d
+CFLAGS = @CFLAGS@ -Wall -Wpointer-arith  -Wcast-qual -Wcast-align \
+	-Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 
 radvdump_SOURCES = $(COMMON_SRC) radvdump.c
 
@@ -59,3 +61,5 @@ dist-hook:
 	mkdir $(distdir)/redhat
 	cp -p $(srcdir)/redhat/radvd.init $(srcdir)/redhat/radvd.spec \
 		$(srcdir)/redhat/radvd.sysconfig $(distdir)/redhat
+
+scanner.o: gram.h

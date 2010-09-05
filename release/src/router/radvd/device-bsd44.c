@@ -1,5 +1,5 @@
 /*
- *   $Id: device-bsd44.c,v 1.13 2004/02/05 18:44:00 lutchann Exp $
+ *   $Id: device-bsd44.c,v 1.24 2010/01/22 12:18:21 psavola Exp $
  *
  *   Authors:
  *    Craig Metz		<cmetz@inner.net>
@@ -9,7 +9,7 @@
  *
  *   The license which is distributed with this software in the file COPYRIGHT
  *   applies to this software. If your distribution is missing this file, you
- *   may request it from <lutchann@litech.org>.
+ *   may request it from <pekkas@netcore.fi>.
  *
  */
 
@@ -29,170 +29,154 @@ static uint8_t ll_prefix[] = { 0xfe, 0x80 };
 int
 setup_deviceinfo(int sock, struct Interface *iface)
 {
-	struct ifconf ifconf;
-	int nlen;
-	uint8_t *p, *end;
+	struct ifaddrs *addresses, *ifa;
+
+	struct ifreq ifr;
 	struct AdvPrefix *prefix;
-	char zero[HWADDR_MAX];
+	char zero[sizeof(iface->if_addr)];
 
-	/* just allocate 8192 bytes, should be more than enough.. */
-	if (!(ifconf.ifc_buf = malloc(ifconf.ifc_len = (32 << 8))))
+ 	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, iface->Name, IFNAMSIZ-1);
+	ifr.ifr_name[IFNAMSIZ-1] = '\0';
+
+	if (ioctl(sock, SIOCGIFMTU, &ifr) < 0) {
+		flog(LOG_ERR, "ioctl(SIOCGIFMTU) failed for %s: %s", iface->Name, strerror(errno));
+		goto ret;
+	}	
+
+	dlog(LOG_DEBUG, 3, "mtu for %s is %d", iface->Name, ifr.ifr_mtu);
+	iface->if_maxmtu = ifr.ifr_mtu;
+
+	if (getifaddrs(&addresses) != 0)
 	{
-		flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
+		flog(LOG_ERR, "getifaddrs failed: %s(%d)", strerror(errno), errno);
 		goto ret;
 	}
 
-	if (ioctl(sock, SIOCGIFCONF, &ifconf) < 0)
+	for (ifa = addresses; ifa != NULL; ifa = ifa->ifa_next)
 	{
-		flog(LOG_ERR, "ioctl(SIOCGIFCONF) failed: %s(%d)", strerror(errno), errno);
-		goto ret;
-	}
+		if (strcmp(ifa->ifa_name, iface->Name) != 0)
+			continue;
 
-	p = (uint8_t *)ifconf.ifc_buf;
-	end = p + ifconf.ifc_len;
-	nlen = strlen(iface->Name);
+		if (ifa->ifa_addr == NULL)
+			continue;
 
-	while(p < end)
-	{
-		p += IFNAMSIZ;
-		
-		if ((p + 2) >= end)
-			break;
-			
-		if ((p + *p) >= end)
-			break;
-			
-		if ((*(p + 1) == AF_LINK) &&
-		    (((struct sockaddr_dl *)p)->sdl_nlen == nlen) &&
-		    (!memcmp(iface->Name, ((struct sockaddr_dl *)p)->sdl_data, nlen)))
+		if (ifa->ifa_addr->sa_family != AF_LINK)
+			continue;
+
+		struct sockaddr_dl *dl = (struct sockaddr_dl*)ifa->ifa_addr;
+
+
+		if (dl->sdl_alen > sizeof(iface->if_addr))
 		{
+			flog(LOG_ERR, "address length %d too big for",
+				dl->sdl_alen,
+				iface->Name);
+			goto ret;
+		}
 		
-			if (((struct sockaddr_dl *)p)->sdl_alen > HWADDR_MAX)
-			{
-				flog(LOG_ERR, "address length %d too big for",
-					((struct sockaddr_dl *)p)->sdl_alen,
+		memcpy(iface->if_hwaddr, LLADDR(dl), dl->sdl_alen);
+		iface->if_hwaddr_len = dl->sdl_alen << 3;
+
+		switch(dl->sdl_type) {
+		case IFT_ETHER:
+		case IFT_ISO88023:
+			iface->if_prefix_len = 64;
+			break;
+		case IFT_FDDI:
+			iface->if_prefix_len = 64;
+			break;
+		default:
+			iface->if_prefix_len = -1;
+			iface->if_maxmtu = -1;
+			break;
+		}
+
+		dlog(LOG_DEBUG, 3, "link layer token length for %s is %d", iface->Name,
+			iface->if_hwaddr_len);
+
+		dlog(LOG_DEBUG, 3, "prefix length for %s is %d", iface->Name,
+			iface->if_prefix_len);
+
+		if (iface->if_prefix_len != -1) {
+			memset(zero, 0, dl->sdl_alen);
+			if (!memcmp(iface->if_hwaddr, zero, dl->sdl_alen))
+				flog(LOG_WARNING, "WARNING, MAC address on %s is all zero!",
 					iface->Name);
-				goto ret;
-			}
+		}
 		
-			memcpy(iface->if_hwaddr, LLADDR((struct sockaddr_dl *)p), ((struct sockaddr_dl *)p)->sdl_alen);
-			iface->if_hwaddr_len = ((struct sockaddr_dl *)p)->sdl_alen << 3;
-
-          		switch(((struct sockaddr_dl *)p)->sdl_type) {
-            		case IFT_ETHER:
-            		case IFT_ISO88023:
-            			iface->if_prefix_len = 64;
-              			iface->if_maxmtu = 1500;
-              			break;
-            		case IFT_FDDI:
-            			iface->if_prefix_len = 64;
-              			iface->if_maxmtu = 4352;
-              			break;
-            		default:
-            			iface->if_prefix_len = -1;
-				iface->if_maxmtu = -1;
-				break;
-          		}
-
-			dlog(LOG_DEBUG, 3, "link layer token length for %s is %d", iface->Name,
-				iface->if_hwaddr_len);
-
-			dlog(LOG_DEBUG, 3, "prefix length for %s is %d", iface->Name,
-				iface->if_prefix_len);
-
-			if (iface->if_prefix_len != -1) {
-				memset(zero, 0, ((struct sockaddr_dl *)p)->sdl_alen);
-				if (!memcmp(iface->if_hwaddr, zero, ((struct sockaddr_dl *)p)->sdl_alen))
-					flog(LOG_WARNING, "WARNING, MAC address on %s is all zero!",
-						iface->Name);
-			}
-			
-			prefix = iface->AdvPrefixList;
-			while (prefix)
+		prefix = iface->AdvPrefixList;
+		while (prefix)
+		{
+			if ((iface->if_prefix_len != -1) &&
+				(iface->if_prefix_len != prefix->PrefixLen))
 			{
-				if ((iface->if_prefix_len != -1) &&
-					(iface->if_prefix_len != prefix->PrefixLen))
-				{
-					flog(LOG_WARNING, "prefix length should be %d for %s",
-						iface->if_prefix_len, iface->Name);
- 				}
- 			
- 				prefix = prefix->next;
+				flog(LOG_WARNING, "prefix length should be %d for %s",
+					iface->if_prefix_len, iface->Name);
 			}
-          		
-          		free(ifconf.ifc_buf);
-          		return 0;
-        	}
-        
-    		p += *p;	
+
+			prefix = prefix->next;
+		}
+
+		freeifaddrs(addresses);
+		return 0;
 	}
+
 
 ret:
 	iface->if_maxmtu = -1;
 	iface->if_hwaddr_len = -1;
 	iface->if_prefix_len = -1;
-	free(ifconf.ifc_buf);
-	return 0;
+	freeifaddrs(addresses);
+	return -1;
 }
 
+/*
+ * Saves the first link local address seen on the specified interface to iface->if_addr
+ *
+ */
 int setup_linklocal_addr(int sock, struct Interface *iface)
 {
-	struct ifconf ifconf;
-	int nlen;
-	uint8_t *p, *end;
-	int index = 0;
+	struct ifaddrs *addresses, *ifa;
 
-	/* just allocate 8192 bytes, should be more than enough.. */
-	if (!(ifconf.ifc_buf = malloc(ifconf.ifc_len = (32 << 8))))
+	if (getifaddrs(&addresses) != 0)
 	{
-		flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
+		flog(LOG_ERR, "getifaddrs failed: %s(%d)", strerror(errno), errno);
 		goto ret;
 	}
 
-	if (ioctl(sock, SIOCGIFCONF, &ifconf) < 0)
+	for (ifa = addresses; ifa != NULL; ifa = ifa->ifa_next)
 	{
-		flog(LOG_ERR, "ioctl(SIOCGIFCONF) failed: %s(%d)", strerror(errno), errno);
-		goto ret;
-	}
+		if (strcmp(ifa->ifa_name, iface->Name) != 0)
+			continue;
 
-	p = (uint8_t *)ifconf.ifc_buf;
-	end = p + ifconf.ifc_len;
-	nlen = strlen(iface->Name);
+		if (ifa->ifa_addr == NULL)
+			continue;
 
-	while(p < end)
-  	{
-		p += IFNAMSIZ;
-	
-		if ((p + 2) >= end)
-			break;
-			
-		if ((p + *p) >= end)
-			break;
-			
-		if ((*(p + 1) == AF_LINK) &&
-		    (((struct sockaddr_dl *)p)->sdl_nlen == nlen) &&
-		    (!memcmp(iface->Name, ((struct sockaddr_dl *)p)->sdl_data, nlen)))
-		{
-			index = ((struct sockaddr_dl *)p)->sdl_index;
+		if (ifa->ifa_addr->sa_family == AF_LINK) {
+			struct sockaddr_dl *dl = (struct sockaddr_dl*)ifa->ifa_addr;
+			if (memcmp(iface->Name, dl->sdl_data, dl->sdl_nlen) == 0)
+				iface->if_index = dl->sdl_index;
+			continue;
 		}
-		
-   	 	if (index && (*(p + 1) == AF_INET6))
-		  if (!memcmp(&((struct sockaddr_in6 *)p)->sin6_addr, ll_prefix, sizeof(ll_prefix)))
-		  {
-			memcpy(&iface->if_addr, &((struct sockaddr_in6 *)p)->sin6_addr, sizeof(struct in6_addr));
-			iface->if_index = index;
 
-			free(ifconf.ifc_buf);
-			return 0;
-      	  	  }
-      	  
-		p += *p;
+		if (ifa->ifa_addr->sa_family != AF_INET6)
+			continue;
 
+		struct sockaddr_in6 *a6 = (struct sockaddr_in6*)ifa->ifa_addr;
+
+		/* Skip if it is not a linklocal address */
+		if (memcmp(&(a6->sin6_addr), ll_prefix, sizeof(ll_prefix)) != 0)
+			continue;
+
+		memcpy(&iface->if_addr, &(a6->sin6_addr), sizeof(struct in6_addr));
+		freeifaddrs(addresses);
+		return 0;
 	}
+	freeifaddrs(addresses);
 
 ret:
 	flog(LOG_ERR, "no linklocal address configured for %s", iface->Name);
-	free(ifconf.ifc_buf);
 	return -1;
 }
 
@@ -206,45 +190,35 @@ int check_allrouters_membership(int sock, struct Interface *iface)
 	return (0);
 }
 
-/* UNTESTED - This code is from device-linux.c and has not been tested
- * under BSD.  If it is broken in the distribution and you fix it, please
- * send me the patch.  -lutchann */
+int
+set_interface_linkmtu(const char *iface, uint32_t mtu)
+{
+	dlog(LOG_DEBUG, 4, "setting LinkMTU (%u) for %s is not supported",
+	     mtu, iface);
+	return -1;
+}
 
 int
-get_v4addr(const char *ifn, unsigned int *dst)
+set_interface_curhlim(const char *iface, uint8_t hlim)
 {
-	struct ifreq	ifr;
-	struct sockaddr_in *addr;
-	int fd;
-
-	if( ( fd = socket(AF_INET,SOCK_DGRAM,0) ) < 0 )
-	{
-		flog(LOG_ERR, "create socket for IPv4 ioctl failed for %s: %s",
-			ifn, strerror(errno));
-		return (-1);
-	}
-	
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifn, IFNAMSIZ-1);
-	ifr.ifr_name[IFNAMSIZ-1] = '\0';
-	ifr.ifr_addr.sa_family = AF_INET;
-	
-	if (ioctl(fd, SIOCGIFADDR, &ifr) < 0)
-	{
-		flog(LOG_ERR, "ioctl(SIOCGIFADDR) failed for %s: %s",
-			ifn, strerror(errno));
-		close( fd );
-		return (-1);
-	}
-
-	addr = (struct sockaddr_in *)(&ifr.ifr_addr);
-
-	dlog(LOG_DEBUG, 3, "IPv4 address for %s is %s", ifn,
-		inet_ntoa( addr->sin_addr ) ); 
-
-	*dst = addr->sin_addr.s_addr;
-
-	close( fd );
-
-	return 0;
+	dlog(LOG_DEBUG, 4, "setting CurHopLimit (%u) for %s is not supported",
+	     hlim, iface);
+	return -1;
 }
+
+int
+set_interface_reachtime(const char *iface, uint32_t rtime)
+{
+	dlog(LOG_DEBUG, 4, "setting BaseReachableTime (%u) for %s is not supported",
+	     rtime, iface);
+	return -1;
+}
+
+int
+set_interface_retranstimer(const char *iface, uint32_t rettimer)
+{
+	dlog(LOG_DEBUG, 4, "setting RetransTimer (%u) for %s is not supported",
+	     rettimer, iface);
+	return -1;
+}
+

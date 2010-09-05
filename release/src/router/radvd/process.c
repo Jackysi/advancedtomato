@@ -1,5 +1,5 @@
 /*
- *   $Id: process.c,v 1.10 2005/02/15 07:44:06 psavola Exp $
+ *   $Id: process.c,v 1.19 2009/09/07 07:59:57 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -10,7 +10,7 @@
  *
  *   The license which is distributed with this software in the file COPYRIGHT
  *   applies to this software. If your distribution is missing this file, you
- *   may request it from <lutchann@litech.org>.
+ *   may request it from <pekkas@netcore.fi>.
  *
  */
 
@@ -18,12 +18,12 @@
 #include <includes.h>
 #include <radvd.h>
 
-static void process_rs(int, struct Interface *, struct sockaddr_in6 *);
+static void process_rs(int, struct Interface *, unsigned char *msg,
+		       int len, struct sockaddr_in6 *);
 static void process_ra(struct Interface *, unsigned char *msg, int len,
 	struct sockaddr_in6 *);
 static int  addr_match(struct in6_addr *a1, struct in6_addr *a2,
 	int prefixlen);
-static int rs_has_srclladdr(unsigned char *, int);
 
 void
 process(int sock, struct Interface *ifacel, unsigned char *msg, int len, 
@@ -84,14 +84,6 @@ process(int sock, struct Interface *ifacel, unsigned char *msg, int len,
 				len);
 			return;
 		}
-		
-		if (IN6_IS_ADDR_UNSPECIFIED(&addr->sin6_addr) &&
-		    rs_has_srclladdr(msg, len))
-		{
-			flog(LOG_WARNING, "received icmpv6 RS packet with unspecified source address and there is a lladdr option"); 
-			return;
-		}
-				
 	}			
 
 	if (icmph->icmp6_code != 0)
@@ -101,7 +93,7 @@ process(int sock, struct Interface *ifacel, unsigned char *msg, int len,
 		return;
 	}
 	
-	dlog(LOG_DEBUG, 4, "if_index %d", pkt_info->ipi6_ifindex);
+	dlog(LOG_DEBUG, 4, "if_index %u", pkt_info->ipi6_ifindex);
 
 	/* get iface by received if_index */
 
@@ -138,7 +130,7 @@ process(int sock, struct Interface *ifacel, unsigned char *msg, int len,
 
 	if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
 	{
-		process_rs(sock, iface, addr);
+		process_rs(sock, iface, msg, len, addr);
 	}
 	else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
 	{
@@ -147,11 +139,51 @@ process(int sock, struct Interface *ifacel, unsigned char *msg, int len,
 }
 
 static void
-process_rs(int sock, struct Interface *iface, struct sockaddr_in6 *addr)
+process_rs(int sock, struct Interface *iface, unsigned char *msg, int len,
+	struct sockaddr_in6 *addr)
 {
 	double delay;
 	double next;
 	struct timeval tv;
+	uint8_t *opt_str;
+
+	/* validation */
+	len -= sizeof(struct nd_router_solicit);
+
+	opt_str = (uint8_t *)(msg + sizeof(struct nd_router_solicit));
+
+	while (len > 0)
+	{
+		int optlen;
+
+		if (len < 2)
+		{
+			flog(LOG_WARNING, "trailing garbage in RS");
+			return;
+		}
+
+		optlen = (opt_str[1] << 3);
+
+		if (optlen == 0)
+		{
+			flog(LOG_WARNING, "zero length option in RS");
+			return;
+		}
+		else if (optlen > len)
+		{
+			flog(LOG_WARNING, "option length greater than total length in RS");
+			return;
+		}
+
+		if (*opt_str == ND_OPT_SOURCE_LINKADDR &&
+		    IN6_IS_ADDR_UNSPECIFIED(&addr->sin6_addr)) {
+			flog(LOG_WARNING, "received icmpv6 RS packet with unspecified source address and there is a lladdr option"); 
+			return;
+		}
+
+		len -= optlen;
+		opt_str += optlen;
+	}
 
 	gettimeofday(&tv, NULL);
 
@@ -160,7 +192,7 @@ process_rs(int sock, struct Interface *iface, struct sockaddr_in6 *addr)
  	
 	if (iface->UnicastOnly) {
 		mdelay(delay);
-		send_ra(sock, iface, &addr->sin6_addr);
+		send_ra_forall(sock, iface, &addr->sin6_addr);
 	}
 	else if ((tv.tv_sec + tv.tv_usec / 1000000.0) - (iface->last_multicast_sec +
 	          iface->last_multicast_usec / 1000000.0) < iface->MinDelayBetweenRAs) {
@@ -173,15 +205,15 @@ process_rs(int sock, struct Interface *iface, struct sockaddr_in6 *addr)
 	else {
 		/* no RA sent in a while, send an immediate multicast reply */
 		clear_timer(&iface->tm);
-		send_ra(sock, iface, NULL);
-		
-		next = rand_between(iface->MinRtrAdvInterval, iface->MaxRtrAdvInterval); 
-		set_timer(&iface->tm, next);
+		if (send_ra_forall(sock, iface, NULL) == 0) {
+			next = rand_between(iface->MinRtrAdvInterval, iface->MaxRtrAdvInterval); 
+			set_timer(&iface->tm, next);
+		}
 	}
 }
 
 /*
- * check router advertisements according to RFC 2461, 6.2.7
+ * check router advertisements according to RFC 4861, 6.2.7
  */
 static void
 process_ra(struct Interface *iface, unsigned char *msg, int len, 
@@ -241,10 +273,13 @@ process_ra(struct Interface *iface, unsigned char *msg, int len,
 	{
 		int optlen;
 		struct nd_opt_prefix_info *pinfo;
+		struct nd_opt_rdnss_info_local *rdnssinfo;
 		struct nd_opt_mtu *mtu;
 		struct AdvPrefix *prefix;
+		struct AdvRDNSS *rdnss;
 		char prefix_str[INET6_ADDRSTRLEN];
-		uint32_t preferred, valid;
+		char rdnss_str[INET6_ADDRSTRLEN];
+		uint32_t preferred, valid, count;
 
 		if (len < 2)
 		{
@@ -334,6 +369,46 @@ process_ra(struct Interface *iface, unsigned char *msg, int len,
 		case ND_OPT_HOME_AGENT_INFO:
 			/* not checked */
 			break;
+		case ND_OPT_RDNSS_INFORMATION:
+			rdnssinfo = (struct nd_opt_rdnss_info_local *) opt_str;
+			count = rdnssinfo->nd_opt_rdnssi_len;
+			
+			/* Check the RNDSS addresses received */
+			switch (count) {
+				case 7:
+					rdnss = iface->AdvRDNSSList;
+					if (!check_rdnss_presence(rdnss, &rdnssinfo->nd_opt_rdnssi_addr3 )) {
+						/* no match found in iface->AdvRDNSSList */
+						print_addr(&rdnssinfo->nd_opt_rdnssi_addr3, rdnss_str);
+						flog(LOG_WARNING, "RDNSS address %s received on %s from %s is not advertised by us",
+							rdnss_str, iface->Name, addr_str);
+					}
+					/* FALLTHROUGH */
+				case 5:
+					rdnss = iface->AdvRDNSSList;
+					if (!check_rdnss_presence(rdnss, &rdnssinfo->nd_opt_rdnssi_addr2 )) {
+						/* no match found in iface->AdvRDNSSList */
+						print_addr(&rdnssinfo->nd_opt_rdnssi_addr2, rdnss_str);
+						flog(LOG_WARNING, "RDNSS address %s received on %s from %s is not advertised by us",
+							rdnss_str, iface->Name, addr_str);
+					}
+					/* FALLTHROUGH */
+				case 3:
+					rdnss = iface->AdvRDNSSList;
+					if (!check_rdnss_presence(rdnss, &rdnssinfo->nd_opt_rdnssi_addr1 )) {
+						/* no match found in iface->AdvRDNSSList */
+						print_addr(&rdnssinfo->nd_opt_rdnssi_addr1, rdnss_str);
+						flog(LOG_WARNING, "RDNSS address %s received on %s from %s is not advertised by us",
+							rdnss_str, iface->Name, addr_str);
+					}
+					
+					break;
+				default:
+					flog(LOG_ERR, "invalid len %i in RDNSS option on %s from %s",
+							count, iface->Name, addr_str);
+			}
+			
+			break;	
 		default:
 			dlog(LOG_DEBUG, 1, "unknown option %d in RA on %s from %s",
 				(int)*opt_str, iface->Name, addr_str);
@@ -348,8 +423,8 @@ process_ra(struct Interface *iface, unsigned char *msg, int len,
 static int 
 addr_match(struct in6_addr *a1, struct in6_addr *a2, int prefixlen)
 {
-	int pdw;
-	int pbi;
+	unsigned int pdw;
+	unsigned int pbi;
 
 	pdw = prefixlen >> 0x05;  /* num of whole uint32_t in prefix */
 	pbi = prefixlen &  0x1f;  /* num of bits in incomplete uint32_t in prefix */
@@ -377,52 +452,3 @@ addr_match(struct in6_addr *a1, struct in6_addr *a2, int prefixlen)
 	return 1;
 }
 
-static int
-rs_has_srclladdr(unsigned char *msg, int len)
-{
-	uint8_t *opt_str;
-	int	has_lladdr = 0;
-
-	len -= sizeof(struct nd_router_solicit);
-
-	if (len == 0)
-	{		/* no option */
-		return 0;
-	}
-
-	opt_str = (uint8_t *)(msg + sizeof(struct nd_router_solicit));
-
-	while (len > 0)
-	{
-		int optlen;
-
-		if (len < 2)
-		{
-			flog(LOG_WARNING, "trailing garbage in RS");
-			break;
-		}
-
-		optlen = (opt_str[1] << 3);
-
-		if (optlen == 0)
-		{
-			flog(LOG_WARNING, "zero length option in RS");
-			break;
-		}
-		else if (optlen > len)
-		{
-			flog(LOG_WARNING, "option length greater than total length in RS");
-			break;
-		}
-
-		if (*opt_str == ND_OPT_SOURCE_LINKADDR)
-		{
-			has_lladdr = 1;
-		}
-
-		len -= optlen;
-		opt_str += optlen;
-	}
-
-	return has_lladdr;
-}
