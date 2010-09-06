@@ -26,7 +26,7 @@
 
 function verifyFields(focused, quiet)
 {
-	var a, b;
+	var a, b, c;
 
 	a = E('_f_log_file').checked;
 	b = E('_f_log_remote').checked;
@@ -51,7 +51,12 @@ function verifyFields(focused, quiet)
 		if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
 		if (!v_range('_log_mark', quiet, 0, 1440)) return 0;
 		if (b) {
-			if ((!v_ip('_log_remoteip', quiet)) || (!v_port('_log_remoteport', quiet))) return 0;
+			c = E('_log_remoteip');
+			if (!v_ip(c, 1) && !v_domain(c, 1)) {
+				if (!quiet) ferror.show(c);
+				return 0;
+			}
+			if (!v_port('_log_remoteport', quiet)) return 0;
 		}
 	}
 
@@ -141,7 +146,7 @@ if (nvram.log_mark >= 120) nvram.log_mark = 120;
 createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
 	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
-	{ title: 'IP Address / Port', indent: 2, multi: [
+	{ title: 'Host or IP Address / Port', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
 		{ name: 'log_remoteport', type: 'text', maxlen: 5, size: 7, value: nvram.log_remoteport } ]},
 	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours']], value: nvram.log_mark },

@@ -801,7 +801,7 @@ static const nvset_t nvset_list[] = {
 
 // admin-log
 	{ "log_remote",			V_01				},
-	{ "log_remoteip",		V_IP				},
+	{ "log_remoteip",		V_LENGTH(0, 512)		},
 	{ "log_remoteport",		V_PORT				},
 	{ "log_file",			V_01				},
 	{ "log_limit",			V_RANGE(0, 2400)	},
