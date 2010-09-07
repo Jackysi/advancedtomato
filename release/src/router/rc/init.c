@@ -1074,6 +1074,7 @@ static int init_nvram(void)
 static void load_files_from_nvram(void)
 {
 	char *name, *cp;
+	int ar_loaded = 0;
 	char buf[NVRAM_SPACE];
 
 	if (nvram_getall(buf, sizeof(buf)) != 0)
@@ -1086,8 +1087,13 @@ static void load_files_from_nvram(void)
 			*cp = 0;
 			syslog(LOG_INFO, "Loading file '%s' from nvram", name + 5);
 			nvram_nvram2file(name, name + 5);
+			if (memcmp(".autorun", cp - 8, 9) == 0) 
+				++ar_loaded;
 		}
 	}
+	/* Start any autorun files that may have been loaded into one of the standard places. */
+	if (ar_loaded != 0)
+		run_nvscript(".autorun", NULL, 3);
 }
 
 #if defined(LINUX26) && defined(TCONFIG_USB)
@@ -1269,8 +1275,6 @@ static void sysinit(void)
 	setup_conntrack();
 	set_host_domain_name();
 
-	start_jffs2();
-
 	set_tz();
 
 	eval("buttons");
@@ -1342,6 +1346,7 @@ int init_main(int argc, char *argv[])
 			SET_LED(RELEASE_WAN_CONTROL);
 			start_syslog();
 
+			start_jffs2();
 			load_files_from_nvram();
 
 			int fd = -1;
@@ -1378,8 +1383,7 @@ int init_main(int argc, char *argv[])
 			}
 #endif
 
-			syslog(LOG_INFO, "Tomato %s", tomato_version);
-			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
+			syslog(LOG_INFO, "Tomato %s: %s", tomato_version, nvram_safe_get("t_model_name"));
 
 			led(LED_DIAG, 0);
 			notice_set("sysup", "");

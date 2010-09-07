@@ -174,6 +174,7 @@ void run_userfile(char *folder, char *extension, const char *arg1, int wtime)
  *
  * Execute in this order:
  *	nvram item: nv (run as a /bin/sh script)
+ *		(unless nv starts with a dot)
  *	All files with a suffix of ".NAME" in these directories:
  *	/etc/config/
  *	/jffs/etc/config/
@@ -211,37 +212,43 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 	char *argv[3];
 	int check_dirs = 1;
 
-	script = nvram_get(nv);
-	if ((script) && (*script != 0)) {
-		sprintf(s, "/tmp/%s.sh", nv);
-		if ((f = fopen(s, "w")) != NULL) {
-			fputs("#!/bin/sh\n", f);
-			fputs(script, f);
-			fputs("\n", f);
-			fclose(f);
-			chmod(s, 0700);
+	if (nv[0] == '.') {
+		strcpy(s, nv);
+	}
+	else {
+		script = nvram_get(nv);
 
-			chdir("/tmp");
+		if ((script) && (*script != 0)) {
+			sprintf(s, "/tmp/%s.sh", nv);
+			if ((f = fopen(s, "w")) != NULL) {
+				fputs("#!/bin/sh\n", f);
+				fputs(script, f);
+				fputs("\n", f);
+				fclose(f);
+				chmod(s, 0700);
 
-			argv[0] = s;
-			argv[1] = (char *)arg1;
-			argv[2] = NULL;
+				chdir("/tmp");
 
-			//printf("Running: '%s %s'\n", argv[0], argv[1]? argv[1]: "");
-			execute_with_maxwait(argv, wtime);
-			chdir("/");
+				argv[0] = s;
+				argv[1] = (char *)arg1;
+				argv[2] = NULL;
+
+				//printf("Running: '%s %s'\n", argv[0], argv[1]? argv[1]: "");
+				execute_with_maxwait(argv, wtime);
+				chdir("/");
+			}
 		}
-	}
 
-	sprintf(s, ".%s", nv);
-	if (strncmp("sch_c", nv, 5) == 0) {
-		check_dirs = 0;
-	}
-	else if (strncmp("sesx_", nv, 5) == 0) {
-		s[5] = 0;
-	}
-	else if (strncmp("script_", nv, 7) == 0) {
-		strcpy(&s[1], &nv[7]);
+		sprintf(s, ".%s", nv);
+		if (strncmp("sch_c", nv, 5) == 0) {
+			check_dirs = 0;
+		}
+		else if (strncmp("sesx_", nv, 5) == 0) {
+			s[5] = 0;
+		}
+		else if (strncmp("script_", nv, 7) == 0) {
+			strcpy(&s[1], &nv[7]);
+		}
 	}
 
 	if (nvram_match("userfiles_disable", "1")) {
