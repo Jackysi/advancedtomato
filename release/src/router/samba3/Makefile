@@ -5,12 +5,13 @@ srcdir=source
 SMBCFLAGS = $(EXTRACFLAGS) -Os
 
 ifneq ($(CONFIG_LINUX26),y)
-SMBCFLAGS += -DNO_LOG
+SMBCFLAGS += -DMAX_DEBUG_LEVEL="-1"
 endif
 
 all: .conf apps
 
-apps:
+apps: .conf
+	mkdir -p $(srcdir)/bin
 	$(MAKE) -C $(srcdir) all
 
 .conf:
@@ -73,6 +74,9 @@ apps:
 		--localstatedir=/var \
 		--with-configdir=/etc \
 		--with-rootsbindir=/usr/sbin \
+		--with-piddir=/var/run/samba \
+		--with-privatedir=/etc/samba \
+		--with-lockdir=/var/lock \
 		--with-syslog \
 		--with-included-popt=no \
 		--with-krb5=no \
@@ -82,22 +86,25 @@ apps:
 		--disable-iprint \
 		--disable-pie \
 		--disable-fam \
-		--disable-xmltest \
 		--disable-dmalloc \
 		--disable-krb5developer \
 		--disable-developer \
 		--disable-debug \
 		--without-ads \
+		--without-acl-support \
 		--without-ldap \
 		--without-cifsmount \
+		--without-cifsupcall \
+		--without-cluster-support \
 		--without-utmp \
 		--without-winbind \
 		--without-quotas \
 		--without-sys-quotas
 	touch .conf
+	mkdir -p $(srcdir)/bin
 
 clean:
-	$(MAKE) -C $(srcdir) distclean
+	-$(MAKE) -C $(srcdir) distclean
 	@rm -f .conf
 
 distclean: clean
