@@ -45,6 +45,9 @@ if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 var nphy = features('11n');
 var dualband = features('2g5g');
 var modes = [];
+var nm_loaded = 0;
+var ch_loaded = 0;
+var max_channel = 0;
 
 function refreshNetModes()
 {
@@ -72,7 +75,7 @@ function refreshNetModes()
 
 	e = E('_wl_net_mode');
 	buf = '';
-	val = (e.value + '' == '') ? nvram.wl_net_mode : e.value;
+	val = (!nm_loaded || (e.value + '' == '')) ? nvram.wl_net_mode : e.value;
 	if (val == 'disabled') val = 'mixed';
 	for (i = 0; i < modes.length; ++i)
 		buf += '<option value="' + modes[i][0] + '"' + ((modes[i][0] == val) ? ' selected' : '') + '>' + modes[i][1] + '</option>';
@@ -80,6 +83,7 @@ function refreshNetModes()
 	e = E('__wl_net_mode');
 	buf = '<select name="wl_net_mode" onchange="verifyFields(this, 1)" id = "_wl_net_mode">' + buf + '</select>';
 	elem.setInnerHTML(e, buf);
+	nm_loaded = 1;
 }
 
 var refresher = null;
@@ -98,17 +102,19 @@ function refreshChannels()
 		for (i = 0; i < wl_channels.length; ++i) {
 			ghz.push([wl_channels[i][0] + '',
 				(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+			max_channel = wl_channels[i][0] * 1;
 		}
 
 		e = E('_wl_channel');
 		buf = '';
-		val = (e.value + '' == '') ? nvram.wl_channel : e.value;
+		val = (!ch_loaded || (e.value + '' == '')) ? nvram.wl_channel : e.value;
 		for (i = 0; i < ghz.length; ++i)
 			buf += '<option value="' + ghz[i][0] + '"' + ((ghz[i][0] == val) ? ' selected' : '') + '>' + ghz[i][1] + '</option>';
 
 		e = E('__wl_channel');
 		buf = '<select name="wl_channel" onchange="verifyFields(this, 1)" id = "_wl_channel">' + buf + '</select>';
 		elem.setInnerHTML(e, buf);
+		ch_loaded = 1;
 
 		refresher = null;
 		verifyFields(null, 1);
@@ -573,6 +579,33 @@ function verifyFields(focused, quiet)
 	}
 
 	vis._f_wl_nctrlsb = (E('_wl_nbw_cap').value == 0) ? 0 : vis._wl_nbw_cap;
+
+/* REMOVE-BEGIN
+	// This is ugly...
+	// Special case - 2.4GHz band, currently running in B/G-only mode,
+	// with N/Auto and 40MHz selected in the GUI.
+	// Channel list is not filtered in this case by the wl driver,
+	// and includes all channels available with 20MHz channel width.
+	//
+REMOVE-END */
+	if (vis._wl_channel == 1 && vis._f_wl_nctrlsb != 0 &&
+	   (vis._wl_nband == 0 || E('_wl_nband').value == '2')) {
+		switch (nvram.wl_net_mode) {
+		case 'b-only':
+		case 'g-only':
+		case 'bg-mixed':
+			i = E('_wl_channel').value * 1;
+			if (i > 0 && i < 5) {
+				E('_f_wl_nctrlsb').value = 'lower';
+				vis._f_wl_nctrlsb = 2;
+			}
+			else if (i > max_channel - 4) {
+				E('_f_wl_nctrlsb').value = 'upper';
+				vis._f_wl_nctrlsb = 2;
+			}
+			break;
+		}
+	}
 
 	//
 
