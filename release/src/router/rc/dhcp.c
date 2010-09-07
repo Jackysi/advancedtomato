@@ -106,7 +106,7 @@ static int deconfig(char *ifname)
 static int renew(char *ifname)
 {
 	char *a, *b;
-	int changed, routes_changed = 0;
+	int changed, routes_changed;
 
 	TRACE_PT("begin\n");
 
@@ -139,8 +139,10 @@ static int renew(char *ifname)
 	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
 	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
 
+	/* Classless Static Routes */
+	routes_changed = env2nv("staticroutes", "wan_routes_save");
 	/* Static Routes */
-	routes_changed |= env2nv("routes", "wan_routes_save");
+	if (!routes_changed) routes_changed = env2nv("routes", "wan_routes_save");
 	/* MS Classless Static Routes */
 	routes_changed |= env2nv("msstaticroutes", "wan_msroutes_save");
 	changed |= routes_changed;
@@ -198,10 +200,9 @@ static int bound(char *ifname)
 	 * Static Routes option.
 	 * Read more: http://www.faqs.org/rfcs/rfc3442.html
 	 */
-	/* Static Routes */
-	env2nv("routes", "wan_routes");
-	/* MS Classless Static Routes */
-	env2nv("msstaticroutes", "wan_msroutes");
+	if (!env2nv("staticroutes", "wan_routes"))	/* Classless Static Routes */
+		env2nv("routes", "wan_routes");		/* Static Routes */
+	env2nv("msstaticroutes", "wan_msroutes");	/* MS Classless Static Routes */
 
 	expires(atoi(safe_getenv("lease")));
 
