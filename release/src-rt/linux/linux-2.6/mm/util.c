@@ -8,7 +8,6 @@
 
 /**
  * kstrdup - allocate space for and copy an existing string
- *
  * @s: the string to duplicate
  * @gfp: the GFP mask used in the kmalloc() call when allocating memory
  */
@@ -27,6 +26,30 @@ char *kstrdup(const char *s, gfp_t gfp)
 	return buf;
 }
 EXPORT_SYMBOL(kstrdup);
+
+/**
+ * kstrndup - allocate space for and copy an existing string
+ * @s: the string to duplicate
+ * @max: read at most @max chars from @s
+ * @gfp: the GFP mask used in the kmalloc() call when allocating memory
+ */
+char *kstrndup(const char *s, size_t max, gfp_t gfp)
+{
+	size_t len;
+	char *buf;
+
+	if (!s)
+		return NULL;
+
+	len = strnlen(s, max);
+	buf = kmalloc_track_caller(len+1, gfp);
+	if (buf) {
+		memcpy(buf, s, len);
+		buf[len] = '\0';
+	}
+	return buf;
+}
+EXPORT_SYMBOL(kstrndup);
 
 /**
  * kmemdup - duplicate region of memory
@@ -105,7 +128,6 @@ out:
 
 /*
  * strndup_user - duplicate an existing string from user space
- *
  * @s: The string to duplicate
  * @n: Maximum number of bytes to copy, including the trailing NUL.
  */
