@@ -227,8 +227,10 @@ static BOOL smb_io_notify_option_type_data(const char *desc, SPOOL_NOTIFY_OPTION
 	if(!prs_uint32("count2", ps, depth, &type->count2))
 		return False;
 	
-	if (type->count2 != type->count)
+	if (type->count2 != type->count) {
 		DEBUG(4,("What a mess, count was %x now is %x !\n", type->count, type->count2));
+		return False;
+	}
 
 	if (type->count2 > MAX_NOTIFY_TYPE_FOR_NOW) {
 		return False;

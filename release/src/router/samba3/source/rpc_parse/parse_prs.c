@@ -796,7 +796,12 @@ BOOL prs_dcerpc_status(const char *name, prs_struct *ps, int depth, NTSTATUS *st
 	}
 
 	DEBUG(5,("%s%04x %s: %s\n", tab_depth(depth), ps->data_offset, name, 
-		 dcerpc_errstr(NT_STATUS_V(*status))));
+#if 1 /* AVM */
+		 "ERRSTR-REPLACEMENT"
+#else
+		 dcerpc_errstr(NT_STATUS_V(*status))
+#endif
+		 ));
 
 	ps->data_offset += sizeof(uint32);
 

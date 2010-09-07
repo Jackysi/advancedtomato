@@ -288,6 +288,7 @@ int find_service(fstring service)
 		iService = add_home_service(service,service /* 'username' */, phome_dir);
 	}
 
+#ifndef AVM_NO_PRINTING
 	/* If we still don't have a service, attempt to add it as a printer. */
 	if (iService < 0) {
 		int iPrinterService;
@@ -307,6 +308,7 @@ int find_service(fstring service)
 			}
 		}
 	}
+#endif /* AVM_NO_PRINTING */
 
 	/* Check for default vfs service?  Unsure whether to implement this */
 	if (iService < 0) {

@@ -388,7 +388,7 @@ static int execCommand(poptContext con)
 	sprintf(s, "%s/%s", con->execPath, item->argv[0]);
 	argv[argc] = s;
     } else {
-	argv[argc] = findProgramPath(item->argv[0]);
+	argv[argc] = ""/*findProgramPath(item->argv[0])*/;
     }
     if (argv[argc++] == NULL) return POPT_ERROR_NOARG;
 

@@ -104,7 +104,7 @@ BOOL sec_io_ace(const char *desc, SEC_ACE *psa, prs_struct *ps, int depth)
  for you as it reads them.
 ********************************************************************/
 
-BOOL sec_io_acl(const char *desc, SEC_ACL **ppsa, prs_struct *ps, int depth)
+static BOOL sec_io_acl(const char *desc, SEC_ACL **ppsa, prs_struct *ps, int depth)
 {
 	unsigned int i;
 	uint32 old_offset;

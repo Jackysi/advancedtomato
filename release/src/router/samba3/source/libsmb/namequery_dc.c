@@ -52,6 +52,9 @@ static BOOL ads_dc_name(const char *domain,
 			struct in_addr *dc_ip,
 			fstring srv_name)
 {
+#if 1 /* AVM */
+	return False;
+#else 
 	ADS_STRUCT *ads;
 	char *sitename;
 	int i;
@@ -139,6 +142,7 @@ static BOOL ads_dc_name(const char *domain,
 		 srv_name, inet_ntoa(*dc_ip)));
 	
 	return True;
+#endif /* AVM */
 }
 
 /****************************************************************************

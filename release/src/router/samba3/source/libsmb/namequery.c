@@ -1114,6 +1114,7 @@ static BOOL resolve_ads(const char *name, int name_type,
 			const char *sitename,
                          struct ip_service **return_iplist, int *return_count)
 {
+#ifdef HAVE_ADS
 	int 			i, j;
 	NTSTATUS  		status;
 	TALLOC_CTX		*ctx;
@@ -1194,6 +1195,9 @@ static BOOL resolve_ads(const char *name, int name_type,
 		
 	talloc_destroy(ctx);
 	return True;
+#else 	/* HAVE_ADS */
+	return False;
+#endif
 }
 
 /*******************************************************************

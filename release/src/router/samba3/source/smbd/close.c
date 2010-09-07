@@ -353,7 +353,9 @@ static NTSTATUS close_normal_file(files_struct *fsp, enum file_close_type close_
 	saved_status2 = close_filestruct(fsp);
 
 	if (fsp->print_file) {
+#ifndef AVM_NO_PRINTING
 		print_fsp_end(fsp, close_type);
+#endif
 		file_free(fsp);
 		return NT_STATUS_OK;
 	}

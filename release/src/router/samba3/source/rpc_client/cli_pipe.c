@@ -619,7 +619,11 @@ static NTSTATUS cli_pipe_validate_current_pdu(struct rpc_pipe_client *cli, RPC_H
 
 			DEBUG(1, ("cli_pipe_validate_current_pdu: RPC fault code %s received from remote machine %s "
 				"pipe %s fnum 0x%x!\n",
+#if 1 /* AVM */
+				"ERRSTR-REPLACEMENT",
+#else
 				dcerpc_errstr(NT_STATUS_V(fault_resp.status)),
+#endif
 				cli->cli->desthost,
 				cli->pipe_name,
 				(unsigned int)cli->fnum));

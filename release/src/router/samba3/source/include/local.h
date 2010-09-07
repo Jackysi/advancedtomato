@@ -16,7 +16,7 @@
    only important messages. This gives *much* smaller binaries
 */
 #ifndef MAX_DEBUG_LEVEL
-#define MAX_DEBUG_LEVEL 1000
+#define MAX_DEBUG_LEVEL 0
 #endif
 
 /* This defines the section name in the configuration file that will contain */
@@ -49,7 +49,8 @@
 #define MAX_DIRECTORY_HANDLES 2048
 
 /* maximum number of file caches per smbd */
-#define MAX_WRITE_CACHES 10
+/* #define MAX_WRITE_CACHES 10 */
+#define MAX_WRITE_CACHES 2 /* AVM */
 
 /* define what facility to use for syslog */
 #ifndef SYSLOG_FACILITY

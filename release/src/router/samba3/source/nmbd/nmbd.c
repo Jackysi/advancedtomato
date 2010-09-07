@@ -680,7 +680,7 @@ static BOOL open_sockets(BOOL isdaemon, int port)
 	sys_srandom(time(NULL) ^ sys_getpid());
 	
 	if (!override_logfile) {
-		slprintf(logfile, sizeof(logfile)-1, "%s/log.nmbd", dyn_LOGFILEBASE);
+		slprintf(logfile, sizeof(logfile)-1, "%s/log/nmbd.log", dyn_LOGFILEBASE);
 		lp_set_logfile(logfile);
 	}
 	

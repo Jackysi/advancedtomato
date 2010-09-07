@@ -385,7 +385,10 @@ static size_t latin1_push(void *cd, const char **inbuf, size_t *inbytesleft,
 
 	while (*inbytesleft >= 2 && *outbytesleft >= 1) {
 		(*outbuf)[0] = (*inbuf)[0];
-		if ((*inbuf)[1]) ir_count++;
+		if ((*inbuf)[1]) {
+			ir_count++;
+			(*outbuf)[0] = '_'; // AVM
+		}
 		(*inbytesleft)  -= 2;
 		(*outbytesleft) -= 1;
 		(*inbuf)  += 2;

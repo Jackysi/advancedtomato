@@ -2284,18 +2284,20 @@ BOOL is_trusted_domain(const char* dom_name)
 		/* The only other possible result is that winbind is not up
 		   and running. We need to update the trustdom_cache
 		   ourselves */
-		
+#ifndef AVM_SMALLER		
 		update_trustdom_cache();
+#endif
 	}
 
 	/* now the trustdom cache should be available a DC could still
 	 * have a transitive trust so fall back to the cache of trusted
 	 * domains (like a domain member would use  */
 
+#ifndef AVM_SMALLER
 	if ( trustdom_cache_fetch(dom_name, &trustdom_sid) ) {
 		return True;
 	}
-
+#endif
 	return False;
 }
 

@@ -176,6 +176,8 @@ static ssize_t real_write_file(files_struct *fsp,const char *data, SMB_OFF_T pos
 
 static int wcp_file_size_change(files_struct *fsp)
 {
+/* AVM: Fuer Pruefung des freien Speichers auf dem Datentraeger wird 
+   SMB_VFS_FTRUNCATE aufgerufen, auch falls es langsam sein sollte */
 	int ret;
 	write_cache *wcp = fsp->wcp;
 
@@ -199,6 +201,10 @@ ssize_t write_file(files_struct *fsp, const char *data, SMB_OFF_T pos, size_t n)
 	int write_path = -1; 
 
 	if (fsp->print_file) {
+#ifdef AVM_NO_PRINTING
+		errno = EBADF;
+		return -1;
+#else
 		fstring sharename;
 		uint32 jobid;
 
@@ -210,6 +216,7 @@ ssize_t write_file(files_struct *fsp, const char *data, SMB_OFF_T pos, size_t n)
 		}
 
 		return print_job_write(SNUM(fsp->conn), jobid, data, pos, n);
+#endif /* AVM_NO_PRINTING */
 	}
 
 	if (!fsp->can_write) {

@@ -1268,9 +1268,11 @@ static int setup_select_timeout(void)
 
 	select_timeout = blocking_locks_timeout_ms(SMBD_SELECT_TIMEOUT*1000);
 
+#ifndef AVM_NO_PRINTING
 	if (print_notify_messages_pending()) {
 		select_timeout = MIN(select_timeout, 1000);
 	}
+#endif
 
 	return select_timeout;
 }
@@ -1461,9 +1463,10 @@ machine %s in domain %s.\n", global_myname(), lp_workgroup()));
 	 */
 	process_blocking_lock_queue();
 
+#ifndef AVM_NO_PRINTING
 	/* update printer queue caches if necessary */
-  
 	update_monitored_printq_cache();
+#endif
   
 	/*
 	 * Now we are root, check if the log files need pruning.
@@ -1472,9 +1475,10 @@ machine %s in domain %s.\n", global_myname(), lp_workgroup()));
 	force_check_log_size();
 	check_log_size();
 
+#ifndef AVM_NO_PRINTING
 	/* Send any queued printer notify message to interested smbd's. */
-
 	print_notify_send_messages(0);
+#endif
 
 	/*
 	 * Modify the select timeout depending upon

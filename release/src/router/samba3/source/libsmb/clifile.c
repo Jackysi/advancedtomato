@@ -21,6 +21,8 @@
 
 #include "includes.h"
 
+#ifndef AVM_SMALLER
+
 /****************************************************************************
  Hard/Symlink a file (UNIX extensions).
  Creates new name (sym)linked to oldname.
@@ -70,6 +72,9 @@ static BOOL cli_link_internal(struct cli_state *cli, const char *oldname, const 
 
 	return True;
 }
+
+#endif /* AVM_SMALLER */
+
 
 /****************************************************************************
  Map standard UNIX permissions onto wire representations.
@@ -164,6 +169,9 @@ static mode_t unix_filetype_from_wire(uint32 wire_type)
 			return (mode_t)0;
 	}
 }
+
+
+#ifndef AVM_SMALLER
 
 /****************************************************************************
  Do a POSIX getfacl (UNIX extensions).
@@ -647,6 +655,7 @@ int cli_nt_delete_on_close(struct cli_state *cli, int fnum, BOOL flag)
 
 	return True;
 }
+#endif /* AVM_SMALLER */
 
 /****************************************************************************
  Open a file - exposing the full horror of the NT API :-).
@@ -718,6 +727,7 @@ int cli_nt_create(struct cli_state *cli, const char *fname, uint32 DesiredAccess
 				FILE_SHARE_READ|FILE_SHARE_WRITE, FILE_OPEN, 0x0, 0x0);
 }
 
+#ifndef AVM_SMALLER
 /****************************************************************************
  Open a file
  WARNING: if you open with O_WRONLY then getattrE won't work!
@@ -796,6 +806,7 @@ int cli_open(struct cli_state *cli, const char *fname, int flags, int share_mode
 
 	return SVAL(cli->inbuf,smb_vwv2);
 }
+#endif /* AVM_SMALLER */
 
 /****************************************************************************
  Close a file.
@@ -823,6 +834,7 @@ BOOL cli_close(struct cli_state *cli, int fnum)
 	return !cli_is_error(cli);
 }
 
+#ifndef AVM_SMALLER
 
 /****************************************************************************
  send a lock with a specified locktype 
@@ -1972,3 +1984,6 @@ int cli_posix_rmdir(struct cli_state *cli, const char *fname)
 {
 	return cli_posix_unlink_internal(cli, fname, True);
 }
+
+#endif /* AVM_SMALLER */
+

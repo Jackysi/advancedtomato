@@ -1499,7 +1499,11 @@ int sys_pclose(int fd)
 void *sys_dlopen(const char *name, int flags)
 {
 #if defined(HAVE_DLOPEN)
+#if 1 /* AVM */
+	return NULL;
+#else
 	return dlopen(name, flags);
+#endif
 #else
 	return NULL;
 #endif

@@ -22,7 +22,7 @@
 
 #include "includes.h"
 
-static_decl_rpc;
+/* AVM ???? static_decl_rpc; */
 
 static int am_parent = 1;
 
@@ -617,6 +617,7 @@ static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_
 **************************************************************************/
 void reload_printers(void)
 {
+#ifndef AVM_NO_PRINTING
 	int snum;
 	int n_services = lp_numservices();
 	int pnum = lp_servicenumber(PRINTERS_NAME);
@@ -643,6 +644,7 @@ void reload_printers(void)
 	}
 
 	load_printers();
+#endif /* AVM_NO_PRINTING */
 }
 
 /****************************************************************************
@@ -725,7 +727,9 @@ static void exit_server_common(enum server_exit_reason how,
 
 	invalidate_all_vuids();
 
+#ifndef AVM_NO_PRINTING
 	print_notify_send_messages(3); /* 3 second timeout. */
+#endif
 
 	/* delete our entry in the connections database. */
 	yield_connection(NULL,"");
@@ -739,7 +743,9 @@ static void exit_server_common(enum server_exit_reason how,
 #endif
 
 	locking_end();
+#ifndef AVM_NO_PRINTING
 	printing_end();
+#endif
 
 	if (how != SERVER_EXIT_NORMAL) {
 		int oldlevel = DEBUGLEVEL;
@@ -820,7 +826,9 @@ static BOOL init_structs(void )
    mkproto.h.  Mixing $(builddir) and $(srcdir) source files in the current
    prototype generation system is too complicated. */
 
+#if 0 /* AVM */
 extern void build_options(BOOL screen);
+#endif
 
  int main(int argc,const char *argv[])
 {
@@ -833,6 +841,13 @@ extern void build_options(BOOL screen);
 	static char *ports = NULL;
 	static char *profile_level = NULL;
 	int opt;
+
+#if 0 // AVM DEBUG
+	extern void crashdump_init(char*);
+	crashdump_init("smbd");
+#endif
+
+#ifndef AVM_NO_POPT
 	poptContext pc;
 
 	struct poptOption long_options[] = {
@@ -842,7 +857,9 @@ extern void build_options(BOOL screen);
 	{"foreground", 'F', POPT_ARG_VAL, &Fork, False, "Run daemon in foreground (for daemontools, etc.)" },
 	{"no-process-group", '\0', POPT_ARG_VAL, &no_process_group, True, "Don't create a new process group" },
 	{"log-stdout", 'S', POPT_ARG_VAL, &log_stdout, True, "Log to stdout" },
+#if 0 /* AVM */
 	{"build-options", 'b', POPT_ARG_NONE, NULL, 'b', "Print build options" },
+#endif
 	{"port", 'p', POPT_ARG_STRING, &ports, 0, "Listen on the specified ports"},
 	{"profiling-level", 'P', POPT_ARG_STRING, &profile_level, 0, "Set profiling level","PROFILE_LEVEL"},
 	POPT_COMMON_SAMBA
@@ -861,19 +878,29 @@ extern void build_options(BOOL screen);
 	pc = poptGetContext("smbd", argc, argv, long_options, 0);
 	
 	while((opt = poptGetNextOpt(pc)) != -1) {
+#if 0 /* AVM */
 		switch (opt)  {
 		case 'b':
 			build_options(True); /* Display output to screen as well as debug */ 
 			exit(0);
 			break;
 		}
+#endif
 	}
 
 	poptFreeContext(pc);
+#else
+	load_case_tables();
+#endif /* AVM_NO_POPT */
+
 
 #ifdef HAVE_SETLUID
 	/* needed for SecureWare on SCO */
 	setluid(0);
+#endif
+
+#if 1 /* AVM */
+	setpriority(PRIO_PROCESS, 0, 19); /* be nice */
 #endif
 
 	sec_init();
@@ -945,8 +972,10 @@ extern void build_options(BOOL screen);
 	DEBUG(2,("uid=%d gid=%d euid=%d egid=%d\n",
 		 (int)getuid(),(int)getgid(),(int)geteuid(),(int)getegid()));
 
+#if 0 /* AVM */
 	/* Output the build options to the debug log */ 
 	build_options(False);
+#endif
 
 	if (sizeof(uint16) < 2 || sizeof(uint32) < 4) {
 		DEBUG(0,("ERROR: Samba is not configured correctly for the word size on your machine\n"));
@@ -1042,16 +1071,20 @@ extern void build_options(BOOL screen);
 
 	namecache_enable();
 
+#ifndef AVM_SMALLER
 	if (!init_registry())
 		exit(1);
+#endif
 
 #if 0
 	if (!init_svcctl_db())
                 exit(1);
 #endif
 
+#ifndef AVM_NO_PRINTING
 	if (!print_backend_init())
 		exit(1);
+#endif
 
 	if (!init_guest_info()) {
 		DEBUG(0,("ERROR: failed to setup guest info.\n"));
@@ -1068,14 +1101,18 @@ extern void build_options(BOOL screen);
 	   smbd is launched via inetd and we fork a copy of 
 	   ourselves here */
 
+#ifndef AVM_NO_PRINTING
 	if ( is_daemon && !interactive )
 		start_background_queue(); 
+#endif
 
+#if 0 /* AVM */
 	/* Always attempt to initialize DMAPI. We will only use it later if
 	 * lp_dmapi_support is set on the share, but we need a single global
 	 * session to work with.
 	 */
 	dmapi_init_session();
+#endif
 
 	if (!open_sockets_smbd(is_daemon, interactive, ports))
 		exit(1);
@@ -1084,7 +1121,12 @@ extern void build_options(BOOL screen);
 	 * everything after this point is run after the fork()
 	 */ 
 
+#if 0 /* AVM */
 	static_init_rpc;
+#else
+	rpc_wkssvc_init();
+	rpc_srv_init();
+#endif
 
 	init_modules();
 

@@ -130,11 +130,13 @@ SMB_BIG_UINT sys_disk_free(connection_struct *conn, const char *path, BOOL small
 		}
 	}
 
+#if 0 /* AVM */
 	if (disk_quotas(path, &bsize_q, &dfree_q, &dsize_q)) {
 		(*bsize) = bsize_q;
 		(*dfree) = MIN(*dfree,dfree_q);
 		(*dsize) = MIN(*dsize,dsize_q);
 	}
+#endif
 
 	/* FIXME : Any reason for this assumption ? */
 	if (*bsize < 256) {

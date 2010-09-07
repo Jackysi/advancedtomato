@@ -30,6 +30,10 @@
 
 NTSTATUS change_trust_account_password( const char *domain, const char *remote_machine)
 {
+#ifdef AVM_SMALLER
+	return NT_STATUS_UNSUCCESSFUL;
+#else
+
 	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
 	struct in_addr pdc_ip;
 	fstring dc_name;
@@ -97,4 +101,5 @@ failed:
 		DEBUG(5,("change_trust_account_password: sucess!\n"));
   
 	return nt_status;
+#endif /* AVM_SMALLER */
 }
