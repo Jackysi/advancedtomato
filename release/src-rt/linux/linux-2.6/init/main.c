@@ -55,6 +55,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/device.h>
 #include <linux/kthread.h>
+#include <linux/idr.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -597,6 +598,7 @@ asmlinkage void __init start_kernel(void)
 	cpuset_init_early();
 	mem_init();
 	kmem_cache_init();
+	idr_init_cache();
 	setup_per_cpu_pageset();
 	numa_policy_init();
 	if (late_time_init)
