@@ -53,7 +53,7 @@ static void send_election_dgram(struct subnet_record *subrec, const char *workgr
 	strupper_m(srv_name);
 	/* The following call does UNIX -> DOS charset conversion. */
 	pstrcpy_base(p, srv_name, outbuf);
-	p = skip_string(p,1);
+	p = skip_string(outbuf,sizeof(outbuf),p);
   
 	send_mailslot(False, BROWSE_MAILSLOT, outbuf, PTR_DIFF(p,outbuf),
 		global_myname(), 0,
@@ -379,7 +379,7 @@ yet registered on subnet %s\n", nmb_namestr(&nmbname), subrec->subnet_name ));
 ***************************************************************************/
 
 void nmbd_message_election(int msg_type, struct process_id src,
-			   void *buf, size_t len)
+			   void *buf, size_t len, void *private_data)
 {
 	struct subnet_record *subrec;
 

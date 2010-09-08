@@ -77,7 +77,7 @@ BOOL ntsvcs_io_q_get_device_list_size(const char *desc, NTSVCS_Q_GET_DEVICE_LIST
 	if(!prs_align(ps))
 		return False;
 
-	if ( !prs_pointer("devicename", ps, depth, (void**)&q_u->devicename, sizeof(UNISTR2), (PRS_POINTER_CAST)prs_io_unistr2) )
+	if ( !prs_pointer("devicename", ps, depth, (void*)&q_u->devicename, sizeof(UNISTR2), (PRS_POINTER_CAST)prs_io_unistr2) )
 		return False;
 	if ( !prs_align(ps) )
 		return False;
@@ -127,7 +127,7 @@ BOOL ntsvcs_io_q_get_device_list(const char *desc, NTSVCS_Q_GET_DEVICE_LIST *q_u
 	if(!prs_align(ps))
 		return False;
 
-	if ( !prs_pointer("devicename", ps, depth, (void**)&q_u->devicename, sizeof(UNISTR2), (PRS_POINTER_CAST)prs_io_unistr2) )
+	if ( !prs_pointer("devicename", ps, depth, (void*)&q_u->devicename, sizeof(UNISTR2), (PRS_POINTER_CAST)prs_io_unistr2) )
 		return False;
 	if( !prs_align(ps) )
 		return False;
@@ -334,9 +334,13 @@ BOOL ntsvcs_io_r_get_hw_profile_info(const char *desc, NTSVCS_R_GET_HW_PROFILE_I
 		return False;
 
 	if ( UNMARSHALLING(ps) ) {
-		r_u->buffer = TALLOC_ARRAY(get_talloc_ctx(), uint8, r_u->buffer_size );
-		if (!r_u->buffer) {
-			return False;
+		if (r_u->buffer_size) {
+			r_u->buffer = TALLOC_ARRAY(get_talloc_ctx(), uint8, r_u->buffer_size );
+			if (!r_u->buffer) {
+				return False;
+			}
+		} else {
+			r_u->buffer = NULL;
 		}
 	}
 

@@ -57,17 +57,17 @@ BOOL conn_snum_used(int snum)
 {
 	connection_struct *conn;
 	for (conn=Connections;conn;conn=conn->next) {
-		if (conn->service == snum) {
+		if (conn->params->service == snum) {
 			return(True);
 		}
 	}
 	return(False);
 }
 
-
 /****************************************************************************
-find a conn given a cnum
+ Find a conn given a cnum.
 ****************************************************************************/
+
 connection_struct *conn_find(unsigned cnum)
 {
 	int count=0;
@@ -84,7 +84,6 @@ connection_struct *conn_find(unsigned cnum)
 
 	return NULL;
 }
-
 
 /****************************************************************************
   find first available connection slot, starting from a random position.
@@ -107,7 +106,7 @@ find_again:
                 int             newsz = bmap->n + BITMAP_BLOCK_SZ;
                 struct bitmap * nbmap;
 
-                if (newsz <= 0) {
+                if (newsz <= oldsz) {
                         /* Integer wrap. */
 		        DEBUG(0,("ERROR! Out of connection structures\n"));
                         return NULL;
@@ -131,13 +130,25 @@ find_again:
                 goto find_again;
 	}
 
+	/* The bitmap position is used below as the connection number
+	 * conn->cnum). This ends up as the TID field in the SMB header,
+	 * which is limited to 16 bits (we skip 0xffff which is the
+	 * NULL TID).
+	 */
+	if (i > 65534) {
+		DEBUG(0, ("Maximum connection limit reached\n"));
+		return NULL;
+	}
+
 	if ((mem_ctx=talloc_init("connection_struct"))==NULL) {
 		DEBUG(0,("talloc_init(connection_struct) failed!\n"));
 		return NULL;
 	}
 
-	if ((conn=TALLOC_ZERO_P(mem_ctx, connection_struct))==NULL) {
-		DEBUG(0,("talloc_zero() failed!\n"));
+	if (!(conn=TALLOC_ZERO_P(mem_ctx, connection_struct)) ||
+	    !(conn->params = TALLOC_P(mem_ctx, struct share_params))) {
+		DEBUG(0,("TALLOC_ZERO() failed!\n"));
+		TALLOC_FREE(mem_ctx);
 		return NULL;
 	}
 	conn->mem_ctx = mem_ctx;
@@ -208,7 +219,7 @@ BOOL conn_idle_all(time_t t, int deadtime)
 	for (plist = get_first_internal_pipe(); plist; plist = get_next_internal_pipe(plist))
 		if (plist->pipe_handles && plist->pipe_handles->count)
 			allidle = False;
-
+	
 	return allidle;
 }
 
@@ -245,24 +256,23 @@ void conn_free_internal(connection_struct *conn)
 {
  	vfs_handle_struct *handle = NULL, *thandle = NULL;
  	TALLOC_CTX *mem_ctx = NULL;
+	struct trans_state *state = NULL;
 
 	/* Free vfs_connection_struct */
 	handle = conn->vfs_handles;
 	while(handle) {
-		DLIST_REMOVE(conn->vfs_handles, handle);
 		thandle = handle->next;
+		DLIST_REMOVE(conn->vfs_handles, handle);
 		if (handle->free_data)
 			handle->free_data(&handle->data);
 		handle = thandle;
 	}
 
-	if (conn->ngroups && conn->groups) {
-		SAFE_FREE(conn->groups);
-		conn->ngroups = 0;
-	}
-
-	if (conn->nt_user_token) {
-		TALLOC_FREE(conn->nt_user_token);
+	/* Free any pending transactions stored on this conn. */
+	for (state = conn->pending_trans; state; state = state->next) {
+		/* state->setup is a talloc child of state. */
+		SAFE_FREE(state->param);
+		SAFE_FREE(state->data);
 	}
 
 	free_namearray(conn->veto_list);
@@ -300,7 +310,8 @@ the message contains just a share name and all instances of that
 share are unmounted
 the special sharename '*' forces unmount of all shares
 ****************************************************************************/
-void msg_force_tdis(int msg_type, struct process_id pid, void *buf, size_t len)
+void msg_force_tdis(int msg_type, struct process_id pid, void *buf, size_t len,
+		    void *private_data)
 {
 	connection_struct *conn, *next;
 	fstring sharename;
@@ -315,7 +326,7 @@ void msg_force_tdis(int msg_type, struct process_id pid, void *buf, size_t len)
 
 	for (conn=Connections;conn;conn=next) {
 		next=conn->next;
-		if (strequal(lp_servicename(conn->service), sharename)) {
+		if (strequal(lp_servicename(SNUM(conn)), sharename)) {
 			DEBUG(1,("Forcing close of share %s cnum=%d\n",
 				 sharename, conn->cnum));
 			close_cnum(conn, (uint16)-1);

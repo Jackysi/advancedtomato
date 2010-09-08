@@ -163,12 +163,13 @@ static NTSTATUS sam_account_ok(TALLOC_CTX *mem_ctx,
 		return NT_STATUS_ACCOUNT_EXPIRED;
 	}
 
-	if (!(pdb_get_acct_ctrl(sampass) & ACB_PWNOEXP)) {
+	if (!(pdb_get_acct_ctrl(sampass) & ACB_PWNOEXP) && !(pdb_get_acct_ctrl(sampass) & ACB_PWNOTREQ)) {
 		time_t must_change_time = pdb_get_pass_must_change_time(sampass);
 		time_t last_set_time = pdb_get_pass_last_set_time(sampass);
 
-		/* check for immediate expiry "must change at next logon" */
-		if (must_change_time == 0 && last_set_time != 0) {
+		/* check for immediate expiry "must change at next logon" 
+		 * for a user account. */
+		if (((acct_ctrl & (ACB_WSTRUST|ACB_SVRTRUST)) == 0) && (last_set_time == 0)) {
 			DEBUG(1,("sam_account_ok: Account for user '%s' password must change!.\n", pdb_get_username(sampass)));
 			return NT_STATUS_PASSWORD_MUST_CHANGE;
 		}

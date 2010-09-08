@@ -16,8 +16,7 @@
    only important messages. This gives *much* smaller binaries
 */
 #ifndef MAX_DEBUG_LEVEL
-/* AR7 #define MAX_DEBUG_LEVEL 1000 */
-#define MAX_DEBUG_LEVEL 0
+#define MAX_DEBUG_LEVEL 1000
 #endif
 
 /* This defines the section name in the configuration file that will contain */
@@ -50,8 +49,7 @@
 #define MAX_DIRECTORY_HANDLES 2048
 
 /* maximum number of file caches per smbd */
-/* #define MAX_WRITE_CACHES 10 */
-#define MAX_WRITE_CACHES 2 /* AVM */
+#define MAX_WRITE_CACHES 10
 
 /* define what facility to use for syslog */
 #ifndef SYSLOG_FACILITY
@@ -248,5 +246,8 @@
 
 /* Default hash size for the winbindd cache. */
 #define WINBINDD_CACHE_TDB_DEFAULT_HASH_SIZE 5000
+
+/* Windows minimum lock resolution timeout in ms */
+#define WINDOWS_MINIMUM_LOCK_TIMEOUT_MS 200
 
 #endif

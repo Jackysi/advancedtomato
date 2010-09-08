@@ -6,7 +6,7 @@
  *  Copyright (C) Paul Ashton                  1997-2000,
  *  Copyright (C) Elrond                            2000,
  *  Copyright (C) Jeremy Allison                    2001,
- *  Copyright (C) Jean François Micouleau      1998-2001,
+ *  Copyright (C) Jean FranÃ§ois Micouleau      1998-2001,
  *  Copyright (C) Jim McDonough <jmcd@us.ibm.com>   2002.
  *  
  *  This program is free software; you can redistribute it and/or modify
@@ -511,12 +511,10 @@ void init_unk_info1(SAM_UNK_INFO_1 *u_1, uint16 min_pass_len, uint16 pass_hist,
 	u_1->password_properties = password_properties;
 
 	/* password never expire */
-	u_1->expire.high = nt_expire.high;
-	u_1->expire.low = nt_expire.low;
+	u_1->expire = nt_expire;
 
 	/* can change the password now */
-	u_1->min_passwordage.high = nt_min_age.high;
-	u_1->min_passwordage.low = nt_min_age.low;
+	u_1->min_passwordage = nt_min_age;
 	
 }
 
@@ -555,13 +553,11 @@ void init_unk_info2(SAM_UNK_INFO_2 * u_2,
 			const char *comment, const char *domain, const char *server,
 			uint32 seq_num, uint32 num_users, uint32 num_groups, uint32 num_alias, NTTIME nt_logout, uint32 server_role)
 {
-	u_2->logout.low = nt_logout.low;
-	u_2->logout.high = nt_logout.high;
+	u_2->logout = nt_logout;
 
-	u_2->seq_num.low = seq_num;
-	u_2->seq_num.high = 0x00000000;
+	u_2->seq_num = seq_num;
 
-
+	
 	u_2->unknown_4 = 0x00000001;
 	u_2->server_role = server_role;
 	u_2->unknown_6 = 0x00000001;
@@ -635,8 +631,7 @@ inits a structure.
 
 void init_unk_info3(SAM_UNK_INFO_3 *u_3, NTTIME nt_logout)
 {
-	u_3->logout.low = nt_logout.low;
-	u_3->logout.high = nt_logout.high;
+	u_3->logout = nt_logout;
 }
 
 /*******************************************************************
@@ -789,8 +784,7 @@ inits a structure.
 void init_unk_info8(SAM_UNK_INFO_8 * u_8, uint32 seq_num)
 {
 	unix_to_nt_time(&u_8->domain_create_time, 0);
-	u_8->seq_num.low = seq_num;
-	u_8->seq_num.high = 0x0000;
+	u_8->seq_num = seq_num;
 }
 
 /*******************************************************************
@@ -849,10 +843,8 @@ inits a structure.
 
 void init_unk_info12(SAM_UNK_INFO_12 * u_12, NTTIME nt_lock_duration, NTTIME nt_reset_time, uint16 lockout)
 {
-	u_12->duration.low = nt_lock_duration.low;
-	u_12->duration.high = nt_lock_duration.high;
-	u_12->reset_count.low = nt_reset_time.low;
-	u_12->reset_count.high = nt_reset_time.high;
+	u_12->duration = nt_lock_duration;
+	u_12->reset_count = nt_reset_time;
 
 	u_12->bad_attempt_lockout = lockout;
 }
@@ -887,8 +879,7 @@ inits a structure.
 void init_unk_info13(SAM_UNK_INFO_13 * u_13, uint32 seq_num)
 {
 	unix_to_nt_time(&u_13->domain_create_time, 0);
-	u_13->seq_num.low = seq_num;
-	u_13->seq_num.high = 0x0000;
+	u_13->seq_num = seq_num;
 	u_13->unknown1 = 0;
 	u_13->unknown2 = 0;
 }
@@ -2182,6 +2173,76 @@ BOOL samr_io_r_query_dispinfo(const char *desc, SAMR_R_QUERY_DISPINFO * r_u,
 }
 
 /*******************************************************************
+inits a SAMR_Q_GET_DISPENUM_INDEX structure.
+********************************************************************/
+
+void init_samr_q_get_dispenum_index(SAMR_Q_GET_DISPENUM_INDEX * q_e, POLICY_HND *pol,
+				    uint16 switch_level, const char *name)
+{
+	DEBUG(5, ("init_samr_q_get_dispenum_index\n"));
+
+	q_e->domain_pol = *pol;
+
+	q_e->switch_level = switch_level;
+
+	init_lsa_string(&q_e->name, name);
+}
+
+/*******************************************************************
+reads or writes a structure.
+********************************************************************/
+
+BOOL samr_io_q_get_dispenum_index(const char *desc, SAMR_Q_GET_DISPENUM_INDEX * q_e,
+				  prs_struct *ps, int depth)
+{
+	if (q_e == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "samr_io_q_get_dispenum_index");
+	depth++;
+
+	if(!prs_align(ps))
+		return False;
+
+	if(!smb_io_pol_hnd("domain_pol", &q_e->domain_pol, ps, depth))
+		return False;
+
+	if(!prs_uint16("switch_level", ps, depth, &q_e->switch_level))
+		return False;
+
+	if (!smb_io_lsa_string("name", &q_e->name, ps, depth))
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
+reads or writes a structure.
+********************************************************************/
+
+BOOL samr_io_r_get_dispenum_index(const char *desc, SAMR_R_GET_DISPENUM_INDEX * r_u,
+				  prs_struct *ps, int depth)
+{
+	if (r_u == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "samr_io_r_get_dispenum_index");
+	depth++;
+
+	if(!prs_align(ps))
+		return False;
+
+	if(!prs_uint32("idx", ps, depth, &r_u->idx))
+		return False;
+	
+	if(!prs_ntstatus("status", ps, depth, &r_u->status))
+		return False;
+
+	return True;
+}
+
+
+/*******************************************************************
 inits a SAMR_Q_OPEN_GROUP structure.
 ********************************************************************/
 
@@ -2194,6 +2255,17 @@ void init_samr_q_open_group(SAMR_Q_OPEN_GROUP * q_c,
 	q_c->domain_pol = *hnd;
 	q_c->access_mask = access_mask;
 	q_c->rid_group = rid;
+}
+
+/*******************************************************************
+inits a SAMR_R_GET_DISPENUM_INDEX structure.
+********************************************************************/
+
+void init_samr_r_get_dispenum_index(SAMR_R_GET_DISPENUM_INDEX * q_e, uint32 idx)
+{
+	DEBUG(5, ("init_samr_r_get_dispenum_index\n"));
+
+	q_e->idx = idx;
 }
 
 /*******************************************************************
@@ -3854,7 +3926,7 @@ BOOL samr_io_r_query_aliasinfo(const char *desc, SAMR_R_QUERY_ALIASINFO *out,
 	if(!prs_align(ps))
 		return False;
 
-	if ( !prs_pointer("alias", ps, depth, (void**)&out->ctr, sizeof(ALIAS_INFO_CTR), (PRS_POINTER_CAST)samr_alias_info_ctr))
+	if ( !prs_pointer("alias", ps, depth, (void*)&out->ctr, sizeof(ALIAS_INFO_CTR), (PRS_POINTER_CAST)samr_alias_info_ctr))
 		return False;
 	if(!prs_align(ps))
 		return False;
@@ -4184,7 +4256,11 @@ void init_samr_q_lookup_rids(TALLOC_CTX *ctx, SAMR_Q_LOOKUP_RIDS * q_u,
 	q_u->flags = flags;
 	q_u->ptr = 0;
 	q_u->num_rids2 = num_rids;
-	q_u->rid = TALLOC_ZERO_ARRAY(ctx, uint32, num_rids );
+	if (num_rids) {
+		q_u->rid = TALLOC_ZERO_ARRAY(ctx, uint32, num_rids );
+	} else {
+		q_u->rid = NULL;
+	}
 	if (q_u->rid == NULL) {
 		q_u->num_rids1 = 0;
 		q_u->num_rids2 = 0;
@@ -4773,9 +4849,14 @@ BOOL samr_io_r_query_aliasmem(const char *desc, SAMR_R_QUERY_ALIASMEM * r_u,
 		if(!prs_uint32("num_sids1", ps, depth, &r_u->num_sids1))
 			return False;
 
-		ptr_sid = TALLOC_ARRAY(ps->mem_ctx, uint32, r_u->num_sids1);
-		if (!ptr_sid) {
-			return False;
+		/* We must always use talloc here even when marshalling. */
+		if (r_u->num_sids1) {
+			ptr_sid = TALLOC_ARRAY(ps->mem_ctx, uint32, r_u->num_sids1);
+			if (!ptr_sid) {
+				return False;
+			}
+		} else {
+			ptr_sid = NULL;
 		}
 		
 		for (i = 0; i < r_u->num_sids1; i++) {
@@ -4785,7 +4866,14 @@ BOOL samr_io_r_query_aliasmem(const char *desc, SAMR_R_QUERY_ALIASMEM * r_u,
 		}
 		
 		if (UNMARSHALLING(ps)) {
-			r_u->sid = TALLOC_ARRAY(ps->mem_ctx, DOM_SID2, r_u->num_sids1);
+			if (r_u->num_sids1) {
+				r_u->sid = TALLOC_ARRAY(ps->mem_ctx, DOM_SID2, r_u->num_sids1);
+				if (!r_u->sid) {
+					return False;
+				}
+			} else {
+				r_u->sid = NULL;
+			}
 		}
 		
 		for (i = 0; i < r_u->num_sids1; i++) {
@@ -4823,11 +4911,16 @@ NTSTATUS init_samr_q_lookup_names(TALLOC_CTX *ctx, SAMR_Q_LOOKUP_NAMES * q_u,
 	q_u->ptr = 0;
 	q_u->num_names2 = num_names;
 
-	if (!(q_u->hdr_name = TALLOC_ZERO_ARRAY(ctx, UNIHDR, num_names)))
-		return NT_STATUS_NO_MEMORY;
+	if (num_names) {
+		if (!(q_u->hdr_name = TALLOC_ZERO_ARRAY(ctx, UNIHDR, num_names)))
+			return NT_STATUS_NO_MEMORY;
 
-	if (!(q_u->uni_name = TALLOC_ZERO_ARRAY(ctx, UNISTR2, num_names)))
-		return NT_STATUS_NO_MEMORY;
+		if (!(q_u->uni_name = TALLOC_ZERO_ARRAY(ctx, UNISTR2, num_names)))
+			return NT_STATUS_NO_MEMORY;
+	} else {
+		q_u->hdr_name = NULL;
+		q_u->uni_name = NULL;
+	}
 
 	for (i = 0; i < num_names; i++) {
 		init_unistr2(&q_u->uni_name[i], name[i], UNI_FLAGS_NONE);	/* unicode string for machine account */
@@ -4896,7 +4989,7 @@ inits a SAMR_R_LOOKUP_NAMES structure.
 
 NTSTATUS init_samr_r_lookup_names(TALLOC_CTX *ctx, SAMR_R_LOOKUP_NAMES * r_u,
 			      uint32 num_rids,
-			      uint32 *rid, uint32 *type,
+			      uint32 *rid, enum lsa_SidType *type,
 			      NTSTATUS status)
 {
 	DEBUG(5, ("init_samr_r_lookup_names\n"));
@@ -4912,10 +5005,15 @@ NTSTATUS init_samr_r_lookup_names(TALLOC_CTX *ctx, SAMR_R_LOOKUP_NAMES * r_u,
 		r_u->ptr_rids = 1;
 		r_u->num_rids2 = num_rids;
 
-		if (!(r_u->rids = TALLOC_ZERO_ARRAY(ctx, uint32, num_rids)))
-			return NT_STATUS_NO_MEMORY;
-		if (!(r_u->types = TALLOC_ZERO_ARRAY(ctx, uint32, num_rids)))
-			return NT_STATUS_NO_MEMORY;
+		if (num_rids) {
+			if (!(r_u->rids = TALLOC_ZERO_ARRAY(ctx, uint32, num_rids)))
+				return NT_STATUS_NO_MEMORY;
+			if (!(r_u->types = TALLOC_ZERO_ARRAY(ctx, uint32, num_rids)))
+				return NT_STATUS_NO_MEMORY;
+		} else {
+			r_u->rids = NULL;
+			r_u->types = NULL;
+		}
 
 		if (!r_u->rids || !r_u->types)
 			goto empty;
@@ -5165,7 +5263,7 @@ reads or writes a structure.
 void init_samr_q_create_user(SAMR_Q_CREATE_USER * q_u,
 			     POLICY_HND *pol,
 			     const char *name,
-			     uint32 acb_info, uint32 access_mask)
+			     uint32 acb_info, uint32 acct_flags)
 {
 	DEBUG(5, ("samr_init_samr_q_create_user\n"));
 
@@ -5175,7 +5273,7 @@ void init_samr_q_create_user(SAMR_Q_CREATE_USER * q_u,
 	init_uni_hdr(&q_u->hdr_name, &q_u->uni_name);
 
 	q_u->acb_info = acb_info;
-	q_u->access_mask = access_mask;
+	q_u->acct_flags = acct_flags;
 }
 
 /*******************************************************************
@@ -5206,7 +5304,7 @@ BOOL samr_io_q_create_user(const char *desc, SAMR_Q_CREATE_USER * q_u,
 		return False;
 	if(!prs_uint32("acb_info   ", ps, depth, &q_u->acb_info))
 		return False;
-	if(!prs_uint32("access_mask", ps, depth, &q_u->access_mask))
+	if(!prs_uint32("acct_flags", ps, depth, &q_u->acct_flags))
 		return False;
 
 	return True;
@@ -5586,10 +5684,11 @@ static BOOL sam_io_user_info17(const char *desc, SAM_USER_INFO_17 * usr,
 }
 
 /*************************************************************************
- init_sam_user_infoa
+ init_sam_user_info24
  *************************************************************************/
 
-void init_sam_user_info24(SAM_USER_INFO_24 * usr, char newpass[516], uint16 pw_len)
+void init_sam_user_info24(SAM_USER_INFO_24 * usr, char newpass[516],
+			  uint8 pw_len)
 {
 	DEBUG(10, ("init_sam_user_info24:\n"));
 	memcpy(usr->pass, newpass, sizeof(usr->pass));
@@ -5617,10 +5716,10 @@ static BOOL sam_io_user_info24(const char *desc, SAM_USER_INFO_24 * usr,
 		return False;
 	
 	if (MARSHALLING(ps) && (usr->pw_len != 0)) {
-		if (!prs_uint16("pw_len", ps, depth, &usr->pw_len))
+		if (!prs_uint8("pw_len", ps, depth, &usr->pw_len))
 			return False;
 	} else if (UNMARSHALLING(ps)) {
-		if (!prs_uint16("pw_len", ps, depth, &usr->pw_len))
+		if (!prs_uint8("pw_len", ps, depth, &usr->pw_len))
 			return False;
 	}
 
@@ -5743,8 +5842,8 @@ void init_sam_user_info23W(SAM_USER_INFO_23 * usr, NTTIME * logon_time,	/* all z
 	copy_unistr2(&usr->uni_workstations, wkstas);
 	init_uni_hdr(&usr->hdr_workstations, &usr->uni_workstations);
 
-	copy_unistr2(&usr->uni_unknown_str, unk_str);
-	init_uni_hdr(&usr->hdr_unknown_str, &usr->uni_unknown_str);
+	copy_unistr2(&usr->uni_comment, unk_str);
+	init_uni_hdr(&usr->hdr_comment, &usr->uni_comment);
 
 	copy_unistr2(&usr->uni_munged_dial, mung_dial);
 	init_uni_hdr(&usr->hdr_munged_dial, &usr->uni_munged_dial);
@@ -5837,8 +5936,8 @@ void init_sam_user_info23A(SAM_USER_INFO_23 * usr, NTTIME * logon_time,	/* all z
 	init_unistr2(&usr->uni_workstations, wkstas, UNI_FLAGS_NONE);
 	init_uni_hdr(&usr->hdr_workstations, &usr->uni_workstations);
 
-	init_unistr2(&usr->uni_unknown_str, unk_str, UNI_FLAGS_NONE);
-	init_uni_hdr(&usr->hdr_unknown_str, &usr->uni_unknown_str);
+	init_unistr2(&usr->uni_comment, unk_str, UNI_FLAGS_NONE);
+	init_uni_hdr(&usr->hdr_comment, &usr->uni_comment);
 
 	init_unistr2_from_datablob(&usr->uni_munged_dial, &blob);
 	init_uni_hdr(&usr->hdr_munged_dial, &usr->uni_munged_dial);
@@ -5851,6 +5950,25 @@ void init_sam_user_info23A(SAM_USER_INFO_23 * usr, NTTIME * logon_time,	/* all z
 		ZERO_STRUCT(usr->logon_hrs);
 	}
 }
+
+
+/*************************************************************************
+ init_samr_user_info25P
+ fields_present = ACCT_NT_PWD_SET | ACCT_LM_PWD_SET | ACCT_FLAGS
+*************************************************************************/
+
+void init_sam_user_info25P(SAM_USER_INFO_25 * usr,
+			   uint32 fields_present, uint32 acb_info,
+			   char newpass[532])
+{
+	usr->fields_present = fields_present;
+	ZERO_STRUCT(usr->padding1);
+	ZERO_STRUCT(usr->padding2);
+
+	usr->acb_info = acb_info;
+	memcpy(usr->pass, newpass, sizeof(usr->pass));
+}
+
 
 /*******************************************************************
 reads or writes a structure.
@@ -5897,7 +6015,7 @@ static BOOL sam_io_user_info23(const char *desc, SAM_USER_INFO_23 * usr,
 		return False;
 	if(!smb_io_unihdr("hdr_workstations", &usr->hdr_workstations, ps, depth))	/* wkstas user can log on from */
 		return False;
-	if(!smb_io_unihdr("hdr_unknown_str ", &usr->hdr_unknown_str, ps, depth))	/* unknown string */
+	if(!smb_io_unihdr("hdr_comment ", &usr->hdr_comment, ps, depth))	/* unknown string */
 		return False;
 	if(!smb_io_unihdr("hdr_munged_dial ", &usr->hdr_munged_dial, ps, depth))	/* wkstas user can log on from */
 		return False;
@@ -5965,7 +6083,7 @@ static BOOL sam_io_user_info23(const char *desc, SAM_USER_INFO_23 * usr,
 	if(!smb_io_unistr2("uni_workstations", &usr->uni_workstations, usr->hdr_workstations.buffer, ps, depth))	/* worksations user can log on from */
 		return False;
 
-	if(!smb_io_unistr2("uni_unknown_str ", &usr->uni_unknown_str, usr->hdr_unknown_str.buffer, ps, depth))	/* unknown string */
+	if(!smb_io_unistr2("uni_comment ", &usr->uni_comment, usr->hdr_comment.buffer, ps, depth))	/* unknown string */
 		return False;
 
 	if(!smb_io_unistr2("uni_munged_dial ", &usr->uni_munged_dial, usr->hdr_munged_dial.buffer, ps, depth))
@@ -6027,7 +6145,7 @@ static BOOL sam_io_user_info25(const char *desc, SAM_USER_INFO_25 * usr, prs_str
 		return False;
 	if(!smb_io_unihdr("hdr_workstations", &usr->hdr_workstations, ps, depth))	/* wkstas user can log on from */
 		return False;
-	if(!smb_io_unihdr("hdr_unknown_str ", &usr->hdr_unknown_str, ps, depth))	/* unknown string */
+	if(!smb_io_unihdr("hdr_comment ", &usr->hdr_comment, ps, depth))	/* unknown string */
 		return False;
 	if(!smb_io_unihdr("hdr_munged_dial ", &usr->hdr_munged_dial, ps, depth))	/* wkstas user can log on from */
 		return False;
@@ -6046,8 +6164,25 @@ static BOOL sam_io_user_info25(const char *desc, SAM_USER_INFO_25 * usr, prs_str
 	if(!prs_uint32("fields_present ", ps, depth, &usr->fields_present))
 		return False;
 
-	if(!prs_uint32s(False, "unknown_5      ", ps, depth, usr->unknown_5, 5))
+	if(!prs_uint16("logon_divs    ", ps, depth, &usr->logon_divs))	/* logon divisions per week */
 		return False;
+	if(!prs_align(ps))
+		return False;
+	if(!prs_uint32("ptr_logon_hrs ", ps, depth, &usr->ptr_logon_hrs))
+		return False;
+
+	if(!prs_uint16("bad_password_count     ", ps, depth, &usr->bad_password_count))
+		return False;
+	if(!prs_uint16("logon_count     ", ps, depth, &usr->logon_count))
+		return False;
+
+	if(!prs_uint8s(False, "padding1      ", ps, depth, usr->padding1, sizeof(usr->padding1)))
+		return False;
+	if(!prs_uint8("passmustchange ", ps, depth, &usr->passmustchange))
+		return False;
+	if(!prs_uint8("padding2       ", ps, depth, &usr->padding2))
+		return False;
+
 
 	if(!prs_uint8s(False, "password      ", ps, depth, usr->pass, sizeof(usr->pass)))
 		return False;
@@ -6078,19 +6213,17 @@ static BOOL sam_io_user_info25(const char *desc, SAM_USER_INFO_25 * usr, prs_str
 	if(!smb_io_unistr2("uni_workstations", &usr->uni_workstations, usr->hdr_workstations.buffer, ps, depth))	/* worksations user can log on from */
 		return False;
 
-	if(!smb_io_unistr2("uni_unknown_str ", &usr->uni_unknown_str, usr->hdr_unknown_str.buffer, ps, depth))	/* unknown string */
+	if(!smb_io_unistr2("uni_comment ", &usr->uni_comment, usr->hdr_comment.buffer, ps, depth))	/* unknown string */
 		return False;
 
 	if(!smb_io_unistr2("uni_munged_dial ", &usr->uni_munged_dial, usr->hdr_munged_dial.buffer, ps, depth))
 		return False;
 
-#if 0 /* JRA - unknown... */
 	/* ok, this is only guess-work (as usual) */
 	if (usr->ptr_logon_hrs) {
 		if(!sam_io_logon_hrs("logon_hrs", &usr->logon_hrs, ps, depth))
 			return False;
 	} 
-#endif
 
 	return True;
 }
@@ -6184,8 +6317,8 @@ void init_sam_user_info21W(SAM_USER_INFO_21 * usr,
 	copy_unistr2(&usr->uni_workstations, wkstas);
 	init_uni_hdr(&usr->hdr_workstations, &usr->uni_workstations);
 
-	copy_unistr2(&usr->uni_unknown_str, unk_str);
-	init_uni_hdr(&usr->hdr_unknown_str, &usr->uni_unknown_str);
+	copy_unistr2(&usr->uni_comment, unk_str);
+	init_uni_hdr(&usr->hdr_comment, &usr->uni_comment);
 
 	copy_unistr2(&usr->uni_munged_dial, mung_dial);
 	init_uni_hdr(&usr->hdr_munged_dial, &usr->uni_munged_dial);
@@ -6210,6 +6343,7 @@ NTSTATUS init_sam_user_info21A(SAM_USER_INFO_21 *usr, struct samu *pw, DOM_SID *
 			pass_last_set_time, pass_can_change_time,
 			pass_must_change_time;
 			
+	time_t must_change_time;
 	const char*		user_name = pdb_get_username(pw);
 	const char*		full_name = pdb_get_fullname(pw);
 	const char*		home_dir  = pdb_get_homedir(pw);
@@ -6234,12 +6368,16 @@ NTSTATUS init_sam_user_info21A(SAM_USER_INFO_21 *usr, struct samu *pw, DOM_SID *
 	}
 
 	/* Create NTTIME structs */
-	unix_to_nt_time (&logon_time, 		pdb_get_logon_time(pw));
-	unix_to_nt_time (&logoff_time, 		pdb_get_logoff_time(pw));
+	unix_to_nt_time (&logon_time,	        pdb_get_logon_time(pw));
+	unix_to_nt_time (&logoff_time,	pdb_get_logoff_time(pw));
 	unix_to_nt_time (&kickoff_time, 	pdb_get_kickoff_time(pw));
-	unix_to_nt_time (&pass_last_set_time, 	pdb_get_pass_last_set_time(pw));
-	unix_to_nt_time (&pass_can_change_time,	pdb_get_pass_can_change_time(pw));
-	unix_to_nt_time (&pass_must_change_time,pdb_get_pass_must_change_time(pw));
+	unix_to_nt_time (&pass_last_set_time, pdb_get_pass_last_set_time(pw));
+	unix_to_nt_time (&pass_can_change_time,pdb_get_pass_can_change_time(pw));
+	must_change_time = pdb_get_pass_must_change_time(pw);
+	if (must_change_time == get_time_t_max())
+		unix_to_nt_time_abs(&pass_must_change_time, must_change_time);
+	else
+		unix_to_nt_time(&pass_must_change_time, must_change_time);
 	
 	/* structure assignment */
 	usr->logon_time            = logon_time;
@@ -6266,8 +6404,10 @@ NTSTATUS init_sam_user_info21A(SAM_USER_INFO_21 *usr, struct samu *pw, DOM_SID *
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
+	become_root();	
 	group_sid = pdb_get_group_sid(pw);
-	
+	unbecome_root();
+
 	if (!sid_peek_check_rid(domain_sid, group_sid, &group_rid)) {
 		fstring group_sid_string;
 		fstring domain_sid_string;
@@ -6333,8 +6473,8 @@ NTSTATUS init_sam_user_info21A(SAM_USER_INFO_21 *usr, struct samu *pw, DOM_SID *
 	init_unistr2(&usr->uni_workstations, workstations, UNI_STR_TERMINATE);
 	init_uni_hdr(&usr->hdr_workstations, &usr->uni_workstations);
 
-	init_unistr2(&usr->uni_unknown_str, NULL, UNI_STR_TERMINATE);
-	init_uni_hdr(&usr->hdr_unknown_str, &usr->uni_unknown_str);
+	init_unistr2(&usr->uni_comment, NULL, UNI_STR_TERMINATE);
+	init_uni_hdr(&usr->hdr_comment, &usr->uni_comment);
 
 	init_unistr2_from_datablob(&usr->uni_munged_dial, &munged_dial_blob);
 	init_uni_hdr(&usr->hdr_munged_dial, &usr->uni_munged_dial);
@@ -6400,7 +6540,7 @@ static BOOL sam_io_user_info21(const char *desc, SAM_USER_INFO_21 * usr,
 		return False;
 	if(!smb_io_unihdr("hdr_workstations", &usr->hdr_workstations, ps, depth))	/* wkstas user can log on from */
 		return False;
-	if(!smb_io_unihdr("hdr_unknown_str ", &usr->hdr_unknown_str, ps, depth))	/* unknown string */
+	if(!smb_io_unihdr("hdr_comment ", &usr->hdr_comment, ps, depth))	/* unknown string */
 		return False;
 	if(!smb_io_unihdr("hdr_munged_dial ", &usr->hdr_munged_dial, ps, depth))	/* wkstas user can log on from */
 		return False;
@@ -6440,25 +6580,25 @@ static BOOL sam_io_user_info21(const char *desc, SAM_USER_INFO_21 * usr,
 
 	/* here begins pointed-to data */
 
-	if(!smb_io_unistr2("uni_user_name   ", &usr->uni_user_name,usr->hdr_user_name.buffer, ps, depth))	/* username unicode string */
+	if(!smb_io_unistr2("uni_user_name   ", &usr->uni_user_name,usr->hdr_user_name.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_full_name   ", &usr->uni_full_name, usr->hdr_full_name.buffer, ps, depth))	/* user's full name unicode string */
+	if(!smb_io_unistr2("uni_full_name   ", &usr->uni_full_name, usr->hdr_full_name.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_home_dir    ", &usr->uni_home_dir, usr->hdr_home_dir.buffer, ps, depth))	/* home directory unicode string */
+	if(!smb_io_unistr2("uni_home_dir    ", &usr->uni_home_dir, usr->hdr_home_dir.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_dir_drive   ", &usr->uni_dir_drive, usr->hdr_dir_drive.buffer, ps, depth))	/* home directory drive unicode string */
+	if(!smb_io_unistr2("uni_dir_drive   ", &usr->uni_dir_drive, usr->hdr_dir_drive.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_logon_script", &usr->uni_logon_script, usr->hdr_logon_script.buffer, ps, depth))	/* logon script unicode string */
+	if(!smb_io_unistr2("uni_logon_script", &usr->uni_logon_script, usr->hdr_logon_script.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_profile_path", &usr->uni_profile_path, usr->hdr_profile_path.buffer, ps, depth))	/* profile path unicode string */
+	if(!smb_io_unistr2("uni_profile_path", &usr->uni_profile_path, usr->hdr_profile_path.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_acct_desc   ", &usr->uni_acct_desc, usr->hdr_acct_desc.buffer, ps, depth))	/* user desc unicode string */
+	if(!smb_io_unistr2("uni_acct_desc   ", &usr->uni_acct_desc, usr->hdr_acct_desc.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_workstations", &usr->uni_workstations, usr->hdr_workstations.buffer, ps, depth))	/* worksations user can log on from */
+	if(!smb_io_unistr2("uni_workstations", &usr->uni_workstations, usr->hdr_workstations.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_unknown_str ", &usr->uni_unknown_str, usr->hdr_unknown_str.buffer, ps, depth))	/* unknown string */
+	if(!smb_io_unistr2("uni_comment", &usr->uni_comment, usr->hdr_comment.buffer, ps, depth))
 		return False;
-	if(!smb_io_unistr2("uni_munged_dial ", &usr->uni_munged_dial,usr->hdr_munged_dial.buffer, ps, depth))	/* worksations user can log on from */
+	if(!smb_io_unistr2("uni_munged_dial ", &usr->uni_munged_dial,usr->hdr_munged_dial.buffer, ps, depth))
 		return False;
 
 	/* ok, this is only guess-work (as usual) */
@@ -7714,6 +7854,14 @@ BOOL samr_io_r_chgpasswd_user3(const char *desc, SAMR_R_CHGPASSWD_USER3 *r_u,
 
 	if (!prs_uint32("ptr_info", ps, depth, &r_u->ptr_info))
 		return False;
+
+	/* special case: Windows 2000 can return stub data here saying
+	   NT_STATUS_NOT_SUPPORTED */
+
+	if ( NT_STATUS_EQUAL( NT_STATUS_NOT_SUPPORTED, NT_STATUS(r_u->ptr_info)) ) {
+		r_u->status = NT_STATUS_NOT_SUPPORTED;
+		return True;
+	}
 
 	if (r_u->ptr_info && r_u->info != NULL) {
 		/* SAM_UNK_INFO_1 */

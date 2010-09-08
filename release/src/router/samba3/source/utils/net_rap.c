@@ -407,12 +407,44 @@ int net_rap_server_usage(int argc, const char **argv)
 	net_common_flags_usage(argc, argv);
 	return -1;
 }
+
+static int net_rap_server_name(int argc, const char *argv[])
+{
+	struct cli_state *cli;
+	char *name;
+
+	if (!(cli = net_make_ipc_connection(0))) 
+                return -1;
+
+	if (!cli_get_server_name(NULL, cli, &name)) {
+		d_fprintf(stderr, "cli_get_server_name failed\n");
+		cli_shutdown(cli);
+		return -1;
+	}
+
+	d_printf("Server name = %s\n", name);
+
+	TALLOC_FREE(name);
+	cli_shutdown(cli);
+	return 0;
+}
 		    
 int net_rap_server(int argc, const char **argv)
 {
 	struct cli_state *cli;
 	int ret;
-	
+
+	if (argc > 0) {
+		if (strequal(argv[0], "name")) {
+			return net_rap_server_name(argc, argv);
+		}
+		/* smb4k uses 'net [rap|rpc] server domain' to query servers in a domain */
+		/* Fall through for 'domain', any other forms will cause to show usage message */
+		if (!strequal(argv[0], "domain")) {
+			return net_rap_server_usage(argc-1, argv+1);
+		}
+	}
+
 	if (!(cli = net_make_ipc_connection(0))) 
                 return -1;
 
@@ -459,7 +491,7 @@ int net_rap_printq_usage(int argc, const char **argv)
 	d_printf(
 	 "net rap printq [misc. options] [targets]\n"\
 	 "\tor\n"\
-	 "net rap printq list [<queue_name>] [misc. options] [targets]\n"\
+	 "net rap printq info [<queue_name>] [misc. options] [targets]\n"\
 	 "\tlists the specified queue and jobs on the target server.\n"\
 	 "\tIf the queue name is not specified, all queues are listed.\n\n");
 	d_printf(

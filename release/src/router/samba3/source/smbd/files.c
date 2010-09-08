@@ -59,7 +59,7 @@ static unsigned long get_gen_count(void)
  Find first available file slot.
 ****************************************************************************/
 
-files_struct *file_new(connection_struct *conn)
+NTSTATUS file_new(connection_struct *conn, files_struct **result)
 {
 	int i;
 	static int first_file;
@@ -82,14 +82,12 @@ files_struct *file_new(connection_struct *conn)
 		/* TODO: We have to unconditionally return a DOS error here,
 		 * W2k3 even returns ERRDOS/ERRnofids for ntcreate&x with
 		 * NTSTATUS negotiated */
-		set_saved_ntstatus(NT_STATUS_TOO_MANY_OPENED_FILES);
-		return NULL;
+		return NT_STATUS_TOO_MANY_OPENED_FILES;
 	}
 
 	fsp = SMB_MALLOC_P(files_struct);
 	if (!fsp) {
-		set_saved_ntstatus(NT_STATUS_NO_MEMORY);
-		return NULL;
+		return NT_STATUS_NO_MEMORY;
 	}
 
 	ZERO_STRUCTP(fsp);
@@ -97,8 +95,7 @@ files_struct *file_new(connection_struct *conn)
 	fsp->fh = SMB_MALLOC_P(struct fd_handle);
 	if (!fsp->fh) {
 		SAFE_FREE(fsp);
-		set_saved_ntstatus(NT_STATUS_NO_MEMORY);
-		return NULL;
+		return NT_STATUS_NO_MEMORY;
 	}
 
 	ZERO_STRUCTP(fsp->fh);
@@ -128,13 +125,14 @@ files_struct *file_new(connection_struct *conn)
 	chain_fsp = fsp;
 
 	/* A new fsp invalidates the positive and
-	  negative fsp_fi_cache as the new fsp is pushed
-	  at the start of the list and we search from
-	  a cache hit to the *end* of the list. */
+	   negative fsp_fi_cache as the new fsp is pushed
+	   at the start of the list and we search from
+	   a cache hit to the *end* of the list. */
 
 	ZERO_STRUCT(fsp_fi_cache);
-	
-	return fsp;
+
+	*result = fsp;
+	return NT_STATUS_OK;
 }
 
 /****************************************************************************
@@ -387,11 +385,11 @@ files_struct *file_find_print(void)
  Record the owner of that modtime.
 ****************************************************************************/
 
-void fsp_set_pending_modtime(files_struct *tfsp, time_t pmod)
+void fsp_set_pending_modtime(files_struct *tfsp, const struct timespec mod)
 {
 	files_struct *fsp;
 
-	if (null_mtime(pmod)) {
+	if (null_timespec(mod)) {
 		return;
 	}
 
@@ -399,7 +397,7 @@ void fsp_set_pending_modtime(files_struct *tfsp, time_t pmod)
 		if ( fsp->fh->fd != -1 &&
 				fsp->dev == tfsp->dev &&
 				fsp->inode == tfsp->inode ) {
-			fsp->pending_modtime = pmod;
+			fsp->pending_modtime = mod;
 			fsp->pending_modtime_owner = False;
 		}
 	}
@@ -443,6 +441,14 @@ void file_free(files_struct *fsp)
 		fsp->fh->ref_count--;
 	}
 
+	if (fsp->notify) {
+		notify_remove(fsp->conn->notify_ctx, fsp);
+		TALLOC_FREE(fsp->notify);
+	}
+
+	/* Ensure this event will never fire. */
+	TALLOC_FREE(fsp->oplock_timeout);
+
 	bitmap_clear(file_bmap, fsp->fnum - FILE_HANDLE_OFFSET);
 	files_used--;
 
@@ -466,24 +472,16 @@ void file_free(files_struct *fsp)
 }
 
 /****************************************************************************
- Get a fsp from a packet given the offset of a 16 bit fnum.
+ Get an fsp from a 16 bit fnum.
 ****************************************************************************/
 
-files_struct *file_fsp(char *buf, int where)
+files_struct *file_fnum(uint16 fnum)
 {
-	int fnum, count=0;
 	files_struct *fsp;
-
-	if (chain_fsp)
-		return chain_fsp;
-
-	if (!buf)
-		return NULL;
-	fnum = SVAL(buf, where);
+	int count=0;
 
 	for (fsp=Files;fsp;fsp=fsp->next, count++) {
 		if (fsp->fnum == fnum) {
-			chain_fsp = fsp;
 			if (count > 10) {
 				DLIST_PROMOTE(Files, fsp);
 			}
@@ -491,6 +489,29 @@ files_struct *file_fsp(char *buf, int where)
 		}
 	}
 	return NULL;
+}
+
+/****************************************************************************
+ Get an fsp from a packet given the offset of a 16 bit fnum.
+****************************************************************************/
+
+files_struct *file_fsp(char *buf, int where)
+{
+	files_struct *fsp;
+
+	if (chain_fsp) {
+		return chain_fsp;
+	}
+
+	if (!buf) {
+		return NULL;
+	}
+
+	fsp = file_fnum(SVAL(buf, where));
+	if (fsp) {
+		chain_fsp = fsp;
+	}
+	return fsp;
 }
 
 /****************************************************************************
@@ -506,15 +527,19 @@ void file_chain_reset(void)
  Duplicate the file handle part for a DOS or FCB open.
 ****************************************************************************/
 
-files_struct *dup_file_fsp(files_struct *fsp,
+NTSTATUS dup_file_fsp(files_struct *fsp,
 				uint32 access_mask,
 				uint32 share_access,
-				uint32 create_options)
+				uint32 create_options,
+		      		files_struct **result)
 {
-	files_struct *dup_fsp = file_new(fsp->conn);
+	NTSTATUS status;
+	files_struct *dup_fsp;
 
-	if (!dup_fsp) {
-		return NULL;
+	status = file_new(fsp->conn, &dup_fsp);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		return status;
 	}
 
 	SAFE_FREE(dup_fsp->fh);
@@ -549,5 +574,6 @@ files_struct *dup_file_fsp(files_struct *fsp,
 	dup_fsp->aio_write_behind = fsp->aio_write_behind;
         string_set(&dup_fsp->fsp_name,fsp->fsp_name);
 
-	return dup_fsp;
+	*result = dup_fsp;
+	return NT_STATUS_OK;
 }

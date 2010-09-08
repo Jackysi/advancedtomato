@@ -1,11 +1,11 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 42. Portability</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="The Official Samba-3 HOWTO and Reference Guide"><link rel="up" href="Appendix.html" title="Part VI. Reference Section"><link rel="prev" href="compiling.html" title="Chapter 41. How to Compile Samba"><link rel="next" href="Other-Clients.html" title="Chapter 43. Samba and Other CIFS Clients"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 42. Portability</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="compiling.html">Prev</a> </td><th width="60%" align="center">Part VI. Reference Section</th><td width="20%" align="right"> <a accesskey="n" href="Other-Clients.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="Portability"></a>Chapter 42. Portability</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Jelmer</span> <span class="othername">R.</span> <span class="surname">Vernooij</span></h3><div class="affiliation"><span class="orgname">The Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:jelmer@samba.org">jelmer@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">John</span> <span class="othername">H.</span> <span class="surname">Terpstra</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:jht@samba.org">jht@samba.org</a>&gt;</code></p></div></div></div></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="Portability.html#id2691166">HPUX</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2691269">SCO UNIX</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2691308">DNIX</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2691450">Red Hat Linux</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2691493">AIX: Sequential Read Ahead</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2691514">Solaris</a></span></dt><dd><dl><dt><span class="sect2"><a href="Portability.html#id2691520">Locking Improvements</a></span></dt><dt><span class="sect2"><a href="Portability.html#winbind-solaris9">Winbind on Solaris 9</a></span></dt></dl></dd></dl></div><p>
-<a class="indexterm" name="id2691148"></a>
-<a class="indexterm" name="id2691154"></a>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 43. Portability</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="The Official Samba 3.0.x HOWTO and Reference Guide"><link rel="up" href="Appendix.html" title="Part VI. Reference Section"><link rel="prev" href="compiling.html" title="Chapter 42. How to Compile Samba"><link rel="next" href="Other-Clients.html" title="Chapter 44. Samba and Other CIFS Clients"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 43. Portability</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="compiling.html">Prev</a> </td><th width="60%" align="center">Part VI. Reference Section</th><td width="20%" align="right"> <a accesskey="n" href="Other-Clients.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="Portability"></a>Chapter 43. Portability</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Jelmer</span> <span class="othername">R.</span> <span class="orgname">The Samba Team</span> <span class="surname">Vernooij</span></h3><div class="affiliation"><span class="orgname">The Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:jelmer@samba.org">jelmer@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">John</span> <span class="othername">H.</span> <span class="orgname">Samba Team</span> <span class="surname">Terpstra</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:jht@samba.org">jht@samba.org</a>&gt;</code></p></div></div></div></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="Portability.html#id2689096">HPUX</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2689200">SCO UNIX</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2689239">DNIX</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2689380">Red Hat Linux</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2689424">AIX: Sequential Read Ahead</a></span></dt><dt><span class="sect1"><a href="Portability.html#id2689485">Solaris</a></span></dt><dd><dl><dt><span class="sect2"><a href="Portability.html#id2689491">Locking Improvements</a></span></dt><dt><span class="sect2"><a href="Portability.html#winbind-solaris9">Winbind on Solaris 9</a></span></dt></dl></dd></dl></div><p>
+<a class="indexterm" name="id2689078"></a>
+<a class="indexterm" name="id2689085"></a>
 Samba works on a wide range of platforms, but the interface all the 
 platforms provide is not always compatible. This chapter contains 
-platform-specific information about compiling and using Samba.</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2691166"></a>HPUX</h2></div></div></div><p>
-<a class="indexterm" name="id2691173"></a>
-<a class="indexterm" name="id2691180"></a>
+platform-specific information about compiling and using Samba.</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2689096"></a>HPUX</h2></div></div></div><p>
+<a class="indexterm" name="id2689104"></a>
+<a class="indexterm" name="id2689111"></a>
 Hewlett-Packard's implementation of supplementary groups is nonstandard (for
 historical reasons). There are two group files, <code class="filename">/etc/group</code> and
 <code class="filename">/etc/logingroup</code>; the system maps UIDs to numbers using the former, but
@@ -23,17 +23,17 @@ allowed range.
 </p><p>
 This is documented in the HP manual pages under setgroups(2) and passwd(4).
 </p><p>
-<a class="indexterm" name="id2691251"></a>
-<a class="indexterm" name="id2691258"></a>
+<a class="indexterm" name="id2689182"></a>
+<a class="indexterm" name="id2689188"></a>
 On HP-UX you must use gcc or the HP ANSI compiler. The free compiler
 that comes with HP-UX is not ANSI compliant and cannot compile Samba.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2691269"></a>SCO UNIX</h2></div></div></div><p> 
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2689200"></a>SCO UNIX</h2></div></div></div><p> 
 If you run an old version of SCO UNIX, you may need to get important 
 TCP/IP patches for Samba to work correctly. Without the patch, you may 
 encounter corrupt data transfers using Samba.
 </p><p>
 The patch you need is UOD385 Connection Drivers SLS. It is available from
-SCO <a href="ftp://ftp.sco.com/" target="_top">ftp.sco.com</a>, directory SLS,
+SCO <a class="ulink" href="ftp://ftp.sco.com/" target="_top">ftp.sco.com</a>, directory SLS,
 files uod385a.Z and uod385a.ltr.Z).
 </p><p>
 The information provided here refers to an old version of SCO UNIX. If you require
@@ -43,7 +43,7 @@ binary packages you will install. This is important if you wish to avoid data co
 problems with your installation. To build Samba for SCO UNIX products  may
 require significant patching of Samba source code. It is much easier to obtain binary
 packages directly from SCO.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2691308"></a>DNIX</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2689239"></a>DNIX</h2></div></div></div><p>
 DNIX has a problem with seteuid() and setegid(). These routines are
 needed for Samba to work correctly, but they were left out of the DNIX
 C library for some reason.
@@ -89,25 +89,25 @@ After creating the files, you then assemble them using
 <code class="prompt">$ </code><strong class="userinput"><code>as seteuid.s</code></strong>
 <code class="prompt">$ </code><strong class="userinput"><code>as setegid.s</code></strong>
 </pre><p>
-which should produce the files <code class="filename">seteuid.o</code> and 
+which should produce the files <code class="filename">seteuid.o</code> and
 <code class="filename">setegid.o</code>.
 </p><p>
 Next you need to add these to the LIBSM line in the DNIX section of
 the Samba Makefile. Your LIBSM line will look something like this:
 </p><pre class="programlisting">
 LIBSM = setegid.o seteuid.o -ln
-</pre><p> 
+</pre><p>
 You should then remove the line:
 </p><pre class="programlisting">
 #define NO_EID
-</pre><p>from the DNIX section of <code class="filename">includes.h</code>.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2691450"></a>Red Hat Linux</h2></div></div></div><p>
+</pre><p>from the DNIX section of <code class="filename">includes.h</code>.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2689380"></a>Red Hat Linux</h2></div></div></div><p>
 By default during installation, some versions of Red Hat Linux add an
 entry to <code class="filename">/etc/hosts</code> as follows:
 </p><pre class="programlisting">
 127.0.0.1 loopback "hostname"."domainname"
 </pre><p>
 </p><p>
-<a class="indexterm" name="id2691475"></a>
+<a class="indexterm" name="id2689406"></a>
 This causes Samba to loop back onto the loopback interface.
 The result is that Samba fails to communicate correctly with
 the world and therefore may fail to correctly negotiate who
@@ -115,10 +115,26 @@ is the master browse list holder and who is the master browser.
 </p><p>
 Corrective action: Delete the entry after the word "loopback"
 in the line starting 127.0.0.1.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2691493"></a>AIX: Sequential Read Ahead</h2></div></div></div><p>
-Disabling sequential read ahead using <strong class="userinput"><code>vmtune -r 0</code></strong> improves 
-Samba performance significantly.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2691514"></a>Solaris</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2691520"></a>Locking Improvements</h3></div></div></div><p>Some people have been experiencing problems with F_SETLKW64/fcntl 
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2689424"></a>AIX: Sequential Read Ahead</h2></div></div></div><p>
+Disabling sequential read ahead can improve Samba performance significantly
+when there is a relatively high level of multiprogramming (many smbd processes
+or mixed with another workload), not an abundance of physical memory or slower
+disk technology. These can cause AIX to have a higher WAIT values. Disabling
+sequential read-ahead can also have an adverse affect on other workloads in the
+system so you will need to evaluate other applications for impact.
+</p><p>
+It is recommended to use the defaults provided by IBM, but if you experience a
+high amount of wait time, try disabling read-ahead with the following commands:
+</p><p>
+For AIX 5.1 and earlier: <strong class="userinput"><code>vmtune -r 0</code></strong>
+</p><p>
+For AIX 5.2 and later jfs filesystems: <strong class="userinput"><code>ioo -o minpgahead=0</code></strong>
+</p><p>
+For AIX 5.2 and later jfs2 filesystems: <strong class="userinput"><code>ioo -o j2_minPageReadAhead=0</code></strong>
+</p><p>
+If you have a mix of jfs and jfs2 filesystems on the same host, simply use both
+ioo commands.
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2689485"></a>Solaris</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2689491"></a>Locking Improvements</h3></div></div></div><p>Some people have been experiencing problems with F_SETLKW64/fcntl 
 when running Samba on Solaris. The built-in file-locking mechanism was
 not scalable. Performance would degrade to the point where processes would
 get into loops of trying to lock a file. It would try a lock, then fail,
@@ -133,5 +149,5 @@ After the installation of these patches, it is recommended to reconfigure
 and rebuild Samba.
 </p><p>Thanks to Joe Meslovich for reporting this.</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="winbind-solaris9"></a>Winbind on Solaris 9</h3></div></div></div><p>
 Nsswitch on Solaris 9 refuses to use the Winbind NSS module. This behavior
-is fixed by Sun in patch <a href="http://sunsolve.sun.com/search/advsearch.do?collection=PATCH&amp;type=collections&amp;max=50&amp;language=en&amp;queryKey5=112960;rev=14&amp;toDocument=yes" target="_top">112960-14</a>.
-</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="compiling.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="Appendix.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="Other-Clients.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 41. How to Compile Samba </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 43. Samba and Other CIFS Clients</td></tr></table></div></body></html>
+is fixed by Sun in patch <a class="ulink" href="http://sunsolve.sun.com/search/advsearch.do?collection=PATCH&amp;type=collections&amp;max=50&amp;language=en&amp;queryKey5=112960;rev=14&amp;toDocument=yes" target="_top">112960-14</a>.
+</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="compiling.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="Appendix.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="Other-Clients.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 42. How to Compile Samba </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 44. Samba and Other CIFS Clients</td></tr></table></div></body></html>

@@ -180,14 +180,19 @@ struct subnet_record *make_normal_subnet(struct interface *iface)
 
 BOOL create_subnets(void)
 {    
-	int num_interfaces = iface_count();
+	int num_interfaces;
 	int i;
 	struct in_addr unicast_ip, ipzero;
 
-	if(num_interfaces == 0) {
-		void (*saved_handler)(int);
+  try_interfaces_again:
 
-		DEBUG(0,("create_subnets: No local interfaces! Waiting for an interface to appear ...\n"));
+	if (iface_count_nl() == 0) {
+		DEBUG(0,("create_subnets: No non-loopback local interfaces !\n"));
+		DEBUG(0,("create_subnets: Waiting for an interface to appear ...\n"));
+	}
+
+	while (iface_count_nl() == 0) {
+		void (*saved_handler)(int);
 
 		/* 
 		 * Whilst we're waiting for an interface, allow SIGTERM to
@@ -196,10 +201,8 @@ BOOL create_subnets(void)
 
 		saved_handler = CatchSignal( SIGTERM, SIGNAL_CAST SIG_DFL );
 
-		while (iface_count() == 0) {
-			sleep(5);
-			load_interfaces();
-		}
+		sleep(5);
+		load_interfaces();
 
 		/* 
 		 * We got an interface, restore our normal term handler.
@@ -236,6 +239,23 @@ BOOL create_subnets(void)
 
 		if (!make_normal_subnet(iface))
 			return False;
+	}
+
+        /* We must have at least one subnet. */
+	if (subnetlist == NULL) {
+		void (*saved_handler)(int);
+
+		DEBUG(0,("create_subnets: Unable to create any subnet from "
+				"given interfaces. Is your interface line in "
+				"smb.conf correct ?\n"));
+
+		saved_handler = CatchSignal( SIGTERM, SIGNAL_CAST SIG_DFL );
+
+		sleep(5);
+		load_interfaces();
+
+		CatchSignal( SIGTERM, SIGNAL_CAST saved_handler );
+		goto try_interfaces_again;
 	}
 
 	if (lp_we_are_a_wins_server()) {

@@ -75,7 +75,7 @@ void process_name_release_request(struct subnet_record *subrec,
 		   the request was malformed. Either way, log an error here.
 		   and send an error reply back.
 		*/
-		DEBUG(1,("process_name_release_request: unicast name release request \
+		DEBUG(0,("process_name_release_request: unicast name release request \
 received for name %s from IP %s on subnet %s. Error - should be sent to WINS server\n",
 			nmb_namestr(question), inet_ntoa(owner_ip), subrec->subnet_name));      
 
@@ -167,9 +167,10 @@ void process_name_refresh_request(struct subnet_record *subrec,
 		   the request was malformed. Either way, log an error here.
 		   and send an error reply back.
 		*/
-		DEBUG(1,("process_name_refresh_request: unicast name registration request \
-received for name %s from IP %s on subnet %s. Error - should be sent to WINS server\n",
+		DEBUG(0,("process_name_refresh_request: unicast name registration request \
+received for name %s from IP %s on subnet %s.\n",
 			nmb_namestr(question), inet_ntoa(from_ip), subrec->subnet_name));
+		DEBUG(0,("Error - should be sent to WINS server\n"));
     
 		send_name_registration_response(FMT_ERR, 0, p);
 		return;
@@ -207,7 +208,7 @@ void process_name_registration_request(struct subnet_record *subrec,
 		   the request was malformed. Either way, log an error here.
 		   and send an error reply back.
 		*/
-		DEBUG(1,("process_name_registration_request: unicast name registration request \
+		DEBUG(0,("process_name_registration_request: unicast name registration request \
 received for name %s from IP %s on subnet %s. Error - should be sent to WINS server\n",
 			nmb_namestr(question), inet_ntoa(from_ip), subrec->subnet_name));      
 

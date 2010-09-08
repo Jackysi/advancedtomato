@@ -1,6 +1,6 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 3. Secure Office Networking</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="Samba-3 by Example"><link rel="up" href="ExNetworks.html" title="Part I. Example Network Configurations"><link rel="prev" href="small.html" title="Chapter 2. Small Office Networking"><link rel="next" href="Big500users.html" title="Chapter 4. The 500-User Office"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 3. Secure Office Networking</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="small.html">Prev</a> </td><th width="60%" align="center">Part I. Example Network Configurations</th><td width="20%" align="right"> <a accesskey="n" href="Big500users.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="secure"></a>Chapter 3. Secure Office Networking</h2></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="secure.html#id2562011">Introduction</a></span></dt><dd><dl><dt><span class="sect2"><a href="secure.html#id2562063">Assignment Tasks</a></span></dt></dl></dd><dt><span class="sect1"><a href="secure.html#id2562312">Dissection and Discussion</a></span></dt><dd><dl><dt><span class="sect2"><a href="secure.html#id2562328">Technical Issues</a></span></dt><dt><span class="sect2"><a href="secure.html#id2562770">Political Issues</a></span></dt></dl></dd><dt><span class="sect1"><a href="secure.html#id2562810">Implementation</a></span></dt><dd><dl><dt><span class="sect2"><a href="secure.html#ch4bsc">Basic System Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#id2563723">Samba Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4dhcpdns">Configuration of DHCP and DNS Servers</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4ptrcfg">Printer Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#procstart">Process Startup Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4valid">Validation</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4appscfg">Application Share Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4wincfg">Windows Client Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#id2568471">Key Points Learned</a></span></dt></dl></dd><dt><span class="sect1"><a href="secure.html#id2568533">Questions and Answers</a></span></dt></dl></div><p>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 3. Secure Office Networking</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="Samba-3 by Example"><link rel="up" href="ExNetworks.html" title="Part I. Example Network Configurations"><link rel="prev" href="small.html" title="Chapter 2. Small Office Networking"><link rel="next" href="Big500users.html" title="Chapter 4. The 500-User Office"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 3. Secure Office Networking</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="small.html">Prev</a> </td><th width="60%" align="center">Part I. Example Network Configurations</th><td width="20%" align="right"> <a accesskey="n" href="Big500users.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="secure"></a>Chapter 3. Secure Office Networking</h2></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="secure.html#id2558582">Introduction</a></span></dt><dd><dl><dt><span class="sect2"><a href="secure.html#id2558634">Assignment Tasks</a></span></dt></dl></dd><dt><span class="sect1"><a href="secure.html#id2558867">Dissection and Discussion</a></span></dt><dd><dl><dt><span class="sect2"><a href="secure.html#id2558882">Technical Issues</a></span></dt><dt><span class="sect2"><a href="secure.html#id2559309">Political Issues</a></span></dt></dl></dd><dt><span class="sect1"><a href="secure.html#id2559348">Implementation</a></span></dt><dd><dl><dt><span class="sect2"><a href="secure.html#ch4bsc">Basic System Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#id2560202">Samba Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4dhcpdns">Configuration of DHCP and DNS Servers</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4ptrcfg">Printer Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#procstart">Process Startup Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4valid">Validation</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4appscfg">Application Share Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#ch4wincfg">Windows Client Configuration</a></span></dt><dt><span class="sect2"><a href="secure.html#id2564663">Key Points Learned</a></span></dt></dl></dd><dt><span class="sect1"><a href="secure.html#id2564725">Questions and Answers</a></span></dt></dl></div><p>
 	Congratulations, your Samba networking skills are developing nicely. You started out
-	with three simple networks in <a href="simple.html" title="Chapter 1. No-Frills Samba Servers">???</a>, and then in <a href="small.html" title="Chapter 2. Small Office Networking">???</a>
+	with three simple networks in <a class="link" href="simple.html" title="Chapter 1. No-Frills Samba Servers">&#8220;No-Frills Samba Servers&#8221;</a>, and then in <a class="link" href="small.html" title="Chapter 2. Small Office Networking">&#8220;Small Office Networking&#8221;</a>
 	you designed and built a network that provides a high degree of flexibility, integrity,
 	and dependability. It was enough for the basic needs each was designed to fulfill. In
 	this chapter you address a more complex set of needs. The solution you explore 
@@ -11,7 +11,7 @@
 	so caution is advised for anyone who tries to use Samba-2.2.x with the guidance here given. 
 	To avoid confusion, this book is all about Samba-3. Let's get the exercises in this 
 	chapter underway.
-	</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2562011"></a>Introduction</h2></div></div></div><p>
+	</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2558582"></a>Introduction</h2></div></div></div><p>
 	You have made Mr. Meany a very happy man. Recently he paid you a fat bonus for work 
 	well done. It is one year since the last network upgrade. You have been quite busy. 
 	Two months ago Mr. Meany gave approval to hire Christine Roberson, who has taken over 
@@ -40,7 +40,7 @@
 	Occasionally she wants to work with you on a challenging problem. When you told her
 	about your move, she almost resigned, although she was reassured that a new manager would
 	be hired to run Information Technology, and she would be responsible only for operations.
-	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2562063"></a>Assignment Tasks</h3></div></div></div><p>
+	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2558634"></a>Assignment Tasks</h3></div></div></div><p>
 		You promised the staff Internet services including Web browsing, electronic mail, virus
 		protection, and a company Web site.  Christine is eager to help turn the vision into 
 		reality. Let's see how close you can get to the promises made.
@@ -58,7 +58,7 @@
 		You procured a DSL Internet connection that provides 1.5 Mb/sec (bidirectional)
 		and a 10 Mb/sec ethernet port. You registered the domain
 		<code class="constant">abmas.us</code>, and the Internet Service Provider (ISP) is supplying
-		secondary DNS. Information furnished by your ISP is shown in <a href="secure.html#chap4netid" title="Table 3.1. Abmas.US ISP Information">???</a>.
+		secondary DNS. Information furnished by your ISP is shown in <a class="link" href="secure.html#chap4netid" title="Table 3.1. Abmas.US ISP Information">&#8220;Abmas.US ISP Information&#8221;</a>.
 		</p><p>
 		It is of paramount priority that under no circumstances will Samba offer
 		service access from an Internet connection. You are paying an ISP to
@@ -83,13 +83,13 @@
 		of users had to share a PC while waiting for new machines to arrive. This presented 
 		some problems with desktop computers and software installation into the new users' 
 		desktop profiles.
-		</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2562312"></a>Dissection and Discussion</h2></div></div></div><p>
+		</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2558867"></a>Dissection and Discussion</h2></div></div></div><p>
 	Many of the conclusions you draw here are obvious. Some requirements are not very clear
 	or may simply be your means of drawing the most out of Samba-3. Much can be done more simply
 	than you will demonstrate here, but keep in mind that the network must scale to at least 500
 	users. This means that some functionality will be overdesigned for the current 130-user
 	environment.
-	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2562328"></a>Technical Issues</h3></div></div></div><p>
+	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2558882"></a>Technical Issues</h3></div></div></div><p>
 		In this exercise we use a 24-bit subnet mask for the two local networks. This,
 		of course, limits our network to a maximum of 253 usable IP addresses. The network
 		address range chosen is one assigned by RFC1918 for private networks.
@@ -97,14 +97,14 @@
 		addresses, it is a good idea to switch to a network address specified in RFC1918
 		in the 172.16.0.0/16 range. This is done in subsequent chapters.
 		</p><p>
-		<a class="indexterm" name="id2562347"></a>
-		<a class="indexterm" name="id2562354"></a>
+		<a class="indexterm" name="id2558901"></a>
+		<a class="indexterm" name="id2558907"></a>
 		The high growth rates projected are a good reason to use the <code class="constant">tdbsam</code>
 		passdb backend. The use of <code class="constant">smbpasswd</code> for the backend may result in
 		performance problems. The <code class="constant">tdbsam</code> passdb backend offers features that
 		are not available with the older, flat ASCII-based <code class="constant">smbpasswd</code> database.
 		</p><p>
-		<a class="indexterm" name="id2562383"></a>
+		<a class="indexterm" name="id2558933"></a>
 		The proposed network design uses a single server to act as an Internet services host for
 		electronic mail, Web serving, remote administrative access via SSH, 
 		Samba-based file and print services. This design is often chosen by sites that feel 	
@@ -117,13 +117,13 @@
 		Samba will be configured to specifically not operate on the Ethernet interface that is
 		directly connected to the Internet.
 		</p><p>
-		<a class="indexterm" name="id2562409"></a>
-		<a class="indexterm" name="id2562415"></a>
-		<a class="indexterm" name="id2562422"></a>
-		<a class="indexterm" name="id2562431"></a>
+		<a class="indexterm" name="id2558959"></a>
+		<a class="indexterm" name="id2558965"></a>
+		<a class="indexterm" name="id2558971"></a>
+		<a class="indexterm" name="id2558980"></a>
 		You know that your ISP is providing full firewall services, but you cannot rely on that.
 		Always assume that human error will occur, so be prepared by using Linux firewall facilities
-		based on <span><strong class="command">iptables</strong></span> to effect NAT. Block all
+		based on <code class="literal">iptables</code> to effect NAT. Block all
 		incoming traffic except to permitted well-known ports. You must also allow incoming packets
 		to establish outgoing connections. You will permit all internal outgoing requests.
 		</p><p>
@@ -131,7 +131,7 @@
 		generic antivirus handling are beyond the scope of this book and therefore are not
 		covered except insofar as this affects Samba-3.
 		</p><p>
-		<a class="indexterm" name="id2562461"></a>
+		<a class="indexterm" name="id2559009"></a>
 		Notebook computers are configured to use a network login when in the office and a
 		local account to log in while away from the office. Users store all work done in
 		transit (away from the office) by using a local share for work files. Standard procedures
@@ -141,27 +141,27 @@
 		This is a preventative measure to protect client information as well as private business
 		records.
 		</p><p>
-		<a class="indexterm" name="id2562482"></a>
+		<a class="indexterm" name="id2559039"></a>
 		All applications are served from the central server from a share called <code class="constant">apps</code>.
 		Microsoft Office XP Professional and OpenOffice 1.1.0 will be installed using a network 
 		(or administrative) installation. Accounting and financial management software can also
 		be run only from the central application server. Notebook users are provided with
 		locally installed applications on a need-to-have basis only.
 		</p><p>
-		<a class="indexterm" name="id2562502"></a>
+		<a class="indexterm" name="id2559059"></a>
 		The introduction of roaming profiles support means that users can move between
 		desktop computer systems without constraint while retaining full access to their data.
 		The desktop travels with them as they move.
 		</p><p>
-		<a class="indexterm" name="id2562516"></a>
+		<a class="indexterm" name="id2559072"></a>
 		The DNS server implementation must now address both internal and external
 		needs. You forward DNS lookups to your ISP-provided server as well as the 
 		<code class="constant">abmas.us</code> external secondary DNS server.
 		</p><p>
-		<a class="indexterm" name="id2562533"></a>
-		<a class="indexterm" name="id2562540"></a>
-		<a class="indexterm" name="id2562549"></a>
-		Compared with the DHCP server configuration in <a href="small.html" title="Chapter 2. Small Office Networking">???</a>, <a href="small.html#dhcp01" title="Example 2.2. Abmas Accounting DHCP Server Configuration File  /etc/dhcpd.conf">???</a>, the 
+		<a class="indexterm" name="id2559088"></a>
+		<a class="indexterm" name="id2559094"></a>
+		<a class="indexterm" name="id2559103"></a>
+		Compared with the DHCP server configuration in <a class="link" href="small.html" title="Chapter 2. Small Office Networking">&#8220;Small Office Networking&#8221;</a>, <a class="link" href="small.html#dhcp01" title="Example 2.2. Abmas Accounting DHCP Server Configuration File /etc/dhcpd.conf">&#8220;Abmas Accounting DHCP Server Configuration File  /etc/dhcpd.conf&#8221;</a>, the 
 		configuration used in this example has to deal with the presence of an Internet connection.
 		The scope set for it ensures that no DHCP services will be offered on the external
 		connection. All printers are configured as DHCP clients so that the DHCP server assigns
@@ -184,11 +184,11 @@
 		a problem because Christine is to install and configure one single workstation and
 		then clone that configuration, using Norton Ghost, to all workstations. Each machine is
 		identical, so this should pose no problem.
-		</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2562604"></a>Hardware Requirements</h4></div></div></div><p>
-		<a class="indexterm" name="id2562612"></a>
+		</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2559155"></a>Hardware Requirements</h4></div></div></div><p>
+		<a class="indexterm" name="id2559162"></a>
 		This server runs a considerable number of services. From similarly configured Linux
 		installations, the approximate calculated memory requirements are as shown in
-		<a href="secure.html#ch4memoryest" title="Example 3.1. Estimation of Memory Requirements">???</a>.
+		<a class="link" href="secure.html#ch4memoryest" title="Example 3.1. Estimation of Memory Requirements">&#8220;Estimation of Memory Requirements&#8221;</a>.
 
 </p><div class="example"><a name="ch4memoryest"></a><p class="title"><b>Example 3.1. Estimation of Memory Requirements</b></p><div class="example-contents"><pre class="screen">
 Application  Memory per User    130 Users      500 Users
@@ -213,7 +213,7 @@ Basic OS        256.0             256            256
 		as the system load builds up. Given the low cost of memory, it does not make sense to
 		compromise in this area.
 		</p><p>
-		<a class="indexterm" name="id2562668"></a>
+		<a class="indexterm" name="id2559214"></a>
 		Aggregate input/output loads should be considered for sizing network configuration as 
 		well as disk subsystems. For network bandwidth calculations, one would typically use an
 		estimate of 0.1 MB/sec per user. This suggests that 100-Base-T (approx. 10 MB/sec)
@@ -222,8 +222,8 @@ Basic OS        256.0             256            256
 		to a 1 Gb Ethernet switch that provides connectivity to an expandable array of 100-Base-T
 		switched ports.
 		</p><p>
-		<a class="indexterm" name="id2562688"></a>
-		<a class="indexterm" name="id2562695"></a>
+		<a class="indexterm" name="id2559233"></a>
+		<a class="indexterm" name="id2559239"></a>
 		Considering the choice of 1 Gb Ethernet interfaces for the two local network segments,
 		the aggregate network I/O capacity will be 2100 Mb/sec (about 230 MB/sec), an I/O
 		demand that would require a fast disk storage I/O capability. Peak disk throughput is 
@@ -237,7 +237,7 @@ Basic OS        256.0             256            256
 		specifications. As a minimum, one should attempt to provide a disk subsystem that can
 		deliver I/O rates of at least 100 MB/sec. 
 		</p><p>
-		Disk storage requirements may be calculated as shown in <a href="secure.html#ch4diskest" title="Example 3.2. Estimation of Disk Storage Requirements">???</a>.
+		Disk storage requirements may be calculated as shown in <a class="link" href="secure.html#ch4diskest" title="Example 3.2. Estimation of Disk Storage Requirements">&#8220;Estimation of Disk Storage Requirements&#8221;</a>.
 
 </p><div class="example"><a name="ch4diskest"></a><p class="title"><b>Example 3.2. Estimation of Disk Storage Requirements</b></p><div class="example-contents"><pre class="screen">
 Corporate Data: 100 MBytes/user per year
@@ -255,10 +255,10 @@ Given 500 Users and 2 years:
              Add 50% buffer                              303 GBytes
                        Recommended Storage:              908 GBytes
 </pre></div></div><p><br class="example-break">
-		<a class="indexterm" name="id2562756"></a>
+		<a class="indexterm" name="id2559296"></a>
 		The preferred storage capacity should be approximately 1 Terabyte. Use of RAID level 5
 		with two hot spare drives would require an 8-drive by 200 GB capacity per drive array.
-		</p></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2562770"></a>Political Issues</h3></div></div></div><p>
+		</p></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559309"></a>Political Issues</h3></div></div></div><p>
 		Your industry is coming under increasing accountability pressures. Increased paranoia
 		is necessary so you can demonstrate that you have acted with due diligence. You must
 		not trust your Internet connection.
@@ -267,13 +267,13 @@ Given 500 Users and 2 years:
 		an application server, your primary reason for the decision to implement this is that it
 		gives you greater control over software licensing.
 		</p><p>
-		<a class="indexterm" name="id2562792"></a>
+		<a class="indexterm" name="id2559331"></a>
 		You are well aware that the current configuration results in some performance issues
 		as the size of the desktop profile grows. Given that users use Microsoft Outlook
 		Express, you know that the storage implications of the <code class="constant">.PST</code> file
 		is something that needs to be addressed later.
-		</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2562810"></a>Implementation</h2></div></div></div><p>
-	<a href="secure.html#ch04net" title="Figure 3.1. Abmas Network Topology  130 Users">???</a> demonstrates the overall design of the network that you will implement.
+		</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559348"></a>Implementation</h2></div></div></div><p>
+	<a class="link" href="secure.html#ch04net" title="Figure 3.1. Abmas Network Topology 130 Users">&#8220;Abmas Network Topology  130 Users&#8221;</a> demonstrates the overall design of the network that you will implement.
 	</p><p>
 	The information presented here assumes that you are already familiar with many basic steps.
 	As this stands, the details provided already extend well beyond just the necessities of
@@ -288,9 +288,9 @@ Given 500 Users and 2 years:
 		</p></li><li><p>
 		The Domain name is set to <code class="constant">PROMISES</code>.
 		</p></li><li><p>
-		<a class="indexterm" name="id2562871"></a>
-		<a class="indexterm" name="id2562878"></a>
-		<a class="indexterm" name="id2562885"></a>
+		<a class="indexterm" name="id2559406"></a>
+		<a class="indexterm" name="id2559412"></a>
+		<a class="indexterm" name="id2559418"></a>
 		Ethernet interface <code class="constant">eth0</code> is attached to the Internet connection
 		and is externally exposed. This interface is explicitly not available for Samba to use.
 		Samba listens on this interface for broadcast messages but does not broadcast any
@@ -298,57 +298,57 @@ Given 500 Users and 2 years:
 		This is achieved by way of the <em class="parameter"><code>interfaces</code></em> parameter and the
 		<em class="parameter"><code>bind interfaces only</code></em> entry.
 		</p></li><li><p>
-		<a class="indexterm" name="id2562922"></a>
-		<a class="indexterm" name="id2562929"></a>
-		<a class="indexterm" name="id2562936"></a>
+		<a class="indexterm" name="id2559451"></a>
+		<a class="indexterm" name="id2559457"></a>
+		<a class="indexterm" name="id2559463"></a>
 		The <em class="parameter"><code>passdb backend</code></em> parameter specifies the creation and use
 		of the <code class="constant">tdbsam</code> password backend. This is a binary database that
 		has excellent scalability for a large number of user account entries.
 		</p></li><li><p>
-		<a class="indexterm" name="id2562960"></a>
-		<a class="indexterm" name="id2562967"></a>
-		<a class="indexterm" name="id2562974"></a>
-		WINS serving is enabled by the <a class="indexterm" name="id2562981"></a>wins support = Yes,
+		<a class="indexterm" name="id2559486"></a>
+		<a class="indexterm" name="id2559492"></a>
+		<a class="indexterm" name="id2559498"></a>
+		WINS serving is enabled by the <a class="link" href="smb.conf.5.html#WINSSUPPORT" target="_top">wins support = Yes</a>,
 		and name resolution is set to use it by means of the
-		<a class="indexterm" name="id2562990"></a>name resolve order = wins bcast hosts entry.
+		<a class="link" href="smb.conf.5.html#NAMERESOLVEORDER" target="_top">name resolve order = wins bcast hosts</a> entry.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563002"></a>
+		<a class="indexterm" name="id2559528"></a>
 		The Samba server is configured for use by Windows clients as a time server.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563014"></a>
-		<a class="indexterm" name="id2563021"></a>
-		<a class="indexterm" name="id2563028"></a>
+		<a class="indexterm" name="id2559540"></a>
+		<a class="indexterm" name="id2559546"></a>
+		<a class="indexterm" name="id2559552"></a>
 		Samba is configured to directly interface with CUPS via the direct internal interface
 		that is provided by CUPS libraries. This is achieved with the 
-		<a class="indexterm" name="id2563038"></a>printing = CUPS as well as the
-		<a class="indexterm" name="id2563045"></a>printcap name = CUPS entries.
+		<a class="link" href="smb.conf.5.html#PRINTING" target="_top">printing = CUPS</a> as well as the
+		<a class="link" href="smb.conf.5.html#PRINTCAPNAME" target="_top">printcap name = CUPS</a> entries.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563057"></a>
-		<a class="indexterm" name="id2563064"></a>
-		<a class="indexterm" name="id2563071"></a>
+		<a class="indexterm" name="id2559583"></a>
+		<a class="indexterm" name="id2559589"></a>
+		<a class="indexterm" name="id2559595"></a>
 		External interface scripts are provided to enable Samba to interface smoothly to
 		essential operating system functions for user and group management. This is important
 		to enable workstations to join the Domain and is also important so that you can use
 		the Windows NT4 Domain User Manager as well as the Domain Server Manager. These tools
 		are provided as part of the <code class="filename">SRVTOOLS.EXE</code> toolkit that can be 
 		downloaded from the Microsoft FTP
-		<a href="ftp://ftp.microsoft.com/Softlib/MSLFILES/SRVTOOLS.EXE" target="_top">site</a>.
+		<a class="ulink" href="ftp://ftp.microsoft.com/Softlib/MSLFILES/SRVTOOLS.EXE" target="_top">site</a>.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563102"></a>
+		<a class="indexterm" name="id2559625"></a>
 		The <code class="filename">smb.conf</code> file specifies that the Samba server will operate in (default) <em class="parameter"><code>
-		security = user</code></em> mode<sup>[<a name="id2563122" href="#ftn.id2563122">5</a>]</sup>
+		security = user</code></em> mode<sup>[<a name="id2559643" href="#ftn.id2559643" class="footnote">5</a>]</sup>
 		(User Mode).
 		</p></li><li><p>
-		<a class="indexterm" name="id2563141"></a>
-		<a class="indexterm" name="id2563148"></a>
+		<a class="indexterm" name="id2559659"></a>
+		<a class="indexterm" name="id2559665"></a>
 		Domain logon services as well as a Domain logon script are specified. The logon script
 		will be used to add robustness to the overall network configuration.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563162"></a>
-		<a class="indexterm" name="id2563169"></a>
-		<a class="indexterm" name="id2563176"></a>
+		<a class="indexterm" name="id2559679"></a>
+		<a class="indexterm" name="id2559685"></a>
+		<a class="indexterm" name="id2559691"></a>
 		Roaming profiles are enabled through the specification of the parameter,
-		<a class="indexterm" name="id2563184"></a>logon path = \\%L\profiles\%U. The value of this parameter translates the
+		<a class="link" href="smb.conf.5.html#LOGONPATH" target="_top">logon path = \\%L\profiles\%U</a>. The value of this parameter translates the
 		<code class="constant">%L</code> to the name by which the Samba server is called by the client (for this
 		configuration, it translates to the name <code class="constant">DIAMOND</code>), and the <code class="constant">%U</code>
 		will translate to the name of the user within the context of the connection made to the profile share.
@@ -356,8 +356,8 @@ Given 500 Users and 2 years:
 		profile share for each user. This directory must be owned by the user also. An exception to this
 		requirement is when a profile is created for group use.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563215"></a>
-		<a class="indexterm" name="id2563222"></a>
+		<a class="indexterm" name="id2559731"></a>
+		<a class="indexterm" name="id2559738"></a>
 		Precautionary veto is effected for particular Windows file names that have been targeted by 
 		virus-related activity. Additionally, Microsoft Office files are vetoed from opportunistic locking
 		controls. This should help to prevent lock contention-related file access problems.
@@ -385,12 +385,12 @@ Given 500 Users and 2 years:
 		</p></li></ol></div><p>
 	The following sections cover each step in logical and defined detail.
 	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="ch4bsc"></a>Basic System Configuration</h3></div></div></div><p>
-	<a class="indexterm" name="id2563314"></a>
+	<a class="indexterm" name="id2559823"></a>
 	The preparation in this section assumes that your SUSE Enterprise Linux Server 8.0 system has been
 	freshly installed. It prepares basic files so that the system is ready for comprehensive
-	operation in line with the network diagram shown in <a href="secure.html#ch04net" title="Figure 3.1. Abmas Network Topology  130 Users">???</a>.
-	</p><div class="procedure"><a name="id2563331"></a><p class="title"><b>Procedure 3.1. Server Configuration Steps</b></p><ol type="1"><li><p>
-		<a class="indexterm" name="id2563342"></a>
+	operation in line with the network diagram shown in <a class="link" href="secure.html#ch04net" title="Figure 3.1. Abmas Network Topology 130 Users">&#8220;Abmas Network Topology  130 Users&#8221;</a>.
+	</p><div class="procedure"><a name="id2559839"></a><p class="title"><b>Procedure 3.1. Server Configuration Steps</b></p><ol type="1"><li><p>
+		<a class="indexterm" name="id2559850"></a>
 		Using the UNIX/Linux system tools, name the server <code class="constant">server.abmas.us</code>.
 		Verify that your hostname is correctly set by running:
 </p><pre class="screen">
@@ -403,8 +403,8 @@ server
 server.abmas.us
 </pre><p>
 		</p></li><li><p>
-		<a class="indexterm" name="id2563386"></a>
-		<a class="indexterm" name="id2563393"></a>
+		<a class="indexterm" name="id2559890"></a>
+		<a class="indexterm" name="id2559896"></a>
 		Edit your <code class="filename">/etc/hosts</code> file to include the primary names and addresses
 		of all network interfaces that are on the host server. This is necessary so that during
 		startup the system can resolve all its own names to the IP address prior to
@@ -417,7 +417,7 @@ server.abmas.us
 123.45.67.66    server.abmas.us server
 </pre><p>
 		You should check the startup order of your system. If the CUPS print server is started before
-		the DNS server (<span><strong class="command">named</strong></span>), you should also include an entry for the printers
+		the DNS server (<code class="literal">named</code>), you should also include an entry for the printers
 		in the <code class="filename">/etc/hosts</code> file, as follows:
 </p><pre class="screen">
 192.168.1.20    qmsa.abmas.biz qmsa
@@ -425,15 +425,15 @@ server.abmas.us
 192.168.2.20    qmsf.abmas.biz qmsf
 192.168.2.30    hplj6f.abmas.biz hplj6f
 </pre><p>
-		<a class="indexterm" name="id2563449"></a>
-		<a class="indexterm" name="id2563456"></a>
-		<a class="indexterm" name="id2563462"></a>
-		The printer entries are not necessary if <span><strong class="command">named</strong></span> is started prior to
-		startup of <span><strong class="command">cupsd</strong></span>, the CUPS daemon.
+		<a class="indexterm" name="id2559948"></a>
+		<a class="indexterm" name="id2559954"></a>
+		<a class="indexterm" name="id2559960"></a>
+		The printer entries are not necessary if <code class="literal">named</code> is started prior to
+		startup of <code class="literal">cupsd</code>, the CUPS daemon.
 		</p></li><li><p>
-		<a class="indexterm" name="id2563489"></a>
-		<a class="indexterm" name="id2563496"></a>
-		<a class="indexterm" name="id2563503"></a>
+		<a class="indexterm" name="id2559985"></a>
+		<a class="indexterm" name="id2559991"></a>
+		<a class="indexterm" name="id2559997"></a>
 		The host server is acting as a router between the two internal network segments as well
 		as for all Internet access. This necessitates that IP forwarding be enabled. This can be
 		achieved by adding to the <code class="filename">/etc/rc.d/boot.local</code> an entry as follows:
@@ -442,15 +442,15 @@ echo 1 &gt; /proc/sys/net/ipv4/ip_forward
 </pre><p>
 		To ensure that your kernel is capable of IP forwarding during configuration, you may 
 		wish to execute that command manually also. This setting permits the Linux system to 
-		act as a router.<sup>[<a name="id2563531" href="#ftn.id2563531">6</a>]</sup>
+		act as a router.<sup>[<a name="id2560023" href="#ftn.id2560023" class="footnote">6</a>]</sup>
 		</p></li><li><p>
-		<a class="indexterm" name="id2563544"></a>
-		<a class="indexterm" name="id2563551"></a>
+		<a class="indexterm" name="id2560036"></a>
+		<a class="indexterm" name="id2560042"></a>
 		Installation of a basic firewall and NAT facility is necessary.
 		The following script can be installed in the <code class="filename">/usr/local/sbin</code>
 		directory. It is executed from the <code class="filename">/etc/rc.d/boot.local</code> startup
 		script. In your case, this script is called <code class="filename">abmas-netfw.sh</code>. The
-		script contents are shown in <a href="secure.html#ch4natfw" title="Example 3.3. NAT Firewall Configuration Script">???</a>.
+		script contents are shown in <a class="link" href="secure.html#ch4natfw" title="Example 3.3. NAT Firewall Configuration Script">&#8220;NAT Firewall Configuration Script&#8221;</a>.
 
 </p><div class="example"><a name="ch4natfw"></a><p class="title"><b>Example 3.3. NAT Firewall Configuration Script</b></p><div class="example-contents"><pre class="screen">
 #!/bin/sh
@@ -503,7 +503,7 @@ echo -e "\nNAT firewall done.\n"
 <code class="prompt">root# </code> chmod 755 /usr/local/sbin/abmas-natfw.sh
 </pre><p>
 		You must now edit <code class="filename">/etc/rc.d/boot.local</code> to add an entry
-		that runs your <span><strong class="command">abmas-natfw.sh</strong></span> script. The following
+		that runs your <code class="literal">abmas-natfw.sh</code> script. The following
 		entry works for you:
 </p><pre class="screen">
 #! /bin/sh
@@ -524,36 +524,36 @@ echo -e "\nNAT firewall done.\n"
 /usr/local/sbin/abmas-natfw.sh
 </pre><p>
 		</p></li></ol></div><p>
-	<a class="indexterm" name="id2563701"></a>
+	<a class="indexterm" name="id2560182"></a>
 	The server is now ready for Samba configuration. During the validation step, you remove
 	the entry for the Samba server <code class="constant">diamond</code> from the <code class="filename">/etc/hosts</code>
 	file. This is done after you are satisfied that DNS-based name resolution is functioning correctly.
-	</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2563723"></a>Samba Configuration</h3></div></div></div><p>
+	</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2560202"></a>Samba Configuration</h3></div></div></div><p>
 	When you have completed this section, the Samba server is ready for testing and validation;
 	however, testing and validation have to wait until DHCP, DNS, and printing (CUPS) services have 
 	been configured.
-	</p><div class="procedure"><a name="id2563736"></a><p class="title"><b>Procedure 3.2. Samba Configuration Steps</b></p><ol type="1"><li><p>
+	</p><div class="procedure"><a name="id2560215"></a><p class="title"><b>Procedure 3.2. Samba Configuration Steps</b></p><ol type="1"><li><p>
 		Install the Samba-3 binary RPM from the Samba-Team FTP site. Assuming that the binary
 		RPM file is called <code class="filename">samba-3.0.20-1.i386.rpm</code>, one way to install this
 		file is as follows:
 </p><pre class="screen">
 <code class="prompt">root# </code> rpm -Uvh samba-3.0.20-1.i386.rpm
 </pre><p>
-		This operation must be performed while logged in as the <span><strong class="command">root</strong></span> user.
+		This operation must be performed while logged in as the <code class="literal">root</code> user.
 		Successful operation is clearly indicated. If this installation should fail for any reason,
 		refer to the operating system manufacturer's documentation for guidance.
 		</p></li><li><p>
-		Install the <code class="filename">smb.conf</code> file shown in <a href="secure.html#promisnet" title="Example 3.4. 130 User Network with tdbsam  [globals] Section">???</a>, <a href="secure.html#promisnetsvca" title="Example 3.5. 130 User Network with tdbsam  Services Section Part A">???</a>,
-		and <a href="secure.html#promisnetsvcb" title="Example 3.6. 130 User Network with tdbsam  Services Section Part B">???</a>. Concatenate (join) all three files to make a single <code class="filename">smb.conf</code>
+		Install the <code class="filename">smb.conf</code> file shown in <a class="link" href="secure.html#promisnet" title="Example 3.4. 130 User Network with tdbsam [globals] Section">&#8220;130 User Network with tdbsam  [globals] Section&#8221;</a>, <a class="link" href="secure.html#promisnetsvca" title="Example 3.5. 130 User Network with tdbsam Services Section Part A">&#8220;130 User Network with tdbsam  Services Section Part A&#8221;</a>,
+		and <a class="link" href="secure.html#promisnetsvcb" title="Example 3.6. 130 User Network with tdbsam Services Section Part B">&#8220;130 User Network with tdbsam  Services Section Part B&#8221;</a>. Concatenate (join) all three files to make a single <code class="filename">smb.conf</code>
 		file. The final, fully qualified path for this file should be <code class="filename">/etc/samba/smb.conf</code>.
 
-</p><div class="example"><a name="promisnet"></a><p class="title"><b>Example 3.4. 130 User Network with <span class="emphasis"><em>tdbsam</em></span>  [globals] Section</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2563857"></a><em class="parameter"><code>workgroup = PROMISES</code></em></td></tr><tr><td><a class="indexterm" name="id2563870"></a><em class="parameter"><code>netbios name = DIAMOND</code></em></td></tr><tr><td><a class="indexterm" name="id2563883"></a><em class="parameter"><code>interfaces = eth1, eth2, lo</code></em></td></tr><tr><td><a class="indexterm" name="id2563896"></a><em class="parameter"><code>bind interfaces only = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2563909"></a><em class="parameter"><code>passdb backend = tdbsam</code></em></td></tr><tr><td><a class="indexterm" name="id2563922"></a><em class="parameter"><code>pam password change = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2563935"></a><em class="parameter"><code>passwd program = /usr/bin/passwd %u</code></em></td></tr><tr><td><a class="indexterm" name="id2563948"></a><em class="parameter"><code>passwd chat = *New*Password* %n\n *Re-enter*new*password*%n\n *Password*changed*</code></em></td></tr><tr><td><a class="indexterm" name="id2563962"></a><em class="parameter"><code>username map = /etc/samba/smbusers</code></em></td></tr><tr><td><a class="indexterm" name="id2563975"></a><em class="parameter"><code>unix password sync = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2563988"></a><em class="parameter"><code>log level = 1</code></em></td></tr><tr><td><a class="indexterm" name="id2564000"></a><em class="parameter"><code>syslog = 0</code></em></td></tr><tr><td><a class="indexterm" name="id2564013"></a><em class="parameter"><code>log file = /var/log/samba/%m</code></em></td></tr><tr><td><a class="indexterm" name="id2564026"></a><em class="parameter"><code>max log size = 50</code></em></td></tr><tr><td><a class="indexterm" name="id2564039"></a><em class="parameter"><code>smb ports = 139</code></em></td></tr><tr><td><a class="indexterm" name="id2564051"></a><em class="parameter"><code>name resolve order = wins bcast hosts</code></em></td></tr><tr><td><a class="indexterm" name="id2564064"></a><em class="parameter"><code>time server = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564077"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2564090"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2564103"></a><em class="parameter"><code>add user script = /usr/sbin/useradd -m '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2564116"></a><em class="parameter"><code>delete user script = /usr/sbin/userdel -r '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2564130"></a><em class="parameter"><code>add group script = /usr/sbin/groupadd '%g'</code></em></td></tr><tr><td><a class="indexterm" name="id2564143"></a><em class="parameter"><code>delete group script = /usr/sbin/groupdel '%g'</code></em></td></tr><tr><td><a class="indexterm" name="id2564156"></a><em class="parameter"><code>add user to group script = /usr/sbin/usermod -G '%g' '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2564170"></a><em class="parameter"><code>add machine script = /usr/sbin/useradd -s /bin/false -d /tmp '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2564184"></a><em class="parameter"><code>shutdown script = /var/lib/samba/scripts/shutdown.sh</code></em></td></tr><tr><td><a class="indexterm" name="id2564197"></a><em class="parameter"><code>abort shutdown script = /sbin/shutdown -c</code></em></td></tr><tr><td><a class="indexterm" name="id2564210"></a><em class="parameter"><code>logon script = scripts\logon.bat</code></em></td></tr><tr><td><a class="indexterm" name="id2564223"></a><em class="parameter"><code>logon path = \\%L\profiles\%U</code></em></td></tr><tr><td><a class="indexterm" name="id2564236"></a><em class="parameter"><code>logon drive = X:</code></em></td></tr><tr><td><a class="indexterm" name="id2564249"></a><em class="parameter"><code>logon home = \\%L\%U</code></em></td></tr><tr><td><a class="indexterm" name="id2564262"></a><em class="parameter"><code>domain logons = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564275"></a><em class="parameter"><code>preferred master = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564288"></a><em class="parameter"><code>wins support = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564300"></a><em class="parameter"><code>utmp = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564313"></a><em class="parameter"><code>map acl inherit = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564326"></a><em class="parameter"><code>printing = cups</code></em></td></tr><tr><td><a class="indexterm" name="id2564338"></a><em class="parameter"><code>cups options = Raw</code></em></td></tr><tr><td><a class="indexterm" name="id2564351"></a><em class="parameter"><code>veto files = /*.eml/*.nws/*.{*}/</code></em></td></tr><tr><td><a class="indexterm" name="id2564364"></a><em class="parameter"><code>veto oplock files = /*.doc/*.xls/*.mdb/</code></em></td></tr></table></div></div><p><br class="example-break">
+</p><div class="example"><a name="promisnet"></a><p class="title"><b>Example 3.4. 130 User Network with <span class="emphasis"><em>tdbsam</em></span>  [globals] Section</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2560320"></a><em class="parameter"><code>workgroup = PROMISES</code></em></td></tr><tr><td><a class="indexterm" name="id2560331"></a><em class="parameter"><code>netbios name = DIAMOND</code></em></td></tr><tr><td><a class="indexterm" name="id2560341"></a><em class="parameter"><code>interfaces = eth1, eth2, lo</code></em></td></tr><tr><td><a class="indexterm" name="id2560352"></a><em class="parameter"><code>bind interfaces only = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560362"></a><em class="parameter"><code>passdb backend = tdbsam</code></em></td></tr><tr><td><a class="indexterm" name="id2560372"></a><em class="parameter"><code>pam password change = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560383"></a><em class="parameter"><code>passwd program = /usr/bin/passwd %u</code></em></td></tr><tr><td><a class="indexterm" name="id2560393"></a><em class="parameter"><code>passwd chat = *New*Password* %n\n *Re-enter*new*password*%n\n *Password*changed*</code></em></td></tr><tr><td><a class="indexterm" name="id2560405"></a><em class="parameter"><code>username map = /etc/samba/smbusers</code></em></td></tr><tr><td><a class="indexterm" name="id2560416"></a><em class="parameter"><code>unix password sync = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560426"></a><em class="parameter"><code>log level = 1</code></em></td></tr><tr><td><a class="indexterm" name="id2560437"></a><em class="parameter"><code>syslog = 0</code></em></td></tr><tr><td><a class="indexterm" name="id2560447"></a><em class="parameter"><code>log file = /var/log/samba/%m</code></em></td></tr><tr><td><a class="indexterm" name="id2560458"></a><em class="parameter"><code>max log size = 50</code></em></td></tr><tr><td><a class="indexterm" name="id2560469"></a><em class="parameter"><code>smb ports = 139</code></em></td></tr><tr><td><a class="indexterm" name="id2560479"></a><em class="parameter"><code>name resolve order = wins bcast hosts</code></em></td></tr><tr><td><a class="indexterm" name="id2560490"></a><em class="parameter"><code>time server = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560501"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2560511"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2560522"></a><em class="parameter"><code>add user script = /usr/sbin/useradd -m '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2560533"></a><em class="parameter"><code>delete user script = /usr/sbin/userdel -r '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2560545"></a><em class="parameter"><code>add group script = /usr/sbin/groupadd '%g'</code></em></td></tr><tr><td><a class="indexterm" name="id2560556"></a><em class="parameter"><code>delete group script = /usr/sbin/groupdel '%g'</code></em></td></tr><tr><td><a class="indexterm" name="id2560567"></a><em class="parameter"><code>add user to group script = /usr/sbin/usermod -G '%g' '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2560579"></a><em class="parameter"><code>add machine script = /usr/sbin/useradd -s /bin/false -d /tmp '%u'</code></em></td></tr><tr><td><a class="indexterm" name="id2560590"></a><em class="parameter"><code>shutdown script = /var/lib/samba/scripts/shutdown.sh</code></em></td></tr><tr><td><a class="indexterm" name="id2560602"></a><em class="parameter"><code>abort shutdown script = /sbin/shutdown -c</code></em></td></tr><tr><td><a class="indexterm" name="id2560613"></a><em class="parameter"><code>logon script = scripts\logon.bat</code></em></td></tr><tr><td><a class="indexterm" name="id2560624"></a><em class="parameter"><code>logon path = \\%L\profiles\%U</code></em></td></tr><tr><td><a class="indexterm" name="id2560635"></a><em class="parameter"><code>logon drive = X:</code></em></td></tr><tr><td><a class="indexterm" name="id2560646"></a><em class="parameter"><code>logon home = \\%L\%U</code></em></td></tr><tr><td><a class="indexterm" name="id2560656"></a><em class="parameter"><code>domain logons = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560666"></a><em class="parameter"><code>preferred master = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560677"></a><em class="parameter"><code>wins support = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560687"></a><em class="parameter"><code>utmp = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560698"></a><em class="parameter"><code>map acl inherit = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560708"></a><em class="parameter"><code>printing = cups</code></em></td></tr><tr><td><a class="indexterm" name="id2560718"></a><em class="parameter"><code>cups options = Raw</code></em></td></tr><tr><td><a class="indexterm" name="id2560729"></a><em class="parameter"><code>veto files = /*.eml/*.nws/*.{*}/</code></em></td></tr><tr><td><a class="indexterm" name="id2560740"></a><em class="parameter"><code>veto oplock files = /*.doc/*.xls/*.mdb/</code></em></td></tr></table></div></div><p><br class="example-break">
 
-</p><div class="example"><a name="promisnetsvca"></a><p class="title"><b>Example 3.5. 130 User Network with <span class="emphasis"><em>tdbsam</em></span>  Services Section Part A</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[homes]</code></em></td></tr><tr><td><a class="indexterm" name="id2564409"></a><em class="parameter"><code>comment = Home Directories</code></em></td></tr><tr><td><a class="indexterm" name="id2564422"></a><em class="parameter"><code>valid users = %S</code></em></td></tr><tr><td><a class="indexterm" name="id2564434"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2564447"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2564468"></a><em class="parameter"><code>comment = SMB Print Spool</code></em></td></tr><tr><td><a class="indexterm" name="id2564481"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2564494"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564507"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564519"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564532"></a><em class="parameter"><code>default devmode = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564545"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[netlogon]</code></em></td></tr><tr><td><a class="indexterm" name="id2564567"></a><em class="parameter"><code>comment = Network Logon Service</code></em></td></tr><tr><td><a class="indexterm" name="id2564580"></a><em class="parameter"><code>path = /var/lib/samba/netlogon</code></em></td></tr><tr><td><a class="indexterm" name="id2564593"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564605"></a><em class="parameter"><code>locking = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[profiles]</code></em></td></tr><tr><td><a class="indexterm" name="id2564627"></a><em class="parameter"><code>comment = Profile Share</code></em></td></tr><tr><td><a class="indexterm" name="id2564640"></a><em class="parameter"><code>path = /var/lib/samba/profiles</code></em></td></tr><tr><td><a class="indexterm" name="id2564653"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2564665"></a><em class="parameter"><code>profile acls = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[accounts]</code></em></td></tr><tr><td><a class="indexterm" name="id2564687"></a><em class="parameter"><code>comment = Accounting Files</code></em></td></tr><tr><td><a class="indexterm" name="id2564700"></a><em class="parameter"><code>path = /data/accounts</code></em></td></tr><tr><td><a class="indexterm" name="id2564713"></a><em class="parameter"><code>read only = No</code></em></td></tr></table></div></div><p><br class="example-break">
+</p><div class="example"><a name="promisnetsvca"></a><p class="title"><b>Example 3.5. 130 User Network with <span class="emphasis"><em>tdbsam</em></span>  Services Section Part A</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[homes]</code></em></td></tr><tr><td><a class="indexterm" name="id2560779"></a><em class="parameter"><code>comment = Home Directories</code></em></td></tr><tr><td><a class="indexterm" name="id2560789"></a><em class="parameter"><code>valid users = %S</code></em></td></tr><tr><td><a class="indexterm" name="id2560800"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2560810"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2560829"></a><em class="parameter"><code>comment = SMB Print Spool</code></em></td></tr><tr><td><a class="indexterm" name="id2560839"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2560850"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560860"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560871"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560881"></a><em class="parameter"><code>default devmode = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560891"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[netlogon]</code></em></td></tr><tr><td><a class="indexterm" name="id2560910"></a><em class="parameter"><code>comment = Network Logon Service</code></em></td></tr><tr><td><a class="indexterm" name="id2560921"></a><em class="parameter"><code>path = /var/lib/samba/netlogon</code></em></td></tr><tr><td><a class="indexterm" name="id2560932"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2560942"></a><em class="parameter"><code>locking = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[profiles]</code></em></td></tr><tr><td><a class="indexterm" name="id2560961"></a><em class="parameter"><code>comment = Profile Share</code></em></td></tr><tr><td><a class="indexterm" name="id2560971"></a><em class="parameter"><code>path = /var/lib/samba/profiles</code></em></td></tr><tr><td><a class="indexterm" name="id2560982"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2560993"></a><em class="parameter"><code>profile acls = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[accounts]</code></em></td></tr><tr><td><a class="indexterm" name="id2561012"></a><em class="parameter"><code>comment = Accounting Files</code></em></td></tr><tr><td><a class="indexterm" name="id2561022"></a><em class="parameter"><code>path = /data/accounts</code></em></td></tr><tr><td><a class="indexterm" name="id2561032"></a><em class="parameter"><code>read only = No</code></em></td></tr></table></div></div><p><br class="example-break">
 
-</p><div class="example"><a name="promisnetsvcb"></a><p class="title"><b>Example 3.6. 130 User Network with <span class="emphasis"><em>tdbsam</em></span>  Services Section Part B</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[service]</code></em></td></tr><tr><td><a class="indexterm" name="id2564757"></a><em class="parameter"><code>comment = Financial Services Files</code></em></td></tr><tr><td><a class="indexterm" name="id2564770"></a><em class="parameter"><code>path = /data/service</code></em></td></tr><tr><td><a class="indexterm" name="id2564783"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[pidata]</code></em></td></tr><tr><td><a class="indexterm" name="id2564804"></a><em class="parameter"><code>comment = Property Insurance Files</code></em></td></tr><tr><td><a class="indexterm" name="id2564817"></a><em class="parameter"><code>path = /data/pidata</code></em></td></tr><tr><td><a class="indexterm" name="id2564829"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[apps]</code></em></td></tr><tr><td><a class="indexterm" name="id2564851"></a><em class="parameter"><code>comment = Application Files</code></em></td></tr><tr><td><a class="indexterm" name="id2564864"></a><em class="parameter"><code>path = /apps</code></em></td></tr><tr><td><a class="indexterm" name="id2564876"></a><em class="parameter"><code>read only = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2564889"></a><em class="parameter"><code>admin users = bjordan</code></em></td></tr></table></div></div><p><br class="example-break">
+</p><div class="example"><a name="promisnetsvcb"></a><p class="title"><b>Example 3.6. 130 User Network with <span class="emphasis"><em>tdbsam</em></span>  Services Section Part B</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[service]</code></em></td></tr><tr><td><a class="indexterm" name="id2561071"></a><em class="parameter"><code>comment = Financial Services Files</code></em></td></tr><tr><td><a class="indexterm" name="id2561081"></a><em class="parameter"><code>path = /data/service</code></em></td></tr><tr><td><a class="indexterm" name="id2561092"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[pidata]</code></em></td></tr><tr><td><a class="indexterm" name="id2561110"></a><em class="parameter"><code>comment = Property Insurance Files</code></em></td></tr><tr><td><a class="indexterm" name="id2561121"></a><em class="parameter"><code>path = /data/pidata</code></em></td></tr><tr><td><a class="indexterm" name="id2561132"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[apps]</code></em></td></tr><tr><td><a class="indexterm" name="id2561151"></a><em class="parameter"><code>comment = Application Files</code></em></td></tr><tr><td><a class="indexterm" name="id2561161"></a><em class="parameter"><code>path = /apps</code></em></td></tr><tr><td><a class="indexterm" name="id2561171"></a><em class="parameter"><code>read only = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2561182"></a><em class="parameter"><code>admin users = bjordan</code></em></td></tr></table></div></div><p><br class="example-break">
 		</p></li><li><p>
-	      <a class="indexterm" name="id2564910"></a><a class="indexterm" name="id2564915"></a>
+	      <a class="indexterm" name="id2561200"></a><a class="indexterm" name="id2561205"></a>
 		Add the <code class="constant">root</code> user to the password backend as follows:
 </p><pre class="screen">
 <code class="prompt">root# </code> smbpasswd -a root
@@ -566,7 +566,7 @@ Retype new SMB password: XXXXXXXX
 		deleted. If for any reason the account is deleted, you may not be able to recreate this account
 		without considerable trouble.
 		</p></li><li><p>
-		<a class="indexterm" name="id2564963"></a>
+		<a class="indexterm" name="id2561249"></a>
                 Create the username map file to permit the <code class="constant">root</code> account to be called
                 <code class="constant">Administrator</code> from the Windows network environment. To do this, create
                 the file <code class="filename">/etc/samba/smbusers</code> with the following contents:
@@ -593,16 +593,16 @@ root = Administrator
 ####
 </pre><p>
 		</p></li><li><p>
-		<a class="indexterm" name="id2565007"></a>
-		<a class="indexterm" name="id2565014"></a>
-		<a class="indexterm" name="id2565025"></a>
-		<a class="indexterm" name="id2565037"></a>
-                Create and map Windows Domain Groups to UNIX groups. A sample script is provided in <a href="small.html" title="Chapter 2. Small Office Networking">???</a>,
-                <a href="small.html#initGrps" title="Example 2.1. Script to Map Windows NT Groups to UNIX Groups">???</a>. Create a file containing this script. We called ours
+		<a class="indexterm" name="id2561290"></a>
+		<a class="indexterm" name="id2561297"></a>
+		<a class="indexterm" name="id2561307"></a>
+		<a class="indexterm" name="id2561318"></a>
+                Create and map Windows Domain Groups to UNIX groups. A sample script is provided in <a class="link" href="small.html" title="Chapter 2. Small Office Networking">&#8220;Small Office Networking&#8221;</a>,
+                <a class="link" href="small.html#initGrps" title="Example 2.1. Script to Map Windows NT Groups to UNIX Groups">&#8220;Script to Map Windows NT Groups to UNIX Groups&#8221;</a>. Create a file containing this script. We called ours
                 <code class="filename">/etc/samba/initGrps.sh</code>. Set this file so it can be executed,
                 and then execute the script. Sample output should be as follows:
 
-</p><div class="example"><a name="ch4initGrps"></a><p class="title"><b>Example 3.7. Script to Map Windows NT Groups to UNIX Groups</b></p><div class="example-contents"><a class="indexterm" name="id2565080"></a><pre class="screen">
+</p><div class="example"><a name="ch4initGrps"></a><p class="title"><b>Example 3.7. Script to Map Windows NT Groups to UNIX Groups</b></p><div class="example-contents"><a class="indexterm" name="id2561355"></a><pre class="screen">
 #!/bin/bash
 #
 # initGrps.sh
@@ -655,21 +655,21 @@ System Operators (S-1-5-32-549) -&gt; -1
 Users (S-1-5-32-545) -&gt; -1
 </pre><p>
 		</p></li><li><p>
-		<a class="indexterm" name="id2565157"></a>
-		<a class="indexterm" name="id2565164"></a>
-		<a class="indexterm" name="id2565170"></a>
-		<a class="indexterm" name="id2565177"></a>
-		<a class="indexterm" name="id2565184"></a>
-		<a class="indexterm" name="id2565191"></a>
-		<a class="indexterm" name="id2565200"></a>
+		<a class="indexterm" name="id2561428"></a>
+		<a class="indexterm" name="id2561434"></a>
+		<a class="indexterm" name="id2561441"></a>
+		<a class="indexterm" name="id2561447"></a>
+		<a class="indexterm" name="id2561453"></a>
+		<a class="indexterm" name="id2561460"></a>
+		<a class="indexterm" name="id2561468"></a>
 		There is one preparatory step without which you will not have a working Samba 
 		network environment. You must add an account for each network user. 
                 For each user who needs to be given a Windows Domain account, make an entry in the
                 <code class="filename">/etc/passwd</code> file as well as in the Samba password backend.
                 Use the system tool of your choice to create the UNIX system account, and use the Samba
-                <span><strong class="command">smbpasswd</strong></span> to create a Domain user account.
+                <code class="literal">smbpasswd</code> to create a Domain user account.
                 There are a number of tools for user management under UNIX, such as
-                <span><strong class="command">useradd</strong></span>, and <span><strong class="command">adduser</strong></span>, as well as a plethora of custom
+                <code class="literal">useradd</code>, and <code class="literal">adduser</code>, as well as a plethora of custom
                 tools. You also want to create a home directory for each user.
 		You can do this by executing the following steps for each user:
 </p><pre class="screen">
@@ -686,9 +686,9 @@ Added user <em class="parameter"><code>username</code></em>.
 </pre><p>
 		You do of course use a valid user login ID in place of <em class="parameter"><code>username</code></em>.
 		</p></li><li><p>
-		<a class="indexterm" name="id2565315"></a>
-		<a class="indexterm" name="id2565324"></a>
-		<a class="indexterm" name="id2565333"></a>
+		<a class="indexterm" name="id2561572"></a>
+		<a class="indexterm" name="id2561581"></a>
+		<a class="indexterm" name="id2561589"></a>
                 Using the preferred tool for your UNIX system, add each user to the UNIX groups created
                 previously as necessary. File system access control will be based on UNIX group membership.
                 </p></li><li><p>
@@ -697,7 +697,7 @@ Added user <em class="parameter"><code>username</code></em>.
                 file is <code class="filename">/data</code>. Format the file system as required, and mount the formatted
                 file system partition using appropriate system tools.
                 </p></li><li><p>
-		<a class="indexterm" name="id2565375"></a>
+		<a class="indexterm" name="id2561628"></a>
                 Create the top-level file storage directories for data and applications as follows:
 </p><pre class="screen">
 <code class="prompt">root# </code> mkdir -p /data/{accounts,finsrvcs}
@@ -710,8 +710,8 @@ Added user <em class="parameter"><code>username</code></em>.
 <code class="prompt">root# </code> chmod -R ug+rwx,o+rx-w /apps
 </pre><p>
                 Each department is responsible for creating its own directory structure within the departmental
-                share. The directory root of the <span><strong class="command">accounts</strong></span> share is <code class="filename">/data/accounts</code>.
-                The directory root of the <span><strong class="command">finsvcs</strong></span> share is <code class="filename">/data/finsvcs</code>.
+                share. The directory root of the <code class="literal">accounts</code> share is <code class="filename">/data/accounts</code>.
+                The directory root of the <code class="literal">finsvcs</code> share is <code class="filename">/data/finsvcs</code>.
 		The <code class="filename">/apps</code> directory is the root of the <code class="constant">apps</code> share
 		that provides the application server infrastructure.
 		</p></li><li><p>
@@ -738,9 +738,9 @@ Added user <em class="parameter"><code>username</code></em>.
 <code class="prompt">root# </code> chmod ug+wrx,o+rx,-w /var/lib/samba/profiles/'username'
 </pre><p>
 		</p></li><li><p>
-		<a class="indexterm" name="id2565588"></a>
-		<a class="indexterm" name="id2565594"></a>
-		<a class="indexterm" name="id2565601"></a>
+		<a class="indexterm" name="id2561822"></a>
+		<a class="indexterm" name="id2561828"></a>
+		<a class="indexterm" name="id2561835"></a>
 		Create a logon script. It is important that each line is correctly terminated with
 		a carriage return and line-feed combination (i.e., DOS encoding). The following procedure
 		works if the right tools (<code class="constant">unix2dos</code> and <code class="constant">dos2unix</code>) are installed.
@@ -751,7 +751,7 @@ net time \\diamond /set /yes
 net use h: /home
 net use p: \\diamond\apps
 </pre><p>
-		Convert the UNIX file to a DOS file using the <span><strong class="command">unix2dos</strong></span> as shown here:
+		Convert the UNIX file to a DOS file using the <code class="literal">unix2dos</code> as shown here:
 </p><pre class="screen">
 <code class="prompt">root# </code> unix2dos &lt; /var/lib/samba/netlogon/scripts/logon.bat.unix \
 	&gt; /var/lib/samba/netlogon/scripts/logon.bat
@@ -760,10 +760,10 @@ net use p: \\diamond\apps
 	DHCP services are a basic component of the entire network client installation. DNS operation is
 	foundational to Internet access as well as to trouble-free operation of local networking. When
 	you have completed this section, the server should be ready for solid duty operation.
-	</p><div class="procedure"><a name="id2565676"></a><p class="title"><b>Procedure 3.3. DHCP and DNS Server Configuration Steps</b></p><ol type="1"><li><p>
-		<a class="indexterm" name="id2565688"></a>
+	</p><div class="procedure"><a name="id2561905"></a><p class="title"><b>Procedure 3.3. DHCP and DNS Server Configuration Steps</b></p><ol type="1"><li><p>
+		<a class="indexterm" name="id2561916"></a>
 		Create a file called <code class="filename">/etc/dhcpd.conf</code> with the contents as
-		shown in <a href="secure.html#prom-dhcp" title="Example 3.8. DHCP Server Configuration File  /etc/dhcpd.conf">???</a>.
+		shown in <a class="link" href="secure.html#prom-dhcp" title="Example 3.8. DHCP Server Configuration File /etc/dhcpd.conf">&#8220;DHCP Server Configuration File  /etc/dhcpd.conf&#8221;</a>.
 
 </p><div class="example"><a name="prom-dhcp"></a><p class="title"><b>Example 3.8. DHCP Server Configuration File  <code class="filename">/etc/dhcpd.conf</code></b></p><div class="example-contents"><pre class="screen">
 # Abmas Accounting Inc.
@@ -812,18 +812,18 @@ subnet 123.45.67.64 netmask 255.255.255.252 {
         }
 </pre></div></div><p><br class="example-break">
 		</p></li><li><p>
-		<a class="indexterm" name="id2565763"></a>
+		<a class="indexterm" name="id2561991"></a>
 		Create a file called <code class="filename">/etc/named.conf</code> that has the combined contents
-		of the <a href="secure.html#ch4namedcfg" title="Example 3.9. DNS Master Configuration File  /etc/named.conf Master Section">???</a>, <a href="secure.html#ch4namedvarfwd" title="Example 3.10. DNS Master Configuration File  /etc/named.conf Forward Lookup Definition Section">???</a>, and
-		<a href="secure.html#ch4namedvarrev" title="Example 3.11. DNS Master Configuration File  /etc/named.conf Reverse Lookup Definition Section">???</a> files that are concatenated (merged) in this
+		of the <a class="link" href="secure.html#ch4namedcfg" title="Example 3.9. DNS Master Configuration File /etc/named.conf Master Section">&#8220;DNS Master Configuration File  /etc/named.conf Master Section&#8221;</a>, <a class="link" href="secure.html#ch4namedvarfwd" title="Example 3.10. DNS Master Configuration File /etc/named.conf Forward Lookup Definition Section">&#8220;DNS Master Configuration File  /etc/named.conf Forward Lookup Definition Section&#8221;</a>, and
+		<a class="link" href="secure.html#ch4namedvarrev" title="Example 3.11. DNS Master Configuration File /etc/named.conf Reverse Lookup Definition Section">&#8220;DNS Master Configuration File  /etc/named.conf Reverse Lookup Definition Section&#8221;</a> files that are concatenated (merged) in this
 		specific order.
 		</p></li><li><p>
-		Create the files shown in their respective directories as shown in <a href="secure.html#namedrscfiles" title="Table 3.2. DNS (named) Resource Files">DNS
+		Create the files shown in their respective directories as shown in <a class="link" href="secure.html#namedrscfiles" title="Table 3.2. DNS (named) Resource Files">DNS
 		(named) Resource Files</a>.
 
-			</p><div class="table"><a name="namedrscfiles"></a><p class="title"><b>Table 3.2. DNS (named) Resource Files</b></p><div class="table-contents"><table summary="DNS (named) Resource Files" border="1"><colgroup><col align="left"><col align="left"></colgroup><thead><tr><th align="left">Reference</th><th align="left">File Location</th></tr></thead><tbody><tr><td align="left"><a href="appendix.html#loopback" title="Example 15.3. DNS Localhost Forward Zone File: /var/lib/named/localhost.zone">???</a></td><td align="left">/var/lib/named/localhost.zone</td></tr><tr><td align="left"><a href="appendix.html#dnsloopy" title="Example 15.4. DNS Localhost Reverse Zone File: /var/lib/named/127.0.0.zone">???</a></td><td align="left">/var/lib/named/127.0.0.zone</td></tr><tr><td align="left"><a href="appendix.html#roothint" title="Example 15.5. DNS Root Name Server Hint File: /var/lib/named/root.hint">???</a></td><td align="left">/var/lib/named/root.hint</td></tr><tr><td align="left"><a href="secure.html#abmasbiz" title="Example 3.14. DNS Abmas.biz Forward Zone File">???</a></td><td align="left">/var/lib/named/master/abmas.biz.hosts</td></tr><tr><td align="left"><a href="secure.html#abmasus" title="Example 3.15. DNS Abmas.us Forward Zone File">???</a></td><td align="left">/var/lib/named/abmas.us.hosts</td></tr><tr><td align="left"><a href="secure.html#eth1zone" title="Example 3.12. DNS 192.168.1 Reverse Zone File">???</a></td><td align="left">/var/lib/named/192.168.1.0.rev</td></tr><tr><td align="left"><a href="secure.html#eth2zone" title="Example 3.13. DNS 192.168.2 Reverse Zone File">???</a></td><td align="left">/var/lib/named/192.168.2.0.rev</td></tr></tbody></table></div></div><p><br class="table-break">
+			</p><div class="table"><a name="namedrscfiles"></a><p class="title"><b>Table 3.2. DNS (named) Resource Files</b></p><div class="table-contents"><table summary="DNS (named) Resource Files" border="1"><colgroup><col align="left"><col align="left"></colgroup><thead><tr><th align="left">Reference</th><th align="left">File Location</th></tr></thead><tbody><tr><td align="left"><a class="link" href="appendix.html#loopback" title="Example 15.3. DNS Localhost Forward Zone File: /var/lib/named/localhost.zone">&#8220;DNS Localhost Forward Zone File: /var/lib/named/localhost.zone&#8221;</a></td><td align="left">/var/lib/named/localhost.zone</td></tr><tr><td align="left"><a class="link" href="appendix.html#dnsloopy" title="Example 15.4. DNS Localhost Reverse Zone File: /var/lib/named/127.0.0.zone">&#8220;DNS Localhost Reverse Zone File: /var/lib/named/127.0.0.zone&#8221;</a></td><td align="left">/var/lib/named/127.0.0.zone</td></tr><tr><td align="left"><a class="link" href="appendix.html#roothint" title="Example 15.5. DNS Root Name Server Hint File: /var/lib/named/root.hint">&#8220;DNS Root Name Server Hint File: /var/lib/named/root.hint&#8221;</a></td><td align="left">/var/lib/named/root.hint</td></tr><tr><td align="left"><a class="link" href="secure.html#abmasbiz" title="Example 3.14. DNS Abmas.biz Forward Zone File">&#8220;DNS Abmas.biz Forward Zone File&#8221;</a></td><td align="left">/var/lib/named/master/abmas.biz.hosts</td></tr><tr><td align="left"><a class="link" href="secure.html#abmasus" title="Example 3.15. DNS Abmas.us Forward Zone File">&#8220;DNS Abmas.us Forward Zone File&#8221;</a></td><td align="left">/var/lib/named/abmas.us.hosts</td></tr><tr><td align="left"><a class="link" href="secure.html#eth1zone" title="Example 3.12. DNS 192.168.1 Reverse Zone File">&#8220;DNS 192.168.1 Reverse Zone File&#8221;</a></td><td align="left">/var/lib/named/192.168.1.0.rev</td></tr><tr><td align="left"><a class="link" href="secure.html#eth2zone" title="Example 3.13. DNS 192.168.2 Reverse Zone File">&#8220;DNS 192.168.2 Reverse Zone File&#8221;</a></td><td align="left">/var/lib/named/192.168.2.0.rev</td></tr></tbody></table></div></div><p><br class="table-break">
 
-</p><div class="example"><a name="ch4namedcfg"></a><p class="title"><b>Example 3.9. DNS Master Configuration File  <code class="filename">/etc/named.conf</code> Master Section</b></p><div class="example-contents"><a class="indexterm" name="id2565974"></a><pre class="screen">
+</p><div class="example"><a name="ch4namedcfg"></a><p class="title"><b>Example 3.9. DNS Master Configuration File  <code class="filename">/etc/named.conf</code> Master Section</b></p><div class="example-contents"><a class="indexterm" name="id2562202"></a><pre class="screen">
 ###
 # Abmas Biz DNS Control File
 ###
@@ -1008,7 +1008,7 @@ dns                     CNAME   server
 </pre></div></div><p><br class="example-break">
 
 		</p></li><li><p>
-	      <a class="indexterm" name="id2566197"></a><a class="indexterm" name="id2566203"></a>
+	      <a class="indexterm" name="id2562415"></a><a class="indexterm" name="id2562421"></a>
 		All DNS name resolution should be handled locally. To ensure that the server is configured
 		correctly to handle this, edit <code class="filename">/etc/resolv.conf</code> to have the following
 		content:
@@ -1017,13 +1017,13 @@ search abmas.us abmas.biz
 nameserver 127.0.0.1
 nameserver 123.45.54.23
 </pre><p>
-	      <a class="indexterm" name="id2566227"></a>
+	      <a class="indexterm" name="id2562446"></a>
 		This instructs the name resolver function (when configured correctly) to ask the DNS server
 		that is running locally to resolve names to addresses. In the event that the local name server
 		is not available, ask the name server provided by the ISP. The latter, of course, does not resolve
 		purely local names to IP addresses.
 		</p></li><li><p>
-		<a class="indexterm" name="id2566249"></a>
+		<a class="indexterm" name="id2562467"></a>
 		The final step is to edit the <code class="filename">/etc/nsswitch.conf</code> file.
 		This file controls the operation of the various resolver libraries that are part of the Linux
 		Glibc libraries. Edit this file so that it contains the following entries:
@@ -1042,17 +1042,17 @@ hosts:      files dns wins
 	transparent print queue that performs no filtering, and only minimal handling of each print job that is
 	submitted to it. In other words, our configuration turns CUPS into a raw-mode print queue. This means that
 	the correct printer driver must be installed on all clients.
-	</p><div class="procedure"><a name="id2566307"></a><p class="title"><b>Procedure 3.4. Printer Configuration Steps</b></p><ol type="1"><li><p>
+	</p><div class="procedure"><a name="id2562525"></a><p class="title"><b>Procedure 3.4. Printer Configuration Steps</b></p><ol type="1"><li><p>
 		Configure each printer to be a DHCP client, carefully following the manufacturer's guidelines.
 		</p></li><li><p>
                 Follow the instructions in the printer manufacturer's manuals to permit printing to port 9100.
 		Use any other port the manufacturer specifies for direct-mode raw printing, and adjust the
 		port as necessary in the following example commands.
                 This allows the CUPS spooler to print using raw mode protocols.
-                <a class="indexterm" name="id2566333"></a>
-                <a class="indexterm" name="id2566340"></a>
+                <a class="indexterm" name="id2562551"></a>
+                <a class="indexterm" name="id2562558"></a>
                 </p></li><li><p>
-	      <a class="indexterm" name="id2566353"></a><a class="indexterm" name="id2566361"></a>
+	      <a class="indexterm" name="id2562571"></a><a class="indexterm" name="id2562579"></a>
                 Configure the CUPS Print Queues as follows:
 </p><pre class="screen">
 <code class="prompt">root# </code> lpadmin -p qmsa -v socket://qmsa.abmas.biz:9100 -E
@@ -1060,10 +1060,10 @@ hosts:      files dns wins
 <code class="prompt">root# </code> lpadmin -p qmsf -v socket://qmsf.abmas.biz:9100 -E
 <code class="prompt">root# </code> lpadmin -p hplj6f -v socket://hplj6f.abmas.biz:9100 -E
 </pre><p>
-                <a class="indexterm" name="id2566404"></a>
+                <a class="indexterm" name="id2562622"></a>
                 This creates the necessary print queues with no assigned print filter.
-                </p></li><li><p><a class="indexterm" name="id2566418"></a>
-		Print queues may not be enabled at creation. Use <span><strong class="command">lpc stat</strong></span> to check
+                </p></li><li><p><a class="indexterm" name="id2562637"></a>
+		Print queues may not be enabled at creation. Use <code class="literal">lpc stat</code> to check
 		the status of the print queues and, if necessary, make certain that the queues you have 
 		just created are enabled by executing the following:
 </p><pre class="screen">
@@ -1072,7 +1072,7 @@ hosts:      files dns wins
 <code class="prompt">root# </code> /usr/bin/enable qmsf
 <code class="prompt">root# </code> /usr/bin/enable hplj6f
 </pre><p>
-		</p></li><li><p><a class="indexterm" name="id2566473"></a>
+		</p></li><li><p><a class="indexterm" name="id2562692"></a>
 		Even though your print queues may be enabled, it is still possible that they
 		are not accepting print jobs. A print queue services incoming printing
 		requests only when configured to do so. Ensure that your print queues are
@@ -1084,15 +1084,15 @@ hosts:      files dns wins
 <code class="prompt">root# </code> /usr/sbin/accept hplj6f
 </pre><p>
 		</p></li><li><p>
-                <a class="indexterm" name="id2566524"></a>
-                <a class="indexterm" name="id2566531"></a>
-                <a class="indexterm" name="id2566538"></a>
+                <a class="indexterm" name="id2562743"></a>
+                <a class="indexterm" name="id2562750"></a>
+                <a class="indexterm" name="id2562757"></a>
                 Edit the file <code class="filename">/etc/cups/mime.convs</code> to uncomment the line:
 </p><pre class="screen">
 application/octet-stream     application/vnd.cups-raw      0     -
 </pre><p>
                 </p></li><li><p>
-                <a class="indexterm" name="id2566566"></a>
+                <a class="indexterm" name="id2562784"></a>
                 Edit the file <code class="filename">/etc/cups/mime.types</code> to uncomment the line:
 </p><pre class="screen">
 application/octet-stream
@@ -1105,22 +1105,22 @@ application/octet-stream
 	</p><p>
 	The UNIX system print queues have been configured and are ready for validation testing.
 	</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="procstart"></a>Process Startup Configuration</h3></div></div></div><p>
-	<a class="indexterm" name="id2566631"></a>
+	<a class="indexterm" name="id2562850"></a>
 	There are two essential steps to process startup configuration. First, the process
 	must be configured so that it automatically restarts each time the server
-	is rebooted. This step involves use of the <span><strong class="command">chkconfig</strong></span> tool that
+	is rebooted. This step involves use of the <code class="literal">chkconfig</code> tool that
 	creates the appropriate symbolic links from the master daemon control file that is
 	located in the <code class="filename">/etc/rc.d</code> directory, to the <code class="filename">/etc/rc'x'.d</code>
 	directories. Links are created so that when the system run level is changed, the
 	necessary start or kill script is run.
 	</p><p>
-	<a class="indexterm" name="id2566666"></a>
-	<a class="indexterm" name="id2566673"></a>
-	<a class="indexterm" name="id2566680"></a>
-	<a class="indexterm" name="id2566687"></a>
-	<a class="indexterm" name="id2566694"></a>
+	<a class="indexterm" name="id2562885"></a>
+	<a class="indexterm" name="id2562892"></a>
+	<a class="indexterm" name="id2562899"></a>
+	<a class="indexterm" name="id2562906"></a>
+	<a class="indexterm" name="id2562912"></a>
 	In the event that a service is not run as a daemon, but via the internetworking
-	super daemon (<span><strong class="command">inetd</strong></span> or <span><strong class="command">xinetd</strong></span>), then the <span><strong class="command">chkconfig</strong></span>
+	super daemon (<code class="literal">inetd</code> or <code class="literal">xinetd</code>), then the <code class="literal">chkconfig</code>
 	tool makes the necessary entries in the <code class="filename">/etc/xinetd.d</code> directory
 	and sends a hang-up (HUP) signal to the the super daemon, thus forcing it to
 	re-read its control files.
@@ -1129,7 +1129,7 @@ application/octet-stream
 	</p><div class="procedure"><ol type="1"><li><p>
                 Use the standard system tool to configure each service to restart
                 automatically at every system reboot. For example,
-                <a class="indexterm" name="id2566745"></a>
+                <a class="indexterm" name="id2562964"></a>
 </p><pre class="screen">
 <code class="prompt">root# </code> chkconfig dhpcd on
 <code class="prompt">root# </code> chkconfig named on
@@ -1137,9 +1137,9 @@ application/octet-stream
 <code class="prompt">root# </code> chkconfig smb on
 </pre><p>
 		</p></li><li><p>
-                <a class="indexterm" name="id2566789"></a>
-                <a class="indexterm" name="id2566796"></a>
-                <a class="indexterm" name="id2566803"></a>
+                <a class="indexterm" name="id2563008"></a>
+                <a class="indexterm" name="id2563015"></a>
+                <a class="indexterm" name="id2563022"></a>
 		Now start each service to permit the system to be validated.
 		Execute each of the following in the sequence shown:
 
@@ -1150,7 +1150,7 @@ application/octet-stream
 <code class="prompt">root# </code> /etc/rc.d/init.d/smb restart
 </pre><p>
                 </p></li></ol></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="ch4valid"></a>Validation</h3></div></div></div><p>
-	<a class="indexterm" name="id2566858"></a>
+	<a class="indexterm" name="id2563076"></a>
 	Complex networking problems are most often caused by simple things that are poorly or incorrectly
 	configured. The validation process adopted here should be followed carefully; it is the result of the
 	experience gained from years of making and correcting the most common mistakes. Shortcuts often lead to basic errors. You should
@@ -1160,8 +1160,8 @@ application/octet-stream
 	days. A well debugged network is a foundation for happy network users and network administrators. 
 	Later in this book you learn how to make users happier. For now, it is enough to learn to 
 	validate. Let's get on with it.
-	</p><div class="procedure"><a name="id2566880"></a><p class="title"><b>Procedure 3.5. Server Validation Steps</b></p><ol type="1"><li><p>
-			<a class="indexterm" name="id2566891"></a>
+	</p><div class="procedure"><a name="id2563098"></a><p class="title"><b>Procedure 3.5. Server Validation Steps</b></p><ol type="1"><li><p>
+			<a class="indexterm" name="id2563110"></a>
 			One of the most important facets of Samba configuration is to ensure that
 			name resolution functions correctly. You can check name resolution
 			with a few simple tests. The most basic name resolution is provided from the
@@ -1187,7 +1187,7 @@ rtt min/avg/max/mdev = 0.131/0.173/0.192/0.026 ms
 			This proves that name resolution via the <code class="filename">/etc/hosts</code> file
 			is working.
 			</p></li><li><p>
-			<a class="indexterm" name="id2566961"></a>
+			<a class="indexterm" name="id2563179"></a>
 			So far, your installation is going particularly well. In this step we validate
 			DNS server and name resolution operation. Using your favorite UNIX system editor,
 			change the <code class="filename">/etc/nsswitch.conf</code> file so that the
@@ -1196,7 +1196,7 @@ rtt min/avg/max/mdev = 0.131/0.173/0.192/0.026 ms
 hosts:        dns
 </pre><p>
 			</p></li><li><p>
-			<a class="indexterm" name="id2566994"></a>
+			<a class="indexterm" name="id2563212"></a>
 			Before you test DNS operation, it is a good idea to verify that the DNS server
 			is running by executing the following:
 </p><pre class="screen">
@@ -1210,7 +1210,7 @@ hosts:        dns
  2552 pts/2    S      0:00 grep named
 </pre><p>
 			This means that we are ready to check DNS operation. Do so by executing:
-			<a class="indexterm" name="id2567023"></a>
+			<a class="indexterm" name="id2563242"></a>
 </p><pre class="screen">
 <code class="prompt">root# </code> ping diamond
 PING sleeth1.abmas.biz (192.168.1.1) 56(84) bytes of data.
@@ -1226,23 +1226,23 @@ rtt min/avg/max/mdev = 0.156/0.169/0.183/0.018 ms
 <code class="prompt">root# </code> host -f diamond.abmas.biz
 sleeth1.abmas.biz has address 192.168.1.1
 </pre><p>
-			<a class="indexterm" name="id2567062"></a>
+			<a class="indexterm" name="id2563280"></a>
 			You may now remove the entry called <code class="constant">diamond</code> from the
 			<code class="filename">/etc/hosts</code> file. It does not hurt to leave it there,
 			but its removal reduces the number of administrative steps for this name.
 			</p></li><li><p>
-			<a class="indexterm" name="id2567088"></a>
+			<a class="indexterm" name="id2563306"></a>
 			WINS is a great way to resolve NetBIOS names to their IP address. You can test
-			the operation of WINS by starting <span><strong class="command">nmbd</strong></span> (manually or by way
-			of the Samba startup method shown in <a href="secure.html#procstart" title="Process Startup Configuration">???</a>). You must edit
+			the operation of WINS by starting <code class="literal">nmbd</code> (manually or by way
+			of the Samba startup method shown in <a class="link" href="secure.html#procstart" title="Process Startup Configuration">&#8220;Process Startup Configuration&#8221;</a>). You must edit
 			the <code class="filename">/etc/nsswitch.conf</code> file so that the <code class="constant">hosts</code>
 			entry is as follows:
 </p><pre class="screen">
 hosts:        wins
 </pre><p>
-			The next step is to make certain that Samba is running using <span><strong class="command">ps ax | grep mbd</strong></span>.
-			The <span><strong class="command">nmbd</strong></span> daemon will provide the WINS name resolution service when the
-			<code class="filename">smb.conf</code> file <em class="parameter"><code></code></em> parameter <a class="indexterm" name="id2567152"></a>wins    support = Yes has been specified.  Having validated that Samba is operational,
+			The next step is to make certain that Samba is running using <code class="literal">ps ax | grep mbd</code>.
+			The <code class="literal">nmbd</code> daemon will provide the WINS name resolution service when the
+			<code class="filename">smb.conf</code> file <em class="parameter"><code></code></em> parameter <a class="link" href="smb.conf.5.html#WINSSUPPORT" target="_top">wins    support = Yes</a> has been specified.  Having validated that Samba is operational,
 			excute the following:
 </p><pre class="screen">
 <code class="prompt">root# </code> ping diamond
@@ -1250,7 +1250,7 @@ PING diamond (192.168.1.1) 56(84) bytes of data.
 64 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=0.094 ms
 64 bytes from 192.168.1.1: icmp_seq=2 ttl=64 time=0.479 ms
 </pre><p>
-			<a class="indexterm" name="id2567175"></a>
+			<a class="indexterm" name="id2563398"></a>
 			Now that you can relax with the knowledge that all three major forms of name
 			resolution to IP address resolution are working, edit the <code class="filename">/etc/nsswitch.conf</code>
 			again. This time you add all three forms of name resolution to this file.
@@ -1271,7 +1271,7 @@ hosts:       files dns wins
 			This shows that the server is running. The proof of whether or not it is working
 			comes when you try to add the first DHCP client to the network.
 			</p></li><li><p>
-			<a class="indexterm" name="id2567235"></a>
+			<a class="indexterm" name="id2563458"></a>
 			This is a good point at which to start validating Samba operation. You are 
 			content that name resolution is working for basic TCP/IP needs. Let's move on.
 			If your <code class="filename">smb.conf</code> file has bogus options or parameters, this may cause Samba
@@ -1343,10 +1343,10 @@ Loaded services file OK.
 </pre><p>
 			Clear away all errors before proceeding.
 			</p></li><li><p>
-			<a class="indexterm" name="id2567336"></a>
-			<a class="indexterm" name="id2567343"></a>
-			<a class="indexterm" name="id2567350"></a>
-			<a class="indexterm" name="id2567357"></a>
+			<a class="indexterm" name="id2563559"></a>
+			<a class="indexterm" name="id2563565"></a>
+			<a class="indexterm" name="id2563572"></a>
+			<a class="indexterm" name="id2563579"></a>
 			Check that the Samba server is running:
 </p><pre class="screen">
 <code class="prompt">root# </code> ps ax | grep mbd
@@ -1355,14 +1355,14 @@ Loaded services file OK.
 14290 ?        S      0:00 /usr/sbin/smbd -D
 
 $rootprompt; ps ax | grep winbind
-14293 ?        S     0:00 /usr/sbin/winbindd -B
-14295 ?        S     0:00 /usr/sbin/winbindd -B
+14293 ?        S     0:00 /usr/sbin/winbindd -D
+14295 ?        S     0:00 /usr/sbin/winbindd -D
 </pre><p>
-			The <span><strong class="command">winbindd</strong></span> daemon is running in split mode (normal), so there are also
-			two instances<sup>[<a name="id2567388" href="#ftn.id2567388">7</a>]</sup> of it.
+			The <code class="literal">winbindd</code> daemon is running in split mode (normal), so there are also
+			two instances<sup>[<a name="id2563610" href="#ftn.id2563610" class="footnote">7</a>]</sup> of it.
 			</p></li><li><p>
-			<a class="indexterm" name="id2567418"></a>
-	      <a class="indexterm" name="id2567425"></a>
+			<a class="indexterm" name="id2563640"></a>
+	      <a class="indexterm" name="id2563648"></a>
 			Check that an anonymous connection can be made to the Samba server:
 </p><pre class="screen">
 <code class="prompt">root# </code> smbclient -L localhost -U%
@@ -1394,12 +1394,12 @@ $rootprompt; ps ax | grep winbind
 			The <code class="constant">-U%</code> argument means to send a <code class="constant">NULL</code> username and
 			a <code class="constant">NULL</code> password.
 			</p></li><li><p>
-			<a class="indexterm" name="id2567483"></a>
-			<a class="indexterm" name="id2567490"></a>
-			<a class="indexterm" name="id2567497"></a>
+			<a class="indexterm" name="id2563705"></a>
+			<a class="indexterm" name="id2563712"></a>
+			<a class="indexterm" name="id2563719"></a>
 			Verify that each printer has the IP address assigned in the DHCP server configuration file.
 			The easiest way to do this is to ping the printer name. Immediately after the ping response
-			has been received, execute <span><strong class="command">arp -a</strong></span> to find the MAC address of the printer
+			has been received, execute <code class="literal">arp -a</code> to find the MAC address of the printer
 			that has responded. Now you can compare the IP address and the MAC address of the printer
 			with the configuration information in the <code class="filename">/etc/dhcpd.conf</code> file. They
 			should, of course, match. For example,
@@ -1411,13 +1411,13 @@ PING hplj6a (192.168.1.30) 56(84) bytes of data.
 <code class="prompt">root# </code> arp -a
 hplj6a (192.168.1.30) at 00:03:47:CB:81:E0 [ether] on eth0
 </pre><p>
-	      <a class="indexterm" name="id2567544"></a>
+	      <a class="indexterm" name="id2563766"></a>
 			The MAC address <code class="constant">00:03:47:CB:81:E0</code> matches that specified for the
 			IP address from which the printer has responded and with the entry for it in the
 			<code class="filename">/etc/dhcpd.conf</code> file. Repeat this for each printer configured.
 			</p></li><li><p>
-			<a class="indexterm" name="id2567572"></a>
-			Make an authenticated connection to the server using the <span><strong class="command">smbclient</strong></span> tool:
+			<a class="indexterm" name="id2563795"></a>
+			Make an authenticated connection to the server using the <code class="literal">smbclient</code> tool:
 </p><pre class="screen">
 <code class="prompt">root# </code> smbclient //diamond/accounts -U gholmes
 Password: XXXXXXX
@@ -1435,14 +1435,14 @@ smb: \&gt; dir
 smb: \&gt; q
 </pre><p>
 			</p></li><li><p>
-			<a class="indexterm" name="id2567629"></a>
+			<a class="indexterm" name="id2563852"></a>
 			Your new server is connected to an Internet-accessible connection. Before you start
 			your firewall, you should run a port scanner against your system. You should repeat that
 			after the firewall has been started. This helps you understand to what extent the
 			server may be vulnerable to external attack. One way you can do this is by using an
-			external service, such as the <a href="http://www.dslreports.com/scan" target="_top">DSL Reports</a> 
+			external service, such as the <a class="ulink" href="http://www.dslreports.com/scan" target="_top">DSL Reports</a> 
 			tools. Alternately, if you can gain root-level access to a remote
-			UNIX/Linux system that has the <span><strong class="command">nmap</strong></span> tool, you can run the following:
+			UNIX/Linux system that has the <code class="literal">nmap</code> tool, you can run the following:
 </p><pre class="screen">
 <code class="prompt">root# </code> nmap -v -sT server.abmas.us
 
@@ -1510,8 +1510,8 @@ Port       State       Service
 Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 </pre><p>
 			</p></li></ol></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="ch4appscfg"></a>Application Share Configuration</h3></div></div></div><p>
-	<a class="indexterm" name="id2567754"></a>
-	<a class="indexterm" name="id2567761"></a>
+	<a class="indexterm" name="id2563955"></a>
+	<a class="indexterm" name="id2563962"></a>
 	The use of an application server is a key mechanism by which desktop administration overheads
 	can be reduced. Check the application manual for your software to identify how best to
 	create an administrative installation.
@@ -1532,11 +1532,11 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		on a central network share. This type of installation often prevents storage
 		of work files on the local workstation.
 		</p></li></ul></div><p>
-	<a class="indexterm" name="id2567813"></a>
+	<a class="indexterm" name="id2564014"></a>
 	A common application deployed in this environment is an office suite.
 	Enterprise editions of Microsoft Office XP Professional can be administratively installed
 	by launching the installation from a command shell. The command that achieves this is
-	<span><strong class="command">setup /a</strong></span>. It results in a set of prompts through which various
+	<code class="literal">setup /a</code>. It results in a set of prompts through which various
 	installation choices can be made. Refer to the Microsoft Office Resource SDK and Resource
 	Kit for more information regarding this mode of installation of MS Office XP Professional.
 	The full administrative installation of MS Office XP Professional requires approximately
@@ -1549,8 +1549,8 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 	A network workstation (minimum) installation requires typically 10 MB to 15 MB of
 	local disk space. In the latter case, when the applications are used, they load over the network.
 	</p><p>
-	<a class="indexterm" name="id2567850"></a>
-	<a class="indexterm" name="id2567857"></a>
+	<a class="indexterm" name="id2564051"></a>
+	<a class="indexterm" name="id2564058"></a>
 	Microsoft Office Service Packs can be unpacked to update an administrative share. This makes
 	it possible to update MS Office XP Professional for all users from a single installation
 	of the service pack and generally circumvents the need to run updates on each network
@@ -1559,7 +1559,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 	The default location for MS Office XP Professional data files can be set through registry
 	editing or by way of configuration options inside each Office XP Professional application.
 	</p><p>
-	<a class="indexterm" name="id2567879"></a>
+	<a class="indexterm" name="id2564080"></a>
 	OpenOffice.Org OpenOffice Version 1.1.0 can be installed locally. It can also
 	be installed to run off a network share. The latter is a most desirable solution for office-bound 
 	network users and for administrative staff alike. It permits quick and easy updates
@@ -1568,11 +1568,11 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 	The process for installation of administrative shared OpenOffice involves download of the
 	distribution ZIP file, followed by extraction of the ZIP file into a temporary disk area.
 	When fully extracted using the unzipping tool of your choosing, change into the Windows
-	installation files directory then execute <span><strong class="command">setup -net</strong></span>. You are
+	installation files directory then execute <code class="literal">setup -net</code>. You are
 	prompted on screen for the target installation location. This is the administrative
 	share point. The full administrative OpenOffice share takes approximately 150 MB of disk
 	space.
-	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2567910"></a>Comments Regarding Software Terms of Use</h4></div></div></div><p>
+	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2564111"></a>Comments Regarding Software Terms of Use</h4></div></div></div><p>
 			Many single-user products can be installed into an administrative share, but
 			personal versions of products such as Microsoft Office XP Professional do not permit this. 
 			Many people do not like terms of use typical with commercial products, so a few comments
@@ -1596,7 +1596,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 			also. Whatever the licensing terms may be, if you do not approve of the terms of use,
 			please do not use the software.
 			</p><p>
-			<a class="indexterm" name="id2567958"></a>
+			<a class="indexterm" name="id2564159"></a>
 			Samba is provided under the terms of the GNU GPL Version 2, a copy of which is provided
 			with the source code.
 			</p></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="ch4wincfg"></a>Windows Client Configuration</h3></div></div></div><p>
@@ -1607,8 +1607,8 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 	Ghost (enterprise edition) to replicate the staged machine to its target desktops. The same can
 	be done with notebook computers as long as they are identical or sufficiently similar.
 	</p><div class="procedure"><a name="sbewinclntprep"></a><p class="title"><b>Procedure 3.6. Windows Client Configuration Procedure</b></p><ol type="1"><li><p>
-		<a class="indexterm" name="id2568018"></a>
-		<a class="indexterm" name="id2568025"></a>
+		<a class="indexterm" name="id2564210"></a>
+		<a class="indexterm" name="id2564217"></a>
 		Install MS Windows XP Professional. During installation, configure the client to use DHCP for 
 		TCP/IP protocol configuration. DHCP configures all Windows clients to use the WINS Server
 		address that has been defined for the local subnet.
@@ -1616,7 +1616,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		Join the Windows Domain <code class="constant">PROMISES</code>. Use the Domain Administrator
 		username <code class="constant">root</code> and the SMB password you assigned to this account.
 		A detailed step-by-step procedure for joining a Windows 200x/XP Professional client to
-		a Windows Domain is given in <a href="appendix.html" title="Chapter 15. A Collection of Useful Tidbits">???</a>, <a href="appendix.html#domjoin" title="Joining a Domain: Windows 200x/XP Professional">???</a>. 
+		a Windows Domain is given in <a class="link" href="appendix.html" title="Chapter 15. A Collection of Useful Tidbits">&#8220;A Collection of Useful Tidbits&#8221;</a>, <a class="link" href="appendix.html#domjoin" title="Joining a Domain: Windows 200x/XP Professional">&#8220;Joining a Domain: Windows 200x/XP Professional&#8221;</a>. 
 		Reboot the machine as prompted and then log on using the Domain Administrator account
 		(<code class="constant">root</code>).
 		</p></li><li><p>
@@ -1641,7 +1641,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		Install printers on each machine following the steps shown in the Windows client printer
 		preparation procedure below.
 		</p></li><li><p>
-		<a class="indexterm" name="id2568163"></a>
+		<a class="indexterm" name="id2564354"></a>
 		When you are satisfied that the staging systems are complete, use the appropriate procedure to
 		remove the client from the domain. Reboot the system and then log on as the local administrator
 		and clean out all temporary files stored on the system. Before shutting down, use the disk
@@ -1650,14 +1650,14 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		Boot the workstation using the Norton (Symantec) Ghosting diskette (or CD-ROM) and image the
 		machine to a network share on the server.
 		</p></li><li><p>
-		<a class="indexterm" name="id2568192"></a>
-		<a class="indexterm" name="id2568201"></a>
+		<a class="indexterm" name="id2564384"></a>
+		<a class="indexterm" name="id2564393"></a>
 		You may now replicate the image to the target machines using the appropriate Norton Ghost 
 		procedure. Make sure to use the procedure that ensures each machine has a unique
 		Windows security identifier (SID). When the installation of the disk image has completed, boot the PC. 
 		</p></li><li><p>
 		Log on to the machine as the local Administrator (the only option), and join the machine to
-		the Domain, following the procedure set out in <a href="appendix.html" title="Chapter 15. A Collection of Useful Tidbits">???</a>, <a href="appendix.html#domjoin" title="Joining a Domain: Windows 200x/XP Professional">???</a>. The system is now 
+		the Domain, following the procedure set out in <a class="link" href="appendix.html" title="Chapter 15. A Collection of Useful Tidbits">&#8220;A Collection of Useful Tidbits&#8221;</a>, <a class="link" href="appendix.html#domjoin" title="Joining a Domain: Windows 200x/XP Professional">&#8220;Joining a Domain: Windows 200x/XP Professional&#8221;</a>. The system is now 
 		ready for the user to log on, provided you have created a network logon account for that 
 		user, of course.
 		</p></li><li><p>
@@ -1686,7 +1686,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		</p></li><li><p>
 		Repeat the printer installation steps above for both HP LaserJet 6 printers
 		as well as for both QMS Magicolor laser printers.
-		</p></li></ol></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2568471"></a>Key Points Learned</h3></div></div></div><p>
+		</p></li></ol></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2564663"></a>Key Points Learned</h3></div></div></div><p>
 		How do you feel? You have built a capable network, a truly ambitious project.
 		Future network updates can be handled by
 		your staff. You must be a satisfied manager. Let's review the achievements.
@@ -1709,29 +1709,29 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 			You introduced an application server as well as the concept of cloning a Windows
 			client in order to effect improved standardization of desktops and to reduce
 			the costs of network management.
-			</p></li></ul></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2568533"></a>Questions and Answers</h2></div></div></div><p>
-	</p><div class="qandaset"><dl><dt>1. <a href="secure.html#id2568549">
+			</p></li></ul></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2564725"></a>Questions and Answers</h2></div></div></div><p>
+	</p><div class="qandaset"><dl><dt>1. <a href="secure.html#id2564741">
 		What is the maximum number of account entries that the tdbsam
 		passdb backend can handle?
-		</a></dt><dt>2. <a href="secure.html#id2568618">
+		</a></dt><dt>2. <a href="secure.html#id2564809">
 		Would Samba operate any better if the OS level is set to a value higher than 35?
-		</a></dt><dt>3. <a href="secure.html#id2568639">
+		</a></dt><dt>3. <a href="secure.html#id2564831">
 		Why in this example have you provided UNIX group to Windows Group mappings for only Domain Groups?
-		</a></dt><dt>4. <a href="secure.html#id2568662">
+		</a></dt><dt>4. <a href="secure.html#id2564854">
 		Why has a path been specified in the IPC$ share?
-		</a></dt><dt>5. <a href="secure.html#id2568691">
+		</a></dt><dt>5. <a href="secure.html#id2564882">
 		Why does the smb.conf file in this exercise include an entry for smb ports?
-		</a></dt><dt>6. <a href="secure.html#id2568732">
+		</a></dt><dt>6. <a href="secure.html#id2564929">
 		What is the difference between a print queue and a printer?
-		</a></dt><dt>7. <a href="secure.html#id2568768">
+		</a></dt><dt>7. <a href="secure.html#id2564965">
 		Can all MS Windows application software be installed onto an application server share?
-		</a></dt><dt>8. <a href="secure.html#id2568792">
+		</a></dt><dt>8. <a href="secure.html#id2564990">
 		Why use dynamic DNS (DDNS)?
-		</a></dt><dt>9. <a href="secure.html#id2568813">
+		</a></dt><dt>9. <a href="secure.html#id2565009">
 		Why would you use WINS as well as DNS-based name resolution?
-		</a></dt><dt>10. <a href="secure.html#id2568897">
+		</a></dt><dt>10. <a href="secure.html#id2565094">
 		What are the major benefits of using an application server?
-		</a></dt></dl><table border="0" summary="Q and A Set"><col align="left" width="1%"><tbody><tr class="question"><td align="left" valign="top"><a name="id2568549"></a><a name="id2568551"></a><b>1.</b></td><td align="left" valign="top"><p>
+		</a></dt></dl><table border="0" summary="Q and A Set"><col align="left" width="1%"><tbody><tr class="question"><td align="left" valign="top"><a name="id2564741"></a><a name="id2564743"></a><p><b>1.</b></p></td><td align="left" valign="top"><p>
 		What is the maximum number of account entries that the <em class="parameter"><code>tdbsam</code></em>
 		passdb backend can handle?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -1757,27 +1757,27 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		at which most networks tend to want backup domain controllers (BDCs). Samba-3 does
 		not provide a mechanism for replicating tdbsam data so it can be used by a BDC. The
 		limitation of 250 users per tdbsam is predicated only on the need for replication,
-		not on the limits<sup>[<a name="id2568607" href="#ftn.id2568607">8</a>]</sup> of the tdbsam backend itself. 
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568618"></a><a name="id2568620"></a><b>2.</b></td><td align="left" valign="top"><p>
+		not on the limits<sup>[<a name="id2564799" href="#ftn.id2564799" class="footnote">8</a>]</sup> of the tdbsam backend itself. 
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564809"></a><a name="id2564812"></a><p><b>2.</b></p></td><td align="left" valign="top"><p>
 		Would Samba operate any better if the OS level is set to a value higher than 35?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		No. MS Windows workstations and servers do not use a value higher than 33. Setting this to a value
 		of 35 already assures Samba of precedence over MS Windows products in browser elections. There is
 		no gain to be had from setting this higher.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568639"></a><a name="id2568642"></a><b>3.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564831"></a><a name="id2564833"></a><p><b>3.</b></p></td><td align="left" valign="top"><p>
 		Why in this example have you provided UNIX group to Windows Group mappings for only Domain Groups?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		At this time, Samba has the capacity to use only Domain Groups mappings. It is possible that at
 		a later date Samba may make use of Windows Local Groups, as well as of the Active Directory special
 		Groups. Proper operation requires Domain Groups to be mapped to valid UNIX groups.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568662"></a><a name="id2568664"></a><b>4.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564854"></a><a name="id2564856"></a><p><b>4.</b></p></td><td align="left" valign="top"><p>
 		Why has a path been specified in the <em class="parameter"><code>IPC$</code></em> share?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		This is done so that in the event that a software bug may permit a client connection to the IPC$ share to
 		obtain access to the file system, it does so at a location that presents least risk. Under normal operation
 		this type of paranoid step should not be necessary. The use of this parameter should not be necessary. 
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568691"></a><a name="id2568693"></a><b>5.</b></td><td align="left" valign="top"><p>
-		Why does the <code class="filename">smb.conf</code> file in this exercise include an entry for <a class="indexterm" name="id2568704"></a>smb ports?
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564882"></a><a name="id2564885"></a><p><b>5.</b></p></td><td align="left" valign="top"><p>
+		Why does the <code class="filename">smb.conf</code> file in this exercise include an entry for <a class="link" href="smb.conf.5.html#SMBPORTS" target="_top">smb ports</a>?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		The default order by which Samba-3 attempts to communicate with MS Windows clients is via port 445 (the TCP port
 		used by Windows clients when NetBIOS-less SMB over TCP/IP is in use). TCP port 139 is the primary port used for NetBIOS
@@ -1785,7 +1785,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		specifying the use of only port 139, the intent is to reduce unsuccessful service connection attempts.
 		The result of this is improved network performance. Where Samba-3 is installed as an Active Directory Domain
 		member, the default behavior is highly beneficial and should not be changed.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568732"></a><a name="id2568734"></a><b>6.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564929"></a><a name="id2564931"></a><p><b>6.</b></p></td><td align="left" valign="top"><p>
 		What is the difference between a print queue and a printer?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		A printer is a physical device that is connected either directly to the network or to a computer 
@@ -1799,7 +1799,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		print requests. When the data stream has been fully received, the input stream is closed,
 		and the job is then submitted to a sequential print queue where the job is stored until
 		the printer is ready to receive the job.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568768"></a><a name="id2568770"></a><b>7.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564965"></a><a name="id2564967"></a><p><b>7.</b></p></td><td align="left" valign="top"><p>
 		Can all MS Windows application software be installed onto an application server share?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		Much older Windows software is not compatible with installation to and execution from
@@ -1807,13 +1807,13 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		be installed to an application server. Retail consumer versions of Microsoft Office XP
 		Professional do not permit installation to an application server share and can be installed
 		and used only to/from a local workstation hard disk.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568792"></a><a name="id2568795"></a><b>8.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2564990"></a><a name="id2564992"></a><p><b>8.</b></p></td><td align="left" valign="top"><p>
 		Why use dynamic DNS (DDNS)?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		When DDNS records are updated directly from the DHCP server, it is possible for
 		network clients that are not NetBIOS-enabled, and thus cannot use WINS, to locate
 		Windows clients via DNS.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568813"></a><a name="id2568815"></a><b>9.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2565009"></a><a name="id2565011"></a><p><b>9.</b></p></td><td align="left" valign="top"><p>
 		Why would you use WINS as well as DNS-based name resolution?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		WINS is to NetBIOS names as DNS is to fully qualified domain names (FQDN). The FQDN is
@@ -1821,7 +1821,7 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		means <code class="constant">top-level domain</code>. A FQDN is a longhand but easy-to-remember
 		expression that may be up to 1024 characters in length and that represents an IP address. 
 		A NetBIOS name is always 16 characters long. The 16<sup>th</sup> character
-		is a name type indicator. A specific name type is registered<sup>[<a name="id2568850" href="#ftn.id2568850">9</a>]</sup> for each 
+		is a name type indicator. A specific name type is registered<sup>[<a name="id2565047" href="#ftn.id2565047" class="footnote">9</a>]</sup> for each 
 		type of service that is provided by the Windows server or client and that may be registered
 		where a WINS server is in use.
 		</p><p>
@@ -1836,24 +1836,24 @@ Nmap run completed -- 1 IP address (1 host up) scanned in 168 seconds
 		which it has control.
 		</p><p>
 		Windows 200x Active Directory requires the registration in the DNS zone for the domain it 
-		controls of service locator<sup>[<a name="id2568884" href="#ftn.id2568884">10</a>]</sup> records 
+		controls of service locator<sup>[<a name="id2565081" href="#ftn.id2565081" class="footnote">10</a>]</sup> records 
 		that Windows clients and servers will use to locate Kerberos and LDAP services. ADS also 
 		requires the registration of special records that are called global catalog (GC) entries 
 		and site entries by which domain controllers and other essential ADS servers may be located. 
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2568897"></a><a name="id2568899"></a><b>10.</b></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2565094"></a><a name="id2565096"></a><p><b>10.</b></p></td><td align="left" valign="top"><p>
 		What are the major benefits of using an application server?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		The use of an application server can significantly reduce application update maintenance.
 		By providing a centralized application share, software updates need be applied to only
 		one location for all major applications used. This results in faster update roll-outs and
 		significantly better application usage control.
-		</p></td></tr></tbody></table></div></div><div class="footnotes"><br><hr width="100" align="left"><div class="footnote"><p><sup>[<a name="ftn.id2563122" href="#id2563122">5</a>] </sup>See <span class="emphasis"><em>TOSHARG2</em></span>, Chapter 3.
+		</p></td></tr></tbody></table></div></div><div class="footnotes"><br><hr width="100" align="left"><div class="footnote"><p><sup>[<a name="ftn.id2559643" href="#id2559643" class="para">5</a>] </sup>See <span class="emphasis"><em>TOSHARG2</em></span>, Chapter 3.
 		This is necessary so that Samba can act as a Domain Controller (PDC); see
-		<span class="emphasis"><em>TOSHARG2</em></span>, Chapter 4, for additional information.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2563531" href="#id2563531">6</a>] </sup>You may want to do the echo command last and include 
-				"0" in the init scripts, since it opens up your network for a short time.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2567388" href="#id2567388">7</a>] </sup>For more information regarding winbindd, see <span class="emphasis"><em>TOSHARG2</em></span>, 
-			Chapter 23, Section 23.3. The single instance of <span><strong class="command">smbd</strong></span> is normal. One additional
-			<span><strong class="command">smbd</strong></span> slave process is spawned for each SMB/CIFS client 
-			connection.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2568607" href="#id2568607">8</a>] </sup>Bench tests have shown that tdbsam is a very
+		<span class="emphasis"><em>TOSHARG2</em></span>, Chapter 4, for additional information.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2560023" href="#id2560023" class="para">6</a>] </sup>You may want to do the echo command last and include 
+				"0" in the init scripts, since it opens up your network for a short time.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2563610" href="#id2563610" class="para">7</a>] </sup>For more information regarding winbindd, see <span class="emphasis"><em>TOSHARG2</em></span>, 
+			Chapter 23, Section 23.3. The single instance of <code class="literal">smbd</code> is normal. One additional
+			<code class="literal">smbd</code> slave process is spawned for each SMB/CIFS client 
+			connection.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2564799" href="#id2564799" class="para">8</a>] </sup>Bench tests have shown that tdbsam is a very
 		effective database technology.  There is surprisingly little performance loss even
-		with over 4000 users.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2568850" href="#id2568850">9</a>] </sup>
-		See <span class="emphasis"><em>TOSHARG2</em></span>, Chapter 9, for more information.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2568884" href="#id2568884">10</a>] </sup>See TOSHARG2, Chapter 9, Section 9.3.3.</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="small.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="ExNetworks.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="Big500users.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 2. Small Office Networking </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 4. The 500-User Office</td></tr></table></div></body></html>
+		with over 4000 users.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2565047" href="#id2565047" class="para">9</a>] </sup>
+		See <span class="emphasis"><em>TOSHARG2</em></span>, Chapter 9, for more information.</p></div><div class="footnote"><p><sup>[<a name="ftn.id2565081" href="#id2565081" class="para">10</a>] </sup>See TOSHARG2, Chapter 9, Section 9.3.3.</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="small.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="ExNetworks.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="Big500users.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 2. Small Office Networking </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 4. The 500-User Office</td></tr></table></div></body></html>

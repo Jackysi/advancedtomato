@@ -26,9 +26,14 @@
 
 #include "winbind_client.h"
 
+BOOL winbind_env_set( void );
+BOOL winbind_off( void );
+BOOL winbind_on( void );
+
 /* Global variables.  These are effectively the client state information */
 
 int winbindd_fd = -1;           /* fd for winbindd socket */
+static int is_privileged = 0;
 
 /* Free a response structure */
 
@@ -53,7 +58,7 @@ void init_request(struct winbindd_request *request, int request_type)
 
 /* Initialise a response structure */
 
-void init_response(struct winbindd_response *response)
+static void init_response(struct winbindd_response *response)
 {
 	/* Initialise return value */
 
@@ -71,8 +76,6 @@ void close_sock(void)
 }
 
 #define CONNECT_TIMEOUT 30
-#define WRITE_TIMEOUT CONNECT_TIMEOUT
-#define READ_TIMEOUT CONNECT_TIMEOUT
 
 /* Make sure socket handle isn't stdin, stdout or stderr */
 #define RECURSION_LIMIT 3
@@ -179,11 +182,13 @@ static int winbind_named_pipe_sock(const char *dir)
 	/* Check permissions on unix socket directory */
 	
 	if (lstat(dir, &st) == -1) {
+		errno = ENOENT;
 		return -1;
 	}
 	
 	if (!S_ISDIR(st.st_mode) || 
 	    (st.st_uid != 0 && st.st_uid != geteuid())) {
+		errno = ENOENT;
 		return -1;
 	}
 	
@@ -207,6 +212,7 @@ static int winbind_named_pipe_sock(const char *dir)
 	   the winbindd daemon is not running. */
 
 	if (lstat(path, &st) == -1) {
+		errno = ENOENT;
 		return -1;
 	}
 	
@@ -214,6 +220,7 @@ static int winbind_named_pipe_sock(const char *dir)
 	
 	if (!S_ISSOCK(st.st_mode) || 
 	    (st.st_uid != 0 && st.st_uid != geteuid())) {
+		errno = ENOENT;
 		return -1;
 	}
 	
@@ -285,7 +292,7 @@ static int winbind_named_pipe_sock(const char *dir)
 
 /* Connect to winbindd socket */
 
-static int winbind_open_pipe_sock(int recursing)
+static int winbind_open_pipe_sock(int recursing, int need_priv)
 {
 #ifdef HAVE_UNIXSOCKET
 	static pid_t our_pid;
@@ -297,6 +304,10 @@ static int winbind_open_pipe_sock(int recursing)
 	if (our_pid != getpid()) {
 		close_sock();
 		our_pid = getpid();
+	}
+
+	if ((need_priv != 0) && (is_privileged == 0)) {
+		close_sock();
 	}
 	
 	if (winbindd_fd != -1) {
@@ -311,6 +322,8 @@ static int winbind_open_pipe_sock(int recursing)
 		return -1;
 	}
 
+	is_privileged = 0;
+
 	/* version-check the socket */
 
 	request.flags = WBFLAG_RECURSE;
@@ -324,10 +337,15 @@ static int winbind_open_pipe_sock(int recursing)
 	request.flags = WBFLAG_RECURSE;
 	if (winbindd_request_response(WINBINDD_PRIV_PIPE_DIR, &request, &response) == NSS_STATUS_SUCCESS) {
 		int fd;
-		if ((fd = winbind_named_pipe_sock(response.extra_data.data)) != -1) {
+		if ((fd = winbind_named_pipe_sock((char *)response.extra_data.data)) != -1) {
 			close(winbindd_fd);
 			winbindd_fd = fd;
+			is_privileged = 1;
 		}
+	}
+
+	if ((need_priv != 0) && (is_privileged == 0)) {
+		return -1;
 	}
 
 	SAFE_FREE(response.extra_data.data);
@@ -340,7 +358,7 @@ static int winbind_open_pipe_sock(int recursing)
 
 /* Write data to winbindd socket */
 
-int write_sock(void *buffer, int count, int recursing)
+int write_sock(void *buffer, int count, int recursing, int need_priv)
 {
 	int result, nwritten;
 	
@@ -348,7 +366,8 @@ int write_sock(void *buffer, int count, int recursing)
 	
  restart:
 	
-	if (winbind_open_pipe_sock(recursing) == -1) {
+	if (winbind_open_pipe_sock(recursing, need_priv) == -1) {
+		errno = ENOENT;
 		return -1;
 	}
 	
@@ -408,7 +427,7 @@ int write_sock(void *buffer, int count, int recursing)
 
 static int read_sock(void *buffer, int count)
 {
-	int result = 0, nread = 0;
+	int nread = 0;
 	int total_time = 0, selret;
 
 	if (winbindd_fd == -1) {
@@ -449,7 +468,7 @@ static int read_sock(void *buffer, int count)
 			
 			/* Do the Read */
 			
-			result = read(winbindd_fd, (char *)buffer + nread, 
+			int result = read(winbindd_fd, (char *)buffer + nread, 
 			      count - nread);
 			
 			if ((result == -1) || (result == 0)) {
@@ -467,7 +486,7 @@ static int read_sock(void *buffer, int count)
 		}
 	}
 	
-	return result;
+	return nread;
 }
 
 /* Read reply */
@@ -534,7 +553,8 @@ BOOL winbind_env_set( void )
  * send simple types of requests 
  */
 
-NSS_STATUS winbindd_send_request(int req_type, struct winbindd_request *request)
+NSS_STATUS winbindd_send_request(int req_type, int need_priv,
+				 struct winbindd_request *request)
 {
 	struct winbindd_request lrequest;
 
@@ -553,12 +573,20 @@ NSS_STATUS winbindd_send_request(int req_type, struct winbindd_request *request)
 
 	init_request(request, req_type);
 	
-	if (write_sock(request, sizeof(*request), request->flags & WBFLAG_RECURSE) == -1) {
+	if (write_sock(request, sizeof(*request),
+		       request->flags & WBFLAG_RECURSE, need_priv) == -1) {
+		/* Set ENOENT for consistency.  Required by some apps */
+		errno = ENOENT;
+		
 		return NSS_STATUS_UNAVAIL;
 	}
 
 	if ((request->extra_len != 0) &&
-	    (write_sock(request->extra_data.data, request->extra_len, request->flags & WBFLAG_RECURSE) == -1)) {
+	    (write_sock(request->extra_data.data, request->extra_len,
+			request->flags & WBFLAG_RECURSE, need_priv) == -1)) {
+		/* Set ENOENT for consistency.  Required by some apps */
+		errno = ENOENT;
+
 		return NSS_STATUS_UNAVAIL;
 	}
 	
@@ -582,6 +610,9 @@ NSS_STATUS winbindd_get_response(struct winbindd_response *response)
 
 	/* Wait for reply */
 	if (read_reply(response) == -1) {
+		/* Set ENOENT for consistency.  Required by some apps */
+		errno = ENOENT;
+
 		return NSS_STATUS_UNAVAIL;
 	}
 
@@ -608,7 +639,25 @@ NSS_STATUS winbindd_request_response(int req_type,
 	int count = 0;
 
 	while ((status == NSS_STATUS_UNAVAIL) && (count < 10)) {
-		status = winbindd_send_request(req_type, request);
+		status = winbindd_send_request(req_type, 0, request);
+		if (status != NSS_STATUS_SUCCESS) 
+			return(status);
+		status = winbindd_get_response(response);
+		count += 1;
+	}
+
+	return status;
+}
+
+NSS_STATUS winbindd_priv_request_response(int req_type, 
+					  struct winbindd_request *request,
+					  struct winbindd_response *response)
+{
+	NSS_STATUS status = NSS_STATUS_UNAVAIL;
+	int count = 0;
+
+	while ((status == NSS_STATUS_UNAVAIL) && (count < 10)) {
+		status = winbindd_send_request(req_type, 1, request);
 		if (status != NSS_STATUS_SUCCESS) 
 			return(status);
 		status = winbindd_get_response(response);

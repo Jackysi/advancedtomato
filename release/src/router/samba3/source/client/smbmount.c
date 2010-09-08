@@ -26,6 +26,8 @@
 
 extern BOOL in_client;
 extern pstring user_socket_options;
+extern char *optarg;
+extern int optind;
 
 static pstring credentials;
 static pstring my_netbios_name;
@@ -149,8 +151,8 @@ static struct cli_state *do_connection(char *the_service)
 	if (have_ip) ip = dest_ip;
 
 	/* have to open a new connection */
-	if (!(c=cli_initialise(NULL)) || (cli_set_port(c, smb_port) != smb_port) ||
-	    !cli_connect(c, server_n, &ip)) {
+	if (!(c=cli_initialise()) || (cli_set_port(c, smb_port) != smb_port) ||
+	    !NT_STATUS_IS_OK(cli_connect(c, server_n, &ip))) {
 		DEBUG(0,("%d: Connection to %s failed\n", sys_getpid(), server_n));
 		if (c) {
 			cli_shutdown(c);
@@ -211,14 +213,14 @@ static struct cli_state *do_connection(char *the_service)
 		c->force_dos_errors = True;
 	}
 
-	if (!cli_session_setup(c, username, 
-			       password, strlen(password),
-			       password, strlen(password),
-			       workgroup)) {
+	if (!NT_STATUS_IS_OK(cli_session_setup(c, username, 
+					       password, strlen(password),
+					       password, strlen(password),
+					       workgroup))) {
 		/* if a password was not supplied then try again with a
 			null username */
 		if (password[0] || !username[0] ||
-				!cli_session_setup(c, "", "", 0, "", 0, workgroup)) {
+		    !NT_STATUS_IS_OK(cli_session_setup(c, "", "", 0, "", 0, workgroup))) {
 			DEBUG(0,("%d: session setup failed: %s\n",
 				sys_getpid(), cli_errstr(c)));
 			cli_shutdown(c);
@@ -667,6 +669,9 @@ static void usage(void)
 
 	printf("Version %s\n\n",SAMBA_VERSION_STRING);
 
+	printf("Please be aware that smbfs is deprecated in favor of "
+	       "cifs\n\n");
+
 	printf(
 "Options:\n\
       username=<arg>                  SMB username\n\
@@ -712,7 +717,6 @@ static void parse_mount_smb(int argc, char **argv)
 	int opt;
 	char *opts;
 	char *opteq;
-	extern char *optarg;
 	int val;
 	char *p;
 
@@ -862,8 +866,6 @@ static void parse_mount_smb(int argc, char **argv)
 ****************************************************************************/
  int main(int argc,char *argv[])
 {
-	extern char *optarg;
-	extern int optind;
 	char *p;
 
 	DEBUGLEVEL = 1;

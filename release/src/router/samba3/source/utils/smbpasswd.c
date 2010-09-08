@@ -96,6 +96,12 @@ static int process_options(int argc, char **argv, int local_flags)
 	while ((ch = getopt(argc, argv, "c:axdehminjr:sw:R:D:U:LW")) != EOF) {
 		switch(ch) {
 		case 'L':
+#if !defined(DEVELOPER)
+			if (getuid() != 0) {
+				fprintf(stderr, "smbpasswd -L can only be used by root.\n");
+				exit(1);
+			}
+#endif
 			local_flags |= LOCAL_AM_ROOT;
 			break;
 		case 'c':
@@ -190,7 +196,7 @@ static int process_options(int argc, char **argv, int local_flags)
 
 	if (!lp_load(configfile,True,False,False,True)) {
 		fprintf(stderr, "Can't load %s - run testparm to debug it\n", 
-			dyn_CONFIGFILE);
+			configfile);
 		exit(1);
 	}
 
@@ -289,7 +295,7 @@ static int process_root(int local_flags)
 	if (local_flags & LOCAL_SET_LDAP_ADMIN_PW) {
 		char *ldap_admin_dn = lp_ldap_admin_dn();
 		if ( ! *ldap_admin_dn ) {
-			DEBUG(1,("ERROR: 'ldap admin dn' not defined! Please check your smb.conf\n"));
+			DEBUG(0,("ERROR: 'ldap admin dn' not defined! Please check your smb.conf\n"));
 			goto done;
 		}
 
@@ -299,14 +305,14 @@ static int process_root(int local_flags)
 			fstrcpy(ldap_secret, new_passwd);
 		}
 		if (!store_ldap_admin_pw(ldap_secret)) {
-			DEBUG(1,("ERROR: Failed to store the ldap admin password!\n"));
+			DEBUG(0,("ERROR: Failed to store the ldap admin password!\n"));
 		}
 		goto done;
 	}
 
 	/* Ensure passdb startup(). */
 	if(!initialize_password_db(False)) {
-		DEBUG(1, ("Failed to open passdb!\n"));
+		DEBUG(0, ("Failed to open passdb!\n"));
 		exit(1);
 	}
 		

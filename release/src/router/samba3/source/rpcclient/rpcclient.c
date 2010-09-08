@@ -107,9 +107,9 @@ static char **completion_fn(const char *text, int start, int end)
 	return matches;
 }
 
-static char* next_command (char** cmdstr)
+static char *next_command (char **cmdstr)
 {
-	static pstring 		command;
+	char *command;
 	char			*p;
 	
 	if (!cmdstr || !(*cmdstr))
@@ -118,7 +118,7 @@ static char* next_command (char** cmdstr)
 	p = strchr_m(*cmdstr, ';');
 	if (p)
 		*p = '\0';
-	pstrcpy(command, *cmdstr);
+	command = SMB_STRDUP(*cmdstr);
 	if (p)
 		*cmdstr = p + 1;
 	else
@@ -463,7 +463,6 @@ extern struct cmd_set spoolss_commands[];
 extern struct cmd_set netlogon_commands[];
 extern struct cmd_set srvsvc_commands[];
 extern struct cmd_set dfs_commands[];
-extern struct cmd_set reg_commands[];
 extern struct cmd_set ds_commands[];
 extern struct cmd_set echo_commands[];
 extern struct cmd_set shutdown_commands[];
@@ -478,7 +477,6 @@ static struct cmd_set *rpcclient_command_list[] = {
 	netlogon_commands,
 	srvsvc_commands,
 	dfs_commands,
-	reg_commands,
 	echo_commands,
 	shutdown_commands,
  	test_commands,
@@ -570,7 +568,7 @@ static NTSTATUS do_cmd(struct cli_state *cli,
 		}
 
 		if (cmd_entry->pipe_idx == PI_NETLOGON) {
-			uint32 neg_flags = NETLOGON_NEG_AUTH2_FLAGS;
+			uint32_t neg_flags = NETLOGON_NEG_AUTH2_ADS_FLAGS;
 			uint32 sec_channel_type;
 			uchar trust_password[16];
 	
@@ -830,6 +828,7 @@ out_free:
  
                 while((cmd=next_command(&p)) != NULL) {
                         NTSTATUS cmd_result = process_cmd(cli, cmd);
+			SAFE_FREE(cmd);
 			result = NT_STATUS_IS_ERR(cmd_result);
                 }
 		

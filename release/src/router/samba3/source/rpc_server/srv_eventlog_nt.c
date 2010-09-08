@@ -123,6 +123,10 @@ static BOOL elog_validate_logname( const char *name )
 	int i;
 	const char **elogs = lp_eventlog_list();
 	
+	if (!elogs) {
+		return False;
+	}
+
 	for ( i=0; elogs[i]; i++ ) {
 		if ( strequal( name, elogs[i] ) )
 			return True;
@@ -281,7 +285,7 @@ static int elog_size( EVENTLOG_INFO *info )
   Eventlog_entry.  returns NULL if it can't get the record for some reason.
  ********************************************************************/
 
-Eventlog_entry *get_eventlog_record( prs_struct * ps, TDB_CONTEXT * tdb,
+static Eventlog_entry *get_eventlog_record( prs_struct * ps, TDB_CONTEXT * tdb,
 				     int recno, Eventlog_entry * ee )
 {
 	TDB_DATA ret, key;

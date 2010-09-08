@@ -60,7 +60,7 @@ static unsigned pull_netlogon_string(char *ret, const char *ptr,
 				ret_len += 2;
 				followed_ptr = 1;
 			}
-			len = ((ptr[0] & 0x3f) << 8) | ptr[1];
+			len = ((ptr[0] & 0x3f) << 8) | (uint8) ptr[1];
 			ptr = data + len;
 		} else if (*ptr) {
 			uint8 len = (uint8)*(ptr++);
@@ -187,9 +187,13 @@ static int recv_cldap_netlogon(int sock, struct cldap_netlogon_reply *reply)
 {
 	int ret;
 	ASN1_DATA data;
-	DATA_BLOB blob;
-	DATA_BLOB os1, os2, os3;
+	DATA_BLOB blob = data_blob(NULL, 0);
+	DATA_BLOB os1 = data_blob(NULL, 0);
+	DATA_BLOB os2 = data_blob(NULL, 0);
+	DATA_BLOB os3 = data_blob(NULL, 0);
 	int i1;
+	/* half the time of a regular ldap timeout, not less than 3 seconds. */
+	unsigned int al_secs = MAX(3,lp_ldap_timeout()/2);
 	char *p;
 
 	blob = data_blob(NULL, 8192);
@@ -202,7 +206,7 @@ static int recv_cldap_netlogon(int sock, struct cldap_netlogon_reply *reply)
 	/* Setup timeout */
 	gotalarm = 0;
 	CatchSignal(SIGALRM, SIGNAL_CAST gotalarm_sig);
-	alarm(lp_ldap_timeout());
+	alarm(al_secs);
 	/* End setup timeout. */
  
 	ret = read(sock, blob.data, blob.length);
@@ -236,6 +240,9 @@ static int recv_cldap_netlogon(int sock, struct cldap_netlogon_reply *reply)
 
 	if (data.has_error) {
 		data_blob_free(&blob);
+		data_blob_free(&os1);
+		data_blob_free(&os2);
+		data_blob_free(&os3);
 		asn1_free(&data);
 		DEBUG(1,("Failed to parse cldap reply\n"));
 		return -1;
@@ -262,8 +269,8 @@ static int recv_cldap_netlogon(int sock, struct cldap_netlogon_reply *reply)
 		*reply->user_name = 0;
 	}
 
-	p += pull_netlogon_string(reply->site_name, p, (const char *)os3.data);
-	p += pull_netlogon_string(reply->site_name_2, p, (const char *)os3.data);
+	p += pull_netlogon_string(reply->server_site_name, p, (const char *)os3.data);
+	p += pull_netlogon_string(reply->client_site_name, p, (const char *)os3.data);
 
 	reply->version = IVAL(p, 0);
 	reply->lmnt_token = SVAL(p, 4);
@@ -309,5 +316,3 @@ BOOL ads_cldap_netlogon(const char *server, const char *realm,  struct cldap_net
 
 	return True;
 }
-
-

@@ -4,6 +4,7 @@
    Copyright (C) Andrew Tridgell 1992-1998
    Copyright (C) Jeremy Allison  1998-2005
    Copyright (C) Timur Bakeyev        2005
+   Copyright (C) Bjoern Jacke    2006-2007
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -42,6 +43,42 @@
 */
 
 
+
+/*******************************************************************
+ A wrapper for memalign
+********************************************************************/
+
+void *sys_memalign( size_t align, size_t size )
+{
+#if defined(HAVE_POSIX_MEMALIGN)
+	void *p = NULL;
+	int ret = posix_memalign( &p, align, size );
+	if ( ret == 0 )
+		return p;
+		
+	return NULL;
+#elif defined(HAVE_MEMALIGN)
+	return memalign( align, size );
+#else
+	/* On *BSD systems memaligns doesn't exist, but memory will
+	 * be aligned on allocations of > pagesize. */
+#if defined(SYSCONF_SC_PAGESIZE)
+	size_t pagesize = (size_t)sysconf(_SC_PAGESIZE);
+#elif defined(HAVE_GETPAGESIZE)
+	size_t pagesize = (size_t)getpagesize();
+#else
+	size_t pagesize = (size_t)-1;
+#endif
+	if (pagesize == (size_t)-1) {
+		DEBUG(0,("memalign functionalaity not available on this platform!\n"));
+		return NULL;
+	}
+	if (size < pagesize) {
+		size = pagesize;
+	}
+	return SMB_MALLOC(size);
+#endif
+}
 
 /*******************************************************************
  A wrapper for usleep in case we don't have one.
@@ -104,7 +141,6 @@ ssize_t sys_write(int fd, const void *buf, size_t count)
 	} while (ret == -1 && errno == EINTR);
 	return ret;
 }
-
 
 /*******************************************************************
 A pread wrapper that will deal with EINTR and 64-bit file offsets.
@@ -170,6 +206,20 @@ ssize_t sys_sendto(int s,  const void *msg, size_t len, int flags, const struct 
 
 	do {
 		ret = sendto(s, msg, len, flags, to, tolen);
+	} while (ret == -1 && errno == EINTR);
+	return ret;
+}
+
+/*******************************************************************
+A recv wrapper that will deal with EINTR.
+********************************************************************/
+
+ssize_t sys_recv(int fd, void *buf, size_t count, int flags)
+{
+	ssize_t ret;
+
+	do {
+		ret = recv(fd, buf, count, flags);
 	} while (ret == -1 && errno == EINTR);
 	return ret;
 }
@@ -365,6 +415,31 @@ FILE *sys_fopen(const char *path, const char *type)
 	return fopen(path, type);
 #endif
 }
+
+
+/*******************************************************************
+ A flock() wrapper that will perform the kernel flock.
+********************************************************************/
+
+void kernel_flock(int fd, uint32 share_mode)
+{
+#if HAVE_KERNEL_SHARE_MODES
+	int kernel_mode = 0;
+	if (share_mode == FILE_SHARE_WRITE) {
+		kernel_mode = LOCK_MAND|LOCK_WRITE;
+	} else if (share_mode == FILE_SHARE_READ) {
+		kernel_mode = LOCK_MAND|LOCK_READ;
+	} else if (share_mode == FILE_SHARE_NONE) {
+		kernel_mode = LOCK_MAND;
+	}
+	if (kernel_mode) {
+		flock(fd, kernel_mode);
+	}
+#endif
+	;
+}
+
+
 
 /*******************************************************************
  An opendir wrapper that will deal with 64 bit filesizes.
@@ -701,6 +776,11 @@ static BOOL set_process_capability(enum smbd_capability capability,
 			cap_vals[num_cap_vals++] = CAP_MKNOD;
 #endif
 			break;
+		case LEASE_CAPABILITY:
+#ifdef CAP_LEASE
+			cap_vals[num_cap_vals++] = CAP_LEASE;
+#endif
+			break;
 	}
 
 	SMB_ASSERT(num_cap_vals <= ARRAY_SIZE(cap_vals));
@@ -922,6 +1002,82 @@ void sys_endpwent(void)
  Wrappers for getpwnam(), getpwuid(), getgrnam(), getgrgid()
 ****************************************************************************/
 
+#ifdef ENABLE_BUILD_FARM_HACKS
+
+/*
+ * In the build farm we want to be able to join machines to the domain. As we
+ * don't have root access, we need to bypass direct access to /etc/passwd
+ * after a user has been created via samr. Fake those users.
+ */
+
+static struct passwd *fake_pwd;
+static int num_fake_pwd;
+
+struct passwd *sys_getpwnam(const char *name)
+{
+	int i;
+
+	for (i=0; i<num_fake_pwd; i++) {
+		if (strcmp(fake_pwd[i].pw_name, name) == 0) {
+			DEBUG(10, ("Returning fake user %s\n", name));
+			return &fake_pwd[i];
+		}
+	}
+
+	return getpwnam(name);
+}
+
+struct passwd *sys_getpwuid(uid_t uid)
+{
+	int i;
+
+	for (i=0; i<num_fake_pwd; i++) {
+		if (fake_pwd[i].pw_uid == uid) {
+			DEBUG(10, ("Returning fake user %s\n",
+				   fake_pwd[i].pw_name));
+			return &fake_pwd[i];
+		}
+	}
+
+	return getpwuid(uid);
+}
+
+void faked_create_user(const char *name)
+{
+	int i;
+	uid_t uid;
+	struct passwd new_pwd;
+
+	for (i=0; i<10; i++) {
+		generate_random_buffer((unsigned char *)&uid,
+				       sizeof(uid));
+		if (getpwuid(uid) == NULL) {
+			break;
+		}
+	}
+
+	if (i==10) {
+		/* Weird. No free uid found... */
+		return;
+	}
+
+	new_pwd.pw_name = SMB_STRDUP(name);
+	new_pwd.pw_passwd = SMB_STRDUP("x");
+	new_pwd.pw_uid = uid;
+	new_pwd.pw_gid = 100;
+	new_pwd.pw_gecos = SMB_STRDUP("faked user");
+	new_pwd.pw_dir = SMB_STRDUP("/nodir");
+	new_pwd.pw_shell = SMB_STRDUP("/bin/false");
+
+	ADD_TO_ARRAY(NULL, struct passwd, new_pwd, &fake_pwd,
+		     &num_fake_pwd);
+
+	DEBUG(10, ("Added fake user %s, have %d fake users\n",
+		   name, num_fake_pwd));
+}
+
+#else
+
 struct passwd *sys_getpwnam(const char *name)
 {
 	return getpwnam(name);
@@ -931,6 +1087,8 @@ struct passwd *sys_getpwuid(uid_t uid)
 {
 	return getpwuid(uid);
 }
+
+#endif
 
 struct group *sys_getgrnam(const char *name)
 {
@@ -1409,6 +1567,17 @@ int sys_dup2(int oldfd, int newfd)
 	SAFE_FREE(msgbuf);
 }
 
+/******** Solaris EA helper function prototypes ********/
+#ifdef HAVE_ATTROPEN
+#define SOLARIS_ATTRMODE S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP
+static int solaris_write_xattr(int attrfd, const char *value, size_t size);
+static ssize_t solaris_read_xattr(int attrfd, void *value, size_t size);
+static ssize_t solaris_list_xattr(int attrdirfd, char *list, size_t size);
+static int solaris_unlinkat(int attrdirfd, const char *name);
+static int solaris_attropen(const char *path, const char *attrpath, int oflag, mode_t mode);
+static int solaris_openat(int fildes, const char *path, int oflag, mode_t mode);
+#endif
+
 /**************************************************************************
  Wrappers for extented attribute calls. Based on the Linux package with
  support for IRIX and (Net|Free)BSD also. Expand as other systems have them.
@@ -1417,7 +1586,12 @@ int sys_dup2(int oldfd, int newfd)
 ssize_t sys_getxattr (const char *path, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_GETXATTR)
+#ifndef XATTR_ADD_OPT
 	return getxattr(path, name, value, size);
+#else
+	int options = 0;
+	return getxattr(path, name, value, size, 0, options);
+#endif
 #elif defined(HAVE_GETEA)
 	return getea(path, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_FILE)
@@ -1452,6 +1626,14 @@ ssize_t sys_getxattr (const char *path, const char *name, void *value, size_t si
 	retval = attr_get(path, attrname, (char *)value, &valuelength, flags);
 
 	return retval ? retval : valuelength;
+#elif defined(HAVE_ATTROPEN)
+	ssize_t ret = -1;
+	int attrfd = solaris_attropen(path, name, O_RDONLY, 0);
+	if (attrfd >= 0) {
+		ret = solaris_read_xattr(attrfd, value, size);
+		close(attrfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1462,6 +1644,9 @@ ssize_t sys_lgetxattr (const char *path, const char *name, void *value, size_t s
 {
 #if defined(HAVE_LGETXATTR)
 	return lgetxattr(path, name, value, size);
+#elif defined(HAVE_GETXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return getxattr(path, name, value, size, 0, options);
 #elif defined(HAVE_LGETEA)
 	return lgetea(path, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_LINK)
@@ -1492,6 +1677,14 @@ ssize_t sys_lgetxattr (const char *path, const char *name, void *value, size_t s
 	retval = attr_get(path, attrname, (char *)value, &valuelength, flags);
 
 	return retval ? retval : valuelength;
+#elif defined(HAVE_ATTROPEN)
+	ssize_t ret = -1;
+	int attrfd = solaris_attropen(path, name, O_RDONLY|AT_SYMLINK_NOFOLLOW, 0);
+	if (attrfd >= 0) {
+		ret = solaris_read_xattr(attrfd, value, size);
+		close(attrfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1501,7 +1694,12 @@ ssize_t sys_lgetxattr (const char *path, const char *name, void *value, size_t s
 ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_FGETXATTR)
+#ifndef XATTR_ADD_OPT
 	return fgetxattr(filedes, name, value, size);
+#else
+	int options = 0;
+	return fgetxattr(filedes, name, value, size, 0, options);
+#endif
 #elif defined(HAVE_FGETEA)
 	return fgetea(filedes, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_FD)
@@ -1532,6 +1730,14 @@ ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 	retval = attr_getf(filedes, attrname, (char *)value, &valuelength, flags);
 
 	return retval ? retval : valuelength;
+#elif defined(HAVE_ATTROPEN)
+	ssize_t ret = -1;
+	int attrfd = solaris_openat(filedes, name, O_RDONLY|O_XATTR, 0);
+	if (attrfd >= 0) {
+		ret = solaris_read_xattr(attrfd, value, size);
+		close(attrfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1702,7 +1908,12 @@ static ssize_t irix_attr_list(const char *path, int filedes, char *list, size_t 
 ssize_t sys_listxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LISTXATTR)
+#ifndef XATTR_ADD_OPT
 	return listxattr(path, list, size);
+#else
+	int options = 0;
+	return listxattr(path, list, size, options);
+#endif
 #elif defined(HAVE_LISTEA)
 	return listea(path, list, size);
 #elif defined(HAVE_EXTATTR_LIST_FILE)
@@ -1711,6 +1922,14 @@ ssize_t sys_listxattr (const char *path, char *list, size_t size)
 	return bsd_attr_list(0, arg, list, size);
 #elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, 0);
+#elif defined(HAVE_ATTROPEN)
+	ssize_t ret = -1;
+	int attrdirfd = solaris_attropen(path, ".", O_RDONLY, 0);
+	if (attrdirfd >= 0) {
+		ret = solaris_list_xattr(attrdirfd, list, size);
+		close(attrdirfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1721,6 +1940,9 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LLISTXATTR)
 	return llistxattr(path, list, size);
+#elif defined(HAVE_LISTXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return listxattr(path, list, size, options);
 #elif defined(HAVE_LLISTEA)
 	return llistea(path, list, size);
 #elif defined(HAVE_EXTATTR_LIST_LINK)
@@ -1729,6 +1951,14 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 	return bsd_attr_list(1, arg, list, size);
 #elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, ATTR_DONTFOLLOW);
+#elif defined(HAVE_ATTROPEN)
+	ssize_t ret = -1;
+	int attrdirfd = solaris_attropen(path, ".", O_RDONLY|AT_SYMLINK_NOFOLLOW, 0);
+	if (attrdirfd >= 0) {
+		ret = solaris_list_xattr(attrdirfd, list, size);
+		close(attrdirfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1738,7 +1968,12 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 {
 #if defined(HAVE_FLISTXATTR)
+#ifndef XATTR_ADD_OPT
 	return flistxattr(filedes, list, size);
+#else
+	int options = 0;
+	return flistxattr(filedes, list, size, options);
+#endif
 #elif defined(HAVE_FLISTEA)
 	return flistea(filedes, list, size);
 #elif defined(HAVE_EXTATTR_LIST_FD)
@@ -1747,6 +1982,14 @@ ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 	return bsd_attr_list(2, arg, list, size);
 #elif defined(HAVE_ATTR_LISTF)
 	return irix_attr_list(NULL, filedes, list, size, 0);
+#elif defined(HAVE_ATTROPEN)
+	ssize_t ret = -1;
+	int attrdirfd = solaris_openat(filedes, ".", O_RDONLY|O_XATTR, 0);
+	if (attrdirfd >= 0) {
+		ret = solaris_list_xattr(attrdirfd, list, size);
+		close(attrdirfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1756,7 +1999,12 @@ ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 int sys_removexattr (const char *path, const char *name)
 {
 #if defined(HAVE_REMOVEXATTR)
+#ifndef XATTR_ADD_OPT
 	return removexattr(path, name);
+#else
+	int options = 0;
+	return removexattr(path, name, options);
+#endif
 #elif defined(HAVE_REMOVEEA)
 	return removeea(path, name);
 #elif defined(HAVE_EXTATTR_DELETE_FILE)
@@ -1773,6 +2021,14 @@ int sys_removexattr (const char *path, const char *name)
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
 	return attr_remove(path, attrname, flags);
+#elif defined(HAVE_ATTROPEN)
+	int ret = -1;
+	int attrdirfd = solaris_attropen(path, ".", O_RDONLY, 0);
+	if (attrdirfd >= 0) {
+		ret = solaris_unlinkat(attrdirfd, name);
+		close(attrdirfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1783,6 +2039,9 @@ int sys_lremovexattr (const char *path, const char *name)
 {
 #if defined(HAVE_LREMOVEXATTR)
 	return lremovexattr(path, name);
+#elif defined(HAVE_REMOVEXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return removexattr(path, name, options);
 #elif defined(HAVE_LREMOVEEA)
 	return lremoveea(path, name);
 #elif defined(HAVE_EXTATTR_DELETE_LINK)
@@ -1799,6 +2058,14 @@ int sys_lremovexattr (const char *path, const char *name)
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
 	return attr_remove(path, attrname, flags);
+#elif defined(HAVE_ATTROPEN)
+	int ret = -1;
+	int attrdirfd = solaris_attropen(path, ".", O_RDONLY|AT_SYMLINK_NOFOLLOW, 0);
+	if (attrdirfd >= 0) {
+		ret = solaris_unlinkat(attrdirfd, name);
+		close(attrdirfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1808,7 +2075,12 @@ int sys_lremovexattr (const char *path, const char *name)
 int sys_fremovexattr (int filedes, const char *name)
 {
 #if defined(HAVE_FREMOVEXATTR)
+#ifndef XATTR_ADD_OPT
 	return fremovexattr(filedes, name);
+#else
+	int options = 0;
+	return fremovexattr(filedes, name, options);
+#endif
 #elif defined(HAVE_FREMOVEEA)
 	return fremoveea(filedes, name);
 #elif defined(HAVE_EXTATTR_DELETE_FD)
@@ -1825,6 +2097,14 @@ int sys_fremovexattr (int filedes, const char *name)
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
 	return attr_removef(filedes, attrname, flags);
+#elif defined(HAVE_ATTROPEN)
+	int ret = -1;
+	int attrdirfd = solaris_openat(filedes, ".", O_RDONLY|O_XATTR, 0);
+	if (attrdirfd >= 0) {
+		ret = solaris_unlinkat(attrdirfd, name);
+		close(attrdirfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1839,7 +2119,12 @@ int sys_fremovexattr (int filedes, const char *name)
 int sys_setxattr (const char *path, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_SETXATTR)
+#ifndef XATTR_ADD_OPT
 	return setxattr(path, name, value, size, flags);
+#else
+	int options = 0;
+	return setxattr(path, name, value, size, 0, options);
+#endif
 #elif defined(HAVE_SETEA)
 	return setea(path, name, value, size, flags);
 #elif defined(HAVE_EXTATTR_SET_FILE)
@@ -1878,6 +2163,18 @@ int sys_setxattr (const char *path, const char *name, const void *value, size_t 
 	if (flags & XATTR_REPLACE) myflags |= ATTR_REPLACE;
 
 	return attr_set(path, attrname, (const char *)value, size, myflags);
+#elif defined(HAVE_ATTROPEN)
+	int ret = -1;
+	int myflags = O_RDWR;
+	int attrfd;
+	if (flags & XATTR_CREATE) myflags |= O_EXCL;
+	if (!(flags & XATTR_REPLACE)) myflags |= O_CREAT;
+	attrfd = solaris_attropen(path, name, myflags, (mode_t) SOLARIS_ATTRMODE);
+	if (attrfd >= 0) {
+		ret = solaris_write_xattr(attrfd, value, size);
+		close(attrfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1888,6 +2185,9 @@ int sys_lsetxattr (const char *path, const char *name, const void *value, size_t
 {
 #if defined(HAVE_LSETXATTR)
 	return lsetxattr(path, name, value, size, flags);
+#elif defined(HAVE_SETXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return setxattr(path, name, value, size, 0, options);
 #elif defined(LSETEA)
 	return lsetea(path, name, value, size, flags);
 #elif defined(HAVE_EXTATTR_SET_LINK)
@@ -1927,6 +2227,18 @@ int sys_lsetxattr (const char *path, const char *name, const void *value, size_t
 	if (flags & XATTR_REPLACE) myflags |= ATTR_REPLACE;
 
 	return attr_set(path, attrname, (const char *)value, size, myflags);
+#elif defined(HAVE_ATTROPEN)
+	int ret = -1;
+	int myflags = O_RDWR | AT_SYMLINK_NOFOLLOW;
+	int attrfd;
+	if (flags & XATTR_CREATE) myflags |= O_EXCL;
+	if (!(flags & XATTR_REPLACE)) myflags |= O_CREAT;
+	attrfd = solaris_attropen(path, name, myflags, (mode_t) SOLARIS_ATTRMODE);
+	if (attrfd >= 0) {
+		ret = solaris_write_xattr(attrfd, value, size);
+		close(attrfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
@@ -1936,7 +2248,12 @@ int sys_lsetxattr (const char *path, const char *name, const void *value, size_t
 int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_FSETXATTR)
+#ifndef XATTR_ADD_OPT
 	return fsetxattr(filedes, name, value, size, flags);
+#else
+	int options = 0;
+	return fsetxattr(filedes, name, value, size, 0, options);
+#endif
 #elif defined(HAVE_FSETEA)
 	return fsetea(filedes, name, value, size, flags);
 #elif defined(HAVE_EXTATTR_SET_FD)
@@ -1975,11 +2292,147 @@ int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size
 	if (flags & XATTR_REPLACE) myflags |= ATTR_REPLACE;
 
 	return attr_setf(filedes, attrname, (const char *)value, size, myflags);
+#elif defined(HAVE_ATTROPEN)
+	int ret = -1;
+	int myflags = O_RDWR | O_XATTR;
+	int attrfd;
+	if (flags & XATTR_CREATE) myflags |= O_EXCL;
+	if (!(flags & XATTR_REPLACE)) myflags |= O_CREAT;
+	attrfd = solaris_openat(filedes, name, myflags, (mode_t) SOLARIS_ATTRMODE);
+	if (attrfd >= 0) {
+		ret = solaris_write_xattr(attrfd, value, size);
+		close(attrfd);
+	}
+	return ret;
 #else
 	errno = ENOSYS;
 	return -1;
 #endif
 }
+
+/**************************************************************************
+ helper functions for Solaris' EA support
+****************************************************************************/
+#ifdef HAVE_ATTROPEN
+static ssize_t solaris_read_xattr(int attrfd, void *value, size_t size)
+{
+	struct stat sbuf;
+
+	if (fstat(attrfd, &sbuf) == -1) {
+		errno = ENOATTR;
+		return -1;
+	}
+
+	/* This is to return the current size of the named extended attribute */
+	if (size == 0) {
+		return sbuf.st_size;
+	}
+
+	/* check size and read xattr */
+	if (sbuf.st_size > size) {
+		errno = ERANGE;
+		return -1;
+	}
+
+	return read(attrfd, value, sbuf.st_size);
+}
+
+static ssize_t solaris_list_xattr(int attrdirfd, char *list, size_t size)
+{
+	ssize_t len = 0;
+	int stop = 0;
+	DIR *dirp;
+	struct dirent *de;
+	int newfd = dup(attrdirfd);
+	/* CAUTION: The originating file descriptor should not be
+	            used again following the call to fdopendir().
+	            For that reason we dup() the file descriptor
+		    here to make things more clear. */
+	dirp = fdopendir(newfd);
+
+	while ((de = readdir(dirp))) {
+		size_t listlen = strlen(de->d_name);
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) {
+			/* we don't want "." and ".." here: */
+			DEBUG(10,("skipped EA %s\n",de->d_name));
+			continue;
+		}
+
+		if (size == 0) {
+			/* return the current size of the list of extended attribute names*/
+			len += listlen + 1;
+		} else {
+			/* check size and copy entrieÑ + nul into list. */
+			if ((len + listlen + 1) > size) {
+				errno = ERANGE;
+				len = -1;
+				break;
+			} else {
+				safe_strcpy(list + len, de->d_name, listlen);
+				pstrcpy(list + len, de->d_name);
+				len += listlen;
+				list[len] = '\0';
+				++len;
+			}
+		}
+	}
+
+	if (closedir(dirp) == -1) {
+		DEBUG(0,("closedir dirp failed: %s\n",strerror(errno)));
+		return -1;
+	}
+	return len;
+}
+
+static int solaris_unlinkat(int attrdirfd, const char *name)
+{
+	if (unlinkat(attrdirfd, name, 0) == -1) {
+		if (errno == ENOENT) {
+			errno = ENOATTR;
+		}
+		return -1;
+	}
+	return 0;
+}
+
+static int solaris_attropen(const char *path, const char *attrpath, int oflag, mode_t mode)
+{
+	int filedes = attropen(path, attrpath, oflag, mode);
+	if (filedes == -1) {
+		DEBUG(10,("attropen FAILED: path: %s, name: %s, errno: %s\n",path,attrpath,strerror(errno)));
+		if (errno == EINVAL) {
+			errno = ENOTSUP;
+		} else {
+			errno = ENOATTR;
+		}
+	}
+	return filedes;
+}
+
+static int solaris_openat(int fildes, const char *path, int oflag, mode_t mode)
+{
+	int filedes = openat(fildes, path, oflag, mode);
+	if (filedes == -1) {
+		DEBUG(10,("openat FAILED: fd: %s, path: %s, errno: %s\n",filedes,path,strerror(errno)));
+		if (errno == EINVAL) {
+			errno = ENOTSUP;
+		} else {
+			errno = ENOATTR;
+		}
+	}
+	return filedes;
+}
+
+static int solaris_write_xattr(int attrfd, const char *value, size_t size)
+{
+	if ((ftruncate(attrfd, 0) == 0) && (write(attrfd, value, size) == size)) {
+		return 0;
+	} else {
+		DEBUG(10,("solaris_write_xattr FAILED!\n"));
+		return -1;
+	}
+}
+#endif /*HAVE_ATTROPEN*/
 
 /****************************************************************************
  Return the major devicenumber for UNIX extensions.
@@ -2164,3 +2617,28 @@ int sys_aio_suspend(const SMB_STRUCT_AIOCB * const cblist[], int n, const struct
 	return -1;
 }
 #endif /* WITH_AIO */
+
+int sys_getpeereid( int s, uid_t *uid)
+{
+#if defined(HAVE_PEERCRED)
+	struct ucred cred;
+	socklen_t cred_len = sizeof(struct ucred);
+	int ret;
+
+	ret = getsockopt(s, SOL_SOCKET, SO_PEERCRED, (void *)&cred, &cred_len);
+	if (ret != 0) {
+		return -1;
+	}
+
+	if (cred_len != sizeof(struct ucred)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	*uid = cred.uid;
+	return 0;
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}

@@ -431,6 +431,25 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 	fstring remote_machine;
 	DOM_CHAL srv_chal_out;
 
+	/* According to Microsoft (see bugid #6099)
+	 * Windows 7 looks at the negotiate_flags
+	 * returned in this structure *even if the
+	 * call fails with access denied ! So in order
+	 * to allow Win7 to connect to a Samba NT style
+	 * PDC we set the flags before we know if it's
+	 * an error or not.
+	 */
+
+	srv_flgs.neg_flags = 0x000001ff;
+
+	if (lp_server_schannel() != False) {
+		srv_flgs.neg_flags |= NETLOGON_NEG_SCHANNEL;
+	}
+
+	/* set up the initial LSA AUTH 2 response */
+	ZERO_STRUCT(srv_chal_out);
+	init_net_r_auth_2(r_u, &srv_chal_out, &srv_flgs, NT_STATUS_OK);
+
 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),
 				q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
 
@@ -479,13 +498,7 @@ NTSTATUS _net_auth_2(pipes_struct *p, NET_Q_AUTH_2 *q_u, NET_R_AUTH_2 *r_u)
 		return NT_STATUS_ACCESS_DENIED;
 	}
 
-	srv_flgs.neg_flags = 0x000001ff;
-
-	if (lp_server_schannel() != False) {
-		srv_flgs.neg_flags |= NETLOGON_NEG_SCHANNEL;
-	}
-
-	/* set up the LSA AUTH 2 response */
+	/* set up the real LSA AUTH 2 response */
 	init_net_r_auth_2(r_u, &srv_chal_out, &srv_flgs, NT_STATUS_OK);
 
 	fstrcpy(p->dc->mach_acct, mach_acct);
@@ -623,7 +636,7 @@ NTSTATUS _net_srv_pwset(pipes_struct *p, NET_Q_SRV_PWSET *q_u, NET_R_SRV_PWSET *
 			return NT_STATUS_NO_MEMORY;
 		}
 		
-		if (!pdb_set_pass_changed_now(sampass)) {
+		if (!pdb_set_pass_last_set_time(sampass, time(NULL), PDB_CHANGED)) {
 			TALLOC_FREE(sampass);
 			/* Not quite sure what this one qualifies as, but this will do */
 			return NT_STATUS_UNSUCCESSFUL; 
@@ -973,7 +986,7 @@ static NTSTATUS _net_sam_logon_internal(pipes_struct *p,
 		fstring user_sid_string;
 		fstring group_sid_string;
 		unsigned char user_session_key[16];
-		unsigned char lm_session_key[16];
+		unsigned char lm_session_key[8];
 		unsigned char pipe_session_key[16];
 
 		sampw = server_info->sam_account;
@@ -1054,7 +1067,7 @@ static NTSTATUS _net_sam_logon_internal(pipes_struct *p,
 				}
 				memcpy(pipe_session_key, p->auth.a_u.schannel_auth->sess_key, 16);
 			}
-			SamOEMhash(lm_session_key, pipe_session_key, 16);
+			SamOEMhash(lm_session_key, pipe_session_key, 8);
 			memset(pipe_session_key, '\0', 16);
 		}
 		

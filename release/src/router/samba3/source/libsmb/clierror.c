@@ -226,7 +226,7 @@ void cli_dos_error(struct cli_state *cli, uint8 *eclass, uint32 *ecode)
 }
 
 /* Return a UNIX errno from a NT status code */
-static struct {
+static const struct {
 	NTSTATUS status;
 	int error;
 } nt_errno_map[] = {
@@ -234,6 +234,7 @@ static struct {
         {NT_STATUS_INVALID_HANDLE, EBADF},
         {NT_STATUS_ACCESS_DENIED, EACCES},
         {NT_STATUS_OBJECT_NAME_NOT_FOUND, ENOENT},
+        {NT_STATUS_OBJECT_PATH_NOT_FOUND, ENOENT},
         {NT_STATUS_SHARING_VIOLATION, EBUSY},
         {NT_STATUS_OBJECT_PATH_INVALID, ENOTDIR},
         {NT_STATUS_OBJECT_NAME_COLLISION, EEXIST},
@@ -380,6 +381,15 @@ int cli_errno(struct cli_state *cli)
 		return cli_errno_from_nt(status);
         }
 
+        /*
+         * Yuck!  A special case for this Vista error.  Since its high-order
+         * byte isn't 0xc0, it doesn't match cli_is_nt_error() above.
+         */
+        status = cli_nt_error(cli);
+        if (NT_STATUS_V(status) == NT_STATUS_V(STATUS_INACCESSIBLE_SYSTEM_SHORTCUT)) {
+            return EACCES;
+        }
+
 	/* for other cases */
 	return EINVAL;
 }
@@ -449,5 +459,26 @@ NTSTATUS cli_get_nt_error(struct cli_state *cli)
 	} else {
 		/* Something went wrong, we don't know what. */
 		return NT_STATUS_UNSUCCESSFUL;
+	}
+}
+
+/* Push an error code into the inbuf to be returned on the next
+ * query. */
+
+void cli_set_nt_error(struct cli_state *cli, NTSTATUS status)
+{
+	SSVAL(cli->inbuf,smb_flg2, SVAL(cli->inbuf,smb_flg2)|FLAGS2_32_BIT_ERROR_CODES);
+	SIVAL(cli->inbuf, smb_rcls, NT_STATUS_V(status));
+}
+
+/* Reset an error. */
+
+void cli_reset_error(struct cli_state *cli)
+{
+        if (SVAL(cli->inbuf,smb_flg2) & FLAGS2_32_BIT_ERROR_CODES) {
+		SIVAL(cli->inbuf, smb_rcls, NT_STATUS_V(NT_STATUS_OK));
+	} else {
+		SCVAL(cli->inbuf,smb_rcls,0);
+		SSVAL(cli->inbuf,smb_err,0);
 	}
 }

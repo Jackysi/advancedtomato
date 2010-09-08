@@ -50,6 +50,8 @@ static NTSTATUS connect_to_domain_password_server(struct cli_state **cli,
         NTSTATUS result;
 	struct rpc_pipe_client *netlogon_pipe = NULL;
 
+	*cli = NULL;
+
 	*pipe_ret = NULL;
 
 	/* TODO: Send a SAMLOGON request to determine whether this is a valid
@@ -79,6 +81,11 @@ static NTSTATUS connect_to_domain_password_server(struct cli_state **cli,
 		/* map to something more useful */
 		if (NT_STATUS_EQUAL(result, NT_STATUS_UNSUCCESSFUL)) {
 			result = NT_STATUS_NO_LOGON_SERVERS;
+		}
+
+		if (*cli) {
+			cli_shutdown(*cli);
+			*cli = NULL;
 		}
 
 		release_server_mutex();
@@ -111,21 +118,26 @@ static NTSTATUS connect_to_domain_password_server(struct cli_state **cli,
 		DEBUG(0,("connect_to_domain_password_server: unable to open the domain client session to \
 machine %s. Error was : %s.\n", dc_name, nt_errstr(result)));
 		cli_shutdown(*cli);
+		*cli = NULL;
 		release_server_mutex();
 		return result;
 	}
 
 	if (!lp_client_schannel()) {
 		/* We need to set up a creds chain on an unauthenticated netlogon pipe. */
-		uint32 neg_flags = NETLOGON_NEG_AUTH2_FLAGS;
+		uint32_t neg_flags = NETLOGON_NEG_AUTH2_ADS_FLAGS;
 		uint32 sec_chan_type = 0;
 		unsigned char machine_pwd[16];
+		const char *account_name;
 
-		if (!get_trust_pw(domain, machine_pwd, &sec_chan_type)) {
+		if (!get_trust_pw_hash(domain, machine_pwd, &account_name,
+				       &sec_chan_type))
+		{
 			DEBUG(0, ("connect_to_domain_password_server: could not fetch "
 			"trust account password for domain '%s'\n",
 				domain));
 			cli_shutdown(*cli);
+			*cli = NULL;
 			release_server_mutex();
 			return NT_STATUS_CANT_ACCESS_DOMAIN_INFO;
 		}
@@ -134,13 +146,14 @@ machine %s. Error was : %s.\n", dc_name, nt_errstr(result)));
 					dc_name, /* server name */
 					domain, /* domain */
 					global_myname(), /* client name */
-					global_myname(), /* machine account name */
+					account_name, /* machine account name */
 					machine_pwd,
 					sec_chan_type,
 					&neg_flags);
 
 		if (!NT_STATUS_IS_OK(result)) {
 			cli_shutdown(*cli);
+			*cli = NULL;
 			release_server_mutex();
 			return result;
 		}
@@ -150,6 +163,7 @@ machine %s. Error was : %s.\n", dc_name, nt_errstr(result)));
 		DEBUG(0,("connect_to_domain_password_server: unable to open the domain client session to \
 machine %s. Error was : %s.\n", dc_name, cli_errstr(*cli)));
 		cli_shutdown(*cli);
+		*cli = NULL;
 		release_server_mutex();
 		return NT_STATUS_NO_LOGON_SERVERS;
 	}
@@ -226,7 +240,7 @@ static NTSTATUS domain_client_validate(TALLOC_CTX *mem_ctx,
 						      user_info->logon_parameters,/* flags such as 'allow workstation logon' */ 
 						      dc_name,                    /* server name */
 						      user_info->smb_name,        /* user name logging on. */
-						      user_info->domain,          /* domain name */
+						      user_info->client_domain,   /* domain name */
 						      user_info->wksta_name,      /* workstation name */
 						      chal,                       /* 8 byte challenge. */
 						      user_info->lm_resp,         /* lanman 24 byte response */
@@ -242,7 +256,7 @@ static NTSTATUS domain_client_validate(TALLOC_CTX *mem_ctx,
 		DEBUG(0,("domain_client_validate: unable to validate password "
                          "for user %s in domain %s to Domain controller %s. "
                          "Error was %s.\n", user_info->smb_name,
-                         user_info->domain, dc_name, 
+                         user_info->client_domain, dc_name, 
                          nt_errstr(nt_status)));
 
 		/* map to something more useful */
@@ -258,6 +272,17 @@ static NTSTATUS domain_client_validate(TALLOC_CTX *mem_ctx,
 
 		if (NT_STATUS_IS_OK(nt_status)) {
 			(*server_info)->was_mapped |= user_info->was_mapped;
+
+			if ( ! (*server_info)->guest) {
+				/* if a real user check pam account restrictions */
+				/* only really perfomed if "obey pam restriction" is true */
+				nt_status = smb_pam_accountcheck((*server_info)->unix_name);
+				if (  !NT_STATUS_IS_OK(nt_status)) {
+					DEBUG(1, ("PAM account restriction prevents user login\n"));
+					cli_shutdown(cli);
+					return nt_status;
+				}
+			}
 		}
 
 		netsamlogon_cache_store( user_info->smb_name, &info3 );

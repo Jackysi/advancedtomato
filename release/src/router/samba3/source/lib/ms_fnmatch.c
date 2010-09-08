@@ -153,10 +153,6 @@ int ms_fnmatch(const char *pattern, const char *string, BOOL translate_pattern,
 	int ret, count, i;
 	struct max_n *max_n = NULL;
 
-	if (strcmp(pattern, "*") == 0) {
-		return 0;
-	}
-
 	if (strcmp(string, "..") == 0) {
 		string = ".";
 	}

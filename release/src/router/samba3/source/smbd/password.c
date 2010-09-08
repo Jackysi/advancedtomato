@@ -31,9 +31,6 @@ static user_struct *validated_users;
 static int next_vuid = VUID_OFFSET;
 static int num_validated_vuids;
 
-extern userdom_struct current_user_info;
-
-
 /****************************************************************************
  Check if a uid has been validated, and return an pointer to the user_struct
  if it has. NULL if not. vuid is biased by an offset. This allows us to
@@ -94,11 +91,15 @@ void invalidate_vuid(uint16 vuid)
 
 	if (vuser == NULL)
 		return;
-	
+
 	SAFE_FREE(vuser->homedir);
 	SAFE_FREE(vuser->unix_homedir);
 	SAFE_FREE(vuser->logon_script);
-	
+
+	if (vuser->auth_ntlmssp_state) {
+		auth_ntlmssp_end(&vuser->auth_ntlmssp_state);
+	}
+
 	session_yield(vuser);
 	SAFE_FREE(vuser->session_keystr);
 
@@ -114,6 +115,24 @@ void invalidate_vuid(uint16 vuid)
 
 	SAFE_FREE(vuser->groups);
 	TALLOC_FREE(vuser->nt_user_token);
+
+	SAFE_FREE(vuser);
+	num_validated_vuids--;
+}
+
+void invalidate_intermediate_vuid(uint16 vuid)
+{
+	user_struct *vuser = get_partial_auth_user_struct(vuid);
+
+	if (vuser == NULL)
+		return;
+
+	if (vuser->auth_ntlmssp_state) {
+		auth_ntlmssp_end(&vuser->auth_ntlmssp_state);
+	}
+
+	DLIST_REMOVE(validated_users, vuser);
+
 	SAFE_FREE(vuser);
 	num_validated_vuids--;
 }
@@ -165,19 +184,22 @@ int register_vuid(auth_serversupplied_info *server_info,
 	/* Limit allowed vuids to 16bits - VUID_OFFSET. */
 	if (num_validated_vuids >= 0xFFFF-VUID_OFFSET) {
 		data_blob_free(&session_key);
+		TALLOC_FREE(server_info);
 		return UID_FIELD_INVALID;
 	}
 
 	if((vuser = SMB_MALLOC_P(user_struct)) == NULL) {
 		DEBUG(0,("Failed to malloc users struct!\n"));
 		data_blob_free(&session_key);
+		TALLOC_FREE(server_info);
 		return UID_FIELD_INVALID;
 	}
 
 	ZERO_STRUCTP(vuser);
 
 	/* Allocate a free vuid. Yes this is a linear search... :-) */
-	while( get_valid_user_struct(next_vuid) != NULL ) {
+	while( (get_valid_user_struct(next_vuid) != NULL)
+	       || (get_partial_auth_user_struct(next_vuid) != NULL) ) {
 		next_vuid++;
 		/* Check for vuid wrap. */
 		if (next_vuid == UID_FIELD_INVALID)
@@ -574,9 +596,11 @@ static BOOL user_ok(const char *user, int snum)
 		str_list_copy(&invalid, lp_invalid_users(snum));
 		if (invalid &&
 		    str_list_substitute(invalid, "%S", lp_servicename(snum))) {
-			if ( invalid &&
-			     str_list_sub_basic(invalid,
-						current_user_info.smb_name) ) {
+
+			/* This is used in sec=share only, so no current user
+			 * around to pass to str_list_sub_basic() */
+
+			if ( invalid && str_list_sub_basic(invalid, "", "") ) {
 				ret = !user_in_list(user,
 						    (const char **)invalid);
 			}
@@ -589,9 +613,11 @@ static BOOL user_ok(const char *user, int snum)
 		str_list_copy(&valid, lp_valid_users(snum));
 		if ( valid &&
 		     str_list_substitute(valid, "%S", lp_servicename(snum)) ) {
-			if ( valid &&
-			     str_list_sub_basic(valid,
-						current_user_info.smb_name) ) {
+
+			/* This is used in sec=share only, so no current user
+			 * around to pass to str_list_sub_basic() */
+
+			if ( valid && str_list_sub_basic(valid, "", "") ) {
 				ret = user_in_list(user, (const char **)valid);
 			}
 		}

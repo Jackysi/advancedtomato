@@ -4,7 +4,7 @@
    Copyright (C) Andrew Tridgell              1992-2000
    Copyright (C) Luke Kenneth Casson Leighton 1996-2000
    Copyright (C) Paul Ashton                  1997-2000
-   Copyright (C) Jean François Micouleau      1998-2001
+   Copyright (C) Jean FranÃ§ois Micouleau      1998-2001
    Copyright (C) Jim McDonough <jmcd@us.ibm.com> 2002
    
    
@@ -121,7 +121,7 @@ SamrTestPrivateFunctionsUser
 #define SAMR_QUERY_USERGROUPS  0x27
 
 #define SAMR_QUERY_DISPINFO    0x28
-#define SAMR_UNKNOWN_29        0x29
+#define SAMR_GET_DISPENUM_INDEX 0x29
 #define SAMR_UNKNOWN_2a        0x2a
 #define SAMR_UNKNOWN_2b        0x2b
 #define SAMR_GET_USRDOM_PWINFO 0x2c
@@ -130,7 +130,7 @@ SamrTestPrivateFunctionsUser
 #define SAMR_UNKNOWN_2f        0x2f
 #define SAMR_QUERY_DISPINFO3   0x30 /* Alias for SAMR_QUERY_DISPINFO
 				       with info level 3 */
-#define SAMR_UNKNOWN_31        0x31
+#define SAMR_GET_DISPENUM_INDEX2 0x31
 #define SAMR_CREATE_USER       0x32
 #define SAMR_QUERY_DISPINFO4   0x33 /* Alias for SAMR_QUERY_DISPINFO
 				       with info level 4 */
@@ -145,6 +145,31 @@ SamrTestPrivateFunctionsUser
 #define SAMR_CONNECT4          0x3E
 #define SAMR_CHGPASSWD_USER3   0x3F
 #define SAMR_CONNECT5          0x40
+
+/* SAMR account creation flags/permissions */
+#define SAMR_USER_GETNAME               0x1
+#define SAMR_USER_GETLOCALE             0x2
+#define SAMR_USER_GETLOCCOM             0x4
+#define SAMR_USER_GETLOGONINFO          0x8
+#define SAMR_USER_GETATTR               0x10
+#define SAMR_USER_SETATTR               0x20
+#define SAMR_USER_CHPASS                0x40
+#define SAMR_USER_SETPASS               0x80
+#define SAMR_USER_GETGROUPS             0x100
+#define SAMR_USER_GETMEMBERSHIP         0x200
+#define SAMR_USER_CHMEMBERSHIP          0x400
+#define SAMR_STANDARD_DELETE            0x10000
+#define SAMR_STANDARD_READCTRL          0x20000
+#define SAMR_STANDARD_WRITEDAC          0x40000
+#define SAMR_STANDARD_WRITEOWNER        0x80000
+#define SAMR_STANDARD_SYNC              0x100000
+#define SAMR_GENERIC_ACCESSSACL         0x800000
+#define SAMR_GENERIC_MAXALLOWED         0x2000000
+#define SAMR_GENERIC_ALL                0x10000000
+#define SAMR_GENERIC_EXECUTE            0x20000000
+#define SAMR_GENERIC_WRITE              0x40000000
+#define SAMR_GENERIC_READ               0x80000000
+
 
 typedef struct logon_hours_info
 {
@@ -174,7 +199,7 @@ typedef struct sam_user_info_23
 	UNIHDR hdr_profile_path; /* profile path unicode string header */
 	UNIHDR hdr_acct_desc  ;  /* user description */
 	UNIHDR hdr_workstations; /* comma-separated workstations user can log in from */
-	UNIHDR hdr_unknown_str ; /* don't know what this is, yet. */
+	UNIHDR hdr_comment;
 	UNIHDR hdr_munged_dial ; /* munged path name and dial-back tel number */
 
 	uint8 lm_pwd[16];    /* lm user passwords */
@@ -211,7 +236,7 @@ typedef struct sam_user_info_23
 	UNISTR2 uni_profile_path; /* profile path unicode string */
 	UNISTR2 uni_acct_desc  ;  /* user description unicode string */
 	UNISTR2 uni_workstations; /* login from workstations unicode string */
-	UNISTR2 uni_unknown_str ; /* don't know what this is, yet. */
+	UNISTR2 uni_comment;
 	UNISTR2 uni_munged_dial ; /* munged path name and dial-back tel no */
 
 	LOGON_HRS logon_hrs;
@@ -222,7 +247,7 @@ typedef struct sam_user_info_23
 typedef struct sam_user_info_24
 {
 	uint8 pass[516];
-	uint16 pw_len;
+	uint8 pw_len;
 } SAM_USER_INFO_24;
 
 /*
@@ -250,7 +275,7 @@ typedef struct sam_user_info_25
 	UNIHDR hdr_profile_path; /* profile path unicode string header */
 	UNIHDR hdr_acct_desc  ;  /* user description */
 	UNIHDR hdr_workstations; /* comma-separated workstations user can log in from */
-	UNIHDR hdr_unknown_str ; /* don't know what this is, yet. */
+	UNIHDR hdr_comment;
 	UNIHDR hdr_munged_dial ; /* munged path name and dial-back tel number */
 
 	uint8 lm_pwd[16];    /* lm user passwords */
@@ -262,7 +287,19 @@ typedef struct sam_user_info_25
 	uint32 acb_info; /* account info (ACB_xxxx bit-mask) */
 	uint32 fields_present;
 
-	uint32 unknown_5[5];
+	uint16 logon_divs; /* 0x0000 00a8 which is 168 which is num hrs in a week */
+	/* uint8 pad[2] */
+	uint32 ptr_logon_hrs; /* pointer to logon hours */
+
+	/* Was unknown_5. */
+	uint16 bad_password_count;
+	uint16 logon_count;
+
+	uint8 padding1[6];
+		
+	uint8 passmustchange; /* 0x00 must change = 0x01 */
+
+	uint8 padding2;
 
 	uint8 pass[532];
 
@@ -274,8 +311,10 @@ typedef struct sam_user_info_25
 	UNISTR2 uni_profile_path; /* profile path unicode string */
 	UNISTR2 uni_acct_desc  ;  /* user description unicode string */
 	UNISTR2 uni_workstations; /* login from workstations unicode string */
-	UNISTR2 uni_unknown_str ; /* don't know what this is, yet. */
+	UNISTR2 uni_comment;
 	UNISTR2 uni_munged_dial ; /* munged path name and dial-back tel no */
+	LOGON_HRS logon_hrs;
+
 } SAM_USER_INFO_25;
 
 /* SAM_USER_INFO_26 */
@@ -304,7 +343,7 @@ typedef struct sam_user_info_21
 	UNIHDR hdr_profile_path; /* profile path unicode string header */
 	UNIHDR hdr_acct_desc  ;  /* user description */
 	UNIHDR hdr_workstations; /* comma-separated workstations user can log in from */
-	UNIHDR hdr_unknown_str ; /* don't know what this is, yet. */
+	UNIHDR hdr_comment;
 	UNIHDR hdr_munged_dial ; /* munged path name and dial-back tel number */
 
 	uint8 lm_pwd[16];    /* lm user passwords */
@@ -340,7 +379,7 @@ typedef struct sam_user_info_21
 	UNISTR2 uni_profile_path; /* profile path unicode string */
 	UNISTR2 uni_acct_desc  ;  /* user description unicode string */
 	UNISTR2 uni_workstations; /* login from workstations unicode string */
-	UNISTR2 uni_unknown_str ; /* don't know what this is, yet. */
+	UNISTR2 uni_comment;
 	UNISTR2 uni_munged_dial ; /* munged path name and dial-back tel number */
 
 	LOGON_HRS logon_hrs;
@@ -553,7 +592,7 @@ typedef struct sam_unknown_info_2_inf
 	   pointer is referring to
 	 */
 
-	UINT64_S seq_num;
+	uint64 seq_num;
 	
 	uint32 unknown_4; /* 0x0000 0001 */
 	uint32 server_role;
@@ -605,7 +644,7 @@ typedef struct sam_unknown_info_7_info
 
 typedef struct sam_unknown_info_8_info
 {
-	UINT64_S seq_num;
+	uint64 seq_num;
 	NTTIME domain_create_time;
 
 } SAM_UNK_INFO_8;
@@ -626,7 +665,7 @@ typedef struct sam_unknown_info_12_inf
 
 typedef struct sam_unknown_info_13_info
 {
-	UINT64_S seq_num;
+	uint64 seq_num;
 	NTTIME domain_create_time;
 	uint32 unknown1;
 	uint32 unknown2;
@@ -1047,6 +1086,22 @@ typedef struct r_samr_query_dispinfo_info
 
 } SAMR_R_QUERY_DISPINFO;
 
+/* SAMR_Q_GET_DISPENUM_INDEX */
+typedef struct q_samr_get_dispenum_index
+{
+	POLICY_HND domain_pol;
+	uint16 switch_level;
+	LSA_STRING name;
+
+} SAMR_Q_GET_DISPENUM_INDEX;
+
+/* SAMR_R_GET_DISPENUM_INDEX */
+typedef struct r_samr_get_dispenum_index
+{
+	uint32 idx;
+	NTSTATUS status;
+	
+} SAMR_R_GET_DISPENUM_INDEX;
 
 /* SAMR_Q_DELETE_DOM_GROUP - delete domain group */
 typedef struct q_samr_delete_dom_group_info
@@ -1527,7 +1582,7 @@ typedef struct q_samr_create_user_info
 	UNISTR2 uni_name;       /* unicode account name */
 
 	uint32 acb_info;      /* account control info */
-	uint32 access_mask;     /* 0xe005 00b0 */
+	uint32 acct_flags;     /* 0xe005 00b0 */
 
 } SAMR_Q_CREATE_USER;
 

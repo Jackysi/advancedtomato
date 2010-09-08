@@ -148,7 +148,7 @@ void start_async_dns(void)
 		fd_out = fd2[1];
 		close(fd1[1]);
 		close(fd2[0]);
-		DEBUG(1,("started asyncdns process %d\n", (int)child_pid));
+		DEBUG(0,("started asyncdns process %d\n", (int)child_pid));
 		return;
 	}
 

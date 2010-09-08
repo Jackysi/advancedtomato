@@ -61,7 +61,7 @@ extern fstring remote_arch;
 enum protocol_types Protocol = PROTOCOL_COREPLUS;
 
 /* a default finfo structure to ensure all fields are sensible */
-file_info def_finfo = {-1,0,0,0,0,0,0,"",""};
+file_info def_finfo;
 
 /* this is used by the chaining code */
 int chain_size = 0;
@@ -199,10 +199,11 @@ void gfree_all( void )
 	gfree_case_tables();
 	gfree_debugsyms();
 	gfree_charcnv();
-	gfree_messsges();
+	gfree_messages();
+	gfree_interfaces();
 
 	/* release the talloc null_context memory last */
-	talloc_nc_free();
+	talloc_disable_null_tracking();
 }
 
 const char *my_netbios_names(int i)
@@ -307,7 +308,7 @@ const char *tmpdir(void)
  Add a gid to an array of gids if it's not already there.
 ****************************************************************************/
 
-void add_gid_to_array_unique(TALLOC_CTX *mem_ctx, gid_t gid,
+BOOL add_gid_to_array_unique(TALLOC_CTX *mem_ctx, gid_t gid,
 			     gid_t **gids, size_t *num_gids)
 {
 	int i;
@@ -316,26 +317,24 @@ void add_gid_to_array_unique(TALLOC_CTX *mem_ctx, gid_t gid,
 		/*
 		 * A former call to this routine has failed to allocate memory
 		 */
-		return;
+		return False;
 	}
 
 	for (i=0; i<*num_gids; i++) {
-		if ((*gids)[i] == gid)
-			return;
+		if ((*gids)[i] == gid) {
+			return True;
+		}
 	}
 
-	if (mem_ctx != NULL) {
-		*gids = TALLOC_REALLOC_ARRAY(mem_ctx, *gids, gid_t, *num_gids+1);
-	} else {
-		*gids = SMB_REALLOC_ARRAY(*gids, gid_t, *num_gids+1);
-	}
-
+	*gids = TALLOC_REALLOC_ARRAY(mem_ctx, *gids, gid_t, *num_gids+1);
 	if (*gids == NULL) {
-		return;
+		*num_gids = 0;
+		return False;
 	}
 
 	(*gids)[*num_gids] = gid;
 	*num_gids += 1;
+	return True;
 }
 
 /****************************************************************************
@@ -581,6 +580,13 @@ void dos_clean_name(char *s)
 	/* remove any double slashes */
 	all_string_sub(s, "\\\\", "\\", 0);
 
+	/* Remove leading .\\ characters */
+	if(strncmp(s, ".\\", 2) == 0) {
+		trim_string(s, ".\\", NULL);
+		if(*s == 0)
+			pstrcpy(s,".\\");
+	}
+
 	while ((p = strstr_m(s,"\\..\\")) != NULL) {
 		pstring s1;
 
@@ -595,7 +601,6 @@ void dos_clean_name(char *s)
 	}  
 
 	trim_string(s,NULL,"\\..");
-
 	all_string_sub(s, "\\.\\", "\\", 0);
 }
 
@@ -633,6 +638,13 @@ void unix_clean_name(char *s)
 	}  
 
 	trim_string(s,NULL,"/..");
+	all_string_sub(s, "/./", "/", 0);
+}
+
+void clean_name(char *s)
+{
+	dos_clean_name(s);
+	unix_clean_name(s);
 }
 
 /*******************************************************************
@@ -661,11 +673,11 @@ void close_low_fds(BOOL stderr_too)
 		if (fd < 0)
 			fd = sys_open("/dev/null",O_WRONLY,0);
 		if (fd < 0) {
-			DEBUG(1,("Can't open /dev/null\n"));
+			DEBUG(0,("Can't open /dev/null\n"));
 			return;
 		}
 		if (fd != i) {
-			DEBUG(1,("Didn't get file descriptor %d\n",i));
+			DEBUG(0,("Didn't get file descriptor %d\n",i));
 			return;
 		}
 	}
@@ -691,7 +703,7 @@ ssize_t write_data_at_offset(int fd, const char *buffer, size_t N, SMB_OFF_T pos
 			return write_data(fd, buffer + total,N - total);
 		}
 		if (ret == -1) {
-			DEBUG(1,("write_data_at_offset: write failure. Error = %s\n", strerror(errno) ));
+			DEBUG(0,("write_data_at_offset: write failure. Error = %s\n", strerror(errno) ));
 			return -1;
 		}
 		if (ret == 0) {
@@ -760,7 +772,7 @@ ssize_t transfer_file_internal(int infd, int outfd, size_t n, ssize_t (*read_fn)
 	size_t num_to_read_thistime;
 	size_t num_written = 0;
 
-	if ((buf = SMB_MALLOC(TRANSFER_BUF_SIZE)) == NULL)
+	if ((buf = SMB_MALLOC_ARRAY(char, TRANSFER_BUF_SIZE)) == NULL)
 		return -1;
 
 	while (total < n) {
@@ -768,7 +780,7 @@ ssize_t transfer_file_internal(int infd, int outfd, size_t n, ssize_t (*read_fn)
 
 		read_ret = (*read_fn)(infd, buf, num_to_read_thistime);
 		if (read_ret == -1) {
-			DEBUG(1,("transfer_file_internal: read failure. Error = %s\n", strerror(errno) ));
+			DEBUG(0,("transfer_file_internal: read failure. Error = %s\n", strerror(errno) ));
 			SAFE_FREE(buf);
 			return -1;
 		}
@@ -781,7 +793,7 @@ ssize_t transfer_file_internal(int infd, int outfd, size_t n, ssize_t (*read_fn)
 			write_ret = (*write_fn)(outfd,buf + num_written, read_ret - num_written);
  
 			if (write_ret == -1) {
-				DEBUG(1,("transfer_file_internal: write failure. Error = %s\n", strerror(errno) ));
+				DEBUG(0,("transfer_file_internal: write failure. Error = %s\n", strerror(errno) ));
 				SAFE_FREE(buf);
 				return -1;
 			}
@@ -909,6 +921,9 @@ BOOL yesno(char *p)
 
 void *malloc_(size_t size)
 {
+	if (size == 0) {
+		return NULL;
+	}
 #undef malloc
 	return malloc(size);
 #define malloc(s) __ERROR_DONT_USE_MALLOC_DIRECTLY
@@ -920,6 +935,9 @@ void *malloc_(size_t size)
 
 static void *calloc_(size_t count, size_t size)
 {
+	if (size == 0 || count == 0) {
+		return NULL;
+	}
 #undef calloc
 	return calloc(count, size);
 #define calloc(n,s) __ERROR_DONT_USE_CALLOC_DIRECTLY
@@ -948,11 +966,27 @@ void *malloc_array(size_t el_size, unsigned int count)
 		return NULL;
 	}
 
+	if (el_size == 0 || count == 0) {
+		return NULL;
+	}
 #if defined(PARANOID_MALLOC_CHECKER)
 	return malloc_(el_size*count);
 #else
 	return malloc(el_size*count);
 #endif
+}
+
+/****************************************************************************
+ Type-safe memalign
+****************************************************************************/
+
+void *memalign_array(size_t el_size, size_t align, unsigned int count)
+{
+	if (count >= MAX_ALLOC_SIZE/el_size) {
+		return NULL;
+	}
+
+	return sys_memalign(align, el_size*count);
 }
 
 /****************************************************************************
@@ -962,6 +996,9 @@ void *malloc_array(size_t el_size, unsigned int count)
 void *calloc_array(size_t size, size_t nmemb)
 {
 	if (nmemb >= MAX_ALLOC_SIZE/size) {
+		return NULL;
+	}
+	if (size == 0 || nmemb == 0) {
 		return NULL;
 	}
 #if defined(PARANOID_MALLOC_CHECKER)
@@ -1059,9 +1096,11 @@ void *realloc_array(void *p, size_t el_size, unsigned int count, BOOL free_old_o
 ****************************************************************************/
 
 void add_to_large_array(TALLOC_CTX *mem_ctx, size_t element_size,
-			void *element, void **array, uint32 *num_elements,
+			void *element, void *_array, uint32 *num_elements,
 			ssize_t *array_size)
 {
+	void **array = (void **)_array;
+
 	if (*array_size < 0) {
 		return;
 	}
@@ -1075,12 +1114,7 @@ void add_to_large_array(TALLOC_CTX *mem_ctx, size_t element_size,
 			goto error;
 		}
 
-		if (mem_ctx != NULL) {
-			*array = TALLOC(mem_ctx, element_size * (*array_size));
-		} else {
-			*array = SMB_MALLOC(element_size * (*array_size));
-		}
-
+		*array = TALLOC(mem_ctx, element_size * (*array_size));
 		if (*array == NULL) {
 			goto error;
 		}
@@ -1093,13 +1127,8 @@ void add_to_large_array(TALLOC_CTX *mem_ctx, size_t element_size,
 			goto error;
 		}
 
-		if (mem_ctx != NULL) {
-			*array = TALLOC_REALLOC(mem_ctx, *array,
-						element_size * (*array_size));
-		} else {
-			*array = SMB_REALLOC(*array,
-					     element_size * (*array_size));
-		}
+		*array = TALLOC_REALLOC(mem_ctx, *array,
+					element_size * (*array_size));
 
 		if (*array == NULL) {
 			goto error;
@@ -1140,7 +1169,7 @@ BOOL get_myname(char *my_name)
 
 	/* get my host name */
 	if (gethostname(hostname, sizeof(hostname)) == -1) {
-		DEBUG(1,("gethostname failed\n"));
+		DEBUG(0,("gethostname failed\n"));
 		return False;
 	} 
 
@@ -1173,7 +1202,7 @@ BOOL get_mydnsfullname(fstring my_dnsname)
 		/* get my host name */
 		if (gethostname(dnshostname, sizeof(dnshostname)) == -1) {
 			*dnshostname = '\0';
-			DEBUG(1,("gethostname failed\n"));
+			DEBUG(0,("gethostname failed\n"));
 			return False;
 		} 
 
@@ -1208,6 +1237,7 @@ BOOL get_mydnsdomname(fstring my_domname)
 	if (p) {
 		p++;
 		fstrcpy(my_domname, p);
+		return True;
 	}
 
 	return False;
@@ -1479,6 +1509,10 @@ BOOL same_net(struct in_addr ip1,struct in_addr ip2,struct in_addr mask)
 
 BOOL process_exists(const struct process_id pid)
 {
+	if (procid_is_me(&pid)) {
+		return True;
+	}
+
 	if (!procid_is_local(&pid)) {
 		/* This *SEVERELY* needs fixing. */
 		return True;
@@ -1598,9 +1632,6 @@ void smb_panic(const char *const why)
 	DEBUG(0,("PANIC (pid %llu): %s\n",
 		    (unsigned long long)sys_getpid(), why));
 	log_stack_trace();
-
-	/* only smbd needs to decrement the smbd counter in connections.tdb */
-	decrement_smbd_process_count();
 
 	cmd = lp_panic_action();
 	if (cmd && *cmd) {
@@ -1803,8 +1834,7 @@ const char *readdirname(SMB_STRUCT_DIR *p)
 
 BOOL is_in_path(const char *name, name_compare_entry *namelist, BOOL case_sensitive)
 {
-	pstring last_component;
-	char *p;
+	const char *last_component;
 
 	/* if we have no list it's obviously not in the path */
 	if((namelist == NULL ) || ((namelist != NULL) && (namelist[0].name == NULL))) {
@@ -1814,8 +1844,12 @@ BOOL is_in_path(const char *name, name_compare_entry *namelist, BOOL case_sensit
 	DEBUG(8, ("is_in_path: %s\n", name));
 
 	/* Get the last component of the unix name. */
-	p = strrchr_m(name, '/');
-	pstrcpy(last_component, p ? ++p : name);
+	last_component = strrchr_m(name, '/');
+	if (!last_component) {
+		last_component = name;
+	} else {
+		last_component++; /* Go past '/' */
+	}
 
 	for(; namelist->name != NULL; namelist++) {
 		if(namelist->is_wild) {
@@ -1832,7 +1866,6 @@ BOOL is_in_path(const char *name, name_compare_entry *namelist, BOOL case_sensit
 		}
 	}
 	DEBUG(8,("is_in_path: match not found\n"));
- 
 	return False;
 }
 
@@ -2073,6 +2106,9 @@ BOOL is_myname_or_ipaddr(const char *s)
 		return True;
 
 	/* check for loopback */
+
+	if (strequal(servername, "127.0.0.1")) 
+		return True;
 
 	if (strequal(servername, "localhost")) 
 		return True;
@@ -2316,7 +2352,7 @@ int set_maxfiles(int requested_max)
 	int saved_current_limit;
 
 	if(getrlimit(RLIMIT_NOFILE, &rlp)) {
-		DEBUG(1,("set_maxfiles: getrlimit (1) for RLIMIT_NOFILE failed with error %s\n",
+		DEBUG(0,("set_maxfiles: getrlimit (1) for RLIMIT_NOFILE failed with error %s\n",
 			strerror(errno) ));
 		/* just guess... */
 		return requested_max;
@@ -2358,14 +2394,14 @@ int set_maxfiles(int requested_max)
 	saved_current_limit = rlp.rlim_cur = MIN(requested_max,rlp.rlim_max);
 
 	if(setrlimit(RLIMIT_NOFILE, &rlp)) {
-		DEBUG(1,("set_maxfiles: setrlimit for RLIMIT_NOFILE for %d files failed with error %s\n", 
+		DEBUG(0,("set_maxfiles: setrlimit for RLIMIT_NOFILE for %d files failed with error %s\n", 
 			(int)rlp.rlim_cur, strerror(errno) ));
 		/* just guess... */
 		return saved_current_limit;
 	}
 
 	if(getrlimit(RLIMIT_NOFILE, &rlp)) {
-		DEBUG(1,("set_maxfiles: getrlimit (2) for RLIMIT_NOFILE failed with error %s\n",
+		DEBUG(0,("set_maxfiles: getrlimit (2) for RLIMIT_NOFILE failed with error %s\n",
 			strerror(errno) ));
 		/* just guess... */
 		return saved_current_limit;
@@ -2419,7 +2455,7 @@ void *smb_xmalloc_array(size_t size, unsigned int count)
                 smb_panic("smb_xmalloc: alloc size too large.\n");
         }
 	if ((p = SMB_MALLOC(size*count)) == NULL) {
-		DEBUG(1, ("smb_xmalloc_array failed to allocate %lu * %lu bytes\n",
+		DEBUG(0, ("smb_xmalloc_array failed to allocate %lu * %lu bytes\n",
 			(unsigned long)size, (unsigned long)count));
 		smb_panic("smb_xmalloc_array: malloc fail.\n");
 	}
@@ -2449,8 +2485,16 @@ char *smb_xstrdup(const char *s)
 #undef strdup
 #endif
 #endif
+
+#ifndef HAVE_STRDUP
+#define strdup rep_strdup
+#endif
+
 	char *s1 = strdup(s);
 #if defined(PARANOID_MALLOC_CHECKER)
+#ifdef strdup
+#undef strdup
+#endif
 #define strdup(s) __ERROR_DONT_USE_STRDUP_DIRECTLY
 #endif
 	if (!s1)
@@ -2470,8 +2514,17 @@ char *smb_xstrndup(const char *s, size_t n)
 #undef strndup
 #endif
 #endif
+
+#if (defined(BROKEN_STRNDUP) || !defined(HAVE_STRNDUP))
+#undef HAVE_STRNDUP
+#define strndup rep_strndup
+#endif
+
 	char *s1 = strndup(s, n);
 #if defined(PARANOID_MALLOC_CHECKER)
+#ifdef strndup
+#undef strndup
+#endif
 #define strndup(s,n) __ERROR_DONT_USE_STRNDUP_DIRECTLY
 #endif
 	if (!s1)
@@ -2618,6 +2671,37 @@ char *parent_dirname(const char *path)
 	return dirpath;
 }
 
+BOOL parent_dirname_talloc(TALLOC_CTX *mem_ctx, const char *dir,
+			   char **parent, const char **name)
+{
+	char *p;
+	ptrdiff_t len;
+ 
+	p = strrchr_m(dir, '/'); /* Find final '/', if any */
+
+	if (p == NULL) {
+		if (!(*parent = talloc_strdup(mem_ctx, "."))) {
+			return False;
+		}
+		if (name) {
+			*name = "";
+		}
+		return True;
+	}
+
+	len = p-dir;
+
+	if (!(*parent = TALLOC_ARRAY(mem_ctx, char, len+1))) {
+		return False;
+	}
+	memcpy(*parent, dir, len);
+	(*parent)[len] = '\0';
+
+	if (name) {
+		*name = p+1;
+	}
+	return True;
+}
 
 /*******************************************************************
  Determine if a pattern contains any Microsoft wildcard characters.
@@ -2667,7 +2751,7 @@ BOOL ms_has_wild_w(const smb_ucs2_t *s)
  of the ".." name.
 *******************************************************************/
 
-BOOL mask_match(const char *string, char *pattern, BOOL is_case_sensitive)
+BOOL mask_match(const char *string, const char *pattern, BOOL is_case_sensitive)
 {
 	if (strcmp(string,"..") == 0)
 		string = ".";
@@ -2683,7 +2767,7 @@ BOOL mask_match(const char *string, char *pattern, BOOL is_case_sensitive)
  pattern translation.
 *******************************************************************/
 
-BOOL mask_match_search(const char *string, char *pattern, BOOL is_case_sensitive)
+BOOL mask_match_search(const char *string, const char *pattern, BOOL is_case_sensitive)
 {
 	if (strcmp(string,"..") == 0)
 		string = ".";
@@ -2835,10 +2919,11 @@ BOOL unix_wild_match(const char *pattern, const char *string)
 }
 
 /**********************************************************************
- Converts a name to a fully qalified domain name.
+ Converts a name to a fully qualified domain name.
+ Returns True if lookup succeeded, False if not (then fqdn is set to name)
 ***********************************************************************/
                                                                                                                                                    
-void name_to_fqdn(fstring fqdn, const char *name)
+BOOL name_to_fqdn(fstring fqdn, const char *name)
 {
 	struct hostent *hp = sys_gethostbyname(name);
 
@@ -2860,7 +2945,7 @@ void name_to_fqdn(fstring fqdn, const char *name)
 		if (full && (StrCaseCmp(full, "localhost.localdomain") == 0)) {
 			DEBUG(1, ("WARNING: your /etc/hosts file may be broken!\n"));
 			DEBUGADD(1, ("    Specifing the machine hostname for address 127.0.0.1 may lead\n"));
-			DEBUGADD(1, ("    to Kerberos authentication probelms as localhost.localdomain\n"));
+			DEBUGADD(1, ("    to Kerberos authentication problems as localhost.localdomain\n"));
 			DEBUGADD(1, ("    may end up being used instead of the real machine FQDN.\n"));
 			full = hp->h_name;
 		}
@@ -2871,9 +2956,11 @@ void name_to_fqdn(fstring fqdn, const char *name)
 
 		DEBUG(10,("name_to_fqdn: lookup for %s -> %s.\n", name, full));
 		fstrcpy(fqdn, full);
+		return True;
 	} else {
 		DEBUG(10,("name_to_fqdn: lookup for %s failed.\n", name));
 		fstrcpy(fqdn, name);
+		return False;
 	}
 }
 
@@ -2889,9 +2976,9 @@ void *talloc_check_name_abort(const void *ptr, const char *name)
 	if (result != NULL)
 		return result;
 
-	DEBUG(1, ("Talloc type mismatch, expected %s, got %s\n",
+	DEBUG(0, ("Talloc type mismatch, expected %s, got %s\n",
 		  name, talloc_get_name(ptr)));
-	smb_panic("Talloc type mismatch, aborting");
+	smb_panic("aborting");
 	/* Keep the compiler happy */
 	return NULL;
 }
@@ -2974,9 +3061,22 @@ struct process_id procid_self(void)
 	return pid_to_procid(sys_getpid());
 }
 
+struct server_id server_id_self(void)
+{
+	struct server_id id;
+	id.id = procid_self();
+	return id;
+}
+
 BOOL procid_equal(const struct process_id *p1, const struct process_id *p2)
 {
 	return (p1->pid == p2->pid);
+}
+
+BOOL cluster_id_equal(const struct server_id *id1,
+		      const struct server_id *id2)
+{
+	return procid_equal(&id1->id, &id2->id);
 }
 
 BOOL procid_is_me(const struct process_id *pid)
@@ -3026,4 +3126,199 @@ int this_is_smp(void)
 #else
 	return 0;
 #endif
+}
+
+/****************************************************************
+ Check if an offset into a buffer is safe.
+ If this returns True it's safe to indirect into the byte at
+ pointer ptr+off.
+****************************************************************/
+
+BOOL is_offset_safe(const char *buf_base, size_t buf_len, char *ptr, size_t off)
+{
+	const char *end_base = buf_base + buf_len;
+	char *end_ptr = ptr + off;
+
+	if (!buf_base || !ptr) {
+		return False;
+	}
+
+	if (end_base < buf_base || end_ptr < ptr) {
+		return False; /* wrap. */
+	}
+
+	if (end_ptr < end_base) {
+		return True;
+	}
+	return False;
+}
+
+/****************************************************************
+ Return a safe pointer into a buffer, or NULL.
+****************************************************************/
+
+char *get_safe_ptr(const char *buf_base, size_t buf_len, char *ptr, size_t off)
+{
+	return is_offset_safe(buf_base, buf_len, ptr, off) ?
+			ptr + off : NULL;
+}
+
+/****************************************************************
+ Return a safe pointer into a string within a buffer, or NULL.
+****************************************************************/
+
+char *get_safe_str_ptr(const char *buf_base, size_t buf_len, char *ptr, size_t off)
+{
+	if (!is_offset_safe(buf_base, buf_len, ptr, off)) {
+		return NULL;
+	}
+	/* Check if a valid string exists at this offset. */
+	if (skip_string(buf_base,buf_len, ptr + off) == NULL) {
+		return NULL;
+	}
+	return ptr + off;
+}
+
+/****************************************************************
+ Return an SVAL at a pointer, or failval if beyond the end.
+****************************************************************/
+
+int get_safe_SVAL(const char *buf_base, size_t buf_len, char *ptr, size_t off, int failval)
+{
+	/*
+	 * Note we use off+1 here, not off+2 as SVAL accesses ptr[0] and ptr[1],
+ 	 * NOT ptr[2].
+ 	 */
+	if (!is_offset_safe(buf_base, buf_len, ptr, off+1)) {
+		return failval;
+	}
+	return SVAL(ptr,off);
+}
+
+/****************************************************************
+ Return an IVAL at a pointer, or failval if beyond the end.
+****************************************************************/
+
+int get_safe_IVAL(const char *buf_base, size_t buf_len, char *ptr, size_t off, int failval)
+{
+	/*
+	 * Note we use off+3 here, not off+4 as IVAL accesses 
+	 * ptr[0] ptr[1] ptr[2] ptr[3] NOT ptr[4].
+ 	 */
+	if (!is_offset_safe(buf_base, buf_len, ptr, off+3)) {
+		return failval;
+	}
+	return IVAL(ptr,off);
+}
+
+/****************************************************************
+ talloc wrapper functions that guarentee a null pointer return
+ if size == 0.
+****************************************************************/
+
+#ifndef MAX_TALLOC_SIZE
+#define MAX_TALLOC_SIZE 0x10000000
+#endif
+
+/*
+ *    talloc and zero memory.
+ *    - returns NULL if size is zero.
+ */
+
+void *_talloc_zero_zeronull(const void *ctx, size_t size, const char *name)
+{
+	void *p;
+
+	if (size == 0) {
+		return NULL;
+	}
+
+	p = talloc_named_const(ctx, size, name);
+
+	if (p) {
+		memset(p, '\0', size);
+	}
+
+	return p;
+}
+
+/*
+ *   memdup with a talloc.
+ *   - returns NULL if size is zero.
+ */
+
+void *_talloc_memdup_zeronull(const void *t, const void *p, size_t size, const char *name)
+{
+	void *newp;
+
+	if (size == 0) {
+		return NULL;
+	}
+
+	newp = talloc_named_const(t, size, name);
+	if (newp) {
+		memcpy(newp, p, size);
+	}
+
+	return newp;
+}
+
+/*
+ *   alloc an array, checking for integer overflow in the array size.
+ *   - returns NULL if count or el_size are zero.
+ */
+
+void *_talloc_array_zeronull(const void *ctx, size_t el_size, unsigned count, const char *name)
+{
+	if (count >= MAX_TALLOC_SIZE/el_size) {
+		return NULL;
+	}
+
+	if (el_size == 0 || count == 0) {
+		return NULL;
+	}
+
+	return talloc_named_const(ctx, el_size * count, name);
+}
+
+/*
+ *   alloc an zero array, checking for integer overflow in the array size
+ *   - returns NULL if count or el_size are zero.
+ */
+
+void *_talloc_zero_array_zeronull(const void *ctx, size_t el_size, unsigned count, const char *name)
+{
+	if (count >= MAX_TALLOC_SIZE/el_size) {
+		return NULL;
+	}
+
+	if (el_size == 0 || count == 0) {
+		return NULL;
+	}
+
+	return _talloc_zero(ctx, el_size * count, name);
+}
+
+/*
+ *   Talloc wrapper that returns NULL if size == 0.
+ */
+void *talloc_zeronull(const void *context, size_t size, const char *name)
+{
+	if (size == 0) {
+		return NULL;
+	}
+	return talloc_named_const(context, size, name);
+}
+
+bool reinit_after_fork(struct messaging_context *msg_ctx,
+		       struct event_context *ev_ctx,
+		       bool parent_longlived)
+{
+	set_need_random_reseed();
+	if (tdb_reopen_all(parent_longlived ? 1 : 0) == -1) {
+		DEBUG(0, ("tdb_reopen_all failed.\n"));
+		return false;
+	}
+	event_context_reinit(ev_ctx);
+	return true;
 }

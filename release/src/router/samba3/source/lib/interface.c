@@ -187,7 +187,11 @@ void load_interfaces(void)
 	total_probed = get_interfaces(ifaces, MAX_INTERFACES);
 
 	if (total_probed > 0) {
-		probed_ifaces = memdup(ifaces, sizeof(ifaces[0])*total_probed);
+		probed_ifaces = (struct iface_struct *)memdup(ifaces, sizeof(ifaces[0])*total_probed);
+		if (!probed_ifaces) {
+			DEBUG(0,("ERROR: memdup failed\n"));
+			exit(1);
+		}
 	}
 
 	/* if we don't have a interfaces line then use all broadcast capable 
@@ -226,6 +230,18 @@ void load_interfaces(void)
 	}
 }
 
+
+void gfree_interfaces(void)
+{
+	while (local_interfaces) {
+		struct interface *iface = local_interfaces;
+		DLIST_REMOVE(local_interfaces, local_interfaces);
+		ZERO_STRUCTPN(iface);
+		SAFE_FREE(iface);
+	}
+
+	SAFE_FREE(probed_ifaces);
+}
 
 /****************************************************************************
 return True if the list of probed interfaces has changed
@@ -281,6 +297,23 @@ int iface_count(void)
 
 	for (i=local_interfaces;i;i=i->next)
 		ret++;
+	return ret;
+}
+
+/****************************************************************************
+  how many non-loopback interfaces do we have
+  **************************************************************************/
+int iface_count_nl(void)
+{
+	int ret = 0;
+	struct interface *i;
+
+	for (i=local_interfaces;i;i=i->next) {
+		if (ip_equal(i->ip, loopback_ip)) {
+			continue;
+		}
+		ret++;
+	}
 	return ret;
 }
 
