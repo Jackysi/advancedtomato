@@ -374,7 +374,7 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
-		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
+		if (strcasecmp(nvram_safe_get("et1macaddr"), "00:90:4c:a1:00:2d") == 0)
 			dirty |= check_nv("et1macaddr", nvram_get("et0macaddr"));
 		break;
 	case MODEL_WL500GE:
@@ -394,7 +394,8 @@ static void check_bootnv(void)
 	case MODEL_WL500GD:
 		dirty |= check_nv("vlan0hwname", "et0");
 		dirty |= check_nv("vlan1hwname", "et0");
-		if (!nvram_get("vlan0ports")) {
+		dirty |= check_nv("boardflags", "0x00000100"); // set BFL_ENETVLAN
+		if (strcmp(nvram_safe_get("vlan0ports"), "") == 0) {
 			dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
 			dirty |= check_nv("vlan1ports", "0 5");
 		}
@@ -414,7 +415,7 @@ static void check_bootnv(void)
 		}
 		dirty |= check_nv("wandevs", "vlan1");
 		dirty |= check_nv("vlan1hwname", "et0");
-		if ((nvram_get("vlan1ports") == NULL) || nvram_match("vlan1ports", "0 5u"))
+		if ((strlen(nvram_safe_get("vlan1ports")) == 0) || nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 #ifdef CONFIG_BCMWL5
@@ -459,8 +460,7 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
-		if (strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4C", 8) == 0 ||
-		    strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
 			char mac[18];
 			strcpy(mac, nvram_get("et0macaddr"));
 			inc_mac(mac, 3);
@@ -1361,6 +1361,7 @@ int init_main(int argc, char *argv[])
 			if (state == RESTART) add_remove_usbhost("-1", 1);
 #endif
 
+			create_passwd();
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);

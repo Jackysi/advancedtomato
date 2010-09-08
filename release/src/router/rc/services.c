@@ -1474,7 +1474,6 @@ void start_services(void)
 	if (once) {
 		once = 0;
 
-		create_passwd();
 		if (nvram_get_int("telnetd_eas")) start_telnetd();
 		if (nvram_get_int("sshd_eas")) start_sshd();
 	}
