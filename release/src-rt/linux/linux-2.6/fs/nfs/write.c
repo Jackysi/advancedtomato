@@ -378,15 +378,13 @@ int nfs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 /*
  * Insert a write request into an inode
  */
-static int nfs_inode_add_request(struct inode *inode, struct nfs_page *req)
+static void nfs_inode_add_request(struct inode *inode, struct nfs_page *req)
 {
 	struct nfs_inode *nfsi = NFS_I(inode);
 	int error;
 
 	error = radix_tree_insert(&nfsi->nfs_page_tree, req->wb_index, req);
-	BUG_ON(error == -EEXIST);
-	if (error)
-		return error;
+	BUG_ON(error);
 	if (!nfsi->npages) {
 		igrab(inode);
 		nfs_begin_data_update(inode);
@@ -399,7 +397,8 @@ static int nfs_inode_add_request(struct inode *inode, struct nfs_page *req)
 		set_bit(PG_NEED_FLUSH, &req->wb_flags);
 	nfsi->npages++;
 	kref_get(&req->wb_kref);
-	return 0;
+	radix_tree_tag_set(&nfsi->nfs_page_tree, req->wb_index,
+				NFS_PAGE_TAG_LOCKED);
 }
 
 /*
@@ -621,28 +620,27 @@ static struct nfs_page * nfs_update_request(struct nfs_open_context* ctx,
 				error = nfs_wait_on_request(req);
 				nfs_release_request(req);
 				if (error < 0) {
-					if (new)
+					if (new) {
+						radix_tree_preload_end();
 						nfs_release_request(new);
+					}
 					return ERR_PTR(error);
 				}
 				continue;
 			}
 			spin_unlock(&inode->i_lock);
-			if (new)
+			if (new) {
+				radix_tree_preload_end();
 				nfs_release_request(new);
+			}
 			break;
 		}
 
 		if (new) {
-			int error;
 			nfs_lock_request_dontget(new);
-			error = nfs_inode_add_request(inode, new);
-			if (error) {
-				spin_unlock(&inode->i_lock);
-				nfs_unlock_request(new);
-				return ERR_PTR(error);
-			}
+			nfs_inode_add_request(inode, new);
 			spin_unlock(&inode->i_lock);
+			radix_tree_preload_end();
 			return new;
 		}
 		spin_unlock(&inode->i_lock);
@@ -650,6 +648,10 @@ static struct nfs_page * nfs_update_request(struct nfs_open_context* ctx,
 		new = nfs_create_request(ctx, inode, page, offset, bytes);
 		if (IS_ERR(new))
 			return new;
+		if (radix_tree_preload(GFP_NOFS)) {
+			nfs_release_request(new);
+			return ERR_PTR(-ENOMEM);
+		}
 	}
 
 	/* We have a request for our page.
@@ -745,7 +747,7 @@ int nfs_updatepage(struct file *file, struct page *page,
 	 */
 	if (nfs_write_pageuptodate(page, inode) &&
 			inode->i_flock == NULL &&
-			!(file->f_mode & O_SYNC)) {
+			!(file->f_flags & O_SYNC)) {
 		count = max(count + offset, nfs_page_length(page));
 		offset = 0;
 	}
