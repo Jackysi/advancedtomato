@@ -60,6 +60,10 @@ bcm947xx_time_init(void)
 	write_c0_count(0);
 	write_c0_compare(0xffff);
 
+	/* 5354 could run both on 200 & 240 Mhz -- use nvram setting */
+	if (sih->chip == BCM5354_CHIP_ID && nvram_match("clkfreq", "200"))
+		hz = 200000000;
+	else
 	if (!(hz = si_cpu_clock(sih)))
 		hz = 100000000;
 
