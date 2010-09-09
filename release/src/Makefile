@@ -294,10 +294,6 @@ define BusyboxOptions
 	if [ "$(BBEXTRAS)" = "y" ]; then \
 		sed -i "/CONFIG_SENDMAIL/d" $(1); \
 		echo "CONFIG_SENDMAIL=y" >>$(1); \
-		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
-		echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1); \
-		sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1); \
-		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
 		sed -i "/CONFIG_FTPPUT/d" $(1); \
@@ -381,6 +377,13 @@ define BusyboxOptions
 		echo "# CONFIG_TELNET is not set" >>$(1); \
 		sed -i "/CONFIG_ARPING/d" $(1); \
 		echo "# CONFIG_ARPING is not set" >>$(1); \
+		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
+		echo "# CONFIG_FEATURE_LS_COLOR is not set" >>$(1); \
+	else \
+		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
+		echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_LS_COLOR_IS_DEFAULT/d" $(1); \
+		echo "CONFIG_FEATURE_LS_COLOR_IS_DEFAULT=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -521,7 +524,7 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y NO_JFFS=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin JFFSv1=y B=S BUILD_DESC="Std" USB=""
 else
 	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
 endif
