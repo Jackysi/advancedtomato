@@ -1,4 +1,8 @@
-$Id: CHANGES,v 1.97 2010/03/05 12:15:33 psavola Exp $
+$Id: CHANGES,v 1.98 2010/03/10 07:57:36 psavola Exp $
+
+10/03/2010	Fix radvd skipping multiple interfaces when
+                UnicastOnly is on or AdvSendAdvert is off.
+		This got broken in radvd 1.3. Patch from Cedric BAIL.
 
 05/03/2010	Release 1.6.
 

@@ -1,5 +1,5 @@
 /*
- *   $Id: radvd.c,v 1.41 2010/01/28 13:34:26 psavola Exp $
+ *   $Id: radvd.c,v 1.42 2010/03/10 07:57:36 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -79,7 +79,9 @@ main(int argc, char *argv[])
 	int facility, fd;
 	char *username = NULL;
 	char *chrootdir = NULL;
+#ifdef USE_PRIVSEP
 	int singleprocess = 0;
+#endif
 #ifdef HAVE_GETOPT_LONG
 	int opt_idx;
 #endif
@@ -388,12 +390,12 @@ kickoff_adverts(void)
 	for(iface=IfaceList; iface; iface=iface->next)
 	{
 		if( iface->UnicastOnly )
-			break;
+			continue;
 
 		init_timer(&iface->tm, timer_handler, (void *) iface);
 
 		if (!iface->AdvSendAdvert)
-			break;
+			continue;
 
 		/* send an initial advertisement */
 		if (send_ra_forall(sock, iface, NULL) == 0) {

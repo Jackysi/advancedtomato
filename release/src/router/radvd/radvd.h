@@ -245,6 +245,10 @@ int privsep_interface_reachtime(const char *iface, uint32_t rtime);
 int privsep_interface_retranstimer(const char *iface, uint32_t rettimer);
 #else
 static inline int privsep_enabled(void)	{ return 0; }
+static inline int privsep_interface_linkmtu(const char *iface, uint32_t mtu)		{ return 0; }
+static inline int privsep_interface_curhlim(const char *iface, uint32_t hlim)		{ return 0; }
+static inline int privsep_interface_reachtime(const char *iface, uint32_t rtime)	{ return 0; }
+static inline int privsep_interface_retranstimer(const char *iface, uint32_t rettimer)	{ return 0; }
 #endif
 
 /*
