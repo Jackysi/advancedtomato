@@ -1159,6 +1159,7 @@ int chain_reply(char *inbuf,char *outbuf,int size,int bufsize)
 {
 	static char *orig_inbuf;
 	static char *orig_outbuf;
+	static int orig_size;
 	int smb_com1, smb_com2 = CVAL(inbuf,smb_vwv0);
 	unsigned smb_off2 = SVAL(inbuf,smb_vwv1);
 	char *inbuf2, *outbuf2;
@@ -1178,6 +1179,13 @@ int chain_reply(char *inbuf,char *outbuf,int size,int bufsize)
 		/* this is the first part of the chain */
 		orig_inbuf = inbuf;
 		orig_outbuf = outbuf;
+		orig_size = size;
+	}
+
+	/* Validate smb_off2 */
+	if ((smb_off2 < smb_wct - 4) || orig_size < (smb_off2 + 4 - smb_wct)) {
+		exit_server_cleanly("Bad chained packet");
+		return -1;
 	}
 
 	/*
@@ -1191,6 +1199,11 @@ int chain_reply(char *inbuf,char *outbuf,int size,int bufsize)
 	/* we need to tell the client where the next part of the reply will be */
 	SSVAL(outbuf,smb_vwv1,smb_offset(outbuf+outsize,outbuf));
 	SCVAL(outbuf,smb_vwv0,smb_com2);
+
+	if (outsize <= smb_wct) {
+		exit_server_cleanly("Bad chained packet");
+		return -1;
+	}
 
 	/* remember how much the caller added to the chain, only counting stuff
 		after the parameter words */
