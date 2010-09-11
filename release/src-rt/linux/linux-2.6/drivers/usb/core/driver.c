@@ -179,6 +179,20 @@ static int usb_unbind_device(struct device *dev)
 	return 0;
 }
 
+/*
+ * Cancel any pending scheduled resets
+ *
+ * [see usb_queue_reset_device()]
+ *
+ * Called after unconfiguring / when releasing interfaces. See
+ * comments in __usb_queue_reset_device() regarding
+ * udev->reset_running.
+ */
+static void usb_cancel_queued_reset(struct usb_interface *iface)
+{
+	if (iface->reset_running == 0)
+		cancel_work_sync(&iface->reset_ws);
+}
 
 /* called from driver core with dev locked */
 static int usb_probe_interface(struct device *dev)
@@ -220,6 +234,7 @@ static int usb_probe_interface(struct device *dev)
 			mark_quiesced(intf);
 			intf->needs_remote_wakeup = 0;
 			intf->condition = USB_INTERFACE_UNBOUND;
+			usb_cancel_queued_reset(intf);
 		} else
 			intf->condition = USB_INTERFACE_BOUND;
 
@@ -250,6 +265,7 @@ static int usb_unbind_interface(struct device *dev)
 		usb_disable_interface(udev, intf);
 
 	driver->disconnect(intf);
+	usb_cancel_queued_reset(intf);
 
 	/* reset other interface state */
 	usb_set_interface(udev, intf->altsetting[0].desc.bInterfaceNumber, 0);
@@ -947,7 +963,8 @@ static int usb_suspend_interface(struct usb_device *udev,
 	if (udev->state == USB_STATE_NOTATTACHED || !is_active(intf))
 		goto done;
 
-	if (intf->condition == USB_INTERFACE_UNBOUND)	/* This can't happen */
+	/* This can happen; see usb_driver_release_interface() */
+	if (intf->condition == USB_INTERFACE_UNBOUND)
 		goto done;
 	driver = to_usb_driver(intf->dev.driver);
 
