@@ -1188,8 +1188,15 @@ static void sysinit(void)
 #ifdef LINUX26
 	eval("hotplug2", "--coldplug");
 	start_hotplug2();
-	chmod("/dev/null", 0666);
-	chmod("/dev/zero", 0666);
+
+	static const char *dn[] = {
+		"null", "zero", "random", "urandom", "full", "ptmx",
+		NULL
+	};
+	for (i = 0; dn[i]; ++i) {
+		snprintf(s, sizeof(s), "/dev/%s", dn[i]);
+		chmod(s, 0666);
+	}
 	chmod("/dev/gpio", 0660);
 #endif
 
