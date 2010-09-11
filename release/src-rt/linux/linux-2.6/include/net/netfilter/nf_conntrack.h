@@ -150,6 +150,13 @@ struct nf_conn
 	/* Storage reserved for other modules: */
 	union nf_conntrack_proto proto;
 
+#if defined(CONFIG_IP_NF_TARGET_BCOUNT) || defined(CONFIG_IP_NF_TARGET_BCOUNT_MODULE)
+	u_int32_t bcount;
+#endif
+#if defined(CONFIG_IP_NF_TARGET_MACSAVE) || defined(CONFIG_IP_NF_TARGET_MACSAVE_MODULE)
+	unsigned char macsave[6];
+#endif
+
 #if defined(CONFIG_NETFILTER_XT_MATCH_LAYER7) || \
     defined(CONFIG_NETFILTER_XT_MATCH_LAYER7_MODULE)
 	struct ip_ct_layer7 layer7;

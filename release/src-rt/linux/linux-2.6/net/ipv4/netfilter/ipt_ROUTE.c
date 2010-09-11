@@ -25,12 +25,7 @@
 #include <net/icmp.h>
 #include <net/checksum.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-#define CONFIG_NF_CONNTRACK_SUPPORT
 #include <net/netfilter/nf_conntrack.h>
-#else
-#include <linux/netfilter_ipv4/ip_conntrack.h>
-#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 #include <net/net_namespace.h>
@@ -317,11 +312,7 @@ static unsigned int route_gw(const struct ipt_route_target_info *route_info,
  * routing packets when we see they already have that ->nfct.
  */
 
-#ifdef CONFIG_NF_CONNTRACK_SUPPORT
 static struct nf_conn route_tee_track;
-#else
-static struct ip_conntrack route_tee_track;
-#endif
 
 static unsigned int
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)

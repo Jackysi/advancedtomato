@@ -11,8 +11,8 @@
 #include <linux/version.h>
 #include <linux/if_ether.h>
 
+#include <net/netfilter/nf_conntrack.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_MACSAVE.h>
 
 static unsigned int
@@ -43,11 +43,11 @@ target(struct sk_buff *skb,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	struct sk_buff *skb = *pskb;
 #endif
-	struct ip_conntrack *ct;
+	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 	
 	if ((skb_mac_header(skb) >= skb->head) && ((skb_mac_header(skb) + ETH_HLEN) <= skb->data)) {
-		ct = ip_conntrack_get(skb, &ctinfo);
+		ct = nf_ct_get(skb, &ctinfo);
 		if (ct) {
 			memcpy(ct->macsave, eth_hdr(skb)->h_source, sizeof(ct->macsave));
 		}
