@@ -97,7 +97,7 @@ Tomato Firmware v<% version(1); %><br>
 Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates,<br>
 support for additional router models and Wireless-N mode.<br>
 Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
-<a href='http://www.tomatousb.org/'>http://www.tomatousb.org</a><br>
+<a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br><br>
 
