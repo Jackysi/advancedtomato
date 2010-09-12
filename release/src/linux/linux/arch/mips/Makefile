@@ -170,7 +170,6 @@ ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
 MODFLAGS	+= -msb1-pass1-workarounds
 endif
 endif
-GCCFLAGS        += $(call check_gcc, -m4710a0kern, )
 
 AFLAGS		+= $(GCCFLAGS)
 ASFLAGS		+= $(GCCFLAGS)
