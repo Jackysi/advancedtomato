@@ -51,6 +51,25 @@ var cache = [];
 var new_cache = [];
 var lock = 0;
 
+function clearLog(clear)
+{
+	if (xob) return;
+
+	xob = new XmlHttp();
+	xob.onCompleted = function(text, xml) {
+		xob = null;
+		E('clear' + clear).innerHTML = '&raquo; <a href="javascript:clearLog(' + clear + ')">Clear</a>';
+		if (!ref.running) ref.once = 1;
+		ref.start();
+	}
+	xob.onError = function(ex) {
+		xob = null;
+	}
+
+	xob.post('webmon.cgi', 'clear=' + clear);
+	E('clear' + clear).innerHTML = 'Please wait... <img src="spin.gif" style="vertical-align:top">';
+}
+
 function resolve()
 {
 	if ((queue.length == 0) || (xob)) return;
@@ -349,6 +368,9 @@ function earlyInit()
 		<div class='section'>
 			<table id='dom-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 			&raquo; <a href="webmon_recent_domains?_http_id=<% nv(http_id) %>">Download</a>
+			<div style="float:right;text-align:right;margin-right:5px" id="clear1">
+				&raquo; <a href="javascript:clearLog(1)">Clear</a>
+			</div>
 		</div>
 	</div>
 
@@ -357,6 +379,9 @@ function earlyInit()
 		<div class='section'>
 			<table id='srh-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 			&raquo; <a href="webmon_recent_searches?_http_id=<% nv(http_id) %>">Download</a>
+			<div style="float:right;text-align:right;margin-right:5px" id="clear2">
+				&raquo; <a href="javascript:clearLog(2)">Clear</a>
+			</div>
 		</div>
 	</div>
 
@@ -376,7 +401,7 @@ function earlyInit()
 		</div>
 		&raquo; <a href="admin-log.asp">Web Monitor Configuration</a>
 		<br><br>
-		<script type='text/javascript'>genStdRefresh(1,5,'ref.toggle()');</script>
+		<script type='text/javascript'>genStdRefresh(1,3,'ref.toggle()');</script>
 	</div>
 </div>
 

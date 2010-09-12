@@ -1042,6 +1042,7 @@ static int init_nvram(void)
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
 	nvram_unset("https_crt_gen");
+	nvram_unset("log_wmclear");
 #ifdef TCONFIG_MEDIA_SERVER
 	nvram_unset("ms_rescan");
 #endif

@@ -272,10 +272,11 @@ static void save_webmon(void)
 
 static void ipt_webmon(void)
 {
-	int wmtype;
+	int wmtype, clear;
 
 	if (!nvram_get_int("log_wm")) return;
 	wmtype = nvram_get_int("log_wmtype");
+	clear = nvram_get_int("log_wmclear");
 
 	ipt_write(
 		":monitor - [0:0]\n"
@@ -284,12 +285,12 @@ static void ipt_webmon(void)
 
 	ipt_write(
 		"-A monitor -m webmon "
-		"--max_domains %d --max_searches %d %s%s "
-		"--search_load_file /var/webmon/search "
-		"--domain_load_file /var/webmon/domain\n",
+		"--max_domains %d --max_searches %d %s%s %s %s\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
 		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
-		wmtype == 0 ? "" : nvram_safe_get("log_wmip"));
+		wmtype == 0 ? "" : nvram_safe_get("log_wmip"),
+		(clear & 1) == 0 ? "--domain_load_file /var/webmon/domain" : "--clear_domain",
+		(clear & 2) == 0 ? "--search_load_file /var/webmon/search" : "--clear_search");
 
 	modprobe("ipt_webmon");
 }
@@ -726,7 +727,6 @@ static void filter_table(void)
 	else {
 		ipt_write(":FORWARD ACCEPT [0:0]\n");
 		clampmss();
-		ipt_webmon();
 	}
 	ipt_write("COMMIT\n");
 }

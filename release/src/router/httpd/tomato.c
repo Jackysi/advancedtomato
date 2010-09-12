@@ -322,6 +322,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
 	{ "wpad.dat|proxy.pac",		"application/x-ns-proxy-autoconfig",	0,	wi_generic_noid,	do_file,		0 },
 
+	{ "webmon.cgi",		mime_javascript,				0,	wi_generic,		wo_webmon,		1 },
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
 	{ "nvcommit.cgi",	NULL,						0,	wi_generic,			wo_nvcommit,	1 },
