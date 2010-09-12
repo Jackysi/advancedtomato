@@ -70,11 +70,19 @@ static void env2nv_gateway(const char *nv)
 {
 	char *v;
 	char *b;
+
 	if ((v = getenv("router")) != NULL) {
 		if ((b = strdup(v)) != NULL) {
 			if ((v = strchr(b, ' ')) != NULL) *v = 0;	// truncate multiple entries
 			nvram_set(nv, b);
 			free(b);
+		}
+	}
+
+	if ((v = getenv("staticroutes"))) {
+		if ((v = strstr(v, "0.0.0.0/0 "))) {
+			v += strlen("0.0.0.0/0 ");
+			nvram_set(nv, strsep(&v, " "));
 		}
 	}
 }
