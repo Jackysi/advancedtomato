@@ -231,6 +231,8 @@ void ipt_restrictions(void)
 			first = 0;
 			ipt_write(":restrict - [0:0]\n"
 					  "-A FORWARD -o %s -j restrict\n", wanface);
+			if (*manface)
+				ipt_write("-A FORWARD -o %s -j restrict\n", manface);
 		}
 
 		sprintf(reschain, "rres%02d", nrule);
