@@ -413,7 +413,8 @@ void do_static_routes(int add)
 	p = buf;
 	while ((q = strsep(&p, ">")) != NULL) {
 		if (vstrsep(q, "<", &dest, &gateway, &mask, &metric, &ifname) != 5) continue;
-		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" : "wan_ifname");
+		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" :
+				       ((*ifname == 'W') ? "wan_iface" : "wan_ifname"));
 		if (add) {
 			for (r = 3; r >= 0; --r) {
 				if (route_add(ifname, atoi(metric) + 1, dest, gateway, mask) == 0) break;
