@@ -24,7 +24,11 @@
 
 
 #include <stdlib.h>
-#include <usb.h>
+#ifndef LIBUSB10
+    #include <usb.h>
+#else
+    #include <libusb.h>
+#endif
 
 void readConfigFile(const char *configFilename);
 void printConfig();

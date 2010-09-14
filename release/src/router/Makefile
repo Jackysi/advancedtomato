@@ -57,9 +57,8 @@ obj-y += mdu
 obj-$(TCONFIG_USB) += p910nd
 obj-$(TCONFIG_USB) += scsi-idle
 obj-$(TCONFIG_USB) += libusb10
-obj-$(TCONFIG_USB) += libusb
+#obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
-#obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
 
 ifeq ($(CONFIG_LINUX26),y)
@@ -751,11 +750,10 @@ libusb-install: libusb
 		ln -sf libusb-0.1.so.4 libusb-0.1.so.4.4.4 && \
 		ln -sf libusb-0.1.so.4 libusb.so
 
-usbmodeswitch: libusb
-	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) \
-	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share \
-	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
-	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"
+usbmodeswitch: libusb10
+	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) -DLIBUSB10 \
+	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share -lpthread \
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
 
 usbmodeswitchdb-install:
 	@mkdir -p $(TARGETDIR)/rom/etc/usb_modeswitch.d
@@ -785,7 +783,6 @@ radvd-install:
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
 p910nd:
-sendmail:
 samba:
 samba3:
 
