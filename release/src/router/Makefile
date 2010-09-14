@@ -930,7 +930,11 @@ dropbear-clean:
 	@rm -f dropbear/config.h
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+		ac_cv_func_logout=no ac_cv_func_logwtmp=no \
+		$(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp \
+		--disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline \
+		--disable-pututxline --disable-loginfunc --disable-pam --enable-openpty
 	@$(MAKE) -C dropbear clean
 
 # Media libraries
