@@ -327,16 +327,15 @@ const defaults_t defaults[] = {
 	{ "macnames",			""				},
 
 // advanced-ctnf
-	{ "ct_tcp_timeout",		""				},
-	{ "ct_udp_timeout",		""				},
-	{ "ct_timeout",			""				},
-	{ "ct_max",				""				},
-	{ "ct_max",				"8192"			},
-	{ "nf_ttl",				"0"				},
+	{ "ct_tcp_timeout",		"0 1800 30 20 20 20 10 20 20 0"				},
+	{ "ct_udp_timeout",		"10 10"				},
+	{ "ct_timeout",			"10 10"				},
+	{ "ct_max",			"8192"				},
+	{ "nf_ttl",			"0"				},
 	{ "nf_l7in",			"1"				},
 #ifdef LINUX26
 	{ "nf_sip",			"1"				},
-	{ "ct_hashsize",		""				},
+	{ "ct_hashsize",		"2048"				},
 #endif
 	{ "nf_rtsp",			"1"				},
 	{ "nf_pptp",			"0"				},
@@ -417,20 +416,20 @@ const defaults_t defaults[] = {
 	{ "qos_enable",			"0"				},
 	{ "qos_method",			"0"				},	// remove later	zzz
 	{ "qos_sticky",			"1"				},	// remove later	zzz
-	{ "qos_ack",			"1"				},
-	{ "qos_syn",			"0"				},
-	{ "qos_fin",			"0"				},
-	{ "qos_rst",			"0"				},
-	{ "qos_icmp",			"0"				},
-	{ "qos_reset",			"0"				},
-	{ "qos_obw",			"230"			},
-	{ "qos_ibw",			"1000"			},
-	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)>0<<-1<d<1024:65535<0<<<4<Bulk Traffic" },
+	{ "qos_ack",			"0"				},
+	{ "qos_syn",			"1"				},
+	{ "qos_fin",			"1"				},
+	{ "qos_rst",			"1"				},
+	{ "qos_icmp",			"1"				},
+	{ "qos_reset",			"1"				},
+	{ "qos_obw",			"700"			},
+	{ "qos_ibw",			"16000"			},
+	{ "qos_orules",			"0<<-1<d<53,37,123,3455<0<<0:10<0<DNS,Time,NTP,RSVP>0<<6<s<80<0<<<3<Remote Access>0<<-1<d<11999,2300:2400,6001:6002,6073,28800:29100,47624<0<<0:50<1<Some well-known games>0<<-1<a<<0<flash<<2<Flash Video, (Youtube)>0<<-1<a<<0<httpvideo<<2<HTTP Video, (Youtube)>0<<-1<a<<0<shoutcast<<2<Shoutcast>0<<-1<d<9,554,1755,5004,5005,6970:7170,8554<0<<<2<RTP,RTSP>0<<-1<a<<0<skypetoskype<<6<SkypetoSkype>0<<-1<a<<0<skypeout<<1<Skypeout>0<<-1<d<1935,5004,5060:5063,1719,1720,3478,3479,10000,15000<0<<<2<RTMP,MMS,SIP,H323,STUN>0<<-1<d<1220,1234,5100,6005,6970<0<<<2<QT,Camfrog,VLC>0<<6<d<80,443,8080<0<<0:512<4<WWW,SSL,HTTP Proxy>0<<-1<d<25,465,563,587,110,119,143,220,993,995<0<<<5<SMTP,POP3,IMAP,NNTP>0<<-1<d<1493,1502:1503,1542,1863,1963,3389,5061,5190:5193,7001<0<<<6<MSGR1 - Windows Live>0<<-1<d<194,1720,1730:1732,6660:6669,22555<0<<<6<MSGR2 - Misc Chat Services>0<<-1<d<5000:5010,5050,5100,5222,5223,8000:8002<0<<<6<MSGR3 - Misc Chat Services>0<<-1<x<5060,5190,5220:5223,5678,16384:16403<0<<<6<MSGR4 - Apple iChat>0<<-1<x<20:23,6571,6891:6901<0<<<7<FTP,SFTP,WLM File/Webcam>0<<-1<d<80,443,8080<0<<512:<7<HTTP,SSL File Transfers>0<<17<d<1:65535<0<<<-1<P2P (uTP, UDP)" },
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
-
-	{ "qos_default",		"3"				},
-	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
+	{ "qos_default",		"8"				},
+	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
+	{ "qos_irates",			"10,66,60,70,0,60,60,80,30,1"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
 	{ "ne_valpha",			"3"				},	// "
