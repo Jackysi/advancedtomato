@@ -95,6 +95,12 @@ enum libusb_class_code {
 	/** Data class */
 	LIBUSB_CLASS_DATA = 10,
 
+	/** Wireless class */
+	LIBUSB_CLASS_WIRELESS = 0xe0,
+
+	/** Application class */
+	LIBUSB_CLASS_APPLICATION = 0xfe,
+
 	/** Class is vendor-specific */
 	LIBUSB_CLASS_VENDOR_SPEC = 0xff
 };
@@ -788,6 +794,7 @@ void libusb_free_config_descriptor(struct libusb_config_descriptor *config);
 uint8_t libusb_get_bus_number(libusb_device *dev);
 uint8_t libusb_get_device_address(libusb_device *dev);
 int libusb_get_max_packet_size(libusb_device *dev, unsigned char endpoint);
+int libusb_get_max_iso_packet_size(libusb_device *dev, unsigned char endpoint);
 
 int libusb_open(libusb_device *dev, libusb_device_handle **handle);
 void libusb_close(libusb_device_handle *dev_handle);
@@ -1182,6 +1189,7 @@ int libusb_wait_for_event(libusb_context *ctx, struct timeval *tv);
 int libusb_handle_events_timeout(libusb_context *ctx, struct timeval *tv);
 int libusb_handle_events(libusb_context *ctx);
 int libusb_handle_events_locked(libusb_context *ctx, struct timeval *tv);
+int libusb_pollfds_handle_timeouts(libusb_context *ctx);
 int libusb_get_next_timeout(libusb_context *ctx, struct timeval *tv);
 
 /** \ingroup poll

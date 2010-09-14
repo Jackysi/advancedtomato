@@ -49,8 +49,8 @@ ifdef MATRIXSSL_DEBUG
 DFLAGS	= -g -Wall -Winline -Wdisabled-optimization -Wno-pointer-sign -Wno-sign-compare -DDEBUG
 STRIP	= test
 else
-#DFLAGS	= -Os
-DFLAGS	= -O3 
+#DFLAGS	= -O3
+DFLAGS	= -Os
 endif
 
 ifdef MATRIXSSL_PROFILE

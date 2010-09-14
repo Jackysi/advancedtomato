@@ -21,9 +21,8 @@ enum EVSFSysStrOpenMode
   kVSFSysStrOpenReadOnly = 1
 };
 int str_open(const struct mystr* p_str, const enum EVSFSysStrOpenMode mode);
-int str_create_append(const struct mystr* p_str);
 int str_create(const struct mystr* p_str);
-int str_create_overwrite(const struct mystr* p_str);
+int str_create_exclusive(const struct mystr* p_str);
 int str_chmod(const struct mystr* p_str, unsigned int mode);
 int str_stat(const struct mystr* p_str, struct vsf_sysutil_statbuf** p_ptr);
 int str_lstat(const struct mystr* p_str, struct vsf_sysutil_statbuf** p_ptr);

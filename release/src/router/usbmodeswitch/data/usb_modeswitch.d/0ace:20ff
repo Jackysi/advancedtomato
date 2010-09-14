@@ -1,0 +1,12 @@
+########################################################
+# Zydas ZD1211RW WLAN USB, Sphairon HomeLink 1202 (Variant 2)
+
+DefaultVendor= 0x0ace
+DefaultProduct=0x20ff
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+NoDriverLoading=1
+

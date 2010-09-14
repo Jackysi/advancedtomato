@@ -1,26 +1,33 @@
-.TH "USB-MODESWITCH" "1" 
+.TH "USB_MODESWITCH" "1" 
 .SH "NAME" 
-usb-modeswitch - switch mode of "multi-state" USB devices 
+usb_modeswitch - switch mode of "multi-state" USB devices 
 .SH "SYNOPSIS" 
 .PP 
-\fBusb-modeswitch\fR [\fB-hvpVPmMrdHn\fP]  [\fB-c \fIfilename\fP]
+\fBusb_modeswitch\fR [\fB-hvpVPmM23rdHn\fP]  [\fB-c \fIfilename\fP]
 .SH "DESCRIPTION" 
 .PP 
-Several new USB devices have their proprietary Windows drivers onboard, 
-most of them WAN dongles. When plugged in for the first time, they act 
+Several new USB devices have their proprietary Windows drivers onboard,
+most of them WAN dongles. When plugged in for the first time, they act
 like a flash storage and start installing the Windows driver from there.
-If the driver is already installed, the storage device vanishes and 
-a new device, such as an USB modem, shows up.
+If the driver is already installed, it makes the storage device disappear
+and a new device, mainly composite with modem ports, shows up.
 .PP 
-On Linux, in most cases the drivers are provided as a Linux kernel module,
-such as "usbserial". However, the device shows up as "usb-storage"
-by default. \fBusb-modeswitch\fR solves that issue by sending the
-respective command which actually performs the switching 
-of the device from "usb-storage" to the target mode like "usbserial". 
- 
+On Linux, in most cases the drivers are available as kernel modules,
+such as "usbserial" or "option". However, the device shows up as
+"usb-storage" by default. \fBusb_modeswitch\fR can send a provided bulk
+message (most likely a mass storage command) to the device which is known
+to initiate the mode switching.
+.PP
+In some cases, USB control commands are used for switching. These cases are
+handled by custom functions, and no bulk message needs to be provided.
+.PP
+Usually, the program is distributed with a set of configurations for many
+known devices, which in combination with a wrapper script launched from the
+udev daemon allows a fully automatic handling of a device upon insertion.
+
 .SH "OPTIONS" 
 .PP 
-These programs follow the usual GNU command line syntax, 
+This program follows the usual GNU command line syntax,
 with long options starting with two dashes ('--').  A summary of 
 options is included below. 
 .IP "\fB-h\fP \fB\-\-help\fP         " 10 
@@ -32,7 +39,7 @@ Vendor ID to look for (mandatory), usually given as hex number (example: 0x12d1)
 Each USB device is identified by a number
 officialy assigned to the vendor by the USB association and a number for the
 respective model (product ID) chosen by the vendor
-.IP "\fB-p\fP  \fB\-\-default-product NUM\fP         " 10 
+.IP "\fB-p\fP \fB\-\-default-product NUM\fP         " 10 
 Product ID to look for (mandatory). 
 .IP "\fB-V\fP \fB\-\-target-vendor NUM\fP         " 10 
 Target vendor ID. When given will be searched for and detected initially
@@ -45,20 +52,32 @@ Target Device Class according to the USB specification. Some devices keep
 their original vendor/product ID after successful switching. To prevent
 them from being treated again, the device class can be checked.
 For unswitched devices it is always 8 (storage class), for switched
-modems it is often 0xff (vendor specific)
+modems it is often 0xff (vendor specific). In composite modes,
+the class of the first interface is watched
 .IP "\fB-m\fP \fB\-\-message-endpoint NUM\fP         " 10 
-A specific endpoint to use for data transfers. Only for testing;
-the default is to determine endpoints from the device data
+A specific endpoint to use for data transfers. Only for testing purposes; usually
+endpoints are determined from the device attributes
 .IP "\fB-M\fP \fB\-\-message-content STRING\fP         " 10 
 A bulk message to send as a switching command. Provided as a hexadecimal string 
-.IP "\fB-n\fP \fB\-\-need-response\fP         " 10 
-Read the response to the bulk message transfer. Some devices have trouble
-switching if the response is not read
+.IP "\fB-2, -3\fP  \fB\-\-message-content2, \-\-message-content3 STRING\fP         " 10 
+Additional bulk messages to send as switching commands. Provided as hexadecimal strings.
+When used with mass storage commands, setting \fB\-\-need-response\fR is
+strongly advised to comply with specifications and to avoid likely errors
+.IP "\fB-w\fP \fB\-\-message-delay NUM\fP         " 10
+If there is more than one message content, wait for NUM milliseconds
+before sending the next one. Otherwise it is ignored. Note: this will release
+and reclaim the interface
+.IP "\fB-n\fP \fB\-\-need-response\fP         " 10
+Read the response (command status wrapper) to a mass storage command
+transfer.
+Some devices have trouble switching if the response is not read; most
+are disappearing right away. When sending multiple mass storage commands
+with \fB\-2\fR and \fB\-3\fR, this may need to be set to avoid transfer errors
 .IP "\fB-r\fP \fB\-\-response-endpoint NUM\fP         " 10 
-Try to read the response to the bulk message transfer from there
-if option -n is active). Only for testing; the default is to determine
-endpoints fro the device data 
-.IP "\fB-d\fP \fB\-\-detach-only\fP         " 10 
+Try to read the response to a storage command from there
+if option -n is active. Only for testing purposes; usually
+endpoints are determined from the device attributes
+.IP "\fB-d\fP \fB\-\-detach-only\fP         " 10
 Detach the storage driver as the only action. This is sufficient for some
 devices to switch successfully
 .IP "\fB-H\fP \fB\-\-huawei-mode\fP         " 10 
@@ -77,8 +96,8 @@ Few devices need it to complete the switching; apart from that it may be
 useful during testing
 .IP "\fB-c\fP \fB\-\-config filename\fP         " 10 
 Use a specific config file. If any ID or switching options are given as
-command line parameters, no config file (default or specific) is used.
-In that case all mandatory and optional parameters have to be provided on
+command line parameters, this option is ignored.
+In that case all mandatory parameters have to be provided on
 the command line
 .IP "\fB-Q\fP \fB\-\-quiet\fP         " 10 
 Don't show progress or error messages 
@@ -98,9 +117,9 @@ of differing devices the attributes of the storage part provide valuable informa
 This is not needed for devices that are known and supported 
 .IP "\fB-i\fP \fB\-\-interface NUM\fP         " 10 
 Select initial USB interface (default: 0). Only for testing purposes
-.IP "\fB-u\fP \fB\-\-configuration NUM\fP         " 10 
+.IP "\fB-u\fP \fB\-\-configuration NUM\fP         " 10
 Select USB configuration (applied after switching). Mainly for testing
-.IP "\fB-a\fP \fB\-\-altsetting NUM\fP         " 10 
+.IP "\fB-a\fP \fB\-\-altsetting NUM\fP         " 10
 Select alternative USB interface setting (applied after switching). Mainly
 for testing
 .SH "AUTHOR" 
@@ -109,10 +128,10 @@ This manual page was originally written by Didier Raboud (didier@raboud.com) for
 the \fBDebian\fP system. Additions made by Josua Dietze. Permission is 
 granted to copy, distribute and/or modify this document under 
 the terms of the GNU General Public License, Version 2 or any 
-later version published by the Free Software Foundation. 
- 
-.PP 
-The complete text of the current GNU General Public 
-License can be found in http://www.gnu.org/licenses/gpl.txt 
- 
-.\" created by instant / docbook-to-man, Fri 06 Nov 2009, 16:24 
+later version published by the Free Software Foundation.
+
+.PP
+The complete text of the current GNU General Public
+License can be found in http://www.gnu.org/licenses/gpl.txt
+
+.\" last edited 2010-06-21

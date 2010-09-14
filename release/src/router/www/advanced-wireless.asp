@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -25,7 +25,7 @@
 /* REMOVE-BEGIN
 	!!TB - Added wl_reg_mode, wl_country, wl_country_code, wl_btc_mode
 REMOVE-END */
-//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode,wl_mimo_preamble"); %>
+//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode,wl_mimo_preamble,wl_obss_coex"); %>
 //	<% wlcountries(); %>
 
 hp = features('hpamp');
@@ -39,7 +39,7 @@ function verifyFields(focused, quiet)
 	if (!v_range('_wl_dtim', quiet, 1, 255)) return 0;
 	if (!v_range('_wl_frag', quiet, 256, 2346)) return 0;
 	if (!v_range('_wl_rts', quiet, 0, 2347)) return 0;
-	if (!v_range(E('_wl_txpwr'), quiet, 1, 251)) return 0;
+	if (!v_range(E('_wl_txpwr'), quiet, hp ? 1 : 0, hp ? 251 : 400)) return 0;
 
 	E('_wl_wme_no_ack').disabled = (E('_wl_wme').value == 'off');
 	E('_wl_wme_apsd').disabled = (E('_wl_wme').value == 'off');
@@ -57,6 +57,9 @@ function save()
 	n = fom._f_distance.value * 1;
 	fom.wl_distance.value = n ? n : '';
 
+	fom.wl_country.value = fom.wl_country_code.value;
+	fom.wl_nmode_protection.value = fom.wl_gmode_protection.value;
+
 	if (hp) {
 		if ((fom.wlx_hpamp.value != nvram.wlx_hpamp) || (fom.wlx_hperx.value != nvram.wlx_hperx)) {
 			fom._service.disabled = 1;
@@ -69,9 +72,6 @@ function save()
 		fom.wlx_hpamp.disabled = 1;
 		fom.wlx_hperx.disabled = 1;
 	}
-
-	fom.wl_country.value = fom._wl_country_code.value;
-	fom.wl_nmode_protection.value = fom._wl_gmode_protection.value;
 
 	form.submit(fom, 1);
 }
@@ -152,6 +152,8 @@ REMOVE-END */
 		value: nvram.wl_plcphdr },
 	{ title: '802.11n Preamble', name: 'wl_mimo_preamble', type: 'select', options: [['auto','Auto'],['mm','Mixed Mode *'],['gf','Green Field'],['gfbcm','GF-BRCM']],
 		value: nvram.wl_mimo_preamble, hidden: !nphy },
+	{ title: 'Overlapping BSS Coexistence', name: 'wl_obss_coex', type: 'select', options: [['0','Off *'],['1','On']],
+		value: nvram.wl_obss_coex, hidden: !nphy },
 	{ title: 'RTS Threshold', name: 'wl_rts', type: 'text', maxlen: 4, size: 6,
 		suffix: ' <small>(range: 0 - 2347; default: 2347)</small>', value: nvram.wl_rts },
 	{ title: 'Receive Antenna', name: 'wl_antdiv', type: 'select', options: [['3','Auto *'],['1','A'],['0','B']],
@@ -161,7 +163,7 @@ REMOVE-END */
 	{ title: 'Transmit Power', name: 'wl_txpwr', type: 'text', maxlen: 3, size: 5,
 		suffix: hp ?
 			' <small>mW (before amplification)</small>&nbsp;&nbsp;<small>(range: 1 - 251; default: 10)</small>' :
-			' <small>mW</small>&nbsp;&nbsp;<small>(range: 1 - 251, actual max depends on Country selected; default: 42)</small>',
+			' <small>mW</small>&nbsp;&nbsp;<small>(range: 0 - 400, actual max depends on Country selected; use 0 for hardware default)</small>',
 			value: nvram.wl_txpwr },
 	{ title: 'Transmission Rate', name: 'wl_rate', type: 'select',
 		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],

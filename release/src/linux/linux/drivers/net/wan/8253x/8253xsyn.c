@@ -55,11 +55,6 @@ static void sab8253x_flush_to_ldiscS(void *private_) /* need a separate version 
 		return;
 	}
 	
-	if (test_bit(TTY_DONT_FLIP, &tty->flags)) 
-	{
-		queue_task(&tty->flip.tqueue, &tq_timer);
-		return;
-	}
 	/* note that a hangup may have occurred -- perhaps should check for that */
 	port->DoingInterrupt = 1;
 	while(port->sab8253xc_rcvbuflist && (skb_queue_len(port->sab8253xc_rcvbuflist) > 0))

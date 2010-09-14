@@ -54,7 +54,7 @@ struct command {
 	int flags;		// exit, suspend, && ||
 	int pid;		// pid (or exit code)
 	int argc;
-	char *argv[0];
+	char *argv[];
 };
 
 // A collection of processes piped into/waiting on each other.
@@ -199,7 +199,7 @@ static void handle(char *command)
 }
 
 int bbsh_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int bbsh_main(int argc, char **argv)
+int bbsh_main(int argc UNUSED_PARAM, char **argv)
 {
 	char *command=NULL;
 	FILE *f;
@@ -212,7 +212,7 @@ int bbsh_main(int argc, char **argv)
 		unsigned cmdlen=0;
 		for (;;) {
 			if (!f) putchar('$');
-			if (1 > getline(&command, &cmdlen,f ? : stdin)) break;
+			if (1 > getline(&command, &cmdlen, f ? f : stdin)) break;
 
 			handle(command);
 		}

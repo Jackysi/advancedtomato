@@ -31,6 +31,7 @@ static void emit_greeting(struct vsf_session* p_sess);
 static void parse_username_password(struct vsf_session* p_sess);
 static void handle_user_command(struct vsf_session* p_sess);
 static void handle_pass_command(struct vsf_session* p_sess);
+static void handle_get(struct vsf_session* p_sess);
 static void check_login_delay();
 static void check_login_fails(struct vsf_session* p_sess);
 
@@ -54,7 +55,10 @@ init_connection(struct vsf_session* p_sess)
   {
     ssl_control_handshake(p_sess);
   }
-  emit_greeting(p_sess);
+  if (tunable_ftp_enable)
+  {
+    emit_greeting(p_sess);
+  }
   parse_username_password(p_sess);
 }
 
@@ -117,51 +121,78 @@ parse_username_password(struct vsf_session* p_sess)
   {
     vsf_cmdio_get_cmd_and_arg(p_sess, &p_sess->ftp_cmd_str,
                               &p_sess->ftp_arg_str, 1);
-    if (str_equal_text(&p_sess->ftp_cmd_str, "USER"))
+    if (tunable_ftp_enable)
     {
-      handle_user_command(p_sess);
+      if (str_equal_text(&p_sess->ftp_cmd_str, "USER"))
+      {
+        handle_user_command(p_sess);
+      }
+      else if (str_equal_text(&p_sess->ftp_cmd_str, "PASS"))
+      {
+        handle_pass_command(p_sess);
+      }
+      else if (str_equal_text(&p_sess->ftp_cmd_str, "QUIT"))
+      {
+        vsf_cmdio_write_exit(p_sess, FTP_GOODBYE, "Goodbye.");
+      }
+      else if (str_equal_text(&p_sess->ftp_cmd_str, "FEAT"))
+      {
+        handle_feat(p_sess);
+      }
+      else if (str_equal_text(&p_sess->ftp_cmd_str, "OPTS"))
+      {
+        handle_opts(p_sess);
+      }
+      else if (tunable_ssl_enable &&
+               str_equal_text(&p_sess->ftp_cmd_str, "AUTH") &&
+               !p_sess->control_use_ssl)
+      {
+        handle_auth(p_sess);
+      }
+      else if (tunable_ssl_enable &&
+               str_equal_text(&p_sess->ftp_cmd_str, "PBSZ"))
+      {
+        handle_pbsz(p_sess);
+      }
+      else if (tunable_ssl_enable &&
+               str_equal_text(&p_sess->ftp_cmd_str, "PROT"))
+      {
+        handle_prot(p_sess);
+      }
+      else if (str_isempty(&p_sess->ftp_cmd_str) &&
+               str_isempty(&p_sess->ftp_arg_str))
+      {
+        /* Deliberately ignore to avoid NAT device bugs, as per ProFTPd. */
+      }
+      else
+      {
+        vsf_cmdio_write(p_sess, FTP_LOGINERR,
+                        "Please login with USER and PASS.");
+      }
     }
-    else if (str_equal_text(&p_sess->ftp_cmd_str, "PASS"))
+    else if (tunable_http_enable)
     {
-      handle_pass_command(p_sess);
-    }
-    else if (str_equal_text(&p_sess->ftp_cmd_str, "QUIT"))
-    {
-      vsf_cmdio_write_exit(p_sess, FTP_GOODBYE, "Goodbye.");
-    }
-    else if (str_equal_text(&p_sess->ftp_cmd_str, "FEAT"))
-    {
-      handle_feat(p_sess);
-    }
-    else if (str_equal_text(&p_sess->ftp_cmd_str, "OPTS"))
-    {
-      handle_opts(p_sess);
-    }
-    else if (tunable_ssl_enable &&
-             str_equal_text(&p_sess->ftp_cmd_str, "AUTH") &&
-             !p_sess->control_use_ssl)
-    {
-      handle_auth(p_sess);
-    }
-    else if (tunable_ssl_enable && str_equal_text(&p_sess->ftp_cmd_str, "PBSZ"))
-    {
-      handle_pbsz(p_sess);
-    }
-    else if (tunable_ssl_enable && str_equal_text(&p_sess->ftp_cmd_str, "PROT"))
-    {
-      handle_prot(p_sess);
-    }
-    else if (str_isempty(&p_sess->ftp_cmd_str) &&
-             str_isempty(&p_sess->ftp_arg_str))
-    {
-      /* Deliberately ignore to avoid NAT device bugs. ProFTPd does the same. */
-    }
-    else
-    {
-      vsf_cmdio_write(p_sess, FTP_LOGINERR,
-                      "Please login with USER and PASS.");
+      if (str_equal_text(&p_sess->ftp_cmd_str, "GET"))
+      {
+        handle_get(p_sess);
+      }
+      else
+      {
+        vsf_cmdio_write(p_sess, FTP_LOGINERR, "Bad HTTP verb.");
+      }
+      vsf_sysutil_exit(0);
     }
   }
+}
+
+static void
+handle_get(struct vsf_session* p_sess)
+{
+  p_sess->is_http = 1;
+  str_copy(&p_sess->http_get_arg, &p_sess->ftp_arg_str);
+  str_alloc_text(&p_sess->user_str, "FTP");
+  str_alloc_text(&p_sess->ftp_arg_str, "<http>");
+  handle_pass_command(p_sess);
 }
 
 static void
@@ -199,16 +230,14 @@ handle_user_command(struct vsf_session* p_sess)
   {
     vsf_cmdio_write(
       p_sess, FTP_LOGINERR, "Non-anonymous sessions must use encryption.");
-    str_empty(&p_sess->user_str);
-    return;
+    vsf_sysutil_exit(0);
   }
   if (tunable_ssl_enable && is_anon && !p_sess->control_use_ssl &&
       tunable_force_anon_logins_ssl)
   { 
     vsf_cmdio_write(
       p_sess, FTP_LOGINERR, "Anonymous sessions must use encryption.");
-    str_empty(&p_sess->user_str);
-    return;
+    vsf_sysutil_exit(0);
   }
   if (tunable_userlist_enable)
   {

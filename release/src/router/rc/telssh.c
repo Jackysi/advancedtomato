@@ -48,6 +48,7 @@ void create_passwd(void)
 		fprintf(f, "%s:*:0:0:99999:7:0:0:\n", smbd_user);
 #endif
 
+		fappend(f, "/etc/shadow.custom");
 		fclose(f);
 	}
 	umask(m);
@@ -70,6 +71,7 @@ void create_passwd(void)
 		"nobody:x:65534:65534:nobody:/dev/null:/dev/null\n",
 		0, 0644);
 #endif	//!!TB
+	fappend_file("/etc/passwd", "/etc/passwd.custom");
 
 	f_write_string("/etc/gshadow",
 		"root:*:0:\n"
@@ -79,6 +81,8 @@ void create_passwd(void)
 #endif
 		"nobody:*:65534:\n",
 		0, 0600);
+	fappend_file("/etc/gshadow", "/etc/gshadow.custom");
+
 	f_write_string("/etc/group",
 		"root:x:0:\n"
 //#if TOMATO_SL
@@ -87,6 +91,7 @@ void create_passwd(void)
 #endif
 		"nobody:x:65534:\n",
 		0, 0644);
+	fappend_file("/etc/group", "/etc/group.custom");
 }
 
 static inline int check_host_key(const char *ktype, const char *nvname, const char *hkfn)
@@ -105,13 +110,16 @@ static inline int check_host_key(const char *ktype, const char *nvname, const ch
 
 void start_sshd(void)
 {
+	int dirty = 0;
+
 	mkdir("/etc/dropbear", 0700);
 	mkdir("/root/.ssh", 0700);
 
 	f_write_string("/root/.ssh/authorized_keys", nvram_safe_get("sshd_authkeys"), 0, 0700);
 
-	if (check_host_key("rsa", "sshd_hostkey", "/etc/dropbear/dropbear_rsa_host_key") ||
-	    check_host_key("dss", "sshd_dsskey",  "/etc/dropbear/dropbear_dss_host_key"))
+	dirty |= check_host_key("rsa", "sshd_hostkey", "/etc/dropbear/dropbear_rsa_host_key");
+	dirty |= check_host_key("dss", "sshd_dsskey",  "/etc/dropbear/dropbear_dss_host_key");
+	if (dirty)
 		nvram_commit_x();
 
 /*

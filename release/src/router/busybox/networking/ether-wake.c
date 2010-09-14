@@ -111,18 +111,19 @@ static void get_dest_addr(const char *hostid, struct ether_addr *eaddr)
 {
 	struct ether_addr *eap;
 
-	eap = ether_aton(hostid);
+	eap = ether_aton_r(hostid, eaddr);
 	if (eap) {
-		*eaddr = *eap;
-		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eaddr));
-#if !defined(__UCLIBC__) || (__UCLIBC_MAJOR__ > 0) \
-	|| (__UCLIBC_MINOR__ > 9) \
-	|| (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 30)
+		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eap));
+#if !defined(__UCLIBC_MAJOR__) \
+ || __UCLIBC_MAJOR__ > 0 \
+ || __UCLIBC_MINOR__ > 9 \
+ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 30)
 	} else if (ether_hostton(hostid, eaddr) == 0) {
 		bb_debug_msg("Station address for hostname %s is %s\n\n", hostid, ether_ntoa(eaddr));
 #endif
-	} else
+	} else {
 		bb_show_usage();
+	}
 }
 
 static int get_fill(unsigned char *pkt, struct ether_addr *eaddr, int broadcast)
@@ -166,7 +167,7 @@ static int get_wol_pw(const char *ethoptarg, unsigned char *wol_passwd)
 		byte_cnt = sscanf(ethoptarg, "%u.%u.%u.%u",
 		                  &passwd[0], &passwd[1], &passwd[2], &passwd[3]);
 	if (byte_cnt < 4) {
-		bb_error_msg("cannot read Wake-On-LAN pass");
+		bb_error_msg("can't read Wake-On-LAN pass");
 		return 0;
 	}
 // TODO: check invalid numbers >255??

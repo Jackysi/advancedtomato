@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -78,6 +78,7 @@ tg.verifyFields = function(row, quiet) {
 	if (!v_portrange(f[2], quiet)) return 0;
 	if (!v_portrange(f[3], quiet)) return 0;
 	f[4].value = f[4].value.replace(/>/g, '_');
+	if (!v_nodelim(f[4], quiet, 'Description')) return 0;
 	return 1;
 }
 

@@ -15,6 +15,9 @@
 #include <sys/reboot.h>
 #include <sys/resource.h>
 #include <linux/vt.h>
+#if ENABLE_FEATURE_UTMP
+# include <utmp.h> /* DEAD_PROCESS */
+#endif
 
 
 /* Was a CONFIG_xxx option. A lot of people were building
@@ -40,9 +43,9 @@
 #define ONCE        0x04
 /*
  * NB: while SYSINIT/WAIT/ONCE are being processed,
- * SIGHUP ("reread /etc/inittab") will be ignored.
- * Rationale: it would be ambiguous whether SYSINIT/WAIT/ONCE
- * need to be rerun or not.
+ * SIGHUP ("reread /etc/inittab") will be processed only after
+ * each group of actions. If new inittab adds, say, a SYSINIT action,
+ * it will not be run, since init is already "past SYSINIT stage".
  */
 /* Start these after ONCE are started, restart on exit */
 #define RESPAWN     0x08
@@ -86,7 +89,6 @@ static const char *log_console = VC_5;
 enum {
 	L_LOG = 0x1,
 	L_CONSOLE = 0x2,
-	MAYBE_CONSOLE = L_CONSOLE * !ENABLE_FEATURE_EXTRA_QUIET,
 #ifndef RB_HALT_SYSTEM
 	RB_HALT_SYSTEM = 0xcdef0123, /* FIXME: this overflows enum */
 	RB_ENABLE_CAD = 0x89abcdef,
@@ -120,7 +122,7 @@ static void message(int where, const char *fmt, ...)
 	msg[l] = '\0';
 	if (where & L_LOG) {
 		/* Log the message to syslogd */
-		openlog("init", 0, LOG_DAEMON);
+		openlog(applet_name, 0, LOG_DAEMON);
 		/* don't print "\r" */
 		syslog(LOG_INFO, "%s", msg + 1);
 		closelog();
@@ -261,6 +263,21 @@ static int open_stdio_to_tty(const char* tty_name)
 	return 1; /* success */
 }
 
+static void reset_sighandlers_and_unblock_sigs(void)
+{
+	bb_signals(0
+		+ (1 << SIGUSR1)
+		+ (1 << SIGUSR2)
+		+ (1 << SIGTERM)
+		+ (1 << SIGQUIT)
+		+ (1 << SIGINT)
+		+ (1 << SIGHUP)
+		+ (1 << SIGTSTP)
+		+ (1 << SIGSTOP)
+		, SIG_DFL);
+	sigprocmask_allsigs(SIG_UNBLOCK);
+}
+
 /* Wrapper around exec:
  * Takes string (max COMMAND_SIZE chars).
  * If chars like '>' detected, execs '[-]/bin/sh -c "exec ......."'.
@@ -305,7 +322,7 @@ static void init_exec(const char *command)
 			ioctl(STDIN_FILENO, TIOCSCTTY, 0 /*only try, don't steal*/);
 	}
 	BB_EXECVP(cmd[0] + dash, cmd);
-	message(L_LOG | L_CONSOLE, "cannot run '%s': %s", cmd[0], strerror(errno));
+	message(L_LOG | L_CONSOLE, "can't run '%s': %s", cmd[0], strerror(errno));
 	/* returns if execvp fails */
 }
 
@@ -330,16 +347,7 @@ static pid_t run(const struct init_action *a)
 	/* Child */
 
 	/* Reset signal handlers that were set by the parent process */
-	bb_signals(0
-		+ (1 << SIGUSR1)
-		+ (1 << SIGUSR2)
-		+ (1 << SIGTERM)
-		+ (1 << SIGQUIT)
-		+ (1 << SIGINT)
-		+ (1 << SIGHUP)
-		+ (1 << SIGTSTP)
-		, SIG_DFL);
-	sigprocmask_allsigs(SIG_UNBLOCK);
+	reset_sighandlers_and_unblock_sigs();
 
 	/* Create a new session and make ourself the process group leader */
 	setsid();
@@ -410,6 +418,7 @@ static struct init_action *mark_terminated(pid_t pid)
 				return a;
 			}
 		}
+		update_utmp(pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
 	}
 	return NULL;
 }
@@ -477,8 +486,8 @@ static void new_init_action(uint8_t action_type, const char *command, const char
 		/* Don't enter action if it's already in the list,
 		 * This prevents losing running RESPAWNs.
 		 */
-		if ((strcmp(a->command, command) == 0)
-		 && (strcmp(a->terminal, cons) == 0)
+		if (strcmp(a->command, command) == 0
+		 && strcmp(a->terminal, cons) == 0
 		) {
 			/* Remove from list */
 			*nextp = a->next;
@@ -559,9 +568,7 @@ static void parse_inittab(void)
 			goto bad_entry;
 		/* turn .*TTY -> /dev/TTY */
 		if (tty[0]) {
-			if (strncmp(tty, "/dev/", 5) == 0)
-				tty += 5;
-			tty = concat_path_file("/dev/", tty);
+			tty = concat_path_file("/dev/", skip_dev_pfx(tty));
 		}
 		new_init_action(1 << action, token[3], tty);
 		if (tty[0])
@@ -652,11 +659,20 @@ static void run_shutdown_and_kill_processes(void)
  * and only one will be remembered and acted upon.
  */
 
+/* The SIGUSR[12]/SIGTERM handler */
 static void halt_reboot_pwoff(int sig) NORETURN;
 static void halt_reboot_pwoff(int sig)
 {
 	const char *m;
 	unsigned rb;
+
+	/* We may call run() and it unmasks signals,
+	 * including the one masked inside this signal handler.
+	 * Testcase which would start multiple reboot scripts:
+	 *  while true; do reboot; done
+	 * Preventing it:
+	 */
+	reset_sighandlers_and_unblock_sigs();
 
 	run_shutdown_and_kill_processes();
 
@@ -672,6 +688,48 @@ static void halt_reboot_pwoff(int sig)
 	message(L_CONSOLE, "Requesting system %s", m);
 	pause_and_low_level_reboot(rb);
 	/* not reached */
+}
+
+/* Handler for QUIT - exec "restart" action,
+ * else (no such action defined) do nothing */
+static void restart_handler(int sig UNUSED_PARAM)
+{
+	struct init_action *a;
+
+	for (a = init_action_list; a; a = a->next) {
+		if (!(a->action_type & RESTART))
+			continue;
+
+		/* Starting from here, we won't return.
+		 * Thus don't need to worry about preserving errno
+		 * and such.
+		 */
+
+		reset_sighandlers_and_unblock_sigs();
+
+		run_shutdown_and_kill_processes();
+
+		/* Allow Ctrl-Alt-Del to reboot the system.
+		 * This is how kernel sets it up for init, we follow suit.
+		 */
+		reboot(RB_ENABLE_CAD); /* misnomer */
+
+		if (open_stdio_to_tty(a->terminal)) {
+			dbg_message(L_CONSOLE, "Trying to re-exec %s", a->command);
+			/* Theoretically should be safe.
+			 * But in practice, kernel bugs may leave
+			 * unkillable processes, and wait() may block forever.
+			 * Oh well. Hoping "new" init won't be too surprised
+			 * by having children it didn't create.
+			 */
+			//while (wait(NULL) > 0)
+			//	continue;
+			init_exec(a->command);
+		}
+		/* Open or exec failed */
+		pause_and_low_level_reboot(RB_HALT_SYSTEM);
+		/* not reached */
+	}
 }
 
 /* The SIGSTOP/SIGTSTP handler
@@ -706,45 +764,6 @@ static void stop_handler(int sig UNUSED_PARAM)
 	bb_got_signal = saved_bb_got_signal;
 }
 
-/* Handler for QUIT - exec "restart" action,
- * else (no such action defined) do nothing */
-static void restart_handler(int sig UNUSED_PARAM)
-{
-	struct init_action *a;
-
-	for (a = init_action_list; a; a = a->next) {
-		if (!(a->action_type & RESTART))
-			continue;
-
-		/* Starting from here, we won't return.
-		 * Thus don't need to worry about preserving errno
-		 * and such.
-		 */
-		run_shutdown_and_kill_processes();
-
-		/* Allow Ctrl-Alt-Del to reboot the system.
-		 * This is how kernel sets it up for init, we follow suit.
-		 */
-		reboot(RB_ENABLE_CAD); /* misnomer */
-
-		if (open_stdio_to_tty(a->terminal)) {
-			dbg_message(L_CONSOLE, "Trying to re-exec %s", a->command);
-			/* Theoretically should be safe.
-			 * But in practice, kernel bugs may leave
-			 * unkillable processes, and wait() may block forever.
-			 * Oh well. Hoping "new" init won't be too surprised
-			 * by having children it didn't create.
-			 */
-			//while (wait(NULL) > 0)
-			//	continue;
-			init_exec(a->command);
-		}
-		/* Open or exec failed */
-		pause_and_low_level_reboot(RB_HALT_SYSTEM);
-		/* not reached */
-	}
-}
-
 #if ENABLE_FEATURE_USE_INITTAB
 static void reload_inittab(void)
 {
@@ -754,12 +773,12 @@ static void reload_inittab(void)
 
 	/* Disable old entries */
 	for (a = init_action_list; a; a = a->next)
-		a->action_type = ONCE;
+		a->action_type = 0;
 
 	/* Append new entries, or modify existing entries
-	 * (set a->action_type) if cmd and device name
+	 * (incl. setting a->action_type) if cmd and device name
 	 * match new ones. End result: only entries with
-	 * a->action_type == ONCE are stale.
+	 * a->action_type == 0 are stale.
 	 */
 	parse_inittab();
 
@@ -767,24 +786,26 @@ static void reload_inittab(void)
 	/* Kill stale entries */
 	/* Be nice and send SIGTERM first */
 	for (a = init_action_list; a; a = a->next)
-		if (a->action_type == ONCE && a->pid != 0)
+		if (a->action_type == 0 && a->pid != 0)
 			kill(a->pid, SIGTERM);
 	if (CONFIG_FEATURE_KILL_DELAY) {
 		/* NB: parent will wait in NOMMU case */
 		if ((BB_MMU ? fork() : vfork()) == 0) { /* child */
 			sleep(CONFIG_FEATURE_KILL_DELAY);
 			for (a = init_action_list; a; a = a->next)
-				if (a->action_type == ONCE && a->pid != 0)
+				if (a->action_type == 0 && a->pid != 0)
 					kill(a->pid, SIGKILL);
 			_exit(EXIT_SUCCESS);
 		}
 	}
 #endif
 
-	/* Remove stale (ONCE) and not useful (SYSINIT,WAIT) entries */
+	/* Remove stale entries and SYSINIT entries.
+	 * We never rerun SYSINIT entries anyway,
+	 * removing them too saves a few bytes */
 	nextp = &init_action_list;
 	while ((a = *nextp) != NULL) {
-		if (a->action_type & (ONCE | SYSINIT | WAIT)) {
+		if ((a->action_type & ~SYSINIT) == 0) {
 			*nextp = a->next;
 			free(a);
 		} else {
@@ -823,7 +844,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 {
 	die_sleep = 30 * 24*60*60; /* if xmalloc would ever die... */
 
-	if (argv[1] && !strcmp(argv[1], "-q")) {
+	if (argv[1] && strcmp(argv[1], "-q") == 0) {
 		return kill(1, SIGHUP);
 	}
 
@@ -854,15 +875,17 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 	if (argv[1])
 		xsetenv("RUNLEVEL", argv[1]);
 
+#if !ENABLE_FEATURE_EXTRA_QUIET
 	/* Hello world */
-	message(MAYBE_CONSOLE | L_LOG, "init started: %s", bb_banner);
+	message(L_CONSOLE | L_LOG, "init started: %s", bb_banner);
+#endif
 
 	/* Make sure there is enough memory to do something useful. */
 	if (ENABLE_SWAPONOFF) {
 		struct sysinfo info;
 
 		if (sysinfo(&info) == 0
-		 && (info.mem_unit ? : 1) * (long long)info.totalram < 1024*1024
+		 && (info.mem_unit ? info.mem_unit : 1) * (long long)info.totalram < 1024*1024
 		) {
 			message(L_CONSOLE, "Low memory, forcing swapon");
 			/* swapon -a requires /proc typically */
@@ -875,7 +898,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 
 	/* Check if we are supposed to be in single user mode */
 	if (argv[1]
-	 && (!strcmp(argv[1], "single") || !strcmp(argv[1], "-s") || LONE_CHAR(argv[1], '1'))
+	 && (strcmp(argv[1], "single") == 0 || strcmp(argv[1], "-s") == 0 || LONE_CHAR(argv[1], '1'))
 	) {
 		/* ??? shouldn't we set RUNLEVEL="b" here? */
 		/* Start a shell on console */
@@ -899,7 +922,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 			BB_EXECVP(argv[0], argv);
 		} else if (enforce > 0) {
 			/* SELinux in enforcing mode but load_policy failed */
-			message(L_CONSOLE, "cannot load SELinux Policy. "
+			message(L_CONSOLE, "can't load SELinux Policy. "
 				"Machine is in enforcing mode. Halting now.");
 			exit(EXIT_FAILURE);
 		}
@@ -943,6 +966,12 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 		bb_signals_recursive_norestart((1 << SIGINT), record_signo);
 	}
 
+	/* Set up "reread /etc/inittab" handler.
+	 * Handler is set up without SA_RESTART, it will interrupt syscalls.
+	 */
+	if (!DEBUG_INIT && ENABLE_FEATURE_USE_INITTAB)
+		bb_signals_recursive_norestart((1 << SIGHUP), record_signo);
+
 	/* Now run everything that needs to be run */
 	/* First run the sysinit command */
 	run_actions(SYSINIT);
@@ -953,14 +982,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 	/* Next run anything to be run only once */
 	run_actions(ONCE);
 
-	/* Set up "reread /etc/inittab" handler.
-	 * Handler is set up without SA_RESTART, it will interrupt syscalls.
-	 */
-	if (!DEBUG_INIT && ENABLE_FEATURE_USE_INITTAB)
-		bb_signals_recursive_norestart((1 << SIGHUP), record_signo);
-
 	/* Now run the looping stuff for the rest of forever.
-	 * NB: if delayed signal happened, avoid blocking in wait().
 	 */
 	while (1) {
 		int maybe_WNOHANG;
@@ -976,10 +998,11 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 		maybe_WNOHANG |= check_delayed_sigs();
 
 		/* Wait for any child process(es) to exit.
-		 * NB: "delayed" signals will also interrupt this wait(),
-		 * bb_signals_recursive_norestart() set them up for that.
-		 * This guarantees we won't be stuck here
-		 * till next orphan dies.
+		 *
+		 * If check_delayed_sigs above reported that a signal
+		 * was caught, wait will be nonblocking. This ensures
+		 * that if SIGHUP has reloaded inittab, respawn and askfirst
+		 * actions will not be delayed until next child death.
 		 */
 		if (maybe_WNOHANG)
 			maybe_WNOHANG = WNOHANG;
@@ -987,6 +1010,9 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 			pid_t wpid;
 			struct init_action *a;
 
+			/* If signals happen _in_ the wait, they interrupt it,
+			 * bb_signals_recursive_norestart set them up that way
+			 */
 			wpid = waitpid(-1, NULL, maybe_WNOHANG);
 			if (wpid <= 0)
 				break;

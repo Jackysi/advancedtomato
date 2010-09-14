@@ -2560,6 +2560,11 @@ BOOL lp_add_home(const char *pszHomename, int iDefaultService,
 	int i;
 	pstring newHomedir;
 
+	if (pszHomename == NULL || user == NULL || pszHomedir == NULL ||
+			pszHomedir[0] == '\0') {
+		return False;
+	}
+
 	i = add_a_service(ServicePtrs[iDefaultService], pszHomename);
 
 	if (i < 0)
@@ -4027,7 +4032,7 @@ static void lp_add_auto_services(char *str)
 		if (lp_servicenumber(p) >= 0)
 			continue;
 
-		if (home && homes >= 0)
+		if (home && home[0] && homes >= 0)
 			lp_add_home(p, homes, p, home);
 	}
 	SAFE_FREE(s);
@@ -5120,14 +5125,21 @@ int lp_servicenumber(const char *pszServiceName)
  A useful volume label function. 
 ********************************************************************/
 
-char *volume_label(int snum)
+const char *volume_label(int snum)
 {
-	char *ret = lp_volume(snum);
-	if (!*ret)
-		return lp_servicename(snum);
-	return (ret);
+	char *ret;
+	const char *label = lp_volume(snum);
+	if (!*label) {
+		label = lp_servicename(snum);
+	}
+		
+	/* This returns a 33 byte guarenteed null terminated string. */
+	ret = talloc_strndup(main_loop_talloc_get(), label, 32);
+	if (!ret) {
+		return "";
+	}		
+	return ret;
 }
-
 
 /*******************************************************************
  Set the server type we will announce as via nmbd.

@@ -948,15 +948,13 @@ static BOOL exact_match(connection_struct *conn, char *str, char *mask)
 {
 	if (mask[0] == '.' && mask[1] == 0)
 		return False;
-	if (conn->case_sensitive)
-		return strcmp(str,mask)==0;
-	if (StrCaseCmp(str,mask) != 0) {
-		return False;
-	}
 	if (dptr_has_wild(conn->dirptr)) {
 		return False;
 	}
-	return True;
+	if (conn->case_sensitive)
+		return strcmp(str,mask) == 0;
+	else
+		return StrCaseCmp(str,mask) == 0;
 }
 
 /****************************************************************************
@@ -2159,7 +2157,7 @@ static int call_trans2qfsinfo(connection_struct *conn, char *inbuf, char *outbuf
 	uint16 info_level = SVAL(params,0);
 	int data_len, len;
 	SMB_STRUCT_STAT st;
-	char *vname = volume_label(SNUM(conn));
+	const char *vname = volume_label(SNUM(conn));
 	int snum = SNUM(conn);
 	char *fstype = lp_fstype(SNUM(conn));
 	int quota_flag = 0;
@@ -2273,9 +2271,11 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAvail=%d\n", (unsigned int)st.st_dev, (unsi
 			SIVAL(pdata,8,str_checksum(lp_servicename(snum)) ^ 
 				(str_checksum(get_local_machine_name())<<16));
 
+			/* Max label len is 32 characters. */
 			len = srvstr_push(outbuf, pdata+18, vname, -1, STR_UNICODE);
 			SIVAL(pdata,12,len);
 			data_len = 18+len;
+
 			DEBUG(5,("call_trans2qfsinfo : SMB_QUERY_FS_VOLUME_INFO namelen = %d, vol=%s serv=%s\n", 
 				(int)strlen(vname),vname, lp_servicename(snum)));
 			break;

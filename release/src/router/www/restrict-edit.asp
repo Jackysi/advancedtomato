@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -305,23 +305,33 @@ function save()
 		}
 
 		if (E('_f_block_all').checked) {
-			data.push('', '', '', '0');
+			data.push('', '', '0');
 		}
 		else {
+			var check = 0;
 			a = bpg.getAllData();
+			check += a.length;
 			b = [];
 			for (i = 0; i < a.length; ++i) {
 				a[i][2] = a[i][2].replace(/-/g, ':');
 				b.push(a[i].join('<'));
 			}
 			data.push(b.join('>'));
-			data.push(E('_f_block_http').value.replace(/\r+/g, ' ').replace(/\n+/g, '\n').replace(/ +/g, ' ').replace(/^\s+|\s+$/g, ''));
+
+			a = E('_f_block_http').value.replace(/\r+/g, ' ').replace(/\n+/g, '\n').replace(/ +/g, ' ').replace(/^\s+|\s+$/g, '');
+			check += a.length;
+			data.push(a);
 
 			n = 0;
 			if (E('_f_activex').checked) n = 1;
 			if (E('_f_flash').checked) n |= 2;
 			if (E('_f_java').checked) n |= 4;
 			data.push(n);
+			
+			if (((check + n) == 0) && (data[0] == 1)) {
+				alert('Please specify what items should be blocked.');
+				return;
+			}
 		}
 	}
 	else {

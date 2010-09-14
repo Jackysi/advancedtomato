@@ -233,6 +233,7 @@ void start_qos(void)
 	unsigned int ceil;
 	unsigned int bw;
 	unsigned int mtu;
+	unsigned int r2q;
 	FILE *f;
 	int x;
 	int inuse;
@@ -280,6 +281,14 @@ void start_qos(void)
 	mtu = strtoul(nvram_safe_get("wan_mtu"), NULL, 10);
 	bw = strtoul(nvram_safe_get("qos_obw"), NULL, 10);
 
+	r2q = 10;
+	if ((bw * 1000) / (8 * r2q) < mtu) {
+		r2q = (bw * 1000) / (8 * mtu);
+		if (r2q < 1) r2q = 1;
+	} else if ((bw * 1000) / (8 * r2q) > 60000) {
+		r2q = (bw * 1000) / (8 * 60000) + 1;
+	}
+
 	fprintf(f,
 		"#!/bin/sh\n"
 		"I=%s\n"
@@ -291,11 +300,11 @@ void start_qos(void)
 		"case \"$1\" in\n"
 		"start)\n"
 		"\ttc qdisc del dev $I root 2>/dev/null\n"
-		"\t$TQA root handle 1: htb default %u\n"
+		"\t$TQA root handle 1: htb default %u r2q %u\n"
 		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
 			nvram_safe_get("wan_iface"),
 			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
-			(nvram_get_int("qos_default") + 1) * 10,
+			(nvram_get_int("qos_default") + 1) * 10, r2q,
 			bw, bw, burst_root);
 
 	inuse = nvram_get_int("qos_inuse");

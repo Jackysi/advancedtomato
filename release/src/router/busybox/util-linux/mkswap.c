@@ -5,7 +5,6 @@
  *
  * Licensed under GPL version 2, see file LICENSE in this tarball for details.
  */
-
 #include "libbb.h"
 
 #if ENABLE_SELINUX
@@ -48,7 +47,7 @@ static void mkswap_selinux_setcontext(int fd, const char *path)
 	bb_perror_msg_and_die("SELinux relabeling failed");
 }
 #else
-#define mkswap_selinux_setcontext(fd, path) ((void)0)
+# define mkswap_selinux_setcontext(fd, path) ((void)0)
 #endif
 
 /* from Linux 2.6.23 */
@@ -66,7 +65,7 @@ struct swap_header_v1 {
 	uint32_t padding[117];   /* 11..127 */
 	uint32_t badpages[1];    /* 128 */
 	/* total 129 32-bit words in 2nd kilobyte */
-};
+} FIX_ALIASING;
 
 #define NWORDS 129
 #define hdr ((struct swap_header_v1*)bb_common_bufsiz1)
@@ -87,34 +86,43 @@ int mkswap_main(int argc UNUSED_PARAM, char **argv)
 	off_t len;
 	const char *label = "";
 
-	opt_complementary = "=1";
-	/* TODO: -p PAGESZ, -U UUID,
-	 * optional SIZE_IN_KB 2nd param
-	 */
+	opt_complementary = "-1"; /* at least one param */
+	/* TODO: -p PAGESZ, -U UUID */
 	getopt32(argv, "L:", &label);
 	argv += optind;
 
 	fd = xopen(argv[0], O_WRONLY);
 
-	/* Figure out how big the device is and announce our intentions */
-	/* fdlength was reported to be unreliable - use seek */
-	len = xlseek(fd, 0, SEEK_END);
-	if (ENABLE_SELINUX)
-		xlseek(fd, 0, SEEK_SET);
-
+	/* Figure out how big the device is */
+	len = get_volume_size_in_bytes(fd, argv[1], 1024, /*extend:*/ 1);
 	pagesize = getpagesize();
 	len -= pagesize;
+
+	/* Announce our intentions */
 	printf("Setting up swapspace version 1, size = %"OFF_FMT"u bytes\n", len);
 	mkswap_selinux_setcontext(fd, argv[0]);
 
-	/* Make a header. hdr is zero-filled so far... */
+	/* hdr is zero-filled so far. Clear the first kbyte, or else
+	 * mkswap-ing former FAT partition does NOT erase its signature.
+	 *
+	 * util-linux-ng 2.17.2 claims to erase it only if it does not see
+	 * a partition table and is not run on whole disk. -f forces it.
+	 */
+	xwrite(fd, hdr, 1024);
+
+	/* Fill the header. */
 	hdr->version = 1;
 	hdr->last_page = (uoff_t)len / pagesize;
+
+	if (ENABLE_FEATURE_MKSWAP_UUID) {
+		char uuid_string[37];
+		generate_uuid((void*)hdr->sws_uuid);
+		printf("UUID=%s\n", unparse_uuid((uint8_t *)hdr->sws_uuid, uuid_string));
+	}
 	safe_strncpy(hdr->sws_volume, label, 16);
 
 	/* Write the header.  Sync to disk because some kernel versions check
 	 * signature on disk (not in cache) during swapon. */
-	xlseek(fd, 1024, SEEK_SET);
 	xwrite(fd, hdr, NWORDS * 4);
 	xlseek(fd, pagesize - 10, SEEK_SET);
 	xwrite(fd, SWAPSPACE2, 10);

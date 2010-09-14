@@ -894,9 +894,9 @@ void ndisc_recv_na(struct sk_buff *skb)
 static void ndisc_router_discovery(struct sk_buff *skb)
 {
         struct ra_msg *ra_msg = (struct ra_msg *) skb->h.raw;
-	struct neighbour *neigh;
+	struct neighbour *neigh = NULL;
 	struct inet6_dev *in6_dev;
-	struct rt6_info *rt;
+	struct rt6_info *rt = NULL;
 	int lifetime;
 	struct ndisc_options ndopts;
 	int optlen;
@@ -925,10 +925,6 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 		ND_PRINTK1("RA: can't find in6 device\n");
 		return;
 	}
-	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra) {
-		in6_dev_put(in6_dev);
-		return;
-	}
 
 	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
 		in6_dev_put(in6_dev);
@@ -937,6 +933,10 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 				   "ICMP6 RA: invalid ND option, ignored.\n");
 		return;
 	}
+
+	/* skip route and link configuration on routers */
+	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
+		goto skip_linkparms;
 
 	if (in6_dev->if_flags & IF_RS_SENT) {
 		/*
@@ -1028,6 +1028,8 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 		}
 	}
 
+skip_linkparms:
+
 	/*
 	 *	Process options.
 	 */
@@ -1047,6 +1049,10 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 		}
 		neigh_update(neigh, lladdr, NUD_STALE, 1, 1);
 	}
+
+	/* skip route and link configuration on routers */
+	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
+		goto out;
 
 	if (ndopts.nd_opts_pi) {
 		struct nd_opt_hdr *p;
@@ -1131,9 +1137,10 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
 
 	if (ipv6_addr_cmp(dest, target) == 0) {
 		on_link = 1;
-	} else if (!(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
+	} else if (ipv6_addr_type(target) !=
+		   (IPV6_ADDR_UNICAST|IPV6_ADDR_LINKLOCAL)) {
 		if (net_ratelimit())
-			printk(KERN_WARNING "ICMP redirect: target address is not linklocal\n");
+			printk(KERN_WARNING "ICMP redirect: target address is not linklocal unicast\n");
 		return;
 	}
 
@@ -1207,6 +1214,12 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 
 	if (rt == NULL)
 		return;
+
+	if (!ipv6_addr_cmp(&skb->nh.ipv6h->daddr, target) &&
+	    ipv6_addr_type(target) != (IPV6_ADDR_UNICAST|IPV6_ADDR_LINKLOCAL)) {
+		ND_PRINTK2("ICMPv6 Redirect: target address is not link-local unicast.\n");
+		return;
+	}
 
 	if (rt->rt6i_flags & RTF_GATEWAY) {
 		ND_PRINTK1("ndisc_send_redirect: not a neighbour\n");

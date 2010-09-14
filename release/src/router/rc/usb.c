@@ -28,7 +28,7 @@
 void tune_bdflush(void)
 {
 	f_write_string("/proc/sys/vm/dirty_expire_centisecs", "200", 0, 0);
-	//f_write_string("/proc/sys/vm/dirty_writeback_centisecs", "100", 0, 0);
+	f_write_string("/proc/sys/vm/dirty_writeback_centisecs", "200", 0, 0);
 }
 #else
 #include <sys/kdaemon.h>
@@ -62,6 +62,9 @@ void tune_bdflush(void)
 
 void start_usb(void)
 {
+	char param[32];
+	int i;
+
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
 
@@ -99,7 +102,11 @@ void start_usb(void)
 
 		/* if enabled, force USB2 before USB1.1 */
 		if (nvram_get_int("usb_usb2")) {
-			modprobe(USB20_MOD);
+			i = nvram_get_int("usb_irq_thresh");
+			if ((i < 0) || (i > 6))
+				i = 0;
+			sprintf(param, "log2_irq_thresh=%d", i);
+			modprobe(USB20_MOD, param);
 		}
 
 		if (nvram_get_int("usb_uhci")) {
@@ -179,6 +186,10 @@ void stop_usb(void)
 #endif
 		modprobe_r(SCSI_MOD);
 	}
+
+	if (!nvram_get_int("usb_ohci")) modprobe_r(USBOHCI_MOD);
+	if (!nvram_get_int("usb_uhci")) modprobe_r(USBUHCI_MOD);
+	if (!nvram_get_int("usb_usb2")) modprobe_r(USB20_MOD);
 
 	// only unload core modules if usb is disabled
 	if (!nvram_get_int("usb_enable")) {
@@ -395,7 +406,7 @@ int umount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name
 		 * Only unmount disconnected drives in this case.
 		 */
 		if (usb_ufd_connected(host_num))
-			return(0);
+			return 0;
 	}
 
 	/* Find all the active swaps that are on this device and stop them. */
@@ -417,52 +428,61 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 	int ret = 1, count;
 	char flagfn[128];
 
-		/* Kill all NAS applications here so they are not keeping the device busy,
+	sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
+
+	/* Run user pre-unmount scripts if any. It might be too late if
+	 * the drive has been disconnected, but we'll try it anyway.
+ 	 */
+	if (nvram_get_int("usb_automount"))
+		run_nvscript("script_usbumount", mnt->mnt_dir, 3);
+	if (flags & EFH_USER) {
+		/* Unmount from Web. Run *.autostop scripts if any. */
+		run_userfile(mnt->mnt_dir, ".autostop", mnt->mnt_dir, 5);
+	}
+
+	count = 0;
+	while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
+		count++;
+		/* If we could not unmount the drive on the 1st try,
+		 * kill all NAS applications so they are not keeping the device busy -
 		 * unless it's an unmount request from the Web GUI.
 		 */
-		if ((flags & EFH_USER) == 0) {
+		if ((count == 1) && ((flags & EFH_USER) == 0))
 			restart_nas_services(1, 0);
-		}
+		sleep(1);
+	}
 
-		sprintf(flagfn, "%s/.autocreated-dir", mnt->mnt_dir);
-		run_nvscript("script_autostop", mnt->mnt_dir, 5);
-		count = 0;
-		while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
-			count++;
-			sleep(1);
-		}
+	if (ret == 0)
+		syslog(LOG_INFO, "USB partition unmounted from %s", mnt->mnt_dir);
 
-		if (!ret)
-			syslog(LOG_INFO, "USB partition unmounted from %s", mnt->mnt_dir);
+	if (ret && ((flags & EFH_SHUTDN) != 0)) {
+		/* If system is stopping (not restarting), and we couldn't unmount the
+		 * partition, try to remount it as read-only. Ignore the return code -
+		 * we can still try to do a lazy unmount.
+		 */
+		eval("mount", "-o", "remount,ro", mnt->mnt_dir);
+	}
 
-		if (ret && ((flags & EFH_SHUTDN) != 0)) {
-			/* If system is stopping (not restarting), and we couldn't unmount the
-			 * partition, try to remount it as read-only. Ignore the return code -
-			 * we can still try to do a lazy unmount.
-			 */
-			eval("mount", "-o", "remount,ro", mnt->mnt_dir);
-		}
+	if (ret && ((flags & EFH_USER) == 0)) {
+		/* Make one more try to do a lazy unmount unless it's an unmount
+		 * request from the Web GUI.
+		 * MNT_DETACH will expose the underlying mountpoint directory to all
+		 * except whatever has cd'ed to the mountpoint (thereby making it busy).
+		 * So the unmount can't actually fail. It disappears from the ken of
+		 * everyone else immediately, and from the ken of whomever is keeping it
+		 * busy until they move away from it. And then it disappears for real.
+		 */
+		ret = umount2(mnt->mnt_dir, MNT_DETACH);
+		syslog(LOG_INFO, "USB partition busy - will unmount ASAP from %s", mnt->mnt_dir);
+	}
 
-		if (ret && ((flags & EFH_USER) == 0)) {
-			/* Make one more try to do a lazy unmount unless it's an unmount
-			 * request from the Web GUI.
-			 * MNT_DETACH will expose the underlying mountpoint directory to all
-			 * except whatever has cd'ed to the mountpoint (thereby making it busy).
-			 * So the unmount can't actually fail. It disappears from the ken of
-			 * everyone else immediately, and from the ken of whomever is keeping it
-			 * busy until they move away from it. And then it disappears for real.
-			 */
-			ret = umount2(mnt->mnt_dir, MNT_DETACH);
-			syslog(LOG_INFO, "USB partition busy - will unmount ASAP from %s", mnt->mnt_dir);
+	if (ret == 0) {
+		if ((unlink(flagfn) == 0)) {
+			// Only delete the directory if it was auto-created
+			rmdir(mnt->mnt_dir);
 		}
-
-		if (!ret) {
-			if ((unlink(flagfn) == 0)) {
-				// Only delete the directory if it was auto-created
-				rmdir(mnt->mnt_dir);
-			}
-		}
-	return(!ret);
+	}
+	return (ret == 0);
 }
 
 
@@ -491,21 +511,22 @@ int mount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name,
 	struct mntent *mnt;
 
 	if ((type = detect_fs_type(dev_name)) == NULL)
-		return(0);
+		return 0;
 	find_label_or_uuid(dev_name, the_label, uuid);
 
 	if (f_exists("/etc/fstab")) {
 		if (strcmp(type, "swap") == 0) {
 			_eval(swp_argv, NULL, 0, NULL);
-			return(0);
+			return 0;
 		}
 
 		if (mount_r(dev_name, NULL, NULL) == MOUNT_VAL_EXIST)
-			return(0);
+			return 0;
 
 		if ((mnt = mount_fstab(dev_name, type, the_label, uuid))) {
-			run_userfile(mnt->mnt_dir, ".autorun", mnt->mnt_dir, 3);
-			return(1);
+			strcpy(mountpoint, mnt->mnt_dir);
+			ret = MOUNT_VAL_RW;
+			goto done;
 		}
 	}
 
@@ -515,18 +536,21 @@ int mount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name,
 				*p = '_';
 		}
 		sprintf(mountpoint, "%s/%s", MOUNT_ROOT, the_label);
-		if ((ret = mount_r(dev_name, mountpoint, type))) {
-			if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
-				run_userfile(mountpoint, ".autorun", mountpoint, 3);
-			return(ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW);
-		}
+		if ((ret = mount_r(dev_name, mountpoint, type)))
+			goto done;
 	}
 
 	/* Can't mount to /mnt/LABEL, so try mounting to /mnt/discDN_PN */
 	sprintf(mountpoint, "%s/%s", MOUNT_ROOT, pt_name);
 	ret = mount_r(dev_name, mountpoint, type);
+done:
 	if (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW)
+	{
+		/* Run user *.autorun and post-mount scripts if any. */
 		run_userfile(mountpoint, ".autorun", mountpoint, 3);
+		if (nvram_get_int("usb_automount"))
+			run_nvscript("script_usbmount", mountpoint, 3);
+	}
 	return (ret == MOUNT_VAL_RONLY || ret == MOUNT_VAL_RW);
 }
 
@@ -598,7 +622,6 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 			 */
 			if (exec_for_host(host_no, 0x00, flags, mount_partition)) {
 				restart_nas_services(0, 1); // restart all NAS applications
-				run_nvscript("script_usbmount", NULL, 3);
 			}
 		}
 	}
@@ -607,11 +630,6 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 			/* When unplugged, unmount the device even if
 			 * usb storage is disabled in the GUI.
 			 */
-			if (flags & EFH_USER) {
-				/* Unmount from Web. Run user pre-unmount script if any.
-				 */
-				run_nvscript("script_usbumount", NULL, 3);
-			}
 			exec_for_host(host_no, (flags & EFH_USER) ? 0x00 : 0x02, flags, umount_partition);
 			/* Restart NAS applications (they could be killed by umount_mountpoint),
 			 * or just re-read the configuration.
@@ -625,12 +643,6 @@ void hotplug_usb_storage_device(int host_no, int action_add, uint flags)
 /* This gets called at reboot or upgrade.  The system is stopping. */
 void remove_storage_main(int shutdn)
 {
-	if (nvram_get_int("usb_enable") && nvram_get_int("usb_storage")) {
-		if (nvram_get_int("usb_automount")) {
-			// run pre-unmount script if any
-			run_nvscript("script_usbumount", NULL, 3);
-		}
-	}
 	if (shutdn)
 		restart_nas_services(1, 0);
 	/* Unmount all partitions */
@@ -754,10 +766,13 @@ void hotplug_usb(void)
 #endif
 		syslog(LOG_DEBUG, "Attached USB device %s [INTERFACE=%s PRODUCT=%s]",
 			device, interface, product);
-#ifdef LINUX26
-		if (is_block)
+#ifndef LINUX26
+		/* To allow automount to be blocked on startup.
+		 * In kernel 2.6 we still need to serialize mount/umount calls -
+		 * so the lock is down below in the "block" hotplug processing.
+		 */
+		file_unlock(file_lock("usb"));
 #endif
-		file_unlock(file_lock("usb"));	/* To allow automount to be blocked on startup. */
 	}
 
 	if (strncmp(interface ? : "", "TOMATO/", 7) == 0) {	/* web admin */
@@ -777,7 +792,10 @@ void hotplug_usb(void)
 	else if (is_block && strcmp(getenv("MAJOR") ? : "", "8") == 0 && strcmp(getenv("PHYSDEVBUS") ? : "", "scsi") == 0) {
 		/* scsi partition */
 		char devname[64];
+		int lock;
+
 		sprintf(devname, "/dev/%s", device);
+		lock = file_lock("usb");
 		if (add) {
 			if (nvram_get_int("usb_storage") && nvram_get_int("usb_automount")) {
 				int minor = atoi(getenv("MINOR") ? : "0");
@@ -789,7 +807,6 @@ void hotplug_usb(void)
 				}
 				if (mount_partition(devname, host, NULL, device, EFH_HP_ADD)) {
 					restart_nas_services(0, 1); // restart all NAS applications
-					run_nvscript("script_usbmount", NULL, 3);
 				}
 			}
 		}
@@ -801,6 +818,7 @@ void hotplug_usb(void)
 			 */
 			restart_nas_services(0, 1);
 		}
+		file_unlock(lock);
 	}
 #endif
 	else if (strncmp(interface ? : "", "8/", 2) == 0) {	/* usb storage */

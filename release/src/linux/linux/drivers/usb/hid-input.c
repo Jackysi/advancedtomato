@@ -68,6 +68,9 @@ static struct input_dev *find_input(struct hid_device *hid, struct hid_field *fi
 	struct list_head *lh;
 	struct hid_input *hidinput;
 
+	if (!(hid->claimed & HID_CLAIMED_INPUT))
+		return 0;
+
 	list_for_each (lh, &hid->inputs) {
 		int i;
 

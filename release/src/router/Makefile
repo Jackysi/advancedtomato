@@ -13,7 +13,7 @@
 
 include common.mak
 
-TOMATO_EXPERIMENTAL=0
+#TOMATO_EXPERIMENTAL=0
 
 #
 #
@@ -41,7 +41,7 @@ obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
 obj-y += ppp
-obj-y += ttcp
+#obj-y += ttcp
 obj-y += ntpc
 obj-y += rstats
 
@@ -61,11 +61,17 @@ obj-$(TCONFIG_USB) += libusb
 obj-$(TCONFIG_USB) += usbmodeswitch
 #obj-y += sendmail
 obj-$(TCONFIG_FTP) += vsftpd
+
 ifeq ($(CONFIG_LINUX26),y)
 ifeq ($(TCONFIG_SAMBASRV),y)
 NEED_EX_NLS = y
 endif
+ifeq ($(TCONFIG_USB_EXTRAS),y)
+NEED_EX_USB = y
+#NEED_BCM57 = y
 endif
+endif
+
 ifeq ($(TCONFIG_SAMBASRV),y)
 ifeq ($(TCONFIG_SAMBA3),y)
 NEED_SAMBA3 = y
@@ -73,9 +79,30 @@ else
 NEED_SAMBA2 = y
 endif
 endif
+
+ifeq ($(TCONFIG_IPV6),y)
+export TCONFIG_IPV6 := y
+else
+TCONFIG_IPV6 :=
+endif
+
 obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
+obj-$(TCONFIG_EBTABLES) += ebtables
+obj-$(TCONFIG_IPV6) += radvd
+
+obj-$(TCONFIG_MEDIA_SERVER) += zlib
+obj-$(TCONFIG_MEDIA_SERVER) += sqlite
+obj-$(TCONFIG_MEDIA_SERVER) += ffmpeg
+obj-$(TCONFIG_MEDIA_SERVER) += libogg
+obj-$(TCONFIG_MEDIA_SERVER) += flac
+obj-$(TCONFIG_MEDIA_SERVER) += jpeg
+obj-$(TCONFIG_MEDIA_SERVER) += libexif
+obj-$(TCONFIG_MEDIA_SERVER) += libid3tag
+obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
+obj-$(TCONFIG_MEDIA_SERVER) += minidlna
+MEDIA_SERVER_STATIC=y
 
 obj-y += miniupnpd
 #	obj-y += upnp
@@ -85,7 +112,8 @@ obj-y += miniupnpd
 # configurable packages
 #
 obj-$(TCONFIG_L2TP) += rp-l2tp
-obj-$(TCONFIG_PPTP) += pptp-client
+#obj-$(TCONFIG_PPTP) += pptp-client
+obj-$(TCONFIG_PPTP) += accel-pptp
 obj-$(TCONFIG_HTTPS) += openssl
 obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
@@ -205,6 +233,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv bcm57xx/* . && rm -rf bcm57xx || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv emf/* . && rm -rf emf || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv igs/* . && rm -rf igs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv ctf/* . && rm -rf ctf || true
 	cd $(TARGETDIR)/lib/modules && rm -f */source || true
 
 # misc
@@ -212,6 +241,17 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
 
+ifneq ($(TCONFIG_JFFSV1),y)
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
+endif
+ifeq ($(TCONFIG_JFFS2),y)
+ifeq ($(TCONFIG_JFFSV1),y)
+	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
+ifneq ($(CONFIG_LINUX26),y)
+	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
+endif
+endif
+endif
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
 	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
@@ -242,12 +282,20 @@ endif
 ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
 endif
+ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
+	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
+	$(STRIP) $(TARGETDIR)/lib/*.so.0
+endif
 
 	@cd $(TARGETDIR) && $(TOP)/others/rootprep.sh
 
 	@echo ---
 
+ifeq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	@../btools/libfoo.pl
+else
+	@../btools/libfoo.pl --noopt
+endif
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
 	@chmod 0555 $(TARGETDIR)/usr/lib/*.so*
 
@@ -257,10 +305,17 @@ endif
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_OPENVPN),y)
+ifneq ($(TCONFIG_USB_EXTRAS),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
+endif
 endif
 
 #!!TB
+ifneq ($(TCONFIG_EBTABLES),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/bridge/netfilter/ebt*.*o $(PLATFORMDIR)/extras/ || true
+endif
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/smbfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.*o $(PLATFORMDIR)/extras/ || true
@@ -273,20 +328,27 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/auth_rpcgss.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/rpcsec_gss_krb5.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/sr_mod.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.*o $(PLATFORMDIR)/extras/ || true
-ifneq ($(CONFIG_LINUX26),y)
+ifneq ($(NEED_EX_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbserial.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/option.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/sierra.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*acm.*o $(PLATFORMDIR)/extras/ || true
-endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.*o $(PLATFORMDIR)/extras/ || true
+endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ipw.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/audio.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ov51*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pwc*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/emi*.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/mii.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/cdc_ether.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/cdc_subset.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/usbnet.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb/rndis_host.*o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/net/usb || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/media/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/media || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/sound/* $(PLATFORMDIR)/extras/ || true
@@ -294,8 +356,15 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/sound/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/sound || true
 
+ifneq ($(NEED_BCM57),y)
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/bcm57*.*o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(TCONFIG_PPTP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
+endif
+ifneq ($(TCONFIG_L2TP),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
+endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/crypto
@@ -325,6 +394,7 @@ ifneq ($(TCONFIG_USB),y)
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/mbcache.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/msdos.*o $(PLATFORMDIR)/extras/ || true
@@ -341,6 +411,15 @@ ifneq ($(CONFIG_LINUX26),y)
 	@mkdir -p $(PLATFORMDIR)/extras/apps
 	@mv $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
 	@cp usbmodeswitch/usb_modeswitch.conf $(PLATFORMDIR)/extras/apps/usb_modeswitch.conf || true
+	@cp usbmodeswitch/usb_modeswitch.setup $(PLATFORMDIR)/extras/apps/usb_modeswitch.setup || true
+	@mkdir -p $(PLATFORMDIR)/extras/apps/usb_modeswitch.d
+	@cp -f usbmodeswitch/data/usb_modeswitch.d/* $(PLATFORMDIR)/extras/apps/usb_modeswitch.d || true
+	@rm -rf $(TARGETDIR)/rom/etc/usb_modeswitch.d || true
+	@rm -f  $(TARGETDIR)/rom/etc/usb_modeswitch.conf || true
+	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
+endif
+ifneq ($(TCONFIG_USB),y)
+	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
 endif
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
@@ -397,7 +476,7 @@ distclean: clean
 ifneq ($(INSIDE_MAK),1)
 	$(MAKE) -C .. $@ INSIDE_MAK=1
 endif
-	-rm -f $(LIBDIR)/*.so.0  $(LIBDIR)/*.so
+#	-rm -f $(LIBDIR)/*.so.0  $(LIBDIR)/*.so
 
 #
 # configuration
@@ -416,7 +495,8 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean
+	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean openssl-clean ppp-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -443,13 +523,13 @@ oldconfig oldconf: koldconf roldconf bboldconf
 #
 
 busybox: dummy
-	@$(MAKE) -C busybox CFLAGS_busybox="$(EXTRACFLAGS)"
+	@$(MAKE) -C busybox EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)"
 
 # V=1
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
-	$(MAKE) -C busybox install CONFIG_PREFIX=$(INSTALLDIR)/busybox
+	$(MAKE) -C busybox install EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)" CONFIG_PREFIX=$(INSTALLDIR)/busybox
 
 busybox-clean:
 	$(MAKE) -C busybox distclean
@@ -475,19 +555,25 @@ matrixssl-install:
 matrixssl-clean:
 	$(MAKE) -C matrixssl/src clean
 
-openssl-config:
+openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
 	cd openssl && \
 	CC=$(CC) && ./Configure linux-mipsel
 else
 	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel no-aes no-idea no-md2 no-mdc2 no-rc5
+	CC=$(CC) && ./Configure linux-mipsel \
+		no-aes no-idea no-md2 no-mdc2 no-rc5 no-rmd160 no-ripemd
 endif
 	@$(MAKE) -C openssl clean
+	@touch openssl/stamp-h1
 
-openssl: openssl-config
+openssl: openssl/stamp-h1
 
-openssl-install:
+openssl-clean:
+	-@$(MAKE) -C openssl clean
+	@rm -f openssl/stamp-h1
+
+openssl-install: openssl
 	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
 
@@ -526,7 +612,7 @@ bridge: bridge/Makefile
 	@$(MAKE) -C bridge
 
 bridge-clean:
-	@$(MAKE) -C bridge clean || true
+	-@$(MAKE) -C bridge clean
 	@rm -f bridge/Makefile
 
 bridge-install:
@@ -535,7 +621,7 @@ bridge-install:
 
 dnsmasq:
 	@$(SEP)
-	@$(MAKE) -C dnsmasq COPTS="-DNO_IPV6 -DNO_SCRIPT $(EXTRACFLAGS)"
+	@$(MAKE) -C dnsmasq COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DNO_SCRIPT $(EXTRACFLAGS)"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -559,16 +645,23 @@ iptables-install:
 	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/*.so
 	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/libiptc.so
 
+ifeq ($(TCONFIG_IPV6),y)
+	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
+	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
+	cd $(INSTALLDIR)/iptables/usr/sbin && \
+		ln -sf ip6tables ip6tables-restore
+endif
+
 iptables-clean:
 	-$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
 
 ppp:
 	@$(SEP)
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 #	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp DFLAGS="-DDEBUG -DDEBUGALL"
 
 ppp-%:
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 
 
 upnp: nvram shared iptables
@@ -605,7 +698,8 @@ ntfs-3g: ntfs-3g/Makefile
 	@$(MAKE) -C ntfs-3g CFLAGS="-Os -Wall $(EXTRACFLAGS)"
 
 ntfs-3g-clean:
-	@$(MAKE) -C ntfs-3g clean || true
+	-@$(MAKE) -C ntfs-3g clean
+	@rm -f ntfs-3g/Makefile
 
 ntfs-3g-install: ntfs-3g
 	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/bin/ntfs-3g
@@ -646,14 +740,37 @@ libusb-install: libusb
 		ln -sf libusb-0.1.so.4 libusb.so
 
 usbmodeswitch: libusb
-	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
+	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) \
 	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"
 
-usbmodeswitch-install:
+usbmodeswitchdb-install:
+	@mkdir -p $(TARGETDIR)/rom/etc/usb_modeswitch.d
+	# compress whitespace
+	@for D in $(wildcard $(TOP)/usbmodeswitch/data/usb_modeswitch.d/*); do \
+		F=`basename $$D`; \
+		sed 's/###.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $$D > $(TARGETDIR)/rom/etc/usb_modeswitch.d/$$F; \
+	done
+
+usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	install -D usbmodeswitch/usb_modeswitch $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
 	$(STRIP) -s $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
+	@mkdir -p $(TARGETDIR)/rom/etc
+	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
+
+
+radvd/stamp-h: radvd/Makefile.in
+	cd radvd && CPPFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --prefix=""
+
+radvd: radvd/stamp-h
+
+radvd-clean:
+	-@$(MAKE) -C radvd distclean
+
+radvd-install:
+	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
+	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
 p910nd:
 sendmail:
@@ -678,19 +795,38 @@ pptp-client-install:
 	$(STRIP) $(INSTALLDIR)/pptp-client/usr/sbin/pptp
 
 
+accel-pptp: pppd accel-pptp/Makefile
+	@$(MAKE) -C accel-pptp
+
+accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
+	cd accel-pptp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
+
+accel-pptp-clean:
+	-@$(MAKE) -C accel-pptp clean
+	@rm -f accel-pptp/Makefile
+
+accel-pptp-install: accel-pptp
+	install -D accel-pptp/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
+	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
+
+
 pppd/Makefile: pppd/linux/Makefile.top
 	cd pppd && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
 
 pppd: pppd/Makefile
 	@$(SEP)
-	@$(MAKE) -C pppd
+	@$(MAKE) -C pppd $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 
 pppd-clean:
-	$(MAKE) -C pppd clean
+	-$(MAKE) -C pppd clean
+	@rm -f pppd/Makefile
 
-pppd-install:
+pppd-install: pppd
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
+	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
+	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
 	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
 	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 
@@ -703,7 +839,7 @@ zebra/stamp-h1:
 	@cd zebra && rm -f config.cache && \
 	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	$(CONFIGURE) --sysconfdir=/etc \
-	--enable-netlink --disable-ipv6 --disable-ripngd --disable-ospfd --disable-doc \
+	--enable-netlink $(if $(TCONFIG_IPV6),--enable-ipv6,--disable-ipv6) --disable-ripngd --disable-ospfd --disable-doc \
 	--disable-ospf6d --disable-bgpd --disable-bgpd-announce
 	@touch zebra/stamp-h1
 
@@ -711,7 +847,7 @@ zebra: zebra/stamp-h1
 	@$(MAKE) -C zebra CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD)
 
 zebra-clean:
-	@$(MAKE) -C zebra clean || true
+	-@$(MAKE) -C zebra clean
 	@rm -f zebra/stamp-h1
 
 zebra-install:
@@ -767,7 +903,7 @@ ntpc: nvram shared
 
 dropbear: dropbear/config.h
 	@$(SEP)
-	@make -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1
+	@$(MAKE) -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1
 
 dropbear-install:
 	install -D dropbear/dropbearmulti $(INSTALLDIR)/dropbear/usr/bin/dropbearmulti
@@ -781,11 +917,232 @@ dropbear-install:
 	ln -sf dropbearmulti scp
 
 dropbear-clean:
-	@make -C dropbear clean
+	-@$(MAKE) -C dropbear clean
+	@rm -f dropbear/config.h
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
-	make -C dropbear clean
+	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	@$(MAKE) -C dropbear clean
+
+# Media libraries
+
+sqlite/stamp-h1:
+	cd sqlite && \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) \
+		--prefix=/usr --enable-shared --enable-static \
+		--disable-readline --disable-dynamic-extensions --enable-threadsafe
+	touch sqlite/stamp-h1
+
+sqlite: sqlite/stamp-h1
+	@$(MAKE) -C sqlite all
+
+sqlite-clean:
+	-@$(MAKE) -C sqlite clean
+	@rm -f sqlite/stamp-h1
+
+sqlite-install: sqlite
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D sqlite/.libs/libsqlite3.so.0 $(INSTALLDIR)/sqlite/usr/lib/libsqlite3.so.0
+	$(STRIP) $(INSTALLDIR)/sqlite/usr/lib/libsqlite3.so.0
+endif
+
+FFMPEG_FILTER_CONFIG= $(foreach c, $(2), --enable-$(1)="$(c)")
+
+FFMPEG_DECODERS:=aac ac3 atrac3 h264 jpegls mp3 mpeg1video mpeg2video mpeg4 mpeg4aac mpegvideo png wmav1 wmav2
+FFMPEG_CONFIGURE_DECODERS:=$(call FFMPEG_FILTER_CONFIG,decoder,$(FFMPEG_DECODERS))
+
+FFMPEG_PARSERS:=aac ac3 h264 mpeg4video mpegaudio mpegvideo
+FFMPEG_CONFIGURE_PARSERS:=$(call FFMPEG_FILTER_CONFIG,parser,$(FFMPEG_PARSERS))
+
+FFMPEG_PROTOCOLS:=file
+FFMPEG_CONFIGURE_PROTOCOLS:=$(call FFMPEG_FILTER_CONFIG,protocol,$(FFMPEG_PROTOCOLS))
+
+ffmpeg/stamp-h1: zlib
+	cd ffmpeg && symver_asm_label=no symver_gnu_asm=no symver=no CC=$(CC) \
+		./configure --enable-cross-compile --arch=mips --target_os=linux \
+		--cross-prefix=$(CROSS_COMPILE) --enable-shared --enable-gpl --disable-doc \
+		--enable-pthreads --enable-small --disable-encoders --disable-filters \
+		--disable-muxers --disable-devices --disable-ffmpeg --disable-ffplay \
+		--disable-ffserver --disable-ffprobe --disable-avdevice --disable-swscale \
+		--disable-hwaccels --disable-network --disable-bsfs \
+		--enable-demuxers \
+		--disable-decoders $(FFMPEG_CONFIGURE_DECODERS) \
+		--disable-parsers $(FFMPEG_CONFIGURE_PARSERS) \
+		--disable-protocols $(FFMPEG_CONFIGURE_PROTOCOLS) \
+		--extra-cflags="-Os $(EXTRACFLAGS) -fPIC -I$(TOP)/zlib" \
+		--extra-libs="-L$(TOP)/zlib -lz" \
+		--enable-zlib --disable-debug --prefix=''
+	touch ffmpeg/stamp-h1
+
+ffmpeg: ffmpeg/stamp-h1 zlib
+	@$(MAKE) -C ffmpeg all
+
+ffmpeg-clean:
+	-@$(MAKE) -C ffmpeg clean
+	@rm -f ffmpeg/stamp-h1 ffmpeg/config.h ffmpeg/config.mak
+
+ffmpeg-install: ffmpeg
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D ffmpeg/libavformat/libavformat.so.52 $(INSTALLDIR)/ffmpeg/usr/lib/libavformat.so.52
+	install -D ffmpeg/libavcodec/libavcodec.so.52 $(INSTALLDIR)/ffmpeg/usr/lib/libavcodec.so.52
+	install -D ffmpeg/libavutil/libavutil.so.50 $(INSTALLDIR)/ffmpeg/usr/lib/libavutil.so.50
+	$(STRIP) $(INSTALLDIR)/ffmpeg/usr/lib/libavformat.so.52
+	$(STRIP) $(INSTALLDIR)/ffmpeg/usr/lib/libavcodec.so.52
+	$(STRIP) $(INSTALLDIR)/ffmpeg/usr/lib/libavutil.so.50
+endif
+
+libogg/stamp-h1:
+	cd libogg && \
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	touch libogg/stamp-h1
+
+libogg: libogg/stamp-h1
+	@$(MAKE) -C libogg all
+
+libogg-clean:
+	-@$(MAKE) -C libogg clean
+	@rm -f libogg/stamp-h1
+
+libogg-install: libogg
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libogg/src/.libs/libogg.so.0 $(INSTALLDIR)/libogg/usr/lib/libogg.so.0
+	$(STRIP) $(INSTALLDIR)/libogg/usr/lib/libogg.so.0
+endif
+
+flac/stamp-h1: libogg
+	cd flac && \
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" \
+	CPPFLAGS="-I$(TOP)/libogg/include" LDFLAGS="-L$(TOP)/libogg/src/.libs" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-rpath \
+		--disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs \
+		--without-libiconv-prefix --disable-altivec --disable-3dnow --disable-sse
+	touch flac/stamp-h1
+
+flac: flac/stamp-h1 libogg
+	@$(MAKE) -C flac/src/libFLAC all
+
+flac-clean:
+	-@$(MAKE) -C flac clean
+	@rm -f flac/stamp-h1
+
+flac-install: flac
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D flac/src/libFLAC/.libs/libFLAC.so.8 $(INSTALLDIR)/flac/usr/lib/libFLAC.so.8
+	$(STRIP) $(INSTALLDIR)/flac/usr/lib/libFLAC.so.8
+endif
+
+jpeg/stamp-h1:
+	cd jpeg && \
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" AR2="touch" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	touch jpeg/stamp-h1
+
+jpeg: jpeg/stamp-h1
+	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) AR2="touch" libjpeg.a libjpeg.so
+
+jpeg-clean:
+	-@$(MAKE) -C jpeg clean
+	@rm -f jpeg/stamp-h1 jpeg/Makefile
+
+jpeg-install: jpeg
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D jpeg/libjpeg.so $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
+	$(STRIP) $(INSTALLDIR)/jpeg/usr/lib/libjpeg.so
+endif
+
+libexif/stamp-h1:
+	cd libexif && CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
+		--disable-docs --disable-rpath --disable-nls --without-libiconv-prefix --without-libintl-prefix
+	touch libexif/stamp-h1
+
+libexif: libexif/stamp-h1
+	@$(MAKE) -C libexif all
+
+libexif-clean:
+	-@$(MAKE) -C libexif clean
+	@rm -f libexif/stamp-h1
+
+libexif-install: libexif
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libexif/libexif/.libs/libexif.so.12 $(INSTALLDIR)/libexif/usr/lib/libexif.so.12
+	$(STRIP) $(INSTALLDIR)/libexif/usr/lib/libexif.so.12
+endif
+
+zlib/stamp-h1:
+	cd zlib && \
+	CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	./configure --shared --prefix=''
+	touch zlib/stamp-h1
+
+zlib: zlib/stamp-h1
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) all
+
+zlib-clean:
+	-@$(MAKE) -C zlib clean
+	@rm -f zlib/stamp-h1 zlib/Makefile zlib/zconf.h zlib/zlib.pc
+
+zlib-install: zlib
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -d $(INSTALLDIR)/zlib/usr/lib
+	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
+	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
+endif
+
+libid3tag/stamp-h1: zlib
+	cd libid3tag && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" CPPFLAGS="-I$(TOP)/zlib" LDFLAGS="-L$(TOP)/zlib" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
+		--disable-debugging --disable-profiling
+	touch libid3tag/stamp-h1
+
+libid3tag: libid3tag/stamp-h1 zlib
+	@$(MAKE) -C libid3tag all
+
+libid3tag-clean:
+	-@$(MAKE) -C libid3tag clean
+	@rm -f libid3tag/stamp-h1
+
+libid3tag-install: libid3tag
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libid3tag/.libs/libid3tag.so.0 $(INSTALLDIR)/libid3tag/usr/lib/libid3tag.so.0
+	$(STRIP) $(INSTALLDIR)/libid3tag/usr/lib/libid3tag.so.0
+endif
+
+libvorbis/stamp-h1: libogg
+	cd libvorbis && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CPPFLAGS="-I$(TOP)/libogg/include" LDFLAGS="-L$(TOP)/libogg/src/.libs" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-oggtest \
+		--with-ogg-includes="$(TOP)/libogg/include" \
+		--with-ogg-libraries="$(TOP)/libogg/src/.libs"
+	touch libvorbis/stamp-h1
+
+libvorbis: libvorbis/stamp-h1
+	@$(MAKE) -C libvorbis/lib all
+
+libvorbis-clean:
+	-@$(MAKE) -C libvorbis clean
+	@rm -f libvorbis/stamp-h1
+
+libvorbis-install: libvorbis
+	@$(SEP)
+ifneq ($(MEDIA_SERVER_STATIC),y)
+	install -D libvorbis/lib/.libs/libvorbis.so.0 $(INSTALLDIR)/libvorbis/usr/lib/libvorbis.so.0
+	$(STRIP) $(INSTALLDIR)/libvorbis/usr/lib/libvorbis.so.0
+endif
+
+minidlna: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis
+	@$(SEP)
+	@$(MAKE) -C minidlna CC=$(CC) $(if $(MEDIA_SERVER_STATIC),STATIC=1,) minidlna
+
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
 	cd igmpproxy && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
@@ -800,8 +1157,8 @@ igmpproxy-install:
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 
 igmpproxy-clean:
-	$(MAKE) -C igmpproxy/src clean
-	rm -f igmpproxy/src/Makefile
+	-$(MAKE) -C igmpproxy/src clean
+	@rm -f igmpproxy/src/Makefile
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
@@ -813,7 +1170,7 @@ udev-install:
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
 
 hotplug2:
-	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRA_CFLAGS)"
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
 hotplug2-install:
 	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
@@ -833,18 +1190,32 @@ igs-install:
 
 
 ebtables: dummy
-	@make -C ebtables
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
 
-ebtables-install: dummy
+ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
 
-	mkdir -p $(INSTALLDIR)/ebtables/usr/lib/
-	cp ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
-	cp ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	install -d $(INSTALLDIR)/ebtables/usr/lib
+	install -D ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	install -D ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/sbin/ebtables
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebt*.so
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebtc.so
 
 ebtables-clean:
 	make -C ebtables clean
 
+lzo/stamp-h1:
+	cd lzo && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	touch lzo/stamp-h1
+
+lzo: lzo/stamp-h1
+
+lzo-clean:
+	-$(MAKE) -C lzo clean
+	@rm -f lzo/stamp-h1
 
 lzo-install:
 	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
@@ -855,7 +1226,7 @@ lzo-install:
 openvpn: openvpn/.conf
 
 openvpn/.conf:
-	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS)" \
+	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	LDFLAGS=" -L../openssl/ -L../lzo/src/.libs/" \
 	$(CONFIGURE) --prefix= \
 	--with-lzo-headers="../lzo/include" \
@@ -866,7 +1237,7 @@ openvpn/.conf:
 	touch openvpn/.conf
 
 openvpn-clean:
-	$(MAKE) -C openvpn clean || true
+	-$(MAKE) -C openvpn clean
 	@rm -f openvpn/.conf
 
 openvpn-install:

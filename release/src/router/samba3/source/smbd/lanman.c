@@ -389,7 +389,7 @@ static void PackDriverData(struct pack_desc* desc)
 	SIVAL(drivdata,0,sizeof drivdata); /* cb */
 	SIVAL(drivdata,4,1000);	/* lVersion */
 	memset(drivdata+8,0,32);	/* szDeviceName */
-	push_ascii(drivdata+8,"NULL",-1, STR_TERMINATE);
+	push_ascii(drivdata+8,"NULL",32, STR_TERMINATE);
 	PACKl(desc,"l",drivdata,sizeof drivdata); /* pDriverData */
 }
 
@@ -1105,7 +1105,9 @@ static int get_server_info(uint32 servertype,
 		if (!next_token(&ptr,stype, NULL, sizeof(stype))) {
 			continue;
 		}
-		if (!next_token(&ptr,s->comment, NULL, sizeof(s->comment))) {
+		if (!next_token(&ptr,s->comment, NULL,
+				MIN(sizeof(s->comment),
+				    MAX_SERVER_STRING_LENGTH))) {
 			continue;
 		}
 		if (!next_token(&ptr,s->domain, NULL, sizeof(s->domain))) {

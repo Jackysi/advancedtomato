@@ -170,10 +170,10 @@ int string_to_number(const char *s, unsigned int min, unsigned int max,
 	return result;
 }
 
-static void free_opts(struct option *opts)
+static void free_opts(struct option *local_opts)
 {
-	if (opts != original_opts) {
-		free(opts);
+	if (local_opts != original_opts) {
+		free(local_opts);
 		opts = original_opts;
 		global_option_offset = 0;
 	}
@@ -273,6 +273,8 @@ get_target_name(char *name)
 		if (!handle) {
 			fputs(dlerror(), stderr);
 			printf("\n");
+			free(lname);
+			free(new_name);
 			return NULL;
 		}
 	}
@@ -288,12 +290,16 @@ get_target_name(char *name)
 					fputs(error, stderr);
 					fprintf(stderr, "\n");
 					dlclose(handle);
+					free(lname);
+					free(new_name);
 					return NULL;
 				}
 			}
 		}
 	}
 
+	free(lname);
+	free(new_name);
 	return m;
 }
 
@@ -504,8 +510,15 @@ static int parse_ipt(struct action_util *a,int *argc_p,
 	*argc_p = rargc - iargc;
 	*argv_p = argv;
 	
-	optind = 1;
+	optind = 0;
 	free_opts(opts);
+	/* Clear flags if target will be used again */
+	m->tflags=0;
+	m->used=0;
+	/* Free allocated memory */
+	if (m->t)
+		free(m->t);
+
 
 	return 0;
 

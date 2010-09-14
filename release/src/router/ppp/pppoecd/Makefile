@@ -34,6 +34,11 @@ vpath	%.c ../pppd/plugins/pppoe
 OBJS	+= pppoehash.o pppoe_client.o libpppoe.o
 OBJS	+= main.o auth.o options.o demand.o utils.o sys-linux.o pppoe.o random.o
 
+ifdef HAVE_INET6
+CFLAGS	+= -DINET6=1
+OBJS	+= eui64.o ipv6cp.o
+endif
+
 ifdef CCP_SUPPORT
 CFLAGS	+= -DCCP_SUPPORT=1
 OBJS	+= ccp.o

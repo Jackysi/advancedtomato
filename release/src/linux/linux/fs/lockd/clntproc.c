@@ -146,7 +146,7 @@ nlmclnt_proc(struct inode *inode, int cmd, struct file_lock *fl)
 	 * perform the RPC call asynchronously. */
 	if ((IS_SETLK(cmd) || IS_SETLKW(cmd))
 	    && fl->fl_type == F_UNLCK
-	    && (current->flags & PF_EXITING)) {
+	    && ((current->flags & PF_EXITING) || signalled())) {
 		sigfillset(&current->blocked);	/* Mask all signals */
 		recalc_sigpending(current);
 		spin_unlock_irqrestore(&current->sigmask_lock, flags);

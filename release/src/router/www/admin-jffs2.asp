@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -24,7 +24,7 @@
 
 //	<% nvram("jffs2_on,jffs2_exec,t_fix1"); %>
 
-fmtwait = (nvram.t_fix1 == 'RT-N16' ? 100 : 60);
+fmtwait = (nvram.t_fix1 == 'RT-N16' ? 120 : 60);
 
 function verifyFields(focused, quiet)
 {

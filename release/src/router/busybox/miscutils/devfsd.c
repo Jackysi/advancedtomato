@@ -92,8 +92,8 @@
 #define DEVFS_PATHLEN               1024
 /*  Never change this otherwise the binary interface will change   */
 
-struct devfsd_notify_struct
-{	/*  Use native C types to ensure same types in kernel and user space     */
+struct devfsd_notify_struct {
+	/*  Use native C types to ensure same types in kernel and user space     */
 	unsigned int type;           /*  DEVFSD_NOTIFY_* value                   */
 	unsigned int mode;           /*  Mode of the inode or device entry       */
 	unsigned int major;          /*  Major number of device entry            */
@@ -151,32 +151,27 @@ struct devfsd_notify_struct
 #define AC_RMNEWCOMPAT				10
 #define AC_RESTORE					11
 
-struct permissions_type
-{
+struct permissions_type {
 	mode_t mode;
 	uid_t uid;
 	gid_t gid;
 };
 
-struct execute_type
-{
+struct execute_type {
 	char *argv[MAX_ARGS + 1];  /*  argv[0] must always be the programme  */
 };
 
-struct copy_type
-{
+struct copy_type {
 	const char *source;
 	const char *destination;
 };
 
-struct action_type
-{
+struct action_type {
 	unsigned int what;
 	unsigned int when;
 };
 
-struct config_entry_struct
-{
+struct config_entry_struct {
 	struct action_type action;
 	regex_t preg;
 	union
@@ -189,8 +184,7 @@ struct config_entry_struct
 	struct config_entry_struct *next;
 };
 
-struct get_variable_info
-{
+struct get_variable_info {
 	const struct devfsd_notify_struct *info;
 	const char *devname;
 	char devpath[STRING_LENGTH];
@@ -643,7 +637,7 @@ static int do_servicing(int fd, unsigned long event_mask)
 	xioctl(fd, DEVFSDIOC_SET_EVENT_MASK, (void*)event_mask);
 	while (!caught_signal) {
 		errno = 0;
-		bytes = read(fd,(char *) &info, sizeof info);
+		bytes = read(fd, (char *) &info, sizeof info);
 		if (caught_signal)
 			break;      /*  Must test for this first     */
 		if (errno == EINTR)
@@ -757,7 +751,7 @@ static void action_modload(const struct devfsd_notify_struct *info,
 	argv[4] = concat_path_file("/dev", info->devname); /* device */
 	argv[5] = NULL;
 
-	wait4pid(xspawn(argv));
+	spawn_and_wait(argv);
 	free(argv[4]);
 }  /*  End Function action_modload  */
 
@@ -789,7 +783,7 @@ static void action_execute(const struct devfsd_notify_struct *info,
 		argv[count] = largv[count];
 	}
 	argv[count] = NULL;
-	wait4pid(spawn(argv));
+	spawn_and_wait(argv);
 }   /*  End Function action_execute  */
 
 
@@ -947,10 +941,10 @@ static void restore(char *spath, struct stat source_stat, int rootlen)
 	lstat(dpath, &dest_stat);
 	free(dpath);
 	if (S_ISLNK(source_stat.st_mode) || (source_stat.st_mode & S_ISVTX))
-		copy_inode(dpath, &dest_stat,(source_stat.st_mode & ~S_ISVTX) , spath, &source_stat);
+		copy_inode(dpath, &dest_stat, (source_stat.st_mode & ~S_ISVTX), spath, &source_stat);
 
 	if (S_ISDIR(source_stat.st_mode))
-		dir_operation(RESTORE, spath, rootlen,NULL);
+		dir_operation(RESTORE, spath, rootlen, NULL);
 }
 
 
@@ -1001,7 +995,7 @@ static int copy_inode(const char *destpath, const struct stat *dest_stat,
 				break;
 			un_addr.sun_family = AF_UNIX;
 			snprintf(un_addr.sun_path, sizeof(un_addr.sun_path), "%s", destpath);
-			val = bind(fd,(struct sockaddr *) &un_addr,(int) sizeof un_addr);
+			val = bind(fd, (struct sockaddr *) &un_addr, (int) sizeof un_addr);
 			close(fd);
 			if (val != 0 || chmod(destpath, new_mode & ~S_IFMT) != 0)
 				break;
@@ -1336,8 +1330,7 @@ static void expand_regexp(char *output, size_t outsize, const char *input,
 
 /* from compat_name.c */
 
-struct translate_struct
-{
+struct translate_struct {
 	const char *match;    /*  The string to match to(up to length)                */
 	const char *format;   /*  Format of output, "%s" takes data past match string,
 			NULL is effectively "%s"(just more efficient)       */
@@ -1439,7 +1432,7 @@ const char *get_old_name(const char *devname, unsigned int namelen,
 
 	/* 2 ==scsi/disc, 4 == scsi/part */
 	if (i == 2 || i == 4)
-		compat_name = write_old_sd_name(buffer, major, minor,((i == 2) ? "" : (ptr + 4)));
+		compat_name = write_old_sd_name(buffer, major, minor, ((i == 2) ? "" : (ptr + 4)));
 
 	/* 5 == scsi/mt */
 	if (i == 5) {
@@ -1659,7 +1652,7 @@ static const char *expand_variable(char *buffer, unsigned int length,
 	ch = input[0];
 	if (ch == '$') {
 		/*  Special case for "$$": PID  */
-		sprintf(tmp, "%d",(int) getpid());
+		sprintf(tmp, "%d", (int) getpid());
 		len = strlen(tmp);
 		if (len + *out_pos >= length)
 			goto expand_variable_out;

@@ -43,9 +43,12 @@ void wi_upgrade(char *url, int len, char *boundary)
 	const char *error = "Error reading file";
 	int ok = 0;
 	int n;
+	int reset;
 
 	check_id(url);
+	reset = (strcmp(webcgi_safeget("_reset", "0"), "1") == 0);
 
+#ifdef TCONFIG_JFFS2
 	// quickly check if JFFS2 is mounted by checking if /jffs/ is not squashfs
 	struct statfs sf;
 	if ((statfs("/jffs", &sf) != 0) || (sf.f_type != 0x73717368)) {
@@ -53,6 +56,7 @@ void wi_upgrade(char *url, int len, char *boundary)
 			"JFFS2 partition, please backup the contents, disable JFFS2, then reboot the router";
 		goto ERROR;
 	}
+#endif
 
 	// skip the rest of the header
 	if (!skip_header(&len)) goto ERROR;
@@ -116,10 +120,15 @@ void wi_upgrade(char *url, int len, char *boundary)
 
 ERROR2:
 	rboot = 1;
-	set_action(ACT_REBOOT);
 
 	if (f) fclose(f);
 	if (pid != -1) waitpid(pid, &n, 0);
+
+	if (error == NULL && reset) {
+		set_action(ACT_IDLE);
+		eval("mtd-erase", "-d", "nvram");
+	}
+	set_action(ACT_REBOOT);
 
 	resmsg_fread("/tmp/.mtd-write");
 

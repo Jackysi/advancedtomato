@@ -34,7 +34,7 @@ struct globals {
 	struct sembuf SMrup[1]; // {0, -1, IPC_NOWAIT | SEM_UNDO},
 	struct sembuf SMrdn[2]; // {1, 0}, {0, +1, SEM_UNDO}
 	struct shbuf_ds *shbuf;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define SMrup (G.SMrup)
 #define SMrdn (G.SMrdn)
@@ -135,7 +135,7 @@ int logread_main(int argc UNUSED_PARAM, char **argv)
 		} else { /* logread -f */
 			if (cur == shbuf_tail) {
 				sem_up(log_semid);
-				fflush(stdout);
+				fflush_all();
 				sleep(1); /* TODO: replace me with a sleep_on */
 				continue;
 			}

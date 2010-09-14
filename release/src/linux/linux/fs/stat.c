@@ -141,14 +141,19 @@ static int cp_new_stat(struct inode * inode, struct stat * statbuf)
 asmlinkage long sys_stat(char * filename, struct __old_kernel_stat * statbuf)
 {
 	struct nameidata nd;
-	int error;
+	int error, errcnt = 0;
 
+again:
 	error = user_path_walk(filename, &nd);
 	if (!error) {
 		error = do_revalidate(nd.dentry);
 		if (!error)
 			error = cp_old_stat(nd.dentry->d_inode, statbuf);
 		path_release(&nd);
+	}
+	if (error == -ESTALE && !errcnt) {
+		errcnt++;
+		goto again;
 	}
 	return error;
 }
@@ -157,8 +162,9 @@ asmlinkage long sys_stat(char * filename, struct __old_kernel_stat * statbuf)
 asmlinkage long sys_newstat(char * filename, struct stat * statbuf)
 {
 	struct nameidata nd;
-	int error;
+	int error, errcnt = 0;
 
+again:
 	error = user_path_walk(filename, &nd);
 	if (!error) {
 		error = do_revalidate(nd.dentry);
@@ -166,6 +172,11 @@ asmlinkage long sys_newstat(char * filename, struct stat * statbuf)
 			error = cp_new_stat(nd.dentry->d_inode, statbuf);
 		path_release(&nd);
 	}
+	if (error == -ESTALE && !errcnt) {
+		errcnt++;
+		goto again;
+	}
+
 	return error;
 }
 
@@ -178,8 +189,9 @@ asmlinkage long sys_newstat(char * filename, struct stat * statbuf)
 asmlinkage long sys_lstat(char * filename, struct __old_kernel_stat * statbuf)
 {
 	struct nameidata nd;
-	int error;
+	int error, errcnt = 0;
 
+again:
 	error = user_path_walk_link(filename, &nd);
 	if (!error) {
 		error = do_revalidate(nd.dentry);
@@ -187,6 +199,11 @@ asmlinkage long sys_lstat(char * filename, struct __old_kernel_stat * statbuf)
 			error = cp_old_stat(nd.dentry->d_inode, statbuf);
 		path_release(&nd);
 	}
+	if (error == -ESTALE && !errcnt) {
+		errcnt++;
+		goto again;
+	}
+
 	return error;
 }
 
@@ -195,8 +212,9 @@ asmlinkage long sys_lstat(char * filename, struct __old_kernel_stat * statbuf)
 asmlinkage long sys_newlstat(char * filename, struct stat * statbuf)
 {
 	struct nameidata nd;
-	int error;
+	int error, errcnt = 0;
 
+again:
 	error = user_path_walk_link(filename, &nd);
 	if (!error) {
 		error = do_revalidate(nd.dentry);
@@ -204,6 +222,12 @@ asmlinkage long sys_newlstat(char * filename, struct stat * statbuf)
 			error = cp_new_stat(nd.dentry->d_inode, statbuf);
 		path_release(&nd);
 	}
+
+	if (error == -ESTALE && !errcnt) {
+		errcnt++;
+		goto again;
+	}
+
 	return error;
 }
 
@@ -338,8 +362,9 @@ static long cp_new_stat64(struct inode * inode, struct stat64 * statbuf)
 asmlinkage long sys_stat64(char * filename, struct stat64 * statbuf, long flags)
 {
 	struct nameidata nd;
-	int error;
+	int error, errcnt = 0;
 
+again:
 	error = user_path_walk(filename, &nd);
 	if (!error) {
 		error = do_revalidate(nd.dentry);
@@ -347,14 +372,20 @@ asmlinkage long sys_stat64(char * filename, struct stat64 * statbuf, long flags)
 			error = cp_new_stat64(nd.dentry->d_inode, statbuf);
 		path_release(&nd);
 	}
+	if (error == -ESTALE && !errcnt) {
+		errcnt++;
+		goto again;
+	}
+
 	return error;
 }
 
 asmlinkage long sys_lstat64(char * filename, struct stat64 * statbuf, long flags)
 {
 	struct nameidata nd;
-	int error;
+	int error, errcnt = 0;
 
+again:
 	error = user_path_walk_link(filename, &nd);
 	if (!error) {
 		error = do_revalidate(nd.dentry);
@@ -362,6 +393,11 @@ asmlinkage long sys_lstat64(char * filename, struct stat64 * statbuf, long flags
 			error = cp_new_stat64(nd.dentry->d_inode, statbuf);
 		path_release(&nd);
 	}
+	if (error == -ESTALE && !errcnt) {
+		errcnt++;
+		goto again;
+	}
+
 	return error;
 }
 

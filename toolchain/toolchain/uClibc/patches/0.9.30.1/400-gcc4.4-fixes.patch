@@ -825,30 +825,6 @@ Signed-off-by: Ron Lee <ron@debian.org>
  libc/inet/getaddrinfo.c |    9 ++++++---
  3 files changed, 11 insertions(+), 5 deletions(-)
 
-Index: uClibc-0.9.30.1/ldso/ldso/dl-elf.c
-===================================================================
---- uClibc-0.9.30.1.orig/ldso/ldso/dl-elf.c	2008-11-18 15:01:35.000000000 +0100
-+++ uClibc-0.9.30.1/ldso/ldso/dl-elf.c	2009-07-06 21:20:03.000000000 +0200
-@@ -341,6 +341,7 @@
- 	ElfW(Addr) relro_addr = 0;
- 	size_t relro_size = 0;
- 	struct stat st;
-+	uint32_t *p32;
- 	DL_LOADADDR_TYPE lib_loadaddr;
- 	DL_INIT_LOADADDR_EXTRA_DECLS
- 
-Index: uClibc-0.9.30.1/ldso/ldso/dl-startup.c
-===================================================================
---- uClibc-0.9.30.1.orig/ldso/ldso/dl-startup.c	2008-05-30 16:22:26.000000000 +0200
-+++ uClibc-0.9.30.1/ldso/ldso/dl-startup.c	2009-07-06 21:20:03.000000000 +0200
-@@ -122,6 +122,7 @@
- 	struct elf_resolve *tpnt = &tpnt_tmp;
- 	ElfW(auxv_t) auxvt[AT_EGID + 1];
- 	ElfW(Dyn) *dpnt;
-+	uint32_t  *p32;
- 
- 	/* WARNING! -- we cannot make _any_ funtion calls until we have
- 	 * taken care of fixing up our own relocations.  Making static
 Index: uClibc-0.9.30.1/libc/inet/getaddrinfo.c
 ===================================================================
 --- uClibc-0.9.30.1.orig/libc/inet/getaddrinfo.c	2009-02-26 13:49:14.000000000 +0100

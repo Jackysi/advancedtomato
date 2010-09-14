@@ -403,6 +403,7 @@ struct tty_ldisc *tty_ldisc_ref_wait(struct tty_struct *tty)
 {
 	/* wait_event is a macro */
 	wait_event(tty_ldisc_wait, tty_ldisc_try(tty));
+	WARN_ON(tty->ldisc.refcount == 0);
 	return &tty->ldisc;
 }
 
@@ -452,15 +453,17 @@ EXPORT_SYMBOL_GPL(tty_ldisc_deref);
   *     @tty: terminal to activate ldisc on
   *
   *     Set the TTY_LDISC flag when the line discipline can be called
-  *     again. Do neccessary wakeups for existing sleepers.
+  *     again. Do neccessary wakeups for existing sleepers. Clear the LDISC
+  *	changing flag to indicate any ldisc change is now over.
   *
-  *     Note: nobody should set this bit except via this function. Clearing
-  *     directly is allowed.
+  *     Note: nobody should set the TTY_LDISC bit except via this function.
+  *     Clearing directly is allowed.
   */
 
 static void tty_ldisc_enable(struct tty_struct *tty)
 {
 	set_bit(TTY_LDISC, &tty->flags);
+	clear_bit(TTY_LDISC_CHANGING, &tty->flags);
 	wake_up(&tty_ldisc_wait);
 }
 
@@ -480,14 +483,12 @@ static int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 	char buf[64];
 	unsigned long flags;
 	struct tty_ldisc *ld;
+	struct tty_struct *o_tty;
 
 	if ((ldisc < N_TTY) || (ldisc >= NR_LDISCS))
 		return -EINVAL;
 
 restart:
-
-	if (tty->ldisc.num == ldisc)
-		return 0; /* We are already in the desired discipline */
 
 	ld = tty_ldisc_get(ldisc);
 	/* Eduardo Blanco <ejbs@cs.cs.com.uy> */
@@ -503,37 +504,78 @@ restart:
 	if (ld == NULL)
 		return -EINVAL;
 
-	
-	o_ldisc = tty->ldisc;
 	tty_wait_until_sent(tty, 0);
+
+	if (tty->ldisc.num == ldisc) {
+		tty_ldisc_put(ldisc);
+		return 0;
+	}
+
+	o_ldisc = tty->ldisc;
+	o_tty = tty->link;
 
 	/*
 	 *      Make sure we don't change while someone holds a
 	 *      reference to the line discipline. The TTY_LDISC bit
 	 *      prevents anyone taking a reference once it is clear.
 	 *      We need the lock to avoid racing reference takers.
+	 *
+	 *      We must clear the TTY_LDISC bit here to avoid a livelock
+	 *      with a userspace app continually trying to use the tty in
+	 *      parallel to the change and re-referencing the tty.
 	 */
+	clear_bit(TTY_LDISC, &tty->flags);
+	if (o_tty)
+		clear_bit(TTY_LDISC, &o_tty->flags);
 
 	spin_lock_irqsave(&tty_ldisc_lock, flags);
-	if(tty->ldisc.refcount)
+	if(tty->ldisc.refcount || (o_tty && o_tty->ldisc.refcount))
 	{
-		/* Free the new ldisc we grabbed. Must drop the lock
-		   first. */
+		if (tty->ldisc.refcount) {
+			/* Free the new ldisc we grabbed. Must drop the lock
+			   first. */
+			spin_unlock_irqrestore(&tty_ldisc_lock, flags);
+			tty_ldisc_put(ldisc);
+			/*
+			 * There are several reasons we may be busy, including
+			 * random momentary I/O traffic. We must therefore
+			 * retry. We could distinguish between blocking ops
+			 * and retries if we made tty_ldisc_wait() smarter. That
+			 * is up for discussion.
+			 */
+			if(wait_event_interruptible(tty_ldisc_wait, tty->ldisc.refcount == 0) < 0)
+				return -ERESTARTSYS;
+			goto restart;
+		}
+		if (o_tty && o_tty->ldisc.refcount) {
+			spin_unlock_irqrestore(&tty_ldisc_lock, flags);
+			tty_ldisc_put(o_tty->ldisc.num);
+			if (wait_event_interruptible(tty_ldisc_wait, o_tty->ldisc.refcount == 0) < 0)
+				return -ERESTARTSYS;
+			goto restart;
+		}
+	}
+
+	/*
+	 *	If the TTY_LDISC_CHANGING bit is set, then we are racing against
+	 *	another ldisc change
+	 */
+	if (test_bit(TTY_LDISC_CHANGING, &tty->flags)) {
 		spin_unlock_irqrestore(&tty_ldisc_lock, flags);
 		tty_ldisc_put(ldisc);
-		/*
-		 * There are several reasons we may be busy, including
-		 * random momentary I/O traffic. We must therefore
-		 * retry. We could distinguish between blocking ops
-		 * and retries if we made tty_ldisc_wait() smarter. That
-		 * is up for discussion.
-		 */
-		if(wait_event_interruptible(tty_ldisc_wait, tty->ldisc.refcount == 0) < 0)
-			return -ERESTARTSYS;
+		ld = tty_ldisc_ref_wait(tty);
+		tty_ldisc_deref(ld);
 		goto restart;
 	}
-	clear_bit(TTY_LDISC, &tty->flags);
-	clear_bit(TTY_DONT_FLIP, &tty->flags);
+
+	/*
+	 *      This flag is used to avoid two parallel ldisc changes. Once
+	 *      open and close are fine grained locked this may work better
+	 *      as a mutex shared with the open/close/hup paths
+	 */
+	set_bit(TTY_LDISC_CHANGING, &tty->flags);
+	if (o_tty)
+		set_bit(TTY_LDISC_CHANGING, &o_tty->flags);
 	spin_unlock_irqrestore(&tty_ldisc_lock, flags);
 
 	/*
@@ -591,6 +633,8 @@ restart:
 	 *      ldisc callback completes.
 	 */
 	tty_ldisc_enable(tty);
+	if (o_tty)
+		tty_ldisc_enable(o_tty);
 
 	return retval;
 }
@@ -1613,7 +1657,6 @@ static void release_dev(struct file * filp)
 	 * race with the set_ldisc code path.
 	 */
 	clear_bit(TTY_LDISC, &tty->flags);
-	clear_bit(TTY_DONT_FLIP, &tty->flags);
 
 	/*
 	 * Wait for ->hangup_work and ->flip.work handlers to terminate
@@ -2338,10 +2381,6 @@ static void flush_to_ldisc(void *private_)
 	if (disc == NULL)       /*  !TTY_LDISC */
 		return;
 
-	if (test_bit(TTY_DONT_FLIP, &tty->flags)) {
-		queue_task(&tty->flip.tqueue, &tq_timer);
-		goto out;
-	}
 	if (tty->flip.buf_num) {
 		cp = tty->flip.char_buf + TTY_FLIPBUF_SIZE;
 		fp = tty->flip.flag_buf + TTY_FLIPBUF_SIZE;
@@ -2364,7 +2403,6 @@ static void flush_to_ldisc(void *private_)
 	restore_flags(flags);
 	
 	disc->receive_buf(tty, cp, fp, count);
-out:
 	tty_ldisc_deref(disc);
 }
 
@@ -2379,9 +2417,7 @@ int tty_push_data(struct tty_struct *tty, unsigned char *cp, unsigned char *fp, 
 	struct tty_ldisc *disc;
 	
 	disc = tty_ldisc_ref(tty);
-	if(test_bit(TTY_DONT_FLIP, &tty->flags))
-		ret = -EAGAIN;
-	else if(disc == NULL)
+	if (disc == NULL)
 		ret = -EIO;
 	else
 		disc->receive_buf(tty, cp, fp, count);

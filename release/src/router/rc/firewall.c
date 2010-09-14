@@ -262,6 +262,38 @@ int ipt_layer7(const char *v, char *opt)
 }
 
 
+// -----------------------------------------------------------------------------
+
+static void save_webmon(void)
+{
+	system("cp /proc/webmon_recent_domains /var/webmon/domain");
+	system("cp /proc/webmon_recent_searches /var/webmon/search");
+}
+
+static void ipt_webmon(void)
+{
+	int wmtype;
+
+	if (!nvram_get_int("log_wm")) return;
+	wmtype = nvram_get_int("log_wmtype");
+
+	ipt_write(
+		":monitor - [0:0]\n"
+		"-A FORWARD -o %s -j monitor\n",
+		wanface);
+
+	ipt_write(
+		"-A monitor -m webmon "
+		"--max_domains %d --max_searches %d %s%s "
+		"--search_load_file /var/webmon/search "
+		"--domain_load_file /var/webmon/domain\n",
+		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
+		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
+		wmtype == 0 ? "" : nvram_safe_get("log_wmip"));
+
+	modprobe("ipt_webmon");
+}
+
 
 // -----------------------------------------------------------------------------
 // MANGLE
@@ -447,7 +479,11 @@ static void filter_input(void)
 		if (nvram_get_int("telnetd_eas"))
 		if (nvram_get_int("sshd_eas"))
 */
+#ifdef LINUX26
+		modprobe("xt_recent");
+#else
 		modprobe("ipt_recent");
+#endif
 
 		ipt_write(
 			"-N shlimit\n"
@@ -462,7 +498,11 @@ static void filter_input(void)
 #ifdef TCONFIG_FTP
 	strlcpy(s, nvram_safe_get("ftp_limit"), sizeof(s));
 	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && (atoi(en)) && (nvram_get_int("ftp_enable") == 1)) {
+#ifdef LINUX26
+		modprobe("xt_recent");
+#else
 		modprobe("ipt_recent");
+#endif
 
 		ipt_write(
 			"-N ftplimit\n"
@@ -480,9 +520,29 @@ static void filter_input(void)
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
-		ipt_write("-A INPUT -p icmp -j ACCEPT\n");
+		ipt_write("-A INPUT -p icmp -j %s\n", chain_in_accept);
+		// allow udp traceroute packets
+		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", chain_in_accept);
 	}
 
+	/* Accept incoming packets from broken dhcp servers, which are sending replies
+	 * from addresses other than used for query. This could lead to a lower level
+	 * of security, so allow to disable it via nvram variable.
+	 */
+	if (nvram_invmatch("dhcp_pass", "0")) {
+		switch (get_wan_proto()) {
+		case WP_PPTP:
+			if (nvram_get_int("pptp_dhcp") == 0)
+				break;
+			/* Fall through */
+		case WP_DHCP:
+		case WP_L2TP:
+			ipt_write("-A INPUT -p udp --sport 67 --dport 68 -j %s\n", chain_in_accept);
+			break;
+		default:
+			break;
+		}
+	}
 
 	strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
 	p = t;
@@ -544,16 +604,18 @@ static void filter_input(void)
 // clamp TCP MSS to PMTU of WAN interface
 static void clampmss(void)
 {
-	int wanproto = get_wan_proto();
+#if 1
+	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+#else
 	int rmtu = nvram_get_int("wan_run_mtu");
-
 	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS ", rmtu - 39);
-	if ((rmtu < 576) || (wanproto == WP_PPTP) || (wanproto == WP_L2TP) || (wanproto == WP_PPPOE)) {
+	if (rmtu < 576) {
 		ipt_write("--clamp-mss-to-pmtu\n");
 	}
 	else {
 		ipt_write("--set-mss %d\n", rmtu - 40);
 	}
+#endif
 }
 
 static void filter_forward(void)
@@ -575,6 +637,8 @@ static void filter_forward(void)
 		ipt_restrictions();
 		ipt_layer7_inbound();
 	}
+
+	ipt_webmon();
 
 	ipt_write(
 		":wanin - [0:0]\n"
@@ -662,6 +726,7 @@ static void filter_table(void)
 	else {
 		ipt_write(":FORWARD ACCEPT [0:0]\n");
 		clampmss();
+		ipt_webmon();
 	}
 	ipt_write("COMMIT\n");
 }
@@ -724,7 +789,6 @@ int start_firewall(void)
 
 	/* DoS-related tweaks */
 	f_write_string("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", "1", 0, 0);
-	f_write_string("/proc/sys/net/ipv4/tcp_abort_on_overflow", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/tcp_rfc1337", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/ip_local_port_range", "1024 65535", 0, 0);
 
@@ -793,6 +857,8 @@ int start_firewall(void)
 	}
 #endif
 
+	save_webmon();
+
 	if (nvram_get_int("upnp_enable") & 3) {
 		f_write("/etc/upnp/save", NULL, 0, 0, 0);
 		if (killall("miniupnpd", SIGUSR2) == 0) {
@@ -843,6 +909,10 @@ int start_firewall(void)
 	modprobe_r("ipt_ipp2p");
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_TTL");
+	modprobe_r("ipt_webmon");
+
+	unlink("/var/webmon/domain");
+	unlink("/var/webmon/search");
 
 #ifdef TCONFIG_OPENVPN
 	run_vpn_firewall_scripts();

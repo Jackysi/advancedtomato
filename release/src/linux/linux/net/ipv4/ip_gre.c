@@ -38,6 +38,10 @@
 #include <net/checksum.h>
 #include <net/inet_ecn.h>
 
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+#include <net/gre.h>
+#endif
+
 #ifdef CONFIG_IPV6
 #include <net/ipv6.h>
 #include <net/ip6_fib.h>
@@ -1243,7 +1247,12 @@ int __init ipgre_fb_tunnel_init(struct net_device *dev)
 	return 0;
 }
 
-
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+static struct gre_protocol ipgre_protocol = {
+	.handler	= ipgre_rcv,
+	.err_handler	= ipgre_err,
+};
+#else
 static struct inet_protocol ipgre_protocol = {
   ipgre_rcv,             /* GRE handler          */
   ipgre_err,             /* TUNNEL error control */
@@ -1253,7 +1262,7 @@ static struct inet_protocol ipgre_protocol = {
   NULL,                 /* data                 */
   "GRE"                 /* name                 */
 };
-
+#endif
 
 /*
  *	And now the modules code and kernel interface.
@@ -1269,7 +1278,12 @@ int __init ipgre_init(void)
 
 	ipgre_fb_tunnel_dev.priv = (void*)&ipgre_fb_tunnel;
 	register_netdev(&ipgre_fb_tunnel_dev);
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+	if (gre_add_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+		printk(KERN_INFO "ipgre init: can't add protocol\n");
+#else
 	inet_add_protocol(&ipgre_protocol);
+#endif
 	return 0;
 }
 
@@ -1277,7 +1291,11 @@ int __init ipgre_init(void)
 
 void cleanup_module(void)
 {
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+	if (gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+#else
 	if ( inet_del_protocol(&ipgre_protocol) < 0 )
+#endif
 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
 
 	unregister_netdev(&ipgre_fb_tunnel_dev);

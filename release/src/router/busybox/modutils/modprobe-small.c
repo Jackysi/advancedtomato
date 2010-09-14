@@ -9,7 +9,7 @@
  */
 
 #include "libbb.h"
-
+/* After libbb.h, since it needs sys/types.h on some systems */
 #include <sys/utsname.h> /* uname() */
 #include <fnmatch.h>
 
@@ -44,11 +44,13 @@ struct globals {
 	char *module_load_options;
 	smallint dep_bb_seen;
 	smallint wrote_dep_bb_ok;
-	int module_count;
+	unsigned module_count;
 	int module_found_idx;
-	int stringbuf_idx;
-	char stringbuf[32 * 1024]; /* some modules have lots of stuff */
+	unsigned stringbuf_idx;
+	unsigned stringbuf_size;
+	char *stringbuf; /* some modules have lots of stuff */
 	/* for example, drivers/media/video/saa7134/saa7134.ko */
+	/* therefore having a fixed biggish buffer is not wise */
 };
 #define G (*ptr_to_globals)
 #define modinfo             (G.modinfo            )
@@ -58,31 +60,35 @@ struct globals {
 #define module_found_idx    (G.module_found_idx   )
 #define module_load_options (G.module_load_options)
 #define stringbuf_idx       (G.stringbuf_idx      )
+#define stringbuf_size      (G.stringbuf_size     )
 #define stringbuf           (G.stringbuf          )
 #define INIT_G() do { \
 	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
 } while (0)
 
+static void append(const char *s)
+{
+	unsigned len = strlen(s);
+	if (stringbuf_idx + len + 15 > stringbuf_size) {
+		stringbuf_size = stringbuf_idx + len + 127;
+		dbg2_error_msg("grow stringbuf to %u", stringbuf_size);
+		stringbuf = xrealloc(stringbuf, stringbuf_size);
+	}
+	memcpy(stringbuf + stringbuf_idx, s, len);
+	stringbuf_idx += len;
+}
 
 static void appendc(char c)
 {
-	if (stringbuf_idx < sizeof(stringbuf))
-		stringbuf[stringbuf_idx++] = c;
+	/* We appendc() only after append(), + 15 trick in append()
+	 * makes it unnecessary to check for overflow here */
+	stringbuf[stringbuf_idx++] = c;
 }
 
 static void bksp(void)
 {
 	if (stringbuf_idx)
 		stringbuf_idx--;
-}
-
-static void append(const char *s)
-{
-	size_t len = strlen(s);
-	if (stringbuf_idx + len < sizeof(stringbuf)) {
-		memcpy(stringbuf + stringbuf_idx, s, len);
-		stringbuf_idx += len;
-	}
 }
 
 static void reset_stringbuf(void)
@@ -92,7 +98,7 @@ static void reset_stringbuf(void)
 
 static char* copy_stringbuf(void)
 {
-	char *copy = xmalloc(stringbuf_idx);
+	char *copy = xzalloc(stringbuf_idx + 1); /* terminating NUL */
 	return memcpy(copy, stringbuf, stringbuf_idx);
 }
 
@@ -216,7 +222,6 @@ static void parse_module(module_info *info, const char *pathname)
 		pos = (ptr - module_image);
 	}
 	bksp(); /* remove last ' ' */
-	appendc('\0');
 	info->aliases = copy_stringbuf();
 	replace(info->aliases, '-', '_');
 
@@ -229,7 +234,6 @@ static void parse_module(module_info *info, const char *pathname)
 		dbg2_error_msg("dep:'%s'", ptr);
 		append(ptr);
 	}
-	appendc('\0');
 	info->deps = copy_stringbuf();
 
 	free(module_image);
@@ -315,6 +319,7 @@ static int load_dep_bb(void)
 
 	while ((line = xmalloc_fgetline(fp)) != NULL) {
 		char* space;
+		char* linebuf;
 		int cur;
 
 		if (!line[0]) {
@@ -329,7 +334,8 @@ static int load_dep_bb(void)
 		if (*space)
 			*space++ = '\0';
 		modinfo[cur].aliases = space;
-		modinfo[cur].deps = xmalloc_fgetline(fp) ? : xzalloc(1);
+		linebuf = xmalloc_fgetline(fp);
+		modinfo[cur].deps = linebuf ? linebuf : xzalloc(1);
 		if (modinfo[cur].deps[0]) {
 			/* deps are not "", so next line must be empty */
 			line = xmalloc_fgetline(fp);
@@ -378,11 +384,7 @@ static void write_out_dep_bb(int fd)
 	FILE *fp;
 
 	/* We want good error reporting. fdprintf is not good enough. */
-	fp = fdopen(fd, "w");
-	if (!fp) {
-		close(fd);
-		goto err;
-	}
+	fp = xfdopen_for_write(fd);
 	i = 0;
 	while (modinfo[i].pathname) {
 		fprintf(fp, "%s%s%s\n" "%s%s\n",
@@ -400,7 +402,7 @@ static void write_out_dep_bb(int fd)
 
 	if (rename(DEPFILE_BB".new", DEPFILE_BB) != 0) {
  err:
-		bb_perror_msg("can't create %s", DEPFILE_BB);
+		bb_perror_msg("can't create '%s'", DEPFILE_BB);
 		unlink(DEPFILE_BB".new");
 	} else {
  ok:
@@ -567,6 +569,14 @@ static void process_module(char *name, const char *cmdline_options)
 		info = find_alias(name);
 	}
 
+// Problem here: there can be more than one module
+// for the given alias. For example,
+// "pci:v00008086d00007010sv00000000sd00000000bc01sc01i80" matches
+// ata_piix because it has an alias "pci:v00008086d00007010sv*sd*bc*sc*i*"
+// and ata_generic, it has an alias "alias=pci:v*d*sv*sd*bc01sc01i*"
+// Standard modprobe would load them both.
+// In this code, find_alias() returns only the first matching module.
+
 	/* rmmod? unload it by name */
 	if (is_rmmod) {
 		if (delete_module(name, O_NONBLOCK | O_EXCL) != 0
@@ -675,12 +685,25 @@ The following options are useful for people managing distributions:
                         Use the file instead of the current kernel symbols
 */
 
+//usage:#if ENABLE_MODPROBE_SMALL
+//usage:#define modprobe_trivial_usage
+//usage:	"[-qfwrsv] MODULE [symbol=value]..."
+//usage:#define modprobe_full_usage "\n\n"
+//usage:       "Options:"
+//usage:     "\n	-r	Remove MODULE (stacks) or do autoclean"
+//usage:     "\n	-q	Quiet"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-f	Force"
+//usage:     "\n	-w	Wait for unload"
+//usage:     "\n	-s	Report via syslog instead of stderr"
+//usage:#endif /* ENABLE_MODPROBE_SMALL */
+
 int modprobe_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int modprobe_main(int argc UNUSED_PARAM, char **argv)
 {
 	struct utsname uts;
 	char applet0 = applet_name[0];
-	USE_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(char *options;)
+	IF_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(char *options;)
 
 	/* are we lsmod? -> just dump /proc/modules */
 	if ('l' == applet0) {
@@ -774,8 +797,8 @@ int modprobe_main(int argc UNUSED_PARAM, char **argv)
 		len = MAXINT(ssize_t);
 		map = xmalloc_xopen_read_close(*argv, &len);
 		if (init_module(map, len,
-			USE_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(options ? options : "")
-			SKIP_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE("")
+			IF_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(options ? options : "")
+			IF_NOT_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE("")
 				) != 0)
 			bb_error_msg_and_die("can't insert '%s': %s",
 					*argv, moderror(errno));
@@ -792,7 +815,7 @@ int modprobe_main(int argc UNUSED_PARAM, char **argv)
 	} while (*argv);
 
 	if (ENABLE_FEATURE_CLEAN_UP) {
-		USE_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(free(options);)
+		IF_FEATURE_MODPROBE_SMALL_OPTIONS_ON_CMDLINE(free(options);)
 	}
 	return EXIT_SUCCESS;
 }

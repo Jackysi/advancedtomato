@@ -40,11 +40,33 @@ void web_putj(const char *buffer)
 	}
 }
 
+void web_putj_utf8(const char *buffer)
+{
+	char *p;
+
+	p = utf8_to_js_string(buffer);
+	if (p) {
+		web_puts(p);
+		free(p);
+	}
+}
+
 void web_puth(const char *buffer)
 {
 	char *p;
 
 	p = html_string(buffer);
+	if (p) {
+		web_puts(p);
+		free(p);
+	}
+}
+
+void web_puth_utf8(const char *buffer)
+{
+	char *p;
+
+	p = utf8_to_html_string(buffer);
 	if (p) {
 		web_puts(p);
 		free(p);
@@ -58,7 +80,7 @@ int _web_printf(wofilter_t wof, const char *format, ...)
 	int size;
 	int n;
 
-	size = 512;
+	size = 1024;
 	while (1) {
 		if ((b = malloc(size)) == NULL) return 0;
 
@@ -91,7 +113,7 @@ int _web_printf(wofilter_t wof, const char *format, ...)
 		else size *= 2;
 
 		free(b);
-		if (size > (4 * 1024)) return 0;
+		if (size > (10 * 1024)) return 0;
 	}
 }
 
@@ -190,10 +212,10 @@ static void _web_putfile(FILE *f, wofilter_t wof)
 		buf[nr] = 0;
 		switch (wof) {
 		case WOF_JAVASCRIPT:
-			web_putj(buf);
+			web_putj_utf8(buf);
 			break;
 		case WOF_HTML:
-			web_puth(buf);
+			web_puth_utf8(buf);
 			break;
 		default:
 			web_puts(buf);

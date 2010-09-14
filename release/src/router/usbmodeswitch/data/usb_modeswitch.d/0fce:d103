@@ -1,0 +1,10 @@
+########################################################
+# Rogers Rocket Stick (a Sony Ericsson device)
+
+DefaultVendor= 0x0fce
+DefaultProduct=0xd103
+
+TargetClass=0x02
+
+CheckSuccess=20
+

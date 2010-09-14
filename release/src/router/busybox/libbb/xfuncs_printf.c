@@ -140,6 +140,15 @@ int FAST_FUNC xopen(const char *pathname, int flags)
 	return xopen3(pathname, flags, 0666);
 }
 
+/* Die if we can't open an existing file readonly with O_NONBLOCK
+ * and return the fd.
+ * Note that for ioctl O_RDONLY is sufficient.
+ */
+int FAST_FUNC xopen_nonblocking(const char *pathname)
+{
+	return xopen(pathname, O_RDONLY | O_NONBLOCK);
+}
+
 // Warn if we can't open a file and return a fd.
 int FAST_FUNC open3_or_warn(const char *pathname, int flags, int mode)
 {
@@ -213,6 +222,12 @@ void FAST_FUNC xwrite_str(int fd, const char *str)
 	xwrite(fd, str, strlen(str));
 }
 
+void FAST_FUNC xclose(int fd)
+{
+	if (close(fd))
+		bb_perror_msg_and_die("close failed");
+}
+
 // Die with an error message if we can't lseek to the right spot.
 off_t FAST_FUNC xlseek(int fd, off_t offset, int whence)
 {
@@ -240,30 +255,24 @@ void FAST_FUNC die_if_ferror_stdout(void)
 	die_if_ferror(stdout, bb_msg_standard_output);
 }
 
-// Die with an error message if we have trouble flushing stdout.
-void FAST_FUNC xfflush_stdout(void)
+int FAST_FUNC fflush_all(void)
 {
-	if (fflush(stdout)) {
-		bb_perror_msg_and_die(bb_msg_standard_output);
-	}
+	return fflush(NULL);
 }
 
 
 int FAST_FUNC bb_putchar(int ch)
 {
-	/* time.c needs putc(ch, stdout), not putchar(ch).
-	 * it does "stdout = stderr;", but then glibc's putchar()
-	 * doesn't work as expected. bad glibc, bad */
-	return putc(ch, stdout);
+	return putchar(ch);
 }
 
 /* Die with an error message if we can't copy an entire FILE* to stdout,
  * then close that file. */
 void FAST_FUNC xprint_and_close_file(FILE *file)
 {
-	fflush(stdout);
+	fflush_all();
 	// copyfd outputs error messages for us.
-	if (bb_copyfd_eof(fileno(file), 1) == -1)
+	if (bb_copyfd_eof(fileno(file), STDOUT_FILENO) == -1)
 		xfunc_die();
 
 	fclose(file);
@@ -277,59 +286,14 @@ char* FAST_FUNC xasprintf(const char *format, ...)
 	int r;
 	char *string_ptr;
 
-#if 1
-	// GNU extension
 	va_start(p, format);
 	r = vasprintf(&string_ptr, format, p);
 	va_end(p);
-#else
-	// Bloat for systems that haven't got the GNU extension.
-	va_start(p, format);
-	r = vsnprintf(NULL, 0, format, p);
-	va_end(p);
-	string_ptr = xmalloc(r+1);
-	va_start(p, format);
-	r = vsnprintf(string_ptr, r+1, format, p);
-	va_end(p);
-#endif
 
 	if (r < 0)
 		bb_error_msg_and_die(bb_msg_memory_exhausted);
 	return string_ptr;
 }
-
-#if 0 /* If we will ever meet a libc which hasn't [f]dprintf... */
-int FAST_FUNC fdprintf(int fd, const char *format, ...)
-{
-	va_list p;
-	int r;
-	char *string_ptr;
-
-#if 1
-	// GNU extension
-	va_start(p, format);
-	r = vasprintf(&string_ptr, format, p);
-	va_end(p);
-#else
-	// Bloat for systems that haven't got the GNU extension.
-	va_start(p, format);
-	r = vsnprintf(NULL, 0, format, p) + 1;
-	va_end(p);
-	string_ptr = malloc(r);
-	if (string_ptr) {
-		va_start(p, format);
-		r = vsnprintf(string_ptr, r, format, p);
-		va_end(p);
-	}
-#endif
-
-	if (r >= 0) {
-		full_write(fd, string_ptr, r);
-		free(string_ptr);
-	}
-	return r;
-}
-#endif
 
 void FAST_FUNC xsetenv(const char *key, const char *value)
 {
@@ -359,6 +323,11 @@ void FAST_FUNC bb_unsetenv(const char *var)
 	free(tp);
 }
 
+void FAST_FUNC bb_unsetenv_and_free(char *var)
+{
+	bb_unsetenv(var);
+	free(var);
+}
 
 // Die with an error message if we can't set gid.  (Because resource limits may
 // limit this user to a given number of processes, and if that fills up the
@@ -420,8 +389,8 @@ int FAST_FUNC xsocket(int domain, int type, int protocol)
 		const char *s = "INET";
 		if (domain == AF_PACKET) s = "PACKET";
 		if (domain == AF_NETLINK) s = "NETLINK";
-USE_FEATURE_IPV6(if (domain == AF_INET6) s = "INET6";)
-		bb_perror_msg_and_die("socket(AF_%s)", s);
+IF_FEATURE_IPV6(if (domain == AF_INET6) s = "INET6";)
+		bb_perror_msg_and_die("socket(AF_%s,%d,%d)", s, type, protocol);
 #else
 		bb_perror_msg_and_die("socket");
 #endif
@@ -544,5 +513,90 @@ int FAST_FUNC bb_xioctl(int fd, unsigned request, void *argp)
 	if (ret < 0)
 		bb_perror_msg_and_die("ioctl %#x failed", request);
 	return ret;
+}
+#endif
+
+char* FAST_FUNC xmalloc_ttyname(int fd)
+{
+	char *buf = xzalloc(128);
+	int r = ttyname_r(fd, buf, 127);
+	if (r) {
+		free(buf);
+		buf = NULL;
+	}
+	return buf;
+}
+
+void FAST_FUNC generate_uuid(uint8_t *buf)
+{
+	/* http://www.ietf.org/rfc/rfc4122.txt
+	 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |                          time_low                             |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |       time_mid                |         time_hi_and_version   |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |clk_seq_and_variant            |         node (0-1)            |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |                         node (2-5)                            |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * IOW, uuid has this layout:
+	 * uint32_t time_low (big endian)
+	 * uint16_t time_mid (big endian)
+	 * uint16_t time_hi_and_version (big endian)
+	 *  version is a 4-bit field:
+	 *   1 Time-based
+	 *   2 DCE Security, with embedded POSIX UIDs
+	 *   3 Name-based (MD5)
+	 *   4 Randomly generated
+	 *   5 Name-based (SHA-1)
+	 * uint16_t clk_seq_and_variant (big endian)
+	 *  variant is a 3-bit field:
+	 *   0xx Reserved, NCS backward compatibility
+	 *   10x The variant specified in rfc4122
+	 *   110 Reserved, Microsoft backward compatibility
+	 *   111 Reserved for future definition
+	 * uint8_t node[6]
+	 *
+	 * For version 4, these bits are set/cleared:
+	 * time_hi_and_version & 0x0fff | 0x4000
+	 * clk_seq_and_variant & 0x3fff | 0x8000
+	 */
+	pid_t pid;
+	int i;
+
+	i = open("/dev/urandom", O_RDONLY);
+	if (i >= 0) {
+		read(i, buf, 16);
+		close(i);
+	}
+	/* Paranoia. /dev/urandom may be missing.
+	 * rand() is guaranteed to generate at least [0, 2^15) range,
+	 * but lowest bits in some libc are not so "random".  */
+	srand(monotonic_us()); /* pulls in printf */
+	pid = getpid();
+	while (1) {
+		for (i = 0; i < 16; i++)
+			buf[i] ^= rand() >> 5;
+		if (pid == 0)
+			break;
+		srand(pid);
+		pid = 0;
+	}
+
+	/* version = 4 */
+	buf[4 + 2    ] = (buf[4 + 2    ] & 0x0f) | 0x40;
+	/* variant = 10x */
+	buf[4 + 2 + 2] = (buf[4 + 2 + 2] & 0x3f) | 0x80;
+}
+
+#if BB_MMU
+pid_t FAST_FUNC xfork(void)
+{
+	pid_t pid;
+	pid = fork();
+	if (pid < 0) /* wtf? */
+		bb_perror_msg_and_die("vfork"+1);
+	return pid;
 }
 #endif

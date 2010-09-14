@@ -253,6 +253,12 @@ of the control connection. This is a security measure. Unfortunately, not all
 FTP clients reuse sessions (e.g. curl). You can disable this requirement by
 changing require_ssl_reuse to NO.
 
+Q) Help! My LDAP / mysql / etc. authentication and / or username lookup are
+failing!
+A) As of v2.2.0, the built-in sandboxing uses network isolation on Linux. This
+may be interfering with any module that needs to use the network to perform
+operations or lookups. Try changing isolate_network to NO.
+
 Q) Blah.. blah..
 A) For a good idea of what vsftpd can do, read the vsftpd.conf.5 man page
 and the EXAMPLES.

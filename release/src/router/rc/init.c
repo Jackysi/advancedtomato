@@ -25,6 +25,7 @@
 #ifdef LINUX26
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
 #endif
 #include <wlutils.h>
 #include <bcmdevs.h>
@@ -310,6 +311,48 @@ static int check_nv(const char *name, const char *value)
 	return 0;
 }
 
+static void find_dir320_mac_addr()
+{
+	FILE *fp;
+	char *buffer, s[18];
+	int i, part, size, found = 0;
+
+	if (!mtd_getinfo("board_data", &part, &size))
+		goto out;
+	sprintf(s, MTD_DEV(%dro), part);
+
+	if ((fp = fopen(s, "rb"))) {
+		buffer = malloc(size);
+		memset(buffer, 0, size);
+		fread(buffer, size, 1, fp);
+		if (!memcmp(buffer, "RGCFG1", 6)) {
+			for (i = 6; i < size - 24; i++) {
+				if (!memcmp(buffer + i, "lanmac=", 7)) {
+					memcpy(s, buffer + i + 7, 17);
+					s[17] = 0;
+					nvram_set("il0macaddr", s);
+				}
+				else if (!memcmp(buffer + i, "wanmac=", 7)) {
+					memcpy(s, buffer + i + 7, 17);
+					s[17] = 0;
+					nvram_set("et0macaddr", s);
+					found = 1;
+				}
+			}
+		}
+		free(buffer);
+		fclose(fp);
+	}
+out:
+	if (!found) {
+		strcpy(s, nvram_safe_get("wl0_hwaddr"));
+		inc_mac(s, -1);
+		nvram_set("il0macaddr", s);
+		inc_mac(s, -1);
+		nvram_set("et0macaddr", s);
+	}
+}
+
 static void check_bootnv(void)
 {
 	int dirty;
@@ -320,23 +363,121 @@ static void check_bootnv(void)
 	dirty = 0;
 
 	switch (model) {
+	case MODEL_WTR54GS:
+		dirty |= check_nv("vlan0hwname", "et0");
+		dirty |= check_nv("vlan1hwname", "et0");
+		break;
+	case MODEL_WL500GP:
+		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
+		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WL500W:
+		/* fix WL500W mac adresses for WAN port */
+		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
+			dirty |= check_nv("et1macaddr", nvram_get("et0macaddr"));
+		break;
+	case MODEL_WL500GE:
+		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WL500GPv2:
+		if (nvram_match("vlan1ports", "4 5u"))
+			dirty |= check_nv("vlan1ports", "4 5");
+		else if (nvram_match("vlan1ports", "0 5u"))	// 520GU?
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WL520GU:
+		if (nvram_match("vlan1ports", "0 5u"))
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WL500GD:
+		dirty |= check_nv("vlan0hwname", "et0");
+		dirty |= check_nv("vlan1hwname", "et0");
+		if (!nvram_get("vlan0ports")) {
+			dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
+			dirty |= check_nv("vlan1ports", "0 5");
+		}
+		break;
+	case MODEL_DIR320:
+		if (strlen(nvram_safe_get("et0macaddr")) == 12 ||
+		    strlen(nvram_safe_get("il0macaddr")) == 12) {
+			find_dir320_mac_addr();
+			nvram_unset("lan_hwaddr");
+			nvram_unset("wan_hwaddr");
+			dirty = 1;
+		}
+		if (nvram_get("vlan2ports") != NULL) {
+			nvram_unset("vlan2ports");
+			nvram_unset("vlan2hwname");
+			dirty = 1;
+		}
+		dirty |= check_nv("wandevs", "vlan1");
+		dirty |= check_nv("vlan1hwname", "et0");
+		if ((nvram_get("vlan1ports") == NULL) || nvram_match("vlan1ports", "0 5u"))
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
-		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
-		dirty |= check_nv("vlan2ports", "0 8");
+		dirty |= check_nv("vlan2hwname", "et0");
+		if (nvram_match("vlan1ports", "1 2 3 4 8*") || nvram_match("vlan2ports", "0 8u")) {
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
+		dirty |= check_nv("ledbh0", "7");
+		break;
+	case MODEL_WNR2000v2:
+		if (nvram_match("vlan0ports", "1 2 3 4 5*") || nvram_match("vlan1ports", "0 5u")) {
+			dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
+			dirty |= check_nv("vlan1ports", "0 5");
+		}
+		if (nvram_match("ledbh5", "2"))
+			dirty |= check_nv("ledbh5", "8");
 		break;
 	case MODEL_RTN10:
-		dirty |= check_nv("vlan1ports", "4 5");
+		if (nvram_match("vlan1ports", "4 5u"))
+			dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_RTN12:
-		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
-		dirty |= check_nv("vlan1ports", "4 5");
+		if (nvram_match("vlan0ports", "0 1 2 3 5*") || nvram_match("vlan1ports", "4 5u")) {
+			dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
+			dirty |= check_nv("vlan1ports", "4 5");
+		}
 		break;
+	case MODEL_WRT320N:
+		dirty |= check_nv("reset_gpio", "5");
+		dirty |= check_nv("ledbh0", "136");
+		dirty |= check_nv("ledbh1", "11");
+		/* fall through, same as RT-N16 */
 	case MODEL_RTN16:
 		dirty |= check_nv("vlan2hwname", "et0");
-		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
-		dirty |= check_nv("vlan2ports", "0 8");
+		if (nvram_match("vlan1ports", "1 2 3 4 8*") || nvram_match("vlan2ports", "0 8u")) {
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
 		break;
+	case MODEL_WRT610Nv2:
+		dirty |= check_nv("vlan2hwname", "et0");
+		if (strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4C", 8) == 0 ||
+		    strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+			char mac[18];
+			strcpy(mac, nvram_get("et0macaddr"));
+			inc_mac(mac, 3);
+			dirty |= check_nv("pci/1/1/macaddr", mac);
+		}
+		if (strcmp(nvram_safe_get("vlan1ports"), "") == 0) {
+			dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
+		break;
+	case MODEL_WRT160Nv3:
+		if (nvram_match("clkdivsf", "4") && nvram_match("vlan1ports", "1 2 3 4 5*")) {
+			// fix lan port numbering on CSE41, CSE51
+			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
+		}
+		break;
+#endif
 
 	case MODEL_WRT54G:
 	if (strncmp(nvram_safe_get("pmon_ver"), "CFE", 3) != 0) return;
@@ -356,6 +497,13 @@ static void check_bootnv(void)
 			mtd_erase("nvram");
 			goto REBOOT;
 	}
+
+	dirty |= check_nv("aa0", "3");
+	dirty |= check_nv("wl0gpio0", "136");
+	dirty |= check_nv("wl0gpio2", "0");
+	dirty |= check_nv("wl0gpio3", "0");
+	dirty |= check_nv("cctl", "0");
+	dirty |= check_nv("ccode", "0");
 
 	switch (hardware) {
 	case HW_BCM5325E:
@@ -471,15 +619,12 @@ static int init_nvram(void)
 		mfr = "Linksys";
 		name = "WTR54GS";
 		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set ("vlan0hwname", "et0");
-			nvram_set ("vlan1hwname", "et0");
 			nvram_set("vlan0ports", "0 5*");
 			nvram_set("vlan1ports", "1 5");
 			nvram_set("vlan_enable", "1");
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("gpio2", "ses_button");
 			nvram_set("reset_gpio", "7");
-
 		}
 		nvram_set("pa0itssit", "62");
 		nvram_set("pa0b0", "0x1542");
@@ -611,8 +756,6 @@ static int init_nvram(void)
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
-			nvram_set("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
-			nvram_set("vlan1ports", "0 5");		// default: 0 5u
 			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");	// set to "vlan0 eth2" by DD-WRT; default: vlan0 eth1
 			// !!TB - WLAN LED fix
 			nvram_set("wl0gpio0", "136");
@@ -622,9 +765,6 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500W";
 		features = SUP_SES | SUP_80211N;
-		/* fix WL500W mac adresses for WAN port */
-		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
-			nvram_set("et1macaddr", nvram_get("et0macaddr"));
 		/* fix AIR LED */
 		if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
 			nvram_set("wl0gpio0", "0x88");
@@ -633,10 +773,6 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500gE";
 		//	features = ?
-		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("t_fix1", name);
-			nvram_set("vlan1ports", "0 5");			// default: 0 5u
-		}
 		break;
 	case MODEL_WX6615GT:
 		mfr = "SparkLAN";
@@ -692,6 +828,7 @@ static int init_nvram(void)
 		nvram_set("opo", "0x0008");
 		nvram_set("ag0", "0x0C");
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_RTN10:
 		mfr = "Asus";
 		name = "RT-N10";
@@ -728,27 +865,72 @@ static int init_nvram(void)
 		break;
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
-		name = "WNR3500L/v2";
-		features = SUP_SES | SUP_80211N | SUP_1000ET;
+		name = "WNR3500L/U/v2";
+		features = SUP_SES | SUP_AOSS_LED | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("sromrev", "3");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("portprio_support", "0");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WNR2000v2:
+		mfr = "Netgear";
+		name = "WNR2000 v2";
+		features = SUP_SES | SUP_AOSS_LED | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WRT160Nv3:
+		mfr = "Linksys";
+		if (nvram_match("boot_hw_model", "M10") && nvram_match("boot_hw_ver", "1.0"))
+			name = "M10 v1"; // renamed wrt160nv3
+		else
+			name = "WRT160N v3";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
+		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("t_fix1", name);
 		}
 		break;
+	case MODEL_WRT320N:
+		mfr = "Linksys";
+		name = nvram_match("boardrev", "0x1307") ? "E2000" : "WRT320N";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WRT610Nv2:
+		mfr = "Linksys";
+		name = nvram_match("boot_hw_model", "E300") ? "E3000" : "WRT610N v2";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("pci/1/1/ledbh2", "8");
+			nvram_set("sb/1/ledbh1", "8");
+			nvram_set("t_fix1", name);
+		}
+		break;
+#endif	// CONFIG_BCMWL5
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
-			if (nvram_match("vlan1ports", "4 5u")) {
-				nvram_set("vlan1ports", "4 5");
-			}
-			else if (nvram_match("vlan1ports", "0 5u")) {	// 520GU?
-				nvram_set("vlan1ports", "0 5");
-			}
 			nvram_set("t_fix1", name);
 		}
 		/* fix AIR LED */
@@ -761,7 +943,6 @@ static int init_nvram(void)
 		features = SUP_SES;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
-			nvram_set("vlan1ports", "0 5");
 			// !!TB - LED fix
 			nvram_set("wl0gpio0", "0");
 			nvram_set("wl0gpio1", "136");
@@ -769,31 +950,33 @@ static int init_nvram(void)
 			nvram_set("wl0gpio3", "0");
 		}
 		break;
+	case MODEL_WL500GD:
+		mfr = "Asus";
+		name = "WL-500g Deluxe";
+		// features = SUP_SES;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_unset("wl0gpio0");
+		}
+		break;
 	case MODEL_DIR320:
 		mfr = "D-Link";
 		name = "DIR-320";
 		features = SUP_SES;
-		if (nvram_match("wl0gpio0", "255"))
-		{
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("t_fix1", name);
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0gpio0", "8");
 			nvram_set("wl0gpio1", "0");
 			nvram_set("wl0gpio2", "0");
 			nvram_set("wl0gpio3", "0");
 		}
-		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("t_fix1", name);
-			nvram_unset( "vlan2ports" );
-			nvram_unset( "vlan2hwname" );
-			nvram_set("vlan1hwname", "et0");
-			nvram_set("vlan1ports", "0 5");
-			nvram_set("wandevs", "vlan1");
-			nvram_set("wan_ifname", "vlan1");
-			nvram_set("wan_ifnames", "vlan1");
-			nvram_set("wan0_ifname", "vlan1");
-			nvram_set("wan0_ifnames", "vlan1");
-		}
 		break;
-#endif
+#endif	// WL_BSS_INFO_VERSION >= 108
 #if TOMATO_N
 	case MODEL_WZRG300N:
 		mfr = "Buffalo";
@@ -802,8 +985,12 @@ static int init_nvram(void)
 		break;
 	case MODEL_WRT300N:
 		mfr = "Linksys";
-		name = "WRT300N";
+		name = "WRT300N v1";
 		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("wan_ifnameX", "eth1");
+			nvram_set("wl0gpio0", "8");
+		}
 		break;
 #endif
 	}
@@ -818,7 +1005,7 @@ static int init_nvram(void)
 	}
 	nvram_set("t_model_name", s);
 
-	nvram_set("pa0maxpwr", "251");				// allow Tx power up tp 251 mW, needed for ND only
+	nvram_set("pa0maxpwr", "400");	// allow Tx power up tp 400 mW, needed for ND only
 
 	sprintf(s, "0x%lX", features);
 	nvram_set("t_features", s);
@@ -855,6 +1042,9 @@ static int init_nvram(void)
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
 	nvram_unset("https_crt_gen");
+#ifdef TCONFIG_MEDIA_SERVER
+	nvram_unset("ms_rescan");
+#endif
 	if (nvram_get_int("http_id_gen") == 1) nvram_unset("http_id");
 
 	nvram_unset("sch_rboot_last");
@@ -900,6 +1090,21 @@ static void load_files_from_nvram(void)
 	}
 }
 
+#if defined(LINUX26) && defined(TCONFIG_USB)
+static inline void tune_min_free_kbytes(void)
+{
+	struct sysinfo info;
+
+	memset(&info, 0, sizeof(struct sysinfo));
+	sysinfo(&info);
+	if (info.totalram >= 55 * 1024 * 1024) {
+		// If we have 64MB+ RAM, tune min_free_kbytes
+		// to reduce page allocation failure errors.
+		f_write_string("/proc/sys/vm/min_free_kbytes", "8192", 0, 0);
+	}
+}
+#endif
+
 static void sysinit(void)
 {
 	static const time_t tm = 0;
@@ -930,7 +1135,7 @@ static void sysinit(void)
 
 	static const char *mkd[] = {
 		"/tmp/etc", "/tmp/var", "/tmp/home", "/tmp/mnt",
-		"/tmp/share",	// !!TB
+		"/tmp/share", "/var/webmon", // !!TB
 		"/var/log", "/var/run", "/var/tmp", "/var/lib", "/var/lib/misc",
 		"/var/spool", "/var/spool/cron", "/var/spool/cron/crontabs",
 		"/tmp/var/wwwext", "/tmp/var/wwwext/cgi-bin",	// !!TB - CGI support
@@ -977,6 +1182,9 @@ static void sysinit(void)
 #ifdef LINUX26
 	eval("hotplug2", "--coldplug");
 	start_hotplug2();
+	chmod("/dev/null", 0666);
+	chmod("/dev/zero", 0666);
+	chmod("/dev/gpio", 0660);
 #endif
 
 	set_action(ACT_IDLE);
@@ -991,6 +1199,11 @@ static void sysinit(void)
 	}
 
 	check_bootnv();
+
+#ifdef TCONFIG_IPV6
+	// disable IPv6 by default on all interfaces
+	f_write_string("/proc/sys/net/ipv6/conf/default/disable_ipv6", "1", 0, 0);
+#endif
 
 	for (i = 0; i < sizeof(fatalsigs) / sizeof(fatalsigs[0]); i++) {
 		signal(fatalsigs[i], handle_fatalsigs);
@@ -1010,6 +1223,11 @@ static void sysinit(void)
 		}
 		break;
 	}
+
+#ifdef CONFIG_BCMWL5
+	// ctf must be loaded prior to any other modules
+	modprobe("ctf");
+#endif
 
 	hardware = check_hw_type();
 #if WL_BSS_INFO_VERSION >= 108
@@ -1045,6 +1263,9 @@ static void sysinit(void)
 
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 
+#if defined(LINUX26) && defined(TCONFIG_USB)
+	tune_min_free_kbytes();
+#endif
 	setup_conntrack();
 	set_host_domain_name();
 
@@ -1065,9 +1286,11 @@ static void sysinit(void)
 int init_main(int argc, char *argv[])
 {
 	pid_t shell_pid = 0;
+	sigset_t sigset;
 
 	sysinit();
 
+	sigemptyset(&sigset);
 	state = START;
 	signaled = -1;
 
@@ -1091,6 +1314,7 @@ int init_main(int argc, char *argv[])
 		case HALT:
 		case REBOOT:
 			led(LED_DIAG, 1);
+			unlink("/var/notice/sysup");
 
 			run_nvscript("script_shut", NULL, 10);
 
@@ -1100,11 +1324,10 @@ int init_main(int argc, char *argv[])
 			stop_vlan();
 			stop_syslog();
 
-			// !!TB - USB Support
-			remove_storage_main((state == REBOOT) || (state == HALT));
-			stop_usb();
-
 			if ((state == REBOOT) || (state == HALT)) {
+				remove_storage_main(1);
+				stop_usb();
+
 				shutdn(state == REBOOT);
 				exit(0);
 			}
@@ -1171,7 +1394,7 @@ int init_main(int argc, char *argv[])
 					shell_pid = run_shell(0, 1);
 				}
 				else {
-					pause();
+					sigsuspend(&sigset);
 				}
 			}
 			state = signaled;
@@ -1188,6 +1411,24 @@ int reboothalt_main(int argc, char *argv[])
 	fflush(stdout);
 	sleep(1);
 	kill(1, reboot ? SIGTERM : SIGQUIT);
+
+	/* In the case we're hung, we'll get stuck and never actually reboot.
+	 * The only way out is to pull power.
+	 * So after 10 seconds, forcibly crash & restart.
+	 */
+	if (fork() == 0) {
+		int wait = nvram_get_int("reset_wait");
+		if ((wait < 10) || (wait > 120)) wait = 10;
+
+		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
+		sleep(wait);
+		puts("Still running... Doing machine reset.");
+		fflush(stdout);
+		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */
+		sleep(1);
+		f_write("/proc/sysrq-trigger", "b", 1, 0 , 0); /* machine reset */
+	}
+
 	return 0;
 }
 

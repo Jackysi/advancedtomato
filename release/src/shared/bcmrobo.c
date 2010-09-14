@@ -1100,8 +1100,10 @@ bcm_robo_enable_switch(robo_info_t *robo)
 	}
 
 	/* Enable WAN port (#0) on the asus wl-500g deluxe boxes */
-	val8 = 0;
-	robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
+	if (sb_chip(robo->sbh) == BCM5365_CHIP_ID) {
+		val8 = 0;
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
+	}
 
 	/* Disable management interface access */
 	if (robo->ops->disable_mgmtif)

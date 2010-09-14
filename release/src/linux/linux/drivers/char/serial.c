@@ -615,7 +615,7 @@ static _INLINE_ void receive_chars(struct async_struct *info,
 					icount->overrun++;
 					*status = serial_inp(info, UART_LSR);
 				} while ((*status & UART_LSR_DR) && (max_count-- > 0));
-				return;		// if TTY_DONT_FLIP is set
+				return;
 			}
 		}
 		ch = serial_inp(info, UART_RX);

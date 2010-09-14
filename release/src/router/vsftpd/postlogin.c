@@ -32,7 +32,7 @@
 static void handle_pwd(struct vsf_session* p_sess);
 static void handle_cwd(struct vsf_session* p_sess);
 static void handle_pasv(struct vsf_session* p_sess, int is_epsv);
-static void handle_retr(struct vsf_session* p_sess);
+static void handle_retr(struct vsf_session* p_sess, int is_http);
 static void handle_cdup(struct vsf_session* p_sess);
 static void handle_list(struct vsf_session* p_sess);
 static void handle_type(struct vsf_session* p_sess);
@@ -60,6 +60,7 @@ static void handle_stat(struct vsf_session* p_sess);
 static void handle_stat_file(struct vsf_session* p_sess);
 static void handle_logged_in_user(struct vsf_session* p_sess);
 static void handle_logged_in_pass(struct vsf_session* p_sess);
+static void handle_http(struct vsf_session* p_sess);
 
 static int pasv_active(struct vsf_session* p_sess);
 static int port_active(struct vsf_session* p_sess);
@@ -93,6 +94,12 @@ process_post_login(struct vsf_session* p_sess)
     vsf_sysutil_set_umask(tunable_local_umask);
     p_sess->bw_rate_max = tunable_local_max_rate;
   }
+  if (p_sess->is_http)
+  {
+    handle_http(p_sess);
+    bug("should not be reached");
+  }
+
   if (tunable_async_abor_enable)
   {
     vsf_sysutil_install_sighandler(kVSFSysUtilSigURG, handle_sigurg, p_sess, 0);
@@ -101,6 +108,7 @@ process_post_login(struct vsf_session* p_sess)
   /* Handle any login message */
   vsf_banner_dir_changed(p_sess, FTP_LOGINOK);
   vsf_cmdio_write(p_sess, FTP_LOGINOK, "Login successful.");
+
   while(1)
   {
     int cmd_ok = 1;
@@ -204,7 +212,7 @@ process_post_login(struct vsf_session* p_sess)
     else if (tunable_download_enable &&
              str_equal_text(&p_sess->ftp_cmd_str, "RETR"))
     {
-      handle_retr(p_sess);
+      handle_retr(p_sess, 0);
     }
     else if (str_equal_text(&p_sess->ftp_cmd_str, "NOOP"))
     {
@@ -621,7 +629,7 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
 }
 
 static void
-handle_retr(struct vsf_session* p_sess)
+handle_retr(struct vsf_session* p_sess, int is_http)
 {
   static struct mystr s_mark_str;
   static struct vsf_sysutil_statbuf* s_p_statbuf;
@@ -631,7 +639,7 @@ handle_retr(struct vsf_session* p_sess)
   int is_ascii = 0;
   filesize_t offset = p_sess->restart_pos;
   p_sess->restart_pos = 0;
-  if (!data_transfer_checks_ok(p_sess))
+  if (!is_http && !data_transfer_checks_ok(p_sess))
   {
     return;
   }
@@ -708,14 +716,23 @@ handle_retr(struct vsf_session* p_sess)
   str_append_filesize_t(&s_mark_str,
                         vsf_sysutil_statbuf_get_size(s_p_statbuf));
   str_append_text(&s_mark_str, " bytes).");
-  remote_fd = get_remote_transfer_fd(p_sess, str_getbuf(&s_mark_str));
-  if (vsf_sysutil_retval_is_error(remote_fd))
+  if (is_http)
   {
-    goto port_pasv_cleanup_out;
+    remote_fd = VSFTP_COMMAND_FD;
+  }
+  else
+  {
+    remote_fd = get_remote_transfer_fd(p_sess, str_getbuf(&s_mark_str));
+    if (vsf_sysutil_retval_is_error(remote_fd))
+    {
+      goto port_pasv_cleanup_out;
+    }
   }
   trans_ret = vsf_ftpdataio_transfer_file(p_sess, remote_fd,
                                           opened_file, 0, is_ascii);
-  if (vsf_ftpdataio_dispose_transfer_fd(p_sess) != 1 && trans_ret.retval == 0)
+  if (!is_http &&
+      vsf_ftpdataio_dispose_transfer_fd(p_sess) != 1 &&
+      trans_ret.retval == 0)
   {
     trans_ret.retval = -2;
   }
@@ -724,6 +741,10 @@ handle_retr(struct vsf_session* p_sess)
   if (trans_ret.retval == 0)
   {
     vsf_log_do_log(p_sess, 1);
+  }
+  if (is_http)
+  {
+    goto file_close_out;
   }
   /* Emit status message _after_ blocking dispose call to avoid buggy FTP
    * clients truncating the transfer.
@@ -1005,12 +1026,12 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
    */
   if (is_unique || (p_sess->is_anonymous && !tunable_anon_other_write_enable))
   {
-    new_file_fd = str_create(p_filename);
+    new_file_fd = str_create_exclusive(p_filename);
   }
   else
   {
     /* For non-anonymous, allow open() to overwrite or append existing files */
-    new_file_fd = str_create_append(p_filename);
+    new_file_fd = str_create(p_filename);
     if (!is_append && offset == 0)
     {
       do_truncate = 1;
@@ -1057,11 +1078,11 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   if (!is_append && offset != 0)
   {
     /* XXX - warning, allows seek past end of file! Check for seek > size? */
-    /* XXX - also, currently broken as the O_APPEND flag will always write
-     * at the end of file. No known complaints yet; can easily fix if one
-     * comes in.
-     */
     vsf_sysutil_lseek_to(new_file_fd, offset);
+  }
+  else if (is_append)
+  {
+    vsf_sysutil_lseek_end(new_file_fd);
   }
   if (is_unique)
   {
@@ -1897,4 +1918,54 @@ static void handle_logged_in_user(struct vsf_session* p_sess)
 static void handle_logged_in_pass(struct vsf_session* p_sess)
 {
   vsf_cmdio_write(p_sess, FTP_LOGINOK, "Already logged in.");
+}
+
+static void
+handle_http(struct vsf_session* p_sess)
+{
+  /* Warning: Doesn't respect cmds_allowed etc. because there is currently only
+   * one command (GET)!
+   * HTTP likely doesn't respect other important FTP options. I don't think
+   * logging works.
+   */
+  if (!tunable_download_enable)
+  {
+    bug("HTTP needs download - fix your config");
+  }
+  /* Eat the HTTP headers, which we don't care about. */
+  do
+  {
+    vsf_cmdio_get_cmd_and_arg(p_sess, &p_sess->ftp_cmd_str,
+                              &p_sess->ftp_arg_str, 1);
+  }
+  while (!str_isempty(&p_sess->ftp_cmd_str) ||
+         !str_isempty(&p_sess->ftp_arg_str));
+  vsf_cmdio_write_raw(p_sess, "HTTP/1.1 200 OK\r\n");
+  vsf_cmdio_write_raw(p_sess, "Server: vsftpd\r\n");
+  vsf_cmdio_write_raw(p_sess, "Connection: close\r\n");
+  vsf_cmdio_write_raw(p_sess, "X-Frame-Options: SAMEORIGIN\r\n");
+  vsf_cmdio_write_raw(p_sess, "X-Content-Type-Options: nosniff\r\n");
+  /* Split the path from the HTTP/1.x */
+  str_split_char(&p_sess->http_get_arg, &p_sess->ftp_arg_str, ' ');
+  str_copy(&p_sess->ftp_arg_str, &p_sess->http_get_arg);
+  str_split_char(&p_sess->http_get_arg, &p_sess->ftp_cmd_str, '.');
+  str_upper(&p_sess->ftp_cmd_str);
+  if (str_equal_text(&p_sess->ftp_cmd_str, "HTML") ||
+      str_equal_text(&p_sess->ftp_cmd_str, "HTM"))
+  {
+    vsf_cmdio_write_raw(p_sess, "Content-Type: text/html\r\n");
+  }
+  else
+  {
+    vsf_cmdio_write_raw(p_sess, "Content-Type: dunno\r\n");
+  }
+  vsf_cmdio_write_raw(p_sess, "\r\n");
+  p_sess->is_ascii = 0;
+  p_sess->restart_pos = 0;
+  handle_retr(p_sess, 1);
+  if (vsf_log_entry_pending(p_sess))
+  {
+    vsf_log_do_log(p_sess, 0);
+  }
+  vsf_sysutil_exit(0);
 }

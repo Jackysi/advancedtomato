@@ -3937,6 +3937,15 @@ CONFIG_SYN_COOKIES
 
   If unsure, say N.
 
+RFC2385 Support for TCP
+CONFIG_TCP_RFC2385
+  RFC2385 specifies a method of giving MD5 protection to TCP
+  sessions. It is commonly used to protect BGP sessions between core
+  routers on the Internet.
+
+  If you will be running something like Zebra to talk BGP to routers,
+  you may want to say 'Y' here.
+
 # Choice: alphatype
 Alpha system type
 CONFIG_ALPHA_GENERIC

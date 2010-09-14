@@ -20,6 +20,25 @@
  *     "This program is in the Public Domain."
  */
 
+//kbuild:lib-$(CONFIG_TEST)      += test.o test_ptr_hack.o
+//kbuild:lib-$(CONFIG_ASH)       += test.o test_ptr_hack.o
+//kbuild:lib-$(CONFIG_HUSH)      += test.o test_ptr_hack.o
+
+//config:config TEST
+//config:	bool "test"
+//config:	default y
+//config:	help
+//config:	  test is used to check file types and compare values,
+//config:	  returning an appropriate exit code. The bash shell
+//config:	  has test built in, ash can build it in optionally.
+//config:
+//config:config FEATURE_TEST_64
+//config:	bool "Extend test to 64 bit"
+//config:	default y
+//config:	depends on TEST || ASH_BUILTIN_TEST || HUSH
+//config:	help
+//config:	  Enable 64-bit support in test.
+
 #include "libbb.h"
 #include <setjmp.h>
 
@@ -28,7 +47,6 @@
 /* test_main() is called from shells, and we need to be extra careful here.
  * This is true regardless of PREFER_APPLETS and STANDALONE_SHELL
  * state. */
-
 
 /* test(1) accepts the following grammar:
 	oexpr	::= aexpr | aexpr "-o" oexpr ;
@@ -47,43 +65,97 @@
 	operand ::= <any legal UNIX file name>
 */
 
+/* TODO: handle [[ expr ]] bashism bash-compatibly.
+ * [[ ]] is meant to be a "better [ ]", with less weird syntax
+ * and without the risk of variables and quoted strings misinterpreted
+ * as operators.
+ * This will require support from shells - we need to know quote status
+ * of each parameter (see below).
+ *
+ * Word splitting and pathname expansion should NOT be performed:
+ *      # a="a b"; [[ $a = "a b" ]] && echo YES
+ *      YES
+ *      # [[ /bin/m* ]] && echo YES
+ *      YES
+ *
+ * =~ should do regexp match
+ * = and == should do pattern match against right side:
+ *      # [[ *a* == bab ]] && echo YES
+ *      # [[ bab == *a* ]] && echo YES
+ *      YES
+ * != does the negated == (i.e., also with pattern matching).
+ * Pattern matching is quotation-sensitive:
+ *      # [[ bab == "b"a* ]] && echo YES
+ *      YES
+ *      # [[ bab == b"a*" ]] && echo YES
+ *
+ * Conditional operators such as -f must be unquoted literals to be recognized:
+ *      # [[ -e /bin ]] && echo YES
+ *      YES
+ *      # [[ '-e' /bin ]] && echo YES
+ *      bash: conditional binary operator expected...
+ *      # A='-e'; [[ $A /bin ]] && echo YES
+ *      bash: conditional binary operator expected...
+ *
+ * || and && should work as -o and -a work in [ ]
+ * -a and -o aren't recognized (&& and || are to be used instead)
+ * ( and ) do not need to be quoted unlike in [ ]:
+ *      # [[ ( abc ) && '' ]] && echo YES
+ *      # [[ ( abc ) || '' ]] && echo YES
+ *      YES
+ *      # [[ ( abc ) -o '' ]] && echo YES
+ *      bash: syntax error in conditional expression...
+ *
+ * Apart from the above, [[ expr ]] should work as [ expr ]
+ */
+
 #define TEST_DEBUG 0
 
 enum token {
 	EOI,
-	FILRD,
+
+	FILRD, /* file access */
 	FILWR,
 	FILEX,
+
 	FILEXIST,
-	FILREG,
+
+	FILREG, /* file type */
 	FILDIR,
 	FILCDEV,
 	FILBDEV,
 	FILFIFO,
 	FILSOCK,
+
 	FILSYM,
 	FILGZ,
 	FILTT,
-	FILSUID,
+
+	FILSUID, /* file bit */
 	FILSGID,
 	FILSTCK,
-	FILNT,
+
+	FILNT, /* file ops */
 	FILOT,
 	FILEQ,
+
 	FILUID,
 	FILGID,
-	STREZ,
+
+	STREZ, /* str ops */
 	STRNZ,
 	STREQ,
 	STRNE,
 	STRLT,
 	STRGT,
-	INTEQ,
+
+	INTEQ, /* int ops */
 	INTNE,
 	INTGE,
 	INTGT,
 	INTLE,
 	INTLT,
+
 	UNOT,
 	BAND,
 	BOR,
@@ -170,7 +242,7 @@ static const char *const TOKSTR[] = {
 #define unnest_msg_and_return(expr, ...) return expr
 #endif
 
-enum token_types {
+enum {
 	UNOP,
 	BINOP,
 	BUNOP,
@@ -179,53 +251,96 @@ enum token_types {
 };
 
 struct operator_t {
-	char op_text[4];
 	unsigned char op_num, op_type;
 };
 
-static const struct operator_t ops[] = {
-	{ "-r", FILRD   , UNOP   },
-	{ "-w", FILWR   , UNOP   },
-	{ "-x", FILEX   , UNOP   },
-	{ "-e", FILEXIST, UNOP   },
-	{ "-f", FILREG  , UNOP   },
-	{ "-d", FILDIR  , UNOP   },
-	{ "-c", FILCDEV , UNOP   },
-	{ "-b", FILBDEV , UNOP   },
-	{ "-p", FILFIFO , UNOP   },
-	{ "-u", FILSUID , UNOP   },
-	{ "-g", FILSGID , UNOP   },
-	{ "-k", FILSTCK , UNOP   },
-	{ "-s", FILGZ   , UNOP   },
-	{ "-t", FILTT   , UNOP   },
-	{ "-z", STREZ   , UNOP   },
-	{ "-n", STRNZ   , UNOP   },
-	{ "-h", FILSYM  , UNOP   },    /* for backwards compat */
+static const struct operator_t ops_table[] = {
+	{ /* "-r" */ FILRD   , UNOP   },
+	{ /* "-w" */ FILWR   , UNOP   },
+	{ /* "-x" */ FILEX   , UNOP   },
+	{ /* "-e" */ FILEXIST, UNOP   },
+	{ /* "-f" */ FILREG  , UNOP   },
+	{ /* "-d" */ FILDIR  , UNOP   },
+	{ /* "-c" */ FILCDEV , UNOP   },
+	{ /* "-b" */ FILBDEV , UNOP   },
+	{ /* "-p" */ FILFIFO , UNOP   },
+	{ /* "-u" */ FILSUID , UNOP   },
+	{ /* "-g" */ FILSGID , UNOP   },
+	{ /* "-k" */ FILSTCK , UNOP   },
+	{ /* "-s" */ FILGZ   , UNOP   },
+	{ /* "-t" */ FILTT   , UNOP   },
+	{ /* "-z" */ STREZ   , UNOP   },
+	{ /* "-n" */ STRNZ   , UNOP   },
+	{ /* "-h" */ FILSYM  , UNOP   },    /* for backwards compat */
 
-	{ "-O" , FILUID , UNOP   },
-	{ "-G" , FILGID , UNOP   },
-	{ "-L" , FILSYM , UNOP   },
-	{ "-S" , FILSOCK, UNOP   },
-	{ "="  , STREQ  , BINOP  },
-	{ "==" , STREQ  , BINOP  },
-	{ "!=" , STRNE  , BINOP  },
-	{ "<"  , STRLT  , BINOP  },
-	{ ">"  , STRGT  , BINOP  },
-	{ "-eq", INTEQ  , BINOP  },
-	{ "-ne", INTNE  , BINOP  },
-	{ "-ge", INTGE  , BINOP  },
-	{ "-gt", INTGT  , BINOP  },
-	{ "-le", INTLE  , BINOP  },
-	{ "-lt", INTLT  , BINOP  },
-	{ "-nt", FILNT  , BINOP  },
-	{ "-ot", FILOT  , BINOP  },
-	{ "-ef", FILEQ  , BINOP  },
-	{ "!"  , UNOT   , BUNOP  },
-	{ "-a" , BAND   , BBINOP },
-	{ "-o" , BOR    , BBINOP },
-	{ "("  , LPAREN , PAREN  },
-	{ ")"  , RPAREN , PAREN  },
+	{ /* "-O" */ FILUID  , UNOP   },
+	{ /* "-G" */ FILGID  , UNOP   },
+	{ /* "-L" */ FILSYM  , UNOP   },
+	{ /* "-S" */ FILSOCK , UNOP   },
+	{ /* "="  */ STREQ   , BINOP  },
+	{ /* "==" */ STREQ   , BINOP  },
+	{ /* "!=" */ STRNE   , BINOP  },
+	{ /* "<"  */ STRLT   , BINOP  },
+	{ /* ">"  */ STRGT   , BINOP  },
+	{ /* "-eq"*/ INTEQ   , BINOP  },
+	{ /* "-ne"*/ INTNE   , BINOP  },
+	{ /* "-ge"*/ INTGE   , BINOP  },
+	{ /* "-gt"*/ INTGT   , BINOP  },
+	{ /* "-le"*/ INTLE   , BINOP  },
+	{ /* "-lt"*/ INTLT   , BINOP  },
+	{ /* "-nt"*/ FILNT   , BINOP  },
+	{ /* "-ot"*/ FILOT   , BINOP  },
+	{ /* "-ef"*/ FILEQ   , BINOP  },
+	{ /* "!"  */ UNOT    , BUNOP  },
+	{ /* "-a" */ BAND    , BBINOP },
+	{ /* "-o" */ BOR     , BBINOP },
+	{ /* "("  */ LPAREN  , PAREN  },
+	{ /* ")"  */ RPAREN  , PAREN  },
 };
+/* Please keep these two tables in sync */
+static const char ops_texts[] ALIGN1 =
+	"-r"  "\0"
+	"-w"  "\0"
+	"-x"  "\0"
+	"-e"  "\0"
+	"-f"  "\0"
+	"-d"  "\0"
+	"-c"  "\0"
+	"-b"  "\0"
+	"-p"  "\0"
+	"-u"  "\0"
+	"-g"  "\0"
+	"-k"  "\0"
+	"-s"  "\0"
+	"-t"  "\0"
+	"-z"  "\0"
+	"-n"  "\0"
+	"-h"  "\0"
+
+	"-O"  "\0"
+	"-G"  "\0"
+	"-L"  "\0"
+	"-S"  "\0"
+	"="   "\0"
+	"=="  "\0"
+	"!="  "\0"
+	"<"   "\0"
+	">"   "\0"
+	"-eq" "\0"
+	"-ne" "\0"
+	"-ge" "\0"
+	"-gt" "\0"
+	"-le" "\0"
+	"-lt" "\0"
+	"-nt" "\0"
+	"-ot" "\0"
+	"-ef" "\0"
+	"!"   "\0"
+	"-a"  "\0"
+	"-o"  "\0"
+	"("   "\0"
+	")"   "\0"
+;
 
 
 #if ENABLE_FEATURE_TEST_64
@@ -298,7 +413,7 @@ static number_t getn(const char *s)
 	if (errno != 0)
 		syntax(s, "out of range");
 
-	if (*(skip_whitespace(p)))
+	if (p == s || *(skip_whitespace(p)) != '\0')
 		syntax(s, "bad number");
 
 	return r;
@@ -332,29 +447,22 @@ static int equalf(const char *f1, const char *f2)
 */
 
 
-static enum token check_operator(char *s)
+static enum token check_operator(const char *s)
 {
 	static const struct operator_t no_op = {
 		.op_num = -1,
 		.op_type = -1
 	};
-	const struct operator_t *op;
+	int n;
 
 	last_operator = &no_op;
-	if (s == NULL) {
+	if (s == NULL)
 		return EOI;
-	}
-
-	op = ops;
-	do {
-		if (strcmp(s, op->op_text) == 0) {
-			last_operator = op;
-			return op->op_num;
-		}
-		op++;
-	} while (op < ops + ARRAY_SIZE(ops));
-
-	return OPERAND;
+	n = index_in_strings(ops_texts, s);
+	if (n < 0)
+		return OPERAND;
+	last_operator = &ops_table[n];
+	return ops_table[n].op_num;
 }
 
 
@@ -370,7 +478,7 @@ static int binop(void)
 
 	opnd2 = *++args;
 	if (opnd2 == NULL)
-		syntax(op->op_text, "argument expected");
+		syntax(args[-1], "argument expected");
 
 	if (is_int_op(op->op_num)) {
 		val1 = getn(opnd1);
@@ -385,8 +493,8 @@ static int binop(void)
 			return val1 >  val2;
 		if (op->op_num == INTLE)
 			return val1 <= val2;
-		if (op->op_num == INTLT)
-			return val1 <  val2;
+		/*if (op->op_num == INTLT)*/
+		return val1 <  val2;
 	}
 	if (is_str_op(op->op_num)) {
 		val1 = strcmp(opnd1, opnd2);
@@ -396,8 +504,8 @@ static int binop(void)
 			return val1 != 0;
 		if (op->op_num == STRLT)
 			return val1 < 0;
-		if (op->op_num == STRGT)
-			return val1 > 0;
+		/*if (op->op_num == STRGT)*/
+		return val1 > 0;
 	}
 	/* We are sure that these three are by now the only binops we didn't check
 	 * yet, so we do not check if the class is correct:
@@ -412,25 +520,29 @@ static int binop(void)
 			return b1.st_mtime > b2.st_mtime;
 		if (op->op_num == FILOT)
 			return b1.st_mtime < b2.st_mtime;
-		if (op->op_num == FILEQ)
-			return b1.st_dev == b2.st_dev && b1.st_ino == b2.st_ino;
+		/*if (op->op_num == FILEQ)*/
+		return b1.st_dev == b2.st_dev && b1.st_ino == b2.st_ino;
 	}
-	return 1; /* NOTREACHED */
+	/*return 1; - NOTREACHED */
 }
 
 
 static void initialize_group_array(void)
 {
-	ngroups = getgroups(0, NULL);
-	if (ngroups > 0) {
+	int n;
+
+	/* getgroups may be expensive, try to use it only once */
+	ngroups = 32;
+	do {
 		/* FIXME: ash tries so hard to not die on OOM,
 		 * and we spoil it with just one xrealloc here */
 		/* We realloc, because test_main can be entered repeatedly by shell.
 		 * Testcase (ash): 'while true; do test -x some_file; done'
 		 * and watch top. (some_file must have owner != you) */
-		group_array = xrealloc(group_array, ngroups * sizeof(gid_t));
-		getgroups(ngroups, group_array);
-	}
+		n = ngroups;
+		group_array = xrealloc(group_array, n * sizeof(gid_t));
+		ngroups = getgroups(n, group_array);
+	} while (ngroups > n);
 }
 
 
@@ -724,7 +836,7 @@ int test_main(int argc, char **argv)
 	 * isn't likely in the case of a shell.  paranoia
 	 * prevails...
 	 */
-	ngroups = 0;
+	/*ngroups = 0; - done by INIT_S() */
 
 	//argc--;
 	argv++;

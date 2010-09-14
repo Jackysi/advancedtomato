@@ -82,11 +82,10 @@ enum EVSFSysUtilOpenMode
 int vsf_sysutil_open_file(const char* p_filename,
                           const enum EVSFSysUtilOpenMode);
 /* Fails if file already exists */
-int vsf_sysutil_create_file(const char* p_filename);
-/* Overwrites if file already exists */
-int vsf_sysutil_create_overwrite_file(const char* p_filename);
+int vsf_sysutil_create_file_exclusive(const char* p_filename);
 /* Creates file or appends if already exists */
-int vsf_sysutil_create_append_file(const char* p_filename);
+int vsf_sysutil_create_or_open_file_append(const char* p_filename,
+                                           unsigned int mode);
 /* Creates or appends */
 int vsf_sysutil_create_or_open_file(const char* p_filename, unsigned int mode);
 void vsf_sysutil_dupfd2(int old_fd, int new_fd);
@@ -98,6 +97,7 @@ void vsf_sysutil_ftruncate(int fd);
 
 /* Reading and writing */
 void vsf_sysutil_lseek_to(const int fd, filesize_t seek_pos);
+void vsf_sysutil_lseek_end(const int fd);
 filesize_t vsf_sysutil_get_file_offset(const int file_fd);
 int vsf_sysutil_read(const int fd, void* p_buf, const unsigned int size);
 int vsf_sysutil_write(const int fd, const void* p_buf,

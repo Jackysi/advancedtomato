@@ -63,6 +63,10 @@ void vsf_set_term_if_parent_dies();
 /* If supported, the ability to fork into different secure namespaces (PID
  * and IPC. Fails back to normal fork() */
 int vsf_sysutil_fork_isolate_failok();
+/* Same as above, but in addition tries to fork into an empty network
+ * namespace. Falls back to vsf_sysutil_fork_isolate_failok then normal fork().
+ */
+int vsf_sysutil_fork_isolate_all_failok();
 /* If supported, the ability to fork into an empty network namespace.
  * Fails back to normal fork() */
 int vsf_sysutil_fork_newnet();

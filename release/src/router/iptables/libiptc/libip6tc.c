@@ -130,6 +130,7 @@ ipv6_prefix_length(const struct in6_addr *a)
 	return l;
 }
 
+#if 0
 static int
 dump_entry(struct ip6t_entry *e, const ip6tc_handle_t handle)
 {
@@ -204,6 +205,7 @@ dump_entry(struct ip6t_entry *e, const ip6tc_handle_t handle)
 	printf("\n");
 	return 0;
 }
+#endif
 
 static unsigned char *
 is_same(const STRUCT_ENTRY *a, const STRUCT_ENTRY *b,

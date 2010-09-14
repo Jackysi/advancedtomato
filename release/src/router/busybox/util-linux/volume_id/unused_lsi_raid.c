@@ -22,11 +22,11 @@
 
 struct lsi_meta {
 	uint8_t		sig[6];
-} __attribute__((packed));
+} PACKED;
 
 #define LSI_SIGNATURE		"$XIDE$"
 
-int volume_id_probe_lsi_mega_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int FAST_FUNC volume_id_probe_lsi_mega_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t meta_off;
 	struct lsi_meta *lsi;

@@ -257,6 +257,16 @@ bus_error_init(void)
 
 #ifdef CONFIG_MTD_PARTITIONS
 
+static int board_data_size(struct mtd_info *mtd)
+{
+	if (nvram_match("boardtype", "0x048e") && nvram_match("boardnum", "") &&
+	    nvram_match("boardrev", "0x35")) {
+		/* D-Link DIR-320 */
+		return 8 * 1024;
+	}
+	return 0;
+}
+
 /*
 	new layout -- zzz 04/2006
 
@@ -272,6 +282,8 @@ bus_error_init(void)
 	| x |          |
 	+   +----------+	< + trx->len
 	|   | jffs2    |
+	+---+----------+	< size - NVRAM_SPACE - board_data_size()
+	| board_data   |
 	+--------------+ 	< size - NVRAM_SPACE
 	| nvram        |
 	+--------------+	< size
@@ -283,6 +295,7 @@ static struct mtd_partition bcm947xx_parts[] = {
 	{ name: "rootfs", offset: 0, size: 0, mask_flags: MTD_WRITEABLE, },
 	{ name: "jffs2", offset: 0, size: 0, },
 	{ name: "nvram", offset: 0, size: 0, },
+	{ name: "board_data", offset: 0, size: 0, },
 	{ name: NULL, },
 };
 
@@ -291,19 +304,29 @@ static struct mtd_partition bcm947xx_parts[] = {
 #define PART_ROOTFS	2
 #define PART_JFFS2	3
 #define PART_NVRAM	4
+#define PART_BOARD	5
 
 struct mtd_partition * __init
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
 {
 	struct trx_header *trx;
 	unsigned char buf[512];
-	size_t off, trxoff;
+	size_t off, trxoff, boardoff;
 	size_t len;
 	size_t trxsize;
 
 	/* Find and size nvram */
 	bcm947xx_parts[PART_NVRAM].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
 	bcm947xx_parts[PART_NVRAM].size = size - bcm947xx_parts[PART_NVRAM].offset;
+
+	/* Size board_data */
+	bcm947xx_parts[PART_BOARD].size = board_data_size(mtd);
+	boardoff = bcm947xx_parts[PART_NVRAM].offset - ROUNDUP(bcm947xx_parts[PART_BOARD].size, mtd->erasesize);
+	if (bcm947xx_parts[PART_BOARD].size > 0) {
+		bcm947xx_parts[PART_BOARD].offset = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_BOARD].size;
+	} else {
+		bcm947xx_parts[PART_BOARD].name = NULL;
+	}
 
 	trxsize = 0;
 	trx = (struct trx_header *) buf;
@@ -320,7 +343,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 			/* Size linux (kernel and rootfs) */
 			bcm947xx_parts[PART_LINUX].offset = off;
-			bcm947xx_parts[PART_LINUX].size = bcm947xx_parts[PART_NVRAM].offset - off;			
+			bcm947xx_parts[PART_LINUX].size = boardoff - off;
 
 			trxsize = ROUNDUP(le32_to_cpu(trx->len), mtd->erasesize);	// kernel + rootfs
 
@@ -331,7 +354,8 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 			/* Find and size jffs2 */
 			bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
-			bcm947xx_parts[PART_JFFS2].size = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_JFFS2].offset;
+			if (boardoff > bcm947xx_parts[PART_JFFS2].offset)
+				bcm947xx_parts[PART_JFFS2].size = boardoff - bcm947xx_parts[PART_JFFS2].offset;
 
 			break;
 		}

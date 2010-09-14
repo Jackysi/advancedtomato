@@ -24,6 +24,7 @@ if [ "$CONFIG_IP_PNP" = "y" ]; then
 #   bool '    IP: ARP support' CONFIG_IP_PNP_ARP		
 fi
 tristate '  IP: tunneling' CONFIG_NET_IPIP
+tristate '  IP: GRE demultiplexer' CONFIG_NET_IPGRE_DEMUX
 tristate '  IP: GRE tunnels over IP' CONFIG_NET_IPGRE
 if [ "$CONFIG_IP_MULTICAST" = "y" ]; then
    if [ "$CONFIG_NET_IPGRE" != "n" ]; then
@@ -40,6 +41,7 @@ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
 fi
 bool '  IP: TCP Explicit Congestion Notification support' CONFIG_INET_ECN
 bool '  IP: TCP syncookie support (disabled per default)' CONFIG_SYN_COOKIES
+bool '  IP: TCP RFC2385 MD5 Support' CONFIG_TCP_RFC2385
 if [ "$CONFIG_NETFILTER" != "n" ]; then
    source net/ipv4/netfilter/Config.in
 fi

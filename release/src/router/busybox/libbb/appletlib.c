@@ -26,9 +26,16 @@
  *
  * FEATURE_INSTALLER or FEATURE_SUID will still link printf routines in. :(
  */
-
-#include <assert.h>
 #include "busybox.h"
+#include <assert.h>
+#include <malloc.h>
+/* Try to pull in PAGE_SIZE */
+#ifdef __linux__
+# include <sys/user.h>
+#endif
+#ifdef __GNU__ /* Hurd */
+# include <mach/vm_param.h>
+#endif
 
 
 /* Declare <applet>_main() */
@@ -36,35 +43,30 @@
 #include "applets.h"
 #undef PROTOTYPES
 
-#if ENABLE_SHOW_USAGE && !ENABLE_FEATURE_COMPRESS_USAGE
-/* Define usage_messages[] */
-static const char usage_messages[] ALIGN1 = ""
-#define MAKE_USAGE
-#include "usage.h"
-#include "applets.h"
-;
-#undef MAKE_USAGE
-#else
-#define usage_messages 0
-#endif /* SHOW_USAGE */
-
 
 /* Include generated applet names, pointers to <applet>_main, etc */
 #include "applet_tables.h"
 /* ...and if applet_tables generator says we have only one applet... */
 #ifdef SINGLE_APPLET_MAIN
-#undef ENABLE_FEATURE_INDIVIDUAL
-#define ENABLE_FEATURE_INDIVIDUAL 1
-#undef USE_FEATURE_INDIVIDUAL
-#define USE_FEATURE_INDIVIDUAL(...) __VA_ARGS__
+# undef ENABLE_FEATURE_INDIVIDUAL
+# define ENABLE_FEATURE_INDIVIDUAL 1
+# undef IF_FEATURE_INDIVIDUAL
+# define IF_FEATURE_INDIVIDUAL(...) __VA_ARGS__
 #endif
 
 
+#include "usage_compressed.h"
+
+#if ENABLE_SHOW_USAGE && !ENABLE_FEATURE_COMPRESS_USAGE
+static const char usage_messages[] ALIGN1 = UNPACKED_USAGE;
+#else
+# define usage_messages 0
+#endif
+
 #if ENABLE_FEATURE_COMPRESS_USAGE
 
-#include "usage_compressed.h"
-#include "unarchive.h"
-
+static const char packed_usage[] ALIGN1 = { PACKED_USAGE };
+# include "unarchive.h"
 static const char *unpack_usage_messages(void)
 {
 	char *outbuf = NULL;
@@ -73,34 +75,28 @@ static const char *unpack_usage_messages(void)
 
 	i = start_bunzip(&bd,
 			/* src_fd: */ -1,
-//FIXME: can avoid storing these 2 bytes!
-			/* inbuf:  */ (void *)packed_usage + 2,
+			/* inbuf:  */ (void *)packed_usage,
 			/* len:    */ sizeof(packed_usage));
 	/* read_bunzip can longjmp to start_bunzip, and ultimately
 	 * end up here with i != 0 on read data errors! Not trivial */
 	if (!i) {
 		/* Cannot use xmalloc: will leak bd in NOFORK case! */
-		outbuf = malloc_or_warn(SIZEOF_usage_messages);
+		outbuf = malloc_or_warn(sizeof(UNPACKED_USAGE));
 		if (outbuf)
-			read_bunzip(bd, outbuf, SIZEOF_usage_messages);
+			read_bunzip(bd, outbuf, sizeof(UNPACKED_USAGE));
 	}
 	dealloc_bunzip(bd);
 	return outbuf;
 }
-#define dealloc_usage_messages(s) free(s)
+# define dealloc_usage_messages(s) free(s)
 
 #else
 
-#define unpack_usage_messages() usage_messages
-#define dealloc_usage_messages(s) ((void)(s))
+# define unpack_usage_messages() usage_messages
+# define dealloc_usage_messages(s) ((void)(s))
 
 #endif /* FEATURE_COMPRESS_USAGE */
 
-
-static void full_write2_str(const char *str)
-{
-	xwrite_str(STDERR_FILENO, str);
-}
 
 void FAST_FUNC bb_show_usage(void)
 {
@@ -117,7 +113,8 @@ void FAST_FUNC bb_show_usage(void)
 			full_write2_str(p);
 			full_write2_str("\n\n");
 		}
-		dealloc_usage_messages((char*)usage_string);
+		if (ENABLE_FEATURE_CLEAN_UP)
+			dealloc_usage_messages((char*)usage_string);
 #else
 		const char *p;
 		const char *usage_string = p = unpack_usage_messages();
@@ -130,7 +127,7 @@ void FAST_FUNC bb_show_usage(void)
 			ap--;
 		}
 		full_write2_str(bb_banner);
-		full_write2_str(" multi-call binary\n");
+		full_write2_str(" multi-call binary.\n");
 		if (*p == '\b')
 			full_write2_str("\nNo help available.\n\n");
 		else {
@@ -140,7 +137,8 @@ void FAST_FUNC bb_show_usage(void)
 			full_write2_str(p);
 			full_write2_str("\n\n");
 		}
-		dealloc_usage_messages((char*)usage_string);
+		if (ENABLE_FEATURE_CLEAN_UP)
+			dealloc_usage_messages((char*)usage_string);
 #endif
 	}
 	xfunc_die();
@@ -179,10 +177,10 @@ int FAST_FUNC find_applet_by_name(const char *name)
 
 
 void lbb_prepare(const char *applet
-		USE_FEATURE_INDIVIDUAL(, char **argv))
+		IF_FEATURE_INDIVIDUAL(, char **argv))
 				MAIN_EXTERNALLY_VISIBLE;
 void lbb_prepare(const char *applet
-		USE_FEATURE_INDIVIDUAL(, char **argv))
+		IF_FEATURE_INDIVIDUAL(, char **argv))
 {
 #ifdef __GLIBC__
 	(*(int **)&bb_errno) = __errno_location();
@@ -197,7 +195,11 @@ void lbb_prepare(const char *applet
 #if ENABLE_FEATURE_INDIVIDUAL
 	/* Redundant for busybox (run_applet_and_exit covers that case)
 	 * but needed for "individual applet" mode */
-	if (argv[1] && !argv[2] && strcmp(argv[1], "--help") == 0) {
+	if (argv[1]
+	 && !argv[2]
+	 && strcmp(argv[1], "--help") == 0
+	 && strncmp(applet, "busybox", 7) != 0
+	) {
 		/* Special case. POSIX says "test --help"
 		 * should be no different from e.g. "test --foo".  */
 		if (!ENABLE_TEST || strcmp(applet_name, "test") != 0)
@@ -224,7 +226,7 @@ bool re_execed;
 /* If not built as a single-applet executable... */
 #if !defined(SINGLE_APPLET_MAIN)
 
-USE_FEATURE_SUID(static uid_t ruid;)  /* real uid */
+IF_FEATURE_SUID(static uid_t ruid;)  /* real uid */
 
 #if ENABLE_FEATURE_SUID_CONFIG
 
@@ -500,7 +502,7 @@ static void parse_config_file(void)
 #else
 static inline void parse_config_file(void)
 {
-	USE_FEATURE_SUID(ruid = getuid();)
+	IF_FEATURE_SUID(ruid = getuid();)
 }
 #endif /* FEATURE_SUID_CONFIG */
 
@@ -569,12 +571,12 @@ static void check_suid(int applet_no)
 #endif
  check_need_suid:
 #endif
-	if (APPLET_SUID(applet_no) == _BB_SUID_ALWAYS) {
+	if (APPLET_SUID(applet_no) == _BB_SUID_REQUIRE) {
 		/* Real uid is not 0. If euid isn't 0 too, suid bit
 		 * is most probably not set on our executable */
 		if (geteuid())
 			bb_error_msg_and_die("must be suid to work properly");
-	} else if (APPLET_SUID(applet_no) == _BB_SUID_NEVER) {
+	} else if (APPLET_SUID(applet_no) == _BB_SUID_DROP) {
 		xsetgid(rgid);  /* drop all privileges */
 		xsetuid(ruid);
 	}
@@ -585,22 +587,24 @@ static void check_suid(int applet_no)
 
 
 #if ENABLE_FEATURE_INSTALLER
+static const char usr_bin [] ALIGN1 = "/usr/bin/";
+static const char usr_sbin[] ALIGN1 = "/usr/sbin/";
+static const char *const install_dir[] = {
+	&usr_bin [8], /* "/" */
+	&usr_bin [4], /* "/bin/" */
+	&usr_sbin[4], /* "/sbin/" */
+	usr_bin,
+	usr_sbin
+};
+
+
 /* create (sym)links for each applet */
-static void install_links(const char *busybox, int use_symbolic_links)
+static void install_links(const char *busybox, int use_symbolic_links,
+		char *custom_install_dir)
 {
 	/* directory table
 	 * this should be consistent w/ the enum,
 	 * busybox.h::bb_install_loc_t, or else... */
-	static const char usr_bin [] ALIGN1 = "/usr/bin";
-	static const char usr_sbin[] ALIGN1 = "/usr/sbin";
-	static const char *const install_dir[] = {
-		&usr_bin [8], /* "", equivalent to "/" for concat_path_file() */
-		&usr_bin [4], /* "/bin" */
-		&usr_sbin[4], /* "/sbin" */
-		usr_bin,
-		usr_sbin
-	};
-
 	int (*lf)(const char *, const char *);
 	char *fpc;
 	unsigned i;
@@ -612,7 +616,7 @@ static void install_links(const char *busybox, int use_symbolic_links)
 
 	for (i = 0; i < ARRAY_SIZE(applet_main); i++) {
 		fpc = concat_path_file(
-				install_dir[APPLET_INSTALL_LOC(i)],
+				custom_install_dir ? custom_install_dir : install_dir[APPLET_INSTALL_LOC(i)],
 				APPLET_NAME(i));
 		// debug: bb_error_msg("%slinking %s to busybox",
 		//		use_symbolic_links ? "sym" : "", fpc);
@@ -624,8 +628,8 @@ static void install_links(const char *busybox, int use_symbolic_links)
 	}
 }
 #else
-#define install_links(x,y) ((void)0)
-#endif /* FEATURE_INSTALLER */
+# define install_links(x,y,z) ((void)0)
+#endif
 
 /* If we were called as "busybox..." */
 static int busybox_main(char **argv)
@@ -633,57 +637,85 @@ static int busybox_main(char **argv)
 	if (!argv[1]) {
 		/* Called without arguments */
 		const char *a;
-		unsigned col, output_width;
+		int col;
+		unsigned output_width;
  help:
 		output_width = 80;
 		if (ENABLE_FEATURE_AUTOWIDTH) {
 			/* Obtain the terminal width */
 			get_terminal_width_height(0, &output_width, NULL);
 		}
-		/* leading tab and room to wrap */
-		output_width -= MAX_APPLET_NAME_LEN + 8;
 
 		dup2(1, 2);
-		full_write2_str(bb_banner); /* reuse const string... */
-		full_write2_str(" multi-call binary\n"
-		       "Copyright (C) 1998-2008 Erik Andersen, Rob Landley, Denys Vlasenko\n"
-		       "and others. Licensed under GPLv2.\n"
-		       "See source distribution for full notice.\n"
-		       "\n"
-		       "Usage: busybox [function] [arguments]...\n"
-		       "   or: function [arguments]...\n"
-		       "\n"
-		       "\tBusyBox is a multi-call binary that combines many common Unix\n"
-		       "\tutilities into a single executable.  Most people will create a\n"
-		       "\tlink to busybox for each function they wish to use and BusyBox\n"
-		       "\twill act like whatever it was invoked as!\n"
-		       "\n"
-		       "Currently defined functions:\n");
+		full_write2_str(bb_banner); /* reuse const string */
+		full_write2_str(" multi-call binary.\n"); /* reuse */
+		full_write2_str(
+			"Copyright (C) 1998-2009 Erik Andersen, Rob Landley, Denys Vlasenko\n"
+			"and others. Licensed under GPLv2.\n"
+			"See source distribution for full notice.\n"
+			"\n"
+			"Usage: busybox [function] [arguments]...\n"
+			"   or: function [arguments]...\n"
+			"\n"
+			"\tBusyBox is a multi-call binary that combines many common Unix\n"
+			"\tutilities into a single executable.  Most people will create a\n"
+			"\tlink to busybox for each function they wish to use and BusyBox\n"
+			"\twill act like whatever it was invoked as.\n"
+			"\n"
+			"Currently defined functions:\n"
+		);
 		col = 0;
 		a = applet_names;
+		/* prevent last comma to be in the very last pos */
+		output_width--;
 		while (*a) {
-			int len;
-			if (col > output_width) {
+			int len2 = strlen(a) + 2;
+			if (col >= (int)output_width - len2) {
 				full_write2_str(",\n");
 				col = 0;
 			}
-			full_write2_str(col ? ", " : "\t");
+			if (col == 0) {
+				col = 6;
+				full_write2_str("\t");
+			} else {
+				full_write2_str(", ");
+			}
 			full_write2_str(a);
-			len = strlen(a);
-			col += len + 2;
-			a += len + 1;
+			col += len2;
+			a += len2 - 1;
 		}
 		full_write2_str("\n\n");
 		return 0;
 	}
 
+	if (strncmp(argv[1], "--list", 6) == 0) {
+		unsigned i = 0;
+		const char *a = applet_names;
+		dup2(1, 2);
+		while (*a) {
+#if ENABLE_FEATURE_INSTALLER
+			if (argv[1][6]) /* --list-path? */
+				full_write2_str(install_dir[APPLET_INSTALL_LOC(i)] + 1);
+#endif
+			full_write2_str(a);
+			full_write2_str("\n");
+			i++;
+			a += strlen(a) + 1;
+		}
+		return 0;
+	}
+
 	if (ENABLE_FEATURE_INSTALLER && strcmp(argv[1], "--install") == 0) {
+		int use_symbolic_links;
 		const char *busybox;
 		busybox = xmalloc_readlink(bb_busybox_exec_path);
 		if (!busybox)
 			busybox = bb_busybox_exec_path;
-		/* -s makes symlinks */
-		install_links(busybox, argv[2] && strcmp(argv[2], "-s") == 0);
+		/* busybox --install [-s] [DIR]: */
+		/* -s: make symlinks */
+		/* DIR: directory to install links to */
+		use_symbolic_links = (argv[2] && strcmp(argv[2], "-s") == 0 && argv++);
+		install_links(busybox, use_symbolic_links, argv[2]);
 		return 0;
 	}
 
@@ -751,13 +783,31 @@ int lbb_main(char **argv)
 int main(int argc UNUSED_PARAM, char **argv)
 #endif
 {
+	/* Tweak malloc for reduced memory consumption */
+#ifndef PAGE_SIZE
+# define PAGE_SIZE (4*1024) /* guess */
+#endif
+#ifdef M_TRIM_THRESHOLD
+	/* M_TRIM_THRESHOLD is the maximum amount of freed top-most memory
+	 * to keep before releasing to the OS
+	 * Default is way too big: 256k
+	 */
+	mallopt(M_TRIM_THRESHOLD, 2 * PAGE_SIZE);
+#endif
+#ifdef M_MMAP_THRESHOLD
+	/* M_MMAP_THRESHOLD is the request size threshold for using mmap()
+	 * Default is too big: 256k
+	 */
+	mallopt(M_MMAP_THRESHOLD, 8 * PAGE_SIZE - 256);
+#endif
+
 #if defined(SINGLE_APPLET_MAIN)
 	/* Only one applet is selected by the user! */
 	/* applet_names in this case is just "applet\0\0" */
-	lbb_prepare(applet_names USE_FEATURE_INDIVIDUAL(, argv));
+	lbb_prepare(applet_names IF_FEATURE_INDIVIDUAL(, argv));
 	return SINGLE_APPLET_MAIN(argc, argv);
 #else
-	lbb_prepare("busybox" USE_FEATURE_INDIVIDUAL(, argv));
+	lbb_prepare("busybox" IF_FEATURE_INDIVIDUAL(, argv));
 
 #if !BB_MMU
 	/* NOMMU re-exec trick sets high-order bit in first byte of name */

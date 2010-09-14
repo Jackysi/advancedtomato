@@ -21,7 +21,6 @@
 #include <syslog.h>
 */
 
-#include <paths.h>
 #include <sys/un.h>
 #include <sys/uio.h>
 
@@ -47,7 +46,7 @@
 #undef SYSLOGD_WRLOCK
 
 enum {
-	MAX_READ = 256,
+	MAX_READ = CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE,
 	DNS_WAIT_SEC = 2 * 60,
 };
 
@@ -75,7 +74,7 @@ typedef struct {
 	/*int markInterval;*/                   \
 	/* level of messages to be logged */    \
 	int logLevel;                           \
-USE_FEATURE_ROTATE_LOGFILE( \
+IF_FEATURE_ROTATE_LOGFILE( \
 	/* max size of file before rotation */  \
 	unsigned logFileSize;                   \
 	/* number of rotated message files */   \
@@ -83,7 +82,7 @@ USE_FEATURE_ROTATE_LOGFILE( \
 	unsigned curFileSize;                   \
 	smallint isRegular;                     \
 ) \
-USE_FEATURE_IPC_SYSLOG( \
+IF_FEATURE_IPC_SYSLOG( \
 	int shmid; /* ipc shared memory id */   \
 	int s_semid; /* ipc semaphore id */     \
 	int shm_size;                           \
@@ -152,41 +151,41 @@ enum {
 	OPTBIT_outfile, // -O
 	OPTBIT_loglevel, // -l
 	OPTBIT_small, // -S
-	USE_FEATURE_ROTATE_LOGFILE(OPTBIT_filesize   ,)	// -s
-	USE_FEATURE_ROTATE_LOGFILE(OPTBIT_rotatecnt  ,)	// -b
-	USE_FEATURE_REMOTE_LOG(    OPTBIT_remotelog  ,)	// -R
-	USE_FEATURE_REMOTE_LOG(    OPTBIT_locallog   ,)	// -L
-	USE_FEATURE_IPC_SYSLOG(    OPTBIT_circularlog,)	// -C
-	USE_FEATURE_SYSLOGD_DUP(   OPTBIT_dup        ,)	// -D
+	IF_FEATURE_ROTATE_LOGFILE(OPTBIT_filesize   ,)	// -s
+	IF_FEATURE_ROTATE_LOGFILE(OPTBIT_rotatecnt  ,)	// -b
+	IF_FEATURE_REMOTE_LOG(    OPTBIT_remotelog  ,)	// -R
+	IF_FEATURE_REMOTE_LOG(    OPTBIT_locallog   ,)	// -L
+	IF_FEATURE_IPC_SYSLOG(    OPTBIT_circularlog,)	// -C
+	IF_FEATURE_SYSLOGD_DUP(   OPTBIT_dup        ,)	// -D
 
 	OPT_mark        = 1 << OPTBIT_mark    ,
 	OPT_nofork      = 1 << OPTBIT_nofork  ,
 	OPT_outfile     = 1 << OPTBIT_outfile ,
 	OPT_loglevel    = 1 << OPTBIT_loglevel,
 	OPT_small       = 1 << OPTBIT_small   ,
-	OPT_filesize    = USE_FEATURE_ROTATE_LOGFILE((1 << OPTBIT_filesize   )) + 0,
-	OPT_rotatecnt   = USE_FEATURE_ROTATE_LOGFILE((1 << OPTBIT_rotatecnt  )) + 0,
-	OPT_remotelog   = USE_FEATURE_REMOTE_LOG(    (1 << OPTBIT_remotelog  )) + 0,
-	OPT_locallog    = USE_FEATURE_REMOTE_LOG(    (1 << OPTBIT_locallog   )) + 0,
-	OPT_circularlog = USE_FEATURE_IPC_SYSLOG(    (1 << OPTBIT_circularlog)) + 0,
-	OPT_dup         = USE_FEATURE_SYSLOGD_DUP(   (1 << OPTBIT_dup        )) + 0,
+	OPT_filesize    = IF_FEATURE_ROTATE_LOGFILE((1 << OPTBIT_filesize   )) + 0,
+	OPT_rotatecnt   = IF_FEATURE_ROTATE_LOGFILE((1 << OPTBIT_rotatecnt  )) + 0,
+	OPT_remotelog   = IF_FEATURE_REMOTE_LOG(    (1 << OPTBIT_remotelog  )) + 0,
+	OPT_locallog    = IF_FEATURE_REMOTE_LOG(    (1 << OPTBIT_locallog   )) + 0,
+	OPT_circularlog = IF_FEATURE_IPC_SYSLOG(    (1 << OPTBIT_circularlog)) + 0,
+	OPT_dup         = IF_FEATURE_SYSLOGD_DUP(   (1 << OPTBIT_dup        )) + 0,
 };
 #define OPTION_STR "m:nO:l:S" \
-	USE_FEATURE_ROTATE_LOGFILE("s:" ) \
-	USE_FEATURE_ROTATE_LOGFILE("b:" ) \
-	USE_FEATURE_REMOTE_LOG(    "R:" ) \
-	USE_FEATURE_REMOTE_LOG(    "L"  ) \
-	USE_FEATURE_IPC_SYSLOG(    "C::") \
-	USE_FEATURE_SYSLOGD_DUP(   "D"  )
+	IF_FEATURE_ROTATE_LOGFILE("s:" ) \
+	IF_FEATURE_ROTATE_LOGFILE("b:" ) \
+	IF_FEATURE_REMOTE_LOG(    "R:" ) \
+	IF_FEATURE_REMOTE_LOG(    "L"  ) \
+	IF_FEATURE_IPC_SYSLOG(    "C::") \
+	IF_FEATURE_SYSLOGD_DUP(   "D"  )
 #define OPTION_DECL *opt_m, *opt_l \
-	USE_FEATURE_ROTATE_LOGFILE(,*opt_s) \
-	USE_FEATURE_ROTATE_LOGFILE(,*opt_b) \
-	USE_FEATURE_IPC_SYSLOG(    ,*opt_C = NULL)
+	IF_FEATURE_ROTATE_LOGFILE(,*opt_s) \
+	IF_FEATURE_ROTATE_LOGFILE(,*opt_b) \
+	IF_FEATURE_IPC_SYSLOG(    ,*opt_C = NULL)
 #define OPTION_PARAM &opt_m, &G.logFilePath, &opt_l \
-	USE_FEATURE_ROTATE_LOGFILE(,&opt_s) \
-	USE_FEATURE_ROTATE_LOGFILE(,&opt_b) \
-	USE_FEATURE_REMOTE_LOG(    ,&remoteAddrList) \
-	USE_FEATURE_IPC_SYSLOG(    ,&opt_C)
+	IF_FEATURE_ROTATE_LOGFILE(,&opt_s) \
+	IF_FEATURE_ROTATE_LOGFILE(,&opt_b) \
+	IF_FEATURE_REMOTE_LOG(	  ,&remoteAddrList) \
+	IF_FEATURE_IPC_SYSLOG(    ,&opt_C)
 
 
 /* circular buffer variables/structures */
@@ -422,6 +421,8 @@ static void timestamp_and_log(int pri, char *msg, int len)
 	char *timestamp;
 	time_t now;
 
+	/* Jan 18 00:11:22 msg... */
+	/* 01234567890123456 */
 	if (len < 16 || msg[3] != ' ' || msg[6] != ' '
 	 || msg[9] != ':' || msg[12] != ':' || msg[15] != ' '
 	) {
@@ -545,7 +546,7 @@ static int try_to_resolve_remote(remoteHost_t *rh)
 		if (!rh->remoteAddr)
 			return -1;
 	}
-	return socket(rh->remoteAddr->u.sa.sa_family, SOCK_DGRAM, 0);
+	return xsocket(rh->remoteAddr->u.sa.sa_family, SOCK_DGRAM, 0);
 }
 #endif
 
@@ -635,11 +636,25 @@ static void do_syslogd(void)
 				if (rh->remoteFD == -1)
 					continue;
 			}
-			/* Send message to remote logger, ignore possible error */
-			/* TODO: on some errors, close and set G.remoteFD to -1
-			 * so that DNS resolution and connect is retried? */
-			sendto(rh->remoteFD, recvbuf, sz+1, MSG_DONTWAIT,
-				&(rh->remoteAddr->u.sa), rh->remoteAddr->len);
+
+			/* Send message to remote logger.
+			 * On some errors, close and set remoteFD to -1
+			 * so that DNS resolution is retried.
+			 */
+			if (sendto(rh->remoteFD, recvbuf, sz+1,
+					MSG_DONTWAIT | MSG_NOSIGNAL,
+					&(rh->remoteAddr->u.sa), rh->remoteAddr->len) == -1
+			) {
+				switch (errno) {
+				case ECONNRESET:
+				case ENOTCONN: /* paranoia */
+				case EPIPE:
+					close(rh->remoteFD);
+					rh->remoteFD = -1;
+					free(rh->remoteAddr);
+					rh->remoteAddr = NULL;
+				}
+			}
 		}
 #endif
 		if (!ENABLE_FEATURE_REMOTE_LOG || (option_mask32 & OPT_locallog)) {
@@ -668,7 +683,7 @@ int syslogd_main(int argc UNUSED_PARAM, char **argv)
 	INIT_G();
 
 	/* No non-option params, -R can occur multiple times */
-	opt_complementary = "=0" USE_FEATURE_REMOTE_LOG(":R::");
+	opt_complementary = "=0" IF_FEATURE_REMOTE_LOG(":R::");
 	opts = getopt32(argv, OPTION_STR, OPTION_PARAM);
 #if ENABLE_FEATURE_REMOTE_LOG
 	while (remoteAddrList) {

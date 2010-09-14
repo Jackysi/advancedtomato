@@ -53,6 +53,12 @@ static inline uint64_t hton64(uint64_t v)
 #endif
 
 
+/* Some arch headers have conflicting defines */
+#undef ch
+#undef parity
+#undef maj
+#undef rnd
+
 static void FAST_FUNC sha1_process_block64(sha1_ctx_t *ctx)
 {
 	unsigned t;
@@ -161,6 +167,13 @@ static const uint64_t sha_K[80] = {
 	0x4cc5d4becb3e42b6ULL, 0x597f299cfc657e2aULL,
 	0x5fcb6fab3ad6faecULL, 0x6c44198c4a475817ULL
 };
+
+#undef Ch
+#undef Maj
+#undef S0
+#undef S1
+#undef R0
+#undef R1
 
 static void FAST_FUNC sha256_process_block64(sha256_ctx_t *ctx)
 {
@@ -395,7 +408,7 @@ void FAST_FUNC sha512_hash(const void *buffer, size_t len, sha512_ctx_t *ctx)
 /* Used also for sha256 */
 void FAST_FUNC sha1_end(void *resbuf, sha1_ctx_t *ctx)
 {
-	unsigned i, pad, in_buf;
+	unsigned pad, in_buf;
 
 	in_buf = ctx->total64 & 63;
 	/* Pad the buffer to the next 64-byte boundary with 0x80,0,0,0... */
@@ -421,16 +434,17 @@ void FAST_FUNC sha1_end(void *resbuf, sha1_ctx_t *ctx)
 
 	in_buf = (ctx->process_block == sha1_process_block64) ? 5 : 8;
 	/* This way we do not impose alignment constraints on resbuf: */
-#if BB_LITTLE_ENDIAN
-	for (i = 0; i < in_buf; ++i)
-		ctx->hash[i] = htonl(ctx->hash[i]);
-#endif
+	if (BB_LITTLE_ENDIAN) {
+		unsigned i;
+		for (i = 0; i < in_buf; ++i)
+			ctx->hash[i] = htonl(ctx->hash[i]);
+	}
 	memcpy(resbuf, ctx->hash, sizeof(ctx->hash[0]) * in_buf);
 }
 
 void FAST_FUNC sha512_end(void *resbuf, sha512_ctx_t *ctx)
 {
-	unsigned i, pad, in_buf;
+	unsigned pad, in_buf;
 
 	in_buf = ctx->total64[0] & 127;
 	/* Pad the buffer to the next 128-byte boundary with 0x80,0,0,0...
@@ -457,9 +471,10 @@ void FAST_FUNC sha512_end(void *resbuf, sha512_ctx_t *ctx)
 			break;
 	}
 
-#if BB_LITTLE_ENDIAN
-	for (i = 0; i < ARRAY_SIZE(ctx->hash); ++i)
-		ctx->hash[i] = hton64(ctx->hash[i]);
-#endif
+	if (BB_LITTLE_ENDIAN) {
+		unsigned i;
+		for (i = 0; i < ARRAY_SIZE(ctx->hash); ++i)
+			ctx->hash[i] = hton64(ctx->hash[i]);
+	}
 	memcpy(resbuf, ctx->hash, sizeof(ctx->hash));
 }

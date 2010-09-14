@@ -80,6 +80,7 @@ void gpio_write(uint32_t bit, int en)
 	if ((f = gpio_open(0)) < 0) return;
 
 	_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
+	_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, bit);
 	_gpio_ioctl(f, GPIO_IOC_OUT, bit, en ? bit : 0);
 	close(f);
 }
@@ -189,10 +190,17 @@ int led(int which, int mode)
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
-	static int wnr3500[]	= { 255,   3,     1,    7,  255,    2,  255,  255	};
+#ifdef CONFIG_BCMWL5
+	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
+	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
+	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
+	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,  255	};
+#endif
+
 	char s[16];
 	int n;
-	int b;
+	int b = 255, c = 255;
 
 	if ((which < 0) || (which >= LED_COUNT)) return 0;
 
@@ -272,11 +280,12 @@ int led(int which, int mode)
 		b = dir320[which];
 		break;
 	case MODEL_WL500GPv2:
+	case MODEL_WL500GD:
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
-		b = 0;	// Invert power light as diag indicator
-		if (mode != LED_PROBE) mode = !mode;
+		b = -99;	// Invert power light as diag indicator
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_RTN12:
 		if (which != LED_DIAG) return 0;
 		b = -2;	// power light
@@ -287,8 +296,31 @@ int led(int which, int mode)
 		b = -1;	// power light
 		break;
 	case MODEL_WNR3500L:
-		b = wnr3500[which];
+		if (which == LED_DIAG) {
+			// power led gpio: 0x03 - green, 0x07 - amber
+			b = (mode) ? 7 : 3;
+			c = (mode) ? 3 : 7;
+		} else
+			b = wnr3500[which];
 		break;
+	case MODEL_WNR2000v2:
+		if (which == LED_DIAG) {
+			// power led gpio: 0x01 - green, 0x02 - amber
+			b = (mode) ? 2 : 1;
+			c = (mode) ? 1 : 2;
+		} else
+			b = wnr2000v2[which];
+		break;
+	case MODEL_WRT160Nv3:
+		b = wrt160nv3[which];
+		break;
+	case MODEL_WRT320N:
+		b = wrt320n[which];
+		break;
+	case MODEL_WRT610Nv2:
+		b = wrt610nv2[which];
+		break;
+#endif
 /*
 	case MODEL_RT390W:
 		break;
@@ -301,6 +333,12 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = 1;
 		break;
+#if TOMATO_N
+	case MODEL_WRT300N:
+		if (which != LED_DIAG) return 0;
+		b = 1;
+		break;
+#endif
 	default:
 		sprintf(s, "led_%s", led_names[which]);
 		if (nvget_gpio(s, &b, &n)) {
@@ -322,6 +360,13 @@ SET:
 	if (b < 16) {
 		if (mode != LED_PROBE) {
 			gpio_write(1 << b, mode);
+
+			if (c < 0) {
+				if (c == -99) c = 0;
+				else c = -c;
+			}
+			else mode = !mode;
+			if (c < 16) gpio_write(1 << c, mode);
 		}
 		return 1;
 	}

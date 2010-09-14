@@ -69,7 +69,7 @@ world: prepare FORCE
 ifeq ($(CONFIG_LINUX_2_4),y)
 	-rm $(TOOLCHAIN_DIR)/include/sys/inotify.h
 endif
-	-patch -p1 -Z -N -s --no-backup-if-mismatch -d $(TOOLCHAIN_DIR) <toolchain/kernel-headers/extras/missing-headers.patch
+	-tar -C toolchain/kernel-headers/extras/ --exclude='.svn' -cf - include | tar -C $(TOOLCHAIN_DIR) -xf -
 
 # Create addtional symlinks
 	ln -sf $(ARCH)-linux-gcc		$(TOOLCHAIN_DIR)/bin/$(ARCH)-linux-cc

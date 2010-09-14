@@ -18,3 +18,8 @@ SUBSYSTEM ~~ ^(block|net|usb)$, ACTION == add {
 SUBSYSTEM ~~ ^(block|net|usb)$, ACTION == remove {
 	exec /sbin/hotplug %SUBSYSTEM% ;
 }
+
+SUBSYSTEM == misc, DEVICENAME ~~ ^(tun|tap)$, DEVPATH is set, ACTION == add {
+	exec mkdir -p -m 0777 /dev/net ;
+	symlink /dev/%DEVICENAME% /dev/net/%DEVICENAME%
+}

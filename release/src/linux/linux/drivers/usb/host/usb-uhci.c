@@ -1661,7 +1661,7 @@ _static int uhci_submit_urb (struct urb *urb)
 		     (!(urb->transfer_flags & USB_QUEUE_BULK) || !(queued_urb->transfer_flags & USB_QUEUE_BULK)))) {
 			spin_unlock_irqrestore (&s->urb_list_lock, flags);
 			usb_dec_dev_use (urb->dev);
-			err("ENXIO %08x, flags %x, urb %p, burb %p",urb->pipe,urb->transfer_flags,urb,queued_urb);
+			dbg("ENXIO %08x, flags %x, urb %p, burb %p",urb->pipe,urb->transfer_flags,urb,queued_urb);
 			return -ENXIO;	// urb already queued
 		}
 	}
@@ -2497,7 +2497,7 @@ _static int process_interrupt (uhci_t *s, struct urb *urb)
 			urb->status = -EINPROGRESS;
 
 			// Recycle INT-TD if interval!=0, else mark TD as one-shot
-			if (urb->interval) {
+			if (urb->interval && !(URB_NO_RESUBMIT & urb->transfer_flags)) {
 				
 				desc->hw.td.info &= cpu_to_le32(~(1 << TD_TOKEN_TOGGLE));
 				if (status==0) {
@@ -2631,7 +2631,8 @@ _static int process_urb (uhci_t *s, struct list_head *p)
 		if (urb->bandwidth) {
 			if (usb_pipetype(urb->pipe)==PIPE_ISOCHRONOUS)
 				usb_release_bandwidth (urb->dev, urb, 1);
-			else if (usb_pipetype(urb->pipe)==PIPE_INTERRUPT && urb->interval)
+			else if (usb_pipetype(urb->pipe)==PIPE_INTERRUPT
+				 && urb->interval && !(URB_NO_RESUBMIT & urb->transfer_flags))
 				usb_release_bandwidth (urb->dev, urb, 0);
 		}
 
@@ -2819,7 +2820,7 @@ _static void reset_hc (uhci_t *s)
 _static void start_hc (uhci_t *s)
 {
 	unsigned int io_addr = s->io_addr;
-	int timeout = 10;
+	int timeout = 250;
 
 	/*
 	 * Reset the HC - this will force us to get a

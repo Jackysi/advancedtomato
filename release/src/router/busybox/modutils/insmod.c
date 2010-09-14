@@ -11,6 +11,28 @@
 #include "modutils.h"
 #include <fnmatch.h>
 
+/* 2.6 style insmod has no options and required filename
+ * (not module name - .ko can't be omitted) */
+
+//usage:#define insmod_trivial_usage
+//usage:	IF_FEATURE_2_4_MODULES("[OPTIONS] MODULE ")
+//usage:	IF_NOT_FEATURE_2_4_MODULES("FILE ")
+//usage:	"[symbol=value]..."
+//usage:#define insmod_full_usage "\n\n"
+//usage:       "Load the specified kernel modules into the kernel"
+//usage:	IF_FEATURE_2_4_MODULES( "\n"
+//usage:     "\nOptions:"
+//usage:     "\n	-f	Force module to load into the wrong kernel version"
+//usage:     "\n	-k	Make module autoclean-able"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-q	Quiet"
+//usage:     "\n	-L	Lock: prevent simultaneous loads"
+//usage:	IF_FEATURE_INSMOD_LOAD_MAP(
+//usage:     "\n	-m	Output load map to stdout"
+//usage:	)
+//usage:     "\n	-x	Don't export externs"
+//usage:	)
+
 static char *m_filename;
 
 static int FAST_FUNC check_module_name_match(const char *filename,
@@ -38,6 +60,7 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 	struct stat st;
 	char *filename;
 	FILE *fp = NULL;
+	int pos;
 	int rc;
 
 	/* Compat note:
@@ -48,7 +71,7 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 	 * or in $MODPATH.
 	 */
 
-	USE_FEATURE_2_4_MODULES(
+	IF_FEATURE_2_4_MODULES(
 		getopt32(argv, INSMOD_OPTS INSMOD_ARGS);
 		argv += optind - 1;
 	);
@@ -59,7 +82,7 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 
 	m_filename = NULL;
 
-	int pos = strlen(filename) - 2;
+	pos = strlen(filename) - 2;
 	if (get_linux_version_code() < KERNEL_VERSION(2,6,0)) {
 		if (pos < 0) pos = 0;
 		if (strncmp(&filename[pos], ".o", 2) !=0)
@@ -84,10 +107,9 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 			check_module_name_match, NULL, filename, 0);
 		free(module_dir);
 		if (r)
-			bb_error_msg_and_die("%s: module not found", filename);
-		if (m_filename == NULL || ((fp = fopen_for_read(m_filename)) == NULL)) {
-			bb_error_msg_and_die("%s: module not found", filename);
-		}
+			bb_error_msg_and_die("'%s': module not found", filename);
+		if (m_filename == NULL || ((fp = fopen_for_read(m_filename)) == NULL))
+			bb_error_msg_and_die("'%s': module not found", filename);
 		filename = m_filename;
 	}
 	if (fp != NULL)

@@ -103,7 +103,10 @@ char *detect_fs_type(char *device)
 	} 
 	/* detect swap */
 	else if (memcmp(buf + 4086, "SWAPSPACE2", 10) == 0 ||
-		memcmp(buf + 4086, "SWAP-SPACE", 10) == 0)
+		 memcmp(buf + 4086, "SWAP-SPACE", 10) == 0 ||
+		 memcmp(buf + 4086, "S1SUSPEND", 9) == 0 ||
+		 memcmp(buf + 4086, "S2SUSPEND", 9) == 0 ||
+		 memcmp(buf + 4086, "ULSUSPEND", 9) == 0)
 	{
 		return "swap";
 	}
@@ -127,7 +130,7 @@ char *detect_fs_type(char *device)
 		return "vfat";
 	}
 
-	return NULL;
+	return "unknown";
 }
 
 
@@ -180,7 +183,6 @@ char *detect_fs_type(char *device)
  *
  */
 
-#ifdef LINUX26
 /* check if the block device has no partition */
 int is_no_partition(const char *discname)
 {
@@ -200,7 +202,6 @@ int is_no_partition(const char *discname)
 
 	return (count == 1);
 }
-#endif
 
 int exec_for_host(int host, int obsolete, uint flags, host_exec func)
 {
@@ -305,15 +306,28 @@ int exec_for_host(int host, int obsolete, uint flags, host_exec func)
 			flags |= EFH_1ST_DISC;
 			if (func && (prt_fp = fopen("/proc/partitions", "r"))) {
 				while (fgets(line, sizeof(line) - 2, prt_fp)) {
-					if (sscanf(line, " %*s %*s %*s %s", bfr2) == 1) {
-						if ((cp = strstr(bfr2, "/part")) && strncmp(bfr2, mp, siz) == 0) {
+					if (sscanf(line, " %*s %*s %*s %s", bfr2) == 1 &&
+					    strncmp(bfr2, mp, siz) == 0)
+					{
+						if ((cp = strstr(bfr2, "/part"))) {
 							part_num = atoi(cp + 5);
 							sprintf(line, "%s/part%d", bfr, part_num);
 							sprintf(dsname, "disc%d", disc_num);
 							sprintf(ptname, "disc%d_%d", disc_num, part_num);
-							result = (*func)(line, host_no, dsname, ptname, flags) || result;
-							flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
 						}
+						else if ((cp = strstr(bfr2, "/disc"))) {
+							*(++cp) = 0;
+							if (!is_no_partition(bfr2))
+								continue;
+							sprintf(line, "%s/disc", bfr);
+							sprintf(dsname, "disc%d", disc_num);
+							strcpy(ptname, dsname);
+						}
+						else {
+							continue;
+						}
+						result = (*func)(line, host_no, dsname, ptname, flags) || result;
+						flags &= ~(EFH_1ST_HOST | EFH_1ST_DISC);
 					}
 				}
 				fclose(prt_fp);
@@ -479,14 +493,13 @@ int find_label_or_uuid(char *dev_name, char *label, char *uuid)
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
 		return 0;
 
-	if (volume_id_probe_vfat(&id) == 0 || id.error)
-		goto ret;
-
 	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
 
-	if (volume_id_probe_ext(&id) == 0 || id.error)
-		goto ret;
 	if (volume_id_probe_linux_swap(&id) == 0 || id.error)
+		goto ret;
+	if (volume_id_probe_vfat(&id) == 0 || id.error)
+		goto ret;
+	if (volume_id_probe_ext(&id) == 0 || id.error)
 		goto ret;
 	if (volume_id_probe_ntfs(&id) == 0 || id.error)
 		goto ret;

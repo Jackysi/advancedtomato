@@ -1,0 +1,11 @@
+########################################################
+# Huawei U7510 / U7517
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x101e
+
+TargetClass=0xff
+
+CheckSuccess=20
+
+MessageContent="55534243123456780600000080000601000000000000000000000000000000"

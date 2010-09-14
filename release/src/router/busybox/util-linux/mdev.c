@@ -64,7 +64,7 @@
 struct globals {
 	int root_major, root_minor;
 	char *subsystem;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 
 /* Prevent infinite loops in /sys symlinks */
@@ -132,6 +132,7 @@ static void make_device(char *path, int delete)
 			major = -1;
 		}
 	}
+	/* else: for delete, -1 still deletes the node, but < -1 suppresses that */
 
 	/* Determine device name, type, major and minor */
 	device_name = (char*) bb_basename(path);
@@ -140,7 +141,7 @@ static void make_device(char *path, int delete)
 	 * But since 2.6.25 block devices are also in /sys/class/block.
 	 * We use strstr("/block/") to forestall future surprises. */
 	type = S_IFCHR;
-	if (strstr(path, "/block/") || strncmp(G.subsystem, "block", 5) == 0)
+	if (strstr(path, "/block/") || (G.subsystem && strncmp(G.subsystem, "block", 5) == 0))
 		type = S_IFBLK;
 
 	/* Make path point to "subsystem/device_name" */
@@ -204,7 +205,8 @@ static void make_device(char *path, int delete)
 				if (major < 0)
 					continue; /* no dev, no match */
 				sc = sscanf(val, "@%u,%u-%u", &cmaj, &cmin0, &cmin1);
-				if (sc < 1 || major != cmaj
+				if (sc < 1
+				 || major != cmaj
 				 || (sc == 2 && minor != cmin0)
 				 || (sc == 3 && (minor < cmin0 || minor > cmin1))
 				) {
@@ -243,7 +245,8 @@ static void make_device(char *path, int delete)
 
 				/* If no match, skip rest of line */
 				/* (regexec returns whole pattern as "range" 0) */
-				if (result || off[0].rm_so
+				if (result
+				 || off[0].rm_so
 				 || ((int)off[0].rm_eo != (int)strlen(str_to_match))
 				) {
 					continue; /* this line doesn't match */
@@ -258,28 +261,34 @@ static void make_device(char *path, int delete)
 				bb_error_msg("unknown user/group %s on line %d", tokens[1], parser->lineno);
 
 			/* 3rd field: mode - device permissions */
-			/* mode = strtoul(tokens[2], NULL, 8); */
 			bb_parse_mode(tokens[2], &mode);
 
 			val = tokens[3];
-			/* 4th field (opt): >|=alias */
+			/* 4th field (opt): ">|=alias" or "!" to not create the node */
 
 			if (ENABLE_FEATURE_MDEV_RENAME && val) {
-				aliaslink = val[0];
-				if (aliaslink == '>' || aliaslink == '=') {
-					char *a, *s, *st;
-					char *p;
-					unsigned i, n;
+				char *a, *s, *st;
 
-					a = val;
-					s = strchrnul(val, ' ');
-					st = strchrnul(val, '\t');
-					if (st < s)
-						s = st;
-					val = (s[0] && s[1]) ? s+1 : NULL;
+				a = val;
+				s = strchrnul(val, ' ');
+				st = strchrnul(val, '\t');
+				if (st < s)
+					s = st;
+				st = (s[0] && s[1]) ? s+1 : NULL;
+
+				aliaslink = a[0];
+				if (aliaslink == '!' && s == a+1) {
+					val = st;
+					/* "!": suppress node creation/deletion */
+					major = -2;
+				}
+				else if (aliaslink == '>' || aliaslink == '=') {
+					val = st;
 					s[0] = '\0';
-
 					if (ENABLE_FEATURE_MDEV_RENAME_REGEXP) {
+						char *p;
+						unsigned i, n;
+
 						/* substitute %1..9 with off[1..9], if any */
 						n = 0;
 						s = a;
@@ -323,8 +332,13 @@ static void make_device(char *path, int delete)
 				/* Are we running this command now?
 				 * Run $cmd on delete, @cmd on create, *cmd on both
 				 */
-				if (s2-s != delete)
+				if (s2 - s != delete) {
+					/* We are here if: '*',
+					 * or: '@' and delete = 0,
+					 * or: '$' and delete = 1
+					 */
 					command = xstrdup(val + 1);
+				}
 			}
 		}
 
@@ -340,7 +354,7 @@ static void make_device(char *path, int delete)
 
 			if (!delete && major >= 0) {
 				if (mknod(node_name, mode | type, makedev(major, minor)) && errno != EEXIST)
-					bb_perror_msg("can't create %s", node_name);
+					bb_perror_msg("can't create '%s'", node_name);
 				if (major == G.root_major && minor == G.root_minor)
 					symlink(node_name, "root");
 				if (ENABLE_FEATURE_MDEV_CONF) {
@@ -361,14 +375,12 @@ static void make_device(char *path, int delete)
 				putenv(s1);
 				if (system(command) == -1)
 					bb_perror_msg("can't run '%s'", command);
-				unsetenv("SUBSYSTEM");
-				free(s1);
-				unsetenv("MDEV");
-				free(s);
+				bb_unsetenv_and_free(s1);
+				bb_unsetenv_and_free(s);
 				free(command);
 			}
 
-			if (delete) {
+			if (delete && major >= -1) {
 				if (ENABLE_FEATURE_MDEV_RENAME && alias) {
 					if (aliaslink == '>')
 						unlink(device_name);

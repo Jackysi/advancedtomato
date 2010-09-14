@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -102,6 +102,8 @@ function show()
 	c('ispconid', stats.ispconid); //Victek
 	c('dns', stats.dns);
 	c('memory', stats.memory);
+	c('swap', stats.swap);
+	elem.display('swap', stats.swap != '');
 
 	c('wanstatus', stats.wanstatus);
 	c('wanuptime', stats.wanuptime);
@@ -112,7 +114,7 @@ function show()
 	}
 
 	c('radio', wlradio ? 'Enabled' : '<b>Disabled</b>');
-	c('rate', stats.rate);
+	c('rate', stats.rate || '-');
 	if (show_radio) {
 		E('b_wl_enable').disabled = wlradio;
 		E('b_wl_disable').disabled = !wlradio;
@@ -121,6 +123,8 @@ function show()
 	if (nphy) {
 		c('nbw', stats.nbw);
 	}
+	c('interference', stats.interference);
+	elem.display('interference', stats.interference != '');
 
 	if (isClient) {
 		c('rssi', wlcrssi);
@@ -164,12 +168,13 @@ function init()
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
+	{ title: 'CPU Frequency (MHz)', rid: 'freqcpu', text: stats.freqcpu }, //Victek
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
-	{ title: 'CPU Frequency (MHz)', rid: 'freqcpu', text: stats.freqcpu } //Victek
+	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
 ]);
 </script>
 </div>
@@ -245,6 +250,7 @@ createFieldTable('', [
 	{ title: 'Security', text: sec },
 	{ title: 'Channel', rid: 'channel', text: stats.channel },
 	{ title: 'Channel Width', rid: 'nbw', text: stats.nbw, ignore: !nphy },
+	{ title: 'Interference Level', rid: 'interference', text: stats.interference, hidden: (stats.interference == '') },
 	{ title: 'Rate', rid: 'rate', text: stats.rate },
 	{ title: 'RSSI', rid: 'rssi', text: wlcrssi, ignore: !isClient },
 	{ title: 'Noise', rid: 'noise', text: wlnoise, ignore: !isClient },
@@ -259,7 +265,7 @@ createFieldTable('', [
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,0,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>

@@ -895,6 +895,7 @@ static int hid_input_report(int type, u8 *data, int len, struct hid_device *hid)
 			dbg("report %d is too short, (%d < %d)", report->id, len, size);
 			return -1;
 		}
+		memset(report->data + len, 0, size - len);
 
 		/*
 		 * Some low-speed devices have large reports and maxpacketsize 8.
@@ -1366,8 +1367,6 @@ static struct hid_device *usb_hid_configure(struct usb_device *dev, int ifnum)
 		pipe = usb_rcvintpipe(dev, endpoint->bEndpointAddress);
 		maxp = usb_maxpacket(dev, pipe, usb_pipeout(pipe));
 		interval = endpoint->bInterval;
-		if (dev->speed == USB_SPEED_HIGH)
-			interval = 1 << (interval - 1);
 
 		FILL_INT_URB(&hid->urb, dev, pipe, hid->buffer, maxp > 32 ? 32 : maxp, hid_irq, hid, interval);
 

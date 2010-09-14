@@ -106,7 +106,7 @@ static int deconfig(char *ifname)
 static int renew(char *ifname)
 {
 	char *a, *b;
-	int changed;
+	int changed, routes_changed = 0;
 
 	TRACE_PT("begin\n");
 
@@ -135,16 +135,15 @@ static int renew(char *ifname)
 
 	changed |= env2nv("domain", "wan_get_domain");
 	changed |= env2nv("dns", "wan_get_dns");
-	changed |= env2nv("msroutes", "wan_msroutes");
 
-	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
-	 * and a Router option, the DHCP client MUST ignore the Router option.
-	 * Overwrite "wan_routes" by "staticroutes" value if present.
-	 */
-	if (!env2nv("staticroutes", "wan_routes"))
-		changed |= env2nv("routes", "wan_routes");
-	else
-		changed = 1;
+	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
+	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
+
+	/* Static Routes */
+	routes_changed |= env2nv("routes", "wan_routes_save");
+	/* MS Classless Static Routes */
+	routes_changed |= env2nv("msstaticroutes", "wan_msroutes_save");
+	changed |= routes_changed;
 
 	if ((a = getenv("lease")) != NULL) {
 		nvram_set("wan_lease", a);
@@ -155,6 +154,15 @@ static int renew(char *ifname)
 		set_host_domain_name();
 		start_dnsmasq();	// (re)start
 	}
+
+	if (routes_changed) {
+		do_wan_routes(ifname, 0, 0);
+		nvram_set("wan_routes", nvram_safe_get("wan_routes_save"));
+		nvram_set("wan_msroutes", nvram_safe_get("wan_msroutes_save"));
+		do_wan_routes(ifname, 0, 1);
+	}
+	nvram_unset("wan_routes_save");
+	nvram_unset("wan_msroutes_save");
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
@@ -174,20 +182,26 @@ static int bound(char *ifname)
 
 	unlink(renewing);
 
+	nvram_set("wan_routes", "");
+	nvram_set("wan_msroutes", "");
 	env2nv("ip", "wan_ipaddr");
 	env2nv("subnet", "wan_netmask");
 	env2nv_gateway("wan_gateway");
 	env2nv("dns", "wan_get_dns");
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
-	env2nv("msroutes", "wan_msroutes");
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
 	 * and a Router option, the DHCP client MUST ignore the Router option.
-	 * Overwrite "wan_routes" by "staticroutes" value if present.
+	 * Similarly, if the DHCP server returns both a Classless Static Routes
+	 * option and a Static Routes option, the DHCP client MUST ignore the
+	 * Static Routes option.
+	 * Read more: http://www.faqs.org/rfcs/rfc3442.html
 	 */
-	if (!env2nv("staticroutes", "wan_routes"))
-		env2nv("routes", "wan_routes");
+	/* Static Routes */
+	env2nv("routes", "wan_routes");
+	/* MS Classless Static Routes */
+	env2nv("msstaticroutes", "wan_msroutes");
 
 	expires(atoi(safe_getenv("lease")));
 
@@ -202,7 +216,8 @@ static int bound(char *ifname)
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
-	if (get_wan_proto() == WP_L2TP) {
+	int wan_proto = get_wan_proto();
+	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
 		int i = 0;
 
 		/* Delete all default routes */
@@ -214,12 +229,22 @@ static int bound(char *ifname)
 		/* Backup the default gateway. It should be used if L2TP connection is broken */
 		nvram_set("wan_gateway_buf", nvram_get("wan_gateway"));
 
+		dns_to_resolv();
+		start_dnsmasq();
 		/* clear dns from the resolv.conf */
 		nvram_set("wan_get_dns","");
-		dns_to_resolv();
 
 		start_firewall();
-		start_l2tp();
+		switch (wan_proto) {
+		case WP_PPTP:
+			start_pptp(BOOT);
+			// we don't need dhcp anymore ?
+			// xstart("service", "dhcpc", "stop");
+			break;
+		case WP_L2TP:
+			start_l2tp();
+			break;
+		}
 	}
 	else {
 		start_wan_done(ifname);
@@ -292,9 +317,10 @@ int dhcpc_renew_main(int argc, char **argv)
 
 void start_dhcpc(void)
 {
-	char *argv[6];
+	char *argv[10];
 	int argc;
 	char *ifname;
+	char *p;
 
 	TRACE_PT("begin\n");
 
@@ -302,20 +328,32 @@ void start_dhcpc(void)
 	f_write(renewing, NULL, 0, 0, 0);
 
 	ifname = nvram_safe_get("wan_ifname");
-	if (get_wan_proto() != WP_L2TP) {
+	if (get_wan_proto() != WP_L2TP && get_wan_proto() != WP_PPTP) {
 		nvram_set("wan_iface", ifname);
 	}
 
 	argc = 0;
-	argv[1] = nvram_safe_get("wan_hostname");
-	if (*argv[1]) {
-		argv[0] = "-H";
-		argc = 2;
+
+	p = nvram_safe_get("wan_hostname");
+	if (*p) {
+		argv[argc++] = "-H";
+		argv[argc++] = p;
+	}
+	p = nvram_safe_get("dhcpc_vendorclass");
+	if (*p) {
+		argv[argc++] = "-V";
+		argv[argc++] = p;
+	}
+	p = nvram_safe_get("dhcpc_requestip");
+	if ((*p) && (strcmp(p, "0.0.0.0") != 0)) {
+		argv[argc++] = "-r";
+		argv[argc++] = p;
 	}
 
 	if (nvram_get_int("dhcpc_minpkt")) argv[argc++] = "-m";
 
 	if (nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-S";
+
 	argv[argc] = NULL;
 
 	xstart(
@@ -323,8 +361,10 @@ void start_dhcpc(void)
 		"-i", ifname,
 		"-s", "dhcpc-event",
 		argv[0], argv[1],	// -H wan_hostname
-		argv[2],			// -m
-		argv[3]				// -S
+		argv[2], argv[3],	// -V vendorclass
+		argv[4], argv[5],	// -r requestip
+		argv[6],			// -m
+		argv[7]				// -S
 	);
 	TRACE_PT("end\n");
 }

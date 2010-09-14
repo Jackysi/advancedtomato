@@ -1,3 +1,295 @@
+commit a04cbb0095a78aeed3f65aaf06c46069d0ac184a
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Tue May 4 19:01:59 2010 -0300
+
+    v1.0.8 release
+
+commit 53b47299531974fa8901b74a163f3c8ebae4eec9
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Thu Apr 22 18:12:51 2010 -0300
+
+    Linux: don't set SHORT_NOT_OK on bulk out URBs (#20
+    
+    Setting this flag is illegal, and the behaviour we're looking for
+    is already in place for host-to-device transfers without this flag.
+
+commit 1519828b7ee1fce46d4c51fc097d52e01b8e0bb4
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Tue Apr 20 20:14:09 2010 -0300
+
+    Linux: Handle failure to read active configuration during enumeration
+
+commit 45168627cc15aee3875192f34286110dbbd27095
+Author: Nathan Hjelm <hjelmn@me.com>
+Date:   Tue Apr 20 19:43:06 2010 -0300
+
+    Darwin: don't reuse cached descriptors during enumeration
+    
+    Descriptor reuse was causing scans to return invalid information when
+    the device at a location has changed.
+
+commit 3af329db6dcbfb96d24867c757f9e125e5b7b0e5
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Mon Apr 19 19:36:55 2010 -0300
+
+    v1.0.7 release
+
+commit ceb8cacd6d2a4189de0db2ee46d45217511c69be
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Mon Apr 19 19:31:12 2010 -0300
+
+    Document that fd set contents are an internal implementation detail (#36)
+
+commit 9bea500b5747bdeba7c8251d45608558e71a1db5
+Author: Martin Koegler <mkoegler@auto.tuwien.ac.at>
+Date:   Mon Apr 19 19:22:46 2010 -0300
+
+    Linux: correct config descriptor endianness fix
+    
+    The seek_to_next_config codepath deals with both sysfs and usbfs;
+    make sure we only convert values in the usbfs path.
+
+commit 02df59a309e813c50b8230de99e69fb4e1814279
+Author: Martin Koegler <mkoegler@auto.tuwien.ac.at>
+Date:   Mon Apr 5 17:11:32 2010 +0200
+
+    Linux: Fix endianness handling of usbfs config descriptors (#27)
+    
+    driver/usb/core/devio.c function usbdev_read translate the follwing files
+    to CPU endianess:
+    
+    le16_to_cpus(&temp_desc.bcdUSB);
+    le16_to_cpus(&temp_desc.idVendor);
+    le16_to_cpus(&temp_desc.idProduct);
+    le16_to_cpus(&temp_desc.bcdDevice);
+    
+    All other data is passed without any change.
+    
+    libusb/os/linux_usbfs.c calls usbi_parse_descriptor with host_endian=1
+    for config descriptors. According to the kernel code, they must be
+    processed with host_endian=0, as they are not translated by the kernel.
+    
+    Signed-off-by: Martin Koegler <mkoegler@auto.tuwien.ac.at>
+
+commit ec303b01a5d4e51c000a283853af65059fa62285
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Tue Mar 23 16:22:08 2010 -0600
+
+    Darwin: fix enumeration of devices with non-consecutive addresses (#23)
+
+commit cd809e2f7cee3874b7ae16b2c482a8b63a90e4a5
+Author: Bastien Nocera <hadess@hadess.net>
+Date:   Mon Mar 8 10:50:51 2010 +0000
+
+    Add more interface classes
+    
+    As used in bluez.
+
+commit 1ce4aa67d849f5cad8a21072dc1c7b42158ce817
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Thu Mar 18 11:32:32 2010 -0600
+
+    Darwin: Cleanup async callback code, catch request timeouts
+
+commit 68af9f8d731f700267335941a8214d34ab518cc8
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Thu Mar 18 11:31:46 2010 -0600
+
+    Darwin: fix endianness of control setup packet
+    
+    IOUSBLib expects the control request to be in host byte order.
+    Swap the request into host byte order.
+
+commit cfce4d127184f4e4f334976151a0f80594bb5e22
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Mon Feb 15 14:10:08 2010 -0600
+
+    Darwin: fix memory leak in process_device
+    
+    Credit to Mike Colagrosso for finding this bug.
+
+commit 161893cfbefefe315f657677705abe090fc526f2
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Mon Feb 15 14:09:19 2010 -0600
+
+    Darwin: use logging functions
+    
+    Use usbi_warn, usbi_err, and usbi_info instead of _usbi_log.
+
+commit 2a72f38548208044dc3aa62681419d006c35732d
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Mon Feb 15 14:07:44 2010 -0600
+
+    Darwin: support multiple calls to libusb_init
+    
+    Credit to Orin Eman for finding this bug.
+
+commit a4186794d87124503db2f5f51f51ce90bb95daa7
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Sun Nov 22 17:20:53 2009 +0000
+
+    v1.0.6 release
+
+commit 8392ff22136fccaf1e15d186157609b8dd127bc5
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Sun Oct 25 10:06:41 2009 +0100
+
+    lsusb example: make print_devs() static
+    
+    lsusb.c:26: warning: no previous prototype for ‘print_devs’
+
+commit 9cc6bfaa15239bb6db1c1570b9beb6df2f848951
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Sun Oct 25 10:05:10 2009 +0100
+
+    Darwin: fix warning in darwin_error_str()
+    
+    os/darwin_usb.c:63: warning: return discards qualifiers from pointer
+    target type
+
+commit 4c706d2fb6b2c43b10d72ac5dff51cac4d939f1a
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Sat Nov 21 17:06:43 2009 +0000
+
+    Darwin: allow devices to be opened multiple times
+    
+    Allows libusb applications to access multiple interfaces of the same
+    device in the same application.
+    
+    Also fixes a set alt interface bug.
+
+commit 0232fc559cdacb9561f982dd6d28feb4435b3e4e
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Sat Nov 21 17:01:32 2009 +0000
+
+    Increase libusb_handle_events() timeout to 60 seconds
+    
+    The internal timing seems to be working, this will be a better test of
+    it before we make this timeout unlimited.
+
+commit 0bd7ef5d8697973a026c36c15d6276177b4ec4ea
+Author: Daniel Drake <dan@reactivated.net>
+Date:   Sat Nov 21 16:57:25 2009 +0000
+
+    Refine timerfd header check (#18)
+    
+    Require glibc-2.9 for the working timerfd support.
+
+commit 90d8fcab9018b8e6887a7e0592d1e5f692117234
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Sun Nov 15 12:17:13 2009 +0000
+
+    v1.0.5 release
+
+commit 11d591058e3f105b0e90c23bbf58b18de691e690
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Sat Nov 7 10:43:59 2009 +0000
+
+    Update documentation about early completion caveats
+
+commit f796c9528a71aa55326b6f0c9c7c5ec073d2bf92
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Sun Oct 25 09:59:51 2009 +0100
+
+    Add libusb_get_max_iso_packet_size() to libusb.h
+    
+    core.c:777: warning: no previous prototype for 'libusb_get_max_iso_packet_size'
+
+commit 4783008b7e711de9cb31631e60dda995f44068de
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Wed Oct 28 20:33:49 2009 +0545
+
+    Use timerfd for timeout handling
+    
+    Use a new file descriptor from the timerfd system calls to handle
+    timeouts. On supported systems, this means that there is less hassle
+    figuring out when the poll() timeout should be, since
+    libusb_get_next_timeout() will always return 0 and the timeout events will
+    be triggered as regular activity on the file descriptor set.
+    
+    Add API function libusb_pollfds_handle_timeouts() to detect whether
+    you're on a platform with the timing headache, and flesh out the
+    surrounding documentation.
+
+commit 9b120c2b3735566533c179aa8ca758fe45899a38
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Sat Nov 7 10:03:07 2009 +0000
+
+    Use AM_SILENT_RULES for building
+
+commit ef6ea6c3ae38e4524f10e16e8cb88177d39c4826
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Fri Nov 6 21:54:08 2009 +0000
+
+    v1.0.4 release
+
+commit 217f57617e0cff0d1bd6d726b243f04c6b179773
+Author: David Moore <dcm@acm.org>
+Date:   Fri Nov 6 21:37:25 2009 +0000
+
+    Linux: Add support for the new URB_BULK_CONTINUATION flag
+    
+    Add support for the new USBDEVFS_URB_BULK_CONTINUATION flag to libusb.
+    
+    This flag, which is expected to be available in usbfs starting with
+    kernel 2.6.32, allows the kernel to cancel multiple URBs upon receipt
+    of a short packet.  This capability allows libusb to preserve data
+    integrity of large bulk transfers that are split into multiple URBs.
+    Without this support, these URBs must be canceled in userspace upon
+    receipt of a short packet, a race condition against future transfers
+    which might partially fill these canceled URBs.
+    
+    This patch automatically detects whether a supported kernel is present
+    and enables the use of the flag when possible.
+    
+    [dsd: tweaks to supported kernel detection, and some inline
+     documentation of this mechanism]
+
+commit 69830057547396f893f0d7b3125a05d016313b10
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Wed Oct 28 15:13:22 2009 +0545
+
+    Transfer locking
+    
+    At least on Linux, there were some possible races that could occur if
+    a transfer is cancelled from one thread while another thread is handling
+    an event for that transfer, or for if a transfer completes while it is
+    still being submitted from another thread, etc.
+    
+    On the global level, transfers could be submitted and cancelled at the
+    same time.
+    
+    Fix those issues with transfer-level locks.
+
+commit 98f1b30d24359cb3185051b8df9ebb663cc10369
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Mon Sep 14 08:01:24 2009 +0100
+
+    Clarify that timeout 0 means unlimited timeout
+
+commit 858684f0dd25921e09565034a88709dbf6f6c61b
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Fri Sep 11 22:09:12 2009 +0100
+
+    Linux: more flexibility with monotonic clock
+    
+    Some users have reported that CLOCK_MONOTONIC does not work on their
+    systems - I suspect it is available on x86 but perhaps not some
+    of the more uncommon architectures. We should fall back on
+    CLOCK_REALTIME in these cases.
+    
+    Also, CLOCK_MONOTONIC_RAW seems even more monotonic, so we should use
+    that if it is available.
+    
+    We now test different clock IDs during initialization to find the
+    best one that works.
+
+commit fe0d8dce1ed704915d501e7da700440c78144211
+Author: Nathan Hjelm <hjelmn@mac.com>
+Date:   Fri Sep 11 18:00:29 2009 +0100
+
+    Darwin: handle overflows
+
 commit f46716f42040986203fa6e873bfdabe1be2900ec
 Author: Daniel Drake <dsd@gentoo.org>
 Date:   Thu Aug 27 21:14:54 2009 +0545

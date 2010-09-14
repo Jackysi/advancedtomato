@@ -1,6 +1,6 @@
 /*
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -31,9 +31,15 @@ do {
 	stats.freqcpu = nvram.clkfreq;
 	stats.uptime = sysinfo.uptime_s;
 
-	a = sysinfo.totalram + sysinfo.totalswap;
-	b = sysinfo.totalfreeram + sysinfo.freeswap;
+	a = sysinfo.totalram;
+	b = sysinfo.totalfreeram;
 	stats.memory = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
+	if (sysinfo.totalswap > 0) {
+		a = sysinfo.totalswap;
+		b = sysinfo.freeswap;
+		stats.swap = scaleSize(a) + ' / ' + scaleSize(b) + ' <small>(' + (b / a * 100.0).toFixed(2) + '%)</small>';
+	} else
+		stats.swap = '';
 
 	stats.time = '<% time(); %>';
 	stats.wanup = '<% wanup(); %>' == '1';
@@ -76,7 +82,13 @@ do {
 	stats.wanstatus = '<% wanstatus(); %>';
 	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
 
-	stats.channel = '<a href="tools-survey.asp"><% wlchannel(); %></a>'
+	// <% wlchannel(); %>
+	a = i = wlchaninfo[0] * 1;
+	if (i < 0) i = -i;
+	stats.channel = '<a href="tools-survey.asp">' + ((i) ? i + '' : 'Auto') +
+		((wlchaninfo[1]) ? ' - ' + (wlchaninfo[1] / 1000.0).toFixed(3) + ' <small>GHz</small>' : '') + '</a>' +
+		((a < 0) ? ' <small>(scanning...)</small>' : '');
+	stats.interference = (wlchaninfo[2] >= 0) ? ((wlchaninfo[2]) ? 'Severe' : 'Acceptable') : '';
 
 	a = '<% wlnbw(); %>' * 1;
 	if (a > 0)

@@ -74,6 +74,26 @@
 #include "fsm.h"
 #include "ipcp.h"
 
+#ifdef INET6
+#ifndef _LINUX_IN6_H
+/*
+ *    This is in linux/include/net/ipv6.h.
+ */
+
+struct in6_ifreq {
+    struct in6_addr ifr6_addr;
+    __u32 ifr6_prefixlen;
+    unsigned int ifr6_ifindex;
+};
+#endif
+
+#define IN6_LLADDR_FROM_EUI64(sin6, eui64) do {             \
+    memset(&sin6.s6_addr, 0, sizeof(struct in6_addr));      \
+    sin6.s6_addr16[0] = htons(0xfe80);                      \
+    eui64_copy(eui64, sin6.s6_addr32[2]);                   \
+    } while (0)
+#endif /* INET6 */
+
 /* We can get an EIO error on an ioctl if the modem has hung up */
 #define ok_error(num) ((num)==EIO)
 
@@ -84,6 +104,9 @@ static int ppp_fd = -1;		/* fd which is set to PPP discipline */
 static int sock_fd = -1;	/* socket for doing interface ioctls */
 static int slave_fd = -1;
 static int master_fd = -1;
+#ifdef INET6
+static int sock6_fd = -1;
+#endif /* INET6 */
 static int ppp_dev_fd = -1;	/* fd for /dev/ppp (new style driver) */
 static int chindex;		/* channel index (new style driver) */
 
@@ -213,6 +236,12 @@ void sys_init(void)
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_fd < 0)
 	fatal("Couldn't create IP socket: %m(%d)", errno);
+
+#ifdef INET6
+    sock6_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (sock6_fd < 0)
+	sock6_fd = -errno;	/* save errno for later */
+#endif
 
     FD_ZERO(&in_fds);
     max_in_fd = 0;
@@ -1032,6 +1061,96 @@ int cifaddr (int unit, u_int32_t our_adr, u_int32_t his_adr)
 
     return 1;
 }
+
+#ifdef INET6
+/********************************************************************
+ *
+ * sif6addr - Config the interface with an IPv6 link-local address
+ */
+int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
+{
+    struct in6_ifreq ifr6;
+    struct ifreq ifr;
+    struct in6_rtmsg rt6;
+
+    if (sock6_fd < 0) {
+        errno = -sock6_fd;
+        error("IPv6 socket creation failed: %m");
+        return 0;
+    }
+    memset(&ifr, 0, sizeof (ifr));
+    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    if (ioctl(sock6_fd, SIOCGIFINDEX, (caddr_t) &ifr) < 0) {
+        error("sif6addr: ioctl(SIOCGIFINDEX): %m (%d)", errno);
+        return 0;
+    }
+
+    /* Local interface */
+    memset(&ifr6, 0, sizeof(ifr6));
+    IN6_LLADDR_FROM_EUI64(ifr6.ifr6_addr, our_eui64);
+    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+    ifr6.ifr6_prefixlen = 10;
+
+    if (ioctl(sock6_fd, SIOCSIFADDR, &ifr6) < 0) {
+        error("sif6addr: ioctl(SIOCSIFADDR): %m (%d)", errno);
+        return 0;
+    }
+
+    /* Route to remote host */
+    memset(&rt6, 0, sizeof(rt6));
+    IN6_LLADDR_FROM_EUI64(rt6.rtmsg_dst, his_eui64);
+    rt6.rtmsg_flags = RTF_UP;
+    rt6.rtmsg_dst_len = 10;
+    rt6.rtmsg_ifindex = ifr.ifr_ifindex;
+    rt6.rtmsg_metric = 1;
+
+    if (ioctl(sock6_fd, SIOCADDRT, &rt6) < 0) {
+        error("sif6addr: ioctl(SIOCADDRT): %m (%d)", errno);
+        return 0;
+    }
+
+    return 1;
+}
+
+/********************************************************************
+ *
+ * cif6addr - Remove IPv6 address from interface
+ */
+int cif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
+{
+    struct ifreq ifr;
+    struct in6_ifreq ifr6;
+
+    if (sock6_fd < 0) {
+        errno = -sock6_fd;
+        error("IPv6 socket creation failed: %m");
+        return 0;
+    }
+    memset(&ifr, 0, sizeof(ifr));
+    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    if (ioctl(sock6_fd, SIOCGIFINDEX, (caddr_t) &ifr) < 0) {
+        error("cif6addr: ioctl(SIOCGIFINDEX): %m (%d)", errno);
+        return 0;
+    }
+
+    memset(&ifr6, 0, sizeof(ifr6));
+    IN6_LLADDR_FROM_EUI64(ifr6.ifr6_addr, our_eui64);
+    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+    ifr6.ifr6_prefixlen = 10;
+
+    if (ioctl(sock6_fd, SIOCDIFADDR, &ifr6) < 0) {
+        if (errno != EADDRNOTAVAIL) {
+            if (! ok_error (errno))
+                error("cif6addr: ioctl(SIOCDIFADDR): %m (%d)", errno);
+        }
+        else {
+            warn("cif6addr: ioctl(SIOCDIFADDR): No such address");
+        }
+        return (0);
+    }
+    return 1;
+}
+#endif /* INET6 */
 
 //===================================================================
 

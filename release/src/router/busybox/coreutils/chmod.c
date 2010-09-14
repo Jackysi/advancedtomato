@@ -20,10 +20,10 @@
 
 
 #define OPT_RECURSE (option_mask32 & 1)
-#define OPT_VERBOSE (USE_DESKTOP(option_mask32 & 2) SKIP_DESKTOP(0))
-#define OPT_CHANGED (USE_DESKTOP(option_mask32 & 4) SKIP_DESKTOP(0))
-#define OPT_QUIET   (USE_DESKTOP(option_mask32 & 8) SKIP_DESKTOP(0))
-#define OPT_STR     "R" USE_DESKTOP("vcf")
+#define OPT_VERBOSE (IF_DESKTOP(option_mask32 & 2) IF_NOT_DESKTOP(0))
+#define OPT_CHANGED (IF_DESKTOP(option_mask32 & 4) IF_NOT_DESKTOP(0))
+#define OPT_QUIET   (IF_DESKTOP(option_mask32 & 8) IF_NOT_DESKTOP(0))
+#define OPT_STR     "R" IF_DESKTOP("vcf")
 
 /* coreutils:
  * chmod never changes the permissions of symbolic links; the chmod
@@ -50,7 +50,7 @@ static int FAST_FUNC fileAction(const char *fileName, struct stat *statbuf, void
 	newmode = statbuf->st_mode;
 
 	if (!bb_parse_mode((char *)param, &newmode))
-		bb_error_msg_and_die("invalid mode: %s", (char *)param);
+		bb_error_msg_and_die("invalid mode '%s'", (char *)param);
 
 	if (chmod(fileName, newmode) == 0) {
 		if (OPT_VERBOSE

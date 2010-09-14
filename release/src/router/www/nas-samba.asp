@@ -43,17 +43,6 @@ textarea {
 
 //	<% nvram("smbd_enable,smbd_user,smbd_passwd,smbd_wgroup,smbd_cpage,smbd_custom,smbd_master,smbd_wins,smbd_shares,smbd_autoshare,wan_wins"); %>
 
-function v_nodelim(e, quiet, name)
-{
-	e.value = e.value.trim().replace(/>/g, '_');
-	if (e.value.indexOf('<') != -1) {
-		ferror.set(e, 'Invalid ' + name, quiet);
-		return 0;
-	}
-	ferror.clear(e);
-	return 1;
-}
-
 var ssg = new TomatoGrid();
 
 ssg.exist = function(f, v)
@@ -90,6 +79,7 @@ ssg.fieldValuesToData = function(row) {
 ssg.verifyFields = function(row, quiet)
 {
 	var f, s;
+
 	f = fields.getAll(row);
 
 	s = f[0].value.trim().replace(/\s+/g, ' ');
@@ -109,13 +99,8 @@ ssg.verifyFields = function(row, quiet)
 		return 0;
 	}
 
-	if ((!v_nodelim(f[1], quiet, 'Directory')) || (!v_nodelim(f[2], quiet, 'Description')))
-		return 0;
-
-	if (f[1].value.length <= 0) {
-		ferror.set(f[1], 'Directory must not be empty.', quiet);
-		return 0;
-	}
+	if (!v_nodelim(f[1], quiet, 'Directory', 1) || !v_path(f[1], quiet, 1)) return 0;
+	if (!v_nodelim(f[2], quiet, 'Description', 1)) return 0;
 
 	return 1;
 }
@@ -173,31 +158,17 @@ function verifyFields(focused, quiet)
 	E('_f_smbd_master').disabled = (a == 0);
 	E('_f_smbd_wins').disabled = (a == 0 || (nvram.wan_wins != '' && nvram.wan_wins != '0.0.0.0'));
 
-	if (a != 0) {
-		if (!v_range('_smbd_autoshare', quiet, 0, 3)) return 0;
-		if (!v_length('_smbd_custom', quiet, 0, 2048)) return 0;
-		if (!v_length('_smbd_wgroup', quiet, 1, 20)) return 0;
-	}
+	if (a != 0 && !v_length('_smbd_custom', quiet, 0, 2048)) return 0;
 
 	if (a == 2) {
-		b = E('_smbd_user');
-		if (b.value == '') {
-			ferror.set(b, 'User Name must not be empty.', quiet);
-			return 0;
-		}
-		if (b.value == 'root') {
-			ferror.set(b, 'User Name root is not allowed.', quiet);
-			return 0;
-		}
-		if (!v_length(b, quiet, 1, 50)) return 0;
-		ferror.clear(b);
+		if (!v_length('_smbd_user', quiet, 1)) return 0;
+		if (!v_length('_smbd_passwd', quiet, 1)) return 0;
 
-		b = E('_smbd_passwd');
-		if (b.value == '') {
-			ferror.set(b, 'Password must not be empty.', quiet);
+		b = E('_smbd_user');
+		if (b.value == 'root') {
+			ferror.set(b, 'User Name \"root\" is not allowed.', quiet);
 			return 0;
 		}
-		if (!v_length(b, quiet, 1, 50)) return 0;
 		ferror.clear(b);
 	}
 
@@ -255,7 +226,7 @@ createFieldTable('', [
 		value: nvram.smbd_enable },
 	{ title: 'User Name', indent: 2, name: 'smbd_user', type: 'text', maxlen: 50, size: 32,
 		value: nvram.smbd_user },
-	{ title: 'Password', indent: 2, name: 'smbd_passwd', type: 'text', maxlen: 50, size: 32,
+	{ title: 'Password', indent: 2, name: 'smbd_passwd', type: 'password', maxlen: 50, size: 32, peekaboo: 1,
 		value: nvram.smbd_passwd },
 	null,
 	{ title: 'Workgroup Name', name: 'smbd_wgroup', type: 'text', maxlen: 20, size: 32,

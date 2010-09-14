@@ -11,39 +11,44 @@
  *
  * The telnetd manpage says it all:
  *
- *   Telnetd operates by allocating a pseudo-terminal device (see pty(4))  for
- *   a client, then creating a login process which has the slave side of the
- *   pseudo-terminal as stdin, stdout, and stderr. Telnetd manipulates the
- *   master side of the pseudo-terminal, implementing the telnet protocol and
- *   passing characters between the remote client and the login process.
+ * Telnetd operates by allocating a pseudo-terminal device (see pty(4)) for
+ * a client, then creating a login process which has the slave side of the
+ * pseudo-terminal as stdin, stdout, and stderr. Telnetd manipulates the
+ * master side of the pseudo-terminal, implementing the telnet protocol and
+ * passing characters between the remote client and the login process.
  *
  * Vladimir Oleynik <dzo@simtreas.ru> 2001
- *     Set process group corrections, initial busybox port
+ * Set process group corrections, initial busybox port
  */
-
 #define DEBUG 0
 
 #include "libbb.h"
 #include <syslog.h>
 
 #if DEBUG
-#define TELCMDS
-#define TELOPTS
+# define TELCMDS
+# define TELOPTS
 #endif
 #include <arpa/telnet.h>
 
-/* Structure that describes a session */
+#if ENABLE_FEATURE_UTMP
+# include <utmp.h> /* LOGIN_PROCESS */
+#endif
+
+
 struct tsession {
 	struct tsession *next;
 	pid_t shell_pid;
-	int sockfd_read, sockfd_write, ptyfd;
+	int sockfd_read;
+	int sockfd_write;
+	int ptyfd;
 
 	/* two circular buffers */
 	/*char *buf1, *buf2;*/
-/*#define TS_BUF1 ts->buf1*/
-/*#define TS_BUF2 TS_BUF2*/
-#define TS_BUF1 ((unsigned char*)(ts + 1))
-#define TS_BUF2 (((unsigned char*)(ts + 1)) + BUFSIZE)
+/*#define TS_BUF1(ts) ts->buf1*/
+/*#define TS_BUF2(ts) TS_BUF2(ts)*/
+#define TS_BUF1(ts) ((unsigned char*)(ts + 1))
+#define TS_BUF2(ts) (((unsigned char*)(ts + 1)) + BUFSIZE)
 	int rdidx1, wridx1, size1;
 	int rdidx2, wridx2, size2;
 };
@@ -54,10 +59,17 @@ enum { BUFSIZE = (4 * 1024 - sizeof(struct tsession)) / 2 };
 
 
 /* Globals */
-static int maxfd;
-static struct tsession *sessions;
-static const char *loginpath = "/bin/login";
-static const char *issuefile = "/etc/issue.net";
+struct globals {
+	struct tsession *sessions;
+	const char *loginpath;
+	const char *issuefile;
+	int maxfd;
+} FIX_ALIASING;
+#define G (*(struct globals*)&bb_common_bufsiz1)
+#define INIT_G() do { \
+	G.loginpath = "/bin/login"; \
+	G.issuefile = "/etc/issue.net"; \
+} while (0)
 
 
 /*
@@ -66,11 +78,11 @@ static const char *issuefile = "/etc/issue.net";
    string of characters fit for the terminal.  Do this by packing
    all characters meant for the terminal sequentially towards the end of buf.
 
-   Return a pointer to the beginning of the characters meant for the terminal.
+   Return a pointer to the beginning of the characters meant for the terminal
    and make *num_totty the number of characters that should be sent to
    the terminal.
 
-   Note - If an IAC (3 byte quantity) starts before (bf + len) but extends
+   Note - if an IAC (3 byte quantity) starts before (bf + len) but extends
    past (bf + len) then that IAC will be left unprocessed and *processed
    will be less than len.
 
@@ -81,7 +93,7 @@ static const char *issuefile = "/etc/issue.net";
 static unsigned char *
 remove_iacs(struct tsession *ts, int *pnum_totty)
 {
-	unsigned char *ptr0 = TS_BUF1 + ts->wridx1;
+	unsigned char *ptr0 = TS_BUF1(ts) + ts->wridx1;
 	unsigned char *ptr = ptr0;
 	unsigned char *totty = ptr;
 	unsigned char *end = ptr + MIN(BUFSIZE - ts->wridx1, ts->size1);
@@ -118,9 +130,9 @@ remove_iacs(struct tsession *ts, int *pnum_totty)
 		 * TELOPT_NAWS support!
 		 */
 		if ((ptr+2) >= end) {
-			/* only the beginning of the IAC is in the
+			/* Only the beginning of the IAC is in the
 			buffer we were asked to process, we can't
-			process this char. */
+			process this char */
 			break;
 		}
 		/*
@@ -146,13 +158,13 @@ remove_iacs(struct tsession *ts, int *pnum_totty)
 
 	num_totty = totty - ptr0;
 	*pnum_totty = num_totty;
-	/* the difference between ptr and totty is number of iacs
-	   we removed from the stream. Adjust buf1 accordingly. */
+	/* The difference between ptr and totty is number of iacs
+	   we removed from the stream. Adjust buf1 accordingly */
 	if ((ptr - totty) == 0) /* 99.999% of cases */
 		return ptr0;
 	ts->wridx1 += ptr - totty;
 	ts->size1 -= ptr - totty;
-	/* move chars meant for the terminal towards the end of the buffer */
+	/* Move chars meant for the terminal towards the end of the buffer */
 	return memmove(ptr - num_totty, ptr0, num_totty);
 }
 
@@ -203,15 +215,20 @@ static size_t iac_safe_write(int fd, const char *buf, size_t count)
 enum {
 	OPT_WATCHCHILD = (1 << 2), /* -K */
 	OPT_INETD      = (1 << 3) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -i */
-	OPT_PORT       = (1 << 4) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -p */
+	OPT_PORT       = (1 << 4) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -p PORT */
 	OPT_FOREGROUND = (1 << 6) * ENABLE_FEATURE_TELNETD_STANDALONE, /* -F */
+	OPT_SYSLOG     = (1 << 7) * ENABLE_FEATURE_TELNETD_INETD_WAIT, /* -S */
+	OPT_WAIT       = (1 << 8) * ENABLE_FEATURE_TELNETD_INETD_WAIT, /* -w SEC */
 };
 
 static struct tsession *
 make_new_session(
-		USE_FEATURE_TELNETD_STANDALONE(int master_fd, int sock)
-		SKIP_FEATURE_TELNETD_STANDALONE(void)
+		IF_FEATURE_TELNETD_STANDALONE(int sock)
+		IF_NOT_FEATURE_TELNETD_STANDALONE(void)
 ) {
+#if !ENABLE_FEATURE_TELNETD_STANDALONE
+	enum { sock = 0 };
+#endif
 	const char *login_argv[2];
 	struct termios termbuf;
 	int fd, pid;
@@ -221,32 +238,33 @@ make_new_session(
 	/*ts->buf1 = (char *)(ts + 1);*/
 	/*ts->buf2 = ts->buf1 + BUFSIZE;*/
 
-	/* Got a new connection, set up a tty. */
+	/* Got a new connection, set up a tty */
 	fd = xgetpty(tty_name);
-	if (fd > maxfd)
-		maxfd = fd;
+	if (fd > G.maxfd)
+		G.maxfd = fd;
 	ts->ptyfd = fd;
 	ndelay_on(fd);
-#if ENABLE_FEATURE_TELNETD_STANDALONE
-	ts->sockfd_read = sock;
+	close_on_exec_on(fd);
+
 	/* SO_KEEPALIVE by popular demand */
 	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
+#if ENABLE_FEATURE_TELNETD_STANDALONE
+	ts->sockfd_read = sock;
 	ndelay_on(sock);
-	if (!sock) { /* We are called with fd 0 - we are in inetd mode */
+	if (sock == 0) { /* We are called with fd 0 - we are in inetd mode */
 		sock++; /* so use fd 1 for output */
 		ndelay_on(sock);
 	}
 	ts->sockfd_write = sock;
-	if (sock > maxfd)
-		maxfd = sock;
+	if (sock > G.maxfd)
+		G.maxfd = sock;
 #else
-	/* SO_KEEPALIVE by popular demand */
-	setsockopt(0, SOL_SOCKET, SO_KEEPALIVE, &const_int_1, sizeof(const_int_1));
 	/* ts->sockfd_read = 0; - done by xzalloc */
 	ts->sockfd_write = 1;
 	ndelay_on(0);
 	ndelay_on(1);
 #endif
+
 	/* Make the telnet client understand we will echo characters so it
 	 * should not do it locally. We don't tell the client to run linemode,
 	 * because we want to handle line editing and tab completion and other
@@ -262,7 +280,7 @@ make_new_session(
 		};
 		/* This confuses iac_safe_write(), it will try to duplicate
 		 * each IAC... */
-		//memcpy(TS_BUF2, iacs_to_send, sizeof(iacs_to_send));
+		//memcpy(TS_BUF2(ts), iacs_to_send, sizeof(iacs_to_send));
 		//ts->rdidx2 = sizeof(iacs_to_send);
 		//ts->size2 = sizeof(iacs_to_send);
 		/* So just stuff it into TCP stream! (no error check...) */
@@ -275,7 +293,7 @@ make_new_session(
 		/*ts->size2 = 0;*/
 	}
 
-	fflush(NULL); /* flush all streams */
+	fflush_all();
 	pid = vfork(); /* NOMMU-friendly */
 	if (pid < 0) {
 		free(ts);
@@ -297,40 +315,32 @@ make_new_session(
 	bb_signals((1 << SIGCHLD) + (1 << SIGPIPE), SIG_DFL);
 	signal(SIGINT, SIG_DFL);
 
-#if ENABLE_FEATURE_TELNETD_STANDALONE
-	if (!(option_mask32 & OPT_INETD)) {
-		struct tsession *tp = sessions;
-		while (tp) {
-			close(tp->ptyfd);
-			close(tp->sockfd_read);
-			/* sockfd_write == sockfd_read for standalone telnetd */
-			/*close(tp->sockfd_write);*/
-			tp = tp->next;
+	if (ENABLE_FEATURE_UTMP) {
+		len_and_sockaddr *lsa = get_peer_lsa(sock);
+		char *hostname = NULL;
+		if (lsa) {
+			hostname = xmalloc_sockaddr2dotted(&lsa->u.sa);
+			free(lsa);
 		}
+		write_new_utmp(pid, LOGIN_PROCESS, tty_name, /*username:*/ "LOGIN", hostname);
+		free(hostname);
 	}
-#endif
 
 	/* Make new session and process group */
 	setsid();
 
-	close(fd);
-#if ENABLE_FEATURE_TELNETD_STANDALONE
-	close(sock);
-	if (master_fd >= 0)
-		close(master_fd);
-#endif
-
-	/* Open the child's side of the tty. */
+	/* Open the child's side of the tty */
 	/* NB: setsid() disconnects from any previous ctty's. Therefore
 	 * we must open child's side of the tty AFTER setsid! */
 	close(0);
 	xopen(tty_name, O_RDWR); /* becomes our ctty */
 	xdup2(0, 1);
 	xdup2(0, 2);
-	tcsetpgrp(0, getpid()); /* switch this tty's process group to us */
+	pid = getpid();
+	tcsetpgrp(0, pid); /* switch this tty's process group to us */
 
-	/* The pseudo-terminal allocated to the client is configured to operate in
-	 * cooked mode, and with XTABS CRMOD enabled (see tty(4)). */
+	/* The pseudo-terminal allocated to the client is configured to operate
+	 * in cooked mode, and with XTABS CRMOD enabled (see tty(4)) */
 	tcgetattr(0, &termbuf);
 	termbuf.c_lflag |= ECHO; /* if we use readline we dont want this */
 	termbuf.c_oflag |= ONLCR | XTABS;
@@ -339,23 +349,26 @@ make_new_session(
 	/*termbuf.c_lflag &= ~ICANON;*/
 	tcsetattr_stdin_TCSANOW(&termbuf);
 
-	/* Uses FILE-based I/O to stdout, but does fflush(stdout),
+	/* Uses FILE-based I/O to stdout, but does fflush_all(),
 	 * so should be safe with vfork.
 	 * I fear, though, that some users will have ridiculously big
 	 * issue files, and they may block writing to fd 1,
 	 * (parent is supposed to read it, but parent waits
 	 * for vforked child to exec!) */
-	print_login_issue(issuefile, tty_name);
+	print_login_issue(G.issuefile, tty_name);
 
 	/* Exec shell / login / whatever */
-	login_argv[0] = loginpath;
+	login_argv[0] = G.loginpath;
 	login_argv[1] = NULL;
 	/* exec busybox applet (if PREFER_APPLETS=y), if that fails,
-	 * exec external program */
-	BB_EXECVP(loginpath, (char **)login_argv);
+	 * exec external program.
+	 * NB: sock is either 0 or has CLOEXEC set on it.
+	 * fd has CLOEXEC set on it too. These two fds will be closed here.
+	 */
+	BB_EXECVP(G.loginpath, (char **)login_argv);
 	/* _exit is safer with vfork, and we shouldn't send message
 	 * to remote clients anyway */
-	_exit(EXIT_FAILURE); /*bb_perror_msg_and_die("execv %s", loginpath);*/
+	_exit(EXIT_FAILURE); /*bb_perror_msg_and_die("execv %s", G.loginpath);*/
 }
 
 #if ENABLE_FEATURE_TELNETD_STANDALONE
@@ -363,14 +376,15 @@ make_new_session(
 static void
 free_session(struct tsession *ts)
 {
-	struct tsession *t = sessions;
+	struct tsession *t;
 
 	if (option_mask32 & OPT_INETD)
 		exit(EXIT_SUCCESS);
 
 	/* Unlink this telnet session from the session list */
+	t = G.sessions;
 	if (t == ts)
-		sessions = ts->next;
+		G.sessions = ts->next;
 	else {
 		while (t->next != ts)
 			t = t->next;
@@ -392,17 +406,17 @@ free_session(struct tsession *ts)
 	free(ts);
 
 	/* Scan all sessions and find new maxfd */
-	maxfd = 0;
-	ts = sessions;
+	G.maxfd = 0;
+	ts = G.sessions;
 	while (ts) {
-		if (maxfd < ts->ptyfd)
-			maxfd = ts->ptyfd;
-		if (maxfd < ts->sockfd_read)
-			maxfd = ts->sockfd_read;
+		if (G.maxfd < ts->ptyfd)
+			G.maxfd = ts->ptyfd;
+		if (G.maxfd < ts->sockfd_read)
+			G.maxfd = ts->sockfd_read;
 #if 0
 		/* Again, sockfd_write == sockfd_read here */
-		if (maxfd < ts->sockfd_write)
-			maxfd = ts->sockfd_write;
+		if (G.maxfd < ts->sockfd_write)
+			G.maxfd = ts->sockfd_write;
 #endif
 		ts = ts->next;
 	}
@@ -419,21 +433,33 @@ static void handle_sigchld(int sig UNUSED_PARAM)
 {
 	pid_t pid;
 	struct tsession *ts;
+	int save_errno = errno;
 
 	/* Looping: more than one child may have exited */
 	while (1) {
 		pid = wait_any_nohang(NULL);
 		if (pid <= 0)
 			break;
-		ts = sessions;
+		ts = G.sessions;
 		while (ts) {
 			if (ts->shell_pid == pid) {
 				ts->shell_pid = -1;
+// man utmp:
+// When init(8) finds that a process has exited, it locates its utmp entry
+// by ut_pid, sets ut_type to DEAD_PROCESS, and clears ut_user, ut_host
+// and ut_time with null bytes.
+// [same applies to other processes which maintain utmp entries, like telnetd]
+//
+// We do not bother actually clearing fields:
+// it might be interesting to know who was logged in and from where
+				update_utmp(pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
 				break;
 			}
 			ts = ts->next;
 		}
 	}
+
+	errno = save_errno;
 }
 
 int telnetd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -445,22 +471,29 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 	struct tsession *ts;
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 #define IS_INETD (opt & OPT_INETD)
-	int master_fd = master_fd; /* be happy, gcc */
-	unsigned portnbr = 23;
+	int master_fd = master_fd; /* for compiler */
+	int sec_linger = sec_linger;
 	char *opt_bindaddr = NULL;
 	char *opt_portnbr;
 #else
 	enum {
 		IS_INETD = 1,
 		master_fd = -1,
-		portnbr = 23,
 	};
 #endif
+	INIT_G();
+
+	/* -w NUM, and implies -F. -w and -i don't mix */
+	IF_FEATURE_TELNETD_INETD_WAIT(opt_complementary = "wF:w+:i--w:w--i";)
 	/* Even if !STANDALONE, we accept (and ignore) -i, thus people
 	 * don't need to guess whether it's ok to pass -i to us */
-	opt = getopt32(argv, "f:l:Ki" USE_FEATURE_TELNETD_STANDALONE("p:b:F"),
-			&issuefile, &loginpath
-			USE_FEATURE_TELNETD_STANDALONE(, &opt_portnbr, &opt_bindaddr));
+	opt = getopt32(argv, "f:l:Ki"
+			IF_FEATURE_TELNETD_STANDALONE("p:b:F")
+			IF_FEATURE_TELNETD_INETD_WAIT("Sw:"),
+			&G.issuefile, &G.loginpath
+			IF_FEATURE_TELNETD_STANDALONE(, &opt_portnbr, &opt_bindaddr)
+			IF_FEATURE_TELNETD_INETD_WAIT(, &sec_linger)
+	);
 	if (!IS_INETD /*&& !re_execed*/) {
 		/* inform that we start in standalone mode?
 		 * May be useful when people forget to give -i */
@@ -472,31 +505,30 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		}
 	}
 	/* Redirect log to syslog early, if needed */
-	if (IS_INETD || !(opt & OPT_FOREGROUND)) {
+	if (IS_INETD || (opt & OPT_SYSLOG) || !(opt & OPT_FOREGROUND)) {
 		openlog(applet_name, LOG_PID, LOG_DAEMON);
 		logmode = LOGMODE_SYSLOG;
 	}
-	USE_FEATURE_TELNETD_STANDALONE(
-		if (opt & OPT_PORT)
-			portnbr = xatou16(opt_portnbr);
-	);
-
-	/* Used to check access(loginpath, X_OK) here. Pointless.
-	 * exec will do this for us for free later. */
-
 #if ENABLE_FEATURE_TELNETD_STANDALONE
 	if (IS_INETD) {
-		sessions = make_new_session(-1, 0);
-		if (!sessions) /* pty opening or vfork problem, exit */
-			return 1; /* make_new_session prints error message */
+		G.sessions = make_new_session(0);
+		if (!G.sessions) /* pty opening or vfork problem, exit */
+			return 1; /* make_new_session printed error message */
 	} else {
-		master_fd = create_and_bind_stream_or_die(opt_bindaddr, portnbr);
-		xlisten(master_fd, 1);
+		master_fd = 0;
+		if (!(opt & OPT_WAIT)) {
+			unsigned portnbr = 23;
+			if (opt & OPT_PORT)
+				portnbr = xatou16(opt_portnbr);
+			master_fd = create_and_bind_stream_or_die(opt_bindaddr, portnbr);
+			xlisten(master_fd, 1);
+		}
+		close_on_exec_on(master_fd);
 	}
 #else
-	sessions = make_new_session();
-	if (!sessions) /* pty opening or vfork problem, exit */
-		return 1; /* make_new_session prints error message */
+	G.sessions = make_new_session();
+	if (!G.sessions) /* pty opening or vfork problem, exit */
+		return 1; /* make_new_session printed error message */
 #endif
 
 	/* We don't want to die if just one session is broken */
@@ -508,8 +540,8 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		signal(SIGCHLD, SIG_IGN);
 
 /*
-   This is how the buffers are used. The arrows indicate the movement
-   of data.
+   This is how the buffers are used. The arrows indicate data flow.
+
    +-------+     wridx1++     +------+     rdidx1++     +----------+
    |       | <--------------  | buf1 | <--------------  |          |
    |       |     size1--      +------+     size1++      |          |
@@ -533,9 +565,9 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 	 * ptys if there is room in their session buffers.
 	 * NB: scalability problem: we recalculate entire bitmap
 	 * before each select. Can be a problem with 500+ connections. */
-	ts = sessions;
+	ts = G.sessions;
 	while (ts) {
-		struct tsession *next = ts->next; /* in case we free ts. */
+		struct tsession *next = ts->next; /* in case we free ts */
 		if (ts->shell_pid == -1) {
 			/* Child died and we detected that */
 			free_session(ts);
@@ -556,16 +588,29 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		/* This is needed because free_session() does not
 		 * take master_fd into account when it finds new
 		 * maxfd among remaining fd's */
-		if (master_fd > maxfd)
-			maxfd = master_fd;
+		if (master_fd > G.maxfd)
+			G.maxfd = master_fd;
 	}
 
-	count = select(maxfd + 1, &rdfdset, &wrfdset, NULL, NULL);
+	{
+		struct timeval *tv_ptr = NULL;
+#if ENABLE_FEATURE_TELNETD_INETD_WAIT
+		struct timeval tv;
+		if ((opt & OPT_WAIT) && !G.sessions) {
+			tv.tv_sec = sec_linger;
+			tv.tv_usec = 0;
+			tv_ptr = &tv;
+		}
+#endif
+		count = select(G.maxfd + 1, &rdfdset, &wrfdset, NULL, tv_ptr);
+	}
+	if (count == 0) /* "telnetd -w SEC" timed out */
+		return 0;
 	if (count < 0)
 		goto again; /* EINTR or ENOMEM */
 
 #if ENABLE_FEATURE_TELNETD_STANDALONE
-	/* First check for and accept new sessions. */
+	/* Check for and accept new sessions */
 	if (!IS_INETD && FD_ISSET(master_fd, &rdfdset)) {
 		int fd;
 		struct tsession *new_ts;
@@ -573,26 +618,28 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		fd = accept(master_fd, NULL, NULL);
 		if (fd < 0)
 			goto again;
-		/* Create a new session and link it into our active list */
-		new_ts = make_new_session(master_fd, fd);
+		close_on_exec_on(fd);
+
+		/* Create a new session and link it into active list */
+		new_ts = make_new_session(fd);
 		if (new_ts) {
-			new_ts->next = sessions;
-			sessions = new_ts;
+			new_ts->next = G.sessions;
+			G.sessions = new_ts;
 		} else {
 			close(fd);
 		}
 	}
 #endif
 
-	/* Then check for data tunneling. */
-	ts = sessions;
+	/* Then check for data tunneling */
+	ts = G.sessions;
 	while (ts) { /* For all sessions... */
-		struct tsession *next = ts->next; /* in case we free ts. */
+		struct tsession *next = ts->next; /* in case we free ts */
 
 		if (/*ts->size1 &&*/ FD_ISSET(ts->ptyfd, &wrfdset)) {
 			int num_totty;
 			unsigned char *ptr;
-			/* Write to pty from buffer 1. */
+			/* Write to pty from buffer 1 */
 			ptr = remove_iacs(ts, &num_totty);
 			count = safe_write(ts->ptyfd, ptr, num_totty);
 			if (count < 0) {
@@ -607,9 +654,9 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		}
  skip1:
 		if (/*ts->size2 &&*/ FD_ISSET(ts->sockfd_write, &wrfdset)) {
-			/* Write to socket from buffer 2. */
+			/* Write to socket from buffer 2 */
 			count = MIN(BUFSIZE - ts->wridx2, ts->size2);
-			count = iac_safe_write(ts->sockfd_write, (void*)(TS_BUF2 + ts->wridx2), count);
+			count = iac_safe_write(ts->sockfd_write, (void*)(TS_BUF2(ts) + ts->wridx2), count);
 			if (count < 0) {
 				if (errno == EAGAIN)
 					goto skip2;
@@ -637,16 +684,16 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		}
 
 		if (/*ts->size1 < BUFSIZE &&*/ FD_ISSET(ts->sockfd_read, &rdfdset)) {
-			/* Read from socket to buffer 1. */
+			/* Read from socket to buffer 1 */
 			count = MIN(BUFSIZE - ts->rdidx1, BUFSIZE - ts->size1);
-			count = safe_read(ts->sockfd_read, TS_BUF1 + ts->rdidx1, count);
+			count = safe_read(ts->sockfd_read, TS_BUF1(ts) + ts->rdidx1, count);
 			if (count <= 0) {
 				if (count < 0 && errno == EAGAIN)
 					goto skip3;
 				goto kill_session;
 			}
 			/* Ignore trailing NUL if it is there */
-			if (!TS_BUF1[ts->rdidx1 + count - 1]) {
+			if (!TS_BUF1(ts)[ts->rdidx1 + count - 1]) {
 				--count;
 			}
 			ts->size1 += count;
@@ -656,9 +703,9 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		}
  skip3:
 		if (/*ts->size2 < BUFSIZE &&*/ FD_ISSET(ts->ptyfd, &rdfdset)) {
-			/* Read from pty to buffer 2. */
+			/* Read from pty to buffer 2 */
 			count = MIN(BUFSIZE - ts->rdidx2, BUFSIZE - ts->size2);
-			count = safe_read(ts->ptyfd, TS_BUF2 + ts->rdidx2, count);
+			count = safe_read(ts->ptyfd, TS_BUF2(ts) + ts->rdidx2, count);
 			if (count <= 0) {
 				if (count < 0 && errno == EAGAIN)
 					goto skip4;
@@ -673,6 +720,8 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 		ts = next;
 		continue;
  kill_session:
+		if (ts->shell_pid > 0)
+			update_utmp(ts->shell_pid, DEAD_PROCESS, /*tty_name:*/ NULL, /*username:*/ NULL, /*hostname:*/ NULL);
 		free_session(ts);
 		ts = next;
 	}

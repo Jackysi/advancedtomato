@@ -812,6 +812,30 @@ asmlinkage long sys_open(const char * filename, int flags, int mode)
 		if (fd >= 0) {
 			struct file *f = filp_open(tmp, flags, mode);
 			error = PTR_ERR(f);
+
+			/*
+			 * ESTALE errors can be a pain.  On some
+			 * filesystems (e.g. NFS), ESTALE can often
+			 * be resolved by retry, as the ESTALE resulted
+			 * in a cache invalidation.  We perform this
+			 * retry here, once for every directory element
+			 * in the path to avoid the case where the removal
+			 * of the nth parent directory of the file we're
+			 * trying to open results in n ESTALE errors.
+			 */
+			if (error == -ESTALE) {
+				int nretries = 1;
+				char *cp;
+
+				for (cp = tmp; *cp; cp++) {
+					if (*cp == '/')
+						nretries++;
+				}
+				do {
+					f = filp_open(tmp, flags, mode);
+					error = PTR_ERR(f);
+				} while (error == -ESTALE && --nretries > 0);
+			}
 			if (IS_ERR(f))
 				goto out_error;
 			fd_install(fd, f);

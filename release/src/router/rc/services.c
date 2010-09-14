@@ -117,6 +117,26 @@ void start_dnsmasq()
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
+	// DNS rebinding protection, will discard upstream RFC1918 responses
+	if (nvram_get_int("dns_norebind")) {
+		fprintf(f,
+			"stop-dns-rebind\n"
+			"rebind-localhost-ok\n");
+		// allow RFC1918 responses for server domain
+		switch (get_wan_proto()) {
+		case WP_PPTP:
+			nv = nvram_get("pptp_server_ip");
+			break;
+		case WP_L2TP:
+			nv = nvram_get("l2tp_server_ip");
+			break;
+		default:
+			nv = NULL;
+			break;
+		}
+		if (nv && *nv) fprintf(f, "rebind-domain-ok=%s\n", nv);
+	}
+
 	for (n = 0 ; n < dns->count; ++n) {
 		if (dns->dns[n].port != 53) {
 			fprintf(f, "server=%s#%u\n", inet_ntoa(dns->dns[n].addr), dns->dns[n].port);
@@ -279,8 +299,7 @@ void start_dnsmasq()
 	eval("dnsmasq");
 
 	if (!nvram_contains_word("debug_norestart", "dnsmasq")) {
-		f_read_string(dmpid, buf, sizeof(buf));
-		pid_dnsmasq = atol(buf);
+		pid_dnsmasq = -2;
 	}
 
 	TRACE_PT("end\n");
@@ -710,7 +729,7 @@ void start_igmp_proxy(void)
 		}
 
 		if (f_exists("/etc/igmp.alt")) {
-			xstart("igmpproxy", "/etc/igmp.alt");
+			eval("igmpproxy", "/etc/igmp.alt");
 		}
 		else if ((fp = fopen("/etc/igmp.conf", "w")) != NULL) {
 			fprintf(fp,
@@ -722,7 +741,7 @@ void start_igmp_proxy(void)
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
 				nvram_safe_get("lan_ifname"));
 			fclose(fp);
-			xstart("igmpproxy", "/etc/igmp.conf");
+			eval("igmpproxy", "/etc/igmp.conf");
 		}
 		else {
 			return;
@@ -736,7 +755,7 @@ void start_igmp_proxy(void)
 void stop_igmp_proxy(void)
 {
 	pid_igmp = -1;
-	killall("igmpproxy", SIGTERM);
+	killall_tk("igmpproxy");
 }
 
 
@@ -807,7 +826,7 @@ int mkdir_if_none(char *dir)
 	return 0;
 }
 
-char *get_full_storage_path(char *val)
+static char *get_full_storage_path(char *val)
 {
 	static char buf[128];
 	int len;
@@ -823,7 +842,7 @@ char *get_full_storage_path(char *val)
 	return buf;
 }
 
-char *nvram_storage_path(char *var)
+static char *nvram_storage_path(char *var)
 {
 	char *val = nvram_safe_get(var);
 	return get_full_storage_path(val);
@@ -831,22 +850,23 @@ char *nvram_storage_path(char *var)
 #endif // TCONFIG_USB
 
 #ifdef TCONFIG_FTP
-
 char vsftpd_conf[] = "/etc/vsftpd.conf";
 char vsftpd_users[] = "/etc/vsftpd.users";
 char vsftpd_passwd[] = "/etc/vsftpd.passwd";
-#endif
 
-#ifdef TCONFIG_FTP
 /* VSFTPD code mostly stolen from Oleg's ASUS Custom Firmware GPL sources */
-static void do_start_stop_ftpd(int stop, int start)
-{
-	if (stop) killall_tk("vsftpd");
 
+static void start_ftpd(void)
+{
 	char tmp[256];
 	FILE *fp, *f;
 
-	if (!start || !nvram_get_int("ftp_enable")) return;
+	if (getpid() != 1) {
+		start_service("ftpd");
+		return;
+	}
+
+	if (!nvram_get_int("ftp_enable")) return;
 
 	mkdir_if_none(vsftpd_users);
 	mkdir_if_none("/var/run/vsftpd");
@@ -1008,37 +1028,29 @@ static void do_start_stop_ftpd(int stop, int start)
 
 	/* start vsftpd if it's not already running */
 	if (pidof("vsftpd") <= 0)
-		eval("vsftpd");
-}
-#endif
-
-void start_ftpd(void)
-{
-#ifdef TCONFIG_FTP
-	int fd = file_lock("usb");
-	do_start_stop_ftpd(0, 1);
-	file_unlock(fd);
-#endif
+		xstart("vsftpd");
 }
 
-void stop_ftpd(void)
+static void stop_ftpd(void)
 {
-#ifdef TCONFIG_FTP
-	int fd = file_lock("usb");
-	do_start_stop_ftpd(1, 0);
+	if (getpid() != 1) {
+		stop_service("ftpd");
+		return;
+	}
+
+	killall_tk("vsftpd");
 	unlink(vsftpd_passwd);
 	unlink(vsftpd_conf);
 	eval("rm", "-rf", vsftpd_users);
-	file_unlock(fd);
-#endif
 }
+#endif	// TCONFIG_FTP
 
 // -----------------------------------------------------------------------------
 
 // !!TB - Samba
 
 #ifdef TCONFIG_SAMBASRV
-void kill_samba(int sig)
+static void kill_samba(int sig)
 {
 	if (sig == SIGTERM) {
 		killall_tk("smbd");
@@ -1049,22 +1061,23 @@ void kill_samba(int sig)
 		killall("nmbd", sig);
 	}
 }
-#endif
 
-#ifdef TCONFIG_SAMBASRV
-static void do_start_stop_samba(int stop, int start)
+static void start_samba(void)
 {
-	if (stop) kill_samba(SIGTERM);
-
 	FILE *fp;
 	DIR *dir = NULL;
 	struct dirent *dp;
 	char nlsmod[15];
 	int mode;
 	char *nv;
-	
+
+	if (getpid() != 1) {
+		start_service("smbd");
+		return;
+	}
+
 	mode = nvram_get_int("smbd_enable");
-	if (!start || !mode || !nvram_invmatch("lan_hostname", ""))
+	if (!mode || !nvram_invmatch("lan_hostname", ""))
 		return;
 
 	if ((fp = fopen("/etc/smb.conf", "w")) == NULL)
@@ -1077,15 +1090,17 @@ static void do_start_stop_samba(int stop, int start)
 		" netbios name = %s\n"
 		" server string = %s\n"
 		" guest account = nobody\n"
-		" security = %s\n"
-		" browseable = yes\n"
-		" guest ok = yes\n"
+		" security = user\n"
+		" %s\n"
+		" guest ok = %s\n"
 		" guest only = no\n"
-		" log level = %d\n"
+		" browseable = yes\n"
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
-		" dns proxy = no\n"
+#ifdef TCONFIG_SAMBA3
+		" host msdfs = no\n"
+#endif
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
@@ -1093,8 +1108,8 @@ static void do_start_stop_samba(int stop, int start)
 		nvram_get("smbd_wgroup") ? : "WORKGROUP",
 		nvram_safe_get("lan_hostname"),
 		nvram_get("router_name") ? : "Tomato",
-		mode == 2 ? "user" : "share",
-		nvram_get_int("smbd_loglevel")
+		mode == 2 ? "" : "map to guest = Bad User",
+		mode == 2 ? "no" : "yes"	// guest ok
 	);
 
 	if (nvram_get_int("smbd_wins")) {
@@ -1134,8 +1149,13 @@ static void do_start_stop_samba(int stop, int start)
 		fprintf(fp, " character set = %s\n", nvram_safe_get("smbd_cset"));
 #endif
 
-	fprintf(fp, "%s\n\n", nvram_safe_get("smbd_custom"));
-	
+	nv = nvram_safe_get("smbd_custom");
+	/* add socket options unless overriden by the user */
+	if (strstr(nv, "socket options") == NULL) {
+		fprintf(fp, " socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=16384 SO_SNDBUF=16384\n");
+	}
+	fprintf(fp, "%s\n\n", nv);
+
 	/* configure shares */
 
 	char *buf;
@@ -1160,7 +1180,7 @@ static void do_start_stop_samba(int stop, int start)
 
 			/* access level */
 			if (!strcmp(writeable, "1"))
-				fprintf(fp, " writable = yes\n force user = %s\n", "root");
+				fprintf(fp, " writable = yes\n delete readonly = yes\n force user = root\n");
 			if (!strcmp(hidden, "1"))
 				fprintf(fp, " browseable = no\n");
 
@@ -1173,10 +1193,30 @@ static void do_start_stop_samba(int stop, int start)
 		free(buf);
 	}
 
-	/* share everything below MOUNT_ROOT */
+	/* Share every mountpoint below MOUNT_ROOT */
 	if (nvram_get_int("smbd_autoshare") && (dir = opendir(MOUNT_ROOT))) {
 		while ((dp = readdir(dir))) {
 			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
+
+				char path[256];
+				struct stat sb;
+				int thisdev;
+
+				/* Only if is a directory and is mounted */
+				sprintf(path, "%s/%s", MOUNT_ROOT, dp->d_name);
+				sb.st_mode = S_IFDIR;	/* failsafe */
+				stat(path, &sb);
+				if (!S_ISDIR(sb.st_mode))
+					continue;
+				/* If this dir & its parent dir are on the same device, it is not a mountepoint */
+				strcat(path, "/.");
+				stat(path, &sb);
+				thisdev = sb.st_dev;
+				strcat(path, ".");
+				++sb.st_dev;	/* failsafe */
+				stat(path, &sb);
+				if (thisdev == sb.st_dev)
+					continue;
 
 				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
 				fprintf(fp, "\n[%s]\n path = %s/%s\n comment = %s\n",
@@ -1185,7 +1225,7 @@ static void do_start_stop_samba(int stop, int start)
 					fprintf(fp, "\n[%s$]\n path = %s/%s\n browseable = no\n",
 						dp->d_name, MOUNT_ROOT, dp->d_name);
 				if (nvram_match("smbd_autoshare", "2") || nvram_match("smbd_autoshare", "3"))	// RW
-					fprintf(fp, " writable = yes\n force user = %s\n", "root");
+					fprintf(fp, " writable = yes\n delete readonly = yes\n force user = root\n");
 
 				cnt++;
 			}
@@ -1227,58 +1267,180 @@ static void do_start_stop_samba(int stop, int start)
 	int ret1 = 0, ret2 = 0;
 	/* start samba if it's not already running */
 	if (pidof("nmbd") <= 0)
-		ret1 = eval("nmbd", "-D");
+		ret1 = xstart("nmbd", "-D");
 	if (pidof("smbd") <= 0)
-		ret2 = eval("smbd", "-D");
+		ret2 = xstart("smbd", "-D");
 
 	if (ret1 || ret2) kill_samba(SIGTERM);
 }
-#endif
 
-void start_samba(void)
+static void stop_samba(void)
 {
-#ifdef TCONFIG_SAMBASRV
-	int fd = file_lock("usb");
-	do_start_stop_samba(0, 1);
-	file_unlock(fd);
-#endif
-}
-
-void stop_samba(void)
-{
-#ifdef TCONFIG_SAMBASRV
-	int fd = file_lock("usb");
-	do_start_stop_samba(1, 0);
-
-#if 0
-	if (nvram_invmatch("smbd_nlsmod", "")) {
-		modprobe_r(nvram_get("smbd_nlsmod"));
-		nvram_set("smbd_nlsmod", "");
+	if (getpid() != 1) {
+		stop_service("smbd");
+		return;
 	}
-#endif
 
+	kill_samba(SIGTERM);
 	/* clean up */
 	unlink("/var/log/smb");
 	unlink("/var/log/nmb");
 	eval("rm", "-rf", "/var/run/samba");
-	file_unlock(fd);
+}
+#endif	// TCONFIG_SAMBASRV
+
+#ifdef TCONFIG_MEDIA_SERVER
+#define MEDIA_SERVER_APP	"minidlna"
+
+static void start_media_server(void)
+{
+	FILE *f;
+	int port, pid, https;
+	char *dbdir;
+	char *argv[] = { MEDIA_SERVER_APP, "-f", "/etc/"MEDIA_SERVER_APP".conf", "-R", NULL };
+	static int once = 1;
+
+	if (getpid() != 1) {
+		start_service("media");
+		return;
+	}
+
+	if (nvram_get_int("ms_sas") == 0)
+		once = 0;
+
+	if (nvram_get_int("ms_enable") != 0) {
+		if ((!once) && (nvram_get_int("ms_rescan") == 0)) {
+			// no forced rescan
+			argv[3] = NULL;
+		}
+		nvram_unset("ms_rescan");
+
+		if (f_exists("/etc/"MEDIA_SERVER_APP".alt")) {
+			argv[2] = "/etc/"MEDIA_SERVER_APP".alt";
+		}
+		else {
+			if ((f = fopen(argv[2], "w")) != NULL) {
+				port = nvram_get_int("ms_port");
+				https = nvram_get_int("https_enable");
+				dbdir = nvram_safe_get("ms_dbdir");
+				if (!(*dbdir)) dbdir = NULL;
+				mkdir_if_none(dbdir ? : "/var/run/"MEDIA_SERVER_APP);
+
+				fprintf(f,
+					"network_interface=%s\n"
+					"port=%d\n"
+					"friendly_name=%s\n"
+					"db_dir=%s/.db\n"
+					"enable_tivo=%s\n"
+					"strict_dlna=%s\n"
+					"presentation_url=http%s://%s:%s/nas-media.asp\n"
+					"inotify=yes\n"
+					"notify_interval=600\n"
+					"album_art_names=Cover.jpg/cover.jpg/Thumb.jpg/thumb.jpg\n"
+					"\n",
+					nvram_safe_get("lan_ifname"),
+					(port < 0) || (port >= 0xffff) ? 0 : port,
+					nvram_get("router_name") ? : "Tomato",
+					dbdir ? : "/var/run/"MEDIA_SERVER_APP,
+					nvram_get_int("ms_tivo") ? "yes" : "no",
+					nvram_get_int("ms_stdlna") ? "yes" : "no",
+					https ? "s" : "", nvram_safe_get("lan_ipaddr"), nvram_safe_get(https ? "https_lanport" : "http_lanport")
+				);
+
+				// media directories
+				char *buf, *p, *q;
+				char *path, *restrict;
+
+				if ((buf = strdup(nvram_safe_get("ms_dirs"))) != NULL) {
+					/* path<restrict[A|V|P|] */
+
+					p = buf;
+					while ((q = strsep(&p, ">")) != NULL) {
+						if (vstrsep(q, "<", &path, &restrict) < 1 || !path || !(*path))
+							continue;
+						fprintf(f, "media_dir=%s%s%s\n",
+							restrict ? : "", (restrict && *restrict) ? "," : "", path);
+					}
+					free(buf);
+				}
+
+				fclose(f);
+			}
+		}
+
+		/* start media server if it's not already running */
+		if (pidof(MEDIA_SERVER_APP) <= 0) {
+			if ((_eval(argv, NULL, 0, &pid) == 0) && (once)) {
+				/* If we started the media server successfully, wait 1 sec
+				 * to let it die if it can't open the database file.
+				 * If it's still alive after that, assume it's running and
+				 * disable forced once-after-reboot rescan.
+				 */
+				sleep(1);
+				if (pidof(MEDIA_SERVER_APP) > 0)
+					once = 0;
+			}
+		}
+	}
+}
+
+static void stop_media_server(void)
+{
+	if (getpid() != 1) {
+		stop_service("media");
+		return;
+	}
+
+	killall_tk(MEDIA_SERVER_APP);
+}
+#endif	// TCONFIG_MEDIA_SERVER
+
+#ifdef TCONFIG_USB
+static void start_nas_services(void)
+{
+	if (getpid() != 1) {
+		start_service("usbapps");
+		return;
+	}
+
+#ifdef TCONFIG_SAMBASRV
+	start_samba();
+#endif
+#ifdef TCONFIG_FTP
+	start_ftpd();
+#endif
+#ifdef TCONFIG_MEDIA_SERVER
+	start_media_server();
 #endif
 }
 
-#ifdef TCONFIG_USB
+static void stop_nas_services(void)
+{
+	if (getpid() != 1) {
+		stop_service("usbapps");
+		return;
+	}
+
+#ifdef TCONFIG_MEDIA_SERVER
+	stop_media_server();
+#endif
+#ifdef TCONFIG_FTP
+	stop_ftpd();
+#endif
+#ifdef TCONFIG_SAMBASRV
+	stop_samba();
+#endif
+}
+
 void restart_nas_services(int stop, int start)
-{	
-	/* restart all NAS applications */
-#if TCONFIG_SAMBASRV || TCONFIG_FTP
+{
 	int fd = file_lock("usb");
-	#ifdef TCONFIG_SAMBASRV
-	do_start_stop_samba(stop, start && nvram_get_int("smbd_enable"));
-	#endif
-	#ifdef TCONFIG_FTP
-	do_start_stop_ftpd(stop, start && nvram_get_int("ftp_enable"));
-	#endif
+	/* restart all NAS applications */
+	if (stop)
+		stop_nas_services();
+	if (start)
+		start_nas_services();
 	file_unlock(fd);
-#endif	// TCONFIG_SAMBASRV || TCONFIG_FTP
 }
 #endif // TCONFIG_USB
 
@@ -1327,15 +1489,14 @@ void start_services(void)
 //	start_upnp();
 	start_rstats(0);
 	start_sched();
-	restart_nas_services(1, 1);	// !!TB - Samba and FTP Server
+	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
-	stop_ftpd();		// !!TB - FTP Server
-	stop_samba();		// !!TB - Samba
+	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 	stop_sched();
 	stop_rstats();
 //	stop_upnp();
@@ -1556,8 +1717,7 @@ TOP:
 			stop_usbevent();
 			stop_smbd();
 #endif
-			stop_ftpd();		// !!TB - FTP Server
-			stop_samba();		// !!TB - Samba
+			restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 			stop_jffs2();
 //			stop_cifs();
 			stop_zebra();
@@ -1583,7 +1743,7 @@ TOP:
 #endif
 
 #ifdef TCONFIG_JFFS2
-	if (strcmp(service, "jffs2") == 0) {
+	if (strncmp(service, "jffs", 4) == 0) {
 		if (action & A_STOP) stop_jffs2();
 		if (action & A_START) start_jffs2();
 		goto CLEAR;
@@ -1707,7 +1867,15 @@ TOP:
 			start_usb();
 			// restart Samba and ftp since they may be killed by stop_usb()
 			restart_nas_services(0, 1);
+			// remount all partitions by simulating hotplug event
+			add_remove_usbhost("-1", 1);
 		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "usbapps") == 0) {
+		if (action & A_STOP) stop_nas_services();
+		if (action & A_START) start_nas_services();
 		goto CLEAR;
 	}
 #endif
@@ -1720,6 +1888,14 @@ TOP:
 		stop_firewall();
 		start_firewall();
 		if (action & A_START) start_ftpd();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_MEDIA_SERVER
+	if (strcmp(service, "media") == 0 || strcmp(service, "dlna") == 0) {
+		if (action & A_STOP) stop_media_server();
+		if (action & A_START) start_media_server();
 		goto CLEAR;
 	}
 #endif

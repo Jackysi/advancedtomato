@@ -398,16 +398,29 @@ static int nfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 {
 	struct dentry	*dentry = filp->f_dentry;
 	struct inode	*inode = dentry->d_inode;
-	nfs_readdir_descriptor_t my_desc,
-			*desc = &my_desc;
-	struct nfs_entry my_entry;
-	struct nfs_fh	fh;
-	struct nfs_fattr fattr;
+	nfs_readdir_descriptor_t *desc;
+	struct nfs_entry *my_entry;
+	struct nfs_fh	*fh;
+	struct nfs_fattr *fattr;
 	long		res;
+	void *mem;
+	int error, memlen = sizeof(struct nfs_fh) +
+		sizeof(struct nfs_fattr) + sizeof(struct nfs_entry) +
+		sizeof(nfs_readdir_descriptor_t);
 
 	res = nfs_revalidate_inode(NFS_SERVER(inode), inode);
 	if (res < 0)
 		return res;
+
+	if ((mem = kmalloc(memlen, GFP_USER)) == NULL)
+		return -ENOMEM;
+	memset(mem, 0, memlen);
+	fattr = (struct nfs_fattr *)mem;
+	my_entry = (struct nfs_entry *)(mem + sizeof(struct nfs_fattr));
+	desc = (nfs_readdir_descriptor_t *)(mem + sizeof(struct nfs_fattr) +
+		sizeof(struct nfs_entry));
+	fh = (struct nfs_fh *)(mem + sizeof(struct nfs_fattr) +
+		sizeof(struct nfs_entry) + sizeof(nfs_readdir_descriptor_t));
 
 	/*
 	 * filp->f_pos points to the file offset in the page cache.
@@ -415,17 +428,14 @@ static int nfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	 * read from the last dirent to revalidate f_pos
 	 * itself.
 	 */
-	memset(desc, 0, sizeof(*desc));
 	desc->file = filp;
 	desc->target = filp->f_pos;
 	desc->decode = NFS_PROTO(inode)->decode_dirent;
 	desc->plus = NFS_USE_READDIRPLUS(inode);
 
-	my_entry.cookie = my_entry.prev_cookie = 0;
-	my_entry.eof = 0;
-	my_entry.fh = &fh;
-	my_entry.fattr = &fattr;
-	desc->entry = &my_entry;
+	my_entry->fh = fh;
+	my_entry->fattr = fattr;
+	desc->entry = my_entry;
 
 	while(!desc->entry->eof) {
 		res = readdir_search_pagecache(desc);
@@ -448,8 +458,11 @@ static int nfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 			break;
 		}
 	}
-	if (desc->error < 0)
-		return desc->error;
+
+	error = desc->error;
+	kfree(mem);
+	if (error < 0)
+		return error;
 	if (res < 0)
 		return res;
 	return 0;
@@ -476,7 +489,7 @@ int nfs_check_verifier(struct inode *dir, struct dentry *dentry)
 		return 1;
 	if (nfs_revalidate_inode(NFS_SERVER(dir), dir))
 		return 0;
-	return time_after(dentry->d_time, NFS_MTIME_UPDATE(dir));
+	return time_after_eq(dentry->d_time, NFS_MTIME_UPDATE(dir));
 }
 
 /*
@@ -525,7 +538,7 @@ static int nfs_lookup_revalidate(struct dentry * dentry, int flags)
 	struct inode *inode;
 	int error;
 	struct nfs_fh fhandle;
-	struct nfs_fattr fattr;
+	struct nfs_fattr *fattr = NULL;
 
 	lock_kernel();
 	dir = dentry->d_parent->d_inode;
@@ -550,7 +563,11 @@ static int nfs_lookup_revalidate(struct dentry * dentry, int flags)
 		goto out_valid;
 	}
 
-	error = nfs_cached_lookup(dir, dentry, &fhandle, &fattr);
+	fattr = kmalloc(sizeof(*fattr), GFP_KERNEL);
+	if (fattr == NULL)
+		goto out_bad;
+
+	error = nfs_cached_lookup(dir, dentry, &fhandle, fattr);
 	if (!error) {
 		if (memcmp(NFS_FH(inode), &fhandle, sizeof(struct nfs_fh))!= 0)
 			goto out_bad;
@@ -562,20 +579,22 @@ static int nfs_lookup_revalidate(struct dentry * dentry, int flags)
 	if (NFS_STALE(inode))
 		goto out_bad;
 
-	error = NFS_PROTO(dir)->lookup(dir, &dentry->d_name, &fhandle, &fattr);
+	error = NFS_PROTO(dir)->lookup(dir, &dentry->d_name, &fhandle, fattr);
 	if (error)
 		goto out_bad;
 	if (memcmp(NFS_FH(inode), &fhandle, sizeof(struct nfs_fh))!= 0)
 		goto out_bad;
-	if ((error = nfs_refresh_inode(inode, &fattr)) != 0)
+	if ((error = nfs_refresh_inode(inode, fattr)) != 0)
 		goto out_bad;
 
  out_valid_renew:
 	nfs_renew_times(dentry);
  out_valid:
 	unlock_kernel();
+	if (fattr)
+		kfree(fattr);
 	return 1;
-out_zap_parent:
+ out_zap_parent:
 	nfs_zap_caches(dir);
  out_bad:
 	NFS_CACHEINV(dir);
@@ -585,10 +604,14 @@ out_zap_parent:
 		/* If we have submounts, don't unhash ! */
 		if (have_submounts(dentry))
 			goto out_valid;
+		if (dentry->d_flags & DCACHE_NFSD_DISCONNECTED)
+			goto out_valid;
 		shrink_dcache_parent(dentry);
 	}
 	d_drop(dentry);
 	unlock_kernel();
+	if (fattr)
+		kfree(fattr);
 	return 0;
 }
 

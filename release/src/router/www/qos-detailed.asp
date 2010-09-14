@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -238,7 +238,10 @@ function init()
 	if (viewClass != -1) E('stitle').innerHTML = 'View Details: ' + abc[viewClass];
 	grid.setup();
 	ref.postData = 'exec=ctdump&arg0=' + viewClass;
-	ref.initPage(-250);
+	ref.initPage(250);
+
+	if (!ref.running) ref.once = 1;
+	ref.start();
 }
 </script>
 </head>

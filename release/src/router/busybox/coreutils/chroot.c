@@ -12,18 +12,16 @@
 #include "libbb.h"
 
 int chroot_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int chroot_main(int argc, char **argv)
+int chroot_main(int argc UNUSED_PARAM, char **argv)
 {
-	if (argc < 2) {
-		bb_show_usage();
-	}
-
 	++argv;
+	if (!*argv)
+		bb_show_usage();
 	xchroot(*argv);
 	xchdir("/");
 
 	++argv;
-	if (argc == 2) {
+	if (!*argv) { /* no 2nd param (PROG), use shell */
 		argv -= 2;
 		argv[0] = getenv("SHELL");
 		if (!argv[0]) {
@@ -32,6 +30,5 @@ int chroot_main(int argc, char **argv)
 		argv[1] = (char *) "-i";
 	}
 
-	BB_EXECVP(*argv, argv);
-	bb_perror_msg_and_die("cannot execute %s", *argv);
+	BB_EXECVP_or_die(argv);
 }

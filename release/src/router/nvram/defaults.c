@@ -227,6 +227,8 @@ const defaults_t defaults[] = {
 
 // !!TB: n-mode
 	{ "wl_nmode",			"-1"			},	// N-mode
+	{ "wl_nband",			"2"			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
+
 	{ "wl_nmcsidx",			"-1"			},	// MCS Index for N - rate
 	{ "wl_nreqd",			"0"			},	// Require 802.11n support
 	{ "wl_nbw",			"40"			},	// BW: 20 / 40 MHz
@@ -242,6 +244,7 @@ const defaults_t defaults[] = {
 	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
 	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
 	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
+	{ "wl_obss_coex",		"0"			},	// OBSS Coexistence (0|1): when enabled, channel width is forced to 20MHz
 
 #ifdef CONFIG_BCMWL5
 	// EMF
@@ -270,6 +273,7 @@ const defaults_t defaults[] = {
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
+	{ "pptp_dhcp",			"1"				},
 
 	// for firewall
 	{ "mtu_enable",			"0"				},	// WAN MTU [1|0]
@@ -337,10 +341,14 @@ const defaults_t defaults[] = {
 	{ "nf_sip",			"1"				},
 	{ "ct_hashsize",		"2048"				},
 #endif
+#ifdef LINUX26
+	{ "nf_rtsp",			"0"				},
+#else
 	{ "nf_rtsp",			"1"				},
-	{ "nf_pptp",			"0"				},
+#endif
+	{ "nf_pptp",			"1"				},
 	{ "nf_h323",			"1"				},
-	{ "nf_ftp",				"1"				},
+	{ "nf_ftp",			"1"				},
 
 // advanced-mac
 	{ "mac_wan",			""				},
@@ -360,7 +368,10 @@ const defaults_t defaults[] = {
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
-	{ "dhcpc_minpkt",		"0"				},
+	{ "dhcpc_minpkt",		"1"				},
+	{ "dhcpc_vendorclass",		""				},
+	{ "dhcpc_requestip",		""				},
+	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
 //	{ "dnsmasq_norw",		"0"				},
 
@@ -370,6 +381,7 @@ const defaults_t defaults[] = {
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"		},
 
 // advanced-routing
@@ -388,6 +400,7 @@ const defaults_t defaults[] = {
 	{ "wl_txant",			"3"				},
 	{ "wl_txpwr",			"42"			},
 	{ "wl_maxassoc",		"128"			},	// Max associations driver could support
+	{ "wl_bss_maxassoc",		"128"			},
 	{ "wl_distance",		""				},
 
 // forward-*
@@ -414,8 +427,6 @@ const defaults_t defaults[] = {
 
 // qos
 	{ "qos_enable",			"0"				},
-	{ "qos_method",			"0"				},	// remove later	zzz
-	{ "qos_sticky",			"1"				},	// remove later	zzz
 	{ "qos_ack",			"0"				},
 	{ "qos_syn",			"1"				},
 	{ "qos_fin",			"1"				},
@@ -429,8 +440,7 @@ const defaults_t defaults[] = {
 	{ "qos_burst1",			""				},
 	{ "qos_default",		"8"				},
 	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
-	{ "qos_irates",			"10,66,60,70,0,60,60,80,30,1"	},
-
+	{ "qos_irates",			"10,60,60,70,0,60,60,80,30,1"	},
 	{ "ne_vegas",			"0"				},	// TCP Vegas
 	{ "ne_valpha",			"3"				},	// "
 	{ "ne_vbeta",			"3"				},	// "
@@ -483,7 +493,7 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
-	{ "web_mx",				""				},
+	{ "web_mx",				"status,bwm"	},
 	{ "web_pb",				""				},
 
 // admin-bwm
@@ -532,6 +542,13 @@ const defaults_t defaults[] = {
 	{ "log_mark",			"60"			},
 	{ "log_events",			""				},
 
+// admin-log-webmonitor
+	{ "log_wm",			"0"				},
+	{ "log_wmtype",			"0"				},
+	{ "log_wmip",			""				},
+	{ "log_wmdmax",			"300"				},
+	{ "log_wmsmax",			"300"				},
+
 // admin-debugging
 	{ "debug_nocommit",		"0"				},
 	{ "debug_cprintf",		"0"				},
@@ -557,6 +574,7 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
+	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},
 	{ "usb_printer_bidirect",	"1"				},
@@ -607,7 +625,6 @@ const defaults_t defaults[] = {
 	{ "smbd_wins",			"1"				},
 	{ "smbd_cpage",			""				},
 	{ "smbd_cset",			"utf8"				},
-	{ "smbd_loglevel",		"0"				},
 	{ "smbd_custom",		""				},
 	{ "smbd_autoshare",		"1"				},
 	{ "smbd_shares",
@@ -615,6 +632,17 @@ const defaults_t defaults[] = {
 	},
 	{ "smbd_user",			"nas"				},
 	{ "smbd_passwd",		""				},
+#endif
+
+#ifdef TCONFIG_MEDIA_SERVER
+// nas-media
+	{ "ms_enable",			"0"				},	/* 0:Disable 1:Enable 2:Enable&Rescan */
+	{ "ms_dirs",			"/mnt<"				},
+	{ "ms_port",			"0"				},
+	{ "ms_dbdir",			""				},
+	{ "ms_tivo",			"0"				},
+	{ "ms_stdlna",			"0"				},
+	{ "ms_sas",			"0"				},
 #endif
 
 // admin-sch

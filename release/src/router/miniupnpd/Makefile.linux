@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.50 2010/03/08 17:13:49 nanard Exp $
+# $Id: Makefile.linux,v 1.51 2010/03/09 09:53:00 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author : Thomas Bernard
@@ -66,7 +66,8 @@ else
 TEST := $(shell test -f /usr/include/iptables/internal.h && grep -q "\#define IPTABLES_VERSION" /usr/include/iptables/internal.h && echo 1)
 ifeq ($(TEST), 1)
 CFLAGS := $(CFLAGS) -DIPTABLES_143
-LIBS = /usr/lib/libiptc.a
+#LIBS = /usr/lib/libiptc.a
+LIBS = -liptc
 endif 
 endif
 

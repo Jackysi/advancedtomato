@@ -137,6 +137,7 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_WLA2G54L:
 		reset_mask = reset_pushed = 1 << 7;
 		break;
+#ifdef CONFIG_BCMWL5
 	case MODEL_RTN10:
 		reset_mask = 1 << 3;
 		ses_mask = 1 << 2;
@@ -153,8 +154,32 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_WNR3500L:
 		reset_mask = 1 << 4;
 		ses_mask = 1 << 6;
-		ses_led = LED_WHITE;
+		ses_led = LED_AOSS;
 		break;
+	case MODEL_WNR2000v2:
+		reset_mask = 1 << 1;
+		ses_mask = 1 << 0;
+		ses_led = LED_AOSS;
+		break;
+	case MODEL_WRT160Nv3:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 5;
+		break;
+	case MODEL_WRT320N:
+		reset_mask = 1 << 8;
+		ses_mask = 1 << 5;
+		break;
+	case MODEL_WRT610Nv2:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 4;
+		break;
+#endif
+#if TOMATO_N
+	case MODEL_WRT300N:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 4;
+		break;
+#endif
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {
@@ -300,9 +325,11 @@ int buttons_main(int argc, char *argv[])
 			else if (brau_flag && ++brau_count_stable > 2) { // stable for 2+ seconds
 				brau_flag = 0;
 				switch (nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model()) {
+#ifdef CONFIG_BCMWL5
 				case MODEL_RTN12:
 					p = (brau_state & (1 << 4)) ? "ap" : (brau_state & (1 << 5)) ? "repeater" : "router";
 					break;
+#endif
 				default:
 					p = brau_state ? "auto" : "bridge";
 					break;

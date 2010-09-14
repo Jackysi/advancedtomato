@@ -21,7 +21,7 @@ static char* new_password(const struct passwd *pw, uid_t myuid, int algo)
 	if (myuid && pw->pw_passwd[0]) {
 		char *encrypted;
 
-		orig = bb_ask_stdin("Old password:"); /* returns ptr to static */
+		orig = bb_ask_stdin("Old password: "); /* returns ptr to static */
 		if (!orig)
 			goto err_ret;
 		encrypted = pw_encrypt(orig, pw->pw_passwd, 1); /* returns malloced str */
@@ -35,7 +35,7 @@ static char* new_password(const struct passwd *pw, uid_t myuid, int algo)
 		if (ENABLE_FEATURE_CLEAN_UP) free(encrypted);
 	}
 	orig = xstrdup(orig); /* or else bb_ask_stdin() will destroy it */
-	newp = bb_ask_stdin("New password:"); /* returns ptr to static */
+	newp = bb_ask_stdin("New password: "); /* returns ptr to static */
 	if (!newp)
 		goto err_ret;
 	newp = xstrdup(newp); /* we are going to bb_ask_stdin() again, so save it */
@@ -43,7 +43,7 @@ static char* new_password(const struct passwd *pw, uid_t myuid, int algo)
 	 && obscure(orig, newp, pw) && myuid)
 		goto err_ret; /* non-root is not allowed to have weak passwd */
 
-	cp = bb_ask_stdin("Retype password:");
+	cp = bb_ask_stdin("Retype password: ");
 	if (!cp)
 		goto err_ret;
 	if (strcmp(cp, newp)) {
@@ -128,12 +128,20 @@ int passwd_main(int argc UNUSED_PARAM, char **argv)
 		/* getspnam_r may return 0 yet set result to NULL.
 		 * At least glibc 2.4 does this. Be extra paranoid here. */
 		struct spwd *result = NULL;
-		if (getspnam_r(pw->pw_name, &spw, buffer, sizeof(buffer), &result)
-		 || !result || strcmp(result->sp_namp, pw->pw_name) != 0) {
-			/* LOGMODE_BOTH */
-			bb_error_msg("no record of %s in %s, using %s",
+		errno = 0;
+		if (getspnam_r(pw->pw_name, &spw, buffer, sizeof(buffer), &result) != 0
+		 || !result /* no error, but no record found either */
+		 || strcmp(result->sp_namp, pw->pw_name) != 0 /* paranoia */
+		) {
+			if (errno != ENOENT) {
+				/* LOGMODE_BOTH */
+				bb_perror_msg("no record of %s in %s, using %s",
 					name, bb_path_shadow_file,
 					bb_path_passwd_file);
+			}
+			/* else: /etc/shadow does not exist,
+			 * apparently we are on a shadow-less system,
+			 * no surprise there */
 		} else {
 			pw->pw_passwd = result->sp_pwdp;
 		}
@@ -146,7 +154,7 @@ int passwd_main(int argc UNUSED_PARAM, char **argv)
 	if (!(opt & OPT_lud)) {
 		if (myuid && !c) { /* passwd starts with '!' */
 			/* LOGMODE_BOTH */
-			bb_error_msg_and_die("cannot change "
+			bb_error_msg_and_die("can't change "
 					"locked password for %s", name);
 		}
 		printf("Changing password for %s\n", name);
@@ -189,7 +197,7 @@ int passwd_main(int argc UNUSED_PARAM, char **argv)
 	}
 	/* LOGMODE_BOTH */
 	if (rc < 0)
-		bb_error_msg_and_die("cannot update password file %s",
+		bb_error_msg_and_die("can't update password file %s",
 				filename);
 	bb_info_msg("Password for %s changed by %s", name, myname);
 

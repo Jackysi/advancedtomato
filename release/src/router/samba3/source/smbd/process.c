@@ -94,6 +94,7 @@ static BOOL push_queued_message(char *buf, int msg_len,
 
 	msg->request_time = request_time;
 	msg->end_time = end_time;
+	msg->processed = False;
 
 	if (private_data) {
 		msg->private_data = data_blob_talloc(msg, private_data,
@@ -163,7 +164,7 @@ void schedule_deferred_open_smb_message(uint16 mid)
 }
 
 /****************************************************************************
- Return true if this mid is on the deferred queue.
+ Return true if this mid is on the deferred queue and was not yet processed.
 ****************************************************************************/
 
 BOOL open_was_deferred(uint16 mid)
@@ -171,7 +172,7 @@ BOOL open_was_deferred(uint16 mid)
 	struct pending_message_list *pml;
 
 	for (pml = deferred_open_queue; pml; pml = pml->next) {
-		if (SVAL(pml->buf.data,smb_mid) == mid) {
+		if (SVAL(pml->buf.data,smb_mid) == mid && !pml->processed) {
 			set_saved_ntstatus(NT_STATUS_OK);
 			return True;
 		}
@@ -411,6 +412,10 @@ static BOOL receive_message_or_smb(char *buffer, int buffer_len, int timeout)
 			/* We leave this message on the queue so the open code can
 			   know this is a retry. */
 			DEBUG(5,("receive_message_or_smb: returning deferred open smb message.\n"));
+
+			/* Mark the message as processed so this is not
+			 * re-processed in error. */
+			msg->processed = True;
 			return True;
 		}
 	}
@@ -507,8 +512,9 @@ static BOOL receive_message_or_smb(char *buffer, int buffer_len, int timeout)
 		 */
 		goto again;
 	}
-	
-	return receive_smb(smbd_server_fd(), buffer, 0);
+
+	return receive_smb(smbd_server_fd(), buffer,
+			BUFFER_SIZE + LARGE_WRITEX_HDR_SIZE, 0);
 }
 
 /*
@@ -1002,15 +1008,15 @@ static int switch_message(int type,char *inbuf,char *outbuf,int size,int bufsize
 
 static int construct_reply(char *inbuf,char *outbuf,int size,int bufsize)
 {
+	struct pending_message_list *pml = NULL;
 	int type = CVAL(inbuf,smb_com);
 	int outsize = 0;
 	int msg_type = CVAL(inbuf,0);
+	uint16_t mid = SVAL(inbuf, smb_mid);
 
 	chain_size = 0;
 	file_chain_reset();
-#ifndef AVM_SMALLER
 	reset_chain_p();
-#endif
 
 	if (msg_type != 0)
 		return(reply_special(inbuf,outbuf));  
@@ -1018,6 +1024,13 @@ static int construct_reply(char *inbuf,char *outbuf,int size,int bufsize)
 	construct_reply_common(inbuf, outbuf);
 
 	outsize = switch_message(type,inbuf,outbuf,size,bufsize);
+
+	/* If this was a deferred message and it's still there and
+	 * was processed, remove it. */
+	pml = get_open_deferred_message(mid);
+	if (pml && pml->processed) {
+		remove_deferred_open_smb_message(mid);
+	}
 
 	outsize += chain_size;
 

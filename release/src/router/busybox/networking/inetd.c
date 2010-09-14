@@ -239,36 +239,36 @@ typedef struct servtab_t {
 #ifdef INETD_BUILTINS_ENABLED
 /* Echo received data */
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_ECHO
-static void echo_stream(int, servtab_t *);
-static void echo_dg(int, servtab_t *);
+static void FAST_FUNC echo_stream(int, servtab_t *);
+static void FAST_FUNC echo_dg(int, servtab_t *);
 #endif
 /* Internet /dev/null */
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_DISCARD
-static void discard_stream(int, servtab_t *);
-static void discard_dg(int, servtab_t *);
+static void FAST_FUNC discard_stream(int, servtab_t *);
+static void FAST_FUNC discard_dg(int, servtab_t *);
 #endif
 /* Return 32 bit time since 1900 */
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_TIME
-static void machtime_stream(int, servtab_t *);
-static void machtime_dg(int, servtab_t *);
+static void FAST_FUNC machtime_stream(int, servtab_t *);
+static void FAST_FUNC machtime_dg(int, servtab_t *);
 #endif
 /* Return human-readable time */
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_DAYTIME
-static void daytime_stream(int, servtab_t *);
-static void daytime_dg(int, servtab_t *);
+static void FAST_FUNC daytime_stream(int, servtab_t *);
+static void FAST_FUNC daytime_dg(int, servtab_t *);
 #endif
 /* Familiar character generator */
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_CHARGEN
-static void chargen_stream(int, servtab_t *);
-static void chargen_dg(int, servtab_t *);
+static void FAST_FUNC chargen_stream(int, servtab_t *);
+static void FAST_FUNC chargen_dg(int, servtab_t *);
 #endif
 
 struct builtin {
 	/* NB: not necessarily NUL terminated */
 	char bi_service7[7];      /* internally provided service name */
 	uint8_t bi_fork;          /* 1 if stream fn should run in child */
-	void (*bi_stream_fn)(int, servtab_t *);
-	void (*bi_dgram_fn)(int, servtab_t *);
+	void (*bi_stream_fn)(int, servtab_t *) FAST_FUNC;
+	void (*bi_dgram_fn)(int, servtab_t *) FAST_FUNC;
 };
 
 static const struct builtin builtins[] = {
@@ -313,7 +313,7 @@ struct globals {
 	fd_set allsock;
 	/* Used in next_line(), and as scratch read buffer */
 	char line[256];          /* _at least_ 256, see LINE_SIZE */
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 enum { LINE_SIZE = COMMON_BUFSIZE - offsetof(struct globals, line) };
 struct BUG_G_too_big {
@@ -658,7 +658,7 @@ static servtab_t *parse_one_line(void)
 	}
 
 	{
-		static int8_t SOCK_xxx[] ALIGN1 = {
+		static const int8_t SOCK_xxx[] ALIGN1 = {
 			-1,
 			SOCK_STREAM, SOCK_DGRAM, SOCK_RDM,
 			SOCK_SEQPACKET, SOCK_RAW
@@ -1031,10 +1031,10 @@ static void reap_child(int sig UNUSED_PARAM)
 				continue;
 			/* One of our "wait" services */
 			if (WIFEXITED(status) && WEXITSTATUS(status))
-				bb_error_msg("%s: exit status 0x%x",
+				bb_error_msg("%s: exit status %u",
 						sep->se_program, WEXITSTATUS(status));
 			else if (WIFSIGNALED(status))
-				bb_error_msg("%s: exit signal 0x%x",
+				bb_error_msg("%s: exit signal %u",
 						sep->se_program, WTERMSIG(status));
 			sep->se_wait = 1;
 			add_fd_to_set(sep->se_fd);
@@ -1119,7 +1119,12 @@ int inetd_main(int argc UNUSED_PARAM, char **argv)
 	else
 		bb_sanitize_stdio();
 	if (!(opt & 4)) {
-		openlog(applet_name, LOG_PID, LOG_DAEMON);
+		/* LOG_NDELAY: connect to syslog daemon NOW.
+		 * Otherwise, we may open syslog socket
+		 * in vforked child, making opened fds and syslog()
+		 * internal state inconsistent.
+		 * This was observed to leak file descriptors. */
+		openlog(applet_name, LOG_PID | LOG_NDELAY, LOG_DAEMON);
 		logmode = LOGMODE_SYSLOG;
 	}
 
@@ -1266,7 +1271,7 @@ int inetd_main(int argc UNUSED_PARAM, char **argv)
 					pid = vfork();
 
 				if (pid < 0) { /* fork error */
-					bb_perror_msg("fork");
+					bb_perror_msg("vfork"+1);
 					sleep(1);
 					restore_sigmask(&omask);
 					maybe_close(accepted_fd);
@@ -1355,18 +1360,27 @@ int inetd_main(int argc UNUSED_PARAM, char **argv)
 			if (rlim_ofile.rlim_cur != rlim_ofile_cur)
 				if (setrlimit(RLIMIT_NOFILE, &rlim_ofile) < 0)
 					bb_perror_msg("setrlimit");
-			closelog();
-			xmove_fd(ctrl, 0);
-			xdup2(0, 1);
-			xdup2(0, 2);
-			/* NB: among others, this loop closes listening socket
+
+			/* closelog(); - WRONG. we are after vfork,
+			 * this may confuse syslog() internal state.
+			 * Let's hope libc sets syslog fd to CLOEXEC...
+			 */
+			xmove_fd(ctrl, STDIN_FILENO);
+			xdup2(STDIN_FILENO, STDOUT_FILENO);
+			/* manpages of inetd I managed to find either say
+			 * that stderr is also redirected to the network,
+			 * or do not talk about redirection at all (!) */
+			if (!sep->se_wait) /* only for usual "tcp nowait" */
+				xdup2(STDIN_FILENO, STDERR_FILENO);
+			/* NB: among others, this loop closes listening sockets
 			 * for nowait stream children */
 			for (sep2 = serv_list; sep2; sep2 = sep2->se_next)
-				maybe_close(sep2->se_fd);
+				if (sep2->se_fd != ctrl)
+					maybe_close(sep2->se_fd);
 			sigaction_set(SIGPIPE, &saved_pipe_handler);
 			restore_sigmask(&omask);
 			BB_EXECVP(sep->se_program, sep->se_argv);
-			bb_perror_msg("exec %s", sep->se_program);
+			bb_perror_msg("can't execute '%s'", sep->se_program);
  do_exit1:
 			/* eat packet in udp case */
 			if (sep->se_socktype != SOCK_STREAM)
@@ -1386,7 +1400,7 @@ static const char *const cat_args[] = { "cat", NULL };
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_ECHO
 /* Echo service -- echo data back. */
 /* ARGSUSED */
-static void echo_stream(int s, servtab_t *sep UNUSED_PARAM)
+static void FAST_FUNC echo_stream(int s, servtab_t *sep UNUSED_PARAM)
 {
 #if BB_MMU
 	while (1) {
@@ -1407,7 +1421,7 @@ static void echo_stream(int s, servtab_t *sep UNUSED_PARAM)
 	/* on failure we return to main, which does exit(EXIT_FAILURE) */
 #endif
 }
-static void echo_dg(int s, servtab_t *sep)
+static void FAST_FUNC echo_dg(int s, servtab_t *sep)
 {
 	enum { BUFSIZE = 12*1024 }; /* for jumbo sized packets! :) */
 	char *buf = xmalloc(BUFSIZE); /* too big for stack */
@@ -1427,7 +1441,7 @@ static void echo_dg(int s, servtab_t *sep)
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_DISCARD
 /* Discard service -- ignore data. */
 /* ARGSUSED */
-static void discard_stream(int s, servtab_t *sep UNUSED_PARAM)
+static void FAST_FUNC discard_stream(int s, servtab_t *sep UNUSED_PARAM)
 {
 #if BB_MMU
 	while (safe_read(s, line, LINE_SIZE) > 0)
@@ -1446,7 +1460,7 @@ static void discard_stream(int s, servtab_t *sep UNUSED_PARAM)
 #endif
 }
 /* ARGSUSED */
-static void discard_dg(int s, servtab_t *sep UNUSED_PARAM)
+static void FAST_FUNC discard_dg(int s, servtab_t *sep UNUSED_PARAM)
 {
 	/* dgram builtins are non-forking - DONT BLOCK! */
 	recv(s, line, LINE_SIZE, MSG_DONTWAIT);
@@ -1461,13 +1475,12 @@ static void init_ring(void)
 	int i;
 
 	end_ring = ring;
-	for (i = 0; i <= 128; ++i)
-		if (isprint(i))
-			*end_ring++ = i;
+	for (i = ' '; i < 127; i++)
+		*end_ring++ = i;
 }
 /* Character generator. MMU arches only. */
 /* ARGSUSED */
-static void chargen_stream(int s, servtab_t *sep UNUSED_PARAM)
+static void FAST_FUNC chargen_stream(int s, servtab_t *sep UNUSED_PARAM)
 {
 	char *rs;
 	int len;
@@ -1495,7 +1508,7 @@ static void chargen_stream(int s, servtab_t *sep UNUSED_PARAM)
 	}
 }
 /* ARGSUSED */
-static void chargen_dg(int s, servtab_t *sep)
+static void FAST_FUNC chargen_dg(int s, servtab_t *sep)
 {
 	int len;
 	char text[LINESIZ + 2];
@@ -1544,14 +1557,14 @@ static uint32_t machtime(void)
 	return htonl((uint32_t)(tv.tv_sec + 2208988800));
 }
 /* ARGSUSED */
-static void machtime_stream(int s, servtab_t *sep UNUSED_PARAM)
+static void FAST_FUNC machtime_stream(int s, servtab_t *sep UNUSED_PARAM)
 {
 	uint32_t result;
 
 	result = machtime();
 	full_write(s, &result, sizeof(result));
 }
-static void machtime_dg(int s, servtab_t *sep)
+static void FAST_FUNC machtime_dg(int s, servtab_t *sep)
 {
 	uint32_t result;
 	len_and_sockaddr *lsa = alloca(LSA_LEN_SIZE + sep->se_lsa->len);
@@ -1569,14 +1582,14 @@ static void machtime_dg(int s, servtab_t *sep)
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_DAYTIME
 /* Return human-readable time of day */
 /* ARGSUSED */
-static void daytime_stream(int s, servtab_t *sep UNUSED_PARAM)
+static void FAST_FUNC daytime_stream(int s, servtab_t *sep UNUSED_PARAM)
 {
 	time_t t;
 
 	t = time(NULL);
 	fdprintf(s, "%.24s\r\n", ctime(&t));
 }
-static void daytime_dg(int s, servtab_t *sep)
+static void FAST_FUNC daytime_dg(int s, servtab_t *sep)
 {
 	time_t t;
 	len_and_sockaddr *lsa = alloca(LSA_LEN_SIZE + sep->se_lsa->len);

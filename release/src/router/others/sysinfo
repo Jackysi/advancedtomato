@@ -1,0 +1,20 @@
+#!/bin/sh
+
+cat /etc/motd; echo
+echo "INTERFACES"; ifconfig; echo
+echo "ROUTING TABLE"; route; echo
+echo "ARP TABLE"; arp; echo
+echo "IP TABLES"; echo ":filter"; iptables -L -n; echo ":nat"; iptables -t nat -L -n; echo ":mangle"; iptables -t mangle -L -n; echo
+echo "NET STATS"; netstat -an; echo
+echo "FILE SYSTEMS"; df; echo
+echo "MOUNTPOINTS"; mount; echo "SWAPS";  cat /proc/swaps; echo
+echo "PARTITIONS"; cat /proc/partitions; echo
+echo "SCSI DEVICES"; cat /proc/scsi/scsi; echo
+echo "USB DEVICES"; cat /proc/bus/usb/devices; echo
+echo "ENVIRONMENT"; env; echo
+echo "CPU INFO"; cat /proc/loadavg; cat /proc/cpuinfo; echo
+echo "MEMORY"; free; cat /proc/meminfo; echo
+echo "WIRELESS"; wl ver; echo "Assoc pref:" $(wl assoc_pref); wl status; wl assoclist; echo
+echo "LOADED MODULES"; lsmod; echo
+echo "PROCESSES"; ps w; echo
+echo "DMESG"; dmesg; echo

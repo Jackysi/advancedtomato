@@ -33,7 +33,7 @@ int watchdog_main(int argc, char **argv)
 	static const struct suffix_mult suffixes[] = {
 		{ "ms", 1 },
 		{ "", 1000 },
-		{ }
+		{ "", 0 }
 	};
 
 	unsigned opts;
@@ -44,6 +44,15 @@ int watchdog_main(int argc, char **argv)
 
 	opt_complementary = "=1"; /* must have exactly 1 argument */
 	opts = getopt32(argv, "Ft:T:", &st_arg, &ht_arg);
+
+	/* We need to daemonize *before* opening the watchdog as many drivers
+	 * will only allow one process at a time to do so.  Since daemonizing
+	 * is not perfect (child may run before parent finishes exiting), we
+	 * can't rely on parent exiting before us (let alone *cleanly* releasing
+	 * the watchdog fd -- something else that may not even be allowed).
+	 */
+	if (!(opts & OPT_FOREGROUND))
+		bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv);
 
 	if (opts & OPT_HTIMER)
 		htimer_duration = xatou_sfx(ht_arg, suffixes);
@@ -59,19 +68,22 @@ int watchdog_main(int argc, char **argv)
 	/* WDIOC_SETTIMEOUT takes seconds, not milliseconds */
 	htimer_duration = htimer_duration / 1000;
 #ifndef WDIOC_SETTIMEOUT
-#error WDIOC_SETTIMEOUT is not defined, cannot compile watchdog applet
+# error WDIOC_SETTIMEOUT is not defined, cannot compile watchdog applet
 #else
+# if defined WDIOC_SETOPTIONS && defined WDIOS_ENABLECARD
+	{
+		static const int enable = WDIOS_ENABLECARD;
+		ioctl_or_warn(3, WDIOC_SETOPTIONS, (void*) &enable);
+	}
+# endif
 	ioctl_or_warn(3, WDIOC_SETTIMEOUT, &htimer_duration);
 #endif
+
 #if 0
 	ioctl_or_warn(3, WDIOC_GETTIMEOUT, &htimer_duration);
-	printf("watchdog: SW timer is %dms, HW timer is %dms\n",
+	printf("watchdog: SW timer is %dms, HW timer is %ds\n",
 		stimer_duration, htimer_duration * 1000);
 #endif
-
-	if (!(opts & OPT_FOREGROUND)) {
-		bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv);
-	}
 
 	while (1) {
 		/*

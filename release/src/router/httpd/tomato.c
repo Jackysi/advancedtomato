@@ -1,7 +1,7 @@
 /*
 
 	Tomato Firmware
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 
 */
 
@@ -176,9 +176,8 @@ static void _execute_command(char *url, char *command, char *query, char *output
 		}
 	}
 
-	char cmd[128];
-	sprintf(cmd, "%s >%s 2>&1", webExecFile, output);
-	system(cmd);
+	char *cmd[] = { webExecFile, NULL };
+	_eval(cmd, output, 0, NULL);
 	unlink(webQueryFile);
 	unlink(webExecFile);
 }
@@ -297,6 +296,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "logs/view.cgi",	NULL,						0,	wi_generic,			wo_viewlog,		1 },
 	{ "logs/*.txt",		NULL,						0,	wi_generic,			wo_syslog,		1 },
+	{ "webmon_**",		NULL,						0,	wi_generic,			wo_syslog,		1 },
 
 	{ "logout.asp",			NULL,					0,	wi_generic,			wo_asp,			1 },
 	{ "clearcookies.asp",	NULL,					0,	wi_generic,			wo_asp,			1 },
@@ -305,7 +305,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
 	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
-	{ "**.htm",			mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
+	{ "**.htm|**.html",		mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
 	{ "**.gif",			"image/gif",				5,	wi_generic_noid,	do_file,		1 },
 	{ "**.jpg",			"image/jpeg",				5,	wi_generic_noid,	do_file,		1 },
 	{ "**.png",			"image/png",				5,	wi_generic_noid,	do_file,		1 },
@@ -320,6 +320,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
 	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
+	{ "wpad.dat|proxy.pac",		"application/x-ns-proxy-autoconfig",	0,	wi_generic_noid,	do_file,		0 },
 
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
@@ -360,6 +361,7 @@ const aspapi_t aspapi[] = {
 	{ "ctdump",				asp_ctdump			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
+	{ "webmon",			asp_webmon			},
 	{ "dhcpc_time",			asp_dhcpc_time		},
 	{ "dns",				asp_dns				},
 	{ "ident",				asp_ident			},
@@ -523,10 +525,11 @@ static const nvset_t nvset_list[] = {
 	{ "wan_netmask",		V_IP				},
 	{ "wan_gateway",		V_IP				},
 	{ "hb_server_ip",		V_LENGTH(0, 32)		},
-	{ "l2tp_server_ip",		V_IP				},
-	{ "pptp_server_ip",		V_IP				},
-	{ "ppp_username",		V_LENGTH(0, 50)		},
-	{ "ppp_passwd",			V_LENGTH(0, 50)		},
+	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
+	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
+	{ "pptp_dhcp",			V_01				},
+	{ "ppp_username",		V_LENGTH(0, 60)		},
+	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
 	{ "ppp_demand",			V_01				},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
@@ -554,7 +557,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
-	{ "wl_channel",			V_RANGE(0, 14)		},	//!!TB - 0=Auto
+	{ "wl_channel",			V_RANGE(0, 216)		},
 #if TOMATO_N
 	// ! update
 #endif
@@ -585,6 +588,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_auth_mode",	   	V_LENGTH(4, 6)		},	//  none, radius
 
 	{ "wl_nmode",			V_NONE				},
+	{ "wl_nband",			V_RANGE(0, 2)			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
 	{ "wl_nreqd",			V_NONE				},
 	{ "wl_nbw_cap",			V_RANGE(0, 2)			},	// 0 - 20MHz, 1 - 40MHz, 2 - Auto
 	{ "wl_nbw",			V_NONE				},
@@ -620,6 +624,9 @@ static const nvset_t nvset_list[] = {
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
 	{ "dhcpc_minpkt",		V_01				},
+	{ "dhcpc_vendorclass",		V_LENGTH(0, 80)			},
+	{ "dhcpc_requestip",		V_LENGTH(0, 16)			},
+	{ "dns_norebind",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
 //	{ "dnsmasq_norw",		V_01				},
 
@@ -629,6 +636,7 @@ static const nvset_t nvset_list[] = {
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "dhcp_pass",			V_01				},
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
@@ -673,7 +681,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_plcphdr",			V_LENGTH(4, 5)		},	// long, short
 	{ "wl_antdiv",			V_RANGE(0, 3)		},
 	{ "wl_txant",			V_RANGE(0, 3)		},
-	{ "wl_txpwr",			V_RANGE(0, 255)		},
+	{ "wl_txpwr",			V_RANGE(0, 400)		},
 	{ "wl_wme",			V_WORD				},	// auto, off, on
 	{ "wl_wme_no_ack",		V_ONOFF				},	// off, on
 	{ "wl_wme_apsd",		V_ONOFF				},	// off, on
@@ -685,6 +693,7 @@ static const nvset_t nvset_list[] = {
 
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
+	{ "wl_obss_coex",		V_01			},
 
 // forward-dmz
 	{ "dmz_enable",			V_01				},
@@ -731,8 +740,8 @@ static const nvset_t nvset_list[] = {
 	{ "http_lanport",		V_PORT				},
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
-//	{ "web_favicon",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
+	{ "web_mx",				V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
 	{ "telnetd_port",		V_PORT				},
@@ -802,6 +811,13 @@ static const nvset_t nvset_list[] = {
 	{ "log_mark",			V_RANGE(0, 1440)	},
 	{ "log_events",			V_TEXT(0, 32)		},	// "acre,crond,ntp"
 
+// admin-log-webmonitor
+	{ "log_wm",			V_01				},
+	{ "log_wmtype",			V_RANGE(0, 2)			},
+	{ "log_wmip",			V_LENGTH(0, 512)		},
+	{ "log_wmdmax",			V_RANGE(0, 9999)		},
+	{ "log_wmsmax",			V_RANGE(0, 9999)		},
+
 // admin-cifs
 	{ "cifs1",				V_LENGTH(1, 1024)	},
 	{ "cifs2",				V_LENGTH(1, 1024)	},
@@ -817,6 +833,7 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_01				},
 	{ "usb_ohci",			V_01				},
 	{ "usb_usb2",			V_01				},
+	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},
 	{ "usb_printer_bidirect",	V_01				},
@@ -861,12 +878,23 @@ static const nvset_t nvset_list[] = {
 	{ "smbd_wins",			V_01				},
 	{ "smbd_cpage",			V_LENGTH(0, 4)			},
 	{ "smbd_cset",			V_LENGTH(0, 20)			},
-	{ "smbd_loglevel",		V_RANGE(0, 100)			},
 	{ "smbd_custom",		V_TEXT(0, 2048)			},
 	{ "smbd_autoshare",		V_RANGE(0, 3)			},
 	{ "smbd_shares",		V_LENGTH(0, 4096)		},
 	{ "smbd_user",			V_LENGTH(0, 50)			},
 	{ "smbd_passwd",		V_LENGTH(0, 50)			},
+#endif
+
+#ifdef TCONFIG_MEDIA_SERVER
+// nas-media
+	{ "ms_enable",			V_01				},
+	{ "ms_dirs",			V_LENGTH(0, 1024)		},
+	{ "ms_port",			V_RANGE(0, 65535)		},
+	{ "ms_dbdir",			V_LENGTH(0, 256)		},
+	{ "ms_tivo",			V_01				},
+	{ "ms_stdlna",			V_01				},
+	{ "ms_rescan",			V_01				},
+	{ "ms_sas",			V_01				},
 #endif
 
 //	qos

@@ -76,6 +76,8 @@ aftg.verifyFields = function(row, quiet)
 	ferror.clear(f[0]);
 	ferror.clear(f[1]);
 
+	if (!v_length(f[0], quiet, 1)) return 0;
+
 	s = f[0].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[a-zA-Z0-9_\-]+$/) == -1) {
@@ -88,16 +90,9 @@ aftg.verifyFields = function(row, quiet)
 		}
 		f[0].value = s;
 	}
-	else {
-		ferror.set(f[0], 'Empty user name is not allowed.', quiet);
-		return 0;
-	}
 
-	f[1].value = f[1].value.replace(/>/g, '_');
-	if (f[1].value.length <= 0) {
-		ferror.set(f[1], 'Password must not be empty.', quiet);
-		return 0;
-	}
+	if (!v_length(f[1], quiet, 1)) return 0;
+	if (!v_nodelim(f[1], quiet, 'Password', 1)) return 0;
 
 	return 1;
 }
@@ -116,8 +111,8 @@ aftg.resetNewEditor = function() {
 aftg.setup = function()
 {
 	this.init('aft-grid', 'sort', 50, [
-		{ type: 'text', maxlen: 16 },
-		{ type: 'text', maxlen: 16 }, 
+		{ type: 'text', maxlen: 50 },
+		{ type: 'password', maxlen: 50, peekaboo: 1 },
 		{ type: 'select', options: [['Read/Write', 'Read/Write'],['Read Only', 'Read Only'],['View Only', 'View Only'],['Private', 'Private']] }
 	]);
 	this.headerSet(['User Name', 'Password', 'Access']);
@@ -170,6 +165,9 @@ function verifyFields(focused, quiet)
 		if (!v_range('_ftp_anonrate', quiet || !ok, 0, 99999)) ok = 0;
 		if (!v_range('_ftp_staytimeout', quiet || !ok, 0, 65535)) ok = 0;
 		if (!v_length('_ftp_custom', quiet || !ok, 0, 2048)) ok = 0;
+		if (!v_path('_ftp_pubroot', quiet || !ok, 0)) ok = 0;
+		if (!v_path('_ftp_pvtroot', quiet || !ok, 0)) ok = 0;
+		if (!v_path('_ftp_anonroot', quiet || !ok, 0)) ok = 0;
 		if (a == 1 && b) {
 			if (!v_range('_f_limit_hit', quiet || !ok, 1, 100)) ok = 0;
 			if (!v_range('_f_limit_sec', quiet || !ok, 3, 3600)) ok = 0;
@@ -248,15 +246,14 @@ createFieldTable('', [
 	{ title: 'Anonymous Users Access', name: 'ftp_anonymous', type: 'select',
 		options: [['0', 'Disabled'],['1', 'Read/Write'],['2', 'Read Only'],['3', 'Write Only']],
 		value: nvram.ftp_anonymous },
-	{ title: 'Allow Super User to Login*', name: 'f_ftp_super', type: 'checkbox',
+	{ title: 'Allow Admin Login*', name: 'f_ftp_super', type: 'checkbox',
 		suffix: ' <small>Allows users to connect with admin account.</small>',
 		value: nvram.ftp_super == 1 },
 	{ title: 'Log FTP requests and responses', name: 'f_log_ftp', type: 'checkbox',
 		value: nvram.log_ftp == 1 }
 ]);
 </script>
-<br>
-<small>* Avoid using this option when FTP server is enabled for WAN. IT PROVIDES FULL ACCESS TO THE ROUTER FILE SYSTEM!</small>
+<small><br>*&nbsp;Avoid using this option when FTP server is enabled for WAN. IT PROVIDES FULL ACCESS TO THE ROUTER FILE SYSTEM!</small>
 </div>
 
 <div class='section-title'>Directories</div>
@@ -266,7 +263,7 @@ createFieldTable('', [
 	{ title: 'Public Root Directory*', name: 'ftp_pubroot', type: 'text', maxlen: 256, size: 32,
 		suffix: ' <small>(for authenticated users access)</small>',
 		value: nvram.ftp_pubroot },
-	{ title: 'Private Root Directory*', name: 'ftp_pvtroot', type: 'text', maxlen: 256, size: 32,
+	{ title: 'Private Root Directory**', name: 'ftp_pvtroot', type: 'text', maxlen: 256, size: 32,
 		suffix: ' <small>(for authenticated users access in private mode)</small>',
 		value: nvram.ftp_pvtroot },
 	{ title: 'Anonymous Root Directory*', name: 'ftp_anonroot', type: 'text', maxlen: 256, size: 32, 
@@ -274,12 +271,14 @@ createFieldTable('', [
 		value: nvram.ftp_anonroot },
 	{ title: 'Directory Listings', name: 'ftp_dirlist', type: 'select',
 		options: [['0', 'Enabled'],['1', 'Disabled'],['2', 'Disabled for Anonymous']],
-		suffix: ' <small>(always enabled for Super User)</small>',
+		suffix: ' <small>(always enabled for Admin)</small>',
 		value: nvram.ftp_dirlist }
 ]);
 </script>
-<br>
-<small>* When no directory is specified, /mnt is used as a root directory.</small>
+<small>
+<br>*&nbsp;&nbsp;When no directory is specified, /mnt is used as a root directory.
+<br>**&nbsp;In private mode, the root directory is the directory under the "Private Root Directory" with the name matching the name of the user.
+</small>
 </div>
 
 <div class='section-title'>Limits</div>

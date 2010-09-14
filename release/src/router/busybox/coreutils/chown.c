@@ -8,7 +8,6 @@
  */
 
 /* BB_AUDIT SUSv3 defects - none? */
-/* BB_AUDIT GNU defects - unsupported long options. */
 /* http://www.opengroup.org/onlinepubs/007904975/utilities/chown.html */
 
 #include "libbb.h"
@@ -16,13 +15,13 @@
 /* This is a NOEXEC applet. Be very careful! */
 
 
-#define OPT_STR     ("Rh" USE_DESKTOP("vcfLHP"))
+#define OPT_STR     ("Rh" IF_DESKTOP("vcfLHP"))
 #define BIT_RECURSE 1
 #define OPT_RECURSE (opt & 1)
 #define OPT_NODEREF (opt & 2)
-#define OPT_VERBOSE (USE_DESKTOP(opt & 0x04) SKIP_DESKTOP(0))
-#define OPT_CHANGED (USE_DESKTOP(opt & 0x08) SKIP_DESKTOP(0))
-#define OPT_QUIET   (USE_DESKTOP(opt & 0x10) SKIP_DESKTOP(0))
+#define OPT_VERBOSE (IF_DESKTOP(opt & 0x04) IF_NOT_DESKTOP(0))
+#define OPT_CHANGED (IF_DESKTOP(opt & 0x08) IF_NOT_DESKTOP(0))
+#define OPT_QUIET   (IF_DESKTOP(opt & 0x10) IF_NOT_DESKTOP(0))
 /* POSIX options
  * -L traverse every symbolic link to a directory encountered
  * -H if a command line argument is a symbolic link to a directory, traverse it
@@ -32,10 +31,24 @@
  * The last option specified shall determine the behavior of the utility." */
 /* -L */
 #define BIT_TRAVERSE 0x20
-#define OPT_TRAVERSE (USE_DESKTOP(opt & BIT_TRAVERSE) SKIP_DESKTOP(0))
+#define OPT_TRAVERSE (IF_DESKTOP(opt & BIT_TRAVERSE) IF_NOT_DESKTOP(0))
 /* -H or -L */
 #define BIT_TRAVERSE_TOP (0x20|0x40)
-#define OPT_TRAVERSE_TOP (USE_DESKTOP(opt & BIT_TRAVERSE_TOP) SKIP_DESKTOP(0))
+#define OPT_TRAVERSE_TOP (IF_DESKTOP(opt & BIT_TRAVERSE_TOP) IF_NOT_DESKTOP(0))
+
+#if ENABLE_FEATURE_CHOWN_LONG_OPTIONS
+static const char chown_longopts[] ALIGN1 =
+	"recursive\0"        No_argument   "R"
+	"dereference\0"      No_argument   "\xff"
+	"no-dereference\0"   No_argument   "h"
+# if ENABLE_DESKTOP
+	"changes\0"          No_argument   "c"
+	"silent\0"           No_argument   "f"
+	"quiet\0"            No_argument   "f"
+	"verbose\0"          No_argument   "v"
+# endif
+	;
+#endif
 
 typedef int (*chown_fptr)(const char *, uid_t, gid_t);
 
@@ -49,8 +62,8 @@ static int FAST_FUNC fileAction(const char *fileName, struct stat *statbuf,
 {
 #define param  (*(struct param_t*)vparam)
 #define opt option_mask32
-	uid_t u = (param.ugid.uid == (uid_t)-1) ? statbuf->st_uid : param.ugid.uid;
-	gid_t g = (param.ugid.gid == (gid_t)-1) ? statbuf->st_gid : param.ugid.gid;
+	uid_t u = (param.ugid.uid == (uid_t)-1L) ? statbuf->st_uid : param.ugid.uid;
+	gid_t g = (param.ugid.gid == (gid_t)-1L) ? statbuf->st_gid : param.ugid.gid;
 
 	if (param.chown_func(fileName, u, g) == 0) {
 		if (OPT_VERBOSE
@@ -62,7 +75,7 @@ static int FAST_FUNC fileAction(const char *fileName, struct stat *statbuf,
 		return TRUE;
 	}
 	if (!OPT_QUIET)
-		bb_simple_perror_msg(fileName);	/* A filename can have % in it... */
+		bb_simple_perror_msg(fileName);
 	return FALSE;
 #undef opt
 #undef param
@@ -74,18 +87,22 @@ int chown_main(int argc UNUSED_PARAM, char **argv)
 	int opt, flags;
 	struct param_t param;
 
-	param.ugid.uid = -1;
-	param.ugid.gid = -1;
-	param.chown_func = chown;
+	/* Just -1 might not work: uid_t may be unsigned long */
+	param.ugid.uid = -1L;
+	param.ugid.gid = -1L;
 
+#if ENABLE_FEATURE_CHOWN_LONG_OPTIONS
+	applet_long_options = chown_longopts;
+#endif
 	opt_complementary = "-2";
 	opt = getopt32(argv, OPT_STR);
 	argv += optind;
 
 	/* This matches coreutils behavior (almost - see below) */
+	param.chown_func = chown;
 	if (OPT_NODEREF
 	    /* || (OPT_RECURSE && !OPT_TRAVERSE_TOP): */
-	    USE_DESKTOP( || (opt & (BIT_RECURSE|BIT_TRAVERSE_TOP)) == BIT_RECURSE)
+	    IF_DESKTOP( || (opt & (BIT_RECURSE|BIT_TRAVERSE_TOP)) == BIT_RECURSE)
 	) {
 		param.chown_func = lchown;
 	}
@@ -101,8 +118,7 @@ int chown_main(int argc UNUSED_PARAM, char **argv)
 	parse_chown_usergroup_or_die(&param.ugid, argv[0]);
 
 	/* Ok, ready to do the deed now */
-	argv++;
-	do {
+	while (*++argv) {
 		if (!recursive_action(*argv,
 				flags,          /* flags */
 				fileAction,     /* file action */
@@ -112,7 +128,7 @@ int chown_main(int argc UNUSED_PARAM, char **argv)
 		) {
 			retval = EXIT_FAILURE;
 		}
-	} while (*++argv);
+	}
 
 	return retval;
 }

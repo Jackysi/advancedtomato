@@ -30,10 +30,8 @@ int mount_cifs_main(int argc, char *argv[])
 	int i, j;
 	int try;
 	int first;
-	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec;
+	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec, *custom;
 	int done[3];
-	char *exargv[3];
-	int pid;
 
 	if (argc == 2) {
 		if (strcmp(argv[1], "-m") == 0) {
@@ -50,6 +48,7 @@ int mount_cifs_main(int argc, char *argv[])
 					sprintf(s, "cifs%d", i);
 					strlcpy(s, nvram_safe_get(s), sizeof(s));
 					if ((vstrsep(s, "<", &on, &unc, &user, &pass, &dom, &exec, &servern, &sec) != 8) || (*on != '1')) continue;
+					custom = nvram_safe_get("cifs_opts");
 
 					done[i] = 0;
 
@@ -65,6 +64,7 @@ int mount_cifs_main(int argc, char *argv[])
 					if (*dom) j += sprintf(opt + j, "<dom=%s", dom);
 					if (*servern) j += sprintf(opt + j, "<servern=%s", servern);
 					if (*sec) j += sprintf(opt + j, "<sec=%s", sec);
+					if (*custom) j += sprintf(opt + j, "<%s", custom);
 
 					sprintf(mpath, "/cifs%d", i);
 					umount(mpath);
@@ -74,10 +74,9 @@ int mount_cifs_main(int argc, char *argv[])
 
 					if (*exec) {
 						chdir(mpath);
-						exargv[0] = exec;
-						exargv[1] = NULL;
-						_eval(exargv, NULL, 0, &pid);
+						system(exec);
 					}
+					run_userfile(mpath, ".autorun", NULL, 3);
 				}
 				if ((done[1]) && (done[2])) {
 					notice_set("cifs", "");

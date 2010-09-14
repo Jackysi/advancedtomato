@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -39,7 +39,10 @@
 var smg = new TomatoGrid();
 
 smg.verifyFields = function(row, quiet) {
-	return v_mac(fields.getAll(row)[0], quiet);
+	var f;
+	f = fields.getAll(row);
+
+	return v_mac(f[0], quiet) && v_nodelim(f[1], quiet, 'Description', 1);
 }
 
 smg.resetNewEditor = function() {

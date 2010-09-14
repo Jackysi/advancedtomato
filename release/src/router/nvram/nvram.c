@@ -29,7 +29,7 @@ static void help(void)
 		"NVRAM Utility\n"
 		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
 		"Usage: nvram set <key=value> | get <key> | unset <key> |\n"
-		"ren <key> <key> | commit | show [--nosort|--nostat] |\n"
+		"ren <key> <key> | commit | erase | show [--nosort|--nostat] |\n"
 		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
 		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
 		"export <--quote|--c|--dump|--dump0|--set|--tab> | import [--forceall] |\n"
@@ -167,6 +167,23 @@ static int find_main(int argc, char **argv)
 	return (r == -1) ? 1 : WEXITSTATUS(r);
 }
 
+static const char *nv_default_value(const defaults_t *t)
+{
+	if (strcmp(t->key, "wl_txpwr") == 0) {
+		switch (get_model()) {
+		case MODEL_WHRG54S:
+			return "28";
+#ifdef CONFIG_BCMWL5
+		case MODEL_RTN10:
+		case MODEL_RTN12:
+		case MODEL_RTN16:
+			return "17";
+#endif
+		}
+	}
+	return t->value;
+}
+
 static int defaults_main(int argc, char **argv)
 {
 	const defaults_t *t;
@@ -218,8 +235,8 @@ static int defaults_main(int argc, char **argv)
 				}
 			}
 			else {
-				nvram_set(t->key, t->value);
-				if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", t->value);
+				nvram_set(t->key, nv_default_value(t));
+				if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", nv_default_value(t));
 				commit = 1;
 			}
 		}
@@ -294,6 +311,12 @@ static int commit_main(int argc, char **argv)
 	r = nvram_commit();
 	printf("done.\n");
 	return r ? 1 : 0;
+}
+
+static int erase_main(int argc, char **argv)
+{
+	printf("Erasing nvram...\n");
+	return eval("mtd-erase", "-d", "nvram");
 }
 
 #define X_QUOTE		0
@@ -810,6 +833,7 @@ static const applets_t applets[] = {
 	{ "ren",		4,	ren_main		},
 	{ "show",		-2,	show_main		},
 	{ "commit",		2,	commit_main		},
+	{ "erase",		2,	erase_main		},
 	{ "find",		3,	find_main		},
 	{ "export",		3,	export_main		},
 	{ "import",		-3,	import_main		},

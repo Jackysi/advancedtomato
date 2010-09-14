@@ -9,6 +9,10 @@
 #include "libbb.h"
 #include "mail.h"
 
+// limit maximum allowed number of headers to prevent overflows.
+// set to 0 to not limit
+#define MAX_HEADERS 256
+
 static int smtp_checkp(const char *fmt, const char *param, int code)
 {
 	char *answer;
@@ -55,7 +59,9 @@ static char *sane_address(char *str)
 
 static void rcptto(const char *s)
 {
-	smtp_checkp("RCPT TO:<%s>", s, 250);
+	// N.B. we don't die if recipient is rejected, for the other recipients may be accepted
+	if (250 != smtp_checkp("RCPT TO:<%s>", s, -1))
+		bb_error_msg("Bad recipient: <%s>", s);
 }
 
 int sendmail_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -66,6 +72,7 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
 	char *s;
 	llist_t *list = NULL;
 	char *domain = sane_address(safe_getdomainname());
+	unsigned nheaders = 0;
 	int code;
 
 	enum {
@@ -73,11 +80,12 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
 		OPT_t = 1 << 0,         // read message for recipients, append them to those on cmdline
 		OPT_f = 1 << 1,         // sender address
 		OPT_o = 1 << 2,         // various options. -oi IMPLIED! others are IGNORED!
+		OPT_i = 1 << 3,         // IMPLIED!
 	//--- BB specific options
-		OPT_w = 1 << 3,         // network timeout
-		OPT_H = 1 << 4,         // use external connection helper
-		OPT_S = 1 << 5,         // specify connection string
-		OPT_a = 1 << 6,         // authentication tokens
+		OPT_w = 1 << 4,         // network timeout
+		OPT_H = 1 << 5,         // use external connection helper
+		OPT_S = 1 << 6,         // specify connection string
+		OPT_a = 1 << 7,         // authentication tokens
 	};
 
 	// init global variables
@@ -85,7 +93,7 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
 
 	// save initial stdin since body is piped!
 	xdup2(STDIN_FILENO, 3);
-	G.fp0 = fdopen(3, "r");
+	G.fp0 = xfdopen_for_read(3);
 
 	// parse options
 	// -f is required. -H and -S are mutually exclusive
@@ -93,7 +101,7 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
 	// N.B. since -H and -S are mutually exclusive they do not interfere in opt_connect
 	// -a is for ssmtp (http://downloads.openwrt.org/people/nico/man/man8/ssmtp.8.html) compatibility,
 	// it is still under development.
-	opts = getopt32(argv, "tf:o:w:H:S:a::", &opt_from, NULL, &timeout, &opt_connect, &opt_connect, &list);
+	opts = getopt32(argv, "tf:o:iw:H:S:a::", &opt_from, NULL, &timeout, &opt_connect, &opt_connect, &list);
 	//argc -= optind;
 	argv += optind;
 
@@ -196,6 +204,7 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
 	// and then use the rest of stdin as message body
 	code = 0; // set "analyze headers" mode
 	while ((s = xmalloc_fgetline(G.fp0)) != NULL) {
+ dump:
 		// put message lines doubling leading dots
 		if (code) {
 			// escape leading dots
@@ -214,41 +223,67 @@ int sendmail_main(int argc UNUSED_PARAM, char **argv)
 		// To: or Cc: headers add recipients
 		if (0 == strncasecmp("To: ", s, 4) || 0 == strncasecmp("Bcc: " + 1, s, 4)) {
 			rcptto(sane_address(s+4));
-//			goto addh;
-			llist_add_to_end(&list, s);
+			goto addheader;
 		// Bcc: header adds blind copy (hidden) recipient
 		} else if (0 == strncasecmp("Bcc: ", s, 5)) {
 			rcptto(sane_address(s+5));
 			free(s);
 			// N.B. Bcc: vanishes from headers!
+
 		// other headers go verbatim
-		} else if (s[0]) {
-// addh:
+
+		// N.B. RFC2822 2.2.3 "Long Header Fields" allows for headers to occupy several lines.
+		// Continuation is denoted by prefixing additional lines with whitespace(s).
+		// Thanks (stefan.seyfried at googlemail.com) for pointing this out.
+		} else if (strchr(s, ':') || (list && skip_whitespace(s) != s)) {
+ addheader:
+			// N.B. we allow MAX_HEADERS generic headers at most to prevent attacks
+			if (MAX_HEADERS && ++nheaders >= MAX_HEADERS)
+				goto bail;
 			llist_add_to_end(&list, s);
-		// the empty line stops analyzing headers
+		// a line without ":" (an empty line too, by definition) doesn't look like a valid header
+		// so stop "analyze headers" mode
 		} else {
-			free(s);
+ reenter:
 			// put recipients specified on cmdline
 			while (*argv) {
-				s = sane_address(*argv);
-				rcptto(s);
-				llist_add_to_end(&list, xasprintf("To: %s", s));
+				char *t = sane_address(*argv);
+				rcptto(t);
+				//if (MAX_HEADERS && ++nheaders >= MAX_HEADERS)
+				//	goto bail;
+				llist_add_to_end(&list, xasprintf("To: %s", t));
 				argv++;
 			}
 			// enter "put message" mode
-			smtp_check("DATA", 354);
+			// N.B. DATA fails iff no recipients were accepted (or even provided)
+			// in this case just bail out gracefully
+			if (354 != smtp_check("DATA", -1))
+				goto bail;
 			// dump the headers
 			while (list) {
 				printf("%s\r\n", (char *) llist_pop(&list));
 			}
-			printf("%s\r\n" + 2); // quirk for format string to be reused
 			// stop analyzing headers
 			code++;
+			// N.B. !s means: we read nothing, and nothing to be read in the future.
+			// just dump empty line and break the loop
+			if (!s) {
+				puts("\r");
+				break;
+			}
+			// go dump message body
+			// N.B. "s" already contains the first non-header line, so pretend we read it from input
+			goto dump;
 		}
 	}
+	// odd case: we didn't stop "analyze headers" mode -> message body is empty. Reenter the loop
+	// N.B. after reenter code will be > 0
+	if (!code)
+		goto reenter;
 
 	// finalize the message
 	smtp_check(".", 250);
+ bail:
 	// ... and say goodbye
 	smtp_check("QUIT", 221);
 	// cleanup

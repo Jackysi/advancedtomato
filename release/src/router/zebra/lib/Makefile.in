@@ -175,6 +175,8 @@ CFLAGS = @CFLAGS@
 DIST_SOURCES = $(libzebra_a_SOURCES)
 HEADERS = $(noinst_HEADERS)
 
+CFLAGS+=-fPIC
+
 DIST_COMMON = $(noinst_HEADERS) ChangeLog Makefile.am Makefile.in
 SOURCES = $(libzebra_a_SOURCES)
 

@@ -15,8 +15,8 @@ choice
 	config GCC_VERSION_4_2_4
 		bool "gcc 4.2.4"
 
-	config GCC_VERSION_4_3_4
-		bool "gcc 4.3.4"
+	config GCC_VERSION_4_3_5
+		bool "gcc 4.3.5"
 
 endchoice
 
@@ -42,6 +42,14 @@ config SSP_SUPPORT
 	default n
 	help
 	    Enable Stack-Smashing Protection support
+
+config TLS_SUPPORT
+	bool
+	depends !GCC_VERSION_3_4_6 && UCLIBC_VERSION_0_9_32
+	prompt "Enable Thread-local storage (TLS) support" if TOOLCHAINOPTS
+	default n
+	help
+	    Enable Thread-local storage support
 
 config INSTALL_LIBSTDCPP
 	bool

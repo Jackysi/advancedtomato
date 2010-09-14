@@ -62,6 +62,10 @@ static struct option opts[] = {
 static void
 init(struct ipt_entry_target *t, unsigned int *nfcache)
 {
+	struct ipt_connmark_target_info *markinfo
+		= (struct ipt_connmark_target_info *)t->data;
+
+	markinfo->mask = 0xffffffffUL;
 }
 
 /* Function which parses command options; returns true if it
@@ -73,8 +77,6 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 {
 	struct ipt_connmark_target_info *markinfo
 		= (struct ipt_connmark_target_info *)(*target)->data;
-
-	markinfo->mask = 0xffffffffUL;
 
 	switch (c) {
 		char *end;

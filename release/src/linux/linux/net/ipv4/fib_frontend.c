@@ -347,6 +347,9 @@ static int inet_check_attr(struct rtmsg *r, struct rtattr **rta)
 {
 	int i;
 
+	if (r->rtm_type > RTN_MAX)
+		return -EINVAL;
+
 	for (i=1; i<=RTA_MAX; i++) {
 		struct rtattr *attr = rta[i-1];
 		if (attr) {

@@ -963,6 +963,12 @@ for id %hu\n", packet_type, nmb_namestr(&orig_nmb->question.question_name),
 	nmb->answers->ttl      = ttl;
   
 	if (data && len) {
+		if (len < 0 || len > sizeof(nmb->answers->rdata)) {
+			DEBUG(5,("reply_netbios_packet: "
+				"invalid packet len (%d)\n",
+				len ));
+			return;
+		}
 		nmb->answers->rdlength = len;
 		memcpy(nmb->answers->rdata, data, len);
 	}
@@ -1886,6 +1892,12 @@ BOOL send_mailslot(BOOL unique, const char *mailslot,char *buf, size_t len,
 	/* Setup the smb part. */
 	ptr -= 4; /* XXX Ugliness because of handling of tcp SMB length. */
 	memcpy(tmp,ptr,4);
+
+	if (smb_size + 17*2 + strlen(mailslot) + 1 + len > MAX_DGRAM_SIZE) {
+		DEBUG(0, ("send_mailslot: Cannot write beyond end of packet\n"));
+		return False;
+	}
+
 	set_message(ptr,17,strlen(mailslot) + 1 + len,True);
 	memcpy(ptr,tmp,4);
 

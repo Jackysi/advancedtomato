@@ -133,6 +133,7 @@ extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
 extern void stop_wan(void);
 extern void force_to_dial(void);
+extern void do_wan_routes(char *ifname, int metric, int add);
 
 // network.c
 extern void set_host_domain_name(void);
@@ -285,13 +286,14 @@ static inline void stop_ddns(void) { };
 
 // misc.c
 extern void usage_exit(const char *cmd, const char *help) __attribute__ ((noreturn));
-#define modprobe(mod, args...) ({ char *argv[] = { "modprobe", mod, ## args, NULL }; _eval(argv, NULL, 0, NULL); })
+#define modprobe(mod, args...) ({ char *argv[] = { "modprobe", "-s", mod, ## args, NULL }; _eval(argv, NULL, 0, NULL); })
 extern int modprobe_r(const char *mod);
 #define xstart(args...)	_xstart(args, NULL)
 extern int _xstart(const char *cmd, ...);
 extern void run_nvscript(const char *nv, const char *arg1, int wtime);
 extern void run_userfile (char *folder, char *extension, const char *arg1, int wtime);
 extern void setup_conntrack(void);
+extern void inc_mac(char *mac, int plus);
 extern void set_mac(const char *ifname, const char *nvname, int plus);
 extern const char *default_wanif(void);
 //	extern const char *default_wlif(void);
@@ -300,7 +302,8 @@ extern int _vstrsep(char *buf, const char *sep, ...);
 extern void simple_unlock(const char *name);
 extern void simple_lock(const char *name);
 extern void killall_tk(const char *name);
-long fappend(FILE *out, const char *fname);
+extern long fappend(FILE *out, const char *fname);
+extern long fappend_file(const char *path, const char *fname);
 
 // telssh.c
 extern void create_passwd(void);

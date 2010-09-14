@@ -711,7 +711,14 @@ try_again:
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
 		goto out;
-  
+
+	if (skb->nh.iph->version != 4) {
+		skb_free_datagram(sk, skb);
+		if (noblock)
+			return -EAGAIN;
+		goto try_again;
+	}
+
   	copied = skb->len - sizeof(struct udphdr);
 	if (copied > len) {
 		copied = len;

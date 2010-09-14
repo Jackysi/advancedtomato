@@ -79,7 +79,7 @@ parser_t* FAST_FUNC config_open(const char *filename)
 	return config_open2(filename, fopen_or_warn_stdin);
 }
 
-static void config_free_data(parser_t *const parser)
+static void config_free_data(parser_t *parser)
 {
 	free(parser->line);
 	parser->line = NULL;
@@ -102,7 +102,7 @@ void FAST_FUNC config_close(parser_t *parser)
 0. If parser is NULL return 0.
 1. Read a line from config file. If nothing to read then return 0.
    Handle continuation character. Advance lineno for each physical line.
-   Discard everything past comment characher.
+   Discard everything past comment character.
 2. if PARSE_TRIM is set (default), remove leading and trailing delimiters.
 3. If resulting line is empty goto 1.
 4. Look for first delimiter. If !PARSE_COLLAPSE or !PARSE_TRIM is set then
@@ -128,8 +128,8 @@ int FAST_FUNC config_read(parser_t *parser, char **tokens, unsigned flags, const
 	int ntokens, mintokens;
 	int t, len;
 
-	ntokens = flags & 0xFF;
-	mintokens = (flags & 0xFF00) >> 8;
+	ntokens = (uint8_t)flags;
+	mintokens = (uint8_t)(flags >> 8);
 
 	if (parser == NULL)
 		return 0;
@@ -159,7 +159,8 @@ again:
 		parser->data = xstrdup(line);
 
 	/* Tokenize the line */
-	for (t = 0; *line && *line != delims[0] && t < ntokens; t++) {
+	t = 0;
+	do {
 		/* Pin token */
 		tokens[t] = line;
 
@@ -179,10 +180,10 @@ again:
 		}
 
 		/* Token not terminated? */
-		if (line[0] == delims[0])
+		if (*line == delims[0])
 			*line = '\0';
-		else if (line[0] != '\0')
-			*(line++) = '\0';
+		else if (*line != '\0')
+			*line++ = '\0';
 
 #if 0 /* unused so far */
 		if (flags & PARSE_ESCAPE) {
@@ -201,17 +202,20 @@ again:
 			*to = '\0';
 		}
 #endif
-
 		/* Skip possible delimiters */
 		if (flags & PARSE_COLLAPSE)
 			line += strspn(line, delims + 1);
-	}
+
+		t++;
+	} while (*line && *line != delims[0] && t < ntokens);
 
 	if (t < mintokens) {
 		bb_error_msg("bad line %u: %d tokens found, %d needed",
 				parser->lineno, t, mintokens);
 		if (flags & PARSE_MIN_DIE)
 			xfunc_die();
+		if (flags & PARSE_KEEP_COPY)
+			free(parser->data);
 		goto again;
 	}
 

@@ -85,17 +85,40 @@ function init()
 
 <!-- / / / -->
 
-<div style='float:right;margin:20px 20px;text-align:center'>
-<img src='kinaree.png' alt='Linux &amp; Tomato' id='kinaree'>
+<div style='float:right;margin:80px 20px;text-align:center'>
+<img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
-<div style='margin:20px 20px;font-size:14px;color:#555;'>
-<b>Tomato Firmware v<% version(1); %> </b><br>
-Copyright (C) 2006-2008 Jonathan Zarate<br>
+<div style='margin:30px 30px;font-size:14px;color:#555;'>
+
+<b>Tomato Firmware v<% version(1); %></b><br>
+<br><br>
+<b>Based on Tomato Firmware v<% version(); %></b><br>
+Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-<b>Compilation by Toastman, Bangkok</b><br>
-Based on Tomato USBmod by Fedor<br>
-ND Wireless Driver version 4.150.10.29<br><br>
+/* USB-BEGIN */
+<br><b>USB support integration and GUI</b><br>
+/* USB-END */
+<b>Linux kernel <% version(2); %> <br>
+Broadcom Wireless Driver <% version(3); %> <br>
+Support for additional router models and Wireless-N mode.</b><br>
+Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
+<a href='http://www.tomatousb.org/'>http://www.tomatousb.org</a><br>
+<!-- / / / -->
+<br>
+
+/* VPN-BEGIN */
+<b>VPN integration and GUI Copyright (C) 2010 Keith Moyer</b><br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+<br>
+/* VPN-END */
+<br>
+<b>This compilation by Toastman, Bangkok</b><br>
+<br>
+<b>Teddy Bear features:</b><br>
+- Media Server [ext & VPN builds]<br>
+- Web Monitor<br>
+<br>
 <b>Victek RAF features:</b><br>
 - CPU Info & Overclock | Previous WAN IP<br>
 - IP/MAC Bandwidth Limiter | ARP Binding<br>
@@ -103,10 +126,10 @@ ND Wireless Driver version 4.150.10.29<br><br>
 <br>
 <b>Toastman Features:</b><br>
 - 200 users<br>
-- QOS Class Labels<br>
+- QOS class labels<br>
 - Toastman QOS rules<br>
 - Fast conntrack timeout<br>
-- Fast page refresh<br>
+- Fast auto refresh<br>
 <br>
 <br>
 Built on <% build_time(); %><br>

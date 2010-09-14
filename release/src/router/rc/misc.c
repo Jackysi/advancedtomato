@@ -378,13 +378,11 @@ void setup_conntrack(void)
 		if (atoi(buf) > 0) nvram_set("ct_max", buf);
 	}
 
-	if (!nvram_match("nf_pptp", "0")) {
-		ct_modprobe("proto_gre");
-		ct_modprobe("pptp");
+	if (!nvram_match("nf_rtsp", "0")) {
+		ct_modprobe("rtsp");
 	}
 	else {
-		ct_modprobe_r("pptp");
-		ct_modprobe_r("proto_gre");
+		ct_modprobe_r("rtsp");
 	}
 
 	if (!nvram_match("nf_h323", "0")) {
@@ -402,13 +400,6 @@ void setup_conntrack(void)
 		ct_modprobe_r("sip");
 	}
 #endif
-
-	if (!nvram_match("nf_rtsp", "0")) {
-		ct_modprobe("rtsp");
-	}
-	else {
-		ct_modprobe_r("rtsp");
-	}
 
 	// !!TB - FTP Server
 #ifdef TCONFIG_FTP
@@ -433,6 +424,32 @@ void setup_conntrack(void)
 		ct_modprobe_r("ftp");
 	}
 
+	if (!nvram_match("nf_pptp", "0")) {
+		ct_modprobe("proto_gre");
+		ct_modprobe("pptp");
+	}
+	else {
+		ct_modprobe_r("pptp");
+		ct_modprobe_r("proto_gre");
+	}
+}
+
+void inc_mac(char *mac, int plus)
+{
+	unsigned char m[6];
+	int i;
+
+	for (i = 0; i < 6; i++)
+		m[i] = (unsigned char) strtol(mac + (3 * i), (char **)NULL, 16);
+	while (plus != 0) {
+		for (i = 5; i >= 3; --i) {
+			m[i] += (plus < 0) ? -1 : 1;
+			if (m[i] != 0) break;	// continue if rolled over
+		}
+		plus += (plus < 0) ? 1 : -1;
+	}
+	sprintf(mac, "%02X:%02X:%02X:%02X:%02X:%02X",
+		m[0], m[1], m[2], m[3], m[4], m[5]);
 }
 
 void set_mac(const char *ifname, const char *nvname, int plus)
@@ -604,5 +621,17 @@ long fappend(FILE *out, const char *fname)
 		}
 	}
 	fclose(in);
+	return r;
+}
+
+long fappend_file(const char *path, const char *fname)
+{
+	FILE *f;
+	int r = -1;
+
+	if (f_exists(fname) && (f = fopen(path, "a")) != NULL) {
+		r = fappend(f, fname);
+		fclose(f);
+	}
 	return r;
 }

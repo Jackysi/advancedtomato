@@ -54,7 +54,7 @@ struct vfat_super_block {
 			uint8_t		magic[8];
 			uint8_t		dummy2[192];
 			uint8_t		pmagic[2];
-		} __attribute__((__packed__)) fat;
+		} PACKED fat;
 		struct fat32_super_block {
 			uint32_t	fat32_length;
 			uint16_t	flags;
@@ -69,9 +69,9 @@ struct vfat_super_block {
 			uint8_t		magic[8];
 			uint8_t		dummy2[164];
 			uint8_t		pmagic[2];
-		} __attribute__((__packed__)) fat32;
-	} __attribute__((__packed__)) type;
-} __attribute__((__packed__));
+		} PACKED fat32;
+	} PACKED type;
+} PACKED;
 
 struct vfat_dir_entry {
 	uint8_t		name[11];
@@ -85,7 +85,7 @@ struct vfat_dir_entry {
 	uint16_t	date_write;
 	uint16_t	cluster_low;
 	uint32_t	size;
-} __attribute__((__packed__));
+} PACKED;
 
 static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, int count)
 {
@@ -119,7 +119,7 @@ static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, int count)
 	return NULL;
 }
 
-int volume_id_probe_vfat(struct volume_id *id /*,uint64_t fat_partition_off*/)
+int FAST_FUNC volume_id_probe_vfat(struct volume_id *id /*,uint64_t fat_partition_off*/)
 {
 #define fat_partition_off ((uint64_t)0)
 	struct vfat_super_block *vs;
@@ -173,18 +173,22 @@ int volume_id_probe_vfat(struct volume_id *id /*,uint64_t fat_partition_off*/)
 	 */
 
 	/* boot jump address check */
-	if ((vs->boot_jump[0] != 0xeb || vs->boot_jump[2] != 0x90) &&
-	     vs->boot_jump[0] != 0xe9)
+	if ((vs->boot_jump[0] != 0xeb || vs->boot_jump[2] != 0x90)
+	 && vs->boot_jump[0] != 0xe9
+	) {
 		return -1;
+	}
 
 	/* heads check */
 	if (vs->heads == 0)
 		return -1;
 
 	/* cluster size check */
-	if (vs->sectors_per_cluster == 0 ||
-	    (vs->sectors_per_cluster & (vs->sectors_per_cluster-1)))
+	if (vs->sectors_per_cluster == 0
+	 || (vs->sectors_per_cluster & (vs->sectors_per_cluster-1))
+	) {
 		return -1;
+	}
 
 	/* media check */
 	if (vs->media < 0xf8 && vs->media != 0xf0)
@@ -197,9 +201,11 @@ int volume_id_probe_vfat(struct volume_id *id /*,uint64_t fat_partition_off*/)
  valid:
 	/* sector size check */
 	sector_size_bytes = le16_to_cpu(vs->sector_size_bytes);
-	if (sector_size_bytes != 0x200 && sector_size_bytes != 0x400 &&
-	    sector_size_bytes != 0x800 && sector_size_bytes != 0x1000)
+	if (sector_size_bytes != 0x200 && sector_size_bytes != 0x400
+	 && sector_size_bytes != 0x800 && sector_size_bytes != 0x1000
+	) {
 		return -1;
+	}
 
 	dbg("sector_size_bytes 0x%x", sector_size_bytes);
 	dbg("sectors_per_cluster 0x%x", vs->sectors_per_cluster);

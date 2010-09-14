@@ -2,7 +2,8 @@ include ../common.mak
 
 srcdir=source
 
-SMBCFLAGS = $(EXTRACFLAGS)
+SMBCFLAGS = $(EXTRACFLAGS) -Os
+
 ifneq ($(CONFIG_LINUX26),y)
 SMBCFLAGS += -DNO_LOG
 endif
@@ -40,7 +41,7 @@ apps:
 	samba_cv_HAVE_READDIR64=yes \
 	samba_cv_HAVE_STAT64=yes \
 	samba_cv_HAVE_SIGSET=yes \
-	samba_cv_HAVE_MMAP=yes \
+	samba_cv_HAVE_MMAP=no \
 	samba_cv_HAVE_GETDIRENTRIES=yes \
 	samba_cv_HAVE_GETMNTENT=yes \
 	samba_cv_HAVE_SETMNTENT=yes \
