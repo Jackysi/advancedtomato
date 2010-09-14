@@ -1,6 +1,10 @@
 include ../common.mak
 
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/eapd),)
+UTILS := wl nas eapd
+else
 UTILS := wl nas
+endif
 
 all: $(UTILS)
 
@@ -23,6 +27,11 @@ nas: nas_exe.o
 	$(CC) $(CCFLAGS) -DBCMWPA2 -o $@ $< -L../shared  -L../nvram -lnvram -lshared
 endif
 
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/eapd),)
+eapd:
+	@cp -f $(SRCBASE)/wl/$(PLATFORM)/eapd eapd
+endif
+
 install: all
 	install -d $(INSTALLDIR)/usr/sbin
 
@@ -34,4 +43,9 @@ install: all
 	install -m 0755 wl $(INSTALLDIR)/usr/sbin/wl
 	$(STRIP) $(INSTALLDIR)/usr/sbin/wl
 	
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/eapd),)
+	install -d $(INSTALLDIR)/bin
+	install -m 0755 eapd $(INSTALLDIR)/bin/eapd
+	$(STRIP) $(INSTALLDIR)/bin/eapd
+endif
 
