@@ -104,6 +104,9 @@ ND Wireless Driver version 4.150.10.29<br><br>
 <b>Toastman Features:</b><br>
 - 200 users<br>
 - QOS Class Labels<br>
+- Toastman QOS rules<br>
+- Fast conntrack timeout<br>
+- Fast page refresh<br>
 <br>
 <br>
 Built on <% build_time(); %><br>
