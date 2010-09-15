@@ -646,8 +646,14 @@ void start_syslog(void)
 		// used to be available in syslogd -m
 		n = nvram_get_int("log_mark");
 		if (n > 0) {
-			sprintf(s, "cru a syslogdmark \"%s %s * * * logger -p syslog.info -- -- MARK --\"",
-				(n < 60) ? "*/30" : "0", (n < 120) ? "*" : "*/2");
+			// n is in minutes
+			if (n < 60)
+				sprintf(rem, "*/%d * * * *", n);
+			else if (n < 60 * 24)
+				sprintf(rem, "0 */%d * * *", n / 60);
+			else
+				sprintf(rem, "0 0 */%d * *", n / (60 * 24));
+			sprintf(s, "cru a syslogdmark \"%s logger -p syslog.info -- -- MARK --\"", rem);
 			system(s);
 		}
 		else {

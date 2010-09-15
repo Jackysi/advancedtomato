@@ -808,7 +808,7 @@ static const nvset_t nvset_list[] = {
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},
-	{ "log_mark",			V_RANGE(0, 1440)	},
+	{ "log_mark",			V_RANGE(0, 99999)	},
 	{ "log_events",			V_TEXT(0, 32)		},	// "acre,crond,ntp"
 
 // admin-log-webmonitor

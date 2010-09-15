@@ -49,7 +49,7 @@ function verifyFields(focused, quiet)
 
 	if (!a) {
 		if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
-		if (!v_range('_log_mark', quiet, 0, 1440)) return 0;
+		if (!v_range('_log_mark', quiet, 0, 99999)) return 0;
 		if (b) {
 			c = E('_log_remoteip');
 			if (!v_ip(c, 1) && !v_domain(c, 1)) {
@@ -136,12 +136,14 @@ function save()
 <div class='section'>
 <script type='text/javascript'>
 
+/* REMOVE-BEGIN
 // adjust (>=1.22)
 nvram.log_mark *= 1;
 if (nvram.log_mark >= 120) nvram.log_mark = 120;
 	else if (nvram.log_mark >= 60) nvram.log_mark = 60;
 	else if (nvram.log_mark > 0) nvram.log_mark = 30;
 	else nvram.log_mark = 0;
+REMOVE-END */
 
 createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
@@ -149,7 +151,7 @@ createFieldTable('', [
 	{ title: 'Host or IP Address / Port', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
 		{ name: 'log_remoteport', type: 'text', maxlen: 5, size: 7, value: nvram.log_remoteport } ]},
-	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours']], value: nvram.log_mark },
+	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours'],[360,'Every 6 Hours'],[720,'Every 12 Hours'],[1440,'Every 1 Day'],[10080,'Every 7 Days']], value: nvram.log_mark },
 	{ title: 'Events Logged', text: '<small>(some of the changes will take effect after a restart)</small>' },
 		{ title: 'Access Restriction', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
 		{ title: 'Cron', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
