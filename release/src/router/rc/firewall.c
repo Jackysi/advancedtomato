@@ -488,8 +488,8 @@ static void filter_input(void)
 		ipt_write(
 			"-N shlimit\n"
 			"-A shlimit -m recent --set --name shlimit\n"
-			"-A shlimit -m recent --update --hitcount %s --seconds %s --name shlimit -j DROP\n",
-			hit, sec);
+			"-A shlimit -m recent --update --hitcount %d --seconds %s --name shlimit -j DROP\n",
+			atoi(hit) + 1, sec);
 
 		if (n & 1) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_port"));
 		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
@@ -507,8 +507,8 @@ static void filter_input(void)
 		ipt_write(
 			"-N ftplimit\n"
 			"-A ftplimit -m recent --set --name ftp\n"
-			"-A ftplimit -m recent --update --hitcount %s --seconds %s --name ftp -j DROP\n",
-			hit, sec);
+			"-A ftplimit -m recent --update --hitcount %d --seconds %s --name ftp -j DROP\n",
+			atoi(hit) + 1, sec);
 		ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
 	}
 #endif
