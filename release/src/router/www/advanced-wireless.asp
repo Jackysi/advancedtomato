@@ -25,7 +25,7 @@
 /* REMOVE-BEGIN
 	!!TB - Added wl_reg_mode, wl_country, wl_country_code, wl_btc_mode
 REMOVE-END */
-//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode,wl_mimo_preamble,wl_obss_coex"); %>
+//	<% nvram("security_mode,wl_afterburner,wl_antdiv,wl_ap_isolate,wl_auth,wl_bcn,wl_dtim,wl_frag,wl_frameburst,wl_gmode_protection,wl_plcphdr,wl_rate,wl_rateset,wl_rts,wl_txant,wl_wme,wl_wme_no_ack,wl_wme_apsd,wl_txpwr,wl_mrate,t_features,wl_distance,wl_maxassoc,wlx_hpamp,wlx_hperx,wl_reg_mode,wl_country_code,wl_country,wl_btc_mode,wl_mimo_preamble,wl_obss_coex,wl_interfmode"); %>
 //	<% wlcountries(); %>
 
 hp = features('hpamp');
@@ -168,6 +168,9 @@ REMOVE-END */
 	{ title: 'Transmission Rate', name: 'wl_rate', type: 'select',
 		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
 		value: nvram.wl_rate },
+	{ title: 'Interference Mitigation', name: 'wl_interfmode', type: 'select',
+		options: [['0','None'],['1','Non-WLAN'],['2','WLAN Manual'],['3','WLAN Auto *']],
+		value: nvram.wl_interfmode },
 	{ title: 'WMM', name: 'wl_wme', type: 'select', options: [['auto','Auto *'],['off','Disable'],['on','Enable']], value: nvram.wl_wme },
 	{ title: 'No ACK', name: 'wl_wme_no_ack', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
 		value: nvram.wl_wme_no_ack },

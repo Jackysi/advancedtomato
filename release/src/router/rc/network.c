@@ -135,6 +135,7 @@ static int wlconf(char *ifname)
 		eval("wl", "antdiv", nvram_safe_get("wl_antdiv"));
 		eval("wl", "txant", nvram_safe_get("wl_txant"));
 		eval("wl", "txpwr1", "-o", "-m", nvram_get_int("wl_txpwr") ? nvram_safe_get("wl_txpwr") : "-1");
+		eval("wl", "interference", nvram_safe_get("wl_interfmode"));
 
 		killall("wldist", SIGTERM);
 		eval("wldist");
