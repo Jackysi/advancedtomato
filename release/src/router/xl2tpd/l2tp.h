@@ -36,8 +36,9 @@ typedef unsigned long long _u64;
 #include "aaa.h"
 #include "common.h"
 #include "ipsecmast.h"
+#include <net/route.h>
 
-#define CONTROL_PIPE "/var/run/xl2tpd/l2tp-control"
+#define CONTROL_PIPE "/var/run/l2tp-control"
 
 #define BINARY "xl2tpd"
 #define SERVER_VERSION "xl2tpd-1.2.6"
@@ -169,6 +170,7 @@ struct tunnel
     struct call *self;
     struct lns *lns;            /* LNS that owns us */
     struct lac *lac;            /* LAC that owns us */
+    struct rtentry rt;		/* Route added to destination */
 };
 
 struct tunnel_list
@@ -228,6 +230,10 @@ extern int get_entropy (unsigned char *, int);
 #endif
 #endif
 
+/* Route manipulation */
+#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+extern int route_add(const struct in_addr inetaddr, struct rtentry *rt);
+extern int route_del(struct rtentry *rt);
 
 /* 
  * This is just some stuff to take
