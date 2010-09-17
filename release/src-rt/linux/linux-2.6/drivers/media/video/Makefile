@@ -9,7 +9,13 @@ tuner-objs	:=	tuner-core.o tuner-types.o tuner-simple.o \
 
 msp3400-objs	:=	msp3400-driver.o msp3400-kthreads.o
 
-obj-$(CONFIG_VIDEO_DEV) += videodev.o v4l2-common.o compat_ioctl32.o
+videodev-objs   :=      v4l2-dev.o v4l2-ioctl.o v4l2-device.o
+
+# V4L2 core modules
+obj-$(CONFIG_VIDEO_DEV) += videodev.o v4l2-int-device.o v4l2-common.o
+ifeq ($(CONFIG_COMPAT),y)
+  obj-$(CONFIG_VIDEO_DEV) += v4l2-compat-ioctl32.o
+endif
 
 ifeq ($(CONFIG_VIDEO_V4L1_COMPAT),y)
   obj-$(CONFIG_VIDEO_DEV) += v4l1-compat.o
@@ -111,6 +117,8 @@ obj-$(CONFIG_USB_IBMCAM)        += usbvideo/
 obj-$(CONFIG_USB_KONICAWC)      += usbvideo/
 obj-$(CONFIG_USB_VICAM)         += usbvideo/
 obj-$(CONFIG_USB_QUICKCAM_MESSENGER)	+= usbvideo/
+
+obj-$(CONFIG_USB_VIDEO_CLASS)	+= uvc/
 
 obj-$(CONFIG_VIDEO_VIVI) += vivi.o
 
