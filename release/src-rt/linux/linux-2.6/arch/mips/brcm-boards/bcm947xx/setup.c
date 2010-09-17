@@ -210,26 +210,54 @@ plat_mem_setup(void)
 
 #ifdef CONFIG_MTD_PARTITIONS
 
-static int board_data_size(struct mtd_info *mtd)
+enum {
+	RT_UNKNOWN,
+	RT_DIR320,	// D-Link DIR-320
+	RT_WNR3500L,	// Netgear WNR3500v2/U/L
+	RT_WNR2000V2	// Netgear WNR2000v2
+};
+
+static int get_router(void)
 {
-	uint boardnum = bcm_strtoul(nvram_safe_get( "boardnum" ), NULL, 0);
+	uint boardnum = bcm_strtoul(nvram_safe_get("boardnum"), NULL, 0);
+	uint boardrev = bcm_strtoul(nvram_safe_get("boardrev"), NULL, 0);
+	uint boardtype = bcm_strtoul(nvram_safe_get("boardtype"), NULL, 0);
 
-	if ((boardnum == 1 || boardnum == 3500) && nvram_match("boardtype", "0x04CF") &&
-	    (nvram_match("boardrev", "0x1213") || nvram_match("boardrev", "02"))) {
-		/* Netgear WNR3500v2/U/L */
-		return mtd->erasesize * 5;
+	if ((boardnum == 1 || boardnum == 3500) && boardtype == 0x4CF && (boardrev == 0x1213 || boardrev == 2)) {
+		return RT_WNR3500L;
 	}
-	else if ((boardnum == 1) && nvram_match("boardtype", "0xE4CD") && nvram_match("boardrev", "0x1700")) {
-		/* Netgear WNR2000v2 */
-		return mtd->erasesize * 3;
+	else if (boardnum == 1 && boardtype == 0xE4CD && boardrev == 0x1700) {
+		return RT_WNR2000V2;
 	}
-	else if ((boardnum == 0) && nvram_match("boardtype", "0x048E") &&
-	    nvram_match("boardrev", "0x35")) {
-		/* D-Link DIR-320 */
-		return 8 * 1024;
+	else if (boardnum == 0 && boardtype == 0x48E && boardrev == 0x35) {
+		return RT_DIR320;
 	}
 
-	return 0;
+	return RT_UNKNOWN;
+}
+
+static size_t get_erasesize(struct mtd_info *mtd, size_t offset, size_t size)
+{
+	int i;
+	struct mtd_erase_region_info *regions;
+	size_t erasesize = 0;
+
+	if (mtd->numeraseregions > 1) {
+		regions = mtd->eraseregions;
+
+		// Find the first erase regions which is part of this partition
+		for (i = 0; i < mtd->numeraseregions && offset >= regions[i].offset; i++);
+
+		for (i--; i < mtd->numeraseregions && offset + size > regions[i].offset; i++) {
+			if (erasesize < regions[i].erasesize)
+				erasesize = regions[i].erasesize;
+		}
+	}
+	else {
+		erasesize = mtd->erasesize;
+	}
+
+	return erasesize;
 }
 
 /*
@@ -274,6 +302,7 @@ static struct mtd_partition bcm947xx_parts[] = {
 struct mtd_partition *
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
 {
+	int router;
 	struct trx_header *trx;
 	unsigned char buf[512];
 	size_t off, trxoff, boardoff;
@@ -281,16 +310,31 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	size_t trxsize;
 
 	/* Find and size nvram */
-	bcm947xx_parts[PART_NVRAM].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
-	bcm947xx_parts[PART_NVRAM].size = size - bcm947xx_parts[PART_NVRAM].offset;
+	bcm947xx_parts[PART_NVRAM].size = ROUNDUP(NVRAM_SPACE, mtd->erasesize);
+	bcm947xx_parts[PART_NVRAM].offset = size - bcm947xx_parts[PART_NVRAM].size;
 
 	/* Size board_data */
-	bcm947xx_parts[PART_BOARD].size = board_data_size(mtd);
-	boardoff = bcm947xx_parts[PART_NVRAM].offset - ROUNDUP(bcm947xx_parts[PART_BOARD].size, mtd->erasesize);
-	if (bcm947xx_parts[PART_BOARD].size > 0) {
-		bcm947xx_parts[PART_BOARD].offset = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_BOARD].size;
-	} else {
+	boardoff = bcm947xx_parts[PART_NVRAM].offset;
+	router = get_router();
+	switch (router) {
+	case RT_DIR320:
+		if (get_erasesize(mtd, bcm947xx_parts[PART_NVRAM].offset, bcm947xx_parts[PART_NVRAM].size) == 0x2000) {
+			bcm947xx_parts[PART_NVRAM].size = ROUNDUP(NVRAM_SPACE, 0x2000);
+			bcm947xx_parts[PART_NVRAM].offset = size - bcm947xx_parts[PART_NVRAM].size;
+			bcm947xx_parts[PART_BOARD].size = 0x2000; // 8 KB
+			bcm947xx_parts[PART_BOARD].offset = bcm947xx_parts[PART_NVRAM].offset - bcm947xx_parts[PART_BOARD].size;
+		}
+		else bcm947xx_parts[PART_BOARD].name = NULL;
+		break;
+	case RT_WNR3500L:
+	case RT_WNR2000V2:
+		bcm947xx_parts[PART_BOARD].size = mtd->erasesize * (router == RT_WNR3500L ? 5 : 3);
+		boardoff -= bcm947xx_parts[PART_BOARD].size;
+		bcm947xx_parts[PART_BOARD].offset = boardoff;
+		break;
+	default:
 		bcm947xx_parts[PART_BOARD].name = NULL;
+		break;
 	}
 
 	trxsize = 0;
