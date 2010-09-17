@@ -1403,6 +1403,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 		if (skb == tcp_send_head(sk))
 			break;
 		cnt += tcp_skb_pcount(skb);
+		TCP_SKB_CB(skb)->sacked &= ~TCPCB_LOST;
 		/*
 		 * Count the retransmission made on RTO correctly (only when
 		 * waiting for the first ACK and did not get it)...
@@ -1414,7 +1415,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 			/* ...enter this if branch just for the first segment */
 			flag |= FLAG_DATA_ACKED;
 		} else {
-			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_LOST|TCPCB_SACKED_RETRANS);
+			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_SACKED_RETRANS);
 		}
 		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED)) {
 
