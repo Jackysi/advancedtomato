@@ -186,10 +186,8 @@ int get_model(void)
 	case 0x30153:
 	case 0x31095:
 		return MODEL_WZRG108;
-#if TOMATO_N
 	case 0x31120:
 		return MODEL_WZRG300N;
-#endif
 	case 0:
 		break;
 	default:
@@ -235,10 +233,8 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM4704_BCM5325F:
 			return MODEL_WRTSL54GS;
-#if TOMATO_N
 		case HW_BCM4704_BCM5325F_EWC:
 			return MODEL_WRT300N;
-#endif
 #ifdef CONFIG_BCMWL5
 		case HW_BCM4716:
 			return MODEL_WRT160Nv3;

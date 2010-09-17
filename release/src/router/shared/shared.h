@@ -164,13 +164,9 @@ enum {
 	MODEL_WTR54GS,
 	MODEL_WR100,
 	MODEL_WLA2G54L,
-	MODEL_TM2300
-	
-#if TOMATO_N
-	,
+	MODEL_TM2300,
 	MODEL_WZRG300N,
 	MODEL_WRT300N
-#endif
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,

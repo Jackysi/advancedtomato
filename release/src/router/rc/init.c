@@ -986,7 +986,6 @@ static int init_nvram(void)
 		features = SUP_SES | SUP_AOSS_LED;
 		break;
 #endif	// WL_BSS_INFO_VERSION >= 108
-#if TOMATO_N
 	case MODEL_WZRG300N:
 		mfr = "Buffalo";
 		name = "WZR-G300N";
@@ -1001,7 +1000,6 @@ static int init_nvram(void)
 			nvram_set("wl0gpio0", "8");
 		}
 		break;
-#endif
 	}
 
 	if (name) {

@@ -559,9 +559,6 @@ static const nvset_t nvset_list[] = {
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 216)		},
-#if TOMATO_N
-	// ! update
-#endif
 
 	{ "security_mode2",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},

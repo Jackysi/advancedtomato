@@ -175,12 +175,10 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 4;
 		break;
 #endif
-#if TOMATO_N
 	case MODEL_WRT300N:
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 4;
 		break;
-#endif
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {
