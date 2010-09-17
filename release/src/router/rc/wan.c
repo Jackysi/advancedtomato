@@ -47,6 +47,7 @@
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 static const char ppp_linkfile[] = "/tmp/ppp/link";
+static const char ppp_optfile[]  = "/tmp/ppp/options";
 
 static void make_secrets(void)
 {
@@ -83,8 +84,8 @@ static int config_pppd(int wan_proto)
 	symlink("/dev/null", "/tmp/ppp/connect-errors");
 
 	// Generate options file
-	if ((fp = fopen("/tmp/ppp/options", "w")) == NULL) {
-		perror("/tmp/ppp/options");
+	if ((fp = fopen(ppp_optfile, "w")) == NULL) {
+		perror(ppp_optfile);
 		return -1;
 	}
 
@@ -157,7 +158,7 @@ static void stop_ppp(void)
 	unlink(ppp_linkfile);
 
 	while ((killall("pppd", SIGKILL) == 0) ||
-	       (killall("l2tpd", SIGKILL) == 0) ||
+	       (killall("xl2tpd", SIGKILL) == 0) ||
 	       (killall("listen", SIGKILL) == 0)) {
 		sleep(1);
 	}
@@ -408,38 +409,35 @@ void start_l2tp(void)
 	TRACE_PT("begin\n");
 
 	FILE *fp;
-	struct in_addr l2tp_server_ip;
 
 	stop_pppoe();
 
 	if (config_pppd(WP_L2TP) != 0)
 		return;
 
-	/* Generate L2TP configuration file */
-	if ((fp = fopen("/tmp/l2tp.conf", "w")) == NULL)
+	/* Generate XL2TPD configuration file */
+	if ((fp = fopen("/etc/xl2tpd.conf", "w")) == NULL)
 		return;
 	fprintf(fp,
-		"global\n"				// Global section
-		"load-handler \"sync-pppd.so\"\n"	// Load handlers
-		"load-handler \"cmd.so\"\n"
-		"listen-port 1701\n"			// Bind address
-		"section sync-pppd\n"			// Configure the sync-pppd handler
-		"section peer\n"			// Peer section
-		"peer%s %s\n"
-		"port 1701\n"
-		"lac-handler sync-pppd\n"
-		"persist yes\n"
-		"maxfail 32767\n"
-		"holdoff %d\n"
-		"section cmd\n",			// Configure the cmd handler
-		(inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip)) ? "" : "name",
+		"[global]\n"
+		"access control = no\n"
+		"port = 1701\n"
+		"[lac l2tp]\n"
+		"lns = %s\n"
+		"pppoptfile = %s\n"
+		"redial = yes\n"
+		"max redials = 32767\n"
+		"redial timeout = %d\n"
+		"ppp debug = %s\n",
 		nvram_safe_get("l2tp_server_ip"),
-		nvram_get_int("ppp_redialperiod") ? : 30);
+		ppp_optfile,
+		nvram_get_int("ppp_redialperiod") ? : 30,
+		nvram_get_int("debug_ppp") ? "yes" : "no");
 	fclose(fp);
 
 	enable_ip_forward();
 
-	eval("l2tpd");
+	eval("xl2tpd");
 
 	if (nvram_match("ppp_demand", "1")) {
 		eval("listen", nvram_safe_get("lan_ifname"));
@@ -462,18 +460,12 @@ inline void stop_l2tp(void)
 // trigger connect on demand
 void force_to_dial(void)
 {
-	char s[64];
-	struct in_addr l2tp_server_ip;
-
 	TRACE_PT("begin\n");
 
 	sleep(1);
 	switch (get_wan_proto()) {
 	case WP_L2TP:
-		snprintf(s, sizeof(s), "start-session %s",
-			inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip) ?
-			nvram_safe_get("l2tp_server_ip") : "0.0.0.0");
-		eval("l2tp-control", s);
+		f_write_string("/var/run/l2tp-control", "c l2tp", 0, 0);
 		break;
 	case WP_PPTP:
 		eval("ping", "-c", "2", "10.112.112.112");

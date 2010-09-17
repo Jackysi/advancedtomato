@@ -110,7 +110,7 @@ obj-y += miniupnpd
 #
 # configurable packages
 #
-obj-$(TCONFIG_L2TP) += rp-l2tp
+obj-$(TCONFIG_L2TP) += xl2tpd
 #obj-$(TCONFIG_PPTP) += pptp-client
 obj-$(TCONFIG_PPTP) += accel-pptp
 obj-$(TCONFIG_HTTPS) += openssl
@@ -841,8 +841,10 @@ pppd-install: pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
 	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
+ifeq ($(TCONFIG_L2TP),y)
 	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
 	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
+endif
 
 #	ipupdate-install:
 #		install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
@@ -881,6 +883,13 @@ rp-l2tp-install:
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tp-control
 	install -D rp-l2tp/l2tpd $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
+
+xl2tpd: pppd
+	CFLAGS="-g $(EXTRACFLAGS)" $(MAKE) -C $@ PREFIX=/usr xl2tpd
+
+xl2tpd-install: xl2tpd
+	install -D xl2tpd/xl2tpd $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
+	$(STRIP) $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
 
 
 bpalogin-install:
