@@ -32,18 +32,6 @@
 
 #define SHELL "/bin/sh"
 
-
-enum {
-	RESTART,
-	STOP,
-	START,
-	USER1,
-	IDLE,
-	REBOOT,
-	HALT,
-	INIT
-};
-
 static int fatalsigs[] = {
 	SIGILL,
 	SIGABRT,
@@ -61,6 +49,7 @@ static int initsigs[] = {
 	SIGUSR2,
 	SIGINT,
 	SIGQUIT,
+	SIGALRM,
 	SIGTERM
 };
 
@@ -72,11 +61,6 @@ static char *defenv[] = {
 	"USER=root",
 	NULL
 };
-
-static int noconsole = 0;
-static volatile int state = INIT;
-static volatile int signaled = -1;
-
 
 /* Set terminal settings to reasonable defaults */
 static void set_term(int fd)
@@ -202,6 +186,13 @@ static pid_t run_shell(int timeout, int nowait)
 	}
 }
 
+int console_main(int argc, char *argv[])
+{
+	for (;;) run_shell(0, 0);
+
+	return 0;
+}
+
 static void shutdn(int rb)
 {
 	int i;
@@ -215,7 +206,6 @@ static void shutdn(int rb)
 		sigaddset(&ss, fatalsigs[i]);
 	for (i = 0; i < sizeof(initsigs) / sizeof(initsigs[0]); i++)
 		sigaddset(&ss, initsigs[i]);
-	sigaddset(&ss, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &ss, NULL);
 
 	for (i = 30; i > 0; --i) {
@@ -265,37 +255,20 @@ static void handle_fatalsigs(int sig)
 	shutdn(-1);
 }
 
+/* Fixed the race condition & incorrect code by using sigwait()
+ * instead of pause(). But SIGCHLD is a problem, since other
+ * code: 1) messes with it and 2) depends on CHLD being caught so
+ * that the pid gets immediately reaped instead of left a zombie.
+ * Pidof still shows the pid, even though it's in Zombie state.
+ * So this SIGCHLD handler reaps and then signals the mainline by
+ * raising ALRM.
+ */
 void handle_reap(int sig)
 {
 	while (waitpid(-1, NULL, WNOHANG) > 0) {
 		//
 	}
-}
-
-static void handle_initsigs(int sig)
-{
-//	TRACE_PT("sig=%d state=%d, signaled=%d\n", sig, state, signaled);
-
-	switch (sig) {
-	case SIGHUP:
-		signaled = RESTART;
-		break;
-	case SIGUSR1:
-		signaled = USER1;
-		break;
-	case SIGUSR2:
-		signaled = START;
-		break;
-	case SIGINT:
-	        signaled = STOP;
-		break;
-	case SIGTERM:
-		signaled = REBOOT;
-		break;
-	case SIGQUIT:
-		signaled = HALT;
-		break;
-	}
+	if (getpid() == 1) raise(SIGALRM);
 }
 
 static int check_nv(const char *name, const char *value)
@@ -1121,6 +1094,7 @@ static inline void tune_min_free_kbytes(void)
 
 static void sysinit(void)
 {
+	static int noconsole = 0;
 	static const time_t tm = 0;
 	int hardware;
 	int i;
@@ -1229,9 +1203,6 @@ static void sysinit(void)
 	for (i = 0; i < sizeof(fatalsigs) / sizeof(fatalsigs[0]); i++) {
 		signal(fatalsigs[i], handle_fatalsigs);
 	}
-	for (i = 0; i < sizeof(initsigs) / sizeof(initsigs[0]); i++) {
-		signal(initsigs[i], handle_initsigs);
-	}
 	signal(SIGCHLD, handle_reap);
 
 	switch (model = get_model()) {
@@ -1294,6 +1265,8 @@ static void sysinit(void)
 
 	eval("buttons");
 
+	if (!noconsole) xstart("console");
+
 	i = nvram_get_int("sesx_led");
 	led(LED_AMBER, (i & 1) != 0);
 	led(LED_WHITE, (i & 2) != 0);
@@ -1304,14 +1277,16 @@ static void sysinit(void)
 
 int init_main(int argc, char *argv[])
 {
-	pid_t shell_pid = 0;
+	int state, i;
 	sigset_t sigset;
 
 	sysinit();
 
 	sigemptyset(&sigset);
-	state = START;
-	signaled = -1;
+	for (i = 0; i < sizeof(initsigs) / sizeof(initsigs[0]); i++) {
+		sigaddset(&sigset, initsigs[i]);
+	}
+	sigprocmask(SIG_BLOCK, &sigset, NULL);
 
 #if defined(DEBUG_NOISY)
 	nvram_set("debug_logeval", "1");
@@ -1320,18 +1295,20 @@ int init_main(int argc, char *argv[])
 	nvram_set("debug_ddns", "1");
 #endif
 
+	state = SIGUSR2;	/* START */
+
 	for (;;) {
-		TRACE_PT("main loop state=%d\n", state);
+		TRACE_PT("main loop signal/state=%d\n", state);
 
 		switch (state) {
-		case USER1:
+		case SIGUSR1:		/* USER1: service handler */
 			exec_service();
-			state = IDLE;
 			break;
-		case RESTART:
-		case STOP:
-		case HALT:
-		case REBOOT:
+
+		case SIGHUP:		/* RESTART */
+		case SIGINT:		/* STOP */
+		case SIGQUIT:		/* HALT */
+		case SIGTERM:		/* REBOOT */
 			led(LED_DIAG, 1);
 			unlink("/var/notice/sysup");
 
@@ -1343,21 +1320,21 @@ int init_main(int argc, char *argv[])
 			stop_vlan();
 			stop_syslog();
 
-			if ((state == REBOOT) || (state == HALT)) {
+			if ((state == SIGTERM /* REBOOT */) ||
+			    (state == SIGQUIT /* HALT */)) {
 				remove_storage_main(1);
 				stop_usb();
 
-				shutdn(state == REBOOT);
+				shutdn(state == SIGTERM /* REBOOT */);
 				exit(0);
 			}
-			if (state == STOP) {
-				state = IDLE;
+			if (state == SIGINT /* STOP */) {
 				break;
 			}
 
-			// RESTART falls through
+			// SIGHUP (RESTART) falls through
 
-		case START:
+		case SIGUSR2:		/* START */
 			SET_LED(RELEASE_WAN_CONTROL);
 			start_syslog();
 
@@ -1378,7 +1355,8 @@ int init_main(int argc, char *argv[])
 			 * remount those drives that actually got unmounted. Make sure to remount ALL
 			 * partitions here by simulating hotplug event.
 			 */
-			if (state == RESTART) add_remove_usbhost("-1", 1);
+			if (state == SIGHUP /* RESTART */)
+				add_remove_usbhost("-1", 1);
 #endif
 
 			create_passwd();
@@ -1402,26 +1380,14 @@ int init_main(int argc, char *argv[])
 
 			led(LED_DIAG, 0);
 			notice_set("sysup", "");
-
-			state = IDLE;
-
-			// fall through
-
-		case IDLE:
-			while (signaled == -1) {
-				check_services();
-				if ((!noconsole) && ((!shell_pid) || (kill(shell_pid, 0) != 0))) {
-					shell_pid = run_shell(0, 1);
-				}
-				else {
-					sigsuspend(&sigset);
-				}
-			}
-			state = signaled;
-			signaled = -1;
 			break;
 		}
+
+		check_services();
+		sigwait(&sigset, &state);
 	}
+
+	return 0;
 }
 
 int reboothalt_main(int argc, char *argv[])

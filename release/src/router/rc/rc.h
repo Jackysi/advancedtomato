@@ -92,6 +92,7 @@ typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 extern void handle_reap(int sig);
 extern int init_main(int argc, char *argv[]);
 extern int reboothalt_main(int argc, char *argv[]);
+extern int console_main(int argc, char *argv[]);
 
 // interface.c
 extern int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);

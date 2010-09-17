@@ -48,6 +48,9 @@
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+// Pop an alarm to recheck pids in 500 msec
+static const struct itimerval pop_tv = { {0,0}, {0, 500 * 1000} };
+
 // -----------------------------------------------------------------------------
 
 static const char dmhosts[] = "/etc/hosts.dnsmasq";
@@ -1475,6 +1478,9 @@ static void _check(pid_t pid, const char *name, void (*func)(void))
 
 	syslog(LOG_DEBUG, "%s terminated unexpectedly, restarting.\n", name);
 	func();
+
+	// Force recheck in 500 msec
+	setitimer(ITIMER_REAL, &pop_tv, NULL);
 }
 
 void check_services(void)
@@ -1936,6 +1942,9 @@ CLEAR:
 
 	// some functions check action_service and must be cleared at end	-- zzz
 	nvram_set("action_service", "");
+
+	// Force recheck in 500 msec
+	setitimer(ITIMER_REAL, &pop_tv, NULL);
 }
 
 static void do_service(const char *name, const char *action, int user)
