@@ -123,8 +123,9 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = ses_pushed = 1 << 7;
 		break;		
 	case MODEL_DIR320:
+	case MODEL_H618B:
 		reset_mask = 1 << 7;
-		ses_mask = 1 << 6;
+		ses_mask = 1 << 6;	// WLAN button on H618B
 		break;		
 	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:

@@ -418,6 +418,10 @@ static void check_bootnv(void)
 		if ((strlen(nvram_safe_get("vlan1ports")) == 0) || nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
+	case MODEL_H618B:
+		if ((strlen(nvram_safe_get("vlan1ports")) == 0) || nvram_match("vlan1ports", "0 5u"))
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
@@ -975,6 +979,11 @@ static int init_nvram(void)
 			nvram_set("wl0gpio2", "0");
 			nvram_set("wl0gpio3", "0");
 		}
+		break;
+	case MODEL_H618B:
+		mfr = "ZTE";
+		name = "ZXV10 H618B";
+		features = SUP_SES | SUP_AOSS_LED;
 		break;
 #endif	// WL_BSS_INFO_VERSION >= 108
 #if TOMATO_N
