@@ -16,6 +16,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#define SCSI_SG
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +27,9 @@
 #include <sys/stat.h>
 #include <linux/major.h>
 #include <linux/kdev_t.h>
+#include <scsi/scsi.h>
 #include <scsi/scsi_ioctl.h>
+#include <scsi/sg.h>
 
 #ifdef SCSI_DISK0_MAJOR
 #define IS_SCSI_DISK(rdev)	SCSI_DISK_MAJOR(MAJOR(rdev))
@@ -53,13 +57,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s the device's motor\n", mode?"Starts":"Stops");
 		exit(1);
 	}
-	if ((fd = open(argv[1], O_RDWR)) < 0) {
+	if ((stat(argv[1], &statbuf)) < 0) {
 		perror(argv[1]);
 		exit(1);
 	}
-	if ((fstat(fd, &statbuf)) < 0) {
+	if ((fd = open(argv[1], O_RDWR)) < 0) {
 		perror(argv[1]);
-		close(fd);
 		exit(1);
 	}
 	if (!S_ISBLK(statbuf.st_mode)
@@ -69,7 +72,22 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+#ifdef SCSI_SG
+	char sg_command[] = { START_STOP, 0, 0, 0, 0 /* mode */, 0 };
+	sg_io_hdr_t io_hdr;
+
+	sg_command[4] = (char)mode;
+	memset(&io_hdr, 0, sizeof(io_hdr));
+	io_hdr.interface_id = 'S';
+	io_hdr.dxfer_direction = SG_DXFER_NONE;
+	io_hdr.cmd_len = sizeof(sg_command);
+	io_hdr.cmdp = sg_command;
+	io_hdr.timeout = 60 * 1000; /* 1 min */
+
+	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
+#else
 	if (ioctl(fd, mode?SCSI_IOCTL_START_UNIT:SCSI_IOCTL_STOP_UNIT) < 0) {
+#endif
 		perror(argv[1]);
 		close(fd);
 		exit(1);
