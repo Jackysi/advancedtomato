@@ -355,7 +355,7 @@ void start_lan(void)
 	set_lan_hostname(nvram_safe_get("wan_hostname"));
 #endif
 
-	if (nvram_match("wan_proto", "disabled")) {
+	if (get_wan_proto() == WP_DISABLED) {
 		char *gateway = nvram_safe_get("lan_gateway") ;
 		if ((*gateway) && (strcmp(gateway, "0.0.0.0") != 0)) {
 			int tries = 5;

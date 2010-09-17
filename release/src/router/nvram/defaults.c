@@ -272,7 +272,7 @@ const defaults_t defaults[] = {
 #endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
-	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
+	{ "ppp_get_ip",			""				},	// IP Address assigned by PPTP/L2TP server
 	{ "pptp_dhcp",			"1"				},
 
 	// for firewall
@@ -280,7 +280,6 @@ const defaults_t defaults[] = {
 	{ "wan_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 
 	{ "l2tp_server_ip",		""				},	// L2TP auth server (IP Address)
-	{ "l2tp_get_ip",		""				},	// IP Address assigned by L2TP server
 	{ "wan_gateway_buf",	"0.0.0.0"		},	// save the default gateway for DHCP
 //	hbobs	{ "hb_server_ip",		""				},	// heartbeat auth server (IP Address)
 //	hbobs	{ "hb_server_domain",	""				},	// heartbeat auth server (domain name)

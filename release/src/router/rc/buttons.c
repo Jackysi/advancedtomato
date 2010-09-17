@@ -10,14 +10,7 @@
 #include <wlutils.h>
 #include <wlioctl.h>
 
-#if 0 // TOMATO_N
-#include <linux_gpio.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#endif
-
 //	#define DEBUG_TEST
-
 
 static int gf;
 
@@ -201,11 +194,7 @@ int buttons_main(int argc, char *argv[])
 
 	signal(SIGCHLD, handle_reap);
 
-#if 0 // TOMATO_N
-	// !
-#else
 	if ((gf = gpio_open(mask)) < 0) return 1;
-#endif
 
 	last = 0;
 	brau_count_stable = 0;

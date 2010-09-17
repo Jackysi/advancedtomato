@@ -220,17 +220,17 @@ static void shutdn(int rb)
 
 	for (i = 30; i > 0; --i) {
 		if (((act = check_action()) == ACT_IDLE) || (act == ACT_REBOOT)) break;
-		cprintf("Busy with %d. Waiting before shutdown... %d\n", act, i);
+		_dprintf("Busy with %d. Waiting before shutdown... %d\n", act, i);
 		sleep(1);
 	}
 	set_action(ACT_REBOOT);
 
-	cprintf("TERM\n");
+	_dprintf("TERM\n");
 	kill(-1, SIGTERM);
 	sleep(2);
 	sync();
 
-	cprintf("KILL\n");
+	_dprintf("KILL\n");
 	kill(-1, SIGKILL);
 	sleep(1);
 	sync();
@@ -303,7 +303,7 @@ static int check_nv(const char *name, const char *value)
 	const char *p;
 	if (!nvram_match("manual_boot_nv", "1")) {
 		if (((p = nvram_get(name)) == NULL) || (strcmp(p, value) != 0)) {
-//			cprintf("Error: Critical variable %s is invalid. Resetting.\n", name);
+			_dprintf("Error: Critical variable %s is invalid. Resetting.\n", name);
 			nvram_set(name, value);
 			return 1;
 		}
@@ -497,7 +497,7 @@ static void check_bootnv(void)
 		!nvram_get("scratch") ||
 		!nvram_get("et0macaddr") ||
 		((hardware != HW_BCM4704_BCM5325F) && (!nvram_get("vlan0ports") || !nvram_get("vlan0hwname")))) {
-			cprintf("Unable to find critical settings, erasing NVRAM\n");
+			_dprintf("Unable to find critical settings, erasing NVRAM\n");
 			mtd_erase("nvram");
 			goto REBOOT;
 	}
@@ -1321,7 +1321,7 @@ int init_main(int argc, char *argv[])
 #endif
 
 	for (;;) {
-//		TRACE_PT("main loop state=%d\n", state);
+		TRACE_PT("main loop state=%d\n", state);
 
 		switch (state) {
 		case USER1:
@@ -1398,7 +1398,7 @@ int init_main(int argc, char *argv[])
 			}
 #endif
 
-			syslog(LOG_INFO, "Tomato %s: %s", tomato_version, nvram_safe_get("t_model_name"));
+			syslog(LOG_INFO, "%s: Tomato %s", nvram_safe_get("t_model_name"), tomato_version);
 
 			led(LED_DIAG, 0);
 			notice_set("sysup", "");

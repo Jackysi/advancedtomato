@@ -46,6 +46,7 @@
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+static const char ppp_linkfile[] = "/tmp/ppp/link";
 
 static void make_secrets(void)
 {
@@ -68,97 +69,124 @@ static void make_secrets(void)
 	chmod("/tmp/ppp/chap-secrets", 0600);
 }
 
-
 // -----------------------------------------------------------------------------
 
-int start_pptp(int mode)
+static int config_pppd(int wan_proto)
 {
 	TRACE_PT("begin\n");
 
 	FILE *fp;
-	char username[80];
-	char passwd[80];
-	int use_dhcp;
 
-	use_dhcp = nvram_get_int("pptp_dhcp");
-	if (!use_dhcp) stop_dhcpc();
-	stop_pppoe();
+	mkdir("/tmp/ppp", 0777);
+	symlink("/sbin/rc", "/tmp/ppp/ip-up");
+	symlink("/sbin/rc", "/tmp/ppp/ip-down");
+	symlink("/dev/null", "/tmp/ppp/connect-errors");
 
-	strlcpy(username, nvram_safe_get("ppp_username"), sizeof(username));
-	strlcpy(passwd, nvram_safe_get("ppp_passwd"), sizeof(passwd));
-
-	if (mode != REDIAL) {
-		mkdir("/tmp/ppp", 0777);
-		symlink("/sbin/rc", "/tmp/ppp/ip-up");
-		symlink("/sbin/rc", "/tmp/ppp/ip-down");
-		symlink("/dev/null", "/tmp/ppp/connect-errors");
-
-		// Generate options file
-		if ((fp = fopen("/tmp/ppp/options", "w")) == NULL) {
-			perror("/tmp/ppp/options");
-			return -1;
-		}
-		
-		fprintf(fp, "defaultroute\n");		// Add a default route to the system routing tables, using the peer as the gateway
-		fprintf(fp, "usepeerdns\n");		// Ask the peer for up to 2 DNS server addresses
-		//fprintf(fp, "pty 'pptp %s --nolaunchpppd'\n", nvram_safe_get("pptp_server_ip"));
-		fprintf(fp, "plugin pptp.so\n");
-		fprintf(fp, "pptp_server %s\n", nvram_safe_get("pptp_server_ip"));
-		//fprintf(fp, "nomppe-stateful\n");
-		fprintf(fp, "user '%s'\n", username);
-		fprintf(fp, "persist\n");			// Do not exit after a connection is terminated.
-
-		fprintf(fp, "mtu %d\n", nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
-
-		if (nvram_match("ppp_demand", "1")) {
-			//demand mode
-			fprintf(fp, "idle %d\n", nvram_get_int("ppp_idletime") * 60);
-			fprintf(fp, "demand\n");				// Dial on demand
-			//43011: fprintf(fp, "%s:%s\n", PPP_PSEUDO_IP, PPP_PSEUDO_GW);	// <local IP>:<remote IP>
-			fprintf(fp, "ipcp-accept-remote\n");
-			fprintf(fp, "ipcp-accept-local\n");
-			fprintf(fp, "connect true\n");
-			fprintf(fp, "noipdefault\n");			// Disables  the  default  behaviour when no local IP address is specified
-			fprintf(fp, "ktune\n");					// Set /proc/sys/net/ipv4/ip_dynaddr to 1 in demand mode if the local address changes
-		}
-		else {
-			// keepalive mode
-			start_redial();
-		}
-
-		fprintf(fp, "default-asyncmap\n");			// Disable  asyncmap  negotiation
-		fprintf(fp, "nopcomp\n");				// Disable protocol field compression
-		fprintf(fp, "noaccomp\n");				// Disable Address/Control compression
-		fprintf(fp, "noccp\n");					// Disable CCP (Compression Control Protocol)
-		fprintf(fp, "novj\n");					// Disable Van Jacobson style TCP/IP header compression
-		fprintf(fp, "nobsdcomp\n");				// Disables BSD-Compress  compression
-		fprintf(fp, "nodeflate\n");				// Disables Deflate compression
-		fprintf(fp, "lcp-echo-interval %d\n", nvram_get_int("pppoe_lei") ? : 10);
-		fprintf(fp, "lcp-echo-failure %d\n", nvram_get_int("pppoe_lef") ? : 5);
-		//fprintf(fp, "lock\n");
-		fprintf(fp, "noauth refuse-eap\n");
-		
-		if (nvram_match("debug_pppd", "1")) {
-			fprintf(fp, "debug\n");
-		}
-		// user specific options
-		fprintf(fp, "%s\n", nvram_safe_get("ppp_custom"));
-		
-		fclose(fp);
-
-		make_secrets();
+	// Generate options file
+	if ((fp = fopen("/tmp/ppp/options", "w")) == NULL) {
+		perror("/tmp/ppp/options");
+		return -1;
 	}
 
-	if (!use_dhcp) {
+	fprintf(fp,
+		"defaultroute\n"	// Add a default route to the system routing tables, using the peer as the gateway
+		"usepeerdns\n"		// Ask the peer for up to 2 DNS server addresses
+		"user '%s'\n"
+		"default-asyncmap\n"	// Disable  asyncmap  negotiation
+		"nopcomp\n"		// Disable protocol field compression
+		"noaccomp\n"		// Disable Address/Control compression
+		"noccp\n"		// Disable CCP (Compression Control Protocol)
+		"novj\n"		// Disable Van Jacobson style TCP/IP header compression
+		"nobsdcomp\n"		// Disable BSD-Compress  compression
+		"nodeflate\n"		// Disable Deflate compression
+		"noauth\n"
+		"maxfail 0\n"
+		"lcp-echo-interval %d\n"
+		"lcp-echo-failure %d\n"
+		"%s"			// Debug
+		"%s\n",			// User specific options
+		nvram_safe_get("ppp_username"),
+		nvram_get_int("pppoe_lei") ? : 10,
+		nvram_get_int("pppoe_lef") ? : 5,
+		nvram_get_int("debug_ppp") ? "debug\n" : "",
+		nvram_safe_get("ppp_custom"));
+
+	if (wan_proto != WP_L2TP)
+		fprintf(fp, "persist\n");
+
+	switch (wan_proto) {
+	case WP_PPTP:
+		fprintf(fp,
+			"plugin pptp.so\n"
+			"pptp_server %s\n"
+			"mtu %d\n"
+			"refuse-eap\n",
+			nvram_safe_get("pptp_server_ip"),
+			nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
+		break;
+	default: // l2tp, pppoe
+		if (nvram_get_int("mtu_enable"))
+			fprintf(fp, "mtu %s\n", nvram_safe_get("wan_mtu"));
+		break;
+	}
+
+	if (nvram_match("ppp_demand", "1")) {
+		// demand mode
+		fprintf(fp,
+			"demand\n"		// Dial on demand
+			"idle %d\n"
+			"ipcp-accept-remote\n"
+			"ipcp-accept-local\n"
+			"connect true\n"
+			"noipdefault\n"		// Disables  the  default  behaviour when no local IP address is specified
+			"ktune\n",		// Set /proc/sys/net/ipv4/ip_dynaddr to 1 in demand mode if the local address changes
+			nvram_get_int("ppp_idletime") * 60);
+	}
+
+	fclose(fp);
+	make_secrets();
+
+	TRACE_PT("end\n");
+	return 0;
+}
+
+static void stop_ppp(void)
+{
+	TRACE_PT("begin\n");
+
+	unlink(ppp_linkfile);
+
+	while ((killall("pppd", SIGKILL) == 0) ||
+	       (killall("l2tpd", SIGKILL) == 0) ||
+	       (killall("listen", SIGKILL) == 0)) {
+		sleep(1);
+	}
+
+	TRACE_PT("end\n");
+}
+
+// -----------------------------------------------------------------------------
+
+void start_pptp(int mode)
+{
+	TRACE_PT("begin\n");
+
+	if (!using_dhcpc()) stop_dhcpc();
+	stop_pppoe();
+
+	if (config_pppd(WP_PPTP) != 0)
+		return;
+
+	if (!using_dhcpc()) {
 		// Bring up  WAN interface
 		ifconfig(nvram_safe_get("wan_ifname"), IFUP,
 			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 	}
 
-	xstart("pppd");
+	eval("pppd");
 
-	if (nvram_match("ppp_demand", "1")) {
-#if 1	// 43011: added by crazy 20070720
+	if (nvram_get_int("ppp_demand")) {
+		// demand mode
 		/*
 		   Fixed issue id 7887(or 7787):
 		   When DUT is PPTP Connect on Demand mode, it couldn't be trigger from LAN.
@@ -166,30 +194,22 @@ int start_pptp(int mode)
 		stop_dnsmasq();
 		dns_to_resolv();
 		start_dnsmasq();
-#endif
-	
+
 		// Trigger Connect On Demand if user ping pptp server
-		xstart("listen", nvram_safe_get("lan_ifname"));
+		eval("listen", nvram_safe_get("lan_ifname"));
+	}
+	else {
+		// keepalive mode
+		start_redial();
 	}
 
 	TRACE_PT("end\n");
-	return 0;
 }
 
-int stop_pptp(void)
+inline void stop_pptp(void)
 {
-	TRACE_PT("begin\n");
-
-	unlink("/tmp/ppp/link");
-
-	while ((killall("pppd", SIGKILL) == 0) || (killall("pptp", SIGKILL) == 0) || (killall("listen", SIGKILL) == 0)) {
-		sleep(1);
-	}
-
-	TRACE_PT("end\n");
-	return 0;
+	stop_ppp();
 }
-
 
 // -----------------------------------------------------------------------------
 
@@ -283,12 +303,12 @@ void start_pppoe(int num)
 			"-p", nvram_safe_get("ppp_passwd"),
 			"-r", mtu,
 			"-t", mtu,
-			"-i", idle,					// >0 == dial on demand
+			"-i", idle,			// >0 == dial on demand
 			"-I", lcp_echo_interval,	// Send an LCP echo-request frame to the server every X seconds
-			"-N", retry,				// To avoid kill pppd when pppd has been connecting.
+			"-N", retry,			// To avoid kill pppd when pppd has been connecting.
 			"-T", lcp_echo_fails,		// pppd will presume the server to be dead if 3 LCP echo-requests are sent without receiving a valid LCP echo-reply
-			"-P", "0",					// PPPOE session number.
-			"-C", "pppoe_down",			// by tallest 0407
+			"-P", "0",			// PPPOE session number.
+			"-C", "pppoe_down",		// by tallest 0407
 			"-R",			// set default route
 			NULL,			// debug
 			NULL, NULL,		// pppoe_service
@@ -305,7 +325,7 @@ void start_pppoe(int num)
 		//
 	}
 
-	if (nvram_match("debug_pppoe", "1")) {
+	if (nvram_get_int("debug_ppp")) {
 		*arg++ = "-d";		// debug mode; compile ppp w/ -DDEBUG	!
 	}		
 
@@ -342,9 +362,8 @@ void start_pppoe(int num)
 
 	_eval(pppoe_argv, NULL, 0, &pid);
 
-	if (dod) {
-		start_tmp_ppp(num);
-	}
+	if (dod) start_tmp_ppp(num);
+
 	TRACE_PT("end\n");
 }
 
@@ -352,7 +371,7 @@ void stop_pppoe(void)
 {
 	_dprintf("%s\n", __FUNCTION__);
 
-	unlink("/tmp/ppp/link");
+	unlink(ppp_linkfile);
 	nvram_unset("pppoe_ifname0");
 	killall_tk("pppoecd");
 	killall_tk("ip-up");
@@ -374,7 +393,7 @@ void stop_singe_pppoe(int num)
 		} while (kill(i, SIGKILL) == 0);
 	}
 
-	unlink("/tmp/ppp/link");
+	unlink(ppp_linkfile);
 	nvram_unset("pppoe_ifname0");
 
 	nvram_set("wan_get_dns", "");
@@ -388,132 +407,54 @@ void start_l2tp(void)
 {
 	TRACE_PT("begin\n");
 
-	pid_t pid;
 	FILE *fp;
-	char *l2tp_argv[] = { "l2tpd", NULL };
-	char l2tpctrl[64];
-	char username[80];
-	char passwd[80];
 	struct in_addr l2tp_server_ip;
-	int is_ip;
 
 	stop_pppoe();
-	stop_pptp();
 
-	snprintf(username, sizeof(username), "%s", nvram_safe_get("ppp_username"));
-	snprintf(passwd, sizeof(passwd), "%s", nvram_safe_get("ppp_passwd"));
-
-	is_ip = inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip);
-
-	mkdir("/tmp/ppp", 0777);
-	symlink("/sbin/rc", "/tmp/ppp/ip-up");
-	symlink("/sbin/rc", "/tmp/ppp/ip-down");
-	symlink("/dev/null", "/tmp/ppp/connect-errors");
+	if (config_pppd(WP_L2TP) != 0)
+		return;
 
 	/* Generate L2TP configuration file */
-	if ((fp = fopen("/tmp/l2tp.conf", "w")) == NULL) {
+	if ((fp = fopen("/tmp/l2tp.conf", "w")) == NULL)
 		return;
-	}
-	fprintf(fp, "global\n");				// Global section
-	fprintf(fp, "load-handler \"sync-pppd.so\"\n");	// Load handlers
-	fprintf(fp, "load-handler \"cmd.so\"\n");
-	fprintf(fp, "listen-port 1701\n");		// Bind address
-	fprintf(fp, "section sync-pppd\n");		// Configure the sync-pppd handler
-	fprintf(fp, "section peer\n");			// Peer section
-	fprintf(fp, "peer%s %s\n", (is_ip) ? "" : "name", nvram_safe_get("l2tp_server_ip"));
-	fprintf(fp, "port 1701\n");
-	fprintf(fp, "lac-handler sync-pppd\n");
-	fprintf(fp, "persist yes\n");
-	fprintf(fp, "maxfail 32767\n");
-	fprintf(fp, "holdoff %d\n", nvram_get_int("ppp_redialperiod") ? : 30);
-	fprintf(fp, "section cmd\n");			// Configure the cmd handler
+	fprintf(fp,
+		"global\n"				// Global section
+		"load-handler \"sync-pppd.so\"\n"	// Load handlers
+		"load-handler \"cmd.so\"\n"
+		"listen-port 1701\n"			// Bind address
+		"section sync-pppd\n"			// Configure the sync-pppd handler
+		"section peer\n"			// Peer section
+		"peer%s %s\n"
+		"port 1701\n"
+		"lac-handler sync-pppd\n"
+		"persist yes\n"
+		"maxfail 32767\n"
+		"holdoff %d\n"
+		"section cmd\n",			// Configure the cmd handler
+		(inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip)) ? "" : "name",
+		nvram_safe_get("l2tp_server_ip"),
+		nvram_get_int("ppp_redialperiod") ? : 30);
 	fclose(fp);
 
-	/* Generate options file */
-	if ((fp = fopen("/tmp/ppp/options", "w")) == NULL) {
-		return;
-	}
-	fprintf(fp, "defaultroute\n");			// Add a default route to the system routing tables, using the peer as the gateway
-	fprintf(fp, "usepeerdns\n");			// Ask the peer for up to 2 DNS server addresses
-	//fprintf(fp, "pty 'pptp %s --nolaunchpppd'\n",nvram_safe_get("pptp_server_ip"));
-	fprintf(fp, "user '%s'\n", username);
-
-	if (nvram_get_int("mtu_enable")) fprintf(fp, "mtu %s\n", nvram_safe_get("wan_mtu"));
-
-	if (nvram_match("ppp_demand", "1")){	// demand mode
-		fprintf(fp, "idle %d\n", nvram_get_int("ppp_idletime") * 60);
-		//fprintf(fp, "demand\n");			// Dial on demand
-		//fprintf(fp, "%s:%s\n",PPP_PSEUDO_IP,PPP_PSEUDO_GW);   // <local IP>:<remote IP>
-		fprintf(fp, "ipcp-accept-remote\n");
-		fprintf(fp, "ipcp-accept-local\n");
-		fprintf(fp, "connect true\n");
-		fprintf(fp, "noipdefault\n");		// Disables  the  default  behaviour when no local IP address is specified
-		fprintf(fp, "ktune\n");				// Set /proc/sys/net/ipv4/ip_dynaddr to 1 in demand mode if the local address changes
-	}
-	else{	// keepalive mode
-		if (nvram_match("l2tp_test", "1")) {
-			fprintf(fp, "idle %d\n", 0);
-			fprintf(fp, "ipcp-accept-remote\n");
-			fprintf(fp, "ipcp-accept-local\n");
-			fprintf(fp, "connect true\n");
-			fprintf(fp, "noipdefault\n");		// Disables  the  default  behaviour when no local IP address is specified
-		}
-	}
-
-	fprintf(fp, "default-asyncmap\n");		// Disable  asyncmap  negotiation
-	fprintf(fp, "nopcomp\n");				// Disable protocol field compression
-	fprintf(fp, "noaccomp\n");				// Disable Address/Control compression
-	fprintf(fp, "noccp\n");					// Disable CCP (Compression Control Protocol)
-	fprintf(fp, "novj\n");					// Disable Van Jacobson style TCP/IP header compression
-	fprintf(fp, "nobsdcomp\n");				// Disable BSD-Compress  compression
-	fprintf(fp, "nodeflate\n");				// Disable Deflate compression
-	fprintf(fp, "lcp-echo-interval %d\n", nvram_get_int("pppoe_lei") ? : 10);
-	fprintf(fp, "lcp-echo-failure %d\n", nvram_get_int("pppoe_lef") ? : 5);
-	fprintf(fp, "lock\n");
-	fprintf(fp, "noauth\n");
-
-	if (nvram_match("debug_pppd", "1")) {
-		fprintf(fp, "debug\n");
-	}
-	// user specific options
-	fprintf(fp, "%s\n", nvram_safe_get("ppp_custom"));
-	fclose(fp);
-
-	make_secrets();
 	enable_ip_forward();
 
-	/* Bring up  WAN interface */
-	//ifconfig(nvram_safe_get("wan_ifname"), IFUP,
-	//	 nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
-
-	_eval(l2tp_argv, NULL, 0, &pid);
-	sleep(1);
+	eval("l2tpd");
 
 	if (nvram_match("ppp_demand", "1")) {
-		xstart("listen", nvram_safe_get("lan_ifname"));
+		eval("listen", nvram_safe_get("lan_ifname"));
 	}
 	else {
-		snprintf(l2tpctrl, sizeof(l2tpctrl), "l2tp-control \"start-session %s\"",
-			(is_ip) ? nvram_safe_get("l2tp_server_ip") : "0.0.0.0");
-		system(l2tpctrl);
-		_dprintf("%s\n", l2tpctrl);
-
+		force_to_dial();
 		start_redial();
 	}
 
 	TRACE_PT("end\n");
 }
 
-void stop_l2tp(void)
+inline void stop_l2tp(void)
 {
-	TRACE_PT("begin\n");
-
-	unlink("/tmp/ppp/link");
-	while ((killall("pppd", SIGKILL) == 0) || (killall("l2tpd", SIGKILL) == 0) || (killall("listen", SIGKILL) == 0)) {
-		sleep(1);
-	}
-
-	TRACE_PT("end\n");
+	stop_ppp();
 }
 
 // -----------------------------------------------------------------------------
@@ -529,11 +470,10 @@ void force_to_dial(void)
 	sleep(1);
 	switch (get_wan_proto()) {
 	case WP_L2TP:
-		snprintf(s, sizeof(s), "l2tp-control \"start-session %s\"",
+		snprintf(s, sizeof(s), "start-session %s",
 			inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip) ?
 			nvram_safe_get("l2tp_server_ip") : "0.0.0.0");
-		system(s);
-		_dprintf("%s\n", s);
+		eval("l2tp-control", s);
 		break;
 	case WP_PPTP:
 		eval("ping", "-c", "2", "10.112.112.112");
@@ -706,15 +646,14 @@ void start_wan(int mode)
 		break;
 	case WP_DHCP:
 	case WP_L2TP:
-		stop_dhcpc();
-		start_dhcpc();
-		break;
 	case WP_PPTP:
-		if (nvram_get_int("pptp_dhcp")) {
+		if (using_dhcpc()) {
 			stop_dhcpc();
 			start_dhcpc();
 		}
-		else start_pptp(mode);
+		else if (wan_proto == WP_PPTP) {
+			start_pptp(mode);
+		}
 		break;
 	default:	// static
 		nvram_set("wan_iface", wan_ifname);
@@ -784,7 +723,7 @@ void start_wan_done(char *wan_ifname)
 
 	if (proto != WP_DISABLED) {
 		// set default route to gateway if specified
-		gw = (proto == WP_PPTP) ? nvram_safe_get("pptp_get_ip") : nvram_safe_get("wan_gateway");
+		gw = (proto == WP_PPTP) ? nvram_safe_get("ppp_get_ip") : nvram_safe_get("wan_gateway");
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
 			if (proto == WP_DHCP || proto == WP_STATIC) {
 				// possibly gateway is over the bridge, try adding a route to gateway first
@@ -808,7 +747,7 @@ void start_wan_done(char *wan_ifname)
 #ifdef THREE_ARP_GRATUATOUS_SUPPORT	// from 43011; checkme; commented-out	-- zzz
 /*
 		// 43011: Alpha add to send Gratuitous ARP when wan_proto is Static IP 2007-04-09
-		if(nvram_match("wan_proto", "static")) 
+		if (proto == WP_STATIC)
 		{
 			int ifindex;
 			u_int32_t wan_ip;
@@ -819,17 +758,16 @@ void start_wan_done(char *wan_ifname)
 		}
 */
 #endif
-		
 
 		if (proto == WP_PPTP) {
-			// For PPTP protocol, we must use pptp_get_ip as gateway, not pptp_server_ip
+			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip
 			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");
 			// route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("pptp_server_ip"), NULL, "255.255.255.255");
-			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("pptp_get_ip"), NULL, "255.255.255.255");
+			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("ppp_get_ip"), NULL, "255.255.255.255");
 		}
 		else if (proto == WP_L2TP) {
 			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");
-			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("l2tp_get_ip"), NULL, "255.255.255.255");
+			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("ppp_get_ip"), NULL, "255.255.255.255");
 			
 #if 1		// 43011: add by crazy 20070803
 			/*
@@ -928,9 +866,8 @@ void stop_wan(void)
 	/* Kill any WAN client daemons or callbacks */
 	stop_singe_pppoe(PPPOE0);
 	stop_pppoe();
-	stop_l2tp();
+	stop_ppp();
 	stop_dhcpc();
-	stop_pptp();
 	stop_redial();
 	nvram_set("wan_get_dns", "");
 

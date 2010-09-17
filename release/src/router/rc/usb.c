@@ -59,6 +59,25 @@ void tune_bdflush(void)
 #define USBFS		"usbdevfs"
 #endif
 
+static int p9100d_sig(int sig)
+{
+	const char p910pid[] = "/var/run/p9100d.pid";
+	char s[32];
+	int pid;
+
+	if (f_read_string(p910pid, s, sizeof(s)) > 0) {
+		if ((pid = atoi(s)) > 1) {
+			if (kill(pid, sig) == 0) {
+				if (sig == SIGTERM) {
+					sleep(1);
+					unlink(p910pid);
+				}
+				return 0;
+			}
+		}
+	}
+	return -1;
+}
 
 void start_usb(void)
 {
@@ -121,12 +140,14 @@ void start_usb(void)
 			symlink("/dev/usb", "/dev/printers");
 			modprobe(USBPRINTER_MOD);
 
-			/* start printer server */
-			xstart("p910nd",
+			/* start printer server only if not already running */
+			if (p9100d_sig(0) != 0) {
+				eval("p910nd",
 				nvram_get_int("usb_printer_bidirect") ? "-b" : "", //bidirectional
 				"-f", "/dev/usb/lp0", // device
 				"0" // listen port
-			);
+				);
+			}
 		}
 	}
 	else {
@@ -136,19 +157,8 @@ void start_usb(void)
 
 void stop_usb(void)
 {
-	// stop printing service
-	int i;
-	char s[32];
-	char pid[] = "/var/run/p9100d.pid";
-
 	// only find and kill the printer server we started (port 0)
-	if (f_read_string(pid, s, sizeof(s)) > 0) {
-		if ((i = atoi(s)) > 1) {
-			kill(i, SIGTERM);
-			sleep(1);
-			unlink(pid);
-		}
-	}
+	p9100d_sig(SIGTERM);
 	modprobe_r(USBPRINTER_MOD);
 
 	// only stop storage services if disabled

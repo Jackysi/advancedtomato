@@ -341,9 +341,14 @@ void dns_to_resolv(void)
 			dns = get_dns();	// static buffer
 			if (dns->count == 0) {
 				// Put a pseudo DNS IP to trigger Connect On Demand
-				if ((nvram_match("ppp_demand", "1")) &&
-					(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
-					fprintf(f, "nameserver 1.1.1.1\n");
+				if (nvram_match("ppp_demand", "1")) {
+					switch (get_wan_proto()) {
+					case WP_PPPOE:
+					case WP_PPTP:
+					case WP_L2TP:
+						fprintf(f, "nameserver 1.1.1.1\n");
+						break;
+					}
 				}
 			}
 			else {
@@ -1474,6 +1479,7 @@ static void _check(pid_t pid, const char *name, void (*func)(void))
 
 void check_services(void)
 {
+	TRACE_PT("keep alive\n");
 #ifdef LINUX26
 	_check(pid_hotplug2, "hotplug2", start_hotplug2);
 #endif

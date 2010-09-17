@@ -101,11 +101,11 @@ static int crc_init(void)
 	return 1;
 }
 
-static uint32 crc_calc(uint32 crc, void *buf, int len)
+static uint32 crc_calc(uint32 crc, char *buf, int len)
 {
 	while (len-- > 0) {
 		crc = crc_table[(crc ^ *((char *)buf)) & 0xFF] ^ (crc >> 8);
-		(char *)buf++;
+		buf++;
 	}
 	return crc;
 }
@@ -388,7 +388,7 @@ int mtd_write_main(int argc, char *argv[])
 		error = "Not enough memory";
 		goto ERROR;
 	}
-	crc = crc_calc(0xFFFFFFFF, (uint8*)&trx.flag_version, sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version));
+	crc = crc_calc(0xFFFFFFFF, (char *)&trx.flag_version, sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version));
 
 	if (trx.flag_version & TRX_NO_HEADER) {
 		trx.len -= sizeof(struct trx_header);

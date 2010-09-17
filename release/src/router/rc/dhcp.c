@@ -330,6 +330,7 @@ void start_dhcpc(void)
 	int argc;
 	char *ifname;
 	char *p;
+	int proto;
 
 	TRACE_PT("begin\n");
 
@@ -337,7 +338,8 @@ void start_dhcpc(void)
 	f_write(renewing, NULL, 0, 0, 0);
 
 	ifname = nvram_safe_get("wan_ifname");
-	if (get_wan_proto() != WP_L2TP && get_wan_proto() != WP_PPTP) {
+	proto = get_wan_proto();
+	if (proto != WP_L2TP && proto != WP_PPTP) {
 		nvram_set("wan_iface", ifname);
 	}
 

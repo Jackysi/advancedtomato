@@ -53,6 +53,8 @@ int using_dhcpc(void)
 	case WP_DHCP:
 	case WP_L2TP:
 		return 1;
+	case WP_PPTP:
+		return nvram_get_int("pptp_dhcp");
 	}
 	return 0;
 }
@@ -232,10 +234,8 @@ const char *get_wanip(void)
 	case WP_DISABLED:
 		return "0.0.0.0";
 	case WP_PPTP:
-		p = "pptp_get_ip";
-		break;
 	case WP_L2TP:
-		p = "l2tp_get_ip";
+		p = "ppp_get_ip";
 		break;
 	default:
 		p = "wan_ipaddr";

@@ -122,8 +122,8 @@ extern int stop_redial(void);
 extern int redial_main(int argc, char **argv);
 
 // wan.c
-extern int start_pptp(int mode);
-extern int stop_pptp(void);
+extern void start_pptp(int mode);
+extern void stop_pptp(void);
 extern void start_pppoe(int);
 extern void stop_pppoe(void);
 extern void stop_singe_pppoe(int num);
