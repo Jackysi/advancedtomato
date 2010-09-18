@@ -49,6 +49,7 @@ extern int resmsg_fread(const char *fname);
 extern void asp_nvram(int argc, char **argv);
 extern void asp_nvramseq(int argc, char **argv);
 extern void asp_nv(int argc, char **argv);
+extern void asp_nvstat(int argc, char **argv);
 
 // misc.c
 extern char *js_string(const char *s);

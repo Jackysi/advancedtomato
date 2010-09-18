@@ -375,6 +375,7 @@ const aspapi_t aspapi[] = {
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
 	{ "nvramseq",			asp_nvramseq		},
+	{ "nvstat",				asp_nvstat 			},
 	{ "psup",				asp_psup			},
 	{ "qrate",				asp_qrate			},
 	{ "resmsg",				asp_resmsg			},
