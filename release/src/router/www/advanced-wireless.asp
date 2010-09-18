@@ -169,7 +169,7 @@ REMOVE-END */
 		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
 		value: nvram.wl_rate },
 	{ title: 'Interference Mitigation', name: 'wl_interfmode', type: 'select',
-		options: [['0','None'],['1','Non-WLAN'],['2','WLAN Manual'],['3','WLAN Auto *']],
+		options: [['0','None'],['1','Non-WLAN'],['2','WLAN Manual *'],['3','WLAN Auto']],
 		value: nvram.wl_interfmode },
 	{ title: 'WMM', name: 'wl_wme', type: 'select', options: [['auto','Auto *'],['off','Disable'],['on','Enable']], value: nvram.wl_wme },
 	{ title: 'No ACK', name: 'wl_wme_no_ack', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
