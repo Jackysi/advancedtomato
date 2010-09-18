@@ -169,12 +169,12 @@ REMOVE-END */
 </script>
 </div>
 
-<div class='section-title'>Outbound Rate / Limit</div>
+<div class='section-title'>Outbound Rates / Limits</div>
 <div class='section'>
 <script type='text/javascript'>
 cc = nvram.qos_orates.split(/[,-]/);
 f = [];
-f.push({ title: 'Max Bandwidth', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw });
+f.push({ title: 'Max Bandwidth Limit', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw });
 f.push(null);
 j = 0;
 for (i = 0; i < 10; ++i) {
@@ -191,12 +191,12 @@ createFieldTable('', f);
 </div>
 
 
-<div class='section-title'>Inbound Limit</div>
+<div class='section-title'>Inbound Class Limits</div>
 <div class='section'>
 <script type='text/javascript'>
 rates = nvram.qos_irates.split(',');
 f = [];
-f.push({ title: 'Max Bandwidth', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw });
+f.push({ title: 'Max Available Bandwidth <small>(this is NOT an overall limit!)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw });
 f.push(null);
 for (i = 0; i < 10; ++i) {
 	f.push({ title: classNames[i], multi: [
