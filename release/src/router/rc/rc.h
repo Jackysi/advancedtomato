@@ -316,7 +316,6 @@ extern void start_telnetd(void);
 extern void stop_telnetd(void);
 
 // mtd.c
-extern int mtd_getinfo(const char *mtdname, int *part, int *size);
 extern int mtd_erase(const char *mtdname);
 extern int mtd_unlock(const char *mtdname);
 extern int mtd_write_main(int argc, char *argv[]);

@@ -283,6 +283,38 @@ void set_radio(int on)
 #endif
 }
 
+// -----------------------------------------------------------------------------
+
+int mtd_getinfo(const char *mtdname, int *part, int *size)
+{
+	FILE *f;
+	char s[256];
+	char t[256];
+	int r;
+
+	r = 0;
+	if ((strlen(mtdname) < 128) && (strcmp(mtdname, "pmon") != 0)) {
+		sprintf(t, "\"%s\"", mtdname);
+		if ((f = fopen("/proc/mtd", "r")) != NULL) {
+			while (fgets(s, sizeof(s), f) != NULL) {
+				if ((sscanf(s, "mtd%d: %x", part, size) == 2) && (strstr(s, t) != NULL)) {
+					// don't accidentally mess with bl (0)
+					if (*part > 0) r = 1;
+					break;
+				}
+			}
+			fclose(f);
+		}
+	}
+	if (!r) {
+		*size = 0;
+		*part = -1;
+	}
+	return r;
+}
+
+// -----------------------------------------------------------------------------
+
 int nvram_get_int(const char *key)
 {
 	return atoi(nvram_safe_get(key));

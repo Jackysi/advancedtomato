@@ -89,6 +89,7 @@ extern int nvram_contains_word(const char *key, const char *word);
 extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
+extern int mtd_getinfo(const char *mtdname, int *part, int *size);
 
 // usb.c
 #ifdef TCONFIG_USB
