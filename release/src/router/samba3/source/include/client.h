@@ -34,21 +34,6 @@
  * These definitions depend on smb.h
  */
 
-typedef struct file_info
-{
-	SMB_BIG_UINT size;
-	uint16 mode;
-	uid_t uid;
-	gid_t gid;
-	/* these times are normally kept in GMT */
-	time_t mtime;
-	time_t atime;
-	time_t ctime;
-	pstring name;
-	pstring dir;
-	char short_name[13*3]; /* the *3 is to cope with multi-byte */
-} file_info;
-
 struct print_job_info
 {
 	uint16 id;
@@ -171,14 +156,25 @@ struct cli_state {
 
 	BOOL force_dos_errors;
 	BOOL case_sensitive; /* False by default. */
-
-	/* was this structure allocated by cli_initialise? If so, then
-           free in cli_shutdown() */
-	BOOL allocated;
 };
+
+typedef struct file_info {
+	struct cli_state *cli;
+	SMB_BIG_UINT size;
+	uint16 mode;
+	uid_t uid;
+	gid_t gid;
+	/* these times are normally kept in GMT */
+	struct timespec mtime_ts;
+	struct timespec atime_ts;
+	struct timespec ctime_ts;
+	pstring name;
+	pstring dir;
+	char short_name[13*3]; /* the *3 is to cope with multi-byte */
+} file_info;
 
 #define CLI_FULL_CONNECTION_DONT_SPNEGO 0x0001
 #define CLI_FULL_CONNECTION_USE_KERBEROS 0x0002
-#define CLI_FULL_CONNECTION_ANNONYMOUS_FALLBACK 0x0004
+#define CLI_FULL_CONNECTION_ANONYMOUS_FALLBACK 0x0004
 
 #endif /* _CLIENT_H */

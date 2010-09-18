@@ -573,14 +573,17 @@ void init_r_enum_trust_dom(TALLOC_CTX *ctx, LSA_R_ENUM_TRUST_DOM *out,
 			return;
 		}
 
-		out->domlist->domains = TALLOC_ARRAY( ctx, DOMAIN_INFO,
+		if (out->count) {
+			out->domlist->domains = TALLOC_ARRAY( ctx, DOMAIN_INFO,
 						      out->count );
-		
-		if ( !out->domlist->domains ) {
-			out->status = NT_STATUS_NO_MEMORY;
-			return;
+			if ( !out->domlist->domains ) {
+				out->status = NT_STATUS_NO_MEMORY;
+				return;
+			}
+		} else {		
+			out->domlist->domains = NULL;
 		}
-		
+	
 		out->domlist->count = out->count;
 		
 		/* initialize the list of domains and their sid */
@@ -664,7 +667,7 @@ BOOL lsa_io_r_enum_trust_dom(const char *desc, LSA_R_ENUM_TRUST_DOM *out,
 	if(!prs_uint32("count", ps, depth, &out->count))
 		return False;
 
-	if ( !prs_pointer("trusted_domains", ps, depth, (void**)&out->domlist, sizeof(DOMAIN_LIST), (PRS_POINTER_CAST)lsa_io_domain_list))
+	if ( !prs_pointer("trusted_domains", ps, depth, (void*)&out->domlist, sizeof(DOMAIN_LIST), (PRS_POINTER_CAST)lsa_io_domain_list))
 		return False;
 		
 	if(!prs_ntstatus("status", ps, depth, &out->status))
@@ -737,9 +740,13 @@ static BOOL lsa_io_dom_query_2(const char *desc, DOM_QUERY_2 *d_q, prs_struct *p
 			return False;
 
 		if (UNMARSHALLING(ps)) {
-			d_q->auditsettings = TALLOC_ZERO_ARRAY(ps->mem_ctx, uint32, d_q->count2);
-			if (!d_q->auditsettings) {
-				return False;
+			if (d_q->count2) {
+				d_q->auditsettings = TALLOC_ZERO_ARRAY(ps->mem_ctx, uint32, d_q->count2);
+				if (!d_q->auditsettings) {
+					return False;
+				}
+			} else {
+				d_q->auditsettings = NULL;
 			}
 		}
 
@@ -1118,16 +1125,16 @@ static void init_lsa_sid_enum(TALLOC_CTX *mem_ctx, LSA_SID_ENUM *sen,
 
 	/* Allocate memory for sids and sid pointers */
 
-	if (num_entries == 0) return;
+	if (num_entries) {
+		if ((sen->ptr_sid = TALLOC_ZERO_ARRAY(mem_ctx, uint32, num_entries )) == NULL) {
+			DEBUG(3, ("init_lsa_sid_enum(): out of memory for ptr_sid\n"));
+			return;
+		}
 
-	if ((sen->ptr_sid = TALLOC_ZERO_ARRAY(mem_ctx, uint32, num_entries )) == NULL) {
-		DEBUG(3, ("init_lsa_sid_enum(): out of memory for ptr_sid\n"));
-		return;
-	}
-
-	if ((sen->sid = TALLOC_ZERO_ARRAY(mem_ctx, DOM_SID2, num_entries)) == NULL) {
-		DEBUG(3, ("init_lsa_sid_enum(): out of memory for sids\n"));
-		return;
+		if ((sen->sid = TALLOC_ZERO_ARRAY(mem_ctx, DOM_SID2, num_entries)) == NULL) {
+			DEBUG(3, ("init_lsa_sid_enum(): out of memory for sids\n"));
+			return;
+		}
 	}
 
 	/* Copy across SIDs and SID pointers */
@@ -1469,7 +1476,7 @@ BOOL lsa_io_r_lookup_sids(const char *desc, LSA_R_LOOKUP_SIDS *r_s,
 		if(!lsa_io_dom_r_ref ("dom_ref", r_s->dom_ref, ps, depth)) /* domain reference info */
 			return False;
 
-	if(!lsa_io_trans_names("names  ", r_s->names, ps, depth)) /* translated names */
+	if(!lsa_io_trans_names("names  ", &r_s->names, ps, depth)) /* translated names */
 		return False;
 
 	if(!prs_align(ps))
@@ -1504,7 +1511,7 @@ BOOL lsa_io_r_lookup_sids2(const char *desc, LSA_R_LOOKUP_SIDS2 *r_s,
 		if(!lsa_io_dom_r_ref ("dom_ref", r_s->dom_ref, ps, depth)) /* domain reference info */
 			return False;
 
-	if(!lsa_io_trans_names2("names  ", r_s->names, ps, depth)) /* translated names */
+	if(!lsa_io_trans_names2("names  ", &r_s->names, ps, depth)) /* translated names */
 		return False;
 
 	if(!prs_align(ps))
@@ -1540,7 +1547,7 @@ BOOL lsa_io_r_lookup_sids3(const char *desc, LSA_R_LOOKUP_SIDS3 *r_s,
 		if(!lsa_io_dom_r_ref ("dom_ref", r_s->dom_ref, ps, depth)) /* domain reference info */
 			return False;
 
-	if(!lsa_io_trans_names2("names  ", r_s->names, ps, depth)) /* translated names */
+	if(!lsa_io_trans_names2("names  ", &r_s->names, ps, depth)) /* translated names */
 		return False;
 
 	if(!prs_align(ps))
@@ -1573,14 +1580,19 @@ void init_q_lookup_names(TALLOC_CTX *mem_ctx, LSA_Q_LOOKUP_NAMES *q_l,
 	q_l->num_entries2 = num_names;
 	q_l->lookup_level = 1;
 
-	if ((q_l->uni_name = TALLOC_ZERO_ARRAY(mem_ctx, UNISTR2, num_names)) == NULL) {
-		DEBUG(3, ("init_q_lookup_names(): out of memory\n"));
-		return;
-	}
+	if (num_names) {
+		if ((q_l->uni_name = TALLOC_ZERO_ARRAY(mem_ctx, UNISTR2, num_names)) == NULL) {
+			DEBUG(3, ("init_q_lookup_names(): out of memory\n"));
+			return;
+		}
 
-	if ((q_l->hdr_name = TALLOC_ZERO_ARRAY(mem_ctx, UNIHDR, num_names)) == NULL) {
-		DEBUG(3, ("init_q_lookup_names(): out of memory\n"));
-		return;
+		if ((q_l->hdr_name = TALLOC_ZERO_ARRAY(mem_ctx, UNIHDR, num_names)) == NULL) {
+			DEBUG(3, ("init_q_lookup_names(): out of memory\n"));
+			return;
+		}
+	} else {
+		q_l->uni_name = NULL;
+		q_l->hdr_name = NULL;
 	}
 
 	for (i = 0; i < num_names; i++) {
@@ -2932,7 +2944,7 @@ BOOL lsa_io_r_setsystemaccount(const char *desc, LSA_R_SETSYSTEMACCOUNT  *out, p
 }
 
 
-static void init_lsa_string( LSA_STRING *uni, const char *string )
+void init_lsa_string( LSA_STRING *uni, const char *string )
 {
 	init_unistr2(&uni->unistring, string, UNI_FLAGS_NONE);
 	init_uni_hdr(&uni->hdr, &uni->unistring);
@@ -3263,7 +3275,7 @@ BOOL lsa_io_r_enum_acct_rights(const char *desc, LSA_R_ENUM_ACCT_RIGHTS *out, pr
 	if(!prs_uint32("count   ", ps, depth, &out->count))
 		return False;
 
-	if ( !prs_pointer("rights", ps, depth, (void**)&out->rights, sizeof(UNISTR4_ARRAY), (PRS_POINTER_CAST)prs_unistr4_array) )
+	if ( !prs_pointer("rights", ps, depth, (void*)&out->rights, sizeof(UNISTR4_ARRAY), (PRS_POINTER_CAST)prs_unistr4_array) )
 		return False;
 
 	if(!prs_align(ps))
@@ -3315,7 +3327,7 @@ BOOL lsa_io_q_add_acct_rights(const char *desc, LSA_Q_ADD_ACCT_RIGHTS *in, prs_s
 	if(!prs_uint32("count", ps, depth, &in->count))
 		return False;
 
-	if ( !prs_pointer("rights", ps, depth, (void**)&in->rights, sizeof(UNISTR4_ARRAY), (PRS_POINTER_CAST)prs_unistr4_array) )
+	if ( !prs_pointer("rights", ps, depth, (void*)&in->rights, sizeof(UNISTR4_ARRAY), (PRS_POINTER_CAST)prs_unistr4_array) )
 		return False;
 
 	return True;
@@ -3384,7 +3396,7 @@ BOOL lsa_io_q_remove_acct_rights(const char *desc, LSA_Q_REMOVE_ACCT_RIGHTS *in,
 	if(!prs_uint32("count", ps, depth, &in->count))
 		return False;
 
-	if ( !prs_pointer("rights", ps, depth, (void**)&in->rights, sizeof(UNISTR4_ARRAY), (PRS_POINTER_CAST)prs_unistr4_array) )
+	if ( !prs_pointer("rights", ps, depth, (void*)&in->rights, sizeof(UNISTR4_ARRAY), (PRS_POINTER_CAST)prs_unistr4_array) )
 		return False;
 
 	return True;
@@ -4069,7 +4081,7 @@ BOOL lsa_io_r_query_trusted_domain_info(const char *desc,
 	prs_debug(ps, depth, desc, "lsa_io_r_query_trusted_domain_info");
 	depth++;
 
-	if (!prs_pointer("trustdom", ps, depth, (void**)&r_q->info, 
+	if (!prs_pointer("trustdom", ps, depth, (void*)&r_q->info, 
 			 sizeof(LSA_TRUSTED_DOMAIN_INFO), 
 			 (PRS_POINTER_CAST)lsa_io_trustdom_query) )
 		return False;
@@ -4198,7 +4210,7 @@ BOOL lsa_io_r_query_dom_info(const char *desc, LSA_R_QUERY_DOM_INFO_POLICY *out,
 	prs_debug(ps, depth, desc, "lsa_io_r_query_dom_info");
 	depth++;
 
-	if (!prs_pointer("dominfo", ps, depth, (void**)&out->info, 
+	if (!prs_pointer("dominfo", ps, depth, (void*)&out->info, 
 			 sizeof(LSA_DOM_INFO_UNION), 
 			 (PRS_POINTER_CAST)lsa_io_dom_info_query) )
 		return False;

@@ -24,11 +24,6 @@
 
 #include "includes.h"
 
-void decrement_smbd_process_count( void )
-{
-	return;
-}
-
 int find_service(fstring service)
 {
 	return -1;
@@ -48,7 +43,8 @@ void send_stat_cache_delete_message(const char *name)
 }
 
 NTSTATUS can_delete_directory(struct connection_struct *conn,
-                                const char *dirname)
+				const char *dirname)
 {
 	return NT_STATUS_OK;
 }
+

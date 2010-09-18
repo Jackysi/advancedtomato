@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 3. Samba Architecture</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt02.html" title="Part II. Samba Basics"><link rel="prev" href="pt02.html" title="Part II. Samba Basics"><link rel="next" href="debug.html" title="Chapter 4. The samba DEBUG system"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 3. Samba Architecture</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="pt02.html">Prev</a> </td><th width="60%" align="center">Part II. Samba Basics</th><td width="20%" align="right"> <a accesskey="n" href="debug.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="architecture"></a>Chapter 3. Samba Architecture</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Dan</span> <span class="surname">Shearer</span></h3></div></div><div><p class="pubdate"> November 1997</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="architecture.html#id2558992">Introduction</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2559036">Multithreading and Samba</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2559068">Threading smbd</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2559130">Threading nmbd</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2559187">nbmd Design</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2558992"></a>Introduction</h2></div></div></div><p>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 3. Samba Architecture</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt02.html" title="Part II. Samba Basics"><link rel="prev" href="pt02.html" title="Part II. Samba Basics"><link rel="next" href="debug.html" title="Chapter 4. The samba DEBUG system"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 3. Samba Architecture</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="pt02.html">Prev</a> </td><th width="60%" align="center">Part II. Samba Basics</th><td width="20%" align="right"> <a accesskey="n" href="debug.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="architecture"></a>Chapter 3. Samba Architecture</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Dan</span> <span class="surname">Shearer</span></h3></div></div><div><p class="pubdate"> November 1997</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="architecture.html#id2556708">Introduction</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2556751">Multithreading and Samba</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2556783">Threading smbd</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2556844">Threading nmbd</a></span></dt><dt><span class="sect1"><a href="architecture.html#id2556889">nbmd Design</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2556708"></a>Introduction</h2></div></div></div><p>
 This document gives a general overview of how Samba works
 internally. The Samba Team has tried to come up with a model which is
 the best possible compromise between elegance, portability, security
@@ -9,7 +9,7 @@ It also tries to answer some of the frequently asked questions such as:
 </p><div class="orderedlist"><ol type="1"><li><p>
 	Is Samba secure when running on Unix? The xyz platform?
 	What about the root priveliges issue?
-</p></li><li><p>Pros and cons of multithreading in various parts of Samba</p></li><li><p>Why not have a separate process for name resolution, WINS, and browsing?</p></li></ol></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559036"></a>Multithreading and Samba</h2></div></div></div><p>
+</p></li><li><p>Pros and cons of multithreading in various parts of Samba</p></li><li><p>Why not have a separate process for name resolution, WINS, and browsing?</p></li></ol></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2556751"></a>Multithreading and Samba</h2></div></div></div><p>
 People sometimes tout threads as a uniformly good thing. They are very
 nice in their place but are quite inappropriate for smbd. nmbd is
 another matter, and multi-threading it would be very nice. 
@@ -26,7 +26,7 @@ smbd multi-threaded.  Multi-threading would actually make Samba much
 slower, less scalable, less portable and much less robust. The fact
 that we use a separate process for each connection is one of Samba's
 biggest advantages.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559068"></a>Threading smbd</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2556783"></a>Threading smbd</h2></div></div></div><p>
 A few problems that would arise from a threaded smbd are:
 </p><div class="orderedlist"><ol type="1"><li><p>
 	It's not only to create threads instead of processes, but you
@@ -51,7 +51,7 @@ A few problems that would arise from a threaded smbd are:
 </p></li><li><p>
 	we couldn't use the system locking calls as the locking context of
 	fcntl() is a process, not a thread.
-</p></li></ol></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559130"></a>Threading nmbd</h2></div></div></div><p>
+</p></li></ol></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2556844"></a>Threading nmbd</h2></div></div></div><p>
 This would be ideal, but gets sunk by portability requirements.
 </p><p>
 Andrew tried to write a test threads library for nmbd that used only
@@ -78,7 +78,7 @@ packet that arrives. Having a pool of processes is possible but is
 nasty to program cleanly due to the enormous amount of shared data (in
 complex structures) between the processes. We can't rely on each
 platform having a shared memory system.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559187"></a>nbmd Design</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2556889"></a>nbmd Design</h2></div></div></div><p>
 Originally Andrew used recursion to simulate a multi-threaded
 environment, which use the stack enormously and made for really
 confusing debugging sessions. Luke Leighton rewrote it to use a

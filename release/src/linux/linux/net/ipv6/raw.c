@@ -163,15 +163,17 @@ struct sock * ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
 		sk2 = sk;
 
 		while ((sk2 = __raw_v6_lookup(sk2->next, nexthdr, daddr, saddr))) {
-			struct sk_buff *buff;
+			struct sk_buff *clone;
 
 			if (nexthdr == IPPROTO_ICMPV6 &&
 			    icmpv6_filter(sk2, skb))
 				continue;
 
-			buff = skb_clone(skb, GFP_ATOMIC);
-			if (buff)
-				rawv6_rcv(sk2, buff);
+			clone = skb_clone(skb, GFP_ATOMIC);
+			if (clone) {
+				nf_reset(clone);
+				rawv6_rcv(sk2, clone);
+			}
 		}
 	}
 

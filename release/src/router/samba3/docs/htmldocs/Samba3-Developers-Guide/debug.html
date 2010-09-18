@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 4. The samba DEBUG system</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt02.html" title="Part II. Samba Basics"><link rel="prev" href="architecture.html" title="Chapter 3. Samba Architecture"><link rel="next" href="internals.html" title="Chapter 5. Samba Internals"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 4. The samba DEBUG system</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="architecture.html">Prev</a> </td><th width="60%" align="center">Part II. Samba Basics</th><td width="20%" align="right"> <a accesskey="n" href="internals.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="debug"></a>Chapter 4. The samba DEBUG system</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Chris</span> <span class="surname">Hertel</span></h3></div></div><div><p class="pubdate">July 1998</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="debug.html#id2559245">New Output Syntax</a></span></dt><dt><span class="sect1"><a href="debug.html#id2559365">The DEBUG() Macro</a></span></dt><dt><span class="sect1"><a href="debug.html#id2559474">The DEBUGADD() Macro</a></span></dt><dt><span class="sect1"><a href="debug.html#id2559511">The DEBUGLVL() Macro</a></span></dt><dt><span class="sect1"><a href="debug.html#id2559604">New Functions</a></span></dt><dd><dl><dt><span class="sect2"><a href="debug.html#id2559610">dbgtext()</a></span></dt><dt><span class="sect2"><a href="debug.html#id2559626">dbghdr()</a></span></dt><dt><span class="sect2"><a href="debug.html#id2559645">format_debug_text()</a></span></dt></dl></dd></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559245"></a>New Output Syntax</h2></div></div></div><p>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 4. The samba DEBUG system</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt02.html" title="Part II. Samba Basics"><link rel="prev" href="architecture.html" title="Chapter 3. Samba Architecture"><link rel="next" href="internals.html" title="Chapter 5. Samba Internals"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 4. The samba DEBUG system</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="architecture.html">Prev</a> </td><th width="60%" align="center">Part II. Samba Basics</th><td width="20%" align="right"> <a accesskey="n" href="internals.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="debug"></a>Chapter 4. The samba DEBUG system</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Chris</span> <span class="surname">Hertel</span></h3></div></div><div><p class="pubdate">July 1998</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="debug.html#id2556945">New Output Syntax</a></span></dt><dt><span class="sect1"><a href="debug.html#id2557054">The DEBUG() Macro</a></span></dt><dt><span class="sect1"><a href="debug.html#id2557160">The DEBUGADD() Macro</a></span></dt><dt><span class="sect1"><a href="debug.html#id2557196">The DEBUGLVL() Macro</a></span></dt><dt><span class="sect1"><a href="debug.html#id2557287">New Functions</a></span></dt><dd><dl><dt><span class="sect2"><a href="debug.html#id2557292">dbgtext()</a></span></dt><dt><span class="sect2"><a href="debug.html#id2557308">dbghdr()</a></span></dt><dt><span class="sect2"><a href="debug.html#id2557327">format_debug_text()</a></span></dt></dl></dd></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2556945"></a>New Output Syntax</h2></div></div></div><p>
    The syntax of a debugging log file is represented as:
 </p><pre class="programlisting">
   &gt;debugfile&lt; :== { &gt;debugmsg&lt; }
@@ -51,7 +51,7 @@ by a newline.
 Note that in the above example the function names are not listed on
 the header line. That's because the example above was generated on an
 SGI Indy, and the SGI compiler doesn't support the __FUNCTION__ macro.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559365"></a>The DEBUG() Macro</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2557054"></a>The DEBUG() Macro</h2></div></div></div><p>
 Use of the DEBUG() macro is unchanged. DEBUG() takes two parameters.
 The first is the message level, the second is the body of a function
 call to the Debug1() function.
@@ -102,7 +102,7 @@ would look like this:
     [1998/07/30 16:00:51, 0] file.c:function(261)
       .
 </pre><p>Which isn't much use. The format buffer kludge fixes this problem.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559474"></a>The DEBUGADD() Macro</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2557160"></a>The DEBUGADD() Macro</h2></div></div></div><p>
 In addition to the kludgey solution to the broken line problem
 described above, there is a clean solution. The DEBUGADD() macro never
 generates a header. It will append new text to the current debug
@@ -116,7 +116,7 @@ DEBUGADD() macro is the same as that of the DEBUG() macro.
       This is the first line.
       This is the second line.
       This is the third line.
-</pre></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559511"></a>The DEBUGLVL() Macro</h2></div></div></div><p>
+</pre></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2557196"></a>The DEBUGLVL() Macro</h2></div></div></div><p>
 One of the problems with the DEBUG() macro was that DEBUG() lines
 tended to get a bit long. Consider this example from
 nmbd_sendannounce.c:
@@ -151,7 +151,7 @@ within the DEBUGLVL() block.
 </p></li><li><p>
 Processing that is only relevant to debug output can be contained
 within the DEBUGLVL() block.
-</p></li></ol></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559604"></a>New Functions</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559610"></a>dbgtext()</h3></div></div></div><p>
+</p></li></ol></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2557287"></a>New Functions</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2557292"></a>dbgtext()</h3></div></div></div><p>
 This function prints debug message text to the debug file (and
 possibly to syslog) via the format buffer. The function uses a
 variable argument list just like printf() or Debug1(). The
@@ -160,7 +160,7 @@ and then passed to format_debug_text().
 
 If you use DEBUGLVL() you will probably print the body of the
 message using dbgtext(). 
-</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559626"></a>dbghdr()</h3></div></div></div><p>
+</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2557308"></a>dbghdr()</h3></div></div></div><p>
 This is the function that writes a debug message header.
 Headers are not processed via the format buffer. Also note that
 if the format buffer is not empty, a call to dbghdr() will not
@@ -168,7 +168,7 @@ produce any output. See the comments in dbghdr() for more info.
 </p><p>
 It is not likely that this function will be called directly. It
 is used by DEBUG() and DEBUGADD().
-</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559645"></a>format_debug_text()</h3></div></div></div><p>
+</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2557327"></a>format_debug_text()</h3></div></div></div><p>
 This is a static function in debug.c. It stores the output text
 for the body of the message in a buffer until it encounters a
 newline. When the newline character is found, the buffer is

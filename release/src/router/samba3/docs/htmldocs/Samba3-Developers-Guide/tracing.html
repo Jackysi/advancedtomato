@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 14. Tracing samba system calls</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt04.html" title="Part IV. Debugging and tracing"><link rel="prev" href="pt04.html" title="Part IV. Debugging and tracing"><link rel="next" href="devprinting.html" title="Chapter 15. Samba Printing Internals"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 14. Tracing samba system calls</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="pt04.html">Prev</a> </td><th width="60%" align="center">Part IV. Debugging and tracing</th><td width="20%" align="right"> <a accesskey="n" href="devprinting.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="tracing"></a>Chapter 14. Tracing samba system calls</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Andrew</span> <span class="surname">Tridgell</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span></div></div></div></div></div><p>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 14. Tracing samba system calls</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt04.html" title="Part IV. Debugging and tracing"><link rel="prev" href="pt04.html" title="Part IV. Debugging and tracing"><link rel="next" href="devprinting.html" title="Chapter 15. Samba Printing Internals"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 14. Tracing samba system calls</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="pt04.html">Prev</a> </td><th width="60%" align="center">Part IV. Debugging and tracing</th><td width="20%" align="right"> <a accesskey="n" href="devprinting.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="tracing"></a>Chapter 14. Tracing samba system calls</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Andrew</span> <span class="orgname">Samba Team</span> <span class="surname">Tridgell</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span></div></div></div></div></div><p>
 This file describes how to do a system call trace on Samba to work out
 what its doing wrong. This is not for the faint of heart, but if you
 are reading this then you are probably desperate.
@@ -24,8 +24,8 @@ strace as strace is the only portable system tracer (its available for
 free for many unix types) and its also got some of the nicest
 features.
 </p><p>
-Next, try using strace on some simple commands. For example, <span><strong class="command">strace
-ls</strong></span> or <span><strong class="command">strace echo hello</strong></span>.
+Next, try using strace on some simple commands. For example, <code class="literal">strace
+ls</code> or <code class="literal">strace echo hello</code>.
 </p><p> 
 You'll notice that it produces a LOT of output. It is showing you the
 arguments to every system call that the program makes and the
@@ -34,8 +34,8 @@ get lots of output. You'll also find that it produces a lot of
 "preamble" stuff showing the loading of shared libraries etc. Ignore
 this (unless its going wrong!)
 </p><p>
-For example, the only line that really matters in the <span><strong class="command">strace echo
-hello</strong></span> output is:
+For example, the only line that really matters in the <code class="literal">strace echo
+hello</code> output is:
 </p><pre class="programlisting">
 write(1, "hello\n", 6)                  = 6
 </pre><p>all the rest is just setting up to run the program.</p><p>
@@ -43,10 +43,10 @@ Ok, now you're familiar with strace. To use it on Samba you need to
 strace the running smbd daemon. The way I tend ot use it is to first
 login from my Windows PC to the Samba server, then use smbstatus to
 find which process ID that client is attached to, then as root I do
-<span><strong class="command">strace -p PID</strong></span> to attach to that process. I normally redirect the
+<code class="literal">strace -p PID</code> to attach to that process. I normally redirect the
 stderr output from this command to a file for later perusal. For
 example, if I'm using a csh style shell:
-</p><p><span><strong class="command">strace -f -p 3872 &gt;&amp; strace.out</strong></span></p><p>or with a sh style shell:</p><p><span><strong class="command">strace -f -p 3872 &gt; strace.out 2&gt;&amp;1</strong></span></p><p>
+</p><p><code class="literal">strace -f -p 3872 &gt;&amp; strace.out</code></p><p>or with a sh style shell:</p><p><code class="literal">strace -f -p 3872 &gt; strace.out 2&gt;&amp;1</code></p><p>
 Note the "-f" option. This is only available on some systems, and
 allows you to trace not just the current process, but any children it
 forks. This is great for finding printing problems caused by the

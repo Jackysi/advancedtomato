@@ -1,7 +1,100 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 10. VFS Modules</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt03.html" title="Part III. Samba Subsystems"><link rel="prev" href="rpc-plugin.html" title="Chapter 9. RPC Pluggable Modules"><link rel="next" href="parsing.html" title="Chapter 11. The smb.conf file"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 10. VFS Modules</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="rpc-plugin.html">Prev</a> </td><th width="60%" align="center">Part III. Samba Subsystems</th><td width="20%" align="right"> <a accesskey="n" href="parsing.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="vfs"></a>Chapter 10. VFS Modules</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Alexander</span> <span class="surname">Bokovoy</span></h3><div class="affiliation"><div class="address"><p><code class="email">&lt;<a href="mailto:ab@samba.org">ab@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Stefan</span> <span class="surname">Metzmacher</span></h3><div class="affiliation"><div class="address"><p><code class="email">&lt;<a href="mailto:metze@samba.org">metze@samba.org</a>&gt;</code></p></div></div></div></div><div><p class="pubdate"> 27 May 2003 </p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="vfs.html#id2561472">The Samba (Posix) VFS layer</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2561478">The general interface</a></span></dt><dt><span class="sect2"><a href="vfs.html#id2561575">Possible VFS operation layers</a></span></dt></dl></dd><dt><span class="sect1"><a href="vfs.html#id2561636">The Interaction between the Samba VFS subsystem and the modules</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2561643">Initialization and registration</a></span></dt><dt><span class="sect2"><a href="vfs.html#id2561793">How the Modules handle per connection data</a></span></dt></dl></dd><dt><span class="sect1"><a href="vfs.html#id2561998">Upgrading to the New VFS Interface</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2562004">Upgrading from 2.2.* and 3.0aplha modules</a></span></dt></dl></dd><dt><span class="sect1"><a href="vfs.html#id2562556">Some Notes</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2562562">Implement TRANSPARENT functions</a></span></dt><dt><span class="sect2"><a href="vfs.html#id2562581">Implement OPAQUE functions</a></span></dt></dl></dd></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561472"></a>The Samba (Posix) VFS layer</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2561478"></a>The general interface</h3></div></div></div><p>
-Each VFS operation has a vfs_op_type, a function pointer and a handle pointer in the
-struct vfs_ops and tree macros to make it easier to call the operations.
-(Take a look at <code class="filename">include/vfs.h</code> and <code class="filename">include/vfs_macros.h</code>.)
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 10. VFS Modules</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt03.html" title="Part III. Samba Subsystems"><link rel="prev" href="rpc-plugin.html" title="Chapter 9. RPC Pluggable Modules"><link rel="next" href="parsing.html" title="Chapter 11. The smb.conf file"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 10. VFS Modules</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="rpc-plugin.html">Prev</a> </td><th width="60%" align="center">Part III. Samba Subsystems</th><td width="20%" align="right"> <a accesskey="n" href="parsing.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="vfs"></a>Chapter 10. VFS Modules</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Alexander</span> <span class="surname">Bokovoy</span></h3><div class="affiliation"><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:ab@samba.org">ab@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Stefan</span> <span class="surname">Metzmacher</span></h3><div class="affiliation"><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:metze@samba.org">metze@samba.org</a>&gt;</code></p></div></div></div></div><div><p class="pubdate"> 27 May 2003 </p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="vfs.html#id2559092">The Samba (Posix) VFS layer</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2559133">The general interface</a></span></dt><dt><span class="sect2"><a href="vfs.html#id2559444">Possible VFS operation layers</a></span></dt></dl></dd><dt><span class="sect1"><a href="vfs.html#id2559505">The Interaction between the Samba VFS subsystem and the modules</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2559511">Initialization and registration</a></span></dt><dt><span class="sect2"><a href="vfs.html#id2559656">How the Modules handle per connection data</a></span></dt></dl></dd><dt><span class="sect1"><a href="vfs.html#id2559857">Upgrading to the New VFS Interface</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2559863">Upgrading from 2.2.* and 3.0aplha modules</a></span></dt></dl></dd><dt><span class="sect1"><a href="vfs.html#id2560268">Some Notes</a></span></dt><dd><dl><dt><span class="sect2"><a href="vfs.html#id2560273">Implement TRANSPARENT functions</a></span></dt><dt><span class="sect2"><a href="vfs.html#id2560292">Implement OPAQUE functions</a></span></dt></dl></dd></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559092"></a>The Samba (Posix) VFS layer</h2></div></div></div><p>While most of Samba deployments are done using POSIX-compatible
+operating systems, there is clearly more to a file system than what is
+required by POSIX when it comes to adopting semantics of NT file
+system. Since Samba 2.2 all file-system related operations go through
+an abstraction layer for virtual file system (VFS) that is modelled
+after both POSIX and additional functions needed to transform NTFS
+semantics.
+</p><p>
+This abstraction layer now provides more features than a regular POSIX
+file system could fill in. It is not required that all of them should
+be implemented by your particular file system.  However, when those
+features are available, Samba would advertize them to a CIFS client
+and they might be used by an application and in case of Windows client
+that might mean a client expects even more additional functionality
+when it encounters those features. There is a practical reason to
+allow handling of this snowfall without modifying the Samba core and
+it is fulfilled by providing an infrastructure to dynamically load VFS
+modules at run time.
+</p><p>Each VFS module could implement a number of VFS operations. The
+way it does it is irrelevant, only two things actually matter: whether
+specific implementation wants to cooperate with other modules'
+implementations or not, and whether module needs to store additional
+information that is specific to a context it is operating in. Multiple
+VFS modules could be loaded at the same time and it is even possible
+to load several instances of the same VFS module with different
+parameters.
+</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559133"></a>The general interface</h3></div></div></div><p>A VFS module has three major components:
+</p><div class="itemizedlist"><ul type="disc"><li><span class="emphasis"><em>An initialization function</em></span> that is
+called during the module load to register implemented
+operations.</li><li><span class="emphasis"><em>An operations table</em></span> representing a
+mapping between statically defined module functions and VFS layer
+operations.</li><li><span class="emphasis"><em>Module functions</em></span> that do actual
+work.</li></ul></div><p>
+</p><p>While this structure has been first applied to the VFS
+subsystem, it is now commonly used across all Samba 3 subsystems that
+support loadable modules. In fact, one module could provide a number
+of interfaces to different subsystems by exposing different
+<span class="emphasis"><em>operation tables</em></span> through separate
+<span class="emphasis"><em>initialization functions</em></span>.</p><p><span class="emphasis"><em>An initialization function</em></span> is used to
+register module with Samba run-time. As Samba internal structures and
+API are changed over lifetime, each released version has a VFS
+interface version that is increased as VFS development progresses or
+any of underlying Samba structures are changed in binary-incompatible
+way. When VFS module is compiled in, VFS interface version of that
+Samba environment is embedded into the module's binary object and is
+checked by the Samba core upon module load. If VFS interface number
+reported by the module isn't the same Samba core knows about, version
+conflict is detected and module dropped to avoid any potential memory
+corruption when accessing (changed) Samba structures.
+</p><p>Therefore, initialization function passes three parameters to the
+VFS registration function, <code class="literal">smb_register_vfs()</code>
+</p><div class="itemizedlist"><ul type="disc"><li><span class="emphasis"><em>interface version number</em></span>, as constant
+  <code class="literal">SMB_VFS_INTERFACE_VERSION</code>, </li><li><span class="emphasis"><em>module name</em></span>, under which Samba core
+  will know it, and</li><li><span class="emphasis"><em>an operations' table</em></span>.</li></ul></div><p>
+</p><p>The <span class="emphasis"><em>operations' table</em></span> defines which
+functions in the module would correspond to specific VFS operations
+and how those functions would co-operate with the rest of VFS
+subsystem. Each operation could perform in a following ways:
+</p><div class="itemizedlist"><ul type="disc"><li><span class="emphasis"><em>transparent</em></span>, meaning that while
+  operation is overriden, the module will still call a previous
+  implementation, before or after its own action. This mode is
+  indicated by the constant
+  <code class="literal">SMB_VFS_LAYER_TRANSPARENT</code>;
+  </li><li><span class="emphasis"><em>opaque</em></span>, for the implementations that
+  are terminating sequence of actions. For example, it is used to
+  implement POSIX operation on top of non-POSIX file system or even
+  not a file system at all, like a database for a personal audio
+  collection. Use constant <code class="literal">SMB_VFS_LAYER_OPAQUE</code> for
+  this mode;</li><li><span class="emphasis"><em>splitter</em></span>, a way when some file system
+  activity is done in addition to the transparently calling previous
+  implentation. This usually involves mangling the result of that call
+  before returning it back to the caller. This mode is selected by
+  <code class="literal">SMB_VFS_LAYER_SPLITTER</code> constant;</li><li><span class="emphasis"><em>logger</em></span> does not change anything or
+  performs any additional VFS operations. When
+  <span class="emphasis"><em>logger</em></span> module acts, information about
+  operations is logged somewhere using an external facility (or
+  Samba's own debugging tools) but not the VFS layer. In order to
+  describe this type of activity use constant
+  <code class="literal">SMB_VFS_LAYER_LOGGER</code>;
+  </li><li>On contrary, <span class="emphasis"><em>scanner</em></span> module does call
+  other VFS operations while processing the data that goes through the
+  system. This type of operation is indicated by the
+  <code class="literal">SMB_VFS_LAYER_SCANNER</code> constant.</li></ul></div><p>
+</p><p>Fundamentally, there are three types:
+<span class="emphasis"><em>transparent</em></span>, <span class="emphasis"><em>opaque</em></span>, and
+<span class="emphasis"><em>logger</em></span>. <span class="emphasis"><em>Splitter</em></span> and
+<span class="emphasis"><em>scanner</em></span> may confuse developers (and indeed they
+are confused as our experience has shown) but this separation is to
+better expose the nature of a module's actions. Most of modules
+developed so far are either one of those three fundamental types with
+transparent and opaque being prevalent.
+</p><p>
+Each VFS operation has a vfs_op_type, a function pointer and a handle
+pointer in the struct vfs_ops and tree macros to make it easier to
+call the operations.  (Take a look at
+<code class="filename">include/vfs.h</code> and
+<code class="filename">include/vfs_macros.h</code>.)
 </p><pre class="programlisting">
 typedef enum _vfs_op_type {
 	SMB_VFS_OP_NOOP = -1,
@@ -94,7 +187,7 @@ DO NOT ACCESS conn-&gt;vfs.ops.* directly !!!
 	 (tofd), (fsp), (fromfd), (header), (offset), (count)))
 
 ...
-</pre></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2561575"></a>Possible VFS operation layers</h3></div></div></div><p>
+</pre></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559444"></a>Possible VFS operation layers</h3></div></div></div><p>
 These values are used by the VFS subsystem when building the conn-&gt;vfs 
 and conn-&gt;vfs_opaque structs for a connection with multiple VFS modules. 
 Internally, Samba differentiates only opaque and transparent layers at this process.
@@ -123,7 +216,7 @@ typedef enum _vfs_op_layer {
 	SMB_VFS_LAYER_SCANNER		/* - Checks data and possibly initiates additional */
 					/*   file activity like logging to files _inside_ samba VFS */
 } vfs_op_layer;
-</pre></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561636"></a>The Interaction between the Samba VFS subsystem and the modules</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2561643"></a>Initialization and registration</h3></div></div></div><p>
+</pre></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559505"></a>The Interaction between the Samba VFS subsystem and the modules</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559511"></a>Initialization and registration</h3></div></div></div><p>
 As each Samba module a VFS module should have a 
 </p><pre class="programlisting">NTSTATUS vfs_example_init(void);</pre><p> function if it's staticly linked to samba or
 </p><pre class="programlisting">NTSTATUS init_module(void);</pre><p> function if it's a shared module.
@@ -136,7 +229,7 @@ The module should register its functions via the
 NTSTATUS smb_register_vfs(int version, const char *name, vfs_op_tuple *vfs_op_tuples);
 </pre><p> function.
 </p><div class="variablelist"><dl><dt><span class="term">version</span></dt><dd><p>should be filled with SMB_VFS_INTERFACE_VERSION</p></dd><dt><span class="term">name</span></dt><dd><p>this is the name witch can be listed in the 
-<span><strong class="command">vfs objects</strong></span> parameter to use this module.</p></dd><dt><span class="term">vfs_op_tuples</span></dt><dd><p>
+<code class="literal">vfs objects</code> parameter to use this module.</p></dd><dt><span class="term">vfs_op_tuples</span></dt><dd><p>
 this is an array of vfs_op_tuple's.
 (vfs_op_tuples is descripted in details below.)
 </p></dd></dl></div><p>
@@ -163,7 +256,7 @@ NTSTATUS init_module(void)
 {
 	return smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "example", example_op_tuples);
 }
-</pre></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2561793"></a>How the Modules handle per connection data</h3></div></div></div><p>Each VFS function has as first parameter a pointer to the modules vfs_handle_struct.
+</pre></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559656"></a>How the Modules handle per connection data</h3></div></div></div><p>Each VFS function has as first parameter a pointer to the modules vfs_handle_struct.
 </p><pre class="programlisting">
 typedef struct vfs_handle_struct {
 	struct vfs_handle_struct  *next, *prev;
@@ -173,7 +266,7 @@ typedef struct vfs_handle_struct {
 	void *data;
 	void (*free_data)(void **data);
 } vfs_handle_struct;
-</pre><div class="variablelist"><dl><dt><span class="term">param</span></dt><dd><p>this is the module parameter specified in the <span><strong class="command">vfs objects</strong></span> parameter.</p><p>e.g. for 'vfs objects = example:test' param would be "test".</p></dd><dt><span class="term">vfs_next</span></dt><dd><p>This vfs_ops struct contains the information for calling the next module operations.
+</pre><div class="variablelist"><dl><dt><span class="term">param</span></dt><dd><p>this is the module parameter specified in the <code class="literal">vfs objects</code> parameter.</p><p>e.g. for 'vfs objects = example:test' param would be "test".</p></dd><dt><span class="term">vfs_next</span></dt><dd><p>This vfs_ops struct contains the information for calling the next module operations.
 Use the SMB_VFS_NEXT_* macros to call a next module operations and
 don't access handle-&gt;vfs_next.ops.* directly!</p></dd><dt><span class="term">conn</span></dt><dd><p>This is a pointer back to the connection_struct to witch the handle belongs.</p></dd><dt><span class="term">data</span></dt><dd><p>This is a pointer for holding module private data.
 You can alloc data with connection life time on the handle-&gt;conn-&gt;mem_ctx TALLOC_CTX.
@@ -264,7 +357,7 @@ you can set this function pointer to NULL.</p></dd></dl></div><p>Some useful MAC
 	(handle)-&gt;vfs_next.handles.sendfile,\
 	 (tofd), (fsp), (fromfd), (header), (offset), (count)))
 ...
-</pre></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561998"></a>Upgrading to the New VFS Interface</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2562004"></a>Upgrading from 2.2.* and 3.0aplha modules</h3></div></div></div><div class="orderedlist"><ol type="1"><li><p>
+</pre></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2559857"></a>Upgrading to the New VFS Interface</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2559863"></a>Upgrading from 2.2.* and 3.0aplha modules</h3></div></div></div><div class="orderedlist"><ol type="1"><li><p>
 Add "vfs_handle_struct *handle, " as first parameter to all vfs operation functions.
 e.g. example_connect(connection_struct *conn, const char *service, const char *user);
 -&gt;   example_connect(vfs_handle_struct *handle, connection_struct *conn, const char *service, const char *user);
@@ -388,7 +481,7 @@ remember the struct smb_vfs_handle_struct.
 </p></li><li><p>
 (Only for 3.0alpha* modules) 
 Check if your vfs_done() function contains needed code.
-</p><table class="simplelist" border="0" summary="Simple list"><tr><td>If NOT you can remove the vfs_done() function.</td></tr><tr><td>If YES decide if you can move the code to the example_disconnect() operation. Otherwise register a SMB_EXIT_EVENT with smb_register_exit_event(); (Described in the <a href="modules.html" title="Chapter 8. Modules">modules section</a>) And then remove vfs_done(). e.g. the freeing of private data should go to example_disconnect().
+</p><table class="simplelist" border="0" summary="Simple list"><tr><td>If NOT you can remove the vfs_done() function.</td></tr><tr><td>If YES decide if you can move the code to the example_disconnect() operation. Otherwise register a SMB_EXIT_EVENT with smb_register_exit_event(); (Described in the <a class="link" href="modules.html" title="Chapter 8. Modules">modules section</a>) And then remove vfs_done(). e.g. the freeing of private data should go to example_disconnect().
 </td></tr></table><p>
 </p></li><li><p>
 Check if you have any global variables left.
@@ -527,7 +620,7 @@ for your module.
 </p></li><li><p>
 Compiling &amp; Testing...
 </p><table class="simplelist" border="0" summary="Simple list"><tr><td><strong class="userinput"><code>./configure <code class="option">--enable-developer</code></code></strong> ...</td></tr><tr><td><strong class="userinput"><code>make</code></strong></td></tr><tr><td>Try to fix all compiler warnings</td></tr><tr><td><strong class="userinput"><code>make</code></strong></td></tr><tr><td>Testing, Testing, Testing ...</td></tr></table><p>
-</p></li></ol></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2562556"></a>Some Notes</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2562562"></a>Implement TRANSPARENT functions</h3></div></div></div><p>
+</p></li></ol></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2560268"></a>Some Notes</h2></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2560273"></a>Implement TRANSPARENT functions</h3></div></div></div><p>
 Avoid writing functions like this:
 
 </p><pre class="programlisting">
@@ -538,7 +631,7 @@ static int example_close(vfs_handle_struct *handle, files_struct *fsp, int fd)
 </pre><p>
 
 Overload only the functions you really need to!
-</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2562581"></a>Implement OPAQUE functions</h3></div></div></div><p>
+</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2560292"></a>Implement OPAQUE functions</h3></div></div></div><p>
 If you want to just implement a better version of a 
 default samba opaque function
 (e.g. like a disk_free() function for a special filesystem) 

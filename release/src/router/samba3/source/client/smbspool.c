@@ -1,7 +1,7 @@
 /* 
    Unix SMB/CIFS implementation.
    SMB backend for the Common UNIX Printing System ("CUPS")
-   Copyright 1999 by Easy Software Products
+   Copyright (C) Michael R Sweet 1999
    Copyright Andrew Tridgell 1994-1998
    Copyright Andrew Bartlett 2002
    Copyright Rodrigo Fernandez-Vizarra 2005 
@@ -47,6 +47,7 @@ static void		list_devices(void);
 static struct cli_state *smb_complete_connection(const char *, const char *,int , const char *, const char *, const char *, const char *, int);
 static struct cli_state	*smb_connect(const char *, const char *, int, const char *, const char *, const char *, const char *);
 static int		smb_print(struct cli_state *, char *, FILE *);
+static char *		uri_unescape_alloc(const char *);
 
 
 /*
@@ -62,8 +63,9 @@ static int		smb_print(struct cli_state *, char *, FILE *);
   int 		port;		/* Port number */
   char		uri[1024],	/* URI */
 		*sep,		/* Pointer to separator */
+		*tmp, *tmp2,	/* Temp pointers to do escaping */
 		*password;	/* Password */
-  const char	*username,	/* Username */
+  char		*username,	/* Username */
 		*server,	/* Server name */
 		*printer;	/* Printer name */
   const char	*workgroup;	/* Workgroup */
@@ -152,8 +154,10 @@ static int		smb_print(struct cli_state *, char *, FILE *);
 
   if ((sep = strrchr_m(uri, '@')) != NULL)
   {
-    username = uri + 6;
+    tmp = uri + 6;
     *sep++ = '\0';
+
+    /* username is in tmp */
 
     server = sep;
 
@@ -161,10 +165,13 @@ static int		smb_print(struct cli_state *, char *, FILE *);
     * Extract password as needed...
     */
 
-    if ((password = strchr_m(username, ':')) != NULL)
-      *password++ = '\0';
-    else
+    if ((tmp2 = strchr_m(tmp, ':')) != NULL) {
+      *tmp2++ = '\0';
+      password = uri_unescape_alloc(tmp2);
+    } else {
       password = null_str;
+    }
+    username = uri_unescape_alloc(tmp);
   }
   else
   {
@@ -173,16 +180,18 @@ static int		smb_print(struct cli_state *, char *, FILE *);
     server   = uri + 6;
   }
 
-  if ((sep = strchr_m(server, '/')) == NULL)
+  tmp = server;
+
+  if ((sep = strchr_m(tmp, '/')) == NULL)
   {
     fputs("ERROR: Bad URI - need printer name!\n", stderr);
     return (1);
   }
 
   *sep++ = '\0';
-  printer = sep;
+  tmp2 = sep;
 
-  if ((sep = strchr_m(printer, '/')) != NULL)
+  if ((sep = strchr_m(tmp2, '/')) != NULL)
   {
    /*
     * Convert to smb://[username:password@]workgroup/server/printer...
@@ -190,12 +199,15 @@ static int		smb_print(struct cli_state *, char *, FILE *);
 
     *sep++ = '\0';
 
-    workgroup = server;
-    server    = printer;
-    printer   = sep;
+    workgroup = uri_unescape_alloc(tmp);
+    server    = uri_unescape_alloc(tmp2);
+    printer   = uri_unescape_alloc(sep);
   }
-  else
+  else {
     workgroup = NULL;
+    server = uri_unescape_alloc(tmp);
+    printer = uri_unescape_alloc(tmp2);
+  }
   
   if ((sep = strrchr_m(server, ':')) != NULL)
   {
@@ -203,7 +215,7 @@ static int		smb_print(struct cli_state *, char *, FILE *);
 
     port=atoi(sep);
   }
-  else
+  else 
   	port=0;
 	
  
@@ -429,9 +441,10 @@ static struct cli_state
   }
    
    
-  if (!cli_session_setup(cli, username, password, strlen(password)+1, 
-                         password, strlen(password)+1,
-                         workgroup)) 
+  if (!NT_STATUS_IS_OK(cli_session_setup(cli, username,
+					 password, strlen(password)+1, 
+					 password, strlen(password)+1,
+					 workgroup)))
   {
     fprintf(stderr,"ERROR: Session setup failed: %s\n", cli_errstr(cli));
     if (NT_STATUS_V(cli_nt_error(cli)) == 
@@ -586,4 +599,15 @@ smb_print(struct cli_state *cli,	/* I - SMB connection */
   }
   else
     return (0);
+}
+
+static char *uri_unescape_alloc(const char *uritok)
+{
+	char *ret;
+
+	ret = (char *)SMB_STRDUP(uritok);
+	if (!ret) return NULL;
+
+	rfc1738_unescape(ret);
+	return ret;
 }

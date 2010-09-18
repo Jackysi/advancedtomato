@@ -5,12 +5,13 @@ srcdir=source
 SMBCFLAGS = $(EXTRACFLAGS) -Os
 
 ifneq ($(CONFIG_LINUX26),y)
-SMBCFLAGS += -DNO_LOG
+SMBCFLAGS += -DMAX_DEBUG_LEVEL="-1"
 endif
 
 all: .conf apps
 
-apps:
+apps: .conf
+	mkdir -p $(srcdir)/bin
 	$(MAKE) -C $(srcdir) all
 
 .conf:
@@ -18,52 +19,54 @@ apps:
 	ac_cv_lib_resolv_dn_expand=no \
 	ac_cv_lib_resolv__dn_expand=no \
 	ac_cv_lib_resolv___dn_expand=no \
+	ac_cv_func_prctl=no \
 	SMB_BUILD_CC_NEGATIVE_ENUM_VALUES=yes \
-	libreplace_cv_READDIR_GETDIRENTRIES=no \
-	libreplace_cv_READDIR_GETDENTS=no \
 	linux_getgrouplist_ok=no \
+	samba_cv_fpie=no \
 	samba_cv_have_longlong=yes \
 	samba_cv_HAVE_INO64_T=yes \
 	samba_cv_HAVE_OFF64_T=yes \
-	samba_cv_HAVE_SHARED_MMAP=yes \
 	samba_cv_HAVE_STRUCT_FLOCK64=yes \
-	samba_cv_SIZEOF_OFF_T=8 \
-	samba_cv_HAVE_CREAT64=yes \
-	samba_cv_HAVE_FSEEKO64=yes \
-	samba_cv_HAVE_FSTAT64=yes \
-	samba_cv_HAVE_FTELLO64=yes \
-	samba_cv_HAVE_FTRUNCATE64=yes \
-	samba_cv_HAVE_LSEEK64=yes \
-	samba_cv_HAVE_LSTAT64=yes \
-	samba_cv_HAVE_OPEN64=yes \
-	samba_cv_HAVE_PREAD64=yes \
-	samba_cv_HAVE_PWRITE64=yes \
-	samba_cv_HAVE_READDIR64=yes \
-	samba_cv_HAVE_STAT64=yes \
-	samba_cv_HAVE_SIGSET=yes \
-	samba_cv_HAVE_MMAP=no \
-	samba_cv_HAVE_GETDIRENTRIES=yes \
-	samba_cv_HAVE_GETMNTENT=yes \
-	samba_cv_HAVE_SETMNTENT=yes \
-	samba_cv_HAVE_ENDMNTENT=yes \
-	samba_cv_HAVE_READDIR64=no \
+	samba_cv_SIZEOF_OFF_T=yes \
+	samba_cv_HAVE_MMAP=yes \
 	samba_cv_HAVE_FTRUNCATE_EXTEND=yes \
 	samba_cv_REPLACE_READDIR=no \
-	samba_cv_HAVE_TIMEGM=no \
 	samba_cv_HAVE_BROKEN_LINUX_SENDFILE=no \
 	samba_cv_HAVE_SENDFILE=yes \
 	samba_cv_HAVE_WRFILE_KEYTAB=yes \
 	samba_cv_HAVE_KERNEL_OPLOCKS_LINUX=yes \
 	samba_cv_HAVE_IFACE_IFCONF=yes \
-	samba_cv_HAVE_SETRESGID=yes \
-	samba_cv_HAVE_SETRESUID=yes \
-	samba_cv_USE_SETRESGID=yes \
+	samba_cv_have_setresgid=yes \
+	samba_cv_have_setresuid=yes \
 	samba_cv_USE_SETRESUID=yes \
+	samba_cv_USE_SETREUID=yes \
 	samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
-	samba_cv_REALPATH_TAKES_NULL=yes \
+	samba_cv_REALPATH_TAKES_NULL=no \
+	samba_cv_HAVE_FCNTL_LOCK=yes \
+	samba_cv_HAVE_SECURE_MKSTEMP=yes \
+	samba_cv_HAVE_NATIVE_ICONV=no \
+	samba_cv_HAVE_BROKEN_FCNTL64_LOCKS=no \
+	samba_cv_HAVE_BROKEN_GETGROUPS=no \
+	samba_cv_HAVE_BROKEN_READDIR_NAME=no \
+	samba_cv_HAVE_C99_VSNPRINTF=yes \
+	samba_cv_HAVE_DEV64_T=no \
+	samba_cv_HAVE_DEVICE_MAJOR_FN=yes \
+	samba_cv_HAVE_DEVICE_MINOR_FN=yes \
+	samba_cv_HAVE_IFACE_AIX=no \
+	samba_cv_HAVE_KERNEL_CHANGE_NOTIFY=no \
+	samba_cv_HAVE_KERNEL_SHARE_MODES=yes \
+	samba_cv_HAVE_MAKEDEV=yes \
+	samba_cv_HAVE_TRUNCATED_SALT=no \
+	samba_cv_HAVE_UNSIGNED_CHAR=no \
+	samba_cv_HAVE_WORKING_AF_LOCAL=yes \
+	samba_cv_HAVE_Werror=yes \
+	samba_cv_REPLACE_INET_NTOA=no \
+	samba_cv_SIZEOF_DEV_T=yes \
+	samba_cv_SIZEOF_INO_T=yes \
+	samba_cv_SIZEOF_TIME_T=no \
 	CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_LARGE_FILES=1" \
 	CFLAGS="$(SMBCFLAGS)" CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) \
-	$(CONFIGURE) --host=mipsel-linux \
+	$(CONFIGURE) \
 		--prefix=/usr \
 		--bindir=/usr/bin \
 		--sbindir=/usr/sbin \
@@ -71,27 +74,37 @@ apps:
 		--localstatedir=/var \
 		--with-configdir=/etc \
 		--with-rootsbindir=/usr/sbin \
+		--with-piddir=/var/run/samba \
+		--with-privatedir=/etc/samba \
+		--with-lockdir=/var/lock \
 		--with-syslog \
+		--with-included-popt=no \
+		--with-krb5=no \
 		--enable-shared \
 		--disable-static \
 		--disable-cups \
 		--disable-iprint \
 		--disable-pie \
 		--disable-fam \
-		--disable-xmltest \
 		--disable-dmalloc \
 		--disable-krb5developer \
 		--disable-developer \
 		--disable-debug \
+		--without-ads \
+		--without-acl-support \
 		--without-ldap \
 		--without-cifsmount \
-		--without-sendfile-support \
+		--without-cifsupcall \
+		--without-cluster-support \
+		--without-utmp \
+		--without-winbind \
 		--without-quotas \
 		--without-sys-quotas
 	touch .conf
+	mkdir -p $(srcdir)/bin
 
 clean:
-	$(MAKE) -C $(srcdir) distclean
+	-$(MAKE) -C $(srcdir) distclean
 	@rm -f .conf
 
 distclean: clean

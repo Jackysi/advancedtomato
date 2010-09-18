@@ -1,5 +1,5 @@
 .\"
-.\"   $Id: radvd.8.man,v 1.8 2004/08/20 07:04:07 psavola Exp $
+.\"   $Id: radvd.8.man,v 1.13 2008/03/31 09:18:15 psavola Exp $
 .\"
 .\"   Authors:
 .\"    Lars Fenneberg		<lf@elemental.net>	 
@@ -9,16 +9,16 @@
 .\"
 .\"   The license which is distributed with this software in the file COPYRIGHT
 .\"   applies to this software. If your distribution is missing this file, you
-.\"   may request it from <lutchann@litech.org>.
+.\"   may request it from <pekkas@netcore.fi>.
 .\"
 .\"
 .\"
-.TH RADVD 8 "29 Mar 2001" "radvd @VERSION@" ""
+.TH RADVD 8 "24 Jan 2008" "radvd @VERSION@" ""
 .SH NAME
 radvd \- router advertisement daemon for IPv6
 .SH SYNOPSIS
 .B radvd
-.B "[ \-vh ]"
+.B "[ \-hsv ]"
 .BI "[ \-d " debuglevel " ]"
 .BI "[ \-C " configfile " ]"
 .BI "[ \-p " pidfile " ]"
@@ -32,7 +32,7 @@ radvd \- router advertisement daemon for IPv6
 .B radvd
 is the router advertisement daemon for IPv6. It listens to router
 solicitations and sends router advertisements as described in
-"Neighbor Discovery for IP Version 6 (IPv6)" (RFC 2461).
+"Neighbor Discovery for IP Version 6 (IPv6)" (RFC 4861).
 With these advertisements hosts can automatically configure their
 addresses and some other parameters. They also can choose a default
 router based on these advertisements.
@@ -63,9 +63,18 @@ and then aborts.
 .BR "\-h" , " \-\-help"
 Displays a short usage description and then aborts.
 .TP
+.BR "\-s" , " \-\-singleprocess"
+On Linux if 
+.I username
+is specified, privilege separation is enabled and there will be
+two processes.
+This option disables privilege separation, and as a result,
+the non-privileged radvd process does not have permissions to
+change interface configuration.
+.TP
 .BR "\-d " debuglevel, " \-\-debug " debuglevel
 With this option you turn on debugging information. The debugging level is
-an integer in the range from 1 to 4, from  quiet to very verbose. A
+an integer in the range from 1 to 5, from  quiet to very verbose. A
 debugging level of 0 completely turns off debugging. If a debugging level 
 greater than 0 is used,
 .I radvd
@@ -97,8 +106,12 @@ a compiled in default is used (see next option).
 .B stderr
 Logs to standard error.
 .TP
+.B stderr_syslog
+Logs only the high messages (of at least LOG_ERR priority) to standard
+error, and everything to syslog (default method).
+.TP
 .B syslog
-Logs to syslog (default method).
+Logs to syslog.
 .RE
 .PP
 .TP
@@ -151,8 +164,7 @@ to point to a file in a
 .SH BUGS
 
 There certainly are some bugs. If you find them or have other
-suggestions please contact Nathan Lutchansky <lutchann@litech.org> or
-Pekka Savola <pekkas@netcore.fi>.
+suggestions please contact Pekka Savola <pekkas@netcore.fi>.
 
 .SH "SEE ALSO"
 
@@ -163,8 +175,9 @@ Pekka Savola <pekkas@netcore.fi>.
 .nf
 Pedro Roque	<roque@di.fc.ul.pt>	- wrote first version for Linux
 Lars Fenneberg	<lf@elemental.net>	- previous maintainer
+Nathan Lutchansky	<lutchann@litech.org>	- previous maintainer
 Pekka Savola	<pekkas@netcore.fi>	- current maintainer
-Nathan Lutchansky	<lutchann@litech.org>	- current maintainer
 Craig Metz	<cmetz@inner.net>	- port to NRL's IPv6 code for BSD4.4
 Marko Myllynen	<myllynen@lut.fi>	- RFC 2461 update, Mobile IPv6 support
+Jim Paris	<jim@jtan.com>		- Privilege separation support
 .fi

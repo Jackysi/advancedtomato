@@ -174,7 +174,7 @@ typedef struct lsa_dns_dom_info
 	UNIHDR  hdr_dns_dom_name;
 	UNIHDR  hdr_forest_name;
 
-	struct uuid dom_guid; /* domain GUID */
+	struct GUID dom_guid; /* domain GUID */
 
 	UNISTR2 uni_nb_dom_name;
 	UNISTR2 uni_dns_dom_name;
@@ -515,7 +515,7 @@ typedef struct lsa_r_lookup_sids
 	uint32              ptr_dom_ref;
 	DOM_R_REF           *dom_ref; /* domain reference info */
 
-	LSA_TRANS_NAME_ENUM *names;
+	LSA_TRANS_NAME_ENUM names;
 	uint32              mapped_count;
 
 	NTSTATUS            status; /* return code */
@@ -541,7 +541,7 @@ typedef struct lsa_r_lookup_sids2
 	uint32              ptr_dom_ref;
 	DOM_R_REF           *dom_ref; /* domain reference info */
 
-	LSA_TRANS_NAME_ENUM2 *names;
+	LSA_TRANS_NAME_ENUM2 names;
 	uint32              mapped_count;
 
 	NTSTATUS            status; /* return code */
@@ -566,7 +566,7 @@ typedef struct lsa_r_lookup_sids3
 	uint32              ptr_dom_ref;
 	DOM_R_REF           *dom_ref; /* domain reference info */
 
-	LSA_TRANS_NAME_ENUM2 *names;
+	LSA_TRANS_NAME_ENUM2 names;
 	uint32              mapped_count;
 
 	NTSTATUS            status; /* return code */

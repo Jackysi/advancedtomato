@@ -113,6 +113,9 @@ BOOL cli_send_trans(struct cli_state *cli, int trans,
 			this_lparam = MIN(lparam-tot_param,cli->max_xmit - 500); /* hack */
 			this_ldata = MIN(ldata-tot_data,cli->max_xmit - (500+this_lparam));
 
+			client_set_trans_sign_state_off(cli, mid);
+			client_set_trans_sign_state_on(cli, mid);
+
 			set_message(cli->outbuf,trans==SMBtrans?8:9,0,True);
 			SCVAL(cli->outbuf,smb_com,(trans==SMBtrans ? SMBtranss : SMBtranss2));
 			
@@ -197,7 +200,9 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 	 */
 	status = cli_nt_error(cli);
 	
-	if (NT_STATUS_IS_ERR(status) || NT_STATUS_EQUAL(status,STATUS_NO_MORE_FILES)) {
+	if (NT_STATUS_IS_ERR(status) ||
+            NT_STATUS_EQUAL(status,STATUS_NO_MORE_FILES) ||
+            NT_STATUS_EQUAL(status,STATUS_INACCESSIBLE_SYSTEM_SHORTCUT)) {
 		goto out;
 	}
 
@@ -207,7 +212,7 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 
 	/* allocate it */
 	if (total_data!=0) {
-		*data = SMB_REALLOC(*data,total_data);
+		*data = (char *)SMB_REALLOC(*data,total_data);
 		if (!(*data)) {
 			DEBUG(0,("cli_receive_trans: failed to enlarge data buffer\n"));
 			goto out;
@@ -215,7 +220,7 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 	}
 
 	if (total_param!=0) {
-		*param = SMB_REALLOC(*param,total_param);
+		*param = (char *)SMB_REALLOC(*param,total_param);
 		if (!(*param)) {
 			DEBUG(0,("cli_receive_trans: failed to enlarge param buffer\n"));
 			goto out;
@@ -511,7 +516,7 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 
 	/* allocate it */
 	if (total_data) {
-		*data = SMB_REALLOC(*data,total_data);
+		*data = (char *)SMB_REALLOC(*data,total_data);
 		if (!(*data)) {
 			DEBUG(0,("cli_receive_nt_trans: failed to enlarge data buffer to %d\n",total_data));
 			goto out;
@@ -519,7 +524,7 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 	}
 
 	if (total_param) {
-		*param = SMB_REALLOC(*param,total_param);
+		*param = (char *)SMB_REALLOC(*param,total_param);
 		if (!(*param)) {
 			DEBUG(0,("cli_receive_nt_trans: failed to enlarge param buffer to %d\n", total_param));
 			goto out;

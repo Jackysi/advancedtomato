@@ -66,10 +66,6 @@ static uint32 smb_connections=0;
 
 extern STANDARD_MAPPING printer_std_mapping, printserver_std_mapping;
 
-#define OUR_HANDLE(hnd) (((hnd)==NULL)?"NULL":(IVAL((hnd)->data5,4)==(uint32)sys_getpid()?"OURS":"OTHER")), \
-((unsigned int)IVAL((hnd)->data5,4)),((unsigned int)sys_getpid())
-
-
 /* API table for Xcv Monitor functions */
 
 struct xcv_api_table {
@@ -77,6 +73,18 @@ struct xcv_api_table {
 	WERROR(*fn) (NT_USER_TOKEN *token, RPC_BUFFER *in, RPC_BUFFER *out, uint32 *needed);
 };
 
+/********************************************************************
+ * Canonicalize servername.
+ ********************************************************************/
+
+static const char *canon_servername(const char *servername)
+{
+	const char *pservername = servername;
+	while (*pservername == '\\') {
+		pservername++;
+	}
+	return pservername;
+}
 
 /* translate between internal status numbers and NT status numbers */
 static int nt_printj_status(int v)
@@ -448,13 +456,12 @@ static BOOL set_printer_hnd_name(Printer_entry *Printer, char *handlename)
 
 	aprinter = handlename;
 	if ( *handlename == '\\' ) {
-		servername = handlename + 2;
-		if ( (aprinter = strchr_m( handlename+2, '\\' )) != NULL ) {
+		servername = canon_servername(handlename);
+		if ( (aprinter = strchr_m( servername, '\\' )) != NULL ) {
 			*aprinter = '\0';
 			aprinter++;
 		}
-	}
-	else {
+	} else {
 		servername = "";
 	}
 	
@@ -514,7 +521,12 @@ static BOOL set_printer_hnd_name(Printer_entry *Printer, char *handlename)
 		fstrcpy(sname, lp_servicename(snum));
 
 		printer = NULL;
-		result = get_a_printer( NULL, &printer, 2, sname );
+
+		/* This call doesn't fill in the location or comment from
+		 * a CUPS server for efficiency with large numbers of printers.
+		 * JRA.
+		 */
+		result = get_a_printer_search( NULL, &printer, 2, sname );
 		if ( !W_ERROR_IS_OK(result) ) {
 			DEBUG(0,("set_printer_hnd_name: failed to lookup printer [%s] -- result [%s]\n",
 				sname, dos_errstr(result)));
@@ -719,13 +731,17 @@ static void notify_system_time(struct spoolss_notify_msg *msg,
 	}
 
 	data->notify_data.data.length = prs_offset(&ps);
-	data->notify_data.data.string = TALLOC(mem_ctx, prs_offset(&ps));
-	if (!data->notify_data.data.string) {
-		prs_mem_free(&ps);
-		return;
+	if (prs_offset(&ps)) {
+		data->notify_data.data.string = (uint16 *)
+			TALLOC(mem_ctx, prs_offset(&ps));
+		if (!data->notify_data.data.string) {
+			prs_mem_free(&ps);
+			return;
+		}
+		prs_copy_all_data_out((char *)data->notify_data.data.string, &ps);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-
-	prs_copy_all_data_out((char *)data->notify_data.data.string, &ps);
 
 	prs_mem_free(&ps);
 }
@@ -911,7 +927,8 @@ static int notify_msg_ctr_addmsg( SPOOLSS_NOTIFY_MSG_CTR *ctr, SPOOLSS_NOTIFY_MS
 	/* need to allocate own copy of data */
 	
 	if ( msg->len != 0 ) 
-		msg_grp->msgs[new_slot].notify.data = TALLOC_MEMDUP( ctr->ctx, msg->notify.data, msg->len );
+		msg_grp->msgs[new_slot].notify.data = (char *)
+			TALLOC_MEMDUP( ctr->ctx, msg->notify.data, msg->len );
 	
 	return ctr->num_groups;
 }
@@ -1101,7 +1118,8 @@ static BOOL notify2_unpack_msg( SPOOLSS_NOTIFY_MSG *msg, struct timeval *tv, voi
  ********************************************************************/
 
 static void receive_notify2_message_list(int msg_type, struct process_id src,
-					 void *msg, size_t len)
+					 void *msg, size_t len,
+					 void *private_data)
 {
 	size_t 			msg_count, i;
 	char 			*buf = (char *)msg;
@@ -1213,14 +1231,15 @@ static BOOL srv_spoolss_drv_upgrade_printer(char* drivername)
  over all printers, upgrading ones as necessary 
  **********************************************************************/
  
-void do_drv_upgrade_printer(int msg_type, struct process_id src, void *buf, size_t len)
+void do_drv_upgrade_printer(int msg_type, struct process_id src,
+			    void *buf, size_t len, void *private_data)
 {
 	fstring drivername;
 	int snum;
 	int n_services = lp_numservices();
 	
 	len = MIN(len,sizeof(drivername)-1);
-	strncpy(drivername, buf, len);
+	strncpy(drivername, (const char *)buf, len);
 	
 	DEBUG(10,("do_drv_upgrade_printer: Got message for new driver [%s]\n", drivername ));
 
@@ -1311,14 +1330,14 @@ static BOOL srv_spoolss_reset_printerdata(char* drivername)
  **********************************************************************/
  
 void reset_all_printerdata(int msg_type, struct process_id src,
-			   void *buf, size_t len)
+			   void *buf, size_t len, void *private_data)
 {
 	fstring drivername;
 	int snum;
 	int n_services = lp_numservices();
 	
 	len = MIN( len, sizeof(drivername)-1 );
-	strncpy( drivername, buf, len );
+	strncpy( drivername, (const char *)buf, len );
 	
 	DEBUG(10,("reset_all_printerdata: Got message for new driver [%s]\n", drivername ));
 
@@ -1381,7 +1400,7 @@ static DEVICEMODE* dup_devicemode(TALLOC_CTX *ctx, DEVICEMODE *devmode)
 	
 	/* bulk copy first */
 	
-	d = TALLOC_MEMDUP(ctx, devmode, sizeof(DEVICEMODE));
+	d = (DEVICEMODE *)TALLOC_MEMDUP(ctx, devmode, sizeof(DEVICEMODE));
 	if (!d)
 		return NULL;
 		
@@ -1400,18 +1419,23 @@ static DEVICEMODE* dup_devicemode(TALLOC_CTX *ctx, DEVICEMODE *devmode)
 
 	len = unistrlen(devmode->formname.buffer);
 	if (len != -1) {
-		d->devicename.buffer = TALLOC_ARRAY(ctx, uint16, len);
-		if (!d->devicename.buffer) {
+		d->formname.buffer = TALLOC_ARRAY(ctx, uint16, len);
+		if (!d->formname.buffer) {
 			return NULL;
 		}
 		if (unistrcpy(d->formname.buffer, devmode->formname.buffer) != len)
 			return NULL;
 	}
 
-	d->dev_private = TALLOC_MEMDUP(ctx, devmode->dev_private, devmode->driverextra);
-	if (!d->dev_private) {
-		return NULL;
-	}	
+	if (devmode->driverextra) {
+		d->dev_private = (uint8 *)TALLOC_MEMDUP(ctx, devmode->dev_private,
+						devmode->driverextra);
+		if (!d->dev_private) {
+			return NULL;
+		}	
+	} else {
+		d->dev_private = NULL;
+	}
 	return d;
 }
 
@@ -2255,6 +2279,7 @@ static WERROR getprinterdata_printer_server(TALLOC_CTX *ctx, fstring value, uint
 		*type = REG_DWORD;
 		if ( !(*data = TALLOC_ARRAY(ctx, uint8, sizeof(uint32) )) )
 			return WERR_NOMEM;
+		SIVAL(*data, 0, 0x00);
 		*needed = 0x4;
 		return WERR_OK;
 	}
@@ -2495,9 +2520,8 @@ done:
 				if ( printer ) 
 					free_a_printer( &printer, 2 );
 				return WERR_NOMEM;
-		} 
-		} 
-		else {
+			} 
+		} else {
 			*data = NULL;
 		}
 	}
@@ -2599,7 +2623,8 @@ static BOOL srv_spoolss_replyopenprinter(int snum, const char *printer,
 		if ( !spoolss_connect_to_client( &notify_cli_pipe, client_ip, unix_printer ))
 			return False;
 			
-		message_register(MSG_PRINTER_NOTIFY2, receive_notify2_message_list);
+		message_register(MSG_PRINTER_NOTIFY2,
+				 receive_notify2_message_list, NULL);
 		/* Tell the connections db we're now interested in printer
 		 * notify messages. */
 		register_message_flags( True, FLAG_MSG_PRINT_NOTIFY );
@@ -2704,14 +2729,17 @@ void spoolss_notify_server_name(int snum,
 	len = rpcstr_push(temp, printer->info_2->servername, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
-
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
-	}
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
 	
-	memcpy(data->notify_data.data.string, temp, len);
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
+	}
 }
 
 /*******************************************************************
@@ -2739,14 +2767,16 @@ void spoolss_notify_printer_name(int snum,
 	len = rpcstr_push(temp, p, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
-	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2765,14 +2795,17 @@ void spoolss_notify_share_name(int snum,
 	len = rpcstr_push(temp, lp_servicename(snum), sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
-	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
 	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2793,14 +2826,18 @@ void spoolss_notify_port_name(int snum,
 	len = rpcstr_push(temp, printer->info_2->portname, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2820,14 +2857,18 @@ void spoolss_notify_driver_name(int snum,
 	len = rpcstr_push(temp, printer->info_2->drivername, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2849,14 +2890,18 @@ void spoolss_notify_comment(int snum,
 		len = rpcstr_push(temp, printer->info_2->comment, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2876,14 +2921,18 @@ void spoolss_notify_location(int snum,
 	len = rpcstr_push(temp, printer->info_2->location,sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2918,14 +2967,18 @@ void spoolss_notify_sepfile(int snum,
 	len = rpcstr_push(temp, printer->info_2->sepfile, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2945,14 +2998,18 @@ void spoolss_notify_print_processor(int snum,
 	len = rpcstr_push(temp,  printer->info_2->printprocessor, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2972,14 +3029,18 @@ void spoolss_notify_parameters(int snum,
 	len = rpcstr_push(temp,  printer->info_2->parameters, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -2999,14 +3060,18 @@ void spoolss_notify_datatype(int snum,
 	len = rpcstr_push(temp, printer->info_2->datatype, sizeof(pstring)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -3159,14 +3224,18 @@ static void spoolss_notify_username(int snum,
 	len = rpcstr_push(temp, queue->fs_user, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -3199,14 +3268,18 @@ static void spoolss_notify_job_name(int snum,
 	len = rpcstr_push(temp, queue->fs_file, sizeof(temp)-2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -3249,14 +3322,18 @@ static void spoolss_notify_job_status_string(int snum,
 	len = rpcstr_push(temp, p, sizeof(temp) - 2, STR_TERMINATE);
 
 	data->notify_data.data.length = len;
-	data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
+	if (len) {
+		data->notify_data.data.string = (uint16 *)TALLOC(mem_ctx, len);
 	
-	if (!data->notify_data.data.string) {
-		data->notify_data.data.length = 0;
-		return;
+		if (!data->notify_data.data.string) {
+			data->notify_data.data.length = 0;
+			return;
+		}
+	
+		memcpy(data->notify_data.data.string, temp, len);
+	} else {
+		data->notify_data.data.string = NULL;
 	}
-	
-	memcpy(data->notify_data.data.string, temp, len);
 }
 
 /*******************************************************************
@@ -4080,7 +4157,7 @@ static BOOL convert_nt_devicemode( DEVICEMODE *devmode, NT_DEVICEMODE *ntdevmode
  Create a DEVMODE struct. Returns malloced memory.
 ****************************************************************************/
 
-DEVICEMODE *construct_dev_mode(int snum)
+DEVICEMODE *construct_dev_mode(const char *servicename)
 {
 	NT_PRINTER_INFO_LEVEL 	*printer = NULL;
 	DEVICEMODE 		*devmode = NULL;
@@ -4089,7 +4166,7 @@ DEVICEMODE *construct_dev_mode(int snum)
 	
 	DEBUGADD(8,("getting printer characteristics\n"));
 
-	if (!W_ERROR_IS_OK(get_a_printer(NULL, &printer, 2, lp_const_servicename(snum)))) 
+	if (!W_ERROR_IS_OK(get_a_printer(NULL, &printer, 2, servicename))) 
 		return NULL;
 
 	if ( !printer->info_2->devmode ) {
@@ -4161,7 +4238,8 @@ static BOOL construct_printer_info_2(Printer_entry *print_hnd, PRINTER_INFO_2 *p
 	printer->cjobs = count;							/* jobs */
 	printer->averageppm = ntprinter->info_2->averageppm;			/* average pages per minute */
 			
-	if ( !(printer->devmode = construct_dev_mode(snum)) )
+	if ( !(printer->devmode = construct_dev_mode(
+		       lp_const_servicename(snum))) )
 		DEBUG(8, ("Returning NULL Devicemode!\n"));
 
 	printer->secdesc = NULL;
@@ -4204,8 +4282,6 @@ static BOOL construct_printer_info_3(Printer_entry *print_hnd, PRINTER_INFO_3 **
 	ZERO_STRUCTP(printer);
 	
 	/* These are the components of the SD we are returning. */
-
-	printer->flags = 0x4; 
 
 	if (ntprinter->info_2->secdesc_buf && ntprinter->info_2->secdesc_buf->len != 0) {
 		/* don't use talloc_steal() here unless you do a deep steal of all 
@@ -4275,7 +4351,7 @@ static BOOL construct_printer_info_5(Printer_entry *print_hnd, PRINTER_INFO_5 *p
 static BOOL construct_printer_info_7(Printer_entry *print_hnd, PRINTER_INFO_7 *printer, int snum)
 {
 	char *guid_str = NULL;
-	struct uuid guid; 
+	struct GUID guid; 
 	
 	if (is_printer_published(print_hnd, snum, &guid)) {
 		asprintf(&guid_str, "{%s}", smb_uuid_string_static(guid));
@@ -4574,20 +4650,16 @@ static WERROR enumprinters_level1( uint32 flags, fstring name,
  * handle enumeration of printers at level 2
  ********************************************************************/
 
-static WERROR enumprinters_level2( uint32 flags, fstring servername,
+static WERROR enumprinters_level2( uint32 flags, const char *servername,
 			         RPC_BUFFER *buffer, uint32 offered,
 			         uint32 *needed, uint32 *returned)
 {
-	char *s = servername;
-
 	if (flags & PRINTER_ENUM_LOCAL) {
 			return enum_all_printers_info_2(buffer, offered, needed, returned);
 	}
 
 	if (flags & PRINTER_ENUM_NAME) {
-		if ((servername[0] == '\\') && (servername[1] == '\\'))
-			s = servername + 2;
-		if (is_myname_or_ipaddr(s))
+		if (is_myname_or_ipaddr(canon_servername(servername)))
 			return enum_all_printers_info_2(buffer, offered, needed, returned);
 		else
 			return WERR_INVALID_NAME;
@@ -4603,7 +4675,7 @@ static WERROR enumprinters_level2( uint32 flags, fstring servername,
  * handle enumeration of printers at level 5
  ********************************************************************/
 
-static WERROR enumprinters_level5( uint32 flags, fstring servername,
+static WERROR enumprinters_level5( uint32 flags, const char *servername,
 			         RPC_BUFFER *buffer, uint32 offered,
 			         uint32 *needed, uint32 *returned)
 {
@@ -4981,7 +5053,7 @@ WERROR _spoolss_getprinter(pipes_struct *p, SPOOL_Q_GETPRINTER *q_u, SPOOL_R_GET
  * fill a DRIVER_INFO_1 struct
  ********************************************************************/
 
-static void fill_printer_driver_info_1(DRIVER_INFO_1 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, fstring servername, fstring architecture)
+static void fill_printer_driver_info_1(DRIVER_INFO_1 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, const char *servername, fstring architecture)
 {
 	init_unistr( &info->name, driver.info_3->name);
 }
@@ -4990,7 +5062,7 @@ static void fill_printer_driver_info_1(DRIVER_INFO_1 *info, NT_PRINTER_DRIVER_IN
  * construct_printer_driver_info_1
  ********************************************************************/
 
-static WERROR construct_printer_driver_info_1(DRIVER_INFO_1 *info, int snum, fstring servername, fstring architecture, uint32 version)
+static WERROR construct_printer_driver_info_1(DRIVER_INFO_1 *info, int snum, const char *servername, fstring architecture, uint32 version)
 {	
 	NT_PRINTER_INFO_LEVEL *printer = NULL;
 	NT_PRINTER_DRIVER_INFO_LEVEL driver;
@@ -5017,9 +5089,10 @@ static WERROR construct_printer_driver_info_1(DRIVER_INFO_1 *info, int snum, fst
  * fill a printer_info_2 struct
  ********************************************************************/
 
-static void fill_printer_driver_info_2(DRIVER_INFO_2 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, fstring servername)
+static void fill_printer_driver_info_2(DRIVER_INFO_2 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, const char *servername)
 {
 	pstring temp;
+	const char *cservername = canon_servername(servername);
 
 	info->version=driver.info_3->cversion;
 
@@ -5028,19 +5101,19 @@ static void fill_printer_driver_info_2(DRIVER_INFO_2 *info, NT_PRINTER_DRIVER_IN
 
 
     if (strlen(driver.info_3->driverpath)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->driverpath);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->driverpath);
 		init_unistr( &info->driverpath, temp );
     } else
         init_unistr( &info->driverpath, "" );
 
 	if (strlen(driver.info_3->datafile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->datafile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->datafile);
 		init_unistr( &info->datafile, temp );
 	} else
 		init_unistr( &info->datafile, "" );
 	
 	if (strlen(driver.info_3->configfile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->configfile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->configfile);
 		init_unistr( &info->configfile, temp );	
 	} else
 		init_unistr( &info->configfile, "" );
@@ -5051,7 +5124,7 @@ static void fill_printer_driver_info_2(DRIVER_INFO_2 *info, NT_PRINTER_DRIVER_IN
  * fill a printer_info_2 struct
  ********************************************************************/
 
-static WERROR construct_printer_driver_info_2(DRIVER_INFO_2 *info, int snum, fstring servername, fstring architecture, uint32 version)
+static WERROR construct_printer_driver_info_2(DRIVER_INFO_2 *info, int snum, const char *servername, fstring architecture, uint32 version)
 {
 	NT_PRINTER_INFO_LEVEL *printer = NULL;
 	NT_PRINTER_DRIVER_INFO_LEVEL driver;
@@ -5105,7 +5178,7 @@ static uint32 init_unistr_array(uint16 **uni_array, fstring *char_array, const c
 		   the list of dependent files */
 		   
 		if ( servername )
-			slprintf( line, sizeof(line)-1, "\\\\%s%s", servername, v );
+			slprintf( line, sizeof(line)-1, "\\\\%s%s", canon_servername(servername), v );
 		else
 			pstrcpy( line, v );
 			
@@ -5144,9 +5217,10 @@ static uint32 init_unistr_array(uint16 **uni_array, fstring *char_array, const c
  * fill a printer_info_3 struct
  ********************************************************************/
 
-static void fill_printer_driver_info_3(DRIVER_INFO_3 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, fstring servername)
+static void fill_printer_driver_info_3(DRIVER_INFO_3 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, const char *servername)
 {
 	pstring temp;
+	const char *cservername = canon_servername(servername);
 
 	ZERO_STRUCTP(info);
 
@@ -5156,25 +5230,25 @@ static void fill_printer_driver_info_3(DRIVER_INFO_3 *info, NT_PRINTER_DRIVER_IN
 	init_unistr( &info->architecture, driver.info_3->environment );
 
 	if (strlen(driver.info_3->driverpath)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->driverpath);		
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->driverpath);		
 		init_unistr( &info->driverpath, temp );
 	} else
 		init_unistr( &info->driverpath, "" );
     
 	if (strlen(driver.info_3->datafile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->datafile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->datafile);
 		init_unistr( &info->datafile, temp );
 	} else
 		init_unistr( &info->datafile, "" );
 
 	if (strlen(driver.info_3->configfile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->configfile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->configfile);
 		init_unistr( &info->configfile, temp );	
 	} else
 		init_unistr( &info->configfile, "" );
 
 	if (strlen(driver.info_3->helpfile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->helpfile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->helpfile);
 		init_unistr( &info->helpfile, temp );
 	} else
 		init_unistr( &info->helpfile, "" );
@@ -5183,7 +5257,7 @@ static void fill_printer_driver_info_3(DRIVER_INFO_3 *info, NT_PRINTER_DRIVER_IN
 	init_unistr( &info->defaultdatatype, driver.info_3->defaultdatatype );
 
 	info->dependentfiles=NULL;
-	init_unistr_array(&info->dependentfiles, driver.info_3->dependentfiles, servername);
+	init_unistr_array(&info->dependentfiles, driver.info_3->dependentfiles, cservername);
 }
 
 /********************************************************************
@@ -5191,7 +5265,7 @@ static void fill_printer_driver_info_3(DRIVER_INFO_3 *info, NT_PRINTER_DRIVER_IN
  * fill a printer_info_3 struct
  ********************************************************************/
 
-static WERROR construct_printer_driver_info_3(DRIVER_INFO_3 *info, int snum, fstring servername, fstring architecture, uint32 version)
+static WERROR construct_printer_driver_info_3(DRIVER_INFO_3 *info, int snum, const char *servername, fstring architecture, uint32 version)
 {	
 	NT_PRINTER_INFO_LEVEL *printer = NULL;
 	NT_PRINTER_DRIVER_INFO_LEVEL driver;
@@ -5250,10 +5324,11 @@ static WERROR construct_printer_driver_info_3(DRIVER_INFO_3 *info, int snum, fst
  * fill a printer_info_6 struct - we know that driver is really level 3. This sucks. JRA.
  ********************************************************************/
 
-static void fill_printer_driver_info_6(DRIVER_INFO_6 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, fstring servername)
+static void fill_printer_driver_info_6(DRIVER_INFO_6 *info, NT_PRINTER_DRIVER_INFO_LEVEL driver, const char *servername)
 {
 	pstring temp;
 	fstring nullstr;
+	const char *cservername = canon_servername(servername);
 
 	ZERO_STRUCTP(info);
 	memset(&nullstr, '\0', sizeof(fstring));
@@ -5264,25 +5339,25 @@ static void fill_printer_driver_info_6(DRIVER_INFO_6 *info, NT_PRINTER_DRIVER_IN
 	init_unistr( &info->architecture, driver.info_3->environment );
 
 	if (strlen(driver.info_3->driverpath)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->driverpath);		
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->driverpath);		
 		init_unistr( &info->driverpath, temp );
 	} else
 		init_unistr( &info->driverpath, "" );
 
 	if (strlen(driver.info_3->datafile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->datafile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->datafile);
 		init_unistr( &info->datafile, temp );
 	} else
 		init_unistr( &info->datafile, "" );
 
 	if (strlen(driver.info_3->configfile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->configfile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->configfile);
 		init_unistr( &info->configfile, temp );	
 	} else
 		init_unistr( &info->configfile, "" );
 
 	if (strlen(driver.info_3->helpfile)) {
-		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", servername, driver.info_3->helpfile);
+		slprintf(temp, sizeof(temp)-1, "\\\\%s%s", cservername, driver.info_3->helpfile);
 		init_unistr( &info->helpfile, temp );
 	} else
 		init_unistr( &info->helpfile, "" );
@@ -5296,8 +5371,7 @@ static void fill_printer_driver_info_6(DRIVER_INFO_6 *info, NT_PRINTER_DRIVER_IN
 	info->previousdrivernames=NULL;
 	init_unistr_array(&info->previousdrivernames, &nullstr, servername);
 
-	info->driver_date.low=0;
-	info->driver_date.high=0;
+	info->driver_date=0;
 
 	info->padding=0;
 	info->driver_version_low=0;
@@ -5315,7 +5389,7 @@ static void fill_printer_driver_info_6(DRIVER_INFO_6 *info, NT_PRINTER_DRIVER_IN
  ********************************************************************/
 
 static WERROR construct_printer_driver_info_6(DRIVER_INFO_6 *info, int snum, 
-              fstring servername, fstring architecture, uint32 version)
+              const char *servername, fstring architecture, uint32 version)
 {	
 	NT_PRINTER_INFO_LEVEL 		*printer = NULL;
 	NT_PRINTER_DRIVER_INFO_LEVEL 	driver;
@@ -5382,7 +5456,7 @@ static void free_printer_driver_info_6(DRIVER_INFO_6 *info)
 /****************************************************************************
 ****************************************************************************/
 
-static WERROR getprinterdriver2_level1(fstring servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
+static WERROR getprinterdriver2_level1(const char *servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
 {
 	DRIVER_INFO_1 *info=NULL;
 	WERROR result;
@@ -5420,7 +5494,7 @@ out:
 /****************************************************************************
 ****************************************************************************/
 
-static WERROR getprinterdriver2_level2(fstring servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
+static WERROR getprinterdriver2_level2(const char *servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
 {
 	DRIVER_INFO_2 *info=NULL;
 	WERROR result;
@@ -5458,7 +5532,7 @@ out:
 /****************************************************************************
 ****************************************************************************/
 
-static WERROR getprinterdriver2_level3(fstring servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
+static WERROR getprinterdriver2_level3(const char *servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
 {
 	DRIVER_INFO_3 info;
 	WERROR result;
@@ -5494,7 +5568,7 @@ out:
 /****************************************************************************
 ****************************************************************************/
 
-static WERROR getprinterdriver2_level6(fstring servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
+static WERROR getprinterdriver2_level6(const char *servername, fstring architecture, uint32 version, int snum, RPC_BUFFER *buffer, uint32 offered, uint32 *needed)
 {
 	DRIVER_INFO_6 info;
 	WERROR result;
@@ -5881,10 +5955,10 @@ static WERROR update_printer_sec(POLICY_HND *handle, uint32 level,
 		for (i = 0; i < the_acl->num_aces; i++) {
 			fstring sid_str;
 
-			sid_to_string(sid_str, &the_acl->ace[i].trustee);
+			sid_to_string(sid_str, &the_acl->aces[i].trustee);
 
 			DEBUG(10, ("%s 0x%08x\n", sid_str, 
-				  the_acl->ace[i].info.mask));
+				  the_acl->aces[i].access_mask));
 		}
 
 		the_acl = secdesc_ctr->sec->dacl;
@@ -5896,10 +5970,10 @@ static WERROR update_printer_sec(POLICY_HND *handle, uint32 level,
 			for (i = 0; i < the_acl->num_aces; i++) {
 				fstring sid_str;
 				
-				sid_to_string(sid_str, &the_acl->ace[i].trustee);
+				sid_to_string(sid_str, &the_acl->aces[i].trustee);
 				
 				DEBUG(10, ("%s 0x%08x\n", sid_str, 
-					   the_acl->ace[i].info.mask));
+					   the_acl->aces[i].access_mask));
 			}
 		} else {
 			DEBUG(10, ("dacl for secdesc_ctr is NULL\n"));
@@ -6036,7 +6110,9 @@ BOOL add_printer_hook(NT_USER_TOKEN *token, NT_PRINTER_INFO_LEVEL *printer)
 	SE_PRIV se_printop = SE_PRINT_OPERATOR;
 	BOOL is_print_op = False;
 
-	standard_sub_basic(current_user_info.smb_name, remote_machine,sizeof(remote_machine));
+	standard_sub_basic(current_user_info.smb_name,
+			   current_user_info.domain,
+			   remote_machine,sizeof(remote_machine));
 	
 	slprintf(command, sizeof(command)-1, "%s \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
 			cmd, printer->info_2->printername, printer->info_2->sharename,
@@ -6559,7 +6635,7 @@ static WERROR enumjobs_level2(const print_queue_struct *queue, int snum,
 		
 	/* this should not be a failure condition if the devmode is NULL */
 	
-	devmode = construct_dev_mode(snum);
+	devmode = construct_dev_mode(lp_const_servicename(snum));
 
 	for (i=0; i<*returned; i++)
 		fill_job_info_2(&(info[i]), &queue[i], i, snum, ntprinter, devmode);
@@ -6721,7 +6797,7 @@ WERROR _spoolss_setjob(pipes_struct *p, SPOOL_Q_SETJOB *q_u, SPOOL_R_SETJOB *r_u
  Enumerates all printer drivers at level 1.
 ****************************************************************************/
 
-static WERROR enumprinterdrivers_level1(fstring servername, fstring architecture, RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
+static WERROR enumprinterdrivers_level1(const char *servername, fstring architecture, RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
 {
 	int i;
 	int ndrivers;
@@ -6805,7 +6881,7 @@ out:
  Enumerates all printer drivers at level 2.
 ****************************************************************************/
 
-static WERROR enumprinterdrivers_level2(fstring servername, fstring architecture, RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
+static WERROR enumprinterdrivers_level2(const char *servername, fstring architecture, RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
 {
 	int i;
 	int ndrivers;
@@ -6890,7 +6966,7 @@ out:
  Enumerates all printer drivers at level 3.
 ****************************************************************************/
 
-static WERROR enumprinterdrivers_level3(fstring servername, fstring architecture, RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
+static WERROR enumprinterdrivers_level3(const char *servername, fstring architecture, RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
 {
 	int i;
 	int ndrivers;
@@ -6986,7 +7062,7 @@ WERROR _spoolss_enumprinterdrivers( pipes_struct *p, SPOOL_Q_ENUMPRINTERDRIVERS 
 	uint32 offered = q_u->offered;
 	uint32 *needed = &r_u->needed;
 	uint32 *returned = &r_u->returned;
-
+	const char *cservername;
 	fstring servername;
 	fstring architecture;
 
@@ -7007,16 +7083,18 @@ WERROR _spoolss_enumprinterdrivers( pipes_struct *p, SPOOL_Q_ENUMPRINTERDRIVERS 
 	unistr2_to_ascii(architecture, &q_u->environment, sizeof(architecture)-1);
 	unistr2_to_ascii(servername, &q_u->name, sizeof(servername)-1);
 
-	if ( !is_myname_or_ipaddr( servername ) )
+	cservername = canon_servername(servername);
+
+	if (!is_myname_or_ipaddr(cservername))
 		return WERR_UNKNOWN_PRINTER_DRIVER;
 
 	switch (level) {
 	case 1:
-		return enumprinterdrivers_level1(servername, architecture, buffer, offered, needed, returned);
+		return enumprinterdrivers_level1(cservername, architecture, buffer, offered, needed, returned);
 	case 2:
-		return enumprinterdrivers_level2(servername, architecture, buffer, offered, needed, returned);
+		return enumprinterdrivers_level2(cservername, architecture, buffer, offered, needed, returned);
 	case 3:
-		return enumprinterdrivers_level3(servername, architecture, buffer, offered, needed, returned);
+		return enumprinterdrivers_level3(cservername, architecture, buffer, offered, needed, returned);
 	default:
 		return WERR_UNKNOWN_LEVEL;
 	}
@@ -7786,7 +7864,7 @@ static WERROR getprinterdriverdir_level_1(UNISTR2 *name, UNISTR2 *uni_environmen
 	pstring path;
 	pstring long_archi;
 	fstring servername;
-	char *pservername; 
+	const char *pservername; 
 	const char *short_archi;
 	DRIVER_DIRECTORY_1 *info=NULL;
 	WERROR result = WERR_OK;
@@ -7794,13 +7872,7 @@ static WERROR getprinterdriverdir_level_1(UNISTR2 *name, UNISTR2 *uni_environmen
 	unistr2_to_ascii(servername, name, sizeof(servername)-1);
 	unistr2_to_ascii(long_archi, uni_environment, sizeof(long_archi)-1);
 
-	/* check for beginning double '\'s and that the server
-	   long enough */
-
-	pservername = servername;
-	if ( *pservername == '\\' && strlen(servername)>2 ) {
-		pservername += 2;
-	} 
+	pservername = canon_servername(servername);
 	
 	if ( !is_myname_or_ipaddr( pservername ) )
 		return WERR_INVALID_PARAM;
@@ -7982,13 +8054,17 @@ WERROR _spoolss_enumprinterdata(pipes_struct *p, SPOOL_Q_ENUMPRINTERDATA *q_u, S
 
 		*out_max_value_len=(in_value_len/sizeof(uint16));
 		
-		if((*out_value=(uint16 *)TALLOC_ZERO(p->mem_ctx, in_value_len*sizeof(uint8))) == NULL)
-		{
-			result = WERR_NOMEM;
-			goto done;
+		if (in_value_len) {
+			if((*out_value=(uint16 *)TALLOC_ZERO(p->mem_ctx, in_value_len*sizeof(uint8))) == NULL)
+			{
+				result = WERR_NOMEM;
+				goto done;
+			}
+			*out_value_len = (uint32)rpcstr_push((char *)*out_value, "", in_value_len, 0);
+		} else {
+			*out_value=NULL;
+			*out_value_len = 0;
 		}
-
-		*out_value_len = (uint32)rpcstr_push((char *)*out_value, "", in_value_len, 0);
 
 		/* the data is counted in bytes */
 		
@@ -8018,13 +8094,18 @@ WERROR _spoolss_enumprinterdata(pipes_struct *p, SPOOL_Q_ENUMPRINTERDATA *q_u, S
 	
 		/* name */
 		*out_max_value_len=(in_value_len/sizeof(uint16));
-		if ( (*out_value = (uint16 *)TALLOC_ZERO(p->mem_ctx, in_value_len*sizeof(uint8))) == NULL ) 
-		{
-			result = WERR_NOMEM;
-			goto done;
-		}
+		if (in_value_len) {
+			if ( (*out_value = (uint16 *)TALLOC_ZERO(p->mem_ctx, in_value_len*sizeof(uint8))) == NULL ) 
+			{
+				result = WERR_NOMEM;
+				goto done;
+			}
 	
-		*out_value_len = (uint32)rpcstr_push((char *)*out_value, regval_name(val), (size_t)in_value_len, 0);
+			*out_value_len = (uint32)rpcstr_push((char *)*out_value, regval_name(val), (size_t)in_value_len, 0);
+		} else {
+			*out_value = NULL;
+			*out_value_len = 0;
+		}
 
 		/* type */
 		
@@ -8039,7 +8120,7 @@ WERROR _spoolss_enumprinterdata(pipes_struct *p, SPOOL_Q_ENUMPRINTERDATA *q_u, S
 			goto done;
 		}
 		data_len = regval_size(val);
-		if ( *data_out )
+		if ( *data_out && data_len )
 			memcpy( *data_out, regval_data_p(val), data_len );
 		*out_data_len = data_len;
 	}
@@ -8497,7 +8578,7 @@ WERROR _spoolss_enumprintprocessors(pipes_struct *p, SPOOL_Q_ENUMPRINTPROCESSORS
 static WERROR enumprintprocdatatypes_level_1(RPC_BUFFER *buffer, uint32 offered, uint32 *needed, uint32 *returned)
 {
 	PRINTPROCDATATYPE_1 *info_1=NULL;
-	WERROR result = WERR_NOMEM;
+	WERROR result = WERR_OK;
 	
 	if((info_1 = SMB_MALLOC_P(PRINTPROCDATATYPE_1)) == NULL)
 		return WERR_NOMEM;
@@ -8791,7 +8872,7 @@ static WERROR getjob_level_2(print_queue_struct **queue, int count, int snum,
 	 */
 	 
 	if ( !(nt_devmode=print_job_devmode( lp_const_servicename(snum), jobid )) )
-		devmode = construct_dev_mode(snum);
+		devmode = construct_dev_mode(lp_const_servicename(snum));
 	else {
 		if ((devmode = SMB_MALLOC_P(DEVICEMODE)) != NULL) {
 			ZERO_STRUCTP( devmode );
@@ -8980,10 +9061,9 @@ done:
 				status = WERR_NOMEM;
 				goto done;
 			}
-		} 
-		else {
+		} else {
 			*data = NULL;
-	}
+		}
 	}
 	
 	if ( printer )
@@ -9369,7 +9449,7 @@ WERROR _spoolss_enumprinterdataex(pipes_struct *p, SPOOL_Q_ENUMPRINTERDATAEX *q_
 		if ( data_len ) {
 			if ( !(enum_values[i].data = TALLOC_MEMDUP(p->mem_ctx, regval_data_p(val), data_len)) ) 
 			{
-				DEBUG(0,("talloc_memdup failed to allocate memory [data_len=%d] for data!\n", 
+				DEBUG(0,("TALLOC_MEMDUP failed to allocate memory [data_len=%d] for data!\n", 
 					data_len ));
 				result = WERR_NOMEM;
 				goto done;
@@ -9402,8 +9482,14 @@ WERROR _spoolss_enumprinterdataex(pipes_struct *p, SPOOL_Q_ENUMPRINTERDATAEX *q_
 	}
 		
 	/* copy data into the reply */
-	
-	r_u->ctr.size        	= r_u->needed;
+
+	/* mz: Vista x64 returns 0x6f7 (The stub received bad data), if the
+	   response buffer size is != the offered buffer size
+
+		r_u->ctr.size           = r_u->needed;
+	*/
+	r_u->ctr.size           = in_size;
+
 	r_u->ctr.size_of_array 	= r_u->returned;
 	r_u->ctr.values 	= enum_values;
 	

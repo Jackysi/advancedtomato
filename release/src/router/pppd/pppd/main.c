@@ -1712,7 +1712,7 @@ device_script(program, in, out, dont_wait)
     }
     execl("/bin/sh", "sh", "-c", program, (char *)0);
     perror("pppd: could not exec /bin/sh");
-    exit(99);
+    _exit(99);
     /* NOTREACHED */
 }
 
@@ -1795,7 +1795,7 @@ run_program(prog, args, must_exist, done, arg, wait)
 	syslog(LOG_ERR, "Can't execute %s: %m", prog);
 	closelog();
     }
-    _exit(-1);
+    _exit(99);
 }
 
 

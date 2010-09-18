@@ -28,6 +28,8 @@
  * + and & may be combined
  */
 
+extern userdom_struct current_user_info;
+
 static BOOL do_group_checks(const char **name, const char **pattern)
 {
 	if ((*name)[0] == '@') {
@@ -71,10 +73,11 @@ static BOOL token_contains_name(TALLOC_CTX *mem_ctx,
 {
 	const char *prefix;
 	DOM_SID sid;
-	enum SID_NAME_USE type;
+	enum lsa_SidType type;
 
 	if (username != NULL) {
-		name = talloc_sub_basic(mem_ctx, username, name);
+		name = talloc_sub_basic(mem_ctx, username,
+					current_user_info.domain, name);
 	}
 	if (sharename != NULL) {
 		name = talloc_string_sub(mem_ctx, name, "%S", sharename);
@@ -189,7 +192,7 @@ BOOL token_contains_name_in_list(const char *username,
  * The other use is the netgroup check when using @group or &group.
  */
 
-BOOL user_ok_token(const char *username, struct nt_user_token *token, int snum)
+BOOL user_ok_token(const char *username, const struct nt_user_token *token, int snum)
 {
 	if (lp_invalid_users(snum) != NULL) {
 		if (token_contains_name_in_list(username, lp_servicename(snum),
@@ -246,7 +249,7 @@ BOOL user_ok_token(const char *username, struct nt_user_token *token, int snum)
  */
 
 BOOL is_share_read_only_for_token(const char *username,
-				  struct nt_user_token *token, int snum)
+				  const struct nt_user_token *token, int snum)
 {
 	BOOL result = lp_readonly(snum);
 

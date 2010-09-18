@@ -786,8 +786,8 @@ void init_rpc_auth_schannel_neg(RPC_AUTH_SCHANNEL_NEG *neg,
 {
 	neg->type1 = 0;
 	neg->type2 = 0x3;
-	fstrcpy(neg->domain, domain);
-	fstrcpy(neg->myname, myname);
+	push_ascii_fstring(neg->domain, domain);
+	push_ascii_fstring(neg->myname, myname);
 }
 
 /*******************************************************************

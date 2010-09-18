@@ -51,8 +51,6 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 #define CONVERT_BLOCKS(B) adjust_blocks ((SMB_BIG_UINT)(B), (SMB_BIG_UINT)fsd.f_fsize, (SMB_BIG_UINT)512)
 	struct statfs fsd;
 
-
-// #error STAT_STATFS3_OSF1
 	if (statfs (path, &fsd, sizeof (struct statfs)) != 0)
 		return -1;
 #endif /* STAT_STATFS3_OSF1 */
@@ -61,7 +59,6 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 #define CONVERT_BLOCKS(B) adjust_blocks ((SMB_BIG_UINT)(B), (SMB_BIG_UINT)1024, (SMB_BIG_UINT)512)	
 	struct fs_data fsd;
 	
-// #error STAT_STATFS2_FS_DATA
 	if (statfs (path, &fsd) != 1)
 		return -1;
 	
@@ -73,7 +70,6 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 #define CONVERT_BLOCKS(B) adjust_blocks ((SMB_BIG_UINT)(B), (SMB_BIG_UINT)fsd.f_bsize, (SMB_BIG_UINT)512)
 	struct statfs fsd;
 	
-// #error STAT_STATFS2_FS_BSIZE
 	if (statfs (path, &fsd) < 0)
 		return -1;
 	
@@ -97,7 +93,6 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 	
 	struct statfs fsd;
 	
-// #error STAT_STATFS2_FSIZE
 	if (statfs (path, &fsd) < 0)
 		return -1;
 #endif /* STAT_STATFS2_FSIZE */
@@ -119,7 +114,6 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 	
 	struct statfs fsd;
 
-// #error STAT_STATFS4
 	if (statfs (path, &fsd, sizeof fsd, 0) < 0)
 		return -1;
 	/* Empirically, the block counts on most SVR3 and SVR3-derived
@@ -133,11 +127,9 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 	adjust_blocks ((SMB_BIG_UINT)(B), fsd.f_frsize ? (SMB_BIG_UINT)fsd.f_frsize : (SMB_BIG_UINT)fsd.f_bsize, (SMB_BIG_UINT)512)
 
 #ifdef STAT_STATVFS64
-// #error STAT_STATVFS64
 	struct statvfs64 fsd;
 	if (statvfs64(path, &fsd) < 0) return -1;
 #else
-// #error STAT_STATVFS
 	struct statvfs fsd;
 	if (statvfs(path, &fsd) < 0) return -1;
 #endif
@@ -147,7 +139,6 @@ int sys_fsusage(const char *path, SMB_BIG_UINT *dfree, SMB_BIG_UINT *dsize)
 #endif /* STAT_STATVFS */
 
 #ifndef CONVERT_BLOCKS
-#error no STAT_STATxxx defined - we have no dfree code!
 	/* we don't have any dfree code! */
 	return -1;
 #else

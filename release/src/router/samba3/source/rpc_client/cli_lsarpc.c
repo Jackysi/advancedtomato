@@ -181,7 +181,6 @@ NTSTATUS rpccli_lsa_lookup_sids(struct rpc_pipe_client *cli,
 	LSA_Q_LOOKUP_SIDS q;
 	LSA_R_LOOKUP_SIDS r;
 	DOM_R_REF ref;
-	LSA_TRANS_NAME_ENUM t_names;
 	NTSTATUS result = NT_STATUS_OK;
 	int i;
 
@@ -191,10 +190,8 @@ NTSTATUS rpccli_lsa_lookup_sids(struct rpc_pipe_client *cli,
 	init_q_lookup_sids(mem_ctx, &q, pol, num_sids, sids, 1);
 
 	ZERO_STRUCT(ref);
-	ZERO_STRUCT(t_names);
 
 	r.dom_ref = &ref;
-	r.names = &t_names;
 
 	CLI_DO_RPC( cli, mem_ctx, PI_LSARPC, LSA_LOOKUPSIDS,
 			q, r,
@@ -219,27 +216,33 @@ NTSTATUS rpccli_lsa_lookup_sids(struct rpc_pipe_client *cli,
 		goto done;
 	}
 
-	if (!((*domains) = TALLOC_ARRAY(mem_ctx, char *, num_sids))) {
-		DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
-		result = NT_STATUS_NO_MEMORY;
-		goto done;
-	}
+	if (num_sids) {
+		if (!((*domains) = TALLOC_ARRAY(mem_ctx, char *, num_sids))) {
+			DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
+			result = NT_STATUS_NO_MEMORY;
+			goto done;
+		}
 
-	if (!((*names) = TALLOC_ARRAY(mem_ctx, char *, num_sids))) {
-		DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
-		result = NT_STATUS_NO_MEMORY;
-		goto done;
-	}
+		if (!((*names) = TALLOC_ARRAY(mem_ctx, char *, num_sids))) {
+			DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
+			result = NT_STATUS_NO_MEMORY;
+			goto done;
+		}
 
-	if (!((*types) = TALLOC_ARRAY(mem_ctx, uint32, num_sids))) {
-		DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
-		result = NT_STATUS_NO_MEMORY;
-		goto done;
+		if (!((*types) = TALLOC_ARRAY(mem_ctx, uint32, num_sids))) {
+			DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
+			result = NT_STATUS_NO_MEMORY;
+			goto done;
+		}
+	} else {
+		(*domains) = NULL;
+		(*names) = NULL;
+		(*types) = NULL;
 	}
 		
 	for (i = 0; i < num_sids; i++) {
 		fstring name, dom_name;
-		uint32 dom_idx = t_names.name[i].domain_idx;
+		uint32 dom_idx = r.names.name[i].domain_idx;
 
 		/* Translate optimised name through domain index array */
 
@@ -248,11 +251,11 @@ NTSTATUS rpccli_lsa_lookup_sids(struct rpc_pipe_client *cli,
 			rpcstr_pull_unistr2_fstring(
                                 dom_name, &ref.ref_dom[dom_idx].uni_dom_name);
 			rpcstr_pull_unistr2_fstring(
-                                name, &t_names.uni_name[i]);
+                                name, &r.names.uni_name[i]);
 
 			(*names)[i] = talloc_strdup(mem_ctx, name);
 			(*domains)[i] = talloc_strdup(mem_ctx, dom_name);
-			(*types)[i] = t_names.name[i].sid_name_use;
+			(*types)[i] = r.names.name[i].sid_name_use;
 			
 			if (((*names)[i] == NULL) || ((*domains)[i] == NULL)) {
 				DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
@@ -321,24 +324,32 @@ NTSTATUS rpccli_lsa_lookup_names(struct rpc_pipe_client *cli,
 		goto done;
 	}
 
-	if (!((*sids = TALLOC_ARRAY(mem_ctx, DOM_SID, num_names)))) {
-		DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
-		result = NT_STATUS_NO_MEMORY;
-		goto done;
-	}
-
-	if (!((*types = TALLOC_ARRAY(mem_ctx, uint32, num_names)))) {
-		DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
-		result = NT_STATUS_NO_MEMORY;
-		goto done;
-	}
-
-	if (dom_names != NULL) {
-		*dom_names = TALLOC_ARRAY(mem_ctx, const char *, num_names);
-		if (*dom_names == NULL) {
+	if (num_names) {
+		if (!((*sids = TALLOC_ARRAY(mem_ctx, DOM_SID, num_names)))) {
 			DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
 			result = NT_STATUS_NO_MEMORY;
 			goto done;
+		}
+
+		if (!((*types = TALLOC_ARRAY(mem_ctx, uint32, num_names)))) {
+			DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
+			result = NT_STATUS_NO_MEMORY;
+			goto done;
+		}
+
+		if (dom_names != NULL) {
+			*dom_names = TALLOC_ARRAY(mem_ctx, const char *, num_names);
+			if (*dom_names == NULL) {
+				DEBUG(0, ("cli_lsa_lookup_sids(): out of memory\n"));
+				result = NT_STATUS_NO_MEMORY;
+				goto done;
+			}
+		}
+	} else {
+		*sids = NULL;
+		*types = NULL;
+		if (dom_names != NULL) {
+			*dom_names = NULL;
 		}
 	}
 
@@ -547,7 +558,7 @@ NTSTATUS rpccli_lsa_query_info_policy2(struct rpc_pipe_client *cli,
 				       POLICY_HND *pol, uint16 info_class, 
 				       char **domain_name, char **dns_name,
 				       char **forest_name,
-				       struct uuid **domain_guid,
+				       struct GUID **domain_guid,
 				       DOM_SID **domain_sid)
 {
 	prs_struct qbuf, rbuf;
@@ -606,13 +617,13 @@ NTSTATUS rpccli_lsa_query_info_policy2(struct rpc_pipe_client *cli,
 	}
 	
 	if (domain_guid) {
-		*domain_guid = TALLOC_P(mem_ctx, struct uuid);
+		*domain_guid = TALLOC_P(mem_ctx, struct GUID);
 		if (!*domain_guid) {
 			return NT_STATUS_NO_MEMORY;
 		}
 		memcpy(*domain_guid, 
 		       &r.ctr.info.id12.dom_guid, 
-		       sizeof(struct uuid));
+		       sizeof(struct GUID));
 	}
 
 	if (domain_sid && r.ctr.info.id12.ptr_dom_sid != 0) {
@@ -784,22 +795,28 @@ NTSTATUS rpccli_lsa_enum_privilege(struct rpc_pipe_client *cli, TALLOC_CTX *mem_
 	*enum_context = r.enum_context;
 	*count = r.count;
 
-	if (!((*privs_name = TALLOC_ARRAY(mem_ctx, char *, r.count)))) {
-		DEBUG(0, ("(cli_lsa_enum_privilege): out of memory\n"));
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
-	}
+	if (r.count) {
+		if (!((*privs_name = TALLOC_ARRAY(mem_ctx, char *, r.count)))) {
+			DEBUG(0, ("(cli_lsa_enum_privilege): out of memory\n"));
+			result = NT_STATUS_UNSUCCESSFUL;
+			goto done;
+		}
 
-	if (!((*privs_high = TALLOC_ARRAY(mem_ctx, uint32, r.count)))) {
-		DEBUG(0, ("(cli_lsa_enum_privilege): out of memory\n"));
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
-	}
+		if (!((*privs_high = TALLOC_ARRAY(mem_ctx, uint32, r.count)))) {
+			DEBUG(0, ("(cli_lsa_enum_privilege): out of memory\n"));
+			result = NT_STATUS_UNSUCCESSFUL;
+			goto done;
+		}
 
-	if (!((*privs_low = TALLOC_ARRAY(mem_ctx, uint32, r.count)))) {
-		DEBUG(0, ("(cli_lsa_enum_privilege): out of memory\n"));
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
+		if (!((*privs_low = TALLOC_ARRAY(mem_ctx, uint32, r.count)))) {
+			DEBUG(0, ("(cli_lsa_enum_privilege): out of memory\n"));
+			result = NT_STATUS_UNSUCCESSFUL;
+			goto done;
+		}
+	} else {
+		*privs_name = NULL;
+		*privs_high = NULL;
+		*privs_low = NULL;
 	}
 
 	for (i = 0; i < r.count; i++) {

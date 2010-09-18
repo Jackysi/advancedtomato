@@ -700,12 +700,14 @@ start_inotify()
 				     (event->mask & IN_MOVED_TO && event->mask & IN_ISDIR) )
 				{
 					DPRINTF(E_DEBUG, L_INOTIFY,  "The directory %s was %s.\n", path_buf, (event->mask & IN_MOVED_TO ? "moved here" : "created"));
+					begin_scan();
 					/* This could be a directory created by auto-mount.
 					 * It will be empty until the drive is mounted to this directory.
 					 * So let's wait a few seconds to allow mount to complete.
 					 */
 					sleep(5);
 					inotify_insert_directory(pollfds[0].fd, esc_name, path_buf);
+					end_scan();
 				}
 				else if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_MOVED_TO )
 				{

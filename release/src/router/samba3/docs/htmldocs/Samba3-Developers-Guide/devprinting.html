@@ -1,16 +1,16 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 15. Samba Printing Internals</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt04.html" title="Part IV. Debugging and tracing"><link rel="prev" href="tracing.html" title="Chapter 14. Tracing samba system calls"><link rel="next" href="pt05.html" title="Part V. Appendices"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 15. Samba Printing Internals</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="tracing.html">Prev</a> </td><th width="60%" align="center">Part IV. Debugging and tracing</th><td width="20%" align="right"> <a accesskey="n" href="pt05.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="devprinting"></a>Chapter 15. Samba Printing Internals</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Gerald</span> <span class="surname">Carter</span></h3></div></div><div><p class="pubdate">October 2002</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="devprinting.html#id2563744">Abstract</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2563757">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 15. Samba Printing Internals</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="SAMBA Developers Guide"><link rel="up" href="pt04.html" title="Part IV. Debugging and tracing"><link rel="prev" href="tracing.html" title="Chapter 14. Tracing samba system calls"><link rel="next" href="pt05.html" title="Part V. Appendices"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 15. Samba Printing Internals</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="tracing.html">Prev</a> </td><th width="60%" align="center">Part IV. Debugging and tracing</th><td width="20%" align="right"> <a accesskey="n" href="pt05.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="devprinting"></a>Chapter 15. Samba Printing Internals</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Gerald</span> <span class="surname">Carter</span></h3></div></div><div><p class="pubdate">October 2002</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="devprinting.html#id2561398">Abstract</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2561411">
 Printing Interface to Various Back ends
-</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2563836">
+</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2561488">
 Print Queue TDB's
-</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2564012">
+</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2561661">
 ChangeID and Client Caching of Printer Information
-</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2564023">
+</a></span></dt><dt><span class="sect1"><a href="devprinting.html#id2561672">
 Windows NT/2K Printer Change Notify
-</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2563744"></a>Abstract</h2></div></div></div><p>
+</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561398"></a>Abstract</h2></div></div></div><p>
 The purpose of this document is to provide some insight into
 Samba's printing functionality and also to describe the semantics
 of certain features of Windows client printing.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2563757"></a>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561411"></a>
 Printing Interface to Various Back ends
 </h2></div></div></div><p>
 Samba uses a table of function pointers to seven functions.  The
@@ -21,7 +21,7 @@ Currently there are only two printing back end implementations
 defined.
 </p><div class="itemizedlist"><ul type="disc"><li><p>a generic set of functions for working with standard UNIX
 	printing subsystems</p></li><li><p>a set of CUPS specific functions (this is only enabled if
-	the CUPS libraries were located at compile time).</p></li></ul></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2563836"></a>
+	the CUPS libraries were located at compile time).</p></li></ul></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561488"></a>
 Print Queue TDB's
 </h2></div></div></div><p>
 Samba provides periodic caching of the output from the "lpq command"
@@ -110,11 +110,11 @@ and the job has the printer's device mode associated with it by default.
 Only non-default Device Mode are stored with print jobs in the print
 queue TDB.  Otherwise, the Device Mode is obtained from the printer
 object when the client issues a GetJob(level == 2) request.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2564012"></a>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561661"></a>
 ChangeID and Client Caching of Printer Information
 </h2></div></div></div><p>
 [To be filled in later]
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2564023"></a>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2561672"></a>
 Windows NT/2K Printer Change Notify
 </h2></div></div></div><p>
 When working with Windows NT+ clients, it is possible for a

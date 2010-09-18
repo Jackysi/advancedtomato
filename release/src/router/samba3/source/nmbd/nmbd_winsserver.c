@@ -159,7 +159,7 @@ static TDB_DATA name_record_to_wins_record(const struct name_record *namerec)
 	len = (2 + 1 + (7*4)); /* "wbddddddd" */
 	len += (namerec->data.num_ips * 4);
 
-	data.dptr = SMB_MALLOC(len);
+	data.dptr = (char *)SMB_MALLOC(len);
 	if (!data.dptr) {
 		return data;
 	}
@@ -2140,7 +2140,7 @@ static int wins_processing_traverse_fn(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA
 
 		/* handle records, samba is the wins owner */
 		if (ip_equal(namerec->data.wins_ip, our_fake_ip)) {
-			switch (namerec->data.wins_flags | WINS_STATE_MASK) {
+			switch (namerec->data.wins_flags & WINS_STATE_MASK) {
 				case WINS_ACTIVE:
 					namerec->data.wins_flags&=~WINS_STATE_MASK;
 					namerec->data.wins_flags|=WINS_RELEASED;
@@ -2165,7 +2165,7 @@ static int wins_processing_traverse_fn(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA
 					goto done;
 			}
 		} else {
-			switch (namerec->data.wins_flags | WINS_STATE_MASK) {
+			switch (namerec->data.wins_flags & WINS_STATE_MASK) {
 				case WINS_ACTIVE:
 					/* that's not as MS says it should be */
 					namerec->data.wins_flags&=~WINS_STATE_MASK;
@@ -2333,6 +2333,7 @@ void wins_write_database(time_t t, BOOL background)
 		if (tdb_reopen(wins_tdb)) {
 			DEBUG(0,("wins_write_database: tdb_reopen failed. Error was %s\n",
 				strerror(errno)));
+			_exit(0);
 			return;
 		}
 	}
@@ -2371,7 +2372,7 @@ void wins_write_database(time_t t, BOOL background)
 ***************************************************************************/
 
 void nmbd_wins_new_entry(int msg_type, struct process_id src,
-			 void *buf, size_t len)
+			 void *buf, size_t len, void *private_data)
 {
 	WINS_RECORD *record;
 	struct name_record *namerec = NULL;

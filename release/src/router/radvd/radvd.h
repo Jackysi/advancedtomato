@@ -1,5 +1,5 @@
 /*
- *   $Id: radvd.h,v 1.12 2005/02/15 08:32:06 psavola Exp $
+ *   $Id: radvd.h,v 1.30 2009/09/07 07:59:57 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -10,7 +10,7 @@
  *
  *   The license which is distributed with this software in the file COPYRIGHT
  *   applies to this software. If your distribution is missing this file, you
- *   may request it from <lutchann@litech.org>.
+ *   may request it from <pekkas@netcore.fi>.
  *
  */
 
@@ -21,13 +21,14 @@
 #include <includes.h>
 #include <defaults.h>
 
-#define CONTACT_EMAIL	"Nathan Lutchansky <lutchann@litech.org>"
+#define CONTACT_EMAIL	"Pekka Savola <pekkas@netcore.fi>"
 
 /* for log.c */
 #define	L_NONE		0
 #define L_SYSLOG	1
 #define L_STDERR	2
-#define L_LOGFILE	3
+#define L_STDERR_SYSLOG	3
+#define L_LOGFILE	4
 
 #define LOG_TIME_FORMAT "%b %d %H:%M:%S"
 
@@ -39,15 +40,21 @@ struct timer_lst {
 	struct timer_lst	*prev;	
 };
 
+#define min(a,b)	(((a) < (b)) ? (a) : (b))
+
 struct AdvPrefix;
+struct Clients;
 
 #define HWADDR_MAX 16
+#define USER_HZ 100
 
 struct Interface {
 	char			Name[IFNAMSIZ];	/* interface name */
 
 	struct in6_addr		if_addr;
-	int			if_index;
+	unsigned int		if_index;
+
+	uint8_t			init_racount;	/* Initial RAs */
 
 	uint8_t			if_hwaddr[HWADDR_MAX];
 	int			if_hwaddr_len;
@@ -61,11 +68,11 @@ struct Interface {
 	double			MinDelayBetweenRAs;
 	int			AdvManagedFlag;
 	int			AdvOtherConfigFlag;
-	int			AdvLinkMTU;
-	int			AdvReachableTime;
-	int			AdvRetransTimer;
-	int			AdvCurHopLimit;
-	int			AdvDefaultLifetime;
+	uint32_t		AdvLinkMTU;
+	uint32_t		AdvReachableTime;
+	uint32_t		AdvRetransTimer;
+	uint8_t			AdvCurHopLimit;
+	int32_t			AdvDefaultLifetime;   /* XXX: really uint16_t but we need to use -1 */
 	int			AdvDefaultPreference;
 	int			AdvSourceLLAddress;
 	int			UnicastOnly;
@@ -74,21 +81,34 @@ struct Interface {
 	int			AdvIntervalOpt;
 	int			AdvHomeAgentInfo;
 	int			AdvHomeAgentFlag;
-	int16_t			HomeAgentPreference;
-	uint16_t		HomeAgentLifetime;
+	uint16_t		HomeAgentPreference;
+	int32_t			HomeAgentLifetime;    /* XXX: really uint16_t but we need to use -1 */
+
+	/* NEMO extensions */
+	int			AdvMobRtrSupportFlag;
 
 	struct AdvPrefix	*AdvPrefixList;
 	struct AdvRoute		*AdvRouteList;
+	struct AdvRDNSS		*AdvRDNSSList;
+	struct Clients		*ClientList;
 	struct timer_lst	tm;
-	time_t                  last_multicast_sec;
-	suseconds_t             last_multicast_usec;
-	struct Interface	*next;
+	time_t			last_multicast_sec;
+	suseconds_t		last_multicast_usec;
 
+	/* Info whether this interface has failed in the past (and may need to be reinitialized) */
+	int			HasFailed;
+
+	struct Interface	*next;
+};
+
+struct Clients {
+	struct in6_addr		Address;
+	struct Clients		*next;
 };
 
 struct AdvPrefix {
 	struct in6_addr		Prefix;
-	int			PrefixLen;
+	uint8_t			PrefixLen;
 	
 	int			AdvOnLinkFlag;
 	int			AdvAutonomousFlag;
@@ -96,11 +116,12 @@ struct AdvPrefix {
 	uint32_t		AdvPreferredLifetime;
 
 	/* Mobile IPv6 extensions */
-        int                     AdvRouterAddr;
+	int             	AdvRouterAddr;
 
-	/* 6to4 extensions */
+	/* 6to4 etc. extensions */
 	char			if6to4[IFNAMSIZ];
 	int			enabled;
+	int			AutoSelected;
 
 	struct AdvPrefix	*next;
 };
@@ -109,12 +130,25 @@ struct AdvPrefix {
 
 struct AdvRoute {
 	struct in6_addr		Prefix;
-	int			PrefixLen;
+	uint8_t			PrefixLen;
 	
 	int			AdvRoutePreference;
 	uint32_t		AdvRouteLifetime;
 
 	struct AdvRoute		*next;
+};
+
+/* Option for DNS configuration */
+struct AdvRDNSS {
+	int 			AdvRDNSSNumber;
+	uint8_t			AdvRDNSSPreference;
+	int 			AdvRDNSSOpenFlag;
+	uint32_t		AdvRDNSSLifetime;
+	struct in6_addr		AdvRDNSSAddr1;
+	struct in6_addr		AdvRDNSSAddr2;
+	struct in6_addr		AdvRDNSSAddr3;
+	
+	struct AdvRDNSS 	*next; 
 };
 
 /* Mobile IPv6 extensions */
@@ -129,8 +163,8 @@ struct AdvInterval {
 struct HomeAgentInfo {
 	uint8_t			type;
 	uint8_t			length;
-	uint16_t		reserved;
-	int16_t			preference;
+	uint16_t		flags_reserved;
+	uint16_t		preference;
 	uint16_t		lifetime;
 };	
 
@@ -142,7 +176,8 @@ int yyparse(void);
 int yylex(void);
 
 /* radvd.c */
-int check_ip6_forwarding();
+int check_ip6_forwarding(void);
+void reload_config(void);
 
 /* timer.c */
 void set_timer(struct timer_lst *tm, double);
@@ -151,8 +186,8 @@ void init_timer(struct timer_lst *, void (*)(void *), void *);
 
 /* log.c */
 int log_open(int, char *, char*, int);
-int flog(int, char *, ...);
-int dlog(int, int, char *, ...);
+void flog(int, char *, ...);
+void dlog(int, int, char *, ...);
 int log_close(void);
 int log_reopen(void);
 void set_debuglevel(int);
@@ -165,18 +200,25 @@ int setup_linklocal_addr(int, struct Interface *);
 int setup_allrouters_membership(int, struct Interface *);
 int check_allrouters_membership(int, struct Interface *);
 int get_v4addr(const char *, unsigned int *);
+int set_interface_var(const char *, const char *, const char *, uint32_t);
+int set_interface_linkmtu(const char *, uint32_t);
+int set_interface_curhlim(const char *, uint8_t);
+int set_interface_reachtime(const char *, uint32_t);
+int set_interface_retranstimer(const char *, uint32_t);
 
 /* interface.c */
 void iface_init_defaults(struct Interface *);
 void prefix_init_defaults(struct AdvPrefix *);
 void route_init_defaults(struct AdvRoute *, struct Interface *);
+void rdnss_init_defaults(struct AdvRDNSS *, struct Interface *);
 int check_iface(struct Interface *);
 
 /* socket.c */
 int open_icmpv6_socket(void);
 
 /* send.c */
-void send_ra(int, struct Interface *iface, struct in6_addr *dest);
+int send_ra(int, struct Interface *iface, struct in6_addr *dest);
+int send_ra_forall(int, struct Interface *iface, struct in6_addr *dest);
 
 /* process.c */
 void process(int sock, struct Interface *, unsigned char *, int,
@@ -186,8 +228,57 @@ void process(int sock, struct Interface *, unsigned char *, int,
 int recv_rs_ra(int, unsigned char *, struct sockaddr_in6 *, struct in6_pktinfo **, int *);
 
 /* util.c */
-void mdelay(int);
+void mdelay(double);
 double rand_between(double, double);
 void print_addr(struct in6_addr *, char *);
+int check_rdnss_presence(struct AdvRDNSS *, struct in6_addr *);
+ssize_t readn(int fd, void *buf, size_t count);
+ssize_t writen(int fd, const void *buf, size_t count);
+
+#ifdef USE_PRIVSEP
+/* privsep.c */
+int privsep_init(void);
+int privsep_enabled(void);
+int privsep_interface_linkmtu(const char *iface, uint32_t mtu);
+int privsep_interface_curhlim(const char *iface, uint32_t hlim);
+int privsep_interface_reachtime(const char *iface, uint32_t rtime);
+int privsep_interface_retranstimer(const char *iface, uint32_t rettimer);
+#else
+static inline int privsep_enabled(void)	{ return 0; }
+static inline int privsep_interface_linkmtu(const char *iface, uint32_t mtu)		{ return 0; }
+static inline int privsep_interface_curhlim(const char *iface, uint32_t hlim)		{ return 0; }
+static inline int privsep_interface_reachtime(const char *iface, uint32_t rtime)	{ return 0; }
+static inline int privsep_interface_retranstimer(const char *iface, uint32_t rettimer)	{ return 0; }
+#endif
+
+/*
+ * compat hacks in case libc and kernel get out of sync:
+ *
+ * glibc 2.4 and uClibc 0.9.29 introduce IPV6_RECVPKTINFO etc. and change IPV6_PKTINFO
+ * This is only supported in Linux kernel >= 2.6.14
+ *
+ * This is only an approximation because the kernel version that libc was compiled against
+ * could be older or newer than the one being run.  But this should not be a problem --
+ * we just keep using the old kernel interface.
+ * 
+ * these are placed here because they're needed in all of socket.c, recv.c and send.c
+ */
+#ifdef __linux__
+#  if defined IPV6_RECVHOPLIMIT || defined IPV6_RECVPKTINFO
+#    include <linux/version.h>
+#    if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
+#      if defined IPV6_RECVHOPLIMIT && defined IPV6_2292HOPLIMIT
+#        undef IPV6_RECVHOPLIMIT
+#        define IPV6_RECVHOPLIMIT IPV6_2292HOPLIMIT
+#      endif
+#      if defined IPV6_RECVPKTINFO && defined IPV6_2292PKTINFO
+#        undef IPV6_RECVPKTINFO
+#        undef IPV6_PKTINFO
+#        define IPV6_RECVPKTINFO IPV6_2292PKTINFO
+#        define IPV6_PKTINFO IPV6_2292PKTINFO
+#      endif
+#    endif
+#  endif
+#endif
 
 #endif

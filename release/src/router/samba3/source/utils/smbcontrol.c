@@ -59,7 +59,8 @@ static BOOL send_message(struct process_id pid, int msg_type,
 		return False;
 
 	if (procid_to_pid(&pid) != 0)
-		return message_send_pid(pid, msg_type, buf, len, duplicates);
+		return NT_STATUS_IS_OK(message_send_pid(pid, msg_type, buf, len,
+							duplicates));
 
 	tdb = tdb_open_log(lock_path("connections.tdb"), 0, 
 			   TDB_DEFAULT, O_RDWR, 0);
@@ -98,7 +99,8 @@ static void wait_replies(BOOL multiple_replies)
 
 /* Message handler callback that displays the PID and a string on stdout */
 
-static void print_pid_string_cb(int msg_type, struct process_id pid, void *buf, size_t len)
+static void print_pid_string_cb(int msg_type, struct process_id pid, void *buf,
+				size_t len, void *private_data)
 {
 	printf("PID %u: %.*s", (unsigned int)procid_to_pid(&pid),
 	       (int)len, (const char *)buf);
@@ -108,7 +110,7 @@ static void print_pid_string_cb(int msg_type, struct process_id pid, void *buf, 
 /* Message handler callback that displays a string on stdout */
 
 static void print_string_cb(int msg_type, struct process_id pid,
-			    void *buf, size_t len)
+			    void *buf, size_t len, void *private_data)
 {
 	printf("%.*s", (int)len, (const char *)buf);
 	num_replies++;
@@ -371,7 +373,8 @@ static BOOL do_election(const struct process_id pid,
 
 /* Ping a samba daemon process */
 
-static void pong_cb(int msg_type, struct process_id pid, void *buf, size_t len)
+static void pong_cb(int msg_type, struct process_id pid, void *buf,
+		    size_t len, void *private_data)
 {
 	char *src_string = procid_str(NULL, &pid);
 	printf("PONG from pid %s\n", src_string);
@@ -391,7 +394,7 @@ static BOOL do_ping(const struct process_id pid, const int argc, const char **ar
 	if (!send_message(pid, MSG_PING, NULL, 0, False))
 		return False;
 
-	message_register(MSG_PONG, pong_cb);
+	message_register(MSG_PONG, pong_cb, NULL);
 
 	wait_replies(procid_to_pid(&pid) == 0);
 
@@ -436,7 +439,8 @@ static BOOL do_profile(const struct process_id pid,
 
 /* Return the profiling level */
 
-static void profilelevel_cb(int msg_type, struct process_id pid, void *buf, size_t len)
+static void profilelevel_cb(int msg_type, struct process_id pid, void *buf,
+			    size_t len, void *private_data)
 {
 	int level;
 	const char *s;
@@ -473,7 +477,7 @@ static void profilelevel_cb(int msg_type, struct process_id pid, void *buf, size
 }
 
 static void profilelevel_rqst(int msg_type, struct process_id pid,
-			      void *buf, size_t len)
+			      void *buf, size_t len, void *private_data)
 {
 	int v = 0;
 
@@ -495,8 +499,8 @@ static BOOL do_profilelevel(const struct process_id pid,
 	if (!send_message(pid, MSG_REQ_PROFILELEVEL, NULL, 0, False))
 		return False;
 
-	message_register(MSG_PROFILELEVEL, profilelevel_cb);
-	message_register(MSG_REQ_PROFILELEVEL, profilelevel_rqst);
+	message_register(MSG_PROFILELEVEL, profilelevel_cb, NULL);
+	message_register(MSG_REQ_PROFILELEVEL, profilelevel_rqst, NULL);
 
 	wait_replies(procid_to_pid(&pid) == 0);
 
@@ -525,7 +529,7 @@ static BOOL do_debuglevel(const struct process_id pid,
 	if (!send_message(pid, MSG_REQ_DEBUGLEVEL, NULL, 0, False))
 		return False;
 
-	message_register(MSG_DEBUGLEVEL, print_pid_string_cb);
+	message_register(MSG_DEBUGLEVEL, print_pid_string_cb, NULL);
 
 	wait_replies(procid_to_pid(&pid) == 0);
 
@@ -732,7 +736,7 @@ static BOOL do_poolusage(const struct process_id pid,
 		return False;
 	}
 
-	message_register(MSG_POOL_USAGE, print_string_cb);
+	message_register(MSG_POOL_USAGE, print_string_cb, NULL);
 
 	/* Send a message and register our interest in a reply */
 
@@ -882,25 +886,27 @@ static BOOL do_winbind_offline(const struct process_id pid,
 	   5 times. */
 
 	for (retry = 0; retry < 5; retry++) {
-		int err;
 		TDB_DATA d;
+		char buf[4];
+
 		ZERO_STRUCT(d);
+
+		SIVAL(buf, 0, time(NULL));
+		d.dptr = buf;
+		d.dsize = 4;
+
 		tdb_store_bystring(tdb, "WINBINDD_OFFLINE", d, TDB_INSERT);
 
 		ret = send_message(pid, MSG_WINBIND_OFFLINE, NULL, 0, False);
 
 		/* Check that the entry "WINBINDD_OFFLINE" still exists. */
-		tdb->ecode = TDB_SUCCESS;
 		d = tdb_fetch_bystring( tdb, "WINBINDD_OFFLINE" );
-
-		/* As this is a key with no data we don't need to free, we
-		   check for existence by looking at tdb_err. */
-
-		err = tdb_error(tdb);
-
-		if (err == TDB_ERR_NOEXIST) {
+	
+		if (!d.dptr || d.dsize != 4) {
+			SAFE_FREE(d.dptr);
 			DEBUG(10,("do_winbind_offline: offline state not set - retrying.\n"));
 		} else {
+			SAFE_FREE(d.dptr);
 			break;
 		}
 	}
@@ -921,7 +927,7 @@ static BOOL do_winbind_onlinestatus(const struct process_id pid,
 		return False;
 	}
 
-	message_register(MSG_WINBIND_ONLINESTATUS, print_pid_string_cb);
+	message_register(MSG_WINBIND_ONLINESTATUS, print_pid_string_cb, NULL);
 
 	if (!send_message(pid, MSG_WINBIND_ONLINESTATUS, &myid, sizeof(myid), False))
 		return False;
@@ -1139,22 +1145,12 @@ int main(int argc, const char **argv)
 	poptContext pc;
 	int opt;
 
-	static struct poptOption wbinfo_options[] = {
+	static struct poptOption long_options[] = {
+		POPT_AUTOHELP
 		{ "timeout", 't', POPT_ARG_INT, &timeout, 't', 
 		  "Set timeout value in seconds", "TIMEOUT" },
 
-		{ "configfile", 's', POPT_ARG_STRING, NULL, 's', 
-		  "Use alternative configuration file", "CONFIGFILE" },
-
-		POPT_TABLEEND
-	};
-
-	struct poptOption options[] = {
-		{ NULL, 0, POPT_ARG_INCLUDE_TABLE, wbinfo_options, 0, 
-		  "Options" },
-
-		POPT_AUTOHELP
-		POPT_COMMON_VERSION
+		POPT_COMMON_SAMBA
 		POPT_TABLEEND
 	};
 
@@ -1165,7 +1161,7 @@ int main(int argc, const char **argv)
 	/* Parse command line arguments using popt */
 
 	pc = poptGetContext(
-		"smbcontrol", argc, (const char **)argv, options, 0);
+		"smbcontrol", argc, (const char **)argv, long_options, 0);
 
 	poptSetOtherOptionHelp(pc, "[OPTION...] <destination> <message-type> "
 			       "<parameters>");
@@ -1176,11 +1172,6 @@ int main(int argc, const char **argv)
 	while ((opt = poptGetNextOpt(pc)) != -1) {
 		switch(opt) {
 		case 't':	/* --timeout */
-			argc -= 2;
-			break;
-		case 's':	/* --configfile */
-			pstrcpy(dyn_CONFIGFILE, poptGetOptArg(pc));
-			argc -= 2;
 			break;
 		default:
 			fprintf(stderr, "Invalid option\n");
@@ -1194,7 +1185,10 @@ int main(int argc, const char **argv)
            correct value in the above switch statement. */
 
 	argv = (const char **)poptGetArgs(pc);
-	argc--;			/* Don't forget about argv[0] */
+	argc = 0;
+	while (argv[argc] != NULL) {
+		argc++;
+	}
 
 	if (argc == 1)
 		usage(&pc);

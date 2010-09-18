@@ -77,6 +77,7 @@ const char *opt_target_workgroup = NULL;
 int opt_machine_pass = 0;
 BOOL opt_localgroup = False;
 BOOL opt_domaingroup = False;
+static BOOL do_talloc_report=False;
 const char *opt_newntname = "";
 int opt_rid = 0;
 int opt_acls = 0;
@@ -159,6 +160,7 @@ int net_run_function2(int argc, const char **argv, const char *whoami,
 /****************************************************************************
 connect to \\server\service 
 ****************************************************************************/
+
 NTSTATUS connect_to_service(struct cli_state **c, struct in_addr *server_ip,
 					const char *server_name, 
 					const char *service_name, 
@@ -172,34 +174,37 @@ NTSTATUS connect_to_service(struct cli_state **c, struct in_addr *server_ip,
 			opt_password = SMB_STRDUP(pass);
 		}
 	}
-	
+
 	nt_status = cli_full_connection(c, NULL, server_name, 
 					server_ip, opt_port,
 					service_name, service_type,  
 					opt_user_name, opt_workgroup,
 					opt_password, 0, Undefined, NULL);
-	
-	if (NT_STATUS_IS_OK(nt_status)) {
-		return nt_status;
-	} else {
-		d_fprintf(stderr, "Could not connect to server %s\n", server_name);
 
-		/* Display a nicer message depending on the result */
-
-		if (NT_STATUS_V(nt_status) == 
-		    NT_STATUS_V(NT_STATUS_LOGON_FAILURE))
-			d_fprintf(stderr, "The username or password was not correct.\n");
-
-		if (NT_STATUS_V(nt_status) == 
-		    NT_STATUS_V(NT_STATUS_ACCOUNT_LOCKED_OUT))
-			d_fprintf(stderr, "The account was locked out.\n");
-
-		if (NT_STATUS_V(nt_status) == 
-		    NT_STATUS_V(NT_STATUS_ACCOUNT_DISABLED))
-			d_fprintf(stderr, "The account was disabled.\n");
-
+	if (NT_STATUS_IS_OK(nt_status) ||
+	    NT_STATUS_EQUAL(nt_status, NT_STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT) ||
+	    NT_STATUS_EQUAL(nt_status, NT_STATUS_NOLOGON_SERVER_TRUST_ACCOUNT) ||
+	    NT_STATUS_EQUAL(nt_status, NT_STATUS_NOLOGON_INTERDOMAIN_TRUST_ACCOUNT)) {
 		return nt_status;
 	}
+
+	d_fprintf(stderr, "Could not connect to server %s\n", server_name);
+
+	/* Display a nicer message depending on the result */
+
+	if (NT_STATUS_V(nt_status) ==
+	    NT_STATUS_V(NT_STATUS_LOGON_FAILURE))
+		d_fprintf(stderr, "The username or password was not correct.\n");
+
+	if (NT_STATUS_V(nt_status) ==
+	    NT_STATUS_V(NT_STATUS_ACCOUNT_LOCKED_OUT))
+		d_fprintf(stderr, "The account was locked out.\n");
+
+	if (NT_STATUS_V(nt_status) ==
+	    NT_STATUS_V(NT_STATUS_ACCOUNT_DISABLED))
+		d_fprintf(stderr, "The account was disabled.\n");
+
+	return nt_status;
 }
 
 
@@ -235,20 +240,57 @@ NTSTATUS connect_to_ipc_anonymous(struct cli_state **c,
 }
 
 /****************************************************************************
+ Return malloced user@realm for krb5 login.
+****************************************************************************/
+
+static char *get_user_and_realm(const char *username)
+{
+	char *user_and_realm = NULL;
+
+	if (!username) {
+		return NULL;
+	}
+	if (strchr_m(username, '@')) {
+		user_and_realm = SMB_STRDUP(username);
+	} else {
+		if (asprintf(&user_and_realm, "%s@%s", username, lp_realm()) == -1) {
+			user_and_realm = NULL;
+		}
+	}
+	return user_and_realm;
+}
+
+/****************************************************************************
 connect to \\server\ipc$ using KRB5
 ****************************************************************************/
+
 NTSTATUS connect_to_ipc_krb5(struct cli_state **c,
 			struct in_addr *server_ip, const char *server_name)
 {
 	NTSTATUS nt_status;
+	char *user_and_realm = NULL;
+
+	if (!opt_password && !opt_machine_pass) {
+		char *pass = getpass("Password:");
+		if (pass) {
+			opt_password = SMB_STRDUP(pass);
+		}
+	}
+
+	user_and_realm = get_user_and_realm(opt_user_name);
+	if (!user_and_realm) {
+		return NT_STATUS_NO_MEMORY;
+	}
 
 	nt_status = cli_full_connection(c, NULL, server_name, 
 					server_ip, opt_port,
 					"IPC$", "IPC",  
-					opt_user_name, opt_workgroup,
+					user_and_realm, opt_workgroup,
 					opt_password, CLI_FULL_CONNECTION_USE_KERBEROS, 
 					Undefined, NULL);
 	
+	SAFE_FREE(user_and_realm);
+
 	if (NT_STATUS_IS_OK(nt_status)) {
 		return nt_status;
 	} else {
@@ -307,10 +349,10 @@ NTSTATUS connect_dst_pipe(struct cli_state **cli_dst, struct rpc_pipe_client **p
 }
 
 /****************************************************************************
- Use the local machine's password for this session.
+ Use the local machine account (krb) and password for this session.
 ****************************************************************************/
 
-int net_use_machine_password(void) 
+int net_use_krb_machine_account(void) 
 {
 	char *user_name = NULL;
 
@@ -319,9 +361,29 @@ int net_use_machine_password(void)
 		exit(1);
 	}
 
-	user_name = NULL;
 	opt_password = secrets_fetch_machine_password(opt_target_workgroup, NULL, NULL);
 	if (asprintf(&user_name, "%s$@%s", global_myname(), lp_realm()) == -1) {
+		return -1;
+	}
+	opt_user_name = user_name;
+	return 0;
+}
+
+/****************************************************************************
+ Use the machine account name and password for this session.
+****************************************************************************/
+
+int net_use_machine_account(void)
+{
+	char *user_name = NULL;
+		
+	if (!secrets_init()) {
+		d_fprintf(stderr, "ERROR: Unable to open secrets database\n");
+		exit(1);
+	}
+
+	opt_password = secrets_fetch_machine_password(opt_target_workgroup, NULL, NULL);
+	if (asprintf(&user_name, "%s$", global_myname()) == -1) {
 		return -1;
 	}
 	opt_user_name = user_name;
@@ -422,7 +484,7 @@ struct cli_state *net_make_ipc_connection_ex( const char *domain, const char *se
 	char *server_name = NULL;
 	struct in_addr server_ip;
 	struct cli_state *cli = NULL;
-	NTSTATUS nt_status;
+	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
 
 	if ( !server || !ip ) {
 		if (!net_find_server(domain, flags, &server_ip, &server_name)) {
@@ -434,25 +496,31 @@ struct cli_state *net_make_ipc_connection_ex( const char *domain, const char *se
 		server_ip = *ip;
 	}
 
+	if (opt_user_name) {
+		nt_status = connect_to_ipc(&cli, &server_ip, server_name);
+		if (NT_STATUS_IS_OK(nt_status)) {
+			goto connected;
+		}
+	}
 	if (flags & NET_FLAGS_ANONYMOUS) {
 		nt_status = connect_to_ipc_anonymous(&cli, &server_ip, server_name);
-	} else {
-		nt_status = connect_to_ipc(&cli, &server_ip, server_name);
+		if (NT_STATUS_IS_OK(nt_status)) {
+			goto connected;
+		}
 	}
 
+	SAFE_FREE(server_name);
+	d_fprintf(stderr, "Connection failed: %s\n",
+		  nt_errstr(nt_status));
+	return NULL;
+
+ connected:
 	/* store the server in the affinity cache if it was a PDC */
 
 	if ( (flags & NET_FLAGS_PDC) && NT_STATUS_IS_OK(nt_status) )
 		saf_store( cli->server_domain, cli->desthost );
 
-	SAFE_FREE(server_name);
-	if (NT_STATUS_IS_OK(nt_status)) {
-		return cli;
-	} else {
-		d_fprintf(stderr, "Connection failed: %s\n",
-			  nt_errstr(nt_status));
-		return NULL;
-	}
+	return cli;
 }
 
 static int net_user(int argc, const char **argv)
@@ -480,7 +548,7 @@ static int net_group(int argc, const char **argv)
 
 static int net_join(int argc, const char **argv)
 {
-	if (net_ads_check() == 0) {
+	if (net_ads_check_our_domain() == 0) {
 		if (net_ads_join(argc, argv) == 0)
 			return 0;
 		else
@@ -491,7 +559,7 @@ static int net_join(int argc, const char **argv)
 
 static int net_changetrustpw(int argc, const char **argv)
 {
-	if (net_ads_check() == 0)
+	if (net_ads_check_our_domain() == 0)
 		return net_ads_changetrustpw(argc, argv);
 
 	return net_rpc_changetrustpw(argc, argv);
@@ -513,7 +581,7 @@ static int net_changesecretpw(int argc, const char **argv)
 			set_line_buffering(stdout);
 			set_line_buffering(stderr);
 		}
-		
+
 		trust_pw = get_pass("Enter machine password: ", opt_stdin);
 
 		if (!secrets_store_machine_password(trust_pw, lp_workgroup(), sec_channel_type)) {
@@ -636,6 +704,16 @@ static int net_getdomainsid(int argc, const char **argv)
 	if(!initialize_password_db(False)) {
 		DEBUG(1, ("WARNING: Could not open passdb - domain sid may not reflect passdb\n"
 			  "backend knowlege (such as the sid stored in LDAP)\n"));
+	}
+
+	/* first check to see if we can even access secrets, so we don't
+	   panic when we can't. */
+
+	if (!secrets_init()) {
+		d_fprintf(stderr, "Unable to open secrets.tdb.  "
+				  "Can't fetch domainSID for name: %s\n",
+				  get_global_sam_name());
+		return 1;
 	}
 
 	/* Generate one, if it doesn't exist */
@@ -884,6 +962,7 @@ static struct functable net_func[] = {
 		{"timestamps",	0, POPT_ARG_NONE,     &opt_timestamps},
 		{"exclude",	'e', POPT_ARG_STRING, &opt_exclude},
 		{"destination",	0, POPT_ARG_STRING,   &opt_destination},
+		{"tallocreport", 0, POPT_ARG_NONE, &do_talloc_report},
 
 		POPT_COMMON_SAMBA
 		{ 0, 0, 0, 0}
@@ -947,12 +1026,20 @@ static struct functable net_func[] = {
 		}
 	}
 
+	if (do_talloc_report) {
+		talloc_enable_leak_report();
+	}
+
 	if (opt_requester_name) {
 		set_global_myname(opt_requester_name);
 	}
 
 	if (!opt_user_name && getenv("LOGNAME")) {
 		opt_user_name = getenv("LOGNAME");
+	}
+
+	if (!opt_user_name) {
+		opt_user_name = "";
 	}
 
 	if (!opt_workgroup) {
@@ -976,7 +1063,7 @@ static struct functable net_func[] = {
 		/* it is very useful to be able to make ads queries as the
 		   machine account for testing purposes and for domain leave */
 
-		net_use_machine_password();
+		net_use_krb_machine_account();
 	}
 
 	if (!opt_password) {

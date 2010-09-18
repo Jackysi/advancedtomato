@@ -480,12 +480,12 @@ BOOL net_io_r_logon_ctrl(const char *desc, NET_R_LOGON_CTRL *r_l, prs_struct *ps
 }
 
 /*******************************************************************
- Inits an NET_R_GETDCNAME structure.
+ Inits an NET_R_GETANYDCNAME structure.
 ********************************************************************/
-void init_net_q_getdcname(NET_Q_GETDCNAME *r_t, const char *logon_server,
-			  const char *domainname)
+void init_net_q_getanydcname(NET_Q_GETANYDCNAME *r_t, const char *logon_server,
+			     const char *domainname)
 {
-	DEBUG(5,("init_r_getdcname\n"));
+	DEBUG(5,("init_q_getanydcname\n"));
 
 	r_t->ptr_logon_server = (logon_server != NULL);
 	init_unistr2(&r_t->uni_logon_server, logon_server, UNI_STR_TERMINATE);
@@ -494,16 +494,16 @@ void init_net_q_getdcname(NET_Q_GETDCNAME *r_t, const char *logon_server,
 }
 
 /*******************************************************************
- Reads or writes an NET_Q_GETDCNAME structure.
+ Reads or writes an NET_Q_GETANYDCNAME structure.
 ********************************************************************/
 
-BOOL net_io_q_getdcname(const char *desc, NET_Q_GETDCNAME *r_t, prs_struct *ps,
-			int depth)
+BOOL net_io_q_getanydcname(const char *desc, NET_Q_GETANYDCNAME *r_t, prs_struct *ps,
+			   int depth)
 {
 	if (r_t == NULL)
 		return False;
 
-	prs_debug(ps, depth, desc, "net_io_q_getdcname");
+	prs_debug(ps, depth, desc, "net_io_q_getanydcname");
 	depth++;
 
 	if (!prs_uint32("ptr_logon_server", ps, depth, &r_t->ptr_logon_server))
@@ -528,26 +528,26 @@ BOOL net_io_q_getdcname(const char *desc, NET_Q_GETDCNAME *r_t, prs_struct *ps,
 
 
 /*******************************************************************
- Inits an NET_R_GETDCNAME structure.
+ Inits an NET_R_GETANYDCNAME structure.
 ********************************************************************/
-void init_net_r_getdcname(NET_R_GETDCNAME *r_t, const char *dcname)
+void init_net_r_getanydcname(NET_R_GETANYDCNAME *r_t, const char *dcname)
 {
-	DEBUG(5,("init_r_getdcname\n"));
+	DEBUG(5,("init_r_getanydcname\n"));
 
 	init_unistr2(&r_t->uni_dcname, dcname, UNI_STR_TERMINATE);
 }
 
 /*******************************************************************
- Reads or writes an NET_R_GETDCNAME structure.
+ Reads or writes an NET_R_GETANYDCNAME structure.
 ********************************************************************/
 
-BOOL net_io_r_getdcname(const char *desc, NET_R_GETDCNAME *r_t, prs_struct *ps,
-			int depth)
+BOOL net_io_r_getanydcname(const char *desc, NET_R_GETANYDCNAME *r_t, prs_struct *ps,
+			   int depth)
 {
 	if (r_t == NULL)
 		return False;
 
-	prs_debug(ps, depth, desc, "net_io_r_getdcname");
+	prs_debug(ps, depth, desc, "net_io_r_getanydcname");
 	depth++;
 
 	if (!prs_uint32("ptr_dcname", ps, depth, &r_t->ptr_dcname))
@@ -996,6 +996,86 @@ BOOL net_io_r_srv_pwset(const char *desc, NET_R_SRV_PWSET *r_s, prs_struct *ps, 
 	return True;
 }
 
+/*******************************************************************
+ Inits a NET_Q_SRV_PWSET2.
+********************************************************************/
+
+void init_q_srv_pwset2(NET_Q_SRV_PWSET2 *q_s,
+		       const char *logon_srv,
+		       const char *sess_key,
+		       const char *acct_name,
+		       uint16 sec_chan,
+		       const char *comp_name,
+		       DOM_CRED *cred,
+		       const char *clear_text_mach_pwd)
+{
+	uint8_t password_buf[516];
+	NET_CRYPT_PWD new_password;
+
+	DEBUG(5,("init_q_srv_pwset2\n"));
+
+	/* Process the new password. */
+
+	encode_pw_buffer(password_buf, clear_text_mach_pwd, STR_UNICODE);
+
+	SamOEMhash(password_buf, (const unsigned char *)sess_key, 516);
+	memcpy(new_password.data, password_buf, 512);
+	new_password.length = IVAL(password_buf, 512);
+
+	init_clnt_info(&q_s->clnt_id, logon_srv, acct_name, sec_chan, comp_name, cred);
+
+	memcpy(&q_s->pwd, &new_password, sizeof(q_s->pwd));
+}
+
+/*******************************************************************
+ Reads or writes a structure.
+********************************************************************/
+
+BOOL net_io_q_srv_pwset2(const char *desc, NET_Q_SRV_PWSET2 *q_s, prs_struct *ps, int depth)
+{
+	if (q_s == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "net_io_q_srv_pwset2");
+	depth++;
+
+	if(!prs_align(ps))
+		return False;
+
+	if(!smb_io_clnt_info("", &q_s->clnt_id, ps, depth)) /* client identification/authentication info */
+		return False;
+	if(!prs_uint8s(False, "pwd.data", ps, depth, q_s->pwd.data, 512)) /* new password - undocumented */
+		return False;
+	if(!prs_uint32("pwd.length", ps, depth, &q_s->pwd.length)) /* new password - undocumented */
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
+ Reads or writes a structure.
+********************************************************************/
+
+BOOL net_io_r_srv_pwset2(const char *desc, NET_R_SRV_PWSET2 *r_s, prs_struct *ps, int depth)
+{
+	if (r_s == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "net_io_r_srv_pwset2");
+	depth++;
+
+	if(!prs_align(ps))
+		return False;
+
+	if(!smb_io_cred("", &r_s->srv_cred, ps, depth)) /* server challenge */
+		return False;
+
+	if(!prs_ntstatus("status", ps, depth, &r_s->status))
+		return False;
+
+	return True;
+}
+
 /*************************************************************************
  Init DOM_SID2 array from a string containing multiple sids
  *************************************************************************/
@@ -1022,9 +1102,13 @@ static int init_dom_sid2s(TALLOC_CTX *ctx, const char *sids_str, DOM_SID2 **ppsi
 		}
 
 		/* Now allocate space for them. */
-		*ppsids = TALLOC_ZERO_ARRAY(ctx, DOM_SID2, count);
-		if (*ppsids == NULL)
-			return 0;
+		if (count) {
+			*ppsids = TALLOC_ZERO_ARRAY(ctx, DOM_SID2, count);
+			if (*ppsids == NULL)
+				return 0;
+		} else {
+			*ppsids = NULL;
+		}
 
 		sids = *ppsids;
 
@@ -1426,7 +1510,7 @@ void init_net_user_info3(TALLOC_CTX *ctx, NET_USER_INFO_3 *usr,
  		 	 uint32 num_groups, const DOM_GID *gids,
 			 uint32 user_flgs, uint32 acct_flags,
 			 uchar user_session_key[16],
-			 uchar lm_session_key[16],
+			 uchar lm_session_key[8],
  			 const char *logon_srv, const char *logon_dom,
 			 const DOM_SID *dom_sid)
 {
@@ -1506,9 +1590,13 @@ void init_net_user_info3(TALLOC_CTX *ctx, NET_USER_INFO_3 *usr,
 
 	usr->num_groups2 = num_groups;
 
-	usr->gids = TALLOC_ZERO_ARRAY(ctx,DOM_GID,num_groups);
-	if (usr->gids == NULL && num_groups>0)
-		return;
+	if (num_groups) {
+		usr->gids = TALLOC_ZERO_ARRAY(ctx,DOM_GID,num_groups);
+		if (usr->gids == NULL)
+	 		return;
+	} else {
+		usr->gids = NULL;
+	}
 
 	for (i = 0; i < num_groups; i++) 
 		usr->gids[i] = gids[i];	
@@ -1522,7 +1610,7 @@ void init_net_user_info3(TALLOC_CTX *ctx, NET_USER_INFO_3 *usr,
 	/* "other" sids are set up above */
 }
 
- void dump_acct_flags(uint32 acct_flags) {
+static void dump_acct_flags(uint32 acct_flags) {
 
 	int lvl = 10;
 	DEBUG(lvl,("dump_acct_flags\n"));
@@ -1549,7 +1637,7 @@ void init_net_user_info3(TALLOC_CTX *ctx, NET_USER_INFO_3 *usr,
 	}
 }
 
- void dump_user_flgs(uint32 user_flags) {
+static void dump_user_flgs(uint32 user_flags) {
 
 	int lvl = 10;
 	DEBUG(lvl,("dump_user_flgs\n"));
@@ -2476,13 +2564,19 @@ static BOOL net_io_sam_group_mem_info(const char *desc, SAM_GROUP_MEM_INFO * inf
 			return False;
 		}
 
-                info->rids = TALLOC_ARRAY(ps->mem_ctx, uint32, info->num_members2);
+		if (UNMARSHALLING(ps)) {
+			if (info->num_members2) {
+				info->rids = TALLOC_ARRAY(ps->mem_ctx, uint32, info->num_members2);
 
-                if (info->rids == NULL) {
-                        DEBUG(0, ("out of memory allocating %d rids\n",
-                                  info->num_members2));
-                        return False;
-                }
+				if (info->rids == NULL) {
+					DEBUG(0, ("out of memory allocating %d rids\n",
+						info->num_members2));
+					return False;
+				}
+			} else {
+				info->rids = NULL;
+			}
+		}
 
 		for (i = 0; i < info->num_members2; i++)
 		{
@@ -2503,13 +2597,19 @@ static BOOL net_io_sam_group_mem_info(const char *desc, SAM_GROUP_MEM_INFO * inf
 			return False;
 		}
 
-                info->attribs = TALLOC_ARRAY(ps->mem_ctx, uint32, info->num_members3);
+		if (UNMARSHALLING(ps)) {
+			if (info->num_members3) {
+				info->attribs = TALLOC_ARRAY(ps->mem_ctx, uint32, info->num_members3);
 
-                if (info->attribs == NULL) {
-                        DEBUG(0, ("out of memory allocating %d attribs\n",
-                                  info->num_members3));
-                        return False;
-                }
+				if (info->attribs == NULL) {
+					DEBUG(0, ("out of memory allocating %d attribs\n",
+						info->num_members3));
+					return False;
+				}
+			} else {
+				info->attribs = NULL;
+			}
+		}	
 
 		for (i = 0; i < info->num_members3; i++)
 		{
@@ -2589,13 +2689,19 @@ static BOOL net_io_sam_alias_mem_info(const char *desc, SAM_ALIAS_MEM_INFO * inf
 			return False;
 		}
 
-                info->ptr_sids = TALLOC_ARRAY(ps->mem_ctx, uint32, info->num_sids);
+		if (UNMARSHALLING(ps)) {
+			if (info->num_sids) {
+				info->ptr_sids = TALLOC_ARRAY(ps->mem_ctx, uint32, info->num_sids);
                 
-                if (info->ptr_sids == NULL) {
-                        DEBUG(0, ("out of memory allocating %d ptr_sids\n",
-                                  info->num_sids));
-                        return False;
-                }
+				if (info->ptr_sids == NULL) {
+					DEBUG(0, ("out of memory allocating %d ptr_sids\n",
+						info->num_sids));
+					return False;
+				}
+			} else {
+				info->ptr_sids = NULL;
+			}
+		}
 
 		for (i = 0; i < info->num_sids; i++)
 		{
@@ -2604,13 +2710,19 @@ static BOOL net_io_sam_alias_mem_info(const char *desc, SAM_ALIAS_MEM_INFO * inf
                                 return False;
 		}
 
-                info->sids = TALLOC_ARRAY(ps->mem_ctx, DOM_SID2, info->num_sids);
+		if (UNMARSHALLING(ps)) {
+			if (info->num_sids) {
+				info->sids = TALLOC_ARRAY(ps->mem_ctx, DOM_SID2, info->num_sids);
 
-                if (info->sids == NULL) {
-                        DEBUG(0, ("error allocating %d sids\n",
-                                  info->num_sids));
-                        return False;
-                }
+				if (info->sids == NULL) {
+					DEBUG(0, ("error allocating %d sids\n",
+						info->num_sids));
+					return False;
+				}
+			} else {
+				info->sids = NULL;
+			}
+		}
 
 		for (i = 0; i < info->num_sids; i++)
 		{
@@ -2920,7 +3032,16 @@ static BOOL net_io_sam_privs_info(const char *desc, SAM_DELTA_PRIVS *info,
 	if(!prs_uint32("attribute_count", ps, depth, &info->attribute_count))
                 return False;
 
-	info->attributes = TALLOC_ARRAY(ps->mem_ctx, uint32, info->attribute_count);
+	if (UNMARSHALLING(ps)) {
+		if (info->attribute_count) {
+			info->attributes = TALLOC_ARRAY(ps->mem_ctx, uint32, info->attribute_count);
+			if (!info->attributes) {
+				return False;
+			}
+		} else {
+			info->attributes = NULL;
+		}
+	}
 
 	for (i=0; i<info->attribute_count; i++)
 		if(!prs_uint32("attributes", ps, depth, &info->attributes[i]))
@@ -2929,8 +3050,21 @@ static BOOL net_io_sam_privs_info(const char *desc, SAM_DELTA_PRIVS *info,
 	if(!prs_uint32("privlist_count", ps, depth, &info->privlist_count))
                 return False;
 
-	info->hdr_privslist = TALLOC_ARRAY(ps->mem_ctx, UNIHDR, info->privlist_count);
-	info->uni_privslist = TALLOC_ARRAY(ps->mem_ctx, UNISTR2, info->privlist_count);
+	if (UNMARSHALLING(ps)) {
+		if (info->privlist_count) {
+			info->hdr_privslist = TALLOC_ARRAY(ps->mem_ctx, UNIHDR, info->privlist_count);
+			info->uni_privslist = TALLOC_ARRAY(ps->mem_ctx, UNISTR2, info->privlist_count);
+			if (!info->hdr_privslist) {
+				return False;
+			}
+			if (!info->uni_privslist) {
+				return False;
+			}
+		} else {
+			info->hdr_privslist = NULL;
+			info->uni_privslist = NULL;
+		}
+	}
 
 	for (i=0; i<info->privlist_count; i++)
 		if(!smb_io_unihdr("hdr_privslist", &info->hdr_privslist[i], ps, depth))
@@ -3060,15 +3194,19 @@ BOOL net_io_r_sam_sync(const char *desc,
 				return False;
 			}
 
-                        if (r_s->num_deltas2 > 0) {
-                                r_s->hdr_deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_HDR, r_s->num_deltas2);
-                                if (r_s->hdr_deltas == NULL) {
-                                        DEBUG(0, ("error tallocating memory "
-                                                  "for %d delta headers\n", 
-                                                  r_s->num_deltas2));
-                                        return False;
-                                }
-                        }
+			if (UNMARSHALLING(ps)) {
+	                        if (r_s->num_deltas2) {
+					r_s->hdr_deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_HDR, r_s->num_deltas2);
+					if (r_s->hdr_deltas == NULL) {
+						DEBUG(0, ("error tallocating memory "
+							"for %d delta headers\n", 
+							r_s->num_deltas2));
+						return False;
+					}
+				} else {
+					r_s->hdr_deltas = NULL;
+				}
+			}
 
 			for (i = 0; i < r_s->num_deltas2; i++)
 			{
@@ -3078,15 +3216,19 @@ BOOL net_io_r_sam_sync(const char *desc,
                                         return False;
 			}
 
-                        if (r_s->num_deltas2 > 0) {
-                                r_s->deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_CTR, r_s->num_deltas2);
-                                if (r_s->deltas == NULL) {
-                                        DEBUG(0, ("error tallocating memory "
-                                                  "for %d deltas\n", 
-                                                  r_s->num_deltas2));
-                                        return False;
-                                }
-                        }
+			if (UNMARSHALLING(ps)) {
+				if (r_s->num_deltas2) {
+					r_s->deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_CTR, r_s->num_deltas2);
+					if (r_s->deltas == NULL) {
+						DEBUG(0, ("error tallocating memory "
+							"for %d deltas\n", 
+							r_s->num_deltas2));
+						return False;
+					}
+				} else {
+					r_s->deltas = NULL;
+				}
+			}
 
 			for (i = 0; i < r_s->num_deltas2; i++)
 			{
@@ -3113,7 +3255,7 @@ makes a NET_Q_SAM_DELTAS structure.
 ********************************************************************/
 BOOL init_net_q_sam_deltas(NET_Q_SAM_DELTAS *q_s, const char *srv_name, 
                            const char *cli_name, DOM_CRED *cli_creds, 
-                           uint32 database_id, UINT64_S dom_mod_count)
+                           uint32 database_id, uint64 dom_mod_count)
 {
 	DEBUG(5, ("init_net_q_sam_deltas\n"));
 
@@ -3124,8 +3266,7 @@ BOOL init_net_q_sam_deltas(NET_Q_SAM_DELTAS *q_s, const char *srv_name,
 	memset(&q_s->ret_creds, 0, sizeof(q_s->ret_creds));
 
 	q_s->database_id = database_id;
-        q_s->dom_mod_count.low = dom_mod_count.low;
-        q_s->dom_mod_count.high = dom_mod_count.high;
+    q_s->dom_mod_count = dom_mod_count;
 	q_s->max_size = 0xffff;
 
 	return True;
@@ -3190,15 +3331,19 @@ BOOL net_io_r_sam_deltas(const char *desc,
 
 		if (r_s->ptr_deltas != 0)
 		{
-                        if (r_s->num_deltas > 0) {
-                                r_s->hdr_deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_HDR, r_s->num_deltas);
-                                if (r_s->hdr_deltas == NULL) {
-                                        DEBUG(0, ("error tallocating memory "
-                                                  "for %d delta headers\n", 
-                                                  r_s->num_deltas));
-                                        return False;
-                                }
-                        }
+			if (UNMARSHALLING(ps)) {
+	                        if (r_s->num_deltas) {
+					r_s->hdr_deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_HDR, r_s->num_deltas);
+					if (r_s->hdr_deltas == NULL) {
+						DEBUG(0, ("error tallocating memory "
+							"for %d delta headers\n", 
+							r_s->num_deltas));
+						return False;
+					}
+				} else {
+					r_s->hdr_deltas = NULL;
+				}
+			}
 
 			for (i = 0; i < r_s->num_deltas; i++)
 			{
@@ -3206,15 +3351,19 @@ BOOL net_io_r_sam_deltas(const char *desc,
                                                       ps, depth);
 			}
                         
-                        if (r_s->num_deltas > 0) {
-                                r_s->deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_CTR, r_s->num_deltas);
-                                if (r_s->deltas == NULL) {
-                                        DEBUG(0, ("error tallocating memory "
-                                                  "for %d deltas\n", 
-                                                  r_s->num_deltas));
-                                        return False;
-                                }
-                        }
+			if (UNMARSHALLING(ps)) {
+				if (r_s->num_deltas) {
+					r_s->deltas = TALLOC_ARRAY(ps->mem_ctx, SAM_DELTA_CTR, r_s->num_deltas);
+					if (r_s->deltas == NULL) {
+						DEBUG(0, ("error tallocating memory "
+							"for %d deltas\n", 
+							r_s->num_deltas));
+						return False;
+					}
+				} else {
+					r_s->deltas = NULL;
+				}
+			}
 
 			for (i = 0; i < r_s->num_deltas; i++)
 			{
@@ -3242,8 +3391,8 @@ BOOL net_io_r_sam_deltas(const char *desc,
 
 void init_net_q_dsr_getdcname(NET_Q_DSR_GETDCNAME *r_t, const char *server_unc,
 			      const char *domain_name,
-			      struct uuid *domain_guid,
-			      struct uuid *site_guid,
+			      struct GUID *domain_guid,
+			      struct GUID *site_guid,
 			      uint32_t flags)
 {
 	DEBUG(5, ("init_net_q_dsr_getdcname\n"));
@@ -3259,6 +3408,67 @@ void init_net_q_dsr_getdcname(NET_Q_DSR_GETDCNAME *r_t, const char *server_unc,
 
 	r_t->ptr_site_guid = (site_guid != NULL);
 	r_t->site_guid = site_guid;
+
+	r_t->flags = flags;
+}
+
+/*******************************************************************
+ Inits a NET_Q_DSR_GETDCNAMEEX structure.
+********************************************************************/
+
+void init_net_q_dsr_getdcnameex(NET_Q_DSR_GETDCNAMEEX *r_t, const char *server_unc,
+				const char *domain_name,
+				struct GUID *domain_guid,
+				const char *site_name,
+				uint32_t flags)
+{
+	DEBUG(5, ("init_net_q_dsr_getdcnameex\n"));
+
+	r_t->ptr_server_unc = (server_unc != NULL);
+	init_unistr2(&r_t->uni_server_unc, server_unc, UNI_STR_TERMINATE);
+
+	r_t->ptr_domain_name = (domain_name != NULL);
+	init_unistr2(&r_t->uni_domain_name, domain_name, UNI_STR_TERMINATE);
+
+	r_t->ptr_domain_guid = (domain_guid != NULL);
+	r_t->domain_guid = domain_guid;
+
+	r_t->ptr_site_name = (site_name != NULL);
+	init_unistr2(&r_t->uni_site_name, site_name, UNI_STR_TERMINATE);
+
+	r_t->flags = flags;
+}
+
+/*******************************************************************
+ Inits a NET_Q_DSR_GETDCNAMEEX2 structure.
+********************************************************************/
+
+void init_net_q_dsr_getdcnameex2(NET_Q_DSR_GETDCNAMEEX2 *r_t, const char *server_unc,
+				 const char *domain_name,
+				 const char *client_account,
+				 uint32 mask,
+				 struct GUID *domain_guid,
+				 const char *site_name,
+				 uint32_t flags)
+{
+	DEBUG(5, ("init_net_q_dsr_getdcnameex2\n"));
+
+	r_t->ptr_server_unc = (server_unc != NULL);
+	init_unistr2(&r_t->uni_server_unc, server_unc, UNI_STR_TERMINATE);
+
+	r_t->ptr_client_account = (client_account != NULL);
+	init_unistr2(&r_t->uni_client_account, client_account, UNI_STR_TERMINATE);
+
+	r_t->mask = mask;
+
+	r_t->ptr_domain_name = (domain_name != NULL);
+	init_unistr2(&r_t->uni_domain_name, domain_name, UNI_STR_TERMINATE);
+
+	r_t->ptr_domain_guid = (domain_guid != NULL);
+	r_t->domain_guid = domain_guid;
+
+	r_t->ptr_site_name = (site_name != NULL);
+	init_unistr2(&r_t->uni_site_name, site_name, UNI_STR_TERMINATE);
 
 	r_t->flags = flags;
 }
@@ -3300,7 +3510,7 @@ BOOL net_io_q_dsr_getdcname(const char *desc, NET_Q_DSR_GETDCNAME *r_t,
 		return False;
 
 	if (UNMARSHALLING(ps) && (r_t->ptr_domain_guid)) {
-		r_t->domain_guid = PRS_ALLOC_MEM(ps, struct uuid, 1);
+		r_t->domain_guid = PRS_ALLOC_MEM(ps, struct GUID, 1);
 		if (r_t->domain_guid == NULL)
 			return False;
 	}
@@ -3316,7 +3526,7 @@ BOOL net_io_q_dsr_getdcname(const char *desc, NET_Q_DSR_GETDCNAME *r_t,
 		return False;
 
 	if (UNMARSHALLING(ps) && (r_t->ptr_site_guid)) {
-		r_t->site_guid = PRS_ALLOC_MEM(ps, struct uuid, 1);
+		r_t->site_guid = PRS_ALLOC_MEM(ps, struct GUID, 1);
 		if (r_t->site_guid == NULL)
 			return False;
 	}
@@ -3335,11 +3545,159 @@ BOOL net_io_q_dsr_getdcname(const char *desc, NET_Q_DSR_GETDCNAME *r_t,
 }
 
 /*******************************************************************
+ Reads or writes an NET_Q_DSR_GETDCNAMEEX structure.
+********************************************************************/
+
+BOOL net_io_q_dsr_getdcnameex(const char *desc, NET_Q_DSR_GETDCNAMEEX *r_t,
+			      prs_struct *ps, int depth)
+{
+	if (r_t == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "net_io_q_dsr_getdcnameex");
+	depth++;
+
+	if (!prs_uint32("ptr_server_unc", ps, depth, &r_t->ptr_server_unc))
+		return False;
+
+	if (!smb_io_unistr2("server_unc", &r_t->uni_server_unc,
+			    r_t->ptr_server_unc, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_domain_name", ps, depth, &r_t->ptr_domain_name))
+		return False;
+
+	if (!smb_io_unistr2("domain_name", &r_t->uni_domain_name,
+			    r_t->ptr_domain_name, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_domain_guid", ps, depth, &r_t->ptr_domain_guid))
+		return False;
+
+	if (UNMARSHALLING(ps) && (r_t->ptr_domain_guid)) {
+		r_t->domain_guid = PRS_ALLOC_MEM(ps, struct GUID, 1);
+		if (r_t->domain_guid == NULL)
+			return False;
+	}
+
+	if ((r_t->ptr_domain_guid) &&
+	    (!smb_io_uuid("domain_guid", r_t->domain_guid, ps, depth)))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_site_name", ps, depth, &r_t->ptr_site_name))
+		return False;
+
+	if (!smb_io_unistr2("site_name", &r_t->uni_site_name,
+			    r_t->ptr_site_name, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("flags", ps, depth, &r_t->flags))
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
+ Reads or writes an NET_Q_DSR_GETDCNAMEEX2 structure.
+********************************************************************/
+
+BOOL net_io_q_dsr_getdcnameex2(const char *desc, NET_Q_DSR_GETDCNAMEEX2 *r_t,
+			       prs_struct *ps, int depth)
+{
+	if (r_t == NULL)
+		return False;
+
+	prs_debug(ps, depth, desc, "net_io_q_dsr_getdcnameex2");
+	depth++;
+
+	if (!prs_uint32("ptr_server_unc", ps, depth, &r_t->ptr_server_unc))
+		return False;
+
+	if (!smb_io_unistr2("server_unc", &r_t->uni_server_unc,
+			    r_t->ptr_server_unc, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_client_account", ps, depth, &r_t->ptr_client_account))
+		return False;
+
+	if (!smb_io_unistr2("client_account", &r_t->uni_client_account,
+			    r_t->ptr_client_account, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("mask", ps, depth, &r_t->mask))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_domain_name", ps, depth, &r_t->ptr_domain_name))
+		return False;
+
+	if (!smb_io_unistr2("domain_name", &r_t->uni_domain_name,
+			    r_t->ptr_domain_name, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_domain_guid", ps, depth, &r_t->ptr_domain_guid))
+		return False;
+
+	if (UNMARSHALLING(ps) && (r_t->ptr_domain_guid)) {
+		r_t->domain_guid = PRS_ALLOC_MEM(ps, struct GUID, 1);
+		if (r_t->domain_guid == NULL)
+			return False;
+	}
+
+	if ((r_t->ptr_domain_guid) &&
+	    (!smb_io_uuid("domain_guid", r_t->domain_guid, ps, depth)))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("ptr_site_name", ps, depth, &r_t->ptr_site_name))
+		return False;
+
+	if (!smb_io_unistr2("site_name", &r_t->uni_site_name,
+			    r_t->ptr_site_name, ps, depth))
+		return False;
+
+	if (!prs_align(ps))
+		return False;
+
+	if (!prs_uint32("flags", ps, depth, &r_t->flags))
+		return False;
+
+	return True;
+}
+
+
+
+/*******************************************************************
  Inits a NET_R_DSR_GETDCNAME structure.
 ********************************************************************/
 void init_net_r_dsr_getdcname(NET_R_DSR_GETDCNAME *r_t, const char *dc_unc,
 			      const char *dc_address, int32 dc_address_type,
-			      struct uuid domain_guid, const char *domain_name,
+			      struct GUID domain_guid, const char *domain_name,
 			      const char *forest_name, uint32 dc_flags,
 			      const char *dc_site_name,
 			      const char *client_site_name)

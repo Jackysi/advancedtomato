@@ -1,6 +1,6 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 10. Migrating NetWare Server to Samba-3</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="Samba-3 by Example"><link rel="up" href="DMSMig.html" title="Part II. Domain Members, Updating Samba and Migration"><link rel="prev" href="ntmigration.html" title="Chapter 9. Migrating NT4 Domain to Samba-3"><link rel="next" href="RefSection.html" title="Part III. Reference Section"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 10. Migrating NetWare Server to Samba-3</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="ntmigration.html">Prev</a> </td><th width="60%" align="center">Part II. Domain Members, Updating Samba and Migration</th><td width="20%" align="right"> <a accesskey="n" href="RefSection.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="nw4migration"></a>Chapter 10. Migrating NetWare Server to Samba-3</h2></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="nw4migration.html#id2610385">Introduction</a></span></dt><dd><dl><dt><span class="sect2"><a href="nw4migration.html#id2610501">Assignment Tasks</a></span></dt></dl></dd><dt><span class="sect1"><a href="nw4migration.html#id2610614">Dissection and Discussion</a></span></dt><dd><dl><dt><span class="sect2"><a href="nw4migration.html#id2610691">Technical Issues</a></span></dt></dl></dd><dt><span class="sect1"><a href="nw4migration.html#id2610881">Implementation</a></span></dt><dd><dl><dt><span class="sect2"><a href="nw4migration.html#id2610890">NetWare Migration Using LDAP Backend</a></span></dt></dl></dd></dl></div><p>
-	<a class="indexterm" name="id2610236"></a>
-	<a class="indexterm" name="id2610242"></a>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 10. Migrating NetWare Server to Samba-3</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="Samba-3 by Example"><link rel="up" href="DMSMig.html" title="Part II. Domain Members, Updating Samba and Migration"><link rel="prev" href="ntmigration.html" title="Chapter 9. Migrating NT4 Domain to Samba-3"><link rel="next" href="RefSection.html" title="Part III. Reference Section"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 10. Migrating NetWare Server to Samba-3</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="ntmigration.html">Prev</a> </td><th width="60%" align="center">Part II. Domain Members, Updating Samba and Migration</th><td width="20%" align="right"> <a accesskey="n" href="RefSection.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="nw4migration"></a>Chapter 10. Migrating NetWare Server to Samba-3</h2></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="nw4migration.html#id2606030">Introduction</a></span></dt><dd><dl><dt><span class="sect2"><a href="nw4migration.html#id2606147">Assignment Tasks</a></span></dt></dl></dd><dt><span class="sect1"><a href="nw4migration.html#id2606260">Dissection and Discussion</a></span></dt><dd><dl><dt><span class="sect2"><a href="nw4migration.html#id2606337">Technical Issues</a></span></dt></dl></dd><dt><span class="sect1"><a href="nw4migration.html#id2606527">Implementation</a></span></dt><dd><dl><dt><span class="sect2"><a href="nw4migration.html#id2606536">NetWare Migration Using LDAP Backend</a></span></dt></dl></dd></dl></div><p>
+	<a class="indexterm" name="id2605876"></a>
+	<a class="indexterm" name="id2605882"></a>
 	Novell is a company any seasoned IT manager has to admire. It has become increasingly
 	Linux-friendly and is emerging out of a deep regression that almost saw the company
 	disappear into obscurity. Novell's SUSE Linux hosts the NetWare server and it is the
@@ -8,30 +8,30 @@
 	It will be interesting to see what becomes of NetWare over time.
 	Meanwhile, there can be no denying that Novell is a Linux company.
 	</p><p>
-	<a class="indexterm" name="id2610260"></a>
-	<a class="indexterm" name="id2610267"></a>
-	<a class="indexterm" name="id2610273"></a>
-	<a class="indexterm" name="id2610280"></a>
+	<a class="indexterm" name="id2605900"></a>
+	<a class="indexterm" name="id2605907"></a>
+	<a class="indexterm" name="id2605914"></a>
+	<a class="indexterm" name="id2605920"></a>
 	Whatever flavor of Linux is preferred in your environment, whether Red Hat, Debian,
 	Gentoo, Mandrake, or SUSE (Novell), the information in this chapter should be read with
 	the knowledge that file locations may vary a little; even so, the information
 	in this chapter should provide something of value.
 	</p><p>
-	<a class="indexterm" name="id2610295"></a>
+	<a class="indexterm" name="id2605936"></a>
 	Contributions to this chapter were made by Misty Stanley-Jones, a UNIX administrator of many
 	years who surfaced on the Samba mailing list with a barrage of questions and who
 	regularly helps other administrators to solve thorny Samba migration questions.
 	</p><p>
-	<a class="indexterm" name="id2610310"></a>
-	<a class="indexterm" name="id2610317"></a>
-	<a class="indexterm" name="id2610324"></a>
-	<a class="indexterm" name="id2610330"></a>
+	<a class="indexterm" name="id2605950"></a>
+	<a class="indexterm" name="id2605957"></a>
+	<a class="indexterm" name="id2605963"></a>
+	<a class="indexterm" name="id2605970"></a>
 	One wonders how many NetWare servers remain in active service. Many are being migrated
 	to Samba on Linux. Red Hat Linux, SUSE Linux 9.x, and SUSE Linux Enterprise Server 9 are
 	ideal target platforms to which a NetWare server may be migrated. The migration method
 	of choice is much dependent on the tools that the administrator finds most natural to use.
 	The old-hand NetWare guru will likely want to use tools like the NetWare NLM for
-	<span><strong class="command">rsync</strong></span> to migrate files from the NetWare server to the Samba server.
+	<code class="literal">rsync</code> to migrate files from the NetWare server to the Samba server.
 	The UNIX administrator might prefer tools that are part of the Mars_NWE (Martin Stovers' NetWare
 	Emulator) open source package. The MS Windows network administrator will likely make use of the
 	NWConv utility that is a part of Windows NT4 Server. Whatever your tool of choice,
@@ -49,8 +49,8 @@
 	File paths have been modified to permit use of RPM packages provided by Novell. In the
 	original documentation contributed by Misty, the Courier-IMAP package had been built
 	directly from the original source tarball.
-	</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2610385"></a>Introduction</h2></div></div></div><p>
-	<a class="indexterm" name="id2610392"></a>
+	</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2606030"></a>Introduction</h2></div></div></div><p>
+	<a class="indexterm" name="id2606038"></a>
 	Misty Stanley-Jones was recruited by Abmas to administer a network that had
 	not received much attention for some years and was much in need of a makeover.
 	As a brand-new sysadmin to this company, she inherited a very old Novell file server
@@ -64,13 +64,13 @@
 					Users storing information on their local hard
 					drives, causing backup integrity problems
 					</p></li></ul></div></li></ul></div><p>
-	<a class="indexterm" name="id2610488"></a>
+	<a class="indexterm" name="id2606133"></a>
 	At one point disk space had filled up to 100 percent, causing the payroll database
 	to become corrupt. This caused the accounting department to be down for over
 	a week and necessitated deployment of another file server. The replacement
 	server was created with very poor security and design considerations from
 	a discarded desktop PC.
-	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2610501"></a>Assignment Tasks</h3></div></div></div><p>
+	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2606147"></a>Assignment Tasks</h3></div></div></div><p>
 	Misty has provided this summary of her migration experience in the hope
 	that it will help someone to avoid the challenges she faced. Perhaps her
 	configuration files and background will accelerate your learning as you
@@ -79,7 +79,7 @@
 	how Misty dealt with a particular NetWare migration requirement, and
 	it provides an overall approach to the implementation of a Samba-3
 	environment that is significantly divergent from that presented in
-	<a href="happy.html" title="Chapter 5. Making Happy Users">???</a>.
+	<a class="link" href="happy.html" title="Chapter 5. Making Happy Users">&#8220;Making Happy Users&#8221;</a>.
 	</p><p>
 	The complete removal of all site-specific information in order to produce	
 	a generic migration solution would rob this chapter of its character.
@@ -89,7 +89,7 @@
 	is the result of treatment given to her files in an attempt to make
 	the overall information more useful to you.
 	</p><p>
-	<a class="indexterm" name="id2610539"></a>
+	<a class="indexterm" name="id2606184"></a>
 	After management reviewed a cost-benefit report as well as an estimated
 	time-to-completion, approval was given proceed with the solution proposed.
 	The server was built from purchased components. The total project cost
@@ -111,33 +111,33 @@
 		</td></tr></table><p>
 	The new system has operated for 6 months without problems. Over the past months
 	much attention has been focused on cleaning up desktops and user profiles.
-	</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2610614"></a>Dissection and Discussion</h2></div></div></div><p>
-	<a class="indexterm" name="id2610622"></a>
-	<a class="indexterm" name="id2610629"></a>
-	<a class="indexterm" name="id2610636"></a>
-	<a class="indexterm" name="id2610643"></a>
+	</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2606260"></a>Dissection and Discussion</h2></div></div></div><p>
+	<a class="indexterm" name="id2606268"></a>
+	<a class="indexterm" name="id2606275"></a>
+	<a class="indexterm" name="id2606282"></a>
+	<a class="indexterm" name="id2606288"></a>
 	A decision to use LDAP was made even though I knew nothing about LDAP except that
 	I had been reading the book &#8220;<span class="quote">LDAP System Administration,</span>&#8221; by Gerald Carter.
 	LDAP seemed to provide some of the functionality of Novell's e-Directory Services
 	and would provide centralized authentication and identity management.
 	</p><p>
-	<a class="indexterm" name="id2610662"></a>
-	<a class="indexterm" name="id2610669"></a>
-	<a class="indexterm" name="id2610675"></a>
+	<a class="indexterm" name="id2606307"></a>
+	<a class="indexterm" name="id2606314"></a>
+	<a class="indexterm" name="id2606321"></a>
 	Building the LDAP database took a while and a lot of trial and error. Following
 	the guidance I obtained from &#8220;<span class="quote">LDAP System 
 	Administration,</span>&#8221; I installed OpenLDAP (from RPM; later I compiled
 	a more current version from source) and built my initial LDAP tree.
-	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2610691"></a>Technical Issues</h3></div></div></div><p>
-	<a class="indexterm" name="id2610699"></a>
-	<a class="indexterm" name="id2610706"></a>
-	<a class="indexterm" name="id2610713"></a>
-	<a class="indexterm" name="id2610719"></a>
-	<a class="indexterm" name="id2610726"></a>
-	<a class="indexterm" name="id2610733"></a>
-	<a class="indexterm" name="id2610740"></a>
-	<a class="indexterm" name="id2610747"></a>
-	<a class="indexterm" name="id2610753"></a>
+	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2606337"></a>Technical Issues</h3></div></div></div><p>
+	<a class="indexterm" name="id2606344"></a>
+	<a class="indexterm" name="id2606351"></a>
+	<a class="indexterm" name="id2606358"></a>
+	<a class="indexterm" name="id2606365"></a>
+	<a class="indexterm" name="id2606372"></a>
+	<a class="indexterm" name="id2606379"></a>
+	<a class="indexterm" name="id2606385"></a>
+	<a class="indexterm" name="id2606392"></a>
+	<a class="indexterm" name="id2606399"></a>
 	The first challenge was to create a company white pages, followed by manually
 	entering everything from the printed company directory. This used only the inetOrgPerson
 	object class from the OpenLDAP schemas. The next step was to write a shell script that
@@ -152,14 +152,14 @@
 	<code class="filename">courier.schema</code>.
 	</p><p>
 	Looking back, it would have been much easier to populate the LDAP directory using a convenient
-	tool such as <span><strong class="command">phpLDAPAdmin</strong></span> from the outset. An excessive amount of time was
-	spent trying to generate LDIF files that could be parsed using the <span><strong class="command">ldapmodify</strong></span>
+	tool such as <code class="literal">phpLDAPAdmin</code> from the outset. An excessive amount of time was
+	spent trying to generate LDIF files that could be parsed using the <code class="literal">ldapmodify</code>
 	so that necessary changes could be written to the directory. This was a learning experience!
 	</p><p>
 	An attempt was made to use the PADL POSIX account migration scripts, but I gave up trying to
 	make them work. Instead, even though it is most inelegant, I wrote a simple script that did
 	what I needed. It is enclosed as a simple example to demonstrate that you do not need to be
-	a guru to make light of otherwise painful repetition. This file is listed in <a href="nw4migration.html#sbeamg" title="Example 10.1. A Rough Tool to Create an LDIF File from the System Account Files">???</a>.
+	a guru to make light of otherwise painful repetition. This file is listed in <a class="link" href="nw4migration.html#sbeamg" title="Example 10.1. A Rough Tool to Create an LDIF File from the System Account Files">&#8220;A Rough Tool to Create an LDIF File from the System Account Files&#8221;</a>.
 	</p><div class="example"><a name="sbeamg"></a><p class="title"><b>Example 10.1. A Rough Tool to Create an LDIF File from the System Account Files</b></p><div class="example-contents"><pre class="screen">
 #!/bin/bash
 
@@ -188,16 +188,16 @@ done
 	The PADL MigrationTools are recommended for migration of the UNIX account information into
 	the LDAP directory. The tools consist of a set of Perl scripts for migration of users, groups,
 	aliases, hosts, netgroups, networks, protocols, PRCs, and services from the existing ASCII text
-	files (or from a name service such as NIS). This too set can be obtained from the <a href="http://www.padl.com" target="_top">PADL Web site</a>.
-	</p></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2610881"></a>Implementation</h2></div></div></div><p>
-	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2610890"></a>NetWare Migration Using LDAP Backend</h3></div></div></div><p>
+	files (or from a name service such as NIS). This too set can be obtained from the <a class="ulink" href="http://www.padl.com" target="_top">PADL Web site</a>.
+	</p></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2606527"></a>Implementation</h2></div></div></div><p>
+	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2606536"></a>NetWare Migration Using LDAP Backend</h3></div></div></div><p>
 	The following software must be installed on the SUSE Linux Enterprise Server to perform
 	this migration:
 	</p><table class="simplelist" border="0" summary="Simple list"><tr><td><p>courier-imap</p></td></tr><tr><td><p>courier-imap-ldap</p></td></tr><tr><td><p>nss_ldap</p></td></tr><tr><td><p>openldap2-client</p></td></tr><tr><td><p>openldap2-devel (only for Samba compilation)</p></td></tr><tr><td><p>openldap2</p></td></tr><tr><td><p>pam_ldap</p></td></tr><tr><td><p>samba-3.0.20 or later</p></td></tr><tr><td><p>samba-client-3.0.20 or later</p></td></tr><tr><td><p>samba-winbind-3.0.20 or later</p></td></tr><tr><td><p>smbldap-tools Version 0.9.1</p></td></tr></table><p>
 	Each software application must be carefully configured in preparation for migration.
 	The configuration files used at Abmas are provided as a guide and should be modified
 	to meet needs at your site.
-	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2610966"></a>LDAP Server Configuration</h4></div></div></div><p>
+	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2606611"></a>LDAP Server Configuration</h4></div></div></div><p>
 	The <code class="filename">/etc/openldap/slapd.conf</code> file Misty used is shown here:
 </p><pre class="programlisting">
 #/etc/openldap/slapd.conf
@@ -362,8 +362,8 @@ access to *
   by * read
 </pre><p>
 </p><p>
-	<a class="indexterm" name="id2611164"></a>
-	The <code class="filename">/etc/ldap.conf</code> file used is listed in <a href="nw4migration.html#ch8ldap" title="Example 10.2. NSS LDAP Control File  /etc/ldap.conf">???</a>.
+	<a class="indexterm" name="id2606803"></a>
+	The <code class="filename">/etc/ldap.conf</code> file used is listed in <a class="link" href="nw4migration.html#ch8ldap" title="Example 10.2. NSS LDAP Control File /etc/ldap.conf">&#8220;NSS LDAP Control File  /etc/ldap.conf&#8221;</a>.
 	</p><div class="example"><a name="ch8ldap"></a><p class="title"><b>Example 10.2. NSS LDAP Control File  /etc/ldap.conf</b></p><div class="example-contents"><pre class="screen">
 # /etc/ldap.conf
 # This file is present on every *NIX client that authenticates to LDAP.
@@ -416,11 +416,11 @@ group:    compat ldap
 # possibilities to store hosts, services, ethers, and lots of other things.
 </pre><p>
 	</p><p>
-	<a class="indexterm" name="id2611249"></a>
-	<a class="indexterm" name="id2611255"></a>
+	<a class="indexterm" name="id2606887"></a>
+	<a class="indexterm" name="id2606893"></a>
 	In my setup, users authenticate via PAM and NSS using LDAP-based accounts.
-	The configuration file that controls the behavior of the PAM <span><strong class="command">pam_unix2</strong></span>
-	module is shown in <a href="nw4migration.html#sbepu2" title="Example 10.3. The PAM Control File /etc/security/pam_unix2.conf">???</a> file.
+	The configuration file that controls the behavior of the PAM <code class="literal">pam_unix2</code>
+	module is shown in <a class="link" href="nw4migration.html#sbepu2" title="Example 10.3. The PAM Control File /etc/security/pam_unix2.conf">&#8220;The PAM Control File /etc/security/pam_unix2.conf&#8221;</a> file.
 	This works out of the box with the configuration files in this chapter. It
 	enables you to have no local accounts for users (it is highly advisable 
 	to have a local account for the root user).  Traps for the unwary include the following:
@@ -458,7 +458,7 @@ auth: use_ldap
 account: use_ldap
 password: use_ldap
 session: none
-</pre></div></div><br class="example-break"><a class="indexterm" name="id2611320"></a><a class="indexterm" name="id2611327"></a><a class="indexterm" name="id2611334"></a><div class="itemizedlist"><ul type="disc"><li><p>
+</pre></div></div><br class="example-break"><a class="indexterm" name="id2606976"></a><a class="indexterm" name="id2606983"></a><a class="indexterm" name="id2606990"></a><div class="itemizedlist"><ul type="disc"><li><p>
 			If your LDAP database goes down, nobody can authenticate except for root.
 			</p></li><li><p>
 			If failover is configured incorrectly, weird behavior can occur. For example, 
@@ -468,46 +468,46 @@ session: none
 	of this document, and steps for implementing it are well documented.
 	</p><p>
 	The following services authenticate using LDAP:
-	</p><a class="indexterm" name="id2611370"></a><a class="indexterm" name="id2611377"></a><a class="indexterm" name="id2611384"></a><table class="simplelist" border="0" summary="Simple list"><tr><td><p>UNIX login/ssh</p></td></tr><tr><td><p>Postfix (SMTP)</p></td></tr><tr><td><p>Courier-IMAP/IMAPS/POP3/POP3S</p></td></tr></table><p>
-	<a class="indexterm" name="id2611412"></a>
-	<a class="indexterm" name="id2611419"></a>
+	</p><a class="indexterm" name="id2607026"></a><a class="indexterm" name="id2607033"></a><a class="indexterm" name="id2607039"></a><table class="simplelist" border="0" summary="Simple list"><tr><td><p>UNIX login/ssh</p></td></tr><tr><td><p>Postfix (SMTP)</p></td></tr><tr><td><p>Courier-IMAP/IMAPS/POP3/POP3S</p></td></tr></table><p>
+	<a class="indexterm" name="id2607068"></a>
+	<a class="indexterm" name="id2607075"></a>
 	Companywide white pages can be searched using an LDAP client
 	such as the one in the Windows Address Book.
 	</p><p>
-	<a class="indexterm" name="id2611431"></a>
-	<a class="indexterm" name="id2611438"></a>
+	<a class="indexterm" name="id2607087"></a>
+	<a class="indexterm" name="id2607094"></a>
 	Having gained a solid understanding of LDAP and a relatively workable LDAP tree
 	thus far, it was time to configure Samba. I compiled the latest stable Samba and
-	also installed the latest <span><strong class="command">smbldap-tools</strong></span> from 
-	<a href="http://idealx.com" target="_top">Idealx</a>.
+	also installed the latest <code class="literal">smbldap-tools</code> from 
+	<a class="ulink" href="http://idealx.com" target="_top">Idealx</a>.
 	</p><p>
-	The Samba <code class="filename">smb.conf</code> file was configured as shown in <a href="nw4migration.html#ch8smbconf" title="Example 10.4. Samba Configuration File  smb.conf Part A">???</a>.
-	</p><div class="example"><a name="ch8smbconf"></a><p class="title"><b>Example 10.4. Samba Configuration File  smb.conf Part A</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2611508"></a><em class="parameter"><code>workgroup = MEGANET2</code></em></td></tr><tr><td><a class="indexterm" name="id2611521"></a><em class="parameter"><code>netbios name = MASSIVE</code></em></td></tr><tr><td><a class="indexterm" name="id2611534"></a><em class="parameter"><code>server string = Corp File Server</code></em></td></tr><tr><td><a class="indexterm" name="id2611547"></a><em class="parameter"><code>passdb backend = ldapsam:ldap://localhost</code></em></td></tr><tr><td><a class="indexterm" name="id2611560"></a><em class="parameter"><code>pam password change = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2611573"></a><em class="parameter"><code>username map = /etc/samba/smbusers</code></em></td></tr><tr><td><a class="indexterm" name="id2611586"></a><em class="parameter"><code>log level = 1</code></em></td></tr><tr><td><a class="indexterm" name="id2611599"></a><em class="parameter"><code>log file = /data/samba/log/%m.log</code></em></td></tr><tr><td><a class="indexterm" name="id2611612"></a><em class="parameter"><code>name resolve order = wins host bcast</code></em></td></tr><tr><td><a class="indexterm" name="id2611625"></a><em class="parameter"><code>time server = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2611638"></a><em class="parameter"><code>printcap name = cups</code></em></td></tr><tr><td><a class="indexterm" name="id2611650"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2611664"></a><em class="parameter"><code>cups options = Raw</code></em></td></tr><tr><td><a class="indexterm" name="id2611676"></a><em class="parameter"><code>add user script = /opt/IDEALX/sbin/smbldap-useradd -m "%u"</code></em></td></tr><tr><td><a class="indexterm" name="id2611690"></a><em class="parameter"><code>add group script = /opt/IDEALX/sbin/smbldap-groupadd -p "%g"</code></em></td></tr><tr><td><a class="indexterm" name="id2611704"></a><em class="parameter"><code>add user to group script = /opt/IDEALX/sbin/smbldap-groupmod -m "%u" "%g"</code></em></td></tr><tr><td><a class="indexterm" name="id2611717"></a><em class="parameter"><code>delete user from group script = /opt/IDEALX/sbin/smbldap-groupmod -x "%u" "%g"</code></em></td></tr><tr><td><a class="indexterm" name="id2611732"></a><em class="parameter"><code>set primary group script = /opt/IDEALX/sbin/smbldap-usermod -g "%g" "%u"</code></em></td></tr><tr><td><a class="indexterm" name="id2611745"></a><em class="parameter"><code>add machine script = /usr/local/sbin/smbldap-useradd -w "%m"</code></em></td></tr><tr><td><a class="indexterm" name="id2611759"></a><em class="parameter"><code>logon script = logon.bat</code></em></td></tr><tr><td><a class="indexterm" name="id2611772"></a><em class="parameter"><code>logon path = \\%L\profiles\%U\%a</code></em></td></tr><tr><td><a class="indexterm" name="id2611785"></a><em class="parameter"><code>logon drive = H:</code></em></td></tr><tr><td><a class="indexterm" name="id2611798"></a><em class="parameter"><code>logon home = \\%L\%U</code></em></td></tr><tr><td><a class="indexterm" name="id2611810"></a><em class="parameter"><code>domain logons = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2611823"></a><em class="parameter"><code>wins support = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2611836"></a><em class="parameter"><code>ldap admin dn = cn=Manager,dc=abmas,dc=biz</code></em></td></tr><tr><td><a class="indexterm" name="id2611849"></a><em class="parameter"><code>ldap group suffix = ou=Groups</code></em></td></tr><tr><td><a class="indexterm" name="id2611862"></a><em class="parameter"><code>ldap idmap suffix = ou=People</code></em></td></tr><tr><td><a class="indexterm" name="id2611875"></a><em class="parameter"><code>ldap machine suffix = ou=People</code></em></td></tr><tr><td><a class="indexterm" name="id2611888"></a><em class="parameter"><code>ldap passwd sync = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2611901"></a><em class="parameter"><code>ldap suffix = ou=MEGANET2,dc=abmas,dc=biz</code></em></td></tr><tr><td><a class="indexterm" name="id2611914"></a><em class="parameter"><code>ldap ssl = no</code></em></td></tr><tr><td><a class="indexterm" name="id2611927"></a><em class="parameter"><code>ldap user suffix = ou=People</code></em></td></tr><tr><td><a class="indexterm" name="id2611940"></a><em class="parameter"><code>admin users = root, "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2611953"></a><em class="parameter"><code>printer admin = "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2611966"></a><em class="parameter"><code>force printername = Yes</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf2"></a><p class="title"><b>Example 10.5. Samba Configuration File  smb.conf Part B</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[netlogon]</code></em></td></tr><tr><td><a class="indexterm" name="id2612007"></a><em class="parameter"><code>comment = Network logon service</code></em></td></tr><tr><td><a class="indexterm" name="id2612020"></a><em class="parameter"><code>path = /data/samba/netlogon</code></em></td></tr><tr><td><a class="indexterm" name="id2612032"></a><em class="parameter"><code>write list = "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2612045"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[profiles]</code></em></td></tr><tr><td><a class="indexterm" name="id2612067"></a><em class="parameter"><code>comment = Roaming Profile Share</code></em></td></tr><tr><td><a class="indexterm" name="id2612080"></a><em class="parameter"><code>path = /data/samba/profiles/</code></em></td></tr><tr><td><a class="indexterm" name="id2612093"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2612106"></a><em class="parameter"><code>profile acls = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2612118"></a><em class="parameter"><code>veto files = desktop.ini</code></em></td></tr><tr><td><a class="indexterm" name="id2612131"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[homes]</code></em></td></tr><tr><td><a class="indexterm" name="id2612153"></a><em class="parameter"><code>comment = Home Directories</code></em></td></tr><tr><td><a class="indexterm" name="id2612166"></a><em class="parameter"><code>valid users = %S</code></em></td></tr><tr><td><a class="indexterm" name="id2612178"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2612191"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2612204"></a><em class="parameter"><code>veto files = desktop.ini</code></em></td></tr><tr><td><a class="indexterm" name="id2612216"></a><em class="parameter"><code>hide files = desktop.ini</code></em></td></tr><tr><td><a class="indexterm" name="id2612229"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[software]</code></em></td></tr><tr><td><a class="indexterm" name="id2612251"></a><em class="parameter"><code>comment = Software for %a computers</code></em></td></tr><tr><td><a class="indexterm" name="id2612264"></a><em class="parameter"><code>path = /data/samba/shares/software/%a</code></em></td></tr><tr><td><a class="indexterm" name="id2612277"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[public]</code></em></td></tr><tr><td><a class="indexterm" name="id2612298"></a><em class="parameter"><code>comment = Public Files</code></em></td></tr><tr><td><a class="indexterm" name="id2612311"></a><em class="parameter"><code>path = /data/samba/shares/public</code></em></td></tr><tr><td><a class="indexterm" name="id2612324"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2612337"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[PDF]</code></em></td></tr><tr><td><a class="indexterm" name="id2612358"></a><em class="parameter"><code>comment = Location of documents printed to PDFCreator printer</code></em></td></tr><tr><td><a class="indexterm" name="id2612372"></a><em class="parameter"><code>path = /data/samba/shares/pdf</code></em></td></tr><tr><td><a class="indexterm" name="id2612385"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf3"></a><p class="title"><b>Example 10.6. Samba Configuration File  smb.conf Part C</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[EVERYTHING]</code></em></td></tr><tr><td><a class="indexterm" name="id2612425"></a><em class="parameter"><code>comment = All shares</code></em></td></tr><tr><td><a class="indexterm" name="id2612438"></a><em class="parameter"><code>path = /data/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2612451"></a><em class="parameter"><code>valid users = "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2612464"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[CDROM]</code></em></td></tr><tr><td><a class="indexterm" name="id2612485"></a><em class="parameter"><code>comment = CD-ROM on MASSIVE</code></em></td></tr><tr><td><a class="indexterm" name="id2612498"></a><em class="parameter"><code>path = /mnt</code></em></td></tr><tr><td><a class="indexterm" name="id2612510"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[print$]</code></em></td></tr><tr><td><a class="indexterm" name="id2612532"></a><em class="parameter"><code>comment = Printer Drivers Share</code></em></td></tr><tr><td><a class="indexterm" name="id2612545"></a><em class="parameter"><code>path = /data/samba/drivers</code></em></td></tr><tr><td><a class="indexterm" name="id2612558"></a><em class="parameter"><code>write list = root</code></em></td></tr><tr><td><a class="indexterm" name="id2612570"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2612592"></a><em class="parameter"><code>comment = All Printers</code></em></td></tr><tr><td><a class="indexterm" name="id2612605"></a><em class="parameter"><code>path = /data/samba/spool</code></em></td></tr><tr><td><a class="indexterm" name="id2612618"></a><em class="parameter"><code>create mask = 0644</code></em></td></tr><tr><td><a class="indexterm" name="id2612630"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2612643"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[acct_hp8500]</code></em></td></tr><tr><td><a class="indexterm" name="id2612665"></a><em class="parameter"><code>comment = "Accounting Color Laser Printer"</code></em></td></tr><tr><td><a class="indexterm" name="id2612678"></a><em class="parameter"><code>path = /data/samba/spool/private</code></em></td></tr><tr><td><a class="indexterm" name="id2612691"></a><em class="parameter"><code>valid users = @acct, @acct_admin, @hr, "@Domain Admins",@Receptionist, dwayne, terri, danae, jerry</code></em></td></tr><tr><td><a class="indexterm" name="id2612705"></a><em class="parameter"><code>create mask = 0644</code></em></td></tr><tr><td><a class="indexterm" name="id2612717"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2612730"></a><em class="parameter"><code>copy = printers</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[plotter]</code></em></td></tr><tr><td><a class="indexterm" name="id2612752"></a><em class="parameter"><code>comment = Engineering Plotter</code></em></td></tr><tr><td><a class="indexterm" name="id2612765"></a><em class="parameter"><code>path = /data/samba/spool</code></em></td></tr><tr><td><a class="indexterm" name="id2612777"></a><em class="parameter"><code>create mask = 0644</code></em></td></tr><tr><td><a class="indexterm" name="id2612790"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2612803"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2612816"></a><em class="parameter"><code>copy = printers</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf4"></a><p class="title"><b>Example 10.7. Samba Configuration File  smb.conf Part D</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[APPS]</code></em></td></tr><tr><td><a class="indexterm" name="id2612856"></a><em class="parameter"><code>path = /data/samba/shares/Apps</code></em></td></tr><tr><td><a class="indexterm" name="id2612869"></a><em class="parameter"><code>force group = "Domain Users"</code></em></td></tr><tr><td><a class="indexterm" name="id2612882"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[ACCT]</code></em></td></tr><tr><td><a class="indexterm" name="id2612903"></a><em class="parameter"><code>path = /data/samba/shares/Accounting</code></em></td></tr><tr><td><a class="indexterm" name="id2612916"></a><em class="parameter"><code>valid users = @acct, "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2612930"></a><em class="parameter"><code>force group = acct</code></em></td></tr><tr><td><a class="indexterm" name="id2612942"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2612955"></a><em class="parameter"><code>create mask = 0660</code></em></td></tr><tr><td><a class="indexterm" name="id2612968"></a><em class="parameter"><code>directory mask = 0770</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[ACCT_ADMIN]</code></em></td></tr><tr><td><a class="indexterm" name="id2612990"></a><em class="parameter"><code>path = /data/samba/shares/Acct_Admin</code></em></td></tr><tr><td><a class="indexterm" name="id2613003"></a><em class="parameter"><code>valid users = @â€acct_adminâ€</code></em></td></tr><tr><td><a class="indexterm" name="id2613016"></a><em class="parameter"><code>force group = acct_admin</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[HR_PR]</code></em></td></tr><tr><td><a class="indexterm" name="id2613038"></a><em class="parameter"><code>path = /data/samba/shares/HR_PR</code></em></td></tr><tr><td><a class="indexterm" name="id2613051"></a><em class="parameter"><code>valid users = @hr, @acct_admin</code></em></td></tr><tr><td><a class="indexterm" name="id2613064"></a><em class="parameter"><code>force group = hr</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[ENGR]</code></em></td></tr><tr><td><a class="indexterm" name="id2613085"></a><em class="parameter"><code>path = /data/samba/shares/Engr</code></em></td></tr><tr><td><a class="indexterm" name="id2613098"></a><em class="parameter"><code>valid users = @engr, @receptionist, @truss, "@Domain Admins", cheri</code></em></td></tr><tr><td><a class="indexterm" name="id2613112"></a><em class="parameter"><code>force group = engr</code></em></td></tr><tr><td><a class="indexterm" name="id2613124"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2613137"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[DATA]</code></em></td></tr><tr><td><a class="indexterm" name="id2613159"></a><em class="parameter"><code>path = /data/samba/shares/DATA</code></em></td></tr><tr><td><a class="indexterm" name="id2613172"></a><em class="parameter"><code>valid users = @engr, @receptionist, @truss, "@Domain Admins", cheri</code></em></td></tr><tr><td><a class="indexterm" name="id2613185"></a><em class="parameter"><code>force group = engr</code></em></td></tr><tr><td><a class="indexterm" name="id2613198"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2613210"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2613223"></a><em class="parameter"><code>copy = engr</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf5"></a><p class="title"><b>Example 10.8. Samba Configuration File  smb.conf Part E</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[X]</code></em></td></tr><tr><td><a class="indexterm" name="id2613263"></a><em class="parameter"><code>path = /data/samba/shares/X</code></em></td></tr><tr><td><a class="indexterm" name="id2613276"></a><em class="parameter"><code>valid users = @engr, @acct</code></em></td></tr><tr><td><a class="indexterm" name="id2613289"></a><em class="parameter"><code>force group = engr</code></em></td></tr><tr><td><a class="indexterm" name="id2613301"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2613314"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2613327"></a><em class="parameter"><code>copy = engr</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[NETWORK]</code></em></td></tr><tr><td><a class="indexterm" name="id2613348"></a><em class="parameter"><code>path = /data/samba/shares/network</code></em></td></tr><tr><td><a class="indexterm" name="id2613361"></a><em class="parameter"><code>valid users = "@Domain Users"</code></em></td></tr><tr><td><a class="indexterm" name="id2613374"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2613387"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2613399"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[UTILS]</code></em></td></tr><tr><td><a class="indexterm" name="id2613421"></a><em class="parameter"><code>path = /data/samba/shares/Utils</code></em></td></tr><tr><td><a class="indexterm" name="id2613434"></a><em class="parameter"><code>write list = "@Domain Admins"</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[SYS]</code></em></td></tr><tr><td><a class="indexterm" name="id2613456"></a><em class="parameter"><code>path = /data/samba/shares/SYS</code></em></td></tr><tr><td><a class="indexterm" name="id2613469"></a><em class="parameter"><code>valid users = chad</code></em></td></tr><tr><td><a class="indexterm" name="id2613481"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2613494"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"><p>
-	<a class="indexterm" name="id2613510"></a>
-	<a class="indexterm" name="id2613517"></a>
-	<a class="indexterm" name="id2613523"></a>
+	The Samba <code class="filename">smb.conf</code> file was configured as shown in <a class="link" href="nw4migration.html#ch8smbconf" title="Example 10.4. Samba Configuration File smb.conf Part A">&#8220;Samba Configuration File  smb.conf Part A&#8221;</a>.
+	</p><div class="example"><a name="ch8smbconf"></a><p class="title"><b>Example 10.4. Samba Configuration File  smb.conf Part A</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2607164"></a><em class="parameter"><code>workgroup = MEGANET2</code></em></td></tr><tr><td><a class="indexterm" name="id2607176"></a><em class="parameter"><code>netbios name = MASSIVE</code></em></td></tr><tr><td><a class="indexterm" name="id2607188"></a><em class="parameter"><code>server string = Corp File Server</code></em></td></tr><tr><td><a class="indexterm" name="id2607200"></a><em class="parameter"><code>passdb backend = ldapsam:ldap://localhost</code></em></td></tr><tr><td><a class="indexterm" name="id2607212"></a><em class="parameter"><code>pam password change = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2607224"></a><em class="parameter"><code>username map = /etc/samba/smbusers</code></em></td></tr><tr><td><a class="indexterm" name="id2607236"></a><em class="parameter"><code>log level = 1</code></em></td></tr><tr><td><a class="indexterm" name="id2607247"></a><em class="parameter"><code>log file = /data/samba/log/%m.log</code></em></td></tr><tr><td><a class="indexterm" name="id2607259"></a><em class="parameter"><code>name resolve order = wins host bcast</code></em></td></tr><tr><td><a class="indexterm" name="id2607271"></a><em class="parameter"><code>time server = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2607283"></a><em class="parameter"><code>printcap name = cups</code></em></td></tr><tr><td><a class="indexterm" name="id2607295"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2607307"></a><em class="parameter"><code>cups options = Raw</code></em></td></tr><tr><td><a class="indexterm" name="id2607318"></a><em class="parameter"><code>add user script = /opt/IDEALX/sbin/smbldap-useradd -m "%u"</code></em></td></tr><tr><td><a class="indexterm" name="id2607331"></a><em class="parameter"><code>add group script = /opt/IDEALX/sbin/smbldap-groupadd -p "%g"</code></em></td></tr><tr><td><a class="indexterm" name="id2607343"></a><em class="parameter"><code>add user to group script = /opt/IDEALX/sbin/smbldap-groupmod -m "%u" "%g"</code></em></td></tr><tr><td><a class="indexterm" name="id2607356"></a><em class="parameter"><code>delete user from group script = /opt/IDEALX/sbin/smbldap-groupmod -x "%u" "%g"</code></em></td></tr><tr><td><a class="indexterm" name="id2607369"></a><em class="parameter"><code>set primary group script = /opt/IDEALX/sbin/smbldap-usermod -g "%g" "%u"</code></em></td></tr><tr><td><a class="indexterm" name="id2607382"></a><em class="parameter"><code>add machine script = /usr/local/sbin/smbldap-useradd -w "%m"</code></em></td></tr><tr><td><a class="indexterm" name="id2607395"></a><em class="parameter"><code>logon script = logon.bat</code></em></td></tr><tr><td><a class="indexterm" name="id2607406"></a><em class="parameter"><code>logon path = \\%L\profiles\%U\%a</code></em></td></tr><tr><td><a class="indexterm" name="id2607418"></a><em class="parameter"><code>logon drive = H:</code></em></td></tr><tr><td><a class="indexterm" name="id2607430"></a><em class="parameter"><code>logon home = \\%L\%U</code></em></td></tr><tr><td><a class="indexterm" name="id2607442"></a><em class="parameter"><code>domain logons = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2607453"></a><em class="parameter"><code>wins support = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2607465"></a><em class="parameter"><code>ldap admin dn = cn=Manager,dc=abmas,dc=biz</code></em></td></tr><tr><td><a class="indexterm" name="id2607477"></a><em class="parameter"><code>ldap group suffix = ou=Groups</code></em></td></tr><tr><td><a class="indexterm" name="id2607489"></a><em class="parameter"><code>ldap idmap suffix = ou=People</code></em></td></tr><tr><td><a class="indexterm" name="id2607501"></a><em class="parameter"><code>ldap machine suffix = ou=People</code></em></td></tr><tr><td><a class="indexterm" name="id2607513"></a><em class="parameter"><code>ldap passwd sync = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2607525"></a><em class="parameter"><code>ldap suffix = ou=MEGANET2,dc=abmas,dc=biz</code></em></td></tr><tr><td><a class="indexterm" name="id2607537"></a><em class="parameter"><code>ldap ssl = no</code></em></td></tr><tr><td><a class="indexterm" name="id2607549"></a><em class="parameter"><code>ldap user suffix = ou=People</code></em></td></tr><tr><td><a class="indexterm" name="id2607561"></a><em class="parameter"><code>admin users = root, "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2607573"></a><em class="parameter"><code>printer admin = "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2607585"></a><em class="parameter"><code>force printername = Yes</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf2"></a><p class="title"><b>Example 10.5. Samba Configuration File  smb.conf Part B</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[netlogon]</code></em></td></tr><tr><td><a class="indexterm" name="id2607624"></a><em class="parameter"><code>comment = Network logon service</code></em></td></tr><tr><td><a class="indexterm" name="id2607636"></a><em class="parameter"><code>path = /data/samba/netlogon</code></em></td></tr><tr><td><a class="indexterm" name="id2607648"></a><em class="parameter"><code>write list = "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2607660"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[profiles]</code></em></td></tr><tr><td><a class="indexterm" name="id2607680"></a><em class="parameter"><code>comment = Roaming Profile Share</code></em></td></tr><tr><td><a class="indexterm" name="id2607692"></a><em class="parameter"><code>path = /data/samba/profiles/</code></em></td></tr><tr><td><a class="indexterm" name="id2607704"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2607716"></a><em class="parameter"><code>profile acls = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2607727"></a><em class="parameter"><code>veto files = desktop.ini</code></em></td></tr><tr><td><a class="indexterm" name="id2607739"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[homes]</code></em></td></tr><tr><td><a class="indexterm" name="id2607760"></a><em class="parameter"><code>comment = Home Directories</code></em></td></tr><tr><td><a class="indexterm" name="id2607771"></a><em class="parameter"><code>valid users = %S</code></em></td></tr><tr><td><a class="indexterm" name="id2607783"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2607794"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2607806"></a><em class="parameter"><code>veto files = desktop.ini</code></em></td></tr><tr><td><a class="indexterm" name="id2607818"></a><em class="parameter"><code>hide files = desktop.ini</code></em></td></tr><tr><td><a class="indexterm" name="id2607830"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[software]</code></em></td></tr><tr><td><a class="indexterm" name="id2607850"></a><em class="parameter"><code>comment = Software for %a computers</code></em></td></tr><tr><td><a class="indexterm" name="id2607862"></a><em class="parameter"><code>path = /data/samba/shares/software/%a</code></em></td></tr><tr><td><a class="indexterm" name="id2607874"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[public]</code></em></td></tr><tr><td><a class="indexterm" name="id2607894"></a><em class="parameter"><code>comment = Public Files</code></em></td></tr><tr><td><a class="indexterm" name="id2607906"></a><em class="parameter"><code>path = /data/samba/shares/public</code></em></td></tr><tr><td><a class="indexterm" name="id2607918"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2607930"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[PDF]</code></em></td></tr><tr><td><a class="indexterm" name="id2607950"></a><em class="parameter"><code>comment = Location of documents printed to PDFCreator printer</code></em></td></tr><tr><td><a class="indexterm" name="id2607963"></a><em class="parameter"><code>path = /data/samba/shares/pdf</code></em></td></tr><tr><td><a class="indexterm" name="id2607974"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf3"></a><p class="title"><b>Example 10.6. Samba Configuration File  smb.conf Part C</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[EVERYTHING]</code></em></td></tr><tr><td><a class="indexterm" name="id2608013"></a><em class="parameter"><code>comment = All shares</code></em></td></tr><tr><td><a class="indexterm" name="id2608025"></a><em class="parameter"><code>path = /data/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2608037"></a><em class="parameter"><code>valid users = "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2608049"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[CDROM]</code></em></td></tr><tr><td><a class="indexterm" name="id2608069"></a><em class="parameter"><code>comment = CD-ROM on MASSIVE</code></em></td></tr><tr><td><a class="indexterm" name="id2608081"></a><em class="parameter"><code>path = /mnt</code></em></td></tr><tr><td><a class="indexterm" name="id2608092"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[print$]</code></em></td></tr><tr><td><a class="indexterm" name="id2608113"></a><em class="parameter"><code>comment = Printer Drivers Share</code></em></td></tr><tr><td><a class="indexterm" name="id2608125"></a><em class="parameter"><code>path = /data/samba/drivers</code></em></td></tr><tr><td><a class="indexterm" name="id2608136"></a><em class="parameter"><code>write list = root</code></em></td></tr><tr><td><a class="indexterm" name="id2608148"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2608169"></a><em class="parameter"><code>comment = All Printers</code></em></td></tr><tr><td><a class="indexterm" name="id2608180"></a><em class="parameter"><code>path = /data/samba/spool</code></em></td></tr><tr><td><a class="indexterm" name="id2608192"></a><em class="parameter"><code>create mask = 0644</code></em></td></tr><tr><td><a class="indexterm" name="id2608204"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2608215"></a><em class="parameter"><code>browseable = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[acct_hp8500]</code></em></td></tr><tr><td><a class="indexterm" name="id2608236"></a><em class="parameter"><code>comment = "Accounting Color Laser Printer"</code></em></td></tr><tr><td><a class="indexterm" name="id2608248"></a><em class="parameter"><code>path = /data/samba/spool/private</code></em></td></tr><tr><td><a class="indexterm" name="id2608260"></a><em class="parameter"><code>valid users = @acct, @acct_admin, @hr, "@Domain Admins",@Receptionist, dwayne, terri, danae, jerry</code></em></td></tr><tr><td><a class="indexterm" name="id2608273"></a><em class="parameter"><code>create mask = 0644</code></em></td></tr><tr><td><a class="indexterm" name="id2608284"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2608296"></a><em class="parameter"><code>copy = printers</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[plotter]</code></em></td></tr><tr><td><a class="indexterm" name="id2608316"></a><em class="parameter"><code>comment = Engineering Plotter</code></em></td></tr><tr><td><a class="indexterm" name="id2608328"></a><em class="parameter"><code>path = /data/samba/spool</code></em></td></tr><tr><td><a class="indexterm" name="id2608340"></a><em class="parameter"><code>create mask = 0644</code></em></td></tr><tr><td><a class="indexterm" name="id2608352"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2608363"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2608375"></a><em class="parameter"><code>copy = printers</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf4"></a><p class="title"><b>Example 10.7. Samba Configuration File  smb.conf Part D</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[APPS]</code></em></td></tr><tr><td><a class="indexterm" name="id2608414"></a><em class="parameter"><code>path = /data/samba/shares/Apps</code></em></td></tr><tr><td><a class="indexterm" name="id2608426"></a><em class="parameter"><code>force group = "Domain Users"</code></em></td></tr><tr><td><a class="indexterm" name="id2608438"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[ACCT]</code></em></td></tr><tr><td><a class="indexterm" name="id2608459"></a><em class="parameter"><code>path = /data/samba/shares/Accounting</code></em></td></tr><tr><td><a class="indexterm" name="id2608471"></a><em class="parameter"><code>valid users = @acct, "@Domain Admins"</code></em></td></tr><tr><td><a class="indexterm" name="id2608483"></a><em class="parameter"><code>force group = acct</code></em></td></tr><tr><td><a class="indexterm" name="id2608494"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2608506"></a><em class="parameter"><code>create mask = 0660</code></em></td></tr><tr><td><a class="indexterm" name="id2608517"></a><em class="parameter"><code>directory mask = 0770</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[ACCT_ADMIN]</code></em></td></tr><tr><td><a class="indexterm" name="id2608538"></a><em class="parameter"><code>path = /data/samba/shares/Acct_Admin</code></em></td></tr><tr><td><a class="indexterm" name="id2608550"></a><em class="parameter"><code>valid users = @â€acct_adminâ€</code></em></td></tr><tr><td><a class="indexterm" name="id2608563"></a><em class="parameter"><code>force group = acct_admin</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[HR_PR]</code></em></td></tr><tr><td><a class="indexterm" name="id2608584"></a><em class="parameter"><code>path = /data/samba/shares/HR_PR</code></em></td></tr><tr><td><a class="indexterm" name="id2608595"></a><em class="parameter"><code>valid users = @hr, @acct_admin</code></em></td></tr><tr><td><a class="indexterm" name="id2608607"></a><em class="parameter"><code>force group = hr</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[ENGR]</code></em></td></tr><tr><td><a class="indexterm" name="id2608628"></a><em class="parameter"><code>path = /data/samba/shares/Engr</code></em></td></tr><tr><td><a class="indexterm" name="id2608640"></a><em class="parameter"><code>valid users = @engr, @receptionist, @truss, "@Domain Admins", cheri</code></em></td></tr><tr><td><a class="indexterm" name="id2608652"></a><em class="parameter"><code>force group = engr</code></em></td></tr><tr><td><a class="indexterm" name="id2608664"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2608675"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[DATA]</code></em></td></tr><tr><td><a class="indexterm" name="id2608696"></a><em class="parameter"><code>path = /data/samba/shares/DATA</code></em></td></tr><tr><td><a class="indexterm" name="id2608708"></a><em class="parameter"><code>valid users = @engr, @receptionist, @truss, "@Domain Admins", cheri</code></em></td></tr><tr><td><a class="indexterm" name="id2608720"></a><em class="parameter"><code>force group = engr</code></em></td></tr><tr><td><a class="indexterm" name="id2608732"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2608743"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2608755"></a><em class="parameter"><code>copy = engr</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="ch8smbconf5"></a><p class="title"><b>Example 10.8. Samba Configuration File  smb.conf Part E</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[X]</code></em></td></tr><tr><td><a class="indexterm" name="id2608794"></a><em class="parameter"><code>path = /data/samba/shares/X</code></em></td></tr><tr><td><a class="indexterm" name="id2608805"></a><em class="parameter"><code>valid users = @engr, @acct</code></em></td></tr><tr><td><a class="indexterm" name="id2608817"></a><em class="parameter"><code>force group = engr</code></em></td></tr><tr><td><a class="indexterm" name="id2608829"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2608840"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2608852"></a><em class="parameter"><code>copy = engr</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[NETWORK]</code></em></td></tr><tr><td><a class="indexterm" name="id2608872"></a><em class="parameter"><code>path = /data/samba/shares/network</code></em></td></tr><tr><td><a class="indexterm" name="id2608884"></a><em class="parameter"><code>valid users = "@Domain Users"</code></em></td></tr><tr><td><a class="indexterm" name="id2608896"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2608908"></a><em class="parameter"><code>create mask = 0770</code></em></td></tr><tr><td><a class="indexterm" name="id2608919"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[UTILS]</code></em></td></tr><tr><td><a class="indexterm" name="id2608940"></a><em class="parameter"><code>path = /data/samba/shares/Utils</code></em></td></tr><tr><td><a class="indexterm" name="id2608952"></a><em class="parameter"><code>write list = "@Domain Admins"</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[SYS]</code></em></td></tr><tr><td><a class="indexterm" name="id2608972"></a><em class="parameter"><code>path = /data/samba/shares/SYS</code></em></td></tr><tr><td><a class="indexterm" name="id2608984"></a><em class="parameter"><code>valid users = chad</code></em></td></tr><tr><td><a class="indexterm" name="id2608996"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2609008"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"><p>
+	<a class="indexterm" name="id2609022"></a>
+	<a class="indexterm" name="id2609029"></a>
+	<a class="indexterm" name="id2609036"></a>
 	Most of these shares are only used by one company group, but they are required
 	because of some ancient Qbasic and Rbase applications were that written expecting
 	their own drive letters.
 	</p><p>
-	<a class="indexterm" name="id2613537"></a>
-	<a class="indexterm" name="id2613544"></a>
-	<a class="indexterm" name="id2613550"></a>
+	<a class="indexterm" name="id2609049"></a>
+	<a class="indexterm" name="id2609056"></a>
+	<a class="indexterm" name="id2609063"></a>
 	Note: During the process of building the new server, I kept data files
-	up to date with the Novell server via use of <span><strong class="command">rsync</strong></span>. 
+	up to date with the Novell server via use of <code class="literal">rsync</code>. 
 	On a separate system (my workstation in fact), which could be rebooted
 	whenever necessary, I set up a mount point to the Novell server via
-	<span><strong class="command">ncpmount</strong></span>. I then created a
+	<code class="literal">ncpmount</code>. I then created a
 	<code class="filename">rsyncd.conf</code> to share that mount point out to my
 	new server, and synchronized once an hour. The script I used to synchronize
-	is shown in <a href="nw4migration.html#sbersync" title="Example 10.9. Rsync Script">???</a>. The files exclusion list I used
-	is shown in <a href="nw4migration.html#sbexcld" title="Example 10.10. Rsync Files Exclusion List  /root/excludes.txt">???</a>.  The reason I had to have the
-	<span><strong class="command">rsync</strong></span> daemon running on a system that could be
+	is shown in <a class="link" href="nw4migration.html#sbersync" title="Example 10.9. Rsync Script">&#8220;Rsync Script&#8221;</a>. The files exclusion list I used
+	is shown in <a class="link" href="nw4migration.html#sbexcld" title="Example 10.10. Rsync Files Exclusion List /root/excludes.txt">&#8220;Rsync Files Exclusion List  /root/excludes.txt&#8221;</a>.  The reason I had to have the
+	<code class="literal">rsync</code> daemon running on a system that could be
 	rebooted frequently is because <code class="constant">ncpfs</code>
 	(part of the MARS NetWare Emulation package) has a nasty habit of creating stale
 	mount points that cannot be recovered without a reboot. The reason for hourly
 	synchronization is because some part of the chain was very slow and
-	performance-heavy (whether <span><strong class="command">rsync</strong></span> itself, the network,
+	performance-heavy (whether <code class="literal">rsync</code> itself, the network,
 	or the Novell server, I am not sure, but it was probably the Novell server).
 	</p><div class="example"><a name="sbersync"></a><p class="title"><b>Example 10.9. Rsync Script</b></p><div class="example-contents"><pre class="screen">
 #!/bin/bash
@@ -559,7 +559,7 @@ fi
 	where &#8220;<span class="quote">verysecret</span>&#8221; is replaced by the LDAP bind password.
 	</p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
 The Idealx smbldap-tools package can be configured using a script called 
-<span><strong class="command">configure.pl</strong></span> that is provided as part of the tool. See <a href="happy.html" title="Chapter 5. Making Happy Users">???</a>
+<code class="literal">configure.pl</code> that is provided as part of the tool. See <a class="link" href="happy.html" title="Chapter 5. Making Happy Users">&#8220;Making Happy Users&#8221;</a>
 for an example of its use. Many administrators, like Misty, choose to do this manually
 so as to maintain greater awareness of how the tool-chain works and possibly to avoid
 undesirable actions from occurring unnoticed.
@@ -567,7 +567,7 @@ undesirable actions from occurring unnoticed.
 	Now Samba was ready for use and it was time to configure the smbldap-tools. There are two
 	relevant files, which are usually put into the directory
 	<code class="filename">/etc/smbldap-tools</code>. The main file,
-	<code class="filename">smbldap.conf</code> is shown in <a href="nw4migration.html#ch8ideal" title="Example 10.11. Idealx smbldap-tools Control File  Part A">???</a>.
+	<code class="filename">smbldap.conf</code> is shown in <a class="link" href="nw4migration.html#ch8ideal" title="Example 10.11. Idealx smbldap-tools Control File Part A">&#8220;Idealx smbldap-tools Control File  Part A&#8221;</a>.
 	</p><div class="example"><a name="ch8ideal"></a><p class="title"><b>Example 10.11. Idealx smbldap-tools Control File  Part A</b></p><div class="example-contents"><pre class="screen">
 #########
 #
@@ -739,7 +739,7 @@ mailDomain="abmas.org"
 with_smbpasswd="0"
 smbpasswd="/usr/bin/smbpasswd"
 </pre></div></div><br class="example-break"><p>
-	<a class="indexterm" name="id2614012"></a>
+	<a class="indexterm" name="id2609525"></a>
 	Note: I chose not to take advantage of the TLS capability of this. 
 	Eventually I may go back and tweak it.  Also, I chose not to take advantage
 	of the master/slave configuration as I heard horror stories that it was
@@ -766,7 +766,7 @@ masterDN="cn=Manager,dc=abmas,dc=biz"
 masterPw="verysecret"
 </pre><p>
 	</p><p>
-	The next step was to run the <span><strong class="command">smbldap-populate</strong></span> command, which populates
+	The next step was to run the <code class="literal">smbldap-populate</code> command, which populates
 	the LDAP tree with the appropriate default users, groups, and UID and GID pools.
 	It creates a user called Administrator with UID=0 and GID=0 matching the
 	Domain Admins group. This is fine because you can still log on as root to a Windows system,
@@ -813,46 +813,46 @@ ou: Idmap
 ...
 </pre><p>
 	</p><p>
-	<a class="indexterm" name="id2614113"></a>
-	<a class="indexterm" name="id2614120"></a>
-	<a class="indexterm" name="id2614127"></a>
-	<a class="indexterm" name="id2614134"></a>
-	<a class="indexterm" name="id2614140"></a>
+	<a class="indexterm" name="id2609626"></a>
+	<a class="indexterm" name="id2609633"></a>
+	<a class="indexterm" name="id2609640"></a>
+	<a class="indexterm" name="id2609647"></a>
+	<a class="indexterm" name="id2609654"></a>
 	With the LDAP directory now initialized, it was time to create the Windows and POSIX
 	(UNIX) group accounts as well as the mappings from Windows groups to UNIX groups.
-	The easiest way to do this was to use <span><strong class="command">smbldap-groupadd</strong></span> command.
+	The easiest way to do this was to use <code class="literal">smbldap-groupadd</code> command.
 	It creates the group with the posixGroup and sambaGroupMapping attributes, a
 	unique GID, and an automatically determined RID. I learned the hard way not to
 	try to do this by hand.
 	</p><p>
-	<a class="indexterm" name="id2614163"></a>
-	<a class="indexterm" name="id2614170"></a>
-	<a class="indexterm" name="id2614177"></a>
+	<a class="indexterm" name="id2609676"></a>
+	<a class="indexterm" name="id2609683"></a>
+	<a class="indexterm" name="id2609690"></a>
 	After I had my group mappings in place, I added users to the groups (the users
-	don't really have to exist yet). I used the <span><strong class="command">smbldap-groupmod</strong></span>
+	don't really have to exist yet). I used the <code class="literal">smbldap-groupmod</code>
 	command to accomplish this. It can also be done manually by adding memberUID
 	attributes to the group entries in LDAP.
 	</p><p>
-	<a class="indexterm" name="id2614197"></a>
-	<a class="indexterm" name="id2614204"></a>
-	<a class="indexterm" name="id2614211"></a>
+	<a class="indexterm" name="id2609711"></a>
+	<a class="indexterm" name="id2609718"></a>
+	<a class="indexterm" name="id2609724"></a>
 	The most monumental task of all was adding the sambaSamAccount information to each
 	already existent posixAccount entry.  I did it one at a time as I moved people onto
 	the new server, by issuing the command:
 </p><pre class="screen">
 <code class="prompt">root# </code> smbldap-usermod -a -P username
 </pre><p>
-	<a class="indexterm" name="id2614234"></a>
-	<a class="indexterm" name="id2614240"></a>
-	<a class="indexterm" name="id2614247"></a>
+	<a class="indexterm" name="id2609747"></a>
+	<a class="indexterm" name="id2609754"></a>
+	<a class="indexterm" name="id2609761"></a>
 	I completed that step for every user after asking the person what his or her current
 	NetWare password was. The wiser way to have done it would probably have been to dump the
 	entire database to an LDIF file. This can be done by executing:
 </p><pre class="screen">
 <code class="prompt">root# </code> slapcat &gt; somefile.ldif
 </pre><p>
-	<a class="indexterm" name="id2614271"></a>
-	<a class="indexterm" name="id2614278"></a>
+	<a class="indexterm" name="id2609784"></a>
+	<a class="indexterm" name="id2609791"></a>
 	Then update the LDIF file created by using a Perl script to parse and add the
 	appropriate attributes and objectClasses to each entry, followed by re-importing
 	the entire database into the LDAP directory. 
@@ -933,16 +933,16 @@ sambaPwdLastSet: 1103149236
 sambaAcctFlags: [W          ]
 </pre><p>
 	</p><p>
-	<a class="indexterm" name="id2614382"></a>
+	<a class="indexterm" name="id2609906"></a>
 	So now I could log on with a test user from the machine w2kengrspare. It was all well and
 	good, but that user was in no groups yet and so had pretty boring access.  I fixed that
 	by writing the login script! To write the login script, I used
-	<a href="http://www.kixtart.org" target="_top">Kixtart</a> because it will work
+	<a class="ulink" href="http://www.kixtart.org" target="_top">Kixtart</a> because it will work
 	with every architecture of Windows, has an active and helpful user base, and was both
 	easier to learn and more powerful than the standard netlogon scripts I have seen.
 	I also did not have to do a logon script per user or per group.
 	</p><p>
-	<a class="indexterm" name="id2614406"></a>
+	<a class="indexterm" name="id2609931"></a>
 	I downloaded Kixtart and put the following files in my netlogon share:
 </p><pre class="screen">
 KIX32.EXE
@@ -954,9 +954,9 @@ kxrpc.exe &lt;-- Probably useless as it has to run on the server and can
           We can get around the need.
 </pre><p>
 	</p><p>
-	<a class="indexterm" name="id2614438"></a>
+	<a class="indexterm" name="id2609962"></a>
 	I then wrote the <code class="filename">logon.kix</code> file that is shown in
-	<a href="nw4migration.html#ch8kix" title="Example 10.15. Kixtart Control File  File: logon.kix">???</a>. I chose to keep it all in one file, but it
+	<a class="link" href="nw4migration.html#ch8kix" title="Example 10.15. Kixtart Control File File: logon.kix">&#8220;Kixtart Control File  File: logon.kix&#8221;</a>. I chose to keep it all in one file, but it
 	can be split up and linked via include directives.
 	</p><div class="example"><a name="ch8kix"></a><p class="title"><b>Example 10.15. Kixtart Control File  File: logon.kix</b></p><div class="example-contents"><pre class="screen">
 ; This script just calls the other scripts.
@@ -1137,7 +1137,7 @@ ENDIF
 	have only three such machines, and one is going away in the very near future,
 	so it was easier to do it by hand.
 	</p><p>
-	<a class="indexterm" name="id2614711"></a>
+	<a class="indexterm" name="id2610258"></a>
 	At this point I was able to add the users. This is the part that really falls
 	into upgrade. I moved the users over one group at a time, starting with the
 	people who used the least amount of resources on the network. With each group
@@ -1161,7 +1161,7 @@ ENDIF
 			user profiles tab (varies per version of Windows).
 		</p></li><li><p>
 			Select the user's local profile <code class="constant">(COMPUTERNAME\username)</code>,
-			and click the <span><strong class="command">Copy To</strong></span> button.
+			and click the <code class="literal">Copy To</code> button.
 		</p></li><li><p>
 			In the next dialog, copy it directly to the profiles share on the
 			Samba server (in my case \\PDCname\profiles\user\&lt;architecture&gt;.
@@ -1239,7 +1239,7 @@ ENDIF
 	I went from a very high load on the server to an average load of between one
 	and two runnable processes on the server. I have improved the security and
 	robustness of the system. I have also implemented
-	<a href="http://www.clamav.net" target="_top">ClamAV</a> antivirus software,
+	<a class="ulink" href="http://www.clamav.net" target="_top">ClamAV</a> antivirus software,
 	which scans the entire Samba server for viruses every 2 hours and
 	quarantines them. I have found it much less problematic than our ancient
 	version of Norton Antivirus Corporate Edition, and much more up-to-date.

@@ -1,5 +1,5 @@
 .\"
-.\"   $Id: radvd.conf.5.man,v 1.12 2004/10/26 05:30:34 psavola Exp $
+.\"   $Id: radvd.conf.5.man,v 1.29 2010/01/28 13:34:26 psavola Exp $
 .\"
 .\"   Authors:
 .\"    Lars Fenneberg		<lf@elemental.net>
@@ -10,11 +10,11 @@
 .\"
 .\"   The license which is distributed with this software in the file COPYRIGHT
 .\"   applies to this software. If your distribution is missing this file, you
-.\"   may request it from <lutchann@litech.org>.
+.\"   may request it from <pekkas@netcore.fi>.
 .\"
 .\"
 .\"
-.TH RADVD.CONF 5 "20 Aug 2004" "radvd @VERSION@" ""
+.TH RADVD.CONF 5 "19 Jun 2009" "radvd @VERSION@" ""
 .SH NAME
 radvd.conf \- configuration file of the router advertisement daemon
 .B radvd
@@ -28,7 +28,9 @@ The file contains one or more interface definitions of the form:
 .BR "interface " "name " {
 	list of interface specific options
 	list of prefix definitions
+	list of clients (IPv6 addresses) to advertise to
 	list of route definitions
+	list of RDNSS definitions
 .B };
 .fi
 
@@ -46,6 +48,14 @@ Prefix definitions are of the form:
 Prefix can be network prefix or the address of the inferface.
 The address of interface should be used when using Mobile IPv6
 extensions.
+
+Special prefix "::/64" is also supported on systems that implement getifaddrs()
+(on other systems, configuration activation fails and radvd exits).
+When configured, radvd
+picks one non-link-local prefix assigned to the interface and starts advertising
+it.  This may be applicable in non-6to4 scenarios where the upstream prefix might
+change.  This option is incompatible with Base6to4Interface option.
+AdvRouterAddr option is always enabled when this configuration is used.
 
 All the possible prefix specific options are described below.  Each
 option has to be terminated by a semicolon.
@@ -65,16 +75,45 @@ Route definitions are of the form:
 The prefix of a route definition should be network prefix; it can be used to
 advertise more specific routes to the hosts.
 
+RDNSS (Recursive DNS server) definitions are of the form:
+
+.nf
+.BR "RDNSS " "ip [ip] [ip] " {
+	list of rdnss specific options
+.B };
+.fi
+
+By default radvd will send route advertisements so that every node on the link can use them.
+The list of clients (IPv6 address) to advertise to, and accept route solicitations from can be configured.
+If done, radvd does not send send messages to the multicast addresses but
+to the configured unicast addresses only.  Solicitations from other addresses are refused.
+This is similar to UnicastOnly but includes periodic messages and incoming client access
+configuration.  See examples section for a use case of this.
+
+The definitions are of the form:
+
+.nf
+.BR "clients " {
+        list of IPv6 addresses
+.B };
+.fi
+
 .SH INTERFACE SPECIFIC OPTIONS
 
 .TP
 .BR IgnoreIfMissing " " on | off
 
 A flag indicating whether or not the interface is ignored
-if it does not exist.
+if it does not exist at start-up.  By default, radvd exits.
+
 This is useful for dynamic interfaces which are not active when radvd
-starts, but for which you want to already have configuration -- and when
-they become active, you send HUP signal to radvd to activate them.
+starts or which are dynamically disabled and re-enabled during the time
+radvd runs.
+
+Current versions of radvd automatically try to re-enable interfaces.
+
+Enabling IgnoreIfMissing also quenches certain warnings in log messages
+relating to missing interfaces.
 
 Default: off
 
@@ -138,7 +177,7 @@ The minimum time allowed between sending multicast
 router advertisements from the interface, in seconds.
 
 This applies to solicited multicast RAs.
-This is defined as the protocol constant MIN_DELAY_BETWEEN_RAS in RFC2461.
+This is defined as the protocol constant MIN_DELAY_BETWEEN_RAS in RFC4861.
 MIPv6 redefines this parameter to have a minimum of 0.03 seconds.
 
 Minimum when using Mobile IPv6 extensions: 0.03.
@@ -151,7 +190,7 @@ Default: 3
 When set, hosts use the administered (stateful) protocol for address
 autoconfiguration in addition to any addresses autoconfigured using
 stateless address autoconfiguration.  The use of this flag is
-described in RFC 2462.
+described in RFC 4862.
 
 Default: off
 
@@ -160,7 +199,7 @@ Default: off
 
 When set, hosts use the administered (stateful) protocol for
 autoconfiguration of other (non-address) information.  The use of
-this flag is described in RFC 2462.
+this flag is described in RFC 4862.
 
 Default: off
 
@@ -173,7 +212,7 @@ the link MTU is not well known.
 
 If specified, i.e. not 0, must not be smaller than 1280 and not greater
 than the maximum MTU allowed for this link (e.g. ethernet has
-a maximum MTU of 1500. See RFC 2464).
+a maximum MTU of 1500. See RFC 4864).
 
 Default: 0
 
@@ -183,7 +222,7 @@ Default: 0
 The time, in milliseconds, that a node assumes a neighbor is
 reachable after having received a reachability confirmation.  Used
 by the Neighbor Unreachability Detection algorithm (see Section
-7.3 of RFC 2461).  A value of zero means unspecified (by this router).
+7.3 of RFC 4861).  A value of zero means unspecified (by this router).
 
 Must be no greater than 3,600,000 milliseconds (1 hour).
 
@@ -194,7 +233,7 @@ Default: 0
 
 The time, in milliseconds, between retransmitted Neighbor
 Solicitation messages.  Used by address resolution and the Neighbor
-Unreachability Detection algorithm (see Sections 7.2 and 7.3 of RFC 2461).
+Unreachability Detection algorithm (see Sections 7.2 and 7.3 of RFC 4861).
 A value of zero means unspecified (by this router).
 
 Default: 0
@@ -287,6 +326,15 @@ default values, Home Agent Information Option will not be sent.
 Default: 0
 
 .TP
+.BR AdvMobRtrSupportFlag " " on | off
+
+When set, the Home Agent signals it supports Mobile Router
+registrations (specified by NEMO Basic).  AdvHomeAgentInfo must also
+be set when using this option.
+
+Default: off
+
+.TP
 .BR AdvIntervalOpt " " on | off
 
 When set, Advertisement Interval Option (specified by Mobile IPv6)
@@ -318,7 +366,7 @@ Default: on
 .BR AdvAutonomous " " on | off
 
 When set, indicates that this prefix can be used for autonomous
-address configuration as specified in RFC 2462.
+address configuration as specified in RFC 4862.
 
 Default: on
 
@@ -340,9 +388,15 @@ sent) that the prefix is valid for the purpose of on-link
 determination.  The symbolic value
 .B infinity
 represents infinity (i.e. a value of all one bits (0xffffffff)).
-The valid lifetime is also used by RFC 2462.
+The valid lifetime is also used by RFC 4862.
 
-Default: 2592000 seconds (30 days)
+Note that clients will ignore AdvValidLifetime of an existing prefix
+if the lifetime is below two hours, as required in RFC 4862 Section 5.5.3
+point e).
+
+Note: RFC4861's suggested default value is significantly longer: 30 days.
+
+Default: 86400 seconds (1 day)
 
 .TP
 .BR "AdvPreferredLifetime " seconds "" | infinity
@@ -353,9 +407,11 @@ autoconfiguration remain preferred.
 The symbolic value
 .B infinity
 represents infinity (i.e. a value of all one bits (0xffffffff)).
-See RFC 2462.
+See RFC 4862.
 
-Default: 604800 seconds (7 days)
+Note: RFC4861's suggested default value is significantly longer: 7 days.
+
+Default: 14400 seconds (4 hours)
 
 .TP
 .BR "Base6to4Interface " name 
@@ -412,6 +468,37 @@ The preference associated with the default router, as either "low",
 "medium", or "high".
 
 Default: medium
+
+.SH RDNSS SPECIFIC OPTIONS
+
+.TP
+.BR "AdvRDNSSPreference " integer;
+
+The preference of the DNS server, compared to other DNS servers advertised and used.
+0 to 7 means less important than manually configured nameservers in resolv.conf, while 12 to 15 means more important.
+
+NOTE: This feature was removed from the final RFC but can still be used for experimental purposes.
+
+Default: 8
+
+.TP
+.BR "AdvRDNSSOpen " on | off;
+
+"Service Open" flag. When set, indicates that RDNSS continues to be available to hosts even if they moved to a different subnet.
+
+NOTE: This feature was removed from the final RFC but can still be used for experimental purposes.
+
+Default: off
+
+.TP
+.BR "AdvRDNSSLifetime " seconds | infinity;
+The maximum duration how long the RDNSS entries are used for name resolution. A value of 0 means the nameserver should no longer be used.
+The maximum duration how long the RDNSS entries are used for name resolution. A value of 0 means the nameserver should no longer be used.
+The value, if not 0, must be at least MaxRtrAdvInterval.  To ensure stale
+RDNSS info gets removed in a timely fashion, this should not be greater than
+2*MaxRtrAdvInterval.
+
+Default: 2*MaxRtrAdvInterval
 
 .SH EXAMPLES
 
@@ -485,8 +572,34 @@ ppp0 at configuration time. (IPv6 addresses are written in hexadecimal
 whereas IPv4 addresses are written in decimal, so the IPv4 address
 WW.XX.YY.ZZ in the 6to4 prefix will be represented in hex.)
 
-In this specific case, the configuration scripts should send HUP signal to
-radvd when taking bnep0 up or down to notify about the status.
+In this specific case, the configuration scripts may send HUP signal to
+radvd when taking bnep0 up or down to notify about the status; in the
+current radvd releases, sending HUP is no longer mandatory when the link
+comes back up.
+
+.nf
+interface eth0
+{
+        AdvSendAdvert on;
+        prefix 2001:db8:0:1::/64
+        {
+                AdvOnLink on;
+                AdvAutonomous on;
+        };
+        clients
+        {
+                fe80::21f:16ff:fe06:3aab;
+                fe80::21d:72ff:fe96:aaff;
+        };
+};
+.fi
+
+This configuration would only announce the prefix to fe80::21f:16ff:fe06:3aab and fe80::21d:72ff:fe96:aaff.
+Furthermore, all RA requests of other clients are denied.
+
+This may come in handy if you want to roll out IPv6 only partially because
+some clients are broken or untested.
+
 
 .SH FILES
 
@@ -499,32 +612,46 @@ radvd when taking bnep0 up or down to notify about the status.
 
 .SH CREDIT
 The description of the different flags and variables is in large
-parts taken from RFC 2461.
+parts taken from RFC 4861.
 
 .SH RFCS
-Narten, T., E. Nordmark, W. Simpson, "Neighbor Discovery for IP
-Version 6 (IPv6)", RFC 2461, December 1998
+Narten, T., Nordmark, E., Simpson, W., and H. Soliman, "Neighbor Discovery for IP
+Version 6 (IPv6)", RFC 4861, September 2007.
 .PP
-Thomson, S., and T. Narten, "IPv6 Stateless Address Autoconfiguration", 
-RFC 2462, December 1998.
+Thomson, S., Narten, T., T. Jinmei, "IPv6 Stateless Address Autoconfiguration", 
+RFC 4862, September 2007.
 .PP
-Deering, S., and R. Hinden, Editors, "IP Version 6 Addressing
-Architecture", RFC 2373, July 1998.
+Deering, S., and R. Hinden, "IP Version 6 Addressing
+Architecture", RFC 4291, February 2006.
 .PP	
-Conta, A., and S. Deering, "Internet Control Message Protocol (ICMPv6)
-for the Internet Protocol Version 6 (IPv6)", RFC 2463, December 1998.
+Conta, A., Deering, S., and M. Gupta "Internet Control Message Protocol (ICMPv6)
+for the Internet Protocol Version 6 (IPv6)", RFC 4443, March 2006.
 .PP
 Crawford, M., "Transmission of IPv6 Packets over Ethernet Networks",
 RFC 2464, December 1998.	
 .PP
-Carpenter B., Moore K., "Connection of IPv6 Domains via IPv4 Clouds",
+Carpenter B., K. Moore, "Connection of IPv6 Domains via IPv4 Clouds",
 RFC 3056, February 2001. (6to4 specification)
 .PP
-Draves, R., Hinden B., "Default Router Preferences, More-Specific Routes,
-and Load Sharing", draft-ietf-ipv6-router-selection-02.txt,
-work-in-progress, June 2002.
+Draves, R., D. Thaler, "Default Router Preferences and More-Specific Routes",
+RFC 4191, November 2005.
+.PP
+Johnson, D., Perkins, C., and J. Arkko, "Mobility Support in IPv6",
+RFC 3775, June 2004.
+.PP
+Devarapalli, V., Wakikawa, R., Petrescu, A., and P. Thubert "Network Mobility (NEMO) Basic Support Protocol",
+RFC 3963, January 2005.
+.PP
+J. Jeong, L. Beloeil, and S. Madanapalli, "IPv6 Router Advertisement Option for DNS Configuration",
+RFC 5006, September 2007.
 
 .SH "SEE ALSO"
 
 .BR radvd (8),
 .BR radvdump (8)
+
+.SH BUGS
+radvd does not support splitting up RAs to multiple packets (RFC4861 6.2.3 last paragraph).
+In practise this limits advertising to ~45 prefixes on a link, but there is no reason to
+be able to so.
+

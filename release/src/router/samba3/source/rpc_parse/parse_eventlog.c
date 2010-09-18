@@ -54,7 +54,7 @@ BOOL eventlog_io_q_open_eventlog(const char *desc, EVENTLOG_Q_OPEN_EVENTLOG *q_u
 	if(!prs_align(ps))
 		return False;
 
-	if ( !prs_pointer("", ps, depth, (void**)&q_u->unknown0, sizeof(EVENTLOG_OPEN_UNKNOWN0), (PRS_POINTER_CAST)prs_ev_open_unknown0))
+	if ( !prs_pointer("", ps, depth, (void*)&q_u->unknown0, sizeof(EVENTLOG_OPEN_UNKNOWN0), (PRS_POINTER_CAST)prs_ev_open_unknown0))
 		return False;
 
 	if ( !prs_unistr4("logname", ps, depth, &q_u->logname) )
@@ -354,7 +354,9 @@ BOOL eventlog_io_r_read_eventlog(const char *desc,
 	/* Now pad with whitespace until the end of the response buffer */
 
 	if (q_u->max_read_size - r_u->num_bytes_in_resp) {
-		r_u->end_of_entries_padding = SMB_CALLOC_ARRAY(uint8, q_u->max_read_size - r_u->num_bytes_in_resp);
+		if (!r_u->end_of_entries_padding) {
+			return False;
+		}
 
 		if(!(prs_uint8s(False, "end of entries padding", ps, 
 				depth, r_u->end_of_entries_padding,

@@ -1,13 +1,13 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 1. No-Frills Samba Servers</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="Samba-3 by Example"><link rel="up" href="ExNetworks.html" title="Part I. Example Network Configurations"><link rel="prev" href="ExNetworks.html" title="Part I. Example Network Configurations"><link rel="next" href="small.html" title="Chapter 2. Small Office Networking"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 1. No-Frills Samba Servers</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="ExNetworks.html">Prev</a> </td><th width="60%" align="center">Part I. Example Network Configurations</th><td width="20%" align="right"> <a accesskey="n" href="small.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="simple"></a>Chapter 1. No-Frills Samba Servers</h2></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="simple.html#id2553502">Introduction</a></span></dt><dt><span class="sect1"><a href="simple.html#id2553543">Assignment Tasks</a></span></dt><dd><dl><dt><span class="sect2"><a href="simple.html#id2553587">Drafting Office</a></span></dt><dt><span class="sect2"><a href="simple.html#id2554364">Charity Administration Office</a></span></dt><dt><span class="sect2"><a href="simple.html#AccountingOffice">Accounting Office</a></span></dt></dl></dd><dt><span class="sect1"><a href="simple.html#id2558096">Questions and Answers</a></span></dt></dl></div><p>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 1. No-Frills Samba Servers</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="Samba-3 by Example"><link rel="up" href="ExNetworks.html" title="Part I. Example Network Configurations"><link rel="prev" href="ExNetworks.html" title="Part I. Example Network Configurations"><link rel="next" href="small.html" title="Chapter 2. Small Office Networking"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 1. No-Frills Samba Servers</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="ExNetworks.html">Prev</a> </td><th width="60%" align="center">Part I. Example Network Configurations</th><td width="20%" align="right"> <a accesskey="n" href="small.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="simple"></a>Chapter 1. No-Frills Samba Servers</h2></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="simple.html#id2550864">Introduction</a></span></dt><dt><span class="sect1"><a href="simple.html#id2550904">Assignment Tasks</a></span></dt><dd><dl><dt><span class="sect2"><a href="simple.html#id2550946">Drafting Office</a></span></dt><dt><span class="sect2"><a href="simple.html#id2551655">Charity Administration Office</a></span></dt><dt><span class="sect2"><a href="simple.html#AccountingOffice">Accounting Office</a></span></dt></dl></dd><dt><span class="sect1"><a href="simple.html#id2554992">Questions and Answers</a></span></dt></dl></div><p>
 	This is the start of the real journey toward the successful deployment of Samba. For some this chapter
 	is the end of the road because their needs will have been adequately met. For others, this chapter is
 	the beginning of a journey that will take them well past the contents of this book. This book provides
 	example configurations of, for the greater part, complete networking solutions. The intent of this book
 	is to help you to get your Samba installation working with the least amount of pain and aggravation.
-	</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2553502"></a>Introduction</h2></div></div></div><p>
+	</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2550864"></a>Introduction</h2></div></div></div><p>
 	This chapter lays the groundwork for understanding the basics of Samba operation. 
 	Instead of a bland technical discussion, each principle is demonstrated by way of a 
-	real-world scenario for which a working solution<sup>[<a name="id2553514" href="#ftn.id2553514">1</a>]</sup> is fully described.
+	real-world scenario for which a working solution<sup>[<a name="id2550875" href="#ftn.id2550875" class="footnote">1</a>]</sup> is fully described.
 	</p><p>
 	The practical exercises take you on a journey through a drafting office, a charity administration
 	office, and an accounting office. You may choose to apply any or all of these exercises to your own environment.
@@ -17,7 +17,7 @@
 	find much improved solutions compared with those presented here. By the time you complete this book,
 	you should aim to be a Samba expert, so do attempt to find better solutions and try them as you work your
 	way through the examples.
-	</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2553543"></a>Assignment Tasks</h2></div></div></div><p>
+	</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2550904"></a>Assignment Tasks</h2></div></div></div><p>
 	Each case presented highlights different aspects of Windows networking for which a simple 
 	Samba-based solution can be provided. Each has subtly different requirements taken from real-world cases.
 	The cases are briefly reviewed to cover important points. Instructions are based
@@ -28,7 +28,7 @@
 	</p><div class="itemizedlist"><ul type="disc"><li><p>A drafting office</p></li><li><p>A charity administration office</p></li><li><p>An accounting office</p></li></ul></div><p>
 	</p><p>
 	Let's get started.
-	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2553587"></a>Drafting Office</h3></div></div></div><p>
+	</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2550946"></a>Drafting Office</h3></div></div></div><p>
 	Our fictitious company is called <span class="emphasis"><em>Abmas Design, Inc.</em></span> This is a three-person
 	computer-aided design (CAD) business that often has more work than can be handled. The 
 	business owner hires contract draftspeople from wherever he can. They bring their own 
@@ -38,15 +38,15 @@
 	plans that are stored on a central server one day per month. She knows how to upload 
 	plans from each machine. The files available from the server must remain read-only. 
 	Anyone should be able to access the plans at any time and without barriers or difficulty.
-	</p><p><a class="indexterm" name="id2553614"></a>
-		<a class="indexterm" name="id2553620"></a>
+	</p><p><a class="indexterm" name="id2550971"></a>
+		<a class="indexterm" name="id2550977"></a>
 	Mr. Bob Jordan has asked you to install the new server as economically as possible. The central
 	server has a Pentium-IV 1.6GHz CPU, 768MB RAM, a 20GB IDE boot drive, a 160GB IDE second disk
 	to store plans, and a 100-base-T Ethernet card. You have already installed Red Hat Fedora CoreX and
 	have upgraded Samba to version 3.0.20 using the RPM package that is provided from the Samba
-	<a href="http://www.samba.org" target="_top">FTP</a> sites. (Note: Fedora CoreX indicates your favorite
+	<a class="ulink" href="http://www.samba.org" target="_top">FTP</a> sites. (Note: Fedora CoreX indicates your favorite
 	version.)
-	</p><p><a class="indexterm" name="id2553649"></a>
+	</p><p><a class="indexterm" name="id2551005"></a>
 	The four permanent drafting machines (Microsoft Windows workstations) have attached printers 
 	and plotters that are shared on a peer-to-peer basis by any and all network users. The intent 
 	is to continue to share printers in this manner. The three permanent staff work together with 
@@ -55,15 +55,15 @@
 	area is copied to the central server and the files are removed from the main weekly storage 
 	machine. The office works best with this arrangement and does not want to change anything. 
 	Old habits are too ingrained.
-	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2553671"></a>Dissection and Discussion</h4></div></div></div><p>
-		<a class="indexterm" name="id2553679"></a>
+	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2551026"></a>Dissection and Discussion</h4></div></div></div><p>
+		<a class="indexterm" name="id2551034"></a>
 		The requirements for this server installation demand simplicity. An anonymous read-only
 		file server adequately meets all needs. The network consultant determines how
 		to upload all files from the weekly storage area to the server. This installation should
 		focus only on critical aspects of the installation.
 		</p><p>
 		It is not necessary to have specific users on the server. The site has a method for storing
-		all design files (plans). Each plan is stored in a directory that is named YYYYWW,<sup>[<a name="id2553700" href="#ftn.id2553700">2</a>]</sup> where
+		all design files (plans). Each plan is stored in a directory that is named YYYYWW,<sup>[<a name="id2551054" href="#ftn.id2551054" class="footnote">2</a>]</sup> where
 		YYYY is the year, and WW is the week of the year. This arrangement allows work to be stored
 		by week of year to preserve the filing technique the site is familiar with.
 		There is also a customer directory that is alphabetically listed. At the top level are 26
@@ -73,20 +73,20 @@
 		plans to be located both by customer name and by the date the work was performed, without
 		demanding the disk space that would be needed if a duplicate file copy were to be stored. 
 		The share containing the plans is called <span class="emphasis"><em>Plans</em></span>.
-		</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2553729"></a>Implementation</h4></div></div></div><p>
+		</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2551082"></a>Implementation</h4></div></div></div><p>
 		It is assumed that the server is fully installed and ready for installation and 
 		configuration of Samba 3.0.20 and any support files needed. All TCP/IP addresses 
 		have been hard-coded. In our case the IP address of the Samba server is 
 		<code class="constant">192.168.1.1</code> and the netmask is <code class="constant">255.255.255.0</code>. 
 		The hostname of the server used is <code class="constant">server</code>.
-		</p><div class="procedure"><a name="id2553755"></a><p class="title"><b>Procedure 1.1. Samba Server Configuration</b></p><ol type="1"><li><p>
+		</p><div class="procedure"><a name="id2551106"></a><p class="title"><b>Procedure 1.1. Samba Server Configuration</b></p><ol type="1"><li><p>
 			Download the Samba-3 RPM packages for Red Hat Fedora Core2 from the Samba
-			<a href="http://www.samba.org" target="_top">FTP servers.</a>
+			<a class="ulink" href="http://www.samba.org" target="_top">FTP servers.</a>
 			</p></li><li><p>
-			<a class="indexterm" name="id2553780"></a>
-			<a class="indexterm" name="id2553789"></a>
+			<a class="indexterm" name="id2551129"></a>
+			<a class="indexterm" name="id2551138"></a>
 			Install the RPM package using either the Red Hat Linux preferred GUI
-			tool or the <span><strong class="command">rpm</strong></span>:
+			tool or the <code class="literal">rpm</code>:
 </p><pre class="screen">
 <code class="prompt">root# </code> rpm -Uvh samba-3.0.20-1.i386.rpm
 </pre><p>
@@ -100,44 +100,44 @@
 			The 755 permissions on this directory (mount point) permit the owner to read, write,
 			and execute, and the group and everyone else to read and execute only.
 			</p><p>
-			<a class="indexterm" name="id2553854"></a>
+			<a class="indexterm" name="id2551196"></a>
 			Use Red Hat Linux system tools (refer to Red Hat instructions)
 			to format the 160GB hard drive with a suitable file system. An Ext3 file system
 			is suitable. Configure this drive to automatically mount using the <code class="filename">/plans</code>
 			directory as the mount point.
 			</p></li><li><p>
-			Install the <code class="filename">smb.conf</code> file shown in <a href="simple.html#draft-smbconf" title="Example 1.1. Drafting Office smb.conf File">???</a> in the
+			Install the <code class="filename">smb.conf</code> file shown in <a class="link" href="simple.html#draft-smbconf" title="Example 1.1. Drafting Office smb.conf File">&#8220;Drafting Office smb.conf File&#8221;</a> in the
 			<code class="filename">/etc/samba</code> directory.
 
-</p><div class="example"><a name="draft-smbconf"></a><p class="title"><b>Example 1.1. Drafting Office <code class="filename">smb.conf</code> File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global Parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2553932"></a><em class="parameter"><code>workgroup = MIDEARTH</code></em></td></tr><tr><td><a class="indexterm" name="id2553945"></a><em class="parameter"><code>security = SHARE</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[Plans]</code></em></td></tr><tr><td><a class="indexterm" name="id2553967"></a><em class="parameter"><code>path = /plans</code></em></td></tr><tr><td><a class="indexterm" name="id2553980"></a><em class="parameter"><code>read only = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2553992"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr></table></div></div><p><br class="example-break">
+</p><div class="example"><a name="draft-smbconf"></a><p class="title"><b>Example 1.1. Drafting Office <code class="filename">smb.conf</code> File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global Parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2551265"></a><em class="parameter"><code>workgroup = MIDEARTH</code></em></td></tr><tr><td><a class="indexterm" name="id2551275"></a><em class="parameter"><code>security = SHARE</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[Plans]</code></em></td></tr><tr><td><a class="indexterm" name="id2551294"></a><em class="parameter"><code>path = /plans</code></em></td></tr><tr><td><a class="indexterm" name="id2551304"></a><em class="parameter"><code>read only = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2551315"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr></table></div></div><p><br class="example-break">
 			</p></li><li><p>
-			<a class="indexterm" name="id2554012"></a>
+			<a class="indexterm" name="id2551333"></a>
 			Verify that the <code class="filename">/etc/hosts</code> file contains the following entry:
 </p><pre class="screen">
 192.168.1.1	server
 </pre><p>
 
 			</p></li><li><p>
-			<a class="indexterm" name="id2554039"></a>
-			<a class="indexterm" name="id2554048"></a>
-			<a class="indexterm" name="id2554055"></a>
+			<a class="indexterm" name="id2551356"></a>
+			<a class="indexterm" name="id2551365"></a>
+			<a class="indexterm" name="id2551371"></a>
 			Use the standard system tool to start Samba and to configure it to restart
 			automatically at every system reboot. For example,
 </p><pre class="screen">
 <code class="prompt">root# </code> chkconfig smb on
 <code class="prompt">root# </code> /etc/rc.d/init.d/smb restart
 </pre><p>
-			</p></li></ol></div><div class="procedure"><a name="id2554085"></a><p class="title"><b>Procedure 1.2. Windows Client Configuration</b></p><ol type="1"><li><p>
+			</p></li></ol></div><div class="procedure"><a name="id2551397"></a><p class="title"><b>Procedure 1.2. Windows Client Configuration</b></p><ol type="1"><li><p>
 			Make certain that all clients are set to the same network address range as
 			used for the Samba server. For example, one client might have an IP
 			address 192.168.1.10.
 			</p></li><li><p>
-			<a class="indexterm" name="id2554106"></a>
+			<a class="indexterm" name="id2551417"></a>
 			Ensure that the netmask used on the Windows clients matches that used
 			for the Samba server. All clients must have the same netmask, such as
 			255.255.255.0.
 			</p></li><li><p>
-			<a class="indexterm" name="id2554122"></a>
+			<a class="indexterm" name="id2551433"></a>
 			Set the workgroup name on all clients to <code class="constant">MIDEARTH</code>.
 			</p></li><li><p>
 			Verify on each client that the machine called <code class="constant">SERVER</code>
@@ -145,16 +145,16 @@
 			possible to connect to it and see the share <span class="guimenuitem">Plans</span>,
 			and that it is possible to open that share to reveal its contents.
 			</p></li></ol></div></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="validate1"></a>Validation</h4></div></div></div><p>
-		<a class="indexterm" name="id2554174"></a>
+		<a class="indexterm" name="id2551479"></a>
 		The first priority in validating the new Samba configuration should be to check
 		that Samba answers on the loop-back interface. Then it is time to check that Samba
 		answers its own name correctly. Last, check that a client can connect to the Samba
 		server.
 		</p><div class="procedure"><ol type="1"><li><p>
-			<a class="indexterm" name="id2554194"></a>
-			<a class="indexterm" name="id2554200"></a>
-			<a class="indexterm" name="id2554207"></a>
-			To check the ability to access the <span><strong class="command">smbd</strong></span> daemon
+			<a class="indexterm" name="id2551498"></a>
+			<a class="indexterm" name="id2551505"></a>
+			<a class="indexterm" name="id2551511"></a>
+			To check the ability to access the <code class="literal">smbd</code> daemon
 			services, execute the following:
 </p><pre class="screen">
 <code class="prompt">root# </code> smbclient -L localhost -U%
@@ -172,8 +172,8 @@
         ---------          --------
         MIDEARTH           SERVER 
 </pre><p>
-			<a class="indexterm" name="id2554241"></a>
-			<a class="indexterm" name="id2554248"></a>
+			<a class="indexterm" name="id2551542"></a>
+			<a class="indexterm" name="id2551549"></a>
 			This indicates that Samba is able to respond on the loopback interface to
 			a NULL connection. The <em class="parameter"><code>-U%</code></em> means send an empty
 			username and an empty password. This command should be repeated after
@@ -188,12 +188,12 @@
 			configured to ignore all usernames given; instead it uses the
 			<em class="parameter"><code>guest account</code></em> for all connections.
 			</p></li><li><p>
-			<a class="indexterm" name="id2554301"></a>
-			<a class="indexterm" name="id2554308"></a>
+			<a class="indexterm" name="id2551598"></a>
+			<a class="indexterm" name="id2551605"></a>
 			From the Windows 9x/Me client, launch Windows Explorer: 
 			<span class="guiicon">[Desktop: right-click] Network Neighborhood</span>+<span class="guimenu">Explore</span> &#8594; <span class="guimenuitem">[Left Panel]  [+] Entire Network</span> &#8594; <span class="guimenuitem">[Left Panel] [+] Server</span> &#8594; <span class="guimenuitem">[Left Panel] [+] Plans</span>. In the right panel you should see the files and directories
 			(folders) that are in the <span class="guiicon">Plans</span> share.
-			</p></li></ol></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2554364"></a>Charity Administration Office</h3></div></div></div><p>
+			</p></li></ol></div></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2551655"></a>Charity Administration Office</h3></div></div></div><p>
 	The fictitious charity organization is called <span class="emphasis"><em>Abmas Vision NL</em></span>. This office
 	has five networked computers. Staff are all volunteers, staff changes are frequent.
 	Ms. Amy May, the director of operations, wants a no-hassle network. Anyone should be able to
@@ -216,10 +216,10 @@
 	that if the share name is not in lowercase, the application claims it cannot find the
 	file share.
 	</p><p>
-	<a class="indexterm" name="id2554429"></a>
-	<a class="indexterm" name="id2554436"></a>
+	<a class="indexterm" name="id2551718"></a>
+	<a class="indexterm" name="id2551724"></a>
 	Printer handling in Samba results in a significant level of confusion. Samba presents to the
-	MS Windows client only a print queue. The Samba <span><strong class="command">smbd</strong></span> process passes a
+	MS Windows client only a print queue. The Samba <code class="literal">smbd</code> process passes a
 	print job sent to it from the Windows client to the native UNIX printing system. The native
 	UNIX printing system (spooler) places the job in a print queue from which it is
 	delivered to the printer. In this book, network diagrams refer to a printer by the name 
@@ -231,7 +231,7 @@
 	to prevent leakage of confidential information. Only the five PCs owned by Abmas Vision NL are
 	used on this network.
 	</p><p>
-	<a class="indexterm" name="id2554470"></a>
+	<a class="indexterm" name="id2551757"></a>
 	The central server was donated by a local computer store. It is a dual processor Pentium-III
 	server, has 1GB RAM, a 3-Ware IDE RAID Controller that has four 200GB IDE hard drives, and a
 	100-base-T network card. The office has 100-base-T permanent network connections that go to
@@ -242,11 +242,11 @@
 	office and letter printing. Your recommendation to allow only the Linux server to print directly
 	to the printers was accepted. You have supplied SUSE Enterprise Linux Server 9 and
 	have upgraded Samba to version 3.0.20.
-	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2554493"></a>Dissection and Discussion</h4></div></div></div><p>
-		<a class="indexterm" name="id2554501"></a>
-		<a class="indexterm" name="id2554508"></a>
-		<a class="indexterm" name="id2554515"></a>
-		<a class="indexterm" name="id2554522"></a>
+	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2551779"></a>Dissection and Discussion</h4></div></div></div><p>
+		<a class="indexterm" name="id2551787"></a>
+		<a class="indexterm" name="id2551793"></a>
+		<a class="indexterm" name="id2551799"></a>
+		<a class="indexterm" name="id2551806"></a>
 		This installation demands simplicity. Frequent turnover of volunteer staff indicates that
 		a network environment that requires users to logon might be problematic. It is suggested that the
 		best solution for this office would be one where the user can log onto any PC with any username
@@ -258,26 +258,26 @@
 		access control lists (Posix type) cannot be written to any file or directory. This prevents
 		an inadvertent ACL from overriding actual file permissions.
 		</p><p>
-		<a class="indexterm" name="id2554563"></a>
-		<a class="indexterm" name="id2554570"></a>
-		<a class="indexterm" name="id2554576"></a>
+		<a class="indexterm" name="id2551845"></a>
+		<a class="indexterm" name="id2551851"></a>
+		<a class="indexterm" name="id2551857"></a>
 		This organization is a prime candidate for Share Mode security. The <em class="parameter"><code>force user</code></em>
 		allows all files to be owned by the same user and group. In addition, it would not hurt to
 		set SUID and set SGID shared directories. This means that all new files that are created, no matter
 		who creates it, are owned by the owner or group of the directory in which they are created.
-		For further information regarding the significance of the SUID/SGID settings, see <a href="appendix.html" title="Chapter 15. A Collection of Useful Tidbits">???</a>, <a href="appendix.html#ch12-SUIDSGID" title="Effect of Setting File and Directory SUID/SGID Permissions Explained">???</a>.
+		For further information regarding the significance of the SUID/SGID settings, see <a class="link" href="appendix.html" title="Chapter 15. A Collection of Useful Tidbits">&#8220;A Collection of Useful Tidbits&#8221;</a>, <a class="link" href="appendix.html#ch12-SUIDSGID" title="Effect of Setting File and Directory SUID/SGID Permissions Explained">&#8220;Effect of Setting File and Directory SUID/SGID Permissions Explained&#8221;</a>.
 		</p><p>
-		<a class="indexterm" name="id2554616"></a>
-		<a class="indexterm" name="id2554623"></a>
-		<a class="indexterm" name="id2554632"></a>
-		<a class="indexterm" name="id2554638"></a>
+		<a class="indexterm" name="id2551890"></a>
+		<a class="indexterm" name="id2551896"></a>
+		<a class="indexterm" name="id2551905"></a>
+		<a class="indexterm" name="id2551911"></a>
 		All client workstations print to a print queue on the server. This ensures that print jobs
 		continue to print in the event that a user shuts down the workstation immediately after
 		sending a job to the printer. Today, both Red Hat Linux and SUSE Linux use CUPS-based printing. 
 		Older Linux systems offered a choice between the LPRng printing system or CUPS. It appears, however,
 		that CUPS has become the leading UNIX printing technology.
 		</p><p>
-		<a class="indexterm" name="id2554656"></a>
+		<a class="indexterm" name="id2551928"></a>
 		The print queues are set up as <code class="constant">Raw</code> devices, which means that CUPS will 
 		not do intelligent print processing, and vendor-supplied drivers must be installed locally on the 
 		Windows clients.
@@ -297,21 +297,21 @@
 		printer. In this example, therefore, the resource called <code class="constant">PRINTQ</code>
 		really is just a print queue. The name of the print queue is representative of
 		the device to which the print spooler delivers print jobs.
-		</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2554704"></a>Implementation</h4></div></div></div><p>
+		</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2551974"></a>Implementation</h4></div></div></div><p>
 		It is assumed that the server is fully installed and ready for configuration of
 		Samba 3.0.20 and for necessary support files. All TCP/IP addresses should be hard-coded.
 		In our case, the IP address of the Samba server is 192.168.1.1 and the netmask is
 		255.255.255.0. The hostname of the server used is <code class="constant">server</code>.
-		The office network is built as shown in <a href="simple.html#charitynet" title="Figure 1.1. Charity Administration Office Network">???</a>.
-		</p><div class="figure"><a name="charitynet"></a><p class="title"><b>Figure 1.1. Charity Administration Office Network</b></p><div class="figure-contents"><div class="mediaobject"><img src="images/Charity-Network.png" width="432" alt="Charity Administration Office Network"></div></div></div><br class="figure-break"><div class="procedure"><a name="id2554770"></a><p class="title"><b>Procedure 1.3. Samba Server Configuration</b></p><ol type="1"><li><p>
-			<a class="indexterm" name="id2554781"></a>
+		The office network is built as shown in <a class="link" href="simple.html#charitynet" title="Figure 1.1. Charity Administration Office Network">&#8220;Charity Administration Office Network&#8221;</a>.
+		</p><div class="figure"><a name="charitynet"></a><p class="title"><b>Figure 1.1. Charity Administration Office Network</b></p><div class="figure-contents"><div class="mediaobject"><img src="images/Charity-Network.png" width="432" alt="Charity Administration Office Network"></div></div></div><br class="figure-break"><div class="procedure"><a name="id2552035"></a><p class="title"><b>Procedure 1.3. Samba Server Configuration</b></p><ol type="1"><li><p>
+			<a class="indexterm" name="id2552046"></a>
 			Create a group account for office file storage:
 </p><pre class="screen">
 <code class="prompt">root# </code> groupadd office
 </pre><p>
 			</p></li><li><p>
-			<a class="indexterm" name="id2554808"></a>
-			<a class="indexterm" name="id2554814"></a>
+			<a class="indexterm" name="id2552070"></a>
+			<a class="indexterm" name="id2552076"></a>
 			Create a user account for office file storage:
 </p><pre class="screen">
 <code class="prompt">root# </code> useradd -m abmas 
@@ -328,7 +328,7 @@ Password changed
 				(Refer to the 3-Ware RAID Controller Manual for the manufacturer's preferred procedure.)
 				The resulting drive has a capacity of approximately 500GB of usable space.
 				</p></li><li><p>
-				<a class="indexterm" name="id2554862"></a>
+				<a class="indexterm" name="id2552120"></a>
 				Create a mount point for the file system that can be used to store all data files.
 				Create a directory called <code class="filename">/data</code>:
 </p><pre class="screen">
@@ -351,7 +351,7 @@ Password changed
 <code class="prompt">root# </code> chown -R abmas:office /data
 <code class="prompt">root# </code> chmod -R ug+rwxs,o-w,o+rx /data
 </pre><p>
-				These demonstrate compound operations. The <span><strong class="command">mkdir</strong></span> command
+				These demonstrate compound operations. The <code class="literal">mkdir</code> command
  				creates in one step these directories:
 </p><pre class="programlisting">
 /data/fmtfiles
@@ -360,39 +360,39 @@ Password changed
 /data/officefiles/invitations
 /data/officefiles/misc
 </pre><p>
-				<a class="indexterm" name="id2554982"></a>
-				The <span><strong class="command">chown</strong></span> operation sets the owner to the user <code class="constant">abmas</code>
+				<a class="indexterm" name="id2552229"></a>
+				The <code class="literal">chown</code> operation sets the owner to the user <code class="constant">abmas</code>
 				and the group to <code class="constant">office</code> on all directories just created.  It recursively
 				sets the permissions so that the owner and group have SUID/SGID with read, write, and execute
 				permission, and everyone else has read and execute permission. This means that all files and
 				directories are created with the same owner and group as the directory in which they are
 				created. Any new directories created still have the same owner, group, and permissions as the
 				directory they are in. This should eliminate all permissions-based file access problems.  For
-				more information on this subject, refer to TOSHARG2<sup>[<a name="id2555013" href="#ftn.id2555013">3</a>]</sup> or refer
-				to the UNIX man page for the <span><strong class="command">chmod</strong></span> and the <span><strong class="command">chown</strong></span> commands.
+				more information on this subject, refer to TOSHARG2<sup>[<a name="id2552257" href="#ftn.id2552257" class="footnote">3</a>]</sup> or refer
+				to the UNIX man page for the <code class="literal">chmod</code> and the <code class="literal">chown</code> commands.
 				</p></li><li><p>
-				Install the <code class="filename">smb.conf</code> file shown in <a href="simple.html#charity-smbconfnew" title="Example 1.2. Charity Administration Office smb.conf New-style File">???</a> in the
+				Install the <code class="filename">smb.conf</code> file shown in <a class="link" href="simple.html#charity-smbconfnew" title="Example 1.2. Charity Administration Office smb.conf New-style File">&#8220;Charity Administration Office smb.conf New-style File&#8221;</a> in the
 				<code class="filename">/etc/samba</code> directory. This newer <code class="filename">smb.conf</code> file uses user-mode security
 				and is more suited to the mode of operation of Samba-3 than the older share-mode security
 				configuration that was shown in the first edition of this book.
 				</p><p>
 				Note: If you want to use the older-style configuration that uses share-mode security, you
-				can install the file shown in <a href="simple.html#charity-smbconf" title="Example 1.3. Charity Administration Office smb.conf Old-style File">???</a> in the
+				can install the file shown in <a class="link" href="simple.html#charity-smbconf" title="Example 1.3. Charity Administration Office smb.conf Old-style File">&#8220;Charity Administration Office smb.conf Old-style File&#8221;</a> in the
 				<code class="filename">/etc/samba</code> directory.
 				</p></li><li><p>
-				<a class="indexterm" name="id2555091"></a>
-				We must ensure that the <span><strong class="command">smbd</strong></span> can resolve the name of the Samba
+				<a class="indexterm" name="id2552324"></a>
+				We must ensure that the <code class="literal">smbd</code> can resolve the name of the Samba
 				server to its IP address. Verify that the <code class="filename">/etc/hosts</code> file
 				contains the following entry:
 </p><pre class="screen">
 192.168.1.1	server
 </pre><p>
 				</p></li><li><p>
-				Configure the printers with the IP address as shown in <a href="simple.html#charitynet" title="Figure 1.1. Charity Administration Office Network">???</a>.
+				Configure the printers with the IP address as shown in <a class="link" href="simple.html#charitynet" title="Figure 1.1. Charity Administration Office Network">&#8220;Charity Administration Office Network&#8221;</a>.
 				Follow the instructions in the manufacturer's manual to permit printing to port 9100
 				so that the CUPS spooler can print using raw mode protocols.
 				</p></li><li><p>
-				<a class="indexterm" name="id2555141"></a>
+				<a class="indexterm" name="id2552369"></a>
 				Configure the CUPS Print Queues:
 </p><pre class="screen">
 <code class="prompt">root# </code> lpadmin -p PRINTQ -v socket://192.168.1.20:9100 -E
@@ -400,63 +400,63 @@ Password changed
 </pre><p>
 				This creates the necessary print queues with no assigned print filter.
 				</p></li><li><p>
-				<a class="indexterm" name="id2555176"></a>
-				<a class="indexterm" name="id2555183"></a>
-				<a class="indexterm" name="id2555190"></a>
+				<a class="indexterm" name="id2552401"></a>
+				<a class="indexterm" name="id2552408"></a>
+				<a class="indexterm" name="id2552414"></a>
 				Edit the file <code class="filename">/etc/cups/mime.convs</code> to uncomment the line:
 </p><pre class="screen">
 application/octet-stream     application/vnd.cups-raw      0     -
 </pre><p>
 				</p></li><li><p>
-				<a class="indexterm" name="id2555217"></a>
+				<a class="indexterm" name="id2552438"></a>
 				Edit the file <code class="filename">/etc/cups/mime.types</code> to uncomment the line:
 </p><pre class="screen">
 application/octet-stream
 </pre><p>
 				</p></li><li><p>
-				<a class="indexterm" name="id2555244"></a>
+				<a class="indexterm" name="id2552461"></a>
 				Use the standard system tool to start Samba and CUPS to configure them to restart
 				automatically at every system reboot. For example,
 				</p><p>
-				<a class="indexterm" name="id2555256"></a>
-				<a class="indexterm" name="id2555263"></a>
-				<a class="indexterm" name="id2555270"></a>
+				<a class="indexterm" name="id2552473"></a>
+				<a class="indexterm" name="id2552479"></a>
+				<a class="indexterm" name="id2552486"></a>
 </p><pre class="screen">
 <code class="prompt">root# </code> chkconfig smb on
 <code class="prompt">root# </code> chkconfig cups on
 <code class="prompt">root# </code> /etc/rc.d/init.d/smb restart
 <code class="prompt">root# </code> /etc/rc.d/init.d/cups restart
 </pre><p>
-				</p></li></ol></div><div class="example"><a name="charity-smbconfnew"></a><p class="title"><b>Example 1.2. Charity Administration Office <code class="filename">smb.conf</code> New-style File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global Parameters - Newer Configuration</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2555344"></a><em class="parameter"><code>workgroup = MIDEARTH</code></em></td></tr><tr><td><a class="indexterm" name="id2555357"></a><em class="parameter"><code>printing = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2555369"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2555382"></a><em class="parameter"><code>map to guest = Bad User</code></em></td></tr><tr><td><a class="indexterm" name="id2555395"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2555408"></a><em class="parameter"><code>wins support = yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[FTMFILES]</code></em></td></tr><tr><td><a class="indexterm" name="id2555430"></a><em class="parameter"><code>comment = Funds Tracking &amp; Management Files</code></em></td></tr><tr><td><a class="indexterm" name="id2555443"></a><em class="parameter"><code>path = /data/ftmfiles</code></em></td></tr><tr><td><a class="indexterm" name="id2555456"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2555469"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2555482"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2555494"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555507"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[office]</code></em></td></tr><tr><td><a class="indexterm" name="id2555529"></a><em class="parameter"><code>comment = General Office Files</code></em></td></tr><tr><td><a class="indexterm" name="id2555542"></a><em class="parameter"><code>path = /data/officefiles</code></em></td></tr><tr><td><a class="indexterm" name="id2555554"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2555567"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2555580"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2555593"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555605"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2555627"></a><em class="parameter"><code>comment = Print Temporary Spool Configuration</code></em></td></tr><tr><td><a class="indexterm" name="id2555640"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2555653"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555666"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555678"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555691"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="charity-smbconf"></a><p class="title"><b>Example 1.3. Charity Administration Office <code class="filename">smb.conf</code> Old-style File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global Parameters - Older Style Configuration</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2555739"></a><em class="parameter"><code>workgroup = MIDEARTH</code></em></td></tr><tr><td><a class="indexterm" name="id2555752"></a><em class="parameter"><code>security = SHARE</code></em></td></tr><tr><td><a class="indexterm" name="id2555764"></a><em class="parameter"><code>printing = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2555777"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2555790"></a><em class="parameter"><code>disable spoolss = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555803"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2555816"></a><em class="parameter"><code>wins support = yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[FTMFILES]</code></em></td></tr><tr><td><a class="indexterm" name="id2555838"></a><em class="parameter"><code>comment = Funds Tracking &amp; Management Files</code></em></td></tr><tr><td><a class="indexterm" name="id2555851"></a><em class="parameter"><code>path = /data/ftmfiles</code></em></td></tr><tr><td><a class="indexterm" name="id2555864"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2555877"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2555889"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2555902"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2555915"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[office]</code></em></td></tr><tr><td><a class="indexterm" name="id2555937"></a><em class="parameter"><code>comment = General Office Files</code></em></td></tr><tr><td><a class="indexterm" name="id2555950"></a><em class="parameter"><code>path = /data/officefiles</code></em></td></tr><tr><td><a class="indexterm" name="id2555962"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2555975"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2555988"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2556000"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2556013"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2556035"></a><em class="parameter"><code>comment = Print Temporary Spool Configuration</code></em></td></tr><tr><td><a class="indexterm" name="id2556048"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2556061"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2556074"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2556086"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2556099"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"><div class="procedure"><a name="id2556113"></a><p class="title"><b>Procedure 1.4. Windows Client Configuration</b></p><ol type="1"><li><p>
-				Configure clients to the network settings shown in <a href="simple.html#charitynet" title="Figure 1.1. Charity Administration Office Network">???</a>.
+				</p></li></ol></div><div class="example"><a name="charity-smbconfnew"></a><p class="title"><b>Example 1.2. Charity Administration Office <code class="filename">smb.conf</code> New-style File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global Parameters - Newer Configuration</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2552550"></a><em class="parameter"><code>workgroup = MIDEARTH</code></em></td></tr><tr><td><a class="indexterm" name="id2552560"></a><em class="parameter"><code>printing = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2552571"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2552581"></a><em class="parameter"><code>map to guest = Bad User</code></em></td></tr><tr><td><a class="indexterm" name="id2552592"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2552602"></a><em class="parameter"><code>wins support = yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[FTMFILES]</code></em></td></tr><tr><td><a class="indexterm" name="id2552621"></a><em class="parameter"><code>comment = Funds Tracking &amp; Management Files</code></em></td></tr><tr><td><a class="indexterm" name="id2552632"></a><em class="parameter"><code>path = /data/ftmfiles</code></em></td></tr><tr><td><a class="indexterm" name="id2552643"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2552653"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2552664"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2552674"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2552684"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[office]</code></em></td></tr><tr><td><a class="indexterm" name="id2552703"></a><em class="parameter"><code>comment = General Office Files</code></em></td></tr><tr><td><a class="indexterm" name="id2552714"></a><em class="parameter"><code>path = /data/officefiles</code></em></td></tr><tr><td><a class="indexterm" name="id2552724"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2552734"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2552745"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2552755"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2552766"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2552784"></a><em class="parameter"><code>comment = Print Temporary Spool Configuration</code></em></td></tr><tr><td><a class="indexterm" name="id2552796"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2552806"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2552816"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2552827"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2552837"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"><div class="example"><a name="charity-smbconf"></a><p class="title"><b>Example 1.3. Charity Administration Office <code class="filename">smb.conf</code> Old-style File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global Parameters - Older Style Configuration</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2552879"></a><em class="parameter"><code>workgroup = MIDEARTH</code></em></td></tr><tr><td><a class="indexterm" name="id2552889"></a><em class="parameter"><code>security = SHARE</code></em></td></tr><tr><td><a class="indexterm" name="id2552900"></a><em class="parameter"><code>printing = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2552910"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2552921"></a><em class="parameter"><code>disable spoolss = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2552931"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2552941"></a><em class="parameter"><code>wins support = yes</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[FTMFILES]</code></em></td></tr><tr><td><a class="indexterm" name="id2552960"></a><em class="parameter"><code>comment = Funds Tracking &amp; Management Files</code></em></td></tr><tr><td><a class="indexterm" name="id2552972"></a><em class="parameter"><code>path = /data/ftmfiles</code></em></td></tr><tr><td><a class="indexterm" name="id2552982"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2552992"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2553003"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2553013"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2553024"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[office]</code></em></td></tr><tr><td><a class="indexterm" name="id2553042"></a><em class="parameter"><code>comment = General Office Files</code></em></td></tr><tr><td><a class="indexterm" name="id2553053"></a><em class="parameter"><code>path = /data/officefiles</code></em></td></tr><tr><td><a class="indexterm" name="id2553063"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td><a class="indexterm" name="id2553074"></a><em class="parameter"><code>force user = abmas</code></em></td></tr><tr><td><a class="indexterm" name="id2553084"></a><em class="parameter"><code>force group = office</code></em></td></tr><tr><td><a class="indexterm" name="id2553094"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2553105"></a><em class="parameter"><code>nt acl support = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2553124"></a><em class="parameter"><code>comment = Print Temporary Spool Configuration</code></em></td></tr><tr><td><a class="indexterm" name="id2553135"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2553145"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2553156"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2553166"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2553177"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"><div class="procedure"><a name="id2553188"></a><p class="title"><b>Procedure 1.4. Windows Client Configuration</b></p><ol type="1"><li><p>
+				Configure clients to the network settings shown in <a class="link" href="simple.html#charitynet" title="Figure 1.1. Charity Administration Office Network">&#8220;Charity Administration Office Network&#8221;</a>.
 				</p></li><li><p>
 				Ensure that the netmask used on the Windows clients matches that used
 				for the Samba server. All clients must have the same netmask, such as
 				<code class="constant">255.255.255.0</code>.
 				</p></li><li><p>
-				<a class="indexterm" name="id2556151"></a>
+				<a class="indexterm" name="id2553222"></a>
 				On all Windows clients, set the WINS Server address to <code class="constant">192.168.1.1</code>,
 				the IP address of the server.
 				</p></li><li><p>
 				Set the workgroup name on all clients to <code class="constant">MIDEARTH</code>.
 				</p></li><li><p>
-				<a class="indexterm" name="id2556181"></a>
+				<a class="indexterm" name="id2553250"></a>
 				Install the &#8220;<span class="quote">Client for Microsoft Networks.</span>&#8221; Ensure that the only option
 				enabled in its properties is the option &#8220;<span class="quote">Logon and restore network connections.</span>&#8221;
 				</p></li><li><p>
 				Click <span class="guibutton">OK</span> when you are prompted to reboot the system. Reboot the
 				system, then log on using any username and password you choose.
 				</p></li><li><p>
-				<a class="indexterm" name="id2556218"></a>
+				<a class="indexterm" name="id2553285"></a>
 				Verify on each client that the machine called <code class="constant">SERVER</code>
 				is visible in <span class="guimenu">My Network Places</span>, that it is
 				possible to connect to it and see the share <span class="guimenuitem">office</span>,
 				and that it is possible to open that share to reveal its contents.
 				</p></li><li><p>
-				<a class="indexterm" name="id2556251"></a>
-				<a class="indexterm" name="id2556258"></a>
+				<a class="indexterm" name="id2553315"></a>
+				<a class="indexterm" name="id2553321"></a>
 				Disable password caching on all Windows 9x/Me machines using the registry change file
-				shown in <a href="simple.html#MEreg" title="Example 1.4. Windows Me  Registry Edit File: Disable Password Caching">???</a>. Be sure to remove all files that have the
+				shown in <a class="link" href="simple.html#MEreg" title="Example 1.4. Windows Me Registry Edit File: Disable Password Caching">&#8220;Windows Me  Registry Edit File: Disable Password Caching&#8221;</a>. Be sure to remove all files that have the
 				<code class="filename">PWL</code> extension that are in the <code class="filename">C:\WINDOWS</code>
 				directory.
 </p><div class="example"><a name="MEreg"></a><p class="title"><b>Example 1.4. Windows Me  Registry Edit File: Disable Password Caching</b></p><div class="example-contents"><pre class="screen">
@@ -532,8 +532,8 @@ C:\WINDOWS: regedit ME-dpwc.reg
 						It is a good idea to test the functionality of the complete installation before
 						handing the newly configured network over to the Charity Administration Office
 						for production use.
-						</p></li></ol></div></li></ol></div></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2556702"></a>Validation</h4></div></div></div><p>
-		Use the same validation process as was followed in <a href="simple.html#validate1" title="Validation">???</a>.
+						</p></li></ol></div></li></ol></div></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2553727"></a>Validation</h4></div></div></div><p>
+		Use the same validation process as was followed in <a class="link" href="simple.html#validate1" title="Validation">&#8220;Validation&#8221;</a>.
 		</p></div></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="AccountingOffice"></a>Accounting Office</h3></div></div></div><p>
 	Abmas Accounting is a 40-year-old family-run business. There are nine permanent
 	computer users. The network clients were upgraded two years ago. All computers run Windows 2000
@@ -551,7 +551,7 @@ C:\WINDOWS: regedit ME-dpwc.reg
 	and enter an assigned password; they do not need to enter a password when accessing their files 
 	on the server.
 	</p><p>
-	<a class="indexterm" name="id2556763"></a>
+	<a class="indexterm" name="id2553790"></a>
 	The new server will run Red Hat Fedora Core2. You should install Samba-3.0.20 and 
 	copy all files from the old system to the new one. The existing Windows NT4 server has a parallel
 	port HP LaserJet 4 printer that is shared by all. The printer driver is installed on each
@@ -561,8 +561,8 @@ C:\WINDOWS: regedit ME-dpwc.reg
 	You have tried to educate Mr. Meany and found that he has no desire to understand networking.
 	He believes that Windows for Workgroups 3.11 was &#8220;<span class="quote">the best server Microsoft ever sold
 	</span>&#8221; and that Windows NT and 2000 are &#8220;<span class="quote">too fang-dangled complex!</span>&#8221;
-	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2556795"></a>Dissection and Discussion</h4></div></div></div><p>
-			<a class="indexterm" name="id2556803"></a>
+	</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2553821"></a>Dissection and Discussion</h4></div></div></div><p>
+			<a class="indexterm" name="id2553829"></a>
 			The requirements of this network installation are not unusual. The staff are not interested in the
 			details of networking. Passwords are never changed. In this example solution, we demonstrate the use
 			of User Mode security in a simple context. Directories should be set SGID to ensure that members
@@ -579,10 +579,10 @@ C:\WINDOWS: regedit ME-dpwc.reg
 		configuration. The office does not use Internet access, so security really is not an issue.
 		</p><p>
 		The core information regarding the users, their passwords, the directory share point, and the
-		share name is given in <a href="simple.html#acctingnet" title="Table 1.1. Accounting Office Network Information">???</a>. The overall network topology is shown in
-		<a href="simple.html#acctingnet2" title="Figure 1.2. Accounting Office Network Topology">???</a>. All machines have been configured as indicated prior to the
+		share name is given in <a class="link" href="simple.html#acctingnet" title="Table 1.1. Accounting Office Network Information">&#8220;Accounting Office Network Information&#8221;</a>. The overall network topology is shown in
+		<a class="link" href="simple.html#acctingnet2" title="Figure 1.2. Accounting Office Network Topology">&#8220;Accounting Office Network Topology&#8221;</a>. All machines have been configured as indicated prior to the
 		start of Samba configuration. The following prescriptive steps may now commence.
-		</p><div class="figure"><a name="acctingnet2"></a><p class="title"><b>Figure 1.2. Accounting Office Network Topology</b></p><div class="figure-contents"><div class="mediaobject"><img src="images/AccountingNetwork.png" width="459" alt="Accounting Office Network Topology"></div></div></div><br class="figure-break"><div class="table"><a name="acctingnet"></a><p class="title"><b>Table 1.1. Accounting Office Network Information</b></p><div class="table-contents"><table summary="Accounting Office Network Information" border="1"><colgroup><col align="left"><col align="left"><col align="left"><col align="left"><col align="left"><col align="left"></colgroup><thead><tr><th align="left">User</th><th align="left">Login-ID</th><th align="left">Password</th><th align="left">Share Name</th><th align="left">Directory</th><th align="left">Wkst</th></tr></thead><tbody><tr><td align="left">Alan Meany</td><td align="left">alan</td><td align="left">alm1961</td><td align="left">alan</td><td align="left">/data</td><td align="left">PC1</td></tr><tr><td align="left">James Meany</td><td align="left">james</td><td align="left">jimm1962</td><td align="left">james</td><td align="left">/data/james</td><td align="left">PC2</td></tr><tr><td align="left">Jeannie Meany</td><td align="left">jeannie</td><td align="left">jema1965</td><td align="left">jeannie</td><td align="left">/data/jeannie</td><td align="left">PC3</td></tr><tr><td align="left">Suzy Millicent</td><td align="left">suzy</td><td align="left">suzy1967</td><td align="left">suzy</td><td align="left">/data/suzy</td><td align="left">PC4</td></tr><tr><td align="left">Ursula Jenning</td><td align="left">ujen</td><td align="left">ujen1974</td><td align="left">ursula</td><td align="left">/data/ursula</td><td align="left">PC5</td></tr><tr><td align="left">Peter Pan</td><td align="left">peter</td><td align="left">pete1984</td><td align="left">peter</td><td align="left">/data/peter</td><td align="left">PC6</td></tr><tr><td align="left">Dale Roland</td><td align="left">dale</td><td align="left">dale1986</td><td align="left">dale</td><td align="left">/data/dale</td><td align="left">PC7</td></tr><tr><td align="left">Bertrand E Paoletti</td><td align="left">eric</td><td align="left">eric1993</td><td align="left">eric</td><td align="left">/data/eric</td><td align="left">PC8</td></tr><tr><td align="left">Russell Lewis</td><td align="left">russ</td><td align="left">russ2001</td><td align="left">russell</td><td align="left">/data/russell</td><td align="left">PC9</td></tr></tbody></table></div></div><br class="table-break"><div class="procedure"><a name="id2557203"></a><p class="title"><b>Procedure 1.5. Migration from Windows NT4 Workstation System to Samba-3</b></p><ol type="1"><li><p><a class="indexterm" name="id2557214"></a>
+		</p><div class="figure"><a name="acctingnet2"></a><p class="title"><b>Figure 1.2. Accounting Office Network Topology</b></p><div class="figure-contents"><div class="mediaobject"><img src="images/AccountingNetwork.png" width="459" alt="Accounting Office Network Topology"></div></div></div><br class="figure-break"><div class="table"><a name="acctingnet"></a><p class="title"><b>Table 1.1. Accounting Office Network Information</b></p><div class="table-contents"><table summary="Accounting Office Network Information" border="1"><colgroup><col align="left"><col align="left"><col align="left"><col align="left"><col align="left"><col align="left"></colgroup><thead><tr><th align="left">User</th><th align="left">Login-ID</th><th align="left">Password</th><th align="left">Share Name</th><th align="left">Directory</th><th align="left">Wkst</th></tr></thead><tbody><tr><td align="left">Alan Meany</td><td align="left">alan</td><td align="left">alm1961</td><td align="left">alan</td><td align="left">/data</td><td align="left">PC1</td></tr><tr><td align="left">James Meany</td><td align="left">james</td><td align="left">jimm1962</td><td align="left">james</td><td align="left">/data/james</td><td align="left">PC2</td></tr><tr><td align="left">Jeannie Meany</td><td align="left">jeannie</td><td align="left">jema1965</td><td align="left">jeannie</td><td align="left">/data/jeannie</td><td align="left">PC3</td></tr><tr><td align="left">Suzy Millicent</td><td align="left">suzy</td><td align="left">suzy1967</td><td align="left">suzy</td><td align="left">/data/suzy</td><td align="left">PC4</td></tr><tr><td align="left">Ursula Jenning</td><td align="left">ujen</td><td align="left">ujen1974</td><td align="left">ursula</td><td align="left">/data/ursula</td><td align="left">PC5</td></tr><tr><td align="left">Peter Pan</td><td align="left">peter</td><td align="left">pete1984</td><td align="left">peter</td><td align="left">/data/peter</td><td align="left">PC6</td></tr><tr><td align="left">Dale Roland</td><td align="left">dale</td><td align="left">dale1986</td><td align="left">dale</td><td align="left">/data/dale</td><td align="left">PC7</td></tr><tr><td align="left">Bertrand E Paoletti</td><td align="left">eric</td><td align="left">eric1993</td><td align="left">eric</td><td align="left">/data/eric</td><td align="left">PC8</td></tr><tr><td align="left">Russell Lewis</td><td align="left">russ</td><td align="left">russ2001</td><td align="left">russell</td><td align="left">/data/russell</td><td align="left">PC9</td></tr></tbody></table></div></div><br class="table-break"><div class="procedure"><a name="id2554200"></a><p class="title"><b>Procedure 1.5. Migration from Windows NT4 Workstation System to Samba-3</b></p><ol type="1"><li><p><a class="indexterm" name="id2554210"></a>
 			Rename the old server from <code class="constant">CASHPOOL</code> to <code class="constant">STABLE</code>
 			by logging onto the console as the <code class="constant">Administrator</code>. Restart the machine
 			following system prompts.
@@ -593,20 +593,20 @@ C:\WINDOWS: regedit ME-dpwc.reg
 			Install the latest Samba-3 binary Red Hat Linux RPM that is available from the
 			Samba FTP site.
 			</p></li><li><p>
-			<a class="indexterm" name="id2557263"></a>
-			<a class="indexterm" name="id2557270"></a>
+			<a class="indexterm" name="id2554256"></a>
+			<a class="indexterm" name="id2554262"></a>
 			Add a group account for the office to use. Execute the following:
 </p><pre class="screen">
 <code class="prompt">root# </code> groupadd accts
 </pre><p>
 			</p></li><li><p>
-			Install the <code class="filename">smb.conf</code> file shown<sup>[<a name="id2557303" href="#ftn.id2557303">4</a>]</sup> 
-			in <a href="simple.html#acctconf" title="Example 1.5. Accounting Office Network smb.conf Old Style Configuration File">???</a>.
+			Install the <code class="filename">smb.conf</code> file shown<sup>[<a name="id2554292" href="#ftn.id2554292" class="footnote">4</a>]</sup> 
+			in <a class="link" href="simple.html#acctconf" title="Example 1.5. Accounting Office Network smb.conf Old Style Configuration File">&#8220;Accounting Office Network smb.conf Old Style Configuration File&#8221;</a>.
 			</p></li><li><p>
-			<a class="indexterm" name="id2557341"></a>
-			<a class="indexterm" name="id2557348"></a>
-			<a class="indexterm" name="id2557354"></a>
-			For each user who uses this system (see <a href="simple.html#acctingnet" title="Table 1.1. Accounting Office Network Information">???</a>),
+			<a class="indexterm" name="id2554324"></a>
+			<a class="indexterm" name="id2554330"></a>
+			<a class="indexterm" name="id2554337"></a>
+			For each user who uses this system (see <a class="link" href="simple.html#acctingnet" title="Table 1.1. Accounting Office Network Information">&#8220;Accounting Office Network Information&#8221;</a>),
 			execute the following:
 </p><pre class="screen">
 <code class="prompt">root# </code> useradd -m -G accts -c "Name of User" "LoginID"
@@ -620,7 +620,7 @@ Retype new SMB password: XXXXXXXXX
 Added user "LoginID"
 </pre><p>
 			</p></li><li><p>
-			<a class="indexterm" name="id2557408"></a>
+			<a class="indexterm" name="id2554385"></a>
 			Create the directory structure for the file shares by executing the following:
 </p><pre class="screen">
 <code class="prompt">root# </code> mkdir -p /data
@@ -635,34 +635,34 @@ Added user "LoginID"
 </pre><p>
 			The data storage structure is now prepared for use.
 			</p></li><li><p>
-			<a class="indexterm" name="id2557462"></a>
+			<a class="indexterm" name="id2554434"></a>
 			Configure the CUPS Print Queues:
 </p><pre class="screen">
 <code class="prompt">root# </code> lpadmin -p hplj -v parallel:/dev/lp0 -E
 </pre><p>
 			This creates the necessary print queues with no assigned print filter.
 			</p></li><li><p>
-			<a class="indexterm" name="id2557490"></a>
-			<a class="indexterm" name="id2557497"></a>
+			<a class="indexterm" name="id2554460"></a>
+			<a class="indexterm" name="id2554467"></a>
 			Edit the file <code class="filename">/etc/cups/mime.convs</code> to uncomment the line:
 </p><pre class="screen">
 application/octet-stream     application/vnd.cups-raw      0     -
 </pre><p>
 			</p></li><li><p>
-			<a class="indexterm" name="id2557524"></a>
-			<a class="indexterm" name="id2557531"></a>
+			<a class="indexterm" name="id2554491"></a>
+			<a class="indexterm" name="id2554497"></a>
 			Edit the file <code class="filename">/etc/cups/mime.types</code> to uncomment the line:
 </p><pre class="screen">
 application/octet-stream
 </pre><p>
 			</p></li><li><p>
-			<a class="indexterm" name="id2557558"></a>
+			<a class="indexterm" name="id2554520"></a>
 			Use the standard system tool to start Samba and CUPS to configure them to restart
 			automatically at every system reboot. For example,
 			</p><p>
-			<a class="indexterm" name="id2557571"></a>
-			<a class="indexterm" name="id2557578"></a>
-			<a class="indexterm" name="id2557584"></a>
+			<a class="indexterm" name="id2554532"></a>
+			<a class="indexterm" name="id2554538"></a>
+			<a class="indexterm" name="id2554545"></a>
 </p><pre class="screen">
 <code class="prompt">root# </code> chkconfig smb on
 <code class="prompt">root# </code> chkconfig cups on
@@ -707,40 +707,40 @@ application/octet-stream
 			The migration of all data should now be complete. It is time to validate the installation.
 			For this, you should make sure all applications, including printing, work before asking the
 			customer to test drive the new network.
-			</p></li></ol></div><div class="example"><a name="acctconf"></a><p class="title"><b>Example 1.5. Accounting Office Network <code class="filename">smb.conf</code> Old Style Configuration File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2557835"></a><em class="parameter"><code>workgroup = BILLMORE</code></em></td></tr><tr><td><a class="indexterm" name="id2557848"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2557860"></a><em class="parameter"><code>disable spoolss = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2557873"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2557887"></a><em class="parameter"><code>printing = cups</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[files]</code></em></td></tr><tr><td><a class="indexterm" name="id2557908"></a><em class="parameter"><code>comment = Work area files</code></em></td></tr><tr><td><a class="indexterm" name="id2557921"></a><em class="parameter"><code>path = /data/%U</code></em></td></tr><tr><td><a class="indexterm" name="id2557934"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[master]</code></em></td></tr><tr><td><a class="indexterm" name="id2557955"></a><em class="parameter"><code>comment = Master work area files</code></em></td></tr><tr><td><a class="indexterm" name="id2557968"></a><em class="parameter"><code>path = /data</code></em></td></tr><tr><td><a class="indexterm" name="id2557981"></a><em class="parameter"><code>valid users = alan</code></em></td></tr><tr><td><a class="indexterm" name="id2557994"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2558015"></a><em class="parameter"><code>comment = Print Temporary Spool Configuration</code></em></td></tr><tr><td><a class="indexterm" name="id2558028"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2558041"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2558054"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2558066"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2558079"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2558096"></a>Questions and Answers</h2></div></div></div><p>
+			</p></li></ol></div><div class="example"><a name="acctconf"></a><p class="title"><b>Example 1.5. Accounting Office Network <code class="filename">smb.conf</code> Old Style Configuration File</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td># Global parameters</td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2554773"></a><em class="parameter"><code>workgroup = BILLMORE</code></em></td></tr><tr><td><a class="indexterm" name="id2554783"></a><em class="parameter"><code>printcap name = CUPS</code></em></td></tr><tr><td><a class="indexterm" name="id2554794"></a><em class="parameter"><code>disable spoolss = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2554804"></a><em class="parameter"><code>show add printer wizard = No</code></em></td></tr><tr><td><a class="indexterm" name="id2554815"></a><em class="parameter"><code>printing = cups</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[files]</code></em></td></tr><tr><td><a class="indexterm" name="id2554834"></a><em class="parameter"><code>comment = Work area files</code></em></td></tr><tr><td><a class="indexterm" name="id2554844"></a><em class="parameter"><code>path = /data/%U</code></em></td></tr><tr><td><a class="indexterm" name="id2554855"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[master]</code></em></td></tr><tr><td><a class="indexterm" name="id2554874"></a><em class="parameter"><code>comment = Master work area files</code></em></td></tr><tr><td><a class="indexterm" name="id2554885"></a><em class="parameter"><code>path = /data</code></em></td></tr><tr><td><a class="indexterm" name="id2554895"></a><em class="parameter"><code>valid users = alan</code></em></td></tr><tr><td><a class="indexterm" name="id2554906"></a><em class="parameter"><code>read only = No</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[printers]</code></em></td></tr><tr><td><a class="indexterm" name="id2554924"></a><em class="parameter"><code>comment = Print Temporary Spool Configuration</code></em></td></tr><tr><td><a class="indexterm" name="id2554936"></a><em class="parameter"><code>path = /var/spool/samba</code></em></td></tr><tr><td><a class="indexterm" name="id2554946"></a><em class="parameter"><code>printable = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2554956"></a><em class="parameter"><code>guest ok = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2554967"></a><em class="parameter"><code>use client driver = Yes</code></em></td></tr><tr><td><a class="indexterm" name="id2554977"></a><em class="parameter"><code>browseable = No</code></em></td></tr></table></div></div><br class="example-break"></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2554992"></a>Questions and Answers</h2></div></div></div><p>
 	The following questions and answers draw from the examples in this chapter.
 	Many design decisions are impacted by the configurations chosen. The intent
 	is to expose some of the hidden implications.
-	</p><div class="qandaset"><dl><dt> <a href="simple.html#id2558116">
+	</p><div class="qandaset"><dl><dt> <a href="simple.html#id2555010">
 		What makes an anonymous Samba server more simple than a non-anonymous Samba server?
-		</a></dt><dt> <a href="simple.html#id2558141">
+		</a></dt><dt> <a href="simple.html#id2555036">
 		How is the operation of the parameter force user different from
 		setting the root directory of the share SUID?
-		</a></dt><dt> <a href="simple.html#id2558195">
+		</a></dt><dt> <a href="simple.html#id2555087">
 		When would you both use the per share parameter force user and set
 		the share root directory SUID?
-		</a></dt><dt> <a href="simple.html#id2558222">
+		</a></dt><dt> <a href="simple.html#id2555114">
 		What is better about CUPS printing than LPRng printing?
-		</a></dt><dt> <a href="simple.html#id2558267">
+		</a></dt><dt> <a href="simple.html#id2555158">
 		When should Windows client IP addresses be hard-coded?
-		</a></dt><dt> <a href="simple.html#id2558292">
+		</a></dt><dt> <a href="simple.html#id2555184">
 		Under what circumstances is it best to use a DHCP server?
-		</a></dt><dt> <a href="simple.html#id2558331">
+		</a></dt><dt> <a href="simple.html#id2555222">
 		What is the purpose of setting the parameter guest ok on a share?
-		</a></dt><dt> <a href="simple.html#id2558357">
+		</a></dt><dt> <a href="simple.html#id2555247">
 		When would you set the global parameter disable spoolss?
-		</a></dt><dt> <a href="simple.html#id2558447">
+		</a></dt><dt> <a href="simple.html#id2555333">
 		Why would you disable password caching on Windows 9x/Me clients?
-		</a></dt><dt> <a href="simple.html#id2558471">
+		</a></dt><dt> <a href="simple.html#id2555357">
 		The example of Abmas Accounting uses User Mode security. How does this provide anonymous access?
-		</a></dt></dl><table border="0" summary="Q and A Set"><col align="left" width="1%"><tbody><tr class="question"><td align="left" valign="top"><a name="id2558116"></a><a name="id2558118"></a></td><td align="left" valign="top"><p>
+		</a></dt></dl><table border="0" summary="Q and A Set"><col align="left" width="1%"><tbody><tr class="question"><td align="left" valign="top"><a name="id2555010"></a><a name="id2555012"></a></td><td align="left" valign="top"><p>
 		What makes an anonymous Samba server more simple than a non-anonymous Samba server?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		In the anonymous server, the only account used is the <code class="constant">guest</code> account.
 		In a non-anonymous configuration, it is necessary to add real user accounts to both the
 		UNIX system and to the Samba configuration. Non-anonymous servers require additional
 		administration.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558141"></a><a name="id2558143"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555036"></a><a name="id2555038"></a></td><td align="left" valign="top"><p>
 		How is the operation of the parameter <em class="parameter"><code>force user</code></em> different from
 		setting the root directory of the share SUID?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -754,14 +754,14 @@ application/octet-stream
 		</p><p>
 		The parameter <em class="parameter"><code>force user</code></em> has potential security implications that go
 		beyond the actual share root directory. Be careful and wary of using this parameter.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558195"></a><a name="id2558197"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555087"></a><a name="id2555089"></a></td><td align="left" valign="top"><p>
 		When would you both use the per share parameter <em class="parameter"><code>force user</code></em> and set
 		the share root directory SUID?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		You would use both parameters when it is necessary to guarantee that all share handling operations
 		are conducted as the forced user, while all file and directory creation are done as the SUID
 		directory owner.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558222"></a><a name="id2558224"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555114"></a><a name="id2555116"></a></td><td align="left" valign="top"><p>
 		What is better about CUPS printing than LPRng printing?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		CUPS is a print spooling system that has integrated remote management facilities, provides completely
@@ -779,7 +779,7 @@ application/octet-stream
 		</p><p>
 		Which spooling system is better is a matter of personal taste. It depends on what you want to do and how you want to
 		do it and manage it. Most modern Linux systems ship with CUPS as the default print management system.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558267"></a><a name="id2558269"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555158"></a><a name="id2555160"></a></td><td align="left" valign="top"><p>
 		When should Windows client IP addresses be hard-coded?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		When there are few MS Windows clients, little client change, no mobile users, and users are not
@@ -788,7 +788,7 @@ application/octet-stream
 		user ability to access network configuration controls, fixed configuration eliminates the need
 		for a DHCP server. This reduces maintenance overheads and eliminates a possible point of network
 		failure.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558292"></a><a name="id2558294"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555184"></a><a name="id2555186"></a></td><td align="left" valign="top"><p>
 		Under what circumstances is it best to use a DHCP server?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		In network configurations where there are mobile users, or where Windows client PCs move around
@@ -804,12 +804,12 @@ application/octet-stream
 		Another benefit of modern DHCP servers is their ability to register dynamically
 		assigned IP addresses with the DNS server. The benefits of Dynamic DNS (DDNS) are considerable in 
 		a large Windows network environment.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558331"></a><a name="id2558333"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555222"></a><a name="id2555224"></a></td><td align="left" valign="top"><p>
 		What is the purpose of setting the parameter <em class="parameter"><code>guest ok</code></em> on a share?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		If this parameter is set to yes for a service, then no password is required to connect to the service.
 		Privileges are those of the guest account.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558357"></a><a name="id2558359"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555247"></a><a name="id2555249"></a></td><td align="left" valign="top"><p>
 		When would you set the global parameter <em class="parameter"><code>disable spoolss</code></em>?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		Setting this parameter to <code class="constant">Yes</code> disables Samba's support for the SPOOLSS set of 
@@ -833,14 +833,14 @@ application/octet-stream
 		that the client now displays an &#8220;<span class="quote">Access Denied; Unable to connect</span>&#8221; message in the printer queue window
 		(even though jobs may be printed successfully). This parameter MUST not be enabled on a print share that has a valid
 		print driver installed on the Samba server.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558447"></a><a name="id2558449"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555333"></a><a name="id2555335"></a></td><td align="left" valign="top"><p>
 		Why would you disable password caching on Windows 9x/Me clients?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		Windows 9x/Me workstations that are set at default (password caching enabled) store the username and
 		password in files located in the Windows master directory. Such files can be scavenged (read off a client
 		machine) and decrypted, thus revealing the user's access credentials for all systems the user may have accessed.
 		It is most insecure to allow any Windows 9x/Me client to operate with password caching enabled.
-		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2558471"></a><a name="id2558473"></a></td><td align="left" valign="top"><p>
+		</p></td></tr><tr class="question"><td align="left" valign="top"><a name="id2555357"></a><a name="id2555359"></a></td><td align="left" valign="top"><p>
 		The example of Abmas Accounting uses User Mode security. How does this provide anonymous access?
 		</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 		The example used does not provide anonymous access. Since the clients are all Windows 2000 Professional,
@@ -848,14 +848,14 @@ application/octet-stream
 		a remote server using currently logged in user credentials. By ensuring that the user's login ID and
 		password are the same as those set on the Samba server, access is transparent and does not require
 		separate user authentication.
-		</p></td></tr></tbody></table></div></div><div class="footnotes"><br><hr width="100" align="left"><div class="footnote"><p><sup>[<a name="ftn.id2553514" href="#id2553514">1</a>] </sup>The examples given mirror those documented
+		</p></td></tr></tbody></table></div></div><div class="footnotes"><br><hr width="100" align="left"><div class="footnote"><p><sup>[<a name="ftn.id2550875" href="#id2550875" class="para">1</a>] </sup>The examples given mirror those documented
 	in The Official Samba-3 HOWTO and Reference Guide, Second Edition (TOSHARG2) Chapter 2, Section 2.3.1. You may gain additional
 	insight from the standalone server configurations covered in TOSHARG2, sections 2.3.1.2 through 2.3.1.4.
-	</p></div><div class="footnote"><p><sup>[<a name="ftn.id2553700" href="#id2553700">2</a>] </sup>
+	</p></div><div class="footnote"><p><sup>[<a name="ftn.id2551054" href="#id2551054" class="para">2</a>] </sup>
 		This information is given purely as an example of how data may be stored in such a way that it
 		will be easy to locate records at a later date. The example is not meant to imply any instructions
 		that may be construed as essential to the design of the solution; this is something you will almost
-		certainly want to determine for yourself.</p></div><div class="footnote"></div><div class="footnote"><p><sup>[<a name="ftn.id2557303" href="#id2557303">4</a>] </sup>This example uses the 
+		certainly want to determine for yourself.</p></div><div class="footnote"></div><div class="footnote"><p><sup>[<a name="ftn.id2554292" href="#id2554292" class="para">4</a>] </sup>This example uses the 
 			<em class="parameter"><code>smbpasswd</code></em> file in an obtuse way, since the use of 
 			the <em class="parameter"><code>passdb backend</code></em> has not been specified in the <code class="filename">smb.conf</code> 
 			file. This means that you are depending on correct default behavior.</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="ExNetworks.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="ExNetworks.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="small.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Part I. Example Network Configurations </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 2. Small Office Networking</td></tr></table></div></body></html>

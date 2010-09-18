@@ -432,7 +432,7 @@ static void write_config(FILE *f, BOOL show_defaults)
 {
 	fprintf(f, "# Samba config file created using SWAT\n");
 	fprintf(f, "# from %s (%s)\n", cgi_remote_host(), cgi_remote_addr());
-	fprintf(f, "# Date: %s\n\n", timestring(False));
+	fprintf(f, "# Date: %s\n\n", current_timestring(False));
 	
 	lp_dump(f, show_defaults, iNumNonAutoPrintServices);
 }
@@ -463,7 +463,7 @@ static int save_reload(int snum)
 	}
 
 	write_config(f, False);
-	if (snum)
+	if (snum >= 0)
 		lp_dump_one(f, False, snum);
 	fclose(f);
 

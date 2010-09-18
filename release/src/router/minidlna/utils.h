@@ -46,4 +46,10 @@ is_playlist(const char * file);
 int
 resolve_unknown_type(const char * path, enum media_types dir_type);
 
+void
+begin_scan();
+
+void
+end_scan();
+
 #endif

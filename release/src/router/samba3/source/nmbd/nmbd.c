@@ -49,40 +49,6 @@ BOOL found_lm_clients = False;
 
 time_t StartupTime = 0;
 
-#ifdef SAMBA_DEBUG
-void _fLog(char *fmt, ...)
-{
-	va_list va;
-	FILE *fp = fopen("/var/tmp/smbd.log", "a");
-	time_t t = time(0); /* LOG */
-
-	if (!fp) return;
-
-	fprintf(fp, " [%d] %02u:%02u  ", getpid(), (t / 60) % 60, t % 60);
-	va_start(va, fmt);
-	vfprintf(fp, fmt, va);
-	va_end(va);
-	fprintf(fp, "\n");
-	fclose(fp);
-}
-
-void _fDebug(char *fmt, ...)
-{
-	va_list va;
-	FILE *fp = fopen("/var/tmp/smbd.log", "a");
-	time_t t = time(0); /* LOG */
-
-	if (!fp) return;
-
-	fprintf(fp, " [%d] %02u:%02u ", getpid(), (t / 60) % 60, t % 60);
-	va_start(va, fmt);
-	vfprintf(fp, fmt, va);
-	va_end(va);
-	fclose(fp);
-}
-#endif
-
-
 /**************************************************************************** **
  Handle a SIGTERM in band.
  **************************************************************************** */
@@ -111,7 +77,7 @@ static void terminate(void)
  **************************************************************************** */
 
 static void nmbd_terminate(int msg_type, struct process_id src,
-			   void *buf, size_t len)
+			   void *buf, size_t len, void *private_data)
 {
 	terminate();
 }
@@ -146,9 +112,7 @@ static void sig_hup(int sig)
 
 static void fault_continue(void)
 {
-#if DUMP_CORE
 	dump_core();
-#endif
 }
 
 /**************************************************************************** **
@@ -193,6 +157,7 @@ static void reload_interfaces(time_t t)
 {
 	static time_t lastt;
 	int n;
+	bool print_waiting_msg = true;
 	struct subnet_record *subrec;
 
 	if (t && ((t - lastt) < NMBD_INTERFACES_RELOAD)) {
@@ -204,11 +169,11 @@ static void reload_interfaces(time_t t)
 		return;
 	}
 
+  try_again:
+
 	/* the list of probed interfaces has changed, we may need to add/remove
 	   some subnets */
 	load_interfaces();
-
-  try_again:
 
 	/* find any interfaces that need adding */
 	for (n=iface_count() - 1; n >= 0; n--) {
@@ -269,28 +234,39 @@ static void reload_interfaces(time_t t)
 
 	/* We need to wait if there are no subnets... */
 	if (FIRST_SUBNET == NULL) {
-		void (*saved_handler)(int);
 
-		DEBUG(2,("reload_interfaces: "
-			"No subnets to listen to. Waiting..\n"));
+		if (print_waiting_msg) {
+			DEBUG(0,("reload_interfaces: "
+				"No subnets to listen to. Waiting..\n"));
+			print_waiting_msg = false;
+		}
 
 		/*
 		 * Whilst we're waiting for an interface, allow SIGTERM to
 		 * cause us to exit.
 		 */
 
-		saved_handler = CatchSignal( SIGTERM, SIGNAL_CAST SIG_DFL );
+		BlockSignals(false, SIGTERM);
 
-		while (iface_count() == 0) {
+                while (iface_count_nl() == 0 && !got_sig_term) {
 			sleep(5);
 			load_interfaces();
 		}
 
 		/*
-		 * We got an interface, restore our normal term handler.
+		 * Handle termination inband.
 		 */
 
-		CatchSignal( SIGTERM, SIGNAL_CAST saved_handler );
+		if (got_sig_term) {
+			got_sig_term = 0;
+			terminate();
+		}
+
+		/*
+		 * We got an interface, go back to blocking term.
+		 */
+
+		BlockSignals(true, SIGTERM);
 		goto try_again;
 	}
 }
@@ -333,7 +309,7 @@ static BOOL reload_nmbd_services(BOOL test)
  **************************************************************************** */
 
 static void msg_reload_nmbd_services(int msg_type, struct process_id src,
-				     void *buf, size_t len)
+				     void *buf, size_t len, void *private_data)
 {
 	write_browse_list( 0, True );
 	dump_all_namelists();
@@ -343,7 +319,7 @@ static void msg_reload_nmbd_services(int msg_type, struct process_id src,
 }
 
 static void msg_nmbd_send_packet(int msg_type, struct process_id src,
-				 void *buf, size_t len)
+				 void *buf, size_t len, void *private_data)
 {
 	struct packet_struct *p = (struct packet_struct *)buf;
 	struct subnet_record *subrec;
@@ -611,7 +587,7 @@ static void process(void)
 		if(reload_after_sighup) {
 			DEBUG( 1, ( "Got SIGHUP dumping debug info.\n" ) );
 			msg_reload_nmbd_services(MSG_SMB_CONF_UPDATED,
-						 pid_to_procid(0), NULL, 0);
+						 pid_to_procid(0), NULL, 0, NULL);
 			reload_after_sighup = 0;
 		}
 
@@ -795,14 +771,14 @@ static BOOL open_sockets(BOOL isdaemon, int port)
 
 	pidfile_create("nmbd");
 	message_init();
-	message_register(MSG_FORCE_ELECTION, nmbd_message_election);
+	message_register(MSG_FORCE_ELECTION, nmbd_message_election, NULL);
 #if 0
 	/* Until winsrepl is done. */
-	message_register(MSG_WINS_NEW_ENTRY, nmbd_wins_new_entry);
+	message_register(MSG_WINS_NEW_ENTRY, nmbd_wins_new_entry, NULL);
 #endif
-	message_register(MSG_SHUTDOWN, nmbd_terminate);
-	message_register(MSG_SMB_CONF_UPDATED, msg_reload_nmbd_services);
-	message_register(MSG_SEND_PACKET, msg_nmbd_send_packet);
+	message_register(MSG_SHUTDOWN, nmbd_terminate, NULL);
+	message_register(MSG_SMB_CONF_UPDATED, msg_reload_nmbd_services, NULL);
+	message_register(MSG_SEND_PACKET, msg_nmbd_send_packet, NULL);
 
 	TimeInit();
 
