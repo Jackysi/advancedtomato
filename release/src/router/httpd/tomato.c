@@ -641,7 +641,7 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
-	{ "clkfreq",                    V_RANGE(125,500)        },
+	{ "clkfreq",                    V_NONE		        },	// Removed check - KP
 	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 
