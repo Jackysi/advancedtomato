@@ -215,9 +215,13 @@ static void shutdn(int rb)
 	}
 	set_action(ACT_REBOOT);
 
+	// Disconnect pppd - need this for PPTP/L2TP to finish gracefully
+	stop_pptp();
+	stop_l2tp();
+
 	_dprintf("TERM\n");
 	kill(-1, SIGTERM);
-	sleep(2);
+	sleep(3);
 	sync();
 
 	_dprintf("KILL\n");
@@ -1400,10 +1404,10 @@ int reboothalt_main(int argc, char *argv[])
 
 	/* In the case we're hung, we'll get stuck and never actually reboot.
 	 * The only way out is to pull power.
-	 * So after 10 seconds, forcibly crash & restart.
+	 * So after 'reset_wait' seconds (default: 20), forcibly crash & restart.
 	 */
 	if (fork() == 0) {
-		int wait = nvram_get_int("reset_wait");
+		int wait = nvram_get_int("reset_wait") ? : 20;
 		if ((wait < 10) || (wait > 120)) wait = 10;
 
 		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */

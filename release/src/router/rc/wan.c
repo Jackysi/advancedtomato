@@ -156,12 +156,9 @@ static void stop_ppp(void)
 	TRACE_PT("begin\n");
 
 	unlink(ppp_linkfile);
-
-	while ((killall("pppd", SIGKILL) == 0) ||
-	       (killall("xl2tpd", SIGKILL) == 0) ||
-	       (killall("listen", SIGKILL) == 0)) {
-		sleep(1);
-	}
+	killall_tk("xl2tpd");
+	killall_tk("pppd");
+	killall_tk("listen");
 
 	TRACE_PT("end\n");
 }
@@ -370,13 +367,15 @@ void start_pppoe(int num)
 
 void stop_pppoe(void)
 {
-	_dprintf("%s\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	unlink(ppp_linkfile);
 	nvram_unset("pppoe_ifname0");
 	killall_tk("pppoecd");
 	killall_tk("ip-up");
 	killall_tk("ip-down");
+
+	TRACE_PT("end\n");
 }
 
 void stop_singe_pppoe(int num)
