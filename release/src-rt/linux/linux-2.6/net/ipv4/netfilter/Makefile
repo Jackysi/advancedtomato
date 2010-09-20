@@ -45,7 +45,6 @@ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
 # matches
 obj-$(CONFIG_IP_NF_MATCH_IPV4OPTIONS) += ipt_ipv4options.o
 obj-$(CONFIG_IP_NF_MATCH_IPP2P) += ipt_ipp2p.o
-obj-$(CONFIG_IP_NF_MATCH_IPRANGE) += ipt_iprange.o
 obj-$(CONFIG_IP_NF_MATCH_OWNER) += ipt_owner.o
 obj-$(CONFIG_IP_NF_MATCH_TOS) += ipt_tos.o
 obj-$(CONFIG_IP_NF_MATCH_TIME) += ipt_time.o
