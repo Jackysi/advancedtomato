@@ -648,10 +648,10 @@ const defaults_t defaults[] = {
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},
-	{ "sch_c1",				"1,-1440,127"	},
+	{ "sch_c1",				""	},
 	{ "sch_c2",				""				},
 	{ "sch_c3",				""				},
-	{ "sch_c1_cmd",			"service upnp restart" },
+	{ "sch_c1_cmd",			"" },
 	{ "sch_c2_cmd",			""				},
 	{ "sch_c3_cmd",			""				},
 
