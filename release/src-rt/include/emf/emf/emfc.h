@@ -20,6 +20,7 @@
 
 #define IP_ISMULTI(a)           (((a) & 0xf0000000) == 0xe0000000)
 #define MCAST_ADDR_LINKLOCAL(a) (((a) & 0xffffff00) == 0xe0000000)
+#define MCAST_ADDR_UPNP_SSDP(a) ((a) == 0xeffffffa)
 
 #define EMFC_STATS_INCR(emfc, member) (((emfc)->stats.member)++)
 
