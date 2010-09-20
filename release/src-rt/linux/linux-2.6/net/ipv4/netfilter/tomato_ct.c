@@ -22,8 +22,7 @@
 #ifdef TEST_HASHDIST
 static int hashdist_read(char *buffer, char **start, off_t offset, int length, int *eof, void *data)
 {
-	struct list_head *h;
-	struct list_head *e;
+	struct nf_conntrack_tuple_hash *h;
 	int i;
 	int n;
 	int count;
@@ -42,15 +41,9 @@ static int hashdist_read(char *buffer, char **start, off_t offset, int length, i
 
 	for (i = 0; i < nf_conntrack_htable_size; ++i) {
 		count = 0;
-		h = &nf_conntrack_hash[i];
-		if (h) {
-			e = h;
-			while (e->next != h) {
-				++count;
-				e = e->next;
-			}
+		list_for_each_entry(h, &nf_conntrack_hash[i], list) {
+			++count;
 		}
-		
 		n += sprintf(buf + n, "%d\t%d\n", i, count);
 		if (n > max) {
 			printk("hashdist: %d > %d\n", n, max);
@@ -85,19 +78,13 @@ static int hashdist_read(char *buffer, char **start, off_t offset, int length, i
 
 static void interate_all(void (*func)(struct nf_conn *, unsigned long), unsigned long data)
 {
-	int i;
-	struct list_head *h;
-	struct list_head *e;
+	unsigned int i;
+	struct nf_conntrack_tuple_hash *h;
 	
 	write_lock_bh(&nf_conntrack_lock);
 	for (i = 0; i < nf_conntrack_htable_size; ++i) {
-		h = &nf_conntrack_hash[i];
-		if (h) {
-			e = h;
-			while (e->next != h) {
-				e = e->next;
-				func(nf_ct_tuplehash_to_ctrack((struct nf_conntrack_tuple_hash *)e), data);
-			}
+		list_for_each_entry(h, &nf_conntrack_hash[i], list) {
+			func(nf_ct_tuplehash_to_ctrack(h), data);
 		}
 	}
 	write_unlock_bh(&nf_conntrack_lock);
