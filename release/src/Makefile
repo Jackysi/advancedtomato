@@ -413,6 +413,8 @@ define KernelConfig
 		echo "CONFIG_IP6_NF_IPTABLES=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
 		echo "CONFIG_IP6_NF_MATCH_RT=y" >>$(1); \
+		sed -i "/CONFIG_IP6_NF_MATCH_HL/d" $(1); \
+		echo "CONFIG_IP6_NF_MATCH_HL=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_FILTER/d" $(1); \
 		echo "CONFIG_IP6_NF_FILTER=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_TARGET_LOG/d" $(1); \
@@ -434,6 +436,8 @@ define KernelConfig
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_TARGET_HL/d" $(1); \
+			echo "CONFIG_IP6_NF_TARGET_HL=m" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
