@@ -60,6 +60,7 @@ typedef int (*smb_pam_conv_fn)(int, const struct pam_message **, struct pam_resp
  *  Macros to help make life easy
  */
 #define COPY_STRING(s) (s) ? SMB_STRDUP(s) : NULL
+#define COPY_FSTRING(s) (s[0]) ? SMB_STRDUP(s) : NULL
 
 /*******************************************************************
  PAM error handler.
@@ -208,7 +209,6 @@ static struct chat_struct *make_pw_chat(const char *p)
 	fstring reply;
 	struct chat_struct *list = NULL;
 	struct chat_struct *t;
-	struct chat_struct *tmp;
 
 	while (1) {
 		t = SMB_MALLOC_P(struct chat_struct);
@@ -219,7 +219,7 @@ static struct chat_struct *make_pw_chat(const char *p)
 
 		ZERO_STRUCTP(t);
 
-		DLIST_ADD_END(list, t, tmp);
+		DLIST_ADD_END(list, t, struct chat_struct*);
 
 		if (!next_token(&p, prompt, NULL, sizeof(fstring)))
 			break;
@@ -318,7 +318,7 @@ static int smb_pam_passchange_conv(int num_msg,
 					DEBUG(100,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_ON: We actualy sent: %s\n", current_reply));
 #endif
 					reply[replies].resp_retcode = PAM_SUCCESS;
-					reply[replies].resp = COPY_STRING(current_reply);
+					reply[replies].resp = COPY_FSTRING(current_reply);
 					found = True;
 					break;
 				}
@@ -346,7 +346,7 @@ static int smb_pam_passchange_conv(int num_msg,
 					DEBUG(10,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_OFF: We sent: %s\n", current_reply));
 					pwd_sub(current_reply, udp->PAM_username, udp->PAM_password, udp->PAM_newpassword);
 					reply[replies].resp_retcode = PAM_SUCCESS;
-					reply[replies].resp = COPY_STRING(current_reply);
+					reply[replies].resp = COPY_FSTRING(current_reply);
 #ifdef DEBUG_PASSWORD
 					DEBUG(100,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_OFF: We actualy sent: %s\n", current_reply));
 #endif
@@ -511,7 +511,7 @@ static NTSTATUS smb_pam_auth(pam_handle_t *pamh, const char *user)
 	pam_error = pam_authenticate(pamh, PAM_SILENT | lp_null_passwords() ? 0 : PAM_DISALLOW_NULL_AUTHTOK);
 	switch( pam_error ){
 		case PAM_AUTH_ERR:
-			DEBUG(2, ("smb_pam_auth: PAM: Athentication Error for user %s\n", user));
+			DEBUG(2, ("smb_pam_auth: PAM: Authentication Error for user %s\n", user));
 			break;
 		case PAM_CRED_INSUFFICIENT:
 			DEBUG(2, ("smb_pam_auth: PAM: Insufficient Credentials for user %s\n", user));

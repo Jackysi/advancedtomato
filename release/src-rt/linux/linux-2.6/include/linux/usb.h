@@ -117,6 +117,11 @@ enum usb_interface_condition {
  *	to the sysfs representation for that device.
  * @pm_usage_cnt: PM usage counter for this interface; autosuspend is not
  *	allowed unless the counter is 0.
+ * @reset_ws: Used for scheduling resets from atomic context.
+ * @reset_running: set to 1 if the interface is currently running a
+ *      queued reset so that usb_cancel_queued_reset() doesn't try to
+ *      remove from the workqueue when running inside the worker
+ *      thread. See __usb_queue_reset_device().
  *
  * USB device drivers attach to interfaces on a physical device.  Each
  * interface encapsulates a single high level function, such as feeding
@@ -164,10 +169,12 @@ struct usb_interface {
 	unsigned unregistering:1;	/* unregistration is in progress */
 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
 	unsigned needs_binding:1;	/* needs delayed unbind/rebind */
+	unsigned reset_running:1;
 
 	struct device dev;		/* interface specific device info */
 	struct device *usb_dev;		/* pointer to the usb class's device, if any */
 	int pm_usage_cnt;		/* usage counter for autosuspend */
+	struct work_struct reset_ws;	/* for resets in atomic context */
 };
 #define	to_usb_interface(d) container_of(d, struct usb_interface, dev)
 #define	interface_to_usbdev(intf) \
@@ -449,6 +456,7 @@ extern int usb_lock_device_for_reset(struct usb_device *udev,
 
 /* USB port reset for device reinitialization */
 extern int usb_reset_device(struct usb_device *dev);
+extern void usb_queue_reset_device(struct usb_interface *dev);
 
 extern struct usb_device *usb_find_device(u16 vendor_id, u16 product_id);
 

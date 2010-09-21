@@ -463,6 +463,11 @@ struct device {
 	void	(*release)(struct device * dev);
 };
 
+static inline const char *dev_name(const struct device *dev)
+{
+        return kobject_name(&dev->kobj);
+}
+
 #ifdef CONFIG_NUMA
 static inline int dev_to_node(struct device *dev)
 {

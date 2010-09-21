@@ -43,6 +43,8 @@ WERROR _dfs_Add(pipes_struct *p, NETDFS_Q_DFS_ADD* q_u, NETDFS_R_DFS_ADD *r_u)
 	struct current_user user;
 	struct junction_map jn;
 	struct referral* old_referral_list = NULL;
+	BOOL self_ref = False;
+	int consumedcnt = 0;
 	BOOL exists = False;
 
 	pstring dfspath, servername, sharename;
@@ -67,7 +69,7 @@ WERROR _dfs_Add(pipes_struct *p, NETDFS_Q_DFS_ADD* q_u, NETDFS_R_DFS_ADD *r_u)
 	pstrcat(altpath, sharename);
 
 	/* The following call can change the cwd. */
-	if(get_referred_path(p->mem_ctx, dfspath, &jn, NULL, NULL)) {
+	if(NT_STATUS_IS_OK(get_referred_path(p->mem_ctx, dfspath, &jn, &consumedcnt, &self_ref))) {
 		exists = True;
 		jn.referral_count += 1;
 		old_referral_list = jn.referral_list;
@@ -106,6 +108,8 @@ WERROR _dfs_Remove(pipes_struct *p, NETDFS_Q_DFS_REMOVE *q_u,
 {
 	struct current_user user;
 	struct junction_map jn;
+	BOOL self_ref = False;
+	int consumedcnt = 0;
 	BOOL found = False;
 
 	pstring dfspath, servername, sharename;
@@ -137,7 +141,7 @@ WERROR _dfs_Remove(pipes_struct *p, NETDFS_Q_DFS_REMOVE *q_u,
 	DEBUG(5,("init_reply_dfs_remove: Request to remove %s -> %s\\%s.\n",
 		dfspath, servername, sharename));
 
-	if(!get_referred_path(p->mem_ctx, dfspath, &jn, NULL, NULL)) {
+	if(!NT_STATUS_IS_OK(get_referred_path(p->mem_ctx, dfspath, &jn, &consumedcnt, &self_ref))) {
 		return WERR_DFS_NO_SUCH_VOL;
 	}
 
@@ -229,14 +233,18 @@ static BOOL init_reply_dfs_info_3(TALLOC_CTX *ctx, struct junction_map* j, NETDF
 	init_unistr2(&dfs3->comment, j->comment, UNI_STR_TERMINATE);
 	dfs3->state = 1;
 	dfs3->num_stores = dfs3->size_stores = j->referral_count;
-	dfs3->ptr0_stores = 1;
     
 	/* also enumerate the stores */
-	dfs3->stores = TALLOC_ARRAY(ctx, NETDFS_DFS_STORAGEINFO, j->referral_count);
-	if (!dfs3->stores)
-		return False;
-
-	memset(dfs3->stores, '\0', j->referral_count * sizeof(NETDFS_DFS_STORAGEINFO));
+	if (j->referral_count) {
+		dfs3->stores = TALLOC_ARRAY(ctx, NETDFS_DFS_STORAGEINFO, j->referral_count);
+		if (!dfs3->stores)
+			return False;
+		memset(dfs3->stores, '\0', j->referral_count * sizeof(NETDFS_DFS_STORAGEINFO));
+		dfs3->ptr0_stores = 1;
+	} else {
+		dfs3->stores = NULL;
+		dfs3->ptr0_stores = 0;
+	}
 
 	for(ii=0;ii<j->referral_count;ii++) {
 		char* p; 
@@ -290,28 +298,34 @@ WERROR _dfs_Enum(pipes_struct *p, NETDFS_Q_DFS_ENUM *q_u, NETDFS_R_DFS_ENUM *r_u
 	/* Create the return array */
 	switch (level) {
 	case 1:
-		if ((r_u->info.e.u.info1.s = TALLOC_ARRAY(p->mem_ctx, NETDFS_DFS_INFO1, num_jn)) == NULL) {
-			return WERR_NOMEM;
-		}
 		r_u->info.e.u.info1.count = num_jn;
-		r_u->info.e.u.info1.ptr0_s = 1;
-		r_u->info.e.u.info1.size_s = num_jn;
+		if (num_jn) {
+			if ((r_u->info.e.u.info1.s = TALLOC_ARRAY(p->mem_ctx, NETDFS_DFS_INFO1, num_jn)) == NULL) {
+				return WERR_NOMEM;
+			}
+			r_u->info.e.u.info1.ptr0_s = 1;
+			r_u->info.e.u.info1.size_s = num_jn;
+		}
 		break;
 	case 2:
-		if ((r_u->info.e.u.info2.s = TALLOC_ARRAY(p->mem_ctx, NETDFS_DFS_INFO2, num_jn)) == NULL) {
-			return WERR_NOMEM;
-		}
 		r_u->info.e.u.info2.count = num_jn;
-		r_u->info.e.u.info2.ptr0_s = 1;
-		r_u->info.e.u.info2.size_s = num_jn;
+		if (num_jn) {
+			if ((r_u->info.e.u.info2.s = TALLOC_ARRAY(p->mem_ctx, NETDFS_DFS_INFO2, num_jn)) == NULL) {
+				return WERR_NOMEM;
+			}
+			r_u->info.e.u.info2.ptr0_s = 1;
+			r_u->info.e.u.info2.size_s = num_jn;
+		}
 		break;
 	case 3:
-		if ((r_u->info.e.u.info3.s = TALLOC_ARRAY(p->mem_ctx, NETDFS_DFS_INFO3, num_jn)) == NULL) {
-			return WERR_NOMEM;
-		}
 		r_u->info.e.u.info3.count = num_jn;
-		r_u->info.e.u.info3.ptr0_s = 1;
-		r_u->info.e.u.info3.size_s = num_jn;
+		if (num_jn) {
+			if ((r_u->info.e.u.info3.s = TALLOC_ARRAY(p->mem_ctx, NETDFS_DFS_INFO3, num_jn)) == NULL) {
+				return WERR_NOMEM;
+			}
+			r_u->info.e.u.info3.ptr0_s = 1;
+			r_u->info.e.u.info3.size_s = num_jn;
+		}
 		break;
 	default:
 		return WERR_INVALID_PARAM;
@@ -346,6 +360,7 @@ WERROR _dfs_GetInfo(pipes_struct *p, NETDFS_Q_DFS_GETINFO *q_u,
 	int consumedcnt = sizeof(pstring);
 	pstring path;
 	BOOL ret = False;
+	BOOL self_ref = False;
 	struct junction_map jn;
 
 	unistr2_to_ascii(path, uni_path, sizeof(path)-1);
@@ -353,7 +368,7 @@ WERROR _dfs_GetInfo(pipes_struct *p, NETDFS_Q_DFS_GETINFO *q_u,
 		return WERR_DFS_NO_SUCH_SERVER;
   
 	/* The following call can change the cwd. */
-	if(!get_referred_path(p->mem_ctx, path, &jn, &consumedcnt, NULL) || consumedcnt < strlen(path)) {
+	if(!NT_STATUS_IS_OK(get_referred_path(p->mem_ctx, path, &jn, &consumedcnt, &self_ref)) || consumedcnt < strlen(path)) {
 		vfs_ChDir(p->conn,p->conn->connectpath);
 		return WERR_DFS_NO_SUCH_VOL;
 	}
@@ -489,4 +504,3 @@ WERROR _dfs_SetInfo2(pipes_struct *p, NETDFS_Q_DFS_SETINFO2 *q_u, NETDFS_R_DFS_S
 	/* FIXME: Implement your code here */
 	return WERR_NOT_SUPPORTED;
 }
-

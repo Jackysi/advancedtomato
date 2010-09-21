@@ -1,3 +1,5 @@
+#ifndef _INCLUDE_ADS_H_
+#define _INCLUDE_ADS_H_
 /*
   header for ads (active directory) library routines
 
@@ -13,7 +15,11 @@ enum wb_posix_mapping {
 };
 
 typedef struct {
+#ifdef HAVE_LDAP
+	LDAP *ld;
+#else
 	void *ld; /* the active ldap structure */
+#endif
 	struct in_addr ldap_ip; /* the ip of the active connection, if any */
 	time_t last_attempt; /* last attempt to reconnect */
 	int ldap_port;
@@ -36,29 +42,34 @@ typedef struct {
 		char *kdc_server;
 		unsigned flags;
 		int time_offset;
-		time_t expire;
+		time_t tgt_expire;
+		time_t tgs_expire;
 		time_t renewable;
 	} auth;
 
 	/* info derived from the servers config */
 	struct {
+		uint32 flags; /* cldap flags identifying the services. */
 		char *realm;
 		char *bind_path;
 		char *ldap_server_name;
+		char *server_site_name;
+		char *client_site_name;
 		time_t current_time;
 	} config;
-
-	/* info derived from the servers schema */
-	struct {
-		enum wb_posix_mapping map_type;
-		char *posix_homedir_attr;
-		char *posix_shell_attr;
-		char *posix_uidnumber_attr;
-		char *posix_gidnumber_attr;
-		char *posix_gecos_attr;
-	} schema;
-
 } ADS_STRUCT;
+
+/* used to remember the names of the posix attributes in AD */
+/* see the rfc2307 & sfu nss backends */
+
+struct posix_schema {
+	char *posix_homedir_attr;
+	char *posix_shell_attr;
+	char *posix_uidnumber_attr;
+	char *posix_gidnumber_attr;
+	char *posix_gecos_attr;
+};
+
 
 /* there are 5 possible types of errors the ads subsystem can produce */
 enum ads_error_type {ENUM_ADS_ERROR_KRB5, ENUM_ADS_ERROR_GSS, 
@@ -246,7 +257,7 @@ typedef void **ADS_MODLIST;
 #define ADS_DNS_DOMAIN     0x40000000  /* DomainName is a DNS name */
 #define ADS_DNS_FOREST     0x80000000  /* DnsForestName is a DNS name */
 
-/* DomainCntrollerAddressType */
+/* DomainControllerAddressType */
 #define ADS_INET_ADDRESS      0x00000001
 #define ADS_NETBIOS_ADDRESS   0x00000002
 
@@ -309,3 +320,7 @@ typedef struct {
 	int val;
 	int critical;
 } ads_control;
+
+#define ADS_IGNORE_PRINCIPAL "not_defined_in_RFC4178@please_ignore"
+
+#endif	/* _INCLUDE_ADS_H_ */

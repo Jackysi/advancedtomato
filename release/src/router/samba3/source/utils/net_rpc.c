@@ -227,6 +227,8 @@ static NTSTATUS rpc_changetrustpw_internals(const DOM_SID *domain_sid,
 
 int net_rpc_changetrustpw(int argc, const char **argv) 
 {
+	net_use_machine_account();
+
 	return run_rpc_command(NULL, PI_NETLOGON, NET_FLAGS_ANONYMOUS | NET_FLAGS_PDC, 
 			       rpc_changetrustpw_internals,
 			       argc, argv);
@@ -381,7 +383,7 @@ static int rpc_join_usage(int argc, const char **argv)
  * @param argc  Standard main() style argv.  Initial components are already
  *              stripped
  *
- * Main 'net_rpc_join()' (where the admain username/password is used) is 
+ * Main 'net_rpc_join()' (where the admin username/password is used) is
  * in net_rpc_join.c
  * Try to just change the password, but if that doesn't work, use/prompt
  * for a username/password.
@@ -462,7 +464,7 @@ NTSTATUS rpc_info_internals(const DOM_SID *domain_sid,
 		TALLOC_CTX *ctx = talloc_init("rpc_info_internals");
 		d_printf("Domain Name: %s\n", unistr2_tdup(ctx, &ctr.info.inf2.uni_domain));
 		d_printf("Domain SID: %s\n", sid_str);
-		d_printf("Sequence number: %u\n", ctr.info.inf2.seq_num.low);
+		d_printf("Sequence number: %llu\n", (unsigned long long)ctr.info.inf2.seq_num);
 		d_printf("Num users: %u\n", ctr.info.inf2.num_domain_usrs);
 		d_printf("Num domain groups: %u\n", ctr.info.inf2.num_domain_grps);
 		d_printf("Num local groups: %u\n", ctr.info.inf2.num_local_grps);
@@ -581,7 +583,8 @@ static NTSTATUS rpc_user_add_internals(const DOM_SID *domain_sid,
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
 	const char *acct_name;
 	uint32 acb_info;
-	uint32 unknown, user_rid;
+	uint32 acct_flags=0;
+	uint32 user_rid;
 
 	if (argc < 1) {
 		d_printf("User must be specified\n");
@@ -611,10 +614,14 @@ static NTSTATUS rpc_user_add_internals(const DOM_SID *domain_sid,
 	/* Create domain user */
 
 	acb_info = ACB_NORMAL;
-	unknown = 0xe005000b; /* No idea what this is - a permission mask? */
+        acct_flags = SAMR_GENERIC_READ | SAMR_GENERIC_WRITE |
+                SAMR_GENERIC_EXECUTE | SAMR_STANDARD_WRITEDAC |
+                SAMR_STANDARD_DELETE | SAMR_USER_SETPASS | SAMR_USER_GETATTR |
+                SAMR_USER_SETATTR;
+	DEBUG(10, ("Creating account with flags: %d\n",acct_flags));
 
 	result = rpccli_samr_create_dom_user(pipe_hnd, mem_ctx, &domain_pol,
-					  acct_name, acb_info, unknown,
+					  acct_name, acb_info, acct_flags,
 					  &user_pol, &user_rid);
 	if (!NT_STATUS_IS_OK(result)) {
 		goto done;
@@ -1330,7 +1337,7 @@ static NTSTATUS rpc_sh_handle_user(TALLOC_CTX *mem_ctx,
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
 	DOM_SID sid;
 	uint32 rid;
-	enum SID_NAME_USE type;
+	enum lsa_SidType type;
 
 	if (argc == 0) {
 		d_fprintf(stderr, "usage: %s <username>\n", ctx->whoami);
@@ -2008,10 +2015,10 @@ static NTSTATUS get_sid_from_name(struct cli_state *cli,
 				TALLOC_CTX *mem_ctx,
 				const char *name,
 				DOM_SID *sid,
-				enum SID_NAME_USE *type)
+				enum lsa_SidType *type)
 {
 	DOM_SID *sids = NULL;
-	uint32 *types = NULL;
+	enum lsa_SidType *types = NULL;
 	struct rpc_pipe_client *pipe_hnd;
 	POLICY_HND lsa_pol;
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
@@ -2131,7 +2138,7 @@ static NTSTATUS rpc_add_aliasmem(struct rpc_pipe_client *pipe_hnd,
 	POLICY_HND alias_pol;
 
 	DOM_SID member_sid;
-	enum SID_NAME_USE member_type;
+	enum lsa_SidType member_type;
 
 	DOM_SID sid;
 
@@ -2192,7 +2199,7 @@ static NTSTATUS rpc_group_addmem_internals(const DOM_SID *domain_sid,
 					const char **argv)
 {
 	DOM_SID group_sid;
-	enum SID_NAME_USE group_type;
+	enum lsa_SidType group_type;
 
 	if (argc != 2) {
 		d_printf("Usage: 'net rpc group addmem <group> <member>\n");
@@ -2308,7 +2315,7 @@ static NTSTATUS rpc_del_aliasmem(struct rpc_pipe_client *pipe_hnd,
 	POLICY_HND alias_pol;
 
 	DOM_SID member_sid;
-	enum SID_NAME_USE member_type;
+	enum lsa_SidType member_type;
 
 	DOM_SID sid;
 
@@ -2366,7 +2373,7 @@ static NTSTATUS rpc_group_delmem_internals(const DOM_SID *domain_sid,
 					const char **argv)
 {
 	DOM_SID group_sid;
-	enum SID_NAME_USE group_type;
+	enum lsa_SidType group_type;
 
 	if (argc != 2) {
 		d_printf("Usage: 'net rpc group delmem <group> <member>\n");
@@ -2717,7 +2724,7 @@ static NTSTATUS rpc_list_alias_members(struct rpc_pipe_client *pipe_hnd,
 	DOM_SID *alias_sids;
 	char **domains;
 	char **names;
-	uint32 *types;
+	enum lsa_SidType *types;
 	int i;
 
 	result = rpccli_samr_open_alias(pipe_hnd, mem_ctx, domain_pol,
@@ -3113,7 +3120,7 @@ static void display_share_info_1(SRV_SHARE_INFO_1 *info1)
 
 	if (opt_long_list_entries) {
 		d_printf("%-12s %-8.8s %-50s\n",
-			 netname, share_type[info1->info_1.type], remark);
+			 netname, share_type[info1->info_1.type & ~(STYPE_TEMPORARY|STYPE_HIDDEN)], remark);
 	} else {
 		d_printf("%s\n", netname);
 	}
@@ -3585,12 +3592,20 @@ static void copy_fn(const char *mnt, file_info *f, const char *mask, void *state
  **/
 BOOL sync_files(struct copy_clistate *cp_clistate, pstring mask)
 {
+	struct cli_state *targetcli;
+	pstring targetpath;
 
 	DEBUG(3,("calling cli_list with mask: %s\n", mask));
 
-	if (cli_list(cp_clistate->cli_share_src, mask, cp_clistate->attribute, copy_fn, cp_clistate) == -1) {
-		d_fprintf(stderr, "listing %s failed with error: %s\n", 
+	if ( !cli_resolve_path( "", cp_clistate->cli_share_src, mask, &targetcli, targetpath ) ) {
+		d_fprintf(stderr, "cli_resolve_path %s failed with error: %s\n", 
 			mask, cli_errstr(cp_clistate->cli_share_src));
+		return False;
+	}
+
+	if (cli_list(targetcli, targetpath, cp_clistate->attribute, copy_fn, cp_clistate) == -1) {
+		d_fprintf(stderr, "listing %s failed with error: %s\n", 
+			mask, cli_errstr(targetcli));
 		return False;
 	}
 
@@ -4934,12 +4949,12 @@ static int rpc_file_close(int argc, const char **argv)
  * @param str3   strings for FILE_INFO_3
  **/
 
-static void display_file_info_3(FILE_INFO_3 *info3, FILE_INFO_3_STR *str3)
+static void display_file_info_3( FILE_INFO_3 *info3 )
 {
 	fstring user = "", path = "";
 
-	rpcstr_pull_unistr2_fstring(user, &str3->uni_user_name);
-	rpcstr_pull_unistr2_fstring(path, &str3->uni_path_name);
+	rpcstr_pull_unistr2_fstring(user, info3->user);
+	rpcstr_pull_unistr2_fstring(path, info3->path);
 
 	d_printf("%-7.1d %-20.20s 0x%-4.2x %-6.1d %s\n",
 		 info3->id, user, info3->perms, info3->num_locks, path);
@@ -4994,8 +5009,7 @@ static NTSTATUS rpc_file_list_internals(const DOM_SID *domain_sid,
 		 "\nFileId  Opened by            Perms  Locks  Path"\
 		 "\n------  ---------            -----  -----  ---- \n");
 	for (i = 0; i < ctr.num_entries; i++)
-		display_file_info_3(&ctr.file.info3[i].info_3, 
-				    &ctr.file.info3[i].info_3_str);
+		display_file_info_3(&ctr.file.info3[i]);
  done:
 	return W_ERROR_IS_OK(result) ? NT_STATUS_OK : NT_STATUS_UNSUCCESSFUL;
 }
@@ -5328,7 +5342,8 @@ static NTSTATUS rpc_trustdom_add_internals(const DOM_SID *domain_sid,
 	NTSTATUS result = NT_STATUS_UNSUCCESSFUL;
 	char *acct_name;
 	uint32 acb_info;
-	uint32 unknown, user_rid;
+	uint32 user_rid;
+	uint32 acct_flags=0;
 
 	if (argc != 2) {
 		d_printf("Usage: net rpc trustdom add <domain_name> <pw>\n");
@@ -5362,11 +5377,13 @@ static NTSTATUS rpc_trustdom_add_internals(const DOM_SID *domain_sid,
 
 	/* Create trusting domain's account */
 	acb_info = ACB_NORMAL; 
-	unknown = 0xe00500b0; /* No idea what this is - a permission mask?
-	                         mimir: yes, most probably it is */
+        acct_flags = SAMR_GENERIC_READ | SAMR_GENERIC_WRITE |
+                SAMR_GENERIC_EXECUTE | SAMR_STANDARD_WRITEDAC |
+                SAMR_STANDARD_DELETE | SAMR_USER_SETPASS | SAMR_USER_GETATTR |
+                SAMR_USER_SETATTR;
 
 	result = rpccli_samr_create_dom_user(pipe_hnd, mem_ctx, &domain_pol,
-					  acct_name, acb_info, unknown,
+					  acct_name, acb_info, acct_flags,
 					  &user_pol, &user_rid);
 	if (!NT_STATUS_IS_OK(result)) {
 		goto done;
@@ -5431,7 +5448,7 @@ static int rpc_trustdom_add(int argc, const char **argv)
 		return run_rpc_command(NULL, PI_SAMR, 0, rpc_trustdom_add_internals,
 		                       argc, argv);
 	} else {
-		d_printf("Usage: net rpc trustdom add <domain>\n");
+		d_printf("Usage: net rpc trustdom add <domain> <trust password>\n");
 		return -1;
 	}
 }
@@ -5654,6 +5671,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 	if (NT_STATUS_IS_ERR(nt_status)) {
 		DEBUG(0, ("Couldn't connect to domain %s controller. Error was %s.\n",
 			domain_name, nt_errstr(nt_status)));
+		return -1;
 	}
 
 	/*
@@ -5663,6 +5681,8 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 	if (!cli_get_pdc_name(cli, domain_name, (char*)pdc_name)) {
 		DEBUG(0, ("NetServerEnum2 error: Couldn't find primary domain controller\
 			 for domain %s\n", domain_name));
+		cli_shutdown(cli);
+		return -1;
 	}
 	 
 	if (!(mem_ctx = talloc_init("establishing trust relationship to "
@@ -5680,6 +5700,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 	if (!pipe_hnd) {
 		DEBUG(0, ("Could not initialise lsa pipe. Error was %s\n", nt_errstr(nt_status) ));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 
@@ -5689,6 +5710,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 		DEBUG(0, ("Couldn't open policy handle. Error was %s\n",
 			nt_errstr(nt_status)));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 
@@ -5701,6 +5723,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 		DEBUG(0, ("LSA Query Info failed. Returned error was %s\n",
 			nt_errstr(nt_status)));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 
@@ -5716,6 +5739,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 						   domain_sid)) {
 		DEBUG(0, ("Storing password for trusted domain failed.\n"));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 	
@@ -5728,6 +5752,7 @@ static int rpc_trustdom_establish(int argc, const char **argv)
 		DEBUG(0, ("Couldn't close LSA pipe. Error was %s\n",
 			nt_errstr(nt_status)));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 
@@ -5860,7 +5885,7 @@ static NTSTATUS vampire_trusted_domain(struct rpc_pipe_client *pipe_hnd,
 	}
 
 #ifdef DEBUG_PASSWORD
-	DEBUG(100,("sucessfully vampired trusted domain [%s], sid: [%s], password: [%s]\n",  
+	DEBUG(100,("successfully vampired trusted domain [%s], sid: [%s], password: [%s]\n",  
 		trusted_dom_name, sid_string_static(&dom_sid), cleartextpwd));
 #endif
 
@@ -5913,6 +5938,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 	/* open \PIPE\lsarpc and open policy handle */
 	if (!(cli = net_make_ipc_connection(NET_FLAGS_PDC))) {
 		DEBUG(0, ("Couldn't connect to domain controller\n"));
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 
@@ -5921,6 +5947,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 		DEBUG(0, ("Could not initialise lsa pipe. Error was %s\n",
 			nt_errstr(nt_status) ));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 
@@ -5930,6 +5957,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 		DEBUG(0, ("Couldn't open policy handle. Error was %s\n",
  			nt_errstr(nt_status)));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 
@@ -5942,6 +5970,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 		DEBUG(0, ("LSA Query Info failed. Returned error was %s\n",
 			nt_errstr(nt_status)));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 
@@ -5961,6 +5990,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 			DEBUG(0, ("Couldn't enumerate trusted domains. Error was %s\n",
 				nt_errstr(nt_status)));
 			cli_shutdown(cli);
+			talloc_destroy(mem_ctx);
 			return -1;
 		};
 		
@@ -5972,6 +6002,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 							   domain_sids[i], trusted_dom_names[i]);
 			if (!NT_STATUS_IS_OK(nt_status)) {
 				cli_shutdown(cli);
+				talloc_destroy(mem_ctx);
 				return -1;
 			}
 		};
@@ -5990,6 +6021,7 @@ static int rpc_trustdom_vampire(int argc, const char **argv)
 		DEBUG(0, ("Couldn't properly close lsa policy handle. Error was %s\n",
 			nt_errstr(nt_status)));
 		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 
@@ -6049,6 +6081,7 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	/* open \PIPE\lsarpc and open policy handle */
 	if (!(cli = net_make_ipc_connection(NET_FLAGS_PDC))) {
 		DEBUG(0, ("Couldn't connect to domain controller\n"));
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 
@@ -6056,6 +6089,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	if (!pipe_hnd) {
 		DEBUG(0, ("Could not initialise lsa pipe. Error was %s\n",
 			nt_errstr(nt_status) ));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 
@@ -6064,6 +6099,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	if (NT_STATUS_IS_ERR(nt_status)) {
 		DEBUG(0, ("Couldn't open policy handle. Error was %s\n",
  			nt_errstr(nt_status)));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 	
@@ -6075,6 +6112,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	if (NT_STATUS_IS_ERR(nt_status)) {
 		DEBUG(0, ("LSA Query Info failed. Returned error was %s\n",
 			nt_errstr(nt_status)));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	}
 		
@@ -6093,6 +6132,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 		if (NT_STATUS_IS_ERR(nt_status)) {
 			DEBUG(0, ("Couldn't enumerate trusted domains. Error was %s\n",
 				nt_errstr(nt_status)));
+			cli_shutdown(cli);
+			talloc_destroy(mem_ctx);
 			return -1;
 		};
 		
@@ -6113,6 +6154,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	if (NT_STATUS_IS_ERR(nt_status)) {
 		DEBUG(0, ("Couldn't properly close lsa policy handle. Error was %s\n",
 			nt_errstr(nt_status)));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 	
@@ -6130,6 +6173,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	pipe_hnd = cli_rpc_pipe_open_noauth(cli, PI_SAMR, &nt_status);
 	if (!pipe_hnd) {
 		DEBUG(0, ("Could not initialise samr pipe. Error was %s\n", nt_errstr(nt_status)));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 	
@@ -6139,6 +6184,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		DEBUG(0, ("Couldn't open SAMR policy handle. Error was %s\n",
 			nt_errstr(nt_status)));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 	
@@ -6150,6 +6197,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		DEBUG(0, ("Couldn't open domain object. Error was %s\n",
 			nt_errstr(nt_status)));
+		cli_shutdown(cli);
+		talloc_destroy(mem_ctx);
 		return -1;
 	};
 	
@@ -6167,6 +6216,8 @@ static int rpc_trustdom_list(int argc, const char **argv)
 		if (NT_STATUS_IS_ERR(nt_status)) {
 			DEBUG(0, ("Couldn't enumerate accounts. Error was: %s\n",
 				nt_errstr(nt_status)));
+			cli_shutdown(cli);
+			talloc_destroy(mem_ctx);
 			return -1;
 		};
 		
@@ -6269,32 +6320,34 @@ static int rpc_trustdom(int argc, const char **argv)
  */
 BOOL net_rpc_check(unsigned flags)
 {
-	struct cli_state cli;
+	struct cli_state *cli;
 	BOOL ret = False;
 	struct in_addr server_ip;
 	char *server_name = NULL;
+	NTSTATUS status;
 
 	/* flags (i.e. server type) may depend on command */
 	if (!net_find_server(NULL, flags, &server_ip, &server_name))
 		return False;
 
-	ZERO_STRUCT(cli);
-	if (cli_initialise(&cli) == False)
+	if ((cli = cli_initialise()) == NULL) {
 		return False;
+	}
 
-	if (!cli_connect(&cli, server_name, &server_ip))
+	status = cli_connect(cli, server_name, &server_ip);
+	if (!NT_STATUS_IS_OK(status))
 		goto done;
 	if (!attempt_netbios_session_request(&cli, global_myname(), 
 					     server_name, &server_ip))
 		goto done;
-	if (!cli_negprot(&cli))
+	if (!cli_negprot(cli))
 		goto done;
-	if (cli.protocol < PROTOCOL_NT1)
+	if (cli->protocol < PROTOCOL_NT1)
 		goto done;
 
 	ret = True;
  done:
-	cli_shutdown(&cli);
+	cli_shutdown(cli);
 	return ret;
 }
 

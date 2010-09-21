@@ -118,7 +118,8 @@ ftpuser:1000:8C6F5D02DEB21501AAD3B435B51404EE:E0FBA38268D0EC66EF1CB452D5885E53:[
 **********************************************************/
 int main(int argc, char **argv)
 {	
-	char *passwd_filename = "/var/samba/private/smbpasswd";
+// not for freetz: char *passwd_filename = "/var/samba/private/smbpasswd";
+	char *passwd_filename = "/mod/etc/smbpasswd";
 	char *cleartext_filename = "/var/tmp/smbpasswd.cleartext";
 
 	if (argc != 1) {
@@ -210,4 +211,3 @@ err:
 fprintf(stderr, "%u samba users written to %s\n", nusers, passwd_filename);
 	return 0;
 }
-

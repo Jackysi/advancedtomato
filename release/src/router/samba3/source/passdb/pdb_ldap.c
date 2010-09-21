@@ -455,7 +455,11 @@ static time_t ldapsam_get_entry_timestamp( struct ldapsam_privates *ldap_state, 
 			temp))
 		return (time_t) 0;
 
-	strptime(temp, "%Y%m%d%H%M%SZ", &tm);
+	if ( !strptime(temp, "%Y%m%d%H%M%SZ", &tm)) {
+		DEBUG(2,("ldapsam_get_entry_timestamp: strptime failed on: %s\n",
+			(char*)temp));
+		return (time_t) 0;
+	}
 	tzset();
 	return timegm(&tm);
 }
@@ -650,12 +654,13 @@ static BOOL init_sam_from_ldap(struct ldapsam_privates *ldap_state,
 			get_userattr_key2string(ldap_state->schema_ver, LDAP_ATTR_HOME_PATH), homedir)) 
 	{
 		pdb_set_homedir( sampass, 
-			talloc_sub_basic(sampass, username, lp_logon_home()),
+			talloc_sub_basic(sampass, username, domain,
+					 lp_logon_home()),
 			PDB_DEFAULT );
 	} else {
 		pstrcpy( tmpstring, homedir );
 		if (expand_explicit) {
-			standard_sub_basic( username, tmpstring,
+			standard_sub_basic( username, domain, tmpstring,
 					    sizeof(tmpstring) );
 		}
 		pdb_set_homedir(sampass, tmpstring, PDB_SET);
@@ -665,12 +670,13 @@ static BOOL init_sam_from_ldap(struct ldapsam_privates *ldap_state,
 			get_userattr_key2string(ldap_state->schema_ver, LDAP_ATTR_LOGON_SCRIPT), logon_script)) 
 	{
 		pdb_set_logon_script( sampass, 
-			talloc_sub_basic(sampass, username, lp_logon_script()), 
+			talloc_sub_basic(sampass, username, domain,
+					 lp_logon_script()), 
 			PDB_DEFAULT );
 	} else {
 		pstrcpy( tmpstring, logon_script );
 		if (expand_explicit) {
-			standard_sub_basic( username, tmpstring,
+			standard_sub_basic( username, domain, tmpstring,
 					    sizeof(tmpstring) );
 		}
 		pdb_set_logon_script(sampass, tmpstring, PDB_SET);
@@ -680,12 +686,13 @@ static BOOL init_sam_from_ldap(struct ldapsam_privates *ldap_state,
 			get_userattr_key2string(ldap_state->schema_ver, LDAP_ATTR_PROFILE_PATH), profile_path)) 
 	{
 		pdb_set_profile_path( sampass, 
-			talloc_sub_basic( sampass, username, lp_logon_path()),
+			talloc_sub_basic( sampass, username, domain,
+					  lp_logon_path()),
 			PDB_DEFAULT );
 	} else {
 		pstrcpy( tmpstring, profile_path );
 		if (expand_explicit) {
-			standard_sub_basic( username, tmpstring,
+			standard_sub_basic( username, domain, tmpstring,
 					    sizeof(tmpstring) );
 		}
 		pdb_set_profile_path(sampass, tmpstring, PDB_SET);
@@ -787,7 +794,7 @@ static BOOL init_sam_from_ldap(struct ldapsam_privates *ldap_state,
 
 		pwHistLen = MIN(pwHistLen, MAX_PW_HISTORY_LEN);
 
-		if ((pwhist = SMB_MALLOC(pwHistLen * PW_HISTORY_ENTRY_LEN)) == NULL){
+		if ((pwhist = SMB_MALLOC_ARRAY(uint8, pwHistLen * PW_HISTORY_ENTRY_LEN)) == NULL){
 			DEBUG(0, ("init_sam_from_ldap: malloc failed!\n"));
 			return False;
 		}
@@ -967,15 +974,14 @@ static BOOL init_ldap_from_sam (struct ldapsam_privates *ldap_state,
 	/* only update the RID if we actually need to */
 	if (need_update(sampass, PDB_USERSID)) {
 		fstring sid_string;
-		fstring dom_sid_string;
 		const DOM_SID *user_sid = pdb_get_user_sid(sampass);
 		
 		switch ( ldap_state->schema_ver ) {
 			case SCHEMAVER_SAMBAACCOUNT:
 				if (!sid_peek_check_rid(&ldap_state->domain_sid, user_sid, &rid)) {
 					DEBUG(1, ("init_ldap_from_sam: User's SID (%s) is not for this domain (%s), cannot add to LDAP!\n", 
-						sid_to_string(sid_string, user_sid), 
-						sid_to_string(dom_sid_string, &ldap_state->domain_sid)));
+						  sid_string_static(user_sid), 
+						  sid_string_static(&ldap_state->domain_sid)));
 					return False;
 				}
 				slprintf(temp, sizeof(temp) - 1, "%i", rid);
@@ -1001,15 +1007,14 @@ static BOOL init_ldap_from_sam (struct ldapsam_privates *ldap_state,
 
 	if (need_update(sampass, PDB_GROUPSID)) {
 		fstring sid_string;
-		fstring dom_sid_string;
 		const DOM_SID *group_sid = pdb_get_group_sid(sampass);
 		
 		switch ( ldap_state->schema_ver ) {
 			case SCHEMAVER_SAMBAACCOUNT:
 				if (!sid_peek_check_rid(&ldap_state->domain_sid, group_sid, &rid)) {
 					DEBUG(1, ("init_ldap_from_sam: User's Primary Group SID (%s) is not for this domain (%s), cannot add to LDAP!\n",
-						sid_to_string(sid_string, group_sid),
-						sid_to_string(dom_sid_string, &ldap_state->domain_sid)));
+						  sid_string_static(group_sid),
+						  sid_string_static(&ldap_state->domain_sid)));
 					return False;
 				}
 
@@ -1095,7 +1100,7 @@ static BOOL init_ldap_from_sam (struct ldapsam_privates *ldap_state,
 		smbldap_make_mod(ldap_state->smbldap_state->ldap_struct, existing, mods,
 			get_userattr_key2string(ldap_state->schema_ver, LDAP_ATTR_KICKOFF_TIME), temp);
 
-	slprintf (temp, sizeof (temp) - 1, "%li", pdb_get_pass_can_change_time(sampass));
+	slprintf (temp, sizeof (temp) - 1, "%li", pdb_get_pass_can_change_time_noncalc(sampass));
 	if (need_update(sampass, PDB_CANCHANGETIME))
 		smbldap_make_mod(ldap_state->smbldap_state->ldap_struct, existing, mods,
 			get_userattr_key2string(ldap_state->schema_ver, LDAP_ATTR_PWD_CAN_CHANGE), temp);
@@ -1592,19 +1597,21 @@ static NTSTATUS ldapsam_modify_entry(struct pdb_methods *my_methods,
 		}
 
 		if (push_utf8_allocate(&utf8_dn, dn) == (size_t)-1) {
+			SAFE_FREE(utf8_password);
 			return NT_STATUS_NO_MEMORY;
 		}
 
 		if ((ber = ber_alloc_t(LBER_USE_DER))==NULL) {
 			DEBUG(0,("ber_alloc_t returns NULL\n"));
 			SAFE_FREE(utf8_password);
+			SAFE_FREE(utf8_dn);
 			return NT_STATUS_UNSUCCESSFUL;
 		}
 
 		ber_printf (ber, "{");
 		ber_printf (ber, "ts", LDAP_TAG_EXOP_MODIFY_PASSWD_ID, utf8_dn);
 	        ber_printf (ber, "ts", LDAP_TAG_EXOP_MODIFY_PASSWD_NEW, utf8_password);
-	        ber_printf (ber, "N}");
+	        ber_printf (ber, "n}");
 
 	        if ((rc = ber_flatten (ber, &bv))<0) {
 			DEBUG(0,("ldapsam_modify_entry: ber_flatten returns a value <0\n"));
@@ -1644,6 +1651,10 @@ static NTSTATUS ldapsam_modify_entry(struct pdb_methods *my_methods,
 				pdb_get_username(newpwd), ldap_err2string(rc), ld_error?ld_error:"unknown"));
 			SAFE_FREE(ld_error);
 			ber_bvfree(bv);
+#if defined(LDAP_CONSTRAINT_VIOLATION)
+			if (rc == LDAP_CONSTRAINT_VIOLATION)
+				return NT_STATUS_PASSWORD_RESTRICTION;
+#endif
 			return NT_STATUS_UNSUCCESSFUL;
 		} else {
 			DEBUG(3,("ldapsam_modify_entry: LDAP Password changed for user %s\n",pdb_get_username(newpwd)));
@@ -1747,7 +1758,7 @@ static NTSTATUS ldapsam_update_sam_account(struct pdb_methods *my_methods, struc
 	LDAPMod **mods = NULL;
 	const char **attr_list;
 
-	result = pdb_get_backend_private_data(newpwd, my_methods);
+	result = (LDAPMessage *)pdb_get_backend_private_data(newpwd, my_methods);
 	if (!result) {
 		attr_list = get_userattr_list(NULL, ldap_state->schema_ver);
 		if (pdb_get_username(newpwd) == NULL) {
@@ -1784,8 +1795,9 @@ static NTSTATUS ldapsam_update_sam_account(struct pdb_methods *my_methods, struc
 			ldap_mods_free(mods,True);
 		return NT_STATUS_UNSUCCESSFUL;
 	}
-	
-	if (mods == NULL) {
+
+	if ((lp_ldap_passwd_sync() != LDAP_PASSWD_SYNC_ONLY)
+	    && (mods == NULL)) {
 		DEBUG(4,("ldapsam_update_sam_account: mods is empty: nothing to update for user: %s\n",
 			 pdb_get_username(newpwd)));
 		SAFE_FREE(dn);
@@ -1793,7 +1805,11 @@ static NTSTATUS ldapsam_update_sam_account(struct pdb_methods *my_methods, struc
 	}
 	
 	ret = ldapsam_modify_entry(my_methods,newpwd,dn,mods,LDAP_MOD_REPLACE, element_is_changed);
-	ldap_mods_free(mods,True);
+
+	if (mods != NULL) {
+		ldap_mods_free(mods,True);
+	}
+
 	SAFE_FREE(dn);
 
 	/*
@@ -2046,14 +2062,25 @@ static NTSTATUS ldapsam_add_sam_account(struct pdb_methods *my_methods, struct s
 	TALLOC_FREE( attr_list );
 
 	if (num_result == 0) {
+		char *escape_username;
 		/* Check if we need to add an entry */
 		DEBUG(3,("ldapsam_add_sam_account: Adding new user\n"));
 		ldap_op = LDAP_MOD_ADD;
-		if (username[strlen(username)-1] == '$') {
-			slprintf (dn, sizeof (dn) - 1, "uid=%s,%s", username, lp_ldap_machine_suffix ());
-		} else {
-			slprintf (dn, sizeof (dn) - 1, "uid=%s,%s", username, lp_ldap_user_suffix ());
+
+		escape_username = escape_rdn_val_string_alloc(username);
+		if (!escape_username) {
+			DEBUG(0, ("Out of memory!\n"));
+			ldap_msgfree(result);
+			return NT_STATUS_NO_MEMORY;
 		}
+
+		if (username[strlen(username)-1] == '$') {
+			slprintf (dn, sizeof (dn) - 1, "uid=%s,%s", escape_username, lp_ldap_machine_suffix ());
+		} else {
+			slprintf (dn, sizeof (dn) - 1, "uid=%s,%s", escape_username, lp_ldap_user_suffix ());
+		}
+
+		SAFE_FREE(escape_username);
 	}
 
 	if (!init_ldap_from_sam(ldap_state, entry, &mods, newpwd,
@@ -2159,7 +2186,7 @@ static BOOL init_group_from_ldap(struct ldapsam_privates *ldap_state,
 			get_attr_key2string( groupmap_attr_list, LDAP_ATTR_GROUP_TYPE)));
 		return False;
 	}
-	map->sid_name_use = (enum SID_NAME_USE)atol(temp);
+	map->sid_name_use = (enum lsa_SidType)atol(temp);
 
 	if ((map->sid_name_use < SID_NAME_USER) ||
 			(map->sid_name_use > SID_NAME_UNKNOWN)) {
@@ -2412,11 +2439,22 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 		}
 
 		for (memberuid = values; *memberuid != NULL; memberuid += 1) {
-			filter = talloc_asprintf_append(filter, "(uid=%s)", *memberuid);
-			if (filter == NULL) {
+			char *escape_memberuid;
+
+			escape_memberuid = escape_ldap_string_alloc(*memberuid);
+			if (escape_memberuid == NULL) {
 				ret = NT_STATUS_NO_MEMORY;
 				goto done;
 			}
+			
+			filter = talloc_asprintf_append(filter, "(uid=%s)", escape_memberuid);
+			if (filter == NULL) {
+				SAFE_FREE(escape_memberuid);
+				ret = NT_STATUS_NO_MEMORY;
+				goto done;
+			}
+
+			SAFE_FREE(escape_memberuid);
 		}
 
 		filter = talloc_asprintf_append(filter, "))");
@@ -2425,7 +2463,7 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 			goto done;
 		}
 
-		rc = smbldap_search(conn, lp_ldap_user_suffix(),
+		rc = smbldap_search(conn, lp_ldap_suffix(),
 				    LDAP_SCOPE_SUBTREE, filter, sid_attrs, 0,
 				    &result);
 
@@ -2467,8 +2505,11 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 
 			sid_peek_rid(&sid, &rid);
 
-			add_rid_to_array_unique(mem_ctx, rid, pp_member_rids,
-						p_num_members);
+			if (!add_rid_to_array_unique(mem_ctx, rid, pp_member_rids,
+						p_num_members)) {
+				ret = NT_STATUS_NO_MEMORY;
+				goto done;
+			}
 		}
 	}
 
@@ -2478,7 +2519,7 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 				 LDAP_OBJ_SAMBASAMACCOUNT,
 				 gidstr);
 
-	rc = smbldap_search(conn, lp_ldap_user_suffix(),
+	rc = smbldap_search(conn, lp_ldap_suffix(),
 			    LDAP_SCOPE_SUBTREE, filter, sid_attrs, 0,
 			    &result);
 
@@ -2503,8 +2544,11 @@ static NTSTATUS ldapsam_enum_group_members(struct pdb_methods *methods,
 			goto done;
 		}
 
-		add_rid_to_array_unique(mem_ctx, rid, pp_member_rids,
-					p_num_members);
+		if (!add_rid_to_array_unique(mem_ctx, rid, pp_member_rids,
+					p_num_members)) {
+			ret = NT_STATUS_NO_MEMORY;
+			goto done;
+		}
 	}
 
 	ret = NT_STATUS_OK;
@@ -2559,7 +2603,7 @@ static NTSTATUS ldapsam_enum_group_memberships(struct pdb_methods *methods,
 		goto done;
 	}
 
-	rc = smbldap_search(conn, lp_ldap_user_suffix(),
+	rc = smbldap_search(conn, lp_ldap_suffix(),
 			    LDAP_SCOPE_SUBTREE, filter, attrs, 0, &result);
 
 	if (rc != LDAP_SUCCESS)
@@ -2586,7 +2630,7 @@ static NTSTATUS ldapsam_enum_group_memberships(struct pdb_methods *methods,
 		primary_gid = strtoul(gidstr, NULL, 10);
 		break;
 	default:
-		DEBUG(1, ("found more than one accoutn with the same user name ?!\n"));
+		DEBUG(1, ("found more than one account with the same user name ?!\n"));
 		ret = NT_STATUS_INTERNAL_DB_CORRUPTION;
 		goto done;
 	}
@@ -2615,11 +2659,17 @@ static NTSTATUS ldapsam_enum_group_memberships(struct pdb_methods *methods,
 
 	/* We need to add the primary group as the first gid/sid */
 
-	add_gid_to_array_unique(mem_ctx, primary_gid, pp_gids, &num_gids);
+	if (!add_gid_to_array_unique(mem_ctx, primary_gid, pp_gids, &num_gids)) {
+		ret = NT_STATUS_NO_MEMORY;
+		goto done;
+	}
 
 	/* This sid will be replaced later */
 
-	add_sid_to_array_unique(mem_ctx, &global_sid_NULL, pp_sids, &num_sids);
+	if (!add_sid_to_array_unique(mem_ctx, &global_sid_NULL, pp_sids, &num_sids)) {
+		ret = NT_STATUS_NO_MEMORY;
+		goto done;
+	}
 
 	for (entry = ldap_first_entry(conn->ldap_struct, result);
 	     entry != NULL;
@@ -2651,10 +2701,16 @@ static NTSTATUS ldapsam_enum_group_memberships(struct pdb_methods *methods,
 		if (gid == primary_gid) {
 			sid_copy(&(*pp_sids)[0], &sid);
 		} else {
-			add_gid_to_array_unique(mem_ctx, gid, pp_gids,
-						&num_gids);
-			add_sid_to_array_unique(mem_ctx, &sid, pp_sids,
-						&num_sids);
+			if (!add_gid_to_array_unique(mem_ctx, gid, pp_gids,
+						&num_gids)) {
+				ret = NT_STATUS_NO_MEMORY;
+				goto done;
+			}
+			if (!add_sid_to_array_unique(mem_ctx, &sid, pp_sids,
+						&num_sids)) {
+				ret = NT_STATUS_NO_MEMORY;
+				goto done;
+			}
 		}
 	}
 
@@ -3107,7 +3163,7 @@ static NTSTATUS ldapsam_getsamgrent(struct pdb_methods *my_methods,
  *********************************************************************/
 
 static NTSTATUS ldapsam_enum_group_mapping(struct pdb_methods *methods,
-					   const DOM_SID *domsid, enum SID_NAME_USE sid_name_use,
+					   const DOM_SID *domsid, enum lsa_SidType sid_name_use,
 					   GROUP_MAP **pp_rmap,
 					   size_t *p_num_entries,
 					   BOOL unix_only)
@@ -3169,7 +3225,7 @@ static NTSTATUS ldapsam_modify_aliasmem(struct pdb_methods *methods,
 	int count;
 	LDAPMod **mods = NULL;
 	int rc;
-	enum SID_NAME_USE type = SID_NAME_USE_NONE;
+	enum lsa_SidType type = SID_NAME_USE_NONE;
 
 	pstring filter;
 
@@ -3281,7 +3337,7 @@ static NTSTATUS ldapsam_enum_aliasmem(struct pdb_methods *methods,
 	int i;
 	pstring filter;
 	size_t num_members = 0;
-	enum SID_NAME_USE type = SID_NAME_USE_NONE;
+	enum lsa_SidType type = SID_NAME_USE_NONE;
 
 	*pp_members = NULL;
 	*p_num_members = 0;
@@ -3351,7 +3407,11 @@ static NTSTATUS ldapsam_enum_aliasmem(struct pdb_methods *methods,
 		if (!string_to_sid(&member, values[i]))
 			continue;
 
-		add_sid_to_array(NULL, &member, pp_members, &num_members);
+		if (!add_sid_to_array(NULL, &member, pp_members, &num_members)) {
+			ldap_value_free(values);
+			ldap_msgfree(result);
+			return NT_STATUS_NO_MEMORY;
+		}
 	}
 
 	*p_num_members = num_members;
@@ -3380,7 +3440,7 @@ static NTSTATUS ldapsam_alias_memberships(struct pdb_methods *methods,
 	int i;
 	int rc;
 	char *filter;
-	enum SID_NAME_USE type = SID_NAME_USE_NONE;
+	enum lsa_SidType type = SID_NAME_USE_NONE;
 
 	if (sid_check_is_builtin(domain_sid)) {
 		type = SID_NAME_ALIAS;
@@ -3439,8 +3499,11 @@ static NTSTATUS ldapsam_alias_memberships(struct pdb_methods *methods,
 		if (!sid_peek_check_rid(domain_sid, &sid, &rid))
 			continue;
 
-		add_rid_to_array_unique(mem_ctx, rid, pp_alias_rids,
-					p_num_alias_rids);
+		if (!add_rid_to_array_unique(mem_ctx, rid, pp_alias_rids,
+					p_num_alias_rids)) {
+			ldap_msgfree(result);
+			return NT_STATUS_NO_MEMORY;
+		}
 	}
 
 	ldap_msgfree(result);
@@ -3460,8 +3523,6 @@ static NTSTATUS ldapsam_set_account_policy_in_ldap(struct pdb_methods *methods,
 	struct ldapsam_privates *ldap_state =
 		(struct ldapsam_privates *)methods->private_data;
 
-	const char *attrs[2];
-
 	DEBUG(10,("ldapsam_set_account_policy_in_ldap\n"));
 
 	if (!ldap_state->domain_dn) {
@@ -3474,9 +3535,6 @@ static NTSTATUS ldapsam_set_account_policy_in_ldap(struct pdb_methods *methods,
 			 "policy\n"));
 		return ntstatus;
 	}
-
-	attrs[0] = policy_attr;
-	attrs[1] = NULL;
 
 	slprintf(value_string, sizeof(value_string) - 1, "%i", value);
 
@@ -3503,11 +3561,6 @@ static NTSTATUS ldapsam_set_account_policy_in_ldap(struct pdb_methods *methods,
 static NTSTATUS ldapsam_set_account_policy(struct pdb_methods *methods,
 					   int policy_index, uint32 value)
 {
-	if (!account_policy_migrated(False)) {
-		return (account_policy_set(policy_index, value)) ?
-			NT_STATUS_OK : NT_STATUS_UNSUCCESSFUL;
-	}
-
 	return ldapsam_set_account_policy_in_ldap(methods, policy_index,
 						  value);
 }
@@ -3596,11 +3649,6 @@ static NTSTATUS ldapsam_get_account_policy(struct pdb_methods *methods,
 {
 	NTSTATUS ntstatus = NT_STATUS_UNSUCCESSFUL;
 
-	if (!account_policy_migrated(False)) {
-		return (account_policy_get(policy_index, value))
-			? NT_STATUS_OK : NT_STATUS_UNSUCCESSFUL;
-	}
-
 	if (cache_account_policy_get(policy_index, value)) {
 		DEBUG(11,("ldapsam_get_account_policy: got valid value from "
 			  "cache\n"));
@@ -3652,7 +3700,7 @@ static NTSTATUS ldapsam_lookup_rids(struct pdb_methods *methods,
 				    int num_rids,
 				    uint32 *rids,
 				    const char **names,
-				    uint32 *attrs)
+				    enum lsa_SidType *attrs)
 {
 	struct ldapsam_privates *ldap_state =
 		(struct ldapsam_privates *)methods->private_data;
@@ -3802,7 +3850,7 @@ static NTSTATUS ldapsam_lookup_rids(struct pdb_methods *methods,
 		uint32 rid;
 		int rid_index;
 		const char *attr;
-		enum SID_NAME_USE type;
+		enum lsa_SidType type;
 		const char *dn = smbldap_talloc_dn(mem_ctx, ld, entry);
 
 		attr = smbldap_talloc_single_attribute(ld, entry, "sambaGroupType",
@@ -3813,7 +3861,7 @@ static NTSTATUS ldapsam_lookup_rids(struct pdb_methods *methods,
 			continue;
 		}
 
-		type = atol(attr);
+		type = (enum lsa_SidType)atol(attr);
 
 		/* Consistency checks */
 		if ((is_builtin && (type != SID_NAME_ALIAS)) ||
@@ -3940,7 +3988,8 @@ struct ldap_search_state {
 
 static BOOL ldapsam_search_firstpage(struct pdb_search *search)
 {
-	struct ldap_search_state *state = search->private_data;
+	struct ldap_search_state *state =
+		(struct ldap_search_state *)search->private_data;
 	LDAP *ld;
 	int rc = LDAP_OPERATIONS_ERROR;
 
@@ -3992,7 +4041,8 @@ static BOOL ldapsam_search_firstpage(struct pdb_search *search)
 
 static BOOL ldapsam_search_nextpage(struct pdb_search *search)
 {
-	struct ldap_search_state *state = search->private_data;
+	struct ldap_search_state *state =
+		(struct ldap_search_state *)search->private_data;
 	int rc;
 
 	if (!state->connection->paged_results) {
@@ -4022,7 +4072,8 @@ static BOOL ldapsam_search_nextpage(struct pdb_search *search)
 static BOOL ldapsam_search_next_entry(struct pdb_search *search,
 				      struct samr_displayentry *entry)
 {
-	struct ldap_search_state *state = search->private_data;
+	struct ldap_search_state *state =
+		(struct ldap_search_state *)search->private_data;
 	BOOL result;
 
  retry:
@@ -4057,7 +4108,8 @@ static BOOL ldapsam_search_next_entry(struct pdb_search *search,
 
 static void ldapsam_search_end(struct pdb_search *search)
 {
-	struct ldap_search_state *state = search->private_data;
+	struct ldap_search_state *state =
+		(struct ldap_search_state *)search->private_data;
 	int rc;
 
 	if (state->pagedresults_cookie == NULL)
@@ -4173,7 +4225,8 @@ static BOOL ldapsam_search_users(struct pdb_methods *methods,
 				 struct pdb_search *search,
 				 uint32 acct_flags)
 {
-	struct ldapsam_privates *ldap_state = methods->private_data;
+	struct ldapsam_privates *ldap_state =
+		(struct ldapsam_privates *)methods->private_data;
 	struct ldap_search_state *state;
 
 	state = TALLOC_P(search->mem_ctx, struct ldap_search_state);
@@ -4329,9 +4382,10 @@ static BOOL ldapgroup2displayentry(struct ldap_search_state *state,
 static BOOL ldapsam_search_grouptype(struct pdb_methods *methods,
 				     struct pdb_search *search,
                                      const DOM_SID *sid,
-				     enum SID_NAME_USE type)
+				     enum lsa_SidType type)
 {
-	struct ldapsam_privates *ldap_state = methods->private_data;
+	struct ldapsam_privates *ldap_state =
+		(struct ldapsam_privates *)methods->private_data;
 	struct ldap_search_state *state;
 
 	state = TALLOC_P(search->mem_ctx, struct ldap_search_state);
@@ -4490,8 +4544,8 @@ static NTSTATUS ldapsam_new_rid_internal(struct pdb_methods *methods, uint32 *ri
 	int i;
 
 	for (i=0; i<10; i++) {
-		NTSTATUS result = ldapsam_get_new_rid(methods->private_data,
-						      rid);
+		NTSTATUS result = ldapsam_get_new_rid(
+			(struct ldapsam_privates *)methods->private_data, rid);
 		if (NT_STATUS_IS_OK(result)) {
 			return result;
 		}
@@ -4515,9 +4569,10 @@ static BOOL ldapsam_new_rid(struct pdb_methods *methods, uint32 *rid)
 
 static BOOL ldapsam_sid_to_id(struct pdb_methods *methods,
 			      const DOM_SID *sid,
-			      union unid_t *id, enum SID_NAME_USE *type)
+			      union unid_t *id, enum lsa_SidType *type)
 {
-	struct ldapsam_privates *priv = methods->private_data;
+	struct ldapsam_privates *priv =
+		(struct ldapsam_privates *)methods->private_data;
 	char *filter;
 	const char *attrs[] = { "sambaGroupType", "gidNumber", "uidNumber",
 				NULL };
@@ -4577,7 +4632,7 @@ static BOOL ldapsam_sid_to_id(struct pdb_methods *methods,
 		}
 
 		id->gid = strtoul(gid_str, NULL, 10);
-		*type = strtoul(value, NULL, 10);
+		*type = (enum lsa_SidType)strtoul(value, NULL, 10);
 		ret = True;
 		goto done;
 	}
@@ -4753,6 +4808,8 @@ static NTSTATUS ldapsam_create_user(struct pdb_methods *my_methods,
 	smbldap_set_mod(&mods, LDAP_MOD_ADD, "objectClass", LDAP_OBJ_SAMBASAMACCOUNT);
 
 	if (add_posix) {
+		char *escape_name;
+
 		DEBUG(3,("ldapsam_create_user: Creating new posix user\n"));
 
 		/* retrieve the Domain Users group gid */
@@ -4779,11 +4836,20 @@ static NTSTATUS ldapsam_create_user(struct pdb_methods *my_methods,
 		}
 		uidstr = talloc_asprintf(tmp_ctx, "%d", uid);
 		gidstr = talloc_asprintf(tmp_ctx, "%d", gid);
-		if (is_machine) {
-			dn = talloc_asprintf(tmp_ctx, "uid=%s,%s", name, lp_ldap_machine_suffix ());
-		} else {
-			dn = talloc_asprintf(tmp_ctx, "uid=%s,%s", name, lp_ldap_user_suffix ());
+
+		escape_name = escape_rdn_val_string_alloc(name);
+		if (!escape_name) {
+			DEBUG (0, ("ldapsam_create_user: Out of memory!\n"));
+			return NT_STATUS_NO_MEMORY;
 		}
+
+		if (is_machine) {
+			dn = talloc_asprintf(tmp_ctx, "uid=%s,%s", escape_name, lp_ldap_machine_suffix ());
+		} else {
+			dn = talloc_asprintf(tmp_ctx, "uid=%s,%s", escape_name, lp_ldap_user_suffix ());
+		}
+
+		SAFE_FREE(escape_name);
 
 		if (!homedir || !shell || !uidstr || !gidstr || !dn) {
 			DEBUG (0, ("ldapsam_create_user: Out of memory!\n"));
@@ -4966,6 +5032,8 @@ static NTSTATUS ldapsam_create_dom_group(struct pdb_methods *my_methods,
 	}
 
 	if (num_result == 0) {
+		char *escape_name;
+
 		DEBUG(3,("ldapsam_create_user: Creating new posix group\n"));
 
 		is_new_entry = True;
@@ -4977,7 +5045,16 @@ static NTSTATUS ldapsam_create_dom_group(struct pdb_methods *my_methods,
 		}
 
 		gidstr = talloc_asprintf(tmp_ctx, "%d", gid);
-		dn = talloc_asprintf(tmp_ctx, "cn=%s,%s", name, lp_ldap_group_suffix());
+
+		escape_name = escape_rdn_val_string_alloc(name);
+		if (!escape_name) {
+			DEBUG (0, ("ldapsam_create_group: Out of memory!\n"));
+			return NT_STATUS_NO_MEMORY;
+		}
+
+		dn = talloc_asprintf(tmp_ctx, "cn=%s,%s", escape_name, lp_ldap_group_suffix());
+
+		SAFE_FREE(escape_name);
 
 		if (!gidstr || !dn) {
 			DEBUG (0, ("ldapsam_create_group: Out of memory!\n"));
@@ -5315,6 +5392,7 @@ static NTSTATUS ldapsam_set_primary_group(struct pdb_methods *my_methods,
 	uint32 num_result;
 	LDAPMod **mods = NULL;
 	char *filter;
+	char *escape_username;
 	char *gidstr;
 	const char *dn = NULL;
 	gid_t gid;
@@ -5331,14 +5409,22 @@ static NTSTATUS ldapsam_set_primary_group(struct pdb_methods *my_methods,
 		DEBUG(0,("ldapsam_set_primary_group: Out of Memory!\n"));
 		return NT_STATUS_NO_MEMORY;
 	}
-	
+
+	escape_username = escape_ldap_string_alloc(pdb_get_username(sampass));
+	if (escape_username== NULL) {
+		return NT_STATUS_NO_MEMORY;
+	}
+
 	filter = talloc_asprintf(mem_ctx,
 				 "(&(uid=%s)"
 				 "(objectClass=%s)"
 				 "(objectClass=%s))",
-				 pdb_get_username(sampass),
+				 escape_username,
 				 LDAP_OBJ_POSIXACCOUNT,
 				 LDAP_OBJ_SAMBASAMACCOUNT);
+
+	SAFE_FREE(escape_username);
+
 	if (filter == NULL) {
 		return NT_STATUS_NO_MEMORY;
 	}
@@ -5504,7 +5590,7 @@ NTSTATUS pdb_init_ldapsam_compat(struct pdb_methods **pdb_method, const char *lo
 
 	(*pdb_method)->name = "ldapsam_compat";
 
-	ldap_state = (*pdb_method)->private_data;
+	ldap_state = (struct ldapsam_privates *)((*pdb_method)->private_data);
 	ldap_state->schema_ver = SCHEMAVER_SAMBAACCOUNT;
 
 	sid_copy(&ldap_state->domain_sid, get_global_sam_sid());
@@ -5567,7 +5653,7 @@ NTSTATUS pdb_init_ldapsam(struct pdb_methods **pdb_method, const char *location)
 		}
 	}
 
-	ldap_state = (*pdb_method)->private_data;
+	ldap_state = (struct ldapsam_privates *)((*pdb_method)->private_data);
 	ldap_state->schema_ver = SCHEMAVER_SAMBASAMACCOUNT;
 
 	/* Try to setup the Domain Name, Domain SID, algorithmic rid base */
@@ -5600,6 +5686,7 @@ NTSTATUS pdb_init_ldapsam(struct pdb_methods **pdb_method, const char *location)
 
 	dn = smbldap_get_dn(ldap_state->smbldap_state->ldap_struct, entry);
 	if (!dn) {
+		ldap_msgfree(result);
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
@@ -5616,6 +5703,7 @@ NTSTATUS pdb_init_ldapsam(struct pdb_methods **pdb_method, const char *location)
 		if (!string_to_sid(&ldap_domain_sid, domain_sid_string)) {
 			DEBUG(1, ("pdb_init_ldapsam: SID [%s] could not be "
 				  "read as a valid SID\n", domain_sid_string));
+			ldap_msgfree(result);
 			return NT_STATUS_INVALID_PARAMETER;
 		}
 		found_sid = secrets_fetch_domain_sid(ldap_state->domain_name,

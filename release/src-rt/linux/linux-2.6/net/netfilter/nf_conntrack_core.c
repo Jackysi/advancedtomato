@@ -438,7 +438,8 @@ nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
 	h = __nf_conntrack_find(tuple);
 	if (h) {
 		ct = nf_ct_tuplehash_to_ctrack(h);
-		if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+		if (unlikely(nf_ct_is_dying(ct) ||
+			     !atomic_inc_not_zero(&ct->ct_general.use)))
 			h = NULL;
 	}
 	read_unlock_bh(&nf_conntrack_lock);

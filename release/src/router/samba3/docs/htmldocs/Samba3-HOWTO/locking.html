@@ -1,19 +1,19 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 17. File and Record Locking</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="The Official Samba-3 HOWTO and Reference Guide"><link rel="up" href="optional.html" title="Part III. Advanced Configuration"><link rel="prev" href="AccessControls.html" title="Chapter 16. File, Directory, and Share Access Controls"><link rel="next" href="securing-samba.html" title="Chapter 18. Securing Samba"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 17. File and Record Locking</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="AccessControls.html">Prev</a> </td><th width="60%" align="center">Part III. Advanced Configuration</th><td width="20%" align="right"> <a accesskey="n" href="securing-samba.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="locking"></a>Chapter 17. File and Record Locking</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Jeremy</span> <span class="surname">Allison</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:jra@samba.org">jra@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Jelmer</span> <span class="othername">R.</span> <span class="surname">Vernooij</span></h3><div class="affiliation"><span class="orgname">The Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:jelmer@samba.org">jelmer@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">John</span> <span class="othername">H.</span> <span class="surname">Terpstra</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:jht@samba.org">jht@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Eric</span> <span class="surname">Roseme</span></h3><div class="affiliation"><span class="orgname">HP Oplocks Usage Recommendations Whitepaper<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:eric.roseme@hp.com">eric.roseme@hp.com</a>&gt;</code></p></div></div></div></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="locking.html#id2619165">Features and Benefits</a></span></dt><dt><span class="sect1"><a href="locking.html#id2619262">Discussion</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2619509">Opportunistic Locking Overview</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2620472">Samba Oplocks Control</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2620578">Example Configuration</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2620997">MS Windows Oplocks and Caching Controls</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2621184">Workstation Service Entries</a></span></dt><dt><span class="sect2"><a href="locking.html#id2621206">Server Service Entries</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2621272">Persistent Data Corruption</a></span></dt><dt><span class="sect1"><a href="locking.html#id2621298">Common Errors</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2621365">locking.tdb Error Messages</a></span></dt><dt><span class="sect2"><a href="locking.html#id2621396">Problems Saving Files in MS Office on Windows XP</a></span></dt><dt><span class="sect2"><a href="locking.html#id2621420">Long Delays Deleting Files over Network with XP SP1</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2621452">Additional Reading</a></span></dt></dl></div><p>
-<a class="indexterm" name="id2619154"></a>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 17. File and Record Locking</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="The Official Samba 3.0.x HOWTO and Reference Guide"><link rel="up" href="optional.html" title="Part III. Advanced Configuration"><link rel="prev" href="AccessControls.html" title="Chapter 16. File, Directory, and Share Access Controls"><link rel="next" href="securing-samba.html" title="Chapter 18. Securing Samba"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 17. File and Record Locking</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="AccessControls.html">Prev</a> </td><th width="60%" align="center">Part III. Advanced Configuration</th><td width="20%" align="right"> <a accesskey="n" href="securing-samba.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="locking"></a>Chapter 17. File and Record Locking</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Jeremy</span> <span class="orgname">Samba Team</span> <span class="surname">Allison</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:jra@samba.org">jra@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Jelmer</span> <span class="othername">R.</span> <span class="orgname">The Samba Team</span> <span class="surname">Vernooij</span></h3><div class="affiliation"><span class="orgname">The Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:jelmer@samba.org">jelmer@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">John</span> <span class="othername">H.</span> <span class="orgname">Samba Team</span> <span class="surname">Terpstra</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:jht@samba.org">jht@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Eric</span> <span class="orgname">HP Oplocks Usage Recommendations Whitepaper</span> <span class="surname">Roseme</span></h3><div class="affiliation"><span class="orgname">HP Oplocks Usage Recommendations Whitepaper<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:eric.roseme@hp.com">eric.roseme@hp.com</a>&gt;</code></p></div></div></div></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="locking.html#id2615556">Features and Benefits</a></span></dt><dt><span class="sect1"><a href="locking.html#id2615653">Discussion</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2615911">Opportunistic Locking Overview</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2616896">Samba Oplocks Control</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2616991">Example Configuration</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2617405">MS Windows Oplocks and Caching Controls</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2617592">Workstation Service Entries</a></span></dt><dt><span class="sect2"><a href="locking.html#id2617614">Server Service Entries</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2617680">Persistent Data Corruption</a></span></dt><dt><span class="sect1"><a href="locking.html#id2617705">Common Errors</a></span></dt><dd><dl><dt><span class="sect2"><a href="locking.html#id2617772">locking.tdb Error Messages</a></span></dt><dt><span class="sect2"><a href="locking.html#id2617803">Problems Saving Files in MS Office on Windows XP</a></span></dt><dt><span class="sect2"><a href="locking.html#id2617827">Long Delays Deleting Files over Network with XP SP1</a></span></dt></dl></dd><dt><span class="sect1"><a href="locking.html#id2617859">Additional Reading</a></span></dt></dl></div><p>
+<a class="indexterm" name="id2615545"></a>
 One area that causes trouble for many network administrators is locking.
 The extent of the problem is readily evident from searches over the Internet.
-</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2619165"></a>Features and Benefits</h2></div></div></div><p>
-<a class="indexterm" name="id2619173"></a>
+</p><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2615556"></a>Features and Benefits</h2></div></div></div><p>
+<a class="indexterm" name="id2615564"></a>
 Samba provides all the same locking semantics that MS Windows clients expect
 and that MS Windows NT4/200x servers also provide.
 </p><p>
-<a class="indexterm" name="id2619185"></a>
+<a class="indexterm" name="id2615576"></a>
 The term <span class="emphasis"><em>locking</em></span> has exceptionally broad meaning and covers
 a range of functions that are all categorized under this one term.
 </p><p>
-<a class="indexterm" name="id2619201"></a>
-<a class="indexterm" name="id2619208"></a>
-<a class="indexterm" name="id2619215"></a>
+<a class="indexterm" name="id2615592"></a>
+<a class="indexterm" name="id2615599"></a>
+<a class="indexterm" name="id2615606"></a>
 Opportunistic locking is a desirable feature when it can enhance the
 perceived performance of applications on a networked client. However, the
 opportunistic locking protocol is not robust and therefore can
@@ -23,27 +23,27 @@ system management of opportunistic locking and/or recovering from
 repetitive errors can offset the perceived performance advantage that
 it is intended to provide.
 </p><p>
-<a class="indexterm" name="id2619234"></a>
+<a class="indexterm" name="id2615625"></a>
 The MS Windows network administrator needs to be aware that file and record
 locking semantics (behavior) can be controlled either in Samba or by way of registry
 settings on the MS Windows client.
 </p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
-<a class="indexterm" name="id2619249"></a>
+<a class="indexterm" name="id2615640"></a>
 Sometimes it is necessary to disable locking control settings on the Samba
 server as well as on each MS Windows client!
-</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2619262"></a>Discussion</h2></div></div></div><p>
-<a class="indexterm" name="id2619269"></a>
-<a class="indexterm" name="id2619276"></a>
+</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2615653"></a>Discussion</h2></div></div></div><p>
+<a class="indexterm" name="id2615660"></a>
+<a class="indexterm" name="id2615667"></a>
 There are two types of locking that need to be performed by an SMB server.
 The first is <span class="emphasis"><em>record locking</em></span> that allows a client to lock
 a range of bytes in an open file. The second is the <span class="emphasis"><em>deny modes</em></span>
 that are specified when a file is open.
 </p><p>
-<a class="indexterm" name="id2619297"></a>
-<a class="indexterm" name="id2619304"></a>
-<a class="indexterm" name="id2619311"></a>
-<a class="indexterm" name="id2619318"></a>
-<a class="indexterm" name="id2619325"></a>
+<a class="indexterm" name="id2615688"></a>
+<a class="indexterm" name="id2615695"></a>
+<a class="indexterm" name="id2615702"></a>
+<a class="indexterm" name="id2615709"></a>
+<a class="indexterm" name="id2615716"></a>
 Record locking semantics under UNIX are very different from record locking under
 Windows. Versions of Samba before 2.2 have tried to use the native fcntl() UNIX
 system call to implement proper record locking between different Samba clients.
@@ -53,74 +53,74 @@ depending on the client OS. The UNIX locking only supports byte ranges up to 2^3
 So it is not possible to correctly satisfy a lock request above 2^31. There are
 many more differences, too many to be listed here.
 </p><p>
-<a class="indexterm" name="id2619345"></a>
-<a class="indexterm" name="id2619352"></a>
+<a class="indexterm" name="id2615736"></a>
+<a class="indexterm" name="id2615743"></a>
 Samba 2.2 and above implement record locking completely independently of the
 underlying UNIX system. If a byte-range lock that the client requests happens
 to fall into the range of 0 to 2^31, Samba hands this request down to the UNIX system.
 No other locks can be seen by UNIX, anyway.
 </p><p>
-<a class="indexterm" name="id2619367"></a>
-<a class="indexterm" name="id2619374"></a>
+<a class="indexterm" name="id2615758"></a>
+<a class="indexterm" name="id2615765"></a>
 Strictly speaking, an SMB server should check for locks before every read and write call on
 a file. Unfortunately, with the way fcntl() works, this can be slow and may overstress
-the <span><strong class="command">rpc.lockd</strong></span>. This is almost always unnecessary because clients are 
+the <code class="literal">rpc.lockd</code>. This is almost always unnecessary because clients are 
 independently supposed to make locking calls before reads and writes if locking is
 important to them. By default, Samba only makes locking calls when explicitly asked
-to by a client, but if you set <a class="indexterm" name="id2619394"></a>strict locking = yes, it
+to by a client, but if you set <a class="link" href="smb.conf.5.html#STRICTLOCKING" target="_top">strict locking = yes</a>, it
 will make lock checking calls on <span class="emphasis"><em>every</em></span> read and write call.
 </p><p>
-<a class="indexterm" name="id2619409"></a>
+<a class="indexterm" name="id2615806"></a>
 You can also disable byte-range locking completely by using
-<a class="indexterm" name="id2619417"></a>locking = no.
+<a class="link" href="smb.conf.5.html#LOCKING" target="_top">locking = no</a>.
 This is useful for those shares that do not support locking or do not need it
 (such as CD-ROMs). In this case, Samba fakes the return codes of locking calls to
 tell clients that everything is okay.
 </p><p>
-<a class="indexterm" name="id2619431"></a>
-<a class="indexterm" name="id2619438"></a>
-<a class="indexterm" name="id2619445"></a>
-<a class="indexterm" name="id2619451"></a>
-<a class="indexterm" name="id2619458"></a>
-<a class="indexterm" name="id2619465"></a>
-<a class="indexterm" name="id2619472"></a>
+<a class="indexterm" name="id2615834"></a>
+<a class="indexterm" name="id2615840"></a>
+<a class="indexterm" name="id2615846"></a>
+<a class="indexterm" name="id2615853"></a>
+<a class="indexterm" name="id2615860"></a>
+<a class="indexterm" name="id2615866"></a>
+<a class="indexterm" name="id2615873"></a>
 The second class of locking is the <span class="emphasis"><em>deny modes</em></span>. These 
 are set by an application when it opens a file to determine what types of
 access should be allowed simultaneously with its open. A client may ask for
 <code class="constant">DENY_NONE</code>, <code class="constant">DENY_READ</code>, 
 <code class="constant">DENY_WRITE</code>, or <code class="constant">DENY_ALL</code>. There are also special compatibility
 modes called <code class="constant">DENY_FCB</code> and <code class="constant">DENY_DOS</code>.
-</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2619509"></a>Opportunistic Locking Overview</h3></div></div></div><p>
-<a class="indexterm" name="id2619517"></a>
-<a class="indexterm" name="id2619524"></a>
-<a class="indexterm" name="id2619531"></a>
+</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2615911"></a>Opportunistic Locking Overview</h3></div></div></div><p>
+<a class="indexterm" name="id2615919"></a>
+<a class="indexterm" name="id2615926"></a>
+<a class="indexterm" name="id2615933"></a>
 Opportunistic locking (oplocks) is invoked by the Windows file system
 (as opposed to an API) via registry entries (on the server and the client)
 for the purpose of enhancing network performance when accessing a file
 residing on a server. Performance is enhanced by caching the file
 locally on the client that allows the following:
 </p><div class="variablelist"><dl><dt><span class="term">Read-ahead:</span></dt><dd><p>
-<a class="indexterm" name="id2619555"></a>
+<a class="indexterm" name="id2615956"></a>
 		The client reads the local copy of the file, eliminating network latency.
 		</p></dd><dt><span class="term">Write caching:</span></dt><dd><p>
-<a class="indexterm" name="id2619573"></a>
+<a class="indexterm" name="id2615975"></a>
 		The client writes to the local copy of the file, eliminating network latency.
 		</p></dd><dt><span class="term">Lock caching:</span></dt><dd><p>
-<a class="indexterm" name="id2619591"></a>
+<a class="indexterm" name="id2615993"></a>
 		The client caches application locks locally, eliminating network latency.
 		</p></dd></dl></div><p>
-<a class="indexterm" name="id2619605"></a>
-<a class="indexterm" name="id2619612"></a>
-<a class="indexterm" name="id2619619"></a>
+<a class="indexterm" name="id2616007"></a>
+<a class="indexterm" name="id2616014"></a>
+<a class="indexterm" name="id2616021"></a>
 The performance enhancement of oplocks is due to the opportunity of
 exclusive access to the file  even if it is opened with deny-none 
 because Windows monitors the file's status for concurrent access from
 other processes.
 </p><div class="variablelist"><p class="title"><b>Windows Defines Four Kinds of Oplocks:</b></p><dl><dt><span class="term">Level1 Oplock</span></dt><dd><p>
-<a class="indexterm" name="id2619650"></a>
-<a class="indexterm" name="id2619657"></a>
-<a class="indexterm" name="id2619663"></a>
-<a class="indexterm" name="id2619670"></a>
+<a class="indexterm" name="id2616052"></a>
+<a class="indexterm" name="id2616058"></a>
+<a class="indexterm" name="id2616065"></a>
+<a class="indexterm" name="id2616072"></a>
 			The redirector sees that the file was opened with deny
 			none (allowing concurrent access), verifies that no
 			other process is accessing the file, checks that
@@ -128,10 +128,10 @@ other processes.
 			access to the file. The client now performs
 			operations on the cached local file.
 			</p><p>
-<a class="indexterm" name="id2619686"></a>
-<a class="indexterm" name="id2619693"></a>
-<a class="indexterm" name="id2619700"></a>
-<a class="indexterm" name="id2619707"></a>
+<a class="indexterm" name="id2616088"></a>
+<a class="indexterm" name="id2616095"></a>
+<a class="indexterm" name="id2616102"></a>
+<a class="indexterm" name="id2616109"></a>
 			If a second process attempts to open the file, the open
 			is deferred while the redirector "breaks" the original
 			oplock. The oplock break signals the caching client to
@@ -145,31 +145,31 @@ other processes.
 			second process is granted limited or no access, despite
 			the oplock break.
 			</p></dd><dt><span class="term">Level2 Oplock</span></dt><dd><p>
-<a class="indexterm" name="id2619735"></a>
-<a class="indexterm" name="id2619742"></a>
-<a class="indexterm" name="id2619749"></a>
+<a class="indexterm" name="id2616147"></a>
+<a class="indexterm" name="id2616154"></a>
+<a class="indexterm" name="id2616161"></a>
 				Performs like a Level1 oplock, except caching is only
                 operative for reads. All other operations are performed
                 on the server disk copy of the file.
                 </p></dd><dt><span class="term">Filter Oplock</span></dt><dd><p>
-<a class="indexterm" name="id2619769"></a>
+<a class="indexterm" name="id2616182"></a>
 				Does not allow write or delete file access.
                 </p></dd><dt><span class="term">Batch Oplock</span></dt><dd><p>
-<a class="indexterm" name="id2619787"></a>
+<a class="indexterm" name="id2616200"></a>
 				Manipulates file openings and closings and allows caching
                 of file attributes.
                 </p></dd></dl></div><p>
-<a class="indexterm" name="id2619801"></a>
+<a class="indexterm" name="id2616214"></a>
 An important detail is that oplocks are invoked by the file system, not
 an application API. Therefore, an application can close an oplocked
 file, but the file system does not relinquish the oplock. When the
 oplock break is issued, the file system then simply closes the file in
 preparation for the subsequent open by the second process.
 </p><p>
-<a class="indexterm" name="id2619817"></a>
-<a class="indexterm" name="id2619824"></a>
-<a class="indexterm" name="id2619831"></a>
-<a class="indexterm" name="id2619838"></a>
+<a class="indexterm" name="id2616230"></a>
+<a class="indexterm" name="id2616237"></a>
+<a class="indexterm" name="id2616244"></a>
+<a class="indexterm" name="id2616251"></a>
 <span class="emphasis"><em>Opportunistic locking</em></span> is actually an improper name for this feature.
 The true benefit of this feature is client-side data caching, and
 oplocks is merely a notification mechanism for writing data back to the
@@ -179,7 +179,7 @@ between the server and the caching client. If this exchange is faulty
 (usually due to timing out for any number of reasons), then the
 client-side caching benefit is negated.
 </p><p>
-<a class="indexterm" name="id2619860"></a>
+<a class="indexterm" name="id2616273"></a>
 The actual decision that a user or administrator should consider is
 whether it is sensible to share among multiple users data that will
 be cached locally on a client. In many cases the answer is no.
@@ -189,15 +189,15 @@ caching. Turn it &#8220;<span class="quote">on</span>&#8221; when client-side ca
 reliable. Turn it &#8220;<span class="quote">off</span>&#8221; when client-side caching is redundant,
 unreliable, or counterproductive.
 </p><p>
-<a class="indexterm" name="id2619885"></a>
+<a class="indexterm" name="id2616298"></a>
 Oplocks is by default set to &#8220;<span class="quote">on</span>&#8221; by Samba on all
 configured shares, so careful attention should be given to each case to
 determine if the potential benefit is worth the potential for delays.
 The following recommendations will help to characterize the environment
 where oplocks may be effectively configured.
 </p><p>
-<a class="indexterm" name="id2619904"></a>
-<a class="indexterm" name="id2619911"></a>
+<a class="indexterm" name="id2616316"></a>
+<a class="indexterm" name="id2616323"></a>
 Windows oplocks is a lightweight performance-enhancing
 feature. It is not a robust and reliable protocol. Every
 implementation of oplocks should be evaluated as a
@@ -208,7 +208,7 @@ South Pacific atoll, on a high-availability server, serving a
 mission-critical multiuser corporate database during a tropical
 storm. This configuration will likely encounter problems with oplocks.
 </p><p>
-<a class="indexterm" name="id2619930"></a>
+<a class="indexterm" name="id2616343"></a>
 Oplocks can be beneficial to perceived client performance when treated
 as a configuration toggle for client-side data caching. If the data
 caching is likely to be interrupted, then oplock usage should be
@@ -222,8 +222,8 @@ to ensure that if a client loses connectivity with a file server, a
 failover replacement will be available immediately to provide
 continuous data availability.
 </p><p>
-<a class="indexterm" name="id2619953"></a>
-<a class="indexterm" name="id2619960"></a>
+<a class="indexterm" name="id2616365"></a>
+<a class="indexterm" name="id2616372"></a>
 Windows client failover behavior is more at risk of application
 interruption than other platforms because it is dependent upon an
 established TCP transport connection. If the connection is interrupted
@@ -233,9 +233,9 @@ correctly from a transport connection loss; therefore, most applications
 will experience some sort of interruption  at worst, abort and
 require restarting.
 </p><p>
-<a class="indexterm" name="id2619987"></a>
-<a class="indexterm" name="id2619993"></a>
-<a class="indexterm" name="id2620000"></a>
+<a class="indexterm" name="id2616400"></a>
+<a class="indexterm" name="id2616406"></a>
+<a class="indexterm" name="id2616413"></a>
 If a client session has been caching writes and reads locally due to
 oplocks, it is likely that the data will be lost when the
 application restarts or recovers from the TCP interrupt. When the TCP
@@ -250,7 +250,7 @@ In mission-critical, high-availability environments, careful attention
 should be given to oplocks. Ideally, comprehensive
 testing should be done with all affected applications with oplocks
 enabled and disabled.
-</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620034"></a>Exclusively Accessed Shares</h4></div></div></div><p>
+</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616437"></a>Exclusively Accessed Shares</h4></div></div></div><p>
 Oplocks is most effective when it is confined to shares
 that are exclusively accessed by a single user, or by only one user at
 a time. Because the true value of oplocks is the local
@@ -259,7 +259,7 @@ mechanism will cause a delay.
 </p><p>
 Home directories are the most obvious examples of where the performance
 benefit of oplocks can be safely realized.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620054"></a>Multiple-Accessed Shares or Files</h4></div></div></div><p>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616457"></a>Multiple-Accessed Shares or Files</h4></div></div></div><p>
 As each additional user accesses a file in a share with oplocks
 enabled, the potential for delays and resulting perceived poor
 performance increases. When multiple users are accessing a file on a
@@ -271,9 +271,9 @@ of the caching user.
 As each additional client attempts to access a file with oplocks set,
 the potential performance improvement is negated and eventually results
 in a performance bottleneck.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620078"></a>UNIX or NFS Client-Accessed Files</h4></div></div></div><p>
-<a class="indexterm" name="id2620086"></a>
-<a class="indexterm" name="id2620093"></a>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616481"></a>UNIX or NFS Client-Accessed Files</h4></div></div></div><p>
+<a class="indexterm" name="id2616489"></a>
+<a class="indexterm" name="id2616496"></a>
 Local UNIX and NFS clients access files without a mandatory
 file-locking mechanism. Thus, these client platforms are incapable of
 initiating an oplock break request from the server to a Windows client
@@ -283,10 +283,10 @@ exposes the file to likely data corruption.
 </p><p>
 If files are shared between Windows clients and either local UNIX 
 or NFS users, turn oplocks off.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620114"></a>Slow and/or Unreliable Networks</h4></div></div></div><p>
-<a class="indexterm" name="id2620122"></a>
-<a class="indexterm" name="id2620129"></a>
-<a class="indexterm" name="id2620135"></a>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616517"></a>Slow and/or Unreliable Networks</h4></div></div></div><p>
+<a class="indexterm" name="id2616525"></a>
+<a class="indexterm" name="id2616532"></a>
+<a class="indexterm" name="id2616538"></a>
 The biggest potential performance improvement for oplocks
 occurs when the client-side caching of reads and writes delivers the
 most differential over sending those reads and writes over the wire.
@@ -301,20 +301,20 @@ the most advantageous scenario in which to utilize oplocks.
 If the network is slow, unreliable, or a WAN, then do not configure
 oplocks if there is any chance of multiple users
 regularly opening the same file.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620161"></a>Multiuser Databases</h4></div></div></div><p>
-<a class="indexterm" name="id2620169"></a>
-<a class="indexterm" name="id2620176"></a>
-<a class="indexterm" name="id2620183"></a>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616564"></a>Multiuser Databases</h4></div></div></div><p>
+<a class="indexterm" name="id2616572"></a>
+<a class="indexterm" name="id2616579"></a>
+<a class="indexterm" name="id2616586"></a>
 Multiuser databases clearly pose a risk due to their very nature  they are typically heavily
 accessed by numerous users at random intervals. Placing a multiuser database on a share with oplocks enabled
 will likely result in a locking management bottleneck on the Samba server. Whether the database application is
 developed in-house or a commercially available product, ensure that the share has oplocks disabled.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620208"></a>PDM Data Shares</h4></div></div></div><p>
-<a class="indexterm" name="id2620216"></a>
-<a class="indexterm" name="id2620222"></a>
-<a class="indexterm" name="id2620229"></a>
-<a class="indexterm" name="id2620236"></a>
-<a class="indexterm" name="id2620243"></a>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616606"></a>PDM Data Shares</h4></div></div></div><p>
+<a class="indexterm" name="id2616613"></a>
+<a class="indexterm" name="id2616620"></a>
+<a class="indexterm" name="id2616627"></a>
+<a class="indexterm" name="id2616634"></a>
+<a class="indexterm" name="id2616641"></a>
 Process data management (PDM) applications such as IMAN, Enovia, and Clearcase are increasing in usage with
 Windows client platforms and therefore with SMB datastores. PDM applications manage multiuser environments for
 critical data security and access. The typical PDM environment is usually associated with sophisticated client
@@ -322,9 +322,9 @@ design applications that will load data locally as demanded. In addition, the PD
 monitor the data state of each client.  In this case, client-side data caching is best left to the local
 application and PDM server to negotiate and maintain. It is appropriate to eliminate the client OS from any
 caching tasks, and the server from any oplocks management, by disabling oplocks on the share.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620264"></a>Beware of Force User</h4></div></div></div><p>
-<a class="indexterm" name="id2620272"></a>
-Samba includes an <code class="filename">smb.conf</code> parameter called <a class="indexterm" name="id2620286"></a>force user that changes the user
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616662"></a>Beware of Force User</h4></div></div></div><p>
+<a class="indexterm" name="id2616670"></a>
+Samba includes an <code class="filename">smb.conf</code> parameter called <a class="link" href="smb.conf.5.html#FORCEUSER" target="_top">force user</a> that changes the user
 accessing a share from the incoming user to whatever user is defined by the <code class="filename">smb.conf</code> variable. If oplocks is
 enabled on a share, the change in user access causes an oplock break to be sent to the client, even if the
 user has not explicitly loaded a file. In cases where the network is slow or unreliable, an oplock break can
@@ -333,30 +333,30 @@ client continually reconnects to overcome the lost oplock break.
 </p><p>
 Avoid the combination of the following: 
 </p><div class="itemizedlist"><ul type="disc"><li><p>
-	<a class="indexterm" name="id2620318"></a>force user in the <code class="filename">smb.conf</code> share configuration.
+	<a class="link" href="smb.conf.5.html#FORCEUSER" target="_top">force user</a> in the <code class="filename">smb.conf</code> share configuration.
 	</p></li><li><p>
 	Slow or unreliable networks.
 	</p></li><li><p>
 	Oplocks enabled.
-	</p></li></ul></div></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620344"></a>Advanced Samba Oplocks Parameters</h4></div></div></div><p>
-<a class="indexterm" name="id2620352"></a>
-<a class="indexterm" name="id2620359"></a>
-<a class="indexterm" name="id2620366"></a>
+	</p></li></ul></div></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616750"></a>Advanced Samba Oplocks Parameters</h4></div></div></div><p>
+<a class="indexterm" name="id2616758"></a>
+<a class="indexterm" name="id2616765"></a>
+<a class="indexterm" name="id2616772"></a>
 Samba provides oplock parameters that allow the
 administrator to adjust various properties of the oplock mechanism to
 account for timing and usage levels. These parameters provide good
 versatility for implementing oplocks in environments where they would
 likely cause problems. The parameters are 
-<a class="indexterm" name="id2620378"></a>oplock break wait time, and
-<a class="indexterm" name="id2620386"></a>oplock contention limit.
+<a class="link" href="smb.conf.5.html#OPLOCKBREAKWAITTIME" target="_top">oplock break wait time</a>, and
+<a class="link" href="smb.conf.5.html#OPLOCKCONTENTIONLIMIT" target="_top">oplock contention limit</a>.
 </p><p>
-<a class="indexterm" name="id2620397"></a>
+<a class="indexterm" name="id2616812"></a>
 For most users, administrators, and environments, if these parameters
 are required, then the better option is simply to turn oplocks off.
 The Samba SWAT help text for both parameters reads: &#8220;<span class="quote">Do not change
 this parameter unless you have read and understood the Samba oplock code.</span>&#8221;
 This is good advice.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620415"></a>Mission-Critical, High-Availability</h4></div></div></div><p>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2616830"></a>Mission-Critical, High-Availability</h4></div></div></div><p>
 In mission-critical, high-availability environments, data integrity is
 often a priority. Complex and expensive configurations are implemented
 to ensure that if a client loses connectivity with a file server, a
@@ -386,7 +386,7 @@ In mission-critical, high-availability environments, careful attention
 should be given to oplocks. Ideally, comprehensive
 testing should be done with all affected applications with oplocks
 enabled and disabled.
-</p></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2620472"></a>Samba Oplocks Control</h2></div></div></div><p>
+</p></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2616896"></a>Samba Oplocks Control</h2></div></div></div><p>
 Oplocks is a unique Windows file locking feature. It is
 not really file locking, but is included in most discussions of Windows
 file locking, so is considered a de facto locking feature.
@@ -436,23 +436,23 @@ of your client sending oplock breaks and will instead want to disable oplocks fo
 </p><p>
 Another factor to consider is the perceived performance of file access. If oplocks provide no
 measurable speed benefit on your network, it might not be worth the hassle of dealing with them.
-</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2620578"></a>Example Configuration</h3></div></div></div><p>
+</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2616991"></a>Example Configuration</h3></div></div></div><p>
 In the following section we examine two distinct aspects of Samba locking controls.
-</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620589"></a>Disabling Oplocks</h4></div></div></div><p>
+</p><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2617002"></a>Disabling Oplocks</h4></div></div></div><p>
 You can disable oplocks on a per-share basis with the following:
 </p><p>
-</p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[acctdata]</code></em></td></tr><tr><td><a class="indexterm" name="id2620615"></a><em class="parameter"><code>oplocks = False</code></em></td></tr><tr><td><a class="indexterm" name="id2620628"></a><em class="parameter"><code>level2 oplocks = False</code></em></td></tr></table><p>
+</p><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[acctdata]</code></em></td></tr><tr><td><a class="indexterm" name="id2617028"></a><em class="parameter"><code>oplocks = False</code></em></td></tr><tr><td><a class="indexterm" name="id2617040"></a><em class="parameter"><code>level2 oplocks = False</code></em></td></tr></table><p>
 </p><p>
 The default oplock type is Level1. Level2 oplocks are enabled on a per-share basis
 in the <code class="filename">smb.conf</code> file.
 </p><p>
 Alternately, you could disable oplocks on a per-file basis within the share:
 </p><p>
-	</p><table class="simplelist" border="0" summary="Simple list"><tr><td><a class="indexterm" name="id2620665"></a><em class="parameter"><code>veto oplock files = /*.mdb/*.MDB/*.dbf/*.DBF/</code></em></td></tr></table><p>
+	</p><table class="simplelist" border="0" summary="Simple list"><tr><td><a class="indexterm" name="id2617076"></a><em class="parameter"><code>veto oplock files = /*.mdb/*.MDB/*.dbf/*.DBF/</code></em></td></tr></table><p>
 </p><p>
 If you are experiencing problems with oplocks, as apparent from Samba's log entries,
 you may want to play it safe and disable oplocks and Level2 oplocks.
-</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2620686"></a>Disabling Kernel Oplocks</h4></div></div></div><p>
+</p></div><div class="sect3" lang="en"><div class="titlepage"><div><div><h4 class="title"><a name="id2617096"></a>Disabling Kernel Oplocks</h4></div></div></div><p>
 Kernel oplocks is an <code class="filename">smb.conf</code> parameter that notifies Samba (if
 the UNIX kernel has the capability to send a Windows client an oplock
 break) when a UNIX process is attempting to open the file that is
@@ -465,7 +465,7 @@ send an oplock break, then the kernel oplocks parameter enables Samba
 to send the oplock break. Kernel oplocks are enabled on a per-server
 basis in the <code class="filename">smb.conf</code> file.
 </p><p>
-</p><table class="simplelist" border="0" summary="Simple list"><tr><td><a class="indexterm" name="id2620727"></a><em class="parameter"><code>kernel oplocks = yes</code></em></td></tr></table><p>
+</p><table class="simplelist" border="0" summary="Simple list"><tr><td><a class="indexterm" name="id2617136"></a><em class="parameter"><code>kernel oplocks = yes</code></em></td></tr></table><p>
 The default is no.
 </p><p>
 <span class="emphasis"><em>Veto oplocks</em></span> is an <code class="filename">smb.conf</code> parameter that identifies specific files for
@@ -478,26 +478,26 @@ those files, the server-wide oplock configuration can be enabled to
 allow Windows clients to utilize the performance benefit of file
 caching without the risk of data corruption. Veto oplocks can be
 enabled on a per-share basis, or globally for the entire server, in the
-<code class="filename">smb.conf</code> file as shown in <a href="locking.html#far1" title="Example 17.1. Share with Some Files Oplocked">???</a>.
+<code class="filename">smb.conf</code> file as shown in <a class="link" href="locking.html#far1" title="Example 17.1. Share with Some Files Oplocked">&#8220;Share with Some Files Oplocked&#8221;</a>.
 </p><p>
-</p><div class="example"><a name="far1"></a><p class="title"><b>Example 17.1. Share with Some Files Oplocked</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2620804"></a><em class="parameter"><code>veto oplock files = /filename.htm/*.txt/</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[share_name]</code></em></td></tr><tr><td><a class="indexterm" name="id2620826"></a><em class="parameter"><code>veto oplock files = /*.exe/filename.ext/</code></em></td></tr></table></div></div><p><br class="example-break">
+</p><div class="example"><a name="far1"></a><p class="title"><b>Example 17.1. Share with Some Files Oplocked</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2617213"></a><em class="parameter"><code>veto oplock files = /filename.htm/*.txt/</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[share_name]</code></em></td></tr><tr><td><a class="indexterm" name="id2617234"></a><em class="parameter"><code>veto oplock files = /*.exe/filename.ext/</code></em></td></tr></table></div></div><p><br class="example-break">
 </p><p>
-<a class="indexterm" name="id2620844"></a>oplock break wait time is an <code class="filename">smb.conf</code> parameter
+<a class="link" href="smb.conf.5.html#OPLOCKBREAKWAITTIME" target="_top">oplock break wait time</a> is an <code class="filename">smb.conf</code> parameter
 that adjusts the time interval for Samba to reply to an oplock break request. Samba recommends:
 &#8220;<span class="quote">Do not change this parameter unless you have read and understood the Samba oplock code.</span>&#8221;
 Oplock break wait time can only be configured globally in the <code class="filename">smb.conf</code> file as shown:
 </p><p>
-	</p><table class="simplelist" border="0" summary="Simple list"><tr><td><a class="indexterm" name="id2620880"></a><em class="parameter"><code>oplock break wait time =  0 (default)</code></em></td></tr></table><p>
+	</p><table class="simplelist" border="0" summary="Simple list"><tr><td><a class="indexterm" name="id2617291"></a><em class="parameter"><code>oplock break wait time =  0 (default)</code></em></td></tr></table><p>
 </p><p>
 <span class="emphasis"><em>Oplock break contention limit</em></span> is an <code class="filename">smb.conf</code> parameter that limits the
 response of the Samba server to grant an oplock if the configured
 number of contending clients reaches the limit specified by the parameter. Samba recommends
 &#8220;<span class="quote">Do not change this parameter unless you have read and understood the Samba oplock code.</span>&#8221;
 Oplock break contention limit can be enabled on a per-share basis, or globally for
-the entire server, in the <code class="filename">smb.conf</code> file as shown in <a href="locking.html#far3" title="Example 17.2. Configuration with Oplock Break Contention Limit">???</a>.
+the entire server, in the <code class="filename">smb.conf</code> file as shown in <a class="link" href="locking.html#far3" title="Example 17.2. Configuration with Oplock Break Contention Limit">&#8220;Configuration with Oplock Break Contention Limit&#8221;</a>.
 </p><p>
-</p><div class="example"><a name="far3"></a><p class="title"><b>Example 17.2. Configuration with Oplock Break Contention Limit</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2620956"></a><em class="parameter"><code>oplock break contention limit =  2 (default)</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[share_name]</code></em></td></tr><tr><td><a class="indexterm" name="id2620978"></a><em class="parameter"><code>oplock break contention limit =  2 (default)</code></em></td></tr></table></div></div><p><br class="example-break">
-</p></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2620997"></a>MS Windows Oplocks and Caching Controls</h2></div></div></div><p>
+</p><div class="example"><a name="far3"></a><p class="title"><b>Example 17.2. Configuration with Oplock Break Contention Limit</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[global]</code></em></td></tr><tr><td><a class="indexterm" name="id2617365"></a><em class="parameter"><code>oplock break contention limit =  2 (default)</code></em></td></tr><tr><td> </td></tr><tr><td><em class="parameter"><code>[share_name]</code></em></td></tr><tr><td><a class="indexterm" name="id2617387"></a><em class="parameter"><code>oplock break contention limit =  2 (default)</code></em></td></tr></table></div></div><p><br class="example-break">
+</p></div></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2617405"></a>MS Windows Oplocks and Caching Controls</h2></div></div></div><p>
 There is a known issue when running applications (like Norton Antivirus) on a Windows 2000/ XP
 workstation computer that can affect any application attempting to access shared database files
 across a network. This is a result of a default setting configured in the Windows 2000/XP
@@ -512,7 +512,7 @@ All Windows operating systems in the NT family that act as database servers for 
 (meaning that data files are stored there and accessed by other Windows PCs) may need to
 have oplocks disabled in order to minimize the risk of data file corruption.
 This includes Windows 9x/Me, Windows NT, Windows 200x, and Windows XP.
-<sup>[<a name="id2621030" href="#ftn.id2621030">5</a>]</sup>
+<sup>[<a name="id2617437" href="#ftn.id2617437" class="footnote">5</a>]</sup>
 </p><p>
 If you are using a Windows NT family workstation in place of a server, you must also
 disable oplocks on that workstation. For example, if you use a
@@ -590,7 +590,7 @@ An illustration of how Level2 oplocks work follows:
 	station holds any oplock on the file. Because the workstations can have no cached
 	writes or locks at this point, they need not respond to the break-to-none advisory;
 	all they need do is invalidate locally cashed read-ahead data.
-	</p></li></ul></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2621184"></a>Workstation Service Entries</h3></div></div></div><pre class="programlisting">
+	</p></li></ul></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2617592"></a>Workstation Service Entries</h3></div></div></div><pre class="programlisting">
 	\HKEY_LOCAL_MACHINE\System\
 		CurrentControlSet\Services\LanmanWorkstation\Parameters
 
@@ -599,7 +599,7 @@ An illustration of how Level2 oplocks work follows:
 </pre><p>
 This indicates whether the redirector should use oplocks performance
 enhancement. This parameter should be disabled only to isolate problems.
-</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2621206"></a>Server Service Entries</h3></div></div></div><pre class="programlisting">
+</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2617614"></a>Server Service Entries</h3></div></div></div><pre class="programlisting">
 	\HKEY_LOCAL_MACHINE\System\
 		CurrentControlSet\Services\LanmanServer\Parameters
 
@@ -628,7 +628,7 @@ the server disables raw I/O and oplocks for this connection.
 This specifies the time that the server waits for a client to respond to an oplock break
 request. Smaller values can allow detection of crashed clients more quickly but can
 potentially cause loss of cached data.
-</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2621272"></a>Persistent Data Corruption</h2></div></div></div><p>
+</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2617680"></a>Persistent Data Corruption</h2></div></div></div><p>
 If you have applied all of the settings discussed in this chapter but data corruption problems
 and other symptoms persist, here are some additional things to check out.
 </p><p>
@@ -639,7 +639,7 @@ rebuild the data files in question. This involves creating a new data file with 
 same definition as the file to be rebuilt and transferring the data from the old file
 to the new one. There are several known methods for doing this that can be found in
 our knowledge base.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2621298"></a>Common Errors</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2617705"></a>Common Errors</h2></div></div></div><p>
 In some sites locking problems surface as soon as a server is installed; in other sites
 locking problems may not surface for a long time. Almost without exception, when a locking
 problem does surface, it will cause embarrassment and potential data corruption.
@@ -666,10 +666,10 @@ so far:
 	cause. Considering the millions of systems that use Samba, for the sites that have
 	been affected by this as well as for the Samba Team, this is a frustrating and
 	vexing challenge. If you see this type of thing happening, please create a bug
-	report on Samba <a href="https://bugzilla.samba.org" target="_top">Bugzilla</a> without delay.
+	report on Samba <a class="ulink" href="https://bugzilla.samba.org" target="_top">Bugzilla</a> without delay.
 	Make sure that you give as much information as you possibly can to help isolate the
 	cause and to allow replication of the problem (an essential step in problem isolation and correction).
-	</p></li></ul></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2621365"></a>locking.tdb Error Messages</h3></div></div></div><p>
+	</p></li></ul></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2617772"></a>locking.tdb Error Messages</h3></div></div></div><p>
 		&#8220;<span class="quote">
 			We are seeing lots of errors in the Samba logs, like:
 		</span>&#8221;
@@ -683,29 +683,29 @@ tdb(/usr/local/samba_2.2.7/var/locks/locking.tdb): rec_read bad magic
 		</span>&#8221;
 	</p><p>
 	This error indicates a corrupted tdb. Stop all instances of smbd, delete locking.tdb, and restart smbd.
-	</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2621396"></a>Problems Saving Files in MS Office on Windows XP</h3></div></div></div><a class="indexterm" name="id2621402"></a><p>This is a bug in Windows XP. More information can be 
-		found in <a href="http://support.microsoft.com/?id=812937" target="_top">Microsoft Knowledge Base article 812937</a></p>.
+	</p></div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2617803"></a>Problems Saving Files in MS Office on Windows XP</h3></div></div></div><a class="indexterm" name="id2617809"></a><p>This is a bug in Windows XP. More information can be 
+		found in <a class="ulink" href="http://support.microsoft.com/?id=812937" target="_top">Microsoft Knowledge Base article 812937</a></p>.
 
-	</div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2621420"></a>Long Delays Deleting Files over Network with XP SP1</h3></div></div></div><p>&#8220;<span class="quote">It sometimes takes approximately 35 seconds to delete files over the network after XP SP1 has been applied.</span>&#8221;</p><a class="indexterm" name="id2621433"></a><p>This is a bug in Windows XP. More information can be found in <a href="http://support.microsoft.com/?id=811492" target="_top">
+	</div><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="id2617827"></a>Long Delays Deleting Files over Network with XP SP1</h3></div></div></div><p>&#8220;<span class="quote">It sometimes takes approximately 35 seconds to delete files over the network after XP SP1 has been applied.</span>&#8221;</p><a class="indexterm" name="id2617840"></a><p>This is a bug in Windows XP. More information can be found in <a class="ulink" href="http://support.microsoft.com/?id=811492" target="_top">
 				Microsoft Knowledge Base article 811492</a></p>.
-	</div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2621452"></a>Additional Reading</h2></div></div></div><p>
+	</div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2617859"></a>Additional Reading</h2></div></div></div><p>
 You may want to check for an updated documentation regarding file and record locking issues on the Microsoft
-<a href="http://support.microsoft.com/" target="_top">Support</a> web site. Additionally, search for the word
-<code class="literal">locking</code> on the Samba <a href="http://www.samba.org/" target="_top">web</a> site.
+<a class="ulink" href="http://support.microsoft.com/" target="_top">Support</a> web site. Additionally, search for the word
+<code class="literal">locking</code> on the Samba <a class="ulink" href="http://www.samba.org/" target="_top">web</a> site.
 </p><p>
 Section of the Microsoft MSDN Library on opportunistic locking: 
 </p><p>
-<a class="indexterm" name="id2621489"></a>
+<a class="indexterm" name="id2617896"></a>
 Microsoft Knowledge Base, &#8220;<span class="quote">Maintaining Transactional Integrity with OPLOCKS</span>&#8221;,
-Microsoft Corporation, April 1999, <a href="http://support.microsoft.com/?id=224992" target="_top">Microsoft
+Microsoft Corporation, April 1999, <a class="ulink" href="http://support.microsoft.com/?id=224992" target="_top">Microsoft
 KB Article 224992</a>.
 </p><p>
-<a class="indexterm" name="id2621513"></a>
+<a class="indexterm" name="id2617920"></a>
 Microsoft Knowledge Base, &#8220;<span class="quote">Configuring Opportunistic Locking in Windows 2000</span>&#8221;,
-Microsoft Corporation, April 2001 <a href="http://support.microsoft.com/?id=296264" target="_top">Microsoft KB Article 296264</a>.
+Microsoft Corporation, April 2001 <a class="ulink" href="http://support.microsoft.com/?id=296264" target="_top">Microsoft KB Article 296264</a>.
 </p><p>
-<a class="indexterm" name="id2621537"></a>
+<a class="indexterm" name="id2617944"></a>
 Microsoft Knowledge Base, &#8220;<span class="quote">PC Ext: Explanation of Opportunistic Locking on Windows NT</span>&#8221;,
-Microsoft Corporation, April 1995 <a href="http://support.microsoft.com/?id=129202" target="_top">Microsoft
+Microsoft Corporation, April 1995 <a class="ulink" href="http://support.microsoft.com/?id=129202" target="_top">Microsoft
 KB Article 129202</a>.
-</p></div><div class="footnotes"><br><hr width="100" align="left"><div class="footnote"><p><sup>[<a name="ftn.id2621030" href="#id2621030">5</a>] </sup>Microsoft has documented this in Knowledge Base article 300216.</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="AccessControls.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="optional.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="securing-samba.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 16. File, Directory, and Share Access Controls </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 18. Securing Samba</td></tr></table></div></body></html>
+</p></div><div class="footnotes"><br><hr width="100" align="left"><div class="footnote"><p><sup>[<a name="ftn.id2617437" href="#id2617437" class="para">5</a>] </sup>Microsoft has documented this in Knowledge Base article 300216.</p></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="AccessControls.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="optional.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="securing-samba.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 16. File, Directory, and Share Access Controls </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 18. Securing Samba</td></tr></table></div></body></html>

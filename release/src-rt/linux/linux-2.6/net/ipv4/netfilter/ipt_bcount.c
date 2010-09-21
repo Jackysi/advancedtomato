@@ -10,8 +10,8 @@
 #include <linux/skbuff.h>
 #include <linux/version.h>
 #include <net/sock.h>
+#include <net/netfilter/nf_conntrack.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_bcount.h>
 
 //	#define LOG			printk
@@ -32,7 +32,7 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 #endif
 {
 	const struct ipt_bcount_match *info;
-	struct ip_conntrack *ct;
+	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
@@ -40,7 +40,7 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 #else
 	info = par->matchinfo;
 #endif
-	ct = ip_conntrack_get((struct sk_buff *)skb, &ctinfo);
+	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);
 	if (!ct) return !info->invert;
 	return ((ct->bcount >= info->min) && (ct->bcount <= info->max)) ^ info->invert;
 }

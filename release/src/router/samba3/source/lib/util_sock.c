@@ -966,7 +966,10 @@ BOOL open_any_socket_out(struct sockaddr_in *addrs, int num_addrs,
 		}
 
 		if (errno == EINPROGRESS || errno == EALREADY ||
-		    errno == EAGAIN) {
+#ifdef EISCONN
+			errno == EISCONN ||
+#endif
+		    errno == EAGAIN || errno == EINTR) {
 			/* These are the error messages that something is
 			   progressing. */
 			good_connect = True;

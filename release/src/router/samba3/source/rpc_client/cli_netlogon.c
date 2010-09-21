@@ -185,9 +185,10 @@ static NTSTATUS rpccli_net_auth2(struct rpc_pipe_client *cli,
 
         result = r.status;
 
+	*neg_flags_inout = r.srv_flgs.neg_flags;
+
         if (NT_STATUS_IS_OK(result)) {
 		*srv_chal_out = r.srv_chal;
-		*neg_flags_inout = r.srv_flgs.neg_flags;
         }
 
         return result;
@@ -264,6 +265,7 @@ NTSTATUS rpccli_netlogon_setup_creds(struct rpc_pipe_client *cli,
 	DOM_CHAL clnt_chal_send;
 	DOM_CHAL srv_chal_recv;
 	struct dcinfo *dc;
+	bool retried = false;
 
 	SMB_ASSERT(cli->pipe_idx == PI_NETLOGON);
 
@@ -285,6 +287,7 @@ NTSTATUS rpccli_netlogon_setup_creds(struct rpc_pipe_client *cli,
 
 	fstr_sprintf( dc->mach_acct, "%s$", machine_account);
 
+ again:
 	/* Create the client challenge. */
 	generate_random_buffer(clnt_chal_send.data, 8);
 
@@ -321,6 +324,14 @@ NTSTATUS rpccli_netlogon_setup_creds(struct rpc_pipe_client *cli,
 			neg_flags_inout,
 			&clnt_chal_send, /* input. */
 			&srv_chal_recv); /* output */
+
+	/* we might be talking to NT4, so let's downgrade in that case and retry
+	 * with the returned neg_flags - gd */
+
+	if (NT_STATUS_EQUAL(result, NT_STATUS_ACCESS_DENIED) && !retried) {
+		retried = true;
+		goto again;
+	}
 
 	if (!NT_STATUS_IS_OK(result)) {
 		return result;
@@ -380,15 +391,15 @@ NTSTATUS rpccli_netlogon_logon_ctrl2(struct rpc_pipe_client *cli, TALLOC_CTX *me
 	return result;
 }
 
-/* GetDCName */
+/* GetAnyDCName */
 
-WERROR rpccli_netlogon_getdcname(struct rpc_pipe_client *cli,
-				 TALLOC_CTX *mem_ctx, const char *mydcname,
-				 const char *domainname, fstring newdcname)
+WERROR rpccli_netlogon_getanydcname(struct rpc_pipe_client *cli,
+				    TALLOC_CTX *mem_ctx, const char *mydcname,
+				    const char *domainname, fstring newdcname)
 {
 	prs_struct qbuf, rbuf;
-	NET_Q_GETDCNAME q;
-	NET_R_GETDCNAME r;
+	NET_Q_GETANYDCNAME q;
+	NET_R_GETANYDCNAME r;
 	WERROR result;
 	fstring mydcname_slash;
 
@@ -398,15 +409,15 @@ WERROR rpccli_netlogon_getdcname(struct rpc_pipe_client *cli,
 	/* Initialise input parameters */
 
 	slprintf(mydcname_slash, sizeof(fstring)-1, "\\\\%s", mydcname);
-	init_net_q_getdcname(&q, mydcname_slash, domainname);
+	init_net_q_getanydcname(&q, mydcname_slash, domainname);
 
 	/* Marshall data and send request */
 
-	CLI_DO_RPC_WERR(cli, mem_ctx, PI_NETLOGON, NET_GETDCNAME,
+	CLI_DO_RPC_WERR(cli, mem_ctx, PI_NETLOGON, NET_GETANYDCNAME,
 		q, r,
 		qbuf, rbuf,
-		net_io_q_getdcname,
-		net_io_r_getdcname,
+		net_io_q_getanydcname,
+		net_io_r_getanydcname,
 		WERR_GENERAL_FAILURE);
 
 	result = r.status;
@@ -418,23 +429,101 @@ WERROR rpccli_netlogon_getdcname(struct rpc_pipe_client *cli,
 	return result;
 }
 
+static WERROR pull_domain_controller_info_from_getdcname_reply(TALLOC_CTX *mem_ctx,
+							       struct DS_DOMAIN_CONTROLLER_INFO **info_out, 
+							       NET_R_DSR_GETDCNAME *r)
+{
+	struct DS_DOMAIN_CONTROLLER_INFO *info;
+
+	info = TALLOC_ZERO_P(mem_ctx, struct DS_DOMAIN_CONTROLLER_INFO);
+	if (!info) {
+		return WERR_NOMEM;
+	}
+
+	if (&r->uni_dc_unc) {
+
+		char *tmp;
+		tmp = rpcstr_pull_unistr2_talloc(mem_ctx, &r->uni_dc_unc);
+		if (tmp == NULL) {
+			return WERR_GENERAL_FAILURE;
+		}
+		if (*tmp == '\\') tmp += 1;
+		if (*tmp == '\\') tmp += 1;
+
+		info->domain_controller_name = talloc_strdup(mem_ctx, tmp);
+		if (info->domain_controller_name == NULL) {
+			return WERR_GENERAL_FAILURE;
+		}
+	}
+
+	if (&r->uni_dc_address) {
+
+		char *tmp;
+		tmp = rpcstr_pull_unistr2_talloc(mem_ctx, &r->uni_dc_address);
+		if (tmp == NULL) {
+			return WERR_GENERAL_FAILURE;
+		}
+		if (*tmp == '\\') tmp += 1;
+		if (*tmp == '\\') tmp += 1;
+
+		info->domain_controller_address = talloc_strdup(mem_ctx, tmp);
+		if (info->domain_controller_address == NULL) {
+			return WERR_GENERAL_FAILURE;
+		}
+	}
+
+	info->domain_controller_address_type = r->dc_address_type;
+
+	info->domain_guid = talloc_memdup(mem_ctx, &r->domain_guid, sizeof(struct GUID));
+	if (!info->domain_guid) {
+		return WERR_GENERAL_FAILURE;
+	}
+
+	if (&r->uni_domain_name) {
+		info->domain_name = rpcstr_pull_unistr2_talloc(mem_ctx, &r->uni_domain_name);
+		if (!info->domain_name) {
+			return WERR_GENERAL_FAILURE;
+		}
+	}
+
+	if (&r->uni_forest_name) {
+		info->dns_forest_name = rpcstr_pull_unistr2_talloc(mem_ctx, &r->uni_forest_name);
+		if (!info->dns_forest_name) {
+			return WERR_GENERAL_FAILURE;
+		}
+	}
+
+	info->flags = r->dc_flags;
+
+	if (&r->uni_dc_site_name) {
+		info->dc_site_name = rpcstr_pull_unistr2_talloc(mem_ctx, &r->uni_dc_site_name);
+		if (!info->dc_site_name) {
+			return WERR_GENERAL_FAILURE;
+		}
+	}
+
+	if (&r->uni_client_site_name) {
+		info->client_site_name = rpcstr_pull_unistr2_talloc(mem_ctx, &r->uni_client_site_name);
+		if (!info->client_site_name) {
+			return WERR_GENERAL_FAILURE;
+		}
+	}
+
+	*info_out = info;
+
+	return WERR_OK;
+}
+
 /* Dsr_GetDCName */
 
 WERROR rpccli_netlogon_dsr_getdcname(struct rpc_pipe_client *cli,
 				     TALLOC_CTX *mem_ctx,
 				     const char *server_name,
 				     const char *domain_name,
-				     struct uuid *domain_guid,
-				     struct uuid *site_guid,
+				     struct GUID *domain_guid,
+				     struct GUID *site_guid,
 				     uint32_t flags,
-				     char **dc_unc, char **dc_address,
-				     int32 *dc_address_type,
-				     struct uuid *domain_guid_out,
-				     char **domain_name_out,
-				     char **forest_name,
-				     uint32 *dc_flags,
-				     char **dc_site_name,
-				     char **client_site_name)
+				     struct DS_DOMAIN_CONTROLLER_INFO **info_out)
 {
 	prs_struct qbuf, rbuf;
 	NET_Q_DSR_GETDCNAME q;
@@ -467,78 +556,116 @@ WERROR rpccli_netlogon_dsr_getdcname(struct rpc_pipe_client *cli,
 		return r.result;
 	}
 
-	if (dc_unc != NULL) {
-		char *tmp;
-		tmp = rpcstr_pull_unistr2_talloc(mem_ctx, &r.uni_dc_unc);
-		if (tmp == NULL) {
-			return WERR_GENERAL_FAILURE;
-		}
-		if (*tmp == '\\') tmp += 1;
-		if (*tmp == '\\') tmp += 1;
-
-		/* We have to talloc_strdup, otherwise a talloc_steal would
-		   fail */
-		*dc_unc = talloc_strdup(mem_ctx, tmp);
-		if (*dc_unc == NULL) {
-			return WERR_NOMEM;
-		}
-	}
-
-	if (dc_address != NULL) {
-		char *tmp;
-		tmp = rpcstr_pull_unistr2_talloc(mem_ctx, &r.uni_dc_address);
-		if (tmp == NULL) {
-			return WERR_GENERAL_FAILURE;
-		}
-		if (*tmp == '\\') tmp += 1;
-		if (*tmp == '\\') tmp += 1;
-
-		/* We have to talloc_strdup, otherwise a talloc_steal would
-		   fail */
-		*dc_address = talloc_strdup(mem_ctx, tmp);
-		if (*dc_address == NULL) {
-			return WERR_NOMEM;
-		}
-	}
-
-	if (dc_address_type != NULL) {
-		*dc_address_type = r.dc_address_type;
-	}
-
-	if (domain_guid_out != NULL) {
-		*domain_guid_out = r.domain_guid;
-	}
-
-	if ((domain_name_out != NULL) &&
-	    ((*domain_name_out = rpcstr_pull_unistr2_talloc(
-		    mem_ctx, &r.uni_domain_name)) == NULL)) {
-		return WERR_GENERAL_FAILURE;
-	}
-
-	if ((forest_name != NULL) &&
-	    ((*forest_name = rpcstr_pull_unistr2_talloc(
-		      mem_ctx, &r.uni_forest_name)) == NULL)) {
-		return WERR_GENERAL_FAILURE;
-	}
-
-	if (dc_flags != NULL) {
-		*dc_flags = r.dc_flags;
-	}
-
-	if ((dc_site_name != NULL) &&
-	    ((*dc_site_name = rpcstr_pull_unistr2_talloc(
-		      mem_ctx, &r.uni_dc_site_name)) == NULL)) {
-		return WERR_GENERAL_FAILURE;
-	}
-
-	if ((client_site_name != NULL) &&
-	    ((*client_site_name = rpcstr_pull_unistr2_talloc(
-		      mem_ctx, &r.uni_client_site_name)) == NULL)) {
-		return WERR_GENERAL_FAILURE;
+	r.result = pull_domain_controller_info_from_getdcname_reply(mem_ctx, info_out, &r);
+	if (!W_ERROR_IS_OK(r.result)) {
+		return r.result;
 	}
 
 	return WERR_OK;
 }
+
+/* Dsr_GetDCNameEx */
+
+WERROR rpccli_netlogon_dsr_getdcnameex(struct rpc_pipe_client *cli,
+				       TALLOC_CTX *mem_ctx,
+				       const char *server_name,
+				       const char *domain_name,
+				       struct GUID *domain_guid,
+				       const char *site_name,
+				       uint32_t flags,
+				       struct DS_DOMAIN_CONTROLLER_INFO **info_out)
+{
+	prs_struct qbuf, rbuf;
+	NET_Q_DSR_GETDCNAMEEX q;
+	NET_R_DSR_GETDCNAME r;
+	char *tmp_str;
+
+	ZERO_STRUCT(q);
+	ZERO_STRUCT(r);
+
+	/* Initialize input parameters */
+
+	tmp_str = talloc_asprintf(mem_ctx, "\\\\%s", server_name);
+	if (tmp_str == NULL) {
+		return WERR_NOMEM;
+	}
+
+	init_net_q_dsr_getdcnameex(&q, server_name, domain_name, domain_guid,
+				   site_name, flags);
+
+	/* Marshall data and send request */
+
+	CLI_DO_RPC_WERR(cli, mem_ctx, PI_NETLOGON, NET_DSR_GETDCNAMEEX,
+			q, r,
+			qbuf, rbuf,
+			net_io_q_dsr_getdcnameex,
+			net_io_r_dsr_getdcname,
+			WERR_GENERAL_FAILURE);
+
+	if (!W_ERROR_IS_OK(r.result)) {
+		return r.result;
+	}
+
+	r.result = pull_domain_controller_info_from_getdcname_reply(mem_ctx, info_out, &r);
+	if (!W_ERROR_IS_OK(r.result)) {
+		return r.result;
+	}
+
+	return WERR_OK;
+}
+
+/* Dsr_GetDCNameEx */
+
+WERROR rpccli_netlogon_dsr_getdcnameex2(struct rpc_pipe_client *cli,
+					TALLOC_CTX *mem_ctx,
+					const char *server_name,
+					const char *client_account,
+					uint32 mask,
+					const char *domain_name,
+					struct GUID *domain_guid,
+					const char *site_name,
+					uint32_t flags,
+					struct DS_DOMAIN_CONTROLLER_INFO **info_out)
+{
+	prs_struct qbuf, rbuf;
+	NET_Q_DSR_GETDCNAMEEX2 q;
+	NET_R_DSR_GETDCNAME r;
+	char *tmp_str;
+
+	ZERO_STRUCT(q);
+	ZERO_STRUCT(r);
+
+	/* Initialize input parameters */
+
+	tmp_str = talloc_asprintf(mem_ctx, "\\\\%s", server_name);
+	if (tmp_str == NULL) {
+		return WERR_NOMEM;
+	}
+
+	init_net_q_dsr_getdcnameex2(&q, server_name, domain_name, client_account,
+				    mask, domain_guid, site_name, flags);
+
+	/* Marshall data and send request */
+
+	CLI_DO_RPC_WERR(cli, mem_ctx, PI_NETLOGON, NET_DSR_GETDCNAMEEX2,
+			q, r,
+			qbuf, rbuf,
+			net_io_q_dsr_getdcnameex2,
+			net_io_r_dsr_getdcname,
+			WERR_GENERAL_FAILURE);
+
+	if (!W_ERROR_IS_OK(r.result)) {
+		return r.result;
+	}
+
+	r.result = pull_domain_controller_info_from_getdcname_reply(mem_ctx, info_out, &r);
+	if (!W_ERROR_IS_OK(r.result)) {
+		return r.result;
+	}
+
+	return WERR_OK;
+}
+
 
 /* Dsr_GetSiteName */
 
@@ -638,7 +765,7 @@ NTSTATUS rpccli_netlogon_sam_sync(struct rpc_pipe_client *cli, TALLOC_CTX *mem_c
 /* Sam synchronisation */
 
 NTSTATUS rpccli_netlogon_sam_deltas(struct rpc_pipe_client *cli, TALLOC_CTX *mem_ctx,
-                                 uint32 database_id, UINT64_S seqnum,
+                                 uint32 database_id, uint64 seqnum,
                                  uint32 *num_deltas, 
                                  SAM_DELTA_HDR **hdr_deltas, 
                                  SAM_DELTA_CTR **deltas)
@@ -695,6 +822,7 @@ NTSTATUS rpccli_netlogon_sam_logon(struct rpc_pipe_client *cli,
 				   const char *domain,
 				   const char *username,
 				   const char *password,
+				   const char *workstation,
 				   int logon_type)
 {
 	prs_struct qbuf, rbuf;
@@ -712,7 +840,11 @@ NTSTATUS rpccli_netlogon_sam_logon(struct rpc_pipe_client *cli,
 	ZERO_STRUCT(r);
 	ZERO_STRUCT(ret_creds);
 
-	fstr_sprintf( clnt_name_slash, "\\\\%s", global_myname() );
+	if (workstation) {
+		fstr_sprintf( clnt_name_slash, "\\\\%s", workstation );
+	} else {
+		fstr_sprintf( clnt_name_slash, "\\\\%s", global_myname() );
+	}
 
         /* Initialise input parameters */
 
@@ -945,6 +1077,56 @@ NTSTATUS rpccli_net_srv_pwset(struct rpc_pipe_client *cli, TALLOC_CTX *mem_ctx,
 	/* Always check returned credentials. */
 	if (!creds_client_check(cli->dc, &r.srv_cred.challenge)) {
 		DEBUG(0,("rpccli_net_srv_pwset: credentials chain check failed\n"));
+		return NT_STATUS_ACCESS_DENIED;
+	}
+
+	return result;
+}
+
+/***************************************************************************
+LSA Server Password Set2.
+****************************************************************************/
+
+NTSTATUS rpccli_net_srv_pwset2(struct rpc_pipe_client *cli,
+			       TALLOC_CTX *mem_ctx,
+			       const char *machine_name,
+			       const char *clear_text_mach_pwd)
+{
+	prs_struct rbuf;
+	prs_struct qbuf;
+	DOM_CRED clnt_creds;
+	NET_Q_SRV_PWSET2 q;
+	NET_R_SRV_PWSET2 r;
+	uint16 sec_chan_type = 2;
+	NTSTATUS result;
+
+	creds_client_step(cli->dc, &clnt_creds);
+
+	DEBUG(4,("cli_net_srv_pwset2: srv:%s acct:%s sc: %d mc: %s\n",
+		 cli->dc->remote_machine, cli->dc->mach_acct, sec_chan_type, machine_name));
+
+        /* store the parameters */
+	init_q_srv_pwset2(&q, cli->dc->remote_machine, (const char *)cli->dc->sess_key,
+			  cli->dc->mach_acct, sec_chan_type, machine_name,
+			  &clnt_creds, clear_text_mach_pwd);
+
+	CLI_DO_RPC(cli, mem_ctx, PI_NETLOGON, NET_SRVPWSET2,
+		q, r,
+		qbuf, rbuf,
+		net_io_q_srv_pwset2,
+		net_io_r_srv_pwset2,
+		NT_STATUS_UNSUCCESSFUL);
+
+	result = r.status;
+
+	if (!NT_STATUS_IS_OK(result)) {
+		/* report error code */
+		DEBUG(0,("cli_net_srv_pwset2: %s\n", nt_errstr(result)));
+	}
+
+	/* Always check returned credentials. */
+	if (!creds_client_check(cli->dc, &r.srv_cred.challenge)) {
+		DEBUG(0,("rpccli_net_srv_pwset2: credentials chain check failed\n"));
 		return NT_STATUS_ACCESS_DENIED;
 	}
 

@@ -1,18 +1,20 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>libsmbclient</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="libsmbclient.7"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>libsmbclient &#8212; An extension library for browsers and that can be used as a generic browsing API.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">Browser URL:</code> <p>
-        smb://[[[domain:]user[:password@]]server[/share[/path[/file]]]] [?options]
-    </p></p></div></div><div class="refsect1" lang="en"><a name="id2526294"></a><h2>DESCRIPTION</h2><p>
-	This tool is part of the <a href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>libsmbclient</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="libsmbclient.7"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>libsmbclient &#8212; An extension library for browsers and that can be used as a generic browsing API.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><p>
+	Browser URL:
+	<code class="literal">smb://[[[domain:]user[:password@]]server[/share[/path[/file]]]] [?options]
+	</code>
+	</p></p></div></div><div class="refsect1" lang="en"><a name="id2522934"></a><h2>DESCRIPTION</h2><p>
+	This tool is part of the <a class="citerefentry" href="samba.7.html"><span class="citerefentry"><span class="refentrytitle">samba</span>(7)</span></a> suite.
 	</p><p>
-	<span><strong class="command">libsmbclient</strong></span> is a library toolset that permits applications to manipulate CIFS/SMB network
+	<code class="literal">libsmbclient</code> is a library toolset that permits applications to manipulate CIFS/SMB network
 	resources using many of the standards POSIX functions available for manipulating local UNIX/Linux files. It
 	permits much more than just browsing, files can be opened and read or written, permissions changed, file times
 	modified, attributes and ACL's can be manipulated, and so on. Of course, its functionality includes all the
 	capabilities commonly called browsing.
 	</p><p>
-	<span><strong class="command">libsmbclient</strong></span> can not be used directly from the command line, instead it provides an
+	<code class="literal">libsmbclient</code> can not be used directly from the command line, instead it provides an
 	extension of the capabilities of tools such as file managers and browsers.  This man page describes the
 	configuration options for this tool so that the user may obtain greatest utility of use.
-	</p></div><div class="refsect1" lang="en"><a name="id2526341"></a><h2>OPTIONS</h2><p>
+	</p></div><div class="refsect1" lang="en"><a name="id2483355"></a><h2>OPTIONS</h2><p>
 	What the URLs mean:
 	</p><div class="variablelist"><dl><dt><span class="term">smb://</span></dt><dd><p>
 			Shows all workgroups or domains that are visible in the network. The behavior matches
@@ -41,14 +43,14 @@
 	it will read the system <code class="filename">/etc/samba/smb.conf</code> and then append the
 	contents of the <code class="filename">~/.smb/smb.conf.append</code> to it.
 	</p><p>
-	<span><strong class="command">libsmbclient</strong></span> will check the users shell environment for the <code class="literal">USER</code>
+	<code class="literal">libsmbclient</code> will check the users shell environment for the <code class="literal">USER</code>
 	parameter and will use its value when if the <code class="literal">user</code> parameter was not included
 	in the URL.
-	</p></div><div class="refsect1" lang="en"><a name="id2488169"></a><h2>PROGRAMMERS GUIDE</h2><p>
+	</p></div><div class="refsect1" lang="en"><a name="id2483610"></a><h2>PROGRAMMERS GUIDE</h2><p>
 	Watch this space for future updates.
-	</p></div><div class="refsect1" lang="en"><a name="id2488180"></a><h2>VERSION</h2><p>
+	</p></div><div class="refsect1" lang="en"><a name="id2483621"></a><h2>VERSION</h2><p>
 	This man page is correct for version 3.0 of the Samba suite.
-	</p></div><div class="refsect1" lang="en"><a name="id2488191"></a><h2>AUTHOR</h2><p>
+	</p></div><div class="refsect1" lang="en"><a name="id2483632"></a><h2>AUTHOR</h2><p>
 	The original Samba software and related utilities were created by Andrew Tridgell.
 	Samba is now developed by the Samba Team as an Open Source project similar to the way
 	the Linux kernel is developed.

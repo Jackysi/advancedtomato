@@ -801,19 +801,7 @@ start_scanner()
 	if (setpriority(PRIO_PROCESS, 0, 15) == -1)
 		DPRINTF(E_WARN, L_INOTIFY,  "Failed to reduce scanner thread priority\n");
 
-#ifdef READYNAS
-	FILE * flag = fopen("/ramfs/.upnp-av_scan", "w");
-	if( flag )
-		fclose(flag);
-#else
-	mkdir("/var/notice", 0755);
-	FILE * flag = fopen("/var/notice/dlna", "w");
-	if( flag )
-	{
-		fprintf(flag, "Scan in progress");
-		fclose(flag);
-	}
-#endif
+	begin_scan();
 	freopen("/dev/null", "a", stderr);
 	while( media_path )
 	{
@@ -821,13 +809,8 @@ start_scanner()
 		media_path = media_path->next;
 	}
 	freopen("/proc/self/fd/2", "a", stderr);
-#ifdef READYNAS
-	if( access("/ramfs/.rescan_done", F_OK) == 0 )
-		system("/bin/sh /ramfs/.rescan_done");
-	unlink("/ramfs/.upnp-av_scan");
-#else
-	unlink("/var/notice/dlna");
-#endif
+	end_scan();
+
 	/* Create this index after scanning, so it doesn't slow down the scanning process.
 	 * This index is very useful for large libraries used with an XBox360 (or any
 	 * client that uses UPnPSearch on large containers). */

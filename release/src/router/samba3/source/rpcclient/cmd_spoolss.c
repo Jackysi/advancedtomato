@@ -276,8 +276,6 @@ static void display_print_info_2(PRINTER_INFO_2 *i2)
 
 static void display_print_info_3(PRINTER_INFO_3 *i3)
 {
-	printf("\tflags:[0x%x]\n", i3->flags);
-
 	display_sec_desc(i3->secdesc);
 
 	printf("\n");
@@ -2012,7 +2010,7 @@ static WERROR cmd_spoolss_setprinterdata(struct rpc_pipe_client *cli,
         if (!W_ERROR_IS_OK(result))
                 goto done;
 		
-	printf("%s\n", timestring(True));
+	printf("%s\n", current_timestring(True));
 	printf("\tchange_id (before set)\t:[0x%x]\n", info.change_id);
 
 	/* Set the printer data */
@@ -2024,13 +2022,23 @@ static WERROR cmd_spoolss_setprinterdata(struct rpc_pipe_client *cli,
 		UNISTR2 data;
 		init_unistr2(&data, argv[4], UNI_STR_TERMINATE);
 		value.size = data.uni_str_len * 2;
-		value.data_p = TALLOC_MEMDUP(mem_ctx, data.buffer, value.size);
+		if (value.size) {
+			value.data_p = (uint8 *)TALLOC_MEMDUP(mem_ctx, data.buffer,
+						      value.size);
+		} else {
+			value.data_p = NULL;
+		}
 		break;
 	}
 	case REG_DWORD: {
 		uint32 data = strtoul(argv[4], NULL, 10);
 		value.size = sizeof(data);
-		value.data_p = TALLOC_MEMDUP(mem_ctx, &data, sizeof(data));
+		if (sizeof(data)) {
+			value.data_p = (uint8 *)TALLOC_MEMDUP(mem_ctx, &data,
+						      sizeof(data));
+		} else {
+			value.data_p = NULL;
+		}
 		break;
 	}
 	case REG_BINARY: {
@@ -2088,7 +2096,7 @@ static WERROR cmd_spoolss_setprinterdata(struct rpc_pipe_client *cli,
         if (!W_ERROR_IS_OK(result))
                 goto done;
 		
-	printf("%s\n", timestring(True));
+	printf("%s\n", current_timestring(True));
 	printf("\tchange_id (after set)\t:[0x%x]\n", info.change_id);
 
 done:
@@ -2571,7 +2579,7 @@ static BOOL compare_printer_secdesc( struct rpc_pipe_client *cli1, POLICY_HND *h
 		goto done;
 	}
 	
-	if ( (ctr1.printers_3->flags != ctr1.printers_3->flags ) || !sec_desc_equal( sd1, sd2 ) ) {
+	if (!sec_desc_equal( sd1, sd2 ) ) {
 		printf("Security Descriptors *not* equal!\n");
 		result = False;
 		goto done;
@@ -2608,7 +2616,7 @@ static WERROR cmd_spoolss_printercmp(struct rpc_pipe_client *cli,
 	
 	fstrcpy( printername, argv[1] );
 	
-	fstr_sprintf( servername1, cli->cli->desthost );
+	fstrcpy( servername1, cli->cli->desthost );
 	fstrcpy( servername2, argv[2] );
 	strupper_m( servername1 );
 	strupper_m( servername2 );

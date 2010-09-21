@@ -294,7 +294,6 @@ void standard_success_register(struct subnet_record *subrec,
  ******************************************************************/
 
 void standard_fail_register( struct subnet_record   *subrec,
-                             struct response_record *rrec,
                              struct nmb_name        *nmbname )
 {
 	struct name_record *namerec;
@@ -505,8 +504,12 @@ void add_samba_names_to_subnet( struct subnet_record *subrec )
 			return;
 		}
 
-		for( bcast_subrecs = FIRST_SUBNET, i = 0; bcast_subrecs; bcast_subrecs = NEXT_SUBNET_EXCLUDING_UNICAST(bcast_subrecs), i++ )
+		for( bcast_subrecs = FIRST_SUBNET, i = 0; bcast_subrecs &&
+				i < num_ips;
+				bcast_subrecs = NEXT_SUBNET_EXCLUDING_UNICAST(bcast_subrecs), i++ ) {
 			iplist[i] = bcast_subrecs->myip;
+		}
+		num_ips = i;
 	}
 
 	add_name_to_subnet(subrec,"*",0x0,samba_nb_type, PERMANENT_TTL,

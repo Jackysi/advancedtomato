@@ -12,8 +12,8 @@
 #include <linux/version.h>
 #include <net/sock.h>
 
+#include <net/netfilter/nf_conntrack.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_macsave.h>
 
 //#define DEBUG	1
@@ -39,7 +39,7 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 #endif
 {
 	const struct ipt_macsave_match_info *info;
-	struct ip_conntrack *ct;
+	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
@@ -47,7 +47,7 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 #else
 	info = par->matchinfo;
 #endif
-	ct = ip_conntrack_get((struct sk_buff *)skb, &ctinfo);	// note about cast: ip_conntrack_get() will not modify skb
+	ct = nf_ct_get((struct sk_buff *)skb, &ctinfo);	// note about cast: nf_ct_get() will not modify skb
 	if (ct) return (memcmp(ct->macsave, info->mac, sizeof(ct->macsave)) == 0) ^ info->invert;
 	return info->invert;
 }

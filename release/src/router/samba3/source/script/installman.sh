@@ -20,7 +20,7 @@ fi
 
 # Get the configured feature set
 test -f "${SRCDIR}/config.log" && \
-	eval `grep "^[[:alnum:]]*=.*" "${SRCDIR}/config.log"`
+	eval `grep "^[[:alnum:]_]*=.*" "${SRCDIR}/config.log"`
 
 for lang in $langs; do
     if [ "X$lang" = XC ]; then
@@ -48,7 +48,9 @@ for lang in $langs; do
 
 	    # Check if this man page if required by the configured feature set
 	    case "${MP_BASENAME}" in
+		cifs.upcall.8) test -z "${CIFSUPCALL_PROGS}" && continue ;;
 	    	smbsh.1) test -z "${SMBWRAPPER}" && continue ;;
+		smbmnt.8|smbmount.8|smbumount.8) test -z "${SMBMOUNT_PROGS}" && continue ;;
 		*) ;;
 	    esac
 

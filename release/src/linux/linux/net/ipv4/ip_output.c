@@ -838,6 +838,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 
 		if (skb->sk)
 			skb_set_owner_w(skb2, skb->sk);
+		dst_release(skb2->dst);
 		skb2->dst = dst_clone(skb->dst);
 		skb2->dev = skb->dev;
 
@@ -885,14 +886,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 		skb2->tc_index = skb->tc_index;
 #endif
 #ifdef CONFIG_NETFILTER
-		skb2->nfmark = skb->nfmark;
-		skb2->nfcache = skb->nfcache;
-		/* Connection association is same as pre-frag packet */
-		skb2->nfct = skb->nfct;
-		nf_conntrack_get(skb2->nfct);
-#ifdef CONFIG_NETFILTER_DEBUG
-		skb2->nf_debug = skb->nf_debug;
-#endif
+		nf_copy(skb2, skb);
 #endif
 
 		/*

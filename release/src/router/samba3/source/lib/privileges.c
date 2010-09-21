@@ -309,7 +309,8 @@ static BOOL set_privileges( const DOM_SID *sid, SE_PRIV *mask )
  check if the privilege is in the privilege list
 ****************************************************************************/
 
-static BOOL is_privilege_assigned( SE_PRIV *privileges, const SE_PRIV *check )
+static BOOL is_privilege_assigned( const SE_PRIV *privileges,
+				   const SE_PRIV *check )
 {
 	SE_PRIV p1, p2;
 
@@ -473,7 +474,7 @@ BOOL get_privileges_for_sids(SE_PRIV *privileges, DOM_SID *slist, int scount)
 
 static int priv_traverse_fn(TDB_CONTEXT *t, TDB_DATA key, TDB_DATA data, void *state)
 {
-	PRIV_SID_LIST *priv = state;
+	PRIV_SID_LIST *priv = (PRIV_SID_LIST *)state;
 	int  prefixlen = strlen(PRIVPREFIX);
 	DOM_SID sid;
 	fstring sid_string;
@@ -516,7 +517,9 @@ static int priv_traverse_fn(TDB_CONTEXT *t, TDB_DATA key, TDB_DATA data, void *s
 		return 0;
 	}
 
-	add_sid_to_array( NULL, &sid, &priv->sids.list, &priv->sids.count );
+	if (!add_sid_to_array( NULL, &sid, &priv->sids.list, &priv->sids.count )) {
+		return 0;
+	}
 	
 	return 0;
 }
@@ -720,10 +723,14 @@ NTSTATUS dup_luid_attr(TALLOC_CTX *mem_ctx, LUID_ATTR **new_la, LUID_ATTR *old_l
 	if ( !old_la )
 		return NT_STATUS_OK;
 
-	*new_la = TALLOC_ARRAY(mem_ctx, LUID_ATTR, count);
-	if ( !*new_la ) {
-		DEBUG(0,("dup_luid_attr: failed to alloc new LUID_ATTR array [%d]\n", count));
-		return NT_STATUS_NO_MEMORY;
+	if (count) {
+		*new_la = TALLOC_ARRAY(mem_ctx, LUID_ATTR, count);
+		if ( !*new_la ) {
+			DEBUG(0,("dup_luid_attr: failed to alloc new LUID_ATTR array [%d]\n", count));
+			return NT_STATUS_NO_MEMORY;
+		}
+	} else {
+		*new_la = NULL;
 	}
 
 	for (i=0; i<count; i++) {
@@ -740,7 +747,7 @@ NTSTATUS dup_luid_attr(TALLOC_CTX *mem_ctx, LUID_ATTR **new_la, LUID_ATTR *old_l
  at a time here.
 *****************************************************************************/
 
-BOOL user_has_privileges(NT_USER_TOKEN *token, const SE_PRIV *privilege)
+BOOL user_has_privileges(const NT_USER_TOKEN *token, const SE_PRIV *privilege)
 {
 	if ( !token )
 		return False;

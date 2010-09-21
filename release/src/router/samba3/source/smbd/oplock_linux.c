@@ -23,22 +23,6 @@
 
 #if HAVE_KERNEL_OPLOCKS_LINUX
 
-/* these can be removed when they are in glibc headers */
-struct  cap_user_header {
-	uint32 version;
-	int pid;
-} header;
-struct cap_user_data {
-	uint32 effective;
-	uint32 permitted;
-	uint32 inheritable;
-} data;
-
-extern int capget(struct cap_user_header * hdrp,
-		  struct cap_user_data * datap);
-extern int capset(struct cap_user_header * hdrp,
-		  const struct cap_user_data * datap);
-
 static SIG_ATOMIC_T signals_received;
 #define FD_PENDING_SIZE 100
 static SIG_ATOMIC_T fd_pending_array[FD_PENDING_SIZE];
@@ -76,48 +60,32 @@ static void signal_handler(int sig, siginfo_t *info, void *unused)
 	sys_select_signal(RT_SIGNAL_LEASE);
 }
 
-/****************************************************************************
- Try to gain a linux capability.
-****************************************************************************/
-
-static void set_capability(unsigned capability)
+/*
+ Call to set the kernel lease signal handler
+*/
+int linux_set_lease_sighandler(int fd)
 {
-#ifndef _LINUX_CAPABILITY_VERSION
-#define _LINUX_CAPABILITY_VERSION 0x19980330
-#endif
-	header.version = _LINUX_CAPABILITY_VERSION;
-	header.pid = 0;
+        if (fcntl(fd, F_SETSIG, RT_SIGNAL_LEASE) == -1) {
+                DEBUG(3,("Failed to set signal handler for kernel lease\n"));
+                return -1;
+        }
 
-	if (capget(&header, &data) == -1) {
-		DEBUG(3,("Unable to get kernel capabilities (%s)\n", strerror(errno)));
-		return;
-	}
-
-	data.effective |= (1<<capability);
-
-	if (capset(&header, &data) == -1) {
-		DEBUG(3,("Unable to set %d capability (%s)\n", 
-			 capability, strerror(errno)));
-	}
+	return 0;
 }
 
 /****************************************************************************
  Call SETLEASE. If we get EACCES then we try setting up the right capability and
- try again
+ try again.
+ Use the SMB_VFS_LINUX_SETLEASE instead of this call directly.
 ****************************************************************************/
 
-static int linux_setlease(int fd, int leasetype)
+int linux_setlease(int fd, int leasetype)
 {
 	int ret;
 
-	if (fcntl(fd, F_SETSIG, RT_SIGNAL_LEASE) == -1) {
-		DEBUG(3,("Failed to set signal handler for kernel lease\n"));
-		return -1;
-	}
-
 	ret = fcntl(fd, F_SETLEASE, leasetype);
 	if (ret == -1 && errno == EACCES) {
-		set_capability(CAP_LEASE);
+		set_effective_capability(LEASE_CAPABILITY);
 		ret = fcntl(fd, F_SETLEASE, leasetype);
 	}
 
@@ -155,16 +123,19 @@ static files_struct *linux_oplock_receive_message(fd_set *fds)
 
 static BOOL linux_set_kernel_oplock(files_struct *fsp, int oplock_type)
 {
-	if (linux_setlease(fsp->fh->fd, F_WRLCK) == -1) {
-		DEBUG(3,("linux_set_kernel_oplock: Refused oplock on file %s, fd = %d, dev = %x, \
-inode = %.0f. (%s)\n",
+	if ( SMB_VFS_LINUX_SETLEASE(fsp,fsp->fh->fd, F_WRLCK) == -1) {
+		DEBUG(3,("linux_set_kernel_oplock: Refused oplock on file %s, "
+			 "fd = %d, dev = %x, inode = %.0f. (%s)\n",
 			 fsp->fsp_name, fsp->fh->fd, 
-			 (unsigned int)fsp->dev, (double)fsp->inode, strerror(errno)));
+			 (unsigned int)fsp->dev, (double)fsp->inode,
+			 strerror(errno)));
 		return False;
 	}
 	
-	DEBUG(3,("linux_set_kernel_oplock: got kernel oplock on file %s, dev = %x, inode = %.0f, file_id = %lu\n",
-		  fsp->fsp_name, (unsigned int)fsp->dev, (double)fsp->inode, fsp->fh->file_id));
+	DEBUG(3,("linux_set_kernel_oplock: got kernel oplock on file %s, "
+		 "dev = %x, inode = %.0f, file_id = %lu\n",
+		  fsp->fsp_name, (unsigned int)fsp->dev, (double)fsp->inode,
+		 fsp->fh->file_id));
 
 	return True;
 }
@@ -181,20 +152,23 @@ static void linux_release_kernel_oplock(files_struct *fsp)
 		 * oplock state of this file.
 		 */
 		int state = fcntl(fsp->fh->fd, F_GETLEASE, 0);
-		dbgtext("linux_release_kernel_oplock: file %s, dev = %x, inode = %.0f file_id = %lu has kernel \
-oplock state of %x.\n", fsp->fsp_name, (unsigned int)fsp->dev,
+		dbgtext("linux_release_kernel_oplock: file %s, dev = %x, "
+			"inode = %.0f file_id = %lu has kernel oplock state "
+			"of %x.\n", fsp->fsp_name, (unsigned int)fsp->dev,
                         (double)fsp->inode, fsp->fh->file_id, state );
 	}
 
 	/*
 	 * Remove the kernel oplock on this file.
 	 */
-	if (linux_setlease(fsp->fh->fd, F_UNLCK) == -1) {
+	if ( SMB_VFS_LINUX_SETLEASE(fsp,fsp->fh->fd, F_UNLCK) == -1) {
 		if (DEBUGLVL(0)) {
-			dbgtext("linux_release_kernel_oplock: Error when removing kernel oplock on file " );
-			dbgtext("%s, dev = %x, inode = %.0f, file_id = %lu. Error was %s\n",
-				fsp->fsp_name, (unsigned int)fsp->dev, 
-				(double)fsp->inode, fsp->fh->file_id, strerror(errno) );
+			dbgtext("linux_release_kernel_oplock: Error when "
+				"removing kernel oplock on file " );
+			dbgtext("%s, dev = %x, inode = %.0f, file_id = %lu. "
+				"Error was %s\n", fsp->fsp_name,
+				(unsigned int)fsp->dev, (double)fsp->inode,
+				fsp->fh->file_id, strerror(errno) );
 		}
 	}
 }

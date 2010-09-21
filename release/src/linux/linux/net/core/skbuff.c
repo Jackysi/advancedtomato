@@ -395,30 +395,17 @@ struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
 	C(tail);
 	C(end);
 	n->destructor = NULL;
-#ifdef CONFIG_NETFILTER
-	C(nfmark);
-	C(nfcache);
-	C(nfct);
-#ifdef CONFIG_NETFILTER_DEBUG
-	C(nf_debug);
-#endif
-#endif /*CONFIG_NETFILTER*/
+	__nf_copy(n, skb);
 #if defined(CONFIG_HIPPI)
 	C(private);
 #endif
 #ifdef CONFIG_NET_SCHED
 	C(tc_index);
 #endif
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	C(imq_flags);
-	C(nf_info);
-#endif
 
 	atomic_inc(&(skb_shinfo(skb)->dataref));
 	skb->cloned = 1;
-#ifdef CONFIG_NETFILTER
-	nf_conntrack_get(skb->nfct);
-#endif
+
 	return n;
 }
 
@@ -445,21 +432,9 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->stamp=old->stamp;
 	new->destructor = NULL;
 	new->security=old->security;
-#ifdef CONFIG_NETFILTER
-	new->nfmark=old->nfmark;
-	new->nfcache=old->nfcache;
-	new->nfct=old->nfct;
-	nf_conntrack_get(new->nfct);
-#ifdef CONFIG_NETFILTER_DEBUG
-	new->nf_debug=old->nf_debug;
-#endif
-#endif
+	__nf_copy(new, old);
 #ifdef CONFIG_NET_SCHED
 	new->tc_index = old->tc_index;
-#endif
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	new->imq_flags=old->imq_flags;
-	new->nf_info=old->nf_info;
 #endif
 }
 

@@ -156,8 +156,16 @@ void dump_core_setup(const char *progname)
 	 * turned on in smb.conf and the relevant daemon is not restarted.
 	 */
 	if (!lp_enable_core_files()) {
-		DEBUG(0, ("Exiting on internal error (core file administratively disabled\n"));
+		DEBUG(0, ("Exiting on internal error (core file administratively disabled)\n"));
 		exit(1);
+	}
+
+#if DUMP_CORE
+	/* If we're running as non root we might not be able to dump the core
+	 * file to the corepath.  There must not be an unbecome_root() before
+	 * we call abort(). */
+	if (geteuid() != 0) {
+		become_root();
 	}
 
 	if (*corepath != '\0') {
@@ -165,7 +173,7 @@ void dump_core_setup(const char *progname)
 		 * processing the config file.
 		 */
 		if (chdir(corepath) != 0) {
-			DEBUG(0, ("unable to change to %s", corepath));
+			DEBUG(0, ("unable to change to %s\n", corepath));
 			DEBUGADD(0, ("refusing to dump core\n"));
 			exit(1);
 		}
@@ -182,5 +190,9 @@ void dump_core_setup(const char *progname)
 #endif
 
 	abort();
+
+#else /* DUMP_CORE */
+	exit(1);
+#endif /* DUMP_CORE */
 }
 

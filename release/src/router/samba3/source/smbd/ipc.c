@@ -115,7 +115,7 @@ void send_trans_reply(char *outbuf,
 
 	show_msg(outbuf);
 	if (!send_smb(smbd_server_fd(),outbuf))
-		exit_server("send_trans_reply: send_smb failed.");
+		exit_server_cleanly("send_trans_reply: send_smb failed.");
 
 	tot_data_sent = this_ldata;
 	tot_param_sent = this_lparam;
@@ -149,7 +149,7 @@ void send_trans_reply(char *outbuf,
 
 		show_msg(outbuf);
 		if (!send_smb(smbd_server_fd(),outbuf))
-			exit_server("send_trans_reply: send_smb failed.");
+			exit_server_cleanly("send_trans_reply: send_smb failed.");
 
 		tot_data_sent  += this_ldata;
 		tot_param_sent += this_lparam;
@@ -434,6 +434,7 @@ int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
 	unsigned int dscnt = SVAL(inbuf, smb_dscnt);
 	unsigned int psoff = SVAL(inbuf, smb_psoff);
 	unsigned int pscnt = SVAL(inbuf, smb_pscnt);
+	unsigned int av_size = size-4;
 	struct trans_state *state;
 	NTSTATUS result;
 
@@ -447,7 +448,7 @@ int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
 		return ERROR_NT(result);
 	}
 
-	if ((state = TALLOC_P(NULL, struct trans_state)) == NULL) {
+	if ((state = TALLOC_P(conn->mem_ctx, struct trans_state)) == NULL) {
 		DEBUG(0, ("talloc failed\n"));
 		END_PROFILE(SMBtrans);
 		return ERROR_NT(NT_STATUS_NO_MEMORY);
@@ -458,6 +459,7 @@ int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
 	state->mid = SVAL(inbuf, smb_mid);
 	state->vuid = SVAL(inbuf, smb_uid);
 	state->setup_count = CVAL(inbuf, smb_suwcnt);
+	state->setup = NULL;
 	state->total_param = SVAL(inbuf, smb_tpscnt);
 	state->param = NULL;
 	state->total_data = SVAL(inbuf, smb_tdscnt);
@@ -477,8 +479,8 @@ int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
 
 	if (state->total_data)  {
 		/* Can't use talloc here, the core routines do realloc on the
-		 * params and data. */
-		state->data = SMB_MALLOC(state->total_data);
+		 * params and data. Out of paranoia, 100 bytes too many. */
+		state->data = (char *)SMB_MALLOC(state->total_data+100);
 		if (state->data == NULL) {
 			DEBUG(0,("reply_trans: data malloc fail for %u "
 				 "bytes !\n", (unsigned int)state->total_data));
@@ -486,19 +488,27 @@ int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
 			END_PROFILE(SMBtrans);
 			return(ERROR_DOS(ERRDOS,ERRnomem));
 		} 
-		if ((dsoff+dscnt < dsoff) || (dsoff+dscnt < dscnt))
+		/* null-terminate the slack space */
+		memset(&state->data[state->total_data], 0, 100);
+
+		if (dscnt > state->total_data ||
+				dsoff+dscnt < dsoff) {
 			goto bad_param;
-		if ((smb_base(inbuf)+dsoff+dscnt > inbuf + size) ||
-		    (smb_base(inbuf)+dsoff+dscnt < smb_base(inbuf)))
+		}
+
+		if (dsoff > av_size ||
+				dscnt > av_size ||
+				dsoff+dscnt > av_size) {
 			goto bad_param;
+		}
 
 		memcpy(state->data,smb_base(inbuf)+dsoff,dscnt);
 	}
 
 	if (state->total_param) {
 		/* Can't use talloc here, the core routines do realloc on the
-		 * params and data. */
-		state->param = SMB_MALLOC(state->total_param);
+		 * params and data. Out of paranoia, 100 bytes too many */
+		state->param = (char *)SMB_MALLOC(state->total_param+100);
 		if (state->param == NULL) {
 			DEBUG(0,("reply_trans: param malloc fail for %u "
 				 "bytes !\n", (unsigned int)state->total_param));
@@ -507,11 +517,19 @@ int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
 			END_PROFILE(SMBtrans);
 			return(ERROR_DOS(ERRDOS,ERRnomem));
 		} 
-		if ((psoff+pscnt < psoff) || (psoff+pscnt < pscnt))
+		/* null-terminate the slack space */
+		memset(&state->param[state->total_param], 0, 100);
+
+		if (pscnt > state->total_param ||
+				psoff+pscnt < psoff) {
 			goto bad_param;
-		if ((smb_base(inbuf)+psoff+pscnt > inbuf + size) ||
-		    (smb_base(inbuf)+psoff+pscnt < smb_base(inbuf)))
+		}
+
+		if (psoff > av_size ||
+				pscnt > av_size ||
+				psoff+pscnt > av_size) {
 			goto bad_param;
+		}
 
 		memcpy(state->param,smb_base(inbuf)+psoff,pscnt);
 	}
@@ -595,6 +613,7 @@ int reply_transs(connection_struct *conn, char *inbuf,char *outbuf,
 {
 	int outsize = 0;
 	unsigned int pcnt,poff,dcnt,doff,pdisp,ddisp;
+	unsigned int av_size = size-4;
 	struct trans_state *state;
 	NTSTATUS result;
 
@@ -638,34 +657,38 @@ int reply_transs(connection_struct *conn, char *inbuf,char *outbuf,
 		goto bad_param;
 		
 	if (pcnt) {
-		if (pdisp+pcnt > state->total_param)
+		if (pdisp > state->total_param ||
+				pcnt > state->total_param ||
+				pdisp+pcnt > state->total_param ||
+				pdisp+pcnt < pdisp) {
 			goto bad_param;
-		if ((pdisp+pcnt < pdisp) || (pdisp+pcnt < pcnt))
+		}
+
+		if (poff > av_size ||
+				pcnt > av_size ||
+				poff+pcnt > av_size ||
+				poff+pcnt < poff) {
 			goto bad_param;
-		if (pdisp > state->total_param)
-			goto bad_param;
-		if ((smb_base(inbuf) + poff + pcnt > inbuf + size) ||
-		    (smb_base(inbuf) + poff + pcnt < smb_base(inbuf)))
-			goto bad_param;
-		if (state->param + pdisp < state->param)
-			goto bad_param;
+		}
 
 		memcpy(state->param+pdisp,smb_base(inbuf)+poff,
 		       pcnt);
 	}
 
 	if (dcnt) {
-		if (ddisp+dcnt > state->total_data)
+		if (ddisp > state->total_data ||
+				dcnt > state->total_data ||
+				ddisp+dcnt > state->total_data ||
+				ddisp+dcnt < ddisp) {
 			goto bad_param;
-		if ((ddisp+dcnt < ddisp) || (ddisp+dcnt < dcnt))
+		}
+
+		if (doff > av_size ||
+				dcnt > av_size ||
+				doff+dcnt > av_size ||
+				doff+dcnt < doff) {
 			goto bad_param;
-		if (ddisp > state->total_data)
-			goto bad_param;
-		if ((smb_base(inbuf) + doff + dcnt > inbuf + size) ||
-		    (smb_base(inbuf) + doff + dcnt < smb_base(inbuf)))
-			goto bad_param;
-		if (state->data + ddisp < state->data)
-			goto bad_param;
+		}
 
 		memcpy(state->data+ddisp, smb_base(inbuf)+doff,
 		       dcnt);      

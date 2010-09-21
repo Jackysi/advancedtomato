@@ -11,8 +11,8 @@
 #include <linux/version.h>
 #include <linux/if_ether.h>
 
+#include <net/netfilter/nf_conntrack.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_BCOUNT.h>
 
 //	#define DEBUG_BCOUNT
@@ -40,10 +40,10 @@ target(struct sk_buff *skb,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	struct sk_buff *skb = *pskb;
 #endif
-	struct ip_conntrack *ct;
+	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 
-	ct = ip_conntrack_get(skb, &ctinfo);
+	ct = nf_ct_get(skb, &ctinfo);
 	if (ct) {
 		ct->bcount += (skb)->len;
 		if (ct->bcount >= 0x0FFFFFFF) ct->bcount = 0x0FFFFFFF;

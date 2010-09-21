@@ -1,5 +1,5 @@
 /*
- *   $Id: defaults.h,v 1.9 2004/10/26 05:30:34 psavola Exp $
+ *   $Id: defaults.h,v 1.22 2010/01/28 13:34:26 psavola Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>	 
@@ -9,7 +9,7 @@
  *
  *   The license which is distributed with this software in the file COPYRIGHT
  *   applies to this software. If your distribution is missing this file, you
- *   may request it from <lutchann@litech.org>.
+ *   may request it from <pekkas@netcore.fi>.
  *
  */
 
@@ -21,8 +21,8 @@
 #include <radvd.h>
 
 /* maximum message size for incoming and outgoing RSs and RAs */
-
-#define MSG_SIZE			4096
+#define MSG_SIZE_RECV			1500
+#define MSG_SIZE_SEND			1452
 
 #define MAX2(X,Y) ( (( X ) >=  ( Y )) ? ( X ) : ( Y ))
 
@@ -52,9 +52,9 @@
 
 /* Each prefix has an associated: */
 
-#define DFLT_AdvValidLifetime		2592000 /* seconds */
+#define DFLT_AdvValidLifetime		86400 /* seconds */
 #define DFLT_AdvOnLinkFlag		1
-#define DFLT_AdvPreferredLifetime	604800 /* seconds */
+#define DFLT_AdvPreferredLifetime	14400 /* seconds */
 #define DFLT_AdvAutonomousFlag		1
 
 /* Each route has an associated: */
@@ -62,14 +62,19 @@
 
 #define DFLT_AdvRoutePreference		0 /* medium*/
 
-/* Protocol (RFC2461) constants: */
+/* RDNSS */
+#define DFLT_AdvRDNSSPreference				8 /* medium */
+#define DFLT_AdvRDNSSOpenFlag				0
+#define DFLT_AdvRDNSSLifetime(iface)			(iface)->MaxRtrAdvInterval
+
+/* Protocol (RFC4861) constants: */
 
 /* Router constants: */
 
 #define MAX_INITIAL_RTR_ADVERT_INTERVAL	16
 #define MAX_INITIAL_RTR_ADVERTISEMENTS	3
 #define MAX_FINAL_RTR_ADVERTISEMENTS	3
-#define MIN_DELAY_BETWEEN_RAS		3
+#define MIN_DELAY_BETWEEN_RAS		3.0
 #define MIN_DELAY_BETWEEN_RAS_MIPv6     (30.0/1000.0)
 #define MAX_RA_DELAY_TIME		(1000.0/2.0) /* milliseconds */
 
@@ -91,7 +96,7 @@
 #define MIN_RANDOM_FACTOR		(1.0/2.0)
 #define MAX_RANDOM_FACTOR		(3.0/2.0)
 
-/* MAX and MIN (RFC2461), Mobile IPv6 extensions will override if in use */
+/* MAX and MIN (RFC4861), Mobile IPv6 extensions will override if in use */
 
 #define MIN_MaxRtrAdvInterval		4
 #define MAX_MaxRtrAdvInterval		1800
@@ -103,9 +108,15 @@
 #define MAX_AdvDefaultLifetime		9000
 
 #define	MIN_AdvLinkMTU			1280
+#define	MAX_AdvLinkMTU			131072
 
+#define MIN_AdvReachableTime		100
 #define MAX_AdvReachableTime		3600000 /* 1 hour in milliseconds */
 
+#define MIN_AdvRetransTimer		10
+#define MAX_AdvRetransTimer		3600000
+
+#define MIN_AdvCurHopLimit		2
 #define MAX_AdvCurHopLimit		255
 
 #define MAX_PrefixLen			128
@@ -128,10 +139,10 @@
 #define ND_OPT_HOME_AGENT_INFO          8
 #endif
 
-/* draft-ietf-ipv6-router-selection-02.txt */
-/* XXX: not formally assigned, this will be changed! */
-#ifndef ND_OPT_ROUTE_INFORMATION
-#define  ND_OPT_ROUTE_INFORMATION	9	
+/* de-facto codepoint used by many implementations was '9',
+   the official IANA assignment is '24' */
+#undef ND_OPT_ROUTE_INFORMATION
+#define  ND_OPT_ROUTE_INFORMATION	24
 
 /* XXX: some libc's like KAME already had nd_opt_route_info! */
 struct nd_opt_route_info_local     /* route information */
@@ -146,9 +157,29 @@ struct nd_opt_route_info_local     /* route information */
 
 /* the reserved field is 8 bits and we're interested of the middle two: 000xx000 */
 #define ND_OPT_RI_PRF_SHIFT	3
-#define ND_OPT_RI_PRF_MASK	(3 << ND_OPT_RI_PRF_SHIFT)
+#define ND_OPT_RI_PRF_MASK	(3 << ND_OPT_RI_PRF_SHIFT) /* 00011000 = 0x18 */
 
+#undef ND_OPT_RDNSS_INFORMATION
+#define  ND_OPT_RDNSS_INFORMATION	25
+
+/* */
+struct nd_opt_rdnss_info_local
+{
+	uint8_t   			nd_opt_rdnssi_type;
+	uint8_t   			nd_opt_rdnssi_len;
+	uint16_t   			nd_opt_rdnssi_pref_flag_reserved;
+	uint32_t			nd_opt_rdnssi_lifetime;
+	struct in6_addr		nd_opt_rdnssi_addr1;
+	struct in6_addr		nd_opt_rdnssi_addr2;
+	struct in6_addr		nd_opt_rdnssi_addr3;
+};
+/* pref/flag/reserved field : yyyyx00000000000 (big endian) - 00000000yyyyx000 (little indian); where yyyy = pref, x = flag */
+#if BYTE_ORDER == BIG_ENDIAN
+#define ND_OPT_RDNSSI_PREF_SHIFT	12
+#else
+#define ND_OPT_RDNSSI_PREF_SHIFT	4
 #endif
+#define ND_OPT_RDNSSI_PREF_MASK		(0xf << ND_OPT_RDNSSI_PREF_SHIFT)
 
 /* Flags */
 
@@ -158,15 +189,20 @@ struct nd_opt_route_info_local     /* route information */
 #ifndef ND_OPT_PI_FLAG_RADDR
 #define ND_OPT_PI_FLAG_RADDR		0x20
 #endif
+#ifndef ND_OPT_RDNSSI_FLAG_S
+#if BYTE_ORDER == BIG_ENDIAN
+#define ND_OPT_RDNSSI_FLAG_S         0x0800
+#else
+#define ND_OPT_RDNSSI_FLAG_S         0x0008
+#endif
+#endif
 
 /* Configurable values */
 
 #define DFLT_HomeAgentPreference	0
-#define DFLT_HomeAgentLifetime(iface)	DFLT_AdvDefaultLifetime(iface)
+#define DFLT_HomeAgentLifetime(iface)	((iface)->AdvDefaultLifetime)
 
 /* Other */
-
-#define AdvertisementInterval(iface)	((iface)->MaxRtrAdvInterval))
 
 #define MIN_MinRtrAdvInterval_MIPv6	(3.0/100.0)
 #define MIN_MaxRtrAdvInterval_MIPv6	(7.0/100.0)
@@ -180,5 +216,17 @@ struct nd_opt_route_info_local     /* route information */
 
 /* #define MAX_RTR_SOLICITATIONS This MAY be ignored by MIPv6 */
 
+/* NEMO extensions, off by default */
+#define DFLT_AdvMobRtrSupportFlag      	0
+
+/* Flags */
+
+#ifndef ND_OPT_HAI_FLAG_SUPPORT_MR
+#if BYTE_ORDER == BIG_ENDIAN
+#define ND_OPT_HAI_FLAG_SUPPORT_MR	0x8000
+#else /* BYTE_ORDER == LITTLE_ENDIAN */
+#define ND_OPT_HAI_FLAG_SUPPORT_MR	0x0080
+#endif
+#endif
 
 #endif

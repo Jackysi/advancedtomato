@@ -33,8 +33,6 @@ extern struct current_user current_user;
 
 /* Make directory handle internals available. */
 
-#define NAME_CACHE_SIZE 100
-
 struct name_cache_entry {
 	char *name;
 	long offset;
@@ -45,6 +43,7 @@ struct smb_Dir {
 	SMB_STRUCT_DIR *dir;
 	long offset;
 	char *dir_path;
+	size_t name_cache_size;
 	struct name_cache_entry *name_cache;
 	unsigned int name_cache_index;
 	unsigned int file_number;
@@ -382,21 +381,24 @@ static void dptr_close_oldest(BOOL old)
  wcard must not be zero.
 ****************************************************************************/
 
-int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL expect_close,uint16 spid,
-		const char *wcard, BOOL wcard_has_wild, uint32 attr)
+NTSTATUS dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL expect_close,uint16 spid,
+		const char *wcard, BOOL wcard_has_wild, uint32 attr, struct dptr_struct **dptr_ret)
 {
 	struct dptr_struct *dptr = NULL;
 	struct smb_Dir *dir_hnd;
         const char *dir2;
+	NTSTATUS status;
 
 	DEBUG(5,("dptr_create dir=%s\n", path));
 
 	if (!wcard) {
-		return -1;
+		return NT_STATUS_INVALID_PARAMETER;
 	}
 
-	if (!check_name(path,conn))
-		return(-2); /* Code to say use a unix error return code. */
+	status = check_name(conn,path);
+	if (!NT_STATUS_IS_OK(status)) {
+		return status;
+	}
 
 	/* use a const pointer from here on */
 	dir2 = path;
@@ -405,19 +407,20 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 
 	dir_hnd = OpenDir(conn, dir2, wcard, attr);
 	if (!dir_hnd) {
-		return (-2);
+		return map_nt_error_from_unix(errno);
 	}
 
 	string_set(&conn->dirpath,dir2);
 
-	if (dirhandles_open >= MAX_OPEN_DIRECTORIES)
+	if (dirhandles_open >= MAX_OPEN_DIRECTORIES) {
 		dptr_idleoldest();
+	}
 
 	dptr = SMB_MALLOC_P(struct dptr_struct);
 	if(!dptr) {
 		DEBUG(1,("malloc fail in dptr_create.\n"));
 		CloseDir(dir_hnd);
-		return -1;
+		return NT_STATUS_NO_MEMORY;
 	}
 
 	ZERO_STRUCTP(dptr);
@@ -447,7 +450,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 				DEBUG(1,("dptr_create: returned %d: Error - all old dirptrs in use ?\n", dptr->dnum));
 				SAFE_FREE(dptr);
 				CloseDir(dir_hnd);
-				return -1;
+				return NT_STATUS_TOO_MANY_OPENED_FILES;
 			}
 		}
 	} else {
@@ -477,7 +480,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 				DEBUG(1,("dptr_create: returned %d: Error - all new dirptrs in use ?\n", dptr->dnum));
 				SAFE_FREE(dptr);
 				CloseDir(dir_hnd);
-				return -1;
+				return NT_STATUS_TOO_MANY_OPENED_FILES;
 			}
 		}
 	}
@@ -496,7 +499,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 		bitmap_clear(dptr_bmap, dptr->dnum - 1);
 		SAFE_FREE(dptr);
 		CloseDir(dir_hnd);
-		return -1;
+		return NT_STATUS_NO_MEMORY;
 	}
 	if (lp_posix_pathnames() || (wcard[0] == '.' && wcard[1] == 0)) {
 		dptr->has_wild = True;
@@ -511,9 +514,9 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 	DEBUG(3,("creating new dirptr %d for path %s, expect_close = %d\n",
 		dptr->dnum,path,expect_close));  
 
-	conn->dirptr = dptr;
+	*dptr_ret = dptr;
 
-	return(dptr->dnum);
+	return NT_STATUS_OK;
 }
 
 
@@ -523,6 +526,7 @@ int dptr_create(connection_struct *conn, pstring path, BOOL old_handle, BOOL exp
 
 int dptr_CloseDir(struct dptr_struct *dptr)
 {
+	DLIST_REMOVE(dirptrs, dptr);
 	return CloseDir(dptr->dir_hnd);
 }
 
@@ -539,6 +543,11 @@ long dptr_TellDir(struct dptr_struct *dptr)
 BOOL dptr_has_wild(struct dptr_struct *dptr)
 {
 	return dptr->has_wild;
+}
+
+int dptr_dnum(struct dptr_struct *dptr)
+{
+	return dptr->dnum;
 }
 
 /****************************************************************************
@@ -752,7 +761,7 @@ BOOL dir_check_ftype(connection_struct *conn, uint32 mode, uint32 dirtype)
 
 static BOOL mangle_mask_match(connection_struct *conn, fstring filename, char *mask)
 {
-	mangle_map(filename,True,False,SNUM(conn));
+	mangle_map(filename,True,False,conn->params);
 	return mask_match_search(filename,mask,False);
 }
 
@@ -798,8 +807,9 @@ BOOL get_dir_entry(connection_struct *conn,char *mask,uint32 dirtype, pstring fn
 		    mask_match_search(filename,mask,False) ||
 		    mangle_mask_match(conn,filename,mask)) {
 
-			if (!mangle_is_8_3(filename, False, SNUM(conn)))
-				mangle_map(filename,True,False,SNUM(conn));
+			if (!mangle_is_8_3(filename, False, conn->params))
+				mangle_map(filename,True,False,
+					   conn->params);
 
 			pstrcpy(fname,filename);
 			*path = 0;
@@ -868,17 +878,18 @@ static BOOL user_can_read_file(connection_struct *conn, char *name, SMB_STRUCT_S
 	/* Pseudo-open the file (note - no fd's created). */
 
 	if(S_ISDIR(pst->st_mode)) {
-		 fsp = open_directory(conn, name, pst,
+		 status = open_directory(conn, name, pst,
 			READ_CONTROL_ACCESS,
 			FILE_SHARE_READ|FILE_SHARE_WRITE,
 			FILE_OPEN,
 			0, /* no create options. */
-			NULL);
+			FILE_ATTRIBUTE_DIRECTORY,
+			NULL, &fsp);
 	} else {
-		fsp = open_file_stat(conn, name, pst);
+		status = open_file_stat(conn, name, pst, &fsp);
 	}
 
-	if (!fsp) {
+	if (!NT_STATUS_IS_OK(status)) {
 		return False;
 	}
 
@@ -931,17 +942,17 @@ static BOOL user_can_write_file(connection_struct *conn, char *name, SMB_STRUCT_
 	if(S_ISDIR(pst->st_mode)) {
 		return True;
 	} else {
-		fsp = open_file_ntcreate(conn, name, pst,
+		status = open_file_ntcreate(conn, name, pst,
 			FILE_WRITE_ATTRIBUTES,
 			FILE_SHARE_READ|FILE_SHARE_WRITE,
 			FILE_OPEN,
 			0,
 			FILE_ATTRIBUTE_NORMAL,
 			INTERNAL_OPEN_ONLY,
-			&info);
+			&info, &fsp);
 	}
 
-	if (!fsp) {
+	if (!NT_STATUS_IS_OK(status)) {
 		return False;
 	}
 
@@ -1005,11 +1016,21 @@ BOOL is_visible_file(connection_struct *conn, const char *dir_path, const char *
 	}
 
 	if (hide_unreadable || hide_unwriteable || hide_special) {
+		pstring link_target;
 		char *entry = NULL;
 
 		if (asprintf(&entry, "%s/%s", dir_path, name) == -1) {
 			return False;
 		}
+
+		/* If it's a dfs symlink, ignore _hide xxxx_ options */
+		if (lp_host_msdfs() &&
+				lp_msdfs_root(SNUM(conn)) &&
+				is_msdfs_link(conn, entry, link_target, NULL)) {
+			SAFE_FREE(entry);
+			return True;
+		}
+
 		/* Honour _hide unreadable_ option */
 		if (hide_unreadable && !user_can_read_file(conn, entry, pst)) {
 			DEBUG(10,("is_visible_file: file %s is unreadable.\n", entry ));
@@ -1040,12 +1061,14 @@ BOOL is_visible_file(connection_struct *conn, const char *dir_path, const char *
 struct smb_Dir *OpenDir(connection_struct *conn, const char *name, const char *mask, uint32 attr)
 {
 	struct smb_Dir *dirp = SMB_MALLOC_P(struct smb_Dir);
+
 	if (!dirp) {
 		return NULL;
 	}
 	ZERO_STRUCTP(dirp);
 
 	dirp->conn = conn;
+	dirp->name_cache_size = lp_directory_name_cache_size(SNUM(conn));
 
 	dirp->dir_path = SMB_STRDUP(name);
 	if (!dirp->dir_path) {
@@ -1057,9 +1080,14 @@ struct smb_Dir *OpenDir(connection_struct *conn, const char *name, const char *m
 		goto fail;
 	}
 
-	dirp->name_cache = SMB_CALLOC_ARRAY(struct name_cache_entry, NAME_CACHE_SIZE);
-	if (!dirp->name_cache) {
-		goto fail;
+	if (dirp->name_cache_size) {
+		dirp->name_cache = SMB_CALLOC_ARRAY(struct name_cache_entry,
+				dirp->name_cache_size);
+		if (!dirp->name_cache) {
+			goto fail;
+		}
+	} else {
+		dirp->name_cache = NULL;
 	}
 
 	dirhandles_open++;
@@ -1092,7 +1120,7 @@ int CloseDir(struct smb_Dir *dirp)
 	}
 	SAFE_FREE(dirp->dir_path);
 	if (dirp->name_cache) {
-		for (i = 0; i < NAME_CACHE_SIZE; i++) {
+		for (i = 0; i < dirp->name_cache_size; i++) {
 			SAFE_FREE(dirp->name_cache[i].name);
 		}
 	}
@@ -1208,7 +1236,12 @@ void DirCacheAdd(struct smb_Dir *dirp, const char *name, long offset)
 {
 	struct name_cache_entry *e;
 
-	dirp->name_cache_index = (dirp->name_cache_index+1) % NAME_CACHE_SIZE;
+	if (!dirp->name_cache_size || !dirp->name_cache) {
+		return;
+	}
+
+	dirp->name_cache_index = (dirp->name_cache_index+1) %
+					dirp->name_cache_size;
 	e = &dirp->name_cache[dirp->name_cache_index];
 	SAFE_FREE(e->name);
 	e->name = SMB_STRDUP(name);
@@ -1227,20 +1260,22 @@ BOOL SearchDir(struct smb_Dir *dirp, const char *name, long *poffset)
 	connection_struct *conn = dirp->conn;
 
 	/* Search back in the name cache. */
-	for (i = dirp->name_cache_index; i >= 0; i--) {
-		struct name_cache_entry *e = &dirp->name_cache[i];
-		if (e->name && (conn->case_sensitive ? (strcmp(e->name, name) == 0) : strequal(e->name, name))) {
-			*poffset = e->offset;
-			SeekDir(dirp, e->offset);
-			return True;
+	if (dirp->name_cache_size && dirp->name_cache) {
+		for (i = dirp->name_cache_index; i >= 0; i--) {
+			struct name_cache_entry *e = &dirp->name_cache[i];
+			if (e->name && (conn->case_sensitive ? (strcmp(e->name, name) == 0) : strequal(e->name, name))) {
+				*poffset = e->offset;
+				SeekDir(dirp, e->offset);
+				return True;
+			}
 		}
-	}
-	for (i = NAME_CACHE_SIZE-1; i > dirp->name_cache_index; i--) {
-		struct name_cache_entry *e = &dirp->name_cache[i];
-		if (e->name && (conn->case_sensitive ? (strcmp(e->name, name) == 0) : strequal(e->name, name))) {
-			*poffset = e->offset;
-			SeekDir(dirp, e->offset);
-			return True;
+		for (i = dirp->name_cache_size - 1; i > dirp->name_cache_index; i--) {
+			struct name_cache_entry *e = &dirp->name_cache[i];
+			if (e->name && (conn->case_sensitive ? (strcmp(e->name, name) == 0) : strequal(e->name, name))) {
+				*poffset = e->offset;
+				SeekDir(dirp, e->offset);
+				return True;
+			}
 		}
 	}
 

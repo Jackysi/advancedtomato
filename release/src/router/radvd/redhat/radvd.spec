@@ -1,4 +1,4 @@
-# $Id: radvd.spec,v 1.12 2005/02/19 09:44:58 psavola Exp $
+# $Id: radvd.spec,v 1.27 2010/03/05 12:14:47 psavola Exp $
 
 %define initdir /etc/rc.d/init.d
 #%(if test -d /etc/init.d/. ; then echo /etc/init.d ; else echo /etc/rc.d/init.d ; fi)
@@ -7,15 +7,19 @@
 
 Summary: A Router Advertisement daemon
 Name: radvd
-Version: 0.7.3
+Version: 1.6
 Release: 1
 # The code includes the advertising clause, so it's GPL-incompatible
-License: BSD-style
+License: BSD with advertising
 Group: System Environment/Daemons
-Packager: Pekka Savola <pekkas@netcore.fi>
-Source: http://www.litech.org/radvd/radvd-%{version}.tar.gz
-PreReq: chkconfig, /usr/sbin/useradd, /sbin/service, initscripts
-BuildRoot: %{_tmppath}/%{name}-root
+URL:        http://www.litech.org/radvd/
+Source:     http://www.litech.org/radvd/dist/%{name}-%{version}.tar.gz
+Requires(postun):   chkconfig, initscripts
+Requires(preun):    chkconfig, initscripts
+Requires(post):     chkconfig
+Requires(pre):      /usr/sbin/useradd
+BuildRequires: flex, byacc
+BuildRoot:          %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %description
 radvd is the router advertisement daemon for IPv6.  It listens to router
@@ -29,21 +33,28 @@ Install radvd if you are setting up IPv6 network and/or Mobile IPv6
 services.
 
 %prep
-%setup
+%setup -q
 
 %build
-CFLAGS="$RPM_OPT_FLAGS -D_GNU_SOURCE" %configure --with-pidfile=/var/run/radvd/radvd.pid
-make %{?_smp_mflags}
+export CFLAGS="$RPM_OPT_FLAGS -D_GNU_SOURCE -fPIE" 
+export LDFLAGS='-pie -Wl,-z,relro,-z,now,-z,noexecstack,-z,nodlopen'
+%configure --with-pidfile=/var/run/radvd/radvd.pid
+make
+# make %{?_smp_mflags} 
+# Parallel builds still fail because seds that transform y.tab.x into
+# scanner/gram.x are not executed before compile of scanner/gram.x
+#
 
 %install
 [ $RPM_BUILD_ROOT != "/" ] && rm -rf $RPM_BUILD_ROOT
 
-%makeinstall
+make DESTDIR=$RPM_BUILD_ROOT install
+
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
 mkdir -p $RPM_BUILD_ROOT%{initdir}
 mkdir -p $RPM_BUILD_ROOT/var/run/radvd
 
-install -m 644 radvd.conf.example $RPM_BUILD_ROOT%{_sysconfdir}/radvd.conf
+install -m 644 redhat/radvd.conf.empty $RPM_BUILD_ROOT%{_sysconfdir}/radvd.conf
 install -m 755 redhat/radvd.init $RPM_BUILD_ROOT%{initdir}/radvd
 install -m 644 redhat/radvd.sysconfig $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/radvd
 
@@ -69,17 +80,52 @@ fi
 /usr/sbin/useradd -c "radvd user" -r -M -s /sbin/nologin -u %{RADVD_UID} -d / radvd 2>/dev/null || :
 
 %files
-%defattr(-,root,root)
+%defattr(-,root,root,-)
 %doc COPYRIGHT README CHANGES INTRO.html TODO
 %config(noreplace) %{_sysconfdir}/radvd.conf
 %config(noreplace) /etc/sysconfig/radvd
-%config %{initdir}/radvd
+%{initdir}/radvd
 %dir %attr(-,radvd,radvd) /var/run/radvd/
+%doc radvd.conf.example
 %{_mandir}/*/*
 %{_sbindir}/radvd
 %{_sbindir}/radvdump
 
 %changelog
+* Fri Mar  5 2010 Pekka Savola <pekkas@netcore.fi> 1.6-1
+- 1.6
+- Updated the spec file from Fedora (remove userdel at postun),
+  use compile flags
+- Updated init script from Fedora.
+
+* Thu Sep 10 2009 Pekka Savola <pekkas@netcore.fi> 1.5-1
+- 1.5
+
+* Mon Aug  3 2009 Pekka Savola <pekkas@netcore.fi> 1.4-1
+- 1.4
+
+* Tue Jul  7 2009 Pekka Savola <pekkas@netcore.fi> 1.3-1
+- 1.3; some improvements to the init script
+
+* Tue Oct 28 2008 Pekka Savola <pekkas@netcore.fi> 1.2-1
+- 1.2; remove -D_GNU_SOURCE
+
+* Mon Feb  4 2008 Pekka Savola <pekkas@netcore.fi> 1.1-1
+- 1.1
+
+* Wed Nov  1 2006 Pekka Savola <pekkas@netcore.fi> 1.0-1
+- 1.0; add BuildRequires
+
+* Fri Jan 13 2006 Pekka Savola <pekkas@netcore.fi> 0.9.1-1
+- 0.9.1
+
+* Tue Oct 18 2005 Pekka Savola <pekkas@netcore.fi> 0.9-1
+- 0.9 (also minor spec file cleanup in %%configure).
+
+* Fri Jul  8 2005 Pekka Savola <pekkas@netcore.fi> 0.8-1
+- 0.8.
+- Ship the example config file as %%doc (Red Hat's #159005)
+
 * Mon Feb 21 2005 Pekka Savola <pekkas@netcore.fi> 0.7.3-1
 - 0.7.3.
 

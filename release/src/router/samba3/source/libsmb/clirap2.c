@@ -91,7 +91,7 @@
 /* put string s at p with max len n and increment p past string */
 #define PUTSTRING(p,s,n) do {\
   push_ascii(p,s?s:"",n?n:256,STR_TERMINATE);\
-  p = skip_string(p,1);\
+  p = push_skip_string(p);\
   } while(0)
 /* put string s and p, using fixed len l, and increment p by l */
 #define PUTSTRINGF(p,s,l) do {\
@@ -111,7 +111,7 @@
 /* get asciiz string s from p, increment p past string */
 #define GETSTRING(p,s) do {\
   pull_ascii_pstring(s,p);\
-  p = skip_string(p,1);\
+  p = push_skip_string(p);\
   } while(0)
 /* get fixed length l string s from p, increment p by l */
 #define GETSTRINGF(p,s,l) do {\
@@ -220,7 +220,7 @@ int cli_NetGroupAdd(struct cli_state *cli, RAP_GROUP_INFO_1 * grinfo )
   /* Allocate data. */
   data_size = MAX(soffset + strlen(grinfo->comment) + 1, 1024);
 
-  data = SMB_MALLOC(data_size);
+  data = SMB_MALLOC_ARRAY(char, data_size);
   if (!data) {
     DEBUG (1, ("Malloc fail\n"));
     return -1;
@@ -1414,6 +1414,62 @@ BOOL cli_get_server_type(struct cli_state *cli, uint32 *pstype)
   return(res == 0 || res == ERRmoredata);
 }
 
+BOOL cli_get_server_name(TALLOC_CTX *mem_ctx, struct cli_state *cli,
+			 char **servername)
+{
+	char *rparam = NULL;
+	char *rdata = NULL;
+	unsigned int rdrcnt,rprcnt;
+	char *p;
+	char param[WORDSIZE                       /* api number    */
+		   +sizeof(RAP_WserverGetInfo_REQ) /* req string    */
+		   +sizeof(RAP_SERVER_INFO_L1)     /* return string */
+		   +WORDSIZE                       /* info level    */
+		   +WORDSIZE];                     /* buffer size   */
+	BOOL res = False;
+	fstring tmp;
+  
+	/* send a SMBtrans command with api NetServerGetInfo */
+	p = make_header(param, RAP_WserverGetInfo,
+			RAP_WserverGetInfo_REQ, RAP_SERVER_INFO_L1);
+	PUTWORD(p, 1); /* info level */
+	PUTWORD(p, CLI_BUFFER_SIZE);
+	
+	if (!cli_api(cli, 
+		     param, PTR_DIFF(p,param), 8, /* params, length, max */
+		     NULL, 0, CLI_BUFFER_SIZE, /* data, length, max */
+		     &rparam, &rprcnt,         /* return params, return size */
+		     &rdata, &rdrcnt           /* return data, return size */
+		    )) {
+		goto failed;
+	}
+    
+	if (GETRES(rparam) != 0) {
+		goto failed;
+	}
+
+	if (rdrcnt < 16) {
+		DEBUG(10, ("invalid data count %d, expected >= 16\n", rdrcnt));
+		goto failed;
+	}
+
+	if (pull_ascii(tmp, rdata, sizeof(tmp)-1, 16, STR_TERMINATE) == -1) {
+		DEBUG(10, ("pull_ascii failed\n"));
+		goto failed;
+	}
+
+	if (!(*servername = talloc_strdup(mem_ctx, tmp))) {
+		DEBUG(1, ("talloc_strdup failed\n"));
+		goto failed;
+	}
+
+	res = True;
+
+ failed:
+	SAFE_FREE(rparam);
+	SAFE_FREE(rdata);
+	return res;
+}
 
 /*************************************************************************
 *

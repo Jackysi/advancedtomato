@@ -157,12 +157,12 @@ int netdom_store_machine_account( const char *domain, DOM_SID *sid, const char *
 /*******************************************************************
  ********************************************************************/
 
-NTSTATUS netdom_get_domain_sid( TALLOC_CTX *mem_ctx, struct cli_state *cli, DOM_SID **sid )
+NTSTATUS netdom_get_domain_sid( TALLOC_CTX *mem_ctx, struct cli_state *cli, 
+				char **domain, DOM_SID **sid )
 {
 	struct rpc_pipe_client *pipe_hnd = NULL;
 	POLICY_HND lsa_pol;
 	NTSTATUS status = NT_STATUS_UNSUCCESSFUL;
-	char *domain = NULL;
 
 	if ( (pipe_hnd = cli_rpc_pipe_open_noauth(cli, PI_LSARPC, &status)) == NULL ) {
 		DEBUG(0, ("Error connecting to LSA pipe. Error was %s\n",
@@ -176,7 +176,7 @@ NTSTATUS netdom_get_domain_sid( TALLOC_CTX *mem_ctx, struct cli_state *cli, DOM_
 		return status;
 
 	status = rpccli_lsa_query_info_policy(pipe_hnd, mem_ctx, 
-			&lsa_pol, 5, &domain, sid);
+			&lsa_pol, 5, domain, sid);
 	if ( !NT_STATUS_IS_OK(status) )
 		return status;
 
@@ -209,10 +209,16 @@ NTSTATUS netdom_join_domain( TALLOC_CTX *mem_ctx, struct cli_state *cli,
 	uint32 num_rids, *name_types, *user_rids;
 	uint32 flags = 0x3e8;
 	uint32 acb_info = ACB_WSTRUST;
-	uchar pwbuf[516];
+	uint32 acct_flags=0;
+	uint32 fields_present;
+	uchar pwbuf[532];
 	SAM_USERINFO_CTR ctr;
 	SAM_USER_INFO_24 p24;
-	SAM_USER_INFO_16 p16;
+	SAM_USER_INFO_25 p25;
+	const int infolevel = 25;
+	struct MD5Context md5ctx;
+	uchar md5buffer[16];
+	DATA_BLOB digested_session_key;
 	uchar md4_trust_password[16];
 
 	/* Open the domain */
@@ -242,8 +248,13 @@ NTSTATUS netdom_join_domain( TALLOC_CTX *mem_ctx, struct cli_state *cli,
 
 	/* Don't try to set any acb_info flags other than ACB_WSTRUST */
 
+        acct_flags = SAMR_GENERIC_READ | SAMR_GENERIC_WRITE |
+                SAMR_GENERIC_EXECUTE | SAMR_STANDARD_WRITEDAC |
+                SAMR_STANDARD_DELETE | SAMR_USER_SETPASS | SAMR_USER_GETATTR |
+                SAMR_USER_SETATTR;
+	DEBUG(10, ("Creating account with flags: %d\n",acct_flags));
 	status = rpccli_samr_create_dom_user(pipe_hnd, mem_ctx, &domain_pol,
-			acct_name, acb_info, 0xe005000b, &user_pol, &user_rid);
+			acct_name, acb_info, acct_flags, &user_pol, &user_rid);
 
 	if ( !NT_STATUS_IS_OK(status) 
 		&& !NT_STATUS_EQUAL(status, NT_STATUS_USER_EXISTS)) 
@@ -283,44 +294,25 @@ NTSTATUS netdom_join_domain( TALLOC_CTX *mem_ctx, struct cli_state *cli,
 
 	status = rpccli_samr_open_user(pipe_hnd, mem_ctx, &domain_pol,
 			SEC_RIGHTS_MAXIMUM_ALLOWED, user_rid, &user_pol);
-	
-	/* Create a random machine account password */
-
-	E_md4hash( clear_pw, md4_trust_password);
-	encode_pw_buffer(pwbuf, clear_pw, STR_UNICODE);
-
-	/* Set password on machine account */
-
-	ZERO_STRUCT(ctr);
-	ZERO_STRUCT(p24);
-
-	init_sam_user_info24(&p24, (char *)pwbuf,24);
-
-	ctr.switch_value = 24;
-	ctr.info.id24 = &p24;
-
-	status = rpccli_samr_set_userinfo(pipe_hnd, mem_ctx, &user_pol, 
-			24, &cli->user_session_key, &ctr);
-
-	if ( !NT_STATUS_IS_OK(status) ) {
-		d_fprintf( stderr, "Failed to set password for machine account (%s)\n", 
-			nt_errstr(status));
+	if (!NT_STATUS_IS_OK(status)) {
 		return status;
 	}
+	
+	/* Create a random machine account password and generate the hash */
 
-
-	/* Why do we have to try to (re-)set the ACB to be the same as what
-	   we passed in the samr_create_dom_user() call?  When a NT
-	   workstation is joined to a domain by an administrator the
-	   acb_info is set to 0x80.  For a normal user with "Add
-	   workstations to the domain" rights the acb_info is 0x84.  I'm
-	   not sure whether it is supposed to make a difference or not.  NT
-	   seems to cope with either value so don't bomb out if the set
-	   userinfo2 level 0x10 fails.  -tpot */
-
-	ZERO_STRUCT(ctr);
-	ctr.switch_value = 16;
-	ctr.info.id16 = &p16;
+	E_md4hash(clear_pw, md4_trust_password);
+	encode_pw_buffer(pwbuf, clear_pw, STR_UNICODE);
+	
+	generate_random_buffer((uint8*)md5buffer, sizeof(md5buffer));
+	digested_session_key = data_blob_talloc(mem_ctx, 0, 16);
+	
+	MD5Init(&md5ctx);
+	MD5Update(&md5ctx, md5buffer, sizeof(md5buffer));
+	MD5Update(&md5ctx, cli->user_session_key.data, cli->user_session_key.length);
+	MD5Final(digested_session_key.data, &md5ctx);
+	
+	SamOEMhashBlob(pwbuf, sizeof(pwbuf), &digested_session_key);
+	memcpy(&pwbuf[516], md5buffer, sizeof(md5buffer));
 
 	/* Fill in the additional account flags now */
 
@@ -332,10 +324,46 @@ NTSTATUS netdom_join_domain( TALLOC_CTX *mem_ctx, struct cli_state *cli,
 		;;
 	}
 
-	init_sam_user_info16(&p16, acb_info);
+	/* Set password and account flags on machine account */
 
-	status = rpccli_samr_set_userinfo2(pipe_hnd, mem_ctx, &user_pol, 16, 
-					&cli->user_session_key, &ctr);
+	ZERO_STRUCT(ctr);
+	ZERO_STRUCT(p25);
+
+	fields_present = ACCT_NT_PWD_SET | ACCT_LM_PWD_SET | ACCT_FLAGS;
+	init_sam_user_info25P(&p25, fields_present, acb_info, (char *)pwbuf);
+
+	ctr.switch_value = infolevel;
+	ctr.info.id25    = &p25;
+
+	status = rpccli_samr_set_userinfo2(pipe_hnd, mem_ctx, &user_pol,
+					   infolevel, &cli->user_session_key, &ctr);
+
+	if (NT_STATUS_EQUAL(status, NT_STATUS(DCERPC_FAULT_INVALID_TAG))) {
+
+		uchar pwbuf2[516];
+
+		ZERO_STRUCT(p24);
+
+		encode_pw_buffer(pwbuf2, clear_pw, STR_UNICODE);
+
+		/* retry with level 24 */
+		init_sam_user_info24(&p24, (char *)pwbuf2, 24);
+
+		ctr.switch_value = 24;
+		ctr.info.id24    = &p24;
+
+		status = rpccli_samr_set_userinfo(pipe_hnd, mem_ctx,
+						  &user_pol,
+						  24,
+						  &cli->user_session_key,
+						  &ctr);
+	}
+
+	if ( !NT_STATUS_IS_OK(status) ) {
+		d_fprintf( stderr, "Failed to set password for machine account (%s)\n", 
+			nt_errstr(status));
+		return status;
+	}
 
 	rpccli_samr_close(pipe_hnd, mem_ctx, &user_pol);
 	cli_rpc_pipe_close(pipe_hnd); /* Done with this pipe */

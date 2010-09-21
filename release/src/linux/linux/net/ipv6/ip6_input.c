@@ -160,6 +160,10 @@ static inline int ip6_input_finish(struct sk_buff *skb)
 	if (!pskb_pull(skb, skb->h.raw - skb->data))
 		goto discard;
 
+	/* Free reference early: we don't need it any more, and it may
+	   hold ip_conntrack module loaded indefinitely. */
+	nf_reset(skb);
+
 	if (skb->ip_summed == CHECKSUM_HW)
 		skb->csum = csum_sub(skb->csum,
 				     csum_partial(skb->nh.raw, skb->h.raw-skb->nh.raw, 0));

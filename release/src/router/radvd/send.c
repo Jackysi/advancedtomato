@@ -1,5 +1,5 @@
 /*
- *   $Id: send.c,v 1.17 2005/02/15 08:32:06 psavola Exp $
+ *   $Id: send.c,v 1.34 2010/01/28 13:34:26 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -10,7 +10,7 @@
  *
  *   The license which is distributed with this software in the file COPYRIGHT
  *   applies to this software. If your distribution is missing this file, you
- *   may request it from <lutchann@litech.org>.
+ *   may request it from <pekkas@netcore.fi>.
  *
  */
 
@@ -18,7 +18,66 @@
 #include <includes.h>
 #include <radvd.h>
 
-void
+/*
+ * Sends an advertisement for all specified clients of this interface
+ * (or via broadcast, if there are no restrictions configured).
+ *
+ * If a destination address is given, the RA will be sent to the destination
+ * address only, but only if it was configured.
+ *
+ */
+int
+send_ra_forall(int sock, struct Interface *iface, struct in6_addr *dest)
+{
+	struct Clients *current;
+
+	/* If no list of clients was specified for this interface, we broadcast */
+	if (iface->ClientList == NULL)
+		return send_ra(sock, iface, dest);
+
+	/* If clients are configured, send the advertisement to all of them via unicast */
+	for (current = iface->ClientList; current; current = current->next)
+	{
+		char address_text[INET6_ADDRSTRLEN];
+		memset(address_text, 0, sizeof(address_text));
+		if (get_debuglevel() >= 5)
+			inet_ntop(AF_INET6, &current->Address, address_text, INET6_ADDRSTRLEN);
+
+                /* If a non-authorized client sent a solicitation, ignore it (logging later) */
+		if (dest != NULL && memcmp(dest, &current->Address, sizeof(struct in6_addr)) != 0)
+			continue;
+		dlog(LOG_DEBUG, 5, "Sending RA to %s", address_text);
+		send_ra(sock, iface, &(current->Address));
+
+		/* If we should only send the RA to a specific address, we are done */
+		if (dest != NULL)
+			return 0;
+	}
+	if (dest == NULL)
+		return 0;
+
+        /* If we refused a client's solicitation, log it if debugging is high enough */
+	char address_text[INET6_ADDRSTRLEN];
+	memset(address_text, 0, sizeof(address_text));
+	if (get_debuglevel() >= 5)
+		inet_ntop(AF_INET6, dest, address_text, INET6_ADDRSTRLEN);
+
+	dlog(LOG_DEBUG, 5, "Not answering request from %s, not configured", address_text);
+	return 0;
+}
+
+static void
+send_ra_inc_len(size_t *len, int add)
+{
+	*len += add;
+	if(*len >= MSG_SIZE_SEND)
+	{
+		flog(LOG_ERR, "Too many prefixes or routes. Exiting.");
+		exit(1);
+	}
+}
+
+int
 send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 {
 	uint8_t all_hosts_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
@@ -27,13 +86,40 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	struct msghdr mhdr;
 	struct cmsghdr *cmsg;
 	struct iovec iov;
-	char chdr[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+	char __attribute__((aligned(8))) chdr[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	struct nd_router_advert *radvert;
 	struct AdvPrefix *prefix;
 	struct AdvRoute *route;
-	unsigned char buff[MSG_SIZE];
-	int len = 0;
-	int err;
+	struct AdvRDNSS *rdnss;
+
+	unsigned char buff[MSG_SIZE_SEND];
+	size_t len = 0;
+	ssize_t err;
+
+	/* First we need to check that the interface hasn't been removed or deactivated */
+	if(check_device(sock, iface) < 0) {
+		if (iface->IgnoreIfMissing)  /* a bit more quiet warning message.. */
+			dlog(LOG_DEBUG, 4, "interface %s does not exist, ignoring the interface", iface->Name);
+		else {
+			flog(LOG_WARNING, "interface %s does not exist, ignoring the interface", iface->Name);
+		}
+		iface->HasFailed = 1;
+		/* not really a 'success', but we need to schedule new timers.. */
+		return 0;
+	} else {
+		/* check_device was successful, act if it has failed previously */
+		if (iface->HasFailed == 1) {
+			flog(LOG_WARNING, "interface %s seems to have come back up, trying to reinitialize", iface->Name);
+			iface->HasFailed = 0;
+			/*
+			 * return -1 so timer_handler() doesn't schedule new timers,
+			 * reload_config() will kick off new timers anyway.  This avoids
+			 * timer list corruption.
+			 */
+			reload_config();
+			return -1;
+		}
+	}
 
 	/* Make sure that we've joined the all-routers multicast group */
 	if (check_allrouters_membership(sock, iface) < 0)
@@ -57,6 +143,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	addr.sin6_port = htons(IPPROTO_ICMPV6);
 	memcpy(&addr.sin6_addr, dest, sizeof(struct in6_addr));
 
+	memset(buff, 0, sizeof(buff));
 	radvert = (struct nd_router_advert *) buff;
 
 	radvert->nd_ra_type  = ND_ROUTER_ADVERT;
@@ -115,7 +202,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 			memcpy(&pinfo->nd_opt_pi_prefix, &prefix->Prefix,
 			       sizeof(struct in6_addr));
 
-			len += sizeof(*pinfo);
+			send_ra_inc_len(&len, sizeof(*pinfo));
 		}
 
 		prefix = prefix->next;
@@ -144,9 +231,41 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 			
 		memcpy(&rinfo->nd_opt_ri_prefix, &route->Prefix,
 		       sizeof(struct in6_addr));
-		len += sizeof(*rinfo);
+		send_ra_inc_len(&len, sizeof(*rinfo));
 
 		route = route->next;
+	}
+	
+	rdnss = iface->AdvRDNSSList;
+	
+	/*
+	 *	add rdnss options
+	 */
+
+	while(rdnss)
+	{
+		struct nd_opt_rdnss_info_local *rdnssinfo;
+		
+		rdnssinfo = (struct nd_opt_rdnss_info_local *) (buff + len);
+
+		rdnssinfo->nd_opt_rdnssi_type	     = ND_OPT_RDNSS_INFORMATION;
+		rdnssinfo->nd_opt_rdnssi_len	     = 1 + 2*rdnss->AdvRDNSSNumber;
+		rdnssinfo->nd_opt_rdnssi_pref_flag_reserved = 
+		((rdnss->AdvRDNSSPreference << ND_OPT_RDNSSI_PREF_SHIFT) & ND_OPT_RDNSSI_PREF_MASK);
+		rdnssinfo->nd_opt_rdnssi_pref_flag_reserved |=
+		((rdnss->AdvRDNSSOpenFlag)?ND_OPT_RDNSSI_FLAG_S:0);
+
+		rdnssinfo->nd_opt_rdnssi_lifetime	= htonl(rdnss->AdvRDNSSLifetime);
+			
+		memcpy(&rdnssinfo->nd_opt_rdnssi_addr1, &rdnss->AdvRDNSSAddr1,
+		       sizeof(struct in6_addr));
+		memcpy(&rdnssinfo->nd_opt_rdnssi_addr2, &rdnss->AdvRDNSSAddr2,
+		       sizeof(struct in6_addr));
+		memcpy(&rdnssinfo->nd_opt_rdnssi_addr3, &rdnss->AdvRDNSSAddr3,
+		       sizeof(struct in6_addr));
+		send_ra_inc_len(&len, sizeof(*rdnssinfo) - (3-rdnss->AdvRDNSSNumber)*sizeof(struct in6_addr));
+
+		rdnss = rdnss->next;
 	}
 	
 	/*
@@ -163,7 +282,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 		mtu->nd_opt_mtu_reserved = 0; 
 		mtu->nd_opt_mtu_mtu      = htonl(iface->AdvLinkMTU);
 
-		len += sizeof(*mtu);
+		send_ra_inc_len(&len, sizeof(*mtu));
 	}
 
 	/*
@@ -173,18 +292,18 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	if (iface->AdvSourceLLAddress && iface->if_hwaddr_len != -1)
 	{
 		uint8_t *ucp;
-		int i;
+		unsigned int i;
 
 		ucp = (uint8_t *) (buff + len);
 	
 		*ucp++  = ND_OPT_SOURCE_LINKADDR;
 		*ucp++  = (uint8_t) ((iface->if_hwaddr_len + 16 + 63) >> 6);
 
-		len += 2 * sizeof(uint8_t);
+		send_ra_inc_len(&len, 2 * sizeof(uint8_t));
 
 		i = (iface->if_hwaddr_len + 7) >> 3;
 		memcpy(buff + len, iface->if_hwaddr, i);
-		len += i;
+		send_ra_inc_len(&len, i);
 	}
 
 	/*
@@ -210,7 +329,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 		a_ival.adv_ival	= htonl(ival);
 
 		memcpy(buff + len, &a_ival, sizeof(a_ival));
-		len += sizeof(a_ival);
+		send_ra_inc_len(&len, sizeof(a_ival));
 	}
 
 	/*
@@ -218,18 +337,21 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	 * Dynamic Home Agent Address Discovery
 	 */
 
-	if(iface->AdvHomeAgentInfo && (iface->HomeAgentPreference != 0 ||
-		iface->HomeAgentLifetime != iface->AdvDefaultLifetime))
+	if(iface->AdvHomeAgentInfo &&
+	   (iface->AdvMobRtrSupportFlag || iface->HomeAgentPreference != 0 ||
+	    iface->HomeAgentLifetime != iface->AdvDefaultLifetime))
+
 	{
 		struct HomeAgentInfo ha_info;
  		ha_info.type		= ND_OPT_HOME_AGENT_INFO;
 		ha_info.length		= 1;
-		ha_info.reserved	= 0;
+		ha_info.flags_reserved	=
+			(iface->AdvMobRtrSupportFlag)?ND_OPT_HAI_FLAG_SUPPORT_MR:0;
 		ha_info.preference	= htons(iface->HomeAgentPreference);
 		ha_info.lifetime	= htons(iface->HomeAgentLifetime);
 
 		memcpy(buff + len, &ha_info, sizeof(ha_info));
-		len += sizeof(ha_info);
+		send_ra_inc_len(&len, sizeof(ha_info));
 	}
 	
 	iov.iov_len  = len;
@@ -252,6 +374,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 			addr.sin6_scope_id = iface->if_index;
 #endif
 
+	memset(&mhdr, 0, sizeof(mhdr));
 	mhdr.msg_name = (caddr_t)&addr;
 	mhdr.msg_namelen = sizeof(struct sockaddr_in6);
 	mhdr.msg_iov = &iov;
@@ -262,6 +385,11 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	err = sendmsg(sock, &mhdr, 0);
 	
 	if (err < 0) {
-		flog(LOG_WARNING, "sendmsg: %s", strerror(errno));
+		if (!iface->IgnoreIfMissing || !(errno == EINVAL || errno == ENODEV))
+			flog(LOG_WARNING, "sendmsg: %s", strerror(errno));
+		else
+			dlog(LOG_DEBUG, 3, "sendmsg: %s", strerror(errno));
 	}
+
+	return 0;
 }

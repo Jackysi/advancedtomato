@@ -836,7 +836,9 @@ static int acm_probe (struct usb_interface *intf,
 	}
 
 	if (!buflen) {
-		if (intf->cur_altsetting->endpoint->extralen && intf->cur_altsetting->endpoint->extra) {
+		if (intf->cur_altsetting->endpoint &&
+				intf->cur_altsetting->endpoint->extralen &&
+				intf->cur_altsetting->endpoint->extra) {
 			dev_dbg(&intf->dev,"Seeking extra descriptors on endpoint\n");
 			buflen = intf->cur_altsetting->endpoint->extralen;
 			buffer = intf->cur_altsetting->endpoint->extra;
@@ -1183,6 +1185,10 @@ static struct usb_device_id acm_ids[] = {
 	{ USB_DEVICE(0x22b8, 0x7000), /* Motorola Q Phone */
 	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
 	},
+
+	/* control interfaces without any protocol set */
+	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,
+		USB_CDC_PROTO_NONE) },
 
 	/* control interfaces with various AT-command sets */
 	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,

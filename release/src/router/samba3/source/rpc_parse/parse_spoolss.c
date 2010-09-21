@@ -3,7 +3,7 @@
  *  RPC Pipe client / server routines
  *  Copyright (C) Andrew Tridgell              1992-2000,
  *  Copyright (C) Luke Kenneth Casson Leighton 1996-2000,
- *  Copyright (C) Jean François Micouleau      1998-2000,
+ *  Copyright (C) Jean FranÃ§ois Micouleau      1998-2000,
  *  Copyright (C) Gerald Carter                2000-2002,
  *  Copyright (C) Tim Potter		       2001-2002.
  *
@@ -231,6 +231,7 @@ static BOOL smb_io_notify_option_type_data(const char *desc, SPOOL_NOTIFY_OPTION
 		DEBUG(4,("What a mess, count was %x now is %x !\n", type->count, type->count2));
 		return False;
 	}
+
 	if (type->count2 > MAX_NOTIFY_TYPE_FOR_NOW) {
 		return False;
 	}
@@ -615,7 +616,7 @@ static BOOL spool_io_user_level(const char *desc, SPOOL_USER_CTR *q_u, prs_struc
 	switch ( q_u->level ) 
 	{	
 		case 1:
-			if ( !prs_pointer( "" , ps, depth, (void**)&q_u->user.user1, 
+			if ( !prs_pointer( "" , ps, depth, (void*)&q_u->user.user1, 
 				sizeof(SPOOL_USER_1), (PRS_POINTER_CAST)spool_io_user_level_1 )) 
 			{
 				return False;
@@ -2131,7 +2132,12 @@ static BOOL smb_io_reldevmode(const char *desc, RPC_BUFFER *buffer, int depth, D
 		}
 		
 		buffer->string_at_end -= ((*devmode)->size + (*devmode)->driverextra);
-		
+
+		/* mz:  we have to align the device mode for VISTA */
+		if (buffer->string_at_end % 4) {
+			buffer->string_at_end += 4 - (buffer->string_at_end % 4);
+		}
+
 		if(!prs_set_offset(ps, buffer->string_at_end))
 			return False;
 		
@@ -2397,6 +2403,7 @@ BOOL smb_io_printer_info_2(const char *desc, RPC_BUFFER *buffer, PRINTER_INFO_2 
 
 BOOL smb_io_printer_info_3(const char *desc, RPC_BUFFER *buffer, PRINTER_INFO_3 *info, int depth)
 {
+	uint32 offset = 0;
 	prs_struct *ps=&buffer->prs;
 
 	prs_debug(ps, depth, desc, "smb_io_printer_info_3");
@@ -2404,8 +2411,41 @@ BOOL smb_io_printer_info_3(const char *desc, RPC_BUFFER *buffer, PRINTER_INFO_3 
 	
 	buffer->struct_start=prs_offset(ps);
 	
-	if (!prs_uint32("flags", ps, depth, &info->flags))
-		return False;
+	if (MARSHALLING(ps)) {
+		/* Ensure the SD is 8 byte aligned in the buffer. */
+		uint start = prs_offset(ps); /* Remember the start position. */
+		uint off_val = 0;
+
+		/* Write a dummy value. */
+		if (!prs_uint32("offset", ps, depth, &off_val))
+			return False;
+
+		/* 8 byte align. */
+		if (!prs_align_uint64(ps))
+			return False;
+
+		/* Remember where we must seek back to write the SD. */
+		offset = prs_offset(ps);
+
+		/* Calculate the real offset for the SD. */
+
+		off_val = offset - start;
+
+		/* Seek back to where we store the SD offset & store. */
+		prs_set_offset(ps, start);
+		if (!prs_uint32("offset", ps, depth, &off_val))
+			return False;
+
+		/* Return to after the 8 byte align. */
+		prs_set_offset(ps, offset);
+
+	} else {
+		if (!prs_uint32("offset", ps, depth, &offset))
+			return False;
+		/* Seek within the buffer. */
+		if (!prs_set_offset(ps, offset))
+			return False;
+	}
 	if (!sec_io_desc("sec_desc", &info->secdesc, ps, depth))
 		return False;
 
@@ -2457,6 +2497,24 @@ BOOL smb_io_printer_info_5(const char *desc, RPC_BUFFER *buffer, PRINTER_INFO_5 
 		return False;
 	if (!prs_uint32("transmission_retry_timeout", ps, depth, &info->transmission_retry_timeout))
 		return False;
+	return True;
+}
+
+/*******************************************************************
+ Parse a PRINTER_INFO_6 structure.
+********************************************************************/  
+
+BOOL smb_io_printer_info_6(const char *desc, RPC_BUFFER *buffer,
+			   PRINTER_INFO_6 *info, int depth)
+{
+	prs_struct *ps=&buffer->prs;
+
+	prs_debug(ps, depth, desc, "smb_io_printer_info_6");
+	depth++;	
+	
+	if (!prs_uint32("status", ps, depth, &info->status))
+		return False;
+
 	return True;
 }
 
@@ -2652,9 +2710,7 @@ BOOL smb_io_printer_driver_info_6(const char *desc, RPC_BUFFER *buffer, DRIVER_I
 	if (!smb_io_relarraystr("previousdrivernames", buffer, depth, &info->previousdrivernames))
 		return False;
 
-	if (!prs_uint32("date.low", ps, depth, &info->driver_date.low))
-		return False;
-	if (!prs_uint32("date.high", ps, depth, &info->driver_date.high))
+	if (!prs_uint64("date", ps, depth, &info->driver_date))
 		return False;
 
 	if (!prs_uint32("padding", ps, depth, &info->padding))
@@ -3121,6 +3177,14 @@ uint32 spoolss_size_printer_info_5(PRINTER_INFO_5 *info)
 	return size;
 }
 
+/*******************************************************************
+return the size required by a struct in the stream
+********************************************************************/
+
+uint32 spoolss_size_printer_info_6(PRINTER_INFO_6 *info)
+{
+	return sizeof(uint32);
+}
 
 /*******************************************************************
 return the size required by a struct in the stream
@@ -3128,9 +3192,8 @@ return the size required by a struct in the stream
 
 uint32 spoolss_size_printer_info_3(PRINTER_INFO_3 *info)
 {
-	/* The 4 is for the self relative pointer.. */
-	/* JRA !!!! TESTME - WHAT ABOUT prs_align.... !!! */
-	return 4 + (uint32)sec_desc_size( info->secdesc );
+	/* The 8 is for the self relative pointer - 8 byte aligned.. */
+	return 8 + (uint32)sec_desc_size( info->secdesc );
 }
 
 /*******************************************************************
@@ -3928,8 +3991,8 @@ BOOL spoolss_io_q_setprinter(const char *desc, SPOOL_Q_SETPRINTER *q_u, prs_stru
 		prs_debug(ps, depth, "", "sec_io_desc_buf");
 		if (!prs_uint32("size", ps, depth + 1, &dummy))
 			return False;
-		if (!prs_uint32("ptr", ps, depth + 1, &dummy)) return
-								       False;
+		if (!prs_uint32("ptr", ps, depth + 1, &dummy))
+			return False;
 	}
 	
 	if(!prs_uint32("command", ps, depth, &q_u->command))
@@ -5207,9 +5270,13 @@ BOOL make_spoolss_buffer5(TALLOC_CTX *mem_ctx, BUFFER5 *buf5, uint32 len, uint16
 
 	buf5->buf_len = len;
 	if (src) {
-		if((buf5->buffer=(uint16*)TALLOC_MEMDUP(mem_ctx, src, sizeof(uint16)*len)) == NULL) {
-			DEBUG(0,("make_spoolss_buffer5: Unable to malloc memory for buffer!\n"));
-			return False;
+		if (len) {
+			if((buf5->buffer=(uint16*)TALLOC_MEMDUP(mem_ctx, src, sizeof(uint16)*len)) == NULL) {
+				DEBUG(0,("make_spoolss_buffer5: Unable to malloc memory for buffer!\n"));
+				return False;
+			}
+		} else {
+			buf5->buffer = NULL;
 		}
 	} else {
 		buf5->buffer=NULL;
@@ -6287,6 +6354,11 @@ void free_printer_info_5(PRINTER_INFO_5 *printer)
 	SAFE_FREE(printer);
 }
 
+void free_printer_info_6(PRINTER_INFO_6 *printer)
+{
+	SAFE_FREE(printer);
+}
+
 void free_printer_info_7(PRINTER_INFO_7 *printer)
 {
 	SAFE_FREE(printer);
@@ -6961,10 +7033,10 @@ static BOOL spoolss_io_printer_enum_values_ctr(const char *desc, prs_struct *ps,
 		data_offset,
 		current_offset;
 	const uint32 basic_unit = 20; /* size of static portion of enum_values */
-	
+
 	prs_debug(ps, depth, desc, "spoolss_io_printer_enum_values_ctr");
 	depth++;	
-	
+
 	/* 
 	 * offset data begins at 20 bytes per structure * size_of_array.
 	 * Don't forget the uint32 at the beginning 
@@ -6981,8 +7053,27 @@ static BOOL spoolss_io_printer_enum_values_ctr(const char *desc, prs_struct *ps,
 	}
 
 	for (i=0; i<ctr->size_of_array; i++) {
+		uint32 base_offset, return_offset;
+
+		base_offset = prs_offset(ps);
+
 		valuename_offset = current_offset;
 		if (!prs_uint32("valuename_offset", ps, depth, &valuename_offset))
+			return False;
+
+		/* Read or write the value. */
+
+		return_offset = prs_offset(ps);
+
+		if (!prs_set_offset(ps, base_offset + valuename_offset)) {
+			return False;
+		}
+
+		if (!prs_unistr("valuename", ps, depth, &ctr->values[i].valuename))
+			return False;
+
+		/* And go back. */
+		if (!prs_set_offset(ps, return_offset))
 			return False;
 
 		if (!prs_uint32("value_len", ps, depth, &ctr->values[i].value_len))
@@ -6999,21 +7090,14 @@ static BOOL spoolss_io_printer_enum_values_ctr(const char *desc, prs_struct *ps,
 		if (!prs_uint32("data_len", ps, depth, &ctr->values[i].data_len))
 			return False;
 			
-		current_offset  = data_offset + ctr->values[i].data_len - basic_unit;
-		/* account for 2 byte alignment */
-		current_offset += (current_offset % 2);
-	}
+		/* Read or write the data. */
 
-	/* 
-	 * loop #2 for writing the dynamically size objects; pay 
-	 * attention to 2-byte alignment here....
-	 */
-	
-	for (i=0; i<ctr->size_of_array; i++) {
-	
-		if (!prs_unistr("valuename", ps, depth, &ctr->values[i].valuename))
+		return_offset = prs_offset(ps);
+
+		if (!prs_set_offset(ps, base_offset + data_offset)) {
 			return False;
-		
+		}
+
 		if ( ctr->values[i].data_len ) {
 			if ( UNMARSHALLING(ps) ) {
 				ctr->values[i].data = PRS_ALLOC_MEM(ps, uint8, ctr->values[i].data_len);
@@ -7023,10 +7107,29 @@ static BOOL spoolss_io_printer_enum_values_ctr(const char *desc, prs_struct *ps,
 			if (!prs_uint8s(False, "data", ps, depth, ctr->values[i].data, ctr->values[i].data_len))
 				return False;
 		}
-			
-		if ( !prs_align_uint16(ps) )
+
+		current_offset  = data_offset + ctr->values[i].data_len - basic_unit;
+		/* account for 2 byte alignment */
+		current_offset += (current_offset % 2);
+
+		/* Remember how far we got. */
+		data_offset = prs_offset(ps);
+
+		/* And go back. */
+		if (!prs_set_offset(ps, return_offset))
 			return False;
+
 	}
+
+	/* Go to the last data offset we got to. */
+
+	if (!prs_set_offset(ps, data_offset))
+		return False;
+
+	/* And ensure we're 2 byte aligned. */
+
+	if ( !prs_align_uint16(ps) )
+		return False;
 
 	return True;	
 }

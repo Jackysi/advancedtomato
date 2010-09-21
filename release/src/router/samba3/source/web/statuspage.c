@@ -42,9 +42,10 @@ static void initPid2Machine (void)
 {
 	/* show machine name rather PID on table "Open Files"? */
 	if (PID_or_Machine) {
-		PIDMAP *p;
+		PIDMAP *p, *next;
 
-		for (p = pidmap; p != NULL; ) {
+		for (p = pidmap; p != NULL; p = next) {
+			next = p->next;
 			DLIST_REMOVE(pidmap, p);
 			SAFE_FREE(p->machine);
 			SAFE_FREE(p);
@@ -101,12 +102,15 @@ static char *mapPid2Machine (struct process_id pid)
 static char *tstring(time_t t)
 {
 	static pstring buf;
-	pstrcpy(buf, time_to_asc(&t));
+	pstrcpy(buf, time_to_asc(t));
 	all_string_sub(buf," ","&nbsp;",sizeof(buf));
 	return buf;
 }
 
-static void print_share_mode(const struct share_mode_entry *e, const char *sharepath, const char *fname)
+static void print_share_mode(const struct share_mode_entry *e,
+			     const char *sharepath,
+			     const char *fname,
+			     void *dummy)
 {
 	char           *utf8_fname;
 	int deny_mode;
@@ -434,7 +438,7 @@ void status_page(void)
 	printf("<tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n", _("PID"), _("Sharing"), _("R/W"), _("Oplock"), _("File"), _("Date"));
 
 	locking_init(1);
-	share_mode_forall(print_share_mode);
+	share_mode_forall(print_share_mode, NULL);
 	locking_end();
 	printf("</table>\n");
 

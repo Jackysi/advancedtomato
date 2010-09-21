@@ -8,7 +8,7 @@ GCCVER1=3.4.6
 TARGETDIR1=hndtools-mipsel-uclibc-${GCCVER1}
 DESTDIR1=/opt/brcm/${TARGETDIR1}
 
-GCCVER2=4.1.2
+GCCVER2=4.2.4
 TARGETDIR2=hndtools-mipsel-uclibc-${GCCVER2}
 DESTDIR2=/opt/brcm/${TARGETDIR2}
 

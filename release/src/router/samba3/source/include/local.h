@@ -16,7 +16,6 @@
    only important messages. This gives *much* smaller binaries
 */
 #ifndef MAX_DEBUG_LEVEL
-/* AR7 #define MAX_DEBUG_LEVEL 1000 */
 #define MAX_DEBUG_LEVEL 0
 #endif
 
@@ -248,5 +247,8 @@
 
 /* Default hash size for the winbindd cache. */
 #define WINBINDD_CACHE_TDB_DEFAULT_HASH_SIZE 5000
+
+/* Windows minimum lock resolution timeout in ms */
+#define WINDOWS_MINIMUM_LOCK_TIMEOUT_MS 200
 
 #endif

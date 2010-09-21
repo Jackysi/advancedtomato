@@ -198,7 +198,13 @@ void set_effective_uid(uid_t uid)
 {
 #if USE_SETRESUID
         /* Set the effective as well as the real uid. */
-	setresuid(uid,uid,-1);
+	if (setresuid(uid,uid,-1) == -1) {
+		if (errno == EAGAIN) {
+			DEBUG(0, ("setresuid failed with EAGAIN. uid(%d) "
+				  "might be over its NPROC limit\n",
+				  (int)uid));
+		}
+	}
 #endif
 
 #if USE_SETREUID
@@ -259,7 +265,7 @@ void save_re_uid(void)
  and restore them!
 ****************************************************************************/
 
-static void restore_re_uid_fromroot(void)
+void restore_re_uid_fromroot(void)
 {
 #if USE_SETRESUID
 	setresuid(saved_ruid, saved_euid, -1);

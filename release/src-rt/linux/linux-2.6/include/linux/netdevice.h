@@ -559,6 +559,12 @@ static inline void *netdev_priv(struct net_device *dev)
  */
 #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
 
+/* Set the sysfs device type for the network logical device to allow
+ * fin grained indentification of different network device types. For
+ * example Ethernet, Wirelss LAN, Bluetooth, WiMAX etc.
+ */
+#define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
+
 struct packet_type {
 	__be16			type;	/* This is really htons(ether_type). */
 	struct net_device	*dev;	/* NULL is wildcarded here	     */

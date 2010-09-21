@@ -149,13 +149,13 @@ static ssize_t real_write_file(files_struct *fsp,const char *data, SMB_OFF_T pos
 		 * The 99% solution will hopefully be good enough in this case. JRA.
 		 */
 
-		if (fsp->pending_modtime) {
+		if (!null_timespec(fsp->pending_modtime)) {
 			set_filetime(fsp->conn, fsp->fsp_name, fsp->pending_modtime);
 
 			/* If we didn't get the "set modtime" call ourselves, we must
 			   store the last write time to restore on close. JRA. */
 			if (!fsp->pending_modtime_owner) {
-				fsp->last_write_time = time(NULL);
+				fsp->last_write_time = timespec_current();
 			}
 		}
 
@@ -202,8 +202,8 @@ ssize_t write_file(files_struct *fsp, const char *data, SMB_OFF_T pos, size_t n)
 
 	if (fsp->print_file) {
 #ifdef AVM_NO_PRINTING
-			errno = EBADF;
-			return -1;
+		errno = EBADF;
+		return -1;
 #else
 		fstring sharename;
 		uint32 jobid;
@@ -221,7 +221,7 @@ ssize_t write_file(files_struct *fsp, const char *data, SMB_OFF_T pos, size_t n)
 
 	if (!fsp->can_write) {
 		errno = EPERM;
-		return(0);
+		return -1;
 	}
 
 	if (!fsp->modified) {
@@ -516,15 +516,20 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 
 			write_path = 3;
 
-                } else if ( (pos >= wcp->file_size) && 
+                } else if ( (pos >= wcp->file_size) &&
 			    (n == 1) &&
-			    (pos < wcp->offset + 2*wcp->alloc_size) &&
-			    (wcp->file_size == wcp->offset + wcp->data_size)) {
+			    (wcp->file_size == wcp->offset + wcp->data_size) &&
+			    (pos < wcp->file_size + wcp->alloc_size)) {
 
                         /*
-                        +---------------+
-                        | Cached data   |
-                        +---------------+
+
+                End of file ---->|
+
+                 +---------------+---------------+
+                 | Cached data   | Cache buffer  |
+                 +---------------+---------------+
+
+                                 |<------- allocated size ---------------->|
 
                                                          +--------+
                                                          | 1 Byte |
@@ -532,13 +537,18 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 
 			MS-Office seems to do this a lot to determine if there's enough
 			space on the filesystem to write a new file.
+
+			Change to :
+
+                End of file ---->|
+                                 +-----------------------+--------+
+                                 | Zeroed Cached data    | 1 Byte |
+                                 +-----------------------+--------+
                         */
 
-			SMB_BIG_UINT new_start = wcp->offset + wcp->data_size;
-
 			flush_write_cache(fsp, WRITE_FLUSH);
-			wcp->offset = new_start;
-			wcp->data_size = pos - new_start + 1;
+			wcp->offset = wcp->file_size;
+			wcp->data_size = pos - wcp->file_size + 1;
 			memset(wcp->data, '\0', wcp->data_size);
 			memcpy(wcp->data + wcp->data_size-1, data, 1);
 
@@ -841,16 +851,23 @@ ssize_t flush_write_cache(files_struct *fsp, enum flush_reason_enum reason)
 sync a file
 ********************************************************************/
 
-void sync_file(connection_struct *conn, files_struct *fsp, BOOL write_through)
+NTSTATUS sync_file(connection_struct *conn, files_struct *fsp, BOOL write_through)
 {
        	if (fsp->fh->fd == -1)
-		return;
+		return NT_STATUS_INVALID_HANDLE;
 
 	if (lp_strict_sync(SNUM(conn)) &&
 	    (lp_syncalways(SNUM(conn)) || write_through)) {
-		flush_write_cache(fsp, SYNC_FLUSH);
-		SMB_VFS_FSYNC(fsp,fsp->fh->fd);
+		int ret = flush_write_cache(fsp, SYNC_FLUSH);
+		if (ret == -1) {
+			return map_nt_error_from_unix(errno);
+		}
+		ret = SMB_VFS_FSYNC(fsp,fsp->fh->fd);
+		if (ret == -1) {
+			return map_nt_error_from_unix(errno);
+		}
 	}
+	return NT_STATUS_OK;
 }
 
 /************************************************************

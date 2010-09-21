@@ -33,7 +33,7 @@ struct bug_entry {
 
 #ifndef HAVE_ARCH_WARN_ON
 #define WARN_ON(condition) ({						\
-	typeof(condition) __ret_warn_on = (condition);			\
+	typeof(condition) __ret_warn_on = !!(condition);		\
 	if (unlikely(__ret_warn_on)) {					\
 		printk("WARNING: at %s:%d %s()\n", __FILE__,		\
 			__LINE__, __FUNCTION__);			\
@@ -41,6 +41,17 @@ struct bug_entry {
 	}								\
 	unlikely(__ret_warn_on);					\
 })
+
+#ifndef WARN
+#define WARN(condition, format...) ({					\
+	typeof(condition) __ret_warn_on = !!(condition);		\
+	if (unlikely(__ret_warn_on)) {					\
+		printk(format);						\
+		dump_stack();						\
+	}								\
+	unlikely(__ret_warn_on);					\
+})
+#endif
 #endif
 
 #else /* !CONFIG_BUG */
@@ -54,7 +65,14 @@ struct bug_entry {
 
 #ifndef HAVE_ARCH_WARN_ON
 #define WARN_ON(condition) ({						\
-	typeof(condition) __ret_warn_on = (condition);			\
+	typeof(condition) __ret_warn_on = !!(condition);		\
+	unlikely(__ret_warn_on);					\
+})
+#endif
+
+#ifndef WARN
+#define WARN(condition, format...) ({					\
+	typeof(condition) __ret_warn_on = !!(condition);		\
 	unlikely(__ret_warn_on);					\
 })
 #endif

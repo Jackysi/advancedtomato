@@ -1,5 +1,5 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 38. The Samba Checklist</title><link rel="stylesheet" href="samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.70.1"><link rel="start" href="index.html" title="The Official Samba-3 HOWTO and Reference Guide"><link rel="up" href="troubleshooting.html" title="Part V. Troubleshooting"><link rel="prev" href="troubleshooting.html" title="Part V. Troubleshooting"><link rel="next" href="problems.html" title="Chapter 39. Analyzing and Solving Samba Problems"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 38. The Samba Checklist</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="troubleshooting.html">Prev</a> </td><th width="60%" align="center">Part V. Troubleshooting</th><td width="20%" align="right"> <a accesskey="n" href="problems.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="diagnosis"></a>Chapter 38. The Samba Checklist</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Andrew</span> <span class="surname">Tridgell</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:tridge@samba.org">tridge@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Jelmer</span> <span class="othername">R.</span> <span class="surname">Vernooij</span></h3><div class="affiliation"><span class="orgname">The Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:jelmer@samba.org">jelmer@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Dan</span> <span class="surname">Shearer</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a href="mailto:dan@samba.org">dan@samba.org</a>&gt;</code></p></div></div></div></div><div><p class="pubdate">Wed Jan 15</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="diagnosis.html#id2685447">Introduction</a></span></dt><dt><span class="sect1"><a href="diagnosis.html#id2685486">Assumptions</a></span></dt><dt><span class="sect1"><a href="diagnosis.html#id2685782">The Tests</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2685447"></a>Introduction</h2></div></div></div><p>
-<a class="indexterm" name="id2685454"></a>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Chapter 38. The Samba Checklist</title><link rel="stylesheet" href="../samba.css" type="text/css"><meta name="generator" content="DocBook XSL Stylesheets V1.74.0"><link rel="home" href="index.html" title="The Official Samba 3.0.x HOWTO and Reference Guide"><link rel="up" href="troubleshooting.html" title="Part V. Troubleshooting"><link rel="prev" href="troubleshooting.html" title="Part V. Troubleshooting"><link rel="next" href="problems.html" title="Chapter 39. Analyzing and Solving Samba Problems"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">Chapter 38. The Samba Checklist</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="troubleshooting.html">Prev</a> </td><th width="60%" align="center">Part V. Troubleshooting</th><td width="20%" align="right"> <a accesskey="n" href="problems.html">Next</a></td></tr></table><hr></div><div class="chapter" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="diagnosis"></a>Chapter 38. The Samba Checklist</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Andrew</span> <span class="orgname">Samba Team</span> <span class="surname">Tridgell</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:tridge@samba.org">tridge@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Jelmer</span> <span class="othername">R.</span> <span class="orgname">The Samba Team</span> <span class="surname">Vernooij</span></h3><div class="affiliation"><span class="orgname">The Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:jelmer@samba.org">jelmer@samba.org</a>&gt;</code></p></div></div></div></div><div><div class="author"><h3 class="author"><span class="firstname">Dan</span> <span class="orgname">Samba Team</span> <span class="surname">Shearer</span></h3><div class="affiliation"><span class="orgname">Samba Team<br></span><div class="address"><p><code class="email">&lt;<a class="email" href="mailto:dan@samba.org">dan@samba.org</a>&gt;</code></p></div></div></div></div><div><p class="pubdate">Wed Jan 15</p></div></div></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="diagnosis.html#id2682740">Introduction</a></span></dt><dt><span class="sect1"><a href="diagnosis.html#id2682779">Assumptions</a></span></dt><dt><span class="sect1"><a href="diagnosis.html#id2683072">The Tests</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2682740"></a>Introduction</h2></div></div></div><p>
+<a class="indexterm" name="id2682748"></a>
 This file contains a list of tests you can perform to validate your
 Samba server. It also tells you what the likely cause of the problem
 is if it fails any one of these steps. If it passes all these tests,
@@ -14,7 +14,7 @@ to solve a problem.
 If you send one of the Samba mailing lists  an email saying, &#8220;<span class="quote">It does not work,</span>&#8221;
 and you have not followed this test procedure, you should not be surprised
 if your email is ignored.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2685486"></a>Assumptions</h2></div></div></div><p>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2682779"></a>Assumptions</h2></div></div></div><p>
 In all of the tests, it is assumed you have a Samba server called 
 BIGSERVER and a PC called ACLIENT, both in workgroup TESTGROUP.
 </p><p>
@@ -23,34 +23,34 @@ The procedure is similar for other types of clients.
 It is also assumed you know the name of an available share in your
 <code class="filename">smb.conf</code>. I for our examples this share is called <em class="parameter"><code>tmp</code></em>.
 You can add a <em class="parameter"><code>tmp</code></em> share like this by adding the
-lines shown in <a href="diagnosis.html#tmpshare" title="Example 38.1. smb.conf with [tmp] Share">the next example</a>.
-</p><div class="example"><a name="tmpshare"></a><p class="title"><b>Example 38.1. smb.conf with [tmp] Share</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[tmp]</code></em></td></tr><tr><td><a class="indexterm" name="id2685557"></a><em class="parameter"><code>comment = temporary files </code></em></td></tr><tr><td><a class="indexterm" name="id2685570"></a><em class="parameter"><code>path = /tmp</code></em></td></tr><tr><td><a class="indexterm" name="id2685582"></a><em class="parameter"><code>read only = yes</code></em></td></tr></table></div></div><br class="example-break"><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
+lines shown in <a class="link" href="diagnosis.html#tmpshare" title="Example 38.1. smb.conf with [tmp] Share">the next example</a>.
+</p><div class="example"><a name="tmpshare"></a><p class="title"><b>Example 38.1. smb.conf with [tmp] Share</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[tmp]</code></em></td></tr><tr><td><a class="indexterm" name="id2682850"></a><em class="parameter"><code>comment = temporary files </code></em></td></tr><tr><td><a class="indexterm" name="id2682862"></a><em class="parameter"><code>path = /tmp</code></em></td></tr><tr><td><a class="indexterm" name="id2682873"></a><em class="parameter"><code>read only = yes</code></em></td></tr></table></div></div><br class="example-break"><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
 These tests assume version 3.0.0 or later of the Samba suite.
 Some commands shown did not exist in earlier versions. 
 </p></div><p>
-<a class="indexterm" name="id2685604"></a>
-<a class="indexterm" name="id2685611"></a>
-<a class="indexterm" name="id2685618"></a>
+<a class="indexterm" name="id2682894"></a>
+<a class="indexterm" name="id2682901"></a>
+<a class="indexterm" name="id2682908"></a>
 Please pay attention to the error messages you receive. If any error message
 reports that your server is being unfriendly, you should first check that your
 IP name resolution is correctly set up. Make sure your <code class="filename">/etc/resolv.conf</code>
 file points to name servers that really do exist.
 </p><p>
-<a class="indexterm" name="id2685639"></a>
-<a class="indexterm" name="id2685646"></a>
-<a class="indexterm" name="id2685653"></a>
-<a class="indexterm" name="id2685660"></a>
+<a class="indexterm" name="id2682929"></a>
+<a class="indexterm" name="id2682936"></a>
+<a class="indexterm" name="id2682943"></a>
+<a class="indexterm" name="id2682950"></a>
 Also, if you do not have DNS server access for name resolution, please check
 that the settings for your <code class="filename">smb.conf</code> file results in <em class="parameter"><code>dns proxy = no</code></em>. The
-best way to check this is with <span><strong class="command">testparm smb.conf</strong></span>.
+best way to check this is with <code class="literal">testparm smb.conf</code>.
 </p><p>
-<a class="indexterm" name="id2685690"></a>
-<a class="indexterm" name="id2685697"></a>
-<a class="indexterm" name="id2685704"></a>
-<a class="indexterm" name="id2685711"></a>
-<a class="indexterm" name="id2685718"></a>
+<a class="indexterm" name="id2682980"></a>
+<a class="indexterm" name="id2682987"></a>
+<a class="indexterm" name="id2682994"></a>
+<a class="indexterm" name="id2683001"></a>
+<a class="indexterm" name="id2683008"></a>
 It is helpful to monitor the log files during testing by using the
-<span><strong class="command">tail -F log_file_name</strong></span> in a separate
+<code class="literal">tail -F log_file_name</code> in a separate
 terminal console (use ctrl-alt-F1 through F6 or multiple terminals in X). 
 Relevant log files can be found (for default installations) in
 <code class="filename">/usr/local/samba/var</code>. Also, connection logs from
@@ -59,50 +59,50 @@ depending on how or if you specified logging in your <code class="filename">smb.
 </p><p>
 If you make changes to your <code class="filename">smb.conf</code> file while going through these test,
 remember to restart <span class="application">smbd</span> and <span class="application">nmbd</span>.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2685782"></a>The Tests</h2></div></div></div><div class="procedure"><a name="id2685787"></a><p class="title"><b>Procedure 38.1. Diagnosing Your Samba Server</b></p><ol type="1"><li><p>
-<a class="indexterm" name="id2685800"></a>
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2683072"></a>The Tests</h2></div></div></div><div class="procedure"><a name="id2683077"></a><p class="title"><b>Procedure 38.1. Diagnosing Your Samba Server</b></p><ol type="1"><li><p>
+<a class="indexterm" name="id2683090"></a>
 In the directory in which you store your <code class="filename">smb.conf</code> file, run the command
-<span><strong class="command">testparm smb.conf</strong></span>. If it reports any errors, then your <code class="filename">smb.conf</code>
+<code class="literal">testparm smb.conf</code>. If it reports any errors, then your <code class="filename">smb.conf</code>
 configuration file is faulty.
 </p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
-<a class="indexterm" name="id2685831"></a>
-<a class="indexterm" name="id2685838"></a>
+<a class="indexterm" name="id2683121"></a>
+<a class="indexterm" name="id2683128"></a>
 Your <code class="filename">smb.conf</code> file may be located in <code class="filename">/etc/samba</code>
 or in <code class="filename">/usr/local/samba/lib</code>.
 </p></div></li><li><p>
-<a class="indexterm" name="id2685872"></a>
-Run the command <span><strong class="command">ping BIGSERVER</strong></span> from the PC and
-<span><strong class="command">ping ACLIENT</strong></span> from the UNIX box. If you do not get a valid response,
+<a class="indexterm" name="id2683162"></a>
+Run the command <code class="literal">ping BIGSERVER</code> from the PC and
+<code class="literal">ping ACLIENT</code> from the UNIX box. If you do not get a valid response,
 then your TCP/IP software is not correctly installed. 
 </p><p>
 You will need to start a &#8220;<span class="quote">DOS prompt</span>&#8221; window on the PC to run ping.
 </p><p>
-<a class="indexterm" name="id2685905"></a>
-<a class="indexterm" name="id2685911"></a>
-<a class="indexterm" name="id2685918"></a>
+<a class="indexterm" name="id2683194"></a>
+<a class="indexterm" name="id2683201"></a>
+<a class="indexterm" name="id2683208"></a>
 If you get a message saying &#8220;<span class="quote"><span class="errorname">host not found</span></span>&#8221; or a similar message, then
 your DNS software or <code class="filename">/etc/hosts</code> file is not correctly set up.  If using DNS, check that
 the <code class="filename">/etc/resolv.conf</code> has correct, current, entries in it. It is possible to run
 Samba without DNS entries for the server and client, but it is assumed you do have correct entries for the
 remainder of these tests.
 </p><p>
-<a class="indexterm" name="id2685950"></a>
-<a class="indexterm" name="id2685957"></a>
-<a class="indexterm" name="id2685964"></a>
+<a class="indexterm" name="id2683240"></a>
+<a class="indexterm" name="id2683247"></a>
+<a class="indexterm" name="id2683254"></a>
 Another reason why ping might fail is if your host is running firewall 
 software. You will need to relax the rules to let in the workstation
 in question, perhaps by allowing access from another subnet (on Linux
-this is done via the appropriate firewall maintenance commands <span><strong class="command">ipchains</strong></span>
-or <span><strong class="command">iptables</strong></span>).
+this is done via the appropriate firewall maintenance commands <code class="literal">ipchains</code>
+or <code class="literal">iptables</code>).
 </p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
 Modern Linux distributions install ipchains/iptables by default. 
 This is a common problem that is often overlooked.
 </p></div><p>
-<a class="indexterm" name="id2685999"></a>
-<a class="indexterm" name="id2686006"></a>
+<a class="indexterm" name="id2683289"></a>
+<a class="indexterm" name="id2683296"></a>
 If you wish to check what firewall rules may be present in a system under test, simply run
-<span><strong class="command">iptables -L -v</strong></span>, or if <em class="parameter"><code>ipchains</code></em>-based firewall rules are in use,
-<span><strong class="command">ipchains -L -v</strong></span>.
+<code class="literal">iptables -L -v</code>, or if <em class="parameter"><code>ipchains</code></em>-based firewall rules are in use,
+<code class="literal">ipchains -L -v</code>.
 </p><p>
 Here is a sample listing from a system that has an external Ethernet interface (eth1) on which Samba
 is not active and an internal (private network) interface (eth0) on which Samba is active:
@@ -130,15 +130,15 @@ Chain reject_func (0 references)
  pkts bytes target     prot opt in     out     source     destination
 </pre><p>
 </p></li><li><p>
-Run the command <span><strong class="command">smbclient -L BIGSERVER</strong></span>
+Run the command <code class="literal">smbclient -L BIGSERVER</code>
 on the UNIX box. You should get back a list of available shares. 
 </p><p>
-<a class="indexterm" name="id2686081"></a>
-<a class="indexterm" name="id2686088"></a>
-<a class="indexterm" name="id2686095"></a>
-<a class="indexterm" name="id2686102"></a>
-<a class="indexterm" name="id2686108"></a>
-<a class="indexterm" name="id2686115"></a>
+<a class="indexterm" name="id2683387"></a>
+<a class="indexterm" name="id2683394"></a>
+<a class="indexterm" name="id2683401"></a>
+<a class="indexterm" name="id2683408"></a>
+<a class="indexterm" name="id2683415"></a>
+<a class="indexterm" name="id2683422"></a>
 If you get an error message containing the string &#8220;<span class="quote">bad password</span>&#8221;, then
 you probably have either an incorrect <em class="parameter"><code>hosts allow</code></em>, 
 <em class="parameter"><code>hosts deny</code></em>, or <em class="parameter"><code>valid users</code></em> line in your 
@@ -146,17 +146,17 @@ you probably have either an incorrect <em class="parameter"><code>hosts allow</c
 temporarily remove any <em class="parameter"><code>hosts allow</code></em>, <em class="parameter"><code>hosts deny</code></em>,
 <em class="parameter"><code>valid users</code></em>, or <em class="parameter"><code>invalid users</code></em> lines.
 </p><p>
-<a class="indexterm" name="id2686186"></a>
-If you get a message <code class="literal">connection refused</code> response, then the <span><strong class="command">smbd</strong></span> server may
+<a class="indexterm" name="id2683492"></a>
+If you get a message <code class="literal">connection refused</code> response, then the <code class="literal">smbd</code> server may
 not be running. If you installed it in <code class="filename">inetd.conf</code>, then you probably edited
 that file incorrectly. If you installed it as a daemon, then check that
 it is running and check that the netbios-ssn port is in a LISTEN
-state using <span><strong class="command">netstat -a</strong></span>.
+state using <code class="literal">netstat -a</code>.
 </p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
-<a class="indexterm" name="id2686225"></a>
-<a class="indexterm" name="id2686232"></a>
-Some UNIX/Linux systems use <span><strong class="command">xinetd</strong></span> in place of
-<span><strong class="command">inetd</strong></span>. Check your system documentation for the location
+<a class="indexterm" name="id2683532"></a>
+<a class="indexterm" name="id2683538"></a>
+Some UNIX/Linux systems use <code class="literal">xinetd</code> in place of
+<code class="literal">inetd</code>. Check your system documentation for the location
 of the control files for your particular system implementation of
 the network super daemon.
 </p></div><p>
@@ -170,37 +170,37 @@ files exist.
 </p><p>
 There are a number of reasons for which smbd may refuse or decline
 a session request. The most common of these involve one or more of
-the <code class="filename">smb.conf</code> file entries as shown in <a href="diagnosis.html#modif1" title="Example 38.2. Configuration for Allowing Connections Only from a Certain Subnet">the next example</a>.
-</p><div class="example"><a name="modif1"></a><p class="title"><b>Example 38.2. Configuration for Allowing Connections Only from a Certain Subnet</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[globals]</code></em></td></tr><tr><td><a class="indexterm" name="id2686345"></a><em class="parameter"><code>hosts deny = ALL</code></em></td></tr><tr><td><a class="indexterm" name="id2686357"></a><em class="parameter"><code>hosts allow = xxx.xxx.xxx.xxx/yy</code></em></td></tr><tr><td><a class="indexterm" name="id2686370"></a><em class="parameter"><code>interfaces = eth0</code></em></td></tr><tr><td><a class="indexterm" name="id2686383"></a><em class="parameter"><code>bind interfaces only = Yes</code></em></td></tr></table></div></div><br class="example-break"><p>
-<a class="indexterm" name="id2686399"></a>
-In <a href="diagnosis.html#modif1" title="Example 38.2. Configuration for Allowing Connections Only from a Certain Subnet">Configuration for Allowing Connections Only from a Certain Subnet</a>, no
+the <code class="filename">smb.conf</code> file entries as shown in <a class="link" href="diagnosis.html#modif1" title="Example 38.2. Configuration for Allowing Connections Only from a Certain Subnet">the next example</a>.
+</p><div class="example"><a name="modif1"></a><p class="title"><b>Example 38.2. Configuration for Allowing Connections Only from a Certain Subnet</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[globals]</code></em></td></tr><tr><td><a class="indexterm" name="id2683651"></a><em class="parameter"><code>hosts deny = ALL</code></em></td></tr><tr><td><a class="indexterm" name="id2683662"></a><em class="parameter"><code>hosts allow = xxx.xxx.xxx.xxx/yy</code></em></td></tr><tr><td><a class="indexterm" name="id2683674"></a><em class="parameter"><code>interfaces = eth0</code></em></td></tr><tr><td><a class="indexterm" name="id2683686"></a><em class="parameter"><code>bind interfaces only = Yes</code></em></td></tr></table></div></div><br class="example-break"><p>
+<a class="indexterm" name="id2683701"></a>
+In <a class="link" href="diagnosis.html#modif1" title="Example 38.2. Configuration for Allowing Connections Only from a Certain Subnet">Configuration for Allowing Connections Only from a Certain Subnet</a>, no
 allowance has been made for any session requests that will automatically translate to the loopback adapter
-address 127.0.0.1.  To solve this problem, change these lines as shown in <a href="diagnosis.html#modif2" title="Example 38.3. Configuration for Allowing Connections from a Certain Subnet and localhost">the following
+address 127.0.0.1.  To solve this problem, change these lines as shown in <a class="link" href="diagnosis.html#modif2" title="Example 38.3. Configuration for Allowing Connections from a Certain Subnet and localhost">the following
 example</a>.
-</p><div class="example"><a name="modif2"></a><p class="title"><b>Example 38.3. Configuration for Allowing Connections from a Certain Subnet and localhost</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[globals]</code></em></td></tr><tr><td><a class="indexterm" name="id2686451"></a><em class="parameter"><code>hosts deny = ALL</code></em></td></tr><tr><td><a class="indexterm" name="id2686464"></a><em class="parameter"><code>hosts allow = xxx.xxx.xxx.xxx/yy 127.</code></em></td></tr><tr><td><a class="indexterm" name="id2686477"></a><em class="parameter"><code>interfaces = eth0 lo</code></em></td></tr></table></div></div><br class="example-break"><p>
-<a class="indexterm" name="id2686493"></a>
-<a class="indexterm" name="id2686500"></a>
+</p><div class="example"><a name="modif2"></a><p class="title"><b>Example 38.3. Configuration for Allowing Connections from a Certain Subnet and localhost</b></p><div class="example-contents"><table class="simplelist" border="0" summary="Simple list"><tr><td> </td></tr><tr><td><em class="parameter"><code>[globals]</code></em></td></tr><tr><td><a class="indexterm" name="id2683753"></a><em class="parameter"><code>hosts deny = ALL</code></em></td></tr><tr><td><a class="indexterm" name="id2683765"></a><em class="parameter"><code>hosts allow = xxx.xxx.xxx.xxx/yy 127.</code></em></td></tr><tr><td><a class="indexterm" name="id2683777"></a><em class="parameter"><code>interfaces = eth0 lo</code></em></td></tr></table></div></div><br class="example-break"><p>
+<a class="indexterm" name="id2683792"></a>
+<a class="indexterm" name="id2683798"></a>
 Another common cause of these two errors is having something already running on port <code class="constant">139</code>,
 such as Samba (<span class="application">smbd</span> is running from <span class="application">inetd</span> already) or Digital's Pathworks. Check
 your <code class="filename">inetd.conf</code> file before trying to start <span class="application">smbd</span> as a daemon  it can avoid a
 lot of frustration!
 </p><p>
-<a class="indexterm" name="id2686544"></a>
-<a class="indexterm" name="id2686550"></a>
-<a class="indexterm" name="id2686557"></a>
-<a class="indexterm" name="id2686564"></a>
-<a class="indexterm" name="id2686571"></a>
+<a class="indexterm" name="id2683843"></a>
+<a class="indexterm" name="id2683850"></a>
+<a class="indexterm" name="id2683856"></a>
+<a class="indexterm" name="id2683863"></a>
+<a class="indexterm" name="id2683870"></a>
 And yet another possible cause for failure of this test is when the subnet mask and/or broadcast address
 settings are incorrect. Please check that the network interface IP address/broadcast address/subnet mask
 settings are correct and that Samba has correctly noted these in the <code class="filename">log.nmbd</code> file.
 </p></li><li><p>
-<a class="indexterm" name="id2686597"></a>
-Run the command <span><strong class="command">nmblookup -B BIGSERVER __SAMBA__</strong></span>.
+<a class="indexterm" name="id2683896"></a>
+Run the command <code class="literal">nmblookup -B BIGSERVER __SAMBA__</code>.
 You should get back the IP address of your Samba server.
 </p><p>
-<a class="indexterm" name="id2686615"></a>
-<a class="indexterm" name="id2686622"></a>
-<a class="indexterm" name="id2686628"></a>
+<a class="indexterm" name="id2683914"></a>
+<a class="indexterm" name="id2683921"></a>
+<a class="indexterm" name="id2683928"></a>
 If you do not, then <span class="application">nmbd</span> is incorrectly installed. Check your <code class="filename">inetd.conf</code>
 if you run it from there, or that the daemon is running and listening to UDP port 137.
 </p><p>
@@ -209,8 +209,8 @@ parameters on the command line. If this is the case, then create a
 one-line script that contains the right parameters and run that from
 inetd.
 </p></li><li><p>
-<a class="indexterm" name="id2686665"></a>
-Run the command <span><strong class="command">nmblookup -B ACLIENT `*'</strong></span>.
+<a class="indexterm" name="id2683964"></a>
+Run the command <code class="literal">nmblookup -B ACLIENT `*'</code>.
 </p><p>
 You should get the PC's IP address back. If you do not, then the client
 software on the PC isn't installed correctly, or isn't started, or you
@@ -219,7 +219,7 @@ got the name of the PC wrong.
 If ACLIENT does not resolve via DNS, then use the IP address of the
 client in the above test.
 </p></li><li><p>
-Run the command <span><strong class="command">nmblookup -d 2 `*'</strong></span>.
+Run the command <code class="literal">nmblookup -d 2 `*'</code>.
 </p><p>
 This time we are trying the same as the previous test but are trying
 it via a broadcast to the default broadcast address. A number of
@@ -228,9 +228,9 @@ not catch all of the responses in the short time it listens. You
 should see the <code class="literal">got a positive name query response</code>
 messages from several hosts.
 </p><p>
-<a class="indexterm" name="id2686723"></a>
+<a class="indexterm" name="id2684022"></a>
 If this does not give a result similar to the previous test, then nmblookup isn't correctly getting your
-broadcast address through its automatic mechanism. In this case you should experiment with the <a class="indexterm" name="id2686733"></a>interfaces option in <code class="filename">smb.conf</code> to manually configure your IP address, broadcast, and netmask.
+broadcast address through its automatic mechanism. In this case you should experiment with the <a class="link" href="smb.conf.5.html#INTERFACES" target="_top">interfaces</a> option in <code class="filename">smb.conf</code> to manually configure your IP address, broadcast, and netmask.
 </p><p>
 If your PC and server aren't on the same subnet, then you will need to use the
 <code class="option">-B</code> option to set the broadcast address to that of the PC's subnet.
@@ -238,15 +238,15 @@ If your PC and server aren't on the same subnet, then you will need to use the
 This test will probably fail if your subnet mask and broadcast address are
 not correct. (Refer to test 3 notes above).
 </p></li><li><p>
-<a class="indexterm" name="id2686770"></a>
-Run the command <span><strong class="command">smbclient //BIGSERVER/TMP</strong></span>. You should 
+<a class="indexterm" name="id2684074"></a>
+Run the command <code class="literal">smbclient //BIGSERVER/TMP</code>. You should 
 then be prompted for a password. You should use the password of the account
 with which you are logged into the UNIX box. If you want to test with
 another account, then add the <code class="option">-U accountname</code> option to the end of
-the command line  for example, <span><strong class="command">smbclient //bigserver/tmp -Ujohndoe</strong></span>.
+the command line  for example, <code class="literal">smbclient //bigserver/tmp -Ujohndoe</code>.
 </p><div class="note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
 It is possible to specify the password along with the username as follows:
-<span><strong class="command">smbclient //bigserver/tmp -Ujohndoe%secret</strong></span>.
+<code class="literal">smbclient //bigserver/tmp -Ujohndoe%secret</code>.
 </p></div><p>
 Once you enter the password, you should get the <code class="prompt">smb&gt;</code> prompt. If you
 do not, then look at the error message. If it says &#8220;<span class="quote"><span class="errorname">invalid network
@@ -257,36 +257,36 @@ If it says &#8220;<span class="quote"><span class="errorname">bad password,</spa
 	You have shadow passwords (or some other password system) but didn't
 	compile in support for them in <span class="application">smbd</span>.
 	</p></li><li><p>
-	Your <a class="indexterm" name="id2686875"></a>valid users configuration is incorrect.
+	Your <a class="link" href="smb.conf.5.html#VALIDUSERS" target="_top">valid users</a> configuration is incorrect.
 	</p></li><li><p>
-	You have a mixed-case password and you haven't enabled the <a class="indexterm" name="id2686891"></a>password level option at a high enough level.
+	You have a mixed-case password and you haven't enabled the <a class="link" href="smb.conf.5.html#PASSWORDLEVEL" target="_top">password level</a> option at a high enough level.
 	</p></li><li><p>
-	The <a class="indexterm" name="id2686905"></a>path line in <code class="filename">smb.conf</code> is incorrect. Check it with <span class="application">testparm</span>.
+	The <a class="link" href="smb.conf.5.html#PATH" target="_top">path</a> line in <code class="filename">smb.conf</code> is incorrect. Check it with <span class="application">testparm</span>.
 	</p></li><li><p>
 	You enabled password encryption but didn't map UNIX to Samba users. Run
-	<span><strong class="command">smbpasswd -a username</strong></span>
+	<code class="literal">smbpasswd -a username</code>
 	</p></li></ol></div><p>
-<a class="indexterm" name="id2686944"></a>
-<a class="indexterm" name="id2686950"></a>
-<a class="indexterm" name="id2686957"></a>
-<a class="indexterm" name="id2686964"></a>
-Once connected, you should be able to use the commands <span><strong class="command">dir</strong></span>, <span><strong class="command">get</strong></span>,
-<span><strong class="command">put</strong></span>, and so on. Type <span><strong class="command">help command</strong></span> for instructions. You should
-especially check that the amount of free disk space shown is correct when you type <span><strong class="command">dir</strong></span>.
+<a class="indexterm" name="id2684259"></a>
+<a class="indexterm" name="id2684266"></a>
+<a class="indexterm" name="id2684273"></a>
+<a class="indexterm" name="id2684279"></a>
+Once connected, you should be able to use the commands <code class="literal">dir</code>, <code class="literal">get</code>,
+<code class="literal">put</code>, and so on. Type <code class="literal">help command</code> for instructions. You should
+especially check that the amount of free disk space shown is correct when you type <code class="literal">dir</code>.
 </p></li><li><p>
-<a class="indexterm" name="id2687010"></a>
-On the PC, type the command <span><strong class="command">net view \\BIGSERVER</strong></span>. You will 
+<a class="indexterm" name="id2684326"></a>
+On the PC, type the command <code class="literal">net view \\BIGSERVER</code>. You will 
 need to do this from within a DOS prompt window. You should get back a 
 list of shares available on the server.
 </p><p>
-<a class="indexterm" name="id2687029"></a>
+<a class="indexterm" name="id2684345"></a>
 If you get a message <code class="literal">network name not found</code> or similar error, then NetBIOS
-name resolution is not working. This is usually caused by a problem in <span><strong class="command">nmbd</strong></span>.
+name resolution is not working. This is usually caused by a problem in <code class="literal">nmbd</code>.
 To overcome it, you could do one of the following (you only need to choose one of them):
 </p><div class="orderedlist"><ol type="1"><li><p>
 	Fix the <span class="application">nmbd</span> installation.
 </p></li><li><p>
-	Add the IP address of BIGSERVER to the <span><strong class="command">wins server</strong></span> box in the
+	Add the IP address of BIGSERVER to the <code class="literal">wins server</code> box in the
 	advanced TCP/IP setup on the PC.
 </p></li><li><p>
 	Enable Windows name resolution via DNS in the advanced section of the TCP/IP setup.
@@ -295,8 +295,8 @@ To overcome it, you could do one of the following (you only need to choose one o
 </p></li></ol></div><p>
 If you get a message &#8220;<span class="quote"><span class="errorname">invalid network name</span></span>&#8221; or 
 &#8220;<span class="quote"><span class="errorname">bad password error,</span></span>&#8221; then apply the
-same fixes as for the <span><strong class="command">smbclient -L</strong></span> test. In
-particular, make sure your <span><strong class="command">hosts allow</strong></span> line is correct (see the man pages).
+same fixes as for the <code class="literal">smbclient -L</code> test. In
+particular, make sure your <code class="literal">hosts allow</code> line is correct (see the man pages).
 </p><p>
 Also, do not overlook that fact that when the workstation requests the
 connection to the Samba server, it will attempt to connect using the 
@@ -309,7 +309,7 @@ it probably means that the host is not contactable via TCP services.
 Check to see if the host is running TCP wrappers, and if so, add an entry in
 the <code class="filename">hosts.allow</code> file for your client (or subnet, and so on.)
 </p></li><li><p>
-Run the command <span><strong class="command">net use x: \\BIGSERVER\TMP</strong></span>. You should 
+Run the command <code class="literal">net use x: \\BIGSERVER\TMP</code>. You should 
 be prompted for a password, then you should get a <code class="computeroutput">command completed 
 successfully</code> message. If not, then your PC software is incorrectly 
 installed or your <code class="filename">smb.conf</code> is incorrect. Make sure your <em class="parameter"><code>hosts allow</code></em>
@@ -317,17 +317,17 @@ and other config lines in <code class="filename">smb.conf</code> are correct.
 </p><p>
 It's also possible that the server can't work out what username to connect you as.
 To see if this is the problem, add the line
-<a class="indexterm" name="id2687195"></a>user = username to the
+<a class="link" href="smb.conf.5.html#USER" target="_top">user = username</a> to the
 <em class="parameter"><code>[tmp]</code></em> section of 
 <code class="filename">smb.conf</code> where <em class="parameter"><code>username</code></em> is the
 username corresponding to the password you typed. If you find this
 fixes things, you may need the username mapping option. 
 </p><p>
 It might also be the case that your client only sends encrypted passwords 
-and you have <a class="indexterm" name="id2687228"></a>encrypt passwords = no in <code class="filename">smb.conf</code>.
+and you have <a class="link" href="smb.conf.5.html#ENCRYPTPASSWORDS" target="_top">encrypt passwords = no</a> in <code class="filename">smb.conf</code>.
 Change this setting to `yes' to fix this.
 </p></li><li><p>
-Run the command <span><strong class="command">nmblookup -M <em class="parameter"><code>testgroup</code></em></strong></span> where 
+Run the command <code class="literal">nmblookup -M <em class="parameter"><code>testgroup</code></em></code> where 
 <em class="parameter"><code>testgroup</code></em> is the name of the workgroup that your Samba server and 
 Windows PCs belong to. You should get back the IP address of the 
 master browser for that workgroup.
@@ -335,7 +335,7 @@ master browser for that workgroup.
 If you do not, then the election process has failed. Wait a minute to
 see if it is just being slow, then try again. If it still fails after
 that, then look at the browsing options you have set in <code class="filename">smb.conf</code>. Make
-sure you have <a class="indexterm" name="id2687283"></a>preferred master = yes to ensure that 
+sure you have <a class="link" href="smb.conf.5.html#PREFERREDMASTER" target="_top">preferred master = yes</a> to ensure that 
 an election is held at startup.
 </p></li><li><p>
 From file manager, try to browse the server. Your Samba server should
@@ -345,8 +345,8 @@ of the server and get a list of shares. If you get the error message &#8220;<spa
  you are probably running Windows NT and it
 is refusing to browse a server that has no encrypted password
 capability and is in user-level security mode. In this case, either set
-<a class="indexterm" name="id2687317"></a>security = server and 
-<a class="indexterm" name="id2687325"></a>password server = Windows_NT_Machine in your
-<code class="filename">smb.conf</code> file or make sure <a class="indexterm" name="id2687339"></a>encrypt passwords is
+<a class="link" href="smb.conf.5.html#SECURITY" target="_top">security = server</a> and 
+<a class="link" href="smb.conf.5.html#PASSWORDSERVER" target="_top">password server = Windows_NT_Machine</a> in your
+<code class="filename">smb.conf</code> file or make sure <a class="link" href="smb.conf.5.html#ENCRYPTPASSWORDS" target="_top">encrypt passwords</a> is
 set to &#8220;<span class="quote">yes</span>&#8221;.
 </p></li></ol></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="troubleshooting.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="troubleshooting.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="problems.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Part V. Troubleshooting </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Chapter 39. Analyzing and Solving Samba Problems</td></tr></table></div></body></html>

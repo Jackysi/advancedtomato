@@ -446,8 +446,8 @@ static NTSTATUS cli_pipe_validate_rpc_response(struct rpc_pipe_client *cli, RPC_
 			return NT_STATUS_INVALID_PARAMETER;
 		}
 
-		if (prhdr->auth_len + RPC_HDR_AUTH_LEN < prhdr->auth_len ||
-				prhdr->auth_len + RPC_HDR_AUTH_LEN < RPC_HDR_AUTH_LEN) {
+		if (prhdr->auth_len + (unsigned int)RPC_HDR_AUTH_LEN < prhdr->auth_len ||
+				prhdr->auth_len + (unsigned int)RPC_HDR_AUTH_LEN < (unsigned int)RPC_HDR_AUTH_LEN) {
 			/* Integer wrap attempt. */
 			return NT_STATUS_INVALID_PARAMETER;
 		}
@@ -931,7 +931,7 @@ static NTSTATUS create_krb5_auth_bind_req( struct rpc_pipe_client *cli,
 	/* Create the ticket for the service principal and return it in a gss-api wrapped blob. */
 
 	ret = cli_krb5_get_ticket(a->service_principal, 0, &tkt,
-			&a->session_key, (uint32)AP_OPTS_MUTUAL_REQUIRED, NULL);
+			&a->session_key, (uint32)AP_OPTS_MUTUAL_REQUIRED, NULL, NULL);
 
 	if (ret) {
 		DEBUG(1,("create_krb5_auth_bind_req: cli_krb5_get_ticket for principal %s "
@@ -1810,6 +1810,7 @@ static NTSTATUS rpc_finish_auth3_bind(struct rpc_pipe_client *cli,
 	
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		DEBUG(0,("rpc_finish_auth3_bind: NTLMSSP update using server blob failed.\n"));
+		data_blob_free(&server_response);
 		return nt_status;
 	}
 
@@ -2265,7 +2266,13 @@ struct rpc_pipe_client *cli_rpc_pipe_open_noauth(struct cli_state *cli, int pipe
 
 	*perr = rpc_pipe_bind(result, PIPE_AUTH_TYPE_NONE, PIPE_AUTH_LEVEL_NONE);
 	if (!NT_STATUS_IS_OK(*perr)) {
-		DEBUG(0, ("cli_rpc_pipe_open_noauth: rpc_pipe_bind for pipe %s failed with error %s\n",
+		int lvl = 0;
+		if (pipe_idx == PI_LSARPC_DS) {
+			/* non AD domains just don't have this pipe, avoid
+			 * level 0 statement in that case - gd */
+			lvl = 3;
+		}
+		DEBUG(lvl, ("cli_rpc_pipe_open_noauth: rpc_pipe_bind for pipe %s failed with error %s\n",
 			cli_get_pipe_name(pipe_idx), nt_errstr(*perr) ));
 		cli_rpc_pipe_close(result);
 		return NULL;
@@ -2361,8 +2368,8 @@ static struct rpc_pipe_client *cli_rpc_pipe_open_ntlmssp_internal(struct cli_sta
 		goto err;
 	}
 
-	DEBUG(10,("cli_rpc_pipe_open_ntlmssp_internal: opened pipe %s to machine %s and"
-		"bound NTLMSSP as user %s\\%s.\n",
+	DEBUG(10,("cli_rpc_pipe_open_ntlmssp_internal: opened pipe %s to "
+		"machine %s and bound NTLMSSP as user %s\\%s.\n",
 		result->pipe_name, cli->desthost,
 		domain, username ));
 
@@ -2421,48 +2428,28 @@ struct rpc_pipe_client *cli_rpc_pipe_open_spnego_ntlmssp(struct cli_state *cli,
 }
 
 /****************************************************************************
- Open a netlogon pipe and get the schannel session key.
- Now exposed to external callers.
+  Get a the schannel session key out of an already opened netlogon pipe.
  ****************************************************************************/
-
-struct rpc_pipe_client *get_schannel_session_key(struct cli_state *cli,
-							const char *domain,
-							uint32 *pneg_flags,
-							NTSTATUS *perr)
+static BOOL get_schannel_session_key_common(struct rpc_pipe_client *netlogon_pipe,
+					    struct cli_state *cli,
+					    const char *domain,
+					    uint32 *pneg_flags,
+					    NTSTATUS *perr)
 {
-	struct rpc_pipe_client *netlogon_pipe = NULL;
 	uint32 sec_chan_type = 0;
 	unsigned char machine_pwd[16];
-	fstring machine_account;
-
-	netlogon_pipe = cli_rpc_pipe_open_noauth(cli, PI_NETLOGON, perr);
-	if (!netlogon_pipe) {
-		return NULL;
-	}
+	const char *machine_account;
 
 	/* Get the machine account credentials from secrets.tdb. */
-	if (!get_trust_pw(domain, machine_pwd, &sec_chan_type)) {
+	if (!get_trust_pw_hash(domain, machine_pwd, &machine_account,
+			       &sec_chan_type))
+	{
 		DEBUG(0, ("get_schannel_session_key: could not fetch "
 			"trust account password for domain '%s'\n",
 			domain));
-		cli_rpc_pipe_close(netlogon_pipe);
 		*perr = NT_STATUS_CANT_ACCESS_DOMAIN_INFO;
-		return NULL;
+		return False;
 	}
-
-	/* A DC should use DOMAIN$ as its account name.
-	   A member server can only use it's machine name since it
-	   does not have an account in a trusted domain.
-
-	   We don't check the domain against lp_workgroup() here since
-	   'net ads join' has to continue to work with only the realm
-	   specified in smb.conf.  -- jerry */
-
-        if ( IS_DC && !strequal(domain, lp_workgroup()) && lp_allow_trusted_domains()) {
-		fstrcpy( machine_account, lp_workgroup() );
-        } else {
-		fstrcpy(machine_account, global_myname());
-        }
 
 	*perr = rpccli_netlogon_setup_creds(netlogon_pipe,
 					cli->desthost, /* server name */
@@ -2474,18 +2461,44 @@ struct rpc_pipe_client *get_schannel_session_key(struct cli_state *cli,
 					pneg_flags);
 
 	if (!NT_STATUS_IS_OK(*perr)) {
-		DEBUG(3,("get_schannel_session_key: rpccli_netlogon_setup_creds "
+		DEBUG(3,("get_schannel_session_key_common: rpccli_netlogon_setup_creds "
 			"failed with result %s to server %s, domain %s, machine account %s.\n",
 			nt_errstr(*perr), cli->desthost, domain, machine_account ));
-		cli_rpc_pipe_close(netlogon_pipe);
-		return NULL;
+		return False;
 	}
 
 	if (((*pneg_flags) & NETLOGON_NEG_SCHANNEL) == 0) {
 		DEBUG(3, ("get_schannel_session_key: Server %s did not offer schannel\n",
 			cli->desthost));
-		cli_rpc_pipe_close(netlogon_pipe);
 		*perr = NT_STATUS_INVALID_NETWORK_RESPONSE;
+		return False;
+	}
+
+	return True;
+}
+
+/****************************************************************************
+ Open a netlogon pipe and get the schannel session key.
+ Now exposed to external callers.
+ ****************************************************************************/
+
+
+struct rpc_pipe_client *get_schannel_session_key(struct cli_state *cli,
+							const char *domain,
+							uint32 *pneg_flags,
+							NTSTATUS *perr)
+{
+	struct rpc_pipe_client *netlogon_pipe = NULL;
+
+	netlogon_pipe = cli_rpc_pipe_open_noauth(cli, PI_NETLOGON, perr);
+	if (!netlogon_pipe) {
+		return NULL;
+	}
+
+	if (!get_schannel_session_key_common(netlogon_pipe, cli, domain,
+					     pneg_flags, perr))
+	{
+		cli_rpc_pipe_close(netlogon_pipe);
 		return NULL;
 	}
 
@@ -2557,61 +2570,16 @@ static struct rpc_pipe_client *get_schannel_session_key_auth_ntlmssp(struct cli_
 							NTSTATUS *perr)
 {
 	struct rpc_pipe_client *netlogon_pipe = NULL;
-	uint32 sec_chan_type = 0;
-	unsigned char machine_pwd[16];
-	fstring machine_account;
 
 	netlogon_pipe = cli_rpc_pipe_open_spnego_ntlmssp(cli, PI_NETLOGON, PIPE_AUTH_LEVEL_PRIVACY, domain, username, password, perr);
 	if (!netlogon_pipe) {
 		return NULL;
 	}
 
-	/* Get the machine account credentials from secrets.tdb. */
-	if (!get_trust_pw(domain, machine_pwd, &sec_chan_type)) {
-		DEBUG(0, ("get_schannel_session_key_auth_ntlmssp: could not fetch "
-			"trust account password for domain '%s'\n",
-			domain));
+	if (!get_schannel_session_key_common(netlogon_pipe, cli, domain,
+					     pneg_flags, perr))
+	{
 		cli_rpc_pipe_close(netlogon_pipe);
-		*perr = NT_STATUS_CANT_ACCESS_DOMAIN_INFO;
-		return NULL;
-	}
-
-        /* if we are a DC and this is a trusted domain, then we need to use our
-           domain name in the net_req_auth2() request */
-
-        if ( IS_DC && !strequal(domain, lp_workgroup()) && lp_allow_trusted_domains()) {
-		fstrcpy( machine_account, lp_workgroup() );
-        } else {
-                /* Hmmm. Is this correct for trusted domains when we're a member server ? JRA. */
-                if (strequal(domain, lp_workgroup())) {
-                        fstrcpy(machine_account, global_myname());
-                } else {
-                        fstrcpy(machine_account, domain);
-                }
-        }
-
-	*perr = rpccli_netlogon_setup_creds(netlogon_pipe,
-					cli->desthost,     /* server name */
-					domain,            /* domain */
-					global_myname(),   /* client name */
-					machine_account,   /* machine account name */
-					machine_pwd,
-					sec_chan_type,
-					pneg_flags);
-
-	if (!NT_STATUS_IS_OK(*perr)) {
-		DEBUG(3,("get_schannel_session_key_auth_ntlmssp: rpccli_netlogon_setup_creds "
-			"failed with result %s\n",
-			nt_errstr(*perr) ));
-		cli_rpc_pipe_close(netlogon_pipe);
-		return NULL;
-	}
-
-	if (((*pneg_flags) & NETLOGON_NEG_SCHANNEL) == 0) {
-		DEBUG(3, ("get_schannel_session_key_auth_ntlmssp: Server %s did not offer schannel\n",
-			cli->desthost));
-		cli_rpc_pipe_close(netlogon_pipe);
-		*perr = NT_STATUS_INVALID_NETWORK_RESPONSE;
 		return NULL;
 	}
 
@@ -2632,7 +2600,7 @@ struct rpc_pipe_client *cli_rpc_pipe_open_ntlmssp_auth_schannel(struct cli_state
 						const char *password,
 						NTSTATUS *perr)
 {
-	uint32 neg_flags = NETLOGON_NEG_AUTH2_FLAGS|NETLOGON_NEG_SCHANNEL;
+	uint32_t neg_flags = NETLOGON_NEG_AUTH2_ADS_FLAGS;
 	struct rpc_pipe_client *netlogon_pipe = NULL;
 	struct rpc_pipe_client *result = NULL;
 
@@ -2666,7 +2634,7 @@ struct rpc_pipe_client *cli_rpc_pipe_open_schannel(struct cli_state *cli,
                                                 const char *domain,
 						NTSTATUS *perr)
 {
-	uint32 neg_flags = NETLOGON_NEG_AUTH2_FLAGS|NETLOGON_NEG_SCHANNEL;
+	uint32_t neg_flags = NETLOGON_NEG_AUTH2_ADS_FLAGS;
 	struct rpc_pipe_client *netlogon_pipe = NULL;
 	struct rpc_pipe_client *result = NULL;
 

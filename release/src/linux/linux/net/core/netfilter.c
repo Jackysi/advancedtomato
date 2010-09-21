@@ -342,10 +342,15 @@ static unsigned int nf_iterate(struct list_head *head,
 			       const struct net_device *indev,
 			       const struct net_device *outdev,
 			       struct list_head **i,
-			       int (*okfn)(struct sk_buff *))
+			       int (*okfn)(struct sk_buff *),
+			       int hook_thresh)
 {
 	for (*i = (*i)->next; *i != head; *i = (*i)->next) {
 		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
+
+		if (hook_thresh > elem->priority)
+			continue;
+
 		switch (elem->hook(hook, skb, indev, outdev, okfn)) {
 		case NF_QUEUE:
 			return NF_QUEUE;
@@ -449,7 +454,8 @@ static void nf_queue(struct sk_buff *skb,
 int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
 		 struct net_device *indev,
 		 struct net_device *outdev,
-		 int (*okfn)(struct sk_buff *))
+		 int (*okfn)(struct sk_buff *),
+		 int hook_thresh)
 {
 	struct list_head *elem;
 	unsigned int verdict;
@@ -481,7 +487,7 @@ int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
 
 	elem = &nf_hooks[pf][hook];
 	verdict = nf_iterate(&nf_hooks[pf][hook], &skb, hook, indev,
-			     outdev, &elem, okfn);
+			     outdev, &elem, okfn, hook_thresh);
 	if (verdict == NF_QUEUE) {
 		NFDEBUG("nf_hook: Verdict = QUEUE.\n");
 		nf_queue(skb, elem, pf, hook, indev, outdev, okfn);
@@ -530,7 +536,7 @@ void nf_reinject(struct sk_buff *skb, struct nf_info *info,
 		verdict = nf_iterate(&nf_hooks[info->pf][info->hook],
 				     &skb, info->hook, 
 				     info->indev, info->outdev, &elem,
-				     info->okfn);
+				     info->okfn, INT_MIN);
 	}
 
 	switch (verdict) {

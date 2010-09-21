@@ -1650,7 +1650,9 @@ static BOOL create_vk_record( REGF_FILE *file, REGF_VK_REC *vk, REGISTRY_VALUE *
 	if ( vk->data_size > sizeof(uint32) ) {
 		uint32 data_size = ( (vk->data_size+sizeof(uint32)) & 0xfffffff8 ) + 8;
 
-		vk->data = TALLOC_MEMDUP( file->mem_ctx, regval_data_p(value), vk->data_size );
+		vk->data = (uint8 *)TALLOC_MEMDUP( file->mem_ctx,
+						   regval_data_p(value),
+						   vk->data_size );
 		if (vk->data == NULL) {
 			return False;
 		}
@@ -1750,7 +1752,6 @@ static int hashrec_cmp( REGF_HASH_REC *h1, REGF_HASH_REC *h2 )
 	if ( sec_desc ) {
 		uint32 sk_size = sk_record_data_size( sec_desc );
 		REGF_HBIN *sk_hbin;
-		REGF_SK_REC *tmp = NULL;
 
 		/* search for it in the existing list of sd's */
 
@@ -1779,7 +1780,7 @@ static int hashrec_cmp( REGF_HASH_REC *h1, REGF_HASH_REC *h2 )
 			/* size value must be self-inclusive */
 			nk->sec_desc->size      = sec_desc_size(sec_desc) + sizeof(uint32);
 
-			DLIST_ADD_END( file->sec_desc_list, nk->sec_desc, tmp );
+			DLIST_ADD_END( file->sec_desc_list, nk->sec_desc, REGF_SK_REC *);
 
 			/* update the offsets for us and the previous sd in the list.
 			   if this is the first record, then just set the next and prev
@@ -1826,8 +1827,12 @@ static int hashrec_cmp( REGF_HASH_REC *h1, REGF_HASH_REC *h2 )
 		memcpy( nk->subkeys.header, "lf", REC_HDR_SIZE );
 		
 		nk->subkeys.num_keys = nk->num_subkeys;
-		if ( !(nk->subkeys.hashes = TALLOC_ZERO_ARRAY( file->mem_ctx, REGF_HASH_REC, nk->subkeys.num_keys )) )
-			return NULL;
+		if (nk->subkeys.num_keys) {
+			if ( !(nk->subkeys.hashes = TALLOC_ZERO_ARRAY( file->mem_ctx, REGF_HASH_REC, nk->subkeys.num_keys )) )
+				return NULL;
+		} else {
+			nk->subkeys.hashes = NULL;
+		}
 		nk->subkey_index = 0;
 
 		/* update the max_bytes_subkey{name,classname} fields */
@@ -1850,8 +1855,12 @@ static int hashrec_cmp( REGF_HASH_REC *h1, REGF_HASH_REC *h2 )
 		}
 		nk->values_off = prs_offset( &vlist_hbin->ps ) + vlist_hbin->first_hbin_off - HBIN_HDR_SIZE;
 	
-		if ( !(nk->values = TALLOC_ARRAY( file->mem_ctx, REGF_VK_REC, nk->num_values )) )
-			return NULL;
+		if (nk->num_values) {
+			if ( !(nk->values = TALLOC_ARRAY( file->mem_ctx, REGF_VK_REC, nk->num_values )) )
+				return NULL;
+		} else {
+			nk->values = NULL;
+		}
 
 		/* create the vk records */
 

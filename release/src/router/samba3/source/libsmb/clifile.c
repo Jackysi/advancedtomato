@@ -75,6 +75,7 @@ static BOOL cli_link_internal(struct cli_state *cli, const char *oldname, const 
 
 #endif /* AVM_SMALLER */
 
+
 /****************************************************************************
  Map standard UNIX permissions onto wire representations.
 ****************************************************************************/
@@ -168,6 +169,7 @@ static mode_t unix_filetype_from_wire(uint32 wire_type)
 			return (mode_t)0;
 	}
 }
+
 
 #ifndef AVM_SMALLER
 
@@ -272,9 +274,10 @@ BOOL cli_unix_stat(struct cli_state *cli, const char *name, SMB_STRUCT_STAT *sbu
 	/* assume 512 byte blocks */
 	sbuf->st_blocks /= 512;
 #endif
-	sbuf->st_ctime = interpret_long_date(rdata + 16);    /* time of last change */
-	sbuf->st_atime = interpret_long_date(rdata + 24);    /* time of last access */
-	sbuf->st_mtime = interpret_long_date(rdata + 32);    /* time of last modification */
+	set_ctimespec(sbuf, interpret_long_date(rdata + 16));    /* time of last change */
+	set_atimespec(sbuf, interpret_long_date(rdata + 24));    /* time of last access */
+	set_mtimespec(sbuf, interpret_long_date(rdata + 32));    /* time of last modification */
+
 	sbuf->st_uid = (uid_t) IVAL(rdata,40);      /* user ID of owner */
 	sbuf->st_gid = (gid_t) IVAL(rdata,48);      /* group ID of owner */
 	sbuf->st_mode |= unix_filetype_from_wire(IVAL(rdata, 56));
@@ -334,6 +337,8 @@ static BOOL cli_unix_chmod_chown_internal(struct cli_state *cli, const char *fna
 
 	p += clistr_push(cli, p, fname, -1, STR_TERMINATE);
 	param_len = PTR_DIFF(p, param);
+
+	memset(data, 0xff, 40); /* Set all sizes/times to no change. */
 
 	SIVAL(data,40,uid);
 	SIVAL(data,48,gid);
@@ -499,7 +504,7 @@ BOOL cli_nt_hardlink(struct cli_state *cli, const char *fname_src, const char *f
  Delete a file.
 ****************************************************************************/
 
-BOOL cli_unlink(struct cli_state *cli, const char *fname)
+BOOL cli_unlink_full(struct cli_state *cli, const char *fname, uint16 attrs)
 {
 	char *p;
 
@@ -512,7 +517,7 @@ BOOL cli_unlink(struct cli_state *cli, const char *fname)
 	SSVAL(cli->outbuf,smb_tid,cli->cnum);
 	cli_setup_packet(cli);
 
-	SSVAL(cli->outbuf,smb_vwv0,aSYSTEM | aHIDDEN);
+	SSVAL(cli->outbuf,smb_vwv0, attrs);
   
 	p = smb_buf(cli->outbuf);
 	*p++ = 4;      
@@ -529,6 +534,15 @@ BOOL cli_unlink(struct cli_state *cli, const char *fname)
 	}
 
 	return True;
+}
+
+/****************************************************************************
+ Delete a file.
+****************************************************************************/
+
+BOOL cli_unlink(struct cli_state *cli, const char *fname)
+{
+	return cli_unlink_full(cli, fname, aSYSTEM | aHIDDEN);
 }
 
 /****************************************************************************
@@ -641,6 +655,7 @@ int cli_nt_delete_on_close(struct cli_state *cli, int fnum, BOOL flag)
 
 	return True;
 }
+#endif /* AVM_SMALLER */
 
 /****************************************************************************
  Open a file - exposing the full horror of the NT API :-).
@@ -712,6 +727,7 @@ int cli_nt_create(struct cli_state *cli, const char *fname, uint32 DesiredAccess
 				FILE_SHARE_READ|FILE_SHARE_WRITE, FILE_OPEN, 0x0, 0x0);
 }
 
+#ifndef AVM_SMALLER
 /****************************************************************************
  Open a file
  WARNING: if you open with O_WRONLY then getattrE won't work!
@@ -790,7 +806,6 @@ int cli_open(struct cli_state *cli, const char *fname, int flags, int share_mode
 
 	return SVAL(cli->inbuf,smb_vwv2);
 }
-
 #endif /* AVM_SMALLER */
 
 /****************************************************************************
@@ -818,7 +833,6 @@ BOOL cli_close(struct cli_state *cli, int fnum)
 
 	return !cli_is_error(cli);
 }
-
 
 #ifndef AVM_SMALLER
 
@@ -1188,7 +1202,9 @@ BOOL cli_posix_getlock(struct cli_state *cli, int fnum, SMB_BIG_UINT *poffset, S
 
 BOOL cli_getattrE(struct cli_state *cli, int fd, 
 		  uint16 *attr, SMB_OFF_T *size, 
-		  time_t *c_time, time_t *a_time, time_t *m_time)
+		  time_t *change_time,
+                  time_t *access_time,
+                  time_t *write_time)
 {
 	memset(cli->outbuf,'\0',smb_size);
 	memset(cli->inbuf,'\0',smb_size);
@@ -1218,16 +1234,16 @@ BOOL cli_getattrE(struct cli_state *cli, int fd,
 		*attr = SVAL(cli->inbuf,smb_vwv10);
 	}
 
-	if (c_time) {
-		*c_time = cli_make_unix_date2(cli, cli->inbuf+smb_vwv0);
+	if (change_time) {
+		*change_time = cli_make_unix_date2(cli, cli->inbuf+smb_vwv0);
 	}
 
-	if (a_time) {
-		*a_time = cli_make_unix_date2(cli, cli->inbuf+smb_vwv2);
+	if (access_time) {
+		*access_time = cli_make_unix_date2(cli, cli->inbuf+smb_vwv2);
 	}
 
-	if (m_time) {
-		*m_time = cli_make_unix_date2(cli, cli->inbuf+smb_vwv4);
+	if (write_time) {
+		*write_time = cli_make_unix_date2(cli, cli->inbuf+smb_vwv4);
 	}
 
 	return True;
@@ -1238,7 +1254,7 @@ BOOL cli_getattrE(struct cli_state *cli, int fd,
 ****************************************************************************/
 
 BOOL cli_getatr(struct cli_state *cli, const char *fname, 
-		uint16 *attr, SMB_OFF_T *size, time_t *t)
+		uint16 *attr, SMB_OFF_T *size, time_t *write_time)
 {
 	char *p;
 
@@ -1270,8 +1286,8 @@ BOOL cli_getatr(struct cli_state *cli, const char *fname,
 		*size = IVAL(cli->inbuf, smb_vwv3);
 	}
 
-	if (t) {
-		*t = cli_make_unix_date3(cli, cli->inbuf+smb_vwv1);
+	if (write_time) {
+		*write_time = cli_make_unix_date3(cli, cli->inbuf+smb_vwv1);
 	}
 
 	if (attr) {
@@ -1287,7 +1303,9 @@ BOOL cli_getatr(struct cli_state *cli, const char *fname,
 ****************************************************************************/
 
 BOOL cli_setattrE(struct cli_state *cli, int fd,
-		  time_t c_time, time_t a_time, time_t m_time)
+		  time_t change_time,
+                  time_t access_time,
+                  time_t write_time)
 
 {
 	char *p;
@@ -1302,9 +1320,9 @@ BOOL cli_setattrE(struct cli_state *cli, int fd,
 	cli_setup_packet(cli);
 
 	SSVAL(cli->outbuf,smb_vwv0, fd);
-	cli_put_dos_date2(cli, cli->outbuf,smb_vwv1, c_time);
-	cli_put_dos_date2(cli, cli->outbuf,smb_vwv3, a_time);
-	cli_put_dos_date2(cli, cli->outbuf,smb_vwv5, m_time);
+	cli_put_dos_date2(cli, cli->outbuf,smb_vwv1, change_time);
+	cli_put_dos_date2(cli, cli->outbuf,smb_vwv3, access_time);
+	cli_put_dos_date2(cli, cli->outbuf,smb_vwv5, write_time);
 
 	p = smb_buf(cli->outbuf);
 	*p++ = 4;
@@ -1377,7 +1395,7 @@ BOOL cli_chkpath(struct cli_state *cli, const char *path)
 	
 	memset(cli->outbuf,'\0',smb_size);
 	set_message(cli->outbuf,0,0,True);
-	SCVAL(cli->outbuf,smb_com,SMBchkpth);
+	SCVAL(cli->outbuf,smb_com,SMBcheckpath);
 	SSVAL(cli->outbuf,smb_tid,cli->cnum);
 	cli_setup_packet(cli);
 	p = smb_buf(cli->outbuf);
@@ -1519,7 +1537,7 @@ static BOOL cli_set_ea(struct cli_state *cli, uint16 setup, char *param, unsigne
 
 	if (ea_namelen == 0 && ea_len == 0) {
 		data_len = 4;
-		data = SMB_MALLOC(data_len);
+		data = (char *)SMB_MALLOC(data_len);
 		if (!data) {
 			return False;
 		}
@@ -1527,7 +1545,7 @@ static BOOL cli_set_ea(struct cli_state *cli, uint16 setup, char *param, unsigne
 		SIVAL(p,0,data_len);
 	} else {
 		data_len = 4 + 4 + ea_namelen + 1 + ea_len;
-		data = SMB_MALLOC(data_len);
+		data = (char *)SMB_MALLOC(data_len);
 		if (!data) {
 			return False;
 		}
@@ -1768,6 +1786,203 @@ BOOL cli_get_ea_list_fnum(struct cli_state *cli, int fnum,
 	SSVAL(param,2,SMB_INFO_SET_EA);
 
 	return cli_get_ea_list(cli, setup, param, 6, ctx, pnum_eas, pea_list);
+}
+
+/****************************************************************************
+ Convert open "flags" arg to uint32 on wire.
+****************************************************************************/
+
+static uint32 open_flags_to_wire(int flags)
+{
+	int open_mode = flags & O_ACCMODE;
+	uint32 ret = 0;
+
+	switch (open_mode) {
+		case O_WRONLY:
+			ret |= SMB_O_WRONLY;
+			break;
+		case O_RDWR:
+			ret |= SMB_O_RDWR;
+			break;
+		default:
+		case O_RDONLY:
+			ret |= SMB_O_RDONLY;
+			break;
+	}
+
+	if (flags & O_CREAT) {
+		ret |= SMB_O_CREAT;
+	}
+	if (flags & O_EXCL) {
+		ret |= SMB_O_EXCL;
+	}
+	if (flags & O_TRUNC) {
+		ret |= SMB_O_TRUNC;
+	}
+#if defined(O_SYNC)
+	if (flags & O_SYNC) {
+		ret |= SMB_O_SYNC;
+	}
+#endif /* O_SYNC */
+	if (flags & O_APPEND) {
+		ret |= SMB_O_APPEND;
+	}
+#if defined(O_DIRECT)
+	if (flags & O_DIRECT) {
+		ret |= SMB_O_DIRECT;
+	}
+#endif
+#if defined(O_DIRECTORY)
+	if (flags & O_DIRECTORY) {
+		ret &= ~(SMB_O_RDONLY|SMB_O_RDWR|SMB_O_WRONLY);
+		ret |= SMB_O_DIRECTORY;
+	}
+#endif
+	return ret;
+}
+
+/****************************************************************************
+ Open a file - POSIX semantics. Returns fnum. Doesn't request oplock.
+****************************************************************************/
+
+static int cli_posix_open_internal(struct cli_state *cli, const char *fname, int flags, mode_t mode, BOOL is_dir)
+{
+	unsigned int data_len = 0;
+	unsigned int param_len = 0;
+	uint16 setup = TRANSACT2_SETPATHINFO;
+	char param[sizeof(pstring)+6];
+	char data[18];
+	char *rparam=NULL, *rdata=NULL;
+	char *p;
+	int fnum = -1;
+	uint32 wire_flags = open_flags_to_wire(flags);
+
+	memset(param, 0, sizeof(param));
+	SSVAL(param,0, SMB_POSIX_PATH_OPEN);
+	p = &param[6];
+
+	p += clistr_push(cli, p, fname, sizeof(param)-6, STR_TERMINATE);
+	param_len = PTR_DIFF(p, param);
+
+	if (is_dir) {
+		wire_flags &= ~(SMB_O_RDONLY|SMB_O_RDWR|SMB_O_WRONLY);
+		wire_flags |= SMB_O_DIRECTORY;
+	}
+
+	p = data;
+	SIVAL(p,0,0); /* No oplock. */
+	SIVAL(p,4,wire_flags);
+	SIVAL(p,8,unix_perms_to_wire(mode));
+	SIVAL(p,12,0); /* Top bits of perms currently undefined. */
+	SSVAL(p,16,SMB_NO_INFO_LEVEL_RETURNED); /* No info level returned. */
+
+	data_len = 18;
+
+	if (!cli_send_trans(cli, SMBtrans2,
+		NULL,                        /* name */
+		-1, 0,                          /* fid, flags */
+		&setup, 1, 0,                   /* setup, length, max */
+		param, param_len, 2,            /* param, length, max */
+		(char *)&data,  data_len, cli->max_xmit /* data, length, max */
+		)) {
+			return -1;
+	}
+
+	if (!cli_receive_trans(cli, SMBtrans2,
+		&rparam, &param_len,
+		&rdata, &data_len)) {
+			return -1;
+	}
+
+	fnum = SVAL(rdata,2);
+
+	SAFE_FREE(rdata);
+	SAFE_FREE(rparam);
+
+	return fnum;
+}
+
+/****************************************************************************
+ open - POSIX semantics.
+****************************************************************************/
+
+int cli_posix_open(struct cli_state *cli, const char *fname, int flags, mode_t mode)
+{
+	return cli_posix_open_internal(cli, fname, flags, mode, False);
+}
+
+/****************************************************************************
+ mkdir - POSIX semantics.
+****************************************************************************/
+
+int cli_posix_mkdir(struct cli_state *cli, const char *fname, mode_t mode)
+{
+	return (cli_posix_open_internal(cli, fname, O_CREAT, mode, True) == -1) ? -1 : 0;
+}
+
+/****************************************************************************
+ unlink or rmdir - POSIX semantics.
+****************************************************************************/
+
+static BOOL cli_posix_unlink_internal(struct cli_state *cli, const char *fname, BOOL is_dir)
+{
+	unsigned int data_len = 0;
+	unsigned int param_len = 0;
+	uint16 setup = TRANSACT2_SETPATHINFO;
+	char param[sizeof(pstring)+6];
+	char data[2];
+	char *rparam=NULL, *rdata=NULL;
+	char *p;
+
+	memset(param, 0, sizeof(param));
+	SSVAL(param,0, SMB_POSIX_PATH_UNLINK);
+	p = &param[6];
+
+	p += clistr_push(cli, p, fname, sizeof(param)-6, STR_TERMINATE);
+	param_len = PTR_DIFF(p, param);
+
+	SSVAL(data, 0, is_dir ? SMB_POSIX_UNLINK_DIRECTORY_TARGET :
+			SMB_POSIX_UNLINK_FILE_TARGET);
+	data_len = 2;
+
+	if (!cli_send_trans(cli, SMBtrans2,
+		NULL,                        /* name */
+		-1, 0,                          /* fid, flags */
+		&setup, 1, 0,                   /* setup, length, max */
+		param, param_len, 2,            /* param, length, max */
+		(char *)&data,  data_len, cli->max_xmit /* data, length, max */
+		)) {
+			return False;
+	}
+
+	if (!cli_receive_trans(cli, SMBtrans2,
+		&rparam, &param_len,
+		&rdata, &data_len)) {
+			return False;
+	}
+
+	SAFE_FREE(rdata);
+	SAFE_FREE(rparam);
+
+	return True;
+}
+
+/****************************************************************************
+ unlink - POSIX semantics.
+****************************************************************************/
+
+BOOL cli_posix_unlink(struct cli_state *cli, const char *fname)
+{
+	return cli_posix_unlink_internal(cli, fname, False);
+}
+
+/****************************************************************************
+ rmdir - POSIX semantics.
+****************************************************************************/
+
+int cli_posix_rmdir(struct cli_state *cli, const char *fname)
+{
+	return cli_posix_unlink_internal(cli, fname, True);
 }
 
 #endif /* AVM_SMALLER */

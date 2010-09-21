@@ -265,11 +265,11 @@ static BOOL cli_issue_write(struct cli_state *cli, int fnum, off_t offset,
 	BOOL large_writex = False;
 
 	if (size > cli->bufsize) {
-		cli->outbuf = SMB_REALLOC(cli->outbuf, size + 1024);
+		cli->outbuf = (char *)SMB_REALLOC(cli->outbuf, size + 1024);
 		if (!cli->outbuf) {
 			return False;
 		}
-		cli->inbuf = SMB_REALLOC(cli->inbuf, size + 1024);
+		cli->inbuf = (char *)SMB_REALLOC(cli->inbuf, size + 1024);
 		if (cli->inbuf == NULL) {
 			SAFE_FREE(cli->outbuf);
 			return False;
@@ -352,10 +352,12 @@ ssize_t cli_write(struct cli_state *cli,
 	}
 
 	while (received < blocks) {
+		ssize_t size1 = 0;
 
 		while ((issued - received < mpx) && (issued < blocks)) {
 			ssize_t bsent = issued * block;
-			ssize_t size1 = MIN(block, size - bsent);
+
+			size1 = MIN(block, size - bsent);
 
 			if (!cli_issue_write(cli, fnum, offset + bsent,
 			                write_mode,
@@ -374,7 +376,9 @@ ssize_t cli_write(struct cli_state *cli,
 			break;
 
 		bwritten += SVAL(cli->inbuf, smb_vwv2);
-		bwritten += (((int)(SVAL(cli->inbuf, smb_vwv4)))<<16);
+		if (size1 > 0xFFFF) {
+			bwritten += (((int)(SVAL(cli->inbuf, smb_vwv4)))<<16);
+		}
 	}
 
 	while (received < issued && cli_receive_smb(cli))

@@ -91,7 +91,10 @@ BOOL cli_send_mailslot(BOOL unique, const char *mailslot,
 	SSVAL(ptr,smb_vwv16,2);
 	p2 = smb_buf(ptr);
 	fstrcpy(p2,mailslot);
-	p2 = skip_string(p2,1);
+	p2 = skip_string(ptr,MAX_DGRAM_SIZE,p2);
+	if (!p2) {
+		return False;
+	}
 
 	memcpy(p2,buf,len);
 	p2 += len;
@@ -107,8 +110,9 @@ BOOL cli_send_mailslot(BOOL unique, const char *mailslot,
 	DEBUGADD(4,("to %s IP %s\n", nmb_namestr(&dgram->dest_name),
 		    inet_ntoa(dest_ip)));
 
-	return message_send_pid(pid_to_procid(nmbd_pid), MSG_SEND_PACKET, &p, sizeof(p),
-				False);
+	return NT_STATUS_IS_OK(message_send_pid(pid_to_procid(nmbd_pid),
+						MSG_SEND_PACKET, &p, sizeof(p),
+						False));
 }
 
 /*

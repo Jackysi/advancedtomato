@@ -990,9 +990,9 @@ BOOL check_bind_req(struct pipes_struct *p, RPC_IFACE* abstract,
 		DEBUG(10,("checking %s\n", pipe_names[i].client_pipe));
 		if ( strequal(pipe_names[i].client_pipe, pname)
 			&& (abstract->version == pipe_names[i].abstr_syntax.version) 
-			&& (memcmp(&abstract->uuid, &pipe_names[i].abstr_syntax.uuid, sizeof(struct uuid)) == 0)
+			&& (memcmp(&abstract->uuid, &pipe_names[i].abstr_syntax.uuid, sizeof(struct GUID)) == 0)
 			&& (transfer->version == pipe_names[i].trans_syntax.version)
-			&& (memcmp(&transfer->uuid, &pipe_names[i].trans_syntax.uuid, sizeof(struct uuid)) == 0) ) {
+			&& (memcmp(&transfer->uuid, &pipe_names[i].trans_syntax.uuid, sizeof(struct GUID)) == 0) ) {
 			struct api_struct 	*fns = NULL;
 			int 			n_fns = 0;
 			PIPE_RPC_FNS		*context_fns;
@@ -2062,7 +2062,11 @@ BOOL api_pipe_schannel_process(pipes_struct *p, prs_struct *rpc_in, uint32 *p_ss
 
 	auth_len = p->hdr.auth_len;
 
-	if (auth_len != RPC_AUTH_SCHANNEL_SIGN_OR_SEAL_CHK_LEN) {
+	if (auth_len < RPC_AUTH_SCHANNEL_SIGN_OR_SEAL_CHK_LEN ||
+			auth_len > RPC_HEADER_LEN +
+					RPC_HDR_REQ_LEN +
+					RPC_HDR_AUTH_LEN +
+					auth_len) {
 		DEBUG(0,("Incorrect auth_len %u.\n", (unsigned int)auth_len ));
 		return False;
 	}

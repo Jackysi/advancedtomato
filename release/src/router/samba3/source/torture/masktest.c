@@ -33,8 +33,12 @@ static int die_on_error;
 static int NumLoops = 0;
 static int ignore_dot_errors = 0;
 
+extern char *optarg;
+extern int optind;
+extern BOOL AllowDebugChange;
+
 /* a test fn for LANMAN mask support */
-int ms_fnmatch_lanman_core(const char *pattern, const char *string)
+static int ms_fnmatch_lanman_core(const char *pattern, const char *string)
 {
 	const char *p = pattern, *n = string;
 	char c;
@@ -108,7 +112,7 @@ next:
 	return 0;
 }
 
-int ms_fnmatch_lanman(const char *pattern, const char *string)
+static int ms_fnmatch_lanman(const char *pattern, const char *string)
 {
 	if (!strpbrk(pattern, "?*<>\"")) {
 		if (strcmp(string,"..") == 0) 
@@ -159,13 +163,14 @@ static char *reg_test(struct cli_state *cli, char *pattern, char *long_name, cha
 /***************************************************** 
 return a connection to a server
 *******************************************************/
-struct cli_state *connect_one(char *share)
+static struct cli_state *connect_one(char *share)
 {
 	struct cli_state *c;
 	struct nmb_name called, calling;
 	char *server_n;
 	char *server;
 	struct in_addr ip;
+	NTSTATUS status;
 
 	server = share+2;
 	share = strchr_m(server,'\\');
@@ -184,8 +189,14 @@ struct cli_state *connect_one(char *share)
         zero_ip(&ip);
 
 	/* have to open a new connection */
-	if (!(c=cli_initialise(NULL)) || !cli_connect(c, server_n, &ip)) {
+	if (!(c=cli_initialise())) {
 		DEBUG(0,("Connection to %s failed\n", server_n));
+		return NULL;
+	}
+
+	status = cli_connect(c, server_n, &ip);
+	if (!NT_STATUS_IS_OK(status)) {
+		DEBUG(0,("Connection to %s failed. Error %s\n", server_n, nt_errstr(status) ));
 		return NULL;
 	}
 
@@ -216,10 +227,10 @@ struct cli_state *connect_one(char *share)
 		}
 	}
 
-	if (!cli_session_setup(c, username, 
-			       password, strlen(password),
-			       password, strlen(password),
-			       lp_workgroup())) {
+	if (!NT_STATUS_IS_OK(cli_session_setup(c, username, 
+					       password, strlen(password),
+					       password, strlen(password),
+					       lp_workgroup()))) {
 		DEBUG(0,("session setup failed: %s\n", cli_errstr(c)));
 		return NULL;
 	}
@@ -426,9 +437,6 @@ static void usage(void)
 {
 	char *share;
 	struct cli_state *cli;	
-	extern char *optarg;
-	extern int optind;
-	extern BOOL AllowDebugChange;
 	int opt;
 	char *p;
 	int seed;
