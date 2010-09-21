@@ -99,7 +99,7 @@
 
 //Toastman Class Labels
 
-var abc = ['Service','Games','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
+var abc = ['Service','Game/VOIP','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
 //	var abc = ['1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
 //      var abc = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'A','B','C','D','E'];
 

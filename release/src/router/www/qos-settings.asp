@@ -28,7 +28,7 @@ REMOVE-END */
 
 //Toastman Class Labels
 
-classNames = ['Service','Games','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
+classNames = ['Service','Game/VOIP','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
 //	classNames = ['1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
 //      classNames = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
