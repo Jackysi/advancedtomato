@@ -52,9 +52,8 @@ void ipt_forward(ipt_table_t table)
 				xports = saddr;
 				saddr = "";
 			}
-			else if (strlen(saddr) < 32) {
-				sprintf(src, "-%s %s", strchr(saddr, '-') ? "m iprange --src-range" : "s", saddr);
-			}
+			else
+				ipt_addr(src, sizeof(src), saddr, "src");
 		}
 
 		mdport = (strchr(xports, ',') != NULL) ? "-m mport --dports" : "--dport";

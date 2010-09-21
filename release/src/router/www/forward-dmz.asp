@@ -46,7 +46,7 @@ function verifyFields(focused, quiet)
 	if (dip.value.indexOf('.') == -1) dip.value = lipp + dip.value;
 	if (!v_ip(dip)) return 0;
 
-	if ((sip.value.length) && (!v_iptip(sip, quiet, 15))) return 0;
+	if ((sip.value.length) && (!v_iptaddr(sip, quiet, 15))) return 0;
 	ferror.clear(sip);
 
 	return 1;
@@ -69,7 +69,7 @@ function save()
 		fom.dmz_ipaddr.value = (s.indexOf(lipp) == 0) ? s.replace(lipp, '') : s;
 	}
 	fom.dmz_sip.value = fom.f_dmz_sip.value.split(/\s*,\s*/).join(',');
-	form.submit(fom, 1);
+	form.submit(fom, 0);
 }
 </script>
 
@@ -102,11 +102,13 @@ createFieldTable('', [
 	{ title: 'Destination Address', indent: 2, name: 'f_dmz_ipaddr', type: 'text', maxlen: 15, size: 17,
 		value: (nvram.dmz_ipaddr.indexOf('.') != -1) ? nvram.dmz_ipaddr : (lipp + nvram.dmz_ipaddr) },
 	{ title: 'Source Address<br>Restriction', indent: 2, name: 'f_dmz_sip', type: 'text', maxlen: 512, size: 64,
-		value: nvram.dmz_sip, suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' }
+		value: nvram.dmz_sip, suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' }
 ]);
 </script>
 </div>
 
+<br>
+<script type='text/javascript'>if (nvram.dmz_enable == '1') show_notice1('<% notice("iptables"); %>');</script>
 
 <!-- / / / -->
 

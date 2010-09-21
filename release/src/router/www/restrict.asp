@@ -128,6 +128,9 @@ function init()
 	<table class='tomato-grid' cellspacing=1 id='res-over-grid'></table>
 </div>
 
+<br>
+<script type='text/javascript'>show_notice1('<% notice("iptables"); %>');</script>
+
 <!-- / / / -->
 
 </td></tr>
