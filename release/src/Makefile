@@ -195,7 +195,7 @@ what:
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
-# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, SLIM
+# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 
 define RouterOptions
 	@( \
@@ -465,6 +465,12 @@ define KernelConfig
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
 		fi; \
 	fi; \
+	sed -i "/CONFIG_BCM57XX/d" $(1); \
+	if [ "$(BCM57)" = "y" ]; then \
+		echo "CONFIG_BCM57XX=m" >>$(1); \
+	else \
+		echo "# CONFIG_BCM57XX is not set" >>$(1); \
+	fi; \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \
 		echo "CONFIG_BRIDGE_NF_EBTABLES=m" >>$(1); \
@@ -528,9 +534,9 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB=""
 else
-	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
 endif
 
 ## Make the "Mini: no USB, no CIFS, no JFFS" build

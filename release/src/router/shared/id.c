@@ -129,9 +129,12 @@ int check_hw_type(void)
 		return HW_BCM5350;
 	case 0x4ec:
 		return HW_BCM5356;
+	case 0x489:
+		return HW_BCM4785;
 #ifdef CONFIG_BCMWL5
 	case 0x04cd:
 	case 0xe4cd:
+	case 0x04fb:
 		return HW_BCM4716;
 	case 0x04ef:
 		return HW_BCM4717;
@@ -235,6 +238,9 @@ int get_model(void)
 			return MODEL_WRTSL54GS;
 		case HW_BCM4704_BCM5325F_EWC:
 			return MODEL_WRT300N;
+		case HW_BCM4785:
+			if (nvram_match("boardrev", "0x10")) return MODEL_WRT310Nv1;
+			break;
 #ifdef CONFIG_BCMWL5
 		case HW_BCM4716:
 			return MODEL_WRT160Nv3;
@@ -261,10 +267,13 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 		case HW_BCM5356:
 			if (nvram_match("boardrev", "0x1402")) return MODEL_RTN10;
+			break;
 		case HW_BCM4716:
 			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
+			break;
 		case HW_BCM4718:
 			if (nvram_match("boardrev", "0x1218")) return MODEL_RTN16;
+			break;
 #endif
 		}
 		break;
@@ -294,6 +303,7 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM5354G:
 			if (nvram_match("boardrev", "0x35")) return MODEL_DIR320;
+			break;
 		}
 		break;
 	case 1105:

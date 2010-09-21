@@ -335,6 +335,7 @@ static void check_bootnv(void)
 	int dirty;
 	int hardware;
 	int model;
+	char mac[18];
 
 	model = get_model();
 	dirty = 0;
@@ -344,28 +345,23 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan0hwname", "et0");
 		dirty |= check_nv("vlan1hwname", "et0");
 		break;
-	case MODEL_WL500GP:
-		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
-		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
-			dirty |= check_nv("vlan1ports", "0 5");
-		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
-		if (strcasecmp(nvram_safe_get("et1macaddr"), "00:90:4c:a1:00:2d") == 0)
-			dirty |= check_nv("et1macaddr", nvram_get("et0macaddr"));
+		if (strncasecmp(nvram_safe_get("et1macaddr"), "00:90:4c", 8) == 0) {
+			strcpy(mac, nvram_safe_get("et0macaddr"));
+			inc_mac(mac, 1);
+			dirty |= check_nv("et1macaddr", mac);
+		}
 		break;
+	case MODEL_WL500GP:
+		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
+		// fall through
 	case MODEL_WL500GE:
-		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
-			dirty |= check_nv("vlan1ports", "0 5");
-		break;
 	case MODEL_WL500GPv2:
+	case MODEL_WL520GU:
 		if (nvram_match("vlan1ports", "4 5u"))
 			dirty |= check_nv("vlan1ports", "4 5");
-		else if (nvram_match("vlan1ports", "0 5u"))	// 520GU?
-			dirty |= check_nv("vlan1ports", "0 5");
-		break;
-	case MODEL_WL520GU:
-		if (nvram_match("vlan1ports", "0 5u"))
+		else if (nvram_match("vlan1ports", "0 5u"))	// 520GU or WL500GE?
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_WL500GD:
@@ -398,6 +394,12 @@ static void check_bootnv(void)
 	case MODEL_H618B:
 		if ((strlen(nvram_safe_get("vlan1ports")) == 0) || nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WRT310Nv1:
+		if (strlen(nvram_safe_get("vlan1ports")) == 0 || strlen(nvram_safe_get("vlan2ports")) == 0) {
+			dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
@@ -442,8 +444,7 @@ static void check_bootnv(void)
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
 		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
-			char mac[18];
-			strcpy(mac, nvram_get("et0macaddr"));
+			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 3);
 			dirty |= check_nv("pci/1/1/macaddr", mac);
 		}
@@ -544,7 +545,7 @@ static void check_bootnv(void)
 REBOOT:	// do a simple reboot
 		sync();
 		reboot(RB_AUTOBOOT);
-        exit(0);
+		exit(0);
 	}
 }
 
@@ -869,11 +870,9 @@ static int init_nvram(void)
 		}
 		break;
 	case MODEL_WRT160Nv3:
+		// same as M10, WRT310Nv2
 		mfr = "Linksys";
-		if (nvram_match("boot_hw_model", "M10") && nvram_match("boot_hw_ver", "1.0"))
-			name = "M10 v1"; // renamed wrt160nv3
-		else
-			name = "WRT160N v3";
+		name = nvram_safe_get("boot_hw_model");
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
@@ -975,6 +974,19 @@ static int init_nvram(void)
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("wan_ifnameX", "eth1");
 			nvram_set("wl0gpio0", "8");
+			nvram_set("t_fix1", name);
+		}
+		break;
+	case MODEL_WRT310Nv1:
+		mfr = "Linksys";
+		name = "WRT310N v1";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0gpio0", "8");
+			nvram_set("t_fix1", name);
 		}
 		break;
 	}
@@ -1225,25 +1237,16 @@ static void sysinit(void)
 	modprobe("ctf");
 #endif
 
-	hardware = check_hw_type();
-#if WL_BSS_INFO_VERSION >= 108
-	modprobe("et");
-#else
-	if ((hardware == HW_BCM4702) && (model != MODEL_WR850GV1)) {
-		modprobe("4702et");
-		modprobe("diag");
-	}
-	else {
+	switch (hardware = check_hw_type()) {
+	case HW_BCM4785:
+		modprobe("bcm57xx");
+		break;
+	default:
 		modprobe("et");
+		break;
 	}
-#endif
 
-#ifdef CONFIG_BCMWL5
-	modprobe("emf");
-	modprobe("igs");
-#endif
 	modprobe("wl");
-	modprobe("tomato_ct");
 
 	config_loopback();
 

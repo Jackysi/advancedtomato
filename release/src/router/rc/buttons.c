@@ -172,6 +172,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 4;
 		break;
+	case MODEL_WRT310Nv1:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 8;
+		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {
