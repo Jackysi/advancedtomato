@@ -1302,6 +1302,8 @@ int init_main(int argc, char *argv[])
 	nvram_set("debug_ddns", "1");
 #endif
 
+	start_jffs2();
+
 	state = SIGUSR2;	/* START */
 
 	for (;;) {
@@ -1345,7 +1347,6 @@ int init_main(int argc, char *argv[])
 			SET_LED(RELEASE_WAN_CONTROL);
 			start_syslog();
 
-			start_jffs2();
 			load_files_from_nvram();
 
 			int fd = -1;

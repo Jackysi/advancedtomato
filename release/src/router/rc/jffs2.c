@@ -9,6 +9,7 @@
 
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <errno.h>
 
 //	#define TEST_INTEGRITY
@@ -39,6 +40,7 @@ void start_jffs2(void)
 	int size;
 	int part;
 	const char *p;
+	struct statfs sf;
 
 	if (!wait_action_idle(10)) return;
 
@@ -66,6 +68,12 @@ void start_jffs2(void)
 			error("verifying known size of");
 			return;
 		}
+	}
+
+	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x73717368 /* squashfs */)) {
+		// already mounted
+		notice_set("jffs", format ? "Formatted" : "Loaded");
+		return;
 	}
 
 	if (!mtd_unlock("jffs2")) {
