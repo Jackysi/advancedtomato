@@ -1,9 +1,22 @@
-/* $Id: miniupnpd.c,v 1.124 2010/03/14 00:35:27 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.125 2010/09/21 15:31:01 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2009 Thomas Bernard
+ * (c) 2006-2010 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
+
+#include "config.h"
+
+/* Experimental support for NFQUEUE interfaces */
+#ifdef ENABLE_NFQUEUE
+/* apt-get install libnetfilter-queue-dev */
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+//#include <linux/netfilter_ipv4.h>  /* Defines verdicts (NF_ACCEPT, etc) */
+#include <linux/netfilter.h>
+#include <libnetfilter_queue/libnetfilter_queue.h>
+#include <linux/netfilter/nfnetlink_queue.h>
+#endif
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -30,7 +43,6 @@
 #endif
 
 /* unix sockets */
-#include "config.h"
 #ifdef USE_MINIUPNPDCTL
 #include <sys/un.h>
 #endif
@@ -62,6 +74,21 @@ struct ctlelem {
 	LIST_ENTRY(ctlelem) entries;
 };
 #endif
+
+#ifdef ENABLE_NFQUEUE
+/* globals */
+static struct nfq_handle *nfqHandle;
+static struct sockaddr_in ssdp;
+
+/* prototypes */
+void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, unsigned short port);
+static int nfqueue_cb( struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data) ;
+int identify_ip_protocol (char *payload);
+int get_udp_dst_port (char *payload);
+#endif
+
+
+static int sudp = -1;
 
 /* MAX_LAN_ADDR : maximum number of interfaces
  * to listen to SSDP traffic */
@@ -235,6 +262,151 @@ OpenAndConfHTTPSocket(unsigned short port)
 
 	return s;
 }
+#ifdef ENABLE_NFQUEUE
+
+int identify_ip_protocol(char *payload) {
+    return payload[9];
+}
+
+
+/*
+ * This function returns the destination port of the captured packet UDP
+ */
+int get_udp_dst_port(char *payload) {
+        char *pkt_data_ptr = NULL;
+        pkt_data_ptr = payload + sizeof(struct ip);
+
+    /* Cast the UDP Header from the raw packet */
+    struct udphdr *udp = (struct udphdr *) pkt_data_ptr;
+
+    /* get the dst port of the packet */
+    return(ntohs(udp->dest));
+
+}
+static int
+OpenAndConfNFqueue(){
+
+        struct nfq_q_handle *myQueue;
+        struct nfnl_handle *netlinkHandle;
+
+        int fd = 0, e = 0;
+
+	inet_pton(AF_INET, "239.255.255.250", &(ssdp.sin_addr));
+
+        //Get a queue connection handle from the module
+        if (!(nfqHandle = nfq_open())) {
+		syslog(LOG_ERR, "Error in nfq_open(): %m");
+                return -1;
+        }
+
+        //Unbind the handler from processing any IP packets
+        //      Not totally sure why this is done, or if it's necessary...
+        if ((e = nfq_unbind_pf(nfqHandle, AF_INET)) < 0) {
+		syslog(LOG_ERR, "Error in nfq_unbind_pf(): %m");
+                return -1;
+        }
+
+        //Bind this handler to process IP packets...
+        if (nfq_bind_pf(nfqHandle, AF_INET) < 0) {
+		syslog(LOG_ERR, "Error in nfq_bind_pf(): %m");
+                return -1;
+        }
+
+        //      Install a callback on queue -Q
+        if (!(myQueue = nfq_create_queue(nfqHandle,  nfqueue, &nfqueue_cb, NULL))) {
+		syslog(LOG_ERR, "Error in nfq_create_queue(): %m");
+                return -1;
+        }
+
+        //      Turn on packet copy mode
+        if (nfq_set_mode(myQueue, NFQNL_COPY_PACKET, 0xffff) < 0) {
+		syslog(LOG_ERR, "Error setting packet copy mode (): %m");
+                return -1;
+        }
+
+        netlinkHandle = nfq_nfnlh(nfqHandle);
+        fd = nfnl_fd(netlinkHandle);
+
+	return fd;
+
+}
+
+
+static int nfqueue_cb(
+                struct nfq_q_handle *qh,
+                struct nfgenmsg *nfmsg,
+                struct nfq_data *nfa,
+                void *data) {
+
+	char	*pkt;
+	struct nfqnl_msg_packet_hdr *ph;
+	ph = nfq_get_msg_packet_hdr(nfa);
+
+	if ( ph ) {
+
+		int id = 0, size = 0;
+		id = ntohl(ph->packet_id);
+
+		size = nfq_get_payload(nfa, &pkt);
+
+    		struct ip *iph = (struct ip *) pkt;
+
+		int id_protocol = identify_ip_protocol(pkt);
+
+		int dport = get_udp_dst_port(pkt);
+
+		int x = sizeof (struct ip) + sizeof (struct udphdr);
+	
+		/* packets we are interested in are UDP multicast to 239.255.255.250:1900	
+		 * and start with a data string M-SEARCH
+		 */
+		if ( (dport == 1900) && (id_protocol == IPPROTO_UDP) 
+			&& (ssdp.sin_addr.s_addr == iph->ip_dst.s_addr) ) {
+		
+			/* get the index that the packet came in on */
+			u_int32_t idx = nfq_get_indev(nfa);
+			int i = 0;
+			for ( ;i < n_nfqix ; i++) {
+				if ( nfqix[i] == idx ) {
+
+					struct udphdr *udp = (struct udphdr *) (pkt + sizeof(struct ip));
+
+					char *dd = pkt + x;
+					
+					struct sockaddr_in sendername;
+					sendername.sin_family = AF_INET;
+					sendername.sin_port = udp->source;
+					sendername.sin_addr.s_addr = iph->ip_src.s_addr;
+
+					/* printf("pkt found %s\n",dd);*/
+					ProcessSSDPData (sudp, dd, sendername, size - x, (unsigned short) 5555);
+				}
+			}
+		}
+		
+		nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+
+	} else {
+		syslog(LOG_ERR,"nfq_get_msg_packet_hdr failed");
+		return 1; // from nfqueue source: 0 = ok, >0 = soft error, <0 hard error
+	}
+
+	return 0;
+}
+
+static void ProcessNFQUEUE(int fd){
+	char buf[4096];
+
+	socklen_t len_r;
+	struct sockaddr_in sendername;
+	len_r = sizeof(struct sockaddr_in);
+
+        int res = recvfrom(fd, buf, sizeof(buf), 0,
+			(struct sockaddr *)&sendername, &len_r);
+
+	nfq_handle_packet(nfqHandle, buf, res);
+}
+#endif
 
 /* Functions used to communicate with miniupnpdctl */
 #ifdef USE_MINIUPNPDCTL
@@ -766,6 +938,28 @@ init(int argc, char * * argv, struct runtime_vars * v)
 			if(i+1 < argc)
 				v->port = atoi(argv[++i]);
 			else
+#ifdef ENABLE_NFQUEUE
+		case 'Q':
+			if(i+1<argc)
+			{
+				nfqueue = atoi(argv[++i]);
+			}
+			else
+				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
+			break;
+		case 'n':
+			if (i+1 < argc) {
+				i++;
+				if(n_nfqix < MAX_LAN_ADDR) {
+					nfqix[n_nfqix++] = if_nametoindex(argv[i]);
+				} else {
+					fprintf(stderr,"Too many nfq interfaces. Ignoring %s\n", argv[i]);
+				}
+			} else {
+				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
+			}
+			break;
+#endif
 				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
 			break;
 		case 'P':
@@ -940,10 +1134,12 @@ print_usage:
 			/*"[-l logfile] " not functionnal */
 			"\t\t[-u uuid] [-s serial] [-m model_number] \n"
 			"\t\t[-t notify_interval] [-P pid_filename]\n"
-#ifdef USE_PF
-			"\t\t[-B down up] [-w url] [-q queue] [-T tag]\n"
-#else
 			"\t\t[-B down up] [-w url]\n"
+#ifdef USE_PF
+                        "\t\t[-q queue] [-T tag]\n"
+#endif
+#ifdef ENABLE_NFQUEUE
+                        "\t\t[-Q queue] [-n name]\n"
 #endif
 	        "\nNotes:\n\tThere can be one or several listening_ips.\n"
 	        "\tNotify interval is in seconds. Default is 30 seconds.\n"
@@ -963,6 +1159,10 @@ print_usage:
 			"\t-q sets the ALTQ queue in pf.\n"
 			"\t-T sets the tag name in pf.\n"
 #endif
+#ifdef ENABLE_NFQUEUE
+                        "\t-Q sets the queue number that is used by NFQUEUE.\n"
+                        "\t-n sets the name of the interface(s) that packets will arrive on.\n"
+#endif
 			"\t-h prints this help and quits.\n"
 	        "", argv[0], pidfilename, DEFAULT_CONFIG);
 	return 1;
@@ -974,9 +1174,12 @@ int
 main(int argc, char * * argv)
 {
 	int i;
-	int sudp = -1, shttpl = -1;
+	int shttpl = -1;
 #ifdef ENABLE_NATPMP
 	int snatpmp[MAX_LAN_ADDR];
+#ifdef ENABLE_NFQUEUE
+	int nfqh = -1;
+#endif
 #endif
 	int snotify[MAX_LAN_ADDR];
 	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
@@ -998,6 +1201,8 @@ main(int argc, char * * argv)
 	/* variables used for the unused-rule cleanup process */
 	struct rule_state * rule_list = 0;
 	struct timeval checktime = {0, 0};
+	syslog(LOG_INFO, "SNet version started");
+
 
 	memset(snotify, 0, sizeof(snotify));
 #ifdef ENABLE_NATPMP
@@ -1082,6 +1287,18 @@ main(int argc, char * * argv)
 	sctl = OpenAndConfCtlUnixSocket("/var/run/miniupnpd.ctl");
 #endif
 
+#ifdef ENABLE_NFQUEUE
+	if ( nfqueue != -1 && n_nfqix > 0) {
+		nfqh = OpenAndConfNFqueue();
+		if(nfqh < 0) {
+			syslog(LOG_ERR, "Failed to open fd for NFQUEUE.");
+			return 1;
+		} else {
+			syslog(LOG_NOTICE, "Opened NFQUEUE %d",nfqueue);
+		}
+	}
+#endif
+
 	tomato_helper();	// zzz
 
 	/* main loop */
@@ -1157,6 +1374,14 @@ main(int argc, char * * argv)
 		if(nextnatpmptoclean_timestamp && timeout.tv_sec >= (nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec))
 		{
 			/*syslog(LOG_DEBUG, "setting timeout to %d sec", nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec);*/
+#ifdef ENABLE_NFQUEUE
+		if (nfqh >= 0) 
+		{
+			FD_SET(nfqh, &readset);
+			max_fd = MAX( max_fd, nfqh);
+		}
+#endif
+
 			timeout.tv_sec = nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec;
 			timeout.tv_usec = 0;
 		}
@@ -1342,6 +1567,14 @@ main(int argc, char * * argv)
 				/*if (fcntl(shttp, F_SETFL, O_NONBLOCK) < 0) {
 					syslog(LOG_ERR, "fcntl F_SETFL, O_NONBLOCK");
 				}*/
+#ifdef ENABLE_NFQUEUE
+		/* process NFQ packets */
+		if(nfqh >= 0 && FD_ISSET(nfqh, &readset))
+		{
+			/* syslog(LOG_INFO, "Received NFQUEUE Packet");*/
+			ProcessNFQUEUE(nfqh);
+		}
+#endif
 				/* Create a new upnphttp object and add it to
 				 * the active upnphttp object list */
 				tmp = New_upnphttp(shttp);

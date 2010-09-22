@@ -1,7 +1,7 @@
-/* $Id: minissdp.c,v 1.18 2009/11/06 20:18:17 nanard Exp $ */
+/* $Id: minissdp.c,v 1.19 2010/09/21 15:31:02 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2009 Thomas Bernard
+ * (c) 2006-2010 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -23,6 +23,10 @@
 
 /* SSDP ip/port */
 #define SSDP_PORT (1900)
+/* Prototypes */
+void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, unsigned short port) ;
+
+
 #define SSDP_MCAST_ADDR ("239.255.255.250")
 
 static int
@@ -223,6 +227,10 @@ SendSSDPAnnounce2(int s, struct sockaddr_in sockname,
 		host, (unsigned int)port);
 	n = sendto(s, buf, l, 0,
 	           (struct sockaddr *)&sockname, sizeof(struct sockaddr_in) );
+	syslog(LOG_INFO, "SSDP Announce %d bytes to %s:%d ST: %.*s",n,
+       		inet_ntoa(sockname.sin_addr),
+          	ntohs(sockname.sin_port),
+		l, buf);
 	if(n < 0)
 	{
 		syslog(LOG_ERR, "sendto(udp): %m");
@@ -307,17 +315,11 @@ SendSSDPNotifies2(int * sockets,
  * process SSDP M-SEARCH requests and responds to them */
 void
 ProcessSSDPRequest(int s, unsigned short port)
-/*ProcessSSDPRequest(int s, struct lan_addr_s * lan_addr, int n_lan_addr,
-                   unsigned short port)*/
 {
 	int n;
 	char bufr[1500];
 	socklen_t len_r;
 	struct sockaddr_in sendername;
-	int i, l;
-	int lan_addr_index = 0;
-	char * st = 0;
-	int st_len = 0;
 	len_r = sizeof(struct sockaddr_in);
 
 	n = recvfrom(s, bufr, sizeof(bufr), 0,
@@ -327,6 +329,16 @@ ProcessSSDPRequest(int s, unsigned short port)
 		syslog(LOG_ERR, "recvfrom(udp): %m");
 		return;
 	}
+	ProcessSSDPData(s, bufr, sendername, n, port);
+
+}
+
+void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, unsigned short port) {
+	int i, l;
+	int lan_addr_index = 0;
+	char * st = 0;
+	int st_len = 0;
+
 
 	if(memcmp(bufr, "NOTIFY", 6) == 0)
 	{
@@ -382,6 +394,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 				l = (int)strlen(known_service_types[i]);
 				if(l<=st_len && (0 == memcmp(st, known_service_types[i], l)))
 				{
+					syslog(LOG_INFO, "Single search found");
 					SendSSDPAnnounce2(s, sendername,
 					                  st, st_len, "",
 					                  lan_addr[lan_addr_index].str, port);
@@ -392,6 +405,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 			/* strlen("ssdp:all") == 8 */
 			if(st_len==8 && (0 == memcmp(st, "ssdp:all", 8)))
 			{
+				syslog(LOG_INFO, "ssdp:all found");
 				for(i=0; known_service_types[i]; i++)
 				{
 					l = (int)strlen(known_service_types[i]);
@@ -404,6 +418,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 			l = (int)strlen(uuidvalue);
 			if(l==st_len && (0 == memcmp(st, uuidvalue, l)))
 			{
+				syslog(LOG_INFO, "ssdp:uuid found");
 				SendSSDPAnnounce2(s, sendername, st, st_len, "",
 				                  lan_addr[lan_addr_index].str, port);
 			}

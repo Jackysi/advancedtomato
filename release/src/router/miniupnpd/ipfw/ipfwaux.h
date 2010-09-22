@@ -1,4 +1,10 @@
-
+/*
+ * MiniUPnP project
+ * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
+ * (c) 2009 Jardel Weyrich
+ * This software is subject to the conditions detailed
+ * in the LICENCE file provided within the distribution
+ */
 #ifndef __IPFWAUX_H__
 #define __IPFWAUX_H__
 
