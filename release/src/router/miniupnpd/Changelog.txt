@@ -1,4 +1,11 @@
-$Id: Changelog.txt,v 1.196 2010/05/06 13:42:47 nanard Exp $
+$Id: Changelog.txt,v 1.198 2010/09/21 15:31:02 nanard Exp $
+
+2010/09/21:
+  Patch to support nfqueue thanks to Colin McFarlane
+
+2010/08/07:
+  Update Mac OS X / ipfw stuff from Jardel Weyrich
+  Fix in Makefile.linux for x86_64
 
 2010/05/06:
   Bugfix un CleanNATPMPRules() : see http://miniupnp.tuxfamily.org/forum/viewtopic.php?t=640
