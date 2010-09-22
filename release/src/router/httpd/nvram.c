@@ -68,3 +68,27 @@ void asp_nv(int argc, char **argv)
 		web_puts(nvram_safe_get(argv[0]));
 	}
 }
+
+void asp_nvstat(int argc, char **argv)
+{
+	FILE *fp;
+	struct nvram_header header;
+	int part, size, used = 0;
+	char s[20];
+
+	if (mtd_getinfo("nvram", &part, &size)) {
+		sprintf(s, MTD_DEV(%dro), part);
+
+		if ((fp = fopen(s, "r"))) {
+			if (fseek(fp, size >= NVRAM_SPACE ? size - NVRAM_SPACE : 0, SEEK_SET) == 0) {
+				if ((fread(&header, sizeof(header), 1, fp) == 1) &&
+				    (header.magic == NVRAM_MAGIC)) {
+					used = header.len;
+				}
+			}
+			fclose(fp);
+		}
+	}
+
+	web_printf("\nnvstat = { size: %d, free: %d };\n", NVRAM_SPACE, NVRAM_SPACE - used);
+}

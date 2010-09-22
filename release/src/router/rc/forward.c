@@ -70,10 +70,9 @@ void ipt_forward(ipt_table_t table)
 					strlcat(ip, iaddr, sizeof(ip));
 				}
 				if (table == IPT_TABLE_NAT) {
-					ipt_write("-A PREROUTING -p %s %s -d %s %s %s -j DNAT --to-destination %s%s%s\n",
+					ipt_write("-A WANPREROUTING -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
 						c,
 						src,
-						wanaddr,
 						mdport, xports,
 						ip,  *iport ? ":" : "", iport);
 
@@ -84,7 +83,16 @@ void ipt_forward(ipt_table_t table)
 							nvram_safe_get("lan_ipaddr"),	// corrected by ipt
 							nvram_safe_get("lan_netmask"),
 							ip,
-							nvram_safe_get("wan_ipaddr"));
+							wanaddr);
+						if (*manaddr) {
+							ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
+								c,
+								mdport, *iport ? iport : xports,
+								nvram_safe_get("lan_ipaddr"),	// corrected by ipt
+								nvram_safe_get("lan_netmask"),
+								ip,
+								manaddr);
+						}
 					}
 				}
 				else {	// filter
@@ -125,7 +133,7 @@ void ipt_triggered(ipt_table_t table)
 					// should only be created if there is at least one enabled
 
 					if (table == IPT_TABLE_NAT) {
-						ipt_write("-A PREROUTING -d %s -j TRIGGER --trigger-type dnat\n", wanaddr);
+						ipt_write("-A WANPREROUTING -j TRIGGER --trigger-type dnat\n");
 						goto QUIT;
 					}
 

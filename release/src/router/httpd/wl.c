@@ -347,16 +347,16 @@ static void web_print_wlchan(uint chan, int band)
 		web_printf(",[%d, 0]", chan);
 }
 
-static void _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrlsb)
+static int _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrlsb)
 {
 	chanspec_t c = 0, *chanspec;
 	int buflen;
 	wl_uint32_list_t *list;
-	int i = 0;
+	int count, i = 0;
 
 	char *buf = (char *)malloc(WLC_IOCTL_MAXLEN);
 	if (!buf)
-		return;
+		return 0;
 
 	strcpy(buf, "chanspecs");
 	buflen = strlen(buf) + 1;
@@ -377,9 +377,10 @@ static void _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrl
 
 	if (wl_ioctl(ifname, WLC_GET_VAR, buf, buflen) < 0) {
 		free((void *)buf);
-		return;
+		return 0;
 	}
 
+	count = 0;
 	list = (wl_uint32_list_t *)buf;
 	for (i = 0; i < list->count; i++) {
 		c = (chanspec_t)list->element[i];
@@ -391,9 +392,11 @@ static void _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrl
 		if (bw == 40)
 			chan += ((ctrlsb == WL_CHANSPEC_CTL_SB_UPPER) ? 2 : -2);
 		web_print_wlchan(chan, band);
+		count++;
 	}
 
 	free((void *)buf);
+	return count;
 }
 
 static void _wlchannels(char *ifname, char *country, int band)
@@ -426,19 +429,24 @@ void asp_wlchannels(int argc, char **argv)
 	wl_ioctl(ifname, WLC_GET_COUNTRY, buf, sizeof(buf));
 	if (wl_ioctl(ifname, WLC_GET_BAND, &band, sizeof(band)) != 0)
 		band = nvram_get_int("wl_nband");
-	wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
 	wl_iovar_getint(ifname, "chanspec", &chanspec);
 
-	nphy = wl_phytype_n(phytype);
 	if (argc > 0)
-		nphy = nphy && atoi(argv[0]);
+		nphy = atoi(argv[0]);
+	else {
+		wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
+		nphy = wl_phytype_n(phytype);
+	}
+
 	if (argc > 1)
 		bw = atoi(argv[1]);
 	else
 		bw = 0;
 	bw = bw ? : CHSPEC_IS40(chanspec) ? 40 : 20;
+
 	if (argc > 2)
 		band = atoi(argv[2]) ? : band;
+
 	if (argc > 3) {
 		if (strcmp(argv[3], "upper") == 0)
 			ctrlsb = WL_CHANSPEC_CTL_SB_UPPER;
@@ -449,8 +457,10 @@ void asp_wlchannels(int argc, char **argv)
 		ctrlsb = CHSPEC_CTL_SB(chanspec);
 
 	web_puts("\nwl_channels = [\n[0, 0]");
-	if (nphy)
-		_wlchanspecs(ifname, buf, band, bw, ctrlsb);
+	if (nphy) {
+		if (!_wlchanspecs(ifname, buf, band, bw, ctrlsb) && band == WLC_BAND_2G && bw == 40)
+			_wlchanspecs(ifname, buf, band, 20, ctrlsb);
+	}
 	else
 		_wlchannels(ifname, buf, band);
 	web_puts("];\n");

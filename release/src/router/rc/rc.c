@@ -76,6 +76,7 @@ typedef struct {
 
 static const applets_t applets[] = {
 	{ "init",				init_main				},
+	{ "console",				console_main				},
 	{ "rc",					rc_main					},
 	{ "ip-up",				ipup_main				},
 	{ "ip-down",			ipdown_main				},

@@ -101,45 +101,16 @@ static int crc_init(void)
 	return 1;
 }
 
-static uint32 crc_calc(uint32 crc, void *buf, int len)
+static uint32 crc_calc(uint32 crc, char *buf, int len)
 {
 	while (len-- > 0) {
 		crc = crc_table[(crc ^ *((char *)buf)) & 0xFF] ^ (crc >> 8);
-		(char *)buf++;
+		buf++;
 	}
 	return crc;
 }
 
 // -----------------------------------------------------------------------------
-
-
-int mtd_getinfo(const char *mtdname, int *part, int *size)
-{
-	FILE *f;
-	char s[256];
-	char t[256];
-	int r;
-
-	r = 0;
-	if ((strlen(mtdname) < 128) && (strcmp(mtdname, "pmon") != 0)) {
-		sprintf(t, "\"%s\"", mtdname);
-		if ((f = fopen("/proc/mtd", "r")) != NULL) {
-			while (fgets(s, sizeof(s), f) != NULL) {
-				if ((sscanf(s, "mtd%d: %x", part, size) == 2) && (strstr(s, t) != NULL)) {
-					// don't accidentally mess with bl (0)
-					if (*part > 0) r = 1;
-					break;
-				}
-			}
-			fclose(f);
-		}
-	}
-	if (!r) {
-		*size = 0;
-		*part = -1;
-	}
-	return r;
-}
 
 static int mtd_open(const char *mtdname)
 {
@@ -316,12 +287,13 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x55343557: // W54U	SL
 	case 0x31345257: // WR41	WRH54G
 	case 0x4E303233: // 320N	WRT320N
+	case 0x4E583233: // 32XN	E2000
+	case 0x4E303136: // 610N	WRT610N v2
+	case 0x4E583136: // 61XN	E3000
 	case 0x3036314E: // N160	WRT160N
-#if TOMATO_N
 	case 0x42435745: // EWCB	WRT300N v1
 //	case 0x32435745: // EWC2	WRT300N?
 	case 0x3035314E: // N150	WRT150N
-#endif
 		if (safe_fread(((char *)&cth) + 4, 1, sizeof(cth) - 4, f) != (sizeof(cth) - 4)) {
 			goto ERROR;
 		}
@@ -387,7 +359,7 @@ int mtd_write_main(int argc, char *argv[])
 		error = "Not enough memory";
 		goto ERROR;
 	}
-	crc = crc_calc(0xFFFFFFFF, (uint8*)&trx.flag_version, sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version));
+	crc = crc_calc(0xFFFFFFFF, (char *)&trx.flag_version, sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version));
 
 	if (trx.flag_version & TRX_NO_HEADER) {
 		trx.len -= sizeof(struct trx_header);

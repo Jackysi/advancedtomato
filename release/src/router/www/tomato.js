@@ -849,8 +849,8 @@ function v_nodelim(e, quiet, name, checklist)
 
 function v_path(e, quiet, required)
 {
-	if (required && !v_length(e, quiet, 2)) return 0;
 	if ((e = E(e)) == null) return 0;
+	if (required && !v_length(e, quiet, 1)) return 0;
 
 	if (!required && e.value.trim().length == 0) {
 		ferror.clear(e);

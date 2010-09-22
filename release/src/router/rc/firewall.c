@@ -29,10 +29,12 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 
-char wanface[IFNAMSIZ];
-char lanface[IFNAMSIZ];
-char lan_cclass[sizeof("xxx.xxx.xxx.")];
-char wanaddr[sizeof("xxx.xxx.xxx.xxx")];
+char wanface[IFNAMSIZ + 1];
+char manface[IFNAMSIZ + 1];
+char lanface[IFNAMSIZ + 1];
+char wanaddr[sizeof("xxx.xxx.xxx.xxx") + 1];
+char manaddr[sizeof("xxx.xxx.xxx.xxx") + 1];
+char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
 static int web_lanport;
 
 #ifdef DEBUG_IPTFILE
@@ -205,6 +207,11 @@ void ipt_layer7_inbound(void)
 			":L7in - [0:0]\n"
 			"-A FORWARD -i %s -j L7in\n",
 				wanface);
+		if (*manface)
+			ipt_write(
+				":L7in - [0:0]\n"
+				"-A FORWARD -i %s -j L7in\n",
+					manface);
 	}
 
 	p = layer7_in;
@@ -272,24 +279,30 @@ static void save_webmon(void)
 
 static void ipt_webmon(void)
 {
-	int wmtype;
+	int wmtype, clear;
 
 	if (!nvram_get_int("log_wm")) return;
 	wmtype = nvram_get_int("log_wmtype");
+	clear = nvram_get_int("log_wmclear");
 
 	ipt_write(
 		":monitor - [0:0]\n"
 		"-A FORWARD -o %s -j monitor\n",
 		wanface);
+	if (*manface)
+		ipt_write(
+			":monitor - [0:0]\n"
+			"-A FORWARD -o %s -j monitor\n",
+			manface);
 
 	ipt_write(
 		"-A monitor -m webmon "
-		"--max_domains %d --max_searches %d %s%s "
-		"--search_load_file /var/webmon/search "
-		"--domain_load_file /var/webmon/domain\n",
+		"--max_domains %d --max_searches %d %s%s %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
 		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
-		wmtype == 0 ? "" : nvram_safe_get("log_wmip"));
+		wmtype == 0 ? "" : nvram_safe_get("log_wmip"),
+		(clear & 1) == 0 ? "--domain_load_file /var/webmon/domain" : "--clear_domain",
+		(clear & 2) == 0 ? "--search_load_file /var/webmon/search" : "--clear_search");
 
 	modprobe("ipt_webmon");
 }
@@ -351,15 +364,27 @@ static void nat_table(void)
 	ipt_write("*nat\n"
 		":PREROUTING ACCEPT [0:0]\n"
 		":POSTROUTING ACCEPT [0:0]\n"
-		":OUTPUT ACCEPT [0:0]\n");
+		":OUTPUT ACCEPT [0:0]\n"
+		":WANPREROUTING - [0:0]\n");
+
 	if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
 		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
+
+		// WANPREROUTING chain
+		if (wanup)
+			ipt_write("-A PREROUTING -d %s -j WANPREROUTING\n", wanaddr);
+		if (*manaddr)
+			ipt_write("-A PREROUTING -d %s -j WANPREROUTING\n", manaddr);
 
 		// Drop incoming packets which destination IP address is to our LAN side directly
 		ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
 			wanface,
 			lanaddr, lanmask);	// note: ipt will correct lanaddr
+		if (*manface)
+			ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+				manface,
+				lanaddr, lanmask);	// note: ipt will correct lanaddr
 
 		if (wanup) {
 			if (nvram_match("dns_intcpt", "1")) {
@@ -370,8 +395,7 @@ static void nat_table(void)
 			}
 
 			// ICMP packets are always redirected to INPUT chains
-			ipt_write("-A PREROUTING -p icmp -d %s -j DNAT --to-destination %s\n", wanaddr, lanaddr);
-
+			ipt_write("-A WANPREROUTING -p icmp -j DNAT --to-destination %s\n", lanaddr);
 
 			strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
 			p = t;
@@ -380,15 +404,15 @@ static void nat_table(void)
 				ipt_source(p, src);
 
 				if (remotemanage) {
-					ipt_write("-A PREROUTING -p tcp -m tcp %s -d %s --dport %s -j DNAT --to-destination %s:%d\n",
+					ipt_write("-A WANPREROUTING -p tcp -m tcp %s --dport %s -j DNAT --to-destination %s:%d\n",
 						src,
-						wanaddr, nvram_safe_get("http_wanport"),
+						nvram_safe_get("http_wanport"),
 						lanaddr, web_lanport);
 				}
 				if (nvram_get_int("sshd_remote")) {
-					ipt_write("-A PREROUTING %s -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s:%s\n",
+					ipt_write("-A WANPREROUTING %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s\n",
 						src,
-						wanaddr, nvram_safe_get("sshd_rport"),
+						nvram_safe_get("sshd_rport"),
 						lanaddr, nvram_safe_get("sshd_port"));
 				}
 
@@ -404,10 +428,12 @@ static void nat_table(void)
 			ipt_write(":upnp - [0:0]\n");
 			if (wanup) {
 				// ! for loopback (all) to work
-				ipt_write("-A PREROUTING -d %s -j upnp\n", wanaddr);
+				ipt_write("-A WANPREROUTING -j upnp\n");
 			}
 			else {
 				ipt_write("-A PREROUTING -i %s -j upnp\n", wanface);
+				if (*manface)
+					ipt_write("-A PREROUTING -i %s -j upnp\n", manface);
 			}
 		}
 
@@ -418,7 +444,7 @@ static void nat_table(void)
 				do {
 					if ((c = strchr(p, ',')) != NULL) *c = 0;
 					ipt_source(p, src);
-					ipt_write("-A PREROUTING %s -d %s -j DNAT --to-destination %s\n", src, wanaddr, dst);
+					ipt_write("-A WANPREROUTING %s -j DNAT --to-destination %s\n", src, dst);
 					if (!c) break;
 					p = c + 1;
 				} while (*p);
@@ -427,9 +453,13 @@ static void nat_table(void)
 		
 		if ((!wanup) || (nvram_get_int("net_snat") != 1)) {
 			ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", wanface);
+			if (*manface)
+				ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", manface);
 		}
 		else {
 			ipt_write("-A POSTROUTING -o %s -j SNAT --to-source %s\n", wanface, wanaddr);
+			if (*manface && *manaddr)
+				ipt_write("-A POSTROUTING -o %s -j SNAT --to-source %s\n", manface, manaddr);
 		}
 
 		switch (nvram_get_int("nf_loopback")) {
@@ -464,6 +494,8 @@ static void filter_input(void)
 
 	if ((nvram_get_int("nf_loopback") != 0) && (wanup)) {	// 0 = all
 		ipt_write("-A INPUT -i %s -d %s -j DROP\n", lanface, wanaddr);
+		if (*manaddr)
+			ipt_write("-A INPUT -i %s -d %s -j DROP\n", lanface, manaddr);
 	}
 
 	ipt_write(
@@ -488,8 +520,8 @@ static void filter_input(void)
 		ipt_write(
 			"-N shlimit\n"
 			"-A shlimit -m recent --set --name shlimit\n"
-			"-A shlimit -m recent --update --hitcount %s --seconds %s --name shlimit -j DROP\n",
-			hit, sec);
+			"-A shlimit -m recent --update --hitcount %d --seconds %s --name shlimit -j DROP\n",
+			atoi(hit) + 1, sec);
 
 		if (n & 1) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_port"));
 		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
@@ -507,8 +539,8 @@ static void filter_input(void)
 		ipt_write(
 			"-N ftplimit\n"
 			"-A ftplimit -m recent --set --name ftp\n"
-			"-A ftplimit -m recent --update --hitcount %s --seconds %s --name ftp -j DROP\n",
-			hit, sec);
+			"-A ftplimit -m recent --update --hitcount %d --seconds %s --name ftp -j DROP\n",
+			atoi(hit) + 1, sec);
 		ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
 	}
 #endif
@@ -644,16 +676,27 @@ static void filter_forward(void)
 		":wanin - [0:0]\n"
 		":wanout - [0:0]\n"
 		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"	// already established or related (via helper)
-		"-A FORWARD -i %s -j wanin\n"									// generic from wan
-		"-A FORWARD -o %s -j wanout\n"									// generic to wan
-		"-A FORWARD -i %s -j %s\n",										// from lan
+		"-A FORWARD -i %s -j wanin\n"					// generic from wan
+		"-A FORWARD -o %s -j wanout\n"					// generic to wan
+		"-A FORWARD -i %s -j %s\n",					// from lan
 		wanface, wanface, lanface, chain_out_accept);
+
+	if (*manface)
+		ipt_write(
+			"-A FORWARD -i %s -j wanin\n"				// generic from wan
+			"-A FORWARD -o %s -j wanout\n",				// generic to wan
+			manface, manface);
 
 	if (nvram_get_int("upnp_enable") & 3) {
 		ipt_write(
 			":upnp - [0:0]\n"
 			"-A FORWARD -i %s -j upnp\n",
 			wanface);
+		if (*manface)
+			ipt_write(
+				":upnp - [0:0]\n"
+				"-A FORWARD -i %s -j upnp\n",
+				manface);
 	}
 
 	if (wanup) {
@@ -726,7 +769,6 @@ static void filter_table(void)
 	else {
 		ipt_write(":FORWARD ACCEPT [0:0]\n");
 		clampmss();
-		ipt_webmon();
 	}
 	ipt_write("COMMIT\n");
 }
@@ -805,6 +847,9 @@ int start_firewall(void)
 
 	strlcpy(lanface, nvram_safe_get("lan_ifname"), IFNAMSIZ);
 
+	manaddr[0] = '\0';
+	manface[0] = '\0';
+
 	if ((wanproto == WP_PPTP) || (wanproto == WP_L2TP) || (wanproto == WP_PPPOE)) {
 		strcpy(wanface, "ppp+");
 	}
@@ -813,6 +858,12 @@ int start_firewall(void)
 	}
 
 	strlcpy(wanaddr, get_wanip(), sizeof(wanaddr));
+	c = nvram_safe_get("wan_ipaddr");
+	if (*c && strcmp(c, wanaddr) != 0 && strcmp(c, "0.0.0.0") != 0) {
+		strlcpy(manaddr, c, sizeof(manaddr));
+		if ((wanproto == WP_PPTP) || (wanproto == WP_L2TP) || (wanproto == WP_PPPOE))
+			strlcpy(manface, nvram_safe_get("wan_ifname"), sizeof(manface));
+	}
 
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
 	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;

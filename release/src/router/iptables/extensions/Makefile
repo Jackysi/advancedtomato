@@ -12,19 +12,18 @@
 PF_EXT_SLIB:=CLASSIFY CONNMARK DNAT DSCP LOG MARK MASQUERADE REDIRECT REJECT
 PF_EXT_SLIB+=ROUTE SNAT TCPMSS TOS TRIGGER TTL NETMAP
 PF_EXT_SLIB+=condition connlimit connmark geoip icmp iprange layer7
-PF_EXT_SLIB+=length limit mac mark mport multiport recent standard state
-PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web dscp webmon
-PF_EXT_SLIB+=bcount BCOUNT
+PF_EXT_SLIB+=length limit mac mark mport multiport recent standard state quota
+PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web dscp connbytes webmon
 PF_EXT_SLIB+=IMQ ipp2p
 ifeq ($(CONFIG_LINUX26),y)
 PF_EXT_SLIB+=hashlimit NFQUEUE
 endif
 
 ifeq ($(DO_IPV6), 1)
-PF6_EXT_SLIB:=connmark icmp6 length limit mac mark multiport standard state rt
+PF6_EXT_SLIB:=connmark icmp6 length limit mac mark multiport standard state rt hl
 PF6_EXT_SLIB+=tcp udp CONNMARK LOG MARK IMQ TCPMSS
 ifeq ($(CONFIG_LINUX26),y)
-PF6_EXT_SLIB+=connlimit hashlimit recent NFQUEUE ROUTE
+PF6_EXT_SLIB+=connlimit hashlimit recent NFQUEUE ROUTE HL
 endif
 endif
 

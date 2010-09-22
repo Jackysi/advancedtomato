@@ -76,12 +76,9 @@ int ipup_main(int argc, char **argv)
 			nvram_set("wan_netmask", "255.255.255.255");
 			break;
 		case WP_PPTP:
-			nvram_set("wan_ipaddr_buf", nvram_safe_get("pptp_get_ip"));
-			nvram_set("pptp_get_ip", value);
-			break;
 		case WP_L2TP:
-			nvram_set("wan_ipaddr_buf", nvram_safe_get("l2tp_get_ip"));
-			nvram_set("l2tp_get_ip", value);
+			nvram_set("wan_ipaddr_buf", nvram_safe_get("ppp_get_ip"));
+			nvram_set("ppp_get_ip", value);
 			break;
 		}
 	}

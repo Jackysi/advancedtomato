@@ -135,6 +135,7 @@ static int wlconf(char *ifname)
 		eval("wl", "antdiv", nvram_safe_get("wl_antdiv"));
 		eval("wl", "txant", nvram_safe_get("wl_txant"));
 		eval("wl", "txpwr1", "-o", "-m", nvram_get_int("wl_txpwr") ? nvram_safe_get("wl_txpwr") : "-1");
+		eval("wl", "interference", nvram_safe_get("wl_interfmode"));
 
 		killall("wldist", SIGTERM);
 		eval("wldist");
@@ -354,7 +355,7 @@ void start_lan(void)
 	set_lan_hostname(nvram_safe_get("wan_hostname"));
 #endif
 
-	if (nvram_match("wan_proto", "disabled")) {
+	if (get_wan_proto() == WP_DISABLED) {
 		char *gateway = nvram_safe_get("lan_gateway") ;
 		if ((*gateway) && (strcmp(gateway, "0.0.0.0") != 0)) {
 			int tries = 5;
@@ -413,7 +414,8 @@ void do_static_routes(int add)
 	p = buf;
 	while ((q = strsep(&p, ">")) != NULL) {
 		if (vstrsep(q, "<", &dest, &gateway, &mask, &metric, &ifname) != 5) continue;
-		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" : "wan_ifname");
+		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" :
+				       ((*ifname == 'W') ? "wan_iface" : "wan_ifname"));
 		if (add) {
 			for (r = 3; r >= 0; --r) {
 				if (route_add(ifname, atoi(metric) + 1, dest, gateway, mask) == 0) break;

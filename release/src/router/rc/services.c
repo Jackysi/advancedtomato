@@ -48,14 +48,15 @@
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+// Pop an alarm to recheck pids in 500 msec
+static const struct itimerval pop_tv = { {0,0}, {0, 500 * 1000} };
+
 // -----------------------------------------------------------------------------
 
 static const char dmhosts[] = "/etc/hosts.dnsmasq";
 static const char dmresolv[] = "/etc/resolv.dnsmasq";
-static const char dmpid[] = "/var/run/dnsmasq.pid";
 
 static pid_t pid_dnsmasq = -1;
-
 
 void start_dnsmasq()
 {
@@ -97,9 +98,9 @@ void start_dnsmasq()
 	if ((p = strrchr(lan, '.')) != NULL) *(p + 1) = 0;
 
 	fprintf(f,
-		"pid-file=%s\n"
+		"pid-file=/var/run/dnsmasq.pid\n"
 		"interface=%s\n",
-		dmpid, lan_ifname);
+		lan_ifname);
 	if (((nv = nvram_get("wan_domain")) != NULL) || ((nv = nvram_get("wan_get_domain")) != NULL)) {
 		if (*nv) fprintf(f, "domain=%s\n", nv);
 	}
@@ -343,9 +344,14 @@ void dns_to_resolv(void)
 			dns = get_dns();	// static buffer
 			if (dns->count == 0) {
 				// Put a pseudo DNS IP to trigger Connect On Demand
-				if ((nvram_match("ppp_demand", "1")) &&
-					(nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))) {
-					fprintf(f, "nameserver 1.1.1.1\n");
+				if (nvram_match("ppp_demand", "1")) {
+					switch (get_wan_proto()) {
+					case WP_PPPOE:
+					case WP_PPTP:
+					case WP_L2TP:
+						fprintf(f, "nameserver 1.1.1.1\n");
+						break;
+					}
 				}
 			}
 			else {
@@ -491,17 +497,13 @@ static pid_t pid_crond = -1;
 
 void start_cron(void)
 {
-	char *argv[] = { "crond", "-l", "9", NULL };
-
 	stop_cron();
 
-	if (nvram_contains_word("log_events", "crond")) argv[1] = NULL;
-	_eval(argv, NULL, 0, NULL);
+	eval("crond", nvram_contains_word("log_events", "crond") ? NULL : "-l", "9");
 	if (!nvram_contains_word("debug_norestart", "crond")) {
 		pid_crond = -2;
 	}
 }
-
 
 void stop_cron(void)
 {
@@ -520,6 +522,8 @@ void start_hotplug2()
 
 	f_write_string("/proc/sys/kernel/hotplug", "", FW_NEWLINE, 0);
 	xstart("hotplug2", "--persistent", "--no-coldplug");
+	// FIXME: Don't remember exactly why I put "sleep" here -
+	// but it was not for a race with check_services()... - TB
 	sleep(1);
 
 	if (!nvram_contains_word("debug_norestart", "hotplug2")) {
@@ -650,8 +654,14 @@ void start_syslog(void)
 		// used to be available in syslogd -m
 		n = nvram_get_int("log_mark");
 		if (n > 0) {
-			sprintf(s, "cru a syslogdmark \"%s %s * * * logger -p syslog.info -- -- MARK --\"",
-				(n < 60) ? "*/30" : "0", (n < 120) ? "*" : "*/2");
+			// n is in minutes
+			if (n < 60)
+				sprintf(rem, "*/%d * * * *", n);
+			else if (n < 60 * 24)
+				sprintf(rem, "0 */%d * * *", n / 60);
+			else
+				sprintf(rem, "0 0 */%d * *", n / (60 * 24));
+			sprintf(s, "cru a syslogdmark \"%s logger -p syslog.info -- -- MARK --\"", rem);
 			system(s);
 		}
 		else {
@@ -1098,9 +1108,6 @@ static void start_samba(void)
 		" syslog only = yes\n"
 		" timestamp logs = no\n"
 		" syslog = 1\n"
-#ifdef TCONFIG_SAMBA3
-		" host msdfs = no\n"
-#endif
 		" encrypt passwords = yes\n"
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
@@ -1446,23 +1453,45 @@ void restart_nas_services(int stop, int start)
 
 // -----------------------------------------------------------------------------
 
-static void _check(pid_t *pid, const char *name, void (*func)(void) )
+/* -1 = Don't check for this program, it is not expected to be running.
+ * Other = This program has been started and should be kept running. If no
+ * process with the same name is running, call func to restart it.
+ * Note: At startup, dnsmasq forks a short-lived child which forks a
+ * long-lived (grand)child. The parents terminate.
+ * Many daemons use this technique.
+ * There is a race condition at this startup where pidof sometimes
+ * reports that it cannot find the named program.
+ * To avoid erroneously thinking that the program has died, we'll recheck
+ * after a slight delay. If it still isn't there after 500 msec, we'll
+ * conclude that it truly is gone.
+ */
+static void _check(pid_t pid, const char *name, void (*func)(void))
 {
-	if (*pid != -1) {
-		if (kill(*pid, 0) != 0) {
-			if ((*pid = pidof(name)) == -1) func();
-		}
+	int i;
+
+	if (pid == -1) return;
+
+	for (i = 50; --i > 0; ) {
+		if (pidof(name) > 0) return;
+		usleep(10 * 1000);
 	}
+
+	syslog(LOG_DEBUG, "%s terminated unexpectedly, restarting.\n", name);
+	func();
+
+	// Force recheck in 500 msec
+	setitimer(ITIMER_REAL, &pop_tv, NULL);
 }
 
 void check_services(void)
 {
+	TRACE_PT("keep alive\n");
 #ifdef LINUX26
-	_check(&pid_hotplug2, "hotplug2", start_hotplug2);
+	_check(pid_hotplug2, "hotplug2", start_hotplug2);
 #endif
-	_check(&pid_dnsmasq, "dnsmasq", start_dnsmasq);
-	_check(&pid_crond, "crond", start_cron);
-	_check(&pid_igmp, "igmpproxy", start_igmp_proxy);
+	_check(pid_dnsmasq, "dnsmasq", start_dnsmasq);
+	_check(pid_crond, "crond", start_cron);
+	_check(pid_igmp, "igmpproxy", start_igmp_proxy);
 }
 
 // -----------------------------------------------------------------------------
@@ -1474,7 +1503,6 @@ void start_services(void)
 	if (once) {
 		once = 0;
 
-		create_passwd();
 		if (nvram_get_int("telnetd_eas")) start_telnetd();
 		if (nvram_get_int("sshd_eas")) start_sshd();
 	}
@@ -1914,6 +1942,9 @@ CLEAR:
 
 	// some functions check action_service and must be cleared at end	-- zzz
 	nvram_set("action_service", "");
+
+	// Force recheck in 500 msec
+	setitimer(ITIMER_REAL, &pop_tv, NULL);
 }
 
 static void do_service(const char *name, const char *action, int user)

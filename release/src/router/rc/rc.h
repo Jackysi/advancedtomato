@@ -92,6 +92,7 @@ typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 extern void handle_reap(int sig);
 extern int init_main(int argc, char *argv[]);
 extern int reboothalt_main(int argc, char *argv[]);
+extern int console_main(int argc, char *argv[]);
 
 // interface.c
 extern int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);
@@ -122,8 +123,8 @@ extern int stop_redial(void);
 extern int redial_main(int argc, char **argv);
 
 // wan.c
-extern int start_pptp(int mode);
-extern int stop_pptp(void);
+extern void start_pptp(int mode);
+extern void stop_pptp(void);
 extern void start_pppoe(int);
 extern void stop_pppoe(void);
 extern void stop_singe_pppoe(int num);
@@ -218,9 +219,11 @@ extern void stop_nas(void);
 extern void notify_nas(const char *ifname);
 
 // firewall.c
-extern char wanface[IFNAMSIZ];
-extern char lanface[IFNAMSIZ];
+extern char wanface[];
+extern char manface[];
+extern char lanface[];
 extern char wanaddr[];
+extern char manaddr[];
 extern char lan_cclass[];
 extern const char *chain_in_accept;
 extern const char *chain_out_drop;
@@ -313,7 +316,6 @@ extern void start_telnetd(void);
 extern void stop_telnetd(void);
 
 // mtd.c
-extern int mtd_getinfo(const char *mtdname, int *part, int *size);
 extern int mtd_erase(const char *mtdname);
 extern int mtd_unlock(const char *mtdname);
 extern int mtd_write_main(int argc, char *argv[]);

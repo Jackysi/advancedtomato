@@ -172,6 +172,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
+	{ "wl_interfmode",		"2"				},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -271,7 +272,7 @@ const defaults_t defaults[] = {
 #endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
-	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
+	{ "ppp_get_ip",			""				},	// IP Address assigned by PPTP/L2TP server
 	{ "pptp_dhcp",			"1"				},
 
 	// for firewall
@@ -279,7 +280,6 @@ const defaults_t defaults[] = {
 	{ "wan_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 
 	{ "l2tp_server_ip",		""				},	// L2TP auth server (IP Address)
-	{ "l2tp_get_ip",		""				},	// IP Address assigned by L2TP server
 	{ "wan_gateway_buf",	"0.0.0.0"		},	// save the default gateway for DHCP
 //	hbobs	{ "hb_server_ip",		""				},	// heartbeat auth server (IP Address)
 //	hbobs	{ "hb_server_domain",	""				},	// heartbeat auth server (domain name)

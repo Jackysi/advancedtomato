@@ -120,6 +120,13 @@ void asp_webmon(int argc, char **argv)
 	webmon_list("searches", webmon, resolve, maxcount);
 }
 
+void wo_webmon(char *url)
+{
+	nvram_set("log_wmclear", webcgi_get("clear"));
+	exec_service("firewall-restart");
+	nvram_unset("log_wmclear");
+}
+
 static int webmon_ok(int searches)
 {
 	if (nvram_get_int("log_wm") && nvram_get_int(searches ? "log_wmsmax" : "log_wmdmax") > 0) return 1;

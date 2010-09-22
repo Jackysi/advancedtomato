@@ -2312,6 +2312,8 @@ int FAST_FUNC read_line_input(const char *prompt, char *command, int maxsize, li
 				 * or exit if len=0 and no chars to delete */
 				if (command_len == 0) {
 					errno = 0;
+
+		case -1:  /* error (e.g. EIO when tty is destroyed) */
 #if ENABLE_FEATURE_EDITING_VI
  prepare_to_die:
 #endif

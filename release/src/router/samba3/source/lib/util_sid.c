@@ -403,6 +403,9 @@ BOOL sid_parse(const char *inbuf, size_t len, DOM_SID *sid)
 
 	sid->sid_rev_num = CVAL(inbuf, 0);
 	sid->num_auths = CVAL(inbuf, 1);
+	if (sid->num_auths > MAXSUBAUTHS) {
+		return False;
+	}
 	memcpy(sid->id_auth, inbuf+2, 6);
 	if (len < 8 + sid->num_auths*4)
 		return False;
