@@ -61,12 +61,6 @@ static int generic_print_tuple(struct seq_file *s,
 	return 0;
 }
 
-static int generic_print_conntrack(struct seq_file *s,
-				const struct nf_conn *conntrack)
-{
-	return 0;
-}
-
 static int
 generic_prepare(struct sk_buff **pskb, unsigned int hooknum,
 		unsigned int *dataoff, u_int8_t *protonum)
@@ -88,7 +82,6 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_generic = {
 	.pkt_to_tuple	 = generic_pkt_to_tuple,
 	.invert_tuple	 = generic_invert_tuple,
 	.print_tuple	 = generic_print_tuple,
-	.print_conntrack = generic_print_conntrack,
 	.prepare	 = generic_prepare,
 	.get_features	 = generic_get_features,
 };
