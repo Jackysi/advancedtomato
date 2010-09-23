@@ -363,8 +363,6 @@ define BusyboxOptions
 		echo "CONFIG_TRACEROUTE6=y" >>$(1); \
 	fi; \
 	if [ "$(SLIM)" = "y" ]; then \
-		sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1); \
-		echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1); \
 		sed -i "/CONFIG_AWK/d" $(1); \
 		echo "# CONFIG_AWK is not set" >>$(1); \
 		sed -i "/CONFIG_BASENAME/d" $(1); \
