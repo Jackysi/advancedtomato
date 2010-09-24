@@ -940,6 +940,8 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 		nf_conntrack_put((*pskb)->nfct);
 		(*pskb)->nfct = NULL;
 		NF_CT_STAT_INC_ATOMIC(invalid);
+		if (ret == -NF_DROP)
+			NF_CT_STAT_INC_ATOMIC(drop);
 		return -ret;
 	}
 
