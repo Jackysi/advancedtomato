@@ -432,6 +432,10 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_CHROMA_AGC:		return "Chroma AGC";
 	case V4L2_CID_COLOR_KILLER:		return "Color Killer";
 	case V4L2_CID_COLORFX:			return "Color Effects";
+	case V4L2_CID_AUTOBRIGHTNESS:		return "Brightness, Automatic";
+	case V4L2_CID_BAND_STOP_FILTER:		return "Band-Stop Filter";
+	case V4L2_CID_ROTATE:			return "Rotate";
+	case V4L2_CID_BG_COLOR:			return "Background Color";
 
 	/* MPEG controls */
 	case V4L2_CID_MPEG_CLASS: 		return "MPEG Encoder Controls";
@@ -482,6 +486,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_FOCUS_ABSOLUTE:		return "Focus, Absolute";
 	case V4L2_CID_FOCUS_RELATIVE:		return "Focus, Relative";
 	case V4L2_CID_FOCUS_AUTO:		return "Focus, Automatic";
+	case V4L2_CID_IRIS_ABSOLUTE:		return "Iris, Absolute";
+	case V4L2_CID_IRIS_RELATIVE:		return "Iris, Relative";
 	case V4L2_CID_ZOOM_ABSOLUTE:		return "Zoom, Absolute";
 	case V4L2_CID_ZOOM_RELATIVE:		return "Zoom, Relative";
 	case V4L2_CID_ZOOM_CONTINUOUS:		return "Zoom, Continuous";
@@ -588,6 +594,13 @@ int v4l2_ctrl_query_fill(struct v4l2_queryctrl *qctrl, s32 min, s32 max, s32 ste
 		qctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 		min = max = step = def = 0;
 		break;
+	case V4L2_CID_BG_COLOR:
+		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+		step = 1;
+		min = 0;
+		/* Max is calculated as RGB888 that is 2^24 */
+		max = 0xFFFFFF;
+		break;
 	default:
 		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
 		break;
@@ -628,6 +641,7 @@ int v4l2_ctrl_query_fill(struct v4l2_queryctrl *qctrl, s32 min, s32 max, s32 ste
 	case V4L2_CID_PAN_RELATIVE:
 	case V4L2_CID_TILT_RELATIVE:
 	case V4L2_CID_FOCUS_RELATIVE:
+	case V4L2_CID_IRIS_RELATIVE:
 	case V4L2_CID_ZOOM_RELATIVE:
 		qctrl->flags |= V4L2_CTRL_FLAG_WRITE_ONLY;
 		break;
