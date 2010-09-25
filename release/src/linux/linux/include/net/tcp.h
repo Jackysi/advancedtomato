@@ -1745,7 +1745,7 @@ static inline void tcp_acceptq_added(struct sock *sk)
 
 static inline int tcp_acceptq_is_full(struct sock *sk)
 {
-	return sk->ack_backlog > sk->max_ack_backlog;
+	return sk->ack_backlog >= sk->max_ack_backlog;
 }
 
 static inline void tcp_acceptq_queue(struct sock *sk, struct open_request *req,
