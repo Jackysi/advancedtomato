@@ -674,6 +674,31 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
 	return ret;
 }
 
+struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp)
+{
+	struct sk_buff *skb;
+
+	/* The TCP header must be at least 32-bit aligned.  */
+	size = ALIGN(size, 4);
+
+	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
+	if (skb) {
+		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
+			/*
+			 * Make sure that we have exactly size bytes
+			 * available to the caller, no more, no less.
+			 */
+			skb_reserve(skb, skb_tailroom(skb) - size);
+			return skb;
+		}
+		__kfree_skb(skb);
+	} else {
+		sk->sk_prot->enter_memory_pressure();
+		sk_stream_moderate_sndbuf(sk);
+	}
+	return NULL;
+}
+
 static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
 			 size_t psize, int flags)
 {
@@ -710,8 +735,7 @@ new_segment:
 			if (!sk_stream_memory_free(sk))
 				goto wait_for_sndbuf;
 
-			skb = sk_stream_alloc_pskb(sk, 0, 0,
-						   sk->sk_allocation);
+			skb = sk_stream_alloc_skb(sk, 0, sk->sk_allocation);
 			if (!skb)
 				goto wait_for_memory;
 
@@ -895,8 +919,8 @@ new_segment:
 				if (!sk_stream_memory_free(sk))
 					goto wait_for_sndbuf;
 
-				skb = sk_stream_alloc_pskb(sk, select_size(sk),
-							   0, sk->sk_allocation);
+				skb = sk_stream_alloc_skb(sk, select_size(sk),
+						sk->sk_allocation);
 				if (!skb)
 					goto wait_for_memory;
 
