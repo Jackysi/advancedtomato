@@ -436,6 +436,8 @@ define KernelConfig
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_HL/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_HL=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
+			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
