@@ -1714,6 +1714,7 @@ free_interfaces:
 		intf->dev.groups = usb_interface_groups;
 		intf->dev.dma_mask = dev->dev.dma_mask;
 		INIT_WORK(&intf->reset_ws, __usb_queue_reset_device);
+		intf->minor = -1;
 		device_initialize(&intf->dev);
 		mark_quiesced(intf);
 		sprintf(&intf->dev.bus_id[0], "%d-%s:%d.%d",
