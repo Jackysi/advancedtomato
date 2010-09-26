@@ -1107,7 +1107,7 @@ struct tcp_skb_cb {
  */
 static inline int tcp_min_write_space(struct sock *sk)
 {
-	return sk->wmem_queued/2;
+	return sk->wmem_queued >> 1;
 }
  
 static inline int tcp_wspace(struct sock *sk)
@@ -1844,6 +1844,7 @@ static __inline__ void tcp_openreq_init(struct open_request *req,
 }
 
 #define TCP_MEM_QUANTUM	((int)PAGE_SIZE)
+#define TCP_MEM_QUANTUM_SHIFT ilog2(TCP_MEM_QUANTUM)
 
 static inline void tcp_free_skb(struct sock *sk, struct sk_buff *skb)
 {
@@ -1879,7 +1880,7 @@ static inline void tcp_enter_memory_pressure(void)
 static inline void tcp_moderate_sndbuf(struct sock *sk)
 {
 	if (!(sk->userlocks&SOCK_SNDBUF_LOCK)) {
-		sk->sndbuf = min(sk->sndbuf, sk->wmem_queued/2);
+		sk->sndbuf = min(sk->sndbuf, sk->wmem_queued >> 1);
 		sk->sndbuf = max(sk->sndbuf, SOCK_MIN_SNDBUF);
 	}
 }
