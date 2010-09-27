@@ -264,7 +264,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
 	INIT_LIST_HEAD(&qh->node);
 
 	if (udev) {		/* Normal QH */
-		qh->type = hep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+		qh->type = usb_endpoint_type(&hep->desc);
 		if (qh->type != USB_ENDPOINT_XFER_ISOC) {
 			qh->dummy_td = uhci_alloc_td(uhci);
 			if (!qh->dummy_td) {
@@ -1430,7 +1430,6 @@ static int uhci_urb_enqueue(struct usb_hcd *hcd,
 		goto err_submit_failed;
 
 	/* Add this URB to the QH */
-	urbp->qh = qh;
 	list_add_tail(&urbp->node, &qh->queue);
 
 	/* If the new URB is the first and only one on this QH then either
