@@ -520,10 +520,10 @@ static void _do_wan_routes(char *ifname, char *nvname, int metric, int add)
 void do_wan_routes(char *ifname, int metric, int add)
 {
 	if (nvram_get_int("dhcp_routes")) {
-		// Static Routes: IP ROUTER IP2 ROUTER2 ...
-		_do_wan_routes(ifname, "wan_routes",   metric, add);
-		// MS Classless Static Routes: IP/MASK ROUTER IP2/MASK2 ROUTER2 ...
-		_do_wan_routes(ifname, "wan_msroutes", metric, add);
+		// Static Routes:		IP ROUTER IP2 ROUTER2 ...
+		// Classless Static Routes:	IP/MASK ROUTER IP2/MASK2 ROUTER2 ...
+		_do_wan_routes(ifname, "wan_routes1", metric, add);
+		_do_wan_routes(ifname, "wan_routes2", metric, add);
 	}
 }
 

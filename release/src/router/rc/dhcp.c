@@ -68,7 +68,7 @@ static int env2nv(char *env, char *nv)
 
 static void env2nv_gateway(const char *nv)
 {
-	char *v;
+	char *v, *g;
 	char *b;
 
 	if ((v = getenv("router")) != NULL) {
@@ -78,12 +78,18 @@ static void env2nv_gateway(const char *nv)
 			free(b);
 		}
 	}
-
-	if ((v = getenv("staticroutes"))) {
-		if ((v = strstr(v, "0.0.0.0/0 "))) {
-			v += strlen("0.0.0.0/0 ");
-			nvram_set(nv, strsep(&v, " "));
+	else if ((v = getenv("staticroutes")) != NULL) {
+		if ((b = strdup(v)) == NULL) return;
+		v = b;
+		while ((g = strsep(&v, " ")) != NULL) {
+			if (strcmp(g, "0.0.0.0/0") == 0) {
+				if ((g = strsep(&v, " ")) && *g) {
+					nvram_set(nv, g);
+					break;
+				}
+			}
 		}
+		free(b);
 	}
 }
 
@@ -100,8 +106,8 @@ static int deconfig(char *ifname)
 	nvram_set("wan_gateway", "0.0.0.0");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_lease", "0");
-	nvram_set("wan_routes", "");
-	nvram_set("wan_msroutes", "");
+	nvram_set("wan_routes1", "");
+	nvram_set("wan_routes2", "");
 	expires(0);
 
 	//	int i = 10;
@@ -144,15 +150,15 @@ static int renew(char *ifname)
 	changed |= env2nv("domain", "wan_get_domain");
 	changed |= env2nv("dns", "wan_get_dns");
 
-	nvram_set("wan_routes_save", nvram_safe_get("wan_routes"));
-	nvram_set("wan_msroutes_save", nvram_safe_get("wan_msroutes"));
+	nvram_set("wan_routes1_save", nvram_safe_get("wan_routes1"));
+	nvram_set("wan_routes2_save", nvram_safe_get("wan_routes2"));
 
-	/* Classless Static Routes */
-	routes_changed = env2nv("staticroutes", "wan_routes_save");
-	/* Static Routes */
-	if (!routes_changed) routes_changed = env2nv("routes", "wan_routes_save");
-	/* MS Classless Static Routes */
-	routes_changed |= env2nv("msstaticroutes", "wan_msroutes_save");
+	/* Classless Static Routes (option 121) or MS Classless Static Routes (option 249) */
+	routes_changed = env2nv("staticroutes",   "wan_routes1_save") ||
+	                 env2nv("msstaticroutes", "wan_routes1_save");
+	/* Static Routes (option 33) */
+	routes_changed |= env2nv("routes", "wan_routes2_save");
+
 	changed |= routes_changed;
 
 	if ((a = getenv("lease")) != NULL) {
@@ -167,12 +173,12 @@ static int renew(char *ifname)
 
 	if (routes_changed) {
 		do_wan_routes(ifname, 0, 0);
-		nvram_set("wan_routes", nvram_safe_get("wan_routes_save"));
-		nvram_set("wan_msroutes", nvram_safe_get("wan_msroutes_save"));
+		nvram_set("wan_routes1", nvram_safe_get("wan_routes1_save"));
+		nvram_set("wan_routes2", nvram_safe_get("wan_routes2_save"));
 		do_wan_routes(ifname, 0, 1);
 	}
-	nvram_unset("wan_routes_save");
-	nvram_unset("wan_msroutes_save");
+	nvram_unset("wan_routes1_save");
+	nvram_unset("wan_routes2_save");
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
@@ -180,8 +186,8 @@ static int renew(char *ifname)
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
-	TRACE_PT("wan_routes=%s\n", nvram_safe_get("wan_routes"));
-	TRACE_PT("wan_msroutes=%s\n", nvram_safe_get("wan_msroutes"));
+	TRACE_PT("wan_routes1=%s\n", nvram_safe_get("wan_routes1"));
+	TRACE_PT("wan_routes2=%s\n", nvram_safe_get("wan_routes2"));
 	TRACE_PT("end\n");
 	return 0;
 }
@@ -192,8 +198,8 @@ static int bound(char *ifname)
 
 	unlink(renewing);
 
-	nvram_set("wan_routes", "");
-	nvram_set("wan_msroutes", "");
+	nvram_set("wan_routes1", "");
+	nvram_set("wan_routes2", "");
 	env2nv("ip", "wan_ipaddr");
 	env2nv("subnet", "wan_netmask");
 	env2nv_gateway("wan_gateway");
@@ -206,11 +212,14 @@ static int bound(char *ifname)
 	 * Similarly, if the DHCP server returns both a Classless Static Routes
 	 * option and a Static Routes option, the DHCP client MUST ignore the
 	 * Static Routes option.
-	 * Read more: http://www.faqs.org/rfcs/rfc3442.html
+	 * Ref: http://www.faqs.org/rfcs/rfc3442.html
 	 */
-	if (!env2nv("staticroutes", "wan_routes"))	/* Classless Static Routes */
-		env2nv("routes", "wan_routes");		/* Static Routes */
-	env2nv("msstaticroutes", "wan_msroutes");	/* MS Classless Static Routes */
+	/* Classless Static Routes (option 121) */
+	if (!env2nv("staticroutes", "wan_routes1"))
+		/* or MS Classless Static Routes (option 249) */
+		env2nv("msstaticroutes", "wan_routes1");
+	/* Static Routes (option 33) */
+	env2nv("routes", "wan_routes2");
 
 	expires(atoi(safe_getenv("lease")));
 
@@ -220,8 +229,8 @@ static int bound(char *ifname)
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
-	TRACE_PT("wan_routes=%s\n", nvram_safe_get("wan_routes"));
-	TRACE_PT("wan_msroutes=%s\n", nvram_safe_get("wan_msroutes"));
+	TRACE_PT("wan_routes1=%s\n", nvram_safe_get("wan_routes1"));
+	TRACE_PT("wan_routes2=%s\n", nvram_safe_get("wan_routes2"));
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
