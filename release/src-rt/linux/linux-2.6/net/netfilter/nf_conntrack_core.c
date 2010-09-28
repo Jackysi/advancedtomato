@@ -1266,7 +1266,7 @@ static struct list_head *alloc_hashtable(int *sizep, int *vmalloced)
 	*vmalloced = 0;
 
 	size = *sizep = roundup(*sizep, PAGE_SIZE / sizeof(struct list_head));
-	hash = (void*)__get_free_pages(GFP_KERNEL,
+	hash = (void*)__get_free_pages(GFP_KERNEL|__GFP_NOWARN,
 				       get_order(sizeof(struct list_head)
 						 * size));
 	if (!hash) {
