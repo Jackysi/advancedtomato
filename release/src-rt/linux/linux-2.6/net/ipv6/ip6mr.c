@@ -46,6 +46,7 @@
 #include <net/ipv6.h>
 #include <net/ip6_route.h>
 #include <linux/mroute6.h>
+#include <linux/pim.h>
 #include <net/addrconf.h>
 #include <linux/netfilter_ipv6.h>
 
@@ -378,8 +379,9 @@ static struct file_operations ip6mr_mfc_fops = {
 #ifdef CONFIG_IPV6_PIMSM_V2
 static int reg_vif_num = -1;
 
-static int pim6_rcv(struct sk_buff *skb)
+static int pim6_rcv(struct sk_buff **pskb)
 {
+	struct sk_buff *skb = (*pskb);
 	struct pimreghdr *pim;
 	struct ipv6hdr   *encap;
 	struct net_device  *reg_dev = NULL;
