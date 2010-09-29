@@ -127,21 +127,27 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
 		goto drop;
 
+	skb = skb_share_check(skb, GFP_ATOMIC);
+	if (!skb)
+		return NULL;
+
 	if (unlikely(is_link_local(dest))) {
 		/* Pause frames shouldn't be passed up by driver anyway */
 		if (skb->protocol == htons(ETH_P_PAUSE))
 			goto drop;
 
-		/* Process STP BPDU's through normal netif_receive_skb() path */
-		if (p->br->stp_enabled != BR_NO_STP) {
-			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-				    NULL, br_handle_local_finish))
-				return NULL;
-			else
-				return skb;
-		}
+		/* If STP is turned off, then forward */
+		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
+			goto forward;
+
+		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+			    NULL, br_handle_local_finish))
+			return NULL;	/* frame consumed by filter */
+		else
+			return skb;	/* continue processing */
 	}
 
+forward:
 	switch (p->state) {
 	case BR_STATE_FORWARDING:
 		rhook = rcu_dereference(br_should_route_hook);
