@@ -1877,6 +1877,12 @@ static inline void tcp_enter_memory_pressure(void)
 	}
 }
 
+static inline int tcp_wmem_schedule(struct sock *sk, int size)
+{
+	return size <= sk->forward_alloc ||
+		tcp_mem_schedule(sk, size, 0);
+}
+
 static inline void tcp_moderate_sndbuf(struct sock *sk)
 {
 	if (!(sk->userlocks&SOCK_SNDBUF_LOCK)) {
@@ -1891,8 +1897,11 @@ static inline struct sk_buff *tcp_alloc_pskb(struct sock *sk, int size, int mem,
 
 	if (skb) {
 		skb->truesize += mem;
-		if (sk->forward_alloc >= (int)skb->truesize ||
-		    tcp_mem_schedule(sk, skb->truesize, 0)) {
+		if (tcp_wmem_schedule(sk, skb->truesize)) {
+			/*
+			 * Make sure that we have exactly size bytes
+			 * available to the caller, no more, no less.
+			 */
 			skb_reserve(skb, MAX_TCP_HEADER);
 			return skb;
 		}
@@ -1911,15 +1920,14 @@ static inline struct sk_buff *tcp_alloc_skb(struct sock *sk, int size, int gfp)
 
 static inline struct page * tcp_alloc_page(struct sock *sk)
 {
-	if (sk->forward_alloc >= (int)PAGE_SIZE ||
-	    tcp_mem_schedule(sk, PAGE_SIZE, 0)) {
-		struct page *page = alloc_pages(sk->allocation, 0);
-		if (page)
-			return page;
+	struct page *page;
+
+	page = alloc_pages(sk->allocation, 0);
+	if (!page) {
+		tcp_enter_memory_pressure();
+		tcp_moderate_sndbuf(sk);
 	}
-	tcp_enter_memory_pressure();
-	tcp_moderate_sndbuf(sk);
-	return NULL;
+	return page;
 }
 
 static inline void tcp_writequeue_purge(struct sock *sk)
