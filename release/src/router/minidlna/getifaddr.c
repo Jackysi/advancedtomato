@@ -1,4 +1,4 @@
-/* $Id: getifaddr.c,v 1.10 2009/10/28 07:44:43 jmaggard Exp $ */
+/* $Id: getifaddr.c,v 1.11 2010/09/29 07:46:59 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006 Thomas Bernard 
@@ -118,7 +118,7 @@ getsyshwaddr(char * buf, int len)
 			continue;
 		if( ioctl(fd, SIOCGIFHWADDR, &ifr) < 0 )
 			continue;
-		if( MACADDR_IS_ZERO(&ifr.ifr_hwaddr.sa_data) )
+		if( MACADDR_IS_ZERO(ifr.ifr_hwaddr.sa_data) )
 			continue;
 		ret = 0;
 		break;
