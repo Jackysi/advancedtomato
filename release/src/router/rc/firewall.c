@@ -214,7 +214,6 @@ void ipt_layer7_inbound(void)
 				wanface);
 		if (*manface)
 			ipt_write(
-				":L7in - [0:0]\n"
 				"-A FORWARD -i %s -j L7in\n",
 					manface);
 	}
@@ -296,7 +295,6 @@ static void ipt_webmon(void)
 		wanface);
 	if (*manface)
 		ipt_write(
-			":monitor - [0:0]\n"
 			"-A FORWARD -o %s -j monitor\n",
 			manface);
 
@@ -699,7 +697,6 @@ static void filter_forward(void)
 			wanface);
 		if (*manface)
 			ipt_write(
-				":upnp - [0:0]\n"
 				"-A FORWARD -i %s -j upnp\n",
 				manface);
 	}
