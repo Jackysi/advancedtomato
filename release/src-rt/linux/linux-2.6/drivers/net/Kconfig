@@ -2973,7 +2973,7 @@ config PPPOE
 
 config PPTP
 	tristate "PPP over IPv4 (PPTP) (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && PPP && NET_IPGRE_DEMUX
+	depends on EXPERIMENTAL && PPP
 	help
 	  Support for PPP over IPv4.(Point-to-Point Tunneling Protocol)
 
