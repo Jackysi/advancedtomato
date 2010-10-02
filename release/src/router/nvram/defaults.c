@@ -458,7 +458,7 @@ const defaults_t defaults[] = {
 #endif
 
 // admin-access
-	{ "http_username",		""				},	// Username
+	{ "http_username",		""			},	// Username
 	{ "http_passwd",		"admin"			},	// Password
 	{ "remote_management",	"0"				},	// Remote Management [1|0]
 	{ "remote_mgt_https",	"0"				},	// Remote Management use https [1|0]
