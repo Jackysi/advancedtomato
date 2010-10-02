@@ -29,7 +29,7 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband"); %>
 
 xob = null;
 
@@ -320,6 +320,7 @@ function verifyFields(focused, quiet)
 		_ppp_username: 1,
 		_ppp_passwd: 1,
 		_ppp_service: 1,
+		_ppp_custom: 1,
 		_l2tp_server_ip: 1,
 		_wan_ipaddr: 1,
 		_wan_netmask: 1,
@@ -396,6 +397,7 @@ function verifyFields(focused, quiet)
 	case 'disabled':
 		vis._ppp_username = 0;
 		vis._ppp_service = 0;
+		vis._ppp_custom = 0;
 		vis._l2tp_server_ip = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -411,6 +413,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_demand = 0;
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
+		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
@@ -422,6 +425,7 @@ function verifyFields(focused, quiet)
 	case 'pppoe':
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
+		vis._ppp_custom = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
@@ -434,6 +438,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_demand = 0;
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
+		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
 
@@ -977,13 +982,14 @@ createFieldTable('', [
 		value: nvram.wan_proto },
 	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram.ppp_username },
 	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram.ppp_passwd },
-	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_service },
-	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 54, value: nvram.l2tp_server_ip },
+	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
+	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
 	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
-	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 54, value: nvram.pptp_server_ip },
+	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
+	{ title: 'Options', name: 'ppp_custom', type: 'text', maxlen: 256, size: 64, value: nvram.ppp_custom },
 	{ title: 'Connect Mode', name: 'ppp_demand', type: 'select', options: [['1', 'Connect On Demand'],['0', 'Keep Alive']],
 		value: nvram.ppp_demand },
 	{ title: 'Max Idle Time', indent: 2, name: 'ppp_idletime', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(minutes)</i>',

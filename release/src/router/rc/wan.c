@@ -96,21 +96,19 @@ static int config_pppd(int wan_proto)
 		"default-asyncmap\n"	// Disable  asyncmap  negotiation
 		"nopcomp\n"		// Disable protocol field compression
 		"noaccomp\n"		// Disable Address/Control compression
-		"noccp\n"		// Disable CCP (Compression Control Protocol)
 		"novj\n"		// Disable Van Jacobson style TCP/IP header compression
 		"nobsdcomp\n"		// Disable BSD-Compress  compression
 		"nodeflate\n"		// Disable Deflate compression
-		"noauth\n"
+		"noauth\n"		// Do not authenticate peer
+		"refuse-eap\n"		// Do not use eap
 		"maxfail 0\n"
 		"lcp-echo-interval %d\n"
 		"lcp-echo-failure %d\n"
-		"%s"			// Debug
-		"%s\n",			// User specific options
+		"%s",			// Debug
 		nvram_safe_get("ppp_username"),
 		nvram_get_int("pppoe_lei") ? : 10,
 		nvram_get_int("pppoe_lef") ? : 5,
-		nvram_get_int("debug_ppp") ? "debug\n" : "",
-		nvram_safe_get("ppp_custom"));
+		nvram_get_int("debug_ppp") ? "debug\n" : "");
 
 	if (wan_proto != WP_L2TP)
 		fprintf(fp, "persist\n");
@@ -120,12 +118,13 @@ static int config_pppd(int wan_proto)
 		fprintf(fp,
 			"plugin pptp.so\n"
 			"pptp_server %s\n"
-			"mtu %d\n"
-			"refuse-eap\n",
+			"nomppe-stateful\n"
+			"mtu %d\n",
 			nvram_safe_get("pptp_server_ip"),
 			nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
 		break;
 	default: // l2tp, pppoe
+		fprintf(fp, "nomppe nomppc\n");
 		if (nvram_get_int("mtu_enable"))
 			fprintf(fp, "mtu %s\n", nvram_safe_get("wan_mtu"));
 		break;
@@ -138,11 +137,13 @@ static int config_pppd(int wan_proto)
 			"idle %d\n"
 			"ipcp-accept-remote\n"
 			"ipcp-accept-local\n"
-			"connect true\n"
 			"noipdefault\n"		// Disables  the  default  behaviour when no local IP address is specified
 			"ktune\n",		// Set /proc/sys/net/ipv4/ip_dynaddr to 1 in demand mode if the local address changes
 			nvram_get_int("ppp_idletime") * 60);
 	}
+
+	// User specific options
+	fprintf(fp, "%s\n", nvram_safe_get("ppp_custom"));
 
 	fclose(fp);
 	make_secrets();
@@ -156,6 +157,9 @@ static void stop_ppp(void)
 	TRACE_PT("begin\n");
 
 	unlink(ppp_linkfile);
+
+	killall_tk("ip-up");
+	killall_tk("ip-down");
 	killall_tk("xl2tpd");
 	killall_tk("pppd");
 	killall_tk("listen");

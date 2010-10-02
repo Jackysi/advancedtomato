@@ -119,6 +119,7 @@ const defaults_t defaults[] = {
 	{ "ppp_static_ip",		""				},	// PPPoE Static IP
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
+	{ "ppp_custom",			""				},	// PPPD additional options
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
