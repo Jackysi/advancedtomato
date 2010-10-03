@@ -38,7 +38,7 @@
 
 #include <sys/sysinfo.h>
 #include <sys/ioctl.h>
-
+#include <arpa/inet.h>
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
@@ -237,15 +237,24 @@ static int bound(char *ifname)
 	int wan_proto = get_wan_proto();
 	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
 		int i = 0;
+		char *gw = nvram_safe_get("wan_gateway");
 
 		/* Delete all default routes */
 		while ((route_del(ifname, 0, NULL, NULL, NULL) == 0) || (i++ < 10));
 
 		/* Set default route to gateway if specified */
-		route_add(ifname, 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
+		route_add(ifname, 0, "0.0.0.0", gw, "0.0.0.0");
+
+		/* Add routes to dns servers as well for demand ppp to work */
+		char word[100], *next;
+		in_addr_t mask = inet_addr(nvram_safe_get("wan_netmask"));
+		foreach(word, nvram_safe_get("wan_get_dns"), next) {
+			if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
+				route_add(ifname, 0, word, gw, "255.255.255.255");
+		}
 
 		/* Backup the default gateway. It should be used if L2TP connection is broken */
-		nvram_set("wan_gateway_buf", nvram_get("wan_gateway"));
+		nvram_set("wan_gateway_buf", gw);
 
 		dns_to_resolv();
 		start_dnsmasq();

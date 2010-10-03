@@ -704,8 +704,8 @@ void start_wan_done(char *wan_ifname)
 	
 	proto = get_wan_proto();
 	dod = nvram_match("ppp_demand", "1");
-	
-	if (proto == WP_L2TP) {
+
+	if (using_dhcpc()) {
 		while (route_del(nvram_safe_get("wan_ifname"), 0, NULL, NULL, NULL) == 0) {
 			//
 		}
@@ -718,7 +718,7 @@ void start_wan_done(char *wan_ifname)
 
 	if (proto != WP_DISABLED) {
 		// set default route to gateway if specified
-		gw = (proto == WP_PPTP) ? nvram_safe_get("ppp_get_ip") : nvram_safe_get("wan_gateway");
+		gw = (proto == WP_PPTP && !using_dhcpc()) ? nvram_safe_get("ppp_get_ip") : nvram_safe_get("wan_gateway");
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
 			if (proto == WP_DHCP || proto == WP_STATIC) {
 				// possibly gateway is over the bridge, try adding a route to gateway first
@@ -730,15 +730,13 @@ void start_wan_done(char *wan_ifname)
 			}
 			_dprintf("set default gateway=%s n=%d\n", gw, n);
 
-			// add routes to dns servers as well for demand ppp to work
-			char word[100], *next;
-			in_addr_t mask = inet_addr(nvram_safe_get("wan_netmask"));
-			foreach(word, nvram_safe_get("wan_get_dns"), next) {
-				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
-					route_add(wan_ifname, 0, word, gw, "255.255.255.255");
+			// hack: avoid routing cycles, when both peer and server has the same IP
+			if (proto == WP_PPTP || proto == WP_L2TP) {
+				// delete gateway route as it's no longer needed
+				route_del(wan_ifname, 0, gw, "0.0.0.0", "255.255.255.255");
 			}
 		}
-		
+
 #ifdef THREE_ARP_GRATUATOUS_SUPPORT	// from 43011; checkme; commented-out	-- zzz
 /*
 		// 43011: Alpha add to send Gratuitous ARP when wan_proto is Static IP 2007-04-09
@@ -754,42 +752,14 @@ void start_wan_done(char *wan_ifname)
 */
 #endif
 
-		if (proto == WP_PPTP) {
+		// TB -- checkme: are these PPTP/L2TP routes really needed?
+		if (proto == WP_PPTP || proto == WP_L2TP) {
 			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip
 			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");
-			// route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("pptp_server_ip"), NULL, "255.255.255.255");
 			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("ppp_get_ip"), NULL, "255.255.255.255");
 		}
-		else if (proto == WP_L2TP) {
-			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");
-			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("ppp_get_ip"), NULL, "255.255.255.255");
-			
-#if 1		// 43011: add by crazy 20070803
-			/*
-			   Fix these issues:
-			   1. DUT can't response a L2TP ZLB Control message to L2TP server.
-			   2. Configure DUT to be L2TP with Connect on demand in 5 minutes, 
-			      but DUT will disconnect L2TP before 5 minutes.
-			   3. It also causes DUT could often disconnect from L2TP server in 
-			      L2TP Keep Alive mode.
-			*/
-			struct in_addr l2tp_server_ip, wan_ipaddr_old, wan_netmask;
-
-			if (inet_aton(nvram_safe_get("l2tp_server_ip"), &l2tp_server_ip) &&
-				inet_aton(nvram_safe_get("wan_netmask"), &wan_netmask) &&
-				inet_aton(nvram_safe_get("wan_ipaddr"), &wan_ipaddr_old)) {
-				if ((l2tp_server_ip.s_addr & wan_netmask.s_addr) != (wan_ipaddr_old.s_addr & wan_netmask.s_addr)) {
-					// If DUT WAN IP and L2TP server IP are in different subnets, it could need this route.
-					route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
-				}
-			}
-			else {
-				// Fail to change IP from char to struct, still add this route.
-				//route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
-			}
-#else
+		if (proto == WP_L2TP) {
 			route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
-#endif
 		}
 	}
 
@@ -801,10 +771,10 @@ void start_wan_done(char *wan_ifname)
 
 	stop_igmp_proxy();
 	start_igmp_proxy();
-	
+
 	do_static_routes(1);
 	// and routes supplied via DHCP
-	do_wan_routes(proto == WP_L2TP ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
+	do_wan_routes(using_dhcpc() ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
 
 	stop_zebra();
 	start_zebra();
