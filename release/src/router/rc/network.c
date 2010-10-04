@@ -54,6 +54,7 @@ typedef u_int8_t u8;
 #include <linux/ethtool.h>
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
+#include <arpa/inet.h>
 
 #include <wlutils.h>
 #include <bcmparams.h>
@@ -273,6 +274,7 @@ void start_lan(void)
 	struct ifreq ifr;
 	char *lan_ifnames, *ifname, *p;
 	int sfd;
+	uint32 ip;
 
 	set_mac(nvram_safe_get("wl_ifname"), "mac_wl", 2);
 	check_afterburner();
@@ -284,6 +286,8 @@ void start_lan(void)
 		eval("brctl", "addbr", lan_ifname);
 		eval("brctl", "setfd", lan_ifname, "0");
 		eval("brctl", "stp", lan_ifname, nvram_safe_get("lan_stp"));
+
+		inet_aton(nvram_safe_get("lan_ipaddr"), (struct in_addr *)&ip);
 
 		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
 			p = lan_ifnames;
@@ -306,8 +310,17 @@ void start_lan(void)
 				}
 
 				if (wlconf(ifname) == 0) {
-					const char *mode = nvram_get("wl0_mode");
-					if ((mode) && ((strcmp(mode, "ap") != 0) && (strcmp(mode, "wet") != 0))) continue;
+					const char *mode = nvram_safe_get("wl_mode");
+
+					if (strcmp(mode, "wet") == 0) {
+						// Enable host DHCP relay
+						if (nvram_get_int("dhcp_relay")) {
+							wl_iovar_set(ifname, "wet_host_mac", ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+							wl_iovar_setint(ifname, "wet_host_ipv4", ip);
+						}
+					}
+
+					if ((strcmp(mode, "ap") != 0) && (strcmp(mode, "wet") != 0)) continue;
 				}
 				eval("brctl", "addif", lan_ifname, ifname);
 			}
