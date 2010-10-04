@@ -328,7 +328,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		break;
 	case RT_WNR3500L:
 	case RT_WNR2000V2:
-		bcm947xx_parts[PART_BOARD].size = mtd->erasesize * (router == RT_WNR3500L ? 5 : 3);
+		bcm947xx_parts[PART_BOARD].size = mtd->erasesize * 5;
 		boardoff -= bcm947xx_parts[PART_BOARD].size;
 		bcm947xx_parts[PART_BOARD].offset = boardoff;
 		break;
