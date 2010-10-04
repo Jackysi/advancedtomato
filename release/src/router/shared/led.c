@@ -181,7 +181,7 @@ int led(int which, int mode)
 {
 //				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST
 //				    ----- ----- ----- ----- ----- ----- ----- -----
-	static int wrt54g[]	= { 0,    1,    2,    3,    7,    255,  255,  255	};
+	static int wrt54g[]	= { 255,  1,    2,    3,    7,    255,  255,  255	};
 	static int wrtsl[]	= { 255,  1,    5,    7,    0,    255,  255,  255	};
 	static int whrg54[]	= { 2,    7,    255,  255,  255,  6,    1,    3		};
 	static int wbr2g54[]	= { 255,  -1,   255,  255,  255,  -6,   255,  255	};
