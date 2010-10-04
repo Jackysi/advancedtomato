@@ -374,7 +374,7 @@ int mtd_write_main(int argc, char *argv[])
 		goto ERROR;
 	}
 
-    if ((ioctl(mf, MEMGETINFO, &mi) != 0) || (mi.erasesize < sizeof(struct trx_header))) {
+	if ((ioctl(mf, MEMGETINFO, &mi) != 0) || (mi.erasesize < sizeof(struct trx_header))) {
 		error = "Error obtaining MTD information";
 		goto ERROR;
 	}
@@ -469,6 +469,55 @@ int mtd_write_main(int argc, char *argv[])
 		}
 #endif
 		ofs = 0;
+	}
+
+	// Netgear WNR3500L: write fake len and checksum at the end of mtd
+
+	char *tmp;
+	char imageInfo[8];
+
+	switch (get_model()) {
+	case MODEL_WNR3500L:
+	case MODEL_WNR2000v2:
+		error = "Error writing fake Netgear crc";
+
+		n = 0x00000004;		// fake length - little endian
+		crc = 0x02C0010E;	// fake crc - little endian
+		memcpy(&imageInfo[0], (char *)&n, 4);
+		memcpy(&imageInfo[4], (char *)&crc, 4);
+
+		if (!mtd_getinfo("pmon", &ofs, &n))
+			goto ERROR;
+		ofs = ((mi.size > 0x400000) ? 0x007AFFF8 : 0x003AFFF8) - n;
+
+		ei.start = (ofs / mi.erasesize) * mi.erasesize;
+		ei.length = mi.erasesize;
+		if (ei.start < total)
+			goto ERROR;
+
+		if (lseek(mf, ei.start, SEEK_SET) < 0)
+			goto ERROR;
+		if (buf) free(buf);
+		if (!(buf = malloc(mi.erasesize)))
+			goto ERROR;
+		if (read(mf, buf, mi.erasesize) != mi.erasesize)
+			goto ERROR;
+		if (lseek(mf, ei.start, SEEK_SET) < 0)
+			goto ERROR;
+
+		ei.length = mi.erasesize;
+		ioctl(mf, MEMUNLOCK, &ei);
+		if (ioctl(mf, MEMERASE, &ei) != 0)
+			goto ERROR;
+
+		tmp = buf + (ofs % mi.erasesize);
+		memcpy(tmp, imageInfo, sizeof(imageInfo));
+		if (write(mf, buf, mi.erasesize) != mi.erasesize)
+			goto ERROR;
+
+		_dprintf(" write fake len/chksum @ 0x%x... done.\n", ofs);
+		error = NULL;
+		break;
 	}
 
 #ifdef DEBUG_SIMULATE
