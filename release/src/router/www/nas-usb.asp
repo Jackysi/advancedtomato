@@ -256,8 +256,8 @@ function verifyFields(focused, quiet)
 	var b = !E('_f_usb').checked;
 	var a = !E('_f_storage').checked;
 
-	E('_f_uhci').disabled = b;
-	E('_f_ohci').disabled = b;
+	E('_f_uhci').disabled = b || nvram.usb_uhci == -1;
+	E('_f_ohci').disabled = b || nvram.usb_ohci == -1;
 	E('_f_usb2').disabled = b;
 	E('_f_print').disabled = b;
 	E('_f_storage').disabled = b;
@@ -289,8 +289,8 @@ function save()
 
 	fom = E('_fom');
 	fom.usb_enable.value = E('_f_usb').checked ? 1 : 0;
-	fom.usb_uhci.value = E('_f_uhci').checked ? 1 : 0;
-	fom.usb_ohci.value = E('_f_ohci').checked ? 1 : 0;
+	fom.usb_uhci.value = nvram.usb_uhci == -1 ? -1 : (E('_f_uhci').checked ? 1 : 0);
+	fom.usb_ohci.value = nvram.usb_ohci == -1 ? -1 : (E('_f_ohci').checked ? 1 : 0);
 	fom.usb_usb2.value = E('_f_usb2').checked ? 1 : 0;
 	fom.usb_storage.value = E('_f_storage').checked ? 1 : 0;
 	fom.usb_printer.value = E('_f_print').checked ? 1 : 0;

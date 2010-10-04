@@ -48,7 +48,7 @@ void tune_bdflush(void)
 #define SD_MOD		"sd_mod"
 #ifdef LINUX26
 #define USBOHCI_MOD	"ohci-hcd"
-#define USBUHCI_MOD	"uhci"
+#define USBUHCI_MOD	"uhci-hcd"
 #define USBPRINTER_MOD	"usblp"
 #define SCSI_WAIT_MOD	"scsi_wait_scan"
 #define USBFS		"usbfs"
@@ -120,7 +120,7 @@ void start_usb(void)
 		}
 
 		/* if enabled, force USB2 before USB1.1 */
-		if (nvram_get_int("usb_usb2")) {
+		if (nvram_get_int("usb_usb2") == 1) {
 			i = nvram_get_int("usb_irq_thresh");
 			if ((i < 0) || (i > 6))
 				i = 0;
@@ -128,11 +128,11 @@ void start_usb(void)
 			modprobe(USB20_MOD, param);
 		}
 
-		if (nvram_get_int("usb_uhci")) {
+		if (nvram_get_int("usb_uhci") == 1) {
 			modprobe(USBUHCI_MOD);
 		}
 
-		if (nvram_get_int("usb_ohci")) {
+		if (nvram_get_int("usb_ohci") == 1) {
 			modprobe(USBOHCI_MOD);
 		}
 
@@ -197,9 +197,9 @@ void stop_usb(void)
 		modprobe_r(SCSI_MOD);
 	}
 
-	if (!nvram_get_int("usb_ohci")) modprobe_r(USBOHCI_MOD);
-	if (!nvram_get_int("usb_uhci")) modprobe_r(USBUHCI_MOD);
-	if (!nvram_get_int("usb_usb2")) modprobe_r(USB20_MOD);
+	if (nvram_get_int("usb_ohci") != 1) modprobe_r(USBOHCI_MOD);
+	if (nvram_get_int("usb_uhci") != 1) modprobe_r(USBUHCI_MOD);
+	if (nvram_get_int("usb_usb2") != 1) modprobe_r(USB20_MOD);
 
 	// only unload core modules if usb is disabled
 	if (!nvram_get_int("usb_enable")) {

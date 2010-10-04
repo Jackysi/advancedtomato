@@ -736,6 +736,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500gP";
 		features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_ohci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");	// set to "vlan0 eth2" by DD-WRT; default: vlan0 eth1
@@ -747,14 +750,20 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500W";
 		features = SUP_SES | SUP_80211N;
+#ifdef TCONFIG_USB
+		nvram_set("usb_ohci", "-1");
+#endif
 		/* fix AIR LED */
 		if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
 			nvram_set("wl0gpio0", "0x88");
 		break;
 	case MODEL_WL500GE:
 		mfr = "Asus";
-		name = "WL-500gE";
+		name = "WL-550gE";
 		//	features = ?
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		break;
 	case MODEL_WX6615GT:
 		mfr = "SparkLAN";
@@ -837,6 +846,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "RT-N16";
 		features = SUP_SES | SUP_80211N | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
@@ -910,6 +922,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500gP v2";
 		features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 		}
@@ -921,6 +936,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-520GU";
 		features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			// !!TB - LED fix
@@ -934,6 +952,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500g Deluxe";
 		// features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_ohci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			nvram_set("wl_ifname", "eth1");
