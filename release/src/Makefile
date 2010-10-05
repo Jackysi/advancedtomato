@@ -411,8 +411,6 @@ define KernelConfig
 		echo "CONFIG_IP6_NF_IPTABLES=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
 		echo "CONFIG_IP6_NF_MATCH_RT=y" >>$(1); \
-		sed -i "/CONFIG_IP6_NF_MATCH_HL/d" $(1); \
-		echo "CONFIG_IP6_NF_MATCH_HL=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_FILTER/d" $(1); \
 		echo "CONFIG_IP6_NF_FILTER=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_TARGET_LOG/d" $(1); \
@@ -426,6 +424,8 @@ define KernelConfig
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 			sed -i "/CONFIG_NF_CONNTRACK_IPV6/d" $(1); \
 			echo "CONFIG_NF_CONNTRACK_IPV6=m" >>$(1); \
+			sed -i "/CONFIG_NETFILTER_XT_MATCH_HL/d" $(1); \
+			echo "CONFIG_NETFILTER_XT_MATCH_HL=m" >>$(1); \
 			sed -i "/CONFIG_IPV6_ROUTER_PREF/d" $(1); \
 			echo "CONFIG_IPV6_ROUTER_PREF=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_SIT/d" $(1); \
@@ -434,13 +434,13 @@ define KernelConfig
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
-			sed -i "/CONFIG_IP6_NF_TARGET_HL/d" $(1); \
-			echo "CONFIG_IP6_NF_TARGET_HL=m" >>$(1); \
 			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
 			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_HL/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_HL=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_FTP/d" $(1); \
 			echo "CONFIG_IP6_NF_FTP=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_MATCH_LIMIT/d" $(1); \

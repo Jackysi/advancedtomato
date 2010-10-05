@@ -330,7 +330,11 @@ static void mangle_table(void)
 
 		ttl = nvram_get_int("nf_ttl");
 		if (ttl != 0) {
+#ifdef LINUX26
+			modprobe("xt_HL");
+#else
 			modprobe("ipt_TTL");
+#endif
 			if (ttl > 0) {
 				p = "in";
 			}
@@ -960,13 +964,14 @@ int start_firewall(void)
 #ifdef LINUX26
 	modprobe_r("xt_layer7");
 	modprobe_r("xt_recent");
+	modprobe_r("xt_HL");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
+	modprobe_r("ipt_TTL");
 #endif
 	modprobe_r("ipt_ipp2p");
 	modprobe_r("ipt_web");
-	modprobe_r("ipt_TTL");
 	modprobe_r("ipt_webmon");
 
 	unlink("/var/webmon/domain");
