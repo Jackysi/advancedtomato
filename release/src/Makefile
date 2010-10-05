@@ -66,8 +66,10 @@ lowercase_B = $(shell echo $(B) | tr A-Z a-z)
 
 ifeq ($(CONFIG_LINUX26),y)
 mips_rev = $(if $(filter $(MIPS32),r2),MIPSR2,MIPSR1)
+KERN_SIZE_OPT ?= n
 else
 mips_rev =
+KERN_SIZE_OPT ?= y
 endif
 
 tomato_ver:
@@ -192,6 +194,7 @@ what:
 # Options for "make bin" :
 # BUILD_DESC (Std|Lite|Ext|...)
 # MIPS32 (r2|r1)
+# KERN_SIZE_OPT
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
@@ -390,6 +393,12 @@ define KernelConfig
 	@( \
 	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
 	echo "CONFIG_NVRAM_SIZE="$(NVRAM_SIZE) >>$(1); \
+	sed -i "/CONFIG_CC_OPTIMIZE_FOR_SIZE/d" $(1); \
+	if [ "$(KERN_SIZE_OPT)" = "y" ]; then \
+		echo "CONFIG_CC_OPTIMIZE_FOR_SIZE=y" >>$(1); \
+	else \
+		echo "# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set" >>$(1); \
+	fi; \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(MIPS32)" = "r2" ]; then \
 		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
 		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \

@@ -1091,6 +1091,8 @@ fi
 
 int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
 
+bool 'Optimize for size (Look out for broken compilers!)' CONFIG_CC_OPTIMIZE_FOR_SIZE
+
 endmenu
 
 source crypto/Config.in
