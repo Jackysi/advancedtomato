@@ -129,6 +129,7 @@ else
 	rm -f $(INSTALLDIR)/www/vpn*
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
 

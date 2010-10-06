@@ -43,6 +43,9 @@ var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['
 /* USB-BEGIN */
 	['USB and NAS', 'nas'],
 /* USB-END */
+/* VPN-BEGIN */
+	['VPN Tunneling', 'vpn'],
+/* VPN-END */
 	['Administration', 'admin']];
 
 function toggle(service, isup)
