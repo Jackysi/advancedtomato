@@ -833,6 +833,21 @@ function v_domain(e, quiet)
 	return 1;
 }
 
+function v_iptaddr(e, quiet, multi)
+{
+	if ((e = E(e)) == null) return 0;
+
+	if (!v_iptip(e, 1, multi)) {
+		var s = e._error_msg;
+		if (!v_domain(e, 1)) {
+			ferror.set(e, (s) ? s + ', or invalid domain name' : e._error_msg, quiet);
+			return 0;
+		}
+	}
+	ferror.clear(e);
+	return 1;
+}
+
 function v_nodelim(e, quiet, name, checklist)
 {
 	if ((e = E(e)) == null) return 0;

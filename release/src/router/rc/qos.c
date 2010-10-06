@@ -103,12 +103,7 @@ void ipt_qos(void)
 
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			if (strchr(addr, '-') != NULL) {
-				sprintf(saddr, "-m iprange --%s-range %s", (*addr_type == '1') ? "dst" : "src", addr);
-			}
-			else {
-				sprintf(saddr, "-%c %s", (*addr_type == '1') ? 'd' : 's', addr);
-			}
+			ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src");
 		}
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)

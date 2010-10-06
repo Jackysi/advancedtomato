@@ -1,7 +1,7 @@
-/* $Id: upnpglobalvars.c,v 1.18 2008/10/06 13:22:02 nanard Exp $ */
+/* $Id: upnpglobalvars.c,v 1.19 2010/09/21 15:31:01 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2010 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -79,7 +79,11 @@ const char * tag = 0;
 const char * miniupnpd_nat_chain = "MINIUPNPD";
 const char * miniupnpd_forward_chain = "MINIUPNPD";
 #endif
-
+#ifdef ENABLE_NFQUEUE
+int nfqueue = -1;
+int n_nfqix = 0;
+unsigned nfqix[MAX_LAN_ADDR];
+#endif
 int n_lan_addr = 0;
 struct lan_addr_s lan_addr[MAX_LAN_ADDR];
 

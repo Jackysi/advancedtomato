@@ -195,7 +195,7 @@ what:
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
-# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, SLIM
+# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 
 define RouterOptions
 	@( \
@@ -363,8 +363,6 @@ define BusyboxOptions
 		echo "CONFIG_TRACEROUTE6=y" >>$(1); \
 	fi; \
 	if [ "$(SLIM)" = "y" ]; then \
-		sed -i "/CONFIG_FEATURE_MOUNT_LOOP/d" $(1); \
-		echo "# CONFIG_FEATURE_MOUNT_LOOP is not set" >>$(1); \
 		sed -i "/CONFIG_AWK/d" $(1); \
 		echo "# CONFIG_AWK is not set" >>$(1); \
 		sed -i "/CONFIG_BASENAME/d" $(1); \
@@ -413,8 +411,6 @@ define KernelConfig
 		echo "CONFIG_IP6_NF_IPTABLES=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MATCH_RT/d" $(1); \
 		echo "CONFIG_IP6_NF_MATCH_RT=y" >>$(1); \
-		sed -i "/CONFIG_IP6_NF_MATCH_HL/d" $(1); \
-		echo "CONFIG_IP6_NF_MATCH_HL=y" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_FILTER/d" $(1); \
 		echo "CONFIG_IP6_NF_FILTER=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_TARGET_LOG/d" $(1); \
@@ -428,6 +424,8 @@ define KernelConfig
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 			sed -i "/CONFIG_NF_CONNTRACK_IPV6/d" $(1); \
 			echo "CONFIG_NF_CONNTRACK_IPV6=m" >>$(1); \
+			sed -i "/CONFIG_NETFILTER_XT_MATCH_HL/d" $(1); \
+			echo "CONFIG_NETFILTER_XT_MATCH_HL=m" >>$(1); \
 			sed -i "/CONFIG_IPV6_ROUTER_PREF/d" $(1); \
 			echo "CONFIG_IPV6_ROUTER_PREF=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_SIT/d" $(1); \
@@ -436,11 +434,13 @@ define KernelConfig
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
-			sed -i "/CONFIG_IP6_NF_TARGET_HL/d" $(1); \
-			echo "CONFIG_IP6_NF_TARGET_HL=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
+			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_MATCH_HL/d" $(1); \
+			echo "CONFIG_IP6_NF_MATCH_HL=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_FTP/d" $(1); \
 			echo "CONFIG_IP6_NF_FTP=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_MATCH_LIMIT/d" $(1); \
@@ -464,6 +464,12 @@ define KernelConfig
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
 		fi; \
+	fi; \
+	sed -i "/CONFIG_BCM57XX/d" $(1); \
+	if [ "$(BCM57)" = "y" ]; then \
+		echo "CONFIG_BCM57XX=m" >>$(1); \
+	else \
+		echo "# CONFIG_BCM57XX is not set" >>$(1); \
 	fi; \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \
@@ -528,9 +534,9 @@ endif
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB=""
 else
-	@$(MAKE) bin BBEXTRAS=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
 endif
 
 ## Make the "Mini: no USB, no CIFS, no JFFS" build
@@ -542,7 +548,7 @@ v:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y B=V BUILD_DESC="$(VPN)" USB=""
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
 endif
 
 ## Make Mips32r2 builds

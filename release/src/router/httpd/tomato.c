@@ -534,6 +534,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
 	{ "ppp_demand",			V_01				},
+	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
 	{ "mtu_enable",			V_01				},
@@ -829,9 +830,9 @@ static const nvset_t nvset_list[] = {
 // nas-usb - !!TB
 #ifdef TCONFIG_USB
 	{ "usb_enable",			V_01				},
-	{ "usb_uhci",			V_01				},
-	{ "usb_ohci",			V_01				},
-	{ "usb_usb2",			V_01				},
+	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
+	{ "usb_ohci",			V_RANGE(-1, 1)			},
+	{ "usb_usb2",			V_RANGE(-1, 1)			},
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},

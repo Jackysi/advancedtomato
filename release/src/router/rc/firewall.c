@@ -112,19 +112,24 @@ static int dmz_dst(char *s)
 	return 1;
 }
 
-static void ipt_source(const char *s, char *src)
+void ipt_addr(char *addr, int maxlen, const char *s, const char *dir)
 {
 	char p[32];
 
-	if ((*s) && (strlen(s) < 32))
+	if ((*s) && (*dir))
 	{
 		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2)
-			sprintf(src, "-m iprange --src-range %s", s);
+			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
 		else
-			sprintf(src, "-s %s", s);
+			snprintf(addr, maxlen, "-%c %s", dir[0], s);
 	}
 	else
-		*src = 0;
+		*addr = 0;
+}
+
+static inline void ipt_source(const char *s, char *src)
+{
+	ipt_addr(src, 64, s, "src");
 }
 
 /*
@@ -209,7 +214,6 @@ void ipt_layer7_inbound(void)
 				wanface);
 		if (*manface)
 			ipt_write(
-				":L7in - [0:0]\n"
 				"-A FORWARD -i %s -j L7in\n",
 					manface);
 	}
@@ -291,13 +295,12 @@ static void ipt_webmon(void)
 		wanface);
 	if (*manface)
 		ipt_write(
-			":monitor - [0:0]\n"
 			"-A FORWARD -o %s -j monitor\n",
 			manface);
 
 	ipt_write(
 		"-A monitor -m webmon "
-		"--max_domains %d --max_searches %d %s%s %s %s -j RETURN\n",
+		"--max_domains %d --max_searches %d %s%s %s %s\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
 		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
 		wmtype == 0 ? "" : nvram_safe_get("log_wmip"),
@@ -327,7 +330,11 @@ static void mangle_table(void)
 
 		ttl = nvram_get_int("nf_ttl");
 		if (ttl != 0) {
+#ifdef LINUX26
+			modprobe("xt_HL");
+#else
 			modprobe("ipt_TTL");
+#endif
 			if (ttl > 0) {
 				p = "in";
 			}
@@ -694,7 +701,6 @@ static void filter_forward(void)
 			wanface);
 		if (*manface)
 			ipt_write(
-				":upnp - [0:0]\n"
 				"-A FORWARD -i %s -j upnp\n",
 				manface);
 	}
@@ -784,6 +790,7 @@ int start_firewall(void)
 	char *c;
 	int n;
 	int wanproto;
+	char *iptrestore_argv[] = { "iptables-restore", (char *)ipt_fname, NULL };
 
 	simple_lock("firewall");
 	simple_lock("restrictions");
@@ -888,7 +895,7 @@ int start_firewall(void)
 
 
 	if ((ipt_file = fopen(ipt_fname, "w")) == NULL) {
-		syslog(LOG_CRIT, "Unable to create iptables restore file");
+		notice_set("iptables", "Unable to create iptables restore file");
 		simple_unlock("firewall");
 		return 0;
 	}
@@ -917,8 +924,10 @@ int start_firewall(void)
 		}
 	}
 
-	if (eval("iptables-restore", (char *)ipt_fname) == 0) {
+	notice_set("iptables", "");
+	if (_eval(iptrestore_argv, ">/var/notice/iptables", 0, NULL) == 0) {
 		led(LED_DIAG, 0);
+		notice_set("iptables", "");
 	}
 	else {
 		sprintf(s, "%s.error", ipt_fname);
@@ -954,12 +963,15 @@ int start_firewall(void)
 
 #ifdef LINUX26
 	modprobe_r("xt_layer7");
+	modprobe_r("xt_recent");
+	modprobe_r("xt_HL");
 #else
 	modprobe_r("ipt_layer7");
+	modprobe_r("ipt_recent");
+	modprobe_r("ipt_TTL");
 #endif
 	modprobe_r("ipt_ipp2p");
 	modprobe_r("ipt_web");
-	modprobe_r("ipt_TTL");
 	modprobe_r("ipt_webmon");
 
 	unlink("/var/webmon/domain");

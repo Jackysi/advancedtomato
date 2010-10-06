@@ -119,6 +119,7 @@ const defaults_t defaults[] = {
 	{ "ppp_static_ip",		""				},	// PPPoE Static IP
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
+	{ "ppp_custom",			""				},	// PPPD additional options
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
@@ -131,13 +132,8 @@ const defaults_t defaults[] = {
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"		},	// Service set ID (network name)
-#ifdef CONFIG_BCMWL5
 	{ "wl_country",			""		},		// Country (default obtained from driver)
 	{ "wl_country_code",		""		},		// Country (default obtained from driver)
-#else
-	{ "wl_country",			"JP"		},		// Country (default obtained from driver)
-	{ "wl_country_code",		"JP"		},		// !!TB - Country (default to JP to allow all 14 channels)
-#endif
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
     { "wl_ap_isolate",		"0"				},	// AP isolate mode
@@ -269,6 +265,7 @@ const defaults_t defaults[] = {
 	{ "wl_wmf_bss_enable",		"0"			},	// WMF Enable/Disable
 	{ "wl_rifs_advert",		"auto"			},	// RIFS mode advertisement
 	{ "wl_stbc_tx",			"auto"			},	// Default STBC TX setting
+	{ "wl_mcast_regen_bss_enable",	"1"			},	// MCAST REGEN Enable/Disable
 #endif
 
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
@@ -462,7 +459,7 @@ const defaults_t defaults[] = {
 #endif
 
 // admin-access
-	{ "http_username",		""				},	// Username
+	{ "http_username",		""			},	// Username
 	{ "http_passwd",		"admin"			},	// Password
 	{ "remote_management",	"0"				},	// Remote Management [1|0]
 	{ "remote_mgt_https",	"0"				},	// Remote Management use https [1|0]

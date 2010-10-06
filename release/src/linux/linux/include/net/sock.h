@@ -1406,7 +1406,7 @@ static inline void sk_wake_async(struct sock *sk, int how, int band)
  */
 static inline int sock_writeable(struct sock *sk) 
 {
-	return atomic_read(&sk->wmem_alloc) < (sk->sndbuf / 2);
+	return atomic_read(&sk->wmem_alloc) < (sk->sndbuf >> 1);
 }
 
 static inline int gfp_any(void)

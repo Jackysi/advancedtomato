@@ -285,13 +285,13 @@ atomic_t tcp_sockets_allocated;	/* Current number of TCP sockets. */
  * is strict, actions are advisory and have some latency. */
 int tcp_memory_pressure;
 
-#define TCP_PAGES(amt) (((amt)+TCP_MEM_QUANTUM-1)/TCP_MEM_QUANTUM)
+#define TCP_PAGES(amt) (((amt)+TCP_MEM_QUANTUM-1) >> TCP_MEM_QUANTUM_SHIFT)
 
 int tcp_mem_schedule(struct sock *sk, int size, int kind)
 {
 	int amt = TCP_PAGES(size);
 
-	sk->forward_alloc += amt*TCP_MEM_QUANTUM;
+	sk->forward_alloc += amt << TCP_MEM_QUANTUM_SHIFT;
 	atomic_add(amt, &tcp_memory_allocated);
 
 	/* Under limit. */
@@ -338,7 +338,7 @@ suppress_allocation:
 	}
 
 	/* Alas. Undo changes. */
-	sk->forward_alloc -= amt*TCP_MEM_QUANTUM;
+	sk->forward_alloc -= amt << TCP_MEM_QUANTUM_SHIFT;
 	atomic_sub(amt, &tcp_memory_allocated);
 	return 0;
 }
@@ -346,7 +346,7 @@ suppress_allocation:
 void __tcp_mem_reclaim(struct sock *sk)
 {
 	if (sk->forward_alloc >= TCP_MEM_QUANTUM) {
-		atomic_sub(sk->forward_alloc/TCP_MEM_QUANTUM, &tcp_memory_allocated);
+		atomic_sub(sk->forward_alloc >> TCP_MEM_QUANTUM_SHIFT, &tcp_memory_allocated);
 		sk->forward_alloc &= (TCP_MEM_QUANTUM-1);
 		if (tcp_memory_pressure &&
 		    atomic_read(&tcp_memory_allocated) < sysctl_tcp_mem[0])
@@ -1112,18 +1112,22 @@ new_segment:
 					if (off == PAGE_SIZE) {
 						put_page(page);
 						TCP_PAGE(sk) = page = NULL;
+						off = 0;
 					}
-				}
+				} else
+					off = 0;
+
+				if (copy > PAGE_SIZE - off)
+					copy = PAGE_SIZE - off;
+
+				if (!tcp_wmem_schedule(sk, copy))
+					goto wait_for_memory;
 
 				if (!page) {
 					/* Allocate new cache page. */
 					if (!(page=tcp_alloc_page(sk)))
 						goto wait_for_memory;
-					off = 0;
 				}
-
-				if (copy > PAGE_SIZE-off)
-					copy = PAGE_SIZE-off;
 
 				/* Time to copy data. We are close to the end! */
 				err = tcp_copy_to_page(sk, from, skb, page, off, copy);

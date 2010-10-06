@@ -819,7 +819,9 @@ static void start_rstats(int new)
 
 // !!TB - FTP Server
 
-#ifdef TCONFIG_USB
+#if defined(TCONFIG_FTP) || \
+    defined(TCONFIG_SAMBA) || \
+    defined(TCONFIG_MEDIA_SERVER)
 /* 
  * Return non-zero if we created the directory,
  * and zero if it already existed.
@@ -835,7 +837,9 @@ int mkdir_if_none(char *dir)
 	closedir(dp);
 	return 0;
 }
-
+#endif
+ 
+#ifdef TCONFIG_FTP
 static char *get_full_storage_path(char *val)
 {
 	static char buf[128];
@@ -857,9 +861,7 @@ static char *nvram_storage_path(char *var)
 	char *val = nvram_safe_get(var);
 	return get_full_storage_path(val);
 }
-#endif // TCONFIG_USB
 
-#ifdef TCONFIG_FTP
 char vsftpd_conf[] = "/etc/vsftpd.conf";
 char vsftpd_users[] = "/etc/vsftpd.users";
 char vsftpd_passwd[] = "/etc/vsftpd.passwd";
@@ -870,6 +872,9 @@ static void start_ftpd(void)
 {
 	char tmp[256];
 	FILE *fp, *f;
+	char *buf;
+	char *p, *q;
+	char *user, *pass, *rights;
 
 	if (getpid() != 1) {
 		start_service("ftpd");
@@ -975,17 +980,16 @@ static void start_ftpd(void)
 	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
 		return;
 
+	if (((user = nvram_get("http_username")) == NULL) || (*user == 0)) user = "admin";
+	if (((pass = nvram_get("http_passwd")) == NULL) || (*pass == 0)) pass = "admin";
+
 	fprintf(fp, /* anonymous, admin, nobody */
 		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
 		"%s:%s:0:0:root:/:/sbin/nologin\n"
 		"nobody:x:65534:65534:nobody:%s/:/sbin/nologin\n",
-		nvram_storage_path("ftp_anonroot"), "admin",
-		nvram_get_int("ftp_super") ? crypt(nvram_safe_get("http_passwd"), "$1$") : "x",
+		nvram_storage_path("ftp_anonroot"), user,
+		nvram_get_int("ftp_super") ? crypt(pass, "$1$") : "x",
 		MOUNT_ROOT);
-
-	char *buf;
-	char *p, *q;
-	char *user, *pass, *rights;
 
 	if ((buf = strdup(nvram_safe_get("ftp_users"))) != NULL)
 	{
@@ -1215,7 +1219,8 @@ static void start_samba(void)
 				stat(path, &sb);
 				if (!S_ISDIR(sb.st_mode))
 					continue;
-				/* If this dir & its parent dir are on the same device, it is not a mountepoint */
+
+				/* If this dir & its parent dir are on the same device, it is not a mountpoint */
 				strcat(path, "/.");
 				stat(path, &sb);
 				thisdev = sb.st_dev;

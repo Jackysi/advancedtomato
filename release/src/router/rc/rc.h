@@ -233,6 +233,7 @@ extern char **layer7_in;
 
 extern void enable_ip_forward(void);
 extern void ipt_write(const char *format, ...);
+extern void ipt_addr(char *addr, int maxlen, const char *s, const char *dir);
 extern int ipt_ipp2p(const char *v, char *opt);
 extern int ipt_layer7(const char *v, char *opt);
 extern void ipt_layer7_inbound(void);

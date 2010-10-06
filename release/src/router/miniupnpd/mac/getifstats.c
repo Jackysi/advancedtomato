@@ -1,9 +1,10 @@
-/* MiniUPnP project
+/*
+ * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * author: Ryan Wagoner and Thomas Bernard
- * (c) 2006 Ryan Wagoner
+ * (c) 2009 Jarder Weyrich
  * This software is subject to the conditions detailed
- * in the LICENCE file provided within the distribution */
+ * in the LICENCE file provided within the distribution
+ */
 
 #include <syslog.h>
 #include <sys/sysctl.h>

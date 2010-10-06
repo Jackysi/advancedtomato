@@ -298,12 +298,11 @@ void br_fdb_insert(struct net_bridge *br,
 		if (!memcmp(fdb->addr.addr, addr, ETH_ALEN)) {
 			/* attempt to update an entry for a local interface */
 			if (fdb->is_local) {
-				if (is_local) 
-					printk(KERN_INFO "%s: attempt to add"
-					       " interface with same source address.\n",
-					       source->dev->name);
-				else if (net_ratelimit()) 
-					printk(KERN_WARNING "%s: received packet with "
+				/* it is okay to have multiple ports with same 
+				 * address, just don't allow to be spoofed.
+				 */
+				if (!is_local && net_ratelimit())
+					printk(KERN_WARNING "%s: received packet with"
 					       " own address as source address\n",
 					       source->dev->name);
 				goto out;

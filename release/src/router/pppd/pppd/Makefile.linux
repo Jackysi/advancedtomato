@@ -37,13 +37,13 @@ LIBS =
 
 # Uncomment the next 2 lines to include support for Microsoft's
 # MS-CHAP authentication protocol.  Also, edit plugins/radius/Makefile.linux.
-#CHAPMS=y
-#USE_CRYPT=y
+CHAPMS=y
+USE_CRYPT=y
 # Don't use MSLANMAN unless you really know what you're doing.
 #MSLANMAN=y
 # Uncomment the next line to include support for MPPE.  CHAPMS (above) must
 # also be enabled.  Also, edit plugins/radius/Makefile.linux.
-#MPPE=y
+MPPE=y
 
 # Uncomment the next line to include support for PPP packet filtering.
 # This requires that the libpcap library and headers be installed

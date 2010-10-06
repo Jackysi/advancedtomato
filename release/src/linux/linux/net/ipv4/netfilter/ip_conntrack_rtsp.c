@@ -123,7 +123,7 @@ rtsp_parse_message(char* ptcp, uint tcplen, uint* ptcpoff,
         }
         if (lineoff+linelen > tcplen)
         {
-            INFOP("!! overrun !!\n");
+            DEBUGP("!! overrun !!\n");
             break;
         }
 
@@ -168,7 +168,7 @@ rtsp_parse_transport(char* ptran, uint tranlen,
     if (tranlen < 10 || !iseol(ptran[tranlen-1]) ||
         nf_strncasecmp(ptran, "Transport:", 10) != 0)
     {
-        INFOP("sanity check failed\n");
+        DEBUGP("sanity check failed\n");
         return 0;
     }
     DEBUGP("tran='%.*s'\n", (int)tranlen, ptran);
@@ -359,7 +359,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
             }
             if (off > hdrsoff+hdrslen)
             {
-                INFOP("!! overrun !!");
+                DEBUGP("!! overrun !!");
                 break;
             }
 
@@ -435,7 +435,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
         }
         else
         {
-            INFOP("ip_conntrack_expect_related failed (%d)\n", rc);
+            DEBUGP("ip_conntrack_expect_related failed (%d)\n", rc);
         }
 #else
         /* pass the request off to the nat helper */
@@ -446,7 +446,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
         }
         else
         {
-            INFOP("ip_conntrack_expect_related failed (%d)\n", rc);
+            DEBUGP("ip_conntrack_expect_related failed (%d)\n", rc);
         }
        if(pb_range == exp.help.exp_rtsp_info.pbtype)
        {
@@ -457,7 +457,7 @@ help_out(const struct iphdr* iph, size_t pktlen,
                }
                else
                {
-                   INFOP("ip_conntrack_expect_related rtcp failed (%d)\n", rc);
+                   DEBUGP("ip_conntrack_expect_related rtcp failed (%d)\n", rc);
                }
        }
         UNLOCK_BH(&ip_rtsp_lock);

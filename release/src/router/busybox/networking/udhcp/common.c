@@ -53,7 +53,7 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_DNS_STRING | OPTION_LIST         , 0x77 }, /* DHCP_DOMAIN_SEARCH */
 	{ OPTION_SIP_SERVERS                      , 0x78 }, /* DHCP_SIP_SERVERS   */
 #endif
-	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
+	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0x79 }, /* DHCP_STATIC_ROUTES */
 	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x21 }, /* DHCP_ROUTES        */
 	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
 	{ OPTION_STRING                           , 0xfc }, /* DHCP_WPAD          */

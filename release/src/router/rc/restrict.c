@@ -194,8 +194,10 @@ void ipt_restrictions(void)
 	int proto;
 	char *ipp2p;
 	char *layer7;
+	char *addr_type, *addr;
 	char app[256];
 	char ports[256];
+	char iptaddr[192];
 	int http_file;
 	int ex;
 	int first;
@@ -242,57 +244,86 @@ void ipt_restrictions(void)
 
 		/*
 
-		proto<dir<port<ipp2p<layer7
+		proto<dir<port<ipp2p<layer7[<addr_type<addr]
 
 		proto:
 			-1 = both tcp/udp
+			-2 = any protocol
 			else = proto #
 		dir:
+		if proto == -1,tcp,udp:
 			a = any port
 			s = src port
 			d = dst port
 			x = src or dst port
+		port:
+			port # if proto == -1,tcp,udp
 		ipp2p:
 			# = ipp2p bit
 		l7:
 			.* = pattern name
+		addr_type:
+			0 = any
+			1 = dest ip
+			2 = src ip
+		addr:
+			ip if addr_type == 1
 
 		*/
 		while ((q = strsep(&matches, ">")) != NULL) {
-			if (vstrsep(q, "<", &pproto, &dir, &pport, &ipp2p, &layer7) != 5) continue;
+			n = vstrsep(q, "<", &pproto, &dir, &pport, &ipp2p, &layer7, &addr_type, &addr);
+			if (n == 5) {
+				// fixup for backward compatibility
+				addr_type = "0";
+			}
+			else if (n != 7) continue;
 
 			if ((*dir != 'a') && (*dir != 's') && (*dir != 'd') && (*dir != 'x')) continue;
-			if ((*dir != 'a') && (*pport)) {
-				if ((*dir == 'x') || (strchr(pport, ','))) {
-					// use mport for multiple ports or src-or-dst type matches
-					snprintf(ports, sizeof(ports), "-m mport --%sports %s", (*dir == 'x') ? "" : dir, pport);
-				}
-				else {
-					// else, use built-in
-					snprintf(ports, sizeof(ports), "--%sport %s", dir, pport);
-				}
-			}
-			else {
-				ports[0] = 0;
-			}
 
+			// p2p, layer7
 			if (!ipt_ipp2p(ipp2p, app)) {
 				if (ipt_layer7(layer7, app) == -1) continue;
 			}
 
 			blockall = 0;
 
-			proto = atoi(pproto);
-			if ((*dir == 'a') && (proto == -1)) {
-				// shortcut if tcp+udp+any port
-				ipt_write("-A %s %s -j %s\n", reschain, app, chain_out_drop);
-				continue;
+			// dest ip/domain address
+			if ((*addr_type == '1') || (*addr_type == '2')) {
+				ipt_addr(iptaddr, sizeof(iptaddr), addr, (*addr_type == '1') ? "dst" : "src");
+			}
+			else {
+				iptaddr[0] = 0;
 			}
 
-			if (proto != 17)
-				ipt_write("-A %s -p %sp %s %s -j %s\n", reschain, "tc", ports, app, chain_out_drop);
-			if (proto != 6)
-				ipt_write("-A %s -p %sp %s %s -j %s\n", reschain, "ud", ports, app, chain_out_drop);
+			// proto & ports
+			proto = atoi(pproto);
+			if (proto <= -2) {
+				// shortcut if any proto+any port
+				ipt_write("-A %s %s %s -j %s\n", reschain, iptaddr, app, chain_out_drop);
+				continue;
+			}
+			else if ((proto == 6) || (proto == 17) || (proto == -1)) {
+				if ((*dir != 'a') && (*pport)) {
+					if ((*dir == 'x') || (strchr(pport, ','))) {
+						// use mport for multiple ports or src-or-dst type matches
+						snprintf(ports, sizeof(ports), "-m mport --%sports %s", (*dir == 'x') ? "" : dir, pport);
+					}
+					else {
+						// else, use built-in
+						snprintf(ports, sizeof(ports), "--%sport %s", dir, pport);
+					}
+				}
+				else {
+					ports[0] = 0;
+				}
+				if (proto != 17)
+					ipt_write("-A %s -p tcp %s %s %s -j %s\n", reschain, ports, iptaddr, app, chain_out_drop);
+				if (proto != 6)
+					ipt_write("-A %s -p udp %s %s %s -j %s\n", reschain, ports, iptaddr, app, chain_out_drop);
+			}
+			else {
+				ipt_write("-A %s -p %d %s %s -j %s\n", reschain, proto, iptaddr, app, chain_out_drop);
+			}
 		}
 
 		//

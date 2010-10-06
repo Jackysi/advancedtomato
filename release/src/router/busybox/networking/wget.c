@@ -712,6 +712,8 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 			fprintf(sfp, /* "Connection: close\r\n" */ "\r\n");
 		}
 
+		fflush(sfp);
+
 		/*
 		 * Retrieve HTTP response line and check for "200" status code.
 		 */

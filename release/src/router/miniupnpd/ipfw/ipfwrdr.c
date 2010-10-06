@@ -1,8 +1,10 @@
-/* MiniUPnP project
+/*
+ * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2007 Darren Reed
+ * (c) 2009 Jardel Weyrich
  * This software is subject to the conditions detailed
- * in the LICENCE file provided within the distribution */
+ * in the LICENCE file provided within the distribution
+ */
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -39,9 +41,6 @@ struct file;
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
-#ifndef	TCP_PAWS_IDLE	// IRIX
-#  include <netinet/tcp.h>
-#endif
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
@@ -57,35 +56,13 @@ struct file;
 #include <syslog.h>
 #include <stddef.h>
 #include <stdio.h>
-#if !defined(__SVR4) && !defined(__svr4__) && defined(sun)
-#  include <strings.h>
-#endif
+#include <strings.h>
 #include <string.h>
 #include <unistd.h>
 #include <netinet/ip_fw.h>
 #include "ipfwaux.h"
 
 #include "../config.h"
-
-#ifndef __P
-#  ifdef __STDC__
-#    define	__P(x)	x
-#  else
-#    define	__P(x)	()
-#  endif
-#endif
-#ifndef __STDC__
-#  undef	const
-#  define	const
-#endif
-
-//
-// SunOS4
-//
-#if defined(sun) && !defined(__SVR4) && !defined(__svr4__)
-extern	int	ioctl __P((int, int, void *));
-#endif
-
 #include "../upnpglobalvars.h"
 
 
@@ -285,7 +262,7 @@ int get_redirect_rule_by_index(
 		if (iport != NULL)
 			*iport = ptr->fw_fwd_ip.sin_port;
 		if (ifname != NULL)
-			strlcpy(ifname, ptr->fw_in_if.fu_via_if.name, IFNAMSIZ); // TODO does it work?
+			strlcpy(ifname, ptr->fw_in_if.fu_via_if.name, IFNAMSIZ);
 		if (packets != NULL)
 			*packets = ptr->fw_pcnt;
 		if (bytes != NULL)

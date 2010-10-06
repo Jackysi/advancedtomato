@@ -8118,7 +8118,7 @@ static int evalstring(char *s, int mask);
 
 /* Called to execute a trap.
  * Single callsite - at the end of evaltree().
- * If we return non-zero, exaltree raises EXEXIT exception.
+ * If we return non-zero, evaltree raises EXEXIT exception.
  *
  * Perhaps we should avoid entering new trap handlers
  * while we are executing a trap handler. [is it a TODO?]
@@ -8308,11 +8308,15 @@ evaltree(union node *n, int flags)
 
  out:
 	exception_handler = savehandler;
+
  out1:
+	/* Order of checks below is important:
+	 * signal handlers trigger before exit caused by "set -e".
+	 */
+	if (pending_sig && dotrap())
+		goto exexit;
 	if (checkexit & exitstatus)
 		evalskip |= SKIPEVAL;
-	else if (pending_sig && dotrap())
-		goto exexit;
 
 	if (flags & EV_EXIT) {
  exexit:
@@ -8644,7 +8648,7 @@ poplocalvars(void)
 	while ((lvp = localvars) != NULL) {
 		localvars = lvp->next;
 		vp = lvp->vp;
-		TRACE(("poplocalvar %s\n", vp ? vp->text : "-"));
+		TRACE(("poplocalvar %s\n", vp ? vp->var_text : "-"));
 		if (vp == NULL) {       /* $- saved */
 			memcpy(optlist, lvp->text, sizeof(optlist));
 			free((char*)lvp->text);
@@ -12928,10 +12932,12 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 		if (e == EXERROR)
 			exitstatus = 2;
 		s = state;
-		if (e == EXEXIT || s == 0 || iflag == 0 || shlvl)
+		if (e == EXEXIT || s == 0 || iflag == 0 || shlvl) {
 			exitshell();
-		if (e == EXINT)
+		}
+		if (e == EXINT) {
 			outcslow('\n', stderr);
+		}
 
 		popstackmark(&smark);
 		FORCE_INT_ON; /* enable interrupts */
@@ -13024,6 +13030,7 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 		_mcleanup();
 	}
 #endif
+	TRACE(("End of main reached\n"));
 	exitshell();
 	/* NOTREACHED */
 }

@@ -52,7 +52,6 @@ int ipup_main(int argc, char **argv)
 	killall("listen", SIGKILL);
 	
 	if (!wait_action_idle(10)) return -1;
-	
 
 	wan_ifname = safe_getenv("IFNAME");
 	if ((!wan_ifname) || (!*wan_ifname)) return -1;
@@ -65,7 +64,7 @@ int ipup_main(int argc, char **argv)
 	f_write_string("/tmp/ppp/link", argv[1], 0, 0);
 	
 	if ((value = getenv("IPLOCAL"))) {
-		_dprintf("IPLOCAL=%s\n", getenv("IPLOCAL"));
+		_dprintf("IPLOCAL=%s\n", value);
 
 		ifconfig(wan_ifname, IFUP, value, "255.255.255.255");
 
@@ -85,7 +84,7 @@ int ipup_main(int argc, char **argv)
 
 	if ((value = getenv("IPREMOTE"))) {
 		nvram_set("wan_gateway", value);
-		_dprintf("IPREMOTE=%s\n", getenv("IPREMOTE"));
+		_dprintf("IPREMOTE=%s\n", value);
 	}
 
 	buf[0] = 0;
@@ -99,7 +98,7 @@ int ipup_main(int argc, char **argv)
 	if ((value = getenv("AC_NAME"))) nvram_set("ppp_get_ac", value);
 	if ((value = getenv("SRV_NAME"))) nvram_set("ppp_get_srv", value);
 	if ((value = getenv("MTU"))) nvram_set("wan_run_mtu", value);
-	
+
 	start_wan_done(wan_ifname);
 
 	TRACE_PT("end\n");
