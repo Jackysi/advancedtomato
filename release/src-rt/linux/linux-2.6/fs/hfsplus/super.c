@@ -27,7 +27,7 @@ static void hfsplus_read_inode(struct inode *inode)
 	int err;
 
 	INIT_LIST_HEAD(&HFSPLUS_I(inode).open_dir_list);
-	init_MUTEX(&HFSPLUS_I(inode).extents_lock);
+	mutex_init(&HFSPLUS_I(inode).extents_lock);
 	HFSPLUS_I(inode).flags = 0;
 	HFSPLUS_I(inode).rsrc_inode = NULL;
 	atomic_set(&HFSPLUS_I(inode).opencnt, 0);
@@ -142,15 +142,12 @@ static void hfsplus_clear_inode(struct inode *inode)
 	}
 }
 
-static void hfsplus_write_super(struct super_block *sb)
+static int hfsplus_sync_fs(struct super_block *sb, int wait)
 {
 	struct hfsplus_vh *vhdr = HFSPLUS_SB(sb).s_vhdr;
 
 	dprint(DBG_SUPER, "hfsplus_write_super\n");
 	sb->s_dirt = 0;
-	if (sb->s_flags & MS_RDONLY)
-		/* warn? */
-		return;
 
 	vhdr->free_blocks = cpu_to_be32(HFSPLUS_SB(sb).free_blocks);
 	vhdr->next_alloc = cpu_to_be32(HFSPLUS_SB(sb).next_alloc);
@@ -182,6 +179,15 @@ static void hfsplus_write_super(struct super_block *sb)
 		}
 		HFSPLUS_SB(sb).flags &= ~HFSPLUS_SB_WRITEBACKUP;
 	}
+	return 0;
+}
+
+static void hfsplus_write_super(struct super_block *sb)
+{
+	if (!(sb->s_flags & MS_RDONLY))
+		hfsplus_sync_fs(sb, 1);
+	else
+		sb->s_dirt = 0;
 }
 
 static void hfsplus_put_super(struct super_block *sb)
@@ -265,6 +271,7 @@ static const struct super_operations hfsplus_sops = {
 	.clear_inode	= hfsplus_clear_inode,
 	.put_super	= hfsplus_put_super,
 	.write_super	= hfsplus_write_super,
+	.sync_fs	= hfsplus_sync_fs,
 	.statfs		= hfsplus_statfs,
 	.remount_fs	= hfsplus_remount,
 	.show_options	= hfsplus_show_options,
@@ -281,11 +288,10 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	struct nls_table *nls = NULL;
 	int err = -EINVAL;
 
-	sbi = kmalloc(sizeof(struct hfsplus_sb_info), GFP_KERNEL);
+	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
 	if (!sbi)
 		return -ENOMEM;
 
-	memset(sbi, 0, sizeof(HFSPLUS_SB(sb)));
 	sb->s_fs_info = sbi;
 	INIT_HLIST_HEAD(&sbi->rsrc_inodes);
 	hfsplus_fill_defaults(sbi);
@@ -339,15 +345,14 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (!(vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_UNMNT))) {
 		printk(KERN_WARNING "hfs: Filesystem was not cleanly unmounted, "
-		       "running fsck.hfsplus is recommended.  mounting read-only.\n");
-		sb->s_flags |= MS_RDONLY;
+		       "running fsck.hfsplus is recommended.\n");
 	} else if (sbi->flags & HFSPLUS_SB_FORCE) {
 		/* nothing */
 	} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_SOFTLOCK)) {
 		printk(KERN_WARNING "hfs: Filesystem is marked locked, mounting read-only.\n");
 		sb->s_flags |= MS_RDONLY;
-	} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) {
-		printk(KERN_WARNING "hfs: write access to a jounaled filesystem is not supported, "
+	} else if ((vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) && !(sb->s_flags & MS_RDONLY)) {
+		printk(KERN_WARNING "hfs: write access to a journaled filesystem is not supported, "
 		       "use the force option at your own risk, mounting read-only.\n");
 		sb->s_flags |= MS_RDONLY;
 	}
@@ -379,6 +384,7 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		iput(root);
 		goto cleanup;
 	}
+	sb->s_root->d_op = &hfsplus_dentry_operations;
 
 	str.len = sizeof(HFSP_HIDDENDIR_NAME) - 1;
 	str.name = HFSP_HIDDENDIR_NAME;
