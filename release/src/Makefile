@@ -97,6 +97,7 @@ all: tomato_ver
 	@$(MAKE) -C btools
 
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).bin
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
@@ -112,8 +113,24 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		-m 0x10577050,image/WR850G.bin \
 		| tee -a fpkg.log
 else
+ifeq ($(NVRAM_SIZE),60)
+ifeq ($(USB),USB)
+	# Linksys E3000 build
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
+		-l 61XN,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+else
+	# Linksys E2000 build
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l 32XN,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+else
+	# Create generic TRX image
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx \
+		| tee -a fpkg.log
+endif
 endif
 
 	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(V2).log
@@ -578,6 +595,12 @@ r2f:
 
 r2d:
 	@$(MAKE) d MIPS32=r2
+
+e3000:
+	@$(MAKE) r2m r2e ND=E3000 NVRAM_SIZE=60
+
+e2000:
+	@$(MAKE) r2s ND=E2000 NVRAM_SIZE=60
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
