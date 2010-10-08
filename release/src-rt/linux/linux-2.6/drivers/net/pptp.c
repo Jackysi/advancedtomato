@@ -672,8 +672,10 @@ static int pptp_rcv(struct sk_buff *skb)
 	if (skb->pkt_type != PACKET_HOST)
 		goto drop;
 
-	/*if (!pskb_may_pull(skb, 12))
-		goto drop;*/
+#if !defined(CONFIG_NET_IPGRE_DEMUX) && !defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+	if (!pskb_may_pull(skb, 12))
+		goto drop;
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	iph = ip_hdr(skb);
