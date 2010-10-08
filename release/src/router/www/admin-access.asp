@@ -46,6 +46,7 @@ var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['
 /* VPN-BEGIN */
 	['VPN Tunneling', 'vpn'],
 /* VPN-END */
+	['IP/MAC BW Limiter', 'new'],
 	['Administration', 'admin']];
 
 function toggle(service, isup)
