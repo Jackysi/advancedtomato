@@ -18,7 +18,7 @@
 #include "shared.h"
 
 
-const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "mystery" };
+const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "usb" };
 
 #ifdef LINUX26
 #define GPIO_IOCTL
@@ -179,7 +179,7 @@ int nvget_gpio(const char *name, int *gpio, int *inv)
 
 int led(int which, int mode)
 {
-//				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST
+//				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST/USB
 //				    ----- ----- ----- ----- ----- ----- ----- -----
 	static int wrt54g[]	= { 255,  1,    2,    3,    7,    255,  255,  255	};
 	static int wrtsl[]	= { 255,  1,    5,    7,    0,    255,  255,  255	};
@@ -197,7 +197,7 @@ int led(int which, int mode)
 	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
 	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
-	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,  255	};
+	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,   -7	};
 #endif
 
 	char s[16];
