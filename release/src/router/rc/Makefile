@@ -53,6 +53,7 @@ install: all
 	@chmod 0500 $(INSTALLDIR)/sbin/rc
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc init
+	@cd $(INSTALLDIR)/sbin && ln -sf rc console
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
 	@cd $(INSTALLDIR)/sbin && ln -sf rc service
 	@cd $(INSTALLDIR)/sbin && ln -sf rc buttons

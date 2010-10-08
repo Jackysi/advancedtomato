@@ -53,7 +53,126 @@
 #include <getopt.h>
 #include <syslog.h>
 
-#include <usb.h>
+#ifndef LIBUSB10
+    #include <usb.h>
+
+    inline int get_devnum(struct usb_device * dev)
+    {
+	return dev->devnum;
+    }
+    inline int get_busnum(struct usb_device * dev)
+    {
+	return (int)strtol(dev->bus->dirname,NULL,10);
+    }
+#else
+    #include <libusb.h>
+    #include <unistd.h>
+
+    #define USB_ENDPOINT_TYPE_MASK	LIBUSB_ENDPOINT_ADDRESS_MASK
+    #define USB_ENDPOINT_DIR_MASK	LIBUSB_ENDPOINT_DIR_MASK
+    #define USB_ENDPOINT_TYPE_BULK	LIBUSB_TRANSFER_TYPE_BULK
+    #define USB_TYPE_STANDARD		LIBUSB_REQUEST_TYPE_STANDARD
+    #define USB_RECIP_DEVICE		LIBUSB_RECIPIENT_DEVICE
+    #define USB_REQ_SET_FEATURE		LIBUSB_REQUEST_SET_FEATURE
+
+    #define LIBUSB_HAS_DETACH_KERNEL_DRIVER_NP
+    #define LIBUSB_HAS_GET_DRIVER_NP
+
+
+    #define usb_device		libusb_device
+    #define usb_dev_handle	libusb_device_handle
+    #define usb_endpoint_descriptor	libusb_endpoint_descriptor
+
+    #define usb_init()		libusb_init ( &ctx )
+    #define usb_set_debug(x)	libusb_set_debug( ctx, 3 );
+    #define usb_find_busses()
+    #define usb_find_devices()
+    #define usb_close		libusb_close
+    #define usb_get_string_simple	libusb_get_string_descriptor_ascii
+    #define usb_reset		libusb_reset_device
+    #define usb_claim_interface	libusb_claim_interface
+    #define usb_clear_halt	libusb_clear_halt
+    #define usb_release_interface	libusb_release_interface
+    #define usb_control_msg	libusb_control_transfer
+    #define usb_set_configuration	libusb_set_configuration
+    #define usb_detach_kernel_driver_np	libusb_detach_kernel_driver
+
+    libusb_device_handle * usb_open(libusb_device *dev){
+	libusb_device_handle * handle;
+	libusb_open(dev, &handle);
+	return handle;
+    }
+
+    int get_busnum(struct libusb_device * dev)
+    {
+	return libusb_get_bus_number(dev);
+    }
+
+    int get_devnum(struct libusb_device * dev)
+    {
+	return libusb_get_device_address(dev);
+    }
+
+    int usb_get_driver_np(struct libusb_device_handle *dev, int interface,
+	char *name, unsigned int namelen)
+    {
+	int r = libusb_kernel_driver_active(dev, interface);
+	if (r == 1) {
+		/* libusb-1.0 doesn't expose driver name, so fill in a dummy value */
+		snprintf(name, namelen, "dummy");
+		return 0;
+	} else return r;
+    }
+
+    int usb_bulk_io(struct libusb_device_handle *dev, int ep, char *bytes,
+	int size, int timeout)
+    {
+	int actual_length;
+	int r;
+	printf("endpoint %x size %d timeout %d", ep, size, timeout);
+	r = libusb_bulk_transfer(dev, ep & 0xff, bytes, size,
+		&actual_length, timeout);
+	
+	/* if we timed out but did transfer some data, report as successful short
+	 * read. FIXME: is this how libusb-0.1 works? */
+	if (r == 0 || (r == LIBUSB_ERROR_TIMEOUT && actual_length > 0))
+		return actual_length;
+
+	return r;
+    }
+
+    int usb_bulk_read(struct usb_dev_handle *dev, int ep, char *bytes,
+	int size, int timeout)
+    {
+	if (!(ep & LIBUSB_ENDPOINT_IN)) {
+		/* libusb-0.1 will strangely fix up a read request from endpoint
+		 * 0x01 to be from endpoint 0x81. do the same thing here, but
+		 * warn about this silly behaviour. */
+		puts("endpoint %x is missing IN direction bit, fixing");
+		ep |= LIBUSB_ENDPOINT_IN;
+	}
+
+	return usb_bulk_io(dev, ep, bytes, size, timeout);
+    }
+
+    int usb_bulk_write(struct usb_dev_handle *dev, int ep, char *bytes,
+	int size, int timeout)
+    {
+	if (ep & LIBUSB_ENDPOINT_IN) {
+		/* libusb-0.1 on BSD strangely fix up a write request to endpoint
+		 * 0x81 to be to endpoint 0x01. do the same thing here, but
+		 * warn about this silly behaviour. */
+		puts("endpoint %x has excessive IN direction bit, fixing");
+		ep &= ~LIBUSB_ENDPOINT_IN;
+	}
+
+	return usb_bulk_io(dev, ep, bytes, size, timeout);
+    }
+
+    static struct libusb_context *ctx = NULL;
+
+#endif
+
 #include "usb_modeswitch.h"
 
 #define LINE_DIM 1024
@@ -388,8 +507,8 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 	if (dev != NULL) {
-		devnum = dev->devnum;
-		busnum = (int)strtol(dev->bus->dirname,NULL,10);
+		devnum = get_devnum(dev);
+		busnum = get_busnum(dev);
 		SHOW_PROGRESS("Accessing device %03d on bus %03d ...\n", devnum, busnum);
 		devh = usb_open(dev);
 	} else {
@@ -398,11 +517,22 @@ int main(int argc, char **argv)
 	}
 
 	/* Get class of default device/interface */
+#ifndef LIBUSB10
 	defaultClass = dev->descriptor.bDeviceClass;
+	int devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+#else
+	struct libusb_device_descriptor descriptor;
+	libusb_get_device_descriptor(dev, &descriptor);
+	defaultClass = descriptor.bDeviceClass;
+	struct libusb_config_descriptor *config;
+	libusb_get_config_descriptor(dev, 0, &config);
+	int devClass = config->interface[0].altsetting[0].bInterfaceClass;
+	libusb_free_config_descriptor(config);
+#endif
 	if (defaultClass == 0)
-		defaultClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+		defaultClass = devClass;
 	else 
-		if (dev->config[0].interface[0].altsetting[0].bInterfaceClass == 8 && defaultClass != 8) {
+		if (devClass == 8 && defaultClass != 8) {
 			/* Weird device with default class other than 0 and differing interface class */
 			SHOW_PROGRESS("Ambiguous Class/InterfaceClass: 0x%02x/0x08\n", defaultClass);
 			defaultClass = 8;
@@ -566,8 +696,21 @@ void deviceDescription ()
 	memset (iproduct, ' ', DESCR_MAX);
 	memset (iserial, ' ', DESCR_MAX);
 
-	if (dev->descriptor.iManufacturer) {
-		ret = usb_get_string_simple(devh, dev->descriptor.iManufacturer, imanufact, DESCR_MAX);
+#ifndef LIBUSB10
+	int iManufacturer = dev->descriptor.iManufacturer;
+	int iProduct = dev->descriptor.iProduct;
+	int iSerialNumber = dev->descriptor.iSerialNumber;
+#else
+	struct libusb_device_descriptor descriptor;
+	libusb_get_device_descriptor(dev, &descriptor);
+
+	int iManufacturer = descriptor.iManufacturer;
+	int iProduct = descriptor.iProduct;
+	int iSerialNumber = descriptor.iSerialNumber;
+#endif
+
+	if (iManufacturer) {
+		ret = usb_get_string_simple(devh, iManufacturer, imanufact, DESCR_MAX);
 		if (ret < 0)
 			fprintf(stderr, "Error: could not get description string \"manufacturer\"\n");
 	} else
@@ -576,8 +719,8 @@ void deviceDescription ()
 	if (c)
 		memset((void*)c, '\0', 1);
 
-	if (dev->descriptor.iProduct) {
-		ret = usb_get_string_simple(devh, dev->descriptor.iProduct, iproduct, DESCR_MAX);
+	if (iProduct) {
+		ret = usb_get_string_simple(devh, iProduct, iproduct, DESCR_MAX);
 		if (ret < 0)
 			fprintf(stderr, "Error: could not get description string \"product\"\n");
 	} else
@@ -586,8 +729,8 @@ void deviceDescription ()
 	if (c)
 		memset((void*)c, '\0', 1);
 
-	if (dev->descriptor.iSerialNumber) {
-		ret = usb_get_string_simple(devh, dev->descriptor.iSerialNumber, iserial, DESCR_MAX);
+	if (iSerialNumber) {
+		ret = usb_get_string_simple(devh, iSerialNumber, iserial, DESCR_MAX);
 		if (ret < 0)
 			fprintf(stderr, "Error: could not get description string \"serial number\"\n");
 	} else
@@ -810,7 +953,11 @@ int switchAltSetting ()
 
 	SHOW_PROGRESS("Changing to alt setting %i ...\n", AltSetting);
 	ret = usb_claim_interface(devh, Interface);
+#ifndef LIBUSB10
 	ret = usb_set_altinterface(devh, AltSetting);
+#else
+	ret = libusb_set_interface_alt_setting(devh, Interface, AltSetting);
+#endif
 	usb_release_interface(devh, Interface);
 	if (ret != 0) {
 		SHOW_PROGRESS(" Changing to alt setting returned error %d. Trying to continue\n", ret);
@@ -827,7 +974,7 @@ void switchHuaweiMode ()
 	int ret;
 
 	SHOW_PROGRESS("Sending Huawei control message ...\n");
-	ret = usb_control_msg(devh, USB_TYPE_STANDARD + USB_RECIP_DEVICE, USB_REQ_SET_FEATURE, 00000001, 0, buffer, 0, 1000);
+	ret = usb_control_msg(devh, USB_TYPE_STANDARD | USB_RECIP_DEVICE, USB_REQ_SET_FEATURE, 00000001, 0, buffer, 0, 1000);
 	if (ret != 0) {
 		fprintf(stderr, "Error: sending Huawei control message failed (error %d). Aborting.\n\n", ret);
 		exit(1);
@@ -1058,7 +1205,7 @@ int checkSuccess()
 				devh = 0;
 				if (verbose) {
 					printf("\nFound target device %03d on bus %03d\n", \
-					dev->devnum, (int)strtol(dev->bus->dirname,NULL,10));
+					get_devnum(dev), get_busnum(dev));
 					printf("\nTarget device description data\n");
 					printf("-------------------------\n");
 					printf("Manufacturer: %s\n", imanufact);
@@ -1152,8 +1299,10 @@ void release_usb_device(int dummy) {
 */
 struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int mode)
 {
+#ifndef LIBUSB10
 	struct usb_bus *bus;
-	char *listcopy, *token, buffer[2];
+#endif
+	char *listcopy=NULL, *token, buffer[2];
 	int devClass;
 	struct usb_device* right_dev = NULL;
 
@@ -1171,12 +1320,33 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 	if (productList != '\0')
 		listcopy = malloc(strlen(productList)+1);
 
+#ifndef LIBUSB10
 	for (bus = usb_get_busses(); bus; bus = bus->next) {
 		struct usb_device *dev;
 		for (dev = bus->devices; dev; dev = dev->next) {
+#else
+	struct libusb_device **devs;
+	int i=0;
+
+	if (libusb_get_device_list( ctx, &devs ) < 0){
+		perror ("failed to access USB");
+		return 0;
+	}
+
+	while ( (dev = devs[i++]) != NULL) {
+#endif
+#ifndef LIBUSB10
+			int idVendor = dev->descriptor.idVendor;
+			int idProduct = dev->descriptor.idProduct;
+#else
+			struct libusb_device_descriptor descriptor;
+			libusb_get_device_descriptor(dev, &descriptor);
+			int idVendor = descriptor.idVendor;
+			int idProduct = descriptor.idProduct;
+#endif
 			if (verbose)
-				printf ("  searching devices, found USB ID %04x:%04x\n", dev->descriptor.idVendor, dev->descriptor.idProduct);
-			if (dev->descriptor.idVendor != vendor)
+				printf ("  searching devices, found USB ID %04x:%04x\n", idVendor, idProduct);
+			if (idVendor != vendor)
 				continue;
 			if (verbose)
 				printf ("   found matching vendor ID\n");
@@ -1197,16 +1367,16 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 					product += (unsigned char)buffer[0];
 					product <<= 8;
 					product += (unsigned char)buffer[1];
-					if (product == dev->descriptor.idProduct) {
+					if (product == idProduct) {
 						if (verbose)
 							printf ("   found matching product ID from list\n");
 						(*numFound)++;
 						if (busnum == -1)
 							right_dev = dev;
 						else
-							if (dev->devnum >= devnum && (int)strtol(dev->bus->dirname,NULL,10) == busnum) {
+							if (get_devnum(dev) >= devnum && get_busnum(dev) == busnum) {
 								right_dev = dev;
-								TargetProduct = dev->descriptor.idProduct;
+								TargetProduct = idProduct;
 								break;
 							}
 					}
@@ -1216,7 +1386,7 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 				}
 			/* Product ID is given */
 			} else
-				if (product == dev->descriptor.idProduct) {
+				if (product == idProduct) {
 					if (verbose)
 						printf ("   found matching product ID\n");
 					if (targetClass == 0) {
@@ -1225,13 +1395,24 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 						if (verbose)
 							printf ("   adding device\n");
 					} else {
+#ifndef LIBUSB10
 						devClass = dev->descriptor.bDeviceClass;
+						int ifaceClass=dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+#else
+						struct libusb_device_descriptor descriptor;
+						libusb_get_device_descriptor(dev, &descriptor);
+						devClass = descriptor.bDeviceClass;
+						struct libusb_config_descriptor *config;
+						libusb_get_config_descriptor(dev, 0, &config);
+						int ifaceClass = config->interface[0].altsetting[0].bInterfaceClass;
+						libusb_free_config_descriptor(config);
+#endif
 						if (devClass == 0)
-							devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+							devClass = ifaceClass;
 						else
 							/* Check for some quirky devices */
-							if (devClass != dev->config[0].interface[0].altsetting[0].bInterfaceClass)
-								devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+							if (devClass != ifaceClass)
+								devClass = ifaceClass;
 						if (devClass == targetClass) {
 							if (verbose)
 								printf ("   target class %02x matching\n", targetClass);
@@ -1258,13 +1439,15 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 					 * successCheck() and do probe for plausible new devnum/busnum
 					 */
 					if (busnum != -1)
-						if (dev->devnum < devnum || (int)strtol(dev->bus->dirname,NULL,10) != busnum) {
+						if (get_devnum(dev) < devnum || get_busnum(dev) != busnum) {
 							if (verbose)
 								printf ("   busnum/devnum indicates an unrelated device\n");
 							right_dev = NULL;
 						}
 				}
+#ifndef LIBUSB10
 		}
+#endif
 	}
 	if (productList != NULL)
 		free(listcopy);
@@ -1280,8 +1463,15 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 int find_first_bulk_output_endpoint(struct usb_device *dev)
 {
 	int i;
+#ifndef LIBUSB10
 	struct usb_interface_descriptor *alt = &(dev->config[0].interface[0].altsetting[0]);
 	struct usb_endpoint_descriptor *ep;
+#else
+	struct libusb_config_descriptor *config;
+	libusb_get_config_descriptor(dev, 0, &config);
+	const struct libusb_interface_descriptor *alt = &(config[0].interface[0].altsetting[0]);
+	const struct usb_endpoint_descriptor *ep;
+#endif
 
 	for(i=0;i < alt->bNumEndpoints;i++) {
 		ep=&(alt->endpoint[i]);
@@ -1290,6 +1480,9 @@ int find_first_bulk_output_endpoint(struct usb_device *dev)
 			return ep->bEndpointAddress;
 		}
 	}
+#ifdef LIBUSB10
+	libusb_free_config_descriptor(config);
+#endif
 
 	return 0;
 }
@@ -1298,9 +1491,15 @@ int find_first_bulk_output_endpoint(struct usb_device *dev)
 int find_first_bulk_input_endpoint(struct usb_device *dev)
 {
 	int i;
+#ifndef LIBUSB10
 	struct usb_interface_descriptor *alt = &(dev->config[0].interface[0].altsetting[0]);
 	struct usb_endpoint_descriptor *ep;
-
+#else
+	struct libusb_config_descriptor *config;
+	libusb_get_config_descriptor(dev, 0, &config);
+	const struct libusb_interface_descriptor *alt = &(config[0].interface[0].altsetting[0]);
+	const struct usb_endpoint_descriptor *ep;
+#endif
 	for(i=0;i < alt->bNumEndpoints;i++) {
 		ep=&(alt->endpoint[i]);
 		if( ( (ep->bmAttributes & USB_ENDPOINT_TYPE_MASK) == USB_ENDPOINT_TYPE_BULK) &&
@@ -1308,6 +1507,9 @@ int find_first_bulk_input_endpoint(struct usb_device *dev)
 			return ep->bEndpointAddress;
 		}
 	}
+#ifdef LIBUSB10
+	libusb_free_config_descriptor(config);
+#endif
 
 	return 0;
 }
@@ -1427,40 +1629,44 @@ int hexstr2bin(const char *hex, char *buffer, int len)
 void printVersion()
 {
 	char* version = VERSION;
-	printf(" * usb_modeswitch: handle USB devices with multiple modes\n");
-	printf(" * Version %s (C) Josua Dietze 2010\n", version);
-	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
-	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
+	printf(	" * usb_modeswitch: handle USB devices with multiple modes\n"
+		" * Version %s (C) Josua Dietze 2010\n", version );
+#ifndef LIBUSB10
+	printf(	" * Based on libusb0 (0.1.12 and above)\n\n" );
+#else
+	printf(	" * Based on libusb10 (1.0.1 and above)\n\n" );
+#endif
+	printf(	" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
 }
 
 void printHelp()
 {
-	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
-	printf (" -h, --help                    this help\n");
-	printf (" -e, --version                 print version information and exit\n");
-	printf (" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n");
-	printf (" -p, --default-product NUM     product ID of original mode (mandatory)\n");
-	printf (" -V, --target-vendor NUM       target mode vendor ID (optional)\n");
-	printf (" -P, --target-product NUM      target mode product ID (optional)\n");
-	printf (" -C, --target-class NUM        target mode device class (optional)\n");
-	printf (" -m, --message-endpoint NUM    direct the message transfer there (optional)\n");
-	printf (" -M, --message-content <msg>   message to send (hex number as string)\n");
-	printf (" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n");
-	printf (" -n, --need-response           read response to the message transfer (CSW)\n");
-	printf (" -r, --response-endpoint NUM   read response from there (optional)\n");
-	printf (" -d, --detach-only             detach the active driver, no further action\n");
-	printf (" -H, --huawei-mode             apply a special procedure\n");
-	printf (" -S, --sierra-mode             apply a special procedure\n");
-	printf (" -O, --sony-mode               apply a special procedure\n");
-	printf (" -G, --gct-mode                apply a special procedure\n");
-	printf (" -R, --reset-usb               reset the device after all other actions\n");
-	printf (" -Q, --quiet                   don't show progress or error messages\n");
-	printf (" -W, --verbose                 print all settings and debug output\n");
-	printf (" -D, --sysmode                 specific result and syslog message\n");
-	printf (" -s, --success NUM             check switching result after NUM secs\n");
-	printf (" -I, --no-inquire              do not get SCSI attributes (default on)\n\n");
-	printf (" -c, --config-file <filename>  load configuration from file\n\n");
-	printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
-	printf (" -u, --configuration NUM       select USB configuration\n");
-	printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");
+	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n"
+		" -h, --help                    this help\n"
+		" -e, --version                 print version information and exit\n"
+		" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n"
+		" -p, --default-product NUM     product ID of original mode (mandatory)\n"
+		" -V, --target-vendor NUM       target mode vendor ID (optional)\n"
+		" -P, --target-product NUM      target mode product ID (optional)\n"
+		" -C, --target-class NUM        target mode device class (optional)\n"
+		" -m, --message-endpoint NUM    direct the message transfer there (optional)\n"
+		" -M, --message-content <msg>   message to send (hex number as string)\n"
+		" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n"
+		" -n, --need-response           read response to the message transfer (CSW)\n"
+		" -r, --response-endpoint NUM   read response from there (optional)\n"
+		" -d, --detach-only             detach the active driver, no further action\n"
+		" -H, --huawei-mode             apply a special procedure\n"
+		" -S, --sierra-mode             apply a special procedure\n"
+		" -O, --sony-mode               apply a special procedure\n"
+		" -G, --gct-mode                apply a special procedure\n"
+		" -R, --reset-usb               reset the device after all other actions\n"
+		" -Q, --quiet                   don't show progress or error messages\n"
+		" -W, --verbose                 print all settings and debug output\n"
+		" -D, --sysmode                 specific result and syslog message\n"
+		" -s, --success NUM             check switching result after NUM secs\n"
+		" -I, --no-inquire              do not get SCSI attributes (default on)\n\n"
+		" -c, --config-file <filename>  load configuration from file\n\n"
+		" -i, --interface NUM           select initial USB interface (default 0)\n"
+		" -u, --configuration NUM       select USB configuration\n"
+		" -a, --altsetting NUM          select alternative USB interface setting\n\n");
 }

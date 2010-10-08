@@ -56,10 +56,9 @@ obj-y += mdu
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
 obj-$(TCONFIG_USB) += scsi-idle
-obj-$(TCONFIG_USB) += libusb10
-obj-$(TCONFIG_USB) += libusb
-obj-$(TCONFIG_USB) += usbmodeswitch
-#obj-y += sendmail
+obj-y += libusb10
+#obj-y += libusb
+obj-y += usbmodeswitch
 obj-$(TCONFIG_FTP) += vsftpd
 
 ifeq ($(CONFIG_LINUX26),y)
@@ -68,7 +67,6 @@ NEED_EX_NLS = y
 endif
 ifeq ($(TCONFIG_USB_EXTRAS),y)
 NEED_EX_USB = y
-#NEED_BCM57 = y
 endif
 endif
 
@@ -111,8 +109,7 @@ obj-y += miniupnpd
 #
 # configurable packages
 #
-obj-$(TCONFIG_L2TP) += rp-l2tp
-#obj-$(TCONFIG_PPTP) += pptp-client
+obj-$(TCONFIG_L2TP) += xl2tpd
 obj-$(TCONFIG_PPTP) += accel-pptp
 obj-$(TCONFIG_HTTPS) += openssl
 obj-$(TCONFIG_HTTPS) += matrixssl
@@ -221,6 +218,10 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv exportfs/* . && rm -rf exportfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/net && mv sunrpc/* . && rm -rf sunrpc || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/net && mv auth_gss/* . && rm -rf auth_gss || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/sound/core && mv oss/* . && rm -rf oss || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/sound/core && mv seq/* . && rm -rf seq || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/sound && mv core/* . && rm -rf core || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/sound && mv usb/* . && rm -rf usb || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv hcd/* . && rm -rf hcd || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv host/* . && rm -rf host || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv storage/* . && rm -rf storage || true
@@ -228,6 +229,12 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv core/* . && rm -rf core || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv class/* . && rm -rf class || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv misc/* . && rm -rf misc || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/hid && mv usbhid/* . && rm -rf usbhid || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv joystick/* . && rm -rf joystick || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv keyboard/* . && rm -rf keyboard || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv misc/* . && rm -rf misc || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv mouse/* . && rm -rf mouse || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video && mv uvc/* . && rm -rf uvc || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media && mv video/* . && rm -rf video || true
 
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv bcm57xx/* . && rm -rf bcm57xx || true
@@ -241,31 +248,7 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
 	done
 
-ifneq ($(TCONFIG_JFFSV1),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
-endif
-ifeq ($(TCONFIG_JFFS2),y)
-ifeq ($(TCONFIG_JFFSV1),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
-ifneq ($(CONFIG_LINUX26),y)
-	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
-endif
-endif
-endif
-ifneq ($(TCONFIG_JFFS2),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o || true
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o || true
-ifneq ($(CONFIG_LINUX26),y)
-	rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_* || true
-endif
-endif
-
-ifneq ($(TCONFIG_CIFS),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/fs/cifs.*o
-endif
-
 ifneq ($(TCONFIG_L7),y)
-	rm -f $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ipt_layer7.*o
 	rm -f $(TARGETDIR)/usr/lib/iptables/libipt_layer7.so
 endif
 
@@ -300,20 +283,14 @@ endif
 	@chmod 0555 $(TARGETDIR)/usr/lib/*.so*
 
 # !!TB - moved to run after libfoo.pl - to make sure shared libs include all symbols needed by extras
-# separated extra stuff
+# separated/copied extra stuff
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.*o $(PLATFORMDIR)/extras/ || true
-ifneq ($(TCONFIG_OPENVPN),y)
-ifneq ($(TCONFIG_USB_EXTRAS),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
-endif
-endif
 
-#!!TB
-ifneq ($(TCONFIG_EBTABLES),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/net/bridge/netfilter/ebt*.*o $(PLATFORMDIR)/extras/ || true
-endif
+	$(if $(TCONFIG_OPENVPN),@cp -f,$(if $(TCONFIG_USB_EXTRAS),@cp -f,@mv)) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_EBTABLES),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/bridge/netfilter/ebt*.*o $(PLATFORMDIR)/extras/ || true
+
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
@@ -330,14 +307,17 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/sr_mod.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/scanner.*o $(PLATFORMDIR)/extras/ || true
-ifneq ($(NEED_EX_USB),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbserial.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/option.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/sierra.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*acm.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.*o $(PLATFORMDIR)/extras/ || true
-endif
+
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbserial.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/option.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/sierra.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*acm.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.*o $(PLATFORMDIR)/extras/ || true
+
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbkbd.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbmouse.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/hid*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ipw.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/audio.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ov51*.*o $(PLATFORMDIR)/extras/ || true
@@ -355,72 +335,69 @@ endif
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/sound || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/sound/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/sound || true
-
-ifneq ($(NEED_BCM57),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/bcm57*.*o $(PLATFORMDIR)/extras/ || true
-endif
-ifneq ($(TCONFIG_PPTP),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
-endif
-ifneq ($(TCONFIG_L2TP),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
-endif
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_mppe*.*o $(PLATFORMDIR)/extras/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/input/* $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/input || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/hid/* $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/hid || true
+	@cp -f $(TARGETDIR)/lib/modules/*/kernel/drivers/net/bcm57*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_PPTP),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pptp.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_L2TP),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/pppol2tp.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ppp_deflate.*o  $(PLATFORMDIR)/extras/ || true
-	@mkdir -p $(PLATFORMDIR)/extras/crypto
-	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/* $(PLATFORMDIR)/extras/crypto/ || true
+	@mv $(TARGETDIR)/lib/modules/*/kernel/crypto/* $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/crypto || true
-ifneq ($(CONFIG_LINUX26),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/lib/* $(PLATFORMDIR)/extras/ || true
-	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
-endif
+
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp9*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp1251.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-jp.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_sjis.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_gb2312.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-kr.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_big5.*o $(PLATFORMDIR)/extras/ || true
+
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/mbcache.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/msdos.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_USB),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
-endif
-ifneq ($(NEED_EX_NLS),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp9*.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp1251.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-jp.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_sjis.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_gb2312.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-kr.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nls_big5.*o $(PLATFORMDIR)/extras/ || true
-endif
-ifneq ($(TCONFIG_USB),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.*o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/usb || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/*.*o $(PLATFORMDIR)/extras/ || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/mbcache.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/msdos.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.*o $(PLATFORMDIR)/extras/ || true
 endif
+
+	$(if $(TCONFIG_USB_EXTRAS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/connector/cn.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB_EXTRAS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.*o $(PLATFORMDIR)/extras/ || true
 ifneq ($(TCONFIG_USB_EXTRAS),y)
-	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/block/loop.*o $(PLATFORMDIR)/extras/ || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/connector || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/block || true
 endif
+	$(if $(TCONFIG_CIFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/cifs.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_JFFS2),$(if $(TCONFIG_JFFSV1),@mv,@cp -f),@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/jffs2.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_JFFS2),$(if $(TCONFIG_JFFSV1),@mv,@cp -f),@mv) $(TARGETDIR)/lib/modules/*/kernel/lib/zlib_*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_JFFS2),$(if $(TCONFIG_JFFSV1),@cp -f,@mv),@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/jffs.*o $(PLATFORMDIR)/extras/ || true
+	[ ! -f $(TARGETDIR)/lib/modules/*/kernel/lib/* ] && rm -rf $(TARGETDIR)/lib/modules/*/kernel/lib || true
+	$(if $(TCONFIG_L7),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ipt_layer7.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_L7),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/netfilter/xt_layer7.*o $(PLATFORMDIR)/extras/ || true
 
-ifneq ($(CONFIG_LINUX26),y)
-	@mkdir -p $(PLATFORMDIR)/extras/lib
-	@mv $(TARGETDIR)/usr/lib/libusb* $(PLATFORMDIR)/extras/lib/ || true
 	@mkdir -p $(PLATFORMDIR)/extras/apps
-	@mv $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
+	@mkdir -p $(PLATFORMDIR)/extras/lib
+
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/lib/libusb* $(PLATFORMDIR)/extras/lib/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
 	@cp usbmodeswitch/usb_modeswitch.conf $(PLATFORMDIR)/extras/apps/usb_modeswitch.conf || true
 	@cp usbmodeswitch/usb_modeswitch.setup $(PLATFORMDIR)/extras/apps/usb_modeswitch.setup || true
 	@mkdir -p $(PLATFORMDIR)/extras/apps/usb_modeswitch.d
 	@cp -f usbmodeswitch/data/usb_modeswitch.d/* $(PLATFORMDIR)/extras/apps/usb_modeswitch.d || true
+ifneq ($(NEED_EX_USB),y)
 	@rm -rf $(TARGETDIR)/rom/etc/usb_modeswitch.d || true
 	@rm -f  $(TARGETDIR)/rom/etc/usb_modeswitch.conf || true
-	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
 endif
-ifneq ($(TCONFIG_USB),y)
-	@mv $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
-endif
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/sbin/chat $(PLATFORMDIR)/extras/apps/ || true
 
 	@mkdir -p $(TARGETDIR)/rom/etc/l7-protocols
 ifeq ($(TCONFIG_L7PAT),y)
@@ -495,8 +472,8 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean
-	@$(MAKE) iptables-clean pppd-clean dnsmasq-clean zebra-clean openssl-clean ppp-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dnsmasq-clean
+	@$(MAKE) iptables-clean pppd-clean zebra-clean openssl-clean ppp-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -621,7 +598,7 @@ bridge-install:
 
 dnsmasq:
 	@$(SEP)
-	@$(MAKE) -C dnsmasq COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DNO_SCRIPT $(EXTRACFLAGS)"
+	@$(MAKE) -C dnsmasq COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DNO_SCRIPT $(if $(TCONFIG_USB_EXTRAS),,-DNO_TFTP) $(EXTRACFLAGS)"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -739,11 +716,10 @@ libusb-install: libusb
 		ln -sf libusb-0.1.so.4 libusb-0.1.so.4.4.4 && \
 		ln -sf libusb-0.1.so.4 libusb.so
 
-usbmodeswitch: libusb
-	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) \
-	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share \
-	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
-	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb -lpthread"
+usbmodeswitch: libusb10
+	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) -DLIBUSB10 \
+	    -Wl,-R/lib:/usr/lib:/opt/usr/lib:/usr/local/share -lpthread \
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
 
 usbmodeswitchdb-install:
 	@mkdir -p $(TARGETDIR)/rom/etc/usb_modeswitch.d
@@ -773,7 +749,6 @@ radvd-install:
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
 p910nd:
-sendmail:
 samba:
 samba3:
 
@@ -827,8 +802,10 @@ pppd-install: pppd
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
 	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
 	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
+ifeq ($(TCONFIG_L2TP),y)
 	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
 	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
+endif
 
 #	ipupdate-install:
 #		install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
@@ -867,6 +844,13 @@ rp-l2tp-install:
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tp-control
 	install -D rp-l2tp/l2tpd $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
+
+xl2tpd: pppd
+	CFLAGS="-g $(EXTRACFLAGS)" $(MAKE) -C $@ PREFIX=/usr xl2tpd
+
+xl2tpd-install: xl2tpd
+	install -D xl2tpd/xl2tpd $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
+	$(STRIP) $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
 
 
 bpalogin-install:
@@ -921,7 +905,11 @@ dropbear-clean:
 	@rm -f dropbear/config.h
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" ac_cv_func_logout=no ac_cv_func_logwtmp=no $(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline --disable-pututxline --disable-loginfunc --disable-largefile
+	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+		ac_cv_func_logout=no ac_cv_func_logwtmp=no \
+		$(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp \
+		--disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline \
+		--disable-pututxline --disable-loginfunc --disable-pam --enable-openpty
 	@$(MAKE) -C dropbear clean
 
 # Media libraries
@@ -1037,7 +1025,7 @@ endif
 
 jpeg/stamp-h1:
 	cd jpeg && \
-	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" AR2="touch" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" CC=$(CC) AR2="touch" $(CONFIGURE) --enable-shared --enable-static --prefix=''
 	touch jpeg/stamp-h1
 
 jpeg: jpeg/stamp-h1

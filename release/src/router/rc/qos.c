@@ -34,13 +34,11 @@ void ipt_qos(void)
 	const char *chain;
 	int used_qosox;
 	unsigned long min;
-	int used_bcount;
 	int gum;
 
 	if (!nvram_get_int("qos_enable")) return;
 
 	used_qosox = 0;
-	used_bcount = 0;
 	inuse = 0;
 	gum = 0x100;
 
@@ -105,12 +103,7 @@ void ipt_qos(void)
 
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			if (strchr(addr, '-') != NULL) {
-				sprintf(saddr, "-m iprange --%s-range %s", (*addr_type == '1') ? "dst" : "src", addr);
-			}
-			else {
-				sprintf(saddr, "-%c %s", (*addr_type == '1') ? 'd' : 's', addr);
-			}
+			ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src");
 		}
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
@@ -127,21 +120,20 @@ void ipt_qos(void)
 		}
 		strcpy(end, app);
 
-		// -m bcount --range x-y
+		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
 			min = strtoul(bcount, &p, 10);
 			if (*p != 0) {
-				strcat(end, " -m bcount --range ");
+				strcat(end, " -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes ");
 				++p;
 				if (*p == 0) {
-					sprintf(end + strlen(end), "0x%lx", min * 1024);
+					sprintf(end + strlen(end), "%lu:", min * 1024);
 				}
 				else {
-					sprintf(end + strlen(end), "0x%lx-0x%lx", min * 1024, (strtoul(p, NULL, 10) * 1024) - 1);
+					sprintf(end + strlen(end), "%lu:%lu", min * 1024, (strtoul(p, NULL, 10) * 1024) - 1);
 					class_num &= 0x2FF;
 				}
 
-				used_bcount++;
 				gum = 0;
 			}
 			else {
@@ -184,10 +176,6 @@ void ipt_qos(void)
 
 	}
 	free(buf);
-
-	if (used_bcount) {
-		ipt_write("-I QOSO -j BCOUNT\n");
-	}
 
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"

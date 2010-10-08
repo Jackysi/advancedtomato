@@ -352,11 +352,13 @@ emfc_input(emfc_info_t *emfc, void *sdu, void *ifp, uint8 *iph, bool rt_port)
 		EMFC_STATS_INCR(emfc, mcast_data_frames);
 
 		/* Packets with destination IP address in the range 224.0.0.x
-		 * must be forwarded on all ports.
+		 * must be forwarded on all ports. Similarly UPnP specific
+		 * protocol traffic such as SSDP must be forwarded on to all
+		 * the ports.
 		 */
-		if (MCAST_ADDR_LINKLOCAL(dest_ip))
+		if (MCAST_ADDR_LINKLOCAL(dest_ip) || MCAST_ADDR_UPNP_SSDP(dest_ip))
 		{
-			EMF_DEBUG("Flooding the frames with link-local address\n");
+			EMF_DEBUG("Flooding the frames with link-local/ssdp address\n");
 			return (EMF_NOP);
 		}
 

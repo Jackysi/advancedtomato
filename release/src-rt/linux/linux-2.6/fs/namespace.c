@@ -25,9 +25,13 @@
 #include <linux/security.h>
 #include <linux/mount.h>
 #include <linux/ramfs.h>
+#include <linux/log2.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 #include "pnode.h"
+
+#define HASH_SHIFT ilog2(PAGE_SIZE / sizeof(struct list_head))
+#define HASH_SIZE (1UL << HASH_SHIFT)
 
 /* spinlock for vfsmount related operations, inplace of dcache_lock */
 __cacheline_aligned_in_smp DEFINE_SPINLOCK(vfsmount_lock);
@@ -35,7 +39,6 @@ __cacheline_aligned_in_smp DEFINE_SPINLOCK(vfsmount_lock);
 static int event;
 
 static struct list_head *mount_hashtable __read_mostly;
-static int hash_mask __read_mostly, hash_bits __read_mostly;
 static struct kmem_cache *mnt_cache __read_mostly;
 static struct rw_semaphore namespace_sem;
 
@@ -47,8 +50,8 @@ static inline unsigned long hash(struct vfsmount *mnt, struct dentry *dentry)
 {
 	unsigned long tmp = ((unsigned long)mnt / L1_CACHE_BYTES);
 	tmp += ((unsigned long)dentry / L1_CACHE_BYTES);
-	tmp = tmp + (tmp >> hash_bits);
-	return tmp & hash_mask;
+	tmp = tmp + (tmp >> HASH_SHIFT);
+	return tmp & (HASH_SIZE - 1);
 }
 
 struct vfsmount *alloc_vfsmnt(const char *name)
@@ -1798,9 +1801,7 @@ static void __init init_mount_tree(void)
 
 void __init mnt_init(unsigned long mempages)
 {
-	struct list_head *d;
-	unsigned int nr_hash;
-	int i;
+	unsigned u;
 	int err;
 
 	init_rwsem(&namespace_sem);
@@ -1813,35 +1814,11 @@ void __init mnt_init(unsigned long mempages)
 	if (!mount_hashtable)
 		panic("Failed to allocate mount hash table\n");
 
-	/*
-	 * Find the power-of-two list-heads that can fit into the allocation..
-	 * We don't guarantee that "sizeof(struct list_head)" is necessarily
-	 * a power-of-two.
-	 */
-	nr_hash = PAGE_SIZE / sizeof(struct list_head);
-	hash_bits = 0;
-	do {
-		hash_bits++;
-	} while ((nr_hash >> hash_bits) != 0);
-	hash_bits--;
+	printk("Mount-cache hash table entries: %lu\n", HASH_SIZE);
 
-	/*
-	 * Re-calculate the actual number of entries and the mask
-	 * from the number of bits we can fit.
-	 */
-	nr_hash = 1UL << hash_bits;
-	hash_mask = nr_hash - 1;
+	for (u = 0; u < HASH_SIZE; u++)
+		INIT_LIST_HEAD(&mount_hashtable[u]);
 
-	printk("Mount-cache hash table entries: %d\n", nr_hash);
-
-	/* And initialize the newly allocated array */
-	d = mount_hashtable;
-	i = nr_hash;
-	do {
-		INIT_LIST_HEAD(d);
-		d++;
-		i--;
-	} while (i);
 	err = sysfs_init();
 	if (err)
 		printk(KERN_WARNING "%s: sysfs_init error: %d\n",

@@ -833,6 +833,21 @@ function v_domain(e, quiet)
 	return 1;
 }
 
+function v_iptaddr(e, quiet, multi)
+{
+	if ((e = E(e)) == null) return 0;
+
+	if (!v_iptip(e, 1, multi)) {
+		var s = e._error_msg;
+		if (!v_domain(e, 1)) {
+			ferror.set(e, (s) ? s + ', or invalid domain name' : e._error_msg, quiet);
+			return 0;
+		}
+	}
+	ferror.clear(e);
+	return 1;
+}
+
 function v_nodelim(e, quiet, name, checklist)
 {
 	if ((e = E(e)) == null) return 0;
@@ -849,8 +864,8 @@ function v_nodelim(e, quiet, name, checklist)
 
 function v_path(e, quiet, required)
 {
-	if (required && !v_length(e, quiet, 2)) return 0;
 	if ((e = E(e)) == null) return 0;
+	if (required && !v_length(e, quiet, 1)) return 0;
 
 	if (!required && e.value.trim().length == 0) {
 		ferror.clear(e);

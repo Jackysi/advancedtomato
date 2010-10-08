@@ -661,6 +661,15 @@ static inline int nla_padlen(int payload)
 }
 
 /**
+ * nla_type - attribute type
+ * @nla: netlink attribute
+ */
+static inline int nla_type(const struct nlattr *nla)
+{
+	return nla->nla_type & NLA_TYPE_MASK;
+}
+
+/**
  * nla_data - head of payload
  * @nla: netlink attribute
  */
@@ -814,7 +823,7 @@ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
 
 #define NLA_PUT(skb, attrtype, attrlen, data) \
 	do { \
-		if (nla_put(skb, attrtype, attrlen, data) < 0) \
+		if (unlikely(nla_put(skb, attrtype, attrlen, data) < 0)) \
 			goto nla_put_failure; \
 	} while(0)
 

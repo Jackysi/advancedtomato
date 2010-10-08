@@ -130,7 +130,7 @@ rtsp_parse_message(char* ptcp, uint tcplen, uint* ptcpoff,
 			break;
 		}
 		if (lineoff+linelen > tcplen) {
-			INFOP("!! overrun !!\n");
+			DEBUGP("!! overrun !!\n");
 			break;
 		}
 
@@ -178,7 +178,7 @@ rtsp_parse_transport(char* ptran, uint tranlen,
 
 	if (tranlen < 10 || !iseol(ptran[tranlen-1]) ||
 	    nf_strncasecmp(ptran, "Transport:", 10) != 0) {
-		INFOP("sanity check failed\n");
+		DEBUGP("sanity check failed\n");
 		return 0;
 	}
 
@@ -358,7 +358,7 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 			/* pass the request off to the nat helper */
 			ret = nf_nat_rtsp(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
 		else if (nf_conntrack_expect_related(exp) != 0) {
-			INFOP("nf_conntrack_expect_related failed\n");
+			DEBUGP("nf_conntrack_expect_related failed\n");
 			ret  = NF_DROP;
 		}
 		nf_conntrack_expect_put(exp);

@@ -89,6 +89,7 @@ extern int nvram_contains_word(const char *key, const char *word);
 extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
+extern int mtd_getinfo(const char *mtdname, int *part, int *size);
 
 // usb.c
 #ifdef TCONFIG_USB
@@ -138,6 +139,7 @@ enum {
 	MODEL_WL500GD,
 	MODEL_WL520GU,
 	MODEL_DIR320,
+	MODEL_H618B,
 	MODEL_WBRG54,
 	MODEL_WBR2G54,
 	MODEL_WX6615GT,
@@ -156,6 +158,7 @@ enum {
 	MODEL_WRT160Nv3,
 	MODEL_WRT320N,
 	MODEL_WRT610Nv2,
+	MODEL_WRT310Nv1,
 	MODEL_MN700,
 	MODEL_WRH54G,
 	MODEL_WHRG125,
@@ -163,13 +166,9 @@ enum {
 	MODEL_WTR54GS,
 	MODEL_WR100,
 	MODEL_WLA2G54L,
-	MODEL_TM2300
-	
-#if TOMATO_N
-	,
+	MODEL_TM2300,
 	MODEL_WZRG300N,
 	MODEL_WRT300N
-#endif
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,
@@ -193,6 +192,7 @@ enum {
 	HW_BCM4718,
 	HW_BCM4717,
 	HW_BCM5365,
+	HW_BCM4785,
 	HW_UNKNOWN
 };
 

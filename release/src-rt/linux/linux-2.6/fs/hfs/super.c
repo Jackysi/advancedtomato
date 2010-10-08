@@ -103,9 +103,7 @@ static int hfs_remount(struct super_block *sb, int *flags, char *data)
 	if (!(*flags & MS_RDONLY)) {
 		if (!(HFS_SB(sb)->mdb->drAtrb & cpu_to_be16(HFS_SB_ATTRIB_UNMNT))) {
 			printk(KERN_WARNING "hfs: filesystem was not cleanly unmounted, "
-			       "running fsck.hfs is recommended.  leaving read-only.\n");
-			sb->s_flags |= MS_RDONLY;
-			*flags |= MS_RDONLY;
+			       "running fsck.hfs is recommended.\n");
 		} else if (HFS_SB(sb)->mdb->drAtrb & cpu_to_be16(HFS_SB_ATTRIB_SLOCK)) {
 			printk(KERN_WARNING "hfs: filesystem is marked locked, leaving read-only.\n");
 			sb->s_flags |= MS_RDONLY;

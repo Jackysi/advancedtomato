@@ -32,18 +32,6 @@
 
 #define SHELL "/bin/sh"
 
-
-enum {
-	RESTART,
-	STOP,
-	START,
-	USER1,
-	IDLE,
-	REBOOT,
-	HALT,
-	INIT
-};
-
 static int fatalsigs[] = {
 	SIGILL,
 	SIGABRT,
@@ -61,6 +49,7 @@ static int initsigs[] = {
 	SIGUSR2,
 	SIGINT,
 	SIGQUIT,
+	SIGALRM,
 	SIGTERM
 };
 
@@ -72,11 +61,6 @@ static char *defenv[] = {
 	"USER=root",
 	NULL
 };
-
-static int noconsole = 0;
-static volatile int state = INIT;
-static volatile int signaled = -1;
-
 
 /* Set terminal settings to reasonable defaults */
 static void set_term(int fd)
@@ -202,6 +186,13 @@ static pid_t run_shell(int timeout, int nowait)
 	}
 }
 
+int console_main(int argc, char *argv[])
+{
+	for (;;) run_shell(0, 0);
+
+	return 0;
+}
+
 static void shutdn(int rb)
 {
 	int i;
@@ -215,22 +206,25 @@ static void shutdn(int rb)
 		sigaddset(&ss, fatalsigs[i]);
 	for (i = 0; i < sizeof(initsigs) / sizeof(initsigs[0]); i++)
 		sigaddset(&ss, initsigs[i]);
-	sigaddset(&ss, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &ss, NULL);
 
 	for (i = 30; i > 0; --i) {
 		if (((act = check_action()) == ACT_IDLE) || (act == ACT_REBOOT)) break;
-		cprintf("Busy with %d. Waiting before shutdown... %d\n", act, i);
+		_dprintf("Busy with %d. Waiting before shutdown... %d\n", act, i);
 		sleep(1);
 	}
 	set_action(ACT_REBOOT);
 
-	cprintf("TERM\n");
+	// Disconnect pppd - need this for PPTP/L2TP to finish gracefully
+	stop_pptp();
+	stop_l2tp();
+
+	_dprintf("TERM\n");
 	kill(-1, SIGTERM);
-	sleep(2);
+	sleep(3);
 	sync();
 
-	cprintf("KILL\n");
+	_dprintf("KILL\n");
 	kill(-1, SIGKILL);
 	sleep(1);
 	sync();
@@ -265,37 +259,20 @@ static void handle_fatalsigs(int sig)
 	shutdn(-1);
 }
 
+/* Fixed the race condition & incorrect code by using sigwait()
+ * instead of pause(). But SIGCHLD is a problem, since other
+ * code: 1) messes with it and 2) depends on CHLD being caught so
+ * that the pid gets immediately reaped instead of left a zombie.
+ * Pidof still shows the pid, even though it's in Zombie state.
+ * So this SIGCHLD handler reaps and then signals the mainline by
+ * raising ALRM.
+ */
 void handle_reap(int sig)
 {
 	while (waitpid(-1, NULL, WNOHANG) > 0) {
 		//
 	}
-}
-
-static void handle_initsigs(int sig)
-{
-//	TRACE_PT("sig=%d state=%d, signaled=%d\n", sig, state, signaled);
-
-	switch (sig) {
-	case SIGHUP:
-		signaled = RESTART;
-		break;
-	case SIGUSR1:
-		signaled = USER1;
-		break;
-	case SIGUSR2:
-		signaled = START;
-		break;
-	case SIGINT:
-	        signaled = STOP;
-		break;
-	case SIGTERM:
-		signaled = REBOOT;
-		break;
-	case SIGQUIT:
-		signaled = HALT;
-		break;
-	}
+	if (getpid() == 1) raise(SIGALRM);
 }
 
 static int check_nv(const char *name, const char *value)
@@ -303,7 +280,7 @@ static int check_nv(const char *name, const char *value)
 	const char *p;
 	if (!nvram_match("manual_boot_nv", "1")) {
 		if (((p = nvram_get(name)) == NULL) || (strcmp(p, value) != 0)) {
-//			cprintf("Error: Critical variable %s is invalid. Resetting.\n", name);
+			_dprintf("Error: Critical variable %s is invalid. Resetting.\n", name);
 			nvram_set(name, value);
 			return 1;
 		}
@@ -358,6 +335,7 @@ static void check_bootnv(void)
 	int dirty;
 	int hardware;
 	int model;
+	char mac[18];
 
 	model = get_model();
 	dirty = 0;
@@ -367,34 +345,30 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan0hwname", "et0");
 		dirty |= check_nv("vlan1hwname", "et0");
 		break;
-	case MODEL_WL500GP:
-		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
-		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
-			dirty |= check_nv("vlan1ports", "0 5");
-		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
-		if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d"))
-			dirty |= check_nv("et1macaddr", nvram_get("et0macaddr"));
+		if (strncasecmp(nvram_safe_get("et1macaddr"), "00:90:4c", 8) == 0) {
+			strcpy(mac, nvram_safe_get("et0macaddr"));
+			inc_mac(mac, 1);
+			dirty |= check_nv("et1macaddr", mac);
+		}
 		break;
+	case MODEL_WL500GP:
+		dirty |= check_nv("sdram_init", "0x0009");	// 32MB; defaults: 0x000b, 0x0009
+		// fall through
 	case MODEL_WL500GE:
-		if (nvram_match("vlan1ports", "0 5u"))		// default: 0 5u
-			dirty |= check_nv("vlan1ports", "0 5");
-		break;
 	case MODEL_WL500GPv2:
+	case MODEL_WL520GU:
 		if (nvram_match("vlan1ports", "4 5u"))
 			dirty |= check_nv("vlan1ports", "4 5");
-		else if (nvram_match("vlan1ports", "0 5u"))	// 520GU?
-			dirty |= check_nv("vlan1ports", "0 5");
-		break;
-	case MODEL_WL520GU:
-		if (nvram_match("vlan1ports", "0 5u"))
+		else if (nvram_match("vlan1ports", "0 5u"))	// 520GU or WL500GE?
 			dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_WL500GD:
 		dirty |= check_nv("vlan0hwname", "et0");
 		dirty |= check_nv("vlan1hwname", "et0");
-		if (!nvram_get("vlan0ports")) {
+		dirty |= check_nv("boardflags", "0x00000100"); // set BFL_ENETVLAN
+		if (strcmp(nvram_safe_get("vlan0ports"), "") == 0) {
 			dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
 			dirty |= check_nv("vlan1ports", "0 5");
 		}
@@ -414,8 +388,18 @@ static void check_bootnv(void)
 		}
 		dirty |= check_nv("wandevs", "vlan1");
 		dirty |= check_nv("vlan1hwname", "et0");
-		if ((nvram_get("vlan1ports") == NULL) || nvram_match("vlan1ports", "0 5u"))
+		if ((strlen(nvram_safe_get("vlan1ports")) == 0) || nvram_match("vlan1ports", "0 5u"))
 			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_H618B:
+		if ((strlen(nvram_safe_get("vlan1ports")) == 0) || nvram_match("vlan1ports", "0 5u"))
+			dirty |= check_nv("vlan1ports", "0 5");
+		break;
+	case MODEL_WRT310Nv1:
+		if (strlen(nvram_safe_get("vlan1ports")) == 0 || strlen(nvram_safe_get("vlan2ports")) == 0) {
+			dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
+			dirty |= check_nv("vlan2ports", "0 8");
+		}
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
@@ -459,10 +443,8 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
-		if (strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4C", 8) == 0 ||
-		    strncmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
-			char mac[18];
-			strcpy(mac, nvram_get("et0macaddr"));
+		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 3);
 			dirty |= check_nv("pci/1/1/macaddr", mac);
 		}
@@ -493,7 +475,7 @@ static void check_bootnv(void)
 		!nvram_get("scratch") ||
 		!nvram_get("et0macaddr") ||
 		((hardware != HW_BCM4704_BCM5325F) && (!nvram_get("vlan0ports") || !nvram_get("vlan0hwname")))) {
-			cprintf("Unable to find critical settings, erasing NVRAM\n");
+			_dprintf("Unable to find critical settings, erasing NVRAM\n");
 			mtd_erase("nvram");
 			goto REBOOT;
 	}
@@ -563,7 +545,7 @@ static void check_bootnv(void)
 REBOOT:	// do a simple reboot
 		sync();
 		reboot(RB_AUTOBOOT);
-        exit(0);
+		exit(0);
 	}
 }
 
@@ -754,6 +736,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500gP";
 		features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_ohci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			nvram_set("lan_ifnames", "vlan0 eth1 eth2 eth3");	// set to "vlan0 eth2" by DD-WRT; default: vlan0 eth1
@@ -765,14 +750,20 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500W";
 		features = SUP_SES | SUP_80211N;
+#ifdef TCONFIG_USB
+		nvram_set("usb_ohci", "-1");
+#endif
 		/* fix AIR LED */
 		if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
 			nvram_set("wl0gpio0", "0x88");
 		break;
 	case MODEL_WL500GE:
 		mfr = "Asus";
-		name = "WL-500gE";
+		name = "WL-550gE";
 		//	features = ?
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		break;
 	case MODEL_WX6615GT:
 		mfr = "SparkLAN";
@@ -855,6 +846,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "RT-N16";
 		features = SUP_SES | SUP_80211N | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
@@ -888,11 +882,9 @@ static int init_nvram(void)
 		}
 		break;
 	case MODEL_WRT160Nv3:
+		// same as M10, WRT310Nv2
 		mfr = "Linksys";
-		if (nvram_match("boot_hw_model", "M10") && nvram_match("boot_hw_ver", "1.0"))
-			name = "M10 v1"; // renamed wrt160nv3
-		else
-			name = "WRT160N v3";
+		name = nvram_safe_get("boot_hw_model");
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
@@ -930,6 +922,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500gP v2";
 		features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 		}
@@ -941,6 +936,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-520GU";
 		features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			// !!TB - LED fix
@@ -954,6 +952,9 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "WL-500g Deluxe";
 		// features = SUP_SES;
+#ifdef TCONFIG_USB
+		nvram_set("usb_ohci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("t_fix1", name);
 			nvram_set("wl_ifname", "eth1");
@@ -976,8 +977,12 @@ static int init_nvram(void)
 			nvram_set("wl0gpio3", "0");
 		}
 		break;
+	case MODEL_H618B:
+		mfr = "ZTE";
+		name = "ZXV10 H618B";
+		features = SUP_SES | SUP_AOSS_LED;
+		break;
 #endif	// WL_BSS_INFO_VERSION >= 108
-#if TOMATO_N
 	case MODEL_WZRG300N:
 		mfr = "Buffalo";
 		name = "WZR-G300N";
@@ -990,9 +995,21 @@ static int init_nvram(void)
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("wan_ifnameX", "eth1");
 			nvram_set("wl0gpio0", "8");
+			nvram_set("t_fix1", name);
 		}
 		break;
-#endif
+	case MODEL_WRT310Nv1:
+		mfr = "Linksys";
+		name = "WRT310N v1";
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0gpio0", "8");
+			nvram_set("t_fix1", name);
+		}
+		break;
 	}
 
 	if (name) {
@@ -1042,6 +1059,7 @@ static int init_nvram(void)
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
 	nvram_unset("https_crt_gen");
+	nvram_unset("log_wmclear");
 #ifdef TCONFIG_MEDIA_SERVER
 	nvram_unset("ms_rescan");
 #endif
@@ -1074,6 +1092,7 @@ static int init_nvram(void)
 static void load_files_from_nvram(void)
 {
 	char *name, *cp;
+	int ar_loaded = 0;
 	char buf[NVRAM_SPACE];
 
 	if (nvram_getall(buf, sizeof(buf)) != 0)
@@ -1086,8 +1105,13 @@ static void load_files_from_nvram(void)
 			*cp = 0;
 			syslog(LOG_INFO, "Loading file '%s' from nvram", name + 5);
 			nvram_nvram2file(name, name + 5);
+			if (memcmp(".autorun", cp - 8, 9) == 0) 
+				++ar_loaded;
 		}
 	}
+	/* Start any autorun files that may have been loaded into one of the standard places. */
+	if (ar_loaded != 0)
+		run_nvscript(".autorun", NULL, 3);
 }
 
 #if defined(LINUX26) && defined(TCONFIG_USB)
@@ -1107,6 +1131,7 @@ static inline void tune_min_free_kbytes(void)
 
 static void sysinit(void)
 {
+	static int noconsole = 0;
 	static const time_t tm = 0;
 	int hardware;
 	int i;
@@ -1182,8 +1207,15 @@ static void sysinit(void)
 #ifdef LINUX26
 	eval("hotplug2", "--coldplug");
 	start_hotplug2();
-	chmod("/dev/null", 0666);
-	chmod("/dev/zero", 0666);
+
+	static const char *dn[] = {
+		"null", "zero", "random", "urandom", "full", "ptmx",
+		NULL
+	};
+	for (i = 0; dn[i]; ++i) {
+		snprintf(s, sizeof(s), "/dev/%s", dn[i]);
+		chmod(s, 0666);
+	}
 	chmod("/dev/gpio", 0660);
 #endif
 
@@ -1208,9 +1240,6 @@ static void sysinit(void)
 	for (i = 0; i < sizeof(fatalsigs) / sizeof(fatalsigs[0]); i++) {
 		signal(fatalsigs[i], handle_fatalsigs);
 	}
-	for (i = 0; i < sizeof(initsigs) / sizeof(initsigs[0]); i++) {
-		signal(initsigs[i], handle_initsigs);
-	}
 	signal(SIGCHLD, handle_reap);
 
 	switch (model = get_model()) {
@@ -1229,25 +1258,16 @@ static void sysinit(void)
 	modprobe("ctf");
 #endif
 
-	hardware = check_hw_type();
-#if WL_BSS_INFO_VERSION >= 108
-	modprobe("et");
-#else
-	if ((hardware == HW_BCM4702) && (model != MODEL_WR850GV1)) {
-		modprobe("4702et");
-		modprobe("diag");
-	}
-	else {
+	switch (hardware = check_hw_type()) {
+	case HW_BCM4785:
+		modprobe("bcm57xx");
+		break;
+	default:
 		modprobe("et");
+		break;
 	}
-#endif
 
-#ifdef CONFIG_BCMWL5
-	modprobe("emf");
-	modprobe("igs");
-#endif
 	modprobe("wl");
-	modprobe("tomato_ct");
 
 	config_loopback();
 
@@ -1269,11 +1289,11 @@ static void sysinit(void)
 	setup_conntrack();
 	set_host_domain_name();
 
-	start_jffs2();
-
 	set_tz();
 
 	eval("buttons");
+
+	if (!noconsole) xstart("console");
 
 	i = nvram_get_int("sesx_led");
 	led(LED_AMBER, (i & 1) != 0);
@@ -1285,14 +1305,16 @@ static void sysinit(void)
 
 int init_main(int argc, char *argv[])
 {
-	pid_t shell_pid = 0;
+	int state, i;
 	sigset_t sigset;
 
 	sysinit();
 
 	sigemptyset(&sigset);
-	state = START;
-	signaled = -1;
+	for (i = 0; i < sizeof(initsigs) / sizeof(initsigs[0]); i++) {
+		sigaddset(&sigset, initsigs[i]);
+	}
+	sigprocmask(SIG_BLOCK, &sigset, NULL);
 
 #if defined(DEBUG_NOISY)
 	nvram_set("debug_logeval", "1");
@@ -1301,18 +1323,22 @@ int init_main(int argc, char *argv[])
 	nvram_set("debug_ddns", "1");
 #endif
 
+	start_jffs2();
+
+	state = SIGUSR2;	/* START */
+
 	for (;;) {
-//		TRACE_PT("main loop state=%d\n", state);
+		TRACE_PT("main loop signal/state=%d\n", state);
 
 		switch (state) {
-		case USER1:
+		case SIGUSR1:		/* USER1: service handler */
 			exec_service();
-			state = IDLE;
 			break;
-		case RESTART:
-		case STOP:
-		case HALT:
-		case REBOOT:
+
+		case SIGHUP:		/* RESTART */
+		case SIGINT:		/* STOP */
+		case SIGQUIT:		/* HALT */
+		case SIGTERM:		/* REBOOT */
 			led(LED_DIAG, 1);
 			unlink("/var/notice/sysup");
 
@@ -1324,21 +1350,21 @@ int init_main(int argc, char *argv[])
 			stop_vlan();
 			stop_syslog();
 
-			if ((state == REBOOT) || (state == HALT)) {
+			if ((state == SIGTERM /* REBOOT */) ||
+			    (state == SIGQUIT /* HALT */)) {
 				remove_storage_main(1);
 				stop_usb();
 
-				shutdn(state == REBOOT);
+				shutdn(state == SIGTERM /* REBOOT */);
 				exit(0);
 			}
-			if (state == STOP) {
-				state = IDLE;
+			if (state == SIGINT /* STOP */) {
 				break;
 			}
 
-			// RESTART falls through
+			// SIGHUP (RESTART) falls through
 
-		case START:
+		case SIGUSR2:		/* START */
 			SET_LED(RELEASE_WAN_CONTROL);
 			start_syslog();
 
@@ -1358,9 +1384,11 @@ int init_main(int argc, char *argv[])
 			 * remount those drives that actually got unmounted. Make sure to remount ALL
 			 * partitions here by simulating hotplug event.
 			 */
-			if (state == RESTART) add_remove_usbhost("-1", 1);
+			if (state == SIGHUP /* RESTART */)
+				add_remove_usbhost("-1", 1);
 #endif
 
+			create_passwd();
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);
@@ -1377,31 +1405,18 @@ int init_main(int argc, char *argv[])
 			}
 #endif
 
-			syslog(LOG_INFO, "Tomato %s", tomato_version);
-			syslog(LOG_INFO, "%s", nvram_safe_get("t_model_name"));
+			syslog(LOG_INFO, "%s: Tomato %s", nvram_safe_get("t_model_name"), tomato_version);
 
 			led(LED_DIAG, 0);
 			notice_set("sysup", "");
-
-			state = IDLE;
-
-			// fall through
-
-		case IDLE:
-			while (signaled == -1) {
-				check_services();
-				if ((!noconsole) && ((!shell_pid) || (kill(shell_pid, 0) != 0))) {
-					shell_pid = run_shell(0, 1);
-				}
-				else {
-					sigsuspend(&sigset);
-				}
-			}
-			state = signaled;
-			signaled = -1;
 			break;
 		}
+
+		check_services();
+		sigwait(&sigset, &state);
 	}
+
+	return 0;
 }
 
 int reboothalt_main(int argc, char *argv[])
@@ -1414,10 +1429,10 @@ int reboothalt_main(int argc, char *argv[])
 
 	/* In the case we're hung, we'll get stuck and never actually reboot.
 	 * The only way out is to pull power.
-	 * So after 10 seconds, forcibly crash & restart.
+	 * So after 'reset_wait' seconds (default: 20), forcibly crash & restart.
 	 */
 	if (fork() == 0) {
-		int wait = nvram_get_int("reset_wait");
+		int wait = nvram_get_int("reset_wait") ? : 20;
 		if ((wait < 10) || (wait > 120)) wait = 10;
 
 		f_write("/proc/sysrq-trigger", "s", 1, 0 , 0); /* sync disks */

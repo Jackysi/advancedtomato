@@ -16,9 +16,13 @@
 #include <linux/netfilter/xt_statistic.h>
 #include <linux/netfilter/x_tables.h>
 
+struct xt_statistic_priv {
+	uint32_t count;
+};
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-MODULE_DESCRIPTION("xtables statistical match module");
+MODULE_DESCRIPTION("Xtables: statistics-based matching (\"Nth\", random)");
 MODULE_ALIAS("ipt_statistic");
 MODULE_ALIAS("ip6t_statistic");
 
@@ -30,7 +34,7 @@ match(const struct sk_buff *skb,
       const struct xt_match *match, const void *matchinfo,
       int offset, unsigned int protoff, int *hotdrop)
 {
-	struct xt_statistic_info *info = (struct xt_statistic_info *)matchinfo;
+	const struct xt_statistic_info *info = matchinfo;
 	int ret = info->flags & XT_STATISTIC_INVERT ? 1 : 0;
 
 	switch (info->mode) {
@@ -39,10 +43,9 @@ match(const struct sk_buff *skb,
 			ret ^= 1;
 		break;
 	case XT_STATISTIC_MODE_NTH:
-		info = info->master;
 		spin_lock_bh(&nth_lock);
-		if (info->u.nth.count++ == info->u.nth.every) {
-			info->u.nth.count = 0;
+		if (info->master->count++ == info->u.nth.every) {
+			info->master->count = 0;
 			ret ^= 1;
 		}
 		spin_unlock_bh(&nth_lock);
@@ -62,8 +65,22 @@ checkentry(const char *tablename, const void *entry,
 	if (info->mode > XT_STATISTIC_MODE_MAX ||
 	    info->flags & ~XT_STATISTIC_MASK)
 		return 0;
-	info->master = info;
+
+	info->master = kzalloc(sizeof(*info->master), GFP_KERNEL);
+	if (info->master == NULL) {
+		printk(KERN_ERR KBUILD_MODNAME ": Out of memory\n");
+		return 0;
+	}
+	info->master->count = info->u.nth.count;
+
 	return 1;
+}
+
+static void statistic_mt_destroy(const struct xt_match *match, void *matchinfo)
+{
+	const struct xt_statistic_info *info = matchinfo;
+
+	kfree(info->master);
 }
 
 static struct xt_match xt_statistic_match[] = {
@@ -72,6 +89,7 @@ static struct xt_match xt_statistic_match[] = {
 		.family		= AF_INET,
 		.checkentry	= checkentry,
 		.match		= match,
+		.destroy	= statistic_mt_destroy,
 		.matchsize	= sizeof(struct xt_statistic_info),
 		.me		= THIS_MODULE,
 	},
@@ -80,6 +98,7 @@ static struct xt_match xt_statistic_match[] = {
 		.family		= AF_INET6,
 		.checkentry	= checkentry,
 		.match		= match,
+		.destroy	= statistic_mt_destroy,
 		.matchsize	= sizeof(struct xt_statistic_info),
 		.me		= THIS_MODULE,
 	},

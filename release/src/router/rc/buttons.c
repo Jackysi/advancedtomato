@@ -10,14 +10,7 @@
 #include <wlutils.h>
 #include <wlioctl.h>
 
-#if 0 // TOMATO_N
-#include <linux_gpio.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#endif
-
 //	#define DEBUG_TEST
-
 
 static int gf;
 
@@ -123,8 +116,9 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = ses_pushed = 1 << 7;
 		break;		
 	case MODEL_DIR320:
+	case MODEL_H618B:
 		reset_mask = 1 << 7;
-		ses_mask = 1 << 6;
+		ses_mask = 1 << 6;	// WLAN button on H618B
 		break;		
 	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
@@ -174,12 +168,14 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 4;
 		break;
 #endif
-#if TOMATO_N
 	case MODEL_WRT300N:
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 4;
 		break;
-#endif
+	case MODEL_WRT310Nv1:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 8;
+		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {
@@ -202,11 +198,7 @@ int buttons_main(int argc, char *argv[])
 
 	signal(SIGCHLD, handle_reap);
 
-#if 0 // TOMATO_N
-	// !
-#else
 	if ((gf = gpio_open(mask)) < 0) return 1;
-#endif
 
 	last = 0;
 	brau_count_stable = 0;

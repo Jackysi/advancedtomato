@@ -45,7 +45,6 @@ obj-$(CONFIG_IP_NF_RAW) += iptable_raw.o
 # matches
 obj-$(CONFIG_IP_NF_MATCH_IPV4OPTIONS) += ipt_ipv4options.o
 obj-$(CONFIG_IP_NF_MATCH_IPP2P) += ipt_ipp2p.o
-obj-$(CONFIG_IP_NF_MATCH_IPRANGE) += ipt_iprange.o
 obj-$(CONFIG_IP_NF_MATCH_OWNER) += ipt_owner.o
 obj-$(CONFIG_IP_NF_MATCH_TOS) += ipt_tos.o
 obj-$(CONFIG_IP_NF_MATCH_TIME) += ipt_time.o
@@ -53,7 +52,6 @@ obj-$(CONFIG_IP_NF_MATCH_U32) += ipt_u32.o
 obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
 obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
 obj-$(CONFIG_IP_NF_MATCH_MPORT) += ipt_mport.o
-obj-$(CONFIG_IP_NF_MATCH_TTL) += ipt_ttl.o
 obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
 obj-$(CONFIG_IP_NF_MATCH_WEB) += ipt_web.o
 obj-$(CONFIG_IP_NF_MATCH_MACSAVE) += ipt_macsave.o
@@ -76,7 +74,6 @@ obj-$(CONFIG_IP_NF_TARGET_TRIGGER) += ipt_TRIGGER.o
 obj-$(CONFIG_IP_NF_TARGET_LOG) += ipt_LOG.o
 obj-$(CONFIG_IP_NF_TARGET_ULOG) += ipt_ULOG.o
 obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
-obj-$(CONFIG_IP_NF_TARGET_TTL) += ipt_TTL.o
 obj-$(CONFIG_IP_NF_TARGET_MACSAVE) += ipt_MACSAVE.o
 obj-$(CONFIG_IP_NF_TARGET_BCOUNT) += ipt_BCOUNT.o
 

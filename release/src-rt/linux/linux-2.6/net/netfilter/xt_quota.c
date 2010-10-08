@@ -9,8 +9,13 @@
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_quota.h>
 
+struct xt_quota_priv {
+	uint64_t quota;
+};
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Sam Johnston <samj@samj.net>");
+MODULE_DESCRIPTION("Xtables: countdown quota match");
 MODULE_ALIAS("ipt_quota");
 MODULE_ALIAS("ip6t_quota");
 
@@ -22,17 +27,20 @@ match(const struct sk_buff *skb,
       const struct xt_match *match, const void *matchinfo,
       int offset, unsigned int protoff, int *hotdrop)
 {
-	struct xt_quota_info *q = ((struct xt_quota_info *)matchinfo)->master;
+	struct xt_quota_info *q = (void *)matchinfo;
+	struct xt_quota_priv *priv = q->master;
 	int ret = q->flags & XT_QUOTA_INVERT ? 1 : 0;
 
 	spin_lock_bh(&quota_lock);
-	if (q->quota >= skb->len) {
-		q->quota -= skb->len;
+	if (priv->quota >= skb->len) {
+		priv->quota -= skb->len;
 		ret ^= 1;
 	} else {
 		/* we do not allow even small packets from now on */
-		q->quota = 0;
+		priv->quota = 0;
 	}
+	/* Copy quota back to matchinfo so that iptables can display it */
+	q->quota = priv->quota;
 	spin_unlock_bh(&quota_lock);
 
 	return ret;
@@ -47,9 +55,20 @@ checkentry(const char *tablename, const void *entry,
 
 	if (q->flags & ~XT_QUOTA_MASK)
 		return 0;
-	/* For SMP, we only want to use one set of counters. */
-	q->master = q;
+
+	q->master = kmalloc(sizeof(*q->master), GFP_KERNEL);
+	if (q->master == NULL)
+		return 0;
+
+	q->master->quota = q->quota;
 	return 1;
+}
+
+static void quota_mt_destroy(const struct xt_match *match, void *matchinfo)
+{
+	const struct xt_quota_info *q = matchinfo;
+
+	kfree(q->master);
 }
 
 static struct xt_match xt_quota_match[] = {
@@ -58,6 +77,7 @@ static struct xt_match xt_quota_match[] = {
 		.family		= AF_INET,
 		.checkentry	= checkentry,
 		.match		= match,
+		.destroy	= quota_mt_destroy,
 		.matchsize	= sizeof(struct xt_quota_info),
 		.me		= THIS_MODULE
 	},
@@ -66,6 +86,7 @@ static struct xt_match xt_quota_match[] = {
 		.family		= AF_INET6,
 		.checkentry	= checkentry,
 		.match		= match,
+		.destroy	= quota_mt_destroy,
 		.matchsize	= sizeof(struct xt_quota_info),
 		.me		= THIS_MODULE
 	},

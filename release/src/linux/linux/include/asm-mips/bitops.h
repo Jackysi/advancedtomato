@@ -12,7 +12,6 @@
 #include <linux/config.h>
 #include <linux/types.h>
 #include <asm/byteorder.h>		/* sigh ... */
-#include <asm-generic/__ffs.h>
 
 #if (_MIPS_SZLONG == 32)
 #define SZLONG_LOG 5
@@ -25,7 +24,8 @@
 #ifdef __KERNEL__
 
 #include <asm/sgidefs.h>
-#include <asm/system.h>
+#include <asm-generic/__ffs.h>
+#include <asm-generic/__fls.h>
 
 /*
  * clear_bit() doesn't provide any barrier for the compiler.
@@ -619,6 +619,16 @@ static __inline__ unsigned long ffz(unsigned long word)
  */
 
 #define ffs(x) generic_ffs(x)
+
+/**
+ * fls - find last (most-significant) bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as ffs.
+ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
+ */
+
+#define fls(x) generic_fls(x)
 
 /*
  * find_next_zero_bit - find the first zero bit in a memory region

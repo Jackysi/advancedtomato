@@ -8,7 +8,7 @@
 #include "tomato.h"
 
 
-#define DEBUG 1
+//#define DEBUG 1
 
 /*
 	<% ident(arg, "arg", 'arg'); %>
@@ -30,23 +30,6 @@ int parse_asp(const char *path)
 	char *argv[32];
 	char *ident;
 	const aspapi_t *api;
-
-#if 0	//TOMATO_N
-	// temp!!!
-	char npath[256];
-	int n;
-
-	if (!nvram_match("debug_npages", "0")) {
-		if (((a = strrchr(path, '.')) != NULL) && ((n = a - path) > 3) && (strncmp(a - 2, "-n", 2) != 0)) {
-			memcpy(npath, path, n);
-			memcpy(npath + n, "-n", 2);
-			strcpy(npath + n + 2, a);
-			if (f_exists(npath)) {
-				path = npath;
-			}
-		}
-	}
-#endif
 
 	if (f_read_alloc_string(path, &buffer, 128 * 1024) < 0) {
 		free(buffer);

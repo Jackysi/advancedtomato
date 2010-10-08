@@ -441,8 +441,6 @@ genSO("${root}/usr/lib/libFLAC.so.8", "${router}/flac/src/libFLAC/.libs/libFLAC.
 genSO("${root}/usr/lib/libavcodec.so.52", "${router}/ffmpeg/libavcodec/libavcodec.a", "", "-L${router}/ffmpeg/libavutil");
 genSO("${root}/usr/lib/libavutil.so.50", "${router}/ffmpeg/libavutil/libavutil.a");
 genSO("${root}/usr/lib/libavformat.so.52", "${router}/ffmpeg/libavformat/libavformat.a", "", "-L${router}/ffmpeg/libavutil -L${router}/ffmpeg/libavcodec");
-
-#!!TB - Samba
 genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
 genSO("${root}/usr/lib/libbigballofmud.so", "${router}/samba3/source/bin/libbigballofmud.a");
 
@@ -451,8 +449,9 @@ genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
 #	genSO("${root}/usr/lib/libshared.so", "${router}/shared/libshared.a");
 #	genSO("${root}/usr/lib/libnvram.so", "${router}/nvram/libnvram.a");
+#	genSO("${root}/usr/lib/libusb-1.0.so.0", "${router}/libusb10/libusb/.libs/libusb-1.0.a");
+#	genSO("${root}/usr/lib/libusb-0.1.so.4", "${router}/libusb/libusb/.libs/libusb.a", "", "-L${router}/libusb10/libusb/.libs");
 
-#!!TB - Updated Broadcom WL driver
 genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
 
 print "\n";

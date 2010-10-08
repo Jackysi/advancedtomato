@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,wan_ifname"); %>
+// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,wan_ifname,wan_iface"); %>
 // <% activeroutes(); %>
 
 var ara = new TomatoGrid();
@@ -58,7 +58,8 @@ ara.setup = function() {
 	for (i = 0; i < activeroutes.length; ++i) {
 		a = activeroutes[i];
 		if (a[0] == nvram.lan_ifname) a[0] += ' (LAN)';
-			else if (a[0] == nvram.wan_ifname) a[0] += ' (WAN)';
+			else if (a[0] == nvram.wan_iface) a[0] += ' (WAN)';
+			else if (a[0] == nvram.wan_ifname) a[0] += ' (MAN)';
 		this.insertData(-1, [a[1],a[2],a[3],a[4],a[0]]);
 	}
 }
@@ -75,12 +76,12 @@ ars.verifyFields = function(row, quiet) {
 ars.setup = function() {
 	this.init('ars-grid', '', 20, [
 		{ type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 },
-		{ type: 'text', maxlen: 3 }, { type: 'select', options: [['LAN','LAN'],['WAN','WAN']] }, { type: 'text', maxlen: 32 }]);
+		{ type: 'text', maxlen: 3 }, { type: 'select', options: [['LAN','LAN'],['WAN','WAN'],['MAN','MAN']] }, { type: 'text', maxlen: 32 }]);
 	this.headerSet(['Destination', 'Gateway', 'Subnet Mask', 'Metric', 'Interface', 'Description']);
 	var routes = nvram.routes_static.split('>');
 	for (var i = 0; i < routes.length; ++i) {
 		var r;
-		if (r = routes[i].match(/^(.+)<(.+)<(.+)<(\d+)<(LAN|WAN)<(.*)$/)) {
+		if (r = routes[i].match(/^(.+)<(.+)<(.+)<(\d+)<(LAN|WAN|MAN)<(.*)$/)) {
 			this.insertData(-1, [r[1], r[2], r[3], r[4], r[5],r[6]]);
 		}
 	}

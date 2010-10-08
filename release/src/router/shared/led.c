@@ -181,7 +181,7 @@ int led(int which, int mode)
 {
 //				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST
 //				    ----- ----- ----- ----- ----- ----- ----- -----
-	static int wrt54g[]	= { 0,    1,    2,    3,    7,    255,  255,  255	};
+	static int wrt54g[]	= { 255,  1,    2,    3,    7,    255,  255,  255	};
 	static int wrtsl[]	= { 255,  1,    5,    7,    0,    255,  255,  255	};
 	static int whrg54[]	= { 2,    7,    255,  255,  255,  6,    1,    3		};
 	static int wbr2g54[]	= { 255,  -1,   255,  255,  255,  -6,   255,  255	};
@@ -190,6 +190,8 @@ int led(int which, int mode)
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
+	static int h618b[]	= { 255,  -1,   255,  255,  255,   -5,   -3,   -4	};
+	static int wrt310nv1[]	= { 255,   1,     9,    3,  255,  255,  255,  255	};
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
 	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
@@ -279,6 +281,9 @@ int led(int which, int mode)
 	case MODEL_DIR320:
 		b = dir320[which];
 		break;
+	case MODEL_H618B:
+		b = h618b[which];
+		break;
 	case MODEL_WL500GPv2:
 	case MODEL_WL500GD:
 	case MODEL_WL520GU:
@@ -333,12 +338,13 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = 1;
 		break;
-#if TOMATO_N
 	case MODEL_WRT300N:
 		if (which != LED_DIAG) return 0;
 		b = 1;
 		break;
-#endif
+	case MODEL_WRT310Nv1:
+		b = wrt310nv1[which];
+		break;
 	default:
 		sprintf(s, "led_%s", led_names[which]);
 		if (nvget_gpio(s, &b, &n)) {

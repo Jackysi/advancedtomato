@@ -322,6 +322,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
 	{ "wpad.dat|proxy.pac",		"application/x-ns-proxy-autoconfig",	0,	wi_generic_noid,	do_file,		0 },
 
+	{ "webmon.cgi",		mime_javascript,				0,	wi_generic,		wo_webmon,		1 },
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
 	{ "nvcommit.cgi",	NULL,						0,	wi_generic,			wo_nvcommit,	1 },
@@ -374,6 +375,7 @@ const aspapi_t aspapi[] = {
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
 	{ "nvramseq",			asp_nvramseq		},
+	{ "nvstat",				asp_nvstat 			},
 	{ "psup",				asp_psup			},
 	{ "qrate",				asp_qrate			},
 	{ "resmsg",				asp_resmsg			},
@@ -532,6 +534,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
 	{ "ppp_demand",			V_01				},
+	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
 	{ "mtu_enable",			V_01				},
@@ -558,9 +561,6 @@ static const nvset_t nvset_list[] = {
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 216)		},
-#if TOMATO_N
-	// ! update
-#endif
 
 	{ "security_mode2",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},
@@ -690,6 +690,7 @@ static const nvset_t nvset_list[] = {
 	{ "wlx_hpamp",			V_01				},
 	{ "wlx_hperx",			V_01				},
 	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
+	{ "wl_interfmode",		V_RANGE(0, 3)			},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
@@ -802,13 +803,13 @@ static const nvset_t nvset_list[] = {
 
 // admin-log
 	{ "log_remote",			V_01				},
-	{ "log_remoteip",		V_IP				},
+	{ "log_remoteip",		V_LENGTH(0, 512)		},
 	{ "log_remoteport",		V_PORT				},
 	{ "log_file",			V_01				},
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},
-	{ "log_mark",			V_RANGE(0, 1440)	},
+	{ "log_mark",			V_RANGE(0, 99999)	},
 	{ "log_events",			V_TEXT(0, 32)		},	// "acre,crond,ntp"
 
 // admin-log-webmonitor
@@ -830,9 +831,9 @@ static const nvset_t nvset_list[] = {
 // nas-usb - !!TB
 #ifdef TCONFIG_USB
 	{ "usb_enable",			V_01				},
-	{ "usb_uhci",			V_01				},
-	{ "usb_ohci",			V_01				},
-	{ "usb_usb2",			V_01				},
+	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
+	{ "usb_ohci",			V_RANGE(-1, 1)			},
+	{ "usb_usb2",			V_RANGE(-1, 1)			},
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},

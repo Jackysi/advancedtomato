@@ -93,21 +93,20 @@ int _xstart(const char *cmd, ...)
 	return _eval(argv, NULL, 0, &pid);
 }
 
-int endswith (const char *str, char *cmp)
+static int endswith(const char *str, char *cmp)
 {
 	int cmp_len, str_len, i;
 
-	cmp_len = strlen (cmp);
-	str_len = strlen (str);
+	cmp_len = strlen(cmp);
+	str_len = strlen(str);
 	if (cmp_len > str_len)
-		return (0);
+		return 0;
 	for (i = 0; i < cmp_len; i++) {
 		if (str[(str_len - 1) - i] != cmp[(cmp_len - 1) - i])
-			return (0);
+			return 0;
 	}
-	return (1);
+	return 1;
 }
-
 
 static void execute_with_maxwait(char *const argv[], int wtime)
 {
@@ -121,7 +120,7 @@ static void execute_with_maxwait(char *const argv[], int wtime)
 			if (kill(pid, 0) != 0) break;
 			sleep(1);
 		}
-		//printf("killdon:      errno: %d    pid %d\n", errno, pid);
+		_dprintf("%s killdon:   errno: %d    pid %d\n", argv[0], errno, pid);
 	}
 }
 
@@ -134,29 +133,23 @@ static int endswith_filter(const struct dirent *entry)
 
 void run_userfile(char *folder, char *extension, const char *arg1, int wtime)
 {
-	unsigned char buf[128];
-	char *argv[3];
+	unsigned char buf[PATH_MAX + 1];
+	char *argv[] = { buf, (char *)arg1, NULL };
 	struct dirent **namelist;
 	int i, n;
 
 	/* Do them in sorted order. */
 	filter_extension = extension;
 	n = scandir(folder, &namelist, endswith_filter, alphasort);
-	if (n <= 0)
-		return;
-	else {
+	if (n >= 0) {
 		for (i = 0; i < n; ++i) {
-			sprintf (buf, "%s/%s", folder, namelist[i]->d_name);
-			argv[0] = buf;
-			argv[1] = (char *)arg1;
-			argv[2] = NULL;
+			sprintf(buf, "%s/%s", folder, namelist[i]->d_name);
 			execute_with_maxwait(argv, wtime);
 			free(namelist[i]);
 		}
 		free(namelist);
 	}
 }
-
 
 /* Run user-supplied script(s), with 1 argument.
  * Return when the script(s) have finished,
@@ -174,6 +167,7 @@ void run_userfile(char *folder, char *extension, const char *arg1, int wtime)
  *
  * Execute in this order:
  *	nvram item: nv (run as a /bin/sh script)
+ *		(unless nv starts with a dot)
  *	All files with a suffix of ".NAME" in these directories:
  *	/etc/config/
  *	/jffs/etc/config/
@@ -207,41 +201,43 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 {
 	FILE *f;
 	char *script;
-	char s[256];
-	char *argv[3];
+	char s[PATH_MAX + 1];
+	char *argv[] = { s, (char *)arg1, NULL };
 	int check_dirs = 1;
 
-	script = nvram_get(nv);
-	if ((script) && (*script != 0)) {
-		sprintf(s, "/tmp/%s.sh", nv);
-		if ((f = fopen(s, "w")) != NULL) {
-			fputs("#!/bin/sh\n", f);
-			fputs(script, f);
-			fputs("\n", f);
-			fclose(f);
-			chmod(s, 0700);
+	if (nv[0] == '.') {
+		strcpy(s, nv);
+	}
+	else {
+		script = nvram_get(nv);
 
-			chdir("/tmp");
+		if ((script) && (*script != 0)) {
+			sprintf(s, "/tmp/%s.sh", nv);
+			if ((f = fopen(s, "w")) != NULL) {
+				fputs("#!/bin/sh\n", f);
+				fputs(script, f);
+				fputs("\n", f);
+				fclose(f);
+				chmod(s, 0700);
+				chdir("/tmp");
 
-			argv[0] = s;
-			argv[1] = (char *)arg1;
-			argv[2] = NULL;
-
-			//printf("Running: '%s %s'\n", argv[0], argv[1]? argv[1]: "");
-			execute_with_maxwait(argv, wtime);
-			chdir("/");
+				_dprintf("Running: '%s %s'\n", argv[0], argv[1]? argv[1]: "");
+				execute_with_maxwait(argv, wtime);
+				chdir("/");
+				unlink(s);
+			}
 		}
-	}
 
-	sprintf(s, ".%s", nv);
-	if (strncmp("sch_c", nv, 5) == 0) {
-		check_dirs = 0;
-	}
-	else if (strncmp("sesx_", nv, 5) == 0) {
-		s[5] = 0;
-	}
-	else if (strncmp("script_", nv, 7) == 0) {
-		strcpy(&s[1], &nv[7]);
+		sprintf(s, ".%s", nv);
+		if (strncmp("sch_c", nv, 5) == 0) {
+			check_dirs = 0;
+		}
+		else if (strncmp("sesx_", nv, 5) == 0) {
+			s[5] = 0;
+		}
+		else if (strncmp("script_", nv, 7) == 0) {
+			strcpy(&s[1], &nv[7]);
+		}
 	}
 
 	if (nvram_match("userfiles_disable", "1")) {
@@ -249,8 +245,8 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 		check_dirs = 0;
 	}
 
-	if ((check_dirs) && strcmp(s, ".")) {
-		//printf("checking for user scripts: '%s'\n", s);
+	if ((check_dirs) && strcmp(s, ".") != 0) {
+		_dprintf("checking for user scripts: '%s'\n", s);
 		run_userfile("/etc/config", s, arg1, wtime);
 		run_userfile("/jffs/etc/config", s, arg1, wtime);
 		run_userfile("/opt/etc/config", s, arg1, wtime);

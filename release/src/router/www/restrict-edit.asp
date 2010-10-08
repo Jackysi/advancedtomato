@@ -15,6 +15,7 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
+<script type='text/javascript' src='protocols.js'></script>
 
 <!-- / / / -->
 
@@ -37,6 +38,16 @@
 	padding-top: 2px;
 }
 #res-bp-grid .box5 {
+	width: 70%;
+	float: left;
+	padding-top: 2px;
+}
+#res-bp-grid .box6 {
+	width: 30%;
+	float: left;
+	padding-top: 2px;
+}
+#res-bp-grid .box7 {
 	width: 70%;
 	float: left;
 	padding-top: 2px;
@@ -127,27 +138,44 @@ bpg.verifyFields = function(row, quiet) {
 	var f = fields.getAll(row);
 	ferror.clearAll(f);
 	this.enDiFields(row);
+
+	if ((f[5].selectedIndex != 0) && (!v_iptaddr(f[6], quiet))) return 0;
 	if ((f[1].selectedIndex != 0) && (!v_iptport(f[2], quiet))) return 0;
-	if ((f[1].selectedIndex == 0) && (f[3].selectedIndex == 0) && (f[4].selectedIndex == 0)) {
-		var m = 'Please enter a specific port or select an application match';
+	if ((f[1].selectedIndex == 0) && (f[3].selectedIndex == 0) && (f[4].selectedIndex == 0) && (f[5].selectedIndex == 0)) {
+		var m = 'Please enter a specific address or port, or select an application match';
 		ferror.set(f[3], m, 1);
 		ferror.set(f[4], m, 1);
+		ferror.set(f[5], m, 1);
 		ferror.set(f[1], m, quiet);
 		return 0;
 	}
+
 	ferror.clear(f[1]);
+	ferror.clear(f[3]);
+	ferror.clear(f[4]);
+	ferror.clear(f[5]);
+	ferror.clear(f[6]);
 	return 1;
 }
 
 bpg.dataToView = function(data) {
 	var s, i;
-	if (data[0] == 6) s = 'TCP';
-		else if (data[0] == 17) s = 'UDP';
-			else s = 'TCP/UDP';
-	if (data[1] == 'd') s += ', dst port ';
+
+	s = '';
+	if (data[5] != 0) s = ((data[5] == 1) ? 'To ' : 'From ') + data[6] + ', ';
+
+	if (data[0] <= -2) s += (s.length ? 'a' : 'A') + 'ny protocol';
+	else if (data[0] == -1) s += 'TCP/UDP';
+	else if (data[0] >= 0) s += protocols[data[0]] || data[0];
+
+	if (data[0] >= -1) {
+		if (data[1] == 'd') s += ', dst port ';
 		else if (data[1] == 's') s += ', src port ';
-			else if (data[1] == 'x') s += ', port ';
-	if (data[1] != 'a') s += data[2];
+		else if (data[1] == 'x') s += ', port ';
+		else s += ', all ports';
+		if (data[1] != 'a') s += data[2].replace(/:/g, '-');
+	}
+
 	if (data[3] != 0) {
 		for (i = 0; i < ipp2p.length; ++i) {
 			if (data[3] == ipp2p[i][0]) {
@@ -159,12 +187,13 @@ bpg.dataToView = function(data) {
 	else if (data[4] != '') {
 		s += ', L7: ' + data[4];
 	}
+
 	return [s];
 }
 
 bpg.fieldValuesToData = function(row) {
 	var f = fields.getAll(row);
-	return [f[0].value, f[1].value, (f[1].selectedIndex == 0) ? '' : f[2].value, f[3].value, f[4].value];
+	return [f[0].value, f[1].value, (f[1].selectedIndex == 0) ? '' : f[2].value, f[3].value, f[4].value, f[5].value, (f[5].selectedIndex == 0) ? '' : f[6].value];
 },
 
 bpg.resetNewEditor = function() {
@@ -174,6 +203,8 @@ bpg.resetNewEditor = function() {
 	f[2].value = '';
 	f[3].selectedIndex = 0;
 	f[4].selectedIndex = 0;
+	f[5].selectedIndex = 0;
+	f[6].value = '';
 	this.enDiFields(this.newEditor);
 	ferror.clearAll(fields.getAll(this.newEditor));
 }
@@ -186,32 +217,56 @@ bpg.createEditor = function(which, rowIndex, source) {
 }
 
 bpg.enDiFields = function(row) {
+	var x;
 	var f = fields.getAll(row);
-	f[2].disabled = (f[1].selectedIndex == 0);
+
+	x = f[0].value;
+	x = ((x != -1) && (x != 6) && (x != 17));
+	f[1].disabled = x;
+	if (f[1].selectedIndex == 0) x = 1;
+	f[2].disabled = x;
 	f[3].disabled = (f[4].selectedIndex != 0);
 	f[4].disabled = (f[3].selectedIndex != 0);
+	f[6].disabled = (f[5].selectedIndex == 0);
 }
 
 bpg.setup = function() {
-	var a, i, r, count;
+	var a, i, r, count, protos;
+
+	protos = [[-2, 'Any Protocol'],[-1,'TCP/UDP'],[6,'TCP'],[17,'UDP']];
+	for (i = 0; i < 256; ++i) {
+		if ((i != 6) && (i != 17)) protos.push([i, protocols[i] || i]);
+	}
 
 	this.init('res-bp-grid', 'sort', 200, [ { multi: [
-		{ type: 'select', prefix: '<div class="box1">', suffix: '</div>',options: [[-1, 'TCP/UDP'], [6, 'TCP'], [17, 'UDP']] },
+		{ type: 'select', prefix: '<div class="box1">', suffix: '</div>', options: protos },
 		{ type: 'select', prefix: '<div class="box2">', suffix: '</div>',
 			options: [['a','Any Port'],['d','Dst Port'],['s','Src Port'],['x','Src or Dst']] },
 		{ type: 'text', prefix: '<div class="box3">', suffix: '</div>', maxlen: 32 },
 		{ type: 'select', prefix: '<div class="box4">', suffix: '</div>', options: ipp2p },
-		{ type: 'select', prefix: '<div class="box5">', suffix: '</div>', options: layer7 }
+		{ type: 'select', prefix: '<div class="box5">', suffix: '</div>', options: layer7 },
+		{ type: 'select', prefix: '<div class="box6">', suffix: '</div>',
+			options: [[0,'Any Address'],[1,'Dst IP'],[2,'Src IP']] },
+		{ type: 'text', prefix: '<div class="box7">', suffix: '</div>', maxlen: 64 }
 		] } ] );
 	this.headerSet(['Rules']);
 	this.showNewEditor();
 	this.resetNewEditor();
 	count = 0;
+
+	// ---- proto<dir<port<ipp2p<layer7[<addr_type<addr]
+
 	a = rule[6].split('>');
 	for (i = 0; i < a.length; ++i) {
-		if ((r = a[i].match(/^(-?\d+)<(.)<(.*?)<(.*?)<(.*?)$/)) != null) {
-			r[3] = r[3].replace(/:/g, '-')
-			this.insertData(-1, r.slice(1, r.length));
+		r = a[i].split('<');
+		if (r.length == 5) {
+			// ---- fixup for backward compatibility
+			r.push('0');
+			r.push('');
+		}
+		if (r.length == 7) {
+			r[2] = r[2].replace(/:/g, '-');
+			this.insertData(-1, r);
 			++count;
 		}
 	}

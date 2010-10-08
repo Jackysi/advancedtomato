@@ -52,6 +52,7 @@
 #ifdef CONFIG_IPV6_MIP6
 #include <net/mip6.h>
 #endif
+#include <linux/mroute6.h>
 
 #include <net/rawv6.h>
 #include <net/xfrm.h>
@@ -1088,7 +1089,11 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
 		}
 
 		default:
+#ifdef CONFIG_IPV6_MROUTE
+			return ip6mr_ioctl(sk, cmd, (void __user *)arg);
+#else
 			return -ENOIOCTLCMD;
+#endif
 	}
 }
 
@@ -1096,7 +1101,7 @@ static void rawv6_close(struct sock *sk, long timeout)
 {
 	if (inet_sk(sk)->num == IPPROTO_RAW)
 		ip6_ra_control(sk, -1, NULL);
-
+	ip6mr_sk_done(sk);
 	sk_common_release(sk);
 }
 

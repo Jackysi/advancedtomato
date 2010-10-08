@@ -368,8 +368,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 	/* We only dequeue private signals from ourselves, we don't let
 	 * signalfd steal them
 	 */
-	if (likely(tsk == current))
-		signr = __dequeue_signal(&tsk->pending, mask, info);
+	signr = __dequeue_signal(&tsk->pending, mask, info);
 	if (!signr) {
 		signr = __dequeue_signal(&tsk->signal->shared_pending,
 					 mask, info);
@@ -397,8 +396,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 			}
 		}
 	}
-	if (likely(tsk == current))
-		recalc_sigpending();
+	recalc_sigpending();
 	if (signr && unlikely(sig_kernel_stop(signr))) {
 		/*
 		 * Set a marker that we have dequeued a stop signal.  Our
@@ -414,7 +412,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 		 */
 		tsk->signal->flags |= SIGNAL_STOP_DEQUEUED;
 	}
-	if (signr && likely(tsk == current) &&
+	if (signr &&
 	     ((info->si_code & __SI_MASK) == __SI_TIMER) &&
 	     info->si_sys_private){
 		/*

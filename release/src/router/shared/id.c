@@ -15,7 +15,7 @@
 
 /*
 
-					HW_*                  boardtype    boardnum  boardrev  boardflags  others
+		HW_*                  boardtype    boardnum  boardrev  boardflags  others
 					--------------------- ------------ --------- --------- ----------- ---------------
 WRT54G 1.x			BCM4702               bcm94710dev  42
 WRT54G 2.0			BCM4712               0x0101       42        0x10      0x0188
@@ -57,6 +57,7 @@ WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      har
 
 WL-500G Premium v2  HW_BCM5354G           0x48E        45        0x10      0x0750
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
+ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
 
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
@@ -128,9 +129,12 @@ int check_hw_type(void)
 		return HW_BCM5350;
 	case 0x4ec:
 		return HW_BCM5356;
+	case 0x489:
+		return HW_BCM4785;
 #ifdef CONFIG_BCMWL5
 	case 0x04cd:
 	case 0xe4cd:
+	case 0x04fb:
 		return HW_BCM4716;
 	case 0x04ef:
 		return HW_BCM4717;
@@ -185,10 +189,8 @@ int get_model(void)
 	case 0x30153:
 	case 0x31095:
 		return MODEL_WZRG108;
-#if TOMATO_N
 	case 0x31120:
 		return MODEL_WZRG300N;
-#endif
 	case 0:
 		break;
 	default:
@@ -234,10 +236,11 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM4704_BCM5325F:
 			return MODEL_WRTSL54GS;
-#if TOMATO_N
 		case HW_BCM4704_BCM5325F_EWC:
 			return MODEL_WRT300N;
-#endif
+		case HW_BCM4785:
+			if (nvram_match("boardrev", "0x10")) return MODEL_WRT310Nv1;
+			break;
 #ifdef CONFIG_BCMWL5
 		case HW_BCM4716:
 			return MODEL_WRT160Nv3;
@@ -264,10 +267,13 @@ int get_model(void)
 #ifdef CONFIG_BCMWL5
 		case HW_BCM5356:
 			if (nvram_match("boardrev", "0x1402")) return MODEL_RTN10;
+			break;
 		case HW_BCM4716:
 			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
+			break;
 		case HW_BCM4718:
 			if (nvram_match("boardrev", "0x1218")) return MODEL_RTN16;
+			break;
 #endif
 		}
 		break;
@@ -297,7 +303,11 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM5354G:
 			if (nvram_match("boardrev", "0x35")) return MODEL_DIR320;
+			break;
 		}
+		break;
+	case 1105:
+		if ((hw == HW_BCM5354G) && nvram_match("boardrev", "0x35")) return MODEL_H618B;
 		break;
 	case 2:
 		if (nvram_match("GemtekPmonVer", "9")) return MODEL_WR850GV1;

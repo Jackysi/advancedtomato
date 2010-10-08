@@ -14,9 +14,14 @@
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_limit.h>
 
+struct xt_limit_priv {
+	unsigned long prev;
+	uint32_t credit;
+};
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Herve Eychenne <rv@wallfire.org>");
-MODULE_DESCRIPTION("iptables rate limit match");
+MODULE_DESCRIPTION("Xtables: rate-limit match");
 MODULE_ALIAS("ipt_limit");
 MODULE_ALIAS("ip6t_limit");
 
@@ -67,17 +72,18 @@ ipt_limit_match(const struct sk_buff *skb,
 		unsigned int protoff,
 		int *hotdrop)
 {
-	struct xt_rateinfo *r = ((struct xt_rateinfo *)matchinfo)->master;
+	const struct xt_rateinfo *r = (struct xt_rateinfo *)matchinfo;
+	struct xt_limit_priv *priv = r->master;
 	unsigned long now = jiffies;
 
 	spin_lock_bh(&limit_lock);
-	r->credit += (now - xchg(&r->prev, now)) * CREDITS_PER_JIFFY;
-	if (r->credit > r->credit_cap)
-		r->credit = r->credit_cap;
+	priv->credit += (now - xchg(&priv->prev, now)) * CREDITS_PER_JIFFY;
+	if (priv->credit > r->credit_cap)
+		priv->credit = r->credit_cap;
 
-	if (r->credit >= r->cost) {
+	if (priv->credit >= r->cost) {
 		/* We're not limited. */
-		r->credit -= r->cost;
+		priv->credit -= r->cost;
 		spin_unlock_bh(&limit_lock);
 		return 1;
 	}
@@ -106,6 +112,7 @@ ipt_limit_checkentry(const char *tablename,
 		     unsigned int hook_mask)
 {
 	struct xt_rateinfo *r = matchinfo;
+	struct xt_limit_priv *priv;
 
 	/* Check for overflow. */
 	if (r->burst == 0
@@ -115,17 +122,28 @@ ipt_limit_checkentry(const char *tablename,
 		return 0;
 	}
 
-	/* For SMP, we only want to use one set of counters. */
-	r->master = r;
+	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
+	if (priv == NULL)
+		return 0;
+
+	/* For SMP, we only want to use one set of state. */
+	r->master = priv;
 	if (r->cost == 0) {
 		/* User avg in seconds * XT_LIMIT_SCALE: convert to jiffies *
 		   128. */
-		r->prev = jiffies;
-		r->credit = user2credits(r->avg * r->burst);	 /* Credits full. */
+		priv->prev = jiffies;
+		priv->credit = user2credits(r->avg * r->burst); /* Credits full. */
 		r->credit_cap = user2credits(r->avg * r->burst); /* Credits full. */
 		r->cost = user2credits(r->avg);
 	}
 	return 1;
+}
+
+static void limit_mt_destroy(const struct xt_match *match, void *matchinfo)
+{
+	const struct xt_rateinfo *info = matchinfo;
+
+	kfree(info->master);
 }
 
 #ifdef CONFIG_COMPAT
@@ -178,6 +196,7 @@ static struct xt_match xt_limit_match[] = {
 		.family		= AF_INET,
 		.checkentry	= ipt_limit_checkentry,
 		.match		= ipt_limit_match,
+		.destroy	= limit_mt_destroy,
 		.matchsize	= sizeof(struct xt_rateinfo),
 #ifdef CONFIG_COMPAT
 		.compatsize	= sizeof(struct compat_xt_rateinfo),
@@ -191,6 +210,7 @@ static struct xt_match xt_limit_match[] = {
 		.family		= AF_INET6,
 		.checkentry	= ipt_limit_checkentry,
 		.match		= ipt_limit_match,
+		.destroy	= limit_mt_destroy,
 		.matchsize	= sizeof(struct xt_rateinfo),
 		.me		= THIS_MODULE,
 	},

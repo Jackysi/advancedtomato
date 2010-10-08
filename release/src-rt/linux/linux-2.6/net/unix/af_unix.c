@@ -966,7 +966,7 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
 
 	sched = !sock_flag(other, SOCK_DEAD) &&
 		!(other->sk_shutdown & RCV_SHUTDOWN) &&
-		(skb_queue_len(&other->sk_receive_queue) >
+		(skb_queue_len(&other->sk_receive_queue) >=
 		 other->sk_max_ack_backlog);
 
 	unix_state_unlock(other);
@@ -1040,7 +1040,7 @@ restart:
 	if (other->sk_state != TCP_LISTEN)
 		goto out_unlock;
 
-	if (skb_queue_len(&other->sk_receive_queue) >
+	if (skb_queue_len(&other->sk_receive_queue) >=
 	    other->sk_max_ack_backlog) {
 		err = -EAGAIN;
 		if (!timeo)
@@ -1413,7 +1413,7 @@ restart:
 	}
 
 	if (unix_peer(other) != sk &&
-	    (skb_queue_len(&other->sk_receive_queue) >
+	    (skb_queue_len(&other->sk_receive_queue) >=
 	     other->sk_max_ack_backlog)) {
 		if (!timeo) {
 			err = -EAGAIN;

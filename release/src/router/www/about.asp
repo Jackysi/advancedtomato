@@ -103,7 +103,7 @@ Copyright (C) 2006-2010 Jonathan Zarate<br>
 Broadcom Wireless Driver <% version(3); %> <br>
 Support for additional router models and Wireless-N mode.</b><br>
 Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
-<a href='http://www.tomatousb.org/'>http://www.tomatousb.org</a><br>
+<a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br>
 

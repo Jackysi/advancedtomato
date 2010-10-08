@@ -53,6 +53,8 @@ int using_dhcpc(void)
 	case WP_DHCP:
 	case WP_L2TP:
 		return 1;
+	case WP_PPTP:
+		return nvram_get_int("pptp_dhcp");
 	}
 	return 0;
 }
@@ -232,10 +234,8 @@ const char *get_wanip(void)
 	case WP_DISABLED:
 		return "0.0.0.0";
 	case WP_PPTP:
-		p = "pptp_get_ip";
-		break;
 	case WP_L2TP:
-		p = "l2tp_get_ip";
+		p = "ppp_get_ip";
 		break;
 	default:
 		p = "wan_ipaddr";
@@ -282,6 +282,38 @@ void set_radio(int on)
 	}
 #endif
 }
+
+// -----------------------------------------------------------------------------
+
+int mtd_getinfo(const char *mtdname, int *part, int *size)
+{
+	FILE *f;
+	char s[256];
+	char t[256];
+	int r;
+
+	r = 0;
+	if ((strlen(mtdname) < 128) && (strcmp(mtdname, "pmon") != 0)) {
+		sprintf(t, "\"%s\"", mtdname);
+		if ((f = fopen("/proc/mtd", "r")) != NULL) {
+			while (fgets(s, sizeof(s), f) != NULL) {
+				if ((sscanf(s, "mtd%d: %x", part, size) == 2) && (strstr(s, t) != NULL)) {
+					// don't accidentally mess with bl (0)
+					if (*part > 0) r = 1;
+					break;
+				}
+			}
+			fclose(f);
+		}
+	}
+	if (!r) {
+		*size = 0;
+		*part = -1;
+	}
+	return r;
+}
+
+// -----------------------------------------------------------------------------
 
 int nvram_get_int(const char *key)
 {

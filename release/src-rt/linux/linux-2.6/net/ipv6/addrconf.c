@@ -3520,6 +3520,9 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
 #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
 	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
 #endif
+#ifdef CONFIG_IPV6_MROUTE
+	array[DEVCONF_MC_FORWARDING] = cnf->mc_forwarding;
+#endif
 	array[DEVCONF_DISABLE_IPV6] = cnf->disable_ipv6;
 }
 
@@ -4098,6 +4101,16 @@ static struct addrconf_sysctl_table
 			.mode           =       0644,
 			.proc_handler   =       &proc_dointvec,
 
+		},
+#endif
+#ifdef CONFIG_IPV6_MROUTE
+		{
+			.ctl_name	=	CTL_UNNUMBERED,
+			.procname	=	"mc_forwarding",
+			.data		=	&ipv6_devconf.mc_forwarding,
+			.maxlen		=	sizeof(int),
+			.mode		=	0644,
+			.proc_handler	=	&proc_dointvec,
 		},
 #endif
 		{

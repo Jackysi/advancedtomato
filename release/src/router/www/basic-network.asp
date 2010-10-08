@@ -29,7 +29,7 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband"); %>
 
 xob = null;
 
@@ -45,6 +45,9 @@ if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 var nphy = features('11n');
 var dualband = features('2g5g');
 var modes = [];
+var nm_loaded = 0;
+var ch_loaded = 0;
+var max_channel = 0;
 
 function refreshNetModes()
 {
@@ -72,7 +75,7 @@ function refreshNetModes()
 
 	e = E('_wl_net_mode');
 	buf = '';
-	val = (e.value + '' == '') ? nvram.wl_net_mode : e.value;
+	val = (!nm_loaded || (e.value + '' == '')) ? nvram.wl_net_mode : e.value;
 	if (val == 'disabled') val = 'mixed';
 	for (i = 0; i < modes.length; ++i)
 		buf += '<option value="' + modes[i][0] + '"' + ((modes[i][0] == val) ? ' selected' : '') + '>' + modes[i][1] + '</option>';
@@ -80,6 +83,7 @@ function refreshNetModes()
 	e = E('__wl_net_mode');
 	buf = '<select name="wl_net_mode" onchange="verifyFields(this, 1)" id = "_wl_net_mode">' + buf + '</select>';
 	elem.setInnerHTML(e, buf);
+	nm_loaded = 1;
 }
 
 var refresher = null;
@@ -98,17 +102,19 @@ function refreshChannels()
 		for (i = 0; i < wl_channels.length; ++i) {
 			ghz.push([wl_channels[i][0] + '',
 				(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+			max_channel = wl_channels[i][0] * 1;
 		}
 
 		e = E('_wl_channel');
 		buf = '';
-		val = (e.value + '' == '') ? nvram.wl_channel : e.value;
+		val = (!ch_loaded || (e.value + '' == '')) ? nvram.wl_channel : e.value;
 		for (i = 0; i < ghz.length; ++i)
 			buf += '<option value="' + ghz[i][0] + '"' + ((ghz[i][0] == val) ? ' selected' : '') + '>' + ghz[i][1] + '</option>';
 
 		e = E('__wl_channel');
 		buf = '<select name="wl_channel" onchange="verifyFields(this, 1)" id = "_wl_channel">' + buf + '</select>';
 		elem.setInnerHTML(e, buf);
+		ch_loaded = 1;
 
 		refresher = null;
 		verifyFields(null, 1);
@@ -314,6 +320,7 @@ function verifyFields(focused, quiet)
 		_ppp_username: 1,
 		_ppp_passwd: 1,
 		_ppp_service: 1,
+		_ppp_custom: 1,
 		_l2tp_server_ip: 1,
 		_wan_ipaddr: 1,
 		_wan_netmask: 1,
@@ -390,6 +397,7 @@ function verifyFields(focused, quiet)
 	case 'disabled':
 		vis._ppp_username = 0;
 		vis._ppp_service = 0;
+		vis._ppp_custom = 0;
 		vis._l2tp_server_ip = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -405,6 +413,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_demand = 0;
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
+		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
@@ -416,6 +425,7 @@ function verifyFields(focused, quiet)
 	case 'pppoe':
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
+		vis._ppp_custom = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
@@ -428,6 +438,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_demand = 0;
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
+		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
 
@@ -573,6 +584,33 @@ function verifyFields(focused, quiet)
 	}
 
 	vis._f_wl_nctrlsb = (E('_wl_nbw_cap').value == 0) ? 0 : vis._wl_nbw_cap;
+
+/* REMOVE-BEGIN
+	// This is ugly...
+	// Special case - 2.4GHz band, currently running in B/G-only mode,
+	// with N/Auto and 40MHz selected in the GUI.
+	// Channel list is not filtered in this case by the wl driver,
+	// and includes all channels available with 20MHz channel width.
+	//
+REMOVE-END */
+	if (vis._wl_channel == 1 && vis._f_wl_nctrlsb != 0 &&
+	   (vis._wl_nband == 0 || E('_wl_nband').value == '2')) {
+		switch (nvram.wl_net_mode) {
+		case 'b-only':
+		case 'g-only':
+		case 'bg-mixed':
+			i = E('_wl_channel').value * 1;
+			if (i > 0 && i < 5) {
+				E('_f_wl_nctrlsb').value = 'lower';
+				vis._f_wl_nctrlsb = 2;
+			}
+			else if (i > max_channel - 4) {
+				E('_f_wl_nctrlsb').value = 'upper';
+				vis._f_wl_nctrlsb = 2;
+			}
+			break;
+		}
+	}
 
 	//
 
@@ -944,13 +982,14 @@ createFieldTable('', [
 		value: nvram.wan_proto },
 	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram.ppp_username },
 	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram.ppp_passwd },
-	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 54, value: nvram.ppp_service },
-	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 54, value: nvram.l2tp_server_ip },
+	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
+	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
 	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
-	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 54, value: nvram.pptp_server_ip },
+	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
+	{ title: 'Options', name: 'ppp_custom', type: 'text', maxlen: 256, size: 64, value: nvram.ppp_custom },
 	{ title: 'Connect Mode', name: 'ppp_demand', type: 'select', options: [['1', 'Connect On Demand'],['0', 'Keep Alive']],
 		value: nvram.ppp_demand },
 	{ title: 'Max Idle Time', indent: 2, name: 'ppp_idletime', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(minutes)</i>',

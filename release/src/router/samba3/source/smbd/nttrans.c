@@ -2424,7 +2424,10 @@ static int call_nt_transact_ioctl(connection_struct *conn, char *inbuf, char *ou
 		/* unknown 4 bytes: this is not the length of the sid :-(  */
 		/*unknown = IVAL(pdata,0);*/
 		
-		sid_parse(pdata+4,sid_len,&sid);
+		if (!sid_parse(pdata+4,sid_len,&sid)) {
+			return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+		}
+
 		DEBUGADD(10,("for SID: %s\n",sid_string_static(&sid)));
 
 		if (!sid_to_uid(&sid, &uid)) {
@@ -2662,8 +2665,10 @@ static int call_nt_transact_get_user_quota(connection_struct *conn, char *inbuf,
 				break;
 			}
 
-			sid_parse(pdata+8,sid_len,&sid);
-		
+			if (!sid_parse(pdata+8,sid_len,&sid)) {
+				return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+			}
+
 			if (vfs_get_ntquota(fsp, SMB_USER_QUOTA_TYPE, &sid, &qt)!=0) {
 				ZERO_STRUCT(qt);
 				/* 
@@ -2827,8 +2832,11 @@ static int call_nt_transact_set_user_quota(connection_struct *conn, char *inbuf,
 		return ERROR_DOS(ERRDOS,ERRunknownlevel);
 	}
 #endif /* LARGE_SMB_OFF_T */
-	
-	sid_parse(pdata+40,sid_len,&sid);
+
+	if (!sid_parse(pdata+40,sid_len,&sid)) {
+		return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+	}
+
 	DEBUGADD(8,("SID: %s\n",sid_string_static(&sid)));
 
 	/* 44 unknown bytes left... */

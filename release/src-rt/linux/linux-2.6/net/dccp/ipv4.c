@@ -410,7 +410,7 @@ struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
 
 	dccp_sync_mss(newsk, dst_mtu(dst));
 
-	__inet_hash(&dccp_hashinfo, newsk, 0);
+	__inet_hash_nolisten(&dccp_hashinfo, newsk);
 	__inet_inherit_port(&dccp_hashinfo, sk, newsk);
 
 	return newsk;
@@ -850,9 +850,8 @@ static int dccp_v4_rcv(struct sk_buff *skb)
 
 	/* Step 2:
 	 *	Look up flow ID in table and get corresponding socket */
-	sk = __inet_lookup(&dccp_hashinfo,
-			   iph->saddr, dh->dccph_sport,
-			   iph->daddr, dh->dccph_dport, inet_iif(skb));
+	sk = __inet_lookup_skb(&dccp_hashinfo, skb,
+			       dh->dccph_sport, dh->dccph_dport);
 	/*
 	 * Step 2:
 	 *	If no socket ...

@@ -427,7 +427,7 @@ static inline void sk_acceptq_added(struct sock *sk)
 
 static inline int sk_acceptq_is_full(struct sock *sk)
 {
-	return sk->sk_ack_backlog > sk->sk_max_ack_backlog;
+	return sk->sk_ack_backlog >= sk->sk_max_ack_backlog;
 }
 
 /*
@@ -435,7 +435,7 @@ static inline int sk_acceptq_is_full(struct sock *sk)
  */
 static inline int sk_stream_min_wspace(struct sock *sk)
 {
-	return sk->sk_wmem_queued / 2;
+	return sk->sk_wmem_queued >> 1;
 }
 
 static inline int sk_stream_wspace(struct sock *sk)
@@ -698,10 +698,11 @@ extern void __sk_stream_mem_reclaim(struct sock *sk);
 extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
 
 #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
+#define SK_STREAM_MEM_QUANTUM_SHIFT ilog2(SK_STREAM_MEM_QUANTUM)
 
 static inline int sk_stream_pages(int amt)
 {
-	return (amt + SK_STREAM_MEM_QUANTUM - 1) / SK_STREAM_MEM_QUANTUM;
+	return (amt + SK_STREAM_MEM_QUANTUM - 1) >> SK_STREAM_MEM_QUANTUM_SHIFT;
 }
 
 static inline void sk_stream_mem_reclaim(struct sock *sk)
@@ -1188,45 +1189,12 @@ static inline void sk_wake_async(struct sock *sk, int how, int band)
 static inline void sk_stream_moderate_sndbuf(struct sock *sk)
 {
 	if (!(sk->sk_userlocks & SOCK_SNDBUF_LOCK)) {
-		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued / 2);
+		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued >> 1);
 		sk->sk_sndbuf = max(sk->sk_sndbuf, SOCK_MIN_SNDBUF);
 	}
 }
 
-static inline struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
-						   int size, int mem,
-						   gfp_t gfp)
-{
-	struct sk_buff *skb;
-
-	/* The TCP header must be at least 32-bit aligned.  */
-	size = ALIGN(size, 4);
-
-	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
-	if (skb) {
-		skb->truesize += mem;
-		if (sk_stream_wmem_schedule(sk, skb->truesize)) {
-			/*
-			 * Make sure that we have exactly size bytes
-			 * available to the caller, no more, no less.
-			 */
-			skb_reserve(skb, skb_tailroom(skb) - size);
-			return skb;
-		}
-		__kfree_skb(skb);
-	} else {
-		sk->sk_prot->enter_memory_pressure();
-		sk_stream_moderate_sndbuf(sk);
-	}
-	return NULL;
-}
-
-static inline struct sk_buff *sk_stream_alloc_skb(struct sock *sk,
-						  int size,
-						  gfp_t gfp)
-{
-	return sk_stream_alloc_pskb(sk, size, 0, gfp);
-}
+struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp);
 
 static inline struct page *sk_stream_alloc_page(struct sock *sk)
 {
@@ -1245,7 +1213,7 @@ static inline struct page *sk_stream_alloc_page(struct sock *sk)
  */
 static inline int sock_writeable(const struct sock *sk) 
 {
-	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf / 2);
+	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf >> 1);
 }
 
 static inline gfp_t gfp_any(void)
@@ -1315,6 +1283,18 @@ static inline void sk_eat_skb(struct sock *sk, struct sk_buff *skb, int copied_e
 	__kfree_skb(skb);
 }
 #endif
+
+static inline struct sock *skb_steal_sock(struct sk_buff *skb)
+{
+	if (unlikely(skb->sk)) {
+		struct sock *sk = skb->sk;
+
+		skb->destructor = NULL;
+		skb->sk = NULL;
+		return sk;
+	}
+	return NULL;
+}
 
 extern void sock_enable_timestamp(struct sock *sk);
 extern int sock_get_timestamp(struct sock *, struct timeval __user *);

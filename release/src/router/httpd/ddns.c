@@ -23,10 +23,8 @@ void asp_ddnsx(int argc, char **argv)
 
 	switch (get_wan_proto()) {
 	case WP_PPTP:
-		p = "pptp_get_ip";
-		break;
 	case WP_L2TP:
-		p = "l2tp_get_ip";
+		p = "ppp_get_ip";
 		break;
 	default:
 		p = "wan_ipaddr";
@@ -77,10 +75,8 @@ void asp_ddnsx_ip(int argc, char **argv)
 
 	switch (get_wan_proto()) {
 	case WP_PPTP:
-		p = "pptp_get_ip";
-		break;
 	case WP_L2TP:
-		p = "l2tp_get_ip";
+		p = "ppp_get_ip";
 		break;
 	default:
 		p = "wan_ipaddr";

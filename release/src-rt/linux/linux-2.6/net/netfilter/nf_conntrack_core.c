@@ -940,6 +940,8 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 		nf_conntrack_put((*pskb)->nfct);
 		(*pskb)->nfct = NULL;
 		NF_CT_STAT_INC_ATOMIC(invalid);
+		if (ret == -NF_DROP)
+			NF_CT_STAT_INC_ATOMIC(drop);
 		return -ret;
 	}
 
@@ -1264,7 +1266,7 @@ static struct list_head *alloc_hashtable(int *sizep, int *vmalloced)
 	*vmalloced = 0;
 
 	size = *sizep = roundup(*sizep, PAGE_SIZE / sizeof(struct list_head));
-	hash = (void*)__get_free_pages(GFP_KERNEL,
+	hash = (void*)__get_free_pages(GFP_KERNEL|__GFP_NOWARN,
 				       get_order(sizeof(struct list_head)
 						 * size));
 	if (!hash) {

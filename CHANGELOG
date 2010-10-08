@@ -677,7 +677,7 @@ to "On" or "Auto".
 
 Applied kernel patches from linux-mips.org (up to 2009-12-05).
 
-Software updates: Linux kernel 2.4.37.9, ntfs-3g (in Extras build)
+Software updates: Linux kernel 2.4.37.9, ntfs-3g (in Extras builds)
 2010.1.16, Dnsmasq 2.52, bridge-utils 1.0.6, pptp-client 1.7.1.
 
 Busybox: minor fixes from trunk.
@@ -1019,7 +1019,7 @@ Added basename command to all builds except Lite.
 
 Fixed proxy autodiscovery mime handler to not require authorization.
 
-Software updates: ntfs-3g release 2010.5.22 (in Extras build),
+Software updates: ntfs-3g release 2010.5.22 (in Extras builds),
 Dnsmasq 2.55, MiniDLNA 1.0.18 (cvs 2010-06-09).
 
 Added "nvram erase" command.
@@ -1118,6 +1118,7 @@ This is a hot-fix release fixing a problem with OpenVPN not working in
 build 48. This build (including K26 beta19 builds) only exists for VPN
 editions.
 
+
 build 50 - 09/04/2010
 ---------------------
 
@@ -1198,7 +1199,8 @@ configured, no GUI configuration exists yet, and by default IPv6 is disabled
 on all interfaces!
 
 Various kernel bug fixes and optimization patches backported from upstream
-2.6 kernel (mostly network/conntrack and USB related).
+2.6 kernel (mostly network/conntrack and USB related): about 20 to 30%
+better WAN-LAN throughput than in build 48 (beta18).
 
 Added support for GUID (EFI) partition tables.
 
@@ -1208,3 +1210,80 @@ significant size reduction.
 Software updates: MiniDLNA 1.0.18 (cvs 2010-08-31), libraries used by
 MiniDLNA (sqlite 3.7.2, zlib 1.2.5, FFMpeg 0.6).
 
+
+build 51 - 10/04/2010
+---------------------
+
+Access Restrictions criteria: allow to specify Src/Dst Address, expand list
+of available protocols.
+
+Allow to specify hostnames in addition to IP addresses for iptables rules
+(port forwarding, access restrictions, QoS).
+
+Allow to specify hostname in addition to IP address for remote logging.
+
+Replaced old Tomato's bcount match by standard connbytes match.
+
+Added "Interference Mitigation" setting to Advanced->Wireless.
+
+L2TP client daemon replaced with xl2tpd 1.2.7 (should provide better
+performance).
+
+Execute *.autorun scripts loaded from nvram.
+
+Web Usage: added GUI option to clear web usage logs.
+
+Added additional timing options for syslog marker output.
+
+Display nvram usage on Administration->Configuration page.
+
+PPTP/L2TP WAN connections: fixed routing and firewall rules for internal
+ISP network (MAN), allow to specify static routes for MAN interface, added
+support for MPPE/MPPC encryption/compression, added custom options to GUI.
+
+Added support for ZTE ZXV10 H618B, Linksys WRT310N v1 and v2 routers.
+
+Fixed support for D-Link DIR-320, Asus WL-500G Deluxe.
+
+Fixed bugs in signal processing and restarting service applications.
+
+Fixed support for DHCP classless static routes broken in build 50.
+
+Fixed wireless channel selection in GUI when switching between B/G/N modes.
+
+Disabled loading USB 1.1 module (ohci or uhci) for non-existing controllers
+on Asus routers.
+
+Include additional iptables matches: quota, hl (K26 only).
+
+Software updates: Linux kernel 2.4.37.10, MiniUPnPd 1.4 20100921, pppd (fixes
+from upstream), ntfs-3g (in Extras builds) 2010.10.2.
+
+Code clean-up, minor bug fixes, cosmetics.
+
+* Kernel 2.4-based builds only:
+
+Toolchain: switch kernel 2.4 builds to use gcc 4.2.4 for userspace apps,
+binutils 2.20.1, updated binary 32-bit toolchain.
+
+* Kernel 2.6-based builds only (beta22):
+
+Fixed bugs in conntrack modules forward-ported from kernel 2.4.
+
+GUI cosmetics: display a message on "Media Server" page when directory scan
+is in progress.
+
+Restored JFFS in K26 Std builds (was disabled in build 50).
+
+Write checksum to the end of mtd block during firmware flash on Netgear
+routers: this should fix flashing back to the OEM firmware.
+
+Various kernel bug fixes and performance-related patches backported from
+upstream 2.6 kernel.
+
+Expanded set of available extra kernel modules - included modules for HID,
+sound and webcam (UVC) support.
+
+Software updates: MiniDLNA 1.0.18.2 (cvs 2010-09-28), radvd 1.6, Samba
+3.0.37 (latest in 3.0 series) with security fixes from samba.org
+(CVE 2010-2063, CVE 2010-3069).

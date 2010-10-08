@@ -241,9 +241,7 @@ static int hfsplus_remount(struct super_block *sb, int *flags, char *data)
 
 		if (!(vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_UNMNT))) {
 			printk(KERN_WARNING "hfs: filesystem was not cleanly unmounted, "
-			       "running fsck.hfsplus is recommended.  leaving read-only.\n");
-			sb->s_flags |= MS_RDONLY;
-			*flags |= MS_RDONLY;
+			       "running fsck.hfsplus is recommended.\n");
 		} else if (sbi.flags & HFSPLUS_SB_FORCE) {
 			/* nothing */
 		} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_SOFTLOCK)) {

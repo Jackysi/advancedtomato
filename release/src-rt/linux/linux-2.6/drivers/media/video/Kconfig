@@ -784,6 +784,8 @@ config USB_ZR364XX
 	  To compile this driver as a module, choose M here: the
 	  module will be called zr364xx.
 
+source "drivers/media/video/uvc/Kconfig"
+
 endif # V4L_USB_DRIVERS
 
 endif # VIDEO_CAPTURE_DRIVERS
