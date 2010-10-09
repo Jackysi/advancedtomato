@@ -1646,13 +1646,14 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
 	rt->rt_type = res->type;
 }
 
+/* called in rcu_read_lock() section */
 static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 				u8 tos, struct net_device *dev, int our)
 {
-	unsigned hash;
+	unsigned int hash;
 	struct rtable *rth;
 	__be32 spec_dst;
-	struct in_device *in_dev = in_dev_get(dev);
+	struct in_device *in_dev = __in_dev_get_rcu(dev);
 	u32 itag = 0;
 
 	/* Primary sanity checks. */
@@ -1662,19 +1663,19 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 
 	if (MULTICAST(saddr) || BADCLASS(saddr) || LOOPBACK(saddr) ||
 	    skb->protocol != htons(ETH_P_IP))
-		goto e_inval;
+		return -EINVAL;
 
 	if (ZERONET(saddr)) {
 		if (!LOCAL_MCAST(daddr))
-			goto e_inval;
+			return -EINVAL;
 		spec_dst = inet_select_addr(dev, 0, RT_SCOPE_LINK);
 	} else if (fib_validate_source(saddr, 0, tos, 0,
 					dev, &spec_dst, &itag) < 0)
-		goto e_inval;
+		return -EINVAL;
 
 	rth = dst_alloc(&ipv4_dst_ops);
 	if (!rth)
-		goto e_nobufs;
+		return -ENOBUFS;
 
 	rth->u.dst.output= ip_rt_bug;
 
@@ -1714,17 +1715,8 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 #endif
 	RT_CACHE_STAT_INC(in_slow_mc);
 
-	in_dev_put(in_dev);
 	hash = rt_hash(daddr, saddr, dev->ifindex);
 	return rt_intern_hash(hash, rth, (struct rtable**) &skb->dst);
-
-e_nobufs:
-	in_dev_put(in_dev);
-	return -ENOBUFS;
-
-e_inval:
-	in_dev_put(in_dev);
-	return -EINVAL;
 }
 
 
@@ -1759,6 +1751,7 @@ static void ip_handle_martian_source(struct net_device *dev,
 #endif
 }
 
+/* called in rcu_read_lock() section */
 static int __mkroute_input(struct sk_buff *skb,
 			   struct fib_result *res,
 			   struct in_device *in_dev,
@@ -1769,12 +1762,12 @@ static int __mkroute_input(struct sk_buff *skb,
 	struct rtable *rth;
 	int err;
 	struct in_device *out_dev;
-	unsigned flags = 0;
+	unsigned int flags = 0;
 	__be32 spec_dst;
 	u32 itag;
 
 	/* get a working reference to the output device */
-	out_dev = in_dev_get(FIB_RES_DEV(*res));
+	out_dev = __in_dev_get_rcu(FIB_RES_DEV(*res));
 	if (out_dev == NULL) {
 		if (net_ratelimit())
 			printk(KERN_CRIT "Bug in ip_route_input" \
@@ -1856,8 +1849,6 @@ static int __mkroute_input(struct sk_buff *skb,
 	*result = rth;
 	err = 0;
  cleanup:
-	/* release the working reference to the output device */
-	in_dev_put(out_dev);
 	return err;
 }
 
@@ -1960,7 +1951,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 			       u8 tos, struct net_device *dev, u32 lsrc)
 {
 	struct fib_result res;
-	struct in_device *in_dev = in_dev_get(dev);
+	struct in_device *in_dev = __in_dev_get_rcu(dev);
 	struct flowi fl = { .nl_u = { .ip4_u =
 				      { .daddr = daddr,
 					.saddr = lsrc ? : saddr,
@@ -2051,7 +2042,6 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 		goto e_inval;
 
 done:
-	in_dev_put(in_dev);
 	if (free_res)
 		fib_res_put(&res);
 out:	return err;
@@ -2158,11 +2148,13 @@ ip_route_input_cached(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	struct rtable * rth;
 	unsigned	hash;
 	int iif = dev->ifindex;
+	int res;
+
+	rcu_read_lock();
 
 	tos &= IPTOS_RT_MASK;
 	hash = rt_hash(daddr, saddr, iif);
 
-	rcu_read_lock();
 	for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
 	     rth = rcu_dereference(rth->u.dst.rt_next)) {
 		if (((rth->fl.fl4_dst ^ daddr) |
@@ -2182,7 +2174,6 @@ ip_route_input_cached(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 		}
 		RT_CACHE_STAT_INC(in_hlist_search);
 	}
-	rcu_read_unlock();
 
 	/* Multicast recognition logic is moved from route cache to here.
 	   The problem was that too many Ethernet cards have broken/missing
@@ -2196,10 +2187,9 @@ ip_route_input_cached(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	   route cache entry is created eventually.
 	 */
 	if (MULTICAST(daddr)) {
-		struct in_device *in_dev;
+		struct in_device *in_dev = __in_dev_get_rcu(dev);
 
-		rcu_read_lock();
-		if ((in_dev = __in_dev_get_rcu(dev)) != NULL) {
+		if (in_dev != NULL) {
 			int our = ip_check_mc(in_dev, daddr, saddr,
 				ip_hdr(skb)->protocol);
 			if (our
@@ -2207,15 +2197,18 @@ ip_route_input_cached(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 			    || (!LOCAL_MCAST(daddr) && IN_DEV_MFORWARD(in_dev))
 #endif
 			    ) {
-				rcu_read_unlock();
-				return ip_route_input_mc(skb, daddr, saddr,
+				res = ip_route_input_mc(skb, daddr, saddr,
 							 tos, dev, our);
+				rcu_read_unlock();
+				return res;
 			}
 		}
 		rcu_read_unlock();
 		return -EINVAL;
 	}
-	return ip_route_input_slow(skb, daddr, saddr, tos, dev, lsrc);
+	res = ip_route_input_slow(skb, daddr, saddr, tos, dev, lsrc);
+	rcu_read_unlock();
+	return res;
 }
 
 int ip_route_input(struct sk_buff *skb, u32 daddr, u32 saddr,
