@@ -475,6 +475,46 @@ void asp_wlrate(int argc, char **argv)
 	web_printf("%d", rate);
 }
 
+void asp_wlbands(int argc, char **argv)
+{
+	char *phytype, *phylist, *ifname;
+	char comma = ' ';
+	int list[WLC_BAND_ALL];
+	int i;
+	
+	ifname = nvram_safe_get("wl_ifname");
+	phytype = nvram_safe_get("wl_phytype");
+
+	web_puts("\nwl_bands = [");
+
+	if (phytype[0] == 'n' || phytype[0] == 'l' || phytype[0] == 's' || phytype[0] == 'c') {
+		/* Get band list. Assume both the bands in case of error */
+		if (wl_ioctl(ifname, WLC_GET_BANDLIST, list, sizeof(list)) < 0) {
+			for (i = WLC_BAND_5G; i <= WLC_BAND_2G; i++) {
+				web_printf("%c'%d'", comma, i);
+				comma = ',';
+			}
+		}
+		else {
+			if (list[0] > 2) list[0] = 2;
+				for (i = 1; i <= list[0]; i++) {
+				web_printf("%c'%d'", comma, i);
+				comma = ',';
+			}
+		}
+	}
+	else {
+		/* Get available phy types of the currently selected wireless interface */
+		phylist = nvram_safe_get("wl_phytypes");
+		for (i = 0; i < strlen(phylist); i++) {
+			web_printf("%c'%d'", comma, phylist[i] == 'a' ? WLC_BAND_5G : WLC_BAND_2G);
+			comma = ',';
+		}
+	}
+
+	web_puts(" ];\n");
+}
+
 void asp_wlcountries(int argc, char **argv)
 {
 	char s[128], *p, *code, *country;

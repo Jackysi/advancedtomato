@@ -398,6 +398,7 @@ const aspapi_t aspapi[] = {
 	{ "wlchannels",			asp_wlchannels	},	//!!TB
 	{ "wlcountries",		asp_wlcountries	},
 	{ "wlrate",			asp_wlrate		},
+	{ "wlbands",			asp_wlbands		},
 #ifdef TCONFIG_USB
 	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
 #endif
