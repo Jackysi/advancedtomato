@@ -119,13 +119,15 @@ int ipdown_main(int argc, char **argv)
 	unlink("/tmp/ppp/link");
 
 	proto = get_wan_proto();
-	if (proto == WP_L2TP) {
+	if (proto == WP_L2TP || proto == WP_PPTP) {
 		/* clear dns from the resolv.conf */
 		nvram_set("wan_get_dns","");
 		dns_to_resolv();
 
-		route_del(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"),
-			nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+		if (proto == WP_L2TP) {
+			route_del(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"),
+				nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+		}
 
 		// Restore the default gateway for WAN interface
 		nvram_set("wan_gateway", nvram_safe_get("wan_gateway_buf"));
