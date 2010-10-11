@@ -606,7 +606,7 @@ static const nvset_t nvset_list[] = {
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
 	{ "ct_timeout",			V_LENGTH(5, 15)		},
-	{ "nf_ttl",				V_RANGE(-10, 10)	},
+	{ "nf_ttl",			V_LENGTH(1, 6)		},
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},

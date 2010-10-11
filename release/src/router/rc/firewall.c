@@ -328,23 +328,33 @@ static void mangle_table(void)
 	if (wanup) {
 		ipt_qos();
 
-		ttl = nvram_get_int("nf_ttl");
-		if (ttl != 0) {
+		p = nvram_safe_get("nf_ttl");
+		if (strncmp(p, "c:", 2) == 0) {
+			p += 2;
+			ttl = atoi(p);
+			p = (ttl >= 0 && ttl <= 255) ? "set" : NULL;
+		}
+		else if ((ttl = atoi(p)) != 0) {
+			if (ttl > 0) {
+				p = "inc";
+			}
+			else {
+				ttl = -ttl;
+				p = "dec";
+			}
+			if (ttl > 255) p = NULL;
+		}
+		else p = NULL;
+
+		if (p) {
 #ifdef LINUX26
 			modprobe("xt_HL");
 #else
 			modprobe("ipt_TTL");
 #endif
-			if (ttl > 0) {
-				p = "in";
-			}
-			else {
-				ttl = -ttl;
-				p = "de";
-			}
 			ipt_write(
-				"-I PREROUTING -i %s -j TTL --ttl-%sc %d\n"
-				"-I POSTROUTING -o %s -j TTL --ttl-%sc %d\n",
+				"-I PREROUTING -i %s -j TTL --ttl-%s %d\n"
+				"-I POSTROUTING -o %s -j TTL --ttl-%s %d\n",
 					wanface, p, ttl,
 					wanface, p, ttl);
 		}
