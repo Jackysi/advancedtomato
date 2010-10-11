@@ -568,19 +568,8 @@ static void filter_input(void)
 	 * from addresses other than used for query. This could lead to a lower level
 	 * of security, so allow to disable it via nvram variable.
 	 */
-	if (nvram_invmatch("dhcp_pass", "0")) {
-		switch (get_wan_proto()) {
-		case WP_PPTP:
-			if (nvram_get_int("pptp_dhcp") == 0)
-				break;
-			/* Fall through */
-		case WP_DHCP:
-		case WP_L2TP:
-			ipt_write("-A INPUT -p udp --sport 67 --dport 68 -j %s\n", chain_in_accept);
-			break;
-		default:
-			break;
-		}
+	if (nvram_invmatch("dhcp_pass", "0") && using_dhcpc()) {
+		ipt_write("-A INPUT -p udp --sport 67 --dport 68 -j %s\n", chain_in_accept);
 	}
 
 	strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
