@@ -130,6 +130,7 @@ Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
 - Toastman QOS rules<br>
 - Fast conntrack timeout<br>
 - Fast auto refresh<br>
+- JFFS upnpconfig.custom<br>
 <br>
 <br>
 Built on <% build_time(); %><br>

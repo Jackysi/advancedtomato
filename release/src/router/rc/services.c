@@ -476,6 +476,7 @@ void start_upnp(void)
 					fprintf(f, "allow 1024-65535 %s/%s 1024-65535\n", lanip, lanmask);
 				}
 
+				fappend(f, "/jffs/upnpconfig.custom");
 				fappend(f, "/etc/upnp/config.custom");
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
 				fclose(f);

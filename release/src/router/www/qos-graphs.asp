@@ -52,7 +52,7 @@ var svgReady = 0;
 
 //Toastman Class Labels
 
-var abc = ['Unclassified','Service','Game/VOIP','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
+var abc = ['Unclassified','Service','VOIP/Game','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
 //	var abc = ['Unclassified', '1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
 //      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
