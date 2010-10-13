@@ -41,7 +41,8 @@ obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
 obj-y += ppp
-#obj-y += ttcp
+obj-y += ttcp
+obj-y += utils
 obj-y += ntpc
 obj-y += rstats
 
@@ -386,6 +387,10 @@ endif
 
 	@mkdir -p $(PLATFORMDIR)/extras/apps
 	@mkdir -p $(PLATFORMDIR)/extras/lib
+
+	@mv $(TARGETDIR)/usr/sbin/ttcp $(PLATFORMDIR)/extras/apps/ || true
+	@mv $(TARGETDIR)/usr/sbin/mii-tool $(PLATFORMDIR)/extras/apps/ || true
+	@mv $(TARGETDIR)/usr/sbin/robocfg $(PLATFORMDIR)/extras/apps/ || true
 
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/lib/libusb* $(PLATFORMDIR)/extras/lib/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
