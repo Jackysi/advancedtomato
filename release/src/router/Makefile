@@ -940,16 +940,19 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 	$(STRIP) $(INSTALLDIR)/sqlite/usr/lib/libsqlite3.so.0
 endif
 
-FFMPEG_FILTER_CONFIG= $(foreach c, $(2), --enable-$(1)="$(c)")
+FFMPEG_FILTER_CONFIG= $(foreach c, $(2), --$(1)="$(c)")
 
 FFMPEG_DECODERS:=aac ac3 atrac3 h264 jpegls mp3 mpeg1video mpeg2video mpeg4 mpeg4aac mpegvideo png wmav1 wmav2
-FFMPEG_CONFIGURE_DECODERS:=$(call FFMPEG_FILTER_CONFIG,decoder,$(FFMPEG_DECODERS))
+FFMPEG_CONFIGURE_DECODERS:=$(call FFMPEG_FILTER_CONFIG,enable-decoder,$(FFMPEG_DECODERS))
 
 FFMPEG_PARSERS:=aac ac3 h264 mpeg4video mpegaudio mpegvideo
-FFMPEG_CONFIGURE_PARSERS:=$(call FFMPEG_FILTER_CONFIG,parser,$(FFMPEG_PARSERS))
+FFMPEG_CONFIGURE_PARSERS:=$(call FFMPEG_FILTER_CONFIG,enable-parser,$(FFMPEG_PARSERS))
 
 FFMPEG_PROTOCOLS:=file
-FFMPEG_CONFIGURE_PROTOCOLS:=$(call FFMPEG_FILTER_CONFIG,protocol,$(FFMPEG_PROTOCOLS))
+FFMPEG_CONFIGURE_PROTOCOLS:=$(call FFMPEG_FILTER_CONFIG,enable-protocol,$(FFMPEG_PROTOCOLS))
+
+FFMPEG_DISABLED_DEMUXERS:=amr apc ape ass bethsoftvid bfi c93 daud dnxhd dsicin dxa ffm gsm gxf idcin iff image2 image2pipe ingenient ipmovie lmlm4 mm mmf msnwc_tcp mtv mxf nsv nut oma pva rawvideo rl2 roq rpl segafilm shorten siff smacker sol str thp tiertexseq tta txd vmd voc wc3 wsaud wsvqa xa yuv4mpegpipe
+FFMPEG_CONFIGURE_DEMUXERS:=$(call FFMPEG_FILTER_CONFIG,disable-demuxer,$(FFMPEG_DISABLED_DEMUXERS))
 
 ffmpeg/stamp-h1: zlib
 	cd ffmpeg && symver_asm_label=no symver_gnu_asm=no symver=no CC=$(CC) \
@@ -958,8 +961,8 @@ ffmpeg/stamp-h1: zlib
 		--enable-pthreads --enable-small --disable-encoders --disable-filters \
 		--disable-muxers --disable-devices --disable-ffmpeg --disable-ffplay \
 		--disable-ffserver --disable-ffprobe --disable-avdevice --disable-swscale \
-		--disable-hwaccels --disable-network --disable-bsfs \
-		--enable-demuxers \
+		--disable-hwaccels --disable-network --disable-bsfs --disable-mpegaudio-hp \
+		--enable-demuxers $(FFMPEG_CONFIGURE_DEMUXERS) \
 		--disable-decoders $(FFMPEG_CONFIGURE_DECODERS) \
 		--disable-parsers $(FFMPEG_CONFIGURE_PARSERS) \
 		--disable-protocols $(FFMPEG_CONFIGURE_PROTOCOLS) \

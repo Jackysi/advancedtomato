@@ -43,8 +43,8 @@
 #include "tivo_utils.h"
 #include "tivo_commands.h"
 #endif
-//#define MAX_BUFFER_SIZE 4194304 // 4MB -- Too much?
-#define MAX_BUFFER_SIZE 2147483647 // 2GB -- Too much?
+#define MAX_BUFFER_SIZE 4194304 // 4MB -- Too much?
+//#define MAX_BUFFER_SIZE 2147483647 // 2GB -- Too much?
 #define MIN_BUFFER_SIZE 65536
 
 #include "icons.c"
