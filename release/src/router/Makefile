@@ -657,7 +657,7 @@ miniupnpd-install:
 # !!TB
 shared: busybox
 
-vsftpd: shared openssl
+vsftpd: openssl
 	@$(SEP)
 	$(MAKE) -C vsftpd
 
@@ -667,12 +667,14 @@ vsftpd-install:
 
 ntfs-3g/Makefile:
 	cd ntfs-3g && \
-	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared=no --enable-static=no \
+	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		$(CONFIGURE) --enable-shared=no --enable-static=no \
 		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal \
 		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
 
 ntfs-3g: ntfs-3g/Makefile
-	@$(MAKE) -C ntfs-3g CFLAGS="-Os -Wall $(EXTRACFLAGS)"
+	@$(MAKE) -C ntfs-3g 
 
 ntfs-3g-clean:
 	-@$(MAKE) -C ntfs-3g clean
@@ -811,10 +813,11 @@ endif
 #		install -D ipupdate/ez-ipupdate $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
 #		$(STRIP) $(INSTALLDIR)/ipupdate/usr/sbin/ez-ipupdate
 
-
 zebra/stamp-h1:
 	@cd zebra && rm -f config.cache && \
-	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 	$(CONFIGURE) --sysconfdir=/etc \
 	--enable-netlink $(if $(TCONFIG_IPV6),--enable-ipv6,--disable-ipv6) --disable-ripngd --disable-ospfd --disable-doc \
 	--disable-ospf6d --disable-bgpd --disable-bgpd-announce
@@ -827,7 +830,7 @@ zebra-clean:
 	-@$(MAKE) -C zebra clean
 	@rm -f zebra/stamp-h1
 
-zebra-install:
+zebra-install: zebra
 	install -D zebra/zebra/zebra $(INSTALLDIR)/zebra/usr/sbin/zebra
 	install -D zebra/ripd/ripd $(INSTALLDIR)/zebra/usr/sbin/ripd
 	install -D zebra/lib/libzebra.so $(INSTALLDIR)/zebra/usr/lib/libzebra.so
@@ -905,7 +908,8 @@ dropbear-clean:
 	@rm -f dropbear/config.h
 
 dropbear/config.h:
-	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	cd dropbear && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 		ac_cv_func_logout=no ac_cv_func_logwtmp=no \
 		$(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp \
 		--disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline \
@@ -916,8 +920,9 @@ dropbear/config.h:
 
 sqlite/stamp-h1:
 	cd sqlite && \
-	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) \
-		--prefix=/usr --enable-shared --enable-static \
+	CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+		$(CONFIGURE) --prefix=/usr --enable-shared --enable-static \
 		--disable-readline --disable-dynamic-extensions --enable-threadsafe
 	touch sqlite/stamp-h1
 
@@ -958,7 +963,8 @@ ffmpeg/stamp-h1: zlib
 		--disable-decoders $(FFMPEG_CONFIGURE_DECODERS) \
 		--disable-parsers $(FFMPEG_CONFIGURE_PARSERS) \
 		--disable-protocols $(FFMPEG_CONFIGURE_PROTOCOLS) \
-		--extra-cflags="-Os $(EXTRACFLAGS) -fPIC -I$(TOP)/zlib" \
+		--extra-cflags="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections -fPIC -I$(TOP)/zlib" \
+		--extra-ldflags="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		--extra-libs="-L$(TOP)/zlib -lz" \
 		--enable-zlib --disable-debug --prefix=''
 	touch ffmpeg/stamp-h1
@@ -983,7 +989,9 @@ endif
 
 libogg/stamp-h1:
 	cd libogg && \
-	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" $(CONFIGURE) --enable-shared --enable-static --prefix=''
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
+	LDFLAGS="-fPIC -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	$(CONFIGURE) --enable-shared --enable-static --prefix=''
 	touch libogg/stamp-h1
 
 libogg: libogg/stamp-h1
@@ -1002,8 +1010,9 @@ endif
 
 flac/stamp-h1: libogg
 	cd flac && \
-	CFLAGS="-Os $(EXTRACFLAGS) -fPIC" \
-	CPPFLAGS="-I$(TOP)/libogg/include" LDFLAGS="-L$(TOP)/libogg/src/.libs" \
+	CFLAGS="-Os $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
+	CPPFLAGS="-I$(TOP)/libogg/include" \
+	LDFLAGS="-L$(TOP)/libogg/src/.libs -fPIC -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-rpath \
 		--disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs \
 		--without-libiconv-prefix --disable-altivec --disable-3dnow --disable-sse
@@ -1043,7 +1052,8 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 endif
 
 libexif/stamp-h1:
-	cd libexif && CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC" \
+	cd libexif && CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
+	LDFLAGS="-fPIC -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
 		--disable-docs --disable-rpath --disable-nls --without-libiconv-prefix --without-libintl-prefix
 	touch libexif/stamp-h1
@@ -1085,7 +1095,8 @@ endif
 
 libid3tag/stamp-h1: zlib
 	cd libid3tag && \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" CPPFLAGS="-I$(TOP)/zlib" LDFLAGS="-L$(TOP)/zlib" \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" CPPFLAGS="-I$(TOP)/zlib" \
+	LDFLAGS="-L$(TOP)/zlib -fPIC -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' \
 		--disable-debugging --disable-profiling
 	touch libid3tag/stamp-h1
@@ -1106,8 +1117,9 @@ endif
 
 libvorbis/stamp-h1: libogg
 	cd libvorbis && \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
-	CPPFLAGS="-I$(TOP)/libogg/include" LDFLAGS="-L$(TOP)/libogg/src/.libs" \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
+	CPPFLAGS="-I$(TOP)/libogg/include" \
+	LDFLAGS="-L$(TOP)/libogg/src/.libs -fPIC -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-oggtest \
 		--with-ogg-includes="$(TOP)/libogg/include" \
 		--with-ogg-libraries="$(TOP)/libogg/src/.libs"
@@ -1133,14 +1145,15 @@ minidlna: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis
 
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
-	cd igmpproxy && CFLAGS="-O2 -Wall $(EXTRACFLAGS)" \
+	cd igmpproxy && CFLAGS="-O2 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=/usr
 
 igmpproxy: igmpproxy/src/Makefile
 	@$(SEP)
 	@$(MAKE) -C igmpproxy/src
 
-igmpproxy-install:
+igmpproxy-install: igmpproxy
 	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 
@@ -1152,7 +1165,7 @@ udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    PROGRAMS=udevtrigger
 
-udev-install:
+udev-install: udev
 	install -d $(INSTALLDIR)
 	install -d $(TARGETDIR)
 	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
@@ -1160,20 +1173,20 @@ udev-install:
 hotplug2:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-hotplug2-install:
+hotplug2-install: hotplug2
 	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
 	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/rom KERNELVER=$(LINUX_KERNEL)
 
 emf:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-emf-install:
+emf-install: emf
 	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
 
 igs:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-igs-install:
+igs-install: igs
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
 
@@ -1205,7 +1218,7 @@ lzo-clean:
 	-$(MAKE) -C lzo clean
 	@rm -f lzo/stamp-h1
 
-lzo-install:
+lzo-install: lzo
 	install -D lzo/src/.libs/liblzo2.so $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
 	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
 	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
@@ -1214,11 +1227,11 @@ lzo-install:
 openvpn: openvpn/.conf
 
 openvpn/.conf:
-	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
-	LDFLAGS=" -L../openssl/ -L../lzo/src/.libs/" \
+	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-L$(TOP)/openssl/ -L$(TOP)/lzo/src/.libs/ -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix= \
-	--with-lzo-headers="../lzo/include" \
-	--with-ssl-headers="../openssl/include/" \
+	--with-lzo-headers="$(TOP)/lzo/include" \
+	--with-ssl-headers="$(TOP)/openssl/include/" \
 	--with-iproute-path="/usr/sbin/ip" \
 	--disable-debug --disable-plugins --enable-management --enable-small \
 	--disable-selinux --disable-socks --enable-password-save
@@ -1228,9 +1241,9 @@ openvpn-clean:
 	-$(MAKE) -C openvpn clean
 	@rm -f openvpn/.conf
 
-openvpn-install:
+openvpn-install: openvpn
 	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
-	$(STRIP) $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
 
