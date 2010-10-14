@@ -357,7 +357,7 @@ int main(int argc, char **argv)
 	char s[256];
 	char *p;
 	int o;
-	unsigned l;
+	unsigned l, j;
 
 	printf("\n");
 	
@@ -407,13 +407,32 @@ int main(int argc, char **argv)
 		printf(" Total Size .... : %u (%.1f KB) (%.1f MB)\n", trx->length, trx->length / 1024.0, trx->length / 1024.0 / 1024.0);
 		printf("   Images ...... : %u (0x%08x)\n", l , l);
 		printf("   Padding ..... : %d\n", trx_padding);
+
+		printf(" Avail. for jffs :\n");
+
 		/* Reserved: 2 EBs for pmon, 1 EB for nvram. */
 		l = trx->length;
 		if (l < (4 * 1024 * 1024) - (3 * 64 * 1024))
-			l = (4 * 1024 * 1024) - (3 * 64 * 1024) - l;
+			j = (4 * 1024 * 1024) - (3 * 64 * 1024) - l;
 		else
-			l = 0;
-		printf(" Avail for jffs. : %d EBs + %d\n", l / (64*1024), l % (64*1024));
+			j = 0;
+		printf("   4MB, 128K CFE : %d EBs + %d\n", j / (64*1024), j % (64*1024));
+
+		/* Reserved: 4 EBs for pmon, 1 EB for nvram. */
+		if (l < (4 * 1024 * 1024) - (5 * 64 * 1024))
+			j = (4 * 1024 * 1024) - (5 * 64 * 1024) - l;
+		else
+			j = 0;
+		printf("   4MB, 256K CFE : %d EBs + %d\n", j / (64*1024), j % (64*1024));
+
+		if (l < (8 * 1024 * 1024) - (5 * 64 * 1024))
+			j = (8 * 1024 * 1024) - (5 * 64 * 1024) - l;
+		else
+			j = 0;
+		printf("   8MB, 256K CFE : %d EBs + %d\n", j / (64*1024), j % (64*1024));
+
+		printf("            Note : Netgear routers  have 6 EBs less available!\n");
+
 		printf(" CRC-32 ........ : %8X\n", trx->crc32);
 		l = (ROUNDUP(trx->length, (128 * 1024)) / (128 * 1024));
 		printf(" 128K Blocks ... : %u (0x%08X)\n", l, l);
