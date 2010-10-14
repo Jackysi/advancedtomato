@@ -565,9 +565,9 @@ else
 	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
 endif
 
-## Make the "Mini: no USB, no CIFS, no JFFS" build
+## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
-	@$(MAKE) bin NO_JFFS=y NO_CIFS=y SLIM=y B=F BUILD_DESC="Mini" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
 
 ## Make the "VPN witn no USB support" build
 v:
