@@ -328,23 +328,33 @@ static void mangle_table(void)
 	if (wanup) {
 		ipt_qos();
 
-		ttl = nvram_get_int("nf_ttl");
-		if (ttl != 0) {
+		p = nvram_safe_get("nf_ttl");
+		if (strncmp(p, "c:", 2) == 0) {
+			p += 2;
+			ttl = atoi(p);
+			p = (ttl >= 0 && ttl <= 255) ? "set" : NULL;
+		}
+		else if ((ttl = atoi(p)) != 0) {
+			if (ttl > 0) {
+				p = "inc";
+			}
+			else {
+				ttl = -ttl;
+				p = "dec";
+			}
+			if (ttl > 255) p = NULL;
+		}
+		else p = NULL;
+
+		if (p) {
 #ifdef LINUX26
 			modprobe("xt_HL");
 #else
 			modprobe("ipt_TTL");
 #endif
-			if (ttl > 0) {
-				p = "in";
-			}
-			else {
-				ttl = -ttl;
-				p = "de";
-			}
 			ipt_write(
-				"-I PREROUTING -i %s -j TTL --ttl-%sc %d\n"
-				"-I POSTROUTING -o %s -j TTL --ttl-%sc %d\n",
+				"-I PREROUTING -i %s -j TTL --ttl-%s %d\n"
+				"-I POSTROUTING -o %s -j TTL --ttl-%s %d\n",
 					wanface, p, ttl,
 					wanface, p, ttl);
 		}
@@ -568,19 +578,8 @@ static void filter_input(void)
 	 * from addresses other than used for query. This could lead to a lower level
 	 * of security, so allow to disable it via nvram variable.
 	 */
-	if (nvram_invmatch("dhcp_pass", "0")) {
-		switch (get_wan_proto()) {
-		case WP_PPTP:
-			if (nvram_get_int("pptp_dhcp") == 0)
-				break;
-			/* Fall through */
-		case WP_DHCP:
-		case WP_L2TP:
-			ipt_write("-A INPUT -p udp --sport 67 --dport 68 -j %s\n", chain_in_accept);
-			break;
-		default:
-			break;
-		}
+	if (nvram_invmatch("dhcp_pass", "0") && using_dhcpc()) {
+		ipt_write("-A INPUT -p udp --sport 67 --dport 68 -j %s\n", chain_in_accept);
 	}
 
 	strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));

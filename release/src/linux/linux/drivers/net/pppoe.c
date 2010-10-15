@@ -433,6 +433,10 @@ static int pppoe_disc_rcv(struct sk_buff *skb,
 	if (ph->code != PADT_CODE)
 		goto abort;
 
+	/* Check destination address */
+	if (memcmp(skb->mac.ethernet->h_dest, dev->dev_addr, ETH_ALEN))
+		goto abort;
+
 	po = get_item((unsigned long) ph->sid, skb->mac.ethernet->h_source);
 	if (po) {
 		struct sock *sk = po->sk;

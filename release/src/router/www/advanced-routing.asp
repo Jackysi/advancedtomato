@@ -132,6 +132,11 @@ function save()
 	form.submit(fom, 1);
 }
 
+function submit_complete()
+{
+	reloadPage();
+}
+
 function earlyInit()
 {
 	ara.setup();

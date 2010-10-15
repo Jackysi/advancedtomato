@@ -112,15 +112,22 @@ static uint32 crc_calc(uint32 crc, char *buf, int len)
 
 // -----------------------------------------------------------------------------
 
-static int mtd_open(const char *mtdname)
+static int mtd_open(const char *mtdname, mtd_info_t *mi)
 {
 	char path[256];
 	int part;
 	int size;
+	int f;
 
 	if (mtd_getinfo(mtdname, &part, &size)) {
 		sprintf(path, MTD_DEV(%d), part);
-		return open(path, O_RDWR|O_SYNC);
+		if ((f = open(path, O_RDWR|O_SYNC)) >= 0) {
+			if ((mi) && ioctl(f, MEMGETINFO, mi) != 0) {
+				close(f);
+				return -1;
+			}
+			return f;
+		}
 	}
 	return -1;
 }
@@ -137,8 +144,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 	if (erase) led(LED_DIAG, 1);
 
 	r = 0;
-	if ((mf = mtd_open(mtdname)) >= 0) {
-		if (ioctl(mf, MEMGETINFO, &mi) == 0) {
+	if ((mf = mtd_open(mtdname, &mi)) >= 0) {
 			r = 1;
 #if 1
 			ei.length = mi.erasesize;
@@ -181,8 +187,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 			// checkme:
 			char buf[2];
 			read(mf, &buf, sizeof(buf));
-		}
-		close(mf);
+			close(mf);
 	}
 
 	if (erase) led(LED_DIAG, 0);
@@ -369,12 +374,12 @@ int mtd_write_main(int argc, char *argv[])
 
 	_dprintf("trx len=%db 0x%x\n", trx.len, trx.len);
 
-	if ((mf = mtd_open(dev)) < 0) {
+	if ((mf = mtd_open(dev, &mi)) < 0) {
 		error = "Error opening MTD device";
 		goto ERROR;
 	}
 
-	if ((ioctl(mf, MEMGETINFO, &mi) != 0) || (mi.erasesize < sizeof(struct trx_header))) {
+	if (mi.erasesize < sizeof(struct trx_header)) {
 		error = "Error obtaining MTD information";
 		goto ERROR;
 	}
@@ -481,41 +486,52 @@ int mtd_write_main(int argc, char *argv[])
 	case MODEL_WNR2000v2:
 		error = "Error writing fake Netgear crc";
 
-		n = 0x00000004;		// fake length - little endian
-		crc = 0x02C0010E;	// fake crc - little endian
-		memcpy(&imageInfo[0], (char *)&n, 4);
-		memcpy(&imageInfo[4], (char *)&crc, 4);
+		// Netgear CFE has the offset of the checksum hardcoded as
+		// 0x78FFF8 on 8MB flash, and 0x38FFF8 on 4MB flash - in both
+		// cases this is 8 last bytes in the block exactly 6 blocks to the end.
+		// We rely on linux partition to be sized correctly by the kernel,
+		// so the checksum area doesn't fall outside of the linux partition,
+		// and doesn't override the rootfs.
+		ofs = (mi.size > (4 *1024 * 1024) ? 0x78FFF8 : 0x38FFF8) - 0x040000;
 
-		if (!mtd_getinfo("pmon", &ofs, &n))
-			goto ERROR;
-		ofs = ((mi.size > 0x400000) ? 0x007AFFF8 : 0x003AFFF8) - n;
+		n   = 0x00000004;	// fake length - little endian
+		crc = 0x02C0010E;	// fake crc - little endian
+		memcpy(&imageInfo[0], (char *)&n,   4);
+		memcpy(&imageInfo[4], (char *)&crc, 4);
 
 		ei.start = (ofs / mi.erasesize) * mi.erasesize;
 		ei.length = mi.erasesize;
-		if (ei.start < total)
-			goto ERROR;
 
 		if (lseek(mf, ei.start, SEEK_SET) < 0)
-			goto ERROR;
+			goto ERROR2;
 		if (buf) free(buf);
 		if (!(buf = malloc(mi.erasesize)))
-			goto ERROR;
+			goto ERROR2;
 		if (read(mf, buf, mi.erasesize) != mi.erasesize)
-			goto ERROR;
+			goto ERROR2;
 		if (lseek(mf, ei.start, SEEK_SET) < 0)
-			goto ERROR;
-
-		ei.length = mi.erasesize;
-		ioctl(mf, MEMUNLOCK, &ei);
-		if (ioctl(mf, MEMERASE, &ei) != 0)
-			goto ERROR;
+			goto ERROR2;
 
 		tmp = buf + (ofs % mi.erasesize);
 		memcpy(tmp, imageInfo, sizeof(imageInfo));
-		if (write(mf, buf, mi.erasesize) != mi.erasesize)
-			goto ERROR;
 
-		_dprintf(" write fake len/chksum @ 0x%x... done.\n", ofs);
+#ifdef DEBUG_SIMULATE
+		if (fseek(of, ei.start, SEEK_SET) < 0)
+			goto ERROR2;
+		if (fwrite(buf, 1, mi.erasesize, of) != n)
+			goto ERROR2;
+#else
+		ioctl(mf, MEMUNLOCK, &ei);
+		if (ioctl(mf, MEMERASE, &ei) != 0)
+			goto ERROR2;
+
+		if (write(mf, buf, mi.erasesize) != mi.erasesize)
+			goto ERROR2;
+#endif
+
+ERROR2:
+		_dprintf("%s.\n",  error ? : "Write Netgear fake len/crc completed");
+		// ignore crc write errors
 		error = NULL;
 		break;
 	}
@@ -527,6 +543,7 @@ int mtd_write_main(int argc, char *argv[])
 ERROR:
 	if (buf) free(buf);
 	if (mf >= 0) {
+		// dummy read to ensure chip(s) are out of lock/suspend state
 		read(mf, &n, sizeof(n));
 		close(mf);
 	}
@@ -534,7 +551,9 @@ ERROR:
 
 	crc_done();
 
-//	set_action(ACT_IDLE);
+#ifdef DEBUG_SIMULATE
+	set_action(ACT_IDLE);
+#endif
 
 	printf("%s\n",  error ? error : "Image successfully flashed");
 	_dprintf("%s\n",  error ? error : "Image successfully flashed");

@@ -343,6 +343,8 @@ static ALWAYS_INLINE uint32_t random_xid(void)
 /* Initialize the packet with the proper defaults */
 static void init_packet(struct dhcp_packet *packet, char type)
 {
+	int max_packet = sizeof(struct ip_udp_dhcp_packet);
+
 	udhcp_init_header(packet, type);
 	memcpy(packet->chaddr, client_config.client_mac, 6);
 	if (client_config.clientid)
@@ -356,6 +358,16 @@ static void init_packet(struct dhcp_packet *packet, char type)
 	 && client_config.vendorclass
 	) {
 		udhcp_add_binary_option(packet, client_config.vendorclass);
+	}
+	switch (type) {
+	case DHCPDISCOVER:
+		/* Explicitly saying that we want RFC-compliant packets helps
+		 * some buggy DHCP servers to NOT send bigger packets */
+		max_packet = IP_UPD_DHCP_SIZE;
+		/* Fall through */
+	case DHCPREQUEST:
+		if (max_packet < client_config.client_mtu)
+			udhcp_add_simple_option(packet, DHCP_MAX_SIZE, htons(max_packet));
 	}
 }
 
@@ -434,9 +446,6 @@ static int send_discover(uint32_t xid, uint32_t requested)
 	packet.xid = xid;
 	if (requested)
 		udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
-	/* Explicitly saying that we want RFC-compliant packets helps
-	 * some buggy DHCP servers to NOT send bigger packets */
-	udhcp_add_simple_option(&packet, DHCP_MAX_SIZE, htons(576));
 	add_client_options(&packet);
 
 	if (msgs++ < 3)
@@ -711,7 +720,6 @@ static void perform_renew(void)
 //		state = RENEW_REQUESTED;	// zzz
 //		break;
 	case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
-		udhcp_run_script(NULL, "deconfig");
 	case REQUESTING:
 	case RELEASED:
 		change_listen_mode(LISTEN_RAW);
@@ -930,7 +938,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	if (udhcp_read_interface(client_config.interface,
 			&client_config.ifindex,
 			NULL,
-			client_config.client_mac)
+			client_config.client_mac,
+			&client_config.client_mtu)
 	) {
 		return 1;
 	}
@@ -989,7 +998,11 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		 * member interfaces were added/removed or if the status of the
 		 * bridge changed).
 		 * Workaround: refresh it here before processing the next packet */
-		udhcp_read_interface(client_config.interface, &client_config.ifindex, NULL, client_config.client_mac);
+		udhcp_read_interface(client_config.interface,
+				&client_config.ifindex,
+				NULL,
+				client_config.client_mac,
+				&client_config.client_mtu);
 
 		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
 

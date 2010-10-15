@@ -13,9 +13,11 @@
 
 include ../common.mak
 
+LDFLAGS = -ffunction-sections -fdata-sections -Wl,--gc-sections
 #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
 #CFLAGS = -Wall -g -Os -D_GNU_SOURCE
 CFLAGS = -Wall -g -Os -D_GNU_SOURCE $(EXTRACFLAGS) -D_FILE_OFFSET_BITS=64 \
+	-ffunction-sections -fdata-sections \
 	-I$(TOP)/ffmpeg/libavutil -I$(TOP)/ffmpeg/libavcodec -I$(TOP)/ffmpeg/libavformat \
 	-I$(TOP)/ffmpeg/libswscale -I$(TOP)/ffmpeg \
 	-I$(TOP)/flac/include -I$(TOP)/sqlite -I$(TOP)/jpeg \
@@ -27,6 +29,7 @@ CFLAGS += -L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg -L$(TOP)/libvorbis/l
 	-L$(TOP)/libogg/src/.libs -L$(TOP)/libexif/libexif/.libs -L$(TOP)/flac/src/libFLAC/.libs \
 	-L$(TOP)/ffmpeg/libavutil -L$(TOP)/ffmpeg/libavcodec -L$(TOP)/ffmpeg/libavformat \
 	-L$(TOP)/libid3tag/.libs
+LDFLAGS += -static
 endif
 
 #STATIC_LINKING: LDFLAGS = -static

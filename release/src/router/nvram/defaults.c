@@ -271,6 +271,7 @@ const defaults_t defaults[] = {
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "ppp_get_ip",			""				},	// IP Address assigned by PPTP/L2TP server
 	{ "pptp_dhcp",			"1"				},
+	{ "ppp_defgw",			"1"				},	// use default gateway on remote network
 
 	// for firewall
 	{ "mtu_enable",			"0"				},	// WAN MTU [1|0]
@@ -364,6 +365,7 @@ const defaults_t defaults[] = {
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
+	{ "dns_cache",			"4096"				},	// DNS cache size (0 to disable cache)
 	{ "dhcpc_minpkt",		"1"				},
 	{ "dhcpc_vendorclass",		""				},
 	{ "dhcpc_requestip",		""				},

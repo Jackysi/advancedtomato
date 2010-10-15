@@ -150,7 +150,11 @@ void wo_flash(char *url)
 		printf("\n\n -- reboot -- \n\n");
 		set_action(ACT_IDLE);
 #else
+		// disconnect ppp - need this for PPTP/L2TP/PPPOE to finish gracefully
 		killall("pppoecd", SIGTERM);
+		killall("xl2tpd", SIGTERM);
+		killall("pppd", SIGTERM);
+
 		sleep(2);
 		//	kill(1, SIGTERM);
 		reboot(RB_AUTOBOOT);

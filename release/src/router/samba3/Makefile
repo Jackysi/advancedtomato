@@ -2,7 +2,8 @@ include ../common.mak
 
 srcdir=source
 
-SMBCFLAGS = $(EXTRACFLAGS) -Os
+SMBCFLAGS = $(EXTRACFLAGS) -Os -ffunction-sections -fdata-sections
+SMBLDFLAGS = -ffunction-sections -fdata-sections -Wl,--gc-sections
 
 ifneq ($(CONFIG_LINUX26),y)
 SMBCFLAGS += -DMAX_DEBUG_LEVEL="-1"
@@ -65,7 +66,7 @@ apps: .conf
 	samba_cv_SIZEOF_INO_T=yes \
 	samba_cv_SIZEOF_TIME_T=no \
 	CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 -D_LARGE_FILES=1" \
-	CFLAGS="$(SMBCFLAGS)" CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) \
+	CFLAGS="$(SMBCFLAGS)" LDFLAGS="$(SMBLDFLAGS)" CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) \
 	$(CONFIGURE) \
 		--prefix=/usr \
 		--bindir=/usr/bin \

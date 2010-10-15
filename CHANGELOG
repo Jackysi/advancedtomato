@@ -1287,3 +1287,47 @@ sound and webcam (UVC) support.
 Software updates: MiniDLNA 1.0.18.2 (cvs 2010-09-28), radvd 1.6, Samba
 3.0.37 (latest in 3.0 series) with security fixes from samba.org
 (CVE 2010-2063, CVE 2010-3069).
+
+
+build 52 - 10/15/2010
+---------------------
+
+Fixed WAN Up script not being executed.
+
+Fixed obtaining DHCP lease from Corbina Beeline and possibly other ISPs
+(was broken in build 51).
+
+Fixed DHCP renewal processing to not replace the default gateway and DNS
+servers for PPTP/L2TP connections.
+
+Added "Use Default Gateway on Remote Network" option for PPTP/L2TP
+connection types (turned on by default). Turn it off to use gateway obtained
+via DHCP for internet routing, and only use PPTP/L2TP gateway for VPN
+subnet (custom routing may be required in case if VPN network contains
+multiple subnets).
+
+Resolve sporadic PPPoE disconnect issues with some ISPs.
+
+Allow to configure custom TTL values in the Web GUI.
+
+Make sure PPTP/L2TP is gracefully disconnected after firmware upgrades and
+after restoring configuration to prevent connection problems after reboot.
+
+Size optimization of some large applications.
+
+Software updates: PPTP kernel driver 0.8.5, Busybox 1.17.3.
+
+Cosmetics.
+
+* Kernel 2.6-based builds only (beta23):
+
+Fixed Mini build for Netgear routers with 4MB flash (WNR2000v2, WNR3500v2),
+removed RIPv1/v2 routing from Mini build due to Netgear size restrictions,
+added JFFS to Mini build to make use of some otherwise wasted flash space.
+
+Fixed flashing all supported Netgear routers back to OEM firmware.
+
+Media server: removed some rare and obsolete demuxers to reduce size,
+reduced MiniDLNA memory usage.
+
+Minor backports from upstream 2.6 kernel.

@@ -108,7 +108,8 @@ extern void asp_wlclient(int argc, char **argv);
 extern void asp_wlchannel(int argc, char **argv);
 extern void asp_wlnbw(int argc, char **argv);
 extern void asp_wlnctrlsb(int argc, char **argv);
-extern void asp_wlchannels(int argc, char **argv);	//!!TB
+extern void asp_wlchannels(int argc, char **argv);
+extern void asp_wlbands(int argc, char **argv);
 extern void asp_wlcountries(int argc, char **argv);
 extern void asp_wlrate(int argc, char **argv);
 

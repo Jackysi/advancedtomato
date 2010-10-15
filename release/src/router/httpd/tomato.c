@@ -398,6 +398,7 @@ const aspapi_t aspapi[] = {
 	{ "wlchannels",			asp_wlchannels	},	//!!TB
 	{ "wlcountries",		asp_wlcountries	},
 	{ "wlrate",			asp_wlrate		},
+	{ "wlbands",			asp_wlbands		},
 #ifdef TCONFIG_USB
 	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
 #endif
@@ -530,6 +531,7 @@ static const nvset_t nvset_list[] = {
 	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_dhcp",			V_01				},
+	{ "ppp_defgw",			V_01				},
 	{ "ppp_username",		V_LENGTH(0, 60)		},
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
@@ -605,7 +607,7 @@ static const nvset_t nvset_list[] = {
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
 	{ "ct_timeout",			V_LENGTH(5, 15)		},
-	{ "nf_ttl",				V_RANGE(-10, 10)	},
+	{ "nf_ttl",			V_LENGTH(1, 6)		},
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},
@@ -623,6 +625,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd_gwmode",		V_NUM				},
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
+	{ "dns_cache",			V_NUM				},
 	{ "dhcpc_minpkt",		V_01				},
 	{ "dhcpc_vendorclass",		V_LENGTH(0, 80)			},
 	{ "dhcpc_requestip",		V_LENGTH(0, 16)			},

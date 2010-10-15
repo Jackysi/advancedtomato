@@ -102,13 +102,18 @@ static int deconfig(char *ifname)
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 
 	nvram_set("wan_ipaddr", "0.0.0.0");
-	nvram_set("wan_netmask", "0.0.0.0");
-	nvram_set("wan_gateway", "0.0.0.0");
-	nvram_set("wan_get_dns", "");
+	nvram_set("wan_gateway_buf", "0.0.0.0");
 	nvram_set("wan_lease", "0");
 	nvram_set("wan_routes1", "");
 	nvram_set("wan_routes2", "");
 	expires(0);
+
+	int wan_proto = get_wan_proto();
+	if (wan_proto != WP_L2TP && wan_proto != WP_PPTP) {
+		nvram_set("wan_netmask", "0.0.0.0");
+		nvram_set("wan_gateway", "0.0.0.0");
+		nvram_set("wan_get_dns", "");
+	}
 
 	//	int i = 10;
 	//	while ((route_del(ifname, 0, NULL, NULL, NULL) == 0) && (i-- > 0)) { }
@@ -117,45 +122,55 @@ static int deconfig(char *ifname)
 	return 0;
 }
 
+static int bound(char *ifname);
+
 static int renew(char *ifname)
 {
-	char *a, *b;
-	int changed, routes_changed;
+	char *a, *b, *gw;
+	int changed = 0, routes_changed = 0, metric;
+	int wan_proto = get_wan_proto();
 
 	TRACE_PT("begin\n");
 
 	unlink(renewing);
 
 	changed = env2nv("ip", "wan_ipaddr");
-	changed |= env2nv("subnet", "wan_netmask");
 	if (changed) {
-		ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+		/* DHCP WAN IP changed, restart/reconfigure everything */
+		TRACE_PT("end\n");
+		return bound(ifname);
 	}
 
-	if (get_wan_proto() == WP_L2TP) {
-		env2nv_gateway("wan_gateway_buf");
+	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
+		gw = "wan_gateway_buf";
+		metric = nvram_get_int("ppp_defgw") ? 2 : 0;
 	}
 	else {
-		a = strdup(nvram_safe_get("wan_gateway"));
-		env2nv_gateway("wan_gateway");
-		b = nvram_safe_get("wan_gateway");
-		if ((a) && (strcmp(a, b) != 0)) {
-			route_del(ifname, 0, "0.0.0.0", a, "0.0.0.0");
-			route_add(ifname, 0, "0.0.0.0", b, "0.0.0.0");
-			changed = 1;
-		}
-		free(a);
-	}
+		gw = "wan_gateway";
+		metric = 0;
 
-	changed |= env2nv("domain", "wan_get_domain");
-	changed |= env2nv("dns", "wan_get_dns");
+		changed |= env2nv("subnet", "wan_netmask");
+		changed |= env2nv("domain", "wan_get_domain");
+		changed |= env2nv("dns", "wan_get_dns");
+	}
+	a = strdup(nvram_safe_get(gw));
+	env2nv_gateway(gw);
+	b = nvram_safe_get(gw);
+	if ((a) && (strcmp(a, b) != 0)) {
+		route_del(ifname, metric, "0.0.0.0", a, "0.0.0.0");
+		route_add(ifname, metric, "0.0.0.0", b, "0.0.0.0");
+		changed = 1;
+	}
+	free(a);
 
 	nvram_set("wan_routes1_save", nvram_safe_get("wan_routes1"));
 	nvram_set("wan_routes2_save", nvram_safe_get("wan_routes2"));
 
 	/* Classless Static Routes (option 121) or MS Classless Static Routes (option 249) */
-	routes_changed = env2nv("staticroutes",   "wan_routes1_save") ||
-	                 env2nv("msstaticroutes", "wan_routes1_save");
+	if (getenv("staticroutes"))
+		routes_changed |= env2nv("staticroutes", "wan_routes1_save");
+	else
+		routes_changed |= env2nv("msstaticroutes", "wan_routes1_save");
 	/* Static Routes (option 33) */
 	routes_changed |= env2nv("routes", "wan_routes2_save");
 
@@ -198,14 +213,20 @@ static int bound(char *ifname)
 
 	unlink(renewing);
 
+	char *netmask;
+	int wan_proto = get_wan_proto();
+
 	nvram_set("wan_routes1", "");
 	nvram_set("wan_routes2", "");
 	env2nv("ip", "wan_ipaddr");
-	env2nv("subnet", "wan_netmask");
 	env2nv_gateway("wan_gateway");
 	env2nv("dns", "wan_get_dns");
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
+	netmask = getenv("subnet") ? : "255.255.255.255";
+	if (wan_proto != WP_L2TP && wan_proto != WP_PPTP) {
+		nvram_set("wan_netmask", netmask);
+	}
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
 	 * and a Router option, the DHCP client MUST ignore the Router option.
@@ -224,7 +245,7 @@ static int bound(char *ifname)
 	expires(atoi(safe_getenv("lease")));
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
-	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
+	TRACE_PT("wan_netmask=%s\n", netmask);
 	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
@@ -232,25 +253,26 @@ static int bound(char *ifname)
 	TRACE_PT("wan_routes1=%s\n", nvram_safe_get("wan_routes1"));
 	TRACE_PT("wan_routes2=%s\n", nvram_safe_get("wan_routes2"));
 
-	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
-	int wan_proto = get_wan_proto();
 	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
 		int i = 0;
 		char *gw = nvram_safe_get("wan_gateway");
 
+		int metric = nvram_get_int("ppp_defgw") ? 2 : 0;
+
 		/* Delete all default routes */
-		while ((route_del(ifname, 0, NULL, NULL, NULL) == 0) || (i++ < 10));
+		while ((route_del(ifname, metric, NULL, NULL, NULL) == 0) || (i++ < 10));
 
 		/* Set default route to gateway if specified */
-		route_add(ifname, 0, "0.0.0.0", gw, "0.0.0.0");
+		route_add(ifname, metric, "0.0.0.0", gw, "0.0.0.0");
 
 		/* Add routes to dns servers as well for demand ppp to work */
 		char word[100], *next;
-		in_addr_t mask = inet_addr(nvram_safe_get("wan_netmask"));
+		in_addr_t mask = inet_addr(netmask);
 		foreach(word, nvram_safe_get("wan_get_dns"), next) {
 			if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
-				route_add(ifname, 0, word, gw, "255.255.255.255");
+				route_add(ifname, metric, word, gw, "255.255.255.255");
 		}
 
 		/* Backup the default gateway. It should be used if L2TP connection is broken */
