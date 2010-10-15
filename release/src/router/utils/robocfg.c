@@ -210,24 +210,27 @@ static int robo_vlan535x(robo_t *robo, u32 phyid)
 	return 1;
 }
 
-u8 port[6] = { 0, 1, 2, 3, 4, 8 };
+u8 port[] = { 0, 1, 2, 3, 4, 8 };
 char ports[] = "01234???5???????";
-char *speed[4] = { "10", "100", "1000" , "4" };
-char *rxtx[4] = { "enabled", "rx_disabled", "tx_disabled", "disabled" };
-char *stp[8] = { "none", "disable", "block", "listen", "learn", "forward", "6", "7" };
-char *jumbo[2] = { "off", "on" };
+char *speed[] = { "10", "100", "1000" , "4" };
+char *rxtx[] = { "enabled", "rx_disabled", "tx_disabled", "disabled" };
+char *stp[] = { "none", "disable", "block", "listen", "learn", "forward", "6", "7" };
+char *jumbo[] = { "off", "on" };
 
 struct {
 	char *name;
 	u16 bmcr;
-} media[7] = {
+} media[] = {
 	{ "auto", BMCR_ANENABLE | BMCR_ANRESTART },
 	{ "10HD", 0 },
 	{ "10FD", BMCR_FULLDPLX },
 	{ "100HD", BMCR_SPEED100 },
-	{ "100FD", BMCR_SPEED100 | BMCR_FULLDPLX },
+	{ "100FD", BMCR_SPEED100 | BMCR_FULLDPLX }
+#if defined(BMCR_SPEED1000)
+	,
 	{ "1000HD", BMCR_SPEED1000 },
 	{ "1000FD", BMCR_SPEED1000 | BMCR_FULLDPLX }
+#endif
 };
 
 struct {
@@ -236,7 +239,7 @@ struct {
 	u16 value1;
 	u16 value2;
 	u16 value3;
-} mdix[3] = {
+} mdix[] = {
 	{ "auto", 0x0000, 0x0000, 0x8207, 0x0000 },
 	{ "on",   0x1800, 0x4000, 0x8007, 0x0080 },
 	{ "off",  0x0800, 0x4000, 0x8007, 0x0000 }
