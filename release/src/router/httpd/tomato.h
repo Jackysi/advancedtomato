@@ -80,7 +80,7 @@ extern void wo_wakeup(char *url);
 extern void asp_dns(int argc, char **argv);
 extern void wo_resolve(char *url);
 
-//!!TB
+// usb.c
 #ifdef TCONFIG_USB
 extern void asp_usbdevices(int argc, char **argv);
 extern void wo_usbcommand(char *url);
