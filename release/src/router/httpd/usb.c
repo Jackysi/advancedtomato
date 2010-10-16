@@ -48,6 +48,8 @@ int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_
 	char *type, *js;
 	int is_mounted = 0;
 	struct mntent *mnt;
+	struct statfs sf;
+	uint64_t size, fsize;
 
 	if (!find_label_or_uuid(dev_name, the_label, NULL)) {
 		strncpy(the_label, pt_name, sizeof(the_label));
@@ -58,7 +60,7 @@ int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_
 			// [disc_name, [partitions array]],...
 			web_printf("]],['%s',[", dsc_name);
 		}
-		// [partition_name, is_mounted, mount_point, type, opts, size],...
+		// [partition_name, is_mounted, mount_point, type, opts, size, free],...
 		js = js_string(the_label);
 		web_printf("%s['%s',", (flags & EFH_1ST_DISC) ? "" : ",", js ? : "");
 		free(js);
@@ -67,21 +69,29 @@ int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_
 	if ((mnt = findmntents(dev_name, 0, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
-			web_printf("1,'%s','%s','%s',%llu]",
-				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts, get_psize(dev_name));
+			if (statfs(mnt->mnt_dir, &sf) == 0) {
+				size = (uint64_t)sf.f_bsize * sf.f_blocks;
+				fsize = (uint64_t)sf.f_bsize * sf.f_bfree;
+			}
+			else {
+				size = get_psize(dev_name);
+				fsize = 0;
+			}
+			web_printf("1,'%s','%s','%s',%llu,%llu]",
+				mnt->mnt_dir, mnt->mnt_type, mnt->mnt_opts, size, fsize);
 		}
 	}
 	else if ((mnt = findmntents(dev_name, 1, 0, 0))) {
 		is_mounted = 1;
 		if (flags & EFH_PRINT) {
-			web_printf("2,'','swap','',%llu]",
+			web_printf("2,'','swap','',%llu,0]",
 				(uint64_t)atoi(mnt->mnt_type) * 1024);
 		}
 	}
 	else {
 		if (flags & EFH_PRINT) {
 			type = detect_fs_type(dev_name);
-			web_printf("0,'','%s','',%llu]", type ? type : "", get_psize(dev_name));
+			web_printf("0,'','%s','',%llu,0]", type ? type : "", get_psize(dev_name));
 		}
 	}
 
