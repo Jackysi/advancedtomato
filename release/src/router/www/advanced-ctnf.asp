@@ -107,6 +107,11 @@ function verifyFields(focused, quiet)
 	for (i = 0; i < 2; ++i) {
 		if (!v_range('_f_ct_' + i, quiet, 1, 432000)) return 0;
 	}
+
+	v = (E('_f_nf_ttl').value == '');
+	E('_f_ttl_val').style.display = v ? '' : 'none';
+	if ((v) && !v_range('_f_ttl_val', quiet, 0, 255)) return 0;
+
 	return 1;
 }
 
@@ -145,6 +150,13 @@ function save()
 	fom.nf_pptp.value = E('_f_pptp').checked ? 1 : 0;
 	fom.nf_h323.value = E('_f_h323').checked ? 1 : 0;
 	fom.nf_ftp.value = E('_f_ftp').checked ? 1 : 0;
+
+	i = E('_f_nf_ttl').value;
+	if (i == '')
+		fom.nf_ttl.value = 'c:' + E('_f_ttl_val').value;
+	else
+		fom.nf_ttl.value = i;
+
 	form.submit(fom, 1);
 }
 </script>
@@ -170,6 +182,7 @@ function save()
 <input type='hidden' name='ct_udp_timeout' value=''>
 <input type='hidden' name='ct_timeout' value=''>
 <input type='hidden' name='nf_l7in' value=''>
+<input type='hidden' name='nf_ttl'>
 <input type='hidden' name='nf_rtsp'>
 <input type='hidden' name='nf_pptp'>
 <input type='hidden' name='nf_h323'>
@@ -262,10 +275,15 @@ createFieldTable('', [
 <script type='text/javascript'>
 v = [];
 for (i = -5; i <= 5; ++i) {
-	v.push([i, i ? ((i > 0) ? '+' : '') + i : 'None']);
+	v.push([i + '', i ? ((i > 0) ? '+' : '') + i : 'None']);
 }
+v.push(['', 'Custom']);
+
 createFieldTable('', [
-	{ title: 'TTL Adjust', name: 'nf_ttl', type: 'select', options: v, value: nvram.nf_ttl },
+	{ title: 'TTL Adjust', multi: [
+		{ name: 'f_nf_ttl', type: 'select', options: v, value: nvram.nf_ttl.substr(0, 2) == 'c:' ? '' : nvram.nf_ttl },
+		{ name: 'f_ttl_val', type: 'text', maxlen: 3, size: 6, value: nvram.nf_ttl.substr(0, 2) == 'c:' ?  nvram.nf_ttl.substr(2, 5) : '' }
+	] },
 	{ title: 'Inbound Layer 7', name: 'f_l7in', type: 'checkbox', value: nvram.nf_l7in != '0' }
 ]);
 </script>

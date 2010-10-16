@@ -36,6 +36,8 @@ static struct dentry *hfsplus_lookup(struct inode *dir, struct dentry *dentry,
 	u16 type;
 
 	sb = dir->i_sb;
+
+	dentry->d_op = &hfsplus_dentry_operations;
 	dentry->d_fsdata = NULL;
 	hfs_find_init(HFSPLUS_SB(sb).cat_tree, &fd);
 	hfsplus_cat_build_key(sb, fd.search_key, dir->i_ino, &dentry->d_name);
@@ -338,16 +340,23 @@ static int hfsplus_unlink(struct inode *dir, struct dentry *dentry)
 
 	if (inode->i_nlink > 0)
 		drop_nlink(inode);
-	hfsplus_delete_inode(inode);
-	if (inode->i_ino != cnid && !inode->i_nlink) {
-		if (!atomic_read(&HFSPLUS_I(inode).opencnt)) {
-			res = hfsplus_delete_cat(inode->i_ino, HFSPLUS_SB(sb).hidden_dir, NULL);
-			if (!res)
-				hfsplus_delete_inode(inode);
-		} else
-			inode->i_flags |= S_DEAD;
-	} else
+	if (inode->i_ino == cnid)
 		clear_nlink(inode);
+	if (!inode->i_nlink) {
+		if (inode->i_ino != cnid) {
+			HFSPLUS_SB(sb).file_count--;
+			if (!atomic_read(&HFSPLUS_I(inode).opencnt)) {
+				res = hfsplus_delete_cat(inode->i_ino,
+							 HFSPLUS_SB(sb).hidden_dir,
+							 NULL);
+				if (!res)
+					hfsplus_delete_inode(inode);
+			} else
+				inode->i_flags |= S_DEAD;
+		} else
+			hfsplus_delete_inode(inode);
+	} else
+		HFSPLUS_SB(sb).file_count--;
 	inode->i_ctime = CURRENT_TIME_SEC;
 	mark_inode_dirty(inode);
 

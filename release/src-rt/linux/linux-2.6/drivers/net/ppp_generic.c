@@ -1755,10 +1755,10 @@ ppp_decompress_frame(struct ppp *ppp, struct sk_buff *skb)
 
 		switch(ppp->rcomp->compress_proto) {
 		case CI_MPPE:
-			obuff_size = ppp->mru + PPP_HDRLEN + 1;
+			obuff_size = ppp->mru_alloc + PPP_HDRLEN + 1;
 			break;
 		default:
-			obuff_size = ppp->mru + PPP_HDRLEN;
+			obuff_size = ppp->mru_alloc + PPP_HDRLEN;
 			break;
 		}
 

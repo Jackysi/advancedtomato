@@ -29,12 +29,18 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,security_mode2,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wds_save,wl_auth,wl0_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype"); %>
+//	<% wlbands(); %>
 
 xob = null;
 
 wl_channels = [];
 ghz = [];
+bands = [];
+
+for (var i = 0; i < wl_bands.length; ++i) {
+	bands.push([wl_bands[i] + '', (wl_bands[i] == '1') ? '5 GHz' : '2.4 GHz']);
+}
 
 if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
@@ -43,7 +49,6 @@ if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 }
 
 var nphy = features('11n');
-var dualband = features('2g5g');
 var modes = [];
 var nm_loaded = 0;
 var ch_loaded = 0;
@@ -53,7 +58,7 @@ function refreshNetModes()
 {
 	var e, i, buf, val, band5;
 
-	if (dualband) {
+	if (wl_bands.length > 1) {
 		e = E('_wl_nband');
 		band5 = (e.value + '' == '' ? nvram.wl_nband : e.value) == '1' ? true : false;
 	} else
@@ -122,7 +127,7 @@ function refreshChannels()
 
 	var band, bw, sb, e;
 
-	if (dualband) {
+	if (wl_bands.length > 1) {
 		e = E('_wl_nband');
 		band = (e.value + '' == '' ? nvram.wl_nband : e.value);
 	} else
@@ -327,6 +332,7 @@ function verifyFields(focused, quiet)
 		_wan_gateway: 1,
 		_pptp_server_ip: 1,
 		_f_pptp_dhcp: 1,
+		_f_ppp_defgw: 1,
 		_ppp_demand: 1,
 		_ppp_idletime: 1,
 		_ppp_redialperiod: 1,
@@ -348,7 +354,7 @@ function verifyFields(focused, quiet)
 
 		_f_wl_radio: 1,
 		_f_wmode: 1,
-		_wl_nband: (nphy && dualband) ? 1 : 0,
+		_wl_nband: (wl_bands.length > 1) ? 1 : 0,
 		_wl_net_mode: 1,
 		_wl_ssid: 1,
 		_f_bcast: 1,
@@ -404,6 +410,7 @@ function verifyFields(focused, quiet)
 		vis._wan_gateway = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
+		vis._f_ppp_defgw = 0;
 		vis._ppp_demand = 0;
 		vis._mtu_enable = 0;
 		vis._f_wan_mtu = 0;
@@ -416,6 +423,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
+		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -427,6 +435,7 @@ function verifyFields(focused, quiet)
 		vis._pptp_server_ip = 0;
 		vis._ppp_custom = 0;
 		vis._f_pptp_dhcp = 0;
+		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -441,6 +450,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
+		vis._f_ppp_defgw = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -449,7 +459,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
-		vis._wan_netmask = vis._wan_ipaddr;
+		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
@@ -459,7 +469,6 @@ function verifyFields(focused, quiet)
 		vis._f_pptp_dhcp = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
-		vis._wan_netmask = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -496,7 +505,7 @@ function verifyFields(focused, quiet)
 		vis._security_mode2 = 2;
 		vis._wl_channel = 2;
 		vis._wl_nbw_cap = nphy ? 2 : 0;
-		vis._wl_nband = (nphy && dualband) ? 2 : 0;
+		vis._wl_nband = (wl_bands.length > 1) ? 2 : 0;
 		vis._f_bcast = 2;
 		vis._wl_crypto = 2;
 		vis._wl_net_mode = 2;
@@ -812,6 +821,7 @@ function save()
 	
 	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
 	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
+	fom.ppp_defgw.value = fom.f_ppp_defgw.checked ? 1 : 0;
 
 	a = [];
 	for (i = 0; i < 10; ++i) a.push(E('_f_wds_' + i).value);
@@ -951,6 +961,7 @@ function init()
 <input type='hidden' name='wan_mtu'>
 <input type='hidden' name='wan_islan'>
 <input type='hidden' name='pptp_dhcp'>
+<input type='hidden' name='ppp_defgw'>
 <input type='hidden' name='wl_mode'>
 <input type='hidden' name='wds_enable'>
 <input type='hidden' name='wl_wds'>
@@ -985,6 +996,7 @@ createFieldTable('', [
 	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
 	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
 	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
+	{ title: 'Use Default Gateway on Remote Network', name: 'f_ppp_defgw', type: 'checkbox', value: (nvram.ppp_defgw == 1) },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
@@ -1041,7 +1053,7 @@ f = [
 	{ title: 'Wireless Mode', name: 'f_wmode', type: 'select',
 		options: [['ap', 'Access Point'],['apwds', 'Access Point + WDS'],['sta', 'Wireless Client'],['wet', 'Wireless Ethernet Bridge'],['wds', 'WDS']],
 		value: ((nvram.wl_mode == 'ap') && (nvram.wds_enable == '1')) ? 'apwds' : nvram.wl_mode },
-	{ title: 'Radio Band', name: 'wl_nband', type: 'select', options: [['2','2.4 GHz'],['1','5 GHz']],
+	{ title: 'Radio Band', name: 'wl_nband', type: 'select', options: bands,
 		value: nvram.wl_nband == '0' ? '2' : nvram.wl_nband },
 	{ title: 'Wireless Network Mode', name: 'wl_net_mode', type: 'select', value: (nvram.wl_net_mode == 'disabled') ? 'mixed' : nvram.wl_net_mode, options: modes, prefix: '<span id="__wl_net_mode">', suffix: '</span>' },
 	{ title: 'SSID', name: 'wl_ssid', type: 'text', maxlen: 32, size: 34, value: nvram.wl_ssid },

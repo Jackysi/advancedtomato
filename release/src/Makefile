@@ -66,8 +66,10 @@ lowercase_B = $(shell echo $(B) | tr A-Z a-z)
 
 ifeq ($(CONFIG_LINUX26),y)
 mips_rev = $(if $(filter $(MIPS32),r2),MIPSR2,MIPSR1)
+KERN_SIZE_OPT ?= n
 else
 mips_rev =
+KERN_SIZE_OPT ?= y
 endif
 
 tomato_ver:
@@ -95,6 +97,7 @@ all: tomato_ver
 	@$(MAKE) -C btools
 
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).bin
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
@@ -110,8 +113,24 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		-m 0x10577050,image/WR850G.bin \
 		| tee -a fpkg.log
 else
+ifeq ($(NVRAM_SIZE),60)
+ifeq ($(USB),USB)
+	# Linksys E3000 build
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx 	| tee -a fpkg.log
+		-l 61XN,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+else
+	# Linksys E2000 build
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l 32XN,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+else
+	# Create generic TRX image
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(V2)-$(current_BUILD_DESC).trx \
+		| tee -a fpkg.log
+endif
 endif
 
 	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(V2).log
@@ -192,6 +211,7 @@ what:
 # Options for "make bin" :
 # BUILD_DESC (Std|Lite|Ext|...)
 # MIPS32 (r2|r1)
+# KERN_SIZE_OPT
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
@@ -390,6 +410,12 @@ define KernelConfig
 	@( \
 	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
 	echo "CONFIG_NVRAM_SIZE="$(NVRAM_SIZE) >>$(1); \
+	sed -i "/CONFIG_CC_OPTIMIZE_FOR_SIZE/d" $(1); \
+	if [ "$(KERN_SIZE_OPT)" = "y" ]; then \
+		echo "CONFIG_CC_OPTIMIZE_FOR_SIZE=y" >>$(1); \
+	else \
+		echo "# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set" >>$(1); \
+	fi; \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(MIPS32)" = "r2" ]; then \
 		sed -i "/CONFIG_CPU_MIPS32_R1/d" $(1); \
 		echo "# CONFIG_CPU_MIPS32_R1 is not set" >>$(1); \
@@ -539,9 +565,9 @@ else
 	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
 endif
 
-## Make the "Mini: no USB, no CIFS, no JFFS" build
+## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
-	@$(MAKE) bin NO_JFFS=y NO_CIFS=y SLIM=y B=F BUILD_DESC="Mini" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
 
 ## Make the "VPN witn no USB support" build
 v:
@@ -569,6 +595,12 @@ r2f:
 
 r2d:
 	@$(MAKE) d MIPS32=r2
+
+e3000:
+	@$(MAKE) r2m r2e ND=E3000 NVRAM_SIZE=60
+
+e2000:
+	@$(MAKE) r2s ND=E2000 NVRAM_SIZE=60
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h

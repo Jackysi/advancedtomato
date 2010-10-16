@@ -58,18 +58,17 @@ do {
 
 	switch (nvram.wan_proto) {
 	case 'pptp':
-		if (stats.wanup) {
-			stats.wanip = nvram.ppp_get_ip;
-			stats.wannetmask = '255.255.255.255';
-		}
-		else {
-			stats.wangateway = nvram.pptp_server_ip;
-		}
-		break;
 	case 'l2tp':
 		if (stats.wanup) {
 			stats.wanip = nvram.ppp_get_ip;
-			stats.wannetmask = '255.255.255.255';
+			if (nvram.wan_ipaddr != '' && nvram.wan_ipaddr != '0.0.0.0' && nvram.wan_ipaddr != nvram.ppp_get_ip)
+				stats.wanip += ' <small>(DHCP: ' + nvram.wan_ipaddr + ')</small>';
+			if (stats.wannetmask == '0.0.0.0')
+				stats.wannetmask = '255.255.255.255';
+		}
+		else {
+			if (nvram.wan_proto == 'pptp')
+				stats.wangateway = nvram.pptp_server_ip;
 		}
 		break;
 	default:

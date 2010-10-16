@@ -220,7 +220,10 @@ open_db(void)
 	sql_exec(db, "pragma page_size = 4096");
 	sql_exec(db, "pragma journal_mode = OFF");
 	sql_exec(db, "pragma synchronous = OFF;");
-	sql_exec(db, "pragma default_cache_size = 8192;");
+
+	// this sets the sqlite database cache size
+	// original code had 8192 = 32MB - reduce it to 4MB
+	sql_exec(db, "pragma default_cache_size = 1024;");
 	return new_db;
 }
 

@@ -306,8 +306,11 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	struct trx_header *trx;
 	unsigned char buf[512];
 	size_t off, trxoff, boardoff;
+	size_t crclen;
 	size_t len;
 	size_t trxsize;
+
+	crclen = 0;
 
 	/* Find and size nvram */
 	bcm947xx_parts[PART_NVRAM].size = ROUNDUP(NVRAM_SPACE, mtd->erasesize);
@@ -328,9 +331,19 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		break;
 	case RT_WNR3500L:
 	case RT_WNR2000V2:
-		bcm947xx_parts[PART_BOARD].size = mtd->erasesize * 5;
+		bcm947xx_parts[PART_BOARD].size = mtd->erasesize;
 		boardoff -= bcm947xx_parts[PART_BOARD].size;
 		bcm947xx_parts[PART_BOARD].offset = boardoff;
+		boardoff -= 5 * mtd->erasesize;
+		if (size <= 4 * 1024 * 1024) {
+			// 4MB flash
+			bcm947xx_parts[PART_JFFS2].offset = boardoff;
+			bcm947xx_parts[PART_JFFS2].size = bcm947xx_parts[PART_BOARD].offset - bcm947xx_parts[PART_JFFS2].offset;
+		}
+		else {
+			// 8MB or larger flash, exclude 1 block for Netgear CRC
+			crclen = mtd->erasesize;
+		}
 		break;
 	default:
 		bcm947xx_parts[PART_BOARD].name = NULL;
@@ -363,9 +376,12 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 			bcm947xx_parts[PART_ROOTFS].size = trxsize - trxoff;
 
 			/* Find and size jffs2 */
-			bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
-			if (boardoff > bcm947xx_parts[PART_JFFS2].offset)
-				bcm947xx_parts[PART_JFFS2].size = boardoff - bcm947xx_parts[PART_JFFS2].offset;
+			if (bcm947xx_parts[PART_JFFS2].size == 0) {
+				bcm947xx_parts[PART_JFFS2].offset = off + trxsize;
+				if ((boardoff - crclen) > bcm947xx_parts[PART_JFFS2].offset) {
+					bcm947xx_parts[PART_JFFS2].size = boardoff - crclen - bcm947xx_parts[PART_JFFS2].offset;
+				}
+			}
 
 			break;
 		}

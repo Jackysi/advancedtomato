@@ -432,6 +432,10 @@ static int pppoe_disc_rcv(struct sk_buff *skb,
 	if (ph->code != PADT_CODE)
 		goto abort;
 
+	/* Check destination address */
+	if (memcmp(eth_hdr(skb)->h_dest, dev->dev_addr, ETH_ALEN))
+		goto abort;
+
 	po = get_item(ph->sid, eth_hdr(skb)->h_source, dev->ifindex);
 	if (po) {
 		struct sock *sk = sk_pppox(po);

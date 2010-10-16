@@ -162,7 +162,10 @@ void wo_restore(char *url)
 		parse_asp("reboot.asp");
 		web_close();
 
+		// disconnect ppp - need this for PPTP/L2TP/PPPOE to finish gracefully
 		killall("pppoecd", SIGTERM);
+		killall("xl2tpd", SIGTERM);
+		killall("pppd", SIGTERM);
 		sleep(2);
 
 #ifdef DEBUG

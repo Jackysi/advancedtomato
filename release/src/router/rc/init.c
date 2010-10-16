@@ -896,7 +896,7 @@ static int init_nvram(void)
 	case MODEL_WRT320N:
 		mfr = "Linksys";
 		name = nvram_match("boardrev", "0x1307") ? "E2000" : "WRT320N";
-		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
@@ -907,7 +907,7 @@ static int init_nvram(void)
 	case MODEL_WRT610Nv2:
 		mfr = "Linksys";
 		name = nvram_match("boot_hw_model", "E300") ? "E3000" : "WRT610N v2";
-		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET | SUP_2G_5G;
+		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");

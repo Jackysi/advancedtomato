@@ -169,12 +169,18 @@ static void stop_ppp(void)
 
 // -----------------------------------------------------------------------------
 
+inline void stop_pptp(void)
+{
+	stop_ppp();
+}
+
 void start_pptp(int mode)
 {
 	TRACE_PT("begin\n");
 
 	if (!using_dhcpc()) stop_dhcpc();
 	stop_pppoe();
+	stop_pptp();
 
 	if (config_pppd(WP_PPTP) != 0)
 		return;
@@ -206,11 +212,6 @@ void start_pptp(int mode)
 	}
 
 	TRACE_PT("end\n");
-}
-
-inline void stop_pptp(void)
-{
-	stop_ppp();
 }
 
 // -----------------------------------------------------------------------------
@@ -260,7 +261,6 @@ static void start_tmp_ppp(int num)
 	start_wan_done(ifname);
 	TRACE_PT("end\n");
 }
-
 
 void start_pppoe(int num)
 {
@@ -406,6 +406,10 @@ void stop_singe_pppoe(int num)
 
 // -----------------------------------------------------------------------------
 
+inline void stop_l2tp(void)
+{
+	stop_ppp();
+}
 
 void start_l2tp(void)
 {
@@ -414,6 +418,7 @@ void start_l2tp(void)
 	FILE *fp;
 
 	stop_pppoe();
+	stop_l2tp();
 
 	if (config_pppd(WP_L2TP) != 0)
 		return;
@@ -451,11 +456,6 @@ void start_l2tp(void)
 	}
 
 	TRACE_PT("end\n");
-}
-
-inline void stop_l2tp(void)
-{
-	stop_ppp();
 }
 
 // -----------------------------------------------------------------------------
@@ -696,6 +696,7 @@ void start_wan_done(char *wan_ifname)
 	int dod;
 	struct sysinfo si;
 	int wanup;
+	int metric;
 		
 	TRACE_PT("begin wan_ifname=%s\n", wan_ifname);
 	
@@ -705,11 +706,13 @@ void start_wan_done(char *wan_ifname)
 	proto = get_wan_proto();
 	dod = nvram_match("ppp_demand", "1");
 
+#if 0
 	if (using_dhcpc()) {
 		while (route_del(nvram_safe_get("wan_ifname"), 0, NULL, NULL, NULL) == 0) {
 			//
 		}
 	}
+#endif
 
 	// delete all default routes
 	while (route_del(wan_ifname, 0, NULL, NULL, NULL) == 0) {
@@ -724,13 +727,42 @@ void start_wan_done(char *wan_ifname)
 				// possibly gateway is over the bridge, try adding a route to gateway first
 				route_add(wan_ifname, 0, gw, NULL, "255.255.255.255");
 			}
+
+			metric = 0;
+			if (proto == WP_PPTP || proto == WP_L2TP) {
+				if (nvram_get_int("ppp_defgw") || !using_dhcpc())
+					metric = 0;
+				else {
+					metric = 2;
+
+					// we are not using default gateway on remote network,
+					// add route to the vpn subnet
+					char *netmask = nvram_safe_get("wan_netmask");
+					struct in_addr net, mask;
+					if (strcmp(netmask, "0.0.0.0") == 0 || !inet_aton(netmask, &mask)) {
+						netmask = "255.255.255.0";
+						inet_aton(netmask, &mask);
+					}
+					if (inet_aton(gw, &net)) {
+						net.s_addr &= mask.s_addr;
+						route_add(wan_ifname, 0, inet_ntoa(net), gw, netmask);
+
+						// add routes to dns servers
+						char word[100], *next;
+						foreach(word, nvram_safe_get("wan_get_dns"), next) {
+							route_add(wan_ifname, 0, word, gw, "255.255.255.255");
+						}
+					}
+				}
+			}
+
 			n = 5;
-			while ((route_add(wan_ifname, 0, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
+			while ((route_add(wan_ifname, metric, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
 				sleep(1);
 			}
 			_dprintf("set default gateway=%s n=%d\n", gw, n);
 
-			// hack: avoid routing cycles, when both peer and server has the same IP
+			// hack: avoid routing cycles, when both peer and server have the same IP
 			if (proto == WP_PPTP || proto == WP_L2TP) {
 				// delete gateway route as it's no longer needed
 				route_del(wan_ifname, 0, gw, "0.0.0.0", "255.255.255.255");
@@ -752,7 +784,6 @@ void start_wan_done(char *wan_ifname)
 */
 #endif
 
-		// TB -- checkme: are these PPTP/L2TP routes really needed?
 		if (proto == WP_PPTP || proto == WP_L2TP) {
 			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip
 			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");

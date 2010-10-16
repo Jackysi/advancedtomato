@@ -224,7 +224,6 @@ void run_nvscript(const char *nv, const char *arg1, int wtime)
 				_dprintf("Running: '%s %s'\n", argv[0], argv[1]? argv[1]: "");
 				execute_with_maxwait(argv, wtime);
 				chdir("/");
-				unlink(s);
 			}
 		}
 

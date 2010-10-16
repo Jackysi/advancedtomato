@@ -4,7 +4,7 @@ srcdir=./source
 idir=
 
 all: config
-	$(MAKE) -C source all shared
+	$(MAKE) -C source all shared LD="$(CC) -shared -Wl,-Bsymbolic"
 
 config: $(srcdir)/Makefile
 
@@ -29,7 +29,8 @@ $(srcdir)/Makefile:
 		samba_cv_have_longlong=yes samba_cv_have_setresgid=no \
 		samba_cv_have_setresuid=no samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
 		CPPFLAGS="-D_GNU_SOURCE -DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
-		CFLAGS="-Os $(EXTRACFLAGS)" \
+		CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="$(CFLAGS) -Wl,--gc-sections" \
 		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) ./configure --host=mipsel-linux \
 		--prefix=/usr --localstatedir=/var/log --libdir=/etc --sysconfdir=/etc/samba \
 		--with-privatedir=/etc/samba --with-lockdir=/var/run/samba --with-syslog
@@ -56,7 +57,5 @@ endif
 clean:
 	@rm -f source/bin/*
 	-$(MAKE) -C source clean
-
-distclean: clean
 	@rm -rf $(srcdir)/Makefile
 	@rm -rf config.{cache,status}

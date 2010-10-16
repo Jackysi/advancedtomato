@@ -2014,7 +2014,7 @@ function timeString(mins)
 
 function features(s)
 {
-	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n','1000et','2g5g'];
+	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n','1000et'];
 	var i;
 
 	for (i = features.length - 1; i >= 0; --i) {
