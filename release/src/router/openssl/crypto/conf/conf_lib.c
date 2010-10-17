@@ -63,9 +63,20 @@
 #include <openssl/conf_api.h>
 #include <openssl/lhash.h>
 
-const char *CONF_version="CONF" OPENSSL_VERSION_PTEXT;
+const char CONF_version[]="CONF" OPENSSL_VERSION_PTEXT;
 
 static CONF_METHOD *default_CONF_method=NULL;
+
+/* Init a 'CONF' structure from an old LHASH */
+
+void CONF_set_nconf(CONF *conf, LHASH_OF(CONF_VALUE) *hash)
+	{
+	if (default_CONF_method == NULL)
+		default_CONF_method = NCONF_default();
+
+	default_CONF_method->init(conf);
+	conf->data = hash;
+	}
 
 /* The following section contains the "CONF classic" functions,
    rewritten in terms of the new CONF interface. */
@@ -76,12 +87,13 @@ int CONF_set_default_method(CONF_METHOD *meth)
 	return 1;
 	}
 
-LHASH *CONF_load(LHASH *conf, const char *file, long *eline)
+LHASH_OF(CONF_VALUE) *CONF_load(LHASH_OF(CONF_VALUE) *conf, const char *file,
+				long *eline)
 	{
-	LHASH *ltmp;
+	LHASH_OF(CONF_VALUE) *ltmp;
 	BIO *in=NULL;
 
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 	in=BIO_new_file(file, "r");
 #else
 	in=BIO_new_file(file, "rb");
@@ -98,11 +110,12 @@ LHASH *CONF_load(LHASH *conf, const char *file, long *eline)
 	return ltmp;
 	}
 
-#ifndef NO_FP_API
-LHASH *CONF_load_fp(LHASH *conf, FILE *fp,long *eline)
+#ifndef OPENSSL_NO_FP_API
+LHASH_OF(CONF_VALUE) *CONF_load_fp(LHASH_OF(CONF_VALUE) *conf, FILE *fp,
+				   long *eline)
 	{
 	BIO *btmp;
-	LHASH *ltmp;
+	LHASH_OF(CONF_VALUE) *ltmp;
 	if(!(btmp = BIO_new_fp(fp, BIO_NOCLOSE))) {
 		CONFerr(CONF_F_CONF_LOAD_FP,ERR_R_BUF_LIB);
 		return NULL;
@@ -113,23 +126,22 @@ LHASH *CONF_load_fp(LHASH *conf, FILE *fp,long *eline)
 	}
 #endif
 
-LHASH *CONF_load_bio(LHASH *conf, BIO *bp,long *eline)
+LHASH_OF(CONF_VALUE) *CONF_load_bio(LHASH_OF(CONF_VALUE) *conf, BIO *bp,
+				    long *eline)
 	{
 	CONF ctmp;
 	int ret;
 
-	if (default_CONF_method == NULL)
-		default_CONF_method = NCONF_default();
+	CONF_set_nconf(&ctmp, conf);
 
-	default_CONF_method->init(&ctmp);
-	ctmp.data = conf;
 	ret = NCONF_load_bio(&ctmp, bp, eline);
 	if (ret)
 		return ctmp.data;
 	return NULL;
 	}
 
-STACK_OF(CONF_VALUE) *CONF_get_section(LHASH *conf,char *section)
+STACK_OF(CONF_VALUE) *CONF_get_section(LHASH_OF(CONF_VALUE) *conf,
+				       const char *section)
 	{
 	if (conf == NULL)
 		{
@@ -138,17 +150,13 @@ STACK_OF(CONF_VALUE) *CONF_get_section(LHASH *conf,char *section)
 	else
 		{
 		CONF ctmp;
-
-		if (default_CONF_method == NULL)
-			default_CONF_method = NCONF_default();
-
-		default_CONF_method->init(&ctmp);
-		ctmp.data = conf;
+		CONF_set_nconf(&ctmp, conf);
 		return NCONF_get_section(&ctmp, section);
 		}
 	}
 
-char *CONF_get_string(LHASH *conf,char *group,char *name)
+char *CONF_get_string(LHASH_OF(CONF_VALUE) *conf,const char *group,
+		      const char *name)
 	{
 	if (conf == NULL)
 		{
@@ -157,49 +165,45 @@ char *CONF_get_string(LHASH *conf,char *group,char *name)
 	else
 		{
 		CONF ctmp;
-
-		if (default_CONF_method == NULL)
-			default_CONF_method = NCONF_default();
-
-		default_CONF_method->init(&ctmp);
-		ctmp.data = conf;
+		CONF_set_nconf(&ctmp, conf);
 		return NCONF_get_string(&ctmp, group, name);
 		}
 	}
 
-long CONF_get_number(LHASH *conf,char *group,char *name)
+long CONF_get_number(LHASH_OF(CONF_VALUE) *conf,const char *group,
+		     const char *name)
 	{
+	int status;
+	long result = 0;
+
 	if (conf == NULL)
 		{
-		return NCONF_get_number(NULL, group, name);
+		status = NCONF_get_number_e(NULL, group, name, &result);
 		}
 	else
 		{
 		CONF ctmp;
-
-		if (default_CONF_method == NULL)
-			default_CONF_method = NCONF_default();
-
-		default_CONF_method->init(&ctmp);
-		ctmp.data = conf;
-		return NCONF_get_number(&ctmp, group, name);
+		CONF_set_nconf(&ctmp, conf);
+		status = NCONF_get_number_e(&ctmp, group, name, &result);
 		}
+
+	if (status == 0)
+		{
+		/* This function does not believe in errors... */
+		ERR_clear_error();
+		}
+	return result;
 	}
 
-void CONF_free(LHASH *conf)
+void CONF_free(LHASH_OF(CONF_VALUE) *conf)
 	{
 	CONF ctmp;
-
-	if (default_CONF_method == NULL)
-		default_CONF_method = NCONF_default();
-
-	default_CONF_method->init(&ctmp);
-	ctmp.data = conf;
+	CONF_set_nconf(&ctmp, conf);
 	NCONF_free_data(&ctmp);
 	}
 
-#ifndef NO_FP_API
-int CONF_dump_fp(LHASH *conf, FILE *out)
+#ifndef OPENSSL_NO_FP_API
+int CONF_dump_fp(LHASH_OF(CONF_VALUE) *conf, FILE *out)
 	{
 	BIO *btmp;
 	int ret;
@@ -214,15 +218,10 @@ int CONF_dump_fp(LHASH *conf, FILE *out)
 	}
 #endif
 
-int CONF_dump_bio(LHASH *conf, BIO *out)
+int CONF_dump_bio(LHASH_OF(CONF_VALUE) *conf, BIO *out)
 	{
 	CONF ctmp;
-
-	if (default_CONF_method == NULL)
-		default_CONF_method = NCONF_default();
-
-	default_CONF_method->init(&ctmp);
-	ctmp.data = conf;
+	CONF_set_nconf(&ctmp, conf);
 	return NCONF_dump_bio(&ctmp, out);
 	}
 
@@ -265,34 +264,23 @@ void NCONF_free_data(CONF *conf)
 
 int NCONF_load(CONF *conf, const char *file, long *eline)
 	{
-	int ret;
-	BIO *in=NULL;
-
-#ifdef VMS
-	in=BIO_new_file(file, "r");
-#else
-	in=BIO_new_file(file, "rb");
-#endif
-	if (in == NULL)
+	if (conf == NULL)
 		{
-		CONFerr(CONF_F_CONF_LOAD,ERR_R_SYS_LIB);
+		CONFerr(CONF_F_NCONF_LOAD,CONF_R_NO_CONF);
 		return 0;
 		}
 
-	ret = NCONF_load_bio(conf, in, eline);
-	BIO_free(in);
-
-	return ret;
+	return conf->meth->load(conf, file, eline);
 	}
 
-#ifndef NO_FP_API
+#ifndef OPENSSL_NO_FP_API
 int NCONF_load_fp(CONF *conf, FILE *fp,long *eline)
 	{
 	BIO *btmp;
 	int ret;
 	if(!(btmp = BIO_new_fp(fp, BIO_NOCLOSE)))
 		{
-		CONFerr(CONF_F_CONF_LOAD_FP,ERR_R_BUF_LIB);
+		CONFerr(CONF_F_NCONF_LOAD_FP,ERR_R_BUF_LIB);
 		return 0;
 		}
 	ret = NCONF_load_bio(conf, btmp, eline);
@@ -309,10 +297,10 @@ int NCONF_load_bio(CONF *conf, BIO *bp,long *eline)
 		return 0;
 		}
 
-	return conf->meth->load(conf, bp, eline);
+	return conf->meth->load_bio(conf, bp, eline);
 	}
 
-STACK_OF(CONF_VALUE) *NCONF_get_section(CONF *conf,char *section)
+STACK_OF(CONF_VALUE) *NCONF_get_section(const CONF *conf,const char *section)
 	{
 	if (conf == NULL)
 		{
@@ -329,7 +317,7 @@ STACK_OF(CONF_VALUE) *NCONF_get_section(CONF *conf,char *section)
 	return _CONF_get_section_values(conf, section);
 	}
 
-char *NCONF_get_string(CONF *conf,char *group,char *name)
+char *NCONF_get_string(const CONF *conf,const char *group,const char *name)
 	{
 	char *s = _CONF_get_string(conf, group, name);
 
@@ -343,29 +331,39 @@ char *NCONF_get_string(CONF *conf,char *group,char *name)
                         CONF_R_NO_CONF_OR_ENVIRONMENT_VARIABLE);
 		return NULL;
 		}
+	CONFerr(CONF_F_NCONF_GET_STRING,
+		CONF_R_NO_VALUE);
+	ERR_add_error_data(4,"group=",group," name=",name);
 	return NULL;
 	}
 
-long NCONF_get_number(CONF *conf,char *group,char *name)
+int NCONF_get_number_e(const CONF *conf,const char *group,const char *name,
+		       long *result)
 	{
-#if 0 /* As with _CONF_get_string(), we rely on the possibility of finding
-         an environment variable with a suitable name.  Unfortunately, there's
-         no way with the current API to see if we found one or not...
-         The meaning of this is that if a number is not found anywhere, it
-         will always default to 0. */
-	if (conf == NULL)
+	char *str;
+
+	if (result == NULL)
 		{
-		CONFerr(CONF_F_NCONF_GET_NUMBER,
-                        CONF_R_NO_CONF_OR_ENVIRONMENT_VARIABLE);
+		CONFerr(CONF_F_NCONF_GET_NUMBER_E,ERR_R_PASSED_NULL_PARAMETER);
 		return 0;
 		}
-#endif
-	
-	return _CONF_get_number(conf, group, name);
+
+	str = NCONF_get_string(conf,group,name);
+
+	if (str == NULL)
+		return 0;
+
+	for (*result = 0;conf->meth->is_number(conf, *str);)
+		{
+		*result = (*result)*10 + conf->meth->to_int(conf, *str);
+		str++;
+		}
+
+	return 1;
 	}
 
-#ifndef NO_FP_API
-int NCONF_dump_fp(CONF *conf, FILE *out)
+#ifndef OPENSSL_NO_FP_API
+int NCONF_dump_fp(const CONF *conf, FILE *out)
 	{
 	BIO *btmp;
 	int ret;
@@ -379,7 +377,7 @@ int NCONF_dump_fp(CONF *conf, FILE *out)
 	}
 #endif
 
-int NCONF_dump_bio(CONF *conf, BIO *out)
+int NCONF_dump_bio(const CONF *conf, BIO *out)
 	{
 	if (conf == NULL)
 		{
@@ -390,3 +388,20 @@ int NCONF_dump_bio(CONF *conf, BIO *out)
 	return conf->meth->dump(conf, out);
 	}
 
+
+/* This function should be avoided */
+#if 0
+long NCONF_get_number(CONF *conf,char *group,char *name)
+	{
+	int status;
+	long ret=0;
+
+	status = NCONF_get_number_e(conf, group, name, &ret);
+	if (status == 0)
+		{
+		/* This function does not believe in errors... */
+		ERR_get_error();
+		}
+	return ret;
+	}
+#endif

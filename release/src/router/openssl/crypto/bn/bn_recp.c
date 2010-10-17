@@ -93,18 +93,19 @@ void BN_RECP_CTX_free(BN_RECP_CTX *recp)
 
 int BN_RECP_CTX_set(BN_RECP_CTX *recp, const BIGNUM *d, BN_CTX *ctx)
 	{
-	BN_copy(&(recp->N),d);
+	if (!BN_copy(&(recp->N),d)) return 0;
 	BN_zero(&(recp->Nr));
 	recp->num_bits=BN_num_bits(d);
 	recp->shift=0;
 	return(1);
 	}
 
-int BN_mod_mul_reciprocal(BIGNUM *r, BIGNUM *x, BIGNUM *y, BN_RECP_CTX *recp,
-	     BN_CTX *ctx)
+int BN_mod_mul_reciprocal(BIGNUM *r, const BIGNUM *x, const BIGNUM *y,
+	BN_RECP_CTX *recp, BN_CTX *ctx)
 	{
 	int ret=0;
 	BIGNUM *a;
+	const BIGNUM *ca;
 
 	BN_CTX_start(ctx);
 	if ((a = BN_CTX_get(ctx)) == NULL) goto err;
@@ -114,19 +115,20 @@ int BN_mod_mul_reciprocal(BIGNUM *r, BIGNUM *x, BIGNUM *y, BN_RECP_CTX *recp,
 			{ if (!BN_sqr(a,x,ctx)) goto err; }
 		else
 			{ if (!BN_mul(a,x,y,ctx)) goto err; }
+		ca = a;
 		}
 	else
-		a=x; /* Just do the mod */
+		ca=x; /* Just do the mod */
 
-	BN_div_recp(NULL,r,a,recp,ctx);
-	ret=1;
+	ret = BN_div_recp(NULL,r,ca,recp,ctx);
 err:
 	BN_CTX_end(ctx);
+	bn_check_top(r);
 	return(ret);
 	}
 
-int BN_div_recp(BIGNUM *dv, BIGNUM *rem, BIGNUM *m, BN_RECP_CTX *recp,
-	     BN_CTX *ctx)
+int BN_div_recp(BIGNUM *dv, BIGNUM *rem, const BIGNUM *m,
+	BN_RECP_CTX *recp, BN_CTX *ctx)
 	{
 	int i,j,ret=0;
 	BIGNUM *a,*b,*d,*r;
@@ -147,7 +149,7 @@ int BN_div_recp(BIGNUM *dv, BIGNUM *rem, BIGNUM *m, BN_RECP_CTX *recp,
 	if (BN_ucmp(m,&(recp->N)) < 0)
 		{
 		BN_zero(d);
-		BN_copy(r,m);
+		if (!BN_copy(r,m)) return 0;
 		BN_CTX_end(ctx);
 		return(1);
 		}
@@ -157,20 +159,28 @@ int BN_div_recp(BIGNUM *dv, BIGNUM *rem, BIGNUM *m, BN_RECP_CTX *recp,
 	 * we need multiply ABCDEF by 3 digests of the reciprocal of ab
 	 *
 	 */
-	i=BN_num_bits(m);
 
+	/* i := max(BN_num_bits(m), 2*BN_num_bits(N)) */
+	i=BN_num_bits(m);
 	j=recp->num_bits<<1;
 	if (j>i) i=j;
-	j>>=1;
 
+	/* Nr := round(2^i / N) */
 	if (i != recp->shift)
 		recp->shift=BN_reciprocal(&(recp->Nr),&(recp->N),
-			i,ctx);
+			i,ctx); /* BN_reciprocal returns i, or -1 for an error */
+	if (recp->shift == -1) goto err;
 
-	if (!BN_rshift(a,m,j)) goto err;
+	/* d := |round(round(m / 2^BN_num_bits(N)) * recp->Nr / 2^(i - BN_num_bits(N)))|
+	 *    = |round(round(m / 2^BN_num_bits(N)) * round(2^i / N) / 2^(i - BN_num_bits(N)))|
+	 *   <= |(m / 2^BN_num_bits(N)) * (2^i / N) * (2^BN_num_bits(N) / 2^i)|
+	 *    = |m/N|
+	 */
+	if (!BN_rshift(a,m,recp->num_bits)) goto err;
 	if (!BN_mul(b,a,&(recp->Nr),ctx)) goto err;
-	if (!BN_rshift(d,b,i-j)) goto err;
+	if (!BN_rshift(d,b,i-recp->num_bits)) goto err;
 	d->neg=0;
+
 	if (!BN_mul(b,&(recp->N),d,ctx)) goto err;
 	if (!BN_usub(r,m,b)) goto err;
 	r->neg=0;
@@ -181,7 +191,7 @@ int BN_div_recp(BIGNUM *dv, BIGNUM *rem, BIGNUM *m, BN_RECP_CTX *recp,
 		{
 		if (j++ > 2)
 			{
-			BNerr(BN_F_BN_MOD_MUL_RECIPROCAL,BN_R_BAD_RECIPROCAL);
+			BNerr(BN_F_BN_DIV_RECP,BN_R_BAD_RECIPROCAL);
 			goto err;
 			}
 		if (!BN_usub(r,r,&(recp->N))) goto err;
@@ -194,6 +204,8 @@ int BN_div_recp(BIGNUM *dv, BIGNUM *rem, BIGNUM *m, BN_RECP_CTX *recp,
 	ret=1;
 err:
 	BN_CTX_end(ctx);
+	bn_check_top(dv);
+	bn_check_top(rem);
 	return(ret);
 	} 
 
@@ -201,20 +213,22 @@ err:
  * We actually calculate with an extra word of precision, so
  * we can do faster division if the remainder is not required.
  */
-int BN_reciprocal(BIGNUM *r, BIGNUM *m, int len, BN_CTX *ctx)
+/* r := 2^len / m */
+int BN_reciprocal(BIGNUM *r, const BIGNUM *m, int len, BN_CTX *ctx)
 	{
 	int ret= -1;
-	BIGNUM t;
+	BIGNUM *t;
 
-	BN_init(&t);
+	BN_CTX_start(ctx);
+	if((t = BN_CTX_get(ctx)) == NULL) goto err;
 
-	BN_zero(&t);
-	if (!BN_set_bit(&t,len)) goto err;
+	if (!BN_set_bit(t,len)) goto err;
 
-	if (!BN_div(r,NULL,&t,m,ctx)) goto err;
+	if (!BN_div(r,NULL,t,m,ctx)) goto err;
+
 	ret=len;
 err:
-	BN_free(&t);
+	bn_check_top(r);
+	BN_CTX_end(ctx);
 	return(ret);
 	}
-

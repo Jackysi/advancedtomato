@@ -20,7 +20,7 @@ BN_new, BN_init, BN_clear, BN_free, BN_clear_free - allocate and free BIGNUMs
 
 =head1 DESCRIPTION
 
-BN_new() allocated and initializes a B<BIGNUM> structure. BN_init()
+BN_new() allocates and initializes a B<BIGNUM> structure. BN_init()
 initializes an existing uninitialized B<BIGNUM>.
 
 BN_clear() is used to destroy sensitive data such as keys when they
@@ -42,7 +42,7 @@ values.
 
 =head1 SEE ALSO
 
-L<bn(3)|bn(3)>, L<err(3)|err(3)>
+L<bn(3)|bn(3)>, L<ERR_get_error(3)|ERR_get_error(3)>
 
 =head1 HISTORY
 

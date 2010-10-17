@@ -58,27 +58,17 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/asn1_mac.h>
+#include <openssl/asn1.h>
 
-static unsigned long tag2bit[32]={
-0,	0,	0,	B_ASN1_BIT_STRING,	/* tags  0 -  3 */
-B_ASN1_OCTET_STRING,	0,	0,		B_ASN1_UNKNOWN,/* tags  4- 7 */
-B_ASN1_UNKNOWN,	B_ASN1_UNKNOWN,	B_ASN1_UNKNOWN,	B_ASN1_UNKNOWN,/* tags  8-11 */
-B_ASN1_UTF8STRING,B_ASN1_UNKNOWN,B_ASN1_UNKNOWN,B_ASN1_UNKNOWN,/* tags 12-15 */
-0,	0,	B_ASN1_NUMERICSTRING,B_ASN1_PRINTABLESTRING,
-B_ASN1_T61STRING,B_ASN1_VIDEOTEXSTRING,B_ASN1_IA5STRING,0,
-0,B_ASN1_GRAPHICSTRING,B_ASN1_ISO64STRING,B_ASN1_GENERALSTRING,
-B_ASN1_UNIVERSALSTRING,B_ASN1_UNKNOWN,B_ASN1_BMPSTRING,B_ASN1_UNKNOWN,
-	};
-
-static int asn1_collate_primitive(ASN1_STRING *a, ASN1_CTX *c);
+static int asn1_collate_primitive(ASN1_STRING *a, ASN1_const_CTX *c);
 /* type is a 'bitmap' of acceptable string types.
  */
-ASN1_STRING *d2i_ASN1_type_bytes(ASN1_STRING **a, unsigned char **pp,
+ASN1_STRING *d2i_ASN1_type_bytes(ASN1_STRING **a, const unsigned char **pp,
 	     long length, int type)
 	{
 	ASN1_STRING *ret=NULL;
-	unsigned char *p,*s;
+	const unsigned char *p;
+	unsigned char *s;
 	long len;
 	int inf,tag,xclass;
 	int i=0;
@@ -89,10 +79,10 @@ ASN1_STRING *d2i_ASN1_type_bytes(ASN1_STRING **a, unsigned char **pp,
 
 	if (tag >= 32)
 		{
-		i=ASN1_R_TAG_VALUE_TOO_HIGH;;
+		i=ASN1_R_TAG_VALUE_TOO_HIGH;
 		goto err;
 		}
-	if (!(tag2bit[tag] & type))
+	if (!(ASN1_tag2bit(tag) & type))
 		{
 		i=ASN1_R_WRONG_TYPE;
 		goto err;
@@ -164,11 +154,12 @@ int i2d_ASN1_bytes(ASN1_STRING *a, unsigned char **pp, int tag, int xclass)
 	return(r);
 	}
 
-ASN1_STRING *d2i_ASN1_bytes(ASN1_STRING **a, unsigned char **pp, long length,
-	     int Ptag, int Pclass)
+ASN1_STRING *d2i_ASN1_bytes(ASN1_STRING **a, const unsigned char **pp,
+	     long length, int Ptag, int Pclass)
 	{
 	ASN1_STRING *ret=NULL;
-	unsigned char *p,*s;
+	const unsigned char *p;
+	unsigned char *s;
 	long len;
 	int inf,tag,xclass;
 	int i=0;
@@ -196,7 +187,7 @@ ASN1_STRING *d2i_ASN1_bytes(ASN1_STRING **a, unsigned char **pp, long length,
 
 	if (inf & V_ASN1_CONSTRUCTED)
 		{
-		ASN1_CTX c;
+		ASN1_const_CTX c;
 
 		c.pp=pp;
 		c.p=p;
@@ -258,7 +249,7 @@ err:
  * them into the one structure that is then returned */
 /* There have been a few bug fixes for this function from
  * Paul Keogh <paul.keogh@sse.ie>, many thanks to him */
-static int asn1_collate_primitive(ASN1_STRING *a, ASN1_CTX *c)
+static int asn1_collate_primitive(ASN1_STRING *a, ASN1_const_CTX *c)
 	{
 	ASN1_STRING *os=NULL;
 	BUF_MEM b;
@@ -279,7 +270,7 @@ static int asn1_collate_primitive(ASN1_STRING *a, ASN1_CTX *c)
 		{
 		if (c->inf & 1)
 			{
-			c->eos=ASN1_check_infinite_end(&c->p,
+			c->eos=ASN1_const_check_infinite_end(&c->p,
 				(long)(c->max-c->p));
 			if (c->eos) break;
 			}
@@ -296,7 +287,7 @@ static int asn1_collate_primitive(ASN1_STRING *a, ASN1_CTX *c)
 			goto err;
 			}
 
-		if (!BUF_MEM_grow(&b,num+os->length))
+		if (!BUF_MEM_grow_clean(&b,num+os->length))
 			{
 			c->error=ERR_R_BUF_LIB;
 			goto err;
@@ -307,7 +298,7 @@ static int asn1_collate_primitive(ASN1_STRING *a, ASN1_CTX *c)
 		num+=os->length;
 		}
 
-	if (!asn1_Finish(c)) goto err;
+	if (!asn1_const_Finish(c)) goto err;
 
 	a->length=num;
 	if (a->data != NULL) OPENSSL_free(a->data);

@@ -61,6 +61,7 @@
 #include <openssl/bn.h>
 #include <openssl/evp.h>
 #include <openssl/asn1.h>
+#include <openssl/asn1t.h>
 #include <openssl/x509.h>
 #include <openssl/objects.h>
 #include <openssl/buffer.h>
@@ -113,12 +114,52 @@ EVP_PKEY *X509_REQ_get_pubkey(X509_REQ *req)
 	return(X509_PUBKEY_get(req->req_info->pubkey));
 	}
 
+int X509_REQ_check_private_key(X509_REQ *x, EVP_PKEY *k)
+	{
+	EVP_PKEY *xk=NULL;
+	int ok=0;
+
+	xk=X509_REQ_get_pubkey(x);
+	switch (EVP_PKEY_cmp(xk, k))
+		{
+	case 1:
+		ok=1;
+		break;
+	case 0:
+		X509err(X509_F_X509_REQ_CHECK_PRIVATE_KEY,X509_R_KEY_VALUES_MISMATCH);
+		break;
+	case -1:
+		X509err(X509_F_X509_REQ_CHECK_PRIVATE_KEY,X509_R_KEY_TYPE_MISMATCH);
+		break;
+	case -2:
+#ifndef OPENSSL_NO_EC
+		if (k->type == EVP_PKEY_EC)
+			{
+			X509err(X509_F_X509_REQ_CHECK_PRIVATE_KEY, ERR_R_EC_LIB);
+			break;
+			}
+#endif
+#ifndef OPENSSL_NO_DH
+		if (k->type == EVP_PKEY_DH)
+			{
+			/* No idea */
+			X509err(X509_F_X509_REQ_CHECK_PRIVATE_KEY,X509_R_CANT_CHECK_DH_KEY);
+			break;
+			}
+#endif
+	        X509err(X509_F_X509_REQ_CHECK_PRIVATE_KEY,X509_R_UNKNOWN_KEY_TYPE);
+		}
+
+	EVP_PKEY_free(xk);
+	return(ok);
+	}
+
 /* It seems several organisations had the same idea of including a list of
  * extensions in a certificate request. There are at least two OIDs that are
  * used and there may be more: so the list is configurable.
  */
 
-static int ext_nid_list[] = { NID_ms_ext_req, NID_ext_req, NID_undef};
+static int ext_nid_list[] = { NID_ext_req, NID_ms_ext_req, NID_undef};
 
 static int *ext_nids = ext_nid_list;
 
@@ -143,31 +184,31 @@ void X509_REQ_set_extension_nids(int *nids)
 }
 
 STACK_OF(X509_EXTENSION) *X509_REQ_get_extensions(X509_REQ *req)
-{
+	{
 	X509_ATTRIBUTE *attr;
-	STACK_OF(X509_ATTRIBUTE) *sk;
 	ASN1_TYPE *ext = NULL;
-	int i;
-	unsigned char *p;
-	if ((req == NULL) || (req->req_info == NULL))
+	int idx, *pnid;
+	const unsigned char *p;
+
+	if ((req == NULL) || (req->req_info == NULL) || !ext_nids)
 		return(NULL);
-	sk=req->req_info->attributes;
-        if (!sk) return NULL;
-	for(i = 0; i < sk_X509_ATTRIBUTE_num(sk); i++) {
-		attr = sk_X509_ATTRIBUTE_value(sk, i);
-		if(X509_REQ_extension_nid(OBJ_obj2nid(attr->object))) {
-			if(attr->set && sk_ASN1_TYPE_num(attr->value.set))
-				ext = sk_ASN1_TYPE_value(attr->value.set, 0);
-			else ext = attr->value.single;
-			break;
+	for (pnid = ext_nids; *pnid != NID_undef; pnid++)
+		{
+		idx = X509_REQ_get_attr_by_NID(req, *pnid, -1);
+		if (idx == -1)
+			continue;
+		attr = X509_REQ_get_attr(req, idx);
+		if(attr->single) ext = attr->value.single;
+		else if(sk_ASN1_TYPE_num(attr->value.set))
+			ext = sk_ASN1_TYPE_value(attr->value.set, 0);
+		break;
 		}
-	}
-	if(!ext || (ext->type != V_ASN1_SEQUENCE)) return NULL;
+	if(!ext || (ext->type != V_ASN1_SEQUENCE))
+		return NULL;
 	p = ext->value.sequence->data;
-	return d2i_ASN1_SET_OF_X509_EXTENSION(NULL, &p,
-			ext->value.sequence->length,
-			d2i_X509_EXTENSION, X509_EXTENSION_free,
-			V_ASN1_SEQUENCE, V_ASN1_UNIVERSAL);
+	return (STACK_OF(X509_EXTENSION) *)
+		ASN1_item_d2i(NULL, &p, ext->value.sequence->length,
+				ASN1_ITEM_rptr(X509_EXTENSIONS));
 }
 
 /* Add a STACK_OF extensions to a certificate request: allow alternative OIDs
@@ -177,8 +218,6 @@ STACK_OF(X509_EXTENSION) *X509_REQ_get_extensions(X509_REQ *req)
 int X509_REQ_add_extensions_nid(X509_REQ *req, STACK_OF(X509_EXTENSION) *exts,
 				int nid)
 {
-	unsigned char *p = NULL, *q;
-	long len;
 	ASN1_TYPE *at = NULL;
 	X509_ATTRIBUTE *attr = NULL;
 	if(!(at = ASN1_TYPE_new()) ||
@@ -186,25 +225,24 @@ int X509_REQ_add_extensions_nid(X509_REQ *req, STACK_OF(X509_EXTENSION) *exts,
 
 	at->type = V_ASN1_SEQUENCE;
 	/* Generate encoding of extensions */
-	len = i2d_ASN1_SET_OF_X509_EXTENSION(exts, NULL, i2d_X509_EXTENSION,
-			V_ASN1_SEQUENCE, V_ASN1_UNIVERSAL, IS_SEQUENCE);
-	if(!(p = OPENSSL_malloc(len))) goto err;
-	q = p;
-	i2d_ASN1_SET_OF_X509_EXTENSION(exts, &q, i2d_X509_EXTENSION,
-			V_ASN1_SEQUENCE, V_ASN1_UNIVERSAL, IS_SEQUENCE);
-	at->value.sequence->data = p;
-	p = NULL;
-	at->value.sequence->length = len;
+	at->value.sequence->length = 
+			ASN1_item_i2d((ASN1_VALUE *)exts,
+				&at->value.sequence->data,
+				ASN1_ITEM_rptr(X509_EXTENSIONS));
 	if(!(attr = X509_ATTRIBUTE_new())) goto err;
 	if(!(attr->value.set = sk_ASN1_TYPE_new_null())) goto err;
 	if(!sk_ASN1_TYPE_push(attr->value.set, at)) goto err;
 	at = NULL;
-	attr->set = 1;
+	attr->single = 0;
 	attr->object = OBJ_nid2obj(nid);
+	if (!req->req_info->attributes)
+		{
+		if (!(req->req_info->attributes = sk_X509_ATTRIBUTE_new_null()))
+			goto err;
+		}
 	if(!sk_X509_ATTRIBUTE_push(req->req_info->attributes, attr)) goto err;
 	return 1;
 	err:
-	if(p) OPENSSL_free(p);
 	X509_ATTRIBUTE_free(attr);
 	ASN1_TYPE_free(at);
 	return 0;
@@ -251,8 +289,8 @@ int X509_REQ_add1_attr(X509_REQ *req, X509_ATTRIBUTE *attr)
 }
 
 int X509_REQ_add1_attr_by_OBJ(X509_REQ *req,
-			ASN1_OBJECT *obj, int type,
-			unsigned char *bytes, int len)
+			const ASN1_OBJECT *obj, int type,
+			const unsigned char *bytes, int len)
 {
 	if(X509at_add1_attr_by_OBJ(&req->req_info->attributes, obj,
 				type, bytes, len)) return 1;
@@ -261,7 +299,7 @@ int X509_REQ_add1_attr_by_OBJ(X509_REQ *req,
 
 int X509_REQ_add1_attr_by_NID(X509_REQ *req,
 			int nid, int type,
-			unsigned char *bytes, int len)
+			const unsigned char *bytes, int len)
 {
 	if(X509at_add1_attr_by_NID(&req->req_info->attributes, nid,
 				type, bytes, len)) return 1;
@@ -269,8 +307,8 @@ int X509_REQ_add1_attr_by_NID(X509_REQ *req,
 }
 
 int X509_REQ_add1_attr_by_txt(X509_REQ *req,
-			char *attrname, int type,
-			unsigned char *bytes, int len)
+			const char *attrname, int type,
+			const unsigned char *bytes, int len)
 {
 	if(X509at_add1_attr_by_txt(&req->req_info->attributes, attrname,
 				type, bytes, len)) return 1;

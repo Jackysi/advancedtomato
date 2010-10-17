@@ -1,5 +1,5 @@
 #
-# SSLeay/crypto/md/Makefile
+# OpenSSL/crypto/md/Makefile
 #
 
 DIR=	hmac
@@ -7,12 +7,7 @@ TOP=	../..
 CC=	cc
 INCLUDES=
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=		make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=	Makefile.ssl
+MAKEFILE=	Makefile
 AR=		ar r
 
 CFLAGS= $(INCLUDES) $(CFLAG)
@@ -22,8 +17,8 @@ TEST=hmactest.c
 APPS=
 
 LIB=$(TOP)/libcrypto.a
-LIBSRC=hmac.c
-LIBOBJ=hmac.o
+LIBSRC=hmac.c hm_ameth.c hm_pmeth.c
+LIBOBJ=hmac.o hm_ameth.o hm_pmeth.o
 
 SRC= $(LIBSRC)
 
@@ -39,21 +34,20 @@ all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
 install:
-	@for i in $(EXHEADER) ; \
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -68,7 +62,8 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
@@ -79,18 +74,37 @@ clean:
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-hmac.o: ../../include/openssl/asn1.h ../../include/openssl/bio.h
-hmac.o: ../../include/openssl/blowfish.h ../../include/openssl/bn.h
-hmac.o: ../../include/openssl/cast.h ../../include/openssl/crypto.h
-hmac.o: ../../include/openssl/des.h ../../include/openssl/dh.h
-hmac.o: ../../include/openssl/dsa.h ../../include/openssl/e_os2.h
+hm_ameth.o: ../../e_os.h ../../include/openssl/asn1.h
+hm_ameth.o: ../../include/openssl/bio.h ../../include/openssl/buffer.h
+hm_ameth.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+hm_ameth.o: ../../include/openssl/err.h ../../include/openssl/evp.h
+hm_ameth.o: ../../include/openssl/lhash.h ../../include/openssl/obj_mac.h
+hm_ameth.o: ../../include/openssl/objects.h ../../include/openssl/opensslconf.h
+hm_ameth.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+hm_ameth.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+hm_ameth.o: ../../include/openssl/symhacks.h ../asn1/asn1_locl.h ../cryptlib.h
+hm_ameth.o: hm_ameth.c
+hm_pmeth.o: ../../e_os.h ../../include/openssl/asn1.h
+hm_pmeth.o: ../../include/openssl/bio.h ../../include/openssl/buffer.h
+hm_pmeth.o: ../../include/openssl/conf.h ../../include/openssl/crypto.h
+hm_pmeth.o: ../../include/openssl/e_os2.h ../../include/openssl/ec.h
+hm_pmeth.o: ../../include/openssl/ecdh.h ../../include/openssl/ecdsa.h
+hm_pmeth.o: ../../include/openssl/err.h ../../include/openssl/evp.h
+hm_pmeth.o: ../../include/openssl/hmac.h ../../include/openssl/lhash.h
+hm_pmeth.o: ../../include/openssl/obj_mac.h ../../include/openssl/objects.h
+hm_pmeth.o: ../../include/openssl/opensslconf.h
+hm_pmeth.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+hm_pmeth.o: ../../include/openssl/pkcs7.h ../../include/openssl/safestack.h
+hm_pmeth.o: ../../include/openssl/sha.h ../../include/openssl/stack.h
+hm_pmeth.o: ../../include/openssl/symhacks.h ../../include/openssl/x509.h
+hm_pmeth.o: ../../include/openssl/x509_vfy.h ../../include/openssl/x509v3.h
+hm_pmeth.o: ../cryptlib.h ../evp/evp_locl.h hm_pmeth.c
+hmac.o: ../../e_os.h ../../include/openssl/asn1.h ../../include/openssl/bio.h
+hmac.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+hmac.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
 hmac.o: ../../include/openssl/evp.h ../../include/openssl/hmac.h
-hmac.o: ../../include/openssl/idea.h ../../include/openssl/md2.h
-hmac.o: ../../include/openssl/md4.h ../../include/openssl/md5.h
-hmac.o: ../../include/openssl/mdc2.h ../../include/openssl/obj_mac.h
+hmac.o: ../../include/openssl/lhash.h ../../include/openssl/obj_mac.h
 hmac.o: ../../include/openssl/objects.h ../../include/openssl/opensslconf.h
-hmac.o: ../../include/openssl/opensslv.h ../../include/openssl/rc2.h
-hmac.o: ../../include/openssl/rc4.h ../../include/openssl/rc5.h
-hmac.o: ../../include/openssl/ripemd.h ../../include/openssl/rsa.h
-hmac.o: ../../include/openssl/safestack.h ../../include/openssl/sha.h
-hmac.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
+hmac.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+hmac.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+hmac.o: ../../include/openssl/symhacks.h ../cryptlib.h hmac.c

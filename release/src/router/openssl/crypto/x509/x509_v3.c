@@ -115,8 +115,8 @@ int X509v3_get_ext_by_critical(const STACK_OF(X509_EXTENSION) *sk, int crit,
 	for ( ; lastpos < n; lastpos++)
 		{
 		ex=sk_X509_EXTENSION_value(sk,lastpos);
-		if (	(ex->critical && crit) ||
-			(!ex->critical && !crit))
+		if (	((ex->critical > 0) && crit) ||
+			((ex->critical <= 0) && !crit))
 			return(lastpos);
 		}
 	return(-1);
@@ -147,7 +147,13 @@ STACK_OF(X509_EXTENSION) *X509v3_add_ext(STACK_OF(X509_EXTENSION) **x,
 	int n;
 	STACK_OF(X509_EXTENSION) *sk=NULL;
 
-	if ((x != NULL) && (*x == NULL))
+	if (x == NULL)
+		{
+		X509err(X509_F_X509V3_ADD_EXT,ERR_R_PASSED_NULL_PARAMETER);
+		goto err2;
+		}
+
+	if (*x == NULL)
 		{
 		if ((sk=sk_X509_EXTENSION_new_null()) == NULL)
 			goto err;
@@ -163,7 +169,7 @@ STACK_OF(X509_EXTENSION) *X509v3_add_ext(STACK_OF(X509_EXTENSION) **x,
 		goto err2;
 	if (!sk_X509_EXTENSION_insert(sk,new_ex,loc))
 		goto err;
-	if ((x != NULL) && (*x == NULL))
+	if (*x == NULL)
 		*x=sk;
 	return(sk);
 err:
@@ -234,7 +240,7 @@ int X509_EXTENSION_set_object(X509_EXTENSION *ex, ASN1_OBJECT *obj)
 int X509_EXTENSION_set_critical(X509_EXTENSION *ex, int crit)
 	{
 	if (ex == NULL) return(0);
-	ex->critical=(crit)?0xFF:0;
+	ex->critical=(crit)?0xFF:-1;
 	return(1);
 	}
 
@@ -263,5 +269,6 @@ ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *ex)
 int X509_EXTENSION_get_critical(X509_EXTENSION *ex)
 	{
 	if (ex == NULL) return(0);
-	return(ex->critical);
+	if(ex->critical > 0) return 1;
+	return 0;
 	}

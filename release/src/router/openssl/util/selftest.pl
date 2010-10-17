@@ -34,9 +34,9 @@ foreach $_ (split("\n",$c)) {
     $platform0=$1 if (/Configuring for (.*)$/);
 }
 
-system "sh config" if (! -f "Makefile.ssl");
+system "sh config" if (! -f "Makefile");
 
-if (open(IN,"<Makefile.ssl")) {
+if (open(IN,"<Makefile")) {
     while (<IN>) {
 	$version=$1 if (/^VERSION=(.*)$/);
 	$platform=$1 if (/^PLATFORM=(.*)$/);
@@ -49,7 +49,8 @@ if (open(IN,"<Makefile.ssl")) {
 }
 
 $cversion=`$cc -v 2>&1`;
-$cversion=`$cc -V 2>&1` if $cversion =~ "usage";
+$cversion=`$cc -V 2>&1` if $cversion =~ "[Uu]sage";
+$cversion=`$cc -V |head -1` if $cversion =~ "Error";
 $cversion=`$cc --version` if $cversion eq "";
 $cversion =~ s/Reading specs.*\n//;
 $cversion =~ s/usage.*\n//;
@@ -77,7 +78,7 @@ print OUT "\n";
 
 print "Checking compiler...\n";
 if (open(TEST,">cctest.c")) {
-    print TEST "#include <stdio.h>\n#include <errno.h>\nmain(){printf(\"Hello world\\n\");}\n";
+    print TEST "#include <stdio.h>\n#include <stdlib.h>\n#include <errno.h>\nmain(){printf(\"Hello world\\n\");}\n";
     close(TEST);
     system("$cc -o cctest cctest.c");
     if (`./cctest` !~ /Hello world/) {
@@ -95,7 +96,7 @@ if (open(TEST,">cctest.c")) {
     print OUT "Can't create cctest.c\n";
 }
 if (open(TEST,">cctest.c")) {
-    print TEST "#include <openssl/opensslv.h>\nmain(){printf(OPENSSL_VERSION_TEXT);}\n";
+    print TEST "#include <stdio.h>\n#include <stdlib.h>\n#include <openssl/opensslv.h>\nmain(){printf(OPENSSL_VERSION_TEXT);}\n";
     close(TEST);
     system("$cc -o cctest -Iinclude cctest.c");
     $cctest = `./cctest`;
@@ -129,20 +130,21 @@ if (system("make 2>&1 | tee make.log") > 255) {
     goto err;
 }
 
-$_=$options;
-s/no-asm//;
-if (/no-/)
-{
-    print OUT "Test skipped.\n";
-    goto err;
-}
-
-if (`echo 4+1 | bc` != 5)
-{
-    print OUT "Can't run bc! Test skipped.\n";
-    print OUT $not_our_fault;
-    goto err;
-}
+# Not sure why this is here.  The tests themselves can detect if their
+# particular feature isn't included, and should therefore skip themselves.
+# To skip *all* tests just because one algorithm isn't included is like
+# shooting mosquito with an elephant gun...
+#                   -- Richard Levitte, inspired by problem report 1089
+#
+#$_=$options;
+#s/no-asm//;
+#s/no-shared//;
+#s/no-krb5//;
+#if (/no-/)
+#{
+#    print OUT "Test skipped.\n";
+#    goto err;
+#}
 
 print "Running make test...\n";
 if (system("make test 2>&1 | tee maketest.log") > 255)

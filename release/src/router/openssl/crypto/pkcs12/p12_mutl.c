@@ -1,5 +1,5 @@
 /* p12_mutl.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
 /* ====================================================================
@@ -56,7 +56,7 @@
  *
  */
 
-#ifndef NO_HMAC
+#ifndef OPENSSL_NO_HMAC
 #include <stdio.h>
 #include "cryptlib.h"
 #include <openssl/hmac.h>
@@ -64,13 +64,21 @@
 #include <openssl/pkcs12.h>
 
 /* Generate a MAC */
-int PKCS12_gen_mac (PKCS12 *p12, const char *pass, int passlen,
-		    unsigned char *mac, unsigned int *maclen)
+int PKCS12_gen_mac(PKCS12 *p12, const char *pass, int passlen,
+		   unsigned char *mac, unsigned int *maclen)
 {
 	const EVP_MD *md_type;
 	HMAC_CTX hmac;
-	unsigned char key[PKCS12_MAC_KEY_LENGTH], *salt;
+	unsigned char key[EVP_MAX_MD_SIZE], *salt;
 	int saltlen, iter;
+	int md_size;
+
+	if (!PKCS7_type_is_data(p12->authsafes))
+		{
+		PKCS12err(PKCS12_F_PKCS12_GEN_MAC,PKCS12_R_CONTENT_TYPE_NOT_DATA);
+		return 0;
+		}
+
 	salt = p12->mac->salt->data;
 	saltlen = p12->mac->salt->length;
 	if (!p12->mac->iter) iter = 1;
@@ -80,29 +88,34 @@ int PKCS12_gen_mac (PKCS12 *p12, const char *pass, int passlen,
 		PKCS12err(PKCS12_F_PKCS12_GEN_MAC,PKCS12_R_UNKNOWN_DIGEST_ALGORITHM);
 		return 0;
 	}
+	md_size = EVP_MD_size(md_type);
+	if (md_size < 0)
+	    return 0;
 	if(!PKCS12_key_gen (pass, passlen, salt, saltlen, PKCS12_MAC_ID, iter,
-				 PKCS12_MAC_KEY_LENGTH, key, md_type)) {
+				 md_size, key, md_type)) {
 		PKCS12err(PKCS12_F_PKCS12_GEN_MAC,PKCS12_R_KEY_GEN_ERROR);
 		return 0;
 	}
-	HMAC_Init (&hmac, key, PKCS12_MAC_KEY_LENGTH, md_type);
-    	HMAC_Update (&hmac, p12->authsafes->d.data->data,
+	HMAC_CTX_init(&hmac);
+	HMAC_Init_ex(&hmac, key, md_size, md_type, NULL);
+    	HMAC_Update(&hmac, p12->authsafes->d.data->data,
 					 p12->authsafes->d.data->length);
-    	HMAC_Final (&hmac, mac, maclen);
+    	HMAC_Final(&hmac, mac, maclen);
+    	HMAC_CTX_cleanup(&hmac);
 	return 1;
 }
 
 /* Verify the mac */
-int PKCS12_verify_mac (PKCS12 *p12, const char *pass, int passlen)
+int PKCS12_verify_mac(PKCS12 *p12, const char *pass, int passlen)
 {
 	unsigned char mac[EVP_MAX_MD_SIZE];
 	unsigned int maclen;
 	if(p12->mac == NULL) {
-		PKCS12err(PKCS12_F_VERIFY_MAC,PKCS12_R_MAC_ABSENT);
+		PKCS12err(PKCS12_F_PKCS12_VERIFY_MAC,PKCS12_R_MAC_ABSENT);
 		return 0;
 	}
 	if (!PKCS12_gen_mac (p12, pass, passlen, mac, &maclen)) {
-		PKCS12err(PKCS12_F_VERIFY_MAC,PKCS12_R_MAC_GENERATION_ERROR);
+		PKCS12err(PKCS12_F_PKCS12_VERIFY_MAC,PKCS12_R_MAC_GENERATION_ERROR);
 		return 0;
 	}
 	if ((maclen != (unsigned int)p12->mac->dinfo->digest->length)
@@ -112,8 +125,8 @@ int PKCS12_verify_mac (PKCS12 *p12, const char *pass, int passlen)
 
 /* Set a mac */
 
-int PKCS12_set_mac (PKCS12 *p12, const char *pass, int passlen,
-	     unsigned char *salt, int saltlen, int iter, EVP_MD *md_type)
+int PKCS12_set_mac(PKCS12 *p12, const char *pass, int passlen,
+	     unsigned char *salt, int saltlen, int iter, const EVP_MD *md_type)
 {
 	unsigned char mac[EVP_MAX_MD_SIZE];
 	unsigned int maclen;
@@ -136,8 +149,8 @@ int PKCS12_set_mac (PKCS12 *p12, const char *pass, int passlen,
 }
 
 /* Set up a mac structure */
-int PKCS12_setup_mac (PKCS12 *p12, int iter, unsigned char *salt, int saltlen,
-	     EVP_MD *md_type)
+int PKCS12_setup_mac(PKCS12 *p12, int iter, unsigned char *salt, int saltlen,
+	     const EVP_MD *md_type)
 {
 	if (!(p12->mac = PKCS12_MAC_DATA_new())) return PKCS12_ERROR;
 	if (iter > 1) {
@@ -145,7 +158,10 @@ int PKCS12_setup_mac (PKCS12 *p12, int iter, unsigned char *salt, int saltlen,
 			PKCS12err(PKCS12_F_PKCS12_SETUP_MAC, ERR_R_MALLOC_FAILURE);
 			return 0;
 		}
-		ASN1_INTEGER_set(p12->mac->iter, iter);
+		if (!ASN1_INTEGER_set(p12->mac->iter, iter)) {
+			PKCS12err(PKCS12_F_PKCS12_SETUP_MAC, ERR_R_MALLOC_FAILURE);
+			return 0;
+		}
 	}
 	if (!saltlen) saltlen = PKCS12_SALT_LEN;
 	p12->mac->salt->length = saltlen;

@@ -49,86 +49,13 @@
  */
 
 #include <openssl/opensslconf.h>
-#ifndef NO_AES
+#ifndef OPENSSL_NO_AES
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <string.h>
 #include <assert.h>
 #include <openssl/aes.h>
-
-/* Macros to code block cipher wrappers */
-
-/* Wrapper functions for each cipher mode */
-
-#define BLOCK_CIPHER_ecb_loop() \
-	unsigned int i, bl; \
-	bl = ctx->cipher->block_size;\
-	if(inl < bl) return 1;\
-	inl -= bl; \
-	for(i=0; i <= inl; i+=bl) 
-
-#define BLOCK_CIPHER_func_ecb(cname)                  \
-static int cname##_ecb_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out, const unsigned char *in, unsigned int inl) \
-{\
-	BLOCK_CIPHER_ecb_loop() \
-            AES_ecb_encrypt(in + i, out + i, &((EVP_AES_KEY *)&(ctx->c.aes_ks))->ks, ctx->encrypt); \
-	return 1;\
-}
-
-
-#define BLOCK_CIPHER_func_cbc(cname) \
-static int cname##_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out, const unsigned char *in, unsigned int inl) \
-{\
-   AES_cbc_encrypt(in, out, (long)inl, &((EVP_AES_KEY *)&(ctx->c.aes_ks))->ks, ctx->iv, ctx->encrypt); \
-   return 1;\
-}
-
-
-#define BLOCK_CIPHER_func_ofb(cname) \
-static int cname##_ofb_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out, const unsigned char *in, unsigned int inl) \
-{\
-   AES_ofb128_encrypt(in, out, (long)inl, &((EVP_AES_KEY *)&(ctx->c.aes_ks))->ks, ctx->iv, &ctx->num);\
-   return 1;\
-}
-
-#define BLOCK_CIPHER_func_cfb(cname) \
-static int cname##_cfb_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out, const unsigned char *in, unsigned int inl) \
-{\
-   AES_cfb128_encrypt(in, out, (long)inl, &((EVP_AES_KEY *)&(ctx->c.aes_ks))->ks, ctx->iv, &ctx->num, ctx->encrypt);\
-   return 1;\
-}
-
-
-#define BLOCK_CIPHER_def1(cname, nmode, mode, MODE, nid, key_len, block_size)      \
-static const EVP_CIPHER cname##_##mode = { \
-        nid##_##nmode, block_size, key_len, 16,      \
-	EVP_CIPH_##MODE##_MODE, \
-        aes_init_key, \
-	cname##_##mode##_cipher, \
-	NULL, \
-	sizeof(EVP_CIPHER_CTX) - sizeof((((EVP_CIPHER_CTX *)NULL)->c)) + sizeof(EVP_AES_KEY), \
-        EVP_CIPHER_set_asn1_iv, EVP_CIPHER_get_asn1_iv,  \
-	NULL,              \
-	NULL \
-}; \
-const EVP_CIPHER *EVP_##cname##_##mode(void) { return &cname##_##mode; }
-
-
-#define BLOCK_CIPHER_def_ecb(cname, nid, key_len) \
-    BLOCK_CIPHER_def1(cname, ecb, ecb, ECB, nid, key_len)
-
-#define IMPLEMENT_BLOCK_CIPHER(bits)    \
-        BLOCK_CIPHER_func_cbc(aes_##bits) \
-        BLOCK_CIPHER_func_ecb(aes_##bits) \
-        BLOCK_CIPHER_func_ofb(aes_##bits) \
-        BLOCK_CIPHER_func_cfb(aes_##bits) \
-        BLOCK_CIPHER_def1(aes_##bits, cbc,    cbc, CBC, NID_aes_##bits, (bits/8), 16) \
-        BLOCK_CIPHER_def1(aes_##bits, ecb,    ecb, ECB, NID_aes_##bits, (bits/8), 16) \
-        BLOCK_CIPHER_def1(aes_##bits, ofb128, ofb, OFB, NID_aes_##bits, (bits/8), 1)  \
-        BLOCK_CIPHER_def1(aes_##bits, cfb128, cfb, CFB, NID_aes_##bits, (bits/8), 1) 
-
-
-#define EVP_C_DATA(ctx)	((EVP_AES_KEY *)(ctx)->c.aes_ks)
+#include "evp_locl.h"
 
 static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 					const unsigned char *iv, int enc);
@@ -140,11 +67,34 @@ typedef struct
 
 #define data(ctx)	EVP_C_DATA(EVP_AES_KEY,ctx)
 
+IMPLEMENT_BLOCK_CIPHER(aes_128, ks, AES, EVP_AES_KEY,
+		       NID_aes_128, 16, 16, 16, 128,
+		       0, aes_init_key, NULL, 
+		       EVP_CIPHER_set_asn1_iv,
+		       EVP_CIPHER_get_asn1_iv,
+		       NULL)
+IMPLEMENT_BLOCK_CIPHER(aes_192, ks, AES, EVP_AES_KEY,
+		       NID_aes_192, 16, 24, 16, 128,
+		       0, aes_init_key, NULL, 
+		       EVP_CIPHER_set_asn1_iv,
+		       EVP_CIPHER_get_asn1_iv,
+		       NULL)
+IMPLEMENT_BLOCK_CIPHER(aes_256, ks, AES, EVP_AES_KEY,
+		       NID_aes_256, 16, 32, 16, 128,
+		       0, aes_init_key, NULL, 
+		       EVP_CIPHER_set_asn1_iv,
+		       EVP_CIPHER_get_asn1_iv,
+		       NULL)
 
-IMPLEMENT_BLOCK_CIPHER(128)
-IMPLEMENT_BLOCK_CIPHER(192)
-IMPLEMENT_BLOCK_CIPHER(256)
+#define IMPLEMENT_AES_CFBR(ksize,cbits)	IMPLEMENT_CFBR(aes,AES,EVP_AES_KEY,ks,ksize,cbits,16)
 
+IMPLEMENT_AES_CFBR(128,1)
+IMPLEMENT_AES_CFBR(192,1)
+IMPLEMENT_AES_CFBR(256,1)
+
+IMPLEMENT_AES_CFBR(128,8)
+IMPLEMENT_AES_CFBR(192,8)
+IMPLEMENT_AES_CFBR(256,8)
 
 static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 		   const unsigned char *iv, int enc)
@@ -154,9 +104,9 @@ static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 	if ((ctx->cipher->flags & EVP_CIPH_MODE) == EVP_CIPH_CFB_MODE
 	    || (ctx->cipher->flags & EVP_CIPH_MODE) == EVP_CIPH_OFB_MODE
 	    || enc) 
-                ret=AES_set_encrypt_key(key, ctx->key_len * 8, &(ctx->c.aes_ks));
+		ret=AES_set_encrypt_key(key, ctx->key_len * 8, ctx->cipher_data);
 	else
-		ret=AES_set_decrypt_key(key, ctx->key_len * 8, &(ctx->c.aes_ks));
+		ret=AES_set_decrypt_key(key, ctx->key_len * 8, ctx->cipher_data);
 
 	if(ret < 0)
 		{
@@ -167,4 +117,4 @@ static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 	return 1;
 	}
 
-#endif // NO_AES
+#endif

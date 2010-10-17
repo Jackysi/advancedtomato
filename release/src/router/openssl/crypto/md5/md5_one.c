@@ -59,18 +59,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <openssl/md5.h>
+#include <openssl/crypto.h>
 
 #ifdef CHARSET_EBCDIC
 #include <openssl/ebcdic.h>
 #endif
 
-unsigned char *MD5(const unsigned char *d, unsigned long n, unsigned char *md)
+unsigned char *MD5(const unsigned char *d, size_t n, unsigned char *md)
 	{
 	MD5_CTX c;
 	static unsigned char m[MD5_DIGEST_LENGTH];
 
 	if (md == NULL) md=m;
-	MD5_Init(&c);
+	if (!MD5_Init(&c))
+		return NULL;
 #ifndef CHARSET_EBCDIC
 	MD5_Update(&c,d,n);
 #else
@@ -89,7 +91,7 @@ unsigned char *MD5(const unsigned char *d, unsigned long n, unsigned char *md)
 	}
 #endif
 	MD5_Final(md,&c);
-	memset(&c,0,sizeof(c)); /* security consideration */
+	OPENSSL_cleanse(&c,sizeof(c)); /* security consideration */
 	return(md);
 	}
 

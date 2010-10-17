@@ -9,6 +9,7 @@ OpenSSL  -  Frequently Asked Questions
 * Where can I get a compiled version of OpenSSL?
 * Why aren't tools like 'autoconf' and 'libtool' used?
 * What is an 'engine' version?
+* How do I check the authenticity of the OpenSSL distribution?
 
 [LEGAL] Legal questions
 
@@ -29,21 +30,35 @@ OpenSSL  -  Frequently Asked Questions
 * Why can't I use OpenSSL certificates with SSL client authentication?
 * Why does my browser give a warning about a mismatched hostname?
 * How do I install a CA certificate into a browser?
+* Why is OpenSSL x509 DN output not conformant to RFC2253?
+* What is a "128 bit certificate"? Can I create one with OpenSSL?
+* Why does OpenSSL set the authority key identifier extension incorrectly?
+* How can I set up a bundle of commercial root CA certificates?
 
 [BUILD] Questions about building and testing OpenSSL
 
 * Why does the linker complain about undefined symbols?
 * Why does the OpenSSL test fail with "bc: command not found"?
 * Why does the OpenSSL test fail with "bc: 1 no implemented"?
+* Why does the OpenSSL test fail with "bc: stack empty"?
 * Why does the OpenSSL compilation fail on Alpha Tru64 Unix?
 * Why does the OpenSSL compilation fail with "ar: command not found"?
 * Why does the OpenSSL compilation fail on Win32 with VC++?
+* What is special about OpenSSL on Redhat?
+* Why does the OpenSSL compilation fail on MacOS X?
+* Why does the OpenSSL test suite fail on MacOS X?
+* Why does the OpenSSL test suite fail in BN_sqr test [on a 64-bit platform]?
+* Why does OpenBSD-i386 build fail on des-586.s with "Unimplemented segment type"?
+* Why does the OpenSSL test suite fail in sha512t on x86 CPU?
+* Why does compiler fail to compile sha512.c?
+* Test suite still fails, what to do?
 
 [PROG] Questions about programming with OpenSSL
 
 * Is OpenSSL thread-safe?
 * I've compiled a program under Windows and it crashes: why?
 * How do I read or write a DER encoded buffer using the ASN1 functions?
+* OpenSSL uses DER but I need BER format: does OpenSSL support BER?
 * I've tried using <M_some_evil_pkcs12_macro> and I get errors why?
 * I've called <some function> and it fails, why?
 * I just get a load of numbers for the error output, what do they mean?
@@ -51,6 +66,11 @@ OpenSSL  -  Frequently Asked Questions
 * Why can't the OpenSSH configure script detect OpenSSL?
 * Can I use OpenSSL's SSL library with non-blocking I/O?
 * Why doesn't my server application receive a client certificate?
+* Why does compilation fail due to an undefined symbol NID_uniqueIdentifier?
+* I think I've detected a memory leak, is this a bug?
+* Why does Valgrind complain about the use of uninitialized data?
+* Why doesn't a memory BIO work when a file does?
+* Where are the declarations and implementations of d2i_X509() etc?
 
 ===============================================================================
 
@@ -59,7 +79,7 @@ OpenSSL  -  Frequently Asked Questions
 * Which is the current version of OpenSSL?
 
 The current version is available from <URL: http://www.openssl.org>.
-OpenSSL 0.9.6d was released on 9 May, 2002.
+OpenSSL 1.0.0a was released on Jun 1st, 2010.
 
 In addition to the current stable release, you can also access daily
 snapshots of the OpenSSL development version at <URL:
@@ -75,14 +95,17 @@ explains how to install this library.
 
 OpenSSL includes a command line utility that can be used to perform a
 variety of cryptographic functions.  It is described in the openssl(1)
-manpage.  Documentation for developers is currently being written.  A
-few manual pages already are available; overviews over libcrypto and
+manpage.  Documentation for developers is currently being written. Many
+manual pages are available; overviews over libcrypto and
 libssl are given in the crypto(3) and ssl(3) manpages.
 
 The OpenSSL manpages are installed in /usr/local/ssl/man/ (or a
 different directory if you specified one as described in INSTALL).
 In addition, you can read the most current versions at
-<URL: http://www.openssl.org/docs/>.
+<URL: http://www.openssl.org/docs/>. Note that the online documents refer
+to the very latest development versions of OpenSSL and may include features
+not present in released versions. If in doubt refer to the documentation
+that came with the version of OpenSSL you are using.
 
 For information on parts of libcrypto that are not yet documented, you
 might want to read Ariel Glenn's documentation on SSLeay 0.9, OpenSSL's
@@ -107,11 +130,14 @@ OpenSSL.  Information on the OpenSSL mailing lists is available from
 
 * Where can I get a compiled version of OpenSSL?
 
+You can finder pointers to binary distributions in
+http://www.openssl.org/related/binaries.html .
+
 Some applications that use OpenSSL are distributed in binary form.
 When using such an application, you don't need to install OpenSSL
 yourself; the application will include the required parts (e.g. DLLs).
 
-If you want to install OpenSSL on a Windows system and you don't have
+If you want to build OpenSSL on a Windows system and you don't have
 a C compiler, read the "Mingw32" section of INSTALL.W32 for information
 on how to obtain and install the free GNU C compiler.
 
@@ -127,8 +153,22 @@ less Unix-centric, it might have been used much earlier.
 
 With version 0.9.6 OpenSSL was extended to interface to external crypto
 hardware. This was realized in a special release '0.9.6-engine'. With
-version 0.9.7 (not yet released) the changes were merged into the main
-development line, so that the special release is no longer necessary.
+version 0.9.7 the changes were merged into the main development line,
+so that the special release is no longer necessary.
+
+* How do I check the authenticity of the OpenSSL distribution?
+
+We provide MD5 digests and ASC signatures of each tarball.
+Use MD5 to check that a tarball from a mirror site is identical:
+
+   md5sum TARBALL | awk '{print $1;}' | cmp - TARBALL.md5
+
+You can check authenticity using pgp or gpg. You need the OpenSSL team
+member public key used to sign it (download it from a key server, see a
+list of keys at <URL: http://www.openssl.org/about/>). Then
+just do:
+
+   pgp TARBALL.asc
 
 [LEGAL] =======================================================================
 
@@ -139,8 +179,8 @@ you if you want to use OpenSSL.  For information on intellectual
 property rights, please consult a lawyer.  The OpenSSL team does not
 offer legal advice.
 
-You can configure OpenSSL so as not to use RC5 and IDEA by using
- ./config no-rc5 no-idea
+You can configure OpenSSL so as not to use IDEA, MDC2 and RC5 by using
+ ./config no-idea no-mdc2 no-rc5
 
 
 * Can I use OpenSSL with GPL software?
@@ -167,18 +207,30 @@ for permission to use their software with OpenSSL.
 
 Cryptographic software needs a source of unpredictable data to work
 correctly.  Many open source operating systems provide a "randomness
-device" that serves this purpose.  On other systems, applications have
-to call the RAND_add() or RAND_seed() function with appropriate data
-before generating keys or performing public key encryption.
-(These functions initialize the pseudo-random number generator, PRNG.)
+device" (/dev/urandom or /dev/random) that serves this purpose.
+All OpenSSL versions try to use /dev/urandom by default; starting with
+version 0.9.7, OpenSSL also tries /dev/random if /dev/urandom is not
+available.
 
-Some broken applications do not do this.  As of version 0.9.5, the
-OpenSSL functions that need randomness report an error if the random
-number generator has not been seeded with at least 128 bits of
-randomness.  If this error occurs, please contact the author of the
-application you are using.  It is likely that it never worked
-correctly.  OpenSSL 0.9.5 and later make the error visible by refusing
-to perform potentially insecure encryption.
+On other systems, applications have to call the RAND_add() or
+RAND_seed() function with appropriate data before generating keys or
+performing public key encryption. (These functions initialize the
+pseudo-random number generator, PRNG.)  Some broken applications do
+not do this.  As of version 0.9.5, the OpenSSL functions that need
+randomness report an error if the random number generator has not been
+seeded with at least 128 bits of randomness.  If this error occurs and
+is not discussed in the documentation of the application you are
+using, please contact the author of that application; it is likely
+that it never worked correctly.  OpenSSL 0.9.5 and later make the
+error visible by refusing to perform potentially insecure encryption.
+
+If you are using Solaris 8, you can add /dev/urandom and /dev/random
+devices by installing patch 112438 (Sparc) or 112439 (x86), which are
+available via the Patchfinder at <URL: http://sunsolve.sun.com>
+(Solaris 9 includes these devices by default). For /dev/random support
+for earlier Solaris versions, see Sun's statement at
+<URL: http://sunsolve.sun.com/pub-cgi/retrieve.pl?doc=fsrdb/27606&zone_32=SUNWski>
+(the SUNWski package is available in patch 105710).
 
 On systems without /dev/urandom and /dev/random, it is a good idea to
 use the Entropy Gathering Demon (EGD); see the RAND_egd() manpage for
@@ -210,13 +262,6 @@ The $RANDFILE environment variable and $HOME/.rnd are only used by the
 OpenSSL command line tools. Applications using the OpenSSL library
 provide their own configuration options to specify the entropy source,
 please check out the documentation coming the with application.
-
-For Solaris 2.6, Tim Nibbe <tnibbe@sprint.net> and others have suggested
-installing the SUNski package from Sun patch 105710-01 (Sparc) which
-adds a /dev/random device and make sure it gets used, usually through
-$RANDFILE.  There are probably similar patches for the other Solaris
-versions.  However, be warned that /dev/random is usually a blocking
-device, which may have some effects on OpenSSL.
 
 
 * Why do I get an "unable to write 'random state'" error message?
@@ -343,6 +388,83 @@ DO NOT DO THIS! This command will give away your CAs private key and
 reduces its security to zero: allowing anyone to forge certificates in
 whatever name they choose.
 
+* Why is OpenSSL x509 DN output not conformant to RFC2253?
+
+The ways to print out the oneline format of the DN (Distinguished Name) have
+been extended in version 0.9.7 of OpenSSL. Using the new X509_NAME_print_ex()
+interface, the "-nameopt" option could be introduded. See the manual
+page of the "openssl x509" commandline tool for details. The old behaviour
+has however been left as default for the sake of compatibility.
+
+* What is a "128 bit certificate"? Can I create one with OpenSSL?
+
+The term "128 bit certificate" is a highly misleading marketing term. It does
+*not* refer to the size of the public key in the certificate! A certificate
+containing a 128 bit RSA key would have negligible security.
+
+There were various other names such as "magic certificates", "SGC
+certificates", "step up certificates" etc.
+
+You can't generally create such a certificate using OpenSSL but there is no
+need to any more. Nowadays web browsers using unrestricted strong encryption
+are generally available.
+
+When there were tight restrictions on the export of strong encryption
+software from the US only weak encryption algorithms could be freely exported
+(initially 40 bit and then 56 bit). It was widely recognised that this was
+inadequate. A relaxation of the rules allowed the use of strong encryption but
+only to an authorised server.
+
+Two slighly different techniques were developed to support this, one used by
+Netscape was called "step up", the other used by MSIE was called "Server Gated
+Cryptography" (SGC). When a browser initially connected to a server it would
+check to see if the certificate contained certain extensions and was issued by
+an authorised authority. If these test succeeded it would reconnect using
+strong encryption.
+
+Only certain (initially one) certificate authorities could issue the
+certificates and they generally cost more than ordinary certificates.
+
+Although OpenSSL can create certificates containing the appropriate extensions
+the certificate would not come from a permitted authority and so would not
+be recognized.
+
+The export laws were later changed to allow almost unrestricted use of strong
+encryption so these certificates are now obsolete.
+
+
+* Why does OpenSSL set the authority key identifier (AKID) extension incorrectly?
+
+It doesn't: this extension is often the cause of confusion.
+
+Consider a certificate chain A->B->C so that A signs B and B signs C. Suppose
+certificate C contains AKID.
+
+The purpose of this extension is to identify the authority certificate B. This
+can be done either by including the subject key identifier of B or its issuer
+name and serial number.
+
+In this latter case because it is identifying certifcate B it must contain the
+issuer name and serial number of B.
+
+It is often wrongly assumed that it should contain the subject name of B. If it
+did this would be redundant information because it would duplicate the issuer
+name of C.
+
+
+* How can I set up a bundle of commercial root CA certificates?
+
+The OpenSSL software is shipped without any root CA certificate as the
+OpenSSL project does not have any policy on including or excluding
+any specific CA and does not intend to set up such a policy. Deciding
+about which CAs to support is up to application developers or
+administrators.
+
+Other projects do have other policies so you can for example extract the CA
+bundle used by Mozilla and/or modssl as described in this article:
+
+  http://www.mail-archive.com/modssl-users@modssl.org/msg16980.html
+
 
 [BUILD] =======================================================================
 
@@ -387,6 +509,17 @@ and compile/install it.  GNU bc (see http://www.gnu.org/software/software.html
 for download instructions) can be safely used, for example.
 
 
+* Why does the OpenSSL test fail with "bc: stack empty"?
+
+On some DG/ux versions, bc seems to have a too small stack for calculations
+that the OpenSSL bntest throws at it.  This gets triggered when you run the
+test suite (using "make test").  The message returned is "bc: stack empty".
+
+The best way to deal with this is to find another implementation of bc
+and compile/install it.  GNU bc (see http://www.gnu.org/software/software.html
+for download instructions) can be safely used, for example.
+
+
 * Why does the OpenSSL compilation fail on Alpha Tru64 Unix?
 
 On some Alpha installations running Tru64 Unix and Compaq C, the compilation
@@ -422,6 +555,10 @@ This will only compile sha_dgst.c with -O0, the rest with the optimization
 level chosen by the configuration process.  When the above is done, do the
 test and installation and you're set.
 
+3. Reconfigure the toolkit with no-sha0 option to leave out SHA0. It 
+should not be used and is not used in SSL/TLS nor any other recognized
+protocol in either case.
+
 
 * Why does the OpenSSL compilation fail with "ar: command not found"?
 
@@ -445,11 +582,132 @@ and then redo the compilation.  What you should really do is make sure
 Sometimes, you may get reports from VC++ command line (cl) that it
 can't find standard include files like stdio.h and other weirdnesses.
 One possible cause is that the environment isn't correctly set up.
-To solve that problem, one should run VCVARS32.BAT which is found in
-the 'bin' subdirectory of the VC++ installation directory (somewhere
-under 'Program Files').  This needs to be done prior to running NMAKE,
-and the changes are only valid for the current DOS session.
+To solve that problem for VC++ versions up to 6, one should run
+VCVARS32.BAT which is found in the 'bin' subdirectory of the VC++
+installation directory (somewhere under 'Program Files').  For VC++
+version 7 (and up?), which is also called VS.NET, the file is called
+VSVARS32.BAT instead.
+This needs to be done prior to running NMAKE, and the changes are only
+valid for the current DOS session.
 
+
+* What is special about OpenSSL on Redhat?
+
+Red Hat Linux (release 7.0 and later) include a preinstalled limited
+version of OpenSSL. For patent reasons, support for IDEA, RC5 and MDC2
+is disabled in this version. The same may apply to other Linux distributions.
+Users may therefore wish to install more or all of the features left out.
+
+To do this you MUST ensure that you do not overwrite the openssl that is in
+/usr/bin on your Red Hat machine. Several packages depend on this file,
+including sendmail and ssh. /usr/local/bin is a good alternative choice. The
+libraries that come with Red Hat 7.0 onwards have different names and so are
+not affected. (eg For Red Hat 7.2 they are /lib/libssl.so.0.9.6b and
+/lib/libcrypto.so.0.9.6b with symlinks /lib/libssl.so.2 and
+/lib/libcrypto.so.2 respectively).
+
+Please note that we have been advised by Red Hat attempting to recompile the
+openssl rpm with all the cryptography enabled will not work. All other
+packages depend on the original Red Hat supplied openssl package. It is also
+worth noting that due to the way Red Hat supplies its packages, updates to
+openssl on each distribution never change the package version, only the
+build number. For example, on Red Hat 7.1, the latest openssl package has
+version number 0.9.6 and build number 9 even though it contains all the
+relevant updates in packages up to and including 0.9.6b.
+
+A possible way around this is to persuade Red Hat to produce a non-US
+version of Red Hat Linux.
+
+FYI: Patent numbers and expiry dates of US patents:
+MDC-2: 4,908,861 13/03/2007
+IDEA:  5,214,703 25/05/2010
+RC5:   5,724,428 03/03/2015
+
+
+* Why does the OpenSSL compilation fail on MacOS X?
+
+If the failure happens when trying to build the "openssl" binary, with
+a large number of undefined symbols, it's very probable that you have
+OpenSSL 0.9.6b delivered with the operating system (you can find out by
+running '/usr/bin/openssl version') and that you were trying to build
+OpenSSL 0.9.7 or newer.  The problem is that the loader ('ld') in
+MacOS X has a misfeature that's quite difficult to go around.
+Look in the file PROBLEMS for a more detailed explanation and for possible
+solutions.
+
+
+* Why does the OpenSSL test suite fail on MacOS X?
+
+If the failure happens when running 'make test' and the RC4 test fails,
+it's very probable that you have OpenSSL 0.9.6b delivered with the
+operating system (you can find out by running '/usr/bin/openssl version')
+and that you were trying to build OpenSSL 0.9.6d.  The problem is that
+the loader ('ld') in MacOS X has a misfeature that's quite difficult to
+go around and has linked the programs "openssl" and the test programs
+with /usr/lib/libcrypto.dylib and /usr/lib/libssl.dylib instead of the
+libraries you just built.
+Look in the file PROBLEMS for a more detailed explanation and for possible
+solutions.
+
+* Why does the OpenSSL test suite fail in BN_sqr test [on a 64-bit platform]?
+
+Failure in BN_sqr test is most likely caused by a failure to configure the
+toolkit for current platform or lack of support for the platform in question.
+Run './config -t' and './apps/openssl version -p'. Do these platform
+identifiers match? If they don't, then you most likely failed to run
+./config and you're hereby advised to do so before filing a bug report.
+If ./config itself fails to run, then it's most likely problem with your
+local environment and you should turn to your system administrator (or
+similar). If identifiers match (and/or no alternative identifier is
+suggested by ./config script), then the platform is unsupported. There might
+or might not be a workaround. Most notably on SPARC64 platforms with GNU
+C compiler you should be able to produce a working build by running
+'./config -m32'. I understand that -m32 might not be what you want/need,
+but the build should be operational. For further details turn to
+<openssl-dev@openssl.org>.
+
+* Why does OpenBSD-i386 build fail on des-586.s with "Unimplemented segment type"?
+
+As of 0.9.7 assembler routines were overhauled for position independence
+of the machine code, which is essential for shared library support. For
+some reason OpenBSD is equipped with an out-of-date GNU assembler which
+finds the new code offensive. To work around the problem, configure with
+no-asm (and sacrifice a great deal of performance) or patch your assembler
+according to <URL: http://www.openssl.org/~appro/gas-1.92.3.OpenBSD.patch>.
+For your convenience a pre-compiled replacement binary is provided at
+<URL: http://www.openssl.org/~appro/gas-1.92.3.static.aout.bin>.
+Reportedly elder *BSD a.out platforms also suffer from this problem and
+remedy should be same. Provided binary is statically linked and should be
+working across wider range of *BSD branches, not just OpenBSD.
+
+* Why does the OpenSSL test suite fail in sha512t on x86 CPU?
+
+If the test program in question fails withs SIGILL, Illegal Instruction
+exception, then you more than likely to run SSE2-capable CPU, such as
+Intel P4, under control of kernel which does not support SSE2
+instruction extentions. See accompanying INSTALL file and
+OPENSSL_ia32cap(3) documentation page for further information.
+
+* Why does compiler fail to compile sha512.c?
+
+OpenSSL SHA-512 implementation depends on compiler support for 64-bit
+integer type. Few elder compilers [ULTRIX cc, SCO compiler to mention a
+couple] lack support for this and therefore are incapable of compiling
+the module in question. The recommendation is to disable SHA-512 by
+adding no-sha512 to ./config [or ./Configure] command line. Another
+possible alternative might be to switch to GCC.
+
+* Test suite still fails, what to do?
+
+Another common reason for failure to complete some particular test is
+simply bad code generated by a buggy component in toolchain or deficiency
+in run-time environment. There are few cases documented in PROBLEMS file,
+consult it for possible workaround before you beat the drum. Even if you
+don't find solution or even mention there, do reserve for possibility of
+a compiler bug. Compiler bugs might appear in rather bizarre ways, they
+never make sense, and tend to emerge when you least expect them. In order
+to identify one, drop optimization level, e.g. by editing CFLAG line in
+top-level Makefile, recompile and re-run the test.
 
 [PROG] ========================================================================
 
@@ -462,8 +720,11 @@ libraries.  If your platform is not one of these, consult the INSTALL
 file.
 
 Multi-threaded applications must provide two callback functions to
-OpenSSL.  This is described in the threads(3) manpage.
-
+OpenSSL by calling CRYPTO_set_locking_callback() and
+CRYPTO_set_id_callback(), for all versions of OpenSSL up to and
+including 0.9.8[abc...]. As of version 1.0.0, CRYPTO_set_id_callback()
+and associated APIs are deprecated by CRYPTO_THREADID_set_callback()
+and friends. This is described in the threads(3) manpage.
 
 * I've compiled a program under Windows and it crashes: why?
 
@@ -483,10 +744,10 @@ your application must link  against the same by which OpenSSL was
 built.  If you are using MS Visual C++ (Studio) this can be changed
 by:
 
-1.  Select Settings... from the Project Menu.
-2.  Select the C/C++ Tab.
-3.  Select "Code Generation from the "Category" drop down list box
-4.  Select the Appropriate library (see table below) from the "Use
+ 1. Select Settings... from the Project Menu.
+ 2. Select the C/C++ Tab.
+ 3. Select "Code Generation from the "Category" drop down list box
+ 4. Select the Appropriate library (see table below) from the "Use
     run-time library" drop down list box.  Perform this step for both
     your debug and release versions of your application (look at the
     top left of the settings panel to change between the two)
@@ -505,30 +766,44 @@ by:
 Note that debug and release libraries are NOT interchangeable.  If you
 built OpenSSL with /MD your application must use /MD and cannot use /MDd.
 
+As per 0.9.8 the above limitation is eliminated for .DLLs. OpenSSL
+.DLLs compiled with some specific run-time option [we insist on the
+default /MD] can be deployed with application compiled with different
+option or even different compiler. But there is a catch! Instead of
+re-compiling OpenSSL toolkit, as you would have to with prior versions,
+you have to compile small C snippet with compiler and/or options of
+your choice. The snippet gets installed as
+<install-root>/include/openssl/applink.c and should be either added to
+your application project or simply #include-d in one [and only one]
+of your application source files. Failure to link this shim module
+into your application manifests itself as fatal "no OPENSSL_Applink"
+run-time error. An explicit reminder is due that in this situation
+[mixing compiler options] it is as important to add CRYPTO_malloc_init
+prior first call to OpenSSL.
 
 * How do I read or write a DER encoded buffer using the ASN1 functions?
 
 You have two options. You can either use a memory BIO in conjunction
-with the i2d_XXX_bio() or d2i_XXX_bio() functions or you can use the
-i2d_XXX(), d2i_XXX() functions directly. Since these are often the
+with the i2d_*_bio() or d2i_*_bio() functions or you can use the
+i2d_*(), d2i_*() functions directly. Since these are often the
 cause of grief here are some code fragments using PKCS7 as an example:
 
-unsigned char *buf, *p;
-int len;
+ unsigned char *buf, *p;
+ int len;
 
-len = i2d_PKCS7(p7, NULL);
-buf = OPENSSL_malloc(len); /* or Malloc, error checking omitted */
-p = buf;
-i2d_PKCS7(p7, &p);
+ len = i2d_PKCS7(p7, NULL);
+ buf = OPENSSL_malloc(len); /* or Malloc, error checking omitted */
+ p = buf;
+ i2d_PKCS7(p7, &p);
 
 At this point buf contains the len bytes of the DER encoding of
 p7.
 
 The opposite assumes we already have len bytes in buf:
 
-unsigned char *p;
-p = buf;
-p7 = d2i_PKCS7(NULL, &p, len);
+ unsigned char *p;
+ p = buf;
+ p7 = d2i_PKCS7(NULL, &p, len);
 
 At this point p7 contains a valid PKCS7 structure of NULL if an error
 occurred. If an error occurred ERR_print_errors(bio) should give more
@@ -541,6 +816,20 @@ variable the buffer pointer is changed to point just after the data
 that has been read or written. This may well be uninitialized data
 and attempts to free the buffer will have unpredictable results
 because it no longer points to the same address.
+
+
+* OpenSSL uses DER but I need BER format: does OpenSSL support BER?
+
+The short answer is yes, because DER is a special case of BER and OpenSSL
+ASN1 decoders can process BER.
+
+The longer answer is that ASN1 structures can be encoded in a number of
+different ways. One set of ways is the Basic Encoding Rules (BER) with various
+permissible encodings. A restriction of BER is the Distinguished Encoding
+Rules (DER): these uniquely specify how a given structure is encoded.
+
+Therefore, because DER is a special case of BER, DER is an acceptable encoding
+for BER.
 
 
 * I've tried using <M_some_evil_pkcs12_macro> and I get errors why?
@@ -576,11 +865,11 @@ code itself (the hex digits after the second colon).
 
 * Why do I get errors about unknown algorithms?
 
-This can happen under several circumstances such as reading in an
-encrypted private key or attempting to decrypt a PKCS#12 file. The cause
-is forgetting to load OpenSSL's table of algorithms with
-OpenSSL_add_all_algorithms(). See the manual page for more information.
-
+The cause is forgetting to load OpenSSL's table of algorithms with
+OpenSSL_add_all_algorithms(). See the manual page for more information. This
+can cause several problems such as being unable to read in an encrypted
+PEM file, unable to decrypt a PKCS#12 file or signature failure when
+verifying certificates.
 
 * Why can't the OpenSSH configure script detect OpenSSL?
 
@@ -594,6 +883,7 @@ Permissions might be wrong.
 The general answer is to check the config.log file generated when running
 the OpenSSH configure script. It should contain the detailed information
 on why the OpenSSL library was not detected or considered incompatible.
+
 
 * Can I use OpenSSL's SSL library with non-blocking I/O?
 
@@ -616,5 +906,77 @@ if explicitly asked by the server. Use the SSL_VERIFY_PEER flag of the
 SSL_CTX_set_verify() function to enable the use of client certificates.
 
 
-===============================================================================
+* Why does compilation fail due to an undefined symbol NID_uniqueIdentifier?
 
+For OpenSSL 0.9.7 the OID table was extended and corrected. In earlier
+versions, uniqueIdentifier was incorrectly used for X.509 certificates.
+The correct name according to RFC2256 (LDAP) is x500UniqueIdentifier.
+Change your code to use the new name when compiling against OpenSSL 0.9.7.
+
+
+* I think I've detected a memory leak, is this a bug?
+
+In most cases the cause of an apparent memory leak is an OpenSSL internal table
+that is allocated when an application starts up. Since such tables do not grow
+in size over time they are harmless.
+
+These internal tables can be freed up when an application closes using various
+functions.  Currently these include following:
+
+Thread-local cleanup functions:
+
+  ERR_remove_state()
+
+Application-global cleanup functions that are aware of usage (and therefore
+thread-safe):
+
+  ENGINE_cleanup() and CONF_modules_unload()
+
+"Brutal" (thread-unsafe) Application-global cleanup functions:
+
+  ERR_free_strings(), EVP_cleanup() and CRYPTO_cleanup_all_ex_data().
+
+
+* Why does Valgrind complain about the use of uninitialized data?
+
+When OpenSSL's PRNG routines are called to generate random numbers the supplied
+buffer contents are mixed into the entropy pool: so it technically does not
+matter whether the buffer is initialized at this point or not.  Valgrind (and
+other test tools) will complain about this. When using Valgrind, make sure the
+OpenSSL library has been compiled with the PURIFY macro defined (-DPURIFY)
+to get rid of these warnings.
+
+
+* Why doesn't a memory BIO work when a file does?
+
+This can occur in several cases for example reading an S/MIME email message.
+The reason is that a memory BIO can do one of two things when all the data
+has been read from it.
+
+The default behaviour is to indicate that no more data is available and that
+the call should be retried, this is to allow the application to fill up the BIO
+again if necessary.
+
+Alternatively it can indicate that no more data is available and that EOF has
+been reached.
+
+If a memory BIO is to behave in the same way as a file this second behaviour
+is needed. This must be done by calling:
+
+   BIO_set_mem_eof_return(bio, 0);
+
+See the manual pages for more details.
+
+
+* Where are the declarations and implementations of d2i_X509() etc?
+
+These are defined and implemented by macros of the form:
+
+
+ DECLARE_ASN1_FUNCTIONS(X509) and IMPLEMENT_ASN1_FUNCTIONS(X509)
+
+The implementation passes an ASN1 "template" defining the structure into an
+ASN1 interpreter using generalised functions such as ASN1_item_d2i().
+
+
+===============================================================================

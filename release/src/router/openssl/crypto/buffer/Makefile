@@ -1,18 +1,13 @@
 #
-# SSLeay/crypto/buffer/Makefile
+# OpenSSL/crypto/buffer/Makefile
 #
 
 DIR=	buffer
 TOP=	../..
 CC=	cc
-INCLUDES= -I.. -I../../include
+INCLUDES= -I.. -I$(TOP) -I../../include
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=		make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=	Makefile.ssl
+MAKEFILE=	Makefile
 AR=		ar r
 
 CFLAGS= $(INCLUDES) $(CFLAG)
@@ -39,21 +34,20 @@ all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
 install:
-	@for i in $(EXHEADER) ; \
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -68,7 +62,8 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
@@ -80,14 +75,16 @@ clean:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 buf_err.o: ../../include/openssl/bio.h ../../include/openssl/buffer.h
-buf_err.o: ../../include/openssl/crypto.h ../../include/openssl/err.h
-buf_err.o: ../../include/openssl/lhash.h ../../include/openssl/opensslv.h
-buf_err.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-buf_err.o: ../../include/openssl/symhacks.h
-buffer.o: ../../include/openssl/bio.h ../../include/openssl/buffer.h
-buffer.o: ../../include/openssl/crypto.h ../../include/openssl/e_os.h
+buf_err.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+buf_err.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
+buf_err.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+buf_err.o: ../../include/openssl/ossl_typ.h ../../include/openssl/safestack.h
+buf_err.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
+buf_err.o: buf_err.c
+buffer.o: ../../e_os.h ../../include/openssl/bio.h
+buffer.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
 buffer.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
 buffer.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
-buffer.o: ../../include/openssl/opensslv.h ../../include/openssl/safestack.h
-buffer.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
-buffer.o: ../cryptlib.h
+buffer.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+buffer.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+buffer.o: ../../include/openssl/symhacks.h ../cryptlib.h buffer.c

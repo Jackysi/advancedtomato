@@ -1,5 +1,5 @@
 /* rsautl.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 2000.
  */
 /* ====================================================================
@@ -56,12 +56,14 @@
  *
  */
 
-#ifndef NO_RSA
+#include <openssl/opensslconf.h>
+#ifndef OPENSSL_NO_RSA
 
 #include "apps.h"
 #include <string.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
+#include <openssl/rsa.h>
 
 #define RSA_SIGN 	1
 #define RSA_VERIFY 	2
@@ -82,8 +84,12 @@ int MAIN(int argc, char **);
 
 int MAIN(int argc, char **argv)
 {
+	ENGINE *e = NULL;
 	BIO *in = NULL, *out = NULL;
 	char *infile = NULL, *outfile = NULL;
+#ifndef OPENSSL_NO_ENGINE
+	char *engine = NULL;
+#endif
 	char *keyfile = NULL;
 	char rsa_mode = RSA_VERIFY, key_type = KEY_PRIVKEY;
 	int keyform = FORMAT_PEM;
@@ -93,6 +99,7 @@ int MAIN(int argc, char **argv)
 	EVP_PKEY *pkey = NULL;
 	RSA *rsa = NULL;
 	unsigned char *rsa_in = NULL, *rsa_out = NULL, pad;
+	char *passargin = NULL, *passin = NULL;
 	int rsa_inlen, rsa_outlen = 0;
 	int keysize;
 
@@ -102,6 +109,9 @@ int MAIN(int argc, char **argv)
 	argv++;
 
 	if(!bio_err) bio_err = BIO_new_fp(stderr, BIO_NOCLOSE);
+
+	if (!load_config(bio_err, NULL))
+		goto end;
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
 	pad = RSA_PKCS1_PADDING;
@@ -109,14 +119,37 @@ int MAIN(int argc, char **argv)
 	while(argc >= 1)
 	{
 		if (!strcmp(*argv,"-in")) {
-			if (--argc < 1) badarg = 1;
-                        infile= *(++argv);
+			if (--argc < 1)
+				badarg = 1;
+			else
+				infile= *(++argv);
 		} else if (!strcmp(*argv,"-out")) {
-			if (--argc < 1) badarg = 1;
-			outfile= *(++argv);
+			if (--argc < 1)
+				badarg = 1;
+			else
+				outfile= *(++argv);
 		} else if(!strcmp(*argv, "-inkey")) {
-			if (--argc < 1) badarg = 1;
-			keyfile = *(++argv);
+			if (--argc < 1)
+				badarg = 1;
+			else
+				keyfile = *(++argv);
+		} else if (!strcmp(*argv,"-passin")) {
+			if (--argc < 1)
+				badarg = 1;
+			else
+				passargin= *(++argv);
+		} else if (strcmp(*argv,"-keyform") == 0) {
+			if (--argc < 1)
+				badarg = 1;
+			else
+				keyform=str2fmt(*(++argv));
+#ifndef OPENSSL_NO_ENGINE
+		} else if(!strcmp(*argv, "-engine")) {
+			if (--argc < 1)
+				badarg = 1;
+			else
+				engine = *(++argv);
+#endif
 		} else if(!strcmp(*argv, "-pubin")) {
 			key_type = KEY_PUBKEY;
 		} else if(!strcmp(*argv, "-certin")) {
@@ -128,6 +161,7 @@ int MAIN(int argc, char **argv)
 		else if(!strcmp(*argv, "-oaep")) pad = RSA_PKCS1_OAEP_PADDING;
 		else if(!strcmp(*argv, "-ssl")) pad = RSA_SSLV23_PADDING;
 		else if(!strcmp(*argv, "-pkcs")) pad = RSA_PKCS1_PADDING;
+		else if(!strcmp(*argv, "-x931")) pad = RSA_X931_PADDING;
 		else if(!strcmp(*argv, "-sign")) {
 			rsa_mode = RSA_SIGN;
 			need_priv = 1;
@@ -151,20 +185,31 @@ int MAIN(int argc, char **argv)
 		goto end;
 	}
 
+#ifndef OPENSSL_NO_ENGINE
+        e = setup_engine(bio_err, engine, 0);
+#endif
+	if(!app_passwd(bio_err, passargin, NULL, &passin, NULL)) {
+		BIO_printf(bio_err, "Error getting password\n");
+		goto end;
+	}
+
 /* FIXME: seed PRNG only if needed */
 	app_RAND_load_file(NULL, bio_err, 0);
 	
 	switch(key_type) {
 		case KEY_PRIVKEY:
-		pkey = load_key(bio_err, keyfile, keyform, NULL);
+		pkey = load_key(bio_err, keyfile, keyform, 0,
+			passin, e, "Private Key");
 		break;
 
 		case KEY_PUBKEY:
-		pkey = load_pubkey(bio_err, keyfile, keyform);
+		pkey = load_pubkey(bio_err, keyfile, keyform, 0,
+			NULL, e, "Public Key");
 		break;
 
 		case KEY_CERT:
-		x = load_cert(bio_err, keyfile, keyform);
+		x = load_cert(bio_err, keyfile, keyform,
+			NULL, e, "Certificate");
 		if(x) {
 			pkey = X509_get_pubkey(x);
 			X509_free(x);
@@ -173,7 +218,6 @@ int MAIN(int argc, char **argv)
 	}
 
 	if(!pkey) {
-		BIO_printf(bio_err, "Error loading key\n");
 		return 1;
 	}
 
@@ -203,7 +247,7 @@ int MAIN(int argc, char **argv)
 		}
 	} else {
 		out = BIO_new_fp(stdout, BIO_NOCLOSE);
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 		{
 		    BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 		    out = BIO_push(tmpbio, out);
@@ -269,6 +313,7 @@ int MAIN(int argc, char **argv)
 	BIO_free_all(out);
 	if(rsa_in) OPENSSL_free(rsa_in);
 	if(rsa_out) OPENSSL_free(rsa_out);
+	if(passin) OPENSSL_free(passin);
 	return ret;
 }
 
@@ -278,6 +323,7 @@ static void usage()
 	BIO_printf(bio_err, "-in file        input file\n");
 	BIO_printf(bio_err, "-out file       output file\n");
 	BIO_printf(bio_err, "-inkey file     input key\n");
+	BIO_printf(bio_err, "-keyform arg    private key format - default PEM\n");
 	BIO_printf(bio_err, "-pubin          input is an RSA public\n");
 	BIO_printf(bio_err, "-certin         input is a certificate carrying an RSA public key\n");
 	BIO_printf(bio_err, "-ssl            use SSL v2 padding\n");
@@ -289,6 +335,17 @@ static void usage()
 	BIO_printf(bio_err, "-encrypt        encrypt with public key\n");
 	BIO_printf(bio_err, "-decrypt        decrypt with private key\n");
 	BIO_printf(bio_err, "-hexdump        hex dump output\n");
+#ifndef OPENSSL_NO_ENGINE
+	BIO_printf(bio_err, "-engine e       use engine e, possibly a hardware device.\n");
+	BIO_printf (bio_err, "-passin arg    pass phrase source\n");
+#endif
+
 }
+
+#else /* !OPENSSL_NO_RSA */
+
+# if PEDANTIC
+static void *dummy=&dummy;
+# endif
 
 #endif

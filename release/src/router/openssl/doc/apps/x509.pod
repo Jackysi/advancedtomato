@@ -17,10 +17,13 @@ B<openssl> B<x509>
 [B<-out filename>]
 [B<-serial>]
 [B<-hash>]
+[B<-subject_hash>]
+[B<-issuer_hash>]
 [B<-subject>]
 [B<-issuer>]
 [B<-nameopt option>]
 [B<-email>]
+[B<-ocsp_uri>]
 [B<-startdate>]
 [B<-enddate>]
 [B<-purpose>]
@@ -36,6 +39,7 @@ B<openssl> B<x509>
 [B<-addreject arg>]
 [B<-setalias arg>]
 [B<-days arg>]
+[B<-set_serial n>]
 [B<-signkey filename>]
 [B<-x509toreq>]
 [B<-req>]
@@ -49,6 +53,7 @@ B<openssl> B<x509>
 [B<-clrext>]
 [B<-extfile filename>]
 [B<-extensions section>]
+[B<-engine id>]
 
 =head1 DESCRIPTION
 
@@ -60,8 +65,9 @@ certificate trust settings.
 Since there are a large number of options they will split up into
 various sections.
 
+=head1 OPTIONS
 
-=head1 INPUT, OUTPUT AND GENERAL PURPOSE OPTIONS
+=head2 INPUT, OUTPUT AND GENERAL PURPOSE OPTIONS
 
 =over 4
 
@@ -93,16 +99,22 @@ default.
 
 the digest to use. This affects any signing or display option that uses a message
 digest, such as the B<-fingerprint>, B<-signkey> and B<-CA> options. If not
-specified then MD5 is used. If the key being used to sign with is a DSA key then
-this option has no effect: SHA1 is always used with DSA keys.
+specified then SHA1 is used. If the key being used to sign with is a DSA key
+then this option has no effect: SHA1 is always used with DSA keys.
 
+=item B<-engine id>
+
+specifying an engine (by its unique B<id> string) will cause B<x509>
+to attempt to obtain a functional reference to the specified engine,
+thus initialising it if needed. The engine will then be set as the default
+for all available algorithms.
 
 =back
 
-=head1 DISPLAY OPTIONS
+=head2 DISPLAY OPTIONS
 
 Note: the B<-alias> and B<-purpose> options are also display options
-but are described in the B<TRUST OPTIONS> section.
+but are described in the B<TRUST SETTINGS> section.
 
 =over 4
 
@@ -111,6 +123,13 @@ but are described in the B<TRUST OPTIONS> section.
 prints out the certificate in text form. Full details are output including the
 public key, signature algorithms, issuer and subject names, serial number
 any extensions present and any trust settings.
+
+=item B<-certopt option>
+
+customise the output format used with B<-text>. The B<option> argument can be
+a single option or multiple options separated by commas. The B<-certopt> switch
+may be also be used more than once to set multiple options. See the B<TEXT OPTIONS>
+section for more information.
 
 =item B<-noout>
 
@@ -125,11 +144,29 @@ contained in the certificate.
 
 outputs the certificate serial number.
 
-=item B<-hash>
+=item B<-subject_hash>
 
 outputs the "hash" of the certificate subject name. This is used in OpenSSL to
 form an index to allow certificates in a directory to be looked up by subject
 name.
+
+=item B<-issuer_hash>
+
+outputs the "hash" of the certificate issuer name.
+
+=item B<-hash>
+
+synonym for "-subject_hash" for backward compatibility reasons.
+
+=item B<-subject_hash_old>
+
+outputs the "hash" of the certificate subject name using the older algorithm
+as used by OpenSSL versions before 1.0.0.
+
+=item B<-issuer_hash_old>
+
+outputs the "hash" of the certificate issuer name using the older algorithm
+as used by OpenSSL versions before 1.0.0.
 
 =item B<-subject>
 
@@ -141,13 +178,18 @@ outputs the issuer name.
 
 =item B<-nameopt option>
 
-option which determine how the subject or issuer names are displayed. This
-option may be used more than once to set multiple options. See the B<NAME
-OPTIONS> section for more information.
+option which determines how the subject or issuer names are displayed. The
+B<option> argument can be a single option or multiple options separated by
+commas.  Alternatively the B<-nameopt> switch may be used more than once to
+set multiple options. See the B<NAME OPTIONS> section for more information.
 
 =item B<-email>
 
 outputs the email address(es) if any.
+
+=item B<-ocsp_uri>
+
+outputs the OCSP responder address(es) if any.
 
 =item B<-startdate>
 
@@ -163,7 +205,8 @@ prints out the start and expiry dates of a certificate.
 
 =item B<-fingerprint>
 
-prints out the digest of the DER encoded version of the whole certificate.
+prints out the digest of the DER encoded version of the whole certificate
+(see digest options).
 
 =item B<-C>
 
@@ -171,7 +214,7 @@ this outputs the certificate in the form of a C source file.
 
 =back
 
-=head1 TRUST SETTINGS
+=head2 TRUST SETTINGS
 
 Please note these options are currently experimental and may well change.
 
@@ -242,7 +285,7 @@ EXTENSIONS> section.
 
 =back
 
-=head1 SIGNING OPTIONS
+=head2 SIGNING OPTIONS
 
 The B<x509> utility can be used to sign certificates and requests: it
 can thus behave like a "mini CA".
@@ -292,6 +335,16 @@ is used to pass the required private key.
 by default a certificate is expected on input. With this option a
 certificate request is expected instead.
 
+=item B<-set_serial n>
+
+specifies the serial number to use. This option can be used with either
+the B<-signkey> or B<-CA> options. If used in conjunction with the B<-CA>
+option the serial number file (as specified by the B<-CAserial> or
+B<-CAcreateserial> options) is not used.
+
+The serial number can be decimal or hex (if preceded by B<0x>). Negative
+serial numbers can also be specified but their use is not recommended.
+
 =item B<-CA filename>
 
 specifies the CA certificate to be used for signing. When this option is
@@ -321,7 +374,7 @@ The default filename consists of the CA certificate file base name with
 ".srl" appended. For example if the CA certificate file is called 
 "mycacert.pem" it expects to find a serial number file called "mycacert.srl".
 
-=item B<-CAcreateserial filename>
+=item B<-CAcreateserial>
 
 with this option the CA serial number file is created if it does not exist:
 it will contain the serial number "02" and the certificate being signed will
@@ -338,11 +391,13 @@ no extensions are added to the certificate.
 the section to add certificate extensions from. If this option is not
 specified then the extensions should either be contained in the unnamed
 (default) section or the default section should contain a variable called
-"extensions" which contains the section to use.
+"extensions" which contains the section to use. See the
+L<x509v3_config(5)|x509v3_config(5)> manual page for details of the
+extension section format.
 
 =back
 
-=head1 NAME OPTIONS
+=head2 NAME OPTIONS
 
 The B<nameopt> command line switch determines how the subject and issuer
 names are displayed. If no B<nameopt> switch is present the default "oneline"
@@ -366,18 +421,18 @@ B<sep_comma_plus>, B<dn_rev> and B<sname>.
 
 a oneline format which is more readable than RFC2253. It is equivalent to
 specifying the  B<esc_2253>, B<esc_ctrl>, B<esc_msb>, B<utf8>, B<dump_nostr>,
-B<dump_der>, B<use_quote>, B<sep_comma_plus_spc>, B<spc_eq> and B<sname>
+B<dump_der>, B<use_quote>, B<sep_comma_plus_space>, B<space_eq> and B<sname>
 options.
 
 =item B<multiline>
 
 a multiline format. It is equivalent B<esc_ctrl>, B<esc_msb>, B<sep_multiline>,
-B<spc_eq> and B<lname>.
+B<space_eq>, B<lname> and B<align>.
 
 =item B<esc_2253>
 
 escape the "special" characters required by RFC2253 in a field That is
-B<,+"E<lt>E<gt>;>. Additionally B<#> is escaped at the beginnging of a string
+B<,+"E<lt>E<gt>;>. Additionally B<#> is escaped at the beginning of a string
 and a space character at the beginning or end of a string.
 
 =item B<esc_ctrl>
@@ -431,7 +486,7 @@ B<#XXXX...> format.
 
 dump non character string types (for example OCTET STRING) if this
 option is not set then non character string types will be displayed
-as though each content octet repesents a single character.
+as though each content octet represents a single character.
 
 =item B<dump_all>
 
@@ -467,10 +522,94 @@ not display the field at all. B<sname> uses the "short name" form
 B<oid> represents the OID in numerical form and is useful for
 diagnostic purpose.
 
-=item B<spc_eq>
+=item B<align>
+
+align field values for a more readable output. Only usable with
+B<sep_multiline>.
+
+=item B<space_eq>
 
 places spaces round the B<=> character which follows the field
 name.
+
+=back
+
+=head2 TEXT OPTIONS
+
+As well as customising the name output format, it is also possible to
+customise the actual fields printed using the B<certopt> options when
+the B<text> option is present. The default behaviour is to print all fields.
+
+=over 4
+
+=item B<compatible>
+
+use the old format. This is equivalent to specifying no output options at all.
+
+=item B<no_header>
+
+don't print header information: that is the lines saying "Certificate" and "Data".
+
+=item B<no_version>
+
+don't print out the version number.
+
+=item B<no_serial>
+
+don't print out the serial number.
+
+=item B<no_signame>
+
+don't print out the signature algorithm used.
+
+=item B<no_validity>
+
+don't print the validity, that is the B<notBefore> and B<notAfter> fields.
+
+=item B<no_subject>
+
+don't print out the subject name.
+
+=item B<no_issuer>
+
+don't print out the issuer name.
+
+=item B<no_pubkey>
+
+don't print out the public key.
+
+=item B<no_sigdump>
+
+don't give a hexadecimal dump of the certificate signature.
+
+=item B<no_aux>
+
+don't print out certificate trust information.
+
+=item B<no_extensions>
+
+don't print out any X509V3 extensions.
+
+=item B<ext_default>
+
+retain default extension behaviour: attempt to print out unsupported certificate extensions.
+
+=item B<ext_error>
+
+print an error message for unsupported certificate extensions.
+
+=item B<ext_parse>
+
+ASN1 parse unsupported extensions.
+
+=item B<ext_dump>
+
+hex dump unsupported extensions.
+
+=item B<ca_default>
+
+the value used by the B<ca> utility, equivalent to B<no_issuer>, B<no_pubkey>, B<no_header>,
+B<no_version>, B<no_sigdump> and B<no_signame>.
 
 =back
 
@@ -498,7 +637,7 @@ Display the certificate subject name in RFC2253 form:
 Display the certificate subject name in oneline form on a terminal
 supporting UTF8:
 
- openssl x509 -in cert.pem -noout -subject -nameopt oneline -nameopt -escmsb
+ openssl x509 -in cert.pem -noout -subject -nameopt oneline,-esc_msb
 
 Display the certificate MD5 fingerprint:
 
@@ -532,25 +671,25 @@ certificate extensions:
 Set a certificate to be trusted for SSL client use and change set its alias to
 "Steve's Class 1 CA"
 
- openssl x509 -in cert.pem -addtrust sslclient \
-	-alias "Steve's Class 1 CA" -out trust.pem
+ openssl x509 -in cert.pem -addtrust clientAuth \
+	-setalias "Steve's Class 1 CA" -out trust.pem
 
 =head1 NOTES
 
 The PEM format uses the header and footer lines:
 
- -----BEGIN CERTIFICATE----
- -----END CERTIFICATE----
+ -----BEGIN CERTIFICATE-----
+ -----END CERTIFICATE-----
 
 it will also handle files containing:
 
- -----BEGIN X509 CERTIFICATE----
- -----END X509 CERTIFICATE----
+ -----BEGIN X509 CERTIFICATE-----
+ -----END X509 CERTIFICATE-----
 
 Trusted certificates have the lines
 
- -----BEGIN TRUSTED CERTIFICATE----
- -----END TRUSTED CERTIFICATE----
+ -----BEGIN TRUSTED CERTIFICATE-----
+ -----END TRUSTED CERTIFICATE-----
 
 The conversion to UTF8 format used with the name options assumes that
 T61Strings use the ISO8859-1 character set. This is wrong but Netscape
@@ -701,6 +840,17 @@ OpenSSL 0.9.5 and later.
 =head1 SEE ALSO
 
 L<req(1)|req(1)>, L<ca(1)|ca(1)>, L<genrsa(1)|genrsa(1)>,
-L<gendsa(1)|gendsa(1)>, L<verify(1)|verify(1)>
+L<gendsa(1)|gendsa(1)>, L<verify(1)|verify(1)>,
+L<x509v3_config(5)|x509v3_config(5)> 
+
+=head1 HISTORY
+
+Before OpenSSL 0.9.8, the default digest for RSA keys was MD5.
+
+The hash algorithm used in the B<-subject_hash> and B<-issuer_hash> options
+before OpenSSL 1.0.0 was based on the deprecated MD5 algorithm and the encoding
+of the distinguished name. In OpenSSL 1.0.0 and later it is based on a
+canonical version of the DN using SHA1. This means that any directories using
+the old form must have their links rebuilt using B<c_rehash> or similar. 
 
 =cut

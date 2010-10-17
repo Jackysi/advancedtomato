@@ -66,7 +66,7 @@
 #undef BUFSIZE
 #define BUFSIZE	512
 
-const char *TXT_DB_version="TXT_DB" OPENSSL_VERSION_PTEXT;
+const char TXT_DB_version[]="TXT_DB" OPENSSL_VERSION_PTEXT;
 
 TXT_DB *TXT_DB_read(BIO *in, int num)
 	{
@@ -77,22 +77,23 @@ TXT_DB *TXT_DB_read(BIO *in, int num)
 	int i,add,n;
 	int size=BUFSIZE;
 	int offset=0;
-	char *p,**pp,*f;
+	char *p,*f;
+	OPENSSL_STRING *pp;
 	BUF_MEM *buf=NULL;
 
 	if ((buf=BUF_MEM_new()) == NULL) goto err;
 	if (!BUF_MEM_grow(buf,size)) goto err;
 
-	if ((ret=(TXT_DB *)OPENSSL_malloc(sizeof(TXT_DB))) == NULL)
+	if ((ret=OPENSSL_malloc(sizeof(TXT_DB))) == NULL)
 		goto err;
 	ret->num_fields=num;
 	ret->index=NULL;
 	ret->qual=NULL;
-	if ((ret->data=sk_new_null()) == NULL)
+	if ((ret->data=sk_OPENSSL_PSTRING_new_null()) == NULL)
 		goto err;
-	if ((ret->index=(LHASH **)OPENSSL_malloc(sizeof(LHASH *)*num)) == NULL)
+	if ((ret->index=OPENSSL_malloc(sizeof(*ret->index)*num)) == NULL)
 		goto err;
-	if ((ret->qual=(int (**)())OPENSSL_malloc(sizeof(int (**)())*num)) == NULL)
+	if ((ret->qual=OPENSSL_malloc(sizeof(*(ret->qual))*num)) == NULL)
 		goto err;
 	for (i=0; i<num; i++)
 		{
@@ -108,7 +109,7 @@ TXT_DB *TXT_DB_read(BIO *in, int num)
 		if (offset != 0)
 			{
 			size+=BUFSIZE;
-			if (!BUF_MEM_grow(buf,size)) goto err;
+			if (!BUF_MEM_grow_clean(buf,size)) goto err;
 			}
 		buf->data[offset]='\0';
 		BIO_gets(in,&(buf->data[offset]),size-offset);
@@ -122,7 +123,7 @@ TXT_DB *TXT_DB_read(BIO *in, int num)
 		else
 			{
 			buf->data[offset-1]='\0'; /* blat the '\n' */
-			p=(char *)OPENSSL_malloc(add+offset);
+			if (!(p=OPENSSL_malloc(add+offset))) goto err;
 			offset=0;
 			}
 		pp=(char **)p;
@@ -155,16 +156,16 @@ TXT_DB *TXT_DB_read(BIO *in, int num)
 		*(p++)='\0';
 		if ((n != num) || (*f != '\0'))
 			{
-#if !defined(NO_STDIO) && !defined(WIN16)	/* temporaty fix :-( */
+#if !defined(OPENSSL_NO_STDIO) && !defined(OPENSSL_SYS_WIN16)	/* temporary fix :-( */
 			fprintf(stderr,"wrong number of fields on line %ld (looking for field %d, got %d, '%s' left)\n",ln,num,n,f);
 #endif
 			er=2;
 			goto err;
 			}
 		pp[n]=p;
-		if (!sk_push(ret->data,(char *)pp))
+		if (!sk_OPENSSL_PSTRING_push(ret->data,pp))
 			{
-#if !defined(NO_STDIO) && !defined(WIN16)	/* temporaty fix :-( */
+#if !defined(OPENSSL_NO_STDIO) && !defined(OPENSSL_SYS_WIN16)	/* temporary fix :-( */
 			fprintf(stderr,"failure in sk_push\n");
 #endif
 			er=2;
@@ -176,23 +177,26 @@ err:
 	BUF_MEM_free(buf);
 	if (er)
 		{
-#if !defined(NO_STDIO) && !defined(WIN16)
+#if !defined(OPENSSL_NO_STDIO) && !defined(OPENSSL_SYS_WIN16)
 		if (er == 1) fprintf(stderr,"OPENSSL_malloc failure\n");
 #endif
-		if (ret->data != NULL) sk_free(ret->data);
-		if (ret->index != NULL) OPENSSL_free(ret->index);
-		if (ret->qual != NULL) OPENSSL_free(ret->qual);
-		if (ret != NULL) OPENSSL_free(ret);
+		if (ret != NULL)
+			{
+			if (ret->data != NULL) sk_OPENSSL_PSTRING_free(ret->data);
+			if (ret->index != NULL) OPENSSL_free(ret->index);
+			if (ret->qual != NULL) OPENSSL_free(ret->qual);
+			if (ret != NULL) OPENSSL_free(ret);
+			}
 		return(NULL);
 		}
 	else
 		return(ret);
 	}
 
-char **TXT_DB_get_by_index(TXT_DB *db, int idx, char **value)
+OPENSSL_STRING *TXT_DB_get_by_index(TXT_DB *db, int idx, OPENSSL_STRING *value)
 	{
-	char **ret;
-	LHASH *lh;
+	OPENSSL_STRING *ret;
+	LHASH_OF(OPENSSL_STRING) *lh;
 
 	if (idx >= db->num_fields)
 		{
@@ -205,16 +209,16 @@ char **TXT_DB_get_by_index(TXT_DB *db, int idx, char **value)
 		db->error=DB_ERROR_NO_INDEX;
 		return(NULL);
 		}
-	ret=(char **)lh_retrieve(lh,value);
+	ret=lh_OPENSSL_STRING_retrieve(lh,value);
 	db->error=DB_ERROR_OK;
 	return(ret);
 	}
 
-int TXT_DB_create_index(TXT_DB *db, int field, int (*qual)(),
-	     unsigned long (*hash)(), int (*cmp)())
+int TXT_DB_create_index(TXT_DB *db, int field, int (*qual)(OPENSSL_STRING *),
+			LHASH_HASH_FN_TYPE hash, LHASH_COMP_FN_TYPE cmp)
 	{
-	LHASH *idx;
-	char *r;
+	LHASH_OF(OPENSSL_STRING) *idx;
+	OPENSSL_STRING *r;
 	int i,n;
 
 	if (field >= db->num_fields)
@@ -222,26 +226,27 @@ int TXT_DB_create_index(TXT_DB *db, int field, int (*qual)(),
 		db->error=DB_ERROR_INDEX_OUT_OF_RANGE;
 		return(0);
 		}
-	if ((idx=lh_new(hash,cmp)) == NULL)
+	/* FIXME: we lose type checking at this point */
+	if ((idx=(LHASH_OF(OPENSSL_STRING) *)lh_new(hash,cmp)) == NULL)
 		{
 		db->error=DB_ERROR_MALLOC;
 		return(0);
 		}
-	n=sk_num(db->data);
+	n=sk_OPENSSL_PSTRING_num(db->data);
 	for (i=0; i<n; i++)
 		{
-		r=(char *)sk_value(db->data,i);
+		r=sk_OPENSSL_PSTRING_value(db->data,i);
 		if ((qual != NULL) && (qual(r) == 0)) continue;
-		if ((r=lh_insert(idx,r)) != NULL)
+		if ((r=lh_OPENSSL_STRING_insert(idx,r)) != NULL)
 			{
 			db->error=DB_ERROR_INDEX_CLASH;
-			db->arg1=sk_find(db->data,r);
+			db->arg1=sk_OPENSSL_PSTRING_find(db->data,r);
 			db->arg2=i;
-			lh_free(idx);
+			lh_OPENSSL_STRING_free(idx);
 			return(0);
 			}
 		}
-	if (db->index[field] != NULL) lh_free(db->index[field]);
+	if (db->index[field] != NULL) lh_OPENSSL_STRING_free(db->index[field]);
 	db->index[field]=idx;
 	db->qual[field]=qual;
 	return(1);
@@ -256,11 +261,11 @@ long TXT_DB_write(BIO *out, TXT_DB *db)
 
 	if ((buf=BUF_MEM_new()) == NULL)
 		goto err;
-	n=sk_num(db->data);
+	n=sk_OPENSSL_PSTRING_num(db->data);
 	nn=db->num_fields;
 	for (i=0; i<n; i++)
 		{
-		pp=(char **)sk_value(db->data,i);
+		pp=sk_OPENSSL_PSTRING_value(db->data,i);
 
 		l=0;
 		for (j=0; j<nn; j++)
@@ -268,7 +273,7 @@ long TXT_DB_write(BIO *out, TXT_DB *db)
 			if (pp[j] != NULL)
 				l+=strlen(pp[j]);
 			}
-		if (!BUF_MEM_grow(buf,(int)(l*2+nn))) goto err;
+		if (!BUF_MEM_grow_clean(buf,(int)(l*2+nn))) goto err;
 
 		p=buf->data;
 		for (j=0; j<nn; j++)
@@ -295,10 +300,10 @@ err:
 	return(ret);
 	}
 
-int TXT_DB_insert(TXT_DB *db, char **row)
+int TXT_DB_insert(TXT_DB *db, OPENSSL_STRING *row)
 	{
 	int i;
-	char **r;
+	OPENSSL_STRING *r;
 
 	for (i=0; i<db->num_fields; i++)
 		{
@@ -306,7 +311,7 @@ int TXT_DB_insert(TXT_DB *db, char **row)
 			{
 			if ((db->qual[i] != NULL) &&
 				(db->qual[i](row) == 0)) continue;
-			r=(char **)lh_retrieve(db->index[i],row);
+			r=lh_OPENSSL_STRING_retrieve(db->index[i],row);
 			if (r != NULL)
 				{
 				db->error=DB_ERROR_INDEX_CLASH;
@@ -317,7 +322,7 @@ int TXT_DB_insert(TXT_DB *db, char **row)
 			}
 		}
 	/* We have passed the index checks, now just append and insert */
-	if (!sk_push(db->data,(char *)row))
+	if (!sk_OPENSSL_PSTRING_push(db->data,row))
 		{
 		db->error=DB_ERROR_MALLOC;
 		goto err;
@@ -329,7 +334,7 @@ int TXT_DB_insert(TXT_DB *db, char **row)
 			{
 			if ((db->qual[i] != NULL) &&
 				(db->qual[i](row) == 0)) continue;
-			lh_insert(db->index[i],row);
+			(void)lh_OPENSSL_STRING_insert(db->index[i],row);
 			}
 		}
 	return(1);
@@ -348,18 +353,18 @@ void TXT_DB_free(TXT_DB *db)
 	if (db->index != NULL)
 		{
 		for (i=db->num_fields-1; i>=0; i--)
-			if (db->index[i] != NULL) lh_free(db->index[i]);
+			if (db->index[i] != NULL) lh_OPENSSL_STRING_free(db->index[i]);
 		OPENSSL_free(db->index);
 		}
 	if (db->qual != NULL)
 		OPENSSL_free(db->qual);
 	if (db->data != NULL)
 		{
-		for (i=sk_num(db->data)-1; i>=0; i--)
+		for (i=sk_OPENSSL_PSTRING_num(db->data)-1; i>=0; i--)
 			{
 			/* check if any 'fields' have been allocated
 			 * from outside of the initial block */
-			p=(char **)sk_value(db->data,i);
+			p=sk_OPENSSL_PSTRING_value(db->data,i);
 			max=p[db->num_fields]; /* last address */
 			if (max == NULL) /* new row */
 				{
@@ -375,9 +380,9 @@ void TXT_DB_free(TXT_DB *db)
 						OPENSSL_free(p[n]);
 					}
 				}
-			OPENSSL_free(sk_value(db->data,i));
+			OPENSSL_free(sk_OPENSSL_PSTRING_value(db->data,i));
 			}
-		sk_free(db->data);
+		sk_OPENSSL_PSTRING_free(db->data);
 		}
 	OPENSSL_free(db);
 	}

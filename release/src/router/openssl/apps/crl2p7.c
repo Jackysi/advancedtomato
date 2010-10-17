@@ -63,7 +63,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include "apps.h"
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -93,7 +92,7 @@ int MAIN(int argc, char **argv)
 	PKCS7 *p7 = NULL;
 	PKCS7_SIGNED *p7s = NULL;
 	X509_CRL *crl=NULL;
-	STACK *certflst=NULL;
+	STACK_OF(OPENSSL_STRING) *certflst=NULL;
 	STACK_OF(X509_CRL) *crl_stack=NULL;
 	STACK_OF(X509) *cert_stack=NULL;
 	int ret=1,nocrl=0;
@@ -141,8 +140,8 @@ int MAIN(int argc, char **argv)
 		else if (strcmp(*argv,"-certfile") == 0)
 			{
 			if (--argc < 1) goto bad;
-			if(!certflst) certflst = sk_new_null();
-			sk_push(certflst,*(++argv));
+			if(!certflst) certflst = sk_OPENSSL_STRING_new_null();
+			sk_OPENSSL_STRING_push(certflst,*(++argv));
 			}
 		else
 			{
@@ -166,7 +165,8 @@ bad:
 		BIO_printf(bio_err," -certfile arg  certificates file of chain to a trusted CA\n");
 		BIO_printf(bio_err,"                (can be used more than once)\n");
 		BIO_printf(bio_err," -nocrl         no crl to load, just certs from '-certfile'\n");
-		EXIT(1);
+		ret = 1;
+		goto end;
 		}
 
 	ERR_load_crypto_strings();
@@ -226,8 +226,8 @@ bad:
 	if ((cert_stack=sk_X509_new_null()) == NULL) goto end;
 	p7s->cert=cert_stack;
 
-	if(certflst) for(i = 0; i < sk_num(certflst); i++) {
-		certfile = sk_value(certflst, i);
+	if(certflst) for(i = 0; i < sk_OPENSSL_STRING_num(certflst); i++) {
+		certfile = sk_OPENSSL_STRING_value(certflst, i);
 		if (add_certs_from_file(cert_stack,certfile) < 0)
 			{
 			BIO_printf(bio_err, "error loading certificates\n");
@@ -236,12 +236,12 @@ bad:
 			}
 	}
 
-	sk_free(certflst);
+	sk_OPENSSL_STRING_free(certflst);
 
 	if (outfile == NULL)
 		{
 		BIO_set_fp(out,stdout,BIO_NOCLOSE);
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 		{
 		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 		out = BIO_push(tmpbio, out);
@@ -278,7 +278,8 @@ end:
 	if (p7 != NULL) PKCS7_free(p7);
 	if (crl != NULL) X509_CRL_free(crl);
 
-	EXIT(ret);
+	apps_shutdown();
+	OPENSSL_EXIT(ret);
 	}
 
 /*
@@ -293,18 +294,11 @@ end:
  */
 static int add_certs_from_file(STACK_OF(X509) *stack, char *certfile)
 	{
-	struct stat st;
 	BIO *in=NULL;
 	int count=0;
 	int ret= -1;
 	STACK_OF(X509_INFO) *sk=NULL;
 	X509_INFO *xi;
-
-	if ((stat(certfile,&st) != 0))
-		{
-		BIO_printf(bio_err,"unable to load the file, %s\n",certfile);
-		goto end;
-		}
 
 	in=BIO_new(BIO_s_file());
 	if ((in == NULL) || (BIO_read_filename(in,certfile) <= 0))

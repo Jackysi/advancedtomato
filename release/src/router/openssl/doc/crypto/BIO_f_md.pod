@@ -28,7 +28,7 @@ BIO_gets(), if its B<size> parameter is large enough finishes the
 digest calculation and returns the digest value. BIO_puts() is
 not supported.
 
-BIO_reset() reinitializes a digest BIO.
+BIO_reset() reinitialises a digest BIO.
 
 BIO_set_md() sets the message digest of BIO B<b> to B<md>: this
 must be called to initialize a digest BIO before any data is
@@ -57,6 +57,12 @@ data is passed through it.
 If an application needs to call BIO_gets() or BIO_puts() through
 a chain containing digest BIOs then this can be done by prepending
 a buffering BIO.
+
+Before OpenSSL 1.0.0 the call to BIO_get_md_ctx() would only work if the BIO
+had been initialized for example by calling BIO_set_md() ). In OpenSSL
+1.0.0 and later the context is always returned and the BIO is state is set
+to initialized. This allows applications to initialize the context externally
+if the standard calls such as BIO_set_md() are not sufficiently flexible.
 
 =head1 RETURN VALUES
 

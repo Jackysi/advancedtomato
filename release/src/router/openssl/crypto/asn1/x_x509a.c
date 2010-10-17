@@ -1,5 +1,5 @@
 /* a_x509a.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
 /* ====================================================================
@@ -59,7 +59,7 @@
 #include <stdio.h>
 #include "cryptlib.h"
 #include <openssl/evp.h>
-#include <openssl/asn1_mac.h>
+#include <openssl/asn1t.h>
 #include <openssl/x509.h>
 
 /* X509_CERT_AUX routines. These are used to encode additional
@@ -71,72 +71,15 @@
 
 static X509_CERT_AUX *aux_get(X509 *x);
 
-X509_CERT_AUX *d2i_X509_CERT_AUX(X509_CERT_AUX **a, unsigned char **pp, long length)
-{
-	M_ASN1_D2I_vars(a, X509_CERT_AUX *, X509_CERT_AUX_new);
-	
-	M_ASN1_D2I_Init();
-	M_ASN1_D2I_start_sequence();
+ASN1_SEQUENCE(X509_CERT_AUX) = {
+	ASN1_SEQUENCE_OF_OPT(X509_CERT_AUX, trust, ASN1_OBJECT),
+	ASN1_IMP_SEQUENCE_OF_OPT(X509_CERT_AUX, reject, ASN1_OBJECT, 0),
+	ASN1_OPT(X509_CERT_AUX, alias, ASN1_UTF8STRING),
+	ASN1_OPT(X509_CERT_AUX, keyid, ASN1_OCTET_STRING),
+	ASN1_IMP_SEQUENCE_OF_OPT(X509_CERT_AUX, other, X509_ALGOR, 1)
+} ASN1_SEQUENCE_END(X509_CERT_AUX)
 
-	M_ASN1_D2I_get_seq_opt_type(ASN1_OBJECT, ret->trust,
-					d2i_ASN1_OBJECT, ASN1_OBJECT_free);
-	M_ASN1_D2I_get_IMP_set_opt_type(ASN1_OBJECT, ret->reject,
-					d2i_ASN1_OBJECT, ASN1_OBJECT_free, 0);
-	M_ASN1_D2I_get_opt(ret->alias, d2i_ASN1_UTF8STRING, V_ASN1_UTF8STRING);
-	M_ASN1_D2I_get_opt(ret->keyid, d2i_ASN1_OCTET_STRING, V_ASN1_OCTET_STRING);
-	M_ASN1_D2I_get_IMP_set_opt_type(X509_ALGOR, ret->other,
-					d2i_X509_ALGOR, X509_ALGOR_free, 1);
-
-	M_ASN1_D2I_Finish(a, X509_CERT_AUX_free, ASN1_F_D2I_X509_CERT_AUX);
-}
-
-X509_CERT_AUX *X509_CERT_AUX_new()
-{
-	X509_CERT_AUX *ret = NULL;
-	ASN1_CTX c;
-	M_ASN1_New_Malloc(ret, X509_CERT_AUX);
-	ret->trust = NULL;
-	ret->reject = NULL;
-	ret->alias = NULL;
-	ret->keyid = NULL;
-	ret->other = NULL;
-	return(ret);
-	M_ASN1_New_Error(ASN1_F_X509_CERT_AUX_NEW);
-}
-
-void X509_CERT_AUX_free(X509_CERT_AUX *a)
-{
-	if(a == NULL) return;
-	sk_ASN1_OBJECT_pop_free(a->trust, ASN1_OBJECT_free);
-	sk_ASN1_OBJECT_pop_free(a->reject, ASN1_OBJECT_free);
-	ASN1_UTF8STRING_free(a->alias);
-	ASN1_OCTET_STRING_free(a->keyid);
-	sk_X509_ALGOR_pop_free(a->other, X509_ALGOR_free);
-	OPENSSL_free(a);
-}
-
-int i2d_X509_CERT_AUX(X509_CERT_AUX *a, unsigned char **pp)
-{
-	M_ASN1_I2D_vars(a);
-
-	M_ASN1_I2D_len_SEQUENCE_opt_type(ASN1_OBJECT, a->trust, i2d_ASN1_OBJECT);
-	M_ASN1_I2D_len_IMP_SEQUENCE_opt_type(ASN1_OBJECT, a->reject, i2d_ASN1_OBJECT, 0);
-
-	M_ASN1_I2D_len(a->alias, i2d_ASN1_UTF8STRING);
-	M_ASN1_I2D_len(a->keyid, i2d_ASN1_OCTET_STRING);
-	M_ASN1_I2D_len_IMP_SEQUENCE_opt_type(X509_ALGOR, a->other, i2d_X509_ALGOR, 1);
-
-	M_ASN1_I2D_seq_total();
-
-	M_ASN1_I2D_put_SEQUENCE_opt_type(ASN1_OBJECT, a->trust, i2d_ASN1_OBJECT);
-	M_ASN1_I2D_put_IMP_SEQUENCE_opt_type(ASN1_OBJECT, a->reject, i2d_ASN1_OBJECT, 0);
-
-	M_ASN1_I2D_put(a->alias, i2d_ASN1_UTF8STRING);
-	M_ASN1_I2D_put(a->keyid, i2d_ASN1_OCTET_STRING);
-	M_ASN1_I2D_put_IMP_SEQUENCE_opt_type(X509_ALGOR, a->other, i2d_X509_ALGOR, 1);
-
-	M_ASN1_I2D_finish();
-}
+IMPLEMENT_ASN1_FUNCTIONS(X509_CERT_AUX)
 
 static X509_CERT_AUX *aux_get(X509 *x)
 {
@@ -148,6 +91,14 @@ static X509_CERT_AUX *aux_get(X509 *x)
 int X509_alias_set1(X509 *x, unsigned char *name, int len)
 {
 	X509_CERT_AUX *aux;
+	if (!name)
+		{
+		if (!x || !x->aux || !x->aux->alias)
+			return 1;
+		ASN1_UTF8STRING_free(x->aux->alias);
+		x->aux->alias = NULL;
+		return 1;
+		}
 	if(!(aux = aux_get(x))) return 0;
 	if(!aux->alias && !(aux->alias = ASN1_UTF8STRING_new())) return 0;
 	return ASN1_STRING_set(aux->alias, name, len);
@@ -156,6 +107,14 @@ int X509_alias_set1(X509 *x, unsigned char *name, int len)
 int X509_keyid_set1(X509 *x, unsigned char *id, int len)
 {
 	X509_CERT_AUX *aux;
+	if (!id)
+		{
+		if (!x || !x->aux || !x->aux->keyid)
+			return 1;
+		ASN1_OCTET_STRING_free(x->aux->keyid);
+		x->aux->keyid = NULL;
+		return 1;
+		}
 	if(!(aux = aux_get(x))) return 0;
 	if(!aux->keyid && !(aux->keyid = ASN1_OCTET_STRING_new())) return 0;
 	return ASN1_STRING_set(aux->keyid, id, len);
@@ -166,6 +125,13 @@ unsigned char *X509_alias_get0(X509 *x, int *len)
 	if(!x->aux || !x->aux->alias) return NULL;
 	if(len) *len = x->aux->alias->length;
 	return x->aux->alias->data;
+}
+
+unsigned char *X509_keyid_get0(X509 *x, int *len)
+{
+	if(!x->aux || !x->aux->keyid) return NULL;
+	if(len) *len = x->aux->keyid->length;
+	return x->aux->keyid->data;
 }
 
 int X509_add1_trust_object(X509 *x, ASN1_OBJECT *obj)
@@ -206,3 +172,9 @@ void X509_reject_clear(X509 *x)
 	}
 }
 
+ASN1_SEQUENCE(X509_CERT_PAIR) = {
+	ASN1_EXP_OPT(X509_CERT_PAIR, forward, X509, 0),
+	ASN1_EXP_OPT(X509_CERT_PAIR, reverse, X509, 1)
+} ASN1_SEQUENCE_END(X509_CERT_PAIR)
+
+IMPLEMENT_ASN1_FUNCTIONS(X509_CERT_PAIR)

@@ -55,11 +55,66 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.]
  */
+/* ====================================================================
+ * Copyright (c) 1998-2006 The OpenSSL Project.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. All advertising materials mentioning features or use of this
+ *    software must display the following acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+ *
+ * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For written permission, please contact
+ *    openssl-core@openssl.org.
+ *
+ * 5. Products derived from this software may not be called "OpenSSL"
+ *    nor may "OpenSSL" appear in their names without prior written
+ *    permission of the OpenSSL Project.
+ *
+ * 6. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+ * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+ * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ====================================================================
+ *
+ * This product includes cryptographic software written by Eric Young
+ * (eay@cryptsoft.com).  This product includes software written by Tim
+ * Hudson (tjh@cryptsoft.com).
+ *
+ */
+
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #define OPENSSL_C /* tells apps.h to use complete apps_startup() */
+#include "apps.h"
 #include <openssl/bio.h>
 #include <openssl/crypto.h>
 #include <openssl/lhash.h>
@@ -67,23 +122,96 @@
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
+#ifndef OPENSSL_NO_ENGINE
+#include <openssl/engine.h>
+#endif
 #define USE_SOCKETS /* needed for the _O_BINARY defs in the MS world */
-#include "apps.h"
 #include "progs.h"
 #include "s_apps.h"
 #include <openssl/err.h>
 
-static unsigned long MS_CALLBACK hash(FUNCTION *a);
-static int MS_CALLBACK cmp(FUNCTION *a,FUNCTION *b);
-static LHASH *prog_init(void );
-static int do_cmd(LHASH *prog,int argc,char *argv[]);
-LHASH *config=NULL;
+/* The LHASH callbacks ("hash" & "cmp") have been replaced by functions with the
+ * base prototypes (we cast each variable inside the function to the required
+ * type of "FUNCTION*"). This removes the necessity for macro-generated wrapper
+ * functions. */
+
+static LHASH_OF(FUNCTION) *prog_init(void );
+static int do_cmd(LHASH_OF(FUNCTION) *prog,int argc,char *argv[]);
+static void list_pkey(BIO *out);
+static void list_cipher(BIO *out);
+static void list_md(BIO *out);
 char *default_config_file=NULL;
 
 /* Make sure there is only one when MONOLITH is defined */
 #ifdef MONOLITH
+CONF *config=NULL;
 BIO *bio_err=NULL;
 #endif
+
+
+static void lock_dbg_cb(int mode, int type, const char *file, int line)
+	{
+	static int modes[CRYPTO_NUM_LOCKS]; /* = {0, 0, ... } */
+	const char *errstr = NULL;
+	int rw;
+	
+	rw = mode & (CRYPTO_READ|CRYPTO_WRITE);
+	if (!((rw == CRYPTO_READ) || (rw == CRYPTO_WRITE)))
+		{
+		errstr = "invalid mode";
+		goto err;
+		}
+
+	if (type < 0 || type >= CRYPTO_NUM_LOCKS)
+		{
+		errstr = "type out of bounds";
+		goto err;
+		}
+
+	if (mode & CRYPTO_LOCK)
+		{
+		if (modes[type])
+			{
+			errstr = "already locked";
+			/* must not happen in a single-threaded program
+			 * (would deadlock) */
+			goto err;
+			}
+
+		modes[type] = rw;
+		}
+	else if (mode & CRYPTO_UNLOCK)
+		{
+		if (!modes[type])
+			{
+			errstr = "not locked";
+			goto err;
+			}
+		
+		if (modes[type] != rw)
+			{
+			errstr = (rw == CRYPTO_READ) ?
+				"CRYPTO_r_unlock on write lock" :
+				"CRYPTO_w_unlock on read lock";
+			}
+
+		modes[type] = 0;
+		}
+	else
+		{
+		errstr = "invalid mode";
+		goto err;
+		}
+
+ err:
+	if (errstr)
+		{
+		/* we cannot use bio_err here */
+		fprintf(stderr, "openssl (lock_dbg_cb): %s (mode=%d, type=%d) at %s:%d\n",
+			errstr, mode, type, file, line);
+		}
+	}
+
 
 int main(int Argc, char *Argv[])
 	{
@@ -91,54 +219,83 @@ int main(int Argc, char *Argv[])
 #define PROG_NAME_SIZE	39
 	char pname[PROG_NAME_SIZE+1];
 	FUNCTION f,*fp;
-	MS_STATIC char *prompt,buf[1024],config_name[256];
+	MS_STATIC const char *prompt;
+	MS_STATIC char buf[1024];
+	char *to_free=NULL;
 	int n,i,ret=0;
 	int argc;
 	char **argv,*p;
-	LHASH *prog=NULL;
+	LHASH_OF(FUNCTION) *prog=NULL;
 	long errline;
  
 	arg.data=NULL;
 	arg.count=0;
 
-	if (getenv("OPENSSL_DEBUG_MEMORY") != NULL)
-		CRYPTO_malloc_debug_init();
-	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
-
-	apps_startup();
-
 	if (bio_err == NULL)
 		if ((bio_err=BIO_new(BIO_s_file())) != NULL)
 			BIO_set_fp(bio_err,stderr,BIO_NOCLOSE|BIO_FP_TEXT);
 
-	ERR_load_crypto_strings();
+	if (getenv("OPENSSL_DEBUG_MEMORY") != NULL) /* if not defined, use compiled-in library defaults */
+		{
+		if (!(0 == strcmp(getenv("OPENSSL_DEBUG_MEMORY"), "off")))
+			{
+			CRYPTO_malloc_debug_init();
+			CRYPTO_set_mem_debug_options(V_CRYPTO_MDEBUG_ALL);
+			}
+		else
+			{
+			/* OPENSSL_DEBUG_MEMORY=off */
+			CRYPTO_set_mem_debug_functions(0, 0, 0, 0, 0);
+			}
+		}
+	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+
+#if 0
+	if (getenv("OPENSSL_DEBUG_LOCKING") != NULL)
+#endif
+		{
+		CRYPTO_set_locking_callback(lock_dbg_cb);
+		}
+
+	apps_startup();
 
 	/* Lets load up our environment a little */
 	p=getenv("OPENSSL_CONF");
 	if (p == NULL)
 		p=getenv("SSLEAY_CONF");
 	if (p == NULL)
-		{
-		strcpy(config_name,X509_get_default_cert_area());
-#ifndef VMS
-		strcat(config_name,"/");
-#endif
-		strcat(config_name,OPENSSL_CONF);
-		p=config_name;
-		}
+		p=to_free=make_config_name();
 
 	default_config_file=p;
 
-	config=CONF_load(config,p,&errline);
-	if (config == NULL) ERR_clear_error();
+	config=NCONF_new(NULL);
+	i=NCONF_load(config,p,&errline);
+	if (i == 0)
+		{
+		if (ERR_GET_REASON(ERR_peek_last_error())
+		    == CONF_R_NO_SUCH_FILE)
+			{
+			BIO_printf(bio_err,
+				   "WARNING: can't open config file: %s\n",p);
+			ERR_clear_error();
+			NCONF_free(config);
+			config = NULL;
+			}
+		else
+			{
+			ERR_print_errors(bio_err);
+			NCONF_free(config);
+			exit(1);
+			}
+		}
 
 	prog=prog_init();
 
 	/* first check the program name */
-	program_name(Argv[0],pname,PROG_NAME_SIZE);
+	program_name(Argv[0],pname,sizeof pname);
 
 	f.name=pname;
-	fp=(FUNCTION *)lh_retrieve(prog,&f);
+	fp=lh_FUNCTION_retrieve(prog,&f);
 	if (fp != NULL)
 		{
 		Argv[0]=pname;
@@ -163,7 +320,7 @@ int main(int Argc, char *Argv[])
 		{
 		ret=0;
 		p=buf;
-		n=1024;
+		n=sizeof buf;
 		i=0;
 		for (;;)
 			{
@@ -173,7 +330,8 @@ int main(int Argc, char *Argv[])
 			else	prompt="OpenSSL> ";
 			fputs(prompt,stdout);
 			fflush(stdout);
-			fgets(p,n,stdin);
+			if (!fgets(p,n,stdin))
+				goto end;
 			if (p[0] == '\0') goto end;
 			i=strlen(p);
 			if (i <= 1) break;
@@ -197,32 +355,36 @@ int main(int Argc, char *Argv[])
 	BIO_printf(bio_err,"bad exit\n");
 	ret=1;
 end:
+	if (to_free)
+		OPENSSL_free(to_free);
 	if (config != NULL)
 		{
-		CONF_free(config);
+		NCONF_free(config);
 		config=NULL;
 		}
-	if (prog != NULL) lh_free(prog);
+	if (prog != NULL) lh_FUNCTION_free(prog);
 	if (arg.data != NULL) OPENSSL_free(arg.data);
-	ERR_remove_state(0);
 
-	EVP_cleanup();
-	ERR_free_strings();
-	
+	apps_shutdown();
+
 	CRYPTO_mem_leaks(bio_err);
 	if (bio_err != NULL)
 		{
 		BIO_free(bio_err);
 		bio_err=NULL;
 		}
-	EXIT(ret);
+	OPENSSL_EXIT(ret);
 	}
 
 #define LIST_STANDARD_COMMANDS "list-standard-commands"
 #define LIST_MESSAGE_DIGEST_COMMANDS "list-message-digest-commands"
+#define LIST_MESSAGE_DIGEST_ALGORITHMS "list-message-digest-algorithms"
 #define LIST_CIPHER_COMMANDS "list-cipher-commands"
+#define LIST_CIPHER_ALGORITHMS "list-cipher-algorithms"
+#define LIST_PUBLIC_KEY_ALGORITHMS "list-public-key-algorithms"
 
-static int do_cmd(LHASH *prog, int argc, char *argv[])
+
+static int do_cmd(LHASH_OF(FUNCTION) *prog, int argc, char *argv[])
 	{
 	FUNCTION f,*fp;
 	int i,ret=1,tp,nl;
@@ -230,7 +392,22 @@ static int do_cmd(LHASH *prog, int argc, char *argv[])
 	if ((argc <= 0) || (argv[0] == NULL))
 		{ ret=0; goto end; }
 	f.name=argv[0];
-	fp=(FUNCTION *)lh_retrieve(prog,&f);
+	fp=lh_FUNCTION_retrieve(prog,&f);
+	if (fp == NULL)
+		{
+		if (EVP_get_digestbyname(argv[0]))
+			{
+			f.type = FUNC_TYPE_MD;
+			f.func = dgst_main;
+			fp = &f;
+			}
+		else if (EVP_get_cipherbyname(argv[0]))
+			{
+			f.type = FUNC_TYPE_CIPHER;
+			f.func = enc_main;
+			fp = &f;
+			}
+		}
 	if (fp != NULL)
 		{
 		ret=fp->func(argc,argv);
@@ -238,14 +415,14 @@ static int do_cmd(LHASH *prog, int argc, char *argv[])
 	else if ((strncmp(argv[0],"no-",3)) == 0)
 		{
 		BIO *bio_stdout = BIO_new_fp(stdout,BIO_NOCLOSE);
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 		{
 		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 		bio_stdout = BIO_push(tmpbio, bio_stdout);
 		}
 #endif
 		f.name=argv[0]+3;
-		ret = (lh_retrieve(prog,&f) != NULL);
+		ret = (lh_FUNCTION_retrieve(prog,&f) != NULL);
 		if (!ret)
 			BIO_printf(bio_stdout, "%s\n", argv[0]);
 		else
@@ -263,7 +440,10 @@ static int do_cmd(LHASH *prog, int argc, char *argv[])
 		}
 	else if ((strcmp(argv[0],LIST_STANDARD_COMMANDS) == 0) ||
 		(strcmp(argv[0],LIST_MESSAGE_DIGEST_COMMANDS) == 0) ||
-		(strcmp(argv[0],LIST_CIPHER_COMMANDS) == 0))
+		(strcmp(argv[0],LIST_MESSAGE_DIGEST_ALGORITHMS) == 0) ||
+		(strcmp(argv[0],LIST_CIPHER_COMMANDS) == 0) ||
+		(strcmp(argv[0],LIST_CIPHER_ALGORITHMS) == 0) ||
+		(strcmp(argv[0],LIST_PUBLIC_KEY_ALGORITHMS) == 0))
 		{
 		int list_type;
 		BIO *bio_stdout;
@@ -272,19 +452,38 @@ static int do_cmd(LHASH *prog, int argc, char *argv[])
 			list_type = FUNC_TYPE_GENERAL;
 		else if (strcmp(argv[0],LIST_MESSAGE_DIGEST_COMMANDS) == 0)
 			list_type = FUNC_TYPE_MD;
+		else if (strcmp(argv[0],LIST_MESSAGE_DIGEST_ALGORITHMS) == 0)
+			list_type = FUNC_TYPE_MD_ALG;
+		else if (strcmp(argv[0],LIST_PUBLIC_KEY_ALGORITHMS) == 0)
+			list_type = FUNC_TYPE_PKEY;
+		else if (strcmp(argv[0],LIST_CIPHER_ALGORITHMS) == 0)
+			list_type = FUNC_TYPE_CIPHER_ALG;
 		else /* strcmp(argv[0],LIST_CIPHER_COMMANDS) == 0 */
 			list_type = FUNC_TYPE_CIPHER;
 		bio_stdout = BIO_new_fp(stdout,BIO_NOCLOSE);
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 		{
 		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 		bio_stdout = BIO_push(tmpbio, bio_stdout);
 		}
 #endif
-		
-		for (fp=functions; fp->name != NULL; fp++)
-			if (fp->type == list_type)
-				BIO_printf(bio_stdout, "%s\n", fp->name);
+
+		if (!load_config(bio_err, NULL))
+			goto end;
+
+		if (list_type == FUNC_TYPE_PKEY)
+			list_pkey(bio_stdout);	
+		if (list_type == FUNC_TYPE_MD_ALG)
+			list_md(bio_stdout);	
+		if (list_type == FUNC_TYPE_CIPHER_ALG)
+			list_cipher(bio_stdout);	
+		else
+			{
+			for (fp=functions; fp->name != NULL; fp++)
+				if (fp->type == list_type)
+					BIO_printf(bio_stdout, "%s\n",
+								fp->name);
+			}
 		BIO_free_all(bio_stdout);
 		ret=0;
 		goto end;
@@ -299,7 +498,11 @@ static int do_cmd(LHASH *prog, int argc, char *argv[])
 		for (fp=functions; fp->name != NULL; fp++)
 			{
 			nl=0;
+#ifdef OPENSSL_NO_CAMELLIA
 			if (((i++) % 5) == 0)
+#else
+			if (((i++) % 4) == 0)
+#endif
 				{
 				BIO_printf(bio_err,"\n");
 				nl=1;
@@ -320,7 +523,11 @@ static int do_cmd(LHASH *prog, int argc, char *argv[])
 					BIO_printf(bio_err,"\nCipher commands (see the `enc' command for more details)\n");
 					}
 				}
+#ifdef OPENSSL_NO_CAMELLIA
 			BIO_printf(bio_err,"%-15s",fp->name);
+#else
+			BIO_printf(bio_err,"%-18s",fp->name);
+#endif
 			}
 		BIO_printf(bio_err,"\n\n");
 		ret=0;
@@ -339,30 +546,107 @@ static int SortFnByName(const void *_f1,const void *_f2)
     return strcmp(f1->name,f2->name);
     }
 
-static LHASH *prog_init(void)
+static void list_pkey(BIO *out)
 	{
-	LHASH *ret;
-	FUNCTION *f;
 	int i;
+	for (i = 0; i < EVP_PKEY_asn1_get_count(); i++)
+		{
+		const EVP_PKEY_ASN1_METHOD *ameth;
+		int pkey_id, pkey_base_id, pkey_flags;
+		const char *pinfo, *pem_str;
+		ameth = EVP_PKEY_asn1_get0(i);
+		EVP_PKEY_asn1_get0_info(&pkey_id, &pkey_base_id, &pkey_flags,
+						&pinfo, &pem_str, ameth);
+		if (pkey_flags & ASN1_PKEY_ALIAS)
+			{
+			BIO_printf(out, "Name: %s\n", 
+					OBJ_nid2ln(pkey_id));
+			BIO_printf(out, "\tType: Alias to %s\n",
+					OBJ_nid2ln(pkey_base_id));
+			}
+		else
+			{
+			BIO_printf(out, "Name: %s\n", pinfo);
+			BIO_printf(out, "\tType: %s Algorithm\n", 
+				pkey_flags & ASN1_PKEY_DYNAMIC ?
+					"External" : "Builtin");
+			BIO_printf(out, "\tOID: %s\n", OBJ_nid2ln(pkey_id));
+			if (pem_str == NULL)
+				pem_str = "(none)";
+			BIO_printf(out, "\tPEM string: %s\n", pem_str);
+			}
+					
+		}
+	}
+
+static void list_cipher_fn(const EVP_CIPHER *c,
+			const char *from, const char *to, void *arg)
+	{
+	if (c)
+		BIO_printf(arg, "%s\n", EVP_CIPHER_name(c));
+	else
+		{
+		if (!from)
+			from = "<undefined>";
+		if (!to)
+			to = "<undefined>";
+		BIO_printf(arg, "%s => %s\n", from, to);
+		}
+	}
+
+static void list_cipher(BIO *out)
+	{
+	EVP_CIPHER_do_all_sorted(list_cipher_fn, out);
+	}
+
+static void list_md_fn(const EVP_MD *m,
+			const char *from, const char *to, void *arg)
+	{
+	if (m)
+		BIO_printf(arg, "%s\n", EVP_MD_name(m));
+	else
+		{
+		if (!from)
+			from = "<undefined>";
+		if (!to)
+			to = "<undefined>";
+		BIO_printf(arg, "%s => %s\n", from, to);
+		}
+	}
+
+static void list_md(BIO *out)
+	{
+	EVP_MD_do_all_sorted(list_md_fn, out);
+	}
+
+static int MS_CALLBACK function_cmp(const FUNCTION *a, const FUNCTION *b)
+	{
+	return strncmp(a->name,b->name,8);
+	}
+static IMPLEMENT_LHASH_COMP_FN(function, FUNCTION)
+
+static unsigned long MS_CALLBACK function_hash(const FUNCTION *a)
+	{
+	return lh_strhash(a->name);
+	}	
+static IMPLEMENT_LHASH_HASH_FN(function, FUNCTION)
+
+static LHASH_OF(FUNCTION) *prog_init(void)
+	{
+	LHASH_OF(FUNCTION) *ret;
+	FUNCTION *f;
+	size_t i;
 
 	/* Purely so it looks nice when the user hits ? */
 	for(i=0,f=functions ; f->name != NULL ; ++f,++i)
 	    ;
 	qsort(functions,i,sizeof *functions,SortFnByName);
 
-	if ((ret=lh_new(hash,cmp)) == NULL) return(NULL);
+	if ((ret=lh_FUNCTION_new()) == NULL)
+		return(NULL);
 
 	for (f=functions; f->name != NULL; f++)
-		lh_insert(ret,f);
+		(void)lh_FUNCTION_insert(ret,f);
 	return(ret);
 	}
 
-static int MS_CALLBACK cmp(FUNCTION *a, FUNCTION *b)
-	{
-	return(strncmp(a->name,b->name,8));
-	}
-
-static unsigned long MS_CALLBACK hash(FUNCTION *a)
-	{
-	return(lh_strhash(a->name));
-	}
