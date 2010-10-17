@@ -468,19 +468,36 @@ void asp_ident(int argc, char **argv)
 void asp_statfs(int argc, char **argv)
 {
 	struct statfs sf;
+	int mnt;
 
 	if (argc != 2) return;
 
 	// used for /cifs/, /jffs/... if it returns squashfs type, assume it's not mounted
-	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x73717368))
+	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x73717368)) {
+		mnt = 0;
 		memset(&sf, 0, sizeof(sf));
+#ifdef TCONFIG_JFFS2
+		// for jffs, try to get total size from mtd partition
+		if (strncmp(argv[1], "jffs", 4) == 0) {
+			int part;
+
+			if (mtd_getinfo(argv[1], &part, (int *)&sf.f_blocks)) {
+				sf.f_bsize = 1;
+			}
+		}
+#endif
+	}
+	else {
+		mnt = 1;
+	}
 
 	web_printf(
 			"\n%s = {\n"
+			"\tmnt: %d,\n"
 			"\tsize: %llu,\n"
 			"\tfree: %llu\n"
 			"};\n",
-			argv[1],
+			argv[1], mnt,
 			((uint64_t)sf.f_bsize * sf.f_blocks),
 			((uint64_t)sf.f_bsize * sf.f_bfree));
 }
