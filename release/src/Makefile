@@ -500,6 +500,10 @@ define KernelConfig
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \
 		echo "CONFIG_BRIDGE_NF_EBTABLES=m" >>$(1); \
+		if [ "$(IPV6SUPP)" = "y" ]; then \
+			sed -i "/CONFIG_BRIDGE_EBT_IP6/d" $(1); \
+			echo "CONFIG_BRIDGE_EBT_IP6=m" >>$(1); \
+		fi; \
 	fi; \
 	)
 endef
