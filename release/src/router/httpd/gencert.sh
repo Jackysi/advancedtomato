@@ -1,5 +1,4 @@
 #!/bin/sh
-SECS=1167609600
 
 cd /etc
 
@@ -22,7 +21,7 @@ openssl req -new -out /tmp/cert.csr -config openssl.config -keyout /tmp/privkey.
 # remove the passphrase from the key
 openssl rsa -in /tmp/privkey.pem -out key.pem -passin pass:password
 # convert the certificate request into a signed certificate
-openssl x509 -in /tmp/cert.csr -out cert.pem -req -signkey key.pem -setstartsecs $SECS -days 3653 -set_serial $1
+openssl x509 -in /tmp/cert.csr -out cert.pem -req -signkey key.pem -days 3653 -set_serial $1
 
 #	openssl x509 -in /etc/cert.pem -text -noout
 
