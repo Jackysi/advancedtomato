@@ -25,7 +25,7 @@ extensions/libebt_%.so: extensions/ebt_%.so
 	mv $< $@
 
 extensions/ebtable_%.so: extensions/ebtable_%.o
-	$(CC) -shared -o $@ -lc $< -nostartfiles
+	$(CC) $(LDFLAGS) -shared -o $@ -lc $< -nostartfiles
 
 extensions/libebtable_%.so: extensions/ebtable_%.so
 	mv $< $@
