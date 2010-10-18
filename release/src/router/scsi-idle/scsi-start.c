@@ -16,8 +16,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#define SCSI_SG
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,14 +59,13 @@ int main(int argc, char *argv[])
 		perror(argv[1]);
 		exit(1);
 	}
-	if ((fd = open(argv[1], O_RDWR)) < 0) {
-		perror(argv[1]);
-		exit(1);
-	}
 	if (!S_ISBLK(statbuf.st_mode)
 		|| !IS_SCSI_DISK(statbuf.st_rdev) )  {
 		fprintf(stderr, "%s is not a SCSI block device\n", argv[1]);
-		close(fd);
+		exit(1);
+	}
+	if ((fd = open(argv[1], O_RDWR)) < 0) {
+		perror(argv[1]);
 		exit(1);
 	}
 
