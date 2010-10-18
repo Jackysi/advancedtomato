@@ -24,7 +24,7 @@ static int ebt_target_dnat(struct sk_buff **pskb, unsigned int hooknr,
 
 		nskb = skb_copy(*pskb, GFP_ATOMIC);
 		if (!nskb)
-			return NF_DROP;
+			return EBT_DROP;
 		if ((*pskb)->sk)
 			skb_set_owner_w(nskb, (*pskb)->sk);
 		kfree_skb(*pskb);
