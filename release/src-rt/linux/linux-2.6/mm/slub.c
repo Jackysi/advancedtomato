@@ -1231,7 +1231,7 @@ static struct page *get_any_partial(struct kmem_cache *s, gfp_t flags)
 		n = get_node(s, zone_to_nid(*z));
 
 		if (n && cpuset_zone_allowed_hardwall(*z, flags) &&
-				n->nr_partial > MIN_PARTIAL) {
+				n->nr_partial > s->min_partial) {
 			page = get_partial_node(n);
 			if (page)
 				return page;
@@ -1277,7 +1277,7 @@ static void unfreeze_slab(struct kmem_cache *s, struct page *page, int tail)
 		slab_unlock(page);
 
 	} else {
-		if (n->nr_partial < MIN_PARTIAL) {
+		if (n->nr_partial < s->min_partial) {
 			/*
 			 * Adding an empty slab to the partial slabs in order
 			 * to avoid page allocator overhead. This slab needs
@@ -1778,7 +1778,8 @@ static unsigned long calculate_alignment(unsigned long flags,
 	return ALIGN(align, sizeof(void *));
 }
 
-static void init_kmem_cache_node(struct kmem_cache_node *n)
+static void
+init_kmem_cache_node(struct kmem_cache_node *n, struct kmem_cache *s)
 {
 	n->nr_partial = 0;
 	atomic_long_set(&n->nr_slabs, 0);
@@ -1814,7 +1815,7 @@ static struct kmem_cache_node * __init early_kmem_cache_node_alloc(gfp_t gfpflag
 	page->inuse++;
 	kmalloc_caches->node[node] = n;
 	setup_object_debug(kmalloc_caches, page, n);
-	init_kmem_cache_node(n);
+	init_kmem_cache_node(n, kmalloc_caches);
 	atomic_long_inc(&n->nr_slabs);
 	/*
 	 * lockdep requires consistent irq usage for each lock
@@ -1870,7 +1871,7 @@ static int init_kmem_cache_nodes(struct kmem_cache *s, gfp_t gfpflags)
 
 		}
 		s->node[node] = n;
-		init_kmem_cache_node(n);
+		init_kmem_cache_node(n, s);
 	}
 	return 1;
 }
@@ -1881,10 +1882,19 @@ static void free_kmem_cache_nodes(struct kmem_cache *s)
 
 static int init_kmem_cache_nodes(struct kmem_cache *s, gfp_t gfpflags)
 {
-	init_kmem_cache_node(&s->local_node);
+	init_kmem_cache_node(&s->local_node, s);
 	return 1;
 }
 #endif
+
+static void set_min_partial(struct kmem_cache *s, unsigned long min)
+{
+	if (min < MIN_PARTIAL)
+		min = MIN_PARTIAL;
+	else if (min > MAX_PARTIAL)
+		min = MAX_PARTIAL;
+	s->min_partial = min;
+}
 
 /*
  * calculate_sizes() determines the order and the distribution of data within
@@ -2035,6 +2045,11 @@ static int kmem_cache_open(struct kmem_cache *s, gfp_t gfpflags,
 	if (!calculate_sizes(s))
 		goto error;
 
+	/*
+	 * The larger the object size is, the more pages we want on the partial
+	 * list to avoid pounding the page allocator excessively.
+	 */
+	set_min_partial(s, ilog2(s->size));
 	s->refcount = 1;
 #ifdef CONFIG_NUMA
 	s->remote_node_defrag_ratio = 100;
@@ -3312,6 +3327,26 @@ static ssize_t order_show(struct kmem_cache *s, char *buf)
 }
 SLAB_ATTR_RO(order);
 
+static ssize_t min_partial_show(struct kmem_cache *s, char *buf)
+{
+	return sprintf(buf, "%lu\n", s->min_partial);
+}
+
+static ssize_t min_partial_store(struct kmem_cache *s, const char *buf,
+				 size_t length)
+{
+	unsigned long min;
+	int err;
+
+	err = strict_strtoul(buf, 10, &min);
+	if (err)
+		return err;
+
+	set_min_partial(s, min);
+	return length;
+}
+SLAB_ATTR(min_partial);
+
 static ssize_t ctor_show(struct kmem_cache *s, char *buf)
 {
 	if (s->ctor) {
@@ -3549,6 +3584,7 @@ static struct attribute * slab_attrs[] = {
 	&object_size_attr.attr,
 	&objs_per_slab_attr.attr,
 	&order_attr.attr,
+	&min_partial_attr.attr,
 	&objects_attr.attr,
 	&slabs_attr.attr,
 	&partial_attr.attr,
