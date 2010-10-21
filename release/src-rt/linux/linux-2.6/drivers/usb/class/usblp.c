@@ -790,7 +790,6 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 /*=================================================================== PaN for Printer Server */
 
 		case LPGETSTATUS:
-			/* OLD USB Code Removed by PaN for Printer Server 
 			if ((retval = usblp_read_status(usblp, usblp->statusbuf))) {
 				if (printk_ratelimit())
 					printk(KERN_ERR "usblp%d:"
@@ -800,9 +799,6 @@ static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				goto done;
 			}
 			status = *usblp->statusbuf;
-			*/
-			status = usblp_check_status(usblp, 0);
-			status = 0;
 			if (copy_to_user((void __user *)arg, &status, sizeof(int)))
 				retval = -EFAULT;
 			break;
