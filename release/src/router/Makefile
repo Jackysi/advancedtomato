@@ -1286,7 +1286,7 @@ openvpn-install: openvpn
 %-clean:
 	@-[ ! -d $* ] || $(MAKE) -C $* clean
 
-%-install:
+%-install: %
 	@[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
 
 %-build:

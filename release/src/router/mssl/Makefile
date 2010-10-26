@@ -1,13 +1,13 @@
 include ../common.mak
 
 CFLAGS	= -Os -Wall $(EXTRACFLAGS) -fPIC
-CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
+CFLAGS	+= -I$(TOP)/matrixssl
 LDFLAGS	=
 
 all: libmssl.so libmssl.a
 
 libmssl.so: mssl.o
-	$(CC) -shared -o $@ $^ ../matrixssl/src/libmatrixsslstatic.a -L../shared -lshared -lpthread
+	$(CC) -shared -o $@ $^ ../matrixssl/src/libmatrixsslstatic.a -lpthread
 	$(STRIP) $@
 	$(CPTMP)
 
