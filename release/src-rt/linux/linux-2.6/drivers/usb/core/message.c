@@ -877,11 +877,11 @@ char *usb_cache_string(struct usb_device *udev, int index)
 	if (index <= 0)
 		return NULL;
 
-	buf = kmalloc(MAX_USB_STRING_SIZE, GFP_KERNEL);
+	buf = kmalloc(MAX_USB_STRING_SIZE, GFP_NOIO);
 	if (buf) {
 		len = usb_string(udev, index, buf, MAX_USB_STRING_SIZE);
 		if (len > 0) {
-			smallbuf = kmalloc(++len, GFP_KERNEL);
+			smallbuf = kmalloc(++len, GFP_NOIO);
 			if (!smallbuf)
 				return buf;
 			memcpy(smallbuf, buf, len);
@@ -1092,12 +1092,6 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 {
 	int i;
 
-	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __FUNCTION__,
-		skip_ep0 ? "non-ep0" : "all");
-	for (i = skip_ep0; i < 16; ++i) {
-		usb_disable_endpoint(dev, i);
-		usb_disable_endpoint(dev, i + USB_DIR_IN);
-	}
 	dev->toggle[0] = dev->toggle[1] = 0;
 
 	/* getting rid of interfaces will disconnect
@@ -1128,6 +1122,13 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 		dev->actconfig = NULL;
 		if (dev->state == USB_STATE_CONFIGURED)
 			usb_set_device_state(dev, USB_STATE_ADDRESS);
+	}
+
+	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __FUNCTION__,
+		skip_ep0 ? "non-ep0" : "all");
+	for (i = skip_ep0; i < 16; ++i) {
+		usb_disable_endpoint(dev, i);
+		usb_disable_endpoint(dev, i + USB_DIR_IN);
 	}
 }
 
@@ -1227,7 +1228,7 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 
 	alt = usb_altnum_to_altsetting(iface, alternate);
 	if (!alt) {
-		warn("selecting invalid altsetting %d", alternate);
+		warn("selecting invalid altsetting %d\n", alternate);
 		return -EINVAL;
 	}
 
@@ -1529,7 +1530,7 @@ static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
  *
  * See usb_queue_reset_device() for more details
  */
-void __usb_queue_reset_device(struct work_struct *ws)
+static void __usb_queue_reset_device(struct work_struct *ws)
 {
 	int rc;
 	struct usb_interface *iface =
@@ -1623,7 +1624,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 	if (cp) {
 		nintf = cp->desc.bNumInterfaces;
 		new_interfaces = kmalloc(nintf * sizeof(*new_interfaces),
-				GFP_KERNEL);
+				GFP_NOIO);
 		if (!new_interfaces) {
 			dev_err(&dev->dev, "Out of memory\n");
 			return -ENOMEM;
@@ -1632,7 +1633,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
 		for (; n < nintf; ++n) {
 			new_interfaces[n] = kzalloc(
 					sizeof(struct usb_interface),
-					GFP_KERNEL);
+					GFP_NOIO);
 			if (!new_interfaces[n]) {
 				dev_err(&dev->dev, "Out of memory\n");
 				ret = -ENOMEM;

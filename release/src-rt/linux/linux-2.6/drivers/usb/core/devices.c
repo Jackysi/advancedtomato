@@ -493,7 +493,7 @@ static ssize_t usb_device_dump(char __user **buffer, size_t *nbytes, loff_t *ski
 	if (level > MAX_TOPO_LEVEL)
 		return 0;
 	/* allocate 2^1 pages = 8K (on i386); should be more than enough for one device */
-        if (!(pages_start = (char*) __get_free_pages(GFP_KERNEL,1)))
+        if (!(pages_start = (char*) __get_free_pages(GFP_NOIO, 1)))
                 return -ENOMEM;
 		
 	if (usbdev->parent && usbdev->parent->devnum != -1)
