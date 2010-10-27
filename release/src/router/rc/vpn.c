@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <string.h>
+#include <time.h>
 
 // Line number as text string
 #define __LINE_T__ __LINE_T_(__LINE__)
@@ -987,6 +988,13 @@ void start_vpn_eas()
 {
 	char buffer[16], *cur;
 	int nums[4], i;
+
+	if (strlen(nvram_safe_get("vpn_server_eas")) == 0 && strlen(nvram_safe_get("vpn_client_eas")) == 0) return;
+	// wait for time sync for a while
+	i = 10;
+	while (time(0) < Y2K && i--) {
+		sleep(1);
+	}
 
 	// Parse and start servers
 	strlcpy(&buffer[0], nvram_safe_get("vpn_server_eas"), sizeof(buffer));
