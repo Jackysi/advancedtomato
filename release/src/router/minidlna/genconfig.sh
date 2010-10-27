@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.17 2010/07/17 00:47:48 jmaggard Exp $
+# $Id: genconfig.sh,v 1.18 2010/10/27 00:51:39 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -12,6 +12,8 @@ CONFIGMACRO="__CONFIG_H__"
 
 # Database path
 DB_PATH="/tmp/minidlna"
+# Log path
+LOG_PATH="${DB_PATH}"
 
 # detecting the OS name and version
 OS_NAME=`uname -s`
@@ -116,6 +118,7 @@ case $OS_NAME in
 			OS_NAME=Debian
 			OS_VERSION=`cat /etc/debian_version`
 			OS_URL=http://www.debian.org/
+			LOG_PATH="/var/log"
 			# use lsb_release (Linux Standard Base) when available
 			LSB_RELEASE=`which lsb_release 2>/dev/null`
 			if [ 0 -eq $? ]; then
@@ -144,6 +147,10 @@ echo "" >> ${CONFIGFILE}
 
 echo "/* full path of the file database */" >> ${CONFIGFILE}
 echo "#define DEFAULT_DB_PATH	\"${DB_PATH}\"" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "/* full path of the log directory */" >> ${CONFIGFILE}
+echo "#define DEFAULT_LOG_PATH	\"${LOG_PATH}\"" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* Comment the following line to use home made daemonize() func instead" >> ${CONFIGFILE}

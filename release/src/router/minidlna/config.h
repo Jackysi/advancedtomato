@@ -12,6 +12,7 @@
 
 /* full path of the file database */
 #define DEFAULT_DB_PATH	"/tmp/minidlna"
+#define DEFAULT_LOG_PATH	"/tmp/minidlna"
 
 /* Comment the following line to use home made daemonize() func instead
  * of BSD daemon() */
