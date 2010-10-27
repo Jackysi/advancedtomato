@@ -1,10 +1,10 @@
-# $Id: Makefile,v 1.27 2010/08/28 08:08:24 jmaggard Exp $
+# $Id: Makefile,v 1.29 2010/10/27 00:40:47 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
 # for use with GNU Make
 # To install use :
-# $ PREFIX=/dummyinstalldir make install
+# $ DESTDIR=/dummyinstalldir make install
 # or :
 # $ INSTALLPREFIX=/usr/local make install
 # or :
@@ -21,9 +21,9 @@ CC = gcc
 RM = rm -f
 INSTALL = install
 
-INSTALLPREFIX ?= $(PREFIX)/usr
+INSTALLPREFIX ?= $(DESTDIR)/usr
 SBININSTALLDIR = $(INSTALLPREFIX)/sbin
-ETCINSTALLDIR = $(PREFIX)/etc
+ETCINSTALLDIR = $(DESTDIR)/etc
 
 BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
            upnpreplyparse.o minixml.o \
@@ -36,14 +36,14 @@ BASEOBJS = minidlna.o upnphttp.o upnpdescgen.o upnpsoap.o \
 
 ALLOBJS = $(BASEOBJS) $(LNXOBJS)
 
-LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lid3tag -lFLAC -logg -lvorbis
+LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lavutil -lavcodec -lid3tag -lFLAC -logg -lvorbis
 #STATIC_LINKING: LIBS = -lvorbis -logg -lm -lsqlite3 -lpthread -lexif -ljpeg -lFLAC -lm -lid3tag -lz -lavformat -lavutil -lavcodec -lm
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
 
 EXECUTABLES = minidlna testupnpdescgen
 
-.PHONY:	all clean install depend
+.PHONY:	all clean distclean install depend
 
 all:	$(EXECUTABLES)
 
@@ -51,6 +51,9 @@ clean:
 	$(RM) $(ALLOBJS)
 	$(RM) $(EXECUTABLES)
 	$(RM) testupnpdescgen.o
+
+distclean: clean
+	$(RM) config.h
 
 install:	minidlna
 	$(INSTALL) -d $(SBININSTALLDIR)
