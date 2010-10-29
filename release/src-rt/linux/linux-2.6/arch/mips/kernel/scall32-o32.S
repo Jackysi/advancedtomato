@@ -667,8 +667,12 @@ einval:	li	v0, -ENOSYS
 	sys	sys_ioprio_get		2	/* 4315 */
 	sys	sys_utimensat		4
 	sys	sys_signalfd		3
-	sys	sys_timerfd		4
+	sys	sys_ni_syscall		0
 	sys	sys_eventfd		1
+	sys	sys_ni_syscall		0	/* 4320 */
+	sys	sys_timerfd_create	2
+	sys	sys_timerfd_gettime	2
+	sys	sys_timerfd_settime	4
 	.endm
 
 	/* We pre-compute the number of _instruction_ bytes needed to

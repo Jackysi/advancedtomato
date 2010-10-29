@@ -372,7 +372,7 @@
 #define __NR_epoll_pwait	347
 #define __NR_utimensat		348
 #define __NR_signalfd		349
-#define __NR_timerfd		350
+/* #define __NR_timerfd		350		350 removed */
 #define __NR_eventfd		351
 
 #ifdef __KERNEL__
