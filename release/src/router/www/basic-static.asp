@@ -199,7 +199,7 @@ sg.resetNewEditor = function() {
 
 sg.setup = function()
 {
-	this.init('bs-grid', 'sort', 200, [
+	this.init('bs-grid', 'sort', 250, [
 		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 50 } ] );
