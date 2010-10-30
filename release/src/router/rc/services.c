@@ -111,14 +111,10 @@ void start_dnsmasq()
 	if (((nv = nvram_get("dns_minport")) != NULL) && (*nv)) n = atoi(nv);
 		else n = 4096;
 	fprintf(f,
-		"all-servers\n"			// query all servers by default (use strict-order to override)
-		"cache-size=%d\n"		// dns cache size (0 to disable cache)
-		"log-async\n"			// enable asynchronous logging (default queue length = 5)
 		"resolv-file=%s\n"		// the real stuff is here
 		"addn-hosts=%s\n"		// "
 		"expand-hosts\n"		// expand hostnames in hosts file
 		"min-port=%u\n", 		// min port used for random src port
-		nvram_get_int("dns_cache"),
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
