@@ -454,9 +454,14 @@ static void check_bootnv(void)
 		}
 		break;
 	case MODEL_WRT160Nv3:
+		dirty |= check_nv("vlan2hwname", "et0");
 		if (nvram_match("clkdivsf", "4") && nvram_match("vlan1ports", "1 2 3 4 5*")) {
 			// fix lan port numbering on CSE41, CSE51
 			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
+		}
+		if (nvram_match("vlan1ports", "1 2 3 4 8*")) {
+			// WRT310Nv2 ?
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		}
 		break;
 #endif
