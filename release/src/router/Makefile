@@ -537,15 +537,23 @@ matrixssl-install:
 matrixssl-clean:
 	$(MAKE) -C matrixssl/src clean
 
-openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
-	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel
+OPENSSL_CIPHERS:=enable-rc5
 else
-	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel \
-		no-aes no-idea no-md2 no-mdc2 no-rc5 no-rmd160 no-ripemd
+OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes no-tls1 no-tlsext
 endif
+
+openssl/stamp-h1:
+	cd openssl && \
+	./Configure linux-mipsel --openssldir=/etc --cross-compile-prefix=' ' \
+	-ffunction-sections -fdata-sections -Wl,--gc-sections \
+	shared $(OPENSSL_CIPHERS) \
+	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
+	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
+	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
+	no-zlib no-engine no-engines no-sse2 no-perlasm \
+	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
+
 	@$(MAKE) -C openssl clean
 	@touch openssl/stamp-h1
 
@@ -556,8 +564,9 @@ openssl-clean:
 	@rm -f openssl/stamp-h1
 
 openssl-install: openssl
-	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
+	install -D openssl/libcrypto.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libcrypto.so.1.0.0
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so.1.0.0
+	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libcrypto.so.1.0.0 libcrypto.so
 
 	install -D openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
 	$(STRIP) $(INSTALLDIR)/openssl/usr/sbin/openssl
@@ -570,13 +579,15 @@ openssl-install: openssl
 
 ifeq ($(TCONFIG_FTP_SSL),y)
 # !!TB
-	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	install -D openssl/libssl.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
 ifeq ($(TCONFIG_OPENVPN),y)
-	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	install -D openssl/libssl.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
 mssl:	matrixssl
@@ -1245,7 +1256,7 @@ openvpn: openvpn/.conf
 
 openvpn/.conf:
 	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-	LDFLAGS="-L$(TOP)/openssl/ -L$(TOP)/lzo/src/.libs/ -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix= \
 	--with-lzo-headers="$(TOP)/lzo/include" \
 	--with-ssl-headers="$(TOP)/openssl/include/" \
