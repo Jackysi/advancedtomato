@@ -181,15 +181,12 @@ static struct file *timerfd_fget(int fd)
 
 asmlinkage long sys_timerfd_create(int clockid, int flags)
 {
-	int error, ufd;
+	int ufd;
 	struct timerfd_ctx *ctx;
-	struct file *file;
-	struct inode *inode;
 
-	if (flags)
-		return -EINVAL;
-	if (clockid != CLOCK_MONOTONIC &&
-	    clockid != CLOCK_REALTIME)
+	if ((flags & ~TFD_CREATE_FLAGS) ||
+	    (clockid != CLOCK_MONOTONIC &&
+	     clockid != CLOCK_REALTIME))
 		return -EINVAL;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
@@ -200,12 +197,10 @@ asmlinkage long sys_timerfd_create(int clockid, int flags)
 	ctx->clockid = clockid;
 	hrtimer_init(&ctx->tmr, clockid, HRTIMER_MODE_ABS);
 
-	error = anon_inode_getfd(&ufd, &inode, &file, "[timerfd]",
-				 &timerfd_fops, ctx);
-	if (error) {
+	ufd = anon_inode_getfd("[timerfd]", &timerfd_fops, ctx,
+			       flags & TFD_SHARED_FCNTL_FLAGS);
+	if (ufd < 0)
 		kfree(ctx);
-		return error;
-	}
 
 	return ufd;
 }
@@ -221,7 +216,8 @@ asmlinkage long sys_timerfd_settime(int ufd, int flags,
 	if (copy_from_user(&ktmr, utmr, sizeof(ktmr)))
 		return -EFAULT;
 
-	if (!timespec_valid(&ktmr.it_value) ||
+	if ((flags & ~TFD_SETTIME_FLAGS) ||
+	    !timespec_valid(&ktmr.it_value) ||
 	    !timespec_valid(&ktmr.it_interval))
 		return -EINVAL;
 
