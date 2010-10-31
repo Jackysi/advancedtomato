@@ -1214,7 +1214,7 @@ static void sysinit(void)
 	start_hotplug2();
 
 	static const char *dn[] = {
-		"null", "zero", "random", "urandom", "full", "ptmx",
+		"null", "zero", "random", "urandom", "full", "ptmx", "nvram",
 		NULL
 	};
 	for (i = 0; dn[i]; ++i) {
