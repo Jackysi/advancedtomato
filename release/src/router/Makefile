@@ -478,7 +478,7 @@ rmconf: config/mconf
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
 	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dnsmasq-clean
-	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean ppp-clean
+	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean ppp-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -520,7 +520,7 @@ busybox-config:
 	$(MAKE) -C busybox menuconfig
 
 
-httpd: matrixssl shared nvram mssl
+httpd: shared nvram mssl
 	@$(SEP)
 	@$(MAKE) -C httpd
 
@@ -590,7 +590,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
-mssl:	matrixssl
+mssl:	$(if $(TCONFIG_OPENVPN),openssl,matrixssl)
 
 mdu:	shared mssl
 

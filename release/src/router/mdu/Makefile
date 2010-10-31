@@ -3,6 +3,12 @@ include ../common.mak
 CFLAGS	= -Os -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared -I$(TOP)/mssl
 LDFLAGS	=
+LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -L$(TOP)/mssl -lmssl
+#LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared $(TOP)/mssl/libmssl.a $(TOP)/matrixssl/src/libmatrixsslstatic.a
+
+ifeq ($(TCONFIG_OPENVPN),y)
+LIBS += -L$(TOP)/openssl -lssl -lcrypto
+endif
 
 OBJS = mdu.o md5.o
 
@@ -10,8 +16,7 @@ all: mdu
 	
 mdu: $(OBJS)
 	@echo " [mdu] CC -o $@"
-	$(CC) $(LDFLAGS) -o $@ $^ -L../nvram -lnvram -L../shared -lshared -L../mssl -lmssl
-#	$(CC) $(LDFLAGS) -o $@ $^ -L../nvram -lnvram -L../shared -lshared ../mssl/libmssl.a ../matrixssl/src/libmatrixsslstatic.a
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 	$(SIZECHECK)
 	$(CPTMP)

@@ -11,8 +11,12 @@ ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
 endif
 
-LIBS = -L../nvram -lnvram -L../shared -lshared
-LIBS += -L../mssl -lmssl
+LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+LIBS += -L$(TOP)/mssl -lmssl
+
+ifeq ($(TCONFIG_OPENVPN),y)
+LIBS += -L$(TOP)/openssl -lssl -lcrypto
+endif
 
 all: httpd
 
