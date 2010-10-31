@@ -478,7 +478,7 @@ rmconf: config/mconf
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
 	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dnsmasq-clean
-	@$(MAKE) iptables-clean pppd-clean zebra-clean openssl-clean ppp-clean
+	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean ppp-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -1199,18 +1199,25 @@ igs-install: igs
 
 
 ebtables: dummy
-	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
+	CFLAGS="-Os $(EXTRACFLAGS) -DEBT_MIN_ALIGN=4 -Wall -Wunused" \
+	BINDIR="/usr/sbin" LIBDIR="/usr/lib/ebtables" KERNEL_INCLUDES=$(LINUXDIR)/include $(if $(TCONFIG_IPV6),DO_IPV6=1,)
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
 
+	@mkdir -p $(TARGETDIR)/rom/etc
+	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/ebtables/ethertypes > $(TARGETDIR)/rom/etc/ethertypes
+	chmod 0644 $(TARGETDIR)/rom/etc/ethertypes
+
 	install -d $(INSTALLDIR)/ebtables/usr/lib
+	install -d $(INSTALLDIR)/ebtables/usr/lib/ebtables
 	install -D ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
-	install -D ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	install -D ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/ebtables/
 
 	$(STRIP) $(INSTALLDIR)/ebtables/usr/sbin/ebtables
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/ebtables/*.so
 	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebt*.so
-	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebtc.so
 
 ebtables-clean:
 	make -C ebtables clean

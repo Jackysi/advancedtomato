@@ -218,7 +218,9 @@ dg.populate = function()
 					p = parts[k];
 					if (p) {
 						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
-							((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + ')' : '') + ' is ' +
+							((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + 
+							((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' free' : '') +
+							')' : '') + ' is ' +
 							((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? 'active' : 'mounted') +
 							((p[2] != '') ? ' on ' + p[2] : '');
 					}

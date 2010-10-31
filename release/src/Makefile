@@ -500,6 +500,10 @@ define KernelConfig
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \
 		echo "CONFIG_BRIDGE_NF_EBTABLES=m" >>$(1); \
+		if [ "$(IPV6SUPP)" = "y" ]; then \
+			sed -i "/CONFIG_BRIDGE_EBT_IP6/d" $(1); \
+			echo "CONFIG_BRIDGE_EBT_IP6=m" >>$(1); \
+		fi; \
 	fi; \
 	)
 endef
@@ -597,7 +601,10 @@ r2d:
 	@$(MAKE) d MIPS32=r2
 
 e3000:
-	@$(MAKE) r2m r2e ND=E3000 NVRAM_SIZE=60
+	@$(MAKE) r2m ND=E3000 NVRAM_SIZE=60
+
+e3000v:
+	@$(MAKE) r2e ND=E3000 NVRAM_SIZE=60
 
 e2000:
 	@$(MAKE) r2s ND=E2000 NVRAM_SIZE=60
@@ -679,6 +686,9 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus JFFS and CIFS)"
+	@echo "e3000        Linksys E3000 build (standard plus extras)"
+	@echo "e3000v       Linksys E3000 build (standard plus VPN and extras)"
+	@echo "e2000        Linksys E2000 build (no USB support)"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"

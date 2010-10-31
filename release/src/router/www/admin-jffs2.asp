@@ -118,7 +118,7 @@ createFieldTable('', [
 	{ title: 'Enable', name: 'f_jffs2_on', type: 'checkbox', value: jfon },
 	{ title: 'Execute When Mounted', name: 'jffs2_exec', type: 'text', maxlen: 64, size: 34, value: nvram.jffs2_exec },
 	null,
-	{ title: 'Total / Free Size', text: ((jfon) && (jffs2.size)) ? (scaleSize(jffs2.size) + ' / ' + scaleSize(jffs2.free)) : '(not mounted)' },
+	{ title: 'Total / Free Size', text: (((jffs2.mnt) || (jffs2.size > 0)) ? scaleSize(jffs2.size) : '') + ((jffs2.mnt) ? ' / ' + scaleSize(jffs2.free) : ' (not mounted)') },
 	null,
 	{ title: '', custom: '<input type="button" value="Format / Erase..." onclick="formatClicked()" id="format"><br><br>' +
 		'<span style="background:#b55;color:#fff;padding:1px 8px;visibility:hidden" id="fmsg">Please wait for <span id="fclock">about 60 seconds</span>...</span>' }

@@ -1,4 +1,4 @@
-/* $Id: options.c,v 1.11 2009/11/19 03:22:35 jmaggard Exp $ */
+/* $Id: options.c,v 1.12 2010/10/27 00:51:39 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * author: Ryan Wagoner
@@ -34,6 +34,7 @@ static const struct {
 	{ UPNPALBUMART_NAMES, "album_art_names"},
 	{ UPNPINOTIFY, "inotify" },
 	{ UPNPDBDIR, "db_dir" },
+	{ UPNPLOGDIR, "log_dir" },
 	{ ENABLE_TIVO, "enable_tivo" },
 	{ ENABLE_DLNA_STRICT, "strict_dlna" }
 };

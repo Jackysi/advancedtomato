@@ -18,7 +18,6 @@ DESTDIR:=
 CFLAGS:=-Wall -Wunused
 CFLAGS_SH_LIB:=-fPIC
 CC:=gcc
-LD:=ld
 
 ifeq ($(shell uname -m),sparc64)
 CFLAGS+=-DEBT_MIN_ALIGN=8 -DKERNEL_64_USERSPACE_32
@@ -85,10 +84,10 @@ ebtables-standalone.o: ebtables-standalone.c include/ebtables_u.h
 
 .PHONY: libebtc
 libebtc: $(OBJECTS2)
-	$(CC) -shared -Wl,-soname,libebtc.so -o libebtc.so -lc $(OBJECTS2)
+	$(CC) -shared $(LDFLAGS) -Wl,-soname,libebtc.so -o libebtc.so -lc $(OBJECTS2)
 
 ebtables: $(OBJECTS) ebtables-standalone.o libebtc
-	$(CC) $(CFLAGS) $(CFLAGS_SH_LIB) -o $@ ebtables-standalone.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
+	$(CC) $(CFLAGS) $(CFLAGS_SH_LIB) $(LDFLAGS) -o $@ ebtables-standalone.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
 	-Wl,-rpath,$(LIBDIR)
 
 ebtablesu: ebtablesu.c
@@ -105,7 +104,7 @@ ebtables-restore.o: ebtables-restore.c include/ebtables_u.h
 	$(CC) $(CFLAGS) $(PROGSPECS) -c $< -o $@  -I$(KERNEL_INCLUDES)
 
 ebtables-restore: $(OBJECTS) ebtables-restore.o libebtc
-	$(CC) $(CFLAGS) -o $@ ebtables-restore.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ ebtables-restore.o -I$(KERNEL_INCLUDES) -L. -Lextensions -lebtc $(EXT_LIBSI) \
 	-Wl,-rpath,$(LIBDIR)
 
 .PHONY: daemon
