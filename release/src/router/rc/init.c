@@ -263,7 +263,7 @@ static void handle_fatalsigs(int sig)
  * instead of pause(). But SIGCHLD is a problem, since other
  * code: 1) messes with it and 2) depends on CHLD being caught so
  * that the pid gets immediately reaped instead of left a zombie.
- * Pidof still shows the pid, even though it's in Zombie state.
+ * Pidof still shows the pid, even though it's in zombie state.
  * So this SIGCHLD handler reaps and then signals the mainline by
  * raising ALRM.
  */
@@ -272,7 +272,8 @@ void handle_reap(int sig)
 	while (waitpid(-1, NULL, WNOHANG) > 0) {
 		//
 	}
-	if (getpid() == 1) raise(SIGALRM);
+	if (getpid() == 1 && sig != 0)
+		raise(SIGALRM);
 }
 
 static int check_nv(const char *name, const char *value)
@@ -1417,6 +1418,7 @@ int init_main(int argc, char *argv[])
 			break;
 		}
 
+		handle_reap(0);		/* Reap zombies. */
 		check_services();
 		sigwait(&sigset, &state);
 	}

@@ -48,8 +48,11 @@
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
-// Pop an alarm to recheck pids in 500 msec
+// Pop an alarm to recheck pids in 500 msec.
 static const struct itimerval pop_tv = { {0,0}, {0, 500 * 1000} };
+
+// Pop an alarm to reap zombies. 
+static const struct itimerval zombie_tv = { {0,0}, {307, 0} };
 
 // -----------------------------------------------------------------------------
 
@@ -1459,27 +1462,17 @@ void restart_nas_services(int stop, int start)
 // -----------------------------------------------------------------------------
 
 /* -1 = Don't check for this program, it is not expected to be running.
- * Other = This program has been started and should be kept running. If no
- * process with the same name is running, call func to restart it.
+ * Other = This program has been started and should be kept running.  If no
+ * process with the name is running, call func to restart it.
  * Note: At startup, dnsmasq forks a short-lived child which forks a
- * long-lived (grand)child. The parents terminate.
+ * long-lived (grand)child.  The parents terminate.
  * Many daemons use this technique.
- * There is a race condition at this startup where pidof sometimes
- * reports that it cannot find the named program.
- * To avoid erroneously thinking that the program has died, we'll recheck
- * after a slight delay. If it still isn't there after 500 msec, we'll
- * conclude that it truly is gone.
  */
 static void _check(pid_t pid, const char *name, void (*func)(void))
 {
-	int i;
-
 	if (pid == -1) return;
 
-	for (i = 50; --i > 0; ) {
-		if (pidof(name) > 0) return;
-		usleep(10 * 1000);
-	}
+	if (pidof(name) > 0) return;
 
 	syslog(LOG_DEBUG, "%s terminated unexpectedly, restarting.\n", name);
 	func();
@@ -1491,6 +1484,10 @@ static void _check(pid_t pid, const char *name, void (*func)(void))
 void check_services(void)
 {
 	TRACE_PT("keep alive\n");
+
+	// Periodically reap any zombies
+	setitimer(ITIMER_REAL, &zombie_tv, NULL);
+
 #ifdef LINUX26
 	_check(pid_hotplug2, "hotplug2", start_hotplug2);
 #endif
