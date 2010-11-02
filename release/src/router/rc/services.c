@@ -816,26 +816,6 @@ static void start_rstats(int new)
 
 // !!TB - FTP Server
 
-#if defined(TCONFIG_FTP) || \
-    defined(TCONFIG_SAMBA) || \
-    defined(TCONFIG_MEDIA_SERVER)
-/* 
- * Return non-zero if we created the directory,
- * and zero if it already existed.
- */
-int mkdir_if_none(char *dir)
-{
-	DIR *dp;
-	if (!(dp=opendir(dir))) {
-		umask(0000);
-		mkdir(dir, 0777);
-		return 1;
-	}
-	closedir(dp);
-	return 0;
-}
-#endif
- 
 #ifdef TCONFIG_FTP
 static char *get_full_storage_path(char *val)
 {

@@ -187,10 +187,8 @@ extern void start_services(void);
 extern void stop_services(void);
 // !!TB - USB and NAS
 #ifdef TCONFIG_USB
-extern int mkdir_if_none(char *dir);
 extern void restart_nas_services(int stop, int start);
 #else
-#define mkdir_if_none(args...) (0)
 #define restart_nas_services(args...) do { } while(0)
 #endif
 #ifdef LINUX26
@@ -305,6 +303,7 @@ extern int _vstrsep(char *buf, const char *sep, ...);
 extern void simple_unlock(const char *name);
 extern void simple_lock(const char *name);
 extern void killall_tk(const char *name);
+extern int mkdir_if_none(const char *path);
 extern long fappend(FILE *out, const char *fname);
 extern long fappend_file(const char *path, const char *fname);
 
