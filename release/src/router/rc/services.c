@@ -1110,6 +1110,9 @@ static void start_samba(void)
 		" timestamp logs = no\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
+#if defined(LINUX26) && defined(TCONFIG_SAMBA3)
+		" use sendfile = yes\n"
+#endif
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_safe_get("lan_ifname"),
