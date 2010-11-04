@@ -267,13 +267,10 @@ static void handle_fatalsigs(int sig)
  * So this SIGCHLD handler reaps and then signals the mainline by
  * raising ALRM.
  */
-void handle_reap(int sig)
+static void handle_reap(int sig)
 {
-	while (waitpid(-1, NULL, WNOHANG) > 0) {
-		//
-	}
-	if (getpid() == 1 && sig != 0)
-		raise(SIGALRM);
+	chld_reap(sig);
+	raise(SIGALRM);
 }
 
 static int check_nv(const char *name, const char *value)
@@ -1418,7 +1415,7 @@ int init_main(int argc, char *argv[])
 			break;
 		}
 
-		handle_reap(0);		/* Reap zombies. */
+		chld_reap(0);		/* Periodically reap zombies. */
 		check_services();
 		sigwait(&sigset, &state);
 	}

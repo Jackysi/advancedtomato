@@ -18,6 +18,7 @@
 #include <arpa/inet.h>
 #include <sys/sysinfo.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #include <bcmnvram.h>
 #include <bcmdevs.h>
@@ -482,6 +483,11 @@ int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int time
 
 //	_dprintf("%s: OK %d\n", __FUNCTION__, fd);
 	return 0;
+}
+
+void chld_reap(int sig)
+{
+	while (waitpid(-1, NULL, WNOHANG) > 0) {}
 }
 
 /*

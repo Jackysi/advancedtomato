@@ -68,6 +68,7 @@ typedef struct {
 	} dns[3];
 } dns_list_t;
 
+extern void chld_reap(int sig);
 extern int get_wan_proto(void);
 extern int using_dhcpc(void);
 extern void notice_set(const char *path, const char *format, ...);
