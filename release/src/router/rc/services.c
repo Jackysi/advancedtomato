@@ -617,13 +617,15 @@ void stop_zebra(void)
 
 void start_syslog(void)
 {
-#if 1
-	char *argv[12];
+	char *argv[16];
 	int argc;
 	char *nv;
+	char *b_opt = "";
 	char rem[256];
 	int n;
 	char s[64];
+	char cfg[256];
+	char *rot_siz = "50";
 
 	argv[0] = "syslogd";
 	argc = 1;
@@ -639,20 +641,50 @@ void start_syslog(void)
 
 	if (nvram_match("log_file", "1")) {
 		argv[argc++] = "-L";
+
+		/* Read options:    rotate_size(kb)    num_backups    logfilename.
+		 * Ignore these settings and use defaults if the logfile cannot be written to.
+		 */
+		if (f_read_string("/etc/syslogd.cfg", cfg, sizeof(cfg)) > 0) {
+			if ((nv = strchr(cfg, '\n')))
+				*nv = 0;
+
+			if ((nv = strtok(cfg, " \t"))) {
+				if (isdigit(*nv))
+					rot_siz = nv;
+			}
+
+			if ((nv = strtok(NULL, " \t")))
+				b_opt = nv;
+
+			if ((nv = strtok(NULL, " \t")) && *nv == '/') {
+				if (f_write(nv, cfg, 0, FW_APPEND, 0) >= 0) {
+					argv[argc++] = "-O";
+					argv[argc++] = nv;
+				}
+				else {
+					rot_siz = "50";
+					b_opt = "";
+				}
+			}
+		}
+
 		argv[argc++] = "-s";
-		argv[argc++] = "50";
+		argv[argc++] = rot_siz;
+
+		if (isdigit(*b_opt)) {
+			argv[argc++] = "-b";
+			argv[argc++] = b_opt;
+		}
 	}
 
 	if (argc > 1) {
 		argv[argc] = NULL;
 		_eval(argv, NULL, 0, NULL);
-		//usleep(500000);
-		sleep(1);
 
 		argv[0] = "klogd";
 		argv[1] = NULL;
 		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
 
 		// used to be available in syslogd -m
 		n = nvram_get_int("log_mark");
@@ -671,44 +703,6 @@ void start_syslog(void)
 			system("cru d syslogdmark");
 		}
 	}
-
-#else
-	char *argv[12];
-	int argc;
-	char *nv;
-	char rem[256];
-
-	argv[0] = "syslogd";
-	argv[1] = "-m";
-	argv[2] = nvram_get("log_mark");
-	argc = 3;
-
-	if (nvram_match("log_remote", "1")) {
-		nv = nvram_safe_get("log_remoteip");
-		if (*nv) {
-			snprintf(rem, sizeof(rem), "%s:%s", nv, nvram_safe_get("log_remoteport"));
-			argv[argc++] = "-R";
-			argv[argc++] = rem;
-		}
-	}
-
-	if (nvram_match("log_file", "1")) {
-		argv[argc++] = "-L";
-		argv[argc++] = "-s";
-		argv[argc++] = "50";
-	}
-
-	if (argc > 3) {
-		argv[argc] = NULL;
-		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
-
-		argv[0] = "klogd";
-		argv[1] = NULL;
-		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
-	}
-#endif
 }
 
 void stop_syslog(void)
@@ -1690,11 +1684,10 @@ TOP:
 	if (strcmp(service, "logging") == 0) {
 		if (action & A_STOP) {
 			stop_syslog();
-			stop_cron();
 		}
-		stop_firewall(); start_firewall();		// always restarted
+		stop_firewall(); start_firewall();	// always restarted
+		stop_cron(); start_cron();		// always restarted
 		if (action & A_START) {
-			start_cron();
 			start_syslog();
 		}
 		goto CLEAR;
