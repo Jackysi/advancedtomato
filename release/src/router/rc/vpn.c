@@ -7,7 +7,9 @@
 */
 
 #include "rc.h"
+
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <dirent.h>
 #include <string.h>
 #include <time.h>
