@@ -449,6 +449,7 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 		/* Unmount from Web. Run *.autostop scripts if any. */
 		run_userfile(mnt->mnt_dir, ".autostop", mnt->mnt_dir, 5);
 	}
+	run_nvscript("script_autostop", mnt->mnt_dir, 5);
 
 	count = 0;
 	while ((ret = umount(mnt->mnt_dir)) && (count < 2)) {
@@ -480,7 +481,7 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
 		 * except whatever has cd'ed to the mountpoint (thereby making it busy).
 		 * So the unmount can't actually fail. It disappears from the ken of
 		 * everyone else immediately, and from the ken of whomever is keeping it
-		 * busy until they move away from it. And then it disappears for real.
+		 * busy when they move away from it. And then it disappears for real.
 		 */
 		ret = umount2(mnt->mnt_dir, MNT_DETACH);
 		syslog(LOG_INFO, "USB partition busy - will unmount ASAP from %s", mnt->mnt_dir);
