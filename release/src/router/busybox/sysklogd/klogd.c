@@ -31,7 +31,7 @@ static void klogd_signal(int sig)
 	kill_myself_with_sig(sig);
 }
 
-#define log_buffer bb_common_bufsiz1
+char log_buffer[6 * 1024 + 1];	/* Big enough to not lose msgs at bootup */
 enum {
 	KLOGD_LOGBUF_SIZE = sizeof(log_buffer),
 	OPT_LEVEL      = (1 << 0),
@@ -45,6 +45,7 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 	char *opt_c;
 	int opt;
 	int used;
+	unsigned int cnt;
 
 	opt = getopt32(argv, "c:n", &opt_c);
 	if (opt & OPT_LEVEL) {
@@ -71,10 +72,12 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 	syslog(LOG_NOTICE, "klogd started: %s", bb_banner);
 
 	used = 0;
+	cnt = 0;
 	while (1) {
 		int n;
 		int priority;
 		char *start;
+		char *eor;
 
 		/* "2 -- Read from the log." */
 		start = log_buffer + used;
@@ -87,6 +90,7 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 			break;
 		}
 		start[n] = '\0';
+		eor = &start[n];
 
 		/* Process each newline-terminated line in the buffer */
 		start = log_buffer;
@@ -123,8 +127,13 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 					start++;
 			}
 			/* Log (only non-empty lines) */
-			if (*start)
+			if (*start) {
 				syslog(priority, "%s", start);
+				/* give syslog time to catch up */
+				++cnt;
+				if ((cnt & 0x07) == 0 && (cnt < 300 || (eor - start) > 200))
+					usleep(50 * 1000);
+			}
 
 			if (!newline)
 				break;
