@@ -130,7 +130,6 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	}
 #endif
 	childregs->regs[2] = 0;	/* Child gets zero as return value */
-	regs->regs[2] = p->pid;
 
 	if (childregs->cp0_status & ST0_CU0) {
 		childregs->regs[28] = (unsigned long) ti;
