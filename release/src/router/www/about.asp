@@ -125,12 +125,10 @@ Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
 - Access Concentrator ID | Additional Themes<br>
 <br>
 <b>Toastman Features:</b><br>
-- 250 entry Static DHCP<br>
-- 500 entry Access Restrictions<br>
-- QOS class labels<br>
-- Toastman QOS rules<br>
-- Fast conntrack timeout<br>
-- Fast auto refresh<br>
+- 250 entry Static DHCP | 500 entry Access Restrictions<br>
+- QOS class labels | Toastman QOS rules<br>
+- Fast conntrack timeout | Fast auto refresh<br>
+- Safe CPU frequency selector<br>
 - Loads upnpconfig.custom from JFFS<br>
 <br>
 <br>

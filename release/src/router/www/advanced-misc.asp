@@ -75,8 +75,20 @@ for (i = 3; i <= 20; ++i) a.push([i, i + ' seconds']);
 createFieldTable('', [
 	{ title: 'Boot Wait Time *', name: 'wait_time', type: 'select', options: a, value: fixInt(nvram.wait_time, 3, 20, 3) },
 	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed },
-	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'text', maxlen: 11, size: 10, value: nvram.clkfreq },
+
+
+//	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'text', maxlen: 3, size: 3, value: nvram.clkfreq },
+
+	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'select', options: [[188,'188'],[200,'200'],[216,'216'],[225,'225'],[240,'240'],[250,'250'],[266,'266'],[300,'300'],[354,'354'],[400,'400'],[453,'453'],[480,'480'],[500,'500']], value: nvram.clkfreq },
+
+
 	null,
+
+
+
+
+
+
 	{ title: 'Enable Jumbo Frames *', name: 'f_jumbo_frame_enable', type: 'checkbox', value: nvram.jumbo_frame_enable != '0', hidden: !et1000 },
 	{ title: 'Jumbo Frame Size *', name: 'jumbo_frame_size', type: 'text', maxlen: 4, size: 6, value: fixInt(nvram.jumbo_frame_size, 1, 9720, 2000),
 		suffix: ' <small>Bytes (range: 1 - 9720; default: 2000)</small>', hidden: !et1000 }
