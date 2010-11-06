@@ -1,4 +1,57 @@
 /* crypto/bio/bss_bio.c  -*- Mode: C; c-file-style: "eay" -*- */
+/* ====================================================================
+ * Copyright (c) 1998-2003 The OpenSSL Project.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. All advertising materials mentioning features or use of this
+ *    software must display the following acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
+ *
+ * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For written permission, please contact
+ *    openssl-core@openssl.org.
+ *
+ * 5. Products derived from this software may not be called "OpenSSL"
+ *    nor may "OpenSSL" appear in their names without prior written
+ *    permission of the OpenSSL Project.
+ *
+ * 6. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by the OpenSSL Project
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
+ * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
+ * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * ====================================================================
+ *
+ * This product includes cryptographic software written by Eric Young
+ * (eay@cryptsoft.com).  This product includes software written by Tim
+ * Hudson (tjh@cryptsoft.com).
+ *
+ */
 
 /* Special method for a BIO where the other endpoint is also a BIO
  * of this kind, handled by the same thread (i.e. the "peer" is actually
@@ -7,9 +60,18 @@
  * for which no specific BIO method is available.
  * See ssl/ssltest.c for some hints on how this can be used. */
 
+/* BIO_DEBUG implies BIO_PAIR_DEBUG */
+#ifdef BIO_DEBUG
+# ifndef BIO_PAIR_DEBUG
+#  define BIO_PAIR_DEBUG
+# endif
+#endif
+
+/* disable assert() unless BIO_PAIR_DEBUG has been defined */
 #ifndef BIO_PAIR_DEBUG
-# undef NDEBUG /* avoid conflicting definitions */
-# define NDEBUG
+# ifndef NDEBUG
+#  define NDEBUG
+# endif
 #endif
 
 #include <assert.h>
@@ -19,16 +81,15 @@
 
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#include <openssl/err.h>
 #include <openssl/crypto.h>
 
-#include "openssl/e_os.h"
+#include "e_os.h"
 
-/* VxWorks defines SSiZE_MAX with an empty value causing compile errors */
-#if defined(VXWORKS)
+/* VxWorks defines SSIZE_MAX with an empty value causing compile errors */
+#if defined(OPENSSL_SYS_VXWORKS)
 # undef SSIZE_MAX
-# define SSIZE_MAX INT_MAX
-#elif !defined(SSIZE_MAX)
+#endif
+#ifndef SSIZE_MAX
 # define SSIZE_MAX INT_MAX
 #endif
 
@@ -494,7 +555,7 @@ static long bio_ctrl(BIO *bio, int cmd, long num, void *ptr)
 		break;
 		
 	case BIO_C_DESTROY_BIO_PAIR:
-		/* Effects both BIOs in the pair -- call just once!
+		/* Affects both BIOs in the pair -- call just once!
 		 * Or let BIO_free(bio1); BIO_free(bio2); do the job. */
 		bio_destroy_pair(bio);
 		ret = 1;
@@ -858,6 +919,6 @@ int BIO_nwrite(BIO *bio, char **buf, int num)
 
 	ret = BIO_ctrl(bio, BIO_C_NWRITE, num, buf);
 	if (ret > 0)
-		bio->num_read += ret;
+		bio->num_write += ret;
 	return ret;
 	}

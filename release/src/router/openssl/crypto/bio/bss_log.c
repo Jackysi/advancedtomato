@@ -66,26 +66,29 @@
 #include <stdio.h>
 #include <errno.h>
 
-#if defined(WIN32)
-#  include <process.h>
-#elif defined(VMS) || defined(__VMS)
+#include "cryptlib.h"
+
+#if defined(OPENSSL_SYS_WINCE)
+#elif defined(OPENSSL_SYS_WIN32)
+#elif defined(OPENSSL_SYS_VMS)
 #  include <opcdef.h>
 #  include <descrip.h>
 #  include <lib$routines.h>
 #  include <starlet.h>
 #elif defined(__ultrix)
 #  include <sys/syslog.h>
-#elif !defined(MSDOS) && !defined(VXWORKS) /* Unix */
+#elif defined(OPENSSL_SYS_NETWARE)
+#  define NO_SYSLOG
+#elif (!defined(MSDOS) || defined(WATT32)) && !defined(OPENSSL_SYS_VXWORKS) && !defined(NO_SYSLOG)
 #  include <syslog.h>
 #endif
 
-#include "cryptlib.h"
 #include <openssl/buffer.h>
 #include <openssl/err.h>
 
 #ifndef NO_SYSLOG
 
-#if defined(WIN32)
+#if defined(OPENSSL_SYS_WIN32)
 #define LOG_EMERG	0
 #define LOG_ALERT	1
 #define LOG_CRIT	2
@@ -96,7 +99,7 @@
 #define LOG_DEBUG	7
 
 #define LOG_DAEMON	(3<<3)
-#elif defined(VMS)
+#elif defined(OPENSSL_SYS_VMS)
 /* On VMS, we don't really care about these, but we need them to compile */
 #define LOG_EMERG	0
 #define LOG_ALERT	1
@@ -118,18 +121,6 @@ static int MS_CALLBACK slg_free(BIO *data);
 static void xopenlog(BIO* bp, char* name, int level);
 static void xsyslog(BIO* bp, int priority, const char* string);
 static void xcloselog(BIO* bp);
-#ifdef WIN32
-LONG	(WINAPI *go_for_advapi)()	= RegOpenKeyEx;
-HANDLE	(WINAPI *register_event_source)()	= NULL;
-BOOL	(WINAPI *deregister_event_source)()	= NULL;
-BOOL	(WINAPI *report_event)()	= NULL;
-#define DL_PROC(m,f)	(GetProcAddress( m, f ))
-#ifdef UNICODE
-#define DL_PROC_X(m,f) DL_PROC( m, f "W" )
-#else
-#define DL_PROC_X(m,f) DL_PROC( m, f "A" )
-#endif
-#endif
 
 static BIO_METHOD methods_slg=
 	{
@@ -171,7 +162,7 @@ static int MS_CALLBACK slg_write(BIO *b, const char *in, int inl)
 	char* buf;
 	char* pp;
 	int priority, i;
-	static struct
+	static const struct
 		{
 		int strl;
 		char str[10];
@@ -241,39 +232,24 @@ static int MS_CALLBACK slg_puts(BIO *bp, const char *str)
 	return(ret);
 	}
 
-#if defined(WIN32)
+#if defined(OPENSSL_SYS_WIN32)
 
 static void xopenlog(BIO* bp, char* name, int level)
 {
-	if ( !register_event_source )
-		{
-		HANDLE	advapi;
-		if ( !(advapi = GetModuleHandle("advapi32")) )
-			return;
-		register_event_source = (HANDLE (WINAPI *)())DL_PROC_X(advapi,
-			"RegisterEventSource" );
-		deregister_event_source = (BOOL (WINAPI *)())DL_PROC(advapi,
-			"DeregisterEventSource");
-		report_event = (BOOL (WINAPI *)())DL_PROC_X(advapi,
-			"ReportEvent" );
-		if ( !(register_event_source && deregister_event_source &&
-				report_event) )
-			{
-			register_event_source = NULL;
-			deregister_event_source = NULL;
-			report_event = NULL;
-			return;
-			}
-		}
-	bp->ptr= (char *)register_event_source(NULL, name);
+	if (GetVersion() < 0x80000000)
+		bp->ptr = RegisterEventSourceA(NULL,name);
+	else
+		bp->ptr = NULL;
 }
 
 static void xsyslog(BIO *bp, int priority, const char *string)
 {
 	LPCSTR lpszStrings[2];
 	WORD evtype= EVENTLOG_ERROR_TYPE;
-	int pid = _getpid();
-	char pidbuf[20];
+	char pidbuf[DECIMAL_SIZE(DWORD)+4];
+
+	if (bp->ptr == NULL)
+		return;
 
 	switch (priority)
 		{
@@ -297,23 +273,22 @@ static void xsyslog(BIO *bp, int priority, const char *string)
 		break;
 		}
 
-	sprintf(pidbuf, "[%d] ", pid);
+	sprintf(pidbuf, "[%u] ", GetCurrentProcessId());
 	lpszStrings[0] = pidbuf;
 	lpszStrings[1] = string;
 
-	if(report_event && bp->ptr)
-		report_event(bp->ptr, evtype, 0, 1024, NULL, 2, 0,
+	ReportEventA(bp->ptr, evtype, 0, 1024, NULL, 2, 0,
 				lpszStrings, NULL);
 }
 	
 static void xcloselog(BIO* bp)
 {
-	if(deregister_event_source && bp->ptr)
-		deregister_event_source((HANDLE)(bp->ptr));
+	if(bp->ptr)
+		DeregisterEventSource((HANDLE)(bp->ptr));
 	bp->ptr= NULL;
 }
 
-#elif defined(VMS)
+#elif defined(OPENSSL_SYS_VMS)
 
 static int VMS_OPC_target = LOG_DAEMON;
 
@@ -372,11 +347,15 @@ static void xcloselog(BIO* bp)
 {
 }
 
-#else /* Unix */
+#else /* Unix/Watt32 */
 
 static void xopenlog(BIO* bp, char* name, int level)
 {
+#ifdef WATT32   /* djgpp/DOS */
+	openlog(name, LOG_PID|LOG_CONS|LOG_NDELAY, level);
+#else
 	openlog(name, LOG_PID|LOG_CONS, level);
+#endif
 }
 
 static void xsyslog(BIO *bp, int priority, const char *string)

@@ -365,7 +365,6 @@ const defaults_t defaults[] = {
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
-	{ "dns_cache",			"4096"				},	// DNS cache size (0 to disable cache)
 	{ "dhcpc_minpkt",		"1"				},
 	{ "dhcpc_vendorclass",		""				},
 	{ "dhcpc_requestip",		""				},

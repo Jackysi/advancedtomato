@@ -97,7 +97,7 @@ EXIT:
 			sigprocmask(SIG_SETMASK, &sigmask, NULL);
 			signal(SIGCHLD, chld);
 			// reap zombies
-			while (waitpid(-1, NULL, WNOHANG) > 0) {}
+			chld_reap(0);
 		}
 		return status;
 	}

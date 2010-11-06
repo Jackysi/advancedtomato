@@ -16,15 +16,16 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <errno.h>
 
-#include <shared.h>
-#include <shutils.h>
-
-#include "../matrixssl/matrixSsl.h"
+#include "matrixSsl.h"
 /*
 #include "mssl.h"
 */
 
+#define _dprintf(args...)	while (0) {}
 
 typedef struct {
 	ssl_t *ssl;
@@ -334,7 +335,7 @@ static ssize_t _mssl_write(void *cookie, const char *buf, size_t len)
 	mssl_cookie_t *kuki = cookie;
 	int r;
 
-	_dprintf("%s(len=%d), outbufcnt=%d\n", __FUNCTION__, len);
+	_dprintf("%s(len=%d), outbufcnt=%d\n", __FUNCTION__, len, kuki->outbufcnt);
 
 	kuki->sslend = 0;
 	/* Pack the buffered socket data (if any) so that start is at zero. */
@@ -552,7 +553,7 @@ FILE *ssl_client_fopen(int sd)
 	return _ssl_fopen(sd, 1);
 }
 
-int ssl_init(char *cert, char *priv)
+int mssl_init(char *cert, char *priv)
 {
 	_dprintf("%s()\n", __FUNCTION__);
 	if (matrixSslOpen() < 0) {

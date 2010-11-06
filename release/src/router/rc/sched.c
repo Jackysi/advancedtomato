@@ -141,7 +141,7 @@ int sched_main(int argc, char *argv[])
 							syslog(LOG_INFO, "Performing scheduled %s...", s);
 						}
 
-						signal(SIGCHLD, handle_reap);
+						signal(SIGCHLD, chld_reap);
 
 						sprintf(s, "%s_cmd", argv[1]);
 						DLOG("%s: run=%s", __FUNCTION__, nvram_safe_get(s));

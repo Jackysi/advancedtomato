@@ -83,7 +83,7 @@ const char *X509_verify_cert_error_string(long n)
 	case X509_V_ERR_UNABLE_TO_DECRYPT_CERT_SIGNATURE:
 		return("unable to decrypt certificate's signature");
 	case X509_V_ERR_UNABLE_TO_DECRYPT_CRL_SIGNATURE:
-		return("unable to decrypt CRL's's signature");
+		return("unable to decrypt CRL's signature");
 	case X509_V_ERR_UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY:
 		return("unable to decode issuer public key");
 	case X509_V_ERR_CERT_SIGNATURE_FAILURE:
@@ -122,8 +122,14 @@ const char *X509_verify_cert_error_string(long n)
 		return("certificate revoked");
 	case X509_V_ERR_INVALID_CA:
 		return ("invalid CA certificate");
+	case X509_V_ERR_INVALID_NON_CA:
+		return ("invalid non-CA certificate (has CA markings)");
 	case X509_V_ERR_PATH_LENGTH_EXCEEDED:
 		return ("path length constraint exceeded");
+	case X509_V_ERR_PROXY_PATH_LENGTH_EXCEEDED:
+		return("proxy path length constraint exceeded");
+	case X509_V_ERR_PROXY_CERTIFICATES_NOT_ALLOWED:
+		return("proxy certificates not allowed, please set the appropriate flag");
 	case X509_V_ERR_INVALID_PURPOSE:
 		return ("unsupported certificate purpose");
 	case X509_V_ERR_CERT_UNTRUSTED:
@@ -140,9 +146,46 @@ const char *X509_verify_cert_error_string(long n)
 		return("authority and issuer serial number mismatch");
 	case X509_V_ERR_KEYUSAGE_NO_CERTSIGN:
 		return("key usage does not include certificate signing");
+	case X509_V_ERR_UNABLE_TO_GET_CRL_ISSUER:
+		return("unable to get CRL issuer certificate");
+	case X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION:
+		return("unhandled critical extension");
+	case X509_V_ERR_KEYUSAGE_NO_CRL_SIGN:
+		return("key usage does not include CRL signing");
+	case X509_V_ERR_KEYUSAGE_NO_DIGITAL_SIGNATURE:
+		return("key usage does not include digital signature");
+	case X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION:
+		return("unhandled critical CRL extension");
+	case X509_V_ERR_INVALID_EXTENSION:
+		return("invalid or inconsistent certificate extension");
+	case X509_V_ERR_INVALID_POLICY_EXTENSION:
+		return("invalid or inconsistent certificate policy extension");
+	case X509_V_ERR_NO_EXPLICIT_POLICY:
+		return("no explicit policy");
+	case X509_V_ERR_DIFFERENT_CRL_SCOPE:
+	return("Different CRL scope");
+	case X509_V_ERR_UNSUPPORTED_EXTENSION_FEATURE:
+	return("Unsupported extension feature");
+ 	case X509_V_ERR_UNNESTED_RESOURCE:
+ 		return("RFC 3779 resource not subset of parent's resources");
+
+	case X509_V_ERR_PERMITTED_VIOLATION:
+		return("permitted subtree violation");
+	case X509_V_ERR_EXCLUDED_VIOLATION:
+		return("excluded subtree violation");
+	case X509_V_ERR_SUBTREE_MINMAX:
+		return("name constraints minimum and maximum not supported");
+	case X509_V_ERR_UNSUPPORTED_CONSTRAINT_TYPE:
+		return("unsupported name constraint type");
+	case X509_V_ERR_UNSUPPORTED_CONSTRAINT_SYNTAX:
+		return("unsupported or invalid name constraint syntax");
+	case X509_V_ERR_UNSUPPORTED_NAME_SYNTAX:
+		return("unsupported or invalid name syntax");
+	case X509_V_ERR_CRL_PATH_VALIDATION_ERROR:
+		return("CRL path validation error");
 
 	default:
-		sprintf(buf,"error number %ld",n);
+		BIO_snprintf(buf,sizeof buf,"error number %ld",n);
 		return(buf);
 		}
 	}

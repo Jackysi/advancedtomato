@@ -119,7 +119,6 @@ static int usblp_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 /*******************************************************/
 
 /* ioctls: */
-#define LPGETSTATUS		0x060b		/* same as in drivers/char/lp.c */
 #define IOCNR_GET_DEVICE_ID		1
 #define IOCNR_GET_PROTOCOLS		2
 #define IOCNR_SET_PROTOCOL		3

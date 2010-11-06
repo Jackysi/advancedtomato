@@ -57,7 +57,7 @@
  */
 
 #include "ssl_locl.h"
-#ifndef NO_SSL2
+#ifndef OPENSSL_NO_SSL2
 #include <stdio.h>
 
 int ssl2_enc_init(SSL *s, int client)
@@ -68,39 +68,44 @@ int ssl2_enc_init(SSL *s, int client)
 	const EVP_MD *md;
 	int num;
 
-	if (!ssl_cipher_get_evp(s->session,&c,&md,NULL))
+	if (!ssl_cipher_get_evp(s->session,&c,&md,NULL,NULL,NULL))
 		{
 		ssl2_return_error(s,SSL2_PE_NO_CIPHER);
 		SSLerr(SSL_F_SSL2_ENC_INIT,SSL_R_PROBLEMS_MAPPING_CIPHER_FUNCTIONS);
 		return(0);
 		}
-
-	s->read_hash=md;
-	s->write_hash=md;
+	ssl_replace_hash(&s->read_hash,md);
+	ssl_replace_hash(&s->write_hash,md);
 
 	if ((s->enc_read_ctx == NULL) &&
 		((s->enc_read_ctx=(EVP_CIPHER_CTX *)
 		OPENSSL_malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
 		goto err;
+
+	/* make sure it's intialized in case the malloc for enc_write_ctx fails
+	 * and we exit with an error */
+	rs= s->enc_read_ctx;
+	EVP_CIPHER_CTX_init(rs);
+
 	if ((s->enc_write_ctx == NULL) &&
 		((s->enc_write_ctx=(EVP_CIPHER_CTX *)
 		OPENSSL_malloc(sizeof(EVP_CIPHER_CTX))) == NULL))
 		goto err;
 
-	rs= s->enc_read_ctx;
 	ws= s->enc_write_ctx;
-
-	EVP_CIPHER_CTX_init(rs);
 	EVP_CIPHER_CTX_init(ws);
 
 	num=c->key_len;
 	s->s2->key_material_length=num*2;
+	OPENSSL_assert(s->s2->key_material_length <= sizeof s->s2->key_material);
 
-	ssl2_generate_key_material(s);
+	if (ssl2_generate_key_material(s) <= 0)
+		return 0;
 
-	EVP_EncryptInit(ws,c,&(s->s2->key_material[(client)?num:0]),
+	OPENSSL_assert(c->iv_len <= (int)sizeof(s->session->key_arg));
+	EVP_EncryptInit_ex(ws,c,NULL,&(s->s2->key_material[(client)?num:0]),
 		s->session->key_arg);
-	EVP_DecryptInit(rs,c,&(s->s2->key_material[(client)?0:num]),
+	EVP_DecryptInit_ex(rs,c,NULL,&(s->s2->key_material[(client)?0:num]),
 		s->session->key_arg);
 	s->s2->read_key=  &(s->s2->key_material[(client)?0:num]);
 	s->s2->write_key= &(s->s2->key_material[(client)?num:0]);
@@ -169,16 +174,17 @@ void ssl2_mac(SSL *s, unsigned char *md, int send)
 	l2n(seq,p);
 
 	/* There has to be a MAC algorithm. */
-	EVP_DigestInit(&c,s->read_hash);
+	EVP_MD_CTX_init(&c);
+	EVP_MD_CTX_copy(&c, s->read_hash);
 	EVP_DigestUpdate(&c,sec,
 		EVP_CIPHER_CTX_key_length(s->enc_read_ctx));
 	EVP_DigestUpdate(&c,act,len); 
 	/* the above line also does the pad data */
 	EVP_DigestUpdate(&c,sequence,4); 
-	EVP_DigestFinal(&c,md,NULL);
-	/* some would say I should zero the md context */
+	EVP_DigestFinal_ex(&c,md,NULL);
+	EVP_MD_CTX_cleanup(&c);
 	}
-#else /* !NO_SSL2 */
+#else /* !OPENSSL_NO_SSL2 */
 
 # if PEDANTIC
 static void *dummy=&dummy;

@@ -1,6 +1,6 @@
 .explicit
 .text
-.ident	"ia64.S, Version 1.1"
+.ident	"ia64.S, Version 2.1"
 .ident	"IA-64 ISA artwork by Andy Polyakov <appro@fy.chalmers.se>"
 
 //
@@ -13,6 +13,35 @@
 // disclaimed.
 // ====================================================================
 //
+// Version 2.x is Itanium2 re-tune. Few words about how Itanum2 is
+// different from Itanium to this module viewpoint. Most notably, is it
+// "wider" than Itanium? Can you experience loop scalability as
+// discussed in commentary sections? Not really:-( Itanium2 has 6
+// integer ALU ports, i.e. it's 2 ports wider, but it's not enough to
+// spin twice as fast, as I need 8 IALU ports. Amount of floating point
+// ports is the same, i.e. 2, while I need 4. In other words, to this
+// module Itanium2 remains effectively as "wide" as Itanium. Yet it's
+// essentially different in respect to this module, and a re-tune was
+// required. Well, because some intruction latencies has changed. Most
+// noticeably those intensively used:
+//
+//			Itanium	Itanium2
+//	ldf8		9	6		L2 hit
+//	ld8		2	1		L1 hit
+//	getf		2	5
+//	xma[->getf]	7[+1]	4[+0]
+//	add[->st8]	1[+1]	1[+0]
+//
+// What does it mean? You might ratiocinate that the original code
+// should run just faster... Because sum of latencies is smaller...
+// Wrong! Note that getf latency increased. This means that if a loop is
+// scheduled for lower latency (as they were), then it will suffer from
+// stall condition and the code will therefore turn anti-scalable, e.g.
+// original bn_mul_words spun at 5*n or 2.5 times slower than expected
+// on Itanium2! What to do? Reschedule loops for Itanium2? But then
+// Itanium would exhibit anti-scalability. So I've chosen to reschedule
+// for worst latency for every instruction aiming for best *all-round*
+// performance.  
 
 // Q.	How much faster does it get?
 // A.	Here is the output from 'openssl speed rsa dsa' for vanilla
@@ -116,6 +145,12 @@
 //	-Drum=nop.m in command line.
 //
 
+#if defined(_HPUX_SOURCE) && !defined(_LP64)
+#define	ADDP	addp4
+#else
+#define	ADDP	add
+#endif
+
 #if 1
 //
 // bn_[add|sub]_words routines.
@@ -136,25 +171,25 @@
 .skip	32	// makes the loop body aligned at 64-byte boundary
 bn_add_words:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
 { .mii;	alloc		r2=ar.pfs,4,12,0,16
 	cmp4.le		p6,p0=r35,r0	};;
 { .mfb;	mov		r8=r0			// return value
 (p6)	br.ret.spnt.many	b0	};;
 
-	.save	ar.lc,r3
 { .mib;	sub		r10=r35,r0,1
+	.save	ar.lc,r3
 	mov		r3=ar.lc
 	brp.loop.imp	.L_bn_add_words_ctop,.L_bn_add_words_cend-16
 					}
-	.body
-{ .mib;	mov		r14=r32			// rp
+{ .mib;	ADDP		r14=0,r32		// rp
+	.save	pr,r9
 	mov		r9=pr		};;
-{ .mii;	mov		r15=r33			// ap
+	.body
+{ .mii;	ADDP		r15=0,r33		// ap
 	mov		ar.lc=r10
 	mov		ar.ec=6		}
-{ .mib;	mov		r16=r34			// bp
+{ .mib;	ADDP		r16=0,r34		// bp
 	mov		pr.rot=1<<16	};;
 
 .L_bn_add_words_ctop:
@@ -174,7 +209,7 @@ bn_add_words:
 
 { .mii;
 (p59)	add		r8=1,r8		// return value
-	mov		pr=r9,-1
+	mov		pr=r9,0x1ffff
 	mov		ar.lc=r3	}
 { .mbb;	nop.b		0x0
 	br.ret.sptk.many	b0	};;
@@ -189,25 +224,25 @@ bn_add_words:
 .skip	32	// makes the loop body aligned at 64-byte boundary
 bn_sub_words:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
 { .mii;	alloc		r2=ar.pfs,4,12,0,16
 	cmp4.le		p6,p0=r35,r0	};;
 { .mfb;	mov		r8=r0			// return value
 (p6)	br.ret.spnt.many	b0	};;
 
-	.save	ar.lc,r3
 { .mib;	sub		r10=r35,r0,1
+	.save	ar.lc,r3
 	mov		r3=ar.lc
 	brp.loop.imp	.L_bn_sub_words_ctop,.L_bn_sub_words_cend-16
 					}
-	.body
-{ .mib;	mov		r14=r32			// rp
+{ .mib;	ADDP		r14=0,r32		// rp
+	.save	pr,r9
 	mov		r9=pr		};;
-{ .mii;	mov		r15=r33			// ap
+	.body
+{ .mii;	ADDP		r15=0,r33		// ap
 	mov		ar.lc=r10
 	mov		ar.ec=6		}
-{ .mib;	mov		r16=r34			// bp
+{ .mib;	ADDP		r16=0,r34		// bp
 	mov		pr.rot=1<<16	};;
 
 .L_bn_sub_words_ctop:
@@ -227,7 +262,7 @@ bn_sub_words:
 
 { .mii;
 (p59)	add		r8=1,r8		// return value
-	mov		pr=r9,-1
+	mov		pr=r9,0x1ffff
 	mov		ar.lc=r3	}
 { .mbb;	nop.b		0x0
 	br.ret.sptk.many	b0	};;
@@ -248,42 +283,42 @@ bn_sub_words:
 .skip	32	// makes the loop body aligned at 64-byte boundary
 bn_mul_words:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
 #ifdef XMA_TEMPTATION
 { .mfi;	alloc		r2=ar.pfs,4,0,0,0	};;
 #else
-{ .mfi;	alloc		r2=ar.pfs,4,4,0,8	};;
+{ .mfi;	alloc		r2=ar.pfs,4,12,0,16	};;
 #endif
 { .mib;	mov		r8=r0			// return value
 	cmp4.le		p6,p0=r34,r0
 (p6)	br.ret.spnt.many	b0		};;
 
-	.save	ar.lc,r3
 { .mii;	sub	r10=r34,r0,1
+	.save	ar.lc,r3
 	mov	r3=ar.lc
+	.save	pr,r9
 	mov	r9=pr			};;
 
 	.body
 { .mib;	setf.sig	f8=r35	// w
-	mov		pr.rot=0x400001<<16
-			// ------^----- serves as (p48) at first (p26)
+	mov		pr.rot=0x800001<<16
+			// ------^----- serves as (p50) at first (p27)
 	brp.loop.imp	.L_bn_mul_words_ctop,.L_bn_mul_words_cend-16
 					}
 
 #ifndef XMA_TEMPTATION
 
-{ .mii;	mov		r14=r32	// rp
-	mov		r15=r33	// ap
+{ .mmi;	ADDP		r14=0,r32	// rp
+	ADDP		r15=0,r33	// ap
 	mov		ar.lc=r10	}
-{ .mii;	mov		r39=0	// serves as r33 at first (p26)
-	mov		ar.ec=12	};;
+{ .mmi;	mov		r40=0		// serves as r35 at first (p27)
+	mov		ar.ec=13	};;
 
-// This loop spins in 2*(n+11) ticks. It's scheduled for data in L2
-// cache (i.e. 9 ticks away) as floating point load/store instructions
+// This loop spins in 2*(n+12) ticks. It's scheduled for data in Itanium
+// L2 cache (i.e. 9 ticks away) as floating point load/store instructions
 // bypass L1 cache and L2 latency is actually best-case scenario for
-// ldf8. The loop is not scalable and shall run in 2*(n+11) even on
-// "wider" IA-64 implementations. It's a trade-off here. n+22 loop
+// ldf8. The loop is not scalable and shall run in 2*(n+12) even on
+// "wider" IA-64 implementations. It's a trade-off here. n+24 loop
 // would give us ~5% in *overall* performance improvement on "wider"
 // IA-64, but would hurt Itanium for about same because of longer
 // epilogue. As it's a matter of few percents in either case I've
@@ -291,25 +326,25 @@ bn_mul_words:
 // this very instruction sequence in bn_mul_add_words loop which in
 // turn is scalable).
 .L_bn_mul_words_ctop:
-{ .mfi;	(p25)	getf.sig	r36=f49			// low
-	(p21)	xmpy.lu		f45=f37,f8
-	(p27)	cmp.ltu		p52,p48=r39,r38	}
+{ .mfi;	(p25)	getf.sig	r36=f52			// low
+	(p21)	xmpy.lu		f48=f37,f8
+	(p28)	cmp.ltu		p54,p50=r41,r39	}
 { .mfi;	(p16)	ldf8		f32=[r15],8
-	(p21)	xmpy.hu		f38=f37,f8
+	(p21)	xmpy.hu		f40=f37,f8
 	(p0)	nop.i		0x0		};;
-{ .mii;	(p26)	getf.sig	r32=f43			// high
-	.pred.rel	"mutex",p48,p52
-	(p48)	add		r38=r37,r33		// (p26)
-	(p52)	add		r38=r37,r33,1	}	// (p26)
-{ .mfb;	(p27)	st8		[r14]=r39,8
+{ .mii;	(p25)	getf.sig	r32=f44			// high
+	.pred.rel	"mutex",p50,p54
+	(p50)	add		r40=r38,r35		// (p27)
+	(p54)	add		r40=r38,r35,1	}	// (p27)
+{ .mfb;	(p28)	st8		[r14]=r41,8
 	(p0)	nop.f		0x0
 	br.ctop.sptk	.L_bn_mul_words_ctop	};;
 .L_bn_mul_words_cend:
 
 { .mii;	nop.m		0x0
-.pred.rel	"mutex",p49,p53
-(p49)	add		r8=r34,r0
-(p53)	add		r8=r34,r0,1	}
+.pred.rel	"mutex",p51,p55
+(p51)	add		r8=r36,r0
+(p55)	add		r8=r36,r0,1	}
 { .mfb;	nop.m	0x0
 	nop.f	0x0
 	nop.b	0x0			}
@@ -344,7 +379,7 @@ bn_mul_words:
 #endif	// XMA_TEMPTATION
 
 { .mii;	nop.m		0x0
-	mov		pr=r9,-1
+	mov		pr=r9,0x1ffff
 	mov		ar.lc=r3	}
 { .mfb;	rum		1<<5		// clear um.mfh
 	nop.f		0x0
@@ -359,79 +394,63 @@ bn_mul_words:
 .global	bn_mul_add_words#
 .proc	bn_mul_add_words#
 .align	64
-//.skip	0	// makes the loop split at 64-byte boundary
+.skip	48	// makes the loop body aligned at 64-byte boundary
 bn_mul_add_words:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
-{ .mii;	alloc		r2=ar.pfs,4,12,0,16
-	cmp4.le		p6,p0=r34,r0	};;
-{ .mfb;	mov		r8=r0			// return value
+{ .mmi;	alloc		r2=ar.pfs,4,4,0,8
+	cmp4.le		p6,p0=r34,r0
+	.save	ar.lc,r3
+	mov		r3=ar.lc	};;
+{ .mib;	mov		r8=r0		// return value
+	sub		r10=r34,r0,1
 (p6)	br.ret.spnt.many	b0	};;
 
-	.save	ar.lc,r3
-{ .mii;	sub	r10=r34,r0,1
-	mov	r3=ar.lc
-	mov	r9=pr			};;
-
-	.body
-{ .mib;	setf.sig	f8=r35	// w
-	mov		pr.rot=0x400001<<16
-			// ------^----- serves as (p48) at first (p26)
+{ .mib;	setf.sig	f8=r35		// w
+	.save	pr,r9
+	mov		r9=pr
 	brp.loop.imp	.L_bn_mul_add_words_ctop,.L_bn_mul_add_words_cend-16
 					}
-{ .mii;	mov		r14=r32	// rp
-	mov		r15=r33	// ap
+	.body
+{ .mmi;	ADDP		r14=0,r32	// rp
+	ADDP		r15=0,r33	// ap
 	mov		ar.lc=r10	}
-{ .mii;	mov		r39=0	// serves as r33 at first (p26)
-	mov		r18=r32	// rp copy
-	mov		ar.ec=14	};;
+{ .mii;	ADDP		r16=0,r32	// rp copy
+	mov		pr.rot=0x2001<<16
+			// ------^----- serves as (p40) at first (p27)
+	mov		ar.ec=11	};;
 
-// This loop spins in 3*(n+13) ticks on Itanium and should spin in
-// 2*(n+13) on "wider" IA-64 implementations (to be verified with new
-// µ-architecture manuals as they become available). As usual it's
-// possible to compress the epilogue, down to 10 in this case, at the
-// cost of scalability. Compressed (and therefore non-scalable) loop
-// running at 3*(n+10) would buy you ~10% on Itanium but take ~35%
-// from "wider" IA-64 so let it be scalable! Special attention was
-// paid for having the loop body split at 64-byte boundary. ld8 is
-// scheduled for L1 cache as the data is more than likely there.
-// Indeed, bn_mul_words has put it there a moment ago:-)
+// This loop spins in 3*(n+10) ticks on Itanium and in 2*(n+10) on
+// Itanium 2. Yes, unlike previous versions it scales:-) Previous
+// version was peforming *all* additions in IALU and was starving
+// for those even on Itanium 2. In this version one addition is
+// moved to FPU and is folded with multiplication. This is at cost
+// of propogating the result from previous call to this subroutine
+// to L2 cache... In other words negligible even for shorter keys.
+// *Overall* performance improvement [over previous version] varies
+// from 11 to 22 percent depending on key length.
 .L_bn_mul_add_words_ctop:
-{ .mfi;	(p25)	getf.sig	r36=f49			// low
-	(p21)	xmpy.lu		f45=f37,f8
-	(p27)	cmp.ltu		p52,p48=r39,r38	}
-{ .mfi;	(p16)	ldf8		f32=[r15],8
-	(p21)	xmpy.hu		f38=f37,f8
-	(p27)	add		r43=r43,r39	};;
-{ .mii;	(p26)	getf.sig	r32=f43			// high
-	.pred.rel	"mutex",p48,p52
-	(p48)	add		r38=r37,r33		// (p26)
-	(p52)	add		r38=r37,r33,1	}	// (p26)
-{ .mfb;	(p27)	cmp.ltu.unc	p56,p0=r43,r39
-	(p0)	nop.f		0x0
-	(p0)	nop.b		0x0		}
-{ .mii;	(p26)	ld8		r42=[r18],8
-	(p58)	cmp.eq.or	p57,p0=-1,r44
-	(p58)	add		r44=1,r44	}
-{ .mfb;	(p29)	st8		[r14]=r45,8
-	(p0)	nop.f		0x0
+.pred.rel	"mutex",p40,p42
+{ .mfi;	(p23)	getf.sig	r36=f45			// low
+	(p20)	xma.lu		f42=f36,f8,f50		// low
+	(p40)	add		r39=r39,r35	}	// (p27)
+{ .mfi;	(p16)	ldf8		f32=[r15],8		// *(ap++)
+	(p20)	xma.hu		f36=f36,f8,f50		// high
+	(p42)	add		r39=r39,r35,1	};;	// (p27)
+{ .mmi;	(p24)	getf.sig	r32=f40			// high
+	(p16)	ldf8		f46=[r16],8		// *(rp1++)
+	(p40)	cmp.ltu		p41,p39=r39,r35	}	// (p27)
+{ .mib;	(p26)	st8		[r14]=r39,8		// *(rp2++)
+	(p42)	cmp.leu		p41,p39=r39,r35		// (p27)
 	br.ctop.sptk	.L_bn_mul_add_words_ctop};;
 .L_bn_mul_add_words_cend:
 
-{ .mii;	nop.m		0x0
-.pred.rel	"mutex",p51,p55
-(p51)	add		r8=r36,r0
-(p55)	add		r8=r36,r0,1	}
-{ .mfb;	nop.m	0x0
-	nop.f	0x0
-	nop.b	0x0			};;
-{ .mii;
-(p59)	add		r8=1,r8
-	mov		pr=r9,-1
-	mov		ar.lc=r3	}
-{ .mfb;	rum		1<<5		// clear um.mfh
-	nop.f		0x0
+{ .mmi;	.pred.rel	"mutex",p40,p42
+(p40)	add		r8=r35,r0
+(p42)	add		r8=r35,r0,1
+	mov		pr=r9,0x1ffff	}
+{ .mib;	rum		1<<5		// clear um.mfh
+	mov		ar.lc=r3
 	br.ret.sptk.many	b0	};;
 .endp	bn_mul_add_words#
 #endif
@@ -446,22 +465,23 @@ bn_mul_add_words:
 .skip	32	// makes the loop body aligned at 64-byte boundary 
 bn_sqr_words:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
 { .mii;	alloc		r2=ar.pfs,3,0,0,0
 	sxt4		r34=r34		};;
 { .mii;	cmp.le		p6,p0=r34,r0
 	mov		r8=r0		}	// return value
-{ .mfb;	nop.f		0x0
+{ .mfb;	ADDP		r32=0,r32
+	nop.f		0x0
 (p6)	br.ret.spnt.many	b0	};;
 
-	.save	ar.lc,r3
 { .mii;	sub	r10=r34,r0,1
+	.save	ar.lc,r3
 	mov	r3=ar.lc
+	.save	pr,r9
 	mov	r9=pr			};;
 
 	.body
-{ .mib;
+{ .mib;	ADDP		r33=0,r33
 	mov		pr.rot=1<<16
 	brp.loop.imp	.L_bn_sqr_words_ctop,.L_bn_sqr_words_cend-16
 					}
@@ -492,7 +512,7 @@ bn_sqr_words:
 .L_bn_sqr_words_cend:
 
 { .mii;	nop.m		0x0
-	mov		pr=r9,-1
+	mov		pr=r9,0x1ffff
 	mov		ar.lc=r3	}
 { .mfb;	rum		1<<5		// clear um.mfh
 	nop.f		0x0
@@ -524,9 +544,15 @@ bn_sqr_words:
 .align	64
 bn_sqr_comba8:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
+#if defined(_HPUX_SOURCE) && !defined(_LP64)
 { .mii;	alloc	r2=ar.pfs,2,1,0,0
+	addp4	r33=0,r33
+	addp4	r32=0,r32		};;
+{ .mii;
+#else
+{ .mii;	alloc	r2=ar.pfs,2,1,0,0
+#endif
 	mov	r34=r33
 	add	r14=8,r33		};;
 	.body
@@ -544,6 +570,10 @@ bn_sqr_comba8:
 // cycles consumed for instructions fetch? Or did I misinterpret some
 // clause in Itanium µ-architecture manual? Comments are welcomed and
 // highly appreciated.
+//
+// On Itanium 2 it takes ~190 ticks. This is because of stalls on
+// result from getf.sig. I do nothing about it at this point for
+// reasons depicted below.
 //
 // However! It should be noted that even 160 ticks is darn good result
 // as it's over 10 (yes, ten, spelled as t-e-n) times faster than the
@@ -585,9 +615,15 @@ bn_sqr_comba8:
 .align	64
 bn_mul_comba8:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
+#if defined(_HPUX_SOURCE) && !defined(_LP64)
 { .mii;	alloc	r2=ar.pfs,3,0,0,0
+	addp4	r33=0,r33
+	addp4	r34=0,r34		};;
+{ .mii;	addp4	r32=0,r32
+#else
+{ .mii;	alloc   r2=ar.pfs,3,0,0,0
+#endif
 	add	r14=8,r33
 	add	r17=8,r34		}
 	.body
@@ -1136,9 +1172,15 @@ bn_mul_comba8:
 .align	64
 bn_sqr_comba4:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
+#if defined(_HPUX_SOURCE) && !defined(_LP64)
+{ .mii;	alloc   r2=ar.pfs,2,1,0,0
+	addp4	r32=0,r32
+	addp4	r33=0,r33		};;
+{ .mii;
+#else
 { .mii;	alloc	r2=ar.pfs,2,1,0,0
+#endif
 	mov	r34=r33
 	add	r14=8,r33		};;
 	.body
@@ -1162,9 +1204,15 @@ bn_sqr_comba4:
 .align	64
 bn_mul_comba4:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
+#if defined(_HPUX_SOURCE) && !defined(_LP64)
+{ .mii;	alloc   r2=ar.pfs,3,0,0,0
+	addp4	r33=0,r33
+	addp4	r34=0,r34		};;
+{ .mii;	addp4	r32=0,r32
+#else
 { .mii;	alloc	r2=ar.pfs,3,0,0,0
+#endif
 	add	r14=8,r33
 	add	r17=8,r34		}
 	.body
@@ -1341,8 +1389,8 @@ bn_mul_comba4:
 #define	I	r21
 
 #if 0
-// Some preprocessors (most notably HP-UX) apper to be allergic to
-// macros enclosed to parenthesis as these three will be.
+// Some preprocessors (most notably HP-UX) appear to be allergic to
+// macros enclosed to parenthesis [as these three were].
 #define	cont	p16
 #define	break	p0	// p20
 #define	equ	p24
@@ -1358,11 +1406,11 @@ equ=p24
 .align	64
 bn_div_words:
 	.prologue
-	.fframe	0
 	.save	ar.pfs,r2
-	.save	b0,r3
 { .mii;	alloc		r2=ar.pfs,3,5,0,8
+	.save	b0,r3
 	mov		r3=b0
+	.save	pr,r10
 	mov		r10=pr		};;
 { .mmb;	cmp.eq		p6,p0=r34,r0
 	mov		r8=-1
@@ -1464,7 +1512,7 @@ bn_div_words:
 	or	r8=r8,r33
 	mov	ar.pfs=r2		};;
 { .mii;	shr.u	r9=H,I			// remainder if anybody wants it
-	mov	pr=r10,-1		}
+	mov	pr=r10,0x1ffff		}
 { .mfb;	br.ret.sptk.many	b0	};;
 
 // Unsigned 64 by 32 (well, by 64 for the moment) bit integer division
@@ -1474,9 +1522,18 @@ bn_div_words:
 // output:	f8 = (int)(a/b)
 // clobbered:	f8,f9,f10,f11,pred
 pred=p15
-// This procedure is essentially Intel code and therefore is
-// copyrighted to Intel Corporation (I suppose...). It's sligtly
-// modified for specific needs.
+// One can argue that this snippet is copyrighted to Intel
+// Corporation, as it's essentially identical to one of those
+// found in "Divide, Square Root and Remainder" section at
+// http://www.intel.com/software/products/opensource/libraries/num.htm.
+// Yes, I admit that the referred code was used as template,
+// but after I realized that there hardly is any other instruction
+// sequence which would perform this operation. I mean I figure that
+// any independent attempt to implement high-performance division
+// will result in code virtually identical to the Intel code. It
+// should be noted though that below division kernel is 1 cycle
+// faster than Intel one (note commented splits:-), not to mention
+// original prologue (rather lack of one) and epilogue.
 .align	32
 .skip	16
 .L_udiv64_32_b6:

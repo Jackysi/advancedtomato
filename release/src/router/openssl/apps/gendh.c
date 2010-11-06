@@ -57,7 +57,14 @@
  * [including the GNU Public Licence.]
  */
 
-#ifndef NO_DH
+#include <openssl/opensslconf.h>
+/* Until the key-gen callbacks are modified to use newer prototypes, we allow
+ * deprecated functions for openssl-internal code */
+#ifdef OPENSSL_NO_DEPRECATED
+#undef OPENSSL_NO_DEPRECATED
+#endif
+
+#ifndef OPENSSL_NO_DH
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -75,24 +82,35 @@
 #undef PROG
 #define PROG gendh_main
 
-static void MS_CALLBACK dh_cb(int p, int n, void *arg);
+static int MS_CALLBACK dh_cb(int p, int n, BN_GENCB *cb);
 
 int MAIN(int, char **);
 
 int MAIN(int argc, char **argv)
 	{
+	BN_GENCB cb;
+#ifndef OPENSSL_NO_ENGINE
+	ENGINE *e = NULL;
+#endif
 	DH *dh=NULL;
 	int ret=1,num=DEFBITS;
 	int g=2;
 	char *outfile=NULL;
 	char *inrand=NULL;
+#ifndef OPENSSL_NO_ENGINE
+	char *engine=NULL;
+#endif
 	BIO *out=NULL;
 
 	apps_startup();
 
+	BN_GENCB_set(&cb, dh_cb, bio_err);
 	if (bio_err == NULL)
 		if ((bio_err=BIO_new(BIO_s_file())) != NULL)
 			BIO_set_fp(bio_err,stderr,BIO_NOCLOSE|BIO_FP_TEXT);
+
+	if (!load_config(bio_err, NULL))
+		goto end;
 
 	argv++;
 	argc--;
@@ -110,6 +128,13 @@ int MAIN(int argc, char **argv)
 			g=3; */
 		else if (strcmp(*argv,"-5") == 0)
 			g=5;
+#ifndef OPENSSL_NO_ENGINE
+		else if (strcmp(*argv,"-engine") == 0)
+			{
+			if (--argc < 1) goto bad;
+			engine= *(++argv);
+			}
+#endif
 		else if (strcmp(*argv,"-rand") == 0)
 			{
 			if (--argc < 1) goto bad;
@@ -125,15 +150,22 @@ int MAIN(int argc, char **argv)
 bad:
 		BIO_printf(bio_err,"usage: gendh [args] [numbits]\n");
 		BIO_printf(bio_err," -out file - output the key to 'file\n");
-		BIO_printf(bio_err," -2    use 2 as the generator value\n");
-	/*	BIO_printf(bio_err," -3    use 3 as the generator value\n"); */
-		BIO_printf(bio_err," -5    use 5 as the generator value\n");
+		BIO_printf(bio_err," -2        - use 2 as the generator value\n");
+	/*	BIO_printf(bio_err," -3        - use 3 as the generator value\n"); */
+		BIO_printf(bio_err," -5        - use 5 as the generator value\n");
+#ifndef OPENSSL_NO_ENGINE
+		BIO_printf(bio_err," -engine e - use engine e, possibly a hardware device.\n");
+#endif
 		BIO_printf(bio_err," -rand file%cfile%c...\n", LIST_SEPARATOR_CHAR, LIST_SEPARATOR_CHAR);
 		BIO_printf(bio_err,"           - load the file (or the files in the directory) into\n");
 		BIO_printf(bio_err,"             the random number generator\n");
 		goto end;
 		}
 		
+#ifndef OPENSSL_NO_ENGINE
+        e = setup_engine(bio_err, engine, 0);
+#endif
+
 	out=BIO_new(BIO_s_file());
 	if (out == NULL)
 		{
@@ -144,7 +176,7 @@ bad:
 	if (outfile == NULL)
 		{
 		BIO_set_fp(out,stdout,BIO_NOCLOSE);
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 		{
 		BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 		out = BIO_push(tmpbio, out);
@@ -170,10 +202,10 @@ bad:
 
 	BIO_printf(bio_err,"Generating DH parameters, %d bit long safe prime, generator %d\n",num,g);
 	BIO_printf(bio_err,"This is going to take a long time\n");
-	dh=DH_generate_parameters(num,g,dh_cb,bio_err);
-		
-	if (dh == NULL) goto end;
 
+	if(((dh = DH_new()) == NULL) || !DH_generate_parameters_ex(dh, num, g, &cb))
+		goto end;
+		
 	app_RAND_write_file(NULL, bio_err);
 
 	if (!PEM_write_bio_DHparams(out,dh))
@@ -184,10 +216,11 @@ end:
 		ERR_print_errors(bio_err);
 	if (out != NULL) BIO_free_all(out);
 	if (dh != NULL) DH_free(dh);
-	EXIT(ret);
+	apps_shutdown();
+	OPENSSL_EXIT(ret);
 	}
 
-static void MS_CALLBACK dh_cb(int p, int n, void *arg)
+static int MS_CALLBACK dh_cb(int p, int n, BN_GENCB *cb)
 	{
 	char c='*';
 
@@ -195,10 +228,17 @@ static void MS_CALLBACK dh_cb(int p, int n, void *arg)
 	if (p == 1) c='+';
 	if (p == 2) c='*';
 	if (p == 3) c='\n';
-	BIO_write((BIO *)arg,&c,1);
-	(void)BIO_flush((BIO *)arg);
+	BIO_write(cb->arg,&c,1);
+	(void)BIO_flush(cb->arg);
 #ifdef LINT
 	p=n;
 #endif
+	return 1;
 	}
+#else /* !OPENSSL_NO_DH */
+
+# if PEDANTIC
+static void *dummy=&dummy;
+# endif
+
 #endif

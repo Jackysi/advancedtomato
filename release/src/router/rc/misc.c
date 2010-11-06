@@ -597,6 +597,22 @@ void killall_tk(const char *name)
 	}
 }
 
+/*
+ * Return non-zero if we created the directory,
+ * and zero if it already existed.
+ */
+int mkdir_if_none(const char *path)
+{
+	DIR *dp;
+
+	if (!(dp = opendir(path))) {
+		eval("mkdir", "-m", "0777", "-p", (char *)path);
+		return 1;
+	}
+	closedir(dp);
+	return 0;
+}
+
 long fappend(FILE *out, const char *fname)
 {
 	FILE *in;

@@ -60,26 +60,8 @@
 #include "cryptlib.h"
 #include <openssl/asn1.h>
 
-ASN1_BIT_STRING *ASN1_BIT_STRING_new(void)
-{ return M_ASN1_BIT_STRING_new(); }
-
-void ASN1_BIT_STRING_free(ASN1_BIT_STRING *x)
-{ M_ASN1_BIT_STRING_free(x); }
-
 int ASN1_BIT_STRING_set(ASN1_BIT_STRING *x, unsigned char *d, int len)
 { return M_ASN1_BIT_STRING_set(x, d, len); }
-
-int i2d_ASN1_BIT_STRING(ASN1_BIT_STRING *a, unsigned char **pp)
-{
-	int len, ret;
-	len = i2c_ASN1_BIT_STRING(a, NULL);	
-	ret=ASN1_object_size(0,len,V_ASN1_BIT_STRING);
-	if(pp) {
-		ASN1_put_object(pp,0,len,V_ASN1_BIT_STRING,V_ASN1_UNIVERSAL);
-		i2c_ASN1_BIT_STRING(a, pp);	
-	}
-	return ret;
-}
 
 int i2c_ASN1_BIT_STRING(ASN1_BIT_STRING *a, unsigned char **pp)
 	{
@@ -89,8 +71,6 @@ int i2c_ASN1_BIT_STRING(ASN1_BIT_STRING *a, unsigned char **pp)
 	if (a == NULL) return(0);
 
 	len=a->length;
-	ret=1+len;
-	if (pp == NULL) return(ret);
 
 	if (len > 0)
 		{
@@ -118,6 +98,10 @@ int i2c_ASN1_BIT_STRING(ASN1_BIT_STRING *a, unsigned char **pp)
 		}
 	else
 		bits=0;
+
+	ret=1+len;
+	if (pp == NULL) return(ret);
+
 	p= *pp;
 
 	*(p++)=(unsigned char)bits;
@@ -129,46 +113,19 @@ int i2c_ASN1_BIT_STRING(ASN1_BIT_STRING *a, unsigned char **pp)
 	return(ret);
 	}
 
-
-/* Convert DER encoded ASN1 BIT_STRING to ASN1_BIT_STRING structure */
-ASN1_BIT_STRING *d2i_ASN1_BIT_STRING(ASN1_BIT_STRING **a, unsigned char **pp,
-	     long length)
-{
-	unsigned char *p;
-	long len;
-	int i;
-	int inf,tag,xclass;
-	ASN1_BIT_STRING *ret;
-
-	p= *pp;
-	inf=ASN1_get_object(&p,&len,&tag,&xclass,length);
-	if (inf & 0x80)
-		{
-		i=ASN1_R_BAD_OBJECT_HEADER;
-		goto err;
-		}
-
-	if (tag != V_ASN1_BIT_STRING)
-		{
-		i=ASN1_R_EXPECTING_A_BIT_STRING;
-		goto err;
-		}
-	if (len < 1) { i=ASN1_R_STRING_TOO_SHORT; goto err; }
-	ret = c2i_ASN1_BIT_STRING(a, &p, len);
-	if(ret) *pp = p;
-	return ret;
-err:
-	ASN1err(ASN1_F_D2I_ASN1_BIT_STRING,i);
-	return(NULL);
-
-}
-
-ASN1_BIT_STRING *c2i_ASN1_BIT_STRING(ASN1_BIT_STRING **a, unsigned char **pp,
-	     long len)
+ASN1_BIT_STRING *c2i_ASN1_BIT_STRING(ASN1_BIT_STRING **a,
+	const unsigned char **pp, long len)
 	{
 	ASN1_BIT_STRING *ret=NULL;
-	unsigned char *p,*s;
+	const unsigned char *p;
+	unsigned char *s;
 	int i;
+
+	if (len < 1)
+		{
+		i=ASN1_R_STRING_TOO_SHORT;
+		goto err;
+		}
 
 	if ((a == NULL) || ((*a) == NULL))
 		{
@@ -208,7 +165,7 @@ ASN1_BIT_STRING *c2i_ASN1_BIT_STRING(ASN1_BIT_STRING **a, unsigned char **pp,
 	*pp=p;
 	return(ret);
 err:
-	ASN1err(ASN1_F_D2I_ASN1_BIT_STRING,i);
+	ASN1err(ASN1_F_C2I_ASN1_BIT_STRING,i);
 	if ((ret != NULL) && ((a == NULL) || (*a != ret)))
 		M_ASN1_BIT_STRING_free(ret);
 	return(NULL);
@@ -226,18 +183,26 @@ int ASN1_BIT_STRING_set_bit(ASN1_BIT_STRING *a, int n, int value)
 	iv= ~v;
 	if (!value) v=0;
 
+	if (a == NULL)
+		return 0;
+
 	a->flags&= ~(ASN1_STRING_FLAG_BITS_LEFT|0x07); /* clear, set on write */
 
-	if (a == NULL) return(0);
 	if ((a->length < (w+1)) || (a->data == NULL))
 		{
 		if (!value) return(1); /* Don't need to set */
 		if (a->data == NULL)
 			c=(unsigned char *)OPENSSL_malloc(w+1);
 		else
-			c=(unsigned char *)OPENSSL_realloc(a->data,w+1);
-		if (c == NULL) return(0);
-		if (w+1-a->length > 0) memset(c+a->length, 0, w+1-a->length);
+			c=(unsigned char *)OPENSSL_realloc_clean(a->data,
+								 a->length,
+								 w+1);
+		if (c == NULL)
+			{
+			ASN1err(ASN1_F_ASN1_BIT_STRING_SET_BIT,ERR_R_MALLOC_FAILURE);
+			return 0;
+			}
+  		if (w+1-a->length > 0) memset(c+a->length, 0, w+1-a->length);
 		a->data=c;
 		a->length=w+1;
 	}
@@ -258,3 +223,26 @@ int ASN1_BIT_STRING_get_bit(ASN1_BIT_STRING *a, int n)
 	return((a->data[w]&v) != 0);
 	}
 
+/*
+ * Checks if the given bit string contains only bits specified by 
+ * the flags vector. Returns 0 if there is at least one bit set in 'a'
+ * which is not specified in 'flags', 1 otherwise.
+ * 'len' is the length of 'flags'.
+ */
+int ASN1_BIT_STRING_check(ASN1_BIT_STRING *a,
+			  unsigned char *flags, int flags_len)
+	{
+	int i, ok;
+	/* Check if there is one bit set at all. */
+	if (!a || !a->data) return 1;
+
+	/* Check each byte of the internal representation of the bit string. */
+	ok = 1;
+	for (i = 0; i < a->length && ok; ++i)
+		{
+		unsigned char mask = i < flags_len ? ~flags[i] : 0xff;
+		/* We are done if there is an unneeded bit set. */
+		ok = (a->data[i] & mask) == 0;
+		}
+	return ok;
+	}

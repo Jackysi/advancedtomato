@@ -56,21 +56,21 @@
  * [including the GNU Public Licence.]
  */
 
-#ifndef NO_SOCK
-
 #include <stdio.h>
 #include <errno.h>
 #define USE_SOCKETS
 #include "cryptlib.h"
 #include <openssl/bio.h>
 
-#ifdef WIN16
+#ifndef OPENSSL_NO_SOCK
+
+#ifdef OPENSSL_SYS_WIN16
 #define SOCKET_PROTOCOL 0 /* more microsoft stupidity */
 #else
 #define SOCKET_PROTOCOL IPPROTO_TCP
 #endif
 
-#if (defined(VMS) && __VMS_VER < 70000000)
+#if (defined(OPENSSL_SYS_VMS) && __VMS_VER < 70000000)
 /* FIONBIO used as a switch to enable ioctl, and that isn't in VMS < 7.0 */
 #undef FIONBIO
 #endif
@@ -100,8 +100,8 @@ static int acpt_new(BIO *h);
 static int acpt_free(BIO *data);
 static int acpt_state(BIO *b, BIO_ACCEPT *c);
 static void acpt_close_socket(BIO *data);
-BIO_ACCEPT *BIO_ACCEPT_new(void );
-void BIO_ACCEPT_free(BIO_ACCEPT *a);
+static BIO_ACCEPT *BIO_ACCEPT_new(void );
+static void BIO_ACCEPT_free(BIO_ACCEPT *a);
 
 #define ACPT_S_BEFORE			1
 #define ACPT_S_GET_ACCEPT_SOCKET	2
@@ -141,7 +141,7 @@ static int acpt_new(BIO *bi)
 	return(1);
 	}
 
-BIO_ACCEPT *BIO_ACCEPT_new(void)
+static BIO_ACCEPT *BIO_ACCEPT_new(void)
 	{
 	BIO_ACCEPT *ret;
 
@@ -154,7 +154,7 @@ BIO_ACCEPT *BIO_ACCEPT_new(void)
 	return(ret);
 	}
 
-void BIO_ACCEPT_free(BIO_ACCEPT *a)
+static void BIO_ACCEPT_free(BIO_ACCEPT *a)
 	{
 	if(a == NULL)
 	    return;
@@ -236,8 +236,20 @@ again:
 			c->state=ACPT_S_OK;
 			goto again;
 			}
+		BIO_clear_retry_flags(b);
+		b->retry_reason=0;
 		i=BIO_accept(c->accept_sock,&(c->addr));
+
+		/* -2 return means we should retry */
+		if(i == -2)
+			{
+			BIO_set_retry_special(b);
+			b->retry_reason=BIO_RR_ACCEPT;
+			return -1;
+			}
+
 		if (i < 0) return(i);
+
 		bio=BIO_new_socket(i,BIO_CLOSE);
 		if (bio == NULL) goto err;
 

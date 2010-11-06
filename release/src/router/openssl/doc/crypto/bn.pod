@@ -21,19 +21,30 @@ bn - multiprecision integer arithmetics
  BIGNUM *BN_copy(BIGNUM *a, const BIGNUM *b);
  BIGNUM *BN_dup(const BIGNUM *a);
 
+ BIGNUM *BN_swap(BIGNUM *a, BIGNUM *b);
+
  int BN_num_bytes(const BIGNUM *a);
  int BN_num_bits(const BIGNUM *a);
  int BN_num_bits_word(BN_ULONG w);
 
- int BN_add(BIGNUM *r, BIGNUM *a, BIGNUM *b);
+ void BN_set_negative(BIGNUM *a, int n);
+ int  BN_is_negative(const BIGNUM *a);
+
+ int BN_add(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
  int BN_sub(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
  int BN_mul(BIGNUM *r, BIGNUM *a, BIGNUM *b, BN_CTX *ctx);
+ int BN_sqr(BIGNUM *r, BIGNUM *a, BN_CTX *ctx);
  int BN_div(BIGNUM *dv, BIGNUM *rem, const BIGNUM *a, const BIGNUM *d,
          BN_CTX *ctx);
- int BN_sqr(BIGNUM *r, BIGNUM *a, BN_CTX *ctx);
  int BN_mod(BIGNUM *rem, const BIGNUM *a, const BIGNUM *m, BN_CTX *ctx);
+ int BN_nnmod(BIGNUM *rem, const BIGNUM *a, const BIGNUM *m, BN_CTX *ctx);
+ int BN_mod_add(BIGNUM *ret, BIGNUM *a, BIGNUM *b, const BIGNUM *m,
+         BN_CTX *ctx);
+ int BN_mod_sub(BIGNUM *ret, BIGNUM *a, BIGNUM *b, const BIGNUM *m,
+         BN_CTX *ctx);
  int BN_mod_mul(BIGNUM *ret, BIGNUM *a, BIGNUM *b, const BIGNUM *m,
          BN_CTX *ctx);
+ int BN_mod_sqr(BIGNUM *ret, BIGNUM *a, const BIGNUM *m, BN_CTX *ctx);
  int BN_exp(BIGNUM *r, BIGNUM *a, BIGNUM *p, BN_CTX *ctx);
  int BN_mod_exp(BIGNUM *r, BIGNUM *a, const BIGNUM *p,
          const BIGNUM *m, BN_CTX *ctx);
@@ -54,7 +65,7 @@ bn - multiprecision integer arithmetics
 
  int BN_zero(BIGNUM *a);
  int BN_one(BIGNUM *a);
- BIGNUM *BN_value_one(void);
+ const BIGNUM *BN_value_one(void);
  int BN_set_word(BIGNUM *a, unsigned long w);
  unsigned long BN_get_word(BIGNUM *a);
 
@@ -110,6 +121,25 @@ bn - multiprecision integer arithmetics
  int BN_to_montgomery(BIGNUM *r, BIGNUM *a, BN_MONT_CTX *mont,
          BN_CTX *ctx);
 
+ BN_BLINDING *BN_BLINDING_new(const BIGNUM *A, const BIGNUM *Ai,
+	BIGNUM *mod);
+ void BN_BLINDING_free(BN_BLINDING *b);
+ int BN_BLINDING_update(BN_BLINDING *b,BN_CTX *ctx);
+ int BN_BLINDING_convert(BIGNUM *n, BN_BLINDING *b, BN_CTX *ctx);
+ int BN_BLINDING_invert(BIGNUM *n, BN_BLINDING *b, BN_CTX *ctx);
+ int BN_BLINDING_convert_ex(BIGNUM *n, BIGNUM *r, BN_BLINDING *b,
+	BN_CTX *ctx);
+ int BN_BLINDING_invert_ex(BIGNUM *n,const BIGNUM *r,BN_BLINDING *b,
+	BN_CTX *ctx);
+ unsigned long BN_BLINDING_get_thread_id(const BN_BLINDING *);
+ void BN_BLINDING_set_thread_id(BN_BLINDING *, unsigned long);
+ unsigned long BN_BLINDING_get_flags(const BN_BLINDING *);
+ void BN_BLINDING_set_flags(BN_BLINDING *, unsigned long);
+ BN_BLINDING *BN_BLINDING_create_param(BN_BLINDING *b,
+	const BIGNUM *e, BIGNUM *m, BN_CTX *ctx,
+	int (*bn_mod_exp)(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
+			  const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx),
+	BN_MONT_CTX *m_ctx);
 
 =head1 DESCRIPTION
 
@@ -139,12 +169,13 @@ of B<BIGNUM>s to external formats is described in L<BN_bn2bin(3)|BN_bn2bin(3)>.
 L<bn_internal(3)|bn_internal(3)>,
 L<dh(3)|dh(3)>, L<err(3)|err(3)>, L<rand(3)|rand(3)>, L<rsa(3)|rsa(3)>,
 L<BN_new(3)|BN_new(3)>, L<BN_CTX_new(3)|BN_CTX_new(3)>,
-L<BN_copy(3)|BN_copy(3)>, L<BN_num_bytes(3)|BN_num_bytes(3)>,
+L<BN_copy(3)|BN_copy(3)>, L<BN_swap(3)|BN_swap(3)>, L<BN_num_bytes(3)|BN_num_bytes(3)>,
 L<BN_add(3)|BN_add(3)>, L<BN_add_word(3)|BN_add_word(3)>,
 L<BN_cmp(3)|BN_cmp(3)>, L<BN_zero(3)|BN_zero(3)>, L<BN_rand(3)|BN_rand(3)>,
 L<BN_generate_prime(3)|BN_generate_prime(3)>, L<BN_set_bit(3)|BN_set_bit(3)>,
 L<BN_bn2bin(3)|BN_bn2bin(3)>, L<BN_mod_inverse(3)|BN_mod_inverse(3)>,
 L<BN_mod_mul_reciprocal(3)|BN_mod_mul_reciprocal(3)>,
-L<BN_mod_mul_montgomery(3)|BN_mod_mul_montgomery(3)> 
+L<BN_mod_mul_montgomery(3)|BN_mod_mul_montgomery(3)>,
+L<BN_BLINDING_new(3)|BN_BLINDING_new(3)>
 
 =cut

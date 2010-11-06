@@ -1,5 +1,5 @@
 #
-# SSLeay/crypto/sha/Makefile
+# OpenSSL/crypto/sha/Makefile
 #
 
 DIR=    sha
@@ -8,25 +8,22 @@ CC=     cc
 CPP=    $(CC) -E
 INCLUDES=
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=           make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=       Makefile.ssl
+MAKEFILE=       Makefile
 AR=             ar r
 
 SHA1_ASM_OBJ=
 
 CFLAGS= $(INCLUDES) $(CFLAG)
+ASFLAGS= $(INCLUDES) $(ASFLAG)
+AFLAGS= $(ASFLAGS)
 
 GENERAL=Makefile
-TEST=shatest.c sha1test.c
+TEST=shatest.c sha1test.c sha256t.c sha512t.c
 APPS=
 
 LIB=$(TOP)/libcrypto.a
-LIBSRC=sha_dgst.c sha1dgst.c sha_one.c sha1_one.c
-LIBOBJ=sha_dgst.o sha1dgst.o sha_one.o sha1_one.o $(SHA1_ASM_OBJ)
+LIBSRC=sha_dgst.c sha1dgst.c sha_one.c sha1_one.c sha256.c sha512.c
+LIBOBJ=sha_dgst.o sha1dgst.o sha_one.o sha1_one.o sha256.o sha512.o $(SHA1_ASM_OBJ)
 
 SRC= $(LIBSRC)
 
@@ -42,42 +39,54 @@ all:    lib
 
 lib:    $(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
-# elf
-asm/sx86-elf.o: asm/sx86unix.cpp
-	$(CPP) -DELF -x c asm/sx86unix.cpp | as -o asm/sx86-elf.o
+sha1-586.s:	asm/sha1-586.pl ../perlasm/x86asm.pl
+	$(PERL) asm/sha1-586.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
+sha256-586.s:	asm/sha256-586.pl ../perlasm/x86asm.pl
+	$(PERL) asm/sha256-586.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
+sha512-586.s:	asm/sha512-586.pl ../perlasm/x86asm.pl
+	$(PERL) asm/sha512-586.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
 
-# solaris
-asm/sx86-sol.o: asm/sx86unix.cpp
-	$(CC) -E -DSOL asm/sx86unix.cpp | sed 's/^#.*//' > asm/sx86-sol.s
-	as -o asm/sx86-sol.o asm/sx86-sol.s
-	rm -f asm/sx86-sol.s
+sha1-ia64.s:   asm/sha1-ia64.pl
+	(cd asm; $(PERL) sha1-ia64.pl ../$@ $(CFLAGS))
+sha256-ia64.s: asm/sha512-ia64.pl
+	(cd asm; $(PERL) sha512-ia64.pl ../$@ $(CFLAGS))
+sha512-ia64.s: asm/sha512-ia64.pl
+	(cd asm; $(PERL) sha512-ia64.pl ../$@ $(CFLAGS))
 
-# a.out
-asm/sx86-out.o: asm/sx86unix.cpp
-	$(CPP) -DOUT asm/sx86unix.cpp | as -o asm/sx86-out.o
+sha256-armv4.s: asm/sha256-armv4.pl
+	$(PERL) $< $@
 
-# bsdi
-asm/sx86bsdi.o: asm/sx86unix.cpp
-	$(CPP) -DBSDI asm/sx86unix.cpp | sed 's/ :/:/' | as -o asm/sx86bsdi.o
+# Solaris make has to be explicitly told
+sha1-x86_64.s:	asm/sha1-x86_64.pl;	$(PERL) asm/sha1-x86_64.pl $(PERLASM_SCHEME) > $@
+sha256-x86_64.s:asm/sha512-x86_64.pl;	$(PERL) asm/sha512-x86_64.pl $(PERLASM_SCHEME) $@
+sha512-x86_64.s:asm/sha512-x86_64.pl;	$(PERL) asm/sha512-x86_64.pl $(PERLASM_SCHEME) $@
+sha1-sparcv9.s:	asm/sha1-sparcv9.pl;	$(PERL) asm/sha1-sparcv9.pl $@ $(CFLAGS)
+sha256-sparcv9.s:asm/sha512-sparcv9.pl;	$(PERL) asm/sha512-sparcv9.pl $@ $(CFLAGS)
+sha512-sparcv9.s:asm/sha512-sparcv9.pl;	$(PERL) asm/sha512-sparcv9.pl $@ $(CFLAGS)
 
-asm/sx86unix.cpp: asm/sha1-586.pl ../perlasm/x86asm.pl
-	(cd asm; $(PERL) sha1-586.pl cpp $(PROCESSOR) >sx86unix.cpp)
+sha1-ppc.s:	asm/sha1-ppc.pl;	$(PERL) asm/sha1-ppc.pl $(PERLASM_SCHEME) $@
+sha256-ppc.s:	asm/sha512-ppc.pl;	$(PERL) asm/sha512-ppc.pl $(PERLASM_SCHEME) $@
+sha512-ppc.s:	asm/sha512-ppc.pl;	$(PERL) asm/sha512-ppc.pl $(PERLASM_SCHEME) $@
+
+# GNU make "catch all"
+sha1-%.s:	asm/sha1-%.pl;		$(PERL) $< $@
+sha256-%.s:	asm/sha512-%.pl;	$(PERL) $< $@
+sha512-%.s:	asm/sha512-%.pl;	$(PERL) $< $@
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
 install:
-	@for i in $(EXHEADER) ; \
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -92,22 +101,45 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
 	mv -f Makefile.new $(MAKEFILE)
 
 clean:
-	rm -f asm/sx86unix.cpp *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff asm/*.o
+	rm -f *.s *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-sha1_one.o: ../../include/openssl/sha.h
-sha1dgst.o: ../../include/openssl/opensslconf.h
+sha1_one.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+sha1_one.o: ../../include/openssl/opensslconf.h
+sha1_one.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+sha1_one.o: ../../include/openssl/safestack.h ../../include/openssl/sha.h
+sha1_one.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
+sha1_one.o: sha1_one.c
+sha1dgst.o: ../../include/openssl/e_os2.h ../../include/openssl/opensslconf.h
 sha1dgst.o: ../../include/openssl/opensslv.h ../../include/openssl/sha.h
-sha1dgst.o: ../md32_common.h sha_locl.h
-sha_dgst.o: ../../include/openssl/opensslconf.h
+sha1dgst.o: ../md32_common.h sha1dgst.c sha_locl.h
+sha256.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+sha256.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+sha256.o: ../../include/openssl/ossl_typ.h ../../include/openssl/safestack.h
+sha256.o: ../../include/openssl/sha.h ../../include/openssl/stack.h
+sha256.o: ../../include/openssl/symhacks.h ../md32_common.h sha256.c
+sha512.o: ../../e_os.h ../../include/openssl/bio.h
+sha512.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+sha512.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+sha512.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+sha512.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+sha512.o: ../../include/openssl/safestack.h ../../include/openssl/sha.h
+sha512.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
+sha512.o: ../cryptlib.h sha512.c
+sha_dgst.o: ../../include/openssl/e_os2.h ../../include/openssl/opensslconf.h
 sha_dgst.o: ../../include/openssl/opensslv.h ../../include/openssl/sha.h
-sha_dgst.o: ../md32_common.h sha_locl.h
-sha_one.o: ../../include/openssl/sha.h
+sha_dgst.o: ../md32_common.h sha_dgst.c sha_locl.h
+sha_one.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+sha_one.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+sha_one.o: ../../include/openssl/ossl_typ.h ../../include/openssl/safestack.h
+sha_one.o: ../../include/openssl/sha.h ../../include/openssl/stack.h
+sha_one.o: ../../include/openssl/symhacks.h sha_one.c

@@ -60,13 +60,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef NO_SHA
+#include "../e_os.h"
+
+#if defined(OPENSSL_NO_SHA) || defined(OPENSSL_NO_SHA0)
 int main(int argc, char *argv[])
 {
-    printf("No SHA support\n");
+    printf("No SHA0 support\n");
     return(0);
 }
 #else
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 
 #ifdef CHARSET_EBCDIC
@@ -103,10 +106,10 @@ static char *pt(unsigned char *md);
 int main(int argc, char *argv[])
 	{
 	int i,err=0;
-	unsigned char **P,**R;
+	char **P,**R;
 	static unsigned char buf[1000];
 	char *p,*r;
-	SHA_CTX c;
+	EVP_MD_CTX c;
 	unsigned char md[SHA_DIGEST_LENGTH];
 
 #ifdef CHARSET_EBCDIC
@@ -114,13 +117,15 @@ int main(int argc, char *argv[])
 	ebcdic2ascii(test[1], test[1], strlen(test[1]));
 #endif
 
-	P=(unsigned char **)test;
-	R=(unsigned char **)ret;
+	EVP_MD_CTX_init(&c);
+	P=test;
+	R=ret;
 	i=1;
 	while (*P != NULL)
 		{
-		p=pt(SHA(*P,(unsigned long)strlen((char *)*P),NULL));
-		if (strcmp(p,(char *)*R) != 0)
+		EVP_Digest(*P,strlen(*P),md,NULL,EVP_sha(), NULL);
+		p=pt(md);
+		if (strcmp(p,*R) != 0)
 			{
 			printf("error calculating SHA on '%s'\n",*P);
 			printf("got %s instead of %s\n",p,*R);
@@ -137,10 +142,10 @@ int main(int argc, char *argv[])
 #ifdef CHARSET_EBCDIC
 	ebcdic2ascii(buf, buf, 1000);
 #endif /*CHARSET_EBCDIC*/
-	SHA_Init(&c);
+	EVP_DigestInit_ex(&c,EVP_sha(), NULL);
 	for (i=0; i<1000; i++)
-		SHA_Update(&c,buf,1000);
-	SHA_Final(md,&c);
+		EVP_DigestUpdate(&c,buf,1000);
+	EVP_DigestFinal_ex(&c,md,NULL);
 	p=pt(md);
 
 	r=bigret;
@@ -152,7 +157,12 @@ int main(int argc, char *argv[])
 		}
 	else
 		printf("test 3 ok\n");
-	exit(err);
+
+#ifdef OPENSSL_SYS_NETWARE
+    if (err) printf("ERROR: %d\n", err);
+#endif
+	EVP_MD_CTX_cleanup(&c);
+	EXIT(err);
 	return(0);
 	}
 

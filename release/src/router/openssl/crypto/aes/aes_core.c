@@ -39,14 +39,7 @@
 #include <openssl/aes.h>
 #include "aes_locl.h"
 
-#define AES_ASM
-
-#ifdef AES_ASM
-#  ifdef   mips
-#   define MIPS_AES_ASM 1
-#  endif
-#endif
-
+#ifndef AES_ASM
 /*
 Te0[x] = S [x].[02, 01, 01, 03];
 Te1[x] = S [x].[03, 02, 01, 01];
@@ -60,14 +53,7 @@ Td3[x] = Si[x].[09, 0d, 0b, 0e];
 Td4[x] = Si[x].[01];
 */
 
-const struct AES_Encrypt_Table_Struct {
-  const unsigned int s_Te0[256];
-  const unsigned int s_Te1[256];
-  const unsigned int s_Te2[256];
-  const unsigned int s_Te3[256];
-} AES_Encrypt_Table = {
-  {
-      /* Te0 */
+static const u32 Te0[256] = {
     0xc66363a5U, 0xf87c7c84U, 0xee777799U, 0xf67b7b8dU,
     0xfff2f20dU, 0xd66b6bbdU, 0xde6f6fb1U, 0x91c5c554U,
     0x60303050U, 0x02010103U, 0xce6767a9U, 0x562b2b7dU,
@@ -132,9 +118,8 @@ const struct AES_Encrypt_Table_Struct {
     0x65bfbfdaU, 0xd7e6e631U, 0x844242c6U, 0xd06868b8U,
     0x824141c3U, 0x299999b0U, 0x5a2d2d77U, 0x1e0f0f11U,
     0x7bb0b0cbU, 0xa85454fcU, 0x6dbbbbd6U, 0x2c16163aU,
-  },
-  {
-      /* Te1 */
+};
+static const u32 Te1[256] = {
     0xa5c66363U, 0x84f87c7cU, 0x99ee7777U, 0x8df67b7bU,
     0x0dfff2f2U, 0xbdd66b6bU, 0xb1de6f6fU, 0x5491c5c5U,
     0x50603030U, 0x03020101U, 0xa9ce6767U, 0x7d562b2bU,
@@ -199,9 +184,8 @@ const struct AES_Encrypt_Table_Struct {
     0xda65bfbfU, 0x31d7e6e6U, 0xc6844242U, 0xb8d06868U,
     0xc3824141U, 0xb0299999U, 0x775a2d2dU, 0x111e0f0fU,
     0xcb7bb0b0U, 0xfca85454U, 0xd66dbbbbU, 0x3a2c1616U,
-  },
-  {
-      /* Te2 */
+};
+static const u32 Te2[256] = {
     0x63a5c663U, 0x7c84f87cU, 0x7799ee77U, 0x7b8df67bU,
     0xf20dfff2U, 0x6bbdd66bU, 0x6fb1de6fU, 0xc55491c5U,
     0x30506030U, 0x01030201U, 0x67a9ce67U, 0x2b7d562bU,
@@ -266,9 +250,8 @@ const struct AES_Encrypt_Table_Struct {
     0xbfda65bfU, 0xe631d7e6U, 0x42c68442U, 0x68b8d068U,
     0x41c38241U, 0x99b02999U, 0x2d775a2dU, 0x0f111e0fU,
     0xb0cb7bb0U, 0x54fca854U, 0xbbd66dbbU, 0x163a2c16U,
-  },
-  {
-      /* Te3 */
+};
+static const u32 Te3[256] = {
     0x6363a5c6U, 0x7c7c84f8U, 0x777799eeU, 0x7b7b8df6U,
     0xf2f20dffU, 0x6b6bbdd6U, 0x6f6fb1deU, 0xc5c55491U,
     0x30305060U, 0x01010302U, 0x6767a9ceU, 0x2b2b7d56U,
@@ -333,18 +316,9 @@ const struct AES_Encrypt_Table_Struct {
     0xbfbfda65U, 0xe6e631d7U, 0x4242c684U, 0x6868b8d0U,
     0x4141c382U, 0x9999b029U, 0x2d2d775aU, 0x0f0f111eU,
     0xb0b0cb7bU, 0x5454fca8U, 0xbbbbd66dU, 0x16163a2cU,
-  }
 };
 
-const struct AES_Decrypt_Table_Struct {
-  const unsigned int s_Td0[256];
-  const unsigned int s_Td1[256];
-  const unsigned int s_Td2[256];
-  const unsigned int s_Td3[256];
-  const u8  s_Td4[256];
-} AES_Decrypt_Table = {
-  {
-      /* Td0 */
+static const u32 Td0[256] = {
     0x51f4a750U, 0x7e416553U, 0x1a17a4c3U, 0x3a275e96U,
     0x3bab6bcbU, 0x1f9d45f1U, 0xacfa58abU, 0x4be30393U,
     0x2030fa55U, 0xad766df6U, 0x88cc7691U, 0xf5024c25U,
@@ -409,9 +383,8 @@ const struct AES_Decrypt_Table_Struct {
     0x161dc372U, 0xbce2250cU, 0x283c498bU, 0xff0d9541U,
     0x39a80171U, 0x080cb3deU, 0xd8b4e49cU, 0x6456c190U,
     0x7bcb8461U, 0xd532b670U, 0x486c5c74U, 0xd0b85742U,
-  },
-  {
-      /* Td1 */
+};
+static const u32 Td1[256] = {
     0x5051f4a7U, 0x537e4165U, 0xc31a17a4U, 0x963a275eU,
     0xcb3bab6bU, 0xf11f9d45U, 0xabacfa58U, 0x934be303U,
     0x552030faU, 0xf6ad766dU, 0x9188cc76U, 0x25f5024cU,
@@ -476,9 +449,8 @@ const struct AES_Decrypt_Table_Struct {
     0x72161dc3U, 0x0cbce225U, 0x8b283c49U, 0x41ff0d95U,
     0x7139a801U, 0xde080cb3U, 0x9cd8b4e4U, 0x906456c1U,
     0x617bcb84U, 0x70d532b6U, 0x74486c5cU, 0x42d0b857U,
-  },
-  {
-      /* Td2 */
+};
+static const u32 Td2[256] = {
     0xa75051f4U, 0x65537e41U, 0xa4c31a17U, 0x5e963a27U,
     0x6bcb3babU, 0x45f11f9dU, 0x58abacfaU, 0x03934be3U,
     0xfa552030U, 0x6df6ad76U, 0x769188ccU, 0x4c25f502U,
@@ -543,9 +515,8 @@ const struct AES_Decrypt_Table_Struct {
     0xc372161dU, 0x250cbce2U, 0x498b283cU, 0x9541ff0dU,
     0x017139a8U, 0xb3de080cU, 0xe49cd8b4U, 0xc1906456U,
     0x84617bcbU, 0xb670d532U, 0x5c74486cU, 0x5742d0b8U,
-  },
-  {
-      /* Td3 */
+};
+static const u32 Td3[256] = {
     0xf4a75051U, 0x4165537eU, 0x17a4c31aU, 0x275e963aU,
     0xab6bcb3bU, 0x9d45f11fU, 0xfa58abacU, 0xe303934bU,
     0x30fa5520U, 0x766df6adU, 0xcc769188U, 0x024c25f5U,
@@ -610,9 +581,8 @@ const struct AES_Decrypt_Table_Struct {
     0x1dc37216U, 0xe2250cbcU, 0x3c498b28U, 0x0d9541ffU,
     0xa8017139U, 0x0cb3de08U, 0xb4e49cd8U, 0x56c19064U,
     0xcb84617bU, 0x32b670d5U, 0x6c5c7448U, 0xb85742d0U,
-  },
-  {
-      /* Td4 */
+};
+static const u8 Td4[256] = {
     0x52U, 0x09U, 0x6aU, 0xd5U, 0x30U, 0x36U, 0xa5U, 0x38U,
     0xbfU, 0x40U, 0xa3U, 0x9eU, 0x81U, 0xf3U, 0xd7U, 0xfbU,
     0x7cU, 0xe3U, 0x39U, 0x82U, 0x9bU, 0x2fU, 0xffU, 0x87U,
@@ -645,39 +615,19 @@ const struct AES_Decrypt_Table_Struct {
     0xc8U, 0xebU, 0xbbU, 0x3cU, 0x83U, 0x53U, 0x99U, 0x61U,
     0x17U, 0x2bU, 0x04U, 0x7eU, 0xbaU, 0x77U, 0xd6U, 0x26U,
     0xe1U, 0x69U, 0x14U, 0x63U, 0x55U, 0x21U, 0x0cU, 0x7dU,
-  }
 };
-
-
 static const u32 rcon[] = {
 	0x01000000, 0x02000000, 0x04000000, 0x08000000,
 	0x10000000, 0x20000000, 0x40000000, 0x80000000,
 	0x1B000000, 0x36000000, /* for 128-bit blocks, Rijndael never uses more than 10 rcon values */
 };
 
-#define Te0 AES_Encrypt_Table.s_Te0
-#define Te1 AES_Encrypt_Table.s_Te1
-#define Te2 AES_Encrypt_Table.s_Te2
-#define Te3 AES_Encrypt_Table.s_Te3
-
-
-#define Td0 AES_Decrypt_Table.s_Td0
-#define Td1 AES_Decrypt_Table.s_Td1
-#define Td2 AES_Decrypt_Table.s_Td2
-#define Td3 AES_Decrypt_Table.s_Td3
-#define Td4 AES_Decrypt_Table.s_Td4
-
-
-#ifdef MIPS_AES_ASM
-extern int AES_swap_bytes();
-#endif
-
-
 /**
  * Expand the cipher key into the encryption key schedule.
  */
 int AES_set_encrypt_key(const unsigned char *userKey, const int bits,
 			AES_KEY *key) {
+
 	u32 *rk;
    	int i = 0;
 	u32 temp;
@@ -713,7 +663,7 @@ int AES_set_encrypt_key(const unsigned char *userKey, const int bits,
 			rk[6] = rk[2] ^ rk[5];
 			rk[7] = rk[3] ^ rk[6];
 			if (++i == 10) {
-                            goto done;
+				return 0;
 			}
 			rk += 4;
 		}
@@ -733,7 +683,7 @@ int AES_set_encrypt_key(const unsigned char *userKey, const int bits,
 			rk[ 8] = rk[ 2] ^ rk[ 7];
 			rk[ 9] = rk[ 3] ^ rk[ 8];
 			if (++i == 8) {
-                            goto done;
+				return 0;
 			}
 			rk[10] = rk[ 4] ^ rk[ 9];
 			rk[11] = rk[ 5] ^ rk[10];
@@ -755,7 +705,7 @@ int AES_set_encrypt_key(const unsigned char *userKey, const int bits,
 			rk[10] = rk[ 2] ^ rk[ 9];
 			rk[11] = rk[ 3] ^ rk[10];
 			if (++i == 7) {
-                            goto done;
+				return 0;
 			}
 			temp = rk[11];
 			rk[12] = rk[ 4] ^
@@ -770,25 +720,7 @@ int AES_set_encrypt_key(const unsigned char *userKey, const int bits,
 			rk += 8;
         	}
 	}
-  done:
-        
-#ifdef MIPS_AES_ASM
-       if (AES_swap_bytes()) {
-                // Swap the bytes of the first four and last four key words
-                int i;
-                u32* words = key->rd_key;
-                int rounds = 4 * key->rounds;
-                for (i = 0; i < 4; i++) { 
-                        u32 temp = words[i];
-                        words[i] =  (temp << 24) | (temp >> 24) | ((temp & 0xFF00) << 8) |
-                            ((temp & 0xFF0000) >> 8);
-                        temp = words[i + rounds];
-                        words[i + rounds] =  (temp << 24) | (temp >> 24) | 
-                            ((temp & 0xFF00) << 8) | ((temp & 0xFF0000) >> 8);
-                }
-        }
-#endif
-       return 0;
+	return 0;
 }
 
 /**
@@ -816,7 +748,6 @@ int AES_set_decrypt_key(const unsigned char *userKey, const int bits,
 		temp = rk[i + 3]; rk[i + 3] = rk[j + 3]; rk[j + 3] = temp;
 	}
 	/* apply the inverse MixColumn transform to all round keys but the first and the last: */
-	/* apply the inverse MixColumn transform to all round keys but the first and the last: */
 	for (i = 1; i < (key->rounds); i++) {
 		rk += 4;
 		rk[0] =
@@ -840,10 +771,9 @@ int AES_set_decrypt_key(const unsigned char *userKey, const int bits,
 			Td2[Te1[(rk[3] >>  8) & 0xff] & 0xff] ^
 			Td3[Te1[(rk[3]      ) & 0xff] & 0xff];
 	}
-    return status;
+	return 0;
 }
 
-#ifndef AES_ASM
 /*
  * Encrypt a single block
  * in and out can overlap
@@ -1224,6 +1154,205 @@ void AES_decrypt(const unsigned char *in, unsigned char *out,
    		(Td4[(t0      ) & 0xff])       ^
    		rk[3];
 	PUTU32(out + 12, s3);
+}
+
+#else /* AES_ASM */
+
+static const u8 Te4[256] = {
+    0x63U, 0x7cU, 0x77U, 0x7bU, 0xf2U, 0x6bU, 0x6fU, 0xc5U,
+    0x30U, 0x01U, 0x67U, 0x2bU, 0xfeU, 0xd7U, 0xabU, 0x76U,
+    0xcaU, 0x82U, 0xc9U, 0x7dU, 0xfaU, 0x59U, 0x47U, 0xf0U,
+    0xadU, 0xd4U, 0xa2U, 0xafU, 0x9cU, 0xa4U, 0x72U, 0xc0U,
+    0xb7U, 0xfdU, 0x93U, 0x26U, 0x36U, 0x3fU, 0xf7U, 0xccU,
+    0x34U, 0xa5U, 0xe5U, 0xf1U, 0x71U, 0xd8U, 0x31U, 0x15U,
+    0x04U, 0xc7U, 0x23U, 0xc3U, 0x18U, 0x96U, 0x05U, 0x9aU,
+    0x07U, 0x12U, 0x80U, 0xe2U, 0xebU, 0x27U, 0xb2U, 0x75U,
+    0x09U, 0x83U, 0x2cU, 0x1aU, 0x1bU, 0x6eU, 0x5aU, 0xa0U,
+    0x52U, 0x3bU, 0xd6U, 0xb3U, 0x29U, 0xe3U, 0x2fU, 0x84U,
+    0x53U, 0xd1U, 0x00U, 0xedU, 0x20U, 0xfcU, 0xb1U, 0x5bU,
+    0x6aU, 0xcbU, 0xbeU, 0x39U, 0x4aU, 0x4cU, 0x58U, 0xcfU,
+    0xd0U, 0xefU, 0xaaU, 0xfbU, 0x43U, 0x4dU, 0x33U, 0x85U,
+    0x45U, 0xf9U, 0x02U, 0x7fU, 0x50U, 0x3cU, 0x9fU, 0xa8U,
+    0x51U, 0xa3U, 0x40U, 0x8fU, 0x92U, 0x9dU, 0x38U, 0xf5U,
+    0xbcU, 0xb6U, 0xdaU, 0x21U, 0x10U, 0xffU, 0xf3U, 0xd2U,
+    0xcdU, 0x0cU, 0x13U, 0xecU, 0x5fU, 0x97U, 0x44U, 0x17U,
+    0xc4U, 0xa7U, 0x7eU, 0x3dU, 0x64U, 0x5dU, 0x19U, 0x73U,
+    0x60U, 0x81U, 0x4fU, 0xdcU, 0x22U, 0x2aU, 0x90U, 0x88U,
+    0x46U, 0xeeU, 0xb8U, 0x14U, 0xdeU, 0x5eU, 0x0bU, 0xdbU,
+    0xe0U, 0x32U, 0x3aU, 0x0aU, 0x49U, 0x06U, 0x24U, 0x5cU,
+    0xc2U, 0xd3U, 0xacU, 0x62U, 0x91U, 0x95U, 0xe4U, 0x79U,
+    0xe7U, 0xc8U, 0x37U, 0x6dU, 0x8dU, 0xd5U, 0x4eU, 0xa9U,
+    0x6cU, 0x56U, 0xf4U, 0xeaU, 0x65U, 0x7aU, 0xaeU, 0x08U,
+    0xbaU, 0x78U, 0x25U, 0x2eU, 0x1cU, 0xa6U, 0xb4U, 0xc6U,
+    0xe8U, 0xddU, 0x74U, 0x1fU, 0x4bU, 0xbdU, 0x8bU, 0x8aU,
+    0x70U, 0x3eU, 0xb5U, 0x66U, 0x48U, 0x03U, 0xf6U, 0x0eU,
+    0x61U, 0x35U, 0x57U, 0xb9U, 0x86U, 0xc1U, 0x1dU, 0x9eU,
+    0xe1U, 0xf8U, 0x98U, 0x11U, 0x69U, 0xd9U, 0x8eU, 0x94U,
+    0x9bU, 0x1eU, 0x87U, 0xe9U, 0xceU, 0x55U, 0x28U, 0xdfU,
+    0x8cU, 0xa1U, 0x89U, 0x0dU, 0xbfU, 0xe6U, 0x42U, 0x68U,
+    0x41U, 0x99U, 0x2dU, 0x0fU, 0xb0U, 0x54U, 0xbbU, 0x16U
+};
+static const u32 rcon[] = {
+	0x01000000, 0x02000000, 0x04000000, 0x08000000,
+	0x10000000, 0x20000000, 0x40000000, 0x80000000,
+	0x1B000000, 0x36000000, /* for 128-bit blocks, Rijndael never uses more than 10 rcon values */
+};
+
+/**
+ * Expand the cipher key into the encryption key schedule.
+ */
+int AES_set_encrypt_key(const unsigned char *userKey, const int bits,
+			AES_KEY *key) {
+	u32 *rk;
+   	int i = 0;
+	u32 temp;
+
+	if (!userKey || !key)
+		return -1;
+	if (bits != 128 && bits != 192 && bits != 256)
+		return -2;
+
+	rk = key->rd_key;
+
+	if (bits==128)
+		key->rounds = 10;
+	else if (bits==192)
+		key->rounds = 12;
+	else
+		key->rounds = 14;
+
+	rk[0] = GETU32(userKey     );
+	rk[1] = GETU32(userKey +  4);
+	rk[2] = GETU32(userKey +  8);
+	rk[3] = GETU32(userKey + 12);
+	if (bits == 128) {
+		while (1) {
+			temp  = rk[3];
+			rk[4] = rk[0] ^
+				(Te4[(temp >> 16) & 0xff] << 24) ^
+				(Te4[(temp >>  8) & 0xff] << 16) ^
+				(Te4[(temp      ) & 0xff] << 8) ^
+				(Te4[(temp >> 24)       ]) ^
+				rcon[i];
+			rk[5] = rk[1] ^ rk[4];
+			rk[6] = rk[2] ^ rk[5];
+			rk[7] = rk[3] ^ rk[6];
+			if (++i == 10) {
+				return 0;
+			}
+			rk += 4;
+		}
+	}
+	rk[4] = GETU32(userKey + 16);
+	rk[5] = GETU32(userKey + 20);
+	if (bits == 192) {
+		while (1) {
+			temp = rk[ 5];
+			rk[ 6] = rk[ 0] ^
+				(Te4[(temp >> 16) & 0xff] << 24) ^
+				(Te4[(temp >>  8) & 0xff] << 16) ^
+				(Te4[(temp      ) & 0xff] << 8) ^
+				(Te4[(temp >> 24)       ]) ^
+				rcon[i];
+			rk[ 7] = rk[ 1] ^ rk[ 6];
+			rk[ 8] = rk[ 2] ^ rk[ 7];
+			rk[ 9] = rk[ 3] ^ rk[ 8];
+			if (++i == 8) {
+				return 0;
+			}
+			rk[10] = rk[ 4] ^ rk[ 9];
+			rk[11] = rk[ 5] ^ rk[10];
+			rk += 6;
+		}
+	}
+	rk[6] = GETU32(userKey + 24);
+	rk[7] = GETU32(userKey + 28);
+	if (bits == 256) {
+		while (1) {
+			temp = rk[ 7];
+			rk[ 8] = rk[ 0] ^
+				(Te4[(temp >> 16) & 0xff] << 24) ^
+				(Te4[(temp >>  8) & 0xff] << 16) ^
+				(Te4[(temp      ) & 0xff] << 8) ^
+				(Te4[(temp >> 24)       ]) ^
+				rcon[i];
+			rk[ 9] = rk[ 1] ^ rk[ 8];
+			rk[10] = rk[ 2] ^ rk[ 9];
+			rk[11] = rk[ 3] ^ rk[10];
+			if (++i == 7) {
+				return 0;
+			}
+			temp = rk[11];
+			rk[12] = rk[ 4] ^
+				(Te4[(temp >> 24)       ] << 24) ^
+				(Te4[(temp >> 16) & 0xff] << 16) ^
+				(Te4[(temp >>  8) & 0xff] << 8) ^
+				(Te4[(temp      ) & 0xff]);
+			rk[13] = rk[ 5] ^ rk[12];
+			rk[14] = rk[ 6] ^ rk[13];
+			rk[15] = rk[ 7] ^ rk[14];
+
+			rk += 8;
+        	}
+	}
+	return 0;
+}
+
+/**
+ * Expand the cipher key into the decryption key schedule.
+ */
+int AES_set_decrypt_key(const unsigned char *userKey, const int bits,
+			 AES_KEY *key) {
+
+        u32 *rk;
+	int i, j, status;
+	u32 temp;
+
+	/* first, start with an encryption schedule */
+	status = AES_set_encrypt_key(userKey, bits, key);
+	if (status < 0)
+		return status;
+
+	rk = key->rd_key;
+
+	/* invert the order of the round keys: */
+	for (i = 0, j = 4*(key->rounds); i < j; i += 4, j -= 4) {
+		temp = rk[i    ]; rk[i    ] = rk[j    ]; rk[j    ] = temp;
+		temp = rk[i + 1]; rk[i + 1] = rk[j + 1]; rk[j + 1] = temp;
+		temp = rk[i + 2]; rk[i + 2] = rk[j + 2]; rk[j + 2] = temp;
+		temp = rk[i + 3]; rk[i + 3] = rk[j + 3]; rk[j + 3] = temp;
+	}
+	/* apply the inverse MixColumn transform to all round keys but the first and the last: */
+	for (i = 1; i < (key->rounds); i++) {
+		rk += 4;
+		for (j = 0; j < 4; j++) {
+			u32 tp1, tp2, tp4, tp8, tp9, tpb, tpd, tpe, m;
+
+			tp1 = rk[j];
+			m = tp1 & 0x80808080;
+			tp2 = ((tp1 & 0x7f7f7f7f) << 1) ^
+				((m - (m >> 7)) & 0x1b1b1b1b);
+			m = tp2 & 0x80808080;
+			tp4 = ((tp2 & 0x7f7f7f7f) << 1) ^
+				((m - (m >> 7)) & 0x1b1b1b1b);
+			m = tp4 & 0x80808080;
+			tp8 = ((tp4 & 0x7f7f7f7f) << 1) ^
+				((m - (m >> 7)) & 0x1b1b1b1b);
+			tp9 = tp8 ^ tp1;
+			tpb = tp9 ^ tp2;
+			tpd = tp9 ^ tp4;
+			tpe = tp8 ^ tp4 ^ tp2;
+#if defined(ROTATE)
+			rk[j] = tpe ^ ROTATE(tpd,16) ^
+				ROTATE(tp9,24) ^ ROTATE(tpb,8);
+#else
+			rk[j] = tpe ^ (tpd >> 16) ^ (tpd << 16) ^ 
+				(tp9 >> 8) ^ (tp9 << 24) ^
+				(tpb >> 24) ^ (tpb << 8);
+#endif
+		}
+	}
+	return 0;
 }
 
 #endif /* AES_ASM */

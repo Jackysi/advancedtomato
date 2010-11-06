@@ -282,7 +282,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
 		if (ssl) {
-			ssl_init(NULL, NULL);
+			mssl_init(NULL, NULL);
 			f = ssl_client_fopen(sd);
 		}
 		else {

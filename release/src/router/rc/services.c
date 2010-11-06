@@ -48,8 +48,11 @@
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
-// Pop an alarm to recheck pids in 500 msec
+// Pop an alarm to recheck pids in 500 msec.
 static const struct itimerval pop_tv = { {0,0}, {0, 500 * 1000} };
+
+// Pop an alarm to reap zombies. 
+static const struct itimerval zombie_tv = { {0,0}, {307, 0} };
 
 // -----------------------------------------------------------------------------
 
@@ -111,14 +114,10 @@ void start_dnsmasq()
 	if (((nv = nvram_get("dns_minport")) != NULL) && (*nv)) n = atoi(nv);
 		else n = 4096;
 	fprintf(f,
-		"all-servers\n"			// query all servers by default (use strict-order to override)
-		"cache-size=%d\n"		// dns cache size (0 to disable cache)
-		"log-async\n"			// enable asynchronous logging (default queue length = 5)
 		"resolv-file=%s\n"		// the real stuff is here
 		"addn-hosts=%s\n"		// "
 		"expand-hosts\n"		// expand hostnames in hosts file
 		"min-port=%u\n", 		// min port used for random src port
-		nvram_get_int("dns_cache"),
 		dmresolv, dmhosts, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
@@ -618,13 +617,15 @@ void stop_zebra(void)
 
 void start_syslog(void)
 {
-#if 1
-	char *argv[12];
+	char *argv[16];
 	int argc;
 	char *nv;
+	char *b_opt = "";
 	char rem[256];
 	int n;
 	char s[64];
+	char cfg[256];
+	char *rot_siz = "50";
 
 	argv[0] = "syslogd";
 	argc = 1;
@@ -640,20 +641,50 @@ void start_syslog(void)
 
 	if (nvram_match("log_file", "1")) {
 		argv[argc++] = "-L";
+
+		/* Read options:    rotate_size(kb)    num_backups    logfilename.
+		 * Ignore these settings and use defaults if the logfile cannot be written to.
+		 */
+		if (f_read_string("/etc/syslogd.cfg", cfg, sizeof(cfg)) > 0) {
+			if ((nv = strchr(cfg, '\n')))
+				*nv = 0;
+
+			if ((nv = strtok(cfg, " \t"))) {
+				if (isdigit(*nv))
+					rot_siz = nv;
+			}
+
+			if ((nv = strtok(NULL, " \t")))
+				b_opt = nv;
+
+			if ((nv = strtok(NULL, " \t")) && *nv == '/') {
+				if (f_write(nv, cfg, 0, FW_APPEND, 0) >= 0) {
+					argv[argc++] = "-O";
+					argv[argc++] = nv;
+				}
+				else {
+					rot_siz = "50";
+					b_opt = "";
+				}
+			}
+		}
+
 		argv[argc++] = "-s";
-		argv[argc++] = "50";
+		argv[argc++] = rot_siz;
+
+		if (isdigit(*b_opt)) {
+			argv[argc++] = "-b";
+			argv[argc++] = b_opt;
+		}
 	}
 
 	if (argc > 1) {
 		argv[argc] = NULL;
 		_eval(argv, NULL, 0, NULL);
-		//usleep(500000);
-		sleep(1);
 
 		argv[0] = "klogd";
 		argv[1] = NULL;
 		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
 
 		// used to be available in syslogd -m
 		n = nvram_get_int("log_mark");
@@ -672,44 +703,6 @@ void start_syslog(void)
 			system("cru d syslogdmark");
 		}
 	}
-
-#else
-	char *argv[12];
-	int argc;
-	char *nv;
-	char rem[256];
-
-	argv[0] = "syslogd";
-	argv[1] = "-m";
-	argv[2] = nvram_get("log_mark");
-	argc = 3;
-
-	if (nvram_match("log_remote", "1")) {
-		nv = nvram_safe_get("log_remoteip");
-		if (*nv) {
-			snprintf(rem, sizeof(rem), "%s:%s", nv, nvram_safe_get("log_remoteport"));
-			argv[argc++] = "-R";
-			argv[argc++] = rem;
-		}
-	}
-
-	if (nvram_match("log_file", "1")) {
-		argv[argc++] = "-L";
-		argv[argc++] = "-s";
-		argv[argc++] = "50";
-	}
-
-	if (argc > 3) {
-		argv[argc] = NULL;
-		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
-
-		argv[0] = "klogd";
-		argv[1] = NULL;
-		_eval(argv, NULL, 0, NULL);
-		usleep(500000);
-	}
-#endif
 }
 
 void stop_syslog(void)
@@ -823,26 +816,6 @@ static void start_rstats(int new)
 
 // !!TB - FTP Server
 
-#if defined(TCONFIG_FTP) || \
-    defined(TCONFIG_SAMBA) || \
-    defined(TCONFIG_MEDIA_SERVER)
-/* 
- * Return non-zero if we created the directory,
- * and zero if it already existed.
- */
-int mkdir_if_none(char *dir)
-{
-	DIR *dp;
-	if (!(dp=opendir(dir))) {
-		umask(0000);
-		mkdir(dir, 0777);
-		return 1;
-	}
-	closedir(dp);
-	return 0;
-}
-#endif
- 
 #ifdef TCONFIG_FTP
 static char *get_full_storage_path(char *val)
 {
@@ -1117,6 +1090,9 @@ static void start_samba(void)
 		" timestamp logs = no\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
+#if defined(LINUX26) && defined(TCONFIG_SAMBA3)
+		" use sendfile = yes\n"
+#endif
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_safe_get("lan_ifname"),
@@ -1463,27 +1439,17 @@ void restart_nas_services(int stop, int start)
 // -----------------------------------------------------------------------------
 
 /* -1 = Don't check for this program, it is not expected to be running.
- * Other = This program has been started and should be kept running. If no
- * process with the same name is running, call func to restart it.
+ * Other = This program has been started and should be kept running.  If no
+ * process with the name is running, call func to restart it.
  * Note: At startup, dnsmasq forks a short-lived child which forks a
- * long-lived (grand)child. The parents terminate.
+ * long-lived (grand)child.  The parents terminate.
  * Many daemons use this technique.
- * There is a race condition at this startup where pidof sometimes
- * reports that it cannot find the named program.
- * To avoid erroneously thinking that the program has died, we'll recheck
- * after a slight delay. If it still isn't there after 500 msec, we'll
- * conclude that it truly is gone.
  */
 static void _check(pid_t pid, const char *name, void (*func)(void))
 {
-	int i;
-
 	if (pid == -1) return;
 
-	for (i = 50; --i > 0; ) {
-		if (pidof(name) > 0) return;
-		usleep(10 * 1000);
-	}
+	if (pidof(name) > 0) return;
 
 	syslog(LOG_DEBUG, "%s terminated unexpectedly, restarting.\n", name);
 	func();
@@ -1495,6 +1461,10 @@ static void _check(pid_t pid, const char *name, void (*func)(void))
 void check_services(void)
 {
 	TRACE_PT("keep alive\n");
+
+	// Periodically reap any zombies
+	setitimer(ITIMER_REAL, &zombie_tv, NULL);
+
 #ifdef LINUX26
 	_check(pid_hotplug2, "hotplug2", start_hotplug2);
 #endif
@@ -1697,11 +1667,10 @@ TOP:
 	if (strcmp(service, "logging") == 0) {
 		if (action & A_STOP) {
 			stop_syslog();
-			stop_cron();
 		}
-		stop_firewall(); start_firewall();		// always restarted
+		stop_firewall(); start_firewall();	// always restarted
+		stop_cron(); start_cron();		// always restarted
 		if (action & A_START) {
-			start_cron();
 			start_syslog();
 		}
 		goto CLEAR;

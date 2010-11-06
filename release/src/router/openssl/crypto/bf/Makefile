@@ -1,5 +1,5 @@
 #
-# SSLeay/crypto/blowfish/Makefile
+# OpenSSL/crypto/blowfish/Makefile
 #
 
 DIR=	bf
@@ -8,19 +8,14 @@ CC=	cc
 CPP=	$(CC) -E
 INCLUDES=
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=		make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=	Makefile.ssl
+MAKEFILE=	Makefile
 AR=		ar r
 
 BF_ENC=		bf_enc.o
-# or use
-#DES_ENC=	bx86-elf.o
 
 CFLAGS= $(INCLUDES) $(CFLAG)
+ASFLAGS= $(INCLUDES) $(ASFLAG)
+AFLAGS= $(ASFLAGS)
 
 GENERAL=Makefile
 TEST=bftest.c
@@ -44,44 +39,26 @@ all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
-# elf
-asm/bx86-elf.o: asm/bx86unix.cpp
-	$(CPP) -DELF -x c asm/bx86unix.cpp | as -o asm/bx86-elf.o
-
-# solaris
-asm/bx86-sol.o: asm/bx86unix.cpp
-	$(CC) -E -DSOL asm/bx86unix.cpp | sed 's/^#.*//' > asm/bx86-sol.s
-	as -o asm/bx86-sol.o asm/bx86-sol.s
-	rm -f asm/bx86-sol.s
-
-# a.out
-asm/bx86-out.o: asm/bx86unix.cpp
-	$(CPP) -DOUT asm/bx86unix.cpp | as -o asm/bx86-out.o
-
-# bsdi
-asm/bx86bsdi.o: asm/bx86unix.cpp
-	$(CPP) -DBSDI asm/bx86unix.cpp | sed 's/ :/:/' | as -o asm/bx86bsdi.o
-
-asm/bx86unix.cpp: asm/bf-586.pl ../perlasm/x86asm.pl ../perlasm/cbc.pl
-	(cd asm; $(PERL) bf-586.pl cpp $(PROCESSOR) >bx86unix.cpp)
+bf-586.s:	asm/bf-586.pl ../perlasm/x86asm.pl ../perlasm/cbc.pl
+	$(PERL) asm/bf-586.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
-install: installs
-
-installs:
-	@for i in $(EXHEADER) ; \
+# We need to use force because 'install' matches 'INSTALL' on case
+# insensitive systems
+FRC.install:
+install: FRC.install
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -96,24 +73,26 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
 	mv -f Makefile.new $(MAKEFILE)
 
 clean:
-	rm -f asm/bx86unix.cpp *.o asm/*.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
+	rm -f *.s *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-bf_cfb64.o: ../../include/openssl/blowfish.h
-bf_cfb64.o: ../../include/openssl/opensslconf.h bf_locl.h
-bf_ecb.o: ../../include/openssl/blowfish.h ../../include/openssl/opensslconf.h
-bf_ecb.o: ../../include/openssl/opensslv.h bf_locl.h
-bf_enc.o: ../../include/openssl/blowfish.h ../../include/openssl/opensslconf.h
-bf_enc.o: bf_locl.h
-bf_ofb64.o: ../../include/openssl/blowfish.h
-bf_ofb64.o: ../../include/openssl/opensslconf.h bf_locl.h
-bf_skey.o: ../../include/openssl/blowfish.h ../../include/openssl/opensslconf.h
-bf_skey.o: bf_locl.h bf_pi.h
+bf_cfb64.o: ../../include/openssl/blowfish.h ../../include/openssl/e_os2.h
+bf_cfb64.o: ../../include/openssl/opensslconf.h bf_cfb64.c bf_locl.h
+bf_ecb.o: ../../include/openssl/blowfish.h ../../include/openssl/e_os2.h
+bf_ecb.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bf_ecb.o: bf_ecb.c bf_locl.h
+bf_enc.o: ../../include/openssl/blowfish.h ../../include/openssl/e_os2.h
+bf_enc.o: ../../include/openssl/opensslconf.h bf_enc.c bf_locl.h
+bf_ofb64.o: ../../include/openssl/blowfish.h ../../include/openssl/e_os2.h
+bf_ofb64.o: ../../include/openssl/opensslconf.h bf_locl.h bf_ofb64.c
+bf_skey.o: ../../include/openssl/blowfish.h ../../include/openssl/e_os2.h
+bf_skey.o: ../../include/openssl/opensslconf.h bf_locl.h bf_pi.h bf_skey.c

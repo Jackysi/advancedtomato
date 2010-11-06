@@ -197,6 +197,14 @@ void show_trace(long *sp)
 	printk("\n");
 }
 
+/*
+ * The architecture-independent backtrace generator
+ */
+void dump_stack(void)
+{
+	show_trace(0);
+}
+
 void show_trace_task(struct task_struct *tsk)
 {
 	show_trace((long *)tsk->thread.reg29);

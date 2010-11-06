@@ -56,7 +56,7 @@
  * [including the GNU Public Licence.]
  */
 /* ====================================================================
- * Copyright (c) 1999 The OpenSSL Project.  All rights reserved.
+ * Copyright (c) 1998-2007 The OpenSSL Project.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,12 +73,12 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit. (http://www.OpenSSL.org/)"
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
  *
  * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
  *    endorse or promote products derived from this software without
  *    prior written permission. For written permission, please contact
- *    openssl-core@OpenSSL.org.
+ *    openssl-core@openssl.org.
  *
  * 5. Products derived from this software may not be called "OpenSSL"
  *    nor may "OpenSSL" appear in their names without prior written
@@ -87,7 +87,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit (http://www.OpenSSL.org/)"
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
  *
  * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
  * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -102,41 +102,62 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ====================================================================
+ *
+ * This product includes cryptographic software written by Eric Young
+ * (eay@cryptsoft.com).  This product includes software written by Tim
+ * Hudson (tjh@cryptsoft.com).
+ *
+ */
+/* ====================================================================
+ * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
+ * ECC cipher suite support in OpenSSL originally developed by 
+ * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
  */
 
 #include <stdio.h>
 
-#include "openssl/e_os.h"
-
+#include "e_os.h"
 #ifndef NO_SYS_TYPES_H
 # include <sys/types.h>
 #endif
 
-#if !defined(WIN32) && !defined(VSM) && !defined(NeXT) && !defined(MAC_OS_pre_X)
-#include <dirent.h>
-#endif
-
-#ifdef NeXT
-#include <sys/dir.h>
-#define dirent direct
-#endif
-
+#include "o_dir.h"
 #include <openssl/objects.h>
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
+#ifndef OPENSSL_NO_DH
+#include <openssl/dh.h>
+#endif
+#include <openssl/bn.h>
 #include "ssl_locl.h"
 
 int SSL_get_ex_data_X509_STORE_CTX_idx(void)
 	{
-	static int ssl_x509_store_ctx_idx= -1;
+	static volatile int ssl_x509_store_ctx_idx= -1;
+	int got_write_lock = 0;
+
+	CRYPTO_r_lock(CRYPTO_LOCK_SSL_CTX);
 
 	if (ssl_x509_store_ctx_idx < 0)
 		{
-		ssl_x509_store_ctx_idx=X509_STORE_CTX_get_ex_new_index(
-			0,"SSL for verify callback",NULL,NULL,NULL);
+		CRYPTO_r_unlock(CRYPTO_LOCK_SSL_CTX);
+		CRYPTO_w_lock(CRYPTO_LOCK_SSL_CTX);
+		got_write_lock = 1;
+		
+		if (ssl_x509_store_ctx_idx < 0)
+			{
+			ssl_x509_store_ctx_idx=X509_STORE_CTX_get_ex_new_index(
+				0,"SSL for verify callback",NULL,NULL,NULL);
+			}
 		}
-	return(ssl_x509_store_ctx_idx);
+
+	if (got_write_lock)
+		CRYPTO_w_unlock(CRYPTO_LOCK_SSL_CTX);
+	else
+		CRYPTO_r_unlock(CRYPTO_LOCK_SSL_CTX);
+	
+	return ssl_x509_store_ctx_idx;
 	}
 
 CERT *ssl_cert_new(void)
@@ -176,22 +197,23 @@ CERT *ssl_cert_dup(CERT *cert)
 	 * if you find that more readable */
 
 	ret->valid = cert->valid;
-	ret->mask = cert->mask;
-	ret->export_mask = cert->export_mask;
+	ret->mask_k = cert->mask_k;
+	ret->mask_a = cert->mask_a;
+	ret->export_mask_k = cert->export_mask_k;
+	ret->export_mask_a = cert->export_mask_a;
 
-#ifndef NO_RSA
+#ifndef OPENSSL_NO_RSA
 	if (cert->rsa_tmp != NULL)
 		{
+		RSA_up_ref(cert->rsa_tmp);
 		ret->rsa_tmp = cert->rsa_tmp;
-		CRYPTO_add(&ret->rsa_tmp->references, 1, CRYPTO_LOCK_RSA);
 		}
 	ret->rsa_tmp_cb = cert->rsa_tmp_cb;
 #endif
 
-#ifndef NO_DH
+#ifndef OPENSSL_NO_DH
 	if (cert->dh_tmp != NULL)
 		{
-		/* DH parameters don't have a reference count */
 		ret->dh_tmp = DHparams_dup(cert->dh_tmp);
 		if (ret->dh_tmp == NULL)
 			{
@@ -220,6 +242,19 @@ CERT *ssl_cert_dup(CERT *cert)
 			}
 		}
 	ret->dh_tmp_cb = cert->dh_tmp_cb;
+#endif
+
+#ifndef OPENSSL_NO_ECDH
+	if (cert->ecdh_tmp)
+		{
+		ret->ecdh_tmp = EC_KEY_dup(cert->ecdh_tmp);
+		if (ret->ecdh_tmp == NULL)
+			{
+			SSLerr(SSL_F_SSL_CERT_DUP, ERR_R_EC_LIB);
+			goto err;
+			}
+		}
+	ret->ecdh_tmp_cb = cert->ecdh_tmp_cb;
 #endif
 
 	for (i = 0; i < SSL_PKEY_NUM; i++)
@@ -256,7 +291,11 @@ CERT *ssl_cert_dup(CERT *cert)
 			case SSL_PKEY_DH_DSA:
 				/* We have a DH key. */
 				break;
-				
+
+			case SSL_PKEY_ECC:
+				/* We have an ECC key */
+				break;
+
 			default:
 				/* Can't happen. */
 				SSLerr(SSL_F_SSL_CERT_DUP, SSL_R_LIBRARY_BUG);
@@ -271,16 +310,20 @@ CERT *ssl_cert_dup(CERT *cert)
 
 	return(ret);
 	
-#ifndef NO_DH /* avoid 'unreferenced label' warning if NO_DH is defined */
+#if !defined(OPENSSL_NO_DH) || !defined(OPENSSL_NO_ECDH)
 err:
 #endif
-#ifndef NO_RSA
+#ifndef OPENSSL_NO_RSA
 	if (ret->rsa_tmp != NULL)
 		RSA_free(ret->rsa_tmp);
 #endif
-#ifndef NO_DH
+#ifndef OPENSSL_NO_DH
 	if (ret->dh_tmp != NULL)
 		DH_free(ret->dh_tmp);
+#endif
+#ifndef OPENSSL_NO_ECDH
+	if (ret->ecdh_tmp != NULL)
+		EC_KEY_free(ret->ecdh_tmp);
 #endif
 
 	for (i = 0; i < SSL_PKEY_NUM; i++)
@@ -315,11 +358,14 @@ void ssl_cert_free(CERT *c)
 		}
 #endif
 
-#ifndef NO_RSA
+#ifndef OPENSSL_NO_RSA
 	if (c->rsa_tmp) RSA_free(c->rsa_tmp);
 #endif
-#ifndef NO_DH
+#ifndef OPENSSL_NO_DH
 	if (c->dh_tmp) DH_free(c->dh_tmp);
+#endif
+#ifndef OPENSSL_NO_ECDH
+	if (c->ecdh_tmp) EC_KEY_free(c->ecdh_tmp);
 #endif
 
 	for (i=0; i<SSL_PKEY_NUM; i++)
@@ -419,13 +465,17 @@ void ssl_sess_cert_free(SESS_CERT *sc)
 #endif
 		}
 
-#ifndef NO_RSA
+#ifndef OPENSSL_NO_RSA
 	if (sc->peer_rsa_tmp != NULL)
 		RSA_free(sc->peer_rsa_tmp);
 #endif
-#ifndef NO_DH
+#ifndef OPENSSL_NO_DH
 	if (sc->peer_dh_tmp != NULL)
 		DH_free(sc->peer_dh_tmp);
+#endif
+#ifndef OPENSSL_NO_ECDH
+	if (sc->peer_ecdh_tmp != NULL)
+		EC_KEY_free(sc->peer_ecdh_tmp);
 #endif
 
 	OPENSSL_free(sc);
@@ -447,28 +497,41 @@ int ssl_verify_cert_chain(SSL *s,STACK_OF(X509) *sk)
 		return(0);
 
 	x=sk_X509_value(sk,0);
-	X509_STORE_CTX_init(&ctx,s->ctx->cert_store,x,sk);
+	if(!X509_STORE_CTX_init(&ctx,s->ctx->cert_store,x,sk))
+		{
+		SSLerr(SSL_F_SSL_VERIFY_CERT_CHAIN,ERR_R_X509_LIB);
+		return(0);
+		}
+#if 0
 	if (SSL_get_verify_depth(s) >= 0)
 		X509_STORE_CTX_set_depth(&ctx, SSL_get_verify_depth(s));
+#endif
 	X509_STORE_CTX_set_ex_data(&ctx,SSL_get_ex_data_X509_STORE_CTX_idx(),s);
-	/* We need to set the verify purpose. The purpose can be determined by
+
+	/* We need to inherit the verify parameters. These can be determined by
 	 * the context: if its a server it will verify SSL client certificates
 	 * or vice versa.
-         */
+	 */
 
-	if(s->server) i = X509_PURPOSE_SSL_CLIENT;
-	else i = X509_PURPOSE_SSL_SERVER;
-
-	X509_STORE_CTX_purpose_inherit(&ctx, i, s->purpose, s->trust);
+	X509_STORE_CTX_set_default(&ctx,
+				s->server ? "ssl_client" : "ssl_server");
+	/* Anything non-default in "param" should overwrite anything in the
+	 * ctx.
+	 */
+	X509_VERIFY_PARAM_set1(X509_STORE_CTX_get0_param(&ctx), s->param);
 
 	if (s->verify_callback)
 		X509_STORE_CTX_set_verify_cb(&ctx, s->verify_callback);
 
 	if (s->ctx->app_verify_callback != NULL)
+#if 1 /* new with OpenSSL 0.9.7 */
+		i=s->ctx->app_verify_callback(&ctx, s->ctx->app_verify_arg); 
+#else
 		i=s->ctx->app_verify_callback(&ctx); /* should pass app_verify_arg */
+#endif
 	else
 		{
-#ifndef NO_X509_VERIFY
+#ifndef OPENSSL_NO_X509_VERIFY
 		i=X509_verify_cert(&ctx);
 #else
 		i=0;
@@ -483,12 +546,12 @@ int ssl_verify_cert_chain(SSL *s,STACK_OF(X509) *sk)
 	return(i);
 	}
 
-static void set_client_CA_list(STACK_OF(X509_NAME) **ca_list,STACK_OF(X509_NAME) *list)
+static void set_client_CA_list(STACK_OF(X509_NAME) **ca_list,STACK_OF(X509_NAME) *name_list)
 	{
 	if (*ca_list != NULL)
 		sk_X509_NAME_pop_free(*ca_list,X509_NAME_free);
 
-	*ca_list=list;
+	*ca_list=name_list;
 	}
 
 STACK_OF(X509_NAME) *SSL_dup_CA_list(STACK_OF(X509_NAME) *sk)
@@ -510,22 +573,22 @@ STACK_OF(X509_NAME) *SSL_dup_CA_list(STACK_OF(X509_NAME) *sk)
 	return(ret);
 	}
 
-void SSL_set_client_CA_list(SSL *s,STACK_OF(X509_NAME) *list)
+void SSL_set_client_CA_list(SSL *s,STACK_OF(X509_NAME) *name_list)
 	{
-	set_client_CA_list(&(s->client_CA),list);
+	set_client_CA_list(&(s->client_CA),name_list);
 	}
 
-void SSL_CTX_set_client_CA_list(SSL_CTX *ctx,STACK_OF(X509_NAME) *list)
+void SSL_CTX_set_client_CA_list(SSL_CTX *ctx,STACK_OF(X509_NAME) *name_list)
 	{
-	set_client_CA_list(&(ctx->client_CA),list);
+	set_client_CA_list(&(ctx->client_CA),name_list);
 	}
 
-STACK_OF(X509_NAME) *SSL_CTX_get_client_CA_list(SSL_CTX *ctx)
+STACK_OF(X509_NAME) *SSL_CTX_get_client_CA_list(const SSL_CTX *ctx)
 	{
 	return(ctx->client_CA);
 	}
 
-STACK_OF(X509_NAME) *SSL_get_client_CA_list(SSL *s)
+STACK_OF(X509_NAME) *SSL_get_client_CA_list(const SSL *s)
 	{
 	if (s->type == SSL_ST_CONNECT)
 		{ /* we are in the client */
@@ -578,7 +641,7 @@ static int xname_cmp(const X509_NAME * const *a, const X509_NAME * const *b)
 	return(X509_NAME_cmp(*a,*b));
 	}
 
-#ifndef NO_STDIO
+#ifndef OPENSSL_NO_STDIO
 /*!
  * Load CA certs from a file into a ::STACK. Note that it is somewhat misnamed;
  * it doesn't really have anything to do with clients (except that a common use
@@ -592,14 +655,13 @@ STACK_OF(X509_NAME) *SSL_load_client_CA_file(const char *file)
 	BIO *in;
 	X509 *x=NULL;
 	X509_NAME *xn=NULL;
-	STACK_OF(X509_NAME) *ret,*sk;
+	STACK_OF(X509_NAME) *ret = NULL,*sk;
 
-	ret=sk_X509_NAME_new_null();
 	sk=sk_X509_NAME_new(xname_cmp);
 
 	in=BIO_new(BIO_s_file_internal());
 
-	if ((ret == NULL) || (sk == NULL) || (in == NULL))
+	if ((sk == NULL) || (in == NULL))
 		{
 		SSLerr(SSL_F_SSL_LOAD_CLIENT_CA_FILE,ERR_R_MALLOC_FAILURE);
 		goto err;
@@ -612,6 +674,15 @@ STACK_OF(X509_NAME) *SSL_load_client_CA_file(const char *file)
 		{
 		if (PEM_read_bio_X509(in,&x,NULL,NULL) == NULL)
 			break;
+		if (ret == NULL)
+			{
+			ret = sk_X509_NAME_new_null();
+			if (ret == NULL)
+				{
+				SSLerr(SSL_F_SSL_LOAD_CLIENT_CA_FILE,ERR_R_MALLOC_FAILURE);
+				goto err;
+				}
+			}
 		if ((xn=X509_get_subject_name(x)) == NULL) goto err;
 		/* check for duplicates */
 		xn=X509_NAME_dup(xn);
@@ -634,6 +705,8 @@ err:
 	if (sk != NULL) sk_X509_NAME_free(sk);
 	if (in != NULL) BIO_free(in);
 	if (x != NULL) X509_free(x);
+	if (ret != NULL)
+		ERR_clear_error();
 	return(ret);
 	}
 #endif
@@ -682,6 +755,8 @@ int SSL_add_file_cert_subjects_to_stack(STACK_OF(X509_NAME) *stack,
 			sk_X509_NAME_push(stack,xn);
 		}
 
+	ERR_clear_error();
+
 	if (0)
 		{
 err:
@@ -692,7 +767,7 @@ err:
 	if(x != NULL)
 		X509_free(x);
 	
-	sk_X509_NAME_set_cmp_func(stack,oldcmp);
+	(void)sk_X509_NAME_set_cmp_func(stack,oldcmp);
 
 	return ret;
 	}
@@ -708,54 +783,52 @@ err:
  * certs may have been added to \c stack.
  */
 
-#ifndef WIN32
-#ifndef VMS			/* XXXX This may be fixed in the future */
-#ifndef MAC_OS_pre_X
-
 int SSL_add_dir_cert_subjects_to_stack(STACK_OF(X509_NAME) *stack,
 				       const char *dir)
 	{
-	DIR *d;
-	struct dirent *dstruct;
+	OPENSSL_DIR_CTX *d = NULL;
+	const char *filename;
 	int ret = 0;
 
 	CRYPTO_w_lock(CRYPTO_LOCK_READDIR);
-	d = opendir(dir);
 
 	/* Note that a side effect is that the CAs will be sorted by name */
-	if(!d)
-		{
-		SYSerr(SYS_F_OPENDIR, get_last_sys_error());
-		ERR_add_error_data(3, "opendir('", dir, "')");
-		SSLerr(SSL_F_SSL_ADD_DIR_CERT_SUBJECTS_TO_STACK, ERR_R_SYS_LIB);
-		goto err;
-		}
-	
-	while((dstruct=readdir(d)))
+
+	while((filename = OPENSSL_DIR_read(&d, dir)))
 		{
 		char buf[1024];
 		int r;
-		
-		if(strlen(dir)+strlen(dstruct->d_name)+2 > sizeof buf)
+
+		if(strlen(dir)+strlen(filename)+2 > sizeof buf)
 			{
 			SSLerr(SSL_F_SSL_ADD_DIR_CERT_SUBJECTS_TO_STACK,SSL_R_PATH_TOO_LONG);
 			goto err;
 			}
-		
-		r = BIO_snprintf(buf,sizeof buf,"%s/%s",dir,dstruct->d_name);
-		if (r <= 0 || r >= sizeof buf)
+
+#ifdef OPENSSL_SYS_VMS
+		r = BIO_snprintf(buf,sizeof buf,"%s%s",dir,filename);
+#else
+		r = BIO_snprintf(buf,sizeof buf,"%s/%s",dir,filename);
+#endif
+		if (r <= 0 || r >= (int)sizeof(buf))
 			goto err;
 		if(!SSL_add_file_cert_subjects_to_stack(stack,buf))
 			goto err;
 		}
+
+	if (errno)
+		{
+		SYSerr(SYS_F_OPENDIR, get_last_sys_error());
+		ERR_add_error_data(3, "OPENSSL_DIR_read(&ctx, '", dir, "')");
+		SSLerr(SSL_F_SSL_ADD_DIR_CERT_SUBJECTS_TO_STACK, ERR_R_SYS_LIB);
+		goto err;
+		}
+
 	ret = 1;
 
-err:	
-	if (d) closedir(d);
+err:
+	if (d) OPENSSL_DIR_end(&d);
 	CRYPTO_w_unlock(CRYPTO_LOCK_READDIR);
 	return ret;
 	}
 
-#endif
-#endif
-#endif

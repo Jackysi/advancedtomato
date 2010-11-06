@@ -2,12 +2,63 @@
 /* WARNING: Generated automatically from opensslconf.h.in by Configure. */
 
 /* OpenSSL was configured with the following options: */
+#ifndef OPENSSL_DOING_MAKEDEPEND
+
+
+#ifndef OPENSSL_NO_GMP
+# define OPENSSL_NO_GMP
+#endif
+#ifndef OPENSSL_NO_JPAKE
+# define OPENSSL_NO_JPAKE
+#endif
+#ifndef OPENSSL_NO_KRB5
+# define OPENSSL_NO_KRB5
+#endif
+#ifndef OPENSSL_NO_MD2
+# define OPENSSL_NO_MD2
+#endif
+#ifndef OPENSSL_NO_RC5
+# define OPENSSL_NO_RC5
+#endif
+#ifndef OPENSSL_NO_RFC3779
+# define OPENSSL_NO_RFC3779
+#endif
+#ifndef OPENSSL_NO_STORE
+# define OPENSSL_NO_STORE
+#endif
+
+#endif /* OPENSSL_DOING_MAKEDEPEND */
+
+#ifndef OPENSSL_NO_DYNAMIC_ENGINE
+# define OPENSSL_NO_DYNAMIC_ENGINE
+#endif
+
+/* The OPENSSL_NO_* macros are also defined as NO_* if the application
+   asks for it.  This is a transient feature that is provided for those
+   who haven't had the time to do the appropriate changes in their
+   applications.  */
 #ifdef OPENSSL_ALGORITHM_DEFINES
-   /* no ciphers excluded */
-#endif
-#ifdef OPENSSL_THREAD_DEFINES
-#endif
-#ifdef OPENSSL_OTHER_DEFINES
+# if defined(OPENSSL_NO_GMP) && !defined(NO_GMP)
+#  define NO_GMP
+# endif
+# if defined(OPENSSL_NO_JPAKE) && !defined(NO_JPAKE)
+#  define NO_JPAKE
+# endif
+# if defined(OPENSSL_NO_KRB5) && !defined(NO_KRB5)
+#  define NO_KRB5
+# endif
+# if defined(OPENSSL_NO_MD2) && !defined(NO_MD2)
+#  define NO_MD2
+# endif
+# if defined(OPENSSL_NO_RC5) && !defined(NO_RC5)
+#  define NO_RC5
+# endif
+# if defined(OPENSSL_NO_RFC3779) && !defined(NO_RFC3779)
+#  define NO_RFC3779
+# endif
+# if defined(OPENSSL_NO_STORE) && !defined(NO_STORE)
+#  define NO_STORE
+# endif
 #endif
 
 /* crypto/opensslconf.h.in */
@@ -17,11 +68,15 @@
 
 #if !(defined(VMS) || defined(__VMS)) /* VMS uses logical names instead */
 #if defined(HEADER_CRYPTLIB_H) && !defined(OPENSSLDIR)
+#define ENGINESDIR "/usr/local/ssl/lib/engines"
 #define OPENSSLDIR "/usr/local/ssl"
 #endif
 #endif
 
+#undef OPENSSL_UNISTD
 #define OPENSSL_UNISTD <unistd.h>
+
+#undef OPENSSL_EXPORT_VAR_AS_FUNCTION
 
 #if defined(HEADER_IDEA_H) && !defined(IDEA_INT)
 #define IDEA_INT unsigned int
@@ -56,7 +111,7 @@
 #endif
 #endif
 
-#if defined(HEADER_DES_H) && !defined(DES_LONG)
+#if (defined(HEADER_NEW_DES_H) || defined(HEADER_DES_H)) && !defined(DES_LONG)
 /* If this is set to 'unsigned int' on a DEC Alpha, this gives about a
  * %20 speed up (longs are 8 bytes, int's are 4). */
 #ifndef DES_LONG
@@ -66,19 +121,14 @@
 
 #if defined(HEADER_BN_H) && !defined(CONFIG_HEADER_BN_H)
 #define CONFIG_HEADER_BN_H
-#define BN_LLONG
+#undef BN_LLONG
 
 /* Should we define BN_DIV2W here? */
 
 /* Only one for the following should be defined */
-/* The prime number generation stuff may not work when
- * EIGHT_BIT but I don't care since I've only used this mode
- * for debuging the bignum libraries */
 #undef SIXTY_FOUR_BIT_LONG
 #undef SIXTY_FOUR_BIT
 #define THIRTY_TWO_BIT
-#undef SIXTEEN_BIT
-#undef EIGHT_BIT
 #endif
 
 #if defined(HEADER_RC4_LOCL_H) && !defined(CONFIG_HEADER_RC4_LOCL_H)
@@ -156,7 +206,7 @@ YOU SHOULD NOT HAVE BOTH DES_RISC1 AND DES_RISC2 DEFINED!!!!!
 #  define DES_PTR
 #  define DES_RISC2
 #  define DES_UNROLL
-#elif defined( i386 )		/* x86 boxes, should be gcc */
+#elif defined(i386) || defined(__i386__)	/* x86 boxes, should be gcc */
 #  define DES_PTR
 #  define DES_RISC1
 #  define DES_UNROLL

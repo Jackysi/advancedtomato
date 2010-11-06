@@ -1,7 +1,9 @@
 $! TPKCS7.COM  --  Tests pkcs7 keys
 $
 $	__arch := VAX
-$	if f$getsyi("cpu") .ge. 128 then __arch := AXP
+$	if f$getsyi("cpu") .ge. 128 then -
+	   __arch = f$edit( f$getsyi( "ARCH_NAME"), "UPCASE")
+$	if __arch .eqs. "" then __arch := UNK
 $	exe_dir := sys$disk:[-.'__arch'.exe.apps]
 $
 $	cmd := mcr 'exe_dir'openssl pkcs7
@@ -13,7 +15,9 @@ $	write sys$output "testing PKCS7 conversions (2)"
 $	if f$search("fff.*") .nes "" then delete fff.*;*
 $	if f$search("ff.*") .nes "" then delete ff.*;*
 $	if f$search("f.*") .nes "" then delete f.*;*
-$	copy 't' fff.p
+$	convert/fdl=sys$input: 't' fff.p
+RECORD
+	FORMAT STREAM_LF
 $
 $	write sys$output "p -> d"
 $	'cmd' -in fff.p -inform p -outform d -out f.d
