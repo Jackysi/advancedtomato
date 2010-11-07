@@ -132,7 +132,7 @@ static int robo_reg(robo_t *robo, u8 page, u8 reg, u8 op)
 {
 	if (_robo_reg(robo, page, reg, op))
 	{
-		fprintf(stderr, "robo_reg: timeout\n");
+		fprintf(stderr, "robo_reg: %x/%x timeout\n", page, reg);
 		exit(1);
 	}
 
@@ -290,7 +290,7 @@ main(int argc, char *argv[])
 	u32 val32;
 	u16 mac[3];
 	int i = 0, j;
-	int robo535x = 0;
+	int robo535x = 0; /* 0 - 5365, 1 - 5325, 3 - 5356, 4 - 53115 */
 	u32 phyid;
 	
 	static robo_t robo;
@@ -639,8 +639,8 @@ main(int argc, char *argv[])
 		printf("%s stp: %s vlan: %d ", rxtx[val16 & 3], stp[(val16 >> 5) & 7],
 			robo_read16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_PORT0_DEF_TAG + (i << 1)));
 
-		printf(robo535x == 4 ? "jumbo: %s " : "",
-			jumbo[(robo_read32(&robo, ROBO_JUMBO_PAGE, ROBO_JUMBO_CTRL) >> port[i]) & 1]);
+		if (robo535x == 4)
+			printf("jumbo: %s ", jumbo[(robo_read32(&robo, ROBO_JUMBO_PAGE, ROBO_JUMBO_CTRL) >> port[i]) & 1]);
 
 		robo_read(&robo, ROBO_STAT_PAGE, ROBO_LSA_PORT0 + port[i] * 6, mac, 3);
 

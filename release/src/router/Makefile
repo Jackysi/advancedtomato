@@ -478,7 +478,7 @@ rmconf: config/mconf
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
 	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dnsmasq-clean
-	@$(MAKE) iptables-clean pppd-clean zebra-clean openssl-clean ppp-clean
+	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean ppp-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -520,7 +520,7 @@ busybox-config:
 	$(MAKE) -C busybox menuconfig
 
 
-httpd: matrixssl shared nvram mssl
+httpd: shared nvram mssl
 	@$(SEP)
 	@$(MAKE) -C httpd
 
@@ -537,15 +537,23 @@ matrixssl-install:
 matrixssl-clean:
 	$(MAKE) -C matrixssl/src clean
 
-openssl/stamp-h1:
 ifeq ($(TCONFIG_OPENVPN),y)
-	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel
+OPENSSL_CIPHERS:=enable-rc5
 else
-	cd openssl && \
-	CC=$(CC) && ./Configure linux-mipsel \
-		no-aes no-idea no-md2 no-mdc2 no-rc5 no-rmd160 no-ripemd
+OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes no-tls1 no-tlsext
 endif
+
+openssl/stamp-h1:
+	cd openssl && \
+	./Configure linux-mipsel --openssldir=/etc --cross-compile-prefix=' ' \
+	-ffunction-sections -fdata-sections -Wl,--gc-sections \
+	shared $(OPENSSL_CIPHERS) \
+	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
+	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
+	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
+	no-zlib no-engine no-engines no-sse2 no-perlasm \
+	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
+
 	@$(MAKE) -C openssl clean
 	@touch openssl/stamp-h1
 
@@ -556,8 +564,9 @@ openssl-clean:
 	@rm -f openssl/stamp-h1
 
 openssl-install: openssl
-	install -D openssl/libcrypto.so $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so
+	install -D openssl/libcrypto.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libcrypto.so.1.0.0
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libcrypto.so.1.0.0
+	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libcrypto.so.1.0.0 libcrypto.so
 
 	install -D openssl/apps/openssl $(INSTALLDIR)/openssl/usr/sbin/openssl
 	$(STRIP) $(INSTALLDIR)/openssl/usr/sbin/openssl
@@ -570,16 +579,18 @@ openssl-install: openssl
 
 ifeq ($(TCONFIG_FTP_SSL),y)
 # !!TB
-	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	install -D openssl/libssl.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
 ifeq ($(TCONFIG_OPENVPN),y)
-	install -D openssl/libssl.so $(INSTALLDIR)/openssl/usr/lib/libssl.so
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so
+	install -D openssl/libssl.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
+	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
-mssl:	matrixssl
+mssl:	$(if $(TCONFIG_OPENVPN),openssl,matrixssl)
 
 mdu:	shared mssl
 
@@ -603,7 +614,9 @@ bridge-install:
 
 dnsmasq:
 	@$(SEP)
-	@$(MAKE) -C dnsmasq COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DNO_SCRIPT $(if $(TCONFIG_USB_EXTRAS),,-DNO_TFTP) $(EXTRACFLAGS)"
+	@$(MAKE) -C dnsmasq \
+	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) $(if $(TCONFIG_USB_EXTRAS),,-DNO_SCRIPT) $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC"
 
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -1199,18 +1212,25 @@ igs-install: igs
 
 
 ebtables: dummy
-	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) CFLAGS="-Os $(EXTRACFLAGS) -Wall -Wunused"
+	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
+	CFLAGS="-Os $(EXTRACFLAGS) -DEBT_MIN_ALIGN=4 -Wall -Wunused" \
+	BINDIR="/usr/sbin" LIBDIR="/usr/lib/ebtables" KERNEL_INCLUDES=$(LINUXDIR)/include $(if $(TCONFIG_IPV6),DO_IPV6=1,)
 
 ebtables-install: ebtables
 	install -D ebtables/ebtables $(INSTALLDIR)/ebtables/usr/sbin/ebtables
 
+	@mkdir -p $(TARGETDIR)/rom/etc
+	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/ebtables/ethertypes > $(TARGETDIR)/rom/etc/ethertypes
+	chmod 0644 $(TARGETDIR)/rom/etc/ethertypes
+
 	install -d $(INSTALLDIR)/ebtables/usr/lib
+	install -d $(INSTALLDIR)/ebtables/usr/lib/ebtables
 	install -D ebtables/*.so $(INSTALLDIR)/ebtables/usr/lib/
-	install -D ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/
+	install -D ebtables/extensions/*.so $(INSTALLDIR)/ebtables/usr/lib/ebtables/
 
 	$(STRIP) $(INSTALLDIR)/ebtables/usr/sbin/ebtables
+	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/ebtables/*.so
 	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebt*.so
-	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebtc.so
 
 ebtables-clean:
 	make -C ebtables clean
@@ -1236,7 +1256,7 @@ openvpn: openvpn/.conf
 
 openvpn/.conf:
 	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-	LDFLAGS="-L$(TOP)/openssl/ -L$(TOP)/lzo/src/.libs/ -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix= \
 	--with-lzo-headers="$(TOP)/lzo/include" \
 	--with-ssl-headers="$(TOP)/openssl/include/" \
@@ -1266,7 +1286,7 @@ openvpn-install: openvpn
 %-clean:
 	@-[ ! -d $* ] || $(MAKE) -C $* clean
 
-%-install:
+%-install: %
 	@[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
 
 %-build:

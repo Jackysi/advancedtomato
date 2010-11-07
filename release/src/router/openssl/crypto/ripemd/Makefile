@@ -1,5 +1,5 @@
 #
-# SSLeay/crypto/ripemd/Makefile
+# OpenSSL/crypto/ripemd/Makefile
 #
 
 DIR=    ripemd
@@ -8,17 +8,14 @@ CC=     cc
 CPP=    $(CC) -E
 INCLUDES=
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=           make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=       Makefile.ssl
+MAKEFILE=       Makefile
 AR=             ar r
 
 RIP_ASM_OBJ=
 
 CFLAGS= $(INCLUDES) $(CFLAG)
+ASFLAGS= $(INCLUDES) $(ASFLAG)
+AFLAGS= $(ASFLAGS)
 
 GENERAL=Makefile
 TEST=rmdtest.c
@@ -42,42 +39,23 @@ all:    lib
 
 lib:    $(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
-# elf
-asm/rm86-elf.o: asm/rm86unix.cpp
-	$(CPP) -DELF -x c asm/rm86unix.cpp | as -o asm/rm86-elf.o
-
-# solaris
-asm/rm86-sol.o: asm/rm86unix.cpp
-	$(CC) -E -DSOL asm/rm86unix.cpp | sed 's/^#.*//' > asm/rm86-sol.s
-	as -o asm/rm86-sol.o asm/rm86-sol.s
-	rm -f asm/rm86-sol.s
-
-# a.out
-asm/rm86-out.o: asm/rm86unix.cpp
-	$(CPP) -DOUT asm/rm86unix.cpp | as -o asm/rm86-out.o
-
-# bsdi
-asm/rm86bsdi.o: asm/rm86unix.cpp
-	$(CPP) -DBSDI asm/rm86unix.cpp | sed 's/ :/:/' | as -o asm/rm86bsdi.o
-
-asm/rm86unix.cpp: asm/rmd-586.pl ../perlasm/x86asm.pl
-	(cd asm; $(PERL) rmd-586.pl cpp >rm86unix.cpp)
+rmd-586.s:	asm/rmd-586.pl ../perlasm/x86asm.pl
+	$(PERL) asm/rmd-586.pl $(PERLASM_SCHEME) $(CFLAGS) > $@
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
 install:
-	@for i in $(EXHEADER) ; \
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -92,18 +70,23 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
 	mv -f Makefile.new $(MAKEFILE)
 
 clean:
-	rm -f asm/rm86unix.cpp *.o asm/*.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
+	rm -f *.s *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-rmd_dgst.o: ../../include/openssl/opensslconf.h
+rmd_dgst.o: ../../include/openssl/e_os2.h ../../include/openssl/opensslconf.h
 rmd_dgst.o: ../../include/openssl/opensslv.h ../../include/openssl/ripemd.h
-rmd_dgst.o: ../md32_common.h rmd_locl.h rmdconst.h
-rmd_one.o: ../../include/openssl/ripemd.h
+rmd_dgst.o: ../md32_common.h rmd_dgst.c rmd_locl.h rmdconst.h
+rmd_one.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+rmd_one.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+rmd_one.o: ../../include/openssl/ossl_typ.h ../../include/openssl/ripemd.h
+rmd_one.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+rmd_one.o: ../../include/openssl/symhacks.h rmd_one.c

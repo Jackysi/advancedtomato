@@ -57,12 +57,13 @@
  */
 
 #include "des_locl.h"
+#include "spr.h"
 
-void des_encrypt1(DES_LONG *data, des_key_schedule ks, int enc)
+void DES_encrypt1(DES_LONG *data, DES_key_schedule *ks, int enc)
 	{
 	register DES_LONG l,r,t,u;
 #ifdef DES_PTR
-	register const unsigned char *des_SP=(const unsigned char *)des_SPtrans;
+	register const unsigned char *des_SP=(const unsigned char *)DES_SPtrans;
 #endif
 #ifndef DES_UNROLL
 	register int i;
@@ -75,7 +76,7 @@ void des_encrypt1(DES_LONG *data, des_key_schedule ks, int enc)
 	IP(r,l);
 	/* Things have been modified so that the initial rotate is
 	 * done outside the loop.  This required the
-	 * des_SPtrans values in sp.h to be rotated 1 bit to the right.
+	 * DES_SPtrans values in sp.h to be rotated 1 bit to the right.
 	 * One perl script later and things have a 5% speed up on a sparc2.
 	 * Thanks to Richard Outerbridge <71755.204@CompuServe.COM>
 	 * for pointing this out. */
@@ -84,7 +85,7 @@ void des_encrypt1(DES_LONG *data, des_key_schedule ks, int enc)
 	r=ROTATE(r,29)&0xffffffffL;
 	l=ROTATE(l,29)&0xffffffffL;
 
-	s=ks->ks.deslong;
+	s=ks->ks->deslong;
 	/* I don't know if it is worth the effort of loop unrolling the
 	 * inner loop */
 	if (enc)
@@ -107,12 +108,10 @@ void des_encrypt1(DES_LONG *data, des_key_schedule ks, int enc)
 		D_ENCRYPT(l,r,28); /*  15 */
 		D_ENCRYPT(r,l,30); /*  16 */
 #else
-		for (i=0; i<32; i+=8)
+		for (i=0; i<32; i+=4)
 			{
 			D_ENCRYPT(l,r,i+0); /*  1 */
 			D_ENCRYPT(r,l,i+2); /*  2 */
-			D_ENCRYPT(l,r,i+4); /*  3 */
-			D_ENCRYPT(r,l,i+6); /*  4 */
 			}
 #endif
 		}
@@ -136,12 +135,10 @@ void des_encrypt1(DES_LONG *data, des_key_schedule ks, int enc)
 		D_ENCRYPT(l,r, 2); /*  2 */
 		D_ENCRYPT(r,l, 0); /*  1 */
 #else
-		for (i=30; i>0; i-=8)
+		for (i=30; i>0; i-=4)
 			{
 			D_ENCRYPT(l,r,i-0); /* 16 */
 			D_ENCRYPT(r,l,i-2); /* 15 */
-			D_ENCRYPT(l,r,i-4); /* 14 */
-			D_ENCRYPT(r,l,i-6); /* 13 */
 			}
 #endif
 		}
@@ -156,11 +153,11 @@ void des_encrypt1(DES_LONG *data, des_key_schedule ks, int enc)
 	l=r=t=u=0;
 	}
 
-void des_encrypt2(DES_LONG *data, des_key_schedule ks, int enc)
+void DES_encrypt2(DES_LONG *data, DES_key_schedule *ks, int enc)
 	{
 	register DES_LONG l,r,t,u;
 #ifdef DES_PTR
-	register const unsigned char *des_SP=(const unsigned char *)des_SPtrans;
+	register const unsigned char *des_SP=(const unsigned char *)DES_SPtrans;
 #endif
 #ifndef DES_UNROLL
 	register int i;
@@ -172,7 +169,7 @@ void des_encrypt2(DES_LONG *data, des_key_schedule ks, int enc)
 
 	/* Things have been modified so that the initial rotate is
 	 * done outside the loop.  This required the
-	 * des_SPtrans values in sp.h to be rotated 1 bit to the right.
+	 * DES_SPtrans values in sp.h to be rotated 1 bit to the right.
 	 * One perl script later and things have a 5% speed up on a sparc2.
 	 * Thanks to Richard Outerbridge <71755.204@CompuServe.COM>
 	 * for pointing this out. */
@@ -180,7 +177,7 @@ void des_encrypt2(DES_LONG *data, des_key_schedule ks, int enc)
 	r=ROTATE(r,29)&0xffffffffL;
 	l=ROTATE(l,29)&0xffffffffL;
 
-	s=ks->ks.deslong;
+	s=ks->ks->deslong;
 	/* I don't know if it is worth the effort of loop unrolling the
 	 * inner loop */
 	if (enc)
@@ -203,12 +200,10 @@ void des_encrypt2(DES_LONG *data, des_key_schedule ks, int enc)
 		D_ENCRYPT(l,r,28); /*  15 */
 		D_ENCRYPT(r,l,30); /*  16 */
 #else
-		for (i=0; i<32; i+=8)
+		for (i=0; i<32; i+=4)
 			{
 			D_ENCRYPT(l,r,i+0); /*  1 */
 			D_ENCRYPT(r,l,i+2); /*  2 */
-			D_ENCRYPT(l,r,i+4); /*  3 */
-			D_ENCRYPT(r,l,i+6); /*  4 */
 			}
 #endif
 		}
@@ -232,12 +227,10 @@ void des_encrypt2(DES_LONG *data, des_key_schedule ks, int enc)
 		D_ENCRYPT(l,r, 2); /*  2 */
 		D_ENCRYPT(r,l, 0); /*  1 */
 #else
-		for (i=30; i>0; i-=8)
+		for (i=30; i>0; i-=4)
 			{
 			D_ENCRYPT(l,r,i-0); /* 16 */
 			D_ENCRYPT(r,l,i-2); /* 15 */
-			D_ENCRYPT(l,r,i-4); /* 14 */
-			D_ENCRYPT(r,l,i-6); /* 13 */
 			}
 #endif
 		}
@@ -247,8 +240,8 @@ void des_encrypt2(DES_LONG *data, des_key_schedule ks, int enc)
 	l=r=t=u=0;
 	}
 
-void des_encrypt3(DES_LONG *data, des_key_schedule ks1, des_key_schedule ks2,
-	     des_key_schedule ks3)
+void DES_encrypt3(DES_LONG *data, DES_key_schedule *ks1,
+		  DES_key_schedule *ks2, DES_key_schedule *ks3)
 	{
 	register DES_LONG l,r;
 
@@ -257,9 +250,9 @@ void des_encrypt3(DES_LONG *data, des_key_schedule ks1, des_key_schedule ks2,
 	IP(l,r);
 	data[0]=l;
 	data[1]=r;
-	des_encrypt2((DES_LONG *)data,ks1,DES_ENCRYPT);
-	des_encrypt2((DES_LONG *)data,ks2,DES_DECRYPT);
-	des_encrypt2((DES_LONG *)data,ks3,DES_ENCRYPT);
+	DES_encrypt2((DES_LONG *)data,ks1,DES_ENCRYPT);
+	DES_encrypt2((DES_LONG *)data,ks2,DES_DECRYPT);
+	DES_encrypt2((DES_LONG *)data,ks3,DES_ENCRYPT);
 	l=data[0];
 	r=data[1];
 	FP(r,l);
@@ -267,8 +260,8 @@ void des_encrypt3(DES_LONG *data, des_key_schedule ks1, des_key_schedule ks2,
 	data[1]=r;
 	}
 
-void des_decrypt3(DES_LONG *data, des_key_schedule ks1, des_key_schedule ks2,
-	     des_key_schedule ks3)
+void DES_decrypt3(DES_LONG *data, DES_key_schedule *ks1,
+		  DES_key_schedule *ks2, DES_key_schedule *ks3)
 	{
 	register DES_LONG l,r;
 
@@ -277,9 +270,9 @@ void des_decrypt3(DES_LONG *data, des_key_schedule ks1, des_key_schedule ks2,
 	IP(l,r);
 	data[0]=l;
 	data[1]=r;
-	des_encrypt2((DES_LONG *)data,ks3,DES_DECRYPT);
-	des_encrypt2((DES_LONG *)data,ks2,DES_ENCRYPT);
-	des_encrypt2((DES_LONG *)data,ks1,DES_DECRYPT);
+	DES_encrypt2((DES_LONG *)data,ks3,DES_DECRYPT);
+	DES_encrypt2((DES_LONG *)data,ks2,DES_ENCRYPT);
+	DES_encrypt2((DES_LONG *)data,ks1,DES_DECRYPT);
 	l=data[0];
 	r=data[1];
 	FP(r,l);
@@ -290,11 +283,12 @@ void des_decrypt3(DES_LONG *data, des_key_schedule ks1, des_key_schedule ks2,
 #ifndef DES_DEFAULT_OPTIONS
 
 #undef CBC_ENC_C__DONT_UPDATE_IV
-#include "ncbc_enc.c" /* des_ncbc_encrypt */
+#include "ncbc_enc.c" /* DES_ncbc_encrypt */
 
-void des_ede3_cbc_encrypt(const unsigned char *input, unsigned char *output,
-	     long length, des_key_schedule ks1, des_key_schedule ks2,
-	     des_key_schedule ks3, des_cblock *ivec, int enc)
+void DES_ede3_cbc_encrypt(const unsigned char *input, unsigned char *output,
+			  long length, DES_key_schedule *ks1,
+			  DES_key_schedule *ks2, DES_key_schedule *ks3,
+			  DES_cblock *ivec, int enc)
 	{
 	register DES_LONG tin0,tin1;
 	register DES_LONG tout0,tout1,xor0,xor1;
@@ -321,7 +315,7 @@ void des_ede3_cbc_encrypt(const unsigned char *input, unsigned char *output,
 
 			tin[0]=tin0;
 			tin[1]=tin1;
-			des_encrypt3((DES_LONG *)tin,ks1,ks2,ks3);
+			DES_encrypt3((DES_LONG *)tin,ks1,ks2,ks3);
 			tout0=tin[0];
 			tout1=tin[1];
 
@@ -336,7 +330,7 @@ void des_ede3_cbc_encrypt(const unsigned char *input, unsigned char *output,
 
 			tin[0]=tin0;
 			tin[1]=tin1;
-			des_encrypt3((DES_LONG *)tin,ks1,ks2,ks3);
+			DES_encrypt3((DES_LONG *)tin,ks1,ks2,ks3);
 			tout0=tin[0];
 			tout1=tin[1];
 
@@ -363,7 +357,7 @@ void des_ede3_cbc_encrypt(const unsigned char *input, unsigned char *output,
 
 			tin[0]=tin0;
 			tin[1]=tin1;
-			des_decrypt3((DES_LONG *)tin,ks1,ks2,ks3);
+			DES_decrypt3((DES_LONG *)tin,ks1,ks2,ks3);
 			tout0=tin[0];
 			tout1=tin[1];
 
@@ -384,7 +378,7 @@ void des_ede3_cbc_encrypt(const unsigned char *input, unsigned char *output,
 
 			tin[0]=tin0;
 			tin[1]=tin1;
-			des_decrypt3((DES_LONG *)tin,ks1,ks2,ks3);
+			DES_decrypt3((DES_LONG *)tin,ks1,ks2,ks3);
 			tout0=tin[0];
 			tout1=tin[1];
 		

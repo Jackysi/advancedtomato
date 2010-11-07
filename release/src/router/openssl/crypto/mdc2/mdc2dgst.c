@@ -74,18 +74,19 @@
 			*((c)++)=(unsigned char)(((l)>>16L)&0xff), \
 			*((c)++)=(unsigned char)(((l)>>24L)&0xff))
 
-static void mdc2_body(MDC2_CTX *c, const unsigned char *in, unsigned int len);
-void MDC2_Init(MDC2_CTX *c)
+static void mdc2_body(MDC2_CTX *c, const unsigned char *in, size_t len);
+int MDC2_Init(MDC2_CTX *c)
 	{
 	c->num=0;
 	c->pad_type=1;
 	memset(&(c->h[0]),0x52,MDC2_BLOCK);
 	memset(&(c->hh[0]),0x25,MDC2_BLOCK);
+	return 1;
 	}
 
-void MDC2_Update(MDC2_CTX *c, const unsigned char *in, unsigned long len)
+int MDC2_Update(MDC2_CTX *c, const unsigned char *in, size_t len)
 	{
-	int i,j;
+	size_t i,j;
 
 	i=c->num;
 	if (i != 0)
@@ -93,9 +94,9 @@ void MDC2_Update(MDC2_CTX *c, const unsigned char *in, unsigned long len)
 		if (i+len < MDC2_BLOCK)
 			{
 			/* partial block */
-			memcpy(&(c->data[i]),in,(int)len);
+			memcpy(&(c->data[i]),in,len);
 			c->num+=(int)len;
-			return;
+			return 1;
 			}
 		else
 			{
@@ -108,24 +109,25 @@ void MDC2_Update(MDC2_CTX *c, const unsigned char *in, unsigned long len)
 			mdc2_body(c,&(c->data[0]),MDC2_BLOCK);
 			}
 		}
-	i=(int)(len&(unsigned long)~(MDC2_BLOCK-1));
+	i=len&~((size_t)MDC2_BLOCK-1);
 	if (i > 0) mdc2_body(c,in,i);
-	j=(int)len-i;
+	j=len-i;
 	if (j > 0)
 		{
 		memcpy(&(c->data[0]),&(in[i]),j);
-		c->num=j;
+		c->num=(int)j;
 		}
+	return 1;
 	}
 
-static void mdc2_body(MDC2_CTX *c, const unsigned char *in, unsigned int len)
+static void mdc2_body(MDC2_CTX *c, const unsigned char *in, size_t len)
 	{
 	register DES_LONG tin0,tin1;
 	register DES_LONG ttin0,ttin1;
 	DES_LONG d[2],dd[2];
-	des_key_schedule k;
+	DES_key_schedule k;
 	unsigned char *p;
-	unsigned int i;
+	size_t i;
 
 	for (i=0; i<len; i+=8)
 		{
@@ -134,13 +136,13 @@ static void mdc2_body(MDC2_CTX *c, const unsigned char *in, unsigned int len)
 		c->h[0]=(c->h[0]&0x9f)|0x40;
 		c->hh[0]=(c->hh[0]&0x9f)|0x20;
 
-		des_set_odd_parity(&c->h);
-		des_set_key_unchecked(&c->h,k);
-		des_encrypt1(d,k,1);
+		DES_set_odd_parity(&c->h);
+		DES_set_key_unchecked(&c->h,&k);
+		DES_encrypt1(d,&k,1);
 
-		des_set_odd_parity(&c->hh);
-		des_set_key_unchecked(&c->hh,k);
-		des_encrypt1(dd,k,1);
+		DES_set_odd_parity(&c->hh);
+		DES_set_key_unchecked(&c->hh,&k);
+		DES_encrypt1(dd,&k,1);
 
 		ttin0=tin0^dd[0];
 		ttin1=tin1^dd[1];
@@ -156,9 +158,10 @@ static void mdc2_body(MDC2_CTX *c, const unsigned char *in, unsigned int len)
 		}
 	}
 
-void MDC2_Final(unsigned char *md, MDC2_CTX *c)
+int MDC2_Final(unsigned char *md, MDC2_CTX *c)
 	{
-	int i,j;
+	unsigned int i;
+	int j;
 
 	i=c->num;
 	j=c->pad_type;
@@ -171,6 +174,7 @@ void MDC2_Final(unsigned char *md, MDC2_CTX *c)
 		}
 	memcpy(md,(char *)c->h,MDC2_BLOCK);
 	memcpy(&(md[MDC2_BLOCK]),(char *)c->hh,MDC2_BLOCK);
+	return 1;
 	}
 
 #undef TEST

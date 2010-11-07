@@ -60,7 +60,6 @@
 #include <errno.h>
 #include "cryptlib.h"
 #include <openssl/bio.h>
-#include <openssl/evp.h>
 
 static int buffer_write(BIO *h, const char *buf,int num);
 static int buffer_read(BIO *h, char *buf, int size);
@@ -483,7 +482,7 @@ static int buffer_gets(BIO *b, char *buf, int size)
 			size-=i;
 			ctx->ibuf_len-=i;
 			ctx->ibuf_off+=i;
-			if ((flag) || (i == size))
+			if (flag || size == 0)
 				{
 				*buf='\0';
 				return(num);
@@ -495,6 +494,7 @@ static int buffer_gets(BIO *b, char *buf, int size)
 			if (i <= 0)
 				{
 				BIO_copy_next_retry(b);
+				*buf='\0';
 				if (i < 0) return((num > 0)?num:i);
 				if (i == 0) return(num);
 				}

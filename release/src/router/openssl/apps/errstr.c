@@ -91,16 +91,18 @@ int MAIN(int argc, char **argv)
 		out=BIO_new(BIO_s_file());
 		if ((out != NULL) && BIO_set_fp(out,stdout,BIO_NOCLOSE))
 			{
-#ifdef VMS
+#ifdef OPENSSL_SYS_VMS
 			{
 			BIO *tmpbio = BIO_new(BIO_f_linebuffer());
 			out = BIO_push(tmpbio, out);
 			}
 #endif
-			lh_node_stats_bio((LHASH *)ERR_get_string_table(),out);
-			lh_stats_bio((LHASH *)ERR_get_string_table(),out);
-			lh_node_usage_stats_bio((LHASH *)
-				ERR_get_string_table(),out);
+			lh_ERR_STRING_DATA_node_stats_bio(
+						  ERR_get_string_table(), out);
+			lh_ERR_STRING_DATA_stats_bio(ERR_get_string_table(),
+						     out);
+			lh_ERR_STRING_DATA_node_usage_stats_bio(
+						    ERR_get_string_table(),out);
 			}
 		if (out != NULL) BIO_free_all(out);
 		argc--;
@@ -121,5 +123,6 @@ int MAIN(int argc, char **argv)
 			ret++;
 			}
 		}
-	EXIT(ret);
+	apps_shutdown();
+	OPENSSL_EXIT(ret);
 	}

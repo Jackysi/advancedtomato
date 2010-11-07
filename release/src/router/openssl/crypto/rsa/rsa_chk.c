@@ -53,7 +53,7 @@
 #include <openssl/rsa.h>
 
 
-int RSA_check_key(RSA *key)
+int RSA_check_key(const RSA *key)
 	{
 	BIGNUM *i, *j, *k, *l, *m;
 	BN_CTX *ctx;
@@ -75,7 +75,7 @@ int RSA_check_key(RSA *key)
 		}
 	
 	/* p prime? */
-	r = BN_is_prime(key->p, BN_prime_checks, NULL, NULL, NULL);
+	r = BN_is_prime_ex(key->p, BN_prime_checks, NULL, NULL);
 	if (r != 1)
 		{
 		ret = r;
@@ -85,7 +85,7 @@ int RSA_check_key(RSA *key)
 		}
 	
 	/* q prime? */
-	r = BN_is_prime(key->q, BN_prime_checks, NULL, NULL, NULL);
+	r = BN_is_prime_ex(key->q, BN_prime_checks, NULL, NULL);
 	if (r != 1)
 		{
 		ret = r;

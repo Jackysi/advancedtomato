@@ -7,7 +7,8 @@
 
 $normal=0;
 
-push(@INC,"perlasm","../../perlasm");
+$0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
+push(@INC,"${dir}","${dir}../../perlasm");
 require "x86asm.pl";
 
 &asm_init($ARGV[0],$0);
@@ -29,7 +30,7 @@ $X="esi";
  0, 7, 14, 5, 12, 3, 10, 1, 8, 15, 6, 13, 4, 11, 2, 9,	# R3
  );
 
-&md5_block("md5_block_asm_host_order");
+&md5_block("md5_block_asm_data_order");
 &asm_finish();
 
 sub Np
@@ -293,7 +294,7 @@ sub md5_block
 	 &mov(&DWP(12,$tmp2,"",0),$D);
 
 	&cmp($tmp1,$X) unless $normal;			# check count
-	 &jge(&label("start")) unless $normal;
+	 &jae(&label("start")) unless $normal;
 
 	&pop("eax"); # pop the temp variable off the stack
 	 &pop("ebx");

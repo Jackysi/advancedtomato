@@ -203,7 +203,7 @@ int usb_create_ep_files(struct device *parent,
 	return retval;
 
 error_register:
-	kfree(ep_dev);
+	put_device(&ep_dev->dev);
 exit:
 	return retval;
 }

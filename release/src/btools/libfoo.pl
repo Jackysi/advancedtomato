@@ -152,6 +152,7 @@ sub fixDyn
 	fixDynDep("l2tpd", "sync-pppd.so");
 	fixDynDep("pppd", "pppol2tp.so");
 	fixDynDep("pppd", "pptp.so");
+	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
 	
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
@@ -427,8 +428,9 @@ genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
 #  genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a", "${stripshared}");
 #  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a", "${stripshared}");
 
-genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
-genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
+genSO("${root}/usr/lib/libcrypto.so.1.0.0", "${router}/openssl/libcrypto.a");
+genSO("${root}/usr/lib/libssl.so.1.0.0", "${router}/openssl/libssl.a", "", "-L${router}/openssl");
+
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
 genSO("${root}/usr/lib/libz.so.1", "${router}/zlib/libz.a");
 genSO("${root}/usr/lib/libjpeg.so", "${router}/jpeg/libjpeg.a");

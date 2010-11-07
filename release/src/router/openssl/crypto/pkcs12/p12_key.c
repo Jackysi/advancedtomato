@@ -1,5 +1,5 @@
 /* p12_key.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
 /* ====================================================================
@@ -59,7 +59,7 @@
 #include <stdio.h>
 #include "cryptlib.h"
 #include <openssl/pkcs12.h>
-
+#include <openssl/bn.h>
 
 /* Uncomment out this line to get debugging info about key generation */
 /*#define DEBUG_KEYGEN*/
@@ -81,17 +81,20 @@ int PKCS12_key_gen_asc(const char *pass, int passlen, unsigned char *salt,
 	int ret;
 	unsigned char *unipass;
 	int uniplen;
+
 	if(!pass) {
 		unipass = NULL;
 		uniplen = 0;
-	} else if (!asc2uni(pass, passlen, &unipass, &uniplen)) {
+	} else if (!OPENSSL_asc2uni(pass, passlen, &unipass, &uniplen)) {
 		PKCS12err(PKCS12_F_PKCS12_KEY_GEN_ASC,ERR_R_MALLOC_FAILURE);
 		return 0;
 	}
 	ret = PKCS12_key_gen_uni(unipass, uniplen, salt, saltlen,
 						 id, iter, n, out, md_type);
+	if (ret <= 0)
+	    return 0;
 	if(unipass) {
-		memset(unipass, 0, uniplen);	/* Clear password from memory */
+		OPENSSL_cleanse(unipass, uniplen);	/* Clear password from memory */
 		OPENSSL_free(unipass);
 	}
 	return ret;
@@ -118,6 +121,7 @@ int PKCS12_key_gen_uni(unsigned char *pass, int passlen, unsigned char *salt,
 	}
 #endif
 
+	EVP_MD_CTX_init(&ctx);
 #ifdef  DEBUG_KEYGEN
 	fprintf(stderr, "KEYGEN DEBUG\n");
 	fprintf(stderr, "ID %d, ITER %d\n", id, iter);
@@ -128,6 +132,8 @@ int PKCS12_key_gen_uni(unsigned char *pass, int passlen, unsigned char *salt,
 #endif
 	v = EVP_MD_block_size (md_type);
 	u = EVP_MD_size (md_type);
+	if (u < 0)
+	    return 0;
 	D = OPENSSL_malloc (v);
 	Ai = OPENSSL_malloc (u);
 	B = OPENSSL_malloc (v + 1);
@@ -147,14 +153,14 @@ int PKCS12_key_gen_uni(unsigned char *pass, int passlen, unsigned char *salt,
 	for (i = 0; i < Slen; i++) *p++ = salt[i % saltlen];
 	for (i = 0; i < Plen; i++) *p++ = pass[i % passlen];
 	for (;;) {
-		EVP_DigestInit (&ctx, md_type);
-		EVP_DigestUpdate (&ctx, D, v);
-		EVP_DigestUpdate (&ctx, I, Ilen);
-		EVP_DigestFinal (&ctx, Ai, NULL);
+		EVP_DigestInit_ex(&ctx, md_type, NULL);
+		EVP_DigestUpdate(&ctx, D, v);
+		EVP_DigestUpdate(&ctx, I, Ilen);
+		EVP_DigestFinal_ex(&ctx, Ai, NULL);
 		for (j = 1; j < iter; j++) {
-			EVP_DigestInit (&ctx, md_type);
-			EVP_DigestUpdate (&ctx, Ai, u);
-			EVP_DigestFinal (&ctx, Ai, NULL);
+			EVP_DigestInit_ex(&ctx, md_type, NULL);
+			EVP_DigestUpdate(&ctx, Ai, u);
+			EVP_DigestFinal_ex(&ctx, Ai, NULL);
 		}
 		memcpy (out, Ai, min (n, u));
 		if (u >= n) {
@@ -164,6 +170,7 @@ int PKCS12_key_gen_uni(unsigned char *pass, int passlen, unsigned char *salt,
 			OPENSSL_free (I);
 			BN_free (Ij);
 			BN_free (Bpl1);
+			EVP_MD_CTX_cleanup(&ctx);
 #ifdef DEBUG_KEYGEN
 			fprintf(stderr, "Output KEY (length %d)\n", tmpn);
 			h__dump(tmpout, tmpn);

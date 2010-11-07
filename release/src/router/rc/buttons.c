@@ -196,7 +196,7 @@ int buttons_main(int argc, char *argv[])
 	setsid();
 #endif
 
-	signal(SIGCHLD, handle_reap);
+	signal(SIGCHLD, chld_reap);
 
 	if ((gf = gpio_open(mask)) < 0) return 1;
 

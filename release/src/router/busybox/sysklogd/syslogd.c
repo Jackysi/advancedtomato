@@ -296,6 +296,7 @@ static void log_locally(time_t now, char *msg)
 	struct flock fl;
 #endif
 	int len = strlen(msg);
+	const char *sav_logFilePath = G.logFilePath;
 
 #if ENABLE_FEATURE_IPC_SYSLOG
 	if ((option_mask32 & OPT_circularlog) && G.shbuf) {
@@ -321,9 +322,16 @@ static void log_locally(time_t now, char *msg)
 		G.logFD = open(G.logFilePath, O_WRONLY | O_CREAT
 					| O_NOCTTY | O_APPEND | O_NONBLOCK,
 					0666);
+		if (G.logFD < 0) {	/* fallback is to initial default. */
+			G.logFilePath = init_data.logFilePath;
+			G.logFD = open(G.logFilePath, O_WRONLY | O_CREAT
+					| O_NOCTTY | O_APPEND | O_NONBLOCK,
+					0666);
+		}
 		if (G.logFD < 0) {
 			/* cannot open logfile? - print to /dev/console then */
 			int fd = device_open(DEV_CONSOLE, O_WRONLY | O_NOCTTY | O_NONBLOCK);
+			G.logFilePath = sav_logFilePath;
 			if (fd < 0)
 				fd = 2; /* then stderr, dammit */
 			full_write(fd, msg, len);
@@ -382,6 +390,7 @@ static void log_locally(time_t now, char *msg)
 	fl.l_type = F_UNLCK;
 	fcntl(G.logFD, F_SETLKW, &fl);
 #endif
+	G.logFilePath = sav_logFilePath;
 }
 
 static void parse_fac_prio_20(int pri, char *res20)

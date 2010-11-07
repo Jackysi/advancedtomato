@@ -433,8 +433,8 @@ signed long fastcall schedule_timeout(signed long timeout)
 		if (timeout < 0)
 		{
 			printk(KERN_ERR "schedule_timeout: wrong timeout "
-			       "value %lx from %p\n", timeout,
-			       __builtin_return_address(0));
+			       "value %lx\n", timeout);
+			dump_stack();
 			current->state = TASK_RUNNING;
 			goto out;
 		}

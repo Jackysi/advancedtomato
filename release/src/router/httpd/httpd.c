@@ -627,7 +627,7 @@ static void start_ssl(void)
 			save_cert();
 		}
 
-		if (ssl_init("/etc/cert.pem", "/etc/key.pem")) return;
+		if (mssl_init("/etc/cert.pem", "/etc/key.pem")) return;
 
 		erase_cert();
 

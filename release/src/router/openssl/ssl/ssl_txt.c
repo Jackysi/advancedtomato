@@ -55,13 +55,39 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.]
  */
+/* ====================================================================
+ * Copyright 2005 Nokia. All rights reserved.
+ *
+ * The portions of the attached software ("Contribution") is developed by
+ * Nokia Corporation and is licensed pursuant to the OpenSSL open source
+ * license.
+ *
+ * The Contribution, originally written by Mika Kousa and Pasi Eronen of
+ * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
+ * support (see RFC 4279) to OpenSSL.
+ *
+ * No patent licenses or other rights except those expressly stated in
+ * the OpenSSL open source license shall be deemed granted or received
+ * expressly, by implication, estoppel, or otherwise.
+ *
+ * No assurances are provided by Nokia that the Contribution does not
+ * infringe the patent or other intellectual property rights of any third
+ * party or that the license provides you with all the necessary rights
+ * to make use of the Contribution.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
+ * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
+ * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
+ * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
+ * OTHERWISE.
+ */
 
 #include <stdio.h>
 #include <openssl/buffer.h>
 #include "ssl_locl.h"
 
-#ifndef NO_FP_API
-int SSL_SESSION_print_fp(FILE *fp, SSL_SESSION *x)
+#ifndef OPENSSL_NO_FP_API
+int SSL_SESSION_print_fp(FILE *fp, const SSL_SESSION *x)
 	{
 	BIO *b;
 	int ret;
@@ -78,10 +104,10 @@ int SSL_SESSION_print_fp(FILE *fp, SSL_SESSION *x)
 	}
 #endif
 
-int SSL_SESSION_print(BIO *bp, SSL_SESSION *x)
+int SSL_SESSION_print(BIO *bp, const SSL_SESSION *x)
 	{
 	unsigned int i;
-	char *s;
+	const char *s;
 
 	if (x == NULL) goto err;
 	if (BIO_puts(bp,"SSL-Session:\n") <= 0) goto err;
@@ -91,6 +117,10 @@ int SSL_SESSION_print(BIO *bp, SSL_SESSION *x)
 		s="SSLv3";
 	else if (x->ssl_version == TLS1_VERSION)
 		s="TLSv1";
+	else if (x->ssl_version == DTLS1_VERSION)
+		s="DTLSv1";
+	else if (x->ssl_version == DTLS1_BAD_VER)
+		s="DTLSv1-bad";
 	else
 		s="unknown";
 	if (BIO_printf(bp,"    Protocol  : %s\n",s) <= 0) goto err;
@@ -139,20 +169,56 @@ int SSL_SESSION_print(BIO *bp, SSL_SESSION *x)
 			{
 			if (BIO_printf(bp,"%02X",x->key_arg[i]) <= 0) goto err;
 			}
+#ifndef OPENSSL_NO_KRB5
+       if (BIO_puts(bp,"\n    Krb5 Principal: ") <= 0) goto err;
+            if (x->krb5_client_princ_len == 0)
+            {
+		if (BIO_puts(bp,"None") <= 0) goto err;
+		}
+	else
+		for (i=0; i<x->krb5_client_princ_len; i++)
+			{
+			if (BIO_printf(bp,"%02X",x->krb5_client_princ[i]) <= 0) goto err;
+			}
+#endif /* OPENSSL_NO_KRB5 */
+#ifndef OPENSSL_NO_PSK
+	if (BIO_puts(bp,"\n    PSK identity: ") <= 0) goto err;
+	if (BIO_printf(bp, "%s", x->psk_identity ? x->psk_identity : "None") <= 0) goto err;
+	if (BIO_puts(bp,"\n    PSK identity hint: ") <= 0) goto err;
+	if (BIO_printf(bp, "%s", x->psk_identity_hint ? x->psk_identity_hint : "None") <= 0) goto err;
+#endif
+#ifndef OPENSSL_NO_TLSEXT
+	if (x->tlsext_tick_lifetime_hint)
+		{
+		if (BIO_printf(bp,
+			"\n    TLS session ticket lifetime hint: %ld (seconds)",
+			x->tlsext_tick_lifetime_hint) <=0)
+			goto err;
+		}
+	if (x->tlsext_tick)
+		{
+		if (BIO_puts(bp, "\n    TLS session ticket:\n") <= 0) goto err;
+		if (BIO_dump_indent(bp, (char *)x->tlsext_tick, x->tlsext_ticklen, 4) <= 0)
+			goto err;
+		}
+#endif
+
+#ifndef OPENSSL_NO_COMP
 	if (x->compress_meth != 0)
 		{
-		SSL_COMP *comp;
+		SSL_COMP *comp = NULL;
 
-		ssl_cipher_get_evp(x,NULL,NULL,&comp);
+		ssl_cipher_get_evp(x,NULL,NULL,NULL,NULL,&comp);
 		if (comp == NULL)
 			{
-			if (BIO_printf(bp,"\n   Compression: %d",x->compress_meth) <= 0) goto err;
+			if (BIO_printf(bp,"\n    Compression: %d",x->compress_meth) <= 0) goto err;
 			}
 		else
 			{
-			if (BIO_printf(bp,"\n   Compression: %d (%s)", comp->id,comp->method->name) <= 0) goto err;
+			if (BIO_printf(bp,"\n    Compression: %d (%s)", comp->id,comp->method->name) <= 0) goto err;
 			}
 		}	
+#endif
 	if (x->time != 0L)
 		{
 		if (BIO_printf(bp, "\n    Start Time: %ld",x->time) <= 0) goto err;

@@ -325,5 +325,5 @@ SYSCALL(sys_utimes,sys_utimes,compat_sys_utimes_wrapper)
 NI_SYSCALL							/* 314 sys_fallocate */
 SYSCALL(sys_utimensat,sys_utimensat,compat_sys_utimensat_wrapper)	/* 315 */
 SYSCALL(sys_signalfd,sys_signalfd,compat_sys_signalfd_wrapper)
-SYSCALL(sys_timerfd,sys_timerfd,compat_sys_timerfd_wrapper)
+NI_SYSCALL						/* 317 old sys_timer_fd */
 SYSCALL(sys_eventfd,sys_eventfd,sys_eventfd_wrapper)

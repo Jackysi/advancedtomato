@@ -32,7 +32,7 @@ install: all
 	install -D nvram $(INSTALLDIR)/bin/nvram
 	$(STRIP) $(INSTALLDIR)/usr/lib/libnvram.so
 	$(STRIP) $(INSTALLDIR)/bin/nvram
-	chmod 0500 $(INSTALLDIR)/bin/nvram
+	chmod 0555 $(INSTALLDIR)/bin/nvram
 
 clean:
 	rm -f nvram *.o *.a *.so

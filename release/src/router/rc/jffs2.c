@@ -11,6 +11,9 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <errno.h>
+#ifndef MNT_DETACH
+#define MNT_DETACH	0x00000002
+#endif
 
 //	#define TEST_INTEGRITY
 
@@ -115,14 +118,22 @@ void start_jffs2(void)
 		system(p);
 		chdir("/");
 	}
-	run_userfile("/jffs", ".autorun", NULL, 3);
+	run_userfile("/jffs", ".autorun", "/jffs", 3);
 }
 
 void stop_jffs2(void)
 {
+	struct statfs sf;
+
 	if (!wait_action_idle(10)) return;
 
+	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x73717368)) {
+		// is mounted
+		run_userfile("/jffs", ".autostop", "/jffs", 5);
+		run_nvscript("script_autostop", "/jffs", 5);
+	}
+
 	notice_set("jffs", "Stopped");
-	umount("/jffs");
+	umount2("/jffs", MNT_DETACH);
 	modprobe_r(JFFS_NAME);
 }

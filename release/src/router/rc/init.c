@@ -263,16 +263,14 @@ static void handle_fatalsigs(int sig)
  * instead of pause(). But SIGCHLD is a problem, since other
  * code: 1) messes with it and 2) depends on CHLD being caught so
  * that the pid gets immediately reaped instead of left a zombie.
- * Pidof still shows the pid, even though it's in Zombie state.
+ * Pidof still shows the pid, even though it's in zombie state.
  * So this SIGCHLD handler reaps and then signals the mainline by
  * raising ALRM.
  */
-void handle_reap(int sig)
+static void handle_reap(int sig)
 {
-	while (waitpid(-1, NULL, WNOHANG) > 0) {
-		//
-	}
-	if (getpid() == 1) raise(SIGALRM);
+	chld_reap(sig);
+	raise(SIGALRM);
 }
 
 static int check_nv(const char *name, const char *value)
@@ -454,9 +452,14 @@ static void check_bootnv(void)
 		}
 		break;
 	case MODEL_WRT160Nv3:
+		dirty |= check_nv("vlan2hwname", "et0");
 		if (nvram_match("clkdivsf", "4") && nvram_match("vlan1ports", "1 2 3 4 5*")) {
 			// fix lan port numbering on CSE41, CSE51
 			dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
+		}
+		if (nvram_match("vlan1ports", "1 2 3 4 8*")) {
+			// WRT310Nv2 ?
+			dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		}
 		break;
 #endif
@@ -1209,7 +1212,7 @@ static void sysinit(void)
 	start_hotplug2();
 
 	static const char *dn[] = {
-		"null", "zero", "random", "urandom", "full", "ptmx",
+		"null", "zero", "random", "urandom", "full", "ptmx", "nvram",
 		NULL
 	};
 	for (i = 0; dn[i]; ++i) {
@@ -1412,6 +1415,7 @@ int init_main(int argc, char *argv[])
 			break;
 		}
 
+		chld_reap(0);		/* Periodically reap zombies. */
 		check_services();
 		sigwait(&sigset, &state);
 	}

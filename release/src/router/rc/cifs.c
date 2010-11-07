@@ -9,6 +9,10 @@
 
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
+#ifndef MNT_DETACH
+#define MNT_DETACH	0x00000002
+#endif
 
 
 void start_cifs(void)
@@ -32,6 +36,7 @@ int mount_cifs_main(int argc, char *argv[])
 	int first;
 	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec, *custom;
 	int done[3];
+	struct statfs sf;
 
 	if (argc == 2) {
 		if (strcmp(argv[1], "-m") == 0) {
@@ -76,7 +81,7 @@ int mount_cifs_main(int argc, char *argv[])
 						chdir(mpath);
 						system(exec);
 					}
-					run_userfile(mpath, ".autorun", NULL, 3);
+					run_userfile(mpath, ".autorun", mpath, 3);
 				}
 				if ((done[1]) && (done[2])) {
 					notice_set("cifs", "");
@@ -98,7 +103,12 @@ int mount_cifs_main(int argc, char *argv[])
 		if (strcmp(argv[1], "-u") == 0) {
 			for (i = 1; i <= 2; ++i) {
 				sprintf(mpath, "/cifs%d", i);
-				umount(mpath);
+				if ((statfs(mpath, &sf) == 0) && (sf.f_type != 0x73717368)) {
+					// is mounted
+					run_userfile(mpath, ".autostop", mpath, 5);
+					run_nvscript("script_autostop", mpath, 5);
+				}
+				umount2(mpath, MNT_DETACH);
 			}
 			modprobe_r("cifs");
 			notice_set("cifs", "");

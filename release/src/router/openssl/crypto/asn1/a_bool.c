@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/asn1.h>
+#include <openssl/asn1t.h>
 
 int i2d_ASN1_BOOLEAN(int a, unsigned char **pp)
 	{
@@ -75,10 +75,10 @@ int i2d_ASN1_BOOLEAN(int a, unsigned char **pp)
 	return(r);
 	}
 
-int d2i_ASN1_BOOLEAN(int *a, unsigned char **pp, long length)
+int d2i_ASN1_BOOLEAN(int *a, const unsigned char **pp, long length)
 	{
 	int ret= -1;
-	unsigned char *p;
+	const unsigned char *p;
 	long len;
 	int inf,tag,xclass;
 	int i=0;
@@ -110,3 +110,5 @@ err:
 	ASN1err(ASN1_F_D2I_ASN1_BOOLEAN,i);
 	return(ret);
 	}
+
+

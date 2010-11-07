@@ -1,6 +1,9 @@
 include ../common.mak
 
 CFLAGS += -Wall -Os $(EXTRACFLAGS) -I$(SRCBASE) -I$(SRCBASE)/include -I$(LINUXDIR)/include -I.
+ifeq ($(CONFIG_LINUX26),y)
+CFLAGS += -DSCSI_SG
+endif
 
 TARGETS = scsi-start
 

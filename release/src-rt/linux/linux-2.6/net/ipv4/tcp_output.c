@@ -41,6 +41,9 @@
 #include <linux/compiler.h>
 #include <linux/module.h>
 
+#define IsReno(tp) ((tp)->rx_opt.sack_ok == 0)
+#define IsFack(tp) ((tp)->rx_opt.sack_ok & 2)
+
 /* People can turn this off for buggy TCP's found in printers etc. */
 int sysctl_tcp_retrans_collapse __read_mostly = 1;
 

@@ -1073,7 +1073,7 @@ vlan_setup:
 			robo->ops->write_reg(robo, PAGE_VTBL, vtble, &val32,
 			                     sizeof(val32));
 			/* VLAN Table Address Index Reg (Page 0x05, Address 0x61-0x62/0x81-0x82) */
-			val16 = vid;        /* vlan id */
+			val16 = vid0 | vid;     /* vlan id */
 			robo->ops->write_reg(robo, PAGE_VTBL, vtbli, &val16,
 			                     sizeof(val16));
 

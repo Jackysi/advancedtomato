@@ -1,5 +1,5 @@
 #
-# SSLeay/crypto/rc2/Makefile
+# OpenSSL/crypto/rc2/Makefile
 #
 
 DIR=	rc2
@@ -7,12 +7,7 @@ TOP=	../..
 CC=	cc
 INCLUDES=
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=		make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=	Makefile.ssl
+MAKEFILE=	Makefile
 AR=		ar r
 
 CFLAGS= $(INCLUDES) $(CFLAG)
@@ -39,21 +34,20 @@ all:	lib
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
 install:
-	@for i in $(EXHEADER) ; \
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -68,7 +62,8 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
@@ -80,12 +75,12 @@ clean:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 rc2_cbc.o: ../../include/openssl/opensslconf.h ../../include/openssl/rc2.h
-rc2_cbc.o: rc2_locl.h
+rc2_cbc.o: rc2_cbc.c rc2_locl.h
 rc2_ecb.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
-rc2_ecb.o: ../../include/openssl/rc2.h rc2_locl.h
+rc2_ecb.o: ../../include/openssl/rc2.h rc2_ecb.c rc2_locl.h
 rc2_skey.o: ../../include/openssl/opensslconf.h ../../include/openssl/rc2.h
-rc2_skey.o: rc2_locl.h
+rc2_skey.o: rc2_locl.h rc2_skey.c
 rc2cfb64.o: ../../include/openssl/opensslconf.h ../../include/openssl/rc2.h
-rc2cfb64.o: rc2_locl.h
+rc2cfb64.o: rc2_locl.h rc2cfb64.c
 rc2ofb64.o: ../../include/openssl/opensslconf.h ../../include/openssl/rc2.h
-rc2ofb64.o: rc2_locl.h
+rc2ofb64.o: rc2_locl.h rc2ofb64.c

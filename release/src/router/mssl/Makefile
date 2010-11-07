@@ -1,17 +1,27 @@
 include ../common.mak
 
 CFLAGS	= -Os -Wall $(EXTRACFLAGS) -fPIC
-CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
+LIBS = -lpthread
 LDFLAGS	=
+
+ifeq ($(TCONFIG_OPENVPN),y)
+CFLAGS	+= -I$(TOP)/openssl/include
+LIBS += -L$(TOP)/openssl -lssl -lcrypto
+OBJ = mssl_openssl.o
+else
+CFLAGS	+= -I$(TOP)/matrixssl
+LIBS += $(TOP)/matrixssl/src/libmatrixsslstatic.a
+OBJ = mssl.o
+endif
 
 all: libmssl.so libmssl.a
 
-libmssl.so: mssl.o
-	$(CC) -shared -o $@ $^ ../matrixssl/src/libmatrixsslstatic.a -L../shared -lshared -lpthread
+libmssl.so: $(OBJ)
+	$(CC) -shared -o $@ $^ $(LIBS)
 	$(STRIP) $@
 	$(CPTMP)
 
-libmssl.a: mssl.o
+libmssl.a: $(OBJ)
 	rm -f $@
 	$(AR) cruv $@ $^
 

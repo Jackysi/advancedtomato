@@ -99,7 +99,6 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 	unsigned long value;
 	unsigned int res;
 
-	regs->regs[0] = 0;
 	*regptr=NULL;
 
 	/*

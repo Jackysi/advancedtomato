@@ -60,7 +60,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef NO_RC4
+#include "../e_os.h"
+
+#ifdef OPENSSL_NO_RC4
 int main(int argc, char *argv[])
 {
     printf("No RC4 support\n");
@@ -68,6 +70,7 @@ int main(int argc, char *argv[])
 }
 #else
 #include <openssl/rc4.h>
+#include <openssl/sha.h>
 
 static unsigned char keys[7][30]={
 	{8,0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef},
@@ -115,9 +118,7 @@ int main(int argc, char *argv[])
 	int j;
 	unsigned char *p;
 	RC4_KEY key;
-	unsigned char buf[512],obuf[512];
-
-	for (i=0; i<512; i++) buf[i]=0x01;
+	unsigned char obuf[512];
 
 	for (i=0; i<6; i++)
 		{
@@ -195,7 +196,41 @@ int main(int argc, char *argv[])
 			}
 		}
 	printf("done\n");
-	exit(err);
+	printf("bulk test ");
+	{   unsigned char buf[513];
+	    SHA_CTX c;
+	    unsigned char md[SHA_DIGEST_LENGTH];
+	    static unsigned char expected[]={
+		0xa4,0x7b,0xcc,0x00,0x3d,0xd0,0xbd,0xe1,0xac,0x5f,
+		0x12,0x1e,0x45,0xbc,0xfb,0x1a,0xa1,0xf2,0x7f,0xc5 };
+
+		RC4_set_key(&key,keys[0][0],&(keys[3][1]));
+		memset(buf,'\0',sizeof(buf));
+		SHA1_Init(&c);
+		for (i=0;i<2571;i++) {
+			RC4(&key,sizeof(buf),buf,buf);
+			SHA1_Update(&c,buf,sizeof(buf));
+		}
+		SHA1_Final(md,&c);
+
+		if (memcmp(md,expected,sizeof(md))) {
+			printf("error in RC4 bulk test\n");
+			printf("output:");
+			for (j=0; j<(int)sizeof(md); j++)
+				printf(" %02x",md[j]);
+			printf("\n");
+			printf("expect:");
+			for (j=0; j<(int)sizeof(md); j++)
+				printf(" %02x",expected[j]);
+			printf("\n");
+			err++;
+		}
+		else	printf("ok\n");
+	}
+#ifdef OPENSSL_SYS_NETWARE
+    if (err) printf("ERROR: %d\n", err);
+#endif
+	EXIT(err);
 	return(0);
 	}
 #endif

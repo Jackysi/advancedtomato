@@ -757,7 +757,7 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
 
 static inline void tcp_sync_left_out(struct tcp_sock *tp)
 {
-	BUG_ON(tp->rx_opt.sack_ok &&
+	WARN_ON(tp->rx_opt.sack_ok &&
 	       (tp->sacked_out + tp->lost_out > tp->packets_out));
 	tp->left_out = tp->sacked_out + tp->lost_out;
 }
@@ -976,6 +976,14 @@ static inline int keepalive_intvl_when(const struct tcp_sock *tp)
 static inline int keepalive_time_when(const struct tcp_sock *tp)
 {
 	return tp->keepalive_time ? : sysctl_tcp_keepalive_time;
+}
+
+static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
+{
+	const struct inet_connection_sock *icsk = &tp->inet_conn;
+
+	return min_t(u32, tcp_time_stamp - icsk->icsk_ack.lrcvtime,
+			  tcp_time_stamp - tp->rcv_tstamp);
 }
 
 static inline int tcp_fin_time(const struct sock *sk)

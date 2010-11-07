@@ -108,11 +108,16 @@
  * Hudson (tjh@cryptsoft.com).
  *
  */
+/* ====================================================================
+ * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
+ * ECC cipher suite support in OpenSSL originally developed by 
+ * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
+ */
 
 #ifndef HEADER_SSL3_H 
 #define HEADER_SSL3_H 
 
-#ifndef NO_COMP
+#ifndef OPENSSL_NO_COMP
 #include <openssl/comp.h>
 #endif
 #include <openssl/buffer.h>
@@ -122,6 +127,9 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+/* Signalling cipher suite value: from draft-ietf-tls-renegotiation-03.txt */
+#define SSL3_CK_SCSV				0x030000FF
 
 #define SSL3_CK_RSA_NULL_MD5			0x03000001
 #define SSL3_CK_RSA_NULL_SHA			0x03000002
@@ -154,9 +162,33 @@ extern "C" {
 #define SSL3_CK_ADH_DES_64_CBC_SHA		0x0300001A
 #define SSL3_CK_ADH_DES_192_CBC_SHA		0x0300001B
 
-#define SSL3_CK_FZA_DMS_NULL_SHA		0x0300001C
-#define SSL3_CK_FZA_DMS_FZA_SHA			0x0300001D
-#define SSL3_CK_FZA_DMS_RC4_SHA			0x0300001E
+#if 0
+	#define SSL3_CK_FZA_DMS_NULL_SHA		0x0300001C
+	#define SSL3_CK_FZA_DMS_FZA_SHA			0x0300001D
+	#if 0 /* Because it clashes with KRB5, is never used any more, and is safe
+		 to remove according to David Hopwood <david.hopwood@zetnet.co.uk>
+		 of the ietf-tls list */
+	#define SSL3_CK_FZA_DMS_RC4_SHA			0x0300001E
+	#endif
+#endif
+
+/*    VRS Additional Kerberos5 entries
+ */
+#define SSL3_CK_KRB5_DES_64_CBC_SHA		0x0300001E
+#define SSL3_CK_KRB5_DES_192_CBC3_SHA		0x0300001F
+#define SSL3_CK_KRB5_RC4_128_SHA		0x03000020
+#define SSL3_CK_KRB5_IDEA_128_CBC_SHA	       	0x03000021
+#define SSL3_CK_KRB5_DES_64_CBC_MD5       	0x03000022
+#define SSL3_CK_KRB5_DES_192_CBC3_MD5       	0x03000023
+#define SSL3_CK_KRB5_RC4_128_MD5	       	0x03000024
+#define SSL3_CK_KRB5_IDEA_128_CBC_MD5 		0x03000025
+
+#define SSL3_CK_KRB5_DES_40_CBC_SHA 		0x03000026
+#define SSL3_CK_KRB5_RC2_40_CBC_SHA 		0x03000027
+#define SSL3_CK_KRB5_RC4_40_SHA	 		0x03000028
+#define SSL3_CK_KRB5_DES_40_CBC_MD5 		0x03000029
+#define SSL3_CK_KRB5_RC2_40_CBC_MD5 		0x0300002A
+#define SSL3_CK_KRB5_RC4_40_MD5	 		0x0300002B
 
 #define SSL3_TXT_RSA_NULL_MD5			"NULL-MD5"
 #define SSL3_TXT_RSA_NULL_SHA			"NULL-SHA"
@@ -189,9 +221,27 @@ extern "C" {
 #define SSL3_TXT_ADH_DES_64_CBC_SHA		"ADH-DES-CBC-SHA"
 #define SSL3_TXT_ADH_DES_192_CBC_SHA		"ADH-DES-CBC3-SHA"
 
-#define SSL3_TXT_FZA_DMS_NULL_SHA		"FZA-NULL-SHA"
-#define SSL3_TXT_FZA_DMS_FZA_SHA		"FZA-FZA-CBC-SHA"
-#define SSL3_TXT_FZA_DMS_RC4_SHA		"FZA-RC4-SHA"
+#if 0
+	#define SSL3_TXT_FZA_DMS_NULL_SHA		"FZA-NULL-SHA"
+	#define SSL3_TXT_FZA_DMS_FZA_SHA		"FZA-FZA-CBC-SHA"
+	#define SSL3_TXT_FZA_DMS_RC4_SHA		"FZA-RC4-SHA"
+#endif
+
+#define SSL3_TXT_KRB5_DES_64_CBC_SHA		"KRB5-DES-CBC-SHA"
+#define SSL3_TXT_KRB5_DES_192_CBC3_SHA		"KRB5-DES-CBC3-SHA"
+#define SSL3_TXT_KRB5_RC4_128_SHA		"KRB5-RC4-SHA"
+#define SSL3_TXT_KRB5_IDEA_128_CBC_SHA	       	"KRB5-IDEA-CBC-SHA"
+#define SSL3_TXT_KRB5_DES_64_CBC_MD5       	"KRB5-DES-CBC-MD5"
+#define SSL3_TXT_KRB5_DES_192_CBC3_MD5       	"KRB5-DES-CBC3-MD5"
+#define SSL3_TXT_KRB5_RC4_128_MD5		"KRB5-RC4-MD5"
+#define SSL3_TXT_KRB5_IDEA_128_CBC_MD5 		"KRB5-IDEA-CBC-MD5"
+
+#define SSL3_TXT_KRB5_DES_40_CBC_SHA 		"EXP-KRB5-DES-CBC-SHA"
+#define SSL3_TXT_KRB5_RC2_40_CBC_SHA 		"EXP-KRB5-RC2-CBC-SHA"
+#define SSL3_TXT_KRB5_RC4_40_SHA	 	"EXP-KRB5-RC4-SHA"
+#define SSL3_TXT_KRB5_DES_40_CBC_MD5 		"EXP-KRB5-DES-CBC-MD5"
+#define SSL3_TXT_KRB5_RC2_40_CBC_MD5 		"EXP-KRB5-RC2-CBC-MD5"
+#define SSL3_TXT_KRB5_RC4_40_MD5	 	"EXP-KRB5-RC4-MD5"
 
 #define SSL3_SSL_SESSION_ID_LENGTH		32
 #define SSL3_MAX_SSL_SESSION_ID_LENGTH		32
@@ -201,18 +251,65 @@ extern "C" {
 #define SSL3_SESSION_ID_SIZE			32
 #define SSL3_RT_HEADER_LENGTH			5
 
-/* Due to MS stuffing up, this can change.... */
-#if defined(WIN16) || (defined(MSDOS) && !defined(WIN32))
-#define SSL3_RT_MAX_EXTRA			(14000)
+#ifndef SSL3_ALIGN_PAYLOAD
+ /* Some will argue that this increases memory footprint, but it's
+  * not actually true. Point is that malloc has to return at least
+  * 64-bit aligned pointers, meaning that allocating 5 bytes wastes
+  * 3 bytes in either case. Suggested pre-gaping simply moves these
+  * wasted bytes from the end of allocated region to its front,
+  * but makes data payload aligned, which improves performance:-) */
+# define SSL3_ALIGN_PAYLOAD			8
 #else
-#define SSL3_RT_MAX_EXTRA			(16384)
+# if (SSL3_ALIGN_PAYLOAD&(SSL3_ALIGN_PAYLOAD-1))!=0
+#  error "insane SSL3_ALIGN_PAYLOAD"
+#  undef SSL3_ALIGN_PAYLOAD
+# endif
 #endif
 
+/* This is the maximum MAC (digest) size used by the SSL library.
+ * Currently maximum of 20 is used by SHA1, but we reserve for
+ * future extension for 512-bit hashes.
+ */
+
+#define SSL3_RT_MAX_MD_SIZE			64
+
+/* Maximum block size used in all ciphersuites. Currently 16 for AES.
+ */
+
+#define	SSL_RT_MAX_CIPHER_BLOCK_SIZE		16
+
+#define SSL3_RT_MAX_EXTRA			(16384)
+
+/* Maximum plaintext length: defined by SSL/TLS standards */
 #define SSL3_RT_MAX_PLAIN_LENGTH		16384
-#define SSL3_RT_MAX_COMPRESSED_LENGTH	(1024+SSL3_RT_MAX_PLAIN_LENGTH)
-#define SSL3_RT_MAX_ENCRYPTED_LENGTH	(1024+SSL3_RT_MAX_COMPRESSED_LENGTH)
-#define SSL3_RT_MAX_PACKET_SIZE		(SSL3_RT_MAX_ENCRYPTED_LENGTH+SSL3_RT_HEADER_LENGTH)
-#define SSL3_RT_MAX_DATA_SIZE			(1024*1024)
+/* Maximum compression overhead: defined by SSL/TLS standards */
+#define SSL3_RT_MAX_COMPRESSED_OVERHEAD		1024
+
+/* The standards give a maximum encryption overhead of 1024 bytes.
+ * In practice the value is lower than this. The overhead is the maximum
+ * number of padding bytes (256) plus the mac size.
+ */
+#define SSL3_RT_MAX_ENCRYPTED_OVERHEAD	(256 + SSL3_RT_MAX_MD_SIZE)
+
+/* OpenSSL currently only uses a padding length of at most one block so
+ * the send overhead is smaller.
+ */
+
+#define SSL3_RT_SEND_MAX_ENCRYPTED_OVERHEAD \
+			(SSL_RT_MAX_CIPHER_BLOCK_SIZE + SSL3_RT_MAX_MD_SIZE)
+
+/* If compression isn't used don't include the compression overhead */
+
+#ifdef OPENSSL_NO_COMP
+#define SSL3_RT_MAX_COMPRESSED_LENGTH		SSL3_RT_MAX_PLAIN_LENGTH
+#else
+#define SSL3_RT_MAX_COMPRESSED_LENGTH	\
+		(SSL3_RT_MAX_PLAIN_LENGTH+SSL3_RT_MAX_COMPRESSED_OVERHEAD)
+#endif
+#define SSL3_RT_MAX_ENCRYPTED_LENGTH	\
+		(SSL3_RT_MAX_ENCRYPTED_OVERHEAD+SSL3_RT_MAX_COMPRESSED_LENGTH)
+#define SSL3_RT_MAX_PACKET_SIZE		\
+		(SSL3_RT_MAX_ENCRYPTED_LENGTH+SSL3_RT_HEADER_LENGTH)
 
 #define SSL3_MD_CLIENT_FINISHED_CONST	"\x43\x4C\x4E\x54"
 #define SSL3_MD_SERVER_FINISHED_CONST	"\x53\x52\x56\x52"
@@ -250,15 +347,15 @@ typedef struct ssl3_record_st
 /*rw*/	unsigned char *data;    /* pointer to the record data */
 /*rw*/	unsigned char *input;   /* where the decode bytes are */
 /*r */	unsigned char *comp;    /* only used with decompression - malloc()ed */
+/*r */  unsigned long epoch;    /* epoch number, needed by DTLS1 */
+/*r */  unsigned char seq_num[8]; /* sequence number, needed by DTLS1 */
 	} SSL3_RECORD;
 
 typedef struct ssl3_buffer_st
 	{
 	unsigned char *buf;     /* at least SSL3_RT_MAX_PACKET_SIZE bytes,
 	                         * see ssl3_setup_buffers() */
-#if 0 /* put directly into SSL3_STATE for best possible binary compatibility within 0.9.6 series */
 	size_t len;             /* buffer size */
-#endif
 	int offset;             /* where to 'copy from' */
 	int left;               /* how many bytes left */
 	} SSL3_BUFFER;
@@ -270,12 +367,18 @@ typedef struct ssl3_buffer_st
 #define SSL3_CT_RSA_EPHEMERAL_DH		5
 #define SSL3_CT_DSS_EPHEMERAL_DH		6
 #define SSL3_CT_FORTEZZA_DMS			20
-#define SSL3_CT_NUMBER				7
+/* SSL3_CT_NUMBER is used to size arrays and it must be large
+ * enough to contain all of the cert types defined either for
+ * SSLv3 and TLSv1.
+ */
+#define SSL3_CT_NUMBER			9
+
 
 #define SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS	0x0001
 #define SSL3_FLAGS_DELAY_CLIENT_FINISHED	0x0002
 #define SSL3_FLAGS_POP_BUFFER			0x0004
 #define TLS1_FLAGS_TLS_PADDING_BUG		0x0008
+#define TLS1_FLAGS_SKIP_CERT_VERIFY		0x0010
 
 typedef struct ssl3_state_st
 	{
@@ -283,12 +386,21 @@ typedef struct ssl3_state_st
 	int delay_buf_pop_ret;
 
 	unsigned char read_sequence[8];
+	int read_mac_secret_size;
 	unsigned char read_mac_secret[EVP_MAX_MD_SIZE];
 	unsigned char write_sequence[8];
+	int write_mac_secret_size;
 	unsigned char write_mac_secret[EVP_MAX_MD_SIZE];
 
 	unsigned char server_random[SSL3_RANDOM_SIZE];
 	unsigned char client_random[SSL3_RANDOM_SIZE];
+
+	/* flags for countermeasure against known-IV weakness */
+	int need_empty_fragments;
+	int empty_fragment_done;
+
+	/* The value of 'extra' when the buffers were initialized */
+	int init_extra;
 
 	SSL3_BUFFER rbuf;	/* read IO goes into here */
 	SSL3_BUFFER wbuf;	/* write IO goes into here */
@@ -311,9 +423,11 @@ typedef struct ssl3_state_st
 	const unsigned char *wpend_buf;
 
 	/* used during startup, digest all incoming/outgoing packets */
-	EVP_MD_CTX finish_dgst1;
-	EVP_MD_CTX finish_dgst2;
-
+	BIO *handshake_buffer;
+	/* When set of handshake digests is determined, buffer is hashed
+	 * and freed and MD_CTX-es for all required digests are stored in
+	 * this array */
+	EVP_MD_CTX **handshake_dgst;
 	/* this is set whenerver we see a change_cipher_spec message
 	 * come in when we are not looking for one */
 	int change_cipher_spec;
@@ -333,6 +447,14 @@ typedef struct ssl3_state_st
 
 	int in_read_app_data;
 
+	/* Opaque PRF input as used for the current handshake.
+	 * These fields are used only if TLSEXT_TYPE_opaque_prf_input is defined
+	 * (otherwise, they are merely present to improve binary compatibility) */
+	void *client_opaque_prf_input;
+	size_t client_opaque_prf_input_len;
+	void *server_opaque_prf_input;
+	size_t server_opaque_prf_input_len;
+
 	struct	{
 		/* actually only needs to be 16+20 */
 		unsigned char cert_verify_md[EVP_MAX_MD_SIZE*2];
@@ -347,10 +469,15 @@ typedef struct ssl3_state_st
 		int message_type;
 
 		/* used to hold the new cipher we are going to use */
-		SSL_CIPHER *new_cipher;
-#ifndef NO_DH
+		const SSL_CIPHER *new_cipher;
+#ifndef OPENSSL_NO_DH
 		DH *dh;
 #endif
+
+#ifndef OPENSSL_NO_ECDH
+		EC_KEY *ecdh; /* holds short lived ECDH key */
+#endif
+
 		/* used when SSL_ST_FLUSH_DATA is entered */
 		int next_state;			
 
@@ -369,7 +496,9 @@ typedef struct ssl3_state_st
 
 		const EVP_CIPHER *new_sym_enc;
 		const EVP_MD *new_hash;
-#ifndef NO_COMP
+		int new_mac_pkey_type;
+		int new_mac_secret_size;
+#ifndef OPENSSL_NO_COMP
 		const SSL_COMP *new_compression;
 #else
 		char *new_compression;
@@ -377,14 +506,14 @@ typedef struct ssl3_state_st
 		int cert_request;
 		} tmp;
 
-	/* flags for countermeasure against known-IV weakness */
-	int need_empty_fragments;
-	int empty_fragment_done;
-
-	size_t rbuf_len;	/* substitute for rbuf.len */
-	size_t wbuf_len;	/* substitute for wbuf.len */
-
+        /* Connection binding to prevent renegotiation attacks */
+        unsigned char previous_client_finished[EVP_MAX_MD_SIZE];
+        unsigned char previous_client_finished_len;
+        unsigned char previous_server_finished[EVP_MAX_MD_SIZE];
+        unsigned char previous_server_finished_len;
+        int send_connection_binding; /* TODOEKR */
 	} SSL3_STATE;
+
 
 /* SSLv3 */
 /*client */
@@ -396,6 +525,8 @@ typedef struct ssl3_state_st
 /* read from server */
 #define SSL3_ST_CR_SRVR_HELLO_A		(0x120|SSL_ST_CONNECT)
 #define SSL3_ST_CR_SRVR_HELLO_B		(0x121|SSL_ST_CONNECT)
+#define DTLS1_ST_CR_HELLO_VERIFY_REQUEST_A (0x126|SSL_ST_CONNECT)
+#define DTLS1_ST_CR_HELLO_VERIFY_REQUEST_B (0x127|SSL_ST_CONNECT)
 #define SSL3_ST_CR_CERT_A		(0x130|SSL_ST_CONNECT)
 #define SSL3_ST_CR_CERT_B		(0x131|SSL_ST_CONNECT)
 #define SSL3_ST_CR_KEY_EXCH_A		(0x140|SSL_ST_CONNECT)
@@ -422,6 +553,10 @@ typedef struct ssl3_state_st
 #define SSL3_ST_CR_CHANGE_B		(0x1C1|SSL_ST_CONNECT)
 #define SSL3_ST_CR_FINISHED_A		(0x1D0|SSL_ST_CONNECT)
 #define SSL3_ST_CR_FINISHED_B		(0x1D1|SSL_ST_CONNECT)
+#define SSL3_ST_CR_SESSION_TICKET_A	(0x1E0|SSL_ST_CONNECT)
+#define SSL3_ST_CR_SESSION_TICKET_B	(0x1E1|SSL_ST_CONNECT)
+#define SSL3_ST_CR_CERT_STATUS_A	(0x1F0|SSL_ST_CONNECT)
+#define SSL3_ST_CR_CERT_STATUS_B	(0x1F1|SSL_ST_CONNECT)
 
 /* server */
 /* extra state */
@@ -432,6 +567,8 @@ typedef struct ssl3_state_st
 #define SSL3_ST_SR_CLNT_HELLO_B		(0x111|SSL_ST_ACCEPT)
 #define SSL3_ST_SR_CLNT_HELLO_C		(0x112|SSL_ST_ACCEPT)
 /* write to client */
+#define DTLS1_ST_SW_HELLO_VERIFY_REQUEST_A (0x113|SSL_ST_ACCEPT)
+#define DTLS1_ST_SW_HELLO_VERIFY_REQUEST_B (0x114|SSL_ST_ACCEPT)
 #define SSL3_ST_SW_HELLO_REQ_A		(0x120|SSL_ST_ACCEPT)
 #define SSL3_ST_SW_HELLO_REQ_B		(0x121|SSL_ST_ACCEPT)
 #define SSL3_ST_SW_HELLO_REQ_C		(0x122|SSL_ST_ACCEPT)
@@ -461,10 +598,15 @@ typedef struct ssl3_state_st
 #define SSL3_ST_SW_CHANGE_B		(0x1D1|SSL_ST_ACCEPT)
 #define SSL3_ST_SW_FINISHED_A		(0x1E0|SSL_ST_ACCEPT)
 #define SSL3_ST_SW_FINISHED_B		(0x1E1|SSL_ST_ACCEPT)
+#define SSL3_ST_SW_SESSION_TICKET_A	(0x1F0|SSL_ST_ACCEPT)
+#define SSL3_ST_SW_SESSION_TICKET_B	(0x1F1|SSL_ST_ACCEPT)
+#define SSL3_ST_SW_CERT_STATUS_A	(0x200|SSL_ST_ACCEPT)
+#define SSL3_ST_SW_CERT_STATUS_B	(0x201|SSL_ST_ACCEPT)
 
 #define SSL3_MT_HELLO_REQUEST			0
 #define SSL3_MT_CLIENT_HELLO			1
 #define SSL3_MT_SERVER_HELLO			2
+#define	SSL3_MT_NEWSESSION_TICKET		4
 #define SSL3_MT_CERTIFICATE			11
 #define SSL3_MT_SERVER_KEY_EXCHANGE		12
 #define SSL3_MT_CERTIFICATE_REQUEST		13
@@ -472,6 +614,9 @@ typedef struct ssl3_state_st
 #define SSL3_MT_CERTIFICATE_VERIFY		15
 #define SSL3_MT_CLIENT_KEY_EXCHANGE		16
 #define SSL3_MT_FINISHED			20
+#define SSL3_MT_CERTIFICATE_STATUS		22
+#define DTLS1_MT_HELLO_VERIFY_REQUEST    3
+
 
 #define SSL3_MT_CCS				1
 

@@ -66,9 +66,9 @@ NESTED(handle_sys64, PT_SIZE, sp)
 	sd	t0, PT_R7(sp)		# set error flag
 	beqz	t0, 1f
 
+	ld	t1, PT_R2(sp)		# syscall number
 	dnegu	v0			# error
-	sd	v0, PT_R0(sp)		# set flag for syscall
-					# restarting
+	sd	t1, PT_R0(sp)		# save it for syscall restarting
 1:	sd	v0, PT_R2(sp)		# result
 
 n64_syscall_exit:
@@ -109,8 +109,9 @@ syscall_trace_entry:
 	sd	t0, PT_R7(sp)		# set error flag
 	beqz	t0, 1f
 
+	ld	t1, PT_R2(sp)		# syscall number
 	dnegu	v0			# error
-	sd	v0, PT_R0(sp)		# set flag for syscall restarting
+	sd	t1, PT_R0(sp)		# save it for syscall restarting
 1:	sd	v0, PT_R2(sp)		# result
 
 	j	syscall_exit
@@ -475,6 +476,10 @@ sys_call_table:
 	PTR	sys_ioprio_get
 	PTR	sys_utimensat			/* 5275 */
 	PTR	sys_signalfd
-	PTR	sys_timerfd
+	PTR	sys_ni_syscall
 	PTR	sys_eventfd
+	PTR	sys_ni_syscall
+	PTR	sys_timerfd_create		/* 5280 */
+	PTR	sys_timerfd_gettime
+	PTR	sys_timerfd_settime
 	.size	sys_call_table,.-sys_call_table

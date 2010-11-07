@@ -1,15 +1,18 @@
 $! TESTENC.COM  --  Test encoding and decoding
 $
 $	__arch := VAX
-$	if f$getsyi("cpu") .ge. 128 then __arch := AXP
-$	exe_dir := sys$disk:[-.'__arch'.exe.apps]
+$	if f$getsyi("cpu") .ge. 128 then -
+	   __arch = f$edit( f$getsyi( "ARCH_NAME"), "UPCASE")
+$	if __arch .eqs. "" then __arch := UNK
 $
-$	testsrc := makefile.ssl
+$	testsrc := makefile.
 $	test := p.txt
 $	cmd := mcr 'exe_dir'openssl
 $
 $	if f$search(test) .nes. "" then delete 'test';*
-$	copy 'testsrc' 'test'
+$	convert/fdl=sys$input: 'testsrc' 'test'
+RECORD
+	FORMAT STREAM_LF
 $
 $	if f$search(test+"-cipher") .nes. "" then delete 'test'-cipher;*
 $	if f$search(test+"-clear") .nes. "" then delete 'test'-clear;*

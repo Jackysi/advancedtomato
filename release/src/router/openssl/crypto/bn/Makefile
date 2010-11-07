@@ -1,49 +1,38 @@
 #
-# SSLeay/crypto/bn/Makefile
+# OpenSSL/crypto/bn/Makefile
 #
 
 DIR=	bn
 TOP=	../..
 CC=	cc
 CPP=    $(CC) -E
-INCLUDES= -I.. -I../../include
+INCLUDES= -I.. -I$(TOP) -I../../include
 CFLAG=-g
-INSTALL_PREFIX=
-OPENSSLDIR=     /usr/local/ssl
-INSTALLTOP=/usr/local/ssl
-MAKE=		make -f Makefile.ssl
-MAKEDEPEND=	$(TOP)/util/domd $(TOP)
-MAKEFILE=	Makefile.ssl
+MAKEFILE=	Makefile
 AR=		ar r
 
 BN_ASM=		bn_asm.o
-# or use
-#BN_ASM=	bn86-elf.o
 
 CFLAGS= $(INCLUDES) $(CFLAG)
-
-# We let the C compiler driver to take care of .s files. This is done in
-# order to be excused from maintaining a separate set of architecture
-# dependent assembler flags. E.g. if you throw -mcpu=ultrasparc at SPARC
-# gcc, then the driver will automatically translate it to -xarch=v8plus
-# and pass it down to assembler.
-AS=$(CC) -c
-ASFLAGS=$(CFLAGS)
+ASFLAGS= $(INCLUDES) $(ASFLAG)
+AFLAGS= $(ASFLAGS)
 
 GENERAL=Makefile
 TEST=bntest.c exptest.c
 APPS=
 
 LIB=$(TOP)/libcrypto.a
-LIBSRC=	bn_add.c bn_div.c bn_exp.c bn_lib.c bn_ctx.c bn_mul.c \
+LIBSRC=	bn_add.c bn_div.c bn_exp.c bn_lib.c bn_ctx.c bn_mul.c bn_mod.c \
 	bn_print.c bn_rand.c bn_shift.c bn_word.c bn_blind.c \
-	bn_gcd.c bn_prime.c bn_err.c bn_sqr.c bn_asm.c bn_recp.c bn_mont.c \
-	bn_mpi.c bn_exp2.c
+	bn_kron.c bn_sqrt.c bn_gcd.c bn_prime.c bn_err.c bn_sqr.c bn_asm.c \
+	bn_recp.c bn_mont.c bn_mpi.c bn_exp2.c bn_gf2m.c bn_nist.c \
+	bn_depr.c bn_const.c
 
-LIBOBJ=	bn_add.o bn_div.o bn_exp.o bn_lib.o bn_ctx.o bn_mul.o \
+LIBOBJ=	bn_add.o bn_div.o bn_exp.o bn_lib.o bn_ctx.o bn_mul.o bn_mod.o \
 	bn_print.o bn_rand.o bn_shift.o bn_word.o bn_blind.o \
-	bn_gcd.o bn_prime.o bn_err.o bn_sqr.o $(BN_ASM) bn_recp.o bn_mont.o \
-	bn_mpi.o bn_exp2.o
+	bn_kron.o bn_sqrt.o bn_gcd.o bn_prime.o bn_err.o bn_sqr.o $(BN_ASM) \
+	bn_recp.o bn_mont.o bn_mpi.o bn_exp2.o bn_gf2m.o bn_nist.o \
+	bn_depr.o bn_const.o
 
 SRC= $(LIBSRC)
 
@@ -68,75 +57,70 @@ bnbug: bnbug.c ../../libcrypto.a top
 
 lib:	$(LIBOBJ)
 	$(AR) $(LIB) $(LIBOBJ)
-	@echo You may get an error following this line.  Please ignore.
-	- $(RANLIB) $(LIB)
+	$(RANLIB) $(LIB) || echo Never mind.
 	@touch lib
 
-# elf
-asm/bn86-elf.o: asm/bn86unix.cpp
-	$(CPP) -DELF -x c asm/bn86unix.cpp | as -o asm/bn86-elf.o
+bn-586.s:	asm/bn-586.pl ../perlasm/x86asm.pl
+	$(PERL) asm/bn-586.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
+co-586.s:	asm/co-586.pl ../perlasm/x86asm.pl
+	$(PERL) asm/co-586.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
+x86-mont.s:	asm/x86-mont.pl ../perlasm/x86asm.pl
+	$(PERL) asm/x86-mont.pl $(PERLASM_SCHEME) $(CFLAGS) $(PROCESSOR) > $@
 
-asm/co86-elf.o: asm/co86unix.cpp
-	$(CPP) -DELF -x c asm/co86unix.cpp | as -o asm/co86-elf.o
+sparcv8.o:	asm/sparcv8.S
+	$(CC) $(CFLAGS) -c asm/sparcv8.S
+bn-sparcv9.o:	asm/sparcv8plus.S
+	$(CC) $(CFLAGS) -c -o $@ asm/sparcv8plus.S
+sparcv9a-mont.s:	asm/sparcv9a-mont.pl
+	$(PERL) asm/sparcv9a-mont.pl $(CFLAGS) > $@
+sparcv9-mont.s:		asm/sparcv9-mont.pl
+	$(PERL) asm/sparcv9-mont.pl $(CFLAGS) > $@
 
-# solaris
-asm/bn86-sol.o: asm/bn86unix.cpp
-	$(CC) -E -DSOL asm/bn86unix.cpp | sed 's/^#.*//' > asm/bn86-sol.s
-	as -o asm/bn86-sol.o asm/bn86-sol.s
-	rm -f asm/bn86-sol.s
+bn-mips3.o:	asm/mips3.s
+	@if [ "$(CC)" = "gcc" ]; then \
+		ABI=`expr "$(CFLAGS)" : ".*-mabi=\([n3264]*\)"` && \
+		as -$$ABI -O -o $@ asm/mips3.s; \
+	else	$(CC) -c $(CFLAGS) -o $@ asm/mips3.s; fi
 
-asm/co86-sol.o: asm/co86unix.cpp
-	$(CC) -E -DSOL asm/co86unix.cpp | sed 's/^#.*//' > asm/co86-sol.s
-	as -o asm/co86-sol.o asm/co86-sol.s
-	rm -f asm/co86-sol.s
+bn-s390x.o:	asm/s390x.S
+	$(CC) $(CFLAGS) -c -o $@ asm/s390x.S
 
-# a.out
-asm/bn86-out.o: asm/bn86unix.cpp
-	$(CPP) -DOUT asm/bn86unix.cpp | as -o asm/bn86-out.o
+x86_64-gcc.o:	asm/x86_64-gcc.c
+	$(CC) $(CFLAGS) -c -o $@ asm/x86_64-gcc.c
+x86_64-mont.s:	asm/x86_64-mont.pl
+	$(PERL) asm/x86_64-mont.pl $(PERLASM_SCHEME) > $@
 
-asm/co86-out.o: asm/co86unix.cpp
-	$(CPP) -DOUT asm/co86unix.cpp | as -o asm/co86-out.o
+bn-ia64.s:	asm/ia64.S
+	$(CC) $(CFLAGS) -E asm/ia64.S > $@
 
-# bsdi
-asm/bn86bsdi.o: asm/bn86unix.cpp
-	$(CPP) -DBSDI asm/bn86unix.cpp | sed 's/ :/:/' | as -o asm/bn86bsdi.o
+# GNU assembler fails to compile PA-RISC2 modules, insist on calling
+# vendor assembler...
+pa-risc2W.o: asm/pa-risc2W.s
+	/usr/ccs/bin/as -o pa-risc2W.o asm/pa-risc2W.s
+pa-risc2.o: asm/pa-risc2.s
+	/usr/ccs/bin/as -o pa-risc2.o asm/pa-risc2.s
 
-asm/co86bsdi.o: asm/co86unix.cpp
-	$(CPP) -DBSDI asm/co86unix.cpp | sed 's/ :/:/' | as -o asm/co86bsdi.o
+# ppc - AIX, Linux, MacOS X...
+bn-ppc.s:	asm/ppc.pl;	$(PERL) asm/ppc.pl $(PERLASM_SCHEME) $@
+ppc-mont.s:	asm/ppc-mont.pl;$(PERL) asm/ppc-mont.pl $(PERLASM_SCHEME) $@
 
-asm/bn86unix.cpp: asm/bn-586.pl ../perlasm/x86asm.pl
-	(cd asm; $(PERL) bn-586.pl cpp >bn86unix.cpp )
+alpha-mont.s:	asm/alpha-mont.pl
+	$(PERL) $< | $(CC) -E - | tee $@ > /dev/null
 
-asm/co86unix.cpp: asm/co-586.pl ../perlasm/x86asm.pl
-	(cd asm; $(PERL) co-586.pl cpp >co86unix.cpp )
-
-asm/sparcv8.o: asm/sparcv8.S
-
-asm/sparcv8plus.o: asm/sparcv8plus.S
-
-# Old GNU assembler doesn't understand V9 instructions, so we
-# hire /usr/ccs/bin/as to do the job. Note that option is called
-# *-gcc27, but even gcc 2>=8 users may experience similar problem
-# if they didn't bother to upgrade GNU assembler. Such users should
-# not choose this option, but be adviced to *remove* GNU assembler
-# or upgrade it.
-asm/sparcv8plus-gcc27.o: asm/sparcv8plus.S
-	$(CC) $(ASFLAGS) -E asm/sparcv8plus.S | \
-		/usr/ccs/bin/as -xarch=v8plus - -o asm/sparcv8plus-gcc27.o
-
-asm/ia64.o: asm/ia64.S
+# GNU make "catch all"
+%-mont.s:	asm/%-mont.pl;	$(PERL) $< $(CFLAGS) > $@
 
 files:
-	$(PERL) $(TOP)/util/files.pl Makefile.ssl >> $(TOP)/MINFO
+	$(PERL) $(TOP)/util/files.pl Makefile >> $(TOP)/MINFO
 
 links:
-	@$(TOP)/util/point.sh Makefile.ssl Makefile
 	@$(PERL) $(TOP)/util/mklink.pl ../../include/openssl $(EXHEADER)
 	@$(PERL) $(TOP)/util/mklink.pl ../../test $(TEST)
 	@$(PERL) $(TOP)/util/mklink.pl ../../apps $(APPS)
 
 install:
-	@for i in $(EXHEADER) ; \
+	@[ -n "$(INSTALLTOP)" ] # should be set by top Makefile...
+	@headerlist="$(EXHEADER)"; for i in $$headerlist ; \
 	do  \
 	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
 	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
@@ -159,157 +143,205 @@ lint:
 	lint -DLINT $(INCLUDES) $(SRC)>fluff
 
 depend:
-	$(MAKEDEPEND) $(INCLUDES) $(DEPFLAG) $(PROGS) $(LIBSRC)
+	@[ -n "$(MAKEDEPEND)" ] # should be set by upper Makefile...
+	$(MAKEDEPEND) -- $(CFLAG) $(INCLUDES) $(DEPFLAG) -- $(PROGS) $(LIBSRC)
 
 dclean:
 	$(PERL) -pe 'if (/^# DO NOT DELETE THIS LINE/) {print; exit(0);}' $(MAKEFILE) >Makefile.new
 	mv -f Makefile.new $(MAKEFILE)
 
 clean:
-	rm -f asm/co86unix.cpp asm/bn86unix.cpp *.o */*.o *.obj lib tags core .pure .nfs* *.old *.bak fluff bn_asm.s
+	rm -f *.s *.o *.obj lib tags core .pure .nfs* *.old *.bak fluff
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-bn_add.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_add.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_add.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_add.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_add.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_add.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_add.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_add.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_add.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_add.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_add.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_asm.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_add.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_add.c bn_lcl.h
+bn_asm.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_asm.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_asm.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_asm.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_asm.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_asm.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_asm.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_asm.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_asm.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_asm.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_blind.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_asm.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_asm.c bn_lcl.h
+bn_blind.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_blind.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_blind.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_blind.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_blind.o: ../../include/openssl/opensslconf.h
-bn_blind.o: ../../include/openssl/opensslv.h ../../include/openssl/safestack.h
-bn_blind.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
-bn_blind.o: ../cryptlib.h bn_lcl.h
-bn_ctx.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_blind.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_blind.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_blind.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_blind.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_blind.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_blind.c bn_lcl.h
+bn_const.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+bn_const.o: ../../include/openssl/opensslconf.h
+bn_const.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_const.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_const.o: ../../include/openssl/symhacks.h bn.h bn_const.c
+bn_ctx.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_ctx.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_ctx.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_ctx.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_ctx.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_ctx.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_ctx.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_ctx.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_ctx.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_ctx.o: ../../include/openssl/symhacks.h ../cryptlib.h
-bn_div.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_ctx.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_ctx.c bn_lcl.h
+bn_depr.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_depr.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+bn_depr.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_depr.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_depr.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_depr.o: ../../include/openssl/rand.h ../../include/openssl/safestack.h
+bn_depr.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
+bn_depr.o: ../cryptlib.h bn_depr.c bn_lcl.h
+bn_div.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_div.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_div.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_div.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_div.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_div.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_div.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_div.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_div.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_div.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
+bn_div.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_div.c bn_lcl.h
 bn_err.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
-bn_err.o: ../../include/openssl/crypto.h ../../include/openssl/err.h
-bn_err.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
-bn_err.o: ../../include/openssl/opensslv.h ../../include/openssl/safestack.h
+bn_err.o: ../../include/openssl/crypto.h ../../include/openssl/e_os2.h
+bn_err.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
+bn_err.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_err.o: ../../include/openssl/ossl_typ.h ../../include/openssl/safestack.h
 bn_err.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
-bn_exp.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_err.o: bn_err.c
+bn_exp.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_exp.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_exp.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_exp.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_exp.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_exp.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_exp.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_exp.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_exp.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_exp.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_exp2.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_exp.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_exp.c bn_lcl.h
+bn_exp2.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_exp2.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_exp2.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_exp2.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_exp2.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_exp2.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_exp2.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_exp2.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_exp2.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_exp2.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_gcd.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_exp2.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_exp2.c bn_lcl.h
+bn_gcd.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_gcd.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_gcd.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_gcd.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_gcd.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_gcd.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_gcd.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_gcd.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_gcd.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_gcd.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_lib.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_gcd.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_gcd.c bn_lcl.h
+bn_gf2m.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_gf2m.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+bn_gf2m.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_gf2m.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_gf2m.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_gf2m.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_gf2m.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_gf2m.c bn_lcl.h
+bn_kron.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_kron.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+bn_kron.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_kron.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_kron.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_kron.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_kron.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_kron.c bn_lcl.h
+bn_lib.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_lib.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_lib.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_lib.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_lib.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_lib.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_lib.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_lib.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_lib.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_lib.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_mont.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_lib.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_lib.c
+bn_mod.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_mod.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+bn_mod.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_mod.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_mod.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_mod.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_mod.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_mod.c
+bn_mont.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_mont.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_mont.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_mont.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_mont.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_mont.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_mont.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_mont.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_mont.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_mont.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_mpi.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_mont.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_mont.c
+bn_mpi.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_mpi.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_mpi.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_mpi.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_mpi.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_mpi.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_mpi.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_mpi.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_mpi.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_mpi.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_mul.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_mpi.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_mpi.c
+bn_mul.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_mul.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_mul.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_mul.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_mul.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_mul.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_mul.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_mul.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_mul.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_mul.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_prime.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_mul.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_mul.c
+bn_nist.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_nist.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+bn_nist.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_nist.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_nist.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_nist.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_nist.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_nist.c
+bn_prime.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_prime.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_prime.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_prime.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_prime.o: ../../include/openssl/opensslconf.h
-bn_prime.o: ../../include/openssl/opensslv.h ../../include/openssl/rand.h
-bn_prime.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_prime.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_prime.h
-bn_print.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_prime.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_prime.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_prime.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_prime.o: ../../include/openssl/rand.h ../../include/openssl/safestack.h
+bn_prime.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
+bn_prime.o: ../cryptlib.h bn_lcl.h bn_prime.c bn_prime.h
+bn_print.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_print.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_print.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_print.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_print.o: ../../include/openssl/opensslconf.h
-bn_print.o: ../../include/openssl/opensslv.h ../../include/openssl/safestack.h
-bn_print.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
-bn_print.o: ../cryptlib.h bn_lcl.h
-bn_rand.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_print.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_print.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_print.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_print.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_print.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_print.c
+bn_rand.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_rand.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_rand.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_rand.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_rand.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_rand.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_rand.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_rand.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_rand.o: ../../include/openssl/rand.h ../../include/openssl/safestack.h
 bn_rand.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
-bn_rand.o: ../cryptlib.h bn_lcl.h
-bn_recp.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_rand.o: ../cryptlib.h bn_lcl.h bn_rand.c
+bn_recp.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_recp.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_recp.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_recp.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_recp.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_recp.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_recp.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_recp.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_recp.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_recp.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_shift.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_recp.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_recp.c
+bn_shift.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_shift.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_shift.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_shift.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_shift.o: ../../include/openssl/opensslconf.h
-bn_shift.o: ../../include/openssl/opensslv.h ../../include/openssl/safestack.h
-bn_shift.o: ../../include/openssl/stack.h ../../include/openssl/symhacks.h
-bn_shift.o: ../cryptlib.h bn_lcl.h
-bn_sqr.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_shift.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_shift.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_shift.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_shift.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_shift.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_shift.c
+bn_sqr.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_sqr.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_sqr.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_sqr.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_sqr.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_sqr.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_sqr.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_sqr.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_sqr.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_sqr.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
-bn_word.o: ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_sqr.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_sqr.c
+bn_sqrt.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
+bn_sqrt.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
+bn_sqrt.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_sqrt.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_sqrt.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
+bn_sqrt.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
+bn_sqrt.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_sqrt.c
+bn_word.o: ../../e_os.h ../../include/openssl/bio.h ../../include/openssl/bn.h
 bn_word.o: ../../include/openssl/buffer.h ../../include/openssl/crypto.h
-bn_word.o: ../../include/openssl/e_os.h ../../include/openssl/e_os2.h
-bn_word.o: ../../include/openssl/err.h ../../include/openssl/lhash.h
-bn_word.o: ../../include/openssl/opensslconf.h ../../include/openssl/opensslv.h
+bn_word.o: ../../include/openssl/e_os2.h ../../include/openssl/err.h
+bn_word.o: ../../include/openssl/lhash.h ../../include/openssl/opensslconf.h
+bn_word.o: ../../include/openssl/opensslv.h ../../include/openssl/ossl_typ.h
 bn_word.o: ../../include/openssl/safestack.h ../../include/openssl/stack.h
-bn_word.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h
+bn_word.o: ../../include/openssl/symhacks.h ../cryptlib.h bn_lcl.h bn_word.c

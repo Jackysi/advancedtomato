@@ -28,7 +28,8 @@ should be called again.
 
 If the underlying BIO is B<non-blocking>, SSL_accept() will also return
 when the underlying BIO could not satisfy the needs of SSL_accept()
-to continue the handshake. In this case a call to SSL_get_error() with the
+to continue the handshake, indicating the problem by the return value -1.
+In this case a call to SSL_get_error() with the
 return value of SSL_accept() will yield B<SSL_ERROR_WANT_READ> or
 B<SSL_ERROR_WANT_WRITE>. The calling process then must repeat the call after
 taking appropriate action to satisfy the needs of SSL_accept().
@@ -69,6 +70,7 @@ to find out the reason.
 L<SSL_get_error(3)|SSL_get_error(3)>, L<SSL_connect(3)|SSL_connect(3)>,
 L<SSL_shutdown(3)|SSL_shutdown(3)>, L<ssl(3)|ssl(3)>, L<bio(3)|bio(3)>,
 L<SSL_set_connect_state(3)|SSL_set_connect_state(3)>,
+L<SSL_do_handshake(3)|SSL_do_handshake(3)>,
 L<SSL_CTX_new(3)|SSL_CTX_new(3)>
 
 =cut

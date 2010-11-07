@@ -56,20 +56,27 @@
  * [including the GNU Public Licence.]
  */
 
+/* Until the key-gen callbacks are modified to use newer prototypes, we allow
+ * deprecated functions for openssl-internal code */
+#ifdef OPENSSL_NO_DEPRECATED
+#undef OPENSSL_NO_DEPRECATED
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include "../e_os.h"
+
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#ifdef WINDOWS
-#include "../bio/bss_file.c"
-#endif
+#include <openssl/bn.h>
 
-#ifdef NO_DSA
+#ifdef OPENSSL_NO_DSA
 int main(int argc, char *argv[])
 {
     printf("No DSA support\n");
@@ -78,13 +85,13 @@ int main(int argc, char *argv[])
 #else
 #include <openssl/dsa.h>
 
-#ifdef WIN16
+#ifdef OPENSSL_SYS_WIN16
 #define MS_CALLBACK     _far _loadds
 #else
 #define MS_CALLBACK
 #endif
 
-static void MS_CALLBACK dsa_cb(int p, int n, void *arg);
+static int MS_CALLBACK dsa_cb(int p, int n, BN_GENCB *arg);
 
 /* seed, out_p, out_q, out_g are taken from the updated Appendix 5 to
  * FIPS PUB 186 and also appear in Appendix 5 to FIPS PIB 186-1 */
@@ -129,6 +136,7 @@ static BIO *bio_err=NULL;
 
 int main(int argc, char **argv)
 	{
+	BN_GENCB cb;
 	DSA *dsa=NULL;
 	int counter,ret=0,i,j;
 	unsigned char buf[256];
@@ -136,17 +144,22 @@ int main(int argc, char **argv)
 	unsigned char sig[256];
 	unsigned int siglen;
 
-	ERR_load_crypto_strings();
-	RAND_seed(rnd_seed, sizeof rnd_seed);
-
 	if (bio_err == NULL)
 		bio_err=BIO_new_fp(stderr,BIO_NOCLOSE);
 
+	CRYPTO_malloc_debug_init();
+	CRYPTO_dbg_set_options(V_CRYPTO_MDEBUG_ALL);
 	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+
+	ERR_load_crypto_strings();
+	RAND_seed(rnd_seed, sizeof rnd_seed);
 
 	BIO_printf(bio_err,"test generation of DSA parameters\n");
 
-	dsa=DSA_generate_parameters(512,seed,20,&counter,&h,dsa_cb,bio_err);
+	BN_GENCB_set(&cb, dsa_cb, bio_err);
+	if(((dsa = DSA_new()) == NULL) || !DSA_generate_parameters_ex(dsa, 512,
+				seed, 20, &counter, &h, &cb))
+		goto end;
 
 	BIO_printf(bio_err,"seed\n");
 	for (i=0; i<20; i+=4)
@@ -154,9 +167,8 @@ int main(int argc, char **argv)
 		BIO_printf(bio_err,"%02X%02X%02X%02X ",
 			seed[i],seed[i+1],seed[i+2],seed[i+3]);
 		}
-	BIO_printf(bio_err,"\ncounter=%d h=%d\n",counter,h);
+	BIO_printf(bio_err,"\ncounter=%d h=%ld\n",counter,h);
 		
-	if (dsa == NULL) goto end;
 	DSA_print(bio_err,dsa,0);
 	if (counter != 105) 
 		{
@@ -192,26 +204,40 @@ int main(int argc, char **argv)
 		BIO_printf(bio_err,"g value is wrong\n");
 		goto end;
 		}
+
+	dsa->flags |= DSA_FLAG_NO_EXP_CONSTTIME;
 	DSA_generate_key(dsa);
 	DSA_sign(0, str1, 20, sig, &siglen, dsa);
 	if (DSA_verify(0, str1, 20, sig, siglen, dsa) == 1)
 		ret=1;
+
+	dsa->flags &= ~DSA_FLAG_NO_EXP_CONSTTIME;
+	DSA_generate_key(dsa);
+	DSA_sign(0, str1, 20, sig, &siglen, dsa);
+	if (DSA_verify(0, str1, 20, sig, siglen, dsa) == 1)
+		ret=1;
+
 end:
 	if (!ret)
 		ERR_print_errors(bio_err);
 	if (dsa != NULL) DSA_free(dsa);
-	ERR_remove_state(0);
+	CRYPTO_cleanup_all_ex_data();
+	ERR_remove_thread_state(NULL);
+	ERR_free_strings();
 	CRYPTO_mem_leaks(bio_err);
 	if (bio_err != NULL)
 		{
 		BIO_free(bio_err);
 		bio_err = NULL;
 		}
-	exit(!ret);
+#ifdef OPENSSL_SYS_NETWARE
+    if (!ret) printf("ERROR\n");
+#endif
+	EXIT(!ret);
 	return(0);
 	}
 
-static void MS_CALLBACK dsa_cb(int p, int n, void *arg)
+static int MS_CALLBACK dsa_cb(int p, int n, BN_GENCB *arg)
 	{
 	char c='*';
 	static int ok=0,num=0;
@@ -220,13 +246,14 @@ static void MS_CALLBACK dsa_cb(int p, int n, void *arg)
 	if (p == 1) c='+';
 	if (p == 2) { c='*'; ok++; }
 	if (p == 3) c='\n';
-	BIO_write(arg,&c,1);
-	(void)BIO_flush(arg);
+	BIO_write(arg->arg,&c,1);
+	(void)BIO_flush(arg->arg);
 
 	if (!ok && (p == 0) && (num > 1))
 		{
 		BIO_printf((BIO *)arg,"error in dsatest\n");
-		exit(1);
+		return 0;
 		}
+	return 1;
 	}
 #endif

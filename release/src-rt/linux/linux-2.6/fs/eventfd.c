@@ -199,10 +199,8 @@ struct file *eventfd_fget(int fd)
 
 asmlinkage long sys_eventfd(unsigned int count)
 {
-	int error, fd;
+	int fd;
 	struct eventfd_ctx *ctx;
-	struct file *file;
-	struct inode *inode;
 
 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -215,12 +213,9 @@ asmlinkage long sys_eventfd(unsigned int count)
 	 * When we call this, the initialization must be complete, since
 	 * anon_inode_getfd() will install the fd.
 	 */
-	error = anon_inode_getfd(&fd, &inode, &file, "[eventfd]",
-				 &eventfd_fops, ctx);
-	if (!error)
-		return fd;
-
-	kfree(ctx);
-	return error;
+	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx, 0);
+	if (fd < 0)
+		kfree(ctx);
+	return fd;
 }
 

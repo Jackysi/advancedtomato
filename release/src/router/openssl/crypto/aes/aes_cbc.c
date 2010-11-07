@@ -49,115 +49,15 @@
  *
  */
 
-#ifndef AES_DEBUG
-# ifndef NDEBUG
-#  define NDEBUG
-# endif
-#endif
-#include <assert.h>
-
 #include <openssl/aes.h>
-#include "aes_locl.h"
-
-
-#ifdef mips
-
-#define GET16(a, b, c, d, out)            \
-       __asm__ __volatile__(              \
-            "ulw %0,0(%4); ulw %1, 4(%4); ulw %2 ,8(%4); ulw %3, 12(%4); " \
-            : "=&r"(a), "=&r"(b), "=&r"(c), "=&r"(d) \
-            : "r"(out))
-
-
-#define SET16(a, b, c, d, out)  \
-       __asm__ __volatile__(    \
-            "usw %0,0(%4); usw %1, 4(%4); usw %2 ,8(%4); usw %3, 12(%4); " \
-            : : "r"(a), "r"(b), "r"(c), "r"(d), "r"(out) : "memory")
-
-
-#define MEMCOPY16(out, in)  do { int a, b, c, d;  GET16(a,b,c,d, in); SET16(a,b,c,d,out); } while(0)
-
-#define XOR_UNALIGNED_16(out, in1, in2) do {                                 \
-        int a0, a1, a2, a3, b0, b1, b2, b3;  \
-        GET16(a0, a1, a2, a3, in1);          \
-        GET16(b0, b1, b2, b3, in2);          \
-        SET16(a0 ^ b0, a1 ^ b1, a2 ^ b2, a3 ^ b3, out); } while (0)
-
-
-#else 
-
-#define XOR_UNALIGNED_16(out, in1, in2) {                                \
-        for(n=0; n < AES_BLOCK_SIZE; ++n) out[n] = in1[n] ^ in2[n]; }
-
-#define MEMCOPY16(out, in) memcpy(out, in, AES_BLOCK_SIZE)
-
-
-#endif
-
+#include <openssl/modes.h>
 
 void AES_cbc_encrypt(const unsigned char *in, unsigned char *out,
-		     const unsigned long length, const AES_KEY *key,
+		     size_t len, const AES_KEY *key,
 		     unsigned char *ivec, const int enc) {
-	unsigned long n;
-	unsigned long len = length;
-	unsigned char tmp[AES_BLOCK_SIZE];
-	const unsigned char *iv = ivec;
 
-	assert(in && out && key && ivec);
-	assert((AES_ENCRYPT == enc)||(AES_DECRYPT == enc));
-
-	if (AES_ENCRYPT == enc) {
-		while (len >= AES_BLOCK_SIZE) {
-                        XOR_UNALIGNED_16(out, in, iv);
-			AES_encrypt(out, out, key);
-			iv = out;
-			len -= AES_BLOCK_SIZE;
-			in += AES_BLOCK_SIZE;
-			out += AES_BLOCK_SIZE;
-		}
-		if (len) {
-			for(n=0; n < len; ++n)
-				out[n] = in[n] ^ iv[n];
-			for(n=len; n < AES_BLOCK_SIZE; ++n)
-				out[n] = iv[n];
-			AES_encrypt(out, out, key);
-			iv = out;
-		}
-                MEMCOPY16(ivec, iv);
-	} else if (in != out) {
-		while (len >= AES_BLOCK_SIZE) {
-			AES_decrypt(in, out, key);
-                        XOR_UNALIGNED_16(out, out, iv);
-			iv = in;
-			len -= AES_BLOCK_SIZE;
-			in  += AES_BLOCK_SIZE;
-			out += AES_BLOCK_SIZE;
-		}
-		if (len) {
-			AES_decrypt(in,tmp,key);
-			for(n=0; n < len; ++n)
-				out[n] = tmp[n] ^ iv[n];
-			iv = in;
-		}
-                MEMCOPY16(ivec, iv);
-	} else {
-		while (len >= AES_BLOCK_SIZE) {
-                        MEMCOPY16(tmp, in);
-			AES_decrypt(in, out, key);
-                        XOR_UNALIGNED_16(out, out, ivec);
-                        MEMCOPY16(ivec, tmp);
-			len -= AES_BLOCK_SIZE;
-			in += AES_BLOCK_SIZE;
-			out += AES_BLOCK_SIZE;
-		}
-		if (len) {
-                        MEMCOPY16(tmp, in);
-			AES_decrypt(tmp, out, key);
-			for(n=0; n < len; ++n)
-				out[n] ^= ivec[n];
-			for(n=len; n < AES_BLOCK_SIZE; ++n)
-				out[n] = tmp[n];
-                        MEMCOPY16(ivec, tmp);
-		}
-	}
+	if (enc)
+		CRYPTO_cbc128_encrypt(in,out,len,key,ivec,(block128_f)AES_encrypt);
+	else
+		CRYPTO_cbc128_decrypt(in,out,len,key,ivec,(block128_f)AES_decrypt);
 }

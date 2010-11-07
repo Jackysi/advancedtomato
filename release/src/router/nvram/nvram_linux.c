@@ -285,11 +285,11 @@ int nvram_nvram2file(const char *varname, const char *filename)
 	}
 
 	/* Create the directories to the path, as necessary. */
-	sprintf(buf, "mkdir -p %s", filename);
-	cp = strrchr(buf + 8, '/');
-	if (cp && cp > &buf[9]) {
+	strcpy(buf, filename);
+	cp = strrchr(buf, '/');
+	if (cp && cp > buf) {
 		*cp = 0;
-		system(buf);
+		eval("mkdir", "-m", "0777", "-p", buf);
 	}
    
 	if ( (fnum=open(filename, O_WRONLY | O_CREAT | O_TRUNC, *((mode_t *)mem))) < 0) {

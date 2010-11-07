@@ -416,8 +416,8 @@ if ($name ne 'something') {
 			warn "$0: Improper man page - malformed NAME header in paragraph $. of $ARGV[0]\n"
 		    }
 		    else {
-			$n[0] =~ s/\n/ /;
-			$n[1] =~ s/\n/ /;
+			$n[0] =~ s/\n/ /g;
+			$n[1] =~ s/\n/ /g;
 			%namedesc = @n;
 		    }
 		}
@@ -425,6 +425,7 @@ if ($name ne 'something') {
 	    }
 	    next if /^=cut\b/;	# DB_File and Net::Ping have =cut before NAME
 	    next if /^=pod\b/;  # It is OK to have =pod before NAME
+	    next if /^=(for|begin|end)\s+comment\b/;  # It is OK to have =for =begin or =end comment before NAME
 	    die "$0: Invalid man page - 1st pod line is not NAME in $ARGV[0]\n" unless $lax;
 	}
 	die "$0: Invalid man page - no documentation in $ARGV[0]\n" unless $lax;

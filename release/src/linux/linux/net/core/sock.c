@@ -155,7 +155,19 @@ static int sock_set_timeout(long *timeo_p, char *optval, int optlen)
 		return -EINVAL;
 	if (copy_from_user(&tv, optval, sizeof(tv)))
 		return -EFAULT;
+	if (tv.tv_usec < 0 || tv.tv_usec >= 1000000L)
+		return -EDOM;
 
+	if (tv.tv_sec < 0) {
+		static int warned = 0;
+		*timeo_p = 0;
+		if (warned < 10 && net_ratelimit())
+			warned++;
+			printk(KERN_DEBUG "sock_set_timeout: `%s' (pid %d) "
+			       "tries to set negative timeout\n",
+			        current->comm, current->pid);
+		return 0;
+	}
 	*timeo_p = MAX_SCHEDULE_TIMEOUT;
 	if (tv.tv_sec == 0 && tv.tv_usec == 0)
 		return 0;
@@ -304,11 +316,11 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
 				sk->linger=0;
 			} else {
 #if (BITS_PER_LONG == 32)
-				if (ling.l_linger >= MAX_SCHEDULE_TIMEOUT/HZ)
+				if ((unsigned int)ling.l_linger >= MAX_SCHEDULE_TIMEOUT/HZ)
 					sk->lingertime=MAX_SCHEDULE_TIMEOUT;
 				else
 #endif
-					sk->lingertime=ling.l_linger*HZ;
+					sk->lingertime=(unsigned int)ling.l_linger*HZ;
 				sk->linger=1;
 			}
 			break;

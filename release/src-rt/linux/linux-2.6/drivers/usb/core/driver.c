@@ -1679,8 +1679,8 @@ static int usb_resume(struct device *dev)
 	/* Avoid PM error messages for devices disconnected while suspended
 	 * as we'll display regular disconnect messages just a bit later.
 	 */
-	if (status == -ENODEV)
-		return 0;
+	if (status == -ENODEV || status == -ESHUTDOWN)
+		status = 0;
 	return status;
 }
 

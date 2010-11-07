@@ -35,7 +35,18 @@ char *psname(int pid, char *buffer, int maxlen)
 	return buffer;
 }
 
-static int _pidof(const char *name, pid_t** pids)
+/* There is a race condition when a brand new daemon starts up using the double-fork method.
+ *   Example: dnsmasq
+ * There are 2 windows of vulnerability.
+ * 1) At the beginning of process startup, the new process has the wrong name, such as "init" because
+ * init forks a child which execve()'s dnsmasq, but the execve() hasn't happened yet.
+ * 2) At the end of process startup, the timing can be such that we don't see the long-lived process,
+ * only the pid(s) of the short-lived process(es), but the psname fails because they've exited by then.
+ *
+ * The 1st can be covered by a retry after a slight delay.
+ * The 2nd can be covered by a retry immediately.
+ */
+static int _pidof(const char *name, pid_t **pids)
 {
 	const char *p;
 	char *e;
@@ -46,13 +57,18 @@ static int _pidof(const char *name, pid_t** pids)
 	char buf[256];
 
 	count = 0;
-	*pids = NULL;
-	if ((p = strchr(name, '/')) != NULL) name = p + 1;
+	if (pids != NULL)
+		*pids = NULL;
+	if ((p = strrchr(name, '/')) != NULL) name = p + 1;
 	if ((dir = opendir("/proc")) != NULL) {
 		while ((de = readdir(dir)) != NULL) {
 			i = strtol(de->d_name, &e, 10);
 			if (*e != 0) continue;
 			if (strcmp(name, psname(i, buf, sizeof(buf))) == 0) {
+				if (pids == NULL) {
+					count = i;
+					break;
+				}
 				if ((*pids = realloc(*pids, sizeof(pid_t) * (count + 1))) == NULL) {
 					return -1;
 				}
@@ -64,17 +80,21 @@ static int _pidof(const char *name, pid_t** pids)
 	return count;
 }
 
+/* If we hit both windows, it will take three tries to discover the pid. */
 int pidof(const char *name)
 {
-	pid_t *pids;
 	pid_t p;
 
-	if (_pidof(name, &pids) > 0) {
-		p = *pids;
-		free(pids);
-		return p;
+	p = _pidof(name, NULL);
+	if (p < 1) {
+		usleep(10 * 1000);
+		p = _pidof(name, NULL);
+		if (p < 1)
+			p = _pidof(name, NULL);
 	}
-	return -1;
+	if (p < 1)
+		return -1;
+	return p;
 }
 
 int killall(const char *name, int sig)
