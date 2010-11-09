@@ -441,6 +441,7 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
+		dirty |= check_nv("wl1_leddc", "0x640000");
 		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 3);
@@ -542,6 +543,8 @@ static void check_bootnv(void)
 	break;
 
 	} // switch (model)
+
+	dirty |= check_nv("wl0_leddc", "0x640000");
 
 	if (dirty) {
 		nvram_commit();
@@ -911,6 +914,9 @@ static int init_nvram(void)
 		mfr = "Linksys";
 		name = nvram_match("boot_hw_model", "E300") ? "E3000" : "WRT610N v2";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");
