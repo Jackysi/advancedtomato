@@ -79,7 +79,12 @@ static int start_scan(int idx, int unit, int subunit, void *param)
 	sp.ssid.SSID_len = 0;
 	sp.bss_type = DOT11_BSSTYPE_ANY;	// =2
 	sp.channel_num = 0;
-	sp.scan_type = DOT11_SCANTYPE_PASSIVE;	// =1
+#ifdef CONFIG_BCMWL5
+	sp.scan_type = DOT11_SCANTYPE_ACTIVE;
+#else
+	// with older BCM wifi drivers, passive scan seems to provide better results
+	sp.scan_type = DOT11_SCANTYPE_PASSIVE;
+#endif
 
 	if (wl_ioctl(wif, WLC_GET_AP, &(rp->wif[idx].ap), sizeof(rp->wif[idx].ap)) < 0) {
 		// Unable to get AP mode
