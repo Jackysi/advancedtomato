@@ -223,6 +223,16 @@ define RouterOptions
 		sed -i "/TCONFIG_SAMBA3/d" $(1); \
 		echo "TCONFIG_SAMBA3=y" >>$(1); \
 	fi; \
+	sed -i "/TCONFIG_EMF/d" $(1); \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		if [ "$(SLIM)" = "y" ]; then \
+			echo "# TCONFIG_EMF is not set" >>$(1); \
+		else \
+			echo "TCONFIG_EMF=y" >>$(1); \
+		fi; \
+	else \
+		echo "# TCONFIG_EMF is not set" >>$(1); \
+	fi; \
 	sed -i "/TCONFIG_JFFSV1/d" $(1); \
 	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 		if [ "$(JFFSv1)" = "y" ]; then \

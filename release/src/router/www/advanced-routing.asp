@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,wan_ifname,wan_iface"); %>
+// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,wan_ifname,wan_iface,emf_enable"); %>
 // <% activeroutes(); %>
 
 var ara = new TomatoGrid();
@@ -129,6 +129,11 @@ function save()
 	fom.dhcp_routes.value = E('_f_dhcp_routes').checked ? '1' : '0';
 	fom._service.value = (fom.dhcp_routes.value != nvram.dhcp_routes) ? 'wan-restart' : 'routing-restart';
 
+/* EMF-BEGIN */
+	fom.emf_enable.value = E('_f_emf').checked ? 1 : 0;
+	if (fom.emf_enable.value != nvram.emf_enable) fom._service.value = '*';
+/* EMF-END */
+
 	form.submit(fom, 1);
 }
 
@@ -169,6 +174,7 @@ function init()
 <input type='hidden' name='routes_static'>
 <input type='hidden' name='lan_stp'>
 <input type='hidden' name='dhcp_routes'>
+<input type='hidden' name='emf_enable'>
 <input type='hidden' name='dr_lan_tx'>
 <input type='hidden' name='dr_lan_rx'>
 <input type='hidden' name='dr_wan_tx'>
@@ -190,10 +196,13 @@ function init()
 createFieldTable('', [
 	{ title: 'Mode', name: 'wk_mode', type: 'select', options: [['gateway','Gateway'],['router','Router']], value: nvram.wk_mode },
 /* ZEBRA-BEGIN */
-	{ title: 'RIPv1 &amp; v2', name: 'dr_setting', type: 'select',	options: [[0,'Disabled'],[1,'LAN'],[2,'WAN'],[3,'Both']], value:	nvram.dr_setting },
+	{ title: 'RIPv1 &amp; v2', name: 'dr_setting', type: 'select',	options: [[0,'Disabled'],[1,'LAN'],[2,'WAN'],[3,'Both']], value: nvram.dr_setting },
 /* ZEBRA-END */
+/* EMF-BEGIN */
+	{ title: 'Efficient Multicast Forwarding', name: 'f_emf', type: 'checkbox', value: nvram.emf_enable != '0' },
+/* EMF-END */
 	{ title: 'DHCP Routes', name: 'f_dhcp_routes', type: 'checkbox', value: nvram.dhcp_routes != '0' },
-	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' },
+	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' }
 ]);
 </script>
 </div>

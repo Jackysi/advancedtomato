@@ -66,6 +66,11 @@ ifneq ($(TCONFIG_ZEBRA),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ZEBRA-BEGIN/,/ZEBRA-END/d"
 endif
 
+# Only include EMF options if EMF is configured in.
+ifneq ($(TCONFIG_EMF),y)
+	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/EMF-BEGIN/,/EMF-END/d"
+endif
+
 # Only include extra themes if USB Extras are configured in.
 ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/usbred.css
@@ -147,6 +152,7 @@ endif
 		-e "/JFFS2-BEGIN/d"	-e "/JFFS2-END/d" \
 		-e "/CIFS-BEGIN/d"	-e "/CIFS-END/d" \
 		-e "/ZEBRA-BEGIN/d"	-e "/ZEBRA-END/d" \
+		-e "/EMF-BEGIN/d"	-e "/EMF-END/d" \
 		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \

@@ -240,12 +240,13 @@ const defaults_t defaults[] = {
 	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
 	{ "wl_obss_coex",		"0"			},	// OBSS Coexistence (0|1): when enabled, channel width is forced to 20MHz
 
-#ifdef CONFIG_BCMWL5
-	// EMF
+#ifdef TCONFIG_EMF
 	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
 	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
 	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
 	{ "emf_enable",			"0"			},	// Disable EMF by default
+#endif
+#ifdef CONFIG_BCMWL5
 	// AMPDU
 	{ "wl_ampdu",			"auto"			},	// Default AMPDU setting
 	{ "wl_ampdu_rtylimit_tid",	"5 5 5 5 5 5 5 5"	},	// Default AMPDU retry limit per-tid setting

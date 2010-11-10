@@ -1303,6 +1303,10 @@ static void sysinit(void)
 		break;
 	}
 
+#ifdef TCONFIG_EMF
+	modprobe("emf");
+	modprobe("igs");
+#endif
 	modprobe("wl");
 
 	config_loopback();

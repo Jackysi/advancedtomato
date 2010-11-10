@@ -159,6 +159,88 @@ static int wlconf(char *ifname, int unit, int subunit)
 	return r;
 }
 
+// -----------------------------------------------------------------------------
+
+#ifdef TCONFIG_EMF
+static void emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
+{
+	char word[256], *next;
+	char *mgrp, *ifname;
+
+	/* Add/Delete MFDB entries corresponding to new interface */
+	foreach (word, nvram_safe_get("emf_entry"), next) {
+		ifname = word;
+		mgrp = strsep(&ifname, ":");
+
+		if ((mgrp == NULL) || (ifname == NULL)) continue;
+
+		/* Add/Delete MFDB entry using the group addr and interface */
+		if (lan_port_ifname == NULL || strcmp(lan_port_ifname, ifname) == 0) {
+			eval("emf", ((add) ? "add" : "del"), "mfdb", lan_ifname, mgrp, ifname);
+		}
+	}
+}
+
+static void emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
+{
+	char word[256], *next;
+	char *ifname;
+
+	/* Add/Delete UFFP entries corresponding to new interface */
+	foreach (word, nvram_safe_get("emf_uffp_entry"), next) {
+		ifname = word;
+
+		if (ifname == NULL) continue;
+
+		/* Add/Delete UFFP entry for the interface */
+		if (lan_port_ifname == NULL || strcmp(lan_port_ifname, ifname) == 0) {
+			eval("emf", ((add) ? "add" : "del"), "uffp", lan_ifname, ifname);
+		}
+	}
+}
+
+static void emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
+{
+	char word[256], *next;
+	char *ifname;
+
+	/* Add/Delete RTPORT entries corresponding to new interface */
+	foreach (word, nvram_safe_get("emf_rtport_entry"), next) {
+		ifname = word;
+
+		if (ifname == NULL) continue;
+
+		/* Add/Delete RTPORT entry for the interface */
+		if (lan_port_ifname == NULL || strcmp(lan_port_ifname, ifname) == 0) {
+			eval("emf", ((add) ? "add" : "del"), "rtport", lan_ifname, ifname);
+		}
+	}
+}
+
+static void start_emf(char *lan_ifname)
+{
+	/* Start EMF */
+	eval("emf", "start", lan_ifname);
+
+	/* Add the static MFDB entries */
+	emf_mfdb_update(lan_ifname, NULL, 1);
+
+	/* Add the UFFP entries */
+	emf_uffp_update(lan_ifname, NULL, 1);
+
+	/* Add the RTPORT entries */
+	emf_rtport_update(lan_ifname, NULL, 1);
+}
+
+static void stop_emf(char *lan_ifname)
+{
+	eval("emf", "stop", lan_ifname);
+	eval("igs", "del", "bridge", lan_ifname);
+	eval("emf", "del", "bridge", lan_ifname);
+}
+#endif
+
+// -----------------------------------------------------------------------------
 
 /* Set initial QoS mode for all et interfaces that are up. */
 void set_et_qos_mode(int sfd)
@@ -327,6 +409,13 @@ void start_lan(void)
 		eval("brctl", "setfd", lan_ifname, "0");
 		eval("brctl", "stp", lan_ifname, nvram_safe_get("lan_stp"));
 
+#ifdef TCONFIG_EMF
+		if (nvram_get_int("emf_enable")) {
+			eval("emf", "add", "bridge", lan_ifname);
+			eval("igs", "add", "bridge", lan_ifname);
+		}
+#endif
+
 		inet_aton(nvram_safe_get("lan_ipaddr"), (struct in_addr *)&ip);
 
 		sta = 0;
@@ -380,6 +469,10 @@ void start_lan(void)
 					if ((strcmp(mode, "ap") != 0) && (strcmp(mode, "wet") != 0)) continue;
 				}
 				eval("brctl", "addif", lan_ifname, ifname);
+#ifdef TCONFIG_EMF
+				if (nvram_get_int("emf_enable"))
+					eval("emf", "add", "iface", lan_ifname, ifname);
+#endif
 			}
 			
 			if ((nvram_get_int("wan_islan")) &&
@@ -433,6 +526,10 @@ void start_lan(void)
 		}
 	}
 
+#ifdef TCONFIG_EMF
+	if (nvram_get_int("emf_enable")) start_emf(lan_ifname);
+#endif
+
 	free(lan_ifname);
 
 	_dprintf("%s %d\n", __FUNCTION__, __LINE__);
@@ -449,6 +546,9 @@ void stop_lan(void)
 	ifconfig(lan_ifname, 0, NULL, NULL);
 
 	if (strncmp(lan_ifname, "br", 2) == 0) {
+#ifdef TCONFIG_EMF
+		stop_emf(lan_ifname);
+#endif
 		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
 			p = lan_ifnames;
 			while ((ifname = strsep(&p, " ")) != NULL) {
@@ -511,6 +611,14 @@ void hotplug_net(void)
 	    (strcmp(action, "register") == 0 || strcmp(action, "add") == 0)) {
 		ifconfig(interface, IFUP, NULL, NULL);
 		lan_ifname = nvram_safe_get("lan_ifname");
+#ifdef TCONFIG_EMF
+		if (nvram_get_int("emf_enable")) {
+			eval("emf", "add", "iface", lan_ifname, interface);
+			emf_mfdb_update(lan_ifname, interface, 1);
+			emf_uffp_update(lan_ifname, interface, 1);
+			emf_rtport_update(lan_ifname, interface, 1);
+		}
+#endif
 		if (strncmp(lan_ifname, "br", 2) == 0) {
 			eval("brctl", "addif", lan_ifname, interface);
 			notify_nas(interface);
