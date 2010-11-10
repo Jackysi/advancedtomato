@@ -253,7 +253,8 @@ extern struct mips_abi mips_abi_n32;
 do {									\
 	if (ibcs2)							\
 		set_personality(PER_SVR4);				\
-	set_personality(PER_LINUX);					\
+	if (personality(current->personality) != PER_LINUX)		\
+		set_personality(PER_LINUX);				\
 									\
 	current->thread.abi = &mips_abi;				\
 } while (0)
@@ -309,8 +310,12 @@ do {									\
 									\
 	if (ibcs2)							\
 		set_personality(PER_SVR4);				\
-	else if (current->personality != PER_LINUX32)			\
-		set_personality(PER_LINUX);				\
+	else {								\
+		unsigned int p = personality(current->personality);	\
+									\
+		if (p != PER_LINUX32 && p != PER_LINUX)			\
+			set_personality(PER_LINUX);			\
+	}
 } while (0)
 
 #endif /* CONFIG_64BIT */

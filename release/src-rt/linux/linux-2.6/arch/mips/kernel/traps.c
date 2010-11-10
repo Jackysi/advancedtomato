@@ -75,7 +75,8 @@ extern asmlinkage void handle_mcheck(void);
 extern asmlinkage void handle_reserved(void);
 
 extern int fpu_emulator_cop1Handler(struct pt_regs *xcp,
-	struct mips_fpu_struct *ctx, int has_fpu);
+				    struct mips_fpu_struct *ctx, int has_fpu,
+				    void *__user *fault_addr);
 
 void (*board_be_init)(void);
 int (*board_be_handler)(struct pt_regs *regs, int is_fixup);
@@ -573,15 +574,42 @@ asmlinkage void do_ov(struct pt_regs *regs)
 	force_sig_info(SIGFPE, &info, current);
 }
 
+static int process_fpemu_return(int sig, void __user *fault_addr)
+{
+	if (sig == SIGSEGV || sig == SIGBUS) {
+		struct siginfo si = {0};
+		si.si_addr = fault_addr;
+		si.si_signo = sig;
+		if (sig == SIGSEGV) {
+			if (find_vma(current->mm, (unsigned long)fault_addr))
+				si.si_code = SEGV_ACCERR;
+			else
+				si.si_code = SEGV_MAPERR;
+		} else {
+			si.si_code = BUS_ADRERR;
+		}
+		force_sig_info(sig, &si, current);
+		return 1;
+	} else if (sig) {
+		force_sig(sig, current);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 /*
  * XXX Delayed fp exceptions when doing a lazy ctx switch XXX
  */
 asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
+	siginfo_t info = {0};
+
 	die_if_kernel("FP exception in kernel code", regs);
 
 	if (fcr31 & FPU_CSR_UNI_X) {
 		int sig;
+		void __user *fault_addr = NULL;
 
 		/*
 		 * Unimplemented operation exception.  If we've got the full
@@ -597,7 +625,8 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		lose_fpu(1);
 
 		/* Run the emulator */
-		sig = fpu_emulator_cop1Handler (regs, &current->thread.fpu, 1);
+		sig = fpu_emulator_cop1Handler(regs, &current->thread.fpu, 1,
+					       &fault_addr);
 
 		/*
 		 * We can't allow the emulated instruction to leave any of
@@ -609,13 +638,25 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		own_fpu(1);	/* Using the FPU again.  */
 
 		/* If something went wrong, signal */
-		if (sig)
-			force_sig(sig, current);
+		process_fpemu_return(sig, fault_addr);
 
 		return;
-	}
-
-	force_sig(SIGFPE, current);
+	} else if (fcr31 & FPU_CSR_INV_X)
+		info.si_code = FPE_FLTINV;
+	else if (fcr31 & FPU_CSR_DIV_X)
+		info.si_code = FPE_FLTDIV;
+	else if (fcr31 & FPU_CSR_OVF_X)
+		info.si_code = FPE_FLTOVF;
+	else if (fcr31 & FPU_CSR_UDF_X)
+		info.si_code = FPE_FLTUND;
+	else if (fcr31 & FPU_CSR_INE_X)
+		info.si_code = FPE_FLTRES;
+	else
+		info.si_code = __SI_FAULT;
+	info.si_signo = SIGFPE;
+	info.si_errno = 0;
+	info.si_addr = (void __user *) regs->cp0_epc;
+	force_sig_info(SIGFPE, &info, current);
 }
 
 static void do_trap_or_bp(struct pt_regs *regs, unsigned int code,
@@ -796,12 +837,13 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 
 		if (!raw_cpu_has_fpu) {
 			int sig;
+			void __user *fault_addr = NULL;
 			sig = fpu_emulator_cop1Handler(regs,
-						&current->thread.fpu, 0);
-			if (sig)
-				force_sig(sig, current);
+						       &current->thread.fpu,
+						       0,  &fault_addr);
+			if (!process_fpemu_return(sig, fault_addr))
+			{
 #ifdef CONFIG_MIPS_MT_FPAFF
-			else {
 			/*
 			 * MIPS MT processors may have fewer FPU contexts
 			 * than CPU threads. If we've emulated more than
@@ -828,8 +870,8 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 			    current->thread.mflags |= MF_FPUBOUND;
 			  }
 			 }
-			}
 #endif /* CONFIG_MIPS_MT_FPAFF */
+			}
 		}
 
 		return;
