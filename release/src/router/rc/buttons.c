@@ -131,6 +131,11 @@ int buttons_main(int argc, char *argv[])
 	case MODEL_WLA2G54L:
 		reset_mask = reset_pushed = 1 << 7;
 		break;
+	case MODEL_WL1600GL:
+		reset_mask = 1 << 3;
+		ses_mask = 1 << 4;
+		ses_led = LED_AOSS;
+		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_RTN10:
 		reset_mask = 1 << 3;

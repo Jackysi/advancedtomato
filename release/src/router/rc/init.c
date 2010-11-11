@@ -286,7 +286,25 @@ static int check_nv(const char *name, const char *value)
 	return 0;
 }
 
-static void find_dir320_mac_addr()
+static int find_sercom_mac_addr(void)
+{
+	FILE *fp;
+	unsigned char m[6], s[18];
+
+	sprintf(s, MTD_DEV(%dro), 0);
+	if ((fp = fopen(s, "rb"))) {
+		fseek(fp, 0x1ffa0, SEEK_SET);
+		fread(m, sizeof(m), 1, fp);
+		fclose(fp);
+		sprintf(s, "%02X:%02X:%02X:%02X:%02X:%02X",
+			m[0], m[1], m[2], m[3], m[4], m[5]);
+		nvram_set("et0macaddr", s);
+		return (strncasecmp(s, "00:90:4c", 8) != 0);
+	}
+	return 0;
+}
+
+static int find_dir320_mac_addr(void)
 {
 	FILE *fp;
 	char *buffer, s[18];
@@ -305,12 +323,17 @@ static void find_dir320_mac_addr()
 				if (!memcmp(buffer + i, "lanmac=", 7)) {
 					memcpy(s, buffer + i + 7, 17);
 					s[17] = 0;
-					nvram_set("il0macaddr", s);
+					nvram_set("et0macaddr", s);
+					found = 1;
 				}
 				else if (!memcmp(buffer + i, "wanmac=", 7)) {
 					memcpy(s, buffer + i + 7, 17);
 					s[17] = 0;
-					nvram_set("et0macaddr", s);
+					nvram_set("il0macaddr", s);
+					if (!found) {
+						inc_mac(s, -1);
+						nvram_set("et0macaddr", s);
+					}
 					found = 1;
 				}
 			}
@@ -321,11 +344,10 @@ static void find_dir320_mac_addr()
 out:
 	if (!found) {
 		strcpy(s, nvram_safe_get("wl0_hwaddr"));
-		inc_mac(s, -1);
-		nvram_set("il0macaddr", s);
-		inc_mac(s, -1);
+		inc_mac(s, -2);
 		nvram_set("et0macaddr", s);
 	}
+	return 1;
 }
 
 static void check_bootnv(void)
@@ -374,10 +396,7 @@ static void check_bootnv(void)
 	case MODEL_DIR320:
 		if (strlen(nvram_safe_get("et0macaddr")) == 12 ||
 		    strlen(nvram_safe_get("il0macaddr")) == 12) {
-			find_dir320_mac_addr();
-			nvram_unset("lan_hwaddr");
-			nvram_unset("wan_hwaddr");
-			dirty = 1;
+			dirty |= find_dir320_mac_addr();
 		}
 		if (nvram_get("vlan2ports") != NULL) {
 			nvram_unset("vlan2ports");
@@ -397,6 +416,15 @@ static void check_bootnv(void)
 		if (strlen(nvram_safe_get("vlan1ports")) == 0 || strlen(nvram_safe_get("vlan2ports")) == 0) {
 			dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
 			dirty |= check_nv("vlan2ports", "0 8");
+		}
+		break;
+	case MODEL_WL1600GL:
+		if (nvram_match("vlan1ports", "4 5u") || strcmp(nvram_safe_get("vlan0ports"), "") == 0) {
+			dirty |= check_nv("vlan0ports", "0 1 2 3 5*");
+			dirty |= check_nv("vlan1ports", "4 5");
+		}
+		if (strncasecmp(nvram_safe_get("et0macaddr"), "00:90:4c", 8) == 0) {
+			dirty |= find_sercom_mac_addr();
 		}
 		break;
 #ifdef CONFIG_BCMWL5
@@ -990,6 +1018,11 @@ static int init_nvram(void)
 		mfr = "ZTE";
 		name = "ZXV10 H618B";
 		features = SUP_SES | SUP_AOSS_LED;
+		break;
+	case MODEL_WL1600GL:
+		mfr = "Ovislink";
+		name = "WL1600GL";
+		features = SUP_SES;
 		break;
 #endif	// WL_BSS_INFO_VERSION >= 108
 	case MODEL_WZRG300N:

@@ -55,9 +55,10 @@ WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110  
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gH-01-00-00-00 regulation_domain=0X30DE sdram_init=0x000b
 WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      hardware_version=WL500gW-01-00-00-00 regulation_domain=0X10US sdram_init=0x0009
 
-WL-500G Premium v2  HW_BCM5354G           0x48E        45        0x10      0x0750
+WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x0750
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
+Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
 
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
@@ -308,6 +309,9 @@ int get_model(void)
 		break;
 	case 1105:
 		if ((hw == HW_BCM5354G) && nvram_match("boardrev", "0x35")) return MODEL_H618B;
+		break;
+	case 8:
+		if ((hw == HW_BCM5354G) && nvram_match("boardrev", "0x11")) return MODEL_WL1600GL;
 		break;
 	case 2:
 		if (nvram_match("GemtekPmonVer", "9")) return MODEL_WR850GV1;
