@@ -7,7 +7,7 @@
 	No part of this file may be used without permission.
 */
 
-//<% nvram("ppp_get_ip,pptp_server_ip,router_name,wan_domain,wan_gateway,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,wl_security_mode,wl_crypto,wl_mode,wl_wds_enable,wl_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,t_model_name,t_features"); %>
+//<% nvram("ppp_get_ip,pptp_server_ip,router_name,wan_domain,wan_gateway,wan_gateway_get,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,wl_security_mode,wl_crypto,wl_mode,wl_wds_enable,wl_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,t_model_name,t_features"); %>
 //<% uptime(); %>
 //<% sysinfo(); %>
 //<% wlstats(); %>
@@ -49,7 +49,9 @@ do {
 
 	stats.wanip = nvram.wan_ipaddr;
 	stats.wannetmask = nvram.wan_netmask;
-	stats.wangateway = nvram.wan_gateway;
+	stats.wangateway = nvram.wan_gateway_get;
+	if (stats.wangateway == '0.0.0.0' || stats.wangateway == '')
+		stats.wangateway = nvram.wan_gateway;
 
 	switch (nvram.wan_proto) {
 	case 'pptp':
@@ -57,7 +59,7 @@ do {
 		if (stats.wanup) {
 			stats.wanip = nvram.ppp_get_ip;
 			if (nvram.wan_ipaddr != '' && nvram.wan_ipaddr != '0.0.0.0' && nvram.wan_ipaddr != nvram.ppp_get_ip)
-				stats.wanip += ' <small>(DHCP: ' + nvram.wan_ipaddr + ')</small>';
+				stats.wanip += ' <small>(MAN: ' + nvram.wan_ipaddr + ')</small>';
 			if (stats.wannetmask == '0.0.0.0')
 				stats.wannetmask = '255.255.255.255';
 		}

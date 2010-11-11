@@ -505,18 +505,18 @@ function verifyFields(focused, quiet)
 	case 'pptp':
 		vis._l2tp_server_ip = 0;
 		vis._ppp_service = 0;
-		vis._wan_gateway = 0;
+		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
 		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
 	case 'l2tp':
-		vis._ppp_service = 0;
 		vis._pptp_server_ip = 0;
-		vis._f_pptp_dhcp = 0;
-		vis._wan_gateway = 0;
-		vis._wan_ipaddr = 0;
+		vis._ppp_service = 0;
+		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
+		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
+		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
@@ -1011,7 +1011,7 @@ function save()
 	
 	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
 	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
-	fom.ppp_defgw.value = fom.f_ppp_defgw.checked ? 1 : 0;
+	fom.ppp_defgw.value = fom.f_pptp_dhcp.checked ? (fom.f_ppp_defgw.checked ? 1 : 0) : 1;
 
 	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value])
 
@@ -1075,7 +1075,7 @@ createFieldTable('', [
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
-	{ title: 'Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
+	{ title: 'PPTP Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
 	{ title: 'Options', name: 'ppp_custom', type: 'text', maxlen: 256, size: 64, value: nvram.ppp_custom },
 	{ title: 'Connect Mode', name: 'ppp_demand', type: 'select', options: [['1', 'Connect On Demand'],['0', 'Keep Alive']],
 		value: nvram.ppp_demand },

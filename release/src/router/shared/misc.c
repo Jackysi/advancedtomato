@@ -52,8 +52,8 @@ int using_dhcpc(void)
 {
 	switch (get_wan_proto()) {
 	case WP_DHCP:
-	case WP_L2TP:
 		return 1;
+	case WP_L2TP:
 	case WP_PPTP:
 		return nvram_get_int("pptp_dhcp");
 	}

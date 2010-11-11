@@ -73,6 +73,7 @@ const defaults_t defaults[] = {
 	{ "wan_ipaddr",			"0.0.0.0"		},	// WAN IP address
 	{ "wan_netmask",		"0.0.0.0"		},	// WAN netmask
 	{ "wan_gateway",		"0.0.0.0"		},	// WAN gateway
+	{ "wan_gateway_get",		"0.0.0.0"		},	// default gateway for PPP
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"			},	// WAN lease time in seconds
@@ -277,7 +278,6 @@ const defaults_t defaults[] = {
 	{ "wan_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 
 	{ "l2tp_server_ip",		""				},	// L2TP auth server (IP Address)
-	{ "wan_gateway_buf",	"0.0.0.0"		},	// save the default gateway for DHCP
 //	hbobs	{ "hb_server_ip",		""				},	// heartbeat auth server (IP Address)
 //	hbobs	{ "hb_server_domain",	""				},	// heartbeat auth server (domain name)
 

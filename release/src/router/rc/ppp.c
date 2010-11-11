@@ -83,7 +83,7 @@ int ipup_main(int argc, char **argv)
 	}
 
 	if ((value = getenv("IPREMOTE"))) {
-		nvram_set("wan_gateway", value);
+		nvram_set("wan_gateway_get", value);
 		_dprintf("IPREMOTE=%s\n", value);
 	}
 
@@ -126,11 +126,11 @@ int ipdown_main(int argc, char **argv)
 
 		if (proto == WP_L2TP) {
 			route_del(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"),
-				nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+				nvram_safe_get("wan_gateway"), "255.255.255.255"); // fixed routing problem in Israel by kanki
 		}
 
 		// Restore the default gateway for WAN interface
-		nvram_set("wan_gateway", nvram_safe_get("wan_gateway_buf"));
+		nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 
 		// Set default route to gateway if specified
 		route_add(nvram_safe_get("wan_ifname"), 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
