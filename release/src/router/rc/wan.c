@@ -800,9 +800,6 @@ void start_wan_done(char *wan_ifname)
 	start_firewall();
 	start_qos();
 
-	stop_igmp_proxy();
-	start_igmp_proxy();
-
 	do_static_routes(1);
 	// and routes supplied via DHCP
 	do_wan_routes(using_dhcpc() ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
@@ -820,6 +817,8 @@ void start_wan_done(char *wan_ifname)
 	if ((wanup) || (proto == WP_DISABLED)) {
 		stop_ddns();
 		start_ddns();
+		stop_igmp_proxy();
+		start_igmp_proxy();
 	}
 
 	stop_upnp();
