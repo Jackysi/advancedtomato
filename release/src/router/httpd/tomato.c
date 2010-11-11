@@ -597,7 +597,7 @@ static const nvset_t nvset_list[] = {
 	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
-	{ "ct_max",				V_RANGE(128, 300000)	},
+	{ "ct_max",			V_NUM			},
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
 	{ "ct_timeout",			V_LENGTH(5, 15)		},
@@ -605,7 +605,7 @@ static const nvset_t nvset_list[] = {
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},
-	{ "ct_hashsize",		V_RANGE(127, 65535)		},
+	{ "ct_hashsize",		V_NUM				},
 #endif
 	{ "nf_rtsp",			V_01				},
 	{ "nf_pptp",			V_01				},
