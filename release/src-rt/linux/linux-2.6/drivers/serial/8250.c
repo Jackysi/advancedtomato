@@ -342,6 +342,10 @@ static inline int map_8250_out_reg(struct uart_8250_port *up, int offset)
 
 #endif
 
+#ifdef CONFIG_BCM47XX
+#include <asm/r4kcache.h>
+#endif
+
 static unsigned int serial_in(struct uart_8250_port *up, int offset)
 {
 	unsigned int tmp;
@@ -392,6 +396,9 @@ serial_out(struct uart_8250_port *up, int offset, int value)
 
 	case UPIO_MEM:
 		writeb(value, up->port.membase + offset);
+#ifdef CONFIG_BCM47XX
+		BCM4710_DUMMY_RREG();
+#endif
 		break;
 
 	case UPIO_RM9000:
@@ -2156,6 +2163,9 @@ serial8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	}
 	serial8250_set_mctrl(&up->port, up->port.mctrl);
 	spin_unlock_irqrestore(&up->port.lock, flags);
+	/* Don't rewrite B0 */
+	if (tty_termios_baud_rate(termios))
+		tty_termios_encode_baud_rate(termios, baud, baud);
 }
 
 static void
@@ -2527,6 +2537,9 @@ static struct console serial8250_console = {
 
 static int __init serial8250_console_init(void)
 {
+	if (nr_uarts > UART_NR)
+		nr_uarts = UART_NR;
+
 	serial8250_isa_init_ports();
 	register_console(&serial8250_console);
 	return 0;
@@ -2589,12 +2602,26 @@ static struct uart_driver serial8250_reg = {
  */
 int __init early_serial_setup(struct uart_port *port)
 {
+	struct uart_port *p;
+
 	if (port->line >= ARRAY_SIZE(serial8250_ports))
 		return -ENODEV;
 
 	serial8250_isa_init_ports();
-	serial8250_ports[port->line].port	= *port;
-	serial8250_ports[port->line].port.ops	= &serial8250_pops;
+	p = &serial8250_ports[port->line].port;
+	p->iobase       = port->iobase;
+	p->membase      = port->membase;
+	p->irq          = port->irq;
+	p->uartclk      = port->uartclk;
+	p->fifosize     = port->fifosize;
+	p->regshift     = port->regshift;
+	p->iotype       = port->iotype;
+	p->flags        = port->flags;
+	p->mapbase      = port->mapbase;
+	p->private_data = port->private_data;
+	p->type		= port->type;
+	p->line		= port->line;
+
 	return 0;
 }
 

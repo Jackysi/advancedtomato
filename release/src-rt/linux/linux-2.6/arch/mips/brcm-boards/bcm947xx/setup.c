@@ -101,25 +101,27 @@ bcm947xx_machine_halt(void)
 
 #ifdef CONFIG_SERIAL_CORE
 
-static struct uart_port rs = {
-	line: 0,
-	flags: ASYNC_BOOT_AUTOCONF,
-	iotype: SERIAL_IO_MEM,
-};
+static int num_ports = 0;
 
 static void __init
 serial_add(void *regs, uint irq, uint baud_base, uint reg_shift)
 {
+	struct uart_port rs;
+
+	memset(&rs, 0, sizeof(rs));
+	rs.line = num_ports++;
+	rs.flags = UPF_BOOT_AUTOCONF | UPF_SHARE_IRQ;
+	rs.iotype = UPIO_MEM;
+
+	rs.mapbase = (unsigned int) regs;
 	rs.membase = regs;
 	rs.irq = irq + 2;
 	rs.uartclk = baud_base;
 	rs.regshift = reg_shift;
 
-        if (early_serial_setup(&rs) != 0) {
-                printk(KERN_ERR "Serial setup failed!\n");
-        }
-
-	rs.line++;
+	if (early_serial_setup(&rs) != 0) {
+		printk(KERN_ERR "Serial setup failed!\n");
+	}
 }
 
 static void __init
