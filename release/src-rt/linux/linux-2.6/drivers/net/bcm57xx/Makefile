@@ -18,7 +18,7 @@ bcm57xx-objs := $(B57SRCDIR)/linux/b57um.o $(B57SRCDIR)/linux/b57proc.o \
 # If source directory src/bcm57xx exists, build objects from there
 ifneq ($(wildcard $(src)/$(B57SRCDIR)/sys),)
 
-EXTRA_CFLAGS += -DDBG=0 -DT3_JUMBO_RCV_RCB_ENTRY_COUNT=256 -DNICE_SUPPORT
+EXTRA_CFLAGS += -DDBG=0 -DT3_JUMBO_RCV_RCB_ENTRY_COUNT=256 -DNICE_SUPPORT -DBCM_SMALL_DRV
 EXTRA_CFLAGS += -DPCIX_TARGET_WORKAROUND=1 -DINCLUDE_TBI_SUPPORT -DINCLUDE_5701_AX_FIX=1
 EXTRA_CFLAGS += -I$(src)/$(B57SRCDIR)/linux -I$(src)/$(B57SRCDIR)/sys \
 		-I$(src)/$(B57SRCDIR)/include
