@@ -170,6 +170,10 @@ cleankernel:
 	$(MAKE) distclean || true; \
 	cp -p save-config .config || true
 
+kernel:
+	@$(MAKE) -C router kernel
+	@ls -l $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage
+
 distclean: clean cleanimage cleankernel cleantools cleanlibc
 ifneq ($(INSIDE_MAK),1)
 	@$(MAKE) -C router $@ INSIDE_MAK=1
