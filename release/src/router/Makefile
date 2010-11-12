@@ -119,6 +119,8 @@ obj-$(TCONFIG_ZEBRA) += zebra
 #	obj-$(TCONFIG_IPP2P) += ipp2p
 obj-$(TCONFIG_LZO) += lzo
 obj-$(TCONFIG_OPENVPN) += openvpn
+obj-$(TCONFIG_EMF) += emf
+obj-$(TCONFIG_EMF) += igs
 
 ifeq ($(TCONFIG_L2TP),y)
 NEED_PPPD = y
@@ -130,8 +132,6 @@ obj-$(NEED_PPPD) += pppd
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udev
-obj-$(__CONFIG_BCMWL5) += emf
-obj-$(__CONFIG_BCMWL5) += igs
 
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)

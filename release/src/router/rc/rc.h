@@ -43,7 +43,7 @@
 //	#define DEBUG_NOISY
 
 #ifdef DEBUG_NOISY
-#define TRACE_PT(args...) do { cprintf("[%d:%s +%ld] ", getpid(), __FUNCTION__, get_uptime()); cprintf(args); } while(0)
+#define TRACE_PT(args...) do { _dprintf("[%d:%s +%ld] ", getpid(), __FUNCTION__, get_uptime()); _dprintf(args); } while(0)
 #else
 #define TRACE_PT(args...) do { } while(0)
 #endif
@@ -134,6 +134,7 @@ extern void start_wan_done(char *ifname);
 extern void stop_wan(void);
 extern void force_to_dial(void);
 extern void do_wan_routes(char *ifname, int metric, int add);
+extern void preset_wan(char *ifname, char *gw, char *netmask);
 
 // network.c
 extern void set_host_domain_name(void);
@@ -144,11 +145,7 @@ extern void hotplug_net(void);
 extern void do_static_routes(int add);
 extern int radio_main(int argc, char *argv[]);
 extern int wldist_main(int argc, char *argv[]);
-#ifdef CONFIG_BCMWL5
 extern void start_wl(void);
-#else
-static inline void start_wl(void) { };
-#endif
 
 // dhcpc.c
 extern int dhcpc_event_main(int argc, char **argv);
@@ -211,6 +208,7 @@ extern void remove_storage_main(int shutdn);
 #endif
 
 // wnas.c
+extern int wds_enable(void);
 extern void start_nas(void);
 extern void stop_nas(void);
 extern void notify_nas(const char *ifname);

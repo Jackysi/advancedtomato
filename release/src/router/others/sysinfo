@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cat /etc/motd; echo
+cat /etc/motd; cat /proc/version; echo
 echo "NVRAM"; nvram show | grep 'bytes used'; echo
 echo "INTERFACES"; ifconfig; echo
 echo "ROUTING TABLE"; route -n; echo
@@ -15,8 +15,9 @@ echo "MOUNTPOINTS"; mount; echo
 [ -f /proc/bus/usb/devices ] && echo "USB DEVICES" && cat /proc/bus/usb/devices && echo
 echo "ENVIRONMENT"; env; echo
 echo "CPU INFO"; cat /proc/loadavg; cat /proc/cpuinfo; echo
+echo "INTERRUPTS"; cat /proc/interrupts; echo
 echo "MEMORY"; free; cat /proc/meminfo; echo
-echo "WIRELESS"; wl ver; echo "Assoc pref:" $(wl assoc_pref); wl status; wl assoclist; echo
+echo "WIRELESS VER"; wl ver; wl country; echo
 echo "LOADED MODULES"; lsmod; echo
 echo "PROCESSES"; top -b -n1; echo
 echo "DMESG"; dmesg; echo

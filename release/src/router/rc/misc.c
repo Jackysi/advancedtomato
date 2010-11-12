@@ -75,6 +75,23 @@ int modprobe_r(const char *mod)
 #endif
 #endif
 
+/* 
+ * The various child job starting functions:
+ * _eval()
+ *	Start the child. If ppid param is NULL, wait until the child exits.
+ *	Otherwise, store the child's pid in ppid and return immediately.
+ * eval()
+ *	Call _eval with a NULL ppid, to wait for the child to exit.
+ * xstart()
+ *	Call _eval with a garbage ppid (to not wait), then return.
+ * runuserfile
+ *	Execute each executable in a directory that has the specified extention.
+ *	Call _eval with a ppid (to not wait), then check every second for the child's pid.
+ *	After wtime seconds or when the child has exited, return.
+ *	If any such filename has an '&' character in it, then do *not* wait at
+ *	all for the child to exit, regardless of the wtime.
+ */
+
 int _xstart(const char *cmd, ...)
 {
 	va_list ap;
@@ -131,6 +148,7 @@ static int endswith_filter(const struct dirent *entry)
 	return endswith(entry->d_name, filter_extension);
 }
 
+/* If the filename has an '&' character in it, don't wait at all. */
 void run_userfile(char *folder, char *extension, const char *arg1, int wtime)
 {
 	unsigned char buf[PATH_MAX + 1];
@@ -144,7 +162,8 @@ void run_userfile(char *folder, char *extension, const char *arg1, int wtime)
 	if (n >= 0) {
 		for (i = 0; i < n; ++i) {
 			sprintf(buf, "%s/%s", folder, namelist[i]->d_name);
-			execute_with_maxwait(argv, wtime);
+			execute_with_maxwait(argv,
+				strchr(namelist[i]->d_name, '&') ? 0 : wtime);
 			free(namelist[i]);
 		}
 		free(namelist);
@@ -582,16 +601,16 @@ void killall_tk(const char *name)
 	int n;
 
 	if (killall(name, SIGTERM) == 0) {
-		n = 5;
+		n = 50;
 		while ((killall(name, 0) == 0) && (n-- > 0)) {
 			_dprintf("%s: waiting name=%s n=%d\n", __FUNCTION__, name, n);
-			sleep(1);
+			usleep(100 * 1000);
 		}
 		if (n < 0) {
-			n = 5;
+			n = 100;
 			while ((killall(name, SIGKILL) == 0) && (n-- > 0)) {
 				_dprintf("%s: SIGKILL name=%s n=%d\n", __FUNCTION__, name, n);
-				sleep(2);
+				usleep(100 * 1000);
 			}
 		}
 	}

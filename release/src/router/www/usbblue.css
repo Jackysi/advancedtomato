@@ -102,7 +102,7 @@ ul.tabs li a.active {
 }
 #tabs li a:hover,
 ul.tabs li a:hover {
-	background: #51f06;
+	background: #405080;
 	color: #fff;
 }
 
@@ -291,8 +291,4 @@ textarea
 
 li, div {
 	font-family: Tahoma, Arial, Sans-serif;
-}
-
-#tabs a:hover {
-	background: #405080 none repeat scroll 0 0;
 }

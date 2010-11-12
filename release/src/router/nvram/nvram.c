@@ -184,12 +184,51 @@ static const char *nv_default_value(const defaults_t *t)
 	return t->value;
 }
 
+static void nv_fix_wl(const char *oldnv, const char *newnv)
+{
+	char *p;
+
+	if (nvram_get(wl_nvname(newnv, 0, 0)) == NULL) {
+		p = nvram_get(oldnv);
+		if (p != NULL) nvram_set(wl_nvname(newnv, -1, 0), p);
+		nvram_unset(oldnv);
+	}
+}
+
+static int validate_main(int argc, char **argv)
+{
+	const defaults_t *t;
+	char *p;
+	int i;
+	int force = 0;
+	int unit = 0;
+
+	for (i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "--restore") == 0) {
+			force = 1;
+		}
+		else if (strncmp(argv[i], "--wl", 4) == 0) {
+			unit = atoi(argv[i] + 4);
+		}
+	}
+
+	for (t = defaults; t->key; t++) {
+		if (strncmp(t->key, "wl_", 3) == 0) {
+			// sync wl_ and wlX_
+			p = wl_nvname(t->key + 3, unit, 0);
+			if (force || nvram_get(p) == NULL)
+				nvram_set(p, t->value);
+		}
+	}
+	return 0;
+}
+
 static int defaults_main(int argc, char **argv)
 {
 	const defaults_t *t;
 	char *p;
 	char s[256];
-	int i;
+	int i, j;
 	int force = 0;
 	int commit = 0;
 
@@ -224,6 +263,10 @@ static int defaults_main(int argc, char **argv)
 	if (force) nvram_unset("nvram_ver");	// prep to prevent problems later
 #endif
 
+	// keep the compatibility with old security_mode2, wds_enable, mac_wl - removeme after 1/1/2012
+	nv_fix_wl("security_mode2", "security_mode");
+	nv_fix_wl("wds_enable", "wds_enable");
+	nv_fix_wl("mac_wl", "macaddr");
 
 	for (t = defaults; t->key; t++) {
 		if (((p = nvram_get(t->key)) == NULL) || (force)) {
@@ -257,15 +300,17 @@ static int defaults_main(int argc, char **argv)
 			nvram_set(t->key, t->value);
 			commit = 1;
 			if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", t->value);
-//			if (!force) cprintf("SET %s=%s\n", t->key, t->value);
 		}
 	}
 
 	if (force) {
-		for (i = 0; i < 20; i++) {
-			sprintf(s, "wl0_wds%d", i);
-			nvram_unset(s);
+		for (j = 0; j < 2; j++) {
+			for (i = 0; i < 20; i++) {
+				sprintf(s, "wl%d_wds%d", j, i);
+				nvram_unset(s);
+			}
 		}
+
 		for (i = 0; i < LED_COUNT; ++i) {
 			sprintf(s, "led_%s", led_names[i]);
 			nvram_unset(s);
@@ -286,11 +331,6 @@ static int defaults_main(int argc, char **argv)
 	nvram_set("os_name", "linux");
 	nvram_set("os_version", tomato_version);
 	nvram_set("os_date", tomato_buildtime);
-
-/*	if (nvram_match("dirty", "1")) {
-		nvram_unset("dirty");
-		commit = 1;
-	}*/
 
 	if ((commit) || (force)) {
 		printf("Saving...\n");
@@ -838,6 +878,7 @@ static const applets_t applets[] = {
 	{ "export",		3,	export_main		},
 	{ "import",		-3,	import_main		},
 	{ "defaults",	3,	defaults_main	},
+	{ "validate",		-3,	validate_main		},
 	{ "backup",		3,	backup_main		},
 	{ "restore",	-3,	restore_main	},
 	{ "setfb64",	4,	setfb64_main	},

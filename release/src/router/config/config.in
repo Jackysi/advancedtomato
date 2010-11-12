@@ -69,6 +69,10 @@ config TCONFIG_EBTABLES
 	bool "Ebtables"
 	default n
 
+config TCONFIG_EMF
+	bool "Broadcom EMF (Efficient Multicast Forwarding & IGMP Snooping)"
+	default n
+
 config TCONFIG_USB
 	bool "USB Support"
 	default y

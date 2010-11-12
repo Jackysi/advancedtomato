@@ -108,6 +108,12 @@ function verifyFields(focused, quiet)
 		if (!v_range('_f_ct_' + i, quiet, 1, 432000)) return 0;
 	}
 
+	if (!v_range('_ct_max', quiet, 128, 300000)) return 0;
+
+/* LINUX26-BEGIN */
+	if (!v_range('_ct_hashsize', quiet, 127, 65535)) return 0;
+/* LINUX26-END */
+
 	v = (E('_f_nf_ttl').value == '');
 	E('_f_ttl_val').style.display = v ? '' : 'none';
 	if ((v) && !v_range('_f_ttl_val', quiet, 0, 255)) return 0;

@@ -14,8 +14,7 @@
 
 
 //	#define DEBUG_NOEXECSERVICE
-//	#define DEBUG_NVRAMSET(k, v)	cprintf("nvram set %s=%s\n", k, v);
-#define	DEBUG_NVRAMSET(k, v)	do { } while(0);
+#define DEBUG_NVRAMSET(k, v)	_dprintf("nvram set %s=%s\n", k, v);
 
 
 char *post_buf = NULL;
@@ -387,17 +386,13 @@ const aspapi_t aspapi[] = {
 	{ "version",			asp_version			},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
-	{ "wlchannel",			asp_wlchannel		},
+	{ "wlstats",			asp_wlstats		},
 	{ "wlclient",			asp_wlclient		},
-	{ "wlcrssi",			asp_wlcrssi			},
 	{ "wlnoise",			asp_wlnoise			},
-	{ "wlnbw",			asp_wlnbw			},
-	{ "wlnctrlsb",			asp_wlnctrlsb			},
-	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
 	{ "wlchannels",			asp_wlchannels	},	//!!TB
 	{ "wlcountries",		asp_wlcountries	},
-	{ "wlrate",			asp_wlrate		},
+	{ "wlifaces",			asp_wlifaces		},
 	{ "wlbands",			asp_wlbands		},
 #ifdef TCONFIG_USB
 	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
@@ -564,7 +559,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 216)		},
 
-	{ "security_mode2",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
+	{ "wl_security_mode",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},
 	{ "wl_radius_port",		V_PORT				},
 	{ "wl_radius_key",		V_LENGTH(1, 64)		},
@@ -582,8 +577,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_lazywds",			V_01				},
 	{ "wl_wds",				V_LENGTH(0, 180)	},	// mac mac mac (x 10)
 
-	{ "security_mode",		V_LENGTH(1, 32)		},	//  disabled, radius, wpa, psk,wep, wpa2, psk2, wpa wpa2, psk psk2
-	{ "wds_enable",			V_01				},
+	{ "wl_wds_enable",		V_01				},
 	{ "wl_gmode",			V_RANGE(-1, 6)		},
 	{ "wl_wep",				V_LENGTH(1, 32)		},	//  off, on, restricted,tkip,aes,tkip+aes
 	{ "wl_akm",				V_LENGTH(0, 32)		},	//  wpa, wpa2, psk, psk2, wpa wpa2, psk psk2, ""
@@ -603,7 +597,7 @@ static const nvset_t nvset_list[] = {
 	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
-	{ "ct_max",				V_RANGE(128, 300000)	},
+	{ "ct_max",			V_NUM			},
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
 	{ "ct_timeout",			V_LENGTH(5, 15)		},
@@ -611,7 +605,7 @@ static const nvset_t nvset_list[] = {
 	{ "nf_l7in",			V_01				},
 #ifdef LINUX26
 	{ "nf_sip",			V_01				},
-	{ "ct_hashsize",		V_RANGE(127, 65535)		},
+	{ "ct_hashsize",		V_NUM				},
 #endif
 	{ "nf_rtsp",			V_01				},
 	{ "nf_pptp",			V_01				},
@@ -639,6 +633,12 @@ static const nvset_t nvset_list[] = {
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
 	{ "dhcp_pass",			V_01				},
+#ifdef TCONFIG_EMF
+	{ "emf_entry",			V_NONE				},
+	{ "emf_uffp_entry",		V_NONE				},
+	{ "emf_rtport_entry",		V_NONE				},
+	{ "emf_enable",			V_01				},
+#endif
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
@@ -648,7 +648,7 @@ static const nvset_t nvset_list[] = {
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
-	{ "mac_wl",				V_LENGTH(0, 17)		},
+	{ "wl_macaddr",			V_LENGTH(0, 17)		},
 
 // advanced-routing
 	{ "routes_static",		V_LENGTH(0, 2048)	},
@@ -1075,63 +1075,112 @@ wl_ap_ssid
 	{ NULL }
 };
 
-static int save_variables(int write)
+
+static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 {
-	const nvset_t *v;
 	char *p, *e;
 	int n;
 	long l;
 	unsigned u[6];
 	int ok;
+	int dirty;
+
+	if ((p = webcgi_get((char*)name)) == NULL) return 0;
+
+	_dprintf("[%s] %s=%s\n", v->name, (char*)name, p);
+	dirty = 0;
+	ok = 1;
+	switch (v->vtype) {
+	case VT_TEXT:
+		p = unix_string(p);	// NOTE: p = malloc'd
+		// drop
+	case VT_LENGTH:
+		n = strlen(p);
+		if ((n < v->va.i) || (n > v->vb.i)) ok = 0;
+		break;
+	case VT_RANGE:
+		l = strtol(p, &e, 10);
+		if ((p == e) || (*e) || (l < v->va.l) || (l > v->vb.l)) ok = 0;
+		break;
+	case VT_IP:
+		if ((sscanf(p, "%3u.%3u.%3u.%3u", &u[0], &u[1], &u[2], &u[3]) != 4) ||
+			(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255)) ok = 0;
+		break;
+	case VT_MAC:
+		if ((sscanf(p, "%2x:%2x:%2x:%2x:%2x:%2x", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) ||
+			(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255) || (u[4] > 255) || (u[5] > 255)) ok = 0;
+		break;
+	default:
+		// shutup gcc
+		break;
+	}
+	if (!ok) {
+		if (v->vtype == VT_TEXT) free(p);
+		return -1;
+	}
+	if (write) {
+		if (!nvram_match((char *)name, p)) {
+			if (v->vtype != VT_TEMP) dirty = 1;
+			DEBUG_NVRAMSET(name, p);
+			nvram_set(name, p);
+		}
+	}
+	if (v->vtype == VT_TEXT) free(p);
+
+	return dirty;
+}
+
+typedef struct {
+	const nvset_t *v;
+	int write;
+	int dirty;
+} nv_list_t;
+
+static int nv_wl_find(int idx, int unit, int subunit, void *param)
+{
+	nv_list_t *p = param;
+
+	int ok = webcgi_nvram_set(p->v, wl_nvname(p->v->name + 3, unit, subunit), p->write);
+	if (ok < 0)
+		return 1;
+	else {
+		p->dirty |= ok;
+		return 0;
+	}
+}
+
+static int save_variables(int write)
+{
+	const nvset_t *v;
+	char *p;
+	int n;
+	int ok;
 	char s[256];
 	int dirty;
 	static const char *msgf = "The field \"%s\" is invalid. Please report this problem.";
+	nv_list_t nv;
 
 	dirty = 0;
+	nv.write = write;
 	for (v = nvset_list; v->name; ++v) {
-//		_dprintf("[%s] %p\n", v->name, webcgi_get((char*)v->name));
-		if ((p = webcgi_get((char*)v->name)) == NULL) continue;
-		ok = 1;
-		switch (v->vtype) {
-		case VT_TEXT:
-			p = unix_string(p);	// NOTE: p = malloc'd
-			// drop
-		case VT_LENGTH:
-			n = strlen(p);
-			if ((n < v->va.i) || (n > v->vb.i)) ok = 0;
-			break;
-		case VT_RANGE:
-			l = strtol(p, &e, 10);
-			if ((p == e) || (*e) || (l < v->va.l) || (l > v->vb.l)) ok = 0;
-			break;
-		case VT_IP:
-			if ((sscanf(p, "%3u.%3u.%3u.%3u", &u[0], &u[1], &u[2], &u[3]) != 4) ||
-				(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255)) ok = 0;
-			break;
-		case VT_MAC:
-			if ((sscanf(p, "%2x:%2x:%2x:%2x:%2x:%2x", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) ||
-				(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255) || (u[4] > 255) || (u[5] > 255)) ok = 0;
-			break;
-		default:
-			// shutup gcc
-			break;
-		}
-		if (!ok) {
-			if (v->vtype == VT_TEXT) free(p);
+		ok = webcgi_nvram_set(v, v->name, write);
 
+		if ((ok >= 0) && (strncmp(v->name, "wl_", 3) == 0)) {
+			nv.dirty = dirty;
+			nv.v = v;
+			if (foreach_wif(1, &nv, nv_wl_find) == 0)
+				ok |= nv.dirty;
+			else
+				ok = -1;
+		}
+
+		if (ok < 0) {
 			sprintf(s, msgf, v->name);
 			resmsg_set(s);
 			return 0;
 		}
-		if (write) {
-			if (!nvram_match((char *)v->name, p)) {
-				if (v->vtype != VT_TEMP) dirty = 1;
-				nvram_set(v->name, p);
-			}
-		}
-		if (v->vtype == VT_TEXT) free(p);
+		dirty |= ok;
 	}
-
 
 	// special cases
 
@@ -1151,18 +1200,19 @@ static int save_variables(int write)
 	}
 
 	for (n = 0; n < 50; ++n) {
-	    sprintf(s, "rrule%d", n);
-	    if ((p = webcgi_get(s)) != NULL) {
-	        if (strlen(p) > 2048) {
+		sprintf(s, "rrule%d", n);
+		if ((p = webcgi_get(s)) != NULL) {
+	        	if (strlen(p) > 2048) {
 				sprintf(s, msgf, s);
 				resmsg_set(s);
 				return 0;
-	        }
+	        	}
 			if ((write) && (!nvram_match(s, p))) {
 				dirty = 1;
+				DEBUG_NVRAMSET(s, p);
 				nvram_set(s, p);
 			}
-	    }
+		}
 	}
 
 	return (write) ? dirty : 1;

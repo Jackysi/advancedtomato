@@ -216,6 +216,36 @@ void start_pptp(int mode)
 
 // -----------------------------------------------------------------------------
 
+void preset_wan(char *ifname, char *gw, char *netmask)
+{
+	int i = 0;
+	int metric = nvram_get_int("ppp_defgw") ? 2 : 0;
+
+	/* Delete all default routes */
+	while ((route_del(ifname, metric, NULL, NULL, NULL) == 0) || (i++ < 10));
+
+	/* Set default route to gateway if specified */
+	i = 5;
+	while ((route_add(ifname, metric, "0.0.0.0", gw, "0.0.0.0") == 1) && (i--)) {
+		sleep(1);
+	}
+	_dprintf("set default gateway=%s n=%d\n", gw, i);
+
+	/* Add routes to dns servers as well for demand ppp to work */
+	char word[100], *next;
+	in_addr_t mask = inet_addr(netmask);
+	foreach(word, nvram_safe_get("wan_get_dns"), next) {
+		if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
+			route_add(ifname, metric, word, gw, "255.255.255.255");
+	}
+
+	dns_to_resolv();
+	start_dnsmasq();
+	start_firewall();
+}
+
+// -----------------------------------------------------------------------------
+
 
 // Get the IP, Subnetmask, Geteway from WAN interface and set nvram
 static void start_tmp_ppp(int num)
@@ -460,6 +490,16 @@ void start_l2tp(void)
 
 // -----------------------------------------------------------------------------
 
+static char *wan_gateway(void)
+{
+	char *gw = nvram_safe_get("wan_gateway_get");
+	if ((*gw == 0) || (strcmp(gw, "0.0.0.0") == 0))
+		gw = nvram_safe_get("wan_gateway");
+	return gw;
+}
+
+// -----------------------------------------------------------------------------
+
 // trigger connect on demand
 void force_to_dial(void)
 {
@@ -477,7 +517,7 @@ void force_to_dial(void)
 	case WP_STATIC:
 		break;
 	default:
-		eval("ping", "-c", "2", nvram_safe_get("wan_gateway"));
+		eval("ping", "-c", "2", wan_gateway());
 		break;
 	}
 	
@@ -535,11 +575,22 @@ void do_wan_routes(char *ifname, int metric, int add)
 
 const char wan_connecting[] = "/var/lib/misc/wan.connecting";
 
+static int is_sta(int idx, int unit, int subunit, void *param)
+{
+	char **p = param;
+
+	if (nvram_match(wl_nvname("mode", unit, subunit), "sta")) {
+		*p = nvram_safe_get(wl_nvname("ifname", unit, subunit));
+		return 1;
+	}
+	return 0;	
+}
+
 void start_wan(int mode)
 {
 	int wan_proto;
 	char *wan_ifname;
-	char *p;
+	char *p = NULL;
 	struct ifreq ifr;
 	int sd;
 	int max;
@@ -552,10 +603,7 @@ void start_wan(int mode)
 	
 	//
 
-	if (nvram_match("wl_mode", "sta")) {
-		p = nvram_safe_get("wl_ifname");
-	}
-	else {
+	if (!foreach_wif(1, &p, is_sta)) {
 		p = nvram_safe_get("wan_ifnameX");
 		set_mac(p, "mac_wan", 1);
 	}
@@ -578,6 +626,9 @@ void start_wan(int mode)
 	//
 	
 	wan_proto = get_wan_proto();
+
+	// set the default gateway for WAN interface
+	nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 
 	if (wan_proto == WP_DISABLED) {
 		start_wan_done(wan_ifname);
@@ -646,8 +697,20 @@ void start_wan(int mode)
 			stop_dhcpc();
 			start_dhcpc();
 		}
-		else if (wan_proto == WP_PPTP) {
-			start_pptp(mode);
+		else if (wan_proto != WP_DHCP) {
+			ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+			p = nvram_safe_get("wan_gateway");
+			if ((*p != 0) && (strcmp(p, "0.0.0.0") != 0))
+				preset_wan(wan_ifname, p, nvram_safe_get("wan_netmask"));
+
+			switch (wan_proto) {
+			case WP_PPTP:
+				start_pptp(mode);
+				break;
+			case WP_L2TP:
+				start_l2tp();
+				break;
+			}
 		}
 		break;
 	default:	// static
@@ -721,7 +784,11 @@ void start_wan_done(char *wan_ifname)
 
 	if (proto != WP_DISABLED) {
 		// set default route to gateway if specified
-		gw = (proto == WP_PPTP && !using_dhcpc()) ? nvram_safe_get("ppp_get_ip") : nvram_safe_get("wan_gateway");
+		gw = wan_gateway();
+		if (proto == WP_PPTP && !using_dhcpc()) {
+			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip (??)
+			if (*gw == 0 || strcmp(gw, "0.0.0.0") == 0) gw = nvram_safe_get("ppp_get_ip");
+		}
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
 			if (proto == WP_DHCP || proto == WP_STATIC) {
 				// possibly gateway is over the bridge, try adding a route to gateway first
@@ -785,12 +852,11 @@ void start_wan_done(char *wan_ifname)
 #endif
 
 		if (proto == WP_PPTP || proto == WP_L2TP) {
-			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip
-			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway"), NULL, "255.255.255.255");
+			route_del(nvram_safe_get("wan_iface"), 0, nvram_safe_get("wan_gateway_get"), NULL, "255.255.255.255");
 			route_add(nvram_safe_get("wan_iface"), 0, nvram_safe_get("ppp_get_ip"), NULL, "255.255.255.255");
 		}
 		if (proto == WP_L2TP) {
-			route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+			route_add(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"), nvram_safe_get("wan_gateway"), "255.255.255.255"); // fixed routing problem in Israel by kanki
 		}
 	}
 
@@ -799,9 +865,6 @@ void start_wan_done(char *wan_ifname)
 
 	start_firewall();
 	start_qos();
-
-	stop_igmp_proxy();
-	start_igmp_proxy();
 
 	do_static_routes(1);
 	// and routes supplied via DHCP
@@ -820,6 +883,8 @@ void start_wan_done(char *wan_ifname)
 	if ((wanup) || (proto == WP_DISABLED)) {
 		stop_ddns();
 		start_ddns();
+		stop_igmp_proxy();
+		start_igmp_proxy();
 	}
 
 	stop_upnp();

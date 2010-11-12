@@ -208,11 +208,13 @@ function loadData()
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
 			t = i;
-			if (i == nvram.wl_ifname) {
+			
+			if (wl_ifidx(i) >= 0) {
 				t = 'WL <small>(' + i + ')</small>';
 			}
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
 				if (i.indexOf('ppp') == 0) t = 'WAN <small>(' + i + ')</small>';
+				else if (nvram.wan_ifname == i) t = 'MAN <small>(' + i + ')</small>';
 			}
 			else if (nvram.wan_proto != 'disabled') {
 				if (nvram.wan_ifname == i) t = 'WAN <small>(' + i + ')</small>';

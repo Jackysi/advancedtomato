@@ -52,17 +52,56 @@ int using_dhcpc(void)
 {
 	switch (get_wan_proto()) {
 	case WP_DHCP:
-	case WP_L2TP:
 		return 1;
+	case WP_L2TP:
 	case WP_PPTP:
 		return nvram_get_int("pptp_dhcp");
 	}
 	return 0;
 }
 
-int wl_client(void)
+int wl_client(int unit, int subunit)
 {
-	return ((nvram_match("wl_mode", "sta")) || (nvram_match("wl_mode", "wet")));
+	char *mode = nvram_safe_get(wl_nvname("mode", unit, subunit));
+
+	return ((strcmp(mode, "sta") == 0) || (strcmp(mode, "wet") == 0));
+}
+
+int foreach_wif(int include_vifs, void *param,
+	int (*func)(int idx, int unit, int subunit, void *param))
+{
+	char ifnames[256];
+	char name[64], ifname[64], *next = NULL;
+	int unit = -1, subunit = -1;
+	int i;
+	int ret = 0;
+
+	snprintf(ifnames, sizeof(ifnames), "%s %s",
+		 nvram_safe_get("lan_ifnames"), nvram_safe_get("wan_ifnames"));
+	remove_dups(ifnames, sizeof(ifnames));
+
+	i = 0;
+	foreach(name, ifnames, next) {
+		if (nvifname_to_osifname(name, ifname, sizeof(ifname)) != 0)
+			continue;
+
+		if (wl_probe(ifname) || wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit)))
+			continue;
+
+		// Convert eth name to wl name
+		if (osifname_to_nvifname(name, ifname, sizeof(ifname)) != 0)
+			continue;
+
+		// Slave intefaces have a '.' in the name
+		if (strchr(ifname, '.') && !include_vifs)
+			continue;
+
+		if (get_ifname_unit(ifname, &unit, &subunit) < 0)
+			continue;
+
+		ret |= func(i++, unit, subunit, param);
+	}
+	return ret;
 }
 
 void notice_set(const char *path, const char *format, ...)
@@ -92,8 +131,8 @@ int check_wanup(void)
 	char buf1[64];
 	char buf2[64];
 	const char *name;
-    int f;
-    struct ifreq ifr;
+	int f;
+	struct ifreq ifr;
 
 	proto = get_wan_proto();
 	if (proto == WP_DISABLED) return 0;
@@ -252,15 +291,29 @@ long get_uptime(void)
 	return si.uptime;
 }
 
-int get_radio(void)
+char *wl_nvname(const char *nv, int unit, int subunit)
+{
+	static char tmp[128];
+	char prefix[] = "wlXXXXXXXXXX_";
+
+	if (unit < 0)
+		strcpy(prefix, "wl_");
+	else if (subunit > 0)
+		snprintf(prefix, sizeof(prefix), "wl%d.%d_", unit, subunit);
+	else
+		snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+	return strcat_r(prefix, nv, tmp);
+}
+
+int get_radio(int unit)
 {
 	uint32 n;
 
-	return (wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_RADIO, &n, sizeof(n)) == 0) &&
+	return (wl_ioctl(nvram_safe_get(wl_nvname("ifname", unit, 0)), WLC_GET_RADIO, &n, sizeof(n)) == 0) &&
 		((n & WL_RADIO_SW_DISABLE)  == 0);
 }
 
-void set_radio(int on)
+void set_radio(int on, int unit)
 {
 	uint32 n;
 
@@ -270,14 +323,14 @@ void set_radio(int on)
 
 #if WL_BSS_INFO_VERSION >= 108
 	n = on ? (WL_RADIO_SW_DISABLE << 16) : ((WL_RADIO_SW_DISABLE << 16) | 1);
-	wl_ioctl(nvram_safe_get("wl_ifname"), WLC_SET_RADIO, &n, sizeof(n));
+	wl_ioctl(nvram_safe_get(wl_nvname("ifname", unit, 0)), WLC_SET_RADIO, &n, sizeof(n));
 	if (!on) {
 		led(LED_WLAN, 0);
 		led(LED_DIAG, 0);
 	}
 #else
 	n = on ? 0 : WL_RADIO_SW_DISABLE;
-	wl_ioctl(nvram_safe_get("wl_ifname"), WLC_SET_RADIO, &n, sizeof(n));
+	wl_ioctl(nvram_safe_get(wl_nvname("ifname", unit, 0)), WLC_SET_RADIO, &n, sizeof(n));
 	if (!on) {
 		led(LED_DIAG, 0);
 	}
