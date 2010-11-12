@@ -459,8 +459,6 @@ define KernelConfig
 		echo "CONFIG_IP6_NF_TARGET_REJECT=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MANGLE/d" $(1); \
 		echo "CONFIG_IP6_NF_MANGLE=m" >>$(1); \
-		sed -i "/CONFIG_IP6_NF_TARGET_IMQ/d" $(1); \
-		echo "CONFIG_IP6_NF_TARGET_IMQ=m" >>$(1); \
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 			sed -i "/CONFIG_NF_CONNTRACK_IPV6/d" $(1); \
 			echo "CONFIG_NF_CONNTRACK_IPV6=m" >>$(1); \
