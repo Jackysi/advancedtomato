@@ -32,6 +32,7 @@
 
 <script type='text/javascript' src='debug.js'></script>
 
+<script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript'>
 
 //	<% nvram("wl_macmode,wl_maclist,macnames"); %>
@@ -100,6 +101,7 @@ function save()
 {
 	var fom;
 	var d, i, macs, names, ma, na;
+	var u;
 
 	if (smg.isEditing()) return;
 
@@ -120,6 +122,13 @@ function save()
 	fom.wl_maclist.value = macs.join(' ');
 	fom.wl_macmode.value = E('_f_disable').checked ? 'disabled' : (E('_f_deny').checked ? 'deny' : 'allow');
 	fom.macnames.value = names.join('>');
+
+	for (i = 0; i < wl_ifaces.length; ++i) {
+		u = wl_unit(i);
+		E('_wl'+u+'_macmode').value = fom.wl_macmode.value;
+		E('_wl'+u+'_maclist').value = fom.wl_maclist.value;
+	}
+
 	form.submit(fom, 1);
 }
 
@@ -158,6 +167,13 @@ function init()
 <input type='hidden' name='wl_maclist'>
 <input type='hidden' name='macnames'>
 
+<script type='text/javascript'>
+for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+	var u = wl_unit(uidx);
+	W('<input type=\'hidden\' id=\'_wl'+u+'_macmode\' name=\'wl'+u+'_macmode\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_maclist\' name=\'wl'+u+'_maclist\'>');
+}
+</script>
 
 <div class='section-title'>Wireless Client Filter</div>
 <div class='section'>

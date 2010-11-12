@@ -1056,8 +1056,8 @@ static int init_nvram(void)
 #endif
 	}
 
+	nvram_set("wl_hwaddr", "");	// zzz- when disabling wireless, we must get null wireless mac ??
 
-	nvram_set("wl_hwaddr", "");				// when disabling wireless, we must get null wireless mac 	??
 	//!!TB - do not force country code here to allow nvram override
 	//nvram_set("wl_country", "JP");
 	//nvram_set("wl_country_code", "JP");
@@ -1086,6 +1086,7 @@ static int init_nvram(void)
 
 	if ((features & SUP_1000ET) == 0) nvram_set("jumbo_frame_enable", "0");
 
+	// compatibility with old versions
 	if (nvram_match("wl_net_mode", "disabled")) {
 		nvram_set("wl_radio", "0");
 		nvram_set("wl_net_mode", "mixed");
@@ -1405,7 +1406,7 @@ int init_main(int argc, char *argv[])
 			start_wl();
 
 #ifdef CONFIG_BCMWL5
-			if (nvram_match("wds_enable", "1")) {
+			if (wds_enable()) {
 				/* Restart NAS one more time - for some reason without
 				 * this the new driver doesn't always bring WDS up.
 				 */

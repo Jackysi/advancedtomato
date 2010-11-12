@@ -564,8 +564,6 @@ get_ifname_unit(const char* ifname, int *unit, int *subunit)
 	return 0;
 }
 
-#ifdef CONFIG_BCMWL5
-
 /* In the space-separated/null-terminated list(haystack), try to
  * locate the string "needle"
  */
@@ -685,6 +683,36 @@ int add_to_list(const char *name, char *list, int listsize)
 	return 0;
 }
 
+/* Utility function to remove duplicate entries in a space separated list */
+
+char *remove_dups(char *inlist, int inlist_size)
+{
+	char name[256], *next = NULL;
+	char *outlist;
+
+	if (!inlist_size) return NULL;
+	if (!inlist) return NULL;
+
+	outlist = (char *) malloc(inlist_size);
+	if (!outlist) return NULL;
+	memset(outlist, 0, inlist_size);
+
+	foreach(name, inlist, next) {
+		if (!find_in_list(outlist, name)) {
+			if (strlen(outlist) == 0) {
+				snprintf(outlist, inlist_size, "%s", name);
+			} else {
+				strncat(outlist, " ",  inlist_size - strlen(outlist));
+				strncat(outlist, name, inlist_size - strlen(outlist));
+			}
+		}
+	}
+	strncpy(inlist, outlist, inlist_size);
+
+	free(outlist);
+	return inlist;
+}
+
 /*
 	 return true/false if any wireless interface has URE enabled.
 */
@@ -701,8 +729,6 @@ ure_any_enabled(void)
 	else
 		return 0;
 }
-
-#endif	// CONFIG_BCMWL5
 
 #define WLMBSS_DEV_NAME	"wlmbss"
 #define WL_DEV_NAME "wl"

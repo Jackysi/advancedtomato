@@ -61,6 +61,11 @@ static const char dmresolv[] = "/etc/resolv.dnsmasq";
 
 static pid_t pid_dnsmasq = -1;
 
+static int is_wet(int idx, int unit, int subunit, void *param)
+{
+	return nvram_match(wl_nvname("mode", unit, subunit), "wet");
+}
+
 void start_dnsmasq()
 {
 	FILE *f;
@@ -92,7 +97,8 @@ void start_dnsmasq()
 
 	stop_dnsmasq();
 
-	if (nvram_match("wl_mode", "wet")) return;
+	if (foreach_wif(1, NULL, is_wet)) return;
+
 	if ((f = fopen("/etc/dnsmasq.conf", "w")) == NULL) return;
 
 	lan_ifname = nvram_safe_get("lan_ifname");
@@ -1588,7 +1594,7 @@ TOP:
 			// if radio was disabled by access restriction, but no rule is handling it now, enable it
 			if (i == 1) {
 				if (nvram_get_int("rrules_radio") < 0) {
-					if (!get_radio()) eval("radio", "on");
+					eval("radio", "on");
 				}
 			}
 		}

@@ -99,19 +99,15 @@ extern void wo_expct(char *url);
 
 // wl.c
 extern void asp_wlscan(int argc, char **argv);
-extern void asp_wlradio(int argc, char **argv);
 extern void wo_wlradio(char *url);
 extern void asp_wlnoise(int argc, char **argv);
-extern void asp_wlcrssi(int argc, char **argv);
 extern void wo_wlmnoise(char *url);
+extern void asp_wlstats(int argc, char **argv);
 extern void asp_wlclient(int argc, char **argv);
-extern void asp_wlchannel(int argc, char **argv);
-extern void asp_wlnbw(int argc, char **argv);
-extern void asp_wlnctrlsb(int argc, char **argv);
 extern void asp_wlchannels(int argc, char **argv);
 extern void asp_wlbands(int argc, char **argv);
+extern void asp_wlifaces(int argc, char **argv);
 extern void asp_wlcountries(int argc, char **argv);
-extern void asp_wlrate(int argc, char **argv);
 
 // dhcp.c
 extern void asp_dhcpc_time(int argc, char **argv);

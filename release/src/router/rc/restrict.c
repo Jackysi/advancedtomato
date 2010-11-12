@@ -53,6 +53,10 @@ static int in_sched(int now_mins, int now_dow, int sched_begin, int sched_end, i
 	return 0;
 }
 
+static int radio_on(int idx, int unit, int subunit, void *param)
+{
+	return nvram_match(wl_nvname("radio", unit, 0), "1");
+}
 
 int rcheck_main(int argc, char *argv[])
 {
@@ -96,7 +100,7 @@ int rcheck_main(int argc, char *argv[])
 
 	activated = strtoull(nvram_safe_get("rrules_activated"), NULL, 16);
 	count = 0;
-	radio = nvram_match("wl_radio", "1") ? -1 : -2;
+	radio = foreach_wif(0, NULL, radio_on) ? -1 : -2;
 	for (nrule = 0; nrule < MAX_NRULES; ++nrule) {
 		sprintf(buf, "rrule%d", nrule);
 		if ((p = nvram_get(buf)) == NULL) continue;
@@ -163,6 +167,11 @@ int rcheck_main(int argc, char *argv[])
 
 	if (radio >= 0) {
 		nvram_set("rrules_radio", radio ? "0" : "1");
+#if 1
+		// changed for dual radio support
+		_dprintf("%s: radio = %d\n", __FUNCTION__, radio);
+		eval("radio", radio ? "on" : "off");
+#else
 		if (get_radio() != radio) {
 			_dprintf("%s: radio = %d\n", __FUNCTION__, radio);
 			eval("radio", radio ? "on" : "off");
@@ -170,6 +179,7 @@ int rcheck_main(int argc, char *argv[])
 		else {
 			_dprintf("%s: no radio change = %d\n", __FUNCTION__, radio);
 		}
+#endif
 	}
 
 	simple_unlock("restrictions");

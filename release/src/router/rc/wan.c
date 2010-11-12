@@ -535,11 +535,22 @@ void do_wan_routes(char *ifname, int metric, int add)
 
 const char wan_connecting[] = "/var/lib/misc/wan.connecting";
 
+static int is_sta(int idx, int unit, int subunit, void *param)
+{
+	char **p = param;
+
+	if (nvram_match(wl_nvname("mode", unit, subunit), "sta")) {
+		*p = nvram_safe_get(wl_nvname("ifname", unit, subunit));
+		return 1;
+	}
+	return 0;	
+}
+
 void start_wan(int mode)
 {
 	int wan_proto;
 	char *wan_ifname;
-	char *p;
+	char *p = NULL;
 	struct ifreq ifr;
 	int sd;
 	int max;
@@ -552,10 +563,7 @@ void start_wan(int mode)
 	
 	//
 
-	if (nvram_match("wl_mode", "sta")) {
-		p = nvram_safe_get("wl_ifname");
-	}
-	else {
+	if (!foreach_wif(1, &p, is_sta)) {
 		p = nvram_safe_get("wan_ifnameX");
 		set_mac(p, "mac_wan", 1);
 	}

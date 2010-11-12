@@ -256,6 +256,12 @@ static void auth_fail(int clen)
 	send_authenticate();
 }
 
+static int check_wif(int idx, int unit, int subunit, void *param)
+{
+	sta_info_t *sti = param;
+	return (wl_ioctl(nvram_safe_get(wl_nvname("ifname", unit, subunit)), WLC_GET_VAR, sti, sizeof(*sti)) == 0);
+}
+
 int check_wlaccess(void)
 {
 	char mac[32];
@@ -267,7 +273,7 @@ int check_wlaccess(void)
 			memset(&sti, 0, sizeof(sti));
 			strcpy((char *)&sti, "sta_info");	// sta_info0<mac>
 			ether_atoe(mac, (char *)&sti + 9);
-			if (wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_VAR, &sti, sizeof(sti)) == 0) {
+			if (foreach_wif(1, &sti, check_wif)) {
 				if (nvram_match("debug_logwlac", "1")) {
 					syslog(LOG_WARNING, "Wireless access from %s blocked.", mac);
 				}
