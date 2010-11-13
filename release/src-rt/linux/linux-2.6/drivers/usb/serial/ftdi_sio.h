@@ -1102,6 +1102,12 @@
 #define FTDI_SCIENCESCOPE_HS_LOGBOOK_PID	0xFF1D
 
 /*
+ * Milkymist One JTAG/Serial
+ */
+#define QIHARDWARE_VID			0x20B7
+#define MILKYMISTONE_JTAGSERIAL_PID	0x0713
+
+/*
  *   BmRequestType:  1100 0000b
  *   bRequest:       FTDI_E2_READ
  *   wValue:         0
