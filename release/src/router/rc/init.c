@@ -397,6 +397,10 @@ static void check_bootnv(void)
 			dirty |= find_sercom_mac_addr();
 		}
 		break;
+	case MODEL_WRT160Nv1:
+	case MODEL_WRT300N:
+		dirty |= check_nv("wl0gpio0", "8");
+		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
@@ -1023,13 +1027,14 @@ static int init_nvram(void)
 		name = "WZR-G300N";
 		features = SUP_SES | SUP_AOSS_LED | SUP_BRAU | SUP_80211N;
 		break;
+	case MODEL_WRT160Nv1:
 	case MODEL_WRT300N:
 		mfr = "Linksys";
-		name = "WRT300N v1";
+		name = (model == MODEL_WRT300N) ? "WRT300N v1" : "WRT160N v1";
 		features = SUP_SES | SUP_80211N;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("wan_ifnameX", "eth1");
-			nvram_set("wl0gpio0", "8");
+			nvram_set("lan_ifnames", "eth0 eth2");
 		}
 		break;
 	case MODEL_WRT310Nv1:
