@@ -66,23 +66,27 @@ for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 	refresher.push(null);
 }
 
+function selectedBand(uidx)
+{
+	if (bands[uidx].length > 1) {
+		var e = E('_f_wl'+u+'_nband');
+		return (e.value + '' == '' ? eval('nvram.wl'+u+'_nband') : e.value);
+	} else if (bands[uidx].length > 0) {
+		return bands[uidx][0][0] || '0';
+	} else {
+		return '0';
+	}
+}
+
 function refreshNetModes(uidx)
 {
-	var e, i, buf, val, band5;
+	var e, i, buf, val;
 
 	if (uidx >= wl_ifaces.length) return;
 	var u = wl_unit(uidx);
 
-	band5 = false;
-	if (bands[uidx].length > 1) {
-		e = E('_f_wl'+u+'_nband');
-		band5 = (e.value + '' == '' ? eval('nvram.wl'+u+'_nband') : e.value) == '1' ? true : false;
-	} else if (bands[uidx].length > 0) {
-		band5 = (bands[uidx][0][0] == '1') ? true : false;
-	}
-
 	var m = [['mixed','Auto']];
-	if (band5) {
+	if (selectedBand(uidx) == '1') {
 		m.push(['a-only','A Only']);
 		if (nphy) {
 			m.push(['n-only','N Only']);
@@ -151,15 +155,8 @@ function refreshChannels(uidx)
 		refresher[uidx] = null;
 	}
 
-	var band, bw, sb, e;
+	var bw, sb, e;
 
-	if (bands[uidx].length > 1) {
-		e = E('_f_wl'+u+'_nband');
-		band = (e.value + '' == '' ? eval('nvram.wl'+u+'_nband') : e.value);
-	} else if (bands[uidx].length > 0) {
-		band = bands[uidx][0][0] || '0';
-	} else
-		band = '0';
 	e = E('_f_wl'+u+'_nctrlsb');
 	sb = (e.value + '' == '' ? eval('nvram.wl'+u+'_nctrlsb') : e.value);
 	e = E('_wl'+u+'_nbw_cap');
@@ -167,7 +164,7 @@ function refreshChannels(uidx)
 
 	refresher[uidx].onError = function(ex) { alert(ex); refresher[uidx] = null; reloadPage(); }
 	refresher[uidx].post('update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy ? '1' : '0') +
-		'&arg2=' + bw + '&arg3=' + band + '&arg4=' + sb);
+		'&arg2=' + bw + '&arg3=' + selectedBand(uidx) + '&arg4=' + sb);
 }
 
 function spin(x, unit)
@@ -643,8 +640,9 @@ function verifyFields(focused, quiet)
 	Channel list is not filtered in this case by the wl driver,
 	and includes all channels available with 20MHz channel width.
 REMOVE-END */
+		b = selectedBand(uidx);
 		if (wl_vis[uidx]._wl_channel == 1 && wl_vis[uidx]._f_wl_nctrlsb != 0 &&
-		   (wl_vis[uidx]._f_wl_nband == 0 || E('_f_wl'+u+'_nband').value == '2')) {
+		   ((b == '2') || (wl_vis[uidx]._f_wl_nband == 0 && b == '0'))) {
 			switch (eval('nvram.wl'+u+'_net_mode')) {
 			case 'b-only':
 			case 'g-only':
@@ -738,7 +736,7 @@ REMOVE-END */
 				ok = 0;
 			}
 			else if (a.value == 'n-only') {
-				ferror.set(a, 'N-only is not supported in wireless client modes.', quiet || !ok);
+				ferror.set(a, 'N-only is not supported in wireless client modes, use Auto.', quiet || !ok);
 				ok = 0;
 			}
 		}
@@ -906,13 +904,7 @@ function save()
 		sm2 = E('_wl'+u+'_security_mode').value;
 		wradio = E('_f_wl'+u+'_radio').checked;
 
-		if (bands[uidx].length > 1)
-			b = E('_f_wl'+u+'_nband').value;
-		else if (bands[uidx].length == 1)
-			b = bands[uidx][0][0] || '0';
-		else
-			band = '0';
-		E('_wl'+u+'_nband').value = b;
+		E('_wl'+u+'_nband').value = selectedBand(uidx);
 
 		if (wmode == 'apwds') E('_wl'+u+'_mode').value = 'ap';
 		else E('_wl'+u+'_mode').value = wmode;
@@ -986,8 +978,13 @@ function save()
 			E('_wl'+u+'_nmcsidx').value = -1; // Auto
 			break;
 		case 'n-only':
-			E('_wl'+u+'_nmode').value = 1;
-			E('_wl'+u+'_nmcsidx').value = 32;
+			if (selectedBand(uidx) == '1') { // 5 GHz
+				E('_wl'+u+'_nmode').value = -1;
+				E('_wl'+u+'_nmcsidx').value = -1;
+			} else {
+				E('_wl'+u+'_nmode').value = 1;
+				E('_wl'+u+'_nmcsidx').value = 32;
+			}
 			E('_wl'+u+'_nreqd').value = 1;
 			break;
 		default: // Auto
@@ -998,7 +995,6 @@ function save()
 
 		E('_wl'+u+'_nctrlsb').value = eval('nvram.wl'+u+'_nctrlsb');
 		if (E('_wl'+u+'_nmode').value != 0) {
-			i = E('_wl'+u+'_channel').value * 1;
 			E('_wl'+u+'_nctrlsb').value = E('_f_wl'+u+'_nctrlsb').value;
 			E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : 40;
 		}
