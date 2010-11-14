@@ -61,6 +61,11 @@ static const char dmresolv[] = "/etc/resolv.dnsmasq";
 
 static pid_t pid_dnsmasq = -1;
 
+static int is_wet(int idx, int unit, int subunit, void *param)
+{
+	return nvram_match(wl_nvname("mode", unit, subunit), "wet");
+}
+
 void start_dnsmasq()
 {
 	FILE *f;
@@ -92,7 +97,8 @@ void start_dnsmasq()
 
 	stop_dnsmasq();
 
-	if (nvram_match("wl_mode", "wet")) return;
+	if (foreach_wif(1, NULL, is_wet)) return;
+
 	if ((f = fopen("/etc/dnsmasq.conf", "w")) == NULL) return;
 
 	lan_ifname = nvram_safe_get("lan_ifname");
@@ -1519,6 +1525,10 @@ void stop_services(void)
 
 // -----------------------------------------------------------------------------
 
+/* nvram "action_service" is: "service-action[-modifier]"
+ * action is something like "stop" or "start" or "restart"
+ * optional modifier is "c" for the "service" command-line command
+ */
 void exec_service(void)
 {
 	const int A_START = 1;
@@ -1528,7 +1538,8 @@ void exec_service(void)
 	char *service;
 	char *act;
 	char *next;
-	int action;
+	char *modifier;
+	int action, user;
 	int i;
 
 	strlcpy(buffer, nvram_safe_get("action_service"), sizeof(buffer));
@@ -1541,14 +1552,16 @@ TOP:
 		next = NULL;
 		goto CLEAR;
 	}
+	modifier = act;
+	strsep(&modifier, "-");
 
-	TRACE_PT("service=%s action=%s\n", service, act);
+	TRACE_PT("service=%s action=%s modifier=%s\n", service, act, modifier ? : "");
 
 	if (strcmp(act, "start") == 0) action = A_START;
 		else if (strcmp(act, "stop") == 0) action = A_STOP;
 		else if (strcmp(act, "restart") == 0) action = A_RESTART;
 		else action = 0;
-
+	user = (modifier != NULL && *modifier == 'c');
 
 	if (strcmp(service, "dhcpc") == 0) {
 		if (action & A_STOP) stop_dhcpc();
@@ -1589,7 +1602,7 @@ TOP:
 			// if radio was disabled by access restriction, but no rule is handling it now, enable it
 			if (i == 1) {
 				if (nvram_get_int("rrules_radio") < 0) {
-					if (!get_radio()) eval("radio", "on");
+					eval("radio", "on");
 				}
 			}
 		}
@@ -1688,8 +1701,11 @@ TOP:
 		if (action & A_STOP) {
 			stop_syslog();
 		}
-		stop_firewall(); start_firewall();	// always restarted
-		stop_cron(); start_cron();		// always restarted
+		if (!user) {
+			// always restarted except from "service" command
+			stop_cron(); start_cron();
+			stop_firewall(); start_firewall();
+		}
 		if (action & A_START) {
 			start_syslog();
 		}
@@ -1950,21 +1966,21 @@ static void do_service(const char *name, const char *action, int user)
 	int n;
 	char s[64];
 
-	n = 15;
+	n = 150;
 	while (!nvram_match("action_service", "")) {
 		if (user) {
 			putchar('*');
 			fflush(stdout);
 		}
 		else if (--n < 0) break;
-		sleep(1);
+		usleep(100 * 1000);
 	}
 
-	snprintf(s, sizeof(s), "%s-%s", name, action);
+	snprintf(s, sizeof(s), "%s-%s%s", name, action, (user ? "-c" : ""));
 	nvram_set("action_service", s);
 	kill(1, SIGUSR1);
 
-	n = 15;
+	n = 150;
 	while (nvram_match("action_service", s)) {
 		if (user) {
 			putchar('.');
@@ -1973,7 +1989,7 @@ static void do_service(const char *name, const char *action, int user)
 		else if (--n < 0) {
 			break;
 		}
-		sleep(1);
+		usleep(100 * 1000);
 	}
 }
 

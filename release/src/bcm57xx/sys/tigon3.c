@@ -8326,6 +8326,10 @@ LM_ResetPhy(LM_DEVICE_BLOCK *pDevice)
     int j;
     LM_UINT32 miireg;
 
+    /* Bypassing Reset when it's Robo PHY (from Broadcom Email 2008-4-9). */
+    if (pDevice->Flags & ROBO_SWITCH_FLAG)
+        return;
+
     if (pDevice->PhyFlags & PHY_CHECK_TAPS_AFTER_RESET)
     {
         LM_ResetPhy_5703_4_5(pDevice, 5, 1);

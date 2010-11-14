@@ -49,7 +49,7 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-    { "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
+	{ "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
 	{ "lan_ipaddr",			"192.168.1.1"	},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"	},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
@@ -58,8 +58,8 @@ const defaults_t defaults[] = {
 	{ "lan_stp",			"0"				},	// LAN spanning tree protocol
 	{ "lan_route",			""				},	// Static routes (ipaddr:netmask:gateway:metric:ifname ...)
 
-    { "lan_gateway",		"0.0.0.0"		},	// LAN Gateway
-	{ "wds_enable",			"0"				},	// WDS Enable (0|1)
+	{ "lan_gateway",		"0.0.0.0"		},	// LAN Gateway
+	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
 	// WAN H/W parameters
 //!	{ "wan_ifname",			""				},	// WAN interface name
@@ -73,6 +73,7 @@ const defaults_t defaults[] = {
 	{ "wan_ipaddr",			"0.0.0.0"		},	// WAN IP address
 	{ "wan_netmask",		"0.0.0.0"		},	// WAN netmask
 	{ "wan_gateway",		"0.0.0.0"		},	// WAN gateway
+	{ "wan_gateway_get",		"0.0.0.0"		},	// default gateway for PPP
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"			},	// WAN lease time in seconds
@@ -80,7 +81,7 @@ const defaults_t defaults[] = {
 
 	{ "wan_primary",		"1"				},	// Primary wan connection
 	{ "wan_unit",			"0"				},	// Last configured connection
-
+/* --- obsolete ---
 	// Filters
 	{ "filter_maclist",		""				},	// xx:xx:xx:xx:xx:xx ...
 	{ "filter_macmode",		"deny"			},	// "allow" only, "deny" only, or "disabled" (allow all)
@@ -90,7 +91,7 @@ const defaults_t defaults[] = {
 
 	// Port forwards
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
-
+*/
 	// DHCP server parameters
 	{ "dhcp_start",			"100"			},	//
 	{ "dhcp_num",			"50"			},	//
@@ -127,33 +128,34 @@ const defaults_t defaults[] = {
 	// Wireless parameters
 	{ "wl_ifname",			""				},	// Interface name
 	{ "wl_hwaddr",			""				},	// MAC address
-	{ "wl_phytype",			"g"				},	// Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz))	// Modify
+	{ "wl_phytype",			"b"				},	// Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz))	// Modify
 	{ "wl_corerev",			""				},	// Current core revision
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
-        { "wl_ssid",                    "wireless"              },      // Service set ID (network name)
-	{ "wl_country",                 ""              },              // Country (default obtained from driver)
-	{ "wl_country_code",            ""              },              // Country (default obtained from driver)
+	{ "wl_ssid",			"wireless"			},	// Service set ID (network name)
+	{ "wl1_ssid",			"wireless1"			},
+	{ "wl_country_code",		""				},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
+	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
-    { "wl_ap_isolate",		"0"				},	// AP isolate mode
-	{ "wl_mode",			"ap"			},	// AP mode (ap|sta|wds)
+	{ "wl_ap_isolate",		"0"				},	// AP isolate mode
+	{ "wl_mode",			"ap"				},	// AP mode (ap|sta|wds)
 	{ "wl_lazywds",			"1"				},	// Enable "lazy" WDS mode (0|1)
 	{ "wl_wds",				""				},	// xx:xx:xx:xx:xx:xx ...
 	{ "wl_wds_timeout",		"1"				},	// WDS link detection interval defualt 1 sec*/
 	{ "wl_wep",				"disabled"		},	// WEP data encryption (enabled|disabled)
 	{ "wl_auth",			"0"				},	// Shared key authentication optional (0) or required (1)
-	{ "wl_key",				"1"				},	// Current WEP key
+	{ "wl_key",			"1"				},	// Current WEP key
 	{ "wl_key1",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key2",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key3",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key4",			""				},	// 5/13 char ASCII or 10/26 char hex
-	{ "wl_maclist",			""				},	// xx:xx:xx:xx:xx:xx ...
-	{ "wl_channel",			"10"				},	// Channel number
+	{ "wl_channel",			"6"				},	// Channel number
+	{ "wl1_channel",		"0"				},
 	{ "wl_rate",			"0"				},	// Rate (bps, 0 for auto)
 	{ "wl_mrate",			"0"				},	// Mcast Rate (bps, 0 for auto)
-	{ "wl_rateset",			"default"		},	// "default" or "all" or "12"
-	{ "wl_frag",			"2346"			},	// Fragmentation threshold
+	{ "wl_rateset",			"default"			},	// "default" or "all" or "12"
+	{ "wl_frag",			"2346"				},	// Fragmentation threshold
 	{ "wl_rts",				"2347"			},	// RTS threshold
 	{ "wl_dtim",			"1"				},	// DTIM period (3.11.5)*/	// It is best value for WiFi test
 	{ "wl_bcn",				"100"			},	// Beacon interval
@@ -164,6 +166,7 @@ const defaults_t defaults[] = {
 	{ "wl_afterburner",		"off"			},	// AfterBurner
 	{ "wl_frameburst",		"off"			},	// BRCM Frambursting mode (off|on)
 	{ "wl_wme",			"auto"			},	// WME mode (auto|off|on)
+	{ "wl1_wme",			"auto"			},	// WME mode (auto|off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
@@ -175,12 +178,9 @@ const defaults_t defaults[] = {
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
 	{ "wl_wep_gen",			""				},	// save all settings for generate button	// Add
 	{ "wl_wep_last",		""				},	// Save last wl_wep mode	// Add
-	{ "wl_active_mac",		""				},	// xx:xx:xx:xx:xx:xx ...	// Add
 
 	// WPA parameters
-	{ "security_mode2",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
-	{ "security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa|psk|wep|psk psk2|wpa wpa2) for WEB	// Add
-	{ "security_mode_last",	""				},	// Save last WPA mode	// Add
+	{ "wl_security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
 	{ "wl_auth_mode",		"none"			},	// Network authentication mode (radius|none)
 	{ "wl_wpa_psk",			""				},	// WPA pre-shared key
 	{ "wl_wpa_gtk_rekey",	"3600"			},	// WPA GTK rekey interval	// Modify
@@ -224,30 +224,30 @@ const defaults_t defaults[] = {
 // !!TB: n-mode
 	{ "wl_nmode",			"-1"			},	// N-mode
 	{ "wl_nband",			"2"			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
-
+	{ "wl1_nband",			"1"			},
 	{ "wl_nmcsidx",			"-1"			},	// MCS Index for N - rate
 	{ "wl_nreqd",			"0"			},	// Require 802.11n support
 	{ "wl_nbw",			"40"			},	// BW: 20 / 40 MHz
 	{ "wl_nbw_cap",			"1"			},	// BW: def 20inB and 40inA
 	{ "wl_mimo_preamble",		"mm"			},	// 802.11n Preamble: mm/gf/auto/gfbcm
 	{ "wl_nctrlsb",			"upper"			},	// N-CTRL SB (none/lower/upper)
-	{ "wl_nband",			"2"			},	// N-Band
 	{ "wl_nmode_protection",	"off"			},	// 802.11n RTS/CTS protection (off|auto)
 	{ "wl_rxstreams",		"0"			},	// 802.11n Rx Streams, 0 is invalid, WLCONF will change it to a radio appropriate default
 	{ "wl_txstreams",		"0"			},	// 802.11n Tx Streams 0, 0 is invalid, WLCONF will change it to a radio appropriate default
 	{ "wl_dfs_preism",		"60"			},	// 802.11H pre network CAC time
 	{ "wl_dfs_postism",		"60"			},	// 802.11H In Service Monitoring CAC time
-	{ "wl_radarthrs",		"0 0x6a8 0x6c8 0x6ac 0x6c7" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
+	{ "wl_radarthrs",		"1 0x6c0 0x6e0 0x6bc 0x6e0 0x6ac 0x6cc 0x6bc 0x6e0" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
 	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
 	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
 	{ "wl_obss_coex",		"0"			},	// OBSS Coexistence (0|1): when enabled, channel width is forced to 20MHz
 
-#ifdef CONFIG_BCMWL5
-	// EMF
+#ifdef TCONFIG_EMF
 	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
 	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
 	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
 	{ "emf_enable",			"0"			},	// Disable EMF by default
+#endif
+#ifdef CONFIG_BCMWL5
 	// AMPDU
 	{ "wl_ampdu",			"auto"			},	// Default AMPDU setting
 	{ "wl_ampdu_rtylimit_tid",	"5 5 5 5 5 5 5 5"	},	// Default AMPDU retry limit per-tid setting
@@ -278,12 +278,11 @@ const defaults_t defaults[] = {
 	{ "wan_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 
 	{ "l2tp_server_ip",		""				},	// L2TP auth server (IP Address)
-	{ "wan_gateway_buf",	"0.0.0.0"		},	// save the default gateway for DHCP
 //	hbobs	{ "hb_server_ip",		""				},	// heartbeat auth server (IP Address)
 //	hbobs	{ "hb_server_domain",	""				},	// heartbeat auth server (domain name)
 
 // misc
-	{ "t_noise",			"-99"			},
+	{ "wl_tnoise",			"-99"			},
 	{ "led_override",		""				},
 	{ "btn_override",		""				},
 	{ "btn_reset",			""				},
@@ -300,9 +299,6 @@ const defaults_t defaults[] = {
 	{ "ddnsx1_cache",		""				},
 	{ "ddnsx_save",			"1"				},
 	{ "ddnsx_refresh",		"28"			},
-
-// basic-network
-	{ "wds_save",			""				},
 
 // basic-ident
 	{ "router_name",		"tomato"		},
@@ -323,9 +319,9 @@ const defaults_t defaults[] = {
 	{ "dhcpd_static",		""				},
 
 // basic-wfilter
-	{ "wl_mac_list",		""				},
+	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ...
 	{ "wl_macmode",			"disabled"		},
-	{ "macnames",			""				},
+	{ "macnames",			""			},
 
 // advanced-ctnf
 	{ "ct_tcp_timeout",		"0 1800 30 20 20 20 10 20 20 0"				},
@@ -349,7 +345,7 @@ const defaults_t defaults[] = {
 
 // advanced-mac
 	{ "mac_wan",			""				},
-	{ "mac_wl",				""				},
+	{ "wl_macaddr",			""				},
 
 // advanced-misc
 	{ "boot_wait",			"on"			},

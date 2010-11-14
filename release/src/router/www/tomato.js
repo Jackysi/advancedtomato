@@ -1574,7 +1574,7 @@ XmlHttp.prototype = {
 		return vars;
 	},
 
-    get: function(url, vars) {
+	get: function(url, vars) {
 		try {
 			vars = this.addId(vars);
 			url += '?' + vars;

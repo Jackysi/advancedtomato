@@ -147,16 +147,16 @@ first_fixup:
 
 fwd_fixup:
 	PTR_L		t0, TI_TASK($28)
-	LONG_L		t0, THREAD_BUADDR(t0)
 	andi		a2, 0x3f
+	LONG_L		t0, THREAD_BUADDR(t0)
 	LONG_ADDU	a2, t1
 	jr		ra
 	 LONG_SUBU	a2, t0
 
 partial_fixup:
 	PTR_L		t0, TI_TASK($28)
-	LONG_L		t0, THREAD_BUADDR(t0)
 	andi		a2, LONGMASK
+	LONG_L		t0, THREAD_BUADDR(t0)
 	LONG_ADDU	a2, t1
 	jr		ra
 	 LONG_SUBU	a2, t0

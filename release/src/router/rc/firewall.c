@@ -840,6 +840,14 @@ int start_firewall(void)
 	f_write_string("/proc/sys/net/ipv4/tcp_rfc1337", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/ip_local_port_range", "1024 65535", 0, 0);
 
+#ifdef TCONFIG_EMF
+	/* Force IGMPv2 due EMF limitations */
+	if (nvram_get_int("emf_enable")) {
+		f_write_string("/proc/sys/net/ipv4/conf/default/force_igmp_version", "2", 0, 0);
+		f_write_string("/proc/sys/net/ipv4/conf/all/force_igmp_version", "2", 0, 0);
+	}
+#endif
+
 	n = nvram_get_int("log_in");
 	chain_in_drop = (n & 1) ? "logdrop" : "DROP";
 	chain_in_accept = (n & 2) ? "logaccept" : "ACCEPT";

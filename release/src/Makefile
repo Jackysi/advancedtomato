@@ -170,6 +170,10 @@ cleankernel:
 	$(MAKE) distclean || true; \
 	cp -p save-config .config || true
 
+kernel:
+	@$(MAKE) -C router kernel
+	@ls -l $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage
+
 distclean: clean cleanimage cleankernel cleantools cleanlibc
 ifneq ($(INSIDE_MAK),1)
 	@$(MAKE) -C router $@ INSIDE_MAK=1
@@ -222,6 +226,16 @@ define RouterOptions
 	if [ "$(CONFIG_LINUX26)" = "y" ] || [ "$(SAMBA3)" = "y" ]; then \
 		sed -i "/TCONFIG_SAMBA3/d" $(1); \
 		echo "TCONFIG_SAMBA3=y" >>$(1); \
+	fi; \
+	sed -i "/TCONFIG_EMF/d" $(1); \
+	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+		if [ "$(SLIM)" = "y" ]; then \
+			echo "# TCONFIG_EMF is not set" >>$(1); \
+		else \
+			echo "TCONFIG_EMF=y" >>$(1); \
+		fi; \
+	else \
+		echo "# TCONFIG_EMF is not set" >>$(1); \
 	fi; \
 	sed -i "/TCONFIG_JFFSV1/d" $(1); \
 	if [ "$(CONFIG_LINUX26)" = "y" ]; then \
@@ -445,8 +459,6 @@ define KernelConfig
 		echo "CONFIG_IP6_NF_TARGET_REJECT=m" >>$(1); \
 		sed -i "/CONFIG_IP6_NF_MANGLE/d" $(1); \
 		echo "CONFIG_IP6_NF_MANGLE=m" >>$(1); \
-		sed -i "/CONFIG_IP6_NF_TARGET_IMQ/d" $(1); \
-		echo "CONFIG_IP6_NF_TARGET_IMQ=m" >>$(1); \
 		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 			sed -i "/CONFIG_NF_CONNTRACK_IPV6/d" $(1); \
 			echo "CONFIG_NF_CONNTRACK_IPV6=m" >>$(1); \

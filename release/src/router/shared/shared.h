@@ -77,11 +77,12 @@ extern const dns_list_t *get_dns(void);
 extern void set_action(int a);
 extern int check_action(void);
 extern int wait_action_idle(int n);
-extern int wl_client(void);
+extern int wl_client(int unit, int subunit);
 extern const char *get_wanip(void);
 extern long get_uptime(void);
-extern int get_radio(void);
-extern void set_radio(int on);
+extern char *wl_nvname(const char *nv, int unit, int subunit);
+extern int get_radio(int unit);
+extern void set_radio(int on, int unit);
 extern int nvram_get_int(const char *key);
 //	extern long nvram_xget_long(const char *name, long min, long max, long def);
 extern int nvram_get_file(const char *key, const char *fname, int max);
@@ -91,6 +92,8 @@ extern int nvram_is_empty(const char *key);
 extern void nvram_commit_x(void);
 extern int connect_timeout(int fd, const struct sockaddr *addr, socklen_t len, int timeout);
 extern int mtd_getinfo(const char *mtdname, int *part, int *size);
+extern int foreach_wif(int include_vifs, void *param,
+	int (*func)(int idx, int unit, int subunit, void *param));
 
 // usb.c
 #ifdef TCONFIG_USB
@@ -141,6 +144,7 @@ enum {
 	MODEL_WL520GU,
 	MODEL_DIR320,
 	MODEL_H618B,
+	MODEL_WL1600GL,
 	MODEL_WBRG54,
 	MODEL_WBR2G54,
 	MODEL_WX6615GT,

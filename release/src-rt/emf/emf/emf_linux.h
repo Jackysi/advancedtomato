@@ -57,12 +57,20 @@ typedef struct emf_struct
 
 typedef struct br_port
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 6)
+	struct net_bridge  *br;
+	struct net_device  *dev;
+	struct list_head   list;
+	uint8              priority;
+	uint8              state;
+#else
 	struct br_port     *next;
 	struct net_bridge  *br;
 	struct net_device  *dev;
 	int32              port_no;
 	uint16             port_id;
 	int32              state;
+#endif
 } br_port_t;
 
 static uint32 emf_br_pre_hook(uint32, struct sk_buff **,

@@ -99,19 +99,23 @@ static int deconfig(char *ifname)
 {
 	TRACE_PT("begin\n");
 
+	int wan_proto;
+
+	wan_proto = get_wan_proto();
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 
-	nvram_set("wan_ipaddr", "0.0.0.0");
-	nvram_set("wan_gateway_buf", "0.0.0.0");
+	if (using_dhcpc()) {
+		nvram_set("wan_ipaddr", "0.0.0.0");
+		nvram_set("wan_gateway", "0.0.0.0");
+	}
 	nvram_set("wan_lease", "0");
 	nvram_set("wan_routes1", "");
 	nvram_set("wan_routes2", "");
 	expires(0);
 
-	int wan_proto = get_wan_proto();
-	if (wan_proto != WP_L2TP && wan_proto != WP_PPTP) {
+	if (wan_proto == WP_DHCP) {
 		nvram_set("wan_netmask", "0.0.0.0");
-		nvram_set("wan_gateway", "0.0.0.0");
+		nvram_set("wan_gateway_get", "0.0.0.0");
 		nvram_set("wan_get_dns", "");
 	}
 
@@ -141,12 +145,12 @@ static int renew(char *ifname)
 		return bound(ifname);
 	}
 
-	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
-		gw = "wan_gateway_buf";
+	if (wan_proto != WP_DHCP) {
+		gw = "wan_gateway";
 		metric = nvram_get_int("ppp_defgw") ? 2 : 0;
 	}
 	else {
-		gw = "wan_gateway";
+		gw = "wan_gateway_get";
 		metric = 0;
 
 		changed |= env2nv("subnet", "wan_netmask");
@@ -197,7 +201,7 @@ static int renew(char *ifname)
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
-	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
+	TRACE_PT("%s=%s\n", gw, nvram_safe_get(gw));
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
@@ -219,13 +223,14 @@ static int bound(char *ifname)
 	nvram_set("wan_routes1", "");
 	nvram_set("wan_routes2", "");
 	env2nv("ip", "wan_ipaddr");
-	env2nv_gateway("wan_gateway");
+	env2nv_gateway("wan_gateway_get");
 	env2nv("dns", "wan_get_dns");
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
 	netmask = getenv("subnet") ? : "255.255.255.255";
-	if (wan_proto != WP_L2TP && wan_proto != WP_PPTP) {
+	if (wan_proto == WP_DHCP) {
 		nvram_set("wan_netmask", netmask);
+		nvram_set("wan_gateway", nvram_safe_get("wan_gateway_get"));
 	}
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
@@ -246,7 +251,7 @@ static int bound(char *ifname)
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", netmask);
-	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
+	TRACE_PT("wan_gateway_get=%s\n", nvram_safe_get("wan_gateway_get"));
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
@@ -255,35 +260,17 @@ static int bound(char *ifname)
 
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
-	if (wan_proto == WP_L2TP || wan_proto == WP_PPTP) {
-		int i = 0;
-		char *gw = nvram_safe_get("wan_gateway");
+	if (wan_proto != WP_DHCP) {
+		char *gw = nvram_safe_get("wan_gateway_get");
 
-		int metric = nvram_get_int("ppp_defgw") ? 2 : 0;
+		preset_wan(ifname, gw, netmask);
 
-		/* Delete all default routes */
-		while ((route_del(ifname, metric, NULL, NULL, NULL) == 0) || (i++ < 10));
+		/* Backup the default gateway. It should be used if PPP connection is broken */
+		nvram_set("wan_gateway", gw);
 
-		/* Set default route to gateway if specified */
-		route_add(ifname, metric, "0.0.0.0", gw, "0.0.0.0");
-
-		/* Add routes to dns servers as well for demand ppp to work */
-		char word[100], *next;
-		in_addr_t mask = inet_addr(netmask);
-		foreach(word, nvram_safe_get("wan_get_dns"), next) {
-			if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
-				route_add(ifname, metric, word, gw, "255.255.255.255");
-		}
-
-		/* Backup the default gateway. It should be used if L2TP connection is broken */
-		nvram_set("wan_gateway_buf", gw);
-
-		dns_to_resolv();
-		start_dnsmasq();
 		/* clear dns from the resolv.conf */
-		nvram_set("wan_get_dns","");
+		nvram_set("wan_get_dns", "");
 
-		start_firewall();
 		switch (wan_proto) {
 		case WP_PPTP:
 			start_pptp(BOOT);
@@ -379,7 +366,7 @@ void start_dhcpc(void)
 
 	ifname = nvram_safe_get("wan_ifname");
 	proto = get_wan_proto();
-	if (proto != WP_L2TP && proto != WP_PPTP) {
+	if (proto == WP_DHCP) {
 		nvram_set("wan_iface", ifname);
 	}
 

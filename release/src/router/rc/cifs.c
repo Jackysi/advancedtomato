@@ -61,6 +61,9 @@ int mount_cifs_main(int argc, char *argv[])
 						notice_set("cifs", "Mounting...");
 						modprobe("cifs");
 						first = 0;
+						if (nvram_get_int("cifs_dbg") > 0) {
+							f_write_string("/proc/fs/cifs/cifsFYI", nvram_safe_get("cifs_dbg"), 0, 0);
+						}
 					}
 
 					j = sprintf(opt, "sep=<unc=%s", unc);

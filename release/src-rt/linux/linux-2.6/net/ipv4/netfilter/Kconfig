@@ -327,17 +327,6 @@ config IP_NF_MANGLE
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
-config IP_NF_TARGET_IMQ
-       tristate "IMQ target support"
-       depends on IP_NF_MANGLE
-       help
-         This option adds a `IMQ' target which is used to specify if and
-         to which IMQ device packets should get enqueued/dequeued.
-
-	 For more information visit: http://www.linuximq.net/
-
-         To compile it as a module, choose M here.  If unsure, say N.
-
 config IP_NF_TARGET_TOS
 	tristate "TOS target support"
 	depends on IP_NF_MANGLE

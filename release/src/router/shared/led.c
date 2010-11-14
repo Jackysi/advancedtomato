@@ -191,6 +191,7 @@ int led(int which, int mode)
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
 	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
 	static int h618b[]	= { 255,  -1,   255,  255,  255,   -5,   -3,   -4	};
+	static int wl1600gl[]	= { 1,    -5, 	  0,  255,  255,  2,    255,  255	};
 	static int wrt310nv1[]	= { 255,   1,     9,    3,  255,  255,  255,  255	};
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
@@ -283,6 +284,9 @@ int led(int which, int mode)
 		break;
 	case MODEL_H618B:
 		b = h618b[which];
+		break;
+	case MODEL_WL1600GL:
+		b = wl1600gl[which];
 		break;
 	case MODEL_WL500GPv2:
 	case MODEL_WL500GD:

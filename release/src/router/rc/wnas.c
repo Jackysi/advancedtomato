@@ -42,9 +42,31 @@
 
 void notify_nas(const char *ifname);
 
+static int security_on(int idx, int unit, int subunit, void *param)
+{
+	return nvram_get_int(wl_nvname("radio", unit, 0)) && (!nvram_match(wl_nvname("security_mode", unit, subunit), "disabled"));
+}
+
+static int is_wds(int idx, int unit, int subunit, void *param)
+{
+	return nvram_get_int(wl_nvname("wds_enable", unit, subunit));
+}
+
+#ifndef CONFIG_BCMWL5
+static int is_sta(int idx, int unit, int subunit, void *param)
+{
+	return nvram_match(wl_nvname("mode", unit, subunit), "sta");
+}
+#endif
+
+int wds_enable(void)
+{
+	return foreach_wif(1, NULL, is_wds);
+}
+
 void start_nas(void)
 {
-	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled"))) {
+	if (!foreach_wif(1, NULL, security_on)) {
 		return;
 	}
 
@@ -64,11 +86,13 @@ void start_nas(void)
 	mode_t m;
 
 	m = umask(0077);
-	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", nvram_match("wl_mode", "sta") ? "wan" : "lan");
+	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
+	if (foreach_wif(1, NULL, is_sta))
+		xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");
 	umask(m);
 #endif /* CONFIG_BCMWL5 */
 
-	if (nvram_match("wds_enable", "1")) {
+	if (wds_enable()) {
 		// notify NAS of all wds up ifaces upon startup
 		FILE *fd;
 		char *ifname, buf[256];
@@ -125,9 +149,10 @@ void notify_nas(const char *ifname)
 
 #else	/* !CONFIG_BCMWL5 */
 
-	if (nvram_match("security_mode", "disabled")) return;
+	if (!foreach_wif(1, NULL, security_on)) return;
 	
 	int i;
+	int unit;
 
 	i = 10;
 	while (pidof("nas") == -1) {
@@ -140,11 +165,14 @@ void notify_nas(const char *ifname)
 	}
 	sleep(5);
 
+	/* the wireless interface must be configured to run NAS */
+	wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
+
 	xstart("nas4not", "lan", ifname, "up", "auto",
-		nvram_safe_get("wl_crypto"),	// aes, tkip (aes+tkip ok?)
-		nvram_safe_get("wl_akm"),		// psk (only?)
-		nvram_safe_get("wl_wpa_psk"),	// shared key
-		nvram_safe_get("wl_ssid")		// ssid
+		nvram_safe_get(wl_nvname("crypto"), unit, 0),	// aes, tkip (aes+tkip ok?)
+		nvram_safe_get(wl_nvname("akm"), unit, 0),	// psk (only?)
+		nvram_safe_get(wl_nvname("wpa_psk"), unit, 0),	// shared key
+		nvram_safe_get(wl_nvname("ssid"), unit, 0)	// ssid
 	);
 
 #endif /* CONFIG_BCMWL5 */
@@ -178,7 +206,7 @@ void del_wds_wsec(int unit, int which)
 */
 
 	// WPA doesn't support shared key		removed, handled during config set zzz
-//	if (strstr(nvram_safe_get("security_mode2"), "wpa") != NULL) {
+//	if (strstr(nvram_safe_get("wl_akm"), "wpa") != NULL) {
 //		nvram_set("wl_auth", "0");
 //	}
 
@@ -233,7 +261,7 @@ static void convert_wds(void)
 
 
 	// For WPA-PSK mode, we want to convert wl_wds_mac to wl0_wds0 ... wl0_wds255
-	if (strstr(nvram_safe_get("security_mode"), "psk")) {
+	if (strstr(nvram_safe_get("wl_akm"), "psk")) {
 		char wl_wds[32];
 		int i = 0;
 		int j;
@@ -245,7 +273,7 @@ static void convert_wds(void)
 			snprintf(buf, sizeof(buf), "%s,auto,%s,%s,%s,%s",
 				mac,
 				nvram_safe_get("wl_crypto"),
-				nvram_safe_get("security_mode"),
+				nvram_safe_get("wl_akm"),
 				nvram_safe_get("wl_ssid"),
 				nvram_safe_get("wl_wpa_psk"));
 
