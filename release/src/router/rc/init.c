@@ -1296,7 +1296,8 @@ static void sysinit(void)
 
 #ifdef CONFIG_BCMWL5
 	// ctf must be loaded prior to any other modules
-	modprobe("ctf");
+	if (nvram_get_int("ctf_enable"))
+		modprobe("ctf");
 #endif
 
 	switch (hardware = check_hw_type()) {
