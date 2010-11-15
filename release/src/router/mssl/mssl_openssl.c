@@ -13,6 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdint.h>
 
@@ -25,7 +26,6 @@
 
 
 #define _dprintf(args...)	while (0) {}
-
 
 typedef struct {
 	SSL* ssl;
@@ -43,18 +43,72 @@ static inline void mssl_cleanup(int err)
 
 static ssize_t mssl_read(void *cookie, char *buf, size_t len)
 {
-	_dprintf("%s\n", __FUNCTION__);
+	_dprintf("%s()\n", __FUNCTION__);
 
 	mssl_cookie_t *kuki = cookie;
-	return SSL_read(kuki->ssl, buf, len);
+	int total = 0;
+	int n, err;
+
+	do {
+		n = SSL_read(kuki->ssl, &(buf[total]), len - total);
+		_dprintf("SSL_read(max=%d) returned %d\n", len - total, n);
+
+		err = SSL_get_error(kuki->ssl, n);
+		switch (err) {
+		case SSL_ERROR_NONE:
+			total += n;
+			break;
+		case SSL_ERROR_ZERO_RETURN:
+			total += n;
+			goto OUT;
+		case SSL_ERROR_WANT_WRITE:
+		case SSL_ERROR_WANT_READ:
+			break;
+		default:
+			_dprintf("%s(): SSL error %d\n", __FUNCTION__, err);
+			ERR_print_errors_fp(stderr);
+			goto OUT;
+		}
+	} while (SSL_pending(kuki->ssl));
+
+OUT:
+	_dprintf("%s() returns %d\n", __FUNCTION__, total);
+	return total;
 }
 
 static ssize_t mssl_write(void *cookie, const char *buf, size_t len)
 {
-	_dprintf("%s\n", __FUNCTION__);
+	_dprintf("%s()\n", __FUNCTION__);
 
 	mssl_cookie_t *kuki = cookie;
-	return SSL_write(kuki->ssl, buf, len);
+	int total = 0;
+	int n, err;
+
+	while (total < len) {
+		n = SSL_write(kuki->ssl, &(buf[total]), len - total);
+		_dprintf("SSL_write(max=%d) returned %d\n", len - total, n);
+
+		err = SSL_get_error(kuki->ssl, n);
+		switch (err) {
+		case SSL_ERROR_NONE:
+			total += n;
+			break;
+		case SSL_ERROR_ZERO_RETURN:
+			total += n;
+			goto OUT;
+		case SSL_ERROR_WANT_WRITE:
+		case SSL_ERROR_WANT_READ:
+			break;
+		default:
+			_dprintf("%s(): SSL error %d\n", __FUNCTION__, err);
+			ERR_print_errors_fp(stderr);
+			goto OUT;
+		}
+	}
+
+OUT:
+	_dprintf("%s() returns %d\n", __FUNCTION__, total);
+	return total;
 }
 
 static int mssl_seek(void *cookie, __offmax_t *pos, int whence)
@@ -104,13 +158,17 @@ static FILE *_ssl_fopen(int sd, int client)
 	}
 
 	SSL_set_fd(kuki->ssl, kuki->sd);
+	SSL_set_verify(kuki->ssl, SSL_VERIFY_NONE, NULL);
+	SSL_set_mode(kuki->ssl, SSL_MODE_AUTO_RETRY);
+
 	r = client ? SSL_connect(kuki->ssl) : SSL_accept(kuki->ssl);
 	if (r == -1) {
+		_dprintf("%s: SSL handshake failed\n", __FUNCTION__);
 		ERR_print_errors_fp(stderr);
 		goto ERROR;
 	}
 
-	_dprintf("SSL connection using %s\n", SSL_get_cipher(kuki->ssl));
+	_dprintf("SSL connection using %s cipher\n", SSL_get_cipher(kuki->ssl));
 
 	if ((f = fopencookie(kuki, "r+", mssl)) == NULL) {
 		_dprintf("%s: fopencookie failed\n", __FUNCTION__);
@@ -144,8 +202,9 @@ int mssl_init(char *cert, char *priv)
 	SSL_load_error_strings();
 	SSLeay_add_ssl_algorithms();
 
-	ctx = SSL_CTX_new(client ? SSLv2_client_method() : SSLv23_server_method());
+	ctx = SSL_CTX_new(client ? SSLv23_client_method() : SSLv23_server_method());
 	if (!ctx) {
+		_dprintf("SSL_CTX_new() failed\n");
 		ERR_print_errors_fp(stderr);
 		return 0;
 	}
