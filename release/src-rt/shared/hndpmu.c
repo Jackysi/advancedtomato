@@ -1478,6 +1478,10 @@ BCMINITFN(si_pmu_alp_clock)(si_t *sih, osl_t *osh)
 		/* always 20Mhz */
 		clock = 20000 * 1000;
 		break;
+	case BCM5356_CHIP_ID:
+		/* always 25Mhz */
+		clock = 25000 * 1000;
+		break;
 
 	case BCM4319_CHIP_ID:
 		clock = si_pmu1_alpclk0(sih, osh, cc);
@@ -1583,6 +1587,9 @@ BCMINITFN(si_pmu_si_clock)(si_t *sih, osl_t *osh)
 	case BCM47162_CHIP_ID:
 		clock = si_pmu5_clock(sih, osh, cc, PMU4716_MAINPLL_PLL0, PMU5_MAINPLL_SI);
 		break;
+	case BCM5356_CHIP_ID:
+		clock = si_pmu5_clock(sih, osh, cc, PMU5356_MAINPLL_PLL0, PMU5_MAINPLL_SI);
+		break;
 
 	case BCM4319_CHIP_ID:
 		clock = si_pmu1_cpuclk0(sih, osh, cc);
@@ -1614,9 +1621,9 @@ BCMINITFN(si_pmu_cpu_clock)(si_t *sih, osl_t *osh)
 	if (sih->chip == BCM5354_CHIP_ID)
 		return 240000000;
 
-	if (((sih->pmurev == 5) || (sih->pmurev == 6) ||
-		(sih->pmurev == 7)) && (CHIPID(sih->chip) != BCM4319_CHIP_ID)) {
-		uint pll = PMU4716_MAINPLL_PLL0;
+	if ((sih->pmurev >= 5) && (CHIPID(sih->chip) != BCM4319_CHIP_ID)) {
+		uint pll = (CHIPID(sih->chip) == BCM5356_CHIP_ID) ?
+			PMU5356_MAINPLL_PLL0 : PMU4716_MAINPLL_PLL0;
 
 		/* Remember original core before switch to chipc */
 		origidx = si_coreidx(sih);
@@ -1643,9 +1650,9 @@ BCMINITFN(si_pmu_mem_clock)(si_t *sih, osl_t *osh)
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
-	if ((sih->pmurev == 5) || (sih->pmurev == 6) ||
-		(sih->pmurev == 7)) {
-		uint pll = PMU4716_MAINPLL_PLL0;
+	if ((sih->pmurev >= 5) && (CHIPID(sih->chip) != BCM4319_CHIP_ID)) {
+		uint pll = (CHIPID(sih->chip) == BCM5356_CHIP_ID) ?
+			PMU5356_MAINPLL_PLL0 : PMU4716_MAINPLL_PLL0;
 
 		/* Remember original core before switch to chipc */
 		origidx = si_coreidx(sih);

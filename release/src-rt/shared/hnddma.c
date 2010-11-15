@@ -602,10 +602,21 @@ dma64_dd_upd(dma_info_t *di, dma64dd_t *ddring, dmaaddr_t pa, uint outidx, uint3
 	if ((di->dataoffsetlow == 0) || !(PHYSADDRLO(pa) & PCI32ADDR_HIGH)) {
 		ASSERT((PHYSADDRHI(pa) & PCI64ADDR_HIGH) == 0);
 
-		W_SM(&ddring[outidx].addrlow, BUS_SWAP32(PHYSADDRLO(pa) + di->dataoffsetlow));
-		W_SM(&ddring[outidx].addrhigh, BUS_SWAP32(PHYSADDRHI(pa) + di->dataoffsethigh));
-		W_SM(&ddring[outidx].ctrl1, BUS_SWAP32(*flags));
-		W_SM(&ddring[outidx].ctrl2, BUS_SWAP32(ctrl2));
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+	        if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+			W_SM((uint32 *)OSL_CACHED(&ddring[outidx].addrlow), BUS_SWAP32(PHYSADDRLO(pa) + di->dataoffsetlow));
+			W_SM((uint32 *)OSL_CACHED(&ddring[outidx].addrhigh), BUS_SWAP32(PHYSADDRHI(pa) + di->dataoffsethigh));
+			W_SM((uint32 *)OSL_CACHED(&ddring[outidx].ctrl1), BUS_SWAP32(*flags));
+			W_SM((uint32 *)OSL_CACHED(&ddring[outidx].ctrl2), BUS_SWAP32(ctrl2));
+			OSL_CACHE_FLUSH((uint)OSL_CACHED(&ddring[outidx]), sizeof(dma64dd_t));
+		} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+		{
+			W_SM(&ddring[outidx].addrlow, BUS_SWAP32(PHYSADDRLO(pa) + di->dataoffsetlow));
+			W_SM(&ddring[outidx].addrhigh, BUS_SWAP32(PHYSADDRHI(pa) + di->dataoffsethigh));
+			W_SM(&ddring[outidx].ctrl1, BUS_SWAP32(*flags));
+			W_SM(&ddring[outidx].ctrl2, BUS_SWAP32(ctrl2));
+		}
 	} else {
 		/* address extension for 32-bit PCI */
 		uint32 ae;
@@ -839,7 +850,13 @@ _dma_rxinit(dma_info_t *di)
 
 	/* clear rx descriptor ring */
 	if (DMA64_ENAB(di)) {
-		BZERO_SM((void *)(uintptr)di->rxd64, (di->nrxd * sizeof(dma64dd_t)));
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+	        if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+			BZERO_SM(OSL_CACHED((uint32)di->rxd64), (di->nrxd * sizeof(dma64dd_t)));
+			OSL_CACHE_FLUSH((uint)OSL_CACHED((uint32)di->rxd64), (di->nrxd * sizeof(dma64dd_t)));
+		} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+			BZERO_SM((void *)(uintptr)di->rxd64, (di->nrxd * sizeof(dma64dd_t)));
 		_dma_ddtable_init(di, DMA_RX, di->rxdpa);
 		_dma_rxenable(di);
 	}
@@ -1956,7 +1973,13 @@ dma64_txinit(dma_info_t *di)
 	di->hnddma.txavail = di->ntxd - 1;
 
 	/* clear tx descriptor ring */
-	BZERO_SM((void *)(uintptr)di->txd64, (di->ntxd * sizeof(dma64dd_t)));
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+	if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+		BZERO_SM(OSL_CACHED((uint32)di->txd64), (di->ntxd * sizeof(dma64dd_t)));
+		OSL_CACHE_FLUSH((uint)OSL_CACHED((uint32)di->txd64), (di->ntxd * sizeof(dma64dd_t)));
+	} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+		BZERO_SM((void *)(uintptr)di->txd64, (di->ntxd * sizeof(dma64dd_t)));
 
 	_dma_ddtable_init(di, DMA_TX, di->txdpa);
 
@@ -2258,9 +2281,25 @@ dma64_txfast(dma_info_t *di, void *p0, bool commit)
 	}
 
 	/* if last txd eof not set, fix it */
-	if (!(flags & D64_CTRL1_EOF))
-		W_SM(&di->txd64[PREVTXD(txout)].ctrl1,
-		     BUS_SWAP32(flags | D64_CTRL1_IOC | D64_CTRL1_EOF));
+	if (!(flags & D64_CTRL1_EOF)) {
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+		if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+			uint32 ctrl2, addrlow, addrhigh;
+
+			addrlow = R_SM((volatile uint32 *)&di->txd64[PREVTXD(txout)].addrlow);
+			addrhigh = R_SM((volatile uint32 *)&di->txd64[PREVTXD(txout)].addrhigh);
+			ctrl2 = R_SM((volatile uint32 *)&di->txd64[PREVTXD(txout)].ctrl2);
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[PREVTXD(txout)].addrlow), addrlow);
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[PREVTXD(txout)].addrhigh), addrhigh);
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[PREVTXD(txout)].ctrl1),
+				BUS_SWAP32(flags | D64_CTRL1_IOC | D64_CTRL1_EOF));
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[PREVTXD(txout)].ctrl2), ctrl2);
+			OSL_CACHE_FLUSH((uint)OSL_CACHED(&di->txd64[PREVTXD(txout)]), sizeof(dma64dd_t));
+		} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+			W_SM(&di->txd64[PREVTXD(txout)].ctrl1,
+			     BUS_SWAP32(flags | D64_CTRL1_IOC | D64_CTRL1_EOF));
+	}
 
 	/* save the packet */
 	di->txp[PREVTXD(txout)] = p0;
@@ -2351,8 +2390,23 @@ dma64_getnexttxp(dma_info_t *di, txd_range_t range)
 		}
 
 		for (j = nsegs; j > 0; j--) {
-			W_SM(&di->txd64[i].addrlow, 0xdeadbeef);
-			W_SM(&di->txd64[i].addrhigh, 0xdeadbeef);
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+			if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+				uint32 ctrl1, ctrl2;
+
+				ctrl1 = R_SM((volatile uint32 *)&di->txd64[i].ctrl1);
+				ctrl2 = R_SM((volatile uint32 *)&di->txd64[i].ctrl2);
+				W_SM((uint32 *)OSL_CACHED(&di->txd64[i].addrlow), 0xdeadbeef);
+				W_SM((uint32 *)OSL_CACHED(&di->txd64[i].addrhigh), 0xdeadbeef);
+				W_SM((uint32 *)OSL_CACHED(&di->txd64[i].ctrl1), ctrl1);
+				W_SM((uint32 *)OSL_CACHED(&di->txd64[i].ctrl2), ctrl2);
+				OSL_CACHE_FLUSH((uint)OSL_CACHED(&di->txd64[i]), sizeof(dma64dd_t));
+			} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+			{
+				W_SM(&di->txd64[i].addrlow, 0xdeadbeef);
+				W_SM(&di->txd64[i].addrhigh, 0xdeadbeef);
+			}
 
 			txp = di->txp[i];
 			di->txp[i] = NULL;
@@ -2413,8 +2467,23 @@ dma64_getnextrxp(dma_info_t *di, bool forceall)
 	DMA_UNMAP(di->osh, pa,
 	          di->rxbufsize, DMA_RX, rxp, &di->rxp_dmah[i]);
 
-	W_SM(&di->rxd64[i].addrlow, 0xdeadbeef);
-	W_SM(&di->rxd64[i].addrhigh, 0xdeadbeef);
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+	if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+		uint32 ctrl1, ctrl2;
+
+		ctrl1 = R_SM((volatile uint32 *)&di->rxd64[i].ctrl1);
+		ctrl2 = R_SM((volatile uint32 *)&di->rxd64[i].ctrl2);
+		W_SM((uint32 *)OSL_CACHED(&di->rxd64[i].addrlow), 0xdeadbeef);
+		W_SM((uint32 *)OSL_CACHED(&di->rxd64[i].addrhigh), 0xdeadbeef);
+		W_SM((uint32 *)OSL_CACHED(&di->rxd64[i].ctrl1), ctrl1);
+		W_SM((uint32 *)OSL_CACHED(&di->rxd64[i].ctrl2), ctrl2);
+		OSL_CACHE_FLUSH((uint)OSL_CACHED(&di->rxd64[i]), sizeof(dma64dd_t));
+	} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+	{
+		W_SM(&di->rxd64[i].addrlow, 0xdeadbeef);
+		W_SM(&di->rxd64[i].addrhigh, 0xdeadbeef);
+	}
 
 	di->rxin = NEXTRXD(i);
 
@@ -2469,20 +2538,48 @@ dma64_txrotate(dma_info_t *di)
 		 * Move the tx dma descriptor.
 		 * EOT is set only in the last entry in the ring.
 		 */
-		w = BUS_SWAP32(R_SM(&di->txd64[old].ctrl1)) & ~D64_CTRL1_EOT;
-		if (new == (di->ntxd - 1))
-			w |= D64_CTRL1_EOT;
-		W_SM(&di->txd64[new].ctrl1, BUS_SWAP32(w));
+#if defined(__mips__) && defined(OSL_CACHE_FLUSH)
+		if (CHIPID(di->sih->chip) == BCM5356_CHIP_ID && di->sih->chiprev == 0) {
+			uint32 ctrl1, ctrl2;
 
-		w = BUS_SWAP32(R_SM(&di->txd64[old].ctrl2));
-		W_SM(&di->txd64[new].ctrl2, BUS_SWAP32(w));
+			ctrl1 = R_SM(&di->txd64[old].ctrl1);
+			w = BUS_SWAP32(ctrl1) & ~D64_CTRL1_EOT;
+			if (new == (di->ntxd - 1))
+				w |= D64_CTRL1_EOT;
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[new].ctrl1), BUS_SWAP32(w));
 
-		W_SM(&di->txd64[new].addrlow, R_SM(&di->txd64[old].addrlow));
-		W_SM(&di->txd64[new].addrhigh, R_SM(&di->txd64[old].addrhigh));
+			ctrl2 = R_SM(&di->txd64[old].ctrl2);
+			w = BUS_SWAP32(ctrl2);
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[new].ctrl2), BUS_SWAP32(w));
 
-		/* zap the old tx dma descriptor address field */
-		W_SM(&di->txd64[old].addrlow, BUS_SWAP32(0xdeadbeef));
-		W_SM(&di->txd64[old].addrhigh, BUS_SWAP32(0xdeadbeef));
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[new].addrlow), R_SM(&di->txd64[old].addrlow));
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[new].addrhigh), R_SM(&di->txd64[old].addrhigh));
+
+			/* zap the old tx dma descriptor address field */
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[old].addrlow), BUS_SWAP32(0xdeadbeef));
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[old].addrhigh), BUS_SWAP32(0xdeadbeef));
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[old].ctrl1), ctrl1);
+			W_SM((uint32 *)OSL_CACHED(&di->txd64[old].ctrl2), ctrl2);
+			OSL_CACHE_FLUSH((uint)OSL_CACHED(&di->txd64[new]), sizeof(dma64dd_t));
+			OSL_CACHE_FLUSH((uint)OSL_CACHED(&di->txd64[old]), sizeof(dma64dd_t));
+		} else
+#endif /* defined(__mips__) && defined(OSL_CACHE_FLUSH) */
+		{
+			w = BUS_SWAP32(R_SM(&di->txd64[old].ctrl1)) & ~D64_CTRL1_EOT;
+			if (new == (di->ntxd - 1))
+				w |= D64_CTRL1_EOT;
+			W_SM(&di->txd64[new].ctrl1, BUS_SWAP32(w));
+
+			w = BUS_SWAP32(R_SM(&di->txd64[old].ctrl2));
+			W_SM(&di->txd64[new].ctrl2, BUS_SWAP32(w));
+
+			W_SM(&di->txd64[new].addrlow, R_SM(&di->txd64[old].addrlow));
+			W_SM(&di->txd64[new].addrhigh, R_SM(&di->txd64[old].addrhigh));
+
+			/* zap the old tx dma descriptor address field */
+			W_SM(&di->txd64[old].addrlow, BUS_SWAP32(0xdeadbeef));
+			W_SM(&di->txd64[old].addrhigh, BUS_SWAP32(0xdeadbeef));
+		}
 
 		/* move the corresponding txp[] entry */
 		ASSERT(di->txp[new] == NULL);
