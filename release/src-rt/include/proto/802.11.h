@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  *
  * Fundamental types and constants relating to 802.11
  *
- * $Id: 802.11.h,v 9.222.2.4 2008/05/16 23:50:02 Exp $
+ * $Id: 802.11.h,v 9.222.2.9 2009/08/10 07:58:32 Exp $
  */
 
 #ifndef _802_11_H_
@@ -356,14 +356,18 @@ struct dot11_action_switch_channel {
 	dot11_brcm_extch_ie_t extch_ie;		/* extension channel offset */
 } PACKED;
 
-/* 11n Extended Channel Switch IE data structure */
-struct dot11_ext_csa {
-	uint8 id;	/* id DOT11_MNG_EXT_CHANNEL_SWITCH_ID */
-	uint8 len;	/* length of IE */
+struct dot11_csa_body {
 	uint8 mode;	/* mode 0 or 1 */
 	uint8 reg;	/* regulatory class */
 	uint8 channel;	/* channel switch to */
 	uint8 count;	/* number of beacons before switching */
+} PACKED;
+
+/* 11n Extended Channel Switch IE data structure */
+struct dot11_ext_csa {
+	uint8 id;		/* id DOT11_MNG_EXT_CHANNEL_SWITCH_ID */
+	uint8 len;		/* length of IE */
+	struct dot11_csa_body b;/* body of the ie */
 } PACKED;
 typedef struct dot11_ext_csa dot11_ext_csa_ie_t;
 #define DOT11_EXT_CSA_IE_LEN	4	/* length of extended channel switch IE body */
@@ -372,6 +376,12 @@ struct dot11_action_ext_csa {
 	uint8	category;
 	uint8	action;
 	dot11_ext_csa_ie_t chan_switch_ie;	/* for switch IE */
+} PACKED;
+
+struct dot11y_action_ext_csa {
+	uint8	category;
+	uint8	action;
+	struct dot11_csa_body b;	/* body of the ie */
 } PACKED;
 
 struct dot11_obss_coex {
@@ -604,6 +614,9 @@ typedef struct wme_param_ie wme_param_ie_t;
 #define EDCF_AC_VO_ACI_STA           0x62	/* STA ACI value for audio AC */
 #define EDCF_AC_VO_ECW_STA           0x32	/* STA ECW value for audio AC */
 #define EDCF_AC_VO_TXOP_STA          0x002f	/* STA TXOP value for audio AC */
+
+/* Default BE ACI value for non-WME connection STA */
+#define NON_EDCF_AC_BE_ACI_STA		0x02
 
 /* Default EDCF parameters that AP uses; WMM draft Table 14 */
 #define EDCF_AC_BE_ACI_AP            0x03	/* AP ACI value for best effort AC */
@@ -1006,6 +1019,8 @@ struct dot11_management_notification {
 #define DOT11_MNG_EXT_CSA_ID			60	/* d11 Extended CSA */
 #define	DOT11_MNG_HT_ADD			61	/* d11 mgmt additional HT info */
 #define	DOT11_MNG_EXT_CHANNEL_OFFSET		62	/* d11 mgmt ext channel offset */
+
+
 #define	DOT11_MNG_HT_BSS_COEXINFO_ID		72	/* d11 mgmt OBSS Coexistence INFO */
 #define	DOT11_MNG_HT_BSS_CHANNEL_REPORT_ID	73	/* d11 mgmt OBSS Intolerant Channel list */
 #define	DOT11_MNG_HT_OBSS_ID			74	/* d11 mgmt OBSS HT info */
@@ -1061,8 +1076,8 @@ struct dot11_management_notification {
 #define DOT11_ACTION_ID_M_REQ		0	/* d11 action measurement request */
 #define DOT11_ACTION_ID_M_REP		1	/* d11 action measurement response */
 #define DOT11_ACTION_ID_TPC_REQ		2	/* d11 action TPC request */
-#define DOT11_ACTION_ID_TPC_REP		3	/* d11 action TPC response */
 #define DOT11_ACTION_ID_CHANNEL_SWITCH	4	/* d11 action channel switch */
+#define DOT11_ACTION_ID_TPC_REP		3	/* d11 action TPC response */
 #define DOT11_ACTION_ID_EXT_CSA		5	/* d11 extened CSA for 11n */
 
 /* HT action ids */
@@ -1070,7 +1085,8 @@ struct dot11_management_notification {
 #define DOT11_ACTION_ID_HT_MIMO_PS	1	/* mimo ps action id */
 
 /* Public action ids */
-#define DOT11_ACTION_ID_BSS_COEX_MNG	0	/* 20/40 Coexistence Management action id */
+#define DOT11_PUB_ACTION_BSS_COEX_MNG	0	/* 20/40 Coexistence Management action id */
+#define DOT11_PUB_ACTION_CHANNEL_SWITCH	4	/* d11 action channel switch */
 
 /* Block Ack action types */
 #define DOT11_BA_ACTION_ADDBA_REQ	0	/* ADDBA Req action frame type */
@@ -1188,7 +1204,7 @@ typedef struct d11cnt {
 /* OUI for BRCM proprietary IE */
 #define BRCM_PROP_OUI		"\x00\x90\x4C"	/* Broadcom proprietary OUI */
 
-#ifndef LINUX_HYBRID_POSTMOGRIFY_REMOVAL
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* The following BRCM_PROP_OUI types are currently in use (defined in
  * relevant subsections). Each of them will be in a separate proprietary(221) IE
  * #define SES_VNDR_IE_TYPE	1   (defined in src/ses/shared/ses.h)
@@ -1213,7 +1229,7 @@ typedef struct brcm_prop_ie_s brcm_prop_ie_t;
 #define BRCM_PROP_IE_LEN	6	/* len of fixed part of brcm_prop ie */
 
 #define DPT_IE_TYPE		2
-#endif /* LINUX_HYBRID_POSTMOGRIFY_REMOVAL */
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* BRCM OUI: Used in the proprietary(221) IE in all broadcom devices */
 #define BRCM_OUI		"\x00\x10\x18"	/* Broadcom OUI */
@@ -1467,6 +1483,12 @@ typedef struct vndr_ie vndr_ie_t;
 #define TKIP_MIC_SUP_TX		TKIP_MIC_AUTH_RX	/* offset to Supplicant MIC TX key */
 #define AES_KEY_SIZE		16	/* size of AES key */
 #define AES_MIC_SIZE		8	/* size of AES MIC */
+
+#ifdef BCMWAPI_WPI
+#define SMS4_KEY_LEN		16
+#define SMS4_WPI_CBC_MAC_LEN	16
+#endif
+
 
 #undef PACKED
 #if !defined(__GNUC__)

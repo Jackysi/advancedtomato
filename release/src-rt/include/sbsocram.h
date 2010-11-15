@@ -1,7 +1,7 @@
 /*
  * BCM47XX Sonics SiliconBackplane embedded ram core
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sbsocram.h,v 13.9 2007/06/30 01:58:35 Exp $
+ * $Id: sbsocram.h,v 13.9.96.1 2009/06/18 12:19:28 Exp $
  */
 
 #ifndef	_SBSOCRAM_H
@@ -49,6 +49,8 @@ typedef volatile struct sbsocramregs {
 /* Coreinfo register */
 #define	SRCI_PT_MASK		0x00030000
 #define	SRCI_PT_SHIFT		16
+/* port types : SRCI_PT_<processorPT>_<backplanePT> */
+#define SRCI_PT_CM3AHB_OCP	3
 /* corerev >= 3 */
 #define SRCI_LSS_MASK		0x00f00000
 #define SRCI_LSS_SHIFT		20

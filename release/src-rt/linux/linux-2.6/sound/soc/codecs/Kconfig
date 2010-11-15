@@ -7,11 +7,15 @@ config SND_SOC_WM8731
 	depends on SND_SOC
 
 config SND_SOC_WM8750
-	tristate
+	tristate "WM8750"
 	depends on SND_SOC
 
 config SND_SOC_WM8753
 	tristate
+	depends on SND_SOC
+
+config SND_SOC_WM8955
+	tristate "WM8955"
 	depends on SND_SOC
 
 config SND_SOC_WM9712

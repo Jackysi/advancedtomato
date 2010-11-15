@@ -226,11 +226,11 @@ obj-$(CONFIG_USB_ZD1201)        += usb/
 # Broadcom HND devices
 #
 obj-$(CONFIG_HND) += hnd/
+obj-$(CONFIG_BCM_CTF) += ctf/
 obj-$(CONFIG_ET) += et/
 obj-$(CONFIG_BCM57XX) += bcm57xx/
 obj-$(CONFIG_WL) += wl/
 obj-$(CONFIG_EMF) += emf/ igs/
-
 
 obj-y += wireless/
 obj-$(CONFIG_NET_TULIP) += tulip/

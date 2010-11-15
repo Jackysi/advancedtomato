@@ -1,7 +1,7 @@
 /*
  * BCM47XX Sonics SiliconBackplane SDRAM/MEMC core initialization
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sbsdram.S,v 1.43.2.1.12.1 2008/11/14 18:14:26 Exp $
+ * $Id: sbsdram.S,v 1.43.2.2 2008/11/14 18:18:20 Exp $
  */
 
 #include <hndsoc.h>

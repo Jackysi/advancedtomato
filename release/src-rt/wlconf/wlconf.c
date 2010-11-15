@@ -1,7 +1,7 @@
 /*
  * Wireless Network Adapter Configuration Utility
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: wlconf.c,v 1.183 2008/12/09 02:38:01 Exp $
+ * $Id: wlconf.c,v 1.187.2.13 2010/02/25 23:57:51 Exp $
  */
 
 #include <typedefs.h>
@@ -742,43 +742,6 @@ wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp)
 	WL_BSSIOVAR_SETINT(name, "auth", bsscfg_idx, val);
 }
 
-static void
-wlconf_set_ampdu_retry_limit(char *name, char *prefix)
-{
-	int i, j, ret, nv_len;
-	struct ampdu_retry_tid retry_limit;
-	char *nv_name[2] = {"ampdu_rtylimit_tid", "ampdu_rr_rtylimit_tid"};
-	char *iov_name[2] = {"ampdu_retry_limit_tid", "ampdu_rr_retry_limit_tid"};
-	char *retry, *v, *nv_value, nv[100], tmp[100];
-
-	/* Get packed AMPDU (rr) retry limit per-tid from NVRAM if present */
-	for (i = 0; i < 2; i++) {
-		nv_value = nvram_safe_get(strcat_r(prefix, nv_name[i], tmp));
-		nv_len = strlen(nv_value);
-		strcpy(nv, nv_value);
-
-		/* unpack it */
-		v = nv;
-		for (j = 0; nv_len >= 0 && j < NUMPRIO; j++) {
-			retry = v;
-			while (*v && *v != ' ') {
-				v++;
-				nv_len--;
-			}
-			if (*v) {
-				*v = 0;
-				v++;
-				nv_len--;
-			}
-			/* set the AMPDU retry limit per-tid */
-			retry_limit.tid = j;
-			retry_limit.retry = atoi(retry);
-			WL_IOVAR_SET(name, iov_name[i], &retry_limit, sizeof(retry_limit));
-		}
-	}
-
-	return;
-}
 
 /*
  * When N-mode is ON, afterburner is disabled and AMPDU, AMSDU are enabled/disabled
@@ -857,8 +820,6 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 	}
 
 	if (nmode != OFF) { /* N-mode is ON/AUTO */
-
-
 		if (ampdu_valid_option) {
 			if (ampdu_option_val != OFF) {
 				WL_IOVAR_SETINT(name, "amsdu", OFF);
@@ -866,8 +827,6 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 			} else {
 				WL_IOVAR_SETINT(name, "ampdu", OFF);
 			}
-
-			wlconf_set_ampdu_retry_limit(name, prefix);
 		}
 
 		if (amsdu_valid_option) {
@@ -936,6 +895,7 @@ wlconf(char *name)
 	unsigned int i;
 	char eaddr[32];
 	int ap, apsta, wds, sta = 0, wet = 0, mac_spoof = 0, wmf = 0;
+	int radio_pwrsave = 0, rxchain_pwrsave = 0;
 	char country_code[4];
 	char *ba;
 #ifdef BCMWPA2
@@ -998,6 +958,10 @@ wlconf(char *name)
 			max_no_vifs = 4;
 		else if (!strcmp(cap, "wmf"))
 			wmf = 1;
+		else if (!strcmp(cap, "rxchain_pwrsave"))
+			rxchain_pwrsave = 1;
+		else if (!strcmp(cap, "radio_pwrsave"))
+			radio_pwrsave = 1;
 	}
 
 	/* Check interface (fail silently for non-wl interfaces) */
@@ -1230,6 +1194,38 @@ wlconf(char *name)
 			val = atoi(nvram_safe_get(strcat_r(bsscfg->prefix, "wmf_bss_enable", tmp)));
 			WL_BSSIOVAR_SETINT(name, "wmf_bss_enable", bsscfg->idx, val);
 		}
+
+		/* Set the Multicast Reverse Translation enable mode */
+		if (wet) {
+			val = atoi(nvram_safe_get(strcat_r(bsscfg->prefix,
+							 "mcast_regen_bss_enable", tmp)));
+			WL_BSSIOVAR_SETINT(name, "mcast_regen_bss_enable", bsscfg->idx, val);
+		}
+	}
+
+	if (rxchain_pwrsave) {
+		val = atoi(nvram_safe_get(strcat_r(prefix, "rxchain_pwrsave_enable", tmp)));
+		WL_BSSIOVAR_SETINT(name, "rxchain_pwrsave_enable", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(prefix, "rxchain_pwrsave_quiet_time", tmp)));
+		WL_BSSIOVAR_SETINT(name, "rxchain_pwrsave_quiet_time", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(prefix, "rxchain_pwrsave_pps", tmp)));
+		WL_BSSIOVAR_SETINT(name, "rxchain_pwrsave_pps", bsscfg->idx, val);
+	}
+
+	if (radio_pwrsave) {
+		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_enable", tmp)));
+		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_enable", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_quiet_time", tmp)));
+		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_quiet_time", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_pps", tmp)));
+		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_pps", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_on_time", tmp)));
+		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_on_time", bsscfg->idx, val);
 	}
 
 	/* Set up the country code */
@@ -1722,6 +1718,19 @@ wlconf(char *name)
 		val = nvram_match(strcat_r(prefix, "frameburst", tmp), "on");
 	WL_IOCTL(name, WLC_SET_FAKEFRAG, &val, sizeof(val));
 
+	/* Set the STBC tx mode */
+	if (phytype == PHY_TYPE_N) {
+		char *nvram_str = nvram_safe_get(strcat_r(prefix, "stbc_tx", tmp));
+
+		if (!strcmp(nvram_str, "auto")) {
+			WL_IOVAR_SETINT(name, "stbc_tx", AUTO);
+		} else if (!strcmp(nvram_str, "on")) {
+			WL_IOVAR_SETINT(name, "stbc_tx", ON);
+		} else if (!strcmp(nvram_str, "off")) {
+			WL_IOVAR_SETINT(name, "stbc_tx", OFF);
+		}
+	}
+
 	/* Set RIFS mode based on framebursting */
 	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
 		char *nvram_str = nvram_safe_get(strcat_r(prefix, "rifs", tmp));
@@ -1729,6 +1738,13 @@ wlconf(char *name)
 			wl_iovar_setint(name, "rifs", ON);
 		else if (!strcmp(nvram_str, "off"))
 			wl_iovar_setint(name, "rifs", OFF);
+
+		/* RIFS mode advertisement */
+		nvram_str = nvram_safe_get(strcat_r(prefix, "rifs_advert", tmp));
+		if (!strcmp(nvram_str, "auto"))
+			wl_iovar_setint(name, "rifs_advert", AUTO);
+		else if (!strcmp(nvram_str, "off"))
+			wl_iovar_setint(name, "rifs_advert", OFF);
 	}
 
 	/* Override BA mode only if set to on/off */
@@ -1755,11 +1771,36 @@ wlconf(char *name)
 		wlconf_set_radarthrs(name, prefix);
 	}
 
+	/* Set channel interference threshold value if it is enabled */
+	str = nvram_get(strcat_r(prefix, "glitchthres", tmp));
+
+	if (str) {
+		int glitch_thres = atoi(str);
+		if (glitch_thres > 0)
+			WL_IOVAR_SETINT(name, "chanim_glitchthres", glitch_thres);
+	}
+
+	str = nvram_get(strcat_r(prefix, "ccathres", tmp));
+
+	if (str) {
+		int cca_thres = atoi(str);
+		if (cca_thres > 0)
+			WL_IOVAR_SETINT(name, "chanim_ccathres", cca_thres);
+	}
+
+	str = nvram_get(strcat_r(prefix, "chanimmode", tmp));
+
+	if (str) {
+		int chanim_mode = atoi(str);
+		if (chanim_mode >= 0)
+			WL_IOVAR_SETINT(name, "chanim_mode", chanim_mode);
+	}
+
 	/* Overlapping BSS Coexistence aka 20/40 Coex. aka OBSS Coex.
 	 * For an AP - Only use if 2G band AND user wants a 40Mhz chanspec.
 	 * For a STA - Always
 	 */
-	if (phytype == PHY_TYPE_N) {
+	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN) {
 		if (sta ||
 		    ((ap || apsta) && (nbw == WL_CHANSPEC_BW_40) && (bandtype == WLC_BAND_2G))) {
 			str = nvram_safe_get(strcat_r(prefix, "obss_coex", tmp));

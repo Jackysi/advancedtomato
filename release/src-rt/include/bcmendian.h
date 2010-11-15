@@ -108,7 +108,7 @@ bcmswap16_buf(uint16 *buf, uint len)
 #endif /* IL_BIGENDIAN */
 
 /*
-* store 16-bit value to unaligned little endian byte array.
+* Store 16-bit value to unaligned little endian byte array.
 */
 static INLINE void
 htol16_ua_store(uint16 val, uint8 *bytes)
@@ -118,7 +118,7 @@ htol16_ua_store(uint16 val, uint8 *bytes)
 }
 
 /*
-* store 32-bit value to unaligned little endian byte array.
+* Store 32-bit value to unaligned little endian byte array.
 */
 static INLINE void
 htol32_ua_store(uint32 val, uint8 *bytes)
@@ -130,7 +130,7 @@ htol32_ua_store(uint32 val, uint8 *bytes)
 }
 
 /*
-* store 16-bit value to unaligned network(big) endian byte array.
+* Store 16-bit value to unaligned network(big) endian byte array.
 */
 static INLINE void
 hton16_ua_store(uint16 val, uint8 *bytes)
@@ -140,7 +140,7 @@ hton16_ua_store(uint16 val, uint8 *bytes)
 }
 
 /*
-* store 32-bit value to unaligned network(big) endian byte array.
+* Store 32-bit value to unaligned network(big) endian byte array.
 */
 static INLINE void
 hton32_ua_store(uint32 val, uint8 *bytes)

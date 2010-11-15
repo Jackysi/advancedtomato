@@ -175,7 +175,23 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb_reset_tail_pointer(skb);
 	skb->end = skb->tail + size;
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	skb->nfct_reasm = skb->nfct = NULL;
 	skb->nfcache = 0;
+#endif
+#ifdef CONFIG_BRIDGE_NETFILTER
+	skb->nf_bridge = NULL;
+#endif
+#ifdef CONFIG_NET_SCHED
+	skb->tc_index = 0;
+#ifdef CONFIG_NET_CLS_ACT
+	skb->tc_verd = 0;
+#endif
+#endif
+#ifdef CONFIG_NET_DMA
+	memset(&skb->dma_cookie, 0, sizeof(dma_cookie_t));
+#endif
+#ifdef CONFIG_NETWORK_SECMARK
+	skb->secmark =0;
 #endif
 	/* make sure we initialize shinfo sequentially */
 	shinfo = skb_shinfo(skb);

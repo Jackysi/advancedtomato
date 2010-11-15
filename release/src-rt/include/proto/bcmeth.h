@@ -1,7 +1,7 @@
 /*
  * Broadcom Ethernettype  protocol definitions
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmeth.h,v 9.9.12.2 2008/05/02 23:24:25 Exp $
+ * $Id: bcmeth.h,v 9.9.12.4 2009/03/11 05:27:38 Exp $
  */
 
 /*
@@ -27,7 +27,7 @@
 #define	PACKED
 #endif
 
-#ifndef LINUX_HYBRID_POSTMOGRIFY_REMOVAL
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* ETHER_TYPE_BRCM is defined in ethernet.h */
 
 /*
@@ -83,7 +83,7 @@
 
 #define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
 #define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
-#endif /* LINUX_HYBRID_POSTMOGRIFY_REMOVAL */
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* These fields are stored in network order */
 typedef  struct bcmeth_hdr

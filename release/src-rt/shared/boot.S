@@ -3,7 +3,7 @@
  *
  * Code should be position-independent until it copies itself to SDRAM.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -11,7 +11,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: boot.S,v 1.27.2.3.2.4 2008/11/18 03:35:46 Exp $
+ * $Id: boot.S,v 1.27.2.6 2008/10/31 21:36:24 Exp $
  */
 
 #include "mipsinc.h"
@@ -38,15 +38,15 @@
 	# It is Ugly...but
 	li	s2,KSEG1ADDR(SI_ENUM_BASE)	# s2 = SI_ENUM_BASE
 	li	a3,BCM5350_CHIP_ID		# 5350 ChipID
-	lw	s1,CC_CHIPID(s2)		# s1 = ChipID register
+	lw	t1,CC_CHIPID(s2)		# ChipID register
 	li	t2,CID_ID_MASK			# chip id is bit 0-15
-	and	t2,s1,t2
+	and	t2,t1,t2
 	bne	t2,a3,2f			# if not 5350 then skip
 	nop
 	
 	TRACE(0x424f01)
 	li	t2,CID_PKG_MASK			# if it is a vsim 5350, also skip
-	and	t2,s1,t2
+	and	t2,t1,t2
 	li	a3,(HDLSIM5350_PKG_ID << CID_PKG_SHIFT)
 	beq	t2,a3,initcpu			# if pkg opt 1 then skip
 	nop
@@ -68,7 +68,7 @@
 
 	TRACE(0x424f03)
 	li	t2,CID_REV_MASK			# Get chip rev
-	and	t2,s1,t2
+	and	t2,t1,t2
 	li	t3,(3 << CID_REV_SHIFT)		# Is it an a3?
 	blt	t2,t3,a0a1a2
 	nop 
@@ -170,8 +170,9 @@ initram:
 chkchiptype:
 	TRACE(0x424f08)
 	li	t0,CID_TYPE_MASK
-	and	t0,t0,s1
-	srl	s7,t0,CID_TYPE_SHIFT		# s7 = ChipType (0 for SB, = 1 for AI)
+	lw	t1,CC_CHIPID(s2)
+	and	t1,t0,t1
+	srl	s7,t1,CID_TYPE_SHIFT		# s7 = ChipType (0 for SB, = 1 for AI)
 
 	bnez	s7,chkcacheon			# If ai chip no need to check chipc rev
 	nop
@@ -245,8 +246,9 @@ embedded_nvram:
 initcaches:
 	TRACE(0x424f0c)
 	li	t0,(HDLSIM_PKG_ID << CID_PKG_SHIFT)	# vsim package option
+	lw	t1,CC_CHIPID(s2)		# ChipID register
 	li	t2,CID_PKG_MASK			# isolate chip package
-	and	t2,s1,t2
+	and	t2,t1,t2
 	beq	t0,t2,chcach			# Skip cache init if vsim
 
 	/* Figure if it is a mips32r2 CPU which we take as an indication that
@@ -375,13 +377,10 @@ chcach:
 switchkseg0:
 	la	t2,board_draminit
 	add	t2,t2,s5
-	la	ra,backfbd
-	add	ra,ra,s5
-	jr	t2
+	jalr	t2
 	nop
 
 	/* Should return ram size in v0 */
-backfbd:
 	bnez	v0,1f
 	nop
 

@@ -3,14 +3,14 @@
  * Contents are wifi-specific, used by any kernel or app-level
  * software that might want wifi things as it grows.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: bcmwifi.c,v 1.22 2008/01/26 22:41:22 Exp $
+ * $Id: bcmwifi.c,v 1.22.4.1 2009/03/13 18:25:48 Exp $
  */
 
 #include <typedefs.h>
@@ -195,8 +195,8 @@ wf_chspec_malformed(chanspec_t chanspec)
  * sideband depending on the chanspec selected
  */
 uint8
-wf_chspec_ctlchan(chanspec_t chspec) {
-
+wf_chspec_ctlchan(chanspec_t chspec)
+{
 	uint8 ctl_chan;
 
 	/* Is there a sideband ? */

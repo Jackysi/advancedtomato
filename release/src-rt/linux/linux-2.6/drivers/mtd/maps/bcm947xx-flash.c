@@ -1,7 +1,7 @@
 /*
  * Flash mapping for BCM947XX boards
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcm947xx-flash.c,v 1.5 2008/03/25 01:27:49 Exp $
+ * $Id: bcm947xx-flash.c,v 1.6 2009/07/27 07:34:33 Exp $
  */
 
 #include <linux/module.h>

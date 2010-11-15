@@ -1,7 +1,7 @@
 /*
  * Low-Level PCI and SB support for BCM47xx (Linux support code)
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: pcibios.c,v 1.8 2008/07/04 01:09:57 Exp $
+ * $Id: pcibios.c,v 1.10 2009/12/28 09:46:32 Exp $
  */
 
 #include <linux/config.h>
@@ -27,6 +27,7 @@
 #include <bcmutils.h>
 #include <hndsoc.h>
 #include <siutils.h>
+#include <hndcpu.h>
 #include <hndpci.h>
 #include <hndcpu.h>
 #include <pcicfg.h>
@@ -256,12 +257,56 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	 */
 	else if (si_coreid(sih) == USB20H_CORE_ID) {
 		if (!si_iscoreup(sih)) {
-
 			si_core_reset(sih, 0, 0);
 			// USB hungup issue from broadcom 2009.6.24
 			mdelay(10);
-			writel(0x7ff, regs + 0x200);
-			udelay(1);
+			if (si_corerev(sih) >= 5) {
+				uint32 tmp;
+				/* Enable Misc PLL */
+				tmp = readl(regs + 0x1e0);
+				tmp |= 0x100;
+				writel(tmp, regs + 0x1e0);
+				SPINWAIT((((tmp = readl(regs + 0x1e0)) & (1 << 24))
+					== 0), 1000);
+				/* Take out of resets */
+				writel(0x4ff, regs + 0x200);
+				udelay(25);
+				writel(0x6ff, regs + 0x200);
+				udelay(25);
+
+				/* Make sure digital and AFE are locked in USB PHY */
+				writel(0x6b, regs + 0x524);
+				udelay(50);
+				tmp = readl(regs + 0x524);
+				udelay(50);
+				writel(0xab, regs + 0x524);
+				udelay(50);
+				tmp = readl(regs + 0x524);
+				udelay(50);
+				writel(0x2b, regs + 0x524);
+				udelay(50);
+				tmp = readl(regs + 0x524);
+				udelay(50);
+				writel(0x10ab, regs + 0x524);
+				udelay(50);
+				tmp = readl(regs + 0x524);
+				SPINWAIT((((tmp = readl(regs + 0x528)) & 0xc000) !=
+					0xc000), 100000);
+				if ((tmp & 0xc000) != 0xc000) {
+					printk("WARNING! USB20H mdio_rddata 0x%08x\n", tmp);
+				}
+				writel(0x80000000, regs + 0x528);
+				tmp = readl(regs + 0x314);
+				udelay(265);
+				writel(0x7ff, regs + 0x200);
+				udelay(10);
+
+				/* Take USB and HSIC out of non-driving modes */
+				writel(0, regs + 0x510);
+			} else {
+				writel(0x7ff, regs + 0x200);
+				udelay(1);
+			}
 		}
 
 		/* War for 5354 failures. */

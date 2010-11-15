@@ -1,7 +1,7 @@
 /*
  * BCM47XX Denali based memory controller initialization
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: aisdram.S,v 1.3.2.3.8.10 2009/02/20 02:00:52 Exp $
+ * $Id: aisdram.S,v 1.3.2.6 2009/06/11 01:25:22 Exp $
  */
 
 #include <hndsoc.h>
@@ -74,7 +74,7 @@ sdr_init:
 
 ddr1_init:
 	.word	4,	0x00000100
-	.word	6,	0x00000100
+	.word	6,	0x00000000
 	.word	11,	0x00030000
 	.word	14,	0x02030200
 	.word	15,	0x0f010203
@@ -121,8 +121,10 @@ ddr2_init:
 	 *		s1 = package opt
 	 *		s3 = KSEG1
 	 *		s4 = Controller coreid
-	 *		s6 = chipid (after last use as ChipId reg)
 	 *		s8 = config_ncdl
+	 *		a1 = dmemc regs
+	 *		a2 = dmemc DMP regs
+	 *		a3 = memory type (sdr,ddr1,ddr2)
 	 */
 
 	LEAF(ai_draminit)
@@ -138,13 +140,8 @@ ddr2_init:
 	li	s3,KSEG1			# s3 = KSEG1
 	or	a0,a0,s3			# a0 points to the EROM
 	TRACE(0x415302)
-1:
-#if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-	xor	t0,a0,4
-	lw	t0,0(t0)
-#else
-	lw	t0,0(a0)
-#endif
+1:	lw	t0,0(a0)			# t0 = CIA
+	lw	t3,4(a0)			# t3 = CIB
 	and	t1,t0,ER_TAG
 	TRACE(0x415303)
 	beq	t1,ER_END,noctrl
@@ -189,26 +186,13 @@ founddmemc:
 	/* We'll cheat a little: memory controllers don't have master ports, so
 	 * the EROM entry right after the CIDs is the slave port for the registers
 	 */
-1:
-#if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-	add	a1,a0,8
-	xor	a1,a1,4
-	lw	a1,0(a1)
-#else
-	lw	a1,8(a0)
-#endif
+1:	lw	a1,8(a0)
 	li	t2,AD_ADDR_MASK
 	and	a1,a1,t2
 	or	a1,a1,s3			# a1: dmemc regs
 	/* after that, the first slave wrapper will be its DMP registers */
 	addi	a0,12
-1:
-#if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-	xor	t0,a0,4
-	lw	t0,0(t0)
-#else
-	lw	t0,0(a0)
-#endif
+1:	lw	t0,0(a0)
 	and	t1,t0,ER_TAG
 	beq	t1,ER_ADD,addesc
 	nop
@@ -235,14 +219,14 @@ swrap:	and	a2,t0,t2
 	and	t0,t0,s6
 	srl	s1,t0,CID_PKG_SHIFT		# s1 = package opt
 
-	/* Find out the type of memory from the strapps */
-	li	t0,CID_ID_MASK
-	and	s6,t0,s6			# s6 = chipid (now)
-	li	t0,BCM4716_CHIP_ID
-	beq	t0,s6,is16x
-	nop
-	li	t0,BCM47162_CHIP_ID
-	beq	t0,s6,is16x
+	/* Find out the type of memory from the straps */
+	/* Corerevs 0 & 1 did not have this register, so we have to
+	 * check the corerev and use chipstatus for those two.
+	 */
+	and	t3,t3,CIB_REV_MASK
+	srl	t3,t3,CIB_REV_SHIFT
+	li	t0,1
+	ble	t3,t0,is16x
 	nop
 
 	/* Not a 4716/47162 (a0?) read the stat register */
@@ -405,8 +389,10 @@ fixs:	bne	s4,DMEMS_CORE_ID,fix2
 	li	t0,0x00000001
 	sw	t0,DMEMC_CONTROL53(a1)
 
-		/* Fixup differences in 47162 */
-fix2:	bne	s6,BCM47162_CHIP_ID,nvover
+	/* Fixup differences in 47162 */
+fix2:	li	t0,CID_ID_MASK
+	and	t0,t0,s6
+	bne	t0,BCM47162_CHIP_ID,nvover
 	nop
 
 	li	t0,0x16006400
@@ -619,9 +605,6 @@ dmemc_init_regs:
 	lw	t2,4(a0)			# Get reg value
 	sll	t1,2				# Reg num * 4 is reg offset
 	addu	t1,a1,t1
-#if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-	xor	t1,t1,4
-#endif
 	sw	t2,0(t1)			# Write reg
 	b	1b
 	addi	a0,8
