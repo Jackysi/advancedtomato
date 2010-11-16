@@ -78,7 +78,7 @@ function msgLoc(s)
 {
 	var r;
 
-	s = s.replace(/\n+/g, ' ');
+	s = s.trim().replace(/\n+/g, ' ');
 	if (r = s.match(/^(.*?): (.*)/)) {
 		r[2] = r[2].replace(/#RETRY (\d+) (\d+)/,
 			function(s, min, num) {
