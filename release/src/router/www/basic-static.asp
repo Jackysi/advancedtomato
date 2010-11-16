@@ -138,17 +138,14 @@ sg.verifyFields = function(row, quiet)
 		return 0;
 	}
 
-	s = f[3].value.trim().replace(/\s+/g, ' ');
+	if (!v_hostname(f[3], quiet)) return 0;
+	if (!v_nodelim(f[3], quiet, 'Hostname', 1)) return 0;
+	s = f[3].value;
 	if (s.length > 0) {
-		if (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1) {
-			ferror.set(f[3], 'Invalid name. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
-			return 0;
-		}
 		if (this.existName(s)) {
 			ferror.set(f[3], 'Duplicate name.', quiet);
 			return 0;
 		}
-		f[3].value = s;
 	}
 
 	if (isMAC0(f[0].value)) {
@@ -202,7 +199,7 @@ sg.setup = function()
 	this.init('bs-grid', 'sort', 140, [
 		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
 		{ type: 'text', maxlen: 15 },
-		{ type: 'text', maxlen: 50 } ] );
+		{ type: 'text', maxlen: 63 } ] );
 
 	this.headerSet(['MAC Address', 'IP Address', 'Hostname']);
 	var s = nvram.dhcpd_static.split('>');

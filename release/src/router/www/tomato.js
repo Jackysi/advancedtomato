@@ -809,7 +809,7 @@ function v_length(e, quiet, min, max)
 		return 0;
 	}
 	max = max || e.maxlength;
-    if (n > max) {
+	if (n > max) {
 		ferror.set(e, 'Invalid length. Please reduce the length to ' + max + ' characters or less.', quiet);
 		return 0;
 	}
@@ -844,6 +844,26 @@ function v_iptaddr(e, quiet, multi)
 			return 0;
 		}
 	}
+	ferror.clear(e);
+	return 1;
+}
+
+function v_hostname(e, quiet)
+{
+	var s;
+
+	if ((e = E(e)) == null) return 0;
+	if (!v_length(e, quiet, 0, 63)) return 0;
+
+	s = e.value.replace(/\s+/g, '_');
+	if (s.length > 0) {
+		if ((s.search(/^[a-zA-Z0-9][a-zA-Z0-9_\-]+$/) == -1) ||
+		    (s.search(/\-$/) >= 0)) {
+			ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9 _" and "-" in the middle are allowed.', quiet);
+			return 0;
+		}
+	}
+	e.value = s;
 	ferror.clear(e);
 	return 1;
 }
