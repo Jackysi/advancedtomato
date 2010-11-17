@@ -9,6 +9,7 @@
 
 #include <arpa/inet.h>
 
+extern char chain_wan_prerouting[];
 
 static const char tcpudp[2][4] = {"tcp", "udp"};
 
@@ -69,7 +70,8 @@ void ipt_forward(ipt_table_t table)
 					strlcat(ip, iaddr, sizeof(ip));
 				}
 				if (table == IPT_TABLE_NAT) {
-					ipt_write("-A WANPREROUTING -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
+					ipt_write("-A %s -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
+						chain_wan_prerouting,
 						c,
 						src,
 						mdport, xports,
@@ -132,7 +134,7 @@ void ipt_triggered(ipt_table_t table)
 					// should only be created if there is at least one enabled
 
 					if (table == IPT_TABLE_NAT) {
-						ipt_write("-A WANPREROUTING -j TRIGGER --trigger-type dnat\n");
+						ipt_write("-A %s -j TRIGGER --trigger-type dnat\n", chain_wan_prerouting);
 						goto QUIT;
 					}
 
