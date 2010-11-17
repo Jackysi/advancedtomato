@@ -48,7 +48,7 @@ var services = [
 	['3322', '3322', 'http://www.3322.org/', 'uhwmb'],
 	['3322-static', '3322 - Static', 'http://www.3322.org/', 'uhwmb'],
 	['dnsexit', 'DNS Exit', 'http://www.dnsexit.com/', 'uh'],
-	['dnsomatic', 'DNS-O-Matic', 'http://www.dnsomatic.com/', 'u'],
+	['dnsomatic', 'DNS-O-Matic', 'http://www.dnsomatic.com/', 'uj'],
 	['dyndns', 'DynDNS - Dynamic', 'http://www.dyndns.com/', 'uhwmbs'],
 	['dyndns-static', 'DynDNS - Static', 'http://www.dyndns.com/', 'uhwmbs'],
 	['dyndns-custom', 'DynDNS - Custom', 'http://www.dyndns.com/', 'uhwmbs'],
