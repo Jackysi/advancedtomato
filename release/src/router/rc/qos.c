@@ -151,8 +151,8 @@ void ipt_qos(void)
 			if ((proto_num == 6) || (proto_num == 17) || (proto_num == -1)) {
 				if (*port_type != 'a') {
 					if ((*port_type == 'x') || (strchr(port, ','))) {
-						// dst-or-src port matches, and anything with multiple lists "," use mport
-						sprintf(sport, "-m mport --%sports %s", (*port_type == 's') ? "s" : ((*port_type == 'd') ? "d" : ""), port);
+						// dst-or-src port matches, and anything with multiple lists "," use multiport
+						sprintf(sport, "-m multiport --%sports %s", (*port_type == 's') ? "s" : ((*port_type == 'd') ? "d" : ""), port);
 					}
 					else {
 						// single or simple x:y range, use built-in tcp/udp match
