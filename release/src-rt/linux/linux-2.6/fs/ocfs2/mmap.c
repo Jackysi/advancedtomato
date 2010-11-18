@@ -42,16 +42,12 @@
 #include "inode.h"
 #include "mmap.h"
 
-static struct page *ocfs2_nopage(struct vm_area_struct * area,
-				 unsigned long address,
-				 int *type)
+static int ocfs2_fault(struct vm_area_struct *area, struct vm_fault *vmf)
 {
-	struct page *page = NOPAGE_SIGBUS;
 	sigset_t blocked, oldset;
-	int ret;
+	int error, ret;
 
-	mlog_entry("(area=%p, address=%lu, type=%p)\n", area, address,
-		   type);
+	mlog_entry("(area=%p, page offset=%lu)\n", area, vmf->pgoff);
 
 	/* The best way to deal with signals in this path is
 	 * to block them upfront, rather than allowing the
@@ -60,24 +56,25 @@ static struct page *ocfs2_nopage(struct vm_area_struct * area,
 
 	/* We should technically never get a bad ret return
 	 * from sigprocmask */
-	ret = sigprocmask(SIG_BLOCK, &blocked, &oldset);
+	error = sigprocmask(SIG_BLOCK, &blocked, &oldset);
 	if (ret < 0) {
-		mlog_errno(ret);
+		mlog_errno(error);
+		ret = VM_FAULT_SIGBUS;
 		goto out;
 	}
 
-	page = filemap_nopage(area, address, type);
+	ret = filemap_fault(area, vmf);
 
-	ret = sigprocmask(SIG_SETMASK, &oldset, NULL);
-	if (ret < 0)
-		mlog_errno(ret);
+	error = sigprocmask(SIG_SETMASK, &oldset, NULL);
+	if (error < 0)
+		mlog_errno(error);
 out:
-	mlog_exit_ptr(page);
-	return page;
+	mlog_exit_ptr(vmf->page);
+	return ret;
 }
 
 static struct vm_operations_struct ocfs2_file_vm_ops = {
-	.nopage = ocfs2_nopage,
+	.fault		= ocfs2_fault,
 };
 
 int ocfs2_mmap(struct file *file, struct vm_area_struct *vma)
@@ -107,6 +104,7 @@ int ocfs2_mmap(struct file *file, struct vm_area_struct *vma)
 	ocfs2_meta_unlock(file->f_dentry->d_inode, lock_level);
 out:
 	vma->vm_ops = &ocfs2_file_vm_ops;
+	vma->vm_flags |= VM_CAN_NONLINEAR;
 	return 0;
 }
 

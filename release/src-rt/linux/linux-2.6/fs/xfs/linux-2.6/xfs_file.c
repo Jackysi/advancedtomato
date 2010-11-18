@@ -221,19 +221,18 @@ xfs_file_fsync(
 }
 
 #ifdef CONFIG_XFS_DMAPI
-STATIC struct page *
-xfs_vm_nopage(
-	struct vm_area_struct	*area,
-	unsigned long		address,
-	int			*type)
+STATIC int
+xfs_vm_fault(
+	struct vm_area_struct	*vma,
+	struct vm_fault	*vmf)
 {
-	struct inode	*inode = area->vm_file->f_path.dentry->d_inode;
+	struct inode	*inode = vma->vm_file->f_path.dentry->d_inode;
 	bhv_vnode_t	*vp = vn_from_inode(inode);
 
 	ASSERT_ALWAYS(vp->v_vfsp->vfs_flag & VFS_DMI);
-	if (XFS_SEND_MMAP(XFS_VFSTOM(vp->v_vfsp), area, 0))
-		return NULL;
-	return filemap_nopage(area, address, type);
+	if (XFS_SEND_MMAP(XFS_VFSTOM(vp->v_vfsp), vma, 0))
+		return VM_FAULT_SIGBUS;
+	return filemap_fault(vma, vmf);
 }
 #endif /* CONFIG_XFS_DMAPI */
 
@@ -319,6 +318,7 @@ xfs_file_mmap(
 	struct vm_area_struct *vma)
 {
 	vma->vm_ops = &xfs_file_vm_ops;
+	vma->vm_flags |= VM_CAN_NONLINEAR;
 
 #ifdef CONFIG_XFS_DMAPI
 	if (vn_from_inode(filp->f_path.dentry->d_inode)->v_vfsp->vfs_flag & VFS_DMI)
@@ -475,14 +475,12 @@ const struct file_operations xfs_dir_file_operations = {
 };
 
 static struct vm_operations_struct xfs_file_vm_ops = {
-	.nopage		= filemap_nopage,
-	.populate	= filemap_populate,
+	.fault		= filemap_fault,
 };
 
 #ifdef CONFIG_XFS_DMAPI
 static struct vm_operations_struct xfs_dmapi_file_vm_ops = {
-	.nopage		= xfs_vm_nopage,
-	.populate	= filemap_populate,
+	.fault		= xfs_vm_fault,
 #ifdef HAVE_VMOP_MPROTECT
 	.mprotect	= xfs_vm_mprotect,
 #endif
