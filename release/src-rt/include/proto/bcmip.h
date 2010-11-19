@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  *
  * Fundamental constants relating to IP Protocol
  *
- * $Id: bcmip.h,v 9.16 2007/03/07 02:32:28 Exp $
+ * $Id: bcmip.h,v 9.16.124.1 2009/11/11 18:20:09 Exp $
  */
 
 #ifndef _bcmip_h_
@@ -132,7 +132,7 @@ struct ipv4_hdr {
 #define IPV6_ADDR_LEN		16	/* IPV6 address length */
 
 /* IPV4 TOS or IPV6 Traffic Classifier or 0 */
-#define IP_TOS(ip_body) \
+#define IP_TOS46(ip_body) \
 	(IP_VER(ip_body) == IP_VER_4 ? IPV4_TOS(ip_body) : \
 	 IP_VER(ip_body) == IP_VER_6 ? IPV6_TRAFFIC_CLASS(ip_body) : 0)
 

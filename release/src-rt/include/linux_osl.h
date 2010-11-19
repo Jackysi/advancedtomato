@@ -1,7 +1,7 @@
 /*
  * Linux OS Independent Layer
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -101,12 +101,24 @@ typedef struct {
 /* host/bus architecture-specific byte swap */
 #define BUS_SWAP32(v)		(v)
 
+#ifdef BCMDBG_MEM
+	#define MALLOC(osh, size)	osl_debug_malloc((osh), (size), __LINE__, __FILE__)
+	#define MFREE(osh, addr, size)	osl_debug_mfree((osh), (addr), (size), __LINE__, __FILE__)
+	#define MALLOCED(osh)		osl_malloced((osh))
+	#define MALLOC_DUMP(osh, b) 	osl_debug_memdump((osh), (b))
+	extern void *osl_debug_malloc(osl_t *osh, uint size, int line, char* file);
+	extern void osl_debug_mfree(osl_t *osh, void *addr, uint size, int line, char* file);
+	extern uint osl_malloced(osl_t *osh);
+	struct bcmstrbuf;
+	extern int osl_debug_memdump(osl_t *osh, struct bcmstrbuf *b);
+#else
 	#define MALLOC(osh, size)	osl_malloc((osh), (size))
 	#define MFREE(osh, addr, size)	osl_mfree((osh), (addr), (size))
 	#define MALLOCED(osh)		osl_malloced((osh))
 	extern void *osl_malloc(osl_t *osh, uint size);
 	extern void osl_mfree(osl_t *osh, void *addr, uint size);
 	extern uint osl_malloced(osl_t *osh);
+#endif /* BCMDBG_MEM */
 
 #define NATIVE_MALLOC(osh, size)		kmalloc(size, GFP_ATOMIC)
 #define NATIVE_MFREE(osh, addr, size)	kfree(addr)
@@ -169,6 +181,7 @@ extern int osl_error(int bcmerror);
 #ifndef BINOSL
 
 #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
+
 #ifndef printf
 #define	printf(fmt, args...)	printk(fmt , ## args)
 #endif
@@ -364,12 +377,84 @@ extern void osl_writel(osl_t *osh, volatile uint32 *r, uint32 v);
 #define	PKTDUP(osh, skb)		osl_pktdup((osh), (skb))
 #define	PKTTAG(skb)			((void*)(((struct sk_buff*)(skb))->cb))
 #define PKTALLOCED(osh)			((osl_pubinfo_t *)(osh))->pktalloced
+#ifdef BCMDBG_PKT     /* pkt logging for debugging */
+#define PKTLIST_DUMP(osh, buf) 		osl_pktlist_dump(osh, buf)
+#else /* BCMDBG_PKT */
 #define PKTLIST_DUMP(osh, buf)
+#endif /* BCMDBG_PKT */
+
+#ifdef CTFPOOL
+#define	CTFPOOL_REFILL_THRESH	3
+typedef struct ctfpool {
+	void		*head;
+	spinlock_t	lock;
+	uint		max_obj;
+	uint		curr_obj;
+	uint		obj_size;
+	uint		refills;
+	uint		fast_allocs;
+	uint 		fast_frees;
+	uint 		slow_allocs;
+} ctfpool_t;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
+#define	FASTBUF	(1 << 4)
+#define	CTFBUF	(1 << 5)
+#define	PKTSETFAST(osh, skb)	((((struct sk_buff*)(skb))->mac_len) |= FASTBUF)
+#define	PKTCLRFAST(osh, skb)	((((struct sk_buff*)(skb))->mac_len) &= (~FASTBUF))
+#define	PKTSETCTF(osh, skb)	((((struct sk_buff*)(skb))->mac_len) |= CTFBUF)
+#define	PKTCLRCTF(osh, skb)	((((struct sk_buff*)(skb))->mac_len) &= (~CTFBUF))
+#define	PKTISFAST(osh, skb)	((((struct sk_buff*)(skb))->mac_len) & FASTBUF)
+#define	PKTISCTF(osh, skb)	((((struct sk_buff*)(skb))->mac_len) & CTFBUF)
+#define PKTFAST(osh, skb)	(((struct sk_buff*)(skb))->mac_len)
+#else
+#define	FASTBUF	(1 << 0)
+#define	CTFBUF	(1 << 1)
+#define	PKTSETFAST(osh, skb)	((((struct sk_buff*)(skb))->__unused) |= FASTBUF)
+#define	PKTCLRFAST(osh, skb)	((((struct sk_buff*)(skb))->__unused) &= (~FASTBUF))
+#define	PKTSETCTF(osh, skb)	((((struct sk_buff*)(skb))->__unused) |= CTFBUF)
+#define	PKTCLRCTF(osh, skb)	((((struct sk_buff*)(skb))->__unused) &= (~CTFBUF))
+#define	PKTISFAST(osh, skb)	((((struct sk_buff*)(skb))->__unused) & FASTBUF)
+#define	PKTISCTF(osh, skb)	((((struct sk_buff*)(skb))->__unused) & CTFBUF)
+#define PKTFAST(osh, skb)	(((struct sk_buff*)(skb))->__unused)
+#endif /* 2.6.22 */
+
+#define CTFPOOLPTR(osh, skb)	(((struct sk_buff*)(skb))->sk)
+#define CTFPOOLHEAD(osh, skb)	(((ctfpool_t *)((struct sk_buff*)(skb))->sk)->head)
+
+extern void *osl_ctfpool_add(osl_t *osh);
+extern void osl_ctfpool_replenish(osl_t *osh, uint thresh);
+extern int32 osl_ctfpool_init(osl_t *osh, uint numobj, uint size);
+extern void osl_ctfpool_cleanup(osl_t *osh);
+extern void osl_ctfpool_stats(osl_t *osh, void *b);
+#endif /* CTFPOOL */
+
+#ifdef HNDCTF
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
+#define	SKIPCT	(1 << 6)
+#define	PKTSETSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->mac_len |= SKIPCT)
+#define	PKTCLRSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->mac_len &= (~SKIPCT))
+#define	PKTSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->mac_len & SKIPCT)
+#else /* 2.6.22 */
+#define	SKIPCT	(1 << 2)
+#define	PKTSETSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->__unused |= SKIPCT)
+#define	PKTCLRSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->__unused &= (~SKIPCT))
+#define	PKTSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->__unused & SKIPCT)
+#endif /* 2.6.22 */
+#else /* HNDCTF */
+#define	PKTSETSKIPCT(osh, skb)
+#define	PKTCLRSKIPCT(osh, skb)
+#define	PKTSKIPCT(osh, skb)
+#endif /* HNDCTF */
 
 extern void *osl_pktget(osl_t *osh, uint len);
 extern void osl_pktfree(osl_t *osh, void *skb, bool send);
 extern void *osl_pktdup(osl_t *osh, void *skb);
 
+#ifdef BCMDBG_PKT     /* pkt logging for debugging */
+extern void osl_pktlist_add(osl_t *osh, void *p);
+extern void osl_pktlist_remove(osl_t *osh, void *p);
+extern char *osl_pktlist_dump(osl_t *osh, char *buf);
+#endif /* BCMDBG_PKT */
 
 /* Convert a native(OS) packet to driver packet.
  * In the process, native packet is destroyed, there is no copying
@@ -385,6 +470,9 @@ osl_pkt_frmnative(osl_pubinfo_t *osh, void *pkt)
 
 	/* Increment the packet counter */
 	for (nskb = (struct sk_buff *)pkt; nskb; nskb = nskb->next) {
+#ifdef BCMDBG_PKT
+		osl_pktlist_add((osl_t *)osh, (void *) nskb);
+#endif  /* BCMDBG_PKT */
 		osh->pktalloced++;
 	}
 
@@ -407,6 +495,9 @@ osl_pkt_tonative(osl_pubinfo_t *osh, void *pkt)
 
 	/* Decrement the packet counter */
 	for (nskb = (struct sk_buff *)pkt; nskb; nskb = nskb->next) {
+#ifdef BCMDBG_PKT
+		osl_pktlist_remove((osl_t *)osh, (void *) nskb);
+#endif  /* BCMDBG_PKT */
 		osh->pktalloced--;
 	}
 
@@ -660,7 +751,11 @@ extern void osl_reg_unmap(void *va);
 #define	PKTSETPRIO(skb, x)		osl_pktsetprio((skb), (x))
 #define PKTSHARED(skb)                  osl_pktshared((skb))
 #define PKTALLOCED(osh)			osl_pktalloced((osh))
+#ifdef BCMDBG_PKT
+#define PKTLIST_DUMP(osh, buf) 		osl_pktlist_dump(osh, buf)
+#else /* BCMDBG_PKT */
 #define PKTLIST_DUMP(osh, buf)
+#endif /* BCMDBG_PKT */
 
 extern void *osl_pktget(osl_t *osh, uint len);
 extern void osl_pktfree(osl_t *osh, void *skb, bool send);
@@ -684,6 +779,11 @@ extern struct sk_buff *osl_pkt_tonative(osl_t *osh, void *pkt);
 extern bool osl_pktshared(void *skb);
 extern uint osl_pktalloced(osl_t *osh);
 
+#ifdef BCMDBG_PKT     /* pkt logging for debugging */
+extern char *osl_pktlist_dump(osl_t *osh, char *buf);
+extern void osl_pktlist_add(osl_t *osh, void *p);
+extern void osl_pktlist_remove(osl_t *osh, void *p);
+#endif /* BCMDBG_PKT */
 
 #endif	/* BINOSL */
 

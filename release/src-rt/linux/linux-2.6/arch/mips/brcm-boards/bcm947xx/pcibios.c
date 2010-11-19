@@ -1,7 +1,7 @@
 /*
  * Low-Level PCI and SB support for BCM47xx (Linux support code)
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: pcibios.c,v 1.8 2008/07/04 01:09:57 Exp $
+ * $Id: pcibios.c,v 1.10 2009/12/28 09:46:32 Exp $
  */
 
 #include <linux/config.h>
@@ -27,6 +27,7 @@
 #include <bcmutils.h>
 #include <hndsoc.h>
 #include <siutils.h>
+#include <hndcpu.h>
 #include <hndpci.h>
 #include <hndcpu.h>
 #include <pcicfg.h>

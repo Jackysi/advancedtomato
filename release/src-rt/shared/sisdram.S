@@ -3,7 +3,7 @@
  *
  * Used by both cfe and shared/boot.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -11,7 +11,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sisdram.S,v 1.3.2.3.8.2 2008/11/11 04:31:47 Exp $
+ * $Id: sisdram.S,v 1.3.2.4 2008/10/31 21:39:48 Exp $
  */
 
 #include "mipsinc.h"
@@ -75,7 +75,7 @@
 
 #ifdef	BCMCHIPTYPE
 	/* BCMCHIPTYPE defined but does not match this chip */
-	TRACE2(0x5353fe)
+	TRACE(0x5353fe)
 	b	sisdead
 	nop
 #endif

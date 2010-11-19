@@ -2,7 +2,7 @@
  * Initialization and support routines for self-booting compressed
  * image.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,7 +10,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: min_osl.c,v 1.22.2.1 2008/07/26 01:12:51 Exp $
+ * $Id: min_osl.c,v 1.22.2.3 2009/07/14 20:29:48 Exp $
  */
 
 #include <typedefs.h>
@@ -22,6 +22,9 @@
 #include <hndcpu.h>
 #include <sbchipc.h>
 #include <hndchipc.h>
+
+/* Global ASSERT type */
+uint32 g_assert_type = 0;
 
 #ifdef	mips
 /* Cache support */
@@ -192,6 +195,13 @@ putc(int c)
 
 /* assert & debugging */
 
+#ifdef BCMDBG_ASSERT
+void
+assfail(char *exp, char *file, int line)
+{
+	printf("ASSERT %s file %s line %d\n", exp, file, line);
+}
+#endif /* BCMDBG_ASSERT */
 
 /* general purpose memory allocation */
 

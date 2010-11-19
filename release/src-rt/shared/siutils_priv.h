@@ -1,7 +1,7 @@
 /*
  * Include file private to the SOC Interconnect support files.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,13 +9,12 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: siutils_priv.h,v 1.3.2.1 2008/07/26 01:21:27 Exp $
+ * $Id: siutils_priv.h,v 1.3.2.6 2010/02/18 02:09:37 Exp $
  */
 
 #ifndef	_siutils_priv_h_
 #define	_siutils_priv_h_
 
-/* debug/trace */
 #define	SI_ERROR(args)
 
 #define	SI_MSG(args)
@@ -78,6 +77,7 @@ typedef struct si_info {
 
 	uint32	cia[SI_MAXCORES];	/* erom cia entry for each core */
 	uint32	cib[SI_MAXCORES];	/* erom cia entry for each core */
+	uint32	oob_router;		/* oob router registers for axi */
 } si_info_t;
 
 #define	SI_INFO(sih)	(si_info_t *)(uintptr)sih
@@ -166,7 +166,14 @@ extern int sb_numaddrspaces(si_t *sih);
 
 extern uint32 sb_set_initiator_to(si_t *sih, uint32 to, uint idx);
 
+extern bool sb_taclear(si_t *sih, bool details);
 
+#if defined(BCMDBG_DUMP)
+extern void sb_dump(si_t *sih, struct bcmstrbuf *b);
+#endif
+#if defined(BCMDBG_DUMP)
+extern void sb_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif
 
 /* Wake-on-wireless-LAN (WOWL) */
 extern bool sb_pci_pmecap(si_t *sih);
@@ -199,5 +206,8 @@ extern int ai_numaddrspaces(si_t *sih);
 extern uint32 ai_addrspace(si_t *sih, uint asidx);
 extern uint32 ai_addrspacesize(si_t *sih, uint asidx);
 
+#if defined(BCMDBG_DUMP)
+extern void ai_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif
 
 #endif	/* _siutils_priv_h_ */

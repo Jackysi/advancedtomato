@@ -2,7 +2,7 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,7 +10,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: aiutils.c,v 1.3.2.6.6.1 2008/10/31 05:59:50 Exp $
+ * $Id: aiutils.c,v 1.3.2.9 2009/06/18 12:19:29 Exp $
  */
 
 #include <typedefs.h>
@@ -39,14 +39,14 @@
 /* EROM parsing */
 
 static uint32
-get_erom_ent(si_t *sih, uint32 *eromptr, uint32 mask, uint32 match)
+get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
 {
 	uint32 ent;
 	uint inv = 0, nom = 0;
 
 	while (TRUE) {
-		ent = R_REG(si_osh(sih), (uint32 *)(uintptr)(*eromptr));
-		*eromptr += sizeof(uint32);
+		ent = R_REG(si_osh(sih), *eromptr);
+		(*eromptr)++;
 
 		if (mask == 0)
 			break;
@@ -73,7 +73,7 @@ get_erom_ent(si_t *sih, uint32 *eromptr, uint32 mask, uint32 match)
 }
 
 static uint32
-get_asd(si_t *sih, uint32 *eromptr, uint sp, uint ad, uint st, uint32 *addrl, uint32 *addrh,
+get_asd(si_t *sih, uint32 **eromptr, uint sp, uint ad, uint st, uint32 *addrl, uint32 *addrh,
         uint32 *sizel, uint32 *sizeh)
 {
 	uint32 asd, sz, szd;
@@ -83,7 +83,7 @@ get_asd(si_t *sih, uint32 *eromptr, uint sp, uint ad, uint st, uint32 *addrl, ui
 	    (((asd & AD_SP_MASK) >> AD_SP_SHIFT) != sp) ||
 	    ((asd & AD_ST_MASK) != st)) {
 		/* This is not what we want, "push" it back */
-		*eromptr -= sizeof(uint32);
+		(*eromptr)--;
 		return 0;
 	}
 	*addrl = asd & AD_ADDR_MASK;
@@ -113,13 +113,13 @@ ai_scan(si_t *sih, void *regs, uint devid)
 {
 	si_info_t *sii = SI_INFO(sih);
 	chipcregs_t *cc = (chipcregs_t *)regs;
-	uint32 erombase, eromptr, eromlim;
+	uint32 erombase, *eromptr, *eromlim;
 
 	erombase = R_REG(sii->osh, &cc->eromptr);
 
 	switch (BUSTYPE(sih->bustype)) {
 	case SI_BUS:
-		eromptr = (uintptr)REG_MAP(erombase, SI_CORE_SIZE);
+		eromptr = (uint32 *)REG_MAP(erombase, SI_CORE_SIZE);
 		break;
 
 	case PCI_BUS:
@@ -128,13 +128,13 @@ ai_scan(si_t *sih, void *regs, uint devid)
 
 		/* Now point the window at the erom */
 		OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN, 4, erombase);
-		eromptr = (uint32)(uintptr)regs;
+		eromptr = regs;
 		break;
 
 #ifdef BCMJTAG
 	case JTAG_BUS:
 #endif	/* BCMJTAG */
-		eromptr = erombase;
+		eromptr = (uint32 *)(uintptr)erombase;
 		break;
 
 	case PCMCIA_BUS:
@@ -143,13 +143,14 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		ASSERT(0);
 		return;
 	}
-	eromlim = eromptr + ER_REMAPCONTROL;
+	eromlim = eromptr + (ER_REMAPCONTROL / sizeof(uint32));
 
-	SI_VMSG(("ai_scan: regs = 0x%p, erombase = 0x%08x, eromptr = 0x%08x, eromlim = 0x%08x\n",
+	SI_VMSG(("ai_scan: regs = 0x%p, erombase = 0x%08x, eromptr = 0x%p, eromlim = 0x%p\n",
 	         regs, erombase, eromptr, eromlim));
 	while (eromptr < eromlim) {
-		uint32 cia, cib, base, cid, mfg, crev, nmw, nsw, nmp, nsp;
+		uint32 cia, cib, cid, mfg, crev, nmw, nsw, nmp, nsp;
 		uint32 mpd, asd, addrl, addrh, sizel, sizeh;
+		uint32 *base;
 		uint i, j, idx;
 		bool br;
 
@@ -161,7 +162,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 			SI_VMSG(("Found END of erom after %d cores\n", sii->numcores));
 			return;
 		}
-		base = eromptr - sizeof(uint32);
+		base = eromptr - 1;
 		cib = get_erom_ent(sih, &eromptr, 0, 0);
 
 		if ((cib & ER_TAG) != ER_CI) {
@@ -177,13 +178,21 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		nmp = (cib & CIB_NMP_MASK) >> CIB_NMP_SHIFT;
 		nsp = (cib & CIB_NSP_MASK) >> CIB_NSP_SHIFT;
 
-		SI_VMSG(("Found component 0x%04x/0x%04x rev %d at erom addr 0x%08x, with nmw = %d, "
+		SI_VMSG(("Found component 0x%04x/0x%04x rev %d at erom addr 0x%p, with nmw = %d, "
 		         "nsw = %d, nmp = %d & nsp = %d\n",
 		         mfg, cid, crev, base, nmw, nsw, nmp, nsp));
 
-		if (((mfg == MFGID_ARM) && (cid == DEF_AI_COMP)) ||
-		    (nmw + nsw == 0) || (nsp == 0)) {
+		if (((mfg == MFGID_ARM) && (cid == DEF_AI_COMP)) || (nsp == 0))
+			continue;
+		if ((nmw + nsw == 0)) {
 			/* A component which is not a core */
+			if (cid == OOB_ROUTER_CORE_ID) {
+				asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE,
+					&addrl, &addrh, &sizel, &sizeh);
+				if (asd != 0) {
+					sii->oob_router = addrl;
+				}
+			}
 			continue;
 		}
 
@@ -698,3 +707,34 @@ ai_core_sflags(si_t *sih, uint32 mask, uint32 val)
 
 	return R_REG(sii->osh, &ai->iostatus);
 }
+
+#if defined(BCMDBG_DUMP)
+/* print interesting aidmp registers */
+void
+ai_dumpregs(si_t *sih, struct bcmstrbuf *b)
+{
+	si_info_t *sii;
+	osl_t *osh;
+	aidmp_t *ai;
+	uint i;
+
+	sii = SI_INFO(sih);
+	osh = sii->osh;
+
+	for (i = 0; i < sii->numcores; i++) {
+		si_setcoreidx(&sii->pub, i);
+		ai = sii->curwrap;
+
+		bcm_bprintf(b, "core 0x%x: \n", sii->coreid[i]);
+		if ((sih->chip == BCM47162_CHIP_ID) &&
+		    (sih->chiprev == 0) &&
+		    (sii->coreid[i] == MIPS74K_CORE_ID)) {
+			bcm_bprintf(b, "Skipping mips74k in 47162a0\n");
+			continue;
+		}
+		bcm_bprintf(b, "config 0x%x ioctrl 0x%x iostatus 0x%x resetctrl 0x%x\n",
+		            R_REG(osh, &ai->config), R_REG(osh, &ai->ioctrl),
+		            R_REG(osh, &ai->iostatus), R_REG(osh, &ai->resetctrl));
+	}
+}
+#endif	

@@ -638,8 +638,29 @@ nvram_set(const char *name, const char *value)
 		return ret;
 	}
 
-	if ((strcmp(name, "wl_wps_config_state") == 0) || (strcmp(name, "wl0_wps_config_state") == 0))
+	if (strcmp(name, "lan_wps_oob") == 0) {
+		if (strcmp(value, "disabled") == 0) {
+			_nvram_set("wps_config_state", "1");
+			_nvram_set("wl_wps_config_state", "1");
+			_nvram_set("wl0_wps_config_state", "1");
+		} else if (strcmp(value, "enabled") == 0) {
+			_nvram_set("wps_config_state", "0");
+			_nvram_set("wl_wps_config_state", "0");
+			_nvram_set("wl0_wps_config_state", "0");
+		}
+	}
+
+	if (strcmp(name, "wps_config_state") == 0) {
+		if (strcmp(value, "0") == 0)
+			_nvram_set("lan_wps_oob", "enabled");
+		else if (strcmp(value, "1") == 0)
+			_nvram_set("lan_wps_oob", "disabled");
+	}
+
+	if ((strcmp(name, "wl_wps_config_state") == 0) || (strcmp(name, "wl0_wps_config_state") == 0)) 
 		_nvram_set("wps_config_state", value);
+
+	
 //	else if ((strncmp(name, "wps_proc_status", 15) == 0 ) && (strcmp(value, "4"))) /* WPS success*/
 //		_nvram_set("wps_config_state", "1");
 

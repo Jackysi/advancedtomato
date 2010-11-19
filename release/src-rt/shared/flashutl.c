@@ -1,7 +1,7 @@
 /*
  * flashutl.c - Flash Read/write/Erase routines
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: flashutl.c,v 1.46.34.7 2009/05/19 01:58:34 Exp $
+ * $Id: flashutl.c,v 1.46.2.1 2009/09/11 20:23:52 Exp $
  */
 
 #include <typedefs.h>
@@ -29,7 +29,7 @@
 #define ERR2	0x30 /* Mask for err UNUSED */
 #define DONE	0x80 /* Mask for done */
 #define WBUFSIZE 32  /* Write Buffer size */
-#define FLASH_TRIES 700000 /* retry count */
+#define FLASH_TRIES 4000000 /* retry count */
 #define CMD_ADDR ((unsigned long)0xFFFFFFFF)
 
 /* 'which' param for block() */
@@ -228,8 +228,8 @@ flash_eraseblk(unsigned long addr)
 	flash_reset();
 
 	if (st) {
-		printf("%s: Erase of block 0x%08lx-0x%08lx failed\n",
-		       __FUNCTION__, a, block((unsigned long)addr, BLOCK_LIM));
+		DPRINT(("Erase of block 0x%08lx-0x%08lx failed\n",
+			a, block((unsigned long)addr, BLOCK_LIM)));
 		return st;
 	}
 
@@ -439,8 +439,8 @@ flash_poll(unsigned long off, uint16 data)
 			cnt--;
 		}
 		if (cnt == 0) {
-			printf("%s: timeout, off %lx, read 0x%x, expected 0x%x\n",
-			        __FUNCTION__, off, st, data);
+			DPRINT(("flash_poll: timeout, off %lx, read 0x%x, expected 0x%x\n",
+			        off, st, data));
 			return -1;
 		}
 	} else {
@@ -451,7 +451,7 @@ flash_poll(unsigned long off, uint16 data)
 			cnt--;
 		}
 		if (cnt == 0) {
-			printf("%s: timeout, error status = 0x%x\n", __FUNCTION__, st);
+			DPRINT(("flash_poll: timeout, error status = 0x%x\n", st));
 			return -1;
 		}
 	}

@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom wl driver
 #
-# Copyright (C) 2008, Broadcom Corporation
+# Copyright (C) 2009, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.9 2008/08/11 19:38:26 Exp $
+# $Id: Makefile,v 1.11 2010/02/23 07:32:54 Exp $
 #
 
 SRCBASE := ../../../../..
@@ -20,16 +20,24 @@ WLCONF_O := wlconf.o
 
 # Generate list of supported variants
 VLIST_BASE := AP STA APSTA
+ifeq ($(CONFIG_WL_USE_AP_SDSTD),y)
+  VLIST_BASE   += AP_SDSTD
+endif
 
-ifeq ($(CONFIG_WL_USE_HIGH),y)
-VLIST += HIGH
-else
 VLIST          += $(VLIST_BASE)
+
+ifeq ($(CONFIG_WL_USBAP),y)
+# Do variants because we need two drivers for dual band operation
+WL_VARIANTS	:= 1
+VLIST		+= HIGH
+# Note that we don't use CONFIG_WL_USE_HIGH because we need to leave WL_SUFFIX for
+# the other driver. HIGH driver is always called wl_high and loaded upon hotplut
+# event.
+endif
+
 ifeq ($(BUILD_WL_ONCHIP_G),true)
   VLIST        += $(foreach base,$(VLIST_BASE),$(base)_ONCHIP_G)
 endif # BUILD_WL_ONCHIP_G
-endif
-
 
 # Set suffix and config based on the selected variant
 WL_SUFFIX := $(strip $(foreach v,$(VLIST),$(if $(CONFIG_WL_USE_$(v)),$(v))))

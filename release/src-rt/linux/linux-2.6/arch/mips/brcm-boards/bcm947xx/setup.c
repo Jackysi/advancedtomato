@@ -1,7 +1,7 @@
 /*
  * HND MIPS boards setup routines
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: setup.c,v 1.6 2008/04/03 03:49:45 Exp $
+ * $Id: setup.c,v 1.14 2010/02/26 04:43:25 Exp $
  */
 
 #include <linux/types.h>
@@ -31,8 +31,6 @@
 #ifdef CONFIG_MTD_PARTITIONS
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
-#include <linux/minix_fs.h>
-#include <linux/ext2_fs.h>
 #include <linux/romfs_fs.h>
 #include <linux/cramfs_fs.h>
 #include <linux/squashfs_fs.h>
@@ -50,6 +48,9 @@
 #include <sbchipc.h>
 #include <hndchipc.h>
 #include <trxhdr.h>
+#ifdef HNDCTF
+#include <ctf/hndctf.h>
+#endif /* HNDCTF */
 #include "bcm947xx.h"
 
 extern void bcm947xx_time_init(void);
@@ -74,6 +75,13 @@ EXPORT_SYMBOL(bcm947xx_sih_lock);
 /* Convenience */
 #define sih bcm947xx_sih
 #define sih_lock bcm947xx_sih_lock
+
+#ifdef HNDCTF
+ctf_t *kcih = NULL;
+EXPORT_SYMBOL(kcih);
+ctf_attach_t ctf_attach_fn = NULL;
+EXPORT_SYMBOL(ctf_attach_fn);
+#endif /* HNDCTF */
 
 /* Kernel command line */
 extern char arcs_cmdline[CL_SIZE];
@@ -415,7 +423,7 @@ static struct mtd_partition bcm947xx_parts[] =
 		.name = "boot",
 		.size = 0,
 		.offset = 0,
-//		.mask_flags = MTD_WRITEABLE
+	//	.mask_flags = MTD_WRITEABLE
 	},
 	{
 		.name = "linux",
@@ -432,14 +440,17 @@ static struct mtd_partition bcm947xx_parts[] =
 		.name = "nvram",
 		.size = 0,
 		.offset = 0
+	},
+	{
+		.name = 0,
+		.size = 0,
+		.offset = 0
 	}
 };
 
 struct mtd_partition *
 init_mtd_partitions(struct mtd_info *mtd, size_t size)
 {
-	struct minix_super_block *minixsb;
-	struct ext2_super_block *ext2sb;
 	struct romfs_super_block *romfsb;
 	struct cramfs_super *cramfsb;
 	struct squashfs_super_block *squashfsb;
@@ -447,9 +458,8 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	unsigned char buf[512];
 	int off;
 	size_t len;
+	int i;
 
-	minixsb = (struct minix_super_block *) buf;
-	ext2sb = (struct ext2_super_block *) buf;
 	romfsb = (struct romfs_super_block *) buf;
 	cramfsb = (struct cramfs_super *) buf;
 	squashfsb = (struct squashfs_super_block *) buf;
@@ -474,6 +484,11 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	                        off = le32_to_cpu(trx->offsets[2]);
 	                else if (le32_to_cpu(trx->offsets[1]) > off)
 				off = le32_to_cpu(trx->offsets[1]);
+			/* In case where CFE boots from ROM, we expect
+			 * Linux to fit in first flash partition.
+			 */
+			if (bcm947xx_parts[1].offset == 0 && off)
+				off -= (64 * 1024);
 			continue;
 		}
 
@@ -504,29 +519,6 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 			goto done;
 		}
 
-		/*
-		 * Read block 1 to test for minix and ext2 superblock
-		 */
-		if (mtd->read(mtd, off + BLOCK_SIZE, sizeof(buf), &len, buf) ||
-		    len != sizeof(buf))
-			continue;
-
-		/* Try minix */
-		if (minixsb->s_magic == MINIX_SUPER_MAGIC ||
-		    minixsb->s_magic == MINIX_SUPER_MAGIC2) {
-			printk(KERN_NOTICE
-			       "%s: Minix filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
-
-		/* Try ext2 */
-		if (ext2sb->s_magic == cpu_to_le16(EXT2_SUPER_MAGIC)) {
-			printk(KERN_NOTICE
-			       "%s: ext2 filesystem found at block %d\n",
-			       mtd->name, off / BLOCK_SIZE);
-			goto done;
-		}
 	}
 
 	printk(KERN_NOTICE
@@ -534,9 +526,11 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	       mtd->name);
 
  done:
-	/* Find and size nvram */
-	bcm947xx_parts[3].offset = size - ROUNDUP(NVRAM_SPACE, mtd->erasesize);
-	bcm947xx_parts[3].size = size - bcm947xx_parts[3].offset;
+	/* Setup NVRAM MTD partition */
+	i = (sizeof(bcm947xx_parts)/sizeof(struct mtd_partition)) - 2;
+
+	bcm947xx_parts[i].size = ROUNDUP(NVRAM_SPACE, mtd->erasesize);
+	bcm947xx_parts[i].offset = size - bcm947xx_parts[i].size;
 
 	/* Find and size rootfs */
 	if (off < size) {

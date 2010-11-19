@@ -79,6 +79,10 @@ static unsigned int nf_conntrack_next_id;
 DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
 
+#ifdef HNDCTF
+extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
+#endif /* HNDCTF */
+
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 #define	BCM_FASTNAT_DENY	1
 extern int ipv4_conntrack_fastnat;
@@ -336,6 +340,10 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
 	NF_CT_ASSERT(!timer_pending(&ct->timeout));
 
+#ifdef HNDCTF
+	ip_conntrack_ipct_delete(ct, 0);
+#endif /* HNDCTF*/
+
 	nf_conntrack_event(IPCT_DESTROY, ct);
 	set_bit(IPS_DYING_BIT, &ct->status);
 
@@ -390,6 +398,14 @@ static void death_by_timeout(unsigned long ul_conntrack)
 	struct nf_conn *ct = (void *)ul_conntrack;
 	struct nf_conn_help *help = nfct_help(ct);
 	struct nf_conntrack_helper *helper;
+
+#ifdef HNDCTF
+	/* If negative error is returned it means the entry hasn't
+	 * timed out yet.
+	 */
+	if (ip_conntrack_ipct_delete(ct, jiffies >= ct->timeout.expires ? 1 : 0) != 0)
+		return;
+#endif /* HNDCTF */
 
 	if (help) {
 		rcu_read_lock();
@@ -607,6 +623,10 @@ static noinline int early_drop(struct list_head *chain)
 
 	if (!ct)
 		return dropped;
+
+#ifdef HNDCTF
+	ip_conntrack_ipct_delete(ct, 0);
+#endif /* HNDCTF */
 
 	if (del_timer(&ct->timeout)) {
 		death_by_timeout((unsigned long)ct);
@@ -1040,6 +1060,9 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 	/* If not in hash table, timer will not be active yet */
 	if (!nf_ct_is_confirmed(ct)) {
+#ifdef HNDCTF
+		ct->expire_jiffies = extra_jiffies;
+#endif /* HNDCTF */
 		ct->timeout.expires = extra_jiffies;
 		event = IPCT_REFRESH;
 	} else {
@@ -1050,6 +1073,9 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 		   avoidance (may already be dying). */
 		if (newtime - ct->timeout.expires >= HZ
 		    && del_timer(&ct->timeout)) {
+#ifdef HNDCTF
+			ct->expire_jiffies = extra_jiffies;
+#endif /* HNDCTF */
 			ct->timeout.expires = newtime;
 			add_timer(&ct->timeout);
 			event = IPCT_REFRESH;
@@ -1187,6 +1213,9 @@ nf_ct_iterate_cleanup(int (*iter)(struct nf_conn *i, void *data), void *data)
 	unsigned int bucket = 0;
 
 	while ((ct = get_next_corpse(iter, data, &bucket)) != NULL) {
+#ifdef HNDCTF
+		ip_conntrack_ipct_delete(ct, 0);
+#endif /* HNDCTF */
 		/* Time to push up daises... */
 		if (del_timer(&ct->timeout))
 			death_by_timeout((unsigned long)ct);
