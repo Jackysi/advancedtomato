@@ -248,20 +248,22 @@ upnp_redirect(unsigned short eport,
 		 * xbox 360 does not keep track of the port it redirects and will
 		 * redirect another port when receiving ConflictInMappingEntry */
 		if(strcmp(iaddr,iaddr_old)==0 && iport==iport_old) {
-			syslog(LOG_INFO, "ignoring redirect request as it matches existing redirect");
+			/* redirection allready exists */
+			syslog(LOG_INFO, "port %hu %s already redirected to %s:%hu, replacing", eport, (proto==IPPROTO_TCP)?"tcp":"udp", iaddr_old, iport_old);
+			/* remove and then add again */
+			if(_upnp_delete_redir(eport, proto) < 0) {
+				syslog(LOG_ERR, "failed to remove port mapping");
+				return 0;
+			}
 		} else {
-
 			syslog(LOG_INFO, "port %hu protocol %s already redirected to %s:%hu",
 				eport, protocol, iaddr_old, iport_old);
 			return -2;
 		}
-	} else {
-		syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
-			eport, iaddr, iport, protocol, desc);			
-		return upnp_redirect_internal(eport, iaddr, iport, proto, desc);
 	}
-
-	return 0;
+	syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
+		eport, iaddr, iport, protocol, desc);			
+	return upnp_redirect_internal(eport, iaddr, iport, proto, desc);
 }
 
 int
