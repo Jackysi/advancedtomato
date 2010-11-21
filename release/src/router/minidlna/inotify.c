@@ -705,8 +705,8 @@ start_inotify()
 					 * It will be empty until the drive is mounted to this directory.
 					 * So let's wait a few seconds to allow mount to complete.
 					 */
-					sleep(5);
-					inotify_insert_directory(pollfds[0].fd, esc_name, path_buf);
+					if ( wait_for_mount(path_buf) >= 0 )
+						inotify_insert_directory(pollfds[0].fd, esc_name, path_buf);
 					end_scan();
 				}
 				else if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_MOVED_TO )
