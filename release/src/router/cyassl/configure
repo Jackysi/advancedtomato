@@ -22099,8 +22099,10 @@ if test "${with_libz+set}" = set; then
   withval=$with_libz;
         { echo "$as_me:$LINENO: checking for libz" >&5
 echo $ECHO_N "checking for libz... $ECHO_C" >&6; }
+        if test "x$withval" != "xno" ; then
         CPPFLAGS="$CPPFLAGS -DHAVE_LIBZ"
         LIBS="$LIBS -lz"
+        fi
 
         cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -22149,13 +22151,13 @@ rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
         if test "x$libz_linked" == "xno" ; then
             if test "x$withval" != "xno" ; then
                 trylibzdir=$withval
+                LDFLAGS="$LDFLAGS -L$trylibzdir/lib"
+                CPPFLAGS="$CPPFLAGS -I$trylibzdir/include"
             fi
             if test "x$withval" == "xyes" ; then
                 trylibzdir="/usr"
             fi
 
-            LDFLAGS="$LDFLAGS -L$trylibzdir/lib"
-            CPPFLAGS="$CPPFLAGS -I$trylibzdir/include"
 
             cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -22202,14 +22204,21 @@ rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
       conftest$ac_exeext conftest.$ac_ext
 
             if test "x$libz_linked" == "xno" ; then
+              if test "x$withval" == "xno" ; then
+            { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+              else
+
                 { { echo "$as_me:$LINENO: error: libz isn't found.
                 If it's already installed, specify its path using --with-libz=/dir/" >&5
 echo "$as_me: error: libz isn't found.
                 If it's already installed, specify its path using --with-libz=/dir/" >&2;}
    { (exit 1); exit 1; }; }
-            fi
+              fi
+            else
             { echo "$as_me:$LINENO: result: yes" >&5
 echo "${ECHO_T}yes" >&6; }
+            fi 
         else
             { echo "$as_me:$LINENO: result: yes" >&5
 echo "${ECHO_T}yes" >&6; }

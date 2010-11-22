@@ -1,4 +1,4 @@
-SUBDIRS = src ctaocrypt examples testsuite sslSniffer
+SUBDIRS = src ctaocrypt
 EXTRA_DIST = cyassl.dsp cyassl.dsw certs/*.pem certs/*.der certs/*.txt \
     lib/dummy cyassl.sln cyassl.vcproj cyassl-iphone.xcodeproj/project.pbxproj \
     doc/*.pdf swig/README swig/*.i swig/cyassl_adds.c swig/*.sh swig/runme.* \
@@ -6,7 +6,7 @@ EXTRA_DIST = cyassl.dsp cyassl.dsw certs/*.pem certs/*.der certs/*.txt \
 
 # !!!! first line of rule has to start with a hard (real) tab, not spaces
 basic:
-	cd src; $(MAKE); cd ../testsuite; $(MAKE); cd ../
+	cd src; $(MAKE); cd ../
 
 openssl-links:
 	cd lib; ln -s ../src/.libs/libcyassl.a libcrypto.a; \
