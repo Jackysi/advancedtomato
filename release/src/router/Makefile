@@ -51,6 +51,7 @@ obj-y += et
 obj-y += libbcmcrypto
 obj-y += wlconf
 
+obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
 
@@ -113,7 +114,6 @@ obj-y += miniupnpd
 obj-$(TCONFIG_L2TP) += xl2tpd
 obj-$(TCONFIG_PPTP) += accel-pptp
 obj-$(TCONFIG_HTTPS) += openssl
-obj-$(TCONFIG_HTTPS) += matrixssl
 obj-$(TCONFIG_SSH) += dropbear
 obj-$(TCONFIG_ZEBRA) += zebra
 #	obj-$(TCONFIG_IPP2P) += ipp2p
@@ -537,6 +537,25 @@ matrixssl-install:
 matrixssl-clean:
 	$(MAKE) -C matrixssl/src clean
 
+cyassl/stamp-h1:
+	@cd cyassl && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections \
+	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	$(CONFIGURE) --with-libz=no
+	@touch cyassl/stamp-h1
+
+cyassl: cyassl/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C cyassl
+
+cyassl-clean:
+	-@$(MAKE) -C cyassl clean
+	@rm -f cyassl/stamp-h1
+
+cyassl-install:
+	@true
+
 ifeq ($(TCONFIG_OPENVPN),y)
 OPENSSL_CIPHERS:=enable-rc5
 else
@@ -590,7 +609,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
-mssl:	$(if $(TCONFIG_OPENVPN),openssl,matrixssl)
+mssl:	$(if $(TCONFIG_OPENVPN),openssl,cyassl)
 
 mdu:	shared mssl
 
