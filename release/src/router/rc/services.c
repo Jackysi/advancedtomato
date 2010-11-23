@@ -306,7 +306,8 @@ void start_dnsmasq()
 
 	TRACE_PT("run dnsmasq\n");
 
-	eval("dnsmasq");
+	// Default to some values we like, but allow the user to override them.
+	eval("dnsmasq", "-c", "1500", "--log-async");
 
 	if (!nvram_contains_word("debug_norestart", "dnsmasq")) {
 		pid_dnsmasq = -2;

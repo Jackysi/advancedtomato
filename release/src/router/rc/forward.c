@@ -9,6 +9,7 @@
 
 #include <arpa/inet.h>
 
+extern char chain_wan_prerouting[];
 
 static const char tcpudp[2][4] = {"tcp", "udp"};
 
@@ -56,7 +57,7 @@ void ipt_forward(ipt_table_t table)
 				ipt_addr(src, sizeof(src), saddr, "src");
 		}
 
-		mdport = (strchr(xports, ',') != NULL) ? "-m mport --dports" : "--dport";
+		mdport = (strchr(xports, ',') != NULL) ? "-m multiport --dports" : "--dport";
 		for (i = 0; i < 2; ++i) {
 			if ((1 << i) & (*proto - '0')) {
 				c = tcpudp[i];
@@ -69,7 +70,8 @@ void ipt_forward(ipt_table_t table)
 					strlcat(ip, iaddr, sizeof(ip));
 				}
 				if (table == IPT_TABLE_NAT) {
-					ipt_write("-A WANPREROUTING -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
+					ipt_write("-A %s -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
+						chain_wan_prerouting,
 						c,
 						src,
 						mdport, xports,
@@ -132,7 +134,7 @@ void ipt_triggered(ipt_table_t table)
 					// should only be created if there is at least one enabled
 
 					if (table == IPT_TABLE_NAT) {
-						ipt_write("-A WANPREROUTING -j TRIGGER --trigger-type dnat\n");
+						ipt_write("-A %s -j TRIGGER --trigger-type dnat\n", chain_wan_prerouting);
 						goto QUIT;
 					}
 
@@ -150,7 +152,7 @@ void ipt_triggered(ipt_table_t table)
 						  "-j TRIGGER --trigger-type out --trigger-proto %s --trigger-match %s --trigger-relate %s\n",
 							c, c, mports,
 							c, s, fports);
-				// can't use mport... trigger-match must be set to the same
+				// can't use multiport... trigger-match must be set to the same
 				// ports as dport since it's used to refresh timer during inbound	-- zzz
 			}
 		}

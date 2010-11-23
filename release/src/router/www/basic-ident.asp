@@ -27,24 +27,8 @@
 
 function verifyFields(focused, quiet)
 {
-/* REMOVE-BEGIN
-	!!TB - validate hostname
-REMOVE-END */
-	var e, s;
-	e = E('_wan_hostname');
-	s = e.value.trim();
-	if (s.length > 0) {
-		if ((s.length > 63) ||
-			(s.search(/^[a-zA-Z0-9\-]+$/) == -1) ||
-			(s.search(/^\-/) == 0) ||
-			(s.search(/\-$/) >= 0)) {
-			ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9" with "-" in the middle are allowed.', quiet);
-			return 0;
-		}
-	}
-	e.value = s;
-	ferror.clear(e);
-
+	if (!v_hostname('_wan_hostname', quiet)) return 0;
+	if (!v_domain('_wan_domain', quiet)) return 0;
 	return v_length('_router_name', quiet, 1) && v_length('_wan_hostname', quiet, 0) && v_length('_wan_domain', quiet, 0);
 }
 
@@ -77,7 +61,7 @@ function save()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Router Name', name: 'router_name', type: 'text', maxlen: 32, size: 34, value: nvram.router_name },
-	{ title: 'Hostname', name: 'wan_hostname', type: 'text', maxlen: 32, size: 34, value: nvram.wan_hostname },
+	{ title: 'Hostname', name: 'wan_hostname', type: 'text', maxlen: 63, size: 34, value: nvram.wan_hostname },
 	{ title: 'Domain Name', name: 'wan_domain', type: 'text', maxlen: 32, size: 34, value: nvram.wan_domain }
 ]);
 </script>

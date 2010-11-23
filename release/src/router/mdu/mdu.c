@@ -204,15 +204,20 @@ static void error(const char *fmt, ...)
 	exit(error_exitcode);
 }
 
-static void success(void)
+static void success_msg(const char *msg)
 {
 	save_cookie();
 
 	_dprintf("%s\n", __FUNCTION__);
 
-	printf("%s\n", "Update successful");
-	save_msg("Update successful");
+	printf("%s\n", msg);
+	save_msg(msg);
 	exit(0);
+}
+
+static void success(void)
+{
+	success_msg("Update successful.");
 }
 
 
@@ -312,7 +317,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		}
 		buffer[i] = 0;
 
-		_dprintf("recvd=[%s]\n", buffer);
+		_dprintf("recvd=[%s], i=%d\n", buffer, i);
 
 		fclose(f);
 		close(sd);
@@ -1478,6 +1483,7 @@ static void update_wget(void)
 	char *host;
 	char path[256];
 	char *p;
+	char *body;
 
 	// http://user:pass@domain:port/path?query
 	// https://user:pass@domain:port/path?query
@@ -1516,11 +1522,12 @@ static void update_wget(void)
 		header = NULL;
 	}
 
-	r = wget(https, 1, host, path, header, 0, NULL);
+	r = wget(https, 1, host, path, header, 0, &body);
 	switch (r) {
 	case 200:
 	case 302:	// redirect -- assume ok
-		success();
+		if (body && *body) success_msg((char *)body);
+		else success();
 		break;
 	case 401:
 		error(M_INVALID_AUTH);

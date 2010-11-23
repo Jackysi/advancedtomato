@@ -175,6 +175,7 @@ int buttons_main(int argc, char *argv[])
 		ses_led = LED_AMBER;
 		break;
 #endif
+	case MODEL_WRT160Nv1:
 	case MODEL_WRT300N:
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 4;

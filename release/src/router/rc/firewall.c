@@ -51,6 +51,7 @@ const char *chain_out_drop;
 const char *chain_out_accept;
 const char *chain_out_reject;
 
+const char chain_wan_prerouting[] = "WANPREROUTING";
 const char ipt_fname[] = "/etc/iptables";
 FILE *ipt_file;
 
@@ -382,17 +383,18 @@ static void nat_table(void)
 		":PREROUTING ACCEPT [0:0]\n"
 		":POSTROUTING ACCEPT [0:0]\n"
 		":OUTPUT ACCEPT [0:0]\n"
-		":WANPREROUTING - [0:0]\n");
+		":%s - [0:0]\n",
+		chain_wan_prerouting);
 
 	if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
 		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
 
-		// WANPREROUTING chain
+		// chain_wan_prerouting
 		if (wanup)
-			ipt_write("-A PREROUTING -d %s -j WANPREROUTING\n", wanaddr);
+			ipt_write("-A PREROUTING -d %s -j %s\n", wanaddr, chain_wan_prerouting);
 		if (*manaddr)
-			ipt_write("-A PREROUTING -d %s -j WANPREROUTING\n", manaddr);
+			ipt_write("-A PREROUTING -d %s -j %s\n", manaddr, chain_wan_prerouting);
 
 		// Drop incoming packets which destination IP address is to our LAN side directly
 		ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
@@ -412,7 +414,7 @@ static void nat_table(void)
 			}
 
 			// ICMP packets are always redirected to INPUT chains
-			ipt_write("-A WANPREROUTING -p icmp -j DNAT --to-destination %s\n", lanaddr);
+			ipt_write("-A %s -p icmp -j DNAT --to-destination %s\n", chain_wan_prerouting, lanaddr);
 
 			strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
 			p = t;
@@ -421,13 +423,15 @@ static void nat_table(void)
 				ipt_source(p, src);
 
 				if (remotemanage) {
-					ipt_write("-A WANPREROUTING -p tcp -m tcp %s --dport %s -j DNAT --to-destination %s:%d\n",
+					ipt_write("-A %s -p tcp -m tcp %s --dport %s -j DNAT --to-destination %s:%d\n",
+						chain_wan_prerouting,
 						src,
 						nvram_safe_get("http_wanport"),
 						lanaddr, web_lanport);
 				}
 				if (nvram_get_int("sshd_remote")) {
-					ipt_write("-A WANPREROUTING %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s\n",
+					ipt_write("-A %s %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s\n",
+						chain_wan_prerouting,
 						src,
 						nvram_safe_get("sshd_rport"),
 						lanaddr, nvram_safe_get("sshd_port"));
@@ -445,7 +449,7 @@ static void nat_table(void)
 			ipt_write(":upnp - [0:0]\n");
 			if (wanup) {
 				// ! for loopback (all) to work
-				ipt_write("-A WANPREROUTING -j upnp\n");
+				ipt_write("-A %s -j upnp\n", chain_wan_prerouting);
 			}
 			else {
 				ipt_write("-A PREROUTING -i %s -j upnp\n", wanface);
@@ -461,7 +465,7 @@ static void nat_table(void)
 				do {
 					if ((c = strchr(p, ',')) != NULL) *c = 0;
 					ipt_source(p, src);
-					ipt_write("-A WANPREROUTING %s -j DNAT --to-destination %s\n", src, dst);
+					ipt_write("-A %s %s -j DNAT --to-destination %s\n", chain_wan_prerouting, src, dst);
 					if (!c) break;
 					p = c + 1;
 				} while (*p);
@@ -537,8 +541,8 @@ static void filter_input(void)
 		ipt_write(
 			"-N shlimit\n"
 			"-A shlimit -m recent --set --name shlimit\n"
-			"-A shlimit -m recent --update --hitcount %d --seconds %s --name shlimit -j DROP\n",
-			atoi(hit) + 1, sec);
+			"-A shlimit -m recent --update --hitcount %d --seconds %s --name shlimit -j %s\n",
+			atoi(hit) + 1, sec, chain_in_drop);
 
 		if (n & 1) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_port"));
 		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
@@ -556,8 +560,8 @@ static void filter_input(void)
 		ipt_write(
 			"-N ftplimit\n"
 			"-A ftplimit -m recent --set --name ftp\n"
-			"-A ftplimit -m recent --update --hitcount %d --seconds %s --name ftp -j DROP\n",
-			atoi(hit) + 1, sec);
+			"-A ftplimit -m recent --update --hitcount %d --seconds %s --name ftp -j %s\n",
+			atoi(hit) + 1, sec, chain_in_drop);
 		ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
 	}
 #endif
@@ -569,9 +573,10 @@ static void filter_input(void)
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
-		ipt_write("-A INPUT -p icmp -j %s\n", chain_in_accept);
+		// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
+		ipt_write("-A INPUT -p icmp -m limit --limit 1/second -j %s\n", chain_in_accept);
 		// allow udp traceroute packets
-		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", chain_in_accept);
+		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
 	}
 
 	/* Accept incoming packets from broken dhcp servers, which are sending replies

@@ -122,7 +122,7 @@ int sched_main(int argc, char *argv[])
 
 			if (is_sched(argv[1])) {
 				if (strcmp(argv[1], "sch_rboot") == 0) {
-					syslog(LOG_INFO, "Performing scheduled %s...", "reboot");
+					if (log) syslog(LOG_INFO, "Performing scheduled %s...", "reboot");
 					system("reboot");
 					return 0;
 				}

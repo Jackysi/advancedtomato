@@ -5,14 +5,14 @@ LIBS = -lpthread
 LDFLAGS	=
 
 ifeq ($(TCONFIG_OPENVPN),y)
-CFLAGS	+= -I$(TOP)/openssl/include
+CFLAGS	+= -I$(TOP)/openssl/include -DUSE_OPENSSL
 LIBS += -L$(TOP)/openssl -lssl -lcrypto
-OBJ = mssl_openssl.o
 else
-CFLAGS	+= -I$(TOP)/matrixssl
-LIBS += $(TOP)/matrixssl/src/libmatrixsslstatic.a
-OBJ = mssl.o
+CFLAGS	+= -I$(TOP)/cyassl/include
+LIBS += $(TOP)/cyassl/src/.libs/libcyassl.a
 endif
+
+OBJ = mssl.o
 
 all: libmssl.so libmssl.a
 
