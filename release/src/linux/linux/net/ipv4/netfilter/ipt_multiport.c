@@ -9,6 +9,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/udp.h>
