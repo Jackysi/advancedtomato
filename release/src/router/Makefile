@@ -830,7 +830,7 @@ pppd/Makefile: pppd/linux/Makefile.top
 
 pppd: pppd/Makefile
 	@$(SEP)
-	@$(MAKE) -C pppd $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
+	@$(MAKE) -C pppd MFLAGS='$(if $(TCONFIG_IPV6),HAVE_INET6=y,) EXTRACFLAGS="$(EXTRACFLAGS)"'
 
 pppd-clean:
 	-$(MAKE) -C pppd clean
