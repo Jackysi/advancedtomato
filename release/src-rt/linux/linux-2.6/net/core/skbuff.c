@@ -175,7 +175,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb_reset_tail_pointer(skb);
 	skb->end = skb->tail + size;
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-	skb->nfct_reasm = skb->nfct = NULL;
+	skb->nfct_reasm = NULL;
+	skb->nfct = NULL;
 	skb->nfcache = 0;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
