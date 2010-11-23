@@ -326,22 +326,6 @@ ifeq ("$(CONFIG_WL_EMULATOR)","y")
 CFLAGS += -DBCM_WL_EMULATOR -DBCMPERFSTATS
 endif #CONFIG_WL_EMULATOR
 
-#ifdef BCMINTERNAL
-BCMINTERNAL := y
-ifeq ("$(strip $(BCMINTERNAL))","y")
-AFLAGS += -DBCMINTERNAL
-ASFLAGS += -DBCMINTERNAL
-CFLAGS += -DBCMINTERNAL
-#ifdef BCMDBG
-BCMDBG := y
-ifeq ("$(strip $(BCMDBG))","y")
-AFLAGS += -DBCMDBG
-ASFLAGS += -DBCMDBG
-CFLAGS += -DBCMDBG
-endif #BCMDBG
-#endif
-endif #BCMINTERNAL
-#endif
 CFLAGS += -DBCMDRIVER -Dlinux
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
@@ -543,6 +527,10 @@ CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
 
 # disable pointer signed / unsigned warnings in gcc 4.0
 CFLAGS += $(call cc-option,-Wno-pointer-sign,)
+
+ifdef CONFIG_BCM_CTF
+CFLAGS += -DHNDCTF -DCTFPOOL
+endif
 
 # Default kernel image to build when no specific target is given.
 # KBUILD_IMAGE may be overruled on the command line or

@@ -144,14 +144,13 @@ static void tomato_load(void)
 	unsigned short iport;
 	char proto[4];
 	char iaddr[32];
-	char desc[64];
 	char *a, *b;
 
 	if ((f = fopen("/etc/upnp/data", "r")) != NULL) {
 		s[sizeof(s) - 1] = 0;
 		while (fgets(s, sizeof(s) - 1, f)) {
 			if (sscanf(s, "%3s %hu %31s %hu ", proto, &eport, iaddr, &iport) == 4) {
-				if (((a = strchr(s, '[')) != NULL) && ((b = strrchr(a, ']')) != NULL) && ((b - a) <= sizeof(desc))) {
+				if (((a = strchr(s, '[')) != NULL) && ((b = strrchr(a, ']')) != NULL)) {
 					*b = 0;
 					upnp_redirect(eport, iaddr, iport, proto, a + 1);
 				}
@@ -159,6 +158,9 @@ static void tomato_load(void)
 		}
 		fclose(f);
 	}
+#ifdef ENABLE_NATPMP
+	ScanNATPMPforExpiration();
+#endif
 	unlink("/etc/upnp/load");
 }
 
@@ -1121,6 +1123,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	syslog(LOG_INFO, "Reloading rules from lease file");
 	reload_from_lease_file();
 #endif
+	tomato_load();	// zzz
 
 	return 0;
 print_usage:

@@ -713,6 +713,10 @@ config SHRINKMEM
 	depends on BCM947XX
 	select PM
 
+config GENERIC_GPIO
+	bool "Generic GPIO"
+	default n
+
 endmenu
 
 

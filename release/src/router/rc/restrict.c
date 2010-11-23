@@ -315,8 +315,8 @@ void ipt_restrictions(void)
 			else if ((proto == 6) || (proto == 17) || (proto == -1)) {
 				if ((*dir != 'a') && (*pport)) {
 					if ((*dir == 'x') || (strchr(pport, ','))) {
-						// use mport for multiple ports or src-or-dst type matches
-						snprintf(ports, sizeof(ports), "-m mport --%sports %s", (*dir == 'x') ? "" : dir, pport);
+						// use multiport for multiple ports or src-or-dst type matches
+						snprintf(ports, sizeof(ports), "-m multiport --%sports %s", (*dir == 'x') ? "" : dir, pport);
 					}
 					else {
 						// else, use built-in
@@ -368,7 +368,7 @@ void ipt_restrictions(void)
 		if (http_file & 2) strcpy(app, ".swf$ ");
 		if (http_file & 4) strcat(app, ".class$ .jar$");
 		if (app[0]) {
-			ipt_write("-A %s -p tcp -m mport --dports %s -m web --path \"%s\" -j %s\n",
+			ipt_write("-A %s -p tcp -m multiport --dports %s -m web --path \"%s\" -j %s\n",
 				reschain, nvram_safe_get("rrulewp"), app, chain_out_reject);
 			need_web = 1;
 			blockall = 0;

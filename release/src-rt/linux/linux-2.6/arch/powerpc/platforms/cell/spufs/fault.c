@@ -38,6 +38,7 @@ static int spu_handle_mm_fault(struct mm_struct *mm, unsigned long ea, unsigned 
 	struct vm_area_struct *vma;
 	unsigned long is_write;
 	int ret;
+	int fault;
 
 #if 0
 	if (!IS_VALID_EA(ea)) {
@@ -73,22 +74,21 @@ good_area:
 			goto bad_area;
 	}
 	ret = 0;
-	switch (handle_mm_fault(mm, vma, ea, is_write)) {
-	case VM_FAULT_MINOR:
-		current->min_flt++;
-		break;
-	case VM_FAULT_MAJOR:
-		current->maj_flt++;
-		break;
-	case VM_FAULT_SIGBUS:
-		ret = -EFAULT;
-		goto bad_area;
-	case VM_FAULT_OOM:
-		ret = -ENOMEM;
-		goto bad_area;
-	default:
+	fault = handle_mm_fault(mm, vma, ea, is_write);
+	if (unlikely(fault & VM_FAULT_ERROR)) {
+		if (fault & VM_FAULT_OOM) {
+			ret = -ENOMEM;
+			goto bad_area;
+		} else if (fault & VM_FAULT_SIGBUS) {
+			ret = -EFAULT;
+			goto bad_area;
+		}
 		BUG();
 	}
+	if (fault & VM_FAULT_MAJOR)
+		current->maj_flt++;
+	else
+		current->min_flt++;
 	up_read(&mm->mmap_sem);
 	return ret;
 

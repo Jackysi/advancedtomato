@@ -6,7 +6,7 @@
  * updated by IGMP Snooping layer to do the optimal forwarding. This file
  * contains the common code routines of EMFL.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -14,7 +14,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emfc.c,v 1.3 2008/11/19 01:41:19 Exp $
+ * $Id: emfc.c,v 1.4 2010/02/17 23:36:15 Exp $
  */
 #include <typedefs.h>
 #include <bcmdefs.h>
@@ -1540,7 +1540,7 @@ emfc_init(int8 *inst_id, void *emfi, osl_t *osh, emfc_wrapper_t *wrapper)
 
 	EMF_DEBUG("Initializing EMFL\n");
 
-	/* Check for the wrapper parameter*/
+	/* Check for the wrapper parameter */
 	if (wrapper == NULL)
 	{
 		EMF_ERROR("emfc_init: wrapper parameter NULL\n");
@@ -1593,7 +1593,7 @@ emfc_init(int8 *inst_id, void *emfi, osl_t *osh, emfc_wrapper_t *wrapper)
 	strncpy(emfc->inst_id, inst_id, IFNAMSIZ);
 	emfc->inst_id[IFNAMSIZ - 1] = 0;
 
-	/* Fill up the wrapper specific functions*/
+	/* Fill up the wrapper specific functions */
 	emfc->wrapper.forward_fn = wrapper->forward_fn;
 	emfc->wrapper.sendup_fn = wrapper->sendup_fn;
 	emfc->wrapper.hooks_register_fn = wrapper->hooks_register_fn;

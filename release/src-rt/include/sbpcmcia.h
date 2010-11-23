@@ -1,7 +1,7 @@
 /*
  * BCM43XX Sonics SiliconBackplane PCMCIA core hardware definitions.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: sbpcmcia.h,v 13.31.12.6 2008/09/06 01:48:59 Exp $
+ * $Id: sbpcmcia.h,v 13.31.12.9 2010/01/06 01:03:03 Exp $
  */
 
 #ifndef	_SBPCMCIA_H
@@ -172,6 +172,8 @@
 #define HNBU_BOARDTYPE		0x1b		/* 2 bytes; boardtype */
 #define HNBU_LEDDC		0x1c		/* 2 bytes; LED duty cycle */
 #define HNBU_HNBUCIS	0x1d		/* what follows is proprietary HNBU CIS format */
+#define HNBU_PAPARMS_SSLPNPHY 0x1e	/* SSLPNPHY PA params */
+#define HNBU_RSSISMBXA2G_SSLPNPHY 0x1f /* SSLPNPHY RSSI mid pt sel & board switch arch */
 #define HNBU_RDLRNDIS		0x20		/* 1 byte; 1 = RDL advertises RNDIS config */
 #define HNBU_CHAINSWITCH	0x21	/* 2 byte; txchain, rxchain */
 #define HNBU_REGREV		0x22	/* 1 byte; */
@@ -184,14 +186,19 @@
 #define HNBU_PO_MCS2G		0x29	/* 8 bytes: mcs2g power offset */
 #define HNBU_PO_MCS5GM		0x2a	/* 8 bytes: mcs5g mid band power offset */
 #define HNBU_PO_MCS5GLH		0x2b	/* 16 bytes: mcs5g low-high band power offset */
-#define HNBU_PO_CDD		0x2c	/* 2 or 8 bytes: cdd2g/5g power offset */
-#define HNBU_PO_STBC		0x2d	/* 2 or 8 bytes: stbc2g/5g power offset */
-#define HNBU_PO_40M		0x2e	/* 2 or 8 bytes: 40Mhz channel 2g/5g power offset */
-#define HNBU_PO_40MDUP		0x2f	/* 2 or 8 bytes: 40Mhz channel dup 2g/5g power offset */
+#define HNBU_PO_CDD		0x2c	/* 2 bytes: cdd2g/5g power offset */
+#define HNBU_PO_STBC		0x2d	/* 2 bytes: stbc2g/5g power offset */
+#define HNBU_PO_40M		0x2e	/* 2 bytes: 40Mhz channel 2g/5g power offset */
+#define HNBU_PO_40MDUP		0x2f	/* 2 bytes: 40Mhz channel dup 2g/5g power offset */
 
 #define HNBU_RDLRWU		0x30	/* 1 byte; 1 = RDL advertises Remote Wake-up */
 #define HNBU_WPS		0x31	/* 1 byte; GPIO pin for WPS button */
 #define HNBU_USBFS		0x32	/* 1 byte; 1 = USB advertises FS mode only */
+#define HNBU_ELNA2G             0x33
+#define HNBU_ELNA5G             0x34
+
+#define HNBU_CCKFILTTYPE 0x36   /* CCK digital filter selection options */
+#define HNBU_OFDMPO5G		0x37	/* 4 * 3 = 12 byte 11a ofdm power offsets in rev 3 */
 #define HNBU_SROM3SWRGN		0x80	/* 78 bytes; srom rev 3 s/w region without crc8
 					 * plus extra info appended.
 					 */

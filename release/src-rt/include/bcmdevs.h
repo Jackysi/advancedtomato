@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmdevs.h,v 13.182.2.37 2009/11/06 02:52:26 Exp $
+ * $Id: bcmdevs.h,v 13.182.2.40 2010/01/28 03:48:46 Exp $
  */
 
 #ifndef	_BCMDEVS_H
@@ -173,7 +173,7 @@
 #define	BCM5352_CHIP_ID		0x5352		/* 5352 chipcommon chipid */
 #define	BCM5354_CHIP_ID		0x5354		/* 5354 chipcommon chipid */
 #define BCM5365_CHIP_ID		0x5365		/* 5365 chipcommon chipid */
-#define	BCM5356_CHIP_ID		0x5356		/* 5356 chipcommon chipid */
+#define BCM5356_CHIP_ID		0x5356		/* 5356 chipcommon chipid */
 #define	BCM4319_CHIP_ID		0x4319		/* 4319 chip id */
 #define	BCM4329_CHIP_ID		0x4329		/* 4329 chipcommon chipid */
 
@@ -194,6 +194,8 @@
 #define	BCM4716_PKG_ID		8		/* 4716 package id */
 #define	BCM4717_PKG_ID		9		/* 4717 package id */
 #define	BCM4718_PKG_ID		10		/* 4718 package id */
+#define BCM5356_PKG_NONMODE	1		/* 5356 package without nmode suppport */
+#define BCM5356U_PKG_ID		12		/* 5356U package id */
 #define HDLSIM5350_PKG_ID	1		/* HDL simulator package id for a 5350 */
 #define HDLSIM_PKG_ID		14		/* HDL simulator package id */
 #define HWSIM_PKG_ID		15		/* Hardware simulator package id */

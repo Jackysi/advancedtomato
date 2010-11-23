@@ -1,7 +1,7 @@
 /*
  * BCM47XX Sonics SiliconBackplane MIPS core routines
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: hndmips.c,v 1.35.2.5.12.18 2009/04/30 03:25:31 Exp $
+ * $Id: hndmips.c,v 1.35.2.10 2009/06/11 00:13:15 Exp $
  */
 
 #include <typedefs.h>
@@ -265,6 +265,7 @@ BCMINITFN(si_mips_init)(si_t *sih, uint shirqmap)
 		si_setirq(sih, 4, PCI_CORE_ID, 0);
 		break;
 	case BCM4716_CHIP_ID:
+	case BCM4748_CHIP_ID:
 		/* Clear interrupt map */
 		for (irq = 0; irq <= 4; irq++)
 			si_clearirq(sih, irq);
@@ -276,13 +277,6 @@ BCMINITFN(si_mips_init)(si_t *sih, uint shirqmap)
 		si_setirq(sih, 0, I2S_CORE_ID, 0);
 		break;
 	case BCM5356_CHIP_ID:
-		/* Clear interrupt map */
-		for (irq = 0; irq <= 4; irq++)
-			si_clearirq(sih, irq);
-		si_setirq(sih, 1, D11_CORE_ID, 0);
-		si_setirq(sih, 2, GMAC_CORE_ID, 0);
-		si_setirq(sih, 0, CC_CORE_ID, 0);
-		break;
 	case BCM47162_CHIP_ID:
 		/* Clear interrupt map */
 		for (irq = 0; irq <= 4; irq++)
@@ -374,8 +368,8 @@ BCMINITFN(si_mem_clock)(si_t *sih)
 
 /*
  * Set the MIPS, backplane and DDR clocks as closely as possible in chips
- * with a PMU. So far that means 4716, 47162, and 5356 all of which share
- * the same PLL controls.
+ * with a PMU. So far that means 4716, 47162, and 5356 all of which share the
+ * same PLL controls.
  */
 static bool
 BCMINITFN(mips_pmu_setclock)(si_t *sih, uint32 mipsclock, uint32 ddrclock, uint32 axiclock)
@@ -389,7 +383,7 @@ BCMINITFN(mips_pmu_setclock)(si_t *sih, uint32 mipsclock, uint32 ddrclock, uint3
 
 	/* 20MHz table for 4716, 4717, 4718, 47162 */
 	static uint32 BCMINITDATA(pll20mhz_table)[][8] = {
-		/* cpu, ddr, axi, pllctl12,  pllctl13,   pllctl14,   pllctl15,  |pllctl16 */
+		/* cpu, ddr, axi, pllctl12, pllctl13, pllctl14, pllctl15, |pllctl16 */
 		{  66,  66,  66, 0x11100070, 0x00121212, 0x03c00000, 0x20000000, 0 },
 		{  75,  75,  75, 0x11100070, 0x00101010, 0x03c00000, 0x20000000, 0 },
 		{  80,  80,  80, 0x11100070, 0x000a0a0a, 0x02800000, 0x20000000, 0 },
@@ -550,7 +544,6 @@ BCMINITFN(mips_pmu_setclock)(si_t *sih, uint32 mipsclock, uint32 ddrclock, uint3
 		if (R_REG(osh, &cc->pllcontrol_data) != pll_table[idx][i + 3])
 			break;
 	}
-
 	/* All matched, no change needed */
 	if (i == (PMU5_PLL_FMAB_OFF + 1))
 		goto done;

@@ -193,6 +193,7 @@ int led(int which, int mode)
 	static int h618b[]	= { 255,  -1,   255,  255,  255,   -5,   -3,   -4	};
 	static int wl1600gl[]	= { 1,    -5, 	  0,  255,  255,  2,    255,  255	};
 	static int wrt310nv1[]	= { 255,   1,     9,    3,  255,  255,  255,  255	};
+	static int wrt160nv1[]	= { 255,   1,     5,    3,  255,  255,  255,  255	};
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
 	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
@@ -348,6 +349,9 @@ int led(int which, int mode)
 		break;
 	case MODEL_WRT310Nv1:
 		b = wrt310nv1[which];
+		break;
+	case MODEL_WRT160Nv1:
+		b = wrt160nv1[which];
 		break;
 	default:
 		sprintf(s, "led_%s", led_names[which]);

@@ -2,7 +2,7 @@
  * Linux device driver for
  * Broadcom BCM47XX 10/100/1000 Mbps Ethernet Controller
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: et_linux.c,v 1.113.14.1.14.9 2009/04/21 19:51:30 Exp $
+ * $Id: et_linux.c,v 1.113.14.18 2010/01/17 07:08:36 Exp $
  */
 
 #define __UNDEF_NO_VERSION__
@@ -62,12 +62,20 @@
 #include <hndsoc.h>
 #include <bcmgmacrxh.h>
 #include <etc.h>
+#ifdef HNDCTF
+#include <ctf/hndctf.h>
+#endif /* HNDCTF */
+
+MODULE_LICENSE("Proprietary");
 
 typedef struct et_info {
 	etc_info_t	*etc;		/* pointer to common os-independent data */
 	struct net_device *dev;		/* backpoint to device */
 	struct pci_dev *pdev;		/* backpoint to pci_dev */
 	void		*osh;		/* pointer to os handle */
+#ifdef HNDCTF
+	ctf_t		*cih;		/* ctf instance handle */
+#endif /* HNDCTF */
 	spinlock_t	lock;		/* per-device perimeter lock */
 	struct sk_buff_head txq[NUMTXQ];	/* send queue */
 	void *regsva;			/* opaque chip registers virtual address */
@@ -75,9 +83,9 @@ typedef struct et_info {
 	struct net_device_stats stats;	/* stat counter reporting structure */
 	int events;			/* bit channel between isr and dpc */
 	struct et_info *next;		/* pointer to next et_info_t in chain */
-#ifndef BCM_NAPI
+#ifndef NAPI_POLL
 	struct tasklet_struct tasklet;	/* dpc tasklet */
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 	bool resched;			/* dpc was rescheduled */
 } et_info_t;
 
@@ -124,11 +132,11 @@ static irqreturn_t et_isr(int irq, void *dev_id);
 #else
 static irqreturn_t et_isr(int irq, void *dev_id, struct pt_regs *ptregs);
 #endif
-#ifdef BCM_NAPI
+#ifdef NAPI_POLL
 static int et_poll(struct net_device *dev, int *budget);
-#else /* BCM_NAPI */
+#else /* NAPI_POLL */
 static void et_dpc(ulong data);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 static void et_sendup(et_info_t *et, struct sk_buff *skb);
 
 /* recognized PCI IDs */
@@ -153,6 +161,23 @@ static struct pci_device_id et_id_table[] __devinitdata = {
 };
 MODULE_DEVICE_TABLE(pci, et_id_table);
 
+
+#ifdef HNDCTF
+static void
+et_ctf_detach(ctf_t *ci, void *arg)
+{
+	et_info_t *et = (et_info_t *)arg;
+
+	et->cih = NULL;
+
+#ifdef CTFPOOL
+	/* free the buffers in fast pool */
+	osl_ctfpool_cleanup(et->osh);
+#endif /* CTFPOOL */
+
+	return;
+}
+#endif /* HNDCTF */
 
 static int __devinit
 et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
@@ -231,12 +256,33 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		skb_queue_head_init(&et->txq[i]);
 
 	/* common load-time initialization */
-	if ((et->etc = etc_attach((void *)et, pdev->vendor, pdev->device, unit, osh, et->regsva)) ==
-	    NULL) {
+	et->etc = etc_attach((void *)et, pdev->vendor, pdev->device, unit, osh, et->regsva);
+	if (et->etc == NULL) {
 		ET_ERROR(("et%d: etc_attach() failed\n", unit));
 		et->dev = NULL;
 		goto fail;
 	}
+
+#ifdef HNDCTF
+	et->cih = ctf_attach(osh, dev->name, &et_msg_level, et_ctf_detach, et);
+
+	if ((ctf_dev_register(et->cih, dev, FALSE) != BCME_OK) ||
+	    (ctf_enable(et->cih, dev, TRUE) != BCME_OK)) {
+		ET_ERROR(("et%d: ctf_dev_register() failed\n", unit));
+		et->dev = NULL;
+		goto fail;
+	}
+#endif /* HNDCTF */
+
+#ifdef CTFPOOL
+	/* create ctf packet pool with specified number of buffers */
+	if (CTF_ENAB(et->cih) && (num_physpages >= 8192) &&
+	    (osl_ctfpool_init(osh, CTFPOOLSZ, RXBUFSZ+BCMEXTRAHDROOM) < 0)) {
+		ET_ERROR(("et%d: chipattach: ctfpool alloc/init failed\n", unit));
+		et->dev = NULL;
+		goto fail;
+	}
+#endif /* CTFPOOL */
 
 	bcopy(&et->etc->cur_etheraddr, dev->dev_addr, ETHER_ADDR_LEN);
 
@@ -245,10 +291,10 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	et->timer.data = (ulong)dev;
 	et->timer.function = et_watchdog;
 
-#ifndef BCM_NAPI
+#ifndef NAPI_POLL
 	/* setup the bottom half handler */
 	tasklet_init(&et->tasklet, et_dpc, (ulong)et);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 
 	/* register our interrupt handler */
 	if (request_irq(pdev->irq, et_isr, IRQF_SHARED, dev->name, et)) {
@@ -270,10 +316,10 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	dev->set_mac_address = et_set_mac_address;
 	dev->set_multicast_list = et_set_multicast_list;
 	dev->do_ioctl = et_ioctl;
-#ifdef BCM_NAPI
+#ifdef NAPI_POLL
 	dev->poll = et_poll;
 	dev->weight = (ET_GMAC(et->etc) ? 64 : 32);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 
 	if (register_netdev(dev)) {
 		ET_ERROR(("et%d: register_netdev() failed\n", unit));
@@ -402,6 +448,11 @@ et_free(et_info_t *et)
 	if (et->dev && et->dev->irq)
 		free_irq(et->dev->irq, et);
 
+#ifdef HNDCTF
+	if (et->cih)
+		ctf_dev_unregister(et->cih, et->dev);
+#endif /* HNDCTF */
+
 	if (et->dev) {
 		unregister_netdev(et->dev);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
@@ -411,6 +462,17 @@ et_free(et_info_t *et)
 #endif
 		et->dev = NULL;
 	}
+
+#ifdef CTFPOOL
+	/* free the buffers in fast pool */
+	osl_ctfpool_cleanup(et->osh);
+#endif /* CTFPOOL */
+
+#ifdef HNDCTF
+	/* free ctf resources */
+	if (et->cih)
+		ctf_detach(et->cih);
+#endif /* HNDCTF */
 
 	/* free common resources */
 	if (et->etc) {
@@ -454,7 +516,6 @@ et_open(struct net_device *dev)
 	ET_TRACE(("et%d: et_open\n", et->etc->unit));
 
 	et->etc->promisc = (dev->flags & IFF_PROMISC)? TRUE: FALSE;
-	et->etc->allmulti = (dev->flags & IFF_ALLMULTI)? TRUE: et->etc->promisc;
 
 	ET_LOCK(et);
 	et_up(et);
@@ -475,7 +536,6 @@ et_close(struct net_device *dev)
 	ET_TRACE(("et%d: et_close\n", et->etc->unit));
 
 	et->etc->promisc = FALSE;
-	et->etc->allmulti = FALSE;
 
 	ET_LOCK(et);
 	et_down(et, 1);
@@ -651,12 +711,12 @@ et_down(et_info_t *et, int reset)
 		while ((skb = skb_dequeue(&et->txq[i])))
 			PKTFREE(etc->osh, skb, TRUE);
 
-#ifndef BCM_NAPI
+#ifndef NAPI_POLL
 	/* kill dpc */
 	ET_UNLOCK(et);
 	tasklet_kill(&et->tasklet);
 	ET_LOCK(et);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 }
 
 /*
@@ -688,6 +748,11 @@ et_watchdog(ulong data)
 	add_timer(&et->timer);
 
 	ET_UNLOCK(et);
+#ifdef CTFPOOL
+	/* allocate and add a new skb to the pkt pool */
+	if (CTF_ENAB(et->cih))
+		osl_ctfpool_replenish(et->osh, CTFPOOL_REFILL_THRESH);
+#endif /* CTFPOOL */
 }
 
 
@@ -784,7 +849,9 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	int error;
 	char *buf;
 	int size, ethtoolcmd;
-	bool get, set;
+	bool get = 0, set;
+	et_var_t *var = NULL;
+	void *buffer = NULL;
 	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;
 
 	et = ET_INFO(dev);
@@ -820,6 +887,10 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		size = sizeof(int) * 2;
 		get = FALSE; set = TRUE;
 		break;
+	case SIOCSETGETVAR:
+		size = sizeof(et_var_t);
+		set = TRUE;
+		break;
 	case SIOCGMIIPHY:
 		data->phy_id = et->etc->phyaddr;
 	case SIOCGMIIREG:
@@ -844,12 +915,41 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		return (-EFAULT);
 	}
 
+	if (cmd == SIOCSETGETVAR) {
+		var = (et_var_t *)buf;
+		if (var->buf) {
+			if (!var->set)
+				get = TRUE;
+
+			if (!(buffer = (void *) MALLOC(et->osh, var->len))) {
+				ET_ERROR(("et: et_ioctl: out of memory, malloced %d bytes\n",
+					MALLOCED(et->osh)));
+				MFREE(et->osh, buf, size);
+				return (-ENOMEM);
+			}
+
+			if (copy_from_user(buffer, var->buf, var->len)) {
+				MFREE(et->osh, buffer, var->len);
+				MFREE(et->osh, buf, size);
+				return (-EFAULT);
+			}
+		}
+	}
+
 	switch (cmd) {
 #ifdef SIOCETHTOOL
 	case SIOCETHTOOL:
 		error = et_ethtool(et, (struct ethtool_cmd *)buf);
 		break;
 #endif /* SIOCETHTOOL */
+	case SIOCSETGETVAR:
+		ET_LOCK(et);
+		error = etc_iovar(et->etc, var->cmd, var->set, buffer);
+		ET_UNLOCK(et);
+		if (!error && get)
+			error = copy_to_user(var->buf, buffer, var->len);
+		MFREE(et->osh, buffer, var->len);
+		break;
 	default:
 		ET_LOCK(et);
 		error = etc_ioctl(et->etc, cmd - SIOCSETCUP, buf) ? -EINVAL : 0;
@@ -959,7 +1059,7 @@ et_set_multicast_list(struct net_device *dev)
 
 	if (etc->up) {
 		etc->promisc = (dev->flags & IFF_PROMISC)? TRUE: FALSE;
-		etc->allmulti = (dev->flags & IFF_ALLMULTI)? TRUE: etc->promisc;
+		etc->allmulti = (dev->flags & IFF_ALLMULTI)? TRUE: FALSE;
 
 		/* copy the list of multicasts into our private table */
 		for (i = 0, mclist = dev->mc_list; mclist && (i < dev->mc_count);
@@ -1019,7 +1119,7 @@ et_isr(int irq, void *dev_id, struct pt_regs *ptregs)
 	et->events = events;
 
 	ASSERT(et->resched == FALSE);
-#ifdef BCM_NAPI
+#ifdef NAPI_POLL
 	/* allow the device to be added to the cpu polling list if we are up */
 	if (netif_rx_schedule_prep(et->dev)) {
 		/* tell the network core that we have packets to send up */
@@ -1029,10 +1129,10 @@ et_isr(int irq, void *dev_id, struct pt_regs *ptregs)
 		          et->etc->unit));
 		(*chops->intrson)(ch);
 	}
-#else /* BCM_NAPI */
+#else /* NAPI_POLL */
 	/* schedule dpc */
 	tasklet_schedule(&et->tasklet);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 
 done:
 	ET_LOG("et%d: et_isr ret", et->etc->unit, 0);
@@ -1084,19 +1184,19 @@ et_rxevent(osl_t *osh, et_info_t *et, struct chops *chops, void *ch, int quota)
 	return (processed);
 }
 
-#ifdef BCM_NAPI
+#ifdef NAPI_POLL
 static int BCMFASTPATH
 et_poll(struct net_device *dev, int *budget)
 {
 	int quota = min(RXBND, *budget);
 	et_info_t *et = ET_INFO(dev);
-#else /* BCM_NAPI */
+#else /* NAPI_POLL */
 static void BCMFASTPATH
 et_dpc(ulong data)
 {
 	int quota = RXBND;
 	et_info_t *et = (et_info_t *)data;
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 	struct chops *chops;
 	void *ch;
 	osl_t *osh;
@@ -1109,9 +1209,9 @@ et_dpc(ulong data)
 	ET_TRACE(("et%d: et_dpc: events 0x%x\n", et->etc->unit, et->events));
 	ET_LOG("et%d: et_dpc: events 0x%x", et->etc->unit, et->events);
 
-#ifndef BCM_NAPI
+#ifndef NAPI_POLL
 	ET_LOCK(et);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 
 	if (!et->etc->up)
 		goto done;
@@ -1150,19 +1250,19 @@ et_dpc(ulong data)
 		goto done;
 	}
 
-#ifndef BCM_NAPI
+#ifndef NAPI_POLL
 	/* there may be frames left, reschedule et_dpc() */
 	if (et->resched)
 		tasklet_schedule(&et->tasklet);
 	/* re-enable interrupts */
 	else
 		(*chops->intrson)(ch);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 
 done:
 	ET_LOG("et%d: et_dpc ret", et->etc->unit, 0);
 
-#ifdef BCM_NAPI
+#ifdef NAPI_POLL
 	/* update number of frames processed */
 	*budget -= nrx;
 	dev->quota -= nrx;
@@ -1185,10 +1285,10 @@ done:
 
 	/* indicate that we are done */
 	return (0);
-#else /* BCM_NAPI */
+#else /* NAPI_POLL */
 	ET_UNLOCK(et);
 	return;
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 }
 
 static void
@@ -1216,6 +1316,37 @@ et_error(et_info_t *et, struct sk_buff *skb, void *rxh)
 	if (RXH_RXER(et->etc, rxh)) {
 		ET_ERROR(("et%d: rx: symbol error from %s\n", et->etc->unit, eabuf));
 	}
+}
+
+static inline int32
+et_ctf_forward(et_info_t *et, struct sk_buff *skb)
+{
+#ifdef HNDCTF
+	/* use slow path if ctf is disabled */
+	if (!CTF_ENAB(et->cih))
+		return (BCME_ERROR);
+
+	/* try cut thru first */
+	if (ctf_forward(et->cih, skb) != BCME_ERROR)
+		return (BCME_OK);
+
+	/* clear skipct flag before sending up */
+	PKTCLRSKIPCT(et->osh, skb);
+#endif /* HNDCTF */
+
+#ifdef CTFPOOL
+	/* allocate and add a new skb to the pkt pool */
+	if (PKTISFAST(et->osh, skb))
+		osl_ctfpool_add(et->osh);
+
+	/* clear fast buf flag before sending up */
+	PKTCLRFAST(et->osh, skb);
+
+	/* re-init the hijacked field */
+	CTFPOOLPTR(et->osh, skb) = NULL;
+#endif /* CTFPOOL */
+
+	return (BCME_ERROR);
 }
 
 void BCMFASTPATH
@@ -1275,19 +1406,28 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 		}
 	}
 
-	/* Extract priority from payload and store it out-of-band in skb->priority */
+	skb->dev = et->dev;
+
+#ifdef HNDCTF
+	/* try cut thru' before sending up */
+	if (et_ctf_forward(et, skb) != BCME_ERROR)
+		return;
+#endif /* HNDCTF */
+
+	/* extract priority from payload and store it out-of-band
+	 * in skb->priority
+	 */
 	if (et->etc->qos)
 		pktsetprio(skb, TRUE);
 
-	skb->dev = et->dev;
 	skb->protocol = eth_type_trans(skb, et->dev);
 
 	/* send it up */
-#ifdef BCM_NAPI
+#ifdef NAPI_POLL
 	netif_receive_skb(skb);
-#else /* BCM_NAPI */
+#else /* NAPI_POLL */
 	netif_rx(skb);
-#endif /* BCM_NAPI */
+#endif /* NAPI_POLL */
 
 	ET_LOG("et%d: et_sendup ret", et->etc->unit, 0);
 
@@ -1306,6 +1446,12 @@ et_dump(et_info_t *et, struct bcmstrbuf *b)
 {
 	bcm_bprintf(b, "et%d: %s %s version %s\n", et->etc->unit,
 		__DATE__, __TIME__, EPI_VERSION_STR);
+
+#ifdef HNDCTF
+#if defined(BCMDBG_DUMP)
+	ctf_dump(et->cih, b);
+#endif 
+#endif /* HNDCTF */
 
 }
 

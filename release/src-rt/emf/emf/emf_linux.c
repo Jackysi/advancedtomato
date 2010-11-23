@@ -2,7 +2,7 @@
  * EMFL Linux Port: These functions handle the interface between EMFL
  * and the native OS.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emf_linux.c,v 1.9 2008/08/13 20:30:23 Exp $
+ * $Id: emf_linux.c,v 1.10 2009/04/28 00:08:20 Exp $
  */
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -28,6 +28,8 @@
 #include <emf/emf/emf_cfg.h>
 #include <emf/emf/emfc_export.h>
 #include "emf_linux.h"
+
+MODULE_LICENSE("Proprietary");
 
 static struct nf_hook_ops emf_nf_ops[] =
 {

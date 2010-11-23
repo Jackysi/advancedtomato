@@ -2,7 +2,7 @@
  * Misc utility routines for accessing PMU corerev specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,7 +10,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: hndpmu.c,v 1.121.2.16.8.11 2009/04/13 23:06:07 Exp $
+ * $Id: hndpmu.c,v 1.121.2.37 2009/10/13 02:32:49 Exp $
  */
 
 #include <typedefs.h>
@@ -23,7 +23,6 @@
 #include <sbchipc.h>
 #include <hndpmu.h>
 
-/* debug / trace */
 #define	PMU_ERROR(args)
 
 #define	PMU_MSG(args)
@@ -45,15 +44,12 @@ static uint32 si_pmu1_alpclk0(si_t *sih, osl_t *osh, chipcregs_t *cc);
 static bool si_pmu_res_depfltr_bb(si_t *sih);
 static bool si_pmu_res_depfltr_nbb(si_t *sih);
 static bool si_pmu_res_depfltr_ncb(si_t *sih);
+static bool si_pmu_res_depfltr_paldo(si_t *sih);
+static bool si_pmu_res_depfltr_npaldo(si_t *sih);
 static uint32 si_pmu_res_deps(si_t *sih, osl_t *osh, chipcregs_t *cc, uint32 rsrcs, bool all);
 static uint si_pmu_res_uptime(si_t *sih, osl_t *osh, chipcregs_t *cc, uint8 rsrc);
 
 static void si_pmu_res_masks(si_t *sih, uint32 *pmin, uint32 *pmax);
-
-/* FVCO frequency */
-#define FVCO_880	880000	/* 880MHz */
-#define FVCO_1760	1760000	/* 1760MHz */
-#define FVCO_1440	1440000	/* 1440MHz */
 
 /* Read/write a chipcontrol reg */
 void
@@ -63,21 +59,10 @@ si_pmu_chipcontrol(si_t *sih, uint reg, uint32 mask, uint32 val)
 	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, chipcontrol_data), mask, val);
 }
 
-/* Read/write a pllcontrol reg */
-void
-si_pmu_pllcontrol(si_t *sih, uint reg, uint32 mask, uint32 val)
-{
-	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, pllcontrol_addr), ~0, reg);
-	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, pllcontrol_data), mask, val);
-}
-
-/* Read/write a regcontrol reg */
-uint32
-si_pmu_regcontrol(si_t *sih, uint reg, uint32 mask, uint32 val)
-{
-	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, regcontrol_addr), ~0, reg);
-	return si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, regcontrol_data), mask, val);
-}
+/* FVCO frequency */
+#define FVCO_880	880000	/* 880MHz */
+#define FVCO_1760	1760000	/* 1760MHz */
+#define FVCO_1440	1440000	/* 1440MHz */
 
 /* PMU PLL update */
 void
@@ -86,7 +71,13 @@ si_pmu_pllupd(si_t *sih)
 	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, pmucontrol),
 	           PCTL_PLL_PLLCTL_UPD, PCTL_PLL_PLLCTL_UPD);
 }
-
+/* Read/write a pllcontrol reg */
+void
+si_pmu_pllcontrol(si_t *sih, uint reg, uint32 mask, uint32 val)
+{
+	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, pllcontrol_addr), ~0, reg);
+	si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, pllcontrol_data), mask, val);
+}
 /* Setup switcher voltage */
 void
 BCMINITFN(si_pmu_set_switcher_voltage)(si_t *sih, osl_t *osh,
@@ -253,13 +244,18 @@ BCMINITFN(si_pmu_fast_pwrup_delay)(si_t *sih, osl_t *osh)
 		break;
 	case BCM4312_CHIP_ID:
 	case BCM4322_CHIP_ID:
-	case BCM43221_CHIP_ID:
-	case BCM43231_CHIP_ID:
-	case BCM43222_CHIP_ID:
+	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
+	case BCM4342_CHIP_ID:
 		delay = 7000;
 		break;
 
+	case BCM4319_CHIP_ID:
+		delay = ISSIM_ENAB(sih) ? 70 : 3700;
+		break;
 
 	default:
 		break;
@@ -411,6 +407,46 @@ static const pmu_res_depend_t BCMINITDATA(bcm4325a0_res_depend)[] = {
 };
 
 
+static const pmu_res_updown_t BCMINITDATA(bcm4319a0_res_updown_qt)[] = {
+	{ RES4319_HT_AVAIL, 0x0101 },
+	{ RES4319_XTAL_PU, 0x0100 },
+	{ RES4319_LNLDO1_PU, 0x0100 },
+	{ RES4319_PALDO_PU, 0x0100 },
+	{ RES4319_CLDO_PU, 0x0100 },
+	{ RES4319_CBUCK_PWM, 0x0100 },
+	{ RES4319_CBUCK_BURST, 0x0100 },
+	{ RES4319_CBUCK_LPOM, 0x0100 }
+};
+
+static const pmu_res_updown_t BCMINITDATA(bcm4319a0_res_updown)[] = {
+	{ RES4319_XTAL_PU, 0x3f01 }
+};
+
+static const pmu_res_depend_t BCMINITDATA(bcm4319a0_res_depend)[] = {
+	/* Adjust OTP PU resource dependencies - not need PALDO unless write */
+	{
+		PMURES_BIT(RES4319_OTP_PU),
+		RES_DEPEND_REMOVE,
+		PMURES_BIT(RES4319_PALDO_PU),
+		si_pmu_res_depfltr_npaldo
+	},
+	/* Adjust HT Avail resource dependencies - bring up PALDO along if it is used. */
+	{
+		PMURES_BIT(RES4319_HT_AVAIL),
+		RES_DEPEND_ADD,
+		PMURES_BIT(RES4319_PALDO_PU),
+		si_pmu_res_depfltr_paldo
+	},
+	/* Adjust HT Avail resource dependencies - bring up RF switches along with HT. */
+	{
+		PMURES_BIT(RES4319_HT_AVAIL),
+		RES_DEPEND_ADD,
+		PMURES_BIT(RES4319_RX_PWRSW_PU) | PMURES_BIT(RES4319_TX_PWRSW_PU) |
+		PMURES_BIT(RES4319_RFPLL_PWRSW_PU) |
+		PMURES_BIT(RES4319_LOGEN_PWRSW_PU) | PMURES_BIT(RES4319_AFE_PWRSW_PU),
+		NULL
+	}
+};
 
 /* TRUE if the power topology uses the buck boost to provide 3.3V to VDDIO_RF and WLAN PA */
 static bool
@@ -433,6 +469,21 @@ BCMINITFN(si_pmu_res_depfltr_ncb)(si_t *sih)
 	if (CHIPID(sih->chip) == BCM4325_CHIP_ID)
 		return (sih->chiprev >= 2) && ((sih->boardflags & BFL_NOCBUCK) != 0);
 	return ((sih->boardflags & BFL_NOCBUCK) != 0);
+}
+
+
+/* TRUE if the power topology uses the PALDO */
+static bool
+BCMINITFN(si_pmu_res_depfltr_paldo)(si_t *sih)
+{
+	return (sih->boardflags & BFL_PALDO) != 0;
+}
+
+/* TRUE if the power topology doesn't use the PALDO */
+static bool
+BCMINITFN(si_pmu_res_depfltr_npaldo)(si_t *sih)
+{
+	return (sih->boardflags & BFL_PALDO) == 0;
 }
 
 
@@ -497,8 +548,8 @@ si_pmu_res_masks(si_t *sih, uint32 *pmin, uint32 *pmax)
 		 */
 		break;
 	case BCM4322_CHIP_ID:
-	case BCM43221_CHIP_ID:
-	case BCM43231_CHIP_ID:
+	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM4342_CHIP_ID:
 		if (sih->chiprev < 2) {
 			/* request ALP(can skip for A1) */
 			min_mask = PMURES_BIT(RES4322_RF_LDO) |
@@ -514,11 +565,34 @@ si_pmu_res_masks(si_t *sih, uint32 *pmin, uint32 *pmax)
 			max_mask = 0x1ff;
 		}
 		break;
-	case BCM43222_CHIP_ID:
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
 		/* ??? */
 		break;
 
+	case BCM4319_CHIP_ID:
+#ifdef	CONFIG_XIP
+		/* Initialize to ResInitMode2 for bootloader */
+		min_mask = PMURES_BIT(RES4319_CBUCK_LPOM) |
+			PMURES_BIT(RES4319_CBUCK_BURST) |
+			PMURES_BIT(RES4319_CBUCK_PWM) |
+			PMURES_BIT(RES4319_CLDO_PU) |
+			PMURES_BIT(RES4319_PALDO_PU) |
+			PMURES_BIT(RES4319_LNLDO1_PU) |
+			PMURES_BIT(RES4319_OTP_PU) |
+			PMURES_BIT(RES4319_XTAL_PU) |
+			PMURES_BIT(RES4319_ALP_AVAIL) |
+			PMURES_BIT(RES4319_RFPLL_PWRSW_PU);
+#else
+		/* We only need a few resources to be kept on all the time */
+		min_mask = PMURES_BIT(RES4319_CBUCK_LPOM) |
+			PMURES_BIT(RES4319_CLDO_PU);
+#endif	/* CONFIG_XIP */
+		/* Allow everything else to be turned on upon requests */
+		max_mask = ~(~0 << rsrcs);
+		break;
 
 	default:
 		break;
@@ -579,6 +653,20 @@ BCMINITFN(si_pmu_res_init)(si_t *sih, osl_t *osh)
 		/* Optimize resources dependancies */
 		pmu_res_depend_table = bcm4325a0_res_depend;
 		pmu_res_depend_table_sz = ARRAYSIZE(bcm4325a0_res_depend);
+		break;
+	case BCM4319_CHIP_ID:
+		/* Optimize resources up/down timers */
+		if (ISSIM_ENAB(sih)) {
+			pmu_res_updown_table = bcm4319a0_res_updown_qt;
+			pmu_res_updown_table_sz = ARRAYSIZE(bcm4319a0_res_updown_qt);
+		}
+		else {
+			pmu_res_updown_table = bcm4319a0_res_updown;
+			pmu_res_updown_table_sz = ARRAYSIZE(bcm4319a0_res_updown);
+		}
+		/* Optimize resources dependancies masks */
+		pmu_res_depend_table = bcm4319a0_res_depend;
+		pmu_res_depend_table_sz = ARRAYSIZE(bcm4319a0_res_depend);
 		break;
 
 	default:
@@ -991,12 +1079,13 @@ static const pmu1_xtaltab0_t BCMINITDATA(pmu1_xtaltab0_1440)[] = {
 	{19200,	7,	1,	18,	0x5,	0x17B425},
 	{19800,	8,	1,	22,	0x4,	0xA57EB},
 	{20000,	9,	1,	22,	0x4,	0x0},
-	{24000,	10,	3,	22,	0xa,	0x0},
+	{24000,	10,	1,	1,	0x3c,	0x0},
 	{25000,	11,	5,	32,	0xb,	0x0},
 	{26000,	12,	1,	4,	0x10,	0xEC4EC4},
-	{30000,	13,	1,	2,	0x18,	0x0},
+	{30000,	13,	1,	1,	0x30,	0x0},
 	{38400,	14,	1,	10,	0x4,	0x955555},
 	{40000,	15,	1,	4,	0xb,	0},
+	{48000,	16,	2,	1,	0x3c,	0x0},
 	{0,	0,	0,	0,	0,	0}
 };
 
@@ -1017,6 +1106,10 @@ static const pmu1_xtaltab0_t BCMINITDATA(pmu1_xtaltab0_1440)[] = {
 #define PMU1_XTALTAB0_1440_38400K	13
 #define PMU1_XTALTAB0_1440_40000K	14
 
+#define XTAL_FREQ_24000MHZ		24000
+#define XTAL_FREQ_30000MHZ		30000
+#define XTAL_FREQ_48000MHZ		48000
+
 /* select xtal table for each chip */
 static const pmu1_xtaltab0_t *
 BCMINITFN(si_pmu1_xtaltab0)(si_t *sih)
@@ -1025,6 +1118,8 @@ BCMINITFN(si_pmu1_xtaltab0)(si_t *sih)
 	switch (CHIPID(sih->chip)) {
 	case BCM4325_CHIP_ID:
 		return pmu1_xtaltab0_880;
+	case BCM4319_CHIP_ID:
+		return pmu1_xtaltab0_1440;
 	default:
 		PMU_MSG(("si_pmu1_xtaltab0: Unknown chipid %s\n", bcm_chipname(sih->chip, chn, 8)));
 		break;
@@ -1042,6 +1137,9 @@ BCMINITFN(si_pmu1_xtaldef0)(si_t *sih)
 	case BCM4325_CHIP_ID:
 		/* Default to 26000Khz */
 		return &pmu1_xtaltab0_880[PMU1_XTALTAB0_880_26000K];
+	case BCM4319_CHIP_ID:
+		/* Default to 30000Khz */
+		return &pmu1_xtaltab0_1440[PMU1_XTALTAB0_1440_30000K];
 	default:
 		PMU_MSG(("si_pmu1_xtaldef0: Unknown chipid %s\n", bcm_chipname(sih->chip, chn, 8)));
 		break;
@@ -1058,6 +1156,8 @@ BCMINITFN(si_pmu1_pllfvco0)(si_t *sih)
 	switch (CHIPID(sih->chip)) {
 	case BCM4325_CHIP_ID:
 		return FVCO_880;
+	case BCM4319_CHIP_ID:
+		return FVCO_1440;
 	default:
 		PMU_MSG(("si_pmu1_pllfvco0: Unknown chipid %s\n", bcm_chipname(sih->chip, chn, 8)));
 		break;
@@ -1099,6 +1199,7 @@ BCMINITFN(si_pmu1_pllinit0)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint32 xtal)
 	const pmu1_xtaltab0_t *xt;
 	uint32 tmp;
 	uint32 buf_strength = 0;
+	uint8 ndiv_mode = 1;
 
 	/* Use h/w default PLL config */
 	if (xtal == 0) {
@@ -1143,6 +1244,28 @@ BCMINITFN(si_pmu1_pllinit0)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint32 xtal)
 		SPINWAIT(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL, PMU_MAX_TRANSITION_DLY);
 		ASSERT(!(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL));
 		break;
+	case BCM4319_CHIP_ID:
+		/* Change the BBPLL drive strength to 2 for all channels */
+		buf_strength = 0x222222;
+		/* Make sure the PLL is off */
+		/* WAR65104: Disable the HT_AVAIL resource first and then
+		 * after a delay (more than downtime for HT_AVAIL) remove the
+		 * BBPLL resource; backplane clock moves to ALP from HT.
+		 */
+		AND_REG(osh, &cc->min_res_mask, ~(PMURES_BIT(RES4319_HT_AVAIL)));
+		AND_REG(osh, &cc->max_res_mask, ~(PMURES_BIT(RES4319_HT_AVAIL)));
+
+		OSL_DELAY(100);
+		AND_REG(osh, &cc->min_res_mask, ~(PMURES_BIT(RES4319_BBPLL_PWRSW_PU)));
+		AND_REG(osh, &cc->max_res_mask, ~(PMURES_BIT(RES4319_BBPLL_PWRSW_PU)));
+
+		OSL_DELAY(100);
+		SPINWAIT(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL, PMU_MAX_TRANSITION_DLY);
+		ASSERT(!(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL));
+		W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL4);
+		tmp = 0x200005c0;
+		W_REG(osh, &cc->pllcontrol_data, tmp);
+		break;
 	default:
 		ASSERT(0);
 	}
@@ -1157,13 +1280,14 @@ BCMINITFN(si_pmu1_pllinit0)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint32 xtal)
 	        ((xt->p2div << PMU1_PLL0_PC0_P2DIV_SHIFT) & PMU1_PLL0_PC0_P2DIV_MASK);
 	W_REG(osh, &cc->pllcontrol_data, tmp);
 
-
+	if ((CHIPID(sih->chip) == BCM4319_CHIP_ID))
+		ndiv_mode = PMU1_PLL0_PC2_NDIV_MODE_MFB;
 	/* Write ndiv_int and ndiv_mode to pllcontrol[2] */
 	W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL2);
 	tmp = R_REG(osh, &cc->pllcontrol_data) &
 	        ~(PMU1_PLL0_PC2_NDIV_INT_MASK | PMU1_PLL0_PC2_NDIV_MODE_MASK);
 	tmp |= ((xt->ndiv_int << PMU1_PLL0_PC2_NDIV_INT_SHIFT) & PMU1_PLL0_PC2_NDIV_INT_MASK) |
-	        ((1 << PMU1_PLL0_PC2_NDIV_MODE_SHIFT) & PMU1_PLL0_PC2_NDIV_MODE_MASK);
+	        ((ndiv_mode << PMU1_PLL0_PC2_NDIV_MODE_SHIFT) & PMU1_PLL0_PC2_NDIV_MODE_MASK);
 	W_REG(osh, &cc->pllcontrol_data, tmp);
 
 	/* Write ndiv_frac to pllcontrol[3] */
@@ -1184,6 +1308,20 @@ BCMINITFN(si_pmu1_pllinit0)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint32 xtal)
 	}
 
 	PMU_MSG(("Done pll\n"));
+
+	/* to operate the 4319 usb in 24MHz/48MHz; chipcontrol[2][84:83] needs
+	 * to be updated.
+	 */
+	if ((CHIPID(sih->chip) == BCM4319_CHIP_ID) && (xt->fref != XTAL_FREQ_30000MHZ)) {
+		W_REG(osh, &cc->chipcontrol_addr, PMU1_PLL0_CHIPCTL2);
+		tmp = R_REG(osh, &cc->chipcontrol_data) & ~CCTL_4319USB_XTAL_SEL_MASK;
+		if (xt->fref == XTAL_FREQ_24000MHZ) {
+			tmp |= (CCTL_4319USB_24MHZ_PLL_SEL << CCTL_4319USB_XTAL_SEL_SHIFT);
+		} else if (xt->fref == XTAL_FREQ_48000MHZ) {
+			tmp |= (CCTL_4319USB_48MHZ_PLL_SEL << CCTL_4319USB_XTAL_SEL_SHIFT);
+		}
+		W_REG(osh, &cc->chipcontrol_data, tmp);
+	}
 
 	/* Flush deferred pll control registers writes */
 	if (sih->pmurev >= 2)
@@ -1247,18 +1385,49 @@ BCMINITFN(si_pmu_pll_init)(si_t *sih, osl_t *osh, uint xtalfreq)
 		/* assume default works */
 		break;
 	case BCM4322_CHIP_ID:
-	case BCM43221_CHIP_ID:
-	case BCM43231_CHIP_ID:
-		if (sih->pmurev == 2) {
+	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM4342_CHIP_ID:
+	{
+		if (sih->chiprev == 0) {
+			uint32 minmask, maxmask;
+
+			minmask = R_REG(osh, &cc->min_res_mask);
+			maxmask = R_REG(osh, &cc->max_res_mask);
+
+			/* Make sure the PLL is off: clear bit 4 & 5 of min/max_res_mask */
+			/* Have to remove HT Avail request before powering off PLL */
+			AND_REG(osh, &cc->min_res_mask,	~(PMURES_BIT(RES4322_HT_SI_AVAIL)));
+			AND_REG(osh, &cc->max_res_mask,	~(PMURES_BIT(RES4322_HT_SI_AVAIL)));
+			SPINWAIT(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL, PMU_MAX_TRANSITION_DLY);
+			AND_REG(osh, &cc->min_res_mask,	~(PMURES_BIT(RES4322_SI_PLL_ON)));
+			AND_REG(osh, &cc->max_res_mask,	~(PMURES_BIT(RES4322_SI_PLL_ON)));
+			OSL_DELAY(1000);
+			ASSERT(!(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL));
+
+
 			W_REG(osh, &cc->pllcontrol_addr, PMU2_SI_PLL_PLLCTL);
 			W_REG(osh, &cc->pllcontrol_data, 0x380005c0);
+
+
+			OSL_DELAY(100);
+			W_REG(osh, &cc->max_res_mask, maxmask);
+			OSL_DELAY(100);
+			W_REG(osh, &cc->min_res_mask, minmask);
+			OSL_DELAY(100);
 		}
+
 		break;
-	case BCM43222_CHIP_ID:
+	}
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
 		/* ??? */
 		break;
 
+	case BCM4319_CHIP_ID:
+		si_pmu1_pllinit0(sih, osh, cc, xtalfreq);
+		break;
 
 	default:
 		PMU_MSG(("No PLL init done for chip %s rev %d pmurev %d\n",
@@ -1297,11 +1466,14 @@ BCMINITFN(si_pmu_alp_clock)(si_t *sih, osl_t *osh)
 		break;
 	case BCM4312_CHIP_ID:
 	case BCM4322_CHIP_ID:
-	case BCM43221_CHIP_ID:
-	case BCM43231_CHIP_ID:
-	case BCM43222_CHIP_ID:
+	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
+	case BCM4342_CHIP_ID:
 	case BCM4716_CHIP_ID:
+	case BCM4748_CHIP_ID:
 	case BCM47162_CHIP_ID:
 		/* always 20Mhz */
 		clock = 20000 * 1000;
@@ -1311,6 +1483,9 @@ BCMINITFN(si_pmu_alp_clock)(si_t *sih, osl_t *osh)
 		clock = 25000 * 1000;
 		break;
 
+	case BCM4319_CHIP_ID:
+		clock = si_pmu1_alpclk0(sih, osh, cc);
+		break;
 	default:
 		PMU_MSG(("No ALP clock specified "
 			"for chip %s rev %d pmurev %d, using default %d Hz\n",
@@ -1329,7 +1504,7 @@ BCMINITFN(si_pmu_alp_clock)(si_t *sih, osl_t *osh)
 static uint32
 BCMINITFN(si_pmu5_clock)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint pll0, uint m)
 {
-	uint32 tmp, div, ndiv, fdiv, p1, p2, fc;
+	uint32 tmp, div, ndiv, p1, p2, fc;
 
 	if ((pll0 & 3) || (pll0 > PMU4716_MAINPLL_PLL0)) {
 		PMU_ERROR(("%s: Bad pll0: %d\n", __FUNCTION__, pll0));
@@ -1358,18 +1533,12 @@ BCMINITFN(si_pmu5_clock)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint pll0, uint
 	tmp = R_REG(osh, &cc->pllcontrol_data);
 	ndiv = (tmp & PMU5_PLL_NDIV_MASK) >> PMU5_PLL_NDIV_SHIFT;
 
-	W_REG(osh, &cc->pllcontrol_addr, pll0 + PMU5_PLL_FMAB_OFF);
-	(void)R_REG(osh, &cc->pllcontrol_addr);
-	tmp = R_REG(osh, &cc->pllcontrol_data);
-	fdiv = tmp & PMU5_PLL_FDIV_MASK;
-
 	/* Do calculation in Mhz */
 	fc = si_pmu_alp_clock(sih, osh) / 1000000;
-	fc = (ndiv * fc) + ((fdiv * fc) / (1 << 24));
-	fc = (p1 * fc) / p2;
+	fc = (p1 * ndiv * fc) / p2;
 
-	PMU_NONE(("%s: p1=%d, p2=%d, ndiv=%d(0x%x), fdiv=%d(0x%x), m%d=%d; fc=%d, clock=%d\n",
-	          __FUNCTION__, p1, p2, ndiv, ndiv, fdiv, fdiv, m, div, fc, fc / div));
+	PMU_NONE(("%s: p1=%d, p2=%d, ndiv=%d(0x%x), m%d=%d; fc=%d, clock=%d\n",
+	          __FUNCTION__, p1, p2, ndiv, ndiv, m, div, fc, fc / div));
 
 	/* Return clock in Hertz */
 	return ((fc / div) * 1000000);
@@ -1404,14 +1573,17 @@ BCMINITFN(si_pmu_si_clock)(si_t *sih, osl_t *osh)
 		clock = si_pmu1_cpuclk0(sih, osh, cc);
 		break;
 	case BCM4322_CHIP_ID:
-	case BCM43221_CHIP_ID:
-	case BCM43231_CHIP_ID:
-	case BCM43222_CHIP_ID:
+	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
+	case BCM4342_CHIP_ID:
 		/* 96MHz backplane clock */
 		clock = 96000 * 1000;
 		break;
 	case BCM4716_CHIP_ID:
+	case BCM4748_CHIP_ID:
 	case BCM47162_CHIP_ID:
 		clock = si_pmu5_clock(sih, osh, cc, PMU4716_MAINPLL_PLL0, PMU5_MAINPLL_SI);
 		break;
@@ -1419,6 +1591,9 @@ BCMINITFN(si_pmu_si_clock)(si_t *sih, osl_t *osh)
 		clock = si_pmu5_clock(sih, osh, cc, PMU5356_MAINPLL_PLL0, PMU5_MAINPLL_SI);
 		break;
 
+	case BCM4319_CHIP_ID:
+		clock = si_pmu1_cpuclk0(sih, osh, cc);
+		break;
 
 	default:
 		PMU_MSG(("No backplane clock specified "
@@ -1446,10 +1621,9 @@ BCMINITFN(si_pmu_cpu_clock)(si_t *sih, osl_t *osh)
 	if (sih->chip == BCM5354_CHIP_ID)
 		return 240000000;
 
-	if ((sih->pmurev == 5) || (sih->pmurev == 6) ||
-		(sih->pmurev == 7)) {
+	if ((sih->pmurev >= 5) && (CHIPID(sih->chip) != BCM4319_CHIP_ID)) {
 		uint pll = (CHIPID(sih->chip) == BCM5356_CHIP_ID) ?
-		        PMU5356_MAINPLL_PLL0 : PMU4716_MAINPLL_PLL0;
+			PMU5356_MAINPLL_PLL0 : PMU4716_MAINPLL_PLL0;
 
 		/* Remember original core before switch to chipc */
 		origidx = si_coreidx(sih);
@@ -1476,10 +1650,9 @@ BCMINITFN(si_pmu_mem_clock)(si_t *sih, osl_t *osh)
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
-	if ((sih->pmurev == 5) || (sih->pmurev == 6) ||
-		(sih->pmurev == 7)) {
+	if ((sih->pmurev >= 5) && (CHIPID(sih->chip) != BCM4319_CHIP_ID)) {
 		uint pll = (CHIPID(sih->chip) == BCM5356_CHIP_ID) ?
-		        PMU5356_MAINPLL_PLL0 : PMU4716_MAINPLL_PLL0;
+			PMU5356_MAINPLL_PLL0 : PMU4716_MAINPLL_PLL0;
 
 		/* Remember original core before switch to chipc */
 		origidx = si_coreidx(sih);
@@ -1688,7 +1861,10 @@ si_pmu_res_deps(si_t *sih, osl_t *osh, chipcregs_t *cc, uint32 rsrcs, bool all)
 	return !all ? deps : (deps ? (deps | si_pmu_res_deps(sih, osh, cc, deps, TRUE)) : 0);
 }
 
-/* power up/down OTP through PMU resources */
+/* power up/down OTP through PMU resources if PMU has that bit
+ * 1. update chipc chipstatus reg
+ * 2. refresh newly updated OTP content
+ */
 void
 si_pmu_otp_power(si_t *sih, osl_t *osh, bool on)
 {
@@ -1698,11 +1874,13 @@ si_pmu_otp_power(si_t *sih, osl_t *osh, bool on)
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
+#if !defined(WLTEST)
 	/* Don't do anything if OTP is disabled */
 	if (si_is_otp_disabled(sih)) {
 		PMU_MSG(("si_pmu_otp_power: OTP is disabled\n"));
 		return;
 	}
+#endif 
 
 	/* Remember original core before switch to chipc */
 	origidx = si_coreidx(sih);
@@ -1713,11 +1891,16 @@ si_pmu_otp_power(si_t *sih, osl_t *osh, bool on)
 	case BCM4322_CHIP_ID:
 	case BCM43221_CHIP_ID:
 	case BCM43231_CHIP_ID:
+	case BCM4342_CHIP_ID:
 		rsrcs = PMURES_BIT(RES4322_OTP_PU);
 		break;
 	case BCM4325_CHIP_ID:
 		rsrcs = PMURES_BIT(RES4325_LNLDO2_PU);
 		break;
+	case BCM4319_CHIP_ID:
+		rsrcs = PMURES_BIT(RES4319_OTP_PU);
+		break;
+
 	default:
 		break;
 	}
@@ -1855,8 +2038,40 @@ si_pmu_spuravoid(si_t *sih, osl_t *osh, bool spuravoid)
 	ASSERT(cc != NULL);
 
 	switch (CHIPID(sih->chip)) {
-	case BCM43222_CHIP_ID:
 	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
+		if (spuravoid) {
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
+			W_REG(osh, &cc->pllcontrol_data, 0x11500010);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL1);
+			W_REG(osh, &cc->pllcontrol_data, 0x000C0C06);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL2);
+			W_REG(osh, &cc->pllcontrol_data, 0x0F600a08);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL3);
+			W_REG(osh, &cc->pllcontrol_data, 0x00000000);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL4);
+			W_REG(osh, &cc->pllcontrol_data, 0x2001E920);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL5);
+			W_REG(osh, &cc->pllcontrol_data, 0x88888815);
+		} else {
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
+			W_REG(osh, &cc->pllcontrol_data, 0x11100010);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL1);
+			W_REG(osh, &cc->pllcontrol_data, 0x000c0c06);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL2);
+			W_REG(osh, &cc->pllcontrol_data, 0x03000a08);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL3);
+			W_REG(osh, &cc->pllcontrol_data, 0x00000000);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL4);
+			W_REG(osh, &cc->pllcontrol_data, 0x200005c0);
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL5);
+			W_REG(osh, &cc->pllcontrol_data, 0x88888815);
+		}
+		tmp = 1 << 10;
+		break;
+
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 		if (spuravoid) {
 			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
 			W_REG(osh, &cc->pllcontrol_data, 0x11500008);
@@ -1888,7 +2103,9 @@ si_pmu_spuravoid(si_t *sih, osl_t *osh, bool spuravoid)
 		tmp = 1 << 10;
 		break;
 
+
 	case BCM4716_CHIP_ID:
+	case BCM4748_CHIP_ID:
 	case BCM47162_CHIP_ID:
 		if (spuravoid) {
 			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
@@ -1924,6 +2141,7 @@ si_pmu_spuravoid(si_t *sih, osl_t *osh, bool spuravoid)
 	case BCM4322_CHIP_ID:
 	case BCM43221_CHIP_ID:
 	case BCM43231_CHIP_ID:
+	case BCM4342_CHIP_ID:
 		W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
 		W_REG(osh, &cc->pllcontrol_data, 0x11100070);
 		W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL1);
@@ -1941,6 +2159,21 @@ si_pmu_spuravoid(si_t *sih, osl_t *osh, bool spuravoid)
 
 		tmp = 1 << 10;
 		break;
+	case BCM4319_CHIP_ID:
+		W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
+		W_REG(osh, &cc->pllcontrol_data, 0x11100070);
+		W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL1);
+		W_REG(osh, &cc->pllcontrol_data, 0x1014140a);
+		W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL5);
+		W_REG(osh, &cc->pllcontrol_data, 0x88888854);
+
+		if (spuravoid) { /* spur_avoid ON, enable 41/82/164Mhz clock mode */
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL2);
+			W_REG(osh, &cc->pllcontrol_data, 0x05201828);
+		} else { /* enable 40/80/160Mhz clock mode */
+			W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL2);
+			W_REG(osh, &cc->pllcontrol_data, 0x05001828);
+		}
 
 	default:
 		PMU_ERROR(("%s: unknown spuravoidance settings for chip %s, not changing PLL\n",
@@ -1953,6 +2186,76 @@ si_pmu_spuravoid(si_t *sih, osl_t *osh, bool spuravoid)
 
 	/* Return to original core */
 	si_restore_core(sih, origidx, intr_val);
+}
+
+void
+si_pmu_gband_spurwar(si_t *sih, osl_t *osh)
+{
+	chipcregs_t *cc;
+	uint origidx, intr_val;
+	uint32 cc_clk_ctl_st;
+	uint32 minmask, maxmask;
+
+	if (CHIPID(sih->chip) == BCM43222_CHIP_ID) {
+		/* Remember original core before switch to chipc */
+		cc = (chipcregs_t *)si_switch_core(sih, CC_CORE_ID, &origidx, &intr_val);
+		ASSERT(cc != NULL);
+
+		/* Remove force HT and HT Avail Request from chipc core */
+		cc_clk_ctl_st = R_REG(osh, &cc->clk_ctl_st);
+		AND_REG(osh, &cc->clk_ctl_st, ~(CCS_FORCEHT | CCS_HTAREQ));
+
+		minmask = R_REG(osh, &cc->min_res_mask);
+		maxmask = R_REG(osh, &cc->max_res_mask);
+
+		/* Make sure the PLL is off: clear bit 4 & 5 of min/max_res_mask */
+		/* Have to remove HT Avail request before powering off PLL */
+		AND_REG(osh, &cc->min_res_mask,	~(PMURES_BIT(RES4322_HT_SI_AVAIL)));
+		AND_REG(osh, &cc->max_res_mask,	~(PMURES_BIT(RES4322_HT_SI_AVAIL)));
+		SPINWAIT(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL, PMU_MAX_TRANSITION_DLY);
+		AND_REG(osh, &cc->min_res_mask,	~(PMURES_BIT(RES4322_SI_PLL_ON)));
+		AND_REG(osh, &cc->max_res_mask,	~(PMURES_BIT(RES4322_SI_PLL_ON)));
+		OSL_DELAY(150);
+		ASSERT(!(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL));
+
+		/* Change backplane clock speed from 96 MHz to 80 MHz */
+		W_REG(osh, &cc->pllcontrol_addr, PMU2_PLL_PLLCTL2);
+		W_REG(osh, &cc->pllcontrol_data, (R_REG(osh, &cc->pllcontrol_data) &
+		                                  ~(PMU2_PLL_PC2_M6DIV_MASK)) |
+		      (0xc << PMU2_PLL_PC2_M6DIV_SHIFT));
+
+		/* Reduce the driver strengths of the phyclk160, adcclk80, and phyck80
+		 * clocks from 0x8 to 0x1
+		 */
+		W_REG(osh, &cc->pllcontrol_addr, PMU2_PLL_PLLCTL5);
+		W_REG(osh, &cc->pllcontrol_data, (R_REG(osh, &cc->pllcontrol_data) &
+		                                  ~(PMU2_PLL_PC5_CLKDRIVE_CH1_MASK |
+		                                    PMU2_PLL_PC5_CLKDRIVE_CH2_MASK |
+		                                    PMU2_PLL_PC5_CLKDRIVE_CH3_MASK |
+		                                    PMU2_PLL_PC5_CLKDRIVE_CH4_MASK)) |
+		      ((1 << PMU2_PLL_PC5_CLKDRIVE_CH1_SHIFT) |
+		       (1 << PMU2_PLL_PC5_CLKDRIVE_CH2_SHIFT) |
+		       (1 << PMU2_PLL_PC5_CLKDRIVE_CH3_SHIFT) |
+		       (1 << PMU2_PLL_PC5_CLKDRIVE_CH4_SHIFT)));
+
+		W_REG(osh, &cc->pmucontrol, R_REG(osh, &cc->pmucontrol) | PCTL_PLL_PLLCTL_UPD);
+
+		/* Restore min_res_mask and max_res_mask */
+		OSL_DELAY(100);
+		W_REG(osh, &cc->max_res_mask, maxmask);
+		OSL_DELAY(100);
+		W_REG(osh, &cc->min_res_mask, minmask);
+		OSL_DELAY(100);
+		/* Make sure the PLL is on. Spinwait until the HTAvail is True */
+		SPINWAIT(~(R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL), PMU_MAX_TRANSITION_DLY);
+		ASSERT((R_REG(osh, &cc->clk_ctl_st) & CCS_HTAVAIL));
+
+		/* Restore force HT and HT Avail Request on the chipc core */
+		W_REG(osh, &cc->clk_ctl_st, cc_clk_ctl_st);
+
+		/* Return to original core */
+		si_restore_core(sih, origidx, intr_val);
+	}
 }
 
 bool
@@ -1969,13 +2272,24 @@ si_pmu_is_otp_powered(si_t *sih, osl_t *osh)
 
 	switch (CHIPID(sih->chip)) {
 	case BCM4322_CHIP_ID:
-	case BCM43221_CHIP_ID:
-	case BCM43231_CHIP_ID:
+	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM4342_CHIP_ID:
 		st = (R_REG(osh, &cc->res_state) & PMURES_BIT(RES4322_OTP_PU)) != 0;
 		break;
 	case BCM4325_CHIP_ID:
 		st = (R_REG(osh, &cc->res_state) & PMURES_BIT(RES4325_LNLDO2_PU)) != 0;
 		break;
+	case BCM4319_CHIP_ID:
+		st = (R_REG(osh, &cc->res_state) & PMURES_BIT(RES4319_OTP_PU)) != 0;
+		break;
+
+	/* These chip doesn't use PMU bit to power up/down OTP. OTP always on.
+	 * Use OTP_INIT command to reset/refresh state.
+	 */
+	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
+	case BCM43224_CHIP_ID:
+	case BCM43225_CHIP_ID:
+	case BCM43421_CHIP_ID:
 	default:
 		st = TRUE;
 		break;
@@ -2012,4 +2326,27 @@ BCMINITFN(si_pmu_swreg_init)(si_t *sih, osl_t *osh)
 	default:
 		break;
 	}
+}
+
+/* Wait for a particular clock level to be on the backplane */
+uint32
+si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, uint32 delay)
+{
+	chipcregs_t *cc;
+	uint origidx;
+
+	ASSERT(sih->cccaps & CC_CAP_PMU);
+
+	/* Remember original core before switch to chipc */
+	origidx = si_coreidx(sih);
+	cc = si_setcoreidx(sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	if (delay)
+		SPINWAIT(((R_REG(osh, &cc->pmustatus) & clk) != clk), delay);
+
+	/* Return to original core */
+	si_setcoreidx(sih, origidx);
+
+	return (R_REG(osh, &cc->pmustatus) & clk);
 }

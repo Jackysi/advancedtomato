@@ -1,7 +1,7 @@
 #
 # Makefile for the Broadcom wl driver
 #
-# Copyright (C) 2008, Broadcom Corporation
+# Copyright (C) 2009, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,13 +9,13 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.1 2008/05/14 01:24:11 Exp $
+# $Id: Makefile,v 1.2 2010/01/28 10:28:08 Exp $
 #
 
 SRCBASE := ../../../../../..
 
 ifeq ($(CONFIG_WL_HIGH),)
-CONFIG_WL_AP := "wlconfig_lx_router_high"
+CONFIG_WL_HIGH := "wlconfig_lx_router_high"
 endif
 CONFIG_WL_CONF = $(CONFIG_WL_HIGH)
 

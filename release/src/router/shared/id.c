@@ -28,6 +28,7 @@ WRT54GS 3.0, 4.0    BCM5352E              0x0467       42        0x10      0x275
 WRT300N 1.0         BCM4704_BCM5325F_EWC  0x0472       42        0x10      0x10
 WRTSL54GS           BCM4704_BCM5325F      0x042f       42        0x10      0x0018
 WTR54GS v1, v2      BCM5350               0x456        56        0x10      0xb18       (source: BaoWeiQuan)
+WRT160Nv1           BCM4704_BCM5325F_EWC  0x0472       42        0x11      0x0010      boot_hw_model=WRT160N boot_hw_ver=1.0
 WRT160Nv3, M10      BCM4716               0x04cd       42        0x1700                boot_hw_model=WRT160N boot_hw_ver=3.0 (M10: boot_hw_model=M10 boot_hw_ver=1.0)
 WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0x1307  boardflags: 0x0040F10 / 0x00000602 (??)
 WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
@@ -238,7 +239,9 @@ int get_model(void)
 		case HW_BCM4704_BCM5325F:
 			return MODEL_WRTSL54GS;
 		case HW_BCM4704_BCM5325F_EWC:
-			return MODEL_WRT300N;
+			if (nvram_match("boardrev", "0x10")) return MODEL_WRT300N;
+			if (nvram_match("boardrev", "0x11")) return MODEL_WRT160Nv1;
+			break;
 		case HW_BCM4785:
 			if (nvram_match("boardrev", "0x10")) return MODEL_WRT310Nv1;
 			break;

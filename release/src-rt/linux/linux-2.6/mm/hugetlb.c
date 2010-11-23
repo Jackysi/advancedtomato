@@ -299,15 +299,14 @@ unsigned long hugetlb_total_pages(void)
  * hugegpage VMA.  do_page_fault() is supposed to trap this, so BUG is we get
  * this far.
  */
-static struct page *hugetlb_nopage(struct vm_area_struct *vma,
-				unsigned long address, int *unused)
+static int hugetlb_vm_op_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	BUG();
-	return NULL;
+	return 0;
 }
 
 struct vm_operations_struct hugetlb_vm_ops = {
-	.nopage = hugetlb_nopage,
+	.fault = hugetlb_vm_op_fault,
 };
 
 static pte_t make_huge_pte(struct vm_area_struct *vma, struct page *page,
@@ -453,7 +452,7 @@ static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,
 	avoidcopy = (page_count(old_page) == 1);
 	if (avoidcopy) {
 		set_huge_ptep_writable(vma, address, ptep);
-		return VM_FAULT_MINOR;
+		return 0;
 	}
 
 	page_cache_get(old_page);
@@ -478,7 +477,7 @@ static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,
 	}
 	page_cache_release(new_page);
 	page_cache_release(old_page);
-	return VM_FAULT_MINOR;
+	return 0;
 }
 
 int hugetlb_no_page(struct mm_struct *mm, struct vm_area_struct *vma,
@@ -535,7 +534,7 @@ retry:
 	if (idx >= size)
 		goto backout;
 
-	ret = VM_FAULT_MINOR;
+	ret = 0;
 	if (!pte_none(*ptep))
 		goto backout;
 
@@ -586,7 +585,7 @@ int hugetlb_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 		return ret;
 	}
 
-	ret = VM_FAULT_MINOR;
+	ret = 0;
 
 	spin_lock(&mm->page_table_lock);
 	/* Check for a racing update before calling hugetlb_cow */
@@ -625,7 +624,7 @@ int follow_hugetlb_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			spin_unlock(&mm->page_table_lock);
 			ret = hugetlb_fault(mm, vma, vaddr, 0);
 			spin_lock(&mm->page_table_lock);
-			if (ret == VM_FAULT_MINOR)
+			if (!(ret & VM_FAULT_ERROR))
 				continue;
 
 			remainder = 0;

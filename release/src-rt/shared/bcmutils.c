@@ -1,14 +1,15 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
  * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- * $Id: bcmutils.c,v 1.218.2.3.20.2 2008/11/03 23:38:06 Exp $
+ *
+ * $Id: bcmutils.c,v 1.218.2.19 2009/11/11 18:22:21 Exp $
  */
 
 #include <typedefs.h>
@@ -132,7 +133,7 @@ pkt2pktcopy(osl_t *osh, void *p1, uint offs1, void *p2, uint offs2, int maxlen)
 
 
 /* return total length of buffer chain */
-uint
+uint BCMFASTPATH
 pkttotlen(osl_t *osh, void *p)
 {
 	uint total;
@@ -154,7 +155,7 @@ pktlast(osl_t *osh, void *p)
 }
 
 /* count segments of a chained packet */
-uint
+uint BCMFASTPATH
 pktsegcnt(osl_t *osh, void *p)
 {
 	uint cnt;
@@ -281,7 +282,7 @@ pktq_pdeq_tail(struct pktq *pq, int prec)
 	return p;
 }
 
-void BCMFASTPATH
+void
 pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir)
 {
 	struct pktq_prec *q;
@@ -425,7 +426,7 @@ pktq_deq_tail(struct pktq *pq, int *prec_out)
 	return p;
 }
 
-void * BCMFASTPATH
+void *
 pktq_peek(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -442,7 +443,7 @@ pktq_peek(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].head);
 }
 
-void * BCMFASTPATH
+void *
 pktq_peek_tail(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -460,7 +461,7 @@ pktq_peek_tail(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].tail);
 }
 
-void BCMFASTPATH
+void
 pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
 {
 	int prec;
@@ -470,7 +471,7 @@ pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
 }
 
 /* Return sum of lengths of a specific set of precedences */
-int BCMFASTPATH
+int
 pktq_mlen(struct pktq *pq, uint prec_bmp)
 {
 	int prec, len;
@@ -753,7 +754,7 @@ bcm_mdelay(uint ms)
 char *
 getvar(char *vars, const char *name)
 {
-#ifdef	_MINOSL_
+#ifdef _MINOSL_
 	return NULL;
 #else
 	char *s;
@@ -777,7 +778,7 @@ getvar(char *vars, const char *name)
 
 	/* then query nvram */
 	return (nvram_get(name));
-#endif	/* _MINOSL_ */
+#endif	/* defined(_MINOSL_) */
 }
 
 /*
@@ -851,7 +852,6 @@ getgpiopin(char *vars, char *pin_name, uint def_pin)
 			def_pin =  GPIO_PIN_NOTDEFINED;
 		}
 	}
-
 	return def_pin;
 }
 
@@ -950,9 +950,10 @@ bcmdumplog(char *buf, int size)
 		if (logtab[readi].fmt == NULL)
 		    continue;
 		line = buf;
-		buf += sprintf(buf, "%d\t", logtab[readi].cycles);
-		buf += sprintf(buf, logtab[readi].fmt, logtab[readi].a1, logtab[readi].a2);
-		buf += sprintf(buf, "\n");
+		buf += snprintf(buf, (limit - buf), "%d\t", logtab[readi].cycles);
+		buf += snprintf(buf, (limit - buf), logtab[readi].fmt,
+		                logtab[readi].a1, logtab[readi].a2);
+		buf += snprintf(buf, (limit - buf), "\n");
 	}
 
 }
@@ -1014,7 +1015,8 @@ bcmtslog(uint32 tstamp, char *fmt, uint a1, uint a2)
 }
 
 /* Print out a microsecond timestamp as "sec.ms.us " */
-void bcmprinttstamp(uint32 ticks)
+void
+bcmprinttstamp(uint32 ticks)
 {
 	uint us, ms, sec;
 
@@ -1077,7 +1079,7 @@ pktsetprio(void *pkt, bool update_vtag)
 
 		if (ntoh16(evh->ether_type) == ETHER_TYPE_IP) {
 			uint8 *ip_body = pktdata + sizeof(struct ethervlan_header);
-			uint8 tos_tc = IP_TOS(ip_body);
+			uint8 tos_tc = IP_TOS46(ip_body);
 			dscp_prio = (int)(tos_tc >> IPV4_TOS_PREC_SHIFT);
 		}
 
@@ -1089,7 +1091,7 @@ pktsetprio(void *pkt, bool update_vtag)
 			priority = vlan_prio;
 			rc |= PKTPRIO_VLAN;
 		}
-		/* 
+		/*
 		 * If the DSCP priority is not the same as the VLAN priority,
 		 * then overwrite the priority field in the vlan tag, with the
 		 * DSCP priority value. This is required for Linux APs because
@@ -1104,7 +1106,7 @@ pktsetprio(void *pkt, bool update_vtag)
 		}
 	} else if (ntoh16(eh->ether_type) == ETHER_TYPE_IP) {
 		uint8 *ip_body = pktdata + sizeof(struct ether_header);
-		uint8 tos_tc = IP_TOS(ip_body);
+		uint8 tos_tc = IP_TOS46(ip_body);
 		priority = (int)(tos_tc >> IPV4_TOS_PREC_SHIFT);
 		rc |= PKTPRIO_DSCP;
 	}
@@ -1181,8 +1183,8 @@ bcm_nvram_vars(uint *length)
 int
 BCMINITFN(bcm_nvram_cache)(void *sih)
 {
-	void *osh;
 	int ret = 0;
+	void *osh;
 	char *flash = NULL;
 
 	if (vars_len >= 0) {
@@ -1221,6 +1223,82 @@ exit:
 }
 #endif /* WLC_LOW */
 
+#ifdef BCMDBG_PKT       /* pkt logging for debugging */
+/* Add a packet to the pktlist */
+void
+pktlist_add(pktlist_info_t *pktlist, void *pkt)
+{
+	uint i;
+	ASSERT(pktlist->count < PKTLIST_SIZE);
+
+	/* Verify the packet is not already part of the list */
+	for (i = 0; i < pktlist->count; i++) {
+		if (pktlist->list[i] == pkt)
+			ASSERT(0);
+	}
+	pktlist->list[pktlist->count] = pkt;
+	pktlist->count++;
+	return;
+}
+
+/* Remove a packet from the pktlist */
+void
+pktlist_remove(pktlist_info_t *pktlist, void *pkt)
+{
+	uint i;
+	uint num = pktlist->count;
+
+	/* find the index where pkt exists */
+	for (i = 0; i < num; i++)
+	{
+		/* check for the existence of pkt in the list */
+		if (pktlist->list[i] == pkt)
+		{
+			/* replace with the last element */
+			pktlist->list[i] = pktlist->list[num-1];
+			pktlist->count--;
+			return;
+		}
+	}
+
+	printf("%s: pktlist %p count %d pkt %p\n", __FUNCTION__,
+		pktlist, pktlist->count, pkt);
+	ASSERT(0);
+}
+
+/* Dump the pktlist (and the contents of each packet if 'data'
+ * is set). 'buf' should be large enough
+ */
+
+char *
+pktlist_dump(pktlist_info_t *pktlist, char *buf)
+{
+	char *obuf;
+	uint i;
+
+	obuf = buf;
+
+	buf += sprintf(buf, "Packet list dump:\n");
+
+	for (i = 0; i < (pktlist->count); i++) {
+		buf += sprintf(buf, "0x%p\t", pktlist->list[i]);
+
+#ifdef NOTDEF     /* Remove this ifdef to print pkttag and pktdata */
+		if (PKTTAG(pktlist->list[i])) {
+			/* Print pkttag */
+			buf += sprintf(buf, "Pkttag(in hex): ");
+			buf += bcm_format_hex(buf, PKTTAG(pktlist->list[i]), OSL_PKTTAG_SZ);
+		}
+		buf += sprintf(buf, "Pktdata(in hex): ");
+		buf += bcm_format_hex(buf, PKTDATA(NULL, pktlist->list[i]),
+			PKTLEN(NULL, pktlist->list[i]));
+#endif /* NOTDEF */
+
+		buf += sprintf(buf, "\n");
+	}
+	return obuf;
+}
+#endif  /* BCMDBG_PKT */
 
 /* iovar table lookup */
 const bcm_iovar_t*
@@ -1555,7 +1633,8 @@ BCMROMFN(hndcrc32)(
 #define CBUFSIZ 	(CLEN+4)
 #define CNBUFS		5 /* # of bufs */
 
-void testcrc32(void)
+void
+testcrc32(void)
 {
 	uint j, k, l;
 	uint8 *buf;
@@ -1677,14 +1756,15 @@ BCMROMFN(bcm_parse_ordered_tlvs)(void *buf, int buflen, uint key)
 	return NULL;
 }
 
-#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC)
+#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || \
+	defined(BCMDBG_DUMP)
 int
 bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 {
 	int i;
 	char* p = buf;
 	char hexstr[16];
-	int slen = 0;
+	int slen = 0, nlen = 0;
 	uint32 bit;
 	const char* name;
 
@@ -1699,17 +1779,18 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 		name = bd[i].name;
 		if (bit == 0 && flags) {
 			/* print any unnamed bits */
-			sprintf(hexstr, "0x%X", flags);
+			snprintf(hexstr, 16, "0x%X", flags);
 			name = hexstr;
 			flags = 0;	/* exit loop */
 		} else if ((flags & bit) == 0)
 			continue;
-		slen += strlen(name);
+		nlen = strlen(name);
+		slen += nlen;
 		if (len < slen)
 			break;
-		if (p != buf) p += sprintf(p, " "); /* btwn flag space */
-		strcpy(p, name);
-		p += strlen(name);
+		if (p != buf) p += snprintf(p, 2, " "); /* btwn flag space */
+		strncpy(p, name, nlen + 1);
+		p += (nlen + 1);
 		flags &= ~bit;
 		len -= slen;
 		slen = 1;	/* account for btwn flag space */
@@ -1719,7 +1800,7 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 	if (flags != 0) {
 		if (len == 0)
 			p--;	/* overwrite last char */
-		p += sprintf(p, ">");
+		p += snprintf(p, 2, ">");
 	}
 
 	return (int)(p - buf);
@@ -1734,7 +1815,7 @@ bcm_format_hex(char *str, const void *bytes, int len)
 	const uint8 *src = (const uint8*)bytes;
 
 	for (i = 0; i < len; i++) {
-		p += sprintf(p, "%02X", *src);
+		p += snprintf(p, 3, "%02X", *src);
 		src++;
 	}
 	return (int)(p - str);
@@ -1745,6 +1826,8 @@ void
 prhex(const char *msg, uchar *buf, uint nbytes)
 {
 	char line[128], *p;
+	int len = sizeof(line);
+	int nchar;
 	uint i;
 
 	if (msg && (msg[0] != '\0'))
@@ -1753,12 +1836,20 @@ prhex(const char *msg, uchar *buf, uint nbytes)
 	p = line;
 	for (i = 0; i < nbytes; i++) {
 		if (i % 16 == 0) {
-			p += sprintf(p, "  %04d: ", i);	/* line prefix */
+			nchar = snprintf(p, len, "  %04d: ", i);	/* line prefix */
+			p += nchar;
+			len -= nchar;
 		}
-		p += sprintf(p, "%02x ", buf[i]);
+		if (len > 0) {
+			nchar = snprintf(p, len, "%02x ", buf[i]);
+			p += nchar;
+			len -= nchar;
+		}
+
 		if (i % 16 == 15) {
 			printf("%s\n", line);		/* flush line */
 			p = line;
+			len = sizeof(line);
 		}
 	}
 
@@ -2003,4 +2094,48 @@ bcm_bprintf(struct bcmstrbuf *b, const char *fmt, ...)
 
 	return r;
 }
+
+void
+bcm_inc_bytes(uchar *num, int num_bytes, uint8 amount)
+{
+	int i;
+
+	for (i = 0; i < num_bytes; i++) {
+		num[i] += amount;
+		if (num[i] >= amount)
+			break;
+		amount = 1;
+	}
+}
+
+int
+bcm_cmp_bytes(uchar *arg1, uchar *arg2, uint8 nbytes)
+{
+	int i;
+
+	for (i = nbytes - 1; i >= 0; i--) {
+		if (arg1[i] != arg2[i])
+			return (arg1[i] - arg2[i]);
+	}
+	return 0;
+}
+
+void
+bcm_print_bytes(char *name, const uchar *data, int len)
+{
+	int i;
+	int per_line = 0;
+
+	printf("%s: %d \n", name ? name : "", len);
+	for (i = 0; i < len; i++) {
+		printf("%02x ", *data++);
+		per_line++;
+		if (per_line == 16) {
+			per_line = 0;
+			printf("\n");
+		}
+	}
+	printf("\n");
+}
+
 #endif /* BCMDRIVER */

@@ -1,7 +1,7 @@
 /*
  * Broadcom HND chip & on-chip-interconnect-related definitions.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: hndsoc.h,v 13.3.2.3.8.1 2009/01/22 04:05:20 Exp $
+ * $Id: hndsoc.h,v 13.3.2.5 2009/06/18 12:19:28 Exp $
  */
 
 #ifndef	_HNDSOC_H
@@ -31,7 +31,7 @@
 #define SI_SDRAM_R2		0x80000000	/* Region 2 for sdram (512 MB) */
 
 #define SI_ENUM_BASE    	0x18000000	/* Enumeration space base */
-#define SI_WRAP_BASE    	0x18100000	/* Wrapper space base */
+#define SI_WRAP_BASE            0x18100000      /* Wrapper space base */
 #define SI_CORE_SIZE    	0x1000		/* each core gets 4Kbytes for registers */
 #define	SI_MAXCORES		16		/* Max cores (this is arbitrary, for software
 						 * convenience and could be changed if we
@@ -118,6 +118,7 @@
 #define	SPIH_CORE_ID		0x833		/* SPI host core */
 #define	I2S_CORE_ID		0x834		/* I2S core */
 #define	DMEMS_CORE_ID		0x835		/* SDR/DDR1 memory controller core */
+#define OOB_ROUTER_CORE_ID	0x367		/* OOB router core ID */
 #define	DEF_AI_COMP		0xfff		/* Default component, in ai chips it maps all
 						 * unused address ranges
 						 */
@@ -186,6 +187,6 @@
 #define	BISZ_DATAEND_IDX	4		/*	4: data end */
 #define	BISZ_BSSST_IDX		5		/*	5: bss start */
 #define	BISZ_BSSEND_IDX		6		/*	6: bss end */
-#define BISZ_SIZE		7		/* descriptor size in 32-bit integers */
+#define BISZ_SIZE		7		/* descriptor size in 32-bit intergers */
 
 #endif /* _HNDSOC_H */

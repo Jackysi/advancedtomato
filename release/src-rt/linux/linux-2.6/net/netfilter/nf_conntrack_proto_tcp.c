@@ -33,6 +33,12 @@
 #define DEBUGP(format, args...)
 #endif
 
+#ifdef HNDCTF
+#include <ctf/hndctf.h>
+extern ctf_t *kcih;
+extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
+#endif /* HNDCTF */
+
 /* Protects conntrack->proto.tcp */
 static DEFINE_RWLOCK(tcp_lock);
 
@@ -954,6 +960,16 @@ static int tcp_packet(struct nf_conn *conntrack,
 		/* Keep compilers happy. */
 		break;
 	}
+
+#ifdef HNDCTF
+	/* Remove the ipc entries on receipt of FIN or RST */
+	if (CTF_ENAB(kcih) && (th->fin || th->rst)) {
+		if (conntrack->ctf_flags & CTF_FLAGS_CACHED) {
+			ip_conntrack_ipct_delete(conntrack, 0);
+			goto in_window;
+		}
+	}
+#endif /* HNDCTF */
 
 	if (!tcp_in_window(&conntrack->proto.tcp, dir, index,
 			   skb, dataoff, th, pf)) {

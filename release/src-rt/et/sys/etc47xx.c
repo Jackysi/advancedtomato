@@ -222,7 +222,7 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	sprintf(name, "et%d", etc->coreunit);
 	if ((ch->di = dma_attach(osh, name, ch->sih,
 	                         (void *)&regs->dmaregs.xmt, (void *)&regs->dmaregs.rcv,
-	                         NTXD, NRXD, RXBUFSZ, NRXBUFPOST, HWRXOFF,
+	                         NTXD, NRXD, RXBUFSZ, -1, NRXBUFPOST, HWRXOFF,
 	                         &et_msg_level)) == NULL) {
 		ET_ERROR(("et%d: chipattach: dma_attach failed\n", etc->unit));
 		goto fail;
@@ -674,7 +674,7 @@ static void BCMFASTPATH
 chiptxreclaim(struct bcm4xxx *ch, bool forceall)
 {
 	ET_TRACE(("et%d: chiptxreclaim\n", ch->etc->unit));
-	dma_txreclaim(ch->di, forceall);
+	dma_txreclaim(ch->di, forceall ? HNDDMA_RANGE_ALL : HNDDMA_RANGE_TRANSMITTED);
 	ch->intstatus &= ~I_XI;
 }
 

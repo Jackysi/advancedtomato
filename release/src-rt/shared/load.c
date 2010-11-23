@@ -2,7 +2,7 @@
  * Initialization and support routines for self-booting
  * compressed image.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,7 +10,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: load.c,v 1.19.52.4 2009/02/11 04:59:45 Exp $
+ * $Id: load.c,v 1.19.2.1 2009/02/11 10:07:28 Exp $
  */
 
 #include <typedefs.h>
@@ -28,13 +28,14 @@
 void c_main(unsigned long ra);
 
 static si_t *sih;
+static chipcregs_t *cc;
 
 
 extern unsigned char text_start[], text_end[];
 extern unsigned char data_start[], data_end[];
 extern char bss_start[], bss_end[];
 
-#define INBUFSIZ 4096		/* Buffer size */
+#define INBUFSIZ 4096	/* Buffer size */
 #define WSIZE 0x8000    	/* window size--must be a power of two, and */
 				/*  at least 32K for zip's deflate method */
 
@@ -47,14 +48,19 @@ static ulong inptr;		/* index of next byte to be processed in inbuf */
 static uchar *outbuf;		/* output buffer */
 static ulong bytes_out;		/* valid bytes in outbuf */
 
-static uint32 *inbase;		/* input data from flash */
+static ulong inoff;		/* offset of input data */
 
 #if !defined(USE_LZMA)
 static int
 fill_inbuf(void)
 {
-	for (insize = 0; insize < INBUFSIZ; insize += sizeof(uint32), inbase++)
-		*((uint32 *)&inbuf[insize]) = *inbase;
+	int bytes;
+
+	for (insize = 0; insize < INBUFSIZ; insize += bytes, inoff += bytes) {
+		*((uint32 *) &inbuf[insize]) = *((uint32 *) KSEG1ADDR(SI_FLASH1 + inoff));
+		bytes = sizeof(uint32);
+	}
+
 	inptr = 1;
 
 	return inbuf[0];
@@ -238,20 +244,17 @@ extern int input_len;
 static void
 load(void)
 {
-	int inoff, ret = 0;
+	int ret = 0;
+	uint32 *inbase;
 
 	/* Offset from beginning of flash */
 #ifdef	CONFIG_XIP
 	inoff = ((ulong)text_end - (ulong)text_start) + ((ulong)input_data - (ulong)data_start);
 #else
-	inoff = (ulong)input_data - (ulong)text_start;
+	inoff = (ulong) input_data - (ulong) text_start;
 #endif /* CONFIG_XIP */
-	if (sih->ccrev == 12)
-		inbase = OSL_UNCACHED(SI_FLASH2 + inoff);
-	else
-		inbase = OSL_CACHED(SI_FLASH2 + inoff);
-
-	outbuf = (uchar *)LOADADDR;
+	inbase = (uint32 *) KSEG1ADDR(SI_FLASH1 + inoff);
+	outbuf = (uchar *) LOADADDR;
 	bytes_out = 0;
 	inbuf = malloc(INBUFSIZ);	/* input buffer */
 
@@ -299,16 +302,20 @@ c_main(unsigned long ra)
 
 	BCMDBG_TRACE(0x4c4402);
 
+	cc = si_setcoreidx(sih, SI_CC_IDX);
+
+	BCMDBG_TRACE(0x4c4403);
+
 	/* Load binary */
 	load();
 
-	BCMDBG_TRACE(0x4c4403);
+	BCMDBG_TRACE(0x4c4405);
 
 	/* Flush all caches */
 	blast_dcache();
 	blast_icache();
 
-	BCMDBG_TRACE(0x4c4404);
+	BCMDBG_TRACE(0x4c4406);
 
 	/* Jump to load address */
 	((void (*)(void)) LOADADDR)();

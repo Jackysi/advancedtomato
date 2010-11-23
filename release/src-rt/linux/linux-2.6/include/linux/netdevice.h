@@ -526,12 +526,6 @@ struct net_device
 	int			(*hard_header_parse)(struct sk_buff *skb,
 						     unsigned char *haddr);
 	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
-#ifdef CONFIG_NETPOLL
-	struct netpoll_info	*npinfo;
-#endif
-#ifdef CONFIG_NET_POLL_CONTROLLER
-	void                    (*poll_controller)(struct net_device *dev);
-#endif
 
 	/* bridge stuff */
 	struct net_bridge_port	*br_port;
@@ -540,6 +534,13 @@ struct net_device
 	struct device		dev;
 	/* space for optional statistics and wireless sysfs groups */
 	struct attribute_group  *sysfs_groups[3];
+
+#ifdef CONFIG_NETPOLL
+	struct netpoll_info	*npinfo;
+#endif
+#ifdef CONFIG_NET_POLL_CONTROLLER
+	void                    (*poll_controller)(struct net_device *dev);
+#endif
 
 	/* rtnetlink link ops */
 	const struct rtnl_link_ops *rtnl_link_ops;

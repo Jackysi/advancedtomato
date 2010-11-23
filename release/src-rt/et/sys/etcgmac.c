@@ -10,7 +10,7 @@
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: etcgmac.c,v 1.2.2.8 2009/09/01 20:10:51 Exp $
+ * $Id: etcgmac.c,v 1.2.2.11 2010/02/18 02:18:38 Exp $
  */
 
 #include <typedefs.h>
@@ -222,26 +222,26 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	ch->di[0] = dma_attach(osh, name, ch->sih,
 	                       DMAREG(ch, DMA_TX, TX_Q0),
 	                       DMAREG(ch, DMA_RX, RX_Q0),
-	                       NTXD, NRXD, RXBUFSZ, NRXBUFPOST, HWRXOFF,
+	                       NTXD, NRXD, RXBUFSZ, -1, NRXBUFPOST, HWRXOFF,
 	                       &et_msg_level);
 
 	/* TX: TC_BE, RX: UNUSED */
 	ch->di[1] = dma_attach(osh, name, ch->sih,
 	                       DMAREG(ch, DMA_TX, TX_Q1),
 	                       NULL /* rxq unused */,
-	                       NTXD, 0, 0, 0, 0, &et_msg_level);
+	                       NTXD, 0, 0, -1, 0, 0, &et_msg_level);
 
 	/* TX: TC_CL, RX: UNUSED */
 	ch->di[2] = dma_attach(osh, name, ch->sih,
 	                       DMAREG(ch, DMA_TX, TX_Q2),
 	                       NULL /* rxq unused */,
-	                       NTXD, 0, 0, 0, 0, &et_msg_level);
+	                       NTXD, 0, 0, -1, 0, 0, &et_msg_level);
 
 	/* TX: TC_VO, RX: UNUSED */
 	ch->di[3] = dma_attach(osh, name, ch->sih,
 	                       DMAREG(ch, DMA_TX, TX_Q3),
 	                       NULL /* rxq unused */,
-	                       NTXD, 0, 0, 0, 0, &et_msg_level);
+	                       NTXD, 0, 0, -1, 0, 0, &et_msg_level);
 
 	for (i = 0; i < NUMTXQ; i++)
 		if (ch->di[i] == NULL) {
@@ -742,7 +742,7 @@ static void
 chipreset(ch_t *ch)
 {
 	gmacregs_t *regs;
-	uint32 i, sflags, flagbits = 0;
+	uint32 i;
 
 	ET_TRACE(("et%d: chipreset\n", ch->etc->unit));
 
@@ -781,22 +781,8 @@ chipreset(ch_t *ch)
 	gmac_mf_cleanup(ch);
 
 chipinreset:
-	if ((sflags = si_core_sflags(ch->sih, 0, 0)) & SISF_SW_ATTACHED) {
-		ET_TRACE(("et%d: internal switch attached\n", ch->etc->unit));
-		flagbits = SICF_SWCLKE;
-		if (!ch->etc->robo) {
-			ET_TRACE(("et%d: reseting switch\n", ch->etc->unit));
-			flagbits |= SICF_SWRST;
-		}
-	}
-
 	/* reset core */
-	si_core_reset(ch->sih, flagbits, 0);
-
-	if ((sflags & SISF_SW_ATTACHED) && (!ch->etc->robo)) {
-		ET_TRACE(("et%d: taking switch out of reset\n", ch->etc->unit));
-		si_core_cflags(ch->sih, SICF_SWRST, 0);
-	}
+	si_core_reset(ch->sih, 0, 0);
 
 	/* reset gmac */
 	gmac_reset(ch);
@@ -992,18 +978,6 @@ chiptx(ch_t *ch, void *p0)
 	ET_TRACE(("et%d: chiptx\n", ch->etc->unit));
 	ET_LOG("et%d: chiptx", ch->etc->unit, 0);
 
-#ifdef ETROBO
-	if ((ch->etc->robo != NULL) &&
-	    (((robo_info_t *)ch->etc->robo)->devid == DEVID53115)) {
-		void *p = p0;
-
-	    	if ((p0 = etc_bcm53115_war(ch->etc, p)) == NULL) {
-			PKTFREE(ch->osh, p, TRUE);
-			return FALSE;
-		}
-	}
-#endif /* ETROBO */
-
 	len = PKTLEN(ch->osh, p0);
 
 	/* check tx max length */
@@ -1027,7 +1001,7 @@ chiptx(ch_t *ch, void *p0)
 	 * once every few frames transmitted.
 	 */
 	if ((ch->etc->txframes[q] & ch->etc->txrec_thresh) == 1)
-		dma_txreclaim(ch->di[q], false);
+		dma_txreclaim(ch->di[q], HNDDMA_RANGE_TRANSMITTED);
 
 	error = dma_txfast(ch->di[q], p0, TRUE);
 
@@ -1054,7 +1028,7 @@ chiptxreclaim(ch_t *ch, bool forceall)
 	ET_TRACE(("et%d: chiptxreclaim\n", ch->etc->unit));
 
 	for (i = 0; i < NUMTXQ; i++) {
-		dma_txreclaim(ch->di[i], forceall);
+		dma_txreclaim(ch->di[i], forceall ? HNDDMA_RANGE_ALL : HNDDMA_RANGE_TRANSMITTED);
 		ch->intstatus &= ~(I_XI0 << i);
 	}
 }
@@ -1212,7 +1186,7 @@ chiperrors(ch_t *ch)
 	}
 
 	if (intstatus & I_RFO) {
-		ET_ERROR(("et%d: receive fifo overflow\n", etc->unit));
+		ET_TRACE(("et%d: receive fifo overflow\n", etc->unit));
 		etc->rxoflo++;
 	}
 
@@ -1474,21 +1448,7 @@ chipphyinit(ch_t *ch, uint phyaddr)
 {
 	int i;
 
-	if (CHIPID(ch->sih->chip) == BCM5356_CHIP_ID && ch->sih->chiprev == 0) {
-		for (i = 0; i < 5; i++) {
-			if (i != 2) {
-				chipphywr(ch, i, 0x04, 0x0461);
-			}
-			chipphywr(ch, i, 0x1f, 0x008b);
-			chipphywr(ch, i, 0x1d, 0x0100);
-			if (i == 2) {
-				chipphywr(ch, 2, 0x1f, 0xf);
-				chipphywr(ch, 2, 0x13, 0xa842);
-			}
-			chipphywr(ch, i, 0x1f, 0x000b);
-			OSL_DELAY(300000);
-		}
-	} else if (CHIPID(ch->sih->chip) == BCM5356_CHIP_ID && ch->sih->chiprev > 0) {
+	if (CHIPID(ch->sih->chip) == BCM5356_CHIP_ID) {
 		for (i = 0; i < 5; i++) {
 			chipphywr(ch, i, 0x1f, 0x008b);
 			chipphywr(ch, i, 0x15, 0x0100);

@@ -929,11 +929,11 @@ void stop_wan(void)
 	stop_ntpc();
 	
 	/* Kill any WAN client daemons or callbacks */
+	stop_redial();
 	stop_singe_pppoe(PPPOE0);
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
-	stop_redial();
 	nvram_set("wan_get_dns", "");
 
 	/* Bring down WAN interfaces */

@@ -318,9 +318,14 @@ extern unsigned long ip_ct_generic_timeout;
 
 static struct ctl_table_header *ip_ct_sysctl_header;
 
+#define NET_IPV4_NF_CONNTRACK_COUNT 2091
+
 static ctl_table ip_ct_sysctl_table[] = {
 	{NET_IPV4_NF_CONNTRACK_MAX, "ip_conntrack_max",
 	 &ip_conntrack_max, sizeof(int), 0644, NULL,
+	 &proc_dointvec},
+	{NET_IPV4_NF_CONNTRACK_COUNT, "ip_conntrack_count",
+	 &ip_conntrack_count, sizeof(int), 0444, NULL,
 	 &proc_dointvec},
 	{NET_IPV4_NF_CONNTRACK_BUCKETS, "ip_conntrack_buckets",
 	 &ip_conntrack_htable_size, sizeof(unsigned int), 0444, NULL,

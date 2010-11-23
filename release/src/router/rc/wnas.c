@@ -166,13 +166,13 @@ void notify_nas(const char *ifname)
 	sleep(5);
 
 	/* the wireless interface must be configured to run NAS */
-	wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
+	wl_ioctl((char *)ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
 
 	xstart("nas4not", "lan", ifname, "up", "auto",
-		nvram_safe_get(wl_nvname("crypto"), unit, 0),	// aes, tkip (aes+tkip ok?)
-		nvram_safe_get(wl_nvname("akm"), unit, 0),	// psk (only?)
-		nvram_safe_get(wl_nvname("wpa_psk"), unit, 0),	// shared key
-		nvram_safe_get(wl_nvname("ssid"), unit, 0)	// ssid
+		nvram_safe_get(wl_nvname("crypto", unit, 0)),	// aes, tkip (aes+tkip ok?)
+		nvram_safe_get(wl_nvname("akm", unit, 0)),	// psk (only?)
+		nvram_safe_get(wl_nvname("wpa_psk", unit, 0)),	// shared key
+		nvram_safe_get(wl_nvname("ssid", unit, 0))	// ssid
 	);
 
 #endif /* CONFIG_BCMWL5 */

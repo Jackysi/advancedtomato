@@ -2,14 +2,14 @@
  * Linux device driver tunables for
  * Broadcom BCM47XX 10/100Mbps Ethernet Device Driver
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: et_linux.h,v 1.14.228.1 2008/09/25 02:24:02 Exp $
+ * $Id: et_linux.h,v 1.14.228.3 2009/11/04 01:28:46 Exp $
  */
 
 #ifndef _et_linux_h_
@@ -34,6 +34,8 @@
 #undef	NRXBUFPOST
 #define	NRXBUFPOST	2
 #endif
+
+#define CTFPOOLSZ	512
 
 #define	PREFSZ			96
 #define ETPREFHDRS(h, sz)	OSL_PREF_RANGE_ST((h), (sz))

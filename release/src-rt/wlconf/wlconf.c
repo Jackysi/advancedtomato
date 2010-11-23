@@ -742,43 +742,6 @@ wlconf_security_options(char *name, char *prefix, int bsscfg_idx, bool id_supp)
 	WL_BSSIOVAR_SETINT(name, "auth", bsscfg_idx, val);
 }
 
-static void
-wlconf_set_ampdu_retry_limit(char *name, char *prefix)
-{
-	int i, j, ret, nv_len;
-	struct ampdu_retry_tid retry_limit;
-	char *nv_name[2] = {"ampdu_rtylimit_tid", "ampdu_rr_rtylimit_tid"};
-	char *iov_name[2] = {"ampdu_retry_limit_tid", "ampdu_rr_retry_limit_tid"};
-	char *retry, *v, *nv_value, nv[100], tmp[100];
-
-	/* Get packed AMPDU (rr) retry limit per-tid from NVRAM if present */
-	for (i = 0; i < 2; i++) {
-		nv_value = nvram_safe_get(strcat_r(prefix, nv_name[i], tmp));
-		nv_len = strlen(nv_value);
-		strcpy(nv, nv_value);
-
-		/* unpack it */
-		v = nv;
-		for (j = 0; nv_len >= 0 && j < NUMPRIO; j++) {
-			retry = v;
-			while (*v && *v != ' ') {
-				v++;
-				nv_len--;
-			}
-			if (*v) {
-				*v = 0;
-				v++;
-				nv_len--;
-			}
-			/* set the AMPDU retry limit per-tid */
-			retry_limit.tid = j;
-			retry_limit.retry = atoi(retry);
-			WL_IOVAR_SET(name, iov_name[i], &retry_limit, sizeof(retry_limit));
-		}
-	}
-
-	return;
-}
 
 /*
  * When N-mode is ON, afterburner is disabled and AMPDU, AMSDU are enabled/disabled
@@ -864,8 +827,6 @@ wlconf_aburn_ampdu_amsdu_set(char *name, char prefix[PREFIX_LEN], int nmode, int
 			} else {
 				WL_IOVAR_SETINT(name, "ampdu", OFF);
 			}
-
-			wlconf_set_ampdu_retry_limit(name, prefix);
 		}
 
 		if (amsdu_valid_option) {

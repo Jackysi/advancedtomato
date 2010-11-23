@@ -5,9 +5,9 @@
  * jtag, 0/1/2 uarts, clock frequency control, a watchdog interrupt timer,
  * gpio interface, extbus, and support for serial and parallel flashes.
  *
- * $Id: sbchipc.h,v 13.115.2.5.8.8 2009/05/08 17:36:40 Exp $
+ * $Id: sbchipc.h,v 13.115.2.13 2009/09/01 20:11:00 Exp $
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -209,25 +209,10 @@ typedef volatile struct {
 
 #endif /* _LANGUAGE_ASSEMBLY */
 
-#if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-/* Selective swapped defines for those registers we need in
- * big-endian code.
- */
-#define	CC_CHIPID		4
-#define	CC_CAPABILITIES		0
-#define	CC_CHIPST		0x28
-#define	CC_EROMPTR		0xf8
-
-#else	/* !IL_BIGENDIAN || !BCMHND74K */
-
 #define	CC_CHIPID		0
 #define	CC_CAPABILITIES		4
-#define	CC_CHIPST		0x2c
-#define	CC_EROMPTR		0xfc
-
-#endif	/* IL_BIGENDIAN && BCMHND74K */
-
-#define	CC_OTPST		0x10
+#define CC_OTPST		0x10
+#define CC_CHIPST		0x2c
 #define	CC_JTAGCMD		0x30
 #define	CC_JTAGIR		0x34
 #define	CC_JTAGDR		0x38
@@ -240,6 +225,7 @@ typedef volatile struct {
 #define	CC_CLKC_M3		0xa0
 #define	CC_CLKDIV		0xa4
 #define	CC_SYS_CLK_CTL		0xc0
+#define	CC_EROMPTR		0xfc
 #define	CC_CLK_CTL_ST		SI_CLK_CTL_ST
 #define	PMU_CTL			0x600
 #define	PMU_CAP			0x604
@@ -248,8 +234,6 @@ typedef volatile struct {
 #define PMU_TIMER		0x614
 #define	PMU_MIN_RES_MASK	0x618
 #define	PMU_MAX_RES_MASK	0x61c
-#define CC_CHIPCTL_ADDR		0x650
-#define CC_CHIPCTL_DATA		0x654
 #define PMU_REG_CONTROL_ADDR	0x658
 #define PMU_REG_CONTROL_DATA	0x65C
 #define PMU_PLL_CONTROL_ADDR 	0x660
@@ -753,6 +737,9 @@ typedef volatile struct {
 /* pmustatus */
 #define	PST_INTPEND	0x0040
 #define	PST_SBCLKST	0x0030
+#define	PST_SBCLKST_ILP	0x0010
+#define	PST_SBCLKST_ALP	0x0020
+#define	PST_SBCLKST_HT	0x0030
 #define	PST_ALPAVAIL	0x0008
 #define	PST_HTAVAIL	0x0004
 #define	PST_RESINIT	0x0003
@@ -907,6 +894,7 @@ typedef volatile struct {
 #define PMU1_PLL0_PC2_M6DIV_SHIFT	8
 #define PMU1_PLL0_PC2_NDIV_MODE_MASK	0x000e0000
 #define PMU1_PLL0_PC2_NDIV_MODE_SHIFT	17
+#define PMU1_PLL0_PC2_NDIV_MODE_MFB	2	/* recommended for 4319 */
 #define PMU1_PLL0_PC2_NDIV_INT_MASK	0x1ff00000
 #define PMU1_PLL0_PC2_NDIV_INT_SHIFT	20
 
@@ -926,6 +914,60 @@ typedef volatile struct {
 /* PMU rev 2 control words */
 #define PMU2_PHY_PLL_PLLCTL		4
 #define PMU2_SI_PLL_PLLCTL		10
+
+/* PMU rev 2 */
+/* pllcontrol registers */
+/* ndiv_pwrdn, pwrdn_ch<x>, refcomp_pwrdn, dly_ch<x>, p1div, p2div, _bypsss_sdmod */
+#define PMU2_PLL_PLLCTL0		0
+#define PMU2_PLL_PC0_P1DIV_MASK 	0x00f00000
+#define PMU2_PLL_PC0_P1DIV_SHIFT	20
+#define PMU2_PLL_PC0_P2DIV_MASK 	0x0f000000
+#define PMU2_PLL_PC0_P2DIV_SHIFT	24
+
+/* m<x>div */
+#define PMU2_PLL_PLLCTL1		1
+#define PMU2_PLL_PC1_M1DIV_MASK 	0x000000ff
+#define PMU2_PLL_PC1_M1DIV_SHIFT	0
+#define PMU2_PLL_PC1_M2DIV_MASK 	0x0000ff00
+#define PMU2_PLL_PC1_M2DIV_SHIFT	8
+#define PMU2_PLL_PC1_M3DIV_MASK 	0x00ff0000
+#define PMU2_PLL_PC1_M3DIV_SHIFT	16
+#define PMU2_PLL_PC1_M4DIV_MASK 	0xff000000
+#define PMU2_PLL_PC1_M4DIV_SHIFT	24
+
+/* m<x>div, ndiv_dither_mfb, ndiv_mode, ndiv_int */
+#define PMU2_PLL_PLLCTL2		2
+#define PMU2_PLL_PC2_M5DIV_MASK 	0x000000ff
+#define PMU2_PLL_PC2_M5DIV_SHIFT	0
+#define PMU2_PLL_PC2_M6DIV_MASK 	0x0000ff00
+#define PMU2_PLL_PC2_M6DIV_SHIFT	8
+#define PMU2_PLL_PC2_NDIV_MODE_MASK	0x000e0000
+#define PMU2_PLL_PC2_NDIV_MODE_SHIFT	17
+#define PMU2_PLL_PC2_NDIV_INT_MASK	0x1ff00000
+#define PMU2_PLL_PC2_NDIV_INT_SHIFT	20
+
+/* ndiv_frac */
+#define PMU2_PLL_PLLCTL3		3
+#define PMU2_PLL_PC3_NDIV_FRAC_MASK	0x00ffffff
+#define PMU2_PLL_PC3_NDIV_FRAC_SHIFT	0
+
+/* pll_ctrl */
+#define PMU2_PLL_PLLCTL4		4
+
+/* pll_ctrl, vco_rng, clkdrive_ch<x> */
+#define PMU2_PLL_PLLCTL5		5
+#define PMU2_PLL_PC5_CLKDRIVE_CH1_MASK	0x00000f00
+#define PMU2_PLL_PC5_CLKDRIVE_CH1_SHIFT	8
+#define PMU2_PLL_PC5_CLKDRIVE_CH2_MASK	0x0000f000
+#define PMU2_PLL_PC5_CLKDRIVE_CH2_SHIFT	12
+#define PMU2_PLL_PC5_CLKDRIVE_CH3_MASK	0x000f0000
+#define PMU2_PLL_PC5_CLKDRIVE_CH3_SHIFT	16
+#define PMU2_PLL_PC5_CLKDRIVE_CH4_MASK	0x00f00000
+#define PMU2_PLL_PC5_CLKDRIVE_CH4_SHIFT	20
+#define PMU2_PLL_PC5_CLKDRIVE_CH5_MASK	0x0f000000
+#define PMU2_PLL_PC5_CLKDRIVE_CH5_SHIFT	24
+#define PMU2_PLL_PC5_CLKDRIVE_CH6_MASK	0xf0000000
+#define PMU2_PLL_PC5_CLKDRIVE_CH6_SHIFT	28
 
 /* PMU rev 5 (& 6) */
 #define	PMU5_PLL_P1P2_OFF		0
@@ -953,10 +995,6 @@ typedef volatile struct {
 #define	PMU5_MAINPLL_CPU		1
 #define	PMU5_MAINPLL_MEM		2
 #define	PMU5_MAINPLL_SI			3
-
-#define PMU7_PLL_PLLCTL7                7
-#define PMU7_PLL_PLLCTL8                8
-#define PMU7_PLL_PLLCTL11		11
 
 /* PLL usage in 4716/47162 */
 #define	PMU4716_MAINPLL_PLL0		12
@@ -1083,10 +1121,61 @@ typedef volatile struct {
 #define CST4322_CLK_SWITCH_PCI_TO_ALP	0x00020000
 #define CST4322_PCI_CARDBUS_MODE	0x00040000
 
+/* 43224 Chip specific ChipControl register bits */
+#define CCTRL43224_GPIO_TOGGLE		0x8000 /* gpio[3:0] pins as btcoex or s/w gpio */
+#define CCTRL_43224A0_12MA_LED_DRIVE	0x00F000F0 /* 12 mA drive strength */
+#define CCTRL_43224B0_12MA_LED_DRIVE	0xF0	/* 12 mA drive strengh for later 43224s */
 
 
+
+#define RES4319_CBUCK_LPOM		1	/* 0x00000002 */
+#define RES4319_CBUCK_BURST		2	/* 0x00000004 */
+#define RES4319_CBUCK_PWM		3	/* 0x00000008 */
+#define RES4319_CLDO_PU			4	/* 0x00000010 */
+#define RES4319_PALDO_PU		5	/* 0x00000020 */
+#define RES4319_ILP_REQUEST		6	/* 0x00000040 */
+#define RES4319_LNLDO1_PU		9	/* 0x00000200 */
+#define RES4319_OTP_PU			10	/* 0x00000400 */
+#define RES4319_LNLDO2_PU		12	/* 0x00001000 */
+#define RES4319_XTAL_PU			13	/* 0x00002000 */
+#define RES4319_ALP_AVAIL		14	/* 0x00004000 */
+#define RES4319_RX_PWRSW_PU		15	/* 0x00008000 */
+#define RES4319_TX_PWRSW_PU		16	/* 0x00010000 */
+#define RES4319_RFPLL_PWRSW_PU		17	/* 0x00020000 */
+#define RES4319_LOGEN_PWRSW_PU		18	/* 0x00040000 */
+#define RES4319_AFE_PWRSW_PU		19	/* 0x00080000 */
+#define RES4319_BBPLL_PWRSW_PU		20	/* 0x00100000 */
+#define RES4319_HT_AVAIL		21	/* 0x00200000 */
+
+#define	CST4319_SPI_CPULESSUSB		0x00000001
+#define	CST4319_SPI_CLK_POL		0x00000002
+#define	CST4319_SPI_CLK_PH		0x00000008
+#define	CST4319_SPROM_OTP_SEL_MASK	0x000000c0	/* gpio [7:6], SDIO CIS selection */
+#define	CST4319_SPROM_OTP_SEL_SHIFT	6
+#define CST4319_DEFCIS_SEL		0x00000000	/* use default CIS, OTP is powered up */
+#define	CST4319_SPROM_SEL		0x00000040	/* use SPROM, OTP is powered up */
+#define	CST4319_OTP_SEL			0x00000080      /* use OTP, OTP is powered up */
+#define	CST4319_OTP_PWRDN		0x000000c0      /* use SPROM, OTP is powered down */
+#define	CST4319_SDIO_USB_MODE		0x00000100	/* gpio [8], sdio/usb mode */
+#define	CST4319_REMAP_SEL_MASK		0x00000600
+#define	CST4319_ILPDIV_EN		0x00000800
+#define	CST4319_XTAL_PD_POL		0x00001000
+#define	CST4319_LPO_SEL			0x00002000
+#define	CST4319_RES_INIT_MODE		0x0000c000
+#define	CST4319_PALDO_EXTPNP		0x00010000	/* PALDO is configured with external PNP */
+#define	CST4319_CBUCK_MODE_MASK		0x00060000
+#define CST4319_CBUCK_MODE_BURST	0x00020000
+#define CST4319_CBUCK_MODE_LPBURST	0x00060000
+#define	CST4319_RCAL_VALID		0x01000000
+#define	CST4319_RCAL_VALUE_MASK		0x3e000000
+#define	CST4319_RCAL_VALUE_SHIFT	25
 #define PMU1_PLL0_CHIPCTL0		0
-
+#define PMU1_PLL0_CHIPCTL1		1
+#define PMU1_PLL0_CHIPCTL2		2
+#define CCTL_4319USB_XTAL_SEL_MASK	0x00180000
+#define CCTL_4319USB_XTAL_SEL_SHIFT	19
+#define CCTL_4319USB_48MHZ_PLL_SEL	1
+#define CCTL_4319USB_24MHZ_PLL_SEL	2
 /*
 * Maximum delay for the PMU state transition in us.
 * This is an upper bound intended for spinwaits etc.
