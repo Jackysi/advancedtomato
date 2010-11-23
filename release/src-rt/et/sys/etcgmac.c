@@ -1446,6 +1446,18 @@ chipphyreset(ch_t *ch, uint phyaddr)
 static void
 chipphyinit(ch_t *ch, uint phyaddr)
 {
+	int i;
+
+	if (CHIPID(ch->sih->chip) == BCM5356_CHIP_ID) {
+		for (i = 0; i < 5; i++) {
+			chipphywr(ch, i, 0x1f, 0x008b);
+			chipphywr(ch, i, 0x15, 0x0100);
+			chipphywr(ch, i, 0x1f, 0x000f);
+			chipphywr(ch, i, 0x12, 0x2aaa);
+			chipphywr(ch, i, 0x1f, 0x000b);
+		}
+	}
+
 	if (phyaddr == EPHY_NOREG)
 		return;
 

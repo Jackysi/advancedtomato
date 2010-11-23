@@ -207,7 +207,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->mac_header = ~0U;
 #endif
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-	skb->nfct_reasm = skb->nfct = NULL;
+	skb->nfct_reasm = NULL;
+	skb->nfct = NULL;
 	skb->nfcache = 0;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
