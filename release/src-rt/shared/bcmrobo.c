@@ -673,6 +673,7 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 		/* Reset the 539x switch core and register file */
 		srst_ctrl = 0x83;
 		mii_wreg(robo, PAGE_CTRL, REG_CTRL_SRST, &srst_ctrl, sizeof(uint8));
+		bcm_mdelay(500); /* Gemtek: for reset issue */
 		srst_ctrl = 0x00;
 		mii_wreg(robo, PAGE_CTRL, REG_CTRL_SRST, &srst_ctrl, sizeof(uint8));
 	}
@@ -949,10 +950,24 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 		ports = getvar(robo->vars, vlanports);
 
 		/* In 539x vid == 0 us invalid?? */
-		if ((robo->devid != DEVID5325) && (vid == 0)) {
+		if ((robo->devid != DEVID5325) && (robo->devid != DEVID5397) && (vid == 0)) {
 			if (ports)
 				ET_ERROR(("VID 0 is set in nvram, Ignoring\n"));
 			continue;
+		}
+
+		/* Gemtek: to distinguish switch 5397 and 5395 */
+		if ((robo->devid == DEVID5395) && (vid == 1)) {
+			sprintf(vlanports, "vlan0ports");
+			ports = getvar(robo->vars, vlanports);
+			if (!ports || (*ports == 0) || !strcmp(ports, " ")) {
+				ET_ERROR(("BCM5395: already booted, use internal fixup\n"));
+				sprintf(vlanports, "vlan1ports");
+				ports = getvar(robo->vars, vlanports);
+			}
+			else {
+				ET_ERROR(("Configure vlan1 (%s) instead of vlan0 for BCM5395\n", ports));
+			}
 		}
 
 		/* disable this vlan if not defined */
