@@ -167,7 +167,7 @@ lzma-loader-install: lzma-loader
 
 
 kmod: dummy
-	$(MAKE) -C $(LINUXDIR) modules
+	$(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC)
 
 testfind:
 	cd $(TARGETDIR)/lib/modules/* && find -name "*.o" -exec mv -i {} . \; || true
@@ -915,7 +915,11 @@ libbcm-install:
 	$(STRIP) $(INSTALLDIR)/libbcm/usr/lib/libbcm.so
 
 
-iproute2-install:
+iproute2:
+	@$(SEP)
+	@$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)"
+	
+iproute2-install: iproute2
 	install -D iproute2/tc/tc $(INSTALLDIR)/iproute2/usr/sbin/tc
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
