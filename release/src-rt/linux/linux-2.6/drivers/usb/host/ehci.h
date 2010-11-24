@@ -79,6 +79,7 @@ struct ehci_hcd {			/* one per controller */
 
 	/* async schedule support */
 	struct ehci_qh		*async;
+	struct ehci_qh		*dummy;		/* For AMD quirk use */
 	struct ehci_qh		*reclaim;
 	unsigned		scanning : 1;
 
@@ -136,6 +137,7 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		need_io_watchdog:1;
 	unsigned		broken_periodic:1;
 	unsigned		fs_i_thresh:1;	/* Intel iso scheduling */
+	unsigned		use_dummy_qh:1;	/* AMD Frame List table quirk*/
 
 	u8			sbrn;		/* packed release number */
 
