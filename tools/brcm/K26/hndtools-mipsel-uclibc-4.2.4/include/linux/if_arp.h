@@ -41,6 +41,7 @@
 #define	ARPHRD_IEEE1394	24		/* IEEE 1394 IPv4 - RFC 2734	*/
 #define ARPHRD_EUI64	27		/* EUI-64                       */
 #define ARPHRD_INFINIBAND 32		/* InfiniBand			*/
+#define ARPHRD_PUREIP	35		/* Pure IP (no hw headers)	*/
 
 /* Dummy types for non ARP hardware */
 #define ARPHRD_SLIP	256
@@ -52,6 +53,7 @@
 #define ARPHRD_ROSE	270
 #define ARPHRD_X25	271		/* CCITT X.25			*/
 #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
+#define ARPHRD_CAN	280		/* Controller Area Network      */
 #define ARPHRD_PPP	512
 #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
 #define ARPHRD_HDLC	ARPHRD_CISCO

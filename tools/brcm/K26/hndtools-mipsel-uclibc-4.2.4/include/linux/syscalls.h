@@ -607,13 +607,13 @@ asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
 				    size_t len);
 asmlinkage long sys_getcpu(unsigned __user *cpu, unsigned __user *node, struct getcpu_cache __user *cache);
 asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask);
-asmlinkage long sys_timerfd(int ufd, int clockid, int flags,
-			    const struct itimerspec __user *utmr);
+asmlinkage long sys_timerfd_create(int clockid, int flags);
+asmlinkage long sys_timerfd_settime(int ufd, int flags,
+				    const struct itimerspec __user *utmr,
+				    struct itimerspec __user *otmr);
+asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr);
 asmlinkage long sys_eventfd(unsigned int count);
 
-asmlinkage long sys_track_flag(int __user *flag, ulong __user *addr);	//--SZ Angela 09.03 QOS
-asmlinkage long sys_set_mbss_nolan(unsigned char flag);
-asmlinkage long sys_set_mbss_nowan(unsigned char flag);
-asmlinkage long sys_set_mbss_prio(unsigned char flag);			// Jiahao
 int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
+
 #endif

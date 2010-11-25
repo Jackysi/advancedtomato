@@ -7,9 +7,12 @@
 #include <linux/skbuff.h>
 #include <linux/net.h>
 #include <linux/if.h>
+#include <linux/in.h>
+#include <linux/in6.h>
 #include <linux/wait.h>
 #include <linux/list.h>
 #endif
+#include <linux/types.h>
 #include <linux/compiler.h>
 
 /* Responses from hook functions. */
@@ -43,6 +46,14 @@
 #define NFC_UNKNOWN 0x4000
 #define NFC_ALTERED 0x8000
 #endif
+
+union nf_inet_addr {
+	u_int32_t	all[4];
+	__be32		ip;
+	__be32		ip6[4];
+	struct in_addr	in;
+	struct in6_addr	in6;
+};
 
 #ifdef __KERNEL__
 #ifdef CONFIG_NETFILTER
@@ -316,10 +327,13 @@ static inline void nf_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
 				(__force __be32)to, pseudohdr);
 }
 
+struct flowi;
+
 struct nf_afinfo {
 	unsigned short	family;
 	__sum16		(*checksum)(struct sk_buff *skb, unsigned int hook,
 				    unsigned int dataoff, u_int8_t protocol);
+	int		(*route)(struct dst_entry **dst, struct flowi *fl);
 	void		(*saveroute)(const struct sk_buff *skb,
 				     struct nf_info *info);
 	int		(*reroute)(struct sk_buff **skb,

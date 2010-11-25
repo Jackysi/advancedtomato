@@ -340,24 +340,19 @@
 #define __NR_signalfd			(__NR_Linux + 317)
 #define __NR_timerfd			(__NR_Linux + 318)
 #define __NR_eventfd			(__NR_Linux + 319)
-/* ASUS QOS */
-#define __NR_track_flag		(__NR_Linux+320)
-#define __NR_set_mbss_nolan		(__NR_Linux + 321)	// Jiahao
-#define __NR_set_mbss_nowan		(__NR_Linux + 322)	// Jiahao
-#define __NR_set_mbss_prio		(__NR_Linux + 323)	// Jiahao
+/* #define __NR_fallocate		(__NR_Linux + 320) */
+#define __NR_timerfd_create		(__NR_Linux + 321)
+#define __NR_timerfd_gettime		(__NR_Linux + 322)
+#define __NR_timerfd_settime		(__NR_Linux + 323)
 
 /*
  * Offset of the last Linux o32 flavoured syscall
  */
-//#define __NR_Linux_syscalls		319
-/* ASUS QOS */
 #define __NR_Linux_syscalls		323
 
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI32 */
 
 #define __NR_O32_Linux			4000
-//#define __NR_O32_Linux_syscalls		319
-/* ASUS QOS */
 #define __NR_O32_Linux_syscalls		323
 
 #if _MIPS_SIM == _MIPS_SIM_ABI64
@@ -645,16 +640,20 @@
 #define __NR_signalfd			(__NR_Linux + 276)
 #define __NR_timerfd			(__NR_Linux + 277)
 #define __NR_eventfd			(__NR_Linux + 278)
+/* #define __NR_fallocate		(__NR_Linux + 279) */
+#define __NR_timerfd_create		(__NR_Linux + 280)
+#define __NR_timerfd_gettime		(__NR_Linux + 281)
+#define __NR_timerfd_settime		(__NR_Linux + 282)
 
 /*
  * Offset of the last Linux 64-bit flavoured syscall
  */
-#define __NR_Linux_syscalls		278
+#define __NR_Linux_syscalls		282
 
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI64 */
 
 #define __NR_64_Linux			5000
-#define __NR_64_Linux_syscalls		278
+#define __NR_64_Linux_syscalls		282
 
 #if _MIPS_SIM == _MIPS_SIM_NABI32
 
@@ -946,9 +945,9 @@
 #define __NR_timerfd			(__NR_Linux + 281)
 #define __NR_eventfd			(__NR_Linux + 282)
 /* #define __NR_fallocate		(__NR_Linux + 283) */
-/* #define __NR_timerfd_create		(__NR_Linux + 284) */
-/* #define __NR_timerfd_gettime		(__NR_Linux + 285) */
-/* #define __NR_timerfd_settime		(__NR_Linux + 286) */
+#define __NR_timerfd_create		(__NR_Linux + 284)
+#define __NR_timerfd_gettime		(__NR_Linux + 285)
+#define __NR_timerfd_settime		(__NR_Linux + 286)
 /* #define __NR_signalfd4		(__NR_Linux + 287) */
 /* #define __NR_eventfd2		(__NR_Linux + 288) */
 /* #define __NR_epoll_create1		(__NR_Linux + 289) */

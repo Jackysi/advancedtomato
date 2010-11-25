@@ -967,18 +967,15 @@
 #undef __NR_eventfd
 #define __NR_eventfd (4000 + 319)
 #define SYS_eventfd __NR_eventfd
-#undef __NR_track_flag
-#define __NR_track_flag (4000 +320)
-#define SYS_track_flag __NR_track_flag
-#undef __NR_set_mbss_nolan
-#define __NR_set_mbss_nolan (4000 + 321)
-#define SYS_set_mbss_nolan __NR_set_mbss_nolan
-#undef __NR_set_mbss_nowan
-#define __NR_set_mbss_nowan (4000 + 322)
-#define SYS_set_mbss_nowan __NR_set_mbss_nowan
-#undef __NR_set_mbss_prio
-#define __NR_set_mbss_prio (4000 + 323)
-#define SYS_set_mbss_prio __NR_set_mbss_prio
+#undef __NR_timerfd_create
+#define __NR_timerfd_create (4000 + 321)
+#define SYS_timerfd_create __NR_timerfd_create
+#undef __NR_timerfd_gettime
+#define __NR_timerfd_gettime (4000 + 322)
+#define SYS_timerfd_gettime __NR_timerfd_gettime
+#undef __NR_timerfd_settime
+#define __NR_timerfd_settime (4000 + 323)
+#define SYS_timerfd_settime __NR_timerfd_settime
 #undef __NR_Linux_syscalls
 #define __NR_Linux_syscalls 323
 #define SYS_Linux_syscalls __NR_Linux_syscalls
@@ -992,7 +989,7 @@
 #define __NR_64_Linux 5000
 #define SYS_64_Linux __NR_64_Linux
 #undef __NR_64_Linux_syscalls
-#define __NR_64_Linux_syscalls 278
+#define __NR_64_Linux_syscalls 282
 #define SYS_64_Linux_syscalls __NR_64_Linux_syscalls
 #undef __NR_N32_Linux
 #define __NR_N32_Linux 6000

@@ -229,12 +229,16 @@ __END_NAMESPACE_C99
 
 
 /* Return nonzero if VALUE is not a number.  */
-__MATHDECL_PRIV (int,isnan,, (_Mdouble_ __value), (__const__));
+__MATHDECL_PRIV (int,__isnan,, (_Mdouble_ __value), (__const__));
 
-#if defined __USE_MISC || defined __USE_XOPEN
+#if defined __USE_MISC || defined __USE_XOPEN || defined __USE_ISOC99
+__BEGIN_NAMESPACE_C99
 /* Return nonzero if VALUE is not a number.  */
 __MATHDECL_PRIV (int,isnan,, (_Mdouble_ __value), (__const__));
+__END_NAMESPACE_C99
+#endif
 
+#if defined __USE_MISC || defined __USE_XOPEN
 /* Bessel functions.  */
 __MATHCALL (j0,, (_Mdouble_));
 __MATHCALL (j1,, (_Mdouble_));

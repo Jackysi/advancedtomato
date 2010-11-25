@@ -392,7 +392,7 @@ struct sighand_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];
 	spinlock_t		siglock;
-	struct list_head        signalfd_list;
+	wait_queue_head_t	signalfd_wqh;
 };
 
 struct pacct_struct {
@@ -1580,6 +1580,12 @@ static inline void set_tsk_need_resched(struct task_struct *tsk)
 static inline void clear_tsk_need_resched(struct task_struct *tsk)
 {
 	clear_tsk_thread_flag(tsk,TIF_NEED_RESCHED);
+}
+
+static inline int restart_syscall(void)
+{
+	set_tsk_thread_flag(current, TIF_SIGPENDING);
+	return -ERESTARTNOINTR;
 }
 
 static inline int signal_pending(struct task_struct *p)
