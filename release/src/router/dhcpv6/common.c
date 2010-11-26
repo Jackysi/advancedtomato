@@ -3207,7 +3207,7 @@ setloglevel(debuglevel)
 }
 
 void
-dprintf(int level, const char *fname, const char *fmt, ...)
+my_dprintf(int level, const char *fname, const char *fmt, ...)
 {
 	va_list ap;
 	char logbuf[LINE_MAX];

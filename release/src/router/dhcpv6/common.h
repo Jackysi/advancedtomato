@@ -121,6 +121,8 @@ extern int foreground;
 extern int debug_thresh;
 extern char *device;
 
+#include "debug.h"
+
 /* search option for dhcp6_find_listval() */
 #define MATCHLIST_PREFIXLEN 0x1
 
@@ -155,7 +157,6 @@ extern char *in6addr2str __P((struct in6_addr *, int));
 extern int in6_addrscopebyif __P((struct in6_addr *, char *));
 extern int in6_scope __P((struct in6_addr *));
 extern void setloglevel __P((int));
-extern void dprintf __P((int, const char *, const char *, ...));
 extern int get_duid __P((char *, struct duid *));
 extern void dhcp6_init_options __P((struct dhcp6_optinfo *));
 extern void dhcp6_clear_options __P((struct dhcp6_optinfo *));
@@ -187,3 +188,34 @@ extern size_t strlcat __P((char *, const char *, size_t));
 #ifndef HAVE_STRLCPY
 extern size_t strlcpy __P((char *, const char *, size_t));
 #endif
+
+/*
+ * compat hacks in case libc and kernel get out of sync:
+ *
+ * glibc 2.4 and uClibc 0.9.29 introduce IPV6_RECVPKTINFO etc. and change IPV6_PKTINFO
+ * This is only supported in Linux kernel >= 2.6.14
+ *
+ * This is only an approximation because the kernel version that libc was compiled against
+ * could be older or newer than the one being run.  But this should not be a problem --
+ * we just keep using the old kernel interface.
+ *
+ * these are placed here because they're needed in all of socket.c, recv.c and send.c
+ */
+#ifdef __linux__
+#  if defined IPV6_RECVHOPLIMIT || defined IPV6_RECVPKTINFO
+#    include <linux/version.h>
+#    if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
+#      if defined IPV6_RECVHOPLIMIT && defined IPV6_2292HOPLIMIT
+#        undef IPV6_RECVHOPLIMIT
+#        define IPV6_RECVHOPLIMIT IPV6_2292HOPLIMIT
+#      endif
+#      if defined IPV6_RECVPKTINFO && defined IPV6_2292PKTINFO
+#        undef IPV6_RECVPKTINFO
+#        undef IPV6_PKTINFO
+#        define IPV6_RECVPKTINFO IPV6_2292PKTINFO
+#        define IPV6_PKTINFO IPV6_2292PKTINFO
+#      endif
+#    endif
+#  endif
+#endif
+
