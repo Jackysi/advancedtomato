@@ -419,11 +419,16 @@ if ($ARGV[0] eq "--noopt") {
 	$stripshared = "no";
 }
 
+# WAR for a weird "ld" bug: unless we drag in these few functions, re-linking
+# libpthread.so.0 completely screws it up - at least in the current toolchain
+# (binutils 2.20.1 / gcc 4.2.4) :(
+$libpthreadwar = "-u pthread_mutexattr_init -u pthread_mutexattr_settype -u pthread_mutexattr_destroy";
+
 genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "${stripshared}", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
 genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a", "${stripshared}");
 genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a", "${stripshared}");
 genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a", "${stripshared}");
-genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}");
+genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}", "${libpthreadwar}");
 genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
 #  genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a", "${stripshared}");
 #  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a", "${stripshared}");
