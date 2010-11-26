@@ -91,6 +91,7 @@ obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
 obj-$(TCONFIG_IPV6) += radvd
+obj-$(TCONFIG_IPV6) += dhcpv6
 
 obj-$(TCONFIG_MEDIA_SERVER) += zlib
 obj-$(TCONFIG_MEDIA_SERVER) += sqlite
@@ -787,6 +788,28 @@ radvd-clean:
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
+
+dhcpv6/stamp-h1:
+	@cd dhcpv6 && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -D_GNU_SOURCE -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	ac_cv_func_setpgrp_void=yes \
+	$(CONFIGURE) --prefix= --with-localdbdir=/var
+	@$(MAKE) -C dhcpv6 clean
+	@touch dhcpv6/stamp-h1
+
+dhcpv6: dhcpv6/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C dhcpv6 dhcp6c
+
+dhcpv6-install: dhcpv6
+	install -D dhcpv6/dhcp6c $(INSTALLDIR)/dhcpv6/usr/sbin/dhcp6c
+	$(STRIP) $(INSTALLDIR)/dhcpv6/usr/sbin/dhcp6c
+
+dhcpv6-clean:
+	-@$(MAKE) -C dhcpv6 clean
+	@rm -f dhcpv6/Makefile dhcpv6/stamp-h1 
+
 
 p910nd:
 samba:
