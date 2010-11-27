@@ -41,7 +41,6 @@ obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
 obj-y += ppp
-obj-y += ttcp
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
