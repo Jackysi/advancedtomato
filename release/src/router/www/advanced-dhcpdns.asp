@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_vendorclass,dhcpc_requestip,dns_norebind"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -40,7 +40,7 @@ function verifyFields(focused, quiet)
 	if ((b) && (!v_range('_f_dhcpd_slt', quiet, 1, 43200))) return 0;
 	if (!v_length('_dnsmasq_custom', quiet, 0, 2048)) return 0;
 	if (!v_range('_dhcpd_lmax', quiet, 1, 0xFFFF)) return 0;
-	if (!v_ipz('_dhcpc_requestip', quiet)) return 0;
+	if (!v_length('_dhcpc_custom', quiet, 0, 80)) return 0;
 	return 1;
 }
 
@@ -66,11 +66,9 @@ function save()
 	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 
 	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt ||
-	    fom.dhcpc_vendorclass.value != nvram.dhcpc_vendorclass ||
-	    nval(fom.dhcpc_requestip.value, '0.0.0.0') != nval(nvram.dhcpc_requestip, '0.0.0.0')) {
+	    fom.dhcpc_custom.value != nvram.dhcpc_custom) {
 		nvram.dhcpc_minpkt = fom.dhcpc_minpkt.value;
-		nvram.dhcpc_vendorclass = fom.dhcpc_vendorclass.value;
-		nvram.dhcpc_requestip = fom.dhcpc_requestip.value;
+		nvram.dhcpc_custom = fom.dhcpc_custom.value;
 		fom._service.value = '*';
 	}
 	else {
@@ -138,8 +136,7 @@ Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configu
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Vendor Class ID', name: 'dhcpc_vendorclass', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_vendorclass },
-	{ title: 'IP Address to request', name: 'dhcpc_requestip', type: 'text', maxlen: 15, size: 34, value: nvram.dhcpc_requestip },
+	{ title: 'DHCPC Options', name: 'dhcpc_custom', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_custom },
 	{ title: 'Reduce packet size', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
 ]);
 </script>
