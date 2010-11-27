@@ -1331,3 +1331,86 @@ Media server: removed some rare and obsolete demuxers to reduce size,
 reduced MiniDLNA memory usage.
 
 Minor backports from upstream 2.6 kernel.
+
+
+build 53 - 11/26/2010
+---------------------
+
+Support for simultaneous dual-band (dual-radio models) wireless. Currently
+only 2 dual-radio models are supported, and only by K26 builds: Linksys
+WRT610Nv2 and Linksys E3000.
+
+GUI cosmetics: display size of unmounted JFFS partitions, display free
+space on mounted USB partitions.
+
+Fixed LAN ports numbering for WRT310Nv2.
+
+Support for Linksys WRT160Nv1, Ovislink WL1600GL routers.
+
+Fixed syslog losing log messages at system startup.
+
+PPTP/L2TP WAN connection types: allowed to specify separate gateway for
+physical WAN connection when not using DHCP.
+
+More fixes for dnsmasq startup race conditions.
+
+Improved timing in executed scripts, misc enhancements to simplify scripts.
+
+Changed some file permissions for the benefit of non-root users.
+
+OpenVPN: wait for time synchronization on startup up to a few seconds to
+prevent potential VPN server errors.
+
+Get rid of MatrixSSL: use OpenSSL in VPN editions and CyaSSL in non-VPN
+editions to provide SSL support for httpd and ddns, use TLS v 1.0 protocol
+instead of SSL v. 2/3.
+
+Dnsmasq: restored TFTP support in all editions, added support for scripts to
+Extras editions.
+
+Allow syslog to read options from /etc/syslogd.cfg (to support saving of log
+files on external storage).
+
+Web GUI: minor css fix for USB Red and USB Blue themes, removed TCP Vegas
+settings.
+
+Software updates: OpenSSL 1.0.0b, Layer-7 filter patterns 2010-10-25,
+Busybox 1.17.4.
+
+Cosmetics and code clean-up.
+
+* Kernel 2.4-based builds only:
+
+Fixed regression with scsi-start/scsi-stop commands not working in K24
+builds.
+
+* Kernel 2.6-based builds only:
+
+Full support for Linksys E2000/E3000 routers.
+
+Ebtables: fixed targets/matches not working at all, added /etc/ethertypes.
+
+Updated Broadcom wireless driver and SDK to version 5.10.147.0
+(experimental, 2nd attempt).
+
+Added Broadcom implementation of "Efficient Multicast Forwarding" (enable on
+Advanced->Routing page). Description from Broadcom: "this module does the
+efficient layer 2 forwarding of multicast streams, i.e., forward the streams
+only on to the ports that have corresponding group members there by reducing
+the bandwidth utilization and latency".
+
+Do not use "passive" mode for wireless scans - with 5.x.x.x wireless driver
+it doesn't work in client modes.
+
+Included WIDE-DHCPv6 client (no GUI support yet) and IPv6 connbytes match
+into IPv6-enabled builds.
+
+Applied latest kernel patches from linux-mips.org (up to 2010-11-10).
+
+Minor backports from upstream 2.6 kernel.
+
+Rebuilt binary toolchain (32-bit) with additional uClibc patches.
+
+Software updates: MiniDLNA 1.0.18.2 (cvs 2010-11-24).
+
+Removed separate numbering for "beta" builds.

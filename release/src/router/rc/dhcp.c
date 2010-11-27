@@ -353,8 +353,7 @@ int dhcpc_renew_main(int argc, char **argv)
 
 void start_dhcpc(void)
 {
-	char *argv[10];
-	int argc;
+	char cmd[256];
 	char *ifname;
 	char *p;
 	int proto;
@@ -370,40 +369,39 @@ void start_dhcpc(void)
 		nvram_set("wan_iface", ifname);
 	}
 
-	argc = 0;
-
-	p = nvram_safe_get("wan_hostname");
-	if (*p) {
-		argv[argc++] = "-H";
-		argv[argc++] = p;
+#if 1	// REMOVEME after 1/1/2012
+	// temporary code for compatibility with old nvram variables
+	int changed = 0;
+	strcpy(cmd, nvram_safe_get("dhcpc_custom"));
+	if (strstr(cmd, "-V ") == NULL) {
+		if ((p = nvram_get("dhcpc_vendorclass")) && (*p)) {
+			changed++;
+			strcat(cmd, " -V ");
+			strcat(cmd, p);
+		}
 	}
-	p = nvram_safe_get("dhcpc_vendorclass");
-	if (*p) {
-		argv[argc++] = "-V";
-		argv[argc++] = p;
+	if (strstr(cmd, "-r ") == NULL) {
+		if ((p = nvram_get("dhcpc_requestip")) && (*p) && (strcmp(p, "0.0.0.0") != 0)) {
+			changed++;
+			strcat(cmd, " -r ");
+			strcat(cmd, p);
+		}
 	}
-	p = nvram_safe_get("dhcpc_requestip");
-	if ((*p) && (strcmp(p, "0.0.0.0") != 0)) {
-		argv[argc++] = "-r";
-		argv[argc++] = p;
+	if (changed) {
+		nvram_set("dhcpc_custom", cmd);
 	}
+#endif
 
-	if (nvram_get_int("dhcpc_minpkt")) argv[argc++] = "-m";
+	snprintf(cmd, sizeof(cmd),
+		"udhcpc -i %s -b -s dhcpc-event %s %s %s %s %s",
+		ifname,
+		nvram_invmatch("wan_hostname", "") ? "-H" : "", nvram_safe_get("wan_hostname"),
+		nvram_get_int("dhcpc_minpkt") ? "-m" : "",
+		nvram_contains_word("log_events", "dhcpc") ? "-S" : "",
+		nvram_safe_get("dhcpc_custom"));
 
-	if (nvram_contains_word("log_events", "dhcpc")) argv[argc++] = "-S";
+	xstart("/bin/sh", "-c", cmd);
 
-	argv[argc] = NULL;
-
-	xstart(
-		"udhcpc",
-		"-i", ifname,
-		"-s", "dhcpc-event",
-		argv[0], argv[1],	// -H wan_hostname
-		argv[2], argv[3],	// -V vendorclass
-		argv[4], argv[5],	// -r requestip
-		argv[6],			// -m
-		argv[7]				// -S
-	);
 	TRACE_PT("end\n");
 }
 

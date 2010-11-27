@@ -1,7 +1,7 @@
 include ../common.mak
 
 CFLAGS	= -Os -Wall $(EXTRACFLAGS) -fPIC
-LIBS = -lpthread
+LIBS =
 LDFLAGS	=
 
 ifeq ($(TCONFIG_OPENVPN),y)
@@ -12,6 +12,7 @@ CFLAGS	+= -I$(TOP)/cyassl/include
 LIBS += $(TOP)/cyassl/src/.libs/libcyassl.a
 endif
 
+LIBS += -lpthread
 OBJ = mssl.o
 
 all: libmssl.so libmssl.a
