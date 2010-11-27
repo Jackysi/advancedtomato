@@ -1336,11 +1336,12 @@ int fpu_emulator_cop1Handler(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			 * ieee754_csr.  But ieee754_csr.rm is ieee
 			 * library modes. (not mips rounding mode)
 			 */
+			unsigned int oldrm = ieee754_csr.rm;
 			/* convert to ieee library modes */
 			ieee754_csr.rm = ieee_rm[ieee754_csr.rm];
 			sig = cop1Emulate(xcp, ctx, fault_addr);
 			/* revert to mips rounding mode */
-			ieee754_csr.rm = mips_rm[ieee754_csr.rm];
+			ieee754_csr.rm = oldrm;
 		}
 
 		if (has_fpu)
