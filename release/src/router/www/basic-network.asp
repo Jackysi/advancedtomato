@@ -800,23 +800,23 @@ REMOVE-END */
 		u = wl_unit(uidx);
 
 		// IP address
-		a = ['_wl'+u+'_radius_ipaddr'];
+		a = ['_radius_ipaddr'];
 		for (i = a.length - 1; i >= 0; --i) {
-			if (elem.isVisible(E(a[i])) && (!v_ip(a[i], quiet || !ok))) ok = 0;
+			if ((wl_vis[uidx]['_wl'+a[i]]) && (!v_ip('_wl'+u+a[i], quiet || !ok))) ok = 0;
 		}
 
 		// range
-		a = [['_wl'+u+'_wpa_gtk_rekey', 60, 7200], ['_wl'+u+'_radius_port', 1, 65535]];
+		a = [['_wpa_gtk_rekey', 60, 7200], ['_radius_port', 1, 65535]];
 		for (i = a.length - 1; i >= 0; --i) {
 			v = a[i];
-			if (elem.isVisible(E(v[0])) && (!v_range(v[0], quiet || !ok, v[1], v[2]))) ok = 0;
+			if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_range('_wl'+u+v[0], quiet || !ok, v[1], v[2]))) ok = 0;
 		}
 
 		// length
-		a = [['_wl'+u+'_ssid', 1], ['_wl'+u+'_radius_key', 1]];
+		a = [['_ssid', 1], ['_radius_key', 1]];
 		for (i = a.length - 1; i >= 0; --i) {
 			v = a[i];
-			if (elem.isVisible(E(v[0])) && (!v_length(v[0], quiet || !ok, v[1], E(v[0]).maxlength))) ok = 0;
+			if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_length('_wl'+u+v[0], quiet || !ok, v[1], E('_wl'+u+v[0]).maxlength))) ok = 0;
 		}
 
 		if (wl_vis[uidx]._wl_key1) {
