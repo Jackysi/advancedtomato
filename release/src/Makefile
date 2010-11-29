@@ -621,7 +621,10 @@ e3000v:
 	@$(MAKE) r2e ND=E3000 NVRAM_SIZE=60
 
 e2000:
-	@$(MAKE) r2s ND=E2000 NVRAM_SIZE=60
+	@$(MAKE) bin MIPS32=r2 B=S USB="" ND=E2000 NVRAM_SIZE=60 BBEXTRAS=y BUILD_DESC="Std"
+
+e2000v:
+	@$(MAKE) bin MIPS32=r2 B=V USB="" ND=E2000 NVRAM_SIZE=60 BBEXTRAS=y BUILD_DESC="$(VPN)" OPENVPN=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -704,6 +707,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "e3000        Linksys E3000 build (standard plus extras)"
 	@echo "e3000v       Linksys E3000 build (standard plus VPN and extras)"
 	@echo "e2000        Linksys E2000 build (no USB support)"
+	@echo "e2000v       Linksys E2000 build (VPN with no USB support)"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
