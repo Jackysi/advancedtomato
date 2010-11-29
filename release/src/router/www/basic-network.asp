@@ -851,7 +851,7 @@ REMOVE-END */
 	ferror.clear(a);
 	ferror.clear(b);
 
-	if ((!a._error_msg) && (!b._error_msg)) {
+	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
 		c = aton(E('_lan_netmask').value);
 		d = aton(E('_lan_ipaddr').value) & c;
 		e = 'Invalid IP address or subnet mask';
@@ -865,7 +865,7 @@ REMOVE-END */
 		}
 	}
 
-	if ((!a._error_msg) && (!b._error_msg)) {
+	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
 		if (aton(a.value) > aton(b.value)) {
 			c = a.value;
 			a.value = b.value;
