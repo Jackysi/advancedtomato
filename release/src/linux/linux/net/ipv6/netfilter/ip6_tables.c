@@ -468,6 +468,12 @@ ip6t_do_table(struct sk_buff **pskb,
 #endif
 				if (verdict == IP6T_CONTINUE)
 					e = (void *)e + e->next_offset;
+				else if (verdict == IP6T_RETURN) {		// added -- zzz
+					e = back;
+					back = get_entry(table_base,
+							 back->comefrom);
+					continue;
+				}
 				else
 					/* Verdict */
 					break;

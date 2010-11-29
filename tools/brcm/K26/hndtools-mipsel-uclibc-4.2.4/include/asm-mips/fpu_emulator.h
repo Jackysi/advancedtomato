@@ -41,11 +41,7 @@ struct mips_fpu_emulator_stats {
 DECLARE_PER_CPU(struct mips_fpu_emulator_stats, fpuemustats);
 
 #define MIPS_FPU_EMU_INC_STATS(M)					\
-do {									\
-	preempt_disable();						\
-	__local_inc(&__get_cpu_var(fpuemustats).M);			\
-	preempt_enable();						\
-} while (0)
+	cpu_local_wrap(__local_inc(&__get_cpu_var(fpuemustats).M))
 
 #else
 #define MIPS_FPU_EMU_INC_STATS(M) do { } while (0)

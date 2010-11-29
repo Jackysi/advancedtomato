@@ -41,7 +41,6 @@ obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
 obj-y += ppp
-obj-y += ttcp
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
@@ -91,6 +90,7 @@ obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
 obj-$(TCONFIG_IPV6) += radvd
+obj-$(TCONFIG_IPV6) += dhcpv6
 
 obj-$(TCONFIG_MEDIA_SERVER) += zlib
 obj-$(TCONFIG_MEDIA_SERVER) += sqlite
@@ -167,7 +167,7 @@ lzma-loader-install: lzma-loader
 
 
 kmod: dummy
-	$(MAKE) -C $(LINUXDIR) modules
+	$(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC)
 
 testfind:
 	cd $(TARGETDIR)/lib/modules/* && find -name "*.o" -exec mv -i {} . \; || true
@@ -542,6 +542,7 @@ cyassl/stamp-h1:
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections \
 	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	PTHREAD_CFLAGS="-lpthread" PTHREAD_LIBS="-lpthread" \
 	$(CONFIGURE) --with-libz=no
 	@touch cyassl/stamp-h1
 
@@ -643,7 +644,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS) -U CONFIG_NVRAM_SIZE"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
@@ -787,6 +788,28 @@ radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
+dhcpv6/stamp-h1:
+	@cd dhcpv6 && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -D_GNU_SOURCE -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	ac_cv_func_setpgrp_void=yes \
+	$(CONFIGURE) --prefix= --with-localdbdir=/var
+	@$(MAKE) -C dhcpv6 clean
+	@touch dhcpv6/stamp-h1
+
+dhcpv6: dhcpv6/stamp-h1
+	@$(SEP)
+	@$(MAKE) -C dhcpv6 dhcp6c
+
+dhcpv6-install: dhcpv6
+	install -D dhcpv6/dhcp6c $(INSTALLDIR)/dhcpv6/usr/sbin/dhcp6c
+	$(STRIP) $(INSTALLDIR)/dhcpv6/usr/sbin/dhcp6c
+
+dhcpv6-clean:
+	-@$(MAKE) -C dhcpv6 clean
+	@rm -f dhcpv6/Makefile dhcpv6/stamp-h1 
+
+
 p910nd:
 samba:
 samba3:
@@ -915,7 +938,11 @@ libbcm-install:
 	$(STRIP) $(INSTALLDIR)/libbcm/usr/lib/libbcm.so
 
 
-iproute2-install:
+iproute2:
+	@$(SEP)
+	@$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)"
+	
+iproute2-install: iproute2
 	install -D iproute2/tc/tc $(INSTALLDIR)/iproute2/usr/sbin/tc
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip

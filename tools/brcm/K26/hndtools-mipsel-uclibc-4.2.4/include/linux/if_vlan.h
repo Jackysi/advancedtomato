@@ -112,7 +112,10 @@ struct vlan_dev_info {
 	/** This will be the mapping that correlates skb->priority to
 	 * 3 bits of VLAN QOS tags...
 	 */
+	unsigned int nr_ingress_mappings;
 	unsigned long ingress_priority_map[8];
+
+	unsigned int nr_egress_mappings;
 	struct vlan_priority_tci_mapping *egress_priority_map[16]; /* hash table */
 
 	unsigned short vlan_id;        /*  The VLAN Identifier for this interface. */
@@ -379,6 +382,10 @@ enum vlan_ioctl_cmds {
 	SET_VLAN_FLAG_CMD,
 	GET_VLAN_REALDEV_NAME_CMD, /* If this works, you know it's a VLAN device, btw */
 	GET_VLAN_VID_CMD /* Get the VID of this VLAN (specified by name) */
+};
+
+enum vlan_flags {
+	VLAN_FLAG_REORDER_HDR	= 0x1,
 };
 
 enum vlan_name_types {

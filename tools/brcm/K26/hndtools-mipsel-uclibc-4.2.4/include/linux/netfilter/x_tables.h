@@ -126,6 +126,49 @@ struct xt_counters_info
 
 #define XT_INV_PROTO		0x40	/* Invert the sense of PROTO. */
 
+/* fn returns 0 to continue iteration */
+#define XT_MATCH_ITERATE(type, e, fn, args...)			\
+({								\
+	unsigned int __i;					\
+	int __ret = 0;						\
+	struct xt_entry_match *__m;				\
+								\
+	for (__i = sizeof(type);				\
+	     __i < (e)->target_offset;				\
+	     __i += __m->u.match_size) {			\
+		__m = (void *)e + __i;				\
+								\
+		__ret = fn(__m , ## args);			\
+		if (__ret != 0)					\
+			break;					\
+	}							\
+	__ret;							\
+})
+
+/* fn returns 0 to continue iteration */
+#define XT_ENTRY_ITERATE_CONTINUE(type, entries, size, n, fn, args...) \
+({								\
+	unsigned int __i, __n;					\
+	int __ret = 0;						\
+	type *__entry;						\
+								\
+	for (__i = 0, __n = 0; __i < (size);			\
+	     __i += __entry->next_offset, __n++) { 		\
+		__entry = (void *)(entries) + __i;		\
+		if (__n < n)					\
+			continue;				\
+								\
+		__ret = fn(__entry , ## args);			\
+		if (__ret != 0)					\
+			break;					\
+	}							\
+	__ret;							\
+})
+
+/* fn returns 0 to continue iteration */
+#define XT_ENTRY_ITERATE(type, entries, size, fn, args...) \
+	XT_ENTRY_ITERATE_CONTINUE(type, entries, size, 0, fn, args)
+
 #ifdef __KERNEL__
 
 #include <linux/netdevice.h>
@@ -239,9 +282,6 @@ struct xt_table
 	/* What hooks you will enter on */
 	unsigned int valid_hooks;
 
-	/* Lock for the curtain */
-	rwlock_t lock;
-
 	/* Man behind the curtain... */
 	//struct ip6t_table_info *private;
 	void *private;
@@ -269,9 +309,12 @@ struct xt_table_info
 	unsigned int underflow[NF_IP_NUMHOOKS];
 
 	/* ipt_entry tables: one per CPU */
-	char *entries[NR_CPUS];
+	/* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
+	void *entries[1];
 };
 
+#define XT_TABLE_INFO_SZ (offsetof(struct xt_table_info, entries) \
+			  + nr_cpu_ids * sizeof(char *))
 extern int xt_register_target(struct xt_target *target);
 extern void xt_unregister_target(struct xt_target *target);
 extern int xt_register_targets(struct xt_target *target, unsigned int n);
@@ -314,6 +357,97 @@ extern void xt_proto_fini(int af);
 
 extern struct xt_table_info *xt_alloc_table_info(unsigned int size);
 extern void xt_free_table_info(struct xt_table_info *info);
+
+/*
+ * Per-CPU spinlock associated with per-cpu table entries, and
+ * with a counter for the "reading" side that allows a recursive
+ * reader to avoid taking the lock and deadlocking.
+ *
+ * "reading" is used by ip/arp/ip6 tables rule processing which runs per-cpu.
+ * It needs to ensure that the rules are not being changed while the packet
+ * is being processed. In some cases, the read lock will be acquired
+ * twice on the same CPU; this is okay because of the count.
+ *
+ * "writing" is used when reading counters.
+ *  During replace any readers that are using the old tables have to complete
+ *  before freeing the old table. This is handled by the write locking
+ *  necessary for reading the counters.
+ */
+struct xt_info_lock {
+	spinlock_t lock;
+	unsigned char readers;
+};
+DECLARE_PER_CPU(struct xt_info_lock, xt_info_locks);
+
+/*
+ * Note: we need to ensure that preemption is disabled before acquiring
+ * the per-cpu-variable, so we do it as a two step process rather than
+ * using "spin_lock_bh()".
+ *
+ * We _also_ need to disable bottom half processing before updating our
+ * nesting count, to make sure that the only kind of re-entrancy is this
+ * code being called by itself: since the count+lock is not an atomic
+ * operation, we can allow no races.
+ *
+ * _Only_ that special combination of being per-cpu and never getting
+ * re-entered asynchronously means that the count is safe.
+ */
+static inline void xt_info_rdlock_bh(void)
+{
+	struct xt_info_lock *lock;
+
+	local_bh_disable();
+	lock = &__get_cpu_var(xt_info_locks);
+	if (likely(!lock->readers++))
+		spin_lock(&lock->lock);
+}
+
+static inline void xt_info_rdunlock_bh(void)
+{
+	struct xt_info_lock *lock = &__get_cpu_var(xt_info_locks);
+
+	if (likely(!--lock->readers))
+		spin_unlock(&lock->lock);
+	local_bh_enable();
+}
+
+/*
+ * The "writer" side needs to get exclusive access to the lock,
+ * regardless of readers.  This must be called with bottom half
+ * processing (and thus also preemption) disabled.
+ */
+static inline void xt_info_wrlock(unsigned int cpu)
+{
+	spin_lock(&per_cpu(xt_info_locks, cpu).lock);
+}
+
+static inline void xt_info_wrunlock(unsigned int cpu)
+{
+	spin_unlock(&per_cpu(xt_info_locks, cpu).lock);
+}
+
+/*
+ * This helper is performance critical and must be inlined
+ */
+static inline unsigned long ifname_compare_aligned(const char *_a,
+						   const char *_b,
+						   const char *_mask)
+{
+	const unsigned long *a = (const unsigned long *)_a;
+	const unsigned long *b = (const unsigned long *)_b;
+	const unsigned long *mask = (const unsigned long *)_mask;
+	unsigned long ret;
+
+	ret = (a[0] ^ b[0]) & mask[0];
+	if (IFNAMSIZ > sizeof(unsigned long))
+		ret |= (a[1] ^ b[1]) & mask[1];
+	if (IFNAMSIZ > 2 * sizeof(unsigned long))
+		ret |= (a[2] ^ b[2]) & mask[2];
+	if (IFNAMSIZ > 3 * sizeof(unsigned long))
+		ret |= (a[3] ^ b[3]) & mask[3];
+	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
+	return ret;
+}
 
 #ifdef CONFIG_COMPAT
 #include <net/compat.h>

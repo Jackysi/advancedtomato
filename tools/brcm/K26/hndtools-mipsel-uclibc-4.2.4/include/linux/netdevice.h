@@ -526,12 +526,6 @@ struct net_device
 	int			(*hard_header_parse)(struct sk_buff *skb,
 						     unsigned char *haddr);
 	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
-#ifdef CONFIG_NETPOLL
-	struct netpoll_info	*npinfo;
-#endif
-#ifdef CONFIG_NET_POLL_CONTROLLER
-	void                    (*poll_controller)(struct net_device *dev);
-#endif
 
 	/* bridge stuff */
 	struct net_bridge_port	*br_port;
@@ -540,6 +534,16 @@ struct net_device
 	struct device		dev;
 	/* space for optional statistics and wireless sysfs groups */
 	struct attribute_group  *sysfs_groups[3];
+
+#ifdef CONFIG_NETPOLL
+	struct netpoll_info	*npinfo;
+#endif
+#ifdef CONFIG_NET_POLL_CONTROLLER
+	void                    (*poll_controller)(struct net_device *dev);
+#endif
+
+	/* rtnetlink link ops */
+	const struct rtnl_link_ops *rtnl_link_ops;
 };
 #define to_net_dev(d) container_of(d, struct net_device, dev)
 
@@ -558,6 +562,12 @@ static inline void *netdev_priv(struct net_device *dev)
  * if set prior to registration will cause a symlink during initialization.
  */
 #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+
+/* Set the sysfs device type for the network logical device to allow
+ * fin grained indentification of different network device types. For
+ * example Ethernet, Wirelss LAN, Bluetooth, WiMAX etc.
+ */
+#define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
 
 struct packet_type {
 	__be16			type;	/* This is really htons(ether_type). */

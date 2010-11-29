@@ -227,7 +227,7 @@ int mssl_init(char *cert, char *priv)
 	SSLeay_add_ssl_algorithms();
 #endif
 
-	ctx = SSL_CTX_new(server ? SSLv23_server_method() : SSLv23_client_method());
+	ctx = SSL_CTX_new(server ? TLSv1_server_method() : TLSv1_client_method());
 	if (!ctx) {
 		_dprintf("SSL_CTX_new() failed\n");
 		mssl_print_err(NULL);

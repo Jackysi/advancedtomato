@@ -114,10 +114,6 @@ GNU Libraries
 * libidn: (libidn).			Internationalized string processing
 					library.
 
-Network Applications
-* Wget: (wget). 			The non-interactive network
-					downloader.
-
 Emacs 22
 * Ada mode (emacs22): (emacs22/ada-mode).
 					Emacs mode for editing and compiling
@@ -193,6 +189,10 @@ Emacs 22
 					Customization facility.
 * WoMan (emacs22): (emacs22/woman).	Browse UN*X Manual Pages "W.O.
 					(without) Man".
+
+Network Applications
+* Wget: (wget). 			The non-interactive network
+					downloader.
 
 General Commands
 * Cpio: (cpio). 			A program to manage archives of files.

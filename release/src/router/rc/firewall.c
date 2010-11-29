@@ -733,16 +733,10 @@ static void filter_forward(void)
 	// default policy: DROP
 }
 
-static void filter_table(void)
+static void filter_log(void)
 {
 	int n;
 	char limit[128];
-
-	ipt_write(
-		"*filter\n"
-		":INPUT DROP [0:0]\n"
-		":OUTPUT ACCEPT [0:0]\n"
-	);
 
 	n = nvram_get_int("log_limit");
 	if ((n >= 1) && (n <= 9999)) {
@@ -769,6 +763,17 @@ static void filter_table(void)
 			"-A logaccept -j ACCEPT\n",
 			limit);
 	}
+}
+
+static void filter_table(void)
+{
+	ipt_write(
+		"*filter\n"
+		":INPUT DROP [0:0]\n"
+		":OUTPUT ACCEPT [0:0]\n"
+	);
+
+	filter_log();
 
 	filter_input();
 

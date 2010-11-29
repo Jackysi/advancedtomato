@@ -22,3 +22,7 @@
 /* device has more interface descriptions than the bNumInterfaces count,
    and can't handle talking to these interfaces */
 #define USB_QUIRK_HONOR_BNUMINTERFACES	0x00000020
+
+/* device needs a pause during initialization, after we read the device
+   descriptor */
+#define USB_QUIRK_DELAY_INIT		0x00000040
