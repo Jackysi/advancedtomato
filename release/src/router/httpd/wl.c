@@ -602,6 +602,7 @@ void asp_wlbands(int argc, char **argv)
 static int print_wif(int idx, int unit, int subunit, void *param)
 {
 	char unit_str[] = "000000";
+	char *ssidj;
 
 	if (subunit > 0)
 		snprintf(unit_str, sizeof(unit_str), "%d.%d", unit, subunit);
@@ -609,13 +610,14 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 		snprintf(unit_str, sizeof(unit_str), "%d", unit);
 
 	// [ifname, unitstr, unit, subunit, ssid, hwaddr]
+	ssidj = js_string(nvram_safe_get(wl_nvname("ssid", unit, subunit)));
 	web_printf("%c['%s','%s',%d,%d,'%s','%s']", (idx == 0) ? ' ' : ',',
 		nvram_safe_get(wl_nvname("ifname", unit, subunit)),
-		unit_str, unit, subunit,
-		nvram_safe_get(wl_nvname("ssid", unit, subunit)),
+		unit_str, unit, subunit, ssidj,
 		// assume the slave inteface MAC address is the same as the primary interface
 		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
 	);
+	free(ssidj);
 
 	return 0;
 }

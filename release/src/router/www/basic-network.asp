@@ -220,7 +220,7 @@ function scan()
 			for (i = 1; i < ghz[uidx].length; ++i) {
 				var s = ghz[uidx][i][1];
 				var u = wscan.inuse[ghz[uidx][i][0]];
-				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / strongest: "' + ellipsis(u.ssid, 15) + '" ' + u.rssi + ' dBm)';
+				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / strongest: "' + escapeHTML(ellipsis(u.ssid, 15)) + '" ' + u.rssi + ' dBm)';
 				e.options[i].innerHTML = s;
 			}
 			e.style.width = '400px';
