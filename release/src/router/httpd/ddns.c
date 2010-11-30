@@ -25,7 +25,8 @@ void asp_ddnsx(int argc, char **argv)
 	case WP_PPTP:
 	case WP_L2TP:
 		p = "ppp_get_ip";
-		break;
+		if (nvram_get_int("ppp_defgw")) break;
+		// else fall through
 	default:
 		p = "wan_ipaddr";
 		break;
