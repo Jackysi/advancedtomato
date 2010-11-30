@@ -36,8 +36,6 @@
 #include <tomato_profile.h>
 #include <tomato_config.h>
 
-#define USE_MINIUPNPD
-
 //	#define DEBUG_IPTFILE
 //	#define DEBUG_RCTEST
 //	#define DEBUG_NOISY
