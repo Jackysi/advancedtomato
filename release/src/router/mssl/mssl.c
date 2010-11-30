@@ -86,7 +86,7 @@ static ssize_t mssl_read(void *cookie, char *buf, size_t len)
 			if (total == 0) total = -1;
 			goto OUT;
 		}
-	} while (SSL_pending(kuki->ssl));
+	} while ((len - total > 0) && SSL_pending(kuki->ssl));
 
 OUT:
 	_dprintf("%s() returns %d\n", __FUNCTION__, total);
