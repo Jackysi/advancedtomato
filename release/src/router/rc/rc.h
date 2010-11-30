@@ -84,9 +84,9 @@
 
 #define SET_LED(val)	do { } while(0)
 
-
 typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 
+#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
 // init.c
 extern int init_main(int argc, char *argv[]);

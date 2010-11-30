@@ -69,7 +69,6 @@ typedef u_int8_t u8;
 #include <etsockio.h>
 #endif
 
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 #ifdef TCONFIG_SAMBASRV
