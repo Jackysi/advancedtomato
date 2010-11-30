@@ -841,35 +841,34 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 			sig = fpu_emulator_cop1Handler(regs,
 						       &current->thread.fpu,
 						       0,  &fault_addr);
-			if (!process_fpemu_return(sig, fault_addr))
-			{
+			if (!process_fpemu_return(sig, fault_addr)) {
 #ifdef CONFIG_MIPS_MT_FPAFF
-			/*
-			 * MIPS MT processors may have fewer FPU contexts
-			 * than CPU threads. If we've emulated more than
-			 * some threshold number of instructions, force
-			 * migration to a "CPU" that has FP support.
-			 */
-			 if(mt_fpemul_threshold > 0
-			 && ((current->thread.emulated_fp++
-			    > mt_fpemul_threshold))) {
-			  /*
-			   * If there's no FPU present, or if the
-			   * application has already restricted
-			   * the allowed set to exclude any CPUs
-			   * with FPUs, we'll skip the procedure.
-			   */
-			  if (cpus_intersects(current->cpus_allowed,
-			  			mt_fpu_cpumask)) {
-			    cpumask_t tmask;
+				/*
+				 * MIPS MT processors may have fewer FPU contexts
+				 * than CPU threads. If we've emulated more than
+				 * some threshold number of instructions, force
+				 * migration to a "CPU" that has FP support.
+				 */
+				if (mt_fpemul_threshold > 0 &&
+				    ((current->thread.emulated_fp++
+				     > mt_fpemul_threshold))) {
+				  /*
+				   * If there's no FPU present, or if the
+				   * application has already restricted
+				   * the allowed set to exclude any CPUs
+				   * with FPUs, we'll skip the procedure.
+				   */
+				  if (cpus_intersects(current->cpus_allowed,
+				  			mt_fpu_cpumask)) {
+				  	cpumask_t tmask;
 
-			    cpus_and(tmask,
-					current->thread.user_cpus_allowed,
-					mt_fpu_cpumask);
-			    set_cpus_allowed(current, tmask);
-			    current->thread.mflags |= MF_FPUBOUND;
-			  }
-			 }
+				  	cpus_and(tmask,
+						 current->thread.user_cpus_allowed,
+						mt_fpu_cpumask);
+					set_cpus_allowed(current, tmask);
+					current->thread.mflags |= MF_FPUBOUND;
+			 	 }
+				}
 #endif /* CONFIG_MIPS_MT_FPAFF */
 			}
 		}
