@@ -42,8 +42,6 @@
 #include <time.h>
 #include <bcmdevs.h>
 
-
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 static const char ppp_linkfile[] = "/tmp/ppp/link";

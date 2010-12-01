@@ -574,10 +574,14 @@ static void handle_request(void)
 }
 
 #ifdef TCONFIG_HTTPS
+
+#define HTTPS_CRT_VER	"1"
+
 static void save_cert(void)
 {
 	if (eval("tar", "-C", "/", "-czf", "/tmp/cert.tgz", "etc/cert.pem", "etc/key.pem") == 0) {
 		if (nvram_set_file("https_crt_file", "/tmp/cert.tgz", 8192)) {
+			nvram_set("crt_ver", HTTPS_CRT_VER);
 			nvram_commit_x();
 		}
 	}
@@ -610,7 +614,7 @@ static void start_ssl(void)
 
 		if ((!f_exists("/etc/cert.pem")) || (!f_exists("/etc/key.pem"))) {
 			ok = 0;
-			if (save) {
+			if (save && nvram_match("crt_ver", HTTPS_CRT_VER)) {
 				if (nvram_get_file("https_crt_file", "/tmp/cert.tgz", 8192)) {
 					if (eval("tar", "-xzf", "/tmp/cert.tgz", "-C", "/", "etc/cert.pem", "etc/key.pem") == 0)
 						ok = 1;

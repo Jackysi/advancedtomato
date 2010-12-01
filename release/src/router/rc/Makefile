@@ -1,10 +1,10 @@
 include ../common.mak
 
-CFLAGS = -Wall -Os $(EXTRACFLAGS) #-mips32
-CFLAGS += -I. -I../shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include
+CFLAGS = -Wall -Os $(EXTRACFLAGS)
+CFLAGS += -I. -I$(TOP)/shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include
 CFLAGS += -ffunction-sections -fdata-sections
 
-LDFLAGS = -L../nvram -lnvram -L../shared -lshared -lcrypt
+LDFLAGS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt
 LDFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections
 ifeq ($(STATIC),1)
 LDFLAGS += -static

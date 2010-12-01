@@ -714,10 +714,6 @@ static const nvset_t nvset_list[] = {
 	{ "upnp_max_port_int",		V_PORT				},
 	{ "upnp_min_port_ext",		V_PORT				},
 	{ "upnp_max_port_ext",		V_PORT				},
-#ifndef USE_MINIUPNPD
-//	{ "upnp_config",		V_01				},
-	{ "upnp_max_age",		V_RANGE(5, 9999)	},
-#endif
 
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},

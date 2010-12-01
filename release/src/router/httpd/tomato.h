@@ -29,7 +29,6 @@
 #include "httpd.h"
 
 
-#define USE_MINIUPNPD
 //	#define BLACKHOLE		// for testing
 
 

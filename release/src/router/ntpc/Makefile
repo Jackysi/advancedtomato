@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS	= -Os -Wall $(EXTRACFLAGS) #-mips32
+CFLAGS	= -Os -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
 
 OBJS = ntpc.o
@@ -9,7 +9,7 @@ all: ntpc
 
 ntpc: $(OBJS)
 	@echo " [ntpc] CC -o $@"
-	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L../nvram -lnvram -L../shared -lshared
+	@$(CC) $(LDFLAGS) -o $@ $(OBJS) -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
 
 	$(SIZECHECK)
 	$(CPTMP)

@@ -220,7 +220,7 @@ function scan()
 			for (i = 1; i < ghz[uidx].length; ++i) {
 				var s = ghz[uidx][i][1];
 				var u = wscan.inuse[ghz[uidx][i][0]];
-				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / strongest: "' + ellipsis(u.ssid, 15) + '" ' + u.rssi + ' dBm)';
+				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / strongest: "' + escapeHTML(ellipsis(u.ssid, 15)) + '" ' + u.rssi + ' dBm)';
 				e.options[i].innerHTML = s;
 			}
 			e.style.width = '400px';
@@ -800,23 +800,23 @@ REMOVE-END */
 		u = wl_unit(uidx);
 
 		// IP address
-		a = ['_wl'+u+'_radius_ipaddr'];
+		a = ['_radius_ipaddr'];
 		for (i = a.length - 1; i >= 0; --i) {
-			if (elem.isVisible(E(a[i])) && (!v_ip(a[i], quiet || !ok))) ok = 0;
+			if ((wl_vis[uidx]['_wl'+a[i]]) && (!v_ip('_wl'+u+a[i], quiet || !ok))) ok = 0;
 		}
 
 		// range
-		a = [['_wl'+u+'_wpa_gtk_rekey', 60, 7200], ['_wl'+u+'_radius_port', 1, 65535]];
+		a = [['_wpa_gtk_rekey', 60, 7200], ['_radius_port', 1, 65535]];
 		for (i = a.length - 1; i >= 0; --i) {
 			v = a[i];
-			if (elem.isVisible(E(v[0])) && (!v_range(v[0], quiet || !ok, v[1], v[2]))) ok = 0;
+			if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_range('_wl'+u+v[0], quiet || !ok, v[1], v[2]))) ok = 0;
 		}
 
 		// length
-		a = [['_wl'+u+'_ssid', 1], ['_wl'+u+'_radius_key', 1]];
+		a = [['_ssid', 1], ['_radius_key', 1]];
 		for (i = a.length - 1; i >= 0; --i) {
 			v = a[i];
-			if (elem.isVisible(E(v[0])) && (!v_length(v[0], quiet || !ok, v[1], E(v[0]).maxlength))) ok = 0;
+			if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_length('_wl'+u+v[0], quiet || !ok, v[1], E('_wl'+u+v[0]).maxlength))) ok = 0;
 		}
 
 		if (wl_vis[uidx]._wl_key1) {
@@ -851,7 +851,7 @@ REMOVE-END */
 	ferror.clear(a);
 	ferror.clear(b);
 
-	if ((!a._error_msg) && (!b._error_msg)) {
+	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
 		c = aton(E('_lan_netmask').value);
 		d = aton(E('_lan_ipaddr').value) & c;
 		e = 'Invalid IP address or subnet mask';
@@ -865,7 +865,7 @@ REMOVE-END */
 		}
 	}
 
-	if ((!a._error_msg) && (!b._error_msg)) {
+	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
 		if (aton(a.value) > aton(b.value)) {
 			c = a.value;
 			a.value = b.value;
