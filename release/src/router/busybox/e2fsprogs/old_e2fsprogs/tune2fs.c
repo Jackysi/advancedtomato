@@ -11,6 +11,22 @@
  * Licensed under GPLv2, see file LICENSE in this tarball for details.
  */
 
+////usage:#define tune2fs_trivial_usage
+////usage:       "[-c MOUNT_CNT] "
+////usage:       "[-e errors-behavior] [-g group] "
+////usage:       "[-i DAYS] "
+////usage:       "[-j] [-J journal-options] [-l] [-s sparse-flag] "
+////usage:       "[-m reserved-blocks-percent] [-o [^]mount-options[,...]] "
+////usage:       "[-r reserved-blocks-count] [-u user] [-C mount-count] "
+////usage:       "[-L LABEL] "
+////usage:       "[-M last-mounted-dir] [-O [^]feature[,...]] "
+////usage:       "[-T last-check-time] [-U UUID] "
+////usage:       "BLOCKDEV"
+////usage:
+////usage:#define tune2fs_full_usage "\n\n"
+////usage:       "Adjust filesystem options on ext[23] filesystems"
+//applet:IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP, tune2fs))
+
 /*
  * History:
  * 93/06/01	- Creation

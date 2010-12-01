@@ -40,8 +40,6 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
-
 static void expires(unsigned int seconds)
 {
 	struct sysinfo info;

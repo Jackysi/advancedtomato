@@ -36,10 +36,6 @@
 #include <sys/ioctl.h>
 
 
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
-
-
-
 int ipup_main(int argc, char **argv)
 {
 	char *wan_ifname;

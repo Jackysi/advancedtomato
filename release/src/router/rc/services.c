@@ -45,7 +45,6 @@
 #include <mntent.h>
 #include <dirent.h>
 
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 // Pop an alarm to recheck pids in 500 msec.

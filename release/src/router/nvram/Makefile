@@ -1,7 +1,7 @@
 include ../common.mak
 
 CFLAGS = -O2 -Wall $(EXTRACFLAGS) -fPIC
-CFLAGS += -I../shared -I../../include -I.
+CFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include -I.
 ifeq ($(STATIC),1)
 CFLAGS += -static
 endif
@@ -19,9 +19,9 @@ libnvram.a: nvram_linux.o nvram_convert.o
 nvram: nvram.o defaults.o libnvram.so
 	@echo " [nvram] CC $@"
 ifeq ($(STATIC),1)
-	$(CC) $(CFLAGS) -static -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+	$(CC) $(CFLAGS) -static -o $@ nvram.o defaults.o -L. -lnvram -L$(TOP)/shared -lshared
 else
-	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L$(TOP)/shared -lshared
 endif
 	
 	$(SIZECHECK)

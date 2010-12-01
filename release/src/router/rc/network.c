@@ -69,7 +69,6 @@ typedef u_int8_t u8;
 #include <etsockio.h>
 #endif
 
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 #ifdef TCONFIG_SAMBASRV
@@ -397,6 +396,7 @@ void start_lan(void)
 	int sfd;
 	uint32 ip;
 	int unit, subunit, sta;
+	char hwaddr[ETHER_ADDR_LEN];
 
 	foreach_wif(1, NULL, set_wlmac);
 	check_afterburner();
@@ -417,6 +417,7 @@ void start_lan(void)
 #endif
 
 		inet_aton(nvram_safe_get("lan_ipaddr"), (struct in_addr *)&ip);
+		memset(hwaddr, 0, sizeof(hwaddr));
 
 		sta = 0;
 		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
@@ -441,7 +442,7 @@ void start_lan(void)
 					wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
 
 				// bring up interface
-				if (ifconfig(ifname, IFUP, NULL, NULL) != 0) continue;
+				if (ifconfig(ifname, IFUP|IFF_ALLMULTI, NULL, NULL) != 0) continue;
 
 				// set the logical bridge address to that of the first interface
 				strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
@@ -451,6 +452,7 @@ void start_lan(void)
 						strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 						ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 						ioctl(sfd, SIOCSIFHWADDR, &ifr);
+						memcpy(hwaddr, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
 					}
 				}
 
@@ -483,6 +485,13 @@ void start_lan(void)
 			}
 			
 			free(lan_ifnames);
+		}
+
+		if (memcmp(hwaddr, "\0\0\0\0\0\0", ETHER_ADDR_LEN)) {
+			strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
+			ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+			memcpy(ifr.ifr_hwaddr.sa_data, hwaddr, ETHER_ADDR_LEN);
+			ioctl(sfd, SIOCSIFHWADDR, &ifr);
 		}
 	}
 	// --- this shouldn't happen ---

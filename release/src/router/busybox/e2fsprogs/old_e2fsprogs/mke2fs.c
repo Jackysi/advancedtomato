@@ -14,6 +14,43 @@
  * enforced (but it's not much fun on a character device :-).
  */
 
+//usage:#define mke2fs_trivial_usage
+//usage:       "[-c|-l filename] [-b block-size] [-f fragment-size] [-g blocks-per-group] "
+//usage:       "[-i bytes-per-inode] [-j] [-J journal-options] [-N number-of-inodes] [-n] "
+//usage:       "[-m reserved-blocks-percentage] [-o creator-os] [-O feature[,...]] [-q] "
+//usage:       "[r fs-revision-level] [-E extended-options] [-v] [-F] [-L volume-label] "
+//usage:       "[-M last-mounted-directory] [-S] [-T filesystem-type] "
+//usage:       "device [blocks-count]"
+//usage:
+//usage:#define mke2fs_full_usage "\n\n"
+//usage:       "	-b size		Block size in bytes"
+//usage:     "\n	-c		Check for bad blocks before creating"
+//usage:     "\n	-E opts		Set extended options"
+//usage:     "\n	-f size		Fragment size in bytes"
+//usage:     "\n	-F		Force (ignore sanity checks)"
+//usage:     "\n	-g num		Number of blocks in a block group"
+//usage:     "\n	-i ratio	The bytes/inode ratio"
+//usage:     "\n	-j		Create a journal (ext3)"
+//usage:     "\n	-J opts		Set journal options (size/device)"
+//usage:     "\n	-l file		Read bad blocks list from file"
+//usage:     "\n	-L lbl		Set the volume label"
+//usage:     "\n	-m percent	Percent of fs blocks to reserve for admin"
+//usage:     "\n	-M dir		Set last mounted directory"
+//usage:     "\n	-n		Do not actually create anything"
+//usage:     "\n	-N num		Number of inodes to create"
+//usage:     "\n	-o os		Set the 'creator os' field"
+//usage:     "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super"
+//usage:     "\n	-q		Quiet"
+//usage:     "\n	-r rev		Set filesystem revision"
+//usage:     "\n	-S		Write superblock and group descriptors only"
+//usage:     "\n	-T fs-type	Set usage type (news/largefile/largefile4)"
+//usage:     "\n	-v		Verbose"
+//usage:
+//applet:IF_MKE2FS(APPLET(mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
+//applet:IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mke2fs))
+//applet:IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mke2fs))
+//applet:IF_MKE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
+
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>

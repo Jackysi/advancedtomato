@@ -276,9 +276,9 @@ endif
 	@echo ---
 
 ifeq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
-	@../btools/libfoo.pl
+	@$(SRCBASE)/btools/libfoo.pl
 else
-	@../btools/libfoo.pl --noopt
+	@$(SRCBASE)/btools/libfoo.pl --noopt
 endif
 	@chmod 0555 $(TARGETDIR)/lib/*.so*
 	@chmod 0555 $(TARGETDIR)/usr/lib/*.so*
@@ -456,7 +456,7 @@ clean-build: dummy
 
 distclean: clean
 ifneq ($(INSIDE_MAK),1)
-	$(MAKE) -C .. $@ INSIDE_MAK=1
+	$(MAKE) -C $(SRCBASE) $@ INSIDE_MAK=1
 endif
 #	-rm -f $(LIBDIR)/*.so.0  $(LIBDIR)/*.so
 

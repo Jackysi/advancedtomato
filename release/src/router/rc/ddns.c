@@ -101,7 +101,18 @@ static void update(int num, int *dirty, int force)
 		}
 	}
 	else if (inet_addr(ip) == -1) {
-		strcpy(ip, get_wanip());
+		switch (get_wan_proto()) {
+		case WP_PPTP:
+		case WP_L2TP:
+			if (!nvram_get_int("ppp_defgw")) {
+				strcpy(ip, nvram_safe_get("wan_ipaddr"));
+				break;
+			}
+			// else fall through
+		default:
+			strcpy(ip, get_wanip());
+			break;
+		}
 	}
 
 	sprintf(cache_fn, "%s.cache", ddnsx_path);
