@@ -396,7 +396,8 @@ void start_lan(void)
 	int sfd;
 	uint32 ip;
 	int unit, subunit, sta;
-	char hwaddr[ETHER_ADDR_LEN];
+	int hwaddrset;
+	char eabuf[32];
 
 	foreach_wif(1, NULL, set_wlmac);
 	check_afterburner();
@@ -405,6 +406,8 @@ void start_lan(void)
 
 	lan_ifname = strdup(nvram_safe_get("lan_ifname"));
 	if (strncmp(lan_ifname, "br", 2) == 0) {
+		_dprintf("%s: setting up the bridge %s\n", __FUNCTION__, lan_ifname);
+
 		eval("brctl", "addbr", lan_ifname);
 		eval("brctl", "setfd", lan_ifname, "0");
 		eval("brctl", "stp", lan_ifname, nvram_safe_get("lan_stp"));
@@ -417,8 +420,8 @@ void start_lan(void)
 #endif
 
 		inet_aton(nvram_safe_get("lan_ipaddr"), (struct in_addr *)&ip);
-		memset(hwaddr, 0, sizeof(hwaddr));
 
+		hwaddrset = 0;
 		sta = 0;
 		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
 			p = lan_ifnames;
@@ -446,13 +449,17 @@ void start_lan(void)
 
 				// set the logical bridge address to that of the first interface
 				strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-				if ((ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) && (memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN) == 0)) {
+				if ((!hwaddrset) ||
+				    (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0 &&
+				    memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN) == 0)) {
 					strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
 					if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) {
 						strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 						ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+						_dprintf("%s: setting MAC of %s bridge to %s\n", __FUNCTION__,
+							ifr.ifr_name, ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 						ioctl(sfd, SIOCSIFHWADDR, &ifr);
-						memcpy(hwaddr, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+						hwaddrset = 1;
 					}
 				}
 
@@ -486,13 +493,6 @@ void start_lan(void)
 			
 			free(lan_ifnames);
 		}
-
-		if (memcmp(hwaddr, "\0\0\0\0\0\0", ETHER_ADDR_LEN)) {
-			strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-			ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-			memcpy(ifr.ifr_hwaddr.sa_data, hwaddr, ETHER_ADDR_LEN);
-			ioctl(sfd, SIOCSIFHWADDR, &ifr);
-		}
 	}
 	// --- this shouldn't happen ---
 	else if (*lan_ifname) {
@@ -506,7 +506,6 @@ void start_lan(void)
 	}
 
 	// Get current LAN hardware address
-	char eabuf[32];
 	strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 	if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 
