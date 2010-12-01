@@ -5,7 +5,7 @@ echo "NVRAM"; nvram show | grep 'bytes used'; echo
 echo "INTERFACES"; ifconfig; echo
 echo "ROUTING TABLE"; route -n; echo
 echo "ARP TABLE"; arp -nva; echo
-echo "IP TABLES"; echo ":filter"; iptables -L -n; echo; echo ":nat"; iptables -t nat -L -n; echo; echo ":mangle"; iptables -t mangle -L -n; echo
+echo "IP TABLES"; echo ":filter"; iptables -nvL; echo; echo ":nat"; iptables -t nat -nvL; echo; echo ":mangle"; iptables -t mangle -nvL; echo
 echo "NET STATS"; netstat -an; echo
 echo "FILE SYSTEMS"; df; echo
 echo "MOUNTPOINTS"; mount; echo
