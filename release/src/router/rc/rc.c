@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 	base = strrchr(argv[0], '/');
 	base = base ? base + 1 : argv[0];
 
-#if 0
+#if 1
 	if (strcmp(base, "rc") == 0) {
 		if (argc < 2) return 1;
 		if (strcmp(argv[1], "start") == 0) return kill(1, SIGUSR2);
