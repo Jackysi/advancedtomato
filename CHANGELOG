@@ -1414,3 +1414,22 @@ Rebuilt binary toolchain (32-bit) with additional uClibc patches.
 Software updates: MiniDLNA 1.0.18.2 (cvs 2010-11-24).
 
 Removed separate numbering for "beta" builds.
+
+
+build 54 - 11/29/2010
+---------------------
+
+Hotfix release for regressions introduced in previous build 53.
+
+Fixed: router is unable to obtain WAN IP from DHCP after nvram erase.
+
+Fixed: Web GUI validation rules on Basic->Network page.
+
+Fixed: unable to access the router Web GUI via https after upgrade if SSL
+certificate has been previously saved to NVRAM.
+
+Fixed: firmware upgrades via HTTPS not working.
+
+* Kernel 2.4-based builds only:
+
+Fixed: "multiport" match not working with port ranges.
