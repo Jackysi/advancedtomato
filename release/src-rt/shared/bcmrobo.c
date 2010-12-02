@@ -612,16 +612,8 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 			/* If we have an internal robo core, reset it using si_core_reset */
 			ET_MSG(("%s: Resetting internal robo core\n", __FUNCTION__));
 			si_core_reset(sih, 0, 0);
-			robo->corerev = si_corerev(sih);
-		}
-		else if (sih->chip == BCM5356_CHIP_ID) {
-			/* Testing chipid is a temporary hack. We need to really
-			 * figure out how to treat non-cores in ai chips.
-			 */
-			robo->corerev = 3;
 		}
 		si_setcoreidx(sih, idx);
-		ET_MSG(("%s: Internal robo rev %d\n", __FUNCTION__, robo->corerev));
 	}
 
 	if (miird && miiwr) {
@@ -1282,28 +1274,6 @@ robo_power_save_mode_clear_auto(robo_info_t *robo, int32 phy)
 		 */ 
 		val16 = 0xa800;
 		robo->miiwr(robo->h, phy, REG_MII_AUTO_PWRDOWN, val16);
-	} else if (robo->sih->chip == BCM5356_CHIP_ID) {
-		/* To disable auto power down mode
-		 * clear bit 5 of Aux Status 2 register
-		 * (Shadow reg 0x1b). Shadow register
-		 * access is enabled by writing
-		 * 1 to bit 7 of MII register 0x1f.
-		 */
-		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
-		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
-		            (val16 | (1 << 7)));
-
-		/* Disable auto power down by clearing
-		 * bit 5 of to Aux Status 2 reg.
-		 */
-		val16 = robo->miird(robo->h, phy, REG_MII_AUX_STATUS2);
-		robo->miiwr(robo->h, phy, REG_MII_AUX_STATUS2,
-		            (val16 & ~(1 << 5)));
-
-		/* Undo shadow access */
-		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
-		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
-		            (val16 & ~(1 << 7)));
 	} else
 		return -1;
 
@@ -1318,8 +1288,7 @@ robo_power_save_mode_clear_manual(robo_info_t *robo, int32 phy)
 	uint8 val8;
 	uint16 val16;
 
-	if ((robo->devid == DEVID53115) ||
-	    (robo->sih->chip == BCM5356_CHIP_ID)) {
+	if (robo->devid == DEVID53115) {
 		/* For 53115 0x0 is the MII control register
 		 * Bit 11 is the power down mode bit 
 		 */
@@ -1439,27 +1408,6 @@ robo_power_save_mode_auto(robo_info_t *robo, int32 phy)
 		 * 0-3 wake up timer select: 0xF 1.26 sec
 		 */ 
 		robo->miiwr(robo->h, phy, REG_MII_AUTO_PWRDOWN, 0xA83F);
-	} else if (robo->sih->chip == BCM5356_CHIP_ID) {
-		/* To enable auto power down mode set bit 5 of
-		 * Auxillary Status 2 register (Shadow reg 0x1b)
-		 * Shadow register access is enabled by writing
-		 * 1 to bit 7 of MII register 0x1f.
-		 */
-		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
-		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
-		            (val16 | (1 << 7)));
-
-		/* Enable auto power down by writing to Auxillary
-		 * Status 2 reg.
-		 */
-		val16 = robo->miird(robo->h, phy, REG_MII_AUX_STATUS2);
-		robo->miiwr(robo->h, phy, REG_MII_AUX_STATUS2,
-		            (val16 | (1 << 5)));
-
-		/* Undo shadow access */
-		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
-		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
-		            (val16 & ~(1 << 7)));
 	} else
 		return -1;
 
