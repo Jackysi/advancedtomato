@@ -35,6 +35,7 @@ void ipt_qos(void)
 	int used_qosox;
 	unsigned long min;
 	int gum;
+	char *qface;
 
 	if (!nvram_get_int("qos_enable")) return;
 
@@ -177,6 +178,16 @@ void ipt_qos(void)
 	}
 	free(buf);
 
+	switch (get_wan_proto()) {
+	case WP_PPTP:
+	case WP_L2TP:
+		qface = ((*manface) && (nvram_get_int("ppp_defgw") == 0)) ? manface : wanface;
+		break;
+	default:
+		qface = wanface;
+		break;
+	}
+
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"
 	class_num = i + 1;
@@ -184,7 +195,7 @@ void ipt_qos(void)
 		"-A QOSO -j CONNMARK --set-return 0x%x\n"
 		"-A FORWARD -o %s -j QOSO\n"
 		"-A OUTPUT -o %s -j QOSO\n",
-			class_num, wanface, wanface);
+			class_num, qface, qface);
 
 	inuse |= (1 << i) | 1;	// default and highest are always built
 	sprintf(s, "%d", inuse);
@@ -196,7 +207,7 @@ void ipt_qos(void)
 		if ((!g) || ((p = strsep(&g, ",")) == NULL)) continue;
 		if ((inuse & (1 << i)) == 0) continue;
 		if (atoi(p) > 0) {
-			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wanface);
+			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 			break;
 		}
 	}
@@ -217,6 +228,7 @@ void start_qos(void)
 {
 	int i;
 	char *buf, *g, *p;
+	char *qface;
 	unsigned int rate;
 	unsigned int ceil;
 	unsigned int bw;
@@ -277,6 +289,19 @@ void start_qos(void)
 		r2q = (bw * 1000) / (8 * 60000) + 1;
 	}
 
+	qface = nvram_safe_get("wan_iface");
+	switch (get_wan_proto()) {
+	case WP_PPTP:
+	case WP_L2TP:
+		if (nvram_get_int("ppp_defgw") == 0) {
+			p = nvram_safe_get("wan_ipaddr");
+			if (*p && strcmp(p, get_wanip()) != 0 && strcmp(p, "0.0.0.0") != 0) {
+				qface = nvram_safe_get("wan_ifname");
+			}
+		}
+		break;
+	}
+
 	fprintf(f,
 		"#!/bin/sh\n"
 		"I=%s\n"
@@ -290,7 +315,7 @@ void start_qos(void)
 		"\ttc qdisc del dev $I root 2>/dev/null\n"
 		"\t$TQA root handle 1: htb default %u r2q %u\n"
 		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
-			nvram_safe_get("wan_iface"),
+			qface,
 			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
 			(nvram_get_int("qos_default") + 1) * 10, r2q,
 			bw, bw, burst_root);
