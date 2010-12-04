@@ -171,7 +171,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_interfmode",		"2"				},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_interfmode",		"3"				},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -187,7 +187,7 @@ const defaults_t defaults[] = {
 	{ "wl_radius_ipaddr",	""				},	// RADIUS server IP address
 	{ "wl_radius_key",		""				},	// RADIUS shared secret
 	{ "wl_radius_port",		"1812"			},	// RADIUS server UDP port
-	{ "wl_crypto",			"tkip"			},	// WPA data encryption
+	{ "wl_crypto",			"aes"			},	// WPA data encryption
 	{ "wl_net_reauth",		"36000"			},	// Network Re-auth/PMK caching duration
 	{ "wl_akm",				""				},	// WPA akm list
 
@@ -424,7 +424,7 @@ const defaults_t defaults[] = {
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
 	{ "qos_icmp",			"0"				},
-	{ "qos_reset",			"0"				},
+	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"230"			},
 	{ "qos_ibw",			"1000"			},
 	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)" },
