@@ -32,6 +32,18 @@ textarea {
 var cmdresult = '';
 var cmd = null;
 
+
+
+
+var ref = new TomatoRefresh('update.cgi', '', 0, 'tools-shell_refresh');
+
+ref.refresh = function(text)
+{
+	execute();
+}
+
+
+
 function verifyFields(focused, quiet)
 {
 	return 1;
@@ -111,6 +123,7 @@ createFieldTable('', [
 ]);
 </script>
 <div style='float:left'><input type='button' value='Execute' onclick='execute()' id='execb'></div>
+<script type='text/javascript'>genStdRefresh(1,5,'ref.toggle()');</script>
 </div>
 
 <div style="visibility:hidden;text-align:right" id="wait">Please wait... <img src='spin.gif' style="vertical-align:top"></div>

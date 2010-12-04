@@ -128,6 +128,7 @@ Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
 - 250 entry Static DHCP | 500 entry Access Restrictions<br>
 - QOS class labels | Toastman QOS rules<br>
 - Fast conntrack timeout | Fast auto refresh<br>
+- Tools-System refresh timer<br>
 - Safe CPU frequency selector<br>
 - Loads upnpconfig.custom from JFFS<br>
 <br>
