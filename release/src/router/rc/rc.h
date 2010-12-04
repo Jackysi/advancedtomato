@@ -190,6 +190,10 @@ extern void restart_nas_services(int stop, int start);
 extern void start_hotplug2();
 extern void stop_hotplug2(void);
 #endif
+#ifdef TCONFIG_IPV6
+extern void start_ipv6_sit_tunnel(void);
+extern void stop_ipv6_sit_tunnel(void);
+#endif
 
 // !!TB - USB Support
 // usb.c

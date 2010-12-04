@@ -942,11 +942,7 @@ void stop_wan(void)
 	stop_ntpc();
 
 #ifdef TCONFIG_IPV6
-	if (nvram_get_int("ipv6_enable")) {
-		if (nvram_match("ipv6_service", "sit")) {
-			stop_ipv6_sit_tunnel();
-		}
-	}
+	stop_ipv6_sit_tunnel();
 #endif
 
 	/* Kill any WAN client daemons or callbacks */
