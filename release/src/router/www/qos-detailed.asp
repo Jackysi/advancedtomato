@@ -17,6 +17,15 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
+<style type='text/css'>
+#grid .co7 {
+	text-align: right;
+}
+#grid .co8 {
+	text-align: right;
+}
+</style>
+
 <script type='text/javascript' src='debug.js'></script>
 <script type='text/javascript' src='protocols.js'></script>
 
@@ -219,7 +228,7 @@ ref.refresh = function(text)
 				else cursor = null;
 			}
 		}
-		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8] + (abc[b[8]] ? (': ' + abc[b[8]]) : ''), b[6], b[7]];
+		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8] + (abc[b[8]] ? (':&nbsp;' + abc[b[8]]) : ''), b[6], b[7]];
 		var row = grid.insert(-1, d, d, false);
 		if (cursor) row.style.cursor = cursor;
 	}

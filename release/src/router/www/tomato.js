@@ -995,6 +995,13 @@ function cmpInt(a, b)
 	return ((isNaN(a)) ? -0x7FFFFFFF : a) - ((isNaN(b)) ? -0x7FFFFFFF : b);
 }
 
+function cmpFloat(a, b)
+{
+	a = parseFloat(a);
+	b = parseFloat(b);
+	return ((isNaN(a)) ? -Number.MAX_VALUE : a) - ((isNaN(b)) ? -Number.MAX_VALUE : b);
+}
+
 function cmpDate(a, b)
 {
 	return b.getTime() - a.getTime();

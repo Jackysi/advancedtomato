@@ -17,6 +17,15 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
+<style type='text/css'>
+#grid .co6 {
+	text-align: right;
+}
+#grid .co7 {
+	text-align: right;
+}
+</style>
+
 <script type='text/javascript' src='debug.js'></script>
 <script type='text/javascript' src='protocols.js'></script>
 
@@ -97,10 +106,12 @@ grid.sortCompare = function(a, b) {
 	switch (col) {
 	case 2:
 	case 4:
-	case 5:
-	case 6:
 		r = cmpInt(da[col], db[col]);
 		break;
+	case 5:
+	case 6:
+		r = cmpFloat(da[col], db[col]);
+		break;		
 /*
 	case 1:
 	case 4:
