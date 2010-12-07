@@ -382,10 +382,18 @@ void start_httpd(void)
 {
 	chdir("/www");
 	if (!nvram_match("http_enable", "0")) {
-		xstart("httpd");
+		xstart("httpd"
+#ifdef TCONFIG_IPV6
+		, nvram_invmatch("ipv6_service", "") ? "-6" : ""
+#endif
+		);
 	}
 	if (!nvram_match("https_enable", "0")) {
-		xstart("httpd", "-s");
+		xstart("httpd", "-s"
+#ifdef TCONFIG_IPV6
+		, nvram_invmatch("ipv6_service", "") ? "-6" : ""
+#endif
+		);
 	}
 	chdir("/");
 }

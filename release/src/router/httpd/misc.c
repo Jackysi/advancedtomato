@@ -103,31 +103,42 @@ int get_client_info(char *mac, char *ifname)
 {
 	FILE *f;
 	char s[256];
-	char ips[16];
+#ifdef TCONFIG_IPV6
+	char ip[INET6_ADDRSTRLEN];
+	int junk;
+#else
+	char ip[INET_ADDRSTRLEN];
+#endif
 
 /*
-# cat /proc/net/arp
-IP address       HW type     Flags       HW address            Mask     Device
-192.168.0.1      0x1         0x2         00:01:02:03:04:05     *        vlan1
-192.168.1.5      0x1         0x2         00:05:06:07:08:09     *        br0
+# ip neigh show fe80:0:0::201:02ff:fe03:0405
+fe80::201:2ff:fe3:405 dev br0 lladdr 00:01:02:03:04:05 REACHABLE
 */
+	if (clientsai.ss_family == AF_INET) {
+		inet_ntop(clientsai.ss_family, &(((struct sockaddr_in*)&clientsai)->sin_addr), ip, sizeof(ip));
+		sprintf(s, "ip neigh show %s", ip);
+	}
+#ifdef TCONFIG_IPV6
+	else if (clientsai.ss_family == AF_INET6) {
+		inet_ntop(clientsai.ss_family, &(((struct sockaddr_in6*)&clientsai)->sin6_addr), ip, sizeof(ip));
+		if (IN6_IS_ADDR_V4MAPPED( &(((struct sockaddr_in6*)&clientsai)->sin6_addr) ))
+			sprintf(s, "ip neigh show %s", ip + 7); // chop off the ::ffff: to get the ipv4 bit
+		else
+			sprintf(s, "ip neigh show %s", ip);
+	}
+#endif
 
-	if ((f = fopen("/proc/net/arp", "r")) != NULL) {
+	if ((f = popen(s, "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
-			if (sscanf(s, "%15s %*s %*s %17s %*s %16s", ips, mac, ifname) == 3) {
-				if (inet_addr(ips) == clientsai.sin_addr.s_addr) {
-					fclose(f);
-					return 1;
-				}
+			if (sscanf(s, "%*s dev %16s lladdr %17s %*s", ifname, mac) == 2) {
+				pclose(f);
+				return 1;
 			}
 		}
-		fclose(f);
+		pclose(f);
 	}
 	return 0;
 }
-
-
-
 
 
 //	<% lanip(mode); %>
@@ -555,8 +566,15 @@ void wo_resolve(char *url)
 {
 	char *p;
 	char *ip;
-	struct hostent *he;
-	struct in_addr ia;
+	
+	char host[NI_MAXHOST];
+	struct addrinfo hints;
+	struct addrinfo *res;
+	
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	
 	char comma;
 	char *js;
 
@@ -564,11 +582,15 @@ void wo_resolve(char *url)
 	web_puts("\nresolve_data = [\n");
 	if ((p = webcgi_get("ip")) != NULL) {
 		while ((ip = strsep(&p, ",")) != NULL) {
-			ia.s_addr = inet_addr(ip);
-			he = gethostbyaddr(&ia, sizeof(ia), AF_INET);
-			js = js_string(he ? he->h_name : "");
-			web_printf("%c['%s','%s']", comma, inet_ntoa(ia), js);
+			if (getaddrinfo(ip, NULL, &hints, &res) != 0) {
+				//error
+				continue;
+			}
+			if (getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0, 0) != 0) continue;
+			js = js_string(host);
+			web_printf("%c['%s','%s']", comma, ip, js);
 			free(js);
+			freeaddrinfo(res);
 			comma = ',';
 		}
 	}
