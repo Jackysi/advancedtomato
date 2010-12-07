@@ -24,6 +24,7 @@ void ipt_qos(void)
 	char *bcount;
 	int class_num;
 	int proto_num;
+	int ipv6_ok;
 	int i;
 	char sport[192];
 	char saddr[192];
@@ -32,21 +33,26 @@ void ipt_qos(void)
 	char app[128];
 	int inuse;
 	const char *chain;
-	int used_qosox;
 	unsigned long min;
+	unsigned long max;
+	unsigned long prev_max;
 	int gum;
 	char *qface;
+	int sizegroup;
+	int class_flag;
 
 	if (!nvram_get_int("qos_enable")) return;
 
-	used_qosox = 0;
 	inuse = 0;
+	ipv6_ok = 1;
 	gum = 0x100;
+	sizegroup = 0;
+	prev_max = 0;
 
-	ipt_write(
+	ip46t_write(
 		":QOSO - [0:0]\n"
 		"-A QOSO -j CONNMARK --restore-mark --mask 0xff\n"
-		"-A QOSO -m connmark ! --mark 0/0xff00 -j RETURN\n");
+		"-A QOSO -m connmark ! --mark 0/0x0f00 -j RETURN\n");
 
 	g = buf = strdup(nvram_safe_get("qos_orules"));
 	while (g) {
@@ -101,10 +107,16 @@ void ipt_qos(void)
 		if ((inuse & i) == 0) {
 			inuse |= i;
 		}
+		
+		ipv6_ok = 1;
+		class_flag = gum;
 
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
 			ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src");
+			int junk;
+			if (sscanf(addr, "%d.%d.%d.%d", &junk, &junk, &junk, &junk ) == 4) // if it appears to be ipv4 dotted decimal
+				ipv6_ok = 0; // don't apply it to ip6tables; otherwise assume it's ok for both.
 		}
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
@@ -114,9 +126,14 @@ void ipt_qos(void)
 		}
 
 		//
-		if (!ipt_ipp2p(ipp2p, app)) ipt_layer7(layer7, app);
+		if (ipt_ipp2p(ipp2p, app)) ipv6_ok = 0;
+		else ipt_layer7(layer7, app);
 		if (app[0]) {
-			class_num |= 0x100;
+			ipv6_ok = 0; // temp: l7 not working either!
+			class_flag = 0x100;
+			// IPP2P and L7 rules may need more than one packet before matching
+			// so port-based rules that come after them in the list can't be sticky
+			// or else these rules might never match.
 			gum = 0;
 		}
 		strcpy(end, app);
@@ -131,11 +148,32 @@ void ipt_qos(void)
 					sprintf(end + strlen(end), "%lu:", min * 1024);
 				}
 				else {
-					sprintf(end + strlen(end), "%lu:%lu", min * 1024, (strtoul(p, NULL, 10) * 1024) - 1);
-					class_num &= 0x2FF;
+					max = strtoul(p, NULL, 10);
+					sprintf(end + strlen(end), "%lu:%lu", min * 1024, (max * 1024) - 1);
+					if (gum) {
+						if (!sizegroup) {
+							// Create table of connbytes sizes, pass appropriate connections there
+							// and only continue processing them if mark was wiped
+							// FIX: if the current rule isn't ipv6_ok ?
+							ip46t_write(
+								":QOSSIZE - [0:0]\n"
+								"-I QOSO 3 -m connmark ! --mark 0/0xff000 -j QOSSIZE\n"
+								"-I QOSO 4 -m connmark ! --mark 0/0xff000 -j RETURN\n");
+						}
+					 	if (max != prev_max && sizegroup<255) {
+							class_flag = ++sizegroup << 12;
+							prev_max = max;
+							ip46t_flagged_write( ipv6_ok, 
+								"-A QOSSIZE -m connmark --mark 0x%x/0xff000"
+								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j CONNMARK --set-return 0x00000/0xFF\n",
+									(sizegroup << 12), (max * 1024));
+						}
+						else {
+							class_flag = sizegroup << 12;
+						}
+					}
 				}
 
-				gum = 0;
 			}
 			else {
 				bcount = "";
@@ -143,7 +181,7 @@ void ipt_qos(void)
 		}
 
 		chain = "QOSO";
-		class_num |= gum;
+		class_num |= class_flag;
 		sprintf(end + strlen(end), " -j CONNMARK --set-return 0x%x/0xFF\n", class_num);
 
 		// protocol & ports
@@ -163,15 +201,15 @@ void ipt_qos(void)
 				else {
 					sport[0] = 0;
 				}
-				if (proto_num != 6) ipt_write("-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
-				if (proto_num != 17) ipt_write("-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
+				if (proto_num != 6) ip46t_flagged_write(ipv6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
+				if (proto_num != 17) ip46t_flagged_write(ipv6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
 			}
 			else {
-				ipt_write("-A %s -p %d %s %s", chain, proto_num, saddr, end);
+				ip46t_flagged_write(ipv6_ok, "-A %s -p %d %s %s", chain, proto_num, saddr, end);
 			}
 		}
 		else {	// any protocol
-			ipt_write("-A %s %s %s", chain, saddr, end);
+			ip46t_flagged_write(ipv6_ok, "-A %s %s %s", chain, saddr, end);
 		}
 
 
@@ -191,7 +229,7 @@ void ipt_qos(void)
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"
 	class_num = i + 1;
-	ipt_write(
+	ip46t_write(
 		"-A QOSO -j CONNMARK --set-return 0x%x\n"
 		"-A FORWARD -o %s -j QOSO\n"
 		"-A OUTPUT -o %s -j QOSO\n",
@@ -207,7 +245,7 @@ void ipt_qos(void)
 		if ((!g) || ((p = strsep(&g, ",")) == NULL)) continue;
 		if ((inuse & (1 << i)) == 0) continue;
 		if (atoi(p) > 0) {
-			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
+			ip46t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 			break;
 		}
 	}

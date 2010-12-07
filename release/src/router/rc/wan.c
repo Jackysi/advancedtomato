@@ -340,6 +340,7 @@ void start_pppoe(int num)
 			"-P", "0",			// PPPOE session number.
 			"-C", "pppoe_down",		// by tallest 0407
 			"-R",			// set default route
+			NULL,			// ipv6
 			NULL,			// debug
 			NULL, NULL,		// pppoe_service
 			NULL, NULL,		// pppoe_ac
@@ -354,6 +355,12 @@ void start_pppoe(int num)
 	for (arg = pppoe_argv; *arg; arg++) {
 		//
 	}
+
+#ifdef TCONFIG_IPV6
+	if (nvram_match("ipv6_service", "native")) {
+		*arg++ = "-6";		// enables IPv6CP
+	}
+#endif
 
 	if (nvram_get_int("debug_ppp")) {
 		*arg++ = "-d";		// debug mode; compile ppp w/ -DDEBUG	!
@@ -884,6 +891,18 @@ void start_wan_done(char *wan_ifname)
 		stop_igmp_proxy();
 		start_igmp_proxy();
 	}
+	
+#ifdef TCONFIG_IPV6
+	if (wanup) {
+	 	if (nvram_match("ipv6_service", "native")) {
+			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
+		}
+		else if (nvram_match("ipv6_service", "sit")) {
+			stop_ipv6_sit_tunnel();
+			start_ipv6_sit_tunnel();
+		}
+	}
+#endif
 
 	stop_upnp();
 	start_upnp();
@@ -921,7 +940,15 @@ void stop_wan(void)
 	stop_firewall();
 	stop_igmp_proxy();
 	stop_ntpc();
-	
+
+#ifdef TCONFIG_IPV6
+	if (nvram_get_int("ipv6_enable")) {
+		if (nvram_match("ipv6_service", "sit")) {
+			stop_ipv6_sit_tunnel();
+		}
+	}
+#endif
+
 	/* Kill any WAN client daemons or callbacks */
 	stop_redial();
 	stop_singe_pppoe(PPPOE0);

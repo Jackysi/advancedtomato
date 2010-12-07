@@ -396,6 +396,97 @@ void stop_httpd(void)
 }
 
 // -----------------------------------------------------------------------------
+#ifdef TCONFIG_IPV6
+
+void start_ipv6_sit_tunnel(void)
+{
+	char *tun_dev = nvram_safe_get("ipv6_tun_dev");
+	char ip[INET6_ADDRSTRLEN + 4];
+
+	if (nvram_match("ipv6_service", "sit")) {
+		modprobe("sit");
+		strcpy(ip, nvram_get("ipv6_tun_addr"));
+		strcat(ip, "/");
+		strcat(ip, nvram_get("ipv6_tun_addrlen"));
+		
+		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", get_wanip(), "ttl", "255");
+		eval("ip", "link", "set", tun_dev, "up");
+		eval("ip", "addr", "add", ip, "dev", tun_dev);
+		eval("ip", "route", "add", "::/0", "dev", tun_dev);
+	}
+}
+
+void stop_ipv6_sit_tunnel(void)
+{
+	char *tun_dev = nvram_safe_get("ipv6_tunnel_dev");
+	eval("ip", "tunnel", "del", tun_dev);
+	modprobe_r("sit");
+}
+
+void start_radvd(void)
+{
+	FILE *f;
+
+	if (nvram_invmatch("ipv6_prefix", "")) {
+		// Create radvd.conf
+		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
+		fprintf(f,
+			"interface %s\n"
+			"{\n"
+			"\tAdvSendAdvert on;\n"
+			"\tMaxRtrAdvInterval 60;\n"
+			"\tAdvHomeAgentFlag off;\n"
+			"\tAdvManagedFlag off;\n"
+			"\tprefix %s/64 \n"
+			"\t{\n"
+			"\t\tAdvOnLink on;\n"
+			"\t\tAdvAutonomous on;\n"
+			"\t\tAdvRouterAddr off;\n"
+			"\t};\n"
+			"};\n",
+			nvram_safe_get("lan_ifname"), nvram_safe_get("ipv6_prefix"));
+		fclose(f);
+
+		// Start radvd
+		eval("radvd");
+	}
+}
+
+void stop_radvd(void)
+{
+	killall_tk("radvd");
+}
+
+void start_ipv6(void)
+{
+	char *p;
+	char ip[INET6_ADDRSTRLEN + 4];
+
+	// Check if turned on
+	if (nvram_match("ipv6_service", "native") || nvram_match("ipv6_service", "sit")) {
+		if ((p = nvram_get("ipv6_rtr_addr")) && (*p)) {
+			strcpy(ip, p);
+			strcat(ip, "/");
+			if ((p = nvram_get("ipv6_prefix_length")) && (atoi(p) > 0))
+				strcat(ip, p);
+			else
+				strcat(ip, "64");
+			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
+		}
+		start_radvd();
+	}
+}
+
+void stop_ipv6(void)
+{
+	stop_ipv6_sit_tunnel();
+	stop_radvd();
+	eval("ip", "-6", "addr", "flush", "scope", "global");
+}
+
+#endif
+
+// -----------------------------------------------------------------------------
 
 void start_upnp(void)
 {
@@ -1493,6 +1584,9 @@ void start_services(void)
 	}
 
 //	start_syslog();
+#ifdef TCONFIG_IPV6
+	start_ipv6();
+#endif
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
@@ -1519,6 +1613,9 @@ void stop_services(void)
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
+#ifdef TCONFIG_IPV6
+	stop_ipv6();
+#endif
 //	stop_syslog();
 }
 
@@ -1648,6 +1745,28 @@ TOP:
 		if (action & A_START) start_httpd();
 		goto CLEAR;
 	}
+	
+#ifdef TCONFIG_IPV6
+	if (strcmp(service, "ipv6") == 0) {
+		if (action & A_STOP) {
+			stop_ipv6();
+		}
+		if (action & A_START) {
+			start_ipv6();
+		}
+		goto CLEAR;
+	}
+	
+	if (strcmp(service, "radvd") == 0) {
+		if (action & A_STOP) {
+			stop_radvd();
+		}
+		if (action & A_START) {
+			start_radvd();
+		}
+		goto CLEAR;
+	}
+#endif
 	
 	if (strcmp(service, "admin") == 0) {
 		if (action & A_STOP) {
@@ -1818,6 +1937,9 @@ TOP:
 		if (action & A_STOP) {
 			stop_dnsmasq();
 			stop_nas();
+#ifdef TCONFIG_IPV6
+			stop_ipv6();
+#endif
 			stop_wan();
 			stop_lan();
 			stop_vlan();
@@ -1826,6 +1948,9 @@ TOP:
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);
+#ifdef TCONFIG_IPV6
+			start_ipv6();
+#endif
 			start_nas();
 			start_dnsmasq();
 			start_wl();

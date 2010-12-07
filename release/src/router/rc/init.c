@@ -1270,8 +1270,13 @@ static void sysinit(void)
 	check_bootnv();
 
 #ifdef TCONFIG_IPV6
-	// disable IPv6 by default on all interfaces
-	f_write_string("/proc/sys/net/ipv6/conf/default/disable_ipv6", "1", 0, 0);
+	if (nvram_invmatch("ipv6_service", "")) {
+		f_write_string("/proc/sys/net/ipv6/conf/all/forwarding", "1", 0, 0);
+	}
+	else {
+		// disable IPv6 by default on all interfaces
+		f_write_string("/proc/sys/net/ipv6/conf/default/disable_ipv6", "1", 0, 0);
+	}
 #endif
 
 	for (i = 0; i < sizeof(fatalsigs) / sizeof(fatalsigs[0]); i++) {

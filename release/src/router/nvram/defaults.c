@@ -125,6 +125,18 @@ const defaults_t defaults[] = {
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
 
+#ifdef TCONFIG_IPV6
+	// IPv6 parameters
+	{ "ipv6_service",		""				},	// [''|native|sit]
+	{ "ipv6_prefix",		""				},	// The global-scope IPv6 prefix to route/advertise
+	{ "ipv6_prefix_length",	"64"			},	// The bit length of the prefix. Currently mostly ignored: for radvd, /64 is always assumed.
+	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
+	{ "ipv6_tun_v4end"		"0.0.0.0"		},	// Foreign IPv4 endpoint of SIT tunnel
+	{ "ipv6_tun_dev"		"sit1"			},	// The name for the SIT tunnel device
+	{ "ipv6_tun_addr"		""				},	// IPv6 address to assign to local tunnel endpoint
+	{ "ipv6_tun_addrlen"	"64"			},	// CIDR prefix length for tunnel's IPv6 address	
+#endif
+
 	// Wireless parameters
 	{ "wl_ifname",			""				},	// Interface name
 	{ "wl_hwaddr",			""				},	// MAC address

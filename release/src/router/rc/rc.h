@@ -226,6 +226,14 @@ extern char **layer7_in;
 
 extern void enable_ip_forward(void);
 extern void ipt_write(const char *format, ...);
+extern void ip6t_write(const char *format, ...);
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+#define ip46t_write(args...) do { ipt_write(args); ip6t_write(args); } while(0)
+#define ip46t_flagged_write(do_ip6t, args...) do { ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
+#else
+#define ip46t_write ipt_write
+#define ip46t_flagged_write(do_ip6t, args...) ipt_write(args)
+#endif
 extern void ipt_addr(char *addr, int maxlen, const char *s, const char *dir);
 extern int ipt_ipp2p(const char *v, char *opt);
 extern int ipt_layer7(const char *v, char *opt);
