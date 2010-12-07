@@ -361,6 +361,7 @@ const aspapi_t aspapi[] = {
 	{ "compmac",			asp_compmac			},
 	{ "ctcount",			asp_ctcount			},
 	{ "ctdump",				asp_ctdump			},
+	{ "ctrate",				asp_ctrate			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
 	{ "webmon",			asp_webmon			},

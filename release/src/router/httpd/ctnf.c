@@ -319,6 +319,188 @@ add bytes out/in to table
 	web_puts("];\n");
 }
 
+void asp_ctrate(int argc, char **argv)
+{
+	unsigned int a_time, a_proto, a_fam;
+	unsigned int a_bytes_o, a_bytes_i;
+	char a_src[INET6_ADDRSTRLEN];
+	char a_dst[INET6_ADDRSTRLEN];
+	char a_sport[16];
+	char a_dport[16];
+
+	char *p, *q;
+	int x;
+	int len;
+
+	unsigned int b_time, b_proto, b_fam;
+	unsigned int b_bytes_o, b_bytes_i;
+
+	char sa[512];
+	char sb[512];
+	
+	FILE *a;
+	FILE *b;
+	
+	long b_pos;
+	
+	int delay;
+	int thres;
+	
+	long outbytes;
+	long inbytes;
+	int n;
+	char comma;
+
+	int dir_reply;
+
+	unsigned long rip;
+	unsigned long lan;
+	unsigned long mask;
+
+	mask = inet_addr(nvram_safe_get("lan_netmask"));
+	rip = inet_addr(nvram_safe_get("lan_ipaddr"));
+	lan = rip & mask;
+	
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	struct in6_addr rip6;
+	struct in6_addr lan6;
+	struct in6_addr in6;
+	int lan6_prefix_len;
+
+	if (nvram_invmatch("ipv6_service", "")) {
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
+		lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
+	}
+#endif
+	
+	if (nvram_match("t_hidelr", "0")) rip = 0;	// hide lan -> router?
+
+	web_puts("\nctrate = [");
+	comma = ' ';
+	
+	const char name[] = "/proc/net/nf_conntrack";
+
+	if (argc != 2) return;
+	
+	delay = atoi(argv[0]);
+	thres = atoi(argv[1]) * delay;
+
+	if ((a = fopen(name, "r")) == NULL) return;
+	if ((b = tmpfile()) == NULL) return;
+
+	size_t count;
+	char *buffer;
+	
+	buffer=(char *)malloc(1024);
+	
+	while (!feof(a)) {
+		count = fread(buffer, 1, 1024, a);
+		fwrite(buffer, 1, count, b);
+	}
+	
+	rewind(b);
+	rewind(a);
+	
+	usleep(1000000*(int)delay);
+
+#define MAX_SEARCH  10
+
+	// a = current, b = previous
+	while (fgets(sa, sizeof(sa), a)) {
+		if (sscanf(sa, "%*s %u %*s %u %u", &a_fam, &a_proto, &a_time) != 3) continue;
+		if ((a_proto != 6) && (a_proto != 17)) continue;
+		if ((p = strstr(sa, "src=")) == NULL) continue;
+		
+		if (sscanf(p, "src=%s dst=%s sport=%s dport=%s%n %*s bytes=%u %n", a_src, a_dst, a_sport, a_dport, &len, &a_bytes_o, &x) != 5) continue;
+
+		if ((q = strstr(p+x, "bytes=")) == NULL) continue;
+		if (sscanf(q, "bytes=%u", &a_bytes_i) != 1) continue;
+		
+		dir_reply = 0;
+
+		switch(a_fam){
+			case 2:
+				if ((inet_addr(a_src) & mask) != lan)  dir_reply = 1;
+				else if (rip != 0 && inet_addr(a_dst) == rip) continue;
+				break;
+			case 10:
+				if (inet_pton(AF_INET6, a_src, &in6) <= 0) continue;
+				inet_ntop(AF_INET6, &in6, a_src, sizeof a_src);
+
+				if (IP6_PREFIX_NOT_MATCH(rip6, in6, lan6_prefix_len))
+					dir_reply = 1;
+
+				if (inet_pton(AF_INET6, a_dst, &in6) <= 0) continue;
+				inet_ntop(AF_INET6, &in6, a_dst, sizeof a_dst);
+				
+				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
+					continue;
+				break;
+			default:
+				continue;
+		}
+
+		
+		b_pos = ftell(b);
+		n = 0;
+		while (fgets(sb, sizeof(sb), b) && ++n < MAX_SEARCH) {
+			if (sscanf(sb, "%*s %u %*s %u %u", &b_fam, &b_proto, &b_time) != 3) continue;
+			if ((b_proto != a_proto)) continue;
+			if ((b_fam   != a_fam)) continue;
+			if ((q = strstr(sb, "src=")) == NULL) continue;
+			
+			if (strncmp(p, q, (size_t)len)) continue;
+			
+			// Ok, they should be the same now. Grab the byte counts.
+			if ((q = strstr(q+len, "bytes=")) == NULL) continue;
+			if (sscanf(q, "bytes=%u", &b_bytes_o) != 1) continue;
+			
+			if ((q = strstr(q+len, "bytes=")) == NULL) continue;
+			if (sscanf(q, "bytes=%u", &b_bytes_i) != 1) continue;
+
+			break;
+		}
+
+		if (feof(b) || n >= MAX_SEARCH) {
+			// Assume this is a new connection
+			b_bytes_o = 0;
+			b_bytes_i = 0;
+			b_time = 0;
+
+			// Reset the search so we don't miss anything
+			fseek(b, b_pos, SEEK_SET);
+			n = -n;
+		}
+
+		outbytes = ((long)a_bytes_o - (long)b_bytes_o);
+		inbytes = ((long)a_bytes_i - (long)b_bytes_i);
+		
+		if ((outbytes < thres) && (inbytes < thres)) continue;
+		
+		if (dir_reply == 1 && a_fam == 2) {
+			// de-nat
+			if ((q = strstr(p+x, "src=")) == NULL) continue;
+			if (sscanf(q, "src=%s dst=%s sport=%s dport=%s", a_dst, a_src, a_dport, a_sport) != 4) continue;
+		}
+
+		if (dir_reply == 1){
+			web_printf("%c[%u,'%s','%s','%s','%s',%li,%li]",
+				comma, a_proto, a_dst, a_src, a_dport, a_sport, inbytes, outbytes );
+		}
+		else {
+			web_printf("%c[%u,'%s','%s','%s','%s',%li,%li]",
+				comma, a_proto, a_src, a_dst, a_sport, a_dport, outbytes, inbytes );				
+		}
+		comma = ',';
+	}
+	web_puts("];\n");
+	
+	fclose(a);
+	fclose(b);
+}
+	
+
 void asp_qrate(int argc, char **argv)
 {
 	FILE *f;

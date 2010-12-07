@@ -2189,7 +2189,8 @@ function navi()
 			['Basic Settings',	'settings.asp'],
 			['Classification',	'classify.asp'],
 			['View Graphs',		'graphs.asp'],
-			['View Details',	'detailed.asp']
+			['View Details',	'detailed.asp'],
+			['View Transfers',	'ctrate.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
 /* REMOVE-BEGIN
