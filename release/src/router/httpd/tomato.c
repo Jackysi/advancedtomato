@@ -9,6 +9,8 @@
 
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <time.h>
 
@@ -468,6 +470,9 @@ typedef struct {
 		VT_RANGE,		// expect an integer, check range
 		VT_IP,			// expect an ip address
 		VT_MAC,			// expect a mac address
+#ifdef TCONFIG_IPV6
+		VT_IPV6,		// expect an ipv6 address
+#endif
 		VT_TEMP			// no checks, no commit
 	} vtype;
 	nvset_varg_t va;
@@ -487,6 +492,9 @@ typedef struct {
 #define	V_OCTET				VT_RANGE,	{ .l = 0 },		{ .l = 255 }
 #define V_NUM				VT_RANGE,	{ .l = 0 },		{ .l = 0x7FFFFFFF }
 #define	V_TEMP				VT_TEMP,	{ }, 			{ }
+#ifdef TCONFIG_IPV6
+#define V_IPV6				VT_IPV6,	{ },			{ }
+#endif
 
 static const nvset_t nvset_list[] = {
 
@@ -590,6 +598,19 @@ static const nvset_t nvset_list[] = {
 	{ "wl_nbw",			V_NONE				},
 	{ "wl_mimo_preamble",		V_WORD				},	// 802.11n Preamble: mm/gf/auto/gfbcm
 	{ "wl_nctrlsb",			V_NONE				},	// none, lower, upper
+
+#ifdef TCONFIG_IPV6
+// basic-ipv6
+	{ "ipv6_prefix",		V_IPV6				},
+	{ "ipv6_prefix_length",	V_RANGE(3, 127)		},
+	{ "ipv6_rtr_addr",		V_IPV6				},
+	{ "ipv6_service",		V_LENGTH(1,16)		}, // native, sit
+	{ "ipv6_tun_addr",		V_IPV6				},
+	{ "ipv6_tun_addrlen",	V_RANGE(3, 127)		},
+	{ "ipv6_tun_dev",		V_LENGTH(1, 8)		},
+	{ "ipv6_tun_v4end", 	V_IP				},
+#endif
+
 
 // basic-wfilter
 	{ "wl_macmode",			V_NONE				},	// allow, deny, disabled
@@ -1079,6 +1100,9 @@ static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 	unsigned u[6];
 	int ok;
 	int dirty;
+#ifdef TCONFIG_IPV6
+	struct in6_addr addr;
+#endif
 
 	if ((p = webcgi_get((char*)name)) == NULL) return 0;
 
@@ -1105,6 +1129,11 @@ static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 		if ((sscanf(p, "%2x:%2x:%2x:%2x:%2x:%2x", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) ||
 			(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255) || (u[4] > 255) || (u[5] > 255)) ok = 0;
 		break;
+#ifdef TCONFIG_IPV6
+	case VT_IPV6:
+		if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		break;
+#endif
 	default:
 		// shutup gcc
 		break;
