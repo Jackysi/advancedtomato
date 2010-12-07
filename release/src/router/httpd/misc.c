@@ -105,7 +105,6 @@ int get_client_info(char *mac, char *ifname)
 	char s[256];
 #ifdef TCONFIG_IPV6
 	char ip[INET6_ADDRSTRLEN];
-	int junk;
 #else
 	char ip[INET_ADDRSTRLEN];
 #endif

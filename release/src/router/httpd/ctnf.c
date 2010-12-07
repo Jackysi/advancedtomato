@@ -221,10 +221,10 @@ void asp_ctdump(int argc, char **argv)
 	struct in6_addr in6;
 	int lan6_prefix_len;
 
+	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
 	if (nvram_invmatch("ipv6_service", "")) {
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
-		lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
 	}
 #endif
 	
@@ -367,10 +367,10 @@ void asp_ctrate(int argc, char **argv)
 	struct in6_addr in6;
 	int lan6_prefix_len;
 
+	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
 	if (nvram_invmatch("ipv6_service", "")) {
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
-		lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
 	}
 #endif
 	
@@ -424,6 +424,7 @@ void asp_ctrate(int argc, char **argv)
 				if ((inet_addr(a_src) & mask) != lan)  dir_reply = 1;
 				else if (rip != 0 && inet_addr(a_dst) == rip) continue;
 				break;
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 			case 10:
 				if (inet_pton(AF_INET6, a_src, &in6) <= 0) continue;
 				inet_ntop(AF_INET6, &in6, a_src, sizeof a_src);
@@ -437,6 +438,7 @@ void asp_ctrate(int argc, char **argv)
 				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
 					continue;
 				break;
+#endif
 			default:
 				continue;
 		}
