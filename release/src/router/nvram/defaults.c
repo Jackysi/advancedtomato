@@ -127,12 +127,12 @@ const defaults_t defaults[] = {
 
 #ifdef TCONFIG_IPV6
 	// IPv6 parameters
-	{ "ipv6_service",		""				},	// [''|native|sit]
+	{ "ipv6_service",		""				},	// [''|native|sit|other]
 	{ "ipv6_prefix",		""				},	// The global-scope IPv6 prefix to route/advertise
 	{ "ipv6_prefix_length",	"64"			},	// The bit length of the prefix. Currently mostly ignored: for radvd, /64 is always assumed.
 	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
 	{ "ipv6_tun_v4end"		"0.0.0.0"		},	// Foreign IPv4 endpoint of SIT tunnel
-	{ "ipv6_tun_dev"		"sit1"			},	// The name for the SIT tunnel device
+	{ "ipv6_ifname"			""				},	// The interface facing the rest of the IPv6 world
 	{ "ipv6_tun_addr"		""				},	// IPv6 address to assign to local tunnel endpoint
 	{ "ipv6_tun_addrlen"	"64"			},	// CIDR prefix length for tunnel's IPv6 address	
 #endif
@@ -409,6 +409,9 @@ const defaults_t defaults[] = {
 
 // forward-*
 	{ "portforward",		"0<3<1.1.1.0/24<1000:2000<<192.168.1.2<ex: 1000 to 2000, restricted>0<2<<1000,2000<<192.168.1.2<ex: 1000 and 2000>0<1<<1000<2000<192.168.1.2<ex: different internal port>0<3<<1000:2000,3000<<192.168.1.2<ex: 1000 to 2000, and 3000>" },
+#ifdef TCONFIG_IPV6
+	{ "ipv6_portforward",	""},
+#endif
 	{ "trigforward",		"0<1<3000:4000<5000:6000<ex: open 5000-6000 if 3000-4000>"	},
 	{ "dmz_enable",			"0"				},
 	{ "dmz_ipaddr",			"0"				},

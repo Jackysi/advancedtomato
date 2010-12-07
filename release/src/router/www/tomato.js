@@ -2182,6 +2182,9 @@ function navi()
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
+/* IPV6-BEGIN */
+			['Basic IPv6',		'basic-ipv6.asp'],
+/* IPV6-END */
 			['DMZ',				'dmz.asp'],
 			['Triggered',		'triggered.asp'],
 			['UPnP / NAT-PMP',	'upnp.asp'] ] ],

@@ -21,7 +21,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_rtr_addr,ipv6_service,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_tun_dev,ipv6_tun_v4end"); %>
+//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_rtr_addr,ipv6_service,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -37,22 +37,30 @@ function verifyFields(focused, quiet)
 		_ipv6_prefix_length: 1,
 		_f_ipv6_rtr_addr: 1,
 		_ipv6_tun_v4end: 1,
-		_ipv6_tun_dev: 1,
+		_f_ipv6_ifname: 1,
 		_ipv6_tun_addr: 1,
 		_ipv6_tun_addrlen: 1
 	};
 
 	switch(E('_ipv6_service').value) {
 		case '':
+			vis._f_ipv6_ifname = 0;
+		case 'other':
 			vis._ipv6_prefix = 0;
 			vis._ipv6_prefix_length = 0;
 			vis._f_ipv6_rtr_addr = 0;
-		case 'native':
-		case 'other':
 			vis._ipv6_tun_v4end = 0;
-			vis._ipv6_tun_dev = 0;
 			vis._ipv6_tun_addr = 0;
 			vis._ipv6_tun_addrlen = 0;
+			break;
+		case 'native':
+			vis._f_ipv6_ifname = 0;
+			vis._ipv6_tun_v4end = 0;
+			vis._ipv6_tun_addr = 0;
+			vis._ipv6_tun_addrlen = 0;
+			break;
+		case 'sit':
+			vis._f_ipv6_ifname = 2;
 			break;
 	}
 	
@@ -64,6 +72,22 @@ function verifyFields(focused, quiet)
 	}
 
 	// --- verify ---
+
+	switch(E('_ipv6_service').value) {
+		case 'native':
+			E('_f_ipv6_ifname').value = '';
+			break;
+		case 'sit':
+			E('_f_ipv6_ifname').value = 'sit0';
+			break;
+	}
+	
+	// Length
+	a = [['_f_ipv6_ifname', 2]];
+	for (i = a.length - 1; i >= 0; --i) {
+		v = a[i];
+		if ((vis[v[0]]) && (!v_length(v[0], quiet, v[1]))) ok = 0;
+	}
 
 	// IP address
 	a = ['_ipv6_tun_v4end'];
@@ -100,6 +124,7 @@ function save()
 	var fom = E('_fom');
 
 	fom.ipv6_rtr_addr.value = fom.f_ipv6_rtr_addr.value;
+	fom.ipv6_ifname = fom.f_ipv6_ifname;
 
 	form.submit(fom, 1);
 }
@@ -125,7 +150,7 @@ function save()
 <input type='hidden' name='_service' value='*'>
 
 <input type='hidden' name='ipv6_rtr_addr'>
-
+<input type='hidden' name='ipv6_ifname'>
 
 <div class='section-title'>IPv6</div>
 <div class='section'>
@@ -140,8 +165,8 @@ createFieldTable('', [
 		suffix: '<br><small>Note: for route advertisement, the prefix length is ignored and /64 default is used</small>' }
 	] },
 	{ title: 'Router IPv6 address will be:', indent: 2, name: 'f_ipv6_rtr_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_rtr_addr},
+	{ title: 'IPv6 Interface Name', name: 'f_ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
 	{ title: 'Tunnel Foreign Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
-	{ title: 'Tunnel Device Name', name: 'ipv6_tun_dev', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_tun_dev },
 	{ title: 'Tunnel IPv6 address', indent: 2, multi: [
 		{ name: 'ipv6_tun_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_tun_addr, suffix: ' / ' },
 		{ name: 'ipv6_tun_addrlen', type: 'text', maxlen: 3, size: 3, value: nvram.ipv6_tun_addrlen }

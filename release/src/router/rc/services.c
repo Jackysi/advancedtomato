@@ -395,6 +395,25 @@ void start_httpd(void)
 #endif
 		);
 	}
+
+#ifdef TCONFIG_IPV6
+	/* Remote management */
+	if (nvram_invmatch("ipv6_service", "") &&
+		nvram_match("wk_mode","gateway") &&
+		nvram_match("remote_management", "1") && 
+		nvram_invmatch("http_wanport", "") &&
+		nvram_invmatch("http_wanport", "0")) {
+			
+		if (nvram_match("remote_mgt_https", "1")) {
+			xstart("httpd", "-s", "-6", "-p", nvram_get("http_wanport"));
+		}
+		else {
+			xstart("httpd", "-6", "-p", nvram_get("http_wanport"));
+		}
+	}
+#endif
+
+
 	chdir("/");
 }
 
@@ -410,14 +429,17 @@ void start_ipv6_sit_tunnel(void)
 {
 	char *tun_dev = nvram_safe_get("ipv6_tun_dev");
 	char ip[INET6_ADDRSTRLEN + 4];
+	char wanip[INET_ADDRSTRLEN];
 
 	if (nvram_match("ipv6_service", "sit")) {
 		modprobe("sit");
 		strcpy(ip, nvram_get("ipv6_tun_addr"));
 		strcat(ip, "/");
 		strcat(ip, nvram_get("ipv6_tun_addrlen"));
-		
-		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", get_wanip(), "ttl", "255");
+
+		strlcpy(wanip, get_wanip(), sizeof(wanip));
+
+		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", wanip, "ttl", "255");
 		eval("ip", "link", "set", tun_dev, "up");
 		eval("ip", "addr", "add", ip, "dev", tun_dev);
 		eval("ip", "route", "add", "::/0", "dev", tun_dev);

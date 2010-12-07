@@ -161,3 +161,47 @@ void ipt_triggered(ipt_table_t table)
 QUIT:
 	free(nv);
 }
+
+#ifdef TCONFIG_IPV6
+void ip6t_forward(void)
+{
+	char *nv, *nvp, *b;
+	const char *proto, *saddr, *daddr, *dports;
+	const char *c;
+	const char *mdport;
+	int i;
+
+	nvp = nv = strdup(nvram_safe_get("ipv6_portforward"));
+	if (!nv) return;
+
+	while ((b = strsep(&nvp, ">")) != NULL) {
+		/*
+			1<3<2001:23:45:67::/64<2600:abc:def:123::1<30,40-45<desc
+
+			1 = enabled
+			3 = tcp & udp
+			2001:23:45:67::/64 = src addr
+			2600:abc:def:123::1 = dst addr
+			30,40-45 = dst port
+			desc = desc
+		*/
+		if ((vstrsep(b, "<", &c, &proto, &saddr, &daddr, &dports) != 5) || (*c != '1')) continue;
+
+		mdport = (strchr(dports, ',') != NULL) ? "-m multiport --dports" : "--dport";
+		for (i = 0; i < 2; ++i) {
+			if ((1 << i) & (*proto - '0')) {
+				c = tcpudp[i];
+				ip6t_write("-A wanin %s %s -p %s -m %s -d %s %s %s -j %s\n",
+					*saddr ? "-s" : "",
+					saddr,
+					c,
+					c,
+					daddr,
+					mdport, dports,
+					chain_in_accept);
+			}
+		}
+	}
+	free(nv);
+}
+#endif

@@ -136,7 +136,7 @@ void start_sshd(void)
 	argc = 3;
 	
 #ifdef TCONFIG_IPV6
-	if (nvram_get_int("sshd_remote") && nvram_invmatch("sshd_rport", nvram_safe_get("sshd_port"))) {
+	if (nvram_get_int("sshd_remote") && nvram_invmatch("ipv6_service", "") && nvram_invmatch("sshd_rport", nvram_safe_get("sshd_port"))) {
 		// IPv6 netfilter can't use NAT to redirect ports, so we need to actually listen on rport
 		argv[argc++] = "-p";
 		argv[argc++] = nvram_safe_get("sshd_rport");

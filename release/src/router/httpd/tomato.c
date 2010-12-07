@@ -605,10 +605,10 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_prefix",		V_IPV6				},
 	{ "ipv6_prefix_length",	V_RANGE(3, 127)		},
 	{ "ipv6_rtr_addr",		V_IPV6				},
-	{ "ipv6_service",		V_LENGTH(1,16)		}, // native, sit
+	{ "ipv6_service",		V_LENGTH(0,16)		}, // '', native, sit, other
 	{ "ipv6_tun_addr",		V_IPV6				},
 	{ "ipv6_tun_addrlen",	V_RANGE(3, 127)		},
-	{ "ipv6_tun_dev",		V_LENGTH(1, 8)		},
+	{ "ipv6_ifname",		V_LENGTH(0, 8)		},
 	{ "ipv6_tun_v4end", 	V_IP				},
 #endif
 
@@ -739,6 +739,11 @@ static const nvset_t nvset_list[] = {
 
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
+
+#ifdef TCONFIG_IPV6
+// forward-basic-ipv6
+	{ "ipv6_portforward",	V_LENGTH(0, 4096)	},
+#endif
 
 // forward-triggered
 	{ "trigforward",		V_LENGTH(0, 4096)	},

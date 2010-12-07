@@ -32,6 +32,9 @@
 char wanface[IFNAMSIZ + 1];
 char manface[IFNAMSIZ + 1];
 char lanface[IFNAMSIZ + 1];
+#ifdef TCONFIG_IPV6
+char wan6face[IFNAMSIZ + 1];
+#endif
 char wanaddr[sizeof("xxx.xxx.xxx.xxx") + 1];
 char manaddr[sizeof("xxx.xxx.xxx.xxx") + 1];
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
@@ -344,9 +347,6 @@ static void mangle_table(void)
 
 	if (wanup) {
 
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
-		modprobe("nf_conntrack_ipv6");
-#endif
 		ipt_qos();
 
 		p = nvram_safe_get("nf_ttl");
@@ -767,7 +767,7 @@ static void filter_log(void)
 	}
 
 	if ((*chain_in_drop == 'l') || (*chain_out_drop == 'l'))  {
-		ipt_write(
+		ip46t_write(
 			":logdrop - [0:0]\n"
 			"-A logdrop -m state --state NEW %s -j LOG --log-prefix \"DROP \" --log-tcp-options --log-ip-options\n"
 			"-A logdrop -j DROP\n"
@@ -777,7 +777,7 @@ static void filter_log(void)
 			limit, limit);
 	}
 	if ((*chain_in_accept == 'l') || (*chain_out_accept == 'l'))  {
-		ipt_write(
+		ip46t_write(
 			":logaccept - [0:0]\n"
 			"-A logaccept -m state --state NEW %s -j LOG --log-prefix \"ACCEPT \" --log-tcp-options --log-ip-options\n"
 			"-A logaccept -j ACCEPT\n",
@@ -785,9 +785,144 @@ static void filter_log(void)
 	}
 }
 
+#ifdef TCONFIG_IPV6
+static void filter6_input(void)
+{
+	char s[64];
+	char *en;
+	char *sec;
+	char *hit;
+	int n;	
+	char *pfx_len;
+
+	ip6t_write(
+		"-A INPUT -m rt --rt-type 0 -j %s\n"
+		/* "-A INPUT -m state --state INVALID -j %s\n" */
+		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
+		chain_in_drop/*, chain_in_drop*/);
+
+#ifdef LINUX26
+	modprobe("xt_length");
+	ip6t_write("-A INPUT -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
+
+	strlcpy(s, nvram_safe_get("ne_shlimit"), sizeof(s));
+	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && ((n = atoi(en) & 3) != 0)) {
+/*
+		? what if the user uses the start button in GUI ?
+		if (nvram_get_int("telnetd_eas"))
+		if (nvram_get_int("sshd_eas"))
+*/
+		modprobe("xt_recent");
+
+		ip6t_write(
+			"-N shlimit\n"
+			"-A shlimit -m recent --set --name shlimit\n"
+			"-A shlimit -m recent --update --hitcount %d --seconds %s --name shlimit -j %s\n",
+			atoi(hit) + 1, sec, chain_in_drop);
+
+		if (n & 1) {
+			ip6t_write("-A INPUT -i %s -p tcp --dport %s -m state --state NEW -j shlimit\n", lanface, nvram_safe_get("sshd_port"));
+			if (nvram_get_int("sshd_remote") && nvram_invmatch("sshd_rport", nvram_safe_get("sshd_port"))) {
+				ip6t_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_rport"));
+			}
+		}
+		if (n & 2) ip6t_write("-A INPUT -i %s -p tcp --dport %s -m state --state NEW -j shlimit\n", lanface, nvram_safe_get("telnetd_port"));
+	}
+#endif
+	
+	if (!(pfx_len = nvram_get("ipv6_prefix_length")) || !(atoi(pfx_len) > 0))
+		pfx_len = "64";
+
+	ip6t_write(
+		"-A INPUT -i %s -s fe80::/10 -j ACCEPT\n" // link-local
+		"-A INPUT -i %s -s ff00::/10 -j ACCEPT\n" // multicast
+		"-A INPUT -i %s -s %s/%s -j ACCEPT\n" // addresses in LAN
+		"-A INPUT -i lo -j ACCEPT\n",
+			lanface, lanface, lanface, nvram_safe_get("ipv6_prefix"), pfx_len);
+
+	// ICMPv6 rules
+	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
+	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
+		ip6t_write("-A INPUT -p icmpv6 --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
+	}
+
+	// Remote Managment
+	// TODO: create list for allowed remote ipv6 addresses? currently: unrestricted by src addr
+	if (remotemanage) {
+		ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+			nvram_safe_get("http_wanport"), chain_in_accept);
+	}
+
+	if (nvram_get_int("sshd_remote")) {
+		ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+			nvram_safe_get("sshd_rport"), chain_in_accept);
+	}
+
+	// TODO: FTP server
+
+	// if logging
+	if (*chain_in_drop == 'l') {
+		ip6t_write( "-A INPUT -j %s\n", chain_in_drop);
+	}
+
+	// default policy: DROP
+}
+
+static void filter6_forward(void)
+{
+	int n;
+	
+	ip6t_write(
+		"-A FORWARD -m rt --rt-type 0 -j DROP\n"
+		"-A FORWARD -i %s -o %s -j ACCEPT\n"				// accept all lan to lan
+		/*"-A FORWARD -m state --state INVALID -j DROP\n"*/,	// drop if INVALID state
+		lanface, lanface);
+
+#ifdef LINUX26
+	modprobe("xt_length");
+	ip6t_write("-A INPUT -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
+#endif
+
+
+	// clamp tcp mss to pmtu TODO?
+	// clampmss();
+
+	// TODO: support l7, restrictions, webmon on ipv6?
+/*	if (wanup) {
+		ipt_restrictions();
+		ipt_layer7_inbound();
+	}
+
+	ipt_webmon(); */
+
+	ip6t_write(
+		":wanin - [0:0]\n"
+		":wanout - [0:0]\n"
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"	// already established or related (via helper)
+		"-A FORWARD -i %s -j wanin\n"					// generic from wan
+		"-A FORWARD -o %s -j wanout\n"					// generic to wan
+		"-A FORWARD -i %s -j %s\n",					// from lan
+		wan6face, wan6face, lanface, chain_out_accept);
+
+	// ICMPv6 rules
+	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
+	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
+		ip6t_write("-A FORWARD -p icmpv6 --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
+	}
+
+	if (wanup) {
+		//ipt_triggered(IPT_TABLE_FILTER);
+		ip6t_forward();
+	}
+
+	// default policy: DROP
+}
+
+#endif
+
 static void filter_table(void)
 {
-	ipt_write(
+	ip46t_write(
 		"*filter\n"
 		":INPUT DROP [0:0]\n"
 		":OUTPUT ACCEPT [0:0]\n"
@@ -796,16 +931,21 @@ static void filter_table(void)
 	filter_log();
 
 	filter_input();
-
+#ifdef TCONFIG_IPV6
+	filter6_input();
+#endif
 	if ((gateway_mode) || (nvram_match("wk_mode_x", "1"))) {
-		ipt_write(":FORWARD DROP [0:0]\n");
+		ip46t_write(":FORWARD DROP [0:0]\n");
 		filter_forward();
+#ifdef TCONFIG_IPV6
+		filter6_forward();
+#endif
 	}
 	else {
-		ipt_write(":FORWARD ACCEPT [0:0]\n");
+		ip46t_write(":FORWARD ACCEPT [0:0]\n");
 		clampmss();
 	}
-	ipt_write("COMMIT\n");
+	ip46t_write("COMMIT\n");
 }
 
 
@@ -820,7 +960,7 @@ int start_firewall(void)
 	int n;
 	int wanproto;
 	char *iptrestore_argv[] = { "iptables-restore", (char *)ipt_fname, NULL };
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
+#ifdef TCONFIG_IPV6
 	char *ip6trestore_argv[] = { "ip6tables-restore", (char *)ip6t_fname, NULL };
 #endif
 
@@ -912,6 +1052,13 @@ int start_firewall(void)
 			strlcpy(manface, nvram_safe_get("wan_ifname"), sizeof(manface));
 	}
 
+#ifdef TCONFIG_IPV6
+	if (nvram_match("ipv6_service", "native"))
+		strlcpy(wan6face, wanface, sizeof(wan6face));
+	else if (nvram_invmatch("ipv6_service", ""))
+		strlcpy(wan6face, nvram_safe_get("ipv6_ifname"), sizeof(wan6face));
+#endif
+
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
 	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
 	strlcpy(lan_cclass, s, sizeof(lan_cclass));
@@ -940,12 +1087,13 @@ int start_firewall(void)
 		return 0;
 	}
 	
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
+#ifdef TCONFIG_IPV6
 	if ((ip6t_file = fopen(ip6t_fname, "w")) == NULL) {
 		notice_set("ip6tables", "Unable to create ip6tables restore file");
 		simple_unlock("firewall");
 		return 0;
 	}
+	modprobe("nf_conntrack_ipv6");
 #endif
 
 	mangle_table();
@@ -955,7 +1103,7 @@ int start_firewall(void)
 	fclose(ipt_file);
 	ipt_file = NULL;
 	
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
+#ifdef TCONFIG_IPV6
 	fclose(ip6t_file);
 	ip6t_file = NULL;
 #endif
@@ -1003,7 +1151,7 @@ int start_firewall(void)
 		*/
 	}
 	
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
+#ifdef TCONFIG_IPV6
 	if (nvram_invmatch("ipv6_service", "")) {
 		notice_set("ip6tables", "");
 		if (_eval(ip6trestore_argv, ">/var/notice/ip6tables", 0, NULL) == 0) {
@@ -1030,10 +1178,14 @@ int start_firewall(void)
 
 	led(LED_DMZ, dmz_dst(NULL));
 
+#ifdef TCONFIG_IPV6
+	modprobe_r("nf_conntrack_ipv6");
+#endif
 #ifdef LINUX26
 	modprobe_r("xt_layer7");
 	modprobe_r("xt_recent");
 	modprobe_r("xt_HL");
+	modprobe_r("xt_length");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");

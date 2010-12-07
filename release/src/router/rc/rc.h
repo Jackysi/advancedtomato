@@ -219,6 +219,9 @@ extern void notify_nas(const char *ifname);
 extern char wanface[];
 extern char manface[];
 extern char lanface[];
+#ifdef TCONFIG_IPV6
+extern char wan6face[];
+#endif
 extern char wanaddr[];
 extern char manaddr[];
 extern char lan_cclass[];
@@ -251,6 +254,9 @@ extern void create_test_iptfile(void);
 // forward.c
 extern void ipt_forward(ipt_table_t table);
 extern void ipt_triggered(ipt_table_t table);
+#ifdef TCONFIG_IPV6
+extern void ip6t_forward(void);
+#endif
 
 // restrict.c
 extern int rcheck_main(int argc, char *argv[]);
