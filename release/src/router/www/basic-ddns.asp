@@ -354,7 +354,7 @@ function init()
 
 <input type='hidden' name='_nextpage' value='basic-ddns.asp'>
 <input type='hidden' name='_service' value='ddns-restart'>
-<input type='hidden' name='_nextwait' value='8'>
+<input type='hidden' name='_nextwait' value='10'>
 
 <input type='hidden' name='ddnsx0' value=''>
 <input type='hidden' name='ddnsx1' value=''>

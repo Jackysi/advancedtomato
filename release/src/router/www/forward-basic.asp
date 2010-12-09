@@ -63,6 +63,7 @@ fog.sortCompare = function(a, b) {
 	case 5:	// ia
 		r = cmpIP(da[col], db[col]);
 		break;
+	case 0:	// on
 	case 3:	// ext prt
 	case 4:	// int prt
 		r = cmpInt(da[col], db[col]);
