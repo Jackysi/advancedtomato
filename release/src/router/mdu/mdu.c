@@ -410,11 +410,11 @@ int read_tmaddr(const char *name, long *tm, char *addr)
 
 	if (f_read_string(name, s, sizeof(s)) > 0) {
 		if (sscanf(s, "%ld,%15s", tm, addr) == 2) {
-			_dprintf("%s: s=%s tm=%ld addr=%s\n", __FUNCTION__, s, tm, addr);
+			_dprintf("%s: s=%s tm=%ld addr=%s\n", __FUNCTION__, s, *tm, addr);
 			if ((tm > 0) && (inet_addr(addr) != -1)) return 1;
 		}
 		else {
-			_dprintf("%s: unknown=%s\n", s);
+			_dprintf("%s: unknown=%s\n", __FUNCTION__, s);
 		}
 	}
 	return 0;
@@ -1616,7 +1616,7 @@ static void save_cookie(void)
 
 	now = time(NULL);
 	if (now < Y2K) {
-		_dprintf("%s: no time", __FUNCTION__, now);
+		_dprintf("%s: no time", __FUNCTION__);
 		return;
 	}
 
