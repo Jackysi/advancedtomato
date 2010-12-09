@@ -211,6 +211,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->nfct = NULL;
 	skb->nfcache = 0;
 #endif
+	skb->__unused = 0;
 #ifdef CONFIG_BRIDGE_NETFILTER
 	skb->nf_bridge = NULL;
 #endif
@@ -448,6 +449,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	new->nfcache		= old->nfcache;
 #endif
+	new->__unused		= old->__unused;
 }
 
 /**
