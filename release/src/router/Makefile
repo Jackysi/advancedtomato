@@ -477,8 +477,8 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dnsmasq-clean
-	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean ppp-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean
+	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean ppp-clean dnsmasq-clean dhcpv6-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -807,7 +807,7 @@ dhcpv6-install: dhcpv6
 
 dhcpv6-clean:
 	-@$(MAKE) -C dhcpv6 clean
-	@rm -f dhcpv6/Makefile dhcpv6/stamp-h1 
+	@rm -f dhcpv6/Makefile dhcpv6/stamp-h1
 
 
 p910nd:
