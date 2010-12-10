@@ -69,22 +69,15 @@ static int start_scan(int idx, int unit, int subunit, void *param)
 	wl_scan_params_t sp;
 	char *wif;
 	int zero = 0;
-	int retry = 3;
+	int retry;
 
 	if ((idx >= MAX_WLIF_SCAN) || (rp->unit_filter >= 0 && rp->unit_filter != unit)) return 0;
 
 	wif = nvram_safe_get(wl_nvname("ifname", unit, 0));
 	memset(&sp, 0xff, sizeof(sp));		// most default to -1
-	memset(&sp.bssid, 0xff, sizeof(sp.bssid));
 	sp.ssid.SSID_len = 0;
 	sp.bss_type = DOT11_BSSTYPE_ANY;	// =2
 	sp.channel_num = 0;
-#ifdef CONFIG_BCMWL5
-	sp.scan_type = DOT11_SCANTYPE_ACTIVE;
-#else
-	// with older BCM wifi drivers, passive scan seems to provide better results
-	sp.scan_type = DOT11_SCANTYPE_PASSIVE;
-#endif
 
 	if (wl_ioctl(wif, WLC_GET_AP, &(rp->wif[idx].ap), sizeof(rp->wif[idx].ap)) < 0) {
 		// Unable to get AP mode
@@ -94,13 +87,17 @@ static int start_scan(int idx, int unit, int subunit, void *param)
 		wl_ioctl(wif, WLC_SET_AP, &zero, sizeof(zero));
 	}
 
+	// set scan type based on the ap mode
+	sp.scan_type = rp->wif[idx].ap ? DOT11_SCANTYPE_PASSIVE : -1 /* default */;
+
 	rp->wif[idx].radio = get_radio(unit);
 	if (!(rp->wif[idx].radio)) set_radio(1, unit);
 
+	retry = 3 * 10;
 	while (retry--) {
 		if (wl_ioctl(wif, WLC_SCAN, &sp, WL_SCAN_PARAMS_FIXED_SIZE) == 0)
 			return 1;
-		if (retry) sleep(1);
+		if (retry) usleep(100000);
 	}
 
 	// Unable to start scan
@@ -120,25 +117,26 @@ static int get_scan_results(int idx, int unit, int subunit, void *param)
 	wl_scan_results_t *results;
 	wl_bss_info_t *bssi;
 	int r;
+	int retry;
 
 	wif = nvram_safe_get(wl_nvname("ifname", unit, 0));
 
-	results = malloc(WLC_IOCTL_MAXLEN);
+	results = malloc(WLC_IOCTL_MAXLEN + sizeof(*results));
 	if (!results) {
 		// Not enough memory
 		wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio);
 		return 0;
 	}
-	results->buflen = WLC_IOCTL_MAXLEN - (sizeof(*results) - sizeof(results->bss_info));
+	results->buflen = WLC_IOCTL_MAXLEN;
 	results->version = WL_BSS_INFO_VERSION;
 
-	// Keep trying to obtain scan results for up to 3 more secs
+	// Keep trying to obtain scan results for up to 4 secs
 	// Passive scan may require more time, although 1 extra sec is almost always enough.
-	int t;
-	for (t = 0; t < 3 * 10; t++) {
+	retry = 4 * 10;
+	r = -1;
+	while (retry--) {
 		r = wl_ioctl(wif, WLC_SCAN_RESULTS, results, WLC_IOCTL_MAXLEN);
-		if (r >= 0)
-			break;
+		if (r >= 0) break;
 		usleep(100000);
 	}
 
@@ -220,7 +218,7 @@ void asp_wlscan(int argc, char **argv)
 		web_puts("[null,'Unable to start scan.']];\n");
 		return;
 	}
-	sleep(2);
+	sleep(1);
 
 	// get results
 
