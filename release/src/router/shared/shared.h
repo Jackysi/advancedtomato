@@ -65,7 +65,7 @@ typedef struct {
 	struct {
 		struct in_addr addr;
 		unsigned short port;
-	} dns[3];
+	} dns[6];
 } dns_list_t;
 
 extern void chld_reap(int sig);

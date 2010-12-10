@@ -193,7 +193,7 @@ const dns_list_t *get_dns(void)
 	int n;
 	int i, j;
 	struct in_addr ia;
-	char d[4][22];
+	char d[7][22];
 	unsigned short port;
 	char *c;
 
@@ -205,7 +205,7 @@ const dns_list_t *get_dns(void)
 		snprintf(s + n, sizeof(s) - n, " %s", nvram_safe_get("wan_get_dns"));
 	}
 
-	n = sscanf(s, "%21s %21s %21s %21s", d[0], d[1], d[2], d[3]);
+	n = sscanf(s, "%21s %21s %21s %21s %21s %21s %21s", d[0], d[1], d[2], d[3], d[4], d[5], d[6]);
 	for (i = 0; i < n; ++i) {
 		port = 53;
 
@@ -222,7 +222,7 @@ const dns_list_t *get_dns(void)
 			if (j < 0) {
 				dns.dns[dns.count].port = port;
 				dns.dns[dns.count++].addr.s_addr = ia.s_addr;
-				if (dns.count == 3) break;
+				if (dns.count == 6) break;
 			}
 		}
 	}
