@@ -884,7 +884,7 @@ wlconf(char *name)
 	char tmp[100], prefix[PREFIX_LEN];
 	char var[80], *next, *str, *addr = NULL;
 	/* Pay attention to buffer length requirements when using this */
-	char buf[WLC_IOCTL_SMLEN*2];
+	char buf[WLC_IOCTL_MAXLEN];
 	char *country;
 	wlc_rev_info_t rev;
 	channel_info_t ci;
