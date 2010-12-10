@@ -453,7 +453,7 @@ const char *get_address(int required)
 						error(M_ERROR_GET_IP);
 					}
 				}
-				else if (strcmp(c, "zoneedit") == 0) {
+				else if (strcmp(c, "zoneedit") == 0 || strcmp(c, "szoneedit") == 0) {
 					if (wget(0, 1, "dynamic.zoneedit.com", "/checkip.html", NULL, 0, &body) != 200) {
 						// Current IP Address: 1.2.3.4
 						error(M_ERROR_GET_IP);
@@ -1205,18 +1205,20 @@ static void update_tzo(void)
 ...
 <title>Authentication Failed </title>"
 
+ERROR CODE="[701-799]" TEXT="Description of the error" ZONE="Zone that Failed"
+ERROR CODE="702" TEXT="Update failed." ZONE="%zone%"
 ERROR CODE="703" TEXT="one of either parameters 'zones' or 'host' are required."
+ERROR CODE="705" TEXT="Zone cannot be empty" ZONE="%zone%"
 ERROR CODE="707" TEXT="Duplicate updates for the same host/ip, adjust client settings" ZONE="%zone%"
 ERROR CODE="707" TEXT="Too frequent updates for the same host, adjust client settings" ZONE="%zone%"
 ERROR CODE="704" TEXT="Zone must be a valid 'dotted' internet name." ZONE="%zone%"
 ERROR CODE="701" TEXT="Zone is not set up in this account." ZONE="%zone%"
+SUCCESS CODE="[200-201]" TEXT="Description of the success" ZONE="Zone that Succeeded"
 SUCCESS CODE="200" TEXT="Update succeeded." ZONE="%zone%" IP="%dnsto%"
 SUCCESS CODE="201" TEXT="No records need updating." ZONE="%zone%"
-ERROR CODE="702" TEXT="Update failed." ZONE="%zone%"
-ERROR CODE="705" TEXT="Zone cannot be empty" ZONE="%zone%"
 
 */
-static void update_zoneedit(void)
+static void update_zoneedit(int ssl)
 {
 	int r;
 	char *body;
@@ -1229,7 +1231,7 @@ static void update_zoneedit(void)
 	// +opt
 	append_addr_option(query, "&dnsto=%s");
 
-	r = wget(0, 0, "dynamic.zoneedit.com", query, NULL, 1, &body);
+	r = wget(ssl, 0, "dynamic.zoneedit.com", query, NULL, 1, &body);
 	switch (r) {
 	case 200:
 		if (strstr(body, "<SUCCESS CODE")) {
@@ -1738,7 +1740,10 @@ int main(int argc, char *argv[])
 	}
 	else if (strcmp(p, "zoneedit") == 0) {
 		// test ok 9/16 -- zzz
-		update_zoneedit();
+		update_zoneedit(0);
+	}
+	else if (strcmp(p, "szoneedit") == 0) {
+		update_zoneedit(1);
 	}
 	else if (strcmp(p, "afraid") == 0) {
 		// test ok 9/16 -- zzz
