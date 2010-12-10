@@ -1,6 +1,7 @@
-# Device and Configuration Reference
 #
-# Last modified: 2010-07-07
+# Device and Configuration Reference (UTF-8 encoding used)
+#
+# Last modified: 2010-08-26
 #
 # Collection of configurations for usb_modeswitch, a mode switching
 # tool for controlling flip flop (multiple mode) USB devices
@@ -25,7 +26,7 @@
 # It is rather recommended to copy device information to a different
 # file, to ease editing work and oversight and to avoid possible
 # conflicts by activating multiple entries.
-# There is no guarantee that this file is free of any errors!
+# There is no guarantee that this file is error-free!
 #
 # The actual entries are further down, after the command reference.
 
@@ -123,6 +124,11 @@
 #
 # Some Sony-Ericsson devices can be switched by a special control
 # message. This is experimental and might not have a stable result
+#
+# * KobilMode <0/1>         -T
+#
+# Some Kobil devices can be switched by a special control
+# message.
 #
 #
 # * ResetUSB <0/1>           -R
@@ -1274,7 +1280,7 @@
 ########################################################
 # Sagem F@ST 9520-35-GLR
 #
-# Contributor: Yaroslav Levandovskiy 
+# Contributor: Yaroslav Levandovskiy
 
 ;DefaultVendor=  0x1076
 ;DefaultProduct= 0x7f40
@@ -1492,7 +1498,7 @@ MessageContent="555342431234567824000000800006bc626563240000000000000000000000"
 ########################################################
 # LG HDM-2100 (EVDO Rev.A USB modem)
 #
-# Contributor: J�r�me Oufella
+# Contributor: Jérôme Oufella
 
 ;DefaultVendor= 0x1004
 ;DefaultProduct=0x607f
@@ -1814,7 +1820,7 @@ ResponseNeeded=1
 
 
 ########################################################
-# Huawei U8110 (Android smartphone)
+# Huawei U8110 / Joy, Vodafone 845 (Android smartphone)
 #
 # Contributor: David Erosa García
 
@@ -1888,4 +1894,182 @@ MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
 ;TargetProduct= 0x6889
 
 ;MessageContent="55534243785634120100000080000601000000000000000000000000000000"
+
+#######################################################
+# Kobil mIdentity 3G (1)
+#
+# Contributor: Filip Aben
+
+DefaultVendor= 0x0d46
+DefaultProduct=0x45a1
+
+TargetVendor=  0x0d46
+TargetProduct= 0x45a9
+
+KobilMode=1
+
+
+#######################################################
+# Kobil mIdentity 3G (2)
+#
+# Contributor: Filip Aben
+
+DefaultVendor= 0x0d46
+DefaultProduct=0x45a5
+
+TargetVendor=  0x0d46
+TargetProduct= 0x45ad
+
+KobilMode=1
+
+
+########################################################
+# Onda MW833UP
+#
+# Contributor: Enrico Mioso
+
+;DefaultVendor= 0x1ee8
+;DefaultProduct=0x0009
+
+;TargetVendor=  0x1ee8
+;TargetProduct= 0x000b
+
+;MessageContent="555342431234567800000000000010ff000000000000000000000000000000"
+;NeedResponse=1
+
+
+########################################################
+# Olivetti Olicard 145
+#
+# Contributor: Pierre-Andre Cornillon
+
+;DefaultVendor= 0x0b3c
+;DefaultProduct=0xf000
+
+;TargetVendor=  0x0b3c
+;TargetProduct= 0xc003
+
+;MessageContent="5553424312345678c000000080010606f50402527000000000000000000000"
+;NeedResponse=1
+
+
+#######################################################
+# Huawei EC168C (from Zantel)
+#
+# Contributor: Åsmund Hjulstad
+
+;DefaultVendor= 0x12d1
+;DefaultProduct=0x1446
+
+;TargetVendor=  0x12d1
+;TargetProduct= 0x1412
+
+;MessageContent="55534243123456780000000000000011060000000000000000000000000000"
+
+
+#######################################################
+# Nokia CS-17
+#
+# Contributor: Juho Frits
+
+;DefaultVendor= 0x0421
+;DefaultProduct=0x0622
+
+;TargetVendor=  0x0421
+;TargetProduct= 0x0623
+
+;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+#######################################################
+# Nokia CS-18
+#
+# Contributor: Thomas Behan
+
+;DefaultVendor= 0x0421
+;DefaultProduct=0x0627
+
+;TargetVendor=  0x0421
+;TargetProduct= 0x0612
+
+;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+#######################################################
+# Qtronix EVDO 3G Modem (for TianYi)
+#
+# Contributor: Alexey Charkov
+
+;DefaultVendor= 0x05c7
+;DefaultProduct=0x1000
+
+;TargetVendor=  0x05c7
+;TargetProduct=	0x6000
+
+;MessageContent="5553424312345678c00000008000069f140000000000000000000000000000"
+
+
+#######################################################
+# GW D301 (Advinne AMC)
+#
+
+;DefaultVendor= 0x0fd1
+;DefaultProduct=0x1000
+
+;TargetClass=0xff
+
+;Configuration=3
+
+
+#######################################################
+# LG AD600
+#
+# Contributor: Shawn J. Goff
+
+;DefaultVendor= 0x1004
+;DefaultProduct=0x6190
+
+;TargetVendor=  0x1004
+;TargetProduct= 0x61a7
+
+;MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+#######################################################
+# Pantech / UTStarcom UMW190 (Verizon)
+#
+# Contributor: Noel J. Bergman, Gus Esquivel
+
+;DefaultVendor= 0x106c
+;DefaultProduct=0x3b05
+
+;TargetVendor=  0x106c
+;TargetProduct= 0x3716
+
+;MessageContent="555342431234567824000000800008ff020000000000000000000000000000"
+
+
+#######################################################
+# AirPlus MCD-800
+#
+
+;DefaultVendor= 0x1edf
+;DefaultProduct=0x6003
+
+;TargetClass=0xff
+
+;Configuration=3
+
+
+#######################################################
+# Linktop LW272/LW273 (BSNL Teracom)
+#
+# Contributor: Amit Mendapara
+
+;DefaultVendor= 0x230d
+;DefaultProduct=0x0001
+
+;TargetClass=0xff
+
+;Configuration=3
 

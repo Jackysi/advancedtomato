@@ -1,14 +1,13 @@
-# Part of usb-modeswitch-data, version 20100825
+# Part of usb-modeswitch-data, version 20101202
 #
-# This file is intended for USB_ModeSwitch version >= 1.1.4
+# This file is intended for USB_ModeSwitch version >= 1.1.2
 # but will not break anything if used with versions >= 1.0.3
 #
-
 ACTION!="add", GOTO="modeswitch_rules_end"
 
 # This adds a symlink "gsmmodem[n]" to ttyUSB ports with interrupt transfer;
 # will work only with wrapper from 1.1.4 and above (otherwise ignored)
-KERNEL=="ttyUSB*", DRIVERS=="option1|usbserial", PROGRAM="/usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher --symlink-name %p", SYMLINK="%c"
+KERNEL=="ttyUSB*", DRIVERS=="option1|usbserial", PROGRAM="/usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher --symlink-name %p %s{idVendor} %s{idProduct}", SYMLINK="%c"
 
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
@@ -35,6 +34,12 @@ ATTRS{idVendor}=="0421", ATTRS{idProduct}=="060c", RUN+="usb_modeswitch '%b/%k'"
 # Nokia CS-15
 ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0610", RUN+="usb_modeswitch '%b/%k'"
 
+# Nokia CS-17
+ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0622", RUN+="usb_modeswitch '%b/%k'"
+
+# Nokia CS-18
+ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0627", RUN+="usb_modeswitch '%b/%k'"
+
 # Vodafone MD950 (Wisue Technology)
 ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 
@@ -42,7 +47,7 @@ ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1237", RUN+="usb_modeswitch '%b/%k'"
 
 # Kyocera W06K CDMA modem
-ATTRS{idVendor}=="0482", ATTRS{idProduct}=="024d", ATTRS{bConfigurationValue}=="1", RUN+="usb_modeswitch '%b/%k'"
+ATTRS{idVendor}=="0482", ATTRS{idProduct}=="024d", RUN+="usb_modeswitch '%b/%k'"
 
 # Samsung GT-B3730
 ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="689a", RUN+="usb_modeswitch '%b/%k'"
@@ -53,7 +58,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices
+# Quirky Option devices, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
@@ -61,6 +66,9 @@ ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="2001", RUN+="usb_modeswitch '%b/%k'"
 
 # Siptune LM-75 ("LinuxModem")
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# Qtronix EVDO 3G Modem (for TianYi)
+ATTRS{idVendor}=="05c7", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # InfoCert Business Key (SmartCard/Reader emulation)
 ATTRS{idVendor}=="072f", ATTRS{idProduct}=="100d", RUN+="usb_modeswitch '%b/%k'"
@@ -224,14 +232,23 @@ ATTRS{idVendor}=="0b3c", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # Atheros Wireless / Netgear WNDA3200
 ATTRS{idVendor}=="0cf3", ATTRS{idProduct}=="20ff", RUN+="usb_modeswitch '%b/%k'"
 
+# Kobil mIdentity 3G (1)
+ATTRS{idVendor}=="0d46", ATTRS{idProduct}=="45a1", RUN+="usb_modeswitch '%b/%k'"
+
+# Kobil mIdentity 3G (2)
+ATTRS{idVendor}=="0d46", ATTRS{idProduct}=="45a5", RUN+="usb_modeswitch '%b/%k'"
+
 # Sony Ericsson MD300
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0cf", RUN+="usb_modeswitch '%b/%k'"
 
 # Sony Ericsson MD400
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0e1", RUN+="usb_modeswitch '%b/%k'"
 
-# Rogers Rocket Stick (a Sony Ericsson device)
+# Sony Ericsson MD400G
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d103", RUN+="usb_modeswitch '%b/%k'"
+
+# GW D301 (Advinne AMC)
+ATTRS{idVendor}=="0fd1", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # LG LDU-1900D EV-DO (Rev. A)
 ATTRS{idVendor}=="1004", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
@@ -245,11 +262,17 @@ ATTRS{idVendor}=="1004", ATTRS{idProduct}=="613a", RUN+="usb_modeswitch '%b/%k'"
 # LG LUU-2100TI (aka AT&T USBConnect Turbo)
 ATTRS{idVendor}=="1004", ATTRS{idProduct}=="613f", RUN+="usb_modeswitch '%b/%k'"
 
+# LG AD600
+ATTRS{idVendor}=="1004", ATTRS{idProduct}=="6190", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei E630
 ATTRS{idVendor}=="1033", ATTRS{idProduct}=="0035", RUN+="usb_modeswitch '%b/%k'"
 
 # UTStarcom UM175 (distributor "Alltel")
 ATTRS{idVendor}=="106c", ATTRS{idProduct}=="3b03", RUN+="usb_modeswitch '%b/%k'"
+
+# Pantech / UTStarcom UMW190 (Verizon)
+ATTRS{idVendor}=="106c", ATTRS{idProduct}=="3b05", RUN+="usb_modeswitch '%b/%k'"
 
 # UTStarcom UM185E (distributor "Alltel")
 ATTRS{idVendor}=="106c", ATTRS{idProduct}=="3b06", RUN+="usb_modeswitch '%b/%k'"
@@ -272,7 +295,7 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1003", RUN+="usb_modeswitch '%b/%k'"
 # Huawei U7510 / U7517
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="101e", RUN+="usb_modeswitch '%b/%k'"
 
-# Huawei U8110 (Android smartphone)
+# Huawei U8110 / Joy, Vodafone 845 (Android smartphone)
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1031", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei E180
@@ -296,8 +319,14 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1521", RUN+="usb_modeswitch '%b/%k'"
 # Huawei R201
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1523", RUN+="usb_modeswitch '%b/%k'"
 
+# Huawei E1553
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1553", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei E173
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1557", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E173s
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1c0b", RUN+="usb_modeswitch '%b/%k'"
 
 # Novatel Wireless devices
 ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5010", RUN+="usb_modeswitch '%b/%k'"
@@ -374,7 +403,7 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="fff5", RUN+="usb_modeswitch '%b/%k'"
 # ZTE "fff" devices 2
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="fff6", RUN+="usb_modeswitch '%b/%k'"
 
-# BandRich BandLuxe C170, BandLuxe C270, BandLuxe C120
+# BandRich BandLuxe C100, C120, C170, C270
 ATTRS{idVendor}=="1a8d", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # Hummer DTM5731 
@@ -383,7 +412,7 @@ ATTRS{idVendor}=="1ab7", ATTRS{idProduct}=="5700", RUN+="usb_modeswitch '%b/%k'"
 # EpiValley SEC-7089 (featured by Alegro and Starcomms / iZAP)
 ATTRS{idVendor}=="1b7d", ATTRS{idProduct}=="0700", RUN+="usb_modeswitch '%b/%k'"
 
-# Alcatel X200/X060S
+# Alcatel X200/X200L/X060S
 ATTRS{idVendor}=="1bbb", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # Alcatel One Touch X020
@@ -404,6 +433,9 @@ ATTRS{idVendor}=="1dd6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 # Option iCON 210, PROLiNK PHS100, Hyundai MB-810, A-Link 3GU
 ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
+# AirPlus MCD-800
+ATTRS{idVendor}=="1edf", ATTRS{idProduct}=="6003", RUN+="usb_modeswitch '%b/%k'"
+
 # Onda MW833UP
 ATTRS{idVendor}=="1ee8", ATTRS{idProduct}=="0009", RUN+="usb_modeswitch '%b/%k'"
 
@@ -415,5 +447,8 @@ ATTRS{idVendor}=="1f28", ATTRS{idProduct}=="0021", RUN+="usb_modeswitch '%b/%k'"
 
 # Franklin Wireless U210
 ATTRS{idVendor}=="1fac", ATTRS{idProduct}=="0130", RUN+="usb_modeswitch '%b/%k'"
+
+# Linktop LW272/LW273 (BSNL Teracom)
+ATTRS{idVendor}=="230d", ATTRS{idProduct}=="0001", RUN+="usb_modeswitch '%b/%k'"
 
 LABEL="modeswitch_rules_end"

@@ -4,4 +4,8 @@
 DefaultVendor= 0x0482
 DefaultProduct=0x024d
 
+TargetClass=0x02
+
 Configuration=2
+
+CheckSuccess=20

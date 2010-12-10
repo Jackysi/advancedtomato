@@ -1,8 +1,8 @@
 PROG        = usb_modeswitch
 VERS        = 1.1.4
 CC          = gcc
-CFLAGS      += -Wall -DLIBUSB10
-LIBS        = -lusb-1.0
+CFLAGS      += -Wall
+LIBS        = -l usb
 RM          = /bin/rm -f
 OBJS        = usb_modeswitch.c
 PREFIX      = $(DESTDIR)/usr

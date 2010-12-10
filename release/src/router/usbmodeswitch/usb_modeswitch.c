@@ -1,6 +1,6 @@
 /*
   Mode switching tool for controlling flip flop (multiple device) USB gear
-  Version 1.1.4, 2010/08/17
+  Version 1.1.5, 2010/11/28
 
   Copyright (C) 2007, 2008, 2009, 2010 Josua Dietze (mail to "usb_admin" at the
   domain from the README; please do not post the complete address to the Net!
@@ -42,7 +42,7 @@
 
 /* Recommended tab size: 4 */
 
-#define VERSION "1.1.4"
+#define VERSION "1.1.5"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,126 +53,7 @@
 #include <getopt.h>
 #include <syslog.h>
 
-#ifndef LIBUSB10
-    #include <usb.h>
-
-    inline int get_devnum(struct usb_device * dev)
-    {
-	return dev->devnum;
-    }
-    inline int get_busnum(struct usb_device * dev)
-    {
-	return (int)strtol(dev->bus->dirname,NULL,10);
-    }
-#else
-    #include <libusb.h>
-    #include <unistd.h>
-
-    #define USB_ENDPOINT_TYPE_MASK	LIBUSB_ENDPOINT_ADDRESS_MASK
-    #define USB_ENDPOINT_DIR_MASK	LIBUSB_ENDPOINT_DIR_MASK
-    #define USB_ENDPOINT_TYPE_BULK	LIBUSB_TRANSFER_TYPE_BULK
-    #define USB_TYPE_STANDARD		LIBUSB_REQUEST_TYPE_STANDARD
-    #define USB_RECIP_DEVICE		LIBUSB_RECIPIENT_DEVICE
-    #define USB_REQ_SET_FEATURE		LIBUSB_REQUEST_SET_FEATURE
-
-    #define LIBUSB_HAS_DETACH_KERNEL_DRIVER_NP
-    #define LIBUSB_HAS_GET_DRIVER_NP
-
-
-    #define usb_device		libusb_device
-    #define usb_dev_handle	libusb_device_handle
-    #define usb_endpoint_descriptor	libusb_endpoint_descriptor
-
-    #define usb_init()		libusb_init ( &ctx )
-    #define usb_set_debug(x)	libusb_set_debug( ctx, 3 );
-    #define usb_find_busses()
-    #define usb_find_devices()
-    #define usb_close		libusb_close
-    #define usb_get_string_simple	libusb_get_string_descriptor_ascii
-    #define usb_reset		libusb_reset_device
-    #define usb_claim_interface	libusb_claim_interface
-    #define usb_clear_halt	libusb_clear_halt
-    #define usb_release_interface	libusb_release_interface
-    #define usb_control_msg	libusb_control_transfer
-    #define usb_set_configuration	libusb_set_configuration
-    #define usb_detach_kernel_driver_np	libusb_detach_kernel_driver
-
-    libusb_device_handle * usb_open(libusb_device *dev){
-	libusb_device_handle * handle;
-	libusb_open(dev, &handle);
-	return handle;
-    }
-
-    int get_busnum(struct libusb_device * dev)
-    {
-	return libusb_get_bus_number(dev);
-    }
-
-    int get_devnum(struct libusb_device * dev)
-    {
-	return libusb_get_device_address(dev);
-    }
-
-    int usb_get_driver_np(struct libusb_device_handle *dev, int interface,
-	char *name, unsigned int namelen)
-    {
-	int r = libusb_kernel_driver_active(dev, interface);
-	if (r == 1) {
-		/* libusb-1.0 doesn't expose driver name, so fill in a dummy value */
-		snprintf(name, namelen, "dummy");
-		return 0;
-	} else return r;
-    }
-
-    int usb_bulk_io(struct libusb_device_handle *dev, int ep, char *bytes,
-	int size, int timeout)
-    {
-	int actual_length;
-	int r;
-	printf("endpoint %x size %d timeout %d", ep, size, timeout);
-	r = libusb_bulk_transfer(dev, ep & 0xff, bytes, size,
-		&actual_length, timeout);
-	
-	/* if we timed out but did transfer some data, report as successful short
-	 * read. FIXME: is this how libusb-0.1 works? */
-	if (r == 0 || (r == LIBUSB_ERROR_TIMEOUT && actual_length > 0))
-		return actual_length;
-
-	return r;
-    }
-
-    int usb_bulk_read(struct usb_dev_handle *dev, int ep, char *bytes,
-	int size, int timeout)
-    {
-	if (!(ep & LIBUSB_ENDPOINT_IN)) {
-		/* libusb-0.1 will strangely fix up a read request from endpoint
-		 * 0x01 to be from endpoint 0x81. do the same thing here, but
-		 * warn about this silly behaviour. */
-		puts("endpoint %x is missing IN direction bit, fixing");
-		ep |= LIBUSB_ENDPOINT_IN;
-	}
-
-	return usb_bulk_io(dev, ep, bytes, size, timeout);
-    }
-
-    int usb_bulk_write(struct usb_dev_handle *dev, int ep, char *bytes,
-	int size, int timeout)
-    {
-	if (ep & LIBUSB_ENDPOINT_IN) {
-		/* libusb-0.1 on BSD strangely fix up a write request to endpoint
-		 * 0x81 to be to endpoint 0x01. do the same thing here, but
-		 * warn about this silly behaviour. */
-		puts("endpoint %x has excessive IN direction bit, fixing");
-		ep &= ~LIBUSB_ENDPOINT_IN;
-	}
-
-	return usb_bulk_io(dev, ep, bytes, size, timeout);
-    }
-
-    static struct libusb_context *ctx = NULL;
-
-#endif
-
+#include <usb.h>
 #include "usb_modeswitch.h"
 
 #define LINE_DIM 1024
@@ -195,13 +76,13 @@ char *TempPP=NULL;
 struct usb_device *dev;
 struct usb_dev_handle *devh;
 
-int DefaultVendor=0, DefaultProduct=0, TargetVendor=0, TargetProduct=0, TargetClass=0;
-int MessageEndpoint=0, ResponseEndpoint=0, defaultClass=0, MessageDelay=0;
+int DefaultVendor=0, DefaultProduct=0, TargetVendor=0, TargetProduct=-1, TargetClass=0;
+int MessageEndpoint=0, ResponseEndpoint=0, MessageDelay=0;
 int targetDeviceCount=0;
 int devnum=-1, busnum=-1;
 int ret;
 
-char DetachStorageOnly=0, HuaweiMode=0, SierraMode=0, SonyMode=0, GCTMode=0;
+char DetachStorageOnly=0, HuaweiMode=0, SierraMode=0, SonyMode=0, GCTMode=0, KobilMode=0;
 char verbose=0, show_progress=1, ResetUSB=0, CheckSuccess=0, config_read=0;
 char NeedResponse=0, NoDriverLoading=0, InquireDevice=1, sysmode=0;
 
@@ -236,6 +117,7 @@ static struct option long_options[] = {
 	{"huawei-mode",			no_argument, 0, 'H'},
 	{"sierra-mode",			no_argument, 0, 'S'},
 	{"sony-mode",			no_argument, 0, 'O'},
+	{"kobil-mode",			no_argument, 0, 'T'},
 	{"gct-mode",			no_argument, 0, 'G'},
 	{"need-response",		no_argument, 0, 'n'},
 	{"reset-usb",			no_argument, 0, 'R'},
@@ -266,6 +148,7 @@ void readConfigFile(const char *configFilename)
 	ParseParamBool(configFilename, SierraMode);
 	ParseParamBool(configFilename, SonyMode);
 	ParseParamBool(configFilename, GCTMode);
+	ParseParamBool(configFilename, KobilMode);
 	ParseParamBool(configFilename, NoDriverLoading);
 	ParseParamHex(configFilename, MessageEndpoint);
 	ParseParamString(configFilename, MessageContent);
@@ -282,9 +165,8 @@ void readConfigFile(const char *configFilename)
 	ParseParamHex(configFilename, AltSetting);
 
 	/* TargetProductList has priority over TargetProduct */
-	if (strlen(TargetProductList))
-	{
-		TargetProduct = 0;
+	if (TargetProductList[0] != '\0') {
+		TargetProduct = -1;
 		SHOW_PROGRESS("Warning: TargetProductList overrides TargetProduct!\n");
 	}
 
@@ -306,7 +188,7 @@ void printConfig()
 		printf ("TargetVendor=   0x%04x\n",		TargetVendor);
 	else
 		printf ("TargetVendor=   not set\n");
-	if ( TargetProduct )
+	if ( TargetProduct > -1 )
 		printf ("TargetProduct=  0x%04x\n",		TargetProduct);
 	else
 		printf ("TargetProduct=  not set\n");
@@ -320,6 +202,7 @@ void printConfig()
 	printf ("SierraMode=%i\n",			(int)SierraMode);
 	printf ("SonyMode=%i\n",			(int)SonyMode);
 	printf ("GCTMode=%i\n",			(int)GCTMode);
+	printf ("KobilMode=%i\n",		(int)KobilMode);
 	if ( MessageEndpoint )
 		printf ("MessageEndpoint=0x%02x\n",	MessageEndpoint);
 	else
@@ -367,7 +250,7 @@ int readArguments(int argc, char **argv)
 
 	while (1)
 	{
-		c = getopt_long (argc, argv, "heWQDndHSOGRIv:p:V:P:C:m:M:2:3:w:r:c:i:u:a:s:",
+		c = getopt_long (argc, argv, "heWQDndHSOGTRIv:p:V:P:C:m:M:2:3:w:r:c:i:u:a:s:",
 						long_options, &option_index);
 
 		/* Detect the end of the options. */
@@ -394,6 +277,7 @@ int readArguments(int argc, char **argv)
 			case 'S': SierraMode = 1; break;
 			case 'O': SonyMode = 1; break;
 			case 'G': GCTMode = 1; break;
+			case 'T': KobilMode = 1; break;
 			case 'c': readConfigFile(optarg); break;
 			case 'W': verbose = 1; show_progress = 1; count--; break;
 			case 'Q': show_progress = 0; verbose = 0; count--; break;
@@ -428,7 +312,8 @@ int readArguments(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	int numDefaults = 0, specialMode = 0, sonySuccess = 0;
+	int numDefaults=0, specialMode=0, sonySuccess=0;
+	int currentConfig=0, defaultClass=0, interfaceClass=0;
 
 	/* Make sure we have empty strings even if not set by config */
 	TargetProductList[0] = '\0';
@@ -484,7 +369,7 @@ int main(int argc, char **argv)
 	SHOW_PROGRESS("\n");
 
 	if (show_progress)
-		if (CheckSuccess && !(TargetVendor || TargetProduct || strlen(TargetProductList)) && !TargetClass)
+		if (CheckSuccess && !(TargetVendor || TargetProduct > -1 || TargetProductList[0] != '\0') && !TargetClass)
 			printf("Note: target parameter missing; success check limited\n");
 
 	/* Count existing target devices, remember for success check */
@@ -507,8 +392,8 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 	if (dev != NULL) {
-		devnum = get_devnum(dev);
-		busnum = get_busnum(dev);
+		devnum = dev->devnum;
+		busnum = (int)strtol(dev->bus->dirname,NULL,10);
 		SHOW_PROGRESS("Accessing device %03d on bus %03d ...\n", devnum, busnum);
 		devh = usb_open(dev);
 	} else {
@@ -516,23 +401,21 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	/* Get current configuration of default device */
+	currentConfig = get_current_configuration();
+
 	/* Get class of default device/interface */
-#ifndef LIBUSB10
 	defaultClass = dev->descriptor.bDeviceClass;
-	int devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
-#else
-	struct libusb_device_descriptor descriptor;
-	libusb_get_device_descriptor(dev, &descriptor);
-	defaultClass = descriptor.bDeviceClass;
-	struct libusb_config_descriptor *config;
-	libusb_get_config_descriptor(dev, 0, &config);
-	int devClass = config->interface[0].altsetting[0].bInterfaceClass;
-	libusb_free_config_descriptor(config);
-#endif
+	interfaceClass = get_interface0_class(dev, currentConfig);
+	if (interfaceClass == -1) {
+		fprintf(stderr, "Error: getting the interface class failed. Aborting.\n\n");
+		exit(1);
+	}
+
 	if (defaultClass == 0)
-		defaultClass = devClass;
-	else 
-		if (devClass == 8 && defaultClass != 8) {
+		defaultClass = interfaceClass;
+	else
+		if (interfaceClass == 8 && defaultClass != 8) {
 			/* Weird device with default class other than 0 and differing interface class */
 			SHOW_PROGRESS("Ambiguous Class/InterfaceClass: 0x%02x/0x08\n", defaultClass);
 			defaultClass = 8;
@@ -584,7 +467,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Some scenarios are exclusive, so check for unwanted combinations */
-	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode;
+ 	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode + KobilMode;
 	if ( specialMode > 1 ) {
 		SHOW_PROGRESS("Invalid mode combination. Check your configuration. Aborting.\n\n");
 		exit(1);
@@ -623,6 +506,10 @@ int main(int argc, char **argv)
 		detachDriver();
 		switchGCTMode();
 	}
+	if(KobilMode) {
+		detachDriver();
+		switchKobilMode();
+	}
 	if (SonyMode) {
 		if (CheckSuccess)
 			SHOW_PROGRESS("Note: ignoring CheckSuccess. Separate checks for Sony mode\n");
@@ -647,8 +534,16 @@ int main(int argc, char **argv)
 		switchAltSetting();
 	}
 
+	/* No "removal" check if these are set */
+	if ((Configuration != -1 || AltSetting != -1) && !ResetUSB) {
+		usb_close(devh);
+		devh = 0;
+	}
+
 	if (ResetUSB) {
 		resetUSB();
+		usb_close(devh);
+		devh = 0;
 	}
 
 	if (CheckSuccess) {
@@ -657,7 +552,10 @@ int main(int argc, char **argv)
 				if (NoDriverLoading)
 					printf("ok:\n");
 				else
-					printf("ok:%04x:%04x\n", TargetVendor, TargetProduct);
+					if (TargetProduct < 1)
+						printf("ok:no_data\n");
+					else
+						printf("ok:%04x:%04x\n", TargetVendor, TargetProduct);
 			}
 		} else
 			if (sysmode)
@@ -696,21 +594,8 @@ void deviceDescription ()
 	memset (iproduct, ' ', DESCR_MAX);
 	memset (iserial, ' ', DESCR_MAX);
 
-#ifndef LIBUSB10
-	int iManufacturer = dev->descriptor.iManufacturer;
-	int iProduct = dev->descriptor.iProduct;
-	int iSerialNumber = dev->descriptor.iSerialNumber;
-#else
-	struct libusb_device_descriptor descriptor;
-	libusb_get_device_descriptor(dev, &descriptor);
-
-	int iManufacturer = descriptor.iManufacturer;
-	int iProduct = descriptor.iProduct;
-	int iSerialNumber = descriptor.iSerialNumber;
-#endif
-
-	if (iManufacturer) {
-		ret = usb_get_string_simple(devh, iManufacturer, imanufact, DESCR_MAX);
+	if (dev->descriptor.iManufacturer) {
+		ret = usb_get_string_simple(devh, dev->descriptor.iManufacturer, imanufact, DESCR_MAX);
 		if (ret < 0)
 			fprintf(stderr, "Error: could not get description string \"manufacturer\"\n");
 	} else
@@ -719,8 +604,8 @@ void deviceDescription ()
 	if (c)
 		memset((void*)c, '\0', 1);
 
-	if (iProduct) {
-		ret = usb_get_string_simple(devh, iProduct, iproduct, DESCR_MAX);
+	if (dev->descriptor.iProduct) {
+		ret = usb_get_string_simple(devh, dev->descriptor.iProduct, iproduct, DESCR_MAX);
 		if (ret < 0)
 			fprintf(stderr, "Error: could not get description string \"product\"\n");
 	} else
@@ -729,8 +614,8 @@ void deviceDescription ()
 	if (c)
 		memset((void*)c, '\0', 1);
 
-	if (iSerialNumber) {
-		ret = usb_get_string_simple(devh, iSerialNumber, iserial, DESCR_MAX);
+	if (dev->descriptor.iSerialNumber) {
+		ret = usb_get_string_simple(devh, dev->descriptor.iSerialNumber, iserial, DESCR_MAX);
 		if (ret < 0)
 			fprintf(stderr, "Error: could not get description string \"serial number\"\n");
 	} else
@@ -953,11 +838,7 @@ int switchAltSetting ()
 
 	SHOW_PROGRESS("Changing to alt setting %i ...\n", AltSetting);
 	ret = usb_claim_interface(devh, Interface);
-#ifndef LIBUSB10
 	ret = usb_set_altinterface(devh, AltSetting);
-#else
-	ret = libusb_set_interface_alt_setting(devh, Interface, AltSetting);
-#endif
 	usb_release_interface(devh, Interface);
 	if (ret != 0) {
 		SHOW_PROGRESS(" Changing to alt setting returned error %d. Trying to continue\n", ret);
@@ -974,7 +855,7 @@ void switchHuaweiMode ()
 	int ret;
 
 	SHOW_PROGRESS("Sending Huawei control message ...\n");
-	ret = usb_control_msg(devh, USB_TYPE_STANDARD | USB_RECIP_DEVICE, USB_REQ_SET_FEATURE, 00000001, 0, buffer, 0, 1000);
+	ret = usb_control_msg(devh, USB_TYPE_STANDARD + USB_RECIP_DEVICE, USB_REQ_SET_FEATURE, 00000001, 0, buffer, 0, 1000);
 	if (ret != 0) {
 		fprintf(stderr, "Error: sending Huawei control message failed (error %d). Aborting.\n\n", ret);
 		exit(1);
@@ -1013,6 +894,20 @@ void switchGCTMode ()
 	ret = usb_control_msg(devh, 0xa1, 0xfe, 0, Interface, buffer, 1, 1000);
 	SHOW_PROGRESS(" OK, GCT control messages sent\n");
 	usb_release_interface(devh, Interface);
+}
+
+
+int switchKobilMode() {
+	int ret;
+
+	SHOW_PROGRESS("Sending Kobil control message ...\n");
+	ret = usb_control_msg(devh, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN, 0x88, 0, 0, buffer, 8, 1000);
+	if (ret != 0) {
+		fprintf(stderr, "Error: sending Kobil control message failed (error %d). Aborting.\n\n", ret);
+		exit(1);
+	} else
+		SHOW_PROGRESS(" OK, Kobil control message sent\n");
+	return 1;
 }
 
 
@@ -1069,7 +964,6 @@ int switchSonyMode ()
 		SHOW_PROGRESS(" device still gone, cancelling\n");
 		return 0;
 	}
-
 	sleep(1);
 
 	SHOW_PROGRESS("Sending Sony control message again ...\n");
@@ -1081,7 +975,6 @@ int switchSonyMode ()
 	SHOW_PROGRESS(" OK, control message sent\n");
 	return 1;
 }
-
 
 /* Detach driver either as the main action or as preparation for other
  * switching methods
@@ -1169,6 +1062,7 @@ int checkSuccess()
 			SHOW_PROGRESS(" Waiting for original device to vanish ...\n");
 
 			ret = usb_claim_interface(devh, Interface);
+			usb_release_interface(devh, Interface);
 			if (ret < 0) {
 				SHOW_PROGRESS(" Original device can't be accessed anymore. Good.\n");
 				if (i == CheckSuccess-1)
@@ -1176,19 +1070,15 @@ int checkSuccess()
 				usb_close(devh);
 				devh = 0;
 				break;
-			} else
-				usb_release_interface(devh, Interface);
-
+			}
 			if (i == CheckSuccess-1) {
 				SHOW_PROGRESS(" Original device still present after the timeout\n\nMode switch most likely failed. Bye.\n\n");
 			} else
 				sleep(1);
 		}
-	else
-		SHOW_PROGRESS(" Original device is gone already, not checking\n");
 
 
-	if ( TargetVendor && (TargetProduct || strlen(TargetProductList)) )
+	if ( TargetVendor && (TargetProduct > -1 || TargetProductList[0] != '\0') ) {
 
 		/* Recount target devices (compare with previous count) if target data is given.
 		 * Target device on the same bus with higher device number is returned,
@@ -1196,16 +1086,24 @@ int checkSuccess()
 		 */
 		for (i=i; i < CheckSuccess; i++) {
 			SHOW_PROGRESS(" Searching for target devices ...\n");
-			usb_find_devices();
+			ret = usb_find_busses();
+			if (ret >= 0)
+				ret = usb_find_devices();
+			if (ret < 0) {
+				SHOW_PROGRESS("Error: libusb1 bug, no more searching, try to work around\n");
+				success = 3;
+				break;
+			}
 			dev = search_devices(&newTargetCount, TargetVendor, TargetProduct, TargetProductList, TargetClass, SEARCH_TARGET);
 			if (dev && (newTargetCount > targetDeviceCount)) {
+				printf("\nFound target device, now opening\n");
 				devh = usb_open(dev);
 				deviceDescription();
 				usb_close(devh);
 				devh = 0;
 				if (verbose) {
 					printf("\nFound target device %03d on bus %03d\n", \
-					get_devnum(dev), get_busnum(dev));
+					dev->devnum, (int)strtol(dev->bus->dirname,NULL,10));
 					printf("\nTarget device description data\n");
 					printf("-------------------------\n");
 					printf("Manufacturer: %s\n", imanufact);
@@ -1222,7 +1120,7 @@ int checkSuccess()
 			} else
 				sleep(1);
 		}
-	else
+	} else
 		/* No target data given, rely on the vanished device */
 		if (!devh) {
 			SHOW_PROGRESS(" (For a better success check provide target IDs or class)\n");
@@ -1231,6 +1129,12 @@ int checkSuccess()
 		}
 
 	switch (success) {
+		case 3: 
+			if (sysmode)
+				syslog(LOG_NOTICE, "switched to new device, but hit libusb1 bug");
+			TargetProduct = -1;
+			success = 1;
+			break;
 		case 2: 
 			if (sysmode)
 				syslog(LOG_NOTICE, "switched to %04x:%04x (%s: %s)", TargetVendor, TargetProduct, imanufact, iproduct);
@@ -1299,10 +1203,8 @@ void release_usb_device(int dummy) {
 */
 struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int mode)
 {
-#ifndef LIBUSB10
 	struct usb_bus *bus;
-#endif
-	char *listcopy=NULL, *token, buffer[2];
+	char *listcopy, *token, buffer[2];
 	int devClass;
 	struct usb_device* right_dev = NULL;
 
@@ -1316,37 +1218,16 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 	/* Sanity check */
 	if (!vendor || (!product && productList == '\0') )
 		return NULL;
-		
+
 	if (productList != '\0')
 		listcopy = malloc(strlen(productList)+1);
 
-#ifndef LIBUSB10
 	for (bus = usb_get_busses(); bus; bus = bus->next) {
 		struct usb_device *dev;
 		for (dev = bus->devices; dev; dev = dev->next) {
-#else
-	struct libusb_device **devs;
-	int i=0;
-
-	if (libusb_get_device_list( ctx, &devs ) < 0){
-		perror ("failed to access USB");
-		return 0;
-	}
-
-	while ( (dev = devs[i++]) != NULL) {
-#endif
-#ifndef LIBUSB10
-			int idVendor = dev->descriptor.idVendor;
-			int idProduct = dev->descriptor.idProduct;
-#else
-			struct libusb_device_descriptor descriptor;
-			libusb_get_device_descriptor(dev, &descriptor);
-			int idVendor = descriptor.idVendor;
-			int idProduct = descriptor.idProduct;
-#endif
 			if (verbose)
-				printf ("  searching devices, found USB ID %04x:%04x\n", idVendor, idProduct);
-			if (idVendor != vendor)
+				printf ("  searching devices, found USB ID %04x:%04x\n", dev->descriptor.idVendor, dev->descriptor.idProduct);
+			if (dev->descriptor.idVendor != vendor)
 				continue;
 			if (verbose)
 				printf ("   found matching vendor ID\n");
@@ -1367,16 +1248,16 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 					product += (unsigned char)buffer[0];
 					product <<= 8;
 					product += (unsigned char)buffer[1];
-					if (product == idProduct) {
+					if (product == dev->descriptor.idProduct) {
 						if (verbose)
 							printf ("   found matching product ID from list\n");
 						(*numFound)++;
 						if (busnum == -1)
 							right_dev = dev;
 						else
-							if (get_devnum(dev) >= devnum && get_busnum(dev) == busnum) {
+							if (dev->devnum >= devnum && (int)strtol(dev->bus->dirname,NULL,10) == busnum) {
 								right_dev = dev;
-								TargetProduct = idProduct;
+								TargetProduct = dev->descriptor.idProduct;
 								break;
 							}
 					}
@@ -1386,7 +1267,7 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 				}
 			/* Product ID is given */
 			} else
-				if (product == idProduct) {
+				if (product == dev->descriptor.idProduct) {
 					if (verbose)
 						printf ("   found matching product ID\n");
 					if (targetClass == 0) {
@@ -1395,24 +1276,13 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 						if (verbose)
 							printf ("   adding device\n");
 					} else {
-#ifndef LIBUSB10
 						devClass = dev->descriptor.bDeviceClass;
-						int ifaceClass=dev->config[0].interface[0].altsetting[0].bInterfaceClass;
-#else
-						struct libusb_device_descriptor descriptor;
-						libusb_get_device_descriptor(dev, &descriptor);
-						devClass = descriptor.bDeviceClass;
-						struct libusb_config_descriptor *config;
-						libusb_get_config_descriptor(dev, 0, &config);
-						int ifaceClass = config->interface[0].altsetting[0].bInterfaceClass;
-						libusb_free_config_descriptor(config);
-#endif
 						if (devClass == 0)
-							devClass = ifaceClass;
+							devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
 						else
 							/* Check for some quirky devices */
-							if (devClass != ifaceClass)
-								devClass = ifaceClass;
+							if (devClass != dev->config[0].interface[0].altsetting[0].bInterfaceClass)
+								devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
 						if (devClass == targetClass) {
 							if (verbose)
 								printf ("   target class %02x matching\n", targetClass);
@@ -1439,15 +1309,13 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 					 * successCheck() and do probe for plausible new devnum/busnum
 					 */
 					if (busnum != -1)
-						if (get_devnum(dev) < devnum || get_busnum(dev) != busnum) {
+						if (dev->devnum < devnum || (int)strtol(dev->bus->dirname,NULL,10) != busnum) {
 							if (verbose)
 								printf ("   busnum/devnum indicates an unrelated device\n");
 							right_dev = NULL;
 						}
 				}
-#ifndef LIBUSB10
 		}
-#endif
 	}
 	if (productList != NULL)
 		free(listcopy);
@@ -1463,15 +1331,8 @@ struct usb_device* search_devices( int *numFound, int vendor, int product, char*
 int find_first_bulk_output_endpoint(struct usb_device *dev)
 {
 	int i;
-#ifndef LIBUSB10
 	struct usb_interface_descriptor *alt = &(dev->config[0].interface[0].altsetting[0]);
 	struct usb_endpoint_descriptor *ep;
-#else
-	struct libusb_config_descriptor *config;
-	libusb_get_config_descriptor(dev, 0, &config);
-	const struct libusb_interface_descriptor *alt = &(config[0].interface[0].altsetting[0]);
-	const struct usb_endpoint_descriptor *ep;
-#endif
 
 	for(i=0;i < alt->bNumEndpoints;i++) {
 		ep=&(alt->endpoint[i]);
@@ -1480,9 +1341,6 @@ int find_first_bulk_output_endpoint(struct usb_device *dev)
 			return ep->bEndpointAddress;
 		}
 	}
-#ifdef LIBUSB10
-	libusb_free_config_descriptor(config);
-#endif
 
 	return 0;
 }
@@ -1491,15 +1349,9 @@ int find_first_bulk_output_endpoint(struct usb_device *dev)
 int find_first_bulk_input_endpoint(struct usb_device *dev)
 {
 	int i;
-#ifndef LIBUSB10
 	struct usb_interface_descriptor *alt = &(dev->config[0].interface[0].altsetting[0]);
 	struct usb_endpoint_descriptor *ep;
-#else
-	struct libusb_config_descriptor *config;
-	libusb_get_config_descriptor(dev, 0, &config);
-	const struct libusb_interface_descriptor *alt = &(config[0].interface[0].altsetting[0]);
-	const struct usb_endpoint_descriptor *ep;
-#endif
+
 	for(i=0;i < alt->bNumEndpoints;i++) {
 		ep=&(alt->endpoint[i]);
 		if( ( (ep->bmAttributes & USB_ENDPOINT_TYPE_MASK) == USB_ENDPOINT_TYPE_BULK) &&
@@ -1507,13 +1359,34 @@ int find_first_bulk_input_endpoint(struct usb_device *dev)
 			return ep->bEndpointAddress;
 		}
 	}
-#ifdef LIBUSB10
-	libusb_free_config_descriptor(config);
-#endif
 
 	return 0;
 }
 
+int get_current_configuration()
+{
+	int ret;
+
+	SHOW_PROGRESS("Getting the current device configuration ...\n");
+	ret = usb_control_msg(devh, USB_DIR_IN + USB_TYPE_STANDARD + USB_RECIP_DEVICE, USB_REQ_GET_CONFIGURATION, 0, 0, buffer, 1, 1000);
+	if (ret < 0) {
+		fprintf(stderr, "Error: getting the current configuration failed (error %d). Aborting.\n\n", ret);
+		exit(1);
+	} else {
+		SHOW_PROGRESS(" OK, got current device configuration (%d)\n", buffer[0]);
+		return buffer[0];
+	}
+}
+
+
+int get_interface0_class(struct usb_device *dev, int devconfig)
+{
+	int i;
+	for (i=0; i<dev->descriptor.bNumConfigurations; i++)
+		if (dev->config[i].bConfigurationValue == devconfig)
+			return dev->config[i].interface[0].altsetting[0].bInterfaceClass;
+	return -1;
+}
 
 
 /* Parameter parsing */
@@ -1629,44 +1502,41 @@ int hexstr2bin(const char *hex, char *buffer, int len)
 void printVersion()
 {
 	char* version = VERSION;
-	printf(	" * usb_modeswitch: handle USB devices with multiple modes\n"
-		" * Version %s (C) Josua Dietze 2010\n", version );
-#ifndef LIBUSB10
-	printf(	" * Based on libusb0 (0.1.12 and above)\n\n" );
-#else
-	printf(	" * Based on libusb10 (1.0.1 and above)\n\n" );
-#endif
-	printf(	" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
+	printf(" * usb_modeswitch: handle USB devices with multiple modes\n");
+	printf(" * Version %s (C) Josua Dietze 2010\n", version);
+	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
+	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
 }
 
 void printHelp()
 {
-	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n"
-		" -h, --help                    this help\n"
-		" -e, --version                 print version information and exit\n"
-		" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n"
-		" -p, --default-product NUM     product ID of original mode (mandatory)\n"
-		" -V, --target-vendor NUM       target mode vendor ID (optional)\n"
-		" -P, --target-product NUM      target mode product ID (optional)\n"
-		" -C, --target-class NUM        target mode device class (optional)\n"
-		" -m, --message-endpoint NUM    direct the message transfer there (optional)\n"
-		" -M, --message-content <msg>   message to send (hex number as string)\n"
-		" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n"
-		" -n, --need-response           read response to the message transfer (CSW)\n"
-		" -r, --response-endpoint NUM   read response from there (optional)\n"
-		" -d, --detach-only             detach the active driver, no further action\n"
-		" -H, --huawei-mode             apply a special procedure\n"
-		" -S, --sierra-mode             apply a special procedure\n"
-		" -O, --sony-mode               apply a special procedure\n"
-		" -G, --gct-mode                apply a special procedure\n"
-		" -R, --reset-usb               reset the device after all other actions\n"
-		" -Q, --quiet                   don't show progress or error messages\n"
-		" -W, --verbose                 print all settings and debug output\n"
-		" -D, --sysmode                 specific result and syslog message\n"
-		" -s, --success NUM             check switching result after NUM secs\n"
-		" -I, --no-inquire              do not get SCSI attributes (default on)\n\n"
-		" -c, --config-file <filename>  load configuration from file\n\n"
-		" -i, --interface NUM           select initial USB interface (default 0)\n"
-		" -u, --configuration NUM       select USB configuration\n"
-		" -a, --altsetting NUM          select alternative USB interface setting\n\n");
+	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
+	printf (" -h, --help                    this help\n");
+	printf (" -e, --version                 print version information and exit\n");
+	printf (" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n");
+	printf (" -p, --default-product NUM     product ID of original mode (mandatory)\n");
+	printf (" -V, --target-vendor NUM       target mode vendor ID (optional)\n");
+	printf (" -P, --target-product NUM      target mode product ID (optional)\n");
+	printf (" -C, --target-class NUM        target mode device class (optional)\n");
+	printf (" -m, --message-endpoint NUM    direct the message transfer there (optional)\n");
+	printf (" -M, --message-content <msg>   message to send (hex number as string)\n");
+	printf (" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n");
+	printf (" -n, --need-response           read response to the message transfer (CSW)\n");
+	printf (" -r, --response-endpoint NUM   read response from there (optional)\n");
+	printf (" -d, --detach-only             detach the active driver, no further action\n");
+	printf (" -H, --huawei-mode             apply a special procedure\n");
+	printf (" -S, --sierra-mode             apply a special procedure\n");
+	printf (" -O, --sony-mode               apply a special procedure\n");
+	printf (" -G, --gct-mode                apply a special procedure\n");
+	printf (" -T, --kobil-mode              apply a special procedure\n");
+	printf (" -R, --reset-usb               reset the device after all other actions\n");
+	printf (" -Q, --quiet                   don't show progress or error messages\n");
+	printf (" -W, --verbose                 print all settings and debug output\n");
+	printf (" -D, --sysmode                 specific result and syslog message\n");
+	printf (" -s, --success NUM             check switching result after NUM secs\n");
+	printf (" -I, --no-inquire              do not get SCSI attributes (default on)\n\n");
+	printf (" -c, --config-file <filename>  load configuration from file\n\n");
+	printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
+	printf (" -u, --configuration NUM       select USB configuration\n");
+	printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");
 }

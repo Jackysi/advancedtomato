@@ -2,6 +2,17 @@
 History of USB_ModeSwitch
 =========================
 
+Version 1.1.5, 2010/11/28
+    Added special control message for Kobil devices (patch from Filip Aben);
+    try to get active configuration for interface class checking (there are
+    some new devices 'switching' via configuration selection);
+    fixed "0000" target product ID - again; new bash and tcl wrapper logic:
+    the convenience functions for driver binding and symlinking will now
+    start the tcl shell ONLY for known devices; changed and appended logging
+    capabilities of said convenience functions; add loading of "usbserial"
+    as a fallback for older systems to support new devices;
+    add workaround for bug in libusb1 which affects device search during
+    success check
 Version 1.1.4, 2010/08/17
     The package should work at boot time now (cold and warm);
 	product IDs of "0000" do exist but were not accepted, fixed (thanks to
