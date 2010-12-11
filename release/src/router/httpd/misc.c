@@ -378,6 +378,51 @@ void asp_activeroutes(int argc, char **argv)
 		}
 		fclose(f);
 	}
+
+#ifdef TCONFIG_IPV6
+	int pxlen;
+	char addr6x[80];
+	struct sockaddr_in6 snaddr6;
+	char addr6[40], nhop6[40];
+
+	if (nvram_invmatch("ipv6_service", "")) &&
+	    (f = fopen("/proc/net/ipv6_route", "r")) != NULL) {
+		while (fgets(s, sizeof(s), f)) {
+			if (sscanf(s, "%32s%x%*s%*s%32s%x%*s%*s%lx%s\n",
+				addr6x+14, &pxlen, addr6x+40+7, &metric, &flags, dev) != 6) continue;
+
+			if ((flags & RTF_UP) == 0) continue;
+
+			int i = 0;
+			char *p = addr6x+14;
+			do {
+				if (!*p) {
+					if (i == 40) { // nul terminator for 1st address?
+						addr6x[39] = 0;	// Fixup... need 0 instead of ':'.
+						++p;	// Skip and continue.
+						continue;
+					}
+					goto OUT;
+				}
+				addr6x[i++] = *p++;
+				if (!((i+1) % 5)) {
+					addr6x[i++] = ':';
+				}
+			} while (i < 40+28+7);
+
+			inet_pton(AF_INET6, addr6x, (struct sockaddr *) &snaddr6.sin6_addr);
+			inet_ntop(AF_INET6, &snaddr6.sin6_addr, addr6, sizeof(addr6));
+			inet_pton(AF_INET6, addr6x + 40, (struct sockaddr *) &snaddr6.sin6_addr);
+			inet_ntop(AF_INET6, &snaddr6.sin6_addr, nhop6, sizeof(nhop6));
+
+			web_printf("%s['%s','%s/%d','%s','',%u]", n ? "," : "", dev, addr6, pxlen, nhop6, metric);
+			++n;
+		}
+OUT:
+		fclose(f);
+	}
+#endif
+
 	web_puts("];\n");
 }
 
