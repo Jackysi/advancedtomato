@@ -793,7 +793,6 @@ static void filter6_input(void)
 	char *sec;
 	char *hit;
 	int n;	
-	char *pfx_len;
 
 	ip6t_write(
 		"-A INPUT -m rt --rt-type 0 -j %s\n"
@@ -829,16 +828,11 @@ static void filter6_input(void)
 		if (n & 2) ip6t_write("-A INPUT -i %s -p tcp --dport %s -m state --state NEW -j shlimit\n", lanface, nvram_safe_get("telnetd_port"));
 	}
 #endif
-	
-	if (!(pfx_len = nvram_get("ipv6_prefix_length")) || !(atoi(pfx_len) > 0))
-		pfx_len = "64";
 
 	ip6t_write(
-		"-A INPUT -i %s -s fe80::/10 -j ACCEPT\n" // link-local
-		"-A INPUT -i %s -s ff00::/10 -j ACCEPT\n" // multicast
-		"-A INPUT -i %s -s %s/%s -j ACCEPT\n" // addresses in LAN
+		"-A INPUT -i %s -j ACCEPT\n" // anything coming from LAN
 		"-A INPUT -i lo -j ACCEPT\n",
-			lanface, lanface, lanface, nvram_safe_get("ipv6_prefix"), pfx_len);
+			lanface );
 
 	// ICMPv6 rules
 	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
@@ -880,7 +874,7 @@ static void filter6_forward(void)
 
 #ifdef LINUX26
 	modprobe("xt_length");
-	ip6t_write("-A INPUT -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
+	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
 #endif
 
 
