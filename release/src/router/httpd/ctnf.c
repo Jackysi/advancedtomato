@@ -189,13 +189,15 @@ void asp_ctdump(int argc, char **argv)
 	int findmark;
 	unsigned int proto;
 	unsigned int time;
-#ifdef LINUX26
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 	unsigned int family;
-#else
-	const unsigned int family = 2;
-#endif
 	char src[INET6_ADDRSTRLEN];
 	char dst[INET6_ADDRSTRLEN];
+#else
+	const unsigned int family = 2;
+	char src[INET_ADDRSTRLEN];
+	char dst[INET_ADDRSTRLEN];
+#endif
 	char sport[16];
 	char dport[16];
 	char byteso[16];
@@ -241,7 +243,7 @@ add bytes out/in to table
 
 	web_puts("\nctdump = [");
 	comma = ' ';
-#ifdef LINUX26
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 	if ((f = fopen("/proc/net/nf_conntrack", "r")) != NULL) {
 #else
 	if ((f = fopen("/proc/net/ip_conntrack", "r")) != NULL) {
@@ -252,7 +254,7 @@ add bytes out/in to table
 			if ((p = strstr(s, " mark=")) == NULL) continue;
 			if ((mark = (atoi(p + 6) & 0xFF)) > 10) mark = 0;
 			if ((findmark != -1) && (mark != findmark)) continue;
-#ifdef LINUX26
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 			if (sscanf(s, "%*s %u %*s %u %u", &family, &proto, &time) != 3) continue;
 			if ((p = strstr(s + 25, "src=")) == NULL) continue;
 #else
@@ -295,7 +297,7 @@ add bytes out/in to table
 				if (inet_pton(AF_INET6, src, &in6) <= 0) continue;
 				inet_ntop(AF_INET6, &in6, src, sizeof src);
 
-				if (IP6_PREFIX_NOT_MATCH(rip6, in6, lan6_prefix_len))
+				if (IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len))
 					dir_reply = 1;
 
 				if (inet_pton(AF_INET6, dst, &in6) <= 0) continue;
@@ -321,10 +323,8 @@ add bytes out/in to table
 
 void asp_ctrate(int argc, char **argv)
 {
-	unsigned int a_time, a_proto, a_fam;
+	unsigned int a_time, a_proto;
 	unsigned int a_bytes_o, a_bytes_i;
-	char a_src[INET6_ADDRSTRLEN];
-	char a_dst[INET6_ADDRSTRLEN];
 	char a_sport[16];
 	char a_dport[16];
 
@@ -332,7 +332,16 @@ void asp_ctrate(int argc, char **argv)
 	int x;
 	int len;
 
-	unsigned int b_time, b_proto, b_fam;
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	unsigned int a_fam, b_fam;
+	char a_src[INET6_ADDRSTRLEN];
+	char a_dst[INET6_ADDRSTRLEN];
+#else
+	char a_src[INET_ADDRSTRLEN];
+	char a_dst[INET_ADDRSTRLEN];
+#endif
+
+	unsigned int b_time, b_proto;
 	unsigned int b_bytes_o, b_bytes_i;
 
 	char sa[512];
@@ -378,8 +387,12 @@ void asp_ctrate(int argc, char **argv)
 
 	web_puts("\nctrate = [");
 	comma = ' ';
-	
+
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 	const char name[] = "/proc/net/nf_conntrack";
+#else
+	const char name[] = "/proc/net/ip_conntrack";	
+#endif
 
 	if (argc != 2) return;
 	
@@ -408,7 +421,11 @@ void asp_ctrate(int argc, char **argv)
 
 	// a = current, b = previous
 	while (fgets(sa, sizeof(sa), a)) {
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 		if (sscanf(sa, "%*s %u %*s %u %u", &a_fam, &a_proto, &a_time) != 3) continue;
+#else
+		if (sscanf(sa, "%u %u", &a_proto, &a_time) != 2) continue;
+#endif
 		if ((a_proto != 6) && (a_proto != 17)) continue;
 		if ((p = strstr(sa, "src=")) == NULL) continue;
 		
@@ -419,17 +436,19 @@ void asp_ctrate(int argc, char **argv)
 		
 		dir_reply = 0;
 
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 		switch(a_fam){
 			case 2:
+#endif
 				if ((inet_addr(a_src) & mask) != lan)  dir_reply = 1;
 				else if (rip != 0 && inet_addr(a_dst) == rip) continue;
-				break;
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
+				break;
 			case 10:
 				if (inet_pton(AF_INET6, a_src, &in6) <= 0) continue;
 				inet_ntop(AF_INET6, &in6, a_src, sizeof a_src);
 
-				if (IP6_PREFIX_NOT_MATCH(rip6, in6, lan6_prefix_len))
+				if (IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len))
 					dir_reply = 1;
 
 				if (inet_pton(AF_INET6, a_dst, &in6) <= 0) continue;
@@ -438,18 +457,21 @@ void asp_ctrate(int argc, char **argv)
 				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
 					continue;
 				break;
-#endif
 			default:
 				continue;
 		}
-
+#endif
 		
 		b_pos = ftell(b);
 		n = 0;
 		while (fgets(sb, sizeof(sb), b) && ++n < MAX_SEARCH) {
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 			if (sscanf(sb, "%*s %u %*s %u %u", &b_fam, &b_proto, &b_time) != 3) continue;
-			if ((b_proto != a_proto)) continue;
 			if ((b_fam   != a_fam)) continue;
+#else
+			if (sscanf(sb, "%u %u", &b_proto, &b_time) != 2) continue;
+#endif
+			if ((b_proto != a_proto)) continue;
 			if ((q = strstr(sb, "src=")) == NULL) continue;
 			
 			if (strncmp(p, q, (size_t)len)) continue;
