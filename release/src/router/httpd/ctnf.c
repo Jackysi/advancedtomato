@@ -186,6 +186,7 @@ void asp_ctdump(int argc, char **argv)
 	char *p, *q;
 	int x;
 	int mark;
+	int rule;
 	int findmark;
 	unsigned int proto;
 	unsigned int time;
@@ -252,7 +253,9 @@ add bytes out/in to table
 		while (fgets(s, sizeof(s), f)) {
 			dir_reply = 0;
 			if ((p = strstr(s, " mark=")) == NULL) continue;
-			if ((mark = (atoi(p + 6) & 0xFF)) > 10) mark = 0;
+			mark = atoi(p + 6);
+			rule = (mark >> 20) & 0xFF;
+			if ((mark &= 0xFF) > 10) mark = 0;
 			if ((findmark != -1) && (mark != findmark)) continue;
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 			if (sscanf(s, "%*s %u %*s %u %u", &family, &proto, &time) != 3) continue;
@@ -310,10 +313,10 @@ add bytes out/in to table
 			}
 
 			if (dir_reply == 1) {
-				web_printf("%c[%u,%u,'%s','%s','%s','%s','%s','%s',%d]", comma, proto, time, dst, src, dport, sport, bytesi, byteso, mark );
+				web_printf("%c[%u,%u,'%s','%s','%s','%s','%s','%s',%d,%d]", comma, proto, time, dst, src, dport, sport, bytesi, byteso, mark, rule );
 			}
 			else {
-				web_printf("%c[%u,%u,'%s','%s','%s','%s','%s','%s',%d]", comma, proto, time, src, dst, sport, dport, byteso, bytesi, mark );
+				web_printf("%c[%u,%u,'%s','%s','%s','%s','%s','%s',%d,%d]", comma, proto, time, src, dst, sport, dport, byteso, bytesi, mark, rule );
 			} 
 			comma = ',';
 		}

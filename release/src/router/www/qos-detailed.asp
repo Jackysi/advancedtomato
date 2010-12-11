@@ -19,9 +19,12 @@
 <!-- / / / -->
 <style type='text/css'>
 #grid .co7 {
-	text-align: right;
+	width: 20px;
 }
 #grid .co8 {
+	text-align: right;
+}
+#grid .co9 {
 	text-align: right;
 }
 </style>
@@ -92,8 +95,10 @@ var grid = new TomatoGrid();
 grid.dataToView = function(data) {
 	var s, v = [];
 	for (var i = 0; i < data.length; ++i) {
-		if (i == 5)
+		if (i == 5)		// Class
 			s = abc[data[i]] || ('' + data[i]);
+		else if (i == 6)	// Rule #
+			s = (data[i] * 1 > 0) ? ('' + data[i]) : '';
 		else
 			s = '' + data[i];
 		v.push(s);
@@ -109,13 +114,14 @@ grid.sortCompare = function(a, b) {
 	var r;
 
 	switch (col) {
-	case 2:
-	case 4:
-	case 6:
-	case 7:
+	case 2:		// S port
+	case 4:		// D port
+	case 6:		// Rule #
+	case 7:		// Bytes out
+	case 8:		// Bytes in
 		r = cmpInt(da[col], db[col]);
 		break;
-	case 5:
+	case 5:		// Class
 		r = cmpInt(da[col] ? da[col] : 10000, db[col] ? db[col] : 10000);
 		break;
 /* REMOVE-BEGIN
@@ -184,7 +190,7 @@ grid.setName = function(ip, name) {
 		data = row.getRowData();
 		for (j = cols.length-1; j >= 0; j--) {
 			if (data[cols[j]] == ip) {
-				data[cols[j]] = name + ' <small>(' + ip + ')</small>';
+				data[cols[j]] = name + '<br><small>' + ip + '</small>';
 				row.setRowData(data);
 				row.cells[cols[j]].innerHTML = data[cols[j]];
 				row.style.cursor = 'default';
@@ -195,7 +201,7 @@ grid.setName = function(ip, name) {
 
 grid.setup = function() {
 	this.init('grid', 'sort');
-	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Bytes Out', 'Bytes In']);
+	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Rule', 'Bytes Out', 'Bytes In']);
 }
 
 var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_detailed');
@@ -230,7 +236,7 @@ ref.refresh = function(text)
 			ip = b[cols[j]];
 			if (cache[ip] != null) {
 				c[ip] = cache[ip];
-				b[cols[j]] = cache[ip] + ' <small>(' + ip + ')</small>';
+				b[cols[j]] = cache[ip] + ' <br><small>' + ip + '</small>';
 				cursor = 'default';
 			}
 			else {
@@ -244,7 +250,7 @@ ref.refresh = function(text)
 				else cursor = null;
 			}
 		}
-		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8], b[6], b[7]];
+		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8], b[9], b[6], b[7]];
 		var row = grid.insertData(-1, d);
 		if (cursor) row.style.cursor = cursor;
 	}

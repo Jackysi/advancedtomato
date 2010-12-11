@@ -34,7 +34,9 @@
 #qg .co3 {
 	width: 300px;
 }
-
+#qg .co4 {
+	width: 40px;
+}
 #qg .x1a {
 	width: 35%;
 	float: left;
@@ -112,6 +114,7 @@ layer7.unshift(['', 'Layer 7 (disabled)']);
 var class1 = [[-1,'Disabled']];
 for (i = 0; i < 10; ++i) class1.push([i, abc[i]]);
 var class2 = class1.slice(1);
+var ruleCounter = 0;
 
 var qosg = new TomatoGrid();
 
@@ -147,7 +150,7 @@ qosg.dataToView = function(data) {
 	if (data[7] != '') {
 		b.push('Transferred: ' + data[7] + ((data[8] == '') ? '<small>KB+</small>' : (' - ' + data[8] + '<small>KB</small>')));
 	}
-	return [b.join('<br>'), class1[(data[9] * 1) + 1][1], escapeHTML(data[10])];
+	return [b.join('<br>'), class1[(data[9] * 1) + 1][1], escapeHTML(data[10]), (ruleCounter >= 0) ? ''+ ++ruleCounter : ''];
 }
 
 qosg.fieldValuesToData = function(row) {
@@ -274,7 +277,7 @@ qosg.setup = function() {
 		{ type: 'text', maxlen: 32, vtop: 1 }
 	]);
 
-	this.headerSet(['Match Rule', 'Class', 'Description']);
+	this.headerSet(['Match Rule', 'Class', 'Description', '#']);
 
 // addr_type < addr < proto < port_type < port < ipp2p < L7 < bcount < class < desc
 
@@ -294,6 +297,7 @@ qosg.setup = function() {
 		b[4] = b[4].replace(/:/g, '-');
 		qosg.insertData(-1, b);
 	}
+	ruleCounter = -1;
 
 	this.showNewEditor();
 	this.resetNewEditor();
