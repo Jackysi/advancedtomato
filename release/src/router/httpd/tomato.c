@@ -251,8 +251,15 @@ static void wo_nvram(char *url)
 
 static void wo_iptables(char *url)
 {
-	web_pipecmd("iptables -nvL; iptables -t nat -nvL; iptables -t mangle -nvL", WOF_NONE);
+	web_pipecmd("iptables -nvL; echo; iptables -t nat -nvL; echo; iptables -t mangle -nvL", WOF_NONE);
 }
+
+#ifdef TCONFIG_IPV6
+static void wo_ip6tables(char *url)
+{
+	web_pipecmd("ip6tables -nvL; echo; ip6tables -t mangle -nvL", WOF_NONE);
+}
+#endif
 
 /*
 static void wo_spin(char *url)
@@ -287,7 +294,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "cfe/*.bin",		mime_binary,				0,	wi_generic,			wo_cfe,			1 },
 	{ "nvram/*.txt",	mime_binary,				0,	wi_generic,			wo_nvram,		1 },
 	{ "ipt/*.txt",		mime_binary,				0,	wi_generic,			wo_iptables,	1 },
-
+#ifdef TCONFIG_IPV6
+	{ "ip6t/*.txt",		mime_binary,				0,	wi_generic,			wo_ip6tables,	1 },
+#endif
 	{ "cfg/*.cfg",			NULL,					0,	wi_generic,			wo_backup,		1 },
 	{ "cfg/restore.cgi",	mime_html,				0,	wi_restore,			wo_restore,		1 },
 	{ "cfg/defaults.cgi",	NULL,					0,	wi_generic,	 		wo_defaults,	1 },

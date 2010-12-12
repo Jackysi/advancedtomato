@@ -115,6 +115,9 @@ createFieldTable('', [
 
 &raquo; <a href='/cfe/cfe.bin?_http_id=<% nv(http_id); %>'>Download CFE</a><br>
 &raquo; <a href='/ipt/iptables.txt?_http_id=<% nv(http_id); %>'>Download Iptables Dump</a><br>
+<!-- IPV6-BEGIN -->
+&raquo; <a href='/ip6t/ip6tables.txt?_http_id=<% nv(http_id); %>'>Download Ip6tables Dump</a><br>
+<!-- IPV6-END -->
 &raquo; <a href='/logs/syslog.txt?_http_id=<% nv(http_id); %>'>Download Logs</a><br>
 &raquo; <a href='/nvram/nvram.txt?_http_id=<% nv(http_id); %>'>Download NVRAM Dump</a><br>
 <br>
