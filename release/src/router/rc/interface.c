@@ -159,7 +159,7 @@ int start_vlan(void)
 {
 	int s;
 	struct ifreq ifr;
-	int i, j;
+	int i, j, vlan0tag;
 	char ea[ETHER_ADDR_LEN];
 
 	if ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) == 0) return 0;
@@ -170,6 +170,8 @@ int start_vlan(void)
 	/* create vlan interfaces */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 		return errno;
+
+	vlan0tag = nvram_get_int("vlan0tag");
 
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		char nvvar_name[16];
@@ -203,10 +205,10 @@ int start_vlan(void)
 		if (!(ifr.ifr_flags & IFF_UP))
 			ifconfig(ifr.ifr_name, IFUP, 0, 0);
 		/* create the VLAN interface */
-		snprintf(vlan_id, sizeof(vlan_id), "%d", i);
+		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);
 		/* setup ingress map (vlan->priority => skb->priority) */
-		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i);
+		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | vlan0tag);
 		for (j = 0; j < VLAN_NUMPRIS; j ++) {
 			snprintf(prio, sizeof(prio), "%d", j);
 			eval("vconfig", "set_ingress_map", vlan_id, prio, prio);
@@ -227,7 +229,7 @@ int stop_vlan(void)
 	char *hwname;
 
 	if ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) == 0) return 0;
-	
+
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		/* get the address of the EMAC on which the VLAN sits */
 		snprintf(nvvar_name, sizeof(nvvar_name), "vlan%dhwname", i);
@@ -235,7 +237,7 @@ int stop_vlan(void)
 			continue;
 
 		/* remove the VLAN interface */
-		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i);
+		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | nvram_get_int("vlan0tag"));
 		eval("vconfig", "rem", vlan_id);
 	}
 
