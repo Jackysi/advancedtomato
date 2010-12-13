@@ -648,7 +648,8 @@ static void filter_input(void)
 
 	// IGMP query from WAN interface
 	if (nvram_match("multicast_pass", "1")) {
-		ipt_write("-A INPUT -p igmp -j ACCEPT\n");
+		ipt_write("-A INPUT -p igmp -d 224.0.0.0/4 -j ACCEPT\n");
+		ipt_write("-A INPUT -p udp -d 224.0.0.0/4 ! --dport 1900 -j ACCEPT\n");
 	}
 
 	// Routing protocol, RIP, accept
@@ -731,7 +732,7 @@ static void filter_forward(void)
 
 	if (wanup) {
 		if (nvram_match("multicast_pass", "1")) {
-			ipt_write("-A wanin -p udp -m udp -d 224.0.0.0/4 -j %s\n", chain_in_accept);
+			ipt_write("-A wanin -p udp -d 224.0.0.0/4 -j %s\n", chain_in_accept);
 		}
 		ipt_triggered(IPT_TABLE_FILTER);
 		ipt_forward(IPT_TABLE_FILTER);
@@ -964,26 +965,6 @@ int start_firewall(void)
 	wanproto = get_wan_proto();
 	wanup = check_wanup();
 
-
-	/*
-		block obviously spoofed IP addresses
-
-		rp_filter - BOOLEAN
-			1 - do source validation by reversed path, as specified in RFC1812
-			    Recommended option for single homed hosts and stub network
-			    routers. Could cause troubles for complicated (not loop free)
-			    networks running a slow unreliable protocol (sort of RIP),
-			    or using static routes.
-			0 - No source validation.
-	*/
-	if ((dir = opendir("/proc/sys/net/ipv4/conf")) != NULL) {
-		while ((dirent = readdir(dir)) != NULL) {
-			sprintf(s, "/proc/sys/net/ipv4/conf/%s/rp_filter", dirent->d_name);
-			f_write_string(s, "1", 0, 0);
-		}
-		closedir(dir);
-	}
-
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
 
 	/* NAT performance tweaks
@@ -1056,6 +1037,29 @@ int start_firewall(void)
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
 	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
 	strlcpy(lan_cclass, s, sizeof(lan_cclass));
+
+	/*
+		block obviously spoofed IP addresses
+
+		rp_filter - BOOLEAN
+			1 - do source validation by reversed path, as specified in RFC1812
+			    Recommended option for single homed hosts and stub network
+			    routers. Could cause troubles for complicated (not loop free)
+			    networks running a slow unreliable protocol (sort of RIP),
+			    or using static routes.
+			0 - No source validation.
+	*/
+	c = nvram_get("wan_ifname");
+	/* mcast needs rp filter to be turned off only for non default iface */
+	if (!(nvram_match("multicast_pass", "1")) || strcmp(wanface, c) == 0) c = NULL;
+
+	if ((dir = opendir("/proc/sys/net/ipv4/conf")) != NULL) {
+		while ((dirent = readdir(dir)) != NULL) {
+			sprintf(s, "/proc/sys/net/ipv4/conf/%s/rp_filter", dirent->d_name);
+			f_write_string(s, (c && strcmp(dirent->d_name, c) == 0) ? "0" : "1", 0, 0);
+		}
+		closedir(dir);
+	}
 
 	gateway_mode = !nvram_match("wk_mode", "router");
 	if (gateway_mode) {
