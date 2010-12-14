@@ -307,6 +307,10 @@ define RouterOptions
 		echo "TCONFIG_LZO=y" >>$(1); \
 		sed -i "/TCONFIG_OPENVPN/d" $(1); \
 		echo "TCONFIG_OPENVPN=y" >>$(1); \
+		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+			sed -i "/TCONFIG_FTP_SSL/d" $(1); \
+			echo "TCONFIG_FTP_SSL=y" >>$(1); \
+		fi; \
 	fi; \
 	)
 endef
