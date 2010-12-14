@@ -17,6 +17,7 @@
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
+
 <style type='text/css'>
 #grid .co6 {
 	text-align: right;
@@ -32,22 +33,7 @@
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
 
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A','Class B','Class C','Class D','Class E'];
-var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
-
-if ((readDelay = '<% cgi_get("delay"); %>') == '') {
-	readDelay = 2;
-}
-else if ((isNaN(readDelay *= 1)) || (readDelay < 1) || (readDelay > 30)) {
-	readDelay = 2;
-}
-
-if ((thres = '<% cgi_get("thres"); %>') == '') {
-	thres = 100;
-}
-else if (isNaN(thres *= 1)) {
-	thres = 100;
-}
+readDelay = fixInt('<% cgi_get("delay"); %>', 2, 30, 2);
 
 var queue = [];
 var xob = null;
@@ -89,12 +75,37 @@ function resolveChanged()
 	b = E('resolve').checked ? 1 : 0;
 	if (b != resolveCB) {
 		resolveCB = b;
-		cookie.set('qos-resolve', b);
+		cookie.set('qos_ctr_resolve', b);
 		if (b) grid.resolveAll();
 	}
 }
 
+var thres = 0;
+
+function thresChanged()
+{
+	var a, b;
+
+	b = E('thres').checked ? fixInt('<% cgi_get("thres"); %>', 100, 10000000, 100) : 0;
+	if (b != thres) {
+		thres = b;
+		cookie.set('qos_ctr_thres', b);
+		ref.postData = 'exec=ctrate&arg0=' + readDelay + '&arg1=' + thres;
+		if (!ref.running) ref.once = 1;
+		E('loading').style.visibility = '';
+		ref.start();
+	}
+}
+
 var grid = new TomatoGrid();
+
+grid.dataToView = function(data) {
+	var v = [];
+	for (var i = 0; i < data.length; ++i) {
+		v.push('' + data[i]);
+	}
+	return v;
+}
 
 grid.sortCompare = function(a, b) {
 	var obj = TGO(a);
@@ -112,16 +123,17 @@ grid.sortCompare = function(a, b) {
 	case 6:
 		r = cmpFloat(da[col], db[col]);
 		break;		
-/*
+/* REMOVE-BEGIN
 	case 1:
-	case 4:
+	case 3:
 		var a = fixIP(da[col]);
 		var b = fixIP(db[col]);
 		if ((a != null) && (b != null)) {
 			r = aton(a) - aton(b);
 			break;
 		}
-*/		// fall
+		// fall
+REMOVE-END */
 	default:
 		r = cmpText(da[col], db[col]);
 		break;
@@ -188,7 +200,7 @@ grid.setName = function(ip, name) {
 
 grid.setup = function() {
 	this.init('grid', 'sort');
-	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'Upload Rate', 'Download Rate']);
+	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'UL Rate', 'DL Rate']);
 }
 
 var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_ctrate');
@@ -238,7 +250,7 @@ ref.refresh = function(text)
 			}
 		}
 		d = [protocols[b[0]] || b[0], b[1], b[3], b[2], b[4], '' + (b[5]/(readDelay*1024)).toFixed(1), '' + (b[6]/(readDelay*1024)).toFixed(1)];
-		var row = grid.insert(-1, d, d, false);
+		var row = grid.insertData(-1, d);
 		if (cursor) row.style.cursor = cursor;
 	}
 	cache = c;
@@ -257,9 +269,14 @@ function init()
 {
 	var c;
 
-	if (((c = cookie.get('qos-resolve')) != null) && (c == '1')) {
+	if (((c = cookie.get('qos_ctr_resolve')) != null) && (c == '1')) {
 		E('resolve').checked = resolveCB = 1;
 	}
+
+	if ((thres = cookie.get('qos_ctr_thres')) == null || isNaN(thres *= 1)) {
+		thres = 0;
+	}
+	E('thres').checked = (thres != 0);
 
 	grid.setup();
 	ref.postData = 'exec=ctrate&arg0=' + readDelay + '&arg1=' + thres;
@@ -269,6 +286,7 @@ function init()
 	ref.start();
 }
 </script>
+
 </head>
 <body onload='init()'>
 <form id='_fom' action='javascript:{}'>
@@ -283,10 +301,13 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details</div>
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Transfer Rates</div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 <input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> Automatically Resolve Addresses
+&nbsp;&nbsp;&nbsp;
+<input type='checkbox' id='thres' onclick='thresChanged()' onchange='thresChanged()'> Hide Inactive Connections
+
 <div id='loading'><br><b>Loading...</b></div>
 </div>
 

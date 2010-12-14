@@ -82,12 +82,24 @@ function resolveChanged()
 	b = E('resolve').checked ? 1 : 0;
 	if (b != resolveCB) {
 		resolveCB = b;
-		cookie.set('qos-resolve', b);
+		cookie.set('qos_resolve', b);
 		if (b) grid.resolveAll();
 	}
 }
 
 var grid = new TomatoGrid();
+
+grid.dataToView = function(data) {
+	var s, v = [];
+	for (var i = 0; i < data.length; ++i) {
+		if (i == 5)
+			s = abc[data[i]] || ('' + data[i]);
+		else
+			s = '' + data[i];
+		v.push(s);
+	}
+	return v;
+}
 
 grid.sortCompare = function(a, b) {
 	var obj = TGO(a);
@@ -103,16 +115,20 @@ grid.sortCompare = function(a, b) {
 	case 7:
 		r = cmpInt(da[col], db[col]);
 		break;
-/*
+	case 5:
+		r = cmpInt(da[col] ? da[col] : 10000, db[col] ? db[col] : 10000);
+		break;
+/* REMOVE-BEGIN
 	case 1:
-	case 4:
+	case 3:
 		var a = fixIP(da[col]);
 		var b = fixIP(db[col]);
 		if ((a != null) && (b != null)) {
 			r = aton(a) - aton(b);
 			break;
 		}
-*/		// fall
+		// fall
+REMOVE-END */
 	default:
 		r = cmpText(da[col], db[col]);
 		break;
@@ -228,8 +244,8 @@ ref.refresh = function(text)
 				else cursor = null;
 			}
 		}
-		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8] + (abc[b[8]] ? (':&nbsp;' + abc[b[8]]) : ''), b[6], b[7]];
-		var row = grid.insert(-1, d, d, false);
+		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8], b[6], b[7]];
+		var row = grid.insertData(-1, d);
 		if (cursor) row.style.cursor = cursor;
 	}
 	cache = c;
@@ -248,7 +264,7 @@ function init()
 {
 	var c;
 
-	if (((c = cookie.get('qos-resolve')) != null) && (c == '1')) {
+	if (((c = cookie.get('qos_resolve')) != null) && (c == '1')) {
 		E('resolve').checked = resolveCB = 1;
 	}
 
