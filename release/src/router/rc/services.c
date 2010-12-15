@@ -482,10 +482,14 @@ void stop_ipv6_sit_tunnel(void)
 	modprobe_r("sit");
 }
 
+static pid_t pid_radvd = -1;
+
 void start_radvd(void)
 {
 	FILE *f;
 	char *prefix;
+
+	stop_radvd();
 
 	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1")) {
 
@@ -521,11 +525,16 @@ void start_radvd(void)
 
 		// Start radvd
 		eval("radvd");
+
+		if (!nvram_contains_word("debug_norestart", "radvd")) {
+			pid_radvd = -2;
+		}
 	}
 }
 
 void stop_radvd(void)
 {
+	pid_radvd = -1;
 	killall_tk("radvd");
 }
 
@@ -1650,6 +1659,9 @@ void check_services(void)
 	_check(pid_dnsmasq, "dnsmasq", start_dnsmasq);
 	_check(pid_crond, "crond", start_cron);
 	_check(pid_igmp, "igmpproxy", start_igmp_proxy);
+#ifdef TCONFIG_IPV6
+	_check(pid_radvd, "radvd", start_radvd);
+#endif
 }
 
 // -----------------------------------------------------------------------------
