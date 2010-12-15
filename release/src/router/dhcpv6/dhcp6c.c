@@ -1842,15 +1842,6 @@ client6_recvreply(ifp, dh6, len, optinfo)
 	}
 
 	/*
-	 * Call the configuration script, if specified, to handle various
-	 * configuration parameters.
-	 */
-	if (ifp->scriptpath != NULL && strlen(ifp->scriptpath) != 0) {
-		dprintf(LOG_DEBUG, FNAME, "executes %s", ifp->scriptpath);
-		client6_script(ifp->scriptpath, state, optinfo);
-	}
-
-	/*
 	 * Set refresh timer for configuration information specified in
 	 * information-request.  If the timer value is specified by the server
 	 * in an information refresh time option, use it; use the protocol
@@ -1900,6 +1891,15 @@ client6_recvreply(ifp, dh6, len, optinfo)
 		    &optinfo->serverID, ev->authparam);
 		update_ia(IATYPE_NA, &optinfo->iana_list, ifp,
 		    &optinfo->serverID, ev->authparam);
+	}
+
+	/*
+	 * Call the configuration script, if specified, to handle various
+	 * configuration parameters.
+	 */
+	if (ifp->scriptpath != NULL && strlen(ifp->scriptpath) != 0) {
+		dprintf(LOG_DEBUG, FNAME, "executes %s", ifp->scriptpath);
+		client6_script(ifp->scriptpath, state, optinfo);
 	}
 
 	dhcp6_remove_event(ev);
