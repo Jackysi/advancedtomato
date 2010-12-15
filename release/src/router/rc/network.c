@@ -104,8 +104,8 @@ void set_lan_hostname(const char *wan_hostname)
 #ifdef TCONFIG_IPV6
 		if (ipv6_enabled()) {
 			fprintf(f, "::1  localhost\n");
-			if ((s = nvram_get("ipv6_rtr_addr")) && (*s))
-				fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+			s = ipv6_router_address(NULL);
+			if (*s) fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
 		}
 #endif
 		fclose(f);

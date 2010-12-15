@@ -66,6 +66,27 @@ int get_ipv6_service(void)
 	}
 	return IPV6_DISABLED;
 }
+
+const char *ipv6_router_address(struct in6_addr *in6addr)
+{
+	char *p;
+	struct in6_addr addr;
+	static char addr6[40];
+
+	if ((p = nvram_get("ipv6_rtr_addr")) && *p) {
+		inet_pton(AF_INET6, p, &addr);
+	}
+	else {
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &addr);
+		addr.s6_addr16[7] = htons(0x0001);
+	}
+
+	inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
+	if (in6addr)
+		memcpy(in6addr, &addr, sizeof(addr));
+
+	return addr6;
+}
 #endif
 
 int using_dhcpc(void)

@@ -107,9 +107,14 @@ function verifyFields(focused, quiet)
 	}
 
 	// IPv6 address
-	a = ['_ipv6_prefix', '_ipv6_tun_addr', '_ipv6_rtr_addr'];
+	a = ['_ipv6_prefix', '_ipv6_tun_addr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
+
+	// optional IPv6 address
+	a = ['_ipv6_rtr_addr'];
+	for (i = a.length - 1; i >= 0; --i)
+		if ((vis[a[i]]) && (E(a[i]).value.length > 0) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
 
 	return ok;
 }

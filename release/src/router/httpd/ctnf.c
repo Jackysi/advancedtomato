@@ -226,8 +226,8 @@ void asp_ctdump(int argc, char **argv)
 
 	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
 	if (ipv6_enabled()) {
-		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
+		ipv6_router_address(&rip6);
 	}
 #endif
 	
@@ -382,8 +382,8 @@ void asp_ctrate(int argc, char **argv)
 
 	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
 	if (ipv6_enabled()) {
-		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
+		ipv6_router_address(&rip6);
 	}
 #endif
 	

@@ -508,7 +508,8 @@ void start_ipv6(void)
 
 	// Check if turned on
 	if (service != IPV6_DISABLED) {
-		if ((p = nvram_get("ipv6_rtr_addr")) && (*p)) {
+		p = (char *)ipv6_router_address(NULL);
+		if (*p) {
 			strcpy(ip, p);
 			strcat(ip, "/");
 			if ((p = nvram_get("ipv6_prefix_length")) && (atoi(p) > 0))
