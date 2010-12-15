@@ -105,7 +105,7 @@ void wi_cgi_bin(char *url, int len, char *boundary)
 	post_buf = NULL;
 
 	if (post) {
-		if (len >= (32 * 1024)) {
+		if (len >= (128 * 1024)) {
 			syslog(LOG_WARNING, "POST length exceeded maximum allowed");
 			exit(1);
 		}
