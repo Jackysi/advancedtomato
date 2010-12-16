@@ -225,7 +225,7 @@ void asp_ctdump(int argc, char **argv)
 	int lan6_prefix_len;
 
 	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
-	if (nvram_invmatch("ipv6_service", "")) {
+	if (ipv6_enabled()) {
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
 	}
@@ -340,6 +340,7 @@ void asp_ctrate(int argc, char **argv)
 	char a_src[INET6_ADDRSTRLEN];
 	char a_dst[INET6_ADDRSTRLEN];
 #else
+	const unsigned int a_fam = 2;
 	char a_src[INET_ADDRSTRLEN];
 	char a_dst[INET_ADDRSTRLEN];
 #endif
@@ -380,7 +381,7 @@ void asp_ctrate(int argc, char **argv)
 	int lan6_prefix_len;
 
 	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
-	if (nvram_invmatch("ipv6_service", "")) {
+	if (ipv6_enabled()) {
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &rip6);
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
 	}
@@ -439,14 +440,12 @@ void asp_ctrate(int argc, char **argv)
 		
 		dir_reply = 0;
 
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
-		switch(a_fam){
+		switch(a_fam) {
 			case 2:
-#endif
 				if ((inet_addr(a_src) & mask) != lan)  dir_reply = 1;
 				else if (rip != 0 && inet_addr(a_dst) == rip) continue;
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
 				break;
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 			case 10:
 				if (inet_pton(AF_INET6, a_src, &in6) <= 0) continue;
 				inet_ntop(AF_INET6, &in6, a_src, sizeof a_src);
@@ -462,8 +461,8 @@ void asp_ctrate(int argc, char **argv)
 				break;
 			default:
 				continue;
-		}
 #endif
+		}
 		
 		b_pos = ftell(b);
 		n = 0;

@@ -55,6 +55,7 @@ typedef u_int8_t u8;
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
 #include <arpa/inet.h>
+#include <dirent.h>
 
 #include <wlutils.h>
 #include <bcmparams.h>
@@ -98,8 +99,15 @@ void set_lan_hostname(const char *wan_hostname)
 
 	if ((f = fopen("/etc/hosts", "w"))) {
 		fprintf(f, "127.0.0.1  localhost\n");
-		fprintf(f, "%s  %s\n",
-			nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan_ipaddr")) && (*s))
+			fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+#ifdef TCONFIG_IPV6
+		if (ipv6_enabled()) {
+			fprintf(f, "::1  localhost\n");
+			if ((s = nvram_get("ipv6_rtr_addr")) && (*s))
+				fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+		}
+#endif
 		fclose(f);
 	}
 }
@@ -386,6 +394,23 @@ static int set_wlmac(int idx, int unit, int subunit, void *param)
 	return 1;
 }
 
+#ifdef TCONFIG_IPV6
+void enable_ipv6(int enable)
+{
+	DIR *dir;
+	struct dirent *dirent;
+	char s[256];
+
+	if ((dir = opendir("/proc/sys/net/ipv6/conf")) != NULL) {
+		while ((dirent = readdir(dir)) != NULL) {
+			sprintf(s, "/proc/sys/net/ipv6/conf/%s/disable_ipv6", dirent->d_name);
+			f_write_string(s, enable ? "0" : "1", 0, 0);
+		}
+		closedir(dir);
+	}
+}
+#endif
+
 void start_lan(void)
 {
 	_dprintf("%s %d\n", __FUNCTION__, __LINE__);
@@ -401,6 +426,9 @@ void start_lan(void)
 
 	foreach_wif(1, NULL, set_wlmac);
 	check_afterburner();
+#ifdef TCONFIG_IPV6
+	enable_ipv6(ipv6_enabled());
+#endif
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
 

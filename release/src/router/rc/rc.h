@@ -144,6 +144,9 @@ extern void do_static_routes(int add);
 extern int radio_main(int argc, char *argv[]);
 extern int wldist_main(int argc, char *argv[]);
 extern void start_wl(void);
+#ifdef TCONFIG_IPV6
+extern void enable_ipv6(int enable);
+#endif
 
 // dhcpc.c
 extern int dhcpc_event_main(int argc, char **argv);

@@ -48,6 +48,26 @@ int get_wan_proto(void)
 	return WP_DISABLED;
 }
 
+#ifdef TCONFIG_IPV6
+int get_ipv6_service(void)
+{
+	const char *names[] = {	// order must be synced with def at shared.h
+		"native",	// IPV6_NATIVE
+		"sit",		// IPV6_6IN4
+		"other",	// IPV6_MANUAL
+		NULL
+	};
+	int i;
+	const char *p;
+
+	p = nvram_safe_get("ipv6_service");
+	for (i = 0; names[i] != NULL; ++i) {
+		if (strcmp(p, names[i]) == 0) return i + 1;
+	}
+	return IPV6_DISABLED;
+}
+#endif
+
 int using_dhcpc(void)
 {
 	switch (get_wan_proto()) {

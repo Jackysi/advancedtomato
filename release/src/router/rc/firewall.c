@@ -86,6 +86,13 @@ void enable_ip_forward(void)
 			for routers)
 	*/
 	f_write_string("/proc/sys/net/ipv4/ip_forward", "1", 0, 0);
+
+#ifdef TCONFIG_IPV6
+	if (ipv6_enabled()) {
+		f_write_string("/proc/sys/net/ipv6/conf/default/forwarding", "1", 0, 0);
+		f_write_string("/proc/sys/net/ipv6/conf/all/forwarding", "1", 0, 0);
+	}
+#endif
 }
 
 
@@ -492,15 +499,24 @@ static void nat_table(void)
 			}
 		}
 		
+		p = "";
+#ifdef TCONFIG_IPV6
+		switch (get_ipv6_service()) {
+		case IPV6_6IN4:
+			// avoid NATing proto-41 packets when using 6in4 tunnel
+			p = "-p ! 41";
+			break;
+		}
+#endif
 		if ((!wanup) || (nvram_get_int("net_snat") != 1)) {
-			ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", wanface);
+			ipt_write("-A POSTROUTING %s -o %s -j MASQUERADE\n", p, wanface);
 			if (*manface)
-				ipt_write("-A POSTROUTING -o %s -j MASQUERADE\n", manface);
+				ipt_write("-A POSTROUTING %s -o %s -j MASQUERADE\n", p, manface);
 		}
 		else {
-			ipt_write("-A POSTROUTING -o %s -j SNAT --to-source %s\n", wanface, wanaddr);
+			ipt_write("-A POSTROUTING %s -o %s -j SNAT --to-source %s\n", p, wanface, wanaddr);
 			if (*manface && *manaddr)
-				ipt_write("-A POSTROUTING -o %s -j SNAT --to-source %s\n", manface, manaddr);
+				ipt_write("-A POSTROUTING %s -o %s -j SNAT --to-source %s\n", p, manface, manaddr);
 		}
 
 		switch (nvram_get_int("nf_loopback")) {
@@ -590,6 +606,17 @@ static void filter_input(void)
 		"-A INPUT -i %s -j ACCEPT\n"
 		"-A INPUT -i lo -j ACCEPT\n",
 			lanface);
+
+#ifdef TCONFIG_IPV6
+	switch (get_ipv6_service()) {
+	case IPV6_6IN4:
+		// Accept ICMP requests from the remote tunnel endpoint
+		if ((p = nvram_get("ipv6_tun_v4end")) && *p && strcmp(p, "0.0.0.0") != 0)
+			ipt_write("-A INPUT -p icmp -s %s -j %s\n", p, chain_in_accept);
+		ipt_write("-A INPUT -p 41 -j %s\n", chain_in_accept);
+		break;
+	}
+#endif
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
@@ -804,15 +831,15 @@ static void filter6_input(void)
 #ifdef LINUX26
 	modprobe("xt_length");
 	ip6t_write("-A INPUT -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
+#endif
 
 	strlcpy(s, nvram_safe_get("ne_shlimit"), sizeof(s));
 	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && ((n = atoi(en) & 3) != 0)) {
-/*
-		? what if the user uses the start button in GUI ?
-		if (nvram_get_int("telnetd_eas"))
-		if (nvram_get_int("sshd_eas"))
-*/
+#ifdef LINUX26
 		modprobe("xt_recent");
+#else
+		modprobe("ipt_recent");
+#endif
 
 		ip6t_write(
 			"-N shlimit\n"
@@ -828,7 +855,6 @@ static void filter6_input(void)
 		}
 		if (n & 2) ip6t_write("-A INPUT -i %s -p tcp --dport %s -m state --state NEW -j shlimit\n", lanface, nvram_safe_get("telnetd_port"));
 	}
-#endif
 
 	ip6t_write(
 		"-A INPUT -i %s -j ACCEPT\n" // anything coming from LAN
@@ -838,19 +864,23 @@ static void filter6_input(void)
 	// ICMPv6 rules
 	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
 	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
-		ip6t_write("-A INPUT -p icmpv6 --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
+		ip6t_write("-A INPUT -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
 	}
 
 	// Remote Managment
-	// TODO: create list for allowed remote ipv6 addresses? currently: unrestricted by src addr
-	if (remotemanage) {
-		ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-			nvram_safe_get("http_wanport"), chain_in_accept);
-	}
+	// TODO: create list for allowed remote ipv6 addresses?
+	// Currently: disabled if there is a non-empty list of allowed ipv4 addresses,
+	// otherwise unrestricted
+	if (strlen(nvram_get("rmgt_sip")) == 0) {
+		if (remotemanage) {
+			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+				nvram_safe_get("http_wanport"), chain_in_accept);
+		}
 
-	if (nvram_get_int("sshd_remote")) {
-		ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-			nvram_safe_get("sshd_rport"), chain_in_accept);
+		if (nvram_get_int("sshd_remote")) {
+			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+				nvram_safe_get("sshd_rport"), chain_in_accept);
+		}
 	}
 
 	// TODO: FTP server
@@ -902,7 +932,7 @@ static void filter6_forward(void)
 	// ICMPv6 rules
 	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
 	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
-		ip6t_write("-A FORWARD -p icmpv6 --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
+		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
 	}
 
 	if (wanup) {
@@ -928,7 +958,9 @@ static void filter_table(void)
 	filter_input();
 #ifdef TCONFIG_IPV6
 	filter6_input();
+	ip6t_write("-A OUTPUT -m rt --rt-type 0 -j %s\n", chain_in_drop);
 #endif
+
 	if ((gateway_mode) || (nvram_match("wk_mode_x", "1"))) {
 		ip46t_write(":FORWARD DROP [0:0]\n");
 		filter_forward();
@@ -1028,10 +1060,14 @@ int start_firewall(void)
 	}
 
 #ifdef TCONFIG_IPV6
-	if (nvram_match("ipv6_service", "native"))
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE:
 		strlcpy(wan6face, wanface, sizeof(wan6face));
-	else if (nvram_invmatch("ipv6_service", ""))
+		break;
+	default:
 		strlcpy(wan6face, nvram_safe_get("ipv6_ifname"), sizeof(wan6face));
+		break;
+	}
 #endif
 
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
@@ -1150,7 +1186,7 @@ int start_firewall(void)
 	}
 	
 #ifdef TCONFIG_IPV6
-	if (nvram_invmatch("ipv6_service", "")) {
+	if (ipv6_enabled()) {
 		notice_set("ip6tables", "");
 		if (_eval(ip6trestore_argv, ">/var/notice/ip6tables", 0, NULL) == 0) {
 			led(LED_DIAG, 0);

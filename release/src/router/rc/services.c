@@ -384,26 +384,26 @@ void start_httpd(void)
 	if (!nvram_match("http_enable", "0")) {
 		xstart("httpd"
 #ifdef TCONFIG_IPV6
-		, nvram_invmatch("ipv6_service", "") ? "-6" : ""
+		, ipv6_enabled() ? "-6" : ""
 #endif
 		);
 	}
 	if (!nvram_match("https_enable", "0")) {
 		xstart("httpd", "-s"
 #ifdef TCONFIG_IPV6
-		, nvram_invmatch("ipv6_service", "") ? "-6" : ""
+		, ipv6_enabled() ? "-6" : ""
 #endif
 		);
 	}
 
 #ifdef TCONFIG_IPV6
 	/* Remote management */
-	if (nvram_invmatch("ipv6_service", "") &&
+	if (ipv6_enabled() &&
 		nvram_match("wk_mode","gateway") &&
 		nvram_match("remote_management", "1") && 
 		nvram_invmatch("http_wanport", "") &&
 		nvram_invmatch("http_wanport", "0")) {
-			
+
 		if (nvram_match("remote_mgt_https", "1")) {
 			xstart("httpd", "-s", "-6", "-p", nvram_get("http_wanport"));
 		}
@@ -412,7 +412,6 @@ void start_httpd(void)
 		}
 	}
 #endif
-
 
 	chdir("/");
 }
@@ -427,20 +426,28 @@ void stop_httpd(void)
 
 void start_ipv6_sit_tunnel(void)
 {
-	char *tun_dev = nvram_safe_get("ipv6_tun_dev");
+	char *tun_dev = nvram_safe_get("ipv6_ifname");
 	char ip[INET6_ADDRSTRLEN + 4];
-	char wanip[INET_ADDRSTRLEN];
+	const char *wanip;
 
-	if (nvram_match("ipv6_service", "sit")) {
+	if (get_ipv6_service() == IPV6_6IN4) {
 		modprobe("sit");
 		strcpy(ip, nvram_get("ipv6_tun_addr"));
 		strcat(ip, "/");
 		strcat(ip, nvram_get("ipv6_tun_addrlen"));
 
-		strlcpy(wanip, get_wanip(), sizeof(wanip));
+		wanip = get_wanip();
+		switch (get_wan_proto()) {
+		case WP_PPTP:
+		case WP_L2TP:
+			if (!nvram_get_int("ppp_defgw")) wanip = nvram_safe_get("wan_ipaddr");
+		}
 
-		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", wanip, "ttl", "255");
-		eval("ip", "link", "set", tun_dev, "up");
+		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", (char *)wanip, "ttl", nvram_safe_get("ipv6_tun_ttl"));
+		if (nvram_get_int("ipv6_tun_mtu") > 0)
+			eval("ip", "link", "set", tun_dev, "mtu", nvram_safe_get("ipv6_tun_mtu"), "up");
+		else
+			eval("ip", "link", "set", tun_dev, "up");
 		eval("ip", "addr", "add", ip, "dev", tun_dev);
 		eval("ip", "route", "add", "::/0", "dev", tun_dev);
 	}
@@ -448,7 +455,7 @@ void start_ipv6_sit_tunnel(void)
 
 void stop_ipv6_sit_tunnel(void)
 {
-	char *tun_dev = nvram_safe_get("ipv6_tunnel_dev");
+	char *tun_dev = nvram_safe_get("ipv6_ifname");
 	eval("ip", "tunnel", "del", tun_dev);
 	modprobe_r("sit");
 }
@@ -457,9 +464,11 @@ void start_radvd(void)
 {
 	FILE *f;
 
-	if (nvram_invmatch("ipv6_prefix", "")) {
+	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1") &&
+	    nvram_invmatch("ipv6_prefix", "")) {
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
+
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
@@ -491,9 +500,14 @@ void start_ipv6(void)
 {
 	char *p;
 	char ip[INET6_ADDRSTRLEN + 4];
+	int service;
+
+	service = get_ipv6_service();
+	enable_ipv6(service != IPV6_DISABLED);
+	enable_ip_forward();
 
 	// Check if turned on
-	if (nvram_match("ipv6_service", "native") || nvram_match("ipv6_service", "sit")) {
+	if (service != IPV6_DISABLED) {
 		if ((p = nvram_get("ipv6_rtr_addr")) && (*p)) {
 			strcpy(ip, p);
 			strcat(ip, "/");

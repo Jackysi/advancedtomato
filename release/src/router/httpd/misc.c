@@ -385,7 +385,7 @@ void asp_activeroutes(int argc, char **argv)
 	struct sockaddr_in6 snaddr6;
 	char addr6[40], nhop6[40];
 
-	if (nvram_invmatch("ipv6_service", "")) &&
+	if ((ipv6_enabled()) &&
 	    (f = fopen("/proc/net/ipv6_route", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
 			if (sscanf(s, "%32s%x%*s%*s%32s%x%*s%*s%lx%s\n",

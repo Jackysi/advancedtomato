@@ -55,7 +55,7 @@ fog.sortCompare = function(a, b) {
 	var r;
 
 	switch (col) {
-	case 0:	// enabled
+	case 0:	// on
 	case 1:	// proto
 	case 4:	// ports
 		r = cmpInt(da[col], db[col]);

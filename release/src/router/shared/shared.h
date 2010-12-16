@@ -47,6 +47,13 @@ extern const char *tomato_shortver;
 #define	WP_PPPOE		4
 #define	WP_PPTP			5
 
+#ifdef TCONFIG_IPV6
+#define	IPV6_DISABLED		0
+#define	IPV6_NATIVE		1
+#define	IPV6_6IN4		2
+#define	IPV6_MANUAL		3
+#endif
+
 enum {
 	ACT_IDLE,
 	ACT_TFTP_UPGRADE_UNUSED,
@@ -70,6 +77,10 @@ typedef struct {
 
 extern void chld_reap(int sig);
 extern int get_wan_proto(void);
+#ifdef TCONFIG_IPV6
+extern int get_ipv6_service(void);
+#define ipv6_enabled()	(get_ipv6_service() != IPV6_DISABLED)
+#endif
 extern int using_dhcpc(void);
 extern void notice_set(const char *path, const char *format, ...);
 extern int check_wanup(void);
