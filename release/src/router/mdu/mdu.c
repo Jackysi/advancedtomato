@@ -1213,6 +1213,7 @@ ERROR CODE="707" TEXT="Duplicate updates for the same host/ip, adjust client set
 ERROR CODE="707" TEXT="Too frequent updates for the same host, adjust client settings" ZONE="%zone%"
 ERROR CODE="704" TEXT="Zone must be a valid 'dotted' internet name." ZONE="%zone%"
 ERROR CODE="701" TEXT="Zone is not set up in this account." ZONE="%zone%"
+ERROR CODE="708" TEXT="Login/authorization error"
 SUCCESS CODE="[200-201]" TEXT="Description of the success" ZONE="Zone that Succeeded"
 SUCCESS CODE="200" TEXT="Update succeeded." ZONE="%zone%" IP="%dnsto%"
 SUCCESS CODE="201" TEXT="No records need updating." ZONE="%zone%"
@@ -1246,6 +1247,9 @@ static void update_zoneedit(int ssl)
 			case 707:	// update is the same ip address? / too frequent updates
 				if (strstr(c, "Duplicate") != NULL) success();
 					else error(M_TOOSOON);
+				break;
+			case 708:	// authorization error
+				error(M_INVALID_AUTH);
 				break;
 			}
 			error(M_UNKNOWN_RESPONSE__D, r);
