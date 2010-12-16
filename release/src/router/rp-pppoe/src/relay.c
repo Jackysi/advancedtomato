@@ -955,6 +955,12 @@ relayHandlePADT(PPPoEInterface const *iface,
     SessionHash *sh;
     PPPoESession *ses;
 
+    /* Ignore PADT packets whose destination address isn't ours */
+    if (!(packet->ethHdr.h_dest[0] & 0xfe) &&
+         memcmp(packet->ethHdr.h_dest, iface->mac, ETH_ALEN)) {
+        return;
+    }
+
     sh = findSession(packet->ethHdr.h_source, packet->session);
     if (!sh) {
 	return;

@@ -6271,8 +6271,12 @@ esac
 
 { echo "$as_me:$LINENO: checking packing order of bit fields" >&5
 echo $ECHO_N "checking packing order of bit fields... $ECHO_C" >&6; }
+if test "${rpppoe_cv_pack_bitfields+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
 if test "$cross_compiling" = yes; then
-  $ECHO "no defaults for cross-compiling"; exit 0
+  $ECHO "no defaults for cross-compiling"; exit 1
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -6336,6 +6340,7 @@ fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 
+fi
 
 
 if test "$rpppoe_cv_pack_bitfields" = "rev" ; then

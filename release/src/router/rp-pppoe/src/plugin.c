@@ -58,12 +58,15 @@ static char const RCSID[] =
 #define _ROOT_PATH ""
 #endif
 
-#define _PATH_ETHOPT         _ROOT_PATH "/etc/ppp/options."
+#define _PATH_ETHOPT         _ROOT_PATH "/ppp/options."
 
 char pppd_version[] = VERSION;
 
 /* From sys-linux.c in pppd -- MUST FIX THIS! */
 extern int new_style_driver;
+
+/* Supplied by pppd */
+extern int debug;
 
 char *pppd_pppoe_service = NULL;
 static char *acName = NULL;
@@ -106,12 +109,6 @@ PPPOEInitDevice(void)
 	fatal("Could not allocate memory for PPPoE session");
     }
     memset(conn, 0, sizeof(PPPoEConnection));
-    if (acName) {
-	SET_STRING(conn->acName, acName);
-    }
-    if (pppd_pppoe_service) {
-	SET_STRING(conn->serviceName, pppd_pppoe_service);
-    }
     SET_STRING(conn->ifName, devnam);
     conn->discoverySocket = -1;
     conn->sessionSocket = -1;
@@ -146,6 +143,12 @@ PPPOEConnectDevice(void)
 	return -1;
     }
 
+    if (acName) {
+	SET_STRING(conn->acName, acName);
+    }
+    if (pppd_pppoe_service) {
+	SET_STRING(conn->serviceName, pppd_pppoe_service);
+    }
     strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
     if (existingSession) {
 	unsigned int mac[ETH_ALEN];
@@ -217,7 +220,7 @@ PPPOESendConfig(int mtu,
     struct ifreq ifr;
 
     if (mtu > MAX_PPPOE_MTU) {
-	warn("Couldn't increase MTU to %d", mtu);
+	if (debug) warn("Couldn't increase MTU to %d", mtu);
 	mtu = MAX_PPPOE_MTU;
     }
     sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -241,7 +244,7 @@ PPPOERecvConfig(int mru,
 		int pcomp,
 		int accomp)
 {
-    if (mru > MAX_PPPOE_MTU) {
+    if (mru > MAX_PPPOE_MTU && debug) {
 	warn("Couldn't increase MRU to %d", mru);
     }
 }

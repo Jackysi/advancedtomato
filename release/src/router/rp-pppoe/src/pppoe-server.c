@@ -1751,7 +1751,7 @@ startPPPDUserMode(ClientSession *session)
     }
     if (PassUnitOptionToPPPD) {
 	argv[c++] = "unit";
-	sprintf(buffer, "%u", (unsigned int) (ntohs(session->sess) - 1 - SessOffset));
+	sprintf(buffer, "%u", (unsigned int) (ntohs(session->sess) - 1));
 	argv[c++] = buffer;
     }
     argv[c++] = NULL;
@@ -1834,7 +1834,7 @@ startPPPDLinuxKernelMode(ClientSession *session)
     argv[c++] = "default-asyncmap";
     if (PassUnitOptionToPPPD) {
 	argv[c++] = "unit";
-	sprintf(buffer, "%u", (unsigned int) (ntohs(session->sess) - 1 - SessOffset));
+	sprintf(buffer, "%u", (unsigned int) (ntohs(session->sess) - 1));
 	argv[c++] = buffer;
     }
     argv[c++] = NULL;
