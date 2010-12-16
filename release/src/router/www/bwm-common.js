@@ -213,8 +213,8 @@ function loadData()
 				t = 'WL <small>(' + i + ')</small>';
 			}
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
-				if (i.indexOf('ppp') == 0) t = 'WAN <small>(' + i + ')</small>';
-				else if (nvram.wan_ifname == i) t = 'MAN <small>(' + i + ')</small>';
+				if (nvram.wan_iface == i) t = 'WAN <small>(' + i + ')</small>';
+				else if (nvram.wan_ifname == i && nvram.wan_proto != 'pppoe') t = 'MAN <small>(' + i + ')</small>';
 			}
 			else if (nvram.wan_proto != 'disabled') {
 				if (nvram.wan_ifname == i) t = 'WAN <small>(' + i + ')</small>';
