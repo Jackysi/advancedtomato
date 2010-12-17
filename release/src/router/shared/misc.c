@@ -339,7 +339,13 @@ const wanface_list_t *get_wanfaces(void)
 			break;
 		default:
 			ip = (proto == WP_DISABLED) ? "0.0.0.0" : nvram_safe_get("wan_ipaddr");
-			iface = nvram_safe_get("wan_ifname");
+			if (proto == WP_PPPOE) {
+				iface = nvram_safe_get("wan_iface");
+				if (!(*iface)) iface = "ppp+";
+			}
+			else {
+				iface = nvram_safe_get("wan_ifname");
+			}
 			strlcpy(wanfaces.iface[wanfaces.count].ip, ip, sizeof(wanfaces.iface[0].ip));
 			strlcpy(wanfaces.iface[wanfaces.count++].name, iface, IFNAMSIZ);
 			break;
