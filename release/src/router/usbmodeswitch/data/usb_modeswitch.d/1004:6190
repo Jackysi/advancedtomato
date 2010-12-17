@@ -1,0 +1,13 @@
+#######################################################
+# LG AD600
+
+DefaultVendor= 0x1004
+DefaultProduct=0x6190
+
+TargetVendor=  0x1004
+TargetProduct= 0x61a7
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+CheckSuccess=20
+

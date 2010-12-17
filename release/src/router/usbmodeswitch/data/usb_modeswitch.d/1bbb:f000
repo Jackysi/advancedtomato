@@ -1,11 +1,11 @@
 ########################################################
-# Alcatel X200/X060S
+# Alcatel X200/X200L/X060S
 
 DefaultVendor= 0x1bbb
 DefaultProduct=0xf000
 
 TargetVendor=  0x1bbb
-TargetProduct= 0x0000
+TargetProductList="0000,0017"
 
 CheckSuccess=20
 

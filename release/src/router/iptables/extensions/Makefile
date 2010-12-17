@@ -16,7 +16,7 @@ PF_EXT_SLIB+=length limit mac mark multiport recent standard state quota
 PF_EXT_SLIB+=tcp tcpmss time tos u32 udp web dscp connbytes webmon
 PF_EXT_SLIB+=IMQ ipp2p
 ifeq ($(CONFIG_LINUX26),y)
-PF_EXT_SLIB+=hashlimit NFQUEUE
+PF_EXT_SLIB+=hashlimit NFQUEUE NOTRACK
 endif
 
 ifeq ($(DO_IPV6), 1)

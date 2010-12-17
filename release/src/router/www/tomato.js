@@ -627,6 +627,74 @@ function v_iptip(e, quiet, multi)
 	return 1;
 }
 
+/* IPV6-BEGIN */
+function ExpandIPv6Address(ip)
+{
+	var a, pre, n, i, fill, post;
+
+	ip = ip.toLowerCase();
+	if (!ip.match(/^(::)?([a-f0-9]{1,4}::?){0,7}([a-f0-9]{1,4})(::)?$/)) return null;
+
+	a = ip.split('::');
+	switch (a.length) {
+	case 1:
+		if (a[0] == '') return null;
+		pre = a[0].split(':');
+		if (pre.length != 8) return null;
+		ip = pre.join(':');
+		break;
+	case 2:
+		pre = a[0].split(':');
+		post = a[1].split(':');
+		n = 8 - pre.length - post.length;
+		for (i=0; i<2; i++) {
+			if (a[i]=='') n++;
+		}
+		if (n < 0) return null;
+		fill = '';
+		while (n-- > 0) fill += ':0';
+		ip = pre.join(':') + fill + ':' + post.join(':');
+		ip = ip.replace(/^:/, '').replace(/:$/, '');
+		break;
+	default:
+		return null;
+	}
+	
+	ip = ip.replace(/([a-f0-9]{1,4})/ig, '000$1');
+	ip = ip.replace(/0{0,3}([a-f0-9]{4})/ig, '$1');
+	return ip;
+}
+
+function CompressIPv6Address(ip)
+{
+	var a, segments;
+	
+	ip = ExpandIPv6Address(ip);
+	if (!ip) return null;
+	
+	if (ip.match(/(?:^00)|(?:^fe[8-9a-b])|(?:^ff)/)) return null; // not valid routable unicast address
+
+	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
+	ip = ip.replace(/(:0)+$/, '::');
+	ip = ip.replace(/(:0){2,}(:[a-f0-9]{1,4})$/, ':$2');
+	return ip;	
+}
+
+function v_ipv6_addr(e, quiet)
+{
+	if ((e = E(e)) == null) return 0;
+	var ip;
+	ip = CompressIPv6Address(e.value);
+	if (!ip) {
+		ferror.set(e, 'Invalid IPv6 address', quiet);
+		return false;		
+	}
+	
+	e.value = ip;
+	ferror.clear(e);
+	return true;
+}
+/* IPV6-END */
 
 function fixPort(p, def)
 {
@@ -925,6 +993,13 @@ function cmpInt(a, b)
 	a = parseInt(a, 10);
 	b = parseInt(b, 10);
 	return ((isNaN(a)) ? -0x7FFFFFFF : a) - ((isNaN(b)) ? -0x7FFFFFFF : b);
+}
+
+function cmpFloat(a, b)
+{
+	a = parseFloat(a);
+	b = parseFloat(b);
+	return ((isNaN(a)) ? -Number.MAX_VALUE : a) - ((isNaN(b)) ? -Number.MAX_VALUE : b);
 }
 
 function cmpDate(a, b)
@@ -2096,6 +2171,9 @@ function navi()
 		null,
 		['Basic', 				'basic', 0, [
 			['Network',			'network.asp'],
+/* IPV6-BEGIN */
+			['IPv6',			'ipv6.asp'],
+/* IPV6-END */
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
@@ -2111,6 +2189,9 @@ function navi()
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
+/* IPV6-BEGIN */
+			['Basic IPv6',		'basic-ipv6.asp'],
+/* IPV6-END */
 			['DMZ',				'dmz.asp'],
 			['Triggered',		'triggered.asp'],
 			['UPnP / NAT-PMP',	'upnp.asp'] ] ],
@@ -2118,7 +2199,8 @@ function navi()
 			['Basic Settings',	'settings.asp'],
 			['Classification',	'classify.asp'],
 			['View Graphs',		'graphs.asp'],
-			['View Details',	'detailed.asp']
+			['View Details',	'detailed.asp'],
+			['Transfer Rates',	'ctrate.asp']
 			] ],
 		['Access Restriction',	'restrict.asp'],
 /* REMOVE-BEGIN

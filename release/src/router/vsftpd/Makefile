@@ -14,10 +14,10 @@ LDFLAGS = -ffunction-sections -fdata-sections -Wl,--gc-sections
 LIBS	=	-lcrypt -lnsl
 LINK	=	
 
-CFLAGS	+=	-I../shared
+CFLAGS	+=	-I$(TOP)/shared
+
 ifeq ($(TCONFIG_FTP_SSL),y)
-LIBS	=	-lnsl
-OPENSSLDIR = ../openssl
+OPENSSLDIR = $(TOP)/openssl
 OPENSSLINC = $(OPENSSLDIR)/include
 LIBS	+=	-L$(OPENSSLDIR)/ -lssl -lcrypto
 CFLAGS	+=	-I$(OPENSSLINC)

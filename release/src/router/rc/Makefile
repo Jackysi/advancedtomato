@@ -82,6 +82,10 @@ install: all
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc wldist
 
+ifeq ($(TCONFIG_IPV6),y)
+	@cd $(INSTALLDIR)/sbin && ln -sf rc dhcp6c-state
+endif
+
 ifeq ($(TCONFIG_DDNS),y)
 	@cd $(INSTALLDIR)/sbin && ln -sf rc ddns-update
 endif

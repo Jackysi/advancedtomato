@@ -39,7 +39,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,web_svg,rstats_enable,rstats_colors"); %>
+//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_enable,rstats_colors"); %>
 
 var cprefix = 'bw_24';
 var updateInt = 120;

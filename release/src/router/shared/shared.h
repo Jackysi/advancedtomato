@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <errno.h>
+#include <net/if.h>
 
 #ifdef TCONFIG_USB
 #include <mntent.h>	// !!TB
@@ -47,6 +48,14 @@ extern const char *tomato_shortver;
 #define	WP_PPPOE		4
 #define	WP_PPTP			5
 
+#ifdef TCONFIG_IPV6
+#define	IPV6_DISABLED		0
+#define	IPV6_NATIVE		1
+#define	IPV6_NATIVE_DHCP	2
+#define	IPV6_6IN4		3
+#define	IPV6_MANUAL		4
+#endif
+
 enum {
 	ACT_IDLE,
 	ACT_TFTP_UPGRADE_UNUSED,
@@ -65,11 +74,24 @@ typedef struct {
 	struct {
 		struct in_addr addr;
 		unsigned short port;
-	} dns[3];
+	} dns[6];
 } dns_list_t;
+
+typedef struct {
+	int count;
+	struct {
+		char name[IFNAMSIZ + 1];
+		char ip[sizeof("xxx.xxx.xxx.xxx") + 1];
+	} iface[2];
+} wanface_list_t;
 
 extern void chld_reap(int sig);
 extern int get_wan_proto(void);
+#ifdef TCONFIG_IPV6
+extern int get_ipv6_service(void);
+#define ipv6_enabled()	(get_ipv6_service() != IPV6_DISABLED)
+extern const char *ipv6_router_address(struct in6_addr *in6addr);
+#endif
 extern int using_dhcpc(void);
 extern void notice_set(const char *path, const char *format, ...);
 extern int check_wanup(void);
@@ -78,6 +100,8 @@ extern void set_action(int a);
 extern int check_action(void);
 extern int wait_action_idle(int n);
 extern int wl_client(int unit, int subunit);
+extern const wanface_list_t *get_wanfaces(void);
+extern const char *get_wanface(void);
 extern const char *get_wanip(void);
 extern long get_uptime(void);
 extern char *wl_nvname(const char *nv, int unit, int subunit);

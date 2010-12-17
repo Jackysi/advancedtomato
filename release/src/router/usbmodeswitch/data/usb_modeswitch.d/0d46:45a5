@@ -1,0 +1,13 @@
+#######################################################
+# Kobil mIdentity 3G (2)
+
+DefaultVendor= 0x0d46
+DefaultProduct=0x45a5
+
+TargetVendor=  0x0d46
+TargetProduct= 0x45ad
+
+KobilMode=1
+
+CheckSuccess=20
+

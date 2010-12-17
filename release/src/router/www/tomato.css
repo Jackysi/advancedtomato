@@ -301,15 +301,15 @@ table.fields {
 	background: #f0f0f0;
 	text-align: right;
 }
-.tomato-grid .sortasc {
-	background-image: url(up.gif);
-	background-position: 97% 60%;
-	background-repeat: no-repeat;
-}
-.tomato-grid .sortdes {
-	background-image: url(dn.gif);
-	background-position: 97% 80%;
-	background-repeat: no-repeat;
+.tomato-grid .sortasc:after {
+	font-size: 90%;   
+	float: right;     
+	content: " \25B2";           
+}                            
+.tomato-grid .sortdes:after {
+	font-size: 90%;   
+	float: right;     
+	content: " \25BC";
 }
 .tomato-grid a {
 	color: #407050;

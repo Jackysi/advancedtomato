@@ -5,7 +5,7 @@ DefaultVendor= 0x1410
 DefaultProduct=0x5010
 
 TargetVendor=  0x1410
-TargetProductList="4100,4400"
+TargetProductList="4100,4400,7030"
 
 CheckSuccess=20
 

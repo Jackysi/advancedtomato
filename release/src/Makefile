@@ -307,6 +307,10 @@ define RouterOptions
 		echo "TCONFIG_LZO=y" >>$(1); \
 		sed -i "/TCONFIG_OPENVPN/d" $(1); \
 		echo "TCONFIG_OPENVPN=y" >>$(1); \
+		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+			sed -i "/TCONFIG_FTP_SSL/d" $(1); \
+			echo "TCONFIG_FTP_SSL=y" >>$(1); \
+		fi; \
 	fi; \
 	)
 endef
@@ -472,10 +476,10 @@ define KernelConfig
 			echo "CONFIG_IPV6_SIT=m" >>$(1); \
 			sed -i "/CONFIG_IPV6_MULTIPLE_TABLES/d" $(1); \
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
+			sed -i "/CONFIG_IP6_NF_RAW/d" $(1); \
+			echo "CONFIG_IP6_NF_RAW=m" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
-			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
-			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 		else \
 			sed -i "/CONFIG_IP6_NF_CONNTRACK/d" $(1); \
 			echo "CONFIG_IP6_NF_CONNTRACK=m" >>$(1); \

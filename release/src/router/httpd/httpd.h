@@ -1,7 +1,7 @@
 #ifndef __HTTPD_H__
 #define __HTTPD_H__
 
-extern struct sockaddr_in clientsai;
+extern struct sockaddr_storage clientsai;
 extern int post;
 extern char *user_agent;
 

@@ -64,7 +64,7 @@ tg.populate = function() {
 
 		s = RegExp.$2;
 
-		if (s.match(/^([\w\.-]+)\s+\(([\d\.]+)\)/)) {
+		if (s.match(/^([\w\.:\-]+)\s+\(([\d\.:A-Fa-f]+)\)/)) {
 			addr = RegExp.$1;
 			if (addr != RegExp.$2) addr += ' (' + RegExp.$2 + ')';
 		}

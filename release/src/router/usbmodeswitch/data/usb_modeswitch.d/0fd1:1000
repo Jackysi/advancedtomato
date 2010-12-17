@@ -1,0 +1,12 @@
+#######################################################
+# GW D301 (Advinne AMC)
+
+DefaultVendor= 0x0fd1
+DefaultProduct=0x1000
+
+TargetClass=0xff
+
+Configuration=3
+
+CheckSuccess=20
+

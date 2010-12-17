@@ -125,6 +125,23 @@ const defaults_t defaults[] = {
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
 
+#ifdef TCONFIG_IPV6
+	// IPv6 parameters
+	{ "ipv6_service",		""				},	// [''|native|native-pd|sit|other]
+	{ "ipv6_prefix",		""				},	// The global-scope IPv6 prefix to route/advertise
+	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix. Used by dhcp6c. For radvd, /64 is always assumed.
+	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
+	{ "ipv6_radvd",			"1"				},	// Enable Router Advertisement (radvd)
+	{ "ipv6_ifname",		"six0"				},	// The interface facing the rest of the IPv6 world
+	{ "ipv6_tun_v4end",		"0.0.0.0"			},	// Foreign IPv4 endpoint of SIT tunnel
+	{ "ipv6_tun_addr",		""				},	// IPv6 address to assign to local tunnel endpoint
+	{ "ipv6_tun_addrlen",		"64"				},	// CIDR prefix length for tunnel's IPv6 address	
+	{ "ipv6_tun_mtu",		"0"				},	// Tunnel MTU, 0 for default
+	{ "ipv6_tun_ttl",		"255"				},	// Tunnel TTL
+	{ "ipv6_dns",			""				},	// DNS server(s) IPs
+	{ "ipv6_get_dns",		""				},	// DNS IP address which get by dhcp6c
+#endif
+
 	// Wireless parameters
 	{ "wl_ifname",			""				},	// Interface name
 	{ "wl_hwaddr",			""				},	// MAC address
@@ -171,7 +188,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_interfmode",		"2"				},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_interfmode",		"3"				},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -187,7 +204,7 @@ const defaults_t defaults[] = {
 	{ "wl_radius_ipaddr",	""				},	// RADIUS server IP address
 	{ "wl_radius_key",		""				},	// RADIUS shared secret
 	{ "wl_radius_port",		"1812"			},	// RADIUS server UDP port
-	{ "wl_crypto",			"tkip"			},	// WPA data encryption
+	{ "wl_crypto",			"aes"			},	// WPA data encryption
 	{ "wl_net_reauth",		"36000"			},	// Network Re-auth/PMK caching duration
 	{ "wl_akm",				""				},	// WPA akm list
 
@@ -397,6 +414,9 @@ const defaults_t defaults[] = {
 
 // forward-*
 	{ "portforward",		"0<3<1.1.1.0/24<1000:2000<<192.168.1.2<ex: 1000 to 2000, restricted>0<2<<1000,2000<<192.168.1.2<ex: 1000 and 2000>0<1<<1000<2000<192.168.1.2<ex: different internal port>0<3<<1000:2000,3000<<192.168.1.2<ex: 1000 to 2000, and 3000>" },
+#ifdef TCONFIG_IPV6
+	{ "ipv6_portforward",	""},
+#endif
 	{ "trigforward",		"0<1<3000:4000<5000:6000<ex: open 5000-6000 if 3000-4000>"	},
 	{ "dmz_enable",			"0"				},
 	{ "dmz_ipaddr",			"0"				},
@@ -424,7 +444,7 @@ const defaults_t defaults[] = {
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
 	{ "qos_icmp",			"0"				},
-	{ "qos_reset",			"0"				},
+	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"230"			},
 	{ "qos_ibw",			"1000"			},
 	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)" },

@@ -78,7 +78,8 @@ int post;
 int listenfd;
 int connfd = -1;
 FILE *connfp = NULL;
-struct sockaddr_in clientsai;
+struct sockaddr_storage clientsai;
+
 int header_sent;
 char *user_agent;
 //	int hidok = 0;
@@ -683,12 +684,24 @@ void check_id(const char *url)
 
 #endif
 
-		char s[48];
+		char s[72];
 		char *i;
 		char *u;
-		const char *a;
+#ifdef TCONFIG_IPV6
+		char a[INET6_ADDRSTRLEN];
+#else
+		char a[INET_ADDRSTRLEN];
+#endif
+		void *addr = NULL;
 
-		a = inet_ntoa(clientsai.sin_addr);
+		if (clientsai.ss_family == AF_INET)
+			addr = &( ((struct sockaddr_in*) &clientsai)->sin_addr );
+#ifdef TCONFIG_IPV6
+		else if (clientsai.ss_family == AF_INET6)
+			addr = &( ((struct sockaddr_in6*) &clientsai)->sin6_addr );
+#endif
+		inet_ntop(clientsai.ss_family, addr, a, sizeof(a));
+
 		sprintf(s, "%s,%ld", a, time(NULL) & 0xFFC0);
 		if (!nvram_match("http_id_warn", s)) {
 			nvram_set("http_id_warn", s);
@@ -716,8 +729,10 @@ int main(int argc, char **argv)
 	int c;
 	int debug = 0;
 	int server_port = 0;
-
-	while ((c = getopt(argc, argv, "hdp:s")) != -1) {
+#ifdef TCONFIG_IPV6
+	int do_ipv6 = 0;
+#endif
+	while ((c = getopt(argc, argv, "hdp:s6")) != -1) {
 		switch (c) {
 		case 'h':
 			printf(
@@ -726,6 +741,9 @@ int main(int argc, char **argv)
 				"  -p <port> Port to listen on\n"
 #ifdef TCONFIG_HTTPS
 				"  -s        Use HTTPS\n"
+#endif
+#ifdef TCONFIG_IPV6
+				"  -6        Use IPv6\n"
 #endif
 				, argv[0]);
 			return 1;
@@ -738,6 +756,11 @@ int main(int argc, char **argv)
 #ifdef TCONFIG_HTTPS
 		case 's':
 			do_ssl = 1;
+			break;
+#endif
+#ifdef TCONFIG_IPV6
+		case '6':
+			do_ipv6 = 1;
 			break;
 #endif
 		}
@@ -787,20 +810,41 @@ int main(int argc, char **argv)
 
 	struct timeval tv;
 	int n;
-
-	if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	
+#ifdef TCONFIG_IPV6
+	sa_family_t HTTPD_FAMILY = do_ipv6 ? AF_INET6 : AF_INET;
+#else
+#define HTTPD_FAMILY AF_INET
+#endif
+	
+	if ((listenfd = socket(HTTPD_FAMILY, SOCK_STREAM, 0)) < 0) {
 		syslog(LOG_ERR, "create listening socket: %m");
 		return 1;
 	}
 	fcntl(listenfd, F_SETFD, FD_CLOEXEC);
 	n = 1;
 	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (char*)&n, sizeof(n));
+	
 
-	struct sockaddr_in	sai;
-	sai.sin_family = AF_INET;
-	sai.sin_port = htons(server_port);
-	sai.sin_addr.s_addr = inet_addr(nvram_get("lan_ipaddr"));
-	if (bind(listenfd, (struct sockaddr *)&sai, sizeof(sai)) < 0) {
+	struct sockaddr_storage sai_stor;
+
+#ifdef TCONFIG_IPV6
+	if (do_ipv6) {
+		struct sockaddr_in6 *sai = (struct sockaddr_in6 *) &sai_stor;
+		sai->sin6_family = HTTPD_FAMILY;
+		sai->sin6_port = htons(server_port);
+		sai->sin6_addr = in6addr_any;
+	}
+	else {
+#endif
+		struct sockaddr_in *sai = (struct sockaddr_in *) &sai_stor;
+		sai->sin_family = HTTPD_FAMILY;
+		sai->sin_port = htons(server_port);
+		sai->sin_addr.s_addr = inet_addr(nvram_get("lan_ipaddr"));
+#ifdef TCONFIG_IPV6
+	}
+#endif
+	if (bind(listenfd, (struct sockaddr *)&sai_stor, sizeof(sai_stor)) < 0) {
 		syslog(LOG_ERR, "bind: %m");
 		return 1;
 	}

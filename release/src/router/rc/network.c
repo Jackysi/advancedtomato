@@ -55,6 +55,7 @@ typedef u_int8_t u8;
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
 #include <arpa/inet.h>
+#include <dirent.h>
 
 #include <wlutils.h>
 #include <bcmparams.h>
@@ -98,8 +99,15 @@ void set_lan_hostname(const char *wan_hostname)
 
 	if ((f = fopen("/etc/hosts", "w"))) {
 		fprintf(f, "127.0.0.1  localhost\n");
-		fprintf(f, "%s  %s\n",
-			nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan_ipaddr")) && (*s))
+			fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+#ifdef TCONFIG_IPV6
+		if (ipv6_enabled()) {
+			fprintf(f, "::1  localhost\n");
+			s = ipv6_router_address(NULL);
+			if (*s) fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+		}
+#endif
 		fclose(f);
 	}
 }
@@ -386,6 +394,23 @@ static int set_wlmac(int idx, int unit, int subunit, void *param)
 	return 1;
 }
 
+#ifdef TCONFIG_IPV6
+void enable_ipv6(int enable)
+{
+	DIR *dir;
+	struct dirent *dirent;
+	char s[256];
+
+	if ((dir = opendir("/proc/sys/net/ipv6/conf")) != NULL) {
+		while ((dirent = readdir(dir)) != NULL) {
+			sprintf(s, "/proc/sys/net/ipv6/conf/%s/disable_ipv6", dirent->d_name);
+			f_write_string(s, enable ? "0" : "1", 0, 0);
+		}
+		closedir(dir);
+	}
+}
+#endif
+
 void start_lan(void)
 {
 	_dprintf("%s %d\n", __FUNCTION__, __LINE__);
@@ -396,15 +421,21 @@ void start_lan(void)
 	int sfd;
 	uint32 ip;
 	int unit, subunit, sta;
-	char hwaddr[ETHER_ADDR_LEN];
+	int hwaddrset;
+	char eabuf[32];
 
 	foreach_wif(1, NULL, set_wlmac);
 	check_afterburner();
+#ifdef TCONFIG_IPV6
+	enable_ipv6(ipv6_enabled());
+#endif
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
 
 	lan_ifname = strdup(nvram_safe_get("lan_ifname"));
 	if (strncmp(lan_ifname, "br", 2) == 0) {
+		_dprintf("%s: setting up the bridge %s\n", __FUNCTION__, lan_ifname);
+
 		eval("brctl", "addbr", lan_ifname);
 		eval("brctl", "setfd", lan_ifname, "0");
 		eval("brctl", "stp", lan_ifname, nvram_safe_get("lan_stp"));
@@ -417,8 +448,8 @@ void start_lan(void)
 #endif
 
 		inet_aton(nvram_safe_get("lan_ipaddr"), (struct in_addr *)&ip);
-		memset(hwaddr, 0, sizeof(hwaddr));
 
+		hwaddrset = 0;
 		sta = 0;
 		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
 			p = lan_ifnames;
@@ -446,13 +477,17 @@ void start_lan(void)
 
 				// set the logical bridge address to that of the first interface
 				strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-				if ((ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) && (memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN) == 0)) {
+				if ((!hwaddrset) ||
+				    (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0 &&
+				    memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN) == 0)) {
 					strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
 					if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) {
 						strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 						ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+						_dprintf("%s: setting MAC of %s bridge to %s\n", __FUNCTION__,
+							ifr.ifr_name, ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 						ioctl(sfd, SIOCSIFHWADDR, &ifr);
-						memcpy(hwaddr, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+						hwaddrset = 1;
 					}
 				}
 
@@ -486,13 +521,6 @@ void start_lan(void)
 			
 			free(lan_ifnames);
 		}
-
-		if (memcmp(hwaddr, "\0\0\0\0\0\0", ETHER_ADDR_LEN)) {
-			strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-			ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-			memcpy(ifr.ifr_hwaddr.sa_data, hwaddr, ETHER_ADDR_LEN);
-			ioctl(sfd, SIOCSIFHWADDR, &ifr);
-		}
 	}
 	// --- this shouldn't happen ---
 	else if (*lan_ifname) {
@@ -506,7 +534,6 @@ void start_lan(void)
 	}
 
 	// Get current LAN hardware address
-	char eabuf[32];
 	strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
 	if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 

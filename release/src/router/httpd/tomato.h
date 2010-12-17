@@ -92,6 +92,7 @@ extern void asp_devlist(int argc, char **argv);
 // ctnf.c
 extern void asp_ctcount(int argc, char **argv);
 extern void asp_ctdump(int argc, char **argv);
+extern void asp_ctrate(int argc, char **argv);
 extern void asp_qrate(int argc, char **argv);
 extern void asp_layer7(int argc, char **argv);
 extern void wo_expct(char *url);
