@@ -152,7 +152,6 @@ void start_dnsmasq()
 		}
 	}
 
-	
 	// dhcp
 	do_dhcpd = nvram_match("lan_proto", "dhcp");
 	if (do_dhcpd) {
@@ -339,6 +338,25 @@ void clear_resolv(void)
 	f_write(dmresolv, NULL, 0, 0, 0);	// blank
 }
 
+#ifdef TCONFIG_IPV6
+static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns)
+{
+	char p[INET6_ADDRSTRLEN + 1], *next = NULL;
+	struct in6_addr addr;
+	int cnt = 0;
+
+	foreach(p, dns, next) {
+		// verify that this is a valid IPv6 address
+		if (inet_pton(AF_INET6, p, &addr) == 1) {
+			fprintf(f, "%s%s\n", prefix, p);
+			++cnt;
+		}
+	}
+
+	return cnt;
+}
+#endif
+
 void dns_to_resolv(void)
 {
 	FILE *f;
@@ -350,6 +368,10 @@ void dns_to_resolv(void)
 	if ((f = fopen(dmresolv, "w")) != NULL) {
 		// Check for VPN DNS entries
 		if (!write_vpn_resolv(f)) {
+#ifdef TCONFIG_IPV6
+			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns")) == 0 || nvram_get_int("dns_addget"))
+				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"));
+#endif
 			dns = get_dns();	// static buffer
 			if (dns->count == 0) {
 				// Put a pseudo DNS IP to trigger Connect On Demand
@@ -463,27 +485,38 @@ void stop_ipv6_sit_tunnel(void)
 void start_radvd(void)
 {
 	FILE *f;
+	char *prefix;
 
-	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1") &&
-	    nvram_invmatch("ipv6_prefix", "")) {
+	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1")) {
+
+		switch (get_ipv6_service()) {
+		case IPV6_NATIVE_DHCP:
+			prefix = "::";	
+			break;
+		default:
+			prefix = nvram_safe_get("ipv6_prefix");
+			break;
+		}
+		if (!(*prefix)) return;
+
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
 
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
-			"\tAdvSendAdvert on;\n"
-			"\tMaxRtrAdvInterval 60;\n"
-			"\tAdvHomeAgentFlag off;\n"
-			"\tAdvManagedFlag off;\n"
-			"\tprefix %s/64 \n"
-			"\t{\n"
-			"\t\tAdvOnLink on;\n"
-			"\t\tAdvAutonomous on;\n"
-			"\t\tAdvRouterAddr off;\n"
-			"\t};\n"
+			" AdvSendAdvert on;\n"
+			" MaxRtrAdvInterval 60;\n"
+			" AdvHomeAgentFlag off;\n"
+			" AdvManagedFlag off;\n"
+			" prefix %s/64 \n"
+			" {\n"
+			"  AdvOnLink on;\n"
+			"  AdvAutonomous on;\n"
+			"  AdvRouterAddr off;\n"
+			" };\n"
 			"};\n",
-			nvram_safe_get("lan_ifname"), nvram_safe_get("ipv6_prefix"));
+			nvram_safe_get("lan_ifname"), prefix);
 		fclose(f);
 
 		// Start radvd
@@ -507,7 +540,9 @@ void start_ipv6(void)
 	enable_ip_forward();
 
 	// Check if turned on
-	if (service != IPV6_DISABLED) {
+	switch (service) {
+	case IPV6_NATIVE:
+	case IPV6_6IN4:
 		p = (char *)ipv6_router_address(NULL);
 		if (*p) {
 			strcpy(ip, p);
@@ -519,6 +554,7 @@ void start_ipv6(void)
 			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 		}
 		start_radvd();
+		break;
 	}
 }
 
@@ -526,6 +562,7 @@ void stop_ipv6(void)
 {
 	stop_ipv6_sit_tunnel();
 	stop_radvd();
+	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
 }
 
@@ -1808,6 +1845,16 @@ TOP:
 		}
 		if (action & A_START) {
 			start_radvd();
+		}
+		goto CLEAR;
+	}
+
+	if (strncmp(service, "dhcp6", 5) == 0) {
+		if (action & A_STOP) {
+			stop_dhcp6c();
+		}
+		if (action & A_START) {
+			start_dhcp6c();
 		}
 		goto CLEAR;
 	}

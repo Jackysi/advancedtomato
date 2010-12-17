@@ -50,8 +50,9 @@ extern const char *tomato_shortver;
 #ifdef TCONFIG_IPV6
 #define	IPV6_DISABLED		0
 #define	IPV6_NATIVE		1
-#define	IPV6_6IN4		2
-#define	IPV6_MANUAL		3
+#define	IPV6_NATIVE_DHCP	2
+#define	IPV6_6IN4		3
+#define	IPV6_MANUAL		4
 #endif
 
 enum {

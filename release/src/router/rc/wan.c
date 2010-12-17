@@ -357,8 +357,11 @@ void start_pppoe(int num)
 	}
 
 #ifdef TCONFIG_IPV6
-	if (get_ipv6_service() == IPV6_NATIVE) {
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE:
+	case IPV6_NATIVE_DHCP:
 		*arg++ = "-6";		// enables IPv6CP
+		break;
 	}
 #endif
 
@@ -898,6 +901,17 @@ void start_wan_done(char *wan_ifname)
 		case IPV6_NATIVE:
 			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
 			break;
+		case IPV6_NATIVE_DHCP:
+			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
+			stop_dhcp6c();
+			stop_radvd();
+			/* note: starting radvd here is really too early because we won't have
+			 * received a prefix and so it will disable advertisements,
+			 * but the SIGHUP sent from dhcp6c-state will restart them.
+			 */
+			start_radvd();
+			start_dhcp6c();
+			break;
 		case IPV6_6IN4:
 			stop_ipv6_sit_tunnel();
 			start_ipv6_sit_tunnel();
@@ -945,6 +959,8 @@ void stop_wan(void)
 
 #ifdef TCONFIG_IPV6
 	stop_ipv6_sit_tunnel();
+	stop_dhcp6c();
+	nvram_set("ipv6_get_dns", "");
 #endif
 
 	/* Kill any WAN client daemons or callbacks */

@@ -154,6 +154,11 @@ extern int dhcpc_release_main(int argc, char **argv);
 extern int dhcpc_renew_main(int argc, char **argv);
 extern void start_dhcpc(void);
 extern void stop_dhcpc(void);
+#ifdef TCONFIG_IPV6
+extern int dhcp6c_state_main(int argc, char **argv);
+extern void start_dhcp6c(void);
+extern void stop_dhcp6c(void);
+#endif
 
 // services.c
 extern void start_cron(void);
@@ -196,6 +201,8 @@ extern void stop_hotplug2(void);
 #ifdef TCONFIG_IPV6
 extern void start_ipv6_sit_tunnel(void);
 extern void stop_ipv6_sit_tunnel(void);
+extern void start_radvd(void);
+extern void stop_radvd(void);
 #endif
 
 // !!TB - USB Support

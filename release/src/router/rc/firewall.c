@@ -861,6 +861,13 @@ static void filter6_input(void)
 		"-A INPUT -i lo -j ACCEPT\n",
 			lanface );
 
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE_DHCP:
+		// allow responses from the dhcpv6 server
+		ip6t_write("-A INPUT -p udp --dport 546 -j %s\n", chain_in_accept);
+		break;
+	}
+
 	// ICMPv6 rules
 	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
 	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
@@ -1062,6 +1069,7 @@ int start_firewall(void)
 #ifdef TCONFIG_IPV6
 	switch (get_ipv6_service()) {
 	case IPV6_NATIVE:
+	case IPV6_NATIVE_DHCP:
 		strlcpy(wan6face, wanface, sizeof(wan6face));
 		break;
 	default:

@@ -48,6 +48,7 @@ function verifyFields(focused, quiet)
 	switch(E('_ipv6_service').value) {
 		case '':
 			vis._ipv6_ifname = 0;
+			// fall through
 		case 'other':
 			vis._f_ipv6_radvd = 0;
 			vis._ipv6_prefix = 0;
@@ -59,6 +60,10 @@ function verifyFields(focused, quiet)
 			vis._ipv6_tun_ttl = 0;
 			vis._ipv6_tun_mtu = 0;
 			break;
+		case 'native-pd':
+			vis._ipv6_prefix = 0;
+			vis._ipv6_rtr_addr = 0;
+			// fall through
 		case 'native':
 			vis._ipv6_ifname = 0;
 			vis._ipv6_tun_v4end = 0;
@@ -164,21 +169,19 @@ function save()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select', 
-		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['sit','6in4 Static Tunnel'],['other','Other (manually configured)']],
+		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['sit','6in4 Static Tunnel'],['other','Other (manually configured)']],
 		value: nvram.ipv6_service },
 	{ title: 'IPv6 Interface Name', name: 'ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
 	null,
-	{ title: 'Assigned IPv6 Prefix / Prefix Length', multi: [
-		{ name: 'ipv6_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_prefix, suffix: ' / ' },
-		{ name: 'ipv6_prefix_length', type: 'text', maxlen: 3, size: 3, value: nvram.ipv6_prefix_length }
-	] },
+	{ title: 'Assigned IPv6 Prefix', name: 'ipv6_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_prefix },
+	{ title: 'Prefix Length', name: 'ipv6_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_prefix_length },
 	{ title: 'Router IPv6 Address', name: 'ipv6_rtr_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_rtr_addr },
 	{ title: 'Enable Router Advertisements', name: 'f_ipv6_radvd', type: 'checkbox', value: nvram.ipv6_radvd != '0' },
 	null,
 	{ title: 'Tunnel Remote Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
 	{ title: 'Tunnel Client IPv6 Address', multi: [
 		{ name: 'ipv6_tun_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_tun_addr, suffix: ' / ' },
-		{ name: 'ipv6_tun_addrlen', type: 'text', maxlen: 3, size: 3, value: nvram.ipv6_tun_addrlen }
+		{ name: 'ipv6_tun_addrlen', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_tun_addrlen }
 	] },
 	{ title: 'Tunnel MTU', name: 'ipv6_tun_mtu', type: 'text', maxlen: 4, size: 8, value: nvram.ipv6_tun_mtu, suffix: ' <small>(0 for default)</small>' },
 	{ title: 'Tunnel TTL', name: 'ipv6_tun_ttl', type: 'text', maxlen: 3, size: 8, value: nvram.ipv6_tun_ttl }

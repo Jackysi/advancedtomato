@@ -127,9 +127,9 @@ const defaults_t defaults[] = {
 
 #ifdef TCONFIG_IPV6
 	// IPv6 parameters
-	{ "ipv6_service",		""				},	// [''|native|sit|other]
+	{ "ipv6_service",		""				},	// [''|native|native-pd|sit|other]
 	{ "ipv6_prefix",		""				},	// The global-scope IPv6 prefix to route/advertise
-	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix.
+	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix. Used by dhcp6c. For radvd, /64 is always assumed.
 	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
 	{ "ipv6_radvd",			"1"				},	// Enable Router Advertisement (radvd)
 	{ "ipv6_ifname",		"six0"				},	// The interface facing the rest of the IPv6 world
@@ -138,6 +138,8 @@ const defaults_t defaults[] = {
 	{ "ipv6_tun_addrlen",		"64"				},	// CIDR prefix length for tunnel's IPv6 address	
 	{ "ipv6_tun_mtu",		"0"				},	// Tunnel MTU, 0 for default
 	{ "ipv6_tun_ttl",		"255"				},	// Tunnel TTL
+	{ "ipv6_dns",			""				},	// DNS server(s) IPs
+	{ "ipv6_get_dns",		""				},	// DNS IP address which get by dhcp6c
 #endif
 
 	// Wireless parameters
