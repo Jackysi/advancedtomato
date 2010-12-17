@@ -241,10 +241,14 @@ void ipt_restrictions(void)
 
 		if (first) {
 			first = 0;
-			ipt_write(":restrict - [0:0]\n"
-					  "-A FORWARD -o %s -j restrict\n", wanface);
-			if (*manface)
-				ipt_write("-A FORWARD -o %s -j restrict\n", manface);
+
+			ipt_write(":restrict - [0:0]\n");
+			for (n = 0; n < wanfaces.count; ++n) {
+				if (*(wanfaces.iface[n].name)) {
+					ipt_write("-A FORWARD -o %s -j restrict\n",
+						  wanfaces.iface[n].name);
+				}
+			}
 		}
 
 		sprintf(reschain, "rres%02d", nrule);

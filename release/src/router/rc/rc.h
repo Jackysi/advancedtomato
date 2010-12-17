@@ -226,14 +226,11 @@ extern void stop_nas(void);
 extern void notify_nas(const char *ifname);
 
 // firewall.c
-extern char wanface[];
-extern char manface[];
+extern wanface_list_t wanfaces;
 extern char lanface[];
 #ifdef TCONFIG_IPV6
 extern char wan6face[];
 #endif
-extern char wanaddr[];
-extern char manaddr[];
 extern char lan_cclass[];
 extern const char *chain_in_accept;
 extern const char *chain_out_drop;

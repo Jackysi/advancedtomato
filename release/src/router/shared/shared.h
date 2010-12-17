@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <errno.h>
+#include <net/if.h>
 
 #ifdef TCONFIG_USB
 #include <mntent.h>	// !!TB
@@ -76,6 +77,14 @@ typedef struct {
 	} dns[6];
 } dns_list_t;
 
+typedef struct {
+	int count;
+	struct {
+		char name[IFNAMSIZ + 1];
+		char ip[sizeof("xxx.xxx.xxx.xxx") + 1];
+	} iface[2];
+} wanface_list_t;
+
 extern void chld_reap(int sig);
 extern int get_wan_proto(void);
 #ifdef TCONFIG_IPV6
@@ -91,6 +100,8 @@ extern void set_action(int a);
 extern int check_action(void);
 extern int wait_action_idle(int n);
 extern int wl_client(int unit, int subunit);
+extern const wanface_list_t *get_wanfaces(void);
+extern const char *get_wanface(void);
 extern const char *get_wanip(void);
 extern long get_uptime(void);
 extern char *wl_nvname(const char *nv, int unit, int subunit);

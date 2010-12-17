@@ -459,11 +459,6 @@ void start_ipv6_sit_tunnel(void)
 		strcat(ip, nvram_get("ipv6_tun_addrlen"));
 
 		wanip = get_wanip();
-		switch (get_wan_proto()) {
-		case WP_PPTP:
-		case WP_L2TP:
-			if (!nvram_get_int("ppp_defgw")) wanip = nvram_safe_get("wan_ipaddr");
-		}
 
 		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", (char *)wanip, "ttl", nvram_safe_get("ipv6_tun_ttl"));
 		if (nvram_get_int("ipv6_tun_mtu") > 0)
@@ -613,7 +608,7 @@ void start_upnp(void)
 					"system_uptime=yes\n"
 					"\n"
 					,
-					nvram_safe_get("wan_iface"),
+					get_wanface(),
 					lanip, lanmask,
 					upnp_port,
 					(enable & 1) ? "yes" : "no",						// upnp enable
@@ -906,22 +901,11 @@ static pid_t pid_igmp = -1;
 void start_igmp_proxy(void)
 {
 	FILE *fp;
-	char *p;
 
 	pid_igmp = -1;
 	if (nvram_match("multicast_pass", "1")) {
-		switch (get_wan_proto()) {
-		case WP_DISABLED:
+		if (get_wan_proto() == WP_DISABLED)
 			return;
-		case WP_PPPOE:
-		case WP_PPTP:
-		case WP_L2TP:
-			p = "wan_iface";
-			break;
-		default:
-			p = "wan_ifname";
-			break;
-		}
 
 		if (f_exists("/etc/igmp.alt")) {
 			eval("igmpproxy", "/etc/igmp.alt");
@@ -932,7 +916,7 @@ void start_igmp_proxy(void)
 				"phyint %s upstream\n"
 				"\taltnet %s\n"
 				"phyint %s downstream ratelimit 0\n",
-				nvram_safe_get(p),
+				get_wanface(),
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
 				nvram_safe_get("lan_ifname"));
 			fclose(fp);

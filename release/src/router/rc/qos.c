@@ -37,7 +37,7 @@ void ipt_qos(void)
 	unsigned long max;
 	unsigned long prev_max;
 	int gum;
-	char *qface;
+	const char *qface;
 	int sizegroup;
 	int class_flag;
 	int rule_num;
@@ -220,15 +220,7 @@ void ipt_qos(void)
 	}
 	free(buf);
 
-	switch (get_wan_proto()) {
-	case WP_PPTP:
-	case WP_L2TP:
-		qface = ((*manface) && (nvram_get_int("ppp_defgw") == 0)) ? manface : wanface;
-		break;
-	default:
-		qface = wanface;
-		break;
-	}
+	qface = wanfaces.iface[0].name;
 
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"
@@ -282,7 +274,6 @@ void start_qos(void)
 {
 	int i;
 	char *buf, *g, *p;
-	char *qface;
 	unsigned int rate;
 	unsigned int ceil;
 	unsigned int bw;
@@ -343,19 +334,6 @@ void start_qos(void)
 		r2q = (bw * 1000) / (8 * 60000) + 1;
 	}
 
-	qface = nvram_safe_get("wan_iface");
-	switch (get_wan_proto()) {
-	case WP_PPTP:
-	case WP_L2TP:
-		if (nvram_get_int("ppp_defgw") == 0) {
-			p = nvram_safe_get("wan_ipaddr");
-			if (*p && strcmp(p, get_wanip()) != 0 && strcmp(p, "0.0.0.0") != 0) {
-				qface = nvram_safe_get("wan_ifname");
-			}
-		}
-		break;
-	}
-
 	fprintf(f,
 		"#!/bin/sh\n"
 		"I=%s\n"
@@ -369,7 +347,7 @@ void start_qos(void)
 		"\ttc qdisc del dev $I root 2>/dev/null\n"
 		"\t$TQA root handle 1: htb default %u r2q %u\n"
 		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
-			qface,
+			get_wanface(),
 			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
 			(nvram_get_int("qos_default") + 1) * 10, r2q,
 			bw, bw, burst_root);

@@ -19,7 +19,7 @@ void ipt_forward(ipt_table_t table)
 	const char *proto, *saddr, *xports, *iport, *iaddr;
 	const char *c;
 	const char *mdport;
-	int i;
+	int i, n;
 	char ip[64];
 	char src[64];
 
@@ -78,21 +78,16 @@ void ipt_forward(ipt_table_t table)
 						ip,  *iport ? ":" : "", iport);
 
 					if (nvram_get_int("nf_loopback") == 1) {
-						ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
-							c,
-							mdport, *iport ? iport : xports,
-							nvram_safe_get("lan_ipaddr"),	// corrected by ipt
-							nvram_safe_get("lan_netmask"),
-							ip,
-							wanaddr);
-						if (*manaddr) {
-							ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
-								c,
-								mdport, *iport ? iport : xports,
-								nvram_safe_get("lan_ipaddr"),	// corrected by ipt
-								nvram_safe_get("lan_netmask"),
-								ip,
-								manaddr);
+						for (n = 0; n < wanfaces.count; ++n) {
+							if (*(wanfaces.iface[n].name)) {
+								ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
+									c,
+									mdport, *iport ? iport : xports,
+									nvram_safe_get("lan_ipaddr"),	// corrected by ipt
+									nvram_safe_get("lan_netmask"),
+									ip,
+									wanfaces.iface[n].ip);
+							}
 						}
 					}
 				}

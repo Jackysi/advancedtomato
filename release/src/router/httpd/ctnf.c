@@ -537,26 +537,12 @@ void asp_qrate(int argc, char **argv)
 	int n;
 	char comma;
 	char *a[1];
-	char *qface;
 
 	a[0] = "1";
 	asp_ctcount(1, a);
 
-	qface = nvram_safe_get("wan_iface");
-	switch (get_wan_proto()) {
-	case WP_PPTP:
-	case WP_L2TP:
-		if (nvram_get_int("ppp_defgw") == 0) {
-			e = nvram_safe_get("wan_ipaddr");
-			if (*e && strcmp(e, get_wanip()) != 0 && strcmp(e, "0.0.0.0") != 0) {
-				qface = nvram_safe_get("wan_ifname");
-			}
-		}
-		break;
-	}
-
 	memset(rates, 0, sizeof(rates));
-	sprintf(s, "tc -s class ls dev %s", qface);
+	sprintf(s, "tc -s class ls dev %s", get_wanface());
 	if ((f = popen(s, "r")) != NULL) {
 		n = 1;
 		while (fgets(s, sizeof(s), f)) {
