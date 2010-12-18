@@ -254,7 +254,7 @@ sec = auth[nvram['wl'+u+'_security_mode']] + '';
 if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
 wmode = wmo[nvram['wl'+u+'_mode']] + '';
-if ((wmode == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
+if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
 createFieldTable('', [
 	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },

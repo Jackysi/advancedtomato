@@ -1,10 +1,13 @@
 ########################################################
-# Rogers Rocket Stick (a Sony Ericsson device)
+# Sony Ericsson MD400G
 
 DefaultVendor= 0x0fce
 DefaultProduct=0xd103
 
 TargetClass=0x02
+
+SonyMode=1
+Configuration=2
 
 CheckSuccess=20
 

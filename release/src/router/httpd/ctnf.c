@@ -13,12 +13,14 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <fcntl.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <time.h>
 #include <dirent.h>
+
+#define IP6_PREFIX_NOT_MATCH( a, b, bits ) (memcmp(&a.s6_addr[0], &b.s6_addr[0], bits/8) != 0 || ( bits % 8 && (a.s6_addr[bits/8] ^ b.s6_addr[bits/8]) >> (8-(bits % 8)) ))
 
 
 static void ctvbuf(FILE *f)
@@ -74,6 +76,7 @@ void asp_ctcount(int argc, char **argv)
 	FILE *f;
 	char s[512];
 	char *p;
+	char *t;
 	int i;
 	int n;
 	int mode;
@@ -86,7 +89,11 @@ void asp_ctcount(int argc, char **argv)
 
 	memset(count, 0, sizeof(count));
 
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	if ((f = fopen("/proc/net/nf_conntrack", "r")) != NULL) {
+#else
 	if ((f = fopen("/proc/net/ip_conntrack", "r")) != NULL) {
+#endif
 		ctvbuf(f);	// if possible, read in one go
 
 		if (nvram_match("t_hidelr", "1")) {
@@ -99,18 +106,34 @@ void asp_ctcount(int argc, char **argv)
 		}
 
 		while (fgets(s, sizeof(s), f)) {
-			if (rip != 0) {
-				// src=x.x.x.x dst=x.x.x.x	// DIR_ORIGINAL
-				if ((p = strstr(s + 14, "src=")) == NULL) continue;
-				if ((inet_addr(p + 4) & mask) == lan) {
-					if ((p = strstr(p + 13, "dst=")) == NULL) continue;
-					if (inet_addr(p + 4) == rip) continue;
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+			if (strncmp(s, "ipv4", 4) == 0) {
+				t = s + 11;
+#else
+				t = s;
+#endif
+				if (rip != 0) {
+
+					// src=x.x.x.x dst=x.x.x.x	// DIR_ORIGINAL
+					if ((p = strstr(t + 14, "src=")) == NULL) continue;
+					if ((inet_addr(p + 4) & mask) == lan) {
+						if ((p = strstr(p + 13, "dst=")) == NULL) continue;
+						if (inet_addr(p + 4) == rip) continue;
+					}
 				}
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
 			}
+			else if (strncmp(s, "ipv6", 4) == 0) {
+				t = s + 12;
+			}
+			else {
+				continue; // another proto family?!
+			}
+#endif
 
 			if (mode == 0) {
 				// count connections per state
-				if (strncmp(s, "tcp", 3) == 0) {
+				if (strncmp(t, "tcp", 3) == 0) {
 					for (i = 9; i >= 0; --i) {
 						if (strstr(s, states[i]) != NULL) {
 							count[i]++;
@@ -118,7 +141,7 @@ void asp_ctcount(int argc, char **argv)
 						}
 					}
 				}
-				else if (strncmp(s, "udp", 3) == 0) {
+				else if (strncmp(t, "udp", 3) == 0) {
 					if (strstr(s, "[ASSURED]") != NULL) {
 						count[11]++;
 					}
@@ -161,14 +184,27 @@ void asp_ctdump(int argc, char **argv)
 	FILE *f;
 	char s[512];
 	char *p, *q;
+	int x;
 	int mark;
+	int rule;
 	int findmark;
 	unsigned int proto;
 	unsigned int time;
-	char src[16];
-	char dst[16];
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	unsigned int family;
+	char src[INET6_ADDRSTRLEN];
+	char dst[INET6_ADDRSTRLEN];
+#else
+	const unsigned int family = 2;
+	char src[INET_ADDRSTRLEN];
+	char dst[INET_ADDRSTRLEN];
+#endif
 	char sport[16];
 	char dport[16];
+	char byteso[16];
+	char bytesi[16];
+	int dir_reply;
+
 	unsigned long rip;
 	unsigned long lan;
 	unsigned long mask;
@@ -181,45 +217,315 @@ void asp_ctdump(int argc, char **argv)
 	mask = inet_addr(nvram_safe_get("lan_netmask"));
 	rip = inet_addr(nvram_safe_get("lan_ipaddr"));
 	lan = rip & mask;
+	
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	struct in6_addr rip6;
+	struct in6_addr lan6;
+	struct in6_addr in6;
+	int lan6_prefix_len;
+
+	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
+	if (ipv6_enabled()) {
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
+		ipv6_router_address(&rip6);
+	}
+#endif
+	
 	if (nvram_match("t_hidelr", "0")) rip = 0;	// hide lan -> router?
+
+/*
+
+/proc/net/nf_conntrack prefix (compared to ip_conntrack):
+"ipvx" + 5 spaces + "2" or "10" + 1 space
+
+add bytes out/in to table
+
+*/
 
 	web_puts("\nctdump = [");
 	comma = ' ';
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	if ((f = fopen("/proc/net/nf_conntrack", "r")) != NULL) {
+#else
 	if ((f = fopen("/proc/net/ip_conntrack", "r")) != NULL) {
+#endif
 		ctvbuf(f);
 		while (fgets(s, sizeof(s), f)) {
+			dir_reply = 0;
 			if ((p = strstr(s, " mark=")) == NULL) continue;
-			if ((mark = (atoi(p + 6) & 0xFF)) > 10) mark = 0;
+			mark = atoi(p + 6);
+			rule = (mark >> 20) & 0xFF;
+			if ((mark &= 0xFF) > 10) mark = 0;
 			if ((findmark != -1) && (mark != findmark)) continue;
-
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+			if (sscanf(s, "%*s %u %*s %u %u", &family, &proto, &time) != 3) continue;
+			if ((p = strstr(s + 25, "src=")) == NULL) continue;
+#else
 			if (sscanf(s, "%*s %u %u", &proto, &time) != 2) continue;
-
-			if ((p = strstr(s + 14, "src=")) == NULL) continue;		// DIR_ORIGINAL
-			if ((inet_addr(p + 4) & mask) != lan) {
-				// make sure we're seeing int---ext if possible
-				if ((p = strstr(p + 41, "src=")) == NULL) continue;	// DIR_REPLY
-			}
-			else if (rip != 0) {
-				if ((q = strstr(p + 13, "dst=")) == NULL) continue;
-//				cprintf("%lx=%lx\n", inet_addr(q + 4), rip);
-				if (inet_addr(q + 4) == rip) continue;
-			}
+			if ((p = strstr(s + 14, "src=")) == NULL) continue;
+#endif
+			if (sscanf(p, "src=%s dst=%s %n", src, dst, &x) != 2) continue;
+			p += x;
 
 			if ((proto == 6) || (proto == 17)) {
-				if (sscanf(p + 4, "%s dst=%s sport=%s dport=%s", src, dst, sport, dport) != 4) continue;
+				if (sscanf(p, "sport=%s dport=%s %*s bytes=%s %n", sport, dport, byteso, &x) != 3) continue;
+				p += x;
+				if ((q = strstr(p, "bytes=")) == NULL) continue;
+				if (sscanf(q, "bytes=%s", bytesi) != 1) continue;
 			}
 			else {
-				if (sscanf(p + 4, "%s dst=%s", src, dst) != 2) continue;
 				sport[0] = 0;
 				dport[0] = 0;
+				byteso[0] = 0;
+				bytesi[0] = 0;
 			}
 
-			web_printf("%c[%u,%u,'%s','%s','%s','%s',%d]", comma, proto, time, src, dst, sport, dport, mark);
+			switch (family) {
+			case 2:
+				if ((inet_addr(src) & mask) != lan) {
+					dir_reply = 1;
+					// de-nat
+					if ((p = strstr(p, "src=")) == NULL) continue;
+					if ((proto == 6) || (proto == 17)) {
+						if (sscanf(p, "src=%s dst=%s sport=%s dport=%s", dst, src, dport, sport) != 4) continue; // intentionally backwards
+					}
+					else {
+						if (sscanf(p, "src=%s dst=%s", dst, src) != 2) continue;
+					}
+				}
+				else if (rip != 0 && inet_addr(dst) == rip) continue; 
+				break;
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+			case 10:
+				if (inet_pton(AF_INET6, src, &in6) <= 0) continue;
+				inet_ntop(AF_INET6, &in6, src, sizeof src);
+
+				if (IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len))
+					dir_reply = 1;
+
+				if (inet_pton(AF_INET6, dst, &in6) <= 0) continue;
+				inet_ntop(AF_INET6, &in6, dst, sizeof dst);
+				
+				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
+					continue;
+				break;
+#endif
+			}
+
+			if (dir_reply == 1) {
+				web_printf("%c[%u,%u,'%s','%s','%s','%s','%s','%s',%d,%d]", comma, proto, time, dst, src, dport, sport, bytesi, byteso, mark, rule );
+			}
+			else {
+				web_printf("%c[%u,%u,'%s','%s','%s','%s','%s','%s',%d,%d]", comma, proto, time, src, dst, sport, dport, byteso, bytesi, mark, rule );
+			} 
 			comma = ',';
 		}
 	}
 	web_puts("];\n");
 }
+
+void asp_ctrate(int argc, char **argv)
+{
+	unsigned int a_time, a_proto;
+	unsigned int a_bytes_o, a_bytes_i;
+	char a_sport[16];
+	char a_dport[16];
+
+	char *p, *q;
+	int x;
+	int len;
+
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	unsigned int a_fam, b_fam;
+	char a_src[INET6_ADDRSTRLEN];
+	char a_dst[INET6_ADDRSTRLEN];
+#else
+	const unsigned int a_fam = 2;
+	char a_src[INET_ADDRSTRLEN];
+	char a_dst[INET_ADDRSTRLEN];
+#endif
+
+	unsigned int b_time, b_proto;
+	unsigned int b_bytes_o, b_bytes_i;
+
+	char sa[512];
+	char sb[512];
+	
+	FILE *a;
+	FILE *b;
+	
+	long b_pos;
+	
+	int delay;
+	int thres;
+	
+	long outbytes;
+	long inbytes;
+	int n;
+	char comma;
+
+	int dir_reply;
+
+	unsigned long rip;
+	unsigned long lan;
+	unsigned long mask;
+
+	mask = inet_addr(nvram_safe_get("lan_netmask"));
+	rip = inet_addr(nvram_safe_get("lan_ipaddr"));
+	lan = rip & mask;
+	
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	struct in6_addr rip6;
+	struct in6_addr lan6;
+	struct in6_addr in6;
+	int lan6_prefix_len;
+
+	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
+	if (ipv6_enabled()) {
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
+		ipv6_router_address(&rip6);
+	}
+#endif
+	
+	if (nvram_match("t_hidelr", "0")) rip = 0;	// hide lan -> router?
+
+	web_puts("\nctrate = [");
+	comma = ' ';
+
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	const char name[] = "/proc/net/nf_conntrack";
+#else
+	const char name[] = "/proc/net/ip_conntrack";	
+#endif
+
+	if (argc != 2) return;
+	
+	delay = atoi(argv[0]);
+	thres = atoi(argv[1]) * delay;
+
+	if ((a = fopen(name, "r")) == NULL) return;
+	if ((b = tmpfile()) == NULL) return;
+
+	size_t count;
+	char *buffer;
+	
+	buffer=(char *)malloc(1024);
+	
+	while (!feof(a)) {
+		count = fread(buffer, 1, 1024, a);
+		fwrite(buffer, 1, count, b);
+	}
+	
+	rewind(b);
+	rewind(a);
+	
+	usleep(1000000*(int)delay);
+
+#define MAX_SEARCH  10
+
+	// a = current, b = previous
+	while (fgets(sa, sizeof(sa), a)) {
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+		if (sscanf(sa, "%*s %u %*s %u %u", &a_fam, &a_proto, &a_time) != 3) continue;
+#else
+		if (sscanf(sa, "%u %u", &a_proto, &a_time) != 2) continue;
+#endif
+		if ((a_proto != 6) && (a_proto != 17)) continue;
+		if ((p = strstr(sa, "src=")) == NULL) continue;
+		
+		if (sscanf(p, "src=%s dst=%s sport=%s dport=%s%n %*s bytes=%u %n", a_src, a_dst, a_sport, a_dport, &len, &a_bytes_o, &x) != 5) continue;
+
+		if ((q = strstr(p+x, "bytes=")) == NULL) continue;
+		if (sscanf(q, "bytes=%u", &a_bytes_i) != 1) continue;
+		
+		dir_reply = 0;
+
+		switch(a_fam) {
+			case 2:
+				if ((inet_addr(a_src) & mask) != lan)  dir_reply = 1;
+				else if (rip != 0 && inet_addr(a_dst) == rip) continue;
+				break;
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+			case 10:
+				if (inet_pton(AF_INET6, a_src, &in6) <= 0) continue;
+				inet_ntop(AF_INET6, &in6, a_src, sizeof a_src);
+
+				if (IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len))
+					dir_reply = 1;
+
+				if (inet_pton(AF_INET6, a_dst, &in6) <= 0) continue;
+				inet_ntop(AF_INET6, &in6, a_dst, sizeof a_dst);
+				
+				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
+					continue;
+				break;
+			default:
+				continue;
+#endif
+		}
+		
+		b_pos = ftell(b);
+		n = 0;
+		while (fgets(sb, sizeof(sb), b) && ++n < MAX_SEARCH) {
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+			if (sscanf(sb, "%*s %u %*s %u %u", &b_fam, &b_proto, &b_time) != 3) continue;
+			if ((b_fam   != a_fam)) continue;
+#else
+			if (sscanf(sb, "%u %u", &b_proto, &b_time) != 2) continue;
+#endif
+			if ((b_proto != a_proto)) continue;
+			if ((q = strstr(sb, "src=")) == NULL) continue;
+			
+			if (strncmp(p, q, (size_t)len)) continue;
+			
+			// Ok, they should be the same now. Grab the byte counts.
+			if ((q = strstr(q+len, "bytes=")) == NULL) continue;
+			if (sscanf(q, "bytes=%u", &b_bytes_o) != 1) continue;
+			
+			if ((q = strstr(q+len, "bytes=")) == NULL) continue;
+			if (sscanf(q, "bytes=%u", &b_bytes_i) != 1) continue;
+
+			break;
+		}
+
+		if (feof(b) || n >= MAX_SEARCH) {
+			// Assume this is a new connection
+			b_bytes_o = 0;
+			b_bytes_i = 0;
+			b_time = 0;
+
+			// Reset the search so we don't miss anything
+			fseek(b, b_pos, SEEK_SET);
+			n = -n;
+		}
+
+		outbytes = ((long)a_bytes_o - (long)b_bytes_o);
+		inbytes = ((long)a_bytes_i - (long)b_bytes_i);
+		
+		if ((outbytes < thres) && (inbytes < thres)) continue;
+		
+		if (dir_reply == 1 && a_fam == 2) {
+			// de-nat
+			if ((q = strstr(p+x, "src=")) == NULL) continue;
+			if (sscanf(q, "src=%s dst=%s sport=%s dport=%s", a_dst, a_src, a_dport, a_sport) != 4) continue;
+		}
+
+		if (dir_reply == 1){
+			web_printf("%c[%u,'%s','%s','%s','%s',%li,%li]",
+				comma, a_proto, a_dst, a_src, a_dport, a_sport, inbytes, outbytes );
+		}
+		else {
+			web_printf("%c[%u,'%s','%s','%s','%s',%li,%li]",
+				comma, a_proto, a_src, a_dst, a_sport, a_dport, outbytes, inbytes );				
+		}
+		comma = ',';
+	}
+	web_puts("];\n");
+	
+	fclose(a);
+	fclose(b);
+}
+	
 
 void asp_qrate(int argc, char **argv)
 {
@@ -236,7 +542,7 @@ void asp_qrate(int argc, char **argv)
 	asp_ctcount(1, a);
 
 	memset(rates, 0, sizeof(rates));
-	sprintf(s, "tc -s class ls dev %s", nvram_safe_get("wan_iface"));
+	sprintf(s, "tc -s class ls dev %s", get_wanface());
 	if ((f = popen(s, "r")) != NULL) {
 		n = 1;
 		while (fgets(s, sizeof(s), f)) {

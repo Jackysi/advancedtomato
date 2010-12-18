@@ -32,7 +32,8 @@ static void help(void)
 		"ren <key> <key> | commit | erase | show [--nosort|--nostat] |\n"
 		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
 		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
-		"export <--quote|--c|--dump|--dump0|--set|--tab> | import [--forceall] |\n"
+		"export <--quote|--c|--set|--tab> [--nodefaults] |\n"
+		"export <--dump|--dump0> | import [--forceall] <filename> |\n"
 		"setfb64 <key> <filename> | getfb64 <key> <filename> |\n"
 		"setfile <key> <filename> | getfile <key> <filename> | setfile2nvram <filename>"
 //		"test"
@@ -359,9 +360,41 @@ static int erase_main(int argc, char **argv)
 	return eval("mtd-erase", "-d", "nvram");
 }
 
+/*
+ * Find nvram param name; return pointer which should be treated as const
+ * return NULL if not found.
+ *
+ * NOTE:  This routine special-cases the variable wl_bss_enabled.  It will
+ * return the normal default value if asked for wl_ or wl0_.  But it will
+ * return 0 if asked for a virtual BSS reference like wl0.1_.
+ */
+static const char *get_default_value(const char *name)
+{
+	char *p;
+	const defaults_t *t;
+	char fixed_name[NVRAM_MAX_PARAM_LEN + 1];
+
+	if (strncmp(name, "wl", 2) == 0 && isdigit(name[2]) && ((p = strchr(name, '_'))))
+		snprintf(fixed_name, sizeof(fixed_name) - 1, "wl%s", p);
+	else
+		strncpy(fixed_name, name, sizeof(fixed_name));
+
+	if (strcmp(fixed_name, "wl_bss_enabled") == 0) {
+		if (name[3] == '.' || name[4] == '.') /* Virtual interface */
+			return "0";
+	}
+
+	for (t = defaults; t->key; t++) {
+		if (strcmp(t->key, name) == 0 || strcmp(t->key, fixed_name) == 0)
+			return (t->value ? : "");
+	}
+
+	return NULL;
+}
+
 #define X_QUOTE		0
 #define X_SET		1
-#define X_C			2
+#define X_C		2
 #define X_TAB		3
 
 static int export_main(int argc, char **argv)
@@ -370,6 +403,8 @@ static int export_main(int argc, char **argv)
 	char buffer[NVRAM_SPACE];
 	int eq;
 	int mode;
+	int all, n, skip;
+	char *bk, *bv, *v;
 
 	// C, set, quote
 	static const char *start[4] = { "\"", "nvram set ", "{ \"", "" };
@@ -379,13 +414,25 @@ static int export_main(int argc, char **argv)
 	getall(buffer);
 	p = buffer;
 
+	all = 1;
+	for (n = 1; n < argc; ++n) {
+		if (strcmp(argv[n], "--nodefaults") == 0) {
+			if (argc < 3) help();
+			all = 0;
+			if (n == 1) ++argv;
+			break;
+		}
+	}
+
 	if (strcmp(argv[1], "--dump") == 0) {
+		if (!all) help();
 		for (p = buffer; *p; p += strlen(p) + 1) {
 			puts(p);
 		}
 		return 0;
 	}
 	if (strcmp(argv[1], "--dump0") == 0) {
+		if (!all) help();
 		for (p = buffer; *p; p += strlen(p) + 1) { }
 		fwrite(buffer, p - buffer, 1, stdout);
 		return 0;
@@ -399,6 +446,25 @@ static int export_main(int argc, char **argv)
 
 	while (*p) {
 		eq = 0;
+
+		if (!all) {
+			skip = 0;
+			bk = p;
+			p += strlen(p) + 1;
+			bv = strchr(bk, '=');
+			*bv++ = 0;
+
+			if ((v = (char *)get_default_value(bk)) != NULL) {
+				skip = (strcmp(bv, v) == 0);
+			}
+
+			*(bv - 1) = '=';
+			if (skip)
+				continue;
+			else
+				p = bk;
+		}
+
 		printf("%s", start[mode]);
 		do {
 			switch (*p) {
@@ -875,7 +941,7 @@ static const applets_t applets[] = {
 	{ "commit",		2,	commit_main		},
 	{ "erase",		2,	erase_main		},
 	{ "find",		3,	find_main		},
-	{ "export",		3,	export_main		},
+	{ "export",		-3,	export_main		},
 	{ "import",		-3,	import_main		},
 	{ "defaults",	3,	defaults_main	},
 	{ "validate",		-3,	validate_main		},

@@ -69,6 +69,7 @@ var services = [
 	['opendns', 'OpenDNS', 'http://www.opendns.com/', 'uhoz', null, null, 'Network <small>(optional)</small>'],
 	['tzo', 'TZO', 'http://www.tzo.com/', 'uh', 'Email Address', 'Password'],
 	['zoneedit', 'ZoneEdit', 'http://www.zoneedit.com/', 'uh'],
+	['szoneedit', 'ZoneEdit (https)', 'http://www.zoneedit.com/', 'uh'],
 	['custom', 'Custom URL', '', 'c']];
 
 var opendns = ['208.67.222.222', '208.67.220.220'];
@@ -353,7 +354,7 @@ function init()
 
 <input type='hidden' name='_nextpage' value='basic-ddns.asp'>
 <input type='hidden' name='_service' value='ddns-restart'>
-<input type='hidden' name='_nextwait' value='8'>
+<input type='hidden' name='_nextwait' value='10'>
 
 <input type='hidden' name='ddnsx0' value=''>
 <input type='hidden' name='ddnsx1' value=''>

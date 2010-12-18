@@ -340,6 +340,7 @@ void start_pppoe(int num)
 			"-P", "0",			// PPPOE session number.
 			"-C", "pppoe_down",		// by tallest 0407
 			"-R",			// set default route
+			NULL,			// ipv6
 			NULL,			// debug
 			NULL, NULL,		// pppoe_service
 			NULL, NULL,		// pppoe_ac
@@ -354,6 +355,15 @@ void start_pppoe(int num)
 	for (arg = pppoe_argv; *arg; arg++) {
 		//
 	}
+
+#ifdef TCONFIG_IPV6
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE:
+	case IPV6_NATIVE_DHCP:
+		*arg++ = "-6";		// enables IPv6CP
+		break;
+	}
+#endif
 
 	if (nvram_get_int("debug_ppp")) {
 		*arg++ = "-d";		// debug mode; compile ppp w/ -DDEBUG	!
@@ -886,6 +896,31 @@ void start_wan_done(char *wan_ifname)
 		stop_igmp_proxy();
 		start_igmp_proxy();
 	}
+	
+#ifdef TCONFIG_IPV6
+	if (wanup) {
+		switch (get_ipv6_service()) {
+		case IPV6_NATIVE:
+			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
+			break;
+		case IPV6_NATIVE_DHCP:
+			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
+			stop_dhcp6c();
+			stop_radvd();
+			/* note: starting radvd here is really too early because we won't have
+			 * received a prefix and so it will disable advertisements,
+			 * but the SIGHUP sent from dhcp6c-state will restart them.
+			 */
+			start_radvd();
+			start_dhcp6c();
+			break;
+		case IPV6_6IN4:
+			stop_ipv6_sit_tunnel();
+			start_ipv6_sit_tunnel();
+			break;
+		}
+	}
+#endif
 
 	stop_upnp();
 	start_upnp();
@@ -925,7 +960,13 @@ void stop_wan(void)
 	stop_firewall();
 	stop_igmp_proxy();
 	stop_ntpc();
-	
+
+#ifdef TCONFIG_IPV6
+	stop_ipv6_sit_tunnel();
+	stop_dhcp6c();
+	nvram_set("ipv6_get_dns", "");
+#endif
+
 	/* Kill any WAN client daemons or callbacks */
 	stop_redial();
 	stop_singe_pppoe(PPPOE0);

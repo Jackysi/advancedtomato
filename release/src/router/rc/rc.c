@@ -96,6 +96,9 @@ static const applets_t applets[] = {
 	{ "dhcpc-event",		dhcpc_event_main		},
 	{ "dhcpc-release",		dhcpc_release_main		},
 	{ "dhcpc-renew",		dhcpc_renew_main		},
+#ifdef TCONFIG_IPV6
+	{ "dhcp6c-state",		dhcp6c_state_main		},
+#endif
 	{ "radio",				radio_main				},
 	{ "led",				led_main				},
 	{ "halt",				reboothalt_main			},
@@ -134,7 +137,7 @@ int main(int argc, char **argv)
 	base = strrchr(argv[0], '/');
 	base = base ? base + 1 : argv[0];
 
-#if 0
+#if 1
 	if (strcmp(base, "rc") == 0) {
 		if (argc < 2) return 1;
 		if (strcmp(argv[1], "start") == 0) return kill(1, SIGUSR2);

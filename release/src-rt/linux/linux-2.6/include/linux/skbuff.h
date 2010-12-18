@@ -301,8 +301,9 @@ struct sk_buff {
 	struct nf_conntrack	*nfct;
 	struct sk_buff		*nfct_reasm;
 	/* Cache info */
-	__u32			nfcache;
+	__u16			nfcache;
 #endif
+	__u16			__unused;
 #ifdef CONFIG_BRIDGE_NETFILTER
 	struct nf_bridge_info	*nf_bridge;
 #endif

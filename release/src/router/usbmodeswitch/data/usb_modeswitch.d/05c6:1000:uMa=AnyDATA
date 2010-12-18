@@ -1,5 +1,5 @@
 ########################################################
-# AnyDATA devices
+# AnyDATA devices, Bless UC165
 
 DefaultVendor=  0x05c6
 DefaultProduct= 0x1000

@@ -1,0 +1,13 @@
+#######################################################
+# Nokia CS-18
+
+DefaultVendor= 0x0421
+DefaultProduct=0x0627
+
+TargetVendor=  0x0421
+TargetProduct= 0x0612
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+CheckSuccess=20
+

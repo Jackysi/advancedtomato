@@ -19,17 +19,17 @@
 <!-- / / / -->
 <style type='text/css'>
 #ara-grid .co1, #ara-grid .co2, #ara-grid .co3 {
-	width: 15%;
+	width: 20%;
 }
 #ara-grid .co4 {
 	width: 6%;
 }
 #ara-grid .co5 {
-	width: 49%;
+	width: 34%;
 }
 
 #ars-grid .co1, #ars-grid .co2, #ars-grid .co3  {
-	width: 15%;
+	width: 20%;
 }
 #ars-grid .co4 {
 	width: 6%;
@@ -38,7 +38,7 @@
 	width: 10%;
 }
 #ars-grid .co6 {
-	width: 39%;
+	width: 24%;
 }
 </style>
 
@@ -54,7 +54,7 @@ ara.setup = function() {
 	var i, a;
 
 	this.init('ara-grid', 'sort');
-	this.headerSet(['Destination', 'Gateway', 'Subnet Mask', 'Metric', 'Interface']);
+	this.headerSet(['Destination', 'Gateway / Next Hop', 'Subnet Mask', 'Metric', 'Interface']);
 	for (i = 0; i < activeroutes.length; ++i) {
 		a = activeroutes[i];
 		if (a[0] == nvram.lan_ifname) a[0] += ' (LAN)';

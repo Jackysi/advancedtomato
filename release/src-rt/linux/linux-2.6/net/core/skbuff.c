@@ -211,14 +211,15 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->nfct = NULL;
 	skb->nfcache = 0;
 #endif
+	skb->__unused = 0;
 #ifdef CONFIG_BRIDGE_NETFILTER
 	skb->nf_bridge = NULL;
 #endif
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-#ifdef CONFIG_NET_CLS_ACT
+//#ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = 0;
-#endif
+//#endif
 #endif
 #ifdef CONFIG_NET_DMA
 	memset(&skb->dma_cookie, 0, sizeof(dma_cookie_t));
@@ -389,9 +390,9 @@ void __kfree_skb(struct sk_buff *skb)
 /* XXX: IS this still necessary? - JHS */
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-#ifdef CONFIG_NET_CLS_ACT
+//#ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = 0;
-#endif
+//#endif
 #endif
 
 	kfree_skbmem(skb);
@@ -440,14 +441,15 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	__nf_copy(new, old);
 #ifdef CONFIG_NET_SCHED
 	new->tc_index		= old->tc_index;
-#ifdef CONFIG_NET_CLS_ACT
+//#ifdef CONFIG_NET_CLS_ACT
 	new->tc_verd		= old->tc_verd;
-#endif
+//#endif
 #endif
 	skb_copy_secmark(new, old);
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	new->nfcache		= old->nfcache;
 #endif
+	new->__unused		= old->__unused;
 }
 
 /**

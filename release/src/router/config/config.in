@@ -89,7 +89,7 @@ config TCONFIG_FTP
 
 config TCONFIG_FTP_SSL
 	bool "    FTP SSL Support"
-	depends on TCONFIG_USB && TCONFIG_FTP
+	depends on TCONFIG_FTP
 	default n
 
 config TCONFIG_SAMBASRV

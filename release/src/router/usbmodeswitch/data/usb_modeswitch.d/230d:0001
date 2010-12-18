@@ -1,0 +1,12 @@
+#######################################################
+# Linktop LW272/LW273 (BSNL Teracom)
+
+DefaultVendor= 0x230d
+DefaultProduct=0x0001
+
+TargetClass=0xff
+
+Configuration=3
+
+CheckSuccess=20
+

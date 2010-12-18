@@ -9,6 +9,7 @@
 extern void unix_inflight(struct file *fp);
 extern void unix_notinflight(struct file *fp);
 extern void unix_gc(void);
+extern void wait_for_unix_gc(void);
 
 #define UNIX_HASH_SIZE	256
 
@@ -79,9 +80,11 @@ struct unix_sock {
 	struct mutex		readlock;
         struct sock		*peer;
         struct sock		*other;
-        struct sock		*gc_tree;
+	struct list_head	link;
         atomic_t                inflight;
         spinlock_t		lock;
+	unsigned int		gc_candidate : 1;
+	unsigned int		gc_maybe_cycle : 1;
         wait_queue_head_t       peer_wait;
 };
 #define unix_sk(__sk) ((struct unix_sock *)__sk)

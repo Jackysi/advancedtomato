@@ -51,6 +51,9 @@ function save()
 /* LINUX26-BEGIN */
 	if (fom.f_nr_hotplug2.checked) a.push('hotplug2');
 /* LINUX26-END */
+/* IPV6-BEGIN */
+	if (fom.f_nr_radvd.checked) a.push('radvd');
+/* IPV6-END */
 	if (fom.f_nr_igmprt.checked) a.push('igmprt');
 	fom.debug_norestart.value = a.join(',');
 
@@ -101,6 +104,9 @@ createFieldTable('', [
 /* LINUX26-BEGIN */
 		{ name: 'f_nr_hotplug2', type: 'checkbox', suffix: ' hotplug2<br>', value: (nvram.debug_norestart.indexOf('hotplug2') != -1) },
 /* LINUX26-END */
+/* IPV6-BEGIN */
+		{ name: 'f_nr_radvd', type: 'checkbox', suffix: ' radvd<br>', value: (nvram.debug_norestart.indexOf('radvd') != -1) },
+/* IPV6-END */
 		{ name: 'f_nr_igmprt', type: 'checkbox', suffix: ' igmprt<br>', value: (nvram.debug_norestart.indexOf('igmprt') != -1) }
 	] }
 ]);
@@ -115,6 +121,9 @@ createFieldTable('', [
 
 &raquo; <a href='/cfe/cfe.bin?_http_id=<% nv(http_id); %>'>Download CFE</a><br>
 &raquo; <a href='/ipt/iptables.txt?_http_id=<% nv(http_id); %>'>Download Iptables Dump</a><br>
+<!-- IPV6-BEGIN -->
+&raquo; <a href='/ip6t/ip6tables.txt?_http_id=<% nv(http_id); %>'>Download Ip6tables Dump</a><br>
+<!-- IPV6-END -->
 &raquo; <a href='/logs/syslog.txt?_http_id=<% nv(http_id); %>'>Download Logs</a><br>
 &raquo; <a href='/nvram/nvram.txt?_http_id=<% nv(http_id); %>'>Download NVRAM Dump</a><br>
 <br>

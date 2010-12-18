@@ -1,0 +1,13 @@
+#######################################################
+# Qtronix EVDO 3G Modem (for TianYi)
+
+DefaultVendor= 0x05c7
+DefaultProduct=0x1000
+
+TargetVendor=  0x05c7
+TargetProduct= 0x6000
+
+MessageContent="5553424312345678c00000008000069f140000000000000000000000000000"
+
+CheckSuccess=20
+

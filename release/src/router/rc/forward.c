@@ -19,7 +19,7 @@ void ipt_forward(ipt_table_t table)
 	const char *proto, *saddr, *xports, *iport, *iaddr;
 	const char *c;
 	const char *mdport;
-	int i;
+	int i, n;
 	char ip[64];
 	char src[64];
 
@@ -78,21 +78,16 @@ void ipt_forward(ipt_table_t table)
 						ip,  *iport ? ":" : "", iport);
 
 					if (nvram_get_int("nf_loopback") == 1) {
-						ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
-							c,
-							mdport, *iport ? iport : xports,
-							nvram_safe_get("lan_ipaddr"),	// corrected by ipt
-							nvram_safe_get("lan_netmask"),
-							ip,
-							wanaddr);
-						if (*manaddr) {
-							ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
-								c,
-								mdport, *iport ? iport : xports,
-								nvram_safe_get("lan_ipaddr"),	// corrected by ipt
-								nvram_safe_get("lan_netmask"),
-								ip,
-								manaddr);
+						for (n = 0; n < wanfaces.count; ++n) {
+							if (*(wanfaces.iface[n].name)) {
+								ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
+									c,
+									mdport, *iport ? iport : xports,
+									nvram_safe_get("lan_ipaddr"),	// corrected by ipt
+									nvram_safe_get("lan_netmask"),
+									ip,
+									wanfaces.iface[n].ip);
+							}
 						}
 					}
 				}
@@ -161,3 +156,47 @@ void ipt_triggered(ipt_table_t table)
 QUIT:
 	free(nv);
 }
+
+#ifdef TCONFIG_IPV6
+void ip6t_forward(void)
+{
+	char *nv, *nvp, *b;
+	const char *proto, *saddr, *daddr, *dports;
+	const char *c;
+	const char *mdport;
+	int i;
+
+	nvp = nv = strdup(nvram_safe_get("ipv6_portforward"));
+	if (!nv) return;
+
+	while ((b = strsep(&nvp, ">")) != NULL) {
+		/*
+			1<3<2001:23:45:67::/64<2600:abc:def:123::1<30,40-45<desc
+
+			1 = enabled
+			3 = tcp & udp
+			2001:23:45:67::/64 = src addr
+			2600:abc:def:123::1 = dst addr
+			30,40-45 = dst port
+			desc = desc
+		*/
+		if ((vstrsep(b, "<", &c, &proto, &saddr, &daddr, &dports) != 5) || (*c != '1')) continue;
+
+		mdport = (strchr(dports, ',') != NULL) ? "-m multiport --dports" : "--dport";
+		for (i = 0; i < 2; ++i) {
+			if ((1 << i) & (*proto - '0')) {
+				c = tcpudp[i];
+				ip6t_write("-A wanin %s %s -p %s -m %s -d %s %s %s -j %s\n",
+					*saddr ? "-s" : "",
+					saddr,
+					c,
+					c,
+					daddr,
+					mdport, dports,
+					chain_in_accept);
+			}
+		}
+	}
+	free(nv);
+}
+#endif

@@ -1,0 +1,12 @@
+#######################################################
+# AirPlus MCD-800
+
+DefaultVendor= 0x1edf
+DefaultProduct=0x6003
+
+TargetClass=0xff
+
+Configuration=3
+
+CheckSuccess=20
+

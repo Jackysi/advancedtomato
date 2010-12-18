@@ -92,6 +92,7 @@ function get(mac, ip)
 		mac: mac,
 		ip: ip || '',
 		ifname: '',
+		unit: 0,
 		name: '',
 		rssi: '',
 		txrx: '',
@@ -199,6 +200,7 @@ dg.populate = function()
 	for (i = 0; i < list.length; ++i) {
 		list[i].ip = '';
 		list[i].ifname = '';
+		list[i].unit = 0;
 		list[i].name = '';
 		list[i].rssi = '';
 		list[i].txrx = '';
@@ -222,6 +224,7 @@ dg.populate = function()
 			e = get(a[1], null);
 		}
 		e.ifname = a[0];
+		e.unit = a[6] * 1;
 		e.rssi = a[2];
 
 		if ((a[3] > 1000) || (a[4] > 1000))
@@ -279,7 +282,7 @@ dg.populate = function()
 			b = '';
 		}
 
-		var ifidx = wl_ifidx(e.ifname);
+		var ifidx = wl_uidx(e.unit);
 		if ((e.rssi !== '') && (ifidx >= 0) && (wlnoise[ifidx] < 0)) {
 			e.qual = MAX(e.rssi - wlnoise[ifidx], 0);
 		}

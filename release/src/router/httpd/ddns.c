@@ -21,21 +21,10 @@ void asp_ddnsx(int argc, char **argv)
 	time_t tt;
 	struct stat st;
 
-	switch (get_wan_proto()) {
-	case WP_PPTP:
-	case WP_L2TP:
-		p = "ppp_get_ip";
-		if (nvram_get_int("ppp_defgw")) break;
-		// else fall through
-	default:
-		p = "wan_ipaddr";
-		break;
-	}
-
 	web_printf(
 		"\nddnsx_ip = '%s';\n"
 		"ddnsx_msg = [",
-		nvram_safe_get(p));
+		get_wanip());
 
 	for (i = 0; i < 2; ++i) {
 		web_puts(i ? "','" : "'");
@@ -72,16 +61,5 @@ void asp_ddnsx(int argc, char **argv)
 
 void asp_ddnsx_ip(int argc, char **argv)
 {
-	const char *p;
-
-	switch (get_wan_proto()) {
-	case WP_PPTP:
-	case WP_L2TP:
-		p = "ppp_get_ip";
-		break;
-	default:
-		p = "wan_ipaddr";
-		break;
-	}
-	web_puts(nvram_safe_get(p));
+	web_puts(get_wanip());
 }

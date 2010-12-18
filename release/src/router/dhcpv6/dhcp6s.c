@@ -316,8 +316,13 @@ main(argc, argv)
 	}
 
 	if (foreground == 0) {
+		int fd;
+
 		if (daemon(0, 0) < 0)
 			err(1, "daemon");
+
+		for (fd = 3; fd < 1024; fd++)
+			close(fd);
 	}
 
 	/* dump current PID */

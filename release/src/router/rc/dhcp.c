@@ -417,3 +417,91 @@ void stop_dhcpc(void)
 	TRACE_PT("end\n");
 }
 
+// -----------------------------------------------------------------------------
+
+#ifdef TCONFIG_IPV6
+
+int dhcp6c_state_main(int argc, char **argv)
+{
+	TRACE_PT("begin\n");
+
+	if (!wait_action_idle(10)) return 1;
+
+	if (env2nv("new_domain_name_servers", "ipv6_get_dns")) {
+		dns_to_resolv();
+		start_dnsmasq();	// (re)start
+	}
+
+	// notify radvd of possible change
+	killall("radvd", SIGHUP);
+
+	TRACE_PT("ipv6_get_dns=%s\n", nvram_safe_get("ipv6_get_dns"));
+	TRACE_PT("end\n");
+	return 0;
+}
+
+void start_dhcp6c(void)
+{
+	FILE *f;
+	int prefix_len;
+	char *wan6face;
+	char *argv[] = { "dhcp6c", NULL, NULL, NULL };
+	int argc;
+
+	TRACE_PT("begin\n");
+
+	// Check if turned on
+	if (get_ipv6_service() != IPV6_NATIVE_DHCP) return;
+	prefix_len = nvram_get_int("ipv6_prefix_length");
+	wan6face = nvram_safe_get("wan_iface");
+
+	nvram_set("ipv6_get_dns", "");
+	nvram_set("ipv6_rtr_addr", "");
+
+	// Create dhcp6c.conf
+	if ((f = fopen("/etc/dhcp6c.conf", "w"))) {
+		fprintf(f,
+			"interface %s {\n"
+			" send ia-pd 0;\n"
+			" send rapid-commit;\n"
+			" request domain-name-servers;\n"
+			" script \"dhcp6c-state\";\n"
+			"};\n"
+			"id-assoc pd 0 {\n"
+			" prefix-interface lo {\n"
+			"  sla-id 0;\n"
+			"  sla-len %d;\n"
+			" };\n"
+			" prefix-interface %s {\n"
+			"  sla-id 1;\n"
+			"  sla-len %d;\n"
+			" };\n"
+			"};\n",
+			wan6face,
+			64 - prefix_len,
+			nvram_safe_get("lan_ifname"),
+			64 - prefix_len);
+		fclose(f);
+	}
+
+	argc = 1;
+	if (nvram_contains_word("log_events", "dhcp6c"))
+		argv[argc++] = "-D";
+	argv[argc++] = wan6face;
+	argv[argc] = NULL;
+	_eval(argv, NULL, 0, NULL);
+
+	TRACE_PT("end\n");
+}
+
+void stop_dhcp6c(void)
+{
+	TRACE_PT("begin\n");
+
+	killall("dhcp6c-event", SIGTERM);
+	killall_tk("dhcp6c");
+
+	TRACE_PT("end\n");
+}
+
+#endif	// TCONFIG_IPV6

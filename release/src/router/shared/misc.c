@@ -48,6 +48,48 @@ int get_wan_proto(void)
 	return WP_DISABLED;
 }
 
+#ifdef TCONFIG_IPV6
+int get_ipv6_service(void)
+{
+	const char *names[] = {	// order must be synced with def at shared.h
+		"native",	// IPV6_NATIVE
+		"native-pd",	// IPV6_NATIVE_DHCP
+		"sit",		// IPV6_6IN4
+		"other",	// IPV6_MANUAL
+		NULL
+	};
+	int i;
+	const char *p;
+
+	p = nvram_safe_get("ipv6_service");
+	for (i = 0; names[i] != NULL; ++i) {
+		if (strcmp(p, names[i]) == 0) return i + 1;
+	}
+	return IPV6_DISABLED;
+}
+
+const char *ipv6_router_address(struct in6_addr *in6addr)
+{
+	char *p;
+	struct in6_addr addr;
+	static char addr6[40];
+
+	if ((p = nvram_get("ipv6_rtr_addr")) && *p) {
+		inet_pton(AF_INET6, p, &addr);
+	}
+	else {
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &addr);
+		addr.s6_addr16[7] = htons(0x0001);
+	}
+
+	inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
+	if (in6addr)
+		memcpy(in6addr, &addr, sizeof(addr));
+
+	return addr6;
+}
+#endif
+
 int using_dhcpc(void)
 {
 	switch (get_wan_proto()) {
@@ -193,7 +235,7 @@ const dns_list_t *get_dns(void)
 	int n;
 	int i, j;
 	struct in_addr ia;
-	char d[4][22];
+	char d[7][22];
 	unsigned short port;
 	char *c;
 
@@ -205,7 +247,7 @@ const dns_list_t *get_dns(void)
 		snprintf(s + n, sizeof(s) - n, " %s", nvram_safe_get("wan_get_dns"));
 	}
 
-	n = sscanf(s, "%21s %21s %21s %21s", d[0], d[1], d[2], d[3]);
+	n = sscanf(s, "%21s %21s %21s %21s %21s %21s %21s", d[0], d[1], d[2], d[3], d[4], d[5], d[6]);
 	for (i = 0; i < n; ++i) {
 		port = 53;
 
@@ -222,7 +264,7 @@ const dns_list_t *get_dns(void)
 			if (j < 0) {
 				dns.dns[dns.count].port = port;
 				dns.dns[dns.count++].addr.s_addr = ia.s_addr;
-				if (dns.count == 3) break;
+				if (dns.count == 6) break;
 			}
 		}
 	}
@@ -265,24 +307,66 @@ int wait_action_idle(int n)
 
 // -----------------------------------------------------------------------------
 
+const wanface_list_t *get_wanfaces(void)
+{
+	static wanface_list_t wanfaces;
+	char *ip, *iface;
+	int defgw, proto;
+
+	wanfaces.count = 0;
+
+	switch ((proto = get_wan_proto())) {
+		case WP_PPTP:
+		case WP_L2TP:
+			defgw = nvram_get_int("ppp_defgw");
+			while (wanfaces.count < 2) {
+				if ((defgw && wanfaces.count == 0) || (!defgw && wanfaces.count == 1)) {
+					ip = nvram_safe_get("ppp_get_ip");
+					iface = nvram_safe_get("wan_iface");
+					if (!(*iface)) iface = "ppp+";
+				}
+				else /* if ((!defgw && wanfaces.count == 0) || (defgw && wanfaces.count == 1)) */ {
+					ip = nvram_safe_get("wan_ipaddr");
+					if ((!(*ip) || strcmp(ip, "0.0.0.0") == 0) && (wanfaces.count > 0))
+						iface = "";
+					else
+						iface = nvram_safe_get("wan_ifname");
+				}
+				strlcpy(wanfaces.iface[wanfaces.count].ip, ip, sizeof(wanfaces.iface[0].ip));
+				strlcpy(wanfaces.iface[wanfaces.count].name, iface, IFNAMSIZ);
+				++wanfaces.count;
+			}
+			break;
+		default:
+			ip = (proto == WP_DISABLED) ? "0.0.0.0" : nvram_safe_get("wan_ipaddr");
+			if (proto == WP_PPPOE) {
+				iface = nvram_safe_get("wan_iface");
+				if (!(*iface)) iface = "ppp+";
+			}
+			else {
+				iface = nvram_safe_get("wan_ifname");
+			}
+			strlcpy(wanfaces.iface[wanfaces.count].ip, ip, sizeof(wanfaces.iface[0].ip));
+			strlcpy(wanfaces.iface[wanfaces.count++].name, iface, IFNAMSIZ);
+			break;
+	}
+
+	return &wanfaces;
+}
+
+const char *get_wanface(void)
+{
+	return (*get_wanfaces()).iface[0].name;
+}
+
 const char *get_wanip(void)
 {
-	const char *p;
-
 	if (!check_wanup()) return "0.0.0.0";
-	switch (get_wan_proto()) {
-	case WP_DISABLED:
-		return "0.0.0.0";
-	case WP_PPTP:
-	case WP_L2TP:
-		p = "ppp_get_ip";
-		break;
-	default:
-		p = "wan_ipaddr";
-		break;
-	}
-	return nvram_safe_get(p);
+
+	return (*get_wanfaces()).iface[0].ip;
 }
+
+// -----------------------------------------------------------------------------
 
 long get_uptime(void)
 {

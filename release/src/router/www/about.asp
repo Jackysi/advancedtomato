@@ -113,24 +113,28 @@ Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
 <br>
 /* VPN-END */
 <br>
-<b>This compilation by Toastman, Bangkok</b><br>
+<b>This compilation by Toastman, Bangkok, may include:</b><br>
 <br>
-<b>Teddy Bear features:</b><br>
-- Media Server [ext & VPN builds]<br>
+<b>All current "Teddy Bear" features, notably:</b><br>
+- USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor<br>
+- Per-connection transfer rates<br>
+- Byte counter added to QOS/Details<br>
+- QOS rule ID added to QOS/Details<br>
+- Additional ipv6 support in GUI, QOS, Conntrack<br>
 <br>
-<b>Victek RAF features:</b><br>
-- CPU Info & Overclock | Previous WAN IP<br>
+<b>"Victek" RAF features:</b><br>
 - IP/MAC Bandwidth Limiter | ARP Binding<br>
+- CPU Info & Overclock | Previous WAN IP<br>
 - Access Concentrator ID | Additional Themes<br>
 <br>
-<b>Toastman Features:</b><br>
+<b>"Toastman" Features:</b><br>
 - 250 entry Static DHCP | 500 entry Access Restrictions<br>
 - QOS class labels | Toastman QOS rules<br>
 - Fast conntrack timeout | Fast auto refresh<br>
-- Tools-System refresh timer<br>
+- Tools/System refresh timer<br>
 - Safe CPU frequency selector<br>
-- Loads upnpconfig.custom from JFFS<br>
+- Loads upnpconfig.custom from JFFS, for VPN UPnP support<br>
 <br>
 <br>
 Built on <% build_time(); %><br>
