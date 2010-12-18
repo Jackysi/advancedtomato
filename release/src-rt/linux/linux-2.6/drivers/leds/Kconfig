@@ -128,5 +128,12 @@ config LEDS_TRIGGER_HEARTBEAT
 	  load average.
 	  If unsure, say Y.
 
+config LEDS_TRIGGER_USBDEV
+	tristate "LED USB device Trigger"
+	depends on USB && LEDS_TRIGGERS
+	help
+	  This allows LEDs to be controlled by the presence/activity of
+	  an USB device. If unsure, say N.
+
 endmenu
 
