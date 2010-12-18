@@ -1102,7 +1102,7 @@ static void start_ftpd(void)
 		"log_ftp_protocol=%s\n"
 		"user_config_dir=%s\n"
 		"passwd_file=%s\n"
-		"listen=yes\n"
+		"listen%s=yes\n"
 		"listen_port=%s\n"
 		"background=yes\n"
 		"isolate=no\n"
@@ -1115,6 +1115,11 @@ static void start_ftpd(void)
 		"%s\n",
 		nvram_get_int("log_ftp") ? "yes" : "no",
 		vsftpd_users, vsftpd_passwd,
+#ifdef TCONFIG_IPV6
+		ipv6_enabled() ? "_ipv6" : "",
+#else
+		"",
+#endif
 		nvram_get("ftp_port") ? : "21",
 		nvram_get_int("ftp_max"),
 		nvram_get_int("ftp_ipmax"),
