@@ -3377,6 +3377,7 @@ safefile(path)
 
 	switch (s.st_mode & S_IFMT) {
 	case S_IFREG:
+	case S_IFLNK:
 		break;
 	default:
 		dprintf(LOG_NOTICE, FNAME, "%s is an invalid file type 0x%o",
