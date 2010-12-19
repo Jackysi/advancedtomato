@@ -271,7 +271,8 @@ extern int f_wait_notexists(const char *name, int max);
 #define LED_DMZ				4
 #define LED_AOSS			5
 #define LED_BRIDGE			6
-#define LED_MYSTERY			7	// (unmarked LED between wireless and bridge on WHR-G54S)
+#define LED_USB				7
+#define LED_MYSTERY			LED_USB	// (unmarked LED between wireless and bridge on WHR-G54S)
 #define LED_COUNT			8
 
 #define	LED_OFF				0
@@ -286,7 +287,11 @@ extern void gpio_write(uint32_t bit, int en);
 extern uint32_t gpio_read(void);
 extern uint32_t _gpio_read(int f);
 extern int nvget_gpio(const char *name, int *gpio, int *inv);
-extern int led(int which, int mode);
+extern int do_led(int which, int mode);
+static inline int led(int which, int mode)
+{
+	return (do_led(which, mode) != 255);
+}
 
 
 // base64.c
