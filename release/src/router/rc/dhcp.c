@@ -465,7 +465,7 @@ void start_dhcp6c(void)
 			" send ia-pd 0;\n"
 			" send rapid-commit;\n"
 			" request domain-name-servers;\n"
-			" script \"dhcp6c-state\";\n"
+			" script \"/sbin/dhcp6c-state\";\n"
 			"};\n"
 			"id-assoc pd 0 {\n"
 			" prefix-interface lo {\n"
