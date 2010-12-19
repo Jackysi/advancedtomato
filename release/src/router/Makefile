@@ -776,13 +776,15 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
 
-radvd/stamp-h: radvd/Makefile.in
+radvd/stamp-h1: radvd/Makefile.in
 	cd radvd && CPPFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --prefix=""
+	@touch radvd/stamp-h1
 
-radvd: radvd/stamp-h
+radvd: radvd/stamp-h1
 
 radvd-clean:
 	-@$(MAKE) -C radvd distclean
+	@rm -f radvd/stamp-h1
 
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd

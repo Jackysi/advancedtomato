@@ -859,6 +859,24 @@ static void filter6_input(void)
 		if (n & 2) ip6t_write("-A INPUT -i %s -p tcp --dport %s -m state --state NEW -j shlimit\n", lanface, nvram_safe_get("telnetd_port"));
 	}
 
+#ifdef TCONFIG_FTP
+	strlcpy(s, nvram_safe_get("ftp_limit"), sizeof(s));
+	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && (atoi(en)) && (nvram_get_int("ftp_enable") == 1)) {
+#ifdef LINUX26
+		modprobe("xt_recent");
+#else
+		modprobe("ipt_recent");
+#endif
+
+		ip6t_write(
+			"-N ftplimit\n"
+			"-A ftplimit -m recent --set --name ftp\n"
+			"-A ftplimit -m recent --update --hitcount %d --seconds %s --name ftp -j %s\n",
+			atoi(hit) + 1, sec, chain_in_drop);
+		ip6t_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
+	}
+#endif	// TCONFIG_FTP
+
 	ip6t_write(
 		"-A INPUT -i %s -j ACCEPT\n" // anything coming from LAN
 		"-A INPUT -i lo -j ACCEPT\n",
@@ -881,7 +899,7 @@ static void filter6_input(void)
 	// TODO: create list for allowed remote ipv6 addresses?
 	// Currently: disabled if there is a non-empty list of allowed ipv4 addresses,
 	// otherwise unrestricted
-	if (strlen(nvram_get("rmgt_sip")) == 0) {
+	if (strlen(nvram_safe_get("rmgt_sip")) == 0) {
 		if (remotemanage) {
 			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
 				nvram_safe_get("http_wanport"), chain_in_accept);
@@ -893,7 +911,16 @@ static void filter6_input(void)
 		}
 	}
 
-	// TODO: FTP server
+	// FTP server
+	// TODO: create list for allowed remote ipv6 addresses? (see above)...
+#ifdef TCONFIG_FTP
+	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
+		if (strlen(nvram_safe_get("ftp_sip")) == 0) {
+			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+				nvram_safe_get("ftp_port"), chain_in_accept);
+		}
+	}
+#endif
 
 	// if logging
 	if (*chain_in_drop == 'l') {

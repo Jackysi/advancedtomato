@@ -176,7 +176,7 @@ function verifyFields(focused, quiet)
 
 	if (a == 1) {
 		b = E('_f_ftp_sip');
-		if ((b.value.length) && (!v_iptaddr(b, quiet || !ok))) ok = 0;
+		if ((b.value.length) && (!v_iptaddr(b, quiet || !ok, 15))) ok = 0;
 		else ferror.clear(b);
 	}
 

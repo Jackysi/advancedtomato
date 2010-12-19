@@ -71,7 +71,9 @@ if [ "$CONFIG_MIPS" = "y" ]; then
       bool '  Pb1550 User Parameter Flash' CONFIG_MTD_PB1550_USER
    fi
    dep_tristate '  Hydrogen 3 MTD support' CONFIG_MTD_HYDROGEN3 $CONFIG_MIPS_HYDROGEN3
-   dep_tristate '  Mirage MTD support' CONFIG_MTD_MIRAGE $CONFIG_MIPS_MIRAGE
+   if [ "$CONFIG_MIPS_MIRAGE" = "y" ]; then
+      tristate '  Mirage MTD support' CONFIG_MTD_MIRAGE
+   fi
    dep_tristate '  Flash chip mapping on ITE QED-4N-S01B, Globespan IVR or custom board' CONFIG_MTD_CSTM_MIPS_IXX $CONFIG_MTD_CFI $CONFIG_MTD_JEDEC $CONFIG_MTD_PARTITIONS 
    if [ "$CONFIG_MTD_CSTM_MIPS_IXX" = "y" -o "$CONFIG_MTD_CSTM_MIPS_IXX" = "m" ]; then
       hex '    Physical start address of flash mapping' CONFIG_MTD_CSTM_MIPS_IXX_START 0x8000000
