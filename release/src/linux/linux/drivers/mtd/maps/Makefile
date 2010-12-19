@@ -68,6 +68,6 @@ obj-$(CONFIG_MTD_REDWOOD)	+= redwood.o
 obj-$(CONFIG_MTD_UCLINUX)	+= uclinux.o
 obj-$(CONFIG_MTD_NETtel)	+= nettel.o
 obj-$(CONFIG_MTD_SCB2_FLASH)	+= scb2_flash.o
-obj-$(CONFIG_MTD_MIRAGE)        += mirage-flash.o
+obj-$(CONFIG_MTD_MIRAGE)	+= mirage-flash.o
 
 include $(TOPDIR)/Rules.make
