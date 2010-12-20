@@ -21,7 +21,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_rtr_addr,ipv6_service,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_tun_mtu,ipv6_tun_ttl"); %>
+//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_tun_mtu,ipv6_tun_ttl"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -36,6 +36,9 @@ function verifyFields(focused, quiet)
 		_ipv6_prefix: 1,
 		_ipv6_prefix_length: 1,
 		_ipv6_rtr_addr: 1,
+		_f_ipv6_dns_1: 1,
+		_f_ipv6_dns_2: 1,
+		_f_ipv6_dns_3: 1,
 		_f_ipv6_radvd: 1,
 		_ipv6_tun_v4end: 1,
 		_ipv6_ifname: 1,
@@ -48,6 +51,9 @@ function verifyFields(focused, quiet)
 	switch(E('_ipv6_service').value) {
 		case '':
 			vis._ipv6_ifname = 0;
+			vis._f_ipv6_dns_1 = 0;
+			vis._f_ipv6_dns_2 = 0;
+			vis._f_ipv6_dns_3 = 0;
 			// fall through
 		case 'other':
 			vis._f_ipv6_radvd = 0;
@@ -117,7 +123,7 @@ function verifyFields(focused, quiet)
 		if ((vis[a[i]]) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
 
 	// optional IPv6 address
-	a = ['_ipv6_rtr_addr'];
+	a = ['_ipv6_rtr_addr', '_f_ipv6_dns_1', '_f_ipv6_dns_2', '_f_ipv6_dns_3'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (E(a[i]).value.length > 0) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
 
@@ -129,6 +135,17 @@ function earlyInit()
 	verifyFields(null, 1);
 }
 
+function joinIPv6Addr(a) {
+	var r, i, s;
+
+	r = [];
+	for (i = 0; i < a.length; ++i) {
+		s = CompressIPv6Address(a[i]);
+		if ((s) && (s != '')) r.push(s);
+	}
+	return r.join(' ');
+}
+
 function save()
 {
 	var a, b, c;
@@ -137,6 +154,7 @@ function save()
 	if (!verifyFields(null, false)) return;
 
 	var fom = E('_fom');
+	fom.ipv6_dns.value = joinIPv6Addr([fom.f_ipv6_dns_1.value, fom.f_ipv6_dns_2.value, fom.f_ipv6_dns_3.value]);
 	fom.ipv6_radvd.value = fom.f_ipv6_radvd.checked ? 1 : 0;
 
 	form.submit(fom, 1);
@@ -163,10 +181,13 @@ function save()
 <input type='hidden' name='_service' value='*'>
 
 <input type='hidden' name='ipv6_radvd'>
+<input type='hidden' name='ipv6_dns'>
 
 <div class='section-title'>IPv6 Configuration</div>
 <div class='section'>
 <script type='text/javascript'>
+dns = nvram.ipv6_dns.split(/\s+/);
+
 createFieldTable('', [
 	{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select', 
 		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['sit','6in4 Static Tunnel'],['other','Other (manually configured)']],
@@ -176,6 +197,9 @@ createFieldTable('', [
 	{ title: 'Assigned IPv6 Prefix', name: 'ipv6_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_prefix },
 	{ title: 'Prefix Length', name: 'ipv6_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_prefix_length },
 	{ title: 'Router IPv6 Address', name: 'ipv6_rtr_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_rtr_addr },
+	{ title: 'Static DNS', name: 'f_ipv6_dns_1', type: 'text', maxlen: 46, size: 48, value: dns[0] || '' },
+	{ title: '',           name: 'f_ipv6_dns_2', type: 'text', maxlen: 46, size: 48, value: dns[1] || '' },
+	{ title: '',           name: 'f_ipv6_dns_3', type: 'text', maxlen: 46, size: 48, value: dns[2] || '' },
 	{ title: 'Enable Router Advertisements', name: 'f_ipv6_radvd', type: 'checkbox', value: nvram.ipv6_radvd != '0' },
 	null,
 	{ title: 'Tunnel Remote Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
