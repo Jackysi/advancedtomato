@@ -94,13 +94,22 @@ var grid = new TomatoGrid();
 
 grid.dataToView = function(data) {
 	var s, v = [];
-	for (var i = 0; i < data.length; ++i) {
-		if (i == 5)		// Class
-			s = abc[data[i]] || ('' + data[i]);
-		else if (i == 6)	// Rule #
-			s = (data[i] * 1 > 0) ? ('' + data[i]) : '';
-		else
-			s = '' + data[i];
+	for (var col = 0; col < data.length; ++col) {
+		switch (col) {
+		case 5:		// Class
+			s = abc[data[col]] || ('' + data[col]);
+			break;
+		case 6:		// Rule #
+			s = (data[col] * 1 > 0) ? ('' + data[col]) : '';
+			break;
+		case 7:		// Bytes out
+		case 8:		// Bytes in
+			s = scaleSize(data[col] * 1);
+			break;
+		default:
+			s = '' + data[col];
+			break;
+		}
 		v.push(s);
 	}
 	return v;
