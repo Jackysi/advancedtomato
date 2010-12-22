@@ -1253,13 +1253,14 @@ int start_firewall(void)
 	modprobe_r("xt_recent");
 	modprobe_r("xt_HL");
 	modprobe_r("xt_length");
+	modprobe_r("xt_web");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
 	modprobe_r("ipt_TTL");
+	modprobe_r("ipt_web");
 #endif
 	modprobe_r("ipt_ipp2p");
-	modprobe_r("ipt_web");
 	modprobe_r("ipt_webmon");
 
 	unlink("/var/webmon/domain");
