@@ -521,9 +521,8 @@ int mount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name,
 	static char *swp_argv[] = { "swapon", "-a", NULL };
 	struct mntent *mnt;
 
-	if ((type = detect_fs_type(dev_name)) == NULL)
+	if ((type = find_label_or_uuid(dev_name, the_label, uuid)) == NULL)
 		return 0;
-	find_label_or_uuid(dev_name, the_label, uuid);
 
 	if (f_exists("/etc/fstab")) {
 		if (strcmp(type, "swap") == 0) {

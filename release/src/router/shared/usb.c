@@ -78,61 +78,6 @@ void file_unlock(int lockfd)
 	}
 }
 
-char *detect_fs_type(char *device)
-{
-	int fd;
-	unsigned char buf[4096];
-
-	if ((fd = open(device, O_RDONLY)) < 0)
-		return NULL;
-
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf))
-	{
-		close(fd);
-		return NULL;
-	}
-
-	close(fd);
-
-	/* first check for mbr */
-	if (*device && device[strlen(device) - 1] > '9' &&
-		buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		((buf[0x1be] | buf[0x1ce] | buf[0x1de] | buf[0x1ee]) & 0x7f) == 0) /* boot flags */ 
-	{
-		return "mbr";
-	} 
-	/* detect swap */
-	else if (memcmp(buf + 4086, "SWAPSPACE2", 10) == 0 ||
-		 memcmp(buf + 4086, "SWAP-SPACE", 10) == 0 ||
-		 memcmp(buf + 4086, "S1SUSPEND", 9) == 0 ||
-		 memcmp(buf + 4086, "S2SUSPEND", 9) == 0 ||
-		 memcmp(buf + 4086, "ULSUSPEND", 9) == 0)
-	{
-		return "swap";
-	}
-	/* detect ext2/3 */
-	else if (buf[0x438] == 0x53 && buf[0x439] == 0xEF)
-	{
-		return ((buf[0x460] & 0x0008 /* JOURNAL_DEV */) != 0 ||
-			(buf[0x45c] & 0x0004 /* HAS_JOURNAL */) != 0) ? "ext3" : "ext2";
-	}
-	/* detect ntfs */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		memcmp(buf + 3, "NTFS    ", 8) == 0)
-	{
-		return "ntfs";
-	}
-	/* detect vfat */
-	else if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
-		buf[11] == 0 && buf[12] >= 1 && buf[12] <= 8 /* sector size 512 - 4096 */ &&
-		buf[13] != 0 && (buf[13] & (buf[13] - 1)) == 0) /* sectors per cluster */
-	{
-		return "vfat";
-	}
-
-	return "unknown";
-}
-
 
 /* Execute a function for each disc partition on the specified controller.
  *
@@ -481,36 +426,40 @@ extern int volume_id_probe_ntfs();
 extern int volume_id_probe_linux_swap();
 
 /* Put the label in *label and uuid in *uuid.
- * Return 0 if no label/uuid found, NZ if there is a label or uuid.
+ * Return fstype if determined.
  */
-int find_label_or_uuid(char *dev_name, char *label, char *uuid)
+char *find_label_or_uuid(char *dev_name, char *label, char *uuid)
 {
 	struct volume_id id;
+	char *fstype = NULL;
 
 	memset(&id, 0x00, sizeof(id));
 	if (label) *label = 0;
 	if (uuid) *uuid = 0;
 	if ((id.fd = open(dev_name, O_RDONLY)) < 0)
-		return 0;
+		return NULL;
 
 	volume_id_get_buffer(&id, 0, SB_BUFFER_SIZE);
 
-	if (volume_id_probe_linux_swap(&id) == 0 || id.error)
-		goto ret;
-	if (volume_id_probe_vfat(&id) == 0 || id.error)
-		goto ret;
-	if (volume_id_probe_ext(&id) == 0 || id.error)
-		goto ret;
-	if (volume_id_probe_ntfs(&id) == 0 || id.error)
-		goto ret;
-ret:
+	if (!id.error && volume_id_probe_linux_swap(&id) == 0)
+		fstype = "swap";
+	else if (!id.error && volume_id_probe_vfat(&id) == 0)
+		fstype = "vfat";
+	else if (!id.error && volume_id_probe_ext(&id) == 0)
+		fstype = ((id.sbbuf[0x460] & 0x0008 /* JOURNAL_DEV */) != 0 ||
+		          (id.sbbuf[0x45c] & 0x0004 /* HAS_JOURNAL */) != 0) ? "ext3" : "ext2";
+	else if (!id.error && volume_id_probe_ntfs(&id) == 0)
+		fstype = "ntfs";
+	else if (!id.error)
+		fstype = "unknown";
+
 	volume_id_free_buffer(&id);
 	if (label && (*id.label != 0))
 		strcpy(label, id.label);
 	if (uuid && (*id.uuid != 0))
 		strcpy(uuid, id.uuid);
 	close(id.fd);
-	return (label && *label != 0) || (uuid && *uuid != 0);
+	return (fstype);
 }
 
 void *xmalloc(size_t siz)
