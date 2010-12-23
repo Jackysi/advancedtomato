@@ -419,18 +419,21 @@ void start_httpd(void)
 	}
 
 #ifdef TCONFIG_IPV6
+	int p;
+
 	/* Remote management */
 	if (ipv6_enabled() &&
-		nvram_match("wk_mode","gateway") &&
-		nvram_match("remote_management", "1") && 
-		nvram_invmatch("http_wanport", "") &&
-		nvram_invmatch("http_wanport", "0")) {
-
-		if (nvram_match("remote_mgt_https", "1")) {
-			xstart("httpd", "-s", "-6", "-p", nvram_get("http_wanport"));
-		}
-		else {
-			xstart("httpd", "-6", "-p", nvram_get("http_wanport"));
+	    nvram_match("wk_mode","gateway") &&
+	    nvram_match("remote_management", "1") && 
+	    (p = nvram_get_int("http_wanport"))) {
+		if ((nvram_match("https_enable", "0") || p != nvram_get_int("https_lanport")) &&
+		    (nvram_match("http_enable", "0") || p != nvram_get_int("http_lanport"))) {
+			if (nvram_match("remote_mgt_https", "1")) {
+				xstart("httpd", "-s", "-6", "-p", nvram_get("http_wanport"));
+			}
+			else {
+				xstart("httpd", "-6", "-p", nvram_get("http_wanport"));
+			}
 		}
 	}
 #endif
