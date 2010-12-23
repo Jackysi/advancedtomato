@@ -174,9 +174,16 @@ install package: $(obj-install) $(LINUXDIR)/.config
 
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
-##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name *.o -exec $(STRIP) --strip-debug {} \;
-	find $(TARGETDIR)/lib/modules -name *.ko -exec $(STRIP) --strip-debug {} \;
+
+	find $(TARGETDIR)/lib/modules -name wl.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name et.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name bcm57*.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name ctf.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name emf.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name igs.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name jffs*.*o -exec $(STRIP) --strip-unneeded {} \;
+
+	find $(TARGETDIR)/lib/modules -name *.*o -exec $(STRIP) --strip-debug {} \;
 
 	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
