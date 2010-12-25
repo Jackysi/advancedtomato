@@ -76,13 +76,14 @@ static int config_pppd(int wan_proto, int num)
 
 	FILE *fp;
 	char *p;
-	int debug;
+	int debug, demand;
 
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
 	symlink("/dev/null", "/tmp/ppp/connect-errors");
 
+	demand = nvram_get_int("ppp_demand");
 	debug = nvram_get_int("debug_ppp") ||
 		(wan_proto == WP_PPPOE && nvram_contains_word("log_events", "pppoe"));
 
@@ -116,8 +117,12 @@ static int config_pppd(int wan_proto, int num)
 		nvram_get_int("pppoe_lef") ? : 6,
 		debug ? "debug\n" : "");
 
-	if (wan_proto != WP_L2TP)
-		fprintf(fp, "persist\n");
+	if (wan_proto != WP_L2TP) {
+		fprintf(fp,
+			"persist\n"
+			"holdoff %d\n",
+			demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30));
+	}
 
 	switch (wan_proto) {
 	case WP_PPTP:
@@ -153,7 +158,7 @@ static int config_pppd(int wan_proto, int num)
 		break;
 	}
 
-	if (nvram_match("ppp_demand", "1")) {
+	if (demand) {
 		// demand mode
 		fprintf(fp,
 			"demand\n"		// Dial on demand
@@ -393,11 +398,14 @@ void start_l2tp(void)
 	TRACE_PT("begin\n");
 
 	FILE *fp;
+	int demand;
 
 	stop_l2tp();
 
 	if (config_pppd(WP_L2TP, 0) != 0)
 		return;
+
+	demand = nvram_get_int("ppp_demand");
 
 	/* Generate XL2TPD configuration file */
 	if ((fp = fopen("/etc/xl2tpd.conf", "w")) == NULL)
@@ -415,7 +423,7 @@ void start_l2tp(void)
 		"ppp debug = %s\n",
 		nvram_safe_get("l2tp_server_ip"),
 		ppp_optfile,
-		nvram_get_int("ppp_redialperiod") ? : 30,
+		demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30),
 		nvram_get_int("debug_ppp") ? "yes" : "no");
 	fclose(fp);
 
@@ -423,7 +431,7 @@ void start_l2tp(void)
 
 	eval("xl2tpd");
 
-	if (nvram_match("ppp_demand", "1")) {
+	if (demand) {
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
 	else {
@@ -711,7 +719,7 @@ void start_wan_done(char *wan_ifname)
 	f_write("/var/lib/misc/wantime", &si.uptime, sizeof(si.uptime), 0, 0);
 	
 	proto = get_wan_proto();
-	dod = nvram_match("ppp_demand", "1");
+	dod = nvram_get_int("ppp_demand");
 
 #if 0
 	if (using_dhcpc()) {

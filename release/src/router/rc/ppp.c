@@ -133,7 +133,7 @@ int ipdown_main(int argc, char **argv)
 		route_add(nvram_safe_get("wan_ifname"), 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
 	}
 
-	if ((nvram_match("ppp_demand", "1")) && ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE))) {
+	if ((nvram_get_int("ppp_demand")) && ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE))) {
 		killall("listen", SIGKILL);
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
@@ -189,7 +189,7 @@ int pppoe_down_main(int argc, char **argv)
 
 	if (atoi(argv[1]) != 0) return 0;
 
-	if ((nvram_match("ppp_demand", "1")) && (nvram_match("action_service", "")))	{
+	if ((nvram_get_int("ppp_demand")) && (nvram_match("action_service", "")))	{
 		stop_singe_pppoe(0);
 		start_pppoe(0);
 		
