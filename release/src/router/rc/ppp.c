@@ -142,6 +142,43 @@ int ipdown_main(int argc, char **argv)
 	return 1;
 }
 
+#ifdef TCONFIG_IPV6
+int ip6up_main(int argc, char **argv)
+{
+/*
+	char *wan_ifname;
+	char *value;
+
+	TRACE_PT("begin\n");
+	if (!wait_action_idle(10)) return -1;
+
+	wan_ifname = safe_getenv("IFNAME");
+	if ((!wan_ifname) || (!*wan_ifname)) return -1;
+
+	value = getenv("LLREMOTE");
+
+	// ???
+
+	start_wan6_done(wan_ifname);
+	TRACE_PT("end\n");
+*/
+	return 0;
+}
+
+int ip6down_main(int argc, char **argv)
+{
+/*
+	TRACE_PT("begin\n");
+	if (!wait_action_idle(10)) return -1;
+
+	// ???
+
+	TRACE_PT("end\n");
+*/
+	return 1;
+}
+#endif	// IPV6
+
 int pppevent_main(int argc, char **argv)
 {
 	int i;

@@ -81,6 +81,10 @@ static int config_pppd(int wan_proto, int num)
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
+#ifdef TCONFIG_IPV6
+	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
+	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
+#endif
 	symlink("/dev/null", "/tmp/ppp/connect-errors");
 
 	demand = nvram_get_int("ppp_demand");
@@ -196,6 +200,10 @@ static void stop_ppp(void)
 
 	killall_tk("ip-up");
 	killall_tk("ip-down");
+#ifdef TCONFIG_IPV6
+	killall_tk("ipv6-up");
+	killall_tk("ipv6-down");
+#endif
 	killall_tk("xl2tpd");
 	killall_tk("pppd");
 	killall_tk("listen");
@@ -697,11 +705,35 @@ void start_wan(int mode)
 	TRACE_PT("end\n");
 }
 
+#ifdef TCONFIG_IPV6
+void start_wan6_done(char *wan_ifname)
+{
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE:
+		eval("ip", "route", "add", "::/0", "dev", wan_ifname);
+		break;
+	case IPV6_NATIVE_DHCP:
+		eval("ip", "route", "add", "::/0", "dev", wan_ifname);
+		stop_dhcp6c();
+		stop_radvd();
+		/* note: starting radvd here is really too early because we won't have
+		 * received a prefix and so it will disable advertisements,
+		 * but the SIGHUP sent from dhcp6c-state will restart them.
+		 */
+		start_radvd();
+		start_dhcp6c();
+		break;
+	case IPV6_6IN4:
+		stop_ipv6_sit_tunnel();
+		start_ipv6_sit_tunnel();
+		break;
+	}
+}
+#endif
 
 //	ppp_demand: 0=keep alive, 1=connect on demand (run 'listen')
 //	wan_ifname: vlan1
 //	wan_iface:	ppp# (PPPOE, PPTP, L2TP), vlan1 (DHCP, HB, Static)
-
 
 void start_wan_done(char *wan_ifname)
 {
@@ -840,28 +872,7 @@ void start_wan_done(char *wan_ifname)
 	}
 	
 #ifdef TCONFIG_IPV6
-	if (wanup) {
-		switch (get_ipv6_service()) {
-		case IPV6_NATIVE:
-			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
-			break;
-		case IPV6_NATIVE_DHCP:
-			eval("ip", "route", "add", "::/0", "dev", nvram_safe_get("wan_iface"));
-			stop_dhcp6c();
-			stop_radvd();
-			/* note: starting radvd here is really too early because we won't have
-			 * received a prefix and so it will disable advertisements,
-			 * but the SIGHUP sent from dhcp6c-state will restart them.
-			 */
-			start_radvd();
-			start_dhcp6c();
-			break;
-		case IPV6_6IN4:
-			stop_ipv6_sit_tunnel();
-			start_ipv6_sit_tunnel();
-			break;
-		}
-	}
+	if (wanup) start_wan6_done(wan_ifname);
 #endif
 
 	stop_upnp();

@@ -108,6 +108,10 @@ extern int listen_main(int argc, char **argv);
 extern int ipup_main(int argc, char **argv);
 extern int ipdown_main(int argc, char **argv);
 extern int pppevent_main(int argc, char **argv);
+#ifdef TCONFIG_IPV6
+extern int ip6up_main(int argc, char **argv);
+extern int ip6down_main(int argc, char **argv);
+#endif
 
 // rc.c
 extern void restore_defaults(void);
@@ -126,6 +130,9 @@ extern void start_l2tp(void);
 extern void stop_l2tp(void);
 extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
+#ifdef TCONFIG_IPV6
+extern void start_wan6_done(char *wan_ifname);
+#endif
 extern void stop_wan(void);
 extern void force_to_dial(void);
 extern void do_wan_routes(char *ifname, int metric, int add);
