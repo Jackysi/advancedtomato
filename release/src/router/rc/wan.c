@@ -70,16 +70,21 @@ static void make_secrets(void)
 
 // -----------------------------------------------------------------------------
 
-static int config_pppd(int wan_proto)
+static int config_pppd(int wan_proto, int num)
 {
 	TRACE_PT("begin\n");
 
 	FILE *fp;
+	char *p;
+	int debug;
 
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
 	symlink("/dev/null", "/tmp/ppp/connect-errors");
+
+	debug = nvram_get_int("debug_ppp") ||
+		(wan_proto == WP_PPPOE && nvram_contains_word("log_events", "pppoe"));
 
 	// Generate options file
 	if ((fp = fopen(ppp_optfile, "w")) == NULL) {
@@ -88,6 +93,7 @@ static int config_pppd(int wan_proto)
 	}
 
 	fprintf(fp,
+		"unit %d\n"
 		"defaultroute\n"	// Add a default route to the system routing tables, using the peer as the gateway
 		"usepeerdns\n"		// Ask the peer for up to 2 DNS server addresses
 		"user '%s'\n"
@@ -99,14 +105,16 @@ static int config_pppd(int wan_proto)
 		"nodeflate\n"		// Disable Deflate compression
 		"noauth\n"		// Do not authenticate peer
 		"refuse-eap\n"		// Do not use eap
-		"maxfail 0\n"
-		"lcp-echo-interval %d\n"
-		"lcp-echo-failure %d\n"
+		"maxfail 0\n"		// Never give up
+		"lcp-echo-interval %d\n"// Interval between LCP echo-requests
+		"lcp-echo-failure %d\n"	// Tolerance to unanswered echo-requests
+		"lcp-echo-adaptive\n"	// Suppress LCP echo-requests if traffic was received
 		"%s",			// Debug
+		num,
 		nvram_safe_get("ppp_username"),
-		nvram_get_int("pppoe_lei") ? : 10,
-		nvram_get_int("pppoe_lef") ? : 5,
-		nvram_get_int("debug_ppp") ? "debug\n" : "");
+		nvram_get_int("pppoe_lei") ? : 30,
+		nvram_get_int("pppoe_lef") ? : 6,
+		debug ? "debug\n" : "");
 
 	if (wan_proto != WP_L2TP)
 		fprintf(fp, "persist\n");
@@ -121,10 +129,27 @@ static int config_pppd(int wan_proto)
 			nvram_safe_get("pptp_server_ip"),
 			nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
 		break;
-	default: // l2tp, pppoe
+	case WP_PPPOE:
+		if (((p = nvram_get("ppp_service")) != NULL) && (*p)) {
+			fprintf(fp, "rp_pppoe_service '%s'\n", p);
+		}
+		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
+			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
+		}
+		fprintf(fp,
+			"password '%s'\n"
+			"plugin rp-pppoe.so\n"
+			"nomppe nomppc\n"
+			"nic-%s\n"
+			"mru %d mtu %d\n",
+			nvram_safe_get("ppp_passwd"),
+			nvram_safe_get("wan_ifname"),
+			nvram_get_int("wan_mtu"), nvram_get_int("wan_mtu"));
+		break;
+	case WP_L2TP:
 		fprintf(fp, "nomppe nomppc\n");
 		if (nvram_get_int("mtu_enable"))
-			fprintf(fp, "mtu %s\n", nvram_safe_get("wan_mtu"));
+			fprintf(fp, "mtu %d\n", nvram_get_int("wan_mtu"));
 		break;
 	}
 
@@ -140,6 +165,14 @@ static int config_pppd(int wan_proto)
 			nvram_get_int("ppp_idletime") * 60);
 	}
 
+#ifdef TCONFIG_IPV6
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE:
+	case IPV6_NATIVE_DHCP:
+		fprintf(fp, "+ipv6\n");
+		break;
+	}
+#endif
 	// User specific options
 	fprintf(fp, "%s\n", nvram_safe_get("ppp_custom"));
 
@@ -165,30 +198,8 @@ static void stop_ppp(void)
 	TRACE_PT("end\n");
 }
 
-// -----------------------------------------------------------------------------
-
-inline void stop_pptp(void)
+static void run_pppd(void)
 {
-	stop_ppp();
-}
-
-void start_pptp(int mode)
-{
-	TRACE_PT("begin\n");
-
-	if (!using_dhcpc()) stop_dhcpc();
-	stop_pppoe();
-	stop_pptp();
-
-	if (config_pppd(WP_PPTP) != 0)
-		return;
-
-	if (!using_dhcpc()) {
-		// Bring up  WAN interface
-		ifconfig(nvram_safe_get("wan_ifname"), IFUP,
-			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
-	}
-
 	eval("pppd");
 
 	if (nvram_get_int("ppp_demand")) {
@@ -208,6 +219,32 @@ void start_pptp(int mode)
 		// keepalive mode
 		start_redial();
 	}
+}
+
+// -----------------------------------------------------------------------------
+
+inline void stop_pptp(void)
+{
+	stop_ppp();
+}
+
+void start_pptp(int mode)
+{
+	TRACE_PT("begin\n");
+
+	if (!using_dhcpc()) stop_dhcpc();
+	stop_pptp();
+
+	if (config_pppd(WP_PPTP, 0) != 0)
+		return;
+
+	if (!using_dhcpc()) {
+		// Bring up  WAN interface
+		ifconfig(nvram_safe_get("wan_ifname"), IFUP,
+			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+	}
+
+	run_pppd();
 
 	TRACE_PT("end\n");
 }
@@ -239,6 +276,7 @@ void preset_wan(char *ifname, char *gw, char *netmask)
 
 	dns_to_resolv();
 	start_dnsmasq();
+	sleep(1);
 	start_firewall();
 }
 
@@ -246,10 +284,9 @@ void preset_wan(char *ifname, char *gw, char *netmask)
 
 
 // Get the IP, Subnetmask, Geteway from WAN interface and set nvram
-static void start_tmp_ppp(int num)
+static void start_tmp_ppp(int num, char *ifname)
 {
 	int timeout;
-	char *ifname;
 	struct ifreq ifr;
 	int s;
 
@@ -259,7 +296,7 @@ static void start_tmp_ppp(int num)
 
 	// Wait for ppp0 to be created
 	timeout = 15;
-	while ((ifconfig(ifname = nvram_safe_get("pppoe_ifname0"), IFUP, NULL, NULL) != 0) && (timeout-- > 0)) {
+	while ((ifconfig(ifname, IFUP, NULL, NULL) != 0) && (timeout-- > 0)) {
 		sleep(1);
 		_dprintf("[%d] waiting for %s %d...\n", __LINE__, ifname, timeout);
 	}
@@ -292,134 +329,35 @@ static void start_tmp_ppp(int num)
 
 void start_pppoe(int num)
 {
-	pid_t pid;
-	char idle[16];
-	char retry[16];
-	char lcp_echo_interval[16];
-	char lcp_echo_fails[16];
-	char *mtu;
-	int dod;
-	int n;
-	
+	char ifname[8];
+
 	TRACE_PT("begin pppoe_num=%d\n", num);
 	
 	if (num != 0) return;
 
 	stop_pppoe();
 
-	nvram_set("pppoe_ifname0", "");
-	
-	dod = nvram_match("ppp_demand", "1");
-	
-	// -i
-	sprintf(idle, "%d", dod ? (nvram_get_int("ppp_idletime") * 60) : 0);
-	
-	// [-N]
-	sprintf(retry, "%d", (nvram_get_int("ppp_redialperiod") / 5) - 1);
-	
-	// [-r] [-t]
-	mtu = nvram_safe_get("wan_mtu");
+	snprintf(ifname, sizeof(ifname), "ppp%d", num);
 
-	// [-I n] Interval between LCP echo-requests
-	sprintf(lcp_echo_interval, "%d", ((n = nvram_get_int("pppoe_lei")) > 0) ? n : 30);
-	
-	// [-T n] Tolerance to unanswered echo-requests
-	sprintf(lcp_echo_fails, "%d", ((n = nvram_get_int("pppoe_lef")) > 0) ? n : 5);
-	
-	char *pppoe_argv[] = {
-			"pppoecd",
-			nvram_safe_get("wan_ifname"),
-			"-u", nvram_safe_get("ppp_username"),
-			"-p", nvram_safe_get("ppp_passwd"),
-			"-r", mtu,
-			"-t", mtu,
-			"-i", idle,			// >0 == dial on demand
-			"-I", lcp_echo_interval,	// Send an LCP echo-request frame to the server every X seconds
-			"-N", retry,			// To avoid kill pppd when pppd has been connecting.
-			"-T", lcp_echo_fails,		// pppd will presume the server to be dead if 3 LCP echo-requests are sent without receiving a valid LCP echo-reply
-			"-P", "0",			// PPPOE session number.
-			"-C", "pppoe_down",		// by tallest 0407
-			"-R",			// set default route
-			NULL,			// ipv6
-			NULL,			// debug
-			NULL, NULL,		// pppoe_service
-			NULL, NULL,		// pppoe_ac
-			NULL, NULL,		// static IP
-			NULL,			// pppoe_keepalive
-			NULL,			// -x extended logging
-			NULL
-	};
-	char **arg;
-	char *p;
-	
-	for (arg = pppoe_argv; *arg; arg++) {
-		//
-	}
+	if (config_pppd(WP_PPPOE, num) != 0)
+		return;
 
-#ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
-	case IPV6_NATIVE:
-	case IPV6_NATIVE_DHCP:
-		*arg++ = "-6";		// enables IPv6CP
-		break;
-	}
-#endif
+	run_pppd();
 
-	if (nvram_get_int("debug_ppp")) {
-		*arg++ = "-d";		// debug mode; compile ppp w/ -DDEBUG	!
-	}		
-
-	if (((p = nvram_get("ppp_service")) != NULL) && (*p != 0)) {
-		*arg++ = "-s";
-		*arg++ = p;
-	}
-
-	// ??	zzz
-	if (((p = nvram_get("ppp_ac")) != NULL) && (*p != 0)) {
-		*arg++ = "-a";
-		*arg++ = p;
-	}
-	
-	if (nvram_match("ppp_static", "1")) {
-		*arg++ = "-L";
-		*arg++ = nvram_safe_get("ppp_static_ip");
-	}
-	
-	// ??	zzz
-	//if (nvram_match("pppoe_demand", "1") || nvram_match("pppoe_keepalive", "1"))
-	*arg++ = "-k";
-	
-	if (nvram_contains_word("log_events", "pppoe")) *arg++ = "-x";
-
-	mkdir("/tmp/ppp", 0777);
-	
-	// ??	zzz
-	symlink("/sbin/rc", "/tmp/ppp/ip-up");
-	symlink("/sbin/rc", "/tmp/ppp/ip-down");
-	symlink("/sbin/rc", "/tmp/ppp/set-pppoepid"); // tallest 1219
-	
-	rename("/tmp/ppp/log", "/tmp/ppp/log.~");
-
-	_eval(pppoe_argv, NULL, 0, &pid);
-
-	if (dod) start_tmp_ppp(num);
+	if (nvram_get_int("ppp_demand"))
+		start_tmp_ppp(num, ifname);
+	else
+		ifconfig(ifname, IFUP, NULL, NULL);
 
 	TRACE_PT("end\n");
 }
 
 void stop_pppoe(void)
 {
-	TRACE_PT("begin\n");
-
-	unlink(ppp_linkfile);
-	nvram_unset("pppoe_ifname0");
-	killall_tk("pppoecd");
-	killall_tk("ip-up");
-	killall_tk("ip-down");
-
-	TRACE_PT("end\n");
+	stop_ppp();
 }
 
+#if 0
 void stop_singe_pppoe(int num)
 {
 	_dprintf("%s pppoe_num=%d\n", __FUNCTION__, num);
@@ -441,6 +379,7 @@ void stop_singe_pppoe(int num)
 	nvram_set("wan_get_dns", "");
 	clear_resolv();
 }
+#endif
 
 // -----------------------------------------------------------------------------
 
@@ -455,10 +394,9 @@ void start_l2tp(void)
 
 	FILE *fp;
 
-	stop_pppoe();
 	stop_l2tp();
 
-	if (config_pppd(WP_L2TP) != 0)
+	if (config_pppd(WP_L2TP, 0) != 0)
 		return;
 
 	/* Generate XL2TPD configuration file */
@@ -679,7 +617,8 @@ void start_wan(int mode)
 		mtu += 40;
 	} */	// commented out; checkme -- zzz
 	
-	if ((wan_proto != WP_PPTP && wan_proto != WP_L2TP) || nvram_get_int("mtu_enable")) {
+	if (wan_proto != WP_PPTP && wan_proto != WP_L2TP && wan_proto != WP_PPPOE) {
+		// Don't set the MTU on the port for PPP connections, it will be set on the link instead
 		ifr.ifr_mtu =  mtu;
 		strcpy(ifr.ifr_name, wan_ifname);
 		ioctl(sd, SIOCSIFMTU, &ifr);
@@ -694,9 +633,6 @@ void start_wan(int mode)
 	switch (wan_proto) {
 	case WP_PPPOE:
 		start_pppoe(PPPOE0);
-		if (nvram_invmatch("ppp_demand", "1")) {
-			if (mode != REDIAL) start_redial();
-		}
 		break;
 	case WP_DHCP:
 	case WP_L2TP:
@@ -965,10 +901,10 @@ void stop_wan(void)
 
 	/* Kill any WAN client daemons or callbacks */
 	stop_redial();
-	stop_singe_pppoe(PPPOE0);
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	clear_resolv();
 	nvram_set("wan_get_dns", "");
 
 	/* Bring down WAN interfaces */

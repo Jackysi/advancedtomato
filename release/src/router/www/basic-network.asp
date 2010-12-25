@@ -478,7 +478,6 @@ function verifyFields(focused, quiet)
 	case 'pppoe':
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
-		vis._ppp_custom = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;

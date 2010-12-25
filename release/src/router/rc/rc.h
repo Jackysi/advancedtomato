@@ -108,8 +108,6 @@ extern int listen_main(int argc, char **argv);
 extern int ipup_main(int argc, char **argv);
 extern int ipdown_main(int argc, char **argv);
 extern int pppevent_main(int argc, char **argv);
-extern int set_pppoepid_main(int argc, char **argv);	// by tallest 1219
-extern int pppoe_down_main(int argc, char **argv);		// by tallest 0407
 
 // rc.c
 extern void restore_defaults(void);
@@ -124,7 +122,6 @@ extern void start_pptp(int mode);
 extern void stop_pptp(void);
 extern void start_pppoe(int);
 extern void stop_pppoe(void);
-extern void stop_singe_pppoe(int num);
 extern void start_l2tp(void);
 extern void stop_l2tp(void);
 extern void start_wan(int mode);

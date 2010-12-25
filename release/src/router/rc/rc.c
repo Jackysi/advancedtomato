@@ -80,8 +80,6 @@ static const applets_t applets[] = {
 	{ "rc",					rc_main					},
 	{ "ip-up",				ipup_main				},
 	{ "ip-down",			ipdown_main				},
-	{ "set-pppoepid",		set_pppoepid_main		},
-	{ "pppoe_down",			pppoe_down_main			},
 	{ "ppp_event",			pppevent_main  			},
 	{ "hotplug",			hotplug_main			},
 	{ "redial",				redial_main				},

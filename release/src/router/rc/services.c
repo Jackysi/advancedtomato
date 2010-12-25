@@ -1992,34 +1992,12 @@ TOP:
 
 	if (strcmp(service, "wan") == 0) {
 		if (action & A_STOP) {
-			if (get_wan_proto() == WP_PPPOE) {
-				stop_dnsmasq();
-				stop_redial();
-				stop_singe_pppoe(PPPOE0);
-				if (((action & A_START) == 0) && (nvram_match("ppp_demand", "1"))) {
-					sleep(1);
-					start_pppoe(PPPOE0);
-				}
-				start_dnsmasq();
-			}
-			else {
-				stop_wan();
-			}
+			stop_wan();
 		}
 
 		if (action & A_START) {
 			rename("/tmp/ppp/log", "/tmp/ppp/log.~");
-
-			if (get_wan_proto() == WP_PPPOE) {
-				stop_singe_pppoe(PPPOE0);
-				start_pppoe(PPPOE0);
-				if (nvram_invmatch("ppp_demand", "1")) {
-					start_redial();
-				}
-			}
-			else {
-				start_wan(BOOT);
-			}
+			start_wan(BOOT);
 			sleep(2);
 			force_to_dial();
 		}
