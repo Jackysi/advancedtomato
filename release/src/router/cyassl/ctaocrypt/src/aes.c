@@ -21,7 +21,7 @@
 
 #ifndef NO_AES
 
-#include "aes.h"
+#include "ctc_aes.h"
 #ifdef NO_INLINE
     #include "misc.h"
 #else
@@ -835,7 +835,7 @@ int AesSetKey(Aes* aes, const byte* userKey, word32 keylen, const byte* iv,
         checkAESNI = 1;
     }
     if (haveAESNI) {
-        memcpy(aes->reg, iv, AES_BLOCK_SIZE);
+        XMEMCPY(aes->reg, iv, AES_BLOCK_SIZE);
         if (dir == AES_ENCRYPTION)
             return AES_set_encrypt_key(userKey, keylen * 8, aes);
         else
@@ -845,7 +845,7 @@ int AesSetKey(Aes* aes, const byte* userKey, word32 keylen, const byte* iv,
 
     aes->rounds = keylen/4 + 6;
 
-    memcpy(rk, userKey, keylen);
+    XMEMCPY(rk, userKey, keylen);
     #ifdef LITTLE_ENDIAN_ORDER
         ByteReverseWords(rk, rk, keylen);
     #endif
@@ -960,7 +960,7 @@ int AesSetKey(Aes* aes, const byte* userKey, word32 keylen, const byte* iv,
                 Td[3][Te[4][GETBYTE(rk[3], 0)] & 0xff];
         }
     }
-    memcpy(aes->reg, iv, AES_BLOCK_SIZE);
+    XMEMCPY(aes->reg, iv, AES_BLOCK_SIZE);
 
     return 0;
 }
@@ -977,10 +977,10 @@ void AesEncrypt(Aes* aes, const byte* inBlock, byte* outBlock)
      * map byte array block to cipher state
      * and add initial round key:
      */
-    memcpy(&s0, inBlock,                  sizeof(s0));
-    memcpy(&s1, inBlock + sizeof(s0),     sizeof(s1));
-    memcpy(&s2, inBlock + 2 * sizeof(s0), sizeof(s2));
-    memcpy(&s3, inBlock + 3 * sizeof(s0), sizeof(s3));
+    XMEMCPY(&s0, inBlock,                  sizeof(s0));
+    XMEMCPY(&s1, inBlock + sizeof(s0),     sizeof(s1));
+    XMEMCPY(&s2, inBlock + 2 * sizeof(s0), sizeof(s2));
+    XMEMCPY(&s3, inBlock + 3 * sizeof(s0), sizeof(s3));
 
     #ifdef LITTLE_ENDIAN_ORDER
         s0 = ByteReverseWord32(s0);
@@ -1093,10 +1093,10 @@ void AesEncrypt(Aes* aes, const byte* inBlock, byte* outBlock)
         s3 = ByteReverseWord32(s3);
     #endif
 
-    memcpy(outBlock,                  &s0, sizeof(s0));
-    memcpy(outBlock + sizeof(s0),     &s1, sizeof(s1));
-    memcpy(outBlock + 2 * sizeof(s0), &s2, sizeof(s2));
-    memcpy(outBlock + 3 * sizeof(s0), &s3, sizeof(s3));
+    XMEMCPY(outBlock,                  &s0, sizeof(s0));
+    XMEMCPY(outBlock + sizeof(s0),     &s1, sizeof(s1));
+    XMEMCPY(outBlock + 2 * sizeof(s0), &s2, sizeof(s2));
+    XMEMCPY(outBlock + 3 * sizeof(s0), &s3, sizeof(s3));
 }
 
 
@@ -1111,10 +1111,10 @@ void AesDecrypt(Aes* aes, const byte* inBlock, byte* outBlock)
      * map byte array block to cipher state
      * and add initial round key:
      */
-    memcpy(&s0, inBlock,                  sizeof(s0));
-    memcpy(&s1, inBlock + sizeof(s0),     sizeof(s1));
-    memcpy(&s2, inBlock + 2 * sizeof(s0), sizeof(s2));
-    memcpy(&s3, inBlock + 3 * sizeof(s0), sizeof(s3));
+    XMEMCPY(&s0, inBlock,                  sizeof(s0));
+    XMEMCPY(&s1, inBlock + sizeof(s0),     sizeof(s1));
+    XMEMCPY(&s2, inBlock + 2 * sizeof(s0), sizeof(s2));
+    XMEMCPY(&s3, inBlock + 3 * sizeof(s0), sizeof(s3));
 
     #ifdef LITTLE_ENDIAN_ORDER
         s0 = ByteReverseWord32(s0);
@@ -1225,10 +1225,10 @@ void AesDecrypt(Aes* aes, const byte* inBlock, byte* outBlock)
         s3 = ByteReverseWord32(s3);
     #endif
 
-    memcpy(outBlock,                  &s0, sizeof(s0));
-    memcpy(outBlock + sizeof(s0),     &s1, sizeof(s1));
-    memcpy(outBlock + 2 * sizeof(s0), &s2, sizeof(s2));
-    memcpy(outBlock + 3 * sizeof(s0), &s3, sizeof(s3));
+    XMEMCPY(outBlock,                  &s0, sizeof(s0));
+    XMEMCPY(outBlock + sizeof(s0),     &s1, sizeof(s1));
+    XMEMCPY(outBlock + 2 * sizeof(s0), &s2, sizeof(s2));
+    XMEMCPY(outBlock + 3 * sizeof(s0), &s3, sizeof(s3));
 }
 
 
@@ -1250,7 +1250,7 @@ void AesCbcEncrypt(Aes* aes, byte* out, const byte* in, word32 sz)
         AES_CBC_encrypt(in, out, (byte*)aes->reg, sz, (byte*)aes->key,
                         aes->rounds);
         /* store iv for next call */
-        memcpy(aes->reg, out + sz - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+        XMEMCPY(aes->reg, out + sz - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
         return;
     }
 #endif
@@ -1258,7 +1258,7 @@ void AesCbcEncrypt(Aes* aes, byte* out, const byte* in, word32 sz)
     while (blocks--) {
         xorbuf((byte*)aes->reg, in, AES_BLOCK_SIZE);
         AesEncrypt(aes, (byte*)aes->reg, (byte*)aes->reg);
-        memcpy(out, aes->reg, AES_BLOCK_SIZE);
+        XMEMCPY(out, aes->reg, AES_BLOCK_SIZE);
 
         out += AES_BLOCK_SIZE;
         in  += AES_BLOCK_SIZE; 
@@ -1283,20 +1283,20 @@ void AesCbcDecrypt(Aes* aes, byte* out, const byte* in, word32 sz)
         #endif
 
         /* if input and output same will overwirte input iv */
-        memcpy(aes->tmp, in + sz - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+        XMEMCPY(aes->tmp, in + sz - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
         AES_CBC_decrypt(in, out, (byte*)aes->reg, sz, (byte*)aes->key,
                         aes->rounds);
         /* store iv for next call */
-        memcpy(aes->reg, aes->tmp, AES_BLOCK_SIZE);
+        XMEMCPY(aes->reg, aes->tmp, AES_BLOCK_SIZE);
         return;
     }
 #endif
 
     while (blocks--) {
-        memcpy(aes->tmp, in, AES_BLOCK_SIZE);
+        XMEMCPY(aes->tmp, in, AES_BLOCK_SIZE);
         AesDecrypt(aes, (byte*)aes->tmp, out);
         xorbuf(out, (byte*)aes->reg, AES_BLOCK_SIZE);
-        memcpy(aes->reg, aes->tmp, AES_BLOCK_SIZE);
+        XMEMCPY(aes->reg, aes->tmp, AES_BLOCK_SIZE);
 
         out += AES_BLOCK_SIZE;
         in  += AES_BLOCK_SIZE; 

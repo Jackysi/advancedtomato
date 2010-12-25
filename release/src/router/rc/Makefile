@@ -68,7 +68,6 @@ install: all
 	@cd $(INSTALLDIR)/sbin && ln -sf rc sched
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc disconnected_pppoe
-	@cd $(INSTALLDIR)/sbin && ln -sf rc pppoe_down
 	@cd $(INSTALLDIR)/sbin && ln -sf rc listen
 	@cd $(INSTALLDIR)/sbin && ln -sf rc ppp_event
 

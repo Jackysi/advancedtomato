@@ -478,7 +478,6 @@ function verifyFields(focused, quiet)
 	case 'pppoe':
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
-		vis._ppp_custom = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
@@ -1009,7 +1008,7 @@ function save()
 	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
 	fom.ppp_defgw.value = fom.f_pptp_dhcp.checked ? (fom.f_ppp_defgw.checked ? 1 : 0) : 1;
 
-	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value])
+	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value]);
 
 	if (nvram.lan_ipaddr != fom.lan_ipaddr.value) {
 		fom._moveip.value = 1;

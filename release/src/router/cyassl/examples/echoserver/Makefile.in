@@ -48,11 +48,11 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_echoserver_OBJECTS = echoserver-echoserver.$(OBJEXT)
+am_echoserver_OBJECTS = echoserver.$(OBJEXT)
 echoserver_OBJECTS = $(am_echoserver_OBJECTS)
 echoserver_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(echoserver_CFLAGS) \
-	$(CFLAGS) $(echoserver_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(echoserver_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)/ctaocrypt/include@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -189,13 +189,12 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I../../include
+INCLUDES = -I../../include -I../../include/openssl
 echoserver_SOURCES = echoserver.c
-echoserver_CFLAGS = -Wall
 echoserver_LDFLAGS = -L../../src
-echoserver_LDADD = ../../src/libcyassl.la -lm
+echoserver_LDADD = ../../src/libcyassl.la
 echoserver_DEPENDENCIES = ../../src/libcyassl.la
-EXTRA_DIST = echoserver.dsp echoserver.sln echoserver.vcproj
+EXTRA_DIST = echoserver.sln *.vcproj
 all: all-am
 
 .SUFFIXES:
@@ -267,7 +266,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/echoserver-echoserver.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/echoserver.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -289,20 +288,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-echoserver-echoserver.o: echoserver.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoserver_CFLAGS) $(CFLAGS) -MT echoserver-echoserver.o -MD -MP -MF $(DEPDIR)/echoserver-echoserver.Tpo -c -o echoserver-echoserver.o `test -f 'echoserver.c' || echo '$(srcdir)/'`echoserver.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoserver-echoserver.Tpo $(DEPDIR)/echoserver-echoserver.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='echoserver.c' object='echoserver-echoserver.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoserver_CFLAGS) $(CFLAGS) -c -o echoserver-echoserver.o `test -f 'echoserver.c' || echo '$(srcdir)/'`echoserver.c
-
-echoserver-echoserver.obj: echoserver.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoserver_CFLAGS) $(CFLAGS) -MT echoserver-echoserver.obj -MD -MP -MF $(DEPDIR)/echoserver-echoserver.Tpo -c -o echoserver-echoserver.obj `if test -f 'echoserver.c'; then $(CYGPATH_W) 'echoserver.c'; else $(CYGPATH_W) '$(srcdir)/echoserver.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoserver-echoserver.Tpo $(DEPDIR)/echoserver-echoserver.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='echoserver.c' object='echoserver-echoserver.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoserver_CFLAGS) $(CFLAGS) -c -o echoserver-echoserver.obj `if test -f 'echoserver.c'; then $(CYGPATH_W) 'echoserver.c'; else $(CYGPATH_W) '$(srcdir)/echoserver.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

@@ -152,6 +152,8 @@ sub fixDyn
 	fixDynDep("l2tpd", "sync-pppd.so");
 	fixDynDep("pppd", "pppol2tp.so");
 	fixDynDep("pppd", "pptp.so");
+	fixDynDep("pppd", "rp-pppoe.so");
+
 	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
 	
 #	fixDynDep("libbcm.so", "libshared.so");

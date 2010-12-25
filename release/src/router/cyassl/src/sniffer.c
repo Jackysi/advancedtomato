@@ -21,12 +21,11 @@
 
 #ifdef CYASSL_SNIFFER
 
-#include "openssl/ssl.h"
+#include "ssl.h"
 #include "cyassl_int.h"
 #include "cyassl_error.h"
 #include "sniffer.h"
 #include "sniffer_error.h"
-#include <string.h>
 #include <time.h>
 
 #ifndef _WIN32
@@ -200,7 +199,7 @@ static const char* const msgTable[] =
 /* *nix version uses table above */
 static void GetError(int idx, char* buffer)
 {
-    strncpy(buffer, msgTable[idx - 1], MAX_ERROR_LEN);
+    XSTRNCPY(buffer, msgTable[idx - 1], MAX_ERROR_LEN);
 }
 
 
@@ -391,7 +390,7 @@ void ssl_FreeSniffer(void)
 static void InitSnifferServer(SnifferServer* sniffer)
 {
     sniffer->ctx = 0;
-    memset(sniffer->address, 0, MAX_SERVER_ADDRESS);
+    XMEMSET(sniffer->address, 0, MAX_SERVER_ADDRESS);
     sniffer->server   = 0;
     sniffer->port     = 0;
     sniffer->next     = 0;
@@ -482,8 +481,8 @@ typedef struct TcpPseudoHdr {
 /* Password Setting Callback */
 static int SetPassword(char* passwd, int sz, int rw, void* userdata)
 {
-    strncpy(passwd, userdata, sz);
-    return strlen(userdata);
+    XSTRNCPY(passwd, userdata, sz);
+    return XSTRLEN(userdata);
 }
 
 
@@ -868,7 +867,7 @@ int ssl_SetPrivateKey(const char* serverAddress, int port, const char* keyFile,
     }
     InitSnifferServer(sniffer);
 
-    strncpy(sniffer->address, serverAddress, MAX_SERVER_ADDRESS);
+    XSTRNCPY(sniffer->address, serverAddress, MAX_SERVER_ADDRESS);
     sniffer->server = inet_addr(sniffer->address);
     sniffer->port = port;
     
@@ -962,10 +961,10 @@ static int CheckTcpHdr(TcpHdr* tcphdr, TcpInfo* info, char* error)
 /* Decode Record Layer Header */
 static int GetRecordHeader(const byte* input, RecordLayerHeader* rh, int* size)
 {
-    memcpy(rh, input, RECORD_HEADER_SZ);
-    *size = ntohs(*((word16*)rh->length));
+    XMEMCPY(rh, input, RECORD_HEADER_SZ);
+    *size = (rh->length[0] << 8) | rh->length[1];
 
-    if (*size > (MAX_RECORD_SIZE + MAX_COMP_EXTRA + MAX_MSG_EXTRA))
+    if (*size > (RECORD_SIZE + MAX_COMP_EXTRA + MAX_MSG_EXTRA))
         return LENGTH_ERROR;
 
     return 0;
@@ -1002,7 +1001,7 @@ static int ProcessClientKeyExchange(const byte* input, int* sslBytes,
         session->sslServer->arrays.preMasterSz = SECRET_LEN;
         
         /* store for client side as well */
-        memcpy(session->sslClient->arrays.preMasterSecret,
+        XMEMCPY(session->sslClient->arrays.preMasterSecret,
                session->sslServer->arrays.preMasterSecret, SECRET_LEN);
         session->sslClient->arrays.preMasterSz = SECRET_LEN;
         
@@ -1079,15 +1078,15 @@ static int ProcessServerHello(const byte* input, int* sslBytes,
         return -1;
     }
     
-    memcpy(&pv, input, sizeof(ProtocolVersion));
+    XMEMCPY(&pv, input, sizeof(ProtocolVersion));
     input     += sizeof(ProtocolVersion);
     *sslBytes -= sizeof(ProtocolVersion);
            
     session->sslServer->version = pv;
     session->sslClient->version = pv;
            
-    memcpy(session->sslServer->arrays.serverRandom, input, RAN_LEN);
-    memcpy(session->sslClient->arrays.serverRandom, input, RAN_LEN);
+    XMEMCPY(session->sslServer->arrays.serverRandom, input, RAN_LEN);
+    XMEMCPY(session->sslClient->arrays.serverRandom, input, RAN_LEN);
     input    += RAN_LEN;
     *sslBytes -= RAN_LEN;
     
@@ -1099,7 +1098,7 @@ static int ProcessServerHello(const byte* input, int* sslBytes,
         SetError(SERVER_HELLO_INPUT_STR, error, session, FATAL_ERROR_STATE);
         return -1;
     }
-    memcpy(session->sslServer->arrays.sessionID, input, ID_LEN);
+    XMEMCPY(session->sslServer->arrays.sessionID, input, ID_LEN);
     input     += b;
     *sslBytes -= b;
     
@@ -1109,7 +1108,7 @@ static int ProcessServerHello(const byte* input, int* sslBytes,
     session->sslClient->options.cipherSuite = b;
     *sslBytes -= SUITE_LEN;
     
-    if (memcmp(session->sslServer->arrays.sessionID,
+    if (XMEMCMP(session->sslServer->arrays.sessionID,
                session->sslClient->arrays.sessionID, ID_LEN) == 0) {
         /* resuming */
         SSL_SESSION* resume = GetSession(session->sslServer,
@@ -1119,7 +1118,7 @@ static int ProcessServerHello(const byte* input, int* sslBytes,
             return -1;
         }
         /* make sure client has master secret too */
-        memcpy(session->sslClient->arrays.masterSecret,
+        XMEMCPY(session->sslClient->arrays.masterSecret,
                session->sslServer->arrays.masterSecret, SECRET_LEN);
         session->flags.resuming = 1;
         
@@ -1177,8 +1176,8 @@ static int ProcessClientHello(const byte* input, int* sslBytes,
     input     += sizeof(ProtocolVersion);
     *sslBytes -= sizeof(ProtocolVersion);
     
-    memcpy(session->sslServer->arrays.clientRandom, input, RAN_LEN);
-    memcpy(session->sslClient->arrays.clientRandom, input, RAN_LEN);
+    XMEMCPY(session->sslServer->arrays.clientRandom, input, RAN_LEN);
+    XMEMCPY(session->sslClient->arrays.clientRandom, input, RAN_LEN);
     
     input     += RAN_LEN;
     *sslBytes -= RAN_LEN;
@@ -1191,7 +1190,7 @@ static int ProcessClientHello(const byte* input, int* sslBytes,
             return -1;
         }
         Trace(CLIENT_RESUME_TRY_STR);
-        memcpy(session->sslClient->arrays.sessionID, input, ID_LEN);
+        XMEMCPY(session->sslClient->arrays.sessionID, input, ID_LEN);
     }
 #ifdef SHOW_SECRETS
     {
@@ -1500,7 +1499,7 @@ static int DoOldHello(SnifferSession* session, const byte* sslFrame,
     }
     
     Trace(OLD_CLIENT_OK_STR);
-    memcpy(session->sslClient->arrays.clientRandom,
+    XMEMCPY(session->sslClient->arrays.clientRandom,
            session->sslServer->arrays.clientRandom, RAN_LEN);
     
     *sslBytes -= *rhSize;
@@ -1665,7 +1664,7 @@ static PacketBuffer* CreateBuffer(word32* begin, word32 end, const byte* data,
         free(pb);
         return NULL;
     }
-    memcpy(pb->data, data, added);
+    XMEMCPY(pb->data, data, added);
     
     *bytesLeft -= added;
     *begin      = pb->end + 1;
@@ -1910,7 +1909,7 @@ static int CheckPreRecord(IpInfo* ipInfo, TcpInfo* tcpInfo,
             SetError(BUFFER_ERROR_STR, error, session, FATAL_ERROR_STATE);
             return -1;
         }
-        memcpy(&ssl->buffers.inputBuffer.buffer[length], *sslFrame, *sslBytes);
+        XMEMCPY(&ssl->buffers.inputBuffer.buffer[length], *sslFrame, *sslBytes);
         *sslBytes += length;
         ssl->buffers.inputBuffer.length = *sslBytes;
         *sslFrame = ssl->buffers.inputBuffer.buffer;
@@ -1950,13 +1949,13 @@ static int HaveMoreInput(SnifferSession* session, const byte** sslFrame,
                                 session->sslClient->buffers.inputBuffer.buffer;
     
     while (*front && ((*front)->begin == *expected) ) {
-        word32 room = BUFFER16K_LEN - *length;
+        word32 room = STATIC_BUFFER_LEN - *length;
         word32 packetLen = (*front)->end - (*front)->begin + 1;
         
         if (packetLen <= room) {
             PacketBuffer* remove = *front;
             
-            memcpy(&buffer[*length], (*front)->data, packetLen);
+            XMEMCPY(&buffer[*length], (*front)->data, packetLen);
             *length   += packetLen;
             *expected += packetLen;
             
@@ -2015,7 +2014,7 @@ doMessage:
                 SetError(BUFFER_ERROR_STR, error, session, FATAL_ERROR_STATE);
                 return -1;
             }
-            memcpy(ssl->buffers.inputBuffer.buffer, sslFrame, sslBytes);
+            XMEMCPY(ssl->buffers.inputBuffer.buffer, sslFrame, sslBytes);
             ssl->buffers.inputBuffer.length = sslBytes;
         }
         if (HaveMoreInput(session, &sslFrame, &sslBytes, &end))
@@ -2062,7 +2061,7 @@ doMessage:
                     ret = ssl->buffers.clearOutputBuffer.length;
                     TraceGotData(ret);
                     if (ret) {  /* may be blank message */
-                        memcpy(&data[decoded],
+                        XMEMCPY(&data[decoded],
                                ssl->buffers.clearOutputBuffer.buffer, ret);
                         TraceAddedData(ret, decoded);
                         decoded += ret;

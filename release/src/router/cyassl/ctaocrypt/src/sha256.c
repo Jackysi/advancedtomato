@@ -31,8 +31,6 @@
 #else
     #include "misc.c"
 #endif
-#include <string.h>
-#include <assert.h>
 
 
 #ifndef min
@@ -141,7 +139,7 @@ void Sha256Update(Sha256* sha256, const byte* data, word32 len)
 
     while (len) {
         word32 add = min(len, SHA256_BLOCK_SIZE - sha256->buffLen);
-        memcpy(&local[sha256->buffLen], data, add);
+        XMEMCPY(&local[sha256->buffLen], data, add);
 
         sha256->buffLen += add;
         data            += add;
@@ -169,7 +167,7 @@ void Sha256Final(Sha256* sha256, byte* hash)
 
     /* pad with zeros */
     if (sha256->buffLen > SHA256_PAD_SIZE) {
-        memset(&local[sha256->buffLen], 0, SHA256_BLOCK_SIZE - sha256->buffLen);
+        XMEMSET(&local[sha256->buffLen], 0, SHA256_BLOCK_SIZE - sha256->buffLen);
         sha256->buffLen += SHA256_BLOCK_SIZE - sha256->buffLen;
 
         #ifdef LITTLE_ENDIAN_ORDER
@@ -178,7 +176,7 @@ void Sha256Final(Sha256* sha256, byte* hash)
         Transform(sha256);
         sha256->buffLen = 0;
     }
-    memset(&local[sha256->buffLen], 0, SHA256_PAD_SIZE - sha256->buffLen);
+    XMEMSET(&local[sha256->buffLen], 0, SHA256_PAD_SIZE - sha256->buffLen);
 
     /* put lengths in bits */
     sha256->loLen = sha256->loLen << 3;
@@ -190,15 +188,15 @@ void Sha256Final(Sha256* sha256, byte* hash)
         ByteReverseBytes(local, local, SHA256_BLOCK_SIZE);
     #endif
     /* ! length ordering dependent on digest endian type ! */
-    memcpy(&local[SHA256_PAD_SIZE], &sha256->hiLen, sizeof(word32));
-    memcpy(&local[SHA256_PAD_SIZE + sizeof(word32)], &sha256->loLen,
+    XMEMCPY(&local[SHA256_PAD_SIZE], &sha256->hiLen, sizeof(word32));
+    XMEMCPY(&local[SHA256_PAD_SIZE + sizeof(word32)], &sha256->loLen,
             sizeof(word32));
 
     Transform(sha256);
     #ifdef LITTLE_ENDIAN_ORDER
         ByteReverseWords(sha256->digest, sha256->digest, SHA256_DIGEST_SIZE);
     #endif
-    memcpy(hash, sha256->digest, SHA256_DIGEST_SIZE);
+    XMEMCPY(hash, sha256->digest, SHA256_DIGEST_SIZE);
 
     InitSha256(sha256);  /* reset state */
 }

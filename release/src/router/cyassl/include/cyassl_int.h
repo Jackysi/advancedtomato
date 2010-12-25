@@ -27,28 +27,33 @@
 
 #include "types.h"
 #include "random.h"
-#include "md5.h"
 #include "des3.h"
-#include "aes.h"
 #include "hc128.h"
 #include "rabbit.h"
 #include "asn.h"
+#include "ctc_md5.h"
+#include "ctc_aes.h"
 
 #ifdef CYASSL_CALLBACKS
-    #include "openssl/cyassl_callbacks.h"
+    #include "cyassl_callbacks.h"
     #include <signal.h>
 #endif
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     #include <windows.h>
-#elif THREADX
+#elif defined(THREADX)
     #ifndef SINGLE_THREADED
         #include "tx_api.h"
     #endif
+#elif defined(MICRIUM)
+    /* do nothing, just don't pick Unix */
 #else
-    #include <unistd.h>
     #ifndef SINGLE_THREADED
+        #define CYASSL_PTHREADS
         #include <pthread.h>
+    #endif
+    #if defined(OPENSSL_EXTRA) || defined(GOAHEAD_WS)
+        #include <unistd.h>      /* for close of BIO */
     #endif
 #endif
 
@@ -72,7 +77,7 @@
 #endif
 
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     typedef unsigned int SOCKET_T;
 #else
     typedef int SOCKET_T;
@@ -89,10 +94,16 @@ typedef byte word24[3];
 #ifndef NO_RC4
     #define BUILD_SSL_RSA_WITH_RC4_128_SHA
     #define BUILD_SSL_RSA_WITH_RC4_128_MD5
+    #if !defined(NO_TLS) && defined(HAVE_NTRU)
+        #define BUILD_TLS_NTRU_RSA_WITH_RC4_128_SHA
+    #endif
 #endif
 
 #ifndef NO_DES3
     #define BUILD_SSL_RSA_WITH_3DES_EDE_CBC_SHA
+    #if !defined(NO_TLS) && defined(HAVE_NTRU)
+        #define BUILD_TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA
+    #endif
 #endif
 
 #if !defined(NO_AES) && !defined(NO_TLS)
@@ -101,6 +112,10 @@ typedef byte word24[3];
     #if !defined (NO_PSK)
         #define BUILD_TLS_PSK_WITH_AES_128_CBC_SHA
         #define BUILD_TLS_PSK_WITH_AES_256_CBC_SHA
+    #endif
+    #if defined(HAVE_NTRU)
+        #define BUILD_TLS_NTRU_RSA_WITH_AES_128_CBC_SHA
+        #define BUILD_TLS_NTRU_RSA_WITH_AES_256_CBC_SHA
     #endif
 #endif
 
@@ -143,7 +158,6 @@ typedef byte word24[3];
     #define BUILD_RABBIT
 #endif
 
-
 #ifdef NO_DES3
     #define DES_BLOCK_SIZE 8
 #endif
@@ -165,10 +179,16 @@ enum {
     SSL_RSA_WITH_RC4_128_MD5          = 0x04,
     SSL_RSA_WITH_3DES_EDE_CBC_SHA     = 0x0A,
 
-    /* CyaSSL extension */
+    /* CyaSSL extension - eSTRAM */
     TLS_RSA_WITH_HC_128_CBC_MD5       = 0xFB,
     TLS_RSA_WITH_HC_128_CBC_SHA       = 0xFC,
-    TLS_RSA_WITH_RABBIT_CBC_SHA       = 0xFD
+    TLS_RSA_WITH_RABBIT_CBC_SHA       = 0xFD,
+
+    /* CyaSSL extension - NTRU */
+    TLS_NTRU_RSA_WITH_RC4_128_SHA      = 0x65,
+    TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA = 0x66,
+    TLS_NTRU_RSA_WITH_AES_128_CBC_SHA  = 0x67,
+    TLS_NTRU_RSA_WITH_AES_256_CBC_SHA  = 0x68
 };
 
 
@@ -202,6 +222,7 @@ enum Misc {
 
     PAD_MD5        = 48,       /* pad length for finished */
     PAD_SHA        = 40,       /* pad length for finished */
+    PEM_LINE_LEN   = 80,       /* PEM line max + fudge */
     LENGTH_SZ      =  2,       /* length field for HMAC, data only */
     VERSION_SZ     =  2,       /* length of proctocol version */
     SEQ_SZ         =  8,       /* 64 bit sequence number  */
@@ -268,7 +289,12 @@ enum Misc {
 
     MAX_CHAIN_DEPTH    =   4,  /* max cert chain peer depth */
     MAX_X509_SIZE      = 2048, /* max static x509 buffer size */
+    FILE_BUFFER_SIZE   = 1024, /* default static file buffer size for input,
+                                  will use dynamic buffer if not big enough */
 
+    MAX_NTRU_PUB_KEY_SZ = 1027, /* NTRU max for now */
+    MAX_NTRU_ENCRYPT_SZ = 1027, /* NTRU max for now */
+    MAX_NTRU_BITS       =  256, /* max symmetric bit strength */
     NO_SNIFF           =   0,  /* not sniffing */
     SNIFF              =   1,  /* currently sniffing */
 
@@ -310,7 +336,18 @@ enum states {
     #undef X509_NAME
     typedef struct X509_NAME   X509_NAME;
 
+    typedef struct X509_STORE_CTX {
+        int   error;
+        int   error_depth;
+        X509* current_cert;          /* stunnel dereference */
+        char* domain;                /* subject CN domain name */
+    } X509_STORE_CTX;
+
+
     typedef int (*pem_password_cb)(char*, int, int, void*);
+    typedef int (*CallbackIORecv)(char *buf, int sz, void *ctx);
+    typedef int (*CallbackIOSend)(char *buf, int sz, void *ctx);
+    typedef int (*VerifyCallback)(int, X509_STORE_CTX*);
 #endif /* SSL_TYPES_DEFINED */
 
 
@@ -381,6 +418,45 @@ typedef struct buffer {
     byte*  buffer;
 } buffer;
 
+
+enum {
+    FORCED_FREE = 1,
+    NO_FORCED_FREE = 0
+};
+
+
+/* only use compression extra if using compression */
+#ifdef HAVE_LIBZ
+    #define COMP_EXTRA MAX_COMP_EXTRA
+#else
+    #define COMP_EXTRA 0
+#endif
+
+/* only the sniffer needs space in the buffer for an extra MTU record */
+#ifdef CYASSL_SNIFFER
+    #define MTU_EXTRA MAX_MTU
+#else
+    #define MTU_EXTRA 0
+#endif
+
+/* give user option to use 16K static buffers, sniffer needs them too */
+#if defined(LARGE_STATIC_BUFFERS) || defined(CYASSL_SNIFFER)
+    #define RECORD_SIZE MAX_RECORD_SIZE
+#else
+    #define RECORD_SIZE 128
+#endif
+
+
+/* user option to turn off 16K output option */
+/* if using small static buffers (default) and SSL_write tries to write data
+   larger than the record we have, dynamically get it, unless user says only
+   write in static buffer chuncks  */
+#ifndef STATIC_CHUNKS_ONLY
+    #define OUTPUT_RECORD_SIZE MAX_RECORD_SIZE
+#else
+    #define OUTPUT_RECORD_SIZE RECORD_SIZE
+#endif
+
 /* CyaSSL input buffer
 
    RFC 2246:
@@ -389,13 +465,17 @@ typedef struct buffer {
        The length (in bytes) of the following TLSPlaintext.fragment.
        The length should not exceed 2^14.
 */
-#define BUFFER16K_LEN RECORD_HEADER_SZ + MAX_RECORD_SIZE + \
-                      MAX_COMP_EXTRA + MAX_MTU + MAX_MSG_EXTRA
+#define STATIC_BUFFER_LEN RECORD_HEADER_SZ + RECORD_SIZE + COMP_EXTRA + \
+        MTU_EXTRA + MAX_MSG_EXTRA
+
 typedef struct {
-    word32 length;
-    word32 idx;
-    ALIGN16 byte buffer[BUFFER16K_LEN];
-} buffer16K;
+    word32 length;       /* total buffer length used */
+    word32 idx;          /* idx to part of length already consumed */
+    byte*  buffer;       /* place holder for static or dynamic buffer */
+    ALIGN16 byte staticBuffer[STATIC_BUFFER_LEN];
+    word32 bufferSize;   /* current buffer size */
+    byte   dynamicFlag;  /* dynamic memory currently in use */
+} bufferStatic;
 
 /* Cipher Suites holder */
 typedef struct Suites {
@@ -405,7 +485,7 @@ typedef struct Suites {
 } Suites;
 
 
-void InitSuites(Suites*, ProtocolVersion, byte, byte);
+void InitSuites(Suites*, ProtocolVersion, byte, byte, byte);
 int  SetCipherList(SSL_CTX* ctx, const char* list);
 
 #ifndef PSK_TYPES_DEFINED
@@ -415,13 +495,12 @@ int  SetCipherList(SSL_CTX* ctx, const char* list);
                           unsigned char*, unsigned int);
 #endif /* PSK_TYPES_DEFINED */
 
-/* I/O callbacks */
-typedef int (*CallbackIORecv)(char *buf, int sz, void *ctx);
-typedef int (*CallbackIOSend)(char *buf, int sz, void *ctx);
 
-/* default IO callbacks */
-int EmbedReceive(char *buf, int sz, void *ctx);
-int EmbedSend(char *buf, int sz, void *ctx);
+#ifndef CYASSL_USER_IO
+    /* default IO callbacks */
+    int EmbedReceive(char *buf, int sz, void *ctx);
+    int EmbedSend(char *buf, int sz, void *ctx);
+#endif
 
 #ifdef CYASSL_DTLS
     int IsUDP(void*);
@@ -449,12 +528,14 @@ struct SSL_CTX {
     byte        sessionCacheFlushOff;
     byte        sendVerify;       /* for client side */
     byte        haveDH;           /* server DH parms set by user */
+    byte        haveNTRU;         /* server private NTRU key loaded */
     byte        partialWrite;     /* only one msg per write call */
     byte        quietShutdown;    /* don't send close notify */
     CallbackIORecv CBIORecv;
     CallbackIOSend CBIOSend;
+    VerifyCallback verifyCallback;      /* cert verification callback */
 #ifndef NO_PSK
-    byte        havePSK;          /* psk key set by user */
+    byte        havePSK;                /* psk key set by user */
     psk_client_callback client_psk_cb;  /* client callback */
     psk_server_callback server_psk_cb;  /* server callback */
     char        server_hint[MAX_PSK_ID_LEN];
@@ -468,10 +549,7 @@ struct SSL_CTX {
 
 void InitSSL_Ctx(SSL_CTX*, SSL_METHOD*);
 void FreeSSL_Ctx(SSL_CTX*);
-
-void SetCallbackIORecv_Ctx(SSL_CTX*, CallbackIORecv);
-void SetCallbackIOSend_Ctx(SSL_CTX*, CallbackIOSend);
-void SetCallbackIOCtx(SSL* ssl, void *ctx);
+void SSL_CtxResourceFree(SSL_CTX*);
 
 int DeriveTlsKeys(SSL* ssl);
 int ProcessOldClientHello(SSL* ssl, const byte* input, word32* inOutIdx,
@@ -524,7 +602,8 @@ enum KeyExchangeAlgorithm {
     rsa_kea, 
     diffie_hellman_kea, 
     fortezza_kea,
-    psk_kea 
+    psk_kea,
+    ntru_kea
 };
 
 
@@ -679,13 +758,13 @@ typedef struct Buffers {
     buffer          serverDH_G;
     buffer          serverDH_Pub;
     buffer          serverDH_Priv;
-    buffer16K       inputBuffer;
-    buffer16K       outputBuffer;
+    bufferStatic    inputBuffer;
+    bufferStatic    outputBuffer;
     buffer          clearOutputBuffer;
     int             prevSent;              /* previous plain text bytes sent
-                                              when got WANT_READ            */
+                                              when got WANT_WRITE            */
     int             plainSz;               /* plain text bytes in buffer to send
-                                              when got WANT_READ            */
+                                              when got WANT_WRITE            */
 } Buffers;
 
 
@@ -714,6 +793,8 @@ typedef struct Options {
     byte            acceptState;        /* nonblocking resume */
     byte            usingCompression;   /* are we using compression */
     byte            haveDH;             /* server DH parms set by user */
+    byte            haveNTRU;           /* server NTRU private key loaded */
+    byte            havePeerCert;       /* do we have peer's cert */
     byte            usingPSK_cipher;    /* whether we're using psk as cipher */
     byte            sendAlertState;     /* nonblocking resume */ 
     byte            processReply;       /* nonblocking resume */
@@ -805,9 +886,13 @@ struct SSL {
     Options         options;
     Arrays          arrays;
     SSL_SESSION     session;
-    X509            peerCert;           /* X509 peer cert */
     RsaKey          peerRsaKey;
     byte            peerRsaKeyPresent;
+#ifdef HAVE_NTRU
+    word16          peerNtruKeyLen;
+    byte            peerNtruKey[MAX_NTRU_PUB_KEY_SZ];
+    byte            peerNtruKeyPresent;
+#endif
     hmacfp          hmac;
     void*           heap;               /* for user overrides */
     RecordLayerHeader curRL;
@@ -824,11 +909,15 @@ struct SSL {
     byte            hsInfoOn;           /* track handshake info        */
     byte            toInfoOn;           /* track timeout   info        */
 #endif
+#ifdef OPENSSL_EXTRA
+    X509            peerCert;           /* X509 peer cert */
+#endif
 };
 
 
 int  InitSSL(SSL*, SSL_CTX*);
 void FreeSSL(SSL*);
+void SSL_ResourceFree(SSL*);
 
 
 enum {
@@ -919,6 +1008,17 @@ enum AlertDescription {
 };
 
 
+/* I/O Callback default errors */
+enum IOerrors {
+    IO_ERR_GENERAL    = -1,     /* general unexpected err, not in below group */
+    IO_ERR_WANT_READ  = -2,     /* need to call read  again */
+    IO_ERR_WANT_WRITE = -2,     /* need to call write again */
+    IO_ERR_CONN_RST   = -3,     /* connection reset */
+    IO_ERR_ISR        = -4,     /* interrupt */
+    IO_ERR_CONN_CLOSE = -5      /* connection closed or epipe */
+};
+
+
 enum AlertLevel { 
     alert_warning = 1, 
     alert_fatal = 2
@@ -947,12 +1047,15 @@ int ProcessReply(SSL*);
 int SetCipherSpecs(SSL*);
 int MakeMasterSecret(SSL*);
 
-void AddSession(SSL*);
+int  AddSession(SSL*);
 int  DeriveKeys(SSL* ssl);
 int  StoreKeys(SSL* ssl, const byte* keyData);
 
 int IsTLS(const SSL* ssl);
 int IsAtLeastTLSv1_2(const SSL* ssl);
+
+void ShrinkInputBuffer(SSL* ssl, int forcedFree);
+void ShrinkOutputBuffer(SSL* ssl);
 
 #ifndef NO_CYASSL_CLIENT
     int SendClientHello(SSL*);
@@ -984,43 +1087,24 @@ word32  LowResTimer(void);
 
 #ifdef SINGLE_THREADED
     typedef int CyaSSL_Mutex;
-
-    #define InitMutex(m)
-    #define FreeMutex(m)
-    #define LockMutex(m)
-    #define UnLockMutex(m)
-
-#else /* SINGLE_THREADED */
-
-    #ifdef _WIN32
+#else /* MULTI_THREADED */
+    #ifdef USE_WINDOWS_API 
         typedef CRITICAL_SECTION CyaSSL_Mutex;
-
-        #define InitMutex(m)     InitializeCriticalSection(m)
-        #define FreeMutex(m)     DeleteCriticalSection(m)
-        #define LockMutex(m)     EnterCriticalSection(m)
-        #define UnLockMutex(m)   LeaveCriticalSection(m)
-
-    #elif defined(_POSIX_THREADS)
+    #elif defined(CYASSL_PTHREADS)
         typedef pthread_mutex_t CyaSSL_Mutex;
-
-        #define InitMutex(m)     pthread_mutex_init(m, 0)
-        #define FreeMutex(m)     pthread_mutex_destroy(m)
-        #define LockMutex(m)     pthread_mutex_lock(m) 
-        #define UnLockMutex(m)   pthread_mutex_unlock(m)
-
     #elif defined(THREADX)
         typedef TX_MUTEX CyaSSL_Mutex;
-
-        #define InitMutex(m)     tx_mutex_create(m,"CyaSSL Mutex",TX_NO_INHERIT)
-        #define FreeMutex(m)     tx_mutex_delete(m)
-        #define LockMutex(m)     tx_mutex_get(m, TX_WAIT_FOREVER)
-        #define UnLockMutex(m)   tx_mutex_put(m)
-
+    #elif defined(MICRIUM)
+        typedef OS_MUTEX CyaSSL_Mutex;
     #else
         #error Need a mutex type in multithreaded mode
-    #endif /* _WIN32 */
-
+    #endif /* USE_WINDOWS_API */
 #endif /* SINGLE_THREADED */
+
+int InitMutex(CyaSSL_Mutex*);
+int FreeMutex(CyaSSL_Mutex*);
+int LockMutex(CyaSSL_Mutex*);
+int UnLockMutex(CyaSSL_Mutex*);
 
 
 #ifdef DEBUG_CYASSL

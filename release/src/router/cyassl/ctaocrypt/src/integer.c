@@ -25,13 +25,9 @@
  */
 
 
-/* optionally use fast math instead */
-#ifdef USE_FAST_MATH
-    #include "tfm.c"
-#else
+#ifndef USE_FAST_MATH
 
 #include "integer.h"
-#include <stdlib.h>
 
 
 /* handle up to 6 inits */
@@ -78,7 +74,8 @@ int mp_init (mp_int * a)
   int i;
 
   /* allocate memory required and clear it */
-  a->dp = OPT_CAST(mp_digit) XMALLOC (sizeof (mp_digit) * MP_PREC, 0);
+  a->dp = OPT_CAST(mp_digit) XMALLOC (sizeof (mp_digit) * MP_PREC, 0,
+                                      DYNAMIC_TYPE_BIGINT);
   if (a->dp == NULL) {
     return MP_MEM;
   }
@@ -112,7 +109,7 @@ mp_clear (mp_int * a)
     }
 
     /* free ram */
-    XFREE(a->dp, 0);
+    XFREE(a->dp, 0, DYNAMIC_TYPE_BIGINT);
 
     /* reset members to make debugging easier */
     a->dp    = NULL;
@@ -260,7 +257,8 @@ int mp_grow (mp_int * a, int size)
      * in case the operation failed we don't want
      * to overwrite the dp member of a.
      */
-    tmp = OPT_CAST(mp_digit) XREALLOC (a->dp, sizeof (mp_digit) * size, 0);
+    tmp = OPT_CAST(mp_digit) XREALLOC (a->dp, sizeof (mp_digit) * size, 0,
+                                       DYNAMIC_TYPE_BIGINT);
     if (tmp == NULL) {
       /* reallocation failed but "a" is still valid [can be freed] */
       return MP_MEM;
@@ -2686,7 +2684,8 @@ int mp_init_size (mp_int * a, int size)
   size += (MP_PREC * 2) - (size % MP_PREC);	
   
   /* alloc mem */
-  a->dp = OPT_CAST(mp_digit) XMALLOC (sizeof (mp_digit) * size, 0);
+  a->dp = OPT_CAST(mp_digit) XMALLOC (sizeof (mp_digit) * size, 0,
+                                      DYNAMIC_TYPE_BIGINT);
   if (a->dp == NULL) {
     return MP_MEM;
   }

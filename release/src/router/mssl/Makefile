@@ -8,7 +8,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 CFLAGS	+= -I$(TOP)/openssl/include -DUSE_OPENSSL
 LIBS += -L$(TOP)/openssl -lssl -lcrypto
 else
-CFLAGS	+= -I$(TOP)/cyassl/include
+CFLAGS	+= -I$(TOP)/cyassl/include -I$(TOP)/cyassl/ctaocrypt/include
 LIBS += $(TOP)/cyassl/src/.libs/libcyassl.a
 endif
 

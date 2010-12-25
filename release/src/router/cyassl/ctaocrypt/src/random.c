@@ -27,10 +27,9 @@
 
 #include "random.h"
 #include "error.h"
-#include <string.h> 
 
 
-#if defined(_WIN32)
+#if defined(USE_WINDOWS_API)
     #define _WIN32_WINNT 0x0400
     #include <windows.h>
     #include <wincrypt.h>
@@ -41,7 +40,7 @@
     #else
         /* include headers that may be needed to get good seed */
     #endif
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 
 
 
@@ -65,7 +64,7 @@ int InitRng(RNG* rng)
 /* place a generated block in output */
 void RNG_GenerateBlock(RNG* rng, byte* output, word32 sz)
 {
-    memset(output, 0, sz);
+    XMEMSET(output, 0, sz);
     Arc4Process(&rng->cipher, output, output, sz);
 }
 
@@ -79,7 +78,7 @@ byte RNG_GenerateByte(RNG* rng)
 }
 
 
-#if defined(_WIN32)
+#if defined(USE_WINDOWS_API)
 
 
 int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
@@ -97,7 +96,7 @@ int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
 }
 
 
-#elif THREADX
+#elif defined(THREADX)
 
 #include "rtprand.h"   /* rtp_rand () */
 #include "rtptime.h"   /* rtp_get_system_msec() */
@@ -118,12 +117,22 @@ int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
 }
 
 
-#elif NO_DEV_RANDOM
+#elif defined(MICRIUM)
+
+int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
+{
+    #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+        NetSecure_InitSeed(output, sz);
+    #endif
+    return 0;
+}
+
+#elif defined(NO_DEV_RANDOM)
 
 #error "you need to write an os specific GenerateSeed() here"
 
 
-#else /* !_WIN32 && !THREADX && !NO_DEV_RANDOM */
+#else /* !USE_WINDOWS_API && !THREADX && !MICRIUM && !NO_DEV_RANDOM */
 
 
 /* may block */
@@ -157,5 +166,5 @@ int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
     return 0;
 }
 
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 

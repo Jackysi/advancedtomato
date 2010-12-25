@@ -80,7 +80,7 @@ function verifyFields(focused, quiet)
 	a = E('_f_http_local');
 	b = E('_f_http_remote').value;
 	if ((a.value != 3) && (b != 0) && (a.value != b)) {
-		ferror.set(a, 'The local http/https must also be enabled when using remote access.', quiet);
+		ferror.set(a, 'The local http/https must also be enabled when using remote access.', quiet || !ok);
 		ok = 0;
 	}
 	else {
@@ -98,48 +98,59 @@ function verifyFields(focused, quiet)
 		if (a.value != nvram.https_crt_cn) E('_f_https_crt_gen').checked = 1;
 	}
 
-	if ((!v_port('_http_lanport', quiet)) || (!v_port('_https_lanport', quiet))) ok = 0;
+	if ((!v_port('_http_lanport', quiet || !ok)) || (!v_port('_https_lanport', quiet || !ok))) ok = 0;
 
-	b = b != 0;
 	a = E('_http_wanport');
-	elem.display(PR(a), b);
-	if ((b) && (!v_port(a, quiet))) ok = 0;
+	elem.display(PR(a), b != 0);
+	if (b != 0) {
+		if (!v_port(a, quiet || !ok)) ok = 0;
+		else {
+			c = a.value;
+			a = E('_f_http_remote').value;
+			b = E('_f_http_local').value;
+			if ((a == 1 /* rem.http */ && (b == 2 || b == 3) && c == E('_https_lanport').value) ||
+			    (a == 2 /* rem.https */ && (b == 1 || b == 3) && c == E('_http_lanport').value)) {
+				ferror.set(E('_http_wanport'), 'The remote http/https port can\'t be the same as local port.', quiet || !ok);
+				ok = 0;
+			}
+		}
+	}
 
-	if (!v_port('_telnetd_port', quiet)) ok = 0;
+	if (!v_port('_telnetd_port', quiet || !ok)) ok = 0;
 
 	a = E('_f_sshd_remote').checked;
 	b = E('_sshd_rport');
 	elem.display(PR(b), a);
-	if ((a) && (!v_port(b, quiet))) ok = 0;
+	if ((a) && (!v_port(b, quiet || !ok))) ok = 0;
 
 	a = E('_sshd_authkeys');
-	if (!v_length(a, quiet, 0, 4096)) {
+	if (!v_length(a, quiet || !ok, 0, 4096)) {
 		ok = 0;
 	}
 	else if (a.value != '') {
         if (a.value.search(/^\s*ssh-(dss|rsa)/) == -1) {
-			ferror.set(a, 'Invalid SSH key.', quiet);
+			ferror.set(a, 'Invalid SSH key.', quiet || !ok);
 			ok = 0;
 		}
 	}
 
 	a = E('_f_rmgt_sip');
-	if ((a.value.length) && (!v_iptaddr(a, quiet, 15))) return 0;
+	if ((a.value.length) && (!v_iptaddr(a, quiet || !ok, 15))) return 0;
 	ferror.clear(a);
 
-	if (!v_range('_f_limit_hit', quiet, 1, 100)) return 0;
-	if (!v_range('_f_limit_sec', quiet, 3, 3600)) return 0;
+	if (!v_range('_f_limit_hit', quiet || !ok, 1, 100)) return 0;
+	if (!v_range('_f_limit_sec', quiet || !ok, 3, 3600)) return 0;
 
 	a = E('_set_password_1');
 	b = E('_set_password_2');
 	a.value = a.value.trim();
 	b.value = b.value.trim();
 	if (a.value != b.value) {
-		ferror.set(b, 'Both passwords must match.', quiet);
+		ferror.set(b, 'Both passwords must match.', quiet || !ok);
 		ok = 0;
 	}
 	else if (a.value == '') {
-		ferror.set(a, 'Password must not be empty.', quiet);
+		ferror.set(a, 'Password must not be empty.', quiet || !ok);
 		ok = 0;
 	}
 	else {

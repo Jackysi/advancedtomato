@@ -30,7 +30,7 @@
 #endif
 
 
-#if defined(_WIN32)
+#if defined(USE_WINDOWS_API)
     #if defined(_WIN64)
         typedef unsigned __int64 ProviderHandle;
         /* type HCRYPTPROV, avoid #include <windows.h> */
@@ -42,7 +42,7 @@
 
 /* OS specific seeder */
 typedef struct OS_Seed {
-    #if defined(_WIN32)
+    #if defined(USE_WINDOWS_API)
         ProviderHandle handle;
     #else
         int fd;

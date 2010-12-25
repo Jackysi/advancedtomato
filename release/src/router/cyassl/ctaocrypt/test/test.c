@@ -5,9 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "md5.h"
-#include "md4.h"
-#include "sha.h"
+#include "ctc_md5.h"
+#include "ctc_md4.h"
+#include "ctc_sha.h"
 #include "sha256.h"
 #include "sha512.h"
 #include "arc4.h"
@@ -15,14 +15,14 @@
 #include "coding.h"
 #include "asn.h"
 #include "des3.h"
-#include "aes.h"
-#include "hmac.h"
-#include "dh.h"
-#include "dsa.h"
+#include "ctc_aes.h"
+#include "ctc_hmac.h"
+#include "ctc_dh.h"
+#include "ctc_dsa.h"
 #include "hc128.h"
 #include "rabbit.h"
 #include "pwdbased.h"
-#include "ripemd.h"
+#include "ctc_ripemd.h"
 
 #ifdef _MSC_VER
     /* 4996 warning to use MS extensions e.g., strcpy_s instead of strncpy */
@@ -30,10 +30,14 @@
 #endif
 
 #ifdef OPENSSL_EXTRA
-    #include "openssl/evp.h"
-    #include "openssl/rand.h"
-    #include "openssl/hmac.h"
-    #include "openssl/des.h"
+    #include "evp.h"
+    #include "rand.h"
+    #include "hmac.h"
+    #include "des.h"
+#endif
+
+#ifdef HAVE_NTRU
+    #include "crypto_ntru.h"
 #endif
 
 
@@ -83,7 +87,7 @@ void err_sys(const char* msg, int es)
 #endif
 }
 
-/* func_args from test.h, so don't have to pull in other junk */
+/* func_args from cyassl_test.h, so don't have to pull in other junk */
 typedef struct func_args {
     int    argc;
     char** argv;
@@ -1006,15 +1010,55 @@ int random_test()
 #ifndef NO_MAIN_DRIVER
     static const char* clientKey  = "../../certs/client-key.der";
     static const char* clientCert = "../../certs/client-cert.der";
+    #ifdef CYASSL_CERT_GEN
+        static const char* caKeyFile  = "../../certs/ca-key.der";
+        static const char* caCertFile = "../../certs/ca-cert.pem";
+    #endif
 #else
     static const char* clientKey  = "../certs/client-key.der";
     static const char* clientCert = "../certs/client-cert.der";
+    #ifdef CYASSL_CERT_GEN
+        static const char* caKeyFile  = "../certs/ca-key.der";
+        static const char* caCertFile = "../certs/ca-cert.pem";
+    #endif
 #endif
 
 
+#ifdef HAVE_NTRU
+
+static byte GetEntropy(ENTROPY_CMD cmd, byte* out)
+{
+    static RNG rng;
+
+    if (cmd == INIT) {
+        int ret = InitRng(&rng);
+        if (ret == 0)
+            return 1;
+        else
+            return 0;
+    }
+
+    if (out == NULL)
+        return 0;
+
+    if (cmd == GET_BYTE_OF_ENTROPY) {
+        RNG_GenerateBlock(&rng, out, 1);
+        return 1;
+    }
+
+    if (cmd == GET_NUM_BYTES_PER_BYTE_OF_ENTROPY) {
+        *out = 1;
+        return 1;
+    }
+
+    return 0;
+}
+
+#endif /* HAVE_NTRU */
+
 int rsa_test()
 {
-    byte   tmp[1024], tmp2[2048];
+    byte   tmp[2048], tmp2[2048];
     size_t bytes, bytes2;
     RsaKey key;
     RNG    rng;
@@ -1022,8 +1066,8 @@ int rsa_test()
     int    ret;
     byte   in[] = "Everyone gets Friday off.";
     word32 inLen = (word32)strlen((char*)in);
-    byte   out[64];
-    byte   plain[64];
+    byte   out[256];
+    byte   plain[256];
     DecodedCert cert;
 
     FILE*  file = fopen(clientKey, "rb"), * file2;
@@ -1031,7 +1075,7 @@ int rsa_test()
     if (!file)
         return -40;
 
-    bytes = fread(tmp, 1, 1024, file);
+    bytes = fread(tmp, 1, sizeof(tmp), file);
   
     InitRsaKey(&key, 0);  
     ret = RsaPrivateKeyDecode(tmp, &idx, &key, (word32)bytes);
@@ -1042,13 +1086,13 @@ int rsa_test()
 
     ret = RsaPublicEncrypt(in, inLen, out, sizeof(out), &key, &rng);  
 
-    ret = RsaPrivateDecrypt(out, 64, plain, sizeof(plain), &key);
+    ret = RsaPrivateDecrypt(out, ret, plain, sizeof(plain), &key);
 
     if (memcmp(plain, in, inLen)) return -45;
 
     ret = RsaSSL_Sign(in, inLen, out, sizeof(out), &key, &rng);
     memset(plain, 0, sizeof(plain));
-    ret = RsaSSL_Verify(out, 64, plain, sizeof(plain), &key);
+    ret = RsaSSL_Verify(out, ret, plain, sizeof(plain), &key);
 
     if (memcmp(plain, in, ret)) return -46;
 
@@ -1056,7 +1100,7 @@ int rsa_test()
     if (!file2)
         return -47;
 
-    bytes2 = fread(tmp2, 1, 2048, file2);
+    bytes2 = fread(tmp2, 1, sizeof(tmp2), file2);
 
     InitDecodedCert(&cert, (byte*)&tmp2, 0);
 
@@ -1109,11 +1153,15 @@ int rsa_test()
         ret = RsaPrivateKeyDecode(der, &idx, &derIn, derSz);
         if (ret != 0)
             return -306;
+
+        FreeRsaKey(&derIn);
+        FreeRsaKey(&genKey);
     }
 #endif /* CYASSL_KEY_GEN */
 
 
 #ifdef CYASSL_CERT_GEN
+    /* self signed */
     {
         Cert        myCert;
         byte        derCert[4096];
@@ -1134,7 +1182,7 @@ int rsa_test()
         strncpy(myCert.subject.commonName, "www.yassl.com", NAME_SIZE);
         strncpy(myCert.subject.email, "info@yassl.com", NAME_SIZE);
 
-        certSz = MakeCert(&myCert, derCert, sizeof(derCert), &key, &rng); 
+        certSz = MakeSelfCert(&myCert, derCert, sizeof(derCert), &key, &rng); 
         if (certSz < 0)
             return -401;
 
@@ -1162,6 +1210,189 @@ int rsa_test()
         FreeDecodedCert(&decode);
 
     }
+    /* CA style */
+    {
+        RsaKey      caKey;
+        Cert        myCert;
+        byte        derCert[4096];
+        byte        pem[4096];
+        DecodedCert decode;
+        FILE*       derFile;
+        FILE*       pemFile;
+        int         certSz;
+        int         pemSz;
+        byte        tmp[2048];
+        size_t      bytes;
+        word32      idx = 0;
+
+        FILE*  file = fopen(caKeyFile, "rb");
+
+        if (!file)
+            return -412;
+
+        bytes = fread(tmp, 1, sizeof(tmp), file);
+  
+        InitRsaKey(&caKey, 0);  
+        ret = RsaPrivateKeyDecode(tmp, &idx, &caKey, (word32)bytes);
+        if (ret != 0) return -413;
+
+        InitCert(&myCert);
+
+        strncpy(myCert.subject.country, "US", NAME_SIZE);
+        strncpy(myCert.subject.state, "OR", NAME_SIZE);
+        strncpy(myCert.subject.locality, "Portland", NAME_SIZE);
+        strncpy(myCert.subject.org, "yaSSL", NAME_SIZE);
+        strncpy(myCert.subject.unit, "Development", NAME_SIZE);
+        strncpy(myCert.subject.commonName, "www.yassl.com", NAME_SIZE);
+        strncpy(myCert.subject.email, "info@yassl.com", NAME_SIZE);
+
+        ret = SetIssuer(&myCert, caCertFile);
+        if (ret < 0)
+            return -406;
+
+        certSz = MakeCert(&myCert, derCert, sizeof(derCert), &key, &rng); 
+        if (certSz < 0)
+            return -407;
+
+        certSz = SignCert(&myCert, derCert, sizeof(derCert), &caKey, &rng);
+        if (certSz < 0)
+            return -408;
+
+
+        InitDecodedCert(&decode, derCert, 0);
+        ret = ParseCert(&decode, certSz, CERT_TYPE, NO_VERIFY, 0);
+        if (ret != 0)
+            return -409;
+
+        derFile = fopen("./othercert.der", "wb");
+        if (!derFile)
+            return -410;
+        ret = fwrite(derCert, certSz, 1, derFile);
+        fclose(derFile);
+
+        pemSz = DerToPem(derCert, certSz, pem, sizeof(pem), CERT_TYPE);
+        if (pemSz < 0)
+            return -411;
+
+        pemFile = fopen("./othercert.pem", "wb");
+        if (!pemFile)
+            return -412;
+        ret = fwrite(pem, pemSz, 1, pemFile);
+        fclose(pemFile);
+
+        FreeDecodedCert(&decode);
+
+    }
+#ifdef HAVE_NTRU
+    {
+        RsaKey      caKey;
+        Cert        myCert;
+        byte        derCert[4096];
+        byte        pem[4096];
+        DecodedCert decode;
+        FILE*       derFile;
+        FILE*       pemFile;
+        FILE*       caFile;
+        FILE*       ntruPrivFile;
+        int         certSz;
+        int         pemSz;
+        byte        tmp[2048];
+        size_t      bytes;
+        word32      idx = 0;
+
+        byte   public_key[557];          /* sized for EES401EP2 */
+        word16 public_key_len;           /* no. of octets in public key */
+        byte   private_key[607];         /* sized for EES401EP2 */
+        word16 private_key_len;          /* no. of octets in private key */
+        DRBG_HANDLE drbg;
+        static uint8_t const pers_str[] = {
+                'C', 'y', 'a', 'S', 'S', 'L', ' ', 't', 'e', 's', 't'
+        };
+        word32 rc = crypto_drbg_instantiate(112, pers_str, sizeof(pers_str),
+                                            GetEntropy, &drbg);
+        if (rc != DRBG_OK)
+            return -450;
+
+        rc = crypto_ntru_encrypt_keygen(drbg, NTRU_EES401EP2, &public_key_len,
+                                        NULL, &private_key_len, NULL);
+        if (rc != NTRU_OK)
+            return -451;
+
+        rc = crypto_ntru_encrypt_keygen(drbg, NTRU_EES401EP2, &public_key_len,
+                                     public_key, &private_key_len, private_key);
+        crypto_drbg_uninstantiate(drbg);
+
+        if (rc != NTRU_OK)
+            return -452;
+
+        caFile = fopen(caKeyFile, "rb");
+
+        if (!caFile)
+            return -453;
+
+        bytes = fread(tmp, 1, sizeof(tmp), caFile);
+        fclose(caFile);
+  
+        InitRsaKey(&caKey, 0);  
+        ret = RsaPrivateKeyDecode(tmp, &idx, &caKey, (word32)bytes);
+        if (ret != 0) return -454;
+
+        InitCert(&myCert);
+
+        strncpy(myCert.subject.country, "US", NAME_SIZE);
+        strncpy(myCert.subject.state, "OR", NAME_SIZE);
+        strncpy(myCert.subject.locality, "Portland", NAME_SIZE);
+        strncpy(myCert.subject.org, "yaSSL", NAME_SIZE);
+        strncpy(myCert.subject.unit, "Development", NAME_SIZE);
+        strncpy(myCert.subject.commonName, "www.yassl.com", NAME_SIZE);
+        strncpy(myCert.subject.email, "info@yassl.com", NAME_SIZE);
+
+        ret = SetIssuer(&myCert, caCertFile);
+        if (ret < 0)
+            return -455;
+
+        certSz = MakeNtruCert(&myCert, derCert, sizeof(derCert), public_key,
+                              public_key_len, &rng); 
+        if (certSz < 0)
+            return -456;
+
+        certSz = SignCert(&myCert, derCert, sizeof(derCert), &caKey, &rng);
+        if (certSz < 0)
+            return -457;
+
+
+        InitDecodedCert(&decode, derCert, 0);
+        ret = ParseCert(&decode, certSz, CERT_TYPE, NO_VERIFY, 0);
+        if (ret != 0)
+            return -458;
+
+        derFile = fopen("./ntru-cert.der", "wb");
+        if (!derFile)
+            return -459;
+        ret = fwrite(derCert, certSz, 1, derFile);
+        fclose(derFile);
+
+        pemSz = DerToPem(derCert, certSz, pem, sizeof(pem), CERT_TYPE);
+        if (pemSz < 0)
+            return -460;
+
+        pemFile = fopen("./ntru-cert.pem", "wb");
+        if (!pemFile)
+            return -461;
+        ret = fwrite(pem, pemSz, 1, pemFile);
+        fclose(pemFile);
+
+        ntruPrivFile = fopen("./ntru-key.raw", "wb");
+        if (!ntruPrivFile)
+            return -462;
+        ret = fwrite(private_key, private_key_len, 1, ntruPrivFile);
+        fclose(ntruPrivFile);
+
+
+
+        FreeDecodedCert(&decode);
+    }
+#endif /* HAVE_NTRU */
 #endif /* CYASSL_CERT_GEN */
 
     FreeRsaKey(&key);
@@ -1198,7 +1429,7 @@ int dh_test()
     if (!file)
         return -50;
 
-    bytes = (word32) fread(tmp, 1, 1024, file);
+    bytes = (word32) fread(tmp, 1, sizeof(tmp), file);
 
     InitDhKey(&key);  
     InitDhKey(&key2);  

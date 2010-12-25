@@ -116,7 +116,8 @@ int main(int argc, char** argv)
 	}
 
 	if (i == 0)
-		err_sys("No interfaces found! Make sure pcap or WinPcap is installed");
+		err_sys("No interfaces found! Make sure pcap or WinPcap is installed "
+                "correctly and you have sufficient permissions");
 
 	printf("Enter the interface number (1-%d): ", i);
 	scanf("%d", &inum);
@@ -199,7 +200,7 @@ int main(int argc, char** argv)
 
             ret = ssl_DecodePacket(packet, header.caplen, data, err);
             if (ret < 0)
-                printf("ssl_Decode ret = %d\n", ret);
+                printf("ssl_Decode ret = %d, %s\n", ret, err);
             if (ret > 0) {
                 data[ret] = 0;
 				printf("SSL App Data:%s\n", data);

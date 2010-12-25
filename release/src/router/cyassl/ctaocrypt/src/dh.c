@@ -21,10 +21,16 @@
 
 #ifndef NO_DH
 
-#include "dh.h"
+#include "ctc_dh.h"
 #include "error.h"
-#include <assert.h>
-#include <math.h>
+
+#ifndef USER_MATH_LIB
+    #include <math.h>
+    #define XPOW(x,y) pow((x),(y))
+    #define XLOG(x)   log((x))
+#else
+    /* user's own math lib */
+#endif
 
 
 
@@ -65,8 +71,8 @@ static word32 DiscreteLogWorkFactor(word32 n)
     if (n<5)
         return 0;
     else
-        return (word32)(2.4 * pow((double)n, 1.0/3.0) *
-                pow(log((double)n), 2.0/3.0) - 5);
+        return (word32)(2.4 * XPOW((double)n, 1.0/3.0) *
+                XPOW(XLOG((double)n), 2.0/3.0) - 5);
 }
 
 

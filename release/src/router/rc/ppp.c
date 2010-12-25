@@ -80,7 +80,7 @@ int ipup_main(int argc, char **argv)
 
 	if ((value = getenv("IPREMOTE"))) {
 		nvram_set("wan_gateway_get", value);
-		_dprintf("IPREMOTE=%s\n", value);
+		TRACE_PT("IPREMOTE=%s\n", value);
 	}
 
 	buf[0] = 0;
@@ -90,6 +90,7 @@ int ipup_main(int argc, char **argv)
 		strlcat(buf, p, sizeof(buf));
 	}
 	nvram_set("wan_get_dns", buf);
+	TRACE_PT("DNS=%s\n", buf);
 
 	if ((value = getenv("AC_NAME"))) nvram_set("ppp_get_ac", value);
 	if ((value = getenv("SRV_NAME"))) nvram_set("ppp_get_srv", value);
@@ -132,7 +133,7 @@ int ipdown_main(int argc, char **argv)
 		route_add(nvram_safe_get("wan_ifname"), 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
 	}
 
-	if ((nvram_match("ppp_demand", "1")) && ((proto == WP_PPTP) || (proto == WP_L2TP))) {
+	if ((nvram_get_int("ppp_demand")) && ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE))) {
 		killall("listen", SIGKILL);
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
@@ -141,6 +142,43 @@ int ipdown_main(int argc, char **argv)
 	return 1;
 }
 
+#ifdef TCONFIG_IPV6
+int ip6up_main(int argc, char **argv)
+{
+/*
+	char *wan_ifname;
+	char *value;
+
+	TRACE_PT("begin\n");
+	if (!wait_action_idle(10)) return -1;
+
+	wan_ifname = safe_getenv("IFNAME");
+	if ((!wan_ifname) || (!*wan_ifname)) return -1;
+
+	value = getenv("LLREMOTE");
+
+	// ???
+
+	start_wan6_done(wan_ifname);
+	TRACE_PT("end\n");
+*/
+	return 0;
+}
+
+int ip6down_main(int argc, char **argv)
+{
+/*
+	TRACE_PT("begin\n");
+	if (!wait_action_idle(10)) return -1;
+
+	// ???
+
+	TRACE_PT("end\n");
+*/
+	return 1;
+}
+#endif	// IPV6
+
 int pppevent_main(int argc, char **argv)
 {
 	int i;
@@ -148,7 +186,7 @@ int pppevent_main(int argc, char **argv)
 	TRACE_PT("begin\n");
 
 	for (i = 1; i < argc; ++i) {
-		_dprintf("%s: arg%d=%s\n", __FUNCTION__, i, argv[i]);
+		TRACE_PT("arg%d=%s\n", i, argv[i]);
 		if (strcmp(argv[i], "-t") == 0) {
 			if (++i >= argc) return 1;
 			if ((strcmp(argv[i], "PAP_AUTH_FAIL") == 0) || (strcmp(argv[i], "CHAP_AUTH_FAIL") == 0)) {
@@ -163,11 +201,12 @@ int pppevent_main(int argc, char **argv)
 	return 1;
 }
 
+#if 0
 int set_pppoepid_main(int argc, char **argv)
 {
 	if (argc < 2) return 0;
 
-	_dprintf("%s: num=%s\n", __FUNCTION__, argv[1]);
+	TRACE_PT("num=%s\n", argv[1]);
 
 	if (atoi(argv[1]) != 0) return 0;
 
@@ -175,7 +214,7 @@ int set_pppoepid_main(int argc, char **argv)
 	nvram_set("pppoe_ifname0", getenv("IFNAME"));
 	nvram_set("wan_iface", getenv("IFNAME"));
 	
-	_dprintf("IFNAME=%s DEVICE=%s\n", getenv("IFNAME"), getenv("DEVICE"));
+	TRACE_PT("IFNAME=%s DEVICE=%s\n", getenv("IFNAME"), getenv("DEVICE"));
 	return 0;
 }
 	
@@ -183,11 +222,11 @@ int pppoe_down_main(int argc, char **argv)
 {
 	if (argc < 2) return 0;
 
-	_dprintf("%s: num=%s\n", __FUNCTION__, argv[1]);
+	TRACE_PT("num=%s\n", argv[1]);
 
 	if (atoi(argv[1]) != 0) return 0;
 
-	if ((nvram_match("ppp_demand", "1")) && (nvram_match("action_service", "")))	{
+	if ((nvram_get_int("ppp_demand")) && (nvram_match("action_service", "")))	{
 		stop_singe_pppoe(0);
 		start_pppoe(0);
 		
@@ -197,3 +236,4 @@ int pppoe_down_main(int argc, char **argv)
 	}
 	return 0;
 }
+#endif	// 0

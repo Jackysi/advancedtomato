@@ -185,12 +185,7 @@ int check_wanup(void)
 				snprintf(buf2, sizeof(buf2), "/var/run/%s.pid", buf1);
 				if (f_read_string(buf2, buf1, sizeof(buf1)) > 0) {
 					name = psname(atoi(buf1), buf2, sizeof(buf2));
-					if (proto == WP_PPPOE) {
-						if (strcmp(name, "pppoecd") == 0) up = 1;
-					}
-					else {
-						if (strcmp(name, "pppd") == 0) up = 1;
-					}
+					if (strcmp(name, "pppd") == 0) up = 1;
 				}
 				else {
 					_dprintf("%s: error reading %s\n", __FUNCTION__, buf2);

@@ -797,6 +797,9 @@ static void filter_log(void)
 		limit[0] = 0;
 	}
 
+#ifdef TCONFIG_IPV6
+	modprobe("ip6t_LOG");
+#endif
 	if ((*chain_in_drop == 'l') || (*chain_out_drop == 'l'))  {
 		ip46t_write(
 			":logdrop - [0:0]\n"
@@ -936,26 +939,30 @@ static void filter6_forward(void)
 	
 	ip6t_write(
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n"
-		"-A FORWARD -i %s -o %s -j ACCEPT\n"				// accept all lan to lan
+		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
 		/*"-A FORWARD -m state --state INVALID -j DROP\n"*/,	// drop if INVALID state
 		lanface, lanface);
+
+	// Filter out invalid WAN->WAN connections
+	ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
 
 #ifdef LINUX26
 	modprobe("xt_length");
 	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
 #endif
 
-
 	// clamp tcp mss to pmtu TODO?
 	// clampmss();
 
 	// TODO: support l7, restrictions, webmon on ipv6?
-/*	if (wanup) {
+/*
+	if (wanup) {
 		ipt_restrictions();
 		ipt_layer7_inbound();
 	}
 
-	ipt_webmon(); */
+	ipt_webmon();
+*/
 
 	ip6t_write(
 		":wanin - [0:0]\n"
@@ -1151,6 +1158,7 @@ int start_firewall(void)
 		return 0;
 	}
 	modprobe("nf_conntrack_ipv6");
+	modprobe("ip6t_REJECT");
 #endif
 
 	mangle_table();
@@ -1237,6 +1245,8 @@ int start_firewall(void)
 
 #ifdef TCONFIG_IPV6
 	modprobe_r("nf_conntrack_ipv6");
+	modprobe_r("ip6t_LOG");
+	modprobe_r("ip6t_REJECT");
 #endif
 #ifdef LINUX26
 	modprobe_r("xt_layer7");

@@ -108,8 +108,10 @@ extern int listen_main(int argc, char **argv);
 extern int ipup_main(int argc, char **argv);
 extern int ipdown_main(int argc, char **argv);
 extern int pppevent_main(int argc, char **argv);
-extern int set_pppoepid_main(int argc, char **argv);	// by tallest 1219
-extern int pppoe_down_main(int argc, char **argv);		// by tallest 0407
+#ifdef TCONFIG_IPV6
+extern int ip6up_main(int argc, char **argv);
+extern int ip6down_main(int argc, char **argv);
+#endif
 
 // rc.c
 extern void restore_defaults(void);
@@ -124,11 +126,13 @@ extern void start_pptp(int mode);
 extern void stop_pptp(void);
 extern void start_pppoe(int);
 extern void stop_pppoe(void);
-extern void stop_singe_pppoe(int num);
 extern void start_l2tp(void);
 extern void stop_l2tp(void);
 extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
+#ifdef TCONFIG_IPV6
+extern void start_wan6_done(char *wan_ifname);
+#endif
 extern void stop_wan(void);
 extern void force_to_dial(void);
 extern void do_wan_routes(char *ifname, int metric, int add);
@@ -203,6 +207,8 @@ extern void start_ipv6_sit_tunnel(void);
 extern void stop_ipv6_sit_tunnel(void);
 extern void start_radvd(void);
 extern void stop_radvd(void);
+extern void start_ipv6(void);
+extern void stop_ipv6(void);
 #endif
 
 // !!TB - USB Support

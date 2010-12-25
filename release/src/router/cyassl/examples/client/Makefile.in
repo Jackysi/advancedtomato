@@ -48,11 +48,11 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_client_OBJECTS = client-client.$(OBJEXT)
+am_client_OBJECTS = client.$(OBJEXT)
 client_OBJECTS = $(am_client_OBJECTS)
 client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(client_CFLAGS) $(CFLAGS) \
-	$(client_LDFLAGS) $(LDFLAGS) -o $@
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(client_LDFLAGS) \
+	$(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)/ctaocrypt/include@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -189,13 +189,12 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I../../include
+INCLUDES = -I../../include -I../../include/openssl
 client_SOURCES = client.c
-client_CFLAGS = -Wall -Wno-unused
 client_LDFLAGS = -L../../src
-client_LDADD = ../../src/libcyassl.la -lm
+client_LDADD = ../../src/libcyassl.la
 client_DEPENDENCIES = ../../src/libcyassl.la
-EXTRA_DIST = client.dsp client.sln client.vcproj
+EXTRA_DIST = client.sln *.vcproj
 all: all-am
 
 .SUFFIXES:
@@ -267,7 +266,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client-client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -289,20 +288,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-client-client.o: client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(client_CFLAGS) $(CFLAGS) -MT client-client.o -MD -MP -MF $(DEPDIR)/client-client.Tpo -c -o client-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/client-client.Tpo $(DEPDIR)/client-client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='client.c' object='client-client.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(client_CFLAGS) $(CFLAGS) -c -o client-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
-
-client-client.obj: client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(client_CFLAGS) $(CFLAGS) -MT client-client.obj -MD -MP -MF $(DEPDIR)/client-client.Tpo -c -o client-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/client-client.Tpo $(DEPDIR)/client-client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='client.c' object='client-client.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(client_CFLAGS) $(CFLAGS) -c -o client-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

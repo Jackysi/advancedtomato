@@ -21,8 +21,8 @@
 
 #ifndef NO_DSA
 
-#include "dsa.h"
-#include "sha.h"
+#include "ctc_dsa.h"
+#include "ctc_sha.h"
 #include "random.h"
 #include "error.h"
 

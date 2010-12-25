@@ -121,10 +121,9 @@ extern int foreach_wif(int include_vifs, void *param,
 
 // usb.c
 #ifdef TCONFIG_USB
-extern char *detect_fs_type(char *device);
 extern struct mntent *findmntents(char *file, int swp,
 	int (*func)(struct mntent *mnt, uint flags), uint flags);
-extern int find_label_or_uuid(char *dev_name, char *label, char *uuid);
+extern char *find_label_or_uuid(char *dev_name, char *label, char *uuid);
 extern void add_remove_usbhost(char *host, int add);
 
 #define DEV_DISCS_ROOT	"/dev/discs"

@@ -25,19 +25,19 @@
     #include <winsock2.h>
 #endif
 
-
 #include "cyassl_int.h"
-#include "cyassl_error.h"
-#include "asn.h"
+
+/* if user writes own I/O callbacks they can define CYASSL_USER_IO to remove
+   automatic setting of defualt I/O functions EmbedSend() and EmbedReceive()
+   but they'll still nedd SetCallback xxx() at end of file 
+*/
+#ifndef CYASSL_USER_IO
 
 #ifdef HAVE_LIBZ
     #include "zlib.h"
 #endif
 
-#include <stdlib.h>
-#include <string.h>
-
-#ifndef _WIN32
+#ifndef USE_WINDOWS_API 
     #include <sys/types.h>
     #include <errno.h>
     #include <unistd.h>
@@ -52,13 +52,13 @@
     #ifdef THREADX
         #include <socket.h>
     #endif
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 
 #ifdef __sun
     #include <sys/filio.h>
 #endif
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     /* no epipe yet */
     #ifndef WSAEPIPE
         #define WSAEPIPE       -12345
@@ -74,7 +74,7 @@
     #define SOCKET_ECONNRESET  ECONNRESET
     #define SOCKET_EINTR       EINTR
     #define SOCKET_EPIPE       EPIPE
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 
 
 #ifdef DEVKITPRO
@@ -91,7 +91,7 @@
 
 static INLINE int LastError(void)
 {
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     return WSAGetLastError();
 #else
     return errno;
@@ -99,12 +99,7 @@ static INLINE int LastError(void)
 }
 
 /* The receive embedded callback
- *  return : nb bytes read
- *           -1 : other errors (unexpected)
- *           -2 : WANT_READ
- *           -3 : Connexion reset
- *           -4 : interrupt
- *           -5 : connexion close
+ *  return : nb bytes read, or error
  */
 int EmbedReceive(char *buf, int sz, void *ctx)
 {
@@ -118,30 +113,25 @@ int EmbedReceive(char *buf, int sz, void *ctx)
         err = LastError();
         if (err == SOCKET_EWOULDBLOCK ||
             err == SOCKET_EAGAIN)
-            return -2;
+            return IO_ERR_WANT_READ;
 
         else if (err == SOCKET_ECONNRESET)
-            return -3;
+            return IO_ERR_CONN_RST;
 
         else if (err == SOCKET_EINTR)
-            return -4;
+            return IO_ERR_ISR;
 
         else
-            return -1;
+            return IO_ERR_GENERAL;
     }
     else if (recvd == 0)
-        return -5;
+        return IO_ERR_CONN_CLOSE;
 
     return recvd;
 }
 
 /* The send embedded callback
- *  return : nb bytes sended
- *           -1 : other errors (unexpected)
- *           -2 : want write
- *           -3 : connexion reset
- *           -4 : interrupt
- *           -5 : pipe error / connection closed
+ *  return : nb bytes sent, or error
  */
 int EmbedSend(char *buf, int sz, void *ctx)
 {
@@ -154,38 +144,47 @@ int EmbedSend(char *buf, int sz, void *ctx)
     if (sent == -1) {
         if (LastError() == SOCKET_EWOULDBLOCK || 
             LastError() == SOCKET_EAGAIN)
-            return -2;
+            return IO_ERR_WANT_WRITE;
 
         else if (LastError() == SOCKET_ECONNRESET)
-            return -3;
+            return IO_ERR_CONN_RST;
 
         else if (LastError() == SOCKET_EINTR)
-            return -4;
+            return IO_ERR_ISR;
 
         else if (LastError() == SOCKET_EPIPE)
-            return -5;
+            return IO_ERR_CONN_CLOSE;
 
         else
-            return -1;
+            return IO_ERR_GENERAL;
     }
  
     return sent;
 }
 
-void SetCallbackIORecv_Ctx(SSL_CTX *ctx, CallbackIORecv CBIORecv) {
+
+#endif /* CYASSL_USER_IO */
+
+void CyaSSL_SetIORecv(SSL_CTX *ctx, CallbackIORecv CBIORecv)
+{
     ctx->CBIORecv = CBIORecv;
 }
 
-void SetCallbackIOSend_Ctx(SSL_CTX *ctx, CallbackIOSend CBIOSend) {
+
+void CyaSSL_SetIOSend(SSL_CTX *ctx, CallbackIOSend CBIOSend)
+{
     ctx->CBIOSend = CBIOSend;
 }
 
-void SetCallbackIO_ReadCtx(SSL* ssl, void *rctx) {
+
+void CyaSSL_SetIOReadCtx(SSL* ssl, void *rctx)
+{
 	ssl->IOCB_ReadCtx = rctx;
 }
 
-void SetCallbackIO_WriteCtx(SSL* ssl, void *wctx) {
+
+void CyaSSL_SetIOWriteCtx(SSL* ssl, void *wctx)
+{
 	ssl->IOCB_WriteCtx = wctx;
 }
-
 

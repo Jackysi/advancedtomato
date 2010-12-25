@@ -20,14 +20,12 @@
  */
 
 
-#include "md5.h"
+#include "ctc_md5.h"
 #ifdef NO_INLINE
     #include "misc.h"
 #else
     #include "misc.c"
 #endif
-#include <assert.h>
-#include <string.h>
 
 
 
@@ -161,7 +159,7 @@ void Md5Update(Md5* md5, const byte* data, word32 len)
 
     while (len) {
         word32 add = min(len, MD5_BLOCK_SIZE - md5->buffLen);
-        memcpy(&local[md5->buffLen], data, add);
+        XMEMCPY(&local[md5->buffLen], data, add);
 
         md5->buffLen += add;
         data         += add;
@@ -189,7 +187,7 @@ void Md5Final(Md5* md5, byte* hash)
 
     /* pad with zeros */
     if (md5->buffLen > MD5_PAD_SIZE) {
-        memset(&local[md5->buffLen], 0, MD5_BLOCK_SIZE - md5->buffLen);
+        XMEMSET(&local[md5->buffLen], 0, MD5_BLOCK_SIZE - md5->buffLen);
         md5->buffLen += MD5_BLOCK_SIZE - md5->buffLen;
 
         #ifdef BIG_ENDIAN_ORDER
@@ -198,7 +196,7 @@ void Md5Final(Md5* md5, byte* hash)
         Transform(md5);
         md5->buffLen = 0;
     }
-    memset(&local[md5->buffLen], 0, MD5_PAD_SIZE - md5->buffLen);
+    XMEMSET(&local[md5->buffLen], 0, MD5_PAD_SIZE - md5->buffLen);
    
     /* put lengths in bits */
     md5->loLen = md5->loLen << 3;
@@ -210,14 +208,14 @@ void Md5Final(Md5* md5, byte* hash)
         ByteReverseBytes(local, local, MD5_BLOCK_SIZE);
     #endif
     /* ! length ordering dependent on digest endian type ! */
-    memcpy(&local[MD5_PAD_SIZE], &md5->loLen, sizeof(word32));
-    memcpy(&local[MD5_PAD_SIZE + sizeof(word32)], &md5->hiLen, sizeof(word32));
+    XMEMCPY(&local[MD5_PAD_SIZE], &md5->loLen, sizeof(word32));
+    XMEMCPY(&local[MD5_PAD_SIZE + sizeof(word32)], &md5->hiLen, sizeof(word32));
 
     Transform(md5);
     #ifdef BIG_ENDIAN_ORDER
         ByteReverseWords(md5->digest, md5->digest, MD5_DIGEST_SIZE);
     #endif
-    memcpy(hash, md5->digest, MD5_DIGEST_SIZE);
+    XMEMCPY(hash, md5->digest, MD5_DIGEST_SIZE);
 
     InitMd5(md5);  /* reset state */
 }

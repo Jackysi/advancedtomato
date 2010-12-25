@@ -48,12 +48,11 @@ int stop_redial(void)
 int redial_main(int argc, char **argv)
 {
 	int tm;
-	long ut;
 	int count;
 	
 	if (nvram_get_int("ppp_demand") != 0) return 0;
 
-	tm = nvram_get_int("ppp_redialperiod");
+	tm = nvram_get_int("ppp_redialperiod") ? : 30;
 	if (tm < 5) tm = 5;
 	
 	syslog(LOG_INFO, "Started. Time: %d", tm);
@@ -67,7 +66,9 @@ int redial_main(int argc, char **argv)
 			if (!check_wanup()) break;
 			count = 0;
 		}
-		
+
+#if 0
+		long ut;
 		if ((count < 3) && (get_wan_proto() == WP_PPPOE)) {
 			if (f_read("/var/lib/misc/pppoe-disc", &ut, sizeof(ut)) == sizeof(ut)) {
 				ut = (get_uptime() - ut);
@@ -78,7 +79,8 @@ int redial_main(int argc, char **argv)
 				}
 			}
 		}
-		
+#endif
+
 		if ((!wait_action_idle(10)) || (check_wanup())) continue;
 
 		if (!nvram_match("action_service", "wan-restart")) {

@@ -23,7 +23,6 @@
 #ifndef NO_PWDBASED
 
 #include "pwdbased.h"
-#include <string.h>
 
 
 int PBKDF1(byte* output, const byte* passwd, int pLen, const byte* salt,
@@ -67,7 +66,7 @@ int PBKDF1(byte* output, const byte* passwd, int pLen, const byte* salt,
             ShaFinal(&sha,  buffer);
         }
     }
-    memcpy(output, buffer, kLen);
+    XMEMCPY(output, buffer, kLen);
 
     return 0;
 }

@@ -627,6 +627,32 @@ function v_iptip(e, quiet, multi)
 	return 1;
 }
 
+function _v_domain(e, dom, quiet)
+{
+	var s;
+
+	s = dom.replace(/\s+/g, ' ').trim();
+	if (s.length > 0) {
+		if ((s.search(/^[a-zA-Z0-9][.a-zA-Z0-9_\- ]+$/) == -1) || (s.search(/[\-]$/) >= 0)) {
+			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
+			return null;
+		}
+	}
+	ferror.clear(e);
+	return s;
+}
+
+function v_domain(e, quiet)
+{
+	var v;
+
+	if ((e = E(e)) == null) return 0;
+	if ((v = _v_domain(e, e.value, quiet)) == null) return 0;
+
+	e.value = v;
+	return 1;
+}
+
 /* IPV6-BEGIN */
 function ExpandIPv6Address(ip)
 {
@@ -886,32 +912,34 @@ function v_length(e, quiet, min, max)
 	return 1;
 }
 
-function v_domain(e, quiet)
-{
-	var s;
-
-	if ((e = E(e)) == null) return 0;
-	s = e.value.trim().replace(/\s+/g, ' ');
-	if ((s.length > 0) && (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1)) {
-		ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
-		return 0;
-	}
-	e.value = s;
-	ferror.clear(e);
-	return 1;
-}
-
 function v_iptaddr(e, quiet, multi)
 {
-	if ((e = E(e)) == null) return 0;
+	var v, t, i;
 
-	if (!v_iptip(e, 1, multi)) {
-		var s = e._error_msg;
-		if (!v_domain(e, 1)) {
-			ferror.set(e, (s) ? s + ', or invalid domain name' : e._error_msg, quiet);
+	if ((e = E(e)) == null) return 0;
+	v = e.value.split(',');
+	if (multi) {
+		if (v.length > multi) {
+			ferror.set(e, 'Too many addresses', quiet);
 			return 0;
 		}
 	}
+	else {
+		if (v.length > 1) {
+			ferror.set(e, 'Invalid domain name or IP address', quiet);
+			return 0;
+		}
+	}
+	for (i = 0; i < v.length; ++i) {
+		if ((t = _v_domain(e, v[i], 1)) == null) {
+			if ((t = _v_iptip(e, v[i], 1)) == null) {
+				ferror.set(e, e._error_msg + ', or invalid domain name', quiet);
+				return 0;
+			}
+		}
+		v[i] = t;
+	}
+	e.value = v.join(', ');
 	ferror.clear(e);
 	return 1;
 }
