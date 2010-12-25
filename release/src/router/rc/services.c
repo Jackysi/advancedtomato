@@ -454,13 +454,15 @@ void start_ipv6_sit_tunnel(void)
 
 	if (get_ipv6_service() == IPV6_6IN4) {
 		modprobe("sit");
-		strcpy(ip, nvram_get("ipv6_tun_addr"));
-		strcat(ip, "/");
-		strcat(ip, nvram_get("ipv6_tun_addrlen"));
-
+		snprintf(ip, sizeof(ip), "%s/%d",
+			nvram_safe_get("ipv6_tun_addr"),
+			nvram_get_int("ipv6_tun_addrlen") ? : 64);
 		wanip = get_wanip();
 
-		eval("ip", "tunnel", "add", tun_dev, "mode", "sit", "remote", nvram_safe_get("ipv6_tun_v4end"), "local", (char *)wanip, "ttl", nvram_safe_get("ipv6_tun_ttl"));
+		eval("ip", "tunnel", "add", tun_dev, "mode", "sit",
+			"remote", nvram_safe_get("ipv6_tun_v4end"),
+			"local", (char *)wanip,
+			"ttl", nvram_safe_get("ipv6_tun_ttl"));
 		if (nvram_get_int("ipv6_tun_mtu") > 0)
 			eval("ip", "link", "set", tun_dev, "mtu", nvram_safe_get("ipv6_tun_mtu"), "up");
 		else
@@ -549,12 +551,7 @@ void start_ipv6(void)
 	case IPV6_6IN4:
 		p = (char *)ipv6_router_address(NULL);
 		if (*p) {
-			strcpy(ip, p);
-			strcat(ip, "/");
-			if ((p = nvram_get("ipv6_prefix_length")) && (atoi(p) > 0))
-				strcat(ip, p);
-			else
-				strcat(ip, "64");
+			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
 			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 		}
 		start_radvd();
@@ -1667,9 +1664,6 @@ void start_services(void)
 	}
 
 //	start_syslog();
-#ifdef TCONFIG_IPV6
-	start_ipv6();
-#endif
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
@@ -1696,9 +1690,6 @@ void stop_services(void)
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
-#ifdef TCONFIG_IPV6
-	stop_ipv6();
-#endif
 //	stop_syslog();
 }
 
@@ -2008,20 +1999,17 @@ TOP:
 		if (action & A_STOP) {
 			stop_dnsmasq();
 			stop_nas();
+			stop_wan();
+			stop_lan();
 #ifdef TCONFIG_IPV6
 			stop_ipv6();
 #endif
-			stop_wan();
-			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
 			start_wan(BOOT);
-#ifdef TCONFIG_IPV6
-			start_ipv6();
-#endif
 			start_nas();
 			start_dnsmasq();
 			start_wl();

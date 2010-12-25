@@ -562,6 +562,10 @@ void start_lan(void)
 		}
 	}
 
+#ifdef TCONFIG_IPV6
+	start_ipv6();
+#endif
+
 #ifdef TCONFIG_EMF
 	if (nvram_get_int("emf_enable")) start_emf(lan_ifname);
 #endif
