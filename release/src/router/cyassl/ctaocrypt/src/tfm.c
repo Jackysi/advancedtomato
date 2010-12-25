@@ -30,6 +30,8 @@
  */
 
 
+#ifdef USE_FAST_MATH
+
 #include "tfm.h"
 #include "asm.c"  /* will define asm MACROS or C ones */
 
@@ -1022,7 +1024,7 @@ static int _fp_exptmod(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
   } 
 
   /* init M array */
-  memset(M, 0, sizeof(M)); 
+  XMEMSET(M, 0, sizeof(M)); 
 
   /* now setup montgomery  */
   if ((err = fp_montgomery_setup (P, &mp)) != FP_OKAY) {
@@ -1545,7 +1547,7 @@ void fp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp)
 
 #if defined(USE_MEMSET)
    /* now zero the buff */
-   memset(c, 0, sizeof c);
+   XMEMSET(c, 0, sizeof c);
 #endif
    pa = m->used;
 
@@ -2280,3 +2282,4 @@ void fp_gcd(fp_int *a, fp_int *b, fp_int *c)
 
 
 #endif /* CYASSL_KEY_GEN */
+#endif /* USE_FAST_MATH */

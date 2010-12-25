@@ -1,7 +1,7 @@
 /* echoserver.c */
 
-#include "openssl/ssl.h"
-#include "../test.h"
+#include "ssl.h"
+#include "cyassl_test.h"
 
 #ifndef NO_MAIN_DRIVER
     #define ECHO_OUT
@@ -65,16 +65,29 @@ THREAD_RETURN CYASSL_API echoserver_test(void* args)
     SSL_CTX_set_default_passwd_cb(ctx, PasswordCallBack);
 #endif
 
-    if (SSL_CTX_load_verify_locations(ctx, caCert, 0) != SSL_SUCCESS)
-        err_sys("can't load ca file");
+#ifndef NO_FILESYSTEM
+    #ifndef HAVE_NTRU
+        if (SSL_CTX_use_certificate_file(ctx, svrCert, SSL_FILETYPE_PEM)
+                != SSL_SUCCESS)
+            err_sys("can't load server cert file");
 
-    if (SSL_CTX_use_certificate_file(ctx, svrCert, SSL_FILETYPE_PEM)
-            != SSL_SUCCESS)
-        err_sys("can't load server cert file");
+        if (SSL_CTX_use_PrivateKey_file(ctx, svrKey, SSL_FILETYPE_PEM)
+                != SSL_SUCCESS)
+            err_sys("can't load server key file");
+    #else
+        if (SSL_CTX_use_certificate_file(ctx, ntruCert, SSL_FILETYPE_PEM)
+                != SSL_SUCCESS)
+            err_sys("can't load ntru cert file");
 
-    if (SSL_CTX_use_PrivateKey_file(ctx, svrKey, SSL_FILETYPE_PEM)
-            != SSL_SUCCESS)
-        err_sys("can't load server key file");
+        if (CyaSSL_CTX_use_NTRUPrivateKey_file(ctx, ntruKey)
+                != SSL_SUCCESS)
+            err_sys("can't load ntru key file");
+
+    #endif /* NTRU */
+#else
+    load_buffer(ctx, svrCert, CYASSL_CERT);
+    load_buffer(ctx, svrKey,  CYASSL_KEY);
+#endif
 
     SignalReady(args);
 

@@ -1,6 +1,6 @@
-/* ripemd.h
+/* ctc_md5.h
  *
- * Copyright (C) 2006-2010 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -20,10 +20,8 @@
  */
 
 
-#ifdef CYASSL_RIPEMD
-
-#ifndef CTAO_CRYPT_RIPEMD_H
-#define CTAO_CRYPT_RIPEME_H
+#ifndef CTAO_CRYPT_MD5_H
+#define CTAO_CRYPT_MD5_H
 
 #include "types.h"
 
@@ -32,34 +30,33 @@
 #endif
 
 
-
 /* in bytes */
 enum {
-    RIPEMD             =  3,    /* hash type unique */
-    RIPEMD_BLOCK_SIZE  = 64,
-    RIPEMD_DIGEST_SIZE = 20,
-    RIPEMD_PAD_SIZE    = 56
+    MD5             =  0,      /* hash type unique */
+    MD5_BLOCK_SIZE  = 64,
+    MD5_DIGEST_SIZE = 16,
+    MD5_PAD_SIZE    = 56
 };
 
 
-/* RipeMd 160 digest */
-typedef struct RipeMd {
+/* MD5 digest */
+typedef struct Md5 {
     word32  buffLen;   /* in bytes          */
     word32  loLen;     /* length in bytes   */
     word32  hiLen;     /* length in bytes   */
-    word32  digest[RIPEMD_DIGEST_SIZE / sizeof(word32)];
-    word32  buffer[RIPEMD_BLOCK_SIZE  / sizeof(word32)];
-} RipeMd;
+    word32  digest[MD5_DIGEST_SIZE / sizeof(word32)];
+    word32  buffer[MD5_BLOCK_SIZE  / sizeof(word32)];
+} Md5;
 
 
-void InitRipeMd(RipeMd*);
-void RipeMdUpdate(RipeMd*, const byte*, word32);
-void RipeMdFinal(RipeMd*, byte*);
+void InitMd5(Md5*);
+void Md5Update(Md5*, const byte*, word32);
+void Md5Final(Md5*, byte*);
 
 
 #ifdef __cplusplus
     } /* extern "C" */
 #endif
 
-#endif /* CTAO_CRYPT_RIPEMD_H */
-#endif /* CYASSL_RIPEMD */
+#endif /* CTAO_CRYPT_MD5_H */
+

@@ -1,4 +1,4 @@
-/* md4.h
+/* ctc_sha.h
  *
  * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *
@@ -20,10 +20,8 @@
  */
 
 
-#ifndef NO_MD4
-
-#ifndef CTAO_CRYPT_MD4_H
-#define CTAO_CRYPT_MD4_H
+#ifndef CTAO_CRYPT_SHA_H
+#define CTAO_CRYPT_SHA_H
 
 #include "types.h"
 
@@ -32,34 +30,34 @@
 #endif
 
 
+
 /* in bytes */
 enum {
-    MD4_BLOCK_SIZE  = 64,
-    MD4_DIGEST_SIZE = 16,
-    MD4_PAD_SIZE    = 56
+    SHA              =  1,    /* hash type unique */
+    SHA_BLOCK_SIZE   = 64,
+    SHA_DIGEST_SIZE  = 20,
+    SHA_PAD_SIZE     = 56
 };
 
 
-/* MD4 digest */
-typedef struct Md4 {
+/* Sha digest */
+typedef struct Sha {
     word32  buffLen;   /* in bytes          */
     word32  loLen;     /* length in bytes   */
     word32  hiLen;     /* length in bytes   */
-    word32  digest[MD4_DIGEST_SIZE / sizeof(word32)];
-    word32  buffer[MD4_BLOCK_SIZE  / sizeof(word32)];
-} Md4;
+    word32  digest[SHA_DIGEST_SIZE / sizeof(word32)];
+    word32  buffer[SHA_BLOCK_SIZE  / sizeof(word32)];
+} Sha;
 
 
-void InitMd4(Md4*);
-void Md4Update(Md4*, const byte*, word32);
-void Md4Final(Md4*, byte*);
+void InitSha(Sha*);
+void ShaUpdate(Sha*, const byte*, word32);
+void ShaFinal(Sha*, byte*);
 
 
 #ifdef __cplusplus
     } /* extern "C" */
 #endif
 
-#endif /* CTAO_CRYPT_MD4_H */
-
-#endif /* NO_MD4 */
+#endif /* CTAO_CRYPT_SHA_H */
 

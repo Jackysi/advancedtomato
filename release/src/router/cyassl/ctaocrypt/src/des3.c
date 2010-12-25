@@ -28,7 +28,6 @@
 #else
     #include "misc.c"
 #endif
-#include <string.h>
 
 
 /* permuted choice table (key) */
@@ -280,7 +279,7 @@ static void DesSetKey(const byte* key, int dir, word32* out)
             ? 1 : 0;                    /* and store 1-bit result */
     }
     for (i = 0; i < 16; i++) {          /* key chunk for each iteration */
-        memset(ks, 0, 8);               /* Clear key schedule */
+        XMEMSET(ks, 0, 8);               /* Clear key schedule */
         for (j = 0; j < 56; j++)        /* rotate pc1 the right amount */
             pcr[j] = pc1m[(l = j + totrot[i]) < (j < 28 ? 28 : 56) ? l: l-28];
         /* rotate left and right halves independently */
@@ -328,7 +327,7 @@ void Des_SetKey(Des* des, const byte* key, const byte* iv, int dir)
 {
     DesSetKey(key, dir, des->key);
     
-    memcpy(des->reg, iv, DES_BLOCK_SIZE);
+    XMEMCPY(des->reg, iv, DES_BLOCK_SIZE);
 }
 
 
@@ -338,7 +337,7 @@ void Des3_SetKey(Des3* des, const byte* key, const byte* iv, int dir)
     DesSetKey(key + 8, Reverse(dir), des->key[1]);
     DesSetKey(key + (dir == DES_DECRYPTION ? 0 : 16), dir, des->key[2]);
     
-    memcpy(des->reg, iv, DES_BLOCK_SIZE);
+    XMEMCPY(des->reg, iv, DES_BLOCK_SIZE);
 }
 
 
@@ -379,8 +378,8 @@ static void DesProcessBlock(Des* des, const byte* in, byte* out)
 {
     word32 l, r;
 
-    memcpy(&l, in, sizeof(l));
-    memcpy(&r, in + sizeof(l), sizeof(r));
+    XMEMCPY(&l, in, sizeof(l));
+    XMEMCPY(&r, in + sizeof(l), sizeof(r));
     #ifdef LITTLE_ENDIAN_ORDER
         l = ByteReverseWord32(l);
         r = ByteReverseWord32(r);
@@ -394,8 +393,8 @@ static void DesProcessBlock(Des* des, const byte* in, byte* out)
         l = ByteReverseWord32(l);
         r = ByteReverseWord32(r);
     #endif
-    memcpy(out, &r, sizeof(r));
-    memcpy(out + sizeof(r), &l, sizeof(l));
+    XMEMCPY(out, &r, sizeof(r));
+    XMEMCPY(out + sizeof(r), &l, sizeof(l));
 }
 
 
@@ -403,8 +402,8 @@ static void Des3ProcessBlock(Des3* des, const byte* in, byte* out)
 {
     word32 l, r;
 
-    memcpy(&l, in, sizeof(l));
-    memcpy(&r, in + sizeof(l), sizeof(r));
+    XMEMCPY(&l, in, sizeof(l));
+    XMEMCPY(&r, in + sizeof(l), sizeof(r));
     #ifdef LITTLE_ENDIAN_ORDER
         l = ByteReverseWord32(l);
         r = ByteReverseWord32(r);
@@ -420,8 +419,8 @@ static void Des3ProcessBlock(Des3* des, const byte* in, byte* out)
         l = ByteReverseWord32(l);
         r = ByteReverseWord32(r);
     #endif
-    memcpy(out, &r, sizeof(r));
-    memcpy(out + sizeof(r), &l, sizeof(l));
+    XMEMCPY(out, &r, sizeof(r));
+    XMEMCPY(out + sizeof(r), &l, sizeof(l));
 }
 
 
@@ -432,7 +431,7 @@ void Des_CbcEncrypt(Des* des, byte* out, const byte* in, word32 sz)
     while (blocks--) {
         xorbuf((byte*)des->reg, in, DES_BLOCK_SIZE);
         DesProcessBlock(des, (byte*)des->reg, (byte*)des->reg);
-        memcpy(out, des->reg, DES_BLOCK_SIZE);
+        XMEMCPY(out, des->reg, DES_BLOCK_SIZE);
 
         out += DES_BLOCK_SIZE;
         in  += DES_BLOCK_SIZE; 
@@ -446,13 +445,13 @@ void Des_CbcDecrypt(Des* des, byte* out, const byte* in, word32 sz)
     byte   hold[16];
 
     while (blocks--) {
-        memcpy(des->tmp, in, DES_BLOCK_SIZE);
+        XMEMCPY(des->tmp, in, DES_BLOCK_SIZE);
         DesProcessBlock(des, (byte*)des->tmp, out);
         xorbuf(out, (byte*)des->reg, DES_BLOCK_SIZE);
 
-        memcpy(hold, des->reg, DES_BLOCK_SIZE);
-        memcpy(des->reg, des->tmp, DES_BLOCK_SIZE);
-        memcpy(des->tmp, hold, DES_BLOCK_SIZE);
+        XMEMCPY(hold, des->reg, DES_BLOCK_SIZE);
+        XMEMCPY(des->reg, des->tmp, DES_BLOCK_SIZE);
+        XMEMCPY(des->tmp, hold, DES_BLOCK_SIZE);
 
         out += DES_BLOCK_SIZE;
         in  += DES_BLOCK_SIZE; 
@@ -467,7 +466,7 @@ void Des3_CbcEncrypt(Des3* des, byte* out, const byte* in, word32 sz)
     while (blocks--) {
         xorbuf((byte*)des->reg, in, DES_BLOCK_SIZE);
         Des3ProcessBlock(des, (byte*)des->reg, (byte*)des->reg);
-        memcpy(out, des->reg, DES_BLOCK_SIZE);
+        XMEMCPY(out, des->reg, DES_BLOCK_SIZE);
 
         out += DES_BLOCK_SIZE;
         in  += DES_BLOCK_SIZE; 
@@ -480,10 +479,10 @@ void Des3_CbcDecrypt(Des3* des, byte* out, const byte* in, word32 sz)
     word32 blocks = sz / DES_BLOCK_SIZE;
 
     while (blocks--) {
-        memcpy(des->tmp, in, DES_BLOCK_SIZE);
+        XMEMCPY(des->tmp, in, DES_BLOCK_SIZE);
         Des3ProcessBlock(des, (byte*)des->tmp, out);
         xorbuf(out, (byte*)des->reg, DES_BLOCK_SIZE);
-        memcpy(des->reg, des->tmp, DES_BLOCK_SIZE);
+        XMEMCPY(des->reg, des->tmp, DES_BLOCK_SIZE);
 
         out += DES_BLOCK_SIZE;
         in  += DES_BLOCK_SIZE; 

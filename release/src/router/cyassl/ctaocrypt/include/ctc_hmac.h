@@ -1,4 +1,4 @@
-/* hmac.h
+/* ctc_hmac.h
  *
  * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *
@@ -24,8 +24,8 @@
 #ifndef CTAO_CRYPT_HMAC_H
 #define CTAO_CRYPT_HMAC_H
 
-#include "md5.h"
-#include "sha.h"
+#include "ctc_md5.h"
+#include "ctc_sha.h"
 
 #ifndef NO_SHA256
     #include "sha256.h"

@@ -48,11 +48,11 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_echoclient_OBJECTS = echoclient-echoclient.$(OBJEXT)
+am_echoclient_OBJECTS = echoclient.$(OBJEXT)
 echoclient_OBJECTS = $(am_echoclient_OBJECTS)
 echoclient_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(echoclient_CFLAGS) \
-	$(CFLAGS) $(echoclient_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(echoclient_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)/ctaocrypt/include@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -189,13 +189,12 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I../../include
+INCLUDES = -I../../include -I../../include/openssl
 echoclient_SOURCES = echoclient.c
-echoclient_CFLAGS = -Wall -Wno-unused
 echoclient_LDFLAGS = -L../../src 
-echoclient_LDADD = ../../src/libcyassl.la -lm
+echoclient_LDADD = ../../src/libcyassl.la
 echoclient_DEPENDENCIES = ../../src/libcyassl.la
-EXTRA_DIST = echoclient.dsp input quit echoclient.sln echoclient.vcproj
+EXTRA_DIST = input quit echoclient.sln *.vcproj
 all: all-am
 
 .SUFFIXES:
@@ -267,7 +266,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/echoclient-echoclient.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/echoclient.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -289,20 +288,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-echoclient-echoclient.o: echoclient.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoclient_CFLAGS) $(CFLAGS) -MT echoclient-echoclient.o -MD -MP -MF $(DEPDIR)/echoclient-echoclient.Tpo -c -o echoclient-echoclient.o `test -f 'echoclient.c' || echo '$(srcdir)/'`echoclient.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoclient-echoclient.Tpo $(DEPDIR)/echoclient-echoclient.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='echoclient.c' object='echoclient-echoclient.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoclient_CFLAGS) $(CFLAGS) -c -o echoclient-echoclient.o `test -f 'echoclient.c' || echo '$(srcdir)/'`echoclient.c
-
-echoclient-echoclient.obj: echoclient.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoclient_CFLAGS) $(CFLAGS) -MT echoclient-echoclient.obj -MD -MP -MF $(DEPDIR)/echoclient-echoclient.Tpo -c -o echoclient-echoclient.obj `if test -f 'echoclient.c'; then $(CYGPATH_W) 'echoclient.c'; else $(CYGPATH_W) '$(srcdir)/echoclient.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoclient-echoclient.Tpo $(DEPDIR)/echoclient-echoclient.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='echoclient.c' object='echoclient-echoclient.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(echoclient_CFLAGS) $(CFLAGS) -c -o echoclient-echoclient.obj `if test -f 'echoclient.c'; then $(CYGPATH_W) 'echoclient.c'; else $(CYGPATH_W) '$(srcdir)/echoclient.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

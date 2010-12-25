@@ -29,9 +29,13 @@
     #include "zlib.h"
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#ifdef HAVE_NTRU
+    #include "crypto_ntru.h"
+#endif
+
+#if defined(DEBUG_CYASSL) || defined(SHOW_SECRETS)
+    #include <stdio.h>
+#endif
 
 #ifdef __sun
     #include <sys/filio.h>
@@ -55,7 +59,7 @@ int CyaSSL_negotiate(SSL*);
 #ifndef NO_CYASSL_SERVER
     static int DoClientHello(SSL* ssl, const byte* input, word32*, word32,
                              word32);
-static int DoCertificateVerify(SSL* ssl, byte*, word32*, word32);
+    static int DoCertificateVerify(SSL* ssl, byte*, word32*, word32);
     static int DoClientKeyExchange(SSL* ssl, byte* input, word32*);
 #endif
 
@@ -105,6 +109,39 @@ int IsAtLeastTLSv1_2(const SSL* ssl)
     return 0;
 }
 
+
+#ifdef HAVE_NTRU
+
+static byte GetEntropy(ENTROPY_CMD cmd, byte* out)
+{
+    /* TODO: add locking? */
+    static RNG rng;
+
+    if (cmd == INIT) {
+        int ret = InitRng(&rng);
+        if (ret == 0)
+            return 1;
+        else
+            return 0;
+    }
+
+    if (out == NULL)
+        return 0;
+
+    if (cmd == GET_BYTE_OF_ENTROPY) {
+        RNG_GenerateBlock(&rng, out, 1);
+        return 1;
+    }
+
+    if (cmd == GET_NUM_BYTES_PER_BYTE_OF_ENTROPY) {
+        *out = 1;
+        return 1;
+    }
+
+    return 0;
+}
+
+#endif /* HAVE_NTRU */
 
 static INLINE void c32to24(word32 in, word24 out)
 {
@@ -172,13 +209,13 @@ static INLINE void ato32(const byte* c, word32* u32)
     /* alloc user allocs to work with zlib */
     void* myAlloc(void* opaque, unsigned int item, unsigned int size)
     {
-        return XMALLOC(item * size, opaque);
+        return XMALLOC(item * size, opaque, DYNAMIC_TYPE_LIBZ);
     }
 
 
     void myFree(void* opaque, void* memory)
     {
-        XFREE(memory, opaque);
+        XFREE(memory, opaque, DYNAMIC_TYPE_LIBZ);
     }
 
 
@@ -278,7 +315,8 @@ void InitSSL_Ctx(SSL_CTX* ctx, SSL_METHOD* method)
     ctx->certificate.buffer = 0;
     ctx->privateKey.buffer  = 0;
     ctx->haveDH             = 0;
-    ctx->heap               = ctx;  /* defualts to self */
+    ctx->haveNTRU           = 0;    /* start off */
+    ctx->heap               = ctx;  /* defaults to self */
 #ifndef NO_PSK
     ctx->havePSK            = 0;
     ctx->server_hint[0]     = 0;
@@ -291,13 +329,25 @@ void InitSSL_Ctx(SSL_CTX* ctx, SSL_METHOD* method)
     ctx->userdata    = 0;
 #endif /* OPENSSL_EXTRA */
 
+#ifndef CYASSL_USER_IO
     ctx->CBIORecv = EmbedReceive;
     ctx->CBIOSend = EmbedSend;
-    ctx->partialWrite = 0;
+#else
+    /* user will set */
+    ctx->CBIORecv = NULL;
+    ctx->CBIOSend = NULL;
+#endif
+    ctx->partialWrite   = 0;
+    ctx->verifyCallback = 0;
 
     ctx->caList = 0;
-    /* remove DH later if server didn't set, add psk later  */
-    InitSuites(&ctx->suites, method->version, TRUE, FALSE);  
+#ifdef HAVE_NTRU
+    if (method->side == CLIENT_END)
+        ctx->haveNTRU = 1;           /* always on cliet side */
+                                     /* server can turn on by loading key */
+#endif
+    /* remove DH later if server didn't set, add psk later */
+    InitSuites(&ctx->suites, method->version, TRUE, FALSE, ctx->haveNTRU);  
     ctx->verifyPeer = 0;
     ctx->verifyNone = 0;
     ctx->failNoCert = 0;
@@ -305,22 +355,31 @@ void InitSSL_Ctx(SSL_CTX* ctx, SSL_METHOD* method)
     ctx->sessionCacheFlushOff = 0;  /* initially on */
     ctx->sendVerify = 0;
     ctx->quietShutdown = 0;
+
+}
+
+
+/* In case contexts are held in array and don't want to free actual ctx */
+void SSL_CtxResourceFree(SSL_CTX* ctx)
+{
+    XFREE(ctx->privateKey.buffer, ctx->heap, DYNAMIC_TYPE_KEY);
+    XFREE(ctx->certificate.buffer, ctx->heap, DYNAMIC_TYPE_CERT);
+    XFREE(ctx->method, ctx->heap, DYNAMIC_TYPE_METHOD);
+
+    FreeSigners(ctx->caList, ctx->heap);
 }
 
 
 void FreeSSL_Ctx(SSL_CTX* ctx)
 {
-    XFREE(ctx->privateKey.buffer, ctx->heap);
-    XFREE(ctx->certificate.buffer, ctx->heap);
-    XFREE(ctx->method, ctx->heap);
-
-    FreeSigners(ctx->caList, ctx->heap);
-    
-    XFREE(ctx, ctx->heap);
+    SSL_CtxResourceFree(ctx);
+    XFREE(ctx, ctx->heap, DYNAMIC_TYPE_CTX);
 }
 
+    
 
-void InitSuites(Suites* suites, ProtocolVersion pv, byte haveDH, byte havePSK)
+void InitSuites(Suites* suites, ProtocolVersion pv, byte haveDH, byte havePSK,
+                byte haveNTRU)
 {
     word32 idx = 0;
     int    tls = pv.major == 3 && pv.minor >= 1;
@@ -333,6 +392,34 @@ void InitSuites(Suites* suites, ProtocolVersion pv, byte haveDH, byte havePSK)
 #endif
 
     suites->setSuites = 0;  /* user hasn't set yet */
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_256_CBC_SHA
+    if (tls && haveNTRU) {
+        suites->suites[idx++] = 0; 
+        suites->suites[idx++] = TLS_NTRU_RSA_WITH_AES_256_CBC_SHA;
+    }
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_128_CBC_SHA
+    if (tls && haveNTRU) {
+        suites->suites[idx++] = 0; 
+        suites->suites[idx++] = TLS_NTRU_RSA_WITH_AES_128_CBC_SHA;
+    }
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_RC4_128_SHA
+    if (tls && haveNTRU) {
+        suites->suites[idx++] = 0; 
+        suites->suites[idx++] = TLS_NTRU_RSA_WITH_RC4_128_SHA;
+    }
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA
+    if (tls && haveNTRU) {
+        suites->suites[idx++] = 0; 
+        suites->suites[idx++] = TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA;
+    }
+#endif
 
 #ifdef BUILD_TLS_DHE_RSA_WITH_AES_256_CBC_SHA
     if (tls && haveDH) {
@@ -433,8 +520,14 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
     ssl->buffers.key.buffer           = 0;
     ssl->buffers.inputBuffer.length   = 0;
     ssl->buffers.inputBuffer.idx      = 0;
+    ssl->buffers.inputBuffer.buffer = ssl->buffers.inputBuffer.staticBuffer;
+    ssl->buffers.inputBuffer.bufferSize  = STATIC_BUFFER_LEN;
+    ssl->buffers.inputBuffer.dynamicFlag = 0;
     ssl->buffers.outputBuffer.length  = 0;
     ssl->buffers.outputBuffer.idx     = 0;
+    ssl->buffers.outputBuffer.buffer = ssl->buffers.outputBuffer.staticBuffer;
+    ssl->buffers.outputBuffer.bufferSize  = STATIC_BUFFER_LEN;
+    ssl->buffers.outputBuffer.dynamicFlag = 0;
     ssl->buffers.domainName.buffer    = 0;
     ssl->buffers.serverDH_P.buffer    = 0;
     ssl->buffers.serverDH_G.buffer    = 0;
@@ -462,6 +555,8 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
     ssl->options.sentNotify   = 0;
     ssl->options.usingCompression = 0;
     ssl->options.haveDH    = ctx->haveDH;
+    ssl->options.haveNTRU  = ctx->haveNTRU;
+    ssl->options.havePeerCert = 0; 
     ssl->options.usingPSK_cipher = 0;
     ssl->options.sendAlertState = 0;
 #ifndef NO_PSK
@@ -496,7 +591,7 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
     
     ssl->options.resuming = 0;
     ssl->hmac = Hmac;         /* default to SSLv3 */
-    ssl->heap = ctx->heap;    /* defualts to self */
+    ssl->heap = ctx->heap;    /* defaults to self */
     ssl->options.tls    = 0;
     ssl->options.tls1_1 = 0;
     ssl->options.dtls   = 0;
@@ -508,8 +603,10 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
     ssl->buffers.key = ctx->privateKey;
     ssl->caList = ctx->caList;
 
+#ifdef OPENSSL_EXTRA
     ssl->peerCert.issuer.sz    = 0;
     ssl->peerCert.subject.sz   = 0;
+#endif
     
     /* make sure server has cert and key unless using PSK */
     if (ssl->options.side == SERVER_END && !havePSK)
@@ -519,7 +616,7 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
 #ifndef NO_PSK
     ssl->arrays.client_identity[0] = 0;
     if (ctx->server_hint[0])   /* set in CTX */
-        strncpy(ssl->arrays.server_hint, ctx->server_hint, MAX_PSK_ID_LEN);
+        XSTRNCPY(ssl->arrays.server_hint, ctx->server_hint, MAX_PSK_ID_LEN);
     else
         ssl->arrays.server_hint[0] = 0;
 #endif /* NO_PSK */
@@ -529,12 +626,14 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
     ssl->toInfoOn = 0;
 #endif
 
-    /* make sure server has DH parms, and add PSK if there */
+    /* make sure server has DH parms, and add PSK if there, add NTRU too */
     if (!ssl->ctx->suites.setSuites) {    /* trust user override */
         if (ssl->options.side == SERVER_END) 
-            InitSuites(&ssl->suites, ssl->version,ssl->options.haveDH, havePSK);
+            InitSuites(&ssl->suites, ssl->version,ssl->options.haveDH, havePSK,
+                       ssl->options.haveNTRU);
         else 
-            InitSuites(&ssl->suites, ssl->version, TRUE, havePSK);
+            InitSuites(&ssl->suites, ssl->version, TRUE, havePSK,
+                       ssl->options.haveNTRU);
     }
 
     ssl->rfd = -1;   /* set to invalid descriptor */
@@ -555,17 +654,22 @@ int InitSSL(SSL* ssl, SSL_CTX* ctx)
 }
 
 
-void BIO_free(BIO*);  /* cyassl_int doesn't have */
+int BIO_free(BIO*);  /* cyassl_int doesn't have */
 
 
-void FreeSSL(SSL* ssl)
+/* In case holding SSL object in array and don't want to free actual ssl */
+void SSL_ResourceFree(SSL* ssl)
 {
-    XFREE(ssl->buffers.serverDH_Priv.buffer, ssl->heap);
-    XFREE(ssl->buffers.serverDH_Pub.buffer, ssl->heap);
-    XFREE(ssl->buffers.serverDH_G.buffer, ssl->heap);
-    XFREE(ssl->buffers.serverDH_P.buffer, ssl->heap);
-    XFREE(ssl->buffers.domainName.buffer, ssl->heap);
+    XFREE(ssl->buffers.serverDH_Priv.buffer, ssl->heap, DYNAMIC_TYPE_DH);
+    XFREE(ssl->buffers.serverDH_Pub.buffer, ssl->heap, DYNAMIC_TYPE_DH);
+    XFREE(ssl->buffers.serverDH_G.buffer, ssl->heap, DYNAMIC_TYPE_DH);
+    XFREE(ssl->buffers.serverDH_P.buffer, ssl->heap, DYNAMIC_TYPE_DH);
+    XFREE(ssl->buffers.domainName.buffer, ssl->heap, DYNAMIC_TYPE_DOMAIN);
     FreeRsaKey(&ssl->peerRsaKey);
+    if (ssl->buffers.inputBuffer.dynamicFlag)
+        ShrinkInputBuffer(ssl, FORCED_FREE);
+    if (ssl->buffers.outputBuffer.dynamicFlag)
+        ShrinkOutputBuffer(ssl);
 #if defined(OPENSSL_EXTRA) || defined(GOAHEAD_WS)
     BIO_free(ssl->biord);
     if (ssl->biord != ssl->biowr)        /* in case same as write */
@@ -574,8 +678,13 @@ void FreeSSL(SSL* ssl)
 #ifdef HAVE_LIBZ
     FreeStreams(ssl);
 #endif
+}
 
-    XFREE(ssl, ssl->heap);
+
+void FreeSSL(SSL* ssl)
+{
+    SSL_ResourceFree(ssl);
+    XFREE(ssl, ssl->heap, DYNAMIC_TYPE_SSL);
 }
 
 
@@ -605,7 +714,7 @@ ProtocolVersion MakeDTLSv1(void)
 
 
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
 
     timer_d Timer(void)
     {
@@ -630,7 +739,7 @@ ProtocolVersion MakeDTLSv1(void)
     }
 
 
-#elif THREADX
+#elif defined(THREADX)
 
     #include "rtptime.h"
 
@@ -640,7 +749,29 @@ ProtocolVersion MakeDTLSv1(void)
     }
 
 
-#else /* !_WIN32 && !THREADX */
+#elif defined(MICRIUM)
+
+    word32 LowResTimer(void)
+    {
+        NET_SECURE_OS_TICK  clk;
+
+        #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+            clk = NetSecure_OS_TimeGet();
+        #endif
+        return (word32)clk;
+    }
+
+#elif defined(USER_TICKS)
+
+    word32 LowResTimer(void)
+    {
+        /*
+        write your own clock tick function if don't want time(0)
+        needs second accuracy but doesn't have to correlated to EPOCH
+        */
+    }
+
+#else /* !USE_WINDOWS_API && !THREADX && !MICRIUM && !USER_TICKS */
 
     #include <time.h>
 
@@ -650,7 +781,7 @@ ProtocolVersion MakeDTLSv1(void)
     }
 
 
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 
 
 /* add output to md5 and sha handshake hashes, exclude record header */
@@ -752,7 +883,7 @@ static void AddHeaders(byte* output, word32 length, byte type, SSL* ssl)
 }
 
 
-static word32 Receive(SSL* ssl, byte* buf, word32 sz, int flags)
+static int Receive(SSL* ssl, byte* buf, word32 sz, int flags)
 {
     int recvd;
 
@@ -760,17 +891,17 @@ retry:
     recvd = ssl->ctx->CBIORecv((char *)buf, (int)sz, ssl->IOCB_ReadCtx);
     if (recvd < 0)
         switch (recvd) {
-            case -1:            /* general/unknown error */
+            case IO_ERR_GENERAL:        /* general/unknown error */
                 return -1;
 
-            case -2:            /* want read, would block */
+            case IO_ERR_WANT_READ:      /* want read, would block */
                 return WANT_READ;
 
-            case -3:            /* connection reset */
+            case IO_ERR_CONN_RST:       /* connection reset */
                 ssl->options.connReset = 1;
                 return -1;
 
-            case -4:            /* interrupt */
+            case IO_ERR_ISR:            /* interrupt */
                 /* see if we got our timeout */
                 #ifdef CYASSL_CALLBACKS
                     if (ssl->toInfoOn) {
@@ -778,7 +909,7 @@ retry:
                         getitimer(ITIMER_REAL, &timeout);
                         if (timeout.it_value.tv_sec == 0 && 
                                                 timeout.it_value.tv_usec == 0) {
-                            strncpy(ssl->timeoutInfo.timeoutName,
+                            XSTRNCPY(ssl->timeoutInfo.timeoutName,
                                     "recv() timeout", MAX_TIMEOUT_NAME_SZ);
                             return 0;
                         }
@@ -786,13 +917,50 @@ retry:
                 #endif
                 goto retry;
 
-            case -5:            /* peer closed connection */
+            case IO_ERR_CONN_CLOSE:     /* peer closed connection */
                 ssl->options.isClosed = 1;
                 return -1;
         }
 
     return recvd;
 }
+
+
+/* Switch dynamic output buffer back to static, buffer is assumed clear */
+void ShrinkOutputBuffer(SSL* ssl)
+{
+    CYASSL_MSG("Shrinking output buffer\n");
+    XFREE(ssl->buffers.outputBuffer.buffer, ssl->heap, DYNAMIC_TYPE_OUT_BUFFER);
+    ssl->buffers.outputBuffer.buffer = ssl->buffers.outputBuffer.staticBuffer;
+    ssl->buffers.outputBuffer.bufferSize  = STATIC_BUFFER_LEN;
+    ssl->buffers.outputBuffer.dynamicFlag = 0;
+}
+
+
+/* Switch dynamic input buffer back to static, keep any remaining input */
+/* forced free means cleaning up */
+void ShrinkInputBuffer(SSL* ssl, int forcedFree)
+{
+    int usedLength = ssl->buffers.inputBuffer.length -
+                     ssl->buffers.inputBuffer.idx;
+    if (!forcedFree && usedLength > STATIC_BUFFER_LEN)
+        return;
+
+    CYASSL_MSG("Shrinking input buffer\n");
+
+    if (!forcedFree && usedLength)
+        XMEMCPY(ssl->buffers.inputBuffer.staticBuffer,
+               ssl->buffers.inputBuffer.buffer + ssl->buffers.inputBuffer.idx,
+               usedLength);
+
+    XFREE(ssl->buffers.inputBuffer.buffer, ssl->heap, DYNAMIC_TYPE_IN_BUFFER);
+    ssl->buffers.inputBuffer.buffer = ssl->buffers.inputBuffer.staticBuffer;
+    ssl->buffers.inputBuffer.bufferSize  = STATIC_BUFFER_LEN;
+    ssl->buffers.inputBuffer.dynamicFlag = 0;
+    ssl->buffers.inputBuffer.idx = 0;
+    ssl->buffers.inputBuffer.length = usedLength;
+}
+
 
 int SendBuffered(SSL* ssl)
 {
@@ -804,14 +972,14 @@ int SendBuffered(SSL* ssl)
         if (sent < 0) {
             switch (sent) {
 
-                case -2:        /* would block */
+                case IO_ERR_WANT_WRITE:        /* would block */
                     return WANT_WRITE;
 
-                case -3:        /* connection reset */
+                case IO_ERR_CONN_RST:          /* connection reset */
                     ssl->options.connReset = 1;
                     break;
 
-                case -4:        /* interrupt */
+                case IO_ERR_ISR:               /* interrupt */
                     /* see if we got our timeout */
                     #ifdef CYASSL_CALLBACKS
                         if (ssl->toInfoOn) {
@@ -819,7 +987,7 @@ int SendBuffered(SSL* ssl)
                             getitimer(ITIMER_REAL, &timeout);
                             if (timeout.it_value.tv_sec == 0 && 
                                                 timeout.it_value.tv_usec == 0) {
-                                strncpy(ssl->timeoutInfo.timeoutName,
+                                XSTRNCPY(ssl->timeoutInfo.timeoutName,
                                         "send() timeout", MAX_TIMEOUT_NAME_SZ);
                                 return WANT_WRITE;
                             }
@@ -827,7 +995,7 @@ int SendBuffered(SSL* ssl)
                     #endif
                     continue;
 
-                case -5:        /* epipe / conn closed, same as reset */
+                case IO_ERR_CONN_CLOSE: /* epipe / conn closed, same as reset */
                     ssl->options.connReset = 1;
                     break;
             }
@@ -840,16 +1008,77 @@ int SendBuffered(SSL* ssl)
     }
       
     ssl->buffers.outputBuffer.idx = 0;
+
+    if (ssl->buffers.outputBuffer.dynamicFlag)
+        ShrinkOutputBuffer(ssl);
+
     return 0;
 }
+
+
+/* Grow the output buffer, should only be to send cert, should be blank */
+static INLINE int GrowOutputBuffer(SSL* ssl, int size)
+{
+    byte* tmp = (byte*) XMALLOC(size + ssl->buffers.outputBuffer.length,
+                                ssl->heap, DYNAMIC_TYPE_OUT_BUFFER);
+    CYASSL_MSG("growing output buffer\n");
+   
+    if (!tmp) return -1;
+
+    if (ssl->buffers.outputBuffer.length)
+        XMEMCPY(tmp, ssl->buffers.outputBuffer.buffer,
+               ssl->buffers.outputBuffer.length);
+
+    if (ssl->buffers.outputBuffer.dynamicFlag)
+        XFREE(ssl->buffers.outputBuffer.buffer, ssl->heap,
+              DYNAMIC_TYPE_OUT_BUFFER);
+    ssl->buffers.outputBuffer.dynamicFlag = 1;
+    ssl->buffers.outputBuffer.buffer = tmp;
+    ssl->buffers.outputBuffer.bufferSize = size +
+                                           ssl->buffers.outputBuffer.length; 
+    return 0;
+}
+
+
+/* Grow the input buffer, should only be to read cert or big app data */
+static INLINE int GrowInputBuffer(SSL* ssl, int size, int usedLength)
+{
+    byte* tmp = (byte*) XMALLOC(size + usedLength, ssl->heap,
+                                DYNAMIC_TYPE_IN_BUFFER);
+    CYASSL_MSG("growing input buffer\n");
+   
+    if (!tmp) return -1;
+
+    if (usedLength)
+        XMEMCPY(tmp, ssl->buffers.inputBuffer.buffer +
+                    ssl->buffers.inputBuffer.idx, usedLength);
+
+    if (ssl->buffers.inputBuffer.dynamicFlag)
+        XFREE(ssl->buffers.inputBuffer.buffer,ssl->heap,DYNAMIC_TYPE_IN_BUFFER);
+
+    ssl->buffers.inputBuffer.dynamicFlag = 1;
+    ssl->buffers.inputBuffer.buffer = tmp;
+    ssl->buffers.inputBuffer.bufferSize = size + usedLength;
+    ssl->buffers.inputBuffer.idx    = 0;
+    ssl->buffers.inputBuffer.length = usedLength;
+
+    return 0;
+}
+
 
 /* check avalaible size into outbut buffer */
 static INLINE int CheckAvalaibleSize(SSL *ssl, int size)
 {
-    if (BUFFER16K_LEN - ssl->buffers.outputBuffer.length < (word32)size) {
+    if ((word32)size > ssl->buffers.outputBuffer.bufferSize)
+        if (GrowOutputBuffer(ssl, size) < 0)
+            return MEMORY_E;
+
+    if (ssl->buffers.outputBuffer.bufferSize - ssl->buffers.outputBuffer.length
+                                             < (word32)size) {
         if (SendBuffered(ssl) == SOCKET_ERROR_E)
             return SOCKET_ERROR_E;
-        if (BUFFER16K_LEN - ssl->buffers.outputBuffer.length < (word32)size) 
+        if (ssl->buffers.outputBuffer.bufferSize -
+                                ssl->buffers.outputBuffer.length < (word32)size)
             return WANT_WRITE;
     }
     return 0;
@@ -860,14 +1089,14 @@ static int GetRecordHeader(SSL* ssl, const byte* input, word32* inOutIdx,
                            RecordLayerHeader* rh, word16 *size)
 {
     if (!ssl->options.dtls) {
-        memcpy(rh, input + *inOutIdx, RECORD_HEADER_SZ);
+        XMEMCPY(rh, input + *inOutIdx, RECORD_HEADER_SZ);
         *inOutIdx += RECORD_HEADER_SZ;
         ato16(rh->length, size);
     }
     else {
 #ifdef CYASSL_DTLS
         /* type and version in same sport */
-        memcpy(rh, input + *inOutIdx, ENUM_LEN + VERSION_SZ);
+        XMEMCPY(rh, input + *inOutIdx, ENUM_LEN + VERSION_SZ);
         *inOutIdx += ENUM_LEN + VERSION_SZ;
         *inOutIdx += 4;  /* skip epoch and first 2 seq bytes for now */
         ato32(input + *inOutIdx, &ssl->keys.dtls_peer_sequence_number);
@@ -1007,6 +1236,7 @@ static int DoCertificate(SSL* ssl, byte* input, word32* inOutIdx)
     word32 listSz, i = *inOutIdx;
     int    ret = 0;
     int    firstTime = 1;  /* peer's is at front */
+    char   domain[ASN_NAME_MAX];
 
     #ifdef CYASSL_CALLBACKS
         if (ssl->hsInfoOn) AddPacketName("Certificate", &ssl->handShakeInfo);
@@ -1036,7 +1266,7 @@ static int DoCertificate(SSL* ssl, byte* input, word32* inOutIdx)
                                        myCert.length < MAX_X509_SIZE) {
             ssl->session.chain.certs[ssl->session.chain.count].length =
                  myCert.length;
-            memcpy(ssl->session.chain.certs[ssl->session.chain.count].buffer,
+            XMEMCPY(ssl->session.chain.certs[ssl->session.chain.count].buffer,
                    myCert.buffer, myCert.length);
             ssl->session.chain.count++;
         } else {
@@ -1048,37 +1278,64 @@ static int DoCertificate(SSL* ssl, byte* input, word32* inOutIdx)
         ret = ParseCertRelative(&dCert, myCert.length, CERT_TYPE,
                                 !ssl->options.verifyNone, ssl->caList);
 
-        if (!firstTime || ret != 0) {
+        if (!firstTime) {
             FreeDecodedCert(&dCert);
             continue;
+        }
+
+        /* get rest of peer info in case user wants to continue */
+        if (ret != 0) {
+            if (!(ret == ASN_BEFORE_DATE_E || ret == ASN_AFTER_DATE_E ||
+                                              ret == ASN_SIG_CONFIRM_E)) {
+                FreeDecodedCert(&dCert);
+                continue;
+            }
         }
         
         /* first one has peer's key */
         firstTime = 0;
 
+        ssl->options.havePeerCert = 1;
         /* set X509 format */
-        ssl->peerCert.issuer.sz    = (int)strlen(dCert.issuer) + 1;
-        strncpy(ssl->peerCert.issuer.name, dCert.issuer, ASN_NAME_MAX);
-        ssl->peerCert.subject.sz   = (int)strlen(dCert.subject) + 1;
-        strncpy(ssl->peerCert.subject.name, dCert.subject, ASN_NAME_MAX);
-            
+#ifdef OPENSSL_EXTRA
+        ssl->peerCert.issuer.sz    = (int)XSTRLEN(dCert.issuer) + 1;
+        XSTRNCPY(ssl->peerCert.issuer.name, dCert.issuer, ASN_NAME_MAX);
+        ssl->peerCert.subject.sz   = (int)XSTRLEN(dCert.subject) + 1;
+        XSTRNCPY(ssl->peerCert.subject.name, dCert.subject, ASN_NAME_MAX);
+#endif    
+
+        XMEMCPY(domain, dCert.subjectCN, dCert.subjectCNLen);
+        domain[dCert.subjectCNLen] = '\0';
+
         if (!ssl->options.verifyNone && ssl->buffers.domainName.buffer)
-            if (strncmp((char*)ssl->buffers.domainName.buffer,
+            if (XSTRNCMP((char*)ssl->buffers.domainName.buffer,
                         dCert.subjectCN,
                         ssl->buffers.domainName.length - 1)) {
-                ret = DOMAIN_NAME_MISMATCH;
-                FreeDecodedCert(&dCert);
-                continue;
+                ret = DOMAIN_NAME_MISMATCH;   /* try to get peer key still */
             }
 
         /* decode peer key */
-        if (RsaPublicKeyDecode(dCert.publicKey, &idx,
+        if (dCert.keyOID == RSAk) {
+            if (RsaPublicKeyDecode(dCert.publicKey, &idx,
                                &ssl->peerRsaKey, dCert.pubKeySize) != 0) {
-            ret = PEER_KEY_ERROR;
-            FreeDecodedCert(&dCert);
-            continue;
+                ret = PEER_KEY_ERROR;
+                FreeDecodedCert(&dCert);
+                continue;
+            }
+            ssl->peerRsaKeyPresent = 1;
         }
-        ssl->peerRsaKeyPresent = 1;
+#ifdef HAVE_NTRU
+        else if (dCert.keyOID == NTRUk) {
+            if (dCert.pubKeySize > sizeof(ssl->peerNtruKey)) {
+                ret = PEER_KEY_ERROR;
+                FreeDecodedCert(&dCert);
+                continue;
+            }
+            XMEMCPY(ssl->peerNtruKey, dCert.publicKey, dCert.pubKeySize);
+            ssl->peerNtruKeyLen = (word16)dCert.pubKeySize;
+            ssl->peerNtruKeyPresent = 1;
+        }
+#endif
 
         FreeDecodedCert(&dCert);
     }
@@ -1091,8 +1348,26 @@ static int DoCertificate(SSL* ssl, byte* input, word32* inOutIdx)
             int why = bad_certificate;
             if (ret == ASN_AFTER_DATE_E || ret == ASN_BEFORE_DATE_E)
                 why = certificate_expired;
-            SendAlert(ssl, alert_fatal, why);   /* try to send */
-            ssl->options.isClosed = 1;
+            if (ssl->ctx->verifyCallback) {
+                int            ok;
+                X509_STORE_CTX store;
+
+                store.error = ret;
+                store.error_depth = 1;
+                store.domain = domain;
+#ifdef OPENSSL_EXTRA
+                store.current_cert = &ssl->peerCert;
+#else
+                store.current_cert = NULL;
+#endif
+                ok = ssl->ctx->verifyCallback(0, &store);
+                if (ok)
+                    ret = 0;
+            }
+            if (ret != 0) {
+                SendAlert(ssl, alert_fatal, why);   /* try to send */
+                ssl->options.isClosed = 1;
+            }
         }
         ssl->error = ret;
     }
@@ -1126,7 +1401,7 @@ int DoFinished(SSL* ssl, const byte* input, word32* inOutIdx, int sniff)
         if (ssl->toInfoOn) AddLateName("Finished", &ssl->timeoutInfo);
     #endif
     if (sniff == NO_SNIFF) {
-        if (memcmp(input + idx, &ssl->verifyHashes, finishedSz))
+        if (XMEMCMP(input + idx, &ssl->verifyHashes, finishedSz))
             return VERIFY_FINISHED_ERROR;
     }
 
@@ -1144,7 +1419,7 @@ int DoFinished(SSL* ssl, const byte* input, word32* inOutIdx, int sniff)
     idx += padSz;
 
     /* verify mac */
-    if (memcmp(mac, verifyMAC, ssl->specs.hash_size))
+    if (XMEMCMP(mac, verifyMAC, ssl->specs.hash_size))
         return VERIFY_MAC_ERROR;
 
     if (ssl->options.side == CLIENT_END) {
@@ -1280,11 +1555,10 @@ static INLINE void Encrypt(SSL* ssl, byte* out, const byte* input, word32 sz)
             case aes:
 #ifdef CYASSL_AESNI
                 if ((word)input % 16) {
-                    buffer16K buffer;
-                    memcpy(buffer.buffer, input, sz);
-                    AesCbcEncrypt(&ssl->encrypt.aes, buffer.buffer,
-                                  buffer.buffer, sz);
-                    memcpy(out, buffer.buffer, sz);
+                    byte buffer[MAX_RECORD_SIZE + MAX_COMP_EXTRA+MAX_MSG_EXTRA];
+                    XMEMCPY(buffer, input, sz);
+                    AesCbcEncrypt(&ssl->encrypt.aes, buffer, buffer, sz);
+                    XMEMCPY(out, buffer, sz);
                     break;
                 }
 #endif
@@ -1426,12 +1700,12 @@ int DoApplicationData(SSL* ssl, byte* input, word32* inOutIdx)
 
 #ifdef HAVE_LIBZ
     if (ssl->options.usingCompression)
-        memmove(rawData, decomp, dataSz);
+        XMEMMOVE(rawData, decomp, dataSz);
 #endif
 
     /* verify */
     if (dataSz) {
-        if (memcmp(mac, verify, digestSz))
+        if (XMEMCMP(mac, verify, digestSz))
             return VERIFY_MAC_ERROR;
     }
     else 
@@ -1474,7 +1748,7 @@ static int DoAlert(SSL* ssl, byte* input, word32* inOutIdx, int* type)
         *inOutIdx += (ssl->specs.hash_size + padSz);
 
         /* verify */
-        if (memcmp(mac, verify, ssl->specs.hash_size))
+        if (XMEMCMP(mac, verify, ssl->specs.hash_size))
             return VERIFY_MAC_ERROR;
     }
 
@@ -1491,7 +1765,7 @@ static int GetInputData(SSL *ssl, size_t size)
     
     /* check max input length */
     usedLength = ssl->buffers.inputBuffer.length - ssl->buffers.inputBuffer.idx;
-    maxLength  = BUFFER16K_LEN - usedLength;
+    maxLength  = ssl->buffers.inputBuffer.bufferSize - usedLength;
     inSz       = (int)(size - usedLength);      /* from last partial read */
 
 #ifdef CYASSL_DTLS
@@ -1499,13 +1773,17 @@ static int GetInputData(SSL *ssl, size_t size)
         inSz = 1500;       /* read ahead up to MTU */
 #endif
     
-    if (inSz > maxLength || inSz <= 0) {
-        return BUFFER_ERROR;
+    if (inSz > maxLength) {
+        if (GrowInputBuffer(ssl, size, usedLength) < 0)
+            return MEMORY_E;
     }
+           
+    if (inSz <= 0)
+        return BUFFER_ERROR;
     
     /* Put buffer data at start if not there */
     if (usedLength > 0 && ssl->buffers.inputBuffer.idx != 0)
-        memmove(ssl->buffers.inputBuffer.buffer,
+        XMEMMOVE(ssl->buffers.inputBuffer.buffer,
                 ssl->buffers.inputBuffer.buffer + ssl->buffers.inputBuffer.idx,
                 usedLength);
     
@@ -1972,10 +2250,10 @@ static int BuildMessage(SSL* ssl, byte* output, const byte* input, int inSz,
 
     /* write to output */
     if (ivSz) {
-        memcpy(output + idx, iv, ivSz);
+        XMEMCPY(output + idx, iv, ivSz);
         idx += ivSz;
     }
-    memcpy(output + idx, input, inSz);
+    XMEMCPY(output + idx, input, inSz);
     idx += inSz;
 
     if (type == handshake)
@@ -2105,7 +2383,7 @@ int SendCertificate(SSL* ssl)
     if (certSz) {
         c32to24(certSz, output + i);
         i += CERT_HEADER_SZ;
-        memcpy(output + i, ssl->buffers.certificate.buffer, certSz);
+        XMEMCPY(output + i, ssl->buffers.certificate.buffer, certSz);
         i += certSz;
     }
     HashOutput(ssl, output, sendSz, 0);
@@ -2205,7 +2483,7 @@ int SendData(SSL* ssl, const void* buffer, int sz)
     }
 
     for (;;) {
-        int   len = min(sz - sent, MAX_RECORD_SIZE);
+        int   len = min(sz - sent, OUTPUT_RECORD_SIZE);
         byte* out;
         byte* sendBuffer = (byte*)buffer + sent;  /* may switch on comp */
         int   buffSz = len;                       /* may switch on comp */
@@ -2223,8 +2501,8 @@ int SendData(SSL* ssl, const void* buffer, int sz)
 #endif
 
         /* check for avalaible size */
-        if ((ret = CheckAvalaibleSize(ssl, len + MAX_COMP_EXTRA +
-                        MAX_MSG_EXTRA)) != 0)
+        if ((ret = CheckAvalaibleSize(ssl, len + COMP_EXTRA +
+                                      MAX_MSG_EXTRA)) != 0)
             return ret;
 
         /* get ouput buffer */
@@ -2247,11 +2525,10 @@ int SendData(SSL* ssl, const void* buffer, int sz)
 
         if ( (ret = SendBuffered(ssl)) < 0) {
             CYASSL_ERROR(ret);
-            if (ret == WANT_WRITE) {
-                /* store for next call */
-                ssl->buffers.plainSz  = len;
-                ssl->buffers.prevSent = sent;
-            }
+            /* store for next call if WANT_WRITE or user embedSend() that
+               doesn't present like WANT_WRITE */
+            ssl->buffers.plainSz  = len;
+            ssl->buffers.prevSent = sent;
             if (ret == SOCKET_ERROR_E && ssl->options.connReset)
                 return 0;  /* peer reset */
             return ssl->error = ret;
@@ -2301,10 +2578,14 @@ int ReceiveData(SSL* ssl, byte* output, int sz)
     else
         size = ssl->buffers.clearOutputBuffer.length;
 
-    memcpy(output, ssl->buffers.clearOutputBuffer.buffer, size);
+    XMEMCPY(output, ssl->buffers.clearOutputBuffer.buffer, size);
     ssl->buffers.clearOutputBuffer.length -= size;
     ssl->buffers.clearOutputBuffer.buffer += size;
-    
+   
+    if (ssl->buffers.clearOutputBuffer.length == 0 && 
+                                           ssl->buffers.inputBuffer.dynamicFlag)
+       ShrinkInputBuffer(ssl, NO_FORCED_FREE);
+
     CYASSL_LEAVE("ReceiveData()", size);
     return size;
 }
@@ -2345,7 +2626,7 @@ int SendAlert(SSL* ssl, int severity, int type)
         rl->version = ssl->version;
         c16toa(ALERT_SIZE, rl->length);      
 
-        memcpy(output + RECORD_HEADER_SZ, input, sizeof(input));
+        XMEMCPY(output + RECORD_HEADER_SZ, input, sizeof(input));
         sendSz = RECORD_HEADER_SZ + sizeof(input);
     }
 
@@ -2370,7 +2651,7 @@ void SetErrorString(int error, char* buffer)
 
 #ifdef NO_ERROR_STRINGS
 
-    strncpy(buffer, "no support for error strings built in", max);
+    XSTRNCPY(buffer, "no support for error strings built in", max);
 
 #else
 
@@ -2383,187 +2664,203 @@ void SetErrorString(int error, char* buffer)
     switch (error) {
 
     case UNSUPPORTED_SUITE :
-        strncpy(buffer, "unsupported cipher suite", max);
+        XSTRNCPY(buffer, "unsupported cipher suite", max);
         break;
 
     case PREFIX_ERROR :
-        strncpy(buffer, "bad index to key rounds", max);
+        XSTRNCPY(buffer, "bad index to key rounds", max);
         break;
 
     case MEMORY_ERROR :
-        strncpy(buffer, "out of memory", max);
+        XSTRNCPY(buffer, "out of memory", max);
         break;
 
     case VERIFY_FINISHED_ERROR :
-        strncpy(buffer, "verify problem on finished", max);
+        XSTRNCPY(buffer, "verify problem on finished", max);
         break;
 
     case VERIFY_MAC_ERROR :
-        strncpy(buffer, "verify mac problem", max);
+        XSTRNCPY(buffer, "verify mac problem", max);
         break;
 
     case PARSE_ERROR :
-        strncpy(buffer, "parse error on header", max);
+        XSTRNCPY(buffer, "parse error on header", max);
         break;
 
     case SIDE_ERROR :
-        strncpy(buffer, "wrong client/server type", max);
+        XSTRNCPY(buffer, "wrong client/server type", max);
         break;
 
     case NO_PEER_CERT :
-        strncpy(buffer, "peer didn't send cert", max);
+        XSTRNCPY(buffer, "peer didn't send cert", max);
         break;
 
     case UNKNOWN_HANDSHAKE_TYPE :
-        strncpy(buffer, "weird handshake type", max);
+        XSTRNCPY(buffer, "weird handshake type", max);
         break;
 
     case SOCKET_ERROR_E :
-        strncpy(buffer, "error state on socket", max);
+        XSTRNCPY(buffer, "error state on socket", max);
         break;
 
     case SOCKET_NODATA :
-        strncpy(buffer, "expected data, not there", max);
+        XSTRNCPY(buffer, "expected data, not there", max);
         break;
 
     case INCOMPLETE_DATA :
-        strncpy(buffer, "don't have enough data to complete task", max);
+        XSTRNCPY(buffer, "don't have enough data to complete task", max);
         break;
 
     case UNKNOWN_RECORD_TYPE :
-        strncpy(buffer, "unknown type in record hdr", max);
+        XSTRNCPY(buffer, "unknown type in record hdr", max);
         break;
 
     case DECRYPT_ERROR :
-        strncpy(buffer, "error during decryption", max);
+        XSTRNCPY(buffer, "error during decryption", max);
         break;
 
     case FATAL_ERROR :
-        strncpy(buffer, "revcd alert fatal error", max);
+        XSTRNCPY(buffer, "revcd alert fatal error", max);
         break;
 
     case ENCRYPT_ERROR :
-        strncpy(buffer, "error during encryption", max);
+        XSTRNCPY(buffer, "error during encryption", max);
         break;
 
     case FREAD_ERROR :
-        strncpy(buffer, "fread problem", max);
+        XSTRNCPY(buffer, "fread problem", max);
         break;
 
     case NO_PEER_KEY :
-        strncpy(buffer, "need peer's key", max);
+        XSTRNCPY(buffer, "need peer's key", max);
         break;
 
     case NO_PRIVATE_KEY :
-        strncpy(buffer, "need the private key", max);
+        XSTRNCPY(buffer, "need the private key", max);
         break;
 
     case RSA_PRIVATE_ERROR :
-        strncpy(buffer, "error during rsa priv op", max);
+        XSTRNCPY(buffer, "error during rsa priv op", max);
         break;
 
     case MATCH_SUITE_ERROR :
-        strncpy(buffer, "can't match cipher suite", max);
+        XSTRNCPY(buffer, "can't match cipher suite", max);
         break;
 
     case BUILD_MSG_ERROR :
-        strncpy(buffer, "build message failure", max);
+        XSTRNCPY(buffer, "build message failure", max);
         break;
 
     case BAD_HELLO :
-        strncpy(buffer, "client hello malformed", max);
+        XSTRNCPY(buffer, "client hello malformed", max);
         break;
 
     case DOMAIN_NAME_MISMATCH :
-        strncpy(buffer, "peer subject name mismatch", max);
+        XSTRNCPY(buffer, "peer subject name mismatch", max);
         break;
 
     case WANT_READ :
-        strncpy(buffer, "non-blocking socket wants data to be read", max);
+        XSTRNCPY(buffer, "non-blocking socket wants data to be read", max);
         break;
 
     case NOT_READY_ERROR :
-        strncpy(buffer, "handshake layer not ready yet, complete first", max);
+        XSTRNCPY(buffer, "handshake layer not ready yet, complete first", max);
         break;
 
     case PMS_VERSION_ERROR :
-        strncpy(buffer, "premaster secret version mismatch error", max);
+        XSTRNCPY(buffer, "premaster secret version mismatch error", max);
         break;
 
     case VERSION_ERROR :
-        strncpy(buffer, "record layer version error", max);
+        XSTRNCPY(buffer, "record layer version error", max);
         break;
 
     case WANT_WRITE :
-        strncpy(buffer, "non-blocking socket write buffer full", max);
+        XSTRNCPY(buffer, "non-blocking socket write buffer full", max);
         break;
 
     case BUFFER_ERROR :
-        strncpy(buffer, "malformed buffer input error", max);
+        XSTRNCPY(buffer, "malformed buffer input error", max);
         break;
 
     case VERIFY_CERT_ERROR :
-        strncpy(buffer, "verify problem on certificate", max);
+        XSTRNCPY(buffer, "verify problem on certificate", max);
         break;
 
     case VERIFY_SIGN_ERROR :
-        strncpy(buffer, "verify problem based on signature", max);
+        XSTRNCPY(buffer, "verify problem based on signature", max);
         break;
 
     case CLIENT_ID_ERROR :
-        strncpy(buffer, "psk client identity error", max);
+        XSTRNCPY(buffer, "psk client identity error", max);
         break;
 
     case SERVER_HINT_ERROR:
-        strncpy(buffer, "psk server hint error", max);
+        XSTRNCPY(buffer, "psk server hint error", max);
         break;
 
     case PSK_KEY_ERROR:
-        strncpy(buffer, "psk key callback error", max);
+        XSTRNCPY(buffer, "psk key callback error", max);
+        break;
+
+    case NTRU_KEY_ERROR:
+        XSTRNCPY(buffer, "NTRU key error", max);
+        break;
+
+    case NTRU_DRBG_ERROR:
+        XSTRNCPY(buffer, "NTRU drbg error", max);
+        break;
+
+    case NTRU_ENCRYPT_ERROR:
+        XSTRNCPY(buffer, "NTRU encrypt error", max);
+        break;
+
+    case NTRU_DECRYPT_ERROR:
+        XSTRNCPY(buffer, "NTRU decrypt error", max);
         break;
 
     case ZLIB_INIT_ERROR:
-        strncpy(buffer, "zlib init error", max);
+        XSTRNCPY(buffer, "zlib init error", max);
         break;
 
     case ZLIB_COMPRESS_ERROR:
-        strncpy(buffer, "zlib compress error", max);
+        XSTRNCPY(buffer, "zlib compress error", max);
         break;
 
     case ZLIB_DECOMPRESS_ERROR:
-        strncpy(buffer, "zlib decompress error", max);
+        XSTRNCPY(buffer, "zlib decompress error", max);
         break;
 
     case GETTIME_ERROR:
-        strncpy(buffer, "gettimeofday() error", max);
+        XSTRNCPY(buffer, "gettimeofday() error", max);
         break;
 
     case GETITIMER_ERROR:
-        strncpy(buffer, "getitimer() error", max);
+        XSTRNCPY(buffer, "getitimer() error", max);
         break;
 
     case SIGACT_ERROR:
-        strncpy(buffer, "sigaction() error", max);
+        XSTRNCPY(buffer, "sigaction() error", max);
         break;
 
     case SETITIMER_ERROR:
-        strncpy(buffer, "setitimer() error", max);
+        XSTRNCPY(buffer, "setitimer() error", max);
         break;
 
     case LENGTH_ERROR:
-        strncpy(buffer, "record layer length error", max);
+        XSTRNCPY(buffer, "record layer length error", max);
         break;
 
     case PEER_KEY_ERROR:
-        strncpy(buffer, "cant decode peer key", max);
+        XSTRNCPY(buffer, "cant decode peer key", max);
         break;
 
     case ZERO_RETURN:
-        strncpy(buffer, "peer sent close notify alert", max);
+        XSTRNCPY(buffer, "peer sent close notify alert", max);
         break;
 
     default :
-        strncpy(buffer, "unknown error number", max);
+        XSTRNCPY(buffer, "unknown error number", max);
     }
 
 #endif /* NO_ERROR_STRINGS */
@@ -2621,6 +2918,22 @@ const char* const cipher_names[] =
 #ifdef BUILD_TLS_RSA_WITH_RABBIT_CBC_SHA
     "RABBIT-SHA",
 #endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_RC4_128_SHA
+    "NTRU-RC4-SHA",
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA
+    "NTRU-DES-CBC3-SHA",
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_128_CBC_SHA
+    "NTRU-AES128-SHA",
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_256_CBC_SHA
+    "NTRU-AES256-SHA",
+#endif
 };
 
 
@@ -2676,6 +2989,22 @@ int cipher_name_idx[] =
 #ifdef BUILD_TLS_RSA_WITH_RABBIT_CBC_SHA
     TLS_RSA_WITH_RABBIT_CBC_SHA,    
 #endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_RC4_128_SHA
+    TLS_NTRU_RSA_WITH_RC4_128_SHA,
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA
+    TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA,
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_128_CBC_SHA
+    TLS_NTRU_RSA_WITH_AES_128_CBC_SHA,    
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_256_CBC_SHA
+    TLS_NTRU_RSA_WITH_AES_256_CBC_SHA,    
+#endif
 };
 
 
@@ -2698,23 +3027,23 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
     
     if (*list == 0) return 1;   /* CyaSSL default */
 
-    if (strncmp(haystack, "ALL", 3) == 0) return 1;  /* CyaSSL defualt */
+    if (XSTRNCMP(haystack, "ALL", 3) == 0) return 1;  /* CyaSSL defualt */
 
     for(;;) {
         size_t len;
         prev = haystack;
-        haystack = strstr(haystack, needle);
+        haystack = XSTRSTR(haystack, needle);
 
         if (!haystack)    /* last cipher */
-            len = min(sizeof(name), strlen(prev));
+            len = min(sizeof(name), XSTRLEN(prev));
         else
             len = min(sizeof(name), (size_t)(haystack - prev));
 
-        strncpy(name, prev, len);
+        XSTRNCPY(name, prev, len);
         name[(len == sizeof(name)) ? len - 1 : len] = 0;
 
         for (i = 0; i < suiteSz; i++)
-            if (strncmp(name, cipher_names[i], sizeof(name)) == 0) {
+            if (XSTRNCMP(name, cipher_names[i], sizeof(name)) == 0) {
 
                 ctx->suites.suites[idx++] = 0x00;  /* first byte always zero */
                 ctx->suites.suites[idx++] = cipher_name_idx[i];
@@ -2757,7 +3086,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
         for (i = 0; i < sz; i++)
             if (ssl->options.cipherSuite == (byte)cipher_name_idx[i]) {
-                strncpy(info->cipherName, cipher_names[i], MAX_CIPHERNAME_SZ);
+                XSTRNCPY(info->cipherName, cipher_names[i], MAX_CIPHERNAME_SZ);
                 break;
             }
 
@@ -2771,7 +3100,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
     void AddPacketName(const char* name, HandShakeInfo* info)
     {
         if (info->numberPackets < MAX_PACKETS_HANDSHAKE) {
-            strncpy(info->packetNames[info->numberPackets++], name,
+            XSTRNCPY(info->packetNames[info->numberPackets++], name,
                     MAX_PACKETNAME_SZ);
         }
     } 
@@ -2804,7 +3133,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         int i;
         for (i = 0; i < MAX_PACKETS_HANDSHAKE; i++)
             if (info->packets[i].bufferValue) {
-                XFREE(info->packets[i].bufferValue, heap);
+                XFREE(info->packets[i].bufferValue, heap, DYNAMIC_TYPE_INFO);
                 info->packets[i].bufferValue = 0;
             }
 
@@ -2820,21 +3149,21 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
             /* may add name after */
             if (name)
-                strncpy(info->packets[info->numberPackets].packetName, name,
+                XSTRNCPY(info->packets[info->numberPackets].packetName, name,
                         MAX_PACKETNAME_SZ);
 
             /* add data, put in buffer if bigger than static buffer */
             info->packets[info->numberPackets].valueSz = sz;
             if (sz < MAX_VALUE_SZ)
-                memcpy(info->packets[info->numberPackets].value, data, sz);
+                XMEMCPY(info->packets[info->numberPackets].value, data, sz);
             else {
-                info->packets[info->numberPackets].bufferValue = XMALLOC(sz,
-                                                                         heap);
+                info->packets[info->numberPackets].bufferValue =
+                           XMALLOC(sz, heap, DYNAMIC_TYPE_INFO);
                 if (!info->packets[info->numberPackets].bufferValue)
                     /* let next alloc catch, just don't fill, not fatal here  */
                     info->packets[info->numberPackets].valueSz = 0;
                 else
-                    memcpy(info->packets[info->numberPackets].bufferValue,
+                    XMEMCPY(info->packets[info->numberPackets].bufferValue,
                            data, sz);
             }
             gettimeofday(&currTime, 0);
@@ -2853,7 +3182,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         /* make sure we have a valid previous one */
         if (info->numberPackets > 0 && info->numberPackets <
                                                         MAX_PACKETS_HANDSHAKE) {
-            strncpy(info->packets[info->numberPackets - 1].packetName, name,
+            XSTRNCPY(info->packets[info->numberPackets - 1].packetName, name,
                     MAX_PACKETNAME_SZ);
         }
     }
@@ -2865,10 +3194,10 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         if (info->numberPackets > 0 && info->numberPackets <
                                                         MAX_PACKETS_HANDSHAKE) {
             if (info->packets[info->numberPackets - 1].bufferValue)
-                memcpy(info->packets[info->numberPackets - 1].bufferValue, rl,
+                XMEMCPY(info->packets[info->numberPackets - 1].bufferValue, rl,
                        RECORD_HEADER_SZ);
             else
-                memcpy(info->packets[info->numberPackets - 1].value, rl,
+                XMEMCPY(info->packets[info->numberPackets - 1].value, rl,
                        RECORD_HEADER_SZ);
         }
     }
@@ -2914,7 +3243,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         AddHeaders(output, length, client_hello, ssl);
 
             /* client hello, first version */
-        memcpy(output + idx, &ssl->version, sizeof(ProtocolVersion));
+        XMEMCPY(output + idx, &ssl->version, sizeof(ProtocolVersion));
         idx += sizeof(ProtocolVersion);
         ssl->chVersion = ssl->version;  /* store in case changed */
 
@@ -2923,11 +3252,11 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             RNG_GenerateBlock(&ssl->rng, output + idx, RAN_LEN);
             
                 /* store random */
-            memcpy(ssl->arrays.clientRandom, output + idx, RAN_LEN);
+            XMEMCPY(ssl->arrays.clientRandom, output + idx, RAN_LEN);
         } else {
 #ifdef CYASSL_DTLS
                 /* send same random on hello again */
-            memcpy(output + idx, ssl->arrays.clientRandom, RAN_LEN);
+            XMEMCPY(output + idx, ssl->arrays.clientRandom, RAN_LEN);
 #endif
         }
         idx += RAN_LEN;
@@ -2935,7 +3264,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             /* then session id */
         output[idx++] = idSz;
         if (idSz) {
-            memcpy(output + idx, ssl->session.sessionID, ID_LEN);
+            XMEMCPY(output + idx, ssl->session.sessionID, ID_LEN);
             idx += ID_LEN;
         }
         
@@ -2948,7 +3277,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             /* then cipher suites */
         c16toa(ssl->suites.suiteSz, output + idx);
         idx += 2;
-        memcpy(output + idx, &ssl->suites.suites, ssl->suites.suiteSz);
+        XMEMCPY(output + idx, &ssl->suites.suites, ssl->suites.suiteSz);
         idx += ssl->suites.suiteSz;
 
             /* last, compression */
@@ -2986,7 +3315,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
                                          &ssl->handShakeInfo);
         if (ssl->toInfoOn) AddLateName("HelloVerifyRequest", &ssl->timeoutInfo);
 #endif
-        memcpy(&pv, input + *inOutIdx, sizeof(pv));
+        XMEMCPY(&pv, input + *inOutIdx, sizeof(pv));
         *inOutIdx += sizeof(pv);
         
         cookieSz = input[(*inOutIdx)++];
@@ -3010,13 +3339,13 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         if (ssl->hsInfoOn) AddPacketName("ServerHello", &ssl->handShakeInfo);
         if (ssl->toInfoOn) AddLateName("ServerHello", &ssl->timeoutInfo);
 #endif
-        memcpy(&pv, input + i, sizeof(pv));
+        XMEMCPY(&pv, input + i, sizeof(pv));
         i += sizeof(pv);
-        memcpy(ssl->arrays.serverRandom, input + i, RAN_LEN);
+        XMEMCPY(ssl->arrays.serverRandom, input + i, RAN_LEN);
         i += RAN_LEN;
         b = input[i++];
         if (b) {
-            memcpy(ssl->arrays.sessionID, input + i, b);
+            XMEMCPY(ssl->arrays.sessionID, input + i, b);
             i += b;
         }
         ssl->options.cipherSuite = input[++i];  
@@ -3031,10 +3360,10 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         *inOutIdx = i;
 
         if (ssl->options.resuming) {
-            if (memcmp(ssl->arrays.sessionID, ssl->session.sessionID, ID_LEN)
+            if (XMEMCMP(ssl->arrays.sessionID, ssl->session.sessionID, ID_LEN)
                                                                         == 0) {
                 if (SetCipherSpecs(ssl) == 0) {
-                    memcpy(ssl->arrays.masterSecret, ssl->session.masterSecret,
+                    XMEMCPY(ssl->arrays.masterSecret, ssl->session.masterSecret,
                            SECRET_LEN);
                     if (ssl->options.tls)
                         DeriveTlsKeys(ssl);
@@ -3109,7 +3438,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
            
             ato16(&input[*inOutIdx], &length);
             *inOutIdx += LENGTH_SZ;
-            memcpy(ssl->arrays.server_hint, &input[*inOutIdx],
+            XMEMCPY(ssl->arrays.server_hint, &input[*inOutIdx],
                    min(length, MAX_PSK_ID_LEN));
             if (length < MAX_PSK_ID_LEN)
                 ssl->arrays.server_hint[length] = 0;
@@ -3135,12 +3464,13 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         *inOutIdx += LENGTH_SZ;
         messageTotal += length;
 
-        ssl->buffers.serverDH_P.buffer = (byte*) XMALLOC(length, ssl->heap);
+        ssl->buffers.serverDH_P.buffer = (byte*) XMALLOC(length, ssl->heap,
+                                                         DYNAMIC_TYPE_DH);
         if (ssl->buffers.serverDH_P.buffer)
             ssl->buffers.serverDH_P.length = length;
         else
             return MEMORY_ERROR;
-        memcpy(ssl->buffers.serverDH_P.buffer, &input[*inOutIdx], length);
+        XMEMCPY(ssl->buffers.serverDH_P.buffer, &input[*inOutIdx], length);
         *inOutIdx += length;
 
         /* g */
@@ -3148,12 +3478,13 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         *inOutIdx += LENGTH_SZ;
         messageTotal += length;
 
-        ssl->buffers.serverDH_G.buffer = (byte*) XMALLOC(length, ssl->heap);
+        ssl->buffers.serverDH_G.buffer = (byte*) XMALLOC(length, ssl->heap,
+                                                         DYNAMIC_TYPE_DH);
         if (ssl->buffers.serverDH_G.buffer)
             ssl->buffers.serverDH_G.length = length;
         else
             return MEMORY_ERROR;
-        memcpy(ssl->buffers.serverDH_G.buffer, &input[*inOutIdx], length);
+        XMEMCPY(ssl->buffers.serverDH_G.buffer, &input[*inOutIdx], length);
         *inOutIdx += length;
 
         /* pub */
@@ -3161,18 +3492,19 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         *inOutIdx += LENGTH_SZ;
         messageTotal += length;
 
-        ssl->buffers.serverDH_Pub.buffer = (byte*) XMALLOC(length, ssl->heap);
+        ssl->buffers.serverDH_Pub.buffer = (byte*) XMALLOC(length, ssl->heap,
+                                                           DYNAMIC_TYPE_DH);
         if (ssl->buffers.serverDH_Pub.buffer)
             ssl->buffers.serverDH_Pub.length = length;
         else
             return MEMORY_ERROR;
-        memcpy(ssl->buffers.serverDH_Pub.buffer, &input[*inOutIdx], length);
+        XMEMCPY(ssl->buffers.serverDH_Pub.buffer, &input[*inOutIdx], length);
         *inOutIdx += length;
 
         /* save message for hash verify */
         if (messageTotal > sizeof(messageVerify))
             return BUFFER_ERROR;
-        memcpy(messageVerify, &input[*inOutIdx - messageTotal], messageTotal);
+        XMEMCPY(messageVerify, &input[*inOutIdx - messageTotal], messageTotal);
         verifySz = messageTotal;
 
         /* signature */
@@ -3222,11 +3554,11 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
                 sigSz = EncodeSignature(encodedSig, digest, digestSz, hashType);
 
-                if (sigSz != ret || memcmp(out, encodedSig, sigSz) != 0)
+                if (sigSz != ret || XMEMCMP(out, encodedSig, sigSz) != 0)
                     return VERIFY_SIGN_ERROR;
             }
             else { 
-                if (ret != sizeof(hash) || memcmp(out, hash, sizeof(hash)))
+                if (ret != sizeof(hash) || XMEMCMP(out, hash, sizeof(hash)))
                     return VERIFY_SIGN_ERROR;
             }
         }
@@ -3242,7 +3574,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
     int SendClientKeyExchange(SSL* ssl)
     {
-        byte   encSecret[ENCRYPT_LEN];
+        byte   encSecret[MAX_NTRU_ENCRYPT_SZ];
         word32 encSz = 0;
         word32 idx = 0;
         int    ret = 0;
@@ -3273,6 +3605,10 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             word32  privSz;
             DhKey   key;
 
+            if (serverP.buffer == 0 || serverG.buffer == 0 ||
+                                       serverPub.buffer == 0)
+                return NO_PEER_KEY;
+
             InitDhKey(&key);
             ret = DhSetKey(&key, serverP.buffer, serverP.length,
                            serverG.buffer, serverG.length);
@@ -3296,21 +3632,53 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             if (ssl->arrays.psk_keySz == 0 || 
                 ssl->arrays.psk_keySz > MAX_PSK_KEY_LEN)
                 return PSK_KEY_ERROR;
-            encSz = (word32)strlen(ssl->arrays.client_identity);
+            encSz = (word32)XSTRLEN(ssl->arrays.client_identity);
             if (encSz > MAX_PSK_ID_LEN) return CLIENT_ID_ERROR;
-            memcpy(encSecret, ssl->arrays.client_identity, encSz);
+            XMEMCPY(encSecret, ssl->arrays.client_identity, encSz);
 
             /* make psk pre master secret */
             /* length of key + length 0s + length of key + key */
             c16toa((word16)ssl->arrays.psk_keySz, pms);
             pms += 2;
-            memset(pms, 0, ssl->arrays.psk_keySz);
+            XMEMSET(pms, 0, ssl->arrays.psk_keySz);
             pms += ssl->arrays.psk_keySz;
             c16toa((word16)ssl->arrays.psk_keySz, pms);
             pms += 2;
-            memcpy(pms, ssl->arrays.psk_key, ssl->arrays.psk_keySz);
+            XMEMCPY(pms, ssl->arrays.psk_key, ssl->arrays.psk_keySz);
             ssl->arrays.preMasterSz = ssl->arrays.psk_keySz * 2 + 4;
         #endif /* NO_PSK */
+        #ifdef HAVE_NTRU
+        } else if (ssl->specs.kea == ntru_kea) {
+            word32 rc;
+            word16 cipherLen = sizeof(encSecret);
+            DRBG_HANDLE drbg;
+            static uint8_t const cyasslStr[] = {
+                'C', 'y', 'a', 'S', 'S', 'L', ' ', 'N', 'T', 'R', 'U'
+            };
+
+            RNG_GenerateBlock(&ssl->rng, ssl->arrays.preMasterSecret,
+                              SECRET_LEN);
+            ssl->arrays.preMasterSz = SECRET_LEN;
+
+            if (ssl->peerNtruKeyPresent == 0)
+                return NO_PEER_KEY;
+
+            rc = crypto_drbg_instantiate(MAX_NTRU_BITS, cyasslStr,
+                                          sizeof(cyasslStr), GetEntropy, &drbg);
+            if (rc != DRBG_OK)
+                return NTRU_DRBG_ERROR; 
+
+            rc = crypto_ntru_encrypt(drbg, ssl->peerNtruKeyLen,ssl->peerNtruKey,
+                                     ssl->arrays.preMasterSz,
+                                     ssl->arrays.preMasterSecret,
+                                     &cipherLen, encSecret);
+            crypto_drbg_uninstantiate(drbg);
+            if (rc != NTRU_OK)
+                return NTRU_ENCRYPT_ERROR;
+
+            encSz = cipherLen;
+            ret = 0;
+        #endif /* HAVE_NTRU */
         } else
             return -1; /* unsupported kea */
 
@@ -3346,7 +3714,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
                 c16toa((word16)encSz, &output[idx]);
                 idx += 2;
             }
-            memcpy(output + idx, encSecret, encSz);
+            XMEMCPY(output + idx, encSecret, encSz);
             idx += encSz;
 
             HashOutput(ssl, output, sendSz, 0);
@@ -3500,13 +3868,13 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         #endif
         /* now write to output */
             /* first version */
-        memcpy(output + idx, &ssl->version, sizeof(ProtocolVersion));
+        XMEMCPY(output + idx, &ssl->version, sizeof(ProtocolVersion));
         idx += sizeof(ProtocolVersion);
 
             /* then random */
         if (!ssl->options.resuming)         
             RNG_GenerateBlock(&ssl->rng, ssl->arrays.serverRandom, RAN_LEN);
-        memcpy(output + idx, ssl->arrays.serverRandom, RAN_LEN);
+        XMEMCPY(output + idx, ssl->arrays.serverRandom, RAN_LEN);
         idx += RAN_LEN;
 
 #ifdef SHOW_SECRETS
@@ -3522,7 +3890,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         output[idx++] = ID_LEN;
         if (!ssl->options.resuming)
             RNG_GenerateBlock(&ssl->rng, ssl->arrays.sessionID, ID_LEN);
-        memcpy(output + idx, ssl->arrays.sessionID, ID_LEN);
+        XMEMCPY(output + idx, ssl->arrays.sessionID, ID_LEN);
         idx += ID_LEN;
 
             /* then cipher suite */
@@ -3565,7 +3933,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             if (ssl->arrays.server_hint[0] == 0) return 0; /* don't send */
 
             /* include size part */
-            length = (word32)strlen(ssl->arrays.server_hint);
+            length = (word32)XSTRLEN(ssl->arrays.server_hint);
             if (length > MAX_PSK_ID_LEN) return SERVER_HINT_ERROR;
             length += + HINT_LEN_SZ;
             sendSz = length + HANDSHAKE_HEADER_SZ + RECORD_HEADER_SZ;
@@ -3589,7 +3957,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             /* key data */
             c16toa((word16)(length - HINT_LEN_SZ), output + idx);
             idx += HINT_LEN_SZ;
-            memcpy(output + idx, ssl->arrays.server_hint, length - HINT_LEN_SZ);
+            XMEMCPY(output + idx, ssl->arrays.server_hint, length - HINT_LEN_SZ);
 
             HashOutput(ssl, output, sendSz, 0);
 
@@ -3669,7 +4037,8 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             ssl->options.tls    = 0;
             ssl->options.tls1_1 = 0;
             ssl->version.minor  = 0;
-            InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, FALSE);
+            InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, FALSE,
+                       ssl->options.haveNTRU);
         }
 
         /* suite size */
@@ -3697,7 +4066,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         for (i = 0, j = 0; i < clSuites.suiteSz; i += 3) {    
             byte first = input[idx++];
             if (!first) { /* implicit: skip sslv2 type */
-                memcpy(&clSuites.suites[j], &input[idx], 2);
+                XMEMCPY(&clSuites.suites[j], &input[idx], 2);
                 j += 2;
             }
             idx += 2;
@@ -3706,15 +4075,15 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
         /* session id */
         if (sessionSz) {
-            memcpy(ssl->arrays.sessionID, input + idx, sessionSz);
+            XMEMCPY(ssl->arrays.sessionID, input + idx, sessionSz);
             idx += sessionSz;
             ssl->options.resuming = 1;
         }
 
         /* random */
         if (randomSz < RAN_LEN)
-            memset(ssl->arrays.clientRandom, 0, RAN_LEN - randomSz);
-        memcpy(&ssl->arrays.clientRandom[RAN_LEN - randomSz], input + idx,
+            XMEMSET(ssl->arrays.clientRandom, 0, RAN_LEN - randomSz);
+        XMEMCPY(&ssl->arrays.clientRandom[RAN_LEN - randomSz], input + idx,
                randomSz);
         idx += randomSz;
 
@@ -3765,7 +4134,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         if (i + sizeof(pv) + RAN_LEN + ENUM_LEN > totalSz)
             return INCOMPLETE_DATA;
 
-        memcpy(&pv, input + i, sizeof(pv));
+        XMEMCPY(&pv, input + i, sizeof(pv));
         ssl->chVersion = pv;   /* store */
         i += sizeof(pv);
         if (ssl->version.minor > 0 && pv.minor == 0) {
@@ -3775,10 +4144,11 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             ssl->options.tls    = 0;
             ssl->options.tls1_1 = 0;
             ssl->version.minor  = 0;
-            InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, FALSE);
+            InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, FALSE,
+                       ssl->options.haveNTRU);
         }
         /* random */
-        memcpy(ssl->arrays.clientRandom, input + i, RAN_LEN);
+        XMEMCPY(ssl->arrays.clientRandom, input + i, RAN_LEN);
         i += RAN_LEN;
 
 #ifdef SHOW_SECRETS
@@ -3795,7 +4165,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         if (b) {
             if (i + ID_LEN > totalSz)
                 return INCOMPLETE_DATA;
-            memcpy(ssl->arrays.sessionID, input + i, ID_LEN);
+            XMEMCPY(ssl->arrays.sessionID, input + i, ID_LEN);
             i += b;
             ssl->options.resuming= 1; /* client wants to resume */
         }
@@ -3809,7 +4179,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
                         return BUFFER_ERROR;
                     if (i + b > totalSz)
                         return INCOMPLETE_DATA;
-                    memcpy(ssl->arrays.cookie, input + i, b);
+                    XMEMCPY(ssl->arrays.cookie, input + i, b);
                     i += b;
                 }
             }
@@ -3826,7 +4196,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             return INCOMPLETE_DATA;
         if (clSuites.suiteSz > MAX_SUITE_SZ)
             return BUFFER_ERROR;
-        memcpy(clSuites.suites, input + i, clSuites.suiteSz);
+        XMEMCPY(clSuites.suites, input + i, clSuites.suiteSz);
         i += clSuites.suiteSz;
 
         b = input[i++];  /* comp len */
@@ -3923,11 +4293,11 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
                 sigSz = EncodeSignature(encodedSig, digest, digestSz, hashType);
 
-                if (outLen == sigSz && memcmp(out, encodedSig, sigSz) == 0)
+                if (outLen == sigSz && XMEMCMP(out, encodedSig, sigSz) == 0)
                     ret = 0;
             }
             else {
-                if (outLen == sizeof(ssl->certHashes) && memcmp(out,
+                if (outLen == sizeof(ssl->certHashes) && XMEMCMP(out,
                              ssl->certHashes.md5, sizeof(ssl->certHashes)) == 0)
                     ret = 0;
             }
@@ -3990,7 +4360,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
         AddHeaders(output, length, hello_verify_request, ssl);
 
-        memcpy(output + idx, &ssl->chVersion, VERSION_SZ);
+        XMEMCPY(output + idx, &ssl->chVersion, VERSION_SZ);
         idx += VERSION_SZ;
         output[idx++] = 0;     /* no cookie for now */
 
@@ -4018,7 +4388,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
         byte*  out;
 
         if (ssl->options.verifyPeer && ssl->options.failNoCert)
-            if (!ssl->peerCert.issuer.sz) {
+            if (!ssl->options.havePeerCert) {
                 CYASSL_MSG("client didn't present peer cert");
                 return NO_PEER_CERT;
             }
@@ -4053,7 +4423,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
                 if (RsaPrivateDecryptInline(tmp, length, &out, &key) ==
                                                              SECRET_LEN) {
-                    memcpy(ssl->arrays.preMasterSecret, out, SECRET_LEN);
+                    XMEMCPY(ssl->arrays.preMasterSecret, out, SECRET_LEN);
                     if (ssl->arrays.preMasterSecret[0] != ssl->chVersion.major
                      ||
                         ssl->arrays.preMasterSecret[1] != ssl->chVersion.minor)
@@ -4076,7 +4446,7 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             *inOutIdx += LENGTH_SZ;
             if (ci_sz > MAX_PSK_ID_LEN) return CLIENT_ID_ERROR;
 
-            memcpy(ssl->arrays.client_identity, &input[*inOutIdx], ci_sz);
+            XMEMCPY(ssl->arrays.client_identity, &input[*inOutIdx], ci_sz);
             *inOutIdx += ci_sz;
             ssl->arrays.client_identity[ci_sz] = 0;
 
@@ -4090,15 +4460,42 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
             /* length of key + length 0s + length of key + key */
             c16toa((word16)ssl->arrays.psk_keySz, pms);
             pms += 2;
-            memset(pms, 0, ssl->arrays.psk_keySz);
+            XMEMSET(pms, 0, ssl->arrays.psk_keySz);
             pms += ssl->arrays.psk_keySz;
             c16toa((word16)ssl->arrays.psk_keySz, pms);
             pms += 2;
-            memcpy(pms, ssl->arrays.psk_key, ssl->arrays.psk_keySz);
+            XMEMCPY(pms, ssl->arrays.psk_key, ssl->arrays.psk_keySz);
             ssl->arrays.preMasterSz = ssl->arrays.psk_keySz * 2 + 4;
 
             ret = MakeMasterSecret(ssl);
 #endif /* NO_PSK */
+#ifdef HAVE_NTRU
+        } else if (ssl->specs.kea == ntru_kea) {
+            word32 rc;
+            word16 cipherLen;
+            word16 plainLen = sizeof(ssl->arrays.preMasterSecret);
+            byte*  tmp;
+
+            if (!ssl->buffers.key.buffer)
+                return NO_PRIVATE_KEY;
+
+            ato16(&input[*inOutIdx], &cipherLen);
+            *inOutIdx += LENGTH_SZ;
+            if (cipherLen > MAX_NTRU_ENCRYPT_SZ)
+                return NTRU_KEY_ERROR;
+
+            tmp = input + *inOutIdx;
+            rc = crypto_ntru_decrypt((word16)ssl->buffers.key.length,
+                        ssl->buffers.key.buffer, cipherLen, tmp, &plainLen,
+                        ssl->arrays.preMasterSecret);
+
+            if (rc != NTRU_OK || plainLen != SECRET_LEN)
+                return NTRU_DECRYPT_ERROR;
+            *inOutIdx += cipherLen;
+
+            ssl->arrays.preMasterSz = plainLen;
+            ret = MakeMasterSecret(ssl);
+#endif /* HAVE_NTRU */
         }
 
         if (ret == 0) {
@@ -4112,6 +4509,193 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
 #endif /* NO_CYASSL_SERVER */
 
+
+#ifdef SINGLE_THREADED
+
+int InitMutex(CyaSSL_Mutex* m)
+{
+    return 0;
+}
+
+
+int FreeMutex(CyaSSL_Mutex* m)
+{
+    return 0;
+}
+
+
+int LockMutex(CyaSSL_Mutex* m)
+{
+    return 0;
+}
+
+
+int UnLockMutex(CyaSSL_Mutex* m)
+{
+    return 0;
+}
+
+#else /* MULTI_THREAD */
+
+    #ifdef USE_WINDOWS_API
+
+        int InitMutex(CyaSSL_Mutex* m)
+        {
+            InitializeCriticalSection(m);
+            return 0;
+        }
+
+
+        int FreeMutex(CyaSSL_Mutex* m)
+        {
+            DeleteCriticalSection(m);
+            return 0;
+        }
+
+
+        int LockMutex(CyaSSL_Mutex* m)
+        {
+            EnterCriticalSection(m);
+            return 0;
+        }
+
+
+        int UnLockMutex(CyaSSL_Mutex* m)
+        {
+            LeaveCriticalSection(m);
+            return 0;
+        }
+
+    #elif defined(CYASSL_PTHREADS)
+
+        int InitMutex(CyaSSL_Mutex* m)
+        {
+            if (pthread_mutex_init(m, 0) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+
+        int FreeMutex(CyaSSL_Mutex* m)
+        {
+            if (pthread_mutex_destroy(m) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+
+        int LockMutex(CyaSSL_Mutex* m)
+        {
+            if (pthread_mutex_lock(m) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+
+        int UnLockMutex(CyaSSL_Mutex* m)
+        {
+            if (pthread_mutex_unlock(m) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+    #elif defined(THREADX)
+
+        int InitMutex(CyaSSL_Mutex* m)
+        {
+            if (tx_mutex_create(m, "CyaSSL Mutex", TX_NO_INHERIT) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+
+        int FreeMutex(CyaSSL_Mutex* m)
+        {
+            if (tx_mutex_delete(m) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+
+        int LockMutex(CyaSSL_Mutex* m)
+        {
+            if (tx_mutex_get(m, TX_WAIT_FOREVER) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+
+        int UnLockMutex(CyaSSL_Mutex* m)
+        {
+            if (tx_mutex_put(m) == 0)
+                return 0;
+            else
+                return -1;
+        }
+
+    #elif defined(MICRIUM)
+
+        int InitMutex(CyaSSL_Mutex* m)
+        {
+            #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+                if (NetSecure_OS_MutexCreate(m) == 0)
+                    return 0;
+                else
+                    return -1;
+            #else
+                return 0;
+            #endif
+        }
+
+
+        int FreeMutex(CyaSSL_Mutex* m)
+        {
+            #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+                if (NetSecure_OS_FreeMutex(m) == 0)
+                    return 0;
+                else
+                    return -1;
+            #else
+                return 0;
+            #endif
+        }
+
+
+        int LockMutex(CyaSSL_Mutex* m)
+        {
+            #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+                if (NetSecure_OS_LockMutex(m) == 0)
+                    return 0;
+                else
+                    return -1;
+            #else
+                return 0;
+            #endif
+        }
+
+
+        int UnLockMutex(CyaSSL_Mutex* m)
+        {
+            #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+                if (NetSecure_OS_UnLockMutex(m) == 0)
+                    return 0;
+                else
+                    return -1;
+            #else
+                return 0;
+            #endif
+
+        }
+
+    #endif /* USE_WINDOWS_API */
+#endif /* SINGLE_THREADED */
 
 
 #ifdef DEBUG_CYASSL
@@ -4138,12 +4722,17 @@ int SetCipherList(SSL_CTX* ctx, const char* list)
 
     void CYASSL_MSG(const char* msg)
     {
-        if (logging)
+        if (logging) {
 #ifdef THREADX
             dc_log_printf("%s\n", msg);
+#elif defined(MICRIUM)
+        #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+            NetSecure_TraceOut((CPU_CHAR *)msg);
+        #endif
 #else
             fprintf(stderr, "%s\n", msg);
 #endif
+        }
     }
 
 

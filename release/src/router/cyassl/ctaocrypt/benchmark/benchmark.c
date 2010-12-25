@@ -8,16 +8,16 @@
 #include "arc4.h"
 #include "hc128.h"
 #include "rabbit.h"
-#include "aes.h"
-#include "md5.h"
-#include "sha.h"
+#include "ctc_aes.h"
+#include "ctc_md5.h"
+#include "ctc_sha.h"
 #include "sha256.h"
 #include "sha512.h"
-#include "rsa.h"
+#include "ctc_rsa.h"
 #include "asn.h"
-#include "ripemd.h"
+#include "ctc_ripemd.h"
 
-#include "dh.h"
+#include "ctc_dh.h"
 
 
 #ifdef _MSC_VER

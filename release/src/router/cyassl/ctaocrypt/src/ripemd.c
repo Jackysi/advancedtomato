@@ -22,14 +22,12 @@
 
 #ifdef CYASSL_RIPEMD
 
-#include "ripemd.h"
+#include "ctc_ripemd.h"
 #ifdef NO_INLINE
     #include "misc.h"
 #else
     #include "misc.c"
 #endif
-#include <string.h>
-#include <assert.h>
 
 
 #ifndef min
@@ -283,7 +281,7 @@ void RipeMdUpdate(RipeMd* ripemd, const byte* data, word32 len)
 
     while (len) {
         word32 add = min(len, RIPEMD_BLOCK_SIZE - ripemd->buffLen);
-        memcpy(&local[ripemd->buffLen], data, add);
+        XMEMCPY(&local[ripemd->buffLen], data, add);
 
         ripemd->buffLen += add;
         data         += add;
@@ -311,7 +309,7 @@ void RipeMdFinal(RipeMd* ripemd, byte* hash)
 
     /* pad with zeros */
     if (ripemd->buffLen > RIPEMD_PAD_SIZE) {
-        memset(&local[ripemd->buffLen], 0, RIPEMD_BLOCK_SIZE - ripemd->buffLen);
+        XMEMSET(&local[ripemd->buffLen], 0, RIPEMD_BLOCK_SIZE - ripemd->buffLen);
         ripemd->buffLen += RIPEMD_BLOCK_SIZE - ripemd->buffLen;
 
         #ifdef BIG_ENDIAN_ORDER
@@ -320,7 +318,7 @@ void RipeMdFinal(RipeMd* ripemd, byte* hash)
         Transform(ripemd);
         ripemd->buffLen = 0;
     }
-    memset(&local[ripemd->buffLen], 0, RIPEMD_PAD_SIZE - ripemd->buffLen);
+    XMEMSET(&local[ripemd->buffLen], 0, RIPEMD_PAD_SIZE - ripemd->buffLen);
    
     /* put lengths in bits */
     ripemd->loLen = ripemd->loLen << 3;
@@ -332,15 +330,15 @@ void RipeMdFinal(RipeMd* ripemd, byte* hash)
         ByteReverseBytes(local, local, RIPEMD_BLOCK_SIZE);
     #endif
     /* ! length ordering dependent on digest endian type ! */
-    memcpy(&local[RIPEMD_PAD_SIZE], &ripemd->loLen, sizeof(word32));
-    memcpy(&local[RIPEMD_PAD_SIZE + sizeof(word32)], &ripemd->hiLen, 
+    XMEMCPY(&local[RIPEMD_PAD_SIZE], &ripemd->loLen, sizeof(word32));
+    XMEMCPY(&local[RIPEMD_PAD_SIZE + sizeof(word32)], &ripemd->hiLen, 
            sizeof(word32));
 
     Transform(ripemd);
     #ifdef BIG_ENDIAN_ORDER
         ByteReverseWords(ripemd->digest, ripemd->digest, RIPEMD_DIGEST_SIZE);
     #endif
-    memcpy(hash, ripemd->digest, RIPEMD_DIGEST_SIZE);
+    XMEMCPY(hash, ripemd->digest, RIPEMD_DIGEST_SIZE);
 
     InitRipeMd(ripemd);  /* reset state */
 }

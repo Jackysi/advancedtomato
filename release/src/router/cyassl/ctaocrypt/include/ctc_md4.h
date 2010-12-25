@@ -1,4 +1,4 @@
-/* dsa.h
+/* ctc_md4.h
  *
  * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *
@@ -19,43 +19,47 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
-#ifndef NO_DSA
 
-#ifndef CTAO_CRYPT_DSA_H
-#define CTAO_CRYPT_DSA_H
+#ifndef NO_MD4
+
+#ifndef CTAO_CRYPT_MD4_H
+#define CTAO_CRYPT_MD4_H
 
 #include "types.h"
-#include "integer.h"
-#include "random.h"
 
 #ifdef __cplusplus
     extern "C" {
 #endif
 
 
+/* in bytes */
 enum {
-    DSA_PUBLIC   = 0,
-    DSA_PRIVATE  = 1
+    MD4_BLOCK_SIZE  = 64,
+    MD4_DIGEST_SIZE = 16,
+    MD4_PAD_SIZE    = 56
 };
 
-/* DSA */
-typedef struct DsaKey {
-    mp_int p, q, g, y, x;
-    int type;                               /* public or private */
-} DsaKey;
+
+/* MD4 digest */
+typedef struct Md4 {
+    word32  buffLen;   /* in bytes          */
+    word32  loLen;     /* length in bytes   */
+    word32  hiLen;     /* length in bytes   */
+    word32  digest[MD4_DIGEST_SIZE / sizeof(word32)];
+    word32  buffer[MD4_BLOCK_SIZE  / sizeof(word32)];
+} Md4;
 
 
-void InitDsaKey(DsaKey* key);
-void FreeDsaKey(DsaKey* key);
-
-int DsaSign(const byte* digest, byte* out, DsaKey* key, RNG* rng);
-int DsaVerify(const byte* digest, const byte* sig, DsaKey* key, int* answer);
+void InitMd4(Md4*);
+void Md4Update(Md4*, const byte*, word32);
+void Md4Final(Md4*, byte*);
 
 
 #ifdef __cplusplus
     } /* extern "C" */
 #endif
 
-#endif /* CTAO_CRYPT_DSA_H */
-#endif /* NO_DSA */
+#endif /* CTAO_CRYPT_MD4_H */
+
+#endif /* NO_MD4 */
 

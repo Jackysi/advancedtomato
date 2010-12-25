@@ -1,4 +1,4 @@
-/* aes.h
+/* ctc_aes.h
  *
  * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *

@@ -1,4 +1,4 @@
-/* rsa.h
+/* ctc_rsa.h
  *
  * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *

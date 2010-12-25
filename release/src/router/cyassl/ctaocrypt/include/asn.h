@@ -24,10 +24,10 @@
 #define CTAO_CRYPT_ASN_H
 
 #include "types.h"
-#include "rsa.h"
-#include "dh.h"
-#include "dsa.h"
-#include "sha.h"
+#include "ctc_rsa.h"
+#include "ctc_dh.h"
+#include "ctc_dsa.h"
+#include "ctc_sha.h"
 
 
 #ifdef __cplusplus
@@ -79,8 +79,11 @@ enum Misc_ASN {
     MAX_VERSION_SZ      =   5,     /* enum + id + version(byte) + (header(2))*/
     MAX_ENCODED_DIG_SZ  =  25,     /* sha + enum(bit or octet) + legnth(4) */
     MAX_RSA_INT_SZ      = 517,     /* RSA raw sz 4096 for bits + tag + len(4) */
+    MAX_NTRU_KEY_SZ     = 610,     /* NTRU 112 bit public key */
+    MAX_NTRU_ENC_SZ     = 628,     /* NTRU 112 bit DER public encoding */
     MAX_RSA_E_SZ        =  16,     /* Max RSA public e size */
-    MAX_RSA_PUBLIC_SZ   = MAX_RSA_INT_SZ + MAX_ALGO_SZ + MAX_SEQ_SZ * 2,
+    MAX_PUBLIC_KEY_SZ   = MAX_NTRU_ENC_SZ + MAX_ALGO_SZ + MAX_SEQ_SZ * 2, 
+                                   /* use bigger NTRU size */
     MAX_LENGTH_SZ       =   4 
 };
 
@@ -106,8 +109,9 @@ enum Hash_Sum  {
 };
 
 enum Key_Sum {
-    DSAk = 515,
-    RSAk = 645
+    DSAk  = 515,
+    RSAk  = 645,
+    NTRUk = 364
 };
 
 
@@ -136,10 +140,7 @@ typedef struct DecodedCert {
     word32  keyOID;                  /* sum of key algo  object id       */
     byte    subjectHash[SHA_SIZE];   /* hash of all Names                */
     byte    issuerHash[SHA_SIZE];    /* hash of all Names                */
-    byte*   signature;
-    int     signatureStored;
-    char*   issuerCN;                /* CommonName                       */
-    int     issuerCNLen;
+    byte*   signature;               /* not owned, points into raw cert  */
     char*   subjectCN;               /* CommonName                       */
     int     subjectCNLen;
     char    issuer[ASN_NAME_MAX];    /* full name including common name  */
@@ -148,6 +149,23 @@ typedef struct DecodedCert {
     byte*   source;                  /* byte buffer holder cert, NOT owner */
     word32  srcIdx;                  /* current offset into buffer       */
     void*   heap;                    /* for user memory overrides        */
+#ifdef CYASSL_CERT_GEN
+    /* easy access to sujbect info for other sign */
+    char*   subjectSN;
+    int     subjectSNLen;
+    char*   subjectC;
+    int     subjectCLen;
+    char*   subjectL;
+    int     subjectLLen;
+    char*   subjectST;
+    int     subjectSTLen;
+    char*   subjectO;
+    int     subjectOLen;
+    char*   subjectOU;
+    int     subjectOULen;
+    char*   subjectEmail;
+    int     subjectEmailLen;
+#endif /* CYASSL_CERT_GEN */
 } DecodedCert;
 
 
@@ -157,6 +175,7 @@ typedef struct Signer Signer;
 struct Signer {
     byte*   publicKey;
     word32  pubKeySize;
+    word32  keyOID;                  /* key type */
     char*   name;                    /* common name */
     byte    hash[SHA_DIGEST_SIZE];   /* sha hash of names in certificate */
     Signer* next;
@@ -204,9 +223,11 @@ int DerToPem(const byte* der, word32 derSz, byte* output, word32 outputSz,
 enum cert_enums {
     SERIAL_SIZE     =  8,
     NAME_SIZE       = 64,
-    NAME_ENTRIES    =  7,
+    NAME_ENTRIES    =  8,
     JOINT_LEN       =  2,
     EMAIL_JOINT_LEN =  9,
+    RSA_KEY         = 10,
+    NTRU_KEY        = 11
 };
 
 
@@ -214,10 +235,11 @@ typedef struct CertName {
     char country[NAME_SIZE];
     char state[NAME_SIZE];
     char locality[NAME_SIZE];
+    char sur[NAME_SIZE];
     char org[NAME_SIZE];
     char unit[NAME_SIZE];
     char commonName[NAME_SIZE];
-    char email[NAME_SIZE];
+    char email[NAME_SIZE];  /* !!!! email has to be last !!!! */
 } CertName;
 
 
@@ -230,6 +252,9 @@ typedef struct Cert {
     int      daysValid;                 /* validity days */
     int      selfSigned;                /* self signed flag */
     CertName subject;                   /* subject info */
+    /* internal use only */
+    int      bodySz;                    /* pre sign total size */
+    int      keyType;                   /* public key type of subject */
 } Cert;
 
 
@@ -241,9 +266,18 @@ typedef struct Cert {
    daysValid  = 500
    selfSigned = 1 (true) use subject as issuer
    subject    = blank
+   keyType    = RSA_KEY (default)
 */
 void InitCert(Cert*);
 int  MakeCert(Cert*, byte* derBuffer, word32 derSz, RsaKey*, RNG*);
+int  SignCert(Cert*, byte* derBuffer, word32 derSz, RsaKey*, RNG*);
+int  MakeSelfCert(Cert*, byte* derBuffer, word32 derSz, RsaKey*, RNG*);
+int  SetIssuer(Cert*, const char*);
+#ifdef HAVE_NTRU
+int  MakeNtruCert(Cert*, byte* derBuffer, word32 derSz, const byte* ntruKey,
+                  word16 keySz, RNG*);
+#endif
+
 
 #endif /* CYASSL_CERT_GEN */
 

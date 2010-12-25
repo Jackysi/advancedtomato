@@ -77,6 +77,10 @@ enum CyaSSL_ErrorCodes {
     ZERO_RETURN            = -243,            /* peer sent close notify */
     SIDE_ERROR             = -244,            /* wrong client/server type */
     NO_PEER_CERT           = -245,            /* peer didn't send key */
+    NTRU_KEY_ERROR         = -246,            /* NTRU key error  */
+    NTRU_DRBG_ERROR        = -247,            /* NTRU drbg error  */
+    NTRU_ENCRYPT_ERROR     = -248,            /* NTRU encrypt error  */
+    NTRU_DECRYPT_ERROR     = -249,            /* NTRU decrypt error  */
     /* add strings to SetErrorString !!!!! */
 
     /* begin negotiation parameter errors */

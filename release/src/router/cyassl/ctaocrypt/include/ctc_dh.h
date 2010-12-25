@@ -1,4 +1,4 @@
-/* dh.h
+/* ctc_dh.h
  *
  * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
  *

@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="echoclient"
-	ProjectGUID="{8362A816-C5DC-4E22-B5C5-9E6806387073}"
-	RootNamespace="echoclient"
+	Name="server"
+	ProjectGUID="{E9FB0BA5-BA46-4A59-A953-39C18CD1DCB1}"
+	RootNamespace="server"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -61,8 +61,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Ws2_32.lib"
+				AdditionalDependencies="Ws2_32.lib neo.lib"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories="..\..\NTRU\bin"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="1"
@@ -135,8 +136,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Ws2_32.lib"
+				AdditionalDependencies="Ws2_32.lib neo.lib"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="..\..\NTRU\bin"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
@@ -175,7 +177,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\echoclient.c"
+				RelativePath=".\server.c"
 				>
 			</File>
 		</Filter>

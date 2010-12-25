@@ -26,8 +26,8 @@
 #define CTAO_CRYPT_PWDBASED_H
 
 #include "types.h"
-#include "md5.h"       /* for hash type */
-#include "sha.h"
+#include "ctc_md5.h"       /* for hash type */
+#include "ctc_sha.h"
 
 #ifdef __cplusplus
     extern "C" {

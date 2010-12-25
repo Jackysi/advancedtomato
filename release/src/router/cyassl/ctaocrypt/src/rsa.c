@@ -21,7 +21,7 @@
 
 
 
-#include "rsa.h"
+#include "ctc_rsa.h"
 #include "random.h"
 #include "error.h"
 
@@ -82,13 +82,15 @@ void FreeRsaKey(RsaKey* key)
 static void RsaPad(const byte* input, word32 inputLen, byte* pkcsBlock,
                    word32 pkcsBlockLen, byte padValue, RNG* rng)
 {
+    if (inputLen == 0) return;
+
     pkcsBlock[0] = 0x0;       /* set first byte to zero and advance */
     pkcsBlock++; pkcsBlockLen--;
     pkcsBlock[0] = padValue;  /* insert padValue */
 
     if (padValue == RSA_BLOCK_TYPE_1)
         /* pad with 0xff bytes */
-        memset(&pkcsBlock[1], 0xFF, pkcsBlockLen - inputLen - 2);
+        XMEMSET(&pkcsBlock[1], 0xFF, pkcsBlockLen - inputLen - 2);
     else {
         /* pad with non-zero random bytes */
         word32 padLen = pkcsBlockLen - inputLen - 1, i;
@@ -100,7 +102,7 @@ static void RsaPad(const byte* input, word32 inputLen, byte* pkcsBlock,
     }
 
     pkcsBlock[pkcsBlockLen-inputLen-1] = 0;     /* separator */
-    memcpy(pkcsBlock+pkcsBlockLen-inputLen, input, inputLen);
+    XMEMCPY(pkcsBlock+pkcsBlockLen-inputLen, input, inputLen);
 }
 
 
@@ -271,20 +273,20 @@ int RsaPrivateDecrypt(const byte* in, word32 inLen, byte* out, word32 outLen,
     byte*  tmp;
     byte*  pad = 0;
 
-    if ( !(tmp = (byte*)XMALLOC(inLen, key->heap)) )
+    if ( !(tmp = (byte*)XMALLOC(inLen, key->heap, DYNAMIC_TYPE_RSA)) )
         return MEMORY_E;
 
-    memcpy(tmp, in, inLen);
+    XMEMCPY(tmp, in, inLen);
 
     if ((ret = plainLen = RsaPrivateDecryptInline(tmp, inLen, &pad, key))
             < 0) {
-        XFREE(tmp, key->heap);
+        XFREE(tmp, key->heap, DYNAMIC_TYPE_RSA);
         return ret;
     }
-    memcpy(out, pad, plainLen);
-    memset(tmp, 0x00, inLen); 
+    XMEMCPY(out, pad, plainLen);
+    XMEMSET(tmp, 0x00, inLen); 
 
-    XFREE(tmp, key->heap);
+    XFREE(tmp, key->heap, DYNAMIC_TYPE_RSA);
     return plainLen;
 }
 
@@ -311,21 +313,21 @@ int RsaSSL_Verify(const byte* in, word32 inLen, byte* out, word32 outLen,
     byte*  tmp;
     byte*  pad = 0;
 
-    if ( !(tmp = (byte*)XMALLOC(inLen, key->heap)) )
+    if ( !(tmp = (byte*)XMALLOC(inLen, key->heap, DYNAMIC_TYPE_RSA)) )
         return MEMORY_E;
 
-    memcpy(tmp, in, inLen);
+    XMEMCPY(tmp, in, inLen);
 
     if ((ret = plainLen = RsaSSL_VerifyInline(tmp, inLen, &pad, key))
             < 0) {
-        XFREE(tmp, key->heap);
+        XFREE(tmp, key->heap, DYNAMIC_TYPE_RSA);
         return ret;
     }
   
-    memcpy(out, pad, plainLen);
-    memset(tmp, 0x00, inLen); 
+    XMEMCPY(out, pad, plainLen);
+    XMEMSET(tmp, 0x00, inLen); 
 
-    XFREE(tmp, key->heap);
+    XFREE(tmp, key->heap, DYNAMIC_TYPE_RSA);
     return plainLen;
 }
 
@@ -402,22 +404,22 @@ static int rand_prime(mp_int* N, int len, RNG* rng, void* heap)
  
         /* load value */
         if ((err = mp_read_unsigned_bin(N, buf, len)) != MP_OKAY) {
-            XFREE(buf, heap);
+            XFREE(buf, heap, DYNAMIC_TYPE_RSA);
             return err;
         }
 
         /* test */
         if ((err = mp_prime_is_prime(N, 8, &res)) != MP_OKAY) {
-            XFREE(buf, heap);
+            XFREE(buf, heap, DYNAMIC_TYPE_RSA);
             return err;
         }
     } while (res == MP_NO);
 
 #ifdef LTC_CLEAN_STACK
-    memset(buf, 0, len);
+    XMEMSET(buf, 0, len);
 #endif
 
-    XFREE(buf, heap);
+    XFREE(buf, heap, DYNAMIC_TYPE_RSA);
     return 0;
 }
 

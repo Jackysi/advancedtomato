@@ -29,10 +29,14 @@
 #ifndef CYASSL_OPENSSL_H_
 #define CYASSL_OPENSSL_H_
 
-#include <stdio.h>   /* ERR_print fp */
+#include "os_settings.h"   /* for users not using preprocessor flags */
+
+#ifndef NO_FILESYTEM
+    #include <stdio.h>   /* ERR_print fp */
+#endif
 
 #ifdef YASSL_PREFIX
-#include "prefix_ssl.h"
+    #include "prefix_ssl.h"
 #endif
 
 #undef X509_NAME   /* wincrypt.h clash */
@@ -104,10 +108,13 @@ typedef struct X509_OBJECT {
 } X509_OBJECT;
 
 
+/* in cyassl_int.h too, change there !! */
 typedef struct X509_STORE_CTX {
     int   error;
     int   error_depth;
     X509* current_cert;          /* stunnel dereference */
+    char* domain;                /* subject CN domain name */
+    /* in cyassl_int.h too, change there !! */
 } X509_STORE_CTX;
 
 
@@ -131,6 +138,18 @@ int SSL_CTX_use_certificate_file(SSL_CTX*, const char*, int);
 int SSL_CTX_use_PrivateKey_file(SSL_CTX*, const char*, int);
 int SSL_CTX_load_verify_locations(SSL_CTX*, const char*, const char*);
 int SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file);
+int SSL_CTX_use_RSAPrivateKey_file(SSL_CTX*, const char*, int);
+
+#ifdef CYASSL_DER_LOAD
+    int CyaSSL_CTX_load_verify_locations(SSL_CTX*, const char*, int);
+#endif
+
+#ifdef HAVE_NTRU
+    int CyaSSL_CTX_use_NTRUPrivateKey_file(SSL_CTX*, const char*); /* load NTRU 
+                                                             private key blob */
+#endif
+
+int CyaSSL_PemCertToDer(const char*, unsigned char*, int);
 
 #endif /* NO_FILESYSTEM */
 
@@ -308,7 +327,6 @@ void* SSL_get_ex_data(const SSL*, int);
 
 void SSL_CTX_set_default_passwd_cb_userdata(SSL_CTX*, void* userdata);
 void SSL_CTX_set_default_passwd_cb(SSL_CTX*, pem_password_cb);
-int  SSL_CTX_use_RSAPrivateKey_file(SSL_CTX*, const char*, int);
 
 
 long SSL_CTX_set_timeout(SSL_CTX*, long);
@@ -436,10 +454,11 @@ enum {
 
 /* extras end */
 
+#ifndef NO_FILESYSTEM
 /* CyaSSL extension, provide last error from SSL_get_error
    since not using thread storage error queue */
 void  ERR_print_errors_fp(FILE*, int err);
-
+#endif
 
 enum { /* ssl Constants */
     SSL_ERROR_NONE      =  0,   /* for most functions */
@@ -458,6 +477,7 @@ enum { /* ssl Constants */
     SSL_FILETYPE_ASN1    = 2,
     SSL_FILETYPE_PEM     = 1,
     SSL_FILETYPE_DEFAULT = 2, /* ASN1 */
+    SSL_FILETYPE_RAW     = 3, /* NTRU raw key blob */
 
     SSL_VERIFY_NONE                 = 0,
     SSL_VERIFY_PEER                 = 1,
@@ -584,14 +604,16 @@ int  SSL_CTX_get_ex_new_index(long, void*, void*, void*, void*);
    date check and signature check */
 int CyaSSL_check_domain_name(SSL* ssl, const char* dn);
 
-void InitCyaSSL(void);   /* need to call once to load library (session cache) */
-void FreeCyaSSL(void);   /* call when done to free session cache mutex        */
+int InitCyaSSL(void);   /* need to call once to load library (session cache) */
+int FreeCyaSSL(void);   /* call when done to free session cache mutex        */
 
 int  CyaSSL_Debugging_ON(void);   /* turn logging on, only if compiled in */
 void CyaSSL_Debugging_OFF(void);  /* turn logging off */
 
 int CyaSSL_set_compression(SSL* ssl);  /* turn on CyaSSL data compression */
 
+int CyaSSL_CTX_use_NTRUPrivateKey_file(SSL_CTX*, const char*); /* load NTRU
+                                                             private key blob */
 X509_CHAIN* CyaSSL_get_peer_chain(SSL* ssl);   /* get CyaSSL peer X509_CHAIN */
 int  CyaSSL_get_chain_count(X509_CHAIN* chain);   /* peer chain count */
 int  CyaSSL_get_chain_length(X509_CHAIN*, int idx); /* index cert length */
@@ -603,19 +625,30 @@ const unsigned char* CyaSSL_get_sessionID(const SSL_SESSION* session);
 #ifndef _WIN32
     #ifndef NO_WRITEV
         #include <sys/uio.h>
-        /* allow writv style writing */
+        /* allow writev style writing */
         int CyaSSL_writev(SSL* ssl, const struct iovec* iov, int iovcnt);
     #endif
 #endif
 
-#ifdef NO_FILESYSTEM
+#if defined(NO_FILESYSTEM) || defined(MICRIUM)
 
-int CyaSSL_CTX_load_verify_buffer(SSL_CTX*, const unsigned char*, long);
+int CyaSSL_CTX_load_verify_buffer(SSL_CTX*, const unsigned char*, long, int);
 int CyaSSL_CTX_use_certificate_buffer(SSL_CTX*, const unsigned char*, long,int);
 int CyaSSL_CTX_use_PrivateKey_buffer(SSL_CTX*, const unsigned char*, long, int);
 int CyaSSL_CTX_use_certificate_chain_buffer(SSL_CTX*,const unsigned char*,long);
 
-#endif /* NO_FILESYSTEM */
+#endif /* NO_FILESYSTEM || MICRIUM */
+
+
+/* I/O callbacks */
+typedef int (*CallbackIORecv)(char *buf, int sz, void *ctx);
+typedef int (*CallbackIOSend)(char *buf, int sz, void *ctx);
+
+void CyaSSL_SetIORecv(SSL_CTX*, CallbackIORecv);
+void CyaSSL_SetIOSend(SSL_CTX*, CallbackIOSend);
+
+void CyaSSL_SetIOReadCtx(SSL* ssl, void *ctx);
+void CyaSSL_SetIOWriteCtx(SSL* ssl, void *ctx);
 
 
 #ifdef CYASSL_CALLBACKS

@@ -36,10 +36,10 @@
 #ifndef CTAO_CRYPT_TFM_H
 #define CTAO_CRYPT_TFM_H
 
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <limits.h>
+#include "types.h"
+#ifndef CHAR_BIT
+    #include <limits.h>
+#endif
 
 
 #ifdef __cplusplus
@@ -335,7 +335,7 @@ typedef struct {
 /*const char *fp_ident(void);*/
 
 /* initialize [or zero] an fp int */
-#define fp_init(a)  (void)memset((a), 0, sizeof(fp_int))
+#define fp_init(a)  (void)XMEMSET((a), 0, sizeof(fp_int))
 #define fp_zero(a)  fp_init(a)
 
 /* zero/even/odd ? */
@@ -347,7 +347,7 @@ typedef struct {
 void fp_set(fp_int *a, fp_digit b);
 
 /* copy from a to b */
-#define fp_copy(a, b)      (void)(((a) != (b)) && memcpy((b), (a), sizeof(fp_int)))
+#define fp_copy(a, b)  (void)(((a) != (b)) && XMEMCPY((b), (a), sizeof(fp_int)))
 #define fp_init_copy(a, b) fp_copy(b, a)
 
 /* clamp digits */

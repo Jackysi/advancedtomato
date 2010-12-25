@@ -1,4 +1,4 @@
-/* test.h */
+/* cyassl_test.h */
 
 #ifndef CyaSSL_TEST_H
 #define CyaSSL_TEST_H
@@ -9,7 +9,7 @@
 #include <ctype.h>
 #include "types.h"
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     #include <winsock2.h>
     #include <process.h>
     #ifdef TEST_IPV6            /* don't require newer SDK for IPV4 */
@@ -36,7 +36,7 @@
         #include <netdb.h>
     #endif
     #define SOCKET_T unsigned int
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 
 #ifdef _MSC_VER
     /* disable conversion warning */
@@ -44,7 +44,7 @@
     #pragma warning(disable:4244 4996)
 #endif
 
-#if defined(__MACH__) || defined(_WIN32)
+#if defined(__MACH__) || defined(USE_WINDOWS_API)
     #ifndef _SOCKLEN_T
         typedef int socklen_t;
     #endif
@@ -59,7 +59,7 @@
 #endif
 
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     #define CloseSocket(s) closesocket(s)
     #define StartTCP() { WSADATA wsd; WSAStartup(0x0002, &wsd); }
 #else
@@ -95,19 +95,22 @@
    
 
 #ifndef NO_MAIN_DRIVER
-    const char* caCert = "../../certs/ca-cert.pem";
-    const char* svrCert = "../../certs/server-cert.pem";
-    const char* svrKey  = "../../certs/server-key.pem";
-    const char* cliCert = "../../certs/client-cert.pem";
-    const char* cliKey  = "../../certs/client-key.pem";
+    const char* caCert   = "../../certs/ca-cert.pem";
+    const char* svrCert  = "../../certs/server-cert.pem";
+    const char* svrKey   = "../../certs/server-key.pem";
+    const char* cliCert  = "../../certs/client-cert.pem";
+    const char* cliKey   = "../../certs/client-key.pem";
+    const char* ntruCert = "../../certs/ntru-cert.pem";
+    const char* ntruKey  = "../../certs/ntru-key.raw";
 #else
-    static const char* caCert = "../certs/ca-cert.pem";
-    static const char* svrCert = "../certs/server-cert.pem";
-    static const char* svrKey  = "../certs/server-key.pem";
-    static const char* cliCert = "../certs/client-cert.pem";
-    static const char* cliKey  = "../certs/client-key.pem";
+    static const char* caCert   = "../certs/ca-cert.pem";
+    static const char* svrCert  = "../certs/server-cert.pem";
+    static const char* svrKey   = "../certs/server-key.pem";
+    static const char* cliCert  = "../certs/client-cert.pem";
+    static const char* cliKey   = "../certs/client-key.pem";
+    static const char* ntruCert = "../certs/ntru-cert.pem";
+    static const char* ntruKey  = "../certs/ntru-key.raw";
 #endif
-
 
 typedef struct tcp_ready {
     int ready;              /* predicate */
@@ -170,8 +173,8 @@ static INLINE void showPeer(SSL* ssl)
         
         printf("peer's cert info:\n issuer : %s\n subject: %s\n", issuer,
                                                                   subject);
-        XFREE(subject, 0);
-        XFREE(issuer, 0);
+        XFREE(subject, 0, DYNAMIC_TYPE_OPENSSL);
+        XFREE(issuer,  0, DYNAMIC_TYPE_OPENSSL);
     }
     else
         printf("peer has no cert!\n");
@@ -243,7 +246,7 @@ static INLINE void tcp_socket(SOCKET_T* sockfd, SOCKADDR_IN_T* addr,
     addr->sin6_addr = in6addr_loopback;
 #endif
 
-#ifndef _WIN32
+#ifndef USE_WINDOWS_API 
 #ifdef SO_NOSIGPIPE
     {
         int       on = 1;
@@ -263,7 +266,7 @@ static INLINE void tcp_socket(SOCKET_T* sockfd, SOCKADDR_IN_T* addr,
             err_sys("setsockopt TCP_NODELAY failed\n");
     }
 #endif
-#endif  /* _WIN32 */
+#endif  /* USE_WINDOWS_API */
 }
 
 
@@ -289,7 +292,7 @@ static INLINE void tcp_listen(SOCKET_T* sockfd)
     tcp_socket(sockfd, &addr, yasslIP, yasslPort);
 #endif
 
-#ifndef _WIN32
+#ifndef USE_WINDOWS_API 
     {
         int       on  = 1;
         socklen_t len = sizeof(on);
@@ -333,7 +336,7 @@ static INLINE void udp_accept(SOCKET_T* sockfd, int* clientfd, func_args* args)
     tcp_socket(sockfd, &addr, yasslIP, yasslPort);
 
 
-#ifndef _WIN32
+#ifndef USE_WINDOWS_API 
     {
         int       on  = 1;
         socklen_t len = sizeof(on);
@@ -391,7 +394,7 @@ static INLINE void tcp_accept(SOCKET_T* sockfd, int* clientfd, func_args* args)
 static INLINE void tcp_set_nonblocking(SOCKET_T* sockfd)
 {
 #ifdef NON_BLOCKING
-    #ifdef _WIN32
+    #ifdef USE_WINDOWS_API 
         unsigned long blocking = 1;
         int ret = ioctlsocket(*sockfd, FIONBIO, &blocking);
     #else
@@ -443,7 +446,7 @@ static INLINE unsigned int my_psk_server_cb(SSL* ssl, const char* identity,
 #endif /* NO_PSK */
 
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
 
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
@@ -477,10 +480,79 @@ static INLINE unsigned int my_psk_server_cb(SSL* ssl, const char* identity,
         return (double)tv.tv_sec + (double)tv.tv_usec / 1000000;
     }
 
-#endif /* _WIN32 */
+#endif /* USE_WINDOWS_API */
 
 
+#ifdef NO_FILESYSTEM
 
+    enum {
+        CYASSL_CA   = 1,
+        CYASSL_CERT = 2,
+        CYASSL_KEY  = 3
+    };
+
+    static INLINE void load_buffer(SSL_CTX* ctx, const char* fname, int type)
+    {
+        /* test buffer load */
+        long  sz = 0;
+        byte  buff[4096];
+        FILE* file = fopen(fname, "rb");
+
+        if (!file)
+            err_sys("can't open file for buffer load");
+        fseek(file, 0, SEEK_END);
+        sz = ftell(file);
+        rewind(file);
+        fread(buff, sizeof(buff), 1, file);
+  
+        if (type == CYASSL_CA) {
+            if (CyaSSL_CTX_load_verify_buffer(ctx, buff, sz, SSL_FILETYPE_PEM)
+                                              != SSL_SUCCESS)
+                err_sys("can't load buffer ca file");
+        }
+        else if (type == CYASSL_CERT) {
+            if (CyaSSL_CTX_use_certificate_buffer(ctx, buff, sz,
+                        SSL_FILETYPE_PEM) != SSL_SUCCESS)
+                err_sys("can't load buffer cert file");
+        }
+        else if (type == CYASSL_KEY) {
+            if (CyaSSL_CTX_use_PrivateKey_buffer(ctx, buff, sz,
+                        SSL_FILETYPE_PEM) != SSL_SUCCESS)
+                err_sys("can't load buffer key file");
+        }
+    }
+
+#endif /* NO_FILESYSTEM */
+
+#ifdef VERIFY_CALLBACK
+
+static int myVerify(int preverify, X509_STORE_CTX* store)
+{
+    char buffer[80];
+
+    printf("In verification callback, error = %d, %s\n", store->error,
+                                        ERR_error_string(store->error, buffer));
+#ifdef OPENSSL_EXTRA
+    X509* peer = store->current_cert;
+    if (peer) {
+        char* issuer  = X509_NAME_oneline(X509_get_issuer_name(peer), 0, 0);
+        char* subject = X509_NAME_oneline(X509_get_subject_name(peer), 0, 0);
+        
+        printf("peer's cert info:\n issuer : %s\n subject: %s\n", issuer,
+                                                                  subject);
+        XFREE(subject, 0, DYNAMIC_TYPE_OPENSSL);
+        XFREE(issuer,  0, DYNAMIC_TYPE_OPENSSL);
+    }
+    else
+        printf("peer has no cert!\n");
+#endif
+    printf("Subject's domain name is %s\n", store->domain);
+
+    printf("Allowing to continue anyway (shouldn't do this, EVER!!!)\n");
+    return 1;
+}
+
+#endif /* VERIFY_CALLBACK */
 
 
 #endif /* CyaSSL_TEST_H */

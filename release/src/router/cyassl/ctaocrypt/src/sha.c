@@ -20,14 +20,12 @@
  */
 
 
-#include "sha.h"
+#include "ctc_sha.h"
 #ifdef NO_INLINE
     #include "misc.h"
 #else
     #include "misc.c"
 #endif
-#include <string.h>
-#include <assert.h>
 
 
 #ifndef min
@@ -137,7 +135,7 @@ void ShaUpdate(Sha* sha, const byte* data, word32 len)
 
     while (len) {
         word32 add = min(len, SHA_BLOCK_SIZE - sha->buffLen);
-        memcpy(&local[sha->buffLen], data, add);
+        XMEMCPY(&local[sha->buffLen], data, add);
 
         sha->buffLen += add;
         data         += add;
@@ -165,7 +163,7 @@ void ShaFinal(Sha* sha, byte* hash)
 
     /* pad with zeros */
     if (sha->buffLen > SHA_PAD_SIZE) {
-        memset(&local[sha->buffLen], 0, SHA_BLOCK_SIZE - sha->buffLen);
+        XMEMSET(&local[sha->buffLen], 0, SHA_BLOCK_SIZE - sha->buffLen);
         sha->buffLen += SHA_BLOCK_SIZE - sha->buffLen;
 
         #ifdef LITTLE_ENDIAN_ORDER
@@ -174,7 +172,7 @@ void ShaFinal(Sha* sha, byte* hash)
         Transform(sha);
         sha->buffLen = 0;
     }
-    memset(&local[sha->buffLen], 0, SHA_PAD_SIZE - sha->buffLen);
+    XMEMSET(&local[sha->buffLen], 0, SHA_PAD_SIZE - sha->buffLen);
    
     /* put lengths in bits */
     sha->loLen = sha->loLen << 3;
@@ -186,14 +184,14 @@ void ShaFinal(Sha* sha, byte* hash)
         ByteReverseBytes(local, local, SHA_BLOCK_SIZE);
     #endif
     /* ! length ordering dependent on digest endian type ! */
-    memcpy(&local[SHA_PAD_SIZE], &sha->hiLen, sizeof(word32));
-    memcpy(&local[SHA_PAD_SIZE + sizeof(word32)], &sha->loLen, sizeof(word32));
+    XMEMCPY(&local[SHA_PAD_SIZE], &sha->hiLen, sizeof(word32));
+    XMEMCPY(&local[SHA_PAD_SIZE + sizeof(word32)], &sha->loLen, sizeof(word32));
 
     Transform(sha);
     #ifdef LITTLE_ENDIAN_ORDER
         ByteReverseWords(sha->digest, sha->digest, SHA_DIGEST_SIZE);
     #endif
-    memcpy(hash, sha->digest, SHA_DIGEST_SIZE);
+    XMEMCPY(hash, sha->digest, SHA_DIGEST_SIZE);
 
     InitSha(sha);  /* reset state */
 }

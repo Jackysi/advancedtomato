@@ -22,9 +22,7 @@
 
 #ifndef NO_HMAC
 
-#include "hmac.h"
-#include <assert.h>
-#include <string.h>
+#include "ctc_hmac.h"
 
 
 
@@ -58,7 +56,7 @@ void HmacSetKey(Hmac* hmac, int type, const byte* key, word32 length)
     InitHmac(hmac, type);
 
     if (length <= HMAC_BLOCK_SIZE)
-        memcpy(ip, key, length);
+        XMEMCPY(ip, key, length);
     else {
         if (hmac->macType == MD5) {
             Md5Update(&hmac->hash.md5, key, length);
@@ -78,7 +76,7 @@ void HmacSetKey(Hmac* hmac, int type, const byte* key, word32 length)
         }
 #endif
     }
-    memset(ip + length, 0, HMAC_BLOCK_SIZE - length);
+    XMEMSET(ip + length, 0, HMAC_BLOCK_SIZE - length);
 
     for(i = 0; i < HMAC_BLOCK_SIZE; i++) {
         op[i] = ip[i] ^ OPAD;
