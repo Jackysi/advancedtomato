@@ -120,7 +120,7 @@ static inline int sctp_wspace(struct sctp_association *asoc)
 		amt = sk->sk_sndbuf - asoc->sndbuf_used;
 	} else {
 		/* do socket level accounting */
-		amt = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
+		amt = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
 	}
 
 	if (amt < 0)
@@ -5851,7 +5851,7 @@ static int sctp_writeable(struct sock *sk)
 {
 	int amt = 0;
 
-	amt = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
+	amt = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
 	if (amt < 0)
 		amt = 0;
 	return amt;

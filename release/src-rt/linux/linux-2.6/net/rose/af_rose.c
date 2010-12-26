@@ -338,8 +338,7 @@ void rose_destroy_socket(struct sock *sk)
 		kfree_skb(skb);
 	}
 
-	if (atomic_read(&sk->sk_wmem_alloc) ||
-	    atomic_read(&sk->sk_rmem_alloc)) {
+	if (sk_has_allocations(sk)) {
 		/* Defer: outstanding buffers */
 		init_timer(&sk->sk_timer);
 		sk->sk_timer.expires  = jiffies + 10 * HZ;
@@ -1277,7 +1276,8 @@ static int rose_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case TIOCOUTQ: {
 		long amount;
-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
+
+		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
 		if (amount < 0)
 			amount = 0;
 		return put_user(amount, (unsigned int __user *) argp);
@@ -1446,8 +1446,8 @@ static int rose_info_show(struct seq_file *seq, void *v)
 			rose->hb / HZ,
 			ax25_display_timer(&rose->idletimer) / (60 * HZ),
 			rose->idle / (60 * HZ),
-			atomic_read(&s->sk_wmem_alloc),
-			atomic_read(&s->sk_rmem_alloc),
+			sk_wmem_alloc_get(s),
+			sk_rmem_alloc_get(s),
 			s->sk_socket ? SOCK_INODE(s->sk_socket)->i_ino : 0L);
 	}
 
