@@ -122,7 +122,7 @@ static void update_queue_node_time(queue_node* update_node, queue* full_queue)
 	}
 }
 
-void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
+static void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
 {
 
 	queue_node *new_node = (queue_node*)kmalloc(sizeof(queue_node), GFP_ATOMIC);
@@ -181,7 +181,7 @@ void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map*
 	*/
 }
 
-void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
+static void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
 {
 	queue_node *new_node;
 	char* dyn_value;
@@ -213,7 +213,7 @@ void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_q
 	full_queue->length = full_queue->length + 1;
 }
 
-void destroy_queue(queue* q)
+static void destroy_queue(queue* q)
 {	
 	queue_node *last_node = q->last;
 	while(last_node != NULL)
@@ -227,22 +227,7 @@ void destroy_queue(queue* q)
 }
 
 
-int strnicmp(const char * cs,const char * ct,size_t count)
-{
-	register signed char __res = 0;
-
-	while (count)
-	{
-		if ((__res = toupper( *cs ) - toupper( *ct++ ) ) != 0 || !*cs++)
-		{
-			break;
-		}
-		count--;
-	}
-	return __res;
-}
-
-char *strnistr(const char *s, const char *find, size_t slen)
+static char *strnistr(const char *s, const char *find, size_t slen)
 {
 	char c, sc;
 	size_t len;
@@ -280,7 +265,7 @@ char *strnistr(const char *s, const char *find, size_t slen)
  *       If differences are not in a contiguous block computed edit distance will be greater than real edit distance.
  *       Edit distance computed here is an upper bound on real edit distance.
  */
-int within_edit_distance(char *s1, char *s2, int max_edit)
+static int within_edit_distance(char *s1, char *s2, int max_edit)
 {
 	int edit1;
 	int edit2;
@@ -330,7 +315,7 @@ int within_edit_distance(char *s1, char *s2, int max_edit)
  * result is dynamically allocated, MUST be freed after call-- even if 
  * line is empty (you still get a valid char** pointer to to a NULL char*)
  */
-char** split_on_separators(char* line, char* separators, int num_separators, int max_pieces, int include_remainder_at_max, unsigned long *num_pieces)
+static char** split_on_separators(char* line, char* separators, int num_separators, int max_pieces, int include_remainder_at_max, unsigned long *num_pieces)
 {
 	char** split;
 	
