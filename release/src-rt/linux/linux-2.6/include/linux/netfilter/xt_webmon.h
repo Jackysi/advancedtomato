@@ -22,11 +22,24 @@
 
 
 
-#ifndef _IPT_WEBMON_H
-#define _IPT_WEBMON_H
+#ifndef _XT_WEBMON_H
+#define _XT_WEBMON_H
 
-#include <linux/netfilter/xt_webmon.h>
 
-#define ipt_webmon_info		xt_webmon_info
+#define WEBMON_MAXDOMAIN           4
+#define WEBMON_MAXSEARCH           8
 
-#endif /*_IPT_WEBMON_H*/
+#define WEBMON_DOMAIN             16
+#define WEBMON_SEARCH             32
+
+
+#define WEBMON_SET              3064
+
+struct xt_webmon_info
+{
+	uint32_t max_domains;
+	uint32_t max_searches;
+	uint32_t* ref_count;
+};
+
+#endif /*_XT_WEBMON_H*/

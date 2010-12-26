@@ -32,43 +32,30 @@
 #include <linux/time.h>
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
+#include <linux/inet.h>
 
-#include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ipt_webmon.h>
+#include <linux/netfilter/x_tables.h>
+#include <linux/netfilter/xt_webmon.h>
 
 #include "tree_map.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
-	#define ipt_register_match      xt_register_match
-	#define ipt_unregister_match    xt_unregister_match
-#endif
+#include <linux/ktime.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <net/ipv6.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-	#include <linux/ktime.h>
-#endif
-
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
-	#include <linux/ip.h>
-#else
-	#define skb_network_header(skb) (skb)->nh.raw 
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-	#include <linux/netfilter/x_tables.h>
-#endif
-
-#define STRIP "%d.%d.%d.%d"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Eric Bishop");
 MODULE_DESCRIPTION("Monitor URL in HTTP Requests, designed for use with Gargoyle web interface (www.gargoyle-router.com)");
-
+MODULE_ALIAS("ipt_webmon");
+MODULE_ALIAS("ip6t_webmon");
 
 
 typedef struct qn
 {
-	uint32_t src_ip;
+	union nf_inet_addr srcaddr;
+	u_int16_t family;
 	char* value;
 	struct timeval time;
 	struct qn* next;
@@ -94,6 +81,17 @@ static int max_search_queue_length   = 5;
 
 static spinlock_t webmon_lock = SPIN_LOCK_UNLOCKED;
 
+static char *format_addr(const union nf_inet_addr *addr, u_int16_t family)
+{
+	static char ip[64];
+
+	if (family == AF_INET)
+		sprintf(ip, NIPQUAD_FMT, NIPQUAD(addr->ip));
+	else
+		sprintf(ip, NIP6_FMT, NIP6(addr->in6));
+
+	return ip;		
+}
 
 static void update_queue_node_time(queue_node* update_node, queue* full_queue)
 {
@@ -122,9 +120,8 @@ static void update_queue_node_time(queue_node* update_node, queue* full_queue)
 	}
 }
 
-void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
+static void add_queue_node(const union nf_inet_addr *srcaddr, u_int16_t family, char* value, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
 {
-
 	queue_node *new_node = (queue_node*)kmalloc(sizeof(queue_node), GFP_ATOMIC);
 	char* dyn_value = kernel_strdup(value);
 	struct timeval t;
@@ -142,7 +139,8 @@ void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map*
 
 	do_gettimeofday(&t);
 	new_node->time = t;
-	new_node->src_ip = src_ip;
+	memcpy(&new_node->srcaddr, srcaddr, sizeof(new_node->srcaddr));
+	new_node->family = family;
 	new_node->value = dyn_value;
 	new_node->previous = NULL;
 	
@@ -163,25 +161,15 @@ void add_queue_node(uint32_t src_ip, char* value, queue* full_queue, string_map*
 		full_queue->first = old_node->previous == NULL ? NULL : full_queue->first; /*shouldn't be needed, but just in case...*/
 		full_queue->length = full_queue->length - 1;
 		
-		sprintf(queue_index_key, STRIP"@%s", NIPQUAD(old_node->src_ip), old_node->value);
+		sprintf(queue_index_key, "%s@%s", format_addr(&old_node->srcaddr, old_node->family), old_node->value);
 		remove_map_element(queue_index, queue_index_key);
 
 		kfree(old_node->value);
 		kfree(old_node);
 	}
-
-	/*
-	queue_node* n = full_queue->first;
-	while(n != NULL)
-	{
-		printf("%ld\t%s\t%s\t%s\n", (unsigned long)n->time, n->src_ip, n->dst_ip, n->domain);
-		n = (queue_node*)n->next;
-	}
-	printf("\n\n");
-	*/
 }
 
-void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
+static void add_queue_node_last(const union nf_inet_addr *srcaddr, u_int16_t family, char* value, time_t sec, queue* full_queue, string_map* queue_index, char* queue_index_key, uint32_t max_queue_length )
 {
 	queue_node *new_node;
 	char* dyn_value;
@@ -200,7 +188,8 @@ void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_q
 	set_map_element(queue_index, queue_index_key, (void*)new_node);
 
 	new_node->time.tv_sec = sec;
-	new_node->src_ip = src_ip;
+	memcpy(&new_node->srcaddr, srcaddr, sizeof(new_node->srcaddr));
+	new_node->family = family;
 	new_node->value = dyn_value;
 	
 	new_node->previous = full_queue->last;
@@ -213,7 +202,7 @@ void add_queue_node_last(uint32_t src_ip, char* value, time_t sec, queue* full_q
 	full_queue->length = full_queue->length + 1;
 }
 
-void destroy_queue(queue* q)
+static void destroy_queue(queue* q)
 {	
 	queue_node *last_node = q->last;
 	while(last_node != NULL)
@@ -226,23 +215,7 @@ void destroy_queue(queue* q)
 	free(q);
 }
 
-
-int strnicmp(const char * cs,const char * ct,size_t count)
-{
-	register signed char __res = 0;
-
-	while (count)
-	{
-		if ((__res = toupper( *cs ) - toupper( *ct++ ) ) != 0 || !*cs++)
-		{
-			break;
-		}
-		count--;
-	}
-	return __res;
-}
-
-char *strnistr(const char *s, const char *find, size_t slen)
+static char *strnistr(const char *s, const char *find, size_t slen)
 {
 	char c, sc;
 	size_t len;
@@ -280,10 +253,9 @@ char *strnistr(const char *s, const char *find, size_t slen)
  *       If differences are not in a contiguous block computed edit distance will be greater than real edit distance.
  *       Edit distance computed here is an upper bound on real edit distance.
  */
-int within_edit_distance(char *s1, char *s2, int max_edit)
+static int within_edit_distance(char *s1, char *s2, int max_edit)
 {
-	int edit1;
-	int edit2;
+	int edit1, edit2;
 	char *s1sp, *s2sp, *s1ep, *s2ep;
 
 	if(s1 == NULL || s2 == NULL)
@@ -330,7 +302,7 @@ int within_edit_distance(char *s1, char *s2, int max_edit)
  * result is dynamically allocated, MUST be freed after call-- even if 
  * line is empty (you still get a valid char** pointer to to a NULL char*)
  */
-char** split_on_separators(char* line, char* separators, int num_separators, int max_pieces, int include_remainder_at_max, unsigned long *num_pieces)
+static char** split_on_separators(char* line, char* separators, int num_separators, int max_pieces, int include_remainder_at_max, unsigned long *num_pieces)
 {
 	char** split;
 	
@@ -589,7 +561,7 @@ static int webmon_proc_domain_show(struct seq_file *s, void *v)
 	next_node = recent_domains->first;
 	while(next_node != NULL)
 	{
-		seq_printf(s, "%ld\t"STRIP"\t%s\n", (unsigned long)(next_node->time).tv_sec, NIPQUAD(next_node->src_ip), next_node->value);
+		seq_printf(s, "%ld\t%s\t%s\n", (unsigned long)(next_node->time).tv_sec, format_addr(&next_node->srcaddr, next_node->family), next_node->value);
 		next_node = (queue_node*)next_node->next;
 	}
 	spin_unlock_bh(&webmon_lock);
@@ -606,7 +578,7 @@ static int webmon_proc_search_show(struct seq_file *s, void *v)
 	next_node = recent_searches->first;
 	while(next_node != NULL)
 	{
-		seq_printf(s, "%ld\t"STRIP"\t%s\n", (unsigned long)(next_node->time).tv_sec, NIPQUAD(next_node->src_ip), next_node->value);
+		seq_printf(s, "%ld\t%s\t%s\n", (unsigned long)(next_node->time).tv_sec, format_addr(&next_node->srcaddr, next_node->family), next_node->value);
 		next_node = (queue_node*)next_node->next;
 	}
 	spin_unlock_bh(&webmon_lock);
@@ -658,10 +630,6 @@ static struct file_operations webmon_proc_search_fops = {
 
 
 #endif
-
-
-
-
 
 
 static int ipt_webmon_set_ctl(struct sock *sk, int cmd, void *user, u_int32_t len)
@@ -724,32 +692,37 @@ static int ipt_webmon_set_ctl(struct sock *sk, int cmd, void *user, u_int32_t le
 				unsigned long num_pieces;
 				char** split = split_on_separators(line, whitespace_chars, 2, -1, 0, &num_pieces);
 			
-				//check that there are 3 pieces (time, src_ip, value)
+				//check that there are 3 pieces (time, srcaddr, value)
 				int length;
 				for(length=0; split[length] != NULL ; length++){}
 				if(length == 3)
 				{
 					time_t time;
-					int parsed_ip[4];
-					int valid_ip = sscanf(split[1], "%d.%d.%d.%d", parsed_ip, parsed_ip+1, parsed_ip+2, parsed_ip+3);
-					if(valid_ip == 4)
-					{
-						valid_ip = parsed_ip[0] <= 255 && parsed_ip[1] <= 255 && parsed_ip[2] <= 255 && parsed_ip[3] <= 255 ? valid_ip : 0;
+					int valid_ip;
+					u_int16_t family;
+					union nf_inet_addr srcaddr = {};
+
+					length = strlen(split[1]);
+					if (strnchr(split[1], length, ':') != NULL) {
+						family = AF_INET6;
+						valid_ip = in6_pton(split[1], length, (void *)&srcaddr, '\n', NULL);
+					} else {
+						family = AF_INET;
+						valid_ip = in4_pton(split[1], length, (void *)&srcaddr, '\n', NULL);
 					}
-					if(sscanf(split[0], "%ld", &time) > 0 && valid_ip == 4)
+
+					if(valid_ip && sscanf(split[0], "%ld", &time) > 0)
 					{
 						char* value = split[2];
 						char value_key[700];
-						uint32_t ip = (parsed_ip[0]<<24) + (parsed_ip[1]<<16) + (parsed_ip[2]<<8) +  (parsed_ip[3]) ;
-						ip = htonl(ip);
-						sprintf(value_key, STRIP"@%s", NIPQUAD(ip), value);
+						sprintf(value_key, "%s@%s", format_addr(&srcaddr, family), value);
 						if(type == WEBMON_DOMAIN)
 						{
-							add_queue_node_last(ip, value, time, recent_domains, domain_map, value_key, max_domain_queue_length );
+							add_queue_node_last(&srcaddr, family, value, time, recent_domains, domain_map, value_key, max_domain_queue_length );
 						}
 						else if(type == WEBMON_SEARCH)
 						{
-							add_queue_node_last(ip, value, time, recent_searches, search_map, value_key, max_search_queue_length );
+							add_queue_node_last(&srcaddr, family, value, time, recent_searches, search_map, value_key, max_search_queue_length );
 						}
 					}
 				}
@@ -766,7 +739,6 @@ static int ipt_webmon_set_ctl(struct sock *sk, int cmd, void *user, u_int32_t le
 
 		spin_unlock_bh(&webmon_lock);
 	}
-		
 	
 	return 1;
 }
@@ -778,7 +750,245 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 	.set        = ipt_webmon_set_ctl,
 };
 
+static void match_packet(const unsigned char* payload, unsigned short payload_length,
+	const union nf_inet_addr *srcaddr, u_int16_t family)
+{
+	char domain[650];
+	char path[650];
+	char domain_key[700];
 
+	/* if payload length <= 16 bytes don't bother doing a check, otherwise check for match */
+	if(payload_length <= 16)
+		return;
+
+	/* are we dealing with a web page request */
+	if(strnicmp((char*)payload, "GET ", 4) == 0 || strnicmp(  (char*)payload, "POST ", 5) == 0 || strnicmp((char*)payload, "HEAD ", 5) == 0)
+	{
+		extract_url(payload, payload_length, domain, path);
+
+		sprintf(domain_key, "%s@%s", format_addr(srcaddr, family), domain);
+
+		if(strlen(domain) > 0)
+		{
+			char *search_part = NULL;
+			spin_lock_bh(&webmon_lock);
+
+			if(get_string_map_element(domain_map, domain_key))
+			{
+				//update time
+				update_queue_node_time( (queue_node*)get_map_element(domain_map, domain_key), recent_domains );
+			}
+			else
+			{
+				//add
+				add_queue_node(srcaddr, family, domain, recent_domains, domain_map, domain_key, max_domain_queue_length );
+			}
+
+			/* printk("domain,path=\"%s\", \"%s\"\n", domain, path); */
+			if(strnistr(domain, "google.", 625) != NULL)
+			{
+				search_part = strstr(path, "&q=");
+				search_part = search_part == NULL ? strstr(path, "#q=") : search_part;
+				search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "bing.") != NULL)
+			{
+				search_part = strstr(path, "?q=");
+				search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "yahoo.") != NULL)
+			{
+				search_part = strstr(path, "?p=");
+				search_part = search_part == NULL ? strstr(path, "&p=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "lycos.") != NULL)
+			{
+				search_part = strstr(path, "&query=");
+				search_part = search_part == NULL ? strstr(path, "?query=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+7;
+			}
+			else if(strstr(domain, "altavista.") != NULL)
+			{
+				search_part = strstr(path, "&q=");
+				search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "duckduckgo.") != NULL)
+			{
+				search_part = strstr(path, "?q=");
+				search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "baidu.") != NULL)
+			{
+				search_part = strstr(path, "?wd=");
+				search_part = search_part == NULL ? strstr(path, "&wd=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+4;
+			}
+			else if(strstr(domain, "search.") != NULL)
+			{
+				search_part = strstr(path, "?q=");
+				search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "aol.") != NULL)
+			{
+				search_part = strstr(path, "&q=");
+				search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "ask.") != NULL)
+			{
+				search_part = strstr(path, "?q=");
+				search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "yandex.") != NULL)
+			{
+				search_part = strstr(path, "?text=");
+				search_part = search_part == NULL ? strstr(path, "&text=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+6;
+			}
+			else if(strstr(domain, "naver.") != NULL)
+			{
+				search_part = strstr(path, "&query=");
+				search_part = search_part == NULL ? strstr(path, "?query=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+7;
+			}
+			else if(strstr(domain, "daum.") != NULL)
+			{
+				search_part = strstr(path, "&q=");
+				search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "cuil.") != NULL)
+			{
+				search_part = strstr(path, "?q=");
+				search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "kosmix.") != NULL)
+			{
+				search_part = strstr(path, "/topic/");
+				search_part = search_part == NULL ? search_part : search_part+7;
+			}
+			else if(strstr(domain, "yebol.") != NULL)
+			{
+				search_part = strstr(path, "?key=");
+				search_part = search_part == NULL ? strstr(path, "&key=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+5;
+			}
+			else if(strstr(domain, "sogou.") != NULL)
+			{
+				search_part = strstr(path, "&query=");
+				search_part = search_part == NULL ? strstr(path, "?query=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+7;
+			}
+			else if(strstr(domain, "youdao.") != NULL)
+			{
+				search_part = strstr(path, "?q=");
+				search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
+				search_part = search_part == NULL ? search_part : search_part+3;
+			}
+			else if(strstr(domain, "metacrawler.") != NULL)
+			{
+				search_part = strstr(path, "/ws/results/Web/");
+				search_part = search_part == NULL ? search_part : search_part+16;
+			}
+			else if(strstr(domain, "webcrawler.") != NULL)
+			{
+				search_part = strstr(path, "/ws/results/Web/");
+				search_part = search_part == NULL ? search_part : search_part+16;
+			}
+
+			if(search_part != NULL)
+			{
+				int spi, si;
+				char search_key[700];
+				char search[650];
+				queue_node *recent_node = recent_searches->first;
+
+				/*unescape, replacing whitespace with + */
+				si = 0;
+				for(spi=0; search_part[spi] != '\0' && search_part[spi] != '&' && search_part[spi] != '/'; spi++)
+				{
+					int parsed_hex = 0;
+					if( search_part[spi] == '%')
+					{
+						if(search_part[spi+1]  != '\0' && search_part[spi+1] != '&' && search_part[spi+1] != '/')
+						{
+							if(search_part[spi+2]  != '\0' && search_part[spi+2] != '&' && search_part[spi+2] != '/')
+							{
+								char enc[3];
+								int hex;
+								enc[0] = search_part[spi+1];
+								enc[1] = search_part[spi+2];
+								enc[2] = '\0';
+								if(sscanf(enc, "%x", &hex) > 0)
+								{
+									parsed_hex = 1;
+									search[si] = hex == ' ' || hex == '\t' || hex == '\r' || hex == '\n' ? '+' : (char)hex;
+									spi = spi+2;
+								}
+							}
+						}
+					}
+					if(parsed_hex == 0)
+					{
+						search[si] = search_part[spi];
+					}
+					si++;
+				}
+				search[si] = '\0';
+
+				sprintf(search_key, "%s@%s", format_addr(srcaddr, family), search);
+
+				/* Often times search engines will initiate a search as you type it in, but these intermediate queries aren't the real search query
+				 * So, if the most recent query is a substring of the current one, discard it in favor of this one
+				 */
+				if(recent_node != NULL)
+				{
+					if(recent_node->family == family &&
+					   memcmp(&recent_node->srcaddr, srcaddr, sizeof(recent_node->srcaddr)) == 0)
+					{
+						struct timeval t;
+						do_gettimeofday(&t);
+						if( (recent_node->time).tv_sec + 1 >= t.tv_sec || ((recent_node->time).tv_sec + 5 >= t.tv_sec && within_edit_distance(search, recent_node->value, 2)))
+						{
+							char recent_key[700];
+							sprintf(recent_key, "%s@%s", format_addr(&recent_node->srcaddr, recent_node->family), recent_node->value);
+							remove_map_element(search_map, recent_key);
+							recent_searches->first = recent_node->next;
+							recent_searches->last = recent_searches->first == NULL ? NULL : recent_searches->last;
+							if(recent_searches->first != NULL)
+							{
+								recent_searches->first->previous = NULL;
+							}
+							recent_searches->length = recent_searches->length - 1 ;
+							free(recent_node->value);
+							free(recent_node);
+						}
+					}
+				}
+
+				if(get_string_map_element(search_map, search_key))
+				{
+					//update time
+					update_queue_node_time( (queue_node*)get_map_element(search_map, search_key), recent_searches );
+				}
+				else
+				{
+					//add
+					add_queue_node(srcaddr, family, search, recent_searches, search_map, search_key, max_search_queue_length );
+				}
+			}
+			spin_unlock_bh(&webmon_lock);
+		}
+	}
+}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
@@ -786,7 +996,7 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 	#else
 		static int
 	#endif
-	match(		const struct sk_buff *skb,
+	match4(		const struct sk_buff *skb,
 			const struct net_device *in,
 			const struct net_device *out,
 			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
@@ -796,9 +1006,6 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 			int offset,
 			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
 				unsigned int protoff,
-			#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-				const void *hdr,
-				u_int16_t datalen,
 			#endif
 			#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 				bool *hotdrop
@@ -807,10 +1014,11 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 			#endif	
 			)
 #else
-	static bool match(const struct sk_buff *skb, const struct xt_match_param *par)
+	static bool match4(const struct sk_buff *skb, const struct xt_match_param *par)
 #endif
 {
 	struct iphdr* iph;
+	union nf_inet_addr addr = {};
 
 	/* linearize skb if necessary */
 	struct sk_buff *linear_skb;
@@ -826,283 +1034,95 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 		skb_copied = 0;
 	}
 
-	
-
-	/* ignore packets that are not TCP */
-	iph = (struct iphdr*)(skb_network_header(skb));
-	if(iph->protocol == IPPROTO_TCP)
+	iph = ip_hdr(skb);
 	{
 		/* get payload */
-		struct tcphdr* tcp_hdr		= (struct tcphdr*)( ((unsigned char*)iph) + (iph->ihl*4) );
-		unsigned short payload_offset 	= (tcp_hdr->doff*4) + (iph->ihl*4);
-		unsigned char* payload 		= ((unsigned char*)iph) + payload_offset;
-		unsigned short payload_length	= ntohs(iph->tot_len) - payload_offset;
+		struct tcphdr* tcp_hdr		= (void *)iph + (iph->ihl * 4);
+		const unsigned char* payload	= (void *)tcp_hdr + (tcp_hdr->doff * 4);
+		unsigned short payload_length	= ntohs(iph->tot_len) - (payload - (unsigned char *)iph);
 
-	
-
-		/* if payload length <= 10 bytes don't bother doing a check, otherwise check for match */
-		if(payload_length > 10)
-		{
-			/* are we dealing with a web page request */
-			if(strnicmp((char*)payload, "GET ", 4) == 0 || strnicmp(  (char*)payload, "POST ", 5) == 0 || strnicmp((char*)payload, "HEAD ", 5) == 0)
-			{
-				char domain[650];
-				char path[650];
-				char domain_key[700];
-
-				{
-					extract_url(payload, payload_length, domain, path);
-
-					
-					sprintf(domain_key, STRIP"@%s", NIPQUAD(iph->saddr), domain);
-					
-					if(strlen(domain) > 0)
-					{
-						char *search_part = NULL;
-						spin_lock_bh(&webmon_lock);
-
-						
-
-						if(get_string_map_element(domain_map, domain_key))
-						{
-							//update time
-							update_queue_node_time( (queue_node*)get_map_element(domain_map, domain_key), recent_domains );
-						}
-						else
-						{
-							//add
-							add_queue_node(iph->saddr, domain, recent_domains, domain_map, domain_key, max_domain_queue_length );
-						}
-						
-							
-						/* printk("domain,path=\"%s\", \"%s\"\n", domain, path); */
-
-						if(strnistr(domain, "google.", 625) != NULL)
-						{
-							search_part = strstr(path, "&q=");
-							search_part = search_part == NULL ? strstr(path, "#q=") : search_part;
-							search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "bing.") != NULL)
-						{
-							search_part = strstr(path, "?q=");
-							search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "yahoo.") != NULL)
-						{
-							search_part = strstr(path, "?p=");
-							search_part = search_part == NULL ? strstr(path, "&p=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "lycos.") != NULL)
-						{
-							search_part = strstr(path, "&query=");
-							search_part = search_part == NULL ? strstr(path, "?query=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+7;
-						}
-						else if(strstr(domain, "altavista.") != NULL)
-						{
-							search_part = strstr(path, "&q=");
-							search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "duckduckgo.") != NULL)
-						{
-							search_part = strstr(path, "?q=");
-							search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "baidu.") != NULL)
-						{
-							search_part = strstr(path, "?wd=");
-							search_part = search_part == NULL ? strstr(path, "&wd=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+4;
-						}
-						else if(strstr(domain, "search.") != NULL)
-						{
-							search_part = strstr(path, "?q=");
-							search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "aol.") != NULL)
-						{
-							search_part = strstr(path, "&q=");
-							search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "ask.") != NULL)
-						{
-							search_part = strstr(path, "?q=");
-							search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "yandex.") != NULL)
-						{
-							search_part = strstr(path, "?text=");
-							search_part = search_part == NULL ? strstr(path, "&text=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+6;
-						}
-						else if(strstr(domain, "naver.") != NULL)
-						{
-							search_part = strstr(path, "&query=");
-							search_part = search_part == NULL ? strstr(path, "?query=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+7;
-						}
-						else if(strstr(domain, "daum.") != NULL)
-						{
-							search_part = strstr(path, "&q=");
-							search_part = search_part == NULL ? strstr(path, "?q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "cuil.") != NULL)
-						{
-							search_part = strstr(path, "?q=");
-							search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "kosmix.") != NULL)
-						{
-							search_part = strstr(path, "/topic/");
-							search_part = search_part == NULL ? search_part : search_part+7;
-						}
-						else if(strstr(domain, "yebol.") != NULL)
-						{
-							search_part = strstr(path, "?key=");
-							search_part = search_part == NULL ? strstr(path, "&key=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+5;
-						}
-						else if(strstr(domain, "sogou.") != NULL)
-						{
-							search_part = strstr(path, "&query=");
-							search_part = search_part == NULL ? strstr(path, "?query=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+7;
-						}
-						else if(strstr(domain, "youdao.") != NULL)
-						{
-							search_part = strstr(path, "?q=");
-							search_part = search_part == NULL ? strstr(path, "&q=") : search_part;
-							search_part = search_part == NULL ? search_part : search_part+3;
-						}
-						else if(strstr(domain, "metacrawler.") != NULL)
-						{
-							search_part = strstr(path, "/ws/results/Web/");
-							search_part = search_part == NULL ? search_part : search_part+16;
-						}
-						else if(strstr(domain, "webcrawler.") != NULL)
-						{
-							search_part = strstr(path, "/ws/results/Web/");
-							search_part = search_part == NULL ? search_part : search_part+16;
-						}
-
-						
-						if(search_part != NULL)
-						{
-							int spi, si;
-							char search_key[700];
-							char search[650];
-							queue_node *recent_node = recent_searches->first;
-							
-							/*unescape, replacing whitespace with + */
-							si = 0;
-							for(spi=0; search_part[spi] != '\0' && search_part[spi] != '&' && search_part[spi] != '/'; spi++)
-							{
-								int parsed_hex = 0;
-								if( search_part[spi] == '%')
-								{
-									if(search_part[spi+1]  != '\0' && search_part[spi+1] != '&' && search_part[spi+1] != '/')
-									{
-										if(search_part[spi+2]  != '\0' && search_part[spi+2] != '&' && search_part[spi+2] != '/')
-										{
-											char enc[3];
-											int hex;
-											enc[0] = search_part[spi+1];
-											enc[1] = search_part[spi+2];
-											enc[2] = '\0';
-											if(sscanf(enc, "%x", &hex) > 0)
-											{
-												parsed_hex = 1;
-												search[si] = hex == ' ' || hex == '\t' || hex == '\r' || hex == '\n' ? '+' : (char)hex;
-												spi = spi+2;
-											}
-										}
-									}
-								}
-								if(parsed_hex == 0)
-								{
-									search[si] = search_part[spi];
-								}
-								si++;
-							}
-							search[si] = '\0';
-							
-							
-							
-							sprintf(search_key, STRIP"@%s", NIPQUAD(iph->saddr), search);
-							
-							
-							/* Often times search engines will initiate a search as you type it in, but these intermediate queries aren't the real search query
-							 * So, if the most recent query is a substring of the current one, discard it in favor of this one
-							 */
-							if(recent_node != NULL)
-							{
-								if(recent_node->src_ip == iph->saddr)
-								{
-									struct timeval t;
-									do_gettimeofday(&t);
-									if( (recent_node->time).tv_sec + 1 >= t.tv_sec || ((recent_node->time).tv_sec + 5 >= t.tv_sec && within_edit_distance(search, recent_node->value, 2)))
-									{
-										char recent_key[700];
-										
-										sprintf(recent_key, STRIP"@%s", NIPQUAD(recent_node->src_ip), recent_node->value);
-										remove_map_element(search_map, recent_key);
-										
-										recent_searches->first = recent_node->next;
-										recent_searches->last = recent_searches->first == NULL ? NULL : recent_searches->last;
-										if(recent_searches->first != NULL)
-										{
-											recent_searches->first->previous = NULL;
-										}
-										recent_searches->length = recent_searches->length - 1 ;
-										free(recent_node->value);
-										free(recent_node);
-									}
-								}
-							}
-
-
-							
-							if(get_string_map_element(search_map, search_key))
-							{
-								//update time
-								update_queue_node_time( (queue_node*)get_map_element(search_map, search_key), recent_searches );
-							}
-							else
-							{
-								//add
-								add_queue_node(iph->saddr, search, recent_searches, search_map, search_key, max_search_queue_length );
-							}
-						}
-						spin_unlock_bh(&webmon_lock);
-					}
-				}
-			}
-		}
+		addr.ip = iph->saddr;
+		match_packet(payload, payload_length, &addr, AF_INET);
 	}
-	
+
 	/* free skb if we made a copy to linearize it */
 	if(skb_copied == 1)
 	{
 		kfree_skb(linear_skb);
 	}
 
-
 	/* printk("returning %d from webmon\n\n\n", test); */
 	return 0;
 }
 
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+		static bool 
+	#else
+		static int
+	#endif
+	match6(		const struct sk_buff *skb,
+			const struct net_device *in,
+			const struct net_device *out,
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
+				const struct xt_match *match,
+			#endif
+			const void *matchinfo,
+			int offset,
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
+				unsigned int protoff,
+			#endif
+			#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+				bool *hotdrop
+			#else
+				int *hotdrop
+			#endif	
+			)
+#else
+	static bool match6(const struct sk_buff *skb, const struct xt_match_param *par)
+#endif
+{
+	struct ipv6hdr* iph;
+	union nf_inet_addr addr = {};
+
+	/* linearize skb if necessary */
+	struct sk_buff *linear_skb;
+	int skb_copied;
+	if(skb_is_nonlinear(skb))
+	{
+		linear_skb = skb_copy(skb, GFP_ATOMIC);
+		skb_copied = 1;
+	}
+	else
+	{
+		linear_skb = (struct sk_buff*)skb;
+		skb_copied = 0;
+	}
+
+	iph = ipv6_hdr(skb);
+	{
+		/* get payload */
+		u8 nexthdr			= iph->nexthdr;
+		struct tcphdr* tcp_hdr		= (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
+		const unsigned char* payload	= (void *)tcp_hdr + (tcp_hdr->doff*4);
+		unsigned short payload_length	= ntohs(iph->payload_len) - (payload - (unsigned char *)tcp_hdr);
+
+		memcpy(&addr.in6, &iph->saddr, sizeof(addr.in6));
+		match_packet(payload, payload_length, &addr, AF_INET6);
+	}
+
+	/* free skb if we made a copy to linearize it */
+	if(skb_copied == 1)
+	{
+		kfree_skb(linear_skb);
+	}
+
+	return 0;
+}
+
+#endif	// IP6
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
@@ -1128,9 +1148,9 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 #endif
 {
 	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-		struct ipt_webmon_info *info = (struct ipt_webmon_info*)matchinfo;
+		struct xt_webmon_info *info = (struct xt_webmon_info*)matchinfo;
 	#else
-		struct ipt_webmon_info *info = (struct ipt_webmon_info*)(par->matchinfo);
+		struct xt_webmon_info *info = (struct xt_webmon_info*)(par->matchinfo);
 	#endif
 
 
@@ -1140,7 +1160,7 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 		info->ref_count = (uint32_t*)kmalloc(sizeof(uint32_t), GFP_ATOMIC);
 		if(info->ref_count == NULL) /* deal with kmalloc failure */
 		{
-			printk("ipt_webmon: kmalloc failure in checkentry!\n");
+			printk("xt_webmon: kmalloc failure in checkentry!\n");
 			return 0;
 		}
 		*(info->ref_count) = 1;
@@ -1161,10 +1181,7 @@ static struct nf_sockopt_ops ipt_webmon_sockopts =
 }
 
 static void destroy(	
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-			void* matchinfo,
-			unsigned int matchinfosize
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 			const struct xt_match *match,
 			void* matchinfo
 #else
@@ -1173,9 +1190,9 @@ static void destroy(
 		)
 {
 	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-		struct ipt_webmon_info *info = (struct ipt_webmon_info*)matchinfo;
+		struct xt_webmon_info *info = (struct xt_webmon_info*)matchinfo;
 	#else
-		struct ipt_webmon_info *info = (struct ipt_webmon_info*)(par->matchinfo);
+		struct xt_webmon_info *info = (struct xt_webmon_info*)(par->matchinfo);
 	#endif
 
 	*(info->ref_count) = *(info->ref_count) - 1;
@@ -1185,26 +1202,28 @@ static void destroy(
 	}
 }
 
-static struct ipt_match webmon_match = 
-{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	{ NULL, NULL },
-	"webmon",
-	&match,
-	&checkentry,
-	&destroy,
-	THIS_MODULE
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+static struct xt_match webmon_match[] __read_mostly = {
+	{
 	.name		= "webmon",
-	.match		= &match,
+	.match		= match4,
 	.family		= AF_INET,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
-	.matchsize	= sizeof(struct ipt_webmon_info),
-#endif
-	.checkentry	= &checkentry,
-	.destroy	= &destroy,
+	.matchsize	= sizeof(struct xt_webmon_info),
+	.checkentry	= checkentry,
+	.destroy	= destroy,
+	.proto		= IPPROTO_TCP,
 	.me		= THIS_MODULE,
+	},
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+	{
+	.name		= "webmon",
+	.match		= match6,
+	.family		= AF_INET6,
+	.matchsize	= sizeof(struct xt_webmon_info),
+	.checkentry	= checkentry,
+	.destroy	= destroy,
+	.proto		= IPPROTO_TCP,
+	.me		= THIS_MODULE,
+	},
 #endif
 };
 
@@ -1243,13 +1262,13 @@ static int __init init(void)
 	
 	if (nf_register_sockopt(&ipt_webmon_sockopts) < 0)
 	{
-		printk("ipt_webmon: Can't register sockopts. Aborting\n");
+		printk("xt_webmon: Can't register sockopts. Aborting\n");
 		spin_unlock_bh(&webmon_lock);
 		return -1;
 	}
 	spin_unlock_bh(&webmon_lock);
 
-	return ipt_register_match(&webmon_match);
+	return xt_register_matches(webmon_match, ARRAY_SIZE(webmon_match));
 }
 
 static void __exit fini(void)
@@ -1265,7 +1284,7 @@ static void __exit fini(void)
 		remove_proc_entry("webmon_recent_searches", NULL);
 	#endif
 	nf_unregister_sockopt(&ipt_webmon_sockopts);
-	ipt_unregister_match(&webmon_match);
+	xt_unregister_matches(webmon_match, ARRAY_SIZE(webmon_match));
 	destroy_map(domain_map, DESTROY_MODE_IGNORE_VALUES, &num_destroyed);
 	destroy_map(search_map, DESTROY_MODE_IGNORE_VALUES, &num_destroyed);
 	destroy_queue(recent_domains);
