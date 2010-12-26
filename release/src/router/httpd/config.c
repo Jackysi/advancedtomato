@@ -35,7 +35,9 @@ void wo_defaults(char *url)
 			parse_asp("reboot-default.asp");
 			web_close();
 
-			killall("pppoecd", SIGTERM);
+			// disconnect ppp - need this for PPTP/L2TP/PPPOE to finish gracefully
+			killall("xl2tpd", SIGTERM);
+			killall("pppd", SIGTERM);
 
 			led(LED_DIAG, 1);
 			sleep(2);
@@ -163,7 +165,6 @@ void wo_restore(char *url)
 		web_close();
 
 		// disconnect ppp - need this for PPTP/L2TP/PPPOE to finish gracefully
-		killall("pppoecd", SIGTERM);
 		killall("xl2tpd", SIGTERM);
 		killall("pppd", SIGTERM);
 		sleep(2);
