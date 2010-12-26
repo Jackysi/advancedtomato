@@ -748,6 +748,14 @@ config NETFILTER_XT_MATCH_WEBSTR
 
           To compile it as a module, choose M here.  If unsure, say N.
 
+config NETFILTER_XT_MATCH_WEB
+	tristate  '"web" match support (EXPERIMENTAL)'
+	depends on EXPERIMENTAL && NETFILTER_XTABLES
+        help
+          This option adds a `web' match, which allows you to look for
+          pattern matchings in http stream.
+
+          To compile it as a module, choose M here.  If unsure, say N.
 
 config NETFILTER_XT_MATCH_TCPMSS
 	tristate '"tcpmss" match support'

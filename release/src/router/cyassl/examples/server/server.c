@@ -1,6 +1,6 @@
 /* server.c */
-#include "openssl/ssl.h"
-#include "../test.h"
+#include "ssl.h"
+#include "cyassl_test.h"
 
 
 #ifdef CYASSL_CALLBACKS
@@ -21,7 +21,7 @@
         while (ret != SSL_SUCCESS && (error == SSL_ERROR_WANT_READ ||
                                       error == SSL_ERROR_WANT_WRITE)) {
             printf("... server would block\n");
-            #ifdef _WIN32
+            #ifdef USE_WINDOWS_API 
                 Sleep(1000);
             #else
                 sleep(1);
@@ -73,20 +73,34 @@ THREAD_RETURN CYASSL_API server_test(void* args)
 
     SSL_CTX_set_verify(ctx,SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,0);
 
-    if (SSL_CTX_load_verify_locations(ctx, caCert, 0) != SSL_SUCCESS)
-        err_sys("can't load ca file");
 
+#ifndef NO_FILESYSTEM
     /* for client auth */
     if (SSL_CTX_load_verify_locations(ctx, cliCert, 0) != SSL_SUCCESS)
         err_sys("can't load ca file");
 
-    if (SSL_CTX_use_certificate_file(ctx, svrCert, SSL_FILETYPE_PEM)
-            != SSL_SUCCESS)
-        err_sys("can't load server cert file");
+    #ifndef HAVE_NTRU
+        if (SSL_CTX_use_certificate_file(ctx, svrCert, SSL_FILETYPE_PEM)
+                != SSL_SUCCESS)
+            err_sys("can't load server cert file");
 
-    if (SSL_CTX_use_PrivateKey_file(ctx, svrKey, SSL_FILETYPE_PEM)
-            != SSL_SUCCESS)
-        err_sys("can't load server key file");
+        if (SSL_CTX_use_PrivateKey_file(ctx, svrKey, SSL_FILETYPE_PEM)
+                != SSL_SUCCESS)
+            err_sys("can't load server key file");
+    #else
+        if (SSL_CTX_use_certificate_file(ctx, ntruCert, SSL_FILETYPE_PEM)
+                != SSL_SUCCESS)
+            err_sys("can't load ntru cert file");
+
+        if (CyaSSL_CTX_use_NTRUPrivateKey_file(ctx, ntruKey)
+                != SSL_SUCCESS)
+            err_sys("can't load ntru key file");
+    #endif /* NTRU */
+#else
+    load_buffer(ctx, cliCert, CYASSL_CA);
+    load_buffer(ctx, svrCert, CYASSL_CERT);
+    load_buffer(ctx, svrKey,  CYASSL_KEY);
+#endif /* NO_FILESYSTEM */
 
     ssl = SSL_new(ctx);
     tcp_accept(&sockfd, &clientfd, (func_args*)args);

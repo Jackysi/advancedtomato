@@ -308,25 +308,51 @@ static void save_webmon(void)
 static void ipt_webmon(void)
 {
 	int wmtype, clear, i;
+	char t[512];
+	char src[64];
+	char *p, *c;
 
 	if (!nvram_get_int("log_wm")) return;
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
 	ipt_write(":monitor - [0:0]\n");
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ipt_write("-A FORWARD -o %s -j monitor\n",
-				wanfaces.iface[i].name);
+
+	// include IPs
+	strlcpy(t, wmtype == 1 ? nvram_safe_get("log_wmip") : "", sizeof(t));
+	p = t;
+	do {
+		if ((c = strchr(p, ',')) != NULL) *c = 0;
+		ipt_source(p, src);
+
+		for (i = 0; i < wanfaces.count; ++i) {
+			if (*(wanfaces.iface[i].name)) {
+				ipt_write("-A FORWARD -o %s %s -j monitor\n",
+					wanfaces.iface[i].name, src);
+			}
 		}
+
+		if (!c) break;
+		p = c + 1;
+	} while (*p);
+
+	// exclude IPs
+	if (wmtype == 2) {
+		strlcpy(t, nvram_safe_get("log_wmip"), sizeof(t));
+		p = t;
+		do {
+			if ((c = strchr(p, ',')) != NULL) *c = 0;
+			ipt_source(p, src);
+			if (*src) ipt_write("-A monitor %s -j RETURN\n", src);
+			if (!c) break;
+			p = c + 1;
+		} while (*p);
 	}
 
 	ipt_write(
-		"-A monitor -m webmon "
-		"--max_domains %d --max_searches %d %s%s %s %s\n",
+		"-A monitor -p tcp -m webmon "
+		"--max_domains %d --max_searches %d %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
-		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
-		wmtype == 0 ? "" : nvram_safe_get("log_wmip"),
 		(clear & 1) == 0 ? "--domain_load_file /var/webmon/domain" : "--clear_domain",
 		(clear & 2) == 0 ? "--search_load_file /var/webmon/search" : "--clear_search");
 
@@ -797,6 +823,9 @@ static void filter_log(void)
 		limit[0] = 0;
 	}
 
+#ifdef TCONFIG_IPV6
+	modprobe("ip6t_LOG");
+#endif
 	if ((*chain_in_drop == 'l') || (*chain_out_drop == 'l'))  {
 		ip46t_write(
 			":logdrop - [0:0]\n"
@@ -859,6 +888,24 @@ static void filter6_input(void)
 		if (n & 2) ip6t_write("-A INPUT -i %s -p tcp --dport %s -m state --state NEW -j shlimit\n", lanface, nvram_safe_get("telnetd_port"));
 	}
 
+#ifdef TCONFIG_FTP
+	strlcpy(s, nvram_safe_get("ftp_limit"), sizeof(s));
+	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && (atoi(en)) && (nvram_get_int("ftp_enable") == 1)) {
+#ifdef LINUX26
+		modprobe("xt_recent");
+#else
+		modprobe("ipt_recent");
+#endif
+
+		ip6t_write(
+			"-N ftplimit\n"
+			"-A ftplimit -m recent --set --name ftp\n"
+			"-A ftplimit -m recent --update --hitcount %d --seconds %s --name ftp -j %s\n",
+			atoi(hit) + 1, sec, chain_in_drop);
+		ip6t_write("-A INPUT -p tcp --dport %s -m state --state NEW -j ftplimit\n", nvram_safe_get("ftp_port"));
+	}
+#endif	// TCONFIG_FTP
+
 	ip6t_write(
 		"-A INPUT -i %s -j ACCEPT\n" // anything coming from LAN
 		"-A INPUT -i lo -j ACCEPT\n",
@@ -881,7 +928,7 @@ static void filter6_input(void)
 	// TODO: create list for allowed remote ipv6 addresses?
 	// Currently: disabled if there is a non-empty list of allowed ipv4 addresses,
 	// otherwise unrestricted
-	if (strlen(nvram_get("rmgt_sip")) == 0) {
+	if (strlen(nvram_safe_get("rmgt_sip")) == 0) {
 		if (remotemanage) {
 			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
 				nvram_safe_get("http_wanport"), chain_in_accept);
@@ -893,7 +940,16 @@ static void filter6_input(void)
 		}
 	}
 
-	// TODO: FTP server
+	// FTP server
+	// TODO: create list for allowed remote ipv6 addresses? (see above)...
+#ifdef TCONFIG_FTP
+	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
+		if (strlen(nvram_safe_get("ftp_sip")) == 0) {
+			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+				nvram_safe_get("ftp_port"), chain_in_accept);
+		}
+	}
+#endif
 
 	// if logging
 	if (*chain_in_drop == 'l') {
@@ -909,26 +965,30 @@ static void filter6_forward(void)
 	
 	ip6t_write(
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n"
-		"-A FORWARD -i %s -o %s -j ACCEPT\n"				// accept all lan to lan
+		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
 		/*"-A FORWARD -m state --state INVALID -j DROP\n"*/,	// drop if INVALID state
 		lanface, lanface);
+
+	// Filter out invalid WAN->WAN connections
+	ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
 
 #ifdef LINUX26
 	modprobe("xt_length");
 	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
 #endif
 
-
 	// clamp tcp mss to pmtu TODO?
 	// clampmss();
 
 	// TODO: support l7, restrictions, webmon on ipv6?
-/*	if (wanup) {
+/*
+	if (wanup) {
 		ipt_restrictions();
 		ipt_layer7_inbound();
 	}
 
-	ipt_webmon(); */
+	ipt_webmon();
+*/
 
 	ip6t_write(
 		":wanin - [0:0]\n"
@@ -1124,6 +1184,7 @@ int start_firewall(void)
 		return 0;
 	}
 	modprobe("nf_conntrack_ipv6");
+	modprobe("ip6t_REJECT");
 #endif
 
 	mangle_table();
@@ -1210,19 +1271,22 @@ int start_firewall(void)
 
 #ifdef TCONFIG_IPV6
 	modprobe_r("nf_conntrack_ipv6");
+	modprobe_r("ip6t_LOG");
+	modprobe_r("ip6t_REJECT");
 #endif
 #ifdef LINUX26
 	modprobe_r("xt_layer7");
 	modprobe_r("xt_recent");
 	modprobe_r("xt_HL");
 	modprobe_r("xt_length");
+	modprobe_r("xt_web");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
 	modprobe_r("ipt_TTL");
+	modprobe_r("ipt_web");
 #endif
 	modprobe_r("ipt_ipp2p");
-	modprobe_r("ipt_web");
 	modprobe_r("ipt_webmon");
 
 	unlink("/var/webmon/domain");

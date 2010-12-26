@@ -88,12 +88,21 @@ void start_usb(void)
 	tune_bdflush();
 
 	if (nvram_get_int("usb_enable")) {
-//		led(LED_AOSS, LED_ON);
 		modprobe(USBCORE_MOD);
 
 		/* mount usb device filesystem */
         	mount(USBFS, "/proc/bus/usb", USBFS, MS_MGC_VAL, NULL);
 
+#ifdef LINUX26
+		i = do_led(LED_USB, LED_PROBE);
+		if (i != 255) {
+			modprobe("ledtrig-usbdev");
+			modprobe("leds-usb");
+			sprintf(param, "%d", i);
+			f_write_string("/sys/class/leds/usb-led/gpio_pin", param, 0, 0);
+			f_write_string("/sys/class/leds/usb-led/device_name", "1-1", 0, 0);
+		}
+#endif
 		if (nvram_get_int("usb_storage")) {
 			/* insert scsi and storage modules before usb drivers */
 			modprobe(SCSI_MOD);
@@ -150,9 +159,6 @@ void start_usb(void)
 			}
 		}
 	}
-	else {
-//		led(LED_AOSS, LED_OFF);
-	}
 }
 
 void stop_usb(void)
@@ -200,6 +206,12 @@ void stop_usb(void)
 	if (nvram_get_int("usb_ohci") != 1) modprobe_r(USBOHCI_MOD);
 	if (nvram_get_int("usb_uhci") != 1) modprobe_r(USBUHCI_MOD);
 	if (nvram_get_int("usb_usb2") != 1) modprobe_r(USB20_MOD);
+
+#ifdef LINUX26
+	modprobe_r("leds-usb");
+	modprobe_r("ledtrig-usbdev");
+	led(LED_USB, LED_OFF);
+#endif
 
 	// only unload core modules if usb is disabled
 	if (!nvram_get_int("usb_enable")) {
@@ -521,9 +533,8 @@ int mount_partition(char *dev_name, int host_num, char *dsc_name, char *pt_name,
 	static char *swp_argv[] = { "swapon", "-a", NULL };
 	struct mntent *mnt;
 
-	if ((type = detect_fs_type(dev_name)) == NULL)
+	if ((type = find_label_or_uuid(dev_name, the_label, uuid)) == NULL)
 		return 0;
-	find_label_or_uuid(dev_name, the_label, uuid);
 
 	if (f_exists("/etc/fstab")) {
 		if (strcmp(type, "swap") == 0) {

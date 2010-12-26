@@ -28,8 +28,6 @@
 #else
     #include "misc.c"
 #endif
-#include <string.h>
-#include <assert.h>
 
 
 #ifndef min
@@ -136,7 +134,7 @@ static void Transform(Sha512* sha512)
     word64 T[8];
 
     /* Copy digest to working vars */
-    memcpy(T, sha512->digest, sizeof(T));
+    XMEMCPY(T, sha512->digest, sizeof(T));
 
     /* 64 operations, partially loop unrolled */
     for (j = 0; j < 80; j += 16) {
@@ -158,8 +156,8 @@ static void Transform(Sha512* sha512)
     sha512->digest[7] += h(0);
 
     /* Wipe variables */
-    memset(W, 0, sizeof(W));
-    memset(T, 0, sizeof(T));
+    XMEMSET(W, 0, sizeof(W));
+    XMEMSET(T, 0, sizeof(T));
 }
 
 
@@ -178,7 +176,7 @@ void Sha512Update(Sha512* sha512, const byte* data, word32 len)
 
     while (len) {
         word32 add = min(len, SHA512_BLOCK_SIZE - sha512->buffLen);
-        memcpy(&local[sha512->buffLen], data, add);
+        XMEMCPY(&local[sha512->buffLen], data, add);
 
         sha512->buffLen += add;
         data         += add;
@@ -207,7 +205,7 @@ void Sha512Final(Sha512* sha512, byte* hash)
 
     /* pad with zeros */
     if (sha512->buffLen > SHA512_PAD_SIZE) {
-        memset(&local[sha512->buffLen], 0, SHA512_BLOCK_SIZE - sha512->buffLen);
+        XMEMSET(&local[sha512->buffLen], 0, SHA512_BLOCK_SIZE - sha512->buffLen);
         sha512->buffLen += SHA512_BLOCK_SIZE - sha512->buffLen;
 
         #ifdef LITTLE_ENDIAN_ORDER
@@ -216,7 +214,7 @@ void Sha512Final(Sha512* sha512, byte* hash)
         Transform(sha512);
         sha512->buffLen = 0;
     }
-    memset(&local[sha512->buffLen], 0, SHA512_PAD_SIZE - sha512->buffLen);
+    XMEMSET(&local[sha512->buffLen], 0, SHA512_PAD_SIZE - sha512->buffLen);
    
     /* put lengths in bits */
     sha512->loLen = sha512->loLen << 3;
@@ -235,7 +233,7 @@ void Sha512Final(Sha512* sha512, byte* hash)
     #ifdef LITTLE_ENDIAN_ORDER
         ByteReverseWords64(sha512->digest, sha512->digest, SHA512_DIGEST_SIZE);
     #endif
-    memcpy(hash, sha512->digest, SHA512_DIGEST_SIZE);
+    XMEMCPY(hash, sha512->digest, SHA512_DIGEST_SIZE);
 
     InitSha512(sha512);  /* reset state */
 }

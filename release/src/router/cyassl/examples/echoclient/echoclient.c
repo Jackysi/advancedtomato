@@ -1,7 +1,7 @@
 /* echoclient.c  */
 
-#include "openssl/ssl.h"
-#include "../test.h"
+#include "ssl.h"
+#include "cyassl_test.h"
 
 
 void echoclient_test(void* args)
@@ -52,8 +52,12 @@ void echoclient_test(void* args)
 #endif
     ctx    = SSL_CTX_new(method);
 
+#ifndef NO_FILESYSTEM
     if (SSL_CTX_load_verify_locations(ctx, caCert, 0) != SSL_SUCCESS)
         err_sys("can't load ca file");
+#else
+    load_buffer(ctx, caCert, CYASSL_CA);
+#endif
 
 #ifdef OPENSSL_EXTRA
     SSL_CTX_set_default_passwd_cb(ctx, PasswordCallBack);
@@ -61,7 +65,7 @@ void echoclient_test(void* args)
     ssl = SSL_new(ctx);
 
     SSL_set_fd(ssl, sockfd);
-#if defined(_WIN32) && defined(CYASSL_DTLS) && defined(NO_MAIN_DRIVER)
+#if defined(USE_WINDOWS_API) && defined(CYASSL_DTLS) && defined(NO_MAIN_DRIVER)
     /* let echoserver bind first, TODO: add Windows signal like pthreads does */
     Sleep(100);
 #endif
@@ -84,8 +88,15 @@ void echoclient_test(void* args)
             break;
         }
 
-        if (SSL_read(ssl, reply, sizeof(reply)) > 0) 
-            fputs(reply, fout);
+        while (sendSz) {
+            int got;
+            if ( (got = SSL_read(ssl, reply, sizeof(reply))) > 0) {
+                fputs(reply, fout);
+                sendSz -= got;
+            }
+            else
+                break;
+        }
     }
 
 #ifdef CYASSL_DTLS

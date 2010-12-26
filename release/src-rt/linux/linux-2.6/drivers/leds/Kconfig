@@ -95,6 +95,10 @@ config LEDS_COBALT
 	help
 	  This option enables support for the front LED on Cobalt Server
 
+config LEDS_USBGPIO
+	tristate "GPIO-controlled USB LED Support"
+	depends on LEDS_CLASS && MIPS_BRCM
+
 comment "LED Triggers"
 
 config LEDS_TRIGGERS
@@ -127,6 +131,13 @@ config LEDS_TRIGGER_HEARTBEAT
 	  The flash frequency is a hyperbolic function of the 1-minute
 	  load average.
 	  If unsure, say Y.
+
+config LEDS_TRIGGER_USBDEV
+	tristate "LED USB device Trigger"
+	depends on USB && LEDS_TRIGGERS
+	help
+	  This allows LEDs to be controlled by the presence/activity of
+	  an USB device. If unsure, say N.
 
 endmenu
 

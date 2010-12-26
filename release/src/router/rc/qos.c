@@ -117,9 +117,12 @@ void ipt_qos(void)
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
 			ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src");
-			int junk;
-			if (sscanf(addr, "%d.%d.%d.%d", &junk, &junk, &junk, &junk ) == 4) // if it appears to be ipv4 dotted decimal
-				ipv6_ok = 0; // don't apply it to ip6tables; otherwise assume it's ok for both.
+#ifdef TCONFIG_IPV6
+			// if it appears to be ipv4 dotted decimal or IPv4 range,
+			// don't apply it to ip6tables; otherwise assume it's ok for both.
+			if (sscanf(addr, "%[0-9.]-%[0-9.]", s, s) == 2 || sscanf(addr, "%[0-9.]", s) == 1)
+				ipv6_ok = 0;
+#endif
 		}
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)

@@ -178,7 +178,6 @@ target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = client server echoclient echoserver
-EXTRA_DIST = test.h 
 all: all-recursive
 
 .SUFFIXES:

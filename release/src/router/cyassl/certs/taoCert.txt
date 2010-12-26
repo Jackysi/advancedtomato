@@ -5,6 +5,8 @@
 
 2) openssl req -new -x509 -nodes -md5 -days 1000 -key client-key.pem > client-cert.pem
 
+3) note sha1 would be -sha1
+
 -- adding metadata to beginning
 
 3) openssl x509 -in client-cert.pem -text > tmp.pem

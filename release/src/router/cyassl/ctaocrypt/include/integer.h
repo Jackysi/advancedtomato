@@ -33,14 +33,14 @@
 /* may optionally use fast math instead, not yet supported on all platforms and
    may not be faster on all
 */
+#include "types.h"
 #ifdef USE_FAST_MATH
     #include "tfm.h"
 #else
 
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <limits.h>
+#ifndef CHAR_BIT
+    #include <limits.h>
+#endif
 
 #include "types.h"       /* will set MP_xxBIT if not default */
 #include "mpi_class.h"

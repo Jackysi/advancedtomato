@@ -55,8 +55,8 @@ typedef union {
 
 
 typedef struct EVP_MD_CTX {
-    byte   macType;               /* md5 or sha for now */
-    Hasher hash;
+    unsigned char macType;               /* md5 or sha for now */
+    Hasher        hash;
 } EVP_MD_CTX;
 
 
@@ -68,8 +68,8 @@ int EVP_DigestUpdate(EVP_MD_CTX* ctx, const void* data, size_t sz);
 int EVP_DigestFinal(EVP_MD_CTX* ctx, unsigned char* md, unsigned int* s);
 int EVP_DigestFinal_ex(EVP_MD_CTX* ctx, unsigned char* md, unsigned int* s);
 
-int EVP_BytesToKey(const EVP_CIPHER*, const EVP_MD*, const byte*, const byte*,
-                   int, int, byte*, byte*);
+int EVP_BytesToKey(const EVP_CIPHER*, const EVP_MD*, const unsigned char*,
+                const unsigned char*, int, int, unsigned char*, unsigned char*);
 
 #ifdef __cplusplus
     } /* extern "C" */

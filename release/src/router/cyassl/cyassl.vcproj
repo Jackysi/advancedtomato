@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="ctaocrypt/include;include"
+				AdditionalIncludeDirectories="ctaocrypt/include;include;include/openssl"
 				PreprocessorDefinitions="OPENSSL_EXTRA;CYASSL_RIPEMD;CYASSL_SHA512"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -105,7 +105,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="ctaocrypt/include;include"
+				AdditionalIncludeDirectories="ctaocrypt/include;include;include/openssl"
 				PreprocessorDefinitions="OPENSSL_EXTRA;CYASSL_RIPEMD;CYASSL_SHA512"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -265,10 +265,6 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath=".\ctaocrypt\include\aes.h"
-				>
-			</File>
-			<File
 				RelativePath=".\ctaocrypt\include\arc4.h"
 				>
 			</File>
@@ -278,6 +274,42 @@
 			</File>
 			<File
 				RelativePath=".\ctaocrypt\include\coding.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_aes.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_dh.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_dsa.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_hmac.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_md4.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_md5.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_ripemd.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_rsa.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ctaocrypt\include\ctc_sha.h"
 				>
 			</File>
 			<File
@@ -293,14 +325,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\ctaocrypt\include\dh.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ctaocrypt\include\dsa.h"
-				>
-			</File>
-			<File
 				RelativePath=".\ctaocrypt\include\error.h"
 				>
 			</File>
@@ -309,19 +333,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\ctaocrypt\include\hmac.h"
-				>
-			</File>
-			<File
 				RelativePath=".\ctaocrypt\include\integer.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ctaocrypt\include\md4.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ctaocrypt\include\md5.h"
 				>
 			</File>
 			<File
@@ -338,14 +350,6 @@
 			</File>
 			<File
 				RelativePath=".\ctaocrypt\include\random.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ctaocrypt\include\rsa.h"
-				>
-			</File>
-			<File
-				RelativePath=".\ctaocrypt\include\sha.h"
 				>
 			</File>
 			<File

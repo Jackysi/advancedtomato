@@ -49,7 +49,7 @@ static int security_on(int idx, int unit, int subunit, void *param)
 
 static int is_wds(int idx, int unit, int subunit, void *param)
 {
-	return nvram_get_int(wl_nvname("wds_enable", unit, subunit));
+	return nvram_get_int(wl_nvname("radio", unit, 0)) && nvram_get_int(wl_nvname("wds_enable", unit, subunit));
 }
 
 #ifndef CONFIG_BCMWL5

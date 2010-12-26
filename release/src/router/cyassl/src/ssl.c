@@ -20,25 +20,26 @@
  */
 
 
-#include "openssl/ssl.h"
+#include "ssl.h"
 #include "cyassl_int.h"
 #include "cyassl_error.h"
 #include "coding.h"
 
 #ifdef OPENSSL_EXTRA
-    #include "openssl/evp.h"
-    #include "openssl/hmac.h"
-    #include "openssl/crypto.h"
-    #include "openssl/des.h"
-    #include "../ctaocrypt/include/hmac.h"
-    #include "../ctaocrypt/include/random.h"
-    #include "../ctaocrypt/include/des3.h"
-    #include "../ctaocrypt/include/md4.h"
-    #include "../ctaocrypt/include/coding.h"
+    /* openssl headers begin */
+    #include "evp.h"
+    #include "hmac.h"
+    #include "crypto.h"
+    #include "des.h"
+    /* openssl headers end, cyassl internal headers next */
+    #include "ctc_hmac.h"
+    #include "random.h"
+    #include "des3.h"
+    #include "ctc_md4.h"
+    #include "coding.h"
 #endif
 
-#include <stdlib.h>
-#ifndef _WIN32
+#ifdef HAVE_ERRNO_H 
     #include <errno.h>
 #endif
 
@@ -59,7 +60,7 @@
 
 SSL_CTX* SSL_CTX_new(SSL_METHOD* method)
 {
-    SSL_CTX* ctx = (SSL_CTX*) XMALLOC(sizeof(SSL_CTX), 0);
+    SSL_CTX* ctx = (SSL_CTX*) XMALLOC(sizeof(SSL_CTX), 0, DYNAMIC_TYPE_CTX);
     if (ctx)
         InitSSL_Ctx(ctx, method);
 
@@ -77,7 +78,7 @@ void SSL_CTX_free(SSL_CTX* ctx)
 SSL* SSL_new(SSL_CTX* ctx)
 {
 
-    SSL* ssl = (SSL*) XMALLOC(sizeof(SSL), ctx->heap);
+    SSL* ssl = (SSL*) XMALLOC(sizeof(SSL), ctx->heap, DYNAMIC_TYPE_SSL);
     if (ssl)
         if (InitSSL(ssl, ctx) < 0) {
             FreeSSL(ssl);
@@ -117,12 +118,17 @@ int SSL_get_fd(const SSL* ssl)
 
 int CyaSSL_negotiate(SSL* ssl)
 {
-    int err;
+    int err = -1;
 
+#ifndef NO_CYASSL_SERVER
     if (ssl->options.side == SERVER_END)
         err = SSL_accept(ssl);
-    else
+#endif
+
+#ifndef NO_CYASSL_CLIENT
+    if (ssl->options.side == CLIENT_END)
         err = SSL_connect(ssl);
+#endif
 
     if (err == SSL_SUCCESS)
         return 0;
@@ -137,7 +143,7 @@ int SSL_write(SSL* ssl, const void* buffer, int sz)
 
     CYASSL_ENTER("SSL_write()");
 
-#ifndef _WIN32
+#ifdef HAVE_ERRNO_H 
     errno = 0;
 #endif
 
@@ -158,11 +164,11 @@ int SSL_read(SSL* ssl, void* buffer, int sz)
 
     CYASSL_ENTER("SSL_read()");
 
-#ifndef _WIN32
+#ifdef HAVE_ERRNO_H 
         errno = 0;
 #endif
 
-    ret = ReceiveData(ssl, (byte*)buffer, min(sz, MAX_RECORD_SIZE));
+    ret = ReceiveData(ssl, (byte*)buffer, min(sz, OUTPUT_RECORD_SIZE));
 
     CYASSL_LEAVE("SSL_read()", ret);
 
@@ -250,6 +256,8 @@ void ERR_error_string_n(unsigned long e, char* buf, size_t len)
 }
 
 
+#ifndef NO_FILESYSTEM
+
 void ERR_print_errors_fp(FILE* fp, int err)
 {
     char buffer[MAX_ERROR_SZ + 1];
@@ -257,6 +265,8 @@ void ERR_print_errors_fp(FILE* fp, int err)
     SetErrorString(err, buffer);
     fprintf(fp, "%s", buffer);
 }
+
+#endif
 
 
 int SSL_pending(SSL* ssl)
@@ -273,7 +283,7 @@ static int AddCA(SSL_CTX* ctx, buffer der)
     Signer*     signer = 0;
 
     InitDecodedCert(&cert, der.buffer, ctx->heap);
-    ret = ParseCert(&cert, der.length, CA_TYPE, NO_VERIFY, 0);
+    ret = ParseCert(&cert, der.length, CA_TYPE, ctx->verifyPeer, 0);
 
     if (ret == 0) {
         /* take over signer parts */
@@ -281,10 +291,11 @@ static int AddCA(SSL_CTX* ctx, buffer der)
         if (!signer)
             ret = MEMORY_ERROR;
         else {
+            signer->keyOID     = cert.keyOID;
             signer->publicKey  = cert.publicKey;
             signer->pubKeySize = cert.pubKeySize;
             signer->name = cert.subjectCN;
-            memcpy(signer->hash, cert.subjectHash, SHA_DIGEST_SIZE);
+            XMEMCPY(signer->hash, cert.subjectHash, SHA_DIGEST_SIZE);
 
             cert.publicKey = 0;  /* don't free here */
             cert.subjectCN = 0;
@@ -295,7 +306,7 @@ static int AddCA(SSL_CTX* ctx, buffer der)
     }
 
     FreeDecodedCert(&cert);
-    XFREE(der.buffer, ctx->heap);
+    XFREE(der.buffer, ctx->heap, DYNAMIC_TYPE_CA);
 
     if (ret == 0) return SSL_SUCCESS;
     return ret;
@@ -333,109 +344,85 @@ static int AddCA(SSL_CTX* ctx, buffer der)
 
     static SessionRow SessionCache[SESSION_ROWS];
 
-    /* quiet compiler */
-    #ifndef SINGLE_THREADED
-        static CyaSSL_Mutex mutex;   /* SessionCache mutex */
-    #endif
+    static CyaSSL_Mutex mutex;   /* SessionCache mutex */
 
 #endif /* NO_SESSION_CACHE */
 
 
-#ifndef NO_FILESYSTEM
+    static int PemToDer(const unsigned char* buff, long sz, int type,
+                        buffer* der, void* heap, EncryptedInfo* info)
+    {
+        char  header[PEM_LINE_LEN];
+        char  footer[PEM_LINE_LEN];
+        char* headerEnd;
+        char* footerEnd;
+        long  neededSz;
+        int   pkcs8 = 0;
+        int   dynamicType;
 
-static int PemToDer(const char* fileName, int type, buffer* der, void* heap,
-                    EncryptedInfo* info)
-{
-    long   begin    = -1;
-    long   end      =  0;
-    int    foundEnd =  0;
-    int    ret      =  0;
-    int    pkcs8    =  0;
-    /* int    pkcs8Enc =  0;     pkcs8 encrypted, not full support yet */
-    word32 sz       =  0;
-
-    char  line[80];
-    char  header[80];
-    char  footer[80];
-
-    FILE* file;
-    byte* tmp = 0;
-
-    if (type == CERT_TYPE) {
-        strncpy(header, "-----BEGIN CERTIFICATE-----", sizeof(header));
-        strncpy(footer, "-----END CERTIFICATE-----", sizeof(footer));
-    } else {
-        strncpy(header, "-----BEGIN RSA PRIVATE KEY-----", sizeof(header));
-        strncpy(footer, "-----END RSA PRIVATE KEY-----", sizeof(header));
-    }
-
-    file = fopen(fileName, "rb");
-    if (!file)
-        return SSL_BAD_FILE;
-
-    while(fgets(line, sizeof(line), file))
-        if (strncmp(header, line, strlen(header)) == 0) {
-            begin = ftell(file);
-            break;
+        if (type == CERT_TYPE || type == CA_TYPE)  {
+            XSTRNCPY(header, "-----BEGIN CERTIFICATE-----", sizeof(header));
+            XSTRNCPY(footer, "-----END CERTIFICATE-----", sizeof(footer));
+            dynamicType = (type == CA_TYPE) ? DYNAMIC_TYPE_CA :
+                                              DYNAMIC_TYPE_CERT;
+        } else {
+            XSTRNCPY(header, "-----BEGIN RSA PRIVATE KEY-----", sizeof(header));
+            XSTRNCPY(footer, "-----END RSA PRIVATE KEY-----", sizeof(footer));
+            dynamicType = DYNAMIC_TYPE_KEY;
         }
-    
-    /* may have pkcs8 */
-    if (begin == -1 && type == PRIVATEKEY_TYPE) {
-        strncpy(header, "-----BEGIN PRIVATE KEY-----", sizeof(header));
-        strncpy(footer, "-----END PRIVATE KEY-----", sizeof(header));
+
+        /* find header */
+        headerEnd = XSTRSTR((char*)buff, header);
+        if (!headerEnd && type == PRIVATEKEY_TYPE) {  /* may be pkcs8 */
+            XSTRNCPY(header, "-----BEGIN PRIVATE KEY-----", sizeof(header));
+            XSTRNCPY(footer, "-----END PRIVATE KEY-----", sizeof(footer));
         
-        fseek(file, 0, SEEK_SET);
-        
-        while(fgets(line, sizeof(line), file))
-            if (strncmp(header, line, strlen(header)) == 0) {
-                begin = ftell(file);
+            headerEnd = XSTRSTR((char*)buff, header);
+            if (headerEnd)
                 pkcs8 = 1;
-                break;
-            }
-        
-        /* may be encrypted, not full support yet */
-        /*
-        if (begin == -1) {
-            strncpy(header, "-----BEGIN ENCRYPTED PRIVATE KEY-----",
-                    sizeof(header));
-            strncpy(footer, "-----END ENCRYPTED PRIVATE KEY-----",
-                    sizeof(header));
-            
-            fseek(file, 0, SEEK_SET);
-            
-            while(fgets(line, sizeof(line), file))
-                if (strncmp(header, line, strlen(header)) == 0) {
-                    begin = ftell(file);
-                    pkcs8Enc = 1;
-                    break;
-                }
+            /*
+            else
+                maybe encrypted "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+            */
         }
-        */
-    }
+        if (!headerEnd)
+            return SSL_BAD_FILE;
+        headerEnd += XSTRLEN(header);
+
+        /* get next line */
+        if (headerEnd[0] == '\n')
+            headerEnd++;
+        else if (headerEnd[1] == '\n')
+            headerEnd += 2;
+        else
+            return SSL_BAD_FILE;
 
 #ifdef OPENSSL_EXTRA
-
-    /* remove encrypted header if there */
-    if (fgets(line, sizeof(line), file)) {
+    {
+        /* remove encrypted header if there */
         char encHeader[] = "Proc-Type";
-        if (strncmp(encHeader, line, strlen(encHeader)) == 0 &&
-            fgets(line, sizeof(line), file)) {
-
-            char* start  = strstr(line, "DES");
-            char* finish = strstr(line, ",");
+        char* line = XSTRSTR((char*)buff, encHeader);
+        if (line) {
+            char* newline;
+            char* finish;
+            char* start  = XSTRSTR(line, "DES");
+    
             if (!start)
-                start = strstr(line, "AES");
-
-            if (!info) return SSL_BAD_FILE;
+                start = XSTRSTR(line, "AES");
+            
+            if (!start) return SSL_BAD_FILE;
+            if (!info)  return SSL_BAD_FILE;
+            
+            finish = XSTRSTR(start, ",");
 
             if (start && finish && (start < finish)) {
-                char* newline = strstr(line, "\r");
+                newline = XSTRSTR(finish, "\r");
 
-                memcpy(info->name, start, finish - start);
+                XMEMCPY(info->name, start, finish - start);
                 info->name[finish - start] = 0;
-                memcpy(info->iv, finish + 1, sizeof(info->iv));
+                XMEMCPY(info->iv, finish + 1, sizeof(info->iv));
 
-                if (!newline) newline = strstr(line, "\n");
+                if (!newline) newline = XSTRSTR(finish, "\n");
                 if (newline && (newline > finish)) {
                     info->ivSz = (word32)(newline - (finish + 1));
                     info->set = 1;
@@ -446,182 +433,218 @@ static int PemToDer(const char* fileName, int type, buffer* der, void* heap,
             else
                 return SSL_BAD_FILE;
 
-            fgets(line, sizeof(line), file);   /* get a blank line */
-            begin = ftell(file);
+            /* eat blank line */
+            while (*newline == '\r' || *newline == '\n')
+                newline++;
+            headerEnd = newline;
         }
     }
-
 #endif /* OPENSSL_EXTRA */
 
-    while(fgets(line, sizeof(line), file))
-        if (strncmp(footer, line, strlen(footer)) == 0) {
-            foundEnd = 1;
-            break;
-        }
+        /* find footer */
+        footerEnd = XSTRSTR((char*)buff, footer);
+        if (!footerEnd) return SSL_BAD_FILE;
+
+        /* set up der buffer */
+        neededSz = (long)(footerEnd - headerEnd);
+        if (neededSz > sz || neededSz < 0) return SSL_BAD_FILE;
+        der->buffer = (byte*) XMALLOC(neededSz, heap, dynamicType);
+        if (!der->buffer) return MEMORY_ERROR;
+        der->length = neededSz;
+
+        if (Base64Decode((byte*)headerEnd, neededSz, der->buffer,
+                         &der->length) < 0)
+            return SSL_BAD_FILE;
+
+        if (pkcs8)
+            return ToTraditional(der->buffer, der->length);
+
+        /* not full support yet 
+         if (pkcs8Enc)
+            return ToTraditionalEnc(der->buffer, der->length);
+        */
+
+        return 0;
+    }
+
+
+    static int ProcessBuffer(SSL_CTX* ctx, const unsigned char* buff,
+                             long sz, int format, int type)
+    {
+        EncryptedInfo info;
+        buffer        der;        /* holds DER or RAW (for NTRU */
+        int           dynamicType;
+
+        info.set   = 0;
+        der.buffer = 0;
+
+        if (format != SSL_FILETYPE_ASN1 && format != SSL_FILETYPE_PEM 
+                                        && format != SSL_FILETYPE_RAW)
+            return SSL_BAD_FILETYPE;
+
+        if (type == CA_TYPE)
+            dynamicType = DYNAMIC_TYPE_CA;
+        else if (type == CERT_TYPE)
+            dynamicType = DYNAMIC_TYPE_CERT;
         else
-            end = ftell(file);
+            dynamicType = DYNAMIC_TYPE_KEY;
 
-    if (begin == -1 || !foundEnd) {
-        fclose(file);
-        return SSL_BAD_FILE;
+        if (format == SSL_FILETYPE_PEM) {
+            if (PemToDer(buff, sz, type, &der, ctx->heap, &info) < 0) {
+                XFREE(der.buffer, ctx->heap, dynamicType);
+                return SSL_BAD_FILE;
+            }
+        }
+        else {  /* ASN1 (DER) or RAW (NTRU) */
+            der.buffer = (byte*) XMALLOC(sz, ctx->heap, dynamicType);
+            if (!der.buffer) return MEMORY_ERROR;
+            XMEMCPY(der.buffer, buff, sz);
+            der.length = sz;
+        }
+
+#ifdef OPENSSL_EXTRA
+        if (info.set) {
+            /* decrypt */
+            char password[80];
+            int  passwordSz;
+
+            byte key[AES_256_KEY_SIZE];
+            byte  iv[AES_IV_SIZE];
+
+            if (!ctx->passwd_cb) return -1;
+
+            /* use file's salt for key derivation, hex decode first */
+            if (Base16Decode(info.iv, info.ivSz, info.iv, &info.ivSz) != 0)
+                return -1;
+
+            passwordSz = ctx->passwd_cb(password, sizeof(password), 0,
+                                    ctx->userdata);
+            if (EVP_BytesToKey(info.name, "MD5", info.iv, (byte*)password,
+                               passwordSz, 1, key, iv) <= 0)
+                return -1;
+
+            if (XSTRNCMP(info.name, "DES-CBC", 7) == 0) {
+                Des des;
+                Des_SetKey(&des, key, info.iv, DES_DECRYPTION);
+                Des_CbcDecrypt(&des, der.buffer, der.buffer, der.length);
+            }
+            else if (XSTRNCMP(info.name, "DES-EDE3-CBC", 13) == 0) {
+                Des3 des;
+                Des3_SetKey(&des, key, info.iv, DES_DECRYPTION);
+                Des3_CbcDecrypt(&des, der.buffer, der.buffer, der.length);
+            }
+            else if (XSTRNCMP(info.name, "AES-128-CBC", 13) == 0) {
+                Aes aes;
+                AesSetKey(&aes, key, AES_128_KEY_SIZE, info.iv, AES_DECRYPTION);
+                AesCbcDecrypt(&aes, der.buffer, der.buffer, der.length);
+            }
+            else if (XSTRNCMP(info.name, "AES-192-CBC", 13) == 0) {
+                Aes aes;
+                AesSetKey(&aes, key, AES_192_KEY_SIZE, info.iv, AES_DECRYPTION);
+                AesCbcDecrypt(&aes, der.buffer, der.buffer, der.length);
+            }
+            else if (XSTRNCMP(info.name, "AES-256-CBC", 13) == 0) {
+                Aes aes;
+                AesSetKey(&aes, key, AES_256_KEY_SIZE, info.iv, AES_DECRYPTION);
+                AesCbcDecrypt(&aes, der.buffer, der.buffer, der.length);
+            }
+            else 
+                return SSL_BAD_FILE;
+        }
+#endif /* OPENSSL_EXTRA */
+
+        if (type == CA_TYPE)
+            return AddCA(ctx, der);     /* takes der over */
+        else if (type == CERT_TYPE) {
+            if (ctx->certificate.buffer)
+                XFREE(ctx->certificate.buffer, ctx->heap, dynamicType);
+            ctx->certificate = der;     /* takes der over */
+        }
+        else if (type == PRIVATEKEY_TYPE) {
+            if (ctx->privateKey.buffer)
+                XFREE(ctx->privateKey.buffer, ctx->heap, dynamicType);
+            ctx->privateKey = der;      /* takes der over */
+        }
+        else {
+            XFREE(der.buffer, ctx->heap, dynamicType);
+            return SSL_BAD_CERTTYPE;
+        }
+
+        if (type == PRIVATEKEY_TYPE && format != SSL_FILETYPE_RAW) {
+            /* make sure RSA key can be used */
+            RsaKey key;
+            word32 idx = 0;
+        
+            InitRsaKey(&key, 0);
+            if (RsaPrivateKeyDecode(der.buffer, &idx, &key, der.length) != 0) {
+                FreeRsaKey(&key);
+                return SSL_BAD_FILE;
+            }
+        
+            FreeRsaKey(&key);
+        }
+
+        return SSL_SUCCESS;
     }
 
-    sz = end - begin;
-    tmp = (byte*) XMALLOC(sz, heap);
-    if (!tmp) {
-        fclose(file);
-        return MEMORY_ERROR;
+
+#ifndef NO_FILESYSTEM
+
+#ifndef MICRIUM
+    #define XFILE      FILE
+    #define XFOPEN     fopen 
+    #define XFSEEK     fseek
+    #define XFTELL     ftell
+    #define XREWIND    rewind
+    #define XFREAD     fread
+    #define XFCLOSE    fclose
+    #define XSEEK_END  SEEK_END
+#else
+    #include <fs.h>
+    #define XFILE      FS_FILE
+    #define XFOPEN     fs_fopen 
+    #define XFSEEK     fs_fseek
+    #define XFTELL     fs_ftell
+    #define XREWIND    fs_rewind
+    #define XFREAD     fs_fread
+    #define XFCLOSE    fs_fclose
+    #define XSEEK_END  FS_SEEK_END
+#endif
+
+static int ProcessFile(SSL_CTX* ctx, const char* fname, int format, int type)
+{
+    byte   staticBuffer[FILE_BUFFER_SIZE];
+    byte*  buffer = staticBuffer;
+    int    dynamic = 0;
+    int    ret;
+    long   sz = 0;
+    XFILE* file = XFOPEN(fname, "rb"); 
+
+    if (!file) return SSL_BAD_FILE;
+    XFSEEK(file, 0, XSEEK_END);
+    sz = XFTELL(file);
+    XREWIND(file);
+
+    if (sz > sizeof(staticBuffer)) {
+        buffer = (byte*) XMALLOC(sz, ctx->heap, DYNAMIC_TYPE_FILE);
+        if (buffer == NULL) {
+            XFCLOSE(file);
+            return SSL_BAD_FILE;
+        }
+        dynamic = 1;
     }
 
-    fseek(file, begin, SEEK_SET);
-    if (fread(tmp, sz, 1, file) != 1 || 
-            (der->buffer = (byte*) XMALLOC(sz, heap)) == 0) {
-        XFREE(tmp, heap);
-        fclose(file);
-        return FREAD_ERROR;
-    }
-   
-    der->length = sz; 
-    if (Base64Decode(tmp, sz, der->buffer, &der->length) < 0)
+    if ( (ret = XFREAD(buffer, sz, 1, file)) < 0)
         ret = SSL_BAD_FILE;
+    else
+        ret = ProcessBuffer(ctx, buffer, sz, format, type);
 
-    XFREE(tmp, heap);
-    fclose(file);
-    
-    if (ret == 0 && pkcs8)
-        return ToTraditional(der->buffer, der->length);
-   
-    /* not full support yet */
-    /*
-    if (ret == 0 && pkcs8Enc)
-        return ToTraditionalEnc(der->buffer, der->length);
-    */
+    XFCLOSE(file);
+    if (dynamic) XFREE(buffer, ctx->heap, DYNAMIC_TYPE_FILE);
 
     return ret;
 }
 
-
-static int ProcessFile(SSL_CTX* ctx, const char* file, int format, int type)
-{
-    buffer der; 
-    EncryptedInfo info;
-
-    der.buffer = 0;
-    info.set   = 0;
-
-    if (format != SSL_FILETYPE_ASN1 && format != SSL_FILETYPE_PEM)
-        return SSL_BAD_FILETYPE;
-
-    if (format == SSL_FILETYPE_PEM) {
-        if (PemToDer(file, type == PRIVATEKEY_TYPE ? type : CERT_TYPE, &der,
-                     ctx->heap, &info) < 0) {
-            XFREE(der.buffer, ctx->heap);
-            return SSL_BAD_FILE;
-        }
-    }
-    else {  /* ASN1 (DER) */
-        long   sz;
-        FILE*  input = fopen(file, "rb");
-
-        if (!input)
-            return SSL_BAD_FILE;
-        
-        fseek(input, 0, SEEK_END);
-        sz = ftell(input);
-        fseek(input, 0, SEEK_SET);
-
-        der.buffer = (byte*) XMALLOC(sz, ctx->heap);
-        if (!der.buffer) return MEMORY_ERROR;
-        der.length = sz;
-        sz = (word32)fread(der.buffer, sz, 1, input);
-        if (sz != 1) {
-            fclose(input);
-            XFREE(der.buffer, ctx->heap);
-            return SSL_BAD_FILE;
-        }
-        fclose(input);
-    }
-
-#ifdef OPENSSL_EXTRA
-
-    if (info.set) {
-        /* decrypt */
-        char password[80];
-        int  passwordSz;
-
-        byte key[AES_256_KEY_SIZE];
-        byte  iv[AES_IV_SIZE];
-
-        if (!ctx->passwd_cb) return -1;
-
-        /* use file's salt for key derivation, hex decode first */
-        if (Base16Decode(info.iv, info.ivSz, info.iv, &info.ivSz) != 0)
-            return -1;
-
-        passwordSz = ctx->passwd_cb(password, sizeof(password), 0,
-                                    ctx->userdata);
-        if (EVP_BytesToKey(info.name, "MD5", info.iv, (byte*)password,
-                           passwordSz, 1, key, iv) <= 0)
-            return -1;
-
-        if (strncmp(info.name, "DES-CBC", 7) == 0) {
-            Des des;
-            Des_SetKey(&des, key, info.iv, DES_DECRYPTION);
-            Des_CbcDecrypt(&des, der.buffer, der.buffer, der.length);
-        }
-        else if (strncmp(info.name, "DES-EDE3-CBC", 13) == 0) {
-            Des3 des;
-            Des3_SetKey(&des, key, info.iv, DES_DECRYPTION);
-            Des3_CbcDecrypt(&des, der.buffer, der.buffer, der.length);
-        }
-        else if (strncmp(info.name, "AES-128-CBC", 13) == 0) {
-            Aes aes;
-            AesSetKey(&aes, key, AES_128_KEY_SIZE, info.iv, AES_DECRYPTION);
-            AesCbcDecrypt(&aes, der.buffer, der.buffer, der.length);
-        }
-        else if (strncmp(info.name, "AES-192-CBC", 13) == 0) {
-            Aes aes;
-            AesSetKey(&aes, key, AES_192_KEY_SIZE, info.iv, AES_DECRYPTION);
-            AesCbcDecrypt(&aes, der.buffer, der.buffer, der.length);
-        }
-        else if (strncmp(info.name, "AES-256-CBC", 13) == 0) {
-            Aes aes;
-            AesSetKey(&aes, key, AES_256_KEY_SIZE, info.iv, AES_DECRYPTION);
-            AesCbcDecrypt(&aes, der.buffer, der.buffer, der.length);
-        }
-        else 
-            return SSL_BAD_FILE;
-    }
-
-#endif /* OPENSSL_EXTRA */
-
-    if (type == CA_TYPE)
-        return AddCA(ctx, der);     /* takes der over */
-    else if (type == CERT_TYPE)
-        ctx->certificate = der;     /* takes der over */
-    else if (type == PRIVATEKEY_TYPE)
-        ctx->privateKey = der;      /* takes der over */
-    else {
-        XFREE(der.buffer, ctx->heap);
-        return SSL_BAD_CERTTYPE;
-    }
-    
-    if (type == PRIVATEKEY_TYPE) {
-        /* make sure key can be used */
-        RsaKey key;
-        word32 idx = 0;
-        
-        InitRsaKey(&key, 0);
-        if (RsaPrivateKeyDecode(der.buffer, &idx, &key, der.length) != 0) {
-            FreeRsaKey(&key);
-            return SSL_BAD_FILE;
-        }
-        
-        FreeRsaKey(&key);
-    }
-
-    return SSL_SUCCESS;
-}
 
 /* just one for now TODO: add dir support from path */
 int SSL_CTX_load_verify_locations(SSL_CTX* ctx, const char* file,
@@ -634,18 +657,87 @@ int SSL_CTX_load_verify_locations(SSL_CTX* ctx, const char* file,
 }
 
 
-int SSL_CTX_use_certificate_file(SSL_CTX* ctx, const char* file, int type)
+#ifdef CYASSL_DER_LOAD
+
+/* Add format parameter to allow DER load of CA files */
+int CyaSSL_CTX_load_verify_locations(SSL_CTX* ctx, const char* file, int format)
 {
-    if (ProcessFile(ctx, file, type, CERT_TYPE) == SSL_SUCCESS)
+    if (ProcessFile(ctx, file, format, CA_TYPE) == SSL_SUCCESS)
+        return SSL_SUCCESS;
+
+    return SSL_FAILURE;
+}
+
+#endif /* CYASSL_DER_LOAD */
+
+
+#ifdef CYASSL_CERT_GEN
+
+/* load pem cert from file into der buffer, return der size or error */
+int CyaSSL_PemCertToDer(const char* fileName, unsigned char* derBuf, int derSz) 
+{
+    byte   staticBuffer[FILE_BUFFER_SIZE];
+    byte*  fileBuf = staticBuffer;
+    int    dynamic = 0;
+    int    ret;
+    long   sz = 0;
+    XFILE* file = XFOPEN(fileName, "rb"); 
+    EncryptedInfo info;
+    buffer        converted;
+
+    converted.buffer = 0;
+
+    if (!file) return SSL_BAD_FILE;
+    XFSEEK(file, 0, XSEEK_END);
+    sz = XFTELL(file);
+    XREWIND(file);
+
+    if (sz > sizeof(staticBuffer)) {
+        fileBuf = (byte*) XMALLOC(sz, 0, DYNAMIC_TYPE_FILE);
+        if (fileBuf == NULL) {
+            XFCLOSE(file);
+            return SSL_BAD_FILE;
+        }
+        dynamic = 1;
+    }
+
+    if ( (ret = XFREAD(fileBuf, sz, 1, file)) < 0)
+        ret = SSL_BAD_FILE;
+    else
+        ret = PemToDer(fileBuf, sz, CA_TYPE, &converted, 0, &info);
+
+    if (ret == 0) {
+        if (converted.length < derSz) {
+            memcpy(derBuf, converted.buffer, converted.length);
+            ret = converted.length;
+        }
+        else
+            ret = BUFFER_E;
+    }       
+
+    XFREE(converted.buffer, 0, DYNAMIC_TYPE_CA); 
+    if (dynamic)
+        XFREE(fileBuf, 0, DYNAMIC_TYPE_FILE); 
+    XFCLOSE(file);
+
+    return ret;
+}
+
+#endif /* CYASSL_CERT_GEN */
+
+
+int SSL_CTX_use_certificate_file(SSL_CTX* ctx, const char* file, int format)
+{
+    if (ProcessFile(ctx, file, format, CERT_TYPE) == SSL_SUCCESS)
         return SSL_SUCCESS;
 
     return SSL_FAILURE;
 }
 
 
-int SSL_CTX_use_PrivateKey_file(SSL_CTX* ctx, const char* file, int type)
+int SSL_CTX_use_PrivateKey_file(SSL_CTX* ctx, const char* file, int format)
 {
-    if (ProcessFile(ctx, file, type, PRIVATEKEY_TYPE) == SSL_SUCCESS)
+    if (ProcessFile(ctx, file, format, PRIVATEKEY_TYPE) == SSL_SUCCESS)
         return SSL_SUCCESS;
 
     return SSL_FAILURE;
@@ -660,6 +752,36 @@ int SSL_CTX_use_certificate_chain_file(SSL_CTX* ctx, const char* file)
 
    return SSL_FAILURE;
 }
+
+
+#ifdef HAVE_NTRU
+
+int CyaSSL_CTX_use_NTRUPrivateKey_file(SSL_CTX* ctx, const char* file)
+{
+    if (ProcessFile(ctx, file, SSL_FILETYPE_RAW, PRIVATEKEY_TYPE)
+                         == SSL_SUCCESS) {
+        ctx->haveNTRU = 1;
+        return SSL_SUCCESS;
+    }
+
+    return SSL_FAILURE;
+}
+
+#endif /* HAVE_NTRU */
+
+
+
+#ifdef OPENSSL_EXTRA
+
+    int SSL_CTX_use_RSAPrivateKey_file(SSL_CTX* ctx,const char* file,int format)
+    {
+        if (ProcessFile(ctx, file, format, PRIVATEKEY_TYPE) == SSL_SUCCESS)
+            return SSL_SUCCESS;
+
+        return SSL_FAILURE;
+    }
+
+#endif /* OPENSSL_EXTRA */
 
 #endif /* NO_FILESYSTEM */
 
@@ -678,6 +800,8 @@ void SSL_CTX_set_verify(SSL_CTX* ctx, int mode, VerifyCallback vc)
 
     if (mode & SSL_VERIFY_FAIL_IF_NO_PEER_CERT)
         ctx->failNoCert = 1;
+
+    ctx->verifyCallback = vc;
 }
 
 
@@ -706,8 +830,10 @@ void SSL_load_error_strings(void)   /* compatibility only */
 
 int SSL_library_init(void)
 {
-    InitCyaSSL();
-    return SSL_SUCCESS;
+    if (InitCyaSSL() == 0)
+        return SSL_SUCCESS;
+    else
+        return -1;
 }
 
 
@@ -742,7 +868,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
 
     SSL_METHOD* SSLv3_client_method(void)
     {
-        SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0);
+        SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0,
+                                                   DYNAMIC_TYPE_METHOD);
         if (method)
             InitSSL_Method(method, MakeSSLv3());
         return method;
@@ -751,7 +878,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
     #ifdef CYASSL_DTLS
         SSL_METHOD* DTLSv1_client_method(void)
         {
-            SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0);
+            SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0,
+                                                       DYNAMIC_TYPE_METHOD);
             if (method)
                 InitSSL_Method(method, MakeDTLSv1());
             return method;
@@ -766,7 +894,7 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
 
         CYASSL_ENTER("SSL_connect()");
 
-        #ifndef _WIN32
+        #ifdef HAVE_ERRNO_H 
             errno = 0;
         #endif
 
@@ -929,6 +1057,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
             CYASSL_MSG("connect state: SECOND_REPLY_DONE");
 
         case SECOND_REPLY_DONE:
+            if (ssl->buffers.inputBuffer.dynamicFlag)
+                ShrinkInputBuffer(ssl, NO_FORCED_FREE);
             CYASSL_LEAVE("SSL_connect()", SSL_SUCCESS);
             return SSL_SUCCESS;
 
@@ -946,7 +1076,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
 
     SSL_METHOD* SSLv3_server_method(void)
     {
-        SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0);
+        SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0,
+                                                   DYNAMIC_TYPE_METHOD);
         if (method) {
             InitSSL_Method(method, MakeSSLv3());
             method->side = SERVER_END;
@@ -958,7 +1089,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
     #ifdef CYASSL_DTLS
         SSL_METHOD* DTLSv1_server_method(void)
         {
-            SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0);
+            SSL_METHOD* method = (SSL_METHOD*) XMALLOC(sizeof(SSL_METHOD), 0,
+                                                       DYNAMIC_TYPE_METHOD);
             if (method) {
                 InitSSL_Method(method, MakeDTLSv1());
                 method->side = SERVER_END;
@@ -972,7 +1104,7 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
     {
         CYASSL_ENTER("SSL_accept()");
 
-        #ifndef _WIN32
+        #ifdef HAVE_ERRNO_H 
             errno = 0;
         #endif
 
@@ -992,7 +1124,7 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
 
         if (ssl->buffers.outputBuffer.length > 0) {
             if ( (ssl->error = SendBuffered(ssl)) == 0) {
-                ssl->options.connectState++;
+                ssl->options.acceptState++;
                 CYASSL_MSG("accept state: Advanced from buffered send");
             }
             else {
@@ -1127,6 +1259,8 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
             CYASSL_MSG("accept state ACCEPT_THIRD_REPLY_DONE");
 
         case ACCEPT_THIRD_REPLY_DONE :
+            if (ssl->buffers.inputBuffer.dynamicFlag)
+                ShrinkInputBuffer(ssl, NO_FORCED_FREE);
             CYASSL_LEAVE("SSL_accept()", SSL_SUCCESS);
             return SSL_SUCCESS;
 
@@ -1139,15 +1273,21 @@ int SSL_CTX_set_cipher_list(SSL_CTX* ctx, const char* list)
 #endif /* NO_CYASSL_SERVER */
 
 
-void InitCyaSSL(void)
+int InitCyaSSL(void)
 {
-    InitMutex(&mutex);
+    if (InitMutex(&mutex) == 0)
+        return 0;
+    else
+        return -1;
 }
 
 
-void FreeCyaSSL()
+int FreeCyaSSL(void)
 {
-    FreeMutex(&mutex);
+    if (FreeMutex(&mutex) == 0)
+        return 0;
+    else
+        return -1;
 }
 
 
@@ -1180,7 +1320,8 @@ SSL_SESSION* GetSession(SSL* ssl, byte* masterSecret)
 
     row = HashSession(id) % SESSION_ROWS;
 
-    LockMutex(&mutex);
+    if (LockMutex(&mutex) != 0)
+        return 0;
    
     if (SessionCache[row].totalCount >= SESSIONS_PER_ROW)
         idx = SESSIONS_PER_ROW - 1;
@@ -1194,11 +1335,11 @@ SSL_SESSION* GetSession(SSL* ssl, byte* masterSecret)
             break;                      /* would be word32(-1) and seg fault */
         
         current = &SessionCache[row].Sessions[idx];
-        if (memcmp(current->sessionID, id, ID_LEN) == 0) {
+        if (XMEMCMP(current->sessionID, id, ID_LEN) == 0) {
             if (LowResTimer() < (current->bornOn + current->timeout)) {
                 ret = current;
                 if (masterSecret)
-                    memcpy(masterSecret, current->masterSecret, SECRET_LEN);
+                    XMEMCPY(masterSecret, current->masterSecret, SECRET_LEN);
             }
             break;
         }   
@@ -1230,22 +1371,23 @@ int SetSession(SSL* ssl, SSL_SESSION* session)
 }
 
 
-void AddSession(SSL* ssl)
+int AddSession(SSL* ssl)
 {
     word32 row, idx;
 
     if (ssl->options.sessionCacheOff)
-        return;
+        return 0;
 
     row = HashSession(ssl->arrays.sessionID) % SESSION_ROWS;
 
-    LockMutex(&mutex);
+    if (LockMutex(&mutex) != 0)
+        return -1;
 
     idx = SessionCache[row].nextIdx++;
 
-    memcpy(SessionCache[row].Sessions[idx].masterSecret,
+    XMEMCPY(SessionCache[row].Sessions[idx].masterSecret,
            ssl->arrays.masterSecret, SECRET_LEN);
-    memcpy(SessionCache[row].Sessions[idx].sessionID, ssl->arrays.sessionID,
+    XMEMCPY(SessionCache[row].Sessions[idx].sessionID, ssl->arrays.sessionID,
            ID_LEN);
 
     SessionCache[row].Sessions[idx].timeout = DEFAULT_TIMEOUT;
@@ -1253,7 +1395,7 @@ void AddSession(SSL* ssl)
 
 #ifdef SESSION_CERTS
     SessionCache[row].Sessions[idx].chain.count = ssl->session.chain.count;
-    memcpy(SessionCache[row].Sessions[idx].chain.certs,
+    XMEMCPY(SessionCache[row].Sessions[idx].chain.certs,
            ssl->session.chain.certs, sizeof(x509_buffer) * MAX_CHAIN_DEPTH);
 
     SessionCache[row].Sessions[idx].version     = ssl->version;
@@ -1264,7 +1406,10 @@ void AddSession(SSL* ssl)
     if (SessionCache[row].nextIdx == SESSIONS_PER_ROW)
         SessionCache[row].nextIdx = 0;
 
-    UnLockMutex(&mutex);        
+    if (UnLockMutex(&mutex) != 0)
+        return -1;
+
+    return 0;
 }
 
 
@@ -1325,14 +1470,14 @@ void AddSession(SSL* ssl)
 int CyaSSL_check_domain_name(SSL* ssl, const char* dn)
 {
     if (ssl->buffers.domainName.buffer)
-        XFREE(ssl->buffers.domainName.buffer, ssl->heap);
+        XFREE(ssl->buffers.domainName.buffer, ssl->heap, DYNAMIC_TYPE_DOMAIN);
 
-    ssl->buffers.domainName.length = (word32)strlen(dn) + 1;
-    ssl->buffers.domainName.buffer =
-                     (byte*) XMALLOC(ssl->buffers.domainName.length, ssl->heap);
+    ssl->buffers.domainName.length = (word32)XSTRLEN(dn) + 1;
+    ssl->buffers.domainName.buffer = (byte*) XMALLOC(
+                ssl->buffers.domainName.length, ssl->heap, DYNAMIC_TYPE_DOMAIN);
 
     if (ssl->buffers.domainName.buffer) {
-        strncpy((char*)ssl->buffers.domainName.buffer, dn,
+        XSTRNCPY((char*)ssl->buffers.domainName.buffer, dn,
                 ssl->buffers.domainName.length);
         return SSL_SUCCESS;
     }
@@ -1357,14 +1502,14 @@ int CyaSSL_set_compression(SSL* ssl)
 }
 
 
-#ifndef _WIN32
+#ifndef USE_WINDOWS_API 
     #ifndef NO_WRITEV
 
         /* simulate writev semantics, doesn't actually do block at a time though
            because of SSL_write behavior and because front adds may be small */
         int CyaSSL_writev(SSL* ssl, const struct iovec* iov, int iovcnt)
         {
-            byte  tmp[MAX_RECORD_SIZE];
+            byte  tmp[OUTPUT_RECORD_SIZE];
             byte* buffer    = tmp;
             int   send      = 0;
             int   newBuffer = 0;
@@ -1376,7 +1521,8 @@ int CyaSSL_set_compression(SSL* ssl)
                 send += iov[i].iov_len;
 
             if (send > sizeof(tmp)) {
-                byte* tmp2 = (byte*) XMALLOC(send, ssl->heap);
+                byte* tmp2 = (byte*) XMALLOC(send, ssl->heap,
+                                             DYNAMIC_TYPE_WRITEV);
                 if (!tmp2)
                     return MEMORY_ERROR;
                 buffer = tmp2;
@@ -1384,13 +1530,13 @@ int CyaSSL_set_compression(SSL* ssl)
             }
 
             for (i = 0; i < iovcnt; i++) {
-                memcpy(&buffer[idx], iov[i].iov_base, iov[i].iov_len);
+                XMEMCPY(&buffer[idx], iov[i].iov_base, iov[i].iov_len);
                 idx += iov[i].iov_len;
             }
 
             ret = SSL_write(ssl, buffer, send);
 
-            if (newBuffer) XFREE(buffer, ssl->heap);
+            if (newBuffer) XFREE(buffer, ssl->heap, DYNAMIC_TYPE_WRITEV);
 
             return ret;
         }
@@ -1589,7 +1735,7 @@ int CyaSSL_set_compression(SSL* ssl)
         ssl->options.havePSK = 1;
         ssl->options.client_psk_cb = cb;
 
-        InitSuites(&ssl->suites, ssl->version, TRUE, TRUE);
+        InitSuites(&ssl->suites, ssl->version,TRUE,TRUE, ssl->options.haveNTRU);
     }
 
 
@@ -1605,7 +1751,8 @@ int CyaSSL_set_compression(SSL* ssl)
         ssl->options.havePSK = 1;
         ssl->options.server_psk_cb = cb;
 
-        InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, TRUE);
+        InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, TRUE,
+                   ssl->options.haveNTRU);
     }
 
 
@@ -1626,7 +1773,7 @@ int CyaSSL_set_compression(SSL* ssl)
         if (hint == 0)
             ctx->server_hint[0] = 0;
         else
-            strncpy(ctx->server_hint, hint, MAX_PSK_ID_LEN);
+            XSTRNCPY(ctx->server_hint, hint, MAX_PSK_ID_LEN);
         return SSL_SUCCESS;
     }
 
@@ -1636,122 +1783,34 @@ int CyaSSL_set_compression(SSL* ssl)
         if (hint == 0)
             ssl->arrays.server_hint[0] = 0;
         else
-            strncpy(ssl->arrays.server_hint, hint, MAX_PSK_ID_LEN);
+            XSTRNCPY(ssl->arrays.server_hint, hint, MAX_PSK_ID_LEN);
         return SSL_SUCCESS;
     }
 
 #endif /* NO_PSK */
 
 
-#ifdef NO_FILESYSTEM
+#if defined(NO_FILESYSTEM) || defined(MICRIUM)
 
-
-    static int PemToDerBuffer(const unsigned char* buff, long sz, int type,
-                              buffer* der, void* heap)
-    {
-
-        char  header[80];
-        char  footer[80];
-        char* headerEnd;
-        char* footerEnd;
-        long  neededSz;
-
-        if (type == CERT_TYPE) {
-            strncpy(header, "-----BEGIN CERTIFICATE-----", sizeof(header));
-            strncpy(footer, "-----END CERTIFICATE-----", sizeof(footer));
-        } else {
-            strncpy(header, "-----BEGIN RSA PRIVATE KEY-----", sizeof(header));
-            strncpy(footer, "-----END RSA PRIVATE KEY-----", sizeof(footer));
-        }
-
-        /* find header */
-        headerEnd = strstr((char*)buff, header);
-        if (!headerEnd) return SSL_BAD_FILE;
-        headerEnd += strlen(header);
-
-        /* get next line */
-        if (headerEnd[0] == '\n')
-            headerEnd++;
-        else if (headerEnd[1] == '\n')
-            headerEnd += 2;
-        else
-            return SSL_BAD_FILE;
-
-        /* find footer */
-        footerEnd = strstr((char*)buff, footer);
-        if (!footerEnd) return SSL_BAD_FILE;
-
-        /* set up der buffer */
-        neededSz = (long)(footerEnd - headerEnd);
-        if (neededSz > sz || neededSz < 0) return SSL_BAD_FILE;
-        der->buffer = XMALLOC(neededSz, heap);
-        if (!der->buffer) return MEMORY_ERROR;
-        der->length = neededSz;
-
-        if (Base64Decode((byte*)headerEnd, neededSz, der->buffer,
-                         &der->length) < 0)
-            return SSL_BAD_FILE;
-
-        return 0;
-    } 
-
-
-    static int ProcessBuffer(SSL_CTX* ctx, const unsigned char* buff,
-                             long sz, int format, int type)
-    {
-        buffer der;
-        der.buffer = 0;
-
-        if (format != SSL_FILETYPE_ASN1 && format != SSL_FILETYPE_PEM)
-            return SSL_BAD_FILETYPE;
-
-        if (format == SSL_FILETYPE_PEM) {
-            if (PemToDerBuffer(buff, sz, type == PRIVATEKEY_TYPE ? type :
-                               CERT_TYPE, &der, ctx->heap) < 0) {
-                XFREE(der.buffer, ctx->heap);
-                return SSL_BAD_FILE;
-            }
-        }
-        else {  /* ASN1 (DER) */
-            der.buffer = XMALLOC(sz, ctx->heap);
-            if (!der.buffer) return MEMORY_ERROR;
-            memcpy(der.buffer, buff, sz);
-            der.length = sz;
-        }
-
-        if (type == CA_TYPE)
-            return AddCA(ctx, der);     /* takes der over */
-        else if (type == CERT_TYPE)
-            ctx->certificate = der;     /* takes der over */
-        else if (type == PRIVATEKEY_TYPE)
-            ctx->privateKey = der;      /* takes der over */
-        else {
-            XFREE(der.buffer, ctx->heap);
-            return SSL_BAD_CERTTYPE;
-        }
-
-        return SSL_SUCCESS;
-    }
-
-
+    /* CyaSSL extension allows DER files to be loaded from buffers as well */
     int CyaSSL_CTX_load_verify_buffer(SSL_CTX* ctx, const unsigned char* buffer,
-                                      long sz)
+                                      long sz, int format)
     {
-        return ProcessBuffer(ctx, buffer, sz, SSL_FILETYPE_PEM, CA_TYPE);
+        return ProcessBuffer(ctx, buffer, sz, format, CA_TYPE);
     }
 
 
     int CyaSSL_CTX_use_certificate_buffer(SSL_CTX* ctx,
-                                 const unsigned char* buffer, long sz, int type)
+                                 const unsigned char* buffer,long sz,int format)
     {
-        return ProcessBuffer(ctx, buffer, sz, type, CERT_TYPE);
+        return ProcessBuffer(ctx, buffer, sz, format, CERT_TYPE);
     }
 
 
     int CyaSSL_CTX_use_PrivateKey_buffer(SSL_CTX* ctx,
-                                 const unsigned char* buffer, long sz, int type)
+                                 const unsigned char* buffer,long sz,int format)
     {
-        return ProcessBuffer(ctx, buffer, sz, type, PRIVATEKEY_TYPE);
+        return ProcessBuffer(ctx, buffer, sz, format, PRIVATEKEY_TYPE);
     }
 
 
@@ -1762,7 +1821,7 @@ int CyaSSL_set_compression(SSL* ssl)
         return ProcessBuffer(ctx, buffer, sz, SSL_FILETYPE_PEM, CA_TYPE);
     }
 
-#endif /* NO_FILESYSTEM */
+#endif /* NO_FILESYSTEM || MICRIUM */
 
 
 #if defined(OPENSSL_EXTRA) || defined(GOAHEAD_WS)
@@ -1827,7 +1886,15 @@ int CyaSSL_set_compression(SSL* ssl)
 
     void SSL_set_accept_state(SSL* ssl)
     {
+        byte havePSK = 0;
+
         ssl->options.side = SERVER_END;
+        /* reset suites in case user switched */
+#ifndef NO_PSK
+        havePSK = ssl->options.havePSK;
+#endif
+        InitSuites(&ssl->suites, ssl->version, ssl->options.haveDH, havePSK,
+                   ssl->options.haveNTRU);
     }
 
 
@@ -1911,7 +1978,7 @@ int CyaSSL_set_compression(SSL* ssl)
         if (!name->sz) return buffer;
 
         if (!buffer) {
-            buffer = (char*)XMALLOC(name->sz, 0);
+            buffer = (char*)XMALLOC(name->sz, 0, DYNAMIC_TYPE_OPENSSL);
             if (!buffer) return buffer;
             copySz = name->sz;
         }
@@ -1919,7 +1986,7 @@ int CyaSSL_set_compression(SSL* ssl)
         if (copySz == 0)
             return buffer;
 
-        memcpy(buffer, name->name, copySz - 1);
+        XMEMCPY(buffer, name->name, copySz - 1);
         buffer[copySz - 1] = 0;
 
         return buffer;
@@ -1971,7 +2038,7 @@ int CyaSSL_set_compression(SSL* ssl)
 
     BIO* BIO_new_socket(int sfd, int close)
     {
-        BIO* bio = (BIO*) XMALLOC(sizeof(BIO), 0);
+        BIO* bio = (BIO*) XMALLOC(sizeof(BIO), 0, DYNAMIC_TYPE_OPENSSL);
         if (bio) { 
             bio->type  = BIO_SOCKET;
             bio->close = close;
@@ -2006,7 +2073,7 @@ int CyaSSL_set_compression(SSL* ssl)
 
     BIO* BIO_new(BIO_METHOD* method)
     {
-        BIO* bio = (BIO*) XMALLOC(sizeof(BIO), 0);
+        BIO* bio = (BIO*) XMALLOC(sizeof(BIO), 0, DYNAMIC_TYPE_OPENSSL);
         if (bio) {
             bio->type  = method->type;
             bio->close = 0;
@@ -2020,7 +2087,7 @@ int CyaSSL_set_compression(SSL* ssl)
     }
 
 
-#ifdef _WIN32
+#ifdef USE_WINDOWS_API 
     #define CloseSocket(s) closesocket(s)
 #else
     #define CloseSocket(s) close(s)
@@ -2036,7 +2103,7 @@ int CyaSSL_set_compression(SSL* ssl)
                 if (bio->fd)
                     CloseSocket(bio->fd);
             }
-            XFREE(bio, 0);
+            XFREE(bio, 0, DYNAMIC_TYPE_OPENSSL);
         }
         return 0;
     }
@@ -2213,11 +2280,11 @@ int CyaSSL_set_compression(SSL* ssl)
 
     int EVP_DigestInit(EVP_MD_CTX* ctx, const EVP_MD* type)
     {
-        if (strncmp(type, "MD5", 3) == 0) {
+        if (XSTRNCMP(type, "MD5", 3) == 0) {
              ctx->macType = MD5;
              MD5_Init((MD5_CTX*)&ctx->hash);
         }
-        else if (strncmp(type, "SHA", 3) == 0) {
+        else if (XSTRNCMP(type, "SHA", 3) == 0) {
              ctx->macType = SHA;
              SHA_Init((SHA_CTX*)&ctx->hash);
         }
@@ -2271,11 +2338,11 @@ int CyaSSL_set_compression(SSL* ssl)
 
         if (!md) return 0;  /* no static buffer support */
 
-        if (strncmp(evp_md, "MD5", 3) == 0) {
+        if (XSTRNCMP(evp_md, "MD5", 3) == 0) {
             HmacSetKey(&hmac, MD5, key, key_len);
             if (md_len) *md_len = MD5_DIGEST_SIZE;
         }
-        else if (strncmp(evp_md, "SHA", 3) == 0) {
+        else if (XSTRNCMP(evp_md, "SHA", 3) == 0) {
             HmacSetKey(&hmac, SHA, key, key_len);    
             if (md_len) *md_len = SHA_DIGEST_SIZE;
         }
@@ -2321,7 +2388,7 @@ int CyaSSL_set_compression(SSL* ssl)
 
     int DES_key_sched(const_DES_cblock* key, DES_key_schedule* schedule)
     {
-        memcpy(schedule, key, sizeof(const_DES_cblock));
+        XMEMCPY(schedule, key, sizeof(const_DES_cblock));
         return 0;
     }
 
@@ -2353,7 +2420,7 @@ int CyaSSL_set_compression(SSL* ssl)
         else
             Des_CbcDecrypt(&des, output, input, length);
 
-        memcpy(ivec, output + length - sizeof(DES_cblock), sizeof(DES_cblock));
+        XMEMCPY(ivec, output + length - sizeof(DES_cblock), sizeof(DES_cblock));
     }
 
 
@@ -2527,6 +2594,14 @@ int CyaSSL_set_compression(SSL* ssl)
                     return "TLS_RSA_WITH_HC_128_CBC_SHA";
                 case TLS_RSA_WITH_RABBIT_CBC_SHA :
                     return "TLS_RSA_WITH_RABBIT_CBC_SHA";
+                case TLS_NTRU_RSA_WITH_RC4_128_SHA :
+                    return "TLS_NTRU_RSA_WITH_RC4_128_SHA";
+                case TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA :
+                    return "TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA";
+                case TLS_NTRU_RSA_WITH_AES_128_CBC_SHA :
+                    return "TLS_NTRU_RSA_WITH_AES_128_CBC_SHA";
+                case TLS_NTRU_RSA_WITH_AES_256_CBC_SHA :
+                    return "TLS_NTRU_RSA_WITH_AES_256_CBC_SHA";
             }
         }
 
@@ -2577,6 +2652,8 @@ int CyaSSL_set_compression(SSL* ssl)
     }
 
 
+#ifndef NO_MD4
+
     void MD4_Init(MD4_CTX* md4)
     {
         /* make sure we have a big enough buffer */
@@ -2598,6 +2675,7 @@ int CyaSSL_set_compression(SSL* ssl)
         Md4Final((Md4*)md4, digest); 
     }
 
+#endif /* NO_MD4 */
 
 
     BIO* BIO_pop(BIO* top)
@@ -2924,15 +3002,6 @@ int CyaSSL_set_compression(SSL* ssl)
     }
 
 
-    int SSL_CTX_use_RSAPrivateKey_file(SSL_CTX* ctx, const char* file, int type)
-    {
-        if (ProcessFile(ctx, file, type, PRIVATEKEY_TYPE) == SSL_SUCCESS)
-            return SSL_SUCCESS;
-
-        return SSL_FAILURE;
-    }
-
-
     long SSL_CTX_set_timeout(SSL_CTX* ctx, long to)
     {
         return 0;
@@ -3117,26 +3186,26 @@ int CyaSSL_set_compression(SSL* ssl)
         InitMd5(&myMD);
 
         /* only support MD5 for now */
-        if (strncmp(md, "MD5", 3)) return 0;
+        if (XSTRNCMP(md, "MD5", 3)) return 0;
 
         /* only support CBC DES and AES for now */
-        if (strncmp(type, "DES-CBC", 7) == 0) {
+        if (XSTRNCMP(type, "DES-CBC", 7) == 0) {
             keyLen = DES_KEY_SIZE;
             ivLen  = DES_IV_SIZE;
         }
-        else if (strncmp(type, "DES-EDE3-CBC", 12) == 0) {
+        else if (XSTRNCMP(type, "DES-EDE3-CBC", 12) == 0) {
             keyLen = DES3_KEY_SIZE;
             ivLen  = DES_IV_SIZE;
         }
-        else if (strncmp(type, "AES-128-CBC", 11) == 0) {
+        else if (XSTRNCMP(type, "AES-128-CBC", 11) == 0) {
             keyLen = AES_128_KEY_SIZE;
             ivLen  = AES_IV_SIZE;
         }
-        else if (strncmp(type, "AES-192-CBC", 11) == 0) {
+        else if (XSTRNCMP(type, "AES-192-CBC", 11) == 0) {
             keyLen = AES_192_KEY_SIZE;
             ivLen  = AES_IV_SIZE;
         }
-        else if (strncmp(type, "AES-256-CBC", 11) == 0) {
+        else if (XSTRNCMP(type, "AES-256-CBC", 11) == 0) {
             keyLen = AES_256_KEY_SIZE;
             ivLen  = AES_IV_SIZE;
         }
@@ -3165,7 +3234,7 @@ int CyaSSL_set_compression(SSL* ssl)
 
             if (keyLeft) {
                 int store = min(keyLeft, MD5_DIGEST_SIZE);
-                memcpy(&key[keyLen - keyLeft], digest, store);
+                XMEMCPY(&key[keyLen - keyLeft], digest, store);
 
                 keyOutput  += store;
                 keyLeft    -= store;
@@ -3174,7 +3243,7 @@ int CyaSSL_set_compression(SSL* ssl)
 
             if (ivLeft && digestLeft) {
                 int store = min(ivLeft, digestLeft);
-                memcpy(&iv[ivLen - ivLeft], &digest[MD5_DIGEST_SIZE -
+                XMEMCPY(&iv[ivLen - ivLeft], &digest[MD5_DIGEST_SIZE -
                                                     digestLeft], store);
                 keyOutput += store;
                 ivLeft    -= store;
@@ -3315,7 +3384,7 @@ int  CyaSSL_get_chain_cert_pem(X509_CHAIN* chain, int idx,
         return -1;
 
     /* header */
-    memcpy(buffer, header, headerLen);
+    XMEMCPY(buffer, header, headerLen);
     i = headerLen;
 
     /* body */
@@ -3328,7 +3397,7 @@ int  CyaSSL_get_chain_cert_pem(X509_CHAIN* chain, int idx,
     /* footer */
     if ( (i + footerLen) > inLen)
         return -1;
-    memcpy(buffer + i, footer, footerLen);
+    XMEMCPY(buffer + i, footer, footerLen);
     *outLen += headerLen + footerLen; 
 
     return 0;

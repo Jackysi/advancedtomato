@@ -177,7 +177,7 @@ int nvget_gpio(const char *name, int *gpio, int *inv)
 // --- move end ---
 
 
-int led(int which, int mode)
+int do_led(int which, int mode)
 {
 //				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST/USB
 //				    ----- ----- ----- ----- ----- ----- ----- -----
@@ -205,28 +205,29 @@ int led(int which, int mode)
 	char s[16];
 	int n;
 	int b = 255, c = 255;
+	int ret = 255;
 
-	if ((which < 0) || (which >= LED_COUNT)) return 0;
+	if ((which < 0) || (which >= LED_COUNT)) return ret;
 
 	switch (nvram_match("led_override", "1") ? MODEL_UNKNOWN : get_model()) {
 	case MODEL_WRT54G:
 		if (check_hw_type() == HW_BCM4702) {
 			// G v1.x
-			if ((which != LED_DIAG) && (which != LED_DMZ)) return 0;
+			if ((which != LED_DIAG) && (which != LED_DMZ)) return ret;
+			b = (which == LED_DMZ) ? 1 : 4;
 			if (mode != LED_PROBE) {
 				if (f_read_string("/proc/sys/diag", s, sizeof(s)) > 0) {
-					b = (which == LED_DMZ) ? 1 : 4;
 					n = atoi(s);
 					sprintf(s, "%u", mode ? (n | b) : (n & ~b));
 					f_write_string("/proc/sys/diag", s, 0, 0);
 				}
 			}
-			return 1;
+			return b;
 		}
 		switch (which) {
 		case LED_AMBER:
 		case LED_WHITE:
-			if (!supports(SUP_WHAM_LED)) return 0;
+			if (!supports(SUP_WHAM_LED)) return ret;
 			break;
 		}
 		b = wrt54g[which];
@@ -254,12 +255,12 @@ int led(int which, int mode)
 		break;
 /*		
 	case MODEL_WHR2A54G54:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = 7;
 		break;
 */
 	case MODEL_WBRG54:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = 7;
 		break;
 	case MODEL_WBR2G54:
@@ -273,11 +274,11 @@ int led(int which, int mode)
 		b = wr850g2[which];
 		break;
 	case MODEL_WL500GP:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = -1;	// power light
 		break;
 	case MODEL_WL500W:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = -5;	// power light
 		break;
 	case MODEL_DIR320:
@@ -292,17 +293,17 @@ int led(int which, int mode)
 	case MODEL_WL500GPv2:
 	case MODEL_WL500GD:
 	case MODEL_WL520GU:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = -99;	// Invert power light as diag indicator
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_RTN12:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = -2;	// power light
 		break;
 	case MODEL_RTN10:
 	case MODEL_RTN16:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = -1;	// power light
 		break;
 	case MODEL_WNR3500L:
@@ -336,15 +337,15 @@ int led(int which, int mode)
 		break;
 */
 	case MODEL_MN700:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = 6;
 		break;
 	case MODEL_WLA2G54L:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = 1;
 		break;
 	case MODEL_WRT300N:
-		if (which != LED_DIAG) return 0;
+		if (which != LED_DIAG) return ret;
 		b = 1;
 		break;
 	case MODEL_WRT310Nv1:
@@ -357,11 +358,13 @@ int led(int which, int mode)
 		sprintf(s, "led_%s", led_names[which]);
 		if (nvget_gpio(s, &b, &n)) {
 			if ((mode != LED_PROBE) && (n)) mode = !mode;
+			ret = (n) ? b : ((b) ? -b : -99);
 			goto SET;
 		}
-		return 0;
+		return ret;
 	}
 
+	ret = b;
 	if (b < 0) {
 		if (b == -99) b = 0; // -0 substitute
 			else b = -b;
@@ -382,8 +385,7 @@ SET:
 			else mode = !mode;
 			if (c < 16) gpio_write(1 << c, mode);
 		}
-		return 1;
 	}
 
-	return 0;
+	return ret;
 }

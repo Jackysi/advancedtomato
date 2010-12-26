@@ -36,6 +36,10 @@ target_triplet = @target@
 @BUILD_AESNI_TRUE@am__append_1 = ../ctaocrypt/src/aes_asm.s
 @BUILD_RIPEMD_TRUE@am__append_2 = ../ctaocrypt/src/ripemd.c
 @BUILD_SHA512_TRUE@am__append_3 = ../ctaocrypt/src/sha512.c
+@BUILD_SNIFFER_TRUE@am__append_4 = sniffer.c
+@BUILD_HC128_TRUE@am__append_5 = ../ctaocrypt/src/hc128.c
+@BUILD_FASTMATH_TRUE@am__append_6 = ../ctaocrypt/src/tfm.c
+@BUILD_FASTMATH_FALSE@am__append_7 = ../ctaocrypt/src/integer.c
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -57,26 +61,31 @@ am__installdirs = "$(DESTDIR)$(libdir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libcyassl_la_LIBADD =
-am__libcyassl_la_SOURCES_DIST = ../ctaocrypt/src/integer.c \
-	cyassl_int.c cyassl_io.c keys.c ssl.c tls.c sniffer.c \
-	../ctaocrypt/src/asn.c ../ctaocrypt/src/coding.c \
+am__libcyassl_la_SOURCES_DIST = cyassl_int.c cyassl_io.c keys.c ssl.c \
+	tls.c ../ctaocrypt/src/asn.c ../ctaocrypt/src/coding.c \
 	../ctaocrypt/src/des3.c ../ctaocrypt/src/hmac.c \
 	../ctaocrypt/src/md5.c ../ctaocrypt/src/md4.c \
 	../ctaocrypt/src/random.c ../ctaocrypt/src/rsa.c \
 	../ctaocrypt/src/sha.c ../ctaocrypt/src/aes.c \
 	../ctaocrypt/src/sha256.c ../ctaocrypt/src/dh.c \
 	../ctaocrypt/src/dsa.c ../ctaocrypt/src/arc4.c \
-	../ctaocrypt/src/hc128.c ../ctaocrypt/src/rabbit.c \
-	../ctaocrypt/src/pwdbased.c ../ctaocrypt/src/aes_asm.s \
-	../ctaocrypt/src/ripemd.c ../ctaocrypt/src/sha512.c
+	../ctaocrypt/src/rabbit.c ../ctaocrypt/src/pwdbased.c \
+	../ctaocrypt/src/aes_asm.s ../ctaocrypt/src/ripemd.c \
+	../ctaocrypt/src/sha512.c sniffer.c ../ctaocrypt/src/hc128.c \
+	../ctaocrypt/src/tfm.c ../ctaocrypt/src/integer.c
 @BUILD_AESNI_TRUE@am__objects_1 = aes_asm.lo
 @BUILD_RIPEMD_TRUE@am__objects_2 = ripemd.lo
 @BUILD_SHA512_TRUE@am__objects_3 = sha512.lo
-am_libcyassl_la_OBJECTS = integer.lo cyassl_int.lo cyassl_io.lo \
-	keys.lo ssl.lo tls.lo sniffer.lo asn.lo coding.lo des3.lo \
-	hmac.lo md5.lo md4.lo random.lo rsa.lo sha.lo aes.lo sha256.lo \
-	dh.lo dsa.lo arc4.lo hc128.lo rabbit.lo pwdbased.lo \
-	$(am__objects_1) $(am__objects_2) $(am__objects_3)
+@BUILD_SNIFFER_TRUE@am__objects_4 = sniffer.lo
+@BUILD_HC128_TRUE@am__objects_5 = hc128.lo
+@BUILD_FASTMATH_TRUE@am__objects_6 = tfm.lo
+@BUILD_FASTMATH_FALSE@am__objects_7 = integer.lo
+am_libcyassl_la_OBJECTS = cyassl_int.lo cyassl_io.lo keys.lo ssl.lo \
+	tls.lo asn.lo coding.lo des3.lo hmac.lo md5.lo md4.lo \
+	random.lo rsa.lo sha.lo aes.lo sha256.lo dh.lo dsa.lo arc4.lo \
+	rabbit.lo pwdbased.lo $(am__objects_1) $(am__objects_2) \
+	$(am__objects_3) $(am__objects_4) $(am__objects_5) \
+	$(am__objects_6) $(am__objects_7)
 libcyassl_la_OBJECTS = $(am_libcyassl_la_OBJECTS)
 libcyassl_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
@@ -220,10 +229,9 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I../include -I../ctaocrypt/include
+INCLUDES = -I../include -I../ctaocrypt/include -I../include/openssl
 lib_LTLIBRARIES = libcyassl.la
-libcyassl_la_SOURCES = ../ctaocrypt/src/integer.c cyassl_int.c \
-	cyassl_io.c keys.c ssl.c tls.c sniffer.c \
+libcyassl_la_SOURCES = cyassl_int.c cyassl_io.c keys.c ssl.c tls.c \
 	../ctaocrypt/src/asn.c ../ctaocrypt/src/coding.c \
 	../ctaocrypt/src/des3.c ../ctaocrypt/src/hmac.c \
 	../ctaocrypt/src/md5.c ../ctaocrypt/src/md4.c \
@@ -231,11 +239,11 @@ libcyassl_la_SOURCES = ../ctaocrypt/src/integer.c cyassl_int.c \
 	../ctaocrypt/src/sha.c ../ctaocrypt/src/aes.c \
 	../ctaocrypt/src/sha256.c ../ctaocrypt/src/dh.c \
 	../ctaocrypt/src/dsa.c ../ctaocrypt/src/arc4.c \
-	../ctaocrypt/src/hc128.c ../ctaocrypt/src/rabbit.c \
-	../ctaocrypt/src/pwdbased.c $(am__append_1) $(am__append_2) \
-	$(am__append_3)
+	../ctaocrypt/src/rabbit.c ../ctaocrypt/src/pwdbased.c \
+	$(am__append_1) $(am__append_2) $(am__append_3) \
+	$(am__append_4) $(am__append_5) $(am__append_6) \
+	$(am__append_7)
 libcyassl_la_LDFLAGS = -no-undefined -version-info 0:0:0
-AM_CFLAGS = -Wall
 EXTRA_DIST = ../include/*.h ../include/openssl/*.h ../include/*.rc
 all: all-am
 
@@ -331,6 +339,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sha512.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sniffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tfm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls.Plo@am__quote@
 
 .c.o:
@@ -353,13 +362,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-integer.lo: ../ctaocrypt/src/integer.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT integer.lo -MD -MP -MF $(DEPDIR)/integer.Tpo -c -o integer.lo `test -f '../ctaocrypt/src/integer.c' || echo '$(srcdir)/'`../ctaocrypt/src/integer.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/integer.Tpo $(DEPDIR)/integer.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/src/integer.c' object='integer.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o integer.lo `test -f '../ctaocrypt/src/integer.c' || echo '$(srcdir)/'`../ctaocrypt/src/integer.c
 
 asn.lo: ../ctaocrypt/src/asn.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT asn.lo -MD -MP -MF $(DEPDIR)/asn.Tpo -c -o asn.lo `test -f '../ctaocrypt/src/asn.c' || echo '$(srcdir)/'`../ctaocrypt/src/asn.c
@@ -459,13 +461,6 @@ arc4.lo: ../ctaocrypt/src/arc4.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o arc4.lo `test -f '../ctaocrypt/src/arc4.c' || echo '$(srcdir)/'`../ctaocrypt/src/arc4.c
 
-hc128.lo: ../ctaocrypt/src/hc128.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT hc128.lo -MD -MP -MF $(DEPDIR)/hc128.Tpo -c -o hc128.lo `test -f '../ctaocrypt/src/hc128.c' || echo '$(srcdir)/'`../ctaocrypt/src/hc128.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/hc128.Tpo $(DEPDIR)/hc128.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/src/hc128.c' object='hc128.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hc128.lo `test -f '../ctaocrypt/src/hc128.c' || echo '$(srcdir)/'`../ctaocrypt/src/hc128.c
-
 rabbit.lo: ../ctaocrypt/src/rabbit.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT rabbit.lo -MD -MP -MF $(DEPDIR)/rabbit.Tpo -c -o rabbit.lo `test -f '../ctaocrypt/src/rabbit.c' || echo '$(srcdir)/'`../ctaocrypt/src/rabbit.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/rabbit.Tpo $(DEPDIR)/rabbit.Plo
@@ -493,6 +488,27 @@ sha512.lo: ../ctaocrypt/src/sha512.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/src/sha512.c' object='sha512.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o sha512.lo `test -f '../ctaocrypt/src/sha512.c' || echo '$(srcdir)/'`../ctaocrypt/src/sha512.c
+
+hc128.lo: ../ctaocrypt/src/hc128.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT hc128.lo -MD -MP -MF $(DEPDIR)/hc128.Tpo -c -o hc128.lo `test -f '../ctaocrypt/src/hc128.c' || echo '$(srcdir)/'`../ctaocrypt/src/hc128.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/hc128.Tpo $(DEPDIR)/hc128.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/src/hc128.c' object='hc128.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o hc128.lo `test -f '../ctaocrypt/src/hc128.c' || echo '$(srcdir)/'`../ctaocrypt/src/hc128.c
+
+tfm.lo: ../ctaocrypt/src/tfm.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT tfm.lo -MD -MP -MF $(DEPDIR)/tfm.Tpo -c -o tfm.lo `test -f '../ctaocrypt/src/tfm.c' || echo '$(srcdir)/'`../ctaocrypt/src/tfm.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/tfm.Tpo $(DEPDIR)/tfm.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/src/tfm.c' object='tfm.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o tfm.lo `test -f '../ctaocrypt/src/tfm.c' || echo '$(srcdir)/'`../ctaocrypt/src/tfm.c
+
+integer.lo: ../ctaocrypt/src/integer.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT integer.lo -MD -MP -MF $(DEPDIR)/integer.Tpo -c -o integer.lo `test -f '../ctaocrypt/src/integer.c' || echo '$(srcdir)/'`../ctaocrypt/src/integer.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/integer.Tpo $(DEPDIR)/integer.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/src/integer.c' object='integer.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o integer.lo `test -f '../ctaocrypt/src/integer.c' || echo '$(srcdir)/'`../ctaocrypt/src/integer.c
 
 .s.o:
 	$(CCASCOMPILE) -c -o $@ $<

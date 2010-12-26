@@ -419,5 +419,10 @@ void ipt_restrictions(void)
 
 	nvram_set("rrules_activated", "0");
 
-	if (need_web) modprobe("ipt_web");
+	if (need_web)
+#ifdef LINUX26
+		modprobe("xt_web");
+#else
+		modprobe("ipt_web");
+#endif
 }

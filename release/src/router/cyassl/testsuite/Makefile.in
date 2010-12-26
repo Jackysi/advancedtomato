@@ -48,14 +48,13 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_testsuite_OBJECTS = testsuite-testsuite.$(OBJEXT) \
-	testsuite-test.$(OBJEXT) testsuite-client.$(OBJEXT) \
-	testsuite-server.$(OBJEXT) testsuite-echoclient.$(OBJEXT) \
-	testsuite-echoserver.$(OBJEXT)
+am_testsuite_OBJECTS = testsuite.$(OBJEXT) test.$(OBJEXT) \
+	client.$(OBJEXT) server.$(OBJEXT) echoclient.$(OBJEXT) \
+	echoserver.$(OBJEXT)
 testsuite_OBJECTS = $(am_testsuite_OBJECTS)
 testsuite_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(testsuite_CFLAGS) \
-	$(CFLAGS) $(testsuite_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(testsuite_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)/ctaocrypt/include@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -192,16 +191,16 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-INCLUDES = -I../include -I../ctaocrypt/include
+INCLUDES = -I../include -I../ctaocrypt/include -I../include/openssl
 testsuite_SOURCES = testsuite.c ../ctaocrypt/test/test.c \
     ../examples/client/client.c ../examples/server/server.c \
     ../examples/echoclient/echoclient.c ../examples/echoserver/echoserver.c
 
-testsuite_CFLAGS = -Wall -Wno-unused -DNO_MAIN_DRIVER
+AM_CFLAGS = -DNO_MAIN_DRIVER
 testsuite_LDFLAGS = -L../src
-testsuite_LDADD = ../src/libcyassl.la -lm
+testsuite_LDADD = ../src/libcyassl.la
 testsuite_DEPENDENCIES = ../src/libcyassl.la 
-EXTRA_DIST = testsuite.dsp input quit testsuite.sln testsuite.vcproj
+EXTRA_DIST = input quit testsuite.sln *.vcproj
 all: all-am
 
 .SUFFIXES:
@@ -273,12 +272,12 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite-client.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite-echoclient.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite-echoserver.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite-server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite-test.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite-testsuite.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/echoclient.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/echoserver.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/server.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testsuite.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -301,89 +300,75 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
-testsuite-testsuite.o: testsuite.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-testsuite.o -MD -MP -MF $(DEPDIR)/testsuite-testsuite.Tpo -c -o testsuite-testsuite.o `test -f 'testsuite.c' || echo '$(srcdir)/'`testsuite.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-testsuite.Tpo $(DEPDIR)/testsuite-testsuite.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='testsuite.c' object='testsuite-testsuite.o' libtool=no @AMDEPBACKSLASH@
+test.o: ../ctaocrypt/test/test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test.o -MD -MP -MF $(DEPDIR)/test.Tpo -c -o test.o `test -f '../ctaocrypt/test/test.c' || echo '$(srcdir)/'`../ctaocrypt/test/test.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test.Tpo $(DEPDIR)/test.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/test/test.c' object='test.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-testsuite.o `test -f 'testsuite.c' || echo '$(srcdir)/'`testsuite.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test.o `test -f '../ctaocrypt/test/test.c' || echo '$(srcdir)/'`../ctaocrypt/test/test.c
 
-testsuite-testsuite.obj: testsuite.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-testsuite.obj -MD -MP -MF $(DEPDIR)/testsuite-testsuite.Tpo -c -o testsuite-testsuite.obj `if test -f 'testsuite.c'; then $(CYGPATH_W) 'testsuite.c'; else $(CYGPATH_W) '$(srcdir)/testsuite.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-testsuite.Tpo $(DEPDIR)/testsuite-testsuite.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='testsuite.c' object='testsuite-testsuite.obj' libtool=no @AMDEPBACKSLASH@
+test.obj: ../ctaocrypt/test/test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test.obj -MD -MP -MF $(DEPDIR)/test.Tpo -c -o test.obj `if test -f '../ctaocrypt/test/test.c'; then $(CYGPATH_W) '../ctaocrypt/test/test.c'; else $(CYGPATH_W) '$(srcdir)/../ctaocrypt/test/test.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test.Tpo $(DEPDIR)/test.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/test/test.c' object='test.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-testsuite.obj `if test -f 'testsuite.c'; then $(CYGPATH_W) 'testsuite.c'; else $(CYGPATH_W) '$(srcdir)/testsuite.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test.obj `if test -f '../ctaocrypt/test/test.c'; then $(CYGPATH_W) '../ctaocrypt/test/test.c'; else $(CYGPATH_W) '$(srcdir)/../ctaocrypt/test/test.c'; fi`
 
-testsuite-test.o: ../ctaocrypt/test/test.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-test.o -MD -MP -MF $(DEPDIR)/testsuite-test.Tpo -c -o testsuite-test.o `test -f '../ctaocrypt/test/test.c' || echo '$(srcdir)/'`../ctaocrypt/test/test.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-test.Tpo $(DEPDIR)/testsuite-test.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/test/test.c' object='testsuite-test.o' libtool=no @AMDEPBACKSLASH@
+client.o: ../examples/client/client.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT client.o -MD -MP -MF $(DEPDIR)/client.Tpo -c -o client.o `test -f '../examples/client/client.c' || echo '$(srcdir)/'`../examples/client/client.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/client.Tpo $(DEPDIR)/client.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/client/client.c' object='client.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-test.o `test -f '../ctaocrypt/test/test.c' || echo '$(srcdir)/'`../ctaocrypt/test/test.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o client.o `test -f '../examples/client/client.c' || echo '$(srcdir)/'`../examples/client/client.c
 
-testsuite-test.obj: ../ctaocrypt/test/test.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-test.obj -MD -MP -MF $(DEPDIR)/testsuite-test.Tpo -c -o testsuite-test.obj `if test -f '../ctaocrypt/test/test.c'; then $(CYGPATH_W) '../ctaocrypt/test/test.c'; else $(CYGPATH_W) '$(srcdir)/../ctaocrypt/test/test.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-test.Tpo $(DEPDIR)/testsuite-test.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../ctaocrypt/test/test.c' object='testsuite-test.obj' libtool=no @AMDEPBACKSLASH@
+client.obj: ../examples/client/client.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT client.obj -MD -MP -MF $(DEPDIR)/client.Tpo -c -o client.obj `if test -f '../examples/client/client.c'; then $(CYGPATH_W) '../examples/client/client.c'; else $(CYGPATH_W) '$(srcdir)/../examples/client/client.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/client.Tpo $(DEPDIR)/client.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/client/client.c' object='client.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-test.obj `if test -f '../ctaocrypt/test/test.c'; then $(CYGPATH_W) '../ctaocrypt/test/test.c'; else $(CYGPATH_W) '$(srcdir)/../ctaocrypt/test/test.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o client.obj `if test -f '../examples/client/client.c'; then $(CYGPATH_W) '../examples/client/client.c'; else $(CYGPATH_W) '$(srcdir)/../examples/client/client.c'; fi`
 
-testsuite-client.o: ../examples/client/client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-client.o -MD -MP -MF $(DEPDIR)/testsuite-client.Tpo -c -o testsuite-client.o `test -f '../examples/client/client.c' || echo '$(srcdir)/'`../examples/client/client.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-client.Tpo $(DEPDIR)/testsuite-client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/client/client.c' object='testsuite-client.o' libtool=no @AMDEPBACKSLASH@
+server.o: ../examples/server/server.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT server.o -MD -MP -MF $(DEPDIR)/server.Tpo -c -o server.o `test -f '../examples/server/server.c' || echo '$(srcdir)/'`../examples/server/server.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/server.Tpo $(DEPDIR)/server.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/server/server.c' object='server.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-client.o `test -f '../examples/client/client.c' || echo '$(srcdir)/'`../examples/client/client.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o server.o `test -f '../examples/server/server.c' || echo '$(srcdir)/'`../examples/server/server.c
 
-testsuite-client.obj: ../examples/client/client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-client.obj -MD -MP -MF $(DEPDIR)/testsuite-client.Tpo -c -o testsuite-client.obj `if test -f '../examples/client/client.c'; then $(CYGPATH_W) '../examples/client/client.c'; else $(CYGPATH_W) '$(srcdir)/../examples/client/client.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-client.Tpo $(DEPDIR)/testsuite-client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/client/client.c' object='testsuite-client.obj' libtool=no @AMDEPBACKSLASH@
+server.obj: ../examples/server/server.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT server.obj -MD -MP -MF $(DEPDIR)/server.Tpo -c -o server.obj `if test -f '../examples/server/server.c'; then $(CYGPATH_W) '../examples/server/server.c'; else $(CYGPATH_W) '$(srcdir)/../examples/server/server.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/server.Tpo $(DEPDIR)/server.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/server/server.c' object='server.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-client.obj `if test -f '../examples/client/client.c'; then $(CYGPATH_W) '../examples/client/client.c'; else $(CYGPATH_W) '$(srcdir)/../examples/client/client.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o server.obj `if test -f '../examples/server/server.c'; then $(CYGPATH_W) '../examples/server/server.c'; else $(CYGPATH_W) '$(srcdir)/../examples/server/server.c'; fi`
 
-testsuite-server.o: ../examples/server/server.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-server.o -MD -MP -MF $(DEPDIR)/testsuite-server.Tpo -c -o testsuite-server.o `test -f '../examples/server/server.c' || echo '$(srcdir)/'`../examples/server/server.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-server.Tpo $(DEPDIR)/testsuite-server.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/server/server.c' object='testsuite-server.o' libtool=no @AMDEPBACKSLASH@
+echoclient.o: ../examples/echoclient/echoclient.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT echoclient.o -MD -MP -MF $(DEPDIR)/echoclient.Tpo -c -o echoclient.o `test -f '../examples/echoclient/echoclient.c' || echo '$(srcdir)/'`../examples/echoclient/echoclient.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoclient.Tpo $(DEPDIR)/echoclient.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoclient/echoclient.c' object='echoclient.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-server.o `test -f '../examples/server/server.c' || echo '$(srcdir)/'`../examples/server/server.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o echoclient.o `test -f '../examples/echoclient/echoclient.c' || echo '$(srcdir)/'`../examples/echoclient/echoclient.c
 
-testsuite-server.obj: ../examples/server/server.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-server.obj -MD -MP -MF $(DEPDIR)/testsuite-server.Tpo -c -o testsuite-server.obj `if test -f '../examples/server/server.c'; then $(CYGPATH_W) '../examples/server/server.c'; else $(CYGPATH_W) '$(srcdir)/../examples/server/server.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-server.Tpo $(DEPDIR)/testsuite-server.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/server/server.c' object='testsuite-server.obj' libtool=no @AMDEPBACKSLASH@
+echoclient.obj: ../examples/echoclient/echoclient.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT echoclient.obj -MD -MP -MF $(DEPDIR)/echoclient.Tpo -c -o echoclient.obj `if test -f '../examples/echoclient/echoclient.c'; then $(CYGPATH_W) '../examples/echoclient/echoclient.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoclient/echoclient.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoclient.Tpo $(DEPDIR)/echoclient.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoclient/echoclient.c' object='echoclient.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-server.obj `if test -f '../examples/server/server.c'; then $(CYGPATH_W) '../examples/server/server.c'; else $(CYGPATH_W) '$(srcdir)/../examples/server/server.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o echoclient.obj `if test -f '../examples/echoclient/echoclient.c'; then $(CYGPATH_W) '../examples/echoclient/echoclient.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoclient/echoclient.c'; fi`
 
-testsuite-echoclient.o: ../examples/echoclient/echoclient.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-echoclient.o -MD -MP -MF $(DEPDIR)/testsuite-echoclient.Tpo -c -o testsuite-echoclient.o `test -f '../examples/echoclient/echoclient.c' || echo '$(srcdir)/'`../examples/echoclient/echoclient.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-echoclient.Tpo $(DEPDIR)/testsuite-echoclient.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoclient/echoclient.c' object='testsuite-echoclient.o' libtool=no @AMDEPBACKSLASH@
+echoserver.o: ../examples/echoserver/echoserver.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT echoserver.o -MD -MP -MF $(DEPDIR)/echoserver.Tpo -c -o echoserver.o `test -f '../examples/echoserver/echoserver.c' || echo '$(srcdir)/'`../examples/echoserver/echoserver.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoserver.Tpo $(DEPDIR)/echoserver.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoserver/echoserver.c' object='echoserver.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-echoclient.o `test -f '../examples/echoclient/echoclient.c' || echo '$(srcdir)/'`../examples/echoclient/echoclient.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o echoserver.o `test -f '../examples/echoserver/echoserver.c' || echo '$(srcdir)/'`../examples/echoserver/echoserver.c
 
-testsuite-echoclient.obj: ../examples/echoclient/echoclient.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-echoclient.obj -MD -MP -MF $(DEPDIR)/testsuite-echoclient.Tpo -c -o testsuite-echoclient.obj `if test -f '../examples/echoclient/echoclient.c'; then $(CYGPATH_W) '../examples/echoclient/echoclient.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoclient/echoclient.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-echoclient.Tpo $(DEPDIR)/testsuite-echoclient.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoclient/echoclient.c' object='testsuite-echoclient.obj' libtool=no @AMDEPBACKSLASH@
+echoserver.obj: ../examples/echoserver/echoserver.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT echoserver.obj -MD -MP -MF $(DEPDIR)/echoserver.Tpo -c -o echoserver.obj `if test -f '../examples/echoserver/echoserver.c'; then $(CYGPATH_W) '../examples/echoserver/echoserver.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoserver/echoserver.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/echoserver.Tpo $(DEPDIR)/echoserver.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoserver/echoserver.c' object='echoserver.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-echoclient.obj `if test -f '../examples/echoclient/echoclient.c'; then $(CYGPATH_W) '../examples/echoclient/echoclient.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoclient/echoclient.c'; fi`
-
-testsuite-echoserver.o: ../examples/echoserver/echoserver.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-echoserver.o -MD -MP -MF $(DEPDIR)/testsuite-echoserver.Tpo -c -o testsuite-echoserver.o `test -f '../examples/echoserver/echoserver.c' || echo '$(srcdir)/'`../examples/echoserver/echoserver.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-echoserver.Tpo $(DEPDIR)/testsuite-echoserver.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoserver/echoserver.c' object='testsuite-echoserver.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-echoserver.o `test -f '../examples/echoserver/echoserver.c' || echo '$(srcdir)/'`../examples/echoserver/echoserver.c
-
-testsuite-echoserver.obj: ../examples/echoserver/echoserver.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -MT testsuite-echoserver.obj -MD -MP -MF $(DEPDIR)/testsuite-echoserver.Tpo -c -o testsuite-echoserver.obj `if test -f '../examples/echoserver/echoserver.c'; then $(CYGPATH_W) '../examples/echoserver/echoserver.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoserver/echoserver.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/testsuite-echoserver.Tpo $(DEPDIR)/testsuite-echoserver.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../examples/echoserver/echoserver.c' object='testsuite-echoserver.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(testsuite_CFLAGS) $(CFLAGS) -c -o testsuite-echoserver.obj `if test -f '../examples/echoserver/echoserver.c'; then $(CYGPATH_W) '../examples/echoserver/echoserver.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoserver/echoserver.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o echoserver.obj `if test -f '../examples/echoserver/echoserver.c'; then $(CYGPATH_W) '../examples/echoserver/echoserver.c'; else $(CYGPATH_W) '$(srcdir)/../examples/echoserver/echoserver.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

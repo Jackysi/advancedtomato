@@ -178,7 +178,7 @@ target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = src test benchmark
-EXTRA_DIST = ctaocrypt.dsw ctaocrypt.dsp ctaocrypt.sln ctaocrypt.vcproj
+EXTRA_DIST = ctaocrypt.sln ctaocrypt.vcproj
 all: all-recursive
 
 .SUFFIXES:

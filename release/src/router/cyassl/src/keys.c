@@ -23,8 +23,6 @@
 
 #include "cyassl_int.h"
 #include "cyassl_error.h"
-#include <stdlib.h>
-#include <string.h>
 #ifdef SHOW_SECRETS
     #include <stdio.h>
 #endif
@@ -48,6 +46,21 @@ int SetCipherSpecs(SSL* ssl)
         ssl->specs.cipher_type           = stream;
         ssl->specs.mac_algorithm         = sha_mac;
         ssl->specs.kea                   = rsa_kea;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = RC4_KEY_SIZE;
+        ssl->specs.iv_size               = 0;
+        ssl->specs.block_size            = 0;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_RC4_128_SHA
+    case TLS_NTRU_RSA_WITH_RC4_128_SHA :
+        ssl->specs.bulk_cipher_algorithm = rc4;
+        ssl->specs.cipher_type           = stream;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ntru_kea;
         ssl->specs.hash_size             = SHA_DIGEST_SIZE;
         ssl->specs.pad_size              = PAD_SHA;
         ssl->specs.key_size              = RC4_KEY_SIZE;
@@ -87,6 +100,21 @@ int SetCipherSpecs(SSL* ssl)
         break;
 #endif
 
+#ifdef BUILD_TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA
+    case TLS_NTRU_RSA_WITH_3DES_EDE_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = triple_des;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ntru_kea;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = DES3_KEY_SIZE;
+        ssl->specs.block_size            = DES_BLOCK_SIZE;
+        ssl->specs.iv_size               = DES_IV_SIZE;
+
+        break;
+#endif
+
 #ifdef BUILD_TLS_RSA_WITH_AES_128_CBC_SHA
     case TLS_RSA_WITH_AES_128_CBC_SHA :
         ssl->specs.bulk_cipher_algorithm = aes;
@@ -102,12 +130,42 @@ int SetCipherSpecs(SSL* ssl)
         break;
 #endif
 
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_128_CBC_SHA
+    case TLS_NTRU_RSA_WITH_AES_128_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = aes;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ntru_kea;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = AES_128_KEY_SIZE;
+        ssl->specs.block_size            = AES_BLOCK_SIZE;
+        ssl->specs.iv_size               = AES_IV_SIZE;
+
+        break;
+#endif
+
 #ifdef BUILD_TLS_RSA_WITH_AES_256_CBC_SHA
     case TLS_RSA_WITH_AES_256_CBC_SHA :
         ssl->specs.bulk_cipher_algorithm = aes;
         ssl->specs.cipher_type           = block;
         ssl->specs.mac_algorithm         = sha_mac;
         ssl->specs.kea                   = rsa_kea;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = AES_256_KEY_SIZE;
+        ssl->specs.block_size            = AES_BLOCK_SIZE;
+        ssl->specs.iv_size               = AES_IV_SIZE;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_NTRU_RSA_WITH_AES_256_CBC_SHA
+    case TLS_NTRU_RSA_WITH_AES_256_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = aes;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ntru_kea;
         ssl->specs.hash_size             = SHA_DIGEST_SIZE;
         ssl->specs.pad_size              = PAD_SHA;
         ssl->specs.key_size              = AES_256_KEY_SIZE;
@@ -263,25 +321,25 @@ static int SetPrefix(byte* sha_input, int index)
 {
     switch (index) {
     case 0:
-        memcpy(sha_input, "A", 1);
+        XMEMCPY(sha_input, "A", 1);
         break;
     case 1:
-        memcpy(sha_input, "BB", 2);
+        XMEMCPY(sha_input, "BB", 2);
         break;
     case 2:
-        memcpy(sha_input, "CCC", 3);
+        XMEMCPY(sha_input, "CCC", 3);
         break;
     case 3:
-        memcpy(sha_input, "DDDD", 4);
+        XMEMCPY(sha_input, "DDDD", 4);
         break;
     case 4:
-        memcpy(sha_input, "EEEEE", 5);
+        XMEMCPY(sha_input, "EEEEE", 5);
         break;
     case 5:
-        memcpy(sha_input, "FFFFFF", 6);
+        XMEMCPY(sha_input, "FFFFFF", 6);
         break;
     case 6:
-        memcpy(sha_input, "GGGGGGG", 7);
+        XMEMCPY(sha_input, "GGGGGGG", 7);
         break;
     default:
         return 0; 
@@ -392,21 +450,21 @@ int StoreKeys(SSL* ssl, const byte* keyData)
 {
     int sz = ssl->specs.hash_size, i;
 
-    memcpy(ssl->keys.client_write_MAC_secret, keyData, sz);
+    XMEMCPY(ssl->keys.client_write_MAC_secret, keyData, sz);
     i = sz;
-    memcpy(ssl->keys.server_write_MAC_secret,&keyData[i], sz);
+    XMEMCPY(ssl->keys.server_write_MAC_secret,&keyData[i], sz);
     i += sz;
 
     sz = ssl->specs.key_size;
-    memcpy(ssl->keys.client_write_key, &keyData[i], sz);
+    XMEMCPY(ssl->keys.client_write_key, &keyData[i], sz);
     i += sz;
-    memcpy(ssl->keys.server_write_key, &keyData[i], sz);
+    XMEMCPY(ssl->keys.server_write_key, &keyData[i], sz);
     i += sz;
 
     sz = ssl->specs.iv_size;
-    memcpy(ssl->keys.client_write_IV, &keyData[i], sz);
+    XMEMCPY(ssl->keys.client_write_IV, &keyData[i], sz);
     i += sz;
-    memcpy(ssl->keys.server_write_IV, &keyData[i], sz);
+    XMEMCPY(ssl->keys.server_write_IV, &keyData[i], sz);
 
     return SetKeys(&ssl->encrypt, &ssl->decrypt, &ssl->keys, &ssl->specs,
                    ssl->options.side);
@@ -432,7 +490,7 @@ int DeriveKeys(SSL* ssl)
     InitMd5(&md5);
     InitSha(&sha);
 
-    memcpy(md5Input, ssl->arrays.masterSecret, SECRET_LEN);
+    XMEMCPY(md5Input, ssl->arrays.masterSecret, SECRET_LEN);
 
     for (i = 0; i < rounds; ++i) {
         int j   = i + 1;
@@ -442,17 +500,17 @@ int DeriveKeys(SSL* ssl)
             return PREFIX_ERROR;
         }
 
-        memcpy(shaInput + idx, ssl->arrays.masterSecret, SECRET_LEN);
+        XMEMCPY(shaInput + idx, ssl->arrays.masterSecret, SECRET_LEN);
         idx += SECRET_LEN;
-        memcpy(shaInput + idx, ssl->arrays.serverRandom, RAN_LEN);
+        XMEMCPY(shaInput + idx, ssl->arrays.serverRandom, RAN_LEN);
         idx += RAN_LEN;
-        memcpy(shaInput + idx, ssl->arrays.clientRandom, RAN_LEN);
+        XMEMCPY(shaInput + idx, ssl->arrays.clientRandom, RAN_LEN);
         idx += RAN_LEN;
 
         ShaUpdate(&sha, shaInput, sizeof(shaInput) - KEY_PREFIX + j);
         ShaFinal(&sha, shaOutput);
 
-        memcpy(&md5Input[SECRET_LEN], shaOutput, SHA_DIGEST_SIZE);
+        XMEMCPY(&md5Input[SECRET_LEN], shaOutput, SHA_DIGEST_SIZE);
         Md5Update(&md5, md5Input, sizeof(md5Input));
         Md5Final(&md5, keyData + i * MD5_DIGEST_SIZE);
     }
@@ -506,7 +564,7 @@ int MakeMasterSecret(SSL* ssl)
     InitMd5(&md5);
     InitSha(&sha);
 
-    memcpy(md5Input, ssl->arrays.preMasterSecret, pmsSz);
+    XMEMCPY(md5Input, ssl->arrays.preMasterSecret, pmsSz);
 
     for (i = 0; i < MASTER_ROUNDS; ++i) {
         byte prefix[PREFIX];
@@ -515,20 +573,20 @@ int MakeMasterSecret(SSL* ssl)
         }
 
         idx = 0;
-        memcpy(shaInput, prefix, i + 1);
+        XMEMCPY(shaInput, prefix, i + 1);
         idx += i + 1;
 
-        memcpy(shaInput + idx, ssl->arrays.preMasterSecret, pmsSz);
+        XMEMCPY(shaInput + idx, ssl->arrays.preMasterSecret, pmsSz);
         idx += pmsSz;
-        memcpy(shaInput + idx, ssl->arrays.clientRandom, RAN_LEN);
+        XMEMCPY(shaInput + idx, ssl->arrays.clientRandom, RAN_LEN);
         idx += RAN_LEN;
-        memcpy(shaInput + idx, ssl->arrays.serverRandom, RAN_LEN);
+        XMEMCPY(shaInput + idx, ssl->arrays.serverRandom, RAN_LEN);
         idx += RAN_LEN;
         ShaUpdate(&sha, shaInput, idx);
         ShaFinal(&sha, shaOutput);
 
         idx = pmsSz;  /* preSz */
-        memcpy(md5Input + idx, shaOutput, SHA_DIGEST_SIZE);
+        XMEMCPY(md5Input + idx, shaOutput, SHA_DIGEST_SIZE);
         idx += SHA_DIGEST_SIZE;
         Md5Update(&md5, md5Input, idx);
         Md5Final(&md5, &ssl->arrays.masterSecret[i * MD5_DIGEST_SIZE]);

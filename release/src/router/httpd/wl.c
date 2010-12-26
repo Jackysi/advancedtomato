@@ -643,7 +643,10 @@ void asp_wlcountries(int argc, char **argv)
 			p = s;
 			if ((code = strsep(&p, " \t\n")) && p) {
 				country = strsep(&p, "\n");
-				if (country && *country && strcmp(code, country) != 0) {
+				if ((country && *country && strcmp(code, country) != 0) ||
+				    // special case EU code since the driver may not have a name for it
+				    (strcmp(code, "EU") == 0)) {
+					if (!country || *country == 0) country = code;
 					p = js_string(country);
 					web_printf("%c['%s', '%s']", i++ ? ',' : ' ', code, p);
 					free(p);

@@ -53,7 +53,6 @@ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
 obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
 obj-$(CONFIG_IP_NF_MATCH_MPORT) += ipt_mport.o
 obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
-obj-$(CONFIG_IP_NF_MATCH_WEB) += ipt_web.o
 obj-$(CONFIG_IP_NF_MATCH_MACSAVE) += ipt_macsave.o
 obj-$(CONFIG_IP_NF_MATCH_EXP) += ipt_exp.o
 obj-$(CONFIG_IP_NF_MATCH_BCOUNT) += ipt_bcount.o

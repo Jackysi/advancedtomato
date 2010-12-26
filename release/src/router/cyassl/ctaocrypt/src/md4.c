@@ -22,14 +22,12 @@
 
 #ifndef NO_MD4
 
-#include "md4.h"
+#include "ctc_md4.h"
 #ifdef NO_INLINE
     #include "misc.h"
 #else
     #include "misc.c"
 #endif
-#include <assert.h>
-#include <string.h>
 
 
 
@@ -151,7 +149,7 @@ void Md4Update(Md4* md4, const byte* data, word32 len)
 
     while (len) {
         word32 add = min(len, MD4_BLOCK_SIZE - md4->buffLen);
-        memcpy(&local[md4->buffLen], data, add);
+        XMEMCPY(&local[md4->buffLen], data, add);
 
         md4->buffLen += add;
         data         += add;
@@ -179,7 +177,7 @@ void Md4Final(Md4* md4, byte* hash)
 
     /* pad with zeros */
     if (md4->buffLen > MD4_PAD_SIZE) {
-        memset(&local[md4->buffLen], 0, MD4_BLOCK_SIZE - md4->buffLen);
+        XMEMSET(&local[md4->buffLen], 0, MD4_BLOCK_SIZE - md4->buffLen);
         md4->buffLen += MD4_BLOCK_SIZE - md4->buffLen;
 
         #ifdef BIG_ENDIAN_ORDER
@@ -188,7 +186,7 @@ void Md4Final(Md4* md4, byte* hash)
         Transform(md4);
         md4->buffLen = 0;
     }
-    memset(&local[md4->buffLen], 0, MD4_PAD_SIZE - md4->buffLen);
+    XMEMSET(&local[md4->buffLen], 0, MD4_PAD_SIZE - md4->buffLen);
    
     /* put lengths in bits */
     md4->loLen = md4->loLen << 3;
@@ -200,14 +198,14 @@ void Md4Final(Md4* md4, byte* hash)
         ByteReverseBytes(local, local, MD4_BLOCK_SIZE);
     #endif
     /* ! length ordering dependent on digest endian type ! */
-    memcpy(&local[MD4_PAD_SIZE], &md4->loLen, sizeof(word32));
-    memcpy(&local[MD4_PAD_SIZE + sizeof(word32)], &md4->hiLen, sizeof(word32));
+    XMEMCPY(&local[MD4_PAD_SIZE], &md4->loLen, sizeof(word32));
+    XMEMCPY(&local[MD4_PAD_SIZE + sizeof(word32)], &md4->hiLen, sizeof(word32));
 
     Transform(md4);
     #ifdef BIG_ENDIAN_ORDER
         ByteReverseWords(md4->digest, md4->digest, MD4_DIGEST_SIZE);
     #endif
-    memcpy(hash, md4->digest, MD4_DIGEST_SIZE);
+    XMEMCPY(hash, md4->digest, MD4_DIGEST_SIZE);
 
     InitMd4(md4);  /* reset state */
 }

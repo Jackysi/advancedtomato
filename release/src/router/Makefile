@@ -40,7 +40,8 @@ obj-y += bridge
 obj-y += dnsmasq
 obj-y += etc
 # obj-y += vlan # use Busybox vconfig
-obj-y += ppp
+obj-y += pppd
+obj-y += rp-pppoe
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
@@ -122,14 +123,6 @@ obj-$(TCONFIG_OPENVPN) += openvpn
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
-ifeq ($(TCONFIG_L2TP),y)
-NEED_PPPD = y
-endif
-ifeq ($(TCONFIG_PPTP),y)
-NEED_PPPD = y
-endif
-obj-$(NEED_PPPD) += pppd
-
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udev
 
@@ -181,9 +174,16 @@ install package: $(obj-install) $(LINUXDIR)/.config
 
 # kernel modules
 	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
-##!!TB	find $(TARGETDIR)/lib/modules -name *.o -exec mipsel-linux-strip --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name *.o -exec $(STRIP) --strip-debug {} \;
-	find $(TARGETDIR)/lib/modules -name *.ko -exec $(STRIP) --strip-debug {} \;
+
+	find $(TARGETDIR)/lib/modules -name wl.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name et.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name bcm57*.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name ctf.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name emf.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name igs.*o -exec $(STRIP) --strip-unneeded {} \;
+	find $(TARGETDIR)/lib/modules -name jffs*.*o -exec $(STRIP) --strip-unneeded {} \;
+
+	find $(TARGETDIR)/lib/modules -name *.*o -exec $(STRIP) --strip-debug {} \;
 
 	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
@@ -358,6 +358,7 @@ endif
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/leds/*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
@@ -369,6 +370,7 @@ endif
 ifneq ($(TCONFIG_USB),y)
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/usb || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi || true
+	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/leds || true
 endif
 
 	$(if $(TCONFIG_USB_EXTRAS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/connector/cn.*o $(PLATFORMDIR)/extras/ || true
@@ -478,7 +480,7 @@ rmconf: config/mconf
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
 	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean vsftpd-clean
-	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean ppp-clean dnsmasq-clean dhcpv6-clean
+	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean dnsmasq-clean dhcpv6-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -678,6 +680,26 @@ ppp:
 ppp-%:
 	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
 
+rp-pppoe/src/stamp-h1: rp-pppoe/src/Makefile.in
+	cd rp-pppoe/src && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --enable-plugin=$(TOP)/pppd \
+	ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev
+	@touch rp-pppoe/src/stamp-h1
+
+rp-pppoe: pppd rp-pppoe/src/stamp-h1
+	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
+
+rp-pppoe-clean:
+	-$(MAKE) -C rp-pppoe/src clean
+	@rm -f rp-pppoe/src/pppoe-relay
+	@rm -f rp-pppoe/src/stamp-h1
+
+rp-pppoe-install: rp-pppoe
+	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
+	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/*.so
+#	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
+#	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
+
 
 upnp: nvram shared iptables
 
@@ -776,13 +798,15 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
 
-radvd/stamp-h: radvd/Makefile.in
+radvd/stamp-h1: radvd/Makefile.in
 	cd radvd && CPPFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --prefix=""
+	@touch radvd/stamp-h1
 
-radvd: radvd/stamp-h
+radvd: radvd/stamp-h1
 
 radvd-clean:
 	-@$(MAKE) -C radvd distclean
+	@rm -f radvd/stamp-h1
 
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd

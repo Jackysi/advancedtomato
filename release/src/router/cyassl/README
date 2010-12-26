@@ -13,7 +13,22 @@ before calling SSL_new();  Though it's not recommended.
 
 *** end Note ***
 
-CyaSSL Release 1.6.5 (9/9/2010)
+CyaSSL Release 1.8.0 (12/23/2010)
+
+Release 1.8.0 for CyaSSL adds bug fixes, x509 v3 CA signed certificate
+generation, a C standard library abstraction layer, lower memory use, increased
+portability through the os_settings.h file, and the ability to use NTRU cipher
+suites when used in conjunction with an NTRU license and library.
+
+The initial CyaSSL manual offering is included in the doc/ directory.  For
+build instructions and comments about the new features please check the manual.
+
+Please send any comments or questions to support@yassl.com.
+
+Happy Holidays.
+ 
+
+********************* CyaSSL Release 1.6.5 (9/9/2010)
 
 Release 1.6.5 for CyaSSL adds bug fixes and x509 v3 self signed certificate
 generation.

@@ -100,9 +100,18 @@ function thresChanged()
 var grid = new TomatoGrid();
 
 grid.dataToView = function(data) {
-	var v = [];
-	for (var i = 0; i < data.length; ++i) {
-		v.push('' + data[i]);
+	var s, v = [];
+	for (var col = 0; col < data.length; ++col) {
+		switch (col) {
+		case 5:
+		case 6:
+			s = (data[col] / (readDelay * 1024)).toFixed(1);
+			break;
+		default:
+			s = data[col];
+			break;
+		}
+		v.push('' + s);
 	}
 	return v;
 }
@@ -117,12 +126,10 @@ grid.sortCompare = function(a, b) {
 	switch (col) {
 	case 2:
 	case 4:
-		r = cmpInt(da[col], db[col]);
-		break;
 	case 5:
 	case 6:
-		r = cmpFloat(da[col], db[col]);
-		break;		
+		r = cmpInt(da[col], db[col]);
+		break;
 /* REMOVE-BEGIN
 	case 1:
 	case 3:
@@ -249,7 +256,7 @@ ref.refresh = function(text)
 				else cursor = null;
 			}
 		}
-		d = [protocols[b[0]] || b[0], b[1], b[3], b[2], b[4], '' + (b[5]/(readDelay*1024)).toFixed(1), '' + (b[6]/(readDelay*1024)).toFixed(1)];
+		d = [protocols[b[0]] || b[0], b[1], b[3], b[2], b[4], b[5], b[6]];
 		var row = grid.insertData(-1, d);
 		if (cursor) row.style.cursor = cursor;
 	}

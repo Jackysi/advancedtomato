@@ -51,7 +51,8 @@ int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_
 	struct statfs sf;
 	uint64_t size, fsize;
 
-	if (!find_label_or_uuid(dev_name, the_label, NULL)) {
+	type = find_label_or_uuid(dev_name, the_label, NULL);
+	if (*the_label == 0) {
 		strncpy(the_label, pt_name, sizeof(the_label));
 	}
 
@@ -90,8 +91,7 @@ int is_partition_mounted(char *dev_name, int host_num, char *dsc_name, char *pt_
 	}
 	else {
 		if (flags & EFH_PRINT) {
-			type = detect_fs_type(dev_name);
-			web_printf("0,'','%s','',%llu,0]", type ? type : "", get_psize(dev_name));
+			web_printf("0,'','%s','',%llu,0]", type ? : "", get_psize(dev_name));
 		}
 	}
 

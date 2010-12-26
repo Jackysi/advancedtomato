@@ -48,11 +48,11 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_snifftest_OBJECTS = snifftest-snifftest.$(OBJEXT)
+am_snifftest_OBJECTS = snifftest.$(OBJEXT)
 snifftest_OBJECTS = $(am_snifftest_OBJECTS)
 snifftest_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(snifftest_CFLAGS) \
-	$(CFLAGS) $(snifftest_LDFLAGS) $(LDFLAGS) -o $@
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(snifftest_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)/ctaocrypt/include@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -191,9 +191,8 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 INCLUDES = -I../../include
 snifftest_SOURCES = snifftest.c
-snifftest_CFLAGS = -Wall -Wno-unused
 snifftest_LDFLAGS = -L../../src
-@BUILD_SNIFFER_TRUE@snifftest_LDADD = ../../src/libcyassl.la -lm -lpcap
+@BUILD_SNIFFER_TRUE@snifftest_LDADD = ../../src/libcyassl.la -lpcap
 @BUILD_SNIFFER_TRUE@snifftest_DEPENDENCIES = ../../src/libcyassl.la
 EXTRA_DIST = sslSniffTest.vcproj
 all: all-am
@@ -267,7 +266,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/snifftest-snifftest.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/snifftest.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -289,20 +288,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-snifftest-snifftest.o: snifftest.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(snifftest_CFLAGS) $(CFLAGS) -MT snifftest-snifftest.o -MD -MP -MF $(DEPDIR)/snifftest-snifftest.Tpo -c -o snifftest-snifftest.o `test -f 'snifftest.c' || echo '$(srcdir)/'`snifftest.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/snifftest-snifftest.Tpo $(DEPDIR)/snifftest-snifftest.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='snifftest.c' object='snifftest-snifftest.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(snifftest_CFLAGS) $(CFLAGS) -c -o snifftest-snifftest.o `test -f 'snifftest.c' || echo '$(srcdir)/'`snifftest.c
-
-snifftest-snifftest.obj: snifftest.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(snifftest_CFLAGS) $(CFLAGS) -MT snifftest-snifftest.obj -MD -MP -MF $(DEPDIR)/snifftest-snifftest.Tpo -c -o snifftest-snifftest.obj `if test -f 'snifftest.c'; then $(CYGPATH_W) 'snifftest.c'; else $(CYGPATH_W) '$(srcdir)/snifftest.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/snifftest-snifftest.Tpo $(DEPDIR)/snifftest-snifftest.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='snifftest.c' object='snifftest-snifftest.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(snifftest_CFLAGS) $(CFLAGS) -c -o snifftest-snifftest.obj `if test -f 'snifftest.c'; then $(CYGPATH_W) 'snifftest.c'; else $(CYGPATH_W) '$(srcdir)/snifftest.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

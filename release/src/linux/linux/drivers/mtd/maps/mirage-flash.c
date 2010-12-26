@@ -1,10 +1,10 @@
 /*
  * Flash memory access on AMD Mirage board.
- * 
+ *
  * (C) 2003 Embedded Edge
  * based on mirage-flash.c:
  * (C) 2003 Pete Popov <ppopov@pacbell.net>
- * 
+ *
  */
 
 #include <linux/config.h>
@@ -23,7 +23,7 @@
 #ifdef 	DEBUG_RW
 #define	DBG(x...)	printk(x)
 #else
-#define	DBG(x...)	
+#define	DBG(x...)
 #endif
 
 static unsigned long window_addr;
@@ -145,11 +145,11 @@ int __init mirage_mtd_init(void)
 	struct mtd_partition *parts;
 	int nb_parts = 0;
 	char *part_type;
-	
+
 	/* Default flash buswidth */
 	mirage_map.buswidth = flash_buswidth;
 
-	if (setup_flash_params()) 
+	if (setup_flash_params())
 		return -ENXIO;
 
 	/*
@@ -164,9 +164,9 @@ int __init mirage_mtd_init(void)
 	 * Now let's probe for the actual flash.  Do it here since
 	 * specific machine settings might have been set above.
 	 */
-	printk(KERN_NOTICE "Mirage flash: probing %d-bit flash bus\n", 
+	printk(KERN_NOTICE "Mirage flash: probing %d-bit flash bus\n",
 			mirage_map.buswidth*8);
-	mirage_map.map_priv_1 = 
+	mirage_map.map_priv_1 =
 		(unsigned long)ioremap(window_addr, window_size);
 	mymtd = do_map_probe("cfi_probe", &mirage_map);
 	if (!mymtd) return -ENXIO;
