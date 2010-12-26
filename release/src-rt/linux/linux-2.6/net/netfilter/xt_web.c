@@ -4,6 +4,9 @@
 	HTTP client request match
 	Copyright (C) 2006 Jonathan Zarate
 
+	Linux Kernel 2.6 Port (ipt->xt)
+	Portions copyright (C) 2010 Fedor Kozhevnikov
+
 	Licensed under GNU GPL v2 or later.
 
 */
@@ -11,19 +14,31 @@
 #include <linux/skbuff.h>
 #include <linux/version.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/tcp.h>
+#include <net/ipv6.h>
 #include <net/sock.h>
+
+#include <linux/netfilter/x_tables.h>
+#include <linux/netfilter/xt_web.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ipt_web.h>
+#include <linux/netfilter_ipv6/ip6_tables.h>
 
 MODULE_AUTHOR("Jonathan Zarate");
-MODULE_DESCRIPTION("HTTP client request match (experimental)");
+MODULE_DESCRIPTION("Xtables: HTTP client request match (experimental)");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("ipt_web");
+MODULE_ALIAS("ip6t_web");
 
+//#define DEBUG
 
-//	#define LOG			printk
+#ifdef DEBUG
+#define LOG		printk
+#else
 #define LOG(...)	do { } while (0);
+#endif
 
+#define MAX_PAYLOAD_LEN	2048
 
 static int find(const char *data, const char *tail, const char *text)
 {
@@ -36,7 +51,7 @@ static int find(const char *data, const char *tail, const char *text)
 
 	dlen = tail - data;
 
-#if 0
+#ifdef DEBUG
 	{
 		char tmp[128];
 		int z;
@@ -113,65 +128,34 @@ static inline const char *findend(const char *data, const char *tail, int min)
 	return NULL;
 }
 
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-static int
-#else
-static bool
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-match(const struct sk_buff *skb, const struct net_device *in, const struct net_device *out,
-	const struct xt_match *match, const void *matchinfo, int offset,
-	unsigned int protoff, int *hotdrop)
-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28) */
-match(const struct sk_buff *skb, const struct xt_match_param *par)
-#endif
+static int match_payload(const struct xt_web_info *info, const char *data, int dlen)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	const struct ipt_web_info *info = matchinfo;
-#else
-	const struct ipt_web_info *info = par->matchinfo;
-	const int offset = par->fragoff;
-#endif
-	const struct iphdr *iph = ip_hdr(skb);
-	const struct tcphdr *tcph = (void *)iph + iph->ihl * 4;
-	const char *data;
 	const char *tail;
 	const char *p, *q;
-	int doff, dlen;
 	__u32 sig;
-
-	if (offset != 0) return info->invert;
-
-	doff = (tcph->doff * 4);
- 	data = (void *)tcph + doff;
-	dlen = ntohs(ip_hdr(skb)->tot_len);
-
-#if 0
-	printk(KERN_INFO "dlen=%d doff=%d\n", dlen, doff);
-	char tmp[16];
-	memcpy(tmp, data, sizeof(tmp));
-	tmp[sizeof(tmp) - 1] = 0;
-	printk(KERN_INFO "[%s]\n", tmp);
+#ifdef DEBUG
+	char tmp[64];
 #endif
-	
+
 	// POST / HTTP/1.0$$$$
 	// GET / HTTP/1.0$$$$
 	// 1234567890123456789
 	if (dlen < 18) return info->invert;
 	
+#ifdef DEBUG
+	printk(KERN_INFO "dlen=%d\n", dlen);
+	memcpy(tmp, data, min(63, dlen));
+	tmp[min(63, dlen)] = 0;
+	printk(KERN_INFO "[%s]\n", tmp);
+#endif
+
 	// "GET " or "POST"
 	sig = *(__u32 *)data;
 	if ((sig != __constant_htonl(0x47455420)) && (sig != __constant_htonl(0x504f5354))) {
 		return info->invert;
 	}
 		
-	tail = data + dlen;
-	if (dlen > 1024) {
-		dlen = 1024;
-		tail = data + 1024;
-	}
-
+	tail = data + min(dlen, MAX_PAYLOAD_LEN);
 
 	// POST / HTTP/1.0$$$$
 	// GET / HTTP/1.0$$$$	-- minimum
@@ -180,7 +164,7 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 	if (((p = findend(data + 14, tail, 18)) == NULL) || (memcmp(p - 9, " HTTP/", 6) != 0))
 		return info->invert;
 
-#if 0
+#ifdef DEBUG
 	{
 		const char *qq = info->text;
 		while (*qq) {
@@ -191,26 +175,26 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 #endif
 
 	switch (info->mode) {
-	case IPT_WEB_HTTP:
+	case XT_WEB_HTTP:
 		return !info->invert;
-	case IPT_WEB_HORE:
+	case XT_WEB_HORE:
 		// entire request line, else host line
 		if (find(data + 4, p - 9, info->text)) return !info->invert;
 		break;
-	case IPT_WEB_PATH:
+	case XT_WEB_PATH:
 		// left side of '?' or entire line
 		q = data += 4;
 		p -= 9;
 		while ((q < p) && (*q != '?')) ++q;
 		return find(data, q, info->text) ^ info->invert;
-	case IPT_WEB_QUERY:
+	case XT_WEB_QUERY:
 		// right side of '?' or none
 		q = data + 4;
 		p -= 9;
 		while ((q < p) && (*q != '?')) ++q;
 		if (q >= p) return info->invert;
 		return find(q + 1, p, info->text) ^ info->invert;
-	case IPT_WEB_RURI:
+	case XT_WEB_RURI:
 		// entire request line
 		return find(data + 4, p - 9, info->text) ^ info->invert;
 	default:
@@ -218,15 +202,14 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 		break;
 	}
 
-	// else, IPT_WEB_HOST
+	// else, XT_WEB_HOST
 
 	while (1) {
-		data = p + 2;				// skip previous \r\n
+		data = p + 2;			// skip previous \r\n
 		p = findend(data, tail, 8);	// p = current line's \r
 		if (p == NULL) return 0;
 
-#if 0
-			char tmp[64];
+#ifdef DEBUG
 			memcpy(tmp, data, 32);
 			tmp[32] = 0;
 			printk(KERN_INFO "data=[%s]\n", tmp);
@@ -239,40 +222,88 @@ match(const struct sk_buff *skb, const struct xt_match_param *par)
 	return !info->invert;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static int
-#else
-static bool
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-checkentry(const char *tablename, const void *inf, const struct xt_match *match,
-	void *matchinfo, unsigned int hook_mask)
-#else
-checkentry(const struct xt_mtchk_param *par)
-#endif
+match4(const struct sk_buff *skb,
+       const struct net_device *in,
+       const struct net_device *out,
+       const struct xt_match *match,
+       const void *matchinfo,
+       int offset,
+       unsigned int protoff,
+       int *hotdrop)
 {
-	return 1;
+	const struct xt_web_info *info = matchinfo;
+	const struct iphdr *iph = ip_hdr(skb);
+	struct tcphdr *tcph;
+	const char *data;
+
+	if (offset != 0) return info->invert;
+
+	tcph = (void *)iph + (iph->ihl * 4);
+	data = (void *)tcph + (tcph->doff * 4);
+
+	return match_payload(info, data,
+		ntohs(iph->tot_len) - (data - (char *)iph));
 }
 
-static struct xt_match web_match = {
-	.name		= "web",
-	.family		= AF_INET,
-	.match		= &match,
-	.matchsize	= sizeof(struct ipt_web_info),
-	.checkentry	= &checkentry,
-	.destroy	= NULL,
-	.me		= THIS_MODULE
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+static int
+match6(const struct sk_buff *skb,
+       const struct net_device *in,
+       const struct net_device *out,
+       const struct xt_match *match,
+       const void *matchinfo,
+       int offset,
+       unsigned int protoff,
+       int *hotdrop)
+{
+	const struct xt_web_info *info = matchinfo;
+	const struct ipv6hdr *iph = ipv6_hdr(skb);
+	u8 nexthdr;
+	struct tcphdr *tcph;
+	const char *data;
+
+	if (offset != 0) return info->invert;
+
+	nexthdr = iph->nexthdr;
+	tcph = (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
+	data = (void *)tcph + (tcph->doff * 4);
+
+	return match_payload(info, data,
+		ntohs(iph->payload_len) - (data - (char *)tcph));
+}
+#endif
+
+static struct xt_match web_match[] = {
+	{
+		.name		= "web",
+		.family		= AF_INET,
+		.match		= match4,
+		.matchsize	= sizeof(struct xt_web_info),
+		.proto		= IPPROTO_TCP,
+		.me		= THIS_MODULE,
+	},
+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+	{
+		.name		= "web",
+		.family		= AF_INET6,
+		.match		= match6,
+		.matchsize	= sizeof(struct xt_web_info),
+		.proto		= IPPROTO_TCP,
+		.me		= THIS_MODULE,
+	},
+#endif
 };
 
 static int __init init(void)
 {
-//	LOG(KERN_INFO "ipt_web <" __DATE__ " " __TIME__ "> loaded\n");
-	return xt_register_match(&web_match);
+	LOG(KERN_INFO "xt_web <" __DATE__ " " __TIME__ "> loaded\n");
+	return xt_register_matches(web_match, ARRAY_SIZE(web_match));
 }
 
 static void __exit fini(void)
 {
-	xt_unregister_match(&web_match);
+	xt_unregister_matches(web_match, ARRAY_SIZE(web_match));
 }
 
 module_init(init);

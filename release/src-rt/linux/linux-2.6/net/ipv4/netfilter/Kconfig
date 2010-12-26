@@ -474,10 +474,6 @@ config IP_NF_MATCH_IPV4OPTIONS
 	  If you want to compile it as a module, say M here and read
 	  Documentation/modules.txt.  If unsure, say `N'.
 
-config IP_NF_MATCH_WEB
-	tristate  'web match'
-	depends on IP_NF_IPTABLES
-
 config IP_NF_TARGET_BCOUNT
 	tristate  'BCOUNT target'
 	depends on IP_NF_IPTABLES
