@@ -151,7 +151,6 @@ void wo_flash(char *url)
 		set_action(ACT_IDLE);
 #else
 		// disconnect ppp - need this for PPTP/L2TP/PPPOE to finish gracefully
-		killall("pppoecd", SIGTERM);
 		killall("xl2tpd", SIGTERM);
 		killall("pppd", SIGTERM);
 

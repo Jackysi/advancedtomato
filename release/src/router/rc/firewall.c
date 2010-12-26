@@ -308,25 +308,51 @@ static void save_webmon(void)
 static void ipt_webmon(void)
 {
 	int wmtype, clear, i;
+	char t[512];
+	char src[64];
+	char *p, *c;
 
 	if (!nvram_get_int("log_wm")) return;
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
 	ipt_write(":monitor - [0:0]\n");
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ipt_write("-A FORWARD -o %s -j monitor\n",
-				wanfaces.iface[i].name);
+
+	// include IPs
+	strlcpy(t, wmtype == 1 ? nvram_safe_get("log_wmip") : "", sizeof(t));
+	p = t;
+	do {
+		if ((c = strchr(p, ',')) != NULL) *c = 0;
+		ipt_source(p, src);
+
+		for (i = 0; i < wanfaces.count; ++i) {
+			if (*(wanfaces.iface[i].name)) {
+				ipt_write("-A FORWARD -o %s %s -j monitor\n",
+					wanfaces.iface[i].name, src);
+			}
 		}
+
+		if (!c) break;
+		p = c + 1;
+	} while (*p);
+
+	// exclude IPs
+	if (wmtype == 2) {
+		strlcpy(t, nvram_safe_get("log_wmip"), sizeof(t));
+		p = t;
+		do {
+			if ((c = strchr(p, ',')) != NULL) *c = 0;
+			ipt_source(p, src);
+			if (*src) ipt_write("-A monitor %s -j RETURN\n", src);
+			if (!c) break;
+			p = c + 1;
+		} while (*p);
 	}
 
 	ipt_write(
-		"-A monitor -m webmon "
-		"--max_domains %d --max_searches %d %s%s %s %s\n",
+		"-A monitor -p tcp -m webmon "
+		"--max_domains %d --max_searches %d %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
-		wmtype == 1 ? "--include_ips " : wmtype == 2 ? "--exclude_ips " : "",
-		wmtype == 0 ? "" : nvram_safe_get("log_wmip"),
 		(clear & 1) == 0 ? "--domain_load_file /var/webmon/domain" : "--clear_domain",
 		(clear & 2) == 0 ? "--search_load_file /var/webmon/search" : "--clear_search");
 
@@ -1253,13 +1279,14 @@ int start_firewall(void)
 	modprobe_r("xt_recent");
 	modprobe_r("xt_HL");
 	modprobe_r("xt_length");
+	modprobe_r("xt_web");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
 	modprobe_r("ipt_TTL");
+	modprobe_r("ipt_web");
 #endif
 	modprobe_r("ipt_ipp2p");
-	modprobe_r("ipt_web");
 	modprobe_r("ipt_webmon");
 
 	unlink("/var/webmon/domain");
