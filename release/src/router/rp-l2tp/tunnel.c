@@ -29,6 +29,8 @@ static char const RCSID[] =
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <netdb.h>
+#include <features.h>
+#include <resolv.h>
 #include <cyutils.h>
 
 /* Hash tables of all tunnels */
@@ -523,6 +525,12 @@ tunnel_establish(l2tp_peer *peer, EventSelector *es)
 
     /* check peer_addr and resolv it based on the peername if needed */
     if (peer_addr.sin_addr.s_addr == INADDR_ANY) {
+#if !defined(__UCLIBC__) \
+ || (__UCLIBC_MAJOR__ == 0 \
+ && (__UCLIBC_MINOR__ < 9 || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ < 31)))
+	/* force ns refresh from resolv.conf with uClibc pre-0.9.31 */
+	res_init();
+#endif
 	he = gethostbyname(peer->peername);
 	if (!he) {
             l2tp_set_errmsg("tunnel_establish: gethostbyname failed for '%s'", peer->peername);

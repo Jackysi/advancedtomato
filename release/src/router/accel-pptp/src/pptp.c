@@ -54,6 +54,9 @@
 #include <stdlib.h>
 
 #include <net/route.h>
+#include <features.h>
+#include <resolv.h>
+
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 extern char** environ;
@@ -131,6 +134,12 @@ static int pptp_start_client(void)
 	struct sockaddr_pppox src_addr,dst_addr;
 	struct hostent *hostinfo;
 
+#if !defined(__UCLIBC__) \
+ || (__UCLIBC_MAJOR__ == 0 \
+ && (__UCLIBC_MINOR__ < 9 || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ < 31)))
+	/* force ns refresh from resolv.conf with uClibc pre-0.9.31 */
+	res_init();
+#endif
 	hostinfo=gethostbyname(pptp_server);
   if (!hostinfo)
 	{
