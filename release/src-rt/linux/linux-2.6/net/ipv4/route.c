@@ -2516,9 +2516,10 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 			goto out;
 
 		/* RACE: Check return value of inet_select_addr instead. */
-		if (__in_dev_get_rtnl(dev_out) == NULL) {
+		if (!(dev_out->flags & IFF_UP) || !__in_dev_get_rtnl(dev_out)) {
 			dev_put(dev_out);
-			goto out;	/* Wrong error code */
+			err = -ENETUNREACH;
+			goto out;
 		}
 
 		if (LOCAL_MCAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF)) {
