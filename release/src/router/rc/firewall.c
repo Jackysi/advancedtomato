@@ -305,7 +305,7 @@ static void save_webmon(void)
 	system("cp /proc/webmon_recent_searches /var/webmon/search");
 }
 
-static void ipt_webmon(void)
+static void ipt_webmon(int do_ip6t)
 {
 	int wmtype, clear, i;
 	char t[512];
@@ -316,8 +316,15 @@ static void ipt_webmon(void)
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
-	ipt_write(":monitor - [0:0]\n");
+	ip46t_cond_write(do_ip6t, ":monitor - [0:0]\n");
 
+#ifdef TCONFIG_IPV6
+	// TODO: check for the IP address type (v4/v6)
+	// (currently IPv6 source addresses are not filtered)
+	if (do_ip6t)
+		ip6t_write("-A FORWARD -o %s -j monitor\n", wan6face);
+	else {
+#endif
 	// include IPs
 	strlcpy(t, wmtype == 1 ? nvram_safe_get("log_wmip") : "", sizeof(t));
 	p = t;
@@ -335,9 +342,12 @@ static void ipt_webmon(void)
 		if (!c) break;
 		p = c + 1;
 	} while (*p);
+#ifdef TCONFIG_IPV6
+	}
+#endif
 
 	// exclude IPs
-	if (wmtype == 2) {
+	if (wmtype == 2 && !do_ip6t) {
 		strlcpy(t, nvram_safe_get("log_wmip"), sizeof(t));
 		p = t;
 		do {
@@ -349,14 +359,18 @@ static void ipt_webmon(void)
 		} while (*p);
 	}
 
-	ipt_write(
+	ip46t_cond_write(do_ip6t,
 		"-A monitor -p tcp -m webmon "
 		"--max_domains %d --max_searches %d %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
 		(clear & 1) == 0 ? "--domain_load_file /var/webmon/domain" : "--clear_domain",
 		(clear & 2) == 0 ? "--search_load_file /var/webmon/search" : "--clear_search");
 
+#ifdef LINUX26
+	modprobe("xt_webmon");
+#else
 	modprobe("ipt_webmon");
+#endif
 }
 
 
@@ -757,7 +771,7 @@ static void filter_forward(void)
 		ipt_layer7_inbound();
 	}
 
-	ipt_webmon();
+	ipt_webmon(0);
 
 	ipt_write(
 		":wanin - [0:0]\n"
@@ -980,15 +994,16 @@ static void filter6_forward(void)
 	// clamp tcp mss to pmtu TODO?
 	// clampmss();
 
-	// TODO: support l7, restrictions, webmon on ipv6?
+	// TODO: support l7, access restrictions on ipv6?
 /*
 	if (wanup) {
 		ipt_restrictions();
 		ipt_layer7_inbound();
 	}
-
-	ipt_webmon();
 */
+#ifdef LINUX26
+	ipt_webmon(1);
+#endif
 
 	ip6t_write(
 		":wanin - [0:0]\n"
@@ -1280,14 +1295,15 @@ int start_firewall(void)
 	modprobe_r("xt_HL");
 	modprobe_r("xt_length");
 	modprobe_r("xt_web");
+	modprobe_r("xt_webmon");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
 	modprobe_r("ipt_TTL");
 	modprobe_r("ipt_web");
+	modprobe_r("ipt_webmon");
 #endif
 	modprobe_r("ipt_ipp2p");
-	modprobe_r("ipt_webmon");
 
 	unlink("/var/webmon/domain");
 	unlink("/var/webmon/search");

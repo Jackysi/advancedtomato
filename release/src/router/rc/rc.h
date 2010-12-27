@@ -250,9 +250,11 @@ extern void ip6t_write(const char *format, ...);
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 #define ip46t_write(args...) do { ipt_write(args); ip6t_write(args); } while(0)
 #define ip46t_flagged_write(do_ip6t, args...) do { ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
+#define ip46t_cond_write(do_ip6t, args...) do { if (do_ip6t) ip6t_write(args); else ipt_write(args); } while(0)
 #else
 #define ip46t_write ipt_write
 #define ip46t_flagged_write(do_ip6t, args...) ipt_write(args)
+#define ip46t_cond_write(do_ip6t, args...) ipt_write(args)
 #endif
 extern void ipt_addr(char *addr, int maxlen, const char *s, const char *dir);
 extern int ipt_ipp2p(const char *v, char *opt);
