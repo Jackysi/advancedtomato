@@ -199,7 +199,7 @@ grid.setName = function(ip, name) {
 		data = row.getRowData();
 		for (j = cols.length-1; j >= 0; j--) {
 			if (data[cols[j]] == ip) {
-				data[cols[j]] = name + '<br><small>' + ip + '</small>';
+				data[cols[j]] = name + ((ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + ip + ')</small>';
 				row.setRowData(data);
 				row.cells[cols[j]].innerHTML = data[cols[j]];
 				row.style.cursor = 'default';
@@ -245,7 +245,7 @@ ref.refresh = function(text)
 			ip = b[cols[j]];
 			if (cache[ip] != null) {
 				c[ip] = cache[ip];
-				b[cols[j]] = cache[ip] + ' <br><small>' + ip + '</small>';
+				b[cols[j]] = cache[ip] + ((ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + ip + ')</small>';
 				cursor = 'default';
 			}
 			else {
