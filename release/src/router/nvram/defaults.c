@@ -589,7 +589,7 @@ const defaults_t defaults[] = {
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},
-	{ "usb_printer_bidirect",	"1"				},
+	{ "usb_printer_bidirect",	"0"				},
 	{ "usb_ext_opt",		""				},
 	{ "usb_fat_opt",		""				},
 	{ "usb_ntfs_opt",		""				},
@@ -638,9 +638,9 @@ const defaults_t defaults[] = {
 	{ "smbd_cpage",			""				},
 	{ "smbd_cset",			"utf8"				},
 	{ "smbd_custom",		""				},
-	{ "smbd_autoshare",		"1"				},
+	{ "smbd_autoshare",		"2"				},
 	{ "smbd_shares",
-		"share</mnt<Default Share<0<0>root$</<Hidden Root<0<1"
+		"jffs</jffs<JFFS<1<0>root$</<Hidden Root<0<1"
 	},
 	{ "smbd_user",			"nas"				},
 	{ "smbd_passwd",		""				},

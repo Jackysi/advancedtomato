@@ -49,6 +49,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/route.h>
+#include <features.h>
+#include <resolv.h>
 #include <sys/ioctl.h>
 #include "l2tp.h"
 
@@ -626,6 +628,14 @@ struct tunnel *l2tp_call (char *host, int port, struct lac *lac,
     struct call *tmp = NULL;
     struct hostent *hp;
     unsigned int addr;
+
+#if !defined(__UCLIBC__) \
+ || (__UCLIBC_MAJOR__ == 0 \
+ && (__UCLIBC_MINOR__ < 9 || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ < 31)))
+    /* force ns refresh from resolv.conf with uClibc pre-0.9.31 */
+    res_init();
+#endif
+
     port = htons (port);
     hp = gethostbyname (host);
     if (!hp)

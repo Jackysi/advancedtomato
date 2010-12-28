@@ -100,13 +100,12 @@ void wo_viewlog(char *url)
 static void webmon_list(char *name, int webmon, int resolve, unsigned int maxcount)
 {
 	FILE *f;
-	char s[512], ip[16], val[256];
+	char s[512], ip[64], val[256];
 	char *js, *jh;
-	struct hostent *he;
-	struct in_addr ia;
 	char comma;
 	unsigned long time;
 	unsigned int i;
+	char host[NI_MAXHOST];
 
 	web_printf("\nwm_%s = [", name);
 
@@ -116,13 +115,12 @@ static void webmon_list(char *name, int webmon, int resolve, unsigned int maxcou
 			comma = ' ';
 			i = 0;
 			while ((!maxcount || i++ < maxcount) && fgets(s, sizeof(s), f)) {
-				if (sscanf(s, "%lu %15s %s", &time, ip, val) != 3) continue;
+				if (sscanf(s, "%lu\t%s\t%s", &time, ip, val) != 3) continue;
+				jh = NULL;
 				if (resolve) {
-					ia.s_addr = inet_addr(ip);
-					he = gethostbyaddr(&ia, sizeof(ia), AF_INET);
-					jh = js_string(he ? he->h_name : "");
-				} else
-					jh = NULL;
+					if (resolve_addr(ip, host) == 0)
+						jh = js_string(host);
+				}
 				js = utf8_to_js_string(val);
 				web_printf("%c['%lu','%s','%s', '%s']", comma,
 					time, ip, js ? : "", jh ? : "");

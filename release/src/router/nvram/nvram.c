@@ -170,8 +170,10 @@ static int find_main(int argc, char **argv)
 
 static const char *nv_default_value(const defaults_t *t)
 {
+	int model = get_model();
+
 	if (strcmp(t->key, "wl_txpwr") == 0) {
-		switch (get_model()) {
+		switch (model) {
 		case MODEL_WHRG54S:
 			return "28";
 #ifdef CONFIG_BCMWL5
@@ -182,6 +184,25 @@ static const char *nv_default_value(const defaults_t *t)
 #endif
 		}
 	}
+#ifdef TCONFIG_USB
+	else if (strcmp(t->key, "usb_enable") == 0) {
+		switch (model) {
+		case MODEL_WRTSL54GS:
+		case MODEL_WL500W:
+		case MODEL_WL500GP:
+		case MODEL_WL500GPv2:
+		case MODEL_WL500GE:
+		case MODEL_WL500GD:
+		case MODEL_WL520GU:
+		case MODEL_DIR320:
+		case MODEL_H618B:
+		case MODEL_WNR3500L:
+		case MODEL_RTN16:
+		case MODEL_WRT610Nv2:
+			return "1";
+		}
+	}
+#endif
 	return t->value;
 }
 
