@@ -303,7 +303,7 @@ int buttons_main(int argc, char *argv[])
 						break;
 #ifdef TCONFIG_USB
 					case '5':	// !!TB: unmount all USB drives
-						add_remove_usbhost("-1", 0);
+						add_remove_usbhost("-2", 0);
 						break;
 #endif
 					}

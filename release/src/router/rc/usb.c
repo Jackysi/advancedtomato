@@ -457,10 +457,8 @@ int umount_mountpoint(struct mntent *mnt, uint flags)
  	 */
 	if (nvram_get_int("usb_automount"))
 		run_nvscript("script_usbumount", mnt->mnt_dir, 3);
-	if (flags & EFH_USER) {
-		/* Unmount from Web. Run *.autostop scripts if any. */
-		run_userfile(mnt->mnt_dir, ".autostop", mnt->mnt_dir, 5);
-	}
+	/* Run *.autostop scripts located in the root of the partition being unmounted if any. */
+	run_userfile(mnt->mnt_dir, ".autostop", mnt->mnt_dir, 5);
 	run_nvscript("script_autostop", mnt->mnt_dir, 5);
 
 	count = 0;
@@ -801,6 +799,8 @@ void hotplug_usb(void)
 		if (scsi_host == NULL)
 			host = atoi(product);	// for backward compatibility
 		/* If host is negative, unmount all partitions of *all* hosts.
+		 * If host == -1, execute "soft" unmount (do not kill NAS apps, no "lazy" umount).
+		 * If host == -2, run "hard" unmount, as if the drive is unplugged.
 		 * This feature can be used in custom scripts as following:
 		 *
 		 * # INTERFACE=TOMATO/1 ACTION=remove PRODUCT=-1 SCSI_HOST=-1 hotplug usb
@@ -808,7 +808,8 @@ void hotplug_usb(void)
 		 * PRODUCT is required to pass the env variables verification.
 		 */
 		/* Unmount or remount all partitions of the host. */
-		hotplug_usb_storage_device(host, add ? -1 : 0, EFH_USER);
+		hotplug_usb_storage_device(host < 0 ? -1 : host, add ? -1 : 0,
+			host == -2 ? 0 : EFH_USER);
 	}
 #ifdef LINUX26
 	else if (is_block && strcmp(getenv("MAJOR") ? : "", "8") == 0 && strcmp(getenv("PHYSDEVBUS") ? : "", "scsi") == 0) {
