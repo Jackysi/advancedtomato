@@ -56,7 +56,6 @@ obj-$(CONFIG_IP_NF_MATCH_ADDRTYPE) += ipt_addrtype.o
 obj-$(CONFIG_IP_NF_MATCH_MACSAVE) += ipt_macsave.o
 obj-$(CONFIG_IP_NF_MATCH_EXP) += ipt_exp.o
 obj-$(CONFIG_IP_NF_MATCH_BCOUNT) += ipt_bcount.o
-obj-$(CONFIG_IP_NF_MATCH_WEBMON) += ipt_webmon.o
 
 # targets
 obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o

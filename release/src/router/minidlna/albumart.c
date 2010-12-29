@@ -197,7 +197,7 @@ check_embedded_art(const char * path, const char * image_data, int image_size)
 		if( !last_success )
 			return NULL;
 		art_cache_exists(path, &art_path);
-		if( link(last_path, art_path) == 0 )
+		if( link(last_path, art_path) == 0 || (errno == EEXIST) )
 		{
 			return(art_path);
 		}

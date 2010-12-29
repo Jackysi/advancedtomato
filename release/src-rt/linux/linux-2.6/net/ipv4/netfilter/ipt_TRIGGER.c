@@ -33,7 +33,6 @@
 
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_autofw.h>
 
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_nat_helper.h>
@@ -316,7 +315,7 @@ trigger_dnat(struct sk_buff **pskb, unsigned int hooknum)
     struct tcphdr *tcph;
     struct nf_conn *ct;
     enum ip_conntrack_info ctinfo;
-    struct nf_nat_multi_range_compat newrange;
+    struct nf_nat_range newrange;
 
     iph = ip_hdr(*pskb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
@@ -339,16 +338,16 @@ trigger_dnat(struct sk_buff **pskb, unsigned int hooknum)
     NF_CT_DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 
     /* Alter the destination of imcoming packet. */
-    newrange = ((struct nf_nat_multi_range_compat)
-	    { 1, { { IP_NAT_RANGE_MAP_IPS,
+    newrange = ((struct nf_nat_range)
+	    { IP_NAT_RANGE_MAP_IPS,
 	             trig->srcip, trig->srcip,
 	             { 0 }, { 0 }
-	    } } });
+	    });
 
     ct->status |= IPS_TRIGGER;
 
     /* Hand modified range to generic setup. */
-    return nf_nat_setup_info(ct, &newrange.range[0], hooknum);
+    return nf_nat_setup_info(ct, &newrange, hooknum);
 }
 
 static inline int trigger_refresh_matched(const struct ipt_trigger *i,
@@ -474,10 +473,6 @@ checkentry(const struct xt_tgchk_param *par)
 		DEBUGP("trigger_check: bad table `%s'.\n", tablename);
 		return 0;
 	}
-	if (hook_mask & ~((1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD))) {
-		DEBUGP("trigger_check: bad hooks %x.\n", hook_mask);
-		return 0;
-	}
 	if (info->proto) {
 	    if (info->proto != IPPROTO_TCP && info->proto != IPPROTO_UDP) {
 		DEBUGP("trigger_check: bad proto %d.\n", info->proto);
@@ -503,6 +498,7 @@ static struct ipt_target redirect_reg = {
 	.target = target,
 	.targetsize = sizeof(struct ipt_trigger_info),
 	.checkentry = checkentry,
+	.hooks = (1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_FORWARD),
 	.me = THIS_MODULE,
 };
 

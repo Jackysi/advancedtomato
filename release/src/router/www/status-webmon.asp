@@ -198,7 +198,7 @@ WMGrid.prototype.setName = function(ip, name)
 		row = this.tb.rows[i];
 		data = row.getRowData();
 		if (data.ip == ip) {
-			data[1] = name + ' <small>(' + ip + ')</small>';
+			data[1] = name + ((ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + ip + ')</small>';
 			row.setRowData(data);
 			row.cells[1].innerHTML = data[1];
 			row.style.cursor = 'default';
@@ -236,7 +236,7 @@ WMGrid.prototype.populateData = function(data, url)
 		e = list[i];
 		if (cache[e.ip] != null) {
 			new_cache[e.ip] = cache[e.ip];
-			e.ip = cache[e.ip] + ' <small>(' + e.ip + ')</small>';
+			e.ip = cache[e.ip] + ((e.ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + e.ip + ')</small>';
 			cursor = 'default';
 		}
 		else cursor = null;

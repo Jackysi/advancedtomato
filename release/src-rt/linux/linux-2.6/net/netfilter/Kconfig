@@ -757,6 +757,10 @@ config NETFILTER_XT_MATCH_WEB
 
           To compile it as a module, choose M here.  If unsure, say N.
 
+config NETFILTER_XT_MATCH_WEBMON
+	tristate  'Web Monitor match'
+	depends on EXPERIMENTAL && NETFILTER_XTABLES
+
 config NETFILTER_XT_MATCH_TCPMSS
 	tristate '"tcpmss" match support'
 	depends on NETFILTER_XTABLES

@@ -606,19 +606,29 @@ void asp_dns(int argc, char **argv)
 	web_puts(s);
 }
 
+int resolve_addr(const char *ip, char *host)
+{
+	struct addrinfo hints;
+	struct addrinfo *res;
+	int ret;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+
+	ret = getaddrinfo(ip, NULL, &hints, &res);
+	if (ret == 0) {
+		ret = getnameinfo(res->ai_addr, res->ai_addrlen, host, NI_MAXHOST, NULL, 0, 0);
+		freeaddrinfo(res);
+	}
+	return ret;
+}
+
 void wo_resolve(char *url)
 {
 	char *p;
 	char *ip;
-	
 	char host[NI_MAXHOST];
-	struct addrinfo hints;
-	struct addrinfo *res;
-	
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	
 	char comma;
 	char *js;
 
@@ -626,15 +636,10 @@ void wo_resolve(char *url)
 	web_puts("\nresolve_data = [\n");
 	if ((p = webcgi_get("ip")) != NULL) {
 		while ((ip = strsep(&p, ",")) != NULL) {
-			if (getaddrinfo(ip, NULL, &hints, &res) != 0) {
-				//error
-				continue;
-			}
-			if (getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0, 0) != 0) continue;
+			if (resolve_addr(ip, host) != 0) continue;
 			js = js_string(host);
 			web_printf("%c['%s','%s']", comma, ip, js);
 			free(js);
-			freeaddrinfo(res);
 			comma = ',';
 		}
 	}
