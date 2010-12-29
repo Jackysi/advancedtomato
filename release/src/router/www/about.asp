@@ -123,6 +123,8 @@ Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
 - QOS rule ID added to QOS/Details<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
 <br>
+With special thanks to Wes Campaigne
+<br>
 <b>"Victek" RAF features:</b><br>
 - IP/MAC Bandwidth Limiter | ARP Binding<br>
 - CPU Info & Overclock | Previous WAN IP<br>

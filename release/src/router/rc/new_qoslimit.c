@@ -23,6 +23,8 @@ void new_qoslimit_start(void)
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
+	char *lanipaddr; //lan ip address
+	char *lanmask; //lan netmask
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	int priority_num;
 	char *s = "/tmp/new_qoslimit_start.sh";
@@ -38,6 +40,9 @@ void new_qoslimit_start(void)
 
 	ibw = nvram_safe_get("new_qoslimit_ibw");
 	obw = nvram_safe_get("new_qoslimit_obw");
+	
+	lanipaddr = nvram_safe_get("lan_ipaddr");
+	lanmask = nvram_safe_get("lan_netmask");
 
 	//read qos1rules into file /tmp/new_qoslimit.sh
 	if ((f = fopen(s, "w")) == NULL) return;
@@ -84,12 +89,12 @@ void new_qoslimit_start(void)
 				"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
 				"$TQA parent 1:%s handle %s: $SFQ\n"
 				"$TFA parent 1:0 prio %s protocol ip handle %s fw flowid 1:%s\n"
-				"iptables -t mangle -A POSTROUTING -d %s -j MARK --set-mark %s\n"
+				"iptables -t mangle -A POSTROUTING ! -s %s/%s -d %s -j MARK --set-mark %s\n"
 				"\n"
 				,seq,dlrate,dlceil,priority
 				,seq,seq
 				,priority,seq,seq
-				,ipaddr,seq);
+				,lanipaddr,lanmask,ipaddr,seq);
 		}
 		
 		if (ulceil == "") strcpy(ulceil, ulrate);
@@ -98,12 +103,12 @@ void new_qoslimit_start(void)
 				"$TCAU parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
 				"$TQAU parent 1:%s handle %s: $SFQ\n"
 				"$TFAU parent 1:0 prio %s protocol ip handle %s fw flowid 1:%s\n"
-				"iptables -t mangle -A PREROUTING -s %s -j MARK --set-mark %s\n"
+				"iptables -t mangle -A PREROUTING -s %s ! -d %s/%s -j MARK --set-mark %s\n"
 				"\n"
 				,seq,ulrate,ulceil,priority
 				,seq,seq
 				,priority,seq,seq
-				,ipaddr,seq);
+				,lanipaddr,lanmask,ipaddr,seq);
 		}
 		
 		if(atoi(tcplimit) > 0){
