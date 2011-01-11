@@ -2588,8 +2588,12 @@ static int ip_route_output_slow(struct rtable **rp, const struct flowi *oldflp)
 	free_res = 1;
 
 	if (res.type == RTN_LOCAL) {
-		if (!fl.fl4_src)
-			fl.fl4_src = fl.fl4_dst;
+		if (!fl.fl4_src) {
+			if (res.fi->fib_prefsrc)
+				fl.fl4_src = res.fi->fib_prefsrc;
+			else
+				fl.fl4_src = fl.fl4_dst;
+		}
 		if (dev_out)
 			dev_put(dev_out);
 		dev_out = &loopback_dev;
