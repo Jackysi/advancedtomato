@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.32 2010/03/03 11:23:52 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.33 2010/09/27 09:17:59 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard
@@ -73,19 +73,19 @@ add_redirect_desc(unsigned short eport, int proto, const char * desc)
 {
 	struct rdr_desc * p;
 	size_t l;
-	if(desc)
-	{
-		l = strlen(desc) + 1;
+/*	if(desc)
+	{*/
+		if ((l = strlen(desc) + 1) == 1) l = 5;
 		p = malloc(sizeof(struct rdr_desc) + l);
 		if(p)
 		{
 			p->next = rdr_desc_list;
 			p->eport = eport;
 			p->proto = (short)proto;
-			memcpy(p->str, desc, l);
+			if(desc) memcpy(p->str, desc, l); else memcpy(p->str, "upnp", 4);
 			rdr_desc_list = p;
 		}
-	}
+/*	}*/
 }
 
 static void
@@ -127,6 +127,27 @@ get_redirect_desc(unsigned short eport, int proto,
 	}
 	/* if no description was found, return miniupnpd as default */
 	strncpy(desc, "miniupnpd", desclen);
+}
+
+int
+get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
+                  char * desc, int desclen)
+{
+	int i = 0;
+	struct rdr_desc * p;
+	if(!desc || (desclen == 0))
+		return -1;
+	for(p = rdr_desc_list; p; p = p->next, i++)
+	{
+		if(i == index)
+		{
+			*eport = p->eport;
+			*proto = (int)p->proto;
+			strncpy(desc, p->str, desclen);
+			return 0;
+		}
+	}
+	return -1;
 }
 
 /* add_redirect_rule2() */
@@ -241,6 +262,11 @@ get_redirect_rule_by_index(int index,
                            u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
+	r = get_redirect_desc_by_index(index, eport, proto, desc, desclen);
+	if (r==0)
+		r = get_redirect_rule(ifname, *eport, *proto, iaddr, iaddrlen, iport,
+				      0, 0, packets, bytes);
+#if 0
 	int i = 0;
 	IPTC_HANDLE h;
 	const struct ipt_entry * e;
@@ -311,17 +337,82 @@ get_redirect_rule_by_index(int index,
 #else
 		iptc_free(&h);
 #endif
+#endif /*0*/
 	return r;
 }
 
 /* delete_rule_and_commit() :
  * subfunction used in delete_redirect_and_filter_rules() */
-static int
-delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
-                       const char * miniupnpd_chain,
-                       const char * logcaller)
+int
+delete_rule_and_commit(const char * table,
+               const char * miniupnpd_chain,
+               unsigned short eport, int proto,
+               const char * logcaller)
 {
-	int r = 0;
+	int r = -1;
+	unsigned index = 0;
+	unsigned i = 0;
+	IPTC_HANDLE h;
+	const struct ipt_entry * e;
+	const struct ipt_entry_match *match;
+
+	h = iptc_init(table);
+	if(!h)
+	{
+		syslog(LOG_ERR, "get_index_rules() : "
+		                "iptc_init(%s) failed : %s",
+		       table,
+		       iptc_strerror(errno));
+		return -1;
+	}
+	if(!iptc_is_chain(miniupnpd_chain, h))
+	{
+		syslog(LOG_ERR, "chain %s not found", miniupnpd_chain);
+	}
+	else
+	{
+#ifdef IPTABLES_143
+		for(e = iptc_first_rule(miniupnpd_chain, h);
+		    e;
+			e = iptc_next_rule(e, h), i++)
+#else
+		for(e = iptc_first_rule(miniupnpd_chain, &h);
+		    e;
+			e = iptc_next_rule(e, &h), i++)
+#endif
+		{
+			if(proto==e->ip.proto)
+			{
+				match = (const struct ipt_entry_match *)&e->elems;
+				if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
+				{
+					const struct ipt_tcp * info;
+					info = (const struct ipt_tcp *)match->data;
+					if(eport != info->dpts[0])
+						continue;
+				}
+				else
+				{
+					const struct ipt_udp * info;
+					info = (const struct ipt_udp *)match->data;
+					if(eport != info->dpts[0])
+						continue;
+				}
+				r = 0;
+				index = i;
+				break;
+			}
+		}
+	}
+	if(h)
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
+	if ((r == 0) && (h = iptc_init(table))) {
+		syslog(LOG_INFO, "Trying to delete rules at index %u", index);
+		/* Now delete both rules */
 #ifdef IPTABLES_143
 	if(!iptc_delete_num_entry(miniupnpd_chain, index, h))
 #else
@@ -348,6 +439,7 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 #else
 		iptc_free(&h);
 #endif
+	}
 	return r;
 }
 
@@ -357,80 +449,9 @@ int
 delete_redirect_and_filter_rules(unsigned short eport, int proto)
 {
 	int r = -1;
-	unsigned index = 0;
-	unsigned i = 0;
-	IPTC_HANDLE h;
-	const struct ipt_entry * e;
-	const struct ipt_entry_match *match;
-
-	h = iptc_init("nat");
-	if(!h)
-	{
-		syslog(LOG_ERR, "delete_redirect_and_filter_rules() : "
-		                "iptc_init() failed : %s",
-		       iptc_strerror(errno));
-		return -1;
-	}
-	if(!iptc_is_chain(miniupnpd_nat_chain, h))
-	{
-		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
-	}
-	else
-	{
-#ifdef IPTABLES_143
-		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
-		    e;
-			e = iptc_next_rule(e, h), i++)
-#else
-		for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
-		    e;
-			e = iptc_next_rule(e, &h), i++)
-#endif
-		{
-			if(proto==e->ip.proto)
-			{
-				match = (const struct ipt_entry_match *)&e->elems;
-				if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
-				{
-					const struct ipt_tcp * info;
-					info = (const struct ipt_tcp *)match->data;
-					if(eport != info->dpts[0])
-						continue;
-				}
-				else
-				{
-					const struct ipt_udp * info;
-					info = (const struct ipt_udp *)match->data;
-					if(eport != info->dpts[0])
-						continue;
-				}
-				index = i;
-				r = 0;
-				break;
-			}
-		}
-	}
-	if(h)
-#ifdef IPTABLES_143
-		iptc_free(h);
-#else
-		iptc_free(&h);
-#endif
-	if(r == 0)
-	{
-		syslog(LOG_INFO, "Trying to delete rules at index %u", index);
-		/* Now delete both rules */
-		h = iptc_init("nat");
-		if(h)
-		{
-			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
-		}
-		if((r == 0) && (h = iptc_init("filter")))
-		{
-			r = delete_rule_and_commit(index, h, miniupnpd_forward_chain, "delete_filter_rule");
-		}
-	}
-	del_redirect_desc(eport, proto);
+	if ((r = delete_rule_and_commit("nat", miniupnpd_nat_chain, eport, proto, "delete_redirect_rule") &&
+	    delete_rule_and_commit("filter", miniupnpd_forward_chain, eport, proto, "delete_filter_rule")) == 0)
+		del_redirect_desc(eport, proto);
 	return r;
 }
 
