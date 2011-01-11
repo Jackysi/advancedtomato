@@ -1267,9 +1267,6 @@ static void start_samba(void)
 		" timestamp logs = no\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
-#if defined(LINUX26) && defined(TCONFIG_SAMBA3)
-		" use sendfile = yes\n"
-#endif
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_safe_get("lan_ifname"),
@@ -1320,7 +1317,7 @@ static void start_samba(void)
 	nv = nvram_safe_get("smbd_custom");
 	/* add socket options unless overriden by the user */
 	if (strstr(nv, "socket options") == NULL) {
-		fprintf(fp, " socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=16384 SO_SNDBUF=16384\n");
+		fprintf(fp, " socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536\n");
 	}
 	fprintf(fp, "%s\n\n", nv);
 

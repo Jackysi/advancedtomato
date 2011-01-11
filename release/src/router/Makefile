@@ -1356,6 +1356,9 @@ openvpn-install: openvpn
 %-clean:
 	@-[ ! -d $* ] || $(MAKE) -C $* clean
 
+%-distclean:
+	@-[ ! -d $* ] || $(MAKE) -C $* distclean
+
 %-install: %
 	@[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
 
