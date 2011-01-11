@@ -16,6 +16,14 @@
  *	Port 9100+n will then be passively opened
  *	n defaults to 0
  *
+ *	Version 0.94
+ *	Patch by Guenther Niess:
+ *	Support IPv6
+ *	Patch by Philip Prindeville:
+ *	Increase socket buffer size
+ *	Use %hu for printing port
+ *	Makefile fixes for LIBWRAP
+ *
  *	Version 0.93
  *	Fix open call to include mode, required for O_CREAT
  *
@@ -26,7 +34,7 @@
  *
  *	Version 0.91
  *	Patch by Hans Harder.  Close printer device after each use to
- *	avoid crashing with hotpluggable devices going away.
+ *	avoid crashing when hotpluggable devices going away.
  *	Don't wait 10 seconds after successful open.
  *
  *	Version 0.9
@@ -134,12 +142,46 @@ typedef struct {
 } Buffer_t;
 
 static char *progname;
-static char version[] = "Version 0.93";
+static char version[] = "Version 0.94";
 static char copyright[] = "Copyright (c) 2008 Ken Yap, GPLv2";
 static int lockfd = -1;
 static char *device = 0;
 static int bidir = 0;
 static char *bindaddr = 0;
+
+
+/* Helper function: convert a struct sockaddr address (IPv4 and IPv6) to a string */
+char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen)
+{
+	switch(sa->sa_family) {
+		case AF_INET:
+			inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr), s, maxlen);
+			break;
+		case AF_INET6:
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr), s, maxlen);
+			break;
+		default:
+			strncpy(s, "Unknown AF", maxlen);
+		return NULL;
+	}
+	return s;
+}
+
+uint16_t get_port(const struct sockaddr *sa)
+{
+	uint16_t port;
+	switch(sa->sa_family) {
+		case AF_INET:
+			port = ntohs(((struct sockaddr_in *)sa)->sin_port);
+			break;
+		case AF_INET6:
+			port = ntohs(((struct sockaddr_in6 *)sa)->sin6_port);
+			break;
+		default:
+			return 0;
+	}
+	return port;
+}
 
 void usage(void)
 {
@@ -399,11 +441,13 @@ int copy_stream(int fd, int lp)
 void one_job(int lpnumber)
 {
 	int lp;
-	struct sockaddr_in client;
+	struct sockaddr_storage client;
 	socklen_t clientlen = sizeof(client);
 
-	if (getpeername(0, (struct sockaddr *)&client, &clientlen) >= 0)
-		syslog(LOG_NOTICE, "Connection from %s port %hu\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+	if (getpeername(0, (struct sockaddr *)&client, &clientlen) >= 0) {
+		char host[INET6_ADDRSTRLEN];
+		syslog(LOG_NOTICE, "Connection from %s port %hu\n", get_ip_str((struct sockaddr *)&client, host, sizeof(host)), get_port((struct sockaddr *)&client));
+	}
 	if (get_lock(lpnumber) == 0)
 		return;
 	/* Make sure lp device is open... */
@@ -421,12 +465,14 @@ void server(int lpnumber)
 #ifdef	USE_GETPROTOBYNAME
 	struct protoent *proto;
 #endif
-	int netfd, fd, lp, one = 1;
+	int netfd = -1, fd, lp, one = 1;
 	socklen_t clientlen;
-	struct sockaddr_in netaddr, client;
+	struct sockaddr_storage client;
+	struct addrinfo hints, *res, *ressave;
 	char pidfilename[sizeof(PIDFILE)];
+	char service[sizeof(BASEPORT+lpnumber-'0')+1];
 	FILE *f;
-	int ipret;
+	const int bufsiz = 65536;
 
 #ifndef	TESTING
 	switch (fork()) {
@@ -465,59 +511,76 @@ void server(int lpnumber)
 	if (get_lock(lpnumber) == 0)
 		exit(1);
 #endif
-#ifdef	USE_GETPROTOBYNAME
-	if ((proto = getprotobyname("tcp")) == NULL) {
-		syslog(LOGOPTS, "Cannot find protocol for TCP!\n");
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_socktype = SOCK_STREAM;
+	(void)snprintf(service, sizeof(service), "%hu", (BASEPORT + lpnumber - '0'));
+	if (getaddrinfo(bindaddr, service, &hints, &res) != 0) {
+		syslog(LOGOPTS, "getaddr: %m\n");
 		exit(1);
 	}
-	if ((netfd = socket(AF_INET, SOCK_STREAM, proto->p_proto)) < 0)
+	ressave = res;
+	while (res) {
+#ifdef	USE_GETPROTOBYNAME
+		if ((proto = getprotobyname("tcp6")) == NULL) {
+			if ((proto = getprotobyname("tcp")) == NULL) {
+				syslog(LOGOPTS, "Cannot find protocol for TCP!\n");
+				exit(1);
+			}
+		}
+		if ((netfd = socket(res->ai_family, res->ai_socktype, proto->p_proto)) < 0)
 #else
-	if ((netfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0)
+		if ((netfd = socket(res->ai_family, res->ai_socktype, IPPROTO_IP)) < 0)
 #endif
 	{
 		syslog(LOGOPTS, "socket: %m\n");
-		exit(1);
-	}
-	if (setsockopt(netfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one))
-	    < 0) {
-		syslog(LOGOPTS, "setsocketopt: %m\n");
-		exit(1);
-	}
-	netaddr.sin_family = AF_INET;
-	netaddr.sin_port = htons(BASEPORT + lpnumber - '0');
-	if (bindaddr == 0) {
-		netaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	} else {
-		ipret = inet_pton(AF_INET, bindaddr, &netaddr.sin_addr.s_addr);
-		if (ipret < 0) {
-			syslog(LOGOPTS, "inet_pton: %m\n");
-			exit(1);
-		} else if (ipret == 0) {
-			syslog(LOGOPTS, "inet_pton: invalid bind IP address\n");
-			exit(1);
+			close(netfd);
+			res = res->ai_next;
+			continue;
 		}
+		if (setsockopt(netfd, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(bufsiz)) < 0) {
+			syslog(LOGOPTS, "setsocketopt: SO_RCVBUF: %m\n");
+			/* not fatal if it fails */
+		}
+		if (setsockopt(netfd, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(bufsiz)) < 0) {
+			syslog(LOGOPTS, "setsocketopt: SO_SNDBUF: %m\n");
+			/* not fatal if it fails */
+		}
+		if (setsockopt(netfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
+			syslog(LOGOPTS, "setsocketopt: SO_REUSEADDR: %m\n");
+			close(netfd);
+			res = res->ai_next;
+			continue;
+		}
+		if (bind(netfd, res->ai_addr, res->ai_addrlen) < 0) {
+			syslog(LOGOPTS, "bind: %m\n");
+			close(netfd);
+			res = res->ai_next;
+			continue;
+		}
+		if (listen(netfd, 5) < 0) {
+			syslog(LOGOPTS, "listen: %m\n");
+			close(netfd);
+			res = res->ai_next;
+			continue;
+		}
+		break;
 	}
-	memset(netaddr.sin_zero, 0, sizeof(netaddr.sin_zero));
-	if (bind(netfd, (struct sockaddr *)&netaddr, sizeof(netaddr)) < 0) {
-		syslog(LOGOPTS, "bind: %m\n");
-		exit(1);
-	}
-	if (listen(netfd, 5) < 0) {
-		syslog(LOGOPTS, "listen: %m\n");
-		exit(1);
-	}
+	freeaddrinfo(ressave);
 	clientlen = sizeof(client);
 	memset(&client, 0, sizeof(client));
 	while ((fd = accept(netfd, (struct sockaddr *)&client, &clientlen)) >= 0) {
 #ifdef	USE_LIBWRAP
 		if (hosts_ctl("p910nd", STRING_UNKNOWN, inet_ntoa(client.sin_addr), STRING_UNKNOWN) == 0) {
 			syslog(LOGOPTS,
-			       "Connection from %s port %hd rejected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+			       "Connection from %s port %hu rejected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 			close(fd);
 			continue;
 		}
 #endif
-		syslog(LOG_NOTICE, "Connection from %s port %hu accepted\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+		char host[INET6_ADDRSTRLEN];
+		syslog(LOG_NOTICE, "Connection from %s port %hu accepted\n", get_ip_str((struct sockaddr *)&client, host, sizeof(host)), get_port((struct sockaddr *)&client));
 		/*write(fd, "Printing", 8); */
 
 		/* Make sure lp device is open... */
@@ -536,7 +599,7 @@ void server(int lpnumber)
 
 int is_standalone(void)
 {
-	struct sockaddr_in bind_addr;
+	struct sockaddr_storage bind_addr;
 	socklen_t ba_len;
 
 	/*
