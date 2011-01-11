@@ -1,7 +1,7 @@
-/* $Id: upnpsoap.c,v 1.65 2010/01/02 17:54:46 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.66 2011/01/01 20:17:44 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2009 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -395,7 +395,10 @@ AddPortMapping(struct upnphttp * h, const char * action)
              address or DNS name
      * 727 - ExternalPortOnlySupportsWildcard
              ExternalPort must be a wildcard and cannot be a specific port
-             value */
+             value
+     * 728 - NoPortMapsAvailable
+             There are not enough free prots available to complete the mapping
+             (added in IGD v2) */
 	switch(r)
 	{
 	case 0:	/* success */
@@ -404,6 +407,112 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	case -2:	/* already redirected */
 	case -3:	/* not permitted */
 		SoapError(h, 718, "ConflictInMappingEntry");
+		break;
+	default:
+		SoapError(h, 501, "ActionFailed");
+	}
+}
+
+/* AddAnyPortMapping was added in WANIPConnection v2 */
+static void
+AddAnyPortMapping(struct upnphttp * h, const char * action)
+{
+	int r;
+	static const char resp[] =
+		"<u:%sResponse "
+		"xmlns:u=\"%s\">"
+		"<NewReservedPort>%hu</NewReservedPort>"
+		"</u:%sResponse>";
+
+	char body[512];
+	int bodylen;
+
+	struct NameValueParserData data;
+	const char * int_ip, * int_port, * ext_port, * protocol, * desc;
+	const char * r_host;
+	unsigned short iport, eport;
+	unsigned int leaseduration;
+
+	struct hostent *hp; /* getbyhostname() */
+	char ** ptr; /* getbyhostname() */
+	struct in_addr result_ip;/*unsigned char result_ip[16];*/ /* inet_pton() */
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
+	ext_port = GetValueFromNameValueList(&data, "NewExternalPort");
+	protocol = GetValueFromNameValueList(&data, "NewProtocol");
+	int_port = GetValueFromNameValueList(&data, "NewInternalPort");
+	int_ip = GetValueFromNameValueList(&data, "NewInternalClient");
+	/* NewEnabled */
+	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
+	leaseduration = atoi(GetValueFromNameValueList(&data, "NewLeaseDuration"));
+	if(leaseduration == 0)
+		leaseduration = 604800;
+
+	eport = (unsigned short)atoi(ext_port);
+	iport = (unsigned short)atoi(int_port);
+
+	if (!int_ip)
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
+
+	/* if ip not valid assume hostname and convert */
+	if (inet_pton(AF_INET, int_ip, &result_ip) <= 0) 
+	{
+		hp = gethostbyname(int_ip);
+		if(hp && hp->h_addrtype == AF_INET) 
+		{ 
+			for(ptr = hp->h_addr_list; ptr && *ptr; ptr++)
+		   	{
+				int_ip = inet_ntoa(*((struct in_addr *) *ptr));
+				result_ip = *((struct in_addr *) *ptr);
+				/* TODO : deal with more than one ip per hostname */
+				break;
+			}
+		} 
+		else 
+		{
+			syslog(LOG_ERR, "Failed to convert hostname '%s' to ip address", int_ip); 
+			ClearNameValueList(&data);
+			SoapError(h, 402, "Invalid Args");
+			return;
+		}				
+	}
+
+	/* check if NewInternalAddress is the client address */
+	if(GETFLAG(SECUREMODEMASK))
+	{
+		if(h->clientaddr.s_addr != result_ip.s_addr)
+		{
+			syslog(LOG_INFO, "Client %s tried to redirect port to %s",
+			       inet_ntoa(h->clientaddr), int_ip);
+			ClearNameValueList(&data);
+			SoapError(h, 606, "Action not authorized");
+			return;
+		}
+	}
+
+	/* TODO : accept a different external port */
+	r = upnp_redirect(eport, int_ip, iport, protocol, desc);
+
+	ClearNameValueList(&data);
+
+	switch(r)
+	{
+	case 0:	/* success */
+		bodylen = snprintf(body, sizeof(body), resp,
+		              action, "urn:schemas-upnp-org:service:WANIPConnection:2",
+					  eport, action);
+		BuildSendAndCloseSoapResp(h, body, bodylen);
+		break;
+	case -2:	/* already redirected */
+		SoapError(h, 718, "ConflictInMappingEntry");
+		break;
+	case -3:	/* not permitted */
+		SoapError(h, 606, "Action not authorized");
 		break;
 	default:
 		SoapError(h, 501, "ActionFailed");
@@ -517,6 +626,37 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 	ClearNameValueList(&data);
 }
 
+/* DeletePortMappingRange was added in IGD spec v2 */
+static void
+DeletePortMappingRange(struct upnphttp * h, const char * action)
+{
+	static const char resp[] =
+		"<u:DeletePortMappingRangeResponse "
+		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:2\">"
+		"</u:DeletePortMappingRangeResponse>";
+	struct NameValueParserData data;
+	const char * protocol;
+	unsigned short startport, endport;
+	int manage;
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+	startport = (unsigned short)atoi(GetValueFromNameValueList(&data, "NewStartPort"));
+	endport = (unsigned short)atoi(GetValueFromNameValueList(&data, "NewEndPort"));
+	protocol = GetValueFromNameValueList(&data, "NewProtocol");
+	manage = atoi(GetValueFromNameValueList(&data, "NewManage"));
+
+	/* TODO : implement the method ! */
+
+	/* possible errors :
+	   606 - Action not authorized
+	   730 - PortMappingNotFound
+	   733 - InconsistentParameter
+	 */
+	BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
+
+	ClearNameValueList(&data);
+}
+
 static void
 GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 {
@@ -578,6 +718,59 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 	ClearNameValueList(&data);
 }
 
+/* GetListOfPortMappings was added in the IGD v2 specification */
+static void
+GetListOfPortMappings(struct upnphttp * h, const char * action)
+{
+	static const char resp[] =
+		"<u:%sResponse "
+		"xmlns:u=\"%s\">"
+		"<NewPortListing><![CDATA[%s]]</NewPortListing>"
+		"</u:%sResponse>";
+
+	char body[512];
+	int bodylen;
+
+	struct NameValueParserData data;
+	unsigned short startport, endport;
+	const char * protocol;
+	int manage;
+	int number;
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+	startport = (unsigned short)atoi(GetValueFromNameValueList(&data, "NewStartPort"));
+	endport = (unsigned short)atoi(GetValueFromNameValueList(&data, "NewEndPort"));
+	protocol = GetValueFromNameValueList(&data, "NewProtocol");
+	manage = atoi(GetValueFromNameValueList(&data, "NewManage"));
+	number = atoi(GetValueFromNameValueList(&data, "NewNumberOfPorts"));
+
+/*
+TODO : build the PortMappingList xml document :
+
+<p:PortMappingList xmlns:p="urn:schemas-upnp-org:gw:WANIPConnection"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="urn:schemas-upnp-org:gw:WANIPConnection
+http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
+<p:PortMappingEntry>
+<p:NewRemoteHost>202.233.2.1</p:NewRemoteHost>
+<p:NewExternalPort>2345</p:NewExternalPort>
+<p:NewProtocol>TCP</p:NewProtocol>
+<p:NewInternalPort>2345</p:NewInternalPort>
+<p:NewInternalClient>192.168.1.137</p:NewInternalClient>
+<p:NewEnabled>1</p:NewEnabled>
+<p:NewDescription>dooom</p:NewDescription>
+<p:NewLeaseTime>345</p:NewLeaseTime>
+</p:PortMappingEntry>
+</p:PortMappingList>
+*/
+	bodylen = snprintf(body, sizeof(body), resp,
+	              action, "urn:schemas-upnp-org:service:WANIPConnection:2",
+				  "", action);
+	BuildSendAndCloseSoapResp(h, body, bodylen);
+
+	ClearNameValueList(&data);
+}
+
 #ifdef ENABLE_L3F_SERVICE
 static void
 SetDefaultConnectionService(struct upnphttp * h, const char * action)
@@ -617,6 +810,35 @@ GetDefaultConnectionService(struct upnphttp * h, const char * action)
 	BuildSendAndCloseSoapResp(h, body, bodylen);
 }
 #endif
+
+/* Added for compliance with WANIPConnection v2 */
+static void
+SetConnectionType(struct upnphttp * h, const char * action)
+{
+	const char * connection_type;
+	struct NameValueParserData data;
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+	connection_type = GetValueFromNameValueList(&data, "NewConnectionType");
+	/* Unconfigured, IP_Routed, IP_Bridged */
+	ClearNameValueList(&data);
+	/* always return a ReadOnly error */
+	SoapError(h, 731, "ReadOnly");
+}
+
+/* Added for compliance with WANIPConnection v2 */
+static void
+RequestConnection(struct upnphttp * h, const char * action)
+{
+	SoapError(h, 606, "Action not authorized");
+}
+
+/* Added for compliance with WANIPConnection v2 */
+static void
+ForceTermination(struct upnphttp * h, const char * action)
+{
+	SoapError(h, 606, "Action not authorized");
+}
 
 /*
 If a control point calls QueryStateVariable on a state variable that is not
@@ -728,6 +950,13 @@ soapMethods[] =
 	{ "GetTotalPacketsReceived", GetTotalPacketsReceived},
 	{ "GetCommonLinkProperties", GetCommonLinkProperties},
 	{ "GetStatusInfo", GetStatusInfo},
+/* Required in WANIPConnection:2 */
+	{ "SetConnectionType", SetConnectionType},
+	{ "RequestConnection", RequestConnection},
+	{ "ForceTermination", ForceTermination},
+	{ "AddAnyPortMapping", AddAnyPortMapping},
+	{ "DeletePortMappingRange", DeletePortMappingRange},
+	{ "GetListOfPortMappings", GetListOfPortMappings},
 #ifdef ENABLE_L3F_SERVICE
 	{ "SetDefaultConnectionService", SetDefaultConnectionService},
 	{ "GetDefaultConnectionService", GetDefaultConnectionService},

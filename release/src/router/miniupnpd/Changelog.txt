@@ -1,4 +1,11 @@
-$Id: Changelog.txt,v 1.198 2010/09/21 15:31:02 nanard Exp $
+$Id: Changelog.txt,v 1.200 2011/01/01 20:17:43 nanard Exp $
+
+2011/01/01:
+  Started to implement some of the new methods from WANIPConnection v2
+
+2010/09/27:
+  Some fixes in the linux/iptables code when
+  miniupnpd_nat_chain <> miniupnpd_forward_chain
 
 2010/09/21:
   Patch to support nfqueue thanks to Colin McFarlane
