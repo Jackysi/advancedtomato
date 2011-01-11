@@ -31,8 +31,8 @@ db-install-packed:
 
 rules-reload:
 	if [ -f $(ETCDIR)/issue ]; then \
-		if [ -n `which udevadm 2>/dev/null` ]; then \
-			UDEVADM=`which udevadm`; \
+		UDEVADM=`which udevadm 2>/dev/null`; \
+		if [ "x$$UDEVADM" != "x" ]; then \
 			UDEVADM_VER=`$$UDEVADM -V 2>/dev/null`; \
 			if [ -z $$UDEVADM_VER ]; then \
 				UDEVADM_VER=`$$UDEVADM --version 2>/dev/null`; \
