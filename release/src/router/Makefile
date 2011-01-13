@@ -799,7 +799,9 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 
 
 radvd/stamp-h1: radvd/Makefile.in
-	cd radvd && CPPFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --prefix=""
+	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	$(CONFIGURE) --prefix=""
 	@touch radvd/stamp-h1
 
 radvd: radvd/stamp-h1
