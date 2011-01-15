@@ -149,6 +149,7 @@ struct rt6_info ip6_null_entry = {
 		}
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
+	.rt6i_protocol  = RTPROT_KERNEL,
 	.rt6i_metric	= ~(u32) 0,
 	.rt6i_ref	= ATOMIC_INIT(1),
 };
@@ -175,6 +176,7 @@ struct rt6_info ip6_prohibit_entry = {
 		}
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
+	.rt6i_protocol  = RTPROT_KERNEL,
 	.rt6i_metric	= ~(u32) 0,
 	.rt6i_ref	= ATOMIC_INIT(1),
 };
@@ -195,6 +197,7 @@ struct rt6_info ip6_blk_hole_entry = {
 		}
 	},
 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
+	.rt6i_protocol  = RTPROT_KERNEL,
 	.rt6i_metric	= ~(u32) 0,
 	.rt6i_ref	= ATOMIC_INIT(1),
 };
@@ -1184,7 +1187,9 @@ int ip6_route_add(struct fib6_config *cfg)
 	}
 
 	rt->u.dst.obsolete = -1;
-	rt->rt6i_expires = jiffies + clock_t_to_jiffies(cfg->fc_expires);
+	rt->rt6i_expires = (cfg->fc_flags & RTF_EXPIRES) ?
+				jiffies + clock_t_to_jiffies(cfg->fc_expires) :
+				0;
 
 	if (cfg->fc_protocol == RTPROT_UNSPEC)
 		cfg->fc_protocol = RTPROT_BOOT;
