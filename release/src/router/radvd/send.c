@@ -1,11 +1,11 @@
 /*
- *   $Id: send.c,v 1.34 2010/01/28 13:34:26 psavola Exp $
+ *   $Id: send.c,v 1.38 2011/01/07 17:26:27 reubenhwk Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
- *    Lars Fenneberg		<lf@elemental.net>	 
+ *    Lars Fenneberg		<lf@elemental.net>
  *
- *   This software is Copyright 1996,1997 by the above mentioned author(s), 
+ *   This software is Copyright 1996,1997 by the above mentioned author(s),
  *   All Rights Reserved.
  *
  *   The license which is distributed with this software in the file COPYRIGHT
@@ -14,9 +14,9 @@
  *
  */
 
-#include <config.h>
-#include <includes.h>
-#include <radvd.h>
+#include "config.h"
+#include "includes.h"
+#include "radvd.h"
 
 /*
  * Sends an advertisement for all specified clients of this interface
@@ -91,6 +91,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	struct AdvPrefix *prefix;
 	struct AdvRoute *route;
 	struct AdvRDNSS *rdnss;
+	struct AdvDNSSL *dnssl;
 
 	unsigned char buff[MSG_SIZE_SEND];
 	size_t len = 0;
@@ -137,7 +138,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 		iface->last_multicast_sec = tv.tv_sec;
 		iface->last_multicast_usec = tv.tv_usec;
 	}
-	
+
 	memset((void *)&addr, 0, sizeof(addr));
 	addr.sin6_family = AF_INET6;
 	addr.sin6_port = htons(IPPROTO_ICMPV6);
@@ -151,9 +152,9 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	radvert->nd_ra_cksum = 0;
 
 	radvert->nd_ra_curhoplimit	= iface->AdvCurHopLimit;
-	radvert->nd_ra_flags_reserved	= 
+	radvert->nd_ra_flags_reserved	=
 		(iface->AdvManagedFlag)?ND_RA_FLAG_MANAGED:0;
-	radvert->nd_ra_flags_reserved	|= 
+	radvert->nd_ra_flags_reserved	|=
 		(iface->AdvOtherConfigFlag)?ND_RA_FLAG_OTHER:0;
 	/* Mobile IPv6 ext */
 	radvert->nd_ra_flags_reserved   |=
@@ -180,14 +181,14 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 		if( prefix->enabled )
 		{
 			struct nd_opt_prefix_info *pinfo;
-			
+
 			pinfo = (struct nd_opt_prefix_info *) (buff + len);
 
 			pinfo->nd_opt_pi_type	     = ND_OPT_PREFIX_INFORMATION;
 			pinfo->nd_opt_pi_len	     = 4;
 			pinfo->nd_opt_pi_prefix_len  = prefix->PrefixLen;
-			
-			pinfo->nd_opt_pi_flags_reserved  = 
+
+			pinfo->nd_opt_pi_flags_reserved  =
 				(prefix->AdvOnLinkFlag)?ND_OPT_PI_FLAG_ONLINK:0;
 			pinfo->nd_opt_pi_flags_reserved	|=
 				(prefix->AdvAutonomousFlag)?ND_OPT_PI_FLAG_AUTO:0;
@@ -198,7 +199,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 			pinfo->nd_opt_pi_valid_time	= htonl(prefix->AdvValidLifetime);
 			pinfo->nd_opt_pi_preferred_time = htonl(prefix->AdvPreferredLifetime);
 			pinfo->nd_opt_pi_reserved2	= 0;
-			
+
 			memcpy(&pinfo->nd_opt_pi_prefix, &prefix->Prefix,
 			       sizeof(struct in6_addr));
 
@@ -207,7 +208,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 
 		prefix = prefix->next;
 	}
-	
+
 	route = iface->AdvRouteList;
 
 	/*
@@ -217,27 +218,27 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	while(route)
 	{
 		struct nd_opt_route_info_local *rinfo;
-		
+
 		rinfo = (struct nd_opt_route_info_local *) (buff + len);
 
 		rinfo->nd_opt_ri_type	     = ND_OPT_ROUTE_INFORMATION;
 		/* XXX: the prefixes are allowed to be sent in smaller chunks as well */
 		rinfo->nd_opt_ri_len	     = 3;
 		rinfo->nd_opt_ri_prefix_len  = route->PrefixLen;
-			
+
 		rinfo->nd_opt_ri_flags_reserved  =
 			(route->AdvRoutePreference << ND_OPT_RI_PRF_SHIFT) & ND_OPT_RI_PRF_MASK;
 		rinfo->nd_opt_ri_lifetime	= htonl(route->AdvRouteLifetime);
-			
+
 		memcpy(&rinfo->nd_opt_ri_prefix, &route->Prefix,
 		       sizeof(struct in6_addr));
 		send_ra_inc_len(&len, sizeof(*rinfo));
 
 		route = route->next;
 	}
-	
+
 	rdnss = iface->AdvRDNSSList;
-	
+
 	/*
 	 *	add rdnss options
 	 */
@@ -245,18 +246,15 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	while(rdnss)
 	{
 		struct nd_opt_rdnss_info_local *rdnssinfo;
-		
+
 		rdnssinfo = (struct nd_opt_rdnss_info_local *) (buff + len);
 
 		rdnssinfo->nd_opt_rdnssi_type	     = ND_OPT_RDNSS_INFORMATION;
 		rdnssinfo->nd_opt_rdnssi_len	     = 1 + 2*rdnss->AdvRDNSSNumber;
-		rdnssinfo->nd_opt_rdnssi_pref_flag_reserved = 
-		((rdnss->AdvRDNSSPreference << ND_OPT_RDNSSI_PREF_SHIFT) & ND_OPT_RDNSSI_PREF_MASK);
-		rdnssinfo->nd_opt_rdnssi_pref_flag_reserved |=
-		((rdnss->AdvRDNSSOpenFlag)?ND_OPT_RDNSSI_FLAG_S:0);
+		rdnssinfo->nd_opt_rdnssi_pref_flag_reserved = 0;
 
 		rdnssinfo->nd_opt_rdnssi_lifetime	= htonl(rdnss->AdvRDNSSLifetime);
-			
+
 		memcpy(&rdnssinfo->nd_opt_rdnssi_addr1, &rdnss->AdvRDNSSAddr1,
 		       sizeof(struct in6_addr));
 		memcpy(&rdnssinfo->nd_opt_rdnssi_addr2, &rdnss->AdvRDNSSAddr2,
@@ -267,19 +265,73 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 
 		rdnss = rdnss->next;
 	}
-	
+
+	dnssl = iface->AdvDNSSLList;
+
+	/*
+	 *	add dnssl options
+	 */
+
+	while(dnssl)
+	{
+		struct nd_opt_dnssl_info_local *dnsslinfo;
+		int i;
+		char *buff_ptr;
+
+		dnsslinfo = (struct nd_opt_dnssl_info_local *) (buff + len);
+
+		dnsslinfo->nd_opt_dnssli_type		= ND_OPT_DNSSL_INFORMATION;
+		dnsslinfo->nd_opt_dnssli_len 		= 1; /* more further down */
+		dnsslinfo->nd_opt_dnssli_reserved	= 0;
+
+		dnsslinfo->nd_opt_dnssli_lifetime	= htonl(dnssl->AdvDNSSLLifetime);
+
+		buff_ptr = dnsslinfo->nd_opt_dnssli_suffixes;
+		for (i = 0; i < dnssl->AdvDNSSLNumber; i++) {
+			char *label;
+			int label_len;
+
+			label = dnssl->AdvDNSSLSuffixes[i];
+
+			while (label[0] != '\0') {
+				if (strchr(label, '.') == NULL)
+					label_len = strlen(label);
+				else
+					label_len = strchr(label, '.') - label;
+
+				*buff_ptr++ = label_len;
+
+				memcpy(buff_ptr, label, label_len);
+				buff_ptr += label_len;
+
+				label += label_len;
+
+				if (label[0] == '.')
+					label++;
+				else
+					*buff_ptr++ = 0;
+			}
+		}
+
+		dnsslinfo->nd_opt_dnssli_len		+= ((buff_ptr-dnsslinfo->nd_opt_dnssli_suffixes)+7)/8;
+
+		send_ra_inc_len(&len, dnsslinfo->nd_opt_dnssli_len * 8);
+
+		dnssl = dnssl->next;
+	}
+
 	/*
 	 *	add MTU option
 	 */
 
 	if (iface->AdvLinkMTU != 0) {
 		struct nd_opt_mtu *mtu;
-		
+
 		mtu = (struct nd_opt_mtu *) (buff + len);
-	
+
 		mtu->nd_opt_mtu_type     = ND_OPT_MTU;
 		mtu->nd_opt_mtu_len      = 1;
-		mtu->nd_opt_mtu_reserved = 0; 
+		mtu->nd_opt_mtu_reserved = 0;
 		mtu->nd_opt_mtu_mtu      = htonl(iface->AdvLinkMTU);
 
 		send_ra_inc_len(&len, sizeof(*mtu));
@@ -289,13 +341,13 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	 * add Source Link-layer Address option
 	 */
 
-	if (iface->AdvSourceLLAddress && iface->if_hwaddr_len != -1)
+	if (iface->AdvSourceLLAddress && iface->if_hwaddr_len > 0)
 	{
 		uint8_t *ucp;
 		unsigned int i;
 
 		ucp = (uint8_t *) (buff + len);
-	
+
 		*ucp++  = ND_OPT_SOURCE_LINKADDR;
 		*ucp++  = (uint8_t) ((iface->if_hwaddr_len + 16 + 63) >> 6);
 
@@ -353,17 +405,17 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 		memcpy(buff + len, &ha_info, sizeof(ha_info));
 		send_ra_inc_len(&len, sizeof(ha_info));
 	}
-	
+
 	iov.iov_len  = len;
 	iov.iov_base = (caddr_t) buff;
-	
+
 	memset(chdr, 0, sizeof(chdr));
 	cmsg = (struct cmsghdr *) chdr;
-	
+
 	cmsg->cmsg_len   = CMSG_LEN(sizeof(struct in6_pktinfo));
 	cmsg->cmsg_level = IPPROTO_IPV6;
 	cmsg->cmsg_type  = IPV6_PKTINFO;
-	
+
 	pkt_info = (struct in6_pktinfo *)CMSG_DATA(cmsg);
 	pkt_info->ipi6_ifindex = iface->if_index;
 	memcpy(&pkt_info->ipi6_addr, &iface->if_addr, sizeof(struct in6_addr));
@@ -383,7 +435,7 @@ send_ra(int sock, struct Interface *iface, struct in6_addr *dest)
 	mhdr.msg_controllen = sizeof(chdr);
 
 	err = sendmsg(sock, &mhdr, 0);
-	
+
 	if (err < 0) {
 		if (!iface->IgnoreIfMissing || !(errno == EINVAL || errno == ENODEV))
 			flog(LOG_WARNING, "sendmsg: %s", strerror(errno));

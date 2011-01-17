@@ -1,4 +1,4 @@
-# $Id: radvd.spec,v 1.27 2010/03/05 12:14:47 psavola Exp $
+# $Id: radvd.spec,v 1.28 2011/01/05 03:12:02 reubenhwk Exp $
 
 %define initdir /etc/rc.d/init.d
 #%(if test -d /etc/init.d/. ; then echo /etc/init.d ; else echo /etc/rc.d/init.d ; fi)
@@ -7,7 +7,7 @@
 
 Summary: A Router Advertisement daemon
 Name: radvd
-Version: 1.6
+Version: 1.7
 Release: 1
 # The code includes the advertising clause, so it's GPL-incompatible
 License: BSD with advertising
@@ -92,6 +92,19 @@ fi
 %{_sbindir}/radvdump
 
 %changelog
+* Sat Jan  1 2011 Pekka Savola <pekkas@netcore.fi> 1.7-1
+- 1.7
+- Deprecate old, pre-RFC5006 parameters.
+- Support RFC6106 by adding DNS Search List support.
+- Add '-c' flag to test configuration
+- Fix a segmentation fault on reload_config() timer list
+  corruption that only occurs with multiple interfaces
+- Fix radvd skipping multiple interfaces when
+  UnicastOnly is on or AdvSendAdvert is off.
+  This got broken in radvd 1.3. Patch from Cedric BAIL
+- OSX build
+- minor code cleanups
+
 * Fri Mar  5 2010 Pekka Savola <pekkas@netcore.fi> 1.6-1
 - 1.6
 - Updated the spec file from Fedora (remove userdel at postun),

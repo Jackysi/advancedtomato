@@ -1,11 +1,11 @@
 /*
- *   $Id: scanner.l,v 1.18 2009/06/19 07:34:07 psavola Exp $
+ *   $Id: scanner.l,v 1.20 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
- *    Lars Fenneberg		<lf@elemental.net>	 
+ *    Lars Fenneberg		<lf@elemental.net>
  *
- *   This software is Copyright 1996-2000 by the above mentioned author(s), 
+ *   This software is Copyright 1996-2000 by the above mentioned author(s),
  *   All Rights Reserved.
  *
  *   The license which is distributed with this software in the file COPYRIGHT
@@ -13,13 +13,11 @@
  *   may request it from <pekkas@netcore.fi>.
  *
  */
-%option noyywrap
-
 %{
-#include <config.h>
-#include <includes.h>
-#include <radvd.h>
-#include <gram.h>
+#include "config.h"
+#include "includes.h"
+#include "radvd.h"
+#include "gram.h"
 
 extern char *conf_file;
 
@@ -36,7 +34,7 @@ addr2		{hexdigit}{1,4}(":"{hexdigit}{1,4})*"::"
 addr3		({hexdigit}{1,4}":"){7}{hexdigit}{1,4}
 addr		({addr1}|{addr2}|{addr3}|"::")
 whitespace	([ \t])+
-string         [a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\]{1,15}
+string		[a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\]{1,255}
 %%
 
 #.*$			{/* ignore comments */}
@@ -47,6 +45,7 @@ interface		{ return T_INTERFACE; }
 prefix			{ return T_PREFIX; }
 route			{ return T_ROUTE; }
 RDNSS			{ return T_RDNSS; }
+DNSSL			{ return T_DNSSL; }
 clients			{ return T_CLIENTS; }
 
 IgnoreIfMissing		{ return T_IgnoreIfMissing; }
@@ -85,6 +84,8 @@ AdvRouteLifetime	{ return T_AdvRouteLifetime; }
 AdvRDNSSPreference 	{ return T_AdvRDNSSPreference; }
 AdvRDNSSOpen		{ return T_AdvRDNSSOpenFlag; }
 AdvRDNSSLifetime	{ return T_AdvRDNSSLifetime; }
+
+AdvDNSSLLifetime	{ return T_AdvDNSSLLifetime; }
 
 MinDelayBetweenRAs      { return T_MinDelayBetweenRAs; }
 
@@ -131,11 +132,11 @@ medium		{ yylval.snum = 0; return SIGNEDNUMBER; }
 high		{ yylval.snum = 1; return SIGNEDNUMBER; }
 
 {string}	{
-			static char name[IFNAMSIZ];
-				
-			strncpy(name, yytext, IFNAMSIZ-1);
-			name[IFNAMSIZ-1] = '\0';
-			yylval.str = name;
+			static char string[256];
+
+			strncpy(string, yytext, sizeof(string));
+			string[sizeof(string)-1] = '\0';
+			yylval.str = string;
 			return STRING;
 		}
 
