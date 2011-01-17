@@ -13,7 +13,10 @@
  *   may request it from <pekkas@netcore.fi>.
  *
  */
+%option noyywrap
+
 %{
+#include <string.h>
 #include "config.h"
 #include "includes.h"
 #include "radvd.h"
@@ -22,6 +25,8 @@
 extern char *conf_file;
 
 int num_lines = 1;
+
+#define YY_NO_INPUT
 %}
 
 digit		[0-9]
@@ -34,7 +39,7 @@ addr2		{hexdigit}{1,4}(":"{hexdigit}{1,4})*"::"
 addr3		({hexdigit}{1,4}":"){7}{hexdigit}{1,4}
 addr		({addr1}|{addr2}|{addr3}|"::")
 whitespace	([ \t])+
-string		[a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\]{1,255}
+string		([a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\])+
 %%
 
 #.*$			{/* ignore comments */}

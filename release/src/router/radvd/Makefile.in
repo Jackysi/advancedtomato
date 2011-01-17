@@ -72,8 +72,11 @@ am__objects_1 = log.$(OBJEXT) socket.$(OBJEXT) recv.$(OBJEXT) \
 	util.$(OBJEXT)
 am_radvd_OBJECTS = $(am__objects_1) radvd.$(OBJEXT) timer.$(OBJEXT) \
 	send.$(OBJEXT) process.$(OBJEXT) interface.$(OBJEXT) \
-	device.$(OBJEXT) device-common.$(OBJEXT) privsep.$(OBJEXT) \
+	device.$(OBJEXT) device-common.$(OBJEXT) \
 	gram.$(OBJEXT) scanner.$(OBJEXT)
+ifeq ($(USE_PRIVSEP),y)
+am_radvd_OBJECTS += privsep.$(OBJEXT)
+endif
 radvd_OBJECTS = $(am_radvd_OBJECTS)
 radvd_DEPENDENCIES =
 am_radvdump_OBJECTS = $(am__objects_1) radvdump.$(OBJEXT)
@@ -141,6 +144,9 @@ CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@ -Wall -Wpointer-arith  -Wcast-qual -Wcast-align -Wstrict-prototypes \
 	-Wmissing-prototypes -Wmissing-declarations -Wno-strict-aliasing
+ifeq ($(USE_PRIVSEP),y)
+CFLAGS += -DUSE_PRIVSEP
+endif
 
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
@@ -257,9 +263,13 @@ COMMON_SRC = log.c socket.c recv.c util.c radvd.h defaults.h pathnames.h \
 	includes.h
 
 radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
-	device.c device-common.c privsep.c gram.y gram.h scanner.l
+	device.c device-common.c gram.y gram.h scanner.l
 
-radvd_LDADD = -lfl
+ifeq ($(USE_PRIVSEP),y)
+radvd_SOURCES += privsep.c
+endif
+
+#radvd_LDADD = -lfl
 EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c privsep-linux.c privsep-bsd44.c
 radvdump_SOURCES = $(COMMON_SRC) radvdump.c
 man_MANS = radvd.8 radvdump.8 radvd.conf.5
@@ -277,29 +287,7 @@ all: $(BUILT_SOURCES) config.h
 .SUFFIXES: .man .c .l .o .obj .y
 am--refresh:
 	@:
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
-	@for dep in $?; do \
-	  case '$(am__configure_deps)' in \
-	    *$$dep*) \
-	      echo ' cd $(srcdir) && $(AUTOMAKE) --foreign'; \
-	      $(am__cd) $(srcdir) && $(AUTOMAKE) --foreign \
-		&& exit 0; \
-	      exit 1;; \
-	  esac; \
-	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign Makefile'; \
-	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign Makefile
 .PRECIOUS: Makefile
-Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
-	@case '$?' in \
-	  *config.status*) \
-	    echo ' $(SHELL) ./config.status'; \
-	    $(SHELL) ./config.status;; \
-	  *) \
-	    echo ' cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe)'; \
-	    cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe);; \
-	esac;
 
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
@@ -319,10 +307,6 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status config.h
-$(srcdir)/config.h.in:  $(am__configure_deps) 
-	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
-	rm -f stamp-h1
-	touch $@
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
