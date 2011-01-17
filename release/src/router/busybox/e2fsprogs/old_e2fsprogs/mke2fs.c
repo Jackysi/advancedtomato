@@ -5,7 +5,7 @@
  * Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
  *	2003, 2004, 2005 by Theodore Ts'o.
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /* Usage: mke2fs [options] device
@@ -932,7 +932,7 @@ static int PRS(int argc, char **argv)
 			creator_os = optarg;
 			break;
 		case 'r':
-			param.s_rev_level = xatoi_u(optarg);
+			param.s_rev_level = xatoi_positive(optarg);
 			if (param.s_rev_level == EXT2_GOOD_OLD_REV) {
 				param.s_feature_incompat = 0;
 				param.s_feature_compat = 0;
@@ -949,11 +949,11 @@ static int PRS(int argc, char **argv)
 			break;
 #ifdef EXT2_DYNAMIC_REV
 		case 'I':
-			inode_size = xatoi_u(optarg);
+			inode_size = xatoi_positive(optarg);
 			break;
 #endif
 		case 'N':
-			num_inodes = xatoi_u(optarg);
+			num_inodes = xatoi_positive(optarg);
 			break;
 		case 'v':
 			quiet = 0;

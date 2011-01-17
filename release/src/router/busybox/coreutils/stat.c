@@ -10,7 +10,7 @@
  * Written by Michael Meskes
  * Taken from coreutils and turned into a busybox applet by Mike Frysinger
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 
@@ -469,7 +469,7 @@ static bool do_statfs(const char *filename, const char *format)
 	if (scontext)
 		freecon(scontext);
 # endif
-#endif	/* FEATURE_STAT_FORMAT */
+#endif  /* FEATURE_STAT_FORMAT */
 	return 1;
 }
 
@@ -630,12 +630,11 @@ static bool do_stat(const char *filename, const char *format)
 # if ENABLE_SELINUX
 		printf("   S_Context: %lc\n", *scontext);
 # endif
-		printf("Access: %s\n" "Modify: %s\n" "Change: %s\n",
-		       human_time(statbuf.st_atime),
-		       human_time(statbuf.st_mtime),
-		       human_time(statbuf.st_ctime));
+		printf("Access: %s\n", human_time(statbuf.st_atime));
+		printf("Modify: %s\n", human_time(statbuf.st_mtime));
+		printf("Change: %s\n", human_time(statbuf.st_ctime));
 	}
-#endif	/* FEATURE_STAT_FORMAT */
+#endif  /* FEATURE_STAT_FORMAT */
 	return 1;
 }
 

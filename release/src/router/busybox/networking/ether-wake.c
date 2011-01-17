@@ -2,7 +2,7 @@
 /*
  * ether-wake.c - Send a magic packet to wake up sleeping machines.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Author:      Donald Becker, http://www.scyld.com/"; http://www.scyld.com/wakeonlan.html
  * Busybox port: Christian Volkmann <haveaniceday@online.de>
@@ -189,12 +189,12 @@ int ether_wake_main(int argc UNUSED_PARAM, char **argv)
 	unsigned flags;
 	unsigned char wol_passwd[6];
 	int wol_passwd_sz = 0;
-	int s;						/* Raw socket */
+	int s;  /* Raw socket */
 	int pktsize;
 	unsigned char outpack[1000];
 
 	struct ether_addr eaddr;
-	struct whereto_t whereto;	/* who to wake up */
+	struct whereto_t whereto;  /* who to wake up */
 
 	/* handle misc user options */
 	opt_complementary = "=1";

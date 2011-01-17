@@ -20,7 +20,7 @@
  * Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
  *      2001, 2002, 2003, 2004, 2005 by  Theodore Ts'o.
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /* All filesystem specific hooks have been removed.
@@ -972,13 +972,13 @@ int fsck_main(int argc UNUSED_PARAM, char **argv)
 			case 'C':
 				progress = 1;
 				if (arg[++j]) { /* -Cn */
-					progress_fd = xatoi_u(&arg[j]);
+					progress_fd = xatoi_positive(&arg[j]);
 					goto next_arg;
 				}
 				/* -C n */
 				if (!*++argv)
 					bb_show_usage();
-				progress_fd = xatoi_u(*argv);
+				progress_fd = xatoi_positive(*argv);
 				goto next_arg;
 #endif
 			case 'V':

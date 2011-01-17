@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2007 Denys Vlasenko.
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /* Author's comments from nc 1.10:
@@ -57,7 +57,8 @@
 //usage:#define nc_trivial_usage
 //usage:       "[OPTIONS] HOST PORT  - connect"
 //usage:	IF_NC_SERVER("\n"
-//usage:       "nc [OPTIONS] -l -p PORT [HOST] [PORT]  - listen")
+//usage:       "nc [OPTIONS] -l -p PORT [HOST] [PORT]  - listen"
+//usage:	)
 //usage:#define nc_full_usage "\n\n"
 //usage:       "Options:"
 //usage:     "\n	-e PROG	Run PROG after connect (must be last)"
@@ -765,7 +766,7 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 	getopt32(argv, "hnp:s:uvw:" IF_NC_SERVER("l")
 			IF_NC_EXTRA("i:o:z"),
 			&str_p, &str_s, &o_wait
-			IF_NC_EXTRA(, &str_i, &str_o, &o_verbose));
+			IF_NC_EXTRA(, &str_i, &str_o), &o_verbose);
 	argv += optind;
 #if ENABLE_NC_EXTRA
 	if (option_mask32 & OPT_i) /* line-interval time */
@@ -858,7 +859,7 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 	} else {
 		/* Outbound connects.  Now we're more picky about args... */
 		if (!themaddr)
-			bb_error_msg_and_die("no destination");
+			bb_show_usage();
 
 		remend = *themaddr;
 		if (o_verbose)

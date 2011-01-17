@@ -4,7 +4,7 @@
  *
  * Busybox'ed (2009) by Vladimir Dronnikov <dronnikov@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 #include <linux/fs.h>
@@ -43,7 +43,7 @@ do { \
 //usage:       "Adjust filesystem options on ext[23] filesystems"
 
 enum {
-	OPT_L = 1 << 0,	// label
+	OPT_L = 1 << 0, // label
 	OPT_c = 1 << 1, // max mount count
 	OPT_i = 1 << 2, // check interval
 };

@@ -3,7 +3,7 @@
  * chpasswd.c
  *
  * Written for SLIND (from passwd.c) by Alexander Shishkin <virtuoso@slind.org>
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 
@@ -14,8 +14,8 @@ static const char chpasswd_longopts[] ALIGN1 =
 	;
 #endif
 
-#define OPT_ENC		1
-#define OPT_MD5		2
+#define OPT_ENC  1
+#define OPT_MD5  2
 
 int chpasswd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int chpasswd_main(int argc UNUSED_PARAM, char **argv)

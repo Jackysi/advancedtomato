@@ -14,7 +14,7 @@
  *     in busybox.
  *     modified by Bernhard Reutner-Fischer to be useable (i.e. a bit less bloaty).
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Original copyright notice states:
  *     "This program is in the Public Domain."
@@ -49,9 +49,9 @@
  * state. */
 
 /* test(1) accepts the following grammar:
-	oexpr	::= aexpr | aexpr "-o" oexpr ;
-	aexpr	::= nexpr | nexpr "-a" aexpr ;
-	nexpr	::= primary | "!" primary
+	oexpr   ::= aexpr | aexpr "-o" oexpr ;
+	aexpr   ::= nexpr | nexpr "-a" aexpr ;
+	nexpr   ::= primary | "!" primary
 	primary ::= unary-operator operand
 		| operand binary-operator operand
 		| operand

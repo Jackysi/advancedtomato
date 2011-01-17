@@ -4,8 +4,10 @@
  *
  * Copyright (C) 2008 Timo Teras <timo.teras@iki.fi>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+
+//applet:IF_INSMOD(APPLET(insmod, _BB_DIR_SBIN, _BB_SUID_DROP))
 
 #include "libbb.h"
 #include "modutils.h"
@@ -14,10 +16,11 @@
 /* 2.6 style insmod has no options and required filename
  * (not module name - .ko can't be omitted) */
 
+//usage:#if !ENABLE_MODPROBE_SMALL
 //usage:#define insmod_trivial_usage
 //usage:	IF_FEATURE_2_4_MODULES("[OPTIONS] MODULE ")
 //usage:	IF_NOT_FEATURE_2_4_MODULES("FILE ")
-//usage:	"[symbol=value]..."
+//usage:	"[SYMBOL=VALUE]..."
 //usage:#define insmod_full_usage "\n\n"
 //usage:       "Load the specified kernel modules into the kernel"
 //usage:	IF_FEATURE_2_4_MODULES( "\n"
@@ -32,6 +35,7 @@
 //usage:	)
 //usage:     "\n	-x	Don't export externs"
 //usage:	)
+//usage:#endif
 
 static char *m_filename;
 

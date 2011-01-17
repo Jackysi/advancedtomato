@@ -1,21 +1,10 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #include "common.h"
 #include "dhcpd.h"
 #include "unicode.h"
-
-#if BB_LITTLE_ENDIAN
-static inline uint64_t hton64(uint64_t v)
-{
-        return (((uint64_t)htonl(v)) << 32) | htonl(v >> 32);
-}
-#else
-#define hton64(v) (v)
-#endif
-#define ntoh64(v) hton64(v)
-
 
 int dumpleases_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int dumpleases_main(int argc UNUSED_PARAM, char **argv)
@@ -29,9 +18,9 @@ int dumpleases_main(int argc UNUSED_PARAM, char **argv)
 	struct in_addr addr;
 
 	enum {
-		OPT_a	= 0x1,	// -a
-		OPT_r	= 0x2,	// -r
-		OPT_f	= 0x4,	// -f
+		OPT_a = 0x1, // -a
+		OPT_r = 0x2, // -r
+		OPT_f = 0x4, // -f
 	};
 #if ENABLE_LONG_OPTS
 	static const char dumpleases_longopts[] ALIGN1 =
@@ -54,7 +43,7 @@ int dumpleases_main(int argc UNUSED_PARAM, char **argv)
 	/*     "123456789 123456789 123456789 123456789 123456789 123456789 123456789 123456789 */
 
 	xread(fd, &written_at, sizeof(written_at));
-	written_at = ntoh64(written_at);
+	written_at = SWAP_BE64(written_at);
 	curr = time(NULL);
 	if (curr < written_at)
 		written_at = curr; /* lease file from future! :) */

@@ -4,9 +4,9 @@
  * Based on code from util-linux v 2.11l
  *
  * Copyright (c) 1989
- *	The Regents of the University of California.  All rights reserved.
+ * The Regents of the University of California.  All rights reserved.
  *
- * Licensed under GPLv2 or later, see file License in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -32,11 +32,11 @@ static void bb_dump_addfile(dumper_t *dumper, char *name)
 }
 
 static const char *const add_strings[] = {
-	"\"%07.7_ax \" 16/1 \"%03o \" \"\\n\"",		/* b */
-	"\"%07.7_ax \" 16/1 \"%3_c \" \"\\n\"",		/* c */
-	"\"%07.7_ax \" 8/2 \"  %05u \" \"\\n\"",	/* d */
-	"\"%07.7_ax \" 8/2 \" %06o \" \"\\n\"",		/* o */
-	"\"%07.7_ax \" 8/2 \"   %04x \" \"\\n\"",	/* x */
+	"\"%07.7_ax \" 16/1 \"%03o \" \"\\n\"",   /* b */
+	"\"%07.7_ax \" 16/1 \"%3_c \" \"\\n\"",   /* c */
+	"\"%07.7_ax \" 8/2 \"  %05u \" \"\\n\"",  /* d */
+	"\"%07.7_ax \" 8/2 \" %06o \" \"\\n\"",   /* o */
+	"\"%07.7_ax \" 8/2 \"   %04x \" \"\\n\"", /* x */
 };
 
 static const char add_first[] ALIGN1 = "\"%07.7_Ax\n\"";
@@ -90,7 +90,7 @@ int hexdump_main(int argc, char **argv)
 			bb_dump_addfile(dumper, optarg);
 		} /* else */
 		if (ch == 'n') {
-			dumper->dump_length = xatoi_u(optarg);
+			dumper->dump_length = xatoi_positive(optarg);
 		} /* else */
 		if (ch == 's') { /* compat: -s accepts hex numbers too */
 			dumper->dump_skip = xstrtoul_range_sfx(optarg, /*base:*/ 0, /*lo:*/ 0, /*hi:*/ LONG_MAX, suffixes);

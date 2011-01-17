@@ -5,14 +5,14 @@
  *
  * Busybox'ed (2009) by Vladimir Dronnikov <dronnikov@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 #include <linux/fs.h>
 #include <linux/ext2_fs.h>
 
-#define	ENABLE_FEATURE_MKFS_EXT2_RESERVED_GDT 0
-#define	ENABLE_FEATURE_MKFS_EXT2_DIR_INDEX    1
+#define ENABLE_FEATURE_MKFS_EXT2_RESERVED_GDT 0
+#define ENABLE_FEATURE_MKFS_EXT2_DIR_INDEX    1
 
 // from e2fsprogs
 #define s_reserved_gdt_blocks s_padding1
@@ -221,7 +221,7 @@ int mkfs_ext2_main(int argc UNUSED_PARAM, char **argv)
 
 	// open the device, check the device is a block device
 	xmove_fd(xopen(argv[0], O_WRONLY), fd);
-	fstat(fd, &st);
+	xfstat(fd, &st, argv[0]);
 	if (!S_ISBLK(st.st_mode) && !(option_mask32 & OPT_F))
 		bb_error_msg_and_die("%s: not a block device", argv[0]);
 
