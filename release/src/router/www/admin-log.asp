@@ -40,7 +40,6 @@ function verifyFields(focused, quiet)
 	E('_f_log_crond').disabled = a;
 	E('_f_log_dhcpc').disabled = a;
 	E('_f_log_ntp').disabled = a;
-	E('_f_log_pppoe').disabled = a;
 	E('_f_log_sched').disabled = a;
 
 	elem.display(PR('_log_remoteip'), b);
@@ -94,7 +93,6 @@ function save()
 	if (E('_f_log_crond').checked) a.push('crond');
 	if (E('_f_log_dhcpc').checked) a.push('dhcpc');
 	if (E('_f_log_ntp').checked) a.push('ntp');
-	if (E('_f_log_pppoe').checked) a.push('pppoe');
 	if (E('_f_log_sched').checked) a.push('sched');
 	fom.log_events.value = a.join(',');
 
@@ -157,7 +155,6 @@ createFieldTable('', [
 		{ title: 'Cron', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
 		{ title: 'DHCP Client', indent: 2, name: 'f_log_dhcpc', type: 'checkbox', value: (nvram.log_events.indexOf('dhcpc') != -1) },
 		{ title: 'NTP', indent: 2, name: 'f_log_ntp', type: 'checkbox', value: (nvram.log_events.indexOf('ntp') != -1) },
-		{ title: 'PPPoE', indent: 2, name: 'f_log_pppoe', type: 'checkbox', value: (nvram.log_events.indexOf('pppoe') != -1) },
 		{ title: 'Scheduler', indent: 2, name: 'f_log_sched', type: 'checkbox', value: (nvram.log_events.indexOf('sched') != -1) },
 	{ title: 'Connection Logging' },
 		{ title: 'Inbound', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
