@@ -726,6 +726,10 @@ void start_wan6_done(char *wan_ifname)
 		start_ipv6_sit_tunnel();
 		break;
 	}
+
+	// restart httpd
+	stop_httpd();
+	start_httpd();
 }
 #endif
 

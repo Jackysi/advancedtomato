@@ -400,42 +400,70 @@ void dns_to_resolv(void)
 
 // -----------------------------------------------------------------------------
 
-void start_httpd(void)
+static void do_start_httpd(int do_ipv6)
 {
-	chdir("/www");
-	if (!nvram_match("http_enable", "0")) {
-		xstart("httpd"
-#ifdef TCONFIG_IPV6
-		, ipv6_enabled() ? "-6" : ""
-#endif
-		);
-	}
-	if (!nvram_match("https_enable", "0")) {
-		xstart("httpd", "-s"
-#ifdef TCONFIG_IPV6
-		, ipv6_enabled() ? "-6" : ""
-#endif
-		);
-	}
-
-#ifdef TCONFIG_IPV6
+	char *argv[] = { "httpd",
+		NULL, /*-i*/ NULL, /*iface*/
+		NULL, /*-p*/ NULL, /*port*/
+		NULL, /*-6*/ NULL, /*-s*/
+		NULL };
+	int argc;
 	int p;
 
-	/* Remote management */
-	if (ipv6_enabled() &&
-	    nvram_match("wk_mode","gateway") &&
-	    nvram_match("remote_management", "1") && 
-	    (p = nvram_get_int("http_wanport"))) {
-		if ((nvram_match("https_enable", "0") || p != nvram_get_int("https_lanport")) &&
-		    (nvram_match("http_enable", "0") || p != nvram_get_int("http_lanport"))) {
-			if (nvram_match("remote_mgt_https", "1")) {
-				xstart("httpd", "-s", "-6", "-p", nvram_get("http_wanport"));
-			}
-			else {
-				xstart("httpd", "-6", "-p", nvram_get("http_wanport"));
-			}
-		}
+	argc = 1;
+#ifdef TCONFIG_IPV6
+	if (do_ipv6) argv[argc++] = "-6";
+	else
+#endif
+	{
+		argv[argc++] = "-i";
+		argv[argc++] = nvram_safe_get("lan_ifname");
 	}
+
+	p = nvram_get_int("http_wanport");
+
+	if (!nvram_match("http_enable", "0")) {
+		argv[argc] = NULL;
+		_eval(argv, NULL, 0, NULL);
+#ifdef TCONFIG_IPV6
+		if (do_ipv6 && p == nvram_get_int("http_lanport")) p = 0;
+#endif
+	}
+	if (!nvram_match("https_enable", "0")) {
+		argv[argc++] = "-s";
+		argv[argc] = NULL;
+		_eval(argv, NULL, 0, NULL);
+#ifdef TCONFIG_IPV6
+		if (do_ipv6 && p == nvram_get_int("https_lanport")) p = 0;
+#endif
+	}
+
+	if (check_wanup() && (p) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1")) {
+		argc = 1;
+#ifdef TCONFIG_IPV6
+		if (do_ipv6) argv[argc++] = "-6";
+		else
+#endif
+		{
+			argv[argc++] = "-i";
+			argv[argc++] = (char *) get_wanface();
+		}
+		if (nvram_match("remote_mgt_https", "1")) argv[argc++] = "-s";
+		argv[argc++] = "-p";
+		argv[argc++] = nvram_safe_get("http_wanport");
+		argv[argc] = NULL;
+		_eval(argv, NULL, 0, NULL);
+	}
+}
+
+void start_httpd(void)
+{
+	stop_httpd();
+	chdir("/www");
+
+	do_start_httpd(0);
+#ifdef TCONFIG_IPV6
+	if (ipv6_enabled()) do_start_httpd(1);
 #endif
 
 	chdir("/");
@@ -1997,6 +2025,7 @@ TOP:
 
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
+			stop_httpd();
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
@@ -2012,6 +2041,7 @@ TOP:
 			start_wan(BOOT);
 			start_nas();
 			start_dnsmasq();
+			start_httpd();
 			start_wl();
 		}
 		goto CLEAR;

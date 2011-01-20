@@ -426,6 +426,7 @@ int dhcp6c_state_main(int argc, char **argv)
 	TRACE_PT("begin\n");
 
 	if (!wait_action_idle(10)) return 1;
+	nvram_set("ipv6_rtr_addr", getifaddr(nvram_safe_get("lan_ifname"), AF_INET6));
 
 	if (env2nv("new_domain_name_servers", "ipv6_get_dns")) {
 		dns_to_resolv();
