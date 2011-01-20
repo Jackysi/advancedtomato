@@ -1,11 +1,11 @@
 /*
- *   $Id: radvd.h,v 1.30 2009/09/07 07:59:57 psavola Exp $
+ *   $Id: radvd.h,v 1.33 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
- *    Lars Fenneberg		<lf@elemental.net>	 
+ *    Lars Fenneberg		<lf@elemental.net>
  *
- *   This software is Copyright 1996,1997 by the above mentioned author(s), 
+ *   This software is Copyright 1996,1997 by the above mentioned author(s),
  *   All Rights Reserved.
  *
  *   The license which is distributed with this software in the file COPYRIGHT
@@ -17,9 +17,9 @@
 #ifndef RADV_H
 #define RADV_H
 
-#include <config.h>
-#include <includes.h>
-#include <defaults.h>
+#include "config.h"
+#include "includes.h"
+#include "defaults.h"
 
 #define CONTACT_EMAIL	"Pekka Savola <pekkas@netcore.fi>"
 
@@ -37,7 +37,7 @@ struct timer_lst {
 	void			(*handler)(void *);
 	void *			data;
 	struct timer_lst	*next;
-	struct timer_lst	*prev;	
+	struct timer_lst	*prev;
 };
 
 #define min(a,b)	(((a) < (b)) ? (a) : (b))
@@ -90,6 +90,7 @@ struct Interface {
 	struct AdvPrefix	*AdvPrefixList;
 	struct AdvRoute		*AdvRouteList;
 	struct AdvRDNSS		*AdvRDNSSList;
+	struct AdvDNSSL		*AdvDNSSLList;
 	struct Clients		*ClientList;
 	struct timer_lst	tm;
 	time_t			last_multicast_sec;
@@ -109,7 +110,7 @@ struct Clients {
 struct AdvPrefix {
 	struct in6_addr		Prefix;
 	uint8_t			PrefixLen;
-	
+
 	int			AdvOnLinkFlag;
 	int			AdvAutonomousFlag;
 	uint32_t		AdvValidLifetime;
@@ -131,24 +132,32 @@ struct AdvPrefix {
 struct AdvRoute {
 	struct in6_addr		Prefix;
 	uint8_t			PrefixLen;
-	
+
 	int			AdvRoutePreference;
 	uint32_t		AdvRouteLifetime;
 
 	struct AdvRoute		*next;
 };
 
-/* Option for DNS configuration */
+/* Options for DNS configuration */
+
 struct AdvRDNSS {
 	int 			AdvRDNSSNumber;
-	uint8_t			AdvRDNSSPreference;
-	int 			AdvRDNSSOpenFlag;
 	uint32_t		AdvRDNSSLifetime;
 	struct in6_addr		AdvRDNSSAddr1;
 	struct in6_addr		AdvRDNSSAddr2;
 	struct in6_addr		AdvRDNSSAddr3;
-	
-	struct AdvRDNSS 	*next; 
+
+	struct AdvRDNSS 	*next;
+};
+
+struct AdvDNSSL {
+	uint32_t		AdvDNSSLLifetime;
+
+	int			AdvDNSSLNumber;
+	char			**AdvDNSSLSuffixes;
+
+	struct AdvDNSSL 	*next;
 };
 
 /* Mobile IPv6 extensions */
@@ -166,7 +175,7 @@ struct HomeAgentInfo {
 	uint16_t		flags_reserved;
 	uint16_t		preference;
 	uint16_t		lifetime;
-};	
+};
 
 
 /* gram.y */
@@ -182,7 +191,7 @@ void reload_config(void);
 /* timer.c */
 void set_timer(struct timer_lst *tm, double);
 void clear_timer(struct timer_lst *tm);
-void init_timer(struct timer_lst *, void (*)(void *), void *); 
+void init_timer(struct timer_lst *, void (*)(void *), void *);
 
 /* log.c */
 int log_open(int, char *, char*, int);
@@ -211,6 +220,7 @@ void iface_init_defaults(struct Interface *);
 void prefix_init_defaults(struct AdvPrefix *);
 void route_init_defaults(struct AdvRoute *, struct Interface *);
 void rdnss_init_defaults(struct AdvRDNSS *, struct Interface *);
+void dnssl_init_defaults(struct AdvDNSSL *, struct Interface *);
 int check_iface(struct Interface *);
 
 /* socket.c */
@@ -232,6 +242,7 @@ void mdelay(double);
 double rand_between(double, double);
 void print_addr(struct in6_addr *, char *);
 int check_rdnss_presence(struct AdvRDNSS *, struct in6_addr *);
+int check_dnssl_presence(struct AdvDNSSL *, const char *);
 ssize_t readn(int fd, void *buf, size_t count);
 ssize_t writen(int fd, const void *buf, size_t count);
 
@@ -245,10 +256,6 @@ int privsep_interface_reachtime(const char *iface, uint32_t rtime);
 int privsep_interface_retranstimer(const char *iface, uint32_t rettimer);
 #else
 static inline int privsep_enabled(void)	{ return 0; }
-static inline int privsep_interface_linkmtu(const char *iface, uint32_t mtu)		{ return 0; }
-static inline int privsep_interface_curhlim(const char *iface, uint32_t hlim)		{ return 0; }
-static inline int privsep_interface_reachtime(const char *iface, uint32_t rtime)	{ return 0; }
-static inline int privsep_interface_retranstimer(const char *iface, uint32_t rettimer)	{ return 0; }
 #endif
 
 /*
@@ -260,7 +267,7 @@ static inline int privsep_interface_retranstimer(const char *iface, uint32_t ret
  * This is only an approximation because the kernel version that libc was compiled against
  * could be older or newer than the one being run.  But this should not be a problem --
  * we just keep using the old kernel interface.
- * 
+ *
  * these are placed here because they're needed in all of socket.c, recv.c and send.c
  */
 #ifdef __linux__

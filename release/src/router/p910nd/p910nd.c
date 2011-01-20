@@ -16,6 +16,14 @@
  *	Port 9100+n will then be passively opened
  *	n defaults to 0
  *
+ *	Version 0.94
+ *	Patch by Guenther Niess:
+ *	Support IPv6
+ *	Patch by Philip Prindeville:
+ *	Increase socket buffer size
+ *	Use %hu for printing port
+ *	Makefile fixes for LIBWRAP
+ *
  *	Version 0.93
  *	Fix open call to include mode, required for O_CREAT
  *
@@ -26,7 +34,7 @@
  *
  *	Version 0.91
  *	Patch by Hans Harder.  Close printer device after each use to
- *	avoid crashing with hotpluggable devices going away.
+ *	avoid crashing when hotpluggable devices going away.
  *	Don't wait 10 seconds after successful open.
  *
  *	Version 0.9
@@ -134,7 +142,7 @@ typedef struct {
 } Buffer_t;
 
 static char *progname;
-static char version[] = "Version 0.93";
+static char version[] = "Version 0.94";
 static char copyright[] = "Copyright (c) 2008 Ken Yap, GPLv2";
 static int lockfd = -1;
 static char *device = 0;
@@ -435,7 +443,8 @@ int copy_stream(int fd, int lp)
 
 void one_job(int lpnumber)
 {
-	int lp, open_sleep = 10;
+	int lp;
+	int open_sleep = 10;
 	struct sockaddr_storage client;
 	socklen_t clientlen = sizeof(client);
 
@@ -463,7 +472,7 @@ void server(int lpnumber)
 #ifdef	USE_GETPROTOBYNAME
 	struct protoent *proto;
 #endif
-	int netfd, fd, lp, one = 1;
+	int netfd = -1, fd, lp, one = 1;
 	int open_sleep = 10;
 	socklen_t clientlen;
 	struct sockaddr_storage client;
@@ -471,6 +480,7 @@ void server(int lpnumber)
 	char pidfilename[sizeof(PIDFILE)];
 	char service[sizeof(BASEPORT+lpnumber-'0')+1];
 	FILE *f;
+	const int bufsiz = 65536;
 
 #ifndef	TESTING
 	switch (fork()) {
@@ -531,14 +541,22 @@ void server(int lpnumber)
 #else
 		if ((netfd = socket(res->ai_family, res->ai_socktype, IPPROTO_IP)) < 0)
 #endif
-		{
-			syslog(LOGOPTS, "socket: %m\n");
+	{
+		syslog(LOGOPTS, "socket: %m\n");
 			close(netfd);
 			res = res->ai_next;
 			continue;
 		}
+		if (setsockopt(netfd, SOL_SOCKET, SO_RCVBUF, &bufsiz, sizeof(bufsiz)) < 0) {
+			syslog(LOGOPTS, "setsocketopt: SO_RCVBUF: %m\n");
+			/* not fatal if it fails */
+		}
+		if (setsockopt(netfd, SOL_SOCKET, SO_SNDBUF, &bufsiz, sizeof(bufsiz)) < 0) {
+			syslog(LOGOPTS, "setsocketopt: SO_SNDBUF: %m\n");
+			/* not fatal if it fails */
+		}
 		if (setsockopt(netfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
-			syslog(LOGOPTS, "setsocketopt: %m\n");
+			syslog(LOGOPTS, "setsocketopt: SO_REUSEADDR: %m\n");
 			close(netfd);
 			res = res->ai_next;
 			continue;
@@ -564,7 +582,7 @@ void server(int lpnumber)
 #ifdef	USE_LIBWRAP
 		if (hosts_ctl("p910nd", STRING_UNKNOWN, inet_ntoa(client.sin_addr), STRING_UNKNOWN) == 0) {
 			syslog(LOGOPTS,
-			       "Connection from %s port %hd rejected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+			       "Connection from %s port %hu rejected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 			close(fd);
 			continue;
 		}

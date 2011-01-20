@@ -3,7 +3,7 @@
  * Russ Dill <Russ.Dill@asu.edu> September 2001
  * Rewritten by Vladimir Oleynik <dzo@simtreas.ru> (C) 2003
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #ifndef UDHCP_COMMON_H
 #define UDHCP_COMMON_H 1
@@ -63,14 +63,14 @@ struct udp_dhcp_packet {
 } PACKED;
 
 enum {
-	IP_UPD_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
-	UPD_DHCP_SIZE    = sizeof(struct udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
+	IP_UDP_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
+	UDP_DHCP_SIZE    = sizeof(struct udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
 	DHCP_SIZE        = sizeof(struct dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
 };
 
 /* Let's see whether compiler understood us right */
 struct BUG_bad_sizeof_struct_ip_udp_dhcp_packet {
-	char c[IP_UPD_DHCP_SIZE == 576 ? 1 : -1];
+	char c[IP_UDP_DHCP_SIZE == 576 ? 1 : -1];
 };
 
 extern int minpkt;	// zzz
@@ -147,7 +147,7 @@ enum {
 //#define DHCP_DOMAIN_SEARCH    0x77 /* RFC 3397. set of ASCIZ string, DNS-style compressed */
 //#define DHCP_SIP_SERVERS      0x78 /* RFC 3361. flag byte, then: 0: domain names, 1: IP addrs */
 //#define DHCP_STATIC_ROUTES    0x79 /* RFC 3442. (mask,ip,router) tuples */
-//#define DHCP_MS_STATIC_ROUTES 0xf9 /* RFC 3442. (mask,ip,router) tuples */
+//#define DHCP_MS_STATIC_ROUTES 0xf9 /* Microsoft's pre-RFC 3442 code for 0x79? */
 //#define DHCP_WPAD             0xfc /* MSIE's Web Proxy Autodiscovery Protocol */
 #define DHCP_END                0xff
 
@@ -296,7 +296,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
 int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
 int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
 
-int udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac, uint16_t *mtu) FAST_FUNC;
+int udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac) FAST_FUNC;
 
 int udhcp_listen_socket(/*uint32_t ip,*/ int port, const char *inf) FAST_FUNC;
 

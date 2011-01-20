@@ -3,7 +3,7 @@
  * tiny-ls.c version 0.1.0: A minimalist 'ls'
  * Copyright (C) 1996 Brian Candler <B.Candler@pobox.com>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* [date unknown. Perhaps before year 2000]
@@ -52,7 +52,6 @@
 
 
 enum {
-
 TERMINAL_WIDTH  = 80,           /* use 79 if terminal has linefold bug */
 COLUMN_GAP      = 2,            /* includes the file type char */
 
@@ -120,7 +119,6 @@ LIST_LONG       = LIST_MODEBITS | LIST_NLINKS | LIST_ID_NAME | LIST_SIZE | \
 SPLIT_DIR       = 1,
 SPLIT_FILE      = 0,
 SPLIT_SUBDIR    = 2,
-
 };
 
 /* "[-]Cadil1", POSIX mandated options, busybox always supports */
@@ -575,7 +573,8 @@ static unsigned print_name(const char *name)
 			putchar('\\');
 			len++;
 		}
-		putchar(*name++);
+		putchar(*name);
+		name++;
 	}
 	putchar('"');
 	return len;

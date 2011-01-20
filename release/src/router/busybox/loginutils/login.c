@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 #include <syslog.h>
@@ -124,7 +124,7 @@ static void run_login_script(struct passwd *pw, char *full_tty)
 		xsetenv("LOGIN_UID", utoa(pw->pw_uid));
 		xsetenv("LOGIN_GID", utoa(pw->pw_gid));
 		xsetenv("LOGIN_SHELL", pw->pw_shell);
-		spawn_and_wait(t_argv);	/* NOMMU-friendly */
+		spawn_and_wait(t_argv); /* NOMMU-friendly */
 		unsetenv("LOGIN_TTY");
 		unsetenv("LOGIN_USER");
 		unsetenv("LOGIN_UID");
@@ -245,7 +245,7 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 
 	/* Let's find out and memorize our tty */
 	if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO) || !isatty(STDERR_FILENO))
-		return EXIT_FAILURE;		/* Must be a terminal */
+		return EXIT_FAILURE;  /* Must be a terminal */
 	full_tty = xmalloc_ttyname(STDIN_FILENO);
 	if (!full_tty)
 		full_tty = xstrdup("UNKNOWN");
@@ -264,7 +264,7 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 
 	while (1) {
 		/* flush away any type-ahead (as getty does) */
-		ioctl(0, TCFLSH, TCIFLUSH);
+		tcflush(0, TCIFLUSH);
 
 		if (!username[0])
 			get_username_or_die(username, sizeof(username));
@@ -364,6 +364,10 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 		if (++count == 3) {
 			syslog(LOG_WARNING, "invalid password for '%s'%s",
 						username, fromhost);
+
+			if (ENABLE_FEATURE_CLEAN_UP)
+				free(fromhost);
+
 			return EXIT_FAILURE;
 		}
 		username[0] = '\0';
@@ -400,6 +404,9 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 
 	if (pw->pw_uid == 0)
 		syslog(LOG_INFO, "root login%s", fromhost);
+
+	if (ENABLE_FEATURE_CLEAN_UP)
+		free(fromhost);
 
 	/* well, a simple setexeccon() here would do the job as well,
 	 * but let's play the game for now */

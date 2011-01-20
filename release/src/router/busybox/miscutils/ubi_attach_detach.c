@@ -1,6 +1,6 @@
 /* Ported to busybox from mtd-utils.
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 //applet:IF_UBIATTACH(APPLET_ODDNAME(ubiattach, ubi_attach_detach, _BB_DIR_USR_SBIN, _BB_SUID_DROP, ubiattach))
@@ -12,20 +12,22 @@
 //config:config UBIATTACH
 //config:	bool "ubiattach"
 //config:	default n
+//config:	depends on PLATFORM_LINUX
 //config:	help
 //config:	  Attach MTD device to an UBI device.
 //config:
 //config:config UBIDETACH
 //config:	bool "ubidetach"
 //config:	default n
+//config:	depends on PLATFORM_LINUX
 //config:	help
 //config:	  Detach MTD device from an UBI device.
 
 #include "libbb.h"
 #include <mtd/ubi-user.h>
 
-#define OPTION_M	(1 << 0)
-#define OPTION_D	(1 << 1)
+#define OPTION_M  (1 << 0)
+#define OPTION_D  (1 << 1)
 
 #define do_attach (ENABLE_UBIATTACH && \
 		(!ENABLE_UBIDETACH || (applet_name[3] == 'a')))
@@ -61,9 +63,9 @@ int ubi_attach_detach_main(int argc UNUSED_PARAM, char **argv)
 	ubi_ctrl = argv[optind];
 
 	fd = xopen(ubi_ctrl, O_RDWR);
-	//fstat(fd, &st);
+	//xfstat(fd, &st, ubi_ctrl);
 	//if (!S_ISCHR(st.st_mode))
-	//	bb_error_msg_and_die("'%s' is not a char device", ubi_ctrl);
+	//	bb_error_msg_and_die("%s: not a char device", ubi_ctrl);
 
 	if (do_attach) {
 		if (!(opts & OPTION_M))

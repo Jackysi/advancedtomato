@@ -1,13 +1,11 @@
 /* vi: set sw=4 ts=4: */
 /*
- * "ip" utility frontend.
- *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Authors: Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
  * Changes:
- * Rani Assaf <rani@magic.metawire.com> 980929:	resolve addresses
+ * Rani Assaf <rani@magic.metawire.com> 980929: resolve addresses
  * Bernhard Reutner-Fischer rewrote to use index_in_substr_array
  */
 
@@ -22,12 +20,12 @@
  || ENABLE_FEATURE_IP_TUNNEL \
  || ENABLE_FEATURE_IP_RULE
 
-static int ip_print_help(char **argv UNUSED_PARAM)
+static int FAST_FUNC ip_print_help(char **argv UNUSED_PARAM)
 {
 	bb_show_usage();
 }
 
-typedef int (*ip_func_ptr_t)(char**);
+typedef int FAST_FUNC (*ip_func_ptr_t)(char**);
 
 static int ip_do(ip_func_ptr_t ip_func, char **argv)
 {

@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2005 by Rob Sullivan <cogito.ergo.cogito@gmail.com>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /*
@@ -21,20 +21,22 @@
  *   redirected input has been read from stdin
  */
 
-#include <sched.h>	/* sched_yield() */
+#include <sched.h>  /* sched_yield() */
 
 #include "libbb.h"
 #if ENABLE_FEATURE_LESS_REGEXP
 #include "xregex.h"
 #endif
 
+
+#define ESC "\033"
 /* The escape codes for highlighted and normal text */
-#define HIGHLIGHT   "\033[7m"
-#define NORMAL      "\033[0m"
+#define HIGHLIGHT   ESC"[7m"
+#define NORMAL      ESC"[0m"
 /* The escape code to home and clear to the end of screen */
-#define CLEAR       "\033[H\033[J"
+#define CLEAR       ESC"[H\033[J"
 /* The escape code to clear to the end of line */
-#define CLEAR_2_EOL "\033[K"
+#define CLEAR_2_EOL ESC"[K"
 
 enum {
 /* Absolute max of lines eaten */
@@ -165,12 +167,12 @@ static void set_tty_cooked(void)
    top-left corner of the console */
 static void move_cursor(int line, int row)
 {
-	printf("\033[%u;%uH", line, row);
+	printf(ESC"[%u;%uH", line, row);
 }
 
 static void clear_line(void)
 {
-	printf("\033[%u;0H" CLEAR_2_EOL, max_displayed_line + 2);
+	printf(ESC"[%u;0H" CLEAR_2_EOL, max_displayed_line + 2);
 }
 
 static void print_hilite(const char *str)
@@ -477,7 +479,7 @@ static void m_status_print(void)
 {
 	int percentage;
 
-	if (less_gets_pos >= 0)	/* don't touch statusline while input is done! */
+	if (less_gets_pos >= 0) /* don't touch statusline while input is done! */
 		return;
 
 	clear_line();
@@ -503,7 +505,7 @@ static void status_print(void)
 {
 	const char *p;
 
-	if (less_gets_pos >= 0)	/* don't touch statusline while input is done! */
+	if (less_gets_pos >= 0) /* don't touch statusline while input is done! */
 		return;
 
 	/* Change the status if flags have been set */

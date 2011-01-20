@@ -130,6 +130,7 @@ void start_vpnclient(int clientNum)
 
 	// Make sure module is loaded
 	modprobe("tun");
+	f_wait_exists("/dev/net/tun", 5);
 
 	// Create tap/tun interface
 	sprintf(&buffer[0], "openvpn --mktun --dev %s", &iface[0]);
@@ -539,6 +540,7 @@ void start_vpnserver(int serverNum)
 
 	// Make sure module is loaded
 	modprobe("tun");
+	f_wait_exists("/dev/net/tun", 5);
 
 	// Create tap/tun interface
 	sprintf(&buffer[0], "openvpn --mktun --dev %s", &iface[0]);

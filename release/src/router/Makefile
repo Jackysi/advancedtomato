@@ -755,11 +755,12 @@ libusb10: libusb10/Makefile
 	$(MAKE) -C $@
 
 libusb10-install: libusb10
-	install -D libusb10/libusb/.libs/libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so.0
-	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so.*
-	cd $(INSTALLDIR)/libusb10/usr/lib && \
-		ln -sf libusb-1.0.so.0 libusb-1.0.so.0.0.0 && \
-		ln -sf libusb-1.0.so.0 libusb-1.0.so
+	install -D libusb10/libusb/.libs/libusb-1.0.so $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
+	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so
+
+libusb10-clean:
+	-@$(MAKE) -C $@ clean
+	@rm -rf libusb10/Makefile
 
 libusb/Makefile: libusb/Makefile.in
 	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
@@ -772,11 +773,12 @@ libusb: libusb10 libusb/Makefile
 	$(MAKE) -C $@
 
 libusb-install: libusb
-	install -D libusb/libusb/.libs/libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4
-	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so.*
-	cd $(INSTALLDIR)/libusb/usr/lib && \
-		ln -sf libusb-0.1.so.4 libusb-0.1.so.4.4.4 && \
-		ln -sf libusb-0.1.so.4 libusb.so
+	install -D libusb/libusb/.libs/libusb-0.1.so $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so
+	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so
+
+libusb-clean:
+	-@$(MAKE) -C $@ clean
+	@rm -rf libusb/Makefile
 
 usbmodeswitch: libusb10
 	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Os $(EXTRACFLAGS) -DLIBUSB10 \
@@ -799,7 +801,9 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 
 
 radvd/stamp-h1: radvd/Makefile.in
-	cd radvd && CPPFLAGS="-Os $(EXTRACFLAGS)" $(CONFIGURE) --prefix=""
+	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	$(CONFIGURE) --prefix=""
 	@touch radvd/stamp-h1
 
 radvd: radvd/stamp-h1
@@ -1355,6 +1359,9 @@ openvpn-install: openvpn
 
 %-clean:
 	@-[ ! -d $* ] || $(MAKE) -C $* clean
+
+%-distclean:
+	@-[ ! -d $* ] || $(MAKE) -C $* distclean
 
 %-install: %
 	@[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*

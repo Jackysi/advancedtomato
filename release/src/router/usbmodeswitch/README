@@ -55,18 +55,20 @@ orphaned in /usr/sbin.
 Important: you need "tcl" for the wrapper script to work; if you enter "tclsh"
 and you get a "%" prompt, you are set (to exit type "exit"). The "tcl" package
 is part of all distributions I know.
+If you are space-restricted you can also use the "jimsh" mini tcl interpreter. The
+tcl wrapper is compatible with the limited command set of this small shell.
 
-To install, unpack and in the new directory use this line at the shell (as root):
+To install the tool set, unpack and in the newly created directory use this line
+at the shell (as root):
 
 > make install
 
-This installs a small shell script, a dispatcher (wrapper) script, a global
+This installs the small shell script, the dispatcher (wrapper) script, a global
 config file, the binary and a man page.
 
-Install the data package as well, and you are set already; if your device is
-known, you should be able to just plug it and use it. If it doesn't work we'll
-find out why.
-
+Install the data package as well and you are set already; if your device is
+known, you should be able to just plug it and use it. If it doesn't work -
+we will find out why not.
 
 For manual use just run "make". Work with the command line interface or
 with a setup file. You can use any file and give its path with the "-c"
@@ -87,8 +89,13 @@ Note: manual use is intended for testing and analyzing !
 
 Once your new device is switching fine you can add a rule entry to the rules
 file to let udev run usb_modeswitch as soon as the default IDs are found
-(when the device is plugged). Then add your new setup file to
-"/etc/usb_modeswitch.d". But don't forget to report your success !!
+(when the device is plugged). If you look into the rules file you will see
+immediately how your new entry should look like.
+The location is:
+/lib/udev/rules.d/40-usb_modeswitch.rules
+
+Then add your new setup file to the folder
+"/etc/usb_modeswitch.d". And don't forget to report your success !!
 
 ##########
 Important: libusb programs - like this tool - need to be run as root!
@@ -100,7 +107,7 @@ Known working hardware, Troubleshooting
 =======================================
 
 Please see the homepage. Read carefully.
-For support use ONLY the forum.
+For support questions use ONLY the forum.
 
 
 
@@ -183,4 +190,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-11-28, Josua Dietze
+Last revised: 2010-12-22, Josua Dietze

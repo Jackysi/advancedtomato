@@ -2,7 +2,7 @@
   This file is part of usb_modeswitch, a mode switching tool for controlling
   flip flop (multiple device) USB gear
 
-  Version 1.1.5, 2010/11/28
+  Version 1.1.6, 2010/12/22
   Copyright (C) 2007, 2008, 2009, 2010  Josua Dietze
 
   Config file parsing stuff borrowed from Guillaume Dargaud
@@ -46,10 +46,11 @@ int sendMessage(char* message, int count);
 int write_bulk(int endpoint, char *message, int length);
 int read_bulk(int endpoint, char *buffer, int length);
 void release_usb_device(int dummy);
-struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int mode);
+struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList,
+	int targetClass, int configuration, int mode);
 int find_first_bulk_output_endpoint(struct usb_device *dev);
 int find_first_bulk_input_endpoint(struct usb_device *dev);
-int get_current_configuration();
+int get_current_configuration(struct usb_dev_handle* devh);
 int get_interface0_class(struct usb_device *dev, int devconfig);
 char* ReadParseParam(const char* FileName, char *VariableName);
 int hex2num(char c);

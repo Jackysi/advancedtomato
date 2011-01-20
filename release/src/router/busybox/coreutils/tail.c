@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2001 by Matt Kraai <kraai@alumni.carnegiemellon.edu>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 compliant (need fancy for -c) */
@@ -346,6 +346,7 @@ int tail_main(int argc, char **argv)
 	}
 	if (ENABLE_FEATURE_CLEAN_UP) {
 		free(fds);
+		free(tailbuf);
 	}
 	return G.status;
 }

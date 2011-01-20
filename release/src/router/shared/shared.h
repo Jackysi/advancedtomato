@@ -103,6 +103,10 @@ extern int wl_client(int unit, int subunit);
 extern const wanface_list_t *get_wanfaces(void);
 extern const char *get_wanface(void);
 extern const char *get_wanip(void);
+#ifdef TCONFIG_IPV6
+extern const char *get_wan6face(void);
+#endif
+extern const char *getifaddr(char *ifname, int family);
 extern long get_uptime(void);
 extern char *wl_nvname(const char *nv, int unit, int subunit);
 extern int get_radio(int unit);

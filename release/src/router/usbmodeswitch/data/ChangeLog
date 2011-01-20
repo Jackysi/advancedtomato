@@ -1,4 +1,8 @@
-20101128:
+20101222:
+    added C-motech CHU-628S; added MediaTek Wimax USB Card; changed
+    BandLuxe configuration (new parameter ReleaseDelay) to make it work on
+    older systems; rules for driver binding and sym-linking changed
+20101202:
     added Huawei E1553 and E173s; fixed mutilated config of SE MD400G;
     checked for further errors and omissions, small fixes
 20101128:

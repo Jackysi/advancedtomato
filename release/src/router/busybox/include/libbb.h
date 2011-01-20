@@ -3,9 +3,9 @@
  * Busybox main internal header file
  *
  * Based in part on code from sash, Copyright (c) 1999 by David I. Bell
- * Permission has been granted to redistribute this code under the GPL.
+ * Permission has been granted to redistribute this code under GPL.
  *
- * Licensed under the GPL version 2, see the file LICENSE in this tarball.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #ifndef LIBBB_H
 #define LIBBB_H 1
@@ -37,20 +37,18 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
-/* Try to pull in PATH_MAX */
-#include <limits.h>
 #include <sys/param.h>
 #ifdef HAVE_MNTENT_H
-#include <mntent.h>
+# include <mntent.h>
 #endif
 #ifdef HAVE_SYS_STATFS_H
-#include <sys/statfs.h>
+# include <sys/statfs.h>
 #endif
 #if ENABLE_SELINUX
-#include <selinux/selinux.h>
-#include <selinux/context.h>
-#include <selinux/flask.h>
-#include <selinux/av_permissions.h>
+# include <selinux/selinux.h>
+# include <selinux/context.h>
+# include <selinux/flask.h>
+# include <selinux/av_permissions.h>
 #endif
 #if ENABLE_LOCALE_SUPPORT
 # include <locale.h>
@@ -70,7 +68,7 @@
 #  include <shadow.h>
 # endif
 #endif
-#if defined __FreeBSD__
+#if defined __FreeBSD__ || defined __OpenBSD__
 # include <netinet/in.h>
 # include <arpa/inet.h>
 #elif defined __APPLE__
@@ -190,7 +188,7 @@ typedef unsigned long long uoff_t;
 /* While sizeof(off_t) == sizeof(int), off_t is typedef'ed to long anyway.
  * gcc will throw warnings on printf("%d", off_t). Crap... */
 typedef unsigned long uoff_t;
-#  define XATOOFF(a) xatoi_u(a)
+#  define XATOOFF(a) xatoi_positive(a)
 #  define BB_STRTOOFF bb_strtou
 #  define STRTOOFF strtol
 #  define OFF_FMT "l"
@@ -222,11 +220,11 @@ typedef unsigned long uoff_t;
 
 /* Macros for min/max.  */
 #ifndef MIN
-#define	MIN(a,b) (((a)<(b))?(a):(b))
+#define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
 
 #ifndef MAX
-#define	MAX(a,b) (((a)>(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 #endif
 
 /* buffer allocation schemes */
@@ -252,6 +250,11 @@ typedef unsigned long uoff_t;
 extern int *const bb_errno;
 #undef errno
 #define errno (*bb_errno)
+#endif
+
+#if !(ULONG_MAX > 0xffffffff)
+/* Only 32-bit CPUs need this, 64-bit ones use inlined version */
+uint64_t bb_bswap_64(uint64_t x) FAST_FUNC;
 #endif
 
 unsigned long long monotonic_ns(void) FAST_FUNC;
@@ -321,6 +324,7 @@ extern void bb_copyfd_exact_size(int fd1, int fd2, off_t size) FAST_FUNC;
 /* this helper yells "short read!" if param is not -1 */
 extern void complain_copyfd_and_die(off_t sz) NORETURN FAST_FUNC;
 extern char bb_process_escape_sequence(const char **ptr) FAST_FUNC;
+char* strcpy_and_process_escape_sequences(char *dst, const char *src) FAST_FUNC;
 /* xxxx_strip version can modify its parameter:
  * "/"        -> "/"
  * "abc"      -> "abc"
@@ -411,6 +415,7 @@ void bb_unsetenv(const char *key) FAST_FUNC;
 void bb_unsetenv_and_free(char *key) FAST_FUNC;
 void xunlink(const char *pathname) FAST_FUNC;
 void xstat(const char *pathname, struct stat *buf) FAST_FUNC;
+void xfstat(int fd, struct stat *buf, const char *errmsg) FAST_FUNC;
 int xopen(const char *pathname, int flags) FAST_FUNC;
 int xopen_nonblocking(const char *pathname) FAST_FUNC;
 int xopen3(const char *pathname, int flags, int mode) FAST_FUNC;
@@ -421,6 +426,7 @@ int xopen_stdin(const char *pathname) FAST_FUNC;
 void xrename(const char *oldpath, const char *newpath) FAST_FUNC;
 int rename_or_warn(const char *oldpath, const char *newpath) FAST_FUNC;
 off_t xlseek(int fd, off_t offset, int whence) FAST_FUNC;
+int xmkstemp(char *template) FAST_FUNC;
 off_t fdlength(int fd) FAST_FUNC;
 
 uoff_t FAST_FUNC get_volume_size_in_bytes(int fd,
@@ -740,7 +746,7 @@ char *itoa(int n) FAST_FUNC;
 char *utoa_to_buf(unsigned n, char *buf, unsigned buflen) FAST_FUNC;
 char *itoa_to_buf(int n, char *buf, unsigned buflen) FAST_FUNC;
 /* Intelligent formatters of bignums */
-void smart_ulltoa4(unsigned long long ul, char buf[5], const char *scale) FAST_FUNC;
+void smart_ulltoa4(unsigned long long ul, char buf[4], const char *scale) FAST_FUNC;
 void smart_ulltoa5(unsigned long long ul, char buf[5], const char *scale) FAST_FUNC;
 /* If block_size == 0, display size without fractional part,
  * else display (size * block_size) with one decimal digit.
@@ -770,11 +776,16 @@ struct suffix_mult {
 };
 #include "xatonum.h"
 /* Specialized: */
+
 /* Using xatoi() instead of naive atoi() is not always convenient -
  * in many places people want *non-negative* values, but store them
  * in signed int. Therefore we need this one:
- * dies if input is not in [0, INT_MAX] range. Also will reject '-0' etc */
-int xatoi_u(const char *numstr) FAST_FUNC;
+ * dies if input is not in [0, INT_MAX] range. Also will reject '-0' etc.
+ * It should really be named xatoi_nonnegative (since it allows 0),
+ * but that would be too long.
+ */
+int xatoi_positive(const char *numstr) FAST_FUNC;
+
 /* Useful for reading port numbers */
 uint16_t xatou16(const char *numstr) FAST_FUNC;
 
@@ -879,9 +890,9 @@ int spawn_and_wait(char **argv) FAST_FUNC;
 struct nofork_save_area {
 	jmp_buf die_jmp;
 	const char *applet_name;
-	int xfunc_error_retval;
 	uint32_t option_mask32;
 	int die_sleep;
+	uint8_t xfunc_error_retval;
 	smallint saved;
 };
 void save_nofork_data(struct nofork_save_area *save) FAST_FUNC;
@@ -992,7 +1003,7 @@ enum {
 extern const char *msg_eol;
 extern smallint logmode;
 extern int die_sleep;
-extern int xfunc_error_retval;
+extern uint8_t xfunc_error_retval;
 extern jmp_buf die_jmp;
 extern void xfunc_die(void) NORETURN FAST_FUNC;
 extern void bb_show_usage(void) NORETURN FAST_FUNC;
@@ -1386,6 +1397,29 @@ enum { COMM_LEN = TASK_COMM_LEN };
 enum { COMM_LEN = 16 };
 # endif
 #endif
+
+struct smaprec {
+	unsigned long mapped_rw;
+	unsigned long mapped_ro;
+	unsigned long shared_clean;
+	unsigned long shared_dirty;
+	unsigned long private_clean;
+	unsigned long private_dirty;
+	unsigned long stack;
+	unsigned long smap_pss, smap_swap;
+	unsigned long smap_size;
+	unsigned long smap_start;
+	char smap_mode[5];
+	char *smap_name;
+};
+
+#if !ENABLE_PMAP
+#define procps_read_smaps(pid, total, cb, data) \
+	procps_read_smaps(pid, total)
+#endif
+int FAST_FUNC procps_read_smaps(pid_t pid, struct smaprec *total,
+		      void (*cb)(struct smaprec *, void *), void *data);
+
 typedef struct procps_status_t {
 	DIR *dir;
 	IF_FEATURE_SHOW_THREADS(DIR *task_dir;)
@@ -1414,13 +1448,7 @@ typedef struct procps_status_t {
 #endif
 	unsigned tty_major,tty_minor;
 #if ENABLE_FEATURE_TOPMEM
-	unsigned long mapped_rw;
-	unsigned long mapped_ro;
-	unsigned long shared_clean;
-	unsigned long shared_dirty;
-	unsigned long private_clean;
-	unsigned long private_dirty;
-	unsigned long stack;
+	struct smaprec smaps;
 #endif
 	char state[4];
 	/* basename of executable in exec(2), read from /proc/N/stat
@@ -1479,57 +1507,50 @@ procps_status_t* procps_scan(procps_status_t* sp, int flags) FAST_FUNC;
 void read_cmdline(char *buf, int size, unsigned pid, const char *comm) FAST_FUNC;
 pid_t *find_pid_by_name(const char* procName) FAST_FUNC;
 pid_t *pidlist_reverse(pid_t *pidList) FAST_FUNC;
+int starts_with_cpu(const char *str) FAST_FUNC;
+unsigned get_cpu_count(void) FAST_FUNC;
 
 
 extern const char bb_uuenc_tbl_base64[];
 extern const char bb_uuenc_tbl_std[];
 void bb_uuencode(char *store, const void *s, int length, const char *tbl) FAST_FUNC;
+enum {
+	BASE64_FLAG_UU_STOP = 0x100,
+	/* Sign-extends to a value which never matches fgetc result: */
+	BASE64_FLAG_NO_STOP_CHAR = 0x80,
+};
+void FAST_FUNC read_base64(FILE *src_stream, FILE *dst_stream, int flags);
 
-typedef struct sha1_ctx_t {
-	uint32_t hash[8];    /* 5, +3 elements for sha256 */
-	uint64_t total64;
-	uint8_t wbuffer[64]; /* NB: always correctly aligned for uint64_t */
-	void (*process_block)(struct sha1_ctx_t*) FAST_FUNC;
-} sha1_ctx_t;
-void sha1_begin(sha1_ctx_t *ctx) FAST_FUNC;
-void sha1_hash(const void *data, size_t length, sha1_ctx_t *ctx) FAST_FUNC;
-void sha1_end(void *resbuf, sha1_ctx_t *ctx) FAST_FUNC;
-typedef struct sha1_ctx_t sha256_ctx_t;
-void sha256_begin(sha256_ctx_t *ctx) FAST_FUNC;
-#define sha256_hash sha1_hash
-#define sha256_end sha1_end
+typedef struct md5_ctx_t {
+	uint8_t wbuffer[64]; /* always correctly aligned for uint64_t */
+	void (*process_block)(struct md5_ctx_t*) FAST_FUNC;
+	uint64_t total64;    /* must be directly before hash[] */
+	uint32_t hash[8];    /* 4 elements for md5, 5 for sha1, 8 for sha256 */
+} md5_ctx_t;
+typedef struct md5_ctx_t sha1_ctx_t;
+typedef struct md5_ctx_t sha256_ctx_t;
 typedef struct sha512_ctx_t {
+	uint64_t total64[2];  /* must be directly before hash[] */
 	uint64_t hash[8];
-	uint64_t total64[2];
-	uint8_t wbuffer[128]; /* NB: always correctly aligned for uint64_t */
+	uint8_t wbuffer[128]; /* always correctly aligned for uint64_t */
 } sha512_ctx_t;
-void sha512_begin(sha512_ctx_t *ctx) FAST_FUNC;
-void sha512_hash(const void *buffer, size_t len, sha512_ctx_t *ctx) FAST_FUNC;
-void sha512_end(void *resbuf, sha512_ctx_t *ctx) FAST_FUNC;
-#if 1
-typedef struct md5_ctx_t {
-	uint32_t A;
-	uint32_t B;
-	uint32_t C;
-	uint32_t D;
-	uint64_t total;
-	uint32_t buflen;
-	char buffer[128];
-} md5_ctx_t;
-#else
-/* libbb/md5prime.c uses a bit different one: */
-typedef struct md5_ctx_t {
-	uint32_t state[4];	/* state (ABCD) */
-	uint32_t count[2];	/* number of bits, modulo 2^64 (lsb first) */
-	unsigned char buffer[64];	/* input buffer */
-} md5_ctx_t;
-#endif
 void md5_begin(md5_ctx_t *ctx) FAST_FUNC;
-void md5_hash(const void *data, size_t length, md5_ctx_t *ctx) FAST_FUNC;
-void md5_end(void *resbuf, md5_ctx_t *ctx) FAST_FUNC;
+void md5_hash(md5_ctx_t *ctx, const void *data, size_t length) FAST_FUNC;
+void md5_end(md5_ctx_t *ctx, void *resbuf) FAST_FUNC;
+void sha1_begin(sha1_ctx_t *ctx) FAST_FUNC;
+#define sha1_hash md5_hash
+void sha1_end(sha1_ctx_t *ctx, void *resbuf) FAST_FUNC;
+void sha256_begin(sha256_ctx_t *ctx) FAST_FUNC;
+#define sha256_hash md5_hash
+#define sha256_end  sha1_end
+void sha512_begin(sha512_ctx_t *ctx) FAST_FUNC;
+void sha512_hash(sha512_ctx_t *ctx, const void *buffer, size_t len) FAST_FUNC;
+void sha512_end(sha512_ctx_t *ctx, void *resbuf) FAST_FUNC;
 
-
+extern uint32_t *global_crc32_table;
 uint32_t *crc32_filltable(uint32_t *tbl256, int endian) FAST_FUNC;
+uint32_t crc32_block_endian1(uint32_t val, const void *buf, unsigned len, uint32_t *crc_table) FAST_FUNC;
+uint32_t crc32_block_endian0(uint32_t val, const void *buf, unsigned len, uint32_t *crc_table) FAST_FUNC;
 
 typedef struct masks_labels_t {
 	const char *labels;
@@ -1552,12 +1573,22 @@ void bb_progress_update(bb_progress_t *p, const char *curfile,
 			off_t totalsize) FAST_FUNC;
 
 extern const char *applet_name;
+
+/* Some older linkers don't perform string merging, we used to have common strings
+ * as global arrays to do it by hand. But:
+ * (1) newer linkers do it themselves,
+ * (2) however, they DONT merge string constants with global arrays,
+ * even if the value is the same (!). Thus global arrays actually
+ * increased size a bit: for example, "/etc/passwd" string from libc
+ * wasn't merged with bb_path_passwd_file[] array!
+ * Therefore now we use #defines.
+ */
 /* "BusyBox vN.N.N (timestamp or extra_version)" */
 extern const char bb_banner[];
 extern const char bb_msg_memory_exhausted[];
 extern const char bb_msg_invalid_date[];
-extern const char bb_msg_read_error[];
-extern const char bb_msg_write_error[];
+#define bb_msg_read_error "read error"
+#define bb_msg_write_error "write error"
 extern const char bb_msg_unknown[];
 extern const char bb_msg_can_not_create_raw_socket[];
 extern const char bb_msg_perm_denied_are_you_root[];
@@ -1567,18 +1598,23 @@ extern const char bb_msg_invalid_arg[];
 extern const char bb_msg_standard_input[];
 extern const char bb_msg_standard_output[];
 
-extern const char bb_str_default[];
 /* NB: (bb_hexdigits_upcase[i] | 0x20) -> lowercase hex digit */
 extern const char bb_hexdigits_upcase[];
 
-extern const char bb_path_mtab_file[];
-extern const char bb_path_passwd_file[];
-extern const char bb_path_shadow_file[];
-extern const char bb_path_gshadow_file[];
-extern const char bb_path_group_file[];
-extern const char bb_path_motd_file[];
 extern const char bb_path_wtmp_file[];
-extern const char bb_dev_null[];
+
+/* Busybox mount uses either /proc/mounts or /etc/mtab to
+ * get the list of currently mounted filesystems */
+#define bb_path_mtab_file IF_FEATURE_MTAB_SUPPORT("/etc/mtab")IF_NOT_FEATURE_MTAB_SUPPORT("/proc/mounts")
+
+#define bb_path_passwd_file "/etc/passwd"
+#define bb_path_shadow_file "/etc/shadow"
+#define bb_path_gshadow_file "/etc/gshadow"
+#define bb_path_group_file "/etc/group"
+
+#define bb_path_motd_file "/etc/motd"
+
+#define bb_dev_null "/dev/null"
 extern const char bb_busybox_exec_path[];
 /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
  * but I want to save a few bytes here */
@@ -1618,56 +1654,53 @@ extern const char bb_default_login_shell[];
 /* "sh" */
 #define DEFAULT_SHELL_SHORT_NAME   (bb_default_login_shell+6)
 
-#if ENABLE_FEATURE_DEVFS
+/* The following devices are the same on all systems.  */
+#define CURRENT_TTY "/dev/tty"
+#define DEV_CONSOLE "/dev/console"
+
+#if defined(__FreeBSD_kernel__)
+# define CURRENT_VC CURRENT_TTY
+# define VC_1 "/dev/ttyv0"
+# define VC_2 "/dev/ttyv1"
+# define VC_3 "/dev/ttyv2"
+# define VC_4 "/dev/ttyv3"
+# define VC_5 "/dev/ttyv4"
+# define VC_FORMAT "/dev/ttyv%d"
+#elif defined(__GNU__)
+# define CURRENT_VC CURRENT_TTY
+# define VC_1 "/dev/tty1"
+# define VC_2 "/dev/tty2"
+# define VC_3 "/dev/tty3"
+# define VC_4 "/dev/tty4"
+# define VC_5 "/dev/tty5"
+# define VC_FORMAT "/dev/tty%d"
+#elif ENABLE_FEATURE_DEVFS
+/*Linux, obsolete devfs names */
 # define CURRENT_VC "/dev/vc/0"
 # define VC_1 "/dev/vc/1"
 # define VC_2 "/dev/vc/2"
 # define VC_3 "/dev/vc/3"
 # define VC_4 "/dev/vc/4"
 # define VC_5 "/dev/vc/5"
-# if defined(__sh__) || defined(__H8300H__) || defined(__H8300S__)
-/* Yes, this sucks, but both SH (including sh64) and H8 have a SCI(F) for their
-   respective serial ports .. as such, we can't use the common device paths for
-   these. -- PFM */
-#  define SC_0 "/dev/ttsc/0"
-#  define SC_1 "/dev/ttsc/1"
-#  define SC_FORMAT "/dev/ttsc/%d"
-# else
-#  define SC_0 "/dev/tts/0"
-#  define SC_1 "/dev/tts/1"
-#  define SC_FORMAT "/dev/tts/%d"
-# endif
 # define VC_FORMAT "/dev/vc/%d"
 # define LOOP_FORMAT "/dev/loop/%d"
 # define LOOP_NAMESIZE (sizeof("/dev/loop/") + sizeof(int)*3 + 1)
 # define LOOP_NAME "/dev/loop/"
 # define FB_0 "/dev/fb/0"
 #else
+/*Linux, normal names */
 # define CURRENT_VC "/dev/tty0"
 # define VC_1 "/dev/tty1"
 # define VC_2 "/dev/tty2"
 # define VC_3 "/dev/tty3"
 # define VC_4 "/dev/tty4"
 # define VC_5 "/dev/tty5"
-# if defined(__sh__) || defined(__H8300H__) || defined(__H8300S__)
-#  define SC_0 "/dev/ttySC0"
-#  define SC_1 "/dev/ttySC1"
-#  define SC_FORMAT "/dev/ttySC%d"
-# else
-#  define SC_0 "/dev/ttyS0"
-#  define SC_1 "/dev/ttyS1"
-#  define SC_FORMAT "/dev/ttyS%d"
-# endif
 # define VC_FORMAT "/dev/tty%d"
 # define LOOP_FORMAT "/dev/loop%d"
 # define LOOP_NAMESIZE (sizeof("/dev/loop") + sizeof(int)*3 + 1)
 # define LOOP_NAME "/dev/loop"
 # define FB_0 "/dev/fb0"
 #endif
-
-/* The following devices are the same on devfs and non-devfs systems.  */
-#define CURRENT_TTY "/dev/tty"
-#define DEV_CONSOLE "/dev/console"
 
 
 #define ARRAY_SIZE(x) ((unsigned)(sizeof(x) / sizeof((x)[0])))

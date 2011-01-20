@@ -1,5 +1,5 @@
 .\"
-.\"   $Id: radvd.conf.5.man,v 1.29 2010/01/28 13:34:26 psavola Exp $
+.\"   $Id: radvd.conf.5.man,v 1.33 2011/01/05 08:19:23 psavola Exp $
 .\"
 .\"   Authors:
 .\"    Lars Fenneberg		<lf@elemental.net>
@@ -14,7 +14,7 @@
 .\"
 .\"
 .\"
-.TH RADVD.CONF 5 "19 Jun 2009" "radvd @VERSION@" ""
+.TH RADVD.CONF 5 "4 Jan 2011" "radvd @VERSION@" ""
 .SH NAME
 radvd.conf \- configuration file of the router advertisement daemon
 .B radvd
@@ -31,6 +31,7 @@ The file contains one or more interface definitions of the form:
 	list of clients (IPv6 addresses) to advertise to
 	list of route definitions
 	list of RDNSS definitions
+	list of DNSSL definitions
 .B };
 .fi
 
@@ -80,6 +81,14 @@ RDNSS (Recursive DNS server) definitions are of the form:
 .nf
 .BR "RDNSS " "ip [ip] [ip] " {
 	list of rdnss specific options
+.B };
+.fi
+
+DNSSL (DNS Search List) definitions are of the form:
+
+.nf
+.BR "DNSSL " "suffix [suffix] [suffix] [...] " {
+	list of dnssl specific options
 .B };
 .fi
 
@@ -473,22 +482,12 @@ Default: medium
 
 .TP
 .BR "AdvRDNSSPreference " integer;
-
-The preference of the DNS server, compared to other DNS servers advertised and used.
-0 to 7 means less important than manually configured nameservers in resolv.conf, while 12 to 15 means more important.
-
-NOTE: This feature was removed from the final RFC but can still be used for experimental purposes.
-
-Default: 8
-
 .TP
 .BR "AdvRDNSSOpen " on | off;
 
-"Service Open" flag. When set, indicates that RDNSS continues to be available to hosts even if they moved to a different subnet.
-
-NOTE: This feature was removed from the final RFC but can still be used for experimental purposes.
-
-Default: off
+These features were present in the draft specification but were removed
+from RFC5006. They are still accepted in the configuration but
+ignored.
 
 .TP
 .BR "AdvRDNSSLifetime " seconds | infinity;
@@ -496,6 +495,18 @@ The maximum duration how long the RDNSS entries are used for name resolution. A 
 The maximum duration how long the RDNSS entries are used for name resolution. A value of 0 means the nameserver should no longer be used.
 The value, if not 0, must be at least MaxRtrAdvInterval.  To ensure stale
 RDNSS info gets removed in a timely fashion, this should not be greater than
+2*MaxRtrAdvInterval.
+
+Default: 2*MaxRtrAdvInterval
+
+.SH DNSSL SPECIFIC OPTIONS
+
+.TP
+.BR "AdvDNSSLLifetime " seconds | infinity;
+The maximum duration how long the DNSSL entries are used for name resolution.
+A value of 0 means the suffix should no longer be used.
+The value, if not 0, must be at least MaxRtrAdvInterval.  To ensure stale
+DNSSL info gets removed in a timely fashion, this should not be greater than
 2*MaxRtrAdvInterval.
 
 Default: 2*MaxRtrAdvInterval
@@ -642,8 +653,8 @@ RFC 3775, June 2004.
 Devarapalli, V., Wakikawa, R., Petrescu, A., and P. Thubert "Network Mobility (NEMO) Basic Support Protocol",
 RFC 3963, January 2005.
 .PP
-J. Jeong, L. Beloeil, and S. Madanapalli, "IPv6 Router Advertisement Option for DNS Configuration",
-RFC 5006, September 2007.
+J. Jeong, S. Park, L. Beloeil, and S. Madanapalli, "IPv6 Router Advertisement Options for DNS Configuration",
+RFC 6106, November 2010.
 
 .SH "SEE ALSO"
 

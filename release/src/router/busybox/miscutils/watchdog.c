@@ -6,7 +6,7 @@
  * Copyright (C) 2006  Bernhard Reutner-Fischer <busybox@busybox.net>
  * Copyright (C) 2008  Darius Augulis <augulis.darius@gmail.com>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -21,10 +21,10 @@ static void watchdog_shutdown(int sig UNUSED_PARAM)
 {
 	static const char V = 'V';
 
-	write(3, &V, 1);	/* Magic, see watchdog-api.txt in kernel */
+	write(3, &V, 1);  /* Magic, see watchdog-api.txt in kernel */
 	if (ENABLE_FEATURE_CLEAN_UP)
 		close(3);
-	exit(EXIT_SUCCESS);
+	_exit(EXIT_SUCCESS);
 }
 
 int watchdog_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;

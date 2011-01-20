@@ -10,7 +10,7 @@
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /*
@@ -230,7 +230,7 @@ static int search(const int *c, int k, int y, const struct cand *list)
 {
 	int i, j;
 
-	if (list[c[k]].y < y)	/* quick look for typical case */
+	if (list[c[k]].y < y)  /* quick look for typical case */
 		return k + 1;
 
 	for (i = 0, j = k + 1;;) {
@@ -479,7 +479,7 @@ start:
 	for (; suff < nlen[0] - pref && suff < nlen[1] - pref &&
 	       nfile[0][nlen[0] - suff].value == nfile[1][nlen[1] - suff].value;
 	       suff++);
-	/* Arrays are pruned by the suffix and prefix lenght,
+	/* Arrays are pruned by the suffix and prefix length,
 	 * the result being sorted and stored in sfile[fileno],
 	 * and their sizes are stored in slen[fileno]
 	 */
@@ -685,9 +685,8 @@ static int diffreg(char *file[2])
 		 */
 		if (lseek(fd, 0, SEEK_SET) == -1 && errno == ESPIPE) {
 			char name[] = "/tmp/difXXXXXX";
-			int fd_tmp = mkstemp(name);
-			if (fd_tmp < 0)
-				bb_perror_msg_and_die("mkstemp");
+			int fd_tmp = xmkstemp(name);
+
 			unlink(name);
 			if (bb_copyfd_eof(fd, fd_tmp) < 0)
 				xfunc_die();

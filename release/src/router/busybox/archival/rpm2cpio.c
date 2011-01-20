@@ -4,10 +4,10 @@
  *
  * Copyright (C) 2001 by Laurence Anderson
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #include "libbb.h"
-#include "unarchive.h"
+#include "archive.h"
 #include "rpm.h"
 
 enum { rpm_fd = STDIN_FILENO };

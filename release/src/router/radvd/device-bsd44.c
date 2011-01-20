@@ -1,10 +1,10 @@
 /*
- *   $Id: device-bsd44.c,v 1.24 2010/01/22 12:18:21 psavola Exp $
+ *   $Id: device-bsd44.c,v 1.25 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Craig Metz		<cmetz@inner.net>
  *
- *   This software is Copyright 1996,1997 by the above mentioned author(s), 
+ *   This software is Copyright 1996,1997 by the above mentioned author(s),
  *   All Rights Reserved.
  *
  *   The license which is distributed with this software in the file COPYRIGHT
@@ -13,11 +13,11 @@
  *
  */
 
-#include <config.h>
-#include <includes.h>
-#include <radvd.h>
-#include <defaults.h>
-#include <pathnames.h>		/* for PATH_PROC_NET_IF_INET6 */
+#include "config.h"
+#include "includes.h"
+#include "radvd.h"
+#include "defaults.h"
+#include "pathnames.h"		/* for PATH_PROC_NET_IF_INET6 */
 
 static uint8_t ll_prefix[] = { 0xfe, 0x80 };
 
@@ -42,7 +42,7 @@ setup_deviceinfo(int sock, struct Interface *iface)
 	if (ioctl(sock, SIOCGIFMTU, &ifr) < 0) {
 		flog(LOG_ERR, "ioctl(SIOCGIFMTU) failed for %s: %s", iface->Name, strerror(errno));
 		goto ret;
-	}	
+	}
 
 	dlog(LOG_DEBUG, 3, "mtu for %s is %d", iface->Name, ifr.ifr_mtu);
 	iface->if_maxmtu = ifr.ifr_mtu;
@@ -74,7 +74,7 @@ setup_deviceinfo(int sock, struct Interface *iface)
 				iface->Name);
 			goto ret;
 		}
-		
+
 		memcpy(iface->if_hwaddr, LLADDR(dl), dl->sdl_alen);
 		iface->if_hwaddr_len = dl->sdl_alen << 3;
 
@@ -104,7 +104,7 @@ setup_deviceinfo(int sock, struct Interface *iface)
 				flog(LOG_WARNING, "WARNING, MAC address on %s is all zero!",
 					iface->Name);
 		}
-		
+
 		prefix = iface->AdvPrefixList;
 		while (prefix)
 		{

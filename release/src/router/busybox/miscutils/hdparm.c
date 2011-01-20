@@ -5,7 +5,7 @@
  * Copyright (C) [2003] by [Matteo Croce] <3297627799@wind.it>
  * Hacked by Tito <farmatito@tiscali.it> for size optimization.
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * This program is based on the source code of hdparm: see below...
  * hdparm.c - Command line interface to get/set hard disk parameters
@@ -730,8 +730,8 @@ static void identify(uint16_t *val)
 		if (val[MINOR] && (val[MINOR] <= MINOR_MAX)) {
 			if (like_std < 3) like_std = 3;
 			std = actual_ver[val[MINOR]];
-			if (std) printf("\n\tUsed: %s ", nth_string(minor_str, val[MINOR]));
-
+			if (std)
+				printf("\n\tUsed: %s ", nth_string(minor_str, val[MINOR]));
 		}
 		/* looks like when they up-issue the std, they obsolete one;
 		 * thus, only the newest 4 issues need be supported. (That's
@@ -1745,7 +1745,7 @@ static void process_dev(char *devname)
 		if (-1 == read(fd, buf, sizeof(buf)))
 			bb_perror_msg("read of 512 bytes failed");
 	}
-#endif	/* HDIO_DRIVE_CMD */
+#endif  /* HDIO_DRIVE_CMD */
 	if (getset_mult || get_identity) {
 		multcount = -1;
 		if (ioctl(fd, HDIO_GET_MULTCOUNT, &multcount)) {
@@ -2055,8 +2055,8 @@ int hdparm_main(int argc, char **argv)
 #if ENABLE_FEATURE_HDPARM_HDIO_SCAN_HWIF
 		if (c == 'R') {
 			scan_hwif = parse_opts_0_INTMAX(&hwif_data);
-			hwif_ctrl = xatoi_u((argv[optind]) ? argv[optind] : "");
-			hwif_irq  = xatoi_u((argv[optind+1]) ? argv[optind+1] : "");
+			hwif_ctrl = xatoi_positive((argv[optind]) ? argv[optind] : "");
+			hwif_irq  = xatoi_positive((argv[optind+1]) ? argv[optind+1] : "");
 			/* Move past the 2 additional arguments */
 			argv += 2;
 			argc -= 2;

@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 compliant */
@@ -50,7 +50,7 @@ int rmdir_main(int argc UNUSED_PARAM, char **argv)
 				if ((flags & IGNORE_NON_EMPTY) && errno == ENOTEMPTY)
 					break;
 #endif
-				bb_perror_msg("'%s'", path);	/* Match gnu rmdir msg. */
+				bb_perror_msg("'%s'", path);  /* Match gnu rmdir msg. */
 				status = EXIT_FAILURE;
 			} else if (flags & PARENTS) {
 				/* Note: path was not "" since rmdir succeeded. */

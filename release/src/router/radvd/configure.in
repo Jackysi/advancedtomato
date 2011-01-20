@@ -1,5 +1,5 @@
 dnl
-dnl  $Id: configure.in,v 1.13 2008/10/14 13:10:11 psavola Exp $
+dnl  $Id: configure.in,v 1.14 2010/12/14 10:59:12 psavola Exp $
 dnl
 dnl   Authors:
 dnl    Lars Fenneberg		<lf@elemental.net>	 
@@ -13,12 +13,18 @@ dnl   may request it from <pekkas@netcore.fi>.
 dnl
 dnl
 
-AC_REVISION ($Id: configure.in,v 1.13 2008/10/14 13:10:11 psavola Exp $)
+AC_REVISION ($Id: configure.in,v 1.14 2010/12/14 10:59:12 psavola Exp $)
 AC_INIT(radvd.c)
 
 AC_CANONICAL_SYSTEM
 VERSION=`cat ${srcdir}/VERSION | grep -v '^#' | tr -d '\012'`
 AM_INIT_AUTOMAKE(radvd,$VERSION,true)
+
+case $host in
+    *darwin*)
+        target=$host
+    ;;
+esac
 
 echo $ac_n "building for architecture""... $ac_c" 1>&6
 case "$target" in
@@ -31,8 +37,12 @@ case "$target" in
 		AC_MSG_RESULT(bsd44)
                 arch=bsd44
         ;;
+        *darwin*)
+		AC_MSG_RESULT(bsd44)
+                arch=bsd44
+        ;;
         *)      
-		AC_MSG_RESULT(unknown)
+		AC_MSG_RESULT(unknown: $target)
 		AC_MSG_ERROR(
 [currently only Linux and BSD 4.4 with NRL's IPv6 code are
 supported. If you have such a system and it is not guessed correctly 

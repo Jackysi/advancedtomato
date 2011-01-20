@@ -33,7 +33,8 @@ apps: .conf
 	samba_cv_HAVE_FTRUNCATE_EXTEND=yes \
 	samba_cv_REPLACE_READDIR=no \
 	samba_cv_HAVE_BROKEN_LINUX_SENDFILE=no \
-	samba_cv_HAVE_SENDFILE=yes \
+	samba_cv_HAVE_SENDFILE=no \
+	samba_cv_HAVE_SENDFILE64=no \
 	samba_cv_HAVE_WRFILE_KEYTAB=yes \
 	samba_cv_HAVE_KERNEL_OPLOCKS_LINUX=yes \
 	samba_cv_HAVE_IFACE_IFCONF=yes \
@@ -97,6 +98,7 @@ apps: .conf
 		--without-cifsmount \
 		--without-cifsupcall \
 		--without-cluster-support \
+		--without-sendfile-support \
 		--without-utmp \
 		--without-winbind \
 		--without-quotas \

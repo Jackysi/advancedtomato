@@ -1,6 +1,6 @@
 VERSION = 1
-PATCHLEVEL = 17
-SUBLEVEL = 4
+PATCHLEVEL = 18
+SUBLEVEL = 2
 EXTRAVERSION =
 NAME = Unnamed
 
@@ -464,7 +464,7 @@ core-y		:= \
 
 libs-y		:= \
 		archival/ \
-		archival/libunarchive/ \
+		archival/libarchive/ \
 		console-tools/ \
 		coreutils/ \
 		coreutils/libcoreutils/ \
@@ -844,7 +844,7 @@ export CPPFLAGS_busybox.lds += -P -C -U$(ARCH)
 
 # 	Split autoconf.h into include/linux/config/*
 quiet_cmd_gen_bbconfigopts = GEN     include/bbconfigopts.h
-      cmd_gen_bbconfigopts = $(srctree)/scripts/mkconfigs > include/bbconfigopts.h
+      cmd_gen_bbconfigopts = $(srctree)/scripts/mkconfigs include/bbconfigopts.h include/bbconfigopts_bz2.h
 quiet_cmd_split_autoconf   = SPLIT   include/autoconf.h -> include/config/*
       cmd_split_autoconf   = scripts/basic/split-include include/autoconf.h include/config
 #bbox# piggybacked generation of few .h files
@@ -993,7 +993,7 @@ clean: archclean $(clean-dirs)
 
 PHONY += doc-clean
 doc-clean: rm-files := docs/busybox.pod \
-		  docs/BusyBox.html docs/BusyBox.1 docs/BusyBox.txt
+		  docs/BusyBox.html docs/busybox.1 docs/BusyBox.txt
 doc-clean:
 	$(call cmd,rmfiles)
 

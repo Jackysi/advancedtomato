@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #ifndef UDHCP_DHCPC_H
 #define UDHCP_DHCPC_H 1
@@ -9,7 +9,6 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
 struct client_config_t {
 	uint8_t client_mac[6];          /* Our mac address */
-	uint16_t client_mtu;		/* Our mtu */
 	char no_default_options;        /* Do not include default options in request */
 	IF_FEATURE_UDHCP_PORT(uint16_t port;)
 	int ifindex;                    /* Index number of the interface to use */

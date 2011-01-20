@@ -732,13 +732,18 @@ int main(int argc, char **argv)
 #ifdef TCONFIG_IPV6
 	int do_ipv6 = 0;
 #endif
-	while ((c = getopt(argc, argv, "hdp:s6")) != -1) {
+	const char *iface = NULL;
+	const char *addr = NULL;
+
+	while ((c = getopt(argc, argv, "hdp:i:a:s6")) != -1) {
 		switch (c) {
 		case 'h':
 			printf(
 				"Usage: %s [options]\n"
 				"  -d        Debug mode / do not demonize\n"
 				"  -p <port> Port to listen on\n"
+				"  -i <name> Interface to bind to (default: all interfaces)\n"
+				"  -a <addr> IP address to bind to (default: all addresses)\n"
 #ifdef TCONFIG_HTTPS
 				"  -s        Use HTTPS\n"
 #endif
@@ -752,6 +757,12 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			server_port = atoi(optarg);
+			break;
+		case 'i':
+			iface = optarg;
+			break;
+		case 'a':
+			addr = optarg;
 			break;
 #ifdef TCONFIG_HTTPS
 		case 's':
@@ -790,7 +801,6 @@ int main(int argc, char **argv)
 			return 0;
 		}
 
-
 		char s[16];
 		sprintf(s, "%d", getpid());
 		f_write_string(do_ssl ? "/var/run/httpsd.pid" : "/var/run/httpd.pid", s, 0, 0644);
@@ -824,23 +834,28 @@ int main(int argc, char **argv)
 	fcntl(listenfd, F_SETFD, FD_CLOEXEC);
 	n = 1;
 	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (char*)&n, sizeof(n));
-	
 
 	struct sockaddr_storage sai_stor;
 
+	if (!addr) addr = iface ? getifaddr((char*)iface, HTTPD_FAMILY) : NULL;
 #ifdef TCONFIG_IPV6
 	if (do_ipv6) {
 		struct sockaddr_in6 *sai = (struct sockaddr_in6 *) &sai_stor;
 		sai->sin6_family = HTTPD_FAMILY;
 		sai->sin6_port = htons(server_port);
-		sai->sin6_addr = in6addr_any;
+		if (addr && *addr)
+			inet_pton(HTTPD_FAMILY, addr, &(sai->sin6_addr));
+		else
+			sai->sin6_addr = in6addr_any;
+		n = 1;
+		setsockopt(listenfd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&n, sizeof(n));
 	}
 	else {
 #endif
 		struct sockaddr_in *sai = (struct sockaddr_in *) &sai_stor;
 		sai->sin_family = HTTPD_FAMILY;
 		sai->sin_port = htons(server_port);
-		sai->sin_addr.s_addr = inet_addr(nvram_get("lan_ipaddr"));
+		sai->sin_addr.s_addr = (addr && *addr) ? inet_addr(addr) : INADDR_ANY;
 #ifdef TCONFIG_IPV6
 	}
 #endif

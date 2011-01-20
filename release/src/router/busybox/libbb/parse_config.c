@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 by Vladimir Dronnikov <dronnikov@gmail.com>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  * Also for use in uClibc (http://uclibc.org/) licensed under LGPLv2.1 or later.
  */
 
@@ -45,7 +45,7 @@ int parse_main(int argc UNUSED_PARAM, char **argv)
 Typical usage:
 
 ----- CUT -----
-	char *t[3];	// tokens placeholder
+	char *t[3];  // tokens placeholder
 	parser_t *p = config_open(filename);
 	if (p) {
 		// parse line-by-line
@@ -187,19 +187,7 @@ again:
 
 #if 0 /* unused so far */
 		if (flags & PARSE_ESCAPE) {
-			const char *from;
-			char *to;
-
-			from = to = tokens[t];
-			while (*from) {
-				if (*from == '\\') {
-					from++;
-					*to++ = bb_process_escape_sequence(&from);
-				} else {
-					*to++ = *from++;
-				}
-			}
-			*to = '\0';
+			strcpy_and_process_escape_sequences(tokens[t], tokens[t]);
 		}
 #endif
 		/* Skip possible delimiters */

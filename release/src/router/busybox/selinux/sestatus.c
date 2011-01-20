@@ -5,17 +5,17 @@
  *
  * Copyright (C) KaiGai Kohei <kaigai@ak.jp.nec.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
 
 extern char *selinux_mnt;
 
-#define OPT_VERBOSE	(1 << 0)
-#define OPT_BOOLEAN	(1 << 1)
+#define OPT_VERBOSE  (1 << 0)
+#define OPT_BOOLEAN  (1 << 1)
 
-#define COL_FMT		"%-31s "
+#define COL_FMT  "%-31s "
 
 static void display_boolean(void)
 {
@@ -151,7 +151,7 @@ int sestatus_main(int argc UNUSED_PARAM, char **argv)
 	const char *pol_path;
 	int rc;
 
-	opt_complementary = "?0";	/* no arguments are required. */
+	opt_complementary = "?0";  /* no arguments are required. */
 	opts = getopt32(argv, "vb");
 
 	/* SELinux status: line */

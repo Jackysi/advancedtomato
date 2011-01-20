@@ -7,9 +7,9 @@
  * here, please feel free to acknowledge your work.
  *
  * Based in part on code from sash, Copyright (c) 1999 by David I. Bell
- * Permission has been granted to redistribute this code under the GPL.
+ * Permission has been granted to redistribute this code under GPL.
  *
- * Licensed under GPLv2 or later, see file License in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* We are trying to not use printf, this benefits the case when selected
@@ -66,7 +66,7 @@ static const char usage_messages[] ALIGN1 = UNPACKED_USAGE;
 #if ENABLE_FEATURE_COMPRESS_USAGE
 
 static const char packed_usage[] ALIGN1 = { PACKED_USAGE };
-# include "unarchive.h"
+# include "archive.h"
 static const char *unpack_usage_messages(void)
 {
 	char *outbuf = NULL;
@@ -75,7 +75,7 @@ static const char *unpack_usage_messages(void)
 
 	i = start_bunzip(&bd,
 			/* src_fd: */ -1,
-			/* inbuf:  */ (void *)packed_usage,
+			/* inbuf:  */ packed_usage,
 			/* len:    */ sizeof(packed_usage));
 	/* read_bunzip can longjmp to start_bunzip, and ultimately
 	 * end up here with i != 0 on read data errors! Not trivial */
@@ -103,14 +103,13 @@ void FAST_FUNC bb_show_usage(void)
 	if (ENABLE_SHOW_USAGE) {
 #ifdef SINGLE_APPLET_STR
 		/* Imagine that this applet is "true". Dont suck in printf! */
-		const char *p;
-		const char *usage_string = p = unpack_usage_messages();
+		const char *usage_string = unpack_usage_messages();
 
-		if (*p == '\b') {
+		if (*usage_string == '\b') {
 			full_write2_str("No help available.\n\n");
 		} else {
 			full_write2_str("Usage: "SINGLE_APPLET_STR" ");
-			full_write2_str(p);
+			full_write2_str(usage_string);
 			full_write2_str("\n\n");
 		}
 		if (ENABLE_FEATURE_CLEAN_UP)
@@ -592,9 +591,11 @@ static const char usr_sbin[] ALIGN1 = "/usr/sbin/";
 static const char *const install_dir[] = {
 	&usr_bin [8], /* "/" */
 	&usr_bin [4], /* "/bin/" */
-	&usr_sbin[4], /* "/sbin/" */
-	usr_bin,
-	usr_sbin
+	&usr_sbin[4]  /* "/sbin/" */
+# if !ENABLE_INSTALL_NO_USR
+	,usr_bin
+	,usr_sbin
+# endif
 };
 
 
@@ -655,6 +656,7 @@ static int busybox_main(char **argv)
 			"See source distribution for full notice.\n"
 			"\n"
 			"Usage: busybox [function] [arguments]...\n"
+			"   or: busybox --list[-full]\n"
 			"   or: function [arguments]...\n"
 			"\n"
 			"\tBusyBox is a multi-call binary that combines many common Unix\n"

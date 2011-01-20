@@ -76,7 +76,7 @@ static int config_pppd(int wan_proto, int num)
 
 	FILE *fp;
 	char *p;
-	int debug, demand;
+	int demand;
 
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
@@ -88,8 +88,6 @@ static int config_pppd(int wan_proto, int num)
 	symlink("/dev/null", "/tmp/ppp/connect-errors");
 
 	demand = nvram_get_int("ppp_demand");
-	debug = nvram_get_int("debug_ppp") ||
-		(wan_proto == WP_PPPOE && nvram_contains_word("log_events", "pppoe"));
 
 	// Generate options file
 	if ((fp = fopen(ppp_optfile, "w")) == NULL) {
@@ -119,7 +117,7 @@ static int config_pppd(int wan_proto, int num)
 		nvram_safe_get("ppp_username"),
 		nvram_get_int("pppoe_lei") ? : 30,
 		nvram_get_int("pppoe_lef") ? : 6,
-		debug ? "debug\n" : "");
+		nvram_get_int("debug_ppp") ? "debug\n" : "");
 
 	if (wan_proto != WP_L2TP) {
 		fprintf(fp,
@@ -728,6 +726,10 @@ void start_wan6_done(char *wan_ifname)
 		start_ipv6_sit_tunnel();
 		break;
 	}
+
+	// restart httpd
+	stop_httpd();
+	start_httpd();
 }
 #endif
 

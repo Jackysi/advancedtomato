@@ -2,7 +2,7 @@
 #
 # Copyright (C) 1999-2005 by Erik Andersen <andersen@codepoet.org>
 #
-# Licensed under the GPL v2, see the file LICENSE in this tarball.
+# Licensed under GPLv2, see file LICENSE in this source tree.
 
 libbb/appletlib.o: include/usage_compressed.h
 
@@ -14,6 +14,7 @@ lib-y += appletlib.o
 lib-y += ask_confirmation.o
 lib-y += bb_askpass.o
 lib-y += bb_basename.o
+lib-y += bb_bswap_64.o
 lib-y += bb_do_delay.o
 lib-y += bb_pwd.o
 lib-y += bb_qsort.o
@@ -59,12 +60,11 @@ lib-y += login.o
 lib-y += make_directory.o
 lib-y += makedev.o
 lib-y += match_fstype.o
-lib-y += md5.o
-# Alternative (disabled) implementation
-#lib-y += md5prime.o
+lib-y += hash_md5_sha.o
+# Alternative (disabled) MD5 implementation
+#lib-y += hash_md5prime.o
 lib-y += messages.o
 lib-y += mode_string.o
-lib-y += mtab_file.o
 lib-y += obscure.o
 lib-y += parse_mode.o
 lib-y += parse_config.o
@@ -91,7 +91,6 @@ lib-y += safe_poll.o
 lib-y += safe_strncpy.o
 lib-y += safe_write.o
 lib-y += setup_environment.o
-lib-y += sha1.o
 lib-y += signals.o
 lib-y += simplify_path.o
 lib-y += single_argv.o
@@ -156,6 +155,10 @@ lib-$(CONFIG_MOUNT) += find_mount_point.o
 
 lib-$(CONFIG_HWCLOCK) += rtc.o
 lib-$(CONFIG_RTCWAKE) += rtc.o
+
+lib-$(CONFIG_IOSTAT) += get_cpu_count.o
+lib-$(CONFIG_MPSTAT) += get_cpu_count.o
+lib-$(CONFIG_POWERTOP) += get_cpu_count.o
 
 # We shouldn't build xregcomp.c if we don't need it - this ensures we don't
 # require regex.h to be in the include dir even if we don't need it thereby
