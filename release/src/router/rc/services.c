@@ -400,72 +400,11 @@ void dns_to_resolv(void)
 
 // -----------------------------------------------------------------------------
 
-static void do_start_httpd(int do_ipv6)
-{
-	char *argv[] = { "httpd",
-		NULL, /*-i*/ NULL, /*iface*/
-		NULL, /*-p*/ NULL, /*port*/
-		NULL, /*-6*/ NULL, /*-s*/
-		NULL };
-	int argc;
-	int p;
-
-	argc = 1;
-#ifdef TCONFIG_IPV6
-	if (do_ipv6) argv[argc++] = "-6";
-	else
-#endif
-	{
-		argv[argc++] = "-i";
-		argv[argc++] = nvram_safe_get("lan_ifname");
-	}
-
-	p = nvram_get_int("http_wanport");
-
-	if (!nvram_match("http_enable", "0")) {
-		argv[argc] = NULL;
-		_eval(argv, NULL, 0, NULL);
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && p == nvram_get_int("http_lanport")) p = 0;
-#endif
-	}
-	if (!nvram_match("https_enable", "0")) {
-		argv[argc++] = "-s";
-		argv[argc] = NULL;
-		_eval(argv, NULL, 0, NULL);
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && p == nvram_get_int("https_lanport")) p = 0;
-#endif
-	}
-
-	if (check_wanup() && (p) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1")) {
-		argc = 1;
-#ifdef TCONFIG_IPV6
-		if (do_ipv6) argv[argc++] = "-6";
-		else
-#endif
-		{
-			argv[argc++] = "-i";
-			argv[argc++] = (char *) get_wanface();
-		}
-		if (nvram_match("remote_mgt_https", "1")) argv[argc++] = "-s";
-		argv[argc++] = "-p";
-		argv[argc++] = nvram_safe_get("http_wanport");
-		argv[argc] = NULL;
-		_eval(argv, NULL, 0, NULL);
-	}
-}
-
 void start_httpd(void)
 {
 	stop_httpd();
 	chdir("/www");
-
-	do_start_httpd(0);
-#ifdef TCONFIG_IPV6
-	if (ipv6_enabled()) do_start_httpd(1);
-#endif
-
+	xstart("httpd");
 	chdir("/");
 }
 
