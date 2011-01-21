@@ -431,7 +431,7 @@ int main(int argc, char **argv)
 			j = 0;
 		printf("   8MB, 256K CFE : %d EBs + %d\n", j / (64*1024), j % (64*1024));
 
-		printf("            Note : Netgear routers  have 6 EBs less available!\n");
+		printf("            Note : Netgear routers have 6 EBs less available!\n");
 
 		printf(" CRC-32 ........ : %8X\n", trx->crc32);
 		l = (ROUNDUP(trx->length, (128 * 1024)) / (128 * 1024));
