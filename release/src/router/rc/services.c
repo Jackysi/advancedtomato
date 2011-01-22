@@ -1074,6 +1074,7 @@ static void start_ftpd(void)
 		"isolate=no\n"
 		"max_clients=%d\n"
 		"max_per_ip=%d\n"
+		"max_login_fails=1\n"
 		"idle_session_timeout=%s\n"
 		"use_sendfile=no\n"
 		"anon_max_rate=%d\n"
