@@ -484,7 +484,6 @@ void start_radvd(void)
 			" {\n"
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
-			"  AdvRouterAddr off;\n"
 			" };\n"
 			"};\n",
 			nvram_safe_get("lan_ifname"), prefix);
