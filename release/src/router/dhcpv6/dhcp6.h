@@ -318,13 +318,33 @@ struct dhcp6opt {
 	/* type-dependent data follows */
 } __attribute__ ((__packed__));
 
-/* DUID type 1 */
+/* DUID type 1 (DUID-LLT) */
 struct dhcp6opt_duid_type1 {
 	u_int16_t dh6_duid1_type;
 	u_int16_t dh6_duid1_hwtype;
 	u_int32_t dh6_duid1_time;
 	/* link-layer address follows */
 } __attribute__ ((__packed__));
+
+/* DUID type 2 (DUID-EN) */
+struct dhcp6opt_duid_type2 {
+	u_int16_t dh6_duid2_type;
+	u_int32_t dh6_duid2_enterprise_number;
+	/* identifier follows */
+} __attribute__ ((__packed__));
+
+/* DUID type 3 (DUID-LL) */
+struct dhcp6opt_duid_type3 {
+	u_int16_t dh6_duid3_type;
+	u_int16_t dh6_duid3_hwtype;
+	/* link-layer address follows */
+} __attribute__ ((__packed__));
+
+union dhcp6opt_duid_type {
+	struct dhcp6opt_duid_type1	d1;
+	struct dhcp6opt_duid_type2	d2;
+	struct dhcp6opt_duid_type3	d3;
+};
 
 /* Status Code */
 struct dhcp6opt_stcode {

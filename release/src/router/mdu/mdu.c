@@ -1708,7 +1708,7 @@ int main(int argc, char *argv[])
 	}
 	else if (strcmp(p, "opendns") == 0) {
 		// test ok 9/15 -- zzz
-		update_dua(NULL, 1, "updates.opendns.com", "/account/ddns.php", 0);
+		update_dua(NULL, 1, "updates.opendns.com", "/nic/update", 0);
 	}
 	else if (strcmp(p, "dnsomatic") == 0) {
 		// test ok 12/02 -- zzz

@@ -137,12 +137,6 @@ static int config_pppd(int wan_proto, int num)
 			nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
 		break;
 	case WP_PPPOE:
-		if (((p = nvram_get("ppp_service")) != NULL) && (*p)) {
-			fprintf(fp, "rp_pppoe_service '%s'\n", p);
-		}
-		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
-			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
-		}
 		fprintf(fp,
 			"password '%s'\n"
 			"plugin rp-pppoe.so\n"
@@ -152,6 +146,12 @@ static int config_pppd(int wan_proto, int num)
 			nvram_safe_get("ppp_passwd"),
 			nvram_safe_get("wan_ifname"),
 			nvram_get_int("wan_mtu"), nvram_get_int("wan_mtu"));
+		if (((p = nvram_get("ppp_service")) != NULL) && (*p)) {
+			fprintf(fp, "rp_pppoe_service '%s'\n", p);
+		}
+		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
+			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
+		}
 		break;
 	case WP_L2TP:
 		fprintf(fp, "nomppe nomppc\n");
