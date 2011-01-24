@@ -52,3 +52,5 @@ obj-$(CONFIG_USB_IOWARRIOR)	+= misc/
 
 obj-$(CONFIG_USB_ATM)		+= atm/
 obj-$(CONFIG_USB_SPEEDTOUCH)	+= atm/
+
+obj-$(CONFIG_USB_IP_COMMON)    += usbip/
