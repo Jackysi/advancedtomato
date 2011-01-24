@@ -528,7 +528,7 @@ __nf_conntrack_confirm(struct sk_buff **pskb)
 	   further use of that particular connection -JM */
 
 	if (unlikely(nf_ct_is_dying(ct))) {
-		spin_unlock_bh(&nf_conntrack_lock);
+		write_unlock_bh(&nf_conntrack_lock);
 		return NF_ACCEPT;
 	}
 
