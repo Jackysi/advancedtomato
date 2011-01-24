@@ -323,6 +323,9 @@
    first (like Intel and VAX, unlike Motorola and SPARC). */
 #undef WORDS_LITTLEENDIAN
 
+/* system extended attributes mappings */
+#undef XATTR_MAPPINGS
+
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS
 
