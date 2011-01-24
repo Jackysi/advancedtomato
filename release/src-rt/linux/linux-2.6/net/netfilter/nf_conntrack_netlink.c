@@ -772,7 +772,8 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
 free:
 	kfree_skb(skb2);
 out:
-	return err;
+	/* this avoids a loop in nfnetlink. */
+	return err == -EAGAIN ? -ENOBUFS : err;
 }
 
 static inline int

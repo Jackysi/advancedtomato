@@ -79,9 +79,9 @@ tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
 	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
 		port =  net_random();
 
-	for (i = 0; i < range_size; i++, port++) {
+	for (i = 0; ; ++port) {
 		*portptr = htons(min + port % range_size);
-		if (!nf_nat_used_tuple(tuple, ct))
+		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
 			return 1;
 	}
 	return 0;
