@@ -180,7 +180,7 @@ main(argc, argv)
 	else
 		progname++;
 
-	while ((ch = getopt(argc, argv, "c:dDfik:p:")) != -1) {
+	while ((ch = getopt(argc, argv, "c:dDT:fik:p:")) != -1) {
 		switch (ch) {
 		case 'c':
 			conffile = optarg;
@@ -190,6 +190,12 @@ main(argc, argv)
 			break;
 		case 'D':
 			debug = 2;
+			break;
+		case 'T':
+			if (!strcasecmp(optarg, "LL"))
+				duid_type = 3;
+			else if (!strcasecmp(optarg, "LLT"))
+				duid_type = 1;
 			break;
 		case 'f':
 			foreground++;
@@ -264,7 +270,7 @@ usage()
 {
 
 	fprintf(stderr, "usage: dhcp6c [-c configfile] [-dDfi] "
-	    "[-p pid-file] interface [interfaces...]\n");
+	    "[-T LL|LLT] [-p pid-file] interface [interfaces...]\n");
 }
 
 /*------------------------------------------------------------*/

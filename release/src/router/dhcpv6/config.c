@@ -1743,7 +1743,7 @@ add_prefix(head, name, type, prefix0)
 	oprefix = *prefix0;
 
 	/* additional validation of parameters */
-	if (oprefix.plen < 0 || oprefix.plen > 128) {
+	if (oprefix.plen < 4 || oprefix.plen > 128) {
 		dprintf(LOG_ERR, FNAME, "invalid prefix: %d", oprefix.plen);
 		return (-1);
 	}
