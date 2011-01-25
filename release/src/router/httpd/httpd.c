@@ -814,7 +814,7 @@ static void setup_listeners(int do_ipv6)
 	if (do_ipv6) ipaddr = NULL;
 	else
 #endif
-	ipaddr = getifaddr(nvram_safe_get("lan_ifname"), AF_INET);
+	ipaddr = nvram_safe_get("lan_ipaddr");
 
 	if (!nvram_match("http_enable", "0")) {
 		p = nvram_get_int("http_lanport");
@@ -835,7 +835,7 @@ static void setup_listeners(int do_ipv6)
 	}
 #endif
 
-	if (check_wanup() && (wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1")) {
+	if ((wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1") && check_wanup()) {
 #ifdef TCONFIG_HTTPS
 		if (nvram_match("remote_mgt_https", "1")) do_ssl = 1;
 #endif
@@ -850,10 +850,10 @@ static void setup_listeners(int do_ipv6)
 
 			memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
 			for (i = 0; i < wanfaces.count; ++i) {
-				if (*(wanfaces.iface[i].name)) {
-					ipaddr = getifaddr(wanfaces.iface[i].name, AF_INET);
-					add_listen_socket(ipaddr, wanport, 0, nvram_match("remote_mgt_https", "1"));
-				}
+				ipaddr = wanfaces.iface[i].ip;
+				if (!(*ipaddr) || strcmp(ipaddr, "0.0.0.0") == 0)
+					continue;
+				add_listen_socket(ipaddr, wanport, 0, nvram_match("remote_mgt_https", "1"));
 			}
 		}
 	}
