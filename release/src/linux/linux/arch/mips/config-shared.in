@@ -217,7 +217,6 @@ if [ "$CONFIG_BCM947XX" = "y" ] ; then
    bool '    Support for Broadcom BCM5354' CONFIG_BCM5354
    bool '    Support for Broadcom BCM5365' CONFIG_BCM5365
    bool '    Support for Using DSCP based IP forwarding' CONFIG_BCMIPDSCP
-   int  '    NVRAM size (in kilobytes, 0 = default)' CONFIG_NVRAM_SIZE 0
 fi
 bool 'Support for SNI RM200 PCI' CONFIG_SNI_RM200_PCI
 bool 'Support for TANBAC TB0226 (Mbase)' CONFIG_TANBAC_TB0226
