@@ -456,6 +456,11 @@ void start_radvd(void)
 	FILE *f;
 	char *prefix;
 
+	if (getpid() != 1) {
+		start_service("radvd");
+		return;
+	}
+
 	stop_radvd();
 
 	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1")) {
@@ -500,6 +505,11 @@ void start_radvd(void)
 
 void stop_radvd(void)
 {
+	if (getpid() != 1) {
+		stop_service("radvd");
+		return;
+	}
+
 	pid_radvd = -1;
 	killall_tk("radvd");
 }
@@ -542,6 +552,11 @@ void stop_ipv6(void)
 
 void start_upnp(void)
 {
+	if (getpid() != 1) {
+		start_service("upnp");
+		return;
+	}
+
 	if (get_wan_proto() == WP_DISABLED) return;
 
 	int enable;
@@ -640,6 +655,11 @@ void start_upnp(void)
 
 void stop_upnp(void)
 {
+	if (getpid() != 1) {
+		stop_service("upnp");
+		return;
+	}
+
 	killall_tk("miniupnpd");
 }
 
@@ -696,6 +716,11 @@ void stop_hotplug2(void)
 void start_zebra(void)
 {
 #ifdef TCONFIG_ZEBRA
+	if (getpid() != 1) {
+		start_service("zebra");
+		return;
+	}
+
 	FILE *fp;
 
 	char *lan_tx = nvram_safe_get("dr_lan_tx");
@@ -754,6 +779,11 @@ void start_zebra(void)
 void stop_zebra(void)
 {
 #ifdef TCONFIG_ZEBRA
+	if (getpid() != 1) {
+		stop_service("zebra");
+		return;
+	}
+
 	killall("zebra", SIGTERM);
 	killall("ripd", SIGTERM);
 
@@ -1922,6 +1952,12 @@ TOP:
 		goto CLEAR;
 	}
 #endif
+
+	if (strcmp(service, "zebra") == 0) {
+		if (action & A_STOP) stop_zebra();
+		if (action & A_START) start_zebra();
+		goto CLEAR;
+	}
 
 	if (strcmp(service, "routing") == 0) {
 		if (action & A_STOP) {
