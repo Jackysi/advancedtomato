@@ -45,10 +45,6 @@ else
 ND = "ND"
 endif
 
-ifeq ($(NVRAM_SIZE),)
-NVRAM_SIZE = 0
-endif
-
 -include tomato_profile.mak
 
 # This could be simpler by just using $(TOMATO_PROFILE_NAME) like it used to be,
@@ -428,8 +424,6 @@ endef
 
 define KernelConfig
 	@( \
-	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
-	echo "CONFIG_NVRAM_SIZE="$(NVRAM_SIZE) >>$(1); \
 	sed -i "/CONFIG_CC_OPTIMIZE_FOR_SIZE/d" $(1); \
 	if [ "$(KERN_SIZE_OPT)" = "y" ]; then \
 		echo "CONFIG_CC_OPTIMIZE_FOR_SIZE=y" >>$(1); \
@@ -639,9 +633,6 @@ setprofile:
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
-	echo '#ifndef CONFIG_NVRAM_SIZE' >> router/shared/tomato_profile.h
-	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
-	echo '#endif' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
 
 	echo 'TOMATO_$(N) = 1' > tomato_profile.mak
@@ -656,7 +647,8 @@ setprofile:
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
 
-	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE))' >> tomato_profile.mak
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32' >> tomato_profile.mak
+
 
 # Note that changes to variables in tomato_profile.mak don't
 # get propogated to this invocation of make!
