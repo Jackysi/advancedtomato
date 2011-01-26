@@ -872,9 +872,9 @@ void start_wan_done(char *wan_ifname)
 		stop_igmp_proxy();
 		start_igmp_proxy();
 	}
-	
+
 #ifdef TCONFIG_IPV6
-	if (wanup) start_wan6_done(wan_ifname);
+	start_wan6_done(wan_ifname);
 #endif
 
 	stop_upnp();
