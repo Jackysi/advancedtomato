@@ -387,10 +387,9 @@ const char *getifaddr(char *ifname, int family)
 	}
 
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-		if (strncmp(ifa->ifa_name, ifname, IFNAMSIZ))
-			continue;
-
-		if (ifa->ifa_addr->sa_family != family)
+		if ((ifa->ifa_addr == NULL) ||
+		    (strncmp(ifa->ifa_name, ifname, IFNAMSIZ) != 0) ||
+		    (ifa->ifa_addr->sa_family != family))
 			continue;
 
 		if (ifa->ifa_addr->sa_family == AF_INET6) {
