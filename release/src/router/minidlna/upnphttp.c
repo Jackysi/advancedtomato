@@ -585,13 +585,9 @@ sendXMLdesc(struct upnphttp * h, char * (f)(int *))
 	{
 		DPRINTF(E_ERROR, L_HTTP, "Failed to generate XML description\n");
 		Send500(h);
-		free(desc);
 		return;
 	}
-	else
-	{
-		BuildResp_upnphttp(h, desc, len);
-	}
+	BuildResp_upnphttp(h, desc, len);
 	SendResp_upnphttp(h);
 	CloseSocket_upnphttp(h);
 	free(desc);
