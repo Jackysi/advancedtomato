@@ -18,6 +18,9 @@ TARGET := wl
 WLCONF_H := wlconf.h
 WLCONF_O := wlconf.o
 
+WL_PARTIAL_REBUILD := 0
+CONFIG_WL_APSTA := wlconfig_lx_shared
+
 # Generate list of supported variants
 VLIST_BASE := AP STA APSTA
 ifeq ($(CONFIG_WL_USE_AP_SDSTD),y)
