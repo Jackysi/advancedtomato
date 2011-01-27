@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.66 2011/01/01 20:17:44 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.68 2011/01/27 17:15:10 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -495,8 +495,16 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 		}
 	}
 
-	/* TODO : accept a different external port */
-	r = upnp_redirect(eport, int_ip, iport, protocol, desc);
+	/* TODO : accept a different external port 
+	 * have some smart strategy to choose the port */
+	for(;;) {
+		r = upnp_redirect(eport, int_ip, iport, protocol, desc);
+		if(r==-2 && eport < 65535) {
+			eport++;
+		} else {
+			break;
+		}
+	}
 
 	ClearNameValueList(&data);
 
@@ -630,13 +638,14 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 static void
 DeletePortMappingRange(struct upnphttp * h, const char * action)
 {
+	int r = -1;
 	static const char resp[] =
 		"<u:DeletePortMappingRangeResponse "
 		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:2\">"
 		"</u:DeletePortMappingRangeResponse>";
 	struct NameValueParserData data;
 	const char * protocol;
-	unsigned short startport, endport;
+	unsigned short startport, endport, eport;
 	int manage;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
@@ -645,13 +654,21 @@ DeletePortMappingRange(struct upnphttp * h, const char * action)
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	manage = atoi(GetValueFromNameValueList(&data, "NewManage"));
 
-	/* TODO : implement the method ! */
-
 	/* possible errors :
 	   606 - Action not authorized
 	   730 - PortMappingNotFound
 	   733 - InconsistentParameter
 	 */
+	if(startport > endport) {
+		SoapError(h, 733, "InconsistentParameter");
+		ClearNameValueList(&data);
+		return;
+	}
+
+	for(eport = startport; eport < endport; eport++) {
+		r = upnp_delete_redirection(eport, protocol);
+		/* TODO : check return value for errors */
+	}
 	BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
 
 	ClearNameValueList(&data);

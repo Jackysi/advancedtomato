@@ -1,7 +1,7 @@
-/* $Id: upnpdescgen.c,v 1.51 2009/09/06 21:26:36 nanard Exp $ */
+/* $Id: upnpdescgen.c,v 1.52 2011/01/02 09:25:50 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2009 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -75,6 +75,7 @@ static const char root_device[] =
 
 /* root Description of the UPnP Device 
  * fixed to match UPnP_IGD_InternetGatewayDevice 1.0.pdf 
+ * Needs to be checked with UPnP-gw-InternetGatewayDevice-v2-Device.pdf
  * presentationURL is only "recommended" but the router doesn't appears
  * in "Network connections" in Windows XP if it is not present. */
 static const struct XMLElt rootDesc[] =
@@ -91,6 +92,7 @@ static const struct XMLElt rootDesc[] =
 	{"/minor", "0"},
 /* 5 */
 	{"/deviceType", "urn:schemas-upnp-org:device:InternetGatewayDevice:1"},
+	/* urn:schemas-upnp-org:device:InternetGatewayDevice:2 for v2 */
 	{"/friendlyName", ROOTDEV_FRIENDLYNAME},	/* required */
 	{"/manufacturer", ROOTDEV_MANUFACTURER},		/* required */
 /* 8 */
@@ -114,6 +116,7 @@ static const struct XMLElt rootDesc[] =
 	{"device", INITHELPER(19,13)},
 /* 19 */
 	{"/deviceType", "urn:schemas-upnp-org:device:WANDevice:1"}, /* required */
+	/* urn:schemas-upnp-org:device:WANDevice:2 for v2 */
 	{"/friendlyName", WANDEV_FRIENDLYNAME},
 	{"/manufacturer", WANDEV_MANUFACTURER},
 	{"/manufacturerURL", WANDEV_MANUFACTURERURL},
@@ -141,6 +144,7 @@ static const struct XMLElt rootDesc[] =
 	{"device", INITHELPER(39,12)},
 /* 39 */
 	{"/deviceType", "urn:schemas-upnp-org:device:WANConnectionDevice:1"},
+	/* urn:schemas-upnp-org:device:WANConnectionDevice:2 for v2 */
 	{"/friendlyName", WANCDEV_FRIENDLYNAME},
 	{"/manufacturer", WANCDEV_MANUFACTURER},
 	{"/manufacturerURL", WANCDEV_MANUFACTURERURL},
@@ -156,6 +160,7 @@ static const struct XMLElt rootDesc[] =
 	{"service", INITHELPER(52,5)},
 /* 52 */
 	{"/serviceType", "urn:schemas-upnp-org:service:WANIPConnection:1"},
+	/* urn:schemas-upnp-org:service:WANIPConnection:2 for v2 */
 	/* {"/serviceId", "urn:upnp-org:serviceId:WANIPConnection"}, */
 	{"/serviceId", "urn:upnp-org:serviceId:WANIPConn1"},
 	{"/controlURL", WANIPC_CONTROLURL},
@@ -180,6 +185,10 @@ static const struct XMLElt rootDesc[] =
 	{"/eventSubURL", L3F_EVENTURL}, /* recommended, not mandatory */
 	{"/SCPDURL", L3F_PATH},
 #endif
+/* TODO : add for InternetDatewayDevice v2 :
+serviceType : urn:schemas-upnp-org:service:DeviceProtection:1
+serviceId : urn:upnp-org:serviceId:DeviceProtection1
+*/
 	{0, 0}
 };
 
@@ -286,6 +295,13 @@ static const struct action WANIPCnActions[] =
 	{"GetNATRSIPStatus", GetNATRSIPStatusArgs}, /* R */
 	{"GetGenericPortMappingEntry", GetGenericPortMappingEntryArgs}, /* R */
 	{"GetSpecificPortMappingEntry", GetSpecificPortMappingEntryArgs}, /* R */
+/* added in v2 UPnP-gw-WANIPConnection-v2-Service.pdf */
+/*
+SetConnectionType
+AddAnyPortMapping
+DeletePortMappingRange
+GetListOfPortMappings
+*/
 	{0, 0}
 };
 /* R=Required, O=Optional */
@@ -324,6 +340,12 @@ static const struct stateVar WANIPCnVars[] =
 	{"PortMappingProtocol", 0, 0, 11}, /* required allowedValues: TCP/UDP */
 	{"InternalClient", 0, 0}, /* required */
 	{"PortMappingDescription", 0, 0}, /* required default: empty string */
+/* added in v2 UPnP-gw-WANIPConnection-v2-Service.pdf */
+/*
+SystemUpdateID
+A_ARG_TYPE_Manage
+A_ARG_TYPE_PortListing
+*/
 	{0, 0}
 };
 
@@ -649,7 +671,7 @@ genServiceDesc(int * len, const struct serviceDesc * s)
 #ifdef ENABLE_EVENTS
 		str = strcat_str(str, len, &tmplen, (vars[i].itype & 0x80)?"yes":"no");
 #else
-		/* for the moment allways send no. Wait for SUBSCRIBE implementation
+		/* for the moment always send no. Wait for SUBSCRIBE implementation
 		 * before setting it to yes */
 		str = strcat_str(str, len, &tmplen, "no");
 #endif
