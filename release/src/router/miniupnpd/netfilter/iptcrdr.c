@@ -1,7 +1,7 @@
-/* $Id: iptcrdr.c,v 1.33 2010/09/27 09:17:59 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.34 2011/01/27 17:49:52 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2008 Thomas Bernard
+ * (c) 2006-2011 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 #include <stdio.h>
@@ -68,24 +68,25 @@ struct rdr_desc {
 /* pointer to the chained list where descriptions are stored */
 static struct rdr_desc * rdr_desc_list = 0;
 
+/* add a description to the list of redirection descriptions */
 static void
 add_redirect_desc(unsigned short eport, int proto, const char * desc)
 {
 	struct rdr_desc * p;
 	size_t l;
-/*	if(desc)
-	{*/
-		if ((l = strlen(desc) + 1) == 1) l = 5;
-		p = malloc(sizeof(struct rdr_desc) + l);
-		if(p)
-		{
-			p->next = rdr_desc_list;
-			p->eport = eport;
-			p->proto = (short)proto;
-			if(desc) memcpy(p->str, desc, l); else memcpy(p->str, "upnp", 4);
-			rdr_desc_list = p;
-		}
-/*	}*/
+	/* set a default description if none given */
+	if(!desc)
+		desc = "miniupnpd";
+	l = strlen(desc) + 1;
+	p = malloc(sizeof(struct rdr_desc) + l);
+	if(p)
+	{
+		p->next = rdr_desc_list;
+		p->eport = eport;
+		p->proto = (short)proto;
+		memcpy(p->str, desc, l);
+		rdr_desc_list = p;
+	}
 }
 
 static void
@@ -129,7 +130,8 @@ get_redirect_desc(unsigned short eport, int proto,
 	strncpy(desc, "miniupnpd", desclen);
 }
 
-int
+#if USE_INDEX_FROM_DESC_LIST
+static int
 get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
                   char * desc, int desclen)
 {
@@ -149,6 +151,7 @@ get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
 	}
 	return -1;
 }
+#endif
 
 /* add_redirect_rule2() */
 int
@@ -262,11 +265,14 @@ get_redirect_rule_by_index(int index,
                            u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
+#if USE_INDEX_FROM_DESC_LIST
 	r = get_redirect_desc_by_index(index, eport, proto, desc, desclen);
 	if (r==0)
+	{
 		r = get_redirect_rule(ifname, *eport, *proto, iaddr, iaddrlen, iport,
 				      0, 0, packets, bytes);
-#if 0
+	}
+#else
 	int i = 0;
 	IPTC_HANDLE h;
 	const struct ipt_entry * e;
@@ -337,14 +343,53 @@ get_redirect_rule_by_index(int index,
 #else
 		iptc_free(&h);
 #endif
-#endif /*0*/
+#endif
 	return r;
 }
 
 /* delete_rule_and_commit() :
  * subfunction used in delete_redirect_and_filter_rules() */
-int
-delete_rule_and_commit(const char * table,
+static int
+delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
+                       const char * miniupnpd_chain,
+                       const char * logcaller)
+{
+	int r = 0;
+#ifdef IPTABLES_143
+	if(!iptc_delete_num_entry(miniupnpd_chain, index, h))
+#else
+	if(!iptc_delete_num_entry(miniupnpd_chain, index, &h))
+#endif
+	{
+		syslog(LOG_ERR, "%s() : iptc_delete_num_entry(): %s\n",
+	    	   logcaller, iptc_strerror(errno));
+		r = -1;
+	}
+#ifdef IPTABLES_143
+	else if(!iptc_commit(h))
+#else
+	else if(!iptc_commit(&h))
+#endif
+	{
+		syslog(LOG_ERR, "%s() : iptc_commit(): %s\n",
+	    	   logcaller, iptc_strerror(errno));
+		r = -1;
+	}
+	if(h)
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
+	return r;
+}
+
+/* doesnt work because the eport is not used in the filter chain
+ * TODO : debug this
+ */
+#if 0
+static int
+delete_rule_and_commit_by_eport_proto(const char * table,
                const char * miniupnpd_chain,
                unsigned short eport, int proto,
                const char * logcaller)
@@ -442,6 +487,7 @@ delete_rule_and_commit(const char * table,
 	}
 	return r;
 }
+#endif
 
 /* delete_redirect_and_filter_rules()
  */
@@ -449,11 +495,95 @@ int
 delete_redirect_and_filter_rules(unsigned short eport, int proto)
 {
 	int r = -1;
-	if ((r = delete_rule_and_commit("nat", miniupnpd_nat_chain, eport, proto, "delete_redirect_rule") &&
-	    delete_rule_and_commit("filter", miniupnpd_forward_chain, eport, proto, "delete_filter_rule")) == 0)
+	unsigned index = 0;
+	unsigned i = 0;
+	IPTC_HANDLE h;
+	const struct ipt_entry * e;
+	const struct ipt_entry_match *match;
+
+	h = iptc_init("nat");
+	if(!h)
+	{
+		syslog(LOG_ERR, "delete_redirect_and_filter_rules() : "
+		                "iptc_init() failed : %s",
+		       iptc_strerror(errno));
+		return -1;
+	}
+	if(!iptc_is_chain(miniupnpd_nat_chain, h))
+	{
+		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
+	}
+	else
+	{
+#ifdef IPTABLES_143
+		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
+		    e;
+			e = iptc_next_rule(e, h), i++)
+#else
+		for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
+		    e;
+			e = iptc_next_rule(e, &h), i++)
+#endif
+		{
+			if(proto==e->ip.proto)
+			{
+				match = (const struct ipt_entry_match *)&e->elems;
+				if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
+				{
+					const struct ipt_tcp * info;
+					info = (const struct ipt_tcp *)match->data;
+					if(eport != info->dpts[0])
+						continue;
+				}
+				else
+				{
+					const struct ipt_udp * info;
+					info = (const struct ipt_udp *)match->data;
+					if(eport != info->dpts[0])
+						continue;
+				}
+				index = i;
+				r = 0;
+				break;
+			}
+		}
+	}
+	if(h)
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
+	if(r == 0)
+	{
+		syslog(LOG_INFO, "Trying to delete rules at index %u", index);
+		/* Now delete both rules */
+		h = iptc_init("nat");
+		if(h)
+		{
+			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
+		}
+		if((r == 0) && (h = iptc_init("filter")))
+		{
+			r = delete_rule_and_commit(index, h, miniupnpd_forward_chain, "delete_filter_rule");
+		}
+	}
+	del_redirect_desc(eport, proto);
+	return r;
+}
+
+/* to be fixed */
+#if 0
+int
+delete_redirect_and_filter_rules_2(unsigned short eport, int proto)
+{
+	int r = -1;
+	if ((r = delete_rule_and_commit_by_eport_proto("nat", miniupnpd_nat_chain, eport, proto, "delete_redirect_rule") &&
+	    delete_rule_and_commit_by_eport_proto("filter", miniupnpd_forward_chain, eport, proto, "delete_filter_rule")) == 0)
 		del_redirect_desc(eport, proto);
 	return r;
 }
+#endif
 
 /* ==================================== */
 /* TODO : add the -m state --state NEW,ESTABLISHED,RELATED 
