@@ -76,6 +76,28 @@ adjust_tcp_sequence(u32 seq,
 	DUMP_OFFSET(this_way);
 }
 
+/* Get the offset value, for conntrack */
+s16 nf_nat_get_offset(const struct nf_conn *ct,
+		      enum ip_conntrack_dir dir,
+		      u32 seq)
+{
+	struct nf_conn_nat *nat = nfct_nat(ct);
+	struct nf_nat_seq *this_way;
+	s16 offset;
+
+	if (!nat)
+		return 0;
+
+	this_way = &nat->info.seq[dir];
+	spin_lock_bh(&nf_nat_seqofs_lock);
+	offset = after(seq, this_way->correction_pos)
+		 ? this_way->offset_after : this_way->offset_before;
+	spin_unlock_bh(&nf_nat_seqofs_lock);
+
+	return offset;
+}
+EXPORT_SYMBOL_GPL(nf_nat_get_offset);
+
 /* Frobs data inside this packet, which is linear. */
 static void mangle_contents(struct sk_buff *skb,
 			    unsigned int dataoff,
@@ -202,9 +224,6 @@ nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
 		adjust_tcp_sequence(ntohl(tcph->seq),
 				    (int)rep_len - (int)match_len,
 				    ct, ctinfo);
-		/* Tell TCP window tracking about seq change */
-		nf_conntrack_tcp_update(*pskb, ip_hdrlen(*pskb),
-					ct, CTINFO2DIR(ctinfo));
 	}
 	return 1;
 }
@@ -389,6 +408,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
 	struct tcphdr *tcph;
 	int dir;
 	__be32 newseq, newack;
+	s16 seqoff, ackoff;
 	struct nf_conn_nat *nat = nfct_nat(ct);
 	struct nf_nat_seq *this_way, *other_way;
 
@@ -402,15 +422,18 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
 
 	tcph = (void *)(*pskb)->data + ip_hdrlen(*pskb);
 	if (after(ntohl(tcph->seq), this_way->correction_pos))
-		newseq = htonl(ntohl(tcph->seq) + this_way->offset_after);
+		seqoff = this_way->offset_after;
 	else
-		newseq = htonl(ntohl(tcph->seq) + this_way->offset_before);
+		seqoff = this_way->offset_before;
 
 	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
 		  other_way->correction_pos))
-		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_after);
+		ackoff = other_way->offset_after;
 	else
-		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_before);
+		ackoff = other_way->offset_before;
+
+	newseq = htonl(ntohl(tcph->seq) + seqoff);
+	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
 
 	nf_proto_csum_replace4(&tcph->check, *pskb, tcph->seq, newseq, 0);
 	nf_proto_csum_replace4(&tcph->check, *pskb, tcph->ack_seq, newack, 0);
@@ -422,12 +445,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
 	tcph->seq = newseq;
 	tcph->ack_seq = newack;
 
-	if (!nf_nat_sack_adjust(pskb, tcph, ct, ctinfo))
-		return 0;
-
-	nf_conntrack_tcp_update(*pskb, ip_hdrlen(*pskb), ct, dir);
-
-	return 1;
+	return nf_nat_sack_adjust(pskb, tcph, ct, ctinfo);
 }
 EXPORT_SYMBOL(nf_nat_seq_adjust);
 

@@ -1370,6 +1370,11 @@ int set_hashsize(const char *val, struct kernel_param *kp)
 module_param_call(hashsize, set_hashsize, param_get_uint,
 		  &nf_conntrack_htable_size, 0600);
 
+s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+			enum ip_conntrack_dir dir,
+			u32 seq);
+EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+
 int __init nf_conntrack_init(void)
 {
 	int ret;
@@ -1421,6 +1426,9 @@ int __init nf_conntrack_init(void)
 	/* For use by REJECT target */
 	rcu_assign_pointer(ip_ct_attach, __nf_conntrack_attach);
 	rcu_assign_pointer(nf_ct_destroy, destroy_conntrack);
+
+	/* Howto get NAT offsets */
+	rcu_assign_pointer(nf_ct_nat_offset, NULL);
 
 	/* Set up fake conntrack:
 	    - to never be deleted, not in any hashes */

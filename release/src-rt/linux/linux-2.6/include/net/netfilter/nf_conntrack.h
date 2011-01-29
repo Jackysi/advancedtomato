@@ -252,11 +252,9 @@ static inline void nf_ct_refresh(struct nf_conn *ct,
 }
 
 /* These are for NAT.  Icky. */
-/* Update TCP window tracking data when NAT mangles the packet */
-extern void nf_conntrack_tcp_update(struct sk_buff *skb,
-				    unsigned int dataoff,
-				    struct nf_conn *conntrack,
-				    int dir);
+extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+			       enum ip_conntrack_dir dir,
+			       u32 seq);
 
 /* Call me when a conntrack is destroyed. */
 extern void (*nf_conntrack_destroyed)(struct nf_conn *conntrack);

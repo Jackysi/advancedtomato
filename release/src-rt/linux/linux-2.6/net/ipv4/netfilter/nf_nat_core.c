@@ -894,6 +894,9 @@ static int __init nf_nat_init(void)
 	NF_CT_ASSERT(rcu_dereference(nf_conntrack_destroyed) == NULL);
 	rcu_assign_pointer(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
 
+	NF_CT_ASSERT(rcu_dereference(nf_ct_nat_offset) == NULL);
+	rcu_assign_pointer(nf_ct_nat_offset, nf_nat_get_offset);
+
 	/* Initialize fake conntrack so that NAT will skip it */
 	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
 
@@ -917,6 +920,7 @@ static void __exit nf_nat_cleanup(void)
 {
 	nf_ct_iterate_cleanup(&clean_nat, NULL);
 	rcu_assign_pointer(nf_conntrack_destroyed, NULL);
+	rcu_assign_pointer(nf_ct_nat_offset, NULL);
 	synchronize_rcu();
 	vfree(bysource);
 	nf_ct_l3proto_put(l3proto);
