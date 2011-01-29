@@ -89,6 +89,7 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
 
 	exp->expectfn             = NULL;
 	exp->flags                = NF_CT_EXPECT_PERMANENT;
+	exp->class		  = NF_CT_EXPECT_CLASS_DEFAULT;
 	exp->helper               = NULL;
 
 	nf_conntrack_expect_related(exp);
@@ -99,6 +100,10 @@ out:
 	return NF_ACCEPT;
 }
 
+static struct nf_conntrack_expect_policy exp_policy = {
+	.max_expected	= 1,
+};
+
 static struct nf_conntrack_helper helper __read_mostly = {
 	.name			= "netbios-ns",
 	.tuple.src.l3num	= AF_INET,
@@ -107,14 +112,14 @@ static struct nf_conntrack_helper helper __read_mostly = {
 	.mask.src.l3num		= 0xFFFF,
 	.mask.src.u.udp.port	= __constant_htons(0xFFFF),
 	.mask.dst.protonum	= 0xFF,
-	.max_expected		= 1,
 	.me			= THIS_MODULE,
 	.help			= help,
+	.expect_policy		= &exp_policy,
 };
 
 static int __init nf_conntrack_netbios_ns_init(void)
 {
-	helper.timeout = timeout;
+	exp_policy.timeout = timeout;
 	return nf_conntrack_helper_register(&helper);
 }
 
