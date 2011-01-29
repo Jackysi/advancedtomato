@@ -253,7 +253,7 @@ static int skp_digits_len(struct nf_conn *ct, const char *dptr,
 }
 
 static int parse_addr(struct nf_conn *ct, const char *cp, const char **endp,
-		      union nf_conntrack_address *addr, const char *limit)
+		      union nf_inet_addr *addr, const char *limit)
 {
 	const char *end;
 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
@@ -281,7 +281,7 @@ static int parse_addr(struct nf_conn *ct, const char *cp, const char **endp,
 static int epaddr_len(struct nf_conn *ct, const char *dptr,
 		      const char *limit, int *shift)
 {
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	const char *aux = dptr;
 
 	if (!parse_addr(ct, dptr, &dptr, &addr, limit)) {
@@ -372,7 +372,7 @@ EXPORT_SYMBOL_GPL(ct_sip_get_info);
 static int set_expected_rtp(struct sk_buff **pskb,
 			    struct nf_conn *ct,
 			    enum ip_conntrack_info ctinfo,
-			    union nf_conntrack_address *addr,
+			    union nf_inet_addr *addr,
 			    __be16 port,
 			    const char *dptr)
 {
@@ -409,7 +409,7 @@ static int sip_help(struct sk_buff **pskb,
 		    enum ip_conntrack_info ctinfo)
 {
 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	unsigned int dataoff, datalen;
 	const char *dptr;
 	int ret = NF_ACCEPT;

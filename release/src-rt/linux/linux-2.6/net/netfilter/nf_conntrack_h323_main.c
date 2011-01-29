@@ -56,12 +56,12 @@ MODULE_PARM_DESC(callforward_filter, "only create call forwarding expectations "
 int (*set_h245_addr_hook) (struct sk_buff **pskb,
 			   unsigned char **data, int dataoff,
 			   H245_TransportAddress *taddr,
-			   union nf_conntrack_address *addr, __be16 port)
+			   union nf_inet_addr *addr, __be16 port)
 			   __read_mostly;
 int (*set_h225_addr_hook) (struct sk_buff **pskb,
 			   unsigned char **data, int dataoff,
 			   TransportAddress *taddr,
-			   union nf_conntrack_address *addr, __be16 port)
+			   union nf_inet_addr *addr, __be16 port)
 			   __read_mostly;
 int (*set_sig_addr_hook) (struct sk_buff **pskb,
 			  struct nf_conn *ct,
@@ -222,7 +222,7 @@ static int get_tpkt_data(struct sk_buff **pskb, unsigned int protoff,
 /****************************************************************************/
 static int get_h245_addr(struct nf_conn *ct, unsigned char *data,
 			 H245_TransportAddress *taddr,
-			 union nf_conntrack_address *addr, __be16 *port)
+			 union nf_inet_addr *addr, __be16 *port)
 {
 	unsigned char *p;
 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
@@ -265,7 +265,7 @@ static int expect_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
 	int ret = 0;
 	__be16 port;
 	__be16 rtp_port, rtcp_port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *rtp_exp;
 	struct nf_conntrack_expect *rtcp_exp;
 	typeof(nat_rtp_rtcp_hook) nat_rtp_rtcp;
@@ -338,7 +338,7 @@ static int expect_t120(struct sk_buff **pskb,
 	int dir = CTINFO2DIR(ctinfo);
 	int ret = 0;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 	typeof(nat_t120_hook) nat_t120;
 
@@ -635,7 +635,7 @@ static struct nf_conntrack_helper nf_conntrack_helper_h245 __read_mostly = {
 /****************************************************************************/
 int get_h225_addr(struct nf_conn *ct, unsigned char *data,
 		  TransportAddress *taddr,
-		  union nf_conntrack_address *addr, __be16 *port)
+		  union nf_inet_addr *addr, __be16 *port)
 {
 	unsigned char *p;
 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
@@ -674,7 +674,7 @@ static int expect_h245(struct sk_buff **pskb, struct nf_conn *ct,
 	int dir = CTINFO2DIR(ctinfo);
 	int ret = 0;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 	typeof(nat_h245_hook) nat_h245;
 
@@ -716,8 +716,8 @@ static int expect_h245(struct sk_buff **pskb, struct nf_conn *ct,
 
 /* If the calling party is on the same side of the forward-to party,
  * we don't need to track the second call */
-static int callforward_do_filter(union nf_conntrack_address *src,
-				 union nf_conntrack_address *dst,
+static int callforward_do_filter(union nf_inet_addr *src,
+				 union nf_inet_addr *dst,
 				 int family)
 {
 	struct nf_afinfo *afinfo;
@@ -784,7 +784,7 @@ static int expect_callforwarding(struct sk_buff **pskb,
 	int dir = CTINFO2DIR(ctinfo);
 	int ret = 0;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 	typeof(nat_callforwarding_hook) nat_callforwarding;
 
@@ -840,7 +840,7 @@ static int process_setup(struct sk_buff **pskb, struct nf_conn *ct,
 	int ret;
 	int i;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	typeof(set_h225_addr_hook) set_h225_addr;
 
 	DEBUGP("nf_ct_q931: Setup\n");
@@ -1219,7 +1219,7 @@ static unsigned char *get_udp_data(struct sk_buff **pskb, unsigned int protoff,
 
 /****************************************************************************/
 static struct nf_conntrack_expect *find_expect(struct nf_conn *ct,
-					       union nf_conntrack_address *addr,
+					       union nf_inet_addr *addr,
 					       __be16 port)
 {
 	struct nf_conntrack_expect *exp;
@@ -1261,7 +1261,7 @@ static int expect_q931(struct sk_buff **pskb, struct nf_conn *ct,
 	int ret = 0;
 	int i;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 	typeof(nat_q931_hook) nat_q931;
 
@@ -1331,7 +1331,7 @@ static int process_gcf(struct sk_buff **pskb, struct nf_conn *ct,
 	int dir = CTINFO2DIR(ctinfo);
 	int ret = 0;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 
 	DEBUGP("nf_ct_ras: GCF\n");
@@ -1492,7 +1492,7 @@ static int process_arq(struct sk_buff **pskb, struct nf_conn *ct,
 	struct nf_ct_h323_master *info = &nfct_help(ct)->help.ct_h323_info;
 	int dir = CTINFO2DIR(ctinfo);
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	typeof(set_h225_addr_hook) set_h225_addr;
 
 	DEBUGP("nf_ct_ras: ARQ\n");
@@ -1534,7 +1534,7 @@ static int process_acf(struct sk_buff **pskb, struct nf_conn *ct,
 	int dir = CTINFO2DIR(ctinfo);
 	int ret = 0;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 	typeof(set_sig_addr_hook) set_sig_addr;
 
@@ -1597,7 +1597,7 @@ static int process_lcf(struct sk_buff **pskb, struct nf_conn *ct,
 	int dir = CTINFO2DIR(ctinfo);
 	int ret = 0;
 	__be16 port;
-	union nf_conntrack_address addr;
+	union nf_inet_addr addr;
 	struct nf_conntrack_expect *exp;
 
 	DEBUGP("nf_ct_ras: LCF\n");
