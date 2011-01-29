@@ -1,4 +1,4 @@
-/* SIP extension for UDP NAT alteration.
+/* SIP extension for NAT alteration.
  *
  * (C) 2005 by Christian Hentschel <chentschel@arnet.com.ar>
  * based on RR's ip_nat_ftp.c and other modules.
@@ -15,6 +15,7 @@
 #include <linux/ip.h>
 #include <net/ip.h>
 #include <linux/udp.h>
+#include <linux/tcp.h>
 
 #include <net/netfilter/nf_nat.h>
 #include <net/netfilter/nf_nat_helper.h>
@@ -29,25 +30,42 @@ MODULE_DESCRIPTION("SIP NAT helper");
 MODULE_ALIAS("ip_nat_sip");
 
 
-static unsigned int mangle_packet(struct sk_buff **pskb,
+static unsigned int mangle_packet(struct sk_buff **pskb, unsigned int dataoff,
 				  const char **dptr, unsigned int *datalen,
 				  unsigned int matchoff, unsigned int matchlen,
 				  const char *buffer, unsigned int buflen)
 {
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
+	struct tcphdr *th;
+	unsigned int baseoff;
 
-	if (!nf_nat_mangle_udp_packet(pskb, ct, ctinfo, matchoff, matchlen,
-				      buffer, buflen))
-		return 0;
+	if (nf_ct_protonum(ct) == IPPROTO_TCP) {
+		th = (struct tcphdr *)((*pskb)->data + ip_hdrlen(*pskb));
+		baseoff = ip_hdrlen(*pskb) + th->doff * 4;
+		matchoff += dataoff - baseoff;
+
+		if (!__nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
+						matchoff, matchlen,
+						buffer, buflen, false))
+			return 0;
+	} else {
+		baseoff = ip_hdrlen(*pskb) + sizeof(struct udphdr);
+		matchoff += dataoff - baseoff;
+
+		if (!nf_nat_mangle_udp_packet(pskb, ct, ctinfo,
+					      matchoff, matchlen,
+					      buffer, buflen))
+			return 0;
+	}
 
 	/* Reload data pointer and adjust datalen value */
-	*dptr = (*pskb)->data + ip_hdrlen(*pskb) + sizeof(struct udphdr);
+	*dptr = (*pskb)->data + dataoff;
 	*datalen += buflen - matchlen;
 	return 1;
 }
 
-static int map_addr(struct sk_buff **pskb,
+static int map_addr(struct sk_buff **pskb, unsigned int dataoff,
 		    const char **dptr, unsigned int *datalen,
 		    unsigned int matchoff, unsigned int matchlen,
 		    union nf_inet_addr *addr, __be16 port)
@@ -77,11 +95,11 @@ static int map_addr(struct sk_buff **pskb,
 	buflen = sprintf(buffer, "%u.%u.%u.%u:%u",
 			 NIPQUAD(newaddr), ntohs(newport));
 
-	return mangle_packet(pskb, dptr, datalen, matchoff, matchlen,
+	return mangle_packet(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 			     buffer, buflen);
 }
 
-static int map_sip_addr(struct sk_buff **pskb,
+static int map_sip_addr(struct sk_buff **pskb, unsigned int dataoff,
 			const char **dptr, unsigned int *datalen,
 			enum sip_header_types type)
 {
@@ -94,16 +112,18 @@ static int map_sip_addr(struct sk_buff **pskb,
 	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen, type, NULL,
 				    &matchoff, &matchlen, &addr, &port) <= 0)
 		return 1;
-	return map_addr(pskb, dptr, datalen, matchoff, matchlen, &addr, port);
+	return map_addr(pskb, dataoff, dptr, datalen, matchoff, matchlen,
+			&addr, port);
 }
 
-static unsigned int ip_nat_sip(struct sk_buff **pskb,
+static unsigned int ip_nat_sip(struct sk_buff **pskb, unsigned int dataoff,
 			       const char **dptr, unsigned int *datalen)
 {
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-	unsigned int dataoff, matchoff, matchlen;
+	unsigned int coff, matchoff, matchlen;
+	enum sip_header_types hdr;
 	union nf_inet_addr addr;
 	__be16 port;
 	int request, in_header;
@@ -113,16 +133,21 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 		if (ct_sip_parse_request(ct, *dptr, *datalen,
 					 &matchoff, &matchlen,
 					 &addr, &port) > 0 &&
-		    !map_addr(pskb, dptr, datalen, matchoff, matchlen,
+		    !map_addr(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 			      &addr, port))
 			return NF_DROP;
 		request = 1;
 	} else
 		request = 0;
 
+	if (nf_ct_protonum(ct) == IPPROTO_TCP)
+		hdr = SIP_HDR_VIA_TCP;
+	else
+		hdr = SIP_HDR_VIA_UDP;
+
 	/* Translate topmost Via header and parameters */
 	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen,
-				    SIP_HDR_VIA, NULL, &matchoff, &matchlen,
+				    hdr, NULL, &matchoff, &matchlen,
 				    &addr, &port) > 0) {
 		unsigned int matchend, poff, plen, buflen, n;
 		char buffer[sizeof("nnn.nnn.nnn.nnn:nnnnn")];
@@ -139,7 +164,7 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 				goto next;
 		}
 
-		if (!map_addr(pskb, dptr, datalen, matchoff, matchlen,
+		if (!map_addr(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 			      &addr, port))
 			return NF_DROP;
 
@@ -154,8 +179,8 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 		    addr.ip != ct->tuplehash[!dir].tuple.dst.u3.ip) {
 			__be32 ip = ct->tuplehash[!dir].tuple.dst.u3.ip;
 			buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
-			if (!mangle_packet(pskb, dptr, datalen, poff, plen,
-					   buffer, buflen))
+			if (!mangle_packet(pskb, dataoff, dptr, datalen,
+					   poff, plen, buffer, buflen))
 				return NF_DROP;
 		}
 
@@ -168,8 +193,8 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 		    addr.ip != ct->tuplehash[!dir].tuple.src.u3.ip) {
 			__be32 ip = ct->tuplehash[!dir].tuple.src.u3.ip;
 			buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
-			if (!mangle_packet(pskb, dptr, datalen, poff, plen,
-					   buffer, buflen))
+			if (!mangle_packet(pskb, dataoff, dptr, datalen,
+					   poff, plen, buffer, buflen))
 				return NF_DROP;
 		}
 
@@ -182,29 +207,43 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 		    htons(n) != ct->tuplehash[!dir].tuple.src.u.udp.port) {
 			__be16 p = ct->tuplehash[!dir].tuple.src.u.udp.port;
 			buflen = sprintf(buffer, "%u", ntohs(p));
-			if (!mangle_packet(pskb, dptr, datalen, poff, plen,
-					   buffer, buflen))
+			if (!mangle_packet(pskb, dataoff, dptr, datalen,
+					   poff, plen, buffer, buflen))
 				return NF_DROP;
 		}
 	}
 
 next:
 	/* Translate Contact headers */
-	dataoff = 0;
+	coff = 0;
 	in_header = 0;
-	while (ct_sip_parse_header_uri(ct, *dptr, &dataoff, *datalen,
+	while (ct_sip_parse_header_uri(ct, *dptr, &coff, *datalen,
 				       SIP_HDR_CONTACT, &in_header,
 				       &matchoff, &matchlen,
 				       &addr, &port) > 0) {
-		if (!map_addr(pskb, dptr, datalen, matchoff, matchlen,
+		if (!map_addr(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 			      &addr, port))
 			return NF_DROP;
 	}
 
-	if (!map_sip_addr(pskb, dptr, datalen, SIP_HDR_FROM) ||
-	    !map_sip_addr(pskb, dptr, datalen, SIP_HDR_TO))
+	if (!map_sip_addr(pskb, dataoff, dptr, datalen, SIP_HDR_FROM) ||
+	    !map_sip_addr(pskb, dataoff, dptr, datalen, SIP_HDR_TO))
 		return NF_DROP;
+
 	return NF_ACCEPT;
+}
+
+static void ip_nat_sip_seq_adjust(struct sk_buff **pskb, s16 off)
+{
+	enum ip_conntrack_info ctinfo;
+	struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
+	const struct tcphdr *th;
+
+	if (nf_ct_protonum(ct) != IPPROTO_TCP || off == 0)
+		return;
+
+	th = (struct tcphdr *)((*pskb)->data + ip_hdrlen(*pskb));
+	nf_nat_set_seq_adjust(ct, ctinfo, th->seq, off);
 }
 
 /* Handles expected signalling connections and media streams */
@@ -235,7 +274,7 @@ static void ip_nat_sip_expected(struct nf_conn *ct,
 	}
 }
 
-static unsigned int ip_nat_sip_expect(struct sk_buff **pskb,
+static unsigned int ip_nat_sip_expect(struct sk_buff **pskb, unsigned int dataoff,
 				      const char **dptr, unsigned int *datalen,
 				      struct nf_conntrack_expect *exp,
 				      unsigned int matchoff,
@@ -283,8 +322,8 @@ static unsigned int ip_nat_sip_expect(struct sk_buff **pskb,
 	    exp->tuple.dst.u.udp.port != exp->saved_proto.udp.port) {
 		buflen = sprintf(buffer, "%u.%u.%u.%u:%u",
 				 NIPQUAD(newip), port);
-		if (!mangle_packet(pskb, dptr, datalen, matchoff, matchlen,
-				   buffer, buflen))
+		if (!mangle_packet(pskb, dataoff, dptr, datalen,
+				   matchoff, matchlen, buffer, buflen))
 			goto err;
 	}
 	return NF_ACCEPT;
@@ -294,7 +333,7 @@ err:
 	return NF_DROP;
 }
 
-static int mangle_content_len(struct sk_buff **pskb,
+static int mangle_content_len(struct sk_buff **pskb, unsigned int dataoff,
 			      const char **dptr, unsigned int *datalen)
 {
 	enum ip_conntrack_info ctinfo;
@@ -316,30 +355,31 @@ static int mangle_content_len(struct sk_buff **pskb,
 		return 0;
 
 	buflen = sprintf(buffer, "%u", c_len);
-	return mangle_packet(pskb, dptr, datalen, matchoff, matchlen,
+	return mangle_packet(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 			     buffer, buflen);
 }
 
-static unsigned mangle_sdp_packet(struct sk_buff **pskb, const char **dptr,
-				  unsigned int dataoff, unsigned int *datalen,
-				  enum sdp_header_types type,
-				  enum sdp_header_types term,
-				  char *buffer, int buflen)
+static int mangle_sdp_packet(struct sk_buff **pskb, unsigned int dataoff,
+			     const char **dptr, unsigned int *datalen,
+			     unsigned int sdpoff,
+			     enum sdp_header_types type,
+			     enum sdp_header_types term,
+			     char *buffer, int buflen)
 {
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
 	unsigned int matchlen, matchoff;
 
-	if (ct_sip_get_sdp_header(ct, *dptr, dataoff, *datalen, type, term,
+	if (ct_sip_get_sdp_header(ct, *dptr, sdpoff, *datalen, type, term,
 				  &matchoff, &matchlen) <= 0)
-		return 0;
-	return mangle_packet(pskb, dptr, datalen, matchoff, matchlen,
-			     buffer, buflen);
+		return -ENOENT;
+	return mangle_packet(pskb, dataoff, dptr, datalen, matchoff, matchlen,
+			     buffer, buflen) ? 0 : -EINVAL;
 }
 
-static unsigned int ip_nat_sdp_addr(struct sk_buff **pskb, const char **dptr,
-				    unsigned int dataoff,
-				    unsigned int *datalen,
+static unsigned int ip_nat_sdp_addr(struct sk_buff **pskb, unsigned int dataoff,
+				    const char **dptr, unsigned int *datalen,
+				    unsigned int sdpoff,
 				    enum sdp_header_types type,
 				    enum sdp_header_types term,
 				    const union nf_inet_addr *addr)
@@ -348,16 +388,15 @@ static unsigned int ip_nat_sdp_addr(struct sk_buff **pskb, const char **dptr,
 	unsigned int buflen;
 
 	buflen = sprintf(buffer, NIPQUAD_FMT, NIPQUAD(addr->ip));
-	if (!mangle_sdp_packet(pskb, dptr, dataoff, datalen, type, term,
-			       buffer, buflen))
+	if (mangle_sdp_packet(pskb, dataoff, dptr, datalen, sdpoff, type, term,
+			      buffer, buflen))
 		return 0;
 
-	return mangle_content_len(pskb, dptr, datalen);
+	return mangle_content_len(pskb, dataoff, dptr, datalen);
 }
 
-static unsigned int ip_nat_sdp_port(struct sk_buff **pskb,
-				    const char **dptr,
-				    unsigned int *datalen,
+static unsigned int ip_nat_sdp_port(struct sk_buff **pskb, unsigned int dataoff,
+				    const char **dptr, unsigned int *datalen,
 				    unsigned int matchoff,
 				    unsigned int matchlen,
 				    u_int16_t port)
@@ -366,16 +405,16 @@ static unsigned int ip_nat_sdp_port(struct sk_buff **pskb,
 	unsigned int buflen;
 
 	buflen = sprintf(buffer, "%u", port);
-	if (!mangle_packet(pskb, dptr, datalen, matchoff, matchlen,
+	if (!mangle_packet(pskb, dataoff, dptr, datalen, matchoff, matchlen,
 			   buffer, buflen))
 		return 0;
 
-	return mangle_content_len(pskb, dptr, datalen);
+	return mangle_content_len(pskb, dataoff, dptr, datalen);
 }
 
-static unsigned int ip_nat_sdp_session(struct sk_buff **pskb, const char **dptr,
-				       unsigned int dataoff,
-				       unsigned int *datalen,
+static unsigned int ip_nat_sdp_session(struct sk_buff **pskb, unsigned int dataoff,
+				       const char **dptr, unsigned int *datalen,
+				       unsigned int sdpoff,
 				       const union nf_inet_addr *addr)
 {
 	char buffer[sizeof("nnn.nnn.nnn.nnn")];
@@ -383,24 +422,35 @@ static unsigned int ip_nat_sdp_session(struct sk_buff **pskb, const char **dptr,
 
 	/* Mangle session description owner and contact addresses */
 	buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(addr->ip));
-	if (!mangle_sdp_packet(pskb, dptr, dataoff, datalen,
+	if (mangle_sdp_packet(pskb, dataoff, dptr, datalen, sdpoff,
 			       SDP_HDR_OWNER_IP4, SDP_HDR_MEDIA,
 			       buffer, buflen))
 		return 0;
 
-	if (!mangle_sdp_packet(pskb, dptr, dataoff, datalen,
-			       SDP_HDR_CONNECTION_IP4, SDP_HDR_MEDIA,
-			       buffer, buflen))
+	switch (mangle_sdp_packet(pskb, dataoff, dptr, datalen, sdpoff,
+				  SDP_HDR_CONNECTION_IP4, SDP_HDR_MEDIA,
+				  buffer, buflen)) {
+	case 0:
+	/*
+	 * RFC 2327:
+	 *
+	 * Session description
+	 *
+	 * c=* (connection information - not required if included in all media)
+	 */
+	case -ENOENT:
+		break;
+	default:
 		return 0;
+	}
 
-	return mangle_content_len(pskb, dptr, datalen);
+	return mangle_content_len(pskb, dataoff, dptr, datalen);
 }
 
 /* So, this packet has hit the connection tracking matching code.
    Mangle it, and change the expectation to match the new version. */
-static unsigned int ip_nat_sdp_media(struct sk_buff **pskb,
-				     const char **dptr,
-				     unsigned int *datalen,
+static unsigned int ip_nat_sdp_media(struct sk_buff **pskb, unsigned int dataoff,
+				     const char **dptr, unsigned int *datalen,
 				     struct nf_conntrack_expect *rtp_exp,
 				     struct nf_conntrack_expect *rtcp_exp,
 				     unsigned int mediaoff,
@@ -448,7 +498,8 @@ static unsigned int ip_nat_sdp_media(struct sk_buff **pskb,
 
 	/* Update media port. */
 	if (rtp_exp->tuple.dst.u.udp.port != rtp_exp->saved_proto.udp.port &&
-	    !ip_nat_sdp_port(pskb, dptr, datalen, mediaoff, medialen, port))
+	    !ip_nat_sdp_port(pskb, dataoff, dptr, datalen,
+			     mediaoff, medialen, port))
 		goto err2;
 
 	return NF_ACCEPT;
@@ -463,6 +514,7 @@ err1:
 static void __exit nf_nat_sip_fini(void)
 {
 	rcu_assign_pointer(nf_nat_sip_hook, NULL);
+	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, NULL);
 	rcu_assign_pointer(nf_nat_sip_expect_hook, NULL);
 	rcu_assign_pointer(nf_nat_sdp_addr_hook, NULL);
 	rcu_assign_pointer(nf_nat_sdp_port_hook, NULL);
@@ -474,12 +526,14 @@ static void __exit nf_nat_sip_fini(void)
 static int __init nf_nat_sip_init(void)
 {
 	BUG_ON(rcu_dereference(nf_nat_sip_hook));
+	BUG_ON(rcu_dereference(nf_nat_sip_seq_adjust_hook));
 	BUG_ON(rcu_dereference(nf_nat_sip_expect_hook));
 	BUG_ON(rcu_dereference(nf_nat_sdp_addr_hook));
 	BUG_ON(rcu_dereference(nf_nat_sdp_port_hook));
 	BUG_ON(rcu_dereference(nf_nat_sdp_session_hook));
 	BUG_ON(rcu_dereference(nf_nat_sdp_media_hook));
 	rcu_assign_pointer(nf_nat_sip_hook, ip_nat_sip);
+	rcu_assign_pointer(nf_nat_sip_seq_adjust_hook, ip_nat_sip_seq_adjust);
 	rcu_assign_pointer(nf_nat_sip_expect_hook, ip_nat_sip_expect);
 	rcu_assign_pointer(nf_nat_sdp_addr_hook, ip_nat_sdp_addr);
 	rcu_assign_pointer(nf_nat_sdp_port_hook, ip_nat_sdp_port);
