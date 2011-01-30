@@ -72,9 +72,7 @@ typedef u_int8_t u8;
 
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
-#ifdef TCONFIG_SAMBASRV
-//!!TB - hostname is required for Samba to work
-void set_lan_hostname(const char *wan_hostname)
+static void set_lan_hostname(const char *wan_hostname)
 {
 	const char *s;
 	FILE *f;
@@ -111,7 +109,6 @@ void set_lan_hostname(const char *wan_hostname)
 		fclose(f);
 	}
 }
-#endif
 
 void set_host_domain_name(void)
 {
@@ -119,11 +116,7 @@ void set_host_domain_name(void)
 
 	s = nvram_safe_get("wan_hostname");
 	sethostname(s, strlen(s));
-
-#ifdef TCONFIG_SAMBASRV
-	//!!TB - hostname is required for Samba to work
 	set_lan_hostname(s);
-#endif
 
 	s = nvram_get("wan_domain");
 	if ((s == NULL) || (*s == 0)) s = nvram_safe_get("wan_get_domain");
@@ -548,10 +541,7 @@ void start_lan(void)
 	config_loopback();
 	do_static_routes(1);
 
-#ifdef TCONFIG_SAMBASRV
-	//!!TB - hostname is required for Samba to work
 	set_lan_hostname(nvram_safe_get("wan_hostname"));
-#endif
 
 	if (get_wan_proto() == WP_DISABLED) {
 		char *gateway = nvram_safe_get("lan_gateway") ;
