@@ -236,6 +236,12 @@ void start_dnsmasq()
 		else if (((nv = nvram_get("lan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
 #endif
+		p = (char *)get_wanip();
+		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
+			p = "127.0.0.1";
+		fprintf(hf, "%s wan-ip\n", p);
+		if (nv && (*nv))
+			fprintf(hf, "%s %s-wan\n", p, nv);
 	}
 
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
