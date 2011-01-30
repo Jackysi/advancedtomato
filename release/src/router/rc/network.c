@@ -575,6 +575,10 @@ void stop_lan(void)
 	lan_ifname = nvram_safe_get("lan_ifname");
 	ifconfig(lan_ifname, 0, NULL, NULL);
 
+#ifdef TCONFIG_IPV6
+	stop_ipv6();
+#endif
+
 	if (strncmp(lan_ifname, "br", 2) == 0) {
 #ifdef TCONFIG_EMF
 		stop_emf(lan_ifname);

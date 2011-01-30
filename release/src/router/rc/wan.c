@@ -713,12 +713,6 @@ void start_wan6_done(char *wan_ifname)
 	case IPV6_NATIVE_DHCP:
 		eval("ip", "route", "add", "::/0", "dev", wan_ifname);
 		stop_dhcp6c();
-		stop_radvd();
-		/* note: starting radvd here is really too early because we won't have
-		 * received a prefix and so it will disable advertisements,
-		 * but the SIGHUP sent from dhcp6c-state will restart them.
-		 */
-		start_radvd();
 		start_dhcp6c();
 		break;
 	case IPV6_6IN4:
