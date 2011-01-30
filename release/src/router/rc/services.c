@@ -454,7 +454,8 @@ static pid_t pid_radvd = -1;
 void start_radvd(void)
 {
 	FILE *f;
-	char *prefix;
+	char *prefix, *ip;
+	int do_dns;
 
 	if (getpid() != 1) {
 		start_service("radvd");
@@ -478,6 +479,9 @@ void start_radvd(void)
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
 
+		ip = (char *)ipv6_router_address(NULL);
+		do_dns = (*ip) && nvram_match("dhcpd_dmdns", "1");
+
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
@@ -490,8 +494,10 @@ void start_radvd(void)
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
 			" };\n"
+			" %s%s%s\n"
 			"};\n",
-			nvram_safe_get("lan_ifname"), prefix);
+			nvram_safe_get("lan_ifname"), prefix,
+			do_dns ? "RDNSS " : "", do_dns ? ip : "", do_dns ? " { };" : "");
 		fclose(f);
 
 		// Start radvd
