@@ -172,7 +172,10 @@ extern spinlock_t bcm947xx_sbh_lock;
 
 /* Early (before mm or mtd) read-only access to NVRAM */
 /* Probe for NVRAM header */
-static void __init
+static void
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+__init
+#endif
 early_nvram_init(void)
 {
 	struct nvram_header *header;
@@ -267,7 +270,10 @@ found:
 }
 
 /* Early (before mm or mtd) read-only access to NVRAM */
-static char * __init
+static char *
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+__init
+#endif
 early_nvram_get(const char *name)
 {
 	char *var, *value, *end, *eq;
@@ -297,7 +303,10 @@ early_nvram_get(const char *name)
 	return NULL;
 }
 
-static int __init
+static int
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+__init
+#endif
 early_nvram_getall(char *buf, int count)
 {
 	char *var, *end;
@@ -898,7 +907,10 @@ dev_nvram_exit(void)
 	vfree(nvram_commit_buf);
 }
 
-static int __init
+static int
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+__init
+#endif
 dev_nvram_init(void)
 {
 	int ret = 0;
