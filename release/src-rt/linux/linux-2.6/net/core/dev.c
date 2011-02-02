@@ -1125,7 +1125,6 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct packet_type *ptype;
 
-	net_timestamp(skb);
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
@@ -1138,6 +1137,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
 			if (!skb2)
 				break;
+
+			net_timestamp(skb2);
 
 			/* skb->nh should be correctly
 			   set by sender, so that the second statement is
