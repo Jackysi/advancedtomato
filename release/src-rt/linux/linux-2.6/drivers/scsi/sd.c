@@ -987,12 +987,6 @@ static void sd_rw_intr(struct scsi_cmnd * SCpnt)
 		good_bytes = (bad_lba - start_lba)*SCpnt->device->sector_size;
 		break;
 	case RECOVERED_ERROR:
-		/* Inform the user, but make sure that it's not treated
-		 * as a hard error.
-		 */
-		scsi_print_sense("sd", SCpnt);
-		SCpnt->result = 0;
-		memset(SCpnt->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
 		good_bytes = xfer_size;
 		break;
 	case NO_SENSE:
