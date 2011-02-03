@@ -80,6 +80,13 @@ function save()
 		if (fom._service.value != '*') fom._service.value += ',firewall-restart';
 	}
 
+/* IPV6-BEGIN */
+	if (fom.dhcpd_dmdns.value != nvram.dhcpd_dmdns) {
+		nvram.dhcpd_dmdns = fom.dhcpd_dmdns.value;
+		if (fom._service.value != '*') fom._service.value += ',radvd-restart';
+	}
+/* IPV6-END */
+
 	form.submit(fom, 1);
 }
 </script>

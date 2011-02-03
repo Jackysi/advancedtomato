@@ -486,7 +486,7 @@ void start_dhcp6c(void)
 	}
 
 	argc = 1;
-	if (nvram_contains_word("log_events", "dhcp6c"))
+	if (nvram_get_int("debug_ipv6"))
 		argv[argc++] = "-D";
 	argv[argc++] = wan6face;
 	argv[argc] = NULL;

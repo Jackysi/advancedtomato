@@ -1,4 +1,4 @@
-/* $Id: testupnpdescgen.c,v 1.18 2008/07/10 09:18:34 nanard Exp $ */
+/* $Id: testupnpdescgen.c,v 1.19 2011/01/02 09:25:50 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2008 Thomas Bernard 
@@ -16,6 +16,7 @@ char uuidvalue[] = "uuid:12345678-0000-0000-0000-00000000abcd";
 char serialnumber[] = "12345678";
 char modelnumber[] = "1";
 char presentationurl[] = "http://192.168.0.1:8080/";
+/*char presentationurl[] = "";*/
 
 char * use_ext_ip_addr = NULL;
 const char * ext_if_name = "eth0";
@@ -99,19 +100,23 @@ main(int argc, char * * argv)
 	int rootDescLen;
 	char * s;
 	int l;
+	printf("Root Description :\n");
 	rootDesc = genRootDesc(&rootDescLen);
 	xml_pretty_print(rootDesc, rootDescLen, stdout);
 	free(rootDesc);
 	printf("\n-------------\n");
+	printf("WANIPConnection Description :\n");
 	s = genWANIPCn(&l);
 	xml_pretty_print(s, l, stdout);
 	free(s);
 	printf("\n-------------\n");
+	printf("WANConfig Description :\n");
 	s = genWANCfg(&l);
 	xml_pretty_print(s, l, stdout);
 	free(s);
 	printf("\n-------------\n");
 #ifdef ENABLE_L3F_SERVICE
+	printf("Layer3Forwarding service :\n");
 	s = genL3F(&l);
 	xml_pretty_print(s, l, stdout);
 	free(s);

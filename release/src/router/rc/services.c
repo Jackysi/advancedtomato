@@ -236,6 +236,12 @@ void start_dnsmasq()
 		else if (((nv = nvram_get("lan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
 #endif
+		p = (char *)get_wanip();
+		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
+			p = "127.0.0.1";
+		fprintf(hf, "%s wan-ip\n", p);
+		if (nv && (*nv))
+			fprintf(hf, "%s %s-wan\n", p, nv);
 	}
 
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
@@ -454,7 +460,10 @@ static pid_t pid_radvd = -1;
 void start_radvd(void)
 {
 	FILE *f;
-	char *prefix;
+	char *prefix, *ip;
+	int do_dns;
+	char *argv[] = { "radvd", NULL, NULL, NULL };
+	int pid, argc;
 
 	if (getpid() != 1) {
 		start_service("radvd");
@@ -478,6 +487,9 @@ void start_radvd(void)
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
 
+		ip = (char *)ipv6_router_address(NULL);
+		do_dns = (*ip) && nvram_match("dhcpd_dmdns", "1");
+
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
@@ -490,12 +502,20 @@ void start_radvd(void)
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
 			" };\n"
+			" %s%s%s\n"
 			"};\n",
-			nvram_safe_get("lan_ifname"), prefix);
+			nvram_safe_get("lan_ifname"), prefix,
+			do_dns ? "RDNSS " : "", do_dns ? ip : "", do_dns ? " { };" : "");
 		fclose(f);
 
 		// Start radvd
-		eval("radvd");
+		argc = 1;
+		if (nvram_get_int("debug_ipv6")) {
+			argv[argc++] = "-d";
+			argv[argc++] = "10";
+		}
+		argv[argc] = NULL;
+		_eval(argv, NULL, 0, &pid);
 
 		if (!nvram_contains_word("debug_norestart", "radvd")) {
 			pid_radvd = -2;
@@ -533,7 +553,6 @@ void start_ipv6(void)
 			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
 			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 		}
-		start_radvd();
 		break;
 	}
 }
@@ -541,7 +560,6 @@ void start_ipv6(void)
 void stop_ipv6(void)
 {
 	stop_ipv6_sit_tunnel();
-	stop_radvd();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
 }
@@ -1670,6 +1688,14 @@ void start_services(void)
 //	start_upnp();
 	start_rstats(0);
 	start_sched();
+#ifdef TCONFIG_IPV6
+	/* note: starting radvd here might be too early in case of
+	 * DHCPv6 because we won't have received a prefix and so it
+	 * will disable advertisements, but the SIGHUP sent from
+	 * dhcp6c-state will restart them.
+	 */
+	start_radvd();
+#endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
 }
 
@@ -1678,6 +1704,9 @@ void stop_services(void)
 	clear_resolv();
 
 	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
+#ifdef TCONFIG_IPV6
+	stop_radvd();
+#endif
 	stop_sched();
 	stop_rstats();
 //	stop_upnp();
@@ -1820,10 +1849,12 @@ TOP:
 #ifdef TCONFIG_IPV6
 	if (strcmp(service, "ipv6") == 0) {
 		if (action & A_STOP) {
+			stop_radvd();
 			stop_ipv6();
 		}
 		if (action & A_START) {
 			start_ipv6();
+			start_radvd();
 		}
 		goto CLEAR;
 	}
@@ -2000,14 +2031,14 @@ TOP:
 
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
+#ifdef TCONFIG_IPV6
+			stop_radvd();
+#endif
 			stop_httpd();
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
 			stop_lan();
-#ifdef TCONFIG_IPV6
-			stop_ipv6();
-#endif
 			stop_vlan();
 		}
 		if (action & A_START) {
@@ -2017,6 +2048,9 @@ TOP:
 			start_nas();
 			start_dnsmasq();
 			start_httpd();
+#ifdef TCONFIG_IPV6
+			start_radvd();
+#endif
 			start_wl();
 		}
 		goto CLEAR;
