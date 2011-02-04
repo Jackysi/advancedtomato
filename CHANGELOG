@@ -1433,3 +1433,78 @@ Fixed: firmware upgrades via HTTPS not working.
 * Kernel 2.4-based builds only:
 
 Fixed: "multiport" match not working with port ranges.
+
+
+build 55 - TBA
+---------------------
+
+PPPoE: replaced outdated pppoecd client daemon from old Linksys GPL with
+rp-pppoe 3.10.
+
+GUI: enhancements for QoS -> Detailed page, added QoS -> Transfer Rates page.
+
+GUI: allowed multiple hostnames (space separated) per device on "Static DHCP"
+page.
+
+Fixed: made MAC address set for the LAN bridge to stick.
+
+Fixed: "EU" country code was missing from the list on "Advanced -> Wireless"
+GUI page on some routers, causing it to display "Afghanistan" instead.
+
+Fixed: display of wireless link quality for WDS connections on "Status ->
+Device List" page.
+
+Fixed: timing issue when starting OpenVPN server or client with WAN.
+
+Fixed: GUI validation for fields allowing mixed IP addresses and hostnames.
+
+Fixed: corrected some timezones (Guyana, Argentina, Puerto Rico) in the GUI.
+
+Changed some nvram defaults to more sane values.
+
+Added support for ZoneEdit DDNS updates via HTTPS.
+
+FTP server in VPN builds now includes SSL support (manual configuration
+only via "Vsftpd Custom Configuration" field in the GUI).
+
+Enabled support for scripts in Dnsmasq in all builds.
+
+Allowed pre-defined "wan-ip" hostname to be used as an alias for router
+WAN IPv4 address in iptables rules.
+
+Software updates: OpenSSL 1.0.0c, Busybox 1.18.2, CyaSSL 1.8.0, p910nd 0.94,
+MiniUPnPd 1.5 (20110127), usb_modeswitch 1.1.6 with data package 2010-12-22,
+ntfs-3g 2011.1.15.
+
+Lots of cosmetics and optimization, some code clean-up.
+
+* Kernel 2.6-based builds only:
+
+IPv6 support with GUI, including configuration options for native IPv6
+(static or via DHCPv6-PD), static 6in4 tunnel, or manual. Enabled most of
+the internal services for IPv6.
+
+Stateful IPv6 firewall, with GUI configuration page for opening ports in the
+IPv6 firewall, added ip6tables matches and targets.
+
+QoS settings apply to both IPv4 and IPv6 traffic, and classification
+settings apply to both where applicable.
+
+Fixed: random crashes and reboots during USB file transfers with some USB
+drives.
+
+Fixed: router crashes after enabling IPv6 support.
+
+Fixed: SIP conntrack module corrupting SIP message headers.
+
+Fixed: ping6 doesn't get responses from Apple OS X and iOS systems.
+
+Added support for USB led on E3000, WRT610Nv2, DIR-320, H-618B routers.
+
+Various optimizations backports and fixes from upstream 2.6 kernel.
+
+Software updates: MiniDLNA cvs 2011-01-25, SQLite 3.7.5, radvd 1.7.
+
+* Kernel 2.4-based builds only:
+
+Linux kernel 2.4.37.11.
