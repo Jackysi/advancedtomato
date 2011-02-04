@@ -72,8 +72,8 @@ static int xfrm6_beet_input(struct xfrm_state *x, struct sk_buff *skb)
 	skb_reset_network_header(skb);
 
 	old_mac = skb_mac_header(skb);
-	skb_set_mac_header(skb, -skb->mac_len);
-	memmove(skb_mac_header(skb), old_mac, skb->mac_len);
+	skb_set_mac_header(skb, -skb->new_mac_len);
+	memmove(skb_mac_header(skb), old_mac, skb->new_mac_len);
 
 	ip6h = ipv6_hdr(skb);
 	ip6h->payload_len = htons(skb->len - size);

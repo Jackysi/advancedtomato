@@ -211,7 +211,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->nfct = NULL;
 	skb->nfcache = 0;
 #endif
-	skb->__unused = 0;
+	skb->new_mac_len = 0;
 #ifdef CONFIG_BRIDGE_NETFILTER
 	skb->nf_bridge = NULL;
 #endif
@@ -449,7 +449,6 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	new->nfcache		= old->nfcache;
 #endif
-	new->__unused		= old->__unused;
 }
 
 /**
@@ -492,6 +491,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
 	C(len);
 	C(data_len);
 	C(mac_len);
+	C(new_mac_len);
 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
 	n->cloned = 1;
 	n->nohdr = 0;
@@ -2189,10 +2189,11 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
 
 		__copy_skb_header(nskb, skb);
 		nskb->mac_len = skb->mac_len;
+		nskb->new_mac_len = skb->new_mac_len;
 
 		skb_reserve(nskb, headroom);
 		skb_reset_mac_header(nskb);
-		skb_set_network_header(nskb, skb->mac_len);
+		skb_set_network_header(nskb, skb->new_mac_len);
 		nskb->transport_header = (nskb->network_header +
 					  skb_network_header_len(skb));
 		skb_copy_from_linear_data(skb, skb_put(nskb, doffset),
