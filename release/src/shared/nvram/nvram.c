@@ -485,6 +485,17 @@ void _nvram_valbuf_compactify(void)
 	struct nvram_dbitem *t, *next;
 	int sz = nvram_offset;	//temp
 
+	/* 
+	 * KLUDGE!!!  To (try to) avoid a concurrency bug.
+	 * Give any reader(s) that just did an nvram_get a little bit of time
+	 * to finish using the pointer into the shared mmap'ed value buffer
+	 * before we reshuffle the buffer.
+	 * A real fix would be to pass back the actual data instead of a pointer,
+	 * but that's a lot of rework and testing.  I started that, but ran into
+	 * problems---the system wouldn't work. - RVT
+	 */
+	msleep(700);
+
 	wk_buf = nvram_commit_buf;
 	memcpy(wk_buf, nvram_buf, nvram_offset);
 	/* Walk all tuples & copy & update value ptrs */
