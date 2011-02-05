@@ -394,11 +394,11 @@ static void sendping4(int junk UNUSED_PARAM)
 #if ENABLE_PING6
 static void sendping6(int junk UNUSED_PARAM)
 {
-	struct icmp6_hdr *pkt = alloca(datalen + sizeof(struct icmp6_hdr) + 4);
+	struct icmp6_hdr *pkt = G.snd_packet;
 
 	//memset(pkt, 0, datalen + sizeof(struct icmp6_hdr) + 4);
 	pkt->icmp6_type = ICMP6_ECHO_REQUEST;
-	pkt->icmp6_code = 0;
+	/*pkt->icmp6_code = 0;*/
 	/*pkt->icmp6_cksum = 0;*/
 	pkt->icmp6_seq = htons(ntransmitted); /* don't ++ here, it can be a macro */
 	pkt->icmp6_id = myid;
