@@ -117,6 +117,9 @@ ifneq ($(TCONFIG_USB),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
 endif
 
+# Only include CTF option if CTF module exists
+	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
+
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
@@ -158,6 +161,7 @@ endif
 		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
+		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		|| true; \
 	done
 
