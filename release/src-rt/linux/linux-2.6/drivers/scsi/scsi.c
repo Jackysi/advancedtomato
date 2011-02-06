@@ -172,11 +172,9 @@ scsi_pool_alloc_command(struct scsi_host_cmd_pool *pool, gfp_t gfp_mask)
 {
 	struct scsi_cmnd *cmd;
 
-	cmd = kmem_cache_alloc(pool->cmd_slab, gfp_mask | pool->gfp_mask);
+	cmd = kmem_cache_zalloc(pool->cmd_slab, gfp_mask | pool->gfp_mask);
 	if (!cmd)
 		return NULL;
-
-	memset(cmd, 0, sizeof(*cmd));
 
 	cmd->sense_buffer = kmem_cache_alloc(pool->sense_slab,
 					     gfp_mask | pool->gfp_mask);
@@ -1069,7 +1067,8 @@ EXPORT_SYMBOL(starget_for_each_device);
  * Looks up the scsi_device with the specified @lun for a give
  * @starget. The returned scsi_device does not have an additional
  * reference.  You must hold the host's host_lock over this call and
- * any access to the returned scsi_device.
+ * any access to the returned scsi_device. A scsi_device in state
+ * SDEV_DEL is skipped.
  *
  * Note:  The only reason why drivers would want to use this is because
  * they're need to access the device list in irq context.  Otherwise you
@@ -1081,6 +1080,8 @@ struct scsi_device *__scsi_device_lookup_by_target(struct scsi_target *starget,
 	struct scsi_device *sdev;
 
 	list_for_each_entry(sdev, &starget->devices, same_target_siblings) {
+		if (sdev->sdev_state == SDEV_DEL)
+			continue;
 		if (sdev->lun ==lun)
 			return sdev;
 	}
