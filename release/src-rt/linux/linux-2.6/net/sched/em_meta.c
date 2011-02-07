@@ -201,7 +201,7 @@ META_COLLECTOR(int_datalen)
 
 META_COLLECTOR(int_maclen)
 {
-	dst->value = skb->new_mac_len;
+	dst->value = skb->mac_len;
 }
 
 /**************************************************************************

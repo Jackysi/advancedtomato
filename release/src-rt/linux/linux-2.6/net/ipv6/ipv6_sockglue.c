@@ -155,7 +155,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
 
 	for (skb = segs; skb; skb = skb->next) {
 		ipv6h = ipv6_hdr(skb);
-		ipv6h->payload_len = htons(skb->len - skb->new_mac_len -
+		ipv6h->payload_len = htons(skb->len - skb->mac_len -
 					   sizeof(*ipv6h));
 	}
 
