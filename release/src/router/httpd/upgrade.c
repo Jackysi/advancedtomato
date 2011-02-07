@@ -150,10 +150,6 @@ void wo_flash(char *url)
 		printf("\n\n -- reboot -- \n\n");
 		set_action(ACT_IDLE);
 #else
-		// release dhcp lease
-		if (killall("udhcpc", SIGUSR2) == 0) sleep(2);
-		killall("udhcpc", SIGTERM);
-
 		// disconnect ppp - need this for PPTP/L2TP/PPPOE to finish gracefully
 		killall("xl2tpd", SIGTERM);
 		killall("pppd", SIGTERM);
