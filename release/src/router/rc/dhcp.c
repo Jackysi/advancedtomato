@@ -64,31 +64,41 @@ static int env2nv(char *env, char *nv)
 	return 0;
 }
 
-static void env2nv_gateway(const char *nv)
+static int env2nv_gateway(const char *nv)
 {
 	char *v, *g;
 	char *b;
+	int r;
 
+	r = 0;
 	if ((v = getenv("router")) != NULL) {
 		if ((b = strdup(v)) != NULL) {
 			if ((v = strchr(b, ' ')) != NULL) *v = 0;	// truncate multiple entries
-			nvram_set(nv, b);
+			if (!nvram_match((char *)nv, b)) {
+				nvram_set(nv, b);
+				r = 1;
+			}
 			free(b);
 		}
 	}
 	else if ((v = getenv("staticroutes")) != NULL) {
-		if ((b = strdup(v)) == NULL) return;
+		if ((b = strdup(v)) == NULL) return 0;
 		v = b;
 		while ((g = strsep(&v, " ")) != NULL) {
 			if (strcmp(g, "0.0.0.0/0") == 0) {
 				if ((g = strsep(&v, " ")) && *g) {
-					nvram_set(nv, g);
+					if (!nvram_match((char *)nv, g)) {
+						nvram_set(nv, g);
+						r = 1;
+					}
 					break;
 				}
 			}
 		}
 		free(b);
 	}
+
+	return r;
 }
 
 static const char renewing[] = "/var/lib/misc/dhcpc.renewing";
@@ -124,46 +134,30 @@ static int deconfig(char *ifname)
 	return 0;
 }
 
-static int bound(char *ifname);
+static int bound(char *ifname, int renew);
 
 static int renew(char *ifname)
 {
-	char *a, *b, *gw;
-	int changed = 0, routes_changed = 0, metric;
+	char *a;
+	int changed = 0, routes_changed = 0;
 	int wan_proto = get_wan_proto();
 
 	TRACE_PT("begin\n");
 
 	unlink(renewing);
 
-	changed = env2nv("ip", "wan_ipaddr");
-	if (changed) {
-		/* DHCP WAN IP changed, restart/reconfigure everything */
+	if (env2nv("ip", "wan_ipaddr") ||
+	    env2nv_gateway("wan_gateway") ||
+	    (wan_proto == WP_DHCP && env2nv("subnet", "wan_netmask"))) {
+		/* WAN IP or gateway changed, restart/reconfigure everything */
 		TRACE_PT("end\n");
-		return bound(ifname);
+		return bound(ifname, 1);
 	}
 
-	if (wan_proto != WP_DHCP) {
-		gw = "wan_gateway";
-		metric = nvram_get_int("ppp_defgw") ? 2 : 0;
-	}
-	else {
-		gw = "wan_gateway_get";
-		metric = 0;
-
-		changed |= env2nv("subnet", "wan_netmask");
+	if (wan_proto == WP_DHCP) {
 		changed |= env2nv("domain", "wan_get_domain");
 		changed |= env2nv("dns", "wan_get_dns");
 	}
-	a = strdup(nvram_safe_get(gw));
-	env2nv_gateway(gw);
-	b = nvram_safe_get(gw);
-	if ((a) && (strcmp(a, b) != 0)) {
-		route_del(ifname, metric, "0.0.0.0", a, "0.0.0.0");
-		route_add(ifname, metric, "0.0.0.0", b, "0.0.0.0");
-		changed = 1;
-	}
-	free(a);
 
 	nvram_set("wan_routes1_save", nvram_safe_get("wan_routes1"));
 	nvram_set("wan_routes2_save", nvram_safe_get("wan_routes2"));
@@ -199,7 +193,7 @@ static int renew(char *ifname)
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", nvram_safe_get("wan_netmask"));
-	TRACE_PT("%s=%s\n", gw, nvram_safe_get(gw));
+	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
@@ -209,26 +203,27 @@ static int renew(char *ifname)
 	return 0;
 }
 
-static int bound(char *ifname)
+static int bound(char *ifname, int renew)
 {
 	TRACE_PT("begin\n");
 
 	unlink(renewing);
 
-	char *netmask;
+	char *netmask, *dns;
 	int wan_proto = get_wan_proto();
 
+	dns = nvram_safe_get("wan_get_dns");
 	nvram_set("wan_routes1", "");
 	nvram_set("wan_routes2", "");
 	env2nv("ip", "wan_ipaddr");
-	env2nv_gateway("wan_gateway_get");
+	env2nv_gateway("wan_gateway");
 	env2nv("dns", "wan_get_dns");
 	env2nv("domain", "wan_get_domain");
 	env2nv("lease", "wan_lease");
 	netmask = getenv("subnet") ? : "255.255.255.255";
 	if (wan_proto == WP_DHCP) {
 		nvram_set("wan_netmask", netmask);
-		nvram_set("wan_gateway", nvram_safe_get("wan_gateway_get"));
+		nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 	}
 
 	/* RFC3442: If the DHCP server returns both a Classless Static Routes option
@@ -249,7 +244,7 @@ static int bound(char *ifname)
 
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", netmask);
-	TRACE_PT("wan_gateway_get=%s\n", nvram_safe_get("wan_gateway_get"));
+	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
 	TRACE_PT("wan_get_domain=%s\n", nvram_safe_get("wan_get_domain"));
 	TRACE_PT("wan_get_dns=%s\n", nvram_safe_get("wan_get_dns"));
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
@@ -259,21 +254,16 @@ static int bound(char *ifname)
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
 	if (wan_proto != WP_DHCP) {
-		char *gw = nvram_safe_get("wan_gateway_get");
+		char *gw = nvram_safe_get("wan_gateway");
 
 		preset_wan(ifname, gw, netmask);
 
-		/* Backup the default gateway. It should be used if PPP connection is broken */
-		nvram_set("wan_gateway", gw);
-
 		/* clear dns from the resolv.conf */
-		nvram_set("wan_get_dns", "");
+		nvram_set("wan_get_dns", renew ? dns : "");
 
 		switch (wan_proto) {
 		case WP_PPTP:
 			start_pptp(BOOT);
-			// we don't need dhcp anymore ?
-			// xstart("service", "dhcpc", "stop");
 			break;
 		case WP_L2TP:
 			start_l2tp();
@@ -298,7 +288,7 @@ int dhcpc_event_main(int argc, char **argv)
 		TRACE_PT("event=%s\n", argv[1]);
 
 		if (strcmp(argv[1], "deconfig") == 0) return deconfig(ifname);
-		if (strcmp(argv[1], "bound") == 0) return bound(ifname);
+		if (strcmp(argv[1], "bound") == 0) return bound(ifname, 0);
 		if ((strcmp(argv[1], "renew") == 0) || (strcmp(argv[1], "update") == 0)) return renew(ifname);
 	}
 
@@ -315,8 +305,10 @@ int dhcpc_release_main(int argc, char **argv)
 
 	if (!using_dhcpc()) return 1;
 
-	deconfig(nvram_safe_get("wan_ifname"));
-	killall("udhcpc", SIGUSR2);
+	if (killall("udhcpc", SIGUSR2) == 0) {
+		sleep(2);
+	}
+
 	unlink(renewing);
 	unlink("/var/lib/misc/wan.connecting");
 
