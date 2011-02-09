@@ -415,10 +415,28 @@ void stop_dhcpc(void)
 
 int dhcp6c_state_main(int argc, char **argv)
 {
+	char prefix[INET6_ADDRSTRLEN];
+	struct in6_addr addr;
+	int i, r;
+
 	TRACE_PT("begin\n");
 
 	if (!wait_action_idle(10)) return 1;
+
 	nvram_set("ipv6_rtr_addr", getifaddr(nvram_safe_get("lan_ifname"), AF_INET6));
+
+	// extract prefix from configured IPv6 address
+	if (inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &addr) > 0) {
+		r = nvram_get_int("ipv6_prefix_length") ? : 64;
+		for (r = 128 - r, i = 15; r > 0; r -= 8) {
+			if (r >= 8)
+				addr.s6_addr[i--] = 0;
+			else
+				addr.s6_addr[i--] &= (0xff << r);
+		}
+		inet_ntop(AF_INET6, &addr, prefix, sizeof(prefix));
+		nvram_set("ipv6_prefix", prefix);
+	}
 
 	if (env2nv("new_domain_name_servers", "ipv6_get_dns")) {
 		dns_to_resolv();
@@ -445,11 +463,15 @@ void start_dhcp6c(void)
 
 	// Check if turned on
 	if (get_ipv6_service() != IPV6_NATIVE_DHCP) return;
-	prefix_len = nvram_get_int("ipv6_prefix_length");
+
+	prefix_len = 64 - (nvram_get_int("ipv6_prefix_length") ? : 64);
+	if (prefix_len < 0)
+		prefix_len = 0;
 	wan6face = nvram_safe_get("wan_iface");
 
 	nvram_set("ipv6_get_dns", "");
 	nvram_set("ipv6_rtr_addr", "");
+	nvram_set("ipv6_prefix", "");
 
 	// Create dhcp6c.conf
 	if ((f = fopen("/etc/dhcp6c.conf", "w"))) {
@@ -471,9 +493,9 @@ void start_dhcp6c(void)
 			" };\n"
 			"};\n",
 			wan6face,
-			64 - prefix_len,
+			prefix_len,
 			nvram_safe_get("lan_ifname"),
-			64 - prefix_len);
+			prefix_len);
 		fclose(f);
 	}
 
