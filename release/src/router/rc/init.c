@@ -215,8 +215,6 @@ static void shutdn(int rb)
 	}
 	set_action(ACT_REBOOT);
 
-	// Release dhcp lease
-	stop_dhcpc();
 	// Disconnect pppd - need this for PPTP/L2TP to finish gracefully
 	stop_pptp();
 	stop_l2tp();

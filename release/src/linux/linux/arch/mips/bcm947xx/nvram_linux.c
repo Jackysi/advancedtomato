@@ -365,7 +365,7 @@ hdr_valid(struct nvram_header *header, int max)
 #else
 		(header->crc_ver_init & 255) ==
 		hndcrc8((char *) header + NVRAM_CRC_START_POSITION,
-		header->len - NVRAM_CRC_START_POSITION, CRC8_INIT_VALUE);
+		header->len - NVRAM_CRC_START_POSITION, CRC8_INIT_VALUE));
 #endif
 }
 
