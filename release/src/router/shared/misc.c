@@ -74,7 +74,7 @@ const char *ipv6_router_address(struct in6_addr *in6addr)
 {
 	char *p;
 	struct in6_addr addr;
-	static char addr6[INET6_ADDRSTRLEN+1];
+	static char addr6[INET6_ADDRSTRLEN];
 
 	if ((p = nvram_get("ipv6_rtr_addr")) && *p) {
 		inet_pton(AF_INET6, p, &addr);
@@ -377,7 +377,7 @@ const char *get_wanip(void)
 
 const char *getifaddr(char *ifname, int family)
 {
-	static char buf[INET6_ADDRSTRLEN+1];
+	static char buf[INET6_ADDRSTRLEN];
 	void *addr;
 	struct ifaddrs *ifap, *ifa;
 

@@ -720,10 +720,6 @@ void start_wan6_done(char *wan_ifname)
 		start_ipv6_sit_tunnel();
 		break;
 	}
-
-	// restart httpd
-	stop_httpd();
-	start_httpd();
 }
 #endif
 
@@ -736,7 +732,6 @@ void start_wan_done(char *wan_ifname)
 	int proto;
 	int n;
 	char *gw;
-	int dod;
 	struct sysinfo si;
 	int wanup;
 	int metric;
@@ -747,7 +742,6 @@ void start_wan_done(char *wan_ifname)
 	f_write("/var/lib/misc/wantime", &si.uptime, sizeof(si.uptime), 0, 0);
 	
 	proto = get_wan_proto();
-	dod = nvram_get_int("ppp_demand");
 
 #if 0
 	if (using_dhcpc()) {
@@ -870,6 +864,10 @@ void start_wan_done(char *wan_ifname)
 #ifdef TCONFIG_IPV6
 	start_wan6_done(wan_ifname);
 #endif
+
+	// restart httpd
+	stop_httpd();
+	start_httpd();
 
 	stop_upnp();
 	start_upnp();
