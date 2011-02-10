@@ -352,6 +352,14 @@ var ferror = {
 
 // -----------------------------------------------------------------------------
 
+function fixFile(name)
+{
+	var i;
+	if (((i = name.lastIndexOf('/')) > 0) || ((i = name.lastIndexOf('\\')) > 0))
+		name = name.substring(i + 1, name.length);
+	return name;
+}
+
 function _v_range(e, quiet, min, max, name)
 {
 	if ((e = E(e)) == null) return 0;
