@@ -879,6 +879,9 @@ void start_wan_done(char *wan_ifname)
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
+	// flush conntrack entries
+	f_write_string("/proc/net/conntrack_clear", "1", 0, 0);
+
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
