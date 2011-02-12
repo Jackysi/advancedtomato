@@ -89,7 +89,7 @@ createFieldTable('', [
 
 //	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'text', maxlen: 3, size: 3, value: nvram.clkfreq },
 
-	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'select', options: [[188,'188'],[200,'200'],[216,'216'],[225,'225'],[240,'240'],[250,'250'],[266,'266'],[300,'300'],[354,'354'],[400,'400'],[453,'453'],[480,'480'],[500,'500'],[532,'532']], value: nvram.clkfreq },
+	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'select', options: [[,],[188,'188'],[200,'200'],[216,'216'],[225,'225'],[240,'240'],[250,'250'],[266,'266'],[300,'300'],[354,'354'],[400,'400'],[453,'453'],[480,'480'],[500,'500'],[532,'532']], value: nvram.clkfreq },
 
 
 	null,
