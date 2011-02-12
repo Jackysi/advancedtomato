@@ -61,7 +61,7 @@ void new_qoslimit_start(void)
 		"TFAU=\"tc filter add dev imq0\"\n"
 		"TQAU=\"tc qdisc add dev imq0\"\n"
 		"modprobe imq\n"
-		"modprobe ipt_IMQ\n"
+		"modprobe xt_IMQ\n"
 		"ip link set imq0 up\n"
 		"tc qdisc del dev imq0 root\n"
 		"tc qdisc add dev imq0 root handle 1: htb\n"
