@@ -163,12 +163,14 @@ void start_usb(void)
 
 void stop_usb(void)
 {
+	int disabled = !nvram_get_int("usb_enable");
+
 	// only find and kill the printer server we started (port 0)
 	p9100d_sig(SIGTERM);
 	modprobe_r(USBPRINTER_MOD);
 
 	// only stop storage services if disabled
-	if (!nvram_get_int("usb_enable") || !nvram_get_int("usb_storage")) {
+	if (disabled || !nvram_get_int("usb_storage")) {
 		// Unmount all partitions
 		remove_storage_main(0);
 
@@ -203,9 +205,9 @@ void stop_usb(void)
 		modprobe_r(SCSI_MOD);
 	}
 
-	if (nvram_get_int("usb_ohci") != 1) modprobe_r(USBOHCI_MOD);
-	if (nvram_get_int("usb_uhci") != 1) modprobe_r(USBUHCI_MOD);
-	if (nvram_get_int("usb_usb2") != 1) modprobe_r(USB20_MOD);
+	if (disabled || nvram_get_int("usb_ohci") != 1) modprobe_r(USBOHCI_MOD);
+	if (disabled || nvram_get_int("usb_uhci") != 1) modprobe_r(USBUHCI_MOD);
+	if (disabled || nvram_get_int("usb_usb2") != 1) modprobe_r(USB20_MOD);
 
 #ifdef LINUX26
 	modprobe_r("leds-usb");
@@ -214,7 +216,7 @@ void stop_usb(void)
 #endif
 
 	// only unload core modules if usb is disabled
-	if (!nvram_get_int("usb_enable")) {
+	if (disabled) {
 		umount("/proc/bus/usb"); // unmount usb device filesystem
 		modprobe_r(USBOHCI_MOD);
 		modprobe_r(USBUHCI_MOD);

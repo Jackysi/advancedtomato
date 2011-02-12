@@ -1,4 +1,27 @@
-$Id: CHANGES,v 1.98 2010/03/10 07:57:36 psavola Exp $
+$Id: CHANGES,v 1.109 2011/01/07 17:40:20 reubenhwk Exp $
+
+07/01/2011	make dist (for building tar.gz source packages) fixed.
+		- 07/01: AdvSourceLLAddress fixed on FreeBSD when link
+		layer token length is zero.
+
+14/12/2010	Deprecate old, pre-RFC5006 parameters.
+		Support RFC6106 by adding DNS Search List support.
+		From Pierre Ossman.
+
+14/12/2010      Integrate cleanup patches from Reuben Hawkins:
+                - 14/05: patch configure.in to allow OSX 10.6 builds
+		- 05/06: Unnecessary >255 test when using uint8_t
+                - 06/06: fix fscanf parsing on Linux 
+		- 10/12: Fix whitespaces; #includes; CLEANFILES
+		From Ben Greear:
+                - 05/11: Print errors on all exit() codepaths.
+		From Iain J. Watson:
+		- 09/12: Add '-c' flag to test configuration.
+		From Pierre Ossman (idea):
+                - 13/12: Remove automake-generated files.
+
+04/05/2010	Fix a segmentation fault on reload_config() timer list
+		corruption that only occurs with multiple interfaces.
 
 10/03/2010	Fix radvd skipping multiple interfaces when
                 UnicastOnly is on or AdvSendAdvert is off.

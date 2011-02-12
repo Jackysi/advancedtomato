@@ -55,7 +55,7 @@
  *   Restructured (and partly rewritten) by:
  *   Björn Ekwall <bj0rn@blox.se> February 1999
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -88,6 +88,27 @@
 #define USE_GOT_ENTRIES
 #define GOT_ENTRY_SIZE 8
 #define USE_SINGLE
+#endif
+
+/* NDS32 support */
+#if defined(__nds32__) || defined(__NDS32__)
+#define CONFIG_USE_GOT_ENTRIES
+#define CONFIG_GOT_ENTRY_SIZE 4
+#define CONFIG_USE_SINGLE
+
+#if defined(__NDS32_EB__)
+#define MATCH_MACHINE(x) (x == EM_NDS32)
+#define SHT_RELM    SHT_RELA
+#define Elf32_RelM  Elf32_Rela
+#define ELFCLASSM   ELFCLASS32
+#endif
+
+#if defined(__NDS32_EL__)
+#define MATCH_MACHINE(x) (x == EM_NDS32)
+#define SHT_RELM    SHT_RELA
+#define Elf32_RelM  Elf32_Rela
+#define ELFCLASSM   ELFCLASS32
+#endif
 #endif
 
 /* blackfin */
@@ -3540,7 +3561,7 @@ static void check_tainted_module(struct obj_file *f, const char *m_name)
 		else if (errno == EACCES)
 			kernel_has_tainted = 1;
 		else {
-			perror(TAINT_FILENAME);
+			bb_simple_perror_msg(TAINT_FILENAME);
 			kernel_has_tainted = 0;
 		}
 	}

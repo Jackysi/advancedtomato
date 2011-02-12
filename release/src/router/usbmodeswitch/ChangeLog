@@ -2,6 +2,16 @@
 History of USB_ModeSwitch
 =========================
 
+Version 1.1.6, 2010/12/22
+    Moved warm-boot driver binding to sh wrapper, was unreliable in 1.1.5;
+    sh wrapper overhaul, made compatible with Ubuntu's "dash" shell, tclsh
+    calls reduced further; initial device checking includes current
+    bConfigurationValue now, should work with config setting for multiple
+    devices; made tcl script conform to limitations of "jimsh", the minimal
+    tcl shell (hint from Barry Kauler); fixes for "usbserial" fallback
+    (driver binding for old systems); in the C program, changed parameter
+    "MessageDelay" (hitherto unused) to "ReleaseDelay", to be used in one
+    device configuration (delay interface release after bulk message sending)
 Version 1.1.5, 2010/11/28
     Added special control message for Kobil devices (patch from Filip Aben);
     try to get active configuration for interface class checking (there are
@@ -15,15 +25,15 @@ Version 1.1.5, 2010/11/28
     success check
 Version 1.1.4, 2010/08/17
     The package should work at boot time now (cold and warm);
-	product IDs of "0000" do exist but were not accepted, fixed (thanks to
-	Sakis Dimopoulos); response endpoint is now always detected (led to
-	possible error report when resetting all endpoints in version 1.1.3);
-	wrapper script can now work with a packed collection of config files as
+    product IDs of "0000" do exist but were not accepted, fixed (thanks to
+    Sakis Dimopoulos); response endpoint is now always detected (led to
+    possible error report when resetting all endpoints in version 1.1.3);
+    wrapper script can now work with a packed collection of config files as
     well as with the plain folder of files; use with the "install-packed"
     make target of the data package (for use on systems with resource
-	constraints); wrapper fix for the symlink feature: handling of multiple
-	interrupt ports was incomplete; wrapper does not longer use a temporary
-	file for the symlink feature (security considerations, Marco d'Itri)
+    constraints); wrapper fix for the symlink feature: handling of multiple
+    interrupt ports was incomplete; wrapper does not longer use a temporary
+    file for the symlink feature (security considerations, Marco d'Itri)
 Version 1.1.3, 2010/06/21
     Added delay option to separate multiple message transfers by millisecs;
     fixed (possibly dangerous) sloppy string handling (thanks to Christophe
@@ -35,7 +45,7 @@ Version 1.1.3, 2010/06/21
     in wrapper; changed ZTE skipping (if existing rules are found) to warning
 Version 1.1.2, 2010/04/18
     Added support for two additional bulk messages; wrapper handles special
-	ZTE case; generalized driver loading, new parameter "DriverModule" and
+    ZTE case; generalized driver loading, new parameter "DriverModule" and
     "DriverIDPath"; new wrapper facility to add symlink pointing to interrupt
     port (used in rule file from data pack >= 20100418)
 Version 1.1.1, 2010/03/17

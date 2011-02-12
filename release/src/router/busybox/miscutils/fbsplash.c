@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2008 Michele Sanges <michele.sanges@gmail.com>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Usage:
  * - use kernel option 'vga=xxx' or otherwise enable framebuffer device.
@@ -311,7 +311,7 @@ static void init(const char *cfg_filename)
 	parser_t *parser = config_open2(cfg_filename, xfopen_stdin);
 	while (config_read(parser, token, 2, 2, "#=",
 				(PARSE_NORMAL | PARSE_MIN_DIE) & ~(PARSE_TRIM | PARSE_COLLAPSE))) {
-		unsigned val = xatoi_u(token[1]);
+		unsigned val = xatoi_positive(token[1]);
 		int i = index_in_strings(param_names, token[0]);
 		if (i < 0)
 			bb_error_msg_and_die("syntax error: %s", token[0]);

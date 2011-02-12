@@ -4,11 +4,11 @@
  *
  * Copyright (C) 2001,2002 by Laurence Anderson
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
-#include "unarchive.h"
+#include "archive.h"
 #include "rpm.h"
 
 #define RPM_CHAR_TYPE           1

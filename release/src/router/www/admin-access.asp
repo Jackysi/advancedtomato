@@ -101,21 +101,10 @@ function verifyFields(focused, quiet)
 
 	if ((!v_port('_http_lanport', quiet || !ok)) || (!v_port('_https_lanport', quiet || !ok))) ok = 0;
 
+	b = b != 0;
 	a = E('_http_wanport');
-	elem.display(PR(a), b != 0);
-	if (b != 0) {
-		if (!v_port(a, quiet || !ok)) ok = 0;
-		else {
-			c = a.value;
-			a = E('_f_http_remote').value;
-			b = E('_f_http_local').value;
-			if ((a == 1 /* rem.http */ && (b == 2 || b == 3) && c == E('_https_lanport').value) ||
-			    (a == 2 /* rem.https */ && (b == 1 || b == 3) && c == E('_http_lanport').value)) {
-				ferror.set(E('_http_wanport'), 'The remote http/https port can\'t be the same as local port.', quiet || !ok);
-				ok = 0;
-			}
-		}
-	}
+	elem.display(PR(a), b);
+	if ((b) && (!v_port(a, quiet || !ok))) ok = 0;
 
 	if (!v_port('_telnetd_port', quiet || !ok)) ok = 0;
 

@@ -5,7 +5,7 @@
  * Written by Marek Michalkiewicz <marekm@i17linuxb.ists.pwr.wroc.pl>,
  * Adapted for busybox David Kimdon <dwhedon@gordian.com>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /*
@@ -373,7 +373,7 @@ int start_stop_daemon_main(int argc UNUSED_PARAM, char **argv)
 
 //	IF_FEATURE_START_STOP_DAEMON_FANCY(
 //		if (retry_arg)
-//			retries = xatoi_u(retry_arg);
+//			retries = xatoi_positive(retry_arg);
 //	)
 	//argc -= optind;
 	argv += optind;

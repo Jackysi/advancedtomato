@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2008 by Vladimir Dronnikov <dronnikov@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 #include "mail.h"
@@ -225,7 +225,7 @@ static int parse(const char *boundary, char **argv)
 	// prepare unique string pattern
 	uniq = xasprintf("%%llu.%u.%s", (unsigned)getpid(), safe_gethostname());
 
-//bb_info_msg("PARSE[%s]", terminator);
+//bb_info_msg("PARSE[%s]", uniq);
 
 	while ((line = xmalloc_fgets_str(stdin, "\r\n\r\n")) != NULL) {
 
@@ -306,7 +306,7 @@ static int parse(const char *boundary, char **argv)
 
 			// dump to fp
 			if (0 == strcasecmp(encoding, "base64")) {
-				decode_base64(stdin, fp);
+				read_base64(stdin, fp, '-');
 			} else if (0 != strcasecmp(encoding, "7bit")
 				&& 0 != strcasecmp(encoding, "8bit")
 			) {

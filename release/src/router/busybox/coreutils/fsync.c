@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 Nokia Corporation. All rights reserved.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 #ifndef O_NOATIME
@@ -27,7 +27,7 @@ int fsync_main(int argc UNUSED_PARAM, char **argv)
 
 	status = EXIT_SUCCESS;
 	do {
-		int fd = open3_or_warn(*argv, O_NOATIME | O_NOCTTY | O_RDONLY, 0);
+		int fd = open_or_warn(*argv, O_NOATIME | O_NOCTTY | O_RDONLY);
 
 		if (fd == -1) {
 			status = EXIT_FAILURE;

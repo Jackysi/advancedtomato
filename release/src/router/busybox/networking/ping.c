@@ -11,7 +11,7 @@
  * This code is derived from software contributed to Berkeley by
  * Mike Muuss.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 /* from ping6.c:
  * Copyright (C) 1999 by Randolph Chung <tausq@debian.org>
@@ -297,11 +297,11 @@ void BUG_ping_globals_too_big(void);
 } while (0)
 
 
-#define	A(bit)		rcvd_tbl[(bit)>>3]	/* identify byte in array */
-#define	B(bit)		(1 << ((bit) & 0x07))	/* identify bit in byte */
-#define	SET(bit)	(A(bit) |= B(bit))
-#define	CLR(bit)	(A(bit) &= (~B(bit)))
-#define	TST(bit)	(A(bit) & B(bit))
+#define A(bit)		rcvd_tbl[(bit)>>3]	/* identify byte in array */
+#define B(bit)		(1 << ((bit) & 0x07))	/* identify bit in byte */
+#define SET(bit)	(A(bit) |= B(bit))
+#define CLR(bit)	(A(bit) &= (~B(bit)))
+#define TST(bit)	(A(bit) & B(bit))
 
 /**************************************************************************/
 
@@ -394,7 +394,7 @@ static void sendping4(int junk UNUSED_PARAM)
 #if ENABLE_PING6
 static void sendping6(int junk UNUSED_PARAM)
 {
-	struct icmp6_hdr *pkt = alloca(datalen + sizeof(struct icmp6_hdr) + 4);
+	struct icmp6_hdr *pkt = G.snd_packet;
 
 	//memset(pkt, 0, datalen + sizeof(struct icmp6_hdr) + 4);
 	pkt->icmp6_type = ICMP6_ECHO_REQUEST;

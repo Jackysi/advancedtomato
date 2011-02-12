@@ -344,6 +344,12 @@ intervening space) by either an integer or the keyword "infinite". */
 					h->req_client = ESonyBDP;
 					h->reqflags |= FLAG_DLNA;
 				}
+				/* X-AV-Client-Info: av=5.0; cn="Sony Corporation"; mn="BRAVIA KDL-40EX503"; mv="1.7"; */
+				else if(strstrc(p, "BRAVIA", '\r'))
+				{
+					h->req_client = ESonyBravia;
+					h->reqflags |= FLAG_DLNA;
+				}
 			}
 			else if(strncasecmp(line, "Transfer-Encoding", 17)==0)
 			{
@@ -579,13 +585,9 @@ sendXMLdesc(struct upnphttp * h, char * (f)(int *))
 	{
 		DPRINTF(E_ERROR, L_HTTP, "Failed to generate XML description\n");
 		Send500(h);
-		free(desc);
 		return;
 	}
-	else
-	{
-		BuildResp_upnphttp(h, desc, len);
-	}
+	BuildResp_upnphttp(h, desc, len);
 	SendResp_upnphttp(h);
 	CloseSocket_upnphttp(h);
 	free(desc);

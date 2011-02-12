@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2003-2004 by Erik Andersen <andersen@codepoet.org>
  *
- * Licensed under the GPL version 2, see the file LICENSE in this tarball.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -46,14 +46,14 @@ int last_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	static const char _ut_lin[] ALIGN1 =
 			"~\0" "{\0" "|\0" /* "LOGIN\0" "date\0" */;
 	enum {
-		TYPE_RUN_LVL = RUN_LVL,		/* 1 */
-		TYPE_BOOT_TIME = BOOT_TIME,	/* 2 */
+		TYPE_RUN_LVL = RUN_LVL,         /* 1 */
+		TYPE_BOOT_TIME = BOOT_TIME,     /* 2 */
 		TYPE_SHUTDOWN_TIME = SHUTDOWN_TIME
 	};
 	enum {
-		_TILDE = EMPTY,				/* 0 */
-		TYPE_NEW_TIME,	/* NEW_TIME, 3 */
-		TYPE_OLD_TIME	/* OLD_TIME, 4 */
+		_TILDE = EMPTY, /* 0 */
+		TYPE_NEW_TIME,  /* NEW_TIME, 3 */
+		TYPE_OLD_TIME   /* OLD_TIME, 4 */
 	};
 
 	if (argv[1]) {

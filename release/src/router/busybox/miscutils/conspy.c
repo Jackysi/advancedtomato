@@ -7,7 +7,7 @@
  * Based on Russell Stuart's conspy.c
  *   http://ace-host.stuart.id.au/russell/files/conspy.c
  *
- * Licensed under GPLv2 or later, see file License in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 //applet:IF_CONSPY(APPLET(conspy, _BB_DIR_BIN, _BB_SUID_DROP))
@@ -17,6 +17,7 @@
 //config:config CONSPY
 //config:	bool "conspy"
 //config:	default n
+//config:	depends on PLATFORM_LINUX
 //config:	help
 //config:	  A text-mode VNC like program for Linux virtual terminals.
 //config:	  example:  conspy NUM      shared access to console num
@@ -41,6 +42,9 @@
 
 #include "libbb.h"
 #include <sys/kd.h>
+
+
+#define ESC "\033"
 
 struct screen_info {
 	unsigned char lines, cols, cursor_x, cursor_y;
@@ -69,7 +73,7 @@ struct globals {
 	unsigned col;
 	unsigned line;
 	smallint curoff; // unknown:0 cursor on:-1 cursor off:1
-	char attrbuf[sizeof("\033[0;1;5;30;40m")];
+	char attrbuf[sizeof(ESC"[0;1;5;30;40m")];
 	// remote console
 	struct screen_info remote;
 	// saved local tty terminfo
@@ -100,7 +104,7 @@ enum {
 static void clrscr(void)
 {
 	// Home, clear till end of screen
-	fputs("\033[1;1H" "\033[J", stdout);
+	fputs(ESC"[1;1H" ESC"[J", stdout);
 	G.col = G.line = 0;
 }
 
@@ -108,7 +112,7 @@ static void set_cursor(int state)
 {
 	if (G.curoff != state) {
 		G.curoff = state;
-		fputs("\033[?25", stdout);
+		fputs(ESC"[?25", stdout);
 		bb_putchar("h?l"[1 + state]);
 	}
 }
@@ -118,7 +122,7 @@ static void gotoxy(int col, int line)
 	if (G.col != col || G.line != line) {
 		G.col = col;
 		G.line = line;
-		printf("\033[%u;%uH", line + 1, col + 1);
+		printf(ESC"[%u;%uH", line + 1, col + 1);
 	}
 }
 
@@ -131,7 +135,7 @@ static void cleanup(int code)
 	}
 	// Reset attributes
 	if (!BW)
-		fputs("\033[0m", stdout);
+		fputs(ESC"[0m", stdout);
 	bb_putchar('\n');
 	if (code > 1)
 		kill_myself_with_sig(code);
@@ -416,19 +420,19 @@ int conspy_main(int argc UNUSED_PARAM, char **argv)
 
 			if (G.remote.cursor_x < G.x) {
 				G.x = G.remote.cursor_x;
-				i = 0;	// force refresh
+				i = 0; // force refresh
 			}
 			if (nx > G.x) {
 				G.x = nx;
-				i = 0;	// force refresh
+				i = 0; // force refresh
 			}
 			if (G.remote.cursor_y < G.y) {
 				G.y = G.remote.cursor_y;
-				i = 0;	// force refresh
+				i = 0; // force refresh
 			}
 			if (ny > G.y) {
 				G.y = ny;
-				i = 0;	// force refresh
+				i = 0; // force refresh
 			}
 		}
 

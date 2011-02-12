@@ -1,11 +1,11 @@
 /*
- *   $Id: timer.c,v 1.9 2005/10/18 19:17:29 lutchann Exp $
+ *   $Id: timer.c,v 1.11 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
  *    Lars Fenneberg		<lf@elemental.net>
  *
- *   This software is Copyright 1996-2000 by the above mentioned author(s), 
+ *   This software is Copyright 1996-2000 by the above mentioned author(s),
  *   All Rights Reserved.
  *
  *   The license which is distributed with this software in the file COPYRIGHT
@@ -14,9 +14,9 @@
  *
  */
 
-#include <config.h>
-#include <includes.h>
-#include <radvd.h>
+#include "config.h"
+#include "includes.h"
+#include "radvd.h"
 
 static struct timer_lst timers_head = {
 	{LONG_MAX, LONG_MAX},
@@ -38,17 +38,17 @@ schedule_timer(void)
 	if (tm != &timers_head)
 	{
 		struct itimerval next;
-	       
+
 	        memset(&next, 0, sizeof(next));
-	       
+
 	        timersub(&tm->expires, &tv, &next.it_value);
 
 		signal(SIGALRM, alarm_handler);
 
-		if ((next.it_value.tv_sec > 0) || 
+		if ((next.it_value.tv_sec > 0) ||
 				((next.it_value.tv_sec == 0) && (next.it_value.tv_usec > 0)))
 		{
-			dlog(LOG_DEBUG, 4, "calling alarm: %ld secs, %ld usecs", 
+			dlog(LOG_DEBUG, 4, "calling alarm: %ld secs, %ld usecs",
 					next.it_value.tv_sec, next.it_value.tv_usec);
 
 			if(setitimer(ITIMER_REAL, &next,  NULL))
@@ -57,7 +57,7 @@ schedule_timer(void)
 		}
 		else
 		{
-			dlog(LOG_DEBUG, 4, "next timer has already expired, queueing signal");	
+			dlog(LOG_DEBUG, 4, "next timer has already expired, queueing signal");
 			kill(getpid(), SIGALRM);
 		}
 	}
@@ -91,7 +91,7 @@ set_timer(struct timer_lst *tm, double secs)
 	do {
 		lst = lst->next;
 	} while ((tm->expires.tv_sec > lst->expires.tv_sec) ||
-		 ((tm->expires.tv_sec == lst->expires.tv_sec) && 
+		 ((tm->expires.tv_sec == lst->expires.tv_sec) &&
 		  (tm->expires.tv_usec > lst->expires.tv_usec)));
 
 	tm->next = lst;
@@ -113,12 +113,12 @@ clear_timer(struct timer_lst *tm)
 	sigemptyset(&bmask);
 	sigaddset(&bmask, SIGALRM);
 	sigprocmask(SIG_BLOCK, &bmask, &oldmask);
-	
+
 	tm->prev->next = tm->next;
 	tm->next->prev = tm->prev;
-	
+
 	tm->prev = tm->next = NULL;
-	
+
 	dlog(LOG_DEBUG, 5, "calling schedule_timer from clear_timer context");
 	schedule_timer();
 
@@ -147,8 +147,8 @@ alarm_handler(int sig)
 	 */
 
 	/* unused timers are initialized to LONG_MAX so we skip them */
-	while (tm->expires.tv_sec != LONG_MAX && check_time_diff(tm, tv))
-	{		
+	while (tm->next && tm->prev && tm->expires.tv_sec != LONG_MAX && check_time_diff(tm, tv))
+	{
 		tm->prev->next = tm->next;
 		tm->next->prev = tm->prev;
 

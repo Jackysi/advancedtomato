@@ -6,7 +6,7 @@
  * Fix for SELinux Support:(c)2007 Hiroshi Shinji <shiroshi@my.email.ne.jp>
  *                         (c)2007 Yuichi Nakamura <ynakam@hitachisoft.jp>
  *
- * Licensed under the GPL version 2, see the file LICENSE in this tarball.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -338,24 +338,16 @@ static ps_out_t* new_out_t(void)
 static const ps_out_t* find_out_spec(const char *name)
 {
 	unsigned i;
-#if ENABLE_DESKTOP
 	char buf[ARRAY_SIZE(out_spec)*7 + 1];
 	char *p = buf;
-#endif
 
 	for (i = 0; i < ARRAY_SIZE(out_spec); i++) {
 		if (strncmp(name, out_spec[i].name6, 6) == 0)
 			return &out_spec[i];
-#if ENABLE_DESKTOP
 		p += sprintf(p, "%.6s,", out_spec[i].name6);
-#endif
 	}
-#if ENABLE_DESKTOP
 	p[-1] = '\0';
 	bb_error_msg_and_die("bad -o argument '%s', supported arguments: %s", name, buf);
-#else
-	bb_error_msg_and_die("bad -o argument '%s'");
-#endif
 }
 
 static void parse_o(char* opt)

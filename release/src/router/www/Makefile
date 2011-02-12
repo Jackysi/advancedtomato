@@ -105,6 +105,7 @@ ifneq ($(TCONFIG_IPV6),y)
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/IPV6-BEGIN/,/IPV6-END/d"
 	sed -i $(INSTALLDIR)/www/admin-debug.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-dhcpdns.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
 endif
 
 # Only include the USB and NAS pages if USB Support is configured in.
@@ -115,6 +116,9 @@ ifneq ($(TCONFIG_USB),y)
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
 endif
+
+# Only include CTF option if CTF module exists
+	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
@@ -157,6 +161,7 @@ endif
 		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
+		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		|| true; \
 	done
 

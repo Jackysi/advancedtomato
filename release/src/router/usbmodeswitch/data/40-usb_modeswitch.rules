@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20101202
+# Part of usb-modeswitch-data, version 20101222
 #
 # This file is intended for USB_ModeSwitch version >= 1.1.2
 # but will not break anything if used with versions >= 1.0.3
@@ -7,14 +7,13 @@ ACTION!="add", GOTO="modeswitch_rules_end"
 
 # This adds a symlink "gsmmodem[n]" to ttyUSB ports with interrupt transfer;
 # will work only with wrapper from 1.1.4 and above (otherwise ignored)
-KERNEL=="ttyUSB*", DRIVERS=="option1|usbserial", PROGRAM="/usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher --symlink-name %p %s{idVendor} %s{idProduct}", SYMLINK="%c"
-
+KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK="%c"
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 
 # This adds the device ID to the "option" driver after a warm boot
 # in cases when the device is yet unknown to the driver
-ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
+ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurations}=="*", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
 
 # Most known install partitions are on interface 0, one on 5, one on 9
 ATTRS{bInterfaceNumber}!="0[059]", GOTO="modeswitch_rules_end"
@@ -58,7 +57,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Quirky Option devices, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
+# Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
@@ -238,6 +237,9 @@ ATTRS{idVendor}=="0d46", ATTRS{idProduct}=="45a1", RUN+="usb_modeswitch '%b/%k'"
 # Kobil mIdentity 3G (2)
 ATTRS{idVendor}=="0d46", ATTRS{idProduct}=="45a5", RUN+="usb_modeswitch '%b/%k'"
 
+# MediaTek Wimax USB Card
+ATTRS{idVendor}=="0e8d", ATTRS{idProduct}=="7109", RUN+="usb_modeswitch '%b/%k'"
+
 # Sony Ericsson MD300
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0cf", RUN+="usb_modeswitch '%b/%k'"
 
@@ -345,6 +347,9 @@ ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5041", RUN+="usb_modeswitch '%b/%k'"
 
 # Motorola 802.11 bg WLAN (TER/GUSB3-E)
 ATTRS{idVendor}=="148f", ATTRS{idProduct}=="2578", RUN+="usb_modeswitch '%b/%k'"
+
+# C-motech CHU-628S
+ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6281", RUN+="usb_modeswitch '%b/%k'"
 
 # C-motech D-50 (aka "CDU-680"), C-motech D-50 (aka "CDU-680")
 ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6803", RUN+="usb_modeswitch '%b/%k'"

@@ -178,8 +178,8 @@ const defaults_t defaults[] = {
 	{ "wl_bcn",				"100"			},	// Beacon interval
 	{ "wl_plcphdr",			"long"			},	// 802.11b PLCP preamble type
 	{ "wl_net_mode",		"mixed"			},	// Wireless mode (mixed|g-only|b-only|disable)
-	{ "wl_gmode",			"1"				},	// 54g mode
-	{ "wl_gmode_protection","off"			},	// 802.11g RTS/CTS protection (off|auto)
+	{ "wl_gmode",			"1"			},	// 54g mode
+	{ "wl_gmode_protection","off"				},	// 802.11g RTS/CTS protection (off|auto)
 	{ "wl_afterburner",		"off"			},	// AfterBurner
 	{ "wl_frameburst",		"off"			},	// BRCM Frambursting mode (off|on)
 	{ "wl_wme",			"auto"			},	// WME mode (auto|off|on)
@@ -365,11 +365,15 @@ const defaults_t defaults[] = {
 	{ "wl_macaddr",			""				},
 
 // advanced-misc
-	{ "boot_wait",			"on"			},
+	{ "boot_wait",			"on"				},
 	{ "wait_time",			"5"				},
+	{ "clkfreq",			""				},
 	{ "wan_speed",			"4"				},	// 0=10 Mb Full, 1=10 Mb Half, 2=100 Mb Full, 3=100 Mb Half, 4=Auto
 	{ "jumbo_frame_enable",		"0"				},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		"2000"				},
+#ifdef CONFIG_BCMWL5
+	{ "ctf_disable",		"1"				},
+#endif
 
 // advanced-dhcpdns
 	{ "dhcpd_dmdns",		"1"				},
@@ -391,12 +395,12 @@ const defaults_t defaults[] = {
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
-	{ "ne_shlimit",			"0,3,60"		},
+	{ "ne_shlimit",			"0,3,60"			},
 
 // advanced-routing
 	{ "routes_static",		""				},
 	{ "dhcp_routes",		"1"				},
-	{ "wk_mode",			"gateway"		},	// Network mode [gateway|router]
+	{ "wk_mode",			"gateway"			},	// Network mode [gateway|router]
 #ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]
 	{ "dr_lan_tx",			"0"				},	// Dynamic-Routing LAN out

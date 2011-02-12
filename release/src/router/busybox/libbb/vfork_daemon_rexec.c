@@ -12,7 +12,7 @@
  *
  * Modified for uClibc by Erik Andersen <andersee@debian.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "busybox.h" /* uses applet tables */
@@ -52,6 +52,7 @@ pid_t FAST_FUNC spawn(char **argv)
 	 * Interested party can wait on pid and learn exit code.
 	 * If 111 - then it (most probably) failed to exec */
 	if (failed) {
+		safe_waitpid(pid, NULL, 0); /* prevent zombie */
 		errno = failed;
 		return -1;
 	}

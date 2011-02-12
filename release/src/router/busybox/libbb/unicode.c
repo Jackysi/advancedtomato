@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2009 Denys Vlasenko
  *
- * Licensed under GPL version 2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 #include "unicode.h"
@@ -1005,8 +1005,11 @@ static char* FAST_FUNC unicode_conv_to_printable2(uni_stat_t *stats, const char 
 				d++;
 			}
 		}
-		if (stats)
-			stats->byte_count = stats->unicode_count = stats->unicode_width = (d - dst);
+		if (stats) {
+			stats->byte_count = (d - dst);
+			stats->unicode_count = (d - dst);
+			stats->unicode_width = (d - dst);
+		}
 		return dst;
 	}
 
@@ -1104,16 +1107,17 @@ char* FAST_FUNC unicode_conv_to_printable(uni_stat_t *stats, const char *src)
 {
 	return unicode_conv_to_printable2(stats, src, INT_MAX, 0);
 }
+char* FAST_FUNC unicode_conv_to_printable_fixedwidth(/*uni_stat_t *stats,*/ const char *src, unsigned width)
+{
+	return unicode_conv_to_printable2(/*stats:*/ NULL, src, width, UNI_FLAG_PAD);
+}
+
+#ifdef UNUSED
 char* FAST_FUNC unicode_conv_to_printable_maxwidth(uni_stat_t *stats, const char *src, unsigned maxwidth)
 {
 	return unicode_conv_to_printable2(stats, src, maxwidth, 0);
 }
-char* FAST_FUNC unicode_conv_to_printable_fixedwidth(uni_stat_t *stats, const char *src, unsigned width)
-{
-	return unicode_conv_to_printable2(stats, src, width, UNI_FLAG_PAD);
-}
 
-#ifdef UNUSED
 unsigned FAST_FUNC unicode_padding_to_width(unsigned width, const char *src)
 {
 	if (unicode_status != UNICODE_ON) {

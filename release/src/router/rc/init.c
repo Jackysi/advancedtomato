@@ -1295,7 +1295,7 @@ static void sysinit(void)
 
 #ifdef CONFIG_BCMWL5
 	// ctf must be loaded prior to any other modules
-	if (nvram_get_int("ctf_enable"))
+	if (nvram_invmatch("ctf_disable", "1"))
 		modprobe("ctf");
 #endif
 

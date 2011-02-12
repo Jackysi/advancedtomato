@@ -4,7 +4,7 @@
  *
  * Author: Ignacio Garcia Perez (iggarpe at gmail dot com)
  *
- * License: GPLv2 or later, see LICENSE file in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * There are some differences from the standard net-tools slattach:
  *
@@ -134,9 +134,9 @@ int slattach_main(int argc UNUSED_PARAM, char **argv)
 	int i, encap, opt;
 	struct termios state;
 	const char *proto = "cslip";
-	const char *extcmd;				/* Command to execute after hangup */
+	const char *extcmd;   /* Command to execute after hangup */
 	const char *baud_str;
-	int baud_code = -1;				/* Line baud rate (system code) */
+	int baud_code = -1;   /* Line baud rate (system code) */
 
 	enum {
 		OPT_p_proto  = 1 << 0,

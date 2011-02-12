@@ -364,7 +364,7 @@ static int help(struct sk_buff **pskb,
 	unsigned int matchlen, matchoff;
 	struct nf_ct_ftp_master *ct_ftp_info = &nfct_help(ct)->help.ct_ftp_info;
 	struct nf_conntrack_expect *exp;
-	union nf_conntrack_address *daddr;
+	union nf_inet_addr *daddr;
 	struct nf_conntrack_man cmd = {};
 	unsigned int i;
 	int found = 0, ends_in_nl;
@@ -485,7 +485,7 @@ static int help(struct sk_buff **pskb,
 		daddr = &cmd.u3;
 	}
 
-	nf_conntrack_expect_init(exp, cmd.l3num,
+	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, cmd.l3num,
 			  &ct->tuplehash[!dir].tuple.src.u3, daddr,
 			  IPPROTO_TCP, NULL, &cmd.u.tcp.port);
 
@@ -518,6 +518,11 @@ out_update_nl:
 
 static struct nf_conntrack_helper ftp[MAX_PORTS][2];
 static char ftp_names[MAX_PORTS][2][sizeof("ftp-65535")];
+
+static const struct nf_conntrack_expect_policy ftp_exp_policy = {
+	.max_expected	= 1,
+	.timeout	= 5 * 60,
+};
 
 /* don't make this __exit, since it's called from __init ! */
 static void nf_conntrack_ftp_fini(void)
@@ -561,8 +566,7 @@ static int __init nf_conntrack_ftp_init(void)
 			ftp[i][j].mask.src.l3num = 0xFFFF;
 			ftp[i][j].mask.src.u.tcp.port = htons(0xFFFF);
 			ftp[i][j].mask.dst.protonum = 0xFF;
-			ftp[i][j].max_expected = 1;
-			ftp[i][j].timeout = 5 * 60;	/* 5 Minutes */
+			ftp[i][j].expect_policy = &ftp_exp_policy;
 			ftp[i][j].me = THIS_MODULE;
 			ftp[i][j].help = help;
 			tmpname = &ftp_names[i][j][0];

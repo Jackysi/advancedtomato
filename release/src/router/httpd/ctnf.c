@@ -230,7 +230,7 @@ void asp_ctdump(int argc, char **argv)
 		ipv6_router_address(&rip6);
 	}
 #endif
-	
+
 	if (nvram_match("t_hidelr", "0")) rip = 0;	// hide lan -> router?
 
 /*
@@ -350,15 +350,15 @@ void asp_ctrate(int argc, char **argv)
 
 	char sa[512];
 	char sb[512];
-	
+
 	FILE *a;
 	FILE *b;
-	
+
 	long b_pos;
-	
+
 	int delay;
 	int thres;
-	
+
 	long outbytes;
 	long inbytes;
 	int n;
@@ -373,7 +373,7 @@ void asp_ctrate(int argc, char **argv)
 	mask = inet_addr(nvram_safe_get("lan_netmask"));
 	rip = inet_addr(nvram_safe_get("lan_ipaddr"));
 	lan = rip & mask;
-	
+
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 	struct in6_addr rip6;
 	struct in6_addr lan6;
@@ -386,7 +386,7 @@ void asp_ctrate(int argc, char **argv)
 		ipv6_router_address(&rip6);
 	}
 #endif
-	
+
 	if (nvram_match("t_hidelr", "0")) rip = 0;	// hide lan -> router?
 
 	web_puts("\nctrate = [");
@@ -399,7 +399,7 @@ void asp_ctrate(int argc, char **argv)
 #endif
 
 	if (argc != 2) return;
-	
+
 	delay = atoi(argv[0]);
 	thres = atoi(argv[1]) * delay;
 
@@ -408,18 +408,18 @@ void asp_ctrate(int argc, char **argv)
 
 	size_t count;
 	char *buffer;
-	
+
 	buffer=(char *)malloc(1024);
-	
+
 	while (!feof(a)) {
 		count = fread(buffer, 1, 1024, a);
 		fwrite(buffer, 1, count, b);
 	}
-	
+
 	rewind(b);
 	rewind(a);
-	
-	usleep(1000000*(int)delay);
+
+	usleep(1000000 * (int)delay);
 
 #define MAX_SEARCH  10
 
@@ -428,16 +428,16 @@ void asp_ctrate(int argc, char **argv)
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 		if (sscanf(sa, "%*s %u %*s %u %u", &a_fam, &a_proto, &a_time) != 3) continue;
 #else
-		if (sscanf(sa, "%u %u", &a_proto, &a_time) != 2) continue;
+		if (sscanf(sa, "%*s %u %u", &a_proto, &a_time) != 2) continue;
 #endif
 		if ((a_proto != 6) && (a_proto != 17)) continue;
 		if ((p = strstr(sa, "src=")) == NULL) continue;
-		
+
 		if (sscanf(p, "src=%s dst=%s sport=%s dport=%s%n %*s bytes=%u %n", a_src, a_dst, a_sport, a_dport, &len, &a_bytes_o, &x) != 5) continue;
 
 		if ((q = strstr(p+x, "bytes=")) == NULL) continue;
 		if (sscanf(q, "bytes=%u", &a_bytes_i) != 1) continue;
-		
+
 		dir_reply = 0;
 
 		switch(a_fam) {
@@ -455,7 +455,7 @@ void asp_ctrate(int argc, char **argv)
 
 				if (inet_pton(AF_INET6, a_dst, &in6) <= 0) continue;
 				inet_ntop(AF_INET6, &in6, a_dst, sizeof a_dst);
-				
+
 				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
 					continue;
 				break;
@@ -463,25 +463,25 @@ void asp_ctrate(int argc, char **argv)
 				continue;
 #endif
 		}
-		
+
 		b_pos = ftell(b);
 		n = 0;
 		while (fgets(sb, sizeof(sb), b) && ++n < MAX_SEARCH) {
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 			if (sscanf(sb, "%*s %u %*s %u %u", &b_fam, &b_proto, &b_time) != 3) continue;
-			if ((b_fam   != a_fam)) continue;
+			if ((b_fam != a_fam)) continue;
 #else
-			if (sscanf(sb, "%u %u", &b_proto, &b_time) != 2) continue;
+			if (sscanf(sb, "%*s %u %u", &b_proto, &b_time) != 2) continue;
 #endif
 			if ((b_proto != a_proto)) continue;
 			if ((q = strstr(sb, "src=")) == NULL) continue;
-			
+
 			if (strncmp(p, q, (size_t)len)) continue;
-			
+
 			// Ok, they should be the same now. Grab the byte counts.
 			if ((q = strstr(q+len, "bytes=")) == NULL) continue;
 			if (sscanf(q, "bytes=%u", &b_bytes_o) != 1) continue;
-			
+
 			if ((q = strstr(q+len, "bytes=")) == NULL) continue;
 			if (sscanf(q, "bytes=%u", &b_bytes_i) != 1) continue;
 
@@ -501,16 +501,16 @@ void asp_ctrate(int argc, char **argv)
 
 		outbytes = ((long)a_bytes_o - (long)b_bytes_o);
 		inbytes = ((long)a_bytes_i - (long)b_bytes_i);
-		
+
 		if ((outbytes < thres) && (inbytes < thres)) continue;
-		
+
 		if (dir_reply == 1 && a_fam == 2) {
 			// de-nat
 			if ((q = strstr(p+x, "src=")) == NULL) continue;
 			if (sscanf(q, "src=%s dst=%s sport=%s dport=%s", a_dst, a_src, a_dport, a_sport) != 4) continue;
 		}
 
-		if (dir_reply == 1){
+		if (dir_reply == 1) {
 			web_printf("%c[%u,'%s','%s','%s','%s',%li,%li]",
 				comma, a_proto, a_dst, a_src, a_dport, a_sport, inbytes, outbytes );
 		}
@@ -521,7 +521,7 @@ void asp_ctrate(int argc, char **argv)
 		comma = ',';
 	}
 	web_puts("];\n");
-	
+
 	fclose(a);
 	fclose(b);
 }

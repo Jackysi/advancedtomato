@@ -261,6 +261,52 @@ static char* wstrdup(const char *str)
 	return s;
 }
 
+static unsigned pmatch(const char *p, const char *s, unsigned len)
+{
+	for (;;) {
+		char c = *p++;
+		if (!c) return !len;
+		switch (c) {
+		case '*':
+			c = *p;
+			if (!c) return 1;
+			for (;;) {
+				if (!len) return 0;
+				if (*s == c) break;
+				++s;
+				--len;
+			}
+			continue;
+		case '+':
+			c = *p++;
+			if (c != *s) return 0;
+			for (;;) {
+				if (!len) return 1;
+				if (*s != c) break;
+				++s;
+				--len;
+			}
+			continue;
+			/*
+		case '?':
+			if (*p == '?') {
+				if (*s != '?') return 0;
+				++p;
+			}
+			++s; --len;
+			continue;
+			*/
+		default:
+			if (!len) return 0;
+			if (*s != c) return 0;
+			++s;
+			--len;
+			continue;
+		}
+	}
+	return 0;
+}
+
 /*** ex fmt_ptime.[ch] ***/
 
 /* NUL terminated */
@@ -342,7 +388,7 @@ static void processorstart(struct logdir *ld)
 		ld->fnsave[26] = 't'; /* <- that's why we need sv_ch! */
 		fd = xopen(ld->fnsave, O_WRONLY|O_NDELAY|O_TRUNC|O_CREAT);
 		xmove_fd(fd, 1);
-		fd = open_read("state");
+		fd = open("state", O_RDONLY|O_NDELAY);
 		if (fd == -1) {
 			if (errno != ENOENT)
 				bb_perror_msg_and_die(FATAL"can't %s processor %s", "open state for", ld->name);
@@ -626,7 +672,7 @@ static NOINLINE unsigned logdir_open(struct logdir *ld, const char *fn)
 	}
 	ld->fdlock = open("lock", O_WRONLY|O_NDELAY|O_APPEND|O_CREAT, 0600);
 	if ((ld->fdlock == -1)
-	 || (lock_exnb(ld->fdlock) == -1)
+	 || (flock(ld->fdlock, LOCK_EX | LOCK_NB) == -1)
 	) {
 		logdir_close(ld);
 		warn2("can't lock directory", (char*)fn);
@@ -688,10 +734,10 @@ static NOINLINE unsigned logdir_open(struct logdir *ld, const char *fn)
 				break;
 			}
 			case 'n':
-				ld->nmax = xatoi_u(&s[1]);
+				ld->nmax = xatoi_positive(&s[1]);
 				break;
 			case 'N':
-				ld->nmin = xatoi_u(&s[1]);
+				ld->nmin = xatoi_positive(&s[1]);
 				break;
 			case 't': {
 				static const struct suffix_mult mh_suffixes[] = {
@@ -981,7 +1027,7 @@ int svlogd_main(int argc, char **argv)
 			linemax = 256;
 	}
 	////if (opt & 8) { // -b
-	////	buflen = xatoi_u(b);
+	////	buflen = xatoi_positive(b);
 	////	if (buflen == 0) buflen = 1024;
 	////}
 	//if (opt & 0x10) timestamp++; // -t
@@ -1068,7 +1114,8 @@ int svlogd_main(int argc, char **argv)
 		/* Search for '\n' (in fact, np already holds the result) */
 		linelen = stdin_cnt;
 		if (np) {
- print_to_nl:		/* NB: starting from here lineptr may point
+ print_to_nl:
+			/* NB: starting from here lineptr may point
 			 * farther out into line[] */
 			linelen = np - lineptr + 1;
 		}

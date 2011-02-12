@@ -874,11 +874,11 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 
 	/* Jumbo Frame control refister (Page 0x40, Address 0x01) */
 	/* Added by Yen */
-	robo->ops->read_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val8, sizeof(val8));
-	val8 &= ~((1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
+	robo->ops->read_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val16, sizeof(val16));
+	val16 &= ~((1 << 0)|(1 << 1)|(1 << 2)|(1 << 3)|(1 << 4)|(1 << 8));
 	if (nvram_match("jumbo_frame_enable", "1"))
-		val8 |= ((1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
-	robo->ops->write_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val8, sizeof(val8));
+		val16 |= ((1 << 0)|(1 << 1)|(1 << 2)|(1 << 3)|(1 << 4)|(1 << 8));
+	robo->ops->write_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val16, sizeof(val16));
 
 	arl_entry[0] = mac_addr[5];
 	arl_entry[1] = mac_addr[4];

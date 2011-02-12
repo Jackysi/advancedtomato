@@ -1,6 +1,6 @@
 /* vi: set sw=4 ts=4: */
 /*
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -106,9 +106,9 @@ int mt_main(int argc UNUSED_PARAM, char **argv)
 
 	op.mt_op = opcode_value[idx];
 	if (argv[2])
-		op.mt_count = xatoi_u(argv[2]);
+		op.mt_count = xatoi_positive(argv[2]);
 	else
-		op.mt_count = 1;		/* One, not zero, right? */
+		op.mt_count = 1;  /* One, not zero, right? */
 
 	switch (opcode_value[idx]) {
 		case MTWEOF:

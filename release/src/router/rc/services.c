@@ -236,6 +236,12 @@ void start_dnsmasq()
 		else if (((nv = nvram_get("lan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
 #endif
+		p = (char *)get_wanip();
+		if ((*p == 0) || strcmp(p, "0.0.0.0") == 0)
+			p = "127.0.0.1";
+		fprintf(hf, "%s wan-ip\n", p);
+		if (nv && (*nv))
+			fprintf(hf, "%s %s-wan\n", p, nv);
 	}
 
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
@@ -402,42 +408,9 @@ void dns_to_resolv(void)
 
 void start_httpd(void)
 {
+	stop_httpd();
 	chdir("/www");
-	if (!nvram_match("http_enable", "0")) {
-		xstart("httpd"
-#ifdef TCONFIG_IPV6
-		, ipv6_enabled() ? "-6" : ""
-#endif
-		);
-	}
-	if (!nvram_match("https_enable", "0")) {
-		xstart("httpd", "-s"
-#ifdef TCONFIG_IPV6
-		, ipv6_enabled() ? "-6" : ""
-#endif
-		);
-	}
-
-#ifdef TCONFIG_IPV6
-	int p;
-
-	/* Remote management */
-	if (ipv6_enabled() &&
-	    nvram_match("wk_mode","gateway") &&
-	    nvram_match("remote_management", "1") && 
-	    (p = nvram_get_int("http_wanport"))) {
-		if ((nvram_match("https_enable", "0") || p != nvram_get_int("https_lanport")) &&
-		    (nvram_match("http_enable", "0") || p != nvram_get_int("http_lanport"))) {
-			if (nvram_match("remote_mgt_https", "1")) {
-				xstart("httpd", "-s", "-6", "-p", nvram_get("http_wanport"));
-			}
-			else {
-				xstart("httpd", "-6", "-p", nvram_get("http_wanport"));
-			}
-		}
-	}
-#endif
-
+	xstart("httpd");
 	chdir("/");
 }
 
@@ -487,7 +460,15 @@ static pid_t pid_radvd = -1;
 void start_radvd(void)
 {
 	FILE *f;
-	char *prefix;
+	char *prefix, *ip;
+	int do_dns;
+	char *argv[] = { "radvd", NULL, NULL, NULL };
+	int pid, argc;
+
+	if (getpid() != 1) {
+		start_service("radvd");
+		return;
+	}
 
 	stop_radvd();
 
@@ -506,6 +487,9 @@ void start_radvd(void)
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
 
+		ip = (char *)ipv6_router_address(NULL);
+		do_dns = (*ip) && nvram_match("dhcpd_dmdns", "1");
+
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
@@ -517,14 +501,21 @@ void start_radvd(void)
 			" {\n"
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
-			"  AdvRouterAddr off;\n"
 			" };\n"
+			" %s%s%s\n"
 			"};\n",
-			nvram_safe_get("lan_ifname"), prefix);
+			nvram_safe_get("lan_ifname"), prefix,
+			do_dns ? "RDNSS " : "", do_dns ? ip : "", do_dns ? " { };" : "");
 		fclose(f);
 
 		// Start radvd
-		eval("radvd");
+		argc = 1;
+		if (nvram_get_int("debug_ipv6")) {
+			argv[argc++] = "-d";
+			argv[argc++] = "10";
+		}
+		argv[argc] = NULL;
+		_eval(argv, NULL, 0, &pid);
 
 		if (!nvram_contains_word("debug_norestart", "radvd")) {
 			pid_radvd = -2;
@@ -534,6 +525,11 @@ void start_radvd(void)
 
 void stop_radvd(void)
 {
+	if (getpid() != 1) {
+		stop_service("radvd");
+		return;
+	}
+
 	pid_radvd = -1;
 	killall_tk("radvd");
 }
@@ -557,7 +553,6 @@ void start_ipv6(void)
 			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
 			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 		}
-		start_radvd();
 		break;
 	}
 }
@@ -565,7 +560,6 @@ void start_ipv6(void)
 void stop_ipv6(void)
 {
 	stop_ipv6_sit_tunnel();
-	stop_radvd();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
 }
@@ -576,6 +570,11 @@ void stop_ipv6(void)
 
 void start_upnp(void)
 {
+	if (getpid() != 1) {
+		start_service("upnp");
+		return;
+	}
+
 	if (get_wan_proto() == WP_DISABLED) return;
 
 	int enable;
@@ -675,6 +674,11 @@ void start_upnp(void)
 
 void stop_upnp(void)
 {
+	if (getpid() != 1) {
+		stop_service("upnp");
+		return;
+	}
+
 	killall_tk("miniupnpd");
 }
 
@@ -731,6 +735,11 @@ void stop_hotplug2(void)
 void start_zebra(void)
 {
 #ifdef TCONFIG_ZEBRA
+	if (getpid() != 1) {
+		start_service("zebra");
+		return;
+	}
+
 	FILE *fp;
 
 	char *lan_tx = nvram_safe_get("dr_lan_tx");
@@ -789,6 +798,11 @@ void start_zebra(void)
 void stop_zebra(void)
 {
 #ifdef TCONFIG_ZEBRA
+	if (getpid() != 1) {
+		stop_service("zebra");
+		return;
+	}
+
 	killall("zebra", SIGTERM);
 	killall("ripd", SIGTERM);
 
@@ -1109,6 +1123,7 @@ static void start_ftpd(void)
 		"isolate=no\n"
 		"max_clients=%d\n"
 		"max_per_ip=%d\n"
+		"max_login_fails=1\n"
 		"idle_session_timeout=%s\n"
 		"use_sendfile=no\n"
 		"anon_max_rate=%d\n"
@@ -1268,9 +1283,6 @@ static void start_samba(void)
 		" timestamp logs = no\n"
 		" syslog = 1\n"
 		" encrypt passwords = yes\n"
-#if defined(LINUX26) && defined(TCONFIG_SAMBA3)
-		" use sendfile = yes\n"
-#endif
 		" preserve case = yes\n"
 		" short preserve case = yes\n",
 		nvram_safe_get("lan_ifname"),
@@ -1321,7 +1333,7 @@ static void start_samba(void)
 	nv = nvram_safe_get("smbd_custom");
 	/* add socket options unless overriden by the user */
 	if (strstr(nv, "socket options") == NULL) {
-		fprintf(fp, " socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=16384 SO_SNDBUF=16384\n");
+		fprintf(fp, " socket options = TCP_NODELAY SO_KEEPALIVE IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536\n");
 	}
 	fprintf(fp, "%s\n\n", nv);
 
@@ -1677,6 +1689,14 @@ void start_services(void)
 //	start_upnp();
 	start_rstats(0);
 	start_sched();
+#ifdef TCONFIG_IPV6
+	/* note: starting radvd here might be too early in case of
+	 * DHCPv6 because we won't have received a prefix and so it
+	 * will disable advertisements, but the SIGHUP sent from
+	 * dhcp6c-state will restart them.
+	 */
+	start_radvd();
+#endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
 }
 
@@ -1685,6 +1705,9 @@ void stop_services(void)
 	clear_resolv();
 
 	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
+#ifdef TCONFIG_IPV6
+	stop_radvd();
+#endif
 	stop_sched();
 	stop_rstats();
 //	stop_upnp();
@@ -1846,10 +1869,12 @@ TOP:
 #ifdef TCONFIG_IPV6
 	if (strcmp(service, "ipv6") == 0) {
 		if (action & A_STOP) {
+			stop_radvd();
 			stop_ipv6();
 		}
 		if (action & A_START) {
 			start_ipv6();
+			start_radvd();
 		}
 		goto CLEAR;
 	}
@@ -1979,6 +2004,12 @@ TOP:
 	}
 #endif
 
+	if (strcmp(service, "zebra") == 0) {
+		if (action & A_STOP) stop_zebra();
+		if (action & A_START) start_zebra();
+		goto CLEAR;
+	}
+
 	if (strcmp(service, "routing") == 0) {
 		if (action & A_STOP) {
 			stop_zebra();
@@ -2020,13 +2051,14 @@ TOP:
 
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
+#ifdef TCONFIG_IPV6
+			stop_radvd();
+#endif
+			stop_httpd();
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
 			stop_lan();
-#ifdef TCONFIG_IPV6
-			stop_ipv6();
-#endif
 			stop_vlan();
 		}
 		if (action & A_START) {
@@ -2035,6 +2067,10 @@ TOP:
 			start_wan(BOOT);
 			start_nas();
 			start_dnsmasq();
+			start_httpd();
+#ifdef TCONFIG_IPV6
+			start_radvd();
+#endif
 			start_wl();
 		}
 		goto CLEAR;

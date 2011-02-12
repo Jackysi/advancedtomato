@@ -5,12 +5,12 @@
  *
  * Copyright (C) 2008 by Vladimir Dronnikov <dronnikov@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 
 // default timeout: 45 sec
-#define	DEFAULT_CHAT_TIMEOUT 45*1000
+#define DEFAULT_CHAT_TIMEOUT 45*1000
 // max length of "abort string",
 // i.e. device reply which causes termination
 #define MAX_ABORT_LEN 50
@@ -175,23 +175,24 @@ int chat_main(int argc UNUSED_PARAM, char **argv)
 				llist_add_to_end(&aborts, arg);
 #if ENABLE_FEATURE_CHAT_CLR_ABORT
 			} else if (DIR_CLR_ABORT == key) {
+				llist_t *l;
 				// remove the string from abort conditions
 				// N.B. gotta refresh maximum length too...
-#if ENABLE_FEATURE_CHAT_VAR_ABORT_LEN
+# if ENABLE_FEATURE_CHAT_VAR_ABORT_LEN
 				max_abort_len = 0;
-#endif
-				for (llist_t *l = aborts; l; l = l->link) {
-#if ENABLE_FEATURE_CHAT_VAR_ABORT_LEN
+# endif
+				for (l = aborts; l; l = l->link) {
+# if ENABLE_FEATURE_CHAT_VAR_ABORT_LEN
 					size_t len = strlen(l->data);
-#endif
-					if (!strcmp(arg, l->data)) {
+# endif
+					if (strcmp(arg, l->data) == 0) {
 						llist_unlink(&aborts, l);
 						continue;
 					}
-#if ENABLE_FEATURE_CHAT_VAR_ABORT_LEN
+# if ENABLE_FEATURE_CHAT_VAR_ABORT_LEN
 					if (len > max_abort_len)
 						max_abort_len = len;
-#endif
+# endif
 				}
 #endif
 			} else if (DIR_TIMEOUT == key) {

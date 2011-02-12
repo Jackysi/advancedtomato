@@ -10,7 +10,7 @@
  *
  * MAINTAINER: Rob Landley <rob@landley.net>
  *
- * Licensed under GPL version 2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 /* Code overview.
@@ -117,9 +117,9 @@ struct globals {
 	char *add_cmd_line;
 
 	struct pipeline {
-		char *buf;	/* Space to hold string */
-		int idx;	/* Space used */
-		int len;	/* Space allocated */
+		char *buf;  /* Space to hold string */
+		int idx;    /* Space used */
+		int len;    /* Space allocated */
 	} pipeline;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
@@ -1370,9 +1370,7 @@ int sed_main(int argc UNUSED_PARAM, char **argv)
 			}
 
 			G.outname = xasprintf("%sXXXXXX", argv[i]);
-			nonstdoutfd = mkstemp(G.outname);
-			if (-1 == nonstdoutfd)
-				bb_perror_msg_and_die("can't create temp file %s", G.outname);
+			nonstdoutfd = xmkstemp(G.outname);
 			G.nonstdout = xfdopen_for_write(nonstdoutfd);
 
 			/* Set permissions/owner of output file */

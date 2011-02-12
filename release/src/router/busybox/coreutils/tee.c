@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2003  Manuel Novoa III  <mjn3@codepoet.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* BB_AUDIT SUSv3 compliant */
@@ -42,7 +42,7 @@ int tee_main(int argc, char **argv)
 	 * that doesn't consume all its input.  Good idea... */
 	signal(SIGPIPE, SIG_IGN);
 
-	/* Allocate an array of FILE *'s, with one extra for a sentinal. */
+	/* Allocate an array of FILE *'s, with one extra for a sentinel. */
 	fp = files = xzalloc(sizeof(FILE *) * (argc + 2));
 	np = names = argv - 1;
 
@@ -70,8 +70,8 @@ int tee_main(int argc, char **argv)
 	while ((c = safe_read(STDIN_FILENO, buf, sizeof(buf))) > 0) {
 		fp = files;
 		do
-			fwrite(buf, 1, c, *fp++);
-		while (*fp);
+			fwrite(buf, 1, c, *fp);
+		while (*++fp);
 	}
 	if (c < 0) {		/* Make sure read errors are signaled. */
 		retval = EXIT_FAILURE;
@@ -81,8 +81,8 @@ int tee_main(int argc, char **argv)
 	while ((c = getchar()) != EOF) {
 		fp = files;
 		do
-			putc(c, *fp++);
-		while (*fp);
+			putc(c, *fp);
+		while (*++fp);
 	}
 #endif
 

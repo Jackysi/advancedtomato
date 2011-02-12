@@ -122,10 +122,11 @@ void wi_cgi_bin(char *url, int len, char *boundary)
 	}
 }
 
-static void _execute_command(char *url, char *command, char *query, char *output)
+static void _execute_command(char *url, char *command, char *query, wofilter_t wof)
 {
 	char webExecFile[]  = "/tmp/.wxXXXXXX";
 	char webQueryFile[] = "/tmp/.wqXXXXXX";
+	char cmd[sizeof(webExecFile) + 10];
 	FILE *f;
 	int fe, fq = -1;
 
@@ -152,7 +153,6 @@ static void _execute_command(char *url, char *command, char *query, char *output
 		fclose(f);
 	}
 	else {
-		unlink(output);
 		close(fe);
 		unlink(webExecFile);
 		if (query) {
@@ -169,7 +169,6 @@ static void _execute_command(char *url, char *command, char *query, char *output
 			fclose(f);
 		}
 		else {
-			unlink(output);
 			unlink(webExecFile);
 			close(fq);
 			unlink(webQueryFile);
@@ -177,46 +176,27 @@ static void _execute_command(char *url, char *command, char *query, char *output
 		}
 	}
 
-	char *cmd[] = { webExecFile, NULL };
-	_eval(cmd, output, 0, NULL);
+	sprintf(cmd, "%s 2>&1", webExecFile);
+	web_pipecmd(cmd, wof);
 	unlink(webQueryFile);
 	unlink(webExecFile);
 }
 
 static void wo_cgi_bin(char *url)
 {
-	char webOutpFile[] = "/tmp/.woXXXXXX";
-	int fd;
-
-	if ((fd = mkstemp(webOutpFile)) < 0)
-		exit(1);
-	close(fd);
-
-	_execute_command(url, NULL, post_buf, webOutpFile);
-
+	if (!header_sent) send_header(200, NULL, mime_html, 0);
+	_execute_command(url, NULL, post_buf, WOF_NONE);
 	if (post_buf) {
 		free(post_buf);
 		post_buf = NULL;
 	}
-	wo_asp(webOutpFile);
-	unlink(webOutpFile);
 }
 
 static void wo_shell(char *url)
 {
-	char webOutpFile[] = "/tmp/.woXXXXXX";
-	int fd;
-
-	if ((fd = mkstemp(webOutpFile)) < 0)
-		exit(1);
-	close(fd);
-
-	_execute_command(NULL, webcgi_get("command"), NULL, webOutpFile);
-
 	web_puts("\ncmdresult = '");
-	web_putfile(webOutpFile, WOF_JAVASCRIPT);
+	_execute_command(NULL, webcgi_get("command"), NULL, WOF_JAVASCRIPT);
 	web_puts("';");
-	unlink(webOutpFile);
 }
 
 static void wo_blank(char *url)
@@ -679,6 +659,9 @@ static const nvset_t nvset_list[] = {
 	{ "clkfreq",                    V_RANGE(100, 532)	},	// KP
 	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
+#ifdef CONFIG_BCMWL5
+	{ "ctf_disable",		V_01			},
+#endif
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},

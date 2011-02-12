@@ -4,7 +4,7 @@
 *
 * Copyright (C) 2010  Malek Degachi <malek-degachi@laposte.net>
 *
-* Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+* Licensed under GPLv2 or later, see file LICENSE in this source tree.
 */
 #include "libbb.h"
 #include <linux/rfkill.h>
@@ -53,7 +53,7 @@ int rfkill_main(int argc UNUSED_PARAM, char **argv)
 			rf_name = "uwb";
 		rf_type = index_in_strings(rfkill_types, rf_name);
 		if (rf_type < 0) {
-			rf_idx = xatoi_u(rf_name);
+			rf_idx = xatoi_positive(rf_name);
 		}
 	}
 

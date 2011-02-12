@@ -134,8 +134,7 @@ DEFINE_RWLOCK(nf_ct_cache_lock);
 /* This avoids calling kmem_cache_create() with same name simultaneously */
 static DEFINE_MUTEX(nf_ct_cache_mutex);
 
-static int nf_conntrack_hash_rnd_initted;
-static unsigned int nf_conntrack_hash_rnd;
+static unsigned int nf_conntrack_hash_rnd __read_mostly;
 
 static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
 				  unsigned int size, unsigned int rnd)
@@ -528,7 +527,7 @@ __nf_conntrack_confirm(struct sk_buff **pskb)
 	   further use of that particular connection -JM */
 
 	if (unlikely(nf_ct_is_dying(ct))) {
-		spin_unlock_bh(&nf_conntrack_lock);
+		write_unlock_bh(&nf_conntrack_lock);
 		return NF_ACCEPT;
 	}
 
@@ -646,9 +645,18 @@ __nf_conntrack_alloc(const struct nf_conntrack_tuple *orig,
 	struct nf_conn *conntrack = NULL;
 	struct nf_conntrack_helper *helper;
 
-	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
-		get_random_bytes(&nf_conntrack_hash_rnd, 4);
-		nf_conntrack_hash_rnd_initted = 1;
+	if (unlikely(!nf_conntrack_hash_rnd)) {
+		unsigned int rand;
+
+		/*
+		 * Why not initialize nf_conntrack_rnd in a "init()" function ?
+		 * Because there isn't enough entropy when system initializing,
+		 * and we initialize it as late as possible.
+		 */
+		do {
+			get_random_bytes(&rand, sizeof(rand));
+		} while (!rand);
+		cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
 	}
 
 	/* We don't want any race condition at early drop stage */
@@ -1362,6 +1370,11 @@ int set_hashsize(const char *val, struct kernel_param *kp)
 module_param_call(hashsize, set_hashsize, param_get_uint,
 		  &nf_conntrack_htable_size, 0600);
 
+s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+			enum ip_conntrack_dir dir,
+			u32 seq);
+EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+
 int __init nf_conntrack_init(void)
 {
 	int ret;
@@ -1413,6 +1426,9 @@ int __init nf_conntrack_init(void)
 	/* For use by REJECT target */
 	rcu_assign_pointer(ip_ct_attach, __nf_conntrack_attach);
 	rcu_assign_pointer(nf_ct_destroy, destroy_conntrack);
+
+	/* Howto get NAT offsets */
+	rcu_assign_pointer(nf_ct_nat_offset, NULL);
 
 	/* Set up fake conntrack:
 	    - to never be deleted, not in any hashes */

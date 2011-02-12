@@ -74,8 +74,18 @@
 #include "../mssl/mssl.h"
 int do_ssl;
 
+typedef struct {
+	int count;
+	fd_set lfdset;
+	struct {
+		int listenfd;
+		int ssl;
+	} listener[8];
+} listeners_t;
+static listeners_t listeners;
+static int maxfd = -1;
+
 int post;
-int listenfd;
 int connfd = -1;
 FILE *connfp = NULL;
 struct sockaddr_storage clientsai;
@@ -263,7 +273,7 @@ static int check_wif(int idx, int unit, int subunit, void *param)
 	return (wl_ioctl(nvram_safe_get(wl_nvname("ifname", unit, subunit)), WLC_GET_VAR, sti, sizeof(*sti)) == 0);
 }
 
-int check_wlaccess(void)
+static int check_wlaccess(void)
 {
 	char mac[32];
 	char ifname[32];
@@ -724,65 +734,186 @@ void check_id(const char *url)
 	}
 }
 
+static void add_listen_socket(const char *addr, int server_port, int do_ipv6, int do_ssl)
+{
+	int listenfd, n;
+	struct sockaddr_storage sai_stor;
+#ifdef TCONFIG_IPV6
+	sa_family_t HTTPD_FAMILY = do_ipv6 ? AF_INET6 : AF_INET;
+#else
+#define HTTPD_FAMILY AF_INET
+#endif
+
+	if (server_port <= 0) {
+#ifdef TCONFIG_HTTPS
+		if (do_ssl) server_port = 443;
+		else
+#endif
+		server_port = 80;
+	}
+
+	if ((listenfd = socket(HTTPD_FAMILY, SOCK_STREAM, 0)) < 0) {
+		syslog(LOG_ERR, "create listening socket: %m");
+		return;
+	}
+	fcntl(listenfd, F_SETFD, FD_CLOEXEC);
+
+	n = 1;
+	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (char*)&n, sizeof(n));
+
+#ifdef TCONFIG_IPV6
+	if (do_ipv6) {
+		struct sockaddr_in6 *sai = (struct sockaddr_in6 *) &sai_stor;
+		sai->sin6_family = HTTPD_FAMILY;
+		sai->sin6_port = htons(server_port);
+		if (addr && *addr)
+			inet_pton(HTTPD_FAMILY, addr, &(sai->sin6_addr));
+		else
+			sai->sin6_addr = in6addr_any;
+		n = 1;
+		setsockopt(listenfd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&n, sizeof(n));
+	} else
+#endif
+	{
+		struct sockaddr_in *sai = (struct sockaddr_in *) &sai_stor;
+		sai->sin_family = HTTPD_FAMILY;
+		sai->sin_port = htons(server_port);
+		sai->sin_addr.s_addr = (addr && *addr) ? inet_addr(addr) : INADDR_ANY;
+	}
+
+	if (bind(listenfd, (struct sockaddr *)&sai_stor, sizeof(sai_stor)) < 0) {
+		syslog(LOG_ERR, "bind: %m");
+		close(listenfd);
+		return;
+	}
+
+	if (listen(listenfd, 64) < 0) {
+		syslog(LOG_ERR, "listen: %m");
+		close(listenfd);
+		return;
+	}
+
+	if (listenfd >= 0) {
+		_dprintf("%s: added IPv%d listener [%d] for %s:%d, ssl=%d\n",
+			__FUNCTION__, do_ipv6 ? 6 : 4, listenfd,
+			(addr && *addr) ? addr : "addr_any", server_port, do_ssl);
+		listeners.listener[listeners.count].listenfd = listenfd;
+		listeners.listener[listeners.count++].ssl = do_ssl;
+		FD_SET(listenfd, &listeners.lfdset);
+		if (maxfd < listenfd) maxfd = listenfd;
+	}
+}
+
+static void setup_listeners(int do_ipv6)
+{
+	const char *ipaddr;
+	int wanport, p;
+
+	wanport = nvram_get_int("http_wanport");
+#ifdef TCONFIG_IPV6
+	if (do_ipv6) ipaddr = NULL;
+	else
+#endif
+	ipaddr = nvram_safe_get("lan_ipaddr");
+
+	if (!nvram_match("http_enable", "0")) {
+		p = nvram_get_int("http_lanport");
+		add_listen_socket(ipaddr, p, do_ipv6, 0);
+#ifdef TCONFIG_IPV6
+		if (do_ipv6 && wanport == p) wanport = 0;
+#endif
+	}
+
+#ifdef TCONFIG_HTTPS
+	if (!nvram_match("https_enable", "0")) {
+		do_ssl = 1;
+		p = nvram_get_int("https_lanport");
+		add_listen_socket(ipaddr, p, do_ipv6, 1);
+#ifdef TCONFIG_IPV6
+		if (do_ipv6 && wanport == p) wanport = 0;
+#endif
+	}
+#endif
+
+	if ((wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1") && check_wanup()) {
+#ifdef TCONFIG_HTTPS
+		if (nvram_match("remote_mgt_https", "1")) do_ssl = 1;
+#endif
+#ifdef TCONFIG_IPV6
+		if (do_ipv6) {
+			add_listen_socket(NULL, wanport, 1, nvram_match("remote_mgt_https", "1"));
+		} else
+#endif
+		{
+			int i;
+			wanface_list_t wanfaces;
+
+			memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
+			for (i = 0; i < wanfaces.count; ++i) {
+				ipaddr = wanfaces.iface[i].ip;
+				if (!(*ipaddr) || strcmp(ipaddr, "0.0.0.0") == 0)
+					continue;
+				add_listen_socket(ipaddr, wanport, 0, nvram_match("remote_mgt_https", "1"));
+			}
+		}
+	}
+}
+
+static void close_listen_sockets(void)
+{
+	int i;
+
+	for (i = listeners.count - 1; i >= 0; --i) {
+		if (listeners.listener[i].listenfd >= 0)
+			close(listeners.listener[i].listenfd);
+	}
+	listeners.count = 0;
+	FD_ZERO(&listeners.lfdset);
+	maxfd = -1;
+}
+
 int main(int argc, char **argv)
 {
 	int c;
 	int debug = 0;
-	int server_port = 0;
-#ifdef TCONFIG_IPV6
-	int do_ipv6 = 0;
-#endif
-	while ((c = getopt(argc, argv, "hdp:s6")) != -1) {
+	fd_set rfdset;
+	int i, n;
+	struct sockaddr_storage sai;
+
+	while ((c = getopt(argc, argv, "hd")) != -1) {
 		switch (c) {
 		case 'h':
 			printf(
 				"Usage: %s [options]\n"
 				"  -d        Debug mode / do not demonize\n"
-				"  -p <port> Port to listen on\n"
-#ifdef TCONFIG_HTTPS
-				"  -s        Use HTTPS\n"
-#endif
-#ifdef TCONFIG_IPV6
-				"  -6        Use IPv6\n"
-#endif
 				, argv[0]);
 			return 1;
 		case 'd':
 			debug = 1;
 			break;
-		case 'p':
-			server_port = atoi(optarg);
-			break;
-#ifdef TCONFIG_HTTPS
-		case 's':
-			do_ssl = 1;
-			break;
-#endif
-#ifdef TCONFIG_IPV6
-		case '6':
-			do_ipv6 = 1;
-			break;
-#endif
 		}
-	}
-
-	if (server_port == 0) {
-#ifdef TCONFIG_HTTPS
-		if (do_ssl) {
-			server_port = nvram_get_int("https_lanport");
-			if (server_port <= 0) server_port = 443;
-		}
-		else {
-			server_port = nvram_get_int("http_lanport");
-			if (server_port <= 0) server_port = 80;
-		}
-#else
-		server_port = nvram_get_int("http_lanport");
-		if (server_port <= 0) server_port = 80;
-#endif
 	}
 
 	openlog("httpd", LOG_PID, LOG_DAEMON);
+
+	do_ssl = 0;
+	listeners.count = 0;
+	FD_ZERO(&listeners.lfdset);
+	setup_listeners(0);
+#ifdef TCONFIG_IPV6
+	if (ipv6_enabled()) setup_listeners(1);
+#endif
+	if (listeners.count == 0) {
+		syslog(LOG_ERR, "can't bind to any address");
+		return 1;
+	}
+	_dprintf("%s: initialized %d listener(s)\n", __FUNCTION__, listeners.count);
+
+#ifdef TCONFIG_HTTPS
+	if (do_ssl) start_ssl();
+#endif
+
+	init_id();
 
 	if (!debug) {
 		if (daemon(1, 1) == -1) {
@@ -790,10 +921,9 @@ int main(int argc, char **argv)
 			return 0;
 		}
 
-
 		char s[16];
 		sprintf(s, "%d", getpid());
-		f_write_string(do_ssl ? "/var/run/httpsd.pid" : "/var/run/httpd.pid", s, 0, 0644);
+		f_write_string("/var/run/httpd.pid", s, 0, 0644);
 	}
 	else {
 		printf("DEBUG mode, not daemonizing\n");
@@ -804,100 +934,76 @@ int main(int argc, char **argv)
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGCHLD, SIG_IGN);
 
-#ifdef TCONFIG_HTTPS
-	if (do_ssl) start_ssl();
-#endif
-
-	struct timeval tv;
-	int n;
-	
-#ifdef TCONFIG_IPV6
-	sa_family_t HTTPD_FAMILY = do_ipv6 ? AF_INET6 : AF_INET;
-#else
-#define HTTPD_FAMILY AF_INET
-#endif
-	
-	if ((listenfd = socket(HTTPD_FAMILY, SOCK_STREAM, 0)) < 0) {
-		syslog(LOG_ERR, "create listening socket: %m");
-		return 1;
-	}
-	fcntl(listenfd, F_SETFD, FD_CLOEXEC);
-	n = 1;
-	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (char*)&n, sizeof(n));
-	
-
-	struct sockaddr_storage sai_stor;
-
-#ifdef TCONFIG_IPV6
-	if (do_ipv6) {
-		struct sockaddr_in6 *sai = (struct sockaddr_in6 *) &sai_stor;
-		sai->sin6_family = HTTPD_FAMILY;
-		sai->sin6_port = htons(server_port);
-		sai->sin6_addr = in6addr_any;
-	}
-	else {
-#endif
-		struct sockaddr_in *sai = (struct sockaddr_in *) &sai_stor;
-		sai->sin_family = HTTPD_FAMILY;
-		sai->sin_port = htons(server_port);
-		sai->sin_addr.s_addr = inet_addr(nvram_get("lan_ipaddr"));
-#ifdef TCONFIG_IPV6
-	}
-#endif
-	if (bind(listenfd, (struct sockaddr *)&sai_stor, sizeof(sai_stor)) < 0) {
-		syslog(LOG_ERR, "bind: %m");
-		return 1;
-	}
-
-	if (listen(listenfd, 64) < 0) {
-		syslog(LOG_ERR, "listen: %m");
-		return 1;
-	}
-
-	init_id();
-
 	for (;;) {
-		webcgi_init(NULL);
-		if (connfd >= 0) close(connfd);
 
-		n = sizeof(clientsai);
-		if ((connfd = accept(listenfd, (struct sockaddr *)&clientsai, &n)) < 0) {
-//			if ((errno != EINTR) && (errno != EAGAIN)) {
-//				syslog(LOG_ERR, "accept: %m");
-//				return 1;
-//			}
-			sleep(1);
+		/* Do a select() on at least one and possibly many listen fds.
+		** If there's only one listen fd then we could skip the select
+		** and just do the (blocking) accept(), saving one system call;
+		** that's what happened up through version 1.18. However there
+		** is one slight drawback to that method: the blocking accept()
+		** is not interrupted by a signal call. Since we definitely want
+		** signals to interrupt a waiting server, we use select() even
+		** if there's only one fd.
+		*/
+		rfdset = listeners.lfdset;
+		_dprintf("%s: calling select(maxfd=%d)...\n", __FUNCTION__, maxfd);
+		if (select(maxfd + 1, &rfdset, NULL, NULL, NULL) < 0) {
+			if (errno != EINTR && errno != EAGAIN) sleep(1);
 			continue;
 		}
 
-		if (!wait_action_idle(10)) {
-//			syslog(LOG_WARNING, "router is busy");
-			continue;
-		}
+		for (i = listeners.count - 1; i >= 0; --i) {
+			if (listeners.listener[i].listenfd < 0 ||
+			    !FD_ISSET(listeners.listener[i].listenfd, &rfdset))
+				continue;
 
-		if (!check_wlaccess()) {
-			continue;
-		}
+			do_ssl = 0;
+			n = sizeof(sai);
+			_dprintf("%s: calling accept(listener=%d)...\n", __FUNCTION__, listeners.listener[i].listenfd);
+			connfd = accept(listeners.listener[i].listenfd,
+				(struct sockaddr *)&sai, &n);
+			if (connfd < 0) {
+				_dprintf("accept: %m");
+				continue;
+			}
+#ifdef TCONFIG_HTTPS
+			do_ssl = listeners.listener[i].ssl;
+#endif
+			_dprintf("%s: connfd = accept(listener=%d) = %d\n", __FUNCTION__, listeners.listener[i].listenfd, connfd);
 
-		if (fork() == 0) {
-			close(listenfd);
+			if (!wait_action_idle(10)) {
+				_dprintf("router is busy");
+				continue;
+			}
 
-			tv.tv_sec = 60;
-			tv.tv_usec = 0;
-			setsockopt(connfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-			setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+			if (fork() == 0) {
+				close_listen_sockets();
+				webcgi_init(NULL);
 
-			n = 1;
-			setsockopt(connfd, IPPROTO_TCP, TCP_NODELAY, (char *)&n, sizeof(n));
+				clientsai = sai;
+				if (!check_wlaccess()) {
+					exit(0);
+				}
 
-			fcntl(connfd, F_SETFD, FD_CLOEXEC);
+				struct timeval tv;
+				tv.tv_sec = 60;
+				tv.tv_usec = 0;
+				setsockopt(connfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+				setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-			if (web_open()) handle_request();
-			web_close();
-			exit(0);
+				n = 1;
+				setsockopt(connfd, IPPROTO_TCP, TCP_NODELAY, (char *)&n, sizeof(n));
+
+				fcntl(connfd, F_SETFD, FD_CLOEXEC);
+
+				if (web_open()) handle_request();
+				web_close();
+				exit(0);
+			}
+			close(connfd);
 		}
 	}
 
-	close(listenfd);
+	close_listen_sockets();
 	return 0;
 }

@@ -2,12 +2,12 @@
 /*
  * cryptpw.c - output a crypt(3)ed password to stdout.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Cooked from passwd.c by Thomas Lundquist <thomasez@zelow.no>
  * mkpasswd compatible options added by Bernhard Reutner-Fischer
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
@@ -104,7 +104,7 @@ int cryptpw_main(int argc UNUSED_PARAM, char **argv)
 	xmove_fd(fd, STDIN_FILENO);
 
 	puts(pw_encrypt(
-		argv[0]	? argv[0] : (
+		argv[0] ? argv[0] : (
 			/* Only mkpasswd, and only from tty, prompts.
 			 * Otherwise it is a plain read. */
 			(isatty(STDIN_FILENO) && applet_name[0] == 'm')

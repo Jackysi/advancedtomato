@@ -14,8 +14,10 @@
 #include <syslog.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -72,7 +74,7 @@ const char *ipv6_router_address(struct in6_addr *in6addr)
 {
 	char *p;
 	struct in6_addr addr;
-	static char addr6[40];
+	static char addr6[INET6_ADDRSTRLEN];
 
 	if ((p = nvram_get("ipv6_rtr_addr")) && *p) {
 		inet_pton(AF_INET6, p, &addr);
@@ -354,11 +356,63 @@ const char *get_wanface(void)
 	return (*get_wanfaces()).iface[0].name;
 }
 
+#ifdef TCONFIG_IPV6
+const char *get_wan6face(void)
+{
+	switch (get_ipv6_service()) {
+	case IPV6_NATIVE:
+	case IPV6_NATIVE_DHCP:
+		return get_wanface();
+	}
+	return nvram_safe_get("ipv6_ifname");
+}
+#endif
+
 const char *get_wanip(void)
 {
 	if (!check_wanup()) return "0.0.0.0";
 
 	return (*get_wanfaces()).iface[0].ip;
+}
+
+const char *getifaddr(char *ifname, int family)
+{
+	static char buf[INET6_ADDRSTRLEN];
+	void *addr;
+	struct ifaddrs *ifap, *ifa;
+
+	if (getifaddrs(&ifap) != 0) {
+		_dprintf("getifaddrs failed: %s\n", strerror(errno));
+		return NULL;
+	}
+
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		if ((ifa->ifa_addr == NULL) ||
+		    (strncmp(ifa->ifa_name, ifname, IFNAMSIZ) != 0) ||
+		    (ifa->ifa_addr->sa_family != family))
+			continue;
+
+		if (ifa->ifa_addr->sa_family == AF_INET6) {
+			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+			if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+				continue;
+			addr = (void *)&(s6->sin6_addr);
+		}
+		else {
+			struct sockaddr_in *s = (struct sockaddr_in *)(ifa->ifa_addr);
+			addr = (void *)&(s->sin_addr);
+		}
+
+		if (inet_ntop(ifa->ifa_addr->sa_family, addr, buf, sizeof(buf)) != NULL) {
+			freeifaddrs(ifap);
+			return buf;
+		}
+		else
+			_dprintf("%s: inet_ntop failed\n", ifa->ifa_name);
+	}
+
+	freeifaddrs(ifap);
+	return NULL;
 }
 
 // -----------------------------------------------------------------------------

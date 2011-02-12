@@ -438,12 +438,13 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
 	if (fdb) {
 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
 		atomic_set(&fdb->use_count, 1);
-		hlist_add_head_rcu(&fdb->hlist, head);
 
 		fdb->dst = source;
 		fdb->is_local = is_local;
 		fdb->is_static = is_local;
 		fdb->ageing_timer = jiffies;
+
+		hlist_add_head_rcu(&fdb->hlist, head);
 
 		/* Add bridge cache entry for non local hosts */
 #ifdef HNDCTF

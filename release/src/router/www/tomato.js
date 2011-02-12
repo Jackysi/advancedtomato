@@ -944,22 +944,44 @@ function v_iptaddr(e, quiet, multi)
 	return 1;
 }
 
-function v_hostname(e, quiet)
+function v_hostname(e, quiet, multi, delim)
 {
 	var s;
+	var v, i;
 
 	if ((e = E(e)) == null) return 0;
-	if (!v_length(e, quiet, 0, 63)) return 0;
+	v = (typeof(delim) == 'undefined') ? e.value.split(/\s+/) : e.value.split(delim);
 
-	s = e.value.replace(/\s+/g, '_');
-	if (s.length > 0) {
-		if ((s.search(/^[a-zA-Z0-9][a-zA-Z0-9_\-]+$/) == -1) ||
-		    (s.search(/\-$/) >= 0)) {
-			ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9 _" and "-" in the middle are allowed.', quiet);
+	if (multi) {
+		if (v.length > multi) {
+			ferror.set(e, 'Too many hostnames.', quiet);
 			return 0;
 		}
 	}
-	e.value = s;
+	else {
+		if (v.length > 1) {
+			ferror.set(e, 'Invalid hostname.', quiet);
+			return 0;
+		}
+	}
+
+	for (i = 0; i < v.length; ++i) {
+		s = v[i].replace(/\s+/g, '_');
+		if (s.length > 0) {
+			if (s.length > 63) {
+				ferror.set(e, 'Hostname length should not exceed 63 characters.', quiet);
+				return 0;
+			}
+			if ((s.search(/^[a-zA-Z0-9][a-zA-Z0-9_\-]+$/) == -1) ||
+			    (s.search(/\-$/) >= 0)) {
+				ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9 _" and "-" in the middle are allowed.', quiet);
+				return 0;
+			}
+		}
+		v[i] = s;
+	}
+	e.value = v.join(' ');
+
 	ferror.clear(e);
 	return 1;
 }

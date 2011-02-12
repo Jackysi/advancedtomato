@@ -4,7 +4,7 @@
  *
  * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include <netinet/in.h>
 #if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined _NEWLIB_VERSION
@@ -224,19 +224,19 @@ int FAST_FUNC udhcp_send_raw_packet(struct dhcp_packet *dhcp_pkt,
 	packet.udp.source = htons(source_port);
 	packet.udp.dest = htons(dest_port);
 	/* size, excluding IP header: */
-	packet.udp.len = htons(UPD_DHCP_SIZE - padding);
+	packet.udp.len = htons(UDP_DHCP_SIZE - padding);
 	/* for UDP checksumming, ip.len is set to UDP packet len */
 	packet.ip.tot_len = packet.udp.len;
-	packet.udp.check = udhcp_checksum(&packet, IP_UPD_DHCP_SIZE - padding);
+	packet.udp.check = udhcp_checksum(&packet, IP_UDP_DHCP_SIZE - padding);
 	/* but for sending, it is set to IP packet len */
-	packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE - padding);
+	packet.ip.tot_len = htons(IP_UDP_DHCP_SIZE - padding);
 	packet.ip.ihl = sizeof(packet.ip) >> 2;
 	packet.ip.version = IPVERSION;
 	packet.ip.ttl = IPDEFTTL * 2;
 	packet.ip.check = udhcp_checksum(&packet.ip, sizeof(packet.ip));
 
 	udhcp_dump_packet(dhcp_pkt);
-	result = sendto(fd, &packet, IP_UPD_DHCP_SIZE - padding, /*flags:*/ 0,
+	result = sendto(fd, &packet, IP_UDP_DHCP_SIZE - padding, /*flags:*/ 0,
 			(struct sockaddr *) &dest_sll, sizeof(dest_sll));
 	msg = "sendto";
  ret_close:

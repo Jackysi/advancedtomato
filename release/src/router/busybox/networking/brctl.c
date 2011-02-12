@@ -7,7 +7,7 @@
  * Some helper functions from bridge-utils are
  * Copyright (C) 2000 Lennert Buytenhek
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 /* This applet currently uses only the ioctl interface and no sysfs at all.
  * At the time of this writing this was considered a feature.
@@ -184,7 +184,7 @@ int brctl_main(int argc UNUSED_PARAM, char **argv)
 						tabs = 1;
 					printf("\t\t%s\n", ifname);
 				}
-				if (!tabs)	/* bridge has no interfaces */
+				if (!tabs)  /* bridge has no interfaces */
 					bb_putchar('\n');
 			}
 			goto done;
@@ -271,7 +271,7 @@ int brctl_main(int argc UNUSED_PARAM, char **argv)
 				}
 			}
 			arg1 = port;
-			arg2 = xatoi_u(*argv);
+			arg2 = xatoi_positive(*argv);
 			if (key == ARG_setbridgeprio) {
 				arg1 = arg2;
 				arg2 = 0;

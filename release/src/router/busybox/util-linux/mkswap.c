@@ -3,7 +3,7 @@
  *
  * Copyright 2006 Rob Landley <rob@landley.net>
  *
- * Licensed under GPL version 2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "libbb.h"
 
@@ -15,8 +15,7 @@ static void mkswap_selinux_setcontext(int fd, const char *path)
 	if (!is_selinux_enabled())
 		return;
 
-	if (fstat(fd, &stbuf) < 0)
-		bb_perror_msg_and_die("fstat failed");
+	xfstat(fd, &stbuf, path);
 	if (S_ISREG(stbuf.st_mode)) {
 		security_context_t newcon;
 		security_context_t oldcon = NULL;

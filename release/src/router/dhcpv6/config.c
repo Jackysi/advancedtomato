@@ -58,7 +58,9 @@
 #include <common.h>
 #include <auth.h>
 #include <base64.h>
+#ifdef USE_DHCP6SRV
 #include <lease.h>
+#endif
 
 extern int errno;
 
@@ -142,7 +144,9 @@ static void clear_poolconf __P((struct pool_conf *));
 static struct pool_conf *create_pool __P((char *, struct dhcp6_range *));
 struct host_conf *find_dynamic_hostconf __P((struct duid *));
 static int in6_addr_cmp __P((struct in6_addr *, struct in6_addr *));
+#ifdef USE_DHCP6SRV
 static void in6_addr_inc __P((struct in6_addr *));
+#endif
 
 int
 configure_interface(iflist)
@@ -1739,7 +1743,7 @@ add_prefix(head, name, type, prefix0)
 	oprefix = *prefix0;
 
 	/* additional validation of parameters */
-	if (oprefix.plen < 0 || oprefix.plen > 128) {
+	if (oprefix.plen < 4 || oprefix.plen > 128) {
 		dprintf(LOG_ERR, FNAME, "invalid prefix: %d", oprefix.plen);
 		return (-1);
 	}
@@ -2145,6 +2149,7 @@ find_pool(name)
 	return (NULL);
 }
 
+#ifdef USE_DHCP6SRV
 int
 get_free_address_from_pool(pool, addr)
 	struct pool_conf *pool;
@@ -2201,6 +2206,7 @@ is_available_in_pool(pool, addr)
 
 	return (0);
 }
+#endif
 
 static int 
 in6_addr_cmp(addr1, addr2)
@@ -2220,6 +2226,7 @@ in6_addr_cmp(addr1, addr2)
 	return (0);
 }
 
+#ifdef USE_DHCP6SRV
 static void
 in6_addr_inc(addr)
 	struct in6_addr *addr;
@@ -2231,3 +2238,4 @@ in6_addr_inc(addr)
 			break;
 	}
 }
+#endif

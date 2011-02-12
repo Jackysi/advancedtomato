@@ -4,15 +4,15 @@
  *
  * Copyright 2003 Tito Ragusa <farmatito@tiscali.it>
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
 
-#define WHOLE_FILE		1
-#define PRINT_NAME		2
-#define PRINT_OFFSET	4
-#define SIZE			8
+#define WHOLE_FILE    1
+#define PRINT_NAME    2
+#define PRINT_OFFSET  4
+#define SIZE          8
 
 int strings_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int strings_main(int argc UNUSED_PARAM, char **argv)

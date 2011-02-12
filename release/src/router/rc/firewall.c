@@ -36,8 +36,6 @@ char wan6face[IFNAMSIZ + 1];
 #endif
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
 
-static int web_lanport;
-
 #ifdef DEBUG_IPTFILE
 static int debug_only = 0;
 #endif
@@ -481,31 +479,6 @@ static void nat_table(void)
 			// ICMP packets are always redirected to INPUT chains
 			ipt_write("-A %s -p icmp -j DNAT --to-destination %s\n", chain_wan_prerouting, lanaddr);
 
-			strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
-			p = t;
-			do {
-				if ((c = strchr(p, ',')) != NULL) *c = 0;
-				ipt_source(p, src);
-
-				if (remotemanage) {
-					ipt_write("-A %s -p tcp -m tcp %s --dport %s -j DNAT --to-destination %s:%d\n",
-						chain_wan_prerouting,
-						src,
-						nvram_safe_get("http_wanport"),
-						lanaddr, web_lanport);
-				}
-				if (nvram_get_int("sshd_remote")) {
-					ipt_write("-A %s %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s\n",
-						chain_wan_prerouting,
-						src,
-						nvram_safe_get("sshd_rport"),
-						lanaddr, nvram_safe_get("sshd_port"));
-				}
-
-				if (!c) break;
-				p = c + 1;
-			} while (*p);
-
 			ipt_forward(IPT_TABLE_NAT);
 			ipt_triggered(IPT_TABLE_NAT);
 		}
@@ -621,7 +594,12 @@ static void filter_input(void)
 			"-A shlimit -m recent --update --hitcount %d --seconds %s --name shlimit -j %s\n",
 			atoi(hit) + 1, sec, chain_in_drop);
 
-		if (n & 1) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_port"));
+		if (n & 1) {
+			ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_port"));
+			if (nvram_get_int("sshd_remote") && nvram_invmatch("sshd_rport", nvram_safe_get("sshd_port"))) {
+				ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("sshd_rport"));
+			}
+		}
 		if (n & 2) ipt_write("-A INPUT -p tcp --dport %s -m state --state NEW -j shlimit\n", nvram_safe_get("telnetd_port"));
 	}
 
@@ -683,13 +661,13 @@ static void filter_input(void)
 		ipt_source(p, s);
 
 		if (remotemanage) {
-			ipt_write("-A INPUT -p tcp %s -m tcp -d %s --dport %d -j %s\n",
-				s, nvram_safe_get("lan_ipaddr"), web_lanport, chain_in_accept);
+			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				s, nvram_safe_get("http_wanport"), chain_in_accept);
 		}
 
 		if (nvram_get_int("sshd_remote")) {
-			ipt_write("-A INPUT -p tcp %s -m tcp -d %s --dport %s -j %s\n",
-				s, nvram_safe_get("lan_ipaddr"), nvram_safe_get("sshd_port"), chain_in_accept);
+			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				s, nvram_safe_get("sshd_rport"), chain_in_accept);
 		}
 
 		if (!c) break;
@@ -1128,17 +1106,8 @@ int start_firewall(void)
 
 	memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
 	wanface = wanfaces.iface[0].name;
-
 #ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
-	case IPV6_NATIVE:
-	case IPV6_NATIVE_DHCP:
-		strlcpy(wan6face, wanface, sizeof(wan6face));
-		break;
-	default:
-		strlcpy(wan6face, nvram_safe_get("ipv6_ifname"), sizeof(wan6face));
-		break;
-	}
+	strlcpy(wan6face, get_wan6face(), sizeof(wan6face));
 #endif
 
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
@@ -1168,23 +1137,13 @@ int start_firewall(void)
 		closedir(dir);
 	}
 
+	remotemanage = 0;
 	gateway_mode = !nvram_match("wk_mode", "router");
 	if (gateway_mode) {
 		/* Remote management */
 		if (nvram_match("remote_management", "1") && nvram_invmatch("http_wanport", "") &&
 			nvram_invmatch("http_wanport", "0")) remotemanage = 1;
-				else remotemanage = 0;
-
-		if (nvram_match("remote_mgt_https", "1")) {
-			web_lanport = nvram_get_int("https_lanport");
-			if (web_lanport <= 0) web_lanport = 443;
-		}
-		else {
-			web_lanport = nvram_get_int("http_lanport");
-			if (web_lanport <= 0) web_lanport = 80;
-		}
 	}
-
 
 	if ((ipt_file = fopen(ipt_fname, "w")) == NULL) {
 		notice_set("iptables", "Unable to create iptables restore file");

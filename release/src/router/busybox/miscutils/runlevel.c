@@ -1,13 +1,13 @@
 /* vi: set sw=4 ts=4: */
 /*
- * runlevel	Prints out the previous and the current runlevel.
+ * Prints out the previous and the current runlevel.
  *
- * Version:	@(#)runlevel  1.20  16-Apr-1997  MvS
+ * Version: @(#)runlevel  1.20  16-Apr-1997  MvS
  *
- *		This file is part of the sysvinit suite,
- *		Copyright 1991-1997 Miquel van Smoorenburg.
+ * This file is part of the sysvinit suite,
+ * Copyright 1991-1997 Miquel van Smoorenburg.
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * initially busyboxified by Bernhard Reutner-Fischer
  */

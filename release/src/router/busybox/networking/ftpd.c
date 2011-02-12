@@ -4,7 +4,7 @@
  *
  * Author: Adam Tkac <vonsch@gmail.com>
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  *
  * Only subset of FTP protocol is implemented but vast majority of clients
  * should not have any problem.
@@ -534,7 +534,7 @@ static void
 handle_rest(void)
 {
 	/* When ftp_arg == NULL simply restart from beginning */
-	G.restart_pos = G.ftp_arg ? xatoi_u(G.ftp_arg) : 0;
+	G.restart_pos = G.ftp_arg ? xatoi_positive(G.ftp_arg) : 0;
 	WRITE_OK(FTP_RESTOK);
 }
 

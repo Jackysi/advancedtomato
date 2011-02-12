@@ -76,7 +76,7 @@ static int config_pppd(int wan_proto, int num)
 
 	FILE *fp;
 	char *p;
-	int debug, demand;
+	int demand;
 
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
@@ -88,8 +88,6 @@ static int config_pppd(int wan_proto, int num)
 	symlink("/dev/null", "/tmp/ppp/connect-errors");
 
 	demand = nvram_get_int("ppp_demand");
-	debug = nvram_get_int("debug_ppp") ||
-		(wan_proto == WP_PPPOE && nvram_contains_word("log_events", "pppoe"));
 
 	// Generate options file
 	if ((fp = fopen(ppp_optfile, "w")) == NULL) {
@@ -119,7 +117,7 @@ static int config_pppd(int wan_proto, int num)
 		nvram_safe_get("ppp_username"),
 		nvram_get_int("pppoe_lei") ? : 30,
 		nvram_get_int("pppoe_lef") ? : 6,
-		debug ? "debug\n" : "");
+		nvram_get_int("debug_ppp") ? "debug\n" : "");
 
 	if (wan_proto != WP_L2TP) {
 		fprintf(fp,
@@ -139,12 +137,6 @@ static int config_pppd(int wan_proto, int num)
 			nvram_get_int("mtu_enable") ? nvram_get_int("wan_mtu") : 1400);
 		break;
 	case WP_PPPOE:
-		if (((p = nvram_get("ppp_service")) != NULL) && (*p)) {
-			fprintf(fp, "rp_pppoe_service '%s'\n", p);
-		}
-		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
-			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
-		}
 		fprintf(fp,
 			"password '%s'\n"
 			"plugin rp-pppoe.so\n"
@@ -154,6 +146,12 @@ static int config_pppd(int wan_proto, int num)
 			nvram_safe_get("ppp_passwd"),
 			nvram_safe_get("wan_ifname"),
 			nvram_get_int("wan_mtu"), nvram_get_int("wan_mtu"));
+		if (((p = nvram_get("ppp_service")) != NULL) && (*p)) {
+			fprintf(fp, "rp_pppoe_service '%s'\n", p);
+		}
+		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
+			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
+		}
 		break;
 	case WP_L2TP:
 		fprintf(fp, "nomppe nomppc\n");
@@ -715,12 +713,6 @@ void start_wan6_done(char *wan_ifname)
 	case IPV6_NATIVE_DHCP:
 		eval("ip", "route", "add", "::/0", "dev", wan_ifname);
 		stop_dhcp6c();
-		stop_radvd();
-		/* note: starting radvd here is really too early because we won't have
-		 * received a prefix and so it will disable advertisements,
-		 * but the SIGHUP sent from dhcp6c-state will restart them.
-		 */
-		start_radvd();
 		start_dhcp6c();
 		break;
 	case IPV6_6IN4:
@@ -740,7 +732,6 @@ void start_wan_done(char *wan_ifname)
 	int proto;
 	int n;
 	char *gw;
-	int dod;
 	struct sysinfo si;
 	int wanup;
 	int metric;
@@ -751,7 +742,6 @@ void start_wan_done(char *wan_ifname)
 	f_write("/var/lib/misc/wantime", &si.uptime, sizeof(si.uptime), 0, 0);
 	
 	proto = get_wan_proto();
-	dod = nvram_get_int("ppp_demand");
 
 #if 0
 	if (using_dhcpc()) {
@@ -872,10 +862,14 @@ void start_wan_done(char *wan_ifname)
 		stop_igmp_proxy();
 		start_igmp_proxy();
 	}
-	
+
 #ifdef TCONFIG_IPV6
-	if (wanup) start_wan6_done(wan_ifname);
+	start_wan6_done(wan_ifname);
 #endif
+
+	// restart httpd
+	stop_httpd();
+	start_httpd();
 
 	stop_upnp();
 	start_upnp();

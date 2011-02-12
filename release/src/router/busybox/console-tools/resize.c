@@ -4,7 +4,7 @@
  *
  * Copyright 2006 Bernhard Reutner-Fischer
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 /* no options, no getopt */
 #include "libbb.h"
@@ -17,7 +17,7 @@ static void
 onintr(int sig UNUSED_PARAM)
 {
 	tcsetattr(STDERR_FILENO, TCSANOW, old_termios_p);
-	exit(EXIT_FAILURE);
+	_exit(EXIT_FAILURE);
 }
 
 int resize_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;

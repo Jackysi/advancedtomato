@@ -2,7 +2,7 @@
 /*
  * Rewrite by Russ Dill <Russ.Dill@asu.edu> July 2001
  *
- * Licensed under GPLv2, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "common.h"
 
@@ -68,9 +68,10 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_IP                               , 0x32 }, /* DHCP_REQUESTED_IP  */
 	{ OPTION_U8                               , 0x35 }, /* DHCP_MESSAGE_TYPE  */
 	{ OPTION_U16                              , 0x39 }, /* DHCP_MAX_SIZE      */
-	{ OPTION_STRING                           , 0x3c }, /* DHCP_VENDOR        */
-//FIXME: handling of this option is not exactly correct:
-	{ OPTION_STRING                           , 0x3d }, /* DHCP_CLIENT_ID     */
+//looks like these opts will work just fine even without these defs:
+//	{ OPTION_STRING                           , 0x3c }, /* DHCP_VENDOR        */
+//	/* not really a string: */
+//	{ OPTION_STRING                           , 0x3d }, /* DHCP_CLIENT_ID     */
 	{ 0, 0 } /* zeroed terminating entry */
 };
 
@@ -117,7 +118,7 @@ const char dhcp_option_strings[] ALIGN1 =
 // is not handled yet by "string->option" conversion code:
 	"staticroutes" "\0"/* DHCP_STATIC_ROUTES  */
 	"routes" "\0"      /* DHCP_ROUTES         */
-	"msstaticroutes" "\0" /* DHCP_MS_STATIC_ROUTES */
+	"msstaticroutes""\0"/* DHCP_MS_STATIC_ROUTES */
 	"wpad" "\0"        /* DHCP_WPAD           */
 	;
 
@@ -374,7 +375,7 @@ static NOINLINE void attach_option(
 		new->data = xmalloc(length + OPT_DATA);
 		new->data[OPT_CODE] = optflag->code;
 		new->data[OPT_LEN] = length;
-		memcpy(new->data + OPT_DATA, buffer, length);
+		memcpy(new->data + OPT_DATA, (allocated ? allocated : buffer), length);
 
 		curr = opt_list;
 		while (*curr && (*curr)->data[OPT_CODE] < optflag->code)

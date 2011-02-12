@@ -6,7 +6,13 @@ ifeq ($(STATIC),1)
 CFLAGS += -static
 endif
 
+ifdef MOD_NVR
+all: libnvram.a nvram2
+CFLAGS += -DMOD_NVR -static
+.PHONY:  nvram_linux.c nvram.c
+else
 all: libnvram.so libnvram.a nvram
+endif
 
 libnvram.so: nvram_linux.o nvram_convert.o
 	@echo " [nvram] CC $@"
@@ -15,18 +21,20 @@ libnvram.so: nvram_linux.o nvram_convert.o
 libnvram.a: nvram_linux.o nvram_convert.o
 	@echo " [nvram] AR $@"
 	@$(AR) cruv $@ $^
-	
+
 nvram: nvram.o defaults.o libnvram.so
 	@echo " [nvram] CC $@"
-ifeq ($(STATIC),1)
-	$(CC) $(CFLAGS) -static -o $@ nvram.o defaults.o -L. -lnvram -L$(TOP)/shared -lshared
-else
 	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L$(TOP)/shared -lshared
-endif
-	
+
 	$(SIZECHECK)
 	$(CPTMP)
-	
+
+nvram2: defaults.o libnvram.a nvram.o
+	@echo " [nvram] CC $@"
+	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+	$(SIZECHECK)
+	$(CPTMP)
+
 install: all
 	install -D libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
 	install -D nvram $(INSTALLDIR)/bin/nvram
@@ -37,7 +45,7 @@ install: all
 clean:
 	rm -f nvram *.o *.a *.so
 
-	
+
 %.o: %.c .%.depend
 	@echo " [nvram] CC $@"
 	@$(CC) $(CFLAGS) -o $@ -c $<

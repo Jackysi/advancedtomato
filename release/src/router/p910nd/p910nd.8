@@ -1,4 +1,4 @@
-.TH P910ND 8 "1 January 2008"
+.TH P910ND 8 "21 December 2010"
 .SH NAME
 p910nd \- port 9100+n printer daemon
 .SH SYNOPSIS
@@ -74,8 +74,8 @@ at any one time. This can be done by designating one host as the
 spooler and sending all jobs to this host. You will probably
 need to set up an intermediate queue anyway to provide print job filtering.
 .LP
-If compiled with USE_LIBWRAP and linked with -lwrap, it uses the libwrap
-library (tcpwrappers). Access control can be done with /etc/hosts.allow
+If built with USE_WRAP, it uses the libwrap library (tcpwrappers).
+Access control can be done with /etc/hosts.allow
 and /etc/hosts.deny. The service name is p910nd.
 .SH DIAGNOSTICS
 .I p910nd
@@ -90,4 +90,4 @@ is under the GNU Public License Version 2
 .SH AUTHOR
 Ken Yap (greenpossum ATSIGN users PERIOD sourceforge PERIOD net)
 .SH DATE
-Version 0.93 October 2008
+Version 0.94 December 2010

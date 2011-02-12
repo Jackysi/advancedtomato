@@ -4,9 +4,9 @@
  * based on code from util-linux v 2.11l
  *
  * Copyright (c) 1989
- *	The Regents of the University of California.  All rights reserved.
+ * The Regents of the University of California.  All rights reserved.
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
  * Original copyright notice is retained at the end of this file.
  */
@@ -208,7 +208,7 @@ static NOINLINE void rewrite(priv_dumper_t *dumper, FS *fs)
 					pr->bcnt = fu->bcnt;
 				} else if (sokay == USEPREC) {
 					pr->bcnt = prec;
-				} else {	/* NOTOKAY */
+				} else {   /* NOTOKAY */
 					bb_error_msg_and_die("%%s requires a precision or a byte count");
 				}
 			} else if (*p1 == '_') {
@@ -323,9 +323,7 @@ static void do_skip(priv_dumper_t *dumper, const char *fname, int statok)
 	struct stat sbuf;
 
 	if (statok) {
-		if (fstat(STDIN_FILENO, &sbuf)) {
-			bb_simple_perror_msg_and_die(fname);
-		}
+		xfstat(STDIN_FILENO, &sbuf, fname);
 		if (!(S_ISCHR(sbuf.st_mode) || S_ISBLK(sbuf.st_mode) || S_ISFIFO(sbuf.st_mode))
 		 && dumper->pub.dump_skip >= sbuf.st_size
 		) {
@@ -469,7 +467,7 @@ static void bpad(PR *pr)
 
 static const char conv_str[] ALIGN1 =
 	"\0\\0\0"
-	"\007\\a\0"				/* \a */
+	"\007\\a\0"  /* \a */
 	"\b\\b\0"
 	"\f\\b\0"
 	"\n\\n\0"

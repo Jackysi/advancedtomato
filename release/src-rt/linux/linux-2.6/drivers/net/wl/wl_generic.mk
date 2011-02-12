@@ -35,8 +35,13 @@ ifeq ($(REBUILD_WL_MODULE),1)
     ifeq ("$(CONFIG_WL_EMULATOR)","y") 
          WLFILES += wl_bcm57emu.c
     endif
-    
-    WL_SOURCE := $(WLFILES)
+
+    ifeq ($(WL_PARTIAL_REBUILD),1)
+         WL_SOURCE   := wl_iw.c wl_linux.c
+    else
+         WL_SOURCE := $(WLFILES)
+    endif
+
     WL_DFLAGS := $(WLFLAGS)
     # If source directory (src/wl/sys) exists, use sources to build objects
     WL_OBJS   := $(foreach file, $(WL_SOURCE), \
@@ -67,17 +72,21 @@ ifeq ($(REBUILD_WL_MODULE),1)
     endif
 
     # wl-objs is for linking to wl.o
-    $(TARGET)-objs := $(WLCONF_O) $(WL_OBJS)
-    obj-$(CONFIG_WL) := $(TARGET).o
+    $(TARGET)-objs := $(WL_OBJS)
+    ifeq ($(WL_PARTIAL_REBUILD),1)
+         $(TARGET)-objs += $(SRCBASE)/wl/linux/wl_prebuilt.o
+    else
+         $(TARGET)-objs += $(WLCONF_O)
+    endif
 
 else # SRCBASE/wl/sys doesn't exist
 
     # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
     prebuilt := wl_$(wl_suffix).o
     $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
-    obj-$(CONFIG_WL) := $(TARGET).o
 
 endif
 
+obj-$(CONFIG_WL) := $(TARGET).o
 
 clean-files += $(SRCBASE)/wl/sys/*.o $(SRCBASE)/wl/phy/*.o $(SRCBASE)/wl/sys/.*.*.cmd $(SRCBASE)/wl/phy/.*.*.cmd $(WLCONF_H) $(WLCONF_O)

@@ -73,8 +73,10 @@
 #include <common.h>
 #include <timer.h>
 #include <dhcp6c.h>
+#ifdef USE_DHCP6CTL
 #include <control.h>
 #include <dhcp6_ctl.h>
+#endif
 #include <dhcp6c_ia.h>
 #include <prefixconf.h>
 #include <auth.h>
@@ -89,11 +91,15 @@ const dhcp6_mode_t dhcp6_mode = DHCP6_MODE_CLIENT;
 
 int sock;	/* inbound/outbound udp port */
 int rtsock;	/* routing socket */
+
+#ifdef USE_DHCP6CTL
 int ctlsock = -1;		/* control TCP port */
 char *ctladdr = DEFAULT_CLIENT_CONTROL_ADDR;
 char *ctlport = DEFAULT_CLIENT_CONTROL_PORT;
 
 #define DEFAULT_KEYFILE SYSCONFDIR "/dhcp6cctlkey"
+#endif	// USE_DHCP6CTL
+
 #define CTLSKEW 300
 
 static char *conffile = DHCP6C_CONF;
@@ -102,9 +108,11 @@ static const struct sockaddr_in6 *sa6_allagent;
 static struct duid client_duid;
 static char *pid_file = DHCP6C_PIDFILE;
 
+#ifdef USE_DHCP6CTL
 static char *ctlkeyfile = DEFAULT_KEYFILE;
 static struct keyinfo *ctlkey = NULL;
 static int ctldigestlen;
+#endif
 
 static int infreq_mode = 0;
 
@@ -116,9 +124,11 @@ static void client6_init __P((void));
 static void client6_startall __P((int));
 static void free_resources __P((struct dhcp6_if *));
 static void client6_mainloop __P((void));
+#ifdef USE_DHCP6CTL
 static int client6_do_ctlcommand __P((char *, ssize_t));
 static void client6_reload __P((void));
 static int client6_ifctl __P((char *ifname, u_int16_t));
+#endif
 static void check_exit __P((void));
 static void process_signals __P((void));
 static struct dhcp6_serverinfo *find_server __P((struct dhcp6_event *,
@@ -170,7 +180,7 @@ main(argc, argv)
 	else
 		progname++;
 
-	while ((ch = getopt(argc, argv, "c:dDfik:p:")) != -1) {
+	while ((ch = getopt(argc, argv, "c:dDT:fik:p:")) != -1) {
 		switch (ch) {
 		case 'c':
 			conffile = optarg;
@@ -181,15 +191,23 @@ main(argc, argv)
 		case 'D':
 			debug = 2;
 			break;
+		case 'T':
+			if (!strcasecmp(optarg, "LL"))
+				duid_type = 3;
+			else if (!strcasecmp(optarg, "LLT"))
+				duid_type = 1;
+			break;
 		case 'f':
 			foreground++;
 			break;
 		case 'i':
 			infreq_mode = 1;
 			break;
+#ifdef USE_DHCP6CTL
 		case 'k':
 			ctlkeyfile = optarg;
 			break;
+#endif
 		case 'p':
 			pid_file = optarg;
 			break;
@@ -252,7 +270,7 @@ usage()
 {
 
 	fprintf(stderr, "usage: dhcp6c [-c configfile] [-dDfi] "
-	    "[-p pid-file] interface [interfaces...]\n");
+	    "[-T LL|LLT] [-p pid-file] interface [interfaces...]\n");
 }
 
 /*------------------------------------------------------------*/
@@ -270,11 +288,13 @@ client6_init()
 		exit(1);
 	}
 
+#ifdef USE_DHCP6CTL
 	if (dhcp6_ctl_authinit(ctlkeyfile, &ctlkey, &ctldigestlen) != 0) {
 		dprintf(LOG_NOTICE, FNAME,
 		    "failed initialize control message authentication");
 		/* run the server anyway */
 	}
+#endif
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_INET6;
@@ -363,6 +383,7 @@ client6_init()
 	sa6_allagent = (const struct sockaddr_in6 *)&sa6_allagent_storage;
 	freeaddrinfo(res);
 
+#ifdef USE_DHCP6CTL
 	/* set up control socket */
 	if (ctlkey == NULL)
 		dprintf(LOG_NOTICE, FNAME, "skip opening control port");
@@ -372,6 +393,7 @@ client6_init()
 		    "failed to initialize control channel");
 		exit(1);
 	}
+#endif
 
 	if (signal(SIGHUP, client6_signal) == SIG_ERR) {
 		dprintf(LOG_WARNING, FNAME, "failed to set signal: %s",
@@ -528,11 +550,13 @@ client6_mainloop()
 		FD_ZERO(&r);
 		FD_SET(sock, &r);
 		maxsock = sock;
+#ifdef USE_DHCP6CTL
 		if (ctlsock >= 0) {
 			FD_SET(ctlsock, &r);
 			maxsock = (sock > ctlsock) ? sock : ctlsock;
 			(void)dhcp6_ctl_setreadfds(&r, &maxsock);
 		}
+#endif
 
 		ret = select(maxsock + 1, &r, NULL, NULL, w);
 
@@ -551,6 +575,7 @@ client6_mainloop()
 		}
 		if (FD_ISSET(sock, &r))
 			client6_recv();
+#ifdef USE_DHCP6CTL
 		if (ctlsock >= 0) {
 			if (FD_ISSET(ctlsock, &r)) {
 				(void)dhcp6_ctl_acceptcommand(ctlsock,
@@ -558,6 +583,7 @@ client6_mainloop()
 			}
 			(void)dhcp6_ctl_readcommand(&r);
 		}
+#endif
 	}
 }
 
@@ -612,6 +638,7 @@ get_ifname(bpp, lenp, ifbuf, ifbuflen)
 	return (0);
 }
 
+#ifdef USE_DHCP6CTL
 static int
 client6_do_ctlcommand(buf, len)
 	char *buf;
@@ -799,6 +826,7 @@ client6_ifctl(ifname, command)
 
 	return (0);
 }
+#endif	// USE_DHCP6CTL
 
 static struct dhcp6_timer *
 client6_expire_refreshtime(arg)

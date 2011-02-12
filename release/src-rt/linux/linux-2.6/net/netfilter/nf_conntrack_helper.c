@@ -102,7 +102,8 @@ int nf_conntrack_helper_register(struct nf_conntrack_helper *me)
 {
 	int size, ret;
 
-	BUG_ON(me->timeout == 0);
+	BUG_ON(me->expect_policy == NULL);
+	BUG_ON(me->expect_class_max >= NF_CT_MAX_EXPECT_CLASSES);
 
 	size = ALIGN(sizeof(struct nf_conn), __alignof__(struct nf_conn_help)) +
 	       sizeof(struct nf_conn_help);

@@ -138,7 +138,7 @@ sg.verifyFields = function(row, quiet)
 		return 0;
 	}
 
-	if (!v_hostname(f[3], quiet)) return 0;
+	if (!v_hostname(f[3], quiet, 5)) return 0;
 	if (!v_nodelim(f[3], quiet, 'Hostname', 1)) return 0;
 	s = f[3].value;
 	if (s.length > 0) {
@@ -265,6 +265,9 @@ function init()
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
 
+<div>
+<small>To specify multiple hostnames per device, separate them with spaces.</small>
+</div>
 
 <!-- / / / -->
 

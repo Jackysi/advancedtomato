@@ -90,28 +90,22 @@ function init()
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
 
+
 <b>Tomato Firmware v<% version(1); %></b><br>
-<br><br>
-<b>Based on Tomato Firmware v<% version(); %></b><br>
-Copyright (C) 2006-2010 Jonathan Zarate<br>
-<a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
-<br>
-/* USB-BEGIN */
-<br><b>USB support integration and GUI</b><br>
-/* USB-END */
-<b>Linux kernel <% version(2); %> <br>
-Broadcom Wireless Driver <% version(3); %> <br>
-Support for additional router models and Wireless-N mode.</b><br>
-Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
+<!-- USB-BEGIN -->
+- USB support integration and GUI,<br>
+<!-- USB-END -->
+- Linux kernel <% version(2); %> & Broadcom Wireless Driver <% version(3); %><br>
+- Support for additional router models and Wireless-N mode.<br>
+Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br>
-
-/* VPN-BEGIN */
-<b>VPN integration and GUI Copyright (C) 2010 Keith Moyer</b><br>
+<!-- VPN-BEGIN -->
+VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
-/* VPN-END */
+<!-- VPN-END -->
 <br>
 <b>This compilation by Toastman, Bangkok, may include:</b><br>
 <br>
@@ -138,6 +132,10 @@ With special thanks to Wes Campaigne<br>
 - Safe CPU frequency selector<br>
 - Loads upnpconfig.custom from JFFS, for VPN UPnP support<br>
 <br>
+
+Based on Tomato Firmware v<% version(); %><br>
+Copyright (C) 2006-2010 Jonathan Zarate<br>
+<a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 Built on <% build_time(); %><br>
 <br><br>

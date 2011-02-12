@@ -608,7 +608,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
 	struct sk_buff *buff;
 	int nsize, old_factor;
 	int nlen;
-	u16 flags;
+	u8 flags;
 
 	BUG_ON(len > skb->len);
 
@@ -1130,7 +1130,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len, 
 {
 	struct sk_buff *buff;
 	int nlen = skb->len - len;
-	u16 flags;
+	u8 flags;
 
 	/* All of a TSO frame must be composed of paged data.  */
 	if (skb->len != skb->data_len)
@@ -2121,6 +2121,7 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 	struct tcp_md5sig_key *md5;
 	__u8 *md5_hash_location;
 #endif
+	int mss;
 
 	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
 	if (skb == NULL)
@@ -2130,6 +2131,10 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 	skb_reserve(skb, MAX_TCP_HEADER);
 
 	skb->dst = dst_clone(dst);
+
+	mss = dst_metric(dst, RTAX_ADVMSS);
+	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < mss)
+		mss = tp->rx_opt.user_mss;
 
 	tcp_header_size = (sizeof(struct tcphdr) + TCPOLEN_MSS +
 			   (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0) +
@@ -2167,7 +2172,7 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 		req->window_clamp = tp->window_clamp ? : dst_metric(dst, RTAX_WINDOW);
 		/* tcp_full_space because it is guaranteed to be the first packet */
 		tcp_select_initial_window(tcp_full_space(sk),
-			dst_metric(dst, RTAX_ADVMSS) - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
+			mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
 			&req->rcv_wnd,
 			&req->window_clamp,
 			ireq->wscale_ok,
@@ -2179,7 +2184,7 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
 	th->window = htons(min(req->rcv_wnd, 65535U));
 
 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
-	tcp_syn_build_options((__be32 *)(th + 1), dst_metric(dst, RTAX_ADVMSS), ireq->tstamp_ok,
+	tcp_syn_build_options((__be32 *)(th + 1), mss, ireq->tstamp_ok,
 			      ireq->sack_ok, ireq->wscale_ok, ireq->rcv_wscale,
 			      TCP_SKB_CB(skb)->when,
 			      req->ts_recent,
@@ -2238,6 +2243,9 @@ static void tcp_connect_init(struct sock *sk)
 	if (!tp->window_clamp)
 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
 	tp->advmss = dst_metric(dst, RTAX_ADVMSS);
+	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < tp->advmss)
+		tp->advmss = tp->rx_opt.user_mss;
+
 	tcp_initialize_rcv_mss(sk);
 
 	tcp_select_initial_window(tcp_full_space(sk),

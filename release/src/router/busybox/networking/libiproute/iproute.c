@@ -1,19 +1,16 @@
 /* vi: set sw=4 ts=4: */
 /*
- * iproute.c		"ip route".
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
- *
- * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- *
+ * Authors: Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
  * Changes:
  *
- * Rani Assaf <rani@magic.metawire.com> 980929:	resolve addresses
+ * Rani Assaf <rani@magic.metawire.com> 980929: resolve addresses
  * Kunihiro Ishiguro <kunihiro@zebra.org> 001102: rtnh_ifindex was not initialized
  */
 
-#include "ip_common.h"	/* #include "libbb.h" is inside */
+#include "ip_common.h"  /* #include "libbb.h" is inside */
 #include "rt_names.h"
 #include "utils.h"
 
@@ -327,9 +324,9 @@ IF_FEATURE_IP_RULE(ARG_table,)
 	};
 	struct rtnl_handle rth;
 	struct {
-		struct nlmsghdr		n;
-		struct rtmsg		r;
-		char			buf[1024];
+		struct nlmsghdr n;
+		struct rtmsg    r;
+		char            buf[1024];
 	} req;
 	char mxbuf[256];
 	struct rtattr * mxrta = (void*)mxbuf;
@@ -869,7 +866,7 @@ static int iproute_get(char **argv)
 }
 
 /* Return value becomes exitcode. It's okay to not return at all */
-int do_iproute(char **argv)
+int FAST_FUNC do_iproute(char **argv)
 {
 	static const char ip_route_commands[] ALIGN1 =
 	/*0-3*/	"add\0""append\0""change\0""chg\0"

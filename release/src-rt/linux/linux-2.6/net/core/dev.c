@@ -1125,7 +1125,6 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct packet_type *ptype;
 
-	net_timestamp(skb);
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
@@ -1138,6 +1137,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
 			if (!skb2)
 				break;
+
+			net_timestamp(skb2);
 
 			/* skb->nh should be correctly
 			   set by sender, so that the second statement is
@@ -3361,15 +3362,20 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
 struct net_device *alloc_netdev(int sizeof_priv, const char *name,
 		void (*setup)(struct net_device *))
 {
-	void *p;
 	struct net_device *dev;
 	int alloc_size;
+	struct net_device *p;
 
 	BUG_ON(strlen(name) >= sizeof(dev->name));
 
-	/* ensure 32-byte alignment of both the device and private area */
-	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
-	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+	alloc_size = sizeof(struct net_device);
+	if (sizeof_priv) {
+		/* ensure 32-byte alignment of private area */
+		alloc_size = ALIGN(alloc_size, NETDEV_ALIGN);
+		alloc_size += sizeof_priv;
+	}
+	/* ensure 32-byte alignment of whole construct */
+	alloc_size += NETDEV_ALIGN - 1;
 
 	p = kzalloc(alloc_size, GFP_KERNEL);
 	if (!p) {
@@ -3377,8 +3383,7 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
 		return NULL;
 	}
 
-	dev = (struct net_device *)
-		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+	dev = PTR_ALIGN(p, NETDEV_ALIGN);
 	dev->padded = (char *)dev - (char *)p;
 
 	if (sizeof_priv)

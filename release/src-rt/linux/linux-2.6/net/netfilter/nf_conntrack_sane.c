@@ -148,10 +148,9 @@ static int help(struct sk_buff **pskb,
 	}
 
 	tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-	nf_conntrack_expect_init(exp, family,
+	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, family,
 				 &tuple->src.u3, &tuple->dst.u3,
-				 IPPROTO_TCP,
-				 NULL, &reply->port);
+				 IPPROTO_TCP, NULL, &reply->port);
 
 	DEBUGP("nf_ct_sane: expect: ");
 	NF_CT_DUMP_TUPLE(&exp->tuple);
@@ -170,6 +169,11 @@ out:
 
 static struct nf_conntrack_helper sane[MAX_PORTS][2];
 static char sane_names[MAX_PORTS][2][sizeof("sane-65535")];
+
+static const struct nf_conntrack_expect_policy sane_exp_policy = {
+	.max_expected	= 1,
+	.timeout	= 5 * 60,
+};
 
 /* don't make this __exit, since it's called from __init ! */
 static void nf_conntrack_sane_fini(void)
@@ -210,8 +214,7 @@ static int __init nf_conntrack_sane_init(void)
 			sane[i][j].tuple.dst.protonum = IPPROTO_TCP;
 			sane[i][j].mask.src.u.tcp.port = 0xFFFF;
 			sane[i][j].mask.dst.protonum = 0xFF;
-			sane[i][j].max_expected = 1;
-			sane[i][j].timeout = 5 * 60;	/* 5 Minutes */
+			sane[i][j].expect_policy = &sane_exp_policy;
 			sane[i][j].me = THIS_MODULE;
 			sane[i][j].help = help;
 			tmpname = &sane_names[i][j][0];

@@ -11,7 +11,7 @@
  *  - reduced 464 bytes.
  *  - 64 math support
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 /* This program evaluates expressions.  Each token (operator, operand,
@@ -341,7 +341,6 @@ static VALUE *eval6(void)
 		freev(i2);
 	}
 	return v;
-
 }
 
 /* Handle : operator (pattern matching).

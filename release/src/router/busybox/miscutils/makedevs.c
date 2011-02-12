@@ -36,10 +36,10 @@ int makedevs_main(int argc, char **argv)
 	basedev = argv[1];
 	buf = xasprintf("%s%u", argv[1], (unsigned)-1);
 	type = argv[2];
-	Smajor = xatoi_u(argv[3]);
-	Sminor = xatoi_u(argv[4]);
-	S = xatoi_u(argv[5]);
-	E = xatoi_u(argv[6]);
+	Smajor = xatoi_positive(argv[3]);
+	Sminor = xatoi_positive(argv[4]);
+	S = xatoi_positive(argv[5]);
+	E = xatoi_positive(argv[6]);
 	nodname = argv[7] ? basedev : buf;
 
 	mode = 0660;
@@ -76,7 +76,7 @@ int makedevs_main(int argc, char **argv)
 
 #elif ENABLE_FEATURE_MAKEDEVS_TABLE
 
-/* Licensed under the GPL v2 or later, see the file LICENSE in this tarball. */
+/* Licensed under GPLv2 or later, see file LICENSE in this source tree. */
 
 int makedevs_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int makedevs_main(int argc UNUSED_PARAM, char **argv)
@@ -121,7 +121,7 @@ int makedevs_main(int argc UNUSED_PARAM, char **argv)
 
 		if ((2 > sscanf(line, "%40s %c %o %40s %40s %u %u %u %u %u",
 					name, &type, &mode, user, group,
-					&major,	&minor, &start, &increment, &count))
+					&major, &minor, &start, &increment, &count))
 		 || ((unsigned)(major | minor | start | count | increment) > 255)
 		) {
 			bb_error_msg("invalid line %d: '%s'", linenum, line);

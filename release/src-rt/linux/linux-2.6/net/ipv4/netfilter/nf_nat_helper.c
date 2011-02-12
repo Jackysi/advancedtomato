@@ -76,6 +76,28 @@ adjust_tcp_sequence(u32 seq,
 	DUMP_OFFSET(this_way);
 }
 
+/* Get the offset value, for conntrack */
+s16 nf_nat_get_offset(const struct nf_conn *ct,
+		      enum ip_conntrack_dir dir,
+		      u32 seq)
+{
+	struct nf_conn_nat *nat = nfct_nat(ct);
+	struct nf_nat_seq *this_way;
+	s16 offset;
+
+	if (!nat)
+		return 0;
+
+	this_way = &nat->info.seq[dir];
+	spin_lock_bh(&nf_nat_seqofs_lock);
+	offset = after(seq, this_way->correction_pos)
+		 ? this_way->offset_after : this_way->offset_before;
+	spin_unlock_bh(&nf_nat_seqofs_lock);
+
+	return offset;
+}
+EXPORT_SYMBOL_GPL(nf_nat_get_offset);
+
 /* Frobs data inside this packet, which is linear. */
 static void mangle_contents(struct sk_buff *skb,
 			    unsigned int dataoff,
@@ -136,6 +158,16 @@ static int enlarge_skb(struct sk_buff **pskb, unsigned int extra)
 	return 1;
 }
 
+void nf_nat_set_seq_adjust(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+			   __be32 seq, s16 off)
+{
+	if (!off)
+		return;
+	set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
+	adjust_tcp_sequence(ntohl(seq), off, ct, ctinfo);
+}
+EXPORT_SYMBOL_GPL(nf_nat_set_seq_adjust);
+
 /* Generic function for mangling variable-length address changes inside
  * NATed TCP connections (like the PORT XXX,XXX,XXX,XXX,XXX,XXX
  * command in FTP).
@@ -144,14 +176,13 @@ static int enlarge_skb(struct sk_buff **pskb, unsigned int extra)
  * skb enlargement, ...
  *
  * */
-int
-nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
-			 struct nf_conn *ct,
-			 enum ip_conntrack_info ctinfo,
-			 unsigned int match_offset,
-			 unsigned int match_len,
-			 const char *rep_buffer,
-			 unsigned int rep_len)
+int __nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
+			       struct nf_conn *ct,
+			       enum ip_conntrack_info ctinfo,
+			       unsigned int match_offset,
+			       unsigned int match_len,
+			       const char *rep_buffer,
+			       unsigned int rep_len, bool adjust)
 {
 	struct rtable *rt = (struct rtable *)(*pskb)->dst;
 	struct iphdr *iph;
@@ -197,18 +228,13 @@ nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
 		nf_proto_csum_replace2(&tcph->check, *pskb,
 				       htons(oldlen), htons(datalen), 1);
 
-	if (rep_len != match_len) {
-		set_bit(IPS_SEQ_ADJUST_BIT, &ct->status);
-		adjust_tcp_sequence(ntohl(tcph->seq),
-				    (int)rep_len - (int)match_len,
-				    ct, ctinfo);
-		/* Tell TCP window tracking about seq change */
-		nf_conntrack_tcp_update(*pskb, ip_hdrlen(*pskb),
-					ct, CTINFO2DIR(ctinfo));
-	}
+	if (adjust && rep_len != match_len)
+		nf_nat_set_seq_adjust(ct, ctinfo, tcph->seq,
+				      (int)rep_len - (int)match_len);
+
 	return 1;
 }
-EXPORT_SYMBOL(nf_nat_mangle_tcp_packet);
+EXPORT_SYMBOL(__nf_nat_mangle_tcp_packet);
 
 /* Generic function for mangling variable-length address changes inside
  * NATed UDP connections (like the CONNECT DATA XXXXX MESG XXXXX INDEX XXXXX
@@ -389,6 +415,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
 	struct tcphdr *tcph;
 	int dir;
 	__be32 newseq, newack;
+	s16 seqoff, ackoff;
 	struct nf_conn_nat *nat = nfct_nat(ct);
 	struct nf_nat_seq *this_way, *other_way;
 
@@ -402,15 +429,18 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
 
 	tcph = (void *)(*pskb)->data + ip_hdrlen(*pskb);
 	if (after(ntohl(tcph->seq), this_way->correction_pos))
-		newseq = htonl(ntohl(tcph->seq) + this_way->offset_after);
+		seqoff = this_way->offset_after;
 	else
-		newseq = htonl(ntohl(tcph->seq) + this_way->offset_before);
+		seqoff = this_way->offset_before;
 
 	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
 		  other_way->correction_pos))
-		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_after);
+		ackoff = other_way->offset_after;
 	else
-		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_before);
+		ackoff = other_way->offset_before;
+
+	newseq = htonl(ntohl(tcph->seq) + seqoff);
+	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
 
 	nf_proto_csum_replace4(&tcph->check, *pskb, tcph->seq, newseq, 0);
 	nf_proto_csum_replace4(&tcph->check, *pskb, tcph->ack_seq, newack, 0);
@@ -422,12 +452,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
 	tcph->seq = newseq;
 	tcph->ack_seq = newack;
 
-	if (!nf_nat_sack_adjust(pskb, tcph, ct, ctinfo))
-		return 0;
-
-	nf_conntrack_tcp_update(*pskb, ip_hdrlen(*pskb), ct, dir);
-
-	return 1;
+	return nf_nat_sack_adjust(pskb, tcph, ct, ctinfo);
 }
 EXPORT_SYMBOL(nf_nat_seq_adjust);
 

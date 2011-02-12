@@ -3,22 +3,24 @@
  *  Copyright (C) 2003 Glenn L. McGrath
  *  Copyright (C) 2003-2004 Erik Andersen
  *
- * Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
 
-typedef enum {
+/* This is a NOEXEC applet. Be very careful! */
+
+enum {
 	/* 4th letter of applet_name is... */
 	HASH_MD5 = 's', /* "md5>s<um" */
 	HASH_SHA1 = '1',
 	HASH_SHA256 = '2',
 	HASH_SHA512 = '5',
-} hash_algo_t;
+};
 
-#define FLAG_SILENT	1
-#define FLAG_CHECK	2
-#define FLAG_WARN	4
+#define FLAG_SILENT  1
+#define FLAG_CHECK   2
+#define FLAG_WARN    4
 
 /* This might be useful elsewhere */
 static unsigned char *hash_bin_to_hex(unsigned char *hash_value,
@@ -30,7 +32,7 @@ static unsigned char *hash_bin_to_hex(unsigned char *hash_value,
 	return (unsigned char *)hex_value;
 }
 
-static uint8_t *hash_file(const char *filename /*, hash_algo_t hash_algo*/)
+static uint8_t *hash_file(const char *filename)
 {
 	int src_fd, hash_len, count;
 	union _ctx_ {
@@ -41,14 +43,16 @@ static uint8_t *hash_file(const char *filename /*, hash_algo_t hash_algo*/)
 	} context;
 	uint8_t *hash_value = NULL;
 	RESERVE_CONFIG_UBUFFER(in_buf, 4096);
-	void FAST_FUNC (*update)(const void*, size_t, void*);
+	void FAST_FUNC (*update)(void*, const void*, size_t);
 	void FAST_FUNC (*final)(void*, void*);
-	hash_algo_t hash_algo = applet_name[3];
+	char hash_algo;
 
 	src_fd = open_or_warn_stdin(filename);
 	if (src_fd < 0) {
 		return NULL;
 	}
+
+	hash_algo = applet_name[3];
 
 	/* figure specific hash algorithims */
 	if (ENABLE_MD5SUM && hash_algo == HASH_MD5) {
@@ -72,15 +76,15 @@ static uint8_t *hash_file(const char *filename /*, hash_algo_t hash_algo*/)
 		final = (void*)sha512_end;
 		hash_len = 64;
 	} else {
-		bb_error_msg_and_die("algorithm not supported");
+		xfunc_die(); /* can't reach this */
 	}
 
-	while (0 < (count = safe_read(src_fd, in_buf, 4096))) {
-		update(in_buf, count, &context);
+	while ((count = safe_read(src_fd, in_buf, 4096)) > 0) {
+		update(&context, in_buf, count);
 	}
 
 	if (count == 0) {
-		final(in_buf, &context);
+		final(&context, in_buf);
 		hash_value = hash_bin_to_hex(in_buf, hash_len);
 	}
 
@@ -97,27 +101,26 @@ int md5_sha1_sum_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 {
 	int return_value = EXIT_SUCCESS;
-	uint8_t *hash_value;
 	unsigned flags;
-	/*hash_algo_t hash_algo = applet_name[3];*/
 
 	if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK) {
 		/* -b "binary", -t "text" are ignored (shaNNNsum compat) */
 		flags = getopt32(argv, "scwbt");
+		argv += optind;
+		//argc -= optind;
+	} else {
+		argv += 1;
+		//argc -= 1;
 	}
-	else optind = 1;
-	argv += optind;
-	//argc -= optind;
 	if (!*argv)
 		*--argv = (char*)"-";
 
 	if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK && !(flags & FLAG_CHECK)) {
 		if (flags & FLAG_SILENT) {
-			bb_error_msg_and_die
-				("-%c is meaningful only when verifying checksums", 's');
-		} else if (flags & FLAG_WARN) {
-			bb_error_msg_and_die
-				("-%c is meaningful only when verifying checksums", 'w');
+			bb_error_msg_and_die("-%c is meaningful only with -c", 's');
+		}
+		if (flags & FLAG_WARN) {
+			bb_error_msg_and_die("-%c is meaningful only with -c", 'w');
 		}
 	}
 
@@ -128,13 +131,13 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 		char *line;
 
 		if (argv[1]) {
-			bb_error_msg_and_die
-				("only one argument may be specified when using -c");
+			bb_error_msg_and_die("only one argument may be specified with -c");
 		}
 
 		pre_computed_stream = xfopen_stdin(argv[0]);
 
 		while ((line = xmalloc_fgetline(pre_computed_stream)) != NULL) {
+			uint8_t *hash_value;
 			char *filename_ptr;
 
 			count_total++;
@@ -155,7 +158,7 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 			*filename_ptr = '\0';
 			filename_ptr += 2;
 
-			hash_value = hash_file(filename_ptr /*, hash_algo*/);
+			hash_value = hash_file(filename_ptr);
 
 			if (hash_value && (strcmp((char*)hash_value, line) == 0)) {
 				if (!(flags & FLAG_SILENT))
@@ -181,7 +184,7 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 		*/
 	} else {
 		do {
-			hash_value = hash_file(*argv/*, hash_algo*/);
+			uint8_t *hash_value = hash_file(*argv);
 			if (hash_value == NULL) {
 				return_value = EXIT_FAILURE;
 			} else {

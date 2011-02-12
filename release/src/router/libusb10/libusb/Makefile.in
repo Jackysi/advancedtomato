@@ -247,6 +247,7 @@ EXTRA_DIST = $(LINUX_USBFS_SRC) $(DARWIN_USB_SRC)
 @OS_LINUX_TRUE@OS_SRC = $(LINUX_USBFS_SRC)
 @OS_DARWIN_TRUE@AM_CFLAGS_EXT = -no-cpp-precomp
 libusb_1_0_la_CFLAGS = $(VISIBILITY_CFLAGS) $(AM_CFLAGS) -pthread
+libusb_1_0_la_LDFLAGS = -avoid-version
 libusb_1_0_la_SOURCES = libusbi.h core.c descriptor.c io.c sync.c $(OS_SRC)
 hdrdir = $(includedir)/libusb-1.0
 hdr_HEADERS = libusb.h
@@ -316,7 +317,7 @@ clean-libLTLIBRARIES:
 	  rm -f "$${dir}/so_locations"; \
 	done
 libusb-1.0.la: $(libusb_1_0_la_OBJECTS) $(libusb_1_0_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(libusb_1_0_la_LINK) -rpath $(libdir) $(libusb_1_0_la_OBJECTS) $(libusb_1_0_la_LIBADD) $(LIBS)
+	$(AM_V_CCLD)$(libusb_1_0_la_LINK) -rpath $(libdir) $(libusb_1_0_la_LDFLAGS) $(libusb_1_0_la_OBJECTS) $(libusb_1_0_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

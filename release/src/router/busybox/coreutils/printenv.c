@@ -5,10 +5,12 @@
  * Copyright (C) 2005 by Erik Andersen <andersen@codepoet.org>
  * Copyright (C) 2005 by Mike Frysinger <vapier@gentoo.org>
  *
- * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+ * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
 #include "libbb.h"
+
+/* This is a NOFORK applet. Be very careful! */
 
 int printenv_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int printenv_main(int argc UNUSED_PARAM, char **argv)

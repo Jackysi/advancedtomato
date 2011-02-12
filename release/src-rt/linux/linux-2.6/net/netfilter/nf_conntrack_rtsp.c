@@ -75,6 +75,8 @@ MODULE_PARM_DESC(setup_timeout, "timeout on for unestablished data channels");
 static char *rtsp_buffer;
 static DEFINE_SPINLOCK(rtsp_buffer_lock);
 
+static struct nf_conntrack_expect_policy rtsp_exp_policy;
+
 unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
 				 enum ip_conntrack_info ctinfo,
 				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
@@ -333,7 +335,7 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 
 		be_loport = htons(expinfo.loport);
 
-		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
+		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, ct->tuplehash[!dir].tuple.src.l3num,
 			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
 			IPPROTO_UDP, NULL, &be_loport);
 
@@ -470,6 +472,9 @@ init(void)
 		return -EBUSY;
 	}
 
+	rtsp_exp_policy.max_expected = max_outstanding;
+	rtsp_exp_policy.timeout = setup_timeout;
+
 	rtsp_buffer = kmalloc(65536, GFP_KERNEL);
 	if (!rtsp_buffer)
 		return -ENOMEM;
@@ -488,8 +493,7 @@ init(void)
 		hlpr->mask.src.l3num = 0xFFFF;
 		hlpr->mask.src.u.tcp.port = htons(0xFFFF);
 		hlpr->mask.dst.protonum = 0xFF;
-		hlpr->max_expected = max_outstanding;
-		hlpr->timeout = setup_timeout;
+		hlpr->expect_policy = &rtsp_exp_policy;
 		hlpr->me = THIS_MODULE;
 		hlpr->help = help;
 
