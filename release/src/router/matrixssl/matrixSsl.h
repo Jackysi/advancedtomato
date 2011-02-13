@@ -1,13 +1,13 @@
 /*
  *	matrixSsl.h
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *	
  *	Public header file for MatrixSSL
  *	Implementations interacting with the matrixssl library should
  *	only use the APIs and definitions used in this file.
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -146,6 +146,11 @@ MATRIXPUBLIC int32	matrixSslEncodeHelloRequest(ssl_t *ssl, sslBuf_t *out);
 
 MATRIXPUBLIC int32 matrixSslSetResumptionFlag(ssl_t *ssl, char flag);
 MATRIXPUBLIC int32 matrixSslGetResumptionFlag(ssl_t *ssl, char *flag);
+
+
+
+
+
 
 /******************************************************************************/
 

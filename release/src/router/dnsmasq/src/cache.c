@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,7 +17,10 @@
 #include "dnsmasq.h"
 
 static struct crec *cache_head = NULL, *cache_tail = NULL, **hash_table = NULL;
-static struct crec *dhcp_spare = NULL, *new_chain = NULL;
+#ifdef HAVE_DHCP
+static struct crec *dhcp_spare = NULL;
+#endif
+static struct crec *new_chain = NULL;
 static int cache_inserted = 0, cache_live_freed = 0, insert_error;
 static union bigname *big_free = NULL;
 static int bignames_left, hash_size;
@@ -223,7 +226,7 @@ char *cache_get_name(struct crec *crecp)
 {
   if (crecp->flags & F_BIGNAME)
     return crecp->name.bname->name;
-  else if (crecp->flags & F_DHCP) 
+  else if (crecp->flags & (F_DHCP | F_CONFIG)) 
     return crecp->name.namep;
   
   return crecp->name.sname;
@@ -363,7 +366,7 @@ struct crec *cache_insert(char *name, struct all_addr *addr,
 
   log_query(flags | F_UPSTREAM, name, addr, NULL);
 
-  /* CONFIG bit no needed except for logging */
+  /* CONFIG bit means something else when stored in cache entries */
   flags &= ~F_CONFIG;
 
   /* if previous insertion failed give up now. */
@@ -690,10 +693,10 @@ static void add_hosts_entry(struct crec *cache, struct all_addr *addr, int addrl
   if (!nameexists)
     for (a = daemon->cnames; a; a = a->next)
       if (hostname_isequal(cache->name.sname, a->target) &&
-	  (lookup = whine_malloc(sizeof(struct crec) + strlen(a->alias)+1-SMALLDNAME)))
+	  (lookup = whine_malloc(sizeof(struct crec))))
 	{
-	  lookup->flags = F_FORWARD | F_IMMORTAL | F_HOSTS | F_CNAME;
-	  strcpy(lookup->name.sname, a->alias);
+	  lookup->flags = F_FORWARD | F_IMMORTAL | F_CONFIG | F_HOSTS | F_CNAME;
+	  lookup->name.namep = a->alias;
 	  lookup->addr.cname.cache = cache;
 	  lookup->addr.cname.uid = index;
 	  cache_hash(lookup);
@@ -818,35 +821,38 @@ static int read_hostsfile(char *filename, int index, int cache_size)
       while (atnl == 0)
 	{
 	  struct crec *cache;
-	  int fqdn;
+	  int fqdn, nomem;
+	  char *canon;
 	  
 	  if ((atnl = gettok(f, token)) == EOF)
 	    break;
 
 	  fqdn = !!strchr(token, '.');
 
-	  if (canonicalise(token))
+	  if ((canon = canonicalise(token, &nomem)))
 	    {
 	      /* If set, add a version of the name with a default domain appended */
 	      if ((daemon->options & OPT_EXPAND) && domain_suffix && !fqdn && 
 		  (cache = whine_malloc(sizeof(struct crec) + 
-					strlen(token)+2+strlen(domain_suffix)-SMALLDNAME)))
+					strlen(canon)+2+strlen(domain_suffix)-SMALLDNAME)))
 		{
-		  strcpy(cache->name.sname, token);
+		  strcpy(cache->name.sname, canon);
 		  strcat(cache->name.sname, ".");
 		  strcat(cache->name.sname, domain_suffix);
 		  add_hosts_entry(cache, &addr, addrlen, flags, index, addr_dup);
 		  addr_dup = 1;
 		  name_count++;
 		}
-	      if ((cache = whine_malloc(sizeof(struct crec) + strlen(token)+1-SMALLDNAME)))
+	      if ((cache = whine_malloc(sizeof(struct crec) + strlen(canon)+1-SMALLDNAME)))
 		{
-		  strcpy(cache->name.sname, token);
+		  strcpy(cache->name.sname, canon);
 		  add_hosts_entry(cache, &addr, addrlen, flags, index, addr_dup);
 		  name_count++;
 		}
+	      free(canon);
+	      
 	    }
-	  else
+	  else if (!nomem)
 	    my_syslog(LOG_ERR, _("bad name at %s line %d"), filename, lineno); 
 	}
     } 
@@ -859,10 +865,11 @@ static int read_hostsfile(char *filename, int index, int cache_size)
   return name_count;
 }
 	    
-void cache_reload(struct hostsfile *addn_hosts)
+void cache_reload(void)
 {
   struct crec *cache, **up, *tmp;
   int i, total_size = daemon->cachesize;
+  struct hostsfile *ah;
 
   cache_inserted = cache_live_freed = 0;
   
@@ -889,7 +896,7 @@ void cache_reload(struct hostsfile *addn_hosts)
 	  up = &cache->hash_next;
       }
   
-  if ((daemon->options & OPT_NO_HOSTS) && !addn_hosts)
+  if ((daemon->options & OPT_NO_HOSTS) && !daemon->addn_hosts)
     {
       if (daemon->cachesize > 0)
 	my_syslog(LOG_INFO, _("cleared cache"));
@@ -898,13 +905,116 @@ void cache_reload(struct hostsfile *addn_hosts)
 
   if (!(daemon->options & OPT_NO_HOSTS))
     total_size = read_hostsfile(HOSTSFILE, 0, total_size);
-  while (addn_hosts)
+  
+  for (i = 0, ah = daemon->addn_hosts; ah; ah = ah->next)
     {
-      total_size = read_hostsfile(addn_hosts->fname, addn_hosts->index, total_size);
-      addn_hosts = addn_hosts->next;
-    }  
+      if (i <= ah->index)
+	i = ah->index + 1;
+
+      if (ah->flags & AH_DIR)
+	ah->flags |= AH_INACTIVE;
+      else
+	ah->flags &= ~AH_INACTIVE;
+    }
+
+  for (ah = daemon->addn_hosts; ah; ah = ah->next)
+    if (!(ah->flags & AH_INACTIVE))
+      {
+	struct stat buf;
+	if (stat(ah->fname, &buf) != -1 && S_ISDIR(buf.st_mode))
+	  {
+	    DIR *dir_stream;
+	    struct dirent *ent;
+	    
+	    /* don't read this as a file */
+	    ah->flags |= AH_INACTIVE;
+	    
+	    if (!(dir_stream = opendir(ah->fname)))
+	      my_syslog(LOG_ERR, _("cannot access directory %s: %s"), 
+			ah->fname, strerror(errno));
+	    else
+	      {
+		while ((ent = readdir(dir_stream)))
+		  {
+		    size_t lendir = strlen(ah->fname);
+		    size_t lenfile = strlen(ent->d_name);
+		    struct hostsfile *ah1;
+		    char *path;
+		    
+		    /* ignore emacs backups and dotfiles */
+		    if (lenfile == 0 || 
+			ent->d_name[lenfile - 1] == '~' ||
+			(ent->d_name[0] == '#' && ent->d_name[lenfile - 1] == '#') ||
+			ent->d_name[0] == '.')
+		      continue;
+		    
+		    /* see if we have an existing record.
+		       dir is ah->fname 
+		       file is ent->d_name
+		       path to match is ah1->fname */
+
+		    for (ah1 = daemon->addn_hosts; ah1; ah1 = ah1->next)
+		      {
+			if (lendir < strlen(ah1->fname) &&
+			    strstr(ah1->fname, ah->fname) == ah1->fname &&
+			    ah1->fname[lendir] == '/' &&
+			    strcmp(ah1->fname + lendir + 1, ent->d_name) == 0)
+			  {
+			    ah1->flags &= ~AH_INACTIVE;
+			    break;
+			  }
+		      }
+		    
+		    /* make new record */
+		    if (!ah1)
+		      {
+			if (!(ah1 = whine_malloc(sizeof(struct hostsfile))))
+			  continue;
+			
+			if (!(path = whine_malloc(lendir + lenfile + 2)))
+			  {
+			    free(ah1);
+			    continue;
+			  }
+		      	
+			strcpy(path, ah->fname);
+			strcat(path, "/");
+			strcat(path, ent->d_name);
+			ah1->fname = path;
+			ah1->index = i++;
+			ah1->flags = AH_DIR;
+			ah1->next = daemon->addn_hosts;
+			daemon->addn_hosts = ah1;
+		      }
+		    
+		    /* inactivate record if not regular file */
+		    if ((ah1->flags & AH_DIR) && stat(ah1->fname, &buf) != -1 && !S_ISREG(buf.st_mode))
+		      ah1->flags |= AH_INACTIVE; 
+
+		  }
+		closedir(dir_stream);
+	      }
+	  }
+      }
+	    
+  for (ah = daemon->addn_hosts; ah; ah = ah->next)
+    if (!(ah->flags & AH_INACTIVE))
+      total_size = read_hostsfile(ah->fname, ah->index, total_size);
 } 
 
+char *get_domain(struct in_addr addr)
+{
+  struct cond_domain *c;
+
+  for (c = daemon->cond_domain; c; c = c->next)
+    if (ntohl(addr.s_addr) >= ntohl(c->start.s_addr) &&
+        ntohl(addr.s_addr) <= ntohl(c->end.s_addr))
+      return c->domain;
+
+  return daemon->domain_suffix;
+}
+
+#ifdef HAVE_DHCP
 void cache_unhash_dhcp(void)
 {
   struct crec *cache, **up;
@@ -935,19 +1045,22 @@ void cache_add_dhcp_entry(char *host_name,
       /* check all addresses associated with name */
       if (crec->flags & F_HOSTS)
 	{
-	  if (crec->addr.addr.addr.addr4.s_addr != host_address->s_addr)
+	  /* if in hosts, don't need DHCP record */
+	  in_hosts = 1;
+	  
+	  if (crec->flags & F_CNAME)
+	    my_syslog(LOG_WARNING, 
+		      _("%s is a CNAME, not giving it to the DHCP lease of %s"),
+		      host_name, inet_ntoa(*host_address));
+	  else if (crec->addr.addr.addr.addr4.s_addr != host_address->s_addr)
 	    {
 	      strcpy(daemon->namebuff, inet_ntoa(crec->addr.addr.addr.addr4));
 	      my_syslog(LOG_WARNING, 
 			_("not giving name %s to the DHCP lease of %s because "
 			  "the name exists in %s with address %s"), 
 			host_name, inet_ntoa(*host_address),
-			record_source(daemon->addn_hosts, crec->uid), daemon->namebuff);
-	      return;
-	    }
-	  else
-	    /* if in hosts, don't need DHCP record */
-	    in_hosts = 1;
+			record_source(crec->uid), daemon->namebuff);
+	    }	  
 	}
       else if (!(crec->flags & F_DHCP))
 	{
@@ -996,7 +1109,7 @@ void cache_add_dhcp_entry(char *host_name,
 	    
 	    if (aliasc)
 	      {
-		aliasc->flags = F_FORWARD | F_DHCP | F_CNAME;
+		aliasc->flags = F_FORWARD | F_CONFIG | F_DHCP | F_CNAME;
 		if (ttd == 0)
 		  aliasc->flags |= F_IMMORTAL;
 		else
@@ -1009,6 +1122,7 @@ void cache_add_dhcp_entry(char *host_name,
 	  }
     }
 }
+#endif
 
 
 void dump_cache(time_t now)
@@ -1099,20 +1213,18 @@ void dump_cache(time_t now)
     }
 }
 
-char *record_source(struct hostsfile *addn_hosts, int index)
+char *record_source(int index)
 {
-  char *source = HOSTSFILE;
-  while (addn_hosts)
-    { 
-      if (addn_hosts->index == index)
-	{
-	  source = addn_hosts->fname;
-	  break;
-	}
-      addn_hosts = addn_hosts->next;
-    }
+  struct hostsfile *ah;
 
-  return source;
+  if (index == 0)
+    return HOSTSFILE;
+
+  for (ah = daemon->addn_hosts; ah; ah = ah->next)
+    if (ah->index == index)
+      return ah->fname;
+  
+  return "<unknown>";
 }
 
 void querystr(char *str, unsigned short type)
@@ -1179,12 +1291,12 @@ void log_query(unsigned short flags, char *name, struct all_addr *addr, char *ar
 	dest = "<CNAME>";
     }
     
-  if (flags & F_DHCP)
+  if (flags & F_CONFIG)
+    source = "config";
+  else if (flags & F_DHCP)
     source = "DHCP";
   else if (flags & F_HOSTS)
     source = arg;
-  else if (flags & F_CONFIG)
-    source = "config";
   else if (flags & F_UPSTREAM)
     source = "reply";
   else if (flags & F_SERVER)

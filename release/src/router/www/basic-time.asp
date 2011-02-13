@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -36,20 +36,6 @@ var ntpList = [
 	['south-america', 'South America'],
 	['us', 'US']
 ];
-
-/* REMOVE-BEGIN
-var ntpList = [
-	['custom', 'Custom'],
-	['', 'pool.ntp.org'],
-	['africa', 'africa.pool.ntp.org'],
-	['asia', 'asia.pool.ntp.org'],
-	['europe', 'europe.pool.ntp.org'],
-	['oceania', 'oceania.pool.ntp.org'],
-	['north-america', 'north-america.pool.ntp.org'],
-	['south-america', 'south-america.pool.ntp.org'],
-	['us', 'us.pool.ntp.org']
-];
-REMOVE-END */
 
 function ntpString(name)
 {
@@ -209,6 +195,10 @@ http://www.timeanddate.com/worldclock/city.html?n=101
 New Zeland
 http://www.dia.govt.nz/diawebsite.nsf/wpg_URL/Services-Daylight-Saving-Index
 
+Australia
+http://en.wikipedia.org/wiki/Time_in_Australia
+http://www.timeanddate.com/library/abbreviations/timezones/au/
+
 REMOVE-END */
 
 createFieldTable('', [
@@ -241,12 +231,13 @@ createFieldTable('', [
 		['GMT0BST,M3.5.0/2,M10.5.0/2','UTC+00:00 England'],
 		['UTC-1','UTC+01:00 Tunisia'],
 		['CET-1CEST,M3.5.0/2,M10.5.0/3','UTC+01:00 France, Germany, Italy, Poland, Sweden'],
-		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Finland'],
-		['UTC-2','UTC+02:00 South Africa'],
+		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Estonia, Finland, Latvia, Lithuania'],
+		['UTC-2','UTC+02:00 South Africa, Israel'],
 		['STD-2DST,M3.5.0/2,M10.5.0/2','UTC+02:00 Greece, Ukraine, Romania, Turkey, Latvia'],
 		['UTC-3','UTC+03:00 Iraq, Jordan, Kuwait'],
 		['MSK-3MSD,M3.5.0/3,M10.5.0/4','UTC+03:00 Moscow'],
 		['UTC-4','UTC+04:00 Armenia'],
+		['UTC-4:30','UTC+04:30 Kabul'],
 		['UTC-5','UTC+05:00 Pakistan, Russia'],
 		['UTC-5:30','UTC+05:30 Bombay, Calcutta, Madras, New Delhi'],
 		['UTC-6','UTC+06:00 Bangladesh, Russia'],
@@ -254,8 +245,10 @@ createFieldTable('', [
 		['UTC-8','UTC+08:00 China, Hong Kong, Western Australia, Singapore, Taiwan, Russia'],
 		['UTC-9','UTC+09:00 Japan, Korea'],
 		['ACST-9:30ACDT,M10.1.0/2,M4.1.0/3', 'UTC+09:30 South Australia'],
+		['ACST-9:30', 'UTC+09:30 Darwin'],
 		['UTC-10','UTC+10:00 Guam, Russia'],
-		['STD-10DST,M10.5.0/2,M3.5.0/2','UTC+10:00 Australia'],
+		['AEST-10AEDT,M10.1.0,M4.1.0/3', 'UTC+10:00 Australia'],
+		['AEST-10', 'UTC+10:00 Brisbane'],
 		['UTC-11','UTC+11:00 Solomon Islands'],
 		['UTC-12','UTC+12:00 Fiji'],
 		['NZST-12NZDT,M9.5.0/2,M4.1.0/3','UTC+12:00 New Zealand']

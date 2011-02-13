@@ -58,7 +58,7 @@ int _web_printf(wofilter_t wof, const char *format, ...)
 	int size;
 	int n;
 
-	size = 512;
+	size = 1024;
 	while (1) {
 		if ((b = malloc(size)) == NULL) return 0;
 
@@ -91,7 +91,7 @@ int _web_printf(wofilter_t wof, const char *format, ...)
 		else size *= 2;
 
 		free(b);
-		if (size > (4 * 1024)) return 0;
+		if (size > (10 * 1024)) return 0;
 	}
 }
 

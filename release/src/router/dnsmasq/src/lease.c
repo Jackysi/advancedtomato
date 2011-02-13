@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,6 +16,8 @@
 
 #include "dnsmasq.h"
 
+#ifdef HAVE_DHCP
+
 static struct dhcp_lease *leases = NULL, *old_leases = NULL;
 static int dns_dirty, file_dirty, leases_left;
 
@@ -27,11 +29,12 @@ void lease_init(time_t now)
   int clid_len, hw_len, hw_type;
   FILE *leasestream;
   
-  /* These two each hold a DHCP option max size 255
+  /* These each hold a DHCP option max size 255
      and get a terminating zero added */
   daemon->dhcp_buff = safe_malloc(256);
   daemon->dhcp_buff2 = safe_malloc(256); 
-  
+  daemon->dhcp_buff3 = safe_malloc(256);
+ 
   leases_left = daemon->dhcp_max;
 
   if (daemon->options & OPT_LEASE_RO)
@@ -40,14 +43,20 @@ void lease_init(time_t now)
 	 initial state of the database. If leasefile-ro is
 	 set without a script, we just do without any 
 	 lease database. */
-      if (!daemon->lease_change_command)
+#ifdef HAVE_SCRIPT
+      if (daemon->lease_change_command)
 	{
-	  file_dirty = dns_dirty = 0;
-	  return;
+	  strcpy(daemon->dhcp_buff, daemon->lease_change_command);
+	  strcat(daemon->dhcp_buff, " init");
+	  leasestream = popen(daemon->dhcp_buff, "r");
 	}
-      strcpy(daemon->dhcp_buff, daemon->lease_change_command);
-      strcat(daemon->dhcp_buff, " init");
-      leasestream = popen(daemon->dhcp_buff, "r");
+      else
+#endif
+	{
+          file_dirty = dns_dirty = 0;
+          return;
+        }
+
     }
   else
     {
@@ -57,7 +66,7 @@ void lease_init(time_t now)
       if (!leasestream)
 	die(_("cannot open or create lease file %s: %s"), daemon->lease_file, EC_FILE);
       
-      /* a+ mode lease pointer at end. */
+      /* a+ mode leaves pointer at end. */
       rewind(leasestream);
     }
   
@@ -98,19 +107,14 @@ void lease_init(time_t now)
 	lease_set_hwaddr(lease, (unsigned char *)daemon->dhcp_buff2, (unsigned char *)daemon->packet, hw_len, hw_type, clid_len);
 	
 	if (strcmp(daemon->dhcp_buff, "*") !=  0)
-	  {
-	    char *p;
-	    /* unprotect spaces */
-	    for (p = strchr(daemon->dhcp_buff, '*'); p; p = strchr(p, '*'))
-	      *p = ' ';
-	    lease_set_hostname(lease, daemon->dhcp_buff, 0);
-	  }
+	  lease_set_hostname(lease, daemon->dhcp_buff, 0);
 
 	/* set these correctly: the "old" events are generated later from
 	   the startup synthesised SIGHUP. */
 	lease->new = lease->changed = 0;
       }
   
+#ifdef HAVE_SCRIPT
   if (!daemon->lease_stream)
     {
       int rc = 0;
@@ -131,6 +135,7 @@ void lease_init(time_t now)
 	  die(_("lease-init script returned exit code %s"), daemon->dhcp_buff, WEXITSTATUS(rc) + EC_INIT_OFFSET);
 	}
     }
+#endif
 
   /* Some leases may have expired */
   file_dirty = 0;
@@ -171,7 +176,6 @@ void lease_update_file(time_t now)
   struct dhcp_lease *lease;
   time_t next_event;
   int i, err = 0;
-  char *p;
 
   if (file_dirty != 0 && daemon->lease_stream)
     {
@@ -201,15 +205,8 @@ void lease_update_file(time_t now)
 	    }
 
 	  ourprintf(&err, " %s ", inet_ntoa(lease->addr));
-	  
-	  /* substitute * for space: "*" is an illegal name, as is " " */
-	  if (lease->hostname)
-	    for (p = lease->hostname; *p; p++)
-	      ourprintf(&err, "%c", *p == ' ' ? '*' : *p);
-	  else
-	    ourprintf(&err, "*");
-	  ourprintf(&err, " ");
-	  
+	  ourprintf(&err, "%s ", lease->hostname ? lease->hostname : "*");
+	  	  
 	  if (lease->clid && lease->clid_len != 0)
 	    {
 	      for (i = 0; i < lease->clid_len - 1; i++)
@@ -239,7 +236,7 @@ void lease_update_file(time_t now)
       if (next_event == 0 || difftime(next_event, LEASE_RETRY + now) > 0.0)
 	next_event = LEASE_RETRY + now;
       
-      my_syslog(LOG_ERR, _("failed to write %s: %s (retry in %us)"), 
+      my_syslog(MS_DHCP | LOG_ERR, _("failed to write %s: %s (retry in %us)"), 
 		daemon->lease_file, strerror(err),
 		(unsigned int)difftime(next_event, now));
     }
@@ -552,7 +549,7 @@ int do_script_run(time_t now)
       /* If the lease still has an old_hostname, do the "old" action on that first */
       if (lease->old_hostname)
 	{
-#ifndef NO_FORK
+#ifdef HAVE_SCRIPT
 	  queue_script(ACTION_OLD_HOSTNAME, lease, lease->old_hostname, now);
 #endif
 	  free(lease->old_hostname);
@@ -562,15 +559,17 @@ int do_script_run(time_t now)
       else 
 	{
 	  kill_name(lease);
-#ifndef NO_FORK
+#ifdef HAVE_SCRIPT
 	  queue_script(ACTION_DEL, lease, lease->old_hostname, now);
+#endif
+#ifdef HAVE_DBUS
+	  emit_dbus_signal(ACTION_DEL, lease, lease->old_hostname);
 #endif
 	  old_leases = lease->next;
 	  
 	  free(lease->old_hostname); 
 	  free(lease->clid);
-	  free(lease->vendorclass);
-	  free(lease->userclass);
+	  free(lease->extradata);
 	  free(lease);
 	    
 	  return 1; 
@@ -581,7 +580,7 @@ int do_script_run(time_t now)
   for (lease = leases; lease; lease = lease->next)
     if (lease->old_hostname)
       {	
-#ifndef NO_FORK
+#ifdef HAVE_SCRIPT
 	queue_script(ACTION_OLD_HOSTNAME, lease, lease->old_hostname, now);
 #endif
 	free(lease->old_hostname);
@@ -593,19 +592,20 @@ int do_script_run(time_t now)
     if (lease->new || lease->changed || 
 	(lease->aux_changed && (daemon->options & OPT_LEASE_RO)))
       {
-#ifndef NO_FORK
+#ifdef HAVE_SCRIPT
 	queue_script(lease->new ? ACTION_ADD : ACTION_OLD, lease, 
 		     lease->fqdn ? lease->fqdn : lease->hostname, now);
 #endif
+#ifdef HAVE_DBUS
+	emit_dbus_signal(lease->new ? ACTION_ADD : ACTION_OLD, lease,
+			 lease->fqdn ? lease->fqdn : lease->hostname);
+#endif
 	lease->new = lease->changed = lease->aux_changed = 0;
 	
-	/* these are used for the "add" call, then junked, since they're not in the database */
-	free(lease->vendorclass);
-	lease->vendorclass = NULL;
+	/* this is used for the "add" call, then junked, since they're not in the database */
+	free(lease->extradata);
+	lease->extradata = NULL;
 	
-	free(lease->userclass);
-	lease->userclass = NULL;
-		
 	return 1;
       }
 
@@ -657,3 +657,5 @@ void flush_lease_file(time_t now)
 	file_dirty = 1;
 	lease_update_file(now);
 }
+
+#endif

@@ -1,4 +1,4 @@
-# dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+# dnsmasq is Copyright (c) 2000-2010 Simon Kelley
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,30 +18,33 @@ BINDIR = ${PREFIX}/sbin
 MANDIR = ${PREFIX}/share/man
 LOCALEDIR = ${PREFIX}/share/locale
 
+PKG_CONFIG = pkg-config
+INSTALL = install
+MSGMERGE = msgmerge
+MSGFMT = msgfmt
+XGETTEXT = xgettext
+
+CFLAGS = -Wall -W -O2
+
+#################################################################
+
 SRC = src
 PO = po
 MAN = man
 
-PKG_CONFIG = pkg-config
-AWK = nawk
-INSTALL = install
+DNSMASQ_CFLAGS=`echo $(COPTS) | ../bld/pkg-wrapper HAVE_DBUS $(PKG_CONFIG) --cflags dbus-1` 
+DNSMASQ_LIBS=  `echo $(COPTS) | ../bld/pkg-wrapper HAVE_DBUS $(PKG_CONFIG) --libs dbus-1` 
+SUNOS_LIBS= `if uname | grep SunOS 2>&1 >/dev/null; then echo -lsocket -lnsl -lposix4; fi`
 
-DBUS_MINOR=" `echo $(COPTS) | ../bld/pkg-wrapper $(PKG_CONFIG) --modversion dbus-1 | $(AWK) -F . -- '{ if ($$(NF-1)) print \"-DDBUS_MINOR=\"$$(NF-1) }'`" 
-DBUS_CFLAGS="`echo $(COPTS) | ../bld/pkg-wrapper $(PKG_CONFIG) --cflags dbus-1`" 
-DBUS_LIBS="  `echo $(COPTS) | ../bld/pkg-wrapper $(PKG_CONFIG) --libs dbus-1`" 
-SUNOS_VER="  `if uname | grep SunOS 2>&1 >/dev/null; then uname -r | $(AWK) -F . -- '{ print \"-DSUNOS_VER=\"$$2 }'; fi`"
-SUNOS_LIBS=" `if uname | grep SunOS 2>&1 >/dev/null; then echo -lsocket -lnsl -lposix4; fi `"
+OBJS = cache.o rfc1035.o util.o option.o forward.o network.o \
+       dnsmasq.o dhcp.o lease.o rfc2131.o netlink.o dbus.o bpf.o \
+       helper.o tftp.o log.o
 
-all :   dnsmasq
-
-dnsmasq :
-	cd $(SRC) && $(MAKE) \
- DBUS_MINOR=$(DBUS_MINOR) \
- DBUS_CFLAGS=$(DBUS_CFLAGS) \
- DBUS_LIBS=$(DBUS_LIBS) \
- SUNOS_LIBS=$(SUNOS_LIBS) \
- SUNOS_VER=$(SUNOS_VER) \
- -f ../bld/Makefile dnsmasq 
+all :
+	@cd $(SRC) && $(MAKE) \
+ BUILD_CFLAGS="$(DNSMASQ_CFLAGS)" \
+ BUILD_LIBS="$(DNSMASQ_LIBS) $(SUNOS_LIBS)" \
+ -f ../Makefile dnsmasq 
 
 clean :
 	rm -f *~ $(SRC)/*.mo contrib/*/*~ */*~ $(SRC)/*.pot 
@@ -55,26 +58,40 @@ install-common :
 	$(INSTALL) -m 755 $(SRC)/dnsmasq $(DESTDIR)$(BINDIR)
 
 all-i18n :
-	cd $(SRC) && $(MAKE) \
+	@cd $(SRC) && $(MAKE) \
  I18N=-DLOCALEDIR='\"$(LOCALEDIR)\"' \
- DBUS_MINOR=$(DBUS_MINOR) \
- DBUS_CFLAGS=$(DBUS_CFLAGS) \
- DBUS_LIBS=$(DBUS_LIBS) \
- SUNOS_LIBS=$(SUNOS_LIBS) \
- SUNOS_VER=$(SUNOS_VER) \
- -f ../bld/Makefile dnsmasq 
-	cd $(PO); for f in *.po; do \
-		cd ../$(SRC) && $(MAKE) -f ../bld/Makefile $${f%.po}.mo; \
+ BUILD_CFLAGS="$(DNSMASQ_CFLAGS) `$(PKG_CONFIG) --cflags libidn`" \
+ BUILD_LIBS="$(DNSMASQ_LIBS) $(SUNOS_LIBS) `$(PKG_CONFIG) --libs libidn`"  \
+ -f ../Makefile dnsmasq
+	@cd $(PO); for f in *.po; do \
+		cd ../$(SRC) && $(MAKE) \
+ -f ../Makefile $${f%.po}.mo; \
 	done
 
 install-i18n : all-i18n install-common
-	cd $(SRC); ../bld/install-mo $(DESTDIR)$(LOCALEDIR)
-	cd $(MAN); ../bld/install-man $(DESTDIR)$(MANDIR)
+	cd $(SRC); ../bld/install-mo $(DESTDIR)$(LOCALEDIR) $(INSTALL)
+	cd $(MAN); ../bld/install-man $(DESTDIR)$(MANDIR) $(INSTALL)
 
 merge :
-	$(MAKE) I18N=-DLOCALEDIR='\"$(LOCALEDIR)\"' -f ../bld/Makefile -C $(SRC) dnsmasq.pot
-	cd $(PO); for f in *.po; do \
-		msgmerge --no-wrap -U $$f ../$(SRC)/dnsmasq.pot; \
+	@cd $(SRC) && $(MAKE) -f ../Makefile dnsmasq.pot
+	@cd $(PO); for f in *.po; do \
+		echo -n msgmerge $$f && $(MSGMERGE) --no-wrap -U $$f ../$(SRC)/dnsmasq.pot; \
 	done
 
 
+# rules below are targets in recusive makes with cwd=$(SRC)
+
+.c.o:
+	$(CC) $(CFLAGS) $(COPTS) $(I18N) $(BUILD_CFLAGS) $(RPM_OPT_FLAGS) -c $<
+
+dnsmasq : $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(BUILD_LIBS) $(LIBS) 
+
+dnsmasq.pot : $(OBJS:.o=.c) dnsmasq.h config.h
+	$(XGETTEXT) -d dnsmasq --foreign-user --omit-header --keyword=_ -o $@ -i $(OBJS:.o=.c)
+
+%.mo : ../po/%.po dnsmasq.pot
+	$(MSGMERGE) -o - ../po/$*.po dnsmasq.pot | $(MSGFMT) -o $*.mo -
+
+
+.PHONY : all clean install install-common all-i18n install-i18n merge 

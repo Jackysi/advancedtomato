@@ -66,12 +66,12 @@
 
 # You can control how dnsmasq talks to a server: this forces 
 # queries to 10.1.2.3 to be routed via eth1
-# --server=10.1.2.3@eth1
+# server=10.1.2.3@eth1
 
 # and this sets the source (ie local) address used to talk to
 # 10.1.2.3 to 192.168.1.1 port 55 (there must be a interface with that
 # IP on the machine, obviously).
-# --server=10.1.2.3@192.168.1.1#55
+# server=10.1.2.3@192.168.1.1#55
 
 # If you want dnsmasq to change uid and gid to something other
 # than the default, edit the following lines.
@@ -141,10 +141,22 @@
 # don't need to worry about this.
 #dhcp-range=192.168.0.50,192.168.0.150,255.255.255.0,12h
 
-# This is an example of a DHCP range with a network-id, so that
+# This is an example of a DHCP range which sets a tag, so that
 # some DHCP options may be set only for this network.
-#dhcp-range=red,192.168.0.50,192.168.0.150
+#dhcp-range=set:red,192.168.0.50,192.168.0.150
 
+# Use this DHCP range only when the tag "green" is set. 
+#dhcp-range=tag:green,192.168.0.50,192.168.0.150,12h
+
+# Specify a subnet which can't be used for dynamic address allocation,
+# is available for hosts with matching --dhcp-host lines. Note that
+# dhcp-host declarations will be ignored unless there is a dhcp-range
+# of some type for the subnet in question.
+# In this case the netmask is implied (it comes from the network
+# configuration on the machine running dnsmasq) it is possible to give 
+# an explict netmask instead.
+#dhcp-range=192.168.0.0,static
+ 
 # Supply parameters for specified hosts using DHCP. There are lots
 # of valid alternatives, so we will give examples of each. Note that
 # IP addresses DO NOT have to be in the range given above, they just
@@ -200,29 +212,29 @@
 
 # Send extra options which are tagged as "red" to
 # the machine with ethernet address 11:22:33:44:55:66
-#dhcp-host=11:22:33:44:55:66,net:red
+#dhcp-host=11:22:33:44:55:66,set:red
 
 # Send extra options which are tagged as "red" to
 # any machine with ethernet address starting 11:22:33:
-#dhcp-host=11:22:33:*:*:*,net:red
+#dhcp-host=11:22:33:*:*:*,set:red
 
 # Ignore any clients which are specified in dhcp-host lines
 # or /etc/ethers. Equivalent to ISC "deny unkown-clients".
 # This relies on the special "known" tag which is set when 
 # a host is matched.
-#dhcp-ignore=#known
+#dhcp-ignore=tag:!known
 
 # Send extra options which are tagged as "red" to any machine whose
 # DHCP vendorclass string includes the substring "Linux"
-#dhcp-vendorclass=red,Linux
+#dhcp-vendorclass=set:red,Linux
 
 # Send extra options which are tagged as "red" to any machine one
 # of whose DHCP userclass strings includes the substring "accounts"
-#dhcp-userclass=red,accounts
+#dhcp-userclass=set:red,accounts
 
 # Send extra options which are tagged as "red" to any machine whose
 # MAC address matches the pattern.
-#dhcp-mac=red,00:60:8C:*:*:*
+#dhcp-mac=set:red,00:60:8C:*:*:*
 
 # If this line is uncommented, dnsmasq will read /etc/ethers and act
 # on the ethernet-address/IP pairs found there just as if they had
@@ -276,8 +288,8 @@
 
 # Specify an option which will only be sent to the "red" network
 # (see dhcp-range for the declaration of the "red" network)
-# Note that the net: part must precede the option: part.
-#dhcp-option = net:red, option:ntp-server, 192.168.1.1
+# Note that the tag: part must precede the option: part.
+#dhcp-option = tag:red, option:ntp-server, 192.168.1.1
 
 # The following DHCP options set up dnsmasq in the same way as is specified
 # for the ISC dhcpcd in
@@ -329,7 +341,7 @@
 # Reboot time. (Note 'i' to send 32-bit value)
 #dhcp-option-force=211,30i
 
-# Set the boot filename for BOOTP. You will only need 
+# Set the boot filename for netboot/PXE. You will only need 
 # this is you want to boot machines over the network and you will need
 # a TFTP server; either dnsmasq's built in TFTP server or an
 # external one. (See below for how to enable the TFTP server.)
@@ -338,8 +350,8 @@
 # Boot for Etherboot gPXE. The idea is to send two different
 # filenames, the first loads gPXE, and the second tells gPXE what to
 # load. The dhcp-match sets the gpxe tag for requests from gPXE.
-#dhcp-match=gpxe,175 # gPXE sends a 175 option.
-#dhcp-boot=net:#gpxe,undionly.kpxe
+#dhcp-match=set:gpxe,175 # gPXE sends a 175 option.
+#dhcp-boot=tag:!gpxe,undionly.kpxe
 #dhcp-boot=mybootimage
  
 # Encapsulated options for Etherboot gPXE. All the options are
@@ -358,6 +370,34 @@
 #dhcp-match=hammers, option:client-arch, 6 #x86-64
 #dhcp-match=mactels, option:client-arch, 7 #EFI x86-64 
 
+# Do real PXE, rather than just booting a single file, this is an
+# alternative to dhcp-boot.
+#pxe-prompt="What system shall I netboot?"
+# or with timeout before first available action is taken:
+#pxe-prompt="Press F8 for menu.", 60
+
+# Available boot services. for PXE.
+#pxe-service=x86PC, "Boot from local disk"
+
+# Loads <tftp-root>/pxelinux.0 from dnsmasq TFTP server.
+#pxe-service=x86PC, "Install Linux", pxelinux 
+
+# Loads <tftp-root>/pxelinux.0 from TFTP server at 1.2.3.4.
+# Beware this fails on old PXE ROMS.
+#pxe-service=x86PC, "Install Linux", pxelinux, 1.2.3.4 
+
+# Use bootserver on network, found my multicast or broadcast.
+#pxe-service=x86PC, "Install windows from RIS server", 1
+
+# Use bootserver at a known IP address.
+#pxe-service=x86PC, "Install windows from RIS server", 1, 1.2.3.4
+
+# If you have multicast-FTP available,
+# information for that can be passed in a similar way using options 1
+# to 5. See page 19 of
+# http://download.intel.com/design/archives/wfm/downloads/pxespec.pdf  
+
+  
 # Enable dnsmasq's built-in TFTP server
 #enable-tftp
 
@@ -368,11 +408,17 @@
 # the user dnsmasq is running as will be send over the net.
 #tftp-secure
 
+# This option stops dnsmasq from negotiating a larger blocksize for TFTP 
+# transfers. It will slow things down, but may rescue some broken TFTP
+# clients.
+#tftp-no-blocksize
+
 # Set the boot file name only when the "red" tag is set.
 #dhcp-boot=net:red,pxelinux.red-net
 
-# An example of dhcp-boot with an external server: the name and IP
+# An example of dhcp-boot with an external TFTP server: the name and IP
 # address of the server are given after the filename.
+# Can fail with old PXE ROMS. Overridden by --pxe-service.
 #dhcp-boot=/var/ftpd/pxelinux.0,boothost,192.168.0.3
 
 # Set the limit on DHCP leases, the default is 150
@@ -456,11 +502,11 @@
 # set for this to work.)
 
 # A SRV record sending LDAP for the example.com domain to
-# ldapserver.example.com port 289
+# ldapserver.example.com port 389
 #srv-host=_ldap._tcp.example.com,ldapserver.example.com,389
 
 # A SRV record sending LDAP for the example.com domain to
-# ldapserver.example.com port 289 (using domain=)
+# ldapserver.example.com port 389 (using domain=)
 #domain=example.com
 #srv-host=_ldap._tcp,ldapserver.example.com,389
 

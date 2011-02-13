@@ -961,9 +961,9 @@ static void update_noip(void)
 /*
 
 	No-IP.com -- refresh
-	
+
 	http://www.no-ip.com/hostactive.php?host=<host>&domain=<dom>
-	
+
 */
 static void update_noip_refresh(void)
 {
@@ -975,10 +975,10 @@ static void update_noip_refresh(void)
 	if ((domain = strchr(host, '.')) != NULL) {
 		*domain++ = 0;
 	}
-	
+
 	sprintf(query, "/hostactive.php?host=%s", host);
 	if (domain) sprintf(query + strlen(query), "&domain=%s", domain);
-	
+
 	wget(0, 1, "www.no-ip.com", query, NULL, 0, NULL);
 	// return ignored
 }
@@ -1352,6 +1352,53 @@ static void update_everydns(void)
 
 /*
 
+	editdns.net
+	http://www.editdns.net/
+
+	source: Keith M.
+
+	---
+
+	http://DynDNS.EditDNS.net/api/dynLinux.php?p=XXX&r=XXX
+
+	p = password
+	r = hostname
+
+*/
+static void update_editdns(void)
+{
+	int r;
+	char *body;
+	char query[2048];
+
+	// +opt +opt
+	sprintf(query, "/api/dynLinux.php?p=%s&r=%s",
+		get_option_required("pass"), get_option_required("host"));
+
+	r = wget(0, 1, "DynDNS.EditDNS.net", query, NULL, 0, &body);
+	if (r == 200) {
+		if (strstr(body, "Record has been updated") != NULL) {
+			success();
+		}
+		if (strstr(body, "Record already exists") != NULL) {
+			error(M_SAME_IP);
+		}
+		else if (strstr(body, "Invalid Username") != NULL) {
+			error(M_INVALID_AUTH);
+		}
+		else if (strstr(body, "Invalid DynRecord") != NULL) {
+			error(M_INVALID_HOST);
+		}
+		else {
+			error(M_UNKNOWN_RESPONSE__D, -1);
+		}
+	}
+
+	error(M_UNKNOWN_ERROR__D, r);
+}
+
+/*
+
 	wget/custom
 
 */
@@ -1629,6 +1676,9 @@ int main(int argc, char *argv[])
 	else if (strcmp(p, "everydns") == 0) {
 		// 07/2008 -- zzz
 		update_everydns();
+	}
+	else if (strcmp(p, "editdns") == 0) {
+		update_editdns();
 	}
 	else if ((strcmp(p, "wget") == 0) || (strcmp(p, "custom") == 0)) {
 		// test ok 9/15 -- zzz

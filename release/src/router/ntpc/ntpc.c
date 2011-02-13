@@ -117,7 +117,7 @@ static int ntpc(struct in_addr addr)
 
 					if ((u & 0x00FF0000) == 0) {			// stratum == 0
 						printf("Received stratum=0\n");
-						if (!nvram_match("ntpc_kiss_ignore", "1")) {
+						if (!nvram_match("ntp_kiss_ignore", "1")) {
 							return 2;
 						}
 					}
@@ -131,10 +131,6 @@ static int ntpc(struct in_addr addr)
 					_dprintf("ntpt   = %ld\n", ntpt);
 					_dprintf("rtt/2  = %ld\n", t);
 					_dprintf("diff   = %ld\n", diff);
-
-//					if (!nvram_match("ntp_relaxed", "0")) {
-//						if ((diff >= -1) && (diff <= 1)) diff = 0;
-//					}
 
 					if (diff != 0) {
 						gettimeofday(&tv, NULL);
@@ -331,6 +327,29 @@ static int ntpsync_main(int argc, char **argv)
 
 // -----------------------------------------------------------------------------
 
+
+static int ntpstep_main(int argc, char **argv)
+{
+	struct timeval tv;
+	char s[256];
+	
+	if (argc != 2) {
+		printf("Usage: ntpstep <seconds>\n");
+		return 1;
+	}
+	
+	gettimeofday(&tv, NULL);
+	tv.tv_sec += atol(argv[1]);
+	settimeofday(&tv, NULL);
+
+	strftime(s, sizeof(s), "%a, %d %b %Y %H:%M:%S %z", localtime(&tv.tv_sec));
+	printf("%s\n", s);
+	return 0;
+}
+
+
+// -----------------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
 	openlog("ntpc", LOG_PID, LOG_USER);
@@ -338,7 +357,9 @@ int main(int argc, char **argv)
 		setlogmask(LOG_MASK(LOG_EMERG));	// can't set to 0
 	}
 
-	if (strstr(argv[0], "ntpsync") != 0) return ntpsync_main(argc, argv);
+	if (strstr(argv[0], "ntpsync") != NULL) return ntpsync_main(argc, argv);
+	if (strstr(argv[0], "ntpstep") != NULL) return ntpstep_main(argc, argv);
+
 	return ntpc_main(argc, argv);
 }
 

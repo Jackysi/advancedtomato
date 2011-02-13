@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
  
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define COPYRIGHT "Copyright (C) 2000-2009 Simon Kelley" 
+#define COPYRIGHT "Copyright (c) 2000-2010 Simon Kelley" 
 
 #ifndef NO_LARGEFILE
 /* Ensure we can use files >2GB (log files may grow this big) */
@@ -22,14 +22,21 @@
 #  define _FILE_OFFSET_BITS 64
 #endif
 
-/* Get linux C library versions. */
-#ifdef __linux__
+/* Get linux C library versions and define _GNU_SOURCE for kFreeBSD. */
+#if defined(__linux__) || defined(__GLIBC__)
 #  define _GNU_SOURCE
 #  include <features.h> 
 #endif
 
+/* Need these defined early */
+#if defined(__sun) || defined(__sun__)
+#  define _XPG4_2
+#  define __EXTENSIONS__
+#endif
+
 /* get these before config.h  for IPv6 stuff... */
 #include <sys/types.h> 
+#include <sys/socket.h>
 #include <netinet/in.h>
 
 #ifdef __APPLE__
@@ -55,10 +62,9 @@
 
 #include <arpa/inet.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
 #include <sys/ioctl.h>
 #if defined(HAVE_SOLARIS_NETWORK)
-#include <sys/sockio.h>
+#  include <sys/sockio.h>
 #endif
 #include <sys/select.h>
 #include <sys/wait.h>
@@ -66,6 +72,10 @@
 #include <sys/un.h>
 #include <limits.h>
 #include <net/if.h>
+#if defined(HAVE_SOLARIS_NETWORK) && !defined(ifr_mtu)
+/* Some solaris net/if./h omit this. */
+#  define ifr_mtu  ifr_ifru.ifru_metric
+#endif
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
@@ -106,7 +116,7 @@ extern int capget(cap_user_header_t header, cap_user_data_t data);
 #define LINUX_CAPABILITY_VERSION_3  0x20080522
 
 #include <linux/prctl.h>
-#elif defined(HAVE_SOLARIS_PRIVS)
+#elif defined(HAVE_SOLARIS_NETWORK)
 #include <priv.h>
 #endif
 
@@ -135,6 +145,7 @@ struct event_desc {
 #define EVENT_GROUP_ERR 15
 #define EVENT_DIE       16
 #define EVENT_LOG_ERR   17
+#define EVENT_FORK_ERR  18
 
 /* Exit codes. */
 #define EC_GOOD        0
@@ -177,13 +188,18 @@ struct event_desc {
 #define OPT_LEASE_RO       (1u<<22)
 #define OPT_ALL_SERVERS    (1u<<23)
 #define OPT_RELOAD         (1u<<24)
-#define OPT_TFTP           (1u<<25)
+#define OPT_LOCAL_REBIND   (1u<<25)  
 #define OPT_TFTP_SECURE    (1u<<26)
 #define OPT_TFTP_NOBLOCK   (1u<<27)
 #define OPT_LOG_OPTS       (1u<<28)
 #define OPT_TFTP_APREF     (1u<<29)
 #define OPT_NO_OVERRIDE    (1u<<30)
 #define OPT_NO_REBIND      (1u<<31)
+
+/* extra flags for my_syslog, we use a couple of facilities since they are known 
+   not to occupy the same bits as priorities, no matter how syslog.h is set up. */
+#define MS_TFTP LOG_USER
+#define MS_DHCP LOG_DAEMON 
 
 struct all_addr {
   union {
@@ -287,19 +303,7 @@ struct crec {
 union mysockaddr {
   struct sockaddr sa;
   struct sockaddr_in in;
-#ifdef HAVE_BROKEN_SOCKADDR_IN6
-  /* early versions of glibc don't include sin6_scope_id in sockaddr_in6
-     but latest kernels _require_ it to be set. The choice is to have
-     dnsmasq fail to compile on back-level libc or fail to run
-     on latest kernels with IPv6. Or to do this: sorry that it's so gross. */
-  struct my_sockaddr_in6 {
-    sa_family_t     sin6_family;    /* AF_INET6 */
-    uint16_t        sin6_port;      /* transport layer port # */
-    uint32_t        sin6_flowinfo;  /* IPv6 traffic class & flow info */
-    struct in6_addr sin6_addr;      /* IPv6 address */
-    uint32_t        sin6_scope_id;  /* set of interfaces for a scope */
-  } in6;
-#elif defined(HAVE_IPV6)
+#if defined(HAVE_IPV6)
   struct sockaddr_in6 in6;
 #endif
 };
@@ -315,6 +319,8 @@ union mysockaddr {
 #define SERV_MARK            256  /* for mark-and-delete */
 #define SERV_TYPE    (SERV_HAS_DOMAIN | SERV_FOR_NODOTS)
 #define SERV_COUNTED         512  /* workspace for log code */
+#define SERV_USE_RESOLV     1024  /* forward this domain in the normal way */
+#define SERV_NO_REBIND      2048  /* inhibit dns-rebind protection */
 
 struct serverfd {
   int fd;
@@ -341,7 +347,8 @@ struct server {
 struct irec {
   union mysockaddr addr;
   struct in_addr netmask; /* only valid for IPv4 */
-  int dhcp_ok;
+  int tftp_ok, mtu;
+  char *name;
   struct irec *next;
 };
 
@@ -368,8 +375,11 @@ struct resolvc {
 };
 
 /* adn-hosts parms from command-line */
+#define AH_DIR      1
+#define AH_INACTIVE 2
 struct hostsfile {
   struct hostsfile *next;
+  int flags;
   char *fname;
   int index; /* matches to cache entries for logging */
 };
@@ -384,7 +394,7 @@ struct frec {
 #endif
   unsigned int iface;
   unsigned short orig_id, new_id;
-  int fd, forwardall;
+  int fd, forwardall, norebind;
   unsigned int crc;
   time_t time;
   struct frec *next;
@@ -413,9 +423,9 @@ struct dhcp_lease {
 #endif
   int hwaddr_len, hwaddr_type;
   unsigned char hwaddr[DHCP_CHADDR_MAX]; 
-  struct in_addr addr, override;
-  unsigned char *vendorclass, *userclass;
-  unsigned int vendorclass_len, userclass_len;
+  struct in_addr addr, override, giaddr;
+  unsigned char *extradata;
+  unsigned int extradata_len, extradata_size;
   int last_interface;
   struct dhcp_lease *next;
 };
@@ -430,6 +440,12 @@ struct dhcp_netid_list {
   struct dhcp_netid_list *next;
 };
 
+struct tag_if {
+  struct dhcp_netid_list *set;
+  struct dhcp_netid *tag;
+  struct tag_if *next;
+};
+
 struct hwaddr_config {
   int hwaddr_len, hwaddr_type;
   unsigned char hwaddr[DHCP_CHADDR_MAX];
@@ -442,7 +458,7 @@ struct dhcp_config {
   int clid_len;          /* length of client identifier */
   unsigned char *clid;   /* clientid */
   char *hostname, *domain;
-  struct dhcp_netid netid;
+  struct dhcp_netid_list *netid;
   struct in_addr addr;
   time_t decline_time;
   unsigned int lease_time;
@@ -455,7 +471,6 @@ struct dhcp_config {
 #define CONFIG_TIME              8
 #define CONFIG_NAME             16
 #define CONFIG_ADDR             32
-#define CONFIG_NETID            64
 #define CONFIG_NOCLID          128
 #define CONFIG_FROM_ETHERS     256    /* entry created by /etc/ethers */
 #define CONFIG_ADDR_HOSTS      512    /* address added by from /etc/hosts */
@@ -484,12 +499,22 @@ struct dhcp_opt {
 #define DHOPT_MATCH            128
 #define DHOPT_VENDOR           256
 #define DHOPT_HEX              512
+#define DHOPT_VENDOR_MATCH    1024
+#define DHOPT_RFC3925         2048
 
 struct dhcp_boot {
   char *file, *sname;
   struct in_addr next_server;
   struct dhcp_netid *netid;
   struct dhcp_boot *next;
+};
+
+struct pxe_service {
+  unsigned short CSA, type; 
+  char *menu, *basename;
+  struct in_addr server;
+  struct dhcp_netid *netid;
+  struct pxe_service *next;
 };
 
 #define MATCH_VENDOR     1
@@ -514,12 +539,10 @@ struct dhcp_mac {
   struct dhcp_mac *next;
 };
 
-#ifdef HAVE_BSD_BRIDGE
 struct dhcp_bridge {
   char iface[IF_NAMESIZE];
   struct dhcp_bridge *alias, *next;
 };
-#endif
 
 struct cond_domain {
   char *domain;
@@ -533,6 +556,7 @@ struct dhcp_context {
   struct in_addr local, router;
   struct in_addr start, end; /* range of available addresses */
   int flags;
+  char *interface;
   struct dhcp_netid netid, *filter;
   struct dhcp_context *next, *current;
 };
@@ -540,6 +564,7 @@ struct dhcp_context {
 #define CONTEXT_STATIC    1
 #define CONTEXT_NETMASK   2
 #define CONTEXT_BRDCAST   4
+#define CONTEXT_PROXY     8
 
 
 typedef unsigned char u8;
@@ -582,6 +607,23 @@ struct tftp_transfer {
   struct tftp_transfer *next;
 };
 
+struct addr_list {
+  struct in_addr addr;
+  struct addr_list *next;
+};
+
+struct interface_list {
+  char *interface;
+  struct interface_list *next;
+};
+
+struct tftp_prefix {
+  char *interface;
+  char *prefix;
+  struct tftp_prefix *next;
+};
+
+
 extern struct daemon {
   /* datastuctures representing the command-line and 
      config file arguments. All set (including defaults)
@@ -612,7 +654,7 @@ extern struct daemon {
   int max_logs;  /* queue limit */
   int cachesize, ftabsize;
   int port, query_port, min_port;
-  unsigned long local_ttl, neg_ttl;
+  unsigned long local_ttl, neg_ttl, max_ttl;
   struct hostsfile *addn_hosts;
   struct dhcp_context *dhcp;
   struct dhcp_config *dhcp_conf;
@@ -620,7 +662,13 @@ extern struct daemon {
   struct dhcp_vendor *dhcp_vendors;
   struct dhcp_mac *dhcp_macs;
   struct dhcp_boot *boot_config;
-  struct dhcp_netid_list *dhcp_ignore, *dhcp_ignore_names, *force_broadcast, *bootp_dynamic;
+  struct pxe_service *pxe_services;
+  struct tag_if *tag_if; 
+  struct addr_list *override_relays;
+  int override;
+  int enable_pxe;
+  struct dhcp_netid_list *dhcp_ignore, *dhcp_ignore_names, *dhcp_gen_names; 
+  struct dhcp_netid_list *force_broadcast, *bootp_dynamic;
   char *dhcp_hosts_file, *dhcp_opts_file;
   int dhcp_max, tftp_max;
   int dhcp_server_port, dhcp_client_port;
@@ -629,6 +677,9 @@ extern struct daemon {
   struct doctor *doctors;
   unsigned short edns_pktsz;
   char *tftp_prefix; 
+  struct tftp_prefix *if_prefix; /* per-interface TFTP prefixes */
+  struct interface_list *tftp_interfaces; /* interfaces for limited TFTP service */
+  int tftp_unlimited;
 
   /* globally used stuff for DNS */
   char *packet; /* packet buffer */
@@ -640,26 +691,27 @@ extern struct daemon {
   struct irec *interfaces;
   struct listener *listeners;
   struct server *last_server;
+  time_t forwardtime;
+  int forwardcount;
   struct server *srv_save; /* Used for resend on DoD */
   size_t packet_len;       /*      "        "        */
   struct randfd *rfd_save; /*      "        "        */
-pid_t tcp_pids[MAX_PROCS];
+  pid_t tcp_pids[MAX_PROCS];
   struct randfd randomsocks[RANDOM_SOCKS];
+  int v6pktinfo; 
 
   /* DHCP state */
-  int dhcpfd, helperfd; 
-#ifdef HAVE_LINUX_NETWORK
+  int dhcpfd, helperfd, pxefd; 
+#if defined(HAVE_LINUX_NETWORK)
   int netlinkfd;
-#else
+#elif defined(HAVE_BSD_NETWORK)
   int dhcp_raw_fd, dhcp_icmp_fd;
 #endif
   struct iovec dhcp_packet;
-  char *dhcp_buff, *dhcp_buff2;
+  char *dhcp_buff, *dhcp_buff2, *dhcp_buff3;
   struct ping_result *ping_results;
   FILE *lease_stream;
-#ifdef HAVE_BSD_BRIDGE
   struct dhcp_bridge *bridges;
-#endif
 
   /* DBus stuff */
   /* void * here to avoid depending on dbus headers outside dbus.c */
@@ -676,7 +728,7 @@ pid_t tcp_pids[MAX_PROCS];
 /* cache.c */
 void cache_init(void);
 void log_query(unsigned short flags, char *name, struct all_addr *addr, char *arg); 
-char *record_source(struct hostsfile *addn_hosts, int index);
+char *record_source(int index);
 void querystr(char *str, unsigned short type);
 struct crec *cache_find_by_addr(struct crec *crecp,
 				struct all_addr *addr, time_t now, 
@@ -687,11 +739,12 @@ void cache_end_insert(void);
 void cache_start_insert(void);
 struct crec *cache_insert(char *name, struct all_addr *addr,
 			  time_t now, unsigned long ttl, unsigned short flags);
-void cache_reload(struct hostsfile  *addn_hosts);
+void cache_reload(void);
 void cache_add_dhcp_entry(char *host_name, struct in_addr *host_address, time_t ttd);
 void cache_unhash_dhcp(void);
 void dump_cache(time_t now);
 char *cache_get_name(struct crec *crecp);
+char *get_domain(struct in_addr addr);
 
 /* rfc1035.c */
 unsigned short extract_request(HEADER *header, size_t qlen, 
@@ -699,7 +752,8 @@ unsigned short extract_request(HEADER *header, size_t qlen,
 size_t setup_reply(HEADER *header, size_t  qlen,
 		   struct all_addr *addrp, unsigned short flags,
 		   unsigned long local_ttl);
-int extract_addresses(HEADER *header, size_t qlen, char *namebuff, time_t now);
+int extract_addresses(HEADER *header, size_t qlen, char *namebuff, 
+		      time_t now, int is_sign, int checkrebind);
 size_t answer_request(HEADER *header, char *limit, size_t qlen,  
 		   struct in_addr local_addr, struct in_addr local_netmask, time_t now);
 int check_for_bogus_wildcard(HEADER *header, size_t qlen, char *name, 
@@ -714,8 +768,8 @@ size_t resize_packet(HEADER *header, size_t plen,
 /* util.c */
 void rand_init(void);
 unsigned short rand16(void);
-int legal_char(char c);
-int canonicalise(char *s);
+int legal_hostname(char *c);
+char *canonicalise(char *s, int *nomem);
 unsigned char *do_rfc1035_name(unsigned char *p, char *sval);
 void *safe_malloc(size_t size);
 void safe_pipe(int *fd, int read_noblock);
@@ -748,7 +802,7 @@ void flush_log(void);
 
 /* option.c */
 void read_opts (int argc, char **argv, char *compile_opts);
-char *option_string(unsigned char opt);
+char *option_string(unsigned char opt, int *is_ip, int *is_name);
 void reread_dhcp(void);
 
 /* forward.c */
@@ -760,6 +814,7 @@ void server_gone(struct server *server);
 struct frec *get_new_frec(time_t now, int *wait);
 
 /* network.c */
+int indextoname(int fd, int index, char *name);
 int local_bind(int fd, union mysockaddr *addr, char *intname, int is_tcp);
 int random_sock(int family);
 void pre_allocate_sfds(void);
@@ -768,24 +823,25 @@ void check_servers(void);
 int enumerate_interfaces();
 struct listener *create_wildcard_listeners(void);
 struct listener *create_bound_listeners(void);
-int iface_check(int family, struct all_addr *addr, 
-		struct ifreq *ifr, int *indexp);
+int iface_check(int family, struct all_addr *addr, char *name, int *indexp);
 int fix_fd(int fd);
 struct in_addr get_ifaddr(char *intr);
 
 /* dhcp.c */
+#ifdef HAVE_DHCP
 void dhcp_init(void);
-void dhcp_packet(time_t now);
-char *get_domain(struct in_addr addr);
+void dhcp_packet(time_t now, int pxe_fd);
 struct dhcp_context *address_available(struct dhcp_context *context, 
 				       struct in_addr addr,
 				       struct dhcp_netid *netids);
 struct dhcp_context *narrow_context(struct dhcp_context *context, 
 				    struct in_addr taddr,
 				    struct dhcp_netid *netids);
-int match_netid(struct dhcp_netid *check, struct dhcp_netid *pool, int negonly);int address_allocate(struct dhcp_context *context,
+int match_netid(struct dhcp_netid *check, struct dhcp_netid *pool, int negonly);
+int address_allocate(struct dhcp_context *context,
 		     struct in_addr *addrp, unsigned char *hwaddr, int hw_len,
 		     struct dhcp_netid *netids, time_t now);
+struct dhcp_netid *run_tag_if(struct dhcp_netid *input);
 int config_has_mac(struct dhcp_config *config, unsigned char *hwaddr, int len, int type);
 struct dhcp_config *find_config(struct dhcp_config *configs,
 				struct dhcp_context *context,
@@ -799,8 +855,10 @@ struct dhcp_config *config_find_by_address(struct dhcp_config *configs, struct i
 char *strip_hostname(char *hostname);
 char *host_from_dns(struct in_addr addr);
 char *get_domain(struct in_addr addr);
+#endif
 
 /* lease.c */
+#ifdef HAVE_DHCP
 void lease_update_file(time_t now);
 void lease_update_dns();
 void lease_init(time_t now);
@@ -817,18 +875,24 @@ void lease_prune(struct dhcp_lease *target, time_t now);
 void lease_update_from_configs(void);
 int do_script_run(time_t now);
 void rerun_scripts(void);
+#endif
 
 /* rfc2131.c */
+#ifdef HAVE_DHCP
 size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
-		  size_t sz, time_t now, int unicast_dest, int *is_inform);
+		  size_t sz, time_t now, int unicast_dest, int *is_inform, int pxe_fd);
 unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr, 
 			       int clid_len, unsigned char *clid, int *len_out);
+#endif
 
 /* dnsmasq.c */
+#ifdef HAVE_DHCP
 int make_icmp_sock(void);
 int icmp_ping(struct in_addr addr);
+#endif
 void send_event(int fd, int event, int data);
 void clear_cache_and_reload(time_t now);
+void poll_resolv(int force, int do_reload, time_t now);
 
 /* netlink.c */
 #ifdef HAVE_LINUX_NETWORK
@@ -851,11 +915,13 @@ int iface_enumerate(void *parm, int (*ipv4_callback)(), int (*ipv6_callback)());
 char *dbus_init(void);
 void check_dbus_listeners(fd_set *rset, fd_set *wset, fd_set *eset);
 void set_dbus_listeners(int *maxfdp, fd_set *rset, fd_set *wset, fd_set *eset);
-void emit_dbus_signal(int action, char *mac, char *hostname, char *addr);
+#  ifdef HAVE_DHCP
+void emit_dbus_signal(int action, struct dhcp_lease *lease, char *hostname);
+#  endif
 #endif
 
 /* helper.c */
-#ifndef NO_FORK
+#if defined(HAVE_DHCP) && !defined(NO_FORK)
 int create_helper(int event_fd, int err_fd, uid_t uid, gid_t gid, long max_fd);
 void helper_write(void);
 void queue_script(int action, struct dhcp_lease *lease, 

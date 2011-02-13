@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -183,7 +183,8 @@ dg.sortCompare = function(a, b) {
 
 dg.populate = function()
 {
-	var i, a, b, c, e;
+	var i, j;
+	var a, b, c, e;
 
 	list = [];
 
@@ -227,7 +228,15 @@ dg.populate = function()
 	for (i = dhcpd_static.length - 1; i >= 0; --i) {
 		a = dhcpd_static[i].split('<');
 		if (a.length < 3) continue;
-		if ((e = find(a[0], (a[1].indexOf('.') == -1) ? (ipp + a[1]) : a[1])) == null) continue;
+
+		if (a[1].indexOf('.') == -1) a[1] = (ipp + a[1]);
+
+		c = a[0].split(',');
+		for (j = c.length - 1; j >= 0; --j) {
+			if ((e = find(c[j], a[1])) != null) break;
+		}
+		if (j < 0) continue;
+
 		if (e.name == '') {
 			e.name = a[2];
 		}
@@ -249,7 +258,7 @@ dg.populate = function()
 			b += '<br><small>' +
 				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
 				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>';
-				
+
 			if (e.rssi != '') {
 				b += ' <a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
 			}
