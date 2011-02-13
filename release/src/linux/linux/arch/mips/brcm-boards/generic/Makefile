@@ -1,7 +1,7 @@
 #
 # Makefile for generic Broadcom MIPS boards
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2006, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.1.1.7 2005/03/07 07:30:37 kanki Exp $
+# $Id$
 #
 
 .S.s:
@@ -19,7 +19,10 @@
 
 O_TARGET	:= brcm.o
 
-obj-y		:= int-handler.o irq.o
+obj-y		:= int-handler.o
+ifneq ($(strip $(CONFIG_BCM4704)),y)
+# obj-y		+= irq.o
+endif
 
 obj-$(CONFIG_REMOTE_DEBUG)	+= gdb_hook.o
 

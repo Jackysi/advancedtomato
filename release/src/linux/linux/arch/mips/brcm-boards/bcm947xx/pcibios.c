@@ -1,7 +1,7 @@
 /*
  * Low-Level PCI and SB support for BCM47xx (Linux support code)
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: pcibios.c,v 1.1.1.7 2005/03/07 07:30:37 kanki Exp $ 
+ * $Id$
  */
 
 #include <linux/config.h>
@@ -26,14 +26,14 @@
 #include <typedefs.h>
 #include <bcmutils.h>
 #include <sbconfig.h>
-#include <sbpci.h>
-#include <pcicfg.h>
 #include <sbutils.h>
+#include <hndpci.h>
+#include <pcicfg.h>
 #include <bcmdevs.h>
 #include <bcmnvram.h>
 
 /* Global SB handle */
-extern void *bcm947xx_sbh;
+extern sb_t *bcm947xx_sbh;
 extern spinlock_t bcm947xx_sbh_lock;
 
 /* Convenience */
@@ -47,7 +47,8 @@ sbpci_read_config_byte(struct pci_dev *dev, int where, u8 *value)
 	int ret;
 
 	spin_lock_irqsave(&sbh_lock, flags);
-	ret = sbpci_read_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn), where, value, sizeof(*value));
+	ret = sbpci_read_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn),
+		PCI_FUNC(dev->devfn), where, value, sizeof(*value));
 	spin_unlock_irqrestore(&sbh_lock, flags);
 	return ret ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
@@ -59,7 +60,8 @@ sbpci_read_config_word(struct pci_dev *dev, int where, u16 *value)
 	int ret;
 
 	spin_lock_irqsave(&sbh_lock, flags);
-	ret = sbpci_read_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn), where, value, sizeof(*value));
+	ret = sbpci_read_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn),
+		PCI_FUNC(dev->devfn), where, value, sizeof(*value));
 	spin_unlock_irqrestore(&sbh_lock, flags);
 	return ret ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
@@ -71,7 +73,8 @@ sbpci_read_config_dword(struct pci_dev *dev, int where, u32 *value)
 	int ret;
 
 	spin_lock_irqsave(&sbh_lock, flags);
-	ret = sbpci_read_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn), where, value, sizeof(*value));
+	ret = sbpci_read_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn),
+		PCI_FUNC(dev->devfn), where, value, sizeof(*value));
 	spin_unlock_irqrestore(&sbh_lock, flags);
 	return ret ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
@@ -83,7 +86,8 @@ sbpci_write_config_byte(struct pci_dev *dev, int where, u8 value)
 	int ret;
 
 	spin_lock_irqsave(&sbh_lock, flags);
-	ret = sbpci_write_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn), where, &value, sizeof(value));
+	ret = sbpci_write_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn),
+		PCI_FUNC(dev->devfn), where, &value, sizeof(value));
 	spin_unlock_irqrestore(&sbh_lock, flags);
 	return ret ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
@@ -95,7 +99,8 @@ sbpci_write_config_word(struct pci_dev *dev, int where, u16 value)
 	int ret;
 
 	spin_lock_irqsave(&sbh_lock, flags);
-	ret = sbpci_write_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn), where, &value, sizeof(value));
+	ret = sbpci_write_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn),
+		PCI_FUNC(dev->devfn), where, &value, sizeof(value));
 	spin_unlock_irqrestore(&sbh_lock, flags);
 	return ret ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
@@ -107,7 +112,8 @@ sbpci_write_config_dword(struct pci_dev *dev, int where, u32 value)
 	int ret;
 
 	spin_lock_irqsave(&sbh_lock, flags);
-	ret = sbpci_write_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn), where, &value, sizeof(value));
+	ret = sbpci_write_config(sbh, dev->bus->number, PCI_SLOT(dev->devfn),
+		PCI_FUNC(dev->devfn), where, &value, sizeof(value));
 	spin_unlock_irqrestore(&sbh_lock, flags);
 	return ret ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
@@ -127,7 +133,7 @@ pcibios_init(void)
 {
 	ulong flags;
 
-	if (!(sbh = sb_kattach()))
+	if (!(sbh = sb_kattach(SB_OSH)))
 		panic("sb_kattach failed");
 	spin_lock_init(&sbh_lock);
 
@@ -166,11 +172,11 @@ pcibios_fixup_bus(struct pci_bus *b)
 	u32 *base;
 	u8 irq;
 
-       	printk("PCI: Fixing up bus %d\n", b->number);
+	printk("PCI: Fixing up bus %d\n", b->number);
 
 	/* Fix up SB */
 	if (b->number == 0) {
-		for (ln=b->devices.next; ln != &b->devices; ln=ln->next) {
+		for (ln = b->devices.next; ln != &b->devices; ln = ln->next) {
 			d = pci_dev_b(ln);
 			/* Fix up interrupt lines */
 			pci_read_config_byte(d, PCI_INTERRUPT_LINE, &irq);
@@ -181,7 +187,7 @@ pcibios_fixup_bus(struct pci_bus *b)
 
 	/* Fix up external PCI */
 	else {
-		for (ln=b->devices.next; ln != &b->devices; ln=ln->next) {
+		for (ln = b->devices.next; ln != &b->devices; ln = ln->next) {
 			d = pci_dev_b(ln);
 			/* Fix up resource bases */
 			for (pos = 0; pos < 6; pos++) {
@@ -189,12 +195,13 @@ pcibios_fixup_bus(struct pci_bus *b)
 				base = (res->flags & IORESOURCE_IO) ? &pci_iobase : &pci_membase;
 				if (res->end) {
 					size = res->end - res->start + 1;
- 					if (*base & (size - 1))
- 						*base = (*base + size) & ~(size - 1);
- 					res->start = *base;
- 					res->end = res->start + size - 1;
- 					*base += size;
-					pci_write_config_dword(d, PCI_BASE_ADDRESS_0 + (pos << 2), res->start);
+					if (*base & (size - 1))
+						*base = (*base + size) & ~(size - 1);
+					res->start = *base;
+					res->end = res->start + size - 1;
+					*base += size;
+					pci_write_config_dword(d,
+						PCI_BASE_ADDRESS_0 + (pos << 2), res->start);
 				}
 				/* Fix up PCI bridge BAR0 only */
 				if (b->number == 1 && PCI_SLOT(d->devfn) == 0)
@@ -216,7 +223,7 @@ pcibios_assign_all_busses(void)
 
 void
 pcibios_align_resource(void *data, struct resource *res,
-		       unsigned long size, unsigned long align)
+	unsigned long size, unsigned long align)
 {
 }
 
@@ -233,7 +240,7 @@ pcibios_enable_resources(struct pci_dev *dev)
 
 	pci_read_config_word(dev, PCI_COMMAND, &cmd);
 	old_cmd = cmd;
-	for(idx=0; idx<6; idx++) {
+	for (idx = 0; idx < 6; idx++) {
 		r = &dev->resource[idx];
 		if (r->flags & IORESOURCE_IO)
 			cmd |= PCI_COMMAND_IO;
@@ -254,6 +261,7 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 {
 	ulong flags;
 	uint coreidx;
+	void *regs;
 
 	/* External PCI device enable */
 	if (dev->bus->number != 0)
@@ -268,7 +276,8 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 
 	spin_lock_irqsave(&sbh_lock, flags);
 	coreidx = sb_coreidx(sbh);
-	if (!sb_setcoreidx(sbh, PCI_SLOT(dev->devfn)))
+	regs = sb_setcoreidx(sbh, PCI_SLOT(dev->devfn));
+	if (!regs)
 		return PCIBIOS_DEVICE_NOT_FOUND;
 
 	/* 
@@ -282,19 +291,36 @@ pcibios_enable_device(struct pci_dev *dev, int mask)
 	 */
 	if (sb_coreid(sbh) == SB_USB) {
 		sb_core_disable(sbh, sb_coreflags(sbh, 0, 0));
-		sb_core_reset(sbh, 1 << 29);
+		sb_core_reset(sbh, 1 << 29, 0);
+	}
+	/*
+	 * USB 2.0 special considerations:
+	 *
+	 * 1. Since the core supports both OHCI and EHCI functions, it must
+	 *    only be reset once.
+	 *
+	 * 2. In addition to the standard SB reset sequence, the Host Control
+	 *    Register must be programmed to bring the USB core and various
+	 *    phy components out of reset.
+	 */
+	else if (sb_coreid(sbh) == SB_USB20H) {
+		if (!sb_iscoreup(sbh)) {
+			sb_core_reset(sbh, 0, 0);
+			writel(0x7FF, (ulong)regs + 0x200);
+			udelay(1);
+		}
 	} else
-		sb_core_reset(sbh, 0);
+		sb_core_reset(sbh, 0, 0);
 
 	sb_setcoreidx(sbh, coreidx);
 	spin_unlock_irqrestore(&sbh_lock, flags);
-	
+
 	return 0;
 }
 
 void
 pcibios_update_resource(struct pci_dev *dev, struct resource *root,
-			struct resource *res, int resource)
+	struct resource *res, int resource)
 {
 	unsigned long where, size;
 	u32 reg;
@@ -324,7 +350,7 @@ quirk_sbpci_bridge(struct pci_dev *dev)
 
 	/* Enable PCI bridge BAR1 prefetch and burst */
 	pci_write_config_dword(dev, PCI_BAR1_CONTROL, 3);
-}	
+}
 
 struct pci_fixup pcibios_fixups[] = {
 	{ PCI_FIXUP_HEADER, PCI_ANY_ID, PCI_ANY_ID, quirk_sbpci_bridge },

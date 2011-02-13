@@ -577,6 +577,12 @@ out:
 		mm->locked_vm += len >> PAGE_SHIFT;
 		make_pages_present(addr, addr + len);
 	}
+#ifdef CONFIG_HND_BMIPS3300_PROF
+	if (vm_flags & VM_EXEC) {
+		extern void sb1250_prof_mm_changed(struct task_struct *task, int sem);
+		sb1250_prof_mm_changed(current, 1);
+	}
+#endif	/* CONFIG_HND_BMIPS3300_PROF */
 	return addr;
 
 unmap_and_free_vma:

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -7,7 +7,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: time.c,v 1.1.1.8 2005/03/07 07:30:37 kanki Exp $
+ * $Id$
  */
 #include <linux/config.h>
 #include <linux/init.h>
@@ -20,11 +20,17 @@
 #include <asm/time.h>
 
 #include <typedefs.h>
+#include <osl.h>
+#include <bcmutils.h>
 #include <bcmnvram.h>
 #include <sbconfig.h>
 #include <sbextif.h>
+#include <sbchipc.h>
 #include <sbutils.h>
-#include <sbmips.h>
+#include <hndmips.h>
+#include <mipsinc.h>
+#include <hndcpu.h>
+#include <bcmdevs.h>
 
 /* Global SB handle */
 extern void *bcm947xx_sbh;
@@ -51,14 +57,19 @@ bcm947xx_time_init(void)
 	write_c0_count(0);
 	write_c0_compare(0xffff);
 
-	if (!(hz = sb_mips_clock(sbh)))
+	if (!(hz = sb_cpu_clock(sbh)))
 		hz = 100000000;
 
 	printk("CPU: BCM%04x rev %d at %d MHz\n", sb_chip(sbh), sb_chiprev(sbh),
 	       (hz + 500000) / 1000000);
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */
-	mips_counter_frequency = hz / 2;
+
+   // !!TB - fix for WL-520GU clock rate
+   if (sb_chip(sbh) == BCM5354_CHIP_ID && nvram_match("t_fix1", "WL-520GU"))
+		   mips_counter_frequency = 100000000; // Fix WL520GUGC clock
+   else
+		   mips_counter_frequency = hz / 2;
 
 	/* Set watchdog interval in ms */
 	watchdog = simple_strtoul(nvram_safe_get("watchdog"), NULL, 0);
@@ -80,15 +91,43 @@ bcm947xx_time_init(void)
 	}
 }
 
+#ifdef CONFIG_HND_BMIPS3300_PROF
+extern bool hndprofiling;
+#ifdef CONFIG_MIPS64
+typedef u_int64_t sbprof_pc;
+#else
+typedef u_int32_t sbprof_pc;
+#endif
+extern void sbprof_cpu_intr(sbprof_pc restartpc);
+#endif	/* CONFIG_HND_BMIPS3300_PROF */
+
 static void
 bcm947xx_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
+#ifdef CONFIG_HND_BMIPS3300_PROF
+	/*
+	 * Are there any ExcCode or other mean(s) to determine what has caused
+	 * the timer interrupt? For now simply stop the normal timer proc if
+	 * count register is less than compare register.
+	 */
+	if (hndprofiling) {
+		sbprof_cpu_intr(regs->cp0_epc +
+		                ((regs->cp0_cause >> (CAUSEB_BD - 2)) & 4));
+		if (read_c0_count() < read_c0_compare())
+			return;
+	}
+#endif	/* CONFIG_HND_BMIPS3300_PROF */
+
 	/* Generic MIPS timer code */
 	timer_interrupt(irq, dev_id, regs);
 
 	/* Set the watchdog timer to reset after the specified number of ms */
-	if (watchdog > 0)
-		sb_watchdog(sbh, WATCHDOG_CLOCK / 1000 * watchdog);
+	if (watchdog > 0) {
+		if (sb_chip(sbh) == BCM5354_CHIP_ID)
+			sb_watchdog(sbh, WATCHDOG_CLOCK_5354 / 1000 * watchdog);
+		else
+			sb_watchdog(sbh, WATCHDOG_CLOCK / 1000 * watchdog);
+	}
 
 #ifdef	CONFIG_HWSIM
 	(*((int *)0xa0000f1c))++;
