@@ -22,6 +22,7 @@ void ipt_qos(void)
 	char *class_prio;
 	char *ipp2p, *layer7;
 	char *bcount;
+	char *dscp;
 	int class_num;
 	int proto_num;
 	int ipv6_ok;
@@ -61,7 +62,7 @@ void ipt_qos(void)
 
 		/*
 
-		addr_type<addr<proto<port_type<port<ipp2p<L7<bcount<desc
+		addr_type<addr<proto<port_type<port<ipp2p<L7<bcount<dscp<class_prio<desc
 
 		addr_type:
 			0 = any
@@ -85,6 +86,10 @@ void ipt_qos(void)
 		bcount:
 			min:max
 			blank = none
+		dscp:
+			empty - any
+			numeric (0:63) - dscp value
+			afXX, csX, be, ef - dscp class
 		class_prio:
 			0-8
 			-1 = disabled
@@ -92,14 +97,20 @@ void ipt_qos(void)
 		*/
 
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &class_prio, &p);
+		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &dscp, &class_prio, &p);
 		rule_num++;
-		if (i == 9) {
+		if (i == 10) {
+			// fixup < v1.28.XX55
+			class_prio = dscp;
+			dscp = "";
+		}
+		else if (i == 9) {
 			// fixup < v0.08		// !!! temp
 			class_prio = bcount;
 			bcount = "";
+			dscp = "";
 		}
-		else if (i != 10) continue;
+		else if (i != 11) continue;
 
 		class_num = atoi(class_prio);
 		if ((class_num < 0) || (class_num > 9)) continue;
@@ -143,6 +154,14 @@ void ipt_qos(void)
 			gum = 0;
 		}
 		strcpy(end, app);
+
+		// dscp
+		if (ipt_dscp(dscp, s)) {
+#ifndef LINUX26
+			ipv6_ok = 0; // dscp ipv6 match is not present in K2.4
+#endif
+			strcat(end, s);
+		}
 
 		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
@@ -218,7 +237,6 @@ void ipt_qos(void)
 		else {	// any protocol
 			ip46t_flagged_write(ipv6_ok, "-A %s %s %s", chain, saddr, end);
 		}
-
 
 	}
 	free(buf);

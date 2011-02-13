@@ -180,6 +180,29 @@ void ip6t_write(const char *format, ...)
 
 // -----------------------------------------------------------------------------
 
+int ipt_dscp(const char *v, char *opt)
+{
+	unsigned int n;
+
+	if (*v == 0) {
+		*opt = 0;
+		return 0;
+	}
+
+	n = strtoul(v, NULL, 0);
+	if (n > 63) n = 63;
+	sprintf(opt, " -m dscp --dscp 0x%02X", n);
+
+#ifdef LINUX26
+	modprobe("xt_dscp");
+#else
+	modprobe("ipt_dscp");
+#endif
+	return 1;
+}
+
+// -----------------------------------------------------------------------------
+
 
 int ipt_ipp2p(const char *v, char *opt)
 {
@@ -1255,12 +1278,14 @@ int start_firewall(void)
 	modprobe_r("xt_length");
 	modprobe_r("xt_web");
 	modprobe_r("xt_webmon");
+	modprobe_r("xt_dscp");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
 	modprobe_r("ipt_TTL");
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_webmon");
+	modprobe_r("ipt_dscp");
 #endif
 	modprobe_r("ipt_ipp2p");
 

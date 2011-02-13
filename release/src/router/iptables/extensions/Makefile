@@ -23,7 +23,7 @@ ifeq ($(DO_IPV6), 1)
 PF6_EXT_SLIB:=connmark icmp6 length limit mac mark multiport standard state rt hl web
 PF6_EXT_SLIB+=tcp udp CONNMARK LOG MARK IMQ TCPMSS REJECT
 ifeq ($(CONFIG_LINUX26),y)
-PF6_EXT_SLIB+=connlimit hashlimit recent NFQUEUE ROUTE HL connbytes iprange webmon
+PF6_EXT_SLIB+=connlimit hashlimit recent NFQUEUE ROUTE HL connbytes iprange webmon dscp
 endif
 endif
 

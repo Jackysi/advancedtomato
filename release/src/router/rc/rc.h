@@ -257,6 +257,7 @@ extern void ip6t_write(const char *format, ...);
 #define ip46t_cond_write(do_ip6t, args...) ipt_write(args)
 #endif
 extern void ipt_addr(char *addr, int maxlen, const char *s, const char *dir);
+extern int ipt_dscp(const char *v, char *opt);
 extern int ipt_ipp2p(const char *v, char *opt);
 extern int ipt_layer7(const char *v, char *opt);
 extern void ipt_layer7_inbound(void);
