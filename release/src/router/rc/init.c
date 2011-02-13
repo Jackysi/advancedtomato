@@ -938,9 +938,11 @@ static int init_nvram(void)
 		}
 		break;
 	case MODEL_WRT160Nv3:
-		// same as M10, WRT310Nv2
+		// same as M10, M20, WRT310Nv2, E1000v1
 		mfr = "Linksys";
 		name = nvram_safe_get("boot_hw_model");
+		if (strcmp(name, "E100") == 0)
+			name = "E1000 v1";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
