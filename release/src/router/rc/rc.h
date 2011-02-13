@@ -249,14 +249,14 @@ extern void ipt_write(const char *format, ...);
 extern void ip6t_write(const char *format, ...);
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 #define ip46t_write(args...) do { ipt_write(args); ip6t_write(args); } while(0)
-#define ip46t_flagged_write(do_ip6t, args...) do { ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
+#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
 #define ip46t_cond_write(do_ip6t, args...) do { if (do_ip6t) ip6t_write(args); else ipt_write(args); } while(0)
 #else
 #define ip46t_write ipt_write
-#define ip46t_flagged_write(do_ip6t, args...) ipt_write(args)
+#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); } while(0)
 #define ip46t_cond_write(do_ip6t, args...) ipt_write(args)
 #endif
-extern void ipt_addr(char *addr, int maxlen, const char *s, const char *dir);
+extern int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family, const char *categ, const char *name);
 extern int ipt_dscp(const char *v, char *opt);
 extern int ipt_ipp2p(const char *v, char *opt);
 extern int ipt_layer7(const char *v, char *opt);
@@ -324,6 +324,7 @@ extern int _xstart(const char *cmd, ...);
 extern void run_nvscript(const char *nv, const char *arg1, int wtime);
 extern void run_userfile (char *folder, char *extension, const char *arg1, int wtime);
 extern void setup_conntrack(void);
+extern struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family);
 extern void inc_mac(char *mac, int plus);
 extern void set_mac(const char *ifname, const char *nvname, int plus);
 extern const char *default_wanif(void);

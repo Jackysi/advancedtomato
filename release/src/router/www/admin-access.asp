@@ -124,7 +124,7 @@ function verifyFields(focused, quiet)
 	}
 
 	a = E('_f_rmgt_sip');
-	if ((a.value.length) && (!v_iptaddr(a, quiet || !ok, 15))) return 0;
+	if ((a.value.length) && (!_v_iptaddr(a, quiet || !ok, 15, 1, 1))) return 0;
 	ferror.clear(a);
 
 	if (!v_range('_f_limit_hit', quiet || !ok, 1, 100)) return 0;

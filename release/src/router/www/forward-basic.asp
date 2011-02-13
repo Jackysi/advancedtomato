@@ -109,8 +109,11 @@ fog.verifyFields = function(row, quiet) {
 	}
 	ferror.clear(f[4]);
 
-	if (f[5].value.indexOf('.') == -1) f[5].value = lipp + f[5].value;
-	if (!v_ip(f[5], quiet, 1)) return 0;
+	s = f[5].value.trim();
+	if (s.match(/^ *\d+ *$/)) f[5].value = lipp + s;
+	if (!v_hostname(f[5], 1)) {
+		if (!v_ip(f[5], quiet, 1)) return 0;
+	}
 
 	f[6].value = f[6].value.replace(/>/g, '_');
 	if (!v_nodelim(f[6], quiet, 'Description')) return 0;
@@ -148,7 +151,7 @@ fog.setup = function() {
 			r[1] *= 1;
 			r[2] *= 1;
 			r[3] = r[3].replace(/:/g, '-');
-			if (!fixIP(r[5], 1)) r[5] = lipp + r[5];
+			if (r[5].match(/^ *\d+ *$/)) r[5] = lipp + r[5];
 			fog.insertData(-1, [r[1], r[2], '', r[3], r[4], r[5], r[6]]);
 		}
 		// >=1.07
@@ -156,7 +159,7 @@ fog.setup = function() {
 			r[1] *= 1;
 			r[2] *= 1;
 			r[4] = r[4].replace(/:/g, '-');
-			if (!fixIP(r[6], 1)) r[6] = lipp + r[6];
+			if (r[6].match(/^ *\d+ *$/)) r[6] = lipp + r[6];
 			fog.insertData(-1, r.slice(1, 8));
 		}
 	}

@@ -1912,13 +1912,13 @@ TOP:
 		if (action & A_STOP) {
 			stop_syslog();
 		}
+		if (action & A_START) {
+			start_syslog();
+		}
 		if (!user) {
 			// always restarted except from "service" command
 			stop_cron(); start_cron();
 			stop_firewall(); start_firewall();
-		}
-		if (action & A_START) {
-			start_syslog();
 		}
 		goto CLEAR;
 	}

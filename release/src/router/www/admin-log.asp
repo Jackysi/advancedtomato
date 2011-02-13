@@ -69,7 +69,7 @@ function verifyFields(focused, quiet)
 
 	if (a) {
 		if (b) {
-			if (!v_iptaddr('_f_log_wmip', quiet, 15)) return 0;
+			if (!_v_iptaddr('_f_log_wmip', quiet, 15, 1, 1)) return 0;
 		}
 		if (!v_range('_log_wmdmax', quiet, 0, 9999)) return 0;
 		if (!v_range('_log_wmsmax', quiet, 0, 9999)) return 0;

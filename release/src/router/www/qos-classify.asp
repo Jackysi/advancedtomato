@@ -283,7 +283,8 @@ qosg.verifyFields = function(row, quiet) {
 
 	a = f[0].value * 1;
 	if ((a == 1) || (a == 2)) {
-		if (!v_iptaddr(f[1], quiet)) return 0;
+		if (!v_length(f[1], quiet, 1)) return 0;
+		if (!_v_iptaddr(f[1], quiet, 0, 1, 1)) return 0;
 	}
 	else if ((a == 3) && (!v_mac(f[1], quiet))) return 0;
 
