@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2009 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -29,11 +29,12 @@ void lease_init(time_t now)
   int clid_len, hw_len, hw_type;
   FILE *leasestream;
   
-  /* These two each hold a DHCP option max size 255
+  /* These each hold a DHCP option max size 255
      and get a terminating zero added */
   daemon->dhcp_buff = safe_malloc(256);
   daemon->dhcp_buff2 = safe_malloc(256); 
-  
+  daemon->dhcp_buff3 = safe_malloc(256);
+ 
   leases_left = daemon->dhcp_max;
 
   if (daemon->options & OPT_LEASE_RO)
@@ -568,9 +569,7 @@ int do_script_run(time_t now)
 	  
 	  free(lease->old_hostname); 
 	  free(lease->clid);
-	  free(lease->vendorclass);
-	  free(lease->userclass);
-	  free(lease->supplied_hostname);
+	  free(lease->extradata);
 	  free(lease);
 	    
 	  return 1; 
@@ -603,16 +602,10 @@ int do_script_run(time_t now)
 #endif
 	lease->new = lease->changed = lease->aux_changed = 0;
 	
-	/* these are used for the "add" call, then junked, since they're not in the database */
-	free(lease->vendorclass);
-	lease->vendorclass = NULL;
+	/* this is used for the "add" call, then junked, since they're not in the database */
+	free(lease->extradata);
+	lease->extradata = NULL;
 	
-	free(lease->userclass);
-	lease->userclass = NULL;
-	
-	free(lease->supplied_hostname);
-	lease->supplied_hostname = NULL;
-			
 	return 1;
       }
 

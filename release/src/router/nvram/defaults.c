@@ -402,7 +402,7 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
-	{ "web_mx",				""				},
+	{ "web_mx",				"status,bwm"	},
 	{ "web_pb",				""				},
 
 // admin-bwm

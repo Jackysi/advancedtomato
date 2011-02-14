@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -92,12 +92,12 @@ function init()
 Tomato Firmware v<% version(1); %><br>
 VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
+SDHC integration and GUI Copyright (C) 2011 Tomasz Słodkowicz,
+<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>http://gemini.net.pl/~slodki/tomato-sdhc.html</a><br>
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2009 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
-<br>
-<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>SDHC integration and GUI</a>
-Copyright (C) 2009 Tomasz Słodkowicz<br>
 <br>
 Built on <% build_time(); %><br>
 <br><br>

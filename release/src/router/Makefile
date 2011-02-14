@@ -360,8 +360,10 @@ ppp:
 	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
 #	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp DFLAGS="-DDEBUG -DDEBUGALL"
 
-ppp-%:
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp
+ppp-clean:
+	$(MAKE) -C ppp/pppoecd clean INSTALLDIR=$(INSTALLDIR)/ppp
+ppp-install:
+	$(MAKE) -C ppp/pppoecd install INSTALLDIR=$(INSTALLDIR)/ppp
 
 
 upnp: nvram shared iptables
