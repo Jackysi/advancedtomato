@@ -293,6 +293,14 @@ ifeq ($(CONFIG_MWAVE),y)
   obj-y += mwave/mwave.o
 endif
 
+ifeq ($(CONFIG_HND_BMIPS3300_PROF),y)
+  obj-y += hndprof/bmips3300_perfcnt.o
+  HNDPROF = y
+endif
+ifeq ($(HNDPROF),y)
+  subdir-y += hndprof
+endif
+
 include $(TOPDIR)/Rules.make
 
 fastdep:

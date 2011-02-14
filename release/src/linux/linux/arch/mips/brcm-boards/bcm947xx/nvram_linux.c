@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation (Linux kernel half)
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: nvram_linux.c,v 1.12 2005/03/07 08:35:32 kanki Exp $
+ * $Id$
  */
 
 #include <linux/config.h>
@@ -33,14 +33,16 @@
 #include <bcmendian.h>
 #include <bcmnvram.h>
 #include <bcmutils.h>
+#include <bcmdefs.h>
 #include <sbconfig.h>
 #include <sbchipc.h>
 #include <sbutils.h>
-#include <sbmips.h>
+#include <hndmips.h>
 #include <sflash.h>
 
 /* In BSS to minimize text size and page aligned so it can be mmap()-ed */
 static char nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
+static char *nvram_commit_buf = NULL;
 
 #ifdef MODULE
 
@@ -67,17 +69,18 @@ early_nvram_init(void)
 	struct sflash *info = NULL;
 	int i;
 	uint32 base, off, lim;
+	u32 *src, *dst;
 
 	if ((cc = sb_setcore(sbh, SB_CC, 0)) != NULL) {
 		base = KSEG1ADDR(SB_FLASH2);
-		switch (readl(&cc->capabilities) & CAP_FLASH_MASK) {
+		switch (readl(&cc->capabilities) & CC_CAP_FLASH_MASK) {
 		case PFLASH:
 			lim = SB_FLASH2_SZ;
 			break;
 
 		case SFLASH_ST:
 		case SFLASH_AT:
-			if ((info = sflash_init(cc)) == NULL)
+			if ((info = sflash_init(sbh, cc)) == NULL)
 				return;
 			lim = info->size;
 			break;
@@ -96,26 +99,36 @@ early_nvram_init(void)
 	while (off <= lim) {
 		/* Windowed flash access */
 		header = (struct nvram_header *) KSEG1ADDR(base + off - NVRAM_SPACE);
-		if (header->magic == NVRAM_MAGIC) {
-			u32 *src = (u32 *) header;
-			u32 *dst = (u32 *) nvram_buf;
-			for (i = 0; i < sizeof(struct nvram_header); i += 4)
-				*dst++ = *src++;
-			for (; i < header->len && i < NVRAM_SPACE; i += 4)
-				*dst++ = ltoh32(*src++);
-			return;
-		}
-
-		/* Try embedded NVRAM at 4 KB and 1 KB as last resorts */
-		if (off == 1 KB)
-			break;
-		else if (off == 4 KB)
-			off = 1 KB;
-		else if (off == lim)
-			off = 4 KB;
-		else
-			off <<= 1;
+		if (header->magic == NVRAM_MAGIC)
+//zzz			if (nvram_calc_crc(header) == (uint8) header->crc_ver_init) {
+				goto found;
+//zzz			}
+		off <<= 1;
 	}
+
+	/* Try embedded NVRAM at 4 KB and 1 KB as last resorts */
+	header = (struct nvram_header *) KSEG1ADDR(base + 4 KB);
+	if (header->magic == NVRAM_MAGIC)
+//zzz		if (nvram_calc_crc(header) == (uint8) header->crc_ver_init) {
+			goto found;
+//zzz		}
+
+	header = (struct nvram_header *) KSEG1ADDR(base + 1 KB);
+	if (header->magic == NVRAM_MAGIC)
+//zzz		if (nvram_calc_crc(header) == (uint8) header->crc_ver_init) {
+			goto found;
+//zzz		}
+
+	printk("early_nvram_init: NVRAM not found\n");
+	return;
+
+found:
+	src = (u32 *) header;
+	dst = (u32 *) nvram_buf;
+	for (i = 0; i < sizeof(struct nvram_header); i += 4)
+		*dst++ = *src++;
+	for (; i < header->len && i < NVRAM_SPACE; i += 4)
+		*dst++ = ltoh32(*src++);
 }
 
 /* Early (before mm or mtd) read-only access to NVRAM */
@@ -125,6 +138,10 @@ early_nvram_get(const char *name)
 	char *var, *value, *end, *eq;
 
 	if (!name)
+		return NULL;
+
+	/* Too early? */
+	if (sbh == NULL)
 		return NULL;
 
 	if (!nvram_buf[0])
@@ -145,6 +162,33 @@ early_nvram_get(const char *name)
 	return NULL;
 }
 
+static int __init
+early_nvram_getall(char *buf, int count)
+{
+	char *var, *end;
+	int len = 0;
+
+	/* Too early? */
+	if (sbh == NULL)
+		return -1;
+
+	if (!nvram_buf[0])
+		early_nvram_init();
+
+	bzero(buf, count);
+
+	/* Write name=value\0 ... \0\0 */
+	var = &nvram_buf[sizeof(struct nvram_header)];
+	end = nvram_buf + sizeof(nvram_buf) - 2;
+	end[0] = end[1] = '\0';
+	for (; *var; var += strlen(var) + 1) {
+		if ((count - len) <= (strlen(var) + 1))
+			break;
+		len += sprintf(buf + len, "%s", var) + 1;
+	}
+
+	return 0;
+}
 #endif /* !MODULE */
 
 extern char * _nvram_get(const char *name);
@@ -152,7 +196,7 @@ extern int _nvram_set(const char *name, const char *value);
 extern int _nvram_unset(const char *name);
 extern int _nvram_getall(char *buf, int count);
 extern int _nvram_commit(struct nvram_header *header);
-extern int _nvram_init(void);
+extern int _nvram_init(void *sbh);
 extern void _nvram_exit(void);
 
 /* Globals */
@@ -214,6 +258,12 @@ _nvram_free(struct nvram_tuple *t)
 		nvram_offset = 0;
 	else
 		kfree(t);
+}
+
+int
+nvram_init(void *sbh)
+{
+	return 0;
 }
 
 int
@@ -282,8 +332,10 @@ erase_callback(struct erase_info *done)
 int
 nvram_commit(void)
 {
+#if 0
 	char *buf;
-	size_t erasesize, len;
+#endif
+	size_t erasesize, len, magic_len;
 	unsigned int i;
 	int ret;
 	struct nvram_header *header;
@@ -292,8 +344,7 @@ nvram_commit(void)
 	DECLARE_WAITQUEUE(wait, current);
 	wait_queue_head_t wait_q;
 	struct erase_info erase;
-
-	printk("nvram_commit(): init\n");
+	u_int32_t magic_offset = 0; /* Offset for writing MAGIC # */
 
 	if (!nvram_mtd) {
 		printk("nvram_commit: NVRAM not found\n");
@@ -307,36 +358,50 @@ nvram_commit(void)
 
 	/* Backup sector blocks to be erased */
 	erasesize = ROUNDUP(NVRAM_SPACE, nvram_mtd->erasesize);
+#if 0
 	if (!(buf = kmalloc(erasesize, GFP_KERNEL))) {
 		printk("nvram_commit: out of memory\n");
 		return -ENOMEM;
 	}
-
-	down(&nvram_sem);
-#if 0
-	offset = nvram_mtd->size - erasesize;
-	i = erasesize - NVRAM_SPACE;
-	ret = MTD_READ(nvram_mtd, offset, i, &len, buf);
-	if (ret || len != i) {
-		printk("nvram_commit: read error\n");
-		ret = -EIO;
-		goto done;
 #endif
+	down(&nvram_sem);
+
 	if ((i = erasesize - NVRAM_SPACE) > 0) {
 		offset = nvram_mtd->size - erasesize;
 		len = 0;
-		ret = MTD_READ(nvram_mtd, offset, i, &len, buf);
+		ret = MTD_READ(nvram_mtd, offset, i, &len, nvram_commit_buf);
 		if (ret || len != i) {
 			printk("nvram_commit: read error ret = %d, len = %d/%d\n", ret, len, i);
 			ret = -EIO;
 			goto done;
 		}
-		header = (struct nvram_header *)(buf + i);
+		header = (struct nvram_header *)(nvram_commit_buf + i);
+		magic_offset = i + ((void *)&header->magic - (void *)header);
 	} else {
 		offset = nvram_mtd->size - NVRAM_SPACE;
-		header = (struct nvram_header *)buf;
+		magic_offset = ((void *)&header->magic - (void *)header);
+		header = (struct nvram_header *)nvram_commit_buf;
 	}
 
+	/* clear the existing magic # to mark the NVRAM as unusable 
+	 * we can pull MAGIC bits low without erase
+	 */
+	header->magic = NVRAM_CLEAR_MAGIC; /* All zeros magic */
+	/* Unlock sector blocks */
+	if (nvram_mtd->unlock)
+		nvram_mtd->unlock(nvram_mtd, offset, nvram_mtd->erasesize);
+	ret = MTD_WRITE(nvram_mtd, offset + magic_offset, sizeof(header->magic),
+		&magic_len, (char *)&header->magic);
+	if (ret || magic_len != sizeof(header->magic)) {
+		printk("nvram_commit: clear MAGIC error\n");
+		ret = -EIO;
+		goto done;
+	}
+
+	header->magic = NVRAM_MAGIC;
+	/* reset MAGIC before we regenerate the NVRAM,
+	 * otherwise we'll have an incorrect CRC
+	 */
 	/* Regenerate NVRAM */
 	spin_lock_irqsave(&nvram_lock, flags);
 	ret = _nvram_commit(header);
@@ -346,7 +411,9 @@ nvram_commit(void)
 
 	/* Erase sector blocks */
 	init_waitqueue_head(&wait_q);
-	for (; offset < nvram_mtd->size - NVRAM_SPACE + header->len; offset += nvram_mtd->erasesize) {
+	for (; offset < nvram_mtd->size - NVRAM_SPACE + header->len;
+		offset += nvram_mtd->erasesize) {
+
 		erase.mtd = nvram_mtd;
 		erase.addr = offset;
 		erase.len = nvram_mtd->erasesize;
@@ -373,25 +440,36 @@ nvram_commit(void)
 	}
 
 	/* Write partition up to end of data area */
+	header->magic = NVRAM_INVALID_MAGIC; /* All ones magic */
 	offset = nvram_mtd->size - erasesize;
 	i = erasesize - NVRAM_SPACE + header->len;
-	ret = MTD_WRITE(nvram_mtd, offset, i, &len, buf);
+	ret = MTD_WRITE(nvram_mtd, offset, i, &len, nvram_commit_buf);
 	if (ret || len != i) {
 		printk("nvram_commit: write error\n");
 		ret = -EIO;
 		goto done;
 	}
-	/*
-	 * Reading a few bytes back here will put the device
-	 * back to the correct mode on certain flashes */
+
+	/* Now mark the NVRAM in flash as "valid" by setting the correct
+	 * MAGIC #
+	 */
+	header->magic = NVRAM_MAGIC;
+	ret = MTD_WRITE(nvram_mtd, offset + magic_offset, sizeof(header->magic),
+		&magic_len, (char *)&header->magic);
+	if (ret || magic_len != sizeof(header->magic)) {
+		printk("nvram_commit: write MAGIC error\n");
+		ret = -EIO;
+		goto done;
+	}
 
 	offset = nvram_mtd->size - erasesize;
-	ret = MTD_READ(nvram_mtd, offset, 4, &len, buf);
+	ret = MTD_READ(nvram_mtd, offset, 4, &len, nvram_commit_buf);
 
- done:
+done:
 	up(&nvram_sem);
+#if 0
 	kfree(buf);
-	printk("nvram_commit(): end\n");
+#endif
 	return ret;
 }
 
@@ -402,7 +480,10 @@ nvram_getall(char *buf, int count)
 	int ret;
 
 	spin_lock_irqsave(&nvram_lock, flags);
-	ret = _nvram_getall(buf, count);
+	if (nvram_major >= 0)
+		ret = _nvram_getall(buf, count);
+	else
+		ret = early_nvram_getall(buf, count);
 	spin_unlock_irqrestore(&nvram_lock, flags);
 
 	return ret;
@@ -460,8 +541,8 @@ dev_nvram_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		ret = sizeof(unsigned long);
 	}
 
-	flush_cache_all();	
- 
+	flush_cache_all();
+
 done:
 	if (name != tmp)
 		kfree(name);
@@ -492,18 +573,19 @@ dev_nvram_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	else
 		ret = nvram_unset(name) ? : count;
 
- done:
+done:
 	if (name != tmp)
 		kfree(name);
 
 	return ret;
-}	
+}
 
 static int
 dev_nvram_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	if (cmd != NVRAM_MAGIC)
 		return -EINVAL;
+
 	return nvram_commit();
 }
 
@@ -513,7 +595,7 @@ dev_nvram_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long offset = virt_to_phys(nvram_buf);
 
 	if (remap_page_range(vma->vm_start, offset, vma->vm_end-vma->vm_start,
-			     vma->vm_page_prot))
+		vma->vm_page_prot))
 		return -EAGAIN;
 
 	return 0;
@@ -573,6 +655,7 @@ dev_nvram_init(void)
 	int order = 0, ret = 0;
 	struct page *page, *end;
 	unsigned int i;
+	osl_t *osh;
 
 	/* Allocate and reserve memory to mmap() */
 	while ((PAGE_SIZE << order) < NVRAM_SPACE)
@@ -608,12 +691,28 @@ dev_nvram_init(void)
 		goto err;
 	}
 
+	if (sb_osh(sbh) == NULL) {
+		osh = osl_attach(NULL, SB_BUS, FALSE);
+		if (osh == NULL) {
+			printk("Error allocating osh\n");
+			goto err;
+		}
+		sb_setosh(sbh, osh);
+	}
+
 	/* Initialize hash table */
-	_nvram_init();
+	_nvram_init(sbh);
 
 	/* Create /dev/nvram handle */
 	nvram_handle = devfs_register(NULL, "nvram", DEVFS_FL_NONE, nvram_major, 0,
-				      S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP, &dev_nvram_fops, NULL);
+		S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP, &dev_nvram_fops, NULL);
+
+	/* reserve commit read buffer */
+	/* Backup sector blocks to be erased */
+	if (!(nvram_commit_buf = kmalloc(ROUNDUP(NVRAM_SPACE, nvram_mtd->erasesize), GFP_KERNEL))) {
+		printk("dev_nvram_init: nvram_commit_buf out of memory\n");
+		goto err;
+	}
 
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if (getintvar(NULL, "sdram_ncdl") == 0) {
@@ -629,7 +728,7 @@ dev_nvram_init(void)
 
 	return 0;
 
- err:
+err:
 	dev_nvram_exit();
 	return ret;
 }

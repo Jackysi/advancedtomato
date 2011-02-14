@@ -49,7 +49,7 @@ $time = strftime("%a, %d %b %Y %H:%M:%S %z", localtime());
 $minor = sprintf("%02d", $minor);
 $build = sprintf("%x", time());
 
-$fullversion = "$major.$minor\vpn$vpnmajor.$vpnminor.$build";
+$fullversion = "$major.$minor\vpn$vpnmajor.$vpnminor.$build(ND)";
 
 open(F, ">$path/tomato_version.h~") || error("creating temp file: $!");
 print F <<"END";

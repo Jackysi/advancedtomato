@@ -1,5 +1,5 @@
 /*
- * $Id: mtdchar.c,v 1.1.1.4 2003/10/14 08:08:16 sparq Exp $
+ * $Id$
  *
  * Character-device access to raw MTD devices.
  * Pure 2.4 version - compatibility cruft removed to mtdchar-compat.c
@@ -165,10 +165,11 @@ static ssize_t mtd_read(struct file *file, char *buf, size_t count,loff_t *ppos)
 	return total_retlen;
 } /* mtd_read */
 
+#define MTD_BUFLEN	32
 static ssize_t mtd_write(struct file *file, const char *buf, size_t count,loff_t *ppos)
 {
 	struct mtd_info *mtd = (struct mtd_info *)file->private_data;
-	char *kbuf;
+	char kbuf[MTD_BUFLEN];
 	size_t retlen;
 	size_t total_retlen=0;
 	int ret=0;
@@ -186,37 +187,20 @@ static ssize_t mtd_write(struct file *file, const char *buf, size_t count,loff_t
 		return 0;
 
 	while (count) {
-		if (count > MAX_KMALLOC_SIZE) 
-			len = MAX_KMALLOC_SIZE;
-		else
-			len = count;
+		len = (count > MTD_BUFLEN) ? MTD_BUFLEN : count;
 
-		kbuf=kmalloc(len,GFP_KERNEL);
-		if (!kbuf) {
-			printk("kmalloc is null\n");
-			return -ENOMEM;
-		}
-
-		if (copy_from_user(kbuf, buf, len)) {
-			kfree(kbuf);
+		if (copy_from_user(kbuf, buf, len))
 			return -EFAULT;
-		}
-		
-	        ret = (*(mtd->write))(mtd, *ppos, len, &retlen, kbuf);
-		if (!ret) {
-			*ppos += retlen;
-			total_retlen += retlen;
-			count -= retlen;
-			buf += retlen;
-		}
-		else {
-			kfree(kbuf);
-			return ret;
-		}
-		
-		kfree(kbuf);
-	}
 
+		ret = (*(mtd->write))(mtd, *ppos, len, &retlen, kbuf);
+		if (ret)
+			return ret;
+
+		*ppos += retlen;
+		total_retlen += retlen;
+		count -= retlen;
+		buf += retlen;
+	}
 	return total_retlen;
 } /* mtd_write */
 

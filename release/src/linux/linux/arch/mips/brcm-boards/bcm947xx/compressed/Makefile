@@ -1,7 +1,7 @@
 #
 # Makefile for Broadcom BCM947XX boards
 #
-# Copyright 2005, Broadcom Corporation
+# Copyright 2006, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,13 +9,12 @@
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.1.1.9 2005/03/07 07:30:37 kanki Exp $
+# $Id$
 #
 
 
 # Link at 3 MB offset in RAM
 TEXT_START	?= 0x80300000
-
 
 OBJCOPY		:= $(CROSS_COMPILE)objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S
 OBJCOPYSREC	:= $(CROSS_COMPILE)objcopy -O srec -R .reginfo -R .note -R .comment -R .mdebug -S
@@ -33,11 +32,10 @@ ifdef CONFIG_MCOUNT
 CFLAGS		:= $(subst -pg,,$(CFLAGS))
 endif
 CFLAGS		+= -ffunction-sections $(call check_gcc, -fvtable-gc, )
-SEDFLAGS	:= s/TEXT_START/$(TEXT_START)/
 
 SYSTEM		?= $(TOPDIR)/vmlinux
-OBJECTS		:= boot.o sbsdram.o load.o sflash.o sbmips.o sbutils.o \
-		   min_osl.o sromstubs.o nvramstubs.o bcmstdlib.o
+OBJECTS		:= boot.o sbsdram.o load.o sflash.o hndmips.o hndchipc.o sbutils.o \
+		   min_osl.o bcmutils.o sromstubs.o nvramstubs.o bcmstdlib.o
 
 # Default to bzip2
 COMPRESS	?= bzip2 -c
@@ -65,7 +63,8 @@ vmlinux: vmlinux.lds $(OBJECTS) piggy.o
 	$(LD) -static --gc-sections -no-warn-mismatch -T vmlinux.lds -o $@ $(OBJECTS) piggy.o
 
 vmlinux.lds: hndrte.lds.in Makefile
-	@sed "$(SEDFLAGS)" < $< > $@
+	@sed -e s/TEXT_START/$(TEXT_START)/ \
+	     -e s/TARGET_ARCH/mips/ < $< > $@
 
 # Create a linkable version of the (possibly compressed) kernel binary
 piggy.o: piggz piggy.lds
@@ -87,4 +86,4 @@ piggy: $(SYSTEM)
 mrproper: clean
 
 clean:
-	rm -f vmlinux vmlinuz zImage piggz piggy *.lds *.o
+	rm -f vmlinux vmlinuz zImage piggz piggy *.lds loader.gz piggy.o

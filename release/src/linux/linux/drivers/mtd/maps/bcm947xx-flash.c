@@ -1,7 +1,7 @@
 /*
  * Flash mapping for BCM947XX boards
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcm947xx-flash.c,v 1.9 2005/03/07 08:35:32 kanki Exp $
+ * $Id$
  */
 
 #include <linux/module.h>
@@ -146,7 +146,7 @@ mod_init_t init_bcm947xx_map(void)
 
 	/* Check strapping option if chipcommon exists */
 	if ((cc = sb_setcore(sbh, SB_CC, 0))) {
-		fltype = readl(&cc->capabilities) & CAP_FLASH_MASK;
+		fltype = readl(&cc->capabilities) & CC_CAP_FLASH_MASK;
 		if (fltype == PFLASH) {
 			bcm947xx_map.map_priv_2 = 1;
 			window_addr = 0x1c000000;
