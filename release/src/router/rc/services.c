@@ -476,13 +476,13 @@ void start_radvd(void)
 
 		switch (get_ipv6_service()) {
 		case IPV6_NATIVE_DHCP:
-			prefix = "::";	
+			prefix = "::";
 			break;
 		default:
 			prefix = nvram_safe_get("ipv6_prefix");
 			break;
 		}
-		if (!(*prefix)) return;
+		if (!(*prefix)) prefix = "::";
 
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
@@ -548,6 +548,7 @@ void start_ipv6(void)
 	switch (service) {
 	case IPV6_NATIVE:
 	case IPV6_6IN4:
+	case IPV6_MANUAL:
 		p = (char *)ipv6_router_address(NULL);
 		if (*p) {
 			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);

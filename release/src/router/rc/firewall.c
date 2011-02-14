@@ -367,8 +367,10 @@ static void ipt_webmon(int do_ip6t)
 
 		if (ipt_addr(src, sizeof(src), p, "src", do_ip6t ? AF_INET6 : AF_INET, "webmon", "filtering")) {
 #ifdef TCONFIG_IPV6
-			if (do_ip6t)
-				ip6t_write("-A FORWARD -o %s %s -j monitor\n", wan6face, src);
+			if (do_ip6t) {
+				if (*wan6face)
+					ip6t_write("-A FORWARD -o %s %s -j monitor\n", wan6face, src);
+			}
 			else
 #endif
 			for (i = 0; i < wanfaces.count; ++i) {
@@ -1016,7 +1018,8 @@ static void filter6_forward(void)
 		lanface, lanface);
 
 	// Filter out invalid WAN->WAN connections
-	ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
+	if (*wan6face)
+		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
 
 #ifdef LINUX26
 	modprobe("xt_length");
@@ -1040,11 +1043,18 @@ static void filter6_forward(void)
 	ip6t_write(
 		":wanin - [0:0]\n"
 		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"	// already established or related (via helper)
-		"-A FORWARD -i %s -j wanin\n"					// generic from wan
-		"-A FORWARD -o %s -j wanout\n"					// generic to wan
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
+	if (*wan6face) {
+		ip6t_write(
+			"-A FORWARD -i %s -j wanin\n"				// generic from wan
+			"-A FORWARD -o %s -j wanout\n",				// generic to wan
+			wan6face, wan6face);
+	}
+
+	ip6t_write(
 		"-A FORWARD -i %s -j %s\n",					// from lan
-		wan6face, wan6face, lanface, chain_out_accept);
+		lanface, chain_out_accept);
 
 	// ICMPv6 rules
 	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };

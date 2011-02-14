@@ -262,10 +262,12 @@ void ipt_qos(void)
 			qface, qface);
 
 #ifdef TCONFIG_IPV6
-	ip6t_write(
-		"-A FORWARD -o %s -j QOSO\n"
-		"-A OUTPUT -o %s -j QOSO\n",
+	if (*wan6face) {
+		ip6t_write(
+			"-A FORWARD -o %s -j QOSO\n"
+			"-A OUTPUT -o %s -j QOSO\n",
 			wan6face, wan6face);
+	}
 #endif
 
 	inuse |= (1 << i) | 1;	// default and highest are always built
@@ -280,7 +282,8 @@ void ipt_qos(void)
 		if (atoi(p) > 0) {
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 #ifdef TCONFIG_IPV6
-			ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
+			if (*wan6face)
+				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
 #endif
 			break;
 		}
