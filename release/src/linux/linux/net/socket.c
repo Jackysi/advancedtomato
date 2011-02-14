@@ -607,6 +607,9 @@ ssize_t sock_sendpage(struct file *file, struct page *page,
 	if (more)
 		flags |= MSG_MORE;
 
+	if (!sock->ops->sendpage)
+		return sock_no_sendpage(sock, page, offset, size, flags);
+
 	return sock->ops->sendpage(sock, page, offset, size, flags);
 }
 

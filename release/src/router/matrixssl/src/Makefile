@@ -2,7 +2,7 @@
 #	Makefile for MatrixSSL library
 #	Builds optimized shared library by default.
 #	See comments below for building a debug library.
-#	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+#	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
 #
 
 CC      = $(CROSS_COMPILE)gcc

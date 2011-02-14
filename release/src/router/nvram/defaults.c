@@ -287,6 +287,7 @@ const defaults_t defaults[] = {
 // advanced-dhcpdns
 	{ "dhcpd_dmdns",		"1"				},
 	{ "dhcpd_slt",			"0"				},
+	{ "dhcpd_gwmode",		""				},
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
@@ -387,7 +388,6 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-//	{ "web_favicon",		"0"				},
 	{ "web_css",			"tomato"		},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
@@ -402,6 +402,8 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
+	{ "web_mx",				""				},
+	{ "web_pb",				""				},
 
 // admin-bwm
 	{ "rstats_enable",		"1"				},
@@ -415,6 +417,7 @@ const defaults_t defaults[] = {
 	{ "rstats_bak",			"0"				},
 
 // advanced-buttons
+	{ "sesx_led",			"0"				},
 	{ "sesx_b0",			"1"				},
 	{ "sesx_b1",			"4"				},
 	{ "sesx_b2",			"4"				},
@@ -500,6 +503,7 @@ const defaults_t defaults[] = {
 	{ "vpn_debug",            "0"             },
 	{ "vpn_server_eas",       ""              },
 	{ "vpn_server_dns",       ""              },
+	{ "vpn_server1_poll",     "0"             },
 	{ "vpn_server1_if",       "tun"           },
 	{ "vpn_server1_proto",    "udp"           },
 	{ "vpn_server1_port",     "1194"          },
@@ -529,6 +533,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server1_crt",      ""              },
 	{ "vpn_server1_key",      ""              },
 	{ "vpn_server1_dh",       ""              },
+	{ "vpn_server2_poll",     "0"             },
 	{ "vpn_server2_if",       "tun"           },
 	{ "vpn_server2_proto",    "udp"           },
 	{ "vpn_server2_port",     "1194"          },
@@ -559,6 +564,7 @@ const defaults_t defaults[] = {
 	{ "vpn_server2_key",      ""              },
 	{ "vpn_server2_dh",       ""              },
 	{ "vpn_client_eas",       ""              },
+	{ "vpn_client1_poll",     "0"             },
 	{ "vpn_client1_if",       "tun"           },
 	{ "vpn_client1_bridge",   "1"             },
 	{ "vpn_client1_nat",      "1"             },
@@ -584,6 +590,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client1_ca",       ""              },
 	{ "vpn_client1_crt",      ""              },
 	{ "vpn_client1_key",      ""              },
+	{ "vpn_client2_poll",     "0"             },
 	{ "vpn_client2_if",       "tun"           },
 	{ "vpn_client2_bridge",   "1"             },
 	{ "vpn_client2_nat",      "1"             },

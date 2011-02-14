@@ -557,6 +557,18 @@ void start_wan(int mode)
 	//
 
 	wan_ifname = nvram_safe_get("wan_ifname");
+	if (wan_ifname[0] == 0) {
+		wan_ifname = "none";
+		nvram_set("wan_ifname", wan_ifname);
+	}
+
+	if (strcmp(wan_ifname, "none") == 0) {
+		nvram_set("wan_proto", "disabled");
+		syslog(LOG_INFO, "No WAN");
+	}
+	
+	//
+	
 	wan_proto = get_wan_proto();
 
 	if (wan_proto == WP_DISABLED) {
@@ -628,6 +640,12 @@ void start_wan(int mode)
 	default:	// static
 		nvram_set("wan_iface", wan_ifname);
 		ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+		
+		int r = 10;
+		while ((!check_wanup()) && (r-- > 0)) {
+			sleep(1);
+		}
+		
 		start_wan_done(wan_ifname);
 		break;
 	}
@@ -789,6 +807,9 @@ void start_wan_done(char *wan_ifname)
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
 		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
 	}
+
+	if (wanup)
+		start_vpn_eas();
 
 	unlink(wan_connecting);
 

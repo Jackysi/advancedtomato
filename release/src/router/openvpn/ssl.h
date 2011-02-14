@@ -278,8 +278,6 @@
  * Buffer sizes (also see mtu.h).
  */
 
-#define PLAINTEXT_BUFFER_SIZE TLS_CHANNEL_BUF_SIZE
-
 /* Maximum length of common name */
 #define TLS_CN_LEN 64
 
@@ -303,6 +301,21 @@
  * Measure success rate of TLS handshakes, for debugging only
  */
 /* #define MEASURE_TLS_HANDSHAKE_STATS */
+
+/*
+ * Keep track of certificate hashes at various depths
+ */
+
+/* Maximum certificate depth we will allow */
+#define MAX_CERT_DEPTH 16
+
+struct cert_hash {
+  unsigned char sha1_hash[SHA_DIGEST_LENGTH];
+};
+
+struct cert_hash_set {
+  struct cert_hash *ch[MAX_CERT_DEPTH];
+};
 
 /*
  * Key material, used as source for PRF-based
@@ -520,6 +533,8 @@ struct tls_session
 
   char *common_name;
 
+  struct cert_hash_set *cert_hash_set;
+
 #ifdef ENABLE_PF
   uint32_t common_name_hashval;
 #endif
@@ -591,11 +606,18 @@ struct tls_multi
   int n_soft_errors;   /* errors due to unrecognized or failed-to-authenticate incoming packets */
 
   /*
-   * Our locked common name (cannot change during the life of this tls_multi object)
+   * Our locked common name, username, and cert hashes (cannot change during the life of this tls_multi object)
    */
   char *locked_cn;
+  char *locked_username;
+  struct cert_hash_set *locked_cert_hash_set;
 
 #ifdef ENABLE_DEF_AUTH
+  /*
+   * An error message to send to client on AUTH_FAILED
+   */
+  char *client_reason;
+
   /* Time of last call to tls_authentication_status */
   time_t tas_last;
 #endif
@@ -688,6 +710,7 @@ bool tls_rec_payload (struct tls_multi *multi,
 const char *tls_common_name (const struct tls_multi* multi, const bool null);
 void tls_set_common_name (struct tls_multi *multi, const char *common_name);
 void tls_lock_common_name (struct tls_multi *multi);
+void tls_lock_cert_hash_set (struct tls_multi *multi);
 
 #define TLS_AUTHENTICATION_SUCCEEDED  0
 #define TLS_AUTHENTICATION_FAILED     1
@@ -697,12 +720,18 @@ int tls_authentication_status (struct tls_multi *multi, const int latency);
 void tls_deauthenticate (struct tls_multi *multi);
 
 #ifdef MANAGEMENT_DEF_AUTH
-bool tls_authenticate_key (struct tls_multi *multi, const unsigned int mda_key_id, const bool auth);
+bool tls_authenticate_key (struct tls_multi *multi, const unsigned int mda_key_id, const bool auth, const char *client_reason);
 #endif
 
 /*
  * inline functions
  */
+
+static inline bool
+tls_initial_packet_received (const struct tls_multi *multi)
+{
+  return multi->n_sessions > 0;
+}
 
 static inline bool
 tls_test_auth_deferred_interval (const struct tls_multi *multi)
@@ -732,6 +761,16 @@ tls_set_single_session (struct tls_multi *multi)
 {
   if (multi)
     multi->opt.single_session = true;
+}
+
+static inline const char *
+tls_client_reason (struct tls_multi *multi)
+{
+#ifdef ENABLE_DEF_AUTH
+  return multi->client_reason;
+#else
+  return NULL;
+#endif
 }
 
 #ifdef ENABLE_PF

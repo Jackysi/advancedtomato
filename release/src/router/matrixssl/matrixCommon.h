@@ -1,11 +1,11 @@
 /*
  *	matrixCommon.h
- *	Release $Name: MATRIXSSL_1_8_6_OPEN $
+ *	Release $Name: MATRIXSSL_1_8_8_OPEN $
  *	
  *	Public common header file
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2008. All Rights Reserved.
+ *	Copyright (c) PeerSec Networks, 2002-2009. All Rights Reserved.
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -77,7 +77,7 @@ typedef unsigned int uint32;
 /*
 	Typdefs required for public apis.  From an end user perspective, the 
 	sslBuf_t and sslCertInfo_t types have internal fields that are public,
-	but ssl_t, sslKeys_t, sslRsaCert_t,and sslSessionId_t do not.  Defining
+	but ssl_t, sslKeys_t, sslCert_t,and sslSessionId_t do not.  Defining
 	those as 'int32' requires it to be treated as an opaque data type to be
 	passed to public apis
 */
@@ -86,7 +86,7 @@ typedef unsigned int uint32;
 typedef int32		ssl_t;
 typedef int32		sslKeys_t;
 typedef int32		sslSessionId_t;
-typedef int32		sslRsaCert_t;
+typedef int32		sslCert_t;
 
 /******************************************************************************/
 /*

@@ -1,7 +1,7 @@
-/* $Id: upnpdescgen.c,v 1.50 2009/02/12 23:12:38 nanard Exp $ */
+/* $Id: upnpdescgen.c,v 1.51 2009/09/06 21:26:36 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2008 Thomas Bernard 
+ * (c) 2006-2009 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -475,7 +475,8 @@ static char *
 genXML(char * str, int * len, int * tmplen,
                    const struct XMLElt * p)
 {
-	unsigned short i, j, k;
+	unsigned short i, j;
+	unsigned long k;
 	int top;
 	const char * eltname, *s;
 	char c;
@@ -533,11 +534,9 @@ genXML(char * str, int * len, int * tmplen,
 			str = strcat_char(str, len, tmplen, '<');
 			str = strcat_str(str, len, tmplen, eltname);
 			str = strcat_char(str, len, tmplen, '>');
-			k = i;
-			/*i = p[k].index; */
-			/*j = i + p[k].nchild; */
-			i = (unsigned)p[k].data & 0xffff;
-			j = i + ((unsigned)p[k].data >> 16);
+			k = (unsigned long)p[i].data;
+			i = k & 0xffff;
+			j = i + (k >> 16);
 			top++;
 			/*printf(" +pile[%d]\t%d %d\n", top, i, j); */
 			pile[top].i = i;

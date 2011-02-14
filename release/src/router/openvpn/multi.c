@@ -1458,8 +1458,9 @@ multi_connection_established (struct multi_context *m, struct multi_instance *mi
 
       ASSERT (mi->context.c1.tuntap);
 
-      /* lock down the common name so it can't change during future TLS renegotiations */
+      /* lock down the common name and cert hashes so they can't change during future TLS renegotiations */
       tls_lock_common_name (mi->context.c2.tls_multi);
+      tls_lock_cert_hash_set (mi->context.c2.tls_multi);
 
       /* generate a msg() prefix for this client instance */
       generate_prefix (mi);
@@ -2539,7 +2540,7 @@ management_kill_by_cid (void *arg, const unsigned long cid)
   struct multi_instance *mi = lookup_by_cid (m, cid);
   if (mi)
     {
-      multi_signal_instance (m, mi, SIGTERM);
+      send_restart (&mi->context); /* was: multi_signal_instance (m, mi, SIGTERM); */
       return true;
     }
   else
@@ -2552,6 +2553,7 @@ management_client_auth (void *arg,
 			const unsigned int mda_key_id,
 			const bool auth,
 			const char *reason,
+			const char *client_reason,
 			struct buffer_list *cc_config) /* ownership transferred */
 {
   struct multi_context *m = (struct multi_context *) arg;
@@ -2561,7 +2563,7 @@ management_client_auth (void *arg,
 
   if (mi)
     {
-      ret = tls_authenticate_key (mi->context.c2.tls_multi, mda_key_id, auth);
+      ret = tls_authenticate_key (mi->context.c2.tls_multi, mda_key_id, auth, client_reason);
       if (ret)
 	{
 	  if (auth && !mi->connection_established_flag)
@@ -2570,7 +2572,7 @@ management_client_auth (void *arg,
 	      cc_config_owned = false;
 	    }
 	  if (!auth && reason)
-	    msg (D_MULTI_LOW, "MULTI: connection rejected: %s", reason);
+	    msg (D_MULTI_LOW, "MULTI: connection rejected: %s, CLI:%s", reason, np(client_reason));
 	}
     }
   if (cc_config_owned && cc_config)
