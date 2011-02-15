@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.68 2011/01/27 17:15:10 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.72 2011/02/14 17:59:20 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -370,6 +370,8 @@ AddPortMapping(struct upnphttp * h, const char * action)
 
 	if(leaseduration && atoi(leaseduration)) {
 		/* at the moment, lease duration is always infinite */
+		/* TODO : in order to be compliant with IGD v2, lease duration
+		 * support needs to be implemented */
 		syslog(LOG_INFO, "NewLeaseDuration=%s not supported, ignored. (ip=%s, desc='%s')", leaseduration, int_ip, desc);
 	}
 
@@ -539,7 +541,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 		"<NewInternalClient>%s</NewInternalClient>"
 		"<NewEnabled>1</NewEnabled>"
 		"<NewPortMappingDescription>%s</NewPortMappingDescription>"
-		"<NewLeaseDuration>0</NewLeaseDuration>"
+		"<NewLeaseDuration>%u</NewLeaseDuration>"
 		"</u:%sResponse>";
 
 	char body[1024];
@@ -549,6 +551,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 	unsigned short eport, iport;
 	char int_ip[32];
 	char desc[64];
+	unsigned int lease_duration = 0;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
@@ -579,7 +582,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 		       r_host, ext_port, protocol, int_ip, (unsigned int)iport, desc);
 		bodylen = snprintf(body, sizeof(body), resp,
 				action, "urn:schemas-upnp-org:service:WANIPConnection:1",
-				(unsigned int)iport, int_ip, desc,
+				(unsigned int)iport, int_ip, desc, lease_duration,
 				action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
 	}
@@ -615,7 +618,10 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 
 	eport = (unsigned short)atoi(ext_port);
 
-	/* TODO : if in secure mode, check the IP */
+	/* TODO : if in secure mode, check the IP
+	 * Removing a redirection is not a security threat,
+	 * just an annoyance for the user using it. So this is not
+	 * a priority. */
 
 	syslog(LOG_INFO, "%s: external port: %hu, protocol: %s", 
 		action, eport, protocol);
@@ -645,8 +651,10 @@ DeletePortMappingRange(struct upnphttp * h, const char * action)
 		"</u:DeletePortMappingRangeResponse>";
 	struct NameValueParserData data;
 	const char * protocol;
-	unsigned short startport, endport, eport;
+	unsigned short startport, endport;
 	int manage;
+	unsigned short * port_list;
+	unsigned int i, number = 0;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	startport = (unsigned short)atoi(GetValueFromNameValueList(&data, "NewStartPort"));
@@ -659,16 +667,21 @@ DeletePortMappingRange(struct upnphttp * h, const char * action)
 	   730 - PortMappingNotFound
 	   733 - InconsistentParameter
 	 */
-	if(startport > endport) {
+	if(startport > endport)
+	{
 		SoapError(h, 733, "InconsistentParameter");
 		ClearNameValueList(&data);
 		return;
 	}
 
-	for(eport = startport; eport < endport; eport++) {
-		r = upnp_delete_redirection(eport, protocol);
+	port_list = upnp_get_portmappings_in_range(startport, endport,
+	                                           protocol, &number);
+	for(i = 0; i < number; i++)
+	{
+		r = upnp_delete_redirection(port_list[i], protocol);
 		/* TODO : check return value for errors */
 	}
+	free(port_list);
 	BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
 
 	ClearNameValueList(&data);
@@ -689,7 +702,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		"<NewInternalClient>%s</NewInternalClient>"
 		"<NewEnabled>1</NewEnabled>"
 		"<NewPortMappingDescription>%s</NewPortMappingDescription>"
-		"<NewLeaseDuration>0</NewLeaseDuration>"
+		"<NewLeaseDuration>%u</NewLeaseDuration>"
 		"</u:%sResponse>";
 
 	int index = 0;
@@ -697,6 +710,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 	const char * m_index;
 	char protocol[4], iaddr[32];
 	char desc[64];
+	unsigned int lease_duration = 0;
 	struct NameValueParserData data;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
@@ -728,7 +742,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		bodylen = snprintf(body, sizeof(body), resp,
 			action, "urn:schemas-upnp-org:service:WANIPConnection:1",
 			(unsigned int)eport, protocol, (unsigned int)iport, iaddr, desc,
-			action);
+		    lease_duration, action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
 	}
 
@@ -739,20 +753,51 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 static void
 GetListOfPortMappings(struct upnphttp * h, const char * action)
 {
-	static const char resp[] =
+	static const char resp_start[] =
 		"<u:%sResponse "
 		"xmlns:u=\"%s\">"
-		"<NewPortListing><![CDATA[%s]]</NewPortListing>"
+		"<NewPortListing><![CDATA[";
+	static const char resp_end[] =
+		"]]></NewPortListing>"
 		"</u:%sResponse>";
 
-	char body[512];
+	static const char list_start[] =
+		"<p:PortMappingList xmlns:p=\"urn:schemas-upnp-org:gw:WANIPConnection\""
+		" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+		" xsi:schemaLocation=\"urn:schemas-upnp-org:gw:WANIPConnection"
+		" http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd\">";
+	static const char list_end[] =
+		"</p:PortMappingList>";
+
+	static const char entry[] =
+		"<p:PortMappingEntry>"
+		"<p:NewRemoteHost>%s</p:NewRemoteHost>"
+		"<p:NewExternalPort>%hu</p:NewExternalPort>"
+		"<p:NewProtocol>%s</p:NewProtocol>"
+		"<p:NewInternalPort>%hu</p:NewInternalPort>"
+		"<p:NewInternalClient>%s</p:NewInternalClient>"
+		"<p:NewEnabled>1</p:NewEnabled>"
+		"<p:NewDescription>%s</p:NewDescription>"
+		"<p:NewLeaseTime>%u</p:NewLeaseTime>"
+		"</p:PortMappingEntry>";
+
+	char * body;
+	size_t bodyalloc;
 	int bodylen;
+
+	int r = -1;
+	unsigned short iport;
+	char int_ip[32];
+	char desc[64];
+	unsigned int lease_duration = 0;
 
 	struct NameValueParserData data;
 	unsigned short startport, endport;
 	const char * protocol;
 	int manage;
 	int number;
+	unsigned short * port_list;
+	unsigned int i, list_size = 0;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	startport = (unsigned short)atoi(GetValueFromNameValueList(&data, "NewStartPort"));
@@ -760,7 +805,14 @@ GetListOfPortMappings(struct upnphttp * h, const char * action)
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	manage = atoi(GetValueFromNameValueList(&data, "NewManage"));
 	number = atoi(GetValueFromNameValueList(&data, "NewNumberOfPorts"));
+	if(number == 0) number = 1000;	/* return up to 1000 mappings by default */
 
+	if(startport > endport)
+	{
+		SoapError(h, 733, "InconsistentParameter");
+		ClearNameValueList(&data);
+		return;
+	}
 /*
 TODO : build the PortMappingList xml document :
 
@@ -780,10 +832,57 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 </p:PortMappingEntry>
 </p:PortMappingList>
 */
-	bodylen = snprintf(body, sizeof(body), resp,
-	              action, "urn:schemas-upnp-org:service:WANIPConnection:2",
-				  "", action);
+	bodyalloc = 4096;
+	body = malloc(bodyalloc);
+	if(!body)
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 501, "ActionFailed");
+		return;
+	}
+	bodylen = snprintf(body, bodyalloc, resp_start,
+	              action, "urn:schemas-upnp-org:service:WANIPConnection:2");
+	memcpy(body+bodylen, list_start, sizeof(list_start));
+	bodylen += (sizeof(list_start) - 1);
+
+	port_list = upnp_get_portmappings_in_range(startport, endport,
+	                                           protocol, &list_size);
+	/* loop through port mappings */
+	for(i = 0; number > 0 && i < list_size; i++)
+	{
+		/* have a margin of 1024 bytes to store the new entry */
+		if(bodylen + 1024 > bodyalloc)
+		{
+			bodyalloc += 4096;
+			body = realloc(body, bodyalloc);
+			if(!body)
+			{
+				ClearNameValueList(&data);
+				SoapError(h, 501, "ActionFailed");
+				free(port_list);
+				return;
+			}
+		}
+		r = upnp_get_redirection_infos(port_list[i], protocol, &iport,
+		                               int_ip, sizeof(int_ip),
+		                               desc, sizeof(desc));
+		if(r == 0)
+		{
+			bodylen += snprintf(body+bodylen, bodyalloc-bodylen, entry,
+			                    "", port_list[i], protocol,
+			                    iport, int_ip, desc, lease_duration);
+			number--;
+		}
+	}
+	free(port_list);
+	port_list = NULL;
+
+	memcpy(body+bodylen, list_end, sizeof(list_end));
+	bodylen += (sizeof(list_end) - 1);
+	bodylen += snprintf(body+bodylen, bodyalloc-bodylen, resp_end,
+	                    action);
 	BuildSendAndCloseSoapResp(h, body, bodylen);
+	free(body);
 
 	ClearNameValueList(&data);
 }
