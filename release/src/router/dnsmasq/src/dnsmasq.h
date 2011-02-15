@@ -200,7 +200,8 @@ struct event_desc {
 #define OPT_NO_REBIND      31
 #define OPT_ADD_MAC        32
 #define OPT_DNSSEC         33
-#define OPT_LAST           34
+#define OPT_QUIET_DHCP     34
+#define OPT_LAST           35
 
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
    not to occupy the same bits as priorities, no matter how syslog.h is set up. */

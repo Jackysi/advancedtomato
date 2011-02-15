@@ -111,6 +111,8 @@ struct myoption {
 #define LOPT_ADD_MAC   300
 #define LOPT_DNSSEC    301
 
+#define LOPT_QUIET_DHCP 400
+
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
 #else
@@ -225,6 +227,7 @@ static const struct myoption opts[] =
     { "rebind-localhost-ok", 0, 0,  LOPT_LOC_REBND },
     { "add-mac", 0, 0, LOPT_ADD_MAC },
     { "proxy-dnssec", 0, 0, LOPT_DNSSEC },
+    { "quiet-dhcp", 0, 0, LOPT_QUIET_DHCP },
     { NULL, 0, 0, 0 }
   };
 
@@ -347,6 +350,7 @@ static struct {
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
   { LOPT_ADD_MAC, OPT_ADD_MAC, NULL, gettext_noop("Add requestor's MAC address to forwarded DNS queries"), NULL },
   { LOPT_DNSSEC, OPT_DNSSEC, NULL, gettext_noop("Proxy DNSSEC validation results from upstream nameservers"), NULL },
+  { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
 
