@@ -25,17 +25,9 @@
 //	<% nvram("et0macaddr,t_features,t_model_name"); %>
 //	<% nvstat(); %>
 
-function fix(name)
-{
-	var i;
-	if (((i = name.lastIndexOf('/')) > 0) || ((i = name.lastIndexOf('\\')) > 0))
-		name = name.substring(i + 1, name.length);
-	return name;
-}
-
 function backupNameChanged()
 {
-	var name = fix(E('backup-name').value);
+	var name = fixFile(E('backup-name').value);
 	if (name.length > 1) {
 		E('backup-link').href = 'cfg/' + name + '.cfg?_http_id=' + nvram.http_id;
 	}
@@ -46,7 +38,7 @@ function backupNameChanged()
 
 function backupButton()
 {
-	var name = fix(E('backup-name').value);
+	var name = fixFile(E('backup-name').value);
 	if (name.length <= 1) {
 		alert('Invalid filename');
 		return;
@@ -58,7 +50,7 @@ function restoreButton()
 {
 	var name, i, f;
 
-	name = fix(E('restore-name').value);
+	name = fixFile(E('restore-name').value);
 	name = name.toLowerCase();
 	if ((name.indexOf('.cfg') != (name.length - 4)) && (name.indexOf('.cfg.gz') != (name.length - 7))) {
 		alert('Incorrect filename. Expecting a ".cfg" file.');

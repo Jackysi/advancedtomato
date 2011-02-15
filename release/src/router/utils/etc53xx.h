@@ -318,6 +318,11 @@ typedef struct _ROBO_ARL_SEARCH_RESULT_MCAST_STRUC
 #define ROBO_ARL_SEARCH_RESULT_EXT 0x2c /* ARL Search Result Extension (5350): 8bit */
 #define ROBO_ARL_VID_ENTRY0       0x30 /* ARL VID Entry 0: 64bit */
 #define ROBO_ARL_VID_ENTRY1       0x32 /* ARL VID Entry 1: 64bit */
+#define ROBO_ARL_SEARCH_CTRL_53115       0x50 /* ARL Search Control: 8bit */
+#define ROBO_ARL_SEARCH_ADDR_53115       0x51 /* ARL Search Address: 16bit */
+#define ROBO_ARL_SEARCH_RESULT_53115     0x60 /* ARL Search Result: 64bit */
+#define ROBO_ARL_SEARCH_RESULT_EXT_53115 0x68 /* ARL Search Result Extension (53115): 16bit */
+
 /* BCM5395/5397/5398/53115 */
 #define ROBO_VTBL_ACCESS          0x60 /* VLAN table access: 8bit */
 #define ROBO_VTBL_INDX            0x61 /* VLAN table address index: 16bit */
@@ -351,6 +356,8 @@ typedef struct _ROBO_ARL_SEARCH_RESULT_MCAST_STRUC
 #define NUM_VLAN_TABLE_ENTRIES_5350 16  /* number of entries in VLAN table */
 #define ARL_TABLE_ADDR_5350 0x1c00      /* offset of ARL table start (5350) */
 #endif
+#define NUM_ARL_TABLE_ENTRIES_53115 4096 /* number of entries in ARL table (53115) */
+#define NUM_VLAN_TABLE_ENTRIES_53115 4096 /* number of entries in VLAN table */
 typedef struct _ROBO_MEM_ACCESS_CTRL_STRUC
 {
     unsigned int    memAddr:14; /* 64-bit memory address */
@@ -538,6 +545,7 @@ typedef struct _ROBO_VLAN_CTRL0_STRUC
 #define VLAN_ID_HIGH_BITS 0             /* static high bits in table access reg */
 #define VLAN_ID_MAX 255                 /* max VLAN id */
 #define VLAN_ID_MAX5350 15              /* max VLAN id (5350) */
+#define VLAN_ID_MAX5395 4094            /* max VLAN id (5395) */
 #define VLAN_ID_MASK VLAN_ID_MAX        /* VLAN id mask */
 #ifdef BCM5380
 #define VLAN_UNTAG_SHIFT 13             /* for postioning untag bits in write reg */

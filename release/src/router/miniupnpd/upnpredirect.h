@@ -1,7 +1,7 @@
-/* $Id: upnpredirect.h,v 1.15 2009/02/14 11:01:14 nanard Exp $ */
+/* $Id: upnpredirect.h,v 1.17 2011/02/07 11:57:56 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -34,13 +34,17 @@ upnp_redirect_internal(unsigned short eport,
                        const char * iaddr, unsigned short iport,
                        int proto, const char * desc);
 
-/* upnp_get_redirection_infos() */
+/* upnp_get_redirection_infos()
+ * returns : 0 on success
+ *           -1 failed to get the port mapping entry or no entry exists */
 int
 upnp_get_redirection_infos(unsigned short eport, const char * protocol,
                            unsigned short * iport, char * iaddr, int iaddrlen,
                            char * desc, int desclen);
 
-/* upnp_get_redirection_infos_by_index */
+/* upnp_get_redirection_infos_by_index()
+ * returns : 0 on success
+ *           -1 failed to get the port mapping or index out of range */
 int
 upnp_get_redirection_infos_by_index(int index,
                                     unsigned short * eport, char * protocol,
@@ -70,9 +74,12 @@ struct rule_state
 	short proto;
 };
 
+/* return a linked list of all rules
+ * or an empty list if there are not enough */
 struct rule_state *
 get_upnp_rules_state_list(int max_rules_number_target);
 
+/* return the number of port mapping entries */
 int
 upnp_get_portmapping_number_of_entries();
 
@@ -80,6 +87,15 @@ upnp_get_portmapping_number_of_entries();
  * also free the list */
 void
 remove_unused_rules(struct rule_state * list);
+
+/* upnp_get_portmappings_in_range()
+ * return a list of all "external" ports for which a port
+ * mapping exists */
+unsigned short *
+upnp_get_portmappings_in_range(unsigned short startport,
+                               unsigned short endport,
+                               const char * protocol,
+                               unsigned int * number);
 
 /* stuff for responding to miniupnpdctl */
 #ifdef USE_MINIUPNPDCTL

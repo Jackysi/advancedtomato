@@ -139,8 +139,9 @@ bpg.verifyFields = function(row, quiet) {
 	ferror.clearAll(f);
 	this.enDiFields(row);
 
-	if ((f[5].selectedIndex != 0) && (!v_iptaddr(f[6], quiet))) return 0;
+	if ((f[5].selectedIndex != 0) && ((!v_length(f[6], quiet, 1)) || (!v_iptaddr(f[6], quiet)))) return 0;
 	if ((f[1].selectedIndex != 0) && (!v_iptport(f[2], quiet))) return 0;
+
 	if ((f[1].selectedIndex == 0) && (f[3].selectedIndex == 0) && (f[4].selectedIndex == 0) && (f[5].selectedIndex == 0)) {
 		var m = 'Please enter a specific address or port, or select an application match';
 		ferror.set(f[3], m, 1);

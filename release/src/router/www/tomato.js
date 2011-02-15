@@ -352,6 +352,14 @@ var ferror = {
 
 // -----------------------------------------------------------------------------
 
+function fixFile(name)
+{
+	var i;
+	if (((i = name.lastIndexOf('/')) > 0) || ((i = name.lastIndexOf('\\')) > 0))
+		name = name.substring(i + 1, name.length);
+	return name;
+}
+
 function _v_range(e, quiet, min, max, name)
 {
 	if ((e = E(e)) == null) return 0;
@@ -633,7 +641,8 @@ function _v_domain(e, dom, quiet)
 
 	s = dom.replace(/\s+/g, ' ').trim();
 	if (s.length > 0) {
-		if ((s.search(/^[a-zA-Z0-9][.a-zA-Z0-9_\- ]+$/) == -1) || (s.search(/[\-]$/) >= 0)) {
+		if ((s.search(/^[a-zA-Z0-9][.a-zA-Z0-9_\- ]+$/) == -1) ||
+		    (s.search(/\-$/) >= 0)) {
 			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
 			return null;
 		}
@@ -706,19 +715,57 @@ function CompressIPv6Address(ip)
 	return ip;	
 }
 
+function ipv6ton(ip)
+{
+	var o, x, i;
+
+	ip = ExpandIPv6Address(ip);
+	if (!ip) return 0;
+
+	o = ip.split(':');
+	x = '';
+	for (i = 0; i < 8; ++i) x += (('0x' + o[i]) * 1).hex(4);
+	return parseInt(x, 16);
+}
+
+function _v_ipv6_addr(e, ip, ipt, quiet)
+{
+	var oip;
+	var a, b;
+
+	oip = ip;
+
+	// ip range
+	if ((ipt) && ip.match(/^(.*)-(.*)$/)) {
+		a = CompressIPv6Address(RegExp.$1);
+		b = CompressIPv6Address(RegExp.$2);
+		if ((a == null) || (b == null)) {
+			ferror.set(e, 'Invalid IPv6 address range - ' + oip, quiet);
+			return null;
+		}
+		ferror.clear(e);
+
+		if (ipv6ton(a) > ipv6ton(b)) return b + '-' + a;
+		return a + '-' + b;
+	}
+
+	ip = CompressIPv6Address(oip);
+	if (!ip) {
+		ferror.set(e, 'Invalid IPv6 address - ' + oip, quiet);
+		return null;
+	}
+
+	ferror.clear(e);
+	return ip;
+}
+
 function v_ipv6_addr(e, quiet)
 {
 	if ((e = E(e)) == null) return 0;
-	var ip;
-	ip = CompressIPv6Address(e.value);
-	if (!ip) {
-		ferror.set(e, 'Invalid IPv6 address', quiet);
-		return false;		
-	}
-	
-	e.value = ip;
-	ferror.clear(e);
-	return true;
+
+	ip = _v_ipv6_addr(e, e.value, false, quiet);
+	if (ip) e.value = ip;
+	return (ip != null);
 }
 /* IPV6-END */
 
@@ -912,7 +959,7 @@ function v_length(e, quiet, min, max)
 	return 1;
 }
 
-function v_iptaddr(e, quiet, multi)
+function _v_iptaddr(e, quiet, multi, ipv4, ipv6)
 {
 	var v, t, i;
 
@@ -930,18 +977,39 @@ function v_iptaddr(e, quiet, multi)
 			return 0;
 		}
 	}
+
 	for (i = 0; i < v.length; ++i) {
 		if ((t = _v_domain(e, v[i], 1)) == null) {
-			if ((t = _v_iptip(e, v[i], 1)) == null) {
-				ferror.set(e, e._error_msg + ', or invalid domain name', quiet);
+/* IPV6-BEGIN */
+			if ((!ipv6) && (!ipv4)) {
+				if (!quiet) ferror.show(e);
 				return 0;
 			}
+			if ((!ipv6) || ((t = _v_ipv6_addr(e, v[i], 1, 1)) == null)) {
+/* IPV6-END */
+				if (!ipv4) {
+					if (!quiet) ferror.show(e);
+					return 0;
+				}
+				if ((t = _v_iptip(e, v[i], 1)) == null) {
+					ferror.set(e, e._error_msg + ', or invalid domain name', quiet);
+					return 0;
+				}
+/* IPV6-BEGIN */
+			}
+/* IPV6-END */
 		}
 		v[i] = t;
 	}
+
 	e.value = v.join(', ');
 	ferror.clear(e);
 	return 1;
+}
+
+function v_iptaddr(e, quiet, multi)
+{
+	return _v_iptaddr(e, quiet, multi, 1, 0);
 }
 
 function v_hostname(e, quiet, multi, delim)

@@ -16,7 +16,7 @@ static const char tcpudp[2][4] = {"tcp", "udp"};
 void ipt_forward(ipt_table_t table)
 {
 	char *nv, *nvp, *b;
-	const char *proto, *saddr, *xports, *iport, *iaddr;
+	const char *proto, *saddr, *xports, *iport, *iaddr, *desc;
 	const char *c;
 	const char *mdport;
 	int i, n;
@@ -42,33 +42,38 @@ void ipt_forward(ipt_table_t table)
 			desc = desc
 
 		*/
-		if ((vstrsep(b, "<", &c, &proto, &saddr, &xports, &iport, &iaddr) != 6) || (*c != '1')) continue;
+		n = vstrsep(b, "<", &c, &proto, &saddr, &xports, &iport, &iaddr, &desc);
+		if ((n < 6) || (*c != '1')) continue;
+		if (n == 6) {
+			// <1.07
+			desc = iaddr;
+			iaddr = iport;
+			iport = xports;
+			xports = saddr;
+			saddr = "";
+		}
 
-		src[0] = 0;
-		if (*saddr != 0) {
-			if (strchr(saddr, '.') == NULL) {
-				// <1.07
-				iaddr = iport;
-				iport = xports;
-				xports = saddr;
-				saddr = "";
+		if (!ipt_addr(src, sizeof(src), saddr, "src", AF_INET, "port forwarding", desc))
+			continue;
+
+		if (strchr(iaddr, '.') == NULL && strtol(iaddr, NULL, 10) > 0) {
+			// < 1.01: 5 -> 192.168.1.5
+			strcpy(ip, lan_cclass);
+			strlcat(ip, iaddr, sizeof(ip));
+		}
+		else {
+			if (host_to_addr(iaddr, AF_INET) == NULL) {
+				syslog(LOG_WARNING, "firewall: port forwarding: not using %s%s%s (could not resolve as valid IPv4 address)",
+					iaddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
+				continue;
 			}
-			else
-				ipt_addr(src, sizeof(src), saddr, "src");
+			strlcpy(ip, iaddr, sizeof(ip));
 		}
 
 		mdport = (strchr(xports, ',') != NULL) ? "-m multiport --dports" : "--dport";
 		for (i = 0; i < 2; ++i) {
 			if ((1 << i) & (*proto - '0')) {
 				c = tcpudp[i];
-				if (strchr(iaddr, '.')) {
-					strlcpy(ip, iaddr, sizeof(ip));
-				}
-				else {
-					// < 1.01: 5 -> 192.168.1.5
-					strcpy(ip, lan_cclass);
-					strlcat(ip, iaddr, sizeof(ip));
-				}
 				if (table == IPT_TABLE_NAT) {
 					ipt_write("-A %s -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
 						chain_wan_prerouting,
@@ -105,7 +110,6 @@ void ipt_forward(ipt_table_t table)
 	}
 	free(nv);
 }
-
 
 void ipt_triggered(ipt_table_t table)
 {
@@ -161,10 +165,11 @@ QUIT:
 void ip6t_forward(void)
 {
 	char *nv, *nvp, *b;
-	const char *proto, *saddr, *daddr, *dports;
+	const char *proto, *saddr, *daddr, *dports, *desc;
 	const char *c;
 	const char *mdport;
 	int i;
+	char src[128];
 
 	nvp = nv = strdup(nvram_safe_get("ipv6_portforward"));
 	if (!nv) return;
@@ -180,15 +185,23 @@ void ip6t_forward(void)
 			30,40-45 = dst port
 			desc = desc
 		*/
-		if ((vstrsep(b, "<", &c, &proto, &saddr, &daddr, &dports) != 5) || (*c != '1')) continue;
+		if ((vstrsep(b, "<", &c, &proto, &saddr, &daddr, &dports, &desc) != 6) || (*c != '1')) continue;
+
+		if (!ipt_addr(src, sizeof(src), saddr, "src", AF_INET6, "port forwarding", desc))
+			continue;
+
+		if (host_to_addr(daddr, AF_INET6) == NULL) {
+			syslog(LOG_WARNING, "firewall: port forwarding: not using %s%s%s (could not resolve as valid IPv6 address)",
+				daddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
+			continue;
+		}
 
 		mdport = (strchr(dports, ',') != NULL) ? "-m multiport --dports" : "--dport";
 		for (i = 0; i < 2; ++i) {
 			if ((1 << i) & (*proto - '0')) {
 				c = tcpudp[i];
-				ip6t_write("-A wanin %s %s -p %s -m %s -d %s %s %s -j %s\n",
-					*saddr ? "-s" : "",
-					saddr,
+				ip6t_write("-A wanin %s -p %s -m %s -d %s %s %s -j %s\n",
+					src,
 					c,
 					c,
 					daddr,

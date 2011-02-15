@@ -402,6 +402,17 @@ void enable_ipv6(int enable)
 		closedir(dir);
 	}
 }
+
+void accept_ra(const char *ifname)
+{
+	char s[256];
+
+	sprintf(s, "/proc/sys/net/ipv6/conf/%s/accept_ra", ifname);
+	f_write_string(s, "2", 0, 0);
+
+	sprintf(s, "/proc/sys/net/ipv6/conf/%s/forwarding", ifname);
+	f_write_string(s, "2", 0, 0);
+}
 #endif
 
 void start_lan(void)

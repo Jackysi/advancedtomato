@@ -22,8 +22,10 @@ void ipt_qos(void)
 	char *class_prio;
 	char *ipp2p, *layer7;
 	char *bcount;
+	char *dscp;
 	int class_num;
 	int proto_num;
+	int ipv4_ok;
 	int ipv6_ok;
 	int i;
 	char sport[192];
@@ -45,7 +47,6 @@ void ipt_qos(void)
 	if (!nvram_get_int("qos_enable")) return;
 
 	inuse = 0;
-	ipv6_ok = 1;
 	gum = 0x100;
 	sizegroup = 0;
 	prev_max = 0;
@@ -61,7 +62,7 @@ void ipt_qos(void)
 
 		/*
 
-		addr_type<addr<proto<port_type<port<ipp2p<L7<bcount<desc
+		addr_type<addr<proto<port_type<port<ipp2p<L7<bcount<dscp<class_prio<desc
 
 		addr_type:
 			0 = any
@@ -85,6 +86,10 @@ void ipt_qos(void)
 		bcount:
 			min:max
 			blank = none
+		dscp:
+			empty - any
+			numeric (0:63) - dscp value
+			afXX, csX, be, ef - dscp class
 		class_prio:
 			0-8
 			-1 = disabled
@@ -92,14 +97,20 @@ void ipt_qos(void)
 		*/
 
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &class_prio, &p);
+		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &dscp, &class_prio, &p);
 		rule_num++;
-		if (i == 9) {
+		if (i == 10) {
+			// fixup < v1.28.XX55
+			class_prio = dscp;
+			dscp = "";
+		}
+		else if (i == 9) {
 			// fixup < v0.08		// !!! temp
 			class_prio = bcount;
 			bcount = "";
+			dscp = "";
 		}
-		else if (i != 10) continue;
+		else if (i != 11) continue;
 
 		class_num = atoi(class_prio);
 		if ((class_num < 0) || (class_num > 9)) continue;
@@ -111,18 +122,25 @@ void ipt_qos(void)
 			inuse |= i;
 		}
 		
-		ipv6_ok = 1;
+#ifdef TCONFIG_IPV6
+		ipv6_ok = ipv6_enabled();
+#else
+		ipv6_ok = 0;
+#endif
+		ipv4_ok = 1;
 		class_flag = gum;
 
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src");
+			if (!ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", AF_INET, "QoS", p)) {
+				ipv4_ok = 0;
+			}
 #ifdef TCONFIG_IPV6
-			// if it appears to be ipv4 dotted decimal or IPv4 range,
-			// don't apply it to ip6tables; otherwise assume it's ok for both.
-			if (sscanf(addr, "%[0-9.]-%[0-9.]", s, s) == 2 || sscanf(addr, "%[0-9.]", s) == 1)
+			if (ipv6_ok && !ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", AF_INET6, "QoS", p)) {
 				ipv6_ok = 0;
+			}
 #endif
+			if (!ipv4_ok && !ipv6_ok) continue;
 		}
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
@@ -143,6 +161,14 @@ void ipt_qos(void)
 			gum = 0;
 		}
 		strcpy(end, app);
+
+		// dscp
+		if (ipt_dscp(dscp, s)) {
+#ifndef LINUX26
+			ipv6_ok = 0; // dscp ipv6 match is not present in K2.4
+#endif
+			strcat(end, s);
+		}
 
 		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
@@ -169,7 +195,7 @@ void ipt_qos(void)
 					 	if (max != prev_max && sizegroup<255) {
 							class_flag = ++sizegroup << 12;
 							prev_max = max;
-							ip46t_flagged_write( ipv6_ok, 
+							ip46t_flagged_write(ipv4_ok, ipv6_ok,
 								"-A QOSSIZE -m connmark --mark 0x%x/0xff000"
 								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j CONNMARK --set-return 0x00000/0xFF\n",
 									(sizegroup << 12), (max * 1024));
@@ -208,17 +234,16 @@ void ipt_qos(void)
 				else {
 					sport[0] = 0;
 				}
-				if (proto_num != 6) ip46t_flagged_write(ipv6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
-				if (proto_num != 17) ip46t_flagged_write(ipv6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
+				if (proto_num != 6) ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
+				if (proto_num != 17) ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
 			}
 			else {
-				ip46t_flagged_write(ipv6_ok, "-A %s -p %d %s %s", chain, proto_num, saddr, end);
+				ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s -p %d %s %s", chain, proto_num, saddr, end);
 			}
 		}
 		else {	// any protocol
-			ip46t_flagged_write(ipv6_ok, "-A %s %s %s", chain, saddr, end);
+			ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s %s %s", chain, saddr, end);
 		}
-
 
 	}
 	free(buf);
@@ -237,10 +262,12 @@ void ipt_qos(void)
 			qface, qface);
 
 #ifdef TCONFIG_IPV6
-	ip6t_write(
-		"-A FORWARD -o %s -j QOSO\n"
-		"-A OUTPUT -o %s -j QOSO\n",
+	if (*wan6face) {
+		ip6t_write(
+			"-A FORWARD -o %s -j QOSO\n"
+			"-A OUTPUT -o %s -j QOSO\n",
 			wan6face, wan6face);
+	}
 #endif
 
 	inuse |= (1 << i) | 1;	// default and highest are always built
@@ -255,7 +282,8 @@ void ipt_qos(void)
 		if (atoi(p) > 0) {
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
 #ifdef TCONFIG_IPV6
-			ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
+			if (*wan6face)
+				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
 #endif
 			break;
 		}

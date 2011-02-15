@@ -76,12 +76,17 @@ const char *ipv6_router_address(struct in6_addr *in6addr)
 	struct in6_addr addr;
 	static char addr6[INET6_ADDRSTRLEN];
 
+	addr6[0] = '\0';
+
 	if ((p = nvram_get("ipv6_rtr_addr")) && *p) {
 		inet_pton(AF_INET6, p, &addr);
 	}
-	else {
-		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &addr);
+	else if ((p = nvram_get("ipv6_prefix")) && *p) {
+		inet_pton(AF_INET6, p, &addr);
 		addr.s6_addr16[7] = htons(0x0001);
+	}
+	else {
+		return addr6;
 	}
 
 	inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));

@@ -225,12 +225,12 @@ void ipt_restrictions(void)
 		strcpy(buf, p);
 
 		if ((vstrsep(buf, "|",
-			&q,			// 0/1
+			&q,		// 0/1
 			&p, &p, &p,	// time (ignored)
 			&comps,		//
 			&matches,	//
 			&http,		//
-			&p			// http file match
+			&p		// http file match
 			) != 8) || (*q != '1')) continue;
 		http_file = atoi(p);
 
@@ -303,7 +303,8 @@ void ipt_restrictions(void)
 
 			// dest ip/domain address
 			if ((*addr_type == '1') || (*addr_type == '2')) {
-				ipt_addr(iptaddr, sizeof(iptaddr), addr, (*addr_type == '1') ? "dst" : "src");
+				if (!ipt_addr(iptaddr, sizeof(iptaddr), addr, (*addr_type == '1') ? "dst" : "src", AF_INET, "restrictions", NULL))
+					continue;
 			}
 			else {
 				iptaddr[0] = 0;
@@ -397,15 +398,13 @@ void ipt_restrictions(void)
 					continue;
 				}
 				if (strchr(q, ':')) {
-					p = "-m mac --mac-source";
-				}
-				else if (strchr(q, '-')) {
-					p = "-m iprange --src-range";
+					snprintf(iptaddr, sizeof(iptaddr), "-m mac --mac-source %s", q);
 				}
 				else {
-					p = "-s";
+					if (!ipt_addr(iptaddr, sizeof(iptaddr), q, "src", AF_INET, "restrictions", "filtering"))
+						continue;
 				}
-				ipt_write("-A %s %s %s %s\n", devchain, p, q, ex ? "-j RETURN" : nextchain);
+				ipt_write("-A %s %s %s\n", devchain, iptaddr, ex ? "-j RETURN" : nextchain);
 			}
 
 			if (ex) {
