@@ -1154,12 +1154,8 @@ void dump_cache(time_t now)
 	      queries += serv1->queries;
 	      failed_queries += serv1->failed_queries;
 	    }
-	addrbuff[0] = '\0';
 	port = prettyprint_addr(&serv->addr, addrbuff);
-	if (*addrbuff)
-	  {
-	    my_syslog(LOG_INFO, _("server %s#%d: queries sent %u, retried or failed %u"), addrbuff, port, queries, failed_queries);
-	  }
+	my_syslog(LOG_INFO, _("server %s#%d: queries sent %u, retried or failed %u"), addrbuff, port, queries, failed_queries);
       }
   
   if ((daemon->options & (OPT_DEBUG | OPT_LOG)))

@@ -109,8 +109,6 @@ struct myoption {
 #define LOPT_NO_REBIND 298
 #define LOPT_LOC_REBND 299
 
-#define LOPT_QT_DHCP   400
-
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
 #else
@@ -219,8 +217,6 @@ static const struct myoption opts[] =
     { "pxe-prompt", 1, 0, LOPT_PXE_PROMT },
     { "pxe-service", 1, 0, LOPT_PXE_SERV },
     { "test", 0, 0, LOPT_TEST },
-
-    { "quiet-dhcp", 0, 0, LOPT_QT_DHCP },
     { "tag-if", 1, 0, LOPT_TAG_IF },
     { "dhcp-proxy", 2, 0, LOPT_PROXY },
     { "dhcp-generate-names", 2, 0, LOPT_GEN_NAMES },
@@ -236,7 +232,7 @@ static const struct myoption opts[] =
 
 static struct {
   int opt;
-  unsigned long long rept;
+  unsigned int rept;
   char * const flagdesc;
   char * const desc;
   char * const arg;
@@ -345,8 +341,6 @@ static struct {
   { LOPT_PXE_PROMT, ARG_DUP, "<prompt>,[<timeout>]", gettext_noop("Prompt to send to PXE clients."), NULL },
   { LOPT_PXE_SERV, ARG_DUP, "<service>", gettext_noop("Boot service for PXE menu."), NULL },
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
-
-  { LOPT_QT_DHCP, OPT_QT_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -1049,7 +1043,7 @@ static char *one_opt(int option, char *arg, char *gen_prob, int nest)
   for (i=0; usage[i].opt != 0; i++)
     if (usage[i].opt == option)
       {
-	 unsigned long long rept = usage[i].rept;
+	 int rept = usage[i].rept;
 	 
 	 if (nest == 0)
 	   {
