@@ -131,7 +131,7 @@ extern void stop_l2tp(void);
 extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
 #ifdef TCONFIG_IPV6
-extern void start_wan6_done(char *wan_ifname);
+extern void start_wan6_done(const char *wan_ifname);
 #endif
 extern void stop_wan(void);
 extern void force_to_dial(void);
@@ -150,6 +150,10 @@ extern int wldist_main(int argc, char *argv[]);
 extern void start_wl(void);
 #ifdef TCONFIG_IPV6
 extern void enable_ipv6(int enable);
+extern void accept_ra(const char *ifname);
+#else
+#define enable_ipv6(enable) do {} while (0)
+#define accept_ra(ifname) do {} while (0)
 #endif
 
 // dhcpc.c

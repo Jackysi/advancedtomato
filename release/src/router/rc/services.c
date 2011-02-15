@@ -541,7 +541,6 @@ void start_ipv6(void)
 	int service;
 
 	service = get_ipv6_service();
-	enable_ipv6(service != IPV6_DISABLED);
 	enable_ip_forward();
 
 	// Check if turned on
@@ -555,6 +554,11 @@ void start_ipv6(void)
 			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 		}
 		break;
+	}
+
+	if (service != IPV6_DISABLED) {
+		if ((nvram_get_int("ipv6_accept_ra") & 2) != 0)
+			accept_ra(nvram_safe_get("lan_ifname"));
 	}
 }
 
