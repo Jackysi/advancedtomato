@@ -21,8 +21,6 @@
 #include "nvram_convert.h"
 #include "defaults.h"
 
-#define NVRAM_BUF_SIZE (2 * NVRAM_SPACE)
-char buffer[NVRAM_BUF_SIZE];
 
 __attribute__ ((noreturn))
 static void help(void)
@@ -45,7 +43,7 @@ static void help(void)
 
 static void getall(char *buffer)
 {
-	if (nvram_getall(buffer, NVRAM_BUF_SIZE) != 0) {
+	if (nvram_getall(buffer, NVRAM_SPACE) != 0) {
 		fprintf(stderr, "Error reading NVRAM\n");
 		exit(1);
 	}
@@ -121,25 +119,25 @@ static int save2f_main(int argc, char **argv)
 	return (nvram_file2nvram(name, argv[1]));
 }
 
-static int cmpstringp(const void *p1, const void *p2)
-{
-	return strcmp(*(char * const *)p1, *(char * const *)p2);
-}
-
 static int show_main(int argc, char **argv)
 {
 	char *p, *q;
+	char buffer[NVRAM_SPACE];
 	int n;
 	int count;
+	int show = 1;
 	int stat = 1;
 	int sort = 1;
-	int used, space;
-	char **ar = NULL;
 
 	for (n = 1; n < argc; ++n) {
         if (strcmp(argv[n], "--nostat") == 0) stat = 0;
 			else if (strcmp(argv[n], "--nosort") == 0) sort = 0;
 				else help();
+	}
+
+	if (sort) {
+		system("nvram show --nostat --nosort | sort");	// smallest and easiest way :)
+		show = 0;
 	}
 
 	getall(buffer);
@@ -150,24 +148,12 @@ static int show_main(int argc, char **argv)
 			if (!isprint(*q)) *q = ' ';
 			++q;
 		}
-		if ((count & 255) == 0)
-			ar = realloc(ar, (count + 256) * sizeof(char *));
-		ar[count++] = p;
+		if (show) puts(p);
+		++count;
 	}
-	if (sort)
-		qsort(ar, count, sizeof (char *), cmpstringp);
-	for (n = 0; n < count; ++n)
-		puts(ar[n]);
-
 	if (stat) {
-		used = atoi(nvram_safe_get("=nvram_used"));
-		space = atoi(nvram_safe_get("=nvram_space"));
-		if (space) {
-			printf("---\n%d entries, %d bytes used, %d bytes free.  %d%% used\n", count, used, space - used, 100 * used/space);
-			return 0;
-		}
 		n = sizeof(struct nvram_header) + (p - buffer);
-		printf("---\n%d entries, %d bytes used, %d bytes free.\n", count, n, NVRAM_BUF_SIZE - n);
+		printf("---\n%d entries, %d bytes used, %d bytes free.\n", count, n, NVRAM_SPACE - n);
 	}
 	return 0;
 }
@@ -435,6 +421,7 @@ static const char *get_default_value(const char *name)
 static int export_main(int argc, char **argv)
 {
 	char *p;
+	char buffer[NVRAM_SPACE];
 	int eq;
 	int mode;
 	int all, n, skip;
@@ -653,7 +640,7 @@ static int import_main(int argc, char **argv)
 typedef struct {
 	unsigned long sig;
 	unsigned long hwid;
-	char buffer[NVRAM_BUF_SIZE];
+	char buffer[NVRAM_SPACE];
 } backup_t;
 
 static int backup_main(int argc, char **argv)
@@ -706,7 +693,7 @@ static int restore_main(int argc, char **argv)
 	char s[512];
 	char tmp[128];
 	unsigned long hw;
-	char current[NVRAM_BUF_SIZE];
+	char current[NVRAM_SPACE];
 	char *b, *bk, *bv;
 	char *c, *ck, *cv;
 	int nset;
@@ -819,24 +806,17 @@ CORRUPT:
 
 	nset = nunset = nsame = 0;
 
-#define PRIO_MARK_ITEM "}Marker42"
-	if (!test)
-		nvram_set("", "prio_main");
 	b = data.buffer;
 	while (*b) {
 		bk = b;
 		b += strlen(b) + 1;
 		bv = strchr(bk, '=');
 		*bv++ = 0;
-		if (!test && strcmp(bk, PRIO_MARK_ITEM) == 0)
-			nvram_set("", "prio_any");
 
 		if ((force != 1) || (in_defaults(bk))) {
 			if (!nvram_match(bk, bv)) {
-				if (test)
-					printf("nvram set \"%s=%s\"\n", bk, bv);
-				else
-					nvram_set(bk, bv);
+				if (test) printf("nvram set \"%s=%s\"\n", bk, bv);
+					else nvram_set(bk, bv);
 				++nset;
 			}
 			else {
@@ -884,7 +864,7 @@ CORRUPT:
 
 	if ((nset == 0) && (nunset == 0)) commit = 0;
 	printf("\nPerformed %d set and %d unset operations. %d required no changes.\n%s\n",
-		nset, nunset, nsame, commit ? "Committing..." : "Not committing.");
+		nset, nunset, nsame, commit ? "Committing..." : "Not commiting.");
 	fflush(stdout);
 
 	if (!test) {
@@ -903,6 +883,7 @@ static int test_main(int argc, char **argv)
 		"sdram_config", "sdram_init", "sdram_ncdl", "vlan0ports", NULL };
 	const char **x;
 */
+	char buffer[NVRAM_SPACE];
 	char *k, *v, *e;
 	const defaults_t *rest;
 	struct nvram_convert *conv;
