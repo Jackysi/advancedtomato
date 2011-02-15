@@ -565,7 +565,7 @@ Send501(struct upnphttp * h)
 static const char *
 findendheaders(const char * s, int len)
 {
-	while(len-->0)
+	while(len-- > 0)
 	{
 		if(s[0]=='\r' && s[1]=='\n' && s[2]=='\r' && s[3]=='\n')
 			return s;
